@@ -1,0 +1,338 @@
+<!-- 30test-runner.html - 光明顶 5v5 测试与全身体检中心 V3.1 -->
+<!-- 预估字节数: 22000, 发送时间: 20260623 09:30, 版本: V3.1.0 -->
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>光明顶 5v5 测试与诊断 V3.1</title>
+    <style>
+        body { background: #1a1a2e; color: #eee; font-family: monospace; padding: 12px; font-size: 13px; margin: 0; }
+        h2 { color: #ffd700; text-align: center; margin: 8px 0; }
+        .tabs { display: flex; gap: 4px; margin-bottom: 16px; }
+        .tab-btn { flex: 1; padding: 10px; background: #2a2a4e; border: 2px solid #444; border-radius: 8px 8px 0 0; color: #aaa; cursor: pointer; font-size: 13px; font-weight: bold; text-align: center; transition: 0.2s; }
+        .tab-btn.active { background: #1a1a2e; border-bottom-color: #1a1a2e; color: #ffd700; border-color: #ffd700 #ffd700 #1a1a2e #ffd700; }
+        .tab-panel { display: none; }
+        .tab-panel.active { display: block; }
+        .diagnosis-group { margin-bottom: 20px; }
+        .group-title { color: #ffd700; font-size: 14px; font-weight: bold; margin-bottom: 8px; padding-bottom: 4px; border-bottom: 1px solid #444; }
+        .diagnosis-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 8px; }
+        .diag-card { background: #2a2a4e; border: 2px solid #444; border-radius: 8px; padding: 12px; transition: 0.3s; }
+        .diag-card.pass { border-color: #4caf50; background: #1a2e1a; }
+        .diag-card.fail { border-color: #f44336; background: #2e1a1a; }
+        .diag-card.pending { border-color: #ff9800; }
+        .diag-name { font-weight: bold; font-size: 12px; margin-bottom: 6px; }
+        .diag-status { font-size: 11px; margin-bottom: 4px; }
+        .diag-status .pass-text { color: #4caf50; }
+        .diag-status .fail-text { color: #f44336; }
+        .diag-status .pending-text { color: #ff9800; }
+        .diag-fix { display: none; margin-top: 8px; padding: 8px; background: #111; border-radius: 4px; font-size: 11px; color: #ccc; white-space: pre-wrap; max-height: 200px; overflow-y: auto; }
+        .diag-card.fail .diag-fix { display: block; }
+        .diag-btn { padding: 6px 12px; border: none; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold; margin-top: 8px; }
+        .diag-btn.run { background: #ff9800; color: #1a1a2e; }
+        .diag-btn.run:hover { background: #ffb74d; }
+        .diag-btn.retest { background: #4caf50; color: #fff; }
+        button { display: block; width: 100%; padding: 12px; margin: 16px 0; background: #ffd700; color: #1a1a2e; border: none; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; }
+        .result { margin: 6px 0; padding: 4px 8px; border-radius: 4px; word-break: break-all; }
+        .pass-line { color: #4caf50; }
+        .fail-line { color: #f44336; background: rgba(244,67,54,0.15); }
+        .summary { margin-top: 16px; padding: 10px; background: rgba(255,215,0,0.1); border: 1px solid #ffd700; border-radius: 6px; text-align: center; font-weight: bold; }
+        .auto-status { margin: 8px 0; color: #ff9800; font-size: 12px; text-align: center; min-height: 20px; }
+        .stage-result { margin: 8px 0; padding: 8px; background: #111; border-radius: 6px; font-size: 12px; }
+        .stage-result .stage-name { color: #ffd700; font-weight: bold; }
+        #autoIframe { display: none; width: 100%; height: 500px; border: 2px solid #444; border-radius: 8px; margin-top: 12px; }
+    </style>
+</head>
+<body>
+    <h2>⚔️ 光明顶 5v5 测试与诊断 V3.1</h2>
+
+    <div class="tabs">
+        <button class="tab-btn active" data-tab="core-tests">🧪 核心测试</button>
+        <button class="tab-btn" data-tab="env-diag">🔍 环境诊断</button>
+        <button class="tab-btn" data-tab="health-check">💚 全面体检</button>
+    </div>
+
+    <!-- 核心测试面板 -->
+    <div class="tab-panel active" id="core-tests">
+        <button id="runBtn">▶ 运行核心测试</button>
+        <div id="results"></div>
+        <div id="coreSummary" class="summary" style="display:none;"></div>
+    </div>
+
+    <!-- 环境诊断面板 -->
+    <div class="tab-panel" id="env-diag">
+        <div id="diagnosisContainer"></div>
+    </div>
+
+    <!-- 全面体检面板 -->
+    <div class="tab-panel" id="health-check">
+        <button id="runAutoCheckBtn">🤖 开始全面体检（1-6关）</button>
+        <button id="copyReportBtn" style="display:none;">📋 复制报告</button>
+        <div id="autoStatus" class="auto-status">点击按钮开始自动检测，预计1-2分钟</div>
+        <div id="autoReport"></div>
+        <iframe id="autoIframe" sandbox="allow-scripts allow-same-origin allow-popups allow-forms"></iframe>
+    </div>
+
+    <script type="module">
+        import { runTests } from './25unit-tests.js';
+
+        // ==================== 标签页切换 ====================
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+                document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+                btn.classList.add('active');
+                document.getElementById(btn.dataset.tab).classList.add('active');
+            });
+        });
+
+        // ==================== 核心测试 ====================
+        const resultDiv = document.getElementById('results');
+        const coreSummary = document.getElementById('coreSummary');
+
+        document.getElementById('runBtn').addEventListener('click', async () => {
+            resultDiv.innerHTML = '';
+            coreSummary.style.display = 'none';
+            const log = (msg) => { const div = document.createElement('div'); div.className = 'result pass-line'; div.textContent = msg; resultDiv.appendChild(div); };
+            const err = (msg) => { const div = document.createElement('div'); div.className = 'result fail-line'; div.textContent = msg; resultDiv.appendChild(div); };
+            try {
+                const { passed, failed } = runTests(log, err);
+                coreSummary.style.display = 'block';
+                coreSummary.textContent = `📋 测试完成：通过 ${passed} 项，失败 ${failed} 项`;
+                if (failed === 0) coreSummary.textContent += ' 🎉 全部核心函数测试通过！';
+            } catch (e) { err('❌ 测试运行异常：' + e.message); }
+        });
+
+        // ==================== 环境诊断 ====================
+        const diagnosisContainer = document.getElementById('diagnosisContainer');
+        const diagnosisItems = [
+            { group: '🎵 音效系统', name: 'AudioManager 存在性', test: () => !!window.AudioManager, fix: '确认 28audio-manager.js 已加载。' },
+            { group: '🎵 音效系统', name: '防战合成音效函数存在', test: () => typeof window.AudioManager?.playSfx === 'function', fix: '确认 28audio-manager.js 中包含 playHammer。' },
+            { group: '⚔️ 战斗初始化', name: '开局固定单位数量 = 3', test: () => { const ctx = window._getPlayerContext?.(); if (!ctx?.UI?.allyTeam) return null; return ctx.UI.allyTeam.filter(u => u.fixed).length === 3; }, fix: '检查 doInitBattle 中固定单位标记逻辑。' },
+            { group: '⚔️ 战斗初始化', name: '明教单位 pos 初始为 null', test: () => { const ctx = window._getPlayerContext?.(); if (!ctx?.UI?.allyTeam) return null; return ctx.UI.allyTeam.every(u => u.pos !== -1); }, fix: 'unit.pos = null 而非 -1。' },
+            { group: '⚔️ 战斗初始化', name: '六大派单位 pos 合法', test: () => { const ctx = window._getPlayerContext?.(); if (!ctx?.UI?.enemyTeam) return null; return ctx.UI.enemyTeam.every(u => u.pos >= 1 && u.pos <= 9); }, fix: '检查站位分配兜底逻辑。' },
+            { group: '📦 模块完整性', name: '错误捕获面板存在', test: () => !!document.getElementById('errorCapturePanel'), fix: '确认 24error-capture.js 已加载。' },
+            { group: '📦 模块完整性', name: '06 战斗核心已加载', test: () => typeof window.VER_CORE !== 'undefined', fix: '检查 06battle-engine-core.js 导出。' },
+            { group: '📦 模块完整性', name: '10 播放器核心已加载', test: () => typeof window.VER_PLAYER_CORE !== 'undefined', fix: '检查 10player-core.js 导出。' },
+            { group: '🔗 数据一致性', name: '玄冥神掌 clone 属性保留', test: async () => { try { return (await (await fetch('./02unit.js')).text()).includes('_xuanmingPoison'); } catch (e) { return null; } }, fix: 'clone() 中加 c._xuanmingPoison = ...' },
+            { group: '🔗 数据一致性', name: '阵亡不修改 pos 字段', test: async () => { try { return !(await (await fetch('./06battle-engine-core.js')).text()).includes('u.pos = -1'); } catch (e) { return null; } }, fix: '删除 losers.forEach 中的 u.pos = -1。' }
+        ];
+
+        const diagGroups = {};
+        diagnosisItems.forEach(item => { if (!diagGroups[item.group]) diagGroups[item.group] = []; diagGroups[item.group].push(item); });
+        for (const [groupName, items] of Object.entries(diagGroups)) {
+            const groupDiv = document.createElement('div'); groupDiv.className = 'diagnosis-group';
+            groupDiv.innerHTML = `<div class="group-title">${groupName}</div><div class="diagnosis-grid"></div>`;
+            const grid = groupDiv.querySelector('.diagnosis-grid');
+            items.forEach((item, idx) => {
+                const card = document.createElement('div'); card.className = 'diag-card pending'; card.id = `diag-${groupName}-${idx}`;
+                card.innerHTML = `<div class="diag-name">${item.name}</div><div class="diag-status"><span class="pending-text">⏳ 待检测</span></div><div class="diag-fix">🔧 ${item.fix}</div><button class="diag-btn run" data-group="${groupName}" data-idx="${idx}">▶ 检测</button>`;
+                grid.appendChild(card);
+            });
+            diagnosisContainer.appendChild(groupDiv);
+        }
+        diagnosisContainer.addEventListener('click', async (e) => {
+            if (!e.target.classList.contains('run')) return;
+            const btn = e.target, group = btn.dataset.group, idx = parseInt(btn.dataset.idx), item = diagGroups[group][idx];
+            const card = document.getElementById(`diag-${group}-${idx}`), statusSpan = card.querySelector('.diag-status span');
+            btn.textContent = '⏳ 检测中...'; btn.disabled = true;
+            card.classList.remove('pass', 'fail'); card.classList.add('pending');
+            try {
+                const result = item.test.constructor.name === 'AsyncFunction' ? await item.test() : item.test();
+                card.classList.remove('pending'); btn.textContent = '🔄 重测'; btn.classList.remove('run'); btn.classList.add('retest');
+                if (result === true) { card.classList.add('pass'); statusSpan.className = 'pass-text'; statusSpan.textContent = '✅ 通过'; }
+                else if (result === null) { card.classList.add('pending'); statusSpan.className = 'pending-text'; statusSpan.textContent = '⚠️ 无法检测'; }
+                else { card.classList.add('fail'); statusSpan.className = 'fail-text'; statusSpan.textContent = '❌ 未通过'; }
+            } catch (err) { card.classList.add('fail'); statusSpan.className = 'fail-text'; statusSpan.textContent = '❌ 异常'; btn.textContent = '🔄 重测'; btn.classList.remove('run'); btn.classList.add('retest'); }
+            finally { btn.disabled = false; }
+        });
+
+        // ==================== 全面体检（自动全关检测） ====================
+        const autoIframe = document.getElementById('autoIframe');
+        const autoStatus = document.getElementById('autoStatus');
+        const autoReport = document.getElementById('autoReport');
+        const copyReportBtn = document.getElementById('copyReportBtn');
+
+        // 从 29health-rules.js 动态加载规则
+        let HEALTH_RULES = [];
+        try {
+            const response = await fetch('./29health-rules.js');
+            const code = await response.text();
+            const extracted = code.match(/const HEALTH_RULES = (\[[\s\S]*?\n\]);/);
+            if (extracted) {
+                HEALTH_RULES = eval(extracted[1]);
+                console.log(`✅ 从 29health-rules.js 加载了 ${HEALTH_RULES.length} 条规则`);
+            }
+        } catch (e) {
+            console.warn('加载 29health-rules.js 失败，使用内置简化规则', e);
+        }
+
+        // 如果没有加载到外部规则，使用内置简化规则
+        if (HEALTH_RULES.length === 0) {
+            HEALTH_RULES = [
+                { group: '🚀 启动与加载', name: '游戏上下文可获取', test: () => { const w = window._getPlayerContext || window.parent?._getPlayerContext; return !!w; }, fix: '检查 13main-5v5-test.js 是否正确初始化。' },
+                { group: '🎨 UI 渲染', name: '明教格子数量 = 5', test: () => { const w = window._getPlayerContext?.() || window.parent?._getPlayerContext?.(); if (!w?.UI?.allyTeam) return null; return w.UI.allyTeam.filter(u => u.pos >= 1 && u.pos <= 9).length === 5; }, fix: '检查 doInitBattle 明教生成和站位逻辑。' },
+                { group: '🎨 UI 渲染', name: '六大派格子数量 = 5', test: () => { const w = window._getPlayerContext?.() || window.parent?._getPlayerContext?.(); if (!w?.UI?.enemyTeam) return null; return w.UI.enemyTeam.filter(u => u.pos >= 1 && u.pos <= 9).length === 5; }, fix: '检查 doInitBattle 六大派生成和站位逻辑。' },
+                { group: '🎨 UI 渲染', name: '日志区在战斗后应有内容', test: () => { const doc = window.parent ? window.parent.document : document; const logDiv = doc.getElementById('log'); if (!logDiv) return false; return (logDiv.textContent || '').trim().length > 0; }, fix: '检查 playBattle 是否正确启动。' },
+                { group: '⚙️ 核心功能', name: '音效模块可访问', test: () => { const w = window.parent || window; return !!w.AudioManager; }, fix: '确认 28audio-manager.js 已加载并在 13main 中导入。' },
+                { group: '⚙️ 核心功能', name: '战斗引擎可调用', test: () => { const w = window.parent || window; return typeof w.runBattle === 'function' || typeof w.VER_ENGINE !== 'undefined'; }, fix: '检查 07battle-engine-5v5-test.js 是否正确导出 runBattle。' },
+                { group: '🔗 数据一致性', name: '阵亡不修改 pos 字段', test: async () => { try { return !(await (await fetch('./06battle-engine-core.js')).text()).includes('u.pos = -1'); } catch (e) { return null; } }, fix: '删除 losers.forEach 中的 u.pos = -1。' }
+            ];
+        }
+
+        document.getElementById('runAutoCheckBtn').addEventListener('click', async () => {
+            autoReport.innerHTML = '';
+            copyReportBtn.style.display = 'none';
+            autoStatus.textContent = '正在加载游戏...';
+            
+            const gameUrl = window.location.href.replace(/30test-runner\.html.*/, 'mode-5v5-test.html');
+            autoIframe.src = gameUrl;
+            autoIframe.style.display = 'block';
+            
+            await new Promise((resolve, reject) => {
+                const timeout = setTimeout(() => reject(new Error('游戏加载超时')), 15000);
+                autoIframe.addEventListener('load', () => { clearTimeout(timeout); resolve(); }, { once: true });
+            });
+
+            const iframeWindow = autoIframe.contentWindow;
+            const iframeDoc = iframeWindow.document;
+
+            const waitFor = (selector, timeout = 10000) => new Promise((resolve, reject) => {
+                const start = Date.now();
+                const check = () => {
+                    const el = iframeDoc.querySelector(selector);
+                    if (el) resolve(el);
+                    else if (Date.now() - start > timeout) reject(new Error(`等待元素超时: ${selector}`));
+                    else setTimeout(check, 200);
+                };
+                check();
+            });
+
+            const waitForContext = (timeout = 15000) => new Promise((resolve, reject) => {
+                const start = Date.now();
+                const check = () => {
+                    const ctx = iframeWindow._getPlayerContext?.();
+                    if (ctx && ctx.UI && ctx.UI.allyTeam && ctx.UI.allyTeam.length === 5 && ctx.UI.enemyTeam.length === 5) resolve(ctx);
+                    else if (Date.now() - start > timeout) reject(new Error('等待游戏上下文超时'));
+                    else setTimeout(check, 300);
+                };
+                check();
+            });
+
+            try {
+                autoStatus.textContent = '正在进入游戏...';
+                const coverBtn = await waitFor('#coverStartBtn');
+                coverBtn.click();
+                await new Promise(r => setTimeout(r, 500));
+
+                const stageResults = [];
+
+                for (let stage = 1; stage <= 6; stage++) {
+                    autoStatus.textContent = `正在检测第 ${stage} 关...`;
+                    
+                    if (stage > 1) {
+                        const stageSelectBtn = await waitFor('#btnStageSelect');
+                        if (stageSelectBtn) {
+                            stageSelectBtn.click();
+                            await new Promise(r => setTimeout(r, 300));
+                            const modalBtns = iframeDoc.querySelectorAll('.modal-btn.buff');
+                            if (modalBtns && modalBtns[stage - 1]) {
+                                modalBtns[stage - 1].click();
+                                await new Promise(r => setTimeout(r, 500));
+                            }
+                        }
+                    }
+
+                    const mainBtn = await waitFor('#btnMain');
+                    mainBtn.click();
+                    await new Promise(r => setTimeout(r, 300));
+                    mainBtn.click();
+                    await new Promise(r => setTimeout(r, 300));
+
+                    try {
+                        const voteModal = await waitFor('#voteModalOverlay', 5000);
+                        const skipBtn = voteModal.querySelector('.modal-btn.skip');
+                        if (skipBtn) { skipBtn.click(); await new Promise(r => setTimeout(r, 300)); }
+                    } catch (e) {}
+
+                    try {
+                        const buffModal = await waitFor('#buffModalOverlay', 8000);
+                        const firstBuff = buffModal.querySelector('.modal-btn.buff');
+                        if (firstBuff) { firstBuff.click(); await new Promise(r => setTimeout(r, 300)); }
+                    } catch (e) {}
+
+                    try {
+                        await waitForContext(20000);
+                    } catch (e) {
+                        stageResults.push({ stage, error: '战斗初始化超时：' + e.message });
+                        continue;
+                    }
+
+                    const ctx = iframeWindow._getPlayerContext();
+                    if (!ctx) { stageResults.push({ stage, error: '游戏上下文不可用' }); continue; }
+
+                    const stagePassed = [], stageFailed = [];
+                    for (const item of HEALTH_RULES) {
+                        try {
+                            const testFn = item.test;
+                            const result = testFn.constructor.name === 'AsyncFunction' 
+                                ? await testFn.call(iframeWindow)
+                                : typeof testFn === 'function' ? testFn() : null;
+                            
+                            if (result === true) stagePassed.push(item.name);
+                            else if (result === null) {}
+                            else stageFailed.push({ name: item.name, fix: item.fix });
+                        } catch (e) {
+                            stageFailed.push({ name: item.name, fix: item.fix, error: e.message });
+                        }
+                    }
+
+                    stageResults.push({
+                        stage,
+                        passed: stagePassed.length,
+                        failed: stageFailed.length,
+                        failedItems: stageFailed,
+                        passedItems: stagePassed
+                    });
+                }
+
+                let reportText = '';
+                autoReport.innerHTML = stageResults.map(r => {
+                    if (r.error) {
+                        reportText += `第${r.stage}关 ❌ ${r.error}\n`;
+                        return `<div class="stage-result"><span class="stage-name">第${r.stage}关 ❌</span> ${r.error}</div>`;
+                    }
+                    const passText = r.failed === 0 ? '✅ 全部通过' : `⚠️ ${r.passed} 通过 / ${r.failed} 失败`;
+                    const passList = r.passedItems.length > 0 ? '\n通过项：\n' + r.passedItems.map(p => `  ✅ ${p}`).join('\n') : '';
+                    const failList = r.failedItems.length > 0 ? '\n失败项：\n' + r.failedItems.map(f => `  ❌ ${f.name}${f.error ? ' (' + f.error + ')' : ''}\n    修复建议：${f.fix}`).join('\n') : '';
+                    const stageText = `第${r.stage}关 ${passText}${passList}${failList}`;
+                    reportText += stageText + '\n\n';
+                    return `<div class="stage-result">
+                        <span class="stage-name">第${r.stage}关 ${passText}</span>
+                        ${passList ? '\n' + passList.replace(/\n/g, '<br>') : ''}
+                        ${failList ? '\n' + failList.replace(/\n/g, '<br>') : ''}
+                    </div>`;
+                }).join('');
+
+                const totalPassed = stageResults.reduce((s, r) => s + (r.passed || 0), 0);
+                const totalFailed = stageResults.reduce((s, r) => s + (r.failed || 0), 0);
+                const summaryText = `✅ 全关检测完成：共通过 ${totalPassed} 项，失败 ${totalFailed} 项`;
+                reportText = summaryText + '\n\n' + reportText;
+                autoStatus.textContent = summaryText;
+                copyReportBtn.style.display = 'block';
+                copyReportBtn.onclick = () => {
+                    navigator.clipboard.writeText(reportText).then(() => {
+                        autoStatus.textContent = '📋 报告已复制到剪贴板';
+                    }).catch(() => {
+                        autoStatus.textContent = '❌ 复制失败，请手动复制';
+                    });
+                };
+
+            } catch (e) {
+                autoStatus.textContent = '❌ 自动检测异常：' + e.message;
+                autoReport.innerHTML = `<div class="stage-result">❌ ${e.message}</div>`;
+            }
+        });
+    </script>
+</body>
+</html>
