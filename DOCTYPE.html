@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>防战系数概率计算器 | 光明顶项目</title>
+    <style>
+        body { background: #1a1a2e; color: #e0e0e0; font-family: 'Segoe UI', monospace; padding: 16px; font-size: 13px; margin: 0; }
+        h2 { color: #ffd700; text-align: center; margin-bottom: 16px; }
+        .config-panel { background: #16213e; border: 1px solid #333; border-radius: 10px; padding: 16px; margin-bottom: 20px; }
+        .rule-box { background: #0f0f1a; border-left: 4px solid #ffd700; padding: 12px; margin-bottom: 16px; font-size: 12px; line-height: 1.6; color: #ccc; }
+        .rule-box strong { color: #ffd700; }
+        .m-select { display: flex; flex-wrap: wrap; gap: 10px; margin: 12px 0; align-items: center; }
+        .m-select label { display: flex; align-items: center; gap: 4px; background: #2a2a4e; padding: 6px 12px; border-radius: 5px; cursor: pointer; font-weight: bold; }
+        .m-select input { margin: 0; cursor: pointer; }
+        .input-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
+        .input-row label { color: #aaa; }
+        .input-row input { width: 100px; padding: 6px; background: #1a1a2e; border: 1px solid #555; color: #eee; border-radius: 4px; text-align: center; font-size: 14px; }
+        button { background: #ffd700; color: #1a1a2e; border: none; padding: 10px 24px; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 14px; margin-right: 8px; }
+        button:hover { background: #ffed4a; }
+        .btn-copy { background: #4caf50; color: white; }
+        .btn-copy:hover { background: #66bb6a; }
+        .result-area { background: #111; border: 1px solid #333; border-radius: 8px; padding: 16px; margin-top: 12px; white-space: pre-wrap; font-size: 12px; color: #ccc; max-height: 500px; overflow-y: auto; display: none; }
+        .status { text-align: center; color: #888; min-height: 24px; margin-top: 8px; }
+    </style>
+</head>
+<body>
+    <h2>🛡️ 防战系数 k 概率计算器 (M107基准 + 三档Buff · 微调版)</h2>
+
+    <div class="config-panel">
+        <div class="rule-box">
+            <strong>📜 规则说明 (攻击/防御精确到小数点后一位)</strong><br>
+            • 基础8档：以M107的12.5%分位点为通用阈值，所有M值共用。<br>
+            • 追加3档Buff档：普通Buff(0.373)、中级Buff(0.445)、究极Buff(0.520)。<br>
+            • Buff「严阵以待」使防御 ×1.5。<br>
+            • 设计意图：M95无Buff摸普通Buff档(约5%)，有Buff摸中级Buff档(约37.5%)，顶级M95摸究极Buff档(约12.5%)。
+        </div>
+
+        <div class="m-select">
+            <span style="color:#ffd700; font-weight:bold;">选择 M 值：</span>
+            <label><input type="checkbox" class="m-check" value="95" checked> M=95</label>
+            <label><input type="checkbox" class="m-check" value="97" checked> M=97</label>
+            <label><input type="checkbox" class="m-check" value="100" checked> M=100</label>
+            <label><input type="checkbox" class="m-check" value="104"> M=104</label>
+            <label><input type="checkbox" class="m-check" value="107"> M=107</label>
+            <label><input type="checkbox" class="m-check" value="115"> M=115</label>
+            <button id="btnSelectAll">全选</button>
+            <button id="btnClearAll">清除</button>
+        </div>
+
+        <div class="input-row">
+            <label>🔢 模拟次数：</label>
+            <input type="number" id="simCount" value="20000" min="100" max="500000" step="1000">
+        </div>
+
+        <div>
+            <button id="btnRun">▶ 开始模拟</button>
+            <button id="btnCopyResult" class="btn-copy" style="display:none;">📋 复制结果</button>
+        </div>
+        <div class="status" id="status"></div>
+    </div>
+
+    <div class="result-area" id="resultBox"></div>
+
+    <script>
+        // ==================== 通用阈值配置 (微调版) ====================
+        // 普通Buff档0.373（M95无Buff约5%），中级Buff档0.445（M95+Buff约37.5%），究极Buff档0.520（顶级M95+Buff约12.5%）
+        const FANG_LEVELS = [0.244, 0.264, 0.279, 0.292, 0.306, 0.322, 0.342, 0.373, 0.445, 0.520];
+        const FANG_K = [0, 0.02, 0.04, 0.07, 0.10, 0.14, 0.19, 0.28, 0.50, 1.00, 2.50];
+
+        function randInt(min, max) {
+            return Math.floor(Math.random() * (max - min + 1)) + min;
+        }
+
+        function getK(ratio) {
+            for (let i = FANG_LEVELS.length - 1; i >= 0; i--) {
+                if (ratio >= FANG_LEVELS[i]) return FANG_K[i + 1] ?? FANG_K[FANG_K.length - 1];
+            }
+            return FANG_K[0];
+        }
+
+        function generateDefender(M) {
+            const minHpTemp = Math.ceil(M * 0.4);
+            const maxHpTemp = Math.floor(M * 0.6);
+            let hpTemp, rem, d, a;
+            do {
+                hpTemp = randInt(minHpTemp, maxHpTemp);
+                rem = M - hpTemp;
+                const dMin = Math.ceil(rem * 5);
+                const dMax = (rem - 1) * 10;
+                d = randInt(dMin, dMax) / 10;
+                a = rem - d;
+            } while (d - a > 20);
+            return { def: d, atk: a, hpTemp, maxHp: hpTemp * 2.5, ratio: d / M };
+        }
+
+        function simulateRatios(M, count) {
+            const ratios = [];
+            for (let i = 0; i < count; i++) {
+                const { ratio } = generateDefender(M);
+                ratios.push(ratio);
+            }
+            ratios.sort((a, b) => a - b);
+            return ratios;
+        }
+
+        function getPercentiles(sortedRatios, steps = [0.125, 0.25, 0.375, 0.5, 0.625, 0.75, 0.875, 1.0]) {
+            const n = sortedRatios.length;
+            const result = [];
+            steps.forEach(p => {
+                const idx = Math.min(n - 1, Math.floor(p * (n - 1)));
+                result.push({ percentile: p * 100, ratio: sortedRatios[idx] });
+            });
+            return result;
+        }
+
+        function getKDistribution(ratios, applyBuff = false) {
+            const dist = {};
+            ratios.forEach(r => {
+                const ratio = applyBuff ? r * 1.5 : r;
+                const k = getK(ratio);
+                dist[k] = (dist[k] || 0) + 1;
+            });
+            const sorted = Object.entries(dist).sort((a, b) => parseFloat(a[0]) - parseFloat(b[0]));
+            return sorted.map(([k, count]) => ({ k: parseFloat(k), count, pct: (count / ratios.length * 100).toFixed(1) }));
+        }
+
+        const btnRun = document.getElementById('btnRun');
+        const btnCopy = document.getElementById('btnCopyResult');
+        const statusDiv = document.getElementById('status');
+        const resultBox = document.getElementById('resultBox');
+        const simCountInput = document.getElementById('simCount');
+
+        btnRun.addEventListener('click', async () => {
+            const selectedM = Array.from(document.querySelectorAll('.m-check:checked')).map(cb => parseInt(cb.value));
+            if (selectedM.length === 0) {
+                statusDiv.textContent = '⚠️ 请至少选择一个 M 值';
+                return;
+            }
+            const simCount = parseInt(simCountInput.value) || 20000;
+            statusDiv.textContent = '⏳ 正在模拟，请稍候...';
+            btnRun.disabled = true;
+            resultBox.style.display = 'none';
+
+            await new Promise(resolve => setTimeout(resolve, 50));
+
+            let output = '';
+
+            for (const M of selectedM) {
+                output += `\n═══════════════════════════════\n`;
+                output += `📊 M = ${M} 防战比率分析 (基于 ${simCount} 次模拟，小数一位)\n`;
+                output += `═══════════════════════════════\n`;
+
+                const ratios = simulateRatios(M, simCount);
+                const percentiles = getPercentiles(ratios);
+                const minRatio = ratios[0];
+                const maxRatio = ratios[ratios.length - 1];
+
+                output += `比率范围：${minRatio.toFixed(4)} ~ ${maxRatio.toFixed(4)}\n`;
+                output += `\n📈 12.5% 步长分位点：\n`;
+                percentiles.forEach(p => {
+                    output += `  ${p.percentile}%  ≤ ${p.ratio.toFixed(4)}\n`;
+                });
+
+                const baseKDist = getKDistribution(ratios, false);
+                output += `\n🛡️ 基础 k 值分布：\n`;
+                baseKDist.forEach(d => {
+                    output += `  k=${d.k.toFixed(2)} : ${d.count} 次 (${d.pct}%)\n`;
+                });
+
+                const buffKDist = getKDistribution(ratios, true);
+                output += `\n🔥 严阵以待 Buff 后 (def×1.5) k 值分布：\n`;
+                buffKDist.forEach(d => {
+                    output += `  k=${d.k.toFixed(2)} : ${d.count} 次 (${d.pct}%)\n`;
+                });
+            }
+
+            output += `\n═══════════════════════════════\n`;
+            output += `📋 通用阈值表 (M107基准 + 三档Buff · 微调版)\n`;
+            output += `─────────────────────────────────\n`;
+            output += `阈值: [${FANG_LEVELS.map(l => l.toFixed(3)).join(', ')}]\n`;
+            output += `k 值: [${FANG_K.join(', ')}]\n`;
+            output += `\n📌 档位说明：\n`;
+            output += `  基础8档 (k=0~0.28)：M107的12.5%分位，所有M值共用\n`;
+            output += `  普通Buff档 (k=0.50)：阈值0.373，M95无Buff约5%概率\n`;
+            output += `  中级Buff档 (k=1.00)：阈值0.445，M95+严阵以待约37.5%概率\n`;
+            output += `  究极Buff档 (k=2.50)：阈值0.520，顶级M95+严阵以待约12.5%概率\n`;
+
+            resultBox.textContent = output;
+            resultBox.style.display = 'block';
+            btnCopy.style.display = 'inline-block';
+            statusDiv.textContent = '✅ 模拟完成';
+            btnRun.disabled = false;
+        });
+
+        btnCopy.addEventListener('click', async () => {
+            const text = resultBox.textContent;
+            try {
+                await navigator.clipboard.writeText(text);
+                statusDiv.textContent = '✅ 结果已复制到剪贴板';
+            } catch (e) {
+                statusDiv.textContent = '❌ 复制失败，请手动复制';
+            }
+        });
+
+        document.getElementById('btnSelectAll').addEventListener('click', () => {
+            document.querySelectorAll('.m-check').forEach(cb => cb.checked = true);
+        });
+        document.getElementById('btnClearAll').addEventListener('click', () => {
+            document.querySelectorAll('.m-check').forEach(cb => cb.checked = false);
+        });
+    </script>
+</body>
+</html>
