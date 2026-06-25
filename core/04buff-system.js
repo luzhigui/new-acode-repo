@@ -229,8 +229,19 @@ export function logBuffSummary(allyTeam, log, doubleStrikeUid) {
                     let allAllies = fullAllies.filter(u => u.uid !== carryUnit.uid && !u.isHorse);
                     let aliveCount = allAllies.filter(a => a.alive).length;
                     let deadCount = allAllies.length - aliveCount;
-                    let desc = `👑 你就是carry：${carryUnit.name} 获得队友属性加成（${aliveCount}人存活，${deadCount}人阵亡大幅提升）`;
-                    log.push({type:'buff-summary', text:`<span class="gold">${desc}</span>`, buffType:'buff_stat'});
+                    // 计算实际加成数值
+                    let totalAtkBonus = 0, totalDefBonus = 0, totalHpBonus = 0;
+                    allAllies.forEach(a => {
+                        let mult = a.alive ? 1 : C.BUFFS.carry.deathMultiplier;
+                        totalAtkBonus += C.BUFFS.carry.atkBonus * mult;
+                        totalDefBonus += C.BUFFS.carry.defBonus * mult;
+                        if (C.BUFFS.carry.hpBonus) totalHpBonus += C.BUFFS.carry.hpBonus * mult;
+                    });
+                    let atkVal = Math.floor(carryUnit.atk * totalAtkBonus);
+                    let defVal = Math.floor(carryUnit.def * totalDefBonus);
+                    let hpVal = Math.floor((carryUnit._baseMaxHp || carryUnit.maxHp) * totalHpBonus);
+                    let desc = `👑 你就是carry：${carryUnit.name} 获得队友属性加成（${aliveCount}人存活×1，${deadCount}人阵亡×3）→ 攻+${atkVal} 防+${defVal} 血+${hpVal}`;
+                    log.push({type:'buff-summary', text:`<span class="gold">${desc}</span>`, buffType:'buff_stat', carryUnit: carryUnit, atkVal: atkVal, defVal: defVal, hpVal: hpVal});
                 }
                 break;
         }
