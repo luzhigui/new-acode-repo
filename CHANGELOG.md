@@ -1,5 +1,17 @@
 # 光明顶 5v5 - 更改履历
 
+## V3.1.4 — 2026-06-25
+- **00index 开发工具箱默认收起**：工具箱按钮网格默认折叠，点击标题展开/收起
+- **封面页模块版本显示修复**：`12main-utils.js` 动态导入路径补充子目录前缀，显示全部 25 个模块
+- **防战攻击音效修复**：`28audio-manager.js` BGM 加载失败不再禁用所有音效，`sfxEnabled` 独立开关
+- **Carry 日志显示加成数值**：`04buff-system.js` 日志摘要显示实际攻/防/血加成数值
+- **Carry UI 立即更新**：`10player-core.js` carry buff-summary 处理时立即更新 UI 中 carry 单位属性
+- **Buff 跑马灯效果修复**：`13main-5v5-test.js` 实现 drawLight/animate 函数，修复 lightsOn 永不激活的 bug
+- **子弹时间多项修复**：黑幕加深至 0.92、攻击者/被攻击者增加光晕、跳过按钮定位右下角、超时延长至 30s、漫画气泡中文字体
+- **胜利后格子台词**：`10player-core.js` 存活单位依次说出胜利台词
+- **虚影/飞走模式修复**：飞走模式不留"空"字、虚影模式留下半透明虚影
+- **日志滑动灵敏度提高**：`13main-5v5-test.js` 手动滚动阈值从 10px 降至 2px
+
 ## V3.1.3 — 2026-06-25
 - **修复 Carry Buff 两大 Bug**：
   - 敌方吃到 Carry 加成：`01config-5v5-test.js` carry 配置加 `target: 'ally'`，仅己方可用
