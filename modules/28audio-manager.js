@@ -139,6 +139,7 @@ function playSlash() {
 export const AudioManager = {
     audio: null,
     enabled: true,
+    sfxEnabled: true,  // 音效独立开关，不受BGM加载影响
     currentSource: 'network',
     sourceBeforeMute: 'network',
     
@@ -152,7 +153,7 @@ export const AudioManager = {
             this.audio = new Audio(url);
             this.audio.loop = true;
             this.audio.volume = 0.6;
-            this.audio.onerror = () => { this.enabled = false; };
+            this.audio.onerror = () => { this.enabled = false; /* 仅BGM不可用，不影响音效 */ };
         } catch (e) {
             this.audio = null;
             this.enabled = false;
@@ -236,7 +237,7 @@ export const AudioManager = {
     },
 
     playSfx(role) {
-        if (!this.enabled) return;
+        if (!this.sfxEnabled) return;
         try {
             const sfxConfig = CONFIG.SFX || {};
             const sfx = sfxConfig[role];

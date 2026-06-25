@@ -163,6 +163,7 @@ export function showMeleeCrash(unitA, unitD, speed, getPausedFn, onCrash) {
                                 }
                                 unitA._flash = null;
                                 delete unitA._flyMode;
+                                delete unitA._ghostRendering;
                                 if (UI) { let c = window._getPlayerContext(); c.updateUI(UI); }
                             }
                         }
@@ -356,7 +357,7 @@ export function showMeleeMiss(unitA, unitD, speed, getPausedFn) {
     let flyDur = 800 * (speed/1000); let start1 = null;
     function phaseFly(ts) { if (getPausedFn && getPausedFn()) { requestAnimationFrame(phaseFly); return; } if (!start1) start1 = ts; let p = Math.min(1, (ts - start1) / flyDur); let ease = 1 - Math.pow(1-p, 3); let flown = (dist - rB.width * 0.2) * ease; clone.style.left = (savedLeft + nx * flown) + 'px'; clone.style.top = (savedTop + ny * flown) + 'px'; if (p < 1) { requestAnimationFrame(phaseFly); } else {
         let returnDur = 600 * (speed/1000); let start2 = null;
-        function phaseReturn(ts2) { if (getPausedFn && getPausedFn()) { requestAnimationFrame(phaseReturn); return; } if (!start2) start2 = ts2; let p2 = Math.min(1, (ts2 - start2) / returnDur); let ease2 = 1 - Math.pow(1 - p2, 2); clone.style.left = (savedLeft + nx * (dist - rB.width * 0.2) * (1 - ease2)) + 'px'; clone.style.top = (savedTop + ny * (dist - rB.width * 0.2) * (1 - ease2)) + 'px'; if (p2 < 1) { requestAnimationFrame(phaseReturn); } else { clone.remove(); cellA.style.opacity = ''; cellA.style.visibility = ''; cellA.style.background = ''; cellA.style.transform = ''; } }
+        function phaseReturn(ts2) { if (getPausedFn && getPausedFn()) { requestAnimationFrame(phaseReturn); return; } if (!start2) start2 = ts2; let p2 = Math.min(1, (ts2 - start2) / returnDur); let ease2 = 1 - Math.pow(1 - p2, 2); clone.style.left = (savedLeft + nx * (dist - rB.width * 0.2) * (1 - ease2)) + 'px'; clone.style.top = (savedTop + ny * (dist - rB.width * 0.2) * (1 - ease2)) + 'px'; if (p2 < 1) { requestAnimationFrame(phaseReturn); } else { clone.remove(); cellA.style.opacity = ''; cellA.style.visibility = ''; cellA.style.background = ''; cellA.style.transform = ''; if (unitA) { delete unitA._flyMode; delete unitA._ghostRendering; } } }
         requestAnimationFrame(phaseReturn);
     } }
     requestAnimationFrame(phaseFly);

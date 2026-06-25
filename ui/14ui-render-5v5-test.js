@@ -164,7 +164,18 @@ export function renderGrid(id, team, camp, debugMode, oldTeam) {
     for (let i = 0; i < displayOrder.length; i++) {
         let pos = displayOrder[i], unit = team.find(c => c.pos === pos);
         // 仅当单位显式处于飞走模式时才跳过渲染
-if (unit && (unit._flyMode || unit._isDead)) unit = null;
+        if (unit && unit._isDead) unit = null;
+        if (unit && unit._flyMode === 'fly') {
+            // 飞走模式：原地不留任何痕迹（类似未命中状态），格子完全空
+            let div = document.createElement('div'); div.className = 'cell'; div.innerHTML = ''; div.dataset.pos = pos;
+            if (camp === 'ally' && isAdjustMode) div.classList.add('adjustable');
+            if (camp === 'ally' && isAdjustMode && selectedPos === pos) div.classList.add('adjust-selected');
+            grid.appendChild(div); continue;
+        }
+        if (unit && unit._flyMode === 'ghost') {
+            // 虚影模式：原地留下半透明虚影
+            unit._ghostRendering = true;
+        }
         if (!unit) {
             let div = document.createElement('div'); div.className = 'cell'; div.innerHTML = '<span style="color:#999;">空</span>'; div.dataset.pos = pos;
             if (camp === 'ally' && isAdjustMode) div.classList.add('adjustable');
@@ -193,6 +204,10 @@ if (unit && (unit._flyMode || unit._isDead)) unit = null;
         let restingClass = (isBlocked && unit.alive && isResting && !(unit.isZhang && unit.rangedForm) && !isDead) ? 'resting' : '';
         let div = document.createElement('div');
         div.className = `cell occupied ${readyClass} ${actedClass} ${cheerClass} ${restingClass}`;
+        if (unit._ghostRendering) {
+            div.style.opacity = '0.35';
+            div.style.filter = 'grayscale(0.5)';
+        }
         if (isDead) { div.setAttribute('data-flash', 'dead'); }
         else if (unit._flash) { div.setAttribute('data-flash', unit._flash); }
         div.dataset.pos = pos;
