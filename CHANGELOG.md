@@ -6,6 +6,7 @@
   - 张无忌血量无限叠加：`06battle-engine-core.js` Carry HP 加成改为基于 `_baseMaxHp` 计算，防止每回合膨胀
   - `06battle-engine-core.js` `allyTeamWithDead` 去重改为兼容写法（`findIndex` → `seen` 对象）
   - `04buff-system.js` `computeBuffStats` 中 carry 增加 `unit.camp === 'ally'` 防御性检查
+- **修复体检路径**：`30test-runner.html` 移入 `tools/` 后，`37health-core.js` 游戏页面路径从 `tools/` 往根目录找
 
 ## V3.1.2 — 2026-06-25
 - **第五关玄冥二老拆分**：鹿杖客（远程/玄冥神掌）+ 鹤笔翁（飞行/鹿角杖法）两个独立单位
