@@ -1,4 +1,5 @@
 <!-- 00index.html - 光明顶项目·开发集成入口 V3.1 -->
+<!-- 2026-06-25 14:20 Trae: 26codex 与 build 脚本移入 tools/；删除空 README.md 和 bug记录.txt；00index 增加开发协同标准按钮 -->
 <!-- 2026-06-25 13:50 Trae: 整理根目录文件；30test-runner 与防战系数计算器移入 tools/；00index 增加防战系数按钮 -->
 <!-- 2026-06-25 变更记录：版本升级到 V3.1；优化体检等待逻辑；清空历史记录改用自定义确认弹窗；30test-runner 下掉环境诊断页签 -->
 <!DOCTYPE html>
@@ -68,6 +69,7 @@
                 <button class="big-btn btn-tool" id="btnAutoBattle">📊 自动批量测试</button>
                 <button class="big-btn btn-tool" id="btnFirstAid">⚡ 开发急救包</button>
                 <button class="big-btn btn-tool" id="btnFangCalc">🛡️ 防战系数计算器</button>
+                <button class="big-btn btn-tool" id="btnCodex">📜 开发协同标准</button>
             </div>
         </div>
 
@@ -102,6 +104,9 @@
         });
         document.getElementById('btnFangCalc').addEventListener('click', () => {
             window.open('tools/35fang-calc.html', '_blank');
+        });
+        document.getElementById('btnCodex').addEventListener('click', () => {
+            window.open('tools/26codex-v2.1.js', '_blank');
         });
 
         // ==================== 独立背景音乐 ====================
