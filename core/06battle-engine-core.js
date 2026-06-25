@@ -1,7 +1,8 @@
-// 06battle-engine-core.js - 光明顶对战 5v5 战斗核心循环 (V3.1.1 修复新婚扣血传入错误队伍)
+// 06battle-engine-core.js - 光明顶对战 5v5 战斗核心循环 (V3.1.2 修复 Carry HP 无限叠加)
 // 0625 12:38 kimi: 修复 applyXinHunDeduction 传入 enemySide→allySide，宋青书攻击时能正确找到周芷若
-// 预估字节: 24800, 发送时间: 20260625 12:38, 版本: V3.1.1
-export const VER = '06battle-engine-core.js V3.1.1';
+// 0625 17:51 trae: Carry HP 加成改为基于 _baseMaxHp 计算，防止血量无限叠加；allyTeamWithDead 去重改为兼容写法
+// 预估字节: 24800, 发送时间: 20260625 17:51, 版本: V3.1.2
+export const VER = '06battle-engine-core.js V3.1.2';
 
 import { CONFIG, DEF_TAUNT, HP_TAUNT } from './01config-5v5-test.js';
 import { rand, calcDamage, getFangLevel, isMelee, getFronts, isBlocked, getFlyDodgeRate, getRandomTaunt, getZhangNearTaunt, makeFXSnapshot, hasBuff } from './03battle-utils.js';
@@ -60,8 +61,16 @@ export function runBattleRound(state) {
         if (!u.alive) return;
         let allyTeamWithDead = A.filter(c => c.alive);
         if (hasBuff(A._activeBuffs, 'carry')) {
-            allyTeamWithDead = allyTeamWithDead.concat(state.ally.filter(c => !c.alive));
-allyTeamWithDead = allyTeamWithDead.filter((u, i, arr) => arr.findIndex(v => v.uid === u.uid) === i);
+            // 包含已阵亡的单位以正确计算 carry 的死亡加成
+            var deadAllies = state.ally.filter(function(c) { return !c.alive; });
+            allyTeamWithDead = allyTeamWithDead.concat(deadAllies);
+            // 去重
+            var seen = {};
+            allyTeamWithDead = allyTeamWithDead.filter(function(u) {
+                if (seen[u.uid]) return false;
+                seen[u.uid] = true;
+                return true;
+            });
         }
         let stats = computeBuffStats(u, A._activeBuffs || [], allyTeamWithDead);
         u.buffAtkBonus = stats.atkBonus;
@@ -69,11 +78,12 @@ allyTeamWithDead = allyTeamWithDead.filter((u, i, arr) => arr.findIndex(v => v.u
         u.buffDodgeBonus = stats.dodgeBonus;
         u.buffHpBonus = stats.hpBonus;
         if (hasBuff(A._activeBuffs, 'carry') && u.pos === 5 && u._baseMaxHp !== undefined) {
-            let oldMaxHp = u.maxHp, oldHp = u.hp;
+            // 基于 _baseMaxHp 计算加成，并用原始比例恢复，防止无限叠加
             let extraHp = Math.floor(u._baseMaxHp * stats.hpBonus);
             let newMaxHp = u._baseMaxHp + extraHp;
-            if (newMaxHp > oldMaxHp) { u.maxHp = newMaxHp; u.hp = Math.min(u.maxHp, u.hp + (newMaxHp - oldMaxHp)); }
-            else if (newMaxHp < oldMaxHp && oldMaxHp > 0) { u.maxHp = newMaxHp; u.hp = Math.floor(u.hp * (newMaxHp / oldMaxHp)); }
+            let hpRatio = u.maxHp > 0 ? u.hp / u.maxHp : 1;
+            u.maxHp = newMaxHp;
+            u.hp = Math.min(newMaxHp, Math.floor(newMaxHp * hpRatio));
         }
         u._extinctionUsed = false;
         u._acted = false;
@@ -248,8 +258,14 @@ allyTeamWithDead = allyTeamWithDead.filter((u, i, arr) => arr.findIndex(v => v.u
         let unitAllyTeam = unit.camp === 'ally' ? allySide : enemySide;
         // 如果有 carry buff，攻击时也需要包含已阵亡队友（死亡加成翻倍）
         if (hasBuff(unitActiveBuffs, 'carry') && unit.camp === 'ally') {
-            unitAllyTeam = unitAllyTeam.concat(state.ally.filter(c => !c.alive));
-            unitAllyTeam = unitAllyTeam.filter((u, i, arr) => arr.findIndex(v => v.uid === u.uid) === i);
+            var deadAllies2 = state.ally.filter(function(c) { return !c.alive; });
+            unitAllyTeam = unitAllyTeam.concat(deadAllies2);
+            var seen2 = {};
+            unitAllyTeam = unitAllyTeam.filter(function(u) {
+                if (seen2[u.uid]) return false;
+                seen2[u.uid] = true;
+                return true;
+            });
         }
         let attackerBuffStats = computeBuffStats(unit, unitActiveBuffs, unitAllyTeam);
         unit.buffAtkBonus = attackerBuffStats.atkBonus;

@@ -1,5 +1,12 @@
 # 光明顶 5v5 - 更改履历
 
+## V3.1.3 — 2026-06-25
+- **修复 Carry Buff 两大 Bug**：
+  - 敌方吃到 Carry 加成：`01config-5v5-test.js` carry 配置加 `target: 'ally'`，仅己方可用
+  - 张无忌血量无限叠加：`06battle-engine-core.js` Carry HP 加成改为基于 `_baseMaxHp` 计算，防止每回合膨胀
+  - `06battle-engine-core.js` `allyTeamWithDead` 去重改为兼容写法（`findIndex` → `seen` 对象）
+  - `04buff-system.js` `computeBuffStats` 中 carry 增加 `unit.camp === 'ally'` 防御性检查
+
 ## V3.1.2 — 2026-06-25
 - **第五关玄冥二老拆分**：鹿杖客（远程/玄冥神掌）+ 鹤笔翁（飞行/鹿角杖法）两个独立单位
 - ENEMY_SQUADS[5] 人数 5→6，站位模板 random 2→3
