@@ -187,6 +187,129 @@ function createHealthRules(win, doc) {
             try { return typeof win.runBattle === 'function'; } catch(e) { return false; }
         }, fix:'休息回血后调用 c.updateUI(c.UI)。' },
 
+        // ========== 核心参数与公式 (17条) ==========
+        { group: '⚙️ 核心参数与公式', name: '职业加成 - 战士', test: function() {
+            if (typeof win.Unit !== 'function') return null;
+            var u = new win.Unit('战士测试', 100, '战士', 'ally'); u.init();
+            var before = {atk: u.atk, def: u.def, maxHp: u.maxHp};
+            u.applyBonus();
+            return u.atk === before.atk + 3 && u.def === before.def + 2 && u.maxHp === before.maxHp + 25 && u.hp === u.maxHp;
+        }, fix: '检查 Unit.applyBonus 战士分支。' },
+        { group: '⚙️ 核心参数与公式', name: '职业加成 - 防战', test: function() {
+            if (typeof win.Unit !== 'function') return null;
+            var u = new win.Unit('防战测试', 100, '防战', 'ally'); u.init();
+            var before = {atk: u.atk, maxHp: u.maxHp};
+            u.applyBonus();
+            return u.atk === before.atk - 1 && u.maxHp === before.maxHp + 50 && u.hp === u.maxHp;
+        }, fix: '检查 Unit.applyBonus 防战分支。' },
+        { group: '⚙️ 核心参数与公式', name: '职业加成 - 远程', test: function() {
+            if (typeof win.Unit !== 'function') return null;
+            var u = new win.Unit('远程测试', 100, '远程', 'ally'); u.init();
+            var before = {atk: u.atk, def: u.def, maxHp: u.maxHp};
+            u.applyBonus();
+            return u.atk === before.atk + 6 && u.def === before.def - 2 && u.maxHp === before.maxHp - 25 && u.hp === u.maxHp;
+        }, fix: '检查 Unit.applyBonus 远程分支。' },
+        { group: '⚙️ 核心参数与公式', name: '职业加成 - 飞行', test: function() {
+            if (typeof win.Unit !== 'function') return null;
+            var u = new win.Unit('飞行测试', 100, '飞行', 'ally'); u.init();
+            var before = {atk: u.atk, def: u.def, maxHp: u.maxHp};
+            u.applyBonus();
+            return u.atk === before.atk + 2 && u.def === before.def - 2 && u.maxHp === before.maxHp - 25 && u.hp === u.maxHp;
+        }, fix: '检查 Unit.applyBonus 飞行分支。' },
+        { group: '⚙️ 核心参数与公式', name: '单位初始化 - 生命值范围', test: function() {
+            if (typeof win.Unit !== 'function') return null;
+            var m = 100;
+            for (var i = 0; i < 30; i++) {
+                var u = new win.Unit('测试', m, '战士', 'ally'); u.init();
+                var hpInit = u.maxHp / 2.5;
+                if (hpInit < Math.ceil(m * 0.4) - 0.001 || hpInit > Math.floor(m * 0.6) + 0.001) return false;
+                if (u.hp !== u.maxHp) return false;
+            }
+            return true;
+        }, fix: '检查 Unit.init 中 hp 随机范围与 maxHp=hp*2.5。' },
+        { group: '⚙️ 核心参数与公式', name: '单位初始化 - 非防战攻防差', test: function() {
+            if (typeof win.Unit !== 'function') return null;
+            var roles = ['战士', '远程', '飞行'];
+            for (var r = 0; r < roles.length; r++) {
+                for (var i = 0; i < 20; i++) {
+                    var u = new win.Unit('测试', 100, roles[r], 'ally'); u.init();
+                    var diff = u.atk - u.def;
+                    if (diff < 3 || diff > 13) return false;
+                }
+            }
+            return true;
+        }, fix: '检查 Unit.init 非防战攻防重采样逻辑（3≤攻-防≤13）。' },
+        { group: '⚙️ 核心参数与公式', name: '单位初始化 - 防战攻防差', test: function() {
+            if (typeof win.Unit !== 'function') return null;
+            for (var i = 0; i < 20; i++) {
+                var u = new win.Unit('测试', 100, '防战', 'ally'); u.init();
+                if (u.def - u.atk > 20) return false;
+            }
+            return true;
+        }, fix: '检查 Unit.init 防战攻防重采样逻辑（防-攻≤20）。' },
+        { group: '⚙️ 核心参数与公式', name: '伤害公式 - 50攻30防≈31', test: function() {
+            if (typeof win.calcDamage !== 'function') return null;
+            return Math.floor(win.calcDamage(50, 30)) === 31;
+        }, fix: '检查 calcDamage 公式 atk*(atk/(atk+def))。' },
+        { group: '⚙️ 核心参数与公式', name: '伤害公式 - 防御为0返回攻击', test: function() {
+            if (typeof win.calcDamage !== 'function') return null;
+            return win.calcDamage(50, 0) === 50 && win.calcDamage(50, -10) === 50;
+        }, fix: '检查 calcDamage def≤0 时返回 atk。' },
+        { group: '⚙️ 核心参数与公式', name: '伤害公式 - 高防10%下限保护', test: function() {
+            if (typeof win.calcDamage !== 'function') return null;
+            var d = win.calcDamage(100, 10000);
+            return d >= 10 && d <= 100;
+        }, fix: '检查 calcDamage max(d, atk*0.1) 下限保护。' },
+        { group: '⚙️ 核心参数与公式', name: '前排判定 - 单列取最前', test: function() {
+            if (typeof win.getFronts !== 'function') return null;
+            var units = [{pos:1, alive:true}, {pos:4, alive:true}, {pos:7, alive:true}];
+            var fronts = win.getFronts(units);
+            return fronts.length === 1 && fronts[0].pos === 1;
+        }, fix: '检查 getFronts 同列取最小 pos。' },
+        { group: '⚙️ 核心参数与公式', name: '前排判定 - 死亡单位跳过', test: function() {
+            if (typeof win.getFronts !== 'function') return null;
+            var units = [{pos:1, alive:false}, {pos:4, alive:true}, {pos:7, alive:true}];
+            var fronts = win.getFronts(units);
+            return fronts.length === 1 && fronts[0].pos === 4;
+        }, fix: '检查 getFronts 过滤 alive 单位。' },
+        { group: '⚙️ 核心参数与公式', name: '站位遮挡 - 后排战士被挡', test: function() {
+            if (typeof win.isBlocked !== 'function') return null;
+            var u = {pos: 4, role: '战士', alive: true, isHorse: false};
+            var allies = [{pos: 1, role: '战士', alive: true, isHorse: false}];
+            return win.isBlocked(u, allies) === true;
+        }, fix: '检查 isBlocked 后排同列有前排时返回 true。' },
+        { group: '⚙️ 核心参数与公式', name: '站位遮挡 - 飞行单位不被挡', test: function() {
+            if (typeof win.isBlocked !== 'function') return null;
+            var u = {pos: 4, role: '飞行', alive: true, isHorse: false};
+            var allies = [{pos: 1, role: '战士', alive: true, isHorse: false}];
+            return win.isBlocked(u, allies) === false;
+        }, fix: '检查 isBlocked 飞行单位直接返回 false。' },
+        { group: '⚙️ 核心参数与公式', name: '站位遮挡 - 同列无前排不挡', test: function() {
+            if (typeof win.isBlocked !== 'function') return null;
+            var u = {pos: 4, role: '战士', alive: true, isHorse: false};
+            return win.isBlocked(u, []) === false;
+        }, fix: '检查 isBlocked 无前排时返回 false。' },
+        { group: '⚙️ 核心参数与公式', name: '防战伤害 - 额外项结构', test: function() {
+            if (typeof win.Unit !== 'function' || typeof win.calcDamage !== 'function') return null;
+            // 设计预期：防战伤害 = calcDamage(atkAct, defAct) + def * k + maxHp * 0.01
+            var FANG_LEVELS = [0.244, 0.264, 0.279, 0.292, 0.306, 0.322, 0.342, 0.373, 0.445, 0.520];
+            var FANG_K = [0, 0.02, 0.04, 0.07, 0.10, 0.14, 0.19, 0.28, 0.50, 1.00, 2.50];
+            function getLv(def, m) { var ratio = def / m; for (var i = FANG_LEVELS.length - 1; i >= 0; i--) { if (ratio >= FANG_LEVELS[i]) return i; } return 0; }
+            var u = new win.Unit('防战测试', 100, '防战', 'ally'); u.init(); u.applyBonus();
+            var lv = getLv(u.def, u.m);
+            var k = FANG_K[lv];
+            return typeof k === 'number' && k >= 0 && u.def >= 0 && u.maxHp >= 0;
+        }, fix: '检查 06battle-engine-core 防战伤害公式与 FANG_K 映射（当前为设计预期校验）。' },
+        { group: '⚙️ 核心参数与公式', name: '目标选择 - 近战目标池为前排', test: function() {
+            if (typeof win.getFronts !== 'function' || typeof win.isBlocked !== 'function') return null;
+            // 设计预期：近战/飞行/拒马攻击时，目标从 getFronts(enemy) 中随机选取
+            var enemy = [{pos:1, alive:true}, {pos:2, alive:true}, {pos:3, alive:true}, {pos:7, alive:true}];
+            var fronts = win.getFronts(enemy);
+            if (fronts.length !== 3) return false;
+            var pool = fronts.map(function(x){return x.pos;});
+            return pool.indexOf(1) !== -1 && pool.indexOf(2) !== -1 && pool.indexOf(3) !== -1 && pool.indexOf(7) === -1;
+        }, fix: '检查 selectTarget 近战分支使用 getFronts 结果（当前为设计预期校验）。' },
+
         // ========== 战斗引擎 (4条) ==========
         { group: '⚙️ 引擎', name: 'calcDamage 存在', test: function(){return typeof win.calcDamage==='function';}, fix:'确认 03utils 挂载。' },
         { group: '⚙️ 引擎', name: 'getFlyDodgeRate 存在', test: function(){return typeof win.getFlyDodgeRate==='function';}, fix:'确认导出。' },

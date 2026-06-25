@@ -138,7 +138,7 @@ export function initTestRunner() {
     const iframe = document.getElementById('autoIframe');
 
     // 初始化规则组复选框
-    const allGroups = ['🚀 启动与加载', '🎨 九宫格基础', '❤️ 血条与属性', '✨ Buff 系统', '🎭 状态样式', '🎵 音效', '🎬 特效', '👹 精英', '🔗 数据', '⚙️ 引擎', '📋 日志', '📍 站位'];
+    const allGroups = ['🚀 启动与加载', '🎨 九宫格基础', '❤️ 血条与属性', '✨ Buff 系统', '🎭 状态样式', '🎵 音效', '🎬 特效', '👹 精英', '🔗 数据', '⚙️ 核心参数与公式', '⚙️ 引擎', '📋 日志', '📍 站位'];
     groupCbs.innerHTML = allGroups.map(g => '<label><input type="checkbox" value="' + g + '" checked> ' + (g.split(' ')[1] || g) + '</label>').join('');
 
     // ==================== 答题功能 ====================
