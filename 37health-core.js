@@ -1,5 +1,6 @@
 // 37health-core.js - 光明顶 5v5 全面体检核心逻辑 V2.0
-// 预估行数: 280, 发送时间: 20260625 17:00, 版本: V2.0.0
+// 0625 10:29 kimi: 改用 window.selectStage 切换关卡，修复第二关初始化失败；报告和历史记录增加 id 字段
+// 预估行数: 280, 发送时间: 20260625 17:00, 版本: V2.1.0
 // 联动: 被 30test-runner.html 调用，依赖 29health-rules.js
 // 改动: 精简掉答题/反馈 UI 逻辑（已移至 30），专注体检核心流程 + 报告内联展示
 
@@ -80,10 +81,9 @@ export async function runHealthCheck(config) {
             statusEl.textContent = `正在检测第 ${s} 关...`;
 
             if (idx === 0 && s !== 1) {
-                await switchToStage(s, waitFor, waitCtx, W);
+                await safeSelectStage(s, W, waitCtx);
             } else if (idx > 0) {
-                try { W()._getPlayerContext().gs = 'IDLE'; } catch (e) {}
-                await switchToStage(s, waitFor, waitCtx, W);
+                await safeSelectStage(s, W, waitCtx);
             }
 
             const mainBtn = await waitFor('#btnMain');
@@ -172,28 +172,19 @@ export async function runHealthCheck(config) {
     }
 }
 
-async function switchToStage(stage, waitFor, waitCtx, W) {
-    const stageBtn = await waitFor('#btnStageSelect');
-    stageBtn.click();
-    await new Promise(r => setTimeout(r, 600));
-    const btns = await new Promise((resolve, reject) => {
-        const start = Date.now();
-        const check = () => {
-            const doc = document.querySelector('#autoIframe').contentDocument;
-            const b = doc ? doc.querySelectorAll('.modal-btn') : [];
-            if (b.length > 0) resolve(b);
-            else if (Date.now() - start > 8000) reject(new Error('选关弹窗超时'));
-            else setTimeout(check, 200);
-        };
-        check();
-    });
-    if (btns[stage - 1]) {
-        btns[stage - 1].click();
-        await new Promise(r => setTimeout(r, 800));
-    } else {
-        throw new Error(`找不到第 ${stage} 关按钮`);
+async function safeSelectStage(stage, W, waitCtx) {
+    try {
+        // 先尝试通过主控暴露的全局函数直接切换（需要 13main-5v5-test.js V3.0.2+）
+        if (typeof W().selectStage === 'function') {
+            W().selectStage(stage);
+            await new Promise(r => setTimeout(r, 600));
+            await waitCtx(25000);
+            return;
+        }
+    } catch (e) {
+        console.warn('safeSelectStage direct call failed, falling back', e);
     }
-    await waitCtx(25000);
+    throw new Error('当前游戏版本不支持自动选关，请刷新游戏页面');
 }
 
 function generateReport(results) {
@@ -228,7 +219,7 @@ function saveHistory(results) {
     const tp = results.reduce((s, r) => s + (r.passed || 0), 0);
     const tf = results.reduce((s, r) => s + (r.failed || 0), 0);
     const hist = JSON.parse(localStorage.getItem('ming_test_history') || '[]');
-    hist.unshift({ time: new Date().toLocaleString(), pass: tp, fail: tf, text: generateReport(results) });
-    if (hist.length > 10) hist.pop();
+    hist.unshift({ id: Date.now(), time: new Date().toLocaleString(), pass: tp, fail: tf, text: generateReport(results) });
+    if (hist.length > 50) hist.pop();
     localStorage.setItem('ming_test_history', JSON.stringify(hist));
 }
