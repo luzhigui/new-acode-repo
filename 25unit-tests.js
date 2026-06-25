@@ -1,7 +1,8 @@
 // 25unit-tests.js - 光明顶对战 5v5 核心函数单元测试（扩展版）
-// 预估行数: 250, 发送时间: 20260625 18:00, 版本: V2.2.0
+// 0625 10:29 kimi: 流云身法 dodgeBonus 已调整为 0.25，测试期望值同步更新
+// 预估行数: 250, 发送时间: 20260625 18:00, 版本: V2.2.1
 // 变更: 修正 Carry 测试预期值（deathMultiplier=3），新增 20+ 条测试覆盖边界
-export const VER = '25unit-tests.js V2.2.0';
+export const VER = '25unit-tests.js V2.2.1';
 
 import { calcDamage, getFronts, isBlocked, getFlyDodgeRate, getUnitRow, getUnitCol, getAdjacentPositions } from './03battle-utils.js';
 import { computeBuffStats } from './04buff-system.js';
@@ -46,7 +47,7 @@ export function runTests(logFn, errorFn) {
     assert('无Buff加成', stats.atkBonus === 0 && stats.defBonus === 0 && stats.dodgeBonus === 0 && stats.hpBonus === 0, true);
 
     stats = computeBuffStats(u, [{key:'cloudBody'}], []);
-    assert('流云身法闪避+30%', stats.dodgeBonus, 0.3);
+    assert('流云身法闪避+25%', stats.dodgeBonus, 0.25);
 
     stats = computeBuffStats(u, [{key:'fortify'}], []);
     assert('严阵以待防御+50%', stats.defBonus, 0.5);
@@ -89,7 +90,7 @@ export function runTests(logFn, errorFn) {
 
     // 多个 buff 叠加
     stats = computeBuffStats(u, [{key:'cloudBody'},{key:'fortify'}], []);
-    assert('流云+严阵 闪避叠加', stats.dodgeBonus, 0.3);
+    assert('流云+严阵 闪避叠加', stats.dodgeBonus, 0.25);
     assert('流云+严阵 防御叠加', stats.defBonus, 0.5);
 
     // ==================== getFronts ====================

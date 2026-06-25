@@ -1,7 +1,8 @@
 // 13main-5v5-test.js - 光明顶对战 5v5 主控模块 (V3.0 定制阵容)
-// 预估行数: 680, 发送时间: 20260621 08:15, 版本: V3.0.1
+// 0625 10:29 kimi: 暴露 window.selectStage/window.forceStopGame/window.doManualReset 供 test runner 调用
+// 预估行数: 680, 发送时间: 20260621 08:15, 版本: V3.0.2
 // 联动: 修复 doInitBattle 站位初始化值，确保数据驱动视图
-export const VER = '13main-5v5-test.js V3.0.1';
+export const VER = '13main-5v5-test.js V3.0.2';
 
 import './24error-capture.js';
 import { CONFIG, STATE, KILL_TAUNT, ENEMY_M, VER as CFG_VER } from './01config-5v5-test.js';
@@ -641,14 +642,46 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('btnDodgeToggle').addEventListener('click',()=>{toggleDodgeEffect();});
     document.getElementById('btnStageSelect').addEventListener('click',()=>{
         if(gs!==S.IDLE)return;
+        openStageSelectModal();
+    });
+
+    function openStageSelectModal(){
         let buttons=[];
         for(let i=1;i<=6;i++){buttons.push({text:i===currentStage?`第${i}关 ◀`:`第${i}关`,value:i,cls:'buff'});}
         showModal('选择关卡',buttons,(stage)=>{
             if(stage===currentStage)return;
-            onAnyButtonClick();abortAll();clearLogExceptFirst();clearAllEffects();hasLoggedTeam=false;
-            currentStage=stage;doInitBattle();updateUI(UI);gs=S.IDLE;updateButtons();enableAllButtons();
+            switchToStageInternal(stage);
         },false);
-    });
+    }
+
+    function switchToStageInternal(stage){
+        onAnyButtonClick();abortAll();clearLogExceptFirst();clearAllEffects();hasLoggedTeam=false;
+        currentStage=stage;doInitBattle();updateUI(UI);gs=S.IDLE;updateButtons();enableAllButtons();
+    }
+
+    function forceStopGame(){
+        if(!UI || !UI.allyTeam.length) return;
+        abortAll();clearLogExceptFirst();clearAllEffects();hasLoggedTeam=false;
+        gs=S.IDLE;isPaused=false;waitingForNextRound=false;isBattleStarting=false;
+        updateButtons();enableAllButtons();updateSpeedButtons();
+        try { updateUI(UI); } catch(e){}
+    }
+
+    function doManualReset(){
+        activeBuffs=[];snapshot={ally:[],enemy:[]};currentDoubleStrikeUid=null;
+        forceStopGame();
+        doInitBattle();updateUI(UI);
+        gs=S.IDLE;updateButtons();enableAllButtons();
+    }
+
+    window.selectStage = (stage)=>{
+        if(stage===currentStage)return;
+        forceStopGame();
+        switchToStageInternal(stage);
+    };
+    window.forceStopGame = forceStopGame;
+    window.doManualReset = doManualReset;
+    window.getGameState = ()=>({ gs, currentStage, isPaused, isBattleStarting, allyCount:UI.allyTeam.length, enemyCount:UI.enemyTeam.length });
 
     for (let i = 0; i < 2; i++) { let slot = document.getElementById('buffSlot' + i); if (slot) slot.addEventListener('click', () => onBuffSlotClick(i)); }
 

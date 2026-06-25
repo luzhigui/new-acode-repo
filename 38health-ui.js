@@ -1,5 +1,6 @@
 // 38health-ui.js - 光明顶 5v5 测试与体检 UI 交互模块 V2.0
-// 预估行数: 200, 发送时间: 20260625 18:00, 版本: V2.0.0
+// 0625 10:29 kimi: 环境诊断支持一键全部诊断，历史记录支持删除单条/清空；修复诊断结果状态显示
+// 预估行数: 200, 发送时间: 20260625 18:00, 版本: V2.1.0
 // 联动: 被 30test-runner.html 调用，集中管理所有 UI 逻辑
 // 变更: 将 30 内联 JS 全部移入，30 只保留 HTML 骨架
 
@@ -32,15 +33,21 @@ export function initTestRunner() {
     // ==================== 环境诊断 ====================
     const diagCont = document.getElementById('diagnosisContainer');
     const diagItems = [
-        { g: '🎵', n: 'AudioManager', t: () => !!window.AudioManager, f: '确认28audio' },
-        { g: '⚔️', n: '固定单位=3', t: () => { var c = window._getPlayerContext?.(); return c?.UI?.allyTeam?.filter(u => u.fixed).length === 3; }, f: '检查doInitBattle' },
-        { g: '⚔️', n: '明教pos非-1', t: () => { var c = window._getPlayerContext?.(); return c?.UI?.allyTeam?.every(u => u.pos !== -1); }, f: '改为null' },
-        { g: '⚔️', n: '六大派pos合法', t: () => { var c = window._getPlayerContext?.(); return c?.UI?.enemyTeam?.every(u => u.pos >= 1 && u.pos <= 9); }, f: '检查兜底' },
-        { g: '📦', n: '错误面板', t: () => !!document.getElementById('errorCapturePanel'), f: '24未加载' },
-        { g: '📦', n: '06核心', t: () => typeof window.VER_CORE !== 'undefined', f: '检查06' },
-        { g: '📦', n: '10播放器', t: () => typeof window.VER_PLAYER_CORE !== 'undefined', f: '检查10' },
+        { g: '🎵', n: 'AudioManager', t: () => !!window.AudioManager, f: '确认 28audio 已加载', reqGame: true },
+        { g: '⚔️', n: '固定单位=3', t: () => { var c = window._getPlayerContext?.(); return c?.UI?.allyTeam?.filter(u => u.fixed).length === 3; }, f: '检查 doInitBattle', reqGame: true },
+        { g: '⚔️', n: '明教pos非-1', t: () => { var c = window._getPlayerContext?.(); return c?.UI?.allyTeam?.every(u => u.pos !== -1); }, f: '改为 null', reqGame: true },
+        { g: '⚔️', n: '六大派pos合法', t: () => { var c = window._getPlayerContext?.(); return c?.UI?.enemyTeam?.every(u => u.pos >= 1 && u.pos <= 9); }, f: '检查兜底', reqGame: true },
+        { g: '📦', n: '错误面板', t: () => !!document.getElementById('errorCapturePanel'), f: '24 未加载', reqGame: true },
+        { g: '📦', n: '06核心', t: () => typeof window.VER_CORE !== 'undefined', f: '检查 06', reqGame: true },
+        { g: '📦', n: '10播放器', t: () => typeof window.VER_PLAYER_CORE !== 'undefined', f: '检查 10', reqGame: true },
     ];
+    const inGamePage = () => typeof window.VER_CORE !== 'undefined';
     var groups = {}; diagItems.forEach(i => { if (!groups[i.g]) groups[i.g] = []; groups[i.g].push(i); });
+
+    var gdAll = document.createElement('div');
+    gdAll.innerHTML = '<div style="margin-bottom:8px;padding:6px;background:#2a2a4e;border-radius:4px;color:#aaa;font-size:12px;">⚠️ 以下诊断项需要在 mode-5v5-test.html 游戏页面内运行，在 30test-runner 页面里大部分项目会因全局变量未挂载而显示失败。</div><button id="runAllDiagBtn" style="width:auto;padding:8px 16px;margin:0 0 12px 0;font-size:13px;">🔍 全部诊断</button>';
+    diagCont.appendChild(gdAll);
+
     for (var gn in groups) {
         var gd = document.createElement('div');
         gd.innerHTML = '<div class="group-title">' + gn + '</div><div class="diagnosis-grid"></div>';
@@ -52,12 +59,18 @@ export function initTestRunner() {
         });
         diagCont.appendChild(gd);
     }
-    diagCont.addEventListener('click', async (e) => {
-        if (!e.target.classList.contains('run')) return;
-        var btn = e.target, gn = btn.dataset.g, idx = parseInt(btn.dataset.i), item = groups[gn][idx];
+
+    async function runOneDiag(gn, idx) {
+        var item = groups[gn][idx];
         var card = document.getElementById('diag-' + gn + '-' + idx), span = card.querySelector('.diag-status span');
+        var btn = card.querySelector('.diag-btn');
         btn.textContent = '⏳'; btn.disabled = true; card.classList.remove('pass', 'fail'); card.classList.add('pending');
         try {
+            if (item.reqGame && !inGamePage()) {
+                card.classList.remove('pending'); btn.textContent = '▶'; btn.classList.remove('retest'); btn.classList.add('run');
+                card.classList.add('fail'); span.className = 'fail-text'; span.textContent = '未加载';
+                return;
+            }
             var r = item.t.constructor.name === 'AsyncFunction' ? await item.t() : item.t();
             card.classList.remove('pending'); btn.textContent = '🔄'; btn.classList.remove('run'); btn.classList.add('retest');
             if (r === true) { card.classList.add('pass'); span.className = 'pass-text'; span.textContent = '✅'; }
@@ -65,6 +78,18 @@ export function initTestRunner() {
             else { card.classList.add('fail'); span.className = 'fail-text'; span.textContent = '❌'; }
         } catch (err) { card.classList.add('fail'); span.className = 'fail-text'; span.textContent = '❌'; }
         finally { btn.disabled = false; }
+    }
+
+    diagCont.addEventListener('click', async (e) => {
+        if (e.target.id === 'runAllDiagBtn') {
+            e.target.disabled = true; e.target.textContent = '⏳ 全部诊断中...';
+            for (var gn in groups) { for (var idx = 0; idx < groups[gn].length; idx++) await runOneDiag(gn, idx); }
+            e.target.disabled = false; e.target.textContent = '🔍 全部诊断';
+            return;
+        }
+        if (!e.target.classList.contains('run') && !e.target.classList.contains('retest')) return;
+        var btn = e.target, gn = btn.dataset.g, idx = parseInt(btn.dataset.i);
+        await runOneDiag(gn, idx);
     });
 
     // ==================== 全面体检 UI 绑定 ====================
@@ -167,14 +192,32 @@ export function initTestRunner() {
     }
 
     // ==================== 历史记录 ====================
+    function saveHistoryList(list) {
+        if (list.length > 50) list = list.slice(0, 50);
+        localStorage.setItem('ming_test_history', JSON.stringify(list));
+    }
+
     function loadHistory() {
         const hist = JSON.parse(localStorage.getItem('ming_test_history') || '[]');
-        historyPanel.innerHTML = hist.length ? '<div style="color:#ffd700;font-weight:bold;">📜 历史记录</div>' + hist.map((h, i) => '<div class="history-item"><span>' + h.time + ' 通过' + h.pass + ' 失败' + h.fail + '</span><button data-i="' + i + '" style="font-size:10px;padding:2px 6px;">复制</button></div>').join('') : '';
-        historyPanel.style.display = hist.length ? 'block' : 'none';
+        if (!hist.length) { historyPanel.style.display = 'none'; historyPanel.innerHTML = ''; return; }
+        historyPanel.innerHTML = '<div style="color:#ffd700;font-weight:bold;display:flex;justify-content:space-between;align-items:center;"><span>📜 历史记录</span><button id="clearHistoryBtn" style="font-size:10px;padding:2px 8px;background:#f44336;color:#fff;border:none;border-radius:4px;">清空</button></div>'
+            + hist.map((h, i) => '<div class="history-item" data-id="' + (h.id || i) + '"><span>' + h.time + ' 通过' + h.pass + ' 失败' + h.fail + '</span><span><button data-action="copy" data-i="' + i + '" style="font-size:10px;padding:2px 6px;">复制</button><button data-action="del" data-i="' + i + '" style="font-size:10px;padding:2px 6px;margin-left:4px;background:#f44336;color:#fff;border:none;border-radius:4px;">删除</button></span></div>').join('');
+        historyPanel.style.display = 'block';
         historyPanel.querySelectorAll('button').forEach(b => b.addEventListener('click', (e) => {
+            e.stopPropagation();
             const i = parseInt(e.target.dataset.i);
-            const h = JSON.parse(localStorage.getItem('ming_test_history') || '[]')[i];
-            if (h) navigator.clipboard.writeText(h.text).then(() => statusEl.textContent = '📋 已复制');
+            const action = e.target.dataset.action;
+            let list = JSON.parse(localStorage.getItem('ming_test_history') || '[]');
+            if (action === 'copy') {
+                const h = list[i];
+                if (h) navigator.clipboard.writeText(h.text).then(() => statusEl.textContent = '📋 已复制');
+            } else if (action === 'del') {
+                list.splice(i, 1);
+                saveHistoryList(list);
+                loadHistory();
+            } else if (e.target.id === 'clearHistoryBtn') {
+                if (confirm('确定清空全部历史记录？')) { localStorage.removeItem('ming_test_history'); loadHistory(); }
+            }
         }));
     }
     loadHistory();
