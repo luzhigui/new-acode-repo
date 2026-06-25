@@ -1,8 +1,9 @@
 // 01config-5v5-test.js - 光明顶对战 5v5 全局配置
 // 0625 10:29 kimi: 流云身法 dodgeBonus 已调整为 0.25，描述文案同步为 +25%
 // 0625 12:38 kimi: 第五关玄冥二老拆分为鹿杖客+鹤笔翁两个独立单位，ENEMY_SQUADS[5] 5人→6人，站位模板 random 2→3
-// 版本: V3.1.2, 预估字节: 7200, 发送时间: 20260625 12:38
-export const VER = '01config-5v5-test.js V3.1.2';
+// 0625 17:51 trae: carry Buff 配置加 target: 'ally'，防止敌方吃到 Carry 加成
+// 版本: V3.1.3, 预估字节: 7200, 发送时间: 20260625 17:51
+export const VER = '01config-5v5-test.js V3.1.3';
 
 const CONFIG = {
     MING_ALL: ['张无忌', '韦一笑', '殷天正', '杨逍', '范遥', '庄铮', '颜垣', '吴劲草', '周颠', '张中', '说不得', '冷谦', '彭莹玉', '明教·洪午', '明教·岳山', '明教·石虎', '明教弟子1', '明教弟子2', '明教弟子3'],
@@ -40,7 +41,7 @@ const CONFIG = {
     },
     BUFFS: {
         doubleStrike: { name: '概率连击', desc: '己方随机一人80%概率额外攻击一次', prob: 0.8, icon: '⚡' },
-        carry: { name: '你就是carry', desc: '5号位获得队友基础加成，死亡队友加成翻倍', atkBonus: 0.08, defBonus: 0.08, hpBonus: 0.1, deathMultiplier: 3, icon: '👑' },
+        carry: { name: '你就是carry', desc: '5号位获得队友基础加成，死亡队友加成翻倍', atkBonus: 0.08, defBonus: 0.08, hpBonus: 0.1, deathMultiplier: 3, icon: '👑', target: 'ally' },
         cloudBody: { name: '流云身法', desc: '己方全体闪避概率+25%', dodgeBonus: 0.25, icon: '💨' },
         horseFormation: { name: '巨马阵', desc: '每回合开始生成巨马(20血/0攻/5防)，回合结束50%概率销毁', horseHp: 20, horseAtk: 0, horseDef: 5, spawnProb: 1.0, destroyProb: 0.5, icon: '🐴' },
         meteorShower: { name: '流星赶月', desc: '己方远程对目标造成50%额外伤害，对周围溅射50%', bonusRatio: 0.5, splashRatio: 0.5, icon: '☄️' },
