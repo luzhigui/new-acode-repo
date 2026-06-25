@@ -1,6 +1,7 @@
-// 06battle-engine-core.js - 光明顶对战 5v5 战斗核心循环 (V3.1.0 宋青书/周芷若联动)
-// 预估字节: 24800, 发送时间: 20260622 21:30, 版本: V3.1.0
-export const VER = '06battle-engine-core.js V3.1.0';
+// 06battle-engine-core.js - 光明顶对战 5v5 战斗核心循环 (V3.1.1 修复新婚扣血传入错误队伍)
+// 0625 12:38 kimi: 修复 applyXinHunDeduction 传入 enemySide→allySide，宋青书攻击时能正确找到周芷若
+// 预估字节: 24800, 发送时间: 20260625 12:38, 版本: V3.1.1
+export const VER = '06battle-engine-core.js V3.1.1';
 
 import { CONFIG, DEF_TAUNT, HP_TAUNT } from './01config-5v5-test.js';
 import { rand, calcDamage, getFangLevel, isMelee, getFronts, isBlocked, getFlyDodgeRate, getRandomTaunt, getZhangNearTaunt, makeFXSnapshot, hasBuff } from './03battle-utils.js';
@@ -342,7 +343,7 @@ allyTeamWithDead = allyTeamWithDead.filter((u, i, arr) => arr.findIndex(v => v.u
         log.push(group);
         
         // ===== V3.1.0 新婚扣血叠快乐（宋青书攻击触发） =====
-        applyXinHunDeduction(unit, enemySide, log);
+        applyXinHunDeduction(unit, allySide, log);
         
         applyPostAttackEffects(unit, target, dmg, atkAct, defAct, reboundEntry, allySide, enemySide);
 

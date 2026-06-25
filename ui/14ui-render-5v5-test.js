@@ -1,6 +1,7 @@
 // 14ui-render-5v5-test.js - 光明顶对战 5v5 UI渲染模块
-// 预估行数: 610, 发送时间: 20260619 02:10, 版本: V1.0.13
-export const VER = '14ui-render-5v5-test.js V1.0.13';
+// 0625 12:38 kimi: 补充鹿杖客/鹤笔翁/成昆技能描述，玄冥二老拆分后详情弹窗适配
+// 预估行数: 610, 发送时间: 20260625 12:38, 版本: V1.0.14
+export const VER = '14ui-render-5v5-test.js V1.0.14';
 
 import { CONFIG } from '../core/01config-5v5-test.js';
 import { showDanmaku as _showDanmaku } from '../fx/15fx-common-5v5-test.js';
@@ -120,9 +121,9 @@ function updateDetailPopupContent(activeBuffs, doubleStrikeUid) {
                 else if (u.name === '韦一笑') skills = ['寒冰掌：攻击吸血15%，增加生命上限', '青翼蝠王：基础闪避20%，无视行动状态闪避'];
                 else if (u.name === '宋青书') skills = ['叛逆突袭：优先攻击血量最高目标，伤害+20%'];
                 else if (u.name === '周芷若') skills = ['九阴白骨爪：50%概率追加30%额外伤害，不可闪避'];
-                else if (u.name === '成昆') skills = ['混元霹雳劲：附加已损失生命30%的真实伤害'];
-                else if (u.name === '鹿杖客') skills = ['玄冥神掌：攻击挂毒，每回合3%最大生命持续伤害，持续3回合'];
-                else if (u.name === '鹤笔翁') skills = ['鹿角杖法：忽略目标30%防御，对中毒目标伤害+50%'];
+                else if (u.name === '成昆') skills = ['混元霹雳劲：附加已损失生命30%的真实伤害', '高生存：作为防战，防御极高且可反弹伤害'];
+                else if (u.name === '鹿杖客') skills = ['玄冥神掌：攻击附带寒毒，每回合损失3%最大生命，持续3回合', '与鹤笔翁联动：鹤笔翁对中毒目标伤害+50%'];
+                else if (u.name === '鹤笔翁') skills = ['鹿角杖法：忽略目标30%防御', '毒伤加成：对已中毒目标伤害额外+50%'];
                 if (skills.length > 0) {
                     return `<span style="color:#888;">技能</span><span style="color:#b8860b;">${skills.join('<br>')}</span>`;
                 }
