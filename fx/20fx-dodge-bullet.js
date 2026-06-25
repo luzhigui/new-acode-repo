@@ -118,7 +118,7 @@ function triggerShake() {
 
 // ==================== 子弹时间特效 ====================
 export async function showDodgeBulletTime(attacker, defender, reboundDmg) {
-    const TIMEOUT_MS = 18000;
+    const TIMEOUT_MS = 30000;
     let isSkipped = false;
     let cleanupElements = [];
     const ctx = window._getPlayerContext ? window._getPlayerContext() : null;
@@ -160,7 +160,7 @@ export async function showDodgeBulletTime(attacker, defender, reboundDmg) {
         const dRect = dCell.getBoundingClientRect();
         cloneD.style.position = 'fixed'; cloneD.style.width = dRect.width+'px'; cloneD.style.height = dRect.height+'px';
         cloneD.style.left = innerWidth + 'px'; cloneD.style.top = pos.dy - dRect.height/2 + 'px';
-        cloneD.style.transform = 'scale(0.8)'; cloneD.style.filter = 'drop-shadow(0 0 8px gold)';
+        cloneD.style.transform = 'scale(0.8)'; cloneD.style.filter = 'drop-shadow(0 0 12px gold) brightness(1.2)';
         cloneD.style.zIndex = '10001'; document.body.appendChild(cloneD); cleanupElements.push(cloneD);
 
         const defCenterX = pos.dx + dRect.width/2, defCenterY = pos.dy + dRect.height/2;
@@ -174,6 +174,7 @@ export async function showDodgeBulletTime(attacker, defender, reboundDmg) {
         const startAX = pos.ax - innerWidth*0.06, startAY = pos.ay - innerHeight*0.06;
         cloneA.style.left = startAX + 'px'; cloneA.style.top = startAY + 'px';
         cloneA.style.zIndex = '10010'; cloneA.style.transform = 'scale(0.6)';
+        cloneA.style.filter = 'drop-shadow(0 0 12px rgba(255,215,0,0.9)) brightness(1.3)';
         document.body.appendChild(cloneA); cleanupElements.push(cloneA);
 
         // ===== 修正：“看招”气泡下移避免遮挡攻击者 =====

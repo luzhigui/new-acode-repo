@@ -44,6 +44,10 @@
         }
         .btn-music:hover { background: #3a3a6e; }
         .btn-music.muted { border-color: #888; color: #888; }
+        .dev-toolbox-grid { display: none; }
+        .dev-toolbox-grid.expanded { display: grid; }
+        .toggle-section { cursor: pointer; user-select: none; }
+        .toggle-section:hover { color: #ffd700; }
         .footer { text-align: center; margin-top: 20px; color: #666; font-size: 0.75rem; }
     </style>
 </head>
@@ -61,8 +65,8 @@
 
         <!-- 开发工具箱 -->
         <div class="section">
-            <div class="section-title">🛠️ 开发工具箱</div>
-            <div class="btn-grid">
+            <div class="section-title toggle-section" id="devToolboxToggle" onclick="document.getElementById('devToolboxGrid').classList.toggle('expanded'); this.textContent = document.getElementById('devToolboxGrid').classList.contains('expanded') ? '🛠️ 开发工具箱 ▾' : '🛠️ 开发工具箱 ▸';" style="display:flex;justify-content:space-between;">🛠️ 开发工具箱 ▸</div>
+            <div class="btn-grid dev-toolbox-grid" id="devToolboxGrid">
                 <button class="big-btn btn-tool" id="btnCopier">📋 函数替换器</button>
                 <button class="big-btn btn-tool" id="btnFileCopier">📄 文件复制器</button>
                 <button class="big-btn btn-tool" id="btnTest">🧪 测试与诊断</button>
