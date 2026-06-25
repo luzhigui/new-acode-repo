@@ -1,6 +1,7 @@
 // 04buff-system.js - 光明顶对战 5v5 Buff 系统 (分裂箭修复版)
-// 预估行数: 275, 发送时间: 20260620 08:00, 版本: V1.2.3
-export const VER = '04buff-system.js V1.2.3';
+// 0625 17:51 trae: computeBuffStats 中 carry 增加 unit.camp === 'ally' 阵营防御性检查
+// 预估行数: 275, 发送时间: 20260625 17:51, 版本: V1.2.4
+export const VER = '04buff-system.js V1.2.4';
 
 import { CONFIG } from './01config-5v5-test.js';
 import { rand, hasBuff, getUnitRow, getUnitCol, getAdjacentPositions } from './03battle-utils.js';
@@ -19,7 +20,7 @@ export function computeBuffStats(unit, activeBuffs, allyTeam) {
             if (getUnitRow(unit.pos) === buffObj.row) { defBonus += C.BUFFS.holyFlame.defBonus; }
         }
     }
-    if (hasBuff(activeBuffs, 'carry') && unit.pos === 5 && unit.alive) {
+    if (hasBuff(activeBuffs, 'carry') && unit.pos === 5 && unit.alive && unit.camp === 'ally') {
         if (allyTeam) {
             let allAllies = allyTeam.filter(u => u.uid !== unit.uid);
             let totalAtk = 0, totalDef = 0, totalHp = 0;
