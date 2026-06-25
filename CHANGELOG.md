@@ -1,5 +1,10 @@
 # 光明顶 5v5 - 更改履历
 
+## V3.1.2 — 2026-06-25
+- **第五关玄冥二老拆分**：鹿杖客（远程/玄冥神掌）+ 鹤笔翁（飞行/鹿角杖法）两个独立单位
+- ENEMY_SQUADS[5] 人数 5→6，站位模板 random 2→3
+- 新增体检规则：第五关敌方单位=6
+
 ## V3.1 — 2026-06-25
 - **项目结构重组**：JS/HTML/资源文件按功能分入 `core/` `player/` `ui/` `fx/` `modules/` `tests/` `tools/` `assets/` 子文件夹
 - **优化体检等待逻辑**：取消模拟 btnMain/投票/Buff 流程，改用 `doManualReset`/`window.selectStage` + `waitCtx`，解决超时

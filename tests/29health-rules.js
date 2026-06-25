@@ -1,5 +1,6 @@
-// 29health-rules.js - 光明顶 5v5 全身体检规则库 V3.7（误判修复版）
-// 预估字节: 10500, 发送时间: 20260625 10:00, 版本: V3.7.0
+// 29health-rules.js - 光明顶 5v5 全身体检规则库 V3.8（玄冥二老拆分版）
+// 0625 12:38 kimi: 新增第五关敌方单位=6检测规则（配合玄冥二老拆分）
+// 预估字节: 10600, 发送时间: 20260625 12:38, 版本: V3.8.0
 // 改动: 修复 data-pos 误判（分阵营检查）、玄冥/严阵/Carry/回血改运行时检测
 
 function createHealthRules(win, doc) {
@@ -53,6 +54,12 @@ function createHealthRules(win, doc) {
             }
             return checkGrid('allyGrid') && checkGrid('enemyGrid');
         }, fix: '检查 renderGrid 中 data-pos 赋值。' },
+        { group: '🎨 九宫格基础', name: '第五关敌方单位 = 6', test: function() {
+            var ctx = getCtx(); if (!ctx || !ctx.UI) return null;
+            if (ctx.currentStage !== 5) return null;
+            var enemy = ctx.UI.enemyTeam || [];
+            return enemy.filter(function(u) { return u.pos >= 1 && u.pos <= 9 && u.alive; }).length === 6;
+        }, fix: '检查 doInitBattle 中第五关敌人生成逻辑，应为6个单位。' },
 
         // ========== 血条与属性 (5条) ==========
         { group: '❤️ 血条与属性', name: '血条高度与血量同步', test: function() {
