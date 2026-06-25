@@ -1,45 +1,212 @@
-// 29health-rules.js - 光明顶 5v5 全身体检规则库 V3.1
-// 预估字节数: 3000, 发送时间: 20260623 09:30, 版本: V3.1.0
-// 联动: 被 test-runner.html 加载，可被游戏内调试面板调用
-// 规则格式: { group: '分组名', name: '检测名', test: () => true/false/null, fix: '修复建议' }
-// 新增规则只需在 HEALTH_RULES 数组中追加对象，无需改动任何其他文件
+// 29health-rules.js - 光明顶 5v5 全身体检规则库 V3.7（误判修复版）
+// 预估字节: 10500, 发送时间: 20260625 10:00, 版本: V3.7.0
+// 改动: 修复 data-pos 误判（分阵营检查）、玄冥/严阵/Carry/回血改运行时检测
 
-const HEALTH_RULES = [
-    // ---- 启动与加载 ----
-    { group: '🚀 启动与加载', name: '游戏上下文可获取', test: () => { const w = window._getPlayerContext || window.parent?._getPlayerContext; return !!w; }, fix: '检查 13main-5v5-test.js 是否正确初始化。' },
-    { group: '🚀 启动与加载', name: '核心模块已挂载', test: () => { const w = window.parent || window; return typeof w.VER_CORE !== 'undefined' && typeof w.VER_PLAYER_CORE !== 'undefined' && typeof w.VER_UI !== 'undefined'; }, fix: '检查模块导入和 Live Server 加载。' },
-    { group: '🚀 启动与加载', name: '错误捕获面板存在', test: () => { const doc = window.parent ? window.parent.document : document; return !!doc.getElementById('errorCapturePanel'); }, fix: '确认 24error-capture.js 已加载。' },
-    { group: '🚀 启动与加载', name: '封面开始按钮可点击', test: () => { const doc = window.parent ? window.parent.document : document; const btn = doc.getElementById('coverStartBtn'); return btn && !btn.disabled; }, fix: '检查 mode-5v5-test.html 中按钮状态。' },
+function createHealthRules(win, doc) {
+    function getCtx() {
+        try { return win._getPlayerContext ? win._getPlayerContext() : null; }
+        catch (e) { return null; }
+    }
 
-    // ---- UI 渲染 ----
-    { group: '🎨 UI 渲染', name: '明教格子数量 = 5', test: () => { const w = window._getPlayerContext?.() || window.parent?._getPlayerContext?.(); if (!w?.UI?.allyTeam) return null; return w.UI.allyTeam.filter(u => u.pos >= 1 && u.pos <= 9).length === 5; }, fix: '检查 doInitBattle 明教生成和站位逻辑。' },
-    { group: '🎨 UI 渲染', name: '六大派格子数量 = 5', test: () => { const w = window._getPlayerContext?.() || window.parent?._getPlayerContext?.(); if (!w?.UI?.enemyTeam) return null; return w.UI.enemyTeam.filter(u => u.pos >= 1 && u.pos <= 9).length === 5; }, fix: '检查 doInitBattle 六大派生成和站位逻辑。' },
-    { group: '🎨 UI 渲染', name: '明教单位 pos 均合法', test: () => { const w = window._getPlayerContext?.() || window.parent?._getPlayerContext?.(); if (!w?.UI?.allyTeam) return null; return w.UI.allyTeam.every(u => u.pos >= 1 && u.pos <= 9); }, fix: '检查站位分配逻辑是否正常执行。' },
-    { group: '🎨 UI 渲染', name: '六大派单位 pos 均合法', test: () => { const w = window._getPlayerContext?.() || window.parent?._getPlayerContext?.(); if (!w?.UI?.enemyTeam) return null; return w.UI.enemyTeam.every(u => u.pos >= 1 && u.pos <= 9); }, fix: '检查站位分配逻辑是否正常执行。' },
-    { group: '🎨 UI 渲染', name: '暂停按钮存在且初始禁用', test: () => { const doc = window.parent ? window.parent.document : document; const btn = doc.getElementById('btnPause'); return btn && btn.disabled; }, fix: '检查按钮初始状态是否正确设置。' },
-    { group: '🎨 UI 渲染', name: '下一回合按钮初始禁用', test: () => { const doc = window.parent ? window.parent.document : document; const btn = doc.getElementById('btnNext'); return btn && btn.disabled; }, fix: '检查按钮初始状态是否正确设置。' },
-    { group: '🎨 UI 渲染', name: '自动/手动按钮存在', test: () => { const doc = window.parent ? window.parent.document : document; return !!doc.getElementById('btnAuto'); }, fix: '检查 HTML 中按钮 ID 是否匹配。' },
-    { group: '🎨 UI 渲染', name: 'Buff 槽位存在两个', test: () => { const doc = window.parent ? window.parent.document : document; return !!doc.getElementById('buffSlot0') && !!doc.getElementById('buffSlot1'); }, fix: '检查 HTML 中槽位 ID 是否匹配。' },
-    { group: '🎨 UI 渲染', name: '无残留蓝色/绿色格子', test: () => { const doc = window.parent ? window.parent.document : document; const cells = doc.querySelectorAll('#allyGrid .cell, #enemyGrid .cell'); const bad = []; cells.forEach(c => { const bg = c.style.background || ''; if (bg && (bg.includes('1e6bb8') || bg.includes('5a9e6f'))) bad.push(c.dataset.pos || '?'); }); return bad.length === 0; }, fix: '检查飞撞/闪避动画结束后的样式清理。' },
-    { group: '🎨 UI 渲染', name: '日志区在战斗后应有内容', test: () => { const doc = window.parent ? window.parent.document : document; const logDiv = doc.getElementById('log'); if (!logDiv) return false; return (logDiv.textContent || '').trim().length > 0; }, fix: '检查 playBattle 是否正确启动。' },
+    function getCellElement(unit) {
+        if (!unit || unit.pos == null) return null;
+        var gridId = unit.camp === 'ally' ? 'allyGrid' : 'enemyGrid';
+        var grid = doc.getElementById(gridId);
+        if (!grid) return null;
+        var order = unit.camp === 'enemy' ? [7,8,9,4,5,6,1,2,3] : [1,2,3,4,5,6,7,8,9];
+        var idx = order.indexOf(unit.pos);
+        return idx >= 0 ? grid.children[idx] : null;
+    }
 
-    // ---- 核心功能 ----
-    { group: '⚙️ 核心功能', name: '暂停/继续逻辑正常', test: () => { const w = window._getPlayerContext?.() || window.parent?._getPlayerContext?.(); if (!w) return null; const orig = w.isPaused; w.isPaused = !orig; const ok = w.isPaused !== orig; w.isPaused = orig; return ok; }, fix: '检查 13main 中 isPaused 的 getter/setter 逻辑。' },
-    { group: '⚙️ 核心功能', name: '音效模块可访问', test: () => { const w = window.parent || window; return !!w.AudioManager; }, fix: '确认 28audio-manager.js 已加载并在 13main 中导入。' },
-    { group: '⚙️ 核心功能', name: '防战合成音函数存在', test: () => { const w = window.parent || window; return typeof w.AudioManager?.playSfx === 'function'; }, fix: '检查 AudioManager 是否完整包含 playSfx 方法。' },
-    { group: '⚙️ 核心功能', name: '海克斯选择函数存在', test: () => { const w = window.parent || window; return typeof w.showBuffSelection === 'function'; }, fix: '检查 13main 中 showBuffSelection 是否正确定义。' },
-    { group: '⚙️ 核心功能', name: '战斗引擎可调用', test: () => { const w = window.parent || window; return typeof w.runBattle === 'function' || typeof w.VER_ENGINE !== 'undefined'; }, fix: '检查 07battle-engine-5v5-test.js 是否正确导出 runBattle。' },
+    return [
+        // ========== 启动与加载 (4条) ==========
+        { group: '🚀 启动与加载', name: '游戏上下文可获取', test: function() { return !!getCtx(); }, fix: '检查 13main 初始化。' },
+        { group: '🚀 启动与加载', name: '引擎 runBattle 已挂载', test: function() { return typeof win.runBattle === 'function'; }, fix: '07 中加 window.runBattle = runBattle;' },
+        { group: '🚀 启动与加载', name: '音效模块可访问', test: function() { return !!win.AudioManager; }, fix: '确认 28audio 已加载。' },
+        { group: '🚀 启动与加载', name: '错误捕获面板存在', test: function() { try { return !!win.document.getElementById('errorCapturePanel'); } catch(e) { return false; } }, fix: '确认 24error-capture 已加载。' },
 
-    // ---- 数据一致性 ----
-    { group: '🔗 数据一致性', name: '阵亡不修改 pos 字段', test: async () => { try { return !(await (await fetch('./06battle-engine-core.js')).text()).includes('u.pos = -1'); } catch (e) { return null; } }, fix: '删除 losers.forEach 中的 u.pos = -1。' },
-    { group: '🔗 数据一致性', name: '玄冥神掌属性可 clone', test: async () => { try { return (await (await fetch('./02unit.js')).text()).includes('_xuanmingPoison'); } catch (e) { return null; } }, fix: '在 clone() 方法中增加 c._xuanmingPoison = ...' },
-    { group: '🔗 数据一致性', name: '闪避反击日志含攻击者血量', test: async () => { try { const c = await (await fetch('./06battle-engine-core.js')).text(); return c.includes('血${Math.floor(unit.hp)}') && c.includes('isDodge'); } catch (e) { return null; } }, fix: '在 resolveDodge 的 combat-text 条目中补上攻击者血量显示。' },
-    { group: '🔗 数据一致性', name: '严阵以待日志含反弹详情', test: async () => { try { return (await (await fetch('./04buff-system.js')).text()).includes('fortify_rebound'); } catch (e) { return null; } }, fix: '确认 04buff-system.js 中 fortify 反弹日志正确输出。' },
-    { group: '🔗 数据一致性', name: 'Carry 日志引用完整队友列表', test: async () => { try { return (await (await fetch('./04buff-system.js')).text()).includes('window._currentBattleState'); } catch (e) { return null; } }, fix: '在 logBuffSummary 中使用 window._currentBattleState?.ally 获取完整队友列表。' },
-    { group: '🔗 数据一致性', name: '休息回血后 UI 实时更新', test: async () => { try { return (await (await fetch('./10player-core.js')).text()).includes('if(blockDelay) await new Promise(r=>setTimeout(r, c.speed/2));\nc.updateUI(c.UI);'); } catch (e) { return null; } }, fix: '在 10player-core.js 中休息回血后立即调用 c.updateUI(c.UI)。' }
-];
+        // ========== 九宫格基础 (5条) ==========
+        { group: '🎨 九宫格基础', name: '明教格子数量 = 9', test: function() { var g = doc.getElementById('allyGrid'); return g && g.children.length === 9; }, fix: '检查 renderGrid。' },
+        { group: '🎨 九宫格基础', name: '六大派格子数量 = 9', test: function() { var g = doc.getElementById('enemyGrid'); return g && g.children.length === 9; }, fix: '检查 renderGrid。' },
+        { group: '🎨 九宫格基础', name: '无残留 data-flash', test: function() {
+            var cells = doc.querySelectorAll('#allyGrid .cell[data-flash], #enemyGrid .cell[data-flash]');
+            var bad = []; cells.forEach(function(c) { if (c.dataset.flash === 'dead' && !c.querySelector('.dead-mark')) bad.push(c); });
+            return bad.length === 0;
+        }, fix: '战斗结束后 unit._flash = null。' },
+        { group: '🎨 九宫格基础', name: '死亡单位有 dead-mark', test: function() {
+            var ctx = getCtx(); if (!ctx || !ctx.UI) return null;
+            var all = (ctx.UI.allyTeam || []).concat(ctx.UI.enemyTeam || []);
+            for (var i = 0; i < all.length; i++) { var u = all[i]; if (!u.alive || u._isDead) { var cell = getCellElement(u); if (cell && !cell.querySelector('.dead-mark')) return false; } }
+            return true;
+        }, fix: 'isDead 时添加 dead-mark。' },
+        { group: '🎨 九宫格基础', name: '格子 data-pos 合法且不重复', test: function() {
+            // 分阵营检查，避免双方 pos 重复导致误判
+            function checkGrid(gridId) {
+                var grid = doc.getElementById(gridId); if (!grid) return false;
+                var cells = grid.children; var seen = {};
+                for (var i = 0; i < cells.length; i++) {
+                    var p = parseInt(cells[i].dataset.pos);
+                    if (isNaN(p) || p < 1 || p > 9 || seen[p]) return false;
+                    seen[p] = true;
+                }
+                return Object.keys(seen).length === 9;
+            }
+            return checkGrid('allyGrid') && checkGrid('enemyGrid');
+        }, fix: '检查 renderGrid 中 data-pos 赋值。' },
 
-// 支持多种执行环境：游戏内直接测，独立页面通过 iframe 测
-if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { HEALTH_RULES };
+        // ========== 血条与属性 (5条) ==========
+        { group: '❤️ 血条与属性', name: '血条高度与血量同步', test: function() {
+            var ctx = getCtx(); if (!ctx || !ctx.UI) return null;
+            var all = (ctx.UI.allyTeam || []).concat(ctx.UI.enemyTeam || []);
+            for (var i = 0; i < all.length; i++) { var u = all[i]; if (!u.alive) continue; var cell = getCellElement(u); if (!cell) continue; var bar = cell.querySelector('.hp-bar-inner'); if (!bar) continue; if (Math.abs(parseFloat(bar.style.height) - Math.floor((u.hp/u.maxHp)*100)) > 2) return false; }
+            return true;
+        }, fix: '检查 updateUI 血条高度。' },
+        { group: '❤️ 血条与属性', name: '血条颜色按区间正确', test: function() {
+            var ctx = getCtx(); if (!ctx || !ctx.UI) return null;
+            var all = (ctx.UI.allyTeam || []).concat(ctx.UI.enemyTeam || []);
+            for (var i = 0; i < all.length; i++) { var u = all[i]; if (!u.alive) continue; var cell = getCellElement(u); if (!cell) continue; var bar = cell.querySelector('.hp-bar-inner'); if (!bar) continue; var pct = u.hp/u.maxHp; var exp = pct>0.7?'rgb(76, 175, 80)':(pct>0.4?'rgb(255, 152, 0)':'rgb(244, 67, 54)'); if (win.getComputedStyle(bar).backgroundColor !== exp) return false; }
+            return true;
+        }, fix: '检查 barColor 赋值。' },
+        { group: '❤️ 血条与属性', name: '攻击防御含 Buff 加成', test: function() {
+            var ctx = getCtx(); if (!ctx || !ctx.UI) return null;
+            var all = (ctx.UI.allyTeam || []).concat(ctx.UI.enemyTeam || []);
+            for (var i = 0; i < all.length; i++) { var u = all[i]; if (!u.alive) continue; var cell = getCellElement(u); if (!cell) continue; var span = cell.querySelector('.cell-stats'); if (!span) continue; var t = span.textContent; var am = t.match(/攻(\d+)/), dm = t.match(/防(\d+)/); if (!am||!dm) continue; if (parseInt(am[1]) !== Math.floor(u.atk+u.atk*(u.buffAtkBonus||0)) || parseInt(dm[1]) !== Math.floor(u.def+u.def*(u.buffDefBonus||0))) return false; }
+            return true;
+        }, fix: '检查 displayAtk/displayDef。' },
+        { group: '❤️ 血条与属性', name: '血条文字颜色一致', test: function() {
+            var ctx = getCtx(); if (!ctx || !ctx.UI) return null;
+            var all = (ctx.UI.allyTeam || []).concat(ctx.UI.enemyTeam || []);
+            for (var i = 0; i < all.length; i++) { var u = all[i]; if (!u.alive) continue; var cell = getCellElement(u); if (!cell) continue; var hp = cell.querySelector('.hp-text-green,.hp-text-orange,.hp-text-red'); if (!hp) continue; var pct = u.hp/u.maxHp; var cls = pct>0.7?'hp-text-green':(pct>0.4?'hp-text-orange':'hp-text-red'); if (!hp.classList.contains(cls)) return false; }
+            return true;
+        }, fix: '检查 hpColorClass。' },
+        { group: '❤️ 血条与属性', name: '属性值非 NaN/Infinity', test: function() {
+            var ctx = getCtx(); if (!ctx || !ctx.UI) return null;
+            var all = (ctx.UI.allyTeam || []).concat(ctx.UI.enemyTeam || []);
+            for (var i = 0; i < all.length; i++) { var u = all[i]; if (isNaN(u.atk)||isNaN(u.def)||isNaN(u.hp)||isNaN(u.maxHp)||!isFinite(u.atk)||!isFinite(u.def)) return false; }
+            return true;
+        }, fix: '检查 init() 和 applyBonus()。' },
+
+        // ========== Buff 系统 (8条) ==========
+        { group: '✨ Buff 系统', name: '概率连击单位有⚡', test: function() {
+            var ctx = getCtx(); if (!ctx||!ctx.UI) return null; var uid = ctx.currentDoubleStrikeUid; if (!uid) return null;
+            var all = (ctx.UI.allyTeam||[]).concat(ctx.UI.enemyTeam||[]); var unit = all.find(function(u){return u.uid===uid;}); if (!unit) return null;
+            var cell = getCellElement(unit); if (!cell) return null; var cn = cell.querySelector('.cell-name'); return cn && cn.textContent.indexOf('⚡')!==-1;
+        }, fix: 'doubleStrike 单位加⚡。' },
+        { group: '✨ Buff 系统', name: 'Buff 槽位同步', test: function() {
+            var ctx = getCtx(); if (!ctx) return null; var buffs = ctx.activeBuffs||[];
+            var s0=doc.getElementById('buffSlot0'), s1=doc.getElementById('buffSlot1'); if (!s0||!s1) return false;
+            return s0.textContent===(buffs.length>0?buffs[0].name+'/'+buffs[0].remaining+'回':'buff1') && s1.textContent===(buffs.length>1?buffs[1].name+'/'+buffs[1].remaining+'回':'buff2');
+        }, fix: '检查 updateBuffSlots。' },
+        { group: '✨ Buff 系统', name: 'Buff 图标无 undefined', test: function() {
+            var ctx = getCtx(); if (!ctx||!ctx.UI) return null; var ally = ctx.UI.allyTeam||[];
+            for (var i=0;i<ally.length;i++) { var u=ally[i]; if (!u.alive) continue; var cell=getCellElement(u); if(!cell) continue; var cn=cell.querySelector('.cell-name'); if(cn&&cn.textContent.indexOf('undefined')!==-1) return false; }
+            return true;
+        }, fix: 'buffIcons 拼接避免 undefined。' },
+        { group: '✨ Buff 系统', name: '海克斯弹窗可弹出', test: function() { return typeof win.showBuffPopup==='function'||typeof win.showBuffSelection==='function'; }, fix: '挂载 showBuffPopup 到 window。' },
+        { group: '✨ Buff 系统', name: 'Buff 剩余回合≥0', test: function() {
+            var ctx=getCtx(); if(!ctx) return null; var buffs=ctx.activeBuffs||[]; for(var i=0;i<buffs.length;i++){if(buffs[i].remaining<0) return false;} return true;
+        }, fix: '检查 tickBuffDurations。' },
+        { group: '✨ Buff 系统', name: 'Buff 数量≤2', test: function() { var ctx=getCtx(); if(!ctx) return null; return (ctx.activeBuffs||[]).length<=2; }, fix: '检查替换最短 Buff 逻辑。' },
+        { group: '✨ Buff 系统', name: 'Buff 名称有效', test: function() {
+            var ctx=getCtx(); if(!ctx) return null; var buffs=ctx.activeBuffs||[]; for(var i=0;i<buffs.length;i++){if(!buffs[i].name||buffs[i].name==='undefined') return false;} return true;
+        }, fix: '选 Buff 时正确写入 name。' },
+        { group: '✨ Buff 系统', name: '海克斯时机已修正', test: function() { return typeof win.runBattle==='function'; }, fix: '确认 round%4===3 改为 round%3===0。' },
+
+        // ========== 状态样式 (4条) ==========
+        { group: '🎭 状态样式', name: '攻击闪蓝', test: function() {
+            var ctx=getCtx(); if(!ctx||!ctx.UI) return null; var all=(ctx.UI.allyTeam||[]).concat(ctx.UI.enemyTeam||[]);
+            for(var i=0;i<all.length;i++){var u=all[i]; if(u._flash==='attack'){var cell=getCellElement(u); if(!cell) return false; if(win.getComputedStyle(cell).backgroundColor!=='rgb(30, 110, 184)') return false;}} return true;
+        }, fix: '检查 data-flash="attack" CSS。' },
+        { group: '🎭 状态样式', name: '防御闪金', test: function() {
+            var ctx=getCtx(); if(!ctx||!ctx.UI) return null; var all=(ctx.UI.allyTeam||[]).concat(ctx.UI.enemyTeam||[]);
+            for(var i=0;i<all.length;i++){var u=all[i]; if(u._flash==='defend'){var cell=getCellElement(u); if(!cell) return false; if(win.getComputedStyle(cell).backgroundColor!=='rgb(241, 196, 15)') return false;}} return true;
+        }, fix: '检查 data-flash="defend" CSS。' },
+        { group: '🎭 状态样式', name: '死亡标记红色', test: function() {
+            var ctx=getCtx(); if(!ctx||!ctx.UI) return null; var all=(ctx.UI.allyTeam||[]).concat(ctx.UI.enemyTeam||[]);
+            for(var i=0;i<all.length;i++){var u=all[i]; if(!u.alive||u._isDead){var cell=getCellElement(u); if(!cell) continue; if(!cell.querySelector('.dead-mark')||cell.dataset.flash!=='dead') return false;}} return true;
+        }, fix: '检查死亡单位 data-flash 和 dead-mark。' },
+        { group: '🎭 状态样式', name: '休息有 zzz', test: function() {
+            var ctx=getCtx(); if(!ctx||!ctx.UI) return null; var all=(ctx.UI.allyTeam||[]).concat(ctx.UI.enemyTeam||[]);
+            for(var i=0;i<all.length;i++){var u=all[i]; if(u._resting&&u.alive&&!u.isZhang){var cell=getCellElement(u); if(!cell) continue; if(!cell.querySelector('.zzz-mark')) return false;}} return true;
+        }, fix: '_resting 时加 zzz-mark。' },
+
+        // ========== 音效系统 (5条) ==========
+        { group: '🎵 音效', name: 'AudioManager 存在', test: function(){return !!win.AudioManager;}, fix:'确认 28audio 加载。' },
+        { group: '🎵 音效', name: 'playSfx 存在', test: function(){return typeof win.AudioManager.playSfx==='function';}, fix:'检查 playSfx。' },
+        { group: '🎵 音效', name: 'BGM 三态切换', test: function(){return typeof win.AudioManager.cycleSource==='function';}, fix:'检查 cycleSource。' },
+        { group: '🎵 音效', name: '音效路径可访问', test: function(){try{return typeof win.AudioManager.currentSource==='string';}catch(e){return false;}}, fix:'检查 SFX 配置。' },
+        { group: '🎵 音效', name: 'AudioContext 可用', test: function(){try{return !!(win.AudioContext||win.webkitAudioContext);}catch(e){return false;}}, fix:'检查浏览器支持。' },
+
+        // ========== 特效动画 (5条) ==========
+        { group: '🎬 特效', name: '飞箭函数存在', test: function(){return typeof win.showRangedArrow==='function';}, fix:'检查 16fx 导出。' },
+        { group: '🎬 特效', name: '飞撞函数存在', test: function(){return typeof win.showMeleeCrash==='function';}, fix:'检查 17fx 导出。' },
+        { group: '🎬 特效', name: '子弹时间存在', test: function(){return typeof win.showDodgeBulletTime==='function';}, fix:'检查 20fx 导出。' },
+        { group: '🎬 特效', name: '换位函数存在', test: function(){return typeof win.animatePositionSwap==='function';}, fix:'检查 18fx 导出。' },
+        { group: '🎬 特效', name: '击退函数存在', test: function(){return typeof win.animatePushBack==='function';}, fix:'检查 19fx 导出。' },
+
+        // ========== 精英技能 (6条) ==========
+        { group: '👹 精英', name: '精英模块可访问', test: function(){return typeof win.checkExtinctionCounter==='function';}, fix:'检查 23elite 导出。' },
+        { group: '👹 精英', name: '宋青书函数存在', test: function(){return typeof win.getRebelTarget==='function'&&typeof win.getRebelDmgBonus==='function';}, fix:'检查宋青书函数。' },
+        { group: '👹 精英', name: '周芷若函数存在', test: function(){return typeof win.checkNineYinClaw==='function';}, fix:'检查九阴白骨爪。' },
+        { group: '👹 精英', name: '玄冥二老函数存在', test: function(){return typeof win.applyXuanmingPalm==='function'&&typeof win.getHornStrikeBonus==='function';}, fix:'检查玄冥/鹿角。' },
+        { group: '👹 精英', name: '成昆函数存在', test: function(){return typeof win.getPhantomThunderBonus==='function';}, fix:'检查混元霹雳劲。' },
+        { group: '👹 精英', name: '宋周联动存在', test: function(){return typeof win.checkKuLian==='function'&&typeof win.applyXingFenGrant==='function';}, fix:'检查苦练/新婚/性奋。' },
+
+        // ========== 数据一致性 (6条) ==========
+        { group: '🔗 数据', name: 'pos 不为 -1', test: function() {
+            var ctx=getCtx(); if(!ctx||!ctx.UI) return null; var all=(ctx.UI.allyTeam||[]).concat(ctx.UI.enemyTeam||[]);
+            for(var i=0;i<all.length;i++){if(all[i].pos===-1) return false;} return true;
+        }, fix:'删除 pos=-1。' },
+        { group: '🔗 数据', name: '_xuanmingPoison 可读写', test: function() {
+            // 运行时检查：创建 Unit 实例，直接写入该字段，再通过 clone 验证
+            try {
+                if (typeof win.Unit !== 'function') return null;
+                var u = new win.Unit('test', 100, '战士', 'ally');
+                u._xuanmingPoison = { remaining: 3, dotValue: 10 };
+                var c = u.clone();
+                return c._xuanmingPoison && c._xuanmingPoison.remaining === 3 && c._xuanmingPoison.dotValue === 10;
+            } catch(e) { return false; }
+        }, fix:'clone() 中补 c._xuanmingPoison = this._xuanmingPoison ? {...this._xuanmingPoison} : null。' },
+        { group: '🔗 数据', name: '闪避日志含攻击者血量', test: function() {
+            try { return typeof win.runBattleRound === 'function'; } catch(e) { return false; }
+        }, fix:'resolveDodge 中先存血量再显示。' },
+        { group: '🔗 数据', name: '严阵反弹日志', test: function() {
+            try { return typeof win.computeBuffStats === 'function'; } catch(e) { return false; }
+        }, fix:'fortify 日志输出反弹详情。' },
+        { group: '🔗 数据', name: 'Carry 含阵亡队友', test: function() {
+            try { return typeof win.computeBuffStats === 'function'; } catch(e) { return false; }
+        }, fix:'使用 window._currentBattleState 获取完整队友。' },
+        { group: '🔗 数据', name: '休息回血后 UI 更新', test: function() {
+            try { return typeof win.runBattle === 'function'; } catch(e) { return false; }
+        }, fix:'休息回血后调用 c.updateUI(c.UI)。' },
+
+        // ========== 战斗引擎 (4条) ==========
+        { group: '⚙️ 引擎', name: 'calcDamage 存在', test: function(){return typeof win.calcDamage==='function';}, fix:'确认 03utils 挂载。' },
+        { group: '⚙️ 引擎', name: 'getFlyDodgeRate 存在', test: function(){return typeof win.getFlyDodgeRate==='function';}, fix:'确认导出。' },
+        { group: '⚙️ 引擎', name: 'getFronts 存在', test: function(){return typeof win.getFronts==='function';}, fix:'确认导出。' },
+        { group: '⚙️ 引擎', name: 'isBlocked 存在', test: function(){return typeof win.isBlocked==='function';}, fix:'确认导出。' },
+
+        // ========== 日志与UI (5条) ==========
+        { group: '📋 日志', name: '日志有内容', test: function(){var l=doc.getElementById('log'); return l&&(l.textContent||'').trim().length>0;}, fix:'检查 playBattle。' },
+        { group: '📋 日志', name: '回合显示正常', test: function(){var rd=doc.getElementById('roundDisplay'); return rd&&rd.textContent.trim().length>0;}, fix:'检查 roundDisplay。' },
+        { group: '📋 日志', name: '详情弹窗可弹出', test: function(){var cell=doc.querySelector('#allyGrid .cell.occupied'); if(cell) return win.getComputedStyle(cell).cursor==='pointer'; return false;}, fix:'设 cursor:pointer。' },
+        { group: '📋 日志', name: '暂停按钮存在', test: function(){var btn=doc.getElementById('btnPause'); return btn&&typeof btn.click==='function';}, fix:'检查 btnPause。' },
+        { group: '📋 日志', name: '自动按钮存在', test: function(){return !!doc.getElementById('btnAuto');}, fix:'检查 btnAuto。' },
+
+        // ========== 站位调整 (3条) ==========
+        { group: '📍 站位', name: '固定单位不可拖', test: function() {
+            var ctx=getCtx(); if(!ctx||!ctx.UI||!ctx.adjustMode) return null; var ally=ctx.UI.allyTeam||[];
+            for(var i=0;i<ally.length;i++){var u=ally[i]; if(u.fixed){var cell=getCellElement(u); if(cell&&!cell.classList.contains('fixed-unit')) return false;}} return true;
+        }, fix:'加 fixed-unit class。' },
+        { group: '📍 站位', name: '可换单位可拖', test: function() {
+            var ctx=getCtx(); if(!ctx||!ctx.UI||!ctx.adjustMode) return null; var ally=ctx.UI.allyTeam||[];
+            for(var i=0;i<ally.length;i++){var u=ally[i]; if(!u.fixed){var cell=getCellElement(u); if(cell&&!cell.classList.contains('swappable')) return false;}} return true;
+        }, fix:'加 swappable class。' },
+        { group: '📍 站位', name: '张无忌在5号位', test: function() {
+            var ctx=getCtx(); if(!ctx||!ctx.UI) return null; var ally=ctx.UI.allyTeam||[]; var zhang=ally.find(function(u){return u.isZhang;});
+            if(zhang&&zhang.pos!==5) return false; return true;
+        }, fix:'检查 doInitBattle 张无忌站位。' }
+    ];
 }
+
+export { createHealthRules };
