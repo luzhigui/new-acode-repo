@@ -1,8 +1,7 @@
-// 07battle-engine-5v5-test.js - 光明顶对战 5v5 战斗引擎入口
-// 版本: V1.0.26, 预估行数: 50
-export const VER = '07battle-engine-5v5-test.js test V1.0.26';
+// 07battle-engine-5v5-test.js - 战斗引擎入口 (全局函数挂载补全版)
+// 预估行数: 100, 发送时间: 20260625 09:30, 版本: V1.0.28
+export const VER = '07battle-engine-5v5-test.js test V1.0.28';
 
-// 补全所有子模块的函数导入
 import { Unit } from './02unit.js';
 import {
     rand, calcDamage, getFangLevel, isMelee,
@@ -20,6 +19,35 @@ import {
 import { spawnHorse, destroyHorse } from './05battle-horse.js';
 import { runBattleRound, runBattle } from './06battle-engine-core.js';
 
+// 特效函数
+import { showRangedArrow, showSplashArrows } from './16fx-arrows-5v5-test.js';
+import { showMeleeCrash, showMeleeDodge, showMeleeMiss } from './17fx-crash-5v5-test.js';
+import { animatePositionSwap } from './18fx-position-swap.js';
+import { animatePushBack, animatePushSwap } from './19fx-push-back.js';
+import { showDodgeBulletTime } from './20fx-dodge-bullet.js';
+
+// 精英技能函数
+import {
+    checkExtinctionCounter,
+    checkNineYinClaw,
+    getRebelTarget,
+    getRebelDmgBonus,
+    getRebelTrueDmg,
+    getPhantomThunderBonus,
+    applyXuanmingPalm,
+    tickXuanmingPoison,
+    getHornStrikeBonus,
+    checkKuLian,
+    applyXingFenGrant,
+    applyXinHunDeduction,
+    tickKuaiLeHeal,
+    canXingFenTrigger,
+    consumeXingFen
+} from './23elite-skills.js';
+
+// Buff UI 函数（海克斯弹窗）
+import { showBuffPopup } from './09player-buff-ui.js';
+
 // 子模块版本号
 import { VER as VER_UNIT } from './02unit.js';
 import { VER as VER_UTILS } from './03battle-utils.js';
@@ -27,7 +55,55 @@ import { VER as VER_BUFF } from './04buff-system.js';
 import { VER as VER_HORSE } from './05battle-horse.js';
 import { VER as VER_CORE } from './06battle-engine-core.js';
 
-// 统一导出（main-5v5-test.js 需要通过这些名字引用）
+// ===================== 全局函数挂载 =====================
+// 核心类
+window.Unit = Unit;
+
+// 工具函数
+window.calcDamage = calcDamage;
+window.getFlyDodgeRate = getFlyDodgeRate;
+window.getFronts = getFronts;
+window.isBlocked = isBlocked;
+window.computeBuffStats = computeBuffStats;
+window.applyBuffEffectsBeforeAttack = applyBuffEffectsBeforeAttack;
+window.applyBuffEffectsAfterAttack = applyBuffEffectsAfterAttack;
+
+// 战斗引擎
+window.runBattle = runBattle;
+window.runBattleRound = runBattleRound;
+
+// 特效函数
+window.showRangedArrow = showRangedArrow;
+window.showSplashArrows = showSplashArrows;
+window.showMeleeCrash = showMeleeCrash;
+window.showMeleeDodge = showMeleeDodge;
+window.showMeleeMiss = showMeleeMiss;
+window.showDodgeBulletTime = showDodgeBulletTime;
+window.animatePositionSwap = animatePositionSwap;
+window.animatePushBack = animatePushBack;
+window.animatePushSwap = animatePushSwap;
+
+// 精英技能函数
+window.checkExtinctionCounter = checkExtinctionCounter;
+window.checkNineYinClaw = checkNineYinClaw;
+window.getRebelTarget = getRebelTarget;
+window.getRebelDmgBonus = getRebelDmgBonus;
+window.getRebelTrueDmg = getRebelTrueDmg;
+window.getPhantomThunderBonus = getPhantomThunderBonus;
+window.applyXuanmingPalm = applyXuanmingPalm;
+window.tickXuanmingPoison = tickXuanmingPoison;
+window.getHornStrikeBonus = getHornStrikeBonus;
+window.checkKuLian = checkKuLian;
+window.applyXingFenGrant = applyXingFenGrant;
+window.applyXinHunDeduction = applyXinHunDeduction;
+window.tickKuaiLeHeal = tickKuaiLeHeal;
+window.canXingFenTrigger = canXingFenTrigger;
+window.consumeXingFen = consumeXingFen;
+
+// Buff 弹窗
+window.showBuffPopup = showBuffPopup;
+
+// ===================== 原有导出 (保持不变) =====================
 export { Unit };
 export { rand, calcDamage, getFangLevel, isMelee, getFronts, isBlocked, getFlyDodgeRate };
 export { getRandomTaunt, getKillTaunt, getZhangNearTaunt, makeFXSnapshot };
@@ -44,4 +120,3 @@ export const ALL_VERS = {
     horse: VER_HORSE,
     core: VER_CORE
 };
-window.isBlocked = isBlocked;
