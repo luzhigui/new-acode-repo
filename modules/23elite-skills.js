@@ -2,7 +2,7 @@
 // 预估字节: 6800, 发送时间: 20260622 21:00, 版本: V3.1.0
 export const VER = '23elite-skills.js V3.1.0';
 
-import { CONFIG } from './01config-5v5-test.js';
+import { CONFIG } from '../core/01config-5v5-test.js';
 const ES = CONFIG.ELITE_SKILLS;
 
 /**

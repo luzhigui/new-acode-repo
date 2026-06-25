@@ -4,25 +4,25 @@
 // 联动: 修复 doInitBattle 站位初始化值，确保数据驱动视图
 export const VER = '13main-5v5-test.js V3.0.2';
 
-import './24error-capture.js';
-import { CONFIG, STATE, KILL_TAUNT, ENEMY_M, VER as CFG_VER } from './01config-5v5-test.js';
-import { Unit, rand, runBattle, getRandomTaunt, getKillTaunt, getZhangNearTaunt, makeFXSnapshot, VER as BE_VER } from './07battle-engine-5v5-test.js';
+import '../modules/24error-capture.js';
+import { CONFIG, STATE, KILL_TAUNT, ENEMY_M, VER as CFG_VER } from '../core/01config-5v5-test.js';
+import { Unit, rand, runBattle, getRandomTaunt, getKillTaunt, getZhangNearTaunt, makeFXSnapshot, VER as BE_VER } from '../core/07battle-engine-5v5-test.js';
 import { stripTags, renderGrid, updateUI, spawnVictoryEffects, clearLogExceptFirst, isUnitBenefitedByBuff, VER as UI_VER } from './14ui-render-5v5-test.js';
-import { showDanmaku, showDamageFloat, showDodgeBubble, showHealFloat, VER as FX_VER } from './15fx-common-5v5-test.js';
-import { showRangedArrow, VER as FA_VER } from './16fx-arrows-5v5-test.js';
-import { showMeleeCrash, showMeleeDodge, showMeleeMiss, VER as FC_VER } from './17fx-crash-5v5-test.js';
-import { playBattle, playLineText, clearAllEffects, handleBuffSummon, handleBuffDestroy, handleBuffLeech, handleBuffSplash, VER as BP_VER } from './11battle-player-5v5-test.js';
+import { showDanmaku, showDamageFloat, showDodgeBubble, showHealFloat, VER as FX_VER } from '../fx/15fx-common-5v5-test.js';
+import { showRangedArrow, VER as FA_VER } from '../fx/16fx-arrows-5v5-test.js';
+import { showMeleeCrash, showMeleeDodge, showMeleeMiss, VER as FC_VER } from '../fx/17fx-crash-5v5-test.js';
+import { playBattle, playLineText, clearAllEffects, handleBuffSummon, handleBuffDestroy, handleBuffLeech, handleBuffSplash, VER as BP_VER } from '../player/11battle-player-5v5-test.js';
 import { showModal, showAlert, updateCoverVersion, startApp as loadModules } from './12main-utils.js';
-import { AudioManager } from './28audio-manager.js';
+import { AudioManager } from '../modules/28audio-manager.js';
 
-import { VER as VER_BUFF } from './04buff-system.js';
-import { VER as VER_HORSE } from './05battle-horse.js';
-import { VER as VER_CORE } from './06battle-engine-core.js';
-import { VER as VER_PLAYER_CORE } from './10player-core.js';
-import { VER as VER_UNIT } from './02unit.js';
-import { VER as VER_UTILS } from './03battle-utils.js';
-import { VER as VER_TEXT } from './08player-text.js';
-import { VER as VER_BUFF_UI } from './09player-buff-ui.js';
+import { VER as VER_BUFF } from '../core/04buff-system.js';
+import { VER as VER_HORSE } from '../core/05battle-horse.js';
+import { VER as VER_CORE } from '../core/06battle-engine-core.js';
+import { VER as VER_PLAYER_CORE } from '../player/10player-core.js';
+import { VER as VER_UNIT } from '../core/02unit.js';
+import { VER as VER_UTILS } from '../core/03battle-utils.js';
+import { VER as VER_TEXT } from '../player/08player-text.js';
+import { VER as VER_BUFF_UI } from '../player/09player-buff-ui.js';
 import { VER as VER_MAIN_UTILS } from './12main-utils.js';
 
 const C = CONFIG, S = STATE, KT = KILL_TAUNT;

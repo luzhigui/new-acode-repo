@@ -2,8 +2,8 @@
 // 预估行数: 610, 发送时间: 20260619 02:10, 版本: V1.0.13
 export const VER = '14ui-render-5v5-test.js V1.0.13';
 
-import { CONFIG } from './01config-5v5-test.js';
-import { showDanmaku as _showDanmaku } from './15fx-common-5v5-test.js';
+import { CONFIG } from '../core/01config-5v5-test.js';
+import { showDanmaku as _showDanmaku } from '../fx/15fx-common-5v5-test.js';
 const showDanmaku = (...args) => { if (typeof _showDanmaku === 'function') return _showDanmaku(...args); };
 
 export function stripTags(html) { let div = document.createElement('div'); div.innerHTML = html; return div.textContent || ''; }

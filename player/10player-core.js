@@ -2,17 +2,17 @@
 // 预估行数: 430, 发送时间: 20260621 15:30, 版本: V3.0.1
 export const VER = '10player-core.js V3.0.1';
 
-import { runBattleRound } from './07battle-engine-5v5-test.js';
-import { isBlocked } from './03battle-utils.js';
-import { showDanmaku, showDamageFloat, showDodgeBubble, showHealFloat, applyBrushEffect, showBuffBanner, showCriticalBanner } from './15fx-common-5v5-test.js';
-import { showDodgeBulletTime } from './20fx-dodge-bullet.js';
-import { showRangedArrow, showSplashArrows } from './16fx-arrows-5v5-test.js';
-import { CONFIG } from './01config-5v5-test.js';
+import { runBattleRound } from '../core/07battle-engine-5v5-test.js';
+import { isBlocked } from '../core/03battle-utils.js';
+import { showDanmaku, showDamageFloat, showDodgeBubble, showHealFloat, applyBrushEffect, showBuffBanner, showCriticalBanner } from '../fx/15fx-common-5v5-test.js';
+import { showDodgeBulletTime } from '../fx/20fx-dodge-bullet.js';
+import { showRangedArrow, showSplashArrows } from '../fx/16fx-arrows-5v5-test.js';
+import { CONFIG } from '../core/01config-5v5-test.js';
 import { playLineText } from './08player-text.js';
 import { showBuffPopup, handleBuffSummon, handleBuffDestroy, handleBuffLeech, handleBuffSplash } from './09player-buff-ui.js';
-import { animatePositionSwap } from './18fx-position-swap.js';
-import { animatePushBack } from './19fx-push-back.js';
-import { AudioManager } from './28audio-manager.js';
+import { animatePositionSwap } from '../fx/18fx-position-swap.js';
+import { animatePushBack } from '../fx/19fx-push-back.js';
+import { AudioManager } from '../modules/28audio-manager.js';
 
 // 安全包装 showDanmaku，防止模块加载异常时崩溃
 const safeShowDanmaku = (...args) => { try { return showDanmaku(...args); } catch(e) {} };

@@ -2,8 +2,8 @@
 // 预估行数: 120, 发送时间: 20260621 08:00, 版本: V3.0.0
 export const VER = '27auto-battle-utils.js V3.0.0';
 
-import { CONFIG, ENEMY_M } from './01config-5v5-test.js';
-import { Unit, rand, runBattle } from './07battle-engine-5v5-test.js';
+import { CONFIG, ENEMY_M } from '../core/01config-5v5-test.js';
+import { Unit, rand, runBattle } from '../core/07battle-engine-5v5-test.js';
 const C = CONFIG;
 
 // 纯数据快照生成器

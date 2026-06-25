@@ -11,7 +11,7 @@ import {
     checkExtinctionCounter, checkNineYinClaw, getRebelTarget, getRebelDmgBonus, getRebelTrueDmg,
     getPhantomThunderBonus, applyXuanmingPalm, tickXuanmingPoison, getHornStrikeBonus,
     checkKuLian, applyXingFenGrant, applyXinHunDeduction, tickKuaiLeHeal, canXingFenTrigger, consumeXingFen
-} from './23elite-skills.js';
+} from '../modules/23elite-skills.js';
 const C = CONFIG, DT = DEF_TAUNT, HT = HP_TAUNT;
 
 export function runBattleRound(state) {
