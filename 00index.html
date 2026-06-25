@@ -1,4 +1,5 @@
-<!-- 00index.html - 光明顶项目·开发集成入口 -->
+<!-- 00index.html - 光明顶项目·开发集成入口 V3.1 -->
+<!-- 2026-06-25 变更记录：版本升级到 V3.1；优化体检等待逻辑；清空历史记录改用自定义确认弹窗；30test-runner 下掉环境诊断页签 -->
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
@@ -47,8 +48,8 @@
 <body>
     <div class="container">
         <h1>⚔️ 光明顶</h1>
-        <div class="subtitle">V3.0 开发集成控制台</div>
-        <div style="text-align:center;color:#4caf50;font-size:0.8rem;margin-top:-20px;margin-bottom:25px;">✅ 2026-06-23 Bug修复已应用（showDanmaku安全调用 / carry阵亡加成 / 闪避血量显示）</div>
+        <div class="subtitle">V3.1 开发集成控制台</div>
+        <div style="text-align:center;color:#4caf50;font-size:0.8rem;margin-top:-20px;margin-bottom:25px;">✅ 2026-06-25 优化体检等待逻辑 / 清空历史记录弹窗修复 / 下掉环境诊断页签</div>
 
         <!-- 核心游戏 -->
         <div class="section">
@@ -74,7 +75,7 @@
             <button class="big-btn btn-music" id="btnBGM">🎵 背景音乐：播放中</button>
         </div>
 
-        <div class="footer">光明顶 · 开发控制台 V3.0</div>
+        <div class="footer">光明顶 · 开发控制台 V3.1</div>
     </div>
 
     <script>
@@ -83,19 +84,19 @@
             window.open('mode-5v5-test.html', '_blank');
         });
         document.getElementById('btnCopier').addEventListener('click', () => {
-            window.open('31function-copier.html', '_blank');
+            window.open('tools/31function-copier.html', '_blank');
         });
         document.getElementById('btnFileCopier').addEventListener('click', () => {
-            window.open('34file-copier.html', '_blank');
+            window.open('tools/34file-copier.html', '_blank');
         });
         document.getElementById('btnTest').addEventListener('click', () => {
             window.open('30test-runner.html', '_blank');
         });
         document.getElementById('btnAutoBattle').addEventListener('click', () => {
-            window.open('32auto-battle.html', '_blank');
+            window.open('tools/32auto-battle.html', '_blank');
         });
         document.getElementById('btnFirstAid').addEventListener('click', () => {
-            window.open('33first-aid-kit.html', '_blank');
+            window.open('tools/33first-aid-kit.html', '_blank');
         });
 
         // ==================== 独立背景音乐 ====================
@@ -104,7 +105,7 @@
 
         function initBGM() {
             try {
-                bgm = new Audio('xinai.m4a');
+                bgm = new Audio('assets/xinai.m4a');
                 bgm.loop = true;
                 bgm.volume = 0.6;
             } catch (e) {

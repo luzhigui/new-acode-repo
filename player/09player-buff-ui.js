@@ -2,9 +2,9 @@
 // 预估行数: 296, 发送时间: 20260621 14:30, 版本: V1.0.9
 export const VER = '09player-buff-ui.js V1.0.9';
 
-import { CONFIG } from './01config-5v5-test.js';
-import { Unit } from './07battle-engine-5v5-test.js';
-import { showDamageFloat, showHealFloat, showBuffBanner } from './15fx-common-5v5-test.js';
+import { CONFIG } from '../core/01config-5v5-test.js';
+import { Unit } from '../core/07battle-engine-5v5-test.js';
+import { showDamageFloat, showHealFloat, showBuffBanner } from '../fx/15fx-common-5v5-test.js';
 
 let ctx = null;
 function getCtx() {

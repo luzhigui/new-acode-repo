@@ -1,12 +1,33 @@
-// 38health-ui.js - 光明顶 5v5 测试与体检 UI 交互模块 V2.0
-// 0625 10:29 kimi: 环境诊断支持一键全部诊断，历史记录支持删除单条/清空；修复诊断结果状态显示
-// 预估行数: 200, 发送时间: 20260625 18:00, 版本: V2.1.0
+// 38health-ui.js - 光明顶 5v5 测试与体检 UI 交互模块 V2.2
+// 2026-06-25 kimi: 清空历史记录改用自定义确认弹窗；环境诊断代码用 if(diagCont) 包裹，兼容 30test-runner 下掉诊断页签
+// 预估行数: 230, 发送时间: 20260625 18:00, 版本: V2.2.0
 // 联动: 被 30test-runner.html 调用，集中管理所有 UI 逻辑
 // 变更: 将 30 内联 JS 全部移入，30 只保留 HTML 骨架
 
 import { runTests } from './25unit-tests.js';
 import { runHealthCheck } from './37health-core.js';
 import { loadQuizBank, saveCustomQuiz } from './35quiz-bank.js';
+
+function showCustomConfirm(msg, onConfirm, onCancel) {
+    const overlay = document.createElement('div');
+    overlay.className = 'modal-overlay';
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;z-index:9999;';
+    const box = document.createElement('div');
+    box.style.cssText = 'background:#16213e;border:2px solid #ffd700;border-radius:12px;padding:20px;max-width:300px;text-align:center;color:#eee;';
+    box.innerHTML = '<div style="margin-bottom:16px;font-size:14px;">' + msg + '</div>';
+    const btns = document.createElement('div');
+    btns.style.cssText = 'display:flex;gap:12px;justify-content:center;';
+    const ok = document.createElement('button');
+    ok.textContent = '确定';
+    ok.style.cssText = 'padding:8px 16px;background:#f44336;color:#fff;border:none;border-radius:6px;font-weight:bold;cursor:pointer;';
+    const cancel = document.createElement('button');
+    cancel.textContent = '取消';
+    cancel.style.cssText = 'padding:8px 16px;background:#444;color:#fff;border:none;border-radius:6px;cursor:pointer;';
+    ok.addEventListener('click', () => { document.body.removeChild(overlay); if (onConfirm) onConfirm(); });
+    cancel.addEventListener('click', () => { document.body.removeChild(overlay); if (onCancel) onCancel(); });
+    btns.appendChild(ok); btns.appendChild(cancel);
+    box.appendChild(btns); overlay.appendChild(box); document.body.appendChild(overlay);
+}
 
 export function initTestRunner() {
     // ==================== 标签页切换 ====================
@@ -30,67 +51,69 @@ export function initTestRunner() {
         } catch (e) { err('❌ ' + e.message); }
     });
 
-    // ==================== 环境诊断 ====================
+    // ==================== 环境诊断（已下掉页签，保留代码兼容） ====================
     const diagCont = document.getElementById('diagnosisContainer');
-    const diagItems = [
-        { g: '🎵', n: 'AudioManager', t: () => !!window.AudioManager, f: '确认 28audio 已加载', reqGame: true },
-        { g: '⚔️', n: '固定单位=3', t: () => { var c = window._getPlayerContext?.(); return c?.UI?.allyTeam?.filter(u => u.fixed).length === 3; }, f: '检查 doInitBattle', reqGame: true },
-        { g: '⚔️', n: '明教pos非-1', t: () => { var c = window._getPlayerContext?.(); return c?.UI?.allyTeam?.every(u => u.pos !== -1); }, f: '改为 null', reqGame: true },
-        { g: '⚔️', n: '六大派pos合法', t: () => { var c = window._getPlayerContext?.(); return c?.UI?.enemyTeam?.every(u => u.pos >= 1 && u.pos <= 9); }, f: '检查兜底', reqGame: true },
-        { g: '📦', n: '错误面板', t: () => !!document.getElementById('errorCapturePanel'), f: '24 未加载', reqGame: true },
-        { g: '📦', n: '06核心', t: () => typeof window.VER_CORE !== 'undefined', f: '检查 06', reqGame: true },
-        { g: '📦', n: '10播放器', t: () => typeof window.VER_PLAYER_CORE !== 'undefined', f: '检查 10', reqGame: true },
-    ];
-    const inGamePage = () => typeof window.VER_CORE !== 'undefined';
-    var groups = {}; diagItems.forEach(i => { if (!groups[i.g]) groups[i.g] = []; groups[i.g].push(i); });
+    if (diagCont) {
+        const diagItems = [
+            { g: '🎵', n: 'AudioManager', t: () => !!window.AudioManager, f: '确认 28audio 已加载', reqGame: true },
+            { g: '⚔️', n: '固定单位=3', t: () => { var c = window._getPlayerContext?.(); return c?.UI?.allyTeam?.filter(u => u.fixed).length === 3; }, f: '检查 doInitBattle', reqGame: true },
+            { g: '⚔️', n: '明教pos非-1', t: () => { var c = window._getPlayerContext?.(); return c?.UI?.allyTeam?.every(u => u.pos !== -1); }, f: '改为 null', reqGame: true },
+            { g: '⚔️', n: '六大派pos合法', t: () => { var c = window._getPlayerContext?.(); return c?.UI?.enemyTeam?.every(u => u.pos >= 1 && u.pos <= 9); }, f: '检查兜底', reqGame: true },
+            { g: '📦', n: '错误面板', t: () => !!document.getElementById('errorCapturePanel'), f: '24 未加载', reqGame: true },
+            { g: '📦', n: '06核心', t: () => typeof window.VER_CORE !== 'undefined', f: '检查 06', reqGame: true },
+            { g: '📦', n: '10播放器', t: () => typeof window.VER_PLAYER_CORE !== 'undefined', f: '检查 10', reqGame: true },
+        ];
+        const inGamePage = () => typeof window.VER_CORE !== 'undefined';
+        var groups = {}; diagItems.forEach(i => { if (!groups[i.g]) groups[i.g] = []; groups[i.g].push(i); });
 
-    var gdAll = document.createElement('div');
-    gdAll.innerHTML = '<div style="margin-bottom:8px;padding:6px;background:#2a2a4e;border-radius:4px;color:#aaa;font-size:12px;">⚠️ 以下诊断项需要在 mode-5v5-test.html 游戏页面内运行，在 30test-runner 页面里大部分项目会因全局变量未挂载而显示失败。</div><button id="runAllDiagBtn" style="width:auto;padding:8px 16px;margin:0 0 12px 0;font-size:13px;">🔍 全部诊断</button>';
-    diagCont.appendChild(gdAll);
+        var gdAll = document.createElement('div');
+        gdAll.innerHTML = '<div style="margin-bottom:8px;padding:6px;background:#2a2a4e;border-radius:4px;color:#aaa;font-size:12px;">⚠️ 以下诊断项需要在 mode-5v5-test.html 游戏页面内运行，在 30test-runner 页面里大部分项目会因全局变量未挂载而显示失败。</div><button id="runAllDiagBtn" style="width:auto;padding:8px 16px;margin:0 0 12px 0;font-size:13px;">🔍 全部诊断</button>';
+        diagCont.appendChild(gdAll);
 
-    for (var gn in groups) {
-        var gd = document.createElement('div');
-        gd.innerHTML = '<div class="group-title">' + gn + '</div><div class="diagnosis-grid"></div>';
-        var grid = gd.querySelector('.diagnosis-grid');
-        groups[gn].forEach((it, idx) => {
-            var card = document.createElement('div'); card.className = 'diag-card pending'; card.id = 'diag-' + gn + '-' + idx;
-            card.innerHTML = '<div class="diag-name">' + it.n + '</div><div class="diag-status"><span class="pending-text">⏳</span></div><div class="diag-fix">🔧 ' + it.f + '</div><button class="diag-btn run" data-g="' + gn + '" data-i="' + idx + '">▶</button>';
-            grid.appendChild(card);
-        });
-        diagCont.appendChild(gd);
-    }
+        for (var gn in groups) {
+            var gd = document.createElement('div');
+            gd.innerHTML = '<div class="group-title">' + gn + '</div><div class="diagnosis-grid"></div>';
+            var grid = gd.querySelector('.diagnosis-grid');
+            groups[gn].forEach((it, idx) => {
+                var card = document.createElement('div'); card.className = 'diag-card pending'; card.id = 'diag-' + gn + '-' + idx;
+                card.innerHTML = '<div class="diag-name">' + it.n + '</div><div class="diag-status"><span class="pending-text">⏳</span></div><div class="diag-fix">🔧 ' + it.f + '</div><button class="diag-btn run" data-g="' + gn + '" data-i="' + idx + '">▶</button>';
+                grid.appendChild(card);
+            });
+            diagCont.appendChild(gd);
+        }
 
-    async function runOneDiag(gn, idx) {
-        var item = groups[gn][idx];
-        var card = document.getElementById('diag-' + gn + '-' + idx), span = card.querySelector('.diag-status span');
-        var btn = card.querySelector('.diag-btn');
-        btn.textContent = '⏳'; btn.disabled = true; card.classList.remove('pass', 'fail'); card.classList.add('pending');
-        try {
-            if (item.reqGame && !inGamePage()) {
-                card.classList.remove('pending'); btn.textContent = '▶'; btn.classList.remove('retest'); btn.classList.add('run');
-                card.classList.add('fail'); span.className = 'fail-text'; span.textContent = '未加载';
+        async function runOneDiag(gn, idx) {
+            var item = groups[gn][idx];
+            var card = document.getElementById('diag-' + gn + '-' + idx), span = card.querySelector('.diag-status span');
+            var btn = card.querySelector('.diag-btn');
+            btn.textContent = '⏳'; btn.disabled = true; card.classList.remove('pass', 'fail'); card.classList.add('pending');
+            try {
+                if (item.reqGame && !inGamePage()) {
+                    card.classList.remove('pending'); btn.textContent = '▶'; btn.classList.remove('retest'); btn.classList.add('run');
+                    card.classList.add('fail'); span.className = 'fail-text'; span.textContent = '未加载';
+                    return;
+                }
+                var r = item.t.constructor.name === 'AsyncFunction' ? await item.t() : item.t();
+                card.classList.remove('pending'); btn.textContent = '🔄'; btn.classList.remove('run'); btn.classList.add('retest');
+                if (r === true) { card.classList.add('pass'); span.className = 'pass-text'; span.textContent = '✅'; }
+                else if (r === null) { card.classList.add('pending'); span.className = 'pending-text'; span.textContent = '⚠️'; }
+                else { card.classList.add('fail'); span.className = 'fail-text'; span.textContent = '❌'; }
+            } catch (err) { card.classList.add('fail'); span.className = 'fail-text'; span.textContent = '❌'; }
+            finally { btn.disabled = false; }
+        }
+
+        diagCont.addEventListener('click', async (e) => {
+            if (e.target.id === 'runAllDiagBtn') {
+                e.target.disabled = true; e.target.textContent = '⏳ 全部诊断中...';
+                for (var gn in groups) { for (var idx = 0; idx < groups[gn].length; idx++) await runOneDiag(gn, idx); }
+                e.target.disabled = false; e.target.textContent = '🔍 全部诊断';
                 return;
             }
-            var r = item.t.constructor.name === 'AsyncFunction' ? await item.t() : item.t();
-            card.classList.remove('pending'); btn.textContent = '🔄'; btn.classList.remove('run'); btn.classList.add('retest');
-            if (r === true) { card.classList.add('pass'); span.className = 'pass-text'; span.textContent = '✅'; }
-            else if (r === null) { card.classList.add('pending'); span.className = 'pending-text'; span.textContent = '⚠️'; }
-            else { card.classList.add('fail'); span.className = 'fail-text'; span.textContent = '❌'; }
-        } catch (err) { card.classList.add('fail'); span.className = 'fail-text'; span.textContent = '❌'; }
-        finally { btn.disabled = false; }
+            if (!e.target.classList.contains('run') && !e.target.classList.contains('retest')) return;
+            var btn = e.target, gn = btn.dataset.g, idx = parseInt(btn.dataset.i);
+            await runOneDiag(gn, idx);
+        });
     }
-
-    diagCont.addEventListener('click', async (e) => {
-        if (e.target.id === 'runAllDiagBtn') {
-            e.target.disabled = true; e.target.textContent = '⏳ 全部诊断中...';
-            for (var gn in groups) { for (var idx = 0; idx < groups[gn].length; idx++) await runOneDiag(gn, idx); }
-            e.target.disabled = false; e.target.textContent = '🔍 全部诊断';
-            return;
-        }
-        if (!e.target.classList.contains('run') && !e.target.classList.contains('retest')) return;
-        var btn = e.target, gn = btn.dataset.g, idx = parseInt(btn.dataset.i);
-        await runOneDiag(gn, idx);
-    });
 
     // ==================== 全面体检 UI 绑定 ====================
     const runBtn = document.getElementById('runAutoCheckBtn');
@@ -216,7 +239,7 @@ export function initTestRunner() {
                 saveHistoryList(list);
                 loadHistory();
             } else if (e.target.id === 'clearHistoryBtn') {
-                if (confirm('确定清空全部历史记录？')) { localStorage.removeItem('ming_test_history'); loadHistory(); }
+                showCustomConfirm('确定清空全部历史记录？', () => { localStorage.removeItem('ming_test_history'); loadHistory(); });
             }
         }));
     }

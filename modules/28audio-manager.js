@@ -2,7 +2,7 @@
 // 预估行数: 150, 发送时间: 20260620 23:00, 版本: V3.0.0
 export const VER = '28audio-manager.js V3.0.0';
 
-import { CONFIG } from './01config-5v5-test.js';
+import { CONFIG } from '../core/01config-5v5-test.js';
 
 let audioCtx = null;
 function getAudioCtx() {

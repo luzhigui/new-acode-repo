@@ -4,9 +4,9 @@
 // 变更: 修正 Carry 测试预期值（deathMultiplier=3），新增 20+ 条测试覆盖边界
 export const VER = '25unit-tests.js V2.2.1';
 
-import { calcDamage, getFronts, isBlocked, getFlyDodgeRate, getUnitRow, getUnitCol, getAdjacentPositions } from './03battle-utils.js';
-import { computeBuffStats } from './04buff-system.js';
-import { Unit } from './02unit.js';
+import { calcDamage, getFronts, isBlocked, getFlyDodgeRate, getUnitRow, getUnitCol, getAdjacentPositions } from '../core/03battle-utils.js';
+import { computeBuffStats } from '../core/04buff-system.js';
+import { Unit } from '../core/02unit.js';
 
 export function runTests(logFn, errorFn) {
     const log = logFn || console.log;

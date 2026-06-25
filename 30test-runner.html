@@ -1,12 +1,12 @@
-<!-- 30test-runner.html - 光明顶 5v5 测试与全身体检中心 V4.2 -->
-<!-- 预估字节数: 5000, 发送时间: 20260625 18:00, 版本: V4.2.0 -->
-<!-- 变更: 内联 JS 全部移入 38health-ui.js，30 只保留 HTML 骨架 -->
+<!-- 30test-runner.html - 光明顶 5v5 测试与全身体检中心 V4.3 -->
+<!-- 预估字节数: 5000, 发送时间: 20260625 18:00, 版本: V4.3.0 -->
+<!-- 变更: 内联 JS 全部移入 38health-ui.js；下掉环境诊断页签；保留诊断代码以便后续复用 -->
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>光明顶 5v5 测试与诊断 V4.1</title>
+    <title>光明顶 5v5 测试与诊断 V4.3</title>
     <style>
         body { background: #1a1a2e; color: #eee; font-family: monospace; padding: 12px; font-size: 13px; margin: 0; }
         h2 { color: #ffd700; text-align: center; margin: 8px 0; }
@@ -41,10 +41,9 @@
     </style>
 </head>
 <body>
-<h2>⚔️ 光明顶 5v5 测试与诊断 V4.1</h2>
+<h2>⚔️ 光明顶 5v5 测试与诊断 V4.3</h2>
 <div class="tabs">
     <button class="tab-btn active" data-tab="core-tests">🧪 核心测试</button>
-    <button class="tab-btn" data-tab="env-diag">🔍 环境诊断</button>
     <button class="tab-btn" data-tab="health-check">💚 全面体检</button>
 </div>
 <div class="tab-panel active" id="core-tests">
@@ -52,7 +51,6 @@
     <div id="results"></div>
     <div id="coreSummary" class="summary" style="display:none;"></div>
 </div>
-<div class="tab-panel" id="env-diag"><div id="diagnosisContainer"></div></div>
 <div class="tab-panel" id="health-check">
     <div class="stage-checkboxes" id="stageCheckboxes">
         <label><input type="checkbox" value="1" checked> 1关</label><label><input type="checkbox" value="2" checked> 2关</label>
@@ -85,7 +83,7 @@
     <iframe id="autoIframe" sandbox="allow-scripts allow-same-origin allow-popups allow-forms"></iframe>
 </div>
 <script type="module">
-import { initTestRunner } from './38health-ui.js';
+import { initTestRunner } from './tests/38health-ui.js';
 initTestRunner();
 </script>
 </body>

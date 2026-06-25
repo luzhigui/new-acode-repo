@@ -1,6 +1,6 @@
-// 37health-core.js - 光明顶 5v5 全面体检核心逻辑 V2.0
-// 0625 10:29 kimi: 改用 window.selectStage 切换关卡，修复第二关初始化失败；报告和历史记录增加 id 字段
-// 预估行数: 280, 发送时间: 20260625 17:00, 版本: V2.1.0
+// 37health-core.js - 光明顶 5v5 全面体检核心逻辑 V2.2
+// 2026-06-25 kimi: 增加 waitGameReady，等模块初始化后再点封面；取消模拟 btnMain/投票/Buff 流程，改用 doManualReset/selectStage + waitCtx，解决超时
+// 预估行数: 300, 发送时间: 20260625 17:00, 版本: V2.2.0
 // 联动: 被 30test-runner.html 调用，依赖 29health-rules.js
 // 改动: 精简掉答题/反馈 UI 逻辑（已移至 30），专注体检核心流程 + 报告内联展示
 
@@ -58,6 +58,23 @@ export async function runHealthCheck(config) {
         check();
     });
 
+    // 等待游戏模块初始化完成（_getPlayerContext 已挂载且阵容已生成）
+    const waitGameReady = (timeout = 20000) => new Promise((resolve, reject) => {
+        const start = Date.now();
+        const check = () => {
+            try {
+                const ctx = W()._getPlayerContext?.();
+                if (ctx?.UI?.allyTeam?.length === 5 && ctx?.UI?.enemyTeam?.length === 5) resolve(ctx);
+                else if (Date.now() - start > timeout) reject(new Error('游戏模块初始化超时'));
+                else setTimeout(check, 400);
+            } catch (e) {
+                if (Date.now() - start > timeout) reject(new Error('游戏模块初始化超时'));
+                else setTimeout(check, 400);
+            }
+        };
+        check();
+    });
+
     const gameUrl = window.location.href.replace(/30test-runner\.html.*/, 'mode-5v5-test.html');
     iframe.src = gameUrl;
 
@@ -67,9 +84,11 @@ export async function runHealthCheck(config) {
             iframe.addEventListener('load', () => { clearTimeout(timeout); resolve(); }, { once: true });
         });
 
+        // 等模块初始化后再点封面，避免事件监听还没挂上
+        await waitGameReady(20000);
         const coverBtn = await waitFor('#coverStartBtn');
         coverBtn.click();
-        await new Promise(r => setTimeout(r, 800));
+        await new Promise(r => setTimeout(r, 500));
 
         const results = [];
 
@@ -80,32 +99,16 @@ export async function runHealthCheck(config) {
             progText.textContent = `第 ${s} 关 (${idx + 1}/${selectedStages.length})`;
             statusEl.textContent = `正在检测第 ${s} 关...`;
 
-            if (idx === 0 && s !== 1) {
-                await safeSelectStage(s, W, waitCtx);
-            } else if (idx > 0) {
-                await safeSelectStage(s, W, waitCtx);
-            }
-
-            const mainBtn = await waitFor('#btnMain');
-            mainBtn.click(); await new Promise(r => setTimeout(r, 400));
-            mainBtn.click(); await new Promise(r => setTimeout(r, 400));
-
             try {
-                const voteOverlay = await waitFor('#voteModalOverlay', 6000);
-                const skipBtn = voteOverlay.querySelector('.modal-btn.skip');
-                if (skipBtn) { skipBtn.click(); await new Promise(r => setTimeout(r, 400)); }
-            } catch (e) {}
-
-            try {
-                const buffOverlay = await waitFor('#buffModalOverlay', 10000);
-                const firstBuff = buffOverlay.querySelector('.modal-btn');
-                if (firstBuff) { firstBuff.click(); await new Promise(r => setTimeout(r, 400)); }
-            } catch (e) {}
-
-            try {
-                await waitCtx(30000);
+                if (idx === 0 && s === 1) {
+                    // 第一关直接重置为初始状态，确保阵容新鲜
+                    if (typeof W().doManualReset === 'function') W().doManualReset();
+                } else {
+                    await safeSelectStage(s, W, waitCtx);
+                }
+                await waitCtx(15000);
             } catch (e) {
-                results.push({ stage: s, error: '战斗初始化超时' });
+                results.push({ stage: s, error: '关卡初始化超时' });
                 continue;
             }
 
