@@ -201,11 +201,59 @@ function initGlowSystem() {
         else if (dist <= 2 * frame.w + frame.h) return { x: frame.x + frame.w - (dist - frame.w - frame.h), y: frame.y + frame.h };
         else return { x: frame.x, y: frame.y + frame.h - (dist - 2 * frame.w - frame.h) };
     }
-    function drawLight(data, time) { /* 光效绘制代码不变 */ }
+    function drawLight(data, time) {
+        const { frame, lights, cell } = data;
+        lights.forEach(light => {
+            light.progress = ((light.progress + globalSpeed * 0.003) % 1 + 1) % 1;
+            const center = (light.progress + globalLightLength / 2) % 1;
+            const start = light.progress;
+            const end = (light.progress + globalLightLength) % 1;
+            if (start > end) {
+                drawLightSegment(frame, start, 1, light, ctx);
+                drawLightSegment(frame, 0, end, light, ctx);
+            } else {
+                drawLightSegment(frame, start, end, light, ctx);
+            }
+        });
+    }
+    function drawLightSegment(frame, from, to, light, ctx) {
+        const steps = 20;
+        for (let i = 0; i < steps; i++) {
+            const t = from + (to - from) * (i / steps);
+            const pt = getPointOnPath(frame, t);
+            const alpha = Math.sin((i / steps) * Math.PI) * 0.9;
+            const dist = globalWave;
+            ctx.beginPath();
+            ctx.arc(pt.x, pt.y, globalGlow, 0, Math.PI * 2);
+            ctx.fillStyle = `rgba(${frame.rgb.r},${frame.rgb.g},${frame.rgb.b},${alpha})`;
+            ctx.shadowColor = `rgba(${frame.rgb.r},${frame.rgb.g},${frame.rgb.b},0.8)`;
+            ctx.shadowBlur = globalWave;
+            ctx.fill();
+            ctx.shadowBlur = 0;
+        }
+    }
     let lastTime = 0;
-    function animate(time) { /* 动画循环代码不变 */ }
+    function animate(time) {
+        if (!lightsOn) { requestAnimationFrame(animate); return; }
+        if (!lastTime) lastTime = time;
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        cellsLightData.forEach(data => { drawLight(data, time); });
+        lastTime = time;
+        requestAnimationFrame(animate);
+    }
     resizeCanvas(); collectCellsData(); requestAnimationFrame(animate);
     window.addEventListener('resize', () => { resizeCanvas(); collectCellsData(); });
+    window._updateGlowColors = (buffIndex) => {
+        if (buffIndex >= 0 && buffIndex < activeBuffs.length) {
+            lightsOn = true;
+            currentLightColor = activeBuffs[buffIndex].color || '#d2691e';
+            collectCellsData();
+        } else {
+            lightsOn = false;
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+        }
+    };
+    window._refreshGlowCells = () => { if (lightsOn) collectCellsData(); };
 }
 
 function doInitBattle() {
@@ -383,7 +431,7 @@ function updateScoreBadge() { document.getElementById('scoreBadge').textContent 
 function lowerBGM() { setBGMVolume(0.3); }
 function onAnyButtonClick() { if (!gameStarted) return; if (AudioManager.enabled && AudioManager.audio && AudioManager.audio.volume > 0.3) lowerBGM(); }
 function autoScrollLog() { if (userScrolled) return; let logDiv = document.getElementById('log'); if (logDiv) logDiv.scrollTop = logDiv.scrollHeight; }
-function onLogUserScroll() { let logDiv = document.getElementById('log'); if (!logDiv) return; let threshold = 10; let distToBottom = logDiv.scrollHeight - logDiv.scrollTop - logDiv.clientHeight; userScrolled = distToBottom > threshold; }
+function onLogUserScroll() { let logDiv = document.getElementById('log'); if (!logDiv) return; let threshold = 2; let distToBottom = logDiv.scrollHeight - logDiv.scrollTop - logDiv.clientHeight; userScrolled = distToBottom > threshold; }
 
 function logTeamInfo(label) {
     let ally = UI.allyTeam, enemy = UI.enemyTeam; if (!ally.length || !enemy.length) return;
