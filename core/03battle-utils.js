@@ -63,3 +63,4 @@ export function getAdjacentPositions(pos) {
     }
     return adj;
 }
+window.BattleUtils = { rand, calcDamage, getFangLevel, isMelee, getFronts, isBlocked, getFlyDodgeRate, getRandomTaunt, getKillTaunt, getZhangNearTaunt, makeFXSnapshot, hasBuff, getUnitRow, getUnitCol, getAdjacentPositions };
