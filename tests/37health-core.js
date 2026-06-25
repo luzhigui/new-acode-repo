@@ -1,6 +1,7 @@
-// 37health-core.js - 光明顶 5v5 全面体检核心逻辑 V2.2
+// 37health-core.js - 光明顶 5v5 全面体检核心逻辑 V2.2.1
 // 2026-06-25 kimi: 增加 waitGameReady，等模块初始化后再点封面；取消模拟 btnMain/投票/Buff 流程，改用 doManualReset/selectStage + waitCtx，解决超时
-// 预估行数: 300, 发送时间: 20260625 17:00, 版本: V2.2.0
+// 0625 18:10 trae: 修复 30test-runner.html 移入 tools/ 后游戏路径错误（从 tools/ 往根目录找）
+// 预估行数: 300, 发送时间: 20260625 18:10, 版本: V2.2.1
 // 联动: 被 30test-runner.html 调用，依赖 29health-rules.js
 // 改动: 精简掉答题/反馈 UI 逻辑（已移至 30），专注体检核心流程 + 报告内联展示
 
@@ -75,7 +76,9 @@ export async function runHealthCheck(config) {
         check();
     });
 
-    const gameUrl = window.location.href.replace(/30test-runner\.html.*/, 'mode-5v5-test.html');
+    // 30test-runner.html 已移入 tools/，需要从根目录找游戏页面
+    const baseUrl = window.location.href.replace(/tools\/.*$/, '');
+    const gameUrl = baseUrl + 'mode-5v5-test.html';
     iframe.src = gameUrl;
 
     try {
