@@ -7,10 +7,12 @@ export function showModal(text, buttons, onChoice, canMinimize) {
     let box = document.createElement('div'); box.className = 'modal-box';
     let inner = `<div class="modal-text">${text}</div>` + (canMinimize ? '<span class="modal-minimize" id="modalMinimize">∧</span>' : '') + '<div class="modal-buttons"></div>';
     box.innerHTML = inner; let btnsDiv = box.querySelector('.modal-buttons');
-    buttons.forEach(b => { let btn = document.createElement('button'); btn.className = 'modal-btn ' + (b.cls || ''); btn.textContent = b.text; btn.addEventListener('click', () => { document.body.removeChild(overlay); document.getElementById('voteFloat').style.display = 'none'; if (onChoice) onChoice(b.value); }); btnsDiv.appendChild(btn); });
+    buttons.forEach(b => { let btn = document.createElement('button'); btn.className = 'modal-btn ' + (b.cls || ''); btn.textContent = b.text; btn.addEventListener('click', () => { if (document.body.contains(overlay)) document.body.removeChild(overlay); let float = document.getElementById('voteFloat'); if (float) float.style.display = 'none'; if (onChoice) onChoice(b.value); }); btnsDiv.appendChild(btn); });
     overlay.appendChild(box); document.body.appendChild(overlay);
-    overlay.addEventListener('click', function(e) { if (e.target === overlay) { overlay.style.display = 'none'; document.getElementById('voteFloat').style.display = 'flex'; } });
-    if (canMinimize) { document.getElementById('modalMinimize').addEventListener('click', () => { overlay.style.display = 'none'; document.getElementById('voteFloat').style.display = 'flex'; }); }
+    if (canMinimize) {
+        overlay.addEventListener('click', function(e) { if (e.target === overlay) { overlay.style.display = 'none'; let float = document.getElementById('voteFloat'); if (float) float.style.display = 'flex'; } });
+        document.getElementById('modalMinimize').addEventListener('click', () => { overlay.style.display = 'none'; let float = document.getElementById('voteFloat'); if (float) float.style.display = 'flex'; });
+    }
 }
 
 export function showAlert(text, onOk) { let overlay = document.createElement('div'); overlay.className = 'modal-overlay'; let box = document.createElement('div'); box.className = 'modal-box'; box.innerHTML = `<div class="modal-text">${text}</div><div class="modal-buttons"><button class="modal-btn confirm">确定</button></div>`; overlay.appendChild(box); document.body.appendChild(overlay); box.querySelector('.confirm').addEventListener('click', () => { document.body.removeChild(overlay); if (onOk) onOk(); }); }
@@ -45,7 +47,7 @@ export async function startApp(updateCoverVersion) {
         '04buff-system.js': '../core/04buff-system.js',
         '06battle-engine-core.js': '../core/06battle-engine-core.js',
         '10player-core.js': '../player/10player-core.js',
-        '13main-5v5-test.js': '../ui/13main-5v5-test.js',
+
         '14ui-render-5v5-test.js': '../ui/14ui-render-5v5-test.js',
         '17fx-crash-5v5-test.js': '../fx/17fx-crash-5v5-test.js',
         '20fx-dodge-bullet.js': '../fx/20fx-dodge-bullet.js',
