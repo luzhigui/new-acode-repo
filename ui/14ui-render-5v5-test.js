@@ -213,7 +213,7 @@ export function renderGrid(id, team, camp, debugMode, oldTeam) {
         else if (unit._flash) { div.setAttribute('data-flash', unit._flash); }
         div.dataset.pos = pos;
         if (camp === 'ally') {
-            if (unit.fixed) { div.classList.add('fixed-unit'); }
+            if (unit.fixed && isAdjustMode) { div.classList.add('fixed-unit'); }
             if (isAdjustMode) { div.classList.add('swappable'); if (selectedPos === pos) div.classList.add('adjust-selected'); }
         }
         if (unit.isHorse && unit.alive && !unit._isDead && !unit._horseSpawned) {
