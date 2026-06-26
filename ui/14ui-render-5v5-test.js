@@ -64,6 +64,7 @@ function openDetailPopup(unit, team, activeBuffs, doubleStrikeUid) {
     closeBtn.addEventListener('click', (e) => { e.stopPropagation(); closeDetailPopup(); });
     detailPopup.appendChild(closeBtn);
     updateDetailPopupContent(activeBuffs, doubleStrikeUid);
+    if (!detailPopup) return; // updateDetailPopupContent 可能已关闭弹窗
     document.body.appendChild(detailPopup);
     setTimeout(() => { document.addEventListener('click', closeDetailPopupOnClick); }, 100);
     detailPopupInterval = setInterval(() => {

@@ -20,7 +20,7 @@ export function updateCoverVersion(loaded, failed) {
     if (!el) return;
     let html = '';
     const allMods = { ...loaded, ...failed };
-    const order = ['01config-5v5-test.js','02unit.js','03battle-utils.js','04buff-system.js','05battle-horse.js','06battle-engine-core.js','07battle-engine-5v5-test.js','08player-text.js','09player-buff-ui.js','10player-core.js','11battle-player-5v5-test.js','12main-utils.js','13main-5v5-test.js','14ui-render-5v5-test.js','15fx-common-5v5-test.js','16fx-arrows-5v5-test.js','17fx-crash-5v5-test.js','18fx-position-swap.js','19fx-push-back.js','20fx-dodge-bullet.js','21fx-blood-slash.js','22fx-fortify-counter.js','23elite-skills.js','24error-capture.js','28audio-manager.js'];
+    const order = ['01config-5v5-test.js','02unit.js','04buff-system.js','06battle-engine-core.js','10player-core.js','13main-5v5-test.js','14ui-render-5v5-test.js','17fx-crash-5v5-test.js','20fx-dodge-bullet.js','23elite-skills.js','28audio-manager.js'];
     let shown = new Set();
     for (let name of order) {
         let info = allMods[name];
@@ -42,28 +42,14 @@ export async function startApp(updateCoverVersion) {
     const modules = {
         '01config-5v5-test.js': '../core/01config-5v5-test.js',
         '02unit.js': '../core/02unit.js',
-        '03battle-utils.js': '../core/03battle-utils.js',
         '04buff-system.js': '../core/04buff-system.js',
-        '05battle-horse.js': '../core/05battle-horse.js',
         '06battle-engine-core.js': '../core/06battle-engine-core.js',
-        '07battle-engine-5v5-test.js': '../core/07battle-engine-5v5-test.js',
-        '08player-text.js': '../player/08player-text.js',
-        '09player-buff-ui.js': '../player/09player-buff-ui.js',
         '10player-core.js': '../player/10player-core.js',
-        '11battle-player-5v5-test.js': '../player/11battle-player-5v5-test.js',
-        '12main-utils.js': '../ui/12main-utils.js',
         '13main-5v5-test.js': '../ui/13main-5v5-test.js',
         '14ui-render-5v5-test.js': '../ui/14ui-render-5v5-test.js',
-        '15fx-common-5v5-test.js': '../fx/15fx-common-5v5-test.js',
-        '16fx-arrows-5v5-test.js': '../fx/16fx-arrows-5v5-test.js',
         '17fx-crash-5v5-test.js': '../fx/17fx-crash-5v5-test.js',
-        '18fx-position-swap.js': '../fx/18fx-position-swap.js',
-        '19fx-push-back.js': '../fx/19fx-push-back.js',
         '20fx-dodge-bullet.js': '../fx/20fx-dodge-bullet.js',
-        '21fx-blood-slash.js': '../fx/21fx-blood-slash.js',
-        '22fx-fortify-counter.js': '../fx/22fx-fortify-counter.js',
         '23elite-skills.js': '../modules/23elite-skills.js',
-        '24error-capture.js': '../modules/24error-capture.js',
         '28audio-manager.js': '../modules/28audio-manager.js'
     };
     for (const [name, path] of Object.entries(modules)) {
