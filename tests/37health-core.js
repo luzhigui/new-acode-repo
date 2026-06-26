@@ -1,7 +1,8 @@
-// 37health-core.js - 光明顶 5v5 全面体检核心逻辑 V2.2.1
+// 37health-core.js - 光明顶 5v5 全面体检核心逻辑 V2.3.0
+// 2026-06-26 trae: 修复 iframe display:none 导致视觉规则误判；safeSelectStage 降级路径修复；allRules 提取到循环外；localStorage 加 try-catch
 // 2026-06-25 kimi: 增加 waitGameReady，等模块初始化后再点封面；取消模拟 btnMain/投票/Buff 流程，改用 doManualReset/selectStage + waitCtx，解决超时
 // 0625 18:10 trae: 修复 30test-runner.html 移入 tools/ 后游戏路径错误（从 tools/ 往根目录找）
-// 预估行数: 300, 发送时间: 20260625 18:10, 版本: V2.2.1
+// 预估行数: 320, 发送时间: 20260626, 版本: V2.3.0
 // 联动: 被 30test-runner.html 调用，依赖 29health-rules.js
 // 改动: 精简掉答题/反馈 UI 逻辑（已移至 30），专注体检核心流程 + 报告内联展示
 
@@ -79,6 +80,7 @@ export async function runHealthCheck(config) {
     // 30test-runner.html 已移入 tools/，需要从根目录找游戏页面
     const baseUrl = window.location.href.replace(/tools\/.*$/, '');
     const gameUrl = baseUrl + 'mode-5v5-test.html?t=' + Date.now();
+    iframe.style.display = 'block';
     iframe.src = gameUrl;
 
     try {
@@ -100,6 +102,8 @@ export async function runHealthCheck(config) {
         await waitCtx(20000);
 
         const results = [];
+        // 规则在循环外创建一次，避免每关重复
+        const allRules = createHealthRules(W(), D());
 
         for (let idx = 0; idx < selectedStages.length; idx++) {
             const s = selectedStages[idx];
@@ -109,10 +113,12 @@ export async function runHealthCheck(config) {
             statusEl.textContent = `正在检测第 ${s} 关...`;
 
             try {
-                if (idx === 0 && s === 1) {
-                    // 第一关直接重置为初始状态，确保阵容新鲜
+                if (idx === 0) {
+                    // 首关先重置为干净状态，确保阵容新鲜
                     if (typeof W().doManualReset === 'function') W().doManualReset();
                     await waitCtx(15000);
+                    // 如果首关不是第1关，需要额外切换
+                    if (s !== 1) await safeSelectStage(s, W, waitCtx);
                 } else {
                     await safeSelectStage(s, W, waitCtx);
                 }
@@ -127,7 +133,6 @@ export async function runHealthCheck(config) {
                 continue;
             }
 
-            const allRules = createHealthRules(W(), D());
             const rules = allRules.filter(r => selectedGroups.includes(r.group));
             const pass = [], fail = [];
 
@@ -200,9 +205,13 @@ async function safeSelectStage(stage, W, waitCtx) {
     try {
         if (typeof W().doManualReset === 'function') {
             W().doManualReset();
-            // 尝试设置 stage
-            try { W()._getPlayerContext().currentStage = stage; } catch(e) {}
             await new Promise(r => setTimeout(r, 800));
+            // 重置后尝试用 selectStage 切换（doManualReset 复位到第1关）
+            if (typeof W().selectStage === 'function') {
+                W().selectStage(stage);
+            } else {
+                try { W()._getPlayerContext().currentStage = stage; } catch(e) {}
+            }
             await waitCtx(25000);
             return;
         }
@@ -241,10 +250,14 @@ function generateSummary(results, totalStages) {
 }
 
 function saveHistory(results) {
-    const tp = results.reduce((s, r) => s + (r.passed || 0), 0);
-    const tf = results.reduce((s, r) => s + (r.failed || 0), 0);
-    const hist = JSON.parse(localStorage.getItem('ming_test_history') || '[]');
-    hist.unshift({ id: Date.now(), time: new Date().toLocaleString(), pass: tp, fail: tf, text: generateReport(results) });
-    if (hist.length > 50) hist.pop();
-    localStorage.setItem('ming_test_history', JSON.stringify(hist));
+    try {
+        const tp = results.reduce((s, r) => s + (r.passed || 0), 0);
+        const tf = results.reduce((s, r) => s + (r.failed || 0), 0);
+        const hist = JSON.parse(localStorage.getItem('ming_test_history') || '[]');
+        hist.unshift({ id: Date.now(), time: new Date().toLocaleString(), pass: tp, fail: tf, text: generateReport(results) });
+        if (hist.length > 50) hist.pop();
+        localStorage.setItem('ming_test_history', JSON.stringify(hist));
+    } catch (e) {
+        console.warn('saveHistory failed:', e);
+    }
 }

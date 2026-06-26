@@ -1,6 +1,7 @@
-// 29health-rules.js - 光明顶 5v5 全身体检规则库 V3.8（玄冥二老拆分版）
+// 29health-rules.js - 光明顶 5v5 全身体检规则库 V3.9（玄冥二老拆分版）
+// 0626 trae: buffAtkBonus 类型安全（Number()）；去重 AudioManager 规则；颜色比较用 rgba 正则归一化
 // 0625 12:38 kimi: 新增第五关敌方单位=6检测规则（配合玄冥二老拆分）
-// 预估字节: 10600, 发送时间: 20260625 12:38, 版本: V3.8.0
+// 预估字节: 10600, 发送时间: 20260626, 版本: V3.9.0
 // 改动: 修复 data-pos 误判（分阵营检查）、玄冥/严阵/Carry/回血改运行时检测
 
 function createHealthRules(win, doc) {
@@ -20,10 +21,9 @@ function createHealthRules(win, doc) {
     }
 
     return [
-        // ========== 启动与加载 (4条) ==========
+        // ========== 启动与加载 (3条) ==========
         { group: '🚀 启动与加载', name: '游戏上下文可获取', test: function() { return !!getCtx(); }, fix: '检查 13main 初始化。' },
         { group: '🚀 启动与加载', name: '引擎 runBattle 已挂载', test: function() { return typeof win.runBattle === 'function'; }, fix: '07 中加 window.runBattle = runBattle;' },
-        { group: '🚀 启动与加载', name: '音效模块可访问', test: function() { return !!win.AudioManager; }, fix: '确认 28audio 已加载。' },
         { group: '🚀 启动与加载', name: '错误捕获面板存在', test: function() { try { return !!win.document.getElementById('errorCapturePanel'); } catch(e) { return false; } }, fix: '确认 24error-capture 已加载。' },
 
         // ========== 九宫格基础 (5条) ==========
@@ -71,13 +71,13 @@ function createHealthRules(win, doc) {
         { group: '❤️ 血条与属性', name: '血条颜色按区间正确', test: function() {
             var ctx = getCtx(); if (!ctx || !ctx.UI) return null;
             var all = (ctx.UI.allyTeam || []).concat(ctx.UI.enemyTeam || []);
-            for (var i = 0; i < all.length; i++) { var u = all[i]; if (!u.alive) continue; var cell = getCellElement(u); if (!cell) continue; var bar = cell.querySelector('.hp-bar-inner'); if (!bar) continue; var pct = u.hp/u.maxHp; var exp = pct>0.7?'rgb(76, 175, 80)':(pct>0.4?'rgb(255, 152, 0)':'rgb(244, 67, 54)'); if (win.getComputedStyle(bar).backgroundColor !== exp) return false; }
+            for (var i = 0; i < all.length; i++) { var u = all[i]; if (!u.alive) continue; var cell = getCellElement(u); if (!cell) continue; var bar = cell.querySelector('.hp-bar-inner'); if (!bar) continue; var pct = u.hp/u.maxHp; var exp = pct>0.7?'76, 175, 80':(pct>0.4?'255, 152, 0':'244, 67, 54'); var actual = win.getComputedStyle(bar).backgroundColor; var m = actual.match(/[\d.]+/g); if (!m || m.length < 3) continue; if (m.slice(0,3).map(Math.round).join(', ') !== exp) return false; }
             return true;
         }, fix: '检查 barColor 赋值。' },
         { group: '❤️ 血条与属性', name: '攻击防御含 Buff 加成', test: function() {
             var ctx = getCtx(); if (!ctx || !ctx.UI) return null;
             var all = (ctx.UI.allyTeam || []).concat(ctx.UI.enemyTeam || []);
-            for (var i = 0; i < all.length; i++) { var u = all[i]; if (!u.alive) continue; var cell = getCellElement(u); if (!cell) continue; var span = cell.querySelector('.cell-stats'); if (!span) continue; var t = span.textContent; var am = t.match(/攻(\d+)/), dm = t.match(/防(\d+)/); if (!am||!dm) continue; if (parseInt(am[1]) !== Math.floor(u.atk+u.atk*(u.buffAtkBonus||0)) || parseInt(dm[1]) !== Math.floor(u.def+u.def*(u.buffDefBonus||0))) return false; }
+            for (var i = 0; i < all.length; i++) { var u = all[i]; if (!u.alive) continue; var cell = getCellElement(u); if (!cell) continue; var span = cell.querySelector('.cell-stats'); if (!span) continue; var t = span.textContent; var am = t.match(/攻(\d+)/), dm = t.match(/防(\d+)/); if (!am||!dm) continue; if (parseInt(am[1]) !== Math.floor(u.atk+u.atk*(Number(u.buffAtkBonus)||0)) || parseInt(dm[1]) !== Math.floor(u.def+u.def*(Number(u.buffDefBonus)||0))) return false; }
             return true;
         }, fix: '检查 displayAtk/displayDef。' },
         { group: '❤️ 血条与属性', name: '血条文字颜色一致', test: function() {
@@ -122,11 +122,11 @@ function createHealthRules(win, doc) {
         // ========== 状态样式 (4条) ==========
         { group: '🎭 状态样式', name: '攻击闪蓝', test: function() {
             var ctx=getCtx(); if(!ctx||!ctx.UI) return null; var all=(ctx.UI.allyTeam||[]).concat(ctx.UI.enemyTeam||[]);
-            for(var i=0;i<all.length;i++){var u=all[i]; if(u._flash==='attack'){var cell=getCellElement(u); if(!cell) return false; if(win.getComputedStyle(cell).backgroundColor!=='rgb(30, 110, 184)') return false;}} return true;
+            for(var i=0;i<all.length;i++){var u=all[i]; if(u._flash==='attack'){var cell=getCellElement(u); if(!cell) return false; var actual=win.getComputedStyle(cell).backgroundColor; var m=actual.match(/[\d.]+/g); if(!m||m.length<3) return false; if(m.slice(0,3).map(Math.round).join(', ')!=='30, 110, 184') return false;}} return true;
         }, fix: '检查 data-flash="attack" CSS。' },
         { group: '🎭 状态样式', name: '防御闪金', test: function() {
             var ctx=getCtx(); if(!ctx||!ctx.UI) return null; var all=(ctx.UI.allyTeam||[]).concat(ctx.UI.enemyTeam||[]);
-            for(var i=0;i<all.length;i++){var u=all[i]; if(u._flash==='defend'){var cell=getCellElement(u); if(!cell) return false; if(win.getComputedStyle(cell).backgroundColor!=='rgb(241, 196, 15)') return false;}} return true;
+            for(var i=0;i<all.length;i++){var u=all[i]; if(u._flash==='defend'){var cell=getCellElement(u); if(!cell) return false; var actual=win.getComputedStyle(cell).backgroundColor; var m=actual.match(/[\d.]+/g); if(!m||m.length<3) return false; if(m.slice(0,3).map(Math.round).join(', ')!=='241, 196, 15') return false;}} return true;
         }, fix: '检查 data-flash="defend" CSS。' },
         { group: '🎭 状态样式', name: '死亡标记红色', test: function() {
             var ctx=getCtx(); if(!ctx||!ctx.UI) return null; var all=(ctx.UI.allyTeam||[]).concat(ctx.UI.enemyTeam||[]);
