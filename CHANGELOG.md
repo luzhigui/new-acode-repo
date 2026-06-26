@@ -1,5 +1,13 @@
 # 光明顶 5v5 - 更改履历
 
+## V3.1.6 — 2026-06-26
+- **封面卡住修复**：`mode-5v5-test.html` 封面按钮增加 inline 兜底点击直接隐藏，JS 增加防护性 null 检查
+- **全面体检超时修复**：`37health-core.js` 修正检查顺序，先加载模块 → 点封面 → 等阵容；增加 doManualReset 兜底选关
+- **文件复制器修复**：`34file-copier.html` 修正文件路径（从 `core/` → `../core/`），移除 mp3/m4a 格式
+- **开发急救包修复**：`33first-aid-kit.html` 修正文件路径，增加两个新检查规则：空值检查、var 警告
+- **开发工具箱新增开发准则区**：`00index.html` 开发工具箱内新增独立区域，可直接打开 README、CHANGELOG、测试运行器
+- **index 绿色文字更新**：记录当前一轮所有修改内容
+
 ## V3.1.5 — 2026-06-25
 - **封面黑幕加深**：`mode-5v5-test.html` cover-overlay 从 `rgba(20,15,10,0.92)` 改为 `rgba(0,0,0,0.95)`
 - **封面版本显示修复**：`12main-utils.js` 动态 import 路径从 `./core/` 改为 `../core/`（相对路径基准是 JS 文件所在目录）

@@ -53,7 +53,8 @@ export async function startApp(updateCoverVersion) {
         '28audio-manager.js': '../modules/28audio-manager.js'
     };
     for (const [name, path] of Object.entries(modules)) {
-        try { loaded[name] = await import(path + '?t=' + Date.now()); } catch (e) { failed[name] = true; }
+        try { loaded[name] = await import(path + '?t=' + Date.now()); } catch (e) { failed[name] = true; console.error('Module load failed:', name, e); }
     }
+    // 即使部分模块失败，也要继续更新显示，不要阻塞游戏启动
     updateCoverVersion(loaded, failed);
 }

@@ -577,7 +577,7 @@ function getPlayerContext() {
 
 window._getPlayerContext = getPlayerContext;
 
-async function startApp() { loadModules(updateCoverVersion); }
+async function startApp() { try { await loadModules(updateCoverVersion); } catch(e) { console.error('startApp 加载模块失败:', e); } }
 startApp();
 
 document.addEventListener('DOMContentLoaded', function() {
@@ -751,11 +751,16 @@ document.addEventListener('DOMContentLoaded', function() {
     attachSpeedButton('btnSpeed05x', 1800);
 
     document.getElementById('voteFloat').addEventListener('click',function(){let overlay=document.getElementById('voteModalOverlay');if(overlay){overlay.style.display='flex';this.style.display='none';}});
-    document.getElementById('coverStartBtn').addEventListener('click',function(){
-        document.getElementById('coverOverlay').style.display='none';
-        gameStarted=true; initBGM(); playBGM(); setBGMVolume(0.6);
-        try { initGlowSystem(); } catch(e) { console.warn('光带特效初始化失败，已跳过', e); }
-    });
+    var coverBtn = document.getElementById('coverStartBtn');
+    if (coverBtn) {
+        coverBtn.addEventListener('click',function(){
+            var overlay = document.getElementById('coverOverlay');
+            if (overlay) overlay.style.display='none';
+            gameStarted=true;
+            try { initBGM(); playBGM(); setBGMVolume(0.6); } catch(e) {}
+            try { initGlowSystem(); } catch(e) { console.warn('光带特效初始化失败，已跳过', e); }
+        });
+    }
     document.getElementById('allyGrid').addEventListener('click', function(e) {
         if (!adjustMode) return;
         let cell = e.target.closest('.cell'); if (!cell) return;

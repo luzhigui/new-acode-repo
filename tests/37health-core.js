@@ -59,13 +59,13 @@ export async function runHealthCheck(config) {
         check();
     });
 
-    // 等待游戏模块初始化完成（_getPlayerContext 已挂载且阵容已生成）
+    // 等待游戏模块初始化完成（_getPlayerContext 已挂载即可，不检查阵容）
     const waitGameReady = (timeout = 20000) => new Promise((resolve, reject) => {
         const start = Date.now();
         const check = () => {
             try {
                 const ctx = W()._getPlayerContext?.();
-                if (ctx?.UI?.allyTeam?.length === 5 && ctx?.UI?.enemyTeam?.length === 5) resolve(ctx);
+                if (ctx) resolve(ctx);
                 else if (Date.now() - start > timeout) reject(new Error('游戏模块初始化超时'));
                 else setTimeout(check, 400);
             } catch (e) {
@@ -91,7 +91,9 @@ export async function runHealthCheck(config) {
         await waitGameReady(20000);
         const coverBtn = await waitFor('#coverStartBtn');
         coverBtn.click();
-        await new Promise(r => setTimeout(r, 500));
+        await new Promise(r => setTimeout(r, 800));
+        // 封面点击后等待阵容初始化
+        await waitCtx(20000);
 
         const results = [];
 
@@ -106,12 +108,12 @@ export async function runHealthCheck(config) {
                 if (idx === 0 && s === 1) {
                     // 第一关直接重置为初始状态，确保阵容新鲜
                     if (typeof W().doManualReset === 'function') W().doManualReset();
+                    await waitCtx(15000);
                 } else {
                     await safeSelectStage(s, W, waitCtx);
                 }
-                await waitCtx(15000);
             } catch (e) {
-                results.push({ stage: s, error: '关卡初始化超时' });
+                results.push({ stage: s, error: '关卡初始化超时: ' + (e.message || '') });
                 continue;
             }
 
@@ -183,12 +185,25 @@ async function safeSelectStage(stage, W, waitCtx) {
         // 先尝试通过主控暴露的全局函数直接切换（需要 13main-5v5-test.js V3.0.2+）
         if (typeof W().selectStage === 'function') {
             W().selectStage(stage);
-            await new Promise(r => setTimeout(r, 600));
+            await new Promise(r => setTimeout(r, 800));
             await waitCtx(25000);
             return;
         }
     } catch (e) {
         console.warn('safeSelectStage direct call failed, falling back', e);
+    }
+    // 兜底：尝试 doManualReset 后手动切换
+    try {
+        if (typeof W().doManualReset === 'function') {
+            W().doManualReset();
+            // 尝试设置 stage
+            try { W()._getPlayerContext().currentStage = stage; } catch(e) {}
+            await new Promise(r => setTimeout(r, 800));
+            await waitCtx(25000);
+            return;
+        }
+    } catch (e2) {
+        console.warn('safeSelectStage fallback failed', e2);
     }
     throw new Error('当前游戏版本不支持自动选关，请刷新游戏页面');
 }
