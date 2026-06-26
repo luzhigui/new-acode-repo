@@ -173,7 +173,7 @@ export async function showDodgeBulletTime(attacker, defender, reboundDmg) {
         cloneA.style.width = aRect.width+'px'; cloneA.style.height = aRect.height+'px';
         const startAX = pos.ax - innerWidth*0.06, startAY = pos.ay - innerHeight*0.06;
         cloneA.style.left = startAX + 'px'; cloneA.style.top = startAY + 'px';
-        cloneA.style.zIndex = '10010'; cloneA.style.transform = 'scale(0.6)';
+        cloneA.style.zIndex = '10020'; cloneA.style.transform = 'scale(0.6)';
         cloneA.style.filter = 'drop-shadow(0 0 12px rgba(255,215,0,0.9)) brightness(1.3)';
         document.body.appendChild(cloneA); cleanupElements.push(cloneA);
 
@@ -417,6 +417,7 @@ export async function showDodgeBulletTime(attacker, defender, reboundDmg) {
     } finally {
         window.bulletTimeActive = false;
         if (ctx) ctx.isPaused = false;
+        if (ctx && ctx.updateButtons) ctx.updateButtons();
         clearTimeout(timeoutId);
         resolved = true;
     }

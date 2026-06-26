@@ -205,8 +205,8 @@ export function renderGrid(id, team, camp, debugMode, oldTeam) {
         let div = document.createElement('div');
         div.className = `cell occupied ${readyClass} ${actedClass} ${cheerClass} ${restingClass}`;
         if (unit._ghostRendering) {
-            div.style.opacity = '0.35';
-            div.style.filter = 'grayscale(0.5)';
+            div.style.opacity = '0.4';
+            div.style.filter = 'sepia(0.3) hue-rotate(180deg) saturate(0.6)';
         }
         if (isDead) { div.setAttribute('data-flash', 'dead'); }
         else if (unit._flash) { div.setAttribute('data-flash', unit._flash); }
