@@ -66,7 +66,7 @@ const CONFIG = {
         2: [104,104,100,100,97],
         3: [{ name: '宋青书', role: '飞行', m: 107 }, 104, 104, 100, 97],
         4: [{ name: '宋青书', role: '飞行', m: 107 }, { name: '周芷若', role: '战士', m: 107 }, 104, 104, 100],
-        5: [{ name: '鹿杖客', role: '远程', m: 112, skill: 'xuanmingPalm' }, { name: '鹤笔翁', role: '飞行', m: 112, skill: 'hornStrike' }, 104, 104, 100],
+        5: [{ name: '鹿杖客', role: '远程', m: 112, skill: 'xuanmingPalm' }, { name: '鹤笔翁', role: '飞行', m: 112, skill: 'hornStrike' }, 104, 104, 104, 100],
         6: [{ name: '成昆', role: '防战', m: 112 }, 104, 104, 104, 100]
     },
     // 各关普通敌人站位模板

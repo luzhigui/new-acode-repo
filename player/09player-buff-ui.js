@@ -125,8 +125,7 @@ export async function handleBuffSummon(c, entry, prevEntry) {
     c.UI.lastSnapshot = { ally: c.UI.allyTeam.map(u => u.clone()), enemy: c.UI.enemyTeam.map(u => u.clone()) };
     if (entry.horseTaunt) {
         c.isPaused = true;
-        await showBuffBanner('🐴 拒马阵！' + entry.horseTaunt);
-        c.isPaused = false;
+        try { await showBuffBanner('🐴 拒马阵！' + entry.horseTaunt); } finally { c.isPaused = false; }
     }
     let div=document.createElement('div');div.innerHTML=entry.text+'<br>';
     document.getElementById('log').appendChild(div);
@@ -153,8 +152,7 @@ export async function handleBuffDestroy(c, entry, prevEntry) {
         c.UI.lastSnapshot = { ally: c.UI.allyTeam.map(u => u.clone()), enemy: c.UI.enemyTeam.map(u => u.clone()) };
     }
     c.isPaused = true;
-    await showBuffBanner('🐴 拒马已销毁');
-    c.isPaused = false;
+    try { await showBuffBanner('🐴 拒马已销毁'); } finally { c.isPaused = false; }
     let div=document.createElement('div');div.innerHTML=entry.text+'<br>';
     document.getElementById('log').appendChild(div);
     c.autoScrollLog();
@@ -172,8 +170,7 @@ export async function handleBuffLeech(c, entry) {
         bannerText = entry.text.includes('翻倍') ? '❤️‍🔥 热血奋战(翻倍)！' : '❤️ 热血奋战！';
     }
     c.isPaused = true;
-    await showBuffBanner(bannerText);
-    c.isPaused = false;
+    try { await showBuffBanner(bannerText); } finally { c.isPaused = false; }
     let div=document.createElement('div');div.innerHTML=entry.text+'<br>';
     document.getElementById('log').appendChild(div);
     c.autoScrollLog();

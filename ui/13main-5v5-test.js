@@ -81,7 +81,7 @@ function updateBGMBtn() {
     }
 }
 
-function debugLog(msg) { if (!debugMode) return; let logDiv = document.getElementById('log'); let wrapper = document.createElement('div'); wrapper.innerHTML = `<span class="debug">[调试] ${msg}</span><br>`; logDiv.appendChild(wrapper); logDiv.scrollTop = logDiv.scrollHeight; }
+function debugLog(msg) { if (!debugMode) return; let logDiv = document.getElementById('log'); if (!logDiv) return; let wrapper = document.createElement('div'); wrapper.innerHTML = `<span class="debug">[调试] ${msg}</span><br>`; logDiv.appendChild(wrapper); logDiv.scrollTop = logDiv.scrollHeight; }
 
 async function waitWhilePaused() { while (isPaused) { await new Promise(r => setTimeout(r, 100)); } }
 function getPausedState() { return window._getPlayerContext ? window._getPlayerContext().isPaused : false; }
@@ -233,13 +233,14 @@ function initGlowSystem() {
         }
     }
     let lastTime = 0;
+    let rafId = null;
     function animate(time) {
-        if (!lightsOn) { requestAnimationFrame(animate); return; }
+        if (!lightsOn) { rafId = requestAnimationFrame(animate); return; }
         if (!lastTime) lastTime = time;
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         cellsLightData.forEach(data => { drawLight(data, time); });
         lastTime = time;
-        requestAnimationFrame(animate);
+        rafId = requestAnimationFrame(animate);
     }
     resizeCanvas(); collectCellsData(); requestAnimationFrame(animate);
     window.addEventListener('resize', () => { resizeCanvas(); collectCellsData(); });
@@ -599,7 +600,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     clearLogExceptFirst(); hasLoggedTeam=false; fadeBGMTo(0.1,2000); logTeamInfo('初始阵容'); await showCountdown();
                     let logDiv=document.getElementById('log'); logDiv.innerHTML+='<div class="separator">⚔️ 5v5对决开始 ⚔️</div>';
                     autoScrollLog();
-                    await new Promise(resolve => { showBuffSelection(() => resolve()); });
+                    await new Promise(resolve => { showBuffSelection(() => resolve()); setTimeout(() => resolve(), 30000); });
                     await new Promise(r=>setTimeout(r,600));
                     try {
                         gs=S.RUNNING; updateButtons(); document.getElementById('btnNext').disabled=true;
