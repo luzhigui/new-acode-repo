@@ -47,6 +47,7 @@ export async function startApp(updateCoverVersion) {
         '04buff-system.js': '../core/04buff-system.js',
         '06battle-engine-core.js': '../core/06battle-engine-core.js',
         '10player-core.js': '../player/10player-core.js',
+
         '14ui-render-5v5-test.js': '../ui/14ui-render-5v5-test.js',
         '17fx-crash-5v5-test.js': '../fx/17fx-crash-5v5-test.js',
         '20fx-dodge-bullet.js': '../fx/20fx-dodge-bullet.js',

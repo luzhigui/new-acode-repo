@@ -599,12 +599,9 @@ document.addEventListener('DOMContentLoaded', function() {
                     clearLogExceptFirst(); hasLoggedTeam=false; fadeBGMTo(0.1,2000); logTeamInfo('初始阵容'); await showCountdown();
                     let logDiv=document.getElementById('log'); logDiv.innerHTML+='<div class="separator">⚔️ 5v5对决开始 ⚔️</div>';
                     autoScrollLog();
-                    console.log('[DEBUG] before showBuffSelection, UI.allyTeam.length=', UI.allyTeam.length, 'UI.enemyTeam.length=', UI.enemyTeam.length);
                     await new Promise(resolve => { showBuffSelection(() => resolve()); });
-                    console.log('[DEBUG] after showBuffSelection, UI.allyTeam.length=', UI.allyTeam.length, 'UI.enemyTeam.length=', UI.enemyTeam.length);
                     await new Promise(r=>setTimeout(r,600));
                     try {
-                        console.log('[DEBUG] before set snapshot, UI.allyTeam.length=', UI.allyTeam.length, 'UI.enemyTeam.length=', UI.enemyTeam.length);
                         gs=S.RUNNING; updateButtons(); document.getElementById('btnNext').disabled=true;
                         abortController=new AbortController();
                         snapshot.ally=UI.allyTeam.map(u=>Object.freeze(u.clone()));
