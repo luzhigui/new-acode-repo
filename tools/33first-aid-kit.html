@@ -55,10 +55,19 @@
     <script>
         // 需要扫描的核心文件列表
         const TARGET_FILES = [
-            '01config-5v5-test.js', '02unit.js', '03battle-utils.js', '04buff-system.js',
-            '06battle-engine-core.js', '10player-core.js', '13main-5v5-test.js',
-            '14ui-render-5v5-test.js', '17fx-crash-5v5-test.js', '20fx-dodge-bullet.js',
-            '23elite-skills.js', '27auto-battle-utils.js', '28audio-manager.js'
+            { name: '01config-5v5-test.js', path: '../core/01config-5v5-test.js' },
+            { name: '02unit.js', path: '../core/02unit.js' },
+            { name: '03battle-utils.js', path: '../core/03battle-utils.js' },
+            { name: '04buff-system.js', path: '../core/04buff-system.js' },
+            { name: '06battle-engine-core.js', path: '../core/06battle-engine-core.js' },
+            { name: '10player-core.js', path: '../player/10player-core.js' },
+            { name: '13main-5v5-test.js', path: '../ui/13main-5v5-test.js' },
+            { name: '14ui-render-5v5-test.js', path: '../ui/14ui-render-5v5-test.js' },
+            { name: '17fx-crash-5v5-test.js', path: '../fx/17fx-crash-5v5-test.js' },
+            { name: '20fx-dodge-bullet.js', path: '../fx/20fx-dodge-bullet.js' },
+            { name: '23elite-skills.js', path: '../modules/23elite-skills.js' },
+            { name: '27auto-battle-utils.js', path: '../tests/27auto-battle-utils.js' },
+            { name: '28audio-manager.js', path: '../modules/28audio-manager.js' }
         ];
 
         // 诊断规则定义
@@ -153,6 +162,45 @@
                     return matches;
                 },
                 fix: null
+            },
+            {
+                id: 'getelementbyid-no-null-check',
+                title: 'getElementById 缺少空值检查',
+                desc: '检测到 document.getElementById 调用后未进行空值检查，可能导致运行时崩溃。',
+                severity: 'medium',
+                scan: (code) => {
+                    const lines = code.split('\n');
+                    const matches = [];
+                    const regex = /(\w+)\s*=\s*document\.getElementById\(['"]([^'"]+)['"]\)/g;
+                    let match;
+                    while ((match = regex.exec(code)) !== null) {
+                        const varName = match[1];
+                        const lineNum = code.substring(0, match.index).split('\n').length;
+                        const line = lines[lineNum - 1] || '';
+                        const nextLine = lines[lineNum] || '';
+                        if (line.includes('?.') || line.includes('if (') || nextLine.includes('if (')) continue;
+                        matches.push({ line: lineNum, content: line.trim() });
+                    }
+                    return matches.slice(0, 5);
+                },
+                fix: null
+            },
+            {
+                id: 'var-instead-of-let-const',
+                title: '使用 var 而非 let/const',
+                desc: '检测到使用 var 声明变量，建议改用 let 或 const。',
+                severity: 'low',
+                scan: (code) => {
+                    const lines = code.split('\n');
+                    const matches = [];
+                    lines.forEach((line, idx) => {
+                        if (/\bvar\s+\w/.test(line) && !line.includes('//') && !line.includes('*')) {
+                            matches.push({ line: idx + 1, content: line.trim() });
+                        }
+                    });
+                    return matches.slice(0, 10);
+                },
+                fix: null
             }
         ];
 
@@ -176,11 +224,11 @@
             let totalIssues = 0;
             let totalFixable = 0;
 
-            for (const filename of TARGET_FILES) {
+            for (const fileInfo of TARGET_FILES) {
                 try {
-                    const response = await fetch(filename);
+                    const response = await fetch(fileInfo.path);
                     if (!response.ok) {
-                        logDiv.textContent = `⚠️ 跳过 ${filename}：无法访问（请确认通过 Live Server 打开）`;
+                        logDiv.textContent = `⚠️ 跳过 ${fileInfo.name}：无法访问（请确认通过 Live Server 打开）`;
                         continue;
                     }
                     const code = await response.text();
@@ -195,7 +243,7 @@
 
                             matches.forEach(match => {
                                 allIssues.push({
-                                    filename,
+                                    filename: fileInfo.name,
                                     rule,
                                     line: match.line,
                                     content: match.content,
@@ -205,12 +253,12 @@
 
                             // 如果可以修复，生成修复后的代码
                             if (isFixable) {
-                                fixedContents[filename] = rule.fix(code);
+                                fixedContents[fileInfo.name] = rule.fix(code);
                             }
                         }
                     });
                 } catch (err) {
-                    logDiv.textContent = `❌ 读取 ${filename} 失败：${err.message}`;
+                    logDiv.textContent = `❌ 读取 ${fileInfo.name} 失败：${err.message}`;
                 }
             }
 

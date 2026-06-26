@@ -55,7 +55,7 @@
     <div class="container">
         <h1>⚔️ 光明顶</h1>
         <div class="subtitle">V3.1 开发集成控制台</div>
-        <div style="text-align:center;color:#4caf50;font-size:0.8rem;margin-top:-20px;margin-bottom:25px;">✅ 2026-06-25 优化体检等待逻辑 / 清空历史记录弹窗修复 / 下掉环境诊断页签</div>
+        <div style="text-align:center;color:#4caf50;font-size:0.8rem;margin-top:-20px;margin-bottom:25px;">✅ 2026-06-26 修复封面卡住 / 修复全面体检超时 / 修复文件复制路径 / 修复急救包扫描 / 新增开发准则区</div>
 
         <!-- 核心游戏 -->
         <div class="section">
@@ -65,7 +65,7 @@
 
         <!-- 开发工具箱 -->
         <div class="section">
-            <div class="section-title toggle-section" id="devToolboxToggle" onclick="document.getElementById('devToolboxGrid').classList.toggle('expanded'); this.textContent = document.getElementById('devToolboxGrid').classList.contains('expanded') ? '🛠️ 开发工具箱 ▾' : '🛠️ 开发工具箱 ▸';" style="display:flex;justify-content:space-between;">🛠️ 开发工具箱 ▸</div>
+            <div class="section-title toggle-section" id="devToolboxToggle" onclick="var g=document.getElementById('devToolboxGrid');var gg=document.getElementById('devGuidelinesGrid');var exp=g.classList.toggle('expanded');if(gg)gg.style.display=exp?'grid':'none';this.textContent=exp?'🛠️ 开发工具箱 ▾':'🛠️ 开发工具箱 ▸';" style="display:flex;justify-content:space-between;">🛠️ 开发工具箱 ▸</div>
             <div class="btn-grid dev-toolbox-grid" id="devToolboxGrid">
                 <button class="big-btn btn-tool" id="btnCopier">📋 函数替换器</button>
                 <button class="big-btn btn-tool" id="btnFileCopier">📄 文件复制器</button>
@@ -74,6 +74,11 @@
                 <button class="big-btn btn-tool" id="btnFirstAid">⚡ 开发急救包</button>
                 <button class="big-btn btn-tool" id="btnFangCalc">🛡️ 防战系数计算器</button>
                 <button class="big-btn btn-tool" id="btnCodex">📜 开发协同标准</button>
+            </div>
+            <div class="btn-grid dev-toolbox-grid" id="devGuidelinesGrid" style="margin-top:10px;">
+                <button class="big-btn btn-tool" id="btnReadme">📖 README 项目大纲</button>
+                <button class="big-btn btn-tool" id="btnChangelog">📋 CHANGELOG 变更履历</button>
+                <button class="big-btn btn-tool" id="btnTestRunner">🧪 测试与诊断（含 Bug 记录）</button>
             </div>
         </div>
 
@@ -111,6 +116,15 @@
         });
         document.getElementById('btnCodex').addEventListener('click', () => {
             window.open('tools/26codex-v2.1.js', '_blank');
+        });
+        document.getElementById('btnReadme').addEventListener('click', () => {
+            window.open('README.md', '_blank');
+        });
+        document.getElementById('btnChangelog').addEventListener('click', () => {
+            window.open('CHANGELOG.md', '_blank');
+        });
+        document.getElementById('btnTestRunner').addEventListener('click', () => {
+            window.open('tools/30test-runner.html', '_blank');
         });
 
         // ==================== 独立背景音乐 ====================

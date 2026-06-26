@@ -177,7 +177,7 @@
 <div class="cover-overlay" id="coverOverlay">
     <div class="cover-title">⚔️ 光明顶对战 5v5 ⚔️</div>
     <div class="cover-subtitle">九宫格混战 · 五人对决</div>
-    <button class="cover-start-btn" id="coverStartBtn">⚔️ 开始游戏</button>
+    <button class="cover-start-btn" id="coverStartBtn" onclick="var o=document.getElementById('coverOverlay');if(o)o.style.display='none';this.onclick=null;">⚔️ 开始游戏</button>
     <div id="coverVersion"></div>
 </div>
 <div class="header"><h2>⚔️ 光明顶对战 5v5 <span class="score-badge" id="scoreBadge">🏆 10分</span></h2><button id="debugToggle" class="debug-toggle-btn active">V3.0</button></div>
