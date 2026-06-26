@@ -22,7 +22,7 @@ export function computeBuffStats(unit, activeBuffs, allyTeam) {
     }
     if (hasBuff(activeBuffs, 'carry') && unit.pos === 5 && unit.alive && unit.camp === 'ally') {
         if (allyTeam) {
-            let allAllies = allyTeam.filter(u => u.uid !== unit.uid);
+            let allAllies = allyTeam.filter(u => u.uid !== unit.uid && !u.isHorse);
             let totalAtk = 0, totalDef = 0, totalHp = 0;
             allAllies.forEach(a => {
                 let mult = a.alive ? 1 : C.BUFFS.carry.deathMultiplier;

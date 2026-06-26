@@ -36,6 +36,9 @@ function syncAllyBuffFields(roundResult, uiAlly) {
             uiUnit.buffDefBonus = ru.buffDefBonus || 0;
             uiUnit.buffDodgeBonus = ru.buffDodgeBonus || 0;
             uiUnit.buffHpBonus = ru.buffHpBonus || 0;
+            // 同步 carry 血量上限和当前血量
+            if (ru.maxHp !== undefined) uiUnit.maxHp = ru.maxHp;
+            if (ru.hp !== undefined) uiUnit.hp = ru.hp;
         }
     });
 }
