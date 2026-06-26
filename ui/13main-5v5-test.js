@@ -708,7 +708,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function forceStopGame(){
-        if(!UI || !UI.allyTeam.length) return;
+        if(!UI) return;
         abortAll();clearLogExceptFirst();clearAllEffects();hasLoggedTeam=false;
         gs=S.IDLE;isPaused=false;waitingForNextRound=false;isBattleStarting=false;
         updateButtons();enableAllButtons();updateSpeedButtons();

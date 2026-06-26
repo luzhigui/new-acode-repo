@@ -40,11 +40,17 @@ export function showBuffPopup(c) {
             let btn = document.createElement('button'); btn.className = 'modal-btn ' + (b.cls || '');
             btn.textContent = b.text;
             btn.addEventListener('click', () => {
-                document.body.removeChild(overlay);
-                let floatBtn = document.getElementById('buffFloatBtn');
-                if (floatBtn) floatBtn.remove();
-                let duration = CONFIG.BUFFS[b.value]?.duration || CONFIG.BUFF_DURATION || 4;
-                resolve({ key: b.value, target: 'ally', remaining: duration, name: CONFIG.BUFFS[b.value]?.name || b.value });
+                clearTimeout(timeoutId);
+                try {
+                    if (document.body.contains(overlay)) document.body.removeChild(overlay);
+                    let floatBtn = document.getElementById('buffFloatBtn');
+                    if (floatBtn) floatBtn.remove();
+                    let duration = CONFIG.BUFFS[b.value]?.duration || CONFIG.BUFF_DURATION || 4;
+                    resolve({ key: b.value, target: 'ally', remaining: duration, name: CONFIG.BUFFS[b.value]?.name || b.value });
+                } catch(e) {
+                    console.error('showBuffPopup resolve error:', e);
+                    resolve(null);
+                }
             });
             btnsDiv.appendChild(btn);
         });
@@ -59,11 +65,6 @@ export function showBuffPopup(c) {
             if (floatBtn) floatBtn.remove();
             resolve(null);
         }, 30000);
-
-        // 按钮点击时清除超时
-        btnsDiv.querySelectorAll('.modal-btn').forEach(btn => {
-            btn.addEventListener('click', () => clearTimeout(timeoutId));
-        });
 
         document.getElementById('buffModalMinimize').addEventListener('click', () => {
             overlay.style.display = 'none';
