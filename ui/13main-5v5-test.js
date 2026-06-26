@@ -778,4 +778,10 @@ document.addEventListener('DOMContentLoaded', function() {
     } catch(e) {
         console.error('[光明顶5v5测试版] 初始化错误：', e.stack || e.message || e);
     }
+    // 页面可见性变化时暂停/恢复，防止后台切回时特效堆积
+    document.addEventListener('visibilitychange', () => {
+        if (document.hidden) {
+            if (gs === S.RUNNING && !window.bulletTimeActive) { gs = S.PAUSED; isPaused = true; updateButtons(); }
+        }
+    });
 });
