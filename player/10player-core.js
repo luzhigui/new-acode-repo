@@ -58,7 +58,7 @@ function insertBuffSeparator(logDiv, c) {
 async function waitSafe(ms, c) {
     const deadline = Date.now() + ms;
     while (Date.now() < deadline) {
-        if (c.abortController && c.abortController.signal.aborted) return;
+        if (c.abortController && c.abortController.signal && c.abortController.signal.aborted) return;
         await c.waitWhilePaused();
         await new Promise(r => setTimeout(r, 50));
     }
@@ -90,9 +90,7 @@ export async function playLogEntries(c, log, roundResult) {
                     if (entry.text.includes('翻倍')) {
                         c.isPaused = true;
                         window.bulletTimeActive = true;
-                        await showBuffBanner('❤️‍🔥 热血奋战(翻倍)！');
-                        window.bulletTimeActive = false;
-                        c.isPaused = false;
+                        try { await showBuffBanner('❤️‍🔥 热血奋战(翻倍)！'); } finally { window.bulletTimeActive = false; c.isPaused = false; }
                     }
                 } else {
                     await handleBuffLeech(c, entry);
@@ -102,14 +100,15 @@ export async function playLogEntries(c, log, roundResult) {
             if (entry.type === 'buff-splash') {
                 c.isPaused = true;
                 window.bulletTimeActive = true;
-                if (entry.buffType === 'wind_assault') {
-                    await showBuffBanner('🦅 乘风突袭！');
-                } else if (entry.buffType === 'meteor_splash') {
-                    await showBuffBanner('☄️ 流星赶月！');
-                } else {
-                    await showBuffBanner('🦅 乘风突袭！');
-                }
-                window.bulletTimeActive = false;
+                try {
+                    if (entry.buffType === 'wind_assault') {
+                        await showBuffBanner('🦅 乘风突袭！');
+                    } else if (entry.buffType === 'meteor_splash') {
+                        await showBuffBanner('☄️ 流星赶月！');
+                    } else {
+                        await showBuffBanner('🦅 乘风突袭！');
+                    }
+                } finally { window.bulletTimeActive = false; c.isPaused = false; }
                 let div=document.createElement('div');div.innerHTML=entry.text+'<br>';
                 document.getElementById('log').appendChild(div);c.autoScrollLog();
                 if (entry.splashUids && entry.splashDmg) {
@@ -375,7 +374,7 @@ c.updateUI(c.UI);
 
 export async function playBattle() {
     const c = getCtx();
-    if (!c || !c.UI.currentResult) return;
+    if (!c || !c.UI || !c.UI.currentResult) return;
     c.fadeBGMTo(0.1, 1500);
     let abortSig = c.abortController ? c.abortController.signal : null;
     c.UI.allyTeam = c.snapshot.ally.map(u => u.clone()); c.UI.enemyTeam = c.snapshot.enemy.map(u => u.clone());
