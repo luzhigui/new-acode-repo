@@ -50,6 +50,21 @@ export function showBuffPopup(c) {
         });
         overlay.appendChild(box); document.body.appendChild(overlay);
 
+        // 30秒超时兜底，防止游戏卡死
+        let timeoutId = setTimeout(() => {
+            if (document.body.contains(overlay)) {
+                try { document.body.removeChild(overlay); } catch(e) {}
+            }
+            let floatBtn = document.getElementById('buffFloatBtn');
+            if (floatBtn) floatBtn.remove();
+            resolve(null);
+        }, 30000);
+
+        // 按钮点击时清除超时
+        btnsDiv.querySelectorAll('.modal-btn').forEach(btn => {
+            btn.addEventListener('click', () => clearTimeout(timeoutId));
+        });
+
         document.getElementById('buffModalMinimize').addEventListener('click', () => {
             overlay.style.display = 'none';
             let floatBtn = document.createElement('div');
