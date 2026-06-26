@@ -1,6 +1,6 @@
 # 光明顶 5v5 对战 —— 项目大纲
 
-版本: V3.1.6 | 更新: 2026-06-26
+版本: V3.2.0 | 更新: 2026-06-26
 目标: 让新 AI / 开发者 5 分钟内理解项目结构、核心逻辑、测试体系
 
 ---
@@ -26,8 +26,8 @@
 │   └── 07battle-engine-5v5-test.js # 入口，挂载全局函数
 ├── player/                       # 玩家 UI 与战斗播放
 │   ├── 08player-text.js          # 回合日志文本渲染
-│   ├── 09player-buff-ui.js       # Buff 选择弹窗
-│   ├── 10player-core.js          # 战斗播放核心（回合播放、胜利动画）
+│   ├── 09player-buff-ui.js       # Buff 选择弹窗、拒马召唤/销毁、吸血、溅射
+│   ├── 10player-core.js          # 战斗播放核心（回合播放、Buff横幅、概率连击、胜利动画）
 │   └── 11battle-player-5v5-test.js # 播放入口（re-export）
 ├── ui/                           # 游戏主界面
 │   ├── 12main-utils.js           # 封面版本显示、弹窗工具
@@ -120,6 +120,8 @@ runBattleRound(state)
 ### 5.2 全面体检（tools/30test-runner.html）
 - 流程: 自动加载游戏 iframe → 等待模块初始化 → 点击封面 → 依次切换关卡（1~6） → 执行约 70 条健康规则 → 生成报告
 - 规则分组: 启动加载、九宫格、血条属性、Buff、状态样式、音效、特效、精英、数据一致性、核心参数/公式、引擎、日志、站位
+- 注意: 体检页面通过 iframe 加载游戏，iframe 必须可见（`display:block`）才能正确渲染 DOM 样式
+- 路径: 30test-runner.html 在 `tools/` 下，通过正则从 URL 推算游戏根路径
 
 ### 5.3 开发急救包（tools/33first-aid-kit.html）
 - 静态代码扫描，检测常见问题：阵亡站位污染、getElementById 空值检查、var 声明、超大函数等
@@ -132,7 +134,7 @@ runBattleRound(state)
 
 ## 6. 开发者快速上手
 
-1. 运行游戏: 浏览器打开 `mode-5v5-test.html`（需 Live Server 支持 ES Module）。
+1. 运行游戏: 浏览器打开 `mode-5v5-test.html`（需通过 HTTP 服务器访问以支持 ES Module，如 `python3 -m http.server`）。
 2. 运行体检: 浏览器打开 `tools/30test-runner.html`，点击"全面体检"。
 3. 调试战斗: 在浏览器控制台执行 `window.runBattle(snapshot, buffs)` 可单次模拟。
 4. 修改配置: 直接编辑 `core/01config-5v5-test.js`，所有数值、阵容、Buff 参数集中管理。
@@ -145,14 +147,44 @@ runBattleRound(state)
 
 - `window.selectStage(stageNumber)` —— 切换关卡并重置战斗
 - `window.doManualReset()` —— 手动重置当前关卡
-- `window._getPlayerContext()` —— 返回当前游戏上下文
+- `window._getPlayerContext()` —— 返回当前游戏上下文（含 getter/setter 代理）
 - `window.runBattle(snapshot, buffs)` —— 单次模拟战斗
 - `window._updateGlowColors(stage)` —— 更新光带颜色
 - `window._refreshGlowCells()` —— 刷新光带格子
 
----
+### 7.1 `_getPlayerContext()` 返回值结构
 
-## 8. 附录：常用命令
+```js
+{
+    UI: { allyTeam, enemyTeam, round, currentResult, lastSnapshot },
+    gs: 'IDLE' | 'RUNNING' | 'PAUSED' | 'GAMEOVER',
+    isPaused: Boolean,        // Buff弹窗/子弹时间暂停
+    waitingForNextRound: Boolean,  // 手动模式等下一回合
+    autoMode: Boolean,
+    currentStage: Number,
+    activeBuffs: Array,       // 当前持有Buff列表
+    speed: Number,            // 动画速度(ms)
+    snapshot: { ally, enemy },
+    // 方法
+    abortController: AbortController,
+    waitWhilePaused: Function,
+    updateUI: Function,
+    updateBuffSlots: Function,
+    tickBuffDurations: Function,
+    ...
+}
+```
+
+## 8. 常见问题排查
+
+| 问题 | 原因 | 解决 |
+|------|------|------|
+| 体检全红/视觉规则全失败 | iframe 隐藏导致 DOM 不渲染 | 确认 `iframe.style.display = 'block'` |
+| 体检一直"等待阵容初始化" | `waitCtx` 检查 `allyTeam.length >= 5`，`forceStopGame` 空阵容提前返回 | 检查 `forceStopGame` 是否重置了 `isPaused` |
+| 选完 Buff 后游戏卡死 | `showBuffPopup` resolve 抛异常或 `isPaused` 未重置 | 检查 catch 块是否重置 `isPaused` |
+| 韦一笑吸血不触发 | `hasWeiXiXue` 变量声明但从未赋值 | 需要在 `playLogEntries` 中正确赋值 |
+
+## 9. 附录：常用命令
 
 ```bash
 # 启动本地服务

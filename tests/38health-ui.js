@@ -1,12 +1,13 @@
-// 38health-ui.js - 光明顶 5v5 测试与体检 UI 交互模块 V2.2
+// 38health-ui.js - 光明顶 5v5 测试与体检 UI 交互模块 V2.3.0
+// 2026-06-26 trae: runTests 加 await；答题/体检按钮防双击竞态；localStorage 加 try-catch；历史删除索引修复；移除死代码 saveCustomQuiz
 // 2026-06-25 kimi: 清空历史记录改用自定义确认弹窗；环境诊断代码用 if(diagCont) 包裹，兼容 30test-runner 下掉诊断页签
-// 预估行数: 230, 发送时间: 20260625 18:00, 版本: V2.2.0
+// 预估行数: 260, 发送时间: 20260626, 版本: V2.3.0
 // 联动: 被 30test-runner.html 调用，集中管理所有 UI 逻辑
 // 变更: 将 30 内联 JS 全部移入，30 只保留 HTML 骨架
 
 import { runTests } from './25unit-tests.js';
 import { runHealthCheck } from './37health-core.js';
-import { loadQuizBank, saveCustomQuiz } from './35quiz-bank.js';
+import { loadQuizBank } from './35quiz-bank.js';
 
 function showCustomConfirm(msg, onConfirm, onCancel) {
     const overlay = document.createElement('div');
@@ -45,7 +46,7 @@ export function initTestRunner() {
         const log = (m) => { const d = document.createElement('div'); d.className = 'result pass-line'; d.textContent = m; resDiv.appendChild(d); };
         const err = (m) => { const d = document.createElement('div'); d.className = 'result fail-line'; d.textContent = m; resDiv.appendChild(d); };
         try {
-            const r = runTests(log, err);
+            const r = await runTests(log, err);
             sum.style.display = 'block';
             sum.textContent = '📋 通过' + r.passed + '，失败' + r.failed + (r.failed === 0 ? ' 🎉' : '');
         } catch (e) { err('❌ ' + e.message); }
@@ -158,6 +159,7 @@ export function initTestRunner() {
             btn.addEventListener('click', () => {
                 if (btn.classList.contains('correct') || btn.classList.contains('wrong')) return;
                 const allOpts = quizOpts.querySelectorAll('.quiz-option');
+                allOpts.forEach(o => o.style.pointerEvents = 'none');
                 if (i === q.a) {
                     btn.classList.add('correct');
                     quizScore += 10;
@@ -168,7 +170,6 @@ export function initTestRunner() {
                     quizScore = Math.max(0, quizScore - 5);
                 }
                 quizScoreEl.textContent = '得分：' + quizScore;
-                allOpts.forEach(o => o.style.pointerEvents = 'none');
                 setTimeout(() => { if (quizActive) showQuiz(); }, 2500);
             });
             quizOpts.appendChild(btn);
@@ -197,56 +198,65 @@ export function initTestRunner() {
     document.getElementById('submitFeedback').addEventListener('click', () => {
         const text = feedbackInput.value.trim();
         if (!text) return;
-        const list = JSON.parse(localStorage.getItem('ming_feedback') || '[]');
-        list.unshift({ time: new Date().toLocaleString(), text });
-        if (list.length > 50) list.pop();
-        localStorage.setItem('ming_feedback', JSON.stringify(list));
+        try {
+            const list = JSON.parse(localStorage.getItem('ming_feedback') || '[]');
+            list.unshift({ time: new Date().toLocaleString(), text });
+            if (list.length > 50) list.pop();
+            localStorage.setItem('ming_feedback', JSON.stringify(list));
+        } catch (e) { console.warn('submitFeedback localStorage failed:', e); }
         feedbackInput.value = '';
         loadFeedbackHistory();
     });
     function loadFeedbackHistory() {
-        const list = JSON.parse(localStorage.getItem('ming_feedback') || '[]');
-        feedbackHistory.innerHTML = list.length ? list.map((f, i) => '<div>' + f.time + ' ' + f.text + ' <button data-fi="' + i + '" style="font-size:10px;padding:0 4px;">复制</button></div>').join('') : '暂无反馈记录';
-        feedbackHistory.querySelectorAll('button').forEach(b => b.addEventListener('click', (e) => {
-            const i = parseInt(e.target.dataset.fi);
-            const item = JSON.parse(localStorage.getItem('ming_feedback') || '[]')[i];
-            if (item) navigator.clipboard.writeText(item.time + ' ' + item.text).then(() => statusEl.textContent = '📋 已复制');
-        }));
+        try {
+            const list = JSON.parse(localStorage.getItem('ming_feedback') || '[]');
+            feedbackHistory.innerHTML = list.length ? list.map((f, i) => '<div>' + f.time + ' ' + f.text + ' <button data-fi="' + i + '" style="font-size:10px;padding:0 4px;">复制</button></div>').join('') : '暂无反馈记录';
+            feedbackHistory.querySelectorAll('button').forEach(b => b.addEventListener('click', (e) => {
+                const i = parseInt(e.target.dataset.fi);
+                const item = JSON.parse(localStorage.getItem('ming_feedback') || '[]')[i];
+                if (item) navigator.clipboard.writeText(item.time + ' ' + item.text).then(() => statusEl.textContent = '📋 已复制').catch(() => {});
+            }));
+        } catch (e) { console.warn('loadFeedbackHistory failed:', e); }
     }
 
     // ==================== 历史记录 ====================
     function saveHistoryList(list) {
         if (list.length > 50) list = list.slice(0, 50);
-        localStorage.setItem('ming_test_history', JSON.stringify(list));
+        try { localStorage.setItem('ming_test_history', JSON.stringify(list)); } catch (e) {}
     }
 
     function loadHistory() {
-        const hist = JSON.parse(localStorage.getItem('ming_test_history') || '[]');
-        if (!hist.length) { historyPanel.style.display = 'none'; historyPanel.innerHTML = ''; return; }
-        historyPanel.innerHTML = '<div style="color:#ffd700;font-weight:bold;display:flex;justify-content:space-between;align-items:center;"><span>📜 历史记录</span><button id="clearHistoryBtn" style="font-size:10px;padding:2px 8px;background:#f44336;color:#fff;border:none;border-radius:4px;">清空</button></div>'
-            + hist.map((h, i) => '<div class="history-item" data-id="' + (h.id || i) + '"><span>' + h.time + ' 通过' + h.pass + ' 失败' + h.fail + '</span><span><button data-action="copy" data-i="' + i + '" style="font-size:10px;padding:2px 6px;">复制</button><button data-action="del" data-i="' + i + '" style="font-size:10px;padding:2px 6px;margin-left:4px;background:#f44336;color:#fff;border:none;border-radius:4px;">删除</button></span></div>').join('');
-        historyPanel.style.display = 'block';
-        historyPanel.querySelectorAll('button').forEach(b => b.addEventListener('click', (e) => {
-            e.stopPropagation();
-            const i = parseInt(e.target.dataset.i);
-            const action = e.target.dataset.action;
-            let list = JSON.parse(localStorage.getItem('ming_test_history') || '[]');
-            if (action === 'copy') {
-                const h = list[i];
-                if (h) navigator.clipboard.writeText(h.text).then(() => statusEl.textContent = '📋 已复制');
-            } else if (action === 'del') {
-                list.splice(i, 1);
-                saveHistoryList(list);
-                loadHistory();
-            } else if (e.target.id === 'clearHistoryBtn') {
-                showCustomConfirm('确定清空全部历史记录？', () => { localStorage.removeItem('ming_test_history'); loadHistory(); });
-            }
-        }));
+        try {
+            const hist = JSON.parse(localStorage.getItem('ming_test_history') || '[]');
+            if (!hist.length) { historyPanel.style.display = 'none'; historyPanel.innerHTML = ''; return; }
+            historyPanel.innerHTML = '<div style="color:#ffd700;font-weight:bold;display:flex;justify-content:space-between;align-items:center;"><span>📜 历史记录</span><button id="clearHistoryBtn" style="font-size:10px;padding:2px 8px;background:#f44336;color:#fff;border:none;border-radius:4px;">清空</button></div>'
+                + hist.map((h, i) => '<div class="history-item" data-id="' + (h.id || i) + '"><span>' + h.time + ' 通过' + h.pass + ' 失败' + h.fail + '</span><span><button data-action="copy" data-id="' + (h.id || i) + '" style="font-size:10px;padding:2px 6px;">复制</button><button data-action="del" data-id="' + (h.id || i) + '" style="font-size:10px;padding:2px 6px;margin-left:4px;background:#f44336;color:#fff;border:none;border-radius:4px;">删除</button></span></div>').join('');
+            historyPanel.style.display = 'block';
+            historyPanel.querySelectorAll('button').forEach(b => b.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const id = e.target.dataset.id;
+                const action = e.target.dataset.action;
+                if (action === 'copy') {
+                    const h = hist.find(item => String(item.id) === id);
+                    if (h) navigator.clipboard.writeText(h.text).then(() => statusEl.textContent = '📋 已复制').catch(() => {});
+                } else if (action === 'del') {
+                    let list = JSON.parse(localStorage.getItem('ming_test_history') || '[]');
+                    list = list.filter(item => String(item.id) !== id);
+                    saveHistoryList(list);
+                    loadHistory();
+                } else if (e.target.id === 'clearHistoryBtn') {
+                    showCustomConfirm('确定清空全部历史记录？', () => { try { localStorage.removeItem('ming_test_history'); } catch(e) {} loadHistory(); });
+                }
+            }));
+        } catch (e) { console.warn('loadHistory failed:', e); }
     }
     loadHistory();
 
     // ==================== 开始体检 ====================
     runBtn.addEventListener('click', () => {
+        if (runBtn.disabled) return;
+        runBtn.disabled = true;
+        runBtn.textContent = '⏳ 检测中...';
         startQuiz();
         const config = {
             iframe, statusEl, reportEl, copySumBtn, copyFullBtn, runBtn,
