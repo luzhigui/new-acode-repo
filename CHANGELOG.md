@@ -1,5 +1,16 @@
 # 光明顶 5v5 - 更改履历
 
+## V3.1.5 — 2026-06-25
+- **封面黑幕加深**：`mode-5v5-test.html` cover-overlay 从 `rgba(20,15,10,0.92)` 改为 `rgba(0,0,0,0.95)`
+- **封面版本显示修复**：`12main-utils.js` 动态 import 路径从 `./core/` 改为 `../core/`（相对路径基准是 JS 文件所在目录）
+- **飞撞去掉灰色底座**：`17fx-crash-5v5-test.js` 克隆体背景改为透明，边框改为蓝色半透明
+- **虚影加蓝色调**：`14ui-render-5v5-test.js` 和 `17fx-crash-5v5-test.js` 虚影模式从灰度改为蓝色调（sepia+hue-rotate）
+- **子弹时间攻击者 z-index 修复**：`20fx-dodge-bullet.js` 攻击者克隆从 10010 提升到 10020，确保在黑幕之上
+- **子弹时间暂停按钮恢复**：`20fx-dodge-bullet.js` finally 块中调用 `ctx.updateButtons()` 恢复按钮状态
+- **Carry 血量 UI 同步**：`10player-core.js` syncAllyBuffFields 同步 maxHp 和 hp 到 UI 单位
+- **Carry 加成排除拒马**：`04buff-system.js` computeBuffStats 中 allAllies 过滤增加 `!u.isHorse`
+- **后台切回暂停**：`13main-5v5-test.js` 添加 visibilitychange 监听，页面隐藏时自动暂停游戏
+
 ## V3.1.4 — 2026-06-25
 - **00index 开发工具箱默认收起**：工具箱按钮网格默认折叠，点击标题展开/收起
 - **封面页模块版本显示修复**：`12main-utils.js` 动态导入路径补充子目录前缀，显示全部 25 个模块

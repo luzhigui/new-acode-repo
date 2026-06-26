@@ -83,7 +83,7 @@ export function showMeleeCrash(unitA, unitD, speed, getPausedFn, onCrash) {
     }
 
     let savedLeft = rA.left, savedTop = rA.top, savedWidth = rA.width, savedHeight = rA.height;
-    if (flyMode === 'ghost') { cellA.style.opacity = '0.3'; }
+    if (flyMode === 'ghost') { cellA.style.opacity = '0.3'; cellA.style.filter = 'sepia(0.3) hue-rotate(180deg) saturate(0.6)'; }
     else { cellA.style.visibility = 'hidden'; }
     unitA._flash = null;  // 立即清除数据标记，防止重绘时再现蓝色
     cellA.classList.remove('ready');
@@ -103,8 +103,8 @@ export function showMeleeCrash(unitA, unitD, speed, getPausedFn, onCrash) {
             visibility: visible;
             display: flex;
             transform: none;
-            background: #e8e6e0;
-            border: 2px solid #bbb;
+            background: transparent;
+            border: 2px solid rgba(100,149,237,0.6);
             border-radius: 5px;
             box-sizing: border-box;
         `;
@@ -159,6 +159,7 @@ export function showMeleeCrash(unitA, unitD, speed, getPausedFn, onCrash) {
                                     currentCell.style.visibility = '';
                                     currentCell.style.background = '';
                                     currentCell.style.transform = '';
+                                    currentCell.style.filter = '';
                                     currentCell.removeAttribute('data-flash');
                                 }
                                 unitA._flash = null;
