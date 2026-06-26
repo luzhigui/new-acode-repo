@@ -1,0 +1,304 @@
+<!-- 34file-copier.html - 光明顶项目 · 智能批量代码复制器 -->
+<!-- 2026-06-25 13:50 Trae: 更新文件路径以适配新文件夹结构；加入 35fang-calc.html -->
+<!-- 用法：Live Server 打开，勾选文件，设定上限，自动分批复制 -->
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>光明顶 · 智能批量复制器</title>
+    <style>
+        body { background: #1a1a2e; color: #eee; font-family: monospace; padding: 12px; font-size: 13px; }
+        h2 { color: #ffd700; text-align: center; margin: 0 0 8px 0; }
+        .config { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; background: #2a2a4e; padding: 10px; border-radius: 6px; flex-wrap: wrap; }
+        .config label { color: #ffd700; font-weight: bold; white-space: nowrap; }
+        .config input { padding: 6px; border-radius: 4px; border: none; font-size: 14px; }
+        .config input[type="number"] { width: 100px; text-align: center; }
+        .config input[type="text"] { width: 200px; background: #1a1a2e; color: #ffd700; border: 1px solid #555; }
+        .config button { background: #ffd700; color: #1a1a2e; border: none; padding: 8px 16px; border-radius: 4px; font-weight: bold; cursor: pointer; font-size: 13px; }
+        .config button:hover { background: #ffed4a; }
+        .select-all { display: flex; gap: 12px; align-items: center; }
+        .select-all button { background: #3a3a6e; color: #eee; border: 1px solid #555; padding: 4px 12px; border-radius: 4px; cursor: pointer; font-size: 11px; }
+        .add-file-row { display: flex; gap: 6px; align-items: center; margin-bottom: 8px; }
+        .add-file-row input { flex: 1; padding: 6px 10px; border-radius: 4px; border: 1px solid #555; background: #1a1a2e; color: #ffd700; font-size: 12px; }
+        .add-file-row button { background: #4caf50; color: #fff; border: none; padding: 6px 14px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 12px; }
+        .add-file-row button:hover { background: #66bb6a; }
+        .file-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 4px; margin-bottom: 16px; }
+        .file-item { display: flex; align-items: center; gap: 6px; background: #2a2a4e; padding: 6px 10px; border-radius: 4px; cursor: pointer; font-size: 12px; transition: 0.2s; }
+        .file-item:hover { background: #3a3a6e; }
+        .file-item input { margin: 0; cursor: pointer; }
+        .file-item.added { border-left: 3px solid #4caf50; }
+        .batches { display: flex; flex-direction: column; gap: 12px; }
+        .batch-card { background: #111; border: 2px solid #333; border-radius: 8px; overflow: hidden; }
+        .batch-card.copied { border-color: #2e7d32; box-shadow: 0 0 8px rgba(46,125,50,0.4); }
+        .batch-card.read-fail { border-color: #f44336; box-shadow: 0 0 8px rgba(244,67,54,0.3); }
+        .batch-header { background: #2a2a4e; padding: 10px 14px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #555; }
+        .batch-header span { font-weight: bold; color: #ffd700; }
+        .batch-header .header-btns { display: flex; gap: 6px; }
+        .batch-header button { border: none; padding: 6px 14px; border-radius: 4px; font-weight: bold; cursor: pointer; font-size: 12px; }
+        .batch-header .copy-batch-btn { background: #ffd700; color: #1a1a2e; }
+        .batch-header .copy-batch-btn:hover { background: #ffed4a; }
+        .batch-header .copy-batch-btn.copied { background: #2e7d32; color: #fff; cursor: default; }
+        .batch-header .download-batch-btn { background: #1565c0; color: #fff; }
+        .batch-header .download-batch-btn:hover { background: #1976d2; }
+        .batch-manifest { padding: 8px 14px; background: #1a1a2e; color: #aaa; font-size: 11px; border-bottom: 1px solid #333; white-space: pre-wrap; }
+        .batch-code { padding: 10px 14px; white-space: pre-wrap; font-size: 11px; color: #ccc; max-height: 200px; overflow-y: auto; display: none; }
+        .batch-code.show { display: block; }
+        #status { margin-top: 12px; color: #ffd700; text-align: center; min-height: 20px; }
+    </style>
+</head>
+<body>
+    <h2>📋 光明顶 · 智能批量复制器</h2>
+    
+    <div class="config">
+        <label>📦 单次复制上限(字符)：</label>
+        <input type="number" id="charLimit" value="20000" min="1000" max="100000" step="1000">
+        <div class="select-all">
+            <button id="btnSelectAll">全选</button>
+            <button id="btnDeselectAll">全不选</button>
+        </div>
+        <button id="btnGenerate">📦 生成复制包</button>
+    </div>
+
+    <div class="add-file-row">
+        <input type="text" id="customFileInput" placeholder="输入文件名，多个用逗号分隔">
+        <button id="btnAddFile">＋ 添加文件</button>
+    </div>
+
+    <div class="file-grid" id="fileGrid"></div>
+    
+    <div id="status">勾选需要复制的文件，设定字符上限，点击“生成复制包”</div>
+    
+    <div class="batches" id="batches"></div>
+
+    <script>
+        const FILES = [
+            '../core/01config-5v5-test.js', '../core/02unit.js', '../core/03battle-utils.js', '../core/04buff-system.js',
+            '../core/05battle-horse.js', '../core/06battle-engine-core.js', '../core/07battle-engine-5v5-test.js',
+            '../player/08player-text.js', '../player/09player-buff-ui.js', '../player/10player-core.js',
+            '../player/11battle-player-5v5-test.js', '../ui/12main-utils.js', '../ui/13main-5v5-test.js',
+            '../ui/14ui-render-5v5-test.js', '../fx/15fx-common-5v5-test.js', '../fx/16fx-arrows-5v5-test.js',
+            '../fx/17fx-crash-5v5-test.js', '../fx/18fx-position-swap.js', '../fx/19fx-push-back.js',
+            '../fx/20fx-dodge-bullet.js', '../modules/23elite-skills.js', '../modules/24error-capture.js',
+            '../tests/25unit-tests.js', './26codex-v2.1.js', '../tests/27auto-battle-utils.js', '../modules/28audio-manager.js',
+            '../tests/29health-rules.js', '../tests/35quiz-bank.js', '../tests/37health-core.js', '../tests/38health-ui.js',
+            '../mode-5v5-test.html', './30test-runner.html', './32auto-battle.html',
+            '../00index.html', './31function-copier.html', './33first-aid-kit.html', './35fang-calc.html',
+            './00build-5v5.cjs'
+        ];
+
+        const fileGrid = document.getElementById('fileGrid');
+        const batchesDiv = document.getElementById('batches');
+        const statusDiv = document.getElementById('status');
+
+        function buildFileCheckbox(fileName, isAdded) {
+            const label = document.createElement('label');
+            label.className = 'file-item';
+            if (isAdded) label.classList.add('added');
+            const checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.value = fileName;
+            if (isAdded) checkbox.checked = true;
+            label.appendChild(checkbox);
+            label.appendChild(document.createTextNode(fileName));
+            return label;
+        }
+
+        FILES.forEach(file => fileGrid.appendChild(buildFileCheckbox(file, false)));
+
+        document.getElementById('btnAddFile').addEventListener('click', () => {
+            const input = document.getElementById('customFileInput');
+            const raw = input.value.trim();
+            if (!raw) return;
+            const names = raw.split(',').map(s => s.trim()).filter(s => s.length > 0);
+            names.forEach(name => {
+                const existing = fileGrid.querySelector(`input[value="${name}"]`);
+                if (!existing) {
+                    fileGrid.appendChild(buildFileCheckbox(name, true));
+                } else {
+                    existing.checked = true;
+                }
+            });
+            input.value = '';
+            statusDiv.textContent = `✅ 已添加：${names.join(', ')}`;
+        });
+
+        document.getElementById('customFileInput').addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') document.getElementById('btnAddFile').click();
+        });
+
+        document.getElementById('btnSelectAll').addEventListener('click', () => {
+            fileGrid.querySelectorAll('input[type=checkbox]').forEach(cb => cb.checked = true);
+        });
+        document.getElementById('btnDeselectAll').addEventListener('click', () => {
+            fileGrid.querySelectorAll('input[type=checkbox]').forEach(cb => cb.checked = false);
+        });
+
+        function splitLargeFile(fileName, content, charLimit) {
+            const lines = content.split('\n');
+            const chunks = [];
+            let currentChunk = '';
+            for (let i = 0; i < lines.length; i++) {
+                const line = lines[i] + '\n';
+                if (line.length > charLimit) {
+                    if (currentChunk) { chunks.push(currentChunk); currentChunk = ''; }
+                    chunks.push(line);
+                    continue;
+                }
+                if (currentChunk.length + line.length > charLimit) {
+                    chunks.push(currentChunk);
+                    currentChunk = line;
+                } else {
+                    currentChunk += line;
+                }
+            }
+            if (currentChunk) chunks.push(currentChunk);
+            const total = chunks.length;
+            return chunks.map((chunk, idx) => ({
+                fileName, content: chunk,
+                partIndex: idx + 1, partTotal: total,
+                charCount: chunk.length,
+                lineCount: chunk.split('\n').length - 1
+            }));
+        }
+
+        document.getElementById('btnGenerate').addEventListener('click', async () => {
+            const charLimit = parseInt(document.getElementById('charLimit').value) || 20000;
+            const selectedFiles = Array.from(fileGrid.querySelectorAll('input[type=checkbox]:checked'))
+                .map(cb => cb.value);
+
+            if (selectedFiles.length === 0) {
+                statusDiv.textContent = '⚠️ 请至少勾选一个文件';
+                return;
+            }
+
+            statusDiv.textContent = '正在读取文件...';
+            batchesDiv.innerHTML = '';
+
+            const fileContents = {};
+            const fileErrors = {};
+            for (const file of selectedFiles) {
+                try {
+                    const response = await fetch(file);
+                    if (response.ok) {
+                        fileContents[file] = await response.text();
+                    } else {
+                        fileContents[file] = null;
+                        fileErrors[file] = 'HTTP ' + response.status;
+                    }
+                } catch (e) {
+                    fileContents[file] = null;
+                    fileErrors[file] = e.message;
+                }
+            }
+
+            const batches = [];
+            let currentBatch = { files: [], totalChars: 0, hasFailures: false };
+
+            for (const file of selectedFiles) {
+                const content = fileContents[file];
+                if (!content) {
+                    currentBatch.files.push({ fileName: file, content: null, charCount: 0, lineCount: 0, error: fileErrors[file] });
+                    currentBatch.hasFailures = true;
+                    continue;
+                }
+                if (content.length > charLimit) {
+                    if (currentBatch.files.length > 0) {
+                        batches.push(currentBatch);
+                        currentBatch = { files: [], totalChars: 0, hasFailures: false };
+                    }
+                    const parts = splitLargeFile(file, content, charLimit);
+                    for (const part of parts) {
+                        batches.push({ files: [part], totalChars: part.charCount, isSplit: true, hasFailures: false });
+                    }
+                    continue;
+                }
+                const fileLen = content.length;
+                if (currentBatch.totalChars + fileLen > charLimit && currentBatch.files.length > 0) {
+                    batches.push(currentBatch);
+                    currentBatch = { files: [], totalChars: 0, hasFailures: false };
+                }
+                currentBatch.files.push({ fileName: file, content, charCount: fileLen, lineCount: content.split('\n').length });
+                currentBatch.totalChars += fileLen;
+            }
+            if (currentBatch.files.length > 0) batches.push(currentBatch);
+
+            batchesDiv.innerHTML = '';
+            batches.forEach((batch, index) => {
+                const card = document.createElement('div');
+                card.className = 'batch-card';
+                if (batch.hasFailures) card.classList.add('read-fail');
+                
+                const manifestLines = batch.files.map(f => {
+                    const fn = f.fileName || '';
+                    const charInfo = `${f.charCount} 字符`;
+                    const lineInfo = f.lineCount ? `${f.lineCount} 行` : '';
+                    if (f.error) return `⚠️ ${fn}（读取失败: ${f.error}）`;
+                    if (f.partTotal && f.partTotal > 1) return `📄 ${fn} [第 ${f.partIndex}/${f.partTotal} 片·${charInfo}]`;
+                    return `📄 ${fn}（${lineInfo}，${charInfo}）`;
+                });
+                const partLabel = batch.isSplit ? '（文件分片）' : '';
+                const failLabel = batch.hasFailures ? ' ⚠️ 含读取失败' : '';
+                const manifest = `📦 复制包 #${index + 1}${partLabel}${failLabel}（共 ${batch.files.length} 个文件，合计 ${batch.totalChars} 字符）\n${manifestLines.join('\n')}`;
+                
+                const fullCode = batch.files.map(f => {
+                    const fn = f.fileName || '';
+                    if (f.error) return `// ===== ${fn} [读取失败: ${f.error}] =====`;
+                    if (f.partTotal && f.partTotal > 1) {
+                        return `// ===== ${fn} [第 ${f.partIndex}/${f.partTotal} 片·共 ${f.charCount} 字符] =====\n${f.content}`;
+                    }
+                    return `// ===== ${fn} =====\n${f.content}`;
+                }).join('\n\n');
+
+                const fullPayload = manifest + '\n\n--- 代码开始 ---\n\n' + fullCode;
+                
+                card.innerHTML = `
+                    <div class="batch-header">
+                        <span>📦 复制包 #${index + 1}${partLabel}${failLabel}（${batch.files.length} 文件 / ${batch.totalChars} 字符）</span>
+                        <div class="header-btns">
+                            <button class="download-batch-btn">📥 下载</button>
+                            <button class="copy-batch-btn">📋 复制</button>
+                        </div>
+                    </div>
+                    <div class="batch-manifest">${manifest.replace(/\n/g, '<br>')}</div>
+                    <div class="batch-code">${escapeHtml(fullCode)}</div>
+                `;
+                
+                const copyBtn = card.querySelector('.copy-batch-btn');
+                copyBtn.addEventListener('click', async () => {
+                    if (copyBtn.classList.contains('copied')) return;
+                    try {
+                        await navigator.clipboard.writeText(fullPayload);
+                        copyBtn.textContent = '已复制 ✓';
+                        copyBtn.classList.add('copied');
+                        card.classList.add('copied');
+                        statusDiv.textContent = `✅ 已复制包 #${index + 1}`;
+                    } catch (e) {
+                        statusDiv.textContent = '❌ 复制失败，请重试';
+                    }
+                });
+
+                const downloadBtn = card.querySelector('.download-batch-btn');
+                downloadBtn.addEventListener('click', () => {
+                    const blob = new Blob([fullCode], { type: 'text/plain;charset=utf-8' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `batch-${index + 1}.txt`;
+                    a.click();
+                    URL.revokeObjectURL(url);
+                    statusDiv.textContent = `✅ 已下载包 #${index + 1}`;
+                });
+                
+                batchesDiv.appendChild(card);
+            });
+
+            statusDiv.textContent = `✅ 已生成 ${batches.length} 个复制包`;
+        });
+
+        function escapeHtml(text) {
+            return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        }
+    </script>
+</body>
+</html>

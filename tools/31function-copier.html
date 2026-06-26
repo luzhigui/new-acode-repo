@@ -1,0 +1,279 @@
+<!-- 31function-copier.html - 光明顶项目 · 函数一键复制/替换器 -->
+<!-- 2026-06-25 13:50 Trae: 更新文件路径以适配新文件夹结构；加入 35fang-calc.html -->
+<!-- 用法：Live Server 打开，扫描项目后，可一键复制函数代码，或一键替换函数并生成新文件 -->
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>⚡ 光明顶 · 函数复制/替换器</title>
+    <style>
+        body { background: #1a1a2e; color: #eee; font-family: monospace; padding: 16px; font-size: 13px; }
+        h2 { color: #ffd700; text-align: center; margin-bottom: 12px; }
+        .btn { display: block; width: 100%; padding: 12px; margin: 12px 0; background: #ffd700; color: #1a1a2e; border: none; border-radius: 8px; font-size: 14px; font-weight: bold; cursor: pointer; }
+        .btn:hover { background: #ffed4a; }
+        .file-section { margin-bottom: 16px; border: 1px solid #444; border-radius: 8px; overflow: hidden; }
+        .file-header { background: #2a2a4e; padding: 10px 16px; font-weight: bold; color: #ffd700; cursor: pointer; display: flex; justify-content: space-between; }
+        .func-list { display: none; padding: 8px; }
+        .file-section.open .func-list { display: block; }
+        .func-item { background: #111; border: 1px solid #333; border-radius: 6px; padding: 10px; margin-bottom: 6px; display: flex; justify-content: space-between; align-items: center; transition: 0.2s; flex-wrap: wrap; gap: 8px; }
+        .func-item:hover { border-color: #ffd700; }
+        .func-info { flex: 1; min-width: 200px; }
+        .func-name { color: #4fc3f7; font-weight: bold; }
+        .func-line { color: #888; font-size: 11px; display: block; margin-top: 2px; }
+        .func-preview { color: #666; font-size: 10px; margin-top: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+        .btn-group { display: flex; gap: 4px; flex-shrink: 0; }
+        .action-btn { border: none; padding: 8px 14px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold; white-space: nowrap; transition: 0.2s; }
+        .copy-btn { background: #4caf50; color: white; }
+        .copy-btn:hover { background: #388e3c; }
+        .replace-btn { background: #ff9800; color: #1a1a2e; }
+        .replace-btn:hover { background: #ffb74d; }
+        .action-btn.copied { background: #2e7d32; }
+        .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 9999; justify-content: center; align-items: center; }
+        .modal-overlay.show { display: flex; }
+        .modal-box { background: #2a2a4e; border: 2px solid #ffd700; border-radius: 12px; padding: 20px; width: 90%; max-width: 600px; max-height: 80vh; overflow-y: auto; }
+        .modal-title { color: #ffd700; font-size: 16px; font-weight: bold; margin-bottom: 12px; }
+        .modal-label { color: #aaa; font-size: 11px; margin-bottom: 4px; }
+        .modal-textarea { width: 100%; height: 200px; background: #111; color: #ccc; border: 2px solid #444; border-radius: 6px; padding: 10px; font-family: monospace; font-size: 12px; resize: vertical; }
+        .modal-textarea:focus { border-color: #ffd700; outline: none; }
+        .modal-btn { padding: 10px 20px; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 13px; margin-top: 12px; margin-right: 8px; }
+        .modal-btn.confirm { background: #4caf50; color: white; }
+        .modal-btn.cancel { background: #666; color: white; }
+        .search-bar { display: flex; gap: 8px; margin-bottom: 16px; }
+        .search-bar input { flex: 1; padding: 8px; border-radius: 6px; border: 2px solid #444; background: #2a2a4e; color: #eee; font-size: 14px; }
+        .search-bar input:focus { border-color: #ffd700; outline: none; }
+        #status { text-align: center; color: #888; margin: 8px 0; min-height: 20px; }
+        .count { color: #888; font-size: 11px; }
+        .result-area { margin-top: 12px; display: none; }
+        .result-area.show { display: block; }
+    </style>
+</head>
+<body>
+    <h2>⚡ 光明顶 · 函数复制/替换器</h2>
+    
+    <div class="search-bar">
+        <input type="text" id="searchInput" placeholder="搜索函数名..." />
+    </div>
+
+    <button class="btn" id="btnScan">🔍 扫描项目函数</button>
+    <div id="status">点击按钮开始扫描，之后可复制或替换任意函数</div>
+    <div id="mapContainer"></div>
+
+    <!-- 替换弹窗 -->
+    <div class="modal-overlay" id="replaceModal">
+        <div class="modal-box">
+            <div class="modal-title">🔄 替换函数：<span id="replaceFuncName"></span></div>
+            <div class="modal-label">📄 文件：<span id="replaceFileName"></span></div>
+            <div class="modal-label">粘贴新的完整函数代码（包括 function 关键字）：</div>
+            <textarea class="modal-textarea" id="replaceTextarea" placeholder="在此粘贴新函数代码..."></textarea>
+            <div id="replaceResult" class="result-area">
+                <div class="modal-label" style="margin-top:12px;">✅ 替换后的完整文件内容（点击下方复制）：</div>
+                <textarea class="modal-textarea" id="resultTextarea" readonly style="height:150px;"></textarea>
+                <button class="modal-btn confirm" id="btnCopyResult">📋 复制更新后的文件</button>
+            </div>
+            <button class="modal-btn confirm" id="btnDoReplace">🔄 执行替换</button>
+            <button class="modal-btn cancel" id="btnCancelReplace">取消</button>
+        </div>
+    </div>
+
+    <script>
+        const ALL_JS_FILES = [
+            '../core/01config-5v5-test.js', '../core/02unit.js', '../core/03battle-utils.js', '../core/04buff-system.js',
+            '../core/05battle-horse.js', '../core/06battle-engine-core.js', '../core/07battle-engine-5v5-test.js',
+            '../player/08player-text.js', '../player/09player-buff-ui.js', '../player/10player-core.js',
+            '../player/11battle-player-5v5-test.js', '../ui/12main-utils.js', '../ui/13main-5v5-test.js',
+            '../ui/14ui-render-5v5-test.js', '../fx/15fx-common-5v5-test.js', '../fx/16fx-arrows-5v5-test.js',
+            '../fx/17fx-crash-5v5-test.js', '../fx/18fx-position-swap.js', '../fx/19fx-push-back.js',
+            '../fx/20fx-dodge-bullet.js', '../modules/23elite-skills.js', '../modules/24error-capture.js',
+            '../tests/25unit-tests.js', '../tools/26codex-v2.1.js', '../tests/27auto-battle-utils.js', '../modules/28audio-manager.js',
+            '../tests/29health-rules.js', '../tests/35quiz-bank.js', '../tests/37health-core.js', '../tests/38health-ui.js',
+            '../mode-5v5-test.html', '../tools/30test-runner.html', '../tools/32auto-battle.html',
+            '../00index.html', '../tools/31function-copier.html', '../tools/33first-aid-kit.html', '../tools/34file-copier.html', '../tools/35fang-calc.html'
+        ];
+
+        const TARGET_FILES = [
+            '../core/01config-5v5-test.js', '../core/02unit.js', '../core/03battle-utils.js', '../core/04buff-system.js',
+            '../core/05battle-horse.js', '../core/06battle-engine-core.js', '../core/07battle-engine-5v5-test.js',
+            '../player/08player-text.js', '../player/09player-buff-ui.js', '../player/10player-core.js',
+            '../player/11battle-player-5v5-test.js', '../ui/12main-utils.js', '../ui/13main-5v5-test.js',
+            '../ui/14ui-render-5v5-test.js', '../fx/15fx-common-5v5-test.js', '../fx/16fx-arrows-5v5-test.js',
+            '../fx/17fx-crash-5v5-test.js', '../fx/18fx-position-swap.js', '../fx/19fx-push-back.js',
+            '../fx/20fx-dodge-bullet.js', '../modules/23elite-skills.js', '../modules/24error-capture.js',
+            '../tools/26codex-v2.1.js', '../tests/27auto-battle-utils.js', '../modules/28audio-manager.js', '../tests/29health-rules.js', '../tests/35quiz-bank.js', '../tests/37health-core.js', '../tests/38health-ui.js', '../tools/00build-5v5.cjs'
+        ];
+
+        const mapContainer = document.getElementById('mapContainer');
+        const statusDiv = document.getElementById('status');
+        const searchInput = document.getElementById('searchInput');
+        const fileContents = {};
+
+        // 替换弹窗相关
+        const replaceModal = document.getElementById('replaceModal');
+        const replaceFuncName = document.getElementById('replaceFuncName');
+        const replaceFileName = document.getElementById('replaceFileName');
+        const replaceTextarea = document.getElementById('replaceTextarea');
+        const replaceResult = document.getElementById('replaceResult');
+        const resultTextarea = document.getElementById('resultTextarea');
+        let currentReplaceFile = null;
+        let currentReplaceFunc = null;
+        let currentReplaceLine = null;
+
+        document.getElementById('btnScan').addEventListener('click', async () => {
+            mapContainer.innerHTML = '';
+            statusDiv.textContent = '正在扫描...';
+            
+            let totalFunctions = 0;
+
+            for (const filename of TARGET_FILES) {
+                try {
+                    const response = await fetch(filename);
+                    if (!response.ok) continue;
+                    const code = await response.text();
+                    fileContents[filename] = code;
+                    const functions = extractFunctions(code, filename);
+                    
+                    if (functions.length > 0) {
+                        totalFunctions += functions.length;
+                        renderFileSection(filename, functions);
+                    }
+                } catch (e) {}
+            }
+
+            statusDiv.textContent = `✅ 扫描完成：${TARGET_FILES.length} 个文件，${totalFunctions} 个函数`;
+        });
+
+        function extractFunctions(code, filename) {
+            const functions = [];
+            const lines = code.split('\n');
+            const funcRegex = /(?:async\s+)?function\s+(\w+)\s*\(|(\w+)\s*=\s*(?:async\s+)?function\s*\(|(\w+)\s*=\s*\([^)]*\)\s*=>/g;
+            
+            lines.forEach((line, idx) => {
+                let match;
+                while ((match = funcRegex.exec(line)) !== null) {
+                    const name = match[1] || match[2] || match[3];
+                    if (name && !['if', 'for', 'while', 'switch', 'catch'].includes(name)) {
+                        functions.push({ name, line: idx + 1, content: line.trim().substring(0, 80) });
+                    }
+                }
+            });
+            return functions;
+        }
+
+        function extractFuncBody(code, funcName, startLine) {
+            const lines = code.split('\n');
+            const startIdx = startLine - 1;
+            let braceDepth = 0, started = false, endIdx = lines.length - 1;
+            for (let i = startIdx; i < lines.length; i++) {
+                braceDepth += (lines[i].match(/\{/g) || []).length - (lines[i].match(/\}/g) || []).length;
+                if (braceDepth > 0) started = true;
+                if (started && braceDepth === 0) { endIdx = i; break; }
+            }
+            return lines.slice(startIdx, endIdx + 1).join('\n');
+        }
+
+        function renderFileSection(filename, functions) {
+            const section = document.createElement('div');
+            section.className = 'file-section';
+            section.innerHTML = `<div class="file-header"><span>📄 ${filename}</span><span class="count">${functions.length} 个函数</span></div><div class="func-list"></div>`;
+            
+            const funcList = section.querySelector('.func-list');
+            functions.forEach(f => {
+                const item = document.createElement('div');
+                item.className = 'func-item';
+                item.setAttribute('data-name', f.name.toLowerCase());
+                item.innerHTML = `
+                    <div class="func-info">
+                        <span class="func-name">${f.name}</span>
+                        <span class="func-line">第 ${f.line} 行</span>
+                        <div class="func-preview">${escapeHtml(f.content)}</div>
+                    </div>
+                    <div class="btn-group">
+                        <button class="action-btn copy-btn" data-file="${filename}" data-func="${f.name}" data-line="${f.line}">📋 复制</button>
+                        <button class="action-btn replace-btn" data-file="${filename}" data-func="${f.name}" data-line="${f.line}">🔄 替换</button>
+                    </div>`;
+                
+                item.querySelector('.copy-btn').addEventListener('click', async (e) => {
+                    const btn = e.target;
+                    const code = fileContents[btn.dataset.file];
+                    if (code) {
+                        const funcBody = extractFuncBody(code, btn.dataset.func, parseInt(btn.dataset.line));
+                        await navigator.clipboard.writeText(funcBody);
+                        btn.textContent = '✅ 已复制';
+                        btn.classList.add('copied');
+                        setTimeout(() => { btn.textContent = '📋 复制'; btn.classList.remove('copied'); }, 1500);
+                        statusDiv.textContent = `✅ 已复制 ${btn.dataset.func}（${funcBody.split('\n').length} 行）`;
+                    }
+                });
+
+                item.querySelector('.replace-btn').addEventListener('click', (e) => {
+                    const btn = e.target;
+                    currentReplaceFile = btn.dataset.file;
+                    currentReplaceFunc = btn.dataset.func;
+                    currentReplaceLine = parseInt(btn.dataset.line);
+                    
+                    replaceFuncName.textContent = currentReplaceFunc;
+                    replaceFileName.textContent = currentReplaceFile;
+                    replaceTextarea.value = '';
+                    replaceResult.classList.remove('show');
+                    resultTextarea.value = '';
+                    replaceModal.classList.add('show');
+                });
+                
+                funcList.appendChild(item);
+            });
+            
+            section.querySelector('.file-header').addEventListener('click', () => section.classList.toggle('open'));
+            mapContainer.appendChild(section);
+        }
+
+        document.getElementById('btnDoReplace').addEventListener('click', () => {
+            const newFuncCode = replaceTextarea.value.trim();
+            if (!newFuncCode || !currentReplaceFile || !currentReplaceFunc) return;
+            
+            const originalCode = fileContents[currentReplaceFile];
+            const oldFuncBody = extractFuncBody(originalCode, currentReplaceFunc, currentReplaceLine);
+            
+            const updatedCode = originalCode.replace(oldFuncBody, newFuncCode);
+            
+            resultTextarea.value = updatedCode;
+            replaceResult.classList.add('show');
+            statusDiv.textContent = `✅ 已生成 ${currentReplaceFile} 的更新版本`;
+        });
+
+        document.getElementById('btnCopyResult').addEventListener('click', async () => {
+            try {
+                await navigator.clipboard.writeText(resultTextarea.value);
+                statusDiv.textContent = `✅ 已复制 ${currentReplaceFile} 更新版本（${resultTextarea.value.split('\n').length} 行），请粘贴覆盖原文件`;
+            } catch (err) {
+                statusDiv.textContent = '❌ 复制失败，请重试';
+            }
+        });
+
+        document.getElementById('btnCancelReplace').addEventListener('click', () => {
+            replaceModal.classList.remove('show');
+            currentReplaceFile = null;
+            currentReplaceFunc = null;
+            currentReplaceLine = null;
+        });
+
+        replaceModal.addEventListener('click', (e) => {
+            if (e.target === replaceModal) replaceModal.classList.remove('show');
+        });
+
+        searchInput.addEventListener('input', () => {
+            const query = searchInput.value.toLowerCase().trim();
+            document.querySelectorAll('.file-section').forEach(section => {
+                let hasMatch = false;
+                section.querySelectorAll('.func-item').forEach(item => {
+                    if (!query || item.dataset.name.includes(query)) { item.style.display = 'flex'; hasMatch = true; }
+                    else { item.style.display = 'none'; }
+                });
+                section.style.display = (query && !hasMatch) ? 'none' : '';
+                if (query && hasMatch) section.classList.add('open');
+            });
+        });
+
+        function escapeHtml(text) { return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+    </script>
+</body>
+</html>

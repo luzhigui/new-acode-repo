@@ -1,0 +1,91 @@
+<!-- 30test-runner.html - 光明顶 5v5 测试与全身体检中心 V4.3 -->
+<!-- 2026-06-25 13:50 Trae: 从根目录移入 tools/ 文件夹 -->
+<!-- 预估字节数: 5000, 发送时间: 20260625 18:00, 版本: V4.3.0 -->
+<!-- 变更: 内联 JS 全部移入 38health-ui.js；下掉环境诊断页签；保留诊断代码以便后续复用 -->
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>光明顶 5v5 测试与诊断 V4.3</title>
+    <style>
+        body { background: #1a1a2e; color: #eee; font-family: monospace; padding: 12px; font-size: 13px; margin: 0; }
+        h2 { color: #ffd700; text-align: center; margin: 8px 0; }
+        .tabs { display: flex; gap: 4px; margin-bottom: 16px; }
+        .tab-btn { flex: 1; padding: 10px; background: #2a2a4e; border: 2px solid #444; border-radius: 8px 8px 0 0; color: #aaa; cursor: pointer; font-size: 13px; font-weight: bold; text-align: center; }
+        .tab-btn.active { background: #1a1a2e; border-bottom-color: #1a1a2e; color: #ffd700; border-color: #ffd700 #ffd700 #1a1a2e #ffd700; }
+        .tab-panel { display: none; } .tab-panel.active { display: block; }
+        button { display: block; width: 100%; padding: 12px; margin: 16px 0; background: #ffd700; color: #1a1a2e; border: none; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; }
+        .result { margin: 6px 0; padding: 4px 8px; border-radius: 4px; }
+        .pass-line { color: #4caf50; } .fail-line { color: #f44336; background: rgba(244,67,54,0.15); }
+        .summary { margin-top: 16px; padding: 10px; background: rgba(255,215,0,0.1); border: 1px solid #ffd700; border-radius: 6px; text-align: center; font-weight: bold; }
+        .auto-status { margin: 8px 0; color: #ff9800; font-size: 12px; text-align: center; min-height: 20px; }
+        .stage-result { margin: 8px 0; padding: 8px; background: #111; border-radius: 6px; font-size: 12px; }
+        .stage-result .stage-name { color: #ffd700; font-weight: bold; }
+        #autoIframe { display: none; width: 100%; height: 500px; border: 2px solid #444; border-radius: 8px; margin-top: 12px; }
+        .progress-container { display: none; margin: 12px 0; }
+        .progress-bar-wrap { background: #2a2a4e; border-radius: 8px; height: 20px; overflow: hidden; border: 1px solid #444; }
+        .progress-bar-fill { height: 100%; background: linear-gradient(90deg, #4caf50, #ffd700); width: 0%; transition: width 0.3s ease; border-radius: 8px; }
+        .progress-text { text-align: center; font-size: 11px; color: #aaa; margin-top: 4px; }
+        .stage-checkboxes, .group-checkboxes { display: flex; gap: 8px; margin: 8px 0; flex-wrap: wrap; }
+        .stage-checkboxes label, .group-checkboxes label { display: flex; align-items: center; gap: 4px; background: #2a2a4e; padding: 4px 10px; border-radius: 4px; cursor: pointer; font-size: 13px; }
+        .quiz-panel { display: none; margin-top: 12px; background: #1a1a2e; border: 1px solid #444; border-radius: 8px; padding: 12px; }
+        .quiz-question { font-size: 14px; margin-bottom: 8px; color: #ffd700; }
+        .quiz-options { display: flex; flex-wrap: wrap; gap: 8px; }
+        .quiz-option { background: #2a2a4e; border: 1px solid #444; border-radius: 4px; padding: 8px 16px; cursor: pointer; color: #ccc; }
+        .quiz-option:hover { border-color: #ffd700; } .quiz-option.correct { background: #4caf50; color: white; } .quiz-option.wrong { background: #f44336; color: white; }
+        .quiz-feedback { margin-top: 8px; font-size: 12px; } .quiz-score { margin-top: 8px; font-weight: bold; color: #ffd700; }
+        .feedback-area { display: none; margin-top: 12px; }
+        .feedback-area textarea { width: 100%; height: 50px; background: #111; color: #ccc; border: 1px solid #444; border-radius: 4px; padding: 4px; font-size: 12px; }
+        .history-panel { margin-top: 16px; background: #111; border-radius: 8px; padding: 8px; max-height: 200px; overflow-y: auto; display: none; }
+        .history-item { font-size: 11px; color: #aaa; border-bottom: 1px solid #333; padding: 4px 0; display: flex; justify-content: space-between; }
+    </style>
+</head>
+<body>
+<h2>⚔️ 光明顶 5v5 测试与诊断 V4.3</h2>
+<div class="tabs">
+    <button class="tab-btn active" data-tab="core-tests">🧪 核心测试</button>
+    <button class="tab-btn" data-tab="health-check">💚 全面体检</button>
+</div>
+<div class="tab-panel active" id="core-tests">
+    <button id="runBtn">▶ 运行核心测试</button>
+    <div id="results"></div>
+    <div id="coreSummary" class="summary" style="display:none;"></div>
+</div>
+<div class="tab-panel" id="health-check">
+    <div class="stage-checkboxes" id="stageCheckboxes">
+        <label><input type="checkbox" value="1" checked> 1关</label><label><input type="checkbox" value="2" checked> 2关</label>
+        <label><input type="checkbox" value="3" checked> 3关</label><label><input type="checkbox" value="4" checked> 4关</label>
+        <label><input type="checkbox" value="5" checked> 5关</label><label><input type="checkbox" value="6" checked> 6关</label>
+    </div>
+    <div class="group-checkboxes" id="groupCheckboxes"></div>
+    <button id="runAutoCheckBtn">🤖 开始全面体检</button>
+    <div class="progress-container" id="progressContainer">
+        <div class="progress-bar-wrap"><div class="progress-bar-fill" id="progressFill"></div></div>
+        <div class="progress-text" id="progressText">初始化...</div>
+    </div>
+    <div class="quiz-panel" id="quizPanel">
+        <div class="quiz-question" id="quizQuestion"></div>
+        <div class="quiz-options" id="quizOptions"></div>
+        <div class="quiz-feedback" id="quizFeedback"></div>
+        <div class="quiz-score" id="quizScore">得分：0</div>
+        <button id="toggleFeedback" style="margin-top:8px; padding:6px 12px; font-size:12px;">📝 快速反馈</button>
+        <div class="feedback-area" id="feedbackArea">
+            <textarea id="feedbackInput" placeholder="记个Bug、反馈题目、想到什么写什么..."></textarea>
+            <button id="submitFeedback" style="margin-top:4px; padding:6px 12px; font-size:12px;">保存</button>
+            <div id="feedbackHistory" style="color:#aaa; font-size:10px; margin-top:4px; max-height:80px; overflow-y:auto;"></div>
+        </div>
+    </div>
+    <button id="copySummaryBtn" style="display:none; margin-top:8px;">📋 复制汇总</button>
+    <button id="copyFullBtn" style="display:none;">📋 复制完整报告</button>
+    <div id="autoStatus" class="auto-status">选择关卡和规则组，点击按钮开始</div>
+    <div id="autoReport"></div>
+    <div class="history-panel" id="historyPanel"></div>
+    <iframe id="autoIframe" sandbox="allow-scripts allow-same-origin allow-popups allow-forms"></iframe>
+</div>
+<script type="module">
+import { initTestRunner } from '../tests/38health-ui.js';
+initTestRunner();
+</script>
+</body>
+</html>
