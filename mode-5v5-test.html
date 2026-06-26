@@ -29,7 +29,7 @@
         .cell.adjust-selected { border-color: #ffd700; box-shadow: 0 0 10px #ffd700; }
         .cell.cell-blocked { animation: blockedFlash 0.5s ease-in-out 2; }
         @keyframes blockedFlash { 0%, 100% { border-color: #ffd700; } 50% { border-color: #ff4444; } }
-        .cell.fixed-unit { background: #d0d0d0 !important; border-color: #999 !important; opacity: 0.7; cursor: not-allowed; }
+        .cell.fixed-unit { background: #d0d0d0 !important; border-color: #999 !important; opacity: 0.65; filter: grayscale(0.5); cursor: not-allowed; }
         .cell.swappable { animation: swapBreath 2s ease-in-out infinite; cursor: pointer; }
         @keyframes swapBreath { 0%, 100% { box-shadow: 0 0 6px rgba(40, 167, 69, 0.8); } 50% { box-shadow: 0 0 20px rgba(40, 167, 69, 1); } }
         .cell.cell-protected { animation: protectedFlash 0.6s ease-in-out 2; }
