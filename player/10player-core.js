@@ -356,6 +356,7 @@ c.updateUI(c.UI);
         }
     } catch (e) {
         window.bulletTimeActive = false;
+        if (c) c.isPaused = false;
         const detail = e && e.stack ? e.stack : (e && e.message ? e.message : String(e));
         console.error('playLogEntries 错误:', detail);
         const panel = document.getElementById('errorCapturePanel');

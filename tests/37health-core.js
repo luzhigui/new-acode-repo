@@ -52,7 +52,7 @@ export async function runHealthCheck(config) {
         const start = Date.now();
         const check = () => {
             const ctx = W()._getPlayerContext?.();
-            if (ctx?.UI?.allyTeam?.length === 5 && ctx?.UI?.enemyTeam?.length === 5) resolve(ctx);
+            if (ctx?.UI?.allyTeam?.length >= 5 && ctx?.UI?.enemyTeam?.length >= 5) resolve(ctx);
             else if (Date.now() - start > timeout) reject(new Error('等待游戏上下文超时'));
             else setTimeout(check, 500);
         };
