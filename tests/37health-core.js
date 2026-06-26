@@ -78,21 +78,25 @@ export async function runHealthCheck(config) {
 
     // 30test-runner.html 已移入 tools/，需要从根目录找游戏页面
     const baseUrl = window.location.href.replace(/tools\/.*$/, '');
-    const gameUrl = baseUrl + 'mode-5v5-test.html';
+    const gameUrl = baseUrl + 'mode-5v5-test.html?t=' + Date.now();
     iframe.src = gameUrl;
 
     try {
+        statusEl.textContent = '正在加载游戏页面...';
         await new Promise((resolve, reject) => {
             const timeout = setTimeout(() => reject(new Error('游戏加载超时')), 20000);
             iframe.addEventListener('load', () => { clearTimeout(timeout); resolve(); }, { once: true });
         });
 
         // 等模块初始化后再点封面，避免事件监听还没挂上
+        statusEl.textContent = '等待模块初始化...';
         await waitGameReady(20000);
+        statusEl.textContent = '等待封面按钮...';
         const coverBtn = await waitFor('#coverStartBtn');
         coverBtn.click();
         await new Promise(r => setTimeout(r, 800));
         // 封面点击后等待阵容初始化
+        statusEl.textContent = '等待阵容初始化...';
         await waitCtx(20000);
 
         const results = [];
