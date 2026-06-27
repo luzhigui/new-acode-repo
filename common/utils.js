@@ -16,5 +16,14 @@ export function getAdjacentPositions(pos) {
     }
     return adj;
 }
+export function getCellElement(unit) {
+    if (!unit || unit.pos == null) return null;
+    const gridId = unit.camp === 'ally' ? 'allyGrid' : 'enemyGrid';
+    const grid = document.getElementById(gridId);
+    if (!grid) return null;
+    const order = unit.camp === 'enemy' ? [7,8,9,4,5,6,1,2,3] : [1,2,3,4,5,6,7,8,9];
+    const idx = order.indexOf(unit.pos);
+    return grid.children[idx] || null;
+}
 export function escapeHtml(str) { const d = document.createElement('div'); d.textContent = str; return d.innerHTML; }
 export function stripTags(html) { return html.replace(/<[^>]+>/g, ''); }

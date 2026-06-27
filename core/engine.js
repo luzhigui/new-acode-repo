@@ -2,6 +2,7 @@
 export const VER = 'core/engine.js V4.0.0';
 
 // ===================== 外部导入 =====================
+import { rand, getUnitRow, getUnitCol, getAdjacentPositions } from '../common/utils.js';
 import { showRangedArrow, showSplashArrows } from '../fx/fx-arrows.js';
 import { showMeleeCrash, showMeleeDodge, showMeleeMiss } from '../fx/fx-crash.js';
 import { animatePositionSwap } from '../fx/fx-swap-push.js';
@@ -79,7 +80,6 @@ export class Unit {
 // ===================== 03battle-utils.js - 光明顶对战 5v5 战斗工具函数 =====================
 // 版本: V1.0.0, 预计行数: 300
 
-export function rand(min, max) { return Math.floor(Math.random() * (max - min + 1)) + min; }
 export function calcDamage(atk, def) { if (def <= 0) return atk; let d = atk * (atk / (atk + def)); return Math.max(d, atk * 0.1); }
 export function getFangLevel(def, m) { let ratio = def / m; for (let i = C.FANG_LEVELS.length - 1; i >= 0; i--) { if (ratio >= C.FANG_LEVELS[i]) return i; } return 0; }
 
@@ -124,19 +124,6 @@ export function getActiveBuffs(allies, enemy) {
     return ally._activeBuffs || [];
 }
 export function hasBuff(buffs, buffKey) { return buffs.some(b => b.key === buffKey); }
-export function getUnitRow(pos) { return Math.ceil(pos / 3); }
-export function getUnitCol(pos) { return (pos - 1) % 3 + 1; }
-export function getAdjacentPositions(pos) {
-    const row = getUnitRow(pos), col = getUnitCol(pos);
-    let adj = [];
-    for (let r = row-1; r <= row+1; r++) {
-        for (let c = col-1; c <= col+1; c++) {
-            if (r === row && c === col) continue;
-            if (r >= 1 && r <= 3 && c >= 1 && c <= 3) adj.push((r-1)*3 + c);
-        }
-    }
-    return adj;
-}
 window.BattleUtils = { rand, calcDamage, getFangLevel, isMelee, getFronts, isBlocked, getFlyDodgeRate, getRandomTaunt, getKillTaunt, getZhangNearTaunt, makeFXSnapshot, hasBuff, getUnitRow, getUnitCol, getAdjacentPositions };
 
 // ===================== 04buff-system.js - 光明顶对战 5v5 Buff 系统 (分裂箭修复版) =====================
@@ -1172,9 +1159,10 @@ window.consumeXingFen = consumeXingFen;
 
 // ===================== 原有导出 (保持不变) =====================
 export { Unit };
-export { rand, calcDamage, getFangLevel, isMelee, getFronts, isBlocked, getFlyDodgeRate };
+export { rand, getUnitRow, getUnitCol, getAdjacentPositions } from '../common/utils.js';
+export { calcDamage, getFangLevel, isMelee, getFronts, isBlocked, getFlyDodgeRate };
 export { getRandomTaunt, getKillTaunt, getZhangNearTaunt, makeFXSnapshot };
-export { hasBuff, getUnitRow, getUnitCol, getAdjacentPositions, getActiveBuffs };
+export { hasBuff, getActiveBuffs };
 export { computeBuffStats, applyBuffEffectsBeforeAttack, applyBuffEffectsAfterAttack, logBuffSummary };
 export { spawnHorse, destroyHorse };
 export { runBattleRound, runBattle };
