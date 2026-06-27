@@ -627,9 +627,8 @@ function getPlayerContext() {
 window._getPlayerContext = getPlayerContext;
 
 async function startApp() { try { await loadModules(updateCoverVersion); } catch(e) { console.error('startApp 加载模块失败:', e); } }
-startApp();
 
-document.addEventListener('DOMContentLoaded', function() {
+function initGame() {
     const controls = document.querySelector('.controls');
     if (controls) controls.style.zIndex = '100';
     const canvas = document.getElementById('glowCanvas');
@@ -842,7 +841,15 @@ document.addEventListener('DOMContentLoaded', function() {
             if (gs === S.RUNNING && !window.bulletTimeActive) { gs = S.PAUSED; isPaused = true; updateButtons(); }
         }
     });
-});
+}
+
+// 初始化：如果 DOM 已就绪则直接执行，否则等待
+startApp();
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initGame);
+} else {
+    initGame();
+}
 
 // ==================== 战报系统 ====================
 function showBattleReport(result) {
