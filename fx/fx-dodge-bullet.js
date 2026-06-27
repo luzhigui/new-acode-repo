@@ -157,6 +157,7 @@ export async function showDodgeBulletTime(attacker, defender, reboundDmg) {
 
         // ===== 修正：格子克隆使用 cloneNode + bullet-clone 类 =====
         const cloneD = dCell.cloneNode(true); cloneD.classList.add('bullet-clone');
+        cloneD.removeAttribute('data-flash'); // 防止 data-flash 的 !important z-index 覆盖 inline style
         const dRect = dCell.getBoundingClientRect();
         cloneD.style.position = 'fixed'; cloneD.style.width = dRect.width+'px'; cloneD.style.height = dRect.height+'px';
         cloneD.style.left = innerWidth + 'px'; cloneD.style.top = pos.dy - dRect.height/2 + 'px';
@@ -168,8 +169,10 @@ export async function showDodgeBulletTime(attacker, defender, reboundDmg) {
         const defInitialTop = pos.dy - dRect.height/2;
 
         const cloneA = aCell.cloneNode(true); cloneA.classList.add('bullet-clone');
+        cloneA.removeAttribute('data-flash'); // 防止 data-flash 的 !important z-index 覆盖 inline style
         const aRect = aCell.getBoundingClientRect();
         cloneA.style.position = 'fixed'; cloneA.style.margin = '0';
+        cloneA.style.transition = 'none'; // 禁用 CSS transition，防止与手动动画冲突
         cloneA.style.width = aRect.width+'px'; cloneA.style.height = aRect.height+'px';
         const startAX = pos.ax - innerWidth*0.06, startAY = pos.ay - innerHeight*0.06;
         cloneA.style.left = startAX + 'px'; cloneA.style.top = startAY + 'px';

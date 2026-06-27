@@ -217,12 +217,15 @@ export function showMeleeDodge(unitA, unitD, speed, getPausedFn) {
     // 记录原始样式，确保最终完全恢复
     const origOpacity = cellA.style.opacity;
     const origVisibility = cellA.style.visibility;
+    const origDisplay = cellA.style.display;
+    const origFilter = cellA.style.filter;
     const origBackground = cellA.style.background;
 
     if (flyMode === 'ghost') {
-        cellA.style.opacity = '0';
+        cellA.style.opacity = '0.4';
+        cellA.style.filter = 'sepia(0.3) hue-rotate(180deg)';
     } else {
-        cellA.style.visibility = 'hidden';
+        cellA.style.display = 'none';
     }
     
     let startX = rA.left;
@@ -305,6 +308,8 @@ export function showMeleeDodge(unitA, unitD, speed, getPausedFn) {
                             clone.remove();
                             cellA.style.opacity = origOpacity || '1';
                             cellA.style.visibility = origVisibility || 'visible';
+                            cellA.style.display = origDisplay || '';
+                            cellA.style.filter = origFilter || '';
                             cellA.style.background = origBackground || '';
                             cellA.style.transform = '';
                             cellB.style.transform = '';
@@ -333,7 +338,7 @@ export function showMeleeMiss(unitA, unitD, speed, getPausedFn) {
     let dist = Math.sqrt(dx*dx+dy*dy); if(dist<1) return;
     let nx=dx/dist, ny=dy/dist;
     let flyMode = window._crashMode || 'ghost';
-    if (flyMode === 'ghost') { cellA.style.opacity = '0'; } else { cellA.style.visibility = 'hidden'; }
+    if (flyMode === 'ghost') { cellA.style.opacity = '0.4'; cellA.style.filter = 'sepia(0.3) hue-rotate(180deg)'; } else { cellA.style.display = 'none'; }
     let clone = cellA.cloneNode(true);
     clone.style.cssText = `
         position: fixed;
@@ -358,7 +363,7 @@ export function showMeleeMiss(unitA, unitD, speed, getPausedFn) {
     let flyDur = 800 * (speed/1000); let start1 = null;
     function phaseFly(ts) { if (getPausedFn && getPausedFn()) { requestAnimationFrame(phaseFly); return; } if (!start1) start1 = ts; let p = Math.min(1, (ts - start1) / flyDur); let ease = 1 - Math.pow(1-p, 3); let flown = (dist - rB.width * 0.2) * ease; clone.style.left = (savedLeft + nx * flown) + 'px'; clone.style.top = (savedTop + ny * flown) + 'px'; if (p < 1) { requestAnimationFrame(phaseFly); } else {
         let returnDur = 600 * (speed/1000); let start2 = null;
-        function phaseReturn(ts2) { if (getPausedFn && getPausedFn()) { requestAnimationFrame(phaseReturn); return; } if (!start2) start2 = ts2; let p2 = Math.min(1, (ts2 - start2) / returnDur); let ease2 = 1 - Math.pow(1 - p2, 2); clone.style.left = (savedLeft + nx * (dist - rB.width * 0.2) * (1 - ease2)) + 'px'; clone.style.top = (savedTop + ny * (dist - rB.width * 0.2) * (1 - ease2)) + 'px'; if (p2 < 1) { requestAnimationFrame(phaseReturn); } else { clone.remove(); cellA.style.opacity = ''; cellA.style.visibility = ''; cellA.style.background = ''; cellA.style.transform = ''; if (unitA) { delete unitA._flyMode; delete unitA._ghostRendering; } } }
+        function phaseReturn(ts2) { if (getPausedFn && getPausedFn()) { requestAnimationFrame(phaseReturn); return; } if (!start2) start2 = ts2; let p2 = Math.min(1, (ts2 - start2) / returnDur); let ease2 = 1 - Math.pow(1 - p2, 2); clone.style.left = (savedLeft + nx * (dist - rB.width * 0.2) * (1 - ease2)) + 'px'; clone.style.top = (savedTop + ny * (dist - rB.width * 0.2) * (1 - ease2)) + 'px'; if (p2 < 1) { requestAnimationFrame(phaseReturn); } else { clone.remove(); cellA.style.opacity = ''; cellA.style.visibility = ''; cellA.style.display = ''; cellA.style.filter = ''; cellA.style.background = ''; cellA.style.transform = ''; if (unitA) { delete unitA._flyMode; delete unitA._ghostRendering; } } }
         requestAnimationFrame(phaseReturn);
     } }
     requestAnimationFrame(phaseFly);

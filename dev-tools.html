@@ -339,29 +339,34 @@
     <script>
     (function() {
         var FILES = [
-            '../core/01config-5v5-test.js', '../core/02unit.js', '../core/03battle-utils.js', '../core/04buff-system.js',
-            '../core/05battle-horse.js', '../core/06battle-engine-core.js', '../core/07battle-engine-5v5-test.js',
-            '../player/08player-text.js', '../player/09player-buff-ui.js', '../player/10player-core.js',
-            '../player/11battle-player-5v5-test.js', '../ui/12main-utils.js', '../ui/13main-5v5-test.js',
-            '../ui/14ui-render-5v5-test.js', '../fx/15fx-common-5v5-test.js', '../fx/16fx-arrows-5v5-test.js',
-            '../fx/17fx-crash-5v5-test.js', '../fx/18fx-position-swap.js', '../fx/19fx-push-back.js',
-            '../fx/20fx-dodge-bullet.js', '../modules/23elite-skills.js', '../modules/24error-capture.js',
-            '../tests/25unit-tests.js', './26codex-v2.1.js', '../tests/27auto-battle-utils.js', '../modules/28audio-manager.js',
-            '../tests/29health-rules.js', '../tests/35quiz-bank.js', '../tests/37health-core.js', '../tests/38health-ui.js',
-            '../mode-5v5-test.html', './30test-runner.html', './32auto-battle.html',
-            '../00index.html', './31function-copier.html', './33first-aid-kit.html', './35fang-calc.html',
-            './00build-5v5.cjs'
+            // 战斗引擎
+            '../core/config.js', '../core/engine.js', '../common/utils.js',
+            // 播放器
+            '../player/player-core.js',
+            // UI 主控
+            '../ui/main.js', '../ui/render.js',
+            // 特效
+            '../fx/fx-common.js', '../fx/fx-crash.js', '../fx/fx-arrows.js', '../fx/fx-swap-push.js', '../fx/fx-dodge-bullet.js',
+            // 模块
+            '../modules/audio.js', '../modules/error-capture.js',
+            // 测试
+            '../tests/test-utils.js', '../tests/health-rules.js', '../tests/health-check.js',
+            // 工具
+            './00build-5v5.cjs', './26codex-v2.1.js', './30test-runner.html', './31function-copier.html',
+            './32auto-battle.html', './33first-aid-kit.html', './34file-copier.html', './35fang-calc.html',
+            // 页面
+            '../game.html', '../health-check.html', '../dev-tools.html', '../index.html'
         ];
 
         var FILE_GROUPS = [
-            { name: 'core/', files: [], prefix: '../core/' },
-            { name: 'player/', files: [], prefix: '../player/' },
-            { name: 'ui/', files: [], prefix: '../ui/' },
-            { name: 'fx/', files: [], prefix: '../fx/' },
-            { name: 'modules/', files: [], prefix: '../modules/' },
-            { name: 'tests/', files: [], prefix: '../tests/' },
-            { name: 'tools/', files: [], prefix: './' },
-            { name: '根目录', files: [], prefix: null }
+            { name: '战斗引擎', files: [], prefix: '../core/' },
+            { name: '播放器', files: [], prefix: '../player/' },
+            { name: 'UI 主控', files: [], prefix: '../ui/' },
+            { name: '特效', files: [], prefix: '../fx/' },
+            { name: '模块', files: [], prefix: '../modules/' },
+            { name: '测试', files: [], prefix: '../tests/' },
+            { name: '工具', files: [], prefix: './' },
+            { name: '页面', files: [], prefix: null }
         ];
 
         // 将文件分配到各组
@@ -370,27 +375,24 @@
             for (var i = 0; i < FILE_GROUPS.length; i++) {
                 var g = FILE_GROUPS[i];
                 if (g.prefix && f.indexOf(g.prefix) === 0) {
-                    // tools/ 下只匹配 ./ 开头的文件
-                    if (g.name === 'tools/' && f.indexOf('./') === 0) {
-                        // 排除 ../ 开头的
-                        g.files.push(f);
-                        matched = true;
-                        break;
-                    } else if (g.name !== 'tools/') {
-                        g.files.push(f);
-                        matched = true;
-                        break;
-                    }
+                    g.files.push(f);
+                    matched = true;
+                    break;
                 }
             }
-            if (!matched && (f.indexOf('../') === 0 && f.indexOf('../core/') !== 0 && f.indexOf('../player/') !== 0 && f.indexOf('../ui/') !== 0 && f.indexOf('../fx/') !== 0 && f.indexOf('../modules/') !== 0 && f.indexOf('../tests/') !== 0)) {
-                // 根目录文件 (../00index.html, ../mode-5v5-test.html)
+            // 页面组：不以 ../ 开头的路径（../game.html 等）
+            if (!matched) {
                 FILE_GROUPS[7].files.push(f);
             }
         });
 
-        // 修复 tools/ 组：只包含 ./ 开头的文件
-        FILE_GROUPS[6].files = FILES.filter(function(f) { return f.indexOf('./') === 0; });
+        // 战斗引擎组也包含 common/utils.js
+        var commonUtils = FILES.filter(function(f) { return f.indexOf('../common/') === 0; });
+        commonUtils.forEach(function(f) {
+            if (FILE_GROUPS[0].files.indexOf(f) === -1) {
+                FILE_GROUPS[0].files.push(f);
+            }
+        });
 
         var fcFileGroups = document.getElementById('fcFileGroups');
         var fcBatchesDiv = document.getElementById('fcBatches');

@@ -132,7 +132,49 @@ export async function runHealthCheck(config) {
             }
 
             const rules = allRules.filter(r => selectedGroups.includes(r.group));
-            const pass = [], fail = [];
+            const pass = [], fail = [], skip = [];
+
+            // 每关切换后模拟 1-2 回合战斗，让单位产生运行时状态
+            try {
+                statusEl.textContent = `第 ${s} 关 - 模拟战斗中...`;
+                const ctx = W()._getPlayerContext();
+                if (ctx && ctx.UI && ctx.UI.allyTeam && ctx.UI.enemyTeam
+                    && ctx.UI.allyTeam.length >= 5 && ctx.UI.enemyTeam.length >= 5
+                    && typeof win.runBattle === 'function') {
+                    // 模拟 1 回合，让单位产生 _flash, _resting 等状态
+                    for (let simRound = 0; simRound < 1; simRound++) {
+                        try {
+                            const battleLog = win.runBattle(ctx.UI.allyTeam, ctx.UI.enemyTeam, ctx.currentStage || s);
+                            // 播放几条日志让状态生效
+                            if (battleLog && battleLog.length) {
+                                for (let li = 0; li < Math.min(3, battleLog.length); li++) {
+                                    const entry = battleLog[li];
+                                    if (entry.type === 'attack' || entry.type === 'death' || entry.type === 'buff-summon') {
+                                        if (entry.type === 'attack' && entry.targetIdx != null) {
+                                            const target = entry.targetIdx < ctx.UI.allyTeam.length
+                                                ? ctx.UI.allyTeam[entry.targetIdx]
+                                                : ctx.UI.enemyTeam[entry.targetIdx - ctx.UI.allyTeam.length];
+                                            if (target && entry.dmg != null) target.hp = Math.max(0, target.hp - entry.dmg);
+                                            if (entry.crit) target._flash = 'attack';
+                                        }
+                                        if (entry.type === 'death' && entry.targetIdx != null) {
+                                            const target = entry.targetIdx < ctx.UI.allyTeam.length
+                                                ? ctx.UI.allyTeam[entry.targetIdx]
+                                                : ctx.UI.enemyTeam[entry.targetIdx - ctx.UI.allyTeam.length];
+                                            if (target) { target._isDead = true; target.alive = false; target._flash = 'dead'; }
+                                        }
+                                    }
+                                }
+                            }
+                        } catch (simErr) {
+                            // 模拟战斗失败不影响体检
+                            console.warn('模拟战斗失败:', simErr);
+                        }
+                    }
+                }
+            } catch (simOuterErr) {
+                console.warn('模拟战斗阶段失败:', simOuterErr);
+            }
 
             for (const item of rules) {
                 try {
@@ -141,24 +183,28 @@ export async function runHealthCheck(config) {
                         : item.test();
                     if (result === true) pass.push(item.name);
                     else if (result === false) fail.push({ name: item.name, fix: item.fix });
+                    else if (result === null || result === undefined) skip.push(item.name);
+                    else fail.push({ name: item.name, fix: item.fix, error: '非预期返回值: ' + result });
                 } catch (e) {
                     fail.push({ name: item.name, fix: item.fix, error: e.message });
                 }
             }
 
-            results.push({ stage: s, passed: pass.length, failed: fail.length, failedItems: fail, passedItems: pass });
+            results.push({ stage: s, passed: pass.length, failed: fail.length, skipped: skip.length, failedItems: fail, passedItems: pass, skippedItems: skip });
             try { W()._getPlayerContext().gs = 'IDLE'; } catch (e) {}
         }
 
         // 生成报告（内联每一项）
         const tp = results.reduce((s, r) => s + (r.passed || 0), 0);
         const tf = results.reduce((s, r) => s + (r.failed || 0), 0);
-        statusEl.textContent = `✅ 通过${tp}，失败${tf}`;
+        const ts = results.reduce((s, r) => s + (r.skipped || 0), 0);
+        statusEl.textContent = `✅ 通过${tp}，❌ 失败${tf}，⏭️ 跳过${ts}`;
         reportEl.innerHTML = results.map(r => {
             if (r.error) return `<div class="stage-result"><span class="stage-name">第${r.stage}关 ❌</span> ${r.error}</div>`;
             let html = `<div class="stage-result"><span class="stage-name">第${r.stage}关 ${r.failed === 0 ? '✅' : '⚠️'}</span>`;
             if (r.passedItems.length) html += '<br><span style="color:#4caf50;">✅ ' + r.passedItems.join('</span><br><span style="color:#4caf50;">✅ ') + '</span>';
             if (r.failedItems.length) html += '<br><span style="color:#f44336;">❌ ' + r.failedItems.map(f => f.name + ' → ' + f.fix).join('</span><br><span style="color:#f44336;">❌ ') + '</span>';
+            if (r.skippedItems.length) html += '<br><span style="color:#ff9800;">⏭️ ' + r.skippedItems.join('</span><br><span style="color:#ff9800;">⏭️ ') + '</span>';
             html += '</div>';
             return html;
         }).join('');

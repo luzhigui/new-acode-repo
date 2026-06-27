@@ -1,5 +1,28 @@
 # 光明顶 5v5 - 更改履历
 
+## V4.0.0 — 2026-06-27
+### 重大重构：38 JS → 17 JS，7 HTML → 4 HTML
+- **文件合并**：核心模块合并为 core/engine.js、player/player-core.js、ui/main.js、fx/fx-swap-push.js、tests/test-utils.js、tests/health-check.js
+- **新增通用工具**：common/utils.js（rand、clamp、getCellElement 等）
+- **文件重命名**：所有旧编号前缀文件名改为语义化名称（如 01config-5v5-test.js → core/config.js）
+- **入口文件**：game.html（主游戏）、health-check.html（全面体检）、dev-tools.html（开发工具箱）、index.html（封面）
+
+### Bug 修复
+- **闪避反击黑幕遮挡**：克隆格子移除 data-flash 属性防止 !important 覆盖 z-index；禁用 CSS transition 防止火焰不同步
+- **飞走模式残留**：改为 display:none 彻底隐藏；虚影模式加蓝色半透明滤镜
+- **血量剧透**：syncAllyBuffFields 不再同步 hp；Carry 加血改为日志驱动；张无忌切换 HP 同步到日志播放
+- **海克斯弹窗超时**：取消 30 秒自动 resolve，改为弹提示等待玩家选择
+- **拒马 UI 异常**：随血量剧透修复同步解决
+
+### 功能优化
+- **初始速度 2x**：speed 默认 500，默认激活 2x 按钮
+- **角色详情补全**：宋青书、周芷若、玄冥二老技能描述完整化
+- **封面版本**：更新为 10 个新模块名
+- **00index**：开发准则按钮文字修正，工具箱排序调整
+- **文件复制器**：更新为 17 个新文件，按模块分组
+- **体检报告**：新增模拟战斗回合，规则返回 null 计为"跳过"
+- **战报系统**：战斗结束后弹出战报弹窗，支持属性切换、复制战报、导出 JSON
+
 ## V3.1.6 — 2026-06-26
 - **封面卡住修复**：`mode-5v5-test.html` 封面按钮增加 inline 兜底点击直接隐藏，JS 增加防护性 null 检查
 - **全面体检超时修复**：`37health-core.js` 修正检查顺序，先加载模块 → 点封面 → 等阵容；增加 doManualReset 兜底选关

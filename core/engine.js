@@ -734,6 +734,7 @@ export function runBattleRound(state) {
             let hpRatio = u.maxHp > 0 ? u.hp / u.maxHp : 1;
             u.maxHp = newMaxHp;
             u.hp = Math.min(newMaxHp, Math.floor(newMaxHp * hpRatio));
+            log.push({ type:'buff-start', text:`<span class="green">🛡️ Carry：${u.name} HP上限+${extraHp}</span>`, buffType:'carry', unitUid:u.uid, newMaxHp, newHp:u.hp });
         }
         u._extinctionUsed = false;
         u._acted = false;

@@ -88,14 +88,17 @@ export function showBuffPopup(c) {
         });
         overlay.appendChild(box); document.body.appendChild(overlay);
 
-        // 30秒超时兜底，防止游戏卡死
+        // 超时兜底：不自动 resolve，弹提示让玩家必须选择
         let timeoutId = setTimeout(() => {
-            if (document.body.contains(overlay)) {
-                try { document.body.removeChild(overlay); } catch(e) {}
+            let existingOverlay = document.getElementById('buffModalOverlay');
+            if (existingOverlay) {
+                // 不 resolve，弹一个提示覆盖在弹窗上
+                let alertBox = document.createElement('div');
+                alertBox.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:#1a1a2e;color:#ffd700;padding:20px 30px;border-radius:10px;border:2px solid #ffd700;z-index:100000;font-size:16px;text-align:center;';
+                alertBox.innerHTML = '⏰ 请选择一个 Buff<br><span style="font-size:12px;color:#aaa;">点击下方按钮选择</span>';
+                document.body.appendChild(alertBox);
+                setTimeout(() => { if (alertBox.parentNode) alertBox.remove(); }, 3000);
             }
-            let floatBtn = document.getElementById('buffFloatBtn');
-            if (floatBtn) floatBtn.remove();
-            resolve(null);
         }, 30000);
 
         document.getElementById('buffModalMinimize').addEventListener('click', () => {
@@ -247,9 +250,8 @@ function syncAllyBuffFields(roundResult, uiAlly) {
             uiUnit.buffDefBonus = ru.buffDefBonus || 0;
             uiUnit.buffDodgeBonus = ru.buffDodgeBonus || 0;
             uiUnit.buffHpBonus = ru.buffHpBonus || 0;
-            // 同步 carry 血量上限和当前血量
+            // 只同步最大血量（Carry 加成），不同步当前血量（防止剧透）
             if (ru.maxHp !== undefined) uiUnit.maxHp = ru.maxHp;
-            if (ru.hp !== undefined) uiUnit.hp = ru.hp;
         }
     });
 }
@@ -286,6 +288,20 @@ export async function playLogEntries(c, log, roundResult) {
             let entry = log[i];
 
             if (entry.type === 'buff-summon') { await handleBuffSummon(c, entry, i > 0 ? log[i-1] : null); continue; }
+            if (entry.type === 'buff-start') {
+                // Carry HP 加成等回合开始时生效的 Buff
+                let div=document.createElement('div');div.innerHTML=entry.text+'<br>';
+                document.getElementById('log').appendChild(div);c.autoScrollLog();
+                if (entry.unitUid && entry.newMaxHp !== undefined) {
+                    let unit = c.UI.allyTeam.find(u => u.uid === entry.unitUid);
+                    if (unit && unit.alive) {
+                        unit.maxHp = entry.newMaxHp;
+                        unit.hp = entry.newHp;
+                        c.updateUI(c.UI);
+                    }
+                }
+                continue;
+            }
             if (entry.type === 'buff-destroy') { await handleBuffDestroy(c, entry, i > 0 ? log[i-1] : null); continue; }
             if (entry.type === 'buff-leech') {
                 insertBuffSeparator(document.getElementById('log'), c);
@@ -543,7 +559,7 @@ c.updateUI(c.UI);
                 if(entry.isDead&&(c.UI.allyTeam.every(ch=>!ch.alive)||c.UI.enemyTeam.every(ch=>!ch.alive))){ return { isBattleOver: true }; }
             }
             else if (entry.type === 'info') {
-                if(entry.isZhangSwitch&&entry.unit){ let zhangUnit = c.UI.allyTeam.find(u => u.isZhang); let sepDiv=document.createElement('div');sepDiv.innerHTML='<span class="separator">- - - - -</span><br>'; document.getElementById('log').appendChild(sepDiv); c.autoScrollLog(); let tempDiv=document.createElement('div');document.getElementById('log').appendChild(tempDiv); await playLineText(entry.text,tempDiv); if(zhangUnit) { zhangUnit.rangedForm = entry.unit.rangedForm; zhangUnit.role = entry.unit.role; zhangUnit._blocked = false; zhangUnit._resting = false; c.updateUI(c.UI); safeShowDanmaku(zhangUnit, '不好，要顶上去了！'); } }
+                if(entry.isZhangSwitch&&entry.unit){ let zhangUnit = c.UI.allyTeam.find(u => u.isZhang); let sepDiv=document.createElement('div');sepDiv.innerHTML='<span class="separator">- - - - -</span><br>'; document.getElementById('log').appendChild(sepDiv); c.autoScrollLog(); let tempDiv=document.createElement('div');document.getElementById('log').appendChild(tempDiv); await playLineText(entry.text,tempDiv); if(zhangUnit) { zhangUnit.rangedForm = entry.unit.rangedForm; zhangUnit.role = entry.unit.role; zhangUnit._blocked = false; zhangUnit._resting = false; zhangUnit.maxHp = entry.unit.maxHp; zhangUnit.hp = entry.unit.hp; c.updateUI(c.UI); safeShowDanmaku(zhangUnit, '不好，要顶上去了！'); } }
                 else { 
                     if (entry.isDoubleStrikeBanner) {
                         c.isPaused = true;
