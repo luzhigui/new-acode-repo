@@ -350,6 +350,12 @@ export function initTestRunner() {
     const historyPanel = document.getElementById('historyPanel');
     const iframe = document.getElementById('autoIframe');
 
+    // 核心元素缺失则放弃初始化
+    if (!runBtn || !groupCbs || !reportEl) {
+        console.error('initTestRunner: 核心元素缺失', { runBtn: !!runBtn, groupCbs: !!groupCbs, reportEl: !!reportEl });
+        return;
+    }
+
     // 初始化规则组复选框
     const allGroups = ['🚀 启动与加载', '🎨 九宫格基础', '❤️ 血条与属性', '✨ Buff 系统', '🎭 状态样式', '🎵 音效', '🎬 特效', '👹 精英', '🔗 数据', '⚙️ 核心参数与公式', '⚙️ 引擎', '📋 日志', '📍 站位'];
     groupCbs.innerHTML = allGroups.map(g => '<label><input type="checkbox" value="' + g + '" checked> ' + (g.split(' ')[1] || g) + '</label>').join('');
@@ -357,7 +363,8 @@ export function initTestRunner() {
     // ==================== 答题功能 ====================
     let quizActive = false;
     let quizScore = 0;
-    const quizBank = loadQuizBank();
+    let quizBank = [];
+    try { quizBank = loadQuizBank(); } catch (e) { console.warn('loadQuizBank failed:', e); }
 
     function showQuiz() {
         if (!quizActive || !quizBank.length) return;
@@ -403,10 +410,13 @@ export function initTestRunner() {
     }
 
     // ==================== 快速反馈 ====================
+    if (document.getElementById('toggleFeedback')) {
     document.getElementById('toggleFeedback').addEventListener('click', () => {
         feedbackArea.style.display = feedbackArea.style.display === 'block' ? 'none' : 'block';
         loadFeedbackHistory();
     });
+    }
+    if (document.getElementById('submitFeedback')) {
     document.getElementById('submitFeedback').addEventListener('click', () => {
         const text = feedbackInput.value.trim();
         if (!text) return;
@@ -419,6 +429,7 @@ export function initTestRunner() {
         feedbackInput.value = '';
         loadFeedbackHistory();
     });
+    }
     function loadFeedbackHistory() {
         try {
             const list = JSON.parse(localStorage.getItem('ming_feedback') || '[]');

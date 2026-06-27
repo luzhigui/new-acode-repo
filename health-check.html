@@ -99,7 +99,11 @@
 
 <script type="module">
 import { initTestRunner } from './tests/health-check.js';
-initTestRunner();
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initTestRunner);
+} else {
+    initTestRunner();
+}
 </script>
 </body>
 </html>
