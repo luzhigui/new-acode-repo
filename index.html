@@ -65,24 +65,10 @@
             </div>
         </div>
 
-        <!-- 开发工具箱 -->
-        <div class="section">
-            <button class="big-btn btn-tool" id="btnDevTools" style="margin-bottom:10px;">🛠️ 开发工具箱</button>
-            <div class="section-title toggle-section" id="devToolboxToggle" onclick="var g=document.getElementById('devToolboxGrid');var exp=g.classList.toggle('expanded');this.textContent=exp?'🛠️ 开发工具箱 ▾':'🛠️ 开发工具箱 ▸';" style="display:flex;justify-content:space-between;">🛠️ 开发工具箱 ▸</div>
-            <div class="btn-grid dev-toolbox-grid" id="devToolboxGrid">
-                <button class="big-btn btn-tool" id="btnFileCopier">📄 文件复制器</button>
-                <button class="big-btn btn-tool" id="btnTest">🧪 测试与诊断</button>
-                <button class="big-btn btn-tool" id="btnCopier">📋 函数替换器</button>
-                <button class="big-btn btn-tool" id="btnAutoBattle">📊 自动批量测试</button>
-                <button class="big-btn btn-tool" id="btnFirstAid">⚡ 开发急救包</button>
-                <button class="big-btn btn-tool" id="btnFangCalc">🛡️ 防战系数计算器</button>
-            </div>
-        </div>
-
         <!-- 开发准则 -->
         <div class="section">
-            <div class="section-title">📖 开发准则</div>
-            <div class="btn-grid" id="devGuideGrid">
+            <div class="section-title toggle-section" id="devGuideToggle" onclick="var g=document.getElementById('devGuideGrid');var exp=g.classList.toggle('expanded');this.textContent=exp?'📖 开发准则 ▾':'📖 开发准则 ▸';" style="display:flex;justify-content:space-between;">📖 开发准则 ▸</div>
+            <div class="btn-grid dev-toolbox-grid" id="devGuideGrid">
                 <button class="big-btn btn-tool" id="btnReadme">📖 README 项目大纲</button>
                 <button class="big-btn btn-tool" id="btnCodex">📜 开发协同标准</button>
                 <button class="big-btn btn-tool" id="btnChangelog">📋 CHANGELOG 变更履历</button>
@@ -109,24 +95,6 @@
         });
         document.getElementById('btnDevTools').addEventListener('click', () => {
             window.open('dev-tools.html', '_blank');
-        });
-        document.getElementById('btnCopier').addEventListener('click', () => {
-            window.open('tools/31function-copier.html', '_blank');
-        });
-        document.getElementById('btnFileCopier').addEventListener('click', () => {
-            window.open('tools/34file-copier.html', '_blank');
-        });
-        document.getElementById('btnTest').addEventListener('click', () => {
-            window.open('tools/30test-runner.html', '_blank');
-        });
-        document.getElementById('btnAutoBattle').addEventListener('click', () => {
-            window.open('tools/32auto-battle.html', '_blank');
-        });
-        document.getElementById('btnFirstAid').addEventListener('click', () => {
-            window.open('tools/33first-aid-kit.html', '_blank');
-        });
-        document.getElementById('btnFangCalc').addEventListener('click', () => {
-            window.open('tools/35fang-calc.html', '_blank');
         });
         document.getElementById('btnCodex').addEventListener('click', () => {
             window.open('tools/26codex-v2.1.js', '_blank');
