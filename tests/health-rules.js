@@ -26,6 +26,16 @@ function createHealthRules(win, doc) {
         { group: '🚀 启动与加载', name: '游戏上下文可获取', test: function() { return !!getCtx(); }, fix: '检查 ui/main.js 初始化。' },
         { group: '🚀 启动与加载', name: '引擎 runBattle 已挂载', test: function() { return typeof win.runBattle === 'function'; }, fix: '确认 core/engine.js 已加载并执行。' },
         { group: '🚀 启动与加载', name: '错误捕获面板存在', test: function() { try { return !!win.document.getElementById('errorCapturePanel'); } catch(e) { return false; } }, fix: '确认 modules/error-capture.js 已加载。' },
+        { group: '🚀 启动与加载', name: '错误捕获面板可实际工作', test: async function() {
+            try {
+                const panel = win.document.getElementById('errorCapturePanel');
+                if (!panel) return false;
+                const before = panel.children.length;
+                win.console.error('HEALTH_CHECK_PROBE_ERROR');
+                await new Promise(r => setTimeout(r, 100));
+                return panel.children.length > before || panel.style.display !== 'none';
+            } catch (e) { return false; }
+        }, fix: '确认 modules/error-capture.js 中 console.error 已被正确包装。' },
 
         // ========== 九宫格基础 (5条) ==========
         { group: '🎨 九宫格基础', name: '明教格子数量 = 9', test: function() { var g = doc.getElementById('allyGrid'); return g && g.children.length === 9; }, fix: '检查 renderGrid。' },

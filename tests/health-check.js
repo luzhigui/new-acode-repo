@@ -9,7 +9,8 @@ export const VER = 'tests/health-check.js V3.0.0';
 export async function runHealthCheck(config) {
     const {
         iframe, statusEl, reportEl, copySumBtn, copyFullBtn, runBtn,
-        progCont, progFill, progText, stageCbs, groupCbs
+        progCont, progFill, progText, stageCbs, groupCbs, compReportEl,
+        exportJsonBtn, errorToastEl
     } = config;
 
     const selectedStages = Array.from(stageCbs.querySelectorAll('input:checked'))
@@ -22,9 +23,15 @@ export async function runHealthCheck(config) {
         return;
     }
 
+    const startTime = Date.now();
+    const runtimeErrors = [];
+    let lastErrorAt = 0;
+
     reportEl.innerHTML = '';
+    if (compReportEl) compReportEl.innerHTML = '';
     copySumBtn.style.display = 'none';
     copyFullBtn.style.display = 'none';
+    if (exportJsonBtn) exportJsonBtn.style.display = 'none';
     statusEl.textContent = '正在启动...';
     runBtn.disabled = true;
     runBtn.textContent = '⏳ 检测中...';
@@ -34,6 +41,43 @@ export async function runHealthCheck(config) {
 
     const W = () => iframe.contentWindow;
     const D = () => iframe.contentDocument || W().document;
+
+    // 实时错误监控：捕获 iframe 中的 error / unhandledrejection / console.error
+    function attachRuntimeMonitor() {
+        const win = W();
+        if (!win) return;
+        const pushErr = (type, msg, extra) => {
+            const ts = new Date().toLocaleTimeString();
+            runtimeErrors.push({ type, message: msg, time: ts, extra });
+            lastErrorAt = Date.now();
+            if (errorToastEl) {
+                errorToastEl.textContent = `⚠️ 检测到 ${runtimeErrors.length} 个运行时异常`;
+                errorToastEl.style.display = 'block';
+            }
+        };
+        try {
+            win.addEventListener('error', e => {
+                const msg = e.error && e.error.stack
+                    ? e.error.stack
+                    : (e.message + ' @ ' + e.filename + ':' + e.lineno);
+                pushErr('error', msg, { filename: e.filename, lineno: e.lineno });
+            });
+            win.addEventListener('unhandledrejection', e => {
+                const reason = e.reason;
+                const msg = reason && reason.stack
+                    ? reason.stack
+                    : (reason ? (reason.message || JSON.stringify(reason)) : '未处理的 Promise 拒绝');
+                pushErr('unhandledrejection', msg, {});
+            });
+            const origError = win.console.error;
+            win.console.error = function(...args) {
+                pushErr('console.error', args.map(a => (a && a.stack) || String(a)).join(' '), {});
+                origError.apply(win.console, args);
+            };
+        } catch (e) {
+            console.warn('attachRuntimeMonitor failed:', e);
+        }
+    }
 
     const waitFor = (sel, timeout = 15000) => new Promise((resolve, reject) => {
         const start = Date.now();
@@ -75,6 +119,34 @@ export async function runHealthCheck(config) {
         check();
     });
 
+    // 主代码健康检查闸门：九宫格与阵容就绪前暂停测试
+    const waitForGameHealthy = (timeout = 25000) => new Promise((resolve, reject) => {
+        const start = Date.now();
+        const check = () => {
+            try {
+                const doc = D();
+                const allyGrid = doc?.getElementById('allyGrid');
+                const enemyGrid = doc?.getElementById('enemyGrid');
+                const ctx = W()._getPlayerContext?.();
+                const allyOk = allyGrid?.children.length === 9;
+                const enemyOk = enemyGrid?.children.length === 9;
+                const teamOk = ctx?.UI?.allyTeam?.length >= 5 && ctx?.UI?.enemyTeam?.length >= 5;
+                if (allyOk && enemyOk && teamOk) resolve({ allyOk, enemyOk, teamOk });
+                else if (Date.now() - start > timeout) {
+                    const reasons = [];
+                    if (!allyOk) reasons.push('友方九宫格未渲染');
+                    if (!enemyOk) reasons.push('敌方九宫格未渲染');
+                    if (!teamOk) reasons.push('阵容未初始化');
+                    reject(new Error('主代码未就绪：' + reasons.join('，')));
+                } else setTimeout(check, 500);
+            } catch (e) {
+                if (Date.now() - start > timeout) reject(new Error('主代码健康检查超时'));
+                else setTimeout(check, 500);
+            }
+        };
+        check();
+    });
+
     // 30test-runner.html 已移入 tools/，需要从根目录找游戏页面
     const baseUrl = window.location.href.replace(/tools\/.*$/, '').replace(/\/[^/]*$/, '/');
     const gameUrl = baseUrl + 'game.html?t=' + Date.now();
@@ -91,6 +163,10 @@ export async function runHealthCheck(config) {
         // 等模块初始化后再点封面，避免事件监听还没挂上
         statusEl.textContent = '等待模块初始化...';
         await waitGameReady(20000);
+
+        // 挂载运行时错误监控
+        attachRuntimeMonitor();
+
         statusEl.textContent = '等待封面按钮...';
         const coverBtn = await waitFor('#coverStartBtn');
         coverBtn.click();
@@ -98,6 +174,15 @@ export async function runHealthCheck(config) {
         // 封面点击后等待阵容初始化
         statusEl.textContent = '等待阵容初始化...';
         await waitCtx(20000);
+
+        // 主代码健康检查闸门
+        statusEl.textContent = '检查主代码健康状态...';
+        try {
+            await waitForGameHealthy(25000);
+            statusEl.textContent = '主代码就绪，开始体检';
+        } catch (healthErr) {
+            throw new Error(healthErr.message + '；测试流程已暂停，请修复主代码后重试。');
+        }
 
         const results = [];
         // 规则在循环外创建一次，避免每关重复
@@ -177,41 +262,64 @@ export async function runHealthCheck(config) {
                 console.warn('模拟战斗阶段失败:', simOuterErr);
             }
 
-            for (const item of rules) {
-                try {
-                    const result = item.test.constructor.name === 'AsyncFunction'
-                        ? await item.test()
-                        : item.test();
-                    if (result === true) pass.push(item.name);
-                    else if (result === false) fail.push({ name: item.name, fix: item.fix });
-                    else if (result === null || result === undefined) skip.push(item.name);
-                    else fail.push({ name: item.name, fix: item.fix, error: '非预期返回值: ' + result });
-                } catch (e) {
-                    fail.push({ name: item.name, fix: item.fix, error: e.message });
+            // 后台分片执行规则，避免阻塞父页面
+            await new Promise((resolve) => {
+                let i = 0;
+                function next() {
+                    if (i >= rules.length) { resolve(); return; }
+                    const item = rules[i++];
+                    const ruleStart = Date.now();
+                    Promise.resolve().then(() => {
+                        const isAsync = item.test.constructor.name === 'AsyncFunction';
+                        return isAsync ? item.test() : item.test();
+                    }).then(result => {
+                        const cost = Date.now() - ruleStart;
+                        if (result === true) pass.push({ name: item.name, cost });
+                        else if (result === false) fail.push({ name: item.name, fix: item.fix, cost, group: item.group });
+                        else if (result === null || result === undefined) skip.push({ name: item.name, cost });
+                        else fail.push({ name: item.name, fix: item.fix, error: '非预期返回值: ' + result, cost, group: item.group });
+                    }).catch(e => {
+                        const cost = Date.now() - ruleStart;
+                        fail.push({ name: item.name, fix: item.fix, error: e.message, cost, group: item.group });
+                    }).then(() => {
+                        // 让出主线程，实现后台运行效果
+                        setTimeout(next, 0);
+                    });
                 }
-            }
+                next();
+            });
 
-            results.push({ stage: s, passed: pass.length, failed: fail.length, skipped: skip.length, failedItems: fail, passedItems: pass, skippedItems: skip });
+            results.push({ stage: s, passed: pass.length, failed: fail.length, skipped: skip.length, failedItems: fail, passedItems: pass.map(p => p.name), skippedItems: skip.map(s => s.name) });
             try { W()._getPlayerContext().gs = 'IDLE'; } catch (e) {}
         }
 
-        // 生成报告（内联每一项）
+        // 生成综合测试报告
+        const totalTime = Date.now() - startTime;
+        const comprehensive = generateComprehensiveReport(results, selectedStages, selectedGroups, totalTime, runtimeErrors);
+
+        // 生成内联明细
         const tp = results.reduce((s, r) => s + (r.passed || 0), 0);
         const tf = results.reduce((s, r) => s + (r.failed || 0), 0);
         const ts = results.reduce((s, r) => s + (r.skipped || 0), 0);
-        statusEl.textContent = `✅ 通过${tp}，❌ 失败${tf}，⏭️ 跳过${ts}`;
+        statusEl.textContent = `✅ 通过${tp}，❌ 失败${tf}，⏭️ 跳过${ts}，⏱️ ${Math.round(totalTime / 1000)}s`;
         reportEl.innerHTML = results.map(r => {
             if (r.error) return `<div class="stage-result"><span class="stage-name">第${r.stage}关 ❌</span> ${r.error}</div>`;
             let html = `<div class="stage-result"><span class="stage-name">第${r.stage}关 ${r.failed === 0 ? '✅' : '⚠️'}</span>`;
             if (r.passedItems.length) html += '<br><span style="color:#4caf50;">✅ ' + r.passedItems.join('</span><br><span style="color:#4caf50;">✅ ') + '</span>';
-            if (r.failedItems.length) html += '<br><span style="color:#f44336;">❌ ' + r.failedItems.map(f => f.name + ' → ' + f.fix).join('</span><br><span style="color:#f44336;">❌ ') + '</span>';
+            if (r.failedItems.length) html += '<br><span style="color:#f44336;">❌ ' + r.failedItems.map(f => f.name + (f.error ? ` (${f.error})` : '') + ' → ' + f.fix).join('</span><br><span style="color:#f44336;">❌ ') + '</span>';
             if (r.skippedItems.length) html += '<br><span style="color:#ff9800;">⏭️ ' + r.skippedItems.join('</span><br><span style="color:#ff9800;">⏭️ ') + '</span>';
             html += '</div>';
             return html;
         }).join('');
 
+        // 渲染综合报告
+        if (compReportEl) {
+            compReportEl.innerHTML = comprehensive.html;
+            compReportEl.style.display = 'block';
+        }
+
         // 生成汇总文本
-        const fullText = generateReport(results);
+        const fullText = generateReport(results, runtimeErrors);
         copyFullBtn.style.display = 'block';
         copyFullBtn.onclick = () => navigator.clipboard.writeText(fullText);
 
@@ -219,6 +327,20 @@ export async function runHealthCheck(config) {
         if (summary) {
             copySumBtn.style.display = 'block';
             copySumBtn.onclick = () => navigator.clipboard.writeText(summary);
+        }
+
+        // 导出 JSON
+        if (exportJsonBtn) {
+            exportJsonBtn.style.display = 'block';
+            exportJsonBtn.onclick = () => {
+                const blob = new Blob([JSON.stringify(comprehensive.json, null, 2)], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `health-report-${Date.now()}.json`;
+                a.click();
+                URL.revokeObjectURL(url);
+            };
         }
 
         // 存储历史
@@ -266,15 +388,19 @@ async function safeSelectStage(stage, W, waitCtx) {
     throw new Error('当前游戏版本不支持自动选关，请刷新游戏页面');
 }
 
-function generateReport(results) {
+function generateReport(results, runtimeErrors) {
     let text = `✅ 全关完成\n\n`;
     results.forEach(r => {
         if (r.error) { text += `第${r.stage}关 ❌ ${r.error}\n`; return; }
         text += `第${r.stage}关 ${r.failed === 0 ? '✅' : '⚠️'}\n`;
         if (r.passedItems.length) text += r.passedItems.map(p => '  ✅ ' + p).join('\n') + '\n';
-        if (r.failedItems.length) text += r.failedItems.map(f => '  ❌ ' + f.name + ' → ' + f.fix).join('\n') + '\n';
+        if (r.failedItems.length) text += r.failedItems.map(f => '  ❌ ' + f.name + (f.error ? ` (${f.error})` : '') + ' → ' + f.fix).join('\n') + '\n';
         text += '\n';
     });
+    if (runtimeErrors && runtimeErrors.length) {
+        text += '\n🚨 运行时异常捕获（' + runtimeErrors.length + '条）\n';
+        text += runtimeErrors.map(e => `[${e.time}][${e.type}] ${e.message}`).join('\n') + '\n';
+    }
     return text;
 }
 
@@ -292,6 +418,87 @@ function generateSummary(results, totalStages) {
     return '汇总失败项：\n' + entries.map(([name, info]) =>
         `❌ ${name} (${info.stages.length === totalStages ? '全部关卡' : '关卡 ' + info.stages.join(', ')})\n  修复：${info.fix}`
     ).join('\n\n');
+}
+
+function generateComprehensiveReport(results, selectedStages, selectedGroups, totalTime, runtimeErrors) {
+    const totalRules = results.reduce((s, r) => s + (r.passed || 0) + (r.failed || 0) + (r.skipped || 0), 0);
+    const totalPassed = results.reduce((s, r) => s + (r.passed || 0), 0);
+    const totalFailed = results.reduce((s, r) => s + (r.failed || 0), 0);
+    const totalSkipped = results.reduce((s, r) => s + (r.skipped || 0), 0);
+
+    // 按规则组统计失败率
+    const groupStats = {};
+    results.forEach(r => {
+        (r.failedItems || []).forEach(f => {
+            const g = f.group || '未分类';
+            if (!groupStats[g]) groupStats[g] = { fail: 0, names: [] };
+            groupStats[g].fail++;
+            if (!groupStats[g].names.includes(f.name)) groupStats[g].names.push(f.name);
+        });
+    });
+
+    // 优先级评估：启动/引擎/九宫格为 P0
+    function priorityOf(name, group) {
+        const p0 = ['🚀 启动与加载', '⚙️ 引擎', '🎨 九宫格基础'];
+        const p1 = ['✨ Buff 系统', '🎭 状态样式', '❤️ 血条与属性'];
+        if (p0.includes(group)) return 'P0';
+        if (p1.includes(group)) return 'P1';
+        return 'P2';
+    }
+
+    const priority = { P0: [], P1: [], P2: [] };
+    results.forEach(r => {
+        (r.failedItems || []).forEach(f => {
+            const p = priorityOf(f.name, f.group);
+            if (!priority[p].includes(f.name)) priority[p].push(f.name);
+        });
+    });
+
+    // 性能指标
+    const perStage = results.map(r => ({
+        stage: r.stage,
+        passed: r.passed || 0,
+        failed: r.failed || 0,
+        skipped: r.skipped || 0
+    }));
+
+    const json = {
+        generatedAt: new Date().toISOString(),
+        coverage: {
+            stages: selectedStages,
+            groups: selectedGroups,
+            totalRules,
+            totalPassed,
+            totalFailed,
+            totalSkipped,
+            passRate: totalRules ? Math.round((totalPassed / totalRules) * 1000) / 10 : 0
+        },
+        runtimeErrors,
+        errorsByGroup: groupStats,
+        priority,
+        performance: {
+            totalTimeMs: totalTime,
+            perStage
+        }
+    };
+
+    const html = `
+        <div class="stage-result" style="border:1px solid #ffd700;">
+            <div class="stage-name">📊 综合测试报告</div>
+            <div style="margin:6px 0;">⏱️ 总耗时：${Math.round(totalTime / 1000)}s &nbsp;|&nbsp; 关卡：${selectedStages.length} &nbsp;|&nbsp; 规则组：${selectedGroups.length}</div>
+            <div style="margin:6px 0;">📈 覆盖率：${totalRules} 条规则 &nbsp;|&nbsp; 通过率：${json.coverage.passRate}%</div>
+            <div style="margin:6px 0;">✅ 通过 ${totalPassed} &nbsp;❌ 失败 ${totalFailed} &nbsp;⏭️ 跳过 ${totalSkipped}</div>
+            ${runtimeErrors.length ? `<div style="margin:6px 0;color:#f44336;">🚨 运行时异常：${runtimeErrors.length} 条</div>` : ''}
+            <div style="margin:8px 0;color:#ffd700;">🔥 关键问题：</div>
+            <div style="padding-left:12px;">
+                ${priority.P0.length ? `<div style="color:#f44336;">P0（阻塞）：${priority.P0.join('、')}</div>` : '<div style="color:#4caf50;">P0 无阻塞问题</div>'}
+                ${priority.P1.length ? `<div style="color:#ff9800;">P1（重要）：${priority.P1.join('、')}</div>` : ''}
+                ${priority.P2.length ? `<div style="color:#aaa;">P2（一般）：${priority.P2.join('、')}</div>` : ''}
+            </div>
+        </div>
+    `;
+
+    return { html, json };
 }
 
 function saveHistory(results) {
@@ -333,8 +540,11 @@ export function initTestRunner() {
     const runBtn = document.getElementById('runAutoCheckBtn');
     const statusEl = document.getElementById('autoStatus');
     const reportEl = document.getElementById('autoReport');
+    const compReportEl = document.getElementById('comprehensiveReport');
+    const errorToastEl = document.getElementById('errorToast');
     const copySumBtn = document.getElementById('copySummaryBtn');
     const copyFullBtn = document.getElementById('copyFullBtn');
+    const exportJsonBtn = document.getElementById('exportJsonBtn');
     const progCont = document.getElementById('progressContainer');
     const progFill = document.getElementById('progressFill');
     const progText = document.getElementById('progressText');
@@ -483,7 +693,8 @@ export function initTestRunner() {
         runBtn.textContent = '⏳ 检测中...';
         startQuiz();
         const config = {
-            iframe, statusEl, reportEl, copySumBtn, copyFullBtn, runBtn,
+            iframe, statusEl, reportEl, compReportEl, errorToastEl,
+            copySumBtn, copyFullBtn, exportJsonBtn, runBtn,
             progCont, progFill, progText, stageCbs, groupCbs
         };
         runHealthCheck(config).then(() => {
