@@ -23,9 +23,9 @@ function createHealthRules(win, doc) {
 
     return [
         // ========== 启动与加载 (3条) ==========
-        { group: '🚀 启动与加载', name: '游戏上下文可获取', test: function() { return !!getCtx(); }, fix: '检查 13main 初始化。' },
-        { group: '🚀 启动与加载', name: '引擎 runBattle 已挂载', test: function() { return typeof win.runBattle === 'function'; }, fix: '07 中加 window.runBattle = runBattle;' },
-        { group: '🚀 启动与加载', name: '错误捕获面板存在', test: function() { try { return !!win.document.getElementById('errorCapturePanel'); } catch(e) { return false; } }, fix: '确认 24error-capture 已加载。' },
+        { group: '🚀 启动与加载', name: '游戏上下文可获取', test: function() { return !!getCtx(); }, fix: '检查 ui/main.js 初始化。' },
+        { group: '🚀 启动与加载', name: '引擎 runBattle 已挂载', test: function() { return typeof win.runBattle === 'function'; }, fix: '确认 core/engine.js 已加载并执行。' },
+        { group: '🚀 启动与加载', name: '错误捕获面板存在', test: function() { try { return !!win.document.getElementById('errorCapturePanel'); } catch(e) { return false; } }, fix: '确认 modules/error-capture.js 已加载。' },
 
         // ========== 九宫格基础 (5条) ==========
         { group: '🎨 九宫格基础', name: '明教格子数量 = 9', test: function() { var g = doc.getElementById('allyGrid'); return g && g.children.length === 9; }, fix: '检查 renderGrid。' },
@@ -110,7 +110,7 @@ function createHealthRules(win, doc) {
             for (var i=0;i<ally.length;i++) { var u=ally[i]; if (!u.alive) continue; var cell=getCellElement(u); if(!cell) continue; var cn=cell.querySelector('.cell-name'); if(cn&&cn.textContent.indexOf('undefined')!==-1) return false; }
             return true;
         }, fix: 'buffIcons 拼接避免 undefined。' },
-        { group: '✨ Buff 系统', name: '海克斯弹窗可弹出', test: function() { return typeof win.showBuffPopup==='function'||typeof win.showBuffSelection==='function'; }, fix: '挂载 showBuffPopup 到 window。' },
+        { group: '✨ Buff 系统', name: '海克斯弹窗可弹出', test: function() { return typeof win.showBuffPopup==='function'||typeof win.showBuffSelection==='function'; }, fix: '确认 player/player-core.js 已加载。' },
         { group: '✨ Buff 系统', name: 'Buff 剩余回合≥0', test: function() {
             var ctx=getCtx(); if(!ctx) return null; var buffs=ctx.activeBuffs||[]; for(var i=0;i<buffs.length;i++){if(buffs[i].remaining<0) return false;} return true;
         }, fix: '检查 tickBuffDurations。' },
@@ -118,7 +118,7 @@ function createHealthRules(win, doc) {
         { group: '✨ Buff 系统', name: 'Buff 名称有效', test: function() {
             var ctx=getCtx(); if(!ctx) return null; var buffs=ctx.activeBuffs||[]; for(var i=0;i<buffs.length;i++){if(!buffs[i].name||buffs[i].name==='undefined') return false;} return true;
         }, fix: '选 Buff 时正确写入 name。' },
-        { group: '✨ Buff 系统', name: '海克斯时机已修正', test: function() { return typeof win.runBattle==='function'; }, fix: '确认 round%4===3 改为 round%3===0。' },
+        { group: '✨ Buff 系统', name: '海克斯时机已修正', test: function() { return typeof win.runBattle==='function'; }, fix: '确认 core/engine.js 中 buff 触发时机逻辑。' },
 
         // ========== 状态样式 (4条) ==========
         { group: '🎭 状态样式', name: '攻击闪蓝', test: function() {
@@ -139,21 +139,21 @@ function createHealthRules(win, doc) {
         }, fix: '_resting 时加 zzz-mark。' },
 
         // ========== 音效系统 (5条) ==========
-        { group: '🎵 音效', name: 'AudioManager 存在', test: function(){return !!win.AudioManager;}, fix:'确认 28audio 加载。' },
+        { group: '🎵 音效', name: 'AudioManager 存在', test: function(){return !!win.AudioManager;}, fix:'确认 modules/audio.js 已加载。' },
         { group: '🎵 音效', name: 'playSfx 存在', test: function(){return typeof win.AudioManager.playSfx==='function';}, fix:'检查 playSfx。' },
         { group: '🎵 音效', name: 'BGM 三态切换', test: function(){return typeof win.AudioManager.cycleSource==='function';}, fix:'检查 cycleSource。' },
         { group: '🎵 音效', name: '音效路径可访问', test: function(){try{return typeof win.AudioManager.currentSource==='string';}catch(e){return false;}}, fix:'检查 SFX 配置。' },
         { group: '🎵 音效', name: 'AudioContext 可用', test: function(){try{return !!(win.AudioContext||win.webkitAudioContext);}catch(e){return false;}}, fix:'检查浏览器支持。' },
 
         // ========== 特效动画 (5条) ==========
-        { group: '🎬 特效', name: '飞箭函数存在', test: function(){return typeof win.showRangedArrow==='function';}, fix:'检查 16fx 导出。' },
-        { group: '🎬 特效', name: '飞撞函数存在', test: function(){return typeof win.showMeleeCrash==='function';}, fix:'检查 17fx 导出。' },
-        { group: '🎬 特效', name: '子弹时间存在', test: function(){return typeof win.showDodgeBulletTime==='function';}, fix:'检查 20fx 导出。' },
-        { group: '🎬 特效', name: '换位函数存在', test: function(){return typeof win.animatePositionSwap==='function';}, fix:'检查 18fx 导出。' },
-        { group: '🎬 特效', name: '击退函数存在', test: function(){return typeof win.animatePushBack==='function';}, fix:'检查 19fx 导出。' },
+        { group: '🎬 特效', name: '飞箭函数存在', test: function(){return typeof win.showRangedArrow==='function';}, fix:'检查 fx/fx-arrows.js 导出。' },
+        { group: '🎬 特效', name: '飞撞函数存在', test: function(){return typeof win.showMeleeCrash==='function';}, fix:'检查 fx/fx-crash.js 导出。' },
+        { group: '🎬 特效', name: '子弹时间存在', test: function(){return typeof win.showDodgeBulletTime==='function';}, fix:'检查 fx/fx-dodge-bullet.js 导出。' },
+        { group: '🎬 特效', name: '换位函数存在', test: function(){return typeof win.animatePositionSwap==='function';}, fix:'检查 fx/fx-swap-push.js 导出。' },
+        { group: '🎬 特效', name: '击退函数存在', test: function(){return typeof win.animatePushBack==='function';}, fix:'检查 fx/fx-swap-push.js 导出。' },
 
         // ========== 精英技能 (6条) ==========
-        { group: '👹 精英', name: '精英模块可访问', test: function(){return typeof win.checkExtinctionCounter==='function';}, fix:'检查 23elite 导出。' },
+        { group: '👹 精英', name: '精英模块可访问', test: function(){return typeof win.checkExtinctionCounter==='function';}, fix:'检查 core/engine.js 精英技能导出。' },
         { group: '👹 精英', name: '宋青书函数存在', test: function(){return typeof win.getRebelTarget==='function'&&typeof win.getRebelDmgBonus==='function';}, fix:'检查宋青书函数。' },
         { group: '👹 精英', name: '周芷若函数存在', test: function(){return typeof win.checkNineYinClaw==='function';}, fix:'检查九阴白骨爪。' },
         { group: '👹 精英', name: '玄冥二老函数存在', test: function(){return typeof win.applyXuanmingPalm==='function'&&typeof win.getHornStrikeBonus==='function';}, fix:'检查玄冥/鹿角。' },
@@ -312,10 +312,10 @@ function createHealthRules(win, doc) {
         }, fix: '检查 selectTarget 近战分支使用 getFronts 结果（当前为设计预期校验）。' },
 
         // ========== 战斗引擎 (4条) ==========
-        { group: '⚙️ 引擎', name: 'calcDamage 存在', test: function(){return typeof win.calcDamage==='function';}, fix:'确认 03utils 挂载。' },
-        { group: '⚙️ 引擎', name: 'getFlyDodgeRate 存在', test: function(){return typeof win.getFlyDodgeRate==='function';}, fix:'确认导出。' },
-        { group: '⚙️ 引擎', name: 'getFronts 存在', test: function(){return typeof win.getFronts==='function';}, fix:'确认导出。' },
-        { group: '⚙️ 引擎', name: 'isBlocked 存在', test: function(){return typeof win.isBlocked==='function';}, fix:'确认导出。' },
+        { group: '⚙️ 引擎', name: 'calcDamage 存在', test: function(){return typeof win.calcDamage==='function';}, fix:'确认 core/engine.js 已挂载 calcDamage。' },
+        { group: '⚙️ 引擎', name: 'getFlyDodgeRate 存在', test: function(){return typeof win.getFlyDodgeRate==='function';}, fix:'确认 core/engine.js 已挂载 getFlyDodgeRate。' },
+        { group: '⚙️ 引擎', name: 'getFronts 存在', test: function(){return typeof win.getFronts==='function';}, fix:'确认 core/engine.js 已挂载 getFronts。' },
+        { group: '⚙️ 引擎', name: 'isBlocked 存在', test: function(){return typeof win.isBlocked==='function';}, fix:'确认 core/engine.js 已挂载 isBlocked。' },
 
         // ========== 日志与UI (5条) ==========
         { group: '📋 日志', name: '日志有内容', test: function(){var l=doc.getElementById('log'); return l&&(l.textContent||'').trim().length>0;}, fix:'检查 playBattle。' },

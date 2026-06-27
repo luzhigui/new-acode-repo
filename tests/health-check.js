@@ -76,8 +76,8 @@ export async function runHealthCheck(config) {
     });
 
     // 30test-runner.html 已移入 tools/，需要从根目录找游戏页面
-    const baseUrl = window.location.href.replace(/tools\/.*$/, '');
-    const gameUrl = baseUrl + 'mode-5v5-test.html?t=' + Date.now();
+    const baseUrl = window.location.href.replace(/tools\/.*$/, '').replace(/\/[^/]*$/, '/');
+    const gameUrl = baseUrl + 'game.html?t=' + Date.now();
     iframe.style.display = 'block';
     iframe.src = gameUrl;
 
@@ -138,6 +138,7 @@ export async function runHealthCheck(config) {
             try {
                 statusEl.textContent = `第 ${s} 关 - 模拟战斗中...`;
                 const ctx = W()._getPlayerContext();
+                const win = W();
                 if (ctx && ctx.UI && ctx.UI.allyTeam && ctx.UI.enemyTeam
                     && ctx.UI.allyTeam.length >= 5 && ctx.UI.enemyTeam.length >= 5
                     && typeof win.runBattle === 'function') {
