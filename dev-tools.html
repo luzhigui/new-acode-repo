@@ -1,0 +1,1417 @@
+<!-- dev-tools.html - 光明顶5v5 · 开发工具箱（合并版） -->
+<!-- 2026-06-27: 合并 文件复制器、函数替换器、急救包、防战计算器、自动批量战斗 五个工具 -->
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>光明顶5v5 · 开发工具箱</title>
+    <style>
+        /* ========== 全局基础样式 ========== */
+        body { background: #1a1a2e; color: #eee; font-family: monospace; padding: 12px; font-size: 13px; margin: 0; }
+        h1 { color: #ffd700; text-align: center; margin: 0 0 8px 0; font-size: 20px; }
+
+        /* ========== 标签页导航 ========== */
+        .tab-nav { display: flex; gap: 2px; margin-bottom: 12px; background: #111; border-radius: 8px; padding: 3px; flex-wrap: wrap; }
+        .tab-btn { flex: 1; min-width: 80px; padding: 10px 8px; border: none; background: #2a2a4e; color: #aaa; cursor: pointer; font-size: 12px; font-weight: bold; border-radius: 6px; transition: 0.2s; font-family: monospace; white-space: nowrap; }
+        .tab-btn:hover { background: #3a3a6e; color: #ddd; }
+        .tab-btn.active { background: #ffd700; color: #1a1a2e; }
+
+        /* ========== 标签页内容容器 ========== */
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+
+        /* ========== 通用按钮 ========== */
+        button { cursor: pointer; font-family: monospace; }
+        .status-text { text-align: center; color: #888; min-height: 20px; margin-top: 8px; }
+
+        /* ========== 文件复制器样式 ========== */
+        .fc-config { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; background: #2a2a4e; padding: 10px; border-radius: 6px; flex-wrap: wrap; }
+        .fc-config label { color: #ffd700; font-weight: bold; white-space: nowrap; }
+        .fc-config input { padding: 6px; border-radius: 4px; border: none; font-size: 14px; }
+        .fc-config input[type="number"] { width: 100px; text-align: center; }
+        .fc-config input[type="text"] { width: 200px; background: #1a1a2e; color: #ffd700; border: 1px solid #555; }
+        .fc-config button { background: #ffd700; color: #1a1a2e; border: none; padding: 8px 16px; border-radius: 4px; font-weight: bold; cursor: pointer; font-size: 13px; }
+        .fc-config button:hover { background: #ffed4a; }
+        .fc-config .select-all { display: flex; gap: 12px; align-items: center; }
+        .fc-config .select-all button { background: #3a3a6e; color: #eee; border: 1px solid #555; padding: 4px 12px; border-radius: 4px; cursor: pointer; font-size: 11px; }
+        .add-file-row { display: flex; gap: 6px; align-items: center; margin-bottom: 8px; }
+        .add-file-row input { flex: 1; padding: 6px 10px; border-radius: 4px; border: 1px solid #555; background: #1a1a2e; color: #ffd700; font-size: 12px; }
+        .add-file-row button { background: #4caf50; color: #fff; border: none; padding: 6px 14px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 12px; }
+        .add-file-row button:hover { background: #66bb6a; }
+
+        /* 文件分组样式 */
+        .file-group { margin-bottom: 6px; border: 1px solid #333; border-radius: 6px; overflow: hidden; }
+        .group-header { background: #2a2a4e; padding: 8px 12px; cursor: pointer; display: flex; align-items: center; gap: 8px; user-select: none; }
+        .group-header:hover { background: #3a3a6e; }
+        .group-arrow { display: inline-block; width: 12px; transition: transform 0.2s; color: #ffd700; font-size: 11px; }
+        .file-group.open .group-arrow { transform: rotate(90deg); }
+        .group-name { color: #ffd700; font-weight: bold; flex: 1; }
+        .group-count { color: #888; font-size: 11px; }
+        .group-select-all-btn { background: #3a3a6e; color: #eee; border: 1px solid #555; padding: 3px 10px; border-radius: 4px; cursor: pointer; font-size: 11px; white-space: nowrap; }
+        .group-select-all-btn:hover { background: #4a4a8e; }
+        .group-files { display: none; padding: 4px; }
+        .file-group.open .group-files { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 2px; }
+
+        .file-item { display: flex; align-items: center; gap: 6px; background: #1a1a2e; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 12px; transition: 0.2s; }
+        .file-item:hover { background: #2a2a4e; }
+        .file-item input { margin: 0; cursor: pointer; }
+        .file-item.added { border-left: 3px solid #4caf50; }
+        .batches { display: flex; flex-direction: column; gap: 12px; margin-top: 12px; }
+        .batch-card { background: #111; border: 2px solid #333; border-radius: 8px; overflow: hidden; }
+        .batch-card.copied { border-color: #2e7d32; box-shadow: 0 0 8px rgba(46,125,50,0.4); }
+        .batch-card.read-fail { border-color: #f44336; box-shadow: 0 0 8px rgba(244,67,54,0.3); }
+        .batch-header { background: #2a2a4e; padding: 10px 14px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #555; }
+        .batch-header span { font-weight: bold; color: #ffd700; }
+        .batch-header .header-btns { display: flex; gap: 6px; }
+        .batch-header button { border: none; padding: 6px 14px; border-radius: 4px; font-weight: bold; cursor: pointer; font-size: 12px; }
+        .batch-header .copy-batch-btn { background: #ffd700; color: #1a1a2e; }
+        .batch-header .copy-batch-btn:hover { background: #ffed4a; }
+        .batch-header .copy-batch-btn.copied { background: #2e7d32; color: #fff; cursor: default; }
+        .batch-header .download-batch-btn { background: #1565c0; color: #fff; }
+        .batch-header .download-batch-btn:hover { background: #1976d2; }
+        .batch-manifest { padding: 8px 14px; background: #1a1a2e; color: #aaa; font-size: 11px; border-bottom: 1px solid #333; white-space: pre-wrap; }
+        .batch-code { padding: 10px 14px; white-space: pre-wrap; font-size: 11px; color: #ccc; max-height: 200px; overflow-y: auto; display: none; }
+        .batch-code.show { display: block; }
+
+        /* ========== 函数替换器样式 ========== */
+        .fnc-btn { display: block; width: 100%; padding: 12px; margin: 12px 0; background: #ffd700; color: #1a1a2e; border: none; border-radius: 8px; font-size: 14px; font-weight: bold; cursor: pointer; }
+        .fnc-btn:hover { background: #ffed4a; }
+        .file-section { margin-bottom: 16px; border: 1px solid #444; border-radius: 8px; overflow: hidden; }
+        .file-header { background: #2a2a4e; padding: 10px 16px; font-weight: bold; color: #ffd700; cursor: pointer; display: flex; justify-content: space-between; }
+        .func-list { display: none; padding: 8px; }
+        .file-section.open .func-list { display: block; }
+        .func-item { background: #111; border: 1px solid #333; border-radius: 6px; padding: 10px; margin-bottom: 6px; display: flex; justify-content: space-between; align-items: center; transition: 0.2s; flex-wrap: wrap; gap: 8px; }
+        .func-item:hover { border-color: #ffd700; }
+        .func-info { flex: 1; min-width: 200px; }
+        .func-name { color: #4fc3f7; font-weight: bold; }
+        .func-line { color: #888; font-size: 11px; display: block; margin-top: 2px; }
+        .func-preview { color: #666; font-size: 10px; margin-top: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+        .btn-group { display: flex; gap: 4px; flex-shrink: 0; }
+        .action-btn { border: none; padding: 8px 14px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold; white-space: nowrap; transition: 0.2s; }
+        .copy-btn { background: #4caf50; color: white; }
+        .copy-btn:hover { background: #388e3c; }
+        .replace-btn { background: #ff9800; color: #1a1a2e; }
+        .replace-btn:hover { background: #ffb74d; }
+        .action-btn.copied { background: #2e7d32; }
+        .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 9999; justify-content: center; align-items: center; }
+        .modal-overlay.show { display: flex; }
+        .modal-box { background: #2a2a4e; border: 2px solid #ffd700; border-radius: 12px; padding: 20px; width: 90%; max-width: 600px; max-height: 80vh; overflow-y: auto; }
+        .modal-title { color: #ffd700; font-size: 16px; font-weight: bold; margin-bottom: 12px; }
+        .modal-label { color: #aaa; font-size: 11px; margin-bottom: 4px; }
+        .modal-textarea { width: 100%; height: 200px; background: #111; color: #ccc; border: 2px solid #444; border-radius: 6px; padding: 10px; font-family: monospace; font-size: 12px; resize: vertical; box-sizing: border-box; }
+        .modal-textarea:focus { border-color: #ffd700; outline: none; }
+        .modal-btn { padding: 10px 20px; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 13px; margin-top: 12px; margin-right: 8px; }
+        .modal-btn.confirm { background: #4caf50; color: white; }
+        .modal-btn.cancel { background: #666; color: white; }
+        .search-bar { display: flex; gap: 8px; margin-bottom: 16px; }
+        .search-bar input { flex: 1; padding: 8px; border-radius: 6px; border: 2px solid #444; background: #2a2a4e; color: #eee; font-size: 14px; }
+        .search-bar input:focus { border-color: #ffd700; outline: none; }
+        .count { color: #888; font-size: 11px; }
+        .result-area { margin-top: 12px; display: none; }
+        .result-area.show { display: block; }
+
+        /* ========== 急救包样式 ========== */
+        .fak-control-bar { display: flex; gap: 10px; margin-bottom: 20px; }
+        .fak-btn { padding: 10px 24px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 14px; transition: 0.2s; }
+        .fak-btn-scan { background: #ffd700; color: #1a1a2e; flex: 1; }
+        .fak-btn-scan:hover { background: #ffed4a; }
+        .fak-btn-copy-all { background: #3a3a6e; color: #eee; }
+        .fak-btn-copy-all:hover { background: #4a4a8e; }
+        .fak-stats { display: flex; gap: 16px; justify-content: center; margin-bottom: 20px; }
+        .fak-stat { background: #2a2a4e; padding: 10px 18px; border-radius: 8px; text-align: center; }
+        .fak-stat-value { font-size: 24px; font-weight: bold; color: #ffd700; }
+        .fak-stat-label { font-size: 10px; color: #aaa; }
+        .issue-card { background: #2a2a4e; border-left: 4px solid #f44336; border-radius: 6px; padding: 12px; margin-bottom: 8px; }
+        .issue-card.fixed { border-left-color: #4caf50; }
+        .issue-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+        .issue-title { font-weight: bold; color: #ff9800; }
+        .issue-card.fixed .issue-title { color: #4caf50; }
+        .issue-file { color: #888; font-size: 11px; }
+        .issue-desc { font-size: 11px; color: #ccc; margin-bottom: 8px; }
+        .issue-code { background: #111; padding: 8px; border-radius: 4px; font-size: 11px; white-space: pre-wrap; max-height: 120px; overflow-y: auto; color: #ddd; }
+        .fix-btn { padding: 6px 14px; border: none; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold; }
+        .fix-btn.fix { background: #f44336; color: white; }
+        .fix-btn.fix:hover { background: #d32f2f; }
+        .fix-btn.copy { background: #4caf50; color: white; }
+        .fix-btn.copy:hover { background: #388e3c; }
+
+        /* ========== 防战计算器样式 ========== */
+        .fang-config-panel { background: #16213e; border: 1px solid #333; border-radius: 10px; padding: 16px; margin-bottom: 20px; }
+        .fang-rule-box { background: #0f0f1a; border-left: 4px solid #ffd700; padding: 12px; margin-bottom: 16px; font-size: 12px; line-height: 1.6; color: #ccc; }
+        .fang-rule-box strong { color: #ffd700; }
+        .fang-m-select { display: flex; flex-wrap: wrap; gap: 10px; margin: 12px 0; align-items: center; }
+        .fang-m-select label { display: flex; align-items: center; gap: 4px; background: #2a2a4e; padding: 6px 12px; border-radius: 5px; cursor: pointer; font-weight: bold; }
+        .fang-m-select input { margin: 0; cursor: pointer; }
+        .fang-input-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
+        .fang-input-row label { color: #aaa; }
+        .fang-input-row input { width: 100px; padding: 6px; background: #1a1a2e; border: 1px solid #555; color: #eee; border-radius: 4px; text-align: center; font-size: 14px; }
+        .fang-btn { background: #ffd700; color: #1a1a2e; border: none; padding: 10px 24px; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 14px; margin-right: 8px; }
+        .fang-btn:hover { background: #ffed4a; }
+        .fang-btn-copy { background: #4caf50; color: white; }
+        .fang-btn-copy:hover { background: #66bb6a; }
+        .fang-result-area { background: #111; border: 1px solid #333; border-radius: 8px; padding: 16px; margin-top: 12px; white-space: pre-wrap; font-size: 12px; color: #ccc; max-height: 500px; overflow-y: auto; display: none; }
+
+        /* ========== 自动批量战斗样式 ========== */
+        .ab-main-layout { display: flex; gap: 12px; flex-direction: column; }
+        .ab-config { background: #2a2a4e; padding: 12px; border-radius: 8px; }
+        .ab-config label { display: block; margin-top: 8px; color: #ffd700; font-weight: bold; }
+        .ab-config select, .ab-config input, .ab-config button { padding: 8px; border-radius: 4px; border: none; font-size: 14px; }
+        .ab-config button { background: #ffd700; color: #1a1a2e; font-weight: bold; cursor: pointer; width: 100%; margin-top: 10px; }
+        .ab-report { margin-top: 20px; background: #2a2a4e; padding: 12px; border-radius: 8px; white-space: pre-wrap; }
+        .buff-checkboxes { display: flex; flex-wrap: wrap; gap: 8px; }
+        .buff-checkboxes label { color: #eee; font-weight: normal; display: flex; align-items: center; gap: 4px; }
+        .buff-checkboxes input { margin: 0; }
+        .ab-history { margin-top: 20px; background: #1a1a3e; padding: 8px; border-radius: 4px; max-height: 200px; overflow-y: auto; }
+        .ab-history-item { border-bottom: 1px solid #333; padding: 4px 0; font-size: 11px; display: flex; justify-content: space-between; align-items: center; }
+        .ab-history-item span { flex: 1; }
+        .ab-history-item button { width: auto; padding: 2px 6px; font-size: 10px; margin: 0 0 0 8px; }
+        .ab-preview-grid { font-family: monospace; white-space: pre; line-height: 1.4; margin-top: 8px; background: #1a1a2e; padding: 8px; border-radius: 4px; }
+        .ab-grid-container { display: flex; gap: 20px; }
+    </style>
+</head>
+<body>
+    <h1>光明顶5v5 · 开发工具箱</h1>
+
+    <!-- ==================== 标签页导航 ==================== -->
+    <div class="tab-nav">
+        <button class="tab-btn active" data-tab="tab-file-copier">📋 文件复制器</button>
+        <button class="tab-btn" data-tab="tab-func-copier">⚡ 函数替换器</button>
+        <button class="tab-btn" data-tab="tab-first-aid">🔧 急救包</button>
+        <button class="tab-btn" data-tab="tab-fang-calc">🛡️ 防战计算器</button>
+        <button class="tab-btn" data-tab="tab-auto-battle">⚔️ 自动批量战斗</button>
+    </div>
+
+    <!-- ==================== Tab 1: 文件复制器 ==================== -->
+    <div class="tab-content active" id="tab-file-copier">
+        <div class="fc-config">
+            <label>📦 单次复制上限(字符)：</label>
+            <input type="number" id="fcCharLimit" value="20000" min="1000" max="100000" step="1000">
+            <div class="select-all">
+                <button id="fcBtnSelectAll">全选</button>
+                <button id="fcBtnDeselectAll">全不选</button>
+            </div>
+            <button id="fcBtnGenerate">📦 生成复制包</button>
+        </div>
+
+        <div class="add-file-row">
+            <input type="text" id="fcCustomFileInput" placeholder="输入文件名，多个用逗号分隔">
+            <button id="fcBtnAddFile">＋ 添加文件</button>
+        </div>
+
+        <div id="fcFileGroups"></div>
+        <div class="status-text" id="fcStatus">勾选需要复制的文件，设定字符上限，点击"生成复制包"</div>
+        <div class="batches" id="fcBatches"></div>
+    </div>
+
+    <!-- ==================== Tab 2: 函数替换器 ==================== -->
+    <div class="tab-content" id="tab-func-copier">
+        <div class="search-bar">
+            <input type="text" id="fncSearchInput" placeholder="搜索函数名..." />
+        </div>
+        <button class="fnc-btn" id="fncBtnScan">🔍 扫描项目函数</button>
+        <div class="status-text" id="fncStatus">点击按钮开始扫描，之后可复制或替换任意函数</div>
+        <div id="fncMapContainer"></div>
+
+        <div class="modal-overlay" id="fncReplaceModal">
+            <div class="modal-box">
+                <div class="modal-title">🔄 替换函数：<span id="fncReplaceFuncName"></span></div>
+                <div class="modal-label">📄 文件：<span id="fncReplaceFileName"></span></div>
+                <div class="modal-label">粘贴新的完整函数代码（包括 function 关键字）：</div>
+                <textarea class="modal-textarea" id="fncReplaceTextarea" placeholder="在此粘贴新函数代码..."></textarea>
+                <div id="fncReplaceResult" class="result-area">
+                    <div class="modal-label" style="margin-top:12px;">✅ 替换后的完整文件内容（点击下方复制）：</div>
+                    <textarea class="modal-textarea" id="fncResultTextarea" readonly style="height:150px;"></textarea>
+                    <button class="modal-btn confirm" id="fncBtnCopyResult">📋 复制更新后的文件</button>
+                </div>
+                <button class="modal-btn confirm" id="fncBtnDoReplace">🔄 执行替换</button>
+                <button class="modal-btn cancel" id="fncBtnCancelReplace">取消</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== Tab 3: 急救包 ==================== -->
+    <div class="tab-content" id="tab-first-aid">
+        <div class="fak-control-bar">
+            <button class="fak-btn fak-btn-scan" id="fakBtnScan">🔍 开始扫描项目</button>
+            <button class="fak-btn fak-btn-copy-all" id="fakBtnCopyAll" disabled>📋 复制所有修复</button>
+        </div>
+        <div class="fak-stats">
+            <div class="fak-stat"><div class="fak-stat-value" id="fakTotalFiles">-</div><div class="fak-stat-label">扫描文件</div></div>
+            <div class="fak-stat"><div class="fak-stat-value" id="fakTotalIssues">-</div><div class="fak-stat-label">发现问题</div></div>
+            <div class="fak-stat"><div class="fak-stat-value" id="fakTotalFixed">-</div><div class="fak-stat-label">可自动修复</div></div>
+        </div>
+        <div id="fakIssuesContainer"></div>
+        <div class="status-text" id="fakLog">点击"开始扫描项目"以检查代码中的经典低级错误。</div>
+    </div>
+
+    <!-- ==================== Tab 4: 防战计算器 ==================== -->
+    <div class="tab-content" id="tab-fang-calc">
+        <div class="fang-config-panel">
+            <div class="fang-rule-box">
+                <strong>📜 规则说明 (攻击/防御精确到小数点后一位)</strong><br>
+                • 基础8档：以M107的12.5%分位点为通用阈值，所有M值共用。<br>
+                • 追加3档Buff档：普通Buff(0.373)、中级Buff(0.445)、究极Buff(0.520)。<br>
+                • Buff「严阵以待」使防御 ×1.5。<br>
+                • 设计意图：M95无Buff摸普通Buff档(约5%)，有Buff摸中级Buff档(约37.5%)，顶级M95摸究极Buff档(约12.5%)。
+            </div>
+
+            <div class="fang-m-select">
+                <span style="color:#ffd700; font-weight:bold;">选择 M 值：</span>
+                <label><input type="checkbox" class="fang-m-check" value="95" checked> M=95</label>
+                <label><input type="checkbox" class="fang-m-check" value="97" checked> M=97</label>
+                <label><input type="checkbox" class="fang-m-check" value="100" checked> M=100</label>
+                <label><input type="checkbox" class="fang-m-check" value="104"> M=104</label>
+                <label><input type="checkbox" class="fang-m-check" value="107"> M=107</label>
+                <label><input type="checkbox" class="fang-m-check" value="115"> M=115</label>
+                <button class="fang-btn" id="fangBtnSelectAll">全选</button>
+                <button class="fang-btn" id="fangBtnClearAll">清除</button>
+            </div>
+
+            <div class="fang-input-row">
+                <label>🔢 模拟次数：</label>
+                <input type="number" id="fangSimCount" value="20000" min="100" max="500000" step="1000">
+            </div>
+
+            <div>
+                <button class="fang-btn" id="fangBtnRun">▶ 开始模拟</button>
+                <button class="fang-btn fang-btn-copy" id="fangBtnCopyResult" style="display:none;">📋 复制结果</button>
+            </div>
+            <div class="status-text" id="fangStatus"></div>
+        </div>
+        <div class="fang-result-area" id="fangResultBox"></div>
+    </div>
+
+    <!-- ==================== Tab 5: 自动批量战斗 ==================== -->
+    <div class="tab-content" id="tab-auto-battle">
+        <div class="ab-main-layout">
+            <div class="ab-config">
+                <label for="abStageSelect">选择关卡：</label>
+                <select id="abStageSelect">
+                    <option value="1">第1关</option>
+                    <option value="2">第2关</option>
+                    <option value="3">第3关</option>
+                    <option value="4">第4关</option>
+                    <option value="5">第5关</option>
+                    <option value="6">第6关</option>
+                </select>
+                <label for="abRoundsInput">测试场次：</label>
+                <input type="number" id="abRoundsInput" value="300" min="1" max="1000" step="50">
+                <label>海克斯偏好（出现时优先选择）：</label>
+                <div id="abBuffCheckboxes" class="buff-checkboxes">正在加载...</div>
+                <button id="abRunBtn">▶ 开始测试</button>
+            </div>
+            <div class="ab-grid-container">
+                <div class="ab-config" style="flex:1;">
+                    <span style="color:#ffd700;">📊 当前关卡敌人站位预览</span>
+                    <div id="abPreviewGrid" class="ab-preview-grid">加载中...</div>
+                </div>
+            </div>
+        </div>
+        <div class="status-text" id="abStatus"></div>
+        <div id="abReport" class="ab-report"></div>
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+            <h3 style="color:#ffd700; margin: 0;">📋 历史记录</h3>
+            <button id="abCopyAllHistoryBtn" style="width:auto; padding:4px 12px; font-size:12px;">一键复制</button>
+            <button id="abClearHistoryBtn" style="width:auto; padding:4px 12px; font-size:12px;">清空记录</button>
+        </div>
+        <div id="abHistory" class="ab-history"></div>
+    </div>
+
+    <!-- ==================== 脚本：标签页切换 ==================== -->
+    <script>
+    (function() {
+        var tabBtns = document.querySelectorAll('.tab-btn');
+        var tabContents = document.querySelectorAll('.tab-content');
+        tabBtns.forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                tabBtns.forEach(function(b) { b.classList.remove('active'); });
+                tabContents.forEach(function(c) { c.classList.remove('active'); });
+                btn.classList.add('active');
+                var target = document.getElementById(btn.getAttribute('data-tab'));
+                if (target) target.classList.add('active');
+            });
+        });
+    })();
+    </script>
+
+    <!-- ==================== 脚本：文件复制器 (IIFE) ==================== -->
+    <script>
+    (function() {
+        var FILES = [
+            '../core/01config-5v5-test.js', '../core/02unit.js', '../core/03battle-utils.js', '../core/04buff-system.js',
+            '../core/05battle-horse.js', '../core/06battle-engine-core.js', '../core/07battle-engine-5v5-test.js',
+            '../player/08player-text.js', '../player/09player-buff-ui.js', '../player/10player-core.js',
+            '../player/11battle-player-5v5-test.js', '../ui/12main-utils.js', '../ui/13main-5v5-test.js',
+            '../ui/14ui-render-5v5-test.js', '../fx/15fx-common-5v5-test.js', '../fx/16fx-arrows-5v5-test.js',
+            '../fx/17fx-crash-5v5-test.js', '../fx/18fx-position-swap.js', '../fx/19fx-push-back.js',
+            '../fx/20fx-dodge-bullet.js', '../modules/23elite-skills.js', '../modules/24error-capture.js',
+            '../tests/25unit-tests.js', './26codex-v2.1.js', '../tests/27auto-battle-utils.js', '../modules/28audio-manager.js',
+            '../tests/29health-rules.js', '../tests/35quiz-bank.js', '../tests/37health-core.js', '../tests/38health-ui.js',
+            '../mode-5v5-test.html', './30test-runner.html', './32auto-battle.html',
+            '../00index.html', './31function-copier.html', './33first-aid-kit.html', './35fang-calc.html',
+            './00build-5v5.cjs'
+        ];
+
+        var FILE_GROUPS = [
+            { name: 'core/', files: [], prefix: '../core/' },
+            { name: 'player/', files: [], prefix: '../player/' },
+            { name: 'ui/', files: [], prefix: '../ui/' },
+            { name: 'fx/', files: [], prefix: '../fx/' },
+            { name: 'modules/', files: [], prefix: '../modules/' },
+            { name: 'tests/', files: [], prefix: '../tests/' },
+            { name: 'tools/', files: [], prefix: './' },
+            { name: '根目录', files: [], prefix: null }
+        ];
+
+        // 将文件分配到各组
+        FILES.forEach(function(f) {
+            var matched = false;
+            for (var i = 0; i < FILE_GROUPS.length; i++) {
+                var g = FILE_GROUPS[i];
+                if (g.prefix && f.indexOf(g.prefix) === 0) {
+                    // tools/ 下只匹配 ./ 开头的文件
+                    if (g.name === 'tools/' && f.indexOf('./') === 0) {
+                        // 排除 ../ 开头的
+                        g.files.push(f);
+                        matched = true;
+                        break;
+                    } else if (g.name !== 'tools/') {
+                        g.files.push(f);
+                        matched = true;
+                        break;
+                    }
+                }
+            }
+            if (!matched && (f.indexOf('../') === 0 && f.indexOf('../core/') !== 0 && f.indexOf('../player/') !== 0 && f.indexOf('../ui/') !== 0 && f.indexOf('../fx/') !== 0 && f.indexOf('../modules/') !== 0 && f.indexOf('../tests/') !== 0)) {
+                // 根目录文件 (../00index.html, ../mode-5v5-test.html)
+                FILE_GROUPS[7].files.push(f);
+            }
+        });
+
+        // 修复 tools/ 组：只包含 ./ 开头的文件
+        FILE_GROUPS[6].files = FILES.filter(function(f) { return f.indexOf('./') === 0; });
+
+        var fcFileGroups = document.getElementById('fcFileGroups');
+        var fcBatchesDiv = document.getElementById('fcBatches');
+        var fcStatusDiv = document.getElementById('fcStatus');
+
+        function buildFileCheckbox(fileName, isAdded) {
+            var label = document.createElement('label');
+            label.className = 'file-item';
+            if (isAdded) label.classList.add('added');
+            var checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.value = fileName;
+            if (isAdded) checkbox.checked = true;
+            label.appendChild(checkbox);
+            label.appendChild(document.createTextNode(fileName));
+            return label;
+        }
+
+        // 渲染文件分组
+        FILE_GROUPS.forEach(function(group) {
+            if (group.files.length === 0) return;
+            var groupDiv = document.createElement('div');
+            groupDiv.className = 'file-group';
+            var header = document.createElement('div');
+            header.className = 'group-header';
+            header.innerHTML = '<span class="group-arrow">▶</span><span class="group-name">📁 ' + group.name + '</span><span class="group-count">' + group.files.length + ' 个文件</span><button class="group-select-all-btn">全选组</button>';
+            var filesDiv = document.createElement('div');
+            filesDiv.className = 'group-files';
+
+            group.files.forEach(function(file) {
+                filesDiv.appendChild(buildFileCheckbox(file, false));
+            });
+
+            groupDiv.appendChild(header);
+            groupDiv.appendChild(filesDiv);
+            fcFileGroups.appendChild(groupDiv);
+
+            // 折叠/展开
+            header.addEventListener('click', function(e) {
+                if (e.target.classList.contains('group-select-all-btn')) return;
+                groupDiv.classList.toggle('open');
+            });
+
+            // 全选组
+            header.querySelector('.group-select-all-btn').addEventListener('click', function(e) {
+                e.stopPropagation();
+                groupDiv.classList.add('open');
+                filesDiv.querySelectorAll('input[type=checkbox]').forEach(function(cb) { cb.checked = true; });
+            });
+        });
+
+        document.getElementById('fcBtnAddFile').addEventListener('click', function() {
+            var input = document.getElementById('fcCustomFileInput');
+            var raw = input.value.trim();
+            if (!raw) return;
+            var names = raw.split(',').map(function(s) { return s.trim(); }).filter(function(s) { return s.length > 0; });
+            names.forEach(function(name) {
+                var existing = document.querySelector('#tab-file-copier input[value="' + CSS.escape(name) + '"]');
+                if (!existing) {
+                    // 添加到 tools/ 组
+                    var toolsGroup = fcFileGroups.querySelectorAll('.file-group')[6];
+                    if (toolsGroup) {
+                        toolsGroup.querySelector('.group-files').appendChild(buildFileCheckbox(name, true));
+                        var countEl = toolsGroup.querySelector('.group-count');
+                        var currentCount = parseInt(countEl.textContent) || 0;
+                        countEl.textContent = (currentCount + 1) + ' 个文件';
+                    }
+                } else {
+                    existing.checked = true;
+                }
+            });
+            input.value = '';
+            fcStatusDiv.textContent = '✅ 已添加：' + names.join(', ');
+        });
+
+        document.getElementById('fcCustomFileInput').addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') document.getElementById('fcBtnAddFile').click();
+        });
+
+        document.getElementById('fcBtnSelectAll').addEventListener('click', function() {
+            document.querySelectorAll('#tab-file-copier input[type=checkbox]').forEach(function(cb) { cb.checked = true; });
+        });
+        document.getElementById('fcBtnDeselectAll').addEventListener('click', function() {
+            document.querySelectorAll('#tab-file-copier input[type=checkbox]').forEach(function(cb) { cb.checked = false; });
+        });
+
+        function splitLargeFile(fileName, content, charLimit) {
+            var lines = content.split('\n');
+            var chunks = [];
+            var currentChunk = '';
+            for (var i = 0; i < lines.length; i++) {
+                var line = lines[i] + '\n';
+                if (line.length > charLimit) {
+                    if (currentChunk) { chunks.push(currentChunk); currentChunk = ''; }
+                    chunks.push(line);
+                    continue;
+                }
+                if (currentChunk.length + line.length > charLimit) {
+                    chunks.push(currentChunk);
+                    currentChunk = line;
+                } else {
+                    currentChunk += line;
+                }
+            }
+            if (currentChunk) chunks.push(currentChunk);
+            var total = chunks.length;
+            return chunks.map(function(chunk, idx) {
+                return {
+                    fileName: fileName, content: chunk,
+                    partIndex: idx + 1, partTotal: total,
+                    charCount: chunk.length,
+                    lineCount: chunk.split('\n').length - 1
+                };
+            });
+        }
+
+        document.getElementById('fcBtnGenerate').addEventListener('click', async function() {
+            var charLimit = parseInt(document.getElementById('fcCharLimit').value) || 20000;
+            var selectedFiles = Array.from(document.querySelectorAll('#tab-file-copier input[type=checkbox]:checked'))
+                .map(function(cb) { return cb.value; });
+
+            if (selectedFiles.length === 0) {
+                fcStatusDiv.textContent = '⚠️ 请至少勾选一个文件';
+                return;
+            }
+
+            fcStatusDiv.textContent = '正在读取文件...';
+            fcBatchesDiv.innerHTML = '';
+
+            var fileContents = {};
+            var fileErrors = {};
+            for (var i = 0; i < selectedFiles.length; i++) {
+                var file = selectedFiles[i];
+                try {
+                    var response = await fetch(file);
+                    if (response.ok) {
+                        fileContents[file] = await response.text();
+                    } else {
+                        fileContents[file] = null;
+                        fileErrors[file] = 'HTTP ' + response.status;
+                    }
+                } catch (e) {
+                    fileContents[file] = null;
+                    fileErrors[file] = e.message;
+                }
+            }
+
+            var batches = [];
+            var currentBatch = { files: [], totalChars: 0, hasFailures: false };
+
+            for (var j = 0; j < selectedFiles.length; j++) {
+                var file2 = selectedFiles[j];
+                var content = fileContents[file2];
+                if (!content) {
+                    currentBatch.files.push({ fileName: file2, content: null, charCount: 0, lineCount: 0, error: fileErrors[file2] });
+                    currentBatch.hasFailures = true;
+                    continue;
+                }
+                if (content.length > charLimit) {
+                    if (currentBatch.files.length > 0) {
+                        batches.push(currentBatch);
+                        currentBatch = { files: [], totalChars: 0, hasFailures: false };
+                    }
+                    var parts = splitLargeFile(file2, content, charLimit);
+                    for (var k = 0; k < parts.length; k++) {
+                        batches.push({ files: [parts[k]], totalChars: parts[k].charCount, isSplit: true, hasFailures: false });
+                    }
+                    continue;
+                }
+                var fileLen = content.length;
+                if (currentBatch.totalChars + fileLen > charLimit && currentBatch.files.length > 0) {
+                    batches.push(currentBatch);
+                    currentBatch = { files: [], totalChars: 0, hasFailures: false };
+                }
+                currentBatch.files.push({ fileName: file2, content: content, charCount: fileLen, lineCount: content.split('\n').length });
+                currentBatch.totalChars += fileLen;
+            }
+            if (currentBatch.files.length > 0) batches.push(currentBatch);
+
+            fcBatchesDiv.innerHTML = '';
+            batches.forEach(function(batch, index) {
+                var card = document.createElement('div');
+                card.className = 'batch-card';
+                if (batch.hasFailures) card.classList.add('read-fail');
+
+                var manifestLines = batch.files.map(function(f) {
+                    var fn = f.fileName || '';
+                    var charInfo = f.charCount + ' 字符';
+                    var lineInfo = f.lineCount ? f.lineCount + ' 行' : '';
+                    if (f.error) return '⚠️ ' + fn + '（读取失败: ' + f.error + '）';
+                    if (f.partTotal && f.partTotal > 1) return '📄 ' + fn + ' [第 ' + f.partIndex + '/' + f.partTotal + ' 片·' + charInfo + ']';
+                    return '📄 ' + fn + '（' + lineInfo + '，' + charInfo + '）';
+                });
+                var partLabel = batch.isSplit ? '（文件分片）' : '';
+                var failLabel = batch.hasFailures ? ' ⚠️ 含读取失败' : '';
+                var manifest = '📦 复制包 #' + (index + 1) + partLabel + failLabel + '（共 ' + batch.files.length + ' 个文件，合计 ' + batch.totalChars + ' 字符）\n' + manifestLines.join('\n');
+
+                var fullCode = batch.files.map(function(f) {
+                    var fn = f.fileName || '';
+                    if (f.error) return '// ===== ' + fn + ' [读取失败: ' + f.error + '] =====';
+                    if (f.partTotal && f.partTotal > 1) {
+                        return '// ===== ' + fn + ' [第 ' + f.partIndex + '/' + f.partTotal + ' 片·共 ' + f.charCount + ' 字符] =====\n' + f.content;
+                    }
+                    return '// ===== ' + fn + ' =====\n' + f.content;
+                }).join('\n\n');
+
+                var fullPayload = manifest + '\n\n--- 代码开始 ---\n\n' + fullCode;
+
+                card.innerHTML = '<div class="batch-header">' +
+                    '<span>📦 复制包 #' + (index + 1) + partLabel + failLabel + '（' + batch.files.length + ' 文件 / ' + batch.totalChars + ' 字符）</span>' +
+                    '<div class="header-btns">' +
+                    '<button class="download-batch-btn">📥 下载</button>' +
+                    '<button class="copy-batch-btn">📋 复制</button>' +
+                    '</div></div>' +
+                    '<div class="batch-manifest">' + manifest.replace(/\n/g, '<br>') + '</div>' +
+                    '<div class="batch-code">' + escapeHtml_FC(fullCode) + '</div>';
+
+                var copyBtn = card.querySelector('.copy-batch-btn');
+                copyBtn.addEventListener('click', async function() {
+                    if (copyBtn.classList.contains('copied')) return;
+                    try {
+                        await navigator.clipboard.writeText(fullPayload);
+                        copyBtn.textContent = '已复制 ✓';
+                        copyBtn.classList.add('copied');
+                        card.classList.add('copied');
+                        fcStatusDiv.textContent = '✅ 已复制包 #' + (index + 1);
+                    } catch (e) {
+                        fcStatusDiv.textContent = '❌ 复制失败，请重试';
+                    }
+                });
+
+                var downloadBtn = card.querySelector('.download-batch-btn');
+                downloadBtn.addEventListener('click', function() {
+                    var blob = new Blob([fullCode], { type: 'text/plain;charset=utf-8' });
+                    var url = URL.createObjectURL(blob);
+                    var a = document.createElement('a');
+                    a.href = url;
+                    a.download = 'batch-' + (index + 1) + '.txt';
+                    a.click();
+                    URL.revokeObjectURL(url);
+                    fcStatusDiv.textContent = '✅ 已下载包 #' + (index + 1);
+                });
+
+                fcBatchesDiv.appendChild(card);
+            });
+
+            fcStatusDiv.textContent = '✅ 已生成 ' + batches.length + ' 个复制包';
+        });
+
+        function escapeHtml_FC(text) {
+            return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        }
+    })();
+    </script>
+
+    <!-- ==================== 脚本：函数替换器 (IIFE) ==================== -->
+    <script>
+    (function() {
+        var ALL_JS_FILES = [
+            '../core/01config-5v5-test.js', '../core/02unit.js', '../core/03battle-utils.js', '../core/04buff-system.js',
+            '../core/05battle-horse.js', '../core/06battle-engine-core.js', '../core/07battle-engine-5v5-test.js',
+            '../player/08player-text.js', '../player/09player-buff-ui.js', '../player/10player-core.js',
+            '../player/11battle-player-5v5-test.js', '../ui/12main-utils.js', '../ui/13main-5v5-test.js',
+            '../ui/14ui-render-5v5-test.js', '../fx/15fx-common-5v5-test.js', '../fx/16fx-arrows-5v5-test.js',
+            '../fx/17fx-crash-5v5-test.js', '../fx/18fx-position-swap.js', '../fx/19fx-push-back.js',
+            '../fx/20fx-dodge-bullet.js', '../modules/23elite-skills.js', '../modules/24error-capture.js',
+            '../tests/25unit-tests.js', '../tools/26codex-v2.1.js', '../tests/27auto-battle-utils.js', '../modules/28audio-manager.js',
+            '../tests/29health-rules.js', '../tests/35quiz-bank.js', '../tests/37health-core.js', '../tests/38health-ui.js',
+            '../mode-5v5-test.html', '../tools/30test-runner.html', '../tools/32auto-battle.html',
+            '../00index.html', '../tools/31function-copier.html', '../tools/33first-aid-kit.html', '../tools/34file-copier.html', '../tools/35fang-calc.html'
+        ];
+
+        var TARGET_FILES = [
+            '../core/01config-5v5-test.js', '../core/02unit.js', '../core/03battle-utils.js', '../core/04buff-system.js',
+            '../core/05battle-horse.js', '../core/06battle-engine-core.js', '../core/07battle-engine-5v5-test.js',
+            '../player/08player-text.js', '../player/09player-buff-ui.js', '../player/10player-core.js',
+            '../player/11battle-player-5v5-test.js', '../ui/12main-utils.js', '../ui/13main-5v5-test.js',
+            '../ui/14ui-render-5v5-test.js', '../fx/15fx-common-5v5-test.js', '../fx/16fx-arrows-5v5-test.js',
+            '../fx/17fx-crash-5v5-test.js', '../fx/18fx-position-swap.js', '../fx/19fx-push-back.js',
+            '../fx/20fx-dodge-bullet.js', '../modules/23elite-skills.js', '../modules/24error-capture.js',
+            '../tools/26codex-v2.1.js', '../tests/27auto-battle-utils.js', '../modules/28audio-manager.js', '../tests/29health-rules.js', '../tests/35quiz-bank.js', '../tests/37health-core.js', '../tests/38health-ui.js', '../tools/00build-5v5.cjs'
+        ];
+
+        var fncMapContainer = document.getElementById('fncMapContainer');
+        var fncStatusDiv = document.getElementById('fncStatus');
+        var fncSearchInput = document.getElementById('fncSearchInput');
+        var fncFileContents = {};
+
+        var fncReplaceModal = document.getElementById('fncReplaceModal');
+        var fncReplaceFuncName = document.getElementById('fncReplaceFuncName');
+        var fncReplaceFileName = document.getElementById('fncReplaceFileName');
+        var fncReplaceTextarea = document.getElementById('fncReplaceTextarea');
+        var fncReplaceResult = document.getElementById('fncReplaceResult');
+        var fncResultTextarea = document.getElementById('fncResultTextarea');
+        var fncCurrentReplaceFile = null;
+        var fncCurrentReplaceFunc = null;
+        var fncCurrentReplaceLine = null;
+
+        document.getElementById('fncBtnScan').addEventListener('click', async function() {
+            fncMapContainer.innerHTML = '';
+            fncStatusDiv.textContent = '正在扫描...';
+            var totalFunctions = 0;
+
+            for (var i = 0; i < TARGET_FILES.length; i++) {
+                var filename = TARGET_FILES[i];
+                try {
+                    var response = await fetch(filename);
+                    if (!response.ok) continue;
+                    var code = await response.text();
+                    fncFileContents[filename] = code;
+                    var functions = extractFunctions_FNC(code, filename);
+                    if (functions.length > 0) {
+                        totalFunctions += functions.length;
+                        renderFileSection_FNC(filename, functions);
+                    }
+                } catch (e) {}
+            }
+
+            fncStatusDiv.textContent = '✅ 扫描完成：' + TARGET_FILES.length + ' 个文件，' + totalFunctions + ' 个函数';
+        });
+
+        function extractFunctions_FNC(code, filename) {
+            var functions = [];
+            var lines = code.split('\n');
+            var funcRegex = /(?:async\s+)?function\s+(\w+)\s*\(|(\w+)\s*=\s*(?:async\s+)?function\s*\(|(\w+)\s*=\s*\([^)]*\)\s*=>/g;
+
+            lines.forEach(function(line, idx) {
+                var match;
+                while ((match = funcRegex.exec(line)) !== null) {
+                    var name = match[1] || match[2] || match[3];
+                    if (name && ['if', 'for', 'while', 'switch', 'catch'].indexOf(name) === -1) {
+                        functions.push({ name: name, line: idx + 1, content: line.trim().substring(0, 80) });
+                    }
+                }
+            });
+            return functions;
+        }
+
+        function extractFuncBody_FNC(code, funcName, startLine) {
+            var lines = code.split('\n');
+            var startIdx = startLine - 1;
+            var braceDepth = 0, started = false, endIdx = lines.length - 1;
+            for (var i = startIdx; i < lines.length; i++) {
+                braceDepth += (lines[i].match(/\{/g) || []).length - (lines[i].match(/\}/g) || []).length;
+                if (braceDepth > 0) started = true;
+                if (started && braceDepth === 0) { endIdx = i; break; }
+            }
+            return lines.slice(startIdx, endIdx + 1).join('\n');
+        }
+
+        function renderFileSection_FNC(filename, functions) {
+            var section = document.createElement('div');
+            section.className = 'file-section';
+            section.innerHTML = '<div class="file-header"><span>📄 ' + filename + '</span><span class="count">' + functions.length + ' 个函数</span></div><div class="func-list"></div>';
+
+            var funcList = section.querySelector('.func-list');
+            functions.forEach(function(f) {
+                var item = document.createElement('div');
+                item.className = 'func-item';
+                item.setAttribute('data-name', f.name.toLowerCase());
+                item.innerHTML = '<div class="func-info">' +
+                    '<span class="func-name">' + f.name + '</span>' +
+                    '<span class="func-line">第 ' + f.line + ' 行</span>' +
+                    '<div class="func-preview">' + escapeHtml_FNC(f.content) + '</div></div>' +
+                    '<div class="btn-group">' +
+                    '<button class="action-btn copy-btn" data-file="' + filename + '" data-func="' + f.name + '" data-line="' + f.line + '">📋 复制</button>' +
+                    '<button class="action-btn replace-btn" data-file="' + filename + '" data-func="' + f.name + '" data-line="' + f.line + '">🔄 替换</button></div>';
+
+                item.querySelector('.copy-btn').addEventListener('click', async function(e) {
+                    var btn = e.target;
+                    var code = fncFileContents[btn.dataset.file];
+                    if (code) {
+                        var funcBody = extractFuncBody_FNC(code, btn.dataset.func, parseInt(btn.dataset.line));
+                        await navigator.clipboard.writeText(funcBody);
+                        btn.textContent = '✅ 已复制';
+                        btn.classList.add('copied');
+                        setTimeout(function() { btn.textContent = '📋 复制'; btn.classList.remove('copied'); }, 1500);
+                        fncStatusDiv.textContent = '✅ 已复制 ' + btn.dataset.func + '（' + funcBody.split('\n').length + ' 行）';
+                    }
+                });
+
+                item.querySelector('.replace-btn').addEventListener('click', function(e) {
+                    var btn = e.target;
+                    fncCurrentReplaceFile = btn.dataset.file;
+                    fncCurrentReplaceFunc = btn.dataset.func;
+                    fncCurrentReplaceLine = parseInt(btn.dataset.line);
+                    fncReplaceFuncName.textContent = fncCurrentReplaceFunc;
+                    fncReplaceFileName.textContent = fncCurrentReplaceFile;
+                    fncReplaceTextarea.value = '';
+                    fncReplaceResult.classList.remove('show');
+                    fncResultTextarea.value = '';
+                    fncReplaceModal.classList.add('show');
+                });
+
+                funcList.appendChild(item);
+            });
+
+            section.querySelector('.file-header').addEventListener('click', function() { section.classList.toggle('open'); });
+            fncMapContainer.appendChild(section);
+        }
+
+        document.getElementById('fncBtnDoReplace').addEventListener('click', function() {
+            var newFuncCode = fncReplaceTextarea.value.trim();
+            if (!newFuncCode || !fncCurrentReplaceFile || !fncCurrentReplaceFunc) return;
+            var originalCode = fncFileContents[fncCurrentReplaceFile];
+            var oldFuncBody = extractFuncBody_FNC(originalCode, fncCurrentReplaceFunc, fncCurrentReplaceLine);
+            var updatedCode = originalCode.replace(oldFuncBody, newFuncCode);
+            fncResultTextarea.value = updatedCode;
+            fncReplaceResult.classList.add('show');
+            fncStatusDiv.textContent = '✅ 已生成 ' + fncCurrentReplaceFile + ' 的更新版本';
+        });
+
+        document.getElementById('fncBtnCopyResult').addEventListener('click', async function() {
+            try {
+                await navigator.clipboard.writeText(fncResultTextarea.value);
+                fncStatusDiv.textContent = '✅ 已复制 ' + fncCurrentReplaceFile + ' 更新版本（' + fncResultTextarea.value.split('\n').length + ' 行），请粘贴覆盖原文件';
+            } catch (err) {
+                fncStatusDiv.textContent = '❌ 复制失败，请重试';
+            }
+        });
+
+        document.getElementById('fncBtnCancelReplace').addEventListener('click', function() {
+            fncReplaceModal.classList.remove('show');
+            fncCurrentReplaceFile = null;
+            fncCurrentReplaceFunc = null;
+            fncCurrentReplaceLine = null;
+        });
+
+        fncReplaceModal.addEventListener('click', function(e) {
+            if (e.target === fncReplaceModal) fncReplaceModal.classList.remove('show');
+        });
+
+        fncSearchInput.addEventListener('input', function() {
+            var query = fncSearchInput.value.toLowerCase().trim();
+            document.querySelectorAll('#tab-func-copier .file-section').forEach(function(section) {
+                var hasMatch = false;
+                section.querySelectorAll('.func-item').forEach(function(item) {
+                    if (!query || item.dataset.name.indexOf(query) !== -1) { item.style.display = 'flex'; hasMatch = true; }
+                    else { item.style.display = 'none'; }
+                });
+                section.style.display = (query && !hasMatch) ? 'none' : '';
+                if (query && hasMatch) section.classList.add('open');
+            });
+        });
+
+        function escapeHtml_FNC(text) { return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+    })();
+    </script>
+
+    <!-- ==================== 脚本：急救包 (IIFE) ==================== -->
+    <script>
+    (function() {
+        var FAK_TARGET_FILES = [
+            { name: '01config-5v5-test.js', path: '../core/01config-5v5-test.js' },
+            { name: '02unit.js', path: '../core/02unit.js' },
+            { name: '03battle-utils.js', path: '../core/03battle-utils.js' },
+            { name: '04buff-system.js', path: '../core/04buff-system.js' },
+            { name: '06battle-engine-core.js', path: '../core/06battle-engine-core.js' },
+            { name: '10player-core.js', path: '../player/10player-core.js' },
+            { name: '13main-5v5-test.js', path: '../ui/13main-5v5-test.js' },
+            { name: '14ui-render-5v5-test.js', path: '../ui/14ui-render-5v5-test.js' },
+            { name: '17fx-crash-5v5-test.js', path: '../fx/17fx-crash-5v5-test.js' },
+            { name: '20fx-dodge-bullet.js', path: '../fx/20fx-dodge-bullet.js' },
+            { name: '23elite-skills.js', path: '../modules/23elite-skills.js' },
+            { name: '27auto-battle-utils.js', path: '../tests/27auto-battle-utils.js' },
+            { name: '28audio-manager.js', path: '../modules/28audio-manager.js' }
+        ];
+
+        var FAK_RULES = [
+            {
+                id: 'pos-negative-one',
+                title: '残留的阵亡站位污染',
+                desc: '检测到 u.pos = -1 等代码，这会导致"语义污染"。阵亡应只通过 alive/isDead 控制。',
+                severity: 'high',
+                scan: function(code) {
+                    var lines = code.split('\n');
+                    var matches = [];
+                    lines.forEach(function(line, idx) {
+                        if (line.indexOf('pos = -1') !== -1 || line.indexOf('pos=-1') !== -1) {
+                            matches.push({ line: idx + 1, content: line.trim() });
+                        }
+                    });
+                    return matches;
+                },
+                fix: function(code) {
+                    return code.replace(/\.pos\s*=\s*-1/g, '._isDead = true');
+                }
+            },
+            {
+                id: 'duplicate-available',
+                title: 'available 变量重复声明',
+                desc: '在 doInitBattle 中，let available 被意外声明了两次，会导致初始化崩溃。',
+                severity: 'critical',
+                scan: function(code) {
+                    var matches = [];
+                    var regex = /let\s+available\s*=/g;
+                    var match;
+                    while ((match = regex.exec(code)) !== null) {
+                        var lineNum = code.substring(0, match.index).split('\n').length;
+                        matches.push({ line: lineNum, content: match[0] });
+                    }
+                    return matches.length >= 2 ? matches : [];
+                },
+                fix: function(code) {
+                    var count = 0;
+                    return code.replace(/let\s+available\s*=/g, function(m) {
+                        count++;
+                        if (count === 1) return m;
+                        return 'let remainingSlots =';
+                    });
+                }
+            },
+            {
+                id: 'clone-missing-attribute',
+                title: 'clone 方法遗漏新状态属性',
+                desc: '02unit.js 的 clone() 中可能缺少对新加属性（如 _xuanmingPoison）的复制，导致回合切换后状态丢失。',
+                severity: 'high',
+                scan: function(code) {
+                    var knownAttrs = ['_acted', '_flash', '_blocked', '_isDead', '_resting', '_flyMode', '_hotBloodCount', '_doubleStriked', '_zhangSwitched', 'buffAtkBonus', 'buffDefBonus', 'buffDodgeBonus', 'buffHpBonus', '_baseMaxHp', '_xuanmingPoison'];
+                    var missing = [];
+                    knownAttrs.forEach(function(attr) {
+                        if (code.indexOf('c.' + attr) === -1) {
+                            missing.push(attr);
+                        }
+                    });
+                    return missing.length > 0 ? [{ line: 0, content: '缺少: ' + missing.join(', ') }] : [];
+                },
+                fix: null
+            },
+            {
+                id: 'large-function',
+                title: '超大函数警告',
+                desc: '检测到行数超过 200 行的超大函数，建议拆分以降低维护成本。',
+                severity: 'info',
+                scan: function(code) {
+                    var lines = code.split('\n');
+                    var matches = [];
+                    var funcStart = -1;
+                    var braceDepth = 0;
+                    lines.forEach(function(line, idx) {
+                        if (line.indexOf('function ') !== -1 && line.indexOf('(') !== -1 && funcStart === -1) {
+                            funcStart = idx;
+                            braceDepth = 0;
+                        }
+                        if (funcStart !== -1) {
+                            braceDepth += (line.match(/\{/g) || []).length;
+                            braceDepth -= (line.match(/\}/g) || []).length;
+                            if (braceDepth === 0 && idx - funcStart > 200) {
+                                matches.push({ line: funcStart + 1, content: '约 ' + (idx - funcStart) + ' 行' });
+                                funcStart = -1;
+                            } else if (braceDepth === 0) {
+                                funcStart = -1;
+                            }
+                        }
+                    });
+                    return matches;
+                },
+                fix: null
+            },
+            {
+                id: 'getelementbyid-no-null-check',
+                title: 'getElementById 缺少空值检查',
+                desc: '检测到 document.getElementById 调用后未进行空值检查，可能导致运行时崩溃。',
+                severity: 'medium',
+                scan: function(code) {
+                    var lines = code.split('\n');
+                    var matches = [];
+                    var regex = /(\w+)\s*=\s*document\.getElementById\(['"]([^'"]+)['"]\)/g;
+                    var match;
+                    while ((match = regex.exec(code)) !== null) {
+                        var varName = match[1];
+                        var lineNum = code.substring(0, match.index).split('\n').length;
+                        var line = lines[lineNum - 1] || '';
+                        var nextLine = lines[lineNum] || '';
+                        if (line.indexOf('?.') !== -1 || line.indexOf('if (') !== -1 || nextLine.indexOf('if (') !== -1) continue;
+                        matches.push({ line: lineNum, content: line.trim() });
+                    }
+                    return matches.slice(0, 5);
+                },
+                fix: null
+            },
+            {
+                id: 'var-instead-of-let-const',
+                title: '使用 var 而非 let/const',
+                desc: '检测到使用 var 声明变量，建议改用 let 或 const。',
+                severity: 'low',
+                scan: function(code) {
+                    var lines = code.split('\n');
+                    var matches = [];
+                    lines.forEach(function(line, idx) {
+                        if (/\bvar\s+\w/.test(line) && line.indexOf('//') === -1 && line.indexOf('*') === -1) {
+                            matches.push({ line: idx + 1, content: line.trim() });
+                        }
+                    });
+                    return matches.slice(0, 10);
+                },
+                fix: null
+            }
+        ];
+
+        var fakIssuesContainer = document.getElementById('fakIssuesContainer');
+        var fakLogDiv = document.getElementById('fakLog');
+        var fakBtnScan = document.getElementById('fakBtnScan');
+        var fakBtnCopyAll = document.getElementById('fakBtnCopyAll');
+
+        var fakAllIssues = [];
+        var fakFixedContents = {};
+
+        async function scanProject_FAK() {
+            fakBtnScan.disabled = true;
+            fakBtnScan.textContent = '⏳ 扫描中...';
+            fakIssuesContainer.innerHTML = '';
+            fakLogDiv.textContent = '正在读取文件...';
+            fakAllIssues = [];
+            fakFixedContents = {};
+
+            var totalFiles = 0;
+            var totalIssues = 0;
+            var totalFixable = 0;
+
+            for (var i = 0; i < FAK_TARGET_FILES.length; i++) {
+                var fileInfo = FAK_TARGET_FILES[i];
+                try {
+                    var response = await fetch(fileInfo.path);
+                    if (!response.ok) {
+                        fakLogDiv.textContent = '⚠️ 跳过 ' + fileInfo.name + '：无法访问（请确认通过 Live Server 打开）';
+                        continue;
+                    }
+                    var code = await response.text();
+                    totalFiles++;
+
+                    FAK_RULES.forEach(function(rule) {
+                        var matches = rule.scan(code);
+                        if (matches.length > 0) {
+                            totalIssues += matches.length;
+                            var isFixable = rule.fix !== null;
+                            if (isFixable) totalFixable++;
+
+                            matches.forEach(function(match) {
+                                fakAllIssues.push({
+                                    filename: fileInfo.name,
+                                    rule: rule,
+                                    line: match.line,
+                                    content: match.content,
+                                    isFixable: isFixable
+                                });
+                            });
+
+                            if (isFixable) {
+                                fakFixedContents[fileInfo.name] = rule.fix(code);
+                            }
+                        }
+                    });
+                } catch (err) {
+                    fakLogDiv.textContent = '❌ 读取 ' + fileInfo.name + ' 失败：' + err.message;
+                }
+            }
+
+            renderIssues_FAK();
+            document.getElementById('fakTotalFiles').textContent = totalFiles;
+            document.getElementById('fakTotalIssues').textContent = totalIssues;
+            document.getElementById('fakTotalFixed').textContent = totalFixable;
+            fakBtnCopyAll.disabled = totalFixable === 0;
+            fakBtnScan.disabled = false;
+            fakBtnScan.textContent = '🔍 重新扫描';
+            fakLogDiv.textContent = '✅ 扫描完成：' + totalFiles + ' 个文件，发现 ' + totalIssues + ' 个问题（其中 ' + totalFixable + ' 个可自动修复）';
+        }
+
+        function renderIssues_FAK() {
+            fakIssuesContainer.innerHTML = '';
+            fakAllIssues.forEach(function(issue, index) {
+                var card = document.createElement('div');
+                card.className = 'issue-card';
+                card.id = 'fak-issue-' + index;
+                card.innerHTML = '<div class="issue-header">' +
+                    '<span class="issue-title">⚠️ ' + issue.rule.title + '</span>' +
+                    '<span class="issue-file">📄 ' + issue.filename + (issue.line > 0 ? ' : 第' + issue.line + '行' : '') + '</span></div>' +
+                    '<div class="issue-desc">' + issue.rule.desc + '</div>' +
+                    '<div class="issue-code">' + escapeHtml_FAK(issue.content) + '</div>' +
+                    (issue.isFixable ? '<button class="fix-btn fix" data-index="' + index + '">🔧 一键修复</button>' : '<span style="color:#ff9800;font-size:11px;">⚠️ 需手动处理（无自动修复规则）</span>');
+                fakIssuesContainer.appendChild(card);
+            });
+
+            document.querySelectorAll('#tab-first-aid .fix-btn.fix').forEach(function(btn) {
+                btn.addEventListener('click', async function(e) {
+                    var index = parseInt(e.target.dataset.index);
+                    var issue = fakAllIssues[index];
+                    var fixedCode = fakFixedContents[issue.filename];
+                    if (fixedCode) {
+                        try {
+                            await navigator.clipboard.writeText(fixedCode);
+                            var card = document.getElementById('fak-issue-' + index);
+                            card.classList.add('fixed');
+                            e.target.textContent = '✅ 已复制修复代码';
+                            e.target.className = 'fix-btn copy';
+                            fakLogDiv.textContent = '✅ 已复制 ' + issue.filename + ' 的修复版本，请粘贴覆盖原文件。';
+                        } catch (err) {
+                            fakLogDiv.textContent = '❌ 复制失败，请手动复制修复代码。';
+                        }
+                    }
+                });
+            });
+        }
+
+        fakBtnCopyAll.addEventListener('click', async function() {
+            var allFixed = Object.entries(fakFixedContents).map(function(entry) {
+                return '// ===== ' + entry[0] + ' (修复版) =====\n' + entry[1];
+            }).join('\n\n');
+            if (allFixed) {
+                try {
+                    await navigator.clipboard.writeText(allFixed);
+                    fakLogDiv.textContent = '✅ 已复制所有修复代码，请逐个粘贴覆盖原文件。';
+                } catch (err) {
+                    fakLogDiv.textContent = '❌ 复制失败，请重试。';
+                }
+            }
+        });
+
+        fakBtnScan.addEventListener('click', scanProject_FAK);
+
+        function escapeHtml_FAK(text) {
+            return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        }
+    })();
+    </script>
+
+    <!-- ==================== 脚本：防战计算器 (IIFE) ==================== -->
+    <script>
+    (function() {
+        var FANG_LEVELS = [0.244, 0.264, 0.279, 0.292, 0.306, 0.322, 0.342, 0.373, 0.445, 0.520];
+        var FANG_K = [0, 0.02, 0.04, 0.07, 0.10, 0.14, 0.19, 0.28, 0.50, 1.00, 2.50];
+
+        function randInt(min, max) {
+            return Math.floor(Math.random() * (max - min + 1)) + min;
+        }
+
+        function getK(ratio) {
+            for (var i = FANG_LEVELS.length - 1; i >= 0; i--) {
+                if (ratio >= FANG_LEVELS[i]) return FANG_K[i + 1] != null ? FANG_K[i + 1] : FANG_K[FANG_K.length - 1];
+            }
+            return FANG_K[0];
+        }
+
+        function generateDefender(M) {
+            var minHpTemp = Math.ceil(M * 0.4);
+            var maxHpTemp = Math.floor(M * 0.6);
+            var hpTemp, rem, d, a;
+            do {
+                hpTemp = randInt(minHpTemp, maxHpTemp);
+                rem = M - hpTemp;
+                var dMin = Math.ceil(rem * 5);
+                var dMax = (rem - 1) * 10;
+                d = randInt(dMin, dMax) / 10;
+                a = rem - d;
+            } while (d - a > 20);
+            return { def: d, atk: a, hpTemp: hpTemp, maxHp: hpTemp * 2.5, ratio: d / M };
+        }
+
+        function simulateRatios(M, count) {
+            var ratios = [];
+            for (var i = 0; i < count; i++) {
+                var result = generateDefender(M);
+                ratios.push(result.ratio);
+            }
+            ratios.sort(function(a, b) { return a - b; });
+            return ratios;
+        }
+
+        function getPercentiles(sortedRatios, steps) {
+            if (!steps) steps = [0.125, 0.25, 0.375, 0.5, 0.625, 0.75, 0.875, 1.0];
+            var n = sortedRatios.length;
+            var result = [];
+            steps.forEach(function(p) {
+                var idx = Math.min(n - 1, Math.floor(p * (n - 1)));
+                result.push({ percentile: p * 100, ratio: sortedRatios[idx] });
+            });
+            return result;
+        }
+
+        function getKDistribution(ratios, applyBuff) {
+            if (applyBuff === undefined) applyBuff = false;
+            var dist = {};
+            ratios.forEach(function(r) {
+                var ratio = applyBuff ? r * 1.5 : r;
+                var k = getK(ratio);
+                dist[k] = (dist[k] || 0) + 1;
+            });
+            var sorted = Object.entries(dist).sort(function(a, b) { return parseFloat(a[0]) - parseFloat(b[0]); });
+            return sorted.map(function(entry) {
+                return { k: parseFloat(entry[0]), count: entry[1], pct: (entry[1] / ratios.length * 100).toFixed(1) };
+            });
+        }
+
+        var fangBtnRun = document.getElementById('fangBtnRun');
+        var fangBtnCopy = document.getElementById('fangBtnCopyResult');
+        var fangStatusDiv = document.getElementById('fangStatus');
+        var fangResultBox = document.getElementById('fangResultBox');
+        var fangSimCountInput = document.getElementById('fangSimCount');
+
+        fangBtnRun.addEventListener('click', async function() {
+            var selectedM = Array.from(document.querySelectorAll('#tab-fang-calc .fang-m-check:checked')).map(function(cb) { return parseInt(cb.value); });
+            if (selectedM.length === 0) {
+                fangStatusDiv.textContent = '⚠️ 请至少选择一个 M 值';
+                return;
+            }
+            var simCount = parseInt(fangSimCountInput.value) || 20000;
+            fangStatusDiv.textContent = '⏳ 正在模拟，请稍候...';
+            fangBtnRun.disabled = true;
+            fangResultBox.style.display = 'none';
+
+            await new Promise(function(resolve) { setTimeout(resolve, 50); });
+
+            var output = '';
+
+            for (var mIdx = 0; mIdx < selectedM.length; mIdx++) {
+                var M = selectedM[mIdx];
+                output += '\n═══════════════════════════════\n';
+                output += '📊 M = ' + M + ' 防战比率分析 (基于 ' + simCount + ' 次模拟，小数一位)\n';
+                output += '═══════════════════════════════\n';
+
+                var ratios = simulateRatios(M, simCount);
+                var percentiles = getPercentiles(ratios);
+                var minRatio = ratios[0];
+                var maxRatio = ratios[ratios.length - 1];
+
+                output += '比率范围：' + minRatio.toFixed(4) + ' ~ ' + maxRatio.toFixed(4) + '\n';
+                output += '\n📈 12.5% 步长分位点：\n';
+                percentiles.forEach(function(p) {
+                    output += '  ' + p.percentile + '%  ≤ ' + p.ratio.toFixed(4) + '\n';
+                });
+
+                var baseKDist = getKDistribution(ratios, false);
+                output += '\n🛡️ 基础 k 值分布：\n';
+                baseKDist.forEach(function(d) {
+                    output += '  k=' + d.k.toFixed(2) + ' : ' + d.count + ' 次 (' + d.pct + '%)\n';
+                });
+
+                var buffKDist = getKDistribution(ratios, true);
+                output += '\n🔥 严阵以待 Buff 后 (def×1.5) k 值分布：\n';
+                buffKDist.forEach(function(d) {
+                    output += '  k=' + d.k.toFixed(2) + ' : ' + d.count + ' 次 (' + d.pct + '%)\n';
+                });
+            }
+
+            output += '\n═══════════════════════════════\n';
+            output += '📋 通用阈值表 (M107基准 + 三档Buff · 微调版)\n';
+            output += '─────────────────────────────────\n';
+            output += '阈值: [' + FANG_LEVELS.map(function(l) { return l.toFixed(3); }).join(', ') + ']\n';
+            output += 'k 值: [' + FANG_K.join(', ') + ']\n';
+            output += '\n📌 档位说明：\n';
+            output += '  基础8档 (k=0~0.28)：M107的12.5%分位，所有M值共用\n';
+            output += '  普通Buff档 (k=0.50)：阈值0.373，M95无Buff约5%概率\n';
+            output += '  中级Buff档 (k=1.00)：阈值0.445，M95+严阵以待约37.5%概率\n';
+            output += '  究极Buff档 (k=2.50)：阈值0.520，顶级M95+严阵以待约12.5%概率\n';
+
+            fangResultBox.textContent = output;
+            fangResultBox.style.display = 'block';
+            fangBtnCopy.style.display = 'inline-block';
+            fangStatusDiv.textContent = '✅ 模拟完成';
+            fangBtnRun.disabled = false;
+        });
+
+        fangBtnCopy.addEventListener('click', async function() {
+            var text = fangResultBox.textContent;
+            try {
+                await navigator.clipboard.writeText(text);
+                fangStatusDiv.textContent = '✅ 结果已复制到剪贴板';
+            } catch (e) {
+                fangStatusDiv.textContent = '❌ 复制失败，请手动复制';
+            }
+        });
+
+        document.getElementById('fangBtnSelectAll').addEventListener('click', function() {
+            document.querySelectorAll('#tab-fang-calc .fang-m-check').forEach(function(cb) { cb.checked = true; });
+        });
+        document.getElementById('fangBtnClearAll').addEventListener('click', function() {
+            document.querySelectorAll('#tab-fang-calc .fang-m-check').forEach(function(cb) { cb.checked = false; });
+        });
+    })();
+    </script>
+
+    <!-- ==================== 脚本：自动批量战斗 (ES Module) ==================== -->
+    <script type="module">
+        import { runAutoBattle } from '../tests/test-utils.js';
+        import { CONFIG } from '../core/config.js';
+
+        var abBuffCheckboxesDiv = document.getElementById('abBuffCheckboxes');
+        var allBuffs = Object.entries(CONFIG.BUFFS);
+        abBuffCheckboxesDiv.innerHTML = allBuffs.map(function(entry) {
+            return '<label><input type="checkbox" value="' + entry[0] + '"> ' + entry[1].icon + ' ' + entry[1].name + '</label>';
+        }).join('');
+
+        function updatePreview(stage) {
+            var previewDiv = document.getElementById('abPreviewGrid');
+            var template = CONFIG.ENEMY_POS_TEMPLATES ? CONFIG.ENEMY_POS_TEMPLATES[stage] : null;
+            var eliteList = CONFIG.ELITE_POOL && CONFIG.ELITE_POOL[stage] ? CONFIG.ELITE_POOL[stage] : [];
+
+            if (!template) {
+                previewDiv.textContent = '无模板，纯随机站位';
+                return;
+            }
+
+            var grid = Array(9).fill('·');
+            for (var role in template) {
+                if (!template.hasOwnProperty(role)) continue;
+                if (role === 'random') continue;
+                var poses = template[role];
+                for (var pi = 0; pi < poses.length; pi++) {
+                    var p = poses[pi];
+                    var roleChar = role === '防战' ? '防' : (role === '战士' ? '战' : (role === '远程' ? '远' : '飞'));
+                    if (p >= 1 && p <= 9) grid[p - 1] = roleChar;
+                }
+            }
+            for (var ei = 0; ei < eliteList.length; ei++) {
+                var elite = eliteList[ei];
+                var pos = elite.pos;
+                if (pos && grid[pos - 1] !== '·') {
+                    grid[pos - 1] += '*';
+                } else if (pos) {
+                    grid[pos - 1] = '精*';
+                }
+            }
+
+            previewDiv.textContent =
+                '模板职业：' + Object.entries(template).map(function(entry) { return entry[0] + '(' + entry[1].join(',') + ')'; }).join(', ') +
+                '\n精英怪：' + eliteList.map(function(e) { return e.name + '(' + e.role + ')'; }).join(', ') + '\n\n' +
+                '┌───┬───┬───┐\n│ ' + grid[0] + ' │ ' + grid[1] + ' │ ' + grid[2] + ' │  1 2 3\n├───┼───┼───┤\n│ ' + grid[3] + ' │ ' + grid[4] + ' │ ' + grid[5] + ' │  4 5 6\n├───┼───┼───┤\n│ ' + grid[6] + ' │ ' + grid[7] + ' │ ' + grid[8] + ' │  7 8 9\n└───┴───┴───┘\n* = 精英';
+        }
+
+        function loadHistory() {
+            var historyDiv = document.getElementById('abHistory');
+            var history = JSON.parse(localStorage.getItem('ming_auto_test_history') || '[]');
+            historyDiv.innerHTML = history.map(function(item, idx) {
+                return '<div class="ab-history-item">' +
+                    '<span>' + item.time + ' | 第' + item.stage + '关 | ' + item.rounds + '场 | 明' + item.wins.ally + '胜 六' + item.wins.enemy + '胜 平' + item.wins.draw + ' | 偏好：' + (item.prefs || '无') + '</span>' +
+                    '<button class="copy-item" data-idx="' + idx + '">复制</button></div>';
+            }).join('');
+            document.querySelectorAll('#tab-auto-battle .copy-item').forEach(function(btn) {
+                btn.addEventListener('click', function(e) {
+                    var idx = parseInt(e.target.dataset.idx);
+                    var item = history[idx];
+                    var text = item.time + ' | 第' + item.stage + '关 | ' + item.rounds + '场 | 明教胜：' + item.wins.ally + ' 六大派胜：' + item.wins.enemy + ' 平局：' + item.wins.draw + ' | 偏好：' + (item.prefs || '无');
+                    navigator.clipboard.writeText(text).then(function() { alert('已复制'); });
+                });
+            });
+        }
+
+        document.getElementById('abCopyAllHistoryBtn').addEventListener('click', function() {
+            var history = JSON.parse(localStorage.getItem('ming_auto_test_history') || '[]');
+            if (history.length === 0) return alert('暂无记录');
+            var text = history.map(function(item) {
+                return item.time + ' | 第' + item.stage + '关 | ' + item.rounds + '场 | 明教胜：' + item.wins.ally + ' 六大派胜：' + item.wins.enemy + ' 平局：' + item.wins.draw + ' | 偏好：' + (item.prefs || '无');
+            }).join('\n');
+            navigator.clipboard.writeText(text).then(function() { alert('已复制全部记录'); });
+        });
+
+        document.getElementById('abClearHistoryBtn').addEventListener('click', function() {
+            localStorage.removeItem('ming_auto_test_history');
+            loadHistory();
+        });
+
+        document.getElementById('abStageSelect').addEventListener('change', function() {
+            updatePreview(parseInt(this.value));
+        });
+
+        document.getElementById('abRunBtn').addEventListener('click', async function() {
+            var status = document.getElementById('abStatus');
+            var report = document.getElementById('abReport');
+            var runBtn = document.getElementById('abRunBtn');
+
+            var stage = parseInt(document.getElementById('abStageSelect').value);
+            var rounds = parseInt(document.getElementById('abRoundsInput').value) || 300;
+            var preferredBuffs = Array.from(
+                document.querySelectorAll('#abBuffCheckboxes input:checked')
+            ).map(function(cb) { return cb.value; });
+
+            runBtn.disabled = true;
+            status.textContent = '正在测试 (' + rounds + '场)...';
+            report.textContent = '';
+
+            try {
+                var wins = await runAutoBattle(rounds, function(current, total) {
+                    status.textContent = '进度：' + current + ' / ' + total;
+                }, stage, preferredBuffs);
+
+                var resultText = '关卡：' + stage + '\n场次：' + rounds + '\n偏好海克斯：' + (preferredBuffs.length > 0 ? preferredBuffs.join(', ') : '无') + '\n\n明教胜：' + wins.ally + ' 场\n六大派胜：' + wins.enemy + ' 场\n平局：' + wins.draw + ' 场';
+                report.textContent = resultText;
+                status.textContent = '✅ 测试完成！';
+
+                var now = new Date();
+                var timeStr = (now.getMonth() + 1) + '/' + now.getDate() + ' ' + now.getHours() + ':' + String(now.getMinutes()).padStart(2, '0');
+                var history = JSON.parse(localStorage.getItem('ming_auto_test_history') || '[]');
+                var newPrefs = preferredBuffs.join(',');
+
+                if (history.length > 0) {
+                    var last = history[0];
+                    if (last.stage === stage && last.prefs === newPrefs) {
+                        last.rounds += rounds;
+                        last.wins.ally += wins.ally;
+                        last.wins.enemy += wins.enemy;
+                        last.wins.draw += wins.draw;
+                        last.time = timeStr;
+                    } else {
+                        history.unshift({ time: timeStr, stage: stage, rounds: rounds, wins: wins, prefs: newPrefs });
+                        if (history.length > 20) history.pop();
+                    }
+                } else {
+                    history.push({ time: timeStr, stage: stage, rounds: rounds, wins: wins, prefs: newPrefs });
+                }
+                localStorage.setItem('ming_auto_test_history', JSON.stringify(history));
+                loadHistory();
+            } catch (e) {
+                status.textContent = '❌ 测试异常！';
+                report.textContent = '错误详情：' + (e.stack || e.message);
+            } finally {
+                runBtn.disabled = false;
+            }
+        });
+
+        updatePreview(1);
+        loadHistory();
+    </script>
+</body>
+</html>
