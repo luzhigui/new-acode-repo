@@ -47,6 +47,8 @@ export async function runHealthCheck(config) {
         const win = W();
         if (!win) return;
         const pushErr = (type, msg, extra) => {
+            // 过滤测试探测错误，避免污染运行时异常报告
+            if (typeof msg === 'string' && msg.includes('HEALTH_CHECK_PROBE_ERROR')) return;
             const ts = new Date().toLocaleTimeString();
             runtimeErrors.push({ type, message: msg, time: ts, extra });
             lastErrorAt = Date.now();
