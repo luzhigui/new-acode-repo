@@ -57,7 +57,7 @@ function openDetailPopup(unit, team, activeBuffs, doubleStrikeUid) {
     detailPopupUnit = unit;
     detailPopup = document.createElement('div');
     detailPopup.className = 'detail-popup';
-    detailPopup.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:#fdf5e6;border:3px solid #b8860b;border-radius:12px;padding:16px;z-index:10050;min-width:220px;box-shadow:0 8px 30px rgba(0,0,0,0.5);font-size:13px;line-height:1.6;';
+    detailPopup.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:#fdf5e6;border:3px solid #b8860b;border-radius:12px;padding:16px;z-index:10050;min-width:220px;max-height:75vh;overflow-y:auto;box-shadow:0 8px 30px rgba(0,0,0,0.5);font-size:13px;line-height:1.6;';
     let closeBtn = document.createElement('span');
     closeBtn.textContent = '✕';
     closeBtn.style.cssText = 'position:absolute;top:6px;right:10px;cursor:pointer;font-size:18px;color:#8b7355;font-weight:bold;';
@@ -120,10 +120,10 @@ function updateDetailPopupContent(activeBuffs, doubleStrikeUid) {
                 let skills = [];
                 if (u.name === '张无忌') skills = ['九阳神功：每回合回复5%生命', '乾坤大挪移：保护4/6号位队友，反弹15%伤害', '近战形态：前排无人时切换，攻+3/防+2/血+50'];
                 else if (u.name === '韦一笑') skills = ['寒冰掌：攻击吸血15%，增加生命上限', '青翼蝠王：基础闪避20%，无视行动状态闪避'];
-                else if (u.name === '宋青书') skills = ['叛逆突袭：优先攻击血量最高目标，伤害+20%'];
-                else if (u.name === '周芷若') skills = ['九阴白骨爪：50%概率追加30%额外伤害，不可闪避'];
+                else if (u.name === '宋青书') skills = ['叛逆突袭：优先攻击血量最高目标，伤害+30%，附加目标当前生命10%真实伤害', '新婚：攻击时扣周芷若1血并叠快乐', '性奋：周芷若在场时攻击后可再攻击一次', '苦练：无周芷若时每回合最先行动'];
+                else if (u.name === '周芷若') skills = ['九阴白骨爪：70%概率追加25%伤害（不可闪避），张无忌在场时提升至40%', '苦练：无宋青书时每回合最先行动'];
                 else if (u.name === '成昆') skills = ['混元霹雳劲：附加已损失生命30%的真实伤害', '高生存：作为防战，防御极高且可反弹伤害'];
-                else if (u.name === '鹿杖客') skills = ['玄冥神掌：攻击附带寒毒，每回合损失3%最大生命，持续3回合', '与鹤笔翁联动：鹤笔翁对中毒目标伤害+50%'];
+                else if (u.name === '鹿杖客') skills = ['玄冥神掌：攻击附带寒毒，每回合损失3%最大生命，持续3回合，与鹤笔翁联动：鹤笔翁对中毒目标伤害+50%'];
                 else if (u.name === '鹤笔翁') skills = ['鹿角杖法：忽略目标30%防御', '毒伤加成：对已中毒目标伤害额外+50%'];
                 if (skills.length > 0) {
                     return `<span style="color:#888;">技能</span><span style="color:#b8860b;">${skills.join('<br>')}</span>`;

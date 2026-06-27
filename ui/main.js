@@ -35,7 +35,7 @@ export function updateCoverVersion(loaded, failed) {
     if (!el) return;
     let html = '';
     const allMods = { ...loaded, ...failed };
-    const order = ['01config-5v5-test.js','02unit.js','04buff-system.js','06battle-engine-core.js','10player-core.js','13main-5v5-test.js','14ui-render-5v5-test.js','17fx-crash-5v5-test.js','20fx-dodge-bullet.js','23elite-skills.js','28audio-manager.js'];
+    const order = ['core/config.js','core/engine.js','player/player-core.js','ui/main.js','ui/render.js','fx/fx-common.js','fx/fx-crash.js','fx/fx-arrows.js','fx/fx-dodge-bullet.js','modules/audio.js'];
     let shown = new Set();
     for (let name of order) {
         let info = allMods[name];
@@ -55,17 +55,16 @@ export async function loadModules(updateCoverVersion) {
     const loaded = {};
     const failed = {};
     const modules = {
-        '01config-5v5-test.js': '../core/config.js',
-        '02unit.js': '../core/02unit.js',
-        '04buff-system.js': '../core/04buff-system.js',
-        '06battle-engine-core.js': '../core/06battle-engine-core.js',
-        '10player-core.js': '../player/10player-core.js',
-
-        '14ui-render-5v5-test.js': '../ui/render.js',
-        '17fx-crash-5v5-test.js': '../fx/fx-crash.js',
-        '20fx-dodge-bullet.js': '../fx/fx-dodge-bullet.js',
-        '23elite-skills.js': '../modules/23elite-skills.js',
-        '28audio-manager.js': '../modules/audio.js'
+        'core/config.js': '../core/config.js',
+        'core/engine.js': '../core/engine.js',
+        'player/player-core.js': '../player/player-core.js',
+        'ui/main.js': '../ui/main.js',
+        'ui/render.js': '../ui/render.js',
+        'fx/fx-common.js': '../fx/fx-common.js',
+        'fx/fx-crash.js': '../fx/fx-crash.js',
+        'fx/fx-arrows.js': '../fx/fx-arrows.js',
+        'fx/fx-dodge-bullet.js': '../fx/fx-dodge-bullet.js',
+        'modules/audio.js': '../modules/audio.js'
     };
     for (const [name, path] of Object.entries(modules)) {
         try { loaded[name] = await import(path + '?t=' + Date.now()); } catch (e) { failed[name] = true; console.error('Module load failed:', name, e); }
@@ -78,12 +77,12 @@ export async function loadModules(updateCoverVersion) {
 
 const C = CONFIG, S = STATE, KT = KILL_TAUNT;
 
-const FILE_VER = '13main-5v5-test.js V3.0.1';
-const INDEX_VER = 'mode-5v5-test.html test V3.0';
+const FILE_VER = 'ui/main.js V4.0.0';
+const INDEX_VER = 'game.html V4.0.0';
 const LOG_LINE1 = '⚔️ 光明顶5v5对决 · 九宫格混战模式 ⚔️';
 const PARTY_SIZE = 5;
 
-let gs = S.IDLE, autoMode = true, debugMode = false, isPaused = false, speed = 1000, userScrolled = false;
+let gs = S.IDLE, autoMode = true, debugMode = false, isPaused = false, speed = 500, userScrolled = false;
 let abortController = null, waitingForNextRound = false, detailMode = true;
 let battleResultForInfo = null, resettleCount = 0;
 let gameStarted = false;
@@ -524,7 +523,7 @@ function logVersions() {
 function showVoteDialog(callback) { let hasZhang=window._battleHasZhang||false,text='你看好哪边？'+(hasZhang?' (张无忌在场，猜对双倍积分!)':'');let mainBtn=document.getElementById('btnMain');if(mainBtn)mainBtn.disabled=true;showModal(text,[{text:'六大派',value:'六大派',cls:'enemy'},{text:'明教',value:'明教',cls:'ming'},{text:'放弃',value:'skip',cls:'skip'}],(choice)=>{window._voteChoice=choice;if(choice==='明教')document.getElementById('labelAlly').textContent='🚩明 教';else if(choice==='六大派')document.getElementById('labelEnemy').textContent='🚩六大派';if(callback)callback(choice);},false); }
 function abortAll() { if (abortController) { abortController.abort(); abortController = null; } UI.currentResult = null; waitingForNextRound = false; isBattleStarting = false; adjustMode = false; selectedAdjustPos = null; activeBuffs = []; selectedBuffIndex = -1; currentDoubleStrikeUid = null; updateBuffSlots(); }
 
-function updateButtons() { let mainBtn=document.getElementById('btnMain'),nextBtn=document.getElementById('btnNext'),settleBtn=document.getElementById('btnSettle'),pauseBtn=document.getElementById('btnPause'),randomBtn=document.getElementById('btnRandom'),stageBtn=document.getElementById('btnStageSelect'),infoBtn=document.getElementById('btnInfo'),copyBtn=document.getElementById('copyLog');if(gs===S.IDLE){mainBtn.innerHTML=adjustMode?'▶ 开始<br><span style="font-size:8px;">(投票)</span>':'🔄 调整<br>站位';mainBtn.disabled=false;nextBtn.disabled=true;if(adjustMode){if(stageBtn)stageBtn.disabled=true;if(randomBtn)randomBtn.disabled=true;if(infoBtn)infoBtn.disabled=true;if(copyBtn)copyBtn.disabled=true;}else{if(stageBtn)stageBtn.disabled=false;if(randomBtn)randomBtn.disabled=false;if(infoBtn)infoBtn.disabled=false;if(copyBtn)copyBtn.disabled=false;}}else if(gs===S.GAMEOVER){mainBtn.innerHTML=currentStage>=6?'🔄 重新<br>开始':'▶ 下一关';mainBtn.disabled=false;nextBtn.disabled=true;}else{mainBtn.disabled=true;}if(gs===S.RUNNING||gs===S.PAUSED){settleBtn.textContent='⏭ 直接结算';settleBtn.disabled=false;}else if(gs===S.GAMEOVER){settleBtn.textContent='🔄 重新结算';settleBtn.disabled=false;}else{settleBtn.disabled=true;}if(window.bulletTimeActive){pauseBtn.textContent='⏸️ 暂停';pauseBtn.disabled=true;pauseBtn.classList.remove('active');nextBtn.disabled=true;if(stageBtn)stageBtn.disabled=true;if(randomBtn)randomBtn.disabled=true;}else if(gs===S.RUNNING){pauseBtn.textContent='⏸️ 暂停';pauseBtn.disabled=false;pauseBtn.classList.remove('active');}else if(gs===S.PAUSED){pauseBtn.textContent='▶ 继续';pauseBtn.disabled=false;pauseBtn.classList.add('active');}else{pauseBtn.disabled=true;pauseBtn.classList.remove('active');} }
+function updateButtons() { let mainBtn=document.getElementById('btnMain'),nextBtn=document.getElementById('btnNext'),settleBtn=document.getElementById('btnSettle'),pauseBtn=document.getElementById('btnPause'),randomBtn=document.getElementById('btnRandom'),stageBtn=document.getElementById('btnStageSelect'),infoBtn=document.getElementById('btnInfo'),copyBtn=document.getElementById('copyLog');if(gs===S.IDLE){mainBtn.innerHTML=adjustMode?'▶ 开始<br><span style="font-size:8px;">(投票)</span>':'🔄 调整<br>站位';mainBtn.disabled=false;nextBtn.disabled=true;if(adjustMode){if(stageBtn)stageBtn.disabled=true;if(randomBtn)randomBtn.disabled=true;if(infoBtn)infoBtn.disabled=true;if(copyBtn)copyBtn.disabled=true;}else{if(stageBtn)stageBtn.disabled=false;if(randomBtn)randomBtn.disabled=false;if(infoBtn)infoBtn.disabled=false;if(copyBtn)copyBtn.disabled=false;}}else if(gs===S.GAMEOVER){mainBtn.innerHTML=currentStage>=6?'🔄 重新<br>开始':'▶ 下一关';mainBtn.disabled=false;nextBtn.disabled=true;}else{mainBtn.disabled=true;}if(gs===S.RUNNING||gs===S.PAUSED){settleBtn.textContent='⏭ 直接结算';settleBtn.disabled=false;}else if(gs===S.GAMEOVER){settleBtn.textContent='📊 战报';settleBtn.disabled=false;}else{settleBtn.disabled=true;}if(window.bulletTimeActive){pauseBtn.textContent='⏸️ 暂停';pauseBtn.disabled=true;pauseBtn.classList.remove('active');nextBtn.disabled=true;if(stageBtn)stageBtn.disabled=true;if(randomBtn)randomBtn.disabled=true;}else if(gs===S.RUNNING){pauseBtn.textContent='⏸️ 暂停';pauseBtn.disabled=false;pauseBtn.classList.remove('active');}else if(gs===S.PAUSED){pauseBtn.textContent='▶ 继续';pauseBtn.disabled=false;pauseBtn.classList.add('active');}else{pauseBtn.disabled=true;pauseBtn.classList.remove('active');} }
 function enableAllButtons() { document.querySelectorAll('.controls button').forEach(b => b.disabled = false); updateButtons(); }
 function updateDebugUI() { let panel=document.getElementById('debugPanel');if(debugMode){if(panel)panel.style.display='flex';}else{if(panel)panel.style.display='none';} }
 
@@ -649,7 +648,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     clearLogExceptFirst(); hasLoggedTeam=false; fadeBGMTo(0.1,2000); logTeamInfo('初始阵容'); await showCountdown();
                     let logDiv=document.getElementById('log'); logDiv.innerHTML+='<div class="separator">⚔️ 5v5对决开始 ⚔️</div>';
                     autoScrollLog();
-                    await new Promise(resolve => { showBuffSelection(() => resolve()); setTimeout(() => resolve(), 30000); });
+                    await new Promise(resolve => { showBuffSelection(() => resolve()); });
                     await new Promise(r=>setTimeout(r,600));
                     try {
                         gs=S.RUNNING; updateButtons(); document.getElementById('btnNext').disabled=true;
@@ -697,7 +696,11 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     document.getElementById('btnNext').addEventListener('click',function(){onAnyButtonClick();waitingForNextRound=false;gs=S.RUNNING;updateButtons();});
-    document.getElementById('btnSettle').addEventListener('click',async function(){ });
+    document.getElementById('btnSettle').addEventListener('click',async function(){
+        if (gs === S.GAMEOVER && battleResultForInfo) {
+            showBattleReport(battleResultForInfo);
+        }
+    });
     document.getElementById('btnPause').addEventListener('click',function(){onAnyButtonClick();if(gs===S.RUNNING){gs=S.PAUSED;isPaused=true;}else if(gs===S.PAUSED){gs=S.RUNNING;isPaused=false;}updateButtons();});
     document.getElementById('btnAuto').addEventListener('click',function(){
         autoMode=!autoMode;this.classList.toggle('active',autoMode);this.textContent=autoMode?'自动':'手动';
@@ -840,3 +843,139 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 });
+
+// ==================== 战报系统 ====================
+function showBattleReport(result) {
+    const { winner, ally, enemy } = result;
+    const allUnits = [...ally, ...enemy];
+    const STATS = [
+        { key: 'dmgDealt', label: '💥 伤害', color: '#f44336', default: true },
+        { key: 'dmgTaken', label: '🛡️ 承伤', color: '#4caf50' },
+        { key: 'healDone', label: '💚 治疗', color: '#2196f3' },
+        { key: 'reboundDone', label: '🔄 反弹', color: '#ff9800' },
+        { key: 'leechDone', label: '🩸 吸血', color: '#9c27b0' },
+        { key: 'dodgeCount', label: '💨 闪避', color: '#9e9e9e' }
+    ];
+    let activeStat = STATS[0];
+    const overlay = document.createElement('div');
+    overlay.className = 'modal-overlay';
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.85);display:flex;align-items:center;justify-content:center;z-index:100000;';
+    const box = document.createElement('div');
+    box.style.cssText = 'background:#1a1a2e;border:2px solid #ffd700;border-radius:12px;width:90vw;max-width:900px;max-height:85vh;display:flex;flex-direction:column;overflow:hidden;';
+    const header = document.createElement('div');
+    header.style.cssText = 'padding:12px 16px;border-bottom:1px solid #333;display:flex;justify-content:space-between;align-items:center;flex-shrink:0;';
+    header.innerHTML = '<span style="color:#ffd700;font-size:16px;font-weight:bold;">📊 战报 — ' + winner + ' 获胜</span>';
+    const tabBar = document.createElement('div');
+    tabBar.style.cssText = 'display:flex;align-items:center;gap:8px;padding:8px 16px;border-bottom:1px solid #333;flex-shrink:0;flex-wrap:wrap;';
+    const tabs = ['📊 战报', '📋 日志'];
+    tabs.forEach((t, i) => {
+        const btn = document.createElement('button');
+        btn.textContent = t;
+        btn.style.cssText = 'padding:4px 12px;border-radius:6px;border:1px solid ' + (i===0?'#ffd700':'#444') + ';background:' + (i===0?'#ffd70020':'transparent') + ';color:' + (i===0?'#ffd700':'#aaa') + ';cursor:pointer;font-size:12px;';
+        btn.addEventListener('click', () => {
+            tabBar.querySelectorAll('button').forEach((b, j) => {
+                b.style.borderColor = j === i ? '#ffd700' : '#444';
+                b.style.background = j === i ? '#ffd70020' : 'transparent';
+                b.style.color = j === i ? '#ffd700' : '#aaa';
+            });
+            reportBody.style.display = i === 0 ? 'block' : 'none';
+            logBody.style.display = i === 1 ? 'block' : 'none';
+        });
+        tabBar.appendChild(btn);
+    });
+    const statSwitcher = document.createElement('div');
+    statSwitcher.style.cssText = 'display:flex;gap:4px;margin-left:16px;flex-wrap:wrap;';
+    STATS.forEach(s => {
+        const sb = document.createElement('button');
+        sb.textContent = s.label;
+        sb.style.cssText = 'padding:3px 8px;border-radius:4px;border:1px solid ' + (s.default?'#ffd700':'#444') + ';background:' + (s.default?'#ffd70020':'transparent') + ';color:' + (s.default?'#ffd700':'#aaa') + ';cursor:pointer;font-size:11px;';
+        sb.addEventListener('click', () => {
+            activeStat = s;
+            statSwitcher.querySelectorAll('button').forEach(b => {
+                b.style.borderColor = '#444'; b.style.background = 'transparent'; b.style.color = '#aaa';
+            });
+            sb.style.borderColor = '#ffd700'; sb.style.background = '#ffd70020'; sb.style.color = '#ffd700';
+            renderReportBody();
+        });
+        statSwitcher.appendChild(sb);
+    });
+    tabBar.appendChild(statSwitcher);
+    box.appendChild(header);
+    box.appendChild(tabBar);
+    const reportBody = document.createElement('div');
+    reportBody.style.cssText = 'flex:1;overflow-y:auto;padding:12px 16px;';
+    const logBody = document.createElement('div');
+    logBody.style.cssText = 'flex:1;overflow-y:auto;padding:12px 16px;display:none;font-size:12px;color:#ccc;line-height:1.5;white-space:pre-wrap;';
+    const logDiv = document.getElementById('log');
+    logBody.textContent = logDiv ? logDiv.innerText : '暂无日志';
+    function renderReportBody() {
+        const maxVal = Math.max(1, ...allUnits.map(u => u[activeStat.key] || 0));
+        const renderTeam = (team, label) => {
+            let html = '<div style="margin-bottom:16px;"><div style="color:#ffd700;font-weight:bold;margin-bottom:8px;">' + label + '</div>';
+            team.filter(u => u.name).forEach(u => {
+                const val = u[activeStat.key] || 0;
+                const pct = Math.min(100, Math.floor((val / maxVal) * 100));
+                html += '<div style="display:flex;align-items:center;margin-bottom:4px;font-size:12px;">'
+                    + '<span style="width:70px;color:#eee;text-align:right;margin-right:8px;flex-shrink:0;">' + u.name + (u.isHorse?' 🐴':'') + (u.role?' '+u.role:'') + '</span>'
+                    + '<div style="flex:1;height:16px;background:#333;border-radius:4px;overflow:hidden;position:relative;">'
+                    + '<div style="height:100%;width:' + pct + '%;background:' + activeStat.color + ';border-radius:4px;"></div></div>'
+                    + '<span style="width:50px;text-align:right;color:#aaa;margin-left:8px;flex-shrink:0;">' + val + '</span></div>';
+            });
+            html += '</div>';
+            return html;
+        };
+        reportBody.innerHTML = renderTeam(ally, '🚩 明教') + renderTeam(enemy, '🏴 六大派');
+    }
+    renderReportBody();
+    box.appendChild(reportBody);
+    box.appendChild(logBody);
+    const footer = document.createElement('div');
+    footer.style.cssText = 'padding:10px 16px;border-top:1px solid #333;display:flex;gap:8px;justify-content:flex-end;flex-shrink:0;';
+    const closeBtn = document.createElement('button');
+    closeBtn.textContent = '关闭';
+    closeBtn.style.cssText = 'padding:6px 16px;background:#444;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:12px;';
+    closeBtn.addEventListener('click', () => document.body.removeChild(overlay));
+    const copyBtn = document.createElement('button');
+    copyBtn.textContent = '📋 复制战报';
+    copyBtn.style.cssText = 'padding:6px 16px;background:#ffd700;color:#1a1a2e;border:none;border-radius:6px;cursor:pointer;font-weight:bold;font-size:12px;';
+    copyBtn.addEventListener('click', () => {
+        let text = '📊 光明顶5v5 战报\n' + winner + ' 获胜\n\n';
+        const allStats = ['dmgDealt', 'dmgTaken', 'healDone', 'reboundDone', 'leechDone', 'dodgeCount'];
+        const statNames = ['伤害', '承伤', '治疗', '反弹', '吸血', '闪避'];
+        ['明教', '六大派'].forEach((label, ti) => {
+            const team = ti === 0 ? ally : enemy;
+            text += '\n=== ' + label + ' ===\n';
+            team.filter(u => u.name).forEach(u => {
+                const stats = allStats.map((k, i) => statNames[i] + ':' + (u[k]||0)).join(' ');
+                text += u.name + (u.role?'('+u.role+')':'') + ' ' + (u.alive?'存活':'阵亡') + ' | ' + stats + '\n';
+            });
+        });
+        navigator.clipboard.writeText(text).then(() => {
+            copyBtn.textContent = '✅ 已复制';
+            setTimeout(() => { copyBtn.textContent = '📋 复制战报'; }, 2000);
+        }).catch(() => {});
+    });
+    const exportBtn = document.createElement('button');
+    exportBtn.textContent = '📦 导出 JSON';
+    exportBtn.style.cssText = 'padding:6px 16px;background:#333;color:#ffd700;border:1px solid #ffd700;border-radius:6px;cursor:pointer;font-size:12px;';
+    exportBtn.addEventListener('click', () => {
+        const data = {
+            winner,
+            time: new Date().toLocaleString(),
+            ally: ally.map(u => ({ name: u.name, role: u.role, alive: u.alive, hp: u.hp, maxHp: u.maxHp, dmgDealt: u.dmgDealt||0, dmgTaken: u.dmgTaken||0, healDone: u.healDone||0, reboundDone: u.reboundDone||0, leechDone: u.leechDone||0, dodgeCount: u.dodgeCount||0 })),
+            enemy: enemy.map(u => ({ name: u.name, role: u.role, alive: u.alive, hp: u.hp, maxHp: u.maxHp, dmgDealt: u.dmgDealt||0, dmgTaken: u.dmgTaken||0, healDone: u.healDone||0, reboundDone: u.reboundDone||0, leechDone: u.leechDone||0, dodgeCount: u.dodgeCount||0 }))
+        };
+        const json = JSON.stringify(data, null, 2);
+        navigator.clipboard.writeText(json).then(() => {
+            exportBtn.textContent = '✅ 已复制';
+            setTimeout(() => { exportBtn.textContent = '📦 导出 JSON'; }, 2000);
+        }).catch(() => {});
+    });
+    footer.appendChild(closeBtn);
+    footer.appendChild(exportBtn);
+    footer.appendChild(copyBtn);
+    box.appendChild(footer);
+    overlay.appendChild(box);
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) document.body.removeChild(overlay); });
+    document.body.appendChild(overlay);
+}
