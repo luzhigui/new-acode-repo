@@ -1157,12 +1157,5 @@ window.tickKuaiLeHeal = tickKuaiLeHeal;
 window.canXingFenTrigger = canXingFenTrigger;
 window.consumeXingFen = consumeXingFen;
 
-// ===================== 原有导出 (保持不变) =====================
-export { Unit };
+// ===================== 所有函数已在上方内联导出，此处仅做 common/utils.js 的 re-export =====================
 export { rand, getUnitRow, getUnitCol, getAdjacentPositions } from '../common/utils.js';
-export { calcDamage, getFangLevel, isMelee, getFronts, isBlocked, getFlyDodgeRate };
-export { getRandomTaunt, getKillTaunt, getZhangNearTaunt, makeFXSnapshot };
-export { hasBuff, getActiveBuffs };
-export { computeBuffStats, applyBuffEffectsBeforeAttack, applyBuffEffectsAfterAttack, logBuffSummary };
-export { spawnHorse, destroyHorse };
-export { runBattleRound, runBattle };
