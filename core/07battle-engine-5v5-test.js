@@ -120,3 +120,4 @@ export const ALL_VERS = {
     horse: VER_HORSE,
     core: VER_CORE
 };
+window.ALL_VERS = ALL_VERS;

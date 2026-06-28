@@ -147,6 +147,7 @@ export async function showDodgeBulletTime(attacker, defender, reboundDmg) {
 
         // 黑幕
         const mask = document.createElement('div'); mask.className = 'bullet-mask';
+        mask.style.zIndex = '9999';  // 确保盖住所有格子
         document.body.appendChild(mask); cleanupElements.push(mask);
         const lightning = createZigzagLightning(); cleanupElements.push(lightning);
         await wait(300);

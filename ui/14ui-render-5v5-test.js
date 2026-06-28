@@ -119,8 +119,8 @@ function updateDetailPopupContent(activeBuffs, doubleStrikeUid) {
                 let skills = [];
                 if (u.name === '张无忌') skills = ['九阳神功：每回合回复5%生命', '乾坤大挪移：保护4/6号位队友，反弹15%伤害', '近战形态：前排无人时切换，攻+3/防+2/血+50'];
                 else if (u.name === '韦一笑') skills = ['寒冰掌：攻击吸血15%，增加生命上限', '青翼蝠王：基础闪避20%，无视行动状态闪避'];
-                else if (u.name === '宋青书') skills = ['叛逆突袭：优先攻击血量最高目标，伤害+20%'];
-                else if (u.name === '周芷若') skills = ['九阴白骨爪：50%概率追加30%额外伤害，不可闪避'];
+                else if (u.name === '宋青书') skills = ['叛逆突袭：优先攻击血量最高目标，伤害+30%，附加目标当前生命10%真实伤害', '苦练：场上无周芷若时每回合最先行动', '新婚：每次攻击扣除周芷若1点血，叠加快乐', '性奋：周芷若在场时攻击后可再次行动'];
+                else if (u.name === '周芷若') skills = ['九阴白骨爪：70%概率追加25%额外伤害，不可闪避，张无忌在场时提升至40%', '嫉妒：张无忌在场时伤害加深'];
                 else if (u.name === '成昆') skills = ['混元霹雳劲：附加已损失生命30%的真实伤害', '高生存：作为防战，防御极高且可反弹伤害'];
                 else if (u.name === '鹿杖客') skills = ['玄冥神掌：攻击附带寒毒，每回合损失3%最大生命，持续3回合', '与鹤笔翁联动：鹤笔翁对中毒目标伤害+50%'];
                 else if (u.name === '鹤笔翁') skills = ['鹿角杖法：忽略目标30%防御', '毒伤加成：对已中毒目标伤害额外+50%'];
@@ -166,7 +166,19 @@ export function renderGrid(id, team, camp, debugMode, oldTeam) {
         // 仅当单位显式处于飞走模式时才跳过渲染
 if (unit && (unit._flyMode || unit._isDead)) unit = null;
         if (!unit) {
-            let div = document.createElement('div'); div.className = 'cell'; div.innerHTML = '<span style="color:#999;">空</span>'; div.dataset.pos = pos;
+            let div = document.createElement('div');
+            div.className = 'cell';
+            // 检查该位置是否有正在飞走动画的单位（避免显示“空”）
+            let flyUnit = team.find(c => c.pos === pos && c._flyMode);
+            if (flyUnit) {
+                // 飞走模式：透明占位，不显示文字，不参与交互
+                div.style.opacity = '0';
+                div.style.pointerEvents = 'none';
+                div.innerHTML = '';
+            } else {
+                div.innerHTML = '<span style="color:#999;">空</span>';
+            }
+            div.dataset.pos = pos;
             if (camp === 'ally' && isAdjustMode) div.classList.add('adjustable');
             if (camp === 'ally' && isAdjustMode && selectedPos === pos) div.classList.add('adjust-selected');
             grid.appendChild(div); continue;
