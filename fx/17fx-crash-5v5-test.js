@@ -83,97 +83,100 @@ export function showMeleeCrash(unitA, unitD, speed, getPausedFn, onCrash) {
     }
 
     let savedLeft = rA.left, savedTop = rA.top, savedWidth = rA.width, savedHeight = rA.height;
-    if (flyMode === 'ghost') { cellA.style.opacity = '0.3'; }
-    else { cellA.style.visibility = 'hidden'; }
-    unitA._flash = null;  // 立即清除数据标记，防止重绘时再现蓝色
+
+    // 先创建克隆体（保留 data-flash 属性）
+    let clone = cellA.cloneNode(true);
+    clone.style.cssText = `
+        position: fixed;
+        left: ${savedLeft}px;
+        top: ${savedTop}px;
+        width: ${savedWidth}px;
+        height: ${savedHeight}px;
+        z-index: 99999;
+        margin: 0;
+        transition: none;
+        opacity: 1;
+        visibility: visible;
+        display: flex;
+        transform: none;
+        border: 2px solid #bbb;
+        border-radius: 5px;
+        box-sizing: border-box;
+    `;
+    clone.classList.add('crash-clone');
+    document.body.appendChild(clone);
+
+    // 克隆之后再彻底隐藏原格子（不会影响克隆体）
+    cellA.style.opacity = '0';
+    cellA.style.background = 'transparent';
+    cellA.style.border = 'none';
+    cellA.removeAttribute('data-flash');
+    unitA._flash = null;
     cellA.classList.remove('ready');
 
-    requestAnimationFrame(() => {
-        let clone = cellA.cloneNode(true);
-        clone.style.cssText = `
-            position: fixed;
-            left: ${savedLeft}px;
-            top: ${savedTop}px;
-            width: ${savedWidth}px;
-            height: ${savedHeight}px;
-            z-index: 99999;
-            margin: 0;
-            transition: none;
-            opacity: 1;
-            visibility: visible;
-            display: flex;
-            transform: none;
-            background: #e8e6e0;
-            border: 2px solid #bbb;
-            border-radius: 5px;
-            box-sizing: border-box;
-        `;
-        clone.classList.add('crash-clone');
-        document.body.appendChild(clone);
+    // 动画部分
+    let chargeDur = 800 * (speed / 1000);
+    let crashDur = 900 * (speed / 1000);
+    let returnDur = 800 * (speed / 1000);
 
-        let chargeDur = 800 * (speed / 1000);
-        let crashDur = 900 * (speed / 1000);
-        let returnDur = 800 * (speed / 1000);
+    cellA.style.transition = 'transform 0.3s ease-out';
+    cellA.style.transform = 'scale(1.15)';
 
-        cellA.style.transition = 'transform 0.3s ease-out';
-        cellA.style.transform = 'scale(1.15)';
-
-        let startC = null;
-        function phaseCharge(ts) {
-            if (getPausedFn && getPausedFn()) { requestAnimationFrame(phaseCharge); return; }
-            if (!startC) startC = ts;
-            let p = Math.min(1, (ts - startC) / chargeDur);
-            if (p < 1) { requestAnimationFrame(phaseCharge); }
-            else {
-                cellA.style.transform = 'scale(1)'; cellA.style.transition = '';
-                let start1 = null;
-                function phase1(ts1) {
-                    if (getPausedFn && getPausedFn()) { requestAnimationFrame(phase1); return; }
-                    if (!start1) start1 = ts1;
-                    let p1 = Math.min(1, (ts1 - start1) / crashDur);
-                    let ease = 1 - Math.pow(1 - p1, 3);
-                    let flown = flyDist * ease;
-                    clone.style.left = (savedLeft + nx * flown) + 'px';
-                    clone.style.top = (savedTop + ny * flown) + 'px';
-                    if (p1 < 1) { requestAnimationFrame(phase1); }
-                    else {
-                        cellB.classList.add('shake-strong');
-                        setTimeout(() => cellB.classList.remove('shake-strong'), 600 * (speed / 1000));
-                        if (onCrash) onCrash();
-                        let crashX = savedLeft + nx * flyDist, crashY = savedTop + ny * flyDist;
-                        let start3 = null;
-                        function phase3(ts3) {
-                            if (getPausedFn && getPausedFn()) { requestAnimationFrame(phase3); return; }
-                            if (!start3) start3 = ts3;
-                            let p3 = Math.min(1, (ts3 - start3) / returnDur);
-                            let ease3 = 1 - Math.pow(1 - p3, 4);
-                            clone.style.left = (crashX + (savedLeft - crashX) * ease3) + 'px';
-                            clone.style.top = (crashY + (savedTop - crashY) * ease3) + 'px';
-                            if (p3 < 1) { requestAnimationFrame(phase3); }
-                          else {
-                                clone.remove();
-                                // 重新获取当前格子，避免因 updateUI 导致引用失效
-                                let currentCell = gridA.children[orderA.indexOf(unitA.pos)];
-                                if (currentCell) {
-                                    currentCell.style.opacity = '';
-                                    currentCell.style.visibility = '';
-                                    currentCell.style.background = '';
-                                    currentCell.style.transform = '';
-                                    currentCell.removeAttribute('data-flash');
-                                }
-                                unitA._flash = null;
-                                delete unitA._flyMode;
-                                if (UI) { let c = window._getPlayerContext(); c.updateUI(UI); }
+    let startC = null;
+    function phaseCharge(ts) {
+        if (getPausedFn && getPausedFn()) { requestAnimationFrame(phaseCharge); return; }
+        if (!startC) startC = ts;
+        let p = Math.min(1, (ts - startC) / chargeDur);
+        if (p < 1) { requestAnimationFrame(phaseCharge); }
+        else {
+            cellA.style.transform = 'scale(1)'; cellA.style.transition = '';
+            let start1 = null;
+            function phase1(ts1) {
+                if (getPausedFn && getPausedFn()) { requestAnimationFrame(phase1); return; }
+                if (!start1) start1 = ts1;
+                let p1 = Math.min(1, (ts1 - start1) / crashDur);
+                let ease = 1 - Math.pow(1 - p1, 3);
+                let flown = flyDist * ease;
+                clone.style.left = (savedLeft + nx * flown) + 'px';
+                clone.style.top = (savedTop + ny * flown) + 'px';
+                if (p1 < 1) { requestAnimationFrame(phase1); }
+                else {
+                    cellB.classList.add('shake-strong');
+                    setTimeout(() => cellB.classList.remove('shake-strong'), 600 * (speed / 1000));
+                    if (onCrash) onCrash();
+                    let crashX = savedLeft + nx * flyDist, crashY = savedTop + ny * flyDist;
+                    let start3 = null;
+                    function phase3(ts3) {
+                        if (getPausedFn && getPausedFn()) { requestAnimationFrame(phase3); return; }
+                        if (!start3) start3 = ts3;
+                        let p3 = Math.min(1, (ts3 - start3) / returnDur);
+                        let ease3 = 1 - Math.pow(1 - p3, 4);
+                        clone.style.left = (crashX + (savedLeft - crashX) * ease3) + 'px';
+                        clone.style.top = (crashY + (savedTop - crashY) * ease3) + 'px';
+                        if (p3 < 1) { requestAnimationFrame(phase3); }
+                        else {
+                            clone.remove();
+                            let currentCell = gridA.children[orderA.indexOf(unitA.pos)];
+                            if (currentCell) {
+                                currentCell.style.opacity = '';
+                                currentCell.style.visibility = '';
+                                currentCell.style.background = '';
+                                currentCell.style.border = '';
+                                currentCell.style.transform = '';
+                                currentCell.removeAttribute('data-flash');
                             }
+                            unitA._flash = null;
+                            delete unitA._flyMode;
+                            if (UI) { let c = window._getPlayerContext(); c.updateUI(UI); }
                         }
-                        requestAnimationFrame(phase3);
                     }
+                    requestAnimationFrame(phase3);
                 }
-                requestAnimationFrame(phase1);
             }
+            requestAnimationFrame(phase1);
         }
-        requestAnimationFrame(phaseCharge);
-    });
+    }
+    requestAnimationFrame(phaseCharge);
 }
 
 export function showMeleeDodge(unitA, unitD, speed, getPausedFn) {
@@ -210,111 +213,113 @@ export function showMeleeDodge(unitA, unitD, speed, getPausedFn) {
     let nx = dx / dist;
     let ny = dy / dist;
     let approachDist = dist - rB.width * 0.35;
-    let flyMode = window._crashMode || 'ghost';
 
-    // 记录原始样式，确保最终完全恢复
+    // 记录原始样式（用于恢复）
     const origOpacity = cellA.style.opacity;
     const origVisibility = cellA.style.visibility;
     const origBackground = cellA.style.background;
+    const origBorder = cellA.style.border;
 
-    if (flyMode === 'ghost') {
-        cellA.style.opacity = '0';
-    } else {
-        cellA.style.visibility = 'hidden';
-    }
-    
     let startX = rA.left;
     let startY = rA.top;
 
-    requestAnimationFrame(() => {
-        let clone = cellA.cloneNode(true);
-        clone.style.position = 'fixed';
-        clone.style.left = rA.left + 'px';
-        clone.style.top = rA.top + 'px';
-        clone.style.width = rA.width + 'px';
-        clone.style.height = rA.height + 'px';
-        clone.style.zIndex = '99999';
-        clone.style.margin = '0';
-        clone.style.transition = 'none';
-        clone.style.opacity = '1';
-        clone.classList.add('crash-clone');
-        document.body.appendChild(clone);
+    // 先创建克隆体（保留 data-flash 属性）
+    let clone = cellA.cloneNode(true);
+    clone.style.position = 'fixed';
+    clone.style.left = rA.left + 'px';
+    clone.style.top = rA.top + 'px';
+    clone.style.width = rA.width + 'px';
+    clone.style.height = rA.height + 'px';
+    clone.style.zIndex = '99999';
+    clone.style.margin = '0';
+    clone.style.transition = 'none';
+    clone.style.opacity = '1';
+    clone.classList.add('crash-clone');
+    document.body.appendChild(clone);
 
-        let flyDur = 350 * (speed / 1000);
-        let start1 = null;
-        let blocked = false;
+    // 克隆之后再彻底隐藏原单元格
+    cellA.style.opacity = '0';
+    cellA.style.background = 'transparent';
+    cellA.style.border = 'none';
+    cellA.removeAttribute('data-flash');
+    unitA._flash = null;
+    cellA.classList.remove('ready');
+
+    let flyDur = 350 * (speed / 1000);
+    let start1 = null;
+    let blocked = false;
+    
+    function phaseFly(ts) {
+        if (getPausedFn && getPausedFn()) { requestAnimationFrame(phaseFly); return; }
+        if (!start1) start1 = ts;
+        let p = Math.min(1, (ts - start1) / flyDur);
+        let flown = approachDist * (1 - Math.pow(1 - p, 3));
         
-        function phaseFly(ts) {
-            if (getPausedFn && getPausedFn()) { requestAnimationFrame(phaseFly); return; }
-            if (!start1) start1 = ts;
-            let p = Math.min(1, (ts - start1) / flyDur);
-            let flown = approachDist * (1 - Math.pow(1 - p, 3));
+        clone.style.left = (startX + nx * flown) + 'px';
+        clone.style.top = (startY + ny * flown) + 'px';
+        
+        if (!blocked && p >= 0.85) {
+            blocked = true;
             
-            clone.style.left = (startX + nx * flown) + 'px';
-            clone.style.top = (startY + ny * flown) + 'px';
+            // 防御者格挡：放大 + 前顶
+            cellB.style.transition = 'transform 0.15s ease-out';
+            cellB.style.transform = `translate(${-nx * 14}px, ${-ny * 14}px) scale(1.25)`;
             
-            if (!blocked && p >= 0.85) {
-                blocked = true;
+            // 攻击者抖动
+            clone.style.transition = 'transform 0.1s ease';
+            clone.style.transform = 'scale(0.9)';
+            setTimeout(() => {
+                clone.style.transform = 'scale(1)';
+            }, 100);
+            
+            // 停顿 200ms 后弹回
+            setTimeout(() => {
+                cellB.style.transition = 'transform 0.25s cubic-bezier(0.25, 0.46, 0.45, 0.94)';
+                cellB.style.transform = 'translate(0,0) scale(1)';
                 
-                // 防御者格挡：放大 + 前顶
-                cellB.style.transition = 'transform 0.15s ease-out';
-                cellB.style.transform = `translate(${-nx * 14}px, ${-ny * 14}px) scale(1.25)`;
+                let contactX = startX + nx * approachDist;
+                let contactY = startY + ny * approachDist;
+                let returnDur = 500 * (speed / 1000);
+                let start2 = null;
                 
-                // 攻击者抖动
-                clone.style.transition = 'transform 0.1s ease';
-                clone.style.transform = 'scale(0.9)';
-                setTimeout(() => {
-                    clone.style.transform = 'scale(1)';
-                }, 100);
-                
-                // 停顿 200ms 后弹回
-                setTimeout(() => {
-                    cellB.style.transition = 'transform 0.25s cubic-bezier(0.25, 0.46, 0.45, 0.94)';
-                    cellB.style.transform = 'translate(0,0) scale(1)';
+                function phaseReturn(ts2) {
+                    if (getPausedFn && getPausedFn()) { requestAnimationFrame(phaseReturn); return; }
+                    if (!start2) start2 = ts2;
+                    let p2 = Math.min(1, (ts2 - start2) / returnDur);
+                    let ease2 = 1 - Math.pow(1 - p2, 2);
                     
-                    let contactX = startX + nx * approachDist;
-                    let contactY = startY + ny * approachDist;
-                    let returnDur = 500 * (speed / 1000);
-                    let start2 = null;
+                    let perpX = -ny;
+                    let perpY = nx;
+                    let offsetMag = Math.sin(p2 * Math.PI) * 35;
+                    let retreatDist = 50 * ease2;
                     
-                    function phaseReturn(ts2) {
-                        if (getPausedFn && getPausedFn()) { requestAnimationFrame(phaseReturn); return; }
-                        if (!start2) start2 = ts2;
-                        let p2 = Math.min(1, (ts2 - start2) / returnDur);
-                        let ease2 = 1 - Math.pow(1 - p2, 2);
-                        
-                        let perpX = -ny;
-                        let perpY = nx;
-                        let offsetMag = Math.sin(p2 * Math.PI) * 35;
-                        let retreatDist = 50 * ease2;
-                        
-                        let curX = contactX - nx * retreatDist + perpX * offsetMag;
-                        let curY = contactY - ny * retreatDist + perpY * offsetMag;
-                        
-                        clone.style.left = curX + 'px';
-                        clone.style.top = curY + 'px';
-                        clone.style.transform = `rotate(${8 * (1 - p2)}deg) scale(1.05)`;
-                        clone.style.opacity = 0.6 + 0.4 * (1 - p2);
-                        
-                        if (p2 < 1) {
-                            requestAnimationFrame(phaseReturn);
-                        } else {
-                            // 彻底清理
-                            clone.remove();
-                            cellA.style.opacity = origOpacity || '1';
-                            cellA.style.visibility = origVisibility || 'visible';
-                            cellA.style.background = origBackground || '';
-                            cellA.style.transform = '';
-                            cellB.style.transform = '';
-                        }
+                    let curX = contactX - nx * retreatDist + perpX * offsetMag;
+                    let curY = contactY - ny * retreatDist + perpY * offsetMag;
+                    
+                    clone.style.left = curX + 'px';
+                    clone.style.top = curY + 'px';
+                    clone.style.transform = `rotate(${8 * (1 - p2)}deg) scale(1.05)`;
+                    clone.style.opacity = 0.6 + 0.4 * (1 - p2);
+                    
+                    if (p2 < 1) {
+                        requestAnimationFrame(phaseReturn);
+                    } else {
+                        // 彻底清理
+                        clone.remove();
+                        cellA.style.opacity = origOpacity || '1';
+                        cellA.style.visibility = origVisibility || 'visible';
+                        cellA.style.background = origBackground || '';
+                        cellA.style.border = origBorder || '';
+                        cellA.style.transform = '';
+                        cellB.style.transform = '';
                     }
-                    requestAnimationFrame(phaseReturn);
-                }, 200);
-            }
-            if (p < 1 && !blocked) requestAnimationFrame(phaseFly);
+                }
+                requestAnimationFrame(phaseReturn);
+            }, 200);
         }
-        requestAnimationFrame(phaseFly);
-    });
+        if (p < 1 && !blocked) requestAnimationFrame(phaseFly);
+    }
+    requestAnimationFrame(phaseFly);
 }
 
 export function showMeleeMiss(unitA, unitD, speed, getPausedFn) {
@@ -330,8 +335,8 @@ export function showMeleeMiss(unitA, unitD, speed, getPausedFn) {
     let dy = rB.top+rB.height/2 - (savedTop+rA.height/2);
     let dist = Math.sqrt(dx*dx+dy*dy); if(dist<1) return;
     let nx=dx/dist, ny=dy/dist;
-    let flyMode = window._crashMode || 'ghost';
-    if (flyMode === 'ghost') { cellA.style.opacity = '0'; } else { cellA.style.visibility = 'hidden'; }
+
+    // 先创建克隆体（保留 data-flash 属性）
     let clone = cellA.cloneNode(true);
     clone.style.cssText = `
         position: fixed;
@@ -346,17 +351,25 @@ export function showMeleeMiss(unitA, unitD, speed, getPausedFn) {
         visibility: visible;
         display: flex;
         transform: none;
-        background: #e8e6e0;
         border: 2px solid #bbb;
         border-radius: 5px;
         box-sizing: border-box;
     `;
     clone.classList.add('crash-clone');
     document.body.appendChild(clone);
+
+    // 克隆之后再彻底隐藏原单元格
+    cellA.style.opacity = '0';
+    cellA.style.background = 'transparent';
+    cellA.style.border = 'none';
+    cellA.removeAttribute('data-flash');
+    unitA._flash = null;
+    cellA.classList.remove('ready');
+
     let flyDur = 800 * (speed/1000); let start1 = null;
     function phaseFly(ts) { if (getPausedFn && getPausedFn()) { requestAnimationFrame(phaseFly); return; } if (!start1) start1 = ts; let p = Math.min(1, (ts - start1) / flyDur); let ease = 1 - Math.pow(1-p, 3); let flown = (dist - rB.width * 0.2) * ease; clone.style.left = (savedLeft + nx * flown) + 'px'; clone.style.top = (savedTop + ny * flown) + 'px'; if (p < 1) { requestAnimationFrame(phaseFly); } else {
         let returnDur = 600 * (speed/1000); let start2 = null;
-        function phaseReturn(ts2) { if (getPausedFn && getPausedFn()) { requestAnimationFrame(phaseReturn); return; } if (!start2) start2 = ts2; let p2 = Math.min(1, (ts2 - start2) / returnDur); let ease2 = 1 - Math.pow(1 - p2, 2); clone.style.left = (savedLeft + nx * (dist - rB.width * 0.2) * (1 - ease2)) + 'px'; clone.style.top = (savedTop + ny * (dist - rB.width * 0.2) * (1 - ease2)) + 'px'; if (p2 < 1) { requestAnimationFrame(phaseReturn); } else { clone.remove(); cellA.style.opacity = ''; cellA.style.visibility = ''; cellA.style.background = ''; cellA.style.transform = ''; } }
+        function phaseReturn(ts2) { if (getPausedFn && getPausedFn()) { requestAnimationFrame(phaseReturn); return; } if (!start2) start2 = ts2; let p2 = Math.min(1, (ts2 - start2) / returnDur); let ease2 = 1 - Math.pow(1 - p2, 2); clone.style.left = (savedLeft + nx * (dist - rB.width * 0.2) * (1 - ease2)) + 'px'; clone.style.top = (savedTop + ny * (dist - rB.width * 0.2) * (1 - ease2)) + 'px'; if (p2 < 1) { requestAnimationFrame(phaseReturn); } else { clone.remove(); cellA.style.opacity = ''; cellA.style.visibility = ''; cellA.style.background = ''; cellA.style.border = ''; cellA.style.transform = ''; } }
         requestAnimationFrame(phaseReturn);
     } }
     requestAnimationFrame(phaseFly);

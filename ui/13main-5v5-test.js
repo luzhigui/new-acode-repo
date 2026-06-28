@@ -12,7 +12,7 @@ import { showDanmaku, showDamageFloat, showDodgeBubble, showHealFloat, VER as FX
 import { showRangedArrow, VER as FA_VER } from '../fx/16fx-arrows-5v5-test.js';
 import { showMeleeCrash, showMeleeDodge, showMeleeMiss, VER as FC_VER } from '../fx/17fx-crash-5v5-test.js';
 import { playBattle, playLineText, clearAllEffects, handleBuffSummon, handleBuffDestroy, handleBuffLeech, handleBuffSplash, VER as BP_VER } from '../player/11battle-player-5v5-test.js';
-import { showModal, showAlert, updateCoverVersion, startApp as loadModules } from './12main-utils.js';
+import { showModal, showAlert, updateCoverVersion } from './12main-utils.js';
 import { AudioManager } from '../modules/28audio-manager.js';
 
 import { VER as VER_BUFF } from '../core/04buff-system.js';
@@ -32,7 +32,7 @@ const INDEX_VER = 'mode-5v5-test.html test V3.0';
 const LOG_LINE1 = '⚔️ 光明顶5v5对决 · 九宫格混战模式 ⚔️';
 const PARTY_SIZE = 5;
 
-let gs = S.IDLE, autoMode = true, debugMode = false, isPaused = false, speed = 1000, userScrolled = false;
+let gs = S.IDLE, autoMode = true, debugMode = false, isPaused = false, speed = 500, userScrolled = false;
 let abortController = null, waitingForNextRound = false, detailMode = true;
 let battleResultForInfo = null, resettleCount = 0;
 let gameStarted = false;
@@ -422,6 +422,92 @@ function logVersions() {
 }
 
 function showVoteDialog(callback) { let hasZhang=window._battleHasZhang||false,text='你看好哪边？'+(hasZhang?' (张无忌在场，猜对双倍积分!)':'');let mainBtn=document.getElementById('btnMain');if(mainBtn)mainBtn.disabled=true;showModal(text,[{text:'六大派',value:'六大派',cls:'enemy'},{text:'明教',value:'明教',cls:'ming'},{text:'放弃',value:'skip',cls:'skip'}],(choice)=>{window._voteChoice=choice;if(choice==='明教')document.getElementById('labelAlly').textContent='🚩明 教';else if(choice==='六大派')document.getElementById('labelEnemy').textContent='🚩六大派';if(callback)callback(choice);},true); }
+function showBattleReport(result) {
+    let ally = UI.allyTeam, enemy = UI.enemyTeam;
+    let allUnits = [...ally, ...enemy];
+    let winner = result.winner;
+    let overlay = document.createElement('div'); overlay.className = 'modal-overlay';
+    let box = document.createElement('div'); box.className = 'modal-box';
+    box.style.maxWidth = '400px';
+    let title = document.createElement('div');
+    title.className = 'modal-text';
+    title.textContent = '战斗结束 · ' + winner + '获胜';
+    box.appendChild(title);
+    let switchBtn = document.createElement('button');
+    switchBtn.textContent = '按输出排序';
+    switchBtn.style.margin = '8px';
+    let sortBy = 'dmgDealt';
+    switchBtn.onclick = () => {
+        sortBy = sortBy === 'dmgDealt' ? 'dmgTaken' : 'dmgDealt';
+        switchBtn.textContent = sortBy === 'dmgDealt' ? '按输出排序' : '按承伤排序';
+        renderTable();
+    };
+    box.appendChild(switchBtn);
+    let tableDiv = document.createElement('div');
+    tableDiv.style.maxHeight = '300px';
+    tableDiv.style.overflowY = 'auto';
+    box.appendChild(tableDiv);
+    function renderTable() {
+        tableDiv.innerHTML = '';
+        let sorted = [...allUnits].sort((a,b) => (b[sortBy]||0) - (a[sortBy]||0));
+        let table = document.createElement('table');
+        table.style.width = '100%';
+        table.style.fontSize = '12px';
+        table.style.color = '#eee';
+        table.innerHTML = '<tr><th>名称</th><th>输出</th><th>承伤</th><th>治疗</th><th>闪避</th><th>状态</th></tr>';
+        sorted.forEach(u => {
+            let row = document.createElement('tr');
+            row.innerHTML = '<td>' + u.name + '</td><td>' + (u.dmgDealt||0) + '</td><td>' + (u.dmgTaken||0) + '</td><td>' + (u.healDone||0) + '</td><td>' + (u.dodgeCount||0) + '</td><td>' + (u.alive?'存活':'阵亡') + '</td>';
+            table.appendChild(row);
+        });
+        tableDiv.appendChild(table);
+    }
+    renderTable();
+    let btnDiv = document.createElement('div');
+    btnDiv.style.display = 'flex';
+    btnDiv.style.gap = '8px';
+    btnDiv.style.marginTop = '12px';
+    let copyBtn = document.createElement('button');
+    copyBtn.textContent = '📋 复制战报';
+    copyBtn.className = 'modal-btn confirm';
+    copyBtn.onclick = () => {
+        let text = '战斗结果：' + winner + '获胜\n';
+        text += '\n--- 明教 ---\n';
+        ally.forEach(u => {
+            text += u.name + ' 输出' + (u.dmgDealt||0) + ' 承伤' + (u.dmgTaken||0) + ' ' + (u.alive?'存活':'阵亡') + '\n';
+        });
+        text += '\n--- 六大派 ---\n';
+        enemy.forEach(u => {
+            text += u.name + ' 输出' + (u.dmgDealt||0) + ' 承伤' + (u.dmgTaken||0) + ' ' + (u.alive?'存活':'阵亡') + '\n';
+        });
+        navigator.clipboard.writeText(text).then(() => showAlert('战报已复制'));
+    };
+    btnDiv.appendChild(copyBtn);
+    let exportBtn = document.createElement('button');
+    exportBtn.textContent = '📤 导出 JSON';
+    exportBtn.className = 'modal-btn confirm';
+    exportBtn.onclick = () => {
+        let data = {
+            winner: winner,
+            ally: ally.map(u => ({name:u.name, dmgDealt:u.dmgDealt, dmgTaken:u.dmgTaken, alive:u.alive})),
+            enemy: enemy.map(u => ({name:u.name, dmgDealt:u.dmgDealt, dmgTaken:u.dmgTaken, alive:u.alive}))
+        };
+        let blob = new Blob([JSON.stringify(data, null, 2)], {type:'application/json'});
+        let a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'battle_report_' + Date.now() + '.json';
+        a.click();
+    };
+    btnDiv.appendChild(exportBtn);
+    let closeBtn = document.createElement('button');
+    closeBtn.textContent = '关闭';
+    closeBtn.className = 'modal-btn cancel';
+    closeBtn.onclick = () => document.body.removeChild(overlay);
+    btnDiv.appendChild(closeBtn);
+    box.appendChild(btnDiv);
+    overlay.appendChild(box);
+    document.body.appendChild(overlay);
+}
 function abortAll() { if (abortController) { abortController.abort(); abortController = null; } UI.currentResult = null; waitingForNextRound = false; isBattleStarting = false; adjustMode = false; selectedAdjustPos = null; activeBuffs = []; selectedBuffIndex = -1; currentDoubleStrikeUid = null; updateBuffSlots(); }
 
 function updateButtons() { let mainBtn=document.getElementById('btnMain'),nextBtn=document.getElementById('btnNext'),settleBtn=document.getElementById('btnSettle'),pauseBtn=document.getElementById('btnPause'),randomBtn=document.getElementById('btnRandom'),stageBtn=document.getElementById('btnStageSelect'),infoBtn=document.getElementById('btnInfo'),copyBtn=document.getElementById('copyLog');if(gs===S.IDLE){mainBtn.innerHTML=adjustMode?'▶ 开始<br><span style="font-size:8px;">(投票)</span>':'🔄 调整<br>站位';mainBtn.disabled=false;nextBtn.disabled=true;if(adjustMode){if(stageBtn)stageBtn.disabled=true;if(randomBtn)randomBtn.disabled=true;if(infoBtn)infoBtn.disabled=true;if(copyBtn)copyBtn.disabled=true;}else{if(stageBtn)stageBtn.disabled=false;if(randomBtn)randomBtn.disabled=false;if(infoBtn)infoBtn.disabled=false;if(copyBtn)copyBtn.disabled=false;}}else if(gs===S.GAMEOVER){mainBtn.innerHTML=currentStage>=6?'🔄 重新<br>开始':'▶ 下一关';mainBtn.disabled=false;nextBtn.disabled=true;}else{mainBtn.disabled=true;}if(gs===S.RUNNING||gs===S.PAUSED){settleBtn.textContent='⏭ 直接结算';settleBtn.disabled=false;}else if(gs===S.GAMEOVER){settleBtn.textContent='🔄 重新结算';settleBtn.disabled=false;}else{settleBtn.disabled=true;}if(window.bulletTimeActive){pauseBtn.textContent='⏸️ 暂停';pauseBtn.disabled=true;pauseBtn.classList.remove('active');nextBtn.disabled=true;if(stageBtn)stageBtn.disabled=true;if(randomBtn)randomBtn.disabled=true;}else if(gs===S.RUNNING){pauseBtn.textContent='⏸️ 暂停';pauseBtn.disabled=false;pauseBtn.classList.remove('active');}else if(gs===S.PAUSED){pauseBtn.textContent='▶ 继续';pauseBtn.disabled=false;pauseBtn.classList.add('active');}else{pauseBtn.disabled=true;pauseBtn.classList.remove('active');} }
@@ -529,8 +615,7 @@ function getPlayerContext() {
 
 window._getPlayerContext = getPlayerContext;
 
-async function startApp() { loadModules(updateCoverVersion); }
-startApp();
+updateCoverVersion();
 
 document.addEventListener('DOMContentLoaded', function() {
     const controls = document.querySelector('.controls');
@@ -582,6 +667,11 @@ document.addEventListener('DOMContentLoaded', function() {
                             currentDoubleStrikeUid = UI.currentResult.doubleStrikeUids[UI.currentResult.doubleStrikeUids.length - 1] || null;
                         }
                         await playBattle();
+                        // 显示战报
+                        let ctx = window._getPlayerContext();
+                        if (ctx && ctx.battleResultForInfo) {
+                            showBattleReport(ctx.battleResultForInfo);
+                        }
                     } catch (e) {
                         let logDiv=document.getElementById('log');
                         let errorDiv=document.createElement('div');

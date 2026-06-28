@@ -15,25 +15,29 @@ export function showModal(text, buttons, onChoice, canMinimize) {
 
 export function showAlert(text, onOk) { let overlay = document.createElement('div'); overlay.className = 'modal-overlay'; let box = document.createElement('div'); box.className = 'modal-box'; box.innerHTML = `<div class="modal-text">${text}</div><div class="modal-buttons"><button class="modal-btn confirm">确定</button></div>`; overlay.appendChild(box); document.body.appendChild(overlay); box.querySelector('.confirm').addEventListener('click', () => { document.body.removeChild(overlay); if (onOk) onOk(); }); }
 
-export function updateCoverVersion(loaded, failed) {
+export function updateCoverVersion() {
     let el = document.getElementById('coverVersion');
     if (!el) return;
+    const allVers = window.ALL_VERS || {};
+    // 挑 10 个最重要的模块，按顺序排
+    const keys = [
+        'config', 'engine', 'core', 'unit', 'utils', 'buff', 'horse',
+        'ui', 'fx_common', 'player_core'
+    ];
+    const labels = {
+        config: '01config', engine: '07engine', core: '06core', unit: '02unit',
+        utils: '03utils', buff: '04buff', horse: '05horse',
+        ui: '14ui-render', fx_common: '15fx-common', player_core: '10player-core'
+    };
     let html = '';
-    const allMods = { ...loaded, ...failed };
-    const order = ['01config-5v5-test.js','07battle-engine-5v5-test.js','14ui-render-5v5-test.js','15fx-common-5v5-test.js','16fx-arrows-5v5-test.js','17fx-crash-5v5-test.js','11battle-player-5v5-test.js'];
-    let shown = new Set();
-    for (let name of order) {
-        let info = allMods[name];
-        if (!info) continue;
-        let ok = !failed[name];
-        let ver = (ok && info.VER) ? info.VER : '';
-        let key = ver.substring(0, 30);
-        if (shown.has(key)) continue;
-        shown.add(key);
-        let shortVer = ver.replace(/.*?(V[\d.]+).*/i, '$1');
-        html += (ok ? '✅ ' : '❌ ') + name + (shortVer ? ' ' + shortVer : '') + '<br>';
+    for (let key of keys) {
+        let ver = allVers[key] || '';
+        if (ver) {
+            let shortVer = ver.replace(/.*?(V[\d.]+).*/i, '$1');
+            html += `✅ ${labels[key] || key} ${shortVer}<br>`;
+        }
     }
-    el.innerHTML = html;
+    el.innerHTML = html || '模块加载中...';
 }
 
 export async function startApp(updateCoverVersion) {
