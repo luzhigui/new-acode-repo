@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>光明顶5v5 · 开发工具箱</title>
+    <style>
+        /* ========== 全局基础样式 ========== */
+        body { background: #1a1a2e; color: #eee; font-family: monospace; padding: 12px; font-size: 13px; margin: 0; }
+        h1 { color: #ffd700; text-align: center; margin: 0 0 8px 0; font-size: 20px; }
+
+        /* ========== 标签页导航 ========== */
+        .tab-nav { display: flex; gap: 2px; margin-bottom: 12px; background: #111; border-radius: 8px; padding: 3px; flex-wrap: wrap; }
+        .tab-btn { flex: 1; min-width: 80px; padding: 10px 8px; border: none; background: #2a2a4e; color: #aaa; cursor: pointer; font-size: 12px; font-weight: bold; border-radius: 6px; transition: 0.2s; font-family: monospace; white-space: nowrap; }
+        .tab-btn:hover { background: #3a3a6e; color: #ddd; }
+        .tab-btn.active { background: #ffd700; color: #1a1a2e; }
+
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+
+        button { cursor: pointer; font-family: monospace; }
+        .status-text { text-align: center; color: #888; min-height: 20px; margin-top: 8px; }
+
+        /* ========== 文件复制器样式 ========== */
+        .fc-config { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; background: #2a2a4e; padding: 10px; border-radius: 6px; flex-wrap: wrap; }
+        .fc-config label { color: #ffd700; font-weight: bold; white-space: nowrap; }
+        .fc-config input { padding: 6px; border-radius: 4px; border: none; font-size: 14px; }
+        .fc-config input[type="number"] { width: 100px; text-align: center; }
+        .fc-config input[type="text"] { width: 200px; background: #1a1a2e; color: #ffd700; border: 1px solid #555; }
+        .fc-config button { background: #ffd700; color: #1a1a2e; border: none; padding: 8px 16px; border-radius: 4px; font-weight: bold; cursor: pointer; font-size: 13px; }
+        .fc-config button:hover { background: #ffed4a; }
+        .fc-config .select-all { display: flex; gap: 12px; align-items: center; }
+        .fc-config .select-all button { background: #3a3a6e; color: #eee; border: 1px solid #555; padding: 4px 12px; border-radius: 4px; cursor: pointer; font-size: 11px; }
+        .add-file-row { display: flex; gap: 6px; align-items: center; margin-bottom: 8px; }
+        .add-file-row input { flex: 1; padding: 6px 10px; border-radius: 4px; border: 1px solid #555; background: #1a1a2e; color: #ffd700; font-size: 12px; }
+        .add-file-row button { background: #4caf50; color: #fff; border: none; padding: 6px 14px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 12px; }
+        .add-file-row button:hover { background: #66bb6a; }
+
+        .file-group { margin-bottom: 6px; border: 1px solid #333; border-radius: 6px; overflow: hidden; }
+        .group-header { background: #2a2a4e; padding: 8px 12px; cursor: pointer; display: flex; align-items: center; gap: 8px; user-select: none; }
+        .group-header:hover { background: #3a3a6e; }
+        .group-arrow { display: inline-block; width: 12px; transition: transform 0.2s; color: #ffd700; font-size: 11px; }
+        .file-group.open .group-arrow { transform: rotate(90deg); }
+        .group-name { color: #ffd700; font-weight: bold; flex: 1; }
+        .group-count { color: #888; font-size: 11px; }
+        .group-select-all-btn { background: #3a3a6e; color: #eee; border: 1px solid #555; padding: 3px 10px; border-radius: 4px; cursor: pointer; font-size: 11px; white-space: nowrap; }
+        .group-select-all-btn:hover { background: #4a4a8e; }
+        .group-files { display: none; padding: 4px; }
+        .file-group.open .group-files { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 2px; }
+
+        .file-item { display: flex; align-items: center; gap: 6px; background: #1a1a2e; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 12px; transition: 0.2s; }
+        .file-item:hover { background: #2a2a4e; }
+        .file-item input { margin: 0; cursor: pointer; }
+        .file-item.added { border-left: 3px solid #4caf50; }
+        .batches { display: flex; flex-direction: column; gap: 12px; margin-top: 12px; }
+        .batch-card { background: #111; border: 2px solid #333; border-radius: 8px; overflow: hidden; }
+        .batch-card.copied { border-color: #2e7d32; box-shadow: 0 0 8px rgba(46,125,50,0.4); }
+        .batch-card.read-fail { border-color: #f44336; box-shadow: 0 0 8px rgba(244,67,54,0.3); }
+        .batch-header { background: #2a2a4e; padding: 10px 14px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #555; }
+        .batch-header span { font-weight: bold; color: #ffd700; }
+        .batch-header .header-btns { display: flex; gap: 6px; }
+        .batch-header button { border: none; padding: 6px 14px; border-radius: 4px; font-weight: bold; cursor: pointer; font-size: 12px; }
+        .batch-header .copy-batch-btn { background: #ffd700; color: #1a1a2e; }
+        .batch-header .copy-batch-btn:hover { background: #ffed4a; }
+        .batch-header .copy-batch-btn.copied { background: #2e7d32; color: #fff; cursor: default; }
+        .batch-header .download-batch-btn { background: #1565c0; color: #fff; }
+        .batch-header .download-batch-btn:hover { background: #1976d2; }
+        .batch-manifest { padding: 8px 14px; background: #1a1a2e; color: #aaa; font-size: 11px; border-bottom: 1px solid #333; white-space: pre-wrap; }
+        .batch-code { padding: 10px 14px; white-space: pre-wrap; font-size: 11px; color: #ccc; max-height: 200px; overflow-y: auto; display: none; }
+        .batch-code.show { display: block; }
+
+        /* ========== 函数替换器样式 ========== */
+        .fnc-btn { display: block; width: 100%; padding: 12px; margin: 12px 0; background: #ffd700; color: #1a1a2e; border: none; border-radius: 8px; font-size: 14px; font-weight: bold; cursor: pointer; }
+        .fnc-btn:hover { background: #ffed4a; }
+        .file-section { margin-bottom: 16px; border: 1px solid #444; border-radius: 8px; overflow: hidden; }
+        .file-header { background: #2a2a4e; padding: 10px 16px; font-weight: bold; color: #ffd700; cursor: pointer; display: flex; justify-content: space-between; }
+        .func-list { display: none; padding: 8px; }
+        .file-section.open .func-list { display: block; }
+        .func-item { background: #111; border: 1px solid #333; border-radius: 6px; padding: 10px; margin-bottom: 6px; display: flex; justify-content: space-between; align-items: center; transition: 0.2s; flex-wrap: wrap; gap: 8px; }
+        .func-item:hover { border-color: #ffd700; }
+        .func-info { flex: 1; min-width: 200px; }
+        .func-name { color: #4fc3f7; font-weight: bold; }
+        .func-line { color: #888; font-size: 11px; display: block; margin-top: 2px; }
+        .func-preview { color: #666; font-size: 10px; margin-top: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+        .btn-group { display: flex; gap: 4px; flex-shrink: 0; }
+        .action-btn { border: none; padding: 8px 14px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold; white-space: nowrap; transition: 0.2s; }
+        .copy-btn { background: #4caf50; color: white; }
+        .copy-btn:hover { background: #388e3c; }
+        .replace-btn { background: #ff9800; color: #1a1a2e; }
+        .replace-btn:hover { background: #ffb74d; }
+        .action-btn.copied { background: #2e7d32; }
+        .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 9999; justify-content: center; align-items: center; }
+        .modal-overlay.show { display: flex; }
+        .modal-box { background: #2a2a4e; border: 2px solid #ffd700; border-radius: 12px; padding: 20px; width: 90%; max-width: 600px; max-height: 80vh; overflow-y: auto; }
+        .modal-title { color: #ffd700; font-size: 16px; font-weight: bold; margin-bottom: 12px; }
+        .modal-label { color: #aaa; font-size: 11px; margin-bottom: 4px; }
+        .modal-textarea { width: 100%; height: 200px; background: #111; color: #ccc; border: 2px solid #444; border-radius: 6px; padding: 10px; font-family: monospace; font-size: 12px; resize: vertical; box-sizing: border-box; }
+        .modal-textarea:focus { border-color: #ffd700; outline: none; }
+        .modal-btn { padding: 10px 20px; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 13px; margin-top: 12px; margin-right: 8px; }
+        .modal-btn.confirm { background: #4caf50; color: white; }
+        .modal-btn.cancel { background: #666; color: white; }
+        .search-bar { display: flex; gap: 8px; margin-bottom: 16px; }
+        .search-bar input { flex: 1; padding: 8px; border-radius: 6px; border: 2px solid #444; background: #2a2a4e; color: #eee; font-size: 14px; }
+        .search-bar input:focus { border-color: #ffd700; outline: none; }
+        .count { color: #888; font-size: 11px; }
+        .result-area { margin-top: 12px; display: none; }
+        .result-area.show { display: block; }
+
+        /* ========== 急救包样式 ========== */
+        .fak-control-bar { display: flex; gap: 10px; margin-bottom: 20px; }
+        .fak-btn { padding: 10px 24px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 14px; transition: 0.2s; }
+        .fak-btn-scan { background: #ffd700; color: #1a1a2e; flex: 1; }
+        .fak-btn-scan:hover { background: #ffed4a; }
+        .fak-btn-copy-all { background: #3a3a6e; color: #eee; }
+        .fak-btn-copy-all:hover { background: #4a4a8e; }
+        .fak-stats { display: flex; gap: 16px; justify-content: center; margin-bottom: 20px; }
+        .fak-stat { background: #2a2a4e; padding: 10px 18px; border-radius: 8px; text-align: center; }
+        .fak-stat-value { font-size: 24px; font-weight: bold; color: #ffd700; }
+        .fak-stat-label { font-size: 10px; color: #aaa; }
+        .issue-card { background: #2a2a4e; border-left: 4px solid #f44336; border-radius: 6px; padding: 12px; margin-bottom: 8px; }
+        .issue-card.fixed { border-left-color: #4caf50; }
+        .issue-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+        .issue-title { font-weight: bold; color: #ff9800; }
+        .issue-card.fixed .issue-title { color: #4caf50; }
+        .issue-file { color: #888; font-size: 11px; }
+        .issue-desc { font-size: 11px; color: #ccc; margin-bottom: 8px; }
+        .issue-code { background: #111; padding: 8px; border-radius: 4px; font-size: 11px; white-space: pre-wrap; max-height: 120px; overflow-y: auto; color: #ddd; }
+        .fix-btn { padding: 6px 14px; border: none; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold; }
+        .fix-btn.fix { background: #f44336; color: white; }
+        .fix-btn.fix:hover { background: #d32f2f; }
+        .fix-btn.copy { background: #4caf50; color: white; }
+        .fix-btn.copy:hover { background: #388e3c; }
+
+        /* ========== 防战计算器样式 ========== */
+        .fang-config-panel { background: #16213e; border: 1px solid #333; border-radius: 10px; padding: 16px; margin-bottom: 20px; }
+        .fang-rule-box { background: #0f0f1a; border-left: 4px solid #ffd700; padding: 12px; margin-bottom: 16px; font-size: 12px; line-height: 1.6; color: #ccc; }
+        .fang-rule-box strong { color: #ffd700; }
+        .fang-m-select { display: flex; flex-wrap: wrap; gap: 10px; margin: 12px 0; align-items: center; }
+        .fang-m-select label { display: flex; align-items: center; gap: 4px; background: #2a2a4e; padding: 6px 12px; border-radius: 5px; cursor: pointer; font-weight: bold; }
+        .fang-m-select input { margin: 0; cursor: pointer; }
+        .fang-input-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
+        .fang-input-row label { color: #aaa; }
+        .fang-input-row input { width: 100px; padding: 6px; background: #1a1a2e; border: 1px solid #555; color: #eee; border-radius: 4px; text-align: center; font-size: 14px; }
+        .fang-btn { background: #ffd700; color: #1a1a2e; border: none; padding: 10px 24px; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 14px; margin-right: 8px; }
+        .fang-btn:hover { background: #ffed4a; }
+        .fang-btn-copy { background: #4caf50; color: white; }
+        .fang-btn-copy:hover { background: #66bb6a; }
+        .fang-result-area { background: #111; border: 1px solid #333; border-radius: 8px; padding: 16px; margin-top: 12px; white-space: pre-wrap; font-size: 12px; color: #ccc; max-height: 500px; overflow-y: auto; display: none; }
+
+        /* ========== 自动批量战斗样式 ========== */
+        .ab-main-layout { display: flex; gap: 12px; flex-direction: column; }
+        .ab-config { background: #2a2a4e; padding: 12px; border-radius: 8px; }
+        .ab-config label { display: block; margin-top: 8px; color: #ffd700; font-weight: bold; }
+        .ab-config select, .ab-config input, .ab-config button { padding: 8px; border-radius: 4px; border: none; font-size: 14px; }
+        .ab-config button { background: #ffd700; color: #1a1a2e; font-weight: bold; cursor: pointer; width: 100%; margin-top: 10px; }
+        .ab-report { margin-top: 20px; background: #2a2a4e; padding: 12px; border-radius: 8px; white-space: pre-wrap; }
+        .buff-checkboxes { display: flex; flex-wrap: wrap; gap: 8px; }
+        .buff-checkboxes label { color: #eee; font-weight: normal; display: flex; align-items: center; gap: 4px; }
+        .buff-checkboxes input { margin: 0; }
+        .ab-history { margin-top: 20px; background: #1a1a3e; padding: 8px; border-radius: 4px; max-height: 200px; overflow-y: auto; }
+        .ab-history-item { border-bottom: 1px solid #333; padding: 4px 0; font-size: 11px; display: flex; justify-content: space-between; align-items: center; }
+        .ab-history-item span { flex: 1; }
+        .ab-history-item button { width: auto; padding: 2px 6px; font-size: 10px; margin: 0 0 0 8px; }
+        .ab-preview-grid { font-family: monospace; white-space: pre; line-height: 1.4; margin-top: 8px; background: #1a1a2e; padding: 8px; border-radius: 4px; }
+        .ab-grid-container { display: flex; gap: 20px; }
+    </style>
+</head>
+<body>
+    <h1>光明顶5v5 · 开发工具箱</h1>
+
+    <div class="tab-nav">
+        <button class="tab-btn active" data-tab="tab-file-copier">📋 文件复制器</button>
+        <button class="tab-btn" data-tab="tab-func-copier">⚡ 函数替换器</button>
+        <button class="tab-btn" data-tab="tab-first-aid">🔧 急救包</button>
+        <button class="tab-btn" data-tab="tab-fang-calc">🛡️ 防战计算器</button>
+        <button class="tab-btn" data-tab="tab-auto-battle">⚔️ 自动批量战斗</button>
+    </div>
+
+    <div class="tab-content active" id="tab-file-copier">
+        <div class="fc-config">
+            <label>📦 单次复制上限(字符)：</label>
+            <input type="number" id="fcCharLimit" value="40000" min="1000" max="100000" step="1000">
+            <div class="select-all">
+                <button id="fcBtnSelectAll">全选</button>
+                <button id="fcBtnDeselectAll">全不选</button>
+            </div>
+            <button id="fcBtnGenerate">📦 生成复制包</button>
+            <button id="fcBtnAutoSend" style="display:none; background:#ffd700; color:#1a1a2e; border:none; padding:8px 16px; border-radius:4px; font-weight:bold; cursor:pointer;">🚀 一键序列发送</button>
+        </div>
+
+        <div class="add-file-row">
+            <input type="text" id="fcCustomFileInput" placeholder="输入文件名，多个用逗号分隔">
+            <button id="fcBtnAddFile">＋ 添加文件</button>
+        </div>
+
+        <div id="fcFileGroups"></div>
+        <div class="status-text" id="fcStatus">勾选需要复制的文件，设定字符上限，点击"生成复制包"</div>
+        <div class="batches" id="fcBatches"></div>
+    </div>
+
+    <div class="tab-content" id="tab-func-copier">
+        <div class="search-bar">
+            <input type="text" id="fncSearchInput" placeholder="搜索函数名..." />
+        </div>
+        <button class="fnc-btn" id="fncBtnScan">🔍 扫描项目函数</button>
+        <div class="status-text" id="fncStatus">点击按钮开始扫描，之后可复制或替换任意函数</div>
+        <div id="fncMapContainer"></div>
+
+        <div class="modal-overlay" id="fncReplaceModal">
+            <div class="modal-box">
+                <div class="modal-title">🔄 替换函数：<span id="fncReplaceFuncName"></span></div>
+                <div class="modal-label">📄 文件：<span id="fncReplaceFileName"></span></div>
+                <div class="modal-label">粘贴新的完整函数代码（包括 function 关键字）：</div>
+                <textarea class="modal-textarea" id="fncReplaceTextarea" placeholder="在此粘贴新函数代码..."></textarea>
+                <div id="fncReplaceResult" class="result-area">
+                    <div class="modal-label" style="margin-top:12px;">✅ 替换后的完整文件内容（点击下方复制）：</div>
+                    <textarea class="modal-textarea" id="fncResultTextarea" readonly style="height:150px;"></textarea>
+                    <button class="modal-btn confirm" id="fncBtnCopyResult">📋 复制更新后的文件</button>
+                </div>
+                <button class="modal-btn confirm" id="fncBtnDoReplace">🔄 执行替换</button>
+                <button class="modal-btn cancel" id="fncBtnCancelReplace">取消</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="tab-content" id="tab-first-aid">
+        <div class="fak-control-bar">
+            <button class="fak-btn fak-btn-scan" id="fakBtnScan">🔍 开始扫描项目</button>
+            <button class="fak-btn fak-btn-copy-all" id="fakBtnCopyAll" disabled>📋 复制所有修复</button>
+        </div>
+        <div class="fak-stats">
+            <div class="fak-stat"><div class="fak-stat-value" id="fakTotalFiles">-</div><div class="fak-stat-label">扫描文件</div></div>
+            <div class="fak-stat"><div class="fak-stat-value" id="fakTotalIssues">-</div><div class="fak-stat-label">发现问题</div></div>
+            <div class="fak-stat"><div class="fak-stat-value" id="fakTotalFixed">-</div><div class="fak-stat-label">可自动修复</div></div>
+        </div>
+        <div id="fakIssuesContainer"></div>
+        <div class="status-text" id="fakLog">点击"开始扫描项目"以检查代码中的经典低级错误。</div>
+    </div>
+
+    <div class="tab-content" id="tab-fang-calc">
+        <div class="fang-config-panel">
+            <div class="fang-rule-box">
+                <strong>📜 规则说明 (攻击/防御精确到小数点后一位)</strong><br>
+                • 基础8档：以M107的12.5%分位点为通用阈值，所有M值共用。<br>
+                • 追加3档Buff档：普通Buff(0.373)、中级Buff(0.445)、究极Buff(0.520)。<br>
+                • Buff「严阵以待」使防御 ×1.5。<br>
+                • 设计意图：M95无Buff摸普通Buff档(约5%)，有Buff摸中级Buff档(约37.5%)，顶级M95摸究极Buff档(约12.5%)。
+            </div>
+
+            <div class="fang-m-select">
+                <span style="color:#ffd700; font-weight:bold;">选择 M 值：</span>
+                <label><input type="checkbox" class="fang-m-check" value="95" checked> M=95</label>
+                <label><input type="checkbox" class="fang-m-check" value="97" checked> M=97</label>
+                <label><input type="checkbox" class="fang-m-check" value="100" checked> M=100</label>
+                <label><input type="checkbox" class="fang-m-check" value="104"> M=104</label>
+                <label><input type="checkbox" class="fang-m-check" value="107"> M=107</label>
+                <label><input type="checkbox" class="fang-m-check" value="115"> M=115</label>
+                <button class="fang-btn" id="fangBtnSelectAll">全选</button>
+                <button class="fang-btn" id="fangBtnClearAll">清除</button>
+            </div>
+
+            <div class="fang-input-row">
+                <label>🔢 模拟次数：</label>
+                <input type="number" id="fangSimCount" value="20000" min="100" max="500000" step="1000">
+            </div>
+
+            <div>
+                <button class="fang-btn" id="fangBtnRun">▶ 开始模拟</button>
+                <button class="fang-btn fang-btn-copy" id="fangBtnCopyResult" style="display:none;">📋 复制结果</button>
+            </div>
+            <div class="status-text" id="fangStatus"></div>
+        </div>
+        <div class="fang-result-area" id="fangResultBox"></div>
+    </div>
+
+    <div class="tab-content" id="tab-auto-battle">
+        <div class="ab-main-layout">
+            <div class="ab-config">
+                <label for="abStageSelect">选择关卡：</label>
+                <select id="abStageSelect">
+                    <option value="1">第1关</option>
+                    <option value="2">第2关</option>
+                    <option value="3">第3关</option>
+                    <option value="4">第4关</option>
+                    <option value="5">第5关</option>
+                    <option value="6">第6关</option>
+                </select>
+                <label for="abRoundsInput">测试场次：</label>
+                <input type="number" id="abRoundsInput" value="300" min="1" max="1000" step="50">
+                <label>海克斯偏好（出现时优先选择）：</label>
+                <div id="abBuffCheckboxes" class="buff-checkboxes">正在加载...</div>
+                <button id="abRunBtn">▶ 开始测试</button>
+            </div>
+            <div class="ab-grid-container">
+                <div class="ab-config" style="flex:1;">
+                    <span style="color:#ffd700;">📊 当前关卡敌人站位预览</span>
+                    <div id="abPreviewGrid" class="ab-preview-grid">加载中...</div>
+                </div>
+            </div>
+        </div>
+        <div class="status-text" id="abStatus"></div>
+        <div id="abReport" class="ab-report"></div>
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+            <h3 style="color:#ffd700; margin: 0;">📋 历史记录</h3>
+            <button id="abCopyAllHistoryBtn" style="width:auto; padding:4px 12px; font-size:12px;">一键复制</button>
+            <button id="abClearHistoryBtn" style="width:auto; padding:4px 12px; font-size:12px;">清空记录</button>
+        </div>
+        <div id="abHistory" class="ab-history"></div>
+    </div>
+
+    <script type="module" src="./32-toolkit.js"></script>
+</body>
+</html>

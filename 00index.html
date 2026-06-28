@@ -1,11 +1,9 @@
-<!-- 00index.html - 光明顶项目·开发集成入口 V3.1 -->
-<!-- 2026-06-25 变更记录：版本升级到 V3.1；优化体检等待逻辑；清空历史记录改用自定义确认弹窗；30test-runner 下掉环境诊断页签 -->
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>⚔️ 光明顶 · 开发控制台</title>
+    <title>⚔️ 光明顶5v5 · 开发集成入口 V4.0.0</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body {
@@ -34,6 +32,8 @@
         }
         .btn-play { background: linear-gradient(135deg, #ffd700, #ffaa00); }
         .btn-play:hover { filter: brightness(1.1); transform: translateY(-2px); }
+        .btn-health { background: linear-gradient(135deg, #4caf50, #2e7d32); }
+        .btn-health:hover { filter: brightness(1.1); transform: translateY(-2px); }
         .btn-tool { background: #3a3a6e; color: #fff; border: 1px solid #555; }
         .btn-tool:hover { background: #4a4a8e; border-color: #ffd700; transform: translateY(-2px); }
         .btn-music {
@@ -42,40 +42,45 @@
         }
         .btn-music:hover { background: #3a3a6e; }
         .btn-music.muted { border-color: #888; color: #888; }
+        .dev-toolbox-grid { display: none; }
+        .dev-toolbox-grid.expanded { display: grid; }
+        .toggle-section { cursor: pointer; user-select: none; }
+        .toggle-section:hover { color: #ffd700; }
         .footer { text-align: center; margin-top: 20px; color: #666; font-size: 0.75rem; }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>⚔️ 光明顶</h1>
-        <div class="subtitle">V3.1 开发集成控制台</div>
-        <div style="text-align:center;color:#4caf50;font-size:0.8rem;margin-top:-20px;margin-bottom:25px;">✅ 2026-06-25 优化体检等待逻辑 / 清空历史记录弹窗修复 / 下掉环境诊断页签</div>
+        <h1>⚔️ 光明顶5v5</h1>
+        <div class="subtitle">V4.0.0 开发集成入口</div>
 
-        <!-- 核心游戏 -->
+        <!-- 主入口 -->
         <div class="section">
-            <div class="section-title">🎮 核心游戏</div>
-            <button class="big-btn btn-play" id="btnGame">⚔️ 开始游戏 (5v5)</button>
+            <div class="section-title">🎮 主入口</div>
+            <div class="btn-grid">
+                <button class="big-btn btn-play" id="btnGame">⚔️ 主游戏</button>
+                <button class="big-btn btn-health" id="btnHealthCheck">🩺 全面体检</button>
+                <button class="big-btn btn-tool" id="btnTools">🧰 工具箱</button>
+            </div>
         </div>
 
-        <!-- 开发工具箱 -->
+        <!-- 开发准则 -->
         <div class="section">
-            <div class="section-title">🛠️ 开发工具箱</div>
-            <div class="btn-grid">
-                <button class="big-btn btn-tool" id="btnCopier">📋 函数替换器</button>
-                <button class="big-btn btn-tool" id="btnFileCopier">📄 文件复制器</button>
-                <button class="big-btn btn-tool" id="btnTest">🧪 测试与诊断</button>
-                <button class="big-btn btn-tool" id="btnAutoBattle">📊 自动批量测试</button>
-                <button class="big-btn btn-tool" id="btnFirstAid">⚡ 开发急救包</button>
+            <div class="section-title toggle-section" id="devGuideToggle" style="display:flex;justify-content:space-between;">📖 开发准则 ▸</div>
+            <div class="btn-grid dev-toolbox-grid" id="devGuideGrid">
+                <button class="big-btn btn-tool" id="btnReadme">📖 README 项目大纲</button>
+                <button class="big-btn btn-tool" id="btnChangelog">📋 CHANGELOG 变更履历</button>
+                <button class="big-btn btn-tool" id="btnTestRunner">📋 Test Runner 迭代变更日志</button>
             </div>
         </div>
 
         <!-- 独立音乐控制 -->
         <div class="section">
             <div class="section-title">🎵 背景音乐</div>
-            <button class="big-btn btn-music" id="btnBGM">🎵 背景音乐：播放中</button>
+            <button class="big-btn btn-music muted" id="btnBGM">🔇 背景音乐：已暂停</button>
         </div>
 
-        <div class="footer">光明顶 · 开发控制台 V3.1</div>
+        <div class="footer">光明顶5v5 · 开发集成入口 V4.0.0</div>
     </div>
 
     <script>
@@ -83,20 +88,27 @@
         document.getElementById('btnGame').addEventListener('click', () => {
             window.open('mode-5v5-test.html', '_blank');
         });
-        document.getElementById('btnCopier').addEventListener('click', () => {
-            window.open('tools/31function-copier.html', '_blank');
+        document.getElementById('btnHealthCheck').addEventListener('click', () => {
+            window.open('tests/30test-runner.html', '_blank');
         });
-        document.getElementById('btnFileCopier').addEventListener('click', () => {
-            window.open('tools/34file-copier.html', '_blank');
+        document.getElementById('btnTools').addEventListener('click', () => {
+            window.open('tools/31-toolkit.html', '_blank');
         });
-        document.getElementById('btnTest').addEventListener('click', () => {
-            window.open('30test-runner.html', '_blank');
+        document.getElementById('btnReadme').addEventListener('click', () => {
+            window.open('README.md', '_blank');
         });
-        document.getElementById('btnAutoBattle').addEventListener('click', () => {
-            window.open('tools/32auto-battle.html', '_blank');
+        document.getElementById('btnChangelog').addEventListener('click', () => {
+            window.open('CHANGELOG.md', '_blank');
         });
-        document.getElementById('btnFirstAid').addEventListener('click', () => {
-            window.open('tools/33first-aid-kit.html', '_blank');
+        document.getElementById('btnTestRunner').addEventListener('click', () => {
+            window.open('Test Runnerlogo.md', '_blank');
+        });
+
+        // ==================== 开发准则折叠 ====================
+        document.getElementById('devGuideToggle').addEventListener('click', function() {
+            const grid = document.getElementById('devGuideGrid');
+            const expanded = grid.classList.toggle('expanded');
+            this.innerHTML = expanded ? '📖 开发准则 ▾' : '📖 开发准则 ▸';
         });
 
         // ==================== 独立背景音乐 ====================
@@ -105,7 +117,7 @@
 
         function initBGM() {
             try {
-                bgm = new Audio('assets/xinai.m4a');
+                bgm = new Audio('assets/sfx_xinai.mp3');
                 bgm.loop = true;
                 bgm.volume = 0.6;
             } catch (e) {
