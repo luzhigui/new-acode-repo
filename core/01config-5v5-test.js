@@ -28,8 +28,7 @@ const CONFIG = {
     MAX_ROUND: 35,
     BUFF_DURATION: 4,
     BUFF_CHOICES: 3,
-    BGM_URL: 'https://er-sycdn.kuwo.cn/088f04666fe18257d43ad68b626251f4/6a240a1a/resource/30106/trackmedia/M500002AasIQ4WhKQb.mp3',
-    BGM_LOCAL: 'assets/xinai.mp3',
+    BGM_LOCAL: 'assets/sfx_xinai.mp3',
     SFX: {
         '远程': 'assets/sfx_arrow.mp3',
         '飞行': 'assets/sfx_fly.mp3',
