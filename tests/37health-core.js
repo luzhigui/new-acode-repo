@@ -1,8 +1,6 @@
-// 37health-core.js - 光明顶 5v5 全面体检核心逻辑 V2.2
-// 2026-06-25 kimi: 增加 waitGameReady，等模块初始化后再点封面；取消模拟 btnMain/投票/Buff 流程，改用 doManualReset/selectStage + waitCtx，解决超时
-// 预估行数: 300, 发送时间: 20260625 17:00, 版本: V2.2.0
-// 联动: 被 30test-runner.html 调用，依赖 29health-rules.js
-// 改动: 精简掉答题/反馈 UI 逻辑（已移至 30），专注体检核心流程 + 报告内联展示
+// tests/37health-core.js - 光明顶5v5 体检核心逻辑
+// V4.0.0 | ~300 lines | 2026-06-29 09:29
+export const VER = 'tests/37health-core.js V4.0.0';
 
 import { createHealthRules } from './29health-rules.js';
 

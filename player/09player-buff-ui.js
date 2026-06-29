@@ -1,6 +1,6 @@
-// 09player-buff-ui.js - 光明顶对战 5v5 Buff 弹窗与横幅 (修复持续时间)
-// 预估行数: 296, 发送时间: 20260621 14:30, 版本: V1.0.9
-export const VER = '09player-buff-ui.js V1.0.9';
+// player/09player-buff-ui.js - 光明顶5v5 Buff弹窗与横幅
+// V4.0.0 | ~296 lines | 2026-06-29 09:29
+export const VER = 'player/09player-buff-ui.js V4.0.0';
 
 import { CONFIG } from '../core/01config-5v5-test.js';
 import { Unit } from '../core/07battle-engine-5v5-test.js';

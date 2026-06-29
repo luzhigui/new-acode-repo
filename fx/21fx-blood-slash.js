@@ -1,6 +1,6 @@
-// 21fx-blood-slash.js - 光明顶对战 5v5 嗜血狂刀吸血大剑特效 (初版)
-// 预估行数: 200, 发送时间: 20260619 21:30, 版本: V1.0.0
-export const VER = '21fx-blood-slash.js V1.0.0';
+// fx/21fx-blood-slash.js - 光明顶5v5 嗜血狂刀特效
+// V4.0.0 | ~200 lines | 2026-06-29 09:29
+export const VER = 'fx/21fx-blood-slash.js V4.0.0';
 
 function wait(ms) { return new Promise(r => setTimeout(r, ms)); }
 

@@ -1,6 +1,6 @@
-// 07battle-engine-5v5-test.js - 战斗引擎入口 (全局函数挂载补全版)
-// 预估行数: 100, 发送时间: 20260625 09:30, 版本: V1.0.28
-export const VER = '07battle-engine-5v5-test.js test V1.0.28';
+// core/07battle-engine-5v5-test.js - 光明顶5v5 战斗引擎入口
+// V4.0.0 | ~100 lines | 2026-06-29 09:29
+export const VER = 'core/07battle-engine-5v5-test.js V4.0.0';
 
 import { Unit } from './02unit.js';
 import {

@@ -1,8 +1,6 @@
-// 25unit-tests.js - 光明顶对战 5v5 核心函数单元测试（扩展版）
-// 0625 10:29 kimi: 流云身法 dodgeBonus 已调整为 0.25，测试期望值同步更新
-// 预估行数: 250, 发送时间: 20260625 18:00, 版本: V2.2.1
-// 变更: 修正 Carry 测试预期值（deathMultiplier=3），新增 20+ 条测试覆盖边界
-export const VER = '25unit-tests.js V2.2.1';
+// tests/25unit-tests.js - 光明顶5v5 单元测试
+// V4.0.0 | ~250 lines | 2026-06-29 09:29
+export const VER = 'tests/25unit-tests.js V4.0.0';
 
 import { calcDamage, getFronts, isBlocked, getFlyDodgeRate, getUnitRow, getUnitCol, getAdjacentPositions } from '../core/03battle-utils.js';
 import { computeBuffStats } from '../core/04buff-system.js';

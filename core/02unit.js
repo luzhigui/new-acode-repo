@@ -1,6 +1,6 @@
-// 02unit.js - 光明顶对战 5v5 战斗单位类
-// 预估字节: 3400, 发送时间: 20260622 20:45, 版本: V3.1.0
-export const VER = '02unit.js V3.1.0';
+// core/02unit.js - 光明顶5v5 战斗单位类
+// V4.0.0 | ~3400 bytes | 2026-06-29 09:29
+export const VER = 'core/02unit.js V4.0.0';
 
 import { rand } from './03battle-utils.js';
 

@@ -1,9 +1,10 @@
-// 27auto-battle-utils.js - 自动批量战斗工具函数 (V3.0 定制阵容)
-// 预估行数: 120, 发送时间: 20260621 08:00, 版本: V3.0.0
-export const VER = '27auto-battle-utils.js V3.0.0';
+// tools/27auto-battle-utils.js - 光明顶5v5 自动批量战斗工具
+// V4.0.0 | ~120 lines | 2026-06-29 09:29
+export const VER = 'tools/27auto-battle-utils.js V4.0.0';
 
 import { CONFIG, ENEMY_M } from '../core/01config-5v5-test.js';
 import { Unit, rand, runBattle } from '../core/07battle-engine-5v5-test.js';
+import { createHealthRules } from '../tests/29health-rules.js';
 const C = CONFIG;
 
 // 纯数据快照生成器

@@ -1,6 +1,6 @@
-// 16fx-arrows-5v5-test.js - 光明顶对战 5v5 飞箭特效（含流星赶月优化版）
-// 预估行数: 280, 发送时间: 20260619 22:00, 版本: V1.1.0
-export const VER = '16fx-arrows-5v5-test.js V1.1.0 20260619';
+// fx/16fx-arrows-5v5-test.js - 光明顶5v5 飞箭特效
+// V4.0.0 | ~280 lines | 2026-06-29 09:29
+export const VER = 'fx/16fx-arrows-5v5-test.js V4.0.0';
 
 function applyWholeShake(elements, durationMs, basePositions, angle, getPausedFn, onComplete) {
     let start = null;

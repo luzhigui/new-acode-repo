@@ -1,7 +1,6 @@
-// 29health-rules.js - 光明顶 5v5 全身体检规则库 V3.8（玄冥二老拆分版）
-// 0625 12:38 kimi: 新增第五关敌方单位=6检测规则（配合玄冥二老拆分）
-// 预估字节: 10600, 发送时间: 20260625 12:38, 版本: V3.8.0
-// 改动: 修复 data-pos 误判（分阵营检查）、玄冥/严阵/Carry/回血改运行时检测
+// tests/29health-rules.js - 光明顶5v5 体检规则库
+// V4.0.0 | ~10600 bytes | 2026-06-29 09:29
+export const VER = 'tests/29health-rules.js V4.0.0';
 
 function createHealthRules(win, doc) {
     function getCtx() {

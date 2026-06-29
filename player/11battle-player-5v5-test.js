@@ -1,6 +1,6 @@
-// 11battle-player-5v5-test.js - 光明顶对战 5v5 战斗播放器入口
-// 版本: V1.2.1, 预估行数: 45
-export const VER = '11battle-player-5v5-test.js test V1.2.1';
+// player/11battle-player-5v5-test.js - 光明顶5v5 战斗播放器入口
+// V4.0.0 | ~45 lines | 2026-06-29 09:29
+export const VER = 'player/11battle-player-5v5-test.js V4.0.0';
 
 // 导入子模块的实际功能函数
 import { playBattle, playLogEntries, clearAllEffects } from './10player-core.js';

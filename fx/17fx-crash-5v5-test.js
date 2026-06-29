@@ -1,6 +1,6 @@
-// 17fx-crash-5v5-test.js - 光明顶对战 5v5 飞撞与格挡（蓝格子修复版）
-// 预估行数: 350, 发送时间: 20260621 18:00, 版本: V3.0.0
-export const VER = '17fx-crash-5v5-test.js V3.0.0';
+// fx/17fx-crash-5v5-test.js - 光明顶5v5 飞撞与格挡特效
+// V4.0.0 | ~350 lines | 2026-06-29 09:29
+export const VER = 'fx/17fx-crash-5v5-test.js V4.0.0';
 
 function showCloseRangeFX(unitA, unitD, role) {
     let gridAId = unitA.camp==='ally'?'allyGrid':'enemyGrid', gridDId = unitD.camp==='ally'?'allyGrid':'enemyGrid';
@@ -106,11 +106,20 @@ export function showMeleeCrash(unitA, unitD, speed, getPausedFn, onCrash) {
     clone.classList.add('crash-clone');
     document.body.appendChild(clone);
 
-    // 克隆之后再彻底隐藏原格子（不会影响克隆体）
-    cellA.style.opacity = '0';
-    cellA.style.background = 'transparent';
-    cellA.style.border = 'none';
-    cellA.removeAttribute('data-flash');
+    // 克隆之后再隐藏原格子
+    if (flyMode === 'ghost') {
+        // 虚影模式：半透明蓝色，保留一点视觉残留
+        cellA.style.opacity = '0.3';
+        cellA.style.background = '';
+        cellA.style.border = '';
+        cellA.setAttribute('data-flash', 'attack');
+    } else {
+        // 飞走模式：彻底隐藏
+        cellA.style.opacity = '0';
+        cellA.style.background = 'transparent';
+        cellA.style.border = 'none';
+        cellA.removeAttribute('data-flash');
+    }
     unitA._flash = null;
     cellA.classList.remove('ready');
 

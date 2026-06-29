@@ -6,7 +6,7 @@
 
 ## 快速入口
 
-- **测试与诊断中心**: 打开 `tools/30test-runner.html`
+- **测试与诊断中心**: 打开 `tests/30test-runner.html`
 - **核心测试**: 5个自动化测试（引擎、伤害、Buff、日志、站位）
 - **全面体检**: 约70条健康规则，覆盖6个关卡，按12个分组执行
 - **答题模式**: 25道光明顶知识题，即时反馈
@@ -59,6 +59,14 @@ tools/30test-runner.html        ← 测试入口页面（HTML骨架）
 - `window.selectStage(n)` — 切换关卡并重置战斗
 - `window.doManualReset()` — 手动重置当前关卡
 - `window.runBattle(snapshot, buffs)` — 单次模拟战斗
+
+---
+
+## V4.0.0 — 2026-06-29
+
+### 更新
+- 入口路径修正为 `tests/30test-runner.html`
+- 版本号统一为 V4.0.0
 
 ---
 

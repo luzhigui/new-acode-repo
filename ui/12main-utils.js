@@ -1,6 +1,6 @@
-// 12main-utils.js - 光明顶对战 5v5 主控模块工具函数 (原始稳定版)
-// 预估行数: 95, 发送时间: 20260620 23:55, 版本: V1.0.2
-export const VER = '12main-utils.js V1.0.2';
+// ui/12main-utils.js - 光明顶5v5 主控工具函数
+// V4.0.0 | ~95 lines | 2026-06-29 09:29
+export const VER = 'ui/12main-utils.js V4.0.0';
 
 export function showModal(text, buttons, onChoice, canMinimize) {
     let overlay = document.createElement('div'); overlay.className = 'modal-overlay'; overlay.id = 'voteModalOverlay';

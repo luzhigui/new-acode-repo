@@ -1,8 +1,6 @@
-// 13main-5v5-test.js - 光明顶对战 5v5 主控模块 (V3.0 定制阵容)
-// 0625 10:29 kimi: 暴露 window.selectStage/window.forceStopGame/window.doManualReset 供 test runner 调用
-// 预估行数: 680, 发送时间: 20260621 08:15, 版本: V3.0.2
-// 联动: 修复 doInitBattle 站位初始化值，确保数据驱动视图
-export const VER = '13main-5v5-test.js V3.0.2';
+// ui/13main-5v5-test.js - 光明顶5v5 主控模块
+// V4.0.0 | ~680 lines | 2026-06-29 09:29
+export const VER = 'ui/13main-5v5-test.js V4.0.0';
 
 import '../modules/24error-capture.js';
 import { CONFIG, STATE, KILL_TAUNT, ENEMY_M, VER as CFG_VER } from '../core/01config-5v5-test.js';
@@ -25,9 +23,11 @@ import { VER as VER_TEXT } from '../player/08player-text.js';
 import { VER as VER_BUFF_UI } from '../player/09player-buff-ui.js';
 import { VER as VER_MAIN_UTILS } from './12main-utils.js';
 
+import { runRuntimeSample } from '../tests/36runtime-sampler.js';
+
 const C = CONFIG, S = STATE, KT = KILL_TAUNT;
 
-const FILE_VER = '13main-5v5-test.js V3.0.1';
+const FILE_VER = '13main-5v5-test.js V3.0.3';
 const INDEX_VER = 'mode-5v5-test.html test V3.0';
 const LOG_LINE1 = '⚔️ 光明顶5v5对决 · 九宫格混战模式 ⚔️';
 const PARTY_SIZE = 5;
@@ -48,6 +48,9 @@ let dodgeEffectEnabled = true;
 let selectedBuffIndex = -1;
 let currentDoubleStrikeUid = null;
 
+let runtimeMonitorActive = false;
+let runtimeMonitorInterval = null;
+
 window._voteScore = parseInt(localStorage.getItem('ming_vote_score_5v5_test') || '10');
 window._voteChoice = null; window._battleHasZhang = false; window._debugMode = false;
 
@@ -60,16 +63,13 @@ const TRASH_TALK_ENEMY = ['魔教余孽，今日必灭！','少林武当，放�
 
 const ALL_BUFF_KEYS = Object.keys(C.BUFFS);
 
-// ==================== 音频管理 (由 28audio-manager.js 托管) ====================
+// ==================== 音频管理 ====================
 function initBGM() { AudioManager.init(); }
 function playBGM() { AudioManager.play(); }
 function pauseBGM() { AudioManager.pause(); }
 function setBGMVolume(v) { AudioManager.setVolume(v); }
 function fadeBGMTo(targetVol, durationMs) { AudioManager.fadeTo(targetVol, durationMs); }
-function toggleBGM() {
-    AudioManager.cycleSource();
-    updateBGMBtn();
-}
+function toggleBGM() { AudioManager.cycleSource(); updateBGMBtn(); }
 function updateBGMBtn() {
     const btn = document.getElementById('btnBGM');
     if (btn) {
@@ -101,10 +101,8 @@ function showBuffSelection(callback) {
         return { text: buff.icon + ' ' + buff.name + '\n' + buff.desc, value: key, cls: 'buff' };
     });
     showModal(text, buttons, (key) => {
-        // 先回溯所有旧 Buff 的剩余回合，抵消 tickBuffDurations 的扣减
         activeBuffs = activeBuffs.map(b => ({...b, remaining: b.remaining + 1}));
         let duration = C.BUFFS[key].duration || C.BUFF_DURATION;
-        // 海克斯槽位限制：最多同时持有2个，满时自动替换剩余最短的
         if (activeBuffs.length >= 2) {
             let shortest = activeBuffs.reduce((a, b) => a.remaining < b.remaining ? a : b);
             activeBuffs.splice(activeBuffs.indexOf(shortest), 1);
@@ -169,12 +167,7 @@ function initGlowSystem() {
     if (!battlefield || !canvas) return;
     const ctx = canvas.getContext('2d');
     let cellsLightData = [];
-    let lightsOn = false;
     let currentLightColor = '#d2691e';
-    const globalSpeed = 0.9;
-    const globalLightLength = 0.25;
-    const globalWave = 7.5;
-    const globalGlow = 4;
     function hexToRgb(hex) { const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex); return result ? { r: parseInt(result[1], 16), g: parseInt(result[2], 16), b: parseInt(result[3], 16) } : { r: 255, g: 255, b: 255 }; }
     function resizeCanvas() { const rect = battlefield.getBoundingClientRect(); canvas.width = rect.width; canvas.height = rect.height; }
     function collectCellsData() {
@@ -201,9 +194,9 @@ function initGlowSystem() {
         else if (dist <= 2 * frame.w + frame.h) return { x: frame.x + frame.w - (dist - frame.w - frame.h), y: frame.y + frame.h };
         else return { x: frame.x, y: frame.y + frame.h - (dist - 2 * frame.w - frame.h) };
     }
-    function drawLight(data, time) { /* 光效绘制代码不变 */ }
+    function drawLight(data, time) {}
     let lastTime = 0;
-    function animate(time) { /* 动画循环代码不变 */ }
+    function animate(time) {}
     resizeCanvas(); collectCellsData(); requestAnimationFrame(animate);
     window.addEventListener('resize', () => { resizeCanvas(); collectCellsData(); });
 }
@@ -213,7 +206,6 @@ function doInitBattle() {
     const mingSquad = C.MING_SQUADS && C.MING_SQUADS[currentStage] ? C.MING_SQUADS[currentStage] : null;
     const enemySquad = C.ENEMY_SQUADS && C.ENEMY_SQUADS[currentStage] ? C.ENEMY_SQUADS[currentStage] : null;
     
-    // --- 生成明教单位 ---
     let mingConfig;
     if (mingSquad) {
         if (currentStage === 1 && Array.isArray(mingSquad[0])) {
@@ -221,29 +213,21 @@ function doInitBattle() {
         } else {
             mingConfig = mingSquad;
         }
-        // 确保 mingConfig 是数组
-        if (!Array.isArray(mingConfig)) {
-            mingConfig = [mingConfig];
-        }
+        if (!Array.isArray(mingConfig)) mingConfig = [mingConfig];
         let takenPos = new Set();
         for (let item of mingConfig) {
             let name, mVal;
-            if (typeof item === 'string') {
-                name = item;
-                mVal = C.MING_M[name] || 95;
-            } else {
+            if (typeof item === 'string') { name = item; mVal = C.MING_M[name] || 95; }
+            else {
                 mVal = item;
-                // 明教弟子统一用带编号的格式
                 if (mVal === 95) {
                     const existingDisciples = allyTeam.filter(u => u.name && u.name.startsWith('明教弟子'));
                     name = '明教弟子' + (existingDisciples.length + 1);
                 } else {
-                    // 按 M 值查找名字，排除已使用的
                     const usedNames = allyTeam.map(u => u.name);
                     const candidates = Object.entries(C.MING_M).filter(([n, v]) => v === mVal && !usedNames.includes(n));
-                    if (candidates.length > 0) {
-                        name = candidates[rand(0, candidates.length - 1)][0];
-                    } else {
+                    if (candidates.length > 0) name = candidates[rand(0, candidates.length - 1)][0];
+                    else {
                         const allCandidates = Object.entries(C.MING_M).filter(([n, v]) => v === mVal);
                         name = allCandidates.length > 0 ? allCandidates[rand(0, allCandidates.length - 1)][0] : ('明教弟子' + (allyTeam.length + 1));
                     }
@@ -255,53 +239,33 @@ function doInitBattle() {
             let unit = new Unit(name, mVal, role, 'ally');
             if (name === '张无忌') unit.isZhang = true;
             if (name === '韦一笑') unit.isWei = true;
-            unit.pos = null; // 修复：改为 null，让兜底逻辑能正确识别
-            unit.init(); unit.applyBonus();
+            unit.pos = null; unit.init(); unit.applyBonus();
             allyTeam.push(unit);
         }
-        // 明教站位分配：张无忌5，韦一笑6，另一人2，其余随机
         let zhang = allyTeam.find(u => u.isZhang);
         let wei = allyTeam.find(u => u.isWei);
         if (zhang) { zhang.pos = 5; takenPos.add(5); }
         if (wei) { wei.pos = 6; takenPos.add(6); }
         let others = allyTeam.filter(u => !u.isZhang && !u.isWei);
-        if (others.length > 0 && zhang && !takenPos.has(2)) {
-            others[0].pos = 2;
-            takenPos.add(2);
-            others.shift();
-        }
-        // 分配剩余站位
+        if (others.length > 0 && zhang && !takenPos.has(2)) { others[0].pos = 2; takenPos.add(2); others.shift(); }
         let remainingSlots = [1,2,3,4,5,6,7,8,9].filter(p => !takenPos.has(p));
         for (let u of others) {
-            if (remainingSlots.length > 0) {
-                let idx = rand(0, remainingSlots.length - 1);
-                u.pos = remainingSlots[idx];
-                takenPos.add(remainingSlots[idx]);
-                remainingSlots.splice(idx, 1);
-            } else { u.pos = 5; }
+            if (remainingSlots.length > 0) { let idx = rand(0, remainingSlots.length - 1); u.pos = remainingSlots[idx]; takenPos.add(remainingSlots[idx]); remainingSlots.splice(idx, 1); }
+            else { u.pos = 5; }
         }
-        // 站位分配完毕后，统一标记所有单位为 unfixed，再随机锁三个
         allyTeam.forEach(u => { u.fixed = false; });
         let toLock = [zhang, wei].filter(Boolean);
-        while (toLock.length < 3) {
-            let pool = allyTeam.filter(u => !toLock.includes(u));
-            if (pool.length === 0) break;
-            let pick = pool[rand(0, pool.length - 1)];
-            toLock.push(pick);
-        }
+        while (toLock.length < 3) { let pool = allyTeam.filter(u => !toLock.includes(u)); if (pool.length === 0) break; let pick = pool[rand(0, pool.length - 1)]; toLock.push(pick); }
         toLock.forEach(u => { u.fixed = true; });
-
     }
     
-    // --- 生成六大派单位 ---
     let enemyUnits = [];
     if (enemySquad) {
         let enemyPosSet = new Set();
         for (let item of enemySquad) {
             if (typeof item === 'object' && item.name) {
                 let unit = new Unit(item.name, item.m, item.role, 'enemy');
-                unit.pos = null; // 修复：改为 null
-                unit.init(); unit.applyBonus();
+                unit.pos = null; unit.init(); unit.applyBonus();
                 enemyUnits.push(unit);
             } else {
                 let mVal = item;
@@ -309,58 +273,34 @@ function doInitBattle() {
                 let usedNames = enemyUnits.map(u => u.name);
                 let name = null;
                 const squadDefs = Object.values(C.ENEMY_SQUADS).flat();
-                for (let def of squadDefs) {
-                    if (typeof def === 'object' && def.m === mVal && !usedNames.includes(def.name)) {
-                        name = def.name;
-                        break;
-                    }
-                }
+                for (let def of squadDefs) { if (typeof def === 'object' && def.m === mVal && !usedNames.includes(def.name)) { name = def.name; break; } }
                 if (!name && pool.length > 0) {
                     let attempts = 0;
-                    while ((!name || usedNames.includes(name)) && attempts < 50) {
-                        let pick = pool[rand(0, pool.length - 1)];
-                        name = pick[0];
-                        attempts++;
-                    }
+                    while ((!name || usedNames.includes(name)) && attempts < 50) { let pick = pool[rand(0, pool.length - 1)]; name = pick[0]; attempts++; }
                 }
                 if (!name) name = '六大派弟子';
                 let role = C.ROLES[rand(0, 3)];
                 let unit = new Unit(name, mVal, role, 'enemy');
-                unit.pos = null; // 修复：改为 null
-                unit.init(); unit.applyBonus();
+                unit.pos = null; unit.init(); unit.applyBonus();
                 enemyUnits.push(unit);
             }
         }
-
-        // 站位分配
         let template = C.ENEMY_POS_TEMPLATES && C.ENEMY_POS_TEMPLATES[currentStage] ? C.ENEMY_POS_TEMPLATES[currentStage] : null;
-        let allUnits = [...enemyUnits]; // 拷贝一份用于兜底
-
+        let allUnits = [...enemyUnits];
         if (template) {
             for (let [role, poses] of Object.entries(template)) {
                 if (role === 'random') continue;
                 for (let pos of poses) {
                     let unit = allUnits.find(u => u.role === role && u.pos == null);
-                    if (unit && !enemyPosSet.has(pos)) {
-                        unit.pos = pos; unit._originalPos = pos;
-                        enemyPosSet.add(pos);
-                    }
+                    if (unit && !enemyPosSet.has(pos)) { unit.pos = pos; unit._originalPos = pos; enemyPosSet.add(pos); }
                 }
             }
         }
-
-        // 最终兜底：对所有还没有位置的单位，按顺序分配空余位置
         let unplaced = allUnits.filter(u => u.pos == null);
         let emptySlots = [1,2,3,4,5,6,7,8,9].filter(p => !enemyPosSet.has(p));
         for (let u of unplaced) {
-            if (emptySlots.length > 0) {
-                let idx = rand(0, emptySlots.length - 1);
-                u.pos = emptySlots[idx]; u._originalPos = u.pos;
-                enemyPosSet.add(emptySlots[idx]);
-                emptySlots.splice(idx, 1);
-            }
+            if (emptySlots.length > 0) { let idx = rand(0, emptySlots.length - 1); u.pos = emptySlots[idx]; u._originalPos = u.pos; enemyPosSet.add(emptySlots[idx]); emptySlots.splice(idx, 1); }
         }
-
         enemyTeam = allUnits;
     }
 
@@ -375,7 +315,6 @@ function doInitBattle() {
     let stageText = currentStage === 1 ? '第一关' : `第${currentStage}关`;
     document.getElementById('labelEnemy').textContent = `六大派\n${stageText}`;
     document.getElementById('labelAlly').textContent = '明 教';
-    
     updateUI(UI);
 }
 
@@ -422,20 +361,30 @@ function logVersions() {
 }
 
 function showVoteDialog(callback) { let hasZhang=window._battleHasZhang||false,text='你看好哪边？'+(hasZhang?' (张无忌在场，猜对双倍积分!)':'');let mainBtn=document.getElementById('btnMain');if(mainBtn)mainBtn.disabled=true;showModal(text,[{text:'六大派',value:'六大派',cls:'enemy'},{text:'明教',value:'明教',cls:'ming'},{text:'放弃',value:'skip',cls:'skip'}],(choice)=>{window._voteChoice=choice;if(choice==='明教')document.getElementById('labelAlly').textContent='🚩明 教';else if(choice==='六大派')document.getElementById('labelEnemy').textContent='🚩六大派';if(callback)callback(choice);},true); }
+function abortAll() { if (abortController) { abortController.abort(); abortController = null; } UI.currentResult = null; waitingForNextRound = false; isBattleStarting = false; adjustMode = false; selectedAdjustPos = null; activeBuffs = []; selectedBuffIndex = -1; currentDoubleStrikeUid = null; updateBuffSlots(); }
+
+// ==================== 战报弹窗（深色优化版） ====================
 function showBattleReport(result) {
     let ally = UI.allyTeam, enemy = UI.enemyTeam;
     let allUnits = [...ally, ...enemy];
     let winner = result.winner;
-    let overlay = document.createElement('div'); overlay.className = 'modal-overlay';
-    let box = document.createElement('div'); box.className = 'modal-box';
-    box.style.maxWidth = '400px';
+    
+    let overlay = document.createElement('div');
+    overlay.className = 'modal-overlay';
+    overlay.style.background = 'rgba(0,0,0,0.85)';
+    
+    let box = document.createElement('div');
+    box.className = 'modal-box';
+    box.style.cssText = 'background:#1a1a2e;border:2px solid #ffd700;border-radius:12px;padding:20px;max-width:480px;color:#eee;';
+    
     let title = document.createElement('div');
-    title.className = 'modal-text';
+    title.style.cssText = 'color:#ffd700;font-size:18px;font-weight:bold;text-align:center;margin-bottom:12px;';
     title.textContent = '战斗结束 · ' + winner + '获胜';
     box.appendChild(title);
+    
     let switchBtn = document.createElement('button');
     switchBtn.textContent = '按输出排序';
-    switchBtn.style.margin = '8px';
+    switchBtn.style.cssText = 'background:#3a3a6e;color:#eee;border:1px solid #555;padding:6px 14px;border-radius:4px;cursor:pointer;margin-bottom:8px;';
     let sortBy = 'dmgDealt';
     switchBtn.onclick = () => {
         sortBy = sortBy === 'dmgDealt' ? 'dmgTaken' : 'dmgDealt';
@@ -443,54 +392,67 @@ function showBattleReport(result) {
         renderTable();
     };
     box.appendChild(switchBtn);
+    
     let tableDiv = document.createElement('div');
-    tableDiv.style.maxHeight = '300px';
+    tableDiv.style.maxHeight = '350px';
     tableDiv.style.overflowY = 'auto';
     box.appendChild(tableDiv);
+    
     function renderTable() {
         tableDiv.innerHTML = '';
         let sorted = [...allUnits].sort((a,b) => (b[sortBy]||0) - (a[sortBy]||0));
         let table = document.createElement('table');
-        table.style.width = '100%';
-        table.style.fontSize = '12px';
-        table.style.color = '#eee';
-        table.innerHTML = '<tr><th>名称</th><th>输出</th><th>承伤</th><th>治疗</th><th>闪避</th><th>状态</th></tr>';
+        table.style.cssText = 'width:100%;font-size:12px;color:#ddd;border-collapse:collapse;';
+        table.innerHTML = `
+            <tr style="background:#2a2a4e;color:#ffd700;">
+                <th>名称</th><th>输出</th><th>承伤</th><th>治疗</th><th>闪避</th><th>暴击</th><th>存活回合</th><th>状态</th>
+            </tr>`;
         sorted.forEach(u => {
             let row = document.createElement('tr');
-            row.innerHTML = '<td>' + u.name + '</td><td>' + (u.dmgDealt||0) + '</td><td>' + (u.dmgTaken||0) + '</td><td>' + (u.healDone||0) + '</td><td>' + (u.dodgeCount||0) + '</td><td>' + (u.alive?'存活':'阵亡') + '</td>';
+            row.style.borderBottom = '1px solid #333';
+            row.innerHTML = `
+                <td>${u.name}${u.isZhang?'[无忌]':''}${u.isWei?'[韦一笑]':''}</td>
+                <td>${u.dmgDealt||0}</td>
+                <td>${u.dmgTaken||0}</td>
+                <td>${u.healDone||0}</td>
+                <td>${u.dodgeCount||0}</td>
+                <td>${u.critCount||0}</td>
+                <td>${u.survivedRounds||0}</td>
+                <td>${u.alive?'✅存活':'💀阵亡'}</td>`;
             table.appendChild(row);
         });
         tableDiv.appendChild(table);
     }
     renderTable();
+    
     let btnDiv = document.createElement('div');
-    btnDiv.style.display = 'flex';
-    btnDiv.style.gap = '8px';
-    btnDiv.style.marginTop = '12px';
+    btnDiv.style.cssText = 'display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;';
+    
     let copyBtn = document.createElement('button');
     copyBtn.textContent = '📋 复制战报';
-    copyBtn.className = 'modal-btn confirm';
+    copyBtn.style.cssText = 'background:#4caf50;color:#fff;border:none;padding:8px 16px;border-radius:4px;cursor:pointer;font-weight:bold;';
     copyBtn.onclick = () => {
-        let text = '战斗结果：' + winner + '获胜\n';
-        text += '\n--- 明教 ---\n';
+        let text = '战斗结果：' + winner + '获胜\n\n';
+        text += '--- 明教 ---\n';
         ally.forEach(u => {
-            text += u.name + ' 输出' + (u.dmgDealt||0) + ' 承伤' + (u.dmgTaken||0) + ' ' + (u.alive?'存活':'阵亡') + '\n';
+            text += `${u.name}(${u.role}) 输出${u.dmgDealt||0} 承伤${u.dmgTaken||0} 治疗${u.healDone||0} 闪避${u.dodgeCount||0} 暴击${u.critCount||0} ${u.alive?'存活':'阵亡'}\n`;
         });
         text += '\n--- 六大派 ---\n';
         enemy.forEach(u => {
-            text += u.name + ' 输出' + (u.dmgDealt||0) + ' 承伤' + (u.dmgTaken||0) + ' ' + (u.alive?'存活':'阵亡') + '\n';
+            text += `${u.name}(${u.role}) 输出${u.dmgDealt||0} 承伤${u.dmgTaken||0} 治疗${u.healDone||0} 闪避${u.dodgeCount||0} 暴击${u.critCount||0} ${u.alive?'存活':'阵亡'}\n`;
         });
         navigator.clipboard.writeText(text).then(() => showAlert('战报已复制'));
     };
     btnDiv.appendChild(copyBtn);
+    
     let exportBtn = document.createElement('button');
     exportBtn.textContent = '📤 导出 JSON';
-    exportBtn.className = 'modal-btn confirm';
+    exportBtn.style.cssText = 'background:#1565c0;color:#fff;border:none;padding:8px 16px;border-radius:4px;cursor:pointer;font-weight:bold;';
     exportBtn.onclick = () => {
         let data = {
             winner: winner,
-            ally: ally.map(u => ({name:u.name, dmgDealt:u.dmgDealt, dmgTaken:u.dmgTaken, alive:u.alive})),
-            enemy: enemy.map(u => ({name:u.name, dmgDealt:u.dmgDealt, dmgTaken:u.dmgTaken, alive:u.alive}))
+            ally: ally.map(u => ({name:u.name,role:u.role,dmgDealt:u.dmgDealt,dmgTaken:u.dmgTaken,healDone:u.healDone,dodgeCount:u.dodgeCount,critCount:u.critCount,survivedRounds:u.survivedRounds,alive:u.alive})),
+            enemy: enemy.map(u => ({name:u.name,role:u.role,dmgDealt:u.dmgDealt,dmgTaken:u.dmgTaken,healDone:u.healDone,dodgeCount:u.dodgeCount,critCount:u.critCount,survivedRounds:u.survivedRounds,alive:u.alive}))
         };
         let blob = new Blob([JSON.stringify(data, null, 2)], {type:'application/json'});
         let a = document.createElement('a');
@@ -499,16 +461,60 @@ function showBattleReport(result) {
         a.click();
     };
     btnDiv.appendChild(exportBtn);
+    
     let closeBtn = document.createElement('button');
     closeBtn.textContent = '关闭';
-    closeBtn.className = 'modal-btn cancel';
+    closeBtn.style.cssText = 'background:#666;color:#fff;border:none;padding:8px 16px;border-radius:4px;cursor:pointer;font-weight:bold;';
     closeBtn.onclick = () => document.body.removeChild(overlay);
     btnDiv.appendChild(closeBtn);
+    
     box.appendChild(btnDiv);
     overlay.appendChild(box);
     document.body.appendChild(overlay);
 }
-function abortAll() { if (abortController) { abortController.abort(); abortController = null; } UI.currentResult = null; waitingForNextRound = false; isBattleStarting = false; adjustMode = false; selectedAdjustPos = null; activeBuffs = []; selectedBuffIndex = -1; currentDoubleStrikeUid = null; updateBuffSlots(); }
+
+// ==================== 音乐设置弹窗 ====================
+function showMusicPanel() {
+    let overlay = document.createElement('div'); overlay.className = 'modal-overlay';
+    let box = document.createElement('div'); box.className = 'modal-box';
+    box.style.cssText = 'max-width:360px;background:#1a1a2e;color:#eee;';
+    box.innerHTML = `
+        <div class="modal-text" style="color:#ffd700;">🎵 音乐设置</div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin:10px 0;">
+            <span>🔇 全局静音</span>
+            <input type="checkbox" id="musicMute" ${AudioManager.enabled?'':'checked'} style="width:20px;height:20px;">
+        </div>
+        <div style="margin:10px 0;">
+            <span>🔊 音量：<span id="musicVolLabel">${Math.round((AudioManager.audio?.volume||0.6)*100)}%</span></span>
+            <input type="range" id="musicVolume" min="0" max="100" value="${Math.round((AudioManager.audio?.volume||0.6)*100)}" style="width:100%;">
+        </div>
+        <div style="margin:10px 0;">
+            <span>🎼 音源：</span>
+            <select id="musicSource" style="width:100%;padding:8px;border-radius:4px;background:#2a2a4e;color:#eee;border:1px solid #555;">
+                <option value="local" ${AudioManager.currentSource==='local'?'selected':''}>本地 (sfx_xinai.mp3)</option>
+                <option value="mute" ${AudioManager.currentSource==='mute'?'selected':''}>静音</option>
+            </select>
+        </div>
+        <button class="modal-btn confirm" id="musicClose" style="margin-top:8px;">关闭</button>
+    `;
+    overlay.appendChild(box);
+    document.body.appendChild(overlay);
+
+    document.getElementById('musicMute').addEventListener('change', function(){
+        if(this.checked){ AudioManager.pause(); AudioManager.enabled = false; AudioManager.currentSource = 'mute'; }
+        else { AudioManager.enabled = true; AudioManager.switchSource(document.getElementById('musicSource').value); AudioManager.play(); }
+    });
+    document.getElementById('musicVolume').addEventListener('input', function(){
+        let vol = parseInt(this.value)/100;
+        AudioManager.setVolume(vol);
+        document.getElementById('musicVolLabel').textContent = Math.round(vol*100)+'%';
+    });
+    document.getElementById('musicSource').addEventListener('change', function(){
+        if(!document.getElementById('musicMute').checked){ AudioManager.switchSource(this.value); AudioManager.play(); }
+    });
+    document.getElementById('musicClose').addEventListener('click', ()=>{ document.body.removeChild(overlay); });
+    overlay.addEventListener('click', function(e){ if(e.target===overlay) document.body.removeChild(overlay); });
+}
 
 function updateButtons() { let mainBtn=document.getElementById('btnMain'),nextBtn=document.getElementById('btnNext'),settleBtn=document.getElementById('btnSettle'),pauseBtn=document.getElementById('btnPause'),randomBtn=document.getElementById('btnRandom'),stageBtn=document.getElementById('btnStageSelect'),infoBtn=document.getElementById('btnInfo'),copyBtn=document.getElementById('copyLog');if(gs===S.IDLE){mainBtn.innerHTML=adjustMode?'▶ 开始<br><span style="font-size:8px;">(投票)</span>':'🔄 调整<br>站位';mainBtn.disabled=false;nextBtn.disabled=true;if(adjustMode){if(stageBtn)stageBtn.disabled=true;if(randomBtn)randomBtn.disabled=true;if(infoBtn)infoBtn.disabled=true;if(copyBtn)copyBtn.disabled=true;}else{if(stageBtn)stageBtn.disabled=false;if(randomBtn)randomBtn.disabled=false;if(infoBtn)infoBtn.disabled=false;if(copyBtn)copyBtn.disabled=false;}}else if(gs===S.GAMEOVER){mainBtn.innerHTML=currentStage>=6?'🔄 重新<br>开始':'▶ 下一关';mainBtn.disabled=false;nextBtn.disabled=true;}else{mainBtn.disabled=true;}if(gs===S.RUNNING||gs===S.PAUSED){settleBtn.textContent='⏭ 直接结算';settleBtn.disabled=false;}else if(gs===S.GAMEOVER){settleBtn.textContent='🔄 重新结算';settleBtn.disabled=false;}else{settleBtn.disabled=true;}if(window.bulletTimeActive){pauseBtn.textContent='⏸️ 暂停';pauseBtn.disabled=true;pauseBtn.classList.remove('active');nextBtn.disabled=true;if(stageBtn)stageBtn.disabled=true;if(randomBtn)randomBtn.disabled=true;}else if(gs===S.RUNNING){pauseBtn.textContent='⏸️ 暂停';pauseBtn.disabled=false;pauseBtn.classList.remove('active');}else if(gs===S.PAUSED){pauseBtn.textContent='▶ 继续';pauseBtn.disabled=false;pauseBtn.classList.add('active');}else{pauseBtn.disabled=true;pauseBtn.classList.remove('active');} }
 function enableAllButtons() { document.querySelectorAll('.controls button').forEach(b => b.disabled = false); updateButtons(); }
@@ -615,7 +621,39 @@ function getPlayerContext() {
 
 window._getPlayerContext = getPlayerContext;
 
-updateCoverVersion();
+// ==================== 运行时监控 ====================
+function startRuntimeMonitor() {
+    if (runtimeMonitorActive) return;
+    runtimeMonitorActive = true;
+    const logDiv = document.getElementById('log');
+    logDiv.innerHTML += `<span class="gold">[体检] 静默监控已启动，每隔 5 秒自动采样</span><br>`;
+    autoScrollLog();
+    runtimeMonitorInterval = setInterval(async () => {
+        const ctx = getPlayerContext();
+        if (!ctx || ctx.gs !== S.RUNNING) return;
+        try {
+            const result = await runRuntimeSample(ctx, 2);
+            if (!result.passed) {
+                logDiv.innerHTML += `<span class="red">[体检] 发现问题：</span><br>`;
+                result.failures.forEach(f => {
+                    logDiv.innerHTML += `<span class="red">  ❌ ${f.name} → ${f.fix || f.error}</span><br>`;
+                });
+                autoScrollLog();
+            }
+        } catch (e) {}
+    }, 5000);
+}
+
+function stopRuntimeMonitor() {
+    runtimeMonitorActive = false;
+    if (runtimeMonitorInterval) { clearInterval(runtimeMonitorInterval); runtimeMonitorInterval = null; }
+    const logDiv = document.getElementById('log');
+    logDiv.innerHTML += `<span class="gray">[体检] 静默监控已停止</span><br>`;
+    autoScrollLog();
+}
+
+async function startApp() { updateCoverVersion(); }
+startApp();
 
 document.addEventListener('DOMContentLoaded', function() {
     const controls = document.querySelector('.controls');
@@ -642,24 +680,16 @@ document.addEventListener('DOMContentLoaded', function() {
                         gs=S.RUNNING; updateButtons(); document.getElementById('btnNext').disabled=true;
                         abortController=new AbortController();
                         snapshot.ally=UI.allyTeam.map(u=>Object.freeze(u.clone()));
-                        // 最终保底：确保所有敌人在战斗开始前都有合法位置
                         let occupiedPositions = new Set(snapshot.ally.map(u => u.pos));
                         let freePositions = [1,2,3,4,5,6,7,8,9].filter(p => !occupiedPositions.has(p));
                         let enemyList = snapshot.enemy.map(u => u.clone());
                         for (let unit of enemyList) {
                             if (unit.pos === -1 || unit.pos == null) {
-                                if (freePositions.length > 0) {
-                                    unit.pos = freePositions[rand(0, freePositions.length - 1)];
-                                    unit._originalPos = unit.pos;
-                                    freePositions = freePositions.filter(p => p !== unit.pos);
-                                } else {
-                                    unit.pos = 1 + rand(0, 8);
-                                    unit._originalPos = unit.pos;
-                                }
+                                if (freePositions.length > 0) { unit.pos = freePositions[rand(0, freePositions.length - 1)]; unit._originalPos = unit.pos; freePositions = freePositions.filter(p => p !== unit.pos); }
+                                else { unit.pos = 1 + rand(0, 8); unit._originalPos = unit.pos; }
                             }
                         }
                         snapshot.enemy = Object.freeze(enemyList.map(u => Object.freeze(u)));
-                        // 同时更新 UI 中的敌人队伍，保证界面与快照一致
                         UI.enemyTeam = enemyList;
                         updateUI(UI);
                         UI.currentResult=runBattle(snapshot, activeBuffs);
@@ -667,20 +697,16 @@ document.addEventListener('DOMContentLoaded', function() {
                             currentDoubleStrikeUid = UI.currentResult.doubleStrikeUids[UI.currentResult.doubleStrikeUids.length - 1] || null;
                         }
                         await playBattle();
-                        // 显示战报
                         let ctx = window._getPlayerContext();
-                        if (ctx && ctx.battleResultForInfo) {
-                            showBattleReport(ctx.battleResultForInfo);
-                        }
+                        if (ctx && ctx.battleResultForInfo) { showBattleReport(ctx.battleResultForInfo); }
                     } catch (e) {
-                        let logDiv=document.getElementById('log');
-                        let errorDiv=document.createElement('div');
+                        let logDiv=document.getElementById('log'); let errorDiv=document.createElement('div');
                         errorDiv.innerHTML=`<span class="red">❌ 战斗异常中断：${e.message || e}</span><br>`;
-                        logDiv.appendChild(errorDiv);
-                        logDiv.scrollTop=logDiv.scrollHeight;
+                        logDiv.appendChild(errorDiv); logDiv.scrollTop=logDiv.scrollHeight;
                         console.error('战斗异常', e);
                     } finally {
                         abortController=null;
+                        if (runtimeMonitorActive) stopRuntimeMonitor();
                     }
                     updateButtons();
                 });
@@ -698,50 +724,59 @@ document.addEventListener('DOMContentLoaded', function() {
     });
     document.getElementById('btnDetail').addEventListener('click',function(){
         detailMode=!detailMode;this.classList.toggle('active',detailMode);this.textContent=detailMode?'详细':'简要';
-        let logDiv=document.getElementById('log');
-        let scrollPos = logDiv.scrollTop;
-        let totalBefore = logDiv.scrollHeight;
+        let logDiv=document.getElementById('log'); let scrollPos = logDiv.scrollTop; let totalBefore = logDiv.scrollHeight;
         if(!detailMode){document.querySelectorAll('#log .gray.small').forEach(el=>{if(el.parentElement)el.parentElement.classList.add('detail-hidden');});}
         else{document.querySelectorAll('#log .detail-hidden').forEach(el=>el.classList.remove('detail-hidden'));}
-        let totalAfter = logDiv.scrollHeight;
-        logDiv.scrollTop = scrollPos + (totalAfter - totalBefore);
+        let totalAfter = logDiv.scrollHeight; logDiv.scrollTop = scrollPos + (totalAfter - totalBefore);
     });
-    document.getElementById('debugToggle').addEventListener('click',function(){onAnyButtonClick();debugMode=!debugMode;this.classList.toggle('active',debugMode);this.textContent='V3.0';window._debugMode=debugMode;updateSpeedButtons();updateDebugUI();updateUI(UI);if (debugMode) logVersions();});
+    document.getElementById('debugToggle').addEventListener('click',function(){
+        onAnyButtonClick(); debugMode=!debugMode; this.classList.toggle('active',debugMode); this.textContent='V3.0'; window._debugMode=debugMode;
+        updateSpeedButtons(); updateDebugUI(); updateUI(UI);
+        if (debugMode) { logVersions(); if (!runtimeMonitorActive) startRuntimeMonitor(); }
+        else { if (runtimeMonitorActive) stopRuntimeMonitor(); }
+    });
     document.getElementById('copyLog').addEventListener('click',()=>{
-        let logDiv=document.getElementById('log');
-        let lines=[];
-        logDiv.querySelectorAll('div').forEach(div=>{
-            let t=div.textContent||'';
-            if(t.trim()) lines.push(t.trim());
-        });
-        let text=lines.join('\n');
-        if(!text.trim()){showAlert('日志为空');return;}
-        navigator.clipboard.writeText(text).then(()=>showAlert('日志已复制')).catch(()=>{
-            let ta=document.createElement('textarea');
-            ta.value=text;
-            ta.style.position='fixed';ta.style.left='-9999px';
-            document.body.appendChild(ta);ta.select();
-            document.execCommand('copy');document.body.removeChild(ta);
-            showAlert('日志已复制');
+        showModal('选择复制类型', [
+            {text:'📋 复制普通日志', value:'normal', cls:'buff'},
+            {text:'🩺 复制体检日志', value:'health', cls:'buff'},
+            {text:'📋 复制全部日志', value:'all', cls:'buff'}
+        ], (choice)=>{
+            let logDiv=document.getElementById('log');
+            let lines=[];
+            let seen=new Set();
+            logDiv.querySelectorAll('div').forEach(div=>{
+                let t=div.textContent||'';
+                t=t.trim();
+                if(!t) return;
+                if(t.includes('回合开始')||t.includes('回合结束')){
+                    let key=t.substring(0,20);
+                    if(seen.has(key)) return;
+                    seen.add(key);
+                }
+                if(choice==='health'){
+                    if(t.includes('[体检]')) lines.push(t);
+                } else if(choice==='normal'){
+                    if(!t.includes('[体检]')) lines.push(t);
+                } else {
+                    lines.push(t);
+                }
+            });
+            let text=lines.join('\n');
+            if(!text.trim()){showAlert('没有匹配的日志');return;}
+            navigator.clipboard.writeText(text).then(()=>showAlert('日志已复制'));
         });
     });
 
     document.getElementById('btnInfo').addEventListener('click',()=>{let ally=UI.allyTeam,enemy=UI.enemyTeam;if(!ally.length){showAlert('无阵容信息');return;}logTeamInfo('阵容详情');});
-    document.getElementById('btnBGM').addEventListener('click',()=>{toggleBGM();});
+    document.getElementById('btnBGM').addEventListener('click',()=>{ showMusicPanel(); });
     document.getElementById('btnCrashMode').addEventListener('click',function(){window._crashMode=window._crashMode==='fly'?'ghost':'fly';this.textContent=window._crashMode==='fly'?'🕊️飞走':'👻虚影';});
     document.getElementById('btnDodgeToggle').addEventListener('click',()=>{toggleDodgeEffect();});
-    document.getElementById('btnStageSelect').addEventListener('click',()=>{
-        if(gs!==S.IDLE)return;
-        openStageSelectModal();
-    });
+    document.getElementById('btnStageSelect').addEventListener('click',()=>{ if(gs!==S.IDLE)return; openStageSelectModal(); });
 
     function openStageSelectModal(){
         let buttons=[];
         for(let i=1;i<=6;i++){buttons.push({text:i===currentStage?`第${i}关 ◀`:`第${i}关`,value:i,cls:'buff'});}
-        showModal('选择关卡',buttons,(stage)=>{
-            if(stage===currentStage)return;
-            switchToStageInternal(stage);
-        },false);
+        showModal('选择关卡',buttons,(stage)=>{ if(stage===currentStage)return; switchToStageInternal(stage); },false);
     }
 
     function switchToStageInternal(stage){
@@ -764,11 +799,7 @@ document.addEventListener('DOMContentLoaded', function() {
         gs=S.IDLE;updateButtons();enableAllButtons();
     }
 
-    window.selectStage = (stage)=>{
-        if(stage===currentStage)return;
-        forceStopGame();
-        switchToStageInternal(stage);
-    };
+    window.selectStage = (stage)=>{ if(stage===currentStage)return; forceStopGame(); switchToStageInternal(stage); };
     window.forceStopGame = forceStopGame;
     window.doManualReset = doManualReset;
     window.getGameState = ()=>({ gs, currentStage, isPaused, isBattleStarting, allyCount:UI.allyTeam.length, enemyCount:UI.enemyTeam.length });
@@ -777,13 +808,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function setSpeed(val, lock) { speed = val; manualSpeedLock = lock; manualSpeedValue = lock ? val : null; slideSpeedActive = lock; updateSpeedButtons(); }
     function attachSpeedButton(id, speedVal) {
-        let btn = document.getElementById(id);
-        if (!btn) return;
-        btn.addEventListener('click', function() {
-            onAnyButtonClick();
-            if (speed === speedVal) setSpeed(1000, false);
-            else setSpeed(speedVal, true);
-        });
+        let btn = document.getElementById(id); if (!btn) return;
+        btn.addEventListener('click', function() { onAnyButtonClick(); if (speed === speedVal) setSpeed(1000, false); else setSpeed(speedVal, true); });
     }
     attachSpeedButton('btnSpeed2', 500);
     attachSpeedButton('btnSpeed7x', 143);

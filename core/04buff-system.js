@@ -1,6 +1,6 @@
-// 04buff-system.js - 光明顶对战 5v5 Buff 系统 (分裂箭修复版)
-// 预估行数: 275, 发送时间: 20260620 08:00, 版本: V1.2.3
-export const VER = '04buff-system.js V1.2.3';
+// core/04buff-system.js - 光明顶5v5 Buff系统
+// V4.0.0 | ~275 lines | 2026-06-29 09:29
+export const VER = 'core/04buff-system.js V4.0.0';
 
 import { CONFIG } from './01config-5v5-test.js';
 import { rand, hasBuff, getUnitRow, getUnitCol, getAdjacentPositions } from './03battle-utils.js';
@@ -228,7 +228,9 @@ export function logBuffSummary(allyTeam, log, doubleStrikeUid) {
                     let allAllies = fullAllies.filter(u => u.uid !== carryUnit.uid && !u.isHorse);
                     let aliveCount = allAllies.filter(a => a.alive).length;
                     let deadCount = allAllies.length - aliveCount;
-                    let desc = `👑 你就是carry：${carryUnit.name} 获得队友属性加成（${aliveCount}人存活，${deadCount}人阵亡大幅提升）`;
+                    let desc = `👑 你就是carry：${carryUnit.name} 获得队友属性加成（${aliveCount}人存活`;
+if (deadCount > 0) desc += `，${deadCount}人阵亡大幅提升`;
+desc += `）`;
                     log.push({type:'buff-summary', text:`<span class="gold">${desc}</span>`, buffType:'buff_stat'});
                 }
                 break;

@@ -1,6 +1,6 @@
-// 19fx-push-back.js - 光明顶对战 5v5 击退特效 (纯击退 + 击退换位)
-// 预估行数: 135, 发送时间: 20260619 21:00, 版本: V1.1.0
-export const VER = '19fx-push-back.js V1.1.0';
+// fx/19fx-push-back.js - 光明顶5v5 击退特效
+// V4.0.0 | ~135 lines | 2026-06-29 09:29
+export const VER = 'fx/19fx-push-back.js V4.0.0';
 
 /**
  * 获取单位对应的格子 DOM 元素
