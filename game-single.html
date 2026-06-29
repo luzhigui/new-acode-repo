@@ -174,7 +174,7 @@ h2 { color: #b8860b; font-size: 0.85rem; letter-spacing: -0.5px; overflow: hidde
     <button class="cover-start-btn" id="coverStartBtn" onclick="(function(){var o=document.getElementById('coverOverlay');if(o)o.style.display='none';}());">开始游戏</button>
     <div id="coverVersion"></div>
   </div>
-  <div class="header"><h2>光明顶对战 5v5 <span class="score-badge" id="scoreBadge">10分</span></h2><button id="debugToggle" class="debug-toggle-btn active">V3.0</button><a class="dl-btn" href="/game-single.html" download="game-single.html">下载</a></div>
+  <div class="header"><h2>光明顶对战 5v5 <span class="score-badge" id="scoreBadge">10分</span></h2><button id="debugToggle" class="debug-toggle-btn active">V3.0</button><a class="dl-btn" href="javascript:void(0)" onclick="(function(){var d=document,a=d.createElement('a'),h='<!DOCTYPE html>\\n'+d.documentElement.outerHTML;a.href='data:text/html;charset=utf-8,'+encodeURIComponent(h);a.download='game-single.html';d.body.appendChild(a);a.click();d.body.removeChild(a);})();return false;">下载</a><button class="dl-btn" style="background:#2980b9;border-color:#1a5276;" onclick="(function(){navigator.clipboard.writeText('<!DOCTYPE html>\\n'+document.documentElement.outerHTML).then(function(){alert('源码已复制到剪贴板！粘贴到记事本另存为 game-single.html 即可。');}).catch(function(){var ta=document.createElement('textarea');ta.value='<!DOCTYPE html>\\n'+document.documentElement.outerHTML;document.body.appendChild(ta);ta.select();document.execCommand('copy');document.body.removeChild(ta);alert('请按 Ctrl+V 粘贴保存为 HTML 文件');});})();">复制</button></div>
   <div class="upper-area">
     <div class="battlefield" id="battlefield">
       <div class="team-row"><span class="team-label orange" id="labelEnemy">六大派</span><div class="grid" id="enemyGrid"></div></div>
