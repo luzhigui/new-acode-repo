@@ -174,7 +174,7 @@ h2 { color: #b8860b; font-size: 0.85rem; letter-spacing: -0.5px; overflow: hidde
     <button class="cover-start-btn" id="coverStartBtn" onclick="(function(){var o=document.getElementById('coverOverlay');if(o)o.style.display='none';}());">开始游戏</button>
     <div id="coverVersion"></div>
   </div>
-  <div class="header"><h2>光明顶对战 5v5 <span class="score-badge" id="scoreBadge">10分</span></h2><button id="debugToggle" class="debug-toggle-btn active">V3.0</button><a class="dl-btn" href="/game-single.html" download="game-single.html" onclick="this.href=URL.createObjectURL(new Blob([document.documentElement.outerHTML], {type:'text/html'}));this.download='game-single.html';">下载</a></div>
+  <div class="header"><h2>光明顶对战 5v5 <span class="score-badge" id="scoreBadge">10分</span></h2><button id="debugToggle" class="debug-toggle-btn active">V3.0</button><a class="dl-btn" href="/game-single.html" download="game-single.html">下载</a></div>
   <div class="upper-area">
     <div class="battlefield" id="battlefield">
       <div class="team-row"><span class="team-label orange" id="labelEnemy">六大派</span><div class="grid" id="enemyGrid"></div></div>
@@ -4280,30 +4280,22 @@ function updateCoverVersion(loaded, failed) {
 }
 
 async function loadModules(updateCoverVersion) {
-    const loaded = {};
-    const failed = {};
-    const modules = {
-        'core/config.js': '../core/config.js',
-        'core/engine.js': '../core/engine.js',
-        'player/player-core.js': '../player/player-core.js',
-        'ui/main.js': '../ui/main.js',
-        'ui/render.js': '../ui/render.js',
-        'fx/fx-common.js': '../fx/fx-common.js',
-        'fx/fx-crash.js': '../fx/fx-crash.js',
-        'fx/fx-arrows.js': '../fx/fx-arrows.js',
-        'fx/fx-dodge-bullet.js': '../fx/fx-dodge-bullet.js',
-        'modules/audio.js': '../modules/audio.js'
-    };
-    for (const [name, path] of Object.entries(modules)) {
-        // all modules inlined, no dynamic import needed
-    }
-    // 即使部分模块失败，也要继续更新显示，不要阻塞游戏启动
-    updateCoverVersion(loaded, failed);
+    // 所有模块已内联，无需动态加载
+    updateCoverVersion({}, {});
 }
 
 // ==================== 来自 13main-5v5-test.js ====================
 
 var C = CONFIG, S = STATE, KT = KILL_TAUNT;
+
+// 版本变量（从各模块的 import { VER as ... } 重新注入）
+var CFG_VER = 'core/config.js V4.0.0';
+var BE_VER = 'core/engine.js V4.0.0';
+var UI_VER = 'ui/render.js V4.0.0';
+var FX_VER = 'fx/fx-common.js V4.0.0';
+var FA_VER = 'fx/fx-arrows.js V4.0.0';
+var FC_VER = 'fx/fx-crash.js V4.0.0';
+var BP_VER = 'player/player-core.js V4.0.0';
 
 var FILE_VER = 'ui/main.js V4.0.0';
 var INDEX_VER = 'game.html V4.0.0';
