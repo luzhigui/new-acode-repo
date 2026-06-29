@@ -13,6 +13,7 @@ h2 { color: #b8860b; font-size: 0.85rem; letter-spacing: -0.5px; overflow: hidde
 @keyframes scoreFlash { 0%{ opacity:0; transform:translateY(-50%) translateX(-8px) scale(0.6); } 10%{ opacity:1; transform:translateY(-50%) translateX(0) scale(1.5); } 25%{ transform:translateY(-50%) translateX(0) scale(1); } 65%{ opacity:1; } 100%{ opacity:0; transform:translateY(-50%) translateX(6px) scale(1.1); } }
 .debug-toggle-btn { background: #9b59b6; border: 1px solid #7d3c98; padding: 2px 6px; border-radius: 4px; font-size: 10px; cursor: pointer; color: white; height: 26px; white-space: nowrap; }
 .debug-toggle-btn.active { background: #7d3c98; }
+.dl-btn { background: #27ae60; border: 1px solid #1e8449; padding: 2px 8px; border-radius: 4px; font-size: 10px; cursor: pointer; color: white; height: 26px; white-space: nowrap; margin-left: 4px; text-decoration: none; }
 .upper-area { flex: 0 0 48dvh; display: flex; flex-direction: column; overflow: hidden; }
 .battlefield { flex: 0 0 40dvh; display: flex; flex-direction: column; justify-content: flex-start; gap: 2px; position: relative; }
 .team-row { display: flex; align-items: center; gap: 4px; flex: 1; max-width: 500px; margin: 0 auto; width: 100%; }
@@ -173,7 +174,7 @@ h2 { color: #b8860b; font-size: 0.85rem; letter-spacing: -0.5px; overflow: hidde
     <button class="cover-start-btn" id="coverStartBtn" onclick="(function(){var o=document.getElementById('coverOverlay');if(o)o.style.display='none';}());">开始游戏</button>
     <div id="coverVersion"></div>
   </div>
-  <div class="header"><h2>光明顶对战 5v5 <span class="score-badge" id="scoreBadge">10分</span></h2><button id="debugToggle" class="debug-toggle-btn active">V3.0</button></div>
+  <div class="header"><h2>光明顶对战 5v5 <span class="score-badge" id="scoreBadge">10分</span></h2><button id="debugToggle" class="debug-toggle-btn active">V3.0</button><a class="dl-btn" href="/game-single.html" download="game-single.html" onclick="this.href=URL.createObjectURL(new Blob([document.documentElement.outerHTML], {type:'text/html'}));this.download='game-single.html';">下载</a></div>
   <div class="upper-area">
     <div class="battlefield" id="battlefield">
       <div class="team-row"><span class="team-label orange" id="labelEnemy">六大派</span><div class="grid" id="enemyGrid"></div></div>
