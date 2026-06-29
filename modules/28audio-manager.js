@@ -40,8 +40,8 @@ export async function initSfx() {
     await Promise.all(promises);
 }
 
-// 播放已预加载的 mp3 音效
-function playBufferSfx(key) {
+// 播放已预加载的 mp3 音效（应用独立音量）
+function playBufferSfx(key, volume) {
     const buffer = sfxBuffers[key];
     if (!buffer) return;
     try {
@@ -50,7 +50,7 @@ function playBufferSfx(key) {
         source.buffer = buffer;
 
         const gainNode = ctx.createGain();
-        gainNode.gain.setValueAtTime(0.8, ctx.currentTime);
+        gainNode.gain.setValueAtTime(volume, ctx.currentTime);
 
         source.connect(gainNode);
         gainNode.connect(ctx.destination);
@@ -136,40 +136,15 @@ function playSlash() {
     noise.stop(now + noiseDuration);
 }
 
-    playSfx(role) {
-        if (!this.enabled) return;
-        try {
-            const sfxConfig = CONFIG.SFX || {};
-            const sfx = sfxConfig[role];
-            if (!sfx) return;
+export const AudioManager = {
+    audio: null,
+    enabled: true,
+    currentSource: 'local',
+    sourceBeforeMute: 'network',
+    sfxVolume: 0.8,   // 新增：音效独立音量
 
-            // 暂时压低 BGM
-            if (this.audio && this.audio.volume > 0.2) {
-                this.audio.volume = 0.2;
-            }
-            const restoreBGM = () => {
-                if (this.audio) this.audio.volume = 0.6;
-            };
-            const ctx = getAudioCtx();
-            if (ctx.state === 'suspended') { ctx.resume(); }
-            if (sfx === 'hammer') {
-                playHammer();
-                setTimeout(restoreBGM, 600);
-            } else if (sfx === 'slash') {
-                playSlash();
-                setTimeout(restoreBGM, 600);
-            } else {
-                // 从预加载的缓冲区播放 mp3 音效
-                playBufferSfx(role);
-                setTimeout(restoreBGM, 800);
-            }
-        } catch (e) {
-            // 音效播放失败不影响游戏
-        }
-    }
-    
     init() {
-        const url = CONFIG.BGM_URL;
+            const url = CONFIG.BGM_LOCAL;
         try {
             if (this.audio) {
                 this.audio.pause();
@@ -229,9 +204,7 @@ function playSlash() {
             this.enabled = false;
         } else {
             this.enabled = true;
-            const url = source === 'local' && CONFIG.BGM_LOCAL 
-                ? CONFIG.BGM_LOCAL 
-                : CONFIG.BGM_URL;
+            const url = CONFIG.BGM_LOCAL;
             try {
                 this.audio = new Audio(url);
                 this.audio.loop = true;
@@ -284,8 +257,8 @@ function playSlash() {
                 playSlash();
                 setTimeout(restoreBGM, 600);
             } else {
-                // 从预加载的缓冲区播放 mp3 音效
-                playBufferSfx(role);
+                // 从预加载的缓冲区播放 mp3 音效，使用独立音量
+                playBufferSfx(role, this.sfxVolume);
                 setTimeout(restoreBGM, 800);
             }
         } catch (e) {
