@@ -1,6 +1,6 @@
-// 28audio-manager.js - 光明顶对战 5v5 音频管理器 (V3.0 Web Audio 音效系统)
-// 预估行数: 150, 发送时间: 20260620 23:00, 版本: V3.0.0
-export const VER = '28audio-manager.js V3.0.0';
+// modules/28audio-manager.js - 光明顶5v5 音频管理器
+// V4.0.0 | ~150 lines | 2026-06-29 09:29
+export const VER = 'modules/28audio-manager.js V4.0.0';
 
 import { CONFIG } from '../core/01config-5v5-test.js';
 
@@ -136,11 +136,37 @@ function playSlash() {
     noise.stop(now + noiseDuration);
 }
 
-export const AudioManager = {
-    audio: null,
-    enabled: true,
-    currentSource: 'network',
-    sourceBeforeMute: 'network',
+    playSfx(role) {
+        if (!this.enabled) return;
+        try {
+            const sfxConfig = CONFIG.SFX || {};
+            const sfx = sfxConfig[role];
+            if (!sfx) return;
+
+            // 暂时压低 BGM
+            if (this.audio && this.audio.volume > 0.2) {
+                this.audio.volume = 0.2;
+            }
+            const restoreBGM = () => {
+                if (this.audio) this.audio.volume = 0.6;
+            };
+            const ctx = getAudioCtx();
+            if (ctx.state === 'suspended') { ctx.resume(); }
+            if (sfx === 'hammer') {
+                playHammer();
+                setTimeout(restoreBGM, 600);
+            } else if (sfx === 'slash') {
+                playSlash();
+                setTimeout(restoreBGM, 600);
+            } else {
+                // 从预加载的缓冲区播放 mp3 音效
+                playBufferSfx(role);
+                setTimeout(restoreBGM, 800);
+            }
+        } catch (e) {
+            // 音效播放失败不影响游戏
+        }
+    }
     
     init() {
         const url = CONFIG.BGM_URL;

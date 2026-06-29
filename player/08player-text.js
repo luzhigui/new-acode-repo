@@ -1,6 +1,6 @@
-// 08player-text.js - 光明顶对战 5v5 文字播放器
-// 修正：统一版本号导出为 VER
-export const VER = '08player-text.js V1.0.0';
+// player/08player-text.js - 光明顶5v5 文字播放器
+// V4.0.0 | 2026-06-29 09:29
+export const VER = 'player/08player-text.js V4.0.0';
 
 let ctx = null;
 function getCtx() {

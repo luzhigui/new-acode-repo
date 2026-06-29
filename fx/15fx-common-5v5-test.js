@@ -1,6 +1,6 @@
-// 15fx-common-5v5-test.js - 光明顶对战 5v5 基础特效池 (含独立大号横幅)
-// 预估行数: 380, 发送时间: 20260621 16:00, 版本: V2.1.1
-export const VER = '15fx-common-5v5-test.js V2.1.1';
+// fx/15fx-common-5v5-test.js - 光明顶5v5 基础特效池
+// V4.0.0 | ~380 lines | 2026-06-29 09:29
+export const VER = 'fx/15fx-common-5v5-test.js V4.0.0';
 
 const POOL = {}; const POOL_SIZES = { danmaku: 8, dmgFloat: 6, dodge: 4, healFloat: 4, buffBanner: 2 };
 function initPool(type, createFn) { if (!POOL[type]) { POOL[type] = { available: [], active: [] }; for (let i = 0; i < POOL_SIZES[type]; i++) { let el = createFn(); el.style.display = 'none'; document.body.appendChild(el); POOL[type].available.push(el); } } }

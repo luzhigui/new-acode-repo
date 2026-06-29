@@ -1,7 +1,6 @@
-// 14ui-render-5v5-test.js - 光明顶对战 5v5 UI渲染模块
-// 0625 12:38 kimi: 补充鹿杖客/鹤笔翁/成昆技能描述，玄冥二老拆分后详情弹窗适配
-// 预估行数: 610, 发送时间: 20260625 12:38, 版本: V1.0.14
-export const VER = '14ui-render-5v5-test.js V1.0.14';
+// ui/14ui-render-5v5-test.js - 光明顶5v5 UI渲染模块
+// V4.0.0 | ~610 lines | 2026-06-29 09:29
+export const VER = 'ui/14ui-render-5v5-test.js V4.0.0';
 
 import { CONFIG } from '../core/01config-5v5-test.js';
 import { showDanmaku as _showDanmaku } from '../fx/15fx-common-5v5-test.js';

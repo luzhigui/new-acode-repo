@@ -1,8 +1,6 @@
-// 38health-ui.js - 光明顶 5v5 测试与体检 UI 交互模块 V2.2
-// 2026-06-25 kimi: 清空历史记录改用自定义确认弹窗；环境诊断代码用 if(diagCont) 包裹，兼容 30test-runner 下掉诊断页签
-// 预估行数: 230, 发送时间: 20260625 18:00, 版本: V2.2.0
-// 联动: 被 30test-runner.html 调用，集中管理所有 UI 逻辑
-// 变更: 将 30 内联 JS 全部移入，30 只保留 HTML 骨架
+// tests/38health-ui.js - 光明顶5v5 体检UI交互
+// V4.0.0 | ~230 lines | 2026-06-29 09:29
+export const VER = 'tests/38health-ui.js V4.0.0';
 
 import { runTests } from './25unit-tests.js';
 import { runHealthCheck } from './37health-core.js';

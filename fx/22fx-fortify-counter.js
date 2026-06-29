@@ -1,6 +1,6 @@
-// 22fx-fortify-counter.js - 光明顶对战 5v5 严阵以待防守反击特效 (初版)
-// 预估行数: 200, 发送时间: 20260619 22:30, 版本: V1.0.0
-export const VER = '22fx-fortify-counter.js V1.0.0';
+// fx/22fx-fortify-counter.js - 光明顶5v5 严阵以待反击特效
+// V4.0.0 | ~200 lines | 2026-06-29 09:29
+export const VER = 'fx/22fx-fortify-counter.js V4.0.0';
 
 import { showDamageFloat, showComicBubble } from './15fx-common-5v5-test.js';
 

@@ -1,6 +1,6 @@
-// 18fx-position-swap.js - 光明顶对战 5v5 换位闪烁特效 (实验室节奏加强版)
-// 预估行数: 90, 发送时间: 20260619 20:15, 版本: V1.0.1
-export const VER = '18fx-position-swap.js V1.0.1';
+// fx/18fx-position-swap.js - 光明顶5v5 换位闪烁特效
+// V4.0.0 | ~90 lines | 2026-06-29 09:29
+export const VER = 'fx/18fx-position-swap.js V4.0.0';
 
 /**
  * 获取单位对应的格子 DOM 元素

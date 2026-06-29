@@ -1,6 +1,6 @@
-// 24error-capture.js - 全局错误捕获与控制台转存 (增强堆栈与对象显示)
-// 预估行数: 120, 发送时间: 20260624 19:00, 版本: V1.0.2
-export const VER = '24error-capture.js V1.0.2';
+// modules/24error-capture.js - 光明顶5v5 全局错误捕获
+// V4.0.0 | ~120 lines | 2026-06-29 09:29
+export const VER = 'modules/24error-capture.js V4.0.0';
 
 (function initErrorCapture() {
     // ---------- 创建面板 ----------

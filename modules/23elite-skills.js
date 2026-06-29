@@ -1,6 +1,6 @@
-// 23elite-skills.js - 光明顶对战 5v5 精英怪技能系统 (V3.1.0 宋青书/周芷若联动)
-// 预估字节: 6800, 发送时间: 20260622 21:00, 版本: V3.1.0
-export const VER = '23elite-skills.js V3.1.0';
+// modules/23elite-skills.js - 光明顶5v5 精英技能系统
+// V4.0.0 | ~6800 bytes | 2026-06-29 09:29
+export const VER = 'modules/23elite-skills.js V4.0.0';
 
 import { CONFIG } from '../core/01config-5v5-test.js';
 const ES = CONFIG.ELITE_SKILLS;

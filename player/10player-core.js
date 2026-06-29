@@ -1,6 +1,6 @@
-// 10player-core.js - 光明顶对战 5v5 战斗播放器核心 (V3.0 战斗音效)
-// 预估行数: 430, 发送时间: 20260621 15:30, 版本: V3.0.1
-export const VER = '10player-core.js V3.0.1';
+// player/10player-core.js - 光明顶5v5 战斗播放器核心
+// V4.0.0 | ~430 lines | 2026-06-29 09:29
+export const VER = 'player/10player-core.js V4.0.0';
 
 import { runBattleRound } from '../core/07battle-engine-5v5-test.js';
 import { isBlocked } from '../core/03battle-utils.js';

@@ -1,6 +1,6 @@
-// 05battle-horse.js - 光明顶对战 5v5 拒马逻辑
-// 版本: V1.0.1, 预估行数: 80
-export const VER = '05battle-horse.js V1.0.1';
+// core/05battle-horse.js - 光明顶5v5 拒马逻辑
+// V4.0.0 | ~80 lines | 2026-06-29 09:29
+export const VER = 'core/05battle-horse.js V4.0.0';
 
 import { CONFIG } from './01config-5v5-test.js';
 import { rand, hasBuff } from './03battle-utils.js';

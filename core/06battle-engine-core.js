@@ -1,7 +1,6 @@
-// 06battle-engine-core.js - 光明顶对战 5v5 战斗核心循环 (V3.1.1 修复新婚扣血传入错误队伍)
-// 0625 12:38 kimi: 修复 applyXinHunDeduction 传入 enemySide→allySide，宋青书攻击时能正确找到周芷若
-// 预估字节: 24800, 发送时间: 20260625 12:38, 版本: V3.1.1
-export const VER = '06battle-engine-core.js V3.1.1';
+// core/06battle-engine-core.js - 光明顶5v5 战斗核心循环
+// V4.0.0 | ~24800 bytes | 2026-06-29 09:29
+export const VER = 'core/06battle-engine-core.js V4.0.0';
 
 import { CONFIG, DEF_TAUNT, HP_TAUNT } from './01config-5v5-test.js';
 import { rand, calcDamage, getFangLevel, isMelee, getFronts, isBlocked, getFlyDodgeRate, getRandomTaunt, getZhangNearTaunt, makeFXSnapshot, hasBuff } from './03battle-utils.js';
@@ -53,7 +52,7 @@ export function runBattleRound(state) {
         }
     }
     
-    window._currentBattleState = { ally: state.ally };
+    window._currentBattleState = { ally: state.ally, enemy: state.enemy };
     logBuffSummary(A, log, doubleStrikeUnitUid);
     
     A.forEach(u => {
@@ -245,7 +244,9 @@ allyTeamWithDead = allyTeamWithDead.filter((u, i, arr) => arr.findIndex(v => v.u
         }
 
         let unitActiveBuffs = unit.camp === 'ally' ? allySide._activeBuffs : enemySide._activeBuffs;
-        let unitAllyTeam = unit.camp === 'ally' ? allySide : enemySide;
+        let unitAllyTeam = unit.camp === 'ally' 
+    ? (window._currentBattleState?.ally || allySide) 
+    : (window._currentBattleState?.enemy || enemySide);
         // 如果有 carry buff，攻击时也需要包含已阵亡队友（死亡加成翻倍）
         if (hasBuff(unitActiveBuffs, 'carry') && unit.camp === 'ally') {
             unitAllyTeam = unitAllyTeam.concat(state.ally.filter(c => !c.alive));

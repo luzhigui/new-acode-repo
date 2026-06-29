@@ -1,7 +1,5 @@
-// 00build-5v5.cjs —— 光明顶 5v5 单文件构建脚本 V2.9
-// 用法：node 00build-5v5.cjs
-// 输出：mode-5v5-combined.html
-// 更新：补全 23/24/27 模块及其 VER 映射，确保所有新功能可用
+// tools/00build-5v5.cjs - 光明顶5v5 构建脚本
+// V4.0.0 | 2026-06-29 09:29
 
 const fs = require('fs');
 const path = require('path');

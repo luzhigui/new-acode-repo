@@ -1,6 +1,6 @@
-// 03battle-utils.js - 光明顶对战 5v5 战斗工具函数
-// 版本: V1.0.0, 预计行数: 300
-export const VER = '02battle-utils.js V1.0.0';
+// core/03battle-utils.js - 光明顶5v5 战斗工具函数
+// V4.0.0 | ~300 lines | 2026-06-29 09:29
+export const VER = 'core/03battle-utils.js V4.0.0';
 
 import { CONFIG, TAUNT_LIB, DEF_TAUNT, HP_TAUNT, ZHANG_NEAR_TAUNT } from './01config-5v5-test.js';
 const C = CONFIG, TL = TAUNT_LIB, DT = DEF_TAUNT, HT = HP_TAUNT, ZT = ZHANG_NEAR_TAUNT;

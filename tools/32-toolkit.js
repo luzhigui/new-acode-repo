@@ -1,5 +1,5 @@
-// 光明顶5v5 · 开发工具箱 V4.0.0 (路径对齐)
-// 包含：文件复制器、函数替换器、急救包、防战计算器、自动批量战斗
+// tools/32-toolkit.js - 光明顶5v5 开发工具箱
+// V4.0.0 | 2026-06-29 09:29
 
 /* ========== 标签页切换 ========== */
 document.querySelectorAll('.tab-btn').forEach(btn => {
@@ -37,13 +37,12 @@ function escapeHtml(text) {
         // modules
         '../modules/23elite-skills.js', '../modules/24error-capture.js', '../modules/28audio-manager.js',
         // tests
-        '../tests/25unit-tests.js', '../tests/27auto-battle-utils.js', '../tests/29health-rules.js',
-        '../tests/35quiz-bank.js', '../tests/37health-core.js', '../tests/38health-ui.js',
+        '../tests/25unit-tests.js', '../tests/29health-rules.js',
+        '../tests/35quiz-bank.js', '../tests/36runtime-sampler.js', '../tests/37health-core.js', '../tests/38health-ui.js',
         // tools (自身)
-        '../tools/31-toolkit.html', '../tools/32-toolkit.js',
+        '../tools/31-toolkit.html', '../tools/32-toolkit.js', './27auto-battle-utils.js', './00build-5v5.cjs',
         // 根目录
-        './00build-5v5.cjs', '../00index.html', '../tests/30test-runner.html', '../mode-5v5-test.html',
-        '../26codex-v2.1.js'
+        '../00index.html', '../tests/30test-runner.html', '../mode-5v5-test.html'
     ];
 
     const FILE_GROUPS = [
@@ -432,11 +431,10 @@ function escapeHtml(text) {
         '../fx/18fx-position-swap.js', '../fx/19fx-push-back.js', '../fx/20fx-dodge-bullet.js',
         '../fx/21fx-blood-slash.js', '../fx/22fx-fortify-counter.js',
         '../modules/23elite-skills.js', '../modules/24error-capture.js', '../modules/28audio-manager.js',
-        '../tests/25unit-tests.js', '../tests/27auto-battle-utils.js', '../tests/29health-rules.js',
-        '../tests/35quiz-bank.js', '../tests/37health-core.js', '../tests/38health-ui.js',
-        '../tools/31-toolkit.html', '../tools/32-toolkit.js',
-        './00build-5v5.cjs', '../00index.html', '../tests/30test-runner.html', '../mode-5v5-test.html',
-        '../26codex-v2.1.js'
+        '../tests/25unit-tests.js', '../tests/29health-rules.js',
+        '../tests/35quiz-bank.js', '../tests/36runtime-sampler.js', '../tests/37health-core.js', '../tests/38health-ui.js',
+        '../tools/31-toolkit.html', '../tools/32-toolkit.js', '../tools/27auto-battle-utils.js', '../tools/00build-5v5.cjs',
+        '../00index.html', '../tests/30test-runner.html', '../mode-5v5-test.html'
     ].filter(f => f.endsWith('.js'));
 
     const mapContainer = document.getElementById('fncMapContainer');
@@ -614,7 +612,7 @@ function escapeHtml(text) {
         { name: '17fx-crash-5v5-test.js', path: '../fx/17fx-crash-5v5-test.js' },
         { name: '20fx-dodge-bullet.js', path: '../fx/20fx-dodge-bullet.js' },
         { name: '23elite-skills.js', path: '../modules/23elite-skills.js' },
-        { name: '27auto-battle-utils.js', path: '../tests/27auto-battle-utils.js' },
+        { name: '27auto-battle-utils.js', path: '../tools/27auto-battle-utils.js' },
         { name: '28audio-manager.js', path: '../modules/28audio-manager.js' }
     ];
 
@@ -936,7 +934,7 @@ function escapeHtml(text) {
 })();
 
 /* ========== 5. 自动批量战斗 ========== */
-import { runAutoBattle } from '../tests/27auto-battle-utils.js';
+import { runAutoBattle } from './27auto-battle-utils.js';
 import { CONFIG } from '../core/01config-5v5-test.js';
 
 (function() {

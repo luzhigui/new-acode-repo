@@ -1,6 +1,6 @@
-// 20fx-dodge-bullet.js - 光明顶对战 5v5 闪避反击子弹时间特效 (实验室修正版)
-// 预估字节: 25000, 发送时间: 20260622 23:00, 版本: V3.1.0
-export const VER = '20fx-dodge-bullet.js V3.1.0';
+// fx/20fx-dodge-bullet.js - 光明顶5v5 闪避反击特效
+// V4.0.0 | ~25000 bytes | 2026-06-29 09:29
+export const VER = 'fx/20fx-dodge-bullet.js V4.0.0';
 
 import { showComicBubble } from './15fx-common-5v5-test.js';
 
