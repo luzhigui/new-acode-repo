@@ -218,7 +218,7 @@ h2 { color: #b8860b; font-size: 0.85rem; letter-spacing: -0.5px; overflow: hidde
   </div>
   <div class="vote-float" id="voteFloat" title="恢复投票"></div>
 
-  <!-- core/config.js -->
+  <!-- 所有模块合并为单一 script -->
   <script>
 // 01config-5v5-test.js - 光明顶对战 5v5 全局配置
 // 0625 10:29 kimi: 流云身法 dodgeBonus 已调整为 0.25，描述文案同步为 +25%
@@ -226,7 +226,9 @@ h2 { color: #b8860b; font-size: 0.85rem; letter-spacing: -0.5px; overflow: hidde
 // 0625 17:51 trae: carry Buff 配置加 target: 'ally'，防止敌方吃到 Carry 加成
 // 版本: V3.1.3, 预估字节: 7200, 发送时间: 20260625 17:51
 
-const CONFIG = {
+
+
+var CONFIG = {
     MING_ALL: ['张无忌', '韦一笑', '殷天正', '杨逍', '范遥', '庄铮', '颜垣', '吴劲草', '周颠', '张中', '说不得', '冷谦', '彭莹玉', '明教·洪午', '明教·岳山', '明教·石虎', '明教弟子1', '明教弟子2', '明教弟子3'],
     MING_M: {
         '张无忌': 115, '韦一笑': 107,
@@ -353,7 +355,7 @@ const CONFIG = {
     }
 };
 
-const ENEMY_M = {
+var ENEMY_M = {
     '空闻': 104, '空智': 104, '空性': 104,
     '清虚': 104, '清风': 104, '明月': 104,
     '静玄': 104, '静虚': 104, '静照': 104,
@@ -368,9 +370,9 @@ const ENEMY_M = {
     '宋青书': 107, '周芷若': 107, '成昆': 112, '鹿杖客': 112, '鹤笔翁': 112
 };
 
-const STATE = { IDLE: 'IDLE', RUNNING: 'RUNNING', PAUSED: 'PAUSED', GAMEOVER: 'GAMEOVER', STATS: 'STATS', BUFF_SELECT: 'BUFF_SELECT' };
+var STATE = { IDLE: 'IDLE', RUNNING: 'RUNNING', PAUSED: 'PAUSED', GAMEOVER: 'GAMEOVER', STATS: 'STATS', BUFF_SELECT: 'BUFF_SELECT' };
 
-const TAUNT_LIB = {
+var TAUNT_LIB = {
     '张无忌': ['看招！太极拳！', '乾坤大挪移！', '少林武当，也不过如此！'],
     '韦一笑': ['青翼蝠王，来去如风！', '哈哈哈，抓不到我！', '让你尝尝寒冰掌！'],
     '战士': ['看剑！', '接招吧！', '这一剑你可接得住？'],
@@ -379,7 +381,7 @@ const TAUNT_LIB = {
     '飞行': ['来去如风！', '追得上我吗？', '鹰击长空！']
 };
 
-const KILL_TAUNT = {
+var KILL_TAUNT = {
     '张无忌': ['这就是太极拳的精髓！', '乾坤大挪移之下，无人能敌！', '魔教张无忌在此！'],
     '韦一笑': ['哼，不自量力！', '寒冰掌下无活口！', '想抓我？下辈子吧！'],
     '战士': ['一剑封喉！', '受死吧！', '剑下亡魂又多一个！'],
@@ -388,14 +390,13 @@ const KILL_TAUNT = {
     '飞行': ['鹰击长空，一击必杀！', '天上地下，唯我独尊！', '你的死期到了！']
 };
 
-const ZHANG_NEAR_TAUNT = ['还好，还记得七七八八。', '糟糕，只记得一两层了。', '不好，全忘光了！'];
-const DEF_TAUNT = ['就这点攻击力？', '花拳绣腿！', '根本不够看！'];
-const HP_TAUNT = ['撑住，必须撑住！', '这点小伤不算什么！', '还没完呢！'];
+var ZHANG_NEAR_TAUNT = ['还好，还记得七七八八。', '糟糕，只记得一两层了。', '不好，全忘光了！'];
+var DEF_TAUNT = ['就这点攻击力？', '花拳绣腿！', '根本不够看！'];
+var HP_TAUNT = ['撑住，必须撑住！', '这点小伤不算什么！', '还没完呢！'];
 
-  </script>
-  <!-- common/utils.js -->
-  <script>
 // common/utils.js - 通用工具函数
+
+
 
 function rand(min, max) { return Math.floor(Math.random() * (max - min + 1)) + min; }
 function clamp(val, min, max) { return Math.max(min, Math.min(max, val)); }
@@ -423,11 +424,10 @@ function getCellElement(unit) {
 }
 function escapeHtml(str) { const d = document.createElement('div'); d.textContent = str; return d.innerHTML; }
 function stripTags(html) { return html.replace(/<[^>]+>/g, ''); }
-  </script>
-  <!-- modules/error-capture.js -->
-  <script>
 // 24error-capture.js - 全局错误捕获与控制台转存 (增强堆栈与对象显示)
 // 预估行数: 120, 发送时间: 20260624 19:00, 版本: V1.0.2
+
+
 
 (function initErrorCapture() {
     // ---------- 创建面板 ----------
@@ -576,11 +576,11 @@ function stripTags(html) { return html.replace(/<[^>]+>/g, ''); }
 
     // 注意：不拦截 console.log，保持原生性能
 })();
-  </script>
-  <!-- modules/audio.js -->
-  <script>
 // 28audio-manager.js - 光明顶对战 5v5 音频管理器 (V3.0 Web Audio 音效系统)
 // 预估行数: 150, 发送时间: 20260620 23:00, 版本: V3.0.0
+
+
+
 
 let audioCtx = null;
 function getAudioCtx() {
@@ -591,7 +591,7 @@ function getAudioCtx() {
 }
 
 // 预加载的音效缓冲区
-const sfxBuffers = {};
+var sfxBuffers = {};
 
 // 预加载所有 mp3 音效文件到内存
 async function loadSfxBuffer(key, url) {
@@ -714,7 +714,7 @@ function playSlash() {
     noise.stop(now + noiseDuration);
 }
 
-const AudioManager = {
+var AudioManager = {
     audio: null,
     enabled: true,
     sfxEnabled: true,  // 音效独立开关，不受BGM加载影响
@@ -848,13 +848,12 @@ const AudioManager = {
 };
 
 window.AudioManager = AudioManager;
-  </script>
-  <!-- fx/fx-common.js -->
-  <script>
 // 15fx-common-5v5-test.js - 光明顶对战 5v5 基础特效池 (含独立大号横幅)
 // 预估行数: 380, 发送时间: 20260621 16:00, 版本: V2.1.1
 
-const POOL = {}; const POOL_SIZES = { danmaku: 8, dmgFloat: 6, dodge: 4, healFloat: 4, buffBanner: 2 };
+
+
+var POOL = {}; const POOL_SIZES = { danmaku: 8, dmgFloat: 6, dodge: 4, healFloat: 4, buffBanner: 2 };
 function initPool(type, createFn) { if (!POOL[type]) { POOL[type] = { available: [], active: [] }; for (let i = 0; i < POOL_SIZES[type]; i++) { let el = createFn(); el.style.display = 'none'; document.body.appendChild(el); POOL[type].available.push(el); } } }
 
 function acquireFromPool(type, setupFn, duration) {
@@ -963,11 +962,10 @@ function showComicBubble(text, x, y, className) {
     }, 4000);
     return bubble;
 }
-  </script>
-  <!-- fx/fx-arrows.js -->
-  <script>
 // 16fx-arrows-5v5-test.js - 光明顶对战 5v5 飞箭特效（含流星赶月优化版）
 // 预估行数: 280, 发送时间: 20260619 22:00, 版本: V1.1.0
+
+
 
 function applyWholeShake(elements, durationMs, basePositions, angle, getPausedFn, onComplete) {
     let start = null;
@@ -1127,11 +1125,10 @@ function showSplashArrows(attacker, primaryTarget, splashTargets, speed, getPaus
         requestAnimationFrame(flyStep);
     });
 }
-  </script>
-  <!-- fx/fx-crash.js -->
-  <script>
 // 17fx-crash-5v5-test.js - 光明顶对战 5v5 飞撞与格挡（蓝格子修复版）
 // 预估行数: 350, 发送时间: 20260621 18:00, 版本: V3.0.0
+
+
 
 function showCloseRangeFX(unitA, unitD, role) {
     let gridAId = unitA.camp==='ally'?'allyGrid':'enemyGrid', gridDId = unitD.camp==='ally'?'allyGrid':'enemyGrid';
@@ -1499,10 +1496,9 @@ function showMeleeMiss(unitA, unitD, speed, getPausedFn) {
     } }
     requestAnimationFrame(phaseFly);
 }
-  </script>
-  <!-- fx/fx-swap-push.js -->
-  <script>
 // fx/fx-swap-push.js - 换位+击退特效（合并自18+19）
+
+
 
 /**
  * 获取单位对应的格子 DOM 元素
@@ -1724,11 +1720,11 @@ async function animatePushSwap(frontUnit, rearUnit, c) {
         requestAnimationFrame(() => { newCellR.style.transform = 'scale(1)'; });
     }
 }
-  </script>
-  <!-- fx/fx-dodge-bullet.js -->
-  <script>
 // 20fx-dodge-bullet.js - 光明顶对战 5v5 闪避反击子弹时间特效 (实验室修正版)
 // 预估字节: 25000, 发送时间: 20260622 23:00, 版本: V3.1.0
+
+
+
 
 // ==================== 辅助函数 ====================
 function wait(ms) { return new Promise(r => setTimeout(r, ms)); }
@@ -2151,13 +2147,12 @@ async function showDodgeBulletTime(attacker, defender, reboundDmg) {
         resolved = true;
     }
 }
-  </script>
-  <!-- core/engine.js -->
-  <script>
 // core/engine.js - 光明顶5v5 完整战斗引擎（合并自02-07单元+23精英技能）
 
+
+
 // ===================== 外部导入 =====================
-const C = CONFIG, TL = TAUNT_LIB, DT = DEF_TAUNT, HT = HP_TAUNT, ZT = ZHANG_NEAR_TAUNT;
+var C = CONFIG, TL = TAUNT_LIB, DT = DEF_TAUNT, HT = HP_TAUNT, ZT = ZHANG_NEAR_TAUNT;
 
 // ===================== 02unit.js - 光明顶对战 5v5 战斗单位类 =====================
 // 预估字节: 3400, 发送时间: 20260622 20:45, 版本: V3.1.0
@@ -2558,7 +2553,7 @@ function destroyHorse(allyTeam, log) {
 // ===================== 23elite-skills.js - 光明顶对战 5v5 精英怪技能系统 (V3.1.0 宋青书/周芷若联动) =====================
 // 预估字节: 6800, 发送时间: 20260622 21:00, 版本: V3.1.0
 
-const ES = CONFIG.ELITE_SKILLS;
+var ES = CONFIG.ELITE_SKILLS;
 
 /**
  * 灭绝师太 - 灭绝双剑：残血反击
@@ -3306,14 +3301,14 @@ window.canXingFenTrigger = canXingFenTrigger;
 window.consumeXingFen = consumeXingFen;
 
 // ===================== 原有导出 (保持不变) =====================
-  </script>
-  <!-- player/player-core.js -->
-  <script>
 // player/player-core.js - 光明顶5v5 播放器核心（合并自08文本+09BuffUI+10核心）
 
 
+
+
+
 // 安全包装 showDanmaku，防止模块加载异常时崩溃
-const safeShowDanmaku = (...args) => { try { return showDanmaku(...args); } catch(e) {} };
+var safeShowDanmaku = (...args) => { try { return showDanmaku(...args); } catch(e) {} };
 
 let ctx = null;
 function getCtx() {
@@ -3955,12 +3950,11 @@ async function playBattle() {
     if (window._voteChoice && window._voteChoice !== 'skip' && winner !== '平局') { let correct = (window._voteChoice === winner), earnPoints = 0; if (correct) { earnPoints = window._battleHasZhang ? 3 : 2; window._voteScore += earnPoints; } else { earnPoints = -1; window._voteScore += earnPoints; } localStorage.setItem('ming_vote_score_5v5_test', window._voteScore); let badge = document.getElementById('scoreBadge'), floatEl = document.createElement('span'); floatEl.className = 'score-float'; floatEl.textContent = (earnPoints > 0 ? '+' : '') + earnPoints + '🏆'; badge.appendChild(floatEl); setTimeout(() => { if (floatEl.parentNode) floatEl.parentNode.removeChild(floatEl); }, 3500); setTimeout(() => c.updateScoreBadge(), 3500); let voteMsg = correct ? `<span class="green">📊 你猜了${window._voteChoice}，正确！+${earnPoints}分！ 当前积分：${window._voteScore}</span>` : `<span class="red">📊 你猜了${window._voteChoice}，错误！-1分！当前积分：${window._voteScore}</span>`; logDiv.innerHTML += voteMsg + '<br>'; logDiv.scrollTop = logDiv.scrollHeight; } else if (winner === '平局') { logDiv.innerHTML += '<span class="gray">📊 平局，积分不变，当前积分：' + window._voteScore + '</span><br>'; logDiv.scrollTop = logDiv.scrollHeight; }
     window._voteChoice = null; c.abortController = null;
 }
-  </script>
-  <!-- ui/render.js -->
-  <script>
 // 14ui-render-5v5-test.js - 光明顶对战 5v5 UI渲染模块
 // 0625 12:38 kimi: 补充鹿杖客/鹤笔翁/成昆技能描述，玄冥二老拆分后详情弹窗适配
 // 预估行数: 610, 发送时间: 20260625 12:38, 版本: V1.0.14
+
+
 
 // showDanmaku available globally from fx-common.js
 
@@ -4239,12 +4233,10 @@ function spawnVictoryEffects(winnerCamp) {
 }
 
 function clearLogExceptFirst() { let logDiv = document.getElementById('log'), children = logDiv.children; while (children.length > 1) logDiv.removeChild(children[1]); let calibrator = document.createElement('div'); calibrator.style.display = 'block'; calibrator.innerHTML = ''; logDiv.appendChild(calibrator); }
-  </script>
-  <!-- ui/main.js -->
-  <script>
 // ui/main.js - 光明顶5v5 主控模块（合并自12main-utils+13main）
 
-import '../modules/error-capture.js';
+
+
 
 // 已合并的子模块 VER 现由 engine.js 和 player-core.js 统一导出
 
@@ -4302,7 +4294,7 @@ async function loadModules(updateCoverVersion) {
         'modules/audio.js': '../modules/audio.js'
     };
     for (const [name, path] of Object.entries(modules)) {
-        try { loaded[name] = await import(path + '?t=' + Date.now()); } catch (e) { failed[name] = true; console.error('Module load failed:', name, e); }
+        // all modules inlined, no dynamic import needed
     }
     // 即使部分模块失败，也要继续更新显示，不要阻塞游戏启动
     updateCoverVersion(loaded, failed);
@@ -4310,12 +4302,12 @@ async function loadModules(updateCoverVersion) {
 
 // ==================== 来自 13main-5v5-test.js ====================
 
-const C = CONFIG, S = STATE, KT = KILL_TAUNT;
+var C = CONFIG, S = STATE, KT = KILL_TAUNT;
 
-const FILE_VER = 'ui/main.js V4.0.0';
-const INDEX_VER = 'game.html V4.0.0';
-const LOG_LINE1 = '⚔️ 光明顶5v5对决 · 九宫格混战模式 ⚔️';
-const PARTY_SIZE = 5;
+var FILE_VER = 'ui/main.js V4.0.0';
+var INDEX_VER = 'game.html V4.0.0';
+var LOG_LINE1 = '⚔️ 光明顶5v5对决 · 九宫格混战模式 ⚔️';
+var PARTY_SIZE = 5;
 
 let gs = S.IDLE, autoMode = true, debugMode = false, isPaused = false, speed = 500, userScrolled = false;
 let abortController = null, waitingForNextRound = false, detailMode = true;
@@ -4340,10 +4332,10 @@ let activeBuffs = [];
 let snapshot = { ally: [], enemy: [] };
 let UI = { allyTeam: [], enemyTeam: [], currentResult: null, round: 0, lastSnapshot: null };
 
-const TRASH_TALK_ALLY = ['明教必胜！六大派受死！','光明顶，我守定了！','六大派也不过如此！','来战！明教弟子，何惧！','今日便让尔等见识魔教之威！'];
-const TRASH_TALK_ENEMY = ['魔教余孽，今日必灭！','少林武当，放马过来！','邪魔歪道，不足为惧！','今日便要踏平光明顶！'];
+var TRASH_TALK_ALLY = ['明教必胜！六大派受死！','光明顶，我守定了！','六大派也不过如此！','来战！明教弟子，何惧！','今日便让尔等见识魔教之威！'];
+var TRASH_TALK_ENEMY = ['魔教余孽，今日必灭！','少林武当，放马过来！','邪魔歪道，不足为惧！','今日便要踏平光明顶！'];
 
-const ALL_BUFF_KEYS = Object.keys(C.BUFFS);
+var ALL_BUFF_KEYS = Object.keys(C.BUFFS);
 
 // ==================== 音频管理 (由 28audio-manager.js 托管) ====================
 function initBGM() { AudioManager.init(); }
@@ -5221,6 +5213,7 @@ function showBattleReport(result) {
     overlay.addEventListener('click', (e) => { if (e.target === overlay) document.body.removeChild(overlay); });
     document.body.appendChild(overlay);
 }
+
   </script>
 </body>
 </html>
