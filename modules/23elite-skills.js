@@ -167,7 +167,9 @@ export function applyXinHunDeduction(attacker, allyTeam, log) {
     log.push({
         type: 'info',
         text: `<span class="gold">💒 新婚：${attacker.name}攻击，${zhou.name}被扣除${ES.xinHun.hpDeduct}点血量，叠加一层快乐(16%)！当前快乐层数：${zhou._kuaiLeStack.length}</span>`,
-        buffType: 'elite_xinhun'
+        buffType: 'elite_xinhun',
+        zhouUid: zhou.uid,
+        zhouHpAfter: zhou.hp
     });
     
     if (zhou.hp <= 0) {
