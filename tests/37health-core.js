@@ -92,12 +92,24 @@ export async function runHealthCheck(config) {
 
             // ===== 真正跑一场战斗 =====
             const snap = W().generateSnapshot(stage);
-            const battleResult = W().runBattle(snap, []);
+            // 直接给两个全员生效的Buff，持续时间足够覆盖整场战斗
+            const testBuffs = [
+                { key: 'cloudBody', target: 'ally', remaining: 35 },
+                { key: 'hotBlood', target: 'ally', remaining: 35 }
+            ];
+            const battleResult = W().runBattle(snap, testBuffs);
 
             const ally = battleResult.ally || [];
             const enemy = battleResult.enemy || [];
 
-
+            // ⬇️ 新增：将引擎结果同步到 UI，让 DOM 显示最新数据
+            const ctxSync = W()._getPlayerContext();
+            if (ctxSync) {
+                ctxSync.UI.allyTeam = ally;
+                ctxSync.UI.enemyTeam = enemy;
+                ctxSync.updateUI(ctxSync.UI);
+                await new Promise(r => setTimeout(r, 100)); // 等 DOM 刷新
+            }
 
             const allyGrid = D().getElementById('allyGrid');
             const enemyGrid = D().getElementById('enemyGrid');

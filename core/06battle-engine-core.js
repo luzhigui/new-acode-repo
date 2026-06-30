@@ -1,6 +1,6 @@
 // core/06battle-engine-core.js - 光明顶5v5 战斗核心循环
-// V4.0.1 | 2026-06-30 拆分runBattleRound | ~700 lines | ~25000 字符
-export const VER = 'core/06battle-engine-core.js V4.0.1';
+// V4.0.2 | 2026-06-30 修复严阵以待K值、九阴白骨爪UI伤害同步
+export const VER = 'core/06battle-engine-core.js V4.0.2';
 
 import { CONFIG, DEF_TAUNT, HP_TAUNT } from './01config-5v5-test.js';
 import { rand, calcDamage, getFangLevel, isMelee, getFronts, isBlocked, getFlyDodgeRate, getRandomTaunt, getZhangNearTaunt, makeFXSnapshot, hasBuff } from './03battle-utils.js';
@@ -105,10 +105,12 @@ function calcAttackDamage(unit, target, attackerBuffStats, defenderBuffStats) {
     }
     let raw, rawFormula;
     if (unit.role === '防战') {
-        let lv = getFangLevel(unit.def, unit.m), k = C.FANG_K[lv];
+        // ★修复：使用 Buff 后防御计算 K 值
+        let displayDef = Math.floor(unit.def + unit.def * (attackerBuffStats.defBonus || 0));
+        let lv = getFangLevel(displayDef, unit.m), k = C.FANG_K[lv];
         let penPart = calcDamage(atkAct, defAct);
-        raw = penPart + unit.def * k + unit.maxHp * 0.01;
-        rawFormula = `${Math.floor(penPart)} + ${Math.floor(unit.def)}×${k} + ${Math.floor(unit.maxHp)}×0.01 = ${Math.floor(raw)}`;
+        raw = penPart + displayDef * k + unit.maxHp * 0.01;
+        rawFormula = `${Math.floor(penPart)} + ${Math.floor(displayDef)}×${k} + ${Math.floor(unit.maxHp)}×0.01 = ${Math.floor(raw)}`;
     } else {
         raw = calcDamage(atkAct, defAct);
         rawFormula = `伤害 = ${atkAct}×(${atkAct}/(${atkAct}+${defAct})) = ${Math.floor(raw)}`;
@@ -135,7 +137,8 @@ function applyPostAttackEffects(unit, target, dmg, atkAct, defAct, reboundEntry,
     if (unit.camp === 'ally') {
         applyBuffEffectsAfterAttack(unit, target, dmg, allySide, enemySide, log);
     }
-    checkNineYinClaw(unit, dmg, log);
+    // 九阴白骨爪返回总追击伤害，用于之后同步 _dmg
+    let nineYinTotal = checkNineYinClaw(unit, dmg, log);
     const counterDmg = checkExtinctionCounter(target, dmg);
     if (counterDmg > 0) {
         unit.hp -= counterDmg; target.dmgDealt += counterDmg; unit.dmgTaken += counterDmg;
@@ -147,6 +150,8 @@ function applyPostAttackEffects(unit, target, dmg, atkAct, defAct, reboundEntry,
     if (reboundEntry) { log.push(reboundEntry); }
     let dead = !target.alive;
     if (dead && target.camp === 'ally') { checkZhangSwitch(A, log); }
+    // 返回九阴白骨爪总伤害
+    return nineYinTotal;
 }
 
 function processUnitAttack(unit, allySide, enemySide, log, A, B, state, doubleStrikeUnitUid) {
@@ -222,6 +227,7 @@ function processUnitAttack(unit, allySide, enemySide, log, A, B, state, doubleSt
     let displayAtk = Math.floor(unit.atk + unit.atk * attackerBuffStats.atkBonus);
     let displayDef = Math.floor(target.def + target.def * defenderBuffStats.defBonus);
     let unitHpBefore = Math.floor(unit.hp);
+    // ★ 九阴白骨爪总伤害将在 applyPostAttackEffects 中计算，此处暂时用基础伤害
     let group = { type:'attack-group', uidA:unit.uid, uidD:target.uid, entries:[], hpAfter:target.hp, alive:target.alive, isDead:dead, waveTaunt, waveUnit, unitRole:unit.role, _fxSnapshot:makeFXSnapshot(unit,target), _dmg:dmg, _isZhangNear:unit.isZhang && !unit.rangedForm, _nearAtkCount:unit.nearAtkCount, hpPctBefore, hpPctAfter, isMiss:miss, isDodge:false, buffEffects:[], _atkBonus:Math.floor(unit.atk * attackerBuffStats.atkBonus), _defBonus:Math.floor(target.def * defenderBuffStats.defBonus) };
     group.entries.push({type:'combat-text', text:`<span class="${ac}">${campA} ${unit.name}</span>(攻${displayAtk} 血${unitHpBefore}) → <span class="${dc}">${campD} ${target.name}</span>(防${displayDef} 血${hpBefore})`});
     group.entries.push({type:'detail', text:`<span class="gray small">波动：攻${atkBase}→${atkAct} 防${defBase}→${defAct} 血${hpBonus >= 0 ? '+' + hpBonus : hpBonus}</span>`});
@@ -272,7 +278,12 @@ function processUnitAttack(unit, allySide, enemySide, log, A, B, state, doubleSt
     log.push(group);
     
     applyXinHunDeduction(unit, allySide, log);
-    applyPostAttackEffects(unit, target, dmg, atkAct, defAct, reboundEntry, allySide, enemySide, log, A);
+    // ★ 调用 applyPostAttackEffects 并获取九阴白骨爪总伤害
+    let nineYinTotal = applyPostAttackEffects(unit, target, dmg, atkAct, defAct, reboundEntry, allySide, enemySide, log, A);
+    // 同步 _dmg 为包含九阴白骨爪后的总伤害
+    if (nineYinTotal > 0) {
+        group._dmg += nineYinTotal;
+    }
 
     if (doubleStrikeUnitUid && unit.uid === doubleStrikeUnitUid && unit.alive && target.alive && unit.camp === 'ally' && !unit._doubleStriked) {
         if (rand(1,100) <= 80) {
@@ -301,6 +312,7 @@ export function runBattleRound(state) {
     let log = [];
     let round = state.round;
     
+    console.log('runBattleRound state.activeBuffs:', JSON.stringify(state.activeBuffs?.map(b => ({ key: b.key, target: b.target }))));
     A._activeBuffs = state.activeBuffs.filter(b => b.target === 'ally' || !b.target);
     B._activeBuffs = state.activeBuffs.filter(b => b.target === 'enemy');
     
@@ -453,6 +465,7 @@ export function runBattle(snapshot, activeBuffs = [], buffData = {}) {
                 doubleStrikeUids
             };
         }
+        console.log('runBattle loop: round', state.round, 'activeBuffs before:', JSON.stringify(state.activeBuffs?.map(b => b.key)), 'result.activeBuffs:', JSON.stringify(result.activeBuffs?.map(b => b.key)));
         state = {
             ally: result.ally, enemy: result.enemy,
             round: state.round + 1, activeBuffs: result.activeBuffs
