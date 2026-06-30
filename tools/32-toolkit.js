@@ -1,5 +1,5 @@
-// tools/32-toolkit.js - 光明顶5v5 开发工具箱
-// V4.0.0 | 2026-06-29 09:29
+// tools/32-toolkit.js - 光明顶5v5 开发工具箱（文件复制器 / 拆分自原 32-toolkit.js）
+// V4.0.1 | 2026-06-29 优化打包 & 路径清单 & 规则提示 | ~7500 字符
 
 /* ========== 标签页切换 ========== */
 document.querySelectorAll('.tab-btn').forEach(btn => {
@@ -17,10 +17,10 @@ function escapeHtml(text) {
     return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
-/* ========== 1. 文件复制器 ========== */
+/* ========== 文件复制器 ========== */
 (function() {
-    // 文件列表（真实项目文件，含自身）
-    const FILES = [
+    // 项目全部文件列表（用于路径清单）
+    const ALL_PROJECT_FILES = [
         // core
         '../core/01config-5v5-test.js', '../core/02unit.js', '../core/03battle-utils.js',
         '../core/04buff-system.js', '../core/05battle-horse.js', '../core/06battle-engine-core.js',
@@ -38,12 +38,21 @@ function escapeHtml(text) {
         '../modules/23elite-skills.js', '../modules/24error-capture.js', '../modules/28audio-manager.js',
         // tests
         '../tests/25unit-tests.js', '../tests/29health-rules.js',
-        '../tests/35quiz-bank.js', '../tests/36runtime-sampler.js', '../tests/37health-core.js', '../tests/38health-ui.js',
-        // tools (自身)
-        '../tools/31-toolkit.html', '../tools/32-toolkit.js', './27auto-battle-utils.js', './00build-5v5.cjs',
+        '../tests/35quiz-bank.js', '../tests/36runtime-sampler.js', '../tests/37health-core.js',
+        '../tests/38health-ui.js', '../tests/30test-runner.html',
+        // tools
+        '../tools/31-toolkit.html', '../tools/32-toolkit.js', '../tools/33-toolkit-more.js',
+        '../tools/27auto-battle-utils.js', '../tools/00build-5v5.cjs',
+        // assets
+        '../assets/sfx_arrow.mp3', '../assets/sfx_fly.mp3',
+        '../assets/sfx_melee.mp3', '../assets/sfx_xinai.mp3',
         // 根目录
-        '../00index.html', '../tests/30test-runner.html', '../mode-5v5-test.html'
+        '../00index.html', '../mode-5v5-test.html',
+        '../README.md', '../CHANGELOG.md', '../kaifazhunze.md', '../Test Runnerlogo.md'
     ];
+
+    // 用户可勾选的文件列表（不含 assets/ 和 .md 等不可 fetch 的文件）
+    const FILES = ALL_PROJECT_FILES.filter(f => f.endsWith('.js') || f.endsWith('.html') || f.endsWith('.cjs'));
 
     const FILE_GROUPS = [
         { name: 'core', displayName: '战斗引擎核心', prefix: '../core/' },
@@ -117,7 +126,8 @@ function escapeHtml(text) {
         names.forEach(name => {
             const existing = document.querySelector(`#tab-file-copier input[value="${CSS.escape(name)}"]`);
             if (!existing) {
-                const toolsGroup = Array.from(fileGroupsDiv.querySelectorAll('.file-group')).find(el => el.querySelector('.group-name')?.textContent.includes('工具箱自身'));
+                const toolsGroup = Array.from(fileGroupsDiv.querySelectorAll('.file-group'))
+                    .find(el => el.querySelector('.group-name')?.textContent.includes('工具箱自身'));
                 if (toolsGroup) {
                     toolsGroup.querySelector('.group-files').appendChild(buildCheckbox(name, true));
                     const countEl = toolsGroup.querySelector('.group-count');
@@ -174,8 +184,10 @@ function escapeHtml(text) {
 
     document.getElementById('fcBtnGenerate').addEventListener('click', async () => {
         const charLimit = parseInt(document.getElementById('fcCharLimit').value) || 40000;
-        const selectedFiles = Array.from(document.querySelectorAll('#tab-file-copier input[type=checkbox]:checked'))
-            .map(cb => cb.value);
+        const softLimit = Math.min(charLimit + 8000, 50000);
+        const selectedFiles = Array.from(
+            document.querySelectorAll('#tab-file-copier input[type=checkbox]:checked')
+        ).map(cb => cb.value);
 
         if (selectedFiles.length === 0) {
             statusDiv.textContent = '⚠️ 请至少勾选一个文件';
@@ -202,7 +214,23 @@ function escapeHtml(text) {
             }
         }
 
+        const slices = [];
+        for (const file of selectedFiles) {
+            const content = fileContents[file];
+            if (!content) {
+                slices.push({ fileName: file, content: null, charCount: 0, lineCount: 0, error: fileErrors[file] });
+                continue;
+            }
+            if (content.length > softLimit) {
+                const parts = splitLargeFile(file, content, charLimit);
+                slices.push(...parts);
+            } else {
+                slices.push({ fileName: file, content, charCount: content.length, lineCount: content.split('\n').length });
+            }
+        }
+
         const batches = [];
+        slices.sort((a, b) => b.charCount - a.charCount);
         let currentBatch = { files: [], totalChars: 0, hasFailures: false };
 
         function finalizeBatch() {
@@ -212,41 +240,99 @@ function escapeHtml(text) {
             }
         }
 
-        const sortedFiles = selectedFiles.slice().sort((a, b) => {
-            const lenA = fileContents[a] ? fileContents[a].length : 0;
-            const lenB = fileContents[b] ? fileContents[b].length : 0;
-            return lenB - lenA;
-        });
-
-        for (const file of sortedFiles) {
-            const content = fileContents[file];
-            if (!content) {
-                currentBatch.files.push({ fileName: file, content: null, charCount: 0, lineCount: 0, error: fileErrors[file] });
+        for (const slice of slices) {
+            if (slice.error) {
+                currentBatch.files.push(slice);
                 currentBatch.hasFailures = true;
                 continue;
             }
-            if (content.length > charLimit) {
+            if (currentBatch.totalChars + slice.charCount > softLimit && currentBatch.files.length > 0) {
                 finalizeBatch();
-                const parts = splitLargeFile(file, content, charLimit);
-                for (const part of parts) {
-                    batches.push({ files: [part], totalChars: part.charCount, isSplit: true, hasFailures: false });
-                }
-                continue;
             }
-            const fileLen = content.length;
-            if (currentBatch.files.length > 0 && currentBatch.totalChars + fileLen > charLimit) {
-                currentBatch.files.push({ fileName: file, content, charCount: fileLen, lineCount: content.split('\n').length });
-                currentBatch.totalChars += fileLen;
+            currentBatch.files.push(slice);
+            currentBatch.totalChars += slice.charCount;
+            if (currentBatch.totalChars > softLimit * 1.2 && currentBatch.files.length > 1) {
+                const last = currentBatch.files.pop();
+                currentBatch.totalChars -= last.charCount;
                 finalizeBatch();
-                continue;
+                currentBatch.files.push(last);
+                currentBatch.totalChars += last.charCount;
             }
-            currentBatch.files.push({ fileName: file, content, charCount: fileLen, lineCount: content.split('\n').length });
-            currentBatch.totalChars += fileLen;
         }
         finalizeBatch();
 
+        // 合并过小的包
+        const mergedBatches = [];
+        for (const batch of batches) {
+            if (mergedBatches.length > 0 && batch.totalChars < 18000 && !batch.isSplit && batch.files.length > 0) {
+                const prev = mergedBatches[mergedBatches.length - 1];
+                if (prev.totalChars + batch.totalChars <= 52000) {
+                    prev.files.push(...batch.files);
+                    prev.totalChars += batch.totalChars;
+                    continue;
+                }
+            }
+            mergedBatches.push(batch);
+        }
+
+        // 生成路径清单（全项目文件 + 规则提示）
+        const ruleHint = [
+            '// ============================================================',
+            '// ⚠️ 发送代码时请严格遵守以下规则（详见 README.md）：',
+            '//',
+            '// 1. 发前后对比：',
+            '//    每次改动 ≤ 3 处时，必须用"一组一旧一新"格式：',
+            '//    ✅ 旧A → 新A，旧B → 新B',
+            '//    ❌ 旧A + 旧B → 新A + 新B',
+            '//',
+            '// 2. 发完整代码：',
+            '//    改动超过 3 处时，必须先询问是否需要完整代码，',
+            '//    确认后发完整代码，严禁省略或截断。',
+            '//',
+            '// 3. 收到文件后，请自动分析是否有缺失。',
+            '// ============================================================'
+        ].join('\n');
+        const fileListContent = ruleHint + '\n\n' + ALL_PROJECT_FILES.map(f => `// ${f}`).join('\n');
+
+        // 尝试追加到最后一个包，放不下就独立成包
+        const lastBatch = mergedBatches[mergedBatches.length - 1];
+        if (lastBatch && lastBatch.totalChars + fileListContent.length <= softLimit) {
+            lastBatch.files.push({
+                fileName: '[附录] 完整文件路径清单',
+                content: fileListContent,
+                charCount: fileListContent.length,
+                lineCount: fileListContent.split('\n').length,
+                isFileList: true
+            });
+            lastBatch.totalChars += fileListContent.length;
+        } else {
+            mergedBatches.push({
+                files: [{
+                    fileName: '[附录] 完整文件路径清单',
+                    content: fileListContent,
+                    charCount: fileListContent.length,
+                    lineCount: fileListContent.split('\n').length,
+                    isFileList: true
+                }],
+                totalChars: fileListContent.length,
+                isFileList: true
+            });
+        }
+
+        // 如果追加后最后一个包太小，再与倒数第二个包合并
+        if (mergedBatches.length >= 2) {
+            const finalBatch = mergedBatches[mergedBatches.length - 1];
+            const prevBatch = mergedBatches[mergedBatches.length - 2];
+            if (finalBatch.totalChars < 18000 && prevBatch.totalChars + finalBatch.totalChars <= 52000) {
+                prevBatch.files.push(...finalBatch.files);
+                prevBatch.totalChars += finalBatch.totalChars;
+                mergedBatches.pop();
+            }
+        }
+
+        // 渲染
         batchesDiv.innerHTML = '';
-        batches.forEach((batch, index) => {
+        mergedBatches.forEach((batch, index) => {
             const card = document.createElement('div');
             card.className = 'batch-card';
             if (batch.hasFailures) card.classList.add('read-fail');
@@ -257,6 +343,7 @@ function escapeHtml(text) {
                 const lineInfo = f.lineCount ? `${f.lineCount} 行` : '';
                 if (f.error) return `⚠️ ${fn}（读取失败: ${f.error}）`;
                 if (f.partTotal && f.partTotal > 1) return `📄 ${fn} [第 ${f.partIndex}/${f.partTotal} 片·${charInfo}]`;
+                if (f.isFileList) return `📋 ${fn}（${charInfo}）`;
                 return `📄 ${fn}（${lineInfo}，${charInfo}）`;
             });
             const partLabel = batch.isSplit ? '（文件分片）' : '';
@@ -315,17 +402,13 @@ function escapeHtml(text) {
             batchesDiv.appendChild(card);
         });
 
-        statusDiv.textContent = `✅ 已生成 ${batches.length} 个复制包`;
+        statusDiv.textContent = `✅ 已生成 ${mergedBatches.length} 个复制包`;
         document.getElementById('fcBtnAutoSend').style.display = 'inline-block';
     });
 
-    // 序列发送器（原封未动）
+    // 序列发送器（保持不变）
     const sendBtn = document.getElementById('fcBtnAutoSend');
-    let senderBar = null;
-    let sendIndex = 0;
-    let sendCancelled = false;
-    let sendBatches = [];
-    let senderKeyHandler = null;
+    let senderBar = null, sendIndex = 0, sendCancelled = false, sendBatches = [], senderKeyHandler = null;
 
     function getBatchText(card) {
         const codeBlock = card.querySelector('.batch-code');
@@ -337,22 +420,20 @@ function escapeHtml(text) {
         const total = sendBatches.length;
         if (sendCancelled) {
             senderBar.innerHTML = '<span style="color:#f44336;">⏹ 已取消</span>';
-            setTimeout(() => { if (senderBar && senderBar.parentNode) senderBar.remove(); }, 1000);
+            setTimeout(() => { if (senderBar?.parentNode) senderBar.remove(); }, 1000);
             return;
         }
         if (sendIndex >= total) {
-            senderBar.innerHTML = `<span style="color:#4caf50;">✅ 全部完成！共发送 ${total} 包</span><button style="background:#444;color:#fff;border:none;padding:4px 12px;border-radius:4px;cursor:pointer;font-size:12px;" id="senderCloseBtn">关闭</button>`;
+            senderBar.innerHTML = `<span style="color:#4caf50;">✅ 全部完成！共发送 ${total} 包</span>
+                <button style="background:#444;color:#fff;border:none;padding:4px 12px;border-radius:4px;cursor:pointer;font-size:12px;" id="senderCloseBtn">关闭</button>`;
             document.getElementById('senderCloseBtn').onclick = () => {
-                if (senderBar && senderBar.parentNode) senderBar.remove();
-                senderBar = null;
-                removeSenderKeyListener();
+                senderBar?.remove(); senderBar = null; removeSenderKeyListener();
             };
             return;
         }
-        const text = getBatchText(sendBatches[sendIndex]);
-        const chars = text.length;
-        const displayIndex = (showIndex != null) ? showIndex : (sendIndex + 1);
-        senderBar.innerHTML = `<span>📦 包 <b>${displayIndex}</b> / ${total}（${chars} 字符）已复制到剪贴板 → 粘贴发送后按 <b>Enter</b> 或点按钮</span>
+        const chars = getBatchText(sendBatches[sendIndex]).length;
+        const displayIndex = showIndex ?? sendIndex + 1;
+        senderBar.innerHTML = `<span>📦 包 <b>${displayIndex}</b> / ${total}（${chars} 字符）→ 粘贴发送后按 <b>Enter</b></span>
             <div style="display:flex;gap:8px;">
                 <button id="senderNextBtn" style="background:#ffd700;color:#1a1a2e;border:none;padding:6px 16px;border-radius:4px;cursor:pointer;font-weight:bold;font-size:12px;">下一包 →</button>
                 <button id="senderCancelBtn" style="background:#f44336;color:#fff;border:none;padding:6px 12px;border-radius:4px;cursor:pointer;font-size:12px;">取消</button>
@@ -365,692 +446,41 @@ function escapeHtml(text) {
         if (sendCancelled || sendIndex >= sendBatches.length) return renderSenderBar();
         const text = getBatchText(sendBatches[sendIndex]);
         const totalChars = text.length;
-        const currentIndex = sendIndex;
-        const fullText = `（👆 以上是复制包 #${currentIndex + 1} / 共 ${sendBatches.length} 包，${totalChars} 字符，请简要确认后我继续发下一包）\n\n${text}\n\n（👇 本包 #${currentIndex + 1} 结束，${totalChars} 字符，请回复"收到"或直接发下一包）`;
-        try {
-            await navigator.clipboard.writeText(fullText);
-        } catch (e) {
-            console.warn('自动复制失败，可手动复制');
-        }
+        const currentIndex = sendIndex + 1;
+        const fullText = `（👆 以上是复制包 #${currentIndex} / 共 ${sendBatches.length} 包，${totalChars} 字符，请简要确认后我继续发下一包）\n\n${text}\n\n（👇 本包 #${currentIndex} 结束，${totalChars} 字符，请回复"收到"或直接发下一包）`;
+        try { await navigator.clipboard.writeText(fullText); } catch (e) {}
         sendIndex++;
-        renderSenderBar(currentIndex + 1);
+        if (sendIndex < sendBatches.length) {
+            renderSenderBar(sendIndex);   // 显示的是刚刚复制完的包号，而非下一个包
+        } else {
+            renderSenderBar(); // 全部完成
+        }
     }
 
     function addSenderKeyListener() {
         if (senderKeyHandler) return;
         senderKeyHandler = (e) => {
-            if (e.key === 'Enter' && !sendCancelled && sendIndex < sendBatches.length && senderBar && senderBar.parentNode) {
-                e.preventDefault();
-                nextBatch();
+            if (e.key === 'Enter' && !sendCancelled && sendIndex < sendBatches.length && senderBar?.parentNode) {
+                e.preventDefault(); nextBatch();
             }
-            if (e.key === 'Escape' && senderBar && senderBar.parentNode) {
-                sendCancelled = true;
-                renderSenderBar();
-            }
+            if (e.key === 'Escape' && senderBar?.parentNode) { sendCancelled = true; renderSenderBar(); }
         };
         document.addEventListener('keydown', senderKeyHandler);
     }
 
     function removeSenderKeyListener() {
-        if (senderKeyHandler) {
-            document.removeEventListener('keydown', senderKeyHandler);
-            senderKeyHandler = null;
-        }
+        if (senderKeyHandler) { document.removeEventListener('keydown', senderKeyHandler); senderKeyHandler = null; }
     }
 
     sendBtn.addEventListener('click', () => {
         const cards = document.querySelectorAll('#fcBatches .batch-card');
-        if (!cards.length) {
-            alert('请先生成复制包');
-            return;
-        }
-        sendBatches = Array.from(cards);
-        sendIndex = 0;
-        sendCancelled = false;
-
-        if (senderBar && senderBar.parentNode) senderBar.remove();
+        if (!cards.length) { alert('请先生成复制包'); return; }
+        sendBatches = Array.from(cards); sendIndex = 0; sendCancelled = false;
+        senderBar?.remove();
         senderBar = document.createElement('div');
         senderBar.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:99999;background:#1a1a2e;border-bottom:2px solid #ffd700;padding:10px 16px;display:flex;align-items:center;justify-content:space-between;font-family:monospace;font-size:13px;color:#eee;';
         document.body.appendChild(senderBar);
-
         addSenderKeyListener();
-        nextBatch();
+        nextBatch();          // 立刻复制第 1 包，完成后弹窗会自动显示“包1 xxx 字符，粘贴发送后按 Enter”
     });
-})();
-
-/* ========== 2. 函数替换器 ========== */
-(function() {
-    const TARGET_FILES = [
-        '../core/01config-5v5-test.js', '../core/02unit.js', '../core/03battle-utils.js',
-        '../core/04buff-system.js', '../core/05battle-horse.js', '../core/06battle-engine-core.js',
-        '../core/07battle-engine-5v5-test.js',
-        '../player/08player-text.js', '../player/09player-buff-ui.js', '../player/10player-core.js',
-        '../player/11battle-player-5v5-test.js',
-        '../ui/12main-utils.js', '../ui/13main-5v5-test.js', '../ui/14ui-render-5v5-test.js',
-        '../fx/15fx-common-5v5-test.js', '../fx/16fx-arrows-5v5-test.js', '../fx/17fx-crash-5v5-test.js',
-        '../fx/18fx-position-swap.js', '../fx/19fx-push-back.js', '../fx/20fx-dodge-bullet.js',
-        '../fx/21fx-blood-slash.js', '../fx/22fx-fortify-counter.js',
-        '../modules/23elite-skills.js', '../modules/24error-capture.js', '../modules/28audio-manager.js',
-        '../tests/25unit-tests.js', '../tests/29health-rules.js',
-        '../tests/35quiz-bank.js', '../tests/36runtime-sampler.js', '../tests/37health-core.js', '../tests/38health-ui.js',
-        '../tools/31-toolkit.html', '../tools/32-toolkit.js', '../tools/27auto-battle-utils.js', '../tools/00build-5v5.cjs',
-        '../00index.html', '../tests/30test-runner.html', '../mode-5v5-test.html'
-    ].filter(f => f.endsWith('.js'));
-
-    const mapContainer = document.getElementById('fncMapContainer');
-    const statusDiv = document.getElementById('fncStatus');
-    const searchInput = document.getElementById('fncSearchInput');
-    const fileContents = {};
-
-    const replaceModal = document.getElementById('fncReplaceModal');
-    const replaceFuncName = document.getElementById('fncReplaceFuncName');
-    const replaceFileName = document.getElementById('fncReplaceFileName');
-    const replaceTextarea = document.getElementById('fncReplaceTextarea');
-    const replaceResult = document.getElementById('fncReplaceResult');
-    const resultTextarea = document.getElementById('fncResultTextarea');
-    let currentReplaceFile = null, currentReplaceFunc = null, currentReplaceLine = null;
-
-    document.getElementById('fncBtnScan').addEventListener('click', async () => {
-        mapContainer.innerHTML = '';
-        statusDiv.textContent = '正在扫描...';
-        let totalFunctions = 0;
-
-        for (const filename of TARGET_FILES) {
-            try {
-                const response = await fetch(filename);
-                if (!response.ok) continue;
-                const code = await response.text();
-                fileContents[filename] = code;
-                const functions = extractFunctions(code);
-                if (functions.length > 0) {
-                    totalFunctions += functions.length;
-                    renderFileSection(filename, functions);
-                }
-            } catch (e) {}
-        }
-
-        statusDiv.textContent = `✅ 扫描完成：${TARGET_FILES.length} 个文件，${totalFunctions} 个函数`;
-    });
-
-    function extractFunctions(code) {
-        const functions = [];
-        const lines = code.split('\n');
-        const regex = /(?:async\s+)?function\s+(\w+)\s*\(|(\w+)\s*=\s*(?:async\s+)?function\s*\(|(\w+)\s*=\s*\([^)]*\)\s*=>/g;
-        lines.forEach((line, idx) => {
-            let match;
-            while ((match = regex.exec(line)) !== null) {
-                const name = match[1] || match[2] || match[3];
-                if (name && !['if','for','while','switch','catch'].includes(name)) {
-                    functions.push({ name, line: idx + 1, content: line.trim().substring(0, 80) });
-                }
-            }
-        });
-        return functions;
-    }
-
-    function extractFuncBody(code, funcName, startLine) {
-        const lines = code.split('\n');
-        let braceDepth = 0, started = false, endIdx = lines.length - 1;
-        for (let i = startLine - 1; i < lines.length; i++) {
-            braceDepth += (lines[i].match(/\{/g) || []).length - (lines[i].match(/\}/g) || []).length;
-            if (braceDepth > 0) started = true;
-            if (started && braceDepth === 0) { endIdx = i; break; }
-        }
-        return lines.slice(startLine - 1, endIdx + 1).join('\n');
-    }
-
-    function renderFileSection(filename, functions) {
-        const section = document.createElement('div');
-        section.className = 'file-section';
-        section.innerHTML = `<div class="file-header"><span>📄 ${filename}</span><span class="count">${functions.length} 个函数</span></div><div class="func-list"></div>`;
-
-        const funcList = section.querySelector('.func-list');
-        functions.forEach(f => {
-            const item = document.createElement('div');
-            item.className = 'func-item';
-            item.setAttribute('data-name', f.name.toLowerCase());
-            item.innerHTML = `
-                <div class="func-info">
-                    <span class="func-name">${f.name}</span>
-                    <span class="func-line">第 ${f.line} 行</span>
-                    <div class="func-preview">${escapeHtml(f.content)}</div>
-                </div>
-                <div class="btn-group">
-                    <button class="action-btn copy-btn" data-file="${filename}" data-func="${f.name}" data-line="${f.line}">📋 复制</button>
-                    <button class="action-btn replace-btn" data-file="${filename}" data-func="${f.name}" data-line="${f.line}">🔄 替换</button>
-                </div>`;
-
-            item.querySelector('.copy-btn').addEventListener('click', async (e) => {
-                const btn = e.target;
-                const code = fileContents[btn.dataset.file];
-                if (code) {
-                    const funcBody = extractFuncBody(code, btn.dataset.func, parseInt(btn.dataset.line));
-                    await navigator.clipboard.writeText(funcBody);
-                    btn.textContent = '✅ 已复制';
-                    btn.classList.add('copied');
-                    setTimeout(() => { btn.textContent = '📋 复制'; btn.classList.remove('copied'); }, 1500);
-                    statusDiv.textContent = `✅ 已复制 ${btn.dataset.func}（${funcBody.split('\n').length} 行）`;
-                }
-            });
-
-            item.querySelector('.replace-btn').addEventListener('click', (e) => {
-                const btn = e.target;
-                currentReplaceFile = btn.dataset.file;
-                currentReplaceFunc = btn.dataset.func;
-                currentReplaceLine = parseInt(btn.dataset.line);
-                replaceFuncName.textContent = currentReplaceFunc;
-                replaceFileName.textContent = currentReplaceFile;
-                replaceTextarea.value = '';
-                replaceResult.classList.remove('show');
-                resultTextarea.value = '';
-                replaceModal.classList.add('show');
-            });
-
-            funcList.appendChild(item);
-        });
-
-        section.querySelector('.file-header').addEventListener('click', () => section.classList.toggle('open'));
-        mapContainer.appendChild(section);
-    }
-
-    document.getElementById('fncBtnDoReplace').addEventListener('click', () => {
-        const newFuncCode = replaceTextarea.value.trim();
-        if (!newFuncCode || !currentReplaceFile || !currentReplaceFunc) return;
-        const originalCode = fileContents[currentReplaceFile];
-        const oldFuncBody = extractFuncBody(originalCode, currentReplaceFunc, currentReplaceLine);
-        const updatedCode = originalCode.replace(oldFuncBody, newFuncCode);
-        resultTextarea.value = updatedCode;
-        replaceResult.classList.add('show');
-        statusDiv.textContent = `✅ 已生成 ${currentReplaceFile} 的更新版本`;
-    });
-
-    document.getElementById('fncBtnCopyResult').addEventListener('click', async () => {
-        try {
-            await navigator.clipboard.writeText(resultTextarea.value);
-            statusDiv.textContent = `✅ 已复制 ${currentReplaceFile} 更新版本，请粘贴覆盖原文件`;
-        } catch (err) {
-            statusDiv.textContent = '❌ 复制失败，请重试';
-        }
-    });
-
-    document.getElementById('fncBtnCancelReplace').addEventListener('click', () => {
-        replaceModal.classList.remove('show');
-        currentReplaceFile = null;
-        currentReplaceFunc = null;
-        currentReplaceLine = null;
-    });
-
-    replaceModal.addEventListener('click', (e) => {
-        if (e.target === replaceModal) replaceModal.classList.remove('show');
-    });
-
-    searchInput.addEventListener('input', () => {
-        const query = searchInput.value.toLowerCase().trim();
-        document.querySelectorAll('#tab-func-copier .file-section').forEach(section => {
-            let hasMatch = false;
-            section.querySelectorAll('.func-item').forEach(item => {
-                if (!query || item.dataset.name.includes(query)) { item.style.display = 'flex'; hasMatch = true; }
-                else { item.style.display = 'none'; }
-            });
-            section.style.display = (query && !hasMatch) ? 'none' : '';
-            if (query && hasMatch) section.classList.add('open');
-        });
-    });
-})();
-
-/* ========== 3. 急救包 ========== */
-(function() {
-    const FAK_TARGET_FILES = [
-        { name: '01config-5v5-test.js', path: '../core/01config-5v5-test.js' },
-        { name: '02unit.js', path: '../core/02unit.js' },
-        { name: '03battle-utils.js', path: '../core/03battle-utils.js' },
-        { name: '04buff-system.js', path: '../core/04buff-system.js' },
-        { name: '06battle-engine-core.js', path: '../core/06battle-engine-core.js' },
-        { name: '10player-core.js', path: '../player/10player-core.js' },
-        { name: '13main-5v5-test.js', path: '../ui/13main-5v5-test.js' },
-        { name: '14ui-render-5v5-test.js', path: '../ui/14ui-render-5v5-test.js' },
-        { name: '17fx-crash-5v5-test.js', path: '../fx/17fx-crash-5v5-test.js' },
-        { name: '20fx-dodge-bullet.js', path: '../fx/20fx-dodge-bullet.js' },
-        { name: '23elite-skills.js', path: '../modules/23elite-skills.js' },
-        { name: '27auto-battle-utils.js', path: '../tools/27auto-battle-utils.js' },
-        { name: '28audio-manager.js', path: '../modules/28audio-manager.js' }
-    ];
-
-    const FAK_RULES = [
-        {
-            id: 'pos-negative-one',
-            title: '残留的阵亡站位污染',
-            desc: '检测到 u.pos = -1 等代码，这会导致"语义污染"。阵亡应只通过 alive/isDead 控制。',
-            severity: 'high',
-            scan: (code) => {
-                const lines = code.split('\n');
-                const matches = [];
-                lines.forEach((line, idx) => {
-                    if (line.includes('pos = -1') || line.includes('pos=-1')) {
-                        matches.push({ line: idx + 1, content: line.trim() });
-                    }
-                });
-                return matches;
-            },
-            fix: (code) => code.replace(/\.pos\s*=\s*-1/g, '._isDead = true')
-        },
-        {
-            id: 'duplicate-available',
-            title: 'available 变量重复声明',
-            desc: '在 doInitBattle 中，let available 被意外声明了两次，会导致初始化崩溃。',
-            severity: 'critical',
-            scan: (code) => {
-                const matches = [];
-                const regex = /let\s+available\s*=/g;
-                let match;
-                while ((match = regex.exec(code)) !== null) {
-                    const lineNum = code.substring(0, match.index).split('\n').length;
-                    matches.push({ line: lineNum, content: match[0] });
-                }
-                return matches.length >= 2 ? matches : [];
-            },
-            fix: (code) => {
-                let count = 0;
-                return code.replace(/let\s+available\s*=/g, (m) => {
-                    count++;
-                    if (count === 1) return m;
-                    return 'let remainingSlots =';
-                });
-            }
-        },
-        {
-            id: 'clone-missing-attribute',
-            title: 'clone 方法遗漏新状态属性',
-            desc: '02unit.js 的 clone() 中可能缺少对新加属性（如 _xuanmingPoison）的复制，导致回合切换后状态丢失。',
-            severity: 'high',
-            scan: (code) => {
-                const knownAttrs = ['_acted', '_flash', '_blocked', '_isDead', '_resting', '_flyMode', '_hotBloodCount', '_doubleStriked', '_zhangSwitched', 'buffAtkBonus', 'buffDefBonus', 'buffDodgeBonus', 'buffHpBonus', '_baseMaxHp', '_xuanmingPoison'];
-                const missing = [];
-                knownAttrs.forEach(attr => {
-                    if (!code.includes(`c.${attr}`)) missing.push(attr);
-                });
-                return missing.length > 0 ? [{ line: 0, content: `缺少: ${missing.join(', ')}` }] : [];
-            },
-            fix: null
-        },
-        {
-            id: 'large-function',
-            title: '超大函数警告',
-            desc: '检测到行数超过 200 行的超大函数，建议拆分以降低维护成本。',
-            severity: 'info',
-            scan: (code) => {
-                const lines = code.split('\n');
-                const matches = [];
-                let funcStart = -1, braceDepth = 0;
-                lines.forEach((line, idx) => {
-                    if (line.includes('function ') && line.includes('(') && funcStart === -1) {
-                        funcStart = idx;
-                        braceDepth = 0;
-                    }
-                    if (funcStart !== -1) {
-                        braceDepth += (line.match(/\{/g) || []).length;
-                        braceDepth -= (line.match(/\}/g) || []).length;
-                        if (braceDepth === 0 && idx - funcStart > 200) {
-                            matches.push({ line: funcStart + 1, content: `约 ${idx - funcStart} 行` });
-                            funcStart = -1;
-                        } else if (braceDepth === 0) {
-                            funcStart = -1;
-                        }
-                    }
-                });
-                return matches;
-            },
-            fix: null
-        }
-    ];
-
-    const issuesContainer = document.getElementById('fakIssuesContainer');
-    const logDiv = document.getElementById('fakLog');
-    const btnScan = document.getElementById('fakBtnScan');
-    const btnCopyAll = document.getElementById('fakBtnCopyAll');
-
-    let allIssues = [], fixedContents = {};
-
-    async function scanProject() {
-        btnScan.disabled = true;
-        btnScan.textContent = '⏳ 扫描中...';
-        issuesContainer.innerHTML = '';
-        logDiv.textContent = '正在读取文件...';
-        allIssues = [];
-        fixedContents = {};
-
-        let totalFiles = 0, totalIssues = 0, totalFixable = 0;
-
-        for (const fileInfo of FAK_TARGET_FILES) {
-            try {
-                const response = await fetch(fileInfo.path);
-                if (!response.ok) {
-                    logDiv.textContent = `⚠️ 跳过 ${fileInfo.name}：无法访问`;
-                    continue;
-                }
-                const code = await response.text();
-                totalFiles++;
-
-                FAK_RULES.forEach(rule => {
-                    const matches = rule.scan(code);
-                    if (matches.length > 0) {
-                        totalIssues += matches.length;
-                        const isFixable = rule.fix !== null;
-                        if (isFixable) totalFixable++;
-
-                        matches.forEach(match => {
-                            allIssues.push({
-                                filename: fileInfo.name,
-                                rule,
-                                line: match.line,
-                                content: match.content,
-                                isFixable
-                            });
-                        });
-
-                        if (isFixable) {
-                            fixedContents[fileInfo.name] = rule.fix(code);
-                        }
-                    }
-                });
-            } catch (err) {
-                logDiv.textContent = `❌ 读取 ${fileInfo.name} 失败：${err.message}`;
-            }
-        }
-
-        renderIssues();
-        document.getElementById('fakTotalFiles').textContent = totalFiles;
-        document.getElementById('fakTotalIssues').textContent = totalIssues;
-        document.getElementById('fakTotalFixed').textContent = totalFixable;
-        btnCopyAll.disabled = totalFixable === 0;
-        btnScan.disabled = false;
-        btnScan.textContent = '🔍 重新扫描';
-        logDiv.textContent = `✅ 扫描完成：${totalFiles} 个文件，发现 ${totalIssues} 个问题（其中 ${totalFixable} 个可自动修复）`;
-    }
-
-    function renderIssues() {
-        issuesContainer.innerHTML = '';
-        allIssues.forEach((issue, index) => {
-            const card = document.createElement('div');
-            card.className = 'issue-card';
-            card.id = `fak-issue-${index}`;
-            card.innerHTML = `
-                <div class="issue-header">
-                    <span class="issue-title">⚠️ ${issue.rule.title}</span>
-                    <span class="issue-file">📄 ${issue.filename}${issue.line > 0 ? ` : 第${issue.line}行` : ''}</span>
-                </div>
-                <div class="issue-desc">${issue.rule.desc}</div>
-                <div class="issue-code">${escapeHtml(issue.content)}</div>
-                ${issue.isFixable ? `<button class="fix-btn fix" data-index="${index}">🔧 一键修复</button>` : '<span style="color:#ff9800;font-size:11px;">⚠️ 需手动处理</span>'}
-            `;
-            issuesContainer.appendChild(card);
-        });
-
-        document.querySelectorAll('#tab-first-aid .fix-btn.fix').forEach(btn => {
-            btn.addEventListener('click', async (e) => {
-                const index = parseInt(e.target.dataset.index);
-                const issue = allIssues[index];
-                const fixedCode = fixedContents[issue.filename];
-                if (fixedCode) {
-                    try {
-                        await navigator.clipboard.writeText(fixedCode);
-                        const card = document.getElementById(`fak-issue-${index}`);
-                        card.classList.add('fixed');
-                        e.target.textContent = '✅ 已复制修复代码';
-                        e.target.className = 'fix-btn copy';
-                        logDiv.textContent = `✅ 已复制 ${issue.filename} 的修复版本，请粘贴覆盖原文件。`;
-                    } catch (err) {
-                        logDiv.textContent = '❌ 复制失败，请手动复制修复代码。';
-                    }
-                }
-            });
-        });
-    }
-
-    btnCopyAll.addEventListener('click', async () => {
-        const allFixed = Object.entries(fixedContents).map(([file, code]) => `// ===== ${file} (修复版) =====\n${code}`).join('\n\n');
-        if (allFixed) {
-            try {
-                await navigator.clipboard.writeText(allFixed);
-                logDiv.textContent = '✅ 已复制所有修复代码，请逐个粘贴覆盖原文件。';
-            } catch (err) {
-                logDiv.textContent = '❌ 复制失败，请重试。';
-            }
-        }
-    });
-
-    btnScan.addEventListener('click', scanProject);
-})();
-
-/* ========== 4. 防战计算器 ========== */
-(function() {
-    const FANG_LEVELS = [0.244, 0.264, 0.279, 0.292, 0.306, 0.322, 0.342, 0.373, 0.445, 0.520];
-    const FANG_K = [0, 0.02, 0.04, 0.07, 0.10, 0.14, 0.19, 0.28, 0.50, 1.00, 2.50];
-
-    function randInt(min, max) { return Math.floor(Math.random() * (max - min + 1)) + min; }
-
-    function getK(ratio) {
-        for (let i = FANG_LEVELS.length - 1; i >= 0; i--) {
-            if (ratio >= FANG_LEVELS[i]) return FANG_K[i + 1] ?? FANG_K[FANG_K.length - 1];
-        }
-        return FANG_K[0];
-    }
-
-    function generateDefender(M) {
-        const minHpTemp = Math.ceil(M * 0.4), maxHpTemp = Math.floor(M * 0.6);
-        let hpTemp, rem, d, a;
-        do {
-            hpTemp = randInt(minHpTemp, maxHpTemp);
-            rem = M - hpTemp;
-            const dMin = Math.ceil(rem * 5), dMax = (rem - 1) * 10;
-            d = randInt(dMin, dMax) / 10;
-            a = rem - d;
-        } while (d - a > 20);
-        return { def: d, atk: a, hpTemp, maxHp: hpTemp * 2.5, ratio: d / M };
-    }
-
-    function simulateRatios(M, count) {
-        const ratios = [];
-        for (let i = 0; i < count; i++) {
-            ratios.push(generateDefender(M).ratio);
-        }
-        ratios.sort((a, b) => a - b);
-        return ratios;
-    }
-
-    function getPercentiles(sorted, steps = [0.125, 0.25, 0.375, 0.5, 0.625, 0.75, 0.875, 1.0]) {
-        const n = sorted.length;
-        return steps.map(p => ({ percentile: p * 100, ratio: sorted[Math.min(n - 1, Math.floor(p * (n - 1)))] }));
-    }
-
-    function getKDistribution(ratios, applyBuff = false) {
-        const dist = {};
-        ratios.forEach(r => {
-            const ratio = applyBuff ? r * 1.5 : r;
-            const k = getK(ratio);
-            dist[k] = (dist[k] || 0) + 1;
-        });
-        return Object.entries(dist).sort((a, b) => parseFloat(a[0]) - parseFloat(b[0]))
-            .map(([k, count]) => ({ k: parseFloat(k), count, pct: (count / ratios.length * 100).toFixed(1) }));
-    }
-
-    const btnRun = document.getElementById('fangBtnRun');
-    const btnCopy = document.getElementById('fangBtnCopyResult');
-    const statusDiv = document.getElementById('fangStatus');
-    const resultBox = document.getElementById('fangResultBox');
-
-    btnRun.addEventListener('click', async () => {
-        const selectedM = Array.from(document.querySelectorAll('#tab-fang-calc .fang-m-check:checked'))
-            .map(cb => parseInt(cb.value));
-        if (selectedM.length === 0) {
-            statusDiv.textContent = '⚠️ 请至少选择一个 M 值';
-            return;
-        }
-        const simCount = parseInt(document.getElementById('fangSimCount').value) || 20000;
-        statusDiv.textContent = '⏳ 正在模拟...';
-        btnRun.disabled = true;
-        resultBox.style.display = 'none';
-
-        await new Promise(resolve => setTimeout(resolve, 50));
-
-        let output = '';
-        for (const M of selectedM) {
-            output += `\n═══════════════════════════════\n📊 M = ${M} 防战比率分析 (${simCount} 次)\n═══════════════════════════════\n`;
-            const ratios = simulateRatios(M, simCount);
-            const percentiles = getPercentiles(ratios);
-            output += `比率范围：${ratios[0].toFixed(4)} ~ ${ratios[ratios.length - 1].toFixed(4)}\n\n📈 分位点：\n`;
-            percentiles.forEach(p => output += `  ${p.percentile}%  ≤ ${p.ratio.toFixed(4)}\n`);
-            const baseKDist = getKDistribution(ratios, false);
-            output += '\n🛡️ 基础 k 值分布：\n';
-            baseKDist.forEach(d => output += `  k=${d.k.toFixed(2)} : ${d.count} 次 (${d.pct}%)\n`);
-            const buffKDist = getKDistribution(ratios, true);
-            output += '\n🔥 严阵以待 Buff 后 (def×1.5) k 值分布：\n';
-            buffKDist.forEach(d => output += `  k=${d.k.toFixed(2)} : ${d.count} 次 (${d.pct}%)\n`);
-        }
-        output += `\n═══════════════════════════════\n📋 通用阈值表\n阈值: [${FANG_LEVELS.map(l => l.toFixed(3)).join(', ')}]\nk 值: [${FANG_K.join(', ')}]\n`;
-
-        resultBox.textContent = output;
-        resultBox.style.display = 'block';
-        btnCopy.style.display = 'inline-block';
-        statusDiv.textContent = '✅ 模拟完成';
-        btnRun.disabled = false;
-    });
-
-    btnCopy.addEventListener('click', async () => {
-        try {
-            await navigator.clipboard.writeText(resultBox.textContent);
-            statusDiv.textContent = '✅ 结果已复制';
-        } catch (e) {
-            statusDiv.textContent = '❌ 复制失败';
-        }
-    });
-
-    document.getElementById('fangBtnSelectAll').addEventListener('click', () => {
-        document.querySelectorAll('#tab-fang-calc .fang-m-check').forEach(cb => cb.checked = true);
-    });
-    document.getElementById('fangBtnClearAll').addEventListener('click', () => {
-        document.querySelectorAll('#tab-fang-calc .fang-m-check').forEach(cb => cb.checked = false);
-    });
-})();
-
-/* ========== 5. 自动批量战斗 ========== */
-import { runAutoBattle } from './27auto-battle-utils.js';
-import { CONFIG } from '../core/01config-5v5-test.js';
-
-(function() {
-    const buffCheckboxesDiv = document.getElementById('abBuffCheckboxes');
-    const allBuffs = Object.entries(CONFIG.BUFFS);
-    buffCheckboxesDiv.innerHTML = allBuffs.map(([key, buff]) =>
-        `<label><input type="checkbox" value="${key}"> ${buff.icon} ${buff.name}</label>`
-    ).join('');
-
-    function updatePreview(stage) {
-        const previewDiv = document.getElementById('abPreviewGrid');
-        const template = CONFIG.ENEMY_POS_TEMPLATES?.[stage];
-        const eliteList = CONFIG.ELITE_POOL?.[stage] || [];
-
-        if (!template) { previewDiv.textContent = '无模板'; return; }
-
-        const grid = Array(9).fill('·');
-        for (const [role, poses] of Object.entries(template)) {
-            if (role === 'random') continue;
-            const rc = role === '防战' ? '防' : (role === '战士' ? '战' : (role === '远程' ? '远' : '飞'));
-            for (const p of poses) { if (p >= 1 && p <= 9) grid[p - 1] = rc; }
-        }
-        for (const elite of eliteList) {
-            const pos = elite.pos;
-            if (pos && grid[pos - 1] !== '·') grid[pos - 1] += '*';
-            else if (pos) grid[pos - 1] = '精*';
-        }
-
-        previewDiv.textContent =
-            `模板：${Object.entries(template).filter(([k]) => k !== 'random').map(([k, v]) => `${k}(${v.join(',')})`).join(', ')}\n` +
-            `精英：${eliteList.map(e => `${e.name}(${e.role})`).join(', ') || '无'}\n\n` +
-            `┌───┬───┬───┐\n│ ${grid[0]} │ ${grid[1]} │ ${grid[2]} │  1 2 3\n├───┼───┼───┤\n│ ${grid[3]} │ ${grid[4]} │ ${grid[5]} │  4 5 6\n├───┼───┼───┤\n│ ${grid[6]} │ ${grid[7]} │ ${grid[8]} │  7 8 9\n└───┴───┴───┘\n* = 精英`;
-    }
-
-    function loadHistory() {
-        const historyDiv = document.getElementById('abHistory');
-        const history = JSON.parse(localStorage.getItem('ming_auto_test_history') || '[]');
-        historyDiv.innerHTML = history.map((item, idx) =>
-            `<div class="ab-history-item">
-                <span>${item.time} | 第${item.stage}关 | ${item.rounds}场 | 明${item.wins.ally}胜 六${item.wins.enemy}胜 平${item.wins.draw} | 偏好：${item.prefs || '无'}</span>
-                <button class="copy-item" data-idx="${idx}">复制</button>
-            </div>`
-        ).join('');
-        document.querySelectorAll('#tab-auto-battle .copy-item').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                const idx = parseInt(e.target.dataset.idx);
-                const item = history[idx];
-                const text = `${item.time} | 第${item.stage}关 | ${item.rounds}场 | 明教胜：${item.wins.ally} 六大派胜：${item.wins.enemy} 平局：${item.wins.draw} | 偏好：${item.prefs || '无'}`;
-                navigator.clipboard.writeText(text).then(() => alert('已复制'));
-            });
-        });
-    }
-
-    document.getElementById('abCopyAllHistoryBtn').addEventListener('click', () => {
-        const history = JSON.parse(localStorage.getItem('ming_auto_test_history') || '[]');
-        if (!history.length) return alert('暂无记录');
-        const text = history.map(item => `${item.time} | 第${item.stage}关 | ${item.rounds}场 | ...`).join('\n');
-        navigator.clipboard.writeText(text).then(() => alert('已复制全部'));
-    });
-
-    document.getElementById('abClearHistoryBtn').addEventListener('click', () => {
-        localStorage.removeItem('ming_auto_test_history');
-        loadHistory();
-    });
-
-    document.getElementById('abStageSelect').addEventListener('change', function() {
-        updatePreview(parseInt(this.value));
-    });
-
-    document.getElementById('abRunBtn').addEventListener('click', async () => {
-        const status = document.getElementById('abStatus');
-        const report = document.getElementById('abReport');
-        const runBtn = document.getElementById('abRunBtn');
-        const stage = parseInt(document.getElementById('abStageSelect').value);
-        const rounds = parseInt(document.getElementById('abRoundsInput').value) || 300;
-        const preferredBuffs = Array.from(document.querySelectorAll('#abBuffCheckboxes input:checked')).map(cb => cb.value);
-
-        runBtn.disabled = true;
-        status.textContent = `正在测试 (${rounds}场)...`;
-        report.textContent = '';
-
-        try {
-            const wins = await runAutoBattle(rounds, (cur, total) => status.textContent = `进度：${cur}/${total}`, stage, preferredBuffs);
-            const resultText = `关卡：${stage}\n场次：${rounds}\n偏好海克斯：${preferredBuffs.join(', ') || '无'}\n\n明教胜：${wins.ally} 场\n六大派胜：${wins.enemy} 场\n平局：${wins.draw} 场`;
-            report.textContent = resultText;
-            status.textContent = '✅ 测试完成！';
-
-            const now = new Date();
-            const timeStr = `${now.getMonth()+1}/${now.getDate()} ${now.getHours()}:${String(now.getMinutes()).padStart(2,'0')}`;
-            const history = JSON.parse(localStorage.getItem('ming_auto_test_history') || '[]');
-            const newPrefs = preferredBuffs.join(',');
-            if (history.length > 0) {
-                const last = history[0];
-                if (last.stage === stage && last.prefs === newPrefs) {
-                    last.rounds += rounds;
-                    last.wins.ally += wins.ally;
-                    last.wins.enemy += wins.enemy;
-                    last.wins.draw += wins.draw;
-                    last.time = timeStr;
-                } else {
-                    history.unshift({ time: timeStr, stage, rounds, wins, prefs: newPrefs });
-                    if (history.length > 20) history.pop();
-                }
-            } else {
-                history.push({ time: timeStr, stage, rounds, wins, prefs: newPrefs });
-            }
-            localStorage.setItem('ming_auto_test_history', JSON.stringify(history));
-            loadHistory();
-        } catch (e) {
-            status.textContent = '❌ 测试异常！';
-            report.textContent = '错误详情：' + (e.stack || e.message);
-        } finally {
-            runBtn.disabled = false;
-        }
-    });
-
-    updatePreview(1);
-    loadHistory();
 })();

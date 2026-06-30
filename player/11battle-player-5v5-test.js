@@ -10,7 +10,6 @@ import {
     handleBuffSummon,
     handleBuffDestroy,
     handleBuffLeech,
-    handleBuffSplash,
     setBuffUIContext
 } from './09player-buff-ui.js';
 
@@ -25,8 +24,7 @@ export {
     showBuffPopup,
     handleBuffSummon,
     handleBuffDestroy,
-    handleBuffLeech,
-    handleBuffSplash
+    handleBuffLeech
 };
 
 export const ALL_VERS = {
