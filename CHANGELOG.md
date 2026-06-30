@@ -1,5 +1,10 @@
 # 光明顶 5v5 - 更改履历
 
+## V4.0.1 — 2026-06-29
+- **修复BGM无声**：`BGM_LOCAL` 路径补上 `assets/` 前缀，`28audio-manager.js` 改用本地路径替代已删除的网络地址
+- **README 补充改代码规则**：发代码必须「一组一旧一新」，超过3处询问后发完整文件不准省略
+- **CHANGELOG/开发准则/Test Runner Logo 同步更新**
+
 ## V4.0.0 — 2026-06-29
 - **大版本升级**：所有文件版本号统一为 V4.0.0，清理冗余注释
 - **文件结构整理**：`27auto-battle-utils.js` 移入 `tools/`，新增 `36runtime-sampler.js`
