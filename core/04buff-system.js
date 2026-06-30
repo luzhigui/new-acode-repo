@@ -7,7 +7,7 @@ import { rand, hasBuff, getUnitRow, getUnitCol, getAdjacentPositions } from './0
 const C = CONFIG;
 
 export function computeBuffStats(unit, activeBuffs, allyTeam) {
-    console.log('computeBuffStats called, activeBuffs:', JSON.stringify(activeBuffs?.map(b => ({ key: b.key, target: b.target, remaining: b.remaining }))));
+    // console.log('computeBuffStats called, activeBuffs:', JSON.stringify(activeBuffs?.map(b => ({ key: b.key, target: b.target, remaining: b.remaining }))));
     let atkBonus = 0, defBonus = 0, dodgeBonus = 0, hpBonus = 0;
     if (!activeBuffs) return { atkBonus, defBonus, dodgeBonus, hpBonus };
 
@@ -35,7 +35,7 @@ export function computeBuffStats(unit, activeBuffs, allyTeam) {
     }
     if (hasBuff(activeBuffs, 'fortify') && unit.role === '防战') { defBonus += C.BUFFS.fortify.defBonus; }
     if (hasBuff(activeBuffs, 'cloudBody')) { dodgeBonus = C.BUFFS.cloudBody.dodgeBonus; }
-    console.log('computeBuffStats:', unit.name, 'atkBonus:', atkBonus, 'defBonus:', defBonus, 'activeBuffs:', activeBuffs?.map(b => b.key));
+    // console.log('computeBuffStats:', unit.name, 'atkBonus:', atkBonus, 'defBonus:', defBonus, 'activeBuffs:', activeBuffs?.map(b => b.key));
     return { atkBonus, defBonus, dodgeBonus, hpBonus };
 }
 

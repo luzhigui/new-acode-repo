@@ -270,6 +270,14 @@ async function handleInfo(c, entry) {
         if (entry.text && entry.text.includes('拒马无法攻击')) { let sepDiv=document.createElement('div'); sepDiv.innerHTML='<span class="separator">- - - - -</span><br>'; document.getElementById('log').appendChild(sepDiv); c.autoScrollLog(); await new Promise(r=>setTimeout(r, c.speed/4)); } 
         let tempDiv=document.createElement('div');document.getElementById('log').appendChild(tempDiv); await playLineText(entry.text,tempDiv); 
     }
+    // 新婚扣血：同步周芷若血量
+    if (entry.zhouUid) {
+        let zhouUnit = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.uid === entry.zhouUid);
+        if (zhouUnit) {
+            zhouUnit.hp = entry.zhouHpAfter;
+            c.updateUI(c.UI);
+        }
+    }
     document.getElementById('roundDisplay').innerText = `📜 日志（第${c.UI.round}回合）`;
 }
 
