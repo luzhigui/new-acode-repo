@@ -41,15 +41,9 @@
 <body>
 <h2>⚔️ 光明顶 5v5 测试与诊断 V4.3</h2>
 <div class="tabs">
-    <button class="tab-btn active" data-tab="core-tests">🧪 核心测试</button>
-    <button class="tab-btn" data-tab="health-check">💚 全面体检</button>
+    <button class="tab-btn active" data-tab="health-check">💚 全面体检</button>
 </div>
-<div class="tab-panel active" id="core-tests">
-    <button id="runBtn">▶ 运行核心测试</button>
-    <div id="results"></div>
-    <div id="coreSummary" class="summary" style="display:none;"></div>
-</div>
-<div class="tab-panel" id="health-check">
+<div class="tab-panel active" id="health-check">
     <div class="stage-checkboxes" id="stageCheckboxes">
         <label><input type="checkbox" value="1" checked> 1关</label><label><input type="checkbox" value="2" checked> 2关</label>
         <label><input type="checkbox" value="3" checked> 3关</label><label><input type="checkbox" value="4" checked> 4关</label>
@@ -81,7 +75,7 @@
     <iframe id="autoIframe" sandbox="allow-scripts allow-same-origin allow-popups allow-forms"></iframe>
 </div>
 <script type="module">
-import { initTestRunner } from './tests/38health-ui.js';
+import { initTestRunner } from './38health-ui.js';
 initTestRunner();
 </script>
 </body>

@@ -9,7 +9,7 @@ import { stripTags, renderGrid, updateUI, spawnVictoryEffects, clearLogExceptFir
 import { showDanmaku, showDamageFloat, showDodgeBubble, showHealFloat, VER as FX_VER } from '../fx/15fx-common-5v5-test.js';
 import { showRangedArrow, VER as FA_VER } from '../fx/16fx-arrows-5v5-test.js';
 import { showMeleeCrash, showMeleeDodge, showMeleeMiss, VER as FC_VER } from '../fx/17fx-crash-5v5-test.js';
-import { playBattle, playLineText, clearAllEffects, handleBuffSummon, handleBuffDestroy, handleBuffLeech, handleBuffSplash, VER as BP_VER } from '../player/11battle-player-5v5-test.js';
+import { playBattle, playLineText, clearAllEffects, handleBuffSummon, handleBuffDestroy, handleBuffLeech, VER as BP_VER } from '../player/11battle-player-5v5-test.js';
 import { showModal, showAlert, updateCoverVersion } from './12main-utils.js';
 import { AudioManager } from '../modules/28audio-manager.js';
 
@@ -475,45 +475,143 @@ function showBattleReport(result) {
 
 // ==================== 音乐设置弹窗 ====================
 function showMusicPanel() {
-    let overlay = document.createElement('div'); overlay.className = 'modal-overlay';
-    let box = document.createElement('div'); box.className = 'modal-box';
-    box.style.cssText = 'max-width:360px;background:#1a1a2e;color:#eee;';
-    box.innerHTML = `
-        <div class="modal-text" style="color:#ffd700;">🎵 音乐设置</div>
-        <div style="display:flex;align-items:center;justify-content:space-between;margin:10px 0;">
-            <span>🔇 全局静音</span>
-            <input type="checkbox" id="musicMute" ${AudioManager.enabled?'':'checked'} style="width:20px;height:20px;">
-        </div>
-        <div style="margin:10px 0;">
-            <span>🔊 音量：<span id="musicVolLabel">${Math.round((AudioManager.audio?.volume||0.6)*100)}%</span></span>
-            <input type="range" id="musicVolume" min="0" max="100" value="${Math.round((AudioManager.audio?.volume||0.6)*100)}" style="width:100%;">
-        </div>
-        <div style="margin:10px 0;">
-            <span>🎼 音源：</span>
-            <select id="musicSource" style="width:100%;padding:8px;border-radius:4px;background:#2a2a4e;color:#eee;border:1px solid #555;">
-                <option value="local" ${AudioManager.currentSource==='local'?'selected':''}>本地 (sfx_xinai.mp3)</option>
-                <option value="mute" ${AudioManager.currentSource==='mute'?'selected':''}>静音</option>
-            </select>
-        </div>
-        <button class="modal-btn confirm" id="musicClose" style="margin-top:8px;">关闭</button>
-    `;
+    const existing = document.getElementById('musicPanelOverlay');
+    if (existing) existing.remove();
+
+    const overlay = document.createElement('div');
+    overlay.id = 'musicPanelOverlay';
+    overlay.className = 'modal-overlay';
+    overlay.style.background = 'rgba(0,0,0,0.7)';
+
+    const box = document.createElement('div');
+    box.className = 'modal-box';
+    box.style.cssText = 'max-width:380px;background:#1a1a2e;color:#eee;padding:20px;position:relative;';
+
+    // 关闭按钮
+    const closeBtn = document.createElement('span');
+    closeBtn.innerHTML = '✕';
+    closeBtn.style.cssText = 'position:absolute;top:8px;right:12px;cursor:pointer;font-size:18px;color:#aaa;';
+    closeBtn.onclick = () => overlay.remove();
+    box.appendChild(closeBtn);
+
+    const title = document.createElement('div');
+    title.textContent = '🎵 音乐设置';
+    title.style.cssText = 'color:#ffd700;font-size:16px;font-weight:bold;margin-bottom:16px;';
+    box.appendChild(title);
+
+    // 全局静音
+    const muteRow = document.createElement('div');
+    muteRow.style.cssText = 'display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;';
+    muteRow.innerHTML = '<span>🔇 全局静音</span>';
+    const muteCheck = document.createElement('input');
+    muteCheck.type = 'checkbox';
+    muteCheck.checked = !AudioManager.enabled;
+    muteCheck.style.width = '20px'; muteCheck.style.height = '20px';
+    muteCheck.onchange = () => {
+        if (muteCheck.checked) {
+            AudioManager.pause();
+            AudioManager.enabled = false;
+        } else {
+            AudioManager.enabled = true;
+            if (AudioManager.audio && AudioManager.audio.paused) AudioManager.play();
+        }
+    };
+    muteRow.appendChild(muteCheck);
+    box.appendChild(muteRow);
+
+    // 主音量
+    const masterRow = document.createElement('div');
+    masterRow.style.marginBottom = '12px';
+    masterRow.innerHTML = '<span>🔊 主音量：<span id="musicMasterLabel">' + Math.round((AudioManager.audio?.volume || 0.6) * 100) + '%</span></span>';
+    const masterSlider = document.createElement('input');
+    masterSlider.type = 'range'; masterSlider.min = '0'; masterSlider.max = '100';
+    masterSlider.value = Math.round((AudioManager.audio?.volume || 0.6) * 100);
+    masterSlider.style.width = '100%';
+    masterSlider.oninput = () => {
+        const vol = parseInt(masterSlider.value) / 100;
+        AudioManager.setVolume(vol);
+        document.getElementById('musicMasterLabel').textContent = Math.round(vol * 100) + '%';
+        document.getElementById('musicBgmLabel').textContent = Math.round(vol * 100) + '%';
+        document.getElementById('musicBgmSlider').value = masterSlider.value;
+    };
+    masterRow.appendChild(masterSlider);
+    box.appendChild(masterRow);
+
+    // BGM 音量
+    const bgmRow = document.createElement('div');
+    bgmRow.style.marginBottom = '12px';
+    bgmRow.innerHTML = '<span>🎼 BGM 音量：<span id="musicBgmLabel">' + Math.round((AudioManager.audio?.volume || 0.6) * 100) + '%</span></span>';
+    const bgmSlider = document.createElement('input');
+    bgmSlider.id = 'musicBgmSlider';
+    bgmSlider.type = 'range'; bgmSlider.min = '0'; bgmSlider.max = '100';
+    bgmSlider.value = Math.round((AudioManager.audio?.volume || 0.6) * 100);
+    bgmSlider.style.width = '100%';
+    bgmSlider.oninput = () => {
+        const vol = parseInt(bgmSlider.value) / 100;
+        AudioManager.setVolume(vol);
+        document.getElementById('musicBgmLabel').textContent = Math.round(vol * 100) + '%';
+    };
+    bgmRow.appendChild(bgmSlider);
+    box.appendChild(bgmRow);
+
+    // 音效音量
+    const sfxRow = document.createElement('div');
+    sfxRow.style.marginBottom = '12px';
+    sfxRow.innerHTML = '<span>💥 音效音量：<span id="musicSfxLabel">' + Math.round(AudioManager.sfxVolume * 100) + '%</span></span>';
+    const sfxSlider = document.createElement('input');
+    sfxSlider.type = 'range'; sfxSlider.min = '0'; sfxSlider.max = '100';
+    sfxSlider.value = Math.round(AudioManager.sfxVolume * 100);
+    sfxSlider.style.width = '100%';
+    sfxSlider.oninput = () => {
+        AudioManager.sfxVolume = parseInt(sfxSlider.value) / 100;
+        document.getElementById('musicSfxLabel').textContent = Math.round(AudioManager.sfxVolume * 100) + '%';
+    };
+    sfxRow.appendChild(sfxSlider);
+    box.appendChild(sfxRow);
+
+    // 音源选择
+    const sourceRow = document.createElement('div');
+    sourceRow.style.marginBottom = '12px';
+    sourceRow.innerHTML = '<span style="display:block;margin-bottom:6px;">📻 音源选择</span>';
+    const sources = ['local', 'mute'];
+    const labels = ['本地', '静音'];
+    sources.forEach((src, idx) => {
+        const label = document.createElement('label');
+        label.style.marginRight = '12px';
+        const radio = document.createElement('input');
+        radio.type = 'radio'; radio.name = 'musicSource'; radio.value = src;
+        radio.checked = (AudioManager.currentSource === src);
+        radio.onchange = () => {
+            if (radio.checked) {
+                AudioManager.switchSource(src);
+                if (src === 'mute') {
+                    muteCheck.checked = true;
+                    AudioManager.enabled = false;
+                } else {
+                    muteCheck.checked = false;
+                    AudioManager.enabled = true;
+                }
+            }
+        };
+        label.appendChild(radio);
+        label.appendChild(document.createTextNode(' ' + labels[idx]));
+        sourceRow.appendChild(label);
+    });
+    box.appendChild(sourceRow);
+
+    // 底部关闭按钮
+    const bottomClose = document.createElement('button');
+    bottomClose.textContent = '关闭';
+    bottomClose.style.cssText = 'display:block;width:100%;margin-top:12px;padding:10px;background:#444;color:#fff;border:none;border-radius:6px;font-size:14px;cursor:pointer;';
+    bottomClose.onclick = () => overlay.remove();
+    box.appendChild(bottomClose);
+
     overlay.appendChild(box);
     document.body.appendChild(overlay);
 
-    document.getElementById('musicMute').addEventListener('change', function(){
-        if(this.checked){ AudioManager.pause(); AudioManager.enabled = false; AudioManager.currentSource = 'mute'; }
-        else { AudioManager.enabled = true; AudioManager.switchSource(document.getElementById('musicSource').value); AudioManager.play(); }
+    overlay.addEventListener('click', (e) => {
+        if (e.target === overlay) overlay.remove();
     });
-    document.getElementById('musicVolume').addEventListener('input', function(){
-        let vol = parseInt(this.value)/100;
-        AudioManager.setVolume(vol);
-        document.getElementById('musicVolLabel').textContent = Math.round(vol*100)+'%';
-    });
-    document.getElementById('musicSource').addEventListener('change', function(){
-        if(!document.getElementById('musicMute').checked){ AudioManager.switchSource(this.value); AudioManager.play(); }
-    });
-    document.getElementById('musicClose').addEventListener('click', ()=>{ document.body.removeChild(overlay); });
-    overlay.addEventListener('click', function(e){ if(e.target===overlay) document.body.removeChild(overlay); });
 }
 
 function updateButtons() { let mainBtn=document.getElementById('btnMain'),nextBtn=document.getElementById('btnNext'),settleBtn=document.getElementById('btnSettle'),pauseBtn=document.getElementById('btnPause'),randomBtn=document.getElementById('btnRandom'),stageBtn=document.getElementById('btnStageSelect'),infoBtn=document.getElementById('btnInfo'),copyBtn=document.getElementById('copyLog');if(gs===S.IDLE){mainBtn.innerHTML=adjustMode?'▶ 开始<br><span style="font-size:8px;">(投票)</span>':'🔄 调整<br>站位';mainBtn.disabled=false;nextBtn.disabled=true;if(adjustMode){if(stageBtn)stageBtn.disabled=true;if(randomBtn)randomBtn.disabled=true;if(infoBtn)infoBtn.disabled=true;if(copyBtn)copyBtn.disabled=true;}else{if(stageBtn)stageBtn.disabled=false;if(randomBtn)randomBtn.disabled=false;if(infoBtn)infoBtn.disabled=false;if(copyBtn)copyBtn.disabled=false;}}else if(gs===S.GAMEOVER){mainBtn.innerHTML=currentStage>=6?'🔄 重新<br>开始':'▶ 下一关';mainBtn.disabled=false;nextBtn.disabled=true;}else{mainBtn.disabled=true;}if(gs===S.RUNNING||gs===S.PAUSED){settleBtn.textContent='⏭ 直接结算';settleBtn.disabled=false;}else if(gs===S.GAMEOVER){settleBtn.textContent='🔄 重新结算';settleBtn.disabled=false;}else{settleBtn.disabled=true;}if(window.bulletTimeActive){pauseBtn.textContent='⏸️ 暂停';pauseBtn.disabled=true;pauseBtn.classList.remove('active');nextBtn.disabled=true;if(stageBtn)stageBtn.disabled=true;if(randomBtn)randomBtn.disabled=true;}else if(gs===S.RUNNING){pauseBtn.textContent='⏸️ 暂停';pauseBtn.disabled=false;pauseBtn.classList.remove('active');}else if(gs===S.PAUSED){pauseBtn.textContent='▶ 继续';pauseBtn.disabled=false;pauseBtn.classList.add('active');}else{pauseBtn.disabled=true;pauseBtn.classList.remove('active');} }
@@ -555,7 +653,7 @@ async function showCountdown() { let nums=['3','2','1']; let mainBtn=document.ge
 function _triggerFX(fxSnapshot, unitA, unitD, isDead, isDodge, isMiss, isBlock, dmg, waveTaunt, waveUnit, attackerRole) {
     if(!detailMode)return;
     if(waveTaunt&&waveUnit&&!isBlock&&!isMiss&&!isDodge){showDanmaku(waveUnit,waveTaunt);}else if(isDead&&unitA&&!isBlock&&!isMiss&&!isDodge){let killTaunt=getKillTaunt(unitA,KT);showDanmaku(unitA,killTaunt);}
-    if(unitA&&unitD){ if(attackerRole==='远程'&&!isBlock&&!isMiss&&!isDodge){showRangedArrow(unitA,unitD,speed,getPausedState);}else if(!isBlock){ if(isDodge){if(!dodgeEffectEnabled){showMeleeDodge(unitA,unitD,speed,getPausedState);}}else if(isMiss){showMeleeMiss(unitA,unitD,speed,getPausedState);}else{showMeleeCrash(unitA,unitD,speed,getPausedState, () => { if (isDead && unitD) { unitD._flash = 'dead'; updateUI(UI); } });} } }
+    if(unitA&&unitD){ if(attackerRole==='远程'&&!isBlock&&!isMiss&&!isDodge){showRangedArrow(unitA,unitD,speed,getPausedState);}else if(!isBlock){ if(isDodge){if(!dodgeEffectEnabled){showMeleeDodge(unitA,unitD,speed*2,getPausedState);}}else if(isMiss){showMeleeMiss(unitA,unitD,speed*2,getPausedState);}else{showMeleeCrash(unitA,unitD,speed,getPausedState, () => { if (isDead && unitD) { unitD._flash = 'dead'; updateUI(UI); } });} } }
     if(unitD&&dmg!==undefined&&!isBlock&&!isMiss&&!isDodge){showDamageFloat(unitD,dmg);}
     if(isDodge&&unitD&&unitA){let reboundDmg=Math.floor((unitD.atk+unitD.def)*0.5);showDamageFloat(unitA,reboundDmg);}
 }

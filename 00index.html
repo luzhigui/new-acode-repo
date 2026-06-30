@@ -126,7 +126,15 @@
         }
 
         document.getElementById('btnBGM').addEventListener('click', () => {
-            if (!bgm) initBGM();
+            if (!bgm) {
+                try {
+                    bgm = new Audio('assets/sfx_xinai.mp3');
+                    bgm.loop = true;
+                    bgm.volume = 0.6;
+                } catch (e) {
+                    bgm = null;
+                }
+            }
             if (!bgm) return;
 
             const btn = document.getElementById('btnBGM');
@@ -143,8 +151,6 @@
             }
         });
 
-        // 初始化
-        initBGM();
     </script>
 </body>
 </html>

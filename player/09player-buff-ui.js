@@ -163,23 +163,4 @@ export async function handleBuffLeech(c, entry) {
     c.autoScrollLog();
 }
 
-export async function handleBuffSplash(c, entry) {
-    let match = entry.text.match(/-(\d+)/);
-    if (match) {
-        let targetName = entry.text.match(/溅射(.+?) -/) || entry.text.match(/波及(.+?) -/);
-        let targetUnit = targetName ? c.UI.enemyTeam.find(u => u.name === targetName[1] && u.alive) : null;
-        if (targetUnit) showDamageFloat(targetUnit, parseInt(match[1]));
-    }
-    let div=document.createElement('div');div.innerHTML=entry.text+'<br>';
-    document.getElementById('log').appendChild(div);
-    c.autoScrollLog();
-    if (entry.buffType === 'wind_assault') {
-        c.isPaused = true;
-        await showBuffBanner('🦅 乘风突袭！');
-        c.isPaused = false;
-    } else {
-        c.isPaused = true;
-        await showBuffBanner('☄️ 流星赶月！');
-        c.isPaused = false;
-    }
-}
+// handleBuffSplash 已删除，逻辑已内联至 10player-core.js 的 case 'buff-splash'

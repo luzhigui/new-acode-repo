@@ -5,12 +5,50 @@ export const VER = 'ui/12main-utils.js V4.0.0';
 export function showModal(text, buttons, onChoice, canMinimize) {
     let overlay = document.createElement('div'); overlay.className = 'modal-overlay'; overlay.id = 'voteModalOverlay';
     let box = document.createElement('div'); box.className = 'modal-box';
-    let inner = `<div class="modal-text">${text}</div>` + (canMinimize ? '<span class="modal-minimize" id="modalMinimize">∧</span>' : '') + '<div class="modal-buttons"></div>';
-    box.innerHTML = inner; let btnsDiv = box.querySelector('.modal-buttons');
-    buttons.forEach(b => { let btn = document.createElement('button'); btn.className = 'modal-btn ' + (b.cls || ''); btn.textContent = b.text; btn.addEventListener('click', () => { document.body.removeChild(overlay); document.getElementById('voteFloat').style.display = 'none'; if (onChoice) onChoice(b.value); }); btnsDiv.appendChild(btn); });
-    overlay.appendChild(box); document.body.appendChild(overlay);
-    overlay.addEventListener('click', function(e) { if (e.target === overlay) { overlay.style.display = 'none'; document.getElementById('voteFloat').style.display = 'flex'; } });
-    if (canMinimize) { document.getElementById('modalMinimize').addEventListener('click', () => { overlay.style.display = 'none'; document.getElementById('voteFloat').style.display = 'flex'; }); }
+    box.style.position = 'relative';
+
+    // 右上角关闭按钮
+    let closeBtn = document.createElement('span');
+    closeBtn.innerHTML = '✕';
+    closeBtn.style.cssText = 'position:absolute;top:8px;right:12px;cursor:pointer;font-size:18px;color:#8b7355;font-weight:bold;z-index:10;';
+    closeBtn.onclick = (e) => {
+        e.stopPropagation();
+        document.body.removeChild(overlay);
+        document.getElementById('voteFloat').style.display = 'none';
+    };
+    box.appendChild(closeBtn);
+
+    let contentDiv = document.createElement('div');
+    let inner = `<div class="modal-text" style="margin-right:24px;">${text}</div>` + (canMinimize ? '<span class="modal-minimize" id="modalMinimize">∧</span>' : '') + '<div class="modal-buttons"></div>';
+    contentDiv.innerHTML = inner;
+    box.appendChild(contentDiv);
+
+    let btnsDiv = box.querySelector('.modal-buttons');
+    buttons.forEach(b => {
+        let btn = document.createElement('button');
+        btn.className = 'modal-btn ' + (b.cls || '');
+        btn.textContent = b.text;
+        btn.addEventListener('click', () => {
+            document.body.removeChild(overlay);
+            document.getElementById('voteFloat').style.display = 'none';
+            if (onChoice) onChoice(b.value);
+        });
+        btnsDiv.appendChild(btn);
+    });
+    overlay.appendChild(box);
+    document.body.appendChild(overlay);
+    overlay.addEventListener('click', function(e) {
+        if (e.target === overlay) {
+            overlay.style.display = 'none';
+            document.getElementById('voteFloat').style.display = 'flex';
+        }
+    });
+    if (canMinimize) {
+        document.getElementById('modalMinimize').addEventListener('click', () => {
+            overlay.style.display = 'none';
+            document.getElementById('voteFloat').style.display = 'flex';
+        });
+    }
 }
 
 export function showAlert(text, onOk) { let overlay = document.createElement('div'); overlay.className = 'modal-overlay'; let box = document.createElement('div'); box.className = 'modal-box'; box.innerHTML = `<div class="modal-text">${text}</div><div class="modal-buttons"><button class="modal-btn confirm">确定</button></div>`; overlay.appendChild(box); document.body.appendChild(overlay); box.querySelector('.confirm').addEventListener('click', () => { document.body.removeChild(overlay); if (onOk) onOk(); }); }

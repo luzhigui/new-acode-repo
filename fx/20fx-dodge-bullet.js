@@ -137,10 +137,14 @@ export async function showDodgeBulletTime(attacker, defender, reboundDmg) {
 
         const pos = { ax: innerWidth * 0.09, ay: innerHeight * 0.16, dx: innerWidth * 0.64, dy: innerHeight * 0.68 };
 
-        // 跳过按钮
+        // 跳过按钮（固定在右下角，避免被特效遮挡）
         const skipBtn = document.createElement('div');
         skipBtn.className = 'skip-btn';
         skipBtn.textContent = '跳过';
+        skipBtn.style.cssText = 'position:fixed;bottom:20px;right:20px;z-index:10050;'
+            + 'background:rgba(0,0,0,0.7);color:#ffd700;padding:8px 18px;'
+            + 'border:2px solid #ffd700;border-radius:20px;font-weight:bold;'
+            + 'font-size:14px;cursor:pointer;';
         skipBtn.addEventListener('click', () => { isSkipped = true; });
         document.body.appendChild(skipBtn);
         cleanupElements.push(skipBtn);

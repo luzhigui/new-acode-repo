@@ -47,6 +47,7 @@ import {
 
 // Buff UI 函数（海克斯弹窗）
 import { showBuffPopup } from '../player/09player-buff-ui.js';
+import { generateSnapshot } from '../tools/27auto-battle-utils.js';
 
 // 子模块版本号
 import { VER as VER_UNIT } from './02unit.js';
@@ -102,6 +103,7 @@ window.consumeXingFen = consumeXingFen;
 
 // Buff 弹窗
 window.showBuffPopup = showBuffPopup;
+window.generateSnapshot = generateSnapshot;
 
 // ===================== 原有导出 (保持不变) =====================
 export { Unit };
