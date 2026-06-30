@@ -105,7 +105,7 @@ function updateDetailPopupContent(activeBuffs, doubleStrikeUid) {
         <div style="display:grid;grid-template-columns:auto 1fr;gap:4px 12px;">
             <span style="color:#888;">角色</span><span>${u.role} M${u.m}</span>
             <span style="color:#888;">站位</span><span>${!u.alive ? '已阵亡' : (u.pos || '?') + '号位'}</span>
-            <span style="color:#888;">血量</span><span style="color:${hpColor};font-weight:bold;">${Math.floor(u.hp)} / ${Math.floor(u.maxHp)} (${hpPct}%)${hpBonusVal > 0 ? ' <span style="color:#b8860b;font-size:10px;">(基础' + Math.floor(u.maxHp - hpBonusVal) + '+' + hpBonusVal + '加成)</span>' : ''}</span>
+            <span style="color:#888;">血量</span><span style="color:${hpColor};font-weight:bold;">${Math.floor(u.hp)} / ${Math.floor(u.maxHp)} (${hpPct}%)</span>
             <span style="color:#888;">攻击</span><span>${u.atk}${atkBonusVal > 0 ? ' <span style="color:#b8860b;">+' + atkBonusVal + '</span>' : ''} = <span style="font-weight:bold;">${displayAtk}</span></span>
             <span style="color:#888;">防御</span><span>${u.def}${defBonusVal > 0 ? ' <span style="color:#b8860b;">+' + defBonusVal + '</span>' : ''} = <span style="font-weight:bold;">${displayDef}</span></span>
             <span style="color:#888;">造成伤害</span><span>${u.dmgDealt || 0}</span>

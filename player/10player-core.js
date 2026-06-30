@@ -12,6 +12,7 @@ import { playLineText } from './08player-text.js';
 import { animatePositionSwap } from '../fx/18fx-position-swap.js';
 import { animatePushBack } from '../fx/19fx-push-back.js';
 import { AudioManager } from '../modules/28audio-manager.js';
+import { handleBuffSummon, handleBuffDestroy, handleBuffLeech, showBuffPopup } from './09player-buff-ui.js';
 
 // 安全包装 showDanmaku，防止模块加载异常时崩溃
 const safeShowDanmaku = (...args) => { try { return showDanmaku(...args); } catch(e) {} };
@@ -185,7 +186,13 @@ async function handleAttackGroup(c, entry, roundResult, abortSig, isFirstAttackI
                     }
                 }
             }
-            if(entry.isBlock&&entry2.text&&entry2.text.includes('休息回复10点生命')&&unitA){unitA._resting = true;c.updateUI(c.UI);blockDelay = true;}
+            if(entry.isBlock&&entry2.text&&entry2.text.includes('休息回复10点生命')&&unitA){unitA._resting = true;c.updateUI(c.UI);blockDelay = true;
+    // 新婚扣血可能已改变 unitD 的血量，强制同步并刷新 UI
+    if (unitD) {
+        unitD.hp = entry.hpAfter !== undefined ? entry.hpAfter : unitD.hp;
+        c.updateUI(c.UI);
+    }
+}
             let tempDiv=document.createElement('div'); document.getElementById('log').appendChild(tempDiv); await playLineText(entry2.text,tempDiv);
         }
     }
@@ -210,7 +217,7 @@ async function handleAttackGroup(c, entry, roundResult, abortSig, isFirstAttackI
             uiUnitA.critCount = unitA.critCount || 0;
             uiUnitA.survivedRounds = unitA.survivedRounds || 0;
             uiUnitA.hp = unitA.hp;
-            uiUnitA.maxHp = unitA.maxHp;
+            // 不更新 maxHp，避免 Buff 加成导致血条比例异常
             uiUnitA.atk = unitA.atk;
             uiUnitA.def = unitA.def;
             uiUnitA.buffAtkBonus = unitA.buffAtkBonus || 0;
@@ -229,7 +236,7 @@ async function handleAttackGroup(c, entry, roundResult, abortSig, isFirstAttackI
             uiUnitD.critCount = unitD.critCount || 0;
             uiUnitD.survivedRounds = unitD.survivedRounds || 0;
             uiUnitD.hp = unitD.hp;
-            uiUnitD.maxHp = unitD.maxHp;
+            // 不更新 maxHp
             uiUnitD.atk = unitD.atk;
             uiUnitD.def = unitD.def;
             uiUnitD.buffAtkBonus = unitD.buffAtkBonus || 0;
@@ -446,7 +453,31 @@ export async function playBattle() {
         if (mainCtx && roundResult.doubleStrikeUid !== undefined) {
             mainCtx.currentDoubleStrikeUid = roundResult.doubleStrikeUid;
         }
-        let uiAlly = c.UI.allyTeam; let uiEnemy = c.UI.enemyTeam; syncAllyBuffFields(roundResult, uiAlly); c.updateUI(c.UI, c.UI.lastSnapshot);
+        // 只同步不剧透的数据：Buff 加成、基础攻防、最大生命（不更新当前血量、不改变存活状态）
+        c.UI.allyTeam.forEach(u => {
+            let eng = roundResult.ally.find(v => v.uid === u.uid);
+            if (!eng) return;
+            u.atk = eng.atk;
+            u.def = eng.def;
+
+            u.buffAtkBonus = eng.buffAtkBonus || 0;
+            u.buffDefBonus = eng.buffDefBonus || 0;
+            u.buffHpBonus = eng.buffHpBonus || 0;
+            u.buffDodgeBonus = eng.buffDodgeBonus || 0;
+            // 注意：不更新 u.hp / u.alive，血量在攻击日志播放时逐步更新
+        });
+        c.UI.enemyTeam.forEach(u => {
+            let eng = roundResult.enemy.find(v => v.uid === u.uid);
+            if (!eng) return;
+            u.atk = eng.atk;
+            u.def = eng.def;
+
+            u.buffAtkBonus = eng.buffAtkBonus || 0;
+            u.buffDefBonus = eng.buffDefBonus || 0;
+            u.buffHpBonus = eng.buffHpBonus || 0;
+            u.buffDodgeBonus = eng.buffDodgeBonus || 0;
+        });
+        c.updateUI(c.UI, c.UI.lastSnapshot);
         let playResult = await playLogEntries(c, roundResult.log, roundResult);
         isBattleOver = playResult ? playResult.isBattleOver : false;
         if (roundResult.winner) { finalWinner = roundResult.winner; break; }
