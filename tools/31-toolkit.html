@@ -202,6 +202,10 @@
         <div class="search-bar">
             <input type="text" id="fncSearchInput" placeholder="搜索函数名..." />
         </div>
+        <div style="display:flex;gap:6px;margin:8px 0;">
+            <input type="text" id="fncFuzzyInput" placeholder="粘贴代码片段，模糊搜索函数..." style="flex:1;padding:8px;border-radius:6px;border:2px solid #444;background:#2a2a4e;color:#eee;font-size:14px;font-family:monospace;" />
+            <button id="fncFuzzyBtn" style="padding:8px 16px;background:#ff9800;color:#1a1a2e;border:none;border-radius:6px;font-weight:bold;cursor:pointer;white-space:nowrap;">模糊搜索</button>
+        </div>
         <button class="fnc-btn" id="fncBtnScan">🔍 扫描项目函数</button>
         <div class="status-text" id="fncStatus">点击按钮开始扫描，之后可复制或替换任意函数</div>
         <div id="fncMapContainer"></div>

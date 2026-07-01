@@ -158,6 +158,8 @@ async function handleAttackGroup(c, entry, roundResult, abortSig, isFirstAttackI
     if (entry.isDodge && unitA && unitD) { if (c.dodgeEffectEnabled) { let reboundDmg = Math.floor((unitD.atk + unitD.def) * 0.5); c.isPaused = true; window.bulletTimeActive = true; await showCriticalBanner('✨闪避反击✨'); await showDodgeBulletTime(unitA, unitD, reboundDmg); window.bulletTimeActive = false; c.isPaused = false; } else { showDodgeBubble(unitD, '闪避！'); } }
     if (entry.isDead && unitD) { if (defTimer) clearTimeout(defTimer); setTimeout(async () => { await c.waitWhilePaused(); if (unitD && !unitD.alive && unitD._flash !== 'dead') { unitD._flash = 'dead'; unitD._isDead = true; c.updateUI(c.UI); } }, 600); }
     if (entry.isDodge && unitA && !unitA.alive) { setTimeout(async () => { await c.waitWhilePaused(); if (unitA && !unitA.alive && unitA._flash !== 'dead') { unitA._flash = 'dead'; unitA._isDead = true; c.updateUI(c.UI); setTimeout(() => { unitA._isDead = true; c.updateUI(c.UI); }, 3500); } }, 600); }
+if (entry.isDodge && unitA) { let uiA = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.uid === unitA.uid); if (uiA) { uiA.hp = unitA.hp; if (!unitA.alive) { uiA.alive = false; uiA._isDead = true; } c.updateUI(c.UI); } }
+if (entry.isDodge && unitD && unitD.isWei) { let uiD = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.uid === unitD.uid); if (uiD) { uiD.hp = unitD.hp; uiD.maxHp = unitD.maxHp; uiD.atk = unitD.atk; uiD.def = unitD.def; c.updateUI(c.UI); } }
     let lastDiv=null,healDiv=null,hasWeiXiXue=false, weiXueHealAmount=0, weiXueUnit=null, blockDelay=false;
     for(let entry2 of textEntries){
         if(abortSig&&abortSig.aborted){if(atkTimer)clearTimeout(atkTimer);if(defTimer)clearTimeout(defTimer);return { isBattleOver: false };}
@@ -167,23 +169,24 @@ async function handleAttackGroup(c, entry, roundResult, abortSig, isFirstAttackI
         else{
             if(entry2.isHealEntry && !entry.isDead) {
                 let match = entry2.text.match(/\+(\d+)/);
-                if(match && unitA) {
+                let healUid = entry2.healUnitUid || (unitA ? unitA.uid : null);
+                let healUnit = healUid ? c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.uid === healUid) : null;
+                if(match && healUnit) {
                     let healAmount = parseInt(match[1]);
-                    let uiHealUnit = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.uid === unitA.uid);
-                    if (uiHealUnit) {
-                        uiHealUnit.hp = Math.min(uiHealUnit.maxHp, uiHealUnit.hp + healAmount);
-                        if (unitA.isWei && entry2.text.includes('上限→')) {
-                            let maxMatch = entry2.text.match(/上限→(\d+)/);
-                            if (maxMatch) {
-                                let newMax = parseInt(maxMatch[1]);
-                                let hpIncrease = newMax - uiHealUnit.maxHp;
-                                uiHealUnit.maxHp = newMax;
-                                uiHealUnit.hp = Math.min(uiHealUnit.hp + hpIncrease, newMax);
-                            }
+                    healUnit.hp = Math.min(healUnit.maxHp, healUnit.hp + healAmount);
+                    if (healUnit.isWei && entry2.text.includes('上限→')) {
+                        let maxMatch = entry2.text.match(/上限→(\d+)/);
+                        if (maxMatch) {
+                            let newMax = parseInt(maxMatch[1]);
+                            let hpIncrease = newMax - healUnit.maxHp;
+                            healUnit.maxHp = newMax;
+                            healUnit.hp = Math.min(healUnit.hp + hpIncrease, newMax);
+                            healUnit.atk = unitA.atk;
+                            healUnit.def = unitA.def;
                         }
-                        c.updateUI(c.UI);
-                        showHealFloat(uiHealUnit, healAmount);
                     }
+                    c.updateUI(c.UI);
+                    showHealFloat(healUnit, healAmount);
                 }
             }
             if(entry.isBlock&&entry2.text&&entry2.text.includes('休息回复10点生命')&&unitA){unitA._resting = true;c.updateUI(c.UI);blockDelay = true;
@@ -260,7 +263,7 @@ async function handleAttackGroup(c, entry, roundResult, abortSig, isFirstAttackI
 }
 
 async function handleInfo(c, entry) {
-    if(entry.isZhangSwitch&&entry.unit){ let zhangUnit = c.UI.allyTeam.find(u => u.isZhang); let sepDiv=document.createElement('div');sepDiv.innerHTML='<span class="separator">- - - - -</span><br>'; document.getElementById('log').appendChild(sepDiv); c.autoScrollLog(); let tempDiv=document.createElement('div');document.getElementById('log').appendChild(tempDiv); await playLineText(entry.text,tempDiv); if(zhangUnit) { zhangUnit.rangedForm = entry.unit.rangedForm; zhangUnit.role = entry.unit.role; zhangUnit._blocked = false; zhangUnit._resting = false; c.updateUI(c.UI); safeShowDanmaku(zhangUnit, '不好，要顶上去了！'); } }
+    if(entry.isZhangSwitch&&entry.unit){ let zhangUnit = c.UI.allyTeam.find(u => u.isZhang); let sepDiv=document.createElement('div');sepDiv.innerHTML='<span class="separator">- - - - -</span><br>'; document.getElementById('log').appendChild(sepDiv); c.autoScrollLog(); let tempDiv=document.createElement('div');document.getElementById('log').appendChild(tempDiv); await playLineText(entry.text,tempDiv); if(zhangUnit) { zhangUnit.rangedForm = entry.unit.rangedForm; zhangUnit.role = entry.unit.role; zhangUnit._blocked = false; zhangUnit._resting = false; zhangUnit.atk = entry.unit.atk; zhangUnit.def = entry.unit.def; zhangUnit.maxHp = entry.unit.maxHp; zhangUnit.hp = entry.unit.hp; c.updateUI(c.UI); safeShowDanmaku(zhangUnit, '不好，要顶上去了！'); } }
     else { 
         if (entry.isDoubleStrikeBanner) {
             c.isPaused = true;
@@ -398,6 +401,13 @@ export async function playLogEntries(c, log, roundResult) {
                     await handleBuffPush(c, entry);
                     break;
                 case 'buff-summary':
+                    if (entry.buffType === 'elite_kuaile_heal' && entry.zhouUid) {
+                        let zhouUnit = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.uid === entry.zhouUid);
+                        if (zhouUnit && entry.zhouHpAfter !== undefined) {
+                            zhouUnit.hp = entry.zhouHpAfter;
+                            c.updateUI(c.UI);
+                        }
+                    }
                     { let div=document.createElement('div');div.innerHTML=entry.text+'<br>';document.getElementById('log').appendChild(div);c.autoScrollLog(); }
                     break;
                 case 'buff-rebound-fortify':
@@ -442,7 +452,7 @@ export async function playLogEntries(c, log, roundResult) {
 export async function playBattle() {
     const c = getCtx();
     if (!c || !c.UI.currentResult) return;
-    c.fadeBGMTo(0.1, 1500);
+    // 已移除 fadeBGMTo，保持用户设定的音量不变
     let abortSig = c.abortController ? c.abortController.signal : null;
     c.UI.allyTeam = c.snapshot.ally.map(u => u.clone()); c.UI.enemyTeam = c.snapshot.enemy.map(u => u.clone());
     c.UI.lastSnapshot = { ally: c.UI.allyTeam.map(u => u.clone()), enemy: c.UI.enemyTeam.map(u => u.clone()) };
@@ -472,7 +482,9 @@ export async function playBattle() {
             u.buffDefBonus = eng.buffDefBonus || 0;
             u.buffHpBonus = eng.buffHpBonus || 0;
             u.buffDodgeBonus = eng.buffDodgeBonus || 0;
-            // 注意：不更新 u.hp / u.alive，血量在攻击日志播放时逐步更新
+            u.maxHp = eng.maxHp;
+            if (eng.hp > u.hp) u.hp = eng.hp;
+            // 注意：不更新 u.alive，血量在攻击日志播放时逐步更新
         });
         c.UI.enemyTeam.forEach(u => {
             let eng = roundResult.enemy.find(v => v.uid === u.uid);
@@ -484,6 +496,8 @@ export async function playBattle() {
             u.buffDefBonus = eng.buffDefBonus || 0;
             u.buffHpBonus = eng.buffHpBonus || 0;
             u.buffDodgeBonus = eng.buffDodgeBonus || 0;
+            u.maxHp = eng.maxHp;
+            if (eng.hp > u.hp) u.hp = eng.hp;
         });
         c.updateUI(c.UI, c.UI.lastSnapshot);
         let playResult = await playLogEntries(c, roundResult.log, roundResult);
@@ -508,9 +522,9 @@ export async function playBattle() {
     }
     if (!finalWinner) finalWinner = '平局';
     c.gs = 'GAMEOVER'; c.isPaused = false; c.waitingForNextRound = false; c.isBattleStarting = false;
-    c.updateButtons(); c.enableAllButtons(); c.fadeBGMTo(0.6, 2000);
+    c.updateButtons(); c.enableAllButtons();
     let winner = finalWinner;
-    if (winner === '明教' || winner === '六大派') { c.battleResultForInfo = { winner, ally: c.UI.allyTeam, enemy: c.UI.enemyTeam }; let units = winner === '明教' ? c.UI.allyTeam : c.UI.enemyTeam, alive = units.filter(u => u.alive); if (alive.length > 0) { alive.forEach(u => { u._flash = 'cheer'; }); c.updateUI(c.UI); await new Promise(r => setTimeout(r, 800)); if (c.spawnVictoryEffects) c.spawnVictoryEffects(winner); await new Promise(r => setTimeout(r, 3000)); } } else { logDiv.innerHTML+='<span class="gray">🤝 平局！积分不变</span><br>'; logDiv.scrollTop = logDiv.scrollHeight; }
+    if (winner === '明教' || winner === '六大派') { c.battleResultForInfo = { winner, ally: c.UI.allyTeam, enemy: c.UI.enemyTeam }; let units = winner === '明教' ? c.UI.allyTeam : c.UI.enemyTeam, alive = units.filter(u => u.alive); if (alive.length > 0) { alive.forEach(u => { u._flash = 'cheer'; }); c.updateUI(c.UI); await new Promise(r => setTimeout(r, 800)); if (c.spawnVictoryEffects) c.spawnVictoryEffects(winner); let winColor = winner === '明教' ? 'blue' : 'orange'; logDiv.innerHTML += `<span class="gold">🎉🏆 <span class="${winColor}">${winner}</span>获得最终胜利！ 🏆🎉</span><br>`; logDiv.scrollTop = logDiv.scrollHeight; await new Promise(r => setTimeout(r, 3000)); } } else { logDiv.innerHTML+='<span class="gray">🤝 平局！积分不变</span><br>'; logDiv.scrollTop = logDiv.scrollHeight; }
     c.UI.allyTeam.concat(c.UI.enemyTeam).forEach(u => { u._flash = null; }); c.updateUI(c.UI);
     let mainCtx = window._getPlayerContext ? window._getPlayerContext() : c; if (mainCtx.activeBuffs) mainCtx.activeBuffs = []; if (mainCtx.updateBuffSlots) mainCtx.updateBuffSlots(); if (window._updateGlowColors) window._updateGlowColors(-1);
     if (window._voteChoice && window._voteChoice !== 'skip' && winner !== '平局') { let correct = (window._voteChoice === winner), earnPoints = 0; if (correct) { earnPoints = window._battleHasZhang ? 3 : 2; window._voteScore += earnPoints; } else { earnPoints = -1; window._voteScore += earnPoints; } localStorage.setItem('ming_vote_score_5v5_test', window._voteScore); let badge = document.getElementById('scoreBadge'), floatEl = document.createElement('span'); floatEl.className = 'score-float'; floatEl.textContent = (earnPoints > 0 ? '+' : '') + earnPoints + '🏆'; badge.appendChild(floatEl); setTimeout(() => { if (floatEl.parentNode) floatEl.parentNode.removeChild(floatEl); }, 3500); setTimeout(() => c.updateScoreBadge(), 3500); let voteMsg = correct ? `<span class="green">📊 你猜了${window._voteChoice}，正确！+${earnPoints}分！ 当前积分：${window._voteScore}</span>` : `<span class="red">📊 你猜了${window._voteChoice}，错误！-1分！当前积分：${window._voteScore}</span>`; logDiv.innerHTML += voteMsg + '<br>'; logDiv.scrollTop = logDiv.scrollHeight; } else if (winner === '平局') { logDiv.innerHTML += '<span class="gray">📊 平局，积分不变，当前积分：' + window._voteScore + '</span><br>'; logDiv.scrollTop = logDiv.scrollHeight; }

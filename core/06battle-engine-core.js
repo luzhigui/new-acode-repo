@@ -90,7 +90,12 @@ function calcAttackDamage(unit, target, attackerBuffStats, defenderBuffStats) {
     let atkBase = Math.floor(unit.atk) + Math.floor(unit.atk * attackerBuffStats.atkBonus);
     let defBase = Math.floor(target.def) + Math.floor(target.def * defenderBuffStats.defBonus);
     const hornBonus = getHornStrikeBonus(unit, target);
-    if (hornBonus.defIgnore > 0) defBase = Math.floor(defBase * (1 - hornBonus.defIgnore));
+    if (hornBonus.defIgnore > 0) {
+        let defBefore = defBase;
+        defBase = Math.floor(defBase * (1 - hornBonus.defIgnore));
+        hornBonus._defBefore = defBefore;
+        hornBonus._defAfter = defBase;
+    }
     let atkVar = rand(0, C.ATK_VAR), defVar = rand(0, C.DEF_VAR), hpBonus = rand(C.HP_BONUS_MIN, C.HP_BONUS_MAX);
     let atkAct = atkBase + atkVar, defAct = defBase + defVar;
     let hpBefore = Math.floor(target.hp);
@@ -124,7 +129,7 @@ function calcAttackDamage(unit, target, attackerBuffStats, defenderBuffStats) {
     const trueDmg = getRebelTrueDmg(unit, target);
     raw += trueDmg;
     if (trueDmg > 0) rawFormula += ` + 叛逆真伤${trueDmg}`;
-    return { atkBase, defBase, atkAct, defAct, hpBonus, hpBefore, waveTaunt, waveUnit, raw, rawFormula, thunderBonus, hornBonus, trueDmg };
+    return { atkBase, defBase, atkAct, defAct, hpBonus, hpBefore, waveTaunt, waveUnit, raw, rawFormula, thunderBonus, hornBonus, trueDmg, defReduction: hornBonus._defBefore ? `${hornBonus._defBefore}→${hornBonus._defAfter}` : null };
 }
 
 function applyPostAttackEffects(unit, target, dmg, atkAct, defAct, reboundEntry, allySide, enemySide, log, A) {
@@ -200,9 +205,11 @@ function processUnitAttack(unit, allySide, enemySide, log, A, B, state, doubleSt
     let dmgCalc = calcAttackDamage(unit, target, attackerBuffStats, defenderBuffStats);
     let { atkBase, defBase, atkAct, defAct, hpBonus, hpBefore, waveTaunt, waveUnit, raw, rawFormula, thunderBonus, hornBonus, trueDmg } = dmgCalc;
 
-    let dmg = Math.floor(raw), dead = target.hp - dmg <= 0;
+    let dmg = Math.floor(raw);
+    let hpAfter = Math.floor(target.hp) - dmg;
+    let dead = hpAfter <= 0;
     if (dead) { target.hp = 0; target.alive = false; target._isDead = true; }
-    else { target.hp -= dmg; }
+    else { target.hp = hpAfter; }
     unit.dmgDealt += dmg; target.dmgTaken += dmg;
 
     let allyBuffs_fortify = (target.camp === 'ally' ? A._activeBuffs : B._activeBuffs) || [];
@@ -232,7 +239,10 @@ function processUnitAttack(unit, allySide, enemySide, log, A, B, state, doubleSt
     group.entries.push({type:'combat-text', text:`<span class="${ac}">${campA} ${unit.name}</span>(攻${displayAtk} 血${unitHpBefore}) → <span class="${dc}">${campD} ${target.name}</span>(防${displayDef} 血${hpBefore})`});
     group.entries.push({type:'detail', text:`<span class="gray small">波动：攻${atkBase}→${atkAct} 防${defBase}→${defAct} 血${hpBonus >= 0 ? '+' + hpBonus : hpBonus}</span>`});
     if (thunderBonus > 0) group.entries.push({type:'detail', text:`<span class="red small">💥 混元霹雳劲+${thunderBonus}真实伤害</span>`});
-    if (hornBonus.defIgnore > 0) group.entries.push({type:'detail', text:`<span class="purple small">🦌 鹿角杖法忽略防御${Math.round(hornBonus.defIgnore*100)}%</span>`});
+    if (hornBonus.defIgnore > 0) {
+        let poisonTag = hornBonus.dmgMultiplier > 1 ? '，目标已中毒伤害+50%' : '';
+        group.entries.push({type:'detail', text:`<span class="purple small">🦌 鹿角杖法：防御 ${dmgCalc.defReduction || ''}（忽略${Math.round(hornBonus.defIgnore*100)}%）${poisonTag}</span>`});
+    }
     if (trueDmg > 0) group.entries.push({type:'detail', text:`<span class="red small">⚔️ 叛逆真伤+${trueDmg}（目标当前生命10%）</span>`});
     group.entries.push({type:'detail', text:`<span class="gray small">计算：${rawFormula}</span>`});
     group.entries.push({type:'damage-text', deadFlag:dead, text:`<span class="damage-line ${dead?'brush-red':''} ${ac}">${dead?'💀击杀💀 ':''}${campA} ${unit.name}</span> 造成 <span class="red">${dmg}</span> 伤害，<span class="${dc}">${campD} ${target.name}</span> ${hpBefore} → ${Math.floor(target.hp)} ${dead?'💀阵亡':''}`});
@@ -258,9 +268,14 @@ function processUnitAttack(unit, allySide, enemySide, log, A, B, state, doubleSt
     if (target.camp === 'ally' && (target.pos === 4 || target.pos === 6) && dmg > 0) {
         let zhang = allySide.find(c => c.isZhang && c.alive && c.rangedForm);
         if (zhang) {
-            let rebound = Math.floor(dmg * 0.15); unit.hp -= rebound; zhang.reboundDone += rebound;
-            zhang.hp -= Math.floor(rebound * 0.1); zhang.dmgTaken += Math.floor(rebound * 0.1);
-            group.entries.push({type:'info', text:`<span class="gold">✨ 乾坤大挪移反弹${rebound}给${unit.name}（无忌自伤${Math.floor(rebound*0.1)}）</span>`, buffType:'rebound'});
+            let rebound = Math.floor(dmg * 0.15);
+            unit.hp -= rebound;
+            unit.dmgTaken += rebound;
+            zhang.reboundDone += rebound;
+            let selfDmg = Math.floor(rebound * 0.1);
+            zhang.hp -= selfDmg;
+            zhang.dmgTaken += selfDmg;
+            group.entries.push({type:'info', text:`<span class="gold">✨ 乾坤大挪移反弹${rebound}给${unit.name}（无忌自伤${selfDmg}）</span>`, buffType:'rebound'});
             if (unit.hp <= 0) { unit.alive = false; unit._isDead = true; }
             if (zhang.hp <= 0) { zhang.hp = 0; zhang.alive = false; zhang._isDead = true; }
         }
@@ -328,8 +343,8 @@ export function runBattleRound(state) {
         }
     });
     
-    spawnHorse(A, log);
-    spawnHorse(B, log);
+    spawnHorse(A, log, B);
+    spawnHorse(B, log, A);
     
     applyXingFenGrant(B, log);
     

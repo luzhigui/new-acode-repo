@@ -33,7 +33,7 @@ function createZigzagLightning() {
 
 function createFlameBehind(angle, offsetX, offsetY, parentLeft, parentTop) {
     const container = document.createElement('div'); container.className = 'flame-trail';
-    container.style.position = 'fixed'; container.style.zIndex = '9997'; container.style.pointerEvents = 'none';
+    container.style.position = 'fixed'; container.style.zIndex = '10015'; container.style.pointerEvents = 'none';
     container.style.transform = `rotate(${angle}rad)`;
     container.style.left = (parentLeft + offsetX) + 'px';
     container.style.top = (parentTop + offsetY) + 'px';
@@ -41,8 +41,8 @@ function createFlameBehind(angle, offsetX, offsetY, parentLeft, parentTop) {
     for (let i = 0; i < 10; i++) {
         const f = document.createElement('div'); f.className = 'flame-layer';
         f.style.position = 'absolute'; f.style.borderRadius = '50% 0 0 50%'; f.style.opacity = '0.8';
-        f.style.width = (80 - i * 6) + 'px'; f.style.height = (16 - i) + 'px';
-        f.style.left = (-80 + i * 5) + 'px'; f.style.top = (-8 + i * 0.5) + 'px';
+        f.style.width = (180 - i * 12) + 'px'; f.style.height = (36 - i * 2) + 'px';
+        f.style.left = (-180 + i * 10) + 'px'; f.style.top = (-18 + i * 1) + 'px';
         f.style.background = colors[i % 6];
         f.style.animation = 'flameFlicker 0.2s infinite alternate';
         container.appendChild(f);
@@ -141,10 +141,10 @@ export async function showDodgeBulletTime(attacker, defender, reboundDmg) {
         const skipBtn = document.createElement('div');
         skipBtn.className = 'skip-btn';
         skipBtn.textContent = '跳过';
-        skipBtn.style.cssText = 'position:fixed;bottom:20px;right:20px;z-index:10050;'
-            + 'background:rgba(0,0,0,0.7);color:#ffd700;padding:8px 18px;'
-            + 'border:2px solid #ffd700;border-radius:20px;font-weight:bold;'
-            + 'font-size:14px;cursor:pointer;';
+        skipBtn.style.cssText = 'position:fixed;bottom:12%;right:8%;z-index:10050;'
+            + 'color:rgba(255,255,255,0.7);font-size:18px;font-weight:bold;'
+            + 'cursor:pointer;pointer-events:auto;transform:rotate(-30deg);'
+            + 'text-align:center;line-height:1;letter-spacing:2px;';
         skipBtn.addEventListener('click', () => { isSkipped = true; });
         document.body.appendChild(skipBtn);
         cleanupElements.push(skipBtn);
@@ -167,7 +167,7 @@ export async function showDodgeBulletTime(attacker, defender, reboundDmg) {
         cloneD.style.position = 'fixed'; cloneD.style.width = dRect.width+'px'; cloneD.style.height = dRect.height+'px';
         cloneD.style.left = innerWidth + 'px'; cloneD.style.top = pos.dy - dRect.height/2 + 'px';
         cloneD.style.transform = 'scale(0.8)';
-        cloneD.style.filter = 'drop-shadow(0 0 12px gold) drop-shadow(0 0 24px rgba(255,215,0,0.6))';
+        cloneD.style.filter = 'drop-shadow(0 0 8px #00bcd4) drop-shadow(0 0 20px rgba(0,188,212,0.5))';
         cloneD.style.zIndex = '10001'; document.body.appendChild(cloneD); cleanupElements.push(cloneD);
 
         const defCenterX = pos.dx + dRect.width/2, defCenterY = pos.dy + dRect.height/2;
@@ -175,12 +175,20 @@ export async function showDodgeBulletTime(attacker, defender, reboundDmg) {
         const defInitialTop = pos.dy - dRect.height/2;
 
         const cloneA = aCell.cloneNode(true); cloneA.classList.add('bullet-clone');
+        cloneA.removeAttribute('data-flash');
+        cloneA.style.background = '#1e6bb8';
+        cloneA.style.border = '3px solid #ffffff';
+        cloneA.style.borderRadius = '5px';
+        cloneA.style.boxSizing = 'border-box';
+        cloneA.querySelectorAll('*').forEach(el => {
+            el.style.color = '#ffffff';
+        });
         const aRect = aCell.getBoundingClientRect();
         cloneA.style.position = 'fixed'; cloneA.style.margin = '0';
         cloneA.style.width = aRect.width+'px'; cloneA.style.height = aRect.height+'px';
         const startAX = pos.ax - innerWidth*0.06, startAY = pos.ay - innerHeight*0.06;
         cloneA.style.left = startAX + 'px'; cloneA.style.top = startAY + 'px';
-        cloneA.style.zIndex = '10010'; cloneA.style.transform = 'scale(0.6)';
+        cloneA.style.zIndex = '10020'; cloneA.style.transform = 'scale(0.6)';
         document.body.appendChild(cloneA); cleanupElements.push(cloneA);
 
         // ===== 修正：“看招”气泡下移避免遮挡攻击者 =====
@@ -233,7 +241,7 @@ export async function showDodgeBulletTime(attacker, defender, reboundDmg) {
 
         // 飞行阶段：火焰 + 气流 + 粒子
         const attackAngle = Math.atan2(pos.dy - pos.ay, pos.dx - pos.ax);
-        const flameOffsetX = 10, flameOffsetY = 8;
+        const flameOffsetX = -55, flameOffsetY = -5;
         const flame = createFlameBehind(attackAngle, flameOffsetX, flameOffsetY, parseFloat(cloneA.style.left), parseFloat(cloneA.style.top));
         cleanupElements.push(flame);
 
