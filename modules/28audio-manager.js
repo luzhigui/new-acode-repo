@@ -141,10 +141,10 @@ export const AudioManager = {
     enabled: true,
     currentSource: 'local',
     sourceBeforeMute: 'network',
-    sfxVolume: 0.8,   // 新增：音效独立音量
+    sfxVolume: 0.3,   // 音效独立音量
 
     init() {
-            const url = CONFIG.BGM_LOCAL;
+        const url = CONFIG.BGM_LOCAL;
         try {
             if (this.audio) {
                 this.audio.pause();
@@ -152,7 +152,7 @@ export const AudioManager = {
             }
             this.audio = new Audio(url);
             this.audio.loop = true;
-            this.audio.volume = 0.6;
+            this.audio.volume = 0.5;
             this.audio.onerror = () => { this.enabled = false; };
         } catch (e) {
             this.audio = null;
@@ -208,7 +208,7 @@ export const AudioManager = {
             try {
                 this.audio = new Audio(url);
                 this.audio.loop = true;
-                this.audio.volume = 0.6;
+                this.audio.volume = 0.5;
             } catch (e) {
                 this.audio = null;
                 this.enabled = false;
@@ -241,25 +241,16 @@ export const AudioManager = {
             const sfx = sfxConfig[role];
             if (!sfx) return;
 
-            // 暂时压低 BGM
-            if (this.audio && this.audio.volume > 0.2) {
-                this.audio.volume = 0.2;
-            }
-            const restoreBGM = () => {
-                if (this.audio) this.audio.volume = 0.6;
-            };
+            // 音效播放不再压低 BGM，保持背景音乐稳定
             const ctx = getAudioCtx();
             if (ctx.state === 'suspended') { ctx.resume(); }
             if (sfx === 'hammer') {
                 playHammer();
-                setTimeout(restoreBGM, 600);
             } else if (sfx === 'slash') {
                 playSlash();
-                setTimeout(restoreBGM, 600);
             } else {
                 // 从预加载的缓冲区播放 mp3 音效，使用独立音量
                 playBufferSfx(role, this.sfxVolume);
-                setTimeout(restoreBGM, 800);
             }
         } catch (e) {
             // 音效播放失败不影响游戏

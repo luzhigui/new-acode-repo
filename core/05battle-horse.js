@@ -7,11 +7,14 @@ import { rand, hasBuff } from './03battle-utils.js';
 import { Unit } from './02unit.js';
 const C = CONFIG;
 
-export function spawnHorse(allyTeam, log) {
+export function spawnHorse(allyTeam, log, enemyTeam) {
     let buffs = allyTeam._activeBuffs || [];
     if (!hasBuff(buffs, 'horseFormation')) return;
-    let occupiedPositions = allyTeam.filter(u => u.alive).map(u => u.pos);
-    let available = [1,2,3,4,5,6,7,8,9].filter(p => !occupiedPositions.includes(p));
+    let occupiedPositions = new Set([
+        ...allyTeam.filter(u => u.alive).map(u => u.pos),
+        ...(enemyTeam ? enemyTeam.filter(u => u.alive).map(u => u.pos) : [])
+    ]);
+    let available = [1,2,3,4,5,6,7,8,9].filter(p => !occupiedPositions.has(p));
     if (available.length === 0) return;
     let horsePos = available[rand(0, available.length-1)];
     let horse = new Unit('拒马', 20, '防战', allyTeam[0].camp);

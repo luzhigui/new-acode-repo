@@ -28,6 +28,8 @@ function escapeHtml(text) {
     const mapContainer = document.getElementById('fncMapContainer');
     const statusDiv = document.getElementById('fncStatus');
     const searchInput = document.getElementById('fncSearchInput');
+    const fuzzyInput = document.getElementById('fncFuzzyInput');
+    const fuzzyBtn = document.getElementById('fncFuzzyBtn');
     const fileContents = {};
 
     const replaceModal = document.getElementById('fncReplaceModal');
@@ -63,16 +65,19 @@ function escapeHtml(text) {
     function extractFunctions(code) {
         const functions = [];
         const lines = code.split('\n');
-        const regex = /(?:async\s+)?function\s+(\w+)\s*\(|(\w+)\s*=\s*(?:async\s+)?function\s*\(|(\w+)\s*=\s*\([^)]*\)\s*=>/g;
+
         lines.forEach((line, idx) => {
+            // 更宽泛地匹配函数声明，包括对象方法
+            const regex = /(?:async\s+)?(?:function\s+(\w+)|(\w+)\s*[=:]\s*(?:async\s+)?function|(\w+)\s*[=:]\s*\([^)]*\)\s*=>|(\w+)\s*\([^)]*\)\s*{)/g;
             let match;
             while ((match = regex.exec(line)) !== null) {
-                const name = match[1] || match[2] || match[3];
+                const name = match[1] || match[2] || match[3] || match[4];
                 if (name && !['if','for','while','switch','catch'].includes(name)) {
                     functions.push({ name, line: idx + 1, content: line.trim().substring(0, 80) });
                 }
             }
         });
+
         return functions;
     }
 
@@ -170,6 +175,109 @@ function escapeHtml(text) {
 
     replaceModal.addEventListener('click', (e) => {
         if (e.target === replaceModal) replaceModal.classList.remove('show');
+    });
+
+    function normalize(s) {
+        return s.replace(/\s+/g, ' ').trim();
+    }
+    function similarity(a, b) {
+        const la = a.length, lb = b.length;
+        if (la === 0 && lb === 0) return 1;
+        if (la === 0 || lb === 0) return 0;
+        // 原始文本的编辑距离相似度
+        const rawSim = 1 - levenshtein(a, b) / Math.max(la, lb);
+        // 归一化后（去空格/换行差异）的编辑距离相似度
+        const na = normalize(a), nb = normalize(b);
+        const nla = na.length, nlb = nb.length;
+        const normSim = (nla === 0 || nlb === 0) ? 0 : 1 - levenshtein(na, nb) / Math.max(nla, nlb);
+        // Token Jaccard 相似度：按标识符边界拆词
+        const tokenize = s => { const t = s.match(/[a-zA-Z_]\w*|\d+/g) || []; return new Set(t); };
+        const ta = tokenize(a), tb = tokenize(b);
+        let inter = 0;
+        for (const t of ta) { if (tb.has(t)) inter++; }
+        const union = ta.size + tb.size - inter;
+        const jacSim = union === 0 ? 0 : inter / union;
+        // 取三种方式的最大值
+        return Math.max(rawSim, normSim, jacSim);
+    }
+    function levenshtein(a, b) {
+        const m = a.length, n = b.length;
+        let dp = new Array(n + 1).fill(0);
+        for (let j = 0; j <= n; j++) dp[j] = j;
+        for (let i = 1; i <= m; i++) {
+            let prev = dp[0]; dp[0] = i;
+            for (let j = 1; j <= n; j++) {
+                let temp = dp[j];
+                if (a[i-1] === b[j-1]) dp[j] = prev;
+                else dp[j] = 1 + Math.min(prev, dp[j], dp[j-1]);
+                prev = temp;
+            }
+        }
+        return dp[n];
+    }
+
+    fuzzyBtn.addEventListener('click', () => {
+        const query = fuzzyInput.value.trim();
+        if (!query) { statusDiv.textContent = '请粘贴代码片段'; return; }
+        if (Object.keys(fileContents).length === 0) { statusDiv.textContent = '请先点击扫描项目函数'; return; }
+        statusDiv.textContent = '正在模糊搜索...';
+        const candidates = [];
+        for (const [filename, code] of Object.entries(fileContents)) {
+            const fns = extractFunctions(code);
+            for (const fn of fns) {
+                const body = extractFuncBody(code, fn.name, fn.line);
+                const s = similarity(query, body);
+                candidates.push({ file: filename, fn, body, score: s });
+            }
+        }
+        candidates.sort((a, b) => b.score - a.score);
+        const top = candidates.slice(0, 3);
+        if (top.length > 0 && top[0].score > 0.05) {
+            statusDiv.textContent = `找到 ${candidates.length} 个函数，显示前 ${top.length} 个（最高相似度 ${Math.round(top[0].score * 100)}%）`;
+            mapContainer.innerHTML = '';
+            const sec = document.createElement('div'); sec.className = 'file-section open';
+            sec.innerHTML = `<div class="file-header"><span>� 模糊搜索结果（${top.length} 个候选）</span></div><div class="func-list"></div>`;
+            const funcList = sec.querySelector('.func-list');
+            top.forEach(candidate => {
+                const item = document.createElement('div'); item.className = 'func-item';
+                item.innerHTML = `
+                    <div class="func-info">
+                        <span class="func-name">${candidate.fn.name} <span style="color:#ff9800;font-size:11px;">(${Math.round(candidate.score * 100)}%)</span></span>
+                        <span class="func-line">${candidate.file} · 第 ${candidate.fn.line} 行</span>
+                        <div class="func-preview">${escapeHtml(candidate.body.substring(0, 120))}...</div>
+                    </div>
+                    <div class="btn-group">
+                        <button class="action-btn copy-btn" data-file="${candidate.file}" data-func="${candidate.fn.name}" data-line="${candidate.fn.line}">📋 复制</button>
+                        <button class="action-btn replace-btn" data-file="${candidate.file}" data-func="${candidate.fn.name}" data-line="${candidate.fn.line}">🔄 替换</button>
+                    </div>`;
+                funcList.appendChild(item);
+            });
+            mapContainer.appendChild(sec);
+            sec.querySelectorAll('.copy-btn').forEach(btn => {
+                btn.addEventListener('click', async (e) => {
+                    const b = e.target;
+                    const body = extractFuncBody(fileContents[b.dataset.file], b.dataset.func, parseInt(b.dataset.line));
+                    await navigator.clipboard.writeText(body);
+                    b.textContent = '✅ 已复制';
+                });
+            });
+            sec.querySelectorAll('.replace-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const b = e.target;
+                    currentReplaceFile = b.dataset.file;
+                    currentReplaceFunc = b.dataset.func;
+                    currentReplaceLine = parseInt(b.dataset.line);
+                    replaceFuncName.textContent = currentReplaceFunc;
+                    replaceFileName.textContent = currentReplaceFile;
+                    replaceTextarea.value = '';
+                    replaceResult.classList.remove('show');
+                    resultTextarea.value = '';
+                    replaceModal.classList.add('show');
+                });
+            });
+        } else {
+            statusDiv.textContent = '未找到相似度 > 5% 的函数，请检查粘贴的代码是否正确';
+        }
     });
 
     searchInput.addEventListener('input', () => {

@@ -11,7 +11,7 @@ export function computeBuffStats(unit, activeBuffs, allyTeam) {
     let atkBonus = 0, defBonus = 0, dodgeBonus = 0, hpBonus = 0;
     if (!activeBuffs) return { atkBonus, defBonus, dodgeBonus, hpBonus };
 
-    if (hasBuff(activeBuffs, 'holyFlame')) {
+    if (hasBuff(activeBuffs, 'holyFlame') && unit.camp === 'ally') {
         let buffObj = activeBuffs.find(b => b.key === 'holyFlame');
         if (buffObj) {
             if (buffObj.col == null) buffObj.col = rand(1, 3);
@@ -22,12 +22,12 @@ export function computeBuffStats(unit, activeBuffs, allyTeam) {
     }
     if (hasBuff(activeBuffs, 'carry') && unit.pos === 5 && unit.alive) {
         if (allyTeam) {
-            let allAllies = allyTeam.filter(u => u.uid !== unit.uid);
+            let allAllies = allyTeam.filter(u => u.uid !== unit.uid && !u.isHorse);
             let totalAtk = 0, totalDef = 0, totalHp = 0;
             allAllies.forEach(a => {
-                let mult = a.alive ? 1 : C.BUFFS.carry.deathMultiplier;
-                totalAtk += C.BUFFS.carry.atkBonus * mult;
-                totalDef += C.BUFFS.carry.defBonus * mult;
+                let mult = a.alive ? 1 : (C.BUFFS.carry.deathMultiplier || 3);
+                totalAtk += (C.BUFFS.carry.atkBonus || 0.08) * mult;
+                totalDef += (C.BUFFS.carry.defBonus || 0.08) * mult;
                 if (C.BUFFS.carry.hpBonus) totalHp += C.BUFFS.carry.hpBonus * mult;
             });
             atkBonus += totalAtk; defBonus += totalDef; hpBonus += totalHp;

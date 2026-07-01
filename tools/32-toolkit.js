@@ -52,7 +52,7 @@ function escapeHtml(text) {
     ];
 
     // 用户可勾选的文件列表（不含 assets/ 和 .md 等不可 fetch 的文件）
-    const FILES = ALL_PROJECT_FILES.filter(f => f.endsWith('.js') || f.endsWith('.html') || f.endsWith('.cjs'));
+    const FILES = ALL_PROJECT_FILES.filter(f => f.endsWith('.js') || f.endsWith('.html') || f.endsWith('.cjs') || f.endsWith('.md'));
 
     const FILE_GROUPS = [
         { name: 'core', displayName: '战斗引擎核心', prefix: '../core/' },
@@ -184,7 +184,10 @@ function escapeHtml(text) {
 
     document.getElementById('fcBtnGenerate').addEventListener('click', async () => {
         const charLimit = parseInt(document.getElementById('fcCharLimit').value) || 40000;
-        const softLimit = Math.min(charLimit + 8000, 50000);
+        const SOFT_LIMIT = charLimit;
+        const HARD_LIMIT = Math.min(charLimit * 1.5, 80000);
+        const HUGE_THRESHOLD = Math.max(HARD_LIMIT, 80000);
+
         const selectedFiles = Array.from(
             document.querySelectorAll('#tab-file-copier input[type=checkbox]:checked')
         ).map(cb => cb.value);
@@ -197,76 +200,83 @@ function escapeHtml(text) {
         statusDiv.textContent = '正在读取文件...';
         batchesDiv.innerHTML = '';
 
-        const fileContents = {};
-        const fileErrors = {};
+        const fileData = [];
         for (const file of selectedFiles) {
             try {
                 const res = await fetch(file);
                 if (res.ok) {
-                    fileContents[file] = await res.text();
+                    const content = await res.text();
+                    fileData.push({
+                        fileName: file,
+                        content,
+                        charCount: content.length,
+                        lineCount: content.split('\n').length
+                    });
                 } else {
-                    fileContents[file] = null;
-                    fileErrors[file] = 'HTTP ' + res.status;
+                    fileData.push({ fileName: file, content: null, charCount: 0, lineCount: 0, error: 'HTTP ' + res.status });
                 }
             } catch (e) {
-                fileContents[file] = null;
-                fileErrors[file] = e.message;
+                fileData.push({ fileName: file, content: null, charCount: 0, lineCount: 0, error: e.message });
             }
         }
 
-        const slices = [];
-        for (const file of selectedFiles) {
-            const content = fileContents[file];
-            if (!content) {
-                slices.push({ fileName: file, content: null, charCount: 0, lineCount: 0, error: fileErrors[file] });
-                continue;
-            }
-            if (content.length > softLimit) {
-                const parts = splitLargeFile(file, content, charLimit);
-                slices.push(...parts);
-            } else {
-                slices.push({ fileName: file, content, charCount: content.length, lineCount: content.split('\n').length });
-            }
-        }
-
+        // 打包策略：尽量不切割，超出软上限就整个包一起超，超大文件单独成包
         const batches = [];
-        slices.sort((a, b) => b.charCount - a.charCount);
-        let currentBatch = { files: [], totalChars: 0, hasFailures: false };
+        // 先把读取失败的文件单独成包
+        const errors = fileData.filter(f => f.error);
+        const okFiles = fileData.filter(f => !f.error);
 
-        function finalizeBatch() {
-            if (currentBatch.files.length > 0) {
-                batches.push(currentBatch);
-                currentBatch = { files: [], totalChars: 0, hasFailures: false };
-            }
-        }
+        errors.forEach(f => {
+            batches.push({ files: [f], totalChars: 0, hasFailures: true });
+        });
 
-        for (const slice of slices) {
-            if (slice.error) {
-                currentBatch.files.push(slice);
-                currentBatch.hasFailures = true;
+        // 按大小排序：大的在前，优先放入
+        const sorted = [...okFiles].sort((a, b) => b.charCount - a.charCount);
+        const used = new Set();
+
+        for (const big of sorted) {
+            if (used.has(big.fileName)) continue;
+
+            // 超大文件：单独成包，不切割
+            if (big.charCount > HUGE_THRESHOLD) {
+                batches.push({ files: [big], totalChars: big.charCount, hasFailures: false });
+                used.add(big.fileName);
                 continue;
             }
-            if (currentBatch.totalChars + slice.charCount > softLimit && currentBatch.files.length > 0) {
-                finalizeBatch();
-            }
-            currentBatch.files.push(slice);
-            currentBatch.totalChars += slice.charCount;
-            if (currentBatch.totalChars > softLimit * 1.2 && currentBatch.files.length > 1) {
-                const last = currentBatch.files.pop();
-                currentBatch.totalChars -= last.charCount;
-                finalizeBatch();
-                currentBatch.files.push(last);
-                currentBatch.totalChars += last.charCount;
-            }
-        }
-        finalizeBatch();
 
-        // 合并过小的包
+            // 以当前文件为起点，尽量塞入更多小文件
+            const pack = { files: [big], totalChars: big.charCount, hasFailures: false };
+            used.add(big.fileName);
+
+            // 从小到大尝试塞入剩余文件
+            const remaining = sorted.filter(f => !used.has(f.fileName)).sort((a, b) => a.charCount - b.charCount);
+            for (const small of remaining) {
+                if (pack.totalChars + small.charCount <= HARD_LIMIT) {
+                    pack.files.push(small);
+                    pack.totalChars += small.charCount;
+                    used.add(small.fileName);
+                } else if (pack.totalChars < SOFT_LIMIT && pack.totalChars + small.charCount <= HUGE_THRESHOLD) {
+                    // 还没到软上限时，允许适度溢出
+                    pack.files.push(small);
+                    pack.totalChars += small.charCount;
+                    used.add(small.fileName);
+                }
+                // 到了硬上限就不再塞了
+                if (pack.totalChars >= HARD_LIMIT) break;
+            }
+            batches.push(pack);
+        }
+
+        // 合并孤立的极小尾包到前一个包
         const mergedBatches = [];
         for (const batch of batches) {
-            if (mergedBatches.length > 0 && batch.totalChars < 18000 && !batch.isSplit && batch.files.length > 0) {
+            if (batch.hasFailures) {
+                mergedBatches.push(batch);
+                continue;
+            }
+            if (batch.totalChars < 8000 && mergedBatches.length > 0) {
                 const prev = mergedBatches[mergedBatches.length - 1];
-                if (prev.totalChars + batch.totalChars <= 52000) {
+                if (!prev.hasFailures && prev.totalChars + batch.totalChars <= HARD_LIMIT) {
                     prev.files.push(...batch.files);
                     prev.totalChars += batch.totalChars;
                     continue;
@@ -274,6 +284,8 @@ function escapeHtml(text) {
             }
             mergedBatches.push(batch);
         }
+
+
 
         // 生成路径清单（全项目文件 + 规则提示）
         const ruleHint = [
@@ -296,7 +308,7 @@ function escapeHtml(text) {
 
         // 尝试追加到最后一个包，放不下就独立成包
         const lastBatch = mergedBatches[mergedBatches.length - 1];
-        if (lastBatch && lastBatch.totalChars + fileListContent.length <= softLimit) {
+        if (lastBatch && lastBatch.totalChars + fileListContent.length <= SOFT_LIMIT) {
             lastBatch.files.push({
                 fileName: '[附录] 完整文件路径清单',
                 content: fileListContent,

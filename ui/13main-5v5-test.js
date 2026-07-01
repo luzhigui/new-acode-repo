@@ -499,13 +499,13 @@ function showMusicPanel() {
     title.style.cssText = 'color:#ffd700;font-size:16px;font-weight:bold;margin-bottom:16px;';
     box.appendChild(title);
 
-    // 全局静音
+    // 全局静音（初始默认不静音）
     const muteRow = document.createElement('div');
     muteRow.style.cssText = 'display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;';
     muteRow.innerHTML = '<span>🔇 全局静音</span>';
     const muteCheck = document.createElement('input');
     muteCheck.type = 'checkbox';
-    muteCheck.checked = !AudioManager.enabled;
+    muteCheck.checked = false;
     muteCheck.style.width = '20px'; muteCheck.style.height = '20px';
     muteCheck.onchange = () => {
         if (muteCheck.checked) {
@@ -519,32 +519,14 @@ function showMusicPanel() {
     muteRow.appendChild(muteCheck);
     box.appendChild(muteRow);
 
-    // 主音量
-    const masterRow = document.createElement('div');
-    masterRow.style.marginBottom = '12px';
-    masterRow.innerHTML = '<span>🔊 主音量：<span id="musicMasterLabel">' + Math.round((AudioManager.audio?.volume || 0.6) * 100) + '%</span></span>';
-    const masterSlider = document.createElement('input');
-    masterSlider.type = 'range'; masterSlider.min = '0'; masterSlider.max = '100';
-    masterSlider.value = Math.round((AudioManager.audio?.volume || 0.6) * 100);
-    masterSlider.style.width = '100%';
-    masterSlider.oninput = () => {
-        const vol = parseInt(masterSlider.value) / 100;
-        AudioManager.setVolume(vol);
-        document.getElementById('musicMasterLabel').textContent = Math.round(vol * 100) + '%';
-        document.getElementById('musicBgmLabel').textContent = Math.round(vol * 100) + '%';
-        document.getElementById('musicBgmSlider').value = masterSlider.value;
-    };
-    masterRow.appendChild(masterSlider);
-    box.appendChild(masterRow);
-
-    // BGM 音量
+    // BGM 音量（默认 50%）
     const bgmRow = document.createElement('div');
     bgmRow.style.marginBottom = '12px';
-    bgmRow.innerHTML = '<span>🎼 BGM 音量：<span id="musicBgmLabel">' + Math.round((AudioManager.audio?.volume || 0.6) * 100) + '%</span></span>';
+    bgmRow.innerHTML = '<span>🎼 背景音乐：<span id="musicBgmLabel">50%</span></span>';
     const bgmSlider = document.createElement('input');
     bgmSlider.id = 'musicBgmSlider';
     bgmSlider.type = 'range'; bgmSlider.min = '0'; bgmSlider.max = '100';
-    bgmSlider.value = Math.round((AudioManager.audio?.volume || 0.6) * 100);
+    bgmSlider.value = 50;
     bgmSlider.style.width = '100%';
     bgmSlider.oninput = () => {
         const vol = parseInt(bgmSlider.value) / 100;
@@ -554,13 +536,13 @@ function showMusicPanel() {
     bgmRow.appendChild(bgmSlider);
     box.appendChild(bgmRow);
 
-    // 音效音量
+    // 音效（默认 30%）
     const sfxRow = document.createElement('div');
     sfxRow.style.marginBottom = '12px';
-    sfxRow.innerHTML = '<span>💥 音效音量：<span id="musicSfxLabel">' + Math.round(AudioManager.sfxVolume * 100) + '%</span></span>';
+    sfxRow.innerHTML = '<span>💥 音效：<span id="musicSfxLabel">30%</span></span>';
     const sfxSlider = document.createElement('input');
     sfxSlider.type = 'range'; sfxSlider.min = '0'; sfxSlider.max = '100';
-    sfxSlider.value = Math.round(AudioManager.sfxVolume * 100);
+    sfxSlider.value = 30;
     sfxSlider.style.width = '100%';
     sfxSlider.oninput = () => {
         AudioManager.sfxVolume = parseInt(sfxSlider.value) / 100;
@@ -925,7 +907,7 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('voteFloat').addEventListener('click',function(){let overlay=document.getElementById('voteModalOverlay');if(overlay){overlay.style.display='flex';this.style.display='none';}});
     document.getElementById('coverStartBtn').addEventListener('click',function(){
         document.getElementById('coverOverlay').style.display='none';
-        gameStarted=true; initBGM(); playBGM(); setBGMVolume(0.6);
+        gameStarted=true; initBGM(); playBGM(); setBGMVolume(0.5);
         try { initGlowSystem(); } catch(e) { console.warn('光带特效初始化失败，已跳过', e); }
     });
     document.getElementById('allyGrid').addEventListener('click', function(e) {

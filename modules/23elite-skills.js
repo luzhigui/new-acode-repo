@@ -24,19 +24,30 @@ export function checkExtinctionCounter(defender, dmg) {
 export function checkNineYinClaw(attacker, baseDmg, log) {
     if (attacker.name !== '周芷若') return 0;
     const s = ES.nineYinClaw;
-    const bonusRatio = (window._currentBattleState && window._currentBattleState.ally && 
-        window._currentBattleState.ally.some(u => u.isZhang && u.alive)) ? s.jealousBonus : s.bonusRatio;
+    // 张无忌在己方存活时触发嫉妒，伤害比例从25%提升至40%
+    const zhangAlive = window._currentBattleState && window._currentBattleState.ally && 
+        window._currentBattleState.ally.some(u => u.isZhang && u.alive);
+    const bonusRatio = zhangAlive ? s.jealousBonus : s.bonusRatio;
     
     let totalBonus = 0;
     for (let depth = 0; depth < s.maxChain; depth++) {
         if (Math.random() > s.procChance) break;
         const bonusDmg = Math.floor(baseDmg * bonusRatio);
         totalBonus += bonusDmg;
+        // 不可闪避的真实追加伤害，直接扣血
+        const target = window._currentBattleState?.enemy?.find(u => u.alive);
+        if (target) {
+            target.hp = Math.max(0, target.hp - bonusDmg);
+            attacker.dmgDealt += bonusDmg;
+            target.dmgTaken += bonusDmg;
+            if (target.hp <= 0) { target.hp = 0; target.alive = false; target._isDead = true; }
+        }
         log.push({
             type:'info', 
-            text:`<span class="purple">🦅 九阴白骨爪追击！${attacker.name} 额外造成 ${bonusDmg} 点伤害（不可闪避）${bonusRatio > s.bonusRatio ? '【嫉妒】' : ''}</span>`, 
+            text:`<span class="purple">🦅 九阴白骨爪追击！${attacker.name} 额外造成 ${bonusDmg} 点伤害（不可闪避）${zhangAlive ? '【嫉妒】' : ''}</span>`, 
             buffType:'elite_bonus'
         });
+        if (depth < s.maxChain - 1 && target && !target.alive) break; // 目标已死则停止追击
     }
     return totalBonus;
 }
@@ -215,7 +226,9 @@ export function tickKuaiLeHeal(allUnits, log) {
             log.push({
                 type: 'info',
                 text: `<span class="green">💚 快乐回血：${unit.name} 回复${totalHeal}点生命（${unit._kuaiLeStack.length}层触发），血量 ${Math.floor(unit.hp - totalHeal)} → ${Math.floor(unit.hp)}</span>`,
-                buffType: 'elite_kuaile_heal'
+                buffType: 'elite_kuaile_heal',
+                zhouUid: unit.uid,
+                zhouHpAfter: unit.hp
             });
         }
         
