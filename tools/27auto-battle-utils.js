@@ -123,15 +123,80 @@ export function generateSnapshot(currentStage = 1) {
                     }
                 }
             }
-        }        // 其余随机
-        let remaining = enemyUnits.filter(u => u.pos == null);
+        }        // 精英优先按 pos 配置站位，被占则向后顺延；宋青书永远在周芷若后面
+        // 1) 先分离精英和普通敌人
+        const eliteUnits = enemyUnits.filter(u => u.name === '宋青书' || u.name === '周芷若');
+        const normalUnits = enemyUnits.filter(u => !eliteUnits.includes(u));
+
+        // 2) 普通敌人按模板占位后，剩余的随机分配
+        let remainingNormals = normalUnits.filter(u => u.pos == null);
         let allPos = [1,2,3,4,5,6,7,8,9].filter(p => !enemyPosSet.has(p));
-        for (let u of remaining) {
+        for (let u of remainingNormals) {
             if (allPos.length > 0) {
                 let idx = rand(0, allPos.length - 1);
                 u.pos = allPos[idx]; u._originalPos = u.pos;
                 enemyPosSet.add(allPos[idx]);
                 allPos.splice(idx, 1);
+            }
+        }
+
+        // 3) 周芷若先占位：优先 2 号，被占则顺延 3→4→5→6→7→8→9
+        const zhou = eliteUnits.find(u => u.name === '周芷若');
+        const song = eliteUnits.find(u => u.name === '宋青书');
+
+        if (zhou && zhou.pos == null) {
+            const zhouPriority = [2, 3, 4, 5, 6, 7, 8, 9];
+            for (const p of zhouPriority) {
+                if (!enemyPosSet.has(p)) {
+                    zhou.pos = p; zhou._originalPos = p;
+                    enemyPosSet.add(p);
+                    break;
+                }
+            }
+            // 全满的极端情况，随机找一个
+            if (zhou.pos == null) {
+                allPos = [1,2,3,4,5,6,7,8,9].filter(p => !enemyPosSet.has(p));
+                if (allPos.length > 0) {
+                    zhou.pos = allPos[0]; zhou._originalPos = zhou.pos;
+                    enemyPosSet.add(allPos[0]);
+                }
+            }
+        }
+
+        // 4) 宋青书后占位：必须在周芷若序号之后，且靠前
+        if (song && song.pos == null) {
+            const zhouPos = zhou ? zhou.pos : 0;
+            const songPriority = [];
+            // 按靠前优先，但必须在周芷若之后
+            for (let p = zhouPos + 1; p <= 9; p++) {
+                if (!enemyPosSet.has(p)) songPriority.push(p);
+            }
+        // 4) 宋青书后占位：必须在周芷若序号之后，且靠前
+        if (song && song.pos == null) {
+            const zhouPos = zhou ? zhou.pos : 0;
+            const songPriority = [];
+            for (let p = zhouPos + 1; p <= 9; p++) {
+                if (!enemyPosSet.has(p)) songPriority.push(p);
+            }
+            if (songPriority.length > 0) {
+                song.pos = songPriority[0]; song._originalPos = song.pos;
+                enemyPosSet.add(songPriority[0]);
+            }
+        }
+            if (songPriority.length > 0) {
+                song.pos = songPriority[0]; song._originalPos = song.pos;
+                enemyPosSet.add(songPriority[0]);
+            }
+        }
+
+        // 5) 其他精英（如果有）随机分配
+        const otherElites = eliteUnits.filter(u => u !== zhou && u !== song && u.pos == null);
+        for (let u of otherElites) {
+            allPos = [1,2,3,4,5,6,7,8,9].filter(p => !enemyPosSet.has(p));
+            if (allPos.length > 0) {
+                let idx = rand(0, allPos.length - 1);
+                u.pos = allPos[idx]; u._originalPos = u.pos;
+                enemyPosSet.add(allPos[idx]);
             }
         }
         // 最终兜底：任何仍未获得位置的单位，强制从所有空位中随机分配

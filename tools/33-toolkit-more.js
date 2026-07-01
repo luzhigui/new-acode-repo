@@ -620,16 +620,69 @@ import { CONFIG } from '../core/01config-5v5-test.js';
             const rc = role === '防战' ? '防' : (role === '战士' ? '战' : (role === '远程' ? '远' : '飞'));
             for (const p of poses) { if (p >= 1 && p <= 9) grid[p - 1] = rc; }
         }
+        // 处理精英站位：优先尝试配置的 pos，如果被占则随机换到其他空位
+        const allPositions = [0, 1, 2, 3, 4, 5, 6, 7, 8];
         for (const elite of eliteList) {
-            const pos = elite.pos;
-            if (pos && grid[pos - 1] !== '·') grid[pos - 1] += '*';
-            else if (pos) grid[pos - 1] = '精*';
+            const rc = elite.role === '防战' ? '防' : (elite.role === '战士' ? '战' : (elite.role === '远程' ? '远' : '飞'));
+            const preferredPos = elite.pos && elite.pos >= 1 && elite.pos <= 9 ? elite.pos - 1 : null;
+            
+            // 收集当前所有空位
+            const emptySlots = allPositions.filter(i => grid[i] === '·');
+            if (emptySlots.length === 0) break; // 没空位了
+            
+            if (preferredPos !== null && grid[preferredPos] === '·') {
+                // 优先位置是空的，直接站
+                grid[preferredPos] = rc + '*';
+            } else {
+                // 优先位置被占或没有优先位置，随机找空位
+                const randomIdx = emptySlots[Math.floor(Math.random() * emptySlots.length)];
+                grid[randomIdx] = rc + '*';
+            }
         }
 
-        previewDiv.textContent =
-            `模板：${Object.entries(template).filter(([k]) => k !== 'random').map(([k, v]) => `${k}(${v.join(',')})`).join(', ')}\n` +
-            `精英：${eliteList.map(e => `${e.name}(${e.role})`).join(', ') || '无'}\n\n` +
-            `┌───┬───┬───┐\n│ ${grid[0]} │ ${grid[1]} │ ${grid[2]} │  1 2 3\n├───┼───┼───┤\n│ ${grid[3]} │ ${grid[4]} │ ${grid[5]} │  4 5 6\n├───┼───┼───┤\n│ ${grid[6]} │ ${grid[7]} │ ${grid[8]} │  7 8 9\n└───┴───┴───┘\n* = 精英`;
+        const roleColor = (r) => {
+            switch(r) {
+                case '防': return '#4fc3f7';
+                case '战': return '#ef5350';
+                case '远': return '#66bb6a';
+                case '飞': return '#ffa726';
+                default: return '#ccc';
+            }
+        };
+
+        let infoHtml = `<div style="margin-bottom:8px;font-size:12px;line-height:1.6;">`;
+        infoHtml += `模板：${Object.entries(template).filter(([k]) => k !== 'random').map(([k, v]) => `${k}(${v.join(',')})`).join(', ')}<br>`;
+        infoHtml += `精英：${eliteList.map(e => `${e.name}(${e.role})`).join(', ') || '无'}`;
+        infoHtml += `</div>`;
+
+        let tableHtml = `<table style="border-collapse:collapse;text-align:center;font-size:14px;font-family:monospace;">`;
+        tableHtml += `<tr><td></td><td style="width:36px;color:#888;">1</td><td style="width:36px;color:#888;">2</td><td style="width:36px;color:#888;">3</td></tr>`;
+        for (let row = 0; row < 3; row++) {
+            tableHtml += `<tr>`;
+            tableHtml += `<td style="color:#888;padding-right:6px;">${row * 3 + 1}</td>`;
+            for (let col = 0; col < 3; col++) {
+                const idx = row * 3 + col;
+                const raw = grid[idx];
+                const isEmpty = !raw || raw === '·';
+                const hasElite = raw && raw.includes('*');
+                const text = isEmpty ? '' : raw.replace('*', '');
+                const color = isEmpty ? 'transparent' : roleColor(text);
+                tableHtml += `<td style="
+                    border:2px solid #555;
+                    background:${isEmpty ? '#1a1a2e' : '#2a2a4e'};
+                    color:${color};
+                    font-weight:bold;
+                    padding:6px 0;
+                    ${hasElite ? 'box-shadow:inset 0 0 0 2px #ffd700;' : ''}
+                ">${text}${hasElite ? '<span style="color:#ffd700;font-size:10px;">*</span>' : ''}</td>`;
+            }
+            tableHtml += `<td style="color:#888;padding-left:6px;">${row * 3 + 1}</td>`;
+            tableHtml += `</tr>`;
+        }
+        tableHtml += `<tr><td></td><td style="color:#888;">1</td><td style="color:#888;">2</td><td style="color:#888;">3</td></tr>`;
+        tableHtml += `</table>`;
+
+        previewDiv.innerHTML = infoHtml + tableHtml;
     }
 
     function loadHistory() {

@@ -186,6 +186,19 @@ export function initTestRunner() {
     }
     loadHistory();
 
+    // ==================== 复制按钮 ====================
+    copySumBtn.style.display = 'inline-block';
+    copySumBtn.addEventListener('click', () => {
+        const text = statusEl.textContent + '\n' + (reportEl.textContent || reportEl.innerText);
+        navigator.clipboard.writeText(text).then(() => statusEl.textContent = '📋 已复制汇总');
+    });
+
+    copyFullBtn.style.display = 'inline-block';
+    copyFullBtn.addEventListener('click', () => {
+        const text = (reportEl.innerText || reportEl.textContent);
+        navigator.clipboard.writeText(text).then(() => statusEl.textContent = '📋 已复制完整报告');
+    });
+
     // ==================== 开始体检 ====================
     runBtn.addEventListener('click', () => {
         startQuiz();

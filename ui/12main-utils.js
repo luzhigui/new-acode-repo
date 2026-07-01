@@ -60,12 +60,15 @@ export function updateCoverVersion() {
     // 挑 10 个最重要的模块，按顺序排
     const keys = [
         'config', 'engine', 'core', 'unit', 'utils', 'buff', 'horse',
-        'ui', 'fx_common', 'player_core'
+        'ui', 'fx_common', 'player_core',
+        'fx_arrows', 'fx_crash', 'fx_dodge', 'elite_skills', 'audio'
     ];
     const labels = {
         config: '01config', engine: '07engine', core: '06core', unit: '02unit',
         utils: '03utils', buff: '04buff', horse: '05horse',
-        ui: '14ui-render', fx_common: '15fx-common', player_core: '10player-core'
+        ui: '14ui-render', fx_common: '15fx-common', player_core: '10player-core',
+        fx_arrows: '16fx-arrows', fx_crash: '17fx-crash', fx_dodge: '20fx-dodge',
+        elite_skills: '23elite', audio: '28audio'
     };
     let html = '';
     for (let key of keys) {
