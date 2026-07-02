@@ -34,7 +34,7 @@ export function computeBuffStats(unit, activeBuffs, allyTeam) {
         }
     }
     if (hasBuff(activeBuffs, 'fortify') && unit.role === '防战') { defBonus += C.BUFFS.fortify.defBonus; }
-    if (hasBuff(activeBuffs, 'cloudBody')) { dodgeBonus = C.BUFFS.cloudBody.dodgeBonus; }
+    if (hasBuff(activeBuffs, 'cloudBody') && unit.camp === 'ally') { dodgeBonus = C.BUFFS.cloudBody.dodgeBonus; }
     // console.log('computeBuffStats:', unit.name, 'atkBonus:', atkBonus, 'defBonus:', defBonus, 'activeBuffs:', activeBuffs?.map(b => b.key));
     return { atkBonus, defBonus, dodgeBonus, hpBonus };
 }

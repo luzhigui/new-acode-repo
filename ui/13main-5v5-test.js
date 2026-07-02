@@ -329,18 +329,47 @@ function doInitBattle() {
         for (let u of unplacedNormals) {
             if (emptySlots.length > 0) { let idx = rand(0, emptySlots.length - 1); u.pos = emptySlots[idx]; u._originalPos = u.pos; enemyPosSet.add(emptySlots[idx]); emptySlots.splice(idx, 1); }
         }
-        // 精英按配置的 pos 优先站位
-        for (let u of eliteUnits) {
-            let preferredPos = u._originalPos; // 配置里的 pos，如果有的话
-            if (preferredPos && !enemyPosSet.has(preferredPos)) {
-                u.pos = preferredPos; u._originalPos = preferredPos; enemyPosSet.add(preferredPos);
+        // 精英站位优先级：周芷若优先2号位，宋青书必须在周芷若后面
+        const zhou = eliteUnits.find(u => u.name === '周芷若');
+        const song = eliteUnits.find(u => u.name === '宋青书');
+        
+        // 周芷若优先占位：2→3→4→5→6→7→8→9
+        if (zhou) {
+            const zhouPriority = [2, 3, 4, 5, 6, 7, 8, 9];
+            for (const p of zhouPriority) {
+                if (!enemyPosSet.has(p)) {
+                    zhou.pos = p; zhou._originalPos = p; enemyPosSet.add(p);
+                    break;
+                }
             }
         }
-        // 精英未占位的随机塞空位
-        let unplacedElites = eliteUnits.filter(u => u.pos == null);
-        emptySlots = [1,2,3,4,5,6,7,8,9].filter(p => !enemyPosSet.has(p));
-        for (let u of unplacedElites) {
-            if (emptySlots.length > 0) { let idx = rand(0, emptySlots.length - 1); u.pos = emptySlots[idx]; u._originalPos = u.pos; enemyPosSet.add(emptySlots[idx]); emptySlots.splice(idx, 1); }
+        // 宋青书：必须在周芷若序号之后，且靠前
+        if (song) {
+            const zhouPos = zhou ? zhou.pos : 0;
+            for (let p = zhouPos + 1; p <= 9; p++) {
+                if (!enemyPosSet.has(p)) {
+                    song.pos = p; song._originalPos = p; enemyPosSet.add(p);
+                    break;
+                }
+            }
+            if (song.pos == null) {
+                // 周芷若在9号位时，宋青书随机找空位
+                for (let p = 1; p <= 9; p++) {
+                    if (!enemyPosSet.has(p)) {
+                        song.pos = p; song._originalPos = p; enemyPosSet.add(p);
+                        break;
+                    }
+                }
+            }
+        }
+        // 其他精英随机占位
+        const otherElites = eliteUnits.filter(u => u !== zhou && u !== song && u.pos == null);
+        for (let u of otherElites) {
+            emptySlots = [1,2,3,4,5,6,7,8,9].filter(p => !enemyPosSet.has(p));
+            if (emptySlots.length > 0) {
+                let idx = rand(0, emptySlots.length - 1);
+                u.pos = emptySlots[idx]; u._originalPos = u.pos; enemyPosSet.add(emptySlots[idx]);
+            }
         }
         enemyTeam = allUnits;
     }
@@ -413,6 +442,29 @@ function showBattleReport(result) {
     let overlay = document.createElement('div');
     overlay.className = 'modal-overlay';
     overlay.style.background = 'rgba(0,0,0,0.85)';
+    overlay.id = 'battleReportOverlay';
+
+    // 最小化功能
+    let minimizeBtn = document.createElement('span');
+    minimizeBtn.innerHTML = '∧';
+    minimizeBtn.style.cssText = 'position:fixed;top:10px;right:10px;cursor:pointer;font-size:20px;color:#ffd700;z-index:10000;font-weight:bold;';
+    minimizeBtn.onclick = () => {
+        overlay.style.display = 'none';
+        let floatBtn = document.createElement('div');
+        floatBtn.id = 'battleReportFloat';
+        floatBtn.className = 'vote-float';
+        floatBtn.style.display = 'flex';
+        floatBtn.style.right = '20px';
+        floatBtn.style.bottom = '110px';
+        floatBtn.title = '恢复战报';
+        floatBtn.innerHTML = '📊';
+        floatBtn.addEventListener('click', () => {
+            overlay.style.display = 'flex';
+            floatBtn.remove();
+        });
+        document.body.appendChild(floatBtn);
+    };
+    overlay.appendChild(minimizeBtn);
     
     let box = document.createElement('div');
     box.className = 'modal-box';
@@ -840,7 +892,18 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     document.getElementById('btnNext').addEventListener('click',function(){onAnyButtonClick();waitingForNextRound=false;gs=S.RUNNING;updateButtons();});
-    document.getElementById('btnSettle').addEventListener('click',async function(){ });
+    document.getElementById('btnSettle').addEventListener('click',async function(){
+        onAnyButtonClick();
+        abortAll();
+        clearAllEffects();
+        gs = S.IDLE;
+        isPaused = false;
+        waitingForNextRound = false;
+        isBattleStarting = false;
+        updateButtons();
+        enableAllButtons();
+        updateUI(UI);
+    });
     document.getElementById('btnPause').addEventListener('click',function(){onAnyButtonClick();if(gs===S.RUNNING){gs=S.PAUSED;isPaused=true;window.bulletTimeActive = false;if(window._getPlayerContext()._scheduler)window._getPlayerContext()._scheduler.pause();document.body.classList.add('paused-animations');}else if(gs===S.PAUSED){gs=S.RUNNING;isPaused=false;if(window._getPlayerContext()._scheduler)window._getPlayerContext()._scheduler.resume();document.body.classList.remove('paused-animations');}updateButtons();});
     document.getElementById('btnAuto').addEventListener('click',function(){
         autoMode=!autoMode;this.classList.toggle('active',autoMode);this.textContent=autoMode?'自动':'手动';

@@ -163,7 +163,7 @@ export function renderGrid(id, team, camp, debugMode, oldTeam) {
     for (let i = 0; i < displayOrder.length; i++) {
         let pos = displayOrder[i], unit = team.find(c => c.pos === pos);
         // 仅当单位显式处于飞走模式时才跳过渲染
-if (unit && (unit._flyMode || unit._isDead)) unit = null;
+if (unit && !unit.isHorse && (unit._flyMode || unit._isDead)) unit = null;
         if (!unit) {
             let div = document.createElement('div');
             div.className = 'cell';

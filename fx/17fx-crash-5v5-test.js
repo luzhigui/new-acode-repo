@@ -151,7 +151,12 @@ export function showMeleeCrash(unitA, unitD, speed, getPausedFn, onCrash) {
                 if (p1 < 1) { requestAnimationFrame(phase1); }
                 else {
                     cellB.classList.add('shake-strong');
-                    setTimeout(() => cellB.classList.remove('shake-strong'), 600 * (speed / 1000));
+                    cellB.style.transition = 'background 0.15s ease';
+                    cellB.style.background = '#ffd700';
+                    setTimeout(() => {
+                        cellB.classList.remove('shake-strong');
+                        cellB.style.background = '';
+                    }, 600 * (speed / 1000));
                     if (onCrash) onCrash();
                     let crashX = savedLeft + nx * flyDist, crashY = savedTop + ny * flyDist;
                     let start3 = null;

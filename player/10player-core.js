@@ -406,6 +406,7 @@ export async function playLogEntries(c, log, roundResult) {
                                     uiUnit.alive = ev.payload.alive;
                                     uiUnit.atk = ev.payload.atk;
                                     uiUnit.def = ev.payload.def;
+                                    uiUnit._baseMaxHp = ev.payload.maxHp;
                                     uiUnit.dmgDealt = ev.payload.dmgDealt;
                                     uiUnit.dmgTaken = ev.payload.dmgTaken;
                                     uiUnit.healDone = ev.payload.healDone;
@@ -474,8 +475,8 @@ export async function playBattle() {
         ally: c.snapshot.ally.map(u => u.clone()),
         enemy: c.snapshot.enemy.map(u => u.clone())
     };
-    c.UI.allyTeam = currentUIState.ally.map(u => u.clone());
-    c.UI.enemyTeam = currentUIState.enemy.map(u => u.clone());
+    c.UI.allyTeam = c.snapshot.ally.map(u => { let u2 = u.clone(); u2.hp = u2.maxHp; u2.alive = true; u2._isDead = false; return u2; });
+    c.UI.enemyTeam = c.snapshot.enemy.map(u => { let u2 = u.clone(); u2.hp = u2.maxHp; u2.alive = true; u2._isDead = false; return u2; });
     c.updateUI(c.UI);
     document.getElementById('roundDisplay').innerText = `📜 日志（第1回合）`;
 
@@ -553,11 +554,11 @@ export async function playBattle() {
             c.updateUI(c.UI);
             await new Promise(r => setTimeout(r, 800));
             if (c.spawnVictoryEffects) c.spawnVictoryEffects(winner);
-            let winColor = winner === '明教' ? 'blue' : 'orange';
-            logDiv.innerHTML += `<span class="gold">🎉🏆 <span class="${winColor}">${winner}</span>获得最终胜利！ 🏆🎉</span><br>`;
-            logDiv.scrollTop = logDiv.scrollHeight;
-            await new Promise(r => setTimeout(r, 3000));
         }
+        let winColor = winner === '明教' ? 'blue' : 'orange';
+        logDiv.innerHTML += `<span class="gold">🎉🏆 <span class="${winColor}">${winner}</span>获得最终胜利！ 🏆🎉</span><br>`;
+        logDiv.scrollTop = logDiv.scrollHeight;
+        await new Promise(r => setTimeout(r, 3000));
     } else {
         logDiv.innerHTML+='<span class="gray">🤝 平局！积分不变</span><br>';
         logDiv.scrollTop = logDiv.scrollHeight;
