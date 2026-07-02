@@ -124,8 +124,7 @@ function calcAttackDamage(unit, target, attackerBuffStats, defenderBuffStats) {
     raw += thunderBonus;
     if (thunderBonus > 0) rawFormula += ` + 混元霹雳劲${thunderBonus}`;
     const rebelBonus = getRebelDmgBonus(unit);
-    if (rebelBonus > 0) { raw *= (1 + rebelBonus); }
-    const rebelTag = rebelBonus > 0 ? '叛逆突袭+30%' : '';
+    if (rebelBonus > 0) raw *= (1 + rebelBonus);
     if (hornBonus.dmgMultiplier > 1) raw *= hornBonus.dmgMultiplier;
     const trueDmg = getRebelTrueDmg(unit, target);
     raw += trueDmg;
@@ -221,6 +220,7 @@ function processUnitAttack(unit, allySide, enemySide, log, A, B, state, doubleSt
 
     let dmgCalc = calcAttackDamage(unit, target, attackerBuffStats, defenderBuffStats);
     let { atkBase, defBase, atkAct, defAct, hpBonus, hpBefore, waveTaunt, waveUnit, raw, rawFormula, thunderBonus, hornBonus, trueDmg } = dmgCalc;
+    const rebelBonus = getRebelDmgBonus(unit);
 
     let dmg = Math.floor(raw);
     let hpAfter = Math.floor(target.hp) - dmg;
@@ -258,7 +258,7 @@ function processUnitAttack(unit, allySide, enemySide, log, A, B, state, doubleSt
     let group = { type:'attack-group', uidA:unit.uid, uidD:target.uid, entries:[], hpAfter:target.hp, alive:target.alive, isDead:dead, waveTaunt, waveUnit, unitRole:unit.role, _fxSnapshot:makeFXSnapshot(unit,target), _dmg:dmg, _isZhangNear:unit.isZhang && !unit.rangedForm, _nearAtkCount:unit.nearAtkCount, hpPctBefore, hpPctAfter, isMiss:miss, isDodge:false, buffEffects:[], _atkBonus:Math.floor(unit.atk * attackerBuffStats.atkBonus), _defBonus:Math.floor(target.def * defenderBuffStats.defBonus) };
     group.entries.push({type:'combat-text', text:`<span class="${ac}">${campA} ${unit.name}</span>(攻${displayAtk} 血${unitHpBefore}) → <span class="${dc}">${campD} ${target.name}</span>(防${displayDef} 血${hpBefore})`});
     group.entries.push({type:'detail', text:`<span class="gray small">波动：攻${atkBase}→${atkAct} 防${defBase}→${defAct} 血${hpBonus >= 0 ? '+' + hpBonus : hpBonus}</span>`});
-    if (rebelTag) group.entries.push({type:'detail', text:`<span class="orange small">⚔️ ${rebelTag}</span>`});
+    if (rebelBonus > 0) group.entries.push({type:'detail', text:`<span class="orange small">⚔️ 叛逆突袭+30%</span>`});
     if (thunderBonus > 0) group.entries.push({type:'detail', text:`<span class="red small">💥 混元霹雳劲+${thunderBonus}真实伤害</span>`});
     if (hornBonus.defIgnore > 0) {
         let poisonTag = hornBonus.dmgMultiplier > 1 ? '，目标已中毒伤害+50%' : '';
