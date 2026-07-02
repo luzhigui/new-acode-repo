@@ -169,6 +169,11 @@
   animation: lockPulse 0.8s ease-in-out infinite;
 }
 @keyframes lockPulse { 0%,100%{ box-shadow: 0 0 20px rgba(255,69,0,0.6); } 50%{ box-shadow: 0 0 35px rgba(255,69,0,1); } }
+   body.paused-animations *,
+   body.paused-animations *::before,
+   body.paused-animations *::after {
+       animation-play-state: paused !important;
+   }
    </style>
 </head>
 <body>

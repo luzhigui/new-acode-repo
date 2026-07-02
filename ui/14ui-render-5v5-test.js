@@ -249,10 +249,12 @@ if (unit && (unit._flyMode || unit._isDead)) unit = null;
 }
 
 export function updateUI(UI, oldUI) {
-    let oldAlly = oldUI ? oldUI.allyTeam : null;
-    let oldEnemy = oldUI ? oldUI.enemyTeam : null;
-    renderGrid('enemyGrid', UI.enemyTeam, 'enemy', window._debugMode || false, oldEnemy);
-    renderGrid('allyGrid', UI.allyTeam, 'ally', window._debugMode || false, oldAlly);
+    let allyTeam = UI.ally || UI.allyTeam || [];
+    let enemyTeam = UI.enemy || UI.enemyTeam || [];
+    let oldAlly = oldUI ? (oldUI.ally || oldUI.allyTeam || null) : null;
+    let oldEnemy = oldUI ? (oldUI.enemy || oldUI.enemyTeam || null) : null;
+    renderGrid('enemyGrid', enemyTeam, 'enemy', window._debugMode || false, oldEnemy);
+    renderGrid('allyGrid', allyTeam, 'ally', window._debugMode || false, oldAlly);
 }
 
 export function spawnVictoryEffects(winnerCamp) {
