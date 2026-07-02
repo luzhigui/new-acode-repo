@@ -2,21 +2,23 @@
 // V4.0.0 | ~95 lines | 2026-06-29 09:29
 export const VER = 'ui/12main-utils.js V4.0.0';
 
-export function showModal(text, buttons, onChoice, canMinimize) {
+export function showModal(text, buttons, onChoice, canMinimize, showCloseBtn) {
     let overlay = document.createElement('div'); overlay.className = 'modal-overlay'; overlay.id = 'voteModalOverlay';
     let box = document.createElement('div'); box.className = 'modal-box';
     box.style.position = 'relative';
 
-    // 右上角关闭按钮
-    let closeBtn = document.createElement('span');
-    closeBtn.innerHTML = '✕';
-    closeBtn.style.cssText = 'position:absolute;top:8px;right:12px;cursor:pointer;font-size:18px;color:#8b7355;font-weight:bold;z-index:10;';
-    closeBtn.onclick = (e) => {
-        e.stopPropagation();
-        document.body.removeChild(overlay);
-        document.getElementById('voteFloat').style.display = 'none';
-    };
-    box.appendChild(closeBtn);
+    // 右上角关闭按钮（仅当 showCloseBtn 不为 false 时显示）
+    if (showCloseBtn !== false) {
+        let closeBtn = document.createElement('span');
+        closeBtn.innerHTML = '✕';
+        closeBtn.style.cssText = 'position:absolute;top:8px;right:12px;cursor:pointer;font-size:18px;color:#8b7355;font-weight:bold;z-index:10;';
+        closeBtn.onclick = (e) => {
+            e.stopPropagation();
+            document.body.removeChild(overlay);
+            document.getElementById('voteFloat').style.display = 'none';
+        };
+        box.appendChild(closeBtn);
+    }
 
     let contentDiv = document.createElement('div');
     let inner = `<div class="modal-text" style="margin-right:24px;">${text}</div>` + (canMinimize ? '<span class="modal-minimize" id="modalMinimize">∧</span>' : '') + '<div class="modal-buttons"></div>';

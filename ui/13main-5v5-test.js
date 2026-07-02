@@ -113,7 +113,7 @@ function showBuffSelection(callback) {
         if (logDiv) { logDiv.innerHTML += `<span class="gold">✨ 获得Buff：${C.BUFFS[key].name}（持续${duration}回合）</span><br>`; autoScrollLog(); }
         if (window._updateGlowColors) window._updateGlowColors(selectedBuffIndex);
         callback();
-    }, true);
+    }, true, false);
 }
 
 function updateBuffSlots() {
@@ -262,11 +262,16 @@ function doInitBattle() {
     let enemyUnits = [];
     if (enemySquad) {
         let enemyPosSet = new Set();
+        let xuanmingPairCount = 0; // 鹿杖客+鹤笔翁 组合计数，只算1个名额
         for (let item of enemySquad) {
             if (typeof item === 'object' && item.name) {
                 let unit = new Unit(item.name, item.m, item.role, 'enemy');
                 unit.pos = null; unit.init(); unit.applyBonus();
                 enemyUnits.push(unit);
+                // 检测玄冥二老组合：只计一次名额
+                if (item.name === '鹿杖客' || item.name === '鹤笔翁') {
+                    xuanmingPairCount++;
+                }
             } else {
                 let mVal = item;
                 let pool = Object.entries(ENEMY_M).filter(([n, v]) => v === mVal);
@@ -285,20 +290,56 @@ function doInitBattle() {
                 enemyUnits.push(unit);
             }
         }
-        let template = C.ENEMY_POS_TEMPLATES && C.ENEMY_POS_TEMPLATES[currentStage] ? C.ENEMY_POS_TEMPLATES[currentStage] : null;
+        // 第五关特殊处理：玄冥二老只算1个名额，补1个普通敌人
+        if (currentStage === 5 && xuanmingPairCount === 2) {
+            let extraM = 104; // 补一个M=104的普通敌人
+            let pool = Object.entries(ENEMY_M).filter(([n, v]) => v === extraM);
+            let usedNames = enemyUnits.map(u => u.name);
+            let name = null;
+            while ((!name || usedNames.includes(name)) && pool.length > 0) {
+                let pick = pool[rand(0, pool.length - 1)];
+                name = pick[0];
+                if (usedNames.includes(name)) { name = null; pool.splice(pool.indexOf(pick), 1); }
+            }
+            if (!name) name = '六大派弟子';
+            let role = C.ROLES[rand(0, 3)];
+            let extraUnit = new Unit(name, extraM, role, 'enemy');
+            extraUnit.init(); extraUnit.applyBonus();
+            enemyUnits.push(extraUnit);
+        }
+        // 精英站位优先级：先普通后精英，精英按 pos 配置优先站位
         let allUnits = [...enemyUnits];
+        let template = C.ENEMY_POS_TEMPLATES && C.ENEMY_POS_TEMPLATES[currentStage] ? C.ENEMY_POS_TEMPLATES[currentStage] : null;
+        // 先分离精英（有名有姓的）和普通敌人
+        let eliteUnits = allUnits.filter(u => C.ELITE_POOL && C.ELITE_POOL[currentStage] && C.ELITE_POOL[currentStage].some(e => e.name === u.name));
+        let normalUnits = allUnits.filter(u => !eliteUnits.includes(u));
+        // 普通敌人按模板占位
         if (template) {
             for (let [role, poses] of Object.entries(template)) {
                 if (role === 'random') continue;
                 for (let pos of poses) {
-                    let unit = allUnits.find(u => u.role === role && u.pos == null);
+                    let unit = normalUnits.find(u => u.role === role && u.pos == null);
                     if (unit && !enemyPosSet.has(pos)) { unit.pos = pos; unit._originalPos = pos; enemyPosSet.add(pos); }
                 }
             }
         }
-        let unplaced = allUnits.filter(u => u.pos == null);
+        // 普通敌人剩余随机占位
+        let unplacedNormals = normalUnits.filter(u => u.pos == null);
         let emptySlots = [1,2,3,4,5,6,7,8,9].filter(p => !enemyPosSet.has(p));
-        for (let u of unplaced) {
+        for (let u of unplacedNormals) {
+            if (emptySlots.length > 0) { let idx = rand(0, emptySlots.length - 1); u.pos = emptySlots[idx]; u._originalPos = u.pos; enemyPosSet.add(emptySlots[idx]); emptySlots.splice(idx, 1); }
+        }
+        // 精英按配置的 pos 优先站位
+        for (let u of eliteUnits) {
+            let preferredPos = u._originalPos; // 配置里的 pos，如果有的话
+            if (preferredPos && !enemyPosSet.has(preferredPos)) {
+                u.pos = preferredPos; u._originalPos = preferredPos; enemyPosSet.add(preferredPos);
+            }
+        }
+        // 精英未占位的随机塞空位
+        let unplacedElites = eliteUnits.filter(u => u.pos == null);
+        emptySlots = [1,2,3,4,5,6,7,8,9].filter(p => !enemyPosSet.has(p));
+        for (let u of unplacedElites) {
             if (emptySlots.length > 0) { let idx = rand(0, emptySlots.length - 1); u.pos = emptySlots[idx]; u._originalPos = u.pos; enemyPosSet.add(emptySlots[idx]); emptySlots.splice(idx, 1); }
         }
         enemyTeam = allUnits;
@@ -360,7 +401,7 @@ function logVersions() {
     logDiv.scrollTop=logDiv.scrollHeight;
 }
 
-function showVoteDialog(callback) { let hasZhang=window._battleHasZhang||false,text='你看好哪边？'+(hasZhang?' (张无忌在场，猜对双倍积分!)':'');let mainBtn=document.getElementById('btnMain');if(mainBtn)mainBtn.disabled=true;showModal(text,[{text:'六大派',value:'六大派',cls:'enemy'},{text:'明教',value:'明教',cls:'ming'},{text:'放弃',value:'skip',cls:'skip'}],(choice)=>{window._voteChoice=choice;if(choice==='明教')document.getElementById('labelAlly').textContent='🚩明 教';else if(choice==='六大派')document.getElementById('labelEnemy').textContent='🚩六大派';if(callback)callback(choice);},true); }
+function showVoteDialog(callback) { let hasZhang=window._battleHasZhang||false,text='你看好哪边？'+(hasZhang?' (张无忌在场，猜对双倍积分!)':'');let mainBtn=document.getElementById('btnMain');if(mainBtn)mainBtn.disabled=true;showModal(text,[{text:'六大派',value:'六大派',cls:'enemy'},{text:'明教',value:'明教',cls:'ming'},{text:'放弃',value:'skip',cls:'skip'}],(choice)=>{window._voteChoice=choice;if(choice==='明教')document.getElementById('labelAlly').textContent='🚩明 教';else if(choice==='六大派')document.getElementById('labelEnemy').textContent='🚩六大派';document.getElementById('voteModalOverlay')?.remove();if(callback)callback(choice);},true,false); }
 function abortAll() { if (abortController) { abortController.abort(); abortController = null; } UI.currentResult = null; waitingForNextRound = false; isBattleStarting = false; adjustMode = false; selectedAdjustPos = null; activeBuffs = []; selectedBuffIndex = -1; currentDoubleStrikeUid = null; updateBuffSlots(); }
 
 // ==================== 战报弹窗（深色优化版） ====================
@@ -449,15 +490,20 @@ function showBattleReport(result) {
     exportBtn.textContent = '📤 导出 JSON';
     exportBtn.style.cssText = 'background:#1565c0;color:#fff;border:none;padding:8px 16px;border-radius:4px;cursor:pointer;font-weight:bold;';
     exportBtn.onclick = () => {
-        let data = {
-            winner: winner,
-            ally: ally.map(u => ({name:u.name,role:u.role,dmgDealt:u.dmgDealt,dmgTaken:u.dmgTaken,healDone:u.healDone,dodgeCount:u.dodgeCount,critCount:u.critCount,survivedRounds:u.survivedRounds,alive:u.alive})),
-            enemy: enemy.map(u => ({name:u.name,role:u.role,dmgDealt:u.dmgDealt,dmgTaken:u.dmgTaken,healDone:u.healDone,dodgeCount:u.dodgeCount,critCount:u.critCount,survivedRounds:u.survivedRounds,alive:u.alive}))
-        };
-        let blob = new Blob([JSON.stringify(data, null, 2)], {type:'application/json'});
-        let a = document.createElement('a');
+        // CSV 格式导出，避免 JSON 序列化性能瓶颈
+        const header = '阵营,名称,角色,输出,承伤,治疗,闪避,暴击,存活回合,状态';
+        const rows = [];
+        ally.forEach(u => {
+            rows.push(`明教,${u.name},${u.role},${u.dmgDealt||0},${u.dmgTaken||0},${u.healDone||0},${u.dodgeCount||0},${u.critCount||0},${u.survivedRounds||0},${u.alive?'存活':'阵亡'}`);
+        });
+        enemy.forEach(u => {
+            rows.push(`六大派,${u.name},${u.role},${u.dmgDealt||0},${u.dmgTaken||0},${u.healDone||0},${u.dodgeCount||0},${u.critCount||0},${u.survivedRounds||0},${u.alive?'存活':'阵亡'}`);
+        });
+        const csv = header + '\n' + rows.join('\n');
+        const blob = new Blob([csv], {type:'text/csv;charset=utf-8'});
+        const a = document.createElement('a');
         a.href = URL.createObjectURL(blob);
-        a.download = 'battle_report_' + Date.now() + '.json';
+        a.download = 'battle_report_' + Date.now() + '.csv';
         a.click();
     };
     btnDiv.appendChild(exportBtn);
@@ -486,13 +532,6 @@ function showMusicPanel() {
     const box = document.createElement('div');
     box.className = 'modal-box';
     box.style.cssText = 'max-width:380px;background:#1a1a2e;color:#eee;padding:20px;position:relative;';
-
-    // 关闭按钮
-    const closeBtn = document.createElement('span');
-    closeBtn.innerHTML = '✕';
-    closeBtn.style.cssText = 'position:absolute;top:8px;right:12px;cursor:pointer;font-size:18px;color:#aaa;';
-    closeBtn.onclick = () => overlay.remove();
-    box.appendChild(closeBtn);
 
     const title = document.createElement('div');
     title.textContent = '🎵 音乐设置';
@@ -802,7 +841,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     document.getElementById('btnNext').addEventListener('click',function(){onAnyButtonClick();waitingForNextRound=false;gs=S.RUNNING;updateButtons();});
     document.getElementById('btnSettle').addEventListener('click',async function(){ });
-    document.getElementById('btnPause').addEventListener('click',function(){onAnyButtonClick();if(gs===S.RUNNING){gs=S.PAUSED;isPaused=true;}else if(gs===S.PAUSED){gs=S.RUNNING;isPaused=false;}updateButtons();});
+    document.getElementById('btnPause').addEventListener('click',function(){onAnyButtonClick();if(gs===S.RUNNING){gs=S.PAUSED;isPaused=true;window.bulletTimeActive = false;if(window._getPlayerContext()._scheduler)window._getPlayerContext()._scheduler.pause();document.body.classList.add('paused-animations');}else if(gs===S.PAUSED){gs=S.RUNNING;isPaused=false;if(window._getPlayerContext()._scheduler)window._getPlayerContext()._scheduler.resume();document.body.classList.remove('paused-animations');}updateButtons();});
     document.getElementById('btnAuto').addEventListener('click',function(){
         autoMode=!autoMode;this.classList.toggle('active',autoMode);this.textContent=autoMode?'自动':'手动';
         window._autoMode = autoMode;
@@ -862,7 +901,7 @@ document.addEventListener('DOMContentLoaded', function() {
     function openStageSelectModal(){
         let buttons=[];
         for(let i=1;i<=6;i++){buttons.push({text:i===currentStage?`第${i}关 ◀`:`第${i}关`,value:i,cls:'buff'});}
-        showModal('选择关卡',buttons,(stage)=>{ if(stage===currentStage)return; switchToStageInternal(stage); },false);
+        showModal('选择关卡',buttons,(stage)=>{ if(stage===currentStage)return; switchToStageInternal(stage); },false,false);
     }
 
     function switchToStageInternal(stage){

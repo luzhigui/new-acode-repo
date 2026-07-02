@@ -49,6 +49,15 @@ export function showBuffPopup(c) {
             btnsDiv.appendChild(btn);
         });
         overlay.appendChild(box); document.body.appendChild(overlay);
+        // 清理可能残留的关闭按钮（来自投票弹窗等）
+        document.querySelectorAll('#buffModalOverlay .modal-box > span').forEach(s => {
+            if (s.textContent === '✕') s.remove();
+        });
+        // 移除可能残留的关闭按钮（来自之前的弹窗）
+        const existingClose = box.querySelector('span');
+        if (existingClose && existingClose.textContent === '✕') {
+            existingClose.remove();
+        }
 
         document.getElementById('buffModalMinimize').addEventListener('click', () => {
             overlay.style.display = 'none';

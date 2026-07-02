@@ -72,8 +72,14 @@ export async function showBuffBanner(text) {
             console.error('showBuffBanner 对象池异常:', e);
         }
 
-        setTimeout(finish, 1500);
-        setTimeout(finish, 3000); // 最终保险
+        const ctxB = window._getPlayerContext ? window._getPlayerContext() : null;
+        if (ctxB && ctxB._scheduler) {
+            ctxB._scheduler.schedule('banner', 1500, finish);
+            ctxB._scheduler.schedule('banner', 3000, finish); // 最终保险
+        } else {
+            setTimeout(finish, 1500);
+            setTimeout(finish, 3000);
+        }
     });
 }
 
@@ -84,10 +90,18 @@ export function showCriticalBanner(text) {
         banner.textContent = text;
         banner.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);font-size:3.5rem;font-weight:bold;color:#FFD700;z-index:10050;pointer-events:none;text-shadow:0 0 30px rgba(255,215,0,0.9), 0 0 10px black;white-space:nowrap;animation:bannerPop 2.5s ease-out forwards;';
         document.body.appendChild(banner);
-        setTimeout(() => {
-            if (banner.parentNode) banner.remove();
-            resolve();
-        }, 2500);
+        const ctx = window._getPlayerContext ? window._getPlayerContext() : null;
+        if (ctx && ctx._scheduler) {
+            ctx._scheduler.schedule('banner', 2500, () => {
+                if (banner.parentNode) banner.remove();
+                resolve();
+            });
+        } else {
+            setTimeout(() => {
+                if (banner.parentNode) banner.remove();
+                resolve();
+            }, 2500);
+        }
     });
 }
 

@@ -149,6 +149,7 @@ function applyPostAttackEffects(unit, target, dmg, atkAct, defAct, reboundEntry,
         unit.hp -= counterDmg; target.dmgDealt += counterDmg; unit.dmgTaken += counterDmg;
         if (unit.hp <= 0) { unit.alive = false; unit._isDead = true; }
         log.push({type:'info', text:`<span class="red">⚔️ 灭绝双剑反击！${target.name} 对 ${unit.name} 造成 ${counterDmg} 点反击伤害</span>`, buffType:'elite_counter'});
+        emitEvent(unit, 'hp-change', { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: unit.atk, def: unit.def });
     }
     const poisonLog = applyXuanmingPalm(unit, target);
     if (poisonLog) { log.push(poisonLog); }
@@ -157,6 +158,20 @@ function applyPostAttackEffects(unit, target, dmg, atkAct, defAct, reboundEntry,
     if (dead && target.camp === 'ally') { checkZhangSwitch(A, log); }
     // 返回九阴白骨爪总伤害
     return nineYinTotal;
+}
+
+// 事件发射辅助函数
+function emitEvent(unit, eventType, payload) {
+    if (typeof window._battleEvents === 'undefined') return;
+    payload.dmgDealt = unit.dmgDealt;
+    payload.dmgTaken = unit.dmgTaken;
+    payload.healDone = unit.healDone;
+    payload.reboundDone = unit.reboundDone;
+    payload.leechDone = unit.leechDone;
+    payload.dodgeCount = unit.dodgeCount;
+    payload.critCount = unit.critCount;
+    payload.survivedRounds = unit.survivedRounds;
+    window._battleEvents.push({ unitUid: unit.uid, eventType, payload });
 }
 
 function processUnitAttack(unit, allySide, enemySide, log, A, B, state, doubleStrikeUnitUid) {
@@ -211,6 +226,7 @@ function processUnitAttack(unit, allySide, enemySide, log, A, B, state, doubleSt
     if (dead) { target.hp = 0; target.alive = false; target._isDead = true; }
     else { target.hp = hpAfter; }
     unit.dmgDealt += dmg; target.dmgTaken += dmg;
+    emitEvent(target, 'hp-change', { hp: target.hp, maxHp: target.maxHp, alive: target.alive, atk: target.atk, def: target.def });
 
     let allyBuffs_fortify = (target.camp === 'ally' ? A._activeBuffs : B._activeBuffs) || [];
     let reboundEntry = null;
@@ -220,6 +236,7 @@ function processUnitAttack(unit, allySide, enemySide, log, A, B, state, doubleSt
             let attHpBefore = Math.floor(unit.hp);
             unit.hp -= reboundDmg; target.reboundDone += reboundDmg;
             if (unit.hp <= 0) { unit.alive = false; unit._isDead = true; }
+            emitEvent(unit, 'hp-change', { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: unit.atk, def: unit.def });
             reboundEntry = {
                 type: 'buff-rebound-fortify',
                 text: `<span class="gold">🛡️ 严阵以待反弹${reboundDmg}给${unit.name}，${unit.name}血量 ${attHpBefore} → ${Math.floor(unit.hp)}</span>`,
@@ -250,17 +267,23 @@ function processUnitAttack(unit, allySide, enemySide, log, A, B, state, doubleSt
     if (unit.camp === 'ally' && unit.isZhang && unit.alive) {
         let heal = Math.floor(unit.maxHp * 0.05); unit.hp = Math.min(unit.maxHp, unit.hp + heal); unit.healDone += heal;
         group.entries.push({type:'info', text:`<span class="green">☀️ 九阳神功回复${heal}</span>`, isHealEntry:true});
+        emitEvent(unit, 'hp-change', { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: unit.atk, def: unit.def });
         if (!unit.rangedForm) {
             if (unit.nearAtkCount === 0 && !unit._zhangTauntDone) {
                 let firstTaunt = getZhangNearTaunt(1);
                 if (firstTaunt) { group.entries.push({type:'info', text:`<span class="gold">🗣️ ${unit.name}：${firstTaunt}</span>`}); unit._zhangTauntDone = true; }
             }
             unit.nearAtkCount++;
+            if (unit.nearAtkCount === 2) {
+                let secondTaunt = getZhangNearTaunt(2);
+                if (secondTaunt) group.entries.push({type:'info', text:`<span class="gold">🗣️ ${unit.name}：${secondTaunt}</span>`});
+            }
             if (unit.nearAtkCount === 3) unit.ronghui = true;
             if (unit.nearAtkCount === 3) {
                 let zt = getZhangNearTaunt(3); if (zt) group.entries.push({type:'info', text:`<span class="gold">🗣️ ${unit.name}：${zt}</span>`});
                 let extra = Math.floor(target.atk * 0.15); target.hp -= extra; unit.dmgDealt += extra;
                 if (target.hp <= 0) { target.hp = 0; target.alive = false; target._isDead = true; }
+                emitEvent(target, 'hp-change', { hp: target.hp, maxHp: target.maxHp, alive: target.alive, atk: target.atk, def: target.def });
                 group.entries.push({type:'info', text:`<span class="red">🔥 融会贯通额外+${extra}（目标攻击${Math.floor(target.atk)}×15%）</span>`});
             }
         }
@@ -278,6 +301,8 @@ function processUnitAttack(unit, allySide, enemySide, log, A, B, state, doubleSt
             group.entries.push({type:'info', text:`<span class="gold">✨ 乾坤大挪移反弹${rebound}给${unit.name}（无忌自伤${selfDmg}）</span>`, buffType:'rebound'});
             if (unit.hp <= 0) { unit.alive = false; unit._isDead = true; }
             if (zhang.hp <= 0) { zhang.hp = 0; zhang.alive = false; zhang._isDead = true; }
+            emitEvent(unit, 'hp-change', { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: unit.atk, def: unit.def });
+            emitEvent(zhang, 'hp-change', { hp: zhang.hp, maxHp: zhang.maxHp, alive: zhang.alive, atk: zhang.atk, def: zhang.def });
         }
     }
     if (unit.camp === 'ally' && unit.isWei && dmg > 0) {
@@ -288,8 +313,11 @@ function processUnitAttack(unit, allySide, enemySide, log, A, B, state, doubleSt
         if (wasFullHp) { unit.hp = unit.maxHp; }
         unit.healDone += heal; unit.leechDone += heal;
         group.entries.push({type:'info', text:`<span class="green">🦇 韦一笑吸血+${heal}，上限→${Math.floor(unit.maxHp)}</span>`, isHealEntry:true, healAmount:heal, healUnitUid:unit.uid});
+        emitEvent(unit, 'hp-change', { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: unit.atk, def: unit.def });
     }
     unit._acted = true;
+    group._events = [...window._battleEvents];  // 将本轮事件快照存入日志
+    window._battleEvents = [];                  // 清空全局队列
     log.push(group);
     
     applyXinHunDeduction(unit, allySide, log);
@@ -327,9 +355,11 @@ export function runBattleRound(state) {
     let log = [];
     let round = state.round;
     
-    console.log('runBattleRound state.activeBuffs:', JSON.stringify(state.activeBuffs?.map(b => ({ key: b.key, target: b.target }))));
+    // console.log('runBattleRound state.activeBuffs:', JSON.stringify(state.activeBuffs?.map(b => ({ key: b.key, target: b.target }))));
     A._activeBuffs = state.activeBuffs.filter(b => b.target === 'ally' || !b.target);
     B._activeBuffs = state.activeBuffs.filter(b => b.target === 'enemy');
+    
+    window._battleEvents = [];
     
     log.push({ type:'round-start', text:`<div class="separator">———— 第${round}回合开始 ————</div>` });
     
@@ -383,6 +413,7 @@ export function runBattleRound(state) {
                 u.maxHp = newMaxHp;
                 u.hp = Math.min(u.hp, newMaxHp);
             }
+            emitEvent(u, 'hp-change', { hp: u.hp, maxHp: u.maxHp, alive: u.alive, atk: u.atk, def: u.def });
         }
         u._extinctionUsed = false;
         u._acted = false;
@@ -415,9 +446,12 @@ export function runBattleRound(state) {
                     unit.hp = Math.min(unit.maxHp, unit.hp + 10);
                     let hpAfter = Math.floor(unit.hp);
                     unit._resting = true;
+                    emitEvent(unit, 'hp-change', { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: unit.atk, def: unit.def });
                     let bg = {type:'attack-group', uidA:unit.uid, uidD:null, entries:[], isBlock:true, _fxSnapshot:makeFXSnapshot(unit,null), waveTaunt:null, waveUnit:null, buffEffects:[], healAmount: 10, healUnitUid: unit.uid};
                     bg.entries.push({type:'combat-text', text:`<span class="${unit.camp==='ally'?'blue':'orange'}">${unit.camp==='ally'?'明教':'六大派'} ${unit.name}</span> 被遮挡`});
                     bg.entries.push({type:'info', text:`<span class="green">休息回复10点生命（${hpBefore} → ${hpAfter}）</span>`});
+                    bg._events = [...window._battleEvents];
+                    window._battleEvents = [];
                     log.push(bg);
                 } else if (unit.isHorse) {
                     log.push({type:'info', text:`<span class="gray">🐴 拒马无法攻击，自动跳过</span>`});
@@ -480,7 +514,7 @@ export function runBattle(snapshot, activeBuffs = [], buffData = {}) {
                 doubleStrikeUids
             };
         }
-        console.log('runBattle loop: round', state.round, 'activeBuffs before:', JSON.stringify(state.activeBuffs?.map(b => b.key)), 'result.activeBuffs:', JSON.stringify(result.activeBuffs?.map(b => b.key)));
+        // console.log('runBattle loop: round', state.round, 'activeBuffs before:', JSON.stringify(state.activeBuffs?.map(b => b.key)), 'result.activeBuffs:', JSON.stringify(result.activeBuffs?.map(b => b.key)));
         state = {
             ally: result.ally, enemy: result.enemy,
             round: state.round + 1, activeBuffs: result.activeBuffs

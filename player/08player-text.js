@@ -23,7 +23,15 @@ export async function playLineText(text, div) {
         let charDelay = c.speed / plain.length;
         if (charDelay < minCharDelay) charDelay = minCharDelay;
         if(text[htmlIdx]==='<'){let tag='';while(text[htmlIdx]!=='>'){tag+=text[htmlIdx];htmlIdx++;}tag+='>';fullHtml+=tag;htmlIdx++;}
-        else{fullHtml+=text[htmlIdx];htmlIdx++;await new Promise(r=>setTimeout(r,charDelay));}
+        else{
+            fullHtml+=text[htmlIdx];htmlIdx++;
+            const ctx2 = getCtx();
+            if (ctx2 && ctx2._scheduler) {
+                await new Promise(r => ctx2._scheduler.schedule('text', charDelay, r));
+            } else {
+                await new Promise(r => setTimeout(r, charDelay));
+            }
+        }
         div.innerHTML=fullHtml+'<br>';
         c.autoScrollLog();
     }
