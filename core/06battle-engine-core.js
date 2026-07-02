@@ -124,7 +124,8 @@ function calcAttackDamage(unit, target, attackerBuffStats, defenderBuffStats) {
     raw += thunderBonus;
     if (thunderBonus > 0) rawFormula += ` + 混元霹雳劲${thunderBonus}`;
     const rebelBonus = getRebelDmgBonus(unit);
-    if (rebelBonus > 0) raw *= (1 + rebelBonus);
+    if (rebelBonus > 0) { raw *= (1 + rebelBonus); }
+    const rebelTag = rebelBonus > 0 ? '叛逆突袭+30%' : '';
     if (hornBonus.dmgMultiplier > 1) raw *= hornBonus.dmgMultiplier;
     const trueDmg = getRebelTrueDmg(unit, target);
     raw += trueDmg;
@@ -171,6 +172,7 @@ function emitEvent(unit, eventType, payload) {
     payload.dodgeCount = unit.dodgeCount;
     payload.critCount = unit.critCount;
     payload.survivedRounds = unit.survivedRounds;
+    payload._isAbsolute = true;  // 标记为绝对值，UI 侧直接赋值而非累加
     window._battleEvents.push({ unitUid: unit.uid, eventType, payload });
 }
 
@@ -235,6 +237,7 @@ function processUnitAttack(unit, allySide, enemySide, log, A, B, state, doubleSt
         if (reboundDmg > 0) {
             let attHpBefore = Math.floor(unit.hp);
             unit.hp -= reboundDmg; target.reboundDone += reboundDmg;
+            unit.dmgTaken += reboundDmg;  // 反弹伤害计入攻击者承伤
             if (unit.hp <= 0) { unit.alive = false; unit._isDead = true; }
             emitEvent(unit, 'hp-change', { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: unit.atk, def: unit.def });
             reboundEntry = {
@@ -255,6 +258,7 @@ function processUnitAttack(unit, allySide, enemySide, log, A, B, state, doubleSt
     let group = { type:'attack-group', uidA:unit.uid, uidD:target.uid, entries:[], hpAfter:target.hp, alive:target.alive, isDead:dead, waveTaunt, waveUnit, unitRole:unit.role, _fxSnapshot:makeFXSnapshot(unit,target), _dmg:dmg, _isZhangNear:unit.isZhang && !unit.rangedForm, _nearAtkCount:unit.nearAtkCount, hpPctBefore, hpPctAfter, isMiss:miss, isDodge:false, buffEffects:[], _atkBonus:Math.floor(unit.atk * attackerBuffStats.atkBonus), _defBonus:Math.floor(target.def * defenderBuffStats.defBonus) };
     group.entries.push({type:'combat-text', text:`<span class="${ac}">${campA} ${unit.name}</span>(攻${displayAtk} 血${unitHpBefore}) → <span class="${dc}">${campD} ${target.name}</span>(防${displayDef} 血${hpBefore})`});
     group.entries.push({type:'detail', text:`<span class="gray small">波动：攻${atkBase}→${atkAct} 防${defBase}→${defAct} 血${hpBonus >= 0 ? '+' + hpBonus : hpBonus}</span>`});
+    if (rebelTag) group.entries.push({type:'detail', text:`<span class="orange small">⚔️ ${rebelTag}</span>`});
     if (thunderBonus > 0) group.entries.push({type:'detail', text:`<span class="red small">💥 混元霹雳劲+${thunderBonus}真实伤害</span>`});
     if (hornBonus.defIgnore > 0) {
         let poisonTag = hornBonus.dmgMultiplier > 1 ? '，目标已中毒伤害+50%' : '';
@@ -294,6 +298,7 @@ function processUnitAttack(unit, allySide, enemySide, log, A, B, state, doubleSt
             let rebound = Math.floor(dmg * 0.15);
             unit.hp -= rebound;
             unit.dmgTaken += rebound;
+            unit.dmgTaken += rebound;  // 反弹伤害额外计入承伤
             zhang.reboundDone += rebound;
             let selfDmg = Math.floor(rebound * 0.1);
             zhang.hp -= selfDmg;
@@ -328,7 +333,7 @@ function processUnitAttack(unit, allySide, enemySide, log, A, B, state, doubleSt
         group._dmg += nineYinTotal;
     }
 
-    if (doubleStrikeUnitUid && unit.uid === doubleStrikeUnitUid && unit.alive && target.alive && unit.camp === 'ally' && !unit._doubleStriked) {
+    if (doubleStrikeUnitUid && unit.uid === doubleStrikeUnitUid && unit.alive && unit.camp === 'ally' && !unit._doubleStriked) {
         if (rand(1,100) <= 80) {
             log.push({type:'info', text:`<span class="gold">⚡ 概率连击触发！</span>`, isDoubleStrikeBanner:true});
             unit._doubleStriked = true; unit._acted = false;
@@ -338,7 +343,7 @@ function processUnitAttack(unit, allySide, enemySide, log, A, B, state, doubleSt
         }
     }
 
-    if (canXingFenTrigger(unit)) {
+    if (canXingFenTrigger(unit) && enemySide.some(u => u.alive)) {
         consumeXingFen(unit);
         log.push({type:'info', text:`<span class="gold">💗 性奋：${unit.name} 获得额外攻击机会！</span>`});
         processUnitAttack(unit, allySide, enemySide, log, A, B, state, doubleStrikeUnitUid);
@@ -413,6 +418,7 @@ export function runBattleRound(state) {
                 u.maxHp = newMaxHp;
                 u.hp = Math.min(u.hp, newMaxHp);
             }
+            u._baseMaxHp = u.maxHp;  // 同步基准值，防止下一回合重复叠加
             emitEvent(u, 'hp-change', { hp: u.hp, maxHp: u.maxHp, alive: u.alive, atk: u.atk, def: u.def });
         }
         u._extinctionUsed = false;
@@ -440,7 +446,7 @@ export function runBattleRound(state) {
             unit._blocked = isBlocked(unit, team);
             unit.survivedRounds++;
             
-            if ((unit.isHorse && unit.atk <= 0) || (unit._blocked && isMelee(unit.role) && !unit.isZhang)) {
+            if ((unit.isHorse && unit.atk <= 0) || (unit._blocked && isMelee(unit.role) && !(unit.isZhang && !unit.rangedForm))) {
                 if (unit._blocked && isMelee(unit.role)) {
                     let hpBefore = Math.floor(unit.hp);
                     unit.hp = Math.min(unit.maxHp, unit.hp + 10);

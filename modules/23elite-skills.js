@@ -221,11 +221,12 @@ export function tickKuaiLeHeal(allUnits, log) {
         });
         
         if (totalHeal > 0) {
+            const hpBefore = unit.hp;
             unit.hp = Math.min(unit.maxHp, unit.hp + totalHeal);
             unit.healDone += totalHeal;
             log.push({
                 type: 'info',
-                text: `<span class="green">💚 快乐回血：${unit.name} 回复${totalHeal}点生命（${unit._kuaiLeStack.length}层触发），血量 ${Math.floor(unit.hp - totalHeal)} → ${Math.floor(unit.hp)}</span>`,
+                text: `<span class="green">💚 快乐回血：${unit.name} 回复${totalHeal}点生命（${unit._kuaiLeStack.length}层触发），血量 ${Math.floor(hpBefore)} → ${Math.floor(unit.hp)}</span>`,
                 buffType: 'elite_kuaile_heal',
                 zhouUid: unit.uid,
                 zhouHpAfter: unit.hp

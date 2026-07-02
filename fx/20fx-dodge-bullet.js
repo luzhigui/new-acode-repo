@@ -41,7 +41,7 @@ function createFlameBehind(angle, offsetX, offsetY, parentLeft, parentTop) {
     for (let i = 0; i < 10; i++) {
         const f = document.createElement('div'); f.className = 'flame-layer';
         f.style.position = 'absolute'; f.style.borderRadius = '50% 0 0 50%'; f.style.opacity = '0.8';
-        f.style.width = (180 - i * 12) + 'px'; f.style.height = (36 - i * 2) + 'px';
+        f.style.width = (90 - i * 6) + 'px'; f.style.height = (18 - i * 1) + 'px';
         f.style.left = (-180 + i * 10) + 'px'; f.style.top = (-18 + i * 1) + 'px';
         f.style.background = colors[i % 6];
         f.style.animation = 'flameFlicker 0.2s infinite alternate';
@@ -177,7 +177,7 @@ export async function showDodgeBulletTime(attacker, defender, reboundDmg) {
         const cloneA = aCell.cloneNode(true); cloneA.classList.add('bullet-clone');
         cloneA.removeAttribute('data-flash');
         cloneA.style.background = '#1e6bb8';
-        cloneA.style.border = '3px solid #ffffff';
+        cloneA.style.border = '3px solid #0d47a1';
         cloneA.style.borderRadius = '5px';
         cloneA.style.boxSizing = 'border-box';
         cloneA.querySelectorAll('*').forEach(el => {
@@ -234,6 +234,8 @@ export async function showDodgeBulletTime(attacker, defender, reboundDmg) {
         // 屏息凝视阶段
         const glow = document.createElement('div'); glow.className = 'breath-glow'; cloneA.appendChild(glow);
         const storm = createCounterStorm(defCenterX, defCenterY); cleanupElements.push(storm);
+        storm.style.display = '';
+        storm.style.opacity = '1';
         await wait(3000);
         if (isSkipped) { cleanup(); return; }
 
@@ -241,7 +243,7 @@ export async function showDodgeBulletTime(attacker, defender, reboundDmg) {
 
         // 飞行阶段：火焰 + 气流 + 粒子
         const attackAngle = Math.atan2(pos.dy - pos.ay, pos.dx - pos.ax);
-        const flameOffsetX = -55, flameOffsetY = -5;
+        const flameOffsetX = -25, flameOffsetY = -2;
         const flame = createFlameBehind(attackAngle, flameOffsetX, flameOffsetY, parseFloat(cloneA.style.left), parseFloat(cloneA.style.top));
         cleanupElements.push(flame);
 
