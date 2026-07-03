@@ -21,7 +21,7 @@ function escapeHtml(text) {
         '../tests/25unit-tests.js', '../tests/29health-rules.js',
         '../tests/35quiz-bank.js', '../tests/36runtime-sampler.js', '../tests/37health-core.js', '../tests/38health-ui.js',
         '../tools/31-toolkit.html', '../tools/32-toolkit.js', '../tools/33-toolkit-more.js',
-        '../core/27auto-battle-utils.js', '../tools/00build-5v5.cjs',
+        '../tools/27auto-battle-utils.js', '../tools/00build-5v5.cjs',
         '../00index.html', '../tests/30test-runner.html', '../mode-5v5-test.html'
     ].filter(f => f.endsWith('.js'));
 
@@ -330,7 +330,7 @@ function escapeHtml(text) {
 })();
 
 /* ========== 4. 自动批量战斗 ========== */
-import { runAutoBattle, generateSnapshot } from '../core/27auto-battle-utils.js';
+import { runAutoBattle, generateSnapshot } from './27auto-battle-utils.js';
 import { CONFIG } from '../core/01config-5v5-test.js';
 
 (function() {
