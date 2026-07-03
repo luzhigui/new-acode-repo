@@ -112,6 +112,8 @@ function showBuffSelection(callback) {
         let logDiv = document.getElementById('log');
         if (logDiv) { logDiv.innerHTML += `<span class="gold">✨ 获得Buff：${C.BUFFS[key].name}（持续${duration}回合）</span><br>`; autoScrollLog(); }
         if (window._updateGlowColors) window._updateGlowColors(selectedBuffIndex);
+        // 选完 Buff 立即刷新 UI 面板
+        updateUI(UI);
         callback();
     }, true, false);
 }
@@ -719,6 +721,7 @@ function updateSpeedButtons() {
             else if (manualSpeedValue === 1800) sp05.classList.add('semi-active');
         }
     }
+    slideSpeedActive = true;  // 初始化：滚动日志时自动跟随倍速
 }
 
 async function showCountdown() { let nums=['3','2','1']; let mainBtn=document.getElementById('btnMain'); mainBtn.disabled=true; updateButtons(); for(let i=0;i<nums.length;i++){let div=document.createElement('div');div.className='countdown-num';div.textContent=nums[i];document.body.appendChild(div);await new Promise(r=>setTimeout(r,700));if(div.parentNode)div.parentNode.removeChild(div);if(i===0){let t=TRASH_TALK_ALLY[rand(0,TRASH_TALK_ALLY.length-1)];showDanmaku({camp:'ally',pos:5},t);let l=document.getElementById('log');let d=document.createElement('div');d.innerHTML=`<span class="blue">🗯️ 明教：${t}</span><br>`;l.appendChild(d);autoScrollLog();}if(i===1){let t=TRASH_TALK_ENEMY[rand(0,TRASH_TALK_ENEMY.length-1)];showDanmaku({camp:'enemy',pos:5},t);let l=document.getElementById('log');let d=document.createElement('div');d.innerHTML=`<span class="orange">🗯️ 六大派：${t}</span><br>`;l.appendChild(d);autoScrollLog();}await new Promise(r=>setTimeout(r,500));} }

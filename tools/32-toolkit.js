@@ -48,7 +48,8 @@ function escapeHtml(text) {
         '../assets/sfx_melee.mp3', '../assets/sfx_xinai.mp3',
         // 根目录
         '../00index.html', '../mode-5v5-test.html',
-        '../README.md', '../CHANGELOG.md', '../kaifazhunze.md', '../Test Runnerlogo.md'
+        '../README.md', '../CHANGELOG.md', '../kaifazhunze.md', '../Test Runnerlogo.md',
+'../game-design.md'
     ];
 
     // 用户可勾选的文件列表（不含 assets/ 和 .md 等不可 fetch 的文件）
@@ -459,7 +460,7 @@ function escapeHtml(text) {
         const text = getBatchText(sendBatches[sendIndex]);
         const totalChars = text.length;
         const currentIndex = sendIndex + 1;
-        const fullText = `（👆 以上是复制包 #${currentIndex} / 共 ${sendBatches.length} 包，${totalChars} 字符，请简要确认后我继续发下一包）\n\n${text}\n\n（👇 本包 #${currentIndex} 结束，${totalChars} 字符，请回复"收到"或直接发下一包）`;
+        const fullText = `（⚠️ 仅回复“收到”，无需任何其他文字。）\n\n${text}\n\n（⚠️ 包 ${currentIndex}/${sendBatches.length} 结束，请回复“收到”）`;
         try { await navigator.clipboard.writeText(fullText); } catch (e) {}
         sendIndex++;
         if (sendIndex < sendBatches.length) {

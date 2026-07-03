@@ -173,6 +173,12 @@ export function applyXinHunDeduction(attacker, allyTeam, log) {
     // 扣血
     zhou.hp = Math.max(0, zhou.hp - ES.xinHun.hpDeduct);
     zhou.dmgTaken += ES.xinHun.hpDeduct;
+    if (typeof window._emitEvent === 'function') {
+        window._emitEvent(zhou, 'hp-change', { hp: zhou.hp, maxHp: zhou.maxHp, alive: zhou.alive, atk: zhou.atk, def: zhou.def });
+    }
+    if (typeof emitEvent === 'function') {
+        emitEvent(zhou, 'hp-change', { hp: zhou.hp, maxHp: zhou.maxHp, alive: zhou.alive, atk: zhou.atk, def: zhou.def });
+    }
     
     // 叠快乐
     zhou._kuaiLeStack.push({ healPct: ES.xinHun.healLevels[0] });  // 0.16
