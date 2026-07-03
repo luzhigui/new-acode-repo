@@ -567,8 +567,9 @@ export async function playBattle() {
     c.UI.allyTeam.concat(c.UI.enemyTeam).forEach(u => { u._flash = null; });
     c.updateUI(c.UI);
 
-    if (mainCtx.activeBuffs) mainCtx.activeBuffs = [];
-    if (mainCtx.updateBuffSlots) mainCtx.updateBuffSlots();
+    let mainCtx = window._getPlayerContext ? window._getPlayerContext() : null;
+    if (mainCtx && mainCtx.activeBuffs) mainCtx.activeBuffs = [];
+    if (mainCtx && mainCtx.updateBuffSlots) mainCtx.updateBuffSlots();
     if (window._updateGlowColors) window._updateGlowColors(-1);
 
     if (window._voteChoice && window._voteChoice !== 'skip' && winner !== '平局') {
