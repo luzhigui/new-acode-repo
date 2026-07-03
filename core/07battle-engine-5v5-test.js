@@ -55,54 +55,6 @@ import { VER as VER_BUFF } from './04buff-system.js';
 import { VER as VER_HORSE } from './05battle-horse.js';
 import { VER as VER_CORE } from './06battle-engine-core.js';
 
-// ===================== 全局函数挂载 =====================
-// 核心类
-window.Unit = Unit;
-
-// 工具函数
-window.calcDamage = calcDamage;
-window.getFlyDodgeRate = getFlyDodgeRate;
-window.getFronts = getFronts;
-window.isBlocked = isBlocked;
-window.computeBuffStats = computeBuffStats;
-window.applyBuffEffectsBeforeAttack = applyBuffEffectsBeforeAttack;
-window.applyBuffEffectsAfterAttack = applyBuffEffectsAfterAttack;
-
-// 战斗引擎
-window.runBattle = runBattle;
-window.runBattleRound = runBattleRound;
-
-// 特效函数
-window.showRangedArrow = showRangedArrow;
-window.showSplashArrows = showSplashArrows;
-window.showMeleeCrash = showMeleeCrash;
-window.showMeleeDodge = showMeleeDodge;
-window.showMeleeMiss = showMeleeMiss;
-window.showDodgeBulletTime = showDodgeBulletTime;
-window.animatePositionSwap = animatePositionSwap;
-window.animatePushBack = animatePushBack;
-window.animatePushSwap = animatePushSwap;
-
-// 精英技能函数
-window.checkExtinctionCounter = checkExtinctionCounter;
-window.checkNineYinClaw = checkNineYinClaw;
-window.getRebelTarget = getRebelTarget;
-window.getRebelDmgBonus = getRebelDmgBonus;
-window.getRebelTrueDmg = getRebelTrueDmg;
-window.getPhantomThunderBonus = getPhantomThunderBonus;
-window.applyXuanmingPalm = applyXuanmingPalm;
-window.tickXuanmingPoison = tickXuanmingPoison;
-window.getHornStrikeBonus = getHornStrikeBonus;
-window.checkKuLian = checkKuLian;
-window.applyXingFenGrant = applyXingFenGrant;
-window.applyXinHunDeduction = applyXinHunDeduction;
-window.tickKuaiLeHeal = tickKuaiLeHeal;
-window.canXingFenTrigger = canXingFenTrigger;
-window.consumeXingFen = consumeXingFen;
-
-// Buff 弹窗
-window.showBuffPopup = showBuffPopup;
-
 // ===================== 原有导出 (保持不变) =====================
 export { Unit };
 export { rand, calcDamage, getFangLevel, isMelee, getFronts, isBlocked, getFlyDodgeRate };
