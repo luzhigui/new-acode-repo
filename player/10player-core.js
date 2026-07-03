@@ -179,11 +179,7 @@ async function handleBuffSwap(c, entry) {
     insertBuffSeparator(document.getElementById('log'), c);
     c.isPaused = true;
     window.bulletTimeActive = true;
-    if (c._scheduler) {
-        c._scheduler.schedule('banner', 1500, () => { window.bulletTimeActive = false; c.isPaused = false; });
-    }
     await showBuffBanner('🌀 惑人心智！');
-    if (!c._scheduler) { window.bulletTimeActive = false; c.isPaused = false; }
     let div=document.createElement('div');div.innerHTML=entry.text+'<br>';document.getElementById('log').appendChild(div);c.autoScrollLog();
     let units = c.UI.allyTeam.concat(c.UI.enemyTeam);
     let matchA = entry.text.match(/号位(.+?)\(/);
@@ -191,16 +187,10 @@ async function handleBuffSwap(c, entry) {
     let unitA = matchA ? units.find(u => u.name === matchA[1]) : null;
     let unitB = matchB ? units.find(u => u.name === matchB[1]) : null;
     if (unitA && unitB) {
-        const swapPos = unitA.pos;
-        unitA.pos = unitB.pos;
-        unitB.pos = swapPos;
-        c.updateUI(c.UI);
-        if (c._scheduler) {
-            await new Promise(r => c._scheduler.schedule('effect', 900, r));
-        } else {
-            await animatePositionSwap(unitA, unitB, c);
-        }
+        await animatePositionSwap(unitA, unitB, c);
     } else { c.updateUI(c.UI); }
+    window.bulletTimeActive = false;
+    c.isPaused = false;
 }
 
 async function handleBuffPush(c, entry) {
@@ -353,8 +343,12 @@ export async function playLogEntries(c, log, roundResult) {
                     if (entry.buffType === 'hotBlood') {
                         let div=document.createElement('div');div.innerHTML=entry.text+'<br>';
                         document.getElementById('log').appendChild(div);c.autoScrollLog();
-                        let healUnit = c.UI.allyTeam.find(u => u.uid === entry.healUnitUid) || c.UI.allyTeam.find(u => u.alive);
-                        if (healUnit && entry.healAmount) showHealFloat(healUnit, entry.healAmount);
+                        let healUnit = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.uid === entry.healUnitUid);
+                        if (healUnit && entry.healAmount) {
+                            healUnit.hp = Math.min(healUnit.maxHp, healUnit.hp + entry.healAmount);
+                            c.updateUI(c.UI);
+                            showHealFloat(healUnit, entry.healAmount);
+                        }
                         if (entry.text.includes('翻倍')) {
                             c.isPaused = true; window.bulletTimeActive = true;
                             await showBuffBanner('❤️‍🔥 热血奋战(翻倍)！');

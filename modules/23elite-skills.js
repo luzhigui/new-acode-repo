@@ -35,7 +35,9 @@ export function checkNineYinClaw(attacker, baseDmg, log) {
         const bonusDmg = Math.floor(baseDmg * bonusRatio);
         totalBonus += bonusDmg;
         // 不可闪避的真实追加伤害，直接扣血
-        const target = window._currentBattleState?.enemy?.find(u => u.alive);
+        // 根据 attacker.camp 判断攻击对象阵营（敌方攻击明教，明教攻击敌方）
+        const targetSide = attacker.camp === 'ally' ? 'enemy' : 'ally';
+        const target = window._currentBattleState?.[targetSide]?.find(u => u.alive);
         if (target) {
             target.hp = Math.max(0, target.hp - bonusDmg);
             attacker.dmgDealt += bonusDmg;
