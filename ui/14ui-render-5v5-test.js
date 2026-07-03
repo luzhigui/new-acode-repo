@@ -281,12 +281,9 @@ export function spawnVictoryEffects(winnerCamp) {
     ];
     aliveUnits.forEach(u => {
         let taunt = WIN_TAUNTS[rand(0, WIN_TAUNTS.length - 1)];
-        safeShowDanmaku2(u, taunt);
+        showDanmaku(u, taunt);
         logDiv.innerHTML += `<span class="${winColor}">🗯️ ${u.name}：${taunt}</span><br>`;
     });
-const safeShowDanmaku2 = (unit, text) => {
-    try { showDanmaku(unit, text); } catch(e) {}
-};
     logDiv.innerHTML+=`<span class="gold">🎉🏆 <span class="${winColor}">${winnerCamp}</span>获得最终胜利！ 🏆🎉</span><br>`;logDiv.scrollTop=logDiv.scrollHeight;
 }
 
