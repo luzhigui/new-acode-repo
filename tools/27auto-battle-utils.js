@@ -4,7 +4,6 @@ export const VER = 'tools/27auto-battle-utils.js V4.0.0';
 
 import { CONFIG, ENEMY_M } from '../core/01config-5v5-test.js';
 import { Unit, rand, runBattle } from '../core/07battle-engine-5v5-test.js';
-import { createHealthRules } from '../tests/29health-rules.js';
 const C = CONFIG;
 
 // 纯数据快照生成器
