@@ -30,7 +30,7 @@ const MODULES = [
     'ui/14ui-render-5v5-test.js',
     'ui/12main-utils.js',
     'modules/24error-capture.js',
-    'core/27auto-battle-utils.js',
+    'tools/27auto-battle-utils.js',
     'ui/13main-5v5-test.js'
 ];
 

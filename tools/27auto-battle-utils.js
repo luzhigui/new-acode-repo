@@ -1,9 +1,9 @@
-// core/27auto-battle-utils.js - 光明顶5v5 自动批量战斗工具
+// tools/27auto-battle-utils.js - 光明顶5v5 自动批量战斗工具
 // V4.0.0 | ~120 lines | 2026-06-29 09:29
-export const VER = 'core/27auto-battle-utils.js V4.0.0';
+export const VER = 'tools/27auto-battle-utils.js V4.0.0';
 
-import { CONFIG, ENEMY_M } from './01config-5v5-test.js';
-import { Unit, rand, runBattle } from './07battle-engine-5v5-test.js';
+import { CONFIG, ENEMY_M } from '../core/01config-5v5-test.js';
+import { Unit, rand, runBattle } from '../core/07battle-engine-5v5-test.js';
 const C = CONFIG;
 
 // 纯数据快照生成器

@@ -3,7 +3,7 @@
 export const VER = 'tests/37health-core.js V4.1.1';
 
 import { runBattle } from '../core/07battle-engine-5v5-test.js';
-import { generateSnapshot } from '../core/27auto-battle-utils.js';
+import { generateSnapshot } from '../tools/27auto-battle-utils.js';
 
 // ==================== 辅助函数 ====================
 

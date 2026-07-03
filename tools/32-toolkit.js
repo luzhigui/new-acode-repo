@@ -42,7 +42,7 @@ function escapeHtml(text) {
         '../tests/38health-ui.js', '../tests/30test-runner.html',
         // tools
         '../tools/31-toolkit.html', '../tools/32-toolkit.js', '../tools/33-toolkit-more.js',
-        '../core/27auto-battle-utils.js', '../tools/00build-5v5.cjs',
+        '../tools/27auto-battle-utils.js', '../tools/00build-5v5.cjs',
         // assets
         '../assets/sfx_arrow.mp3', '../assets/sfx_fly.mp3',
         '../assets/sfx_melee.mp3', '../assets/sfx_xinai.mp3',

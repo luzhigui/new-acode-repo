@@ -3,7 +3,7 @@
 export const VER = 'tests/36runtime-sampler.js V4.0.0';
 
 import { createHealthRules } from './29health-rules.js';
-import { generateSnapshot } from '../core/27auto-battle-utils.js';
+import { generateSnapshot } from '../tools/27auto-battle-utils.js';
 import { runBattle } from '../core/07battle-engine-5v5-test.js';
 
 export async function runRuntimeSample(ctx, maxRounds = 2) {
