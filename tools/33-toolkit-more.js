@@ -330,7 +330,7 @@ function escapeHtml(text) {
 })();
 
 /* ========== 4. 自动批量战斗 ========== */
-import { runAutoBattle } from '../core/27auto-battle-utils.js';
+import { runAutoBattle, generateSnapshot } from '../core/27auto-battle-utils.js';
 import { CONFIG } from '../core/01config-5v5-test.js';
 
 (function() {
@@ -415,6 +415,39 @@ import { CONFIG } from '../core/01config-5v5-test.js';
         tableHtml += `</table>`;
 
         previewDiv.innerHTML = infoHtml + tableHtml;
+
+        // 一致性检测：跑一次 generateSnapshot，对比精英实际站位与 config 定义
+        const compareDiv = document.getElementById('abPosCompare');
+        if (compareDiv) {
+            const elitePool = CONFIG.ELITE_POOL?.[stage] || [];
+            if (elitePool.length === 0) {
+                compareDiv.innerHTML = '<span style="color:#888;">本关无精英，无需比对</span>';
+            } else {
+                try {
+                    const snap = generateSnapshot(stage);
+                    const actualEnemies = snap.enemy;
+                    let html = '';
+                    let allMatch = true;
+                    for (const elite of elitePool) {
+                        const actual = actualEnemies.find(u => u.name === elite.name);
+                        const actualPos = actual ? actual.pos : null;
+                        const configPos = elite.pos;
+                        if (actualPos === configPos) {
+                            html += `<div style="color:#4caf50;">✅ ${elite.name}：config=${configPos}，实际=${actualPos}</div>`;
+                        } else {
+                            allMatch = false;
+                            html += `<div style="color:#ef5350;">❌ ${elite.name}：config=${configPos}，实际=${actualPos}</div>`;
+                        }
+                    }
+                    const header = allMatch
+                        ? `<div style="color:#4caf50;font-weight:bold;margin-bottom:4px;">✅ 与主代码一致</div>`
+                        : `<div style="color:#ef5350;font-weight:bold;margin-bottom:4px;">❌ 与主代码不一致</div>`;
+                    compareDiv.innerHTML = header + html;
+                } catch (e) {
+                    compareDiv.innerHTML = `<span style="color:#ef5350;">检测失败：${e.message}</span>`;
+                }
+            }
+        }
     }
 
     function loadHistory() {
