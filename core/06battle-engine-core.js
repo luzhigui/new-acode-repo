@@ -118,17 +118,21 @@ function calcAttackDamage(unit, target, attackerBuffStats, defenderBuffStats) {
         rawFormula = `${Math.floor(penPart)} + ${Math.floor(displayDef)}×${k} + ${Math.floor(unit.maxHp)}×0.01 = ${Math.floor(raw)}`;
     } else {
         raw = calcDamage(atkAct, defAct);
-        rawFormula = `伤害 = ${atkAct}×(${atkAct}/(${atkAct}+${defAct})) = ${Math.floor(raw)}`;
+        rawFormula = `${atkAct}×(${atkAct}/(${atkAct}+${defAct})) = ${Math.floor(raw)}`;
     }
     const thunderBonus = getPhantomThunderBonus(unit);
     raw += thunderBonus;
     if (thunderBonus > 0) rawFormula += ` + 混元霹雳劲${thunderBonus}`;
     const rebelBonus = getRebelDmgBonus(unit);
-    if (rebelBonus > 0) raw *= (1 + rebelBonus);
-    if (hornBonus.dmgMultiplier > 1) raw *= hornBonus.dmgMultiplier;
     const trueDmg = getRebelTrueDmg(unit, target);
-    raw += trueDmg;
-    if (trueDmg > 0) rawFormula += ` + 叛逆真伤${trueDmg}`;
+    if (rebelBonus > 0) {
+        raw = raw * (1 + rebelBonus) + trueDmg;
+        rawFormula = `(${rawFormula})×1.30 + 叛逆真伤${trueDmg} = ${Math.floor(raw)}`;
+    } else if (trueDmg > 0) {
+        raw += trueDmg;
+        rawFormula = `${rawFormula} + 叛逆真伤${trueDmg} = ${Math.floor(raw)}`;
+    }
+    if (hornBonus.dmgMultiplier > 1) raw *= hornBonus.dmgMultiplier;
     return { atkBase, defBase, atkAct, defAct, hpBonus, hpBefore, waveTaunt, waveUnit, raw, rawFormula, thunderBonus, hornBonus, trueDmg, defReduction: hornBonus._defBefore ? `${hornBonus._defBefore}→${hornBonus._defAfter}` : null };
 }
 
@@ -143,7 +147,7 @@ function applyPostAttackEffects(unit, target, dmg, atkAct, defAct, reboundEntry,
         applyBuffEffectsAfterAttack(unit, target, dmg, allySide, enemySide, log);
     }
     // 九阴白骨爪返回总追击伤害，用于之后同步 _dmg
-    let nineYinTotal = checkNineYinClaw(unit, dmg, log);
+    let nineYinTotal = checkNineYinClaw(unit, target, dmg, log);
     const counterDmg = checkExtinctionCounter(target, dmg);
     if (counterDmg > 0) {
         unit.hp -= counterDmg; target.dmgDealt += counterDmg; unit.dmgTaken += counterDmg;
@@ -189,9 +193,27 @@ function processUnitAttack(unit, allySide, enemySide, log, A, B, state, doubleSt
         let mg = {type:'attack-group', uidA:unit.uid, uidD:target.uid, entries:[], isMiss:true, _fxSnapshot:makeFXSnapshot(unit,target), waveTaunt:null, waveUnit:null, buffEffects: []};
         mg.entries.push({type:'combat-text', text:`<span class="${unit.camp==='ally'?'blue':'orange'}">${unit.camp==='ally'?'明教':'六大派'} ${unit.name}</span> 的攻击`});
         mg.entries.push({type:'info', text:`<span class="gray">未命中！</span>`});
-        log.push(mg);
         unit._acted = true;
-        return false;
+        mg._events = [...window._battleEvents];
+        window._battleEvents = [];
+        log.push(mg);
+        applyXinHunDeduction(unit, allySide, log);
+        // Miss 后仍需检查后续攻击机会（概率连击/性奋）
+        if (doubleStrikeUnitUid && unit.uid === doubleStrikeUnitUid && unit.alive && unit.camp === 'ally' && !unit._doubleStriked) {
+            if (rand(1,100) <= 80) {
+                log.push({type:'info', text:`<span class="gold">⚡ 概率连击触发！</span>`, isDoubleStrikeBanner:true});
+                unit._doubleStriked = true; unit._acted = false;
+                processUnitAttack(unit, allySide, enemySide, log, A, B, state, doubleStrikeUnitUid);
+            } else {
+                log.push({type:'info', text:`<span class="gray">⚡ 概率连击触发失败，${unit.name} 未能再次攻击</span>`});
+            }
+        }
+        if (canXingFenTrigger(unit) && enemySide.some(u => u.alive)) {
+            consumeXingFen(unit);
+            log.push({type:'info', text:`<span class="gold">💗 性奋：${unit.name} 获得额外攻击机会！</span>`});
+            processUnitAttack(unit, allySide, enemySide, log, A, B, state, doubleStrikeUnitUid);
+        }
+        return true;
     }
 
     let unitActiveBuffs = unit.camp === 'ally' ? allySide._activeBuffs : enemySide._activeBuffs;
@@ -258,7 +280,7 @@ function processUnitAttack(unit, allySide, enemySide, log, A, B, state, doubleSt
     let group = { type:'attack-group', uidA:unit.uid, uidD:target.uid, entries:[], hpAfter:target.hp, alive:target.alive, isDead:dead, waveTaunt, waveUnit, unitRole:unit.role, _fxSnapshot:makeFXSnapshot(unit,target), _dmg:dmg, _isZhangNear:unit.isZhang && !unit.rangedForm, _nearAtkCount:unit.nearAtkCount, hpPctBefore, hpPctAfter, isMiss:miss, isDodge:false, buffEffects:[], _atkBonus:Math.floor(unit.atk * attackerBuffStats.atkBonus), _defBonus:Math.floor(target.def * defenderBuffStats.defBonus) };
     group.entries.push({type:'combat-text', text:`<span class="${ac}">${campA} ${unit.name}</span>(攻${displayAtk} 血${unitHpBefore}) → <span class="${dc}">${campD} ${target.name}</span>(防${displayDef} 血${hpBefore})`});
     group.entries.push({type:'detail', text:`<span class="gray small">波动：攻${atkBase}→${atkAct} 防${defBase}→${defAct} 血${hpBonus >= 0 ? '+' + hpBonus : hpBonus}</span>`});
-    if (rebelBonus > 0) group.entries.push({type:'detail', text:`<span class="orange small">⚔️ 叛逆突袭+30%</span>`});
+
     if (thunderBonus > 0) group.entries.push({type:'detail', text:`<span class="red small">💥 混元霹雳劲+${thunderBonus}真实伤害</span>`});
     if (hornBonus.defIgnore > 0) {
         let poisonTag = hornBonus.dmgMultiplier > 1 ? '，目标已中毒伤害+50%' : '';

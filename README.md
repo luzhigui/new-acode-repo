@@ -124,6 +124,7 @@ assets/
   CHANGELOG.md                - 变更履历
   kaifazhunze.md              - 开发准则
   Test Runnerlogo.md          - Test Runner 迭代变更日志
+  game-design.md              - 游戏设计文档
 ```
 
 ---

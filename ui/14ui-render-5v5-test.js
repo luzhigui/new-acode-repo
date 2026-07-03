@@ -3,6 +3,7 @@
 export const VER = 'ui/14ui-render-5v5-test.js V4.0.0';
 
 import { CONFIG } from '../core/01config-5v5-test.js';
+import { rand } from '../core/03battle-utils.js';
 import { showDanmaku as _showDanmaku } from '../fx/15fx-common-5v5-test.js';
 const showDanmaku = (...args) => { if (typeof _showDanmaku === 'function') return _showDanmaku(...args); };
 
@@ -222,11 +223,7 @@ if (unit && !unit.isHorse && (unit._flyMode || unit._isDead)) unit = null;
                 let info = CONFIG.BUFFS ? CONFIG.BUFFS[b.key] : null;
                 return info ? info.icon : '';
             }).filter(icon => icon).join('');
-            // 概率连击是特殊 Buff，单独给该单位加上闪电图标
-            // 概率连击图标：单独检查当前单位是否被选中
-            if (doubleStrikeUid != null && unit.uid === doubleStrikeUid) {
-                buffIcons = buffIcons + '⚡';
-            }
+            // 概率连击图标已在 buffIcons 中由 isUnitBenefitedByBuff 处理，不再重复添加
         }
         let atkStyle = atkBonusVal > 0 ? 'color:#b8860b;font-weight:bold;' : '';
         let defStyle = defBonusVal > 0 ? 'color:#b8860b;font-weight:bold;' : '';
@@ -275,7 +272,22 @@ export function spawnVictoryEffects(winnerCamp) {
     let colors=['#ffd700','#ff6b6b','#51cf66','#45a7ff','#ff9f43','#ff00ff'];
     for(let i=0;i<60;i++){let particle=document.createElement('div');particle.className='party-particle';let angle=Math.random()*Math.PI*2,dist=40+Math.random()*80;particle.style.setProperty('--dx',Math.cos(angle)*dist+'px');particle.style.setProperty('--dy',Math.sin(angle)*dist+'px');particle.style.left=cx+'px';particle.style.top=cy+'px';particle.style.background=colors[Math.floor(Math.random()*colors.length)];document.body.appendChild(particle);setTimeout(()=>{if(particle.parentNode)particle.parentNode.removeChild(particle);},2800);}
     for(let i=0;i<15;i++){let star=document.createElement('div');star.className='star-particle';let angle=Math.random()*Math.PI*2,dist=30+Math.random()*50;star.style.setProperty('--dx',Math.cos(angle)*dist+'px');star.style.setProperty('--dy',Math.sin(angle)*dist+'px');star.style.left=cx+'px';star.style.top=cy+'px';star.textContent=['⭐','🌟','✨'][Math.floor(Math.random()*3)];document.body.appendChild(star);setTimeout(()=>{if(star.parentNode)star.parentNode.removeChild(star);},3300);}
-    let logDiv=document.getElementById('log'),winColor=winnerCamp==='明教'?'blue':'orange';logDiv.innerHTML+=`<span class="gold">🎉🏆 <span class="${winColor}">${winnerCamp}</span>获得最终胜利！ 🏆🎉</span><br>`;logDiv.scrollTop=logDiv.scrollHeight;
+    let logDiv=document.getElementById('log'),winColor=winnerCamp==='明教'?'blue':'orange';
+    // 胜利弹幕垃圾话：从随机词库中抽取
+    const WIN_TAUNTS = [
+        '赢了！', '哈哈，胜了！', '活下来了！', '敌人全灭了！', '太好了！',
+        '好好好！', '哈哈哈！', '还有谁？', '干得漂亮！', '不过如此！',
+        '总算结束了！', '痛快！', '明教必胜！', '再来啊！', '就这？'
+    ];
+    aliveUnits.forEach(u => {
+        let taunt = WIN_TAUNTS[rand(0, WIN_TAUNTS.length - 1)];
+        safeShowDanmaku2(u, taunt);
+        logDiv.innerHTML += `<span class="${winColor}">🗯️ ${u.name}：${taunt}</span><br>`;
+    });
+const safeShowDanmaku2 = (unit, text) => {
+    try { showDanmaku(unit, text); } catch(e) {}
+};
+    logDiv.innerHTML+=`<span class="gold">🎉🏆 <span class="${winColor}">${winnerCamp}</span>获得最终胜利！ 🏆🎉</span><br>`;logDiv.scrollTop=logDiv.scrollHeight;
 }
 
 export function clearLogExceptFirst() { let logDiv = document.getElementById('log'), children = logDiv.children; while (children.length > 1) logDiv.removeChild(children[1]); let calibrator = document.createElement('div'); calibrator.style.display = 'block'; calibrator.innerHTML = ''; logDiv.appendChild(calibrator); }
