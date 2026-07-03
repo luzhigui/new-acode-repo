@@ -397,7 +397,7 @@ export function runBattleRound(state) {
     
     A.forEach(u => {
         if (!u.alive) return;
-        let allyTeamWithDead = A.filter(c => c.alive);
+        let allyTeamWithDead = A.slice();  // 含本回合 tick 毒死的单位(alive=false)，避免漏算死亡加成
         if (hasBuff(A._activeBuffs, 'carry')) {
             allyTeamWithDead = allyTeamWithDead.concat(state.ally.filter(c => !c.alive));
             allyTeamWithDead = allyTeamWithDead.filter((u, i, arr) => arr.findIndex(v => v.uid === u.uid) === i);
@@ -407,7 +407,7 @@ export function runBattleRound(state) {
         u.buffDefBonus = stats.defBonus;
         u.buffDodgeBonus = stats.dodgeBonus;
         u.buffHpBonus = stats.hpBonus;
-        if (hasBuff(A._activeBuffs, 'carry') && u.pos === 5 && u._baseMaxHp !== undefined) {
+        if (hasBuff(A._activeBuffs, 'carry') && u.pos === 5 && u._baseMaxHp !== undefined && !u.isHorse) {
             let oldMaxHp = u.maxHp, oldHp = u.hp;
             let extraHp = Math.floor(u._baseMaxHp * stats.hpBonus);
             let newMaxHp = u._baseMaxHp + extraHp;
@@ -418,7 +418,6 @@ export function runBattleRound(state) {
                 u.maxHp = newMaxHp;
                 u.hp = Math.min(u.hp, newMaxHp);
             }
-            u._baseMaxHp = u.maxHp;  // 同步基准值，防止下一回合重复叠加
             emitEvent(u, 'hp-change', { hp: u.hp, maxHp: u.maxHp, alive: u.alive, atk: u.atk, def: u.def });
         }
         u._extinctionUsed = false;
@@ -446,7 +445,7 @@ export function runBattleRound(state) {
             unit._blocked = isBlocked(unit, team);
             unit.survivedRounds++;
             
-            if ((unit.isHorse && unit.atk <= 0) || (unit._blocked && isMelee(unit.role) && !(unit.isZhang && !unit.rangedForm))) {
+            if ((unit.isHorse && unit.atk <= 0) || (unit._blocked && isMelee(unit.role))) {
                 if (unit._blocked && isMelee(unit.role)) {
                     let hpBefore = Math.floor(unit.hp);
                     unit.hp = Math.min(unit.maxHp, unit.hp + 10);

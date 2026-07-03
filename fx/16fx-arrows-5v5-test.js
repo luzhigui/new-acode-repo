@@ -65,7 +65,7 @@ export function showRangedArrow(unitA, unitD, speed, getPausedFn, isMeteor = fal
         function flyStep(ts) { if (getPausedFn && getPausedFn()) { requestAnimationFrame(flyStep); return; } if (!startFly) startFly = ts; let p = Math.min(1, (ts - startFly) / flyDuration); let curStartX = sx + (finalStartX - sx) * p, curStartY = sy + (finalStartY - sy) * p; container.style.left = curStartX + 'px'; container.style.top = curStartY + 'px';
             if (p < 1) { requestAnimationFrame(flyStep); } else {
                 container.style.left = finalStartX + 'px'; container.style.top = finalStartY + 'px';
-                let defCell = gridD.children[idxD]; if (defCell) { defCell.classList.add('shake'); setTimeout(() => defCell.classList.remove('shake'), 400); }
+                let defCell = gridD.children[idxD]; if (defCell) { defCell.classList.add('shake'); defCell.style.transition = 'background 0.15s ease'; defCell.style.background = '#ffd700'; setTimeout(() => { defCell.classList.remove('shake'); defCell.style.background = ''; }, 400); }
 
                 // 流星赶月：命中后显示蓄力光圈
                 if (isMeteor) {
@@ -153,7 +153,7 @@ export function showSplashArrows(attacker, primaryTarget, splashTargets, speed, 
                 requestAnimationFrame(flyStep);
             } else {
                 let defCell = gridD.children[idxD];
-                if (defCell) { defCell.classList.add('shake'); setTimeout(() => defCell.classList.remove('shake'), 300); }
+                if (defCell) { defCell.classList.add('shake'); defCell.style.transition = 'background 0.15s ease'; defCell.style.background = '#ffd700'; setTimeout(() => { defCell.classList.remove('shake'); defCell.style.background = ''; }, 300); }
                 setTimeout(() => { if (container.parentNode) container.remove(); }, 400);
             }
         }

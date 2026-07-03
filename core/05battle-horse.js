@@ -24,6 +24,7 @@ export function spawnHorse(allyTeam, log, enemyTeam) {
     let hpVar = rand(0, 5);
     horse.maxHp = C.BUFFS.horseFormation.horseHp + hpVar;
     horse.hp = horse.maxHp;
+    horse._baseMaxHp = horse.maxHp;  // 防止 carry 误判 _baseMaxHp=0 把马打成 maxHp=0
     horse.pos = horsePos; horse.isHorse = true; horse._originalPos = horsePos;
     allyTeam.push(horse);
     log.push({type:'buff-summon', text:`<span class="gold">🐴 拒马阵：拒马出现在${horsePos}号位！</span>`, buffType:'summon', horsePos, horseUid: horse.uid, horseTaunt: '嘶——！'});

@@ -18,6 +18,8 @@ function showCloseRangeFX(unitA, unitD, role) {
         let iconStart = null;
         function flyIcon(ts) { if (!iconStart) iconStart = ts; let p = Math.min(1, (ts - iconStart) / 800); let x = ax + (bx - ax) * p, y = ay + (by - ay) * p; icon.style.left = x + 'px'; icon.style.top = y + 'px'; if (p < 1) { requestAnimationFrame(flyIcon); } else {
             if (unitD) { unitD._shaking = true; unitD._shakeNx = nnx; unitD._shakeNy = nny;
+                // 受击统一反馈：黄色闪烁 + 颤抖（与飞箭/飞撞命中一致）
+                if (cellB) { cellB.classList.add('shake'); cellB.style.transition = 'background 0.15s ease'; cellB.style.background = '#ffd700'; setTimeout(() => { cellB.classList.remove('shake'); cellB.style.background = ''; }, 400); }
                 let c = window._getPlayerContext ? window._getPlayerContext() : null;
                 if (c) { c.updateUI(c.UI); setTimeout(() => { unitD._shaking = false; unitD._shakeNx = 0; unitD._shakeNy = 0; c.updateUI(c.UI); }, 500); }
             }
@@ -150,11 +152,11 @@ export function showMeleeCrash(unitA, unitD, speed, getPausedFn, onCrash) {
                 clone.style.top = (savedTop + ny * flown) + 'px';
                 if (p1 < 1) { requestAnimationFrame(phase1); }
                 else {
-                    cellB.classList.add('shake-strong');
+                    cellB.classList.add('shake');
                     cellB.style.transition = 'background 0.15s ease';
                     cellB.style.background = '#ffd700';
                     setTimeout(() => {
-                        cellB.classList.remove('shake-strong');
+                        cellB.classList.remove('shake');
                         cellB.style.background = '';
                     }, 600 * (speed / 1000));
                     if (onCrash) onCrash();
