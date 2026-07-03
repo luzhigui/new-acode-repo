@@ -66,7 +66,8 @@ function resolveDodge(unit, target, attackerBuffStats, log) {
     let reboundDmg = Math.floor((target.atk + target.def) * 0.5);
     let unitHpBeforeRebound = Math.floor(unit.hp);
     unit.hp -= reboundDmg; target.dmgDealt += reboundDmg; unit.dmgTaken += reboundDmg;
-    let dg = {type:'attack-group', uidA:unit.uid, uidD:target.uid, entries:[], isDodge:true, hpAfter:target.hp, alive:target.alive, _fxSnapshot:makeFXSnapshot(unit,target), waveTaunt:null, waveUnit:null, buffEffects:[], _atkBonus:0, _defBonus:0};
+    emitEvent(unit, 'hp-change', { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: unit.atk, def: unit.def, dmgDealt: target.dmgDealt, dmgTaken: unit.dmgTaken });
+    let dg = {type:'attack-group', uidA:target.uid, uidD:unit.uid, entries:[], isDodge:true, hpAfter:unit.hp, alive:unit.alive, _fxSnapshot:makeFXSnapshot(target,unit), waveTaunt:null, waveUnit:null, buffEffects:[], _atkBonus:0, _defBonus:0};
     if (target.isWei) {
         let heal = Math.floor(reboundDmg * 0.15);
         let wasFullHp = (target.hp >= target.maxHp);
@@ -75,6 +76,7 @@ function resolveDodge(unit, target, attackerBuffStats, log) {
         if (wasFullHp) { target.hp = target.maxHp; }
         target.healDone += heal;
         target.leechDone += heal;
+        emitEvent(target, 'hp-change', { hp: target.hp, maxHp: target.maxHp, alive: target.alive, atk: target.atk, def: target.def });
         dg.entries.push({type:'info', text:`<span class="green">🦇 韦一笑闪避反击吸血+${heal}，上限→${Math.floor(target.maxHp)}</span>`, isHealEntry:true, healAmount:heal, healUnitUid:target.uid});
     }
     dg.entries.push({type:'combat-text', text:`<span class="${unit.camp==='ally'?'blue':'orange'}">${unit.camp==='ally'?'明教':'六大派'} ${unit.name}</span>(攻${Math.floor(unit.atk)} 血${unitHpBeforeRebound}) → <span class="${target.camp==='ally'?'blue':'orange'}">${target.camp==='ally'?'明教':'六大派'} ${target.name}</span>(防${Math.floor(target.def)} 血${Math.floor(target.hp)})`});
@@ -178,6 +180,7 @@ function emitEvent(unit, eventType, payload) {
     payload._isAbsolute = true;  // 标记为绝对值，UI 侧直接赋值而非累加
     window._battleEvents.push({ unitUid: unit.uid, eventType, payload });
 }
+window._emitEvent = emitEvent;
 
 function processUnitAttack(unit, allySide, enemySide, log, A, B, state, doubleStrikeUnitUid) {
     let target = selectTarget(unit, enemySide);
@@ -343,13 +346,13 @@ function processUnitAttack(unit, allySide, enemySide, log, A, B, state, doubleSt
         emitEvent(unit, 'hp-change', { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: unit.atk, def: unit.def });
     }
     unit._acted = true;
-    group._events = [...window._battleEvents];  // 将本轮事件快照存入日志
-    window._battleEvents = [];                  // 清空全局队列
     log.push(group);
     
     applyXinHunDeduction(unit, allySide, log);
     // ★ 调用 applyPostAttackEffects 并获取九阴白骨爪总伤害
     let nineYinTotal = applyPostAttackEffects(unit, target, dmg, atkAct, defAct, reboundEntry, allySide, enemySide, log, A);
+    group._events = [...window._battleEvents];  // 将本轮事件快照存入日志（移到 applyPostAttackEffects 之后）
+    window._battleEvents = [];                  // 清空全局队列
     // 同步 _dmg 为包含九阴白骨爪后的总伤害
     if (nineYinTotal > 0) {
         group._dmg += nineYinTotal;

@@ -21,7 +21,7 @@ export function checkExtinctionCounter(defender, dmg) {
  * 周芷若 - 九阴白骨爪：概率追击（含嫉妒联动）
  * 嫉妒：张无忌在场时伤害比例提升至40%
  */
-export function checkNineYinClaw(attacker, baseDmg, log) {
+export function checkNineYinClaw(attacker, target, baseDmg, log) {
     if (attacker.name !== '周芷若') return 0;
     const s = ES.nineYinClaw;
     // 张无忌在己方存活时触发嫉妒，伤害比例从25%提升至40%
@@ -29,20 +29,25 @@ export function checkNineYinClaw(attacker, baseDmg, log) {
         window._currentBattleState.ally.some(u => u.isZhang && u.alive);
     const bonusRatio = zhangAlive ? s.jealousBonus : s.bonusRatio;
     
+    // 首次必定触发，后续概率 85%
+    if (!attacker._nineYinFirstDone) {
+        attacker._nineYinFirstDone = true;
+    } else {
+        if (Math.random() > 0.85) return 0;
+    }
     let totalBonus = 0;
     for (let depth = 0; depth < s.maxChain; depth++) {
-        if (Math.random() > s.procChance) break;
+        if (depth > 0 && Math.random() > 0.85) break;  // 追击也改85%
         const bonusDmg = Math.floor(baseDmg * bonusRatio);
         totalBonus += bonusDmg;
-        // 不可闪避的真实追加伤害，直接扣血
-        // 根据 attacker.camp 判断攻击对象阵营（敌方攻击明教，明教攻击敌方）
-        const targetSide = attacker.camp === 'ally' ? 'enemy' : 'ally';
-        const target = window._currentBattleState?.[targetSide]?.find(u => u.alive);
-        if (target) {
+        if (target && target.alive) {
             target.hp = Math.max(0, target.hp - bonusDmg);
             attacker.dmgDealt += bonusDmg;
             target.dmgTaken += bonusDmg;
             if (target.hp <= 0) { target.hp = 0; target.alive = false; target._isDead = true; }
+            if (typeof window._emitEvent === 'function') {
+                window._emitEvent(target, 'hp-change', { hp: target.hp, maxHp: target.maxHp, alive: target.alive, atk: target.atk, def: target.def });
+            }
         }
         log.push({
             type:'info', 
@@ -232,6 +237,9 @@ export function tickKuaiLeHeal(allUnits, log) {
             const hpBefore = unit.hp;
             unit.hp = Math.min(unit.maxHp, unit.hp + totalHeal);
             unit.healDone += totalHeal;
+            if (typeof window._emitEvent === 'function') {
+                window._emitEvent(unit, 'hp-change', { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: unit.atk, def: unit.def });
+            }
             log.push({
                 type: 'info',
                 text: `<span class="green">💚 快乐回血：${unit.name} 回复${totalHeal}点生命（${unit._kuaiLeStack.length}层触发），血量 ${Math.floor(hpBefore)} → ${Math.floor(unit.hp)}</span>`,
