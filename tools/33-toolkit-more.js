@@ -32,14 +32,6 @@ function escapeHtml(text) {
     const fuzzyBtn = document.getElementById('fncFuzzyBtn');
     const fileContents = {};
 
-    const replaceModal = document.getElementById('fncReplaceModal');
-    const replaceFuncName = document.getElementById('fncReplaceFuncName');
-    const replaceFileName = document.getElementById('fncReplaceFileName');
-    const replaceTextarea = document.getElementById('fncReplaceTextarea');
-    const replaceResult = document.getElementById('fncReplaceResult');
-    const resultTextarea = document.getElementById('fncResultTextarea');
-    let currentReplaceFile = null, currentReplaceFunc = null, currentReplaceLine = null;
-
     document.getElementById('fncBtnScan').addEventListener('click', async () => {
         mapContainer.innerHTML = '';
         statusDiv.textContent = '正在扫描...';
@@ -110,7 +102,6 @@ function escapeHtml(text) {
                 </div>
                 <div class="btn-group">
                     <button class="action-btn copy-btn" data-file="${filename}" data-func="${f.name}" data-line="${f.line}">📋 复制</button>
-                    <button class="action-btn replace-btn" data-file="${filename}" data-func="${f.name}" data-line="${f.line}">🔄 替换</button>
                 </div>`;
 
             item.querySelector('.copy-btn').addEventListener('click', async (e) => {
@@ -126,56 +117,12 @@ function escapeHtml(text) {
                 }
             });
 
-            item.querySelector('.replace-btn').addEventListener('click', (e) => {
-                const btn = e.target;
-                currentReplaceFile = btn.dataset.file;
-                currentReplaceFunc = btn.dataset.func;
-                currentReplaceLine = parseInt(btn.dataset.line);
-                replaceFuncName.textContent = currentReplaceFunc;
-                replaceFileName.textContent = currentReplaceFile;
-                replaceTextarea.value = '';
-                replaceResult.classList.remove('show');
-                resultTextarea.value = '';
-                replaceModal.classList.add('show');
-            });
-
             funcList.appendChild(item);
         });
 
         section.querySelector('.file-header').addEventListener('click', () => section.classList.toggle('open'));
         mapContainer.appendChild(section);
     }
-
-    document.getElementById('fncBtnDoReplace').addEventListener('click', () => {
-        const newFuncCode = replaceTextarea.value.trim();
-        if (!newFuncCode || !currentReplaceFile || !currentReplaceFunc) return;
-        const originalCode = fileContents[currentReplaceFile];
-        const oldFuncBody = extractFuncBody(originalCode, currentReplaceFunc, currentReplaceLine);
-        const updatedCode = originalCode.replace(oldFuncBody, newFuncCode);
-        resultTextarea.value = updatedCode;
-        replaceResult.classList.add('show');
-        statusDiv.textContent = `✅ 已生成 ${currentReplaceFile} 的更新版本`;
-    });
-
-    document.getElementById('fncBtnCopyResult').addEventListener('click', async () => {
-        try {
-            await navigator.clipboard.writeText(resultTextarea.value);
-            statusDiv.textContent = `✅ 已复制 ${currentReplaceFile} 更新版本，请粘贴覆盖原文件`;
-        } catch (err) {
-            statusDiv.textContent = '❌ 复制失败，请重试';
-        }
-    });
-
-    document.getElementById('fncBtnCancelReplace').addEventListener('click', () => {
-        replaceModal.classList.remove('show');
-        currentReplaceFile = null;
-        currentReplaceFunc = null;
-        currentReplaceLine = null;
-    });
-
-    replaceModal.addEventListener('click', (e) => {
-        if (e.target === replaceModal) replaceModal.classList.remove('show');
-    });
 
     function normalize(s) {
         return s.replace(/\s+/g, ' ').trim();
@@ -248,7 +195,6 @@ function escapeHtml(text) {
                     </div>
                     <div class="btn-group">
                         <button class="action-btn copy-btn" data-file="${candidate.file}" data-func="${candidate.fn.name}" data-line="${candidate.fn.line}">📋 复制</button>
-                        <button class="action-btn replace-btn" data-file="${candidate.file}" data-func="${candidate.fn.name}" data-line="${candidate.fn.line}">🔄 替换</button>
                     </div>`;
                 funcList.appendChild(item);
             });
@@ -259,20 +205,8 @@ function escapeHtml(text) {
                     const body = extractFuncBody(fileContents[b.dataset.file], b.dataset.func, parseInt(b.dataset.line));
                     await navigator.clipboard.writeText(body);
                     b.textContent = '✅ 已复制';
-                });
-            });
-            sec.querySelectorAll('.replace-btn').forEach(btn => {
-                btn.addEventListener('click', (e) => {
-                    const b = e.target;
-                    currentReplaceFile = b.dataset.file;
-                    currentReplaceFunc = b.dataset.func;
-                    currentReplaceLine = parseInt(b.dataset.line);
-                    replaceFuncName.textContent = currentReplaceFunc;
-                    replaceFileName.textContent = currentReplaceFile;
-                    replaceTextarea.value = '';
-                    replaceResult.classList.remove('show');
-                    resultTextarea.value = '';
-                    replaceModal.classList.add('show');
+                    b.classList.add('copied');
+                    setTimeout(() => { b.textContent = '📋 复制'; b.classList.remove('copied'); }, 1500);
                 });
             });
         } else {
