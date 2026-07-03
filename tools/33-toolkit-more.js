@@ -347,29 +347,17 @@ import { CONFIG } from '../core/01config-5v5-test.js';
         if (!template) { previewDiv.textContent = '无模板'; return; }
 
         const grid = Array(9).fill('·');
+        // 先画精英（按 ELITE_POOL.pos），与 generateSnapshot 实际站位一致
+        for (const elite of eliteList) {
+            const rc = elite.role === '防战' ? '防' : (elite.role === '战士' ? '战' : (elite.role === '远程' ? '远' : '飞'));
+            const p = elite.pos;
+            if (p && p >= 1 && p <= 9 && grid[p - 1] === '·') grid[p - 1] = rc + '*';
+        }
+        // 再画模板（按 role），已被精英占的位置跳过
         for (const [role, poses] of Object.entries(template)) {
             if (role === 'random') continue;
             const rc = role === '防战' ? '防' : (role === '战士' ? '战' : (role === '远程' ? '远' : '飞'));
-            for (const p of poses) { if (p >= 1 && p <= 9) grid[p - 1] = rc; }
-        }
-        // 处理精英站位：优先尝试配置的 pos，如果被占则随机换到其他空位
-        const allPositions = [0, 1, 2, 3, 4, 5, 6, 7, 8];
-        for (const elite of eliteList) {
-            const rc = elite.role === '防战' ? '防' : (elite.role === '战士' ? '战' : (elite.role === '远程' ? '远' : '飞'));
-            const preferredPos = elite.pos && elite.pos >= 1 && elite.pos <= 9 ? elite.pos - 1 : null;
-            
-            // 收集当前所有空位
-            const emptySlots = allPositions.filter(i => grid[i] === '·');
-            if (emptySlots.length === 0) break; // 没空位了
-            
-            if (preferredPos !== null && grid[preferredPos] === '·') {
-                // 优先位置是空的，直接站
-                grid[preferredPos] = rc + '*';
-            } else {
-                // 优先位置被占或没有优先位置，随机找空位
-                const randomIdx = emptySlots[Math.floor(Math.random() * emptySlots.length)];
-                grid[randomIdx] = rc + '*';
-            }
+            for (const p of poses) { if (p >= 1 && p <= 9 && grid[p - 1] === '·') grid[p - 1] = rc; }
         }
 
         const roleColor = (r) => {
