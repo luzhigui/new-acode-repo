@@ -110,6 +110,16 @@ export function generateSnapshot(currentStage = 1) {
                 enemyUnits.push(unit);
             }
         }
+        // 精英优先读 config 的 pos（与主代码 ELITE_POOL 对齐）
+        const elitePool = C.ELITE_POOL?.[currentStage] || [];
+        for (const elite of elitePool) {
+            const unit = enemyUnits.find(u => u.name === elite.name);
+            if (unit && elite.pos && !enemyPosSet.has(elite.pos)) {
+                unit.pos = elite.pos;
+                unit._originalPos = elite.pos;
+                enemyPosSet.add(elite.pos);
+            }
+        }
         let template = C.ENEMY_POS_TEMPLATES && C.ENEMY_POS_TEMPLATES[currentStage] ? C.ENEMY_POS_TEMPLATES[currentStage] : null;
         if (template) {
             for (let [role, poses] of Object.entries(template)) {
