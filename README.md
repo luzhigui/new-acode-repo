@@ -68,6 +68,7 @@ core/
   05battle-horse.js           - 拒马逻辑（生成、销毁）
   06battle-engine-core.js     - 战斗核心循环（回合推进、攻击处理）
   07battle-engine-5v5-test.js - 战斗引擎入口（全局函数挂载、导出）
+  27auto-battle-utils.js      - 自动批量战斗工具（快照生成、批量战斗）
 
 player/
   08player-text.js            - 文字播放器（逐字显示日志）
@@ -106,10 +107,9 @@ tests/
 
 tools/
   00build-5v5.cjs             - 构建脚本（打包为单文件）
-  27auto-battle-utils.js      - 自动批量战斗工具
   31-toolkit.html             - 开发工具箱页面
-  32-toolkit.js               - 工具箱主逻辑（文件复制器、函数替换器等）
-  33-toolkit-more.js          - 工具箱附加工具（急救包、防战计算器、自动战斗）
+  32-toolkit.js               - 工具箱主逻辑（文件复制器）
+  33-toolkit-more.js          - 工具箱附加工具（函数搜索、防战计算器、自动战斗）
 
 assets/
   sfx_arrow.mp3               - 远程攻击音效
