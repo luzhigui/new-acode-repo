@@ -388,6 +388,7 @@ export function spawnHorse(allyTeam, log) {
     let hpVar = rand(0, 5);
     horse.maxHp = C.BUFFS.horseFormation.horseHp + hpVar;
     horse.hp = horse.maxHp;
+    horse._baseMaxHp = horse.maxHp;  // 防止 carry 误判 _baseMaxHp=0 把马打成 maxHp=0
     horse.pos = horsePos; horse.isHorse = true; horse._originalPos = horsePos;
     allyTeam.push(horse);
     log.push({type:'buff-summon', text:`<span class="gold">🐴 拒马阵：拒马出现在${horsePos}号位！</span>`, buffType:'summon', horsePos, horseUid: horse.uid, horseTaunt: '嘶——！'});
@@ -696,7 +697,7 @@ export function runBattleRound(state) {
     
     A.forEach(u => {
         if (!u.alive) return;
-        let allyTeamWithDead = A.filter(c => c.alive);
+        let allyTeamWithDead = A.slice();  // 含本回合 tick 毒死的单位(alive=false)，避免漏算死亡加成
         if (hasBuff(A._activeBuffs, 'carry')) {
             // 包含已阵亡的单位以正确计算 carry 的死亡加成
             var deadAllies = state.ally.filter(function(c) { return !c.alive; });
@@ -1032,7 +1033,7 @@ export function runBattleRound(state) {
             unit._blocked = isBlocked(unit, team);
             unit.survivedRounds++;
             
-            if ((unit.isHorse && unit.atk <= 0) || (unit._blocked && isMelee(unit.role) && !unit.isZhang)) {
+            if ((unit.isHorse && unit.atk <= 0) || (unit._blocked && isMelee(unit.role))) {
                 if (unit._blocked && isMelee(unit.role)) {
                     let hpBefore = Math.floor(unit.hp);
                     unit.hp = Math.min(unit.maxHp, unit.hp + 10);
