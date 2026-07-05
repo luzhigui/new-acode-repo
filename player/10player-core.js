@@ -68,7 +68,7 @@ function insertBuffSeparator(logDiv, c) {
 }
 
 // ==================== 响应式 Store ====================
-const GAME_STATE_FIELDS = ['hp','alive','maxHp','atk','def','role','rangedForm','_isDead','_baseMaxHp','dmgDealt','dmgTaken','healDone','reboundDone','leechDone','dodgeCount','critCount','survivedRounds','pos','buffAtkBonus','buffDefBonus','buffDodgeBonus','buffHpBonus'];
+const GAME_STATE_FIELDS = ['hp','alive','maxHp','atk','def','role','rangedForm','_isDead','_deathTime','_baseMaxHp','dmgDealt','dmgTaken','healDone','reboundDone','leechDone','dodgeCount','critCount','survivedRounds','pos','buffAtkBonus','buffDefBonus','buffDodgeBonus','buffHpBonus'];
 
 function createStore(initialState, reducer) {
     let state = initialState;
@@ -366,39 +366,13 @@ async function handleRoundEnd(c, entry, log, i) {
 
 export async function playLogEntries(c, log, roundResult, isFirstAttackRef) {
     let abortSig = c.abortController ? c.abortController.signal : null;
-    let lastEntryType = null; // 跨步骤记录上一条日志类型
+    let lastEntryType = null;
 
     try {
         for (let i = 0; i < log.length; i++) {
             if (abortSig && abortSig.aborted) return { isBattleOver: false };
             await c.waitWhilePaused();
             let entry = log[i];
-
-            // 分隔符规则（强制在每次攻击组之间插入，包括连续攻击组）
-            const isAttackCore = (t) => t === 'attack-group' || t === 'buff-leech' || t === 'buff-splash';
-            const isAttackSub = (t) => t === 'buff-leech' || t === 'buff-splash' || t === 'buff-bonus';
-
-            const needSep =
-                // 1. 从攻击核心切换到非附属条目（包括 info、round-end、buff-xxx 等）时插入
-                (lastEntryType && isAttackCore(lastEntryType) && !isAttackSub(entry.type) && entry.type !== lastEntryType) ||
-                // 2. 两个连续的攻击组之间也插入
-                (lastEntryType === 'attack-group' && entry.type === 'attack-group');
-
-            if (needSep) {
-                let sepDiv = document.createElement('div');
-                sepDiv.innerHTML = '<span class="separator">- - - - -</span><br>';
-                document.getElementById('log').appendChild(sepDiv);
-                c.autoScrollLog();
-                await new Promise(r => setTimeout(r, c.speed / 4));
-            }
-
-            if (needSep) {
-                let sepDiv = document.createElement('div');
-                sepDiv.innerHTML = '<span class="separator">- - - - -</span><br>';
-                document.getElementById('log').appendChild(sepDiv);
-                c.autoScrollLog();
-                await new Promise(r => setTimeout(r, c.speed / 4));
-            }
 
             switch (entry.type) {
                 case 'buff-summon': {
@@ -413,7 +387,6 @@ export async function playLogEntries(c, log, roundResult, isFirstAttackRef) {
                     lastEntryType = entry.type;
                     break;
                 case 'buff-leech':
-                    insertBuffSeparator(document.getElementById('log'), c);
                     if (entry.buffType === 'hotBlood') {
                         let div=document.createElement('div');div.innerHTML=entry.text+'<br>';
                         document.getElementById('log').appendChild(div);c.autoScrollLog();
@@ -523,7 +496,6 @@ export async function playBattle() {
     ];
     c.store = createStore({ units: initialUnits, round: 1 }, battleReducer);
 
-    // 订阅 Store 变化 → 同步到 c.UI 并刷新界面
     c.store.subscribe((state) => {
         if (!c.UI || !c.UI.allyTeam || !c.UI.enemyTeam) return;
         const syncFields = (uiUnit) => {
@@ -551,32 +523,12 @@ export async function playBattle() {
             if (su.camp === 'ally' && !c.UI.allyTeam.find(u => u.uid === su.uid)) c.UI.allyTeam.push({...su});
             if (su.camp === 'enemy' && !c.UI.enemyTeam.find(u => u.uid === su.uid)) c.UI.enemyTeam.push({...su});
         });
-        // 移除已销毁的单位
         c.UI.allyTeam = c.UI.allyTeam.filter(u => state.units.find(su => su.uid === u.uid));
         c.UI.enemyTeam = c.UI.enemyTeam.filter(u => state.units.find(su => su.uid === u.uid));
 
-        // 死亡单位 3 秒后自动清除（从数据层移除）
-        if (!c._deathTimers) c._deathTimers = {};
-        for (const teamKey of ['allyTeam', 'enemyTeam']) {
-            for (const unit of c.UI[teamKey]) {
-                if (unit._isDead && !c._deathTimers[unit.uid]) {
-                    c._deathTimers[unit.uid] = true;
-                    const uid = unit.uid;
-                    setTimeout(() => {
-                        c.UI.allyTeam = c.UI.allyTeam.filter(u => u.uid !== uid);
-                        c.UI.enemyTeam = c.UI.enemyTeam.filter(u => u.uid !== uid);
-                        delete c._deathTimers[uid];
-                        // 同步移除 Store 中的单位，防止重绘时复活
-                        c.store.dispatch({ type: 'REMOVE_UNIT', uid: uid });
-                        c.updateUI(c.UI);
-                    }, 3000);
-                }
-            }
-        }
         c.updateUI(c.UI);
     });
 
-    // 初始 UI 状态
     c.UI.allyTeam = initialUnits.filter(u => u.camp === 'ally').map(u => u.clone());
     c.UI.enemyTeam = initialUnits.filter(u => u.camp === 'enemy').map(u => u.clone());
     c.updateUI(c.UI);
@@ -588,7 +540,6 @@ export async function playBattle() {
         logDiv.scrollTop = logDiv.scrollHeight;
         c.userScrolled = false;
         backToBottomBtn.style.display = 'none';
-        // 恢复倍速
         if (window._restoreSpeedFromScroll) window._restoreSpeedFromScroll();
         let mainCtx = window._getPlayerContext ? window._getPlayerContext() : c;
         if (mainCtx && mainCtx.speed) c.speed = mainCtx.speed;
@@ -614,6 +565,9 @@ export async function playBattle() {
     let battleState = { ally: c.snapshot.ally.map(u => u.clone()), enemy: c.snapshot.enemy.map(u => u.clone()), round: 1, activeBuffs: c.activeBuffs ? c.activeBuffs.map(b => ({...b})) : [] };
     let isBattleOver = false; let finalWinner = null;
 
+    // 强制重置等待状态，防止手动模式瞬间放行
+    c.waitingForNextRound = true;
+
     while (!isBattleOver) {
         if (abortSig && abortSig.aborted) return;
 
@@ -626,18 +580,14 @@ export async function playBattle() {
             await c.waitWhilePaused();
             lastStep = step;
 
-            // 播放步骤日志（动画）
             await playLogEntries(c, step.log, step, isFirstAttackRef);
 
-            // 动画播完后应用状态变更
             if (step.events && step.events.length > 0) {
                 c.store.dispatch({ type: 'APPLY_EVENTS', events: step.events });
             }
 
-            // 步骤间延迟，受倍速控制，确保逐步效果明显
             await new Promise(r => setTimeout(r, Math.max(100, c.speed / 2)));
 
-            // 检查胜负
             if (step.winner) {
                 finalWinner = step.winner;
                 isBattleOver = true;
@@ -647,7 +597,6 @@ export async function playBattle() {
 
         if (isBattleOver) break;
 
-        // 回合间 Buff 选择
         let nextActiveBuffs = c.activeBuffs ? c.activeBuffs.map(b => ({...b, remaining: b.remaining - 1})).filter(b => b.remaining > 0) : [];
         if (battleState.round % 3 === 0 && battleState.round > 0) {
             let promDiv = document.createElement('div'); promDiv.innerHTML = `<span class="gold">✨ 请选择新的Buff（持续${CONFIG.BUFF_DURATION || 4}回合）</span><br>`; logDiv.appendChild(promDiv); c.autoScrollLog();
@@ -668,9 +617,16 @@ export async function playBattle() {
             await new Promise(r=>setTimeout(r, c.speed/2));
         } else {
             document.getElementById('btnNext').disabled = false;
+            // 强制设置为 true，避免残留的 false 导致立即放行
             c.waitingForNextRound = true;
             await new Promise((resolve) => {
-                let check = setInterval(() => { if (!c.waitingForNextRound || (abortSig && abortSig.aborted)) { clearInterval(check); resolve(); } }, 200);
+                let check = setInterval(() => {
+                    // 等待中如果被切换到自动模式，也立刻推进
+                    if (!c.waitingForNextRound || c.autoMode || (abortSig && abortSig.aborted)) {
+                        clearInterval(check);
+                        resolve();
+                    }
+                }, 200);
             });
             if (abortSig && abortSig.aborted) return;
             c.waitingForNextRound = false;

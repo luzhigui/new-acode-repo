@@ -253,13 +253,15 @@ function setAllSpeedButtonsEnabled(enabled) {
     const ids = ['btnSpeed2', 'btnSpeed05', 'btnSpeed7x', 'btnSpeed4x', 'btnSpeed2x', 'btnSpeed05x'];
     ids.forEach(id => {
         const btn = document.getElementById(id);
-        if (btn) {
-            btn.disabled = !enabled;
-            // 移除 disabled 带来的灰色样式，保留自定义半高亮
-            if (btn.disabled && btn.classList.contains('semi-active')) {
-                btn.style.opacity = '1';
-                btn.style.filter = 'none';
-            }
+        if (!btn) return;
+        btn.disabled = !enabled;
+        // 所有被禁用的按钮都强制恢复视觉样式，不被浏览器灰色蒙层覆盖
+        if (!enabled) {
+            btn.style.opacity = '1';
+            btn.style.filter = 'none';
+        } else {
+            btn.style.opacity = '';
+            btn.style.filter = '';
         }
     });
 }
@@ -480,6 +482,7 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('btnAuto').addEventListener('click',function(){
         autoMode=!autoMode;this.classList.toggle('active',autoMode);this.textContent=autoMode?'自动':'手动';
         window._autoMode = autoMode;
+        // 只有在切换回自动模式时，才解除等待以自动推进回合
         if(autoMode&&waitingForNextRound)waitingForNextRound=false;
     });
     document.getElementById('btnDetail').addEventListener('click',function(){

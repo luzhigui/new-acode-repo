@@ -205,7 +205,11 @@ function applyPostAttackEffects(unit, target, dmg, atkAct, defAct, reboundEntry,
     const counterDmg = checkExtinctionCounter(target, dmg);
     if (counterDmg > 0) {
         unit.hp -= counterDmg; target.dmgDealt += counterDmg; unit.dmgTaken += counterDmg;
-        if (unit.hp <= 0) { unit.alive = false; unit._isDead = true; }
+        if (unit.hp <= 0) {
+            unit.alive = false;
+            unit._isDead = true;
+            if (!unit._deathTime) unit._deathTime = Date.now();
+        }
         log.push({type:'info', text:`<span class="red">⚔️ 灭绝双剑反击！${target.name} 对 ${unit.name} 造成 ${counterDmg} 点反击伤害</span>`, buffType:'elite_counter'});
         emitEvent(unit, 'hp-change', { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: unit.atk, def: unit.def });
     }
@@ -237,6 +241,7 @@ function processUnitAttack(unit, allySide, enemySide, log, A, B, state, doubleSt
         mg._events = [...window._battleEvents];
         window._battleEvents = [];
         log.push(mg);
+        log.push({ type: 'info', text: '<span class="separator">- - - - -</span>' });
         applyXinHunDeduction(unit, allySide, log);
         if (doubleStrikeUnitUid && unit.uid === doubleStrikeUnitUid && unit.alive && unit.camp === 'ally' && !unit._doubleStriked) {
             if (rand(1,100) <= 80) {
@@ -301,7 +306,11 @@ function processUnitAttack(unit, allySide, enemySide, log, A, B, state, doubleSt
             let attHpBefore = Math.floor(unit.hp);
             unit.hp -= reboundDmg; target.reboundDone += reboundDmg;
             unit.dmgTaken += reboundDmg;
-            if (unit.hp <= 0) { unit.alive = false; unit._isDead = true; }
+            if (unit.hp <= 0) {
+                unit.alive = false;
+                unit._isDead = true;
+                if (!unit._deathTime) unit._deathTime = Date.now();
+            }
             emitEvent(unit, 'hp-change', { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: unit.atk, def: unit.def });
             reboundEntry = {
                 type: 'buff-rebound-fortify',
@@ -351,7 +360,12 @@ function processUnitAttack(unit, allySide, enemySide, log, A, B, state, doubleSt
             if (unit.nearAtkCount === 3) {
                 let zt = getZhangNearTaunt(3); if (zt) group.entries.push({type:'info', text:`<span class="gold">🗣️ ${unit.name}：${zt}</span>`});
                 let extra = Math.floor(target.atk * 0.15); target.hp -= extra; unit.dmgDealt += extra;
-                if (target.hp <= 0) { target.hp = 0; target.alive = false; target._isDead = true; }
+                if (target.hp <= 0) {
+                    target.hp = 0;
+                    target.alive = false;
+                    target._isDead = true;
+                    if (!target._deathTime) target._deathTime = Date.now();
+                }
                 emitEvent(target, 'hp-change', { hp: target.hp, maxHp: target.maxHp, alive: target.alive, atk: target.atk, def: target.def });
                 group.entries.push({type:'info', text:`<span class="red">🔥 融会贯通额外+${extra}（目标攻击${Math.floor(target.atk)}×15%）</span>`});
             }
@@ -366,17 +380,22 @@ function processUnitAttack(unit, allySide, enemySide, log, A, B, state, doubleSt
             unit.dmgTaken += rebound;
             zhang.reboundDone += rebound;
             if (unit.hp <= 0) {
-        unit.alive = false;
-        unit._isDead = true;
-        unit._flash = 'dead';
-        if (!unit._deathTime) unit._deathTime = Date.now();
-    }
+                unit.alive = false;
+                unit._isDead = true;
+                unit._flash = 'dead';
+                if (!unit._deathTime) unit._deathTime = Date.now();
+            }
             let selfDmg = Math.floor(rebound * 0.1);
             zhang.hp -= selfDmg;
             zhang.dmgTaken += selfDmg;
             group.entries.push({type:'info', text:`<span class="gold">✨ 乾坤大挪移反弹${rebound}给${unit.name}（无忌自伤${selfDmg}）</span>`, buffType:'rebound'});
             if (unit.hp <= 0) { unit.alive = false; unit._isDead = true; }
-            if (zhang.hp <= 0) { zhang.hp = 0; zhang.alive = false; zhang._isDead = true; }
+            if (zhang.hp <= 0) {
+                zhang.hp = 0;
+                zhang.alive = false;
+                zhang._isDead = true;
+                if (!zhang._deathTime) zhang._deathTime = Date.now();
+            }
             emitEvent(unit, 'hp-change', { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: unit.atk, def: unit.def });
             emitEvent(zhang, 'hp-change', { hp: zhang.hp, maxHp: zhang.maxHp, alive: zhang.alive, atk: zhang.atk, def: zhang.def });
         }
@@ -393,6 +412,7 @@ function processUnitAttack(unit, allySide, enemySide, log, A, B, state, doubleSt
     }
     unit._acted = true;
     log.push(group);
+    log.push({ type: 'info', text: '<span class="separator">- - - - -</span>' });
     
     applyXinHunDeduction(unit, allySide, log);
     let nineYinTotal = applyPostAttackEffects(unit, target, dmg, atkAct, defAct, reboundEntry, allySide, enemySide, log, A);
@@ -584,6 +604,7 @@ export function* createRoundStepper(state) {
                 bg._events = [...window._battleEvents];
                 window._battleEvents = [];
                 log.push(bg);
+                log.push({ type: 'info', text: '<span class="separator">- - - - -</span>' });
             } else if (unit.isHorse) {
                 log.push({type:'info', text:`<span class="gray">🐴 拒马无法攻击，自动跳过</span>`});
             }
@@ -630,7 +651,12 @@ export function* createRoundStepper(state) {
     
     if (winner) {
         let losers = winner === '明教' ? B : A;
-        losers.forEach(u => { u.hp = 0; u.alive = false; u._isDead = true; });
+        losers.forEach(u => {
+            u.hp = 0;
+            u.alive = false;
+            u._isDead = true;
+            if (!u._deathTime) u._deathTime = Date.now();
+        });
     }
     
     log.push({type:'round-end', text:`<div class="separator">———— 第${round}回合结束 ————</div>`});
@@ -652,10 +678,10 @@ export function runBattleRound(state) {
         ally: finalResult.ally,
         enemy: finalResult.enemy,
         round: state.round,
-        log: [], // 日志已分散在各步骤中，旧接口不再返回日志
+        log: [],
         winner: finalResult.winner,
         activeBuffs: finalResult.ally._activeBuffs || [],
-        doubleStrikeUid: null // 旧接口不再追踪连击UID
+        doubleStrikeUid: null
     };
 }
 
