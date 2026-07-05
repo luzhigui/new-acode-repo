@@ -192,14 +192,23 @@ export function generateBuffChoices(activeBuffs) {
     return shuffled.slice(0, C.BUFF_CHOICES);
 }
 
+export function showBuffSelection(callback, activeBuffs, selectedBuffIndex, updateBuffSlotsFn, updateUIFn, autoScrollLogFn) {
+    const choices = generateBuffChoices(activeBuffs);
+    const text = '选择 Buff（持续 ' + C.BUFF_DURATION + ' 回合）';
+    const buttons = choices.map(key => ({
+        text: (C.BUFFS[key]?.icon || '?') + ' ' + (C.BUFFS[key]?.name || key) + '\n' + (C.BUFFS[key]?.desc || ''),
+        value: key,
+        cls: 'buff'
+    }));
     showModal(text, buttons, (key) => {
-        activeBuffs = activeBuffs.map(b => ({...b, remaining: b.remaining + 1}));
+        for (let i = 0; i < activeBuffs.length; i++) {
+            activeBuffs[i].remaining += 1;
+        }
         let duration = C.BUFFS[key].duration || C.BUFF_DURATION;
         if (activeBuffs.length >= 2) {
             let shortest = activeBuffs.reduce((a, b) => a.remaining < b.remaining ? a : b);
             activeBuffs.splice(activeBuffs.indexOf(shortest), 1);
         }
-        // ★ 圣火令初始化：携带随机生效行列
         if (key === 'holyFlame') {
             activeBuffs.push({ key, target: 'ally', remaining: duration, name: C.BUFFS[key].name, col: Math.floor(Math.random() * 3) + 1, row: Math.floor(Math.random() * 3) + 1 });
         } else {
@@ -212,6 +221,7 @@ export function generateBuffChoices(activeBuffs) {
         updateUIFn();
         callback();
     }, true, false);
+}
 // ==================== Buff 槽 ====================
 export function updateBuffSlots(activeBuffs, selectedBuffIndex) {
     for (let i = 0; i < 2; i++) {

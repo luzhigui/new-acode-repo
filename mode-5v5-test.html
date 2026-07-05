@@ -139,7 +139,7 @@
         .controls { display: flex; gap: 3px; justify-content: center; align-items: stretch; flex: 0 0 8dvh; padding: 2px 0; position: relative; z-index: 100; }
         .controls button { flex: 1; padding: 2px 1px; border-radius: 4px; border: 1px solid #aaa; background: #f0f0f0; font-size: 9px; cursor: pointer; white-space: nowrap; display: flex; align-items: center; justify-content: center; min-width: 0; }
         .controls button.active { background: #007bff; color: white; border-color: #007bff; }
-        .controls button.semi-active { background: rgba(0,123,255,0.3); color: #007bff; }
+        .controls button.semi-active { background: rgba(0,123,255,0.25); color: #007bff; border-color: rgba(0,123,255,0.5); pointer-events: none; opacity: 1 !important; filter: none !important; }
         .controls button:disabled { opacity: 0.35; cursor: not-allowed; }
         .speed-group { display: none; flex-direction: column; gap: 1px; flex: 1; }
         .speed-group button { flex: 1; padding: 2px 1px; border-radius: 4px; border: 1px solid #aaa; background: #f0f0f0; font-size: 9px; cursor: pointer; white-space: nowrap; display: flex; align-items: center; justify-content: center; }

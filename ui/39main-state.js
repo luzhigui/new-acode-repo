@@ -1,6 +1,6 @@
 // ui/39main-state.js - 光明顶5v5 状态管理
-// V4.0.2 | ~6000 bytes | 2026-07-06 补全播放器上下文方法
-export const VER = 'ui/39main-state.js V4.0.2';
+// V5.0.0 | ~6500 bytes | 2026-07-06 统一 activeBuffs 读写，移除局部副本
+export const VER = 'ui/39main-state.js V5.0.0';
 
 import { STATE } from '../core/01config-5v5-test.js';
 import { playLineText } from '../player/11battle-player-5v5-test.js';
@@ -36,7 +36,7 @@ export let selectedBuffIndex = -1;
 export let currentDoubleStrikeUid = null;
 export let runtimeMonitorActive = false;
 export let runtimeMonitorInterval = null;
-export let activeBuffs = [];
+export let activeBuffs = [];                // ← 全局唯一的 activeBuffs
 export let snapshot = { ally: [], enemy: [] };
 export let UI = { allyTeam: [], enemyTeam: [], currentResult: null, round: 0, lastSnapshot: null };
 

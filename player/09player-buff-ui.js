@@ -125,11 +125,7 @@ export async function handleBuffSummon(c, entry, prevEntry) {
     let div=document.createElement('div');div.innerHTML=entry.text+'<br>';
     document.getElementById('log').appendChild(div);
     c.autoScrollLog();
-    let sepAfter = document.createElement('div');
-    sepAfter.innerHTML = '<span class="separator">- - - - -</span><br>';
-    document.getElementById('log').appendChild(sepAfter);
-    c.autoScrollLog();
-    await new Promise(r=>setTimeout(r, c.speed/4));
+
 }
 
 export async function handleBuffDestroy(c, entry, prevEntry) {

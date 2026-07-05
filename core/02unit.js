@@ -48,6 +48,7 @@ export class Unit {
         c.buffDodgeBonus = this.buffDodgeBonus;
         c.buffHpBonus = this.buffHpBonus;
         c._baseMaxHp = this._baseMaxHp;
+        c._deathTime = this._deathTime;
         // V3.1.0 新增字段深拷贝
         c._kuaiLeStack = this._kuaiLeStack.map(layer => ({ ...layer }));
         c._xingFenActive = this._xingFenActive;

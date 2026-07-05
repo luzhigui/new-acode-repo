@@ -172,8 +172,12 @@ export function renderGrid(id, team, camp, debugMode, oldTeam) {
                 // 飞走状态：不渲染
                 unit = null;
             } else if (unit._isDead) {
-                // 死亡状态：显示尸体
-                unit = { ...unit, _flash: 'dead', _resting: false, _acted: false, _blocked: false };
+                // 死亡状态：如果被标记为视觉移除，或死亡超过3秒，则不渲染
+                if (unit._visuallyRemoved || (unit._deathTime && (Date.now() - unit._deathTime > 3000))) {
+                    unit = null;
+                } else {
+                    unit = { ...unit, _flash: 'dead', _resting: false, _acted: false, _blocked: false };
+                }
             }
         }
         if (!unit) {
@@ -246,6 +250,7 @@ export function renderGrid(id, team, camp, debugMode, oldTeam) {
         if (isDead) {
             let deadMark = document.createElement('span'); deadMark.className = 'dead-mark'; deadMark.textContent = '✕'; div.appendChild(deadMark);
             div.style.transform = 'scale(0.8)'; div.style.opacity = '0.9';
+
         }
         if (isBlocked && unit.alive && isResting && !(unit.isZhang && unit.rangedForm) && !isDead) {
             let zzz = document.createElement('div'); zzz.className = 'zzz-mark'; zzz.innerHTML = '<span>z</span><span>Z</span><span>Z</span>'; div.appendChild(zzz);
