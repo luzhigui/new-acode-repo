@@ -1,6 +1,6 @@
 // ui/13main-5v5-test.js - 光明顶5v5 主控模块
-// V4.0.0 | ~63168 bytes | 2026-07-05
-export const VER = 'ui/13main-5v5-test.js V4.0.0';
+// V4.0.5 | ~61000 bytes | 2026-07-06 修复：暴露 store 到上下文
+export const VER = 'ui/13main-5v5-test.js V4.0.5';
 
 import '../modules/24error-capture.js';
 import { CONFIG, STATE, KILL_TAUNT, ENEMY_M, VER as CFG_VER } from '../core/01config-5v5-test.js';
@@ -27,7 +27,7 @@ import { runRuntimeSample } from '../tests/36runtime-sampler.js';
 
 const C = CONFIG, S = STATE, KT = KILL_TAUNT;
 
-const FILE_VER = '13main-5v5-test.js V3.0.3';
+const FILE_VER = '13main-5v5-test.js V4.0.5';
 const INDEX_VER = 'mode-5v5-test.html test V3.0';
 const LOG_LINE1 = '⚔️ 光明顶5v5对决 · 九宫格混战模式 ⚔️';
 const PARTY_SIZE = 5;
@@ -264,13 +264,12 @@ function doInitBattle() {
     let enemyUnits = [];
     if (enemySquad) {
         let enemyPosSet = new Set();
-        let xuanmingPairCount = 0; // 鹿杖客+鹤笔翁 组合计数，只算1个名额
+        let xuanmingPairCount = 0;
         for (let item of enemySquad) {
             if (typeof item === 'object' && item.name) {
                 let unit = new Unit(item.name, item.m, item.role, 'enemy');
                 unit.pos = null; unit.init(); unit.applyBonus();
                 enemyUnits.push(unit);
-                // 检测玄冥二老组合：只计一次名额
                 if (item.name === '鹿杖客' || item.name === '鹤笔翁') {
                     xuanmingPairCount++;
                 }
@@ -292,9 +291,8 @@ function doInitBattle() {
                 enemyUnits.push(unit);
             }
         }
-        // 第五关特殊处理：玄冥二老只算1个名额，补1个普通敌人
         if (currentStage === 5 && xuanmingPairCount === 2) {
-            let extraM = 104; // 补一个M=104的普通敌人
+            let extraM = 104;
             let pool = Object.entries(ENEMY_M).filter(([n, v]) => v === extraM);
             let usedNames = enemyUnits.map(u => u.name);
             let name = null;
@@ -309,13 +307,10 @@ function doInitBattle() {
             extraUnit.init(); extraUnit.applyBonus();
             enemyUnits.push(extraUnit);
         }
-        // 精英站位优先级：先普通后精英，精英按 pos 配置优先站位
         let allUnits = [...enemyUnits];
         let template = C.ENEMY_POS_TEMPLATES && C.ENEMY_POS_TEMPLATES[currentStage] ? C.ENEMY_POS_TEMPLATES[currentStage] : null;
-        // 先分离精英（有名有姓的）和普通敌人
         let eliteUnits = allUnits.filter(u => C.ELITE_POOL && C.ELITE_POOL[currentStage] && C.ELITE_POOL[currentStage].some(e => e.name === u.name));
         let normalUnits = allUnits.filter(u => !eliteUnits.includes(u));
-        // 普通敌人按模板占位
         if (template) {
             for (let [role, poses] of Object.entries(template)) {
                 if (role === 'random') continue;
@@ -325,17 +320,13 @@ function doInitBattle() {
                 }
             }
         }
-        // 普通敌人剩余随机占位
         let unplacedNormals = normalUnits.filter(u => u.pos == null);
         let emptySlots = [1,2,3,4,5,6,7,8,9].filter(p => !enemyPosSet.has(p));
         for (let u of unplacedNormals) {
             if (emptySlots.length > 0) { let idx = rand(0, emptySlots.length - 1); u.pos = emptySlots[idx]; u._originalPos = u.pos; enemyPosSet.add(emptySlots[idx]); emptySlots.splice(idx, 1); }
         }
-        // 精英站位优先级：周芷若优先2号位，宋青书必须在周芷若后面
         const zhou = eliteUnits.find(u => u.name === '周芷若');
         const song = eliteUnits.find(u => u.name === '宋青书');
-        
-        // 周芷若优先占位：2→3→4→5→6→7→8→9
         if (zhou) {
             const zhouPriority = [2, 3, 4, 5, 6, 7, 8, 9];
             for (const p of zhouPriority) {
@@ -345,7 +336,6 @@ function doInitBattle() {
                 }
             }
         }
-        // 宋青书：必须在周芷若序号之后，且靠前
         if (song) {
             const zhouPos = zhou ? zhou.pos : 0;
             for (let p = zhouPos + 1; p <= 9; p++) {
@@ -355,7 +345,6 @@ function doInitBattle() {
                 }
             }
             if (song.pos == null) {
-                // 周芷若在9号位时，宋青书随机找空位
                 for (let p = 1; p <= 9; p++) {
                     if (!enemyPosSet.has(p)) {
                         song.pos = p; song._originalPos = p; enemyPosSet.add(p);
@@ -364,7 +353,6 @@ function doInitBattle() {
                 }
             }
         }
-        // 其他精英随机占位
         const otherElites = eliteUnits.filter(u => u !== zhou && u !== song && u.pos == null);
         for (let u of otherElites) {
             emptySlots = [1,2,3,4,5,6,7,8,9].filter(p => !enemyPosSet.has(p));
@@ -778,6 +766,9 @@ function getPlayerContext() {
         get selectedBuffIndex() { return selectedBuffIndex; }, set selectedBuffIndex(v) { selectedBuffIndex = v; },
         get currentDoubleStrikeUid() { return currentDoubleStrikeUid; }, set currentDoubleStrikeUid(v) { currentDoubleStrikeUid = v; },
         get dodgeEffectEnabled() { return dodgeEffectEnabled; }, set dodgeEffectEnabled(v) { dodgeEffectEnabled = v; },
+        // ★ 暴露 Store 供验证
+        get store() { return window._battleStore; },
+        set store(v) { window._battleStore = v; },
         fadeBGMTo, waitWhilePaused, updateUI, updateScoreBadge,
         spawnVictoryEffects, updateButtons, enableAllButtons, updateSpeedButtons,
         _triggerFX, playLineTextWrapper: playLineText,
