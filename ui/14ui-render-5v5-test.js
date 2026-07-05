@@ -208,6 +208,7 @@ if (unit && !unit.isHorse && (unit._flyMode || unit._isDead)) unit = null;
         if (isDead) { div.setAttribute('data-flash', 'dead'); }
         else if (unit._flash) { div.setAttribute('data-flash', unit._flash); }
         div.dataset.pos = pos;
+        div.dataset.uid = unit.uid; // ✅ 只在这里加这一句！
         if (camp === 'ally' && isAdjustMode) {
             if (unit.fixed) { div.classList.add('fixed-unit'); }
             else { div.classList.add('swappable'); if (selectedPos === pos) div.classList.add('adjust-selected'); }
