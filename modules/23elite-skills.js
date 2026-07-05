@@ -24,12 +24,10 @@ export function checkExtinctionCounter(defender, dmg) {
 export function checkNineYinClaw(attacker, target, baseDmg, log) {
     if (attacker.name !== '周芷若') return 0;
     const s = ES.nineYinClaw;
-    // 张无忌在己方存活时触发嫉妒，伤害比例从25%提升至40%
     const zhangAlive = window._currentBattleState && window._currentBattleState.ally && 
         window._currentBattleState.ally.some(u => u.isZhang && u.alive);
     const bonusRatio = zhangAlive ? s.jealousBonus : s.bonusRatio;
     
-    // 首次必定触发，后续概率 85%
     if (!attacker._nineYinFirstDone) {
         attacker._nineYinFirstDone = true;
     } else {
@@ -37,14 +35,19 @@ export function checkNineYinClaw(attacker, target, baseDmg, log) {
     }
     let totalBonus = 0;
     for (let depth = 0; depth < s.maxChain; depth++) {
-        if (depth > 0 && Math.random() > 0.85) break;  // 追击也改85%
+        if (depth > 0 && Math.random() > 0.85) break;
         const bonusDmg = Math.floor(baseDmg * bonusRatio);
         totalBonus += bonusDmg;
         if (target && target.alive) {
             target.hp = Math.max(0, target.hp - bonusDmg);
             attacker.dmgDealt += bonusDmg;
             target.dmgTaken += bonusDmg;
-            if (target.hp <= 0) { target.hp = 0; target.alive = false; target._isDead = true; }
+            if (target.hp <= 0) {
+                target.hp = 0;
+                target.alive = false;
+                target._isDead = true;
+                if (!target._deathTime) target._deathTime = Date.now();
+            }
             if (typeof window._emitEvent === 'function') {
                 window._emitEvent(target, 'hp-change', { hp: target.hp, maxHp: target.maxHp, alive: target.alive, atk: target.atk, def: target.def });
             }
@@ -54,7 +57,7 @@ export function checkNineYinClaw(attacker, target, baseDmg, log) {
             text:`<span class="purple">🦅 九阴白骨爪追击！${attacker.name} 额外造成 ${bonusDmg} 点伤害（不可闪避）${zhangAlive ? '【嫉妒】' : ''}</span>`, 
             buffType:'elite_bonus'
         });
-        if (depth < s.maxChain - 1 && target && !target.alive) break; // 目标已死则停止追击
+        if (depth < s.maxChain - 1 && target && !target.alive) break;
     }
     return totalBonus;
 }
@@ -69,15 +72,15 @@ export function getRebelTarget(attacker, enemySide) {
 }
 
 /**
- * 宋青书增伤比例（不含真实伤害，真实伤害在引擎中计算）
+ * 宋青书增伤比例
  */
 export function getRebelDmgBonus(attacker) {
     if (attacker.name !== '宋青书') return 0;
-    return ES.rebelStrike.dmgBonus;  // 0.3
+    return ES.rebelStrike.dmgBonus;
 }
 
 /**
- * 宋青书 - 真实伤害（目标当前生命比例）
+ * 宋青书 - 真实伤害
  */
 export function getRebelTrueDmg(attacker, target) {
     if (attacker.name !== '宋青书') return 0;
@@ -114,7 +117,12 @@ export function tickXuanmingPoison(unit) {
     unit._xuanmingPoison.remaining--;
     const dot = unit._xuanmingPoison.dotValue;
     unit.hp -= dot;
-    if (unit.hp <= 0) { unit.hp = 0; unit.alive = false; }
+    if (unit.hp <= 0) {
+        unit.hp = 0;
+        unit.alive = false;
+        unit._isDead = true;
+        if (!unit._deathTime) unit._deathTime = Date.now();
+    }
     return dot;
 }
 
@@ -134,28 +142,23 @@ export function getHornStrikeBonus(attacker, target) {
 // ==================== V3.1.0 新增：宋青书/周芷若联动技能 ====================
 
 /**
- * 苦练判定：场上无周芷若时，返回应率先行动的宋青书单位
- * @param {Array} allyTeam - 宋青书所在队伍
- * @returns {object|null} 宋青书单位，或null表示不触发
+ * 苦练判定
  */
 export function checkKuLian(allyTeam) {
     const song = allyTeam.find(u => u.name === '宋青书' && u.alive);
     if (!song) return null;
     const zhou = allyTeam.find(u => u.name === '周芷若' && u.alive);
-    if (zhou) return null;  // 周芷若在场，不触发苦练
+    if (zhou) return null;
     return song;
 }
 
 /**
- * 性奋授予：周芷若在场时，每回合开始时授予宋青书性奋状态
- * @param {Array} allyTeam - 敌方队伍（宋青书/周芷若所在队伍）
- * @param {Array} log - 日志数组
+ * 性奋授予
  */
 export function applyXingFenGrant(allyTeam, log) {
     const zhou = allyTeam.find(u => u.name === '周芷若' && u.alive);
     const song = allyTeam.find(u => u.name === '宋青书' && u.alive);
     if (!zhou || !song) return;
-    
     song._xingFenActive = true;
     log.push({
         type: 'buff-summary',
@@ -165,17 +168,12 @@ export function applyXingFenGrant(allyTeam, log) {
 }
 
 /**
- * 新婚扣血+叠快乐：宋青书每次攻击时，扣除周芷若1点血，并给周芷若叠一层16%快乐
- * @param {object} attacker - 宋青书
- * @param {Array} allyTeam - 所在队伍
- * @param {Array} log - 日志数组
+ * 新婚扣血+叠快乐
  */
 export function applyXinHunDeduction(attacker, allyTeam, log) {
     if (attacker.name !== '宋青书') return;
     const zhou = allyTeam.find(u => u.name === '周芷若' && u.alive);
     if (!zhou) return;
-    
-    // 扣血
     zhou.hp = Math.max(0, zhou.hp - ES.xinHun.hpDeduct);
     zhou.dmgTaken += ES.xinHun.hpDeduct;
     if (typeof window._emitEvent === 'function') {
@@ -184,10 +182,7 @@ export function applyXinHunDeduction(attacker, allyTeam, log) {
     if (typeof emitEvent === 'function') {
         emitEvent(zhou, 'hp-change', { hp: zhou.hp, maxHp: zhou.maxHp, alive: zhou.alive, atk: zhou.atk, def: zhou.def });
     }
-    
-    // 叠快乐
-    zhou._kuaiLeStack.push({ healPct: ES.xinHun.healLevels[0] });  // 0.16
-    
+    zhou._kuaiLeStack.push({ healPct: ES.xinHun.healLevels[0] });
     log.push({
         type: 'info',
         text: `<span class="gold">💒 新婚：${attacker.name}攻击，${zhou.name}被扣除${ES.xinHun.hpDeduct}点血量，叠加一层快乐(16%)！当前快乐层数：${zhou._kuaiLeStack.length}</span>`,
@@ -195,11 +190,11 @@ export function applyXinHunDeduction(attacker, allyTeam, log) {
         zhouUid: zhou.uid,
         zhouHpAfter: zhou.hp
     });
-    
     if (zhou.hp <= 0) {
         zhou.hp = 0;
         zhou.alive = false;
         zhou._isDead = true;
+        if (!zhou._deathTime) zhou._deathTime = Date.now();
         log.push({
             type: 'info',
             text: `<span class="red">💀 ${zhou.name} 因新婚扣血而阵亡！</span>`
@@ -208,31 +203,23 @@ export function applyXinHunDeduction(attacker, allyTeam, log) {
 }
 
 /**
- * 快乐回血+降级：每回合开始时，遍历所有单位，触发快乐回血并降级
- * @param {Array} allUnits - 所有存活单位（双方合并）
- * @param {Array} log - 日志数组
+ * 快乐回血+降级
  */
 export function tickKuaiLeHeal(allUnits, log) {
     allUnits.forEach(unit => {
         if (!unit._kuaiLeStack || unit._kuaiLeStack.length === 0) return;
         if (!unit.alive) return;
-        
         let totalHeal = 0;
         const newStack = [];
-        
         unit._kuaiLeStack.forEach(layer => {
             const healAmount = Math.floor(unit.maxHp * layer.healPct);
             totalHeal += healAmount;
-            
-            // 降级：找到当前层在healLevels中的位置，取下一级
             const levels = ES.xinHun.healLevels;
             const currentIdx = levels.indexOf(layer.healPct);
             if (currentIdx >= 0 && currentIdx < levels.length - 1) {
                 newStack.push({ healPct: levels[currentIdx + 1] });
             }
-            // 如果已经是最后一级(0.01)，则不推入，即该层消失
         });
-        
         if (totalHeal > 0) {
             const hpBefore = unit.hp;
             unit.hp = Math.min(unit.maxHp, unit.hp + totalHeal);
@@ -248,16 +235,10 @@ export function tickKuaiLeHeal(allUnits, log) {
                 zhouHpAfter: unit.hp
             });
         }
-        
         unit._kuaiLeStack = newStack;
     });
 }
 
-/**
- * 性奋额外攻击判定：宋青书攻击后，检查是否可触发性奋额外攻击
- * @param {object} attacker - 宋青书
- * @returns {boolean} 是否可触发额外攻击
- */
 export function canXingFenTrigger(attacker) {
     if (attacker.name !== '宋青书') return false;
     if (!attacker._xingFenActive) return false;
@@ -265,10 +246,6 @@ export function canXingFenTrigger(attacker) {
     return true;
 }
 
-/**
- * 消费性奋次数：额外攻击触发后调用
- * @param {object} attacker - 宋青书
- */
 export function consumeXingFen(attacker) {
     attacker._xingFenActive = false;
 }
