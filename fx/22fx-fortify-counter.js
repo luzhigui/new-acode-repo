@@ -1,5 +1,5 @@
 // fx/22fx-fortify-counter.js - 光明顶5v5 严阵以待反击特效
-// V4.0.0 | ~200 lines | 2026-06-29 09:29
+// V4.0.0 | ~7600 bytes | 2026-07-05
 export const VER = 'fx/22fx-fortify-counter.js V4.0.0';
 
 import { showDamageFloat, showComicBubble } from './15fx-common-5v5-test.js';

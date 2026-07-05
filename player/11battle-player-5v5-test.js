@@ -1,5 +1,5 @@
 // player/11battle-player-5v5-test.js - 光明顶5v5 战斗播放器入口
-// V4.0.0 | ~45 lines | 2026-06-29 09:29
+// V4.0.0 | ~1062 bytes | 2026-07-05
 export const VER = 'player/11battle-player-5v5-test.js V4.0.0';
 
 // 导入子模块的实际功能函数

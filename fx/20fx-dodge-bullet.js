@@ -1,5 +1,5 @@
 // fx/20fx-dodge-bullet.js - 光明顶5v5 闪避反击特效
-// V4.0.0 | ~25000 bytes | 2026-06-29 09:29
+// V4.0.0 | ~22479 bytes | 2026-07-05
 export const VER = 'fx/20fx-dodge-bullet.js V4.0.0';
 
 import { showComicBubble } from './15fx-common-5v5-test.js';

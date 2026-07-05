@@ -1,5 +1,5 @@
 // fx/16fx-arrows-5v5-test.js - 光明顶5v5 飞箭特效
-// V4.0.0 | ~280 lines | 2026-06-29 09:29
+// V4.0.0 | ~10737 bytes | 2026-07-05
 export const VER = 'fx/16fx-arrows-5v5-test.js V4.0.0';
 
 function applyWholeShake(elements, durationMs, basePositions, angle, getPausedFn, onComplete) {

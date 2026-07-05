@@ -1,5 +1,5 @@
 // player/09player-buff-ui.js - 光明顶5v5 Buff弹窗与横幅
-// V4.0.0 | ~296 lines | 2026-06-29 09:29
+// V4.0.0 | ~8171 bytes | 2026-07-05
 export const VER = 'player/09player-buff-ui.js V4.0.0';
 
 import { CONFIG } from '../core/01config-5v5-test.js';

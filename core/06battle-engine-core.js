@@ -1,6 +1,6 @@
 // core/06battle-engine-core.js - 光明顶5v5 战斗核心循环
-// V4.0.2 | 2026-06-30 修复严阵以待K值、九阴白骨爪UI伤害同步
-export const VER = 'core/06battle-engine-core.js V4.0.2';
+// V4.0.0 | ~34231 bytes | 2026-07-05
+export const VER = 'core/06battle-engine-core.js V4.0.0';
 
 import { CONFIG, DEF_TAUNT, HP_TAUNT } from './01config-5v5-test.js';
 import { rand, calcDamage, getFangLevel, isMelee, getFronts, isBlocked, getFlyDodgeRate, getRandomTaunt, getZhangNearTaunt, makeFXSnapshot, hasBuff } from './03battle-utils.js';
@@ -13,6 +13,45 @@ import {
     checkKuLian, applyXingFenGrant, applyXinHunDeduction, tickKuaiLeHeal, canXingFenTrigger, consumeXingFen
 } from '../modules/23elite-skills.js';
 const C = CONFIG, DT = DEF_TAUNT, HT = HP_TAUNT;
+
+// ==================== 事件系统增强 ====================
+function emitEvent(unit, eventType, payload) {
+    if (typeof window._battleEvents === 'undefined') return;
+    // 自动补全所有统计字段和 Buff 加成，确保 Store 获得完整快照
+    payload.dmgDealt = unit.dmgDealt;
+    payload.dmgTaken = unit.dmgTaken;
+    payload.healDone = unit.healDone;
+    payload.reboundDone = unit.reboundDone;
+    payload.leechDone = unit.leechDone;
+    payload.dodgeCount = unit.dodgeCount;
+    payload.critCount = unit.critCount;
+    payload.survivedRounds = unit.survivedRounds;
+    payload.buffAtkBonus = unit.buffAtkBonus || 0;
+    payload.buffDefBonus = unit.buffDefBonus || 0;
+    payload.buffDodgeBonus = unit.buffDodgeBonus || 0;
+    payload.buffHpBonus = unit.buffHpBonus || 0;
+    payload._isAbsolute = true;  // 标记为绝对值，UI 侧直接赋值而非累加
+    window._battleEvents.push({ unitUid: unit.uid, eventType, payload });
+}
+window._emitEvent = emitEvent;
+
+// 工具函数：发射整个单位的状态（用于添加/移除单位等场景）
+function emitFullUnitState(unit, eventType) {
+    emitEvent(unit, eventType, {
+        uid: unit.uid,
+        name: unit.name,
+        role: unit.role,
+        camp: unit.camp,
+        pos: unit.pos,
+        hp: unit.hp,
+        maxHp: unit.maxHp,
+        atk: unit.atk,
+        def: unit.def,
+        alive: unit.alive,
+        isHorse: unit.isHorse || false,
+        _isDead: unit._isDead || false
+    });
+}
 
 // ==================== 拆分后的独立函数 ====================
 
@@ -30,6 +69,15 @@ function checkZhangSwitch(A, log) {
         zhang.hp = Math.min(zhang.hp + 50, zhang.maxHp); zhang.role = '战士';
         zhang._blocked = false; zhang._resting = false; zhang._zhangSwitched = true;
         zhang._baseMaxHp = zhang.maxHp;
+        // 发射张无忌切换事件
+        emitEvent(zhang, 'zhang-switch', {
+            atk: zhang.atk,
+            def: zhang.def,
+            maxHp: zhang.maxHp,
+            hp: zhang.hp,
+            role: zhang.role,
+            rangedForm: false
+        });
         log.push({ type:'info', text:`<span class="gold">⚔️ 张无忌切换近战形态！攻+3、防+2、生命上限+50</span>`, isZhangSwitch:true, unit: zhang });
         log.push({ type:'info', text:`<span class="gold">🗣️ 张无忌：不好，要顶上去了！</span>`, isZhangTaunt:true });
     }
@@ -66,7 +114,7 @@ function resolveDodge(unit, target, attackerBuffStats, log) {
     let reboundDmg = Math.floor((target.atk + target.def) * 0.5);
     let unitHpBeforeRebound = Math.floor(unit.hp);
     unit.hp -= reboundDmg; target.dmgDealt += reboundDmg; unit.dmgTaken += reboundDmg;
-    emitEvent(unit, 'hp-change', { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: unit.atk, def: unit.def, dmgDealt: target.dmgDealt, dmgTaken: unit.dmgTaken });
+    emitEvent(unit, 'hp-change', { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: unit.atk, def: unit.def });
     let dg = {type:'attack-group', uidA:target.uid, uidD:unit.uid, entries:[], isDodge:true, hpAfter:unit.hp, alive:unit.alive, _fxSnapshot:makeFXSnapshot(target,unit), waveTaunt:null, waveUnit:null, buffEffects:[], _atkBonus:0, _defBonus:0};
     if (target.isWei) {
         let heal = Math.floor(reboundDmg * 0.15);
@@ -112,7 +160,6 @@ function calcAttackDamage(unit, target, attackerBuffStats, defenderBuffStats) {
     }
     let raw, rawFormula;
     if (unit.role === '防战') {
-        // ★修复：使用 Buff 后防御计算 K 值
         let displayDef = Math.floor(unit.def + unit.def * (attackerBuffStats.defBonus || 0));
         let lv = getFangLevel(displayDef, unit.m), k = C.FANG_K[lv];
         let penPart = calcDamage(atkAct, defAct);
@@ -148,7 +195,6 @@ function applyPostAttackEffects(unit, target, dmg, atkAct, defAct, reboundEntry,
     if (unit.camp === 'ally') {
         applyBuffEffectsAfterAttack(unit, target, dmg, allySide, enemySide, log);
     }
-    // 九阴白骨爪返回总追击伤害，用于之后同步 _dmg
     let nineYinTotal = checkNineYinClaw(unit, target, dmg, log);
     const counterDmg = checkExtinctionCounter(target, dmg);
     if (counterDmg > 0) {
@@ -162,25 +208,10 @@ function applyPostAttackEffects(unit, target, dmg, atkAct, defAct, reboundEntry,
     if (reboundEntry) { log.push(reboundEntry); }
     let dead = !target.alive;
     if (dead && target.camp === 'ally') { checkZhangSwitch(A, log); }
-    // 返回九阴白骨爪总伤害
     return nineYinTotal;
 }
 
-// 事件发射辅助函数
-function emitEvent(unit, eventType, payload) {
-    if (typeof window._battleEvents === 'undefined') return;
-    payload.dmgDealt = unit.dmgDealt;
-    payload.dmgTaken = unit.dmgTaken;
-    payload.healDone = unit.healDone;
-    payload.reboundDone = unit.reboundDone;
-    payload.leechDone = unit.leechDone;
-    payload.dodgeCount = unit.dodgeCount;
-    payload.critCount = unit.critCount;
-    payload.survivedRounds = unit.survivedRounds;
-    payload._isAbsolute = true;  // 标记为绝对值，UI 侧直接赋值而非累加
-    window._battleEvents.push({ unitUid: unit.uid, eventType, payload });
-}
-window._emitEvent = emitEvent;
+// ==================== 攻击执行主函数 ====================
 
 function processUnitAttack(unit, allySide, enemySide, log, A, B, state, doubleStrikeUnitUid) {
     let target = selectTarget(unit, enemySide);
@@ -201,7 +232,6 @@ function processUnitAttack(unit, allySide, enemySide, log, A, B, state, doubleSt
         window._battleEvents = [];
         log.push(mg);
         applyXinHunDeduction(unit, allySide, log);
-        // Miss 后仍需检查后续攻击机会（概率连击/性奋）
         if (doubleStrikeUnitUid && unit.uid === doubleStrikeUnitUid && unit.alive && unit.camp === 'ally' && !unit._doubleStriked) {
             if (rand(1,100) <= 80) {
                 log.push({type:'info', text:`<span class="gold">⚡ 概率连击触发！</span>`, isDoubleStrikeBanner:true});
@@ -262,7 +292,7 @@ function processUnitAttack(unit, allySide, enemySide, log, A, B, state, doubleSt
         if (reboundDmg > 0) {
             let attHpBefore = Math.floor(unit.hp);
             unit.hp -= reboundDmg; target.reboundDone += reboundDmg;
-            unit.dmgTaken += reboundDmg;  // 反弹伤害计入攻击者承伤
+            unit.dmgTaken += reboundDmg;
             if (unit.hp <= 0) { unit.alive = false; unit._isDead = true; }
             emitEvent(unit, 'hp-change', { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: unit.atk, def: unit.def });
             reboundEntry = {
@@ -279,7 +309,6 @@ function processUnitAttack(unit, allySide, enemySide, log, A, B, state, doubleSt
     let displayAtk = Math.floor(unit.atk + unit.atk * attackerBuffStats.atkBonus);
     let displayDef = Math.floor(target.def + target.def * defenderBuffStats.defBonus);
     let unitHpBefore = Math.floor(unit.hp);
-    // ★ 九阴白骨爪总伤害将在 applyPostAttackEffects 中计算，此处暂时用基础伤害
     let group = { type:'attack-group', uidA:unit.uid, uidD:target.uid, entries:[], hpAfter:target.hp, alive:target.alive, isDead:dead, waveTaunt, waveUnit, unitRole:unit.role, _fxSnapshot:makeFXSnapshot(unit,target), _dmg:dmg, _isZhangNear:unit.isZhang && !unit.rangedForm, _nearAtkCount:unit.nearAtkCount, hpPctBefore, hpPctAfter, isMiss:miss, isDodge:false, buffEffects:[], _atkBonus:Math.floor(unit.atk * attackerBuffStats.atkBonus), _defBonus:Math.floor(target.def * defenderBuffStats.defBonus) };
     group.entries.push({type:'combat-text', text:`<span class="${ac}">${campA} ${unit.name}</span>(攻${displayAtk} 血${unitHpBefore}) → <span class="${dc}">${campD} ${target.name}</span>(防${displayDef} 血${hpBefore})`});
     group.entries.push({type:'detail', text:`<span class="gray small">波动：攻${atkBase}→${atkAct} 防${defBase}→${defAct} 血${hpBonus >= 0 ? '+' + hpBonus : hpBonus}</span>`});
@@ -326,7 +355,7 @@ function processUnitAttack(unit, allySide, enemySide, log, A, B, state, doubleSt
             let rebound = Math.floor(dmg * 0.15);
             unit.hp -= rebound;
             unit.dmgTaken += rebound;
-            unit.dmgTaken += rebound;  // 反弹伤害额外计入承伤
+            unit.dmgTaken += rebound;
             zhang.reboundDone += rebound;
             let selfDmg = Math.floor(rebound * 0.1);
             zhang.hp -= selfDmg;
@@ -352,11 +381,9 @@ function processUnitAttack(unit, allySide, enemySide, log, A, B, state, doubleSt
     log.push(group);
     
     applyXinHunDeduction(unit, allySide, log);
-    // ★ 调用 applyPostAttackEffects 并获取九阴白骨爪总伤害
     let nineYinTotal = applyPostAttackEffects(unit, target, dmg, atkAct, defAct, reboundEntry, allySide, enemySide, log, A);
-    group._events = [...window._battleEvents];  // 将本轮事件快照存入日志（移到 applyPostAttackEffects 之后）
-    window._battleEvents = [];                  // 清空全局队列
-    // 同步 _dmg 为包含九阴白骨爪后的总伤害
+    group._events = [...window._battleEvents];
+    window._battleEvents = [];
     if (nineYinTotal > 0) {
         group._dmg += nineYinTotal;
     }
@@ -380,7 +407,7 @@ function processUnitAttack(unit, allySide, enemySide, log, A, B, state, doubleSt
     return true;
 }
 
-// ==================== 拆分后的主函数 ====================
+// ==================== 回合循环 ====================
 
 export function runBattleRound(state) {
     let A = state.ally.filter(u => u.alive).map(u => u.clone());
@@ -388,7 +415,6 @@ export function runBattleRound(state) {
     let log = [];
     let round = state.round;
     
-    // console.log('runBattleRound state.activeBuffs:', JSON.stringify(state.activeBuffs?.map(b => ({ key: b.key, target: b.target }))));
     A._activeBuffs = state.activeBuffs.filter(b => b.target === 'ally' || !b.target);
     B._activeBuffs = state.activeBuffs.filter(b => b.target === 'enemy');
     
@@ -398,16 +424,27 @@ export function runBattleRound(state) {
     
     tickKuaiLeHeal(A.concat(B), log);
     
+    // 玄冥毒伤害 + 事件发射
     A.concat(B).forEach(u => {
         if (!u.alive) return;
         const dot = tickXuanmingPoison(u);
         if (dot > 0) {
             log.push({ type:'info', text:`<span class="purple">❄️ 玄冥神掌寒毒发作，${u.name} 受到 ${dot} 点伤害</span>` });
+            emitEvent(u, 'hp-change', { hp: u.hp, maxHp: u.maxHp, alive: u.alive, atk: u.atk, def: u.def });
         }
     });
     
     spawnHorse(A, log, B);
     spawnHorse(B, log, A);
+    
+    // 拒马生成事件发射
+    log.filter(l => l.type === 'buff-summon').forEach(hl => {
+        const team = (hl.buffType === 'summon') ? A : B; // 简化判断
+        const horse = team.find(u => u.uid === hl.horseUid);
+        if (horse) {
+            emitFullUnitState(horse, 'unit-add');
+        }
+    });
     
     applyXingFenGrant(B, log);
     
@@ -423,9 +460,10 @@ export function runBattleRound(state) {
     window._currentBattleState = { ally: state.ally, enemy: state.enemy };
     logBuffSummary(A, log, doubleStrikeUnitUid);
     
+    // 为 A 方计算 Buff 并发射 stat-bonus-change
     A.forEach(u => {
         if (!u.alive) return;
-        let allyTeamWithDead = A.slice();  // 含本回合 tick 毒死的单位(alive=false)，避免漏算死亡加成
+        let allyTeamWithDead = A.slice();
         if (hasBuff(A._activeBuffs, 'carry')) {
             allyTeamWithDead = allyTeamWithDead.concat(state.ally.filter(c => !c.alive));
             allyTeamWithDead = allyTeamWithDead.filter((u, i, arr) => arr.findIndex(v => v.uid === u.uid) === i);
@@ -435,6 +473,12 @@ export function runBattleRound(state) {
         u.buffDefBonus = stats.defBonus;
         u.buffDodgeBonus = stats.dodgeBonus;
         u.buffHpBonus = stats.hpBonus;
+        emitEvent(u, 'stat-bonus-change', {
+            buffAtkBonus: stats.atkBonus,
+            buffDefBonus: stats.defBonus,
+            buffDodgeBonus: stats.dodgeBonus,
+            buffHpBonus: stats.hpBonus
+        });
         if (hasBuff(A._activeBuffs, 'carry') && u.pos === 5 && u._baseMaxHp !== undefined && !u.isHorse) {
             let oldMaxHp = u.maxHp, oldHp = u.hp;
             let extraHp = Math.floor(u._baseMaxHp * stats.hpBonus);
@@ -451,7 +495,24 @@ export function runBattleRound(state) {
         u._extinctionUsed = false;
         u._acted = false;
     });
-    B.forEach(u => { u._extinctionUsed = false; u._acted = false; });
+    
+    // 为 B 方计算 Buff 并发射 stat-bonus-change
+    B.forEach(u => {
+        if (!u.alive) return;
+        let stats = computeBuffStats(u, B._activeBuffs || [], B);
+        u.buffAtkBonus = stats.atkBonus;
+        u.buffDefBonus = stats.defBonus;
+        u.buffDodgeBonus = stats.dodgeBonus;
+        u.buffHpBonus = stats.hpBonus;
+        emitEvent(u, 'stat-bonus-change', {
+            buffAtkBonus: stats.atkBonus,
+            buffDefBonus: stats.defBonus,
+            buffDodgeBonus: stats.dodgeBonus,
+            buffHpBonus: stats.hpBonus
+        });
+        u._extinctionUsed = false;
+        u._acted = false;
+    });
     
     const kuLianUnit = checkKuLian(B);
     if (kuLianUnit) {
@@ -506,6 +567,16 @@ export function runBattleRound(state) {
     }
 
     destroyHorse(A, log); destroyHorse(B, log);
+    
+    // 拒马销毁事件发射
+    log.filter(l => l.type === 'buff-destroy').forEach(hl => {
+        const team = hl.buffType === 'destroy' ? A : B; // 简化
+        const horse = team.find(u => u.uid === hl.horseUid);
+        if (horse) {
+            emitEvent(horse, 'unit-remove', { uid: horse.uid });
+        }
+    });
+    
     A._activeBuffs = (A._activeBuffs || []).map(b => ({...b, remaining: b.remaining - 1})).filter(b => b.remaining > 0);
     B._activeBuffs = (B._activeBuffs || []).map(b => ({...b, remaining: b.remaining - 1})).filter(b => b.remaining > 0);
 
@@ -547,7 +618,6 @@ export function runBattle(snapshot, activeBuffs = [], buffData = {}) {
                 doubleStrikeUids
             };
         }
-        // console.log('runBattle loop: round', state.round, 'activeBuffs before:', JSON.stringify(state.activeBuffs?.map(b => b.key)), 'result.activeBuffs:', JSON.stringify(result.activeBuffs?.map(b => b.key)));
         state = {
             ally: result.ally, enemy: result.enemy,
             round: state.round + 1, activeBuffs: result.activeBuffs

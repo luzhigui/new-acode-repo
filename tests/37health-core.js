@@ -1,6 +1,6 @@
 // tests/37health-core.js - 光明顶5v5 全面体检（引擎实战 + UI 行为验证）
-// V4.1.1 | 2026-07-02 | 修复：直接 import 引擎，不依赖 window 挂载
-export const VER = 'tests/37health-core.js V4.1.1';
+// V4.0.0 | ~45193 bytes | 2026-07-05
+export const VER = 'tests/37health-core.js V4.0.0';
 
 import { runBattle } from '../core/07battle-engine-5v5-test.js';
 import { generateSnapshot } from '../tools/27auto-battle-utils.js';

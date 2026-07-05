@@ -1,8 +1,8 @@
-// realtime/03-attack-steps.js - 光明顶5v5 攻击步骤函数
-// V1.0.0 | 2026-07-04 基于新架构的攻击流程，状态变更全部通过 dispatch
-export const VER = 'realtime/03-attack-steps.js V1.0.0';
+// realtime/61-attack-steps.js - 光明顶5v5 攻击步骤函数
+// V4.0.3 | ~2424 bytes | 2026-07-05
+export const VER = 'realtime/61-attack-steps.js V4.0.3';
 
-import { rand, calcDamage } from './04-test-utils.js';
+import { rand, calcDamage } from './62-test-utils.js';
 
 /**
  * 执行一次完整攻击

@@ -1,5 +1,5 @@
 // modules/24error-capture.js - 光明顶5v5 全局错误捕获
-// V4.0.0 | ~120 lines | 2026-06-29 09:29
+// V4.0.0 | ~5796 bytes | 2026-07-05
 export const VER = 'modules/24error-capture.js V4.0.0';
 
 (function initErrorCapture() {

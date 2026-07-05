@@ -1,5 +1,5 @@
 // ui/13main-5v5-test.js - 光明顶5v5 主控模块
-// V4.0.0 | ~680 lines | 2026-06-29 09:29
+// V4.0.0 | ~63168 bytes | 2026-07-05
 export const VER = 'ui/13main-5v5-test.js V4.0.0';
 
 import '../modules/24error-capture.js';

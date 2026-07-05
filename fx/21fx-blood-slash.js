@@ -1,5 +1,5 @@
 // fx/21fx-blood-slash.js - 光明顶5v5 嗜血狂刀特效
-// V4.0.0 | ~200 lines | 2026-06-29 09:29
+// V4.0.0 | ~8771 bytes | 2026-07-05
 export const VER = 'fx/21fx-blood-slash.js V4.0.0';
 
 function wait(ms) { return new Promise(r => setTimeout(r, ms)); }
