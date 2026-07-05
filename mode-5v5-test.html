@@ -2,6 +2,87 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
+     <script>
+        // 全局错误捕获面板初始化（带按钮）
+        function initErrorPanel() {
+            let panel = document.getElementById('errorCapturePanel');
+            if (panel) return panel;
+
+            panel = document.createElement('div');
+            panel.id = 'errorCapturePanel';
+            panel.style.cssText = 'position:fixed;bottom:10px;left:10px;width:420px;max-height:300px;background:rgba(0,0,0,0.85);border:1px solid #f00;border-radius:4px;z-index:99999;display:none;font-family:monospace;font-size:12px;flex-direction:column;';
+            
+            // 头部及按钮区域
+            const header = document.createElement('div');
+            header.style.cssText = 'display:flex;justify-content:space-between;align-items:center;padding:5px 10px;background:rgba(255,0,0,0.2);border-bottom:1px solid #f00;';
+            
+            const title = document.createElement('span');
+            title.textContent = '错误捕获面板';
+            title.style.cssText = 'color:#f55;font-weight:bold;';
+            
+            const btnGroup = document.createElement('div');
+            
+            const copyBtn = document.createElement('button');
+            copyBtn.textContent = '复制全部';
+            copyBtn.style.cssText = 'background:#333;color:#fff;border:1px solid #555;padding:2px 8px;cursor:pointer;border-radius:2px;margin-right:5px;';
+            copyBtn.onclick = function() {
+                const content = document.getElementById('errorPanelContent');
+                navigator.clipboard.writeText(content.innerText).then(() => {
+                    copyBtn.textContent = '已复制!';
+                    setTimeout(() => copyBtn.textContent = '复制全部', 1500);
+                });
+            };
+
+            const clearBtn = document.createElement('button');
+            clearBtn.textContent = '清空';
+            clearBtn.style.cssText = 'background:#333;color:#fff;border:1px solid #555;padding:2px 8px;cursor:pointer;border-radius:2px;';
+            clearBtn.onclick = function() {
+                document.getElementById('errorPanelContent').innerHTML = '';
+                panel.style.display = 'none';
+            };
+
+            btnGroup.appendChild(copyBtn);
+            btnGroup.appendChild(clearBtn);
+            header.appendChild(title);
+            header.appendChild(btnGroup);
+            panel.appendChild(header);
+
+            // 内容区域
+            const content = document.createElement('div');
+            content.id = 'errorPanelContent';
+            content.style.cssText = 'flex:1;overflow-y:auto;padding:10px;color:#f55;max-height:250px;';
+            panel.appendChild(content);
+
+            document.body.appendChild(panel);
+            return panel;
+        }
+
+        function appendErrorLog(prefix, detail) {
+            let panel = initErrorPanel();
+            const content = document.getElementById('errorPanelContent');
+            const line = document.createElement('div');
+            line.style.marginBottom = '4px';
+            line.style.wordBreak = 'break-all';
+            line.textContent = prefix + detail;
+            content.appendChild(line);
+            panel.style.display = 'flex';
+            content.scrollTop = content.scrollHeight;
+        }
+
+        // 捕获语法错误、加载错误等
+        window.addEventListener('error', function(e) {
+            const detail = e.error && e.error.stack ? e.error.stack : (e.message || '未知错误');
+            appendErrorLog('[全局错误] ', detail);
+            console.error('[全局错误]', detail);
+        });
+
+        // 捕获 Promise 异常
+        window.addEventListener('unhandledrejection', function(e) {
+            const detail = e.reason && e.reason.stack ? e.reason.stack : String(e.reason);
+            appendErrorLog('[Promise错误] ', detail);
+        });
+    </script>
+   
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>光明顶对战 5v5 test V2.1</title>
