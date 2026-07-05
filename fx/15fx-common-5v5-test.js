@@ -125,3 +125,31 @@ export function showComicBubble(text, x, y, className) {
     }, 4000);
     return bubble;
 }
+// 新婚爱心特效（在格子中间显示淡粉红爱心）
+export function showHeartEffect(unit) {
+    let grid = document.querySelector(`[data-uid="${unit.uid}"]`);
+    if (!grid) return;
+    let heart = document.createElement('div');
+    heart.className = 'newlywed-heart';
+    heart.innerHTML = '💖';
+    heart.style.cssText = 'position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:24px;color:#FFB6C1;text-shadow:0 0 8px #FFB6C1;z-index:10;opacity:0;transition:opacity 0.3s, transform 0.3s;';
+    grid.appendChild(heart);
+    requestAnimationFrame(() => { heart.style.opacity = '1'; heart.style.transform = 'translate(-50%, -120%)'; });
+    setTimeout(() => { heart.style.opacity = '0'; }, 1500);
+    setTimeout(() => { if (heart.parentNode) heart.parentNode.removeChild(heart); }, 2000);
+}
+// 快乐掉血闪动特效（淡红色闪动）
+export function showPinkFlash(unit) {
+    let grid = document.querySelector(`[data-uid="${unit.uid}"]`);
+    if (!grid) return;
+    let flash = document.createElement('div');
+    flash.className = 'pink-flash';
+    flash.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;background:rgba(255, 105, 180, 0.4);z-index:9;pointer-events:none;opacity:0;';
+    grid.appendChild(flash);
+    let blinks = 0;
+    let interval = setInterval(() => {
+        flash.style.opacity = flash.style.opacity === '0' ? '1' : '0';
+        blinks++;
+        if (blinks >= 4) { clearInterval(interval); flash.style.opacity = '0'; setTimeout(() => { if (flash.parentNode) flash.parentNode.removeChild(flash); }, 300); }
+    }, 150);
+}

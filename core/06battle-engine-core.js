@@ -294,8 +294,11 @@ function processUnitAttack(unit, allySide, enemySide, log, A, B, state, doubleSt
     group.entries.push({type:'damage-text', deadFlag:dead, text:`<span class="damage-line ${dead?'brush-red':''} ${ac}">${dead?'💀击杀💀 ':''}${campA} ${unit.name}</span> 造成 <span class="red">${dmg}</span> 伤害，<span class="${dc}">${campD} ${target.name}</span> ${hpBefore} → ${Math.floor(target.hp)} ${dead?'💀阵亡':''}`});
 
     if (unit.camp === 'ally' && unit.isZhang && unit.alive) {
-        let heal = Math.floor(unit.maxHp * 0.05); unit.hp = Math.min(unit.maxHp, unit.hp + heal); unit.healDone += heal;
-        group.entries.push({type:'info', text:`<span class="green">☀️ 九阳神功回复${heal}</span>`, isHealEntry:true});
+        const hpBefore = Math.floor(unit.hp);
+        let heal = Math.floor(unit.maxHp * 0.05); 
+        unit.hp = Math.min(unit.maxHp, unit.hp + heal); 
+        unit.healDone += heal;
+        group.entries.push({type:'info', text:`<span class="green">☀️ 九阳神功回复${heal}，${hpBefore}→${Math.floor(unit.hp)}</span>`, isHealEntry:true});
         emitEvent(unit, 'hp-change', { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: unit.atk, def: unit.def });
         if (!unit.rangedForm) {
             if (unit.nearAtkCount === 0 && !unit._zhangTauntDone) {

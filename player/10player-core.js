@@ -4,7 +4,7 @@ export const VER = 'player/10player-core.js V4.4.0';
 
 import { runBattleRound } from '../core/07battle-engine-5v5-test.js';
 import { isBlocked } from '../core/03battle-utils.js';
-import { showDanmaku, showDamageFloat, showDodgeBubble, showHealFloat, applyBrushEffect, showBuffBanner, showCriticalBanner } from '../fx/15fx-common-5v5-test.js';
+import { showDanmaku, showDamageFloat, showDodgeBubble, showHealFloat, applyBrushEffect, showBuffBanner, showCriticalBanner, showHeartEffect, showPinkFlash } from '../fx/15fx-common-5v5-test.js';
 import { showDodgeBulletTime } from '../fx/20fx-dodge-bullet.js';
 import { showRangedArrow, showSplashArrows } from '../fx/16fx-arrows-5v5-test.js';
 import { CONFIG } from '../core/01config-5v5-test.js';
@@ -161,20 +161,14 @@ function battleReducer(state, action) {
             let next = state.units.map(u => {
                 const src = allEngine.find(s => s.uid === u.uid);
                 if (!src) return u;
+                // 保留视觉状态（_flash, _acted, _blocked, _resting, _isDead），用引擎的完整属性覆盖其余所有游戏状态
+                const { _flash, _acted, _blocked, _resting, _isDead, ...restSrc } = src;
                 return {
                     ...u,
+                    ...restSrc,
                     hp: src.hp,
                     alive: src.alive,
-                    _isDead: !src.alive,
-                    maxHp: src.maxHp,
-                    atk: src.atk,
-                    def: src.def,
-                    role: src.role,
-                    rangedForm: src.rangedForm,
-                    pos: src.pos,
-                    dmgDealt: src.dmgDealt || 0,
-                    dmgTaken: src.dmgTaken || 0,
-                    healDone: src.healDone || 0,
+                    _isDead: !src.alive
                 };
             });
             return { ...state, units: next };
@@ -268,7 +262,7 @@ async function handleAttackGroup(c, entry, roundResult, abortSig, isFirstAttackI
             AudioManager.playSfx(unitA.role);
         }
     }
-    let textEntries=entry.entries,lineCount=textEntries.length, speedFactor=Math.max(c.speed,600)/1000, textDuration=c.speed*lineCount, offset=200*speedFactor, atkFlashDuration=textDuration+300*speedFactor, defFlashDuration=atkFlashDuration, deadDuration=entry.isDead?Math.max(2400*speedFactor,600):0, atkTimer=null;
+    let textEntries=entry.entries,lineCount=textEntries.length, speedFactor=Math.max(c.speed,600)/1000, textDuration=c.speed*lineCount, offset=200*speedFactor, atkFlashDuration=textDuration+300*speedFactor, defFlashDuration=atkFlashDuration, deadDuration=entry.isDead?Math.max(2400*speedFactor,1500):0, atkTimer=null; // 死亡保底时间提升至1500ms
     if(unitA&&!entry.isBlock)atkTimer=setTimeout(async()=>{ await c.waitWhilePaused(); if(unitA){unitA._flash=null;unitA._acted=true;c.updateUI(c.UI);} },atkFlashDuration);
     await new Promise(r=>setTimeout(r,offset)); await c.waitWhilePaused();
     if(abortSig&&abortSig.aborted){if(atkTimer)clearTimeout(atkTimer);return { isBattleOver: false };}
@@ -322,6 +316,21 @@ async function handleInfo(c, entry) {
             c.isPaused = false;
         }
         if (entry.text && entry.text.includes('拒马无法攻击')) { let sepDiv=document.createElement('div'); sepDiv.innerHTML='<span class="separator">- - - - -</span><br>'; document.getElementById('log').appendChild(sepDiv); c.autoScrollLog(); await new Promise(r=>setTimeout(r, c.speed/4)); } 
+        
+        // 新增：宋青书触发新婚时，给宋青书和周芷若爱心，给周芷若粉色掉血闪动
+        if (entry.buffType === 'elite_xinhun') {
+            let song = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.name === '宋青书');
+            let zhou = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.uid === entry.zhouUid);
+            if (song) showHeartEffect(song);
+            if (zhou) { showHeartEffect(zhou); showPinkFlash(zhou); }
+        }
+        // 新增：周芷若快乐回血时，展示绿色回血飘字
+        if (entry.buffType === 'elite_kuaile_heal' && entry.zhouUid) {
+            let unit = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.uid === entry.zhouUid);
+            let match = entry.text.match(/回复(\d+)/);
+            if (match && unit) showHealFloat(unit, parseInt(match[1]));
+        }
+
         let tempDiv=document.createElement('div');document.getElementById('log').appendChild(tempDiv); await playLineText(entry.text,tempDiv); 
     }
     document.getElementById('roundDisplay').innerText = `📜 日志（第${c.UI.round}回合）`;
@@ -440,11 +449,9 @@ export async function playLogEntries(c, log, roundResult) {
         window.bulletTimeActive = false;
         const detail = e && e.stack ? e.stack : (e && e.message ? e.message : String(e));
         console.error('playLogEntries 错误:', detail);
-        const panel = document.getElementById('errorCapturePanel');
-        if (panel) {
-            const line = document.createElement('div'); line.style.color = '#f55';
-            line.textContent = '[ERROR] playLogEntries: ' + detail;
-            panel.appendChild(line); panel.style.display = 'block'; panel.scrollTop = panel.scrollHeight;
+        // 调用 HTML 里定义的全局面板函数，只弹一个带按钮的窗
+        if (typeof appendErrorLog === 'function') {
+            appendErrorLog('[ERROR] playLogEntries: ', detail);
         }
         return { isBattleOver: false };
     }
@@ -530,8 +537,23 @@ export async function playBattle() {
         if (abortSig && abortSig.aborted) return;
         let roundResult = runBattleRound(battleState);
 
-        // 使用上回合结束时的状态同步到 Store（防止剧透），Store 订阅会自动刷新 UI
-        c.store.dispatch({ type: 'SYNC_FULL_STATE', ally: currentUIState.ally, enemy: currentUIState.enemy });
+        // 提取当前回合引擎算出的新属性（含Carry加成）。
+        // 防剧透策略：如果本回合血量减少了（掉血），保留上回合血量；如果血量增加了（回血）或上限增加了（加属性），直接用新血量。
+        const startAlly = roundResult.ally.map(u => {
+            const prev = currentUIState.ally.find(p => p.uid === u.uid) || u;
+            if (u.hp > prev.hp || u.maxHp > prev.maxHp) {
+                return { ...u, alive: prev.alive, _isDead: !prev.alive };
+            }
+            return { ...u, hp: prev.hp, alive: prev.alive, _isDead: !prev.alive };
+        });
+        const startEnemy = roundResult.enemy.map(u => {
+            const prev = currentUIState.enemy.find(p => p.uid === u.uid) || u;
+            if (u.hp > prev.hp || u.maxHp > prev.maxHp) {
+                return { ...u, alive: prev.alive, _isDead: !prev.alive };
+            }
+            return { ...u, hp: prev.hp, alive: prev.alive, _isDead: !prev.alive };
+        });
+        c.store.dispatch({ type: 'SYNC_FULL_STATE', ally: startAlly, enemy: startEnemy });
 
         let mainCtx = window._getPlayerContext ? window._getPlayerContext() : null;
         if (mainCtx && roundResult.doubleStrikeUid !== undefined) mainCtx.currentDoubleStrikeUid = roundResult.doubleStrikeUid;
