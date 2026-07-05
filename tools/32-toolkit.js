@@ -19,7 +19,7 @@ function escapeHtml(text) {
 
 /* ========== 文件复制器 ========== */
 (function() {
-    // 项目全部文件列表（用于路径清单，更新为 50 个文件）
+    // 项目全部文件列表（用于路径清单，更新为 48 个文件）
     const ALL_PROJECT_FILES = [
         // core
         '../core/01config-5v5-test.js', '../core/02unit.js', '../core/03battle-utils.js',
@@ -51,7 +51,7 @@ function escapeHtml(text) {
         '../assets/sfx_arrow.mp3', '../assets/sfx_fly.mp3',
         '../assets/sfx_melee.mp3', '../assets/sfx_xinai.mp3',
         // 根目录
-        '../00index.html', '../mode-5v5-test.html', '../realtime-demo.html', '../realtime-v2.html',
+        '../00index.html', '../mode-5v5-test.html', '../realtime-v2.html',
         '../README.md', '../CHANGELOG.md', '../kaifazhunze.md', '../Test Runnerlogo.md',
         '../game-design.md'
     ];

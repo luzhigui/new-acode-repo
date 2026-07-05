@@ -25,7 +25,7 @@ function escapeHtml(text) {
         '../tests/35quiz-bank.js', '../tests/36runtime-sampler.js', '../tests/37health-core.js', '../tests/38health-ui.js',
         '../tools/31-toolkit.html', '../tools/32-toolkit.js', '../tools/33-toolkit-more.js',
         '../tools/27auto-battle-utils.js', '../tools/00build-5v5.cjs',
-        '../00index.html', '../tests/30test-runner.html', '../mode-5v5-test.html', '../realtime-demo.html', '../realtime-v2.html'
+        '../00index.html', '../tests/30test-runner.html', '../mode-5v5-test.html', '../realtime-v2.html'
     ].filter(f => f.endsWith('.js'));
 
     const mapContainer = document.getElementById('fncMapContainer');

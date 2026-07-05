@@ -321,8 +321,18 @@ async function handleInfo(c, entry) {
         if (entry.buffType === 'elite_xinhun') {
             let song = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.name === '宋青书');
             let zhou = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.uid === entry.zhouUid);
+            
+            // 1. 行动前：先弹出爱心特效
             if (song) showHeartEffect(song);
-            if (zhou) { showHeartEffect(zhou); showPinkFlash(zhou); }
+            if (zhou) showHeartEffect(zhou);
+            
+            // 2. 攻击后：延迟触发周芷若的粉色边框闪动
+            // 这里的 800 毫秒是预估的攻击动画时间，你可以根据实际速度调整
+            if (zhou) {
+                setTimeout(() => {
+                    if (zhou.alive) showPinkFlash(zhou);
+                }, 800); 
+            }
         }
         // 新增：周芷若快乐回血时，展示绿色回血飘字
         if (entry.buffType === 'elite_kuaile_heal' && entry.zhouUid) {

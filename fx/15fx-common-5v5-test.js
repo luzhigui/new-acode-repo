@@ -127,14 +127,28 @@ export function showComicBubble(text, x, y, className) {
 }
 // 新婚爱心特效（在格子中间显示淡粉红爱心）
 export function showHeartEffect(unit) {
+    console.log('[特效排查] 尝试触发爱心特效，目标 unit:', unit);
+    
     let grid = document.querySelector(`[data-uid="${unit.uid}"]`);
-    if (!grid) return;
+    if (!grid) {
+        console.warn('[特效排查] ❌ 找不到目标 grid 元素！uid:', unit.uid);
+        return;
+    }
+    console.log('[特效排查] ✅ 成功找到 grid 元素，准备创建爱心。', grid);
+
     let heart = document.createElement('div');
-    heart.className = 'newlywed-heart';
+    // 去掉了 newlywed-heart 类名，防止被其他 CSS 覆盖
     heart.innerHTML = '💖';
-    heart.style.cssText = 'position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:24px;color:#FFB6C1;text-shadow:0 0 8px #FFB6C1;z-index:10;opacity:0;transition:opacity 0.3s, transform 0.3s;';
+    // 提高了 z-index 到 9999，并给父级 grid 加了相对定位保证
+    grid.style.position = 'relative'; 
+    heart.style.cssText = 'position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:24px;color:#FFB6C1;text-shadow:0 0 8px #FFB6C1;z-index:9999;opacity:0;transition:opacity 0.3s, transform 0.3s;pointer-events:none;';
     grid.appendChild(heart);
-    requestAnimationFrame(() => { heart.style.opacity = '1'; heart.style.transform = 'translate(-50%, -120%)'; });
+    
+    requestAnimationFrame(() => { 
+        heart.style.opacity = '1'; 
+        heart.style.transform = 'translate(-50%, -120%)'; 
+    });
+    
     setTimeout(() => { heart.style.opacity = '0'; }, 1500);
     setTimeout(() => { if (heart.parentNode) heart.parentNode.removeChild(heart); }, 2000);
 }
