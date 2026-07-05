@@ -19,7 +19,7 @@ function escapeHtml(text) {
 
 /* ========== 文件复制器 ========== */
 (function() {
-    // 项目全部文件列表（用于路径清单）
+    // 项目全部文件列表（用于路径清单，更新为 50 个文件）
     const ALL_PROJECT_FILES = [
         // core
         '../core/01config-5v5-test.js', '../core/02unit.js', '../core/03battle-utils.js',
@@ -36,20 +36,24 @@ function escapeHtml(text) {
         '../fx/21fx-blood-slash.js', '../fx/22fx-fortify-counter.js',
         // modules
         '../modules/23elite-skills.js', '../modules/24error-capture.js', '../modules/28audio-manager.js',
+        // realtime
+        '../realtime/01-reactive-engine.js', '../realtime/03-attack-steps.js', '../realtime/04-test-utils.js',
+        '../realtime/05-battle-round.js', '../realtime/06-full-attack.js', '../realtime/07-standalone-demo.html',
+        '../realtime/08-old-unit-adapter.js', '../realtime/10-reactive-demo.html', '../realtime/11-main-reactive.js',
         // tests
         '../tests/25unit-tests.js', '../tests/29health-rules.js',
         '../tests/35quiz-bank.js', '../tests/36runtime-sampler.js', '../tests/37health-core.js',
         '../tests/38health-ui.js', '../tests/30test-runner.html',
         // tools
         '../tools/31-toolkit.html', '../tools/32-toolkit.js', '../tools/33-toolkit-more.js',
-        '../tools/27auto-battle-utils.js', '../tools/00build-5v5.cjs',
+        '../tools/27auto-battle-utils.js', '../tools/00build-5v5.cjs', '../tools/bugs to do.txt',
         // assets
         '../assets/sfx_arrow.mp3', '../assets/sfx_fly.mp3',
         '../assets/sfx_melee.mp3', '../assets/sfx_xinai.mp3',
         // 根目录
-        '../00index.html', '../mode-5v5-test.html',
+        '../00index.html', '../mode-5v5-test.html', '../realtime-demo.html', '../realtime-v2.html',
         '../README.md', '../CHANGELOG.md', '../kaifazhunze.md', '../Test Runnerlogo.md',
-'../game-design.md'
+        '../game-design.md'
     ];
 
     // 用户可勾选的文件列表（不含 assets/ 和 .md 等不可 fetch 的文件）
@@ -61,6 +65,7 @@ function escapeHtml(text) {
         { name: 'ui', displayName: 'UI 主控', prefix: '../ui/' },
         { name: 'fx', displayName: '特效', prefix: '../fx/' },
         { name: 'modules', displayName: '模块', prefix: '../modules/' },
+        { name: 'realtime', displayName: '实时对战', prefix: '../realtime/' },
         { name: 'tests', displayName: '测试与体检', prefix: '../tests/' },
         { name: 'tools', displayName: '工具箱自身', prefix: '../tools/' },
         { name: 'root', displayName: '根目录页面', prefix: null }
@@ -372,7 +377,9 @@ function escapeHtml(text) {
                 return `// ===== ${fn} =====\n${f.content}`;
             }).join('\n\n');
 
-            const fullPayload = manifest + '\n\n--- 代码开始 ---\n\n' + fullCode;
+            const header = `（⚠️ 包 ${index + 1}/${mergedBatches.length} 开始，本包共 ${batch.totalChars} 字符。请回复“收到，第 ${index + 1} 包”。）\n\n`;
+            const footer = `\n\n（⚠️ 包 ${index + 1}/${mergedBatches.length} 结束，请回复“收到，第 ${index + 1} 包”。）`;
+            const fullPayload = header + manifest + '\n\n--- 代码开始 ---\n\n' + fullCode + footer;
 
             card.innerHTML = `
                 <div class="batch-header">
@@ -460,7 +467,9 @@ function escapeHtml(text) {
         const text = getBatchText(sendBatches[sendIndex]);
         const totalChars = text.length;
         const currentIndex = sendIndex + 1;
-        const fullText = `（⚠️ 仅回复“收到”，无需任何其他文字。）\n\n${text}\n\n（⚠️ 包 ${currentIndex}/${sendBatches.length} 结束，请回复“收到”）`;
+        const header = `（⚠️ 包 ${currentIndex}/${sendBatches.length} 开始，本包共 ${totalChars} 字符。请回复“收到，第 ${currentIndex} 包”。）\n\n`;
+        const footer = `\n\n（⚠️ 包 ${currentIndex}/${sendBatches.length} 结束，请回复“收到，第 ${currentIndex} 包”。）`;
+        const fullText = header + text + footer;
         try { await navigator.clipboard.writeText(fullText); } catch (e) {}
         sendIndex++;
         if (sendIndex < sendBatches.length) {

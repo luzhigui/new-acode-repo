@@ -1,6 +1,6 @@
 // player/10player-core.js - 光明顶5v5 战斗播放器核心
-// V4.3.0 | 2026-07-02 重写：状态与动画彻底分离，可靠的日志驱动状态更新
-export const VER = 'player/10player-core.js V4.3.0';
+// V4.4.0 | 2026-07-02 引入响应式 Store，状态与动画彻底分离，可靠的日志驱动状态更新
+export const VER = 'player/10player-core.js V4.4.0';
 
 import { runBattleRound } from '../core/07battle-engine-5v5-test.js';
 import { isBlocked } from '../core/03battle-utils.js';
@@ -42,7 +42,6 @@ class AnimationScheduler {
     setSpeed(s) { this.speed = s; }
 }
 
-// 安全包装
 const safeShowDanmaku = (...args) => { try { return showDanmaku(...args); } catch(e) {} };
 
 function getCtx() {
@@ -67,102 +66,127 @@ function insertBuffSeparator(logDiv, c) {
     c.autoScrollLog();
 }
 
-// ==================== 核心：状态更新 ====================
+// ==================== 响应式 Store (移植自 realtime) ====================
 
-// 根据一条日志条目，更新 UI 工作副本中的状态
-function applyLogStateToUI(c, entry) {
-    const uiAll = c.UI.allyTeam.concat(c.UI.enemyTeam);
+// 游戏状态字段列表（store → UI 同步时只覆盖这些字段，视觉状态如 _flash/_acted 保留不动）
+// 注意：必须包含 buff 加成字段，否则 carry 等 Buff 加成无法同步到 UI
+const GAME_STATE_FIELDS = ['hp','alive','maxHp','atk','def','role','rangedForm','_isDead','_baseMaxHp','dmgDealt','dmgTaken','healDone','reboundDone','leechDone','dodgeCount','critCount','survivedRounds','pos','buffAtkBonus','buffDefBonus','buffDodgeBonus','buffHpBonus'];
 
-    // 1. 处理攻击条目 (`attack-group`)
-    if (entry.type === 'attack-group' && entry.uidD && entry.hpAfter !== undefined) {
-        const target = uiAll.find(u => u.uid === entry.uidD);
-        if (target) {
-            target.hp = entry.hpAfter;
-            target.alive = entry.alive !== false;
-            if (!target.alive) target._isDead = true;
-        }
-        // 处理攻击条目内嵌套的回血（韦一笑吸血、九阳神功等）
-        if (entry.entries) {
-            entry.entries.forEach(sub => {
-                if (sub.isHealEntry && sub.healUnitUid) {
-                    const unit = uiAll.find(u => u.uid === sub.healUnitUid);
-                    if (!unit || !unit.alive) return;
-                    
-                    // 先处理上限变化（韦一笑吸血涨上限）
-                    if (sub.text && sub.text.includes('上限→')) {
-                        const maxMatch = sub.text.match(/上限→(\d+)/);
-                        if (maxMatch) {
-                            unit.maxHp = parseInt(maxMatch[1]);
-                        }
+function createStore(initialState, reducer) {
+    let state = initialState;
+    const listeners = [];
+    return {
+        getState: () => state,
+        dispatch: (action) => {
+            const next = reducer(state, action);
+            if (next === state) return;
+            state = next;
+            listeners.forEach(fn => { try { fn(state, action); } catch(e) { console.error('Store subscriber error:', e); } });
+        },
+        subscribe: (fn) => { listeners.push(fn); return () => { const i = listeners.indexOf(fn); if (i >= 0) listeners.splice(i, 1); }; }
+    };
+}
+
+function battleReducer(state, action) {
+    switch (action.type) {
+        case 'INIT':
+            return state;
+
+        // 消费攻击条目内嵌的事件快照（hp-change 等），统一同步所有游戏状态字段
+        case 'APPLY_EVENTS': {
+            const events = action.events;
+            if (!events || events.length === 0) return state;
+            let next = state.units.map(u => ({ ...u }));
+            for (const ev of events) {
+                if (ev.eventType === 'hp-change') {
+                    const idx = next.findIndex(u => u.uid === ev.unitUid);
+                    if (idx >= 0) {
+                        const p = ev.payload;
+                        next[idx] = {
+                            ...next[idx],
+                            hp: p.hp,
+                            maxHp: p.maxHp,
+                            alive: p.alive,
+                            atk: p.atk,
+                            def: p.def,
+                            _baseMaxHp: p.maxHp,
+                            dmgDealt: p.dmgDealt || 0,
+                            dmgTaken: p.dmgTaken || 0,
+                            healDone: p.healDone || 0,
+                            reboundDone: p.reboundDone || 0,
+                            leechDone: p.leechDone || 0,
+                            dodgeCount: p.dodgeCount || 0,
+                            critCount: p.critCount || 0,
+                            survivedRounds: p.survivedRounds || 0,
+                            _isDead: !p.alive
+                        };
                     }
-                    // 再处理回血
-                    if (sub.healAmount) {
-                        unit.hp = Math.min(unit.maxHp, unit.hp + sub.healAmount);
-                    }
-
                 }
-            });
-        }
-    }
-
-    // 2. 处理 Buff 溅射/额外伤害
-    if (entry.splashUids && entry.splashDmg) {
-        entry.splashUids.forEach(uid => {
-            const unit = uiAll.find(u => u.uid === uid);
-            if (unit) {
-                unit.hp = Math.max(0, unit.hp - entry.splashDmg);
-                if (unit.hp <= 0) { unit.alive = false; unit._isDead = true; }
             }
-        });
-    }
-    if (entry.type === 'buff-bonus' && entry.targetUid && entry.bonusDmg) {
-        const unit = uiAll.find(u => u.uid === entry.targetUid);
-        if (unit) {
-            unit.hp = Math.max(0, unit.hp - entry.bonusDmg);
-            if (unit.hp <= 0) { unit.alive = false; unit._isDead = true; }
+            return { ...state, units: next };
         }
-    }
 
-    // 3. 处理顶层回血（嗜血狂刀、热血奋战等）
-    if (entry.isHealEntry && entry.healUnitUid && entry.healAmount) {
-        const unit = uiAll.find(u => u.uid === entry.healUnitUid);
-        if (unit && unit.alive) {
-            unit.hp = Math.min(unit.maxHp, unit.hp + entry.healAmount);
+        // 回血（热血奋战等，Store 内部计算新 hp）
+        case 'HEAL_UNIT': {
+            let next = state.units.map(u => {
+                if (u.uid !== action.uid) return u;
+                return { ...u, hp: Math.min(u.maxHp, u.hp + action.amount) };
+            });
+            return { ...state, units: next };
         }
-    }
 
-    // 4. 张无忌变身
-    if (entry.isZhangSwitch && entry.unit) {
-        const zhang = uiAll.find(u => u.isZhang);
-        if (zhang) {
-            zhang.rangedForm = entry.unit.rangedForm;
-            zhang.role = entry.unit.role;
-            zhang.atk = entry.unit.atk;
-            zhang.def = entry.unit.def;
-            zhang.maxHp = entry.unit.maxHp;
-            zhang.hp = entry.unit.hp;
-            zhang._blocked = false;
-            zhang._resting = false;
+        // 直接同步某个单位的指定字段（用于 handleBuffLeech 等已直接修改 UI 的场景）
+        case 'SYNC_UNIT': {
+            let next = state.units.map(u => {
+                if (u.uid !== action.uid) return u;
+                return { ...u, ...action.fields };
+            });
+            return { ...state, units: next };
         }
-    }
 
-    // 5. 新婚扣血
-    if (entry.zhouUid && entry.zhouHpAfter !== undefined) {
-        const zhou = uiAll.find(u => u.uid === entry.zhouUid);
-        if (zhou) {
-            zhou.hp = entry.zhouHpAfter;
-            if (zhou.hp <= 0) { zhou.alive = false; zhou._isDead = true; }
+        // 添加单位（拒马生成）
+        case 'ADD_UNIT': {
+            if (state.units.find(u => u.uid === action.unit.uid)) return state;
+            return { ...state, units: [...state.units, action.unit] };
         }
-    }
 
-    // 6. 休息回血（遮挡恢复）
-    if (entry.isBlock && entry.healAmount && entry.healUnitUid) {
-        const unit = uiAll.find(u => u.uid === entry.healUnitUid);
-        if (unit && unit.alive) {
-            unit.hp = Math.min(unit.maxHp, unit.hp + entry.healAmount);
+        // 移除单位（拒马销毁）
+        case 'REMOVE_UNIT': {
+            return { ...state, units: state.units.filter(u => u.uid !== action.uid) };
         }
+
+        // 回合开始时用引擎权威状态校准所有单位（防止剧透 + 修正遗漏）
+        case 'SYNC_FULL_STATE': {
+            const allEngine = [...action.ally, ...action.enemy];
+            let next = state.units.map(u => {
+                const src = allEngine.find(s => s.uid === u.uid);
+                if (!src) return u;
+                return {
+                    ...u,
+                    hp: src.hp,
+                    alive: src.alive,
+                    _isDead: !src.alive,
+                    maxHp: src.maxHp,
+                    atk: src.atk,
+                    def: src.def,
+                    role: src.role,
+                    rangedForm: src.rangedForm,
+                    pos: src.pos,
+                    dmgDealt: src.dmgDealt || 0,
+                    dmgTaken: src.dmgTaken || 0,
+                    healDone: src.healDone || 0,
+                };
+            });
+            return { ...state, units: next };
+        }
+
+        default:
+            return state;
     }
 }
+
+// ==================== 核心：状态更新 ====================
+// 原始的 applyLogStateToUI 已被 Store dispatch 替代，状态同步逻辑统一收敛到 battleReducer
 
 // ==================== 纯视觉动画函数 ====================
 
@@ -224,7 +248,6 @@ async function handleBuffReboundFortify(c, entry) {
 }
 
 async function handleAttackGroup(c, entry, roundResult, abortSig, isFirstAttackInRoundRef) {
-    // ... 保留原有动画逻辑，不修改任何状态 ...
     if (entry.isCombo) { let spacer = document.createElement('div'); spacer.innerHTML = '<br>'; document.getElementById('log').appendChild(spacer); c.autoScrollLog(); c.isPaused = true; window.bulletTimeActive = true; if (c._scheduler) { await new Promise(r => c._scheduler.schedule('banner', 1500, r)); showBuffBanner('⚡ 连击！'); } else { await showBuffBanner('⚡ 连击！'); } window.bulletTimeActive = false; c.isPaused = false; }
     let unitA=c.UI.allyTeam.concat(c.UI.enemyTeam).find(u=>u.uid===entry.uidA);
     let unitD=entry.uidD?c.UI.allyTeam.concat(c.UI.enemyTeam).find(u=>u.uid===entry.uidD):null;
@@ -336,8 +359,16 @@ export async function playLogEntries(c, log, roundResult) {
             let entry = log[i];
 
             switch (entry.type) {
-                case 'buff-summon':   await handleBuffSummon(c, entry, i > 0 ? log[i-1] : null); break;
-                case 'buff-destroy':  await handleBuffDestroy(c, entry, i > 0 ? log[i-1] : null); break;
+                case 'buff-summon':
+                    await handleBuffSummon(c, entry, i > 0 ? log[i-1] : null);
+                    // 同步拒马到 Store，订阅会自动处理 UI 去重
+                    c.store.dispatch({ type: 'ADD_UNIT', unit: c.UI.allyTeam.find(u => u.uid === entry.horseUid) });
+                    break;
+                case 'buff-destroy':
+                    await handleBuffDestroy(c, entry, i > 0 ? log[i-1] : null);
+                    // 从 Store 移除拒马
+                    c.store.dispatch({ type: 'REMOVE_UNIT', uid: entry.horseUid });
+                    break;
                 case 'buff-leech':
                     insertBuffSeparator(document.getElementById('log'), c);
                     if (entry.buffType === 'hotBlood') {
@@ -345,8 +376,8 @@ export async function playLogEntries(c, log, roundResult) {
                         document.getElementById('log').appendChild(div);c.autoScrollLog();
                         let healUnit = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.uid === entry.healUnitUid);
                         if (healUnit && entry.healAmount) {
-                            healUnit.hp = Math.min(healUnit.maxHp, healUnit.hp + entry.healAmount);
-                            c.updateUI(c.UI);
+                            // 通过 Store dispatch 回血，订阅自动同步 UI
+                            c.store.dispatch({ type: 'HEAL_UNIT', uid: entry.healUnitUid, amount: entry.healAmount });
                             showHealFloat(healUnit, entry.healAmount);
                         }
                         if (entry.text.includes('翻倍')) {
@@ -354,7 +385,14 @@ export async function playLogEntries(c, log, roundResult) {
                             await showBuffBanner('❤️‍🔥 热血奋战(翻倍)！');
                             window.bulletTimeActive = false; c.isPaused = false;
                         }
-                    } else await handleBuffLeech(c, entry);
+                    } else {
+                        await handleBuffLeech(c, entry);
+                        // handleBuffLeech 已直接修改 UI，将最终状态同步回 Store
+                        if (entry.healUnitUid && entry.healAmount) {
+                            let healed = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.uid === entry.healUnitUid);
+                            if (healed) c.store.dispatch({ type: 'SYNC_UNIT', uid: entry.healUnitUid, fields: { hp: healed.hp, maxHp: healed.maxHp } });
+                        }
+                    }
                     break;
                 case 'buff-splash':
                     c.isPaused = true; window.bulletTimeActive = true;
@@ -387,41 +425,14 @@ export async function playLogEntries(c, log, roundResult) {
                 case 'round-start':          await handleRoundStart(c, entry, isFirstAttackInRoundRef); break;
                 case 'attack-group': {
                     let result = await handleAttackGroup(c, entry, roundResult, abortSig, isFirstAttackInRoundRef);
-                    // 消费该攻击自带的事件快照，避免提前消费后续攻击的状态
-                    const events = entry._events || [];
-                    if (events.length > 0) {
-                        const uiAll = c.UI.allyTeam.concat(c.UI.enemyTeam);
-                        events.forEach(ev => {
-                            if (ev.eventType === 'hp-change') {
-                                const uiUnit = uiAll.find(u => u.uid === ev.unitUid);
-                                if (uiUnit) {
-                                    uiUnit.hp = ev.payload.hp;
-                                    uiUnit.maxHp = ev.payload.maxHp;
-                                    uiUnit.alive = ev.payload.alive;
-                                    uiUnit.atk = ev.payload.atk;
-                                    uiUnit.def = ev.payload.def;
-                                    uiUnit._baseMaxHp = ev.payload.maxHp;
-                                    uiUnit.dmgDealt = ev.payload.dmgDealt;
-                                    uiUnit.dmgTaken = ev.payload.dmgTaken;
-                                    uiUnit.healDone = ev.payload.healDone;
-                                    uiUnit.reboundDone = ev.payload.reboundDone;
-                                    uiUnit.leechDone = ev.payload.leechDone;
-                                    uiUnit.dodgeCount = ev.payload.dodgeCount;
-                                    uiUnit.critCount = ev.payload.critCount;
-                                    uiUnit.survivedRounds = ev.payload.survivedRounds;
-                                }
-                            }
-                        });
-                        c.updateUI(c.UI);
-                    }
+                    // 通过 Store 消费攻击事件快照，Reducer 统一处理所有状态字段，杜绝遗漏
+                    c.store.dispatch({ type: 'APPLY_EVENTS', events: entry._events || [] });
                     if (result && result.isBattleOver) return result;
                     break;
                 }
                 case 'info':  await handleInfo(c, entry); break;
                 case 'round-end': await handleRoundEnd(c, entry, log, i); break;
             }
-
-
 
             if (abortSig && abortSig.aborted) return { isBattleOver: false };
         }
@@ -469,8 +480,40 @@ export async function playBattle() {
         ally: c.snapshot.ally.map(u => u.clone()),
         enemy: c.snapshot.enemy.map(u => u.clone())
     };
-    c.UI.allyTeam = c.snapshot.ally.map(u => { let u2 = u.clone(); u2.hp = u2.maxHp; u2.alive = true; u2._isDead = false; return u2; });
-    c.UI.enemyTeam = c.snapshot.enemy.map(u => { let u2 = u.clone(); u2.hp = u2.maxHp; u2.alive = true; u2._isDead = false; return u2; });
+
+    // ========== 初始化响应式 Store ==========
+    const initialUnits = [
+        ...c.snapshot.ally.map(u => { let u2 = u.clone(); u2.hp = u2.maxHp; u2.alive = true; u2._isDead = false; u2.camp = 'ally'; return u2; }),
+        ...c.snapshot.enemy.map(u => { let u2 = u.clone(); u2.hp = u2.maxHp; u2.alive = true; u2._isDead = false; u2.camp = 'enemy'; return u2; })
+    ];
+    c.store = createStore({ units: initialUnits, round: 1 }, battleReducer);
+
+    // 订阅 Store 变化：自动同步游戏状态到 UI 并刷新
+    // 视觉状态（_flash, _acted, _blocked, _resting）保留不动，只覆盖 GAME_STATE_FIELDS
+    c.store.subscribe((state) => {
+        if (!c.UI || !c.UI.allyTeam || !c.UI.enemyTeam) return;
+        // 同步现有单位的游戏状态字段
+        const syncFields = (uiUnit) => {
+            const su = state.units.find(u => u.uid === uiUnit.uid);
+            if (!su) return;
+            GAME_STATE_FIELDS.forEach(f => { if (su[f] !== undefined) uiUnit[f] = su[f]; });
+        };
+        c.UI.allyTeam.forEach(syncFields);
+        c.UI.enemyTeam.forEach(syncFields);
+        // 添加新单位（拒马等，使用 clone 保留 Unit 原型链）
+        state.units.forEach(su => {
+            if (su.camp === 'ally' && !c.UI.allyTeam.find(u => u.uid === su.uid)) c.UI.allyTeam.push(su.clone());
+            if (su.camp === 'enemy' && !c.UI.enemyTeam.find(u => u.uid === su.uid)) c.UI.enemyTeam.push(su.clone());
+        });
+        // 移除已销毁的单位
+        c.UI.allyTeam = c.UI.allyTeam.filter(u => state.units.find(su => su.uid === u.uid));
+        c.UI.enemyTeam = c.UI.enemyTeam.filter(u => state.units.find(su => su.uid === u.uid));
+        c.updateUI(c.UI);
+    });
+
+    // 初始化 UI 团队（保留 Unit 原型链，避免丢失 clone 等方法）
+    c.UI.allyTeam = initialUnits.filter(u => u.camp === 'ally').map(u => u.clone());
+    c.UI.enemyTeam = initialUnits.filter(u => u.camp === 'enemy').map(u => u.clone());
     c.updateUI(c.UI);
     document.getElementById('roundDisplay').innerText = `📜 日志（第1回合）`;
 
@@ -487,10 +530,8 @@ export async function playBattle() {
         if (abortSig && abortSig.aborted) return;
         let roundResult = runBattleRound(battleState);
 
-        // 使用上回合结束时的状态作为本回合 UI 初始状态（防止剧透）
-        c.UI.allyTeam = currentUIState.ally.map(u => u.clone());
-        c.UI.enemyTeam = currentUIState.enemy.map(u => u.clone());
-        c.updateUI(c.UI);
+        // 使用上回合结束时的状态同步到 Store（防止剧透），Store 订阅会自动刷新 UI
+        c.store.dispatch({ type: 'SYNC_FULL_STATE', ally: currentUIState.ally, enemy: currentUIState.enemy });
 
         let mainCtx = window._getPlayerContext ? window._getPlayerContext() : null;
         if (mainCtx && roundResult.doubleStrikeUid !== undefined) mainCtx.currentDoubleStrikeUid = roundResult.doubleStrikeUid;
@@ -500,7 +541,7 @@ export async function playBattle() {
         if (roundResult.winner) { finalWinner = roundResult.winner; break; }
         if (isBattleOver) break;
 
-        // 更新“上回合结束状态”为本次引擎结果
+        // 更新"上回合结束状态"为本次引擎结果
         currentUIState = {
             ally: roundResult.ally.map(u => u.clone()),
             enemy: roundResult.enemy.map(u => u.clone())
@@ -585,4 +626,5 @@ export async function playBattle() {
     window._voteChoice = null;
     c._battleEnded = true;
     c.abortController = null;
+    c.store = null;
 }
