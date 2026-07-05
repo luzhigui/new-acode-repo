@@ -1,6 +1,6 @@
 // ui/13main-5v5-test.js - 光明顶5v5 主控模块
-// V4.0.7 | ~32000 bytes | 2026-07-06 修复：UI/snapshot/adjustMode 状态统一到 39main-state
-export const VER = 'ui/13main-5v5-test.js V4.0.7';
+// V5.0.0 | ~33000 bytes | 2026-07-06 倍速逻辑重写、activeBuffs 统一到全局状态
+export const VER = 'ui/13main-5v5-test.js V5.0.0';
 
 import '../modules/24error-capture.js';
 import { CONFIG, STATE, KILL_TAUNT, ENEMY_M, VER as CFG_VER } from '../core/01config-5v5-test.js';
@@ -14,7 +14,7 @@ import { showModal, showAlert, updateCoverVersion } from './12main-utils.js';
 import { AudioManager } from '../modules/28audio-manager.js';
 
 // 拆分模块
-import { getPlayerContext, getState, setState } from './39main-state.js';
+import { getPlayerContext, getState, setState } from '../ui/39main-state.js';
 import { showBattleReport, showMusicPanel, showVoteDialog, showCountdown } from './40main-dialogs.js';
 import {
     doInitBattle, generateBuffChoices, showBuffSelection,
@@ -36,18 +36,19 @@ import { runRuntimeSample } from '../tests/36runtime-sampler.js';
 
 const C = CONFIG, S = STATE, KT = KILL_TAUNT;
 
-const FILE_VER = '13main-5v5-test.js V4.0.7';
+const FILE_VER = '13main-5v5-test.js V5.0.0';
 const INDEX_VER = 'mode-5v5-test.html test V3.0';
 const LOG_LINE1 = '⚔️ 光明顶5v5对决 · 九宫格混战模式 ⚔️';
 
-// ==================== 局部状态（尚未迁移到 39main-state 的部分） ====================
+// ==================== 局部状态（仅 UI 控制，不包含 activeBuffs） ====================
 let gs = S.IDLE, autoMode = true, debugMode = false, speed = 500, userScrolled = false;
 let abortController = null, waitingForNextRound = false, detailMode = true;
 let battleResultForInfo = null, resettleCount = 0;
 let gameStarted = false;
 let hasLoggedTeam = false;
-let manualSpeedLock = false, manualSpeedValue = null, slideSpeedActive = false;
-window.bulletTimeActive = false;
+let manualSpeedLock = true;            // 默认锁定为手动选择的倍速
+let manualSpeedValue = 500;            // 初始 2 倍速
+let slideSpeedActive = true;           // 当前是否为手动倍速（非 0.5 自动切换）
 let isBattleStarting = false;
 let currentStage = 1;
 window._crashMode = 'fly';
@@ -60,9 +61,7 @@ let runtimeMonitorInterval = null;
 window._voteScore = parseInt(localStorage.getItem('ming_vote_score_5v5_test') || '10');
 window._voteChoice = null; window._battleHasZhang = false; window._debugMode = false;
 
-let activeBuffs = [];
-
-// UI 和 snapshot 已迁移到 39main-state.js，此处不再定义，通过 getState/setState 读写
+// activeBuffs 已完全由 getState.activeBuffs() / setState.activeBuffs() 管理，此处不再声明局部变量
 
 const TRASH_TALK_ALLY = ['明教必胜！六大派受死！','光明顶，我守定了！','六大派也不过如此！','来战！明教弟子，何惧！','今日便让尔等见识魔教之威！'];
 const TRASH_TALK_ENEMY = ['魔教余孽，今日必灭！','少林武当，放马过来！','邪魔歪道，不足为惧！','今日便要踏平光明顶！'];
@@ -118,7 +117,7 @@ function initGlowSystem() {
     function hexToRgb(hex) { const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex); return result ? { r: parseInt(result[1], 16), g: parseInt(result[2], 16), b: parseInt(result[3], 16) } : { r: 255, g: 255, b: 255 }; }
     function resizeCanvas() { const rect = battlefield.getBoundingClientRect(); canvas.width = rect.width; canvas.height = rect.height; }
     function collectCellsData() {
-        let buffKey = (selectedBuffIndex >= 0 && selectedBuffIndex < activeBuffs.length) ? activeBuffs[selectedBuffIndex].key : null;
+        let buffKey = (selectedBuffIndex >= 0 && selectedBuffIndex < getState.activeBuffs().length) ? getState.activeBuffs()[selectedBuffIndex].key : null;
         const allCells = document.querySelectorAll('#allyGrid .cell.occupied');
         const battlefieldRect = battlefield.getBoundingClientRect();
         cellsLightData = [];
@@ -157,41 +156,143 @@ function enableAllButtons() { document.querySelectorAll('.controls button').forE
 window.enableAllButtons = enableAllButtons;
 function updateDebugUI() { let panel=document.getElementById('debugPanel');if(debugMode){if(panel)panel.style.display='flex';}else{if(panel)panel.style.display='none';} }
 
+// ==================== 倍速系统 ====================
 function updateSpeedButtons() {
-    let sp2=document.getElementById('btnSpeed2'), sp05=document.getElementById('btnSpeed05');
-    let sp7x=document.getElementById('btnSpeed7x'), sp4x=document.getElementById('btnSpeed4x');
-    let sp2x=document.getElementById('btnSpeed2x'), sp05x=document.getElementById('btnSpeed05x');
-    let grpH = document.getElementById('speedGroupHigh'), grpL = document.getElementById('speedGroupLow');
+    // 基础倍速按钮
+    const btn2 = document.getElementById('btnSpeed2');      // 2x (500)
+    const btn05 = document.getElementById('btnSpeed05');    // 0.5x (1800)
+    const btn7x = document.getElementById('btnSpeed7x');    // 7x (143)
+    const btn4x = document.getElementById('btnSpeed4x');    // 4x (250)
+    const btn2x = document.getElementById('btnSpeed2x');    // 2x (500) 在 debug 组
+    const btn05x = document.getElementById('btnSpeed05x');  // 0.5x (1800) 在 debug 组
+    const grpH = document.getElementById('speedGroupHigh');
+    const grpL = document.getElementById('speedGroupLow');
+
+    // 显示/隐藏 debug 倍速组
     if (debugMode) {
-        if(sp2) sp2.style.display='none'; if(sp05) sp05.style.display='none';
-        if(grpH) grpH.style.display='flex'; if(grpL) grpL.style.display='flex';
-        [sp7x, sp4x, sp2x, sp05x].forEach(b=>{
-            if(!b) return;
-            let sv=parseInt(b.dataset.speed);
-            b.classList.remove('active', 'semi-active');
-            if (sv === speed) b.classList.add('active');
-            else if (manualSpeedLock && sv === manualSpeedValue && !slideSpeedActive) b.classList.add('semi-active');
-        });
-        if (!slideSpeedActive && manualSpeedLock && sp05x) sp05x.classList.add('active');
+        if(btn2) btn2.style.display='none';
+        if(btn05) btn05.style.display='none';
+        if(grpH) grpH.style.display='flex';
+        if(grpL) grpL.style.display='flex';
     } else {
-        if(sp2) sp2.style.display=''; if(sp05) sp05.style.display='';
-        if(grpH) grpH.style.display='none'; if(grpL) grpL.style.display='none';
-        if(sp2) sp2.classList.remove('active', 'semi-active');
-        if(sp05) sp05.classList.remove('active', 'semi-active');
-        if (speed === 500) sp2.classList.add('active');
-        else if (speed === 1800) sp05.classList.add('active');
-        if (!slideSpeedActive && manualSpeedLock && manualSpeedValue !== speed) {
-            if (manualSpeedValue === 500) sp2.classList.add('semi-active');
-            else if (manualSpeedValue === 1800) sp05.classList.add('semi-active');
-        }
+        if(btn2) btn2.style.display='';
+        if(btn05) btn05.style.display='';
+        if(grpH) grpH.style.display='none';
+        if(grpL) grpL.style.display='none';
     }
-    slideSpeedActive = true;
+
+    // 清除所有按钮的高亮和半高亮
+    [btn2, btn05, btn7x, btn4x, btn2x, btn05x].forEach(b => {
+        if (!b) return;
+        b.classList.remove('active', 'semi-active');
+    });
+
+    // 当前实际生效的速度
+    const activeSpeed = speed;
+
+    // 如果当前处于滑动日志导致的 0.5x 自动切换（slideSpeedActive === false），
+    // 则 0.5x 按钮高亮，且原手动倍速按钮半亮
+    if (!slideSpeedActive) {
+        // 0.5x 按钮高亮（当前实际生效的速度）
+        const btn05Target = debugMode ? btn05x : btn05;
+        if (btn05Target) btn05Target.classList.add('active');
+        // 原手动倍速按钮淡蓝（半高亮），表示被覆盖
+        if (manualSpeedLock && manualSpeedValue && manualSpeedValue !== 1800) {
+            const lockedBtn = getButtonBySpeedValue(manualSpeedValue, debugMode);
+            if (lockedBtn) lockedBtn.classList.add('semi-active');
+        }
+        // 禁用其他倍速按钮的点击
+        setAllSpeedButtonsEnabled(false);
+    } else {
+        // 正常手动倍速：高亮当前生效的倍速按钮
+        const activeBtn = getButtonBySpeedValue(activeSpeed, debugMode);
+        if (activeBtn) activeBtn.classList.add('active');
+        // 启用所有倍速按钮
+        setAllSpeedButtonsEnabled(true);
+    }
 }
+
+function activateScrollSlowdown() {
+    if (speed === 1800) return; // 已经是 0.5x，不做任何事
+    // 保存当前倍速作为手动锁定值（如果尚未锁定或值不同）
+    if (!manualSpeedLock || manualSpeedValue !== speed) {
+        manualSpeedValue = speed;
+        manualSpeedLock = true;
+    }
+    slideSpeedActive = false;
+    speed = 1800;
+    updateSpeedButtons();
+    // 同步到全局状态
+    setState.speed(1800);
+}
+
+function restoreSpeedFromScroll() {
+    if (slideSpeedActive) return; // 已经是手动倍速，不需要恢复
+    slideSpeedActive = true;
+    const restoredSpeed = manualSpeedValue || 500;
+    speed = restoredSpeed;
+    updateSpeedButtons();
+    // 同步到全局状态
+    setState.speed(restoredSpeed);
+}
+
+function getButtonBySpeedValue(val, isDebug) {
+    if (val === 500) {
+        return isDebug ? document.getElementById('btnSpeed2x') : document.getElementById('btnSpeed2');
+    } else if (val === 143) {
+        return document.getElementById('btnSpeed7x');
+    } else if (val === 250) {
+        return document.getElementById('btnSpeed4x');
+    } else if (val === 1800) {
+        return isDebug ? document.getElementById('btnSpeed05x') : document.getElementById('btnSpeed05');
+    }
+    return null;
+}
+
+function setAllSpeedButtonsEnabled(enabled) {
+    const ids = ['btnSpeed2', 'btnSpeed05', 'btnSpeed7x', 'btnSpeed4x', 'btnSpeed2x', 'btnSpeed05x'];
+    ids.forEach(id => {
+        const btn = document.getElementById(id);
+        if (btn) {
+            btn.disabled = !enabled;
+            // 移除 disabled 带来的灰色样式，保留自定义半高亮
+            if (btn.disabled && btn.classList.contains('semi-active')) {
+                btn.style.opacity = '1';
+                btn.style.filter = 'none';
+            }
+        }
+    });
+}
+
+function setSpeed(val, lock) {
+    speed = val;
+    if (lock) {
+        manualSpeedLock = true;
+        manualSpeedValue = val;
+        slideSpeedActive = true;
+    }
+    updateSpeedButtons();
+}
+
+
+
+function attachSpeedButton(id, speedVal) {
+    let btn = document.getElementById(id); if (!btn) return;
+    btn.addEventListener('click', function() { onAnyButtonClick(); setSpeed(speedVal, true); });
+}
+
+// 初始化倍速按钮事件
+attachSpeedButton('btnSpeed2', 500);
+attachSpeedButton('btnSpeed7x', 143);
+attachSpeedButton('btnSpeed4x', 250);
+attachSpeedButton('btnSpeed2x', 500);
+attachSpeedButton('btnSpeed05', 1800);
+attachSpeedButton('btnSpeed05x', 1800);
+
 window.updateSpeedButtons = updateSpeedButtons;
 
 function _triggerFX(fxSnapshot, unitA, unitD, isDead, isDodge, isMiss, isBlock, dmg, waveTaunt, waveUnit, attackerRole) {
     if(!detailMode)return;
-    // 弹幕优先级：击杀台词 > 暴击台词 > 防御嘲讽 > 血量嘲讽 > 普通攻击台词
     if(isDead&&unitA&&!isBlock&&!isMiss&&!isDodge){
         let killTaunt=getKillTaunt(unitA,KT);
         setTimeout(() => showDanmaku(unitA,killTaunt), 0);
@@ -284,7 +385,6 @@ document.addEventListener('DOMContentLoaded', function() {
     const canvas = document.getElementById('glowCanvas');
     if (canvas) { canvas.style.zIndex = '1'; canvas.style.pointerEvents = 'none'; }
 
-    // 初始化 UI 和 snapshot 到 39main-state，保持与 doInitBattle 之前的兼容
     if (!getState.UI().allyTeam.length) {
         setState.UI({ allyTeam: [], enemyTeam: [], currentResult: null, round: 0, lastSnapshot: null });
         setState.snapshot({ ally: [], enemy: [] });
@@ -295,17 +395,17 @@ document.addEventListener('DOMContentLoaded', function() {
         if(gs===S.GAMEOVER){
             if(currentStage>=6){
                 currentStage=1;
-                let result = abortAll(abortController, getState.UI(), waitingForNextRound, isBattleStarting, getState.adjustMode(), getState.selectedAdjustPos(), activeBuffs, selectedBuffIndex, currentDoubleStrikeUid, () => updateBuffSlots(activeBuffs, selectedBuffIndex));
-                abortController = result.abortController; waitingForNextRound = result.waitingForNextRound; isBattleStarting = result.isBattleStarting; setState.adjustMode(result.adjustMode); setState.selectedAdjustPos(result.selectedAdjustPos); activeBuffs = result.activeBuffs; selectedBuffIndex = result.selectedBuffIndex; currentDoubleStrikeUid = result.currentDoubleStrikeUid;
+                let result = abortAll(abortController, getState.UI(), waitingForNextRound, isBattleStarting, getState.adjustMode(), getState.selectedAdjustPos(), getState.activeBuffs(), selectedBuffIndex, currentDoubleStrikeUid, () => updateBuffSlots(getState.activeBuffs(), selectedBuffIndex));
+                abortController = result.abortController; waitingForNextRound = result.waitingForNextRound; isBattleStarting = result.isBattleStarting; setState.adjustMode(result.adjustMode); setState.selectedAdjustPos(result.selectedAdjustPos); setState.activeBuffs(result.activeBuffs); selectedBuffIndex = result.selectedBuffIndex; currentDoubleStrikeUid = result.currentDoubleStrikeUid;
                 clearLogExceptFirst(); clearAllEffects(); hasLoggedTeam=false;
-                doInitBattle(currentStage, getState.UI(), getState.snapshot(), activeBuffs, selectedBuffIndex, currentDoubleStrikeUid);
+                doInitBattle(currentStage, getState.UI(), getState.snapshot(), getState.activeBuffs(), selectedBuffIndex, currentDoubleStrikeUid);
                 updateUI(getState.UI()); gs=S.IDLE; setState.isPaused(false); updateButtons(); enableAllButtons(); updateSpeedButtons(); if(window._refreshGlowCells)window._refreshGlowCells();
             } else {
                 currentStage++;
-                let result = abortAll(abortController, getState.UI(), waitingForNextRound, isBattleStarting, getState.adjustMode(), getState.selectedAdjustPos(), activeBuffs, selectedBuffIndex, currentDoubleStrikeUid, () => updateBuffSlots(activeBuffs, selectedBuffIndex));
-                abortController = result.abortController; waitingForNextRound = result.waitingForNextRound; isBattleStarting = result.isBattleStarting; setState.adjustMode(result.adjustMode); setState.selectedAdjustPos(result.selectedAdjustPos); activeBuffs = result.activeBuffs; selectedBuffIndex = result.selectedBuffIndex; currentDoubleStrikeUid = result.currentDoubleStrikeUid;
+                let result = abortAll(abortController, getState.UI(), waitingForNextRound, isBattleStarting, getState.adjustMode(), getState.selectedAdjustPos(), getState.activeBuffs(), selectedBuffIndex, currentDoubleStrikeUid, () => updateBuffSlots(getState.activeBuffs(), selectedBuffIndex));
+                abortController = result.abortController; waitingForNextRound = result.waitingForNextRound; isBattleStarting = result.isBattleStarting; setState.adjustMode(result.adjustMode); setState.selectedAdjustPos(result.selectedAdjustPos); setState.activeBuffs(result.activeBuffs); selectedBuffIndex = result.selectedBuffIndex; currentDoubleStrikeUid = result.currentDoubleStrikeUid;
                 clearLogExceptFirst(); clearAllEffects(); hasLoggedTeam=false;
-                doInitBattle(currentStage, getState.UI(), getState.snapshot(), activeBuffs, selectedBuffIndex, currentDoubleStrikeUid);
+                doInitBattle(currentStage, getState.UI(), getState.snapshot(), getState.activeBuffs(), selectedBuffIndex, currentDoubleStrikeUid);
                 updateUI(getState.UI()); gs=S.IDLE; setState.isPaused(false); updateButtons(); enableAllButtons(); updateSpeedButtons(); if(window._refreshGlowCells)window._refreshGlowCells();
             }
         } else if(gs===S.IDLE&&!isBattleStarting){
@@ -314,11 +414,11 @@ document.addEventListener('DOMContentLoaded', function() {
             } else {
                 setState.adjustMode(false); setState.selectedAdjustPos(null); isBattleStarting=true; updateButtons(); updateUI(getState.UI());
                 showVoteDialog(async(choice)=>{
-                    clearLogExceptFirst(); hasLoggedTeam=false; fadeBGMTo(0.1,2000); logTeamInfo('初始阵容', getState.UI(), gs, battleResultForInfo, activeBuffs, hasLoggedTeam); hasLoggedTeam = true;
+                    clearLogExceptFirst(); hasLoggedTeam=false; fadeBGMTo(0.1,2000); logTeamInfo('初始阵容', getState.UI(), gs, battleResultForInfo, getState.activeBuffs(), hasLoggedTeam); hasLoggedTeam = true;
                     await showCountdown(TRASH_TALK_ALLY, TRASH_TALK_ENEMY, rand, showDanmaku, autoScrollLog);
                     let logDiv=document.getElementById('log'); logDiv.innerHTML+='<div class="separator">⚔️ 5v5对决开始 ⚔️</div>';
                     autoScrollLog();
-                    await new Promise(resolve => { showBuffSelection(() => resolve(), activeBuffs, selectedBuffIndex, () => updateBuffSlots(activeBuffs, selectedBuffIndex), () => updateUI(getState.UI()), autoScrollLog); });
+                    await new Promise(resolve => { showBuffSelection(() => resolve(), getState.activeBuffs(), selectedBuffIndex, () => updateBuffSlots(getState.activeBuffs(), selectedBuffIndex), () => updateUI(getState.UI()), autoScrollLog); });
                     await new Promise(r=>setTimeout(r,600));
                     try {
                         gs=S.RUNNING; updateButtons(); document.getElementById('btnNext').disabled=true;
@@ -339,7 +439,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         const currentUI = getState.UI();
                         currentUI.enemyTeam = enemyList;
                         updateUI(currentUI);
-                        const battleResult = runBattle(snap, activeBuffs);
+                        const battleResult = runBattle(snap, getState.activeBuffs());
                         setState.UI({ ...getState.UI(), currentResult: battleResult });
                         if (battleResult && battleResult.doubleStrikeUids) {
                             currentDoubleStrikeUid = battleResult.doubleStrikeUids[battleResult.doubleStrikeUids.length - 1] || null;
@@ -365,8 +465,8 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('btnNext').addEventListener('click',function(){onAnyButtonClick();waitingForNextRound=false;gs=S.RUNNING;updateButtons();});
     document.getElementById('btnSettle').addEventListener('click',async function(){
         onAnyButtonClick();
-        let result = abortAll(abortController, getState.UI(), waitingForNextRound, isBattleStarting, getState.adjustMode(), getState.selectedAdjustPos(), activeBuffs, selectedBuffIndex, currentDoubleStrikeUid, () => updateBuffSlots(activeBuffs, selectedBuffIndex));
-        abortController = result.abortController; waitingForNextRound = result.waitingForNextRound; isBattleStarting = result.isBattleStarting; setState.adjustMode(result.adjustMode); setState.selectedAdjustPos(result.selectedAdjustPos); activeBuffs = result.activeBuffs; selectedBuffIndex = result.selectedBuffIndex; currentDoubleStrikeUid = result.currentDoubleStrikeUid;
+        let result = abortAll(abortController, getState.UI(), waitingForNextRound, isBattleStarting, getState.adjustMode(), getState.selectedAdjustPos(), getState.activeBuffs(), selectedBuffIndex, currentDoubleStrikeUid, () => updateBuffSlots(getState.activeBuffs(), selectedBuffIndex));
+        abortController = result.abortController; waitingForNextRound = result.waitingForNextRound; isBattleStarting = result.isBattleStarting; setState.adjustMode(result.adjustMode); setState.selectedAdjustPos(result.selectedAdjustPos); setState.activeBuffs(result.activeBuffs); selectedBuffIndex = result.selectedBuffIndex; currentDoubleStrikeUid = result.currentDoubleStrikeUid;
         clearAllEffects();
         gs = S.IDLE;
         setState.isPaused(false);
@@ -431,7 +531,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const currentUI = getState.UI();
         let ally=currentUI.allyTeam,enemy=currentUI.enemyTeam;
         if(!ally.length){showAlert('无阵容信息');return;}
-        hasLoggedTeam = logTeamInfo('阵容详情', currentUI, gs, battleResultForInfo, activeBuffs, hasLoggedTeam);
+        hasLoggedTeam = logTeamInfo('阵容详情', currentUI, gs, battleResultForInfo, getState.activeBuffs(), hasLoggedTeam);
     });
     document.getElementById('btnBGM').addEventListener('click',()=>{ showMusicPanel(); });
     document.getElementById('btnCrashMode').addEventListener('click',function(){window._crashMode=window._crashMode==='fly'?'ghost':'fly';this.textContent=window._crashMode==='fly'?'🕊️飞走':'👻虚影';});
@@ -446,19 +546,19 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function switchToStageInternal(stage){
         onAnyButtonClick();
-        let result = abortAll(abortController, getState.UI(), waitingForNextRound, isBattleStarting, getState.adjustMode(), getState.selectedAdjustPos(), activeBuffs, selectedBuffIndex, currentDoubleStrikeUid, () => updateBuffSlots(activeBuffs, selectedBuffIndex));
-        abortController = result.abortController; waitingForNextRound = result.waitingForNextRound; isBattleStarting = result.isBattleStarting; setState.adjustMode(result.adjustMode); setState.selectedAdjustPos(result.selectedAdjustPos); activeBuffs = result.activeBuffs; selectedBuffIndex = result.selectedBuffIndex; currentDoubleStrikeUid = result.currentDoubleStrikeUid;
+        let result = abortAll(abortController, getState.UI(), waitingForNextRound, isBattleStarting, getState.adjustMode(), getState.selectedAdjustPos(), getState.activeBuffs(), selectedBuffIndex, currentDoubleStrikeUid, () => updateBuffSlots(getState.activeBuffs(), selectedBuffIndex));
+        abortController = result.abortController; waitingForNextRound = result.waitingForNextRound; isBattleStarting = result.isBattleStarting; setState.adjustMode(result.adjustMode); setState.selectedAdjustPos(result.selectedAdjustPos); setState.activeBuffs(result.activeBuffs); selectedBuffIndex = result.selectedBuffIndex; currentDoubleStrikeUid = result.currentDoubleStrikeUid;
         clearLogExceptFirst(); clearAllEffects(); hasLoggedTeam=false;
         currentStage=stage;
-        doInitBattle(currentStage, getState.UI(), getState.snapshot(), activeBuffs, selectedBuffIndex, currentDoubleStrikeUid);
+        doInitBattle(currentStage, getState.UI(), getState.snapshot(), getState.activeBuffs(), selectedBuffIndex, currentDoubleStrikeUid);
         updateUI(getState.UI()); gs=S.IDLE; updateButtons(); enableAllButtons();
     }
 
     function forceStopGame(){
         const currentUI = getState.UI();
         if(!currentUI || !currentUI.allyTeam.length) return;
-        let result = abortAll(abortController, currentUI, waitingForNextRound, isBattleStarting, getState.adjustMode(), getState.selectedAdjustPos(), activeBuffs, selectedBuffIndex, currentDoubleStrikeUid, () => updateBuffSlots(activeBuffs, selectedBuffIndex));
-        abortController = result.abortController; waitingForNextRound = result.waitingForNextRound; isBattleStarting = result.isBattleStarting; setState.adjustMode(result.adjustMode); setState.selectedAdjustPos(result.selectedAdjustPos); activeBuffs = result.activeBuffs; selectedBuffIndex = result.selectedBuffIndex; currentDoubleStrikeUid = result.currentDoubleStrikeUid;
+        let result = abortAll(abortController, currentUI, waitingForNextRound, isBattleStarting, getState.adjustMode(), getState.selectedAdjustPos(), getState.activeBuffs(), selectedBuffIndex, currentDoubleStrikeUid, () => updateBuffSlots(getState.activeBuffs(), selectedBuffIndex));
+        abortController = result.abortController; waitingForNextRound = result.waitingForNextRound; isBattleStarting = result.isBattleStarting; setState.adjustMode(result.adjustMode); setState.selectedAdjustPos(result.selectedAdjustPos); setState.activeBuffs(result.activeBuffs); selectedBuffIndex = result.selectedBuffIndex; currentDoubleStrikeUid = result.currentDoubleStrikeUid;
         clearLogExceptFirst(); clearAllEffects(); hasLoggedTeam=false;
         gs=S.IDLE;setState.isPaused(false);waitingForNextRound=false;isBattleStarting=false;
         updateButtons();enableAllButtons();updateSpeedButtons();
@@ -466,9 +566,9 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function doManualReset(){
-        activeBuffs=[]; setState.snapshot({ally:[],enemy:[]}); currentDoubleStrikeUid=null;
+        setState.activeBuffs([]); setState.snapshot({ally:[],enemy:[]}); currentDoubleStrikeUid=null;
         forceStopGame();
-        doInitBattle(currentStage, getState.UI(), getState.snapshot(), activeBuffs, selectedBuffIndex, currentDoubleStrikeUid);
+        doInitBattle(currentStage, getState.UI(), getState.snapshot(), getState.activeBuffs(), selectedBuffIndex, currentDoubleStrikeUid);
         updateUI(getState.UI());
         gs=S.IDLE;updateButtons();enableAllButtons();
     }
@@ -477,32 +577,26 @@ document.addEventListener('DOMContentLoaded', function() {
     window.forceStopGame = forceStopGame;
     window.doManualReset = doManualReset;
     window.getGameState = ()=>({ gs, currentStage, isPaused: getState.isPaused(), isBattleStarting, allyCount: getState.UI().allyTeam.length, enemyCount: getState.UI().enemyTeam.length });
+    // 暴露倍速控制函数给播放器使用
+    window._activateScrollSlowdown = activateScrollSlowdown;
+    window._restoreSpeedFromScroll = restoreSpeedFromScroll;
 
     for (let i = 0; i < 2; i++) { let slot = document.getElementById('buffSlot' + i); if (slot) slot.addEventListener('click', () => {
-        if (i >= activeBuffs.length) return;
+        if (i >= getState.activeBuffs().length) return;
         selectedBuffIndex = selectedBuffIndex === i ? -1 : i;
-        updateBuffSlots(activeBuffs, selectedBuffIndex);
+        updateBuffSlots(getState.activeBuffs(), selectedBuffIndex);
         updateUI(getState.UI());
         if (window._updateGlowColors) window._updateGlowColors(selectedBuffIndex);
     }); }
-
-    function setSpeed(val, lock) { speed = val; manualSpeedLock = lock; manualSpeedValue = lock ? val : null; slideSpeedActive = lock; updateSpeedButtons(); }
-    function attachSpeedButton(id, speedVal) {
-        let btn = document.getElementById(id); if (!btn) return;
-        btn.addEventListener('click', function() { onAnyButtonClick(); if (speed === speedVal) setSpeed(1000, false); else setSpeed(speedVal, true); });
-    }
-    attachSpeedButton('btnSpeed2', 500);
-    attachSpeedButton('btnSpeed7x', 143);
-    attachSpeedButton('btnSpeed4x', 250);
-    attachSpeedButton('btnSpeed2x', 500);
-    attachSpeedButton('btnSpeed05', 1800);
-    attachSpeedButton('btnSpeed05x', 1800);
 
     document.getElementById('voteFloat').addEventListener('click',function(){let overlay=document.getElementById('voteModalOverlay');if(overlay){overlay.style.display='flex';this.style.display='none';}});
     document.getElementById('coverStartBtn').addEventListener('click',function(){
         document.getElementById('coverOverlay').style.display='none';
         gameStarted=true; initBGM(); playBGM(); setBGMVolume(0.5);
         try { initGlowSystem(); } catch(e) { console.warn('光带特效初始化失败，已跳过', e); }
+        // 初始倍速 2x 高亮
+        speed = 500; manualSpeedLock = true; manualSpeedValue = 500; slideSpeedActive = true;
+        updateSpeedButtons();
     });
     document.getElementById('allyGrid').addEventListener('click', function(e) {
         if (!getState.adjustMode()) return;
@@ -516,10 +610,19 @@ document.addEventListener('DOMContentLoaded', function() {
         updateUI(getState.UI()); if(window._refreshGlowCells)window._refreshGlowCells();
     });
 
+    // 日志滚动事件：触发倍速切换
+    let logDiv = document.getElementById('log');
+    let backToBottomBtn = null; // 会被 playBattle 中创建，这里仅监听滚动
+    // 滚动监听将在 playBattle 中设置，但为了通用，我们也可以在这里设置一个全局滚动监听，
+    // 但 playBattle 内的设置会覆盖。为保持兼容，我们保留 playBattle 内的设置，同时确保这里的逻辑不会冲突。
+    // 实际上 10player-core.js 内已经设置了滚动监听，所以这里不需要重复。
+    // 但为了确保倍速逻辑独立工作，我们在 playBattle 之外也设置一个通用的滚动处理：
+    // 注意：可能产生重复监听，但 playBattle 内的监听是最新的，我们依赖它。
+    // 这里不再重复添加。
+
     try {
         updateButtons(); updateSpeedButtons(); updateDebugUI();
-        // 初始化第一关阵容
-        doInitBattle(currentStage, getState.UI(), getState.snapshot(), activeBuffs, selectedBuffIndex, currentDoubleStrikeUid);
+        doInitBattle(currentStage, getState.UI(), getState.snapshot(), getState.activeBuffs(), selectedBuffIndex, currentDoubleStrikeUid);
         updateUI(getState.UI()); updateScoreBadge();
         document.getElementById('log').innerHTML = '<div class="separator">' + LOG_LINE1 + '</div>';
         document.getElementById('btnDetail').classList.toggle('active', detailMode);

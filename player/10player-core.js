@@ -1,6 +1,6 @@
 // player/10player-core.js - 光明顶5v5 战斗播放器核心
-// V4.0.0 | ~41141 bytes | 2026-07-05
-export const VER = 'player/10player-core.js V4.0.0';
+// V5.0.0 | ~48000 bytes | 2026-07-06 逐步执行、分隔符统一、倍速适配
+export const VER = 'player/10player-core.js V5.0.0';
 
 import { runBattleRound } from '../core/07battle-engine-5v5-test.js';
 import { isBlocked } from '../core/03battle-utils.js';
@@ -13,7 +13,8 @@ import { animatePositionSwap } from '../fx/18fx-position-swap.js';
 import { animatePushBack } from '../fx/19fx-push-back.js';
 import { AudioManager } from '../modules/28audio-manager.js';
 import { handleBuffSummon, handleBuffDestroy, handleBuffLeech, showBuffPopup } from './09player-buff-ui.js';
-
+import { createRoundStepper } from '../core/06battle-engine-core.js';
+import { getState } from '../ui/39main-state.js';
 // ==================== 动画调度器 ====================
 class AnimationScheduler {
     constructor() {
@@ -88,8 +89,6 @@ function battleReducer(state, action) {
     switch (action.type) {
         case 'INIT':
             return state;
-
-        // ========== 核心：应用引擎事件快照 ==========
         case 'APPLY_EVENTS': {
             const events = action.events;
             if (!events || events.length === 0) return state;
@@ -99,7 +98,6 @@ function battleReducer(state, action) {
                     const idx = next.findIndex(u => u.uid === ev.unitUid);
                     if (idx >= 0) {
                         const p = ev.payload;
-                        // 覆盖所有引擎传递的字段（完整快照）
                         if (p.hp !== undefined) next[idx].hp = p.hp;
                         if (p.maxHp !== undefined) next[idx].maxHp = p.maxHp;
                         if (p.alive !== undefined) next[idx].alive = p.alive;
@@ -118,14 +116,12 @@ function battleReducer(state, action) {
                         if (p.critCount !== undefined) next[idx].critCount = p.critCount;
                         if (p.survivedRounds !== undefined) next[idx].survivedRounds = p.survivedRounds;
                         if (p._isDead !== undefined) next[idx]._isDead = p._isDead;
-                        // 张无忌切换
                         if (ev.eventType === 'zhang-switch') {
                             next[idx].rangedForm = p.rangedForm !== undefined ? p.rangedForm : next[idx].rangedForm;
                             next[idx].role = p.role || next[idx].role;
                         }
                     }
                 } else if (ev.eventType === 'unit-add') {
-                    // 拒马生成
                     const p = ev.payload;
                     if (!next.find(u => u.uid === p.uid)) {
                         next.push({
@@ -144,8 +140,6 @@ function battleReducer(state, action) {
             }
             return { ...state, units: next };
         }
-
-        // 直接同步单位（用于 handleBuffLeech 等已直接修改 UI 对象的场景，兼容过渡）
         case 'SYNC_UNIT': {
             let next = state.units.map(u => {
                 if (u.uid !== action.uid) return u;
@@ -153,19 +147,13 @@ function battleReducer(state, action) {
             });
             return { ...state, units: next };
         }
-
-        // 添加单位（兼容旧代码，实际应通过 APPLY_EVENTS 的 unit-add 处理）
         case 'ADD_UNIT': {
             if (state.units.find(u => u.uid === action.unit.uid)) return state;
             return { ...state, units: [...state.units, action.unit] };
         }
-
-        // 移除单位
         case 'REMOVE_UNIT': {
             return { ...state, units: state.units.filter(u => u.uid !== action.uid) };
         }
-
-        // 回合开始时用引擎权威状态校准所有单位（防剧透 + 修正遗漏）
         case 'SYNC_FULL_STATE': {
             const allEngine = [...action.ally, ...action.enemy];
             let next = state.units.map(u => {
@@ -187,7 +175,6 @@ function battleReducer(state, action) {
             });
             return { ...state, units: next };
         }
-
         default:
             return state;
     }
@@ -253,14 +240,12 @@ async function handleBuffReboundFortify(c, entry) {
 }
 
 // 核心攻击动画（纯视觉，不修改状态）
-async function handleAttackGroup(c, entry, roundResult, abortSig, isFirstAttackInRoundRef) {
+async function handleAttackGroup(c, entry, roundResult, abortSig, isFirstAttackRef) {
     if (entry.isCombo) { let spacer = document.createElement('div'); spacer.innerHTML = '<br>'; document.getElementById('log').appendChild(spacer); c.autoScrollLog(); c.isPaused = true; window.bulletTimeActive = true; if (c._scheduler) { await new Promise(r => c._scheduler.schedule('banner', 1500, r)); showBuffBanner('⚡ 连击！'); } else { await showBuffBanner('⚡ 连击！'); } window.bulletTimeActive = false; c.isPaused = false; }
     let unitA=c.UI.allyTeam.concat(c.UI.enemyTeam).find(u=>u.uid===entry.uidA);
     let unitD=entry.uidD?c.UI.allyTeam.concat(c.UI.enemyTeam).find(u=>u.uid===entry.uidD):null;
     if(!entry.isBlock&&!entry.isMiss&&!entry.isDodge&&(!unitA||!unitD))return { isBattleOver: false };
-    if(!isFirstAttackInRoundRef.value && !entry.isCombo){ let sepDiv=document.createElement('div'); sepDiv.innerHTML='<span class="separator">- - - - -</span><br>'; document.getElementById('log').appendChild(sepDiv); c.autoScrollLog(); await new Promise(r=>setTimeout(r, c.speed/4)); }
-    isFirstAttackInRoundRef.value=false;
-    
+    // 分隔符由外层统一处理，此处移除
     // 攻击闪光（视觉）
     if(unitA&&!entry.isBlock){
         unitA._flash='attack';c.updateUI(c.UI);
@@ -316,7 +301,8 @@ async function handleAttackGroup(c, entry, roundResult, abortSig, isFirstAttackI
     if(unitD&&entry.hpPctAfter!==undefined&&entry.hpPctBefore!==undefined){ if(entry.hpPctBefore>40&&entry.hpPctAfter<=40&&entry.hpPctAfter>20){let t=(unitD.camp==='ally'?'不好，必须反击了！':'小儿安敢伤我！');safeShowDanmaku(unitD,t);} else if(entry.hpPctBefore>20&&entry.hpPctAfter<=20){let t=(unitD.camp==='ally'?'撑住！':'已是强弩之末！');safeShowDanmaku(unitD,t);} }
     await new Promise(r=>setTimeout(r,offset)); await c.waitWhilePaused();
     if(atkTimer)clearTimeout(atkTimer); if(defTimer)clearTimeout(defTimer);
-    if(unitA){unitA._flash=null;unitA._acted=true;} if(unitD&&!entry.isDodge&&!entry.isMiss&&!entry.isDead)unitD._flash=null;
+    if(unitA && !unitA._isDead){unitA._flash=null;unitA._acted=true;}
+    if(unitD && !entry.isDodge && !entry.isMiss && !entry.isDead && !unitD._isDead) unitD._flash=null;
     c.UI.allyTeam.concat(c.UI.enemyTeam).forEach(u => { if (u.alive) u._blocked = isBlocked(u, u.camp === 'ally' ? c.UI.allyTeam : c.UI.enemyTeam); });
     c.updateUI(c.UI);
     document.getElementById('roundDisplay').innerText = `📜 日志（第${c.UI.round}回合）`;
@@ -356,9 +342,10 @@ async function handleInfo(c, entry) {
     document.getElementById('roundDisplay').innerText = `📜 日志（第${c.UI.round}回合）`;
 }
 
-async function handleRoundStart(c, entry, isFirstAttackInRoundRef) {
+async function handleRoundStart(c, entry, isFirstAttackRef) {
     c.UI.round = parseInt(entry.text.match(/\d+/)[0])||1;
-    isFirstAttackInRoundRef.value=true;
+    // 重置首个攻击标记
+    if (isFirstAttackRef) isFirstAttackRef.value = true;
     c.UI.allyTeam.concat(c.UI.enemyTeam).forEach(u=>{if(u.alive){u._acted=false;u._blocked=isBlocked(u, u.camp==='ally'?c.UI.allyTeam:c.UI.enemyTeam);u._resting = false;}});
     c.updateUI(c.UI);
     let div=document.createElement('div');div.innerHTML=entry.text+'<br>';document.getElementById('log').appendChild(div);c.autoScrollLog();
@@ -377,9 +364,9 @@ async function handleRoundEnd(c, entry, log, i) {
 
 // ==================== 主分发器（使用 Store 驱动） ====================
 
-export async function playLogEntries(c, log, roundResult) {
+export async function playLogEntries(c, log, roundResult, isFirstAttackRef) {
     let abortSig = c.abortController ? c.abortController.signal : null;
-    let isFirstAttackInRoundRef = { value: true };
+    let lastEntryType = null; // 跨步骤记录上一条日志类型
 
     try {
         for (let i = 0; i < log.length; i++) {
@@ -387,17 +374,43 @@ export async function playLogEntries(c, log, roundResult) {
             await c.waitWhilePaused();
             let entry = log[i];
 
+            // 分隔符规则（强制在每次攻击组之间插入，包括连续攻击组）
+            const isAttackCore = (t) => t === 'attack-group' || t === 'buff-leech' || t === 'buff-splash';
+            const isAttackSub = (t) => t === 'buff-leech' || t === 'buff-splash' || t === 'buff-bonus';
 
+            const needSep =
+                // 1. 从攻击核心切换到非附属条目（包括 info、round-end、buff-xxx 等）时插入
+                (lastEntryType && isAttackCore(lastEntryType) && !isAttackSub(entry.type) && entry.type !== lastEntryType) ||
+                // 2. 两个连续的攻击组之间也插入
+                (lastEntryType === 'attack-group' && entry.type === 'attack-group');
+
+            if (needSep) {
+                let sepDiv = document.createElement('div');
+                sepDiv.innerHTML = '<span class="separator">- - - - -</span><br>';
+                document.getElementById('log').appendChild(sepDiv);
+                c.autoScrollLog();
+                await new Promise(r => setTimeout(r, c.speed / 4));
+            }
+
+            if (needSep) {
+                let sepDiv = document.createElement('div');
+                sepDiv.innerHTML = '<span class="separator">- - - - -</span><br>';
+                document.getElementById('log').appendChild(sepDiv);
+                c.autoScrollLog();
+                await new Promise(r => setTimeout(r, c.speed / 4));
+            }
 
             switch (entry.type) {
                 case 'buff-summon': {
                     await handleBuffSummon(c, entry, i > 0 ? log[i-1] : null);
                     const horse = c.UI.allyTeam.find(u => u.uid === entry.horseUid);
                     if (horse) c.store.dispatch({ type: 'ADD_UNIT', unit: horse.clone() });
+                    lastEntryType = entry.type;
                     break;
                 }
                 case 'buff-destroy':
                     await handleBuffDestroy(c, entry, i > 0 ? log[i-1] : null);
+                    lastEntryType = entry.type;
                     break;
                 case 'buff-leech':
                     insertBuffSeparator(document.getElementById('log'), c);
@@ -415,12 +428,12 @@ export async function playLogEntries(c, log, roundResult) {
                         }
                     } else {
                         await handleBuffLeech(c, entry);
-                        // handleBuffLeech 可能直接修改了 UI，通过 sync 方式同步回 Store
                         if (entry.healUnitUid && entry.healAmount) {
                             let healed = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.uid === entry.healUnitUid);
                             if (healed) c.store.dispatch({ type: 'SYNC_UNIT', uid: entry.healUnitUid, fields: { hp: healed.hp, maxHp: healed.maxHp } });
                         }
                     }
+                    lastEntryType = entry.type;
                     break;
                 case 'buff-splash':
                     c.isPaused = true; window.bulletTimeActive = true;
@@ -444,35 +457,36 @@ export async function playLogEntries(c, log, roundResult) {
                     }
                     if (entry.buffType === 'meteor_splash') await new Promise(r=>setTimeout(r, 600));
                     c.isPaused = false;
+                    lastEntryType = entry.type;
                     break;
-                case 'buff-bonus':           await handleBuffBonus(c, entry); break;
-                case 'buff-swap':            await handleBuffSwap(c, entry); break;
-                case 'buff-push':            await handleBuffPush(c, entry); break;
-                case 'buff-summary':         { let div=document.createElement('div');div.innerHTML=entry.text+'<br>';document.getElementById('log').appendChild(div);c.autoScrollLog(); } break;
-                case 'buff-rebound-fortify': await handleBuffReboundFortify(c, entry); break;
-                case 'round-start':          await handleRoundStart(c, entry, isFirstAttackInRoundRef); break;
+                case 'buff-bonus':           await handleBuffBonus(c, entry); lastEntryType = entry.type; break;
+                case 'buff-swap':            await handleBuffSwap(c, entry); lastEntryType = entry.type; break;
+                case 'buff-push':            await handleBuffPush(c, entry); lastEntryType = entry.type; break;
+                case 'buff-summary':         { let div=document.createElement('div');div.innerHTML=entry.text+'<br>';document.getElementById('log').appendChild(div);c.autoScrollLog(); lastEntryType = entry.type; } break;
+                case 'buff-rebound-fortify': {
+                    await handleBuffReboundFortify(c, entry);
+                    lastEntryType = entry.type;
+                    break;
+                }
+                case 'round-start':          await handleRoundStart(c, entry, isFirstAttackRef); lastEntryType = entry.type; break;
                 case 'attack-group': {
-                    let result = await handleAttackGroup(c, entry, roundResult, abortSig, isFirstAttackInRoundRef);
-                    // 动画播完后再应用状态变更，避免UI提前显示
+                    let result = await handleAttackGroup(c, entry, roundResult, abortSig, isFirstAttackRef);
                     if (entry._events && entry._events.length > 0) {
                         c.store.dispatch({ type: 'APPLY_EVENTS', events: entry._events });
                     }
+                    lastEntryType = entry.type;
                     if (result && result.isBattleOver) return result;
                     break;
                 }
-                case 'info':  await handleInfo(c, entry); break;
-                case 'round-end': await handleRoundEnd(c, entry, log, i); break;
+                case 'info':  await handleInfo(c, entry); lastEntryType = entry.type; break;
+                case 'round-end': await handleRoundEnd(c, entry, log, i); lastEntryType = entry.type; break;
             }
 
             if (abortSig && abortSig.aborted) return { isBattleOver: false };
         }
     } catch (e) {
         window.bulletTimeActive = false;
-        const detail = e && e.stack ? e.stack : (e && e.message ? e.message : String(e));
-        console.error('playLogEntries 错误:', detail);
-        if (typeof appendErrorLog === 'function') {
-            appendErrorLog('[ERROR] playLogEntries: ', detail);
-        }
+        console.error('playLogEntries 错误:', e);
         return { isBattleOver: false };
     }
     return { isBattleOver: false };
@@ -480,8 +494,7 @@ export async function playLogEntries(c, log, roundResult) {
 
 export async function playBattle() {
     const c = getCtx();
-    console.log('[诊断2] playBattle 入口, currentResult:', !!c?.UI?.currentResult);
-if (!c || !c.UI.currentResult) return;
+    if (!c || !c.UI.currentResult) return;
     const scheduler = new AnimationScheduler();
     c._scheduler = scheduler;
 
@@ -513,23 +526,19 @@ if (!c || !c.UI.currentResult) return;
     // 订阅 Store 变化 → 同步到 c.UI 并刷新界面
     c.store.subscribe((state) => {
         if (!c.UI || !c.UI.allyTeam || !c.UI.enemyTeam) return;
-        // 将 Store 中的单位状态同步回 UI 对象（保留 Unit 原型链的方法）
         const syncFields = (uiUnit) => {
             const su = state.units.find(u => u.uid === uiUnit.uid);
             if (!su) return;
             GAME_STATE_FIELDS.forEach(f => { if (su[f] !== undefined) uiUnit[f] = su[f]; });
-            // 如果 Store 里标记为死亡，强制同步 _flash 为 'dead'，防止残留
             if (su._isDead && !uiUnit._isDead) {
                 uiUnit._isDead = true;
                 uiUnit._flash = 'dead';
             }
         };
-        // 同步前保存视觉标记，防止被 Store 覆盖
         const allyFlash = c.UI.allyTeam.map(u => ({ uid: u.uid, _flash: u._flash, _isDead: u._isDead, _acted: u._acted, _resting: u._resting, _blocked: u._blocked }));
         const enemyFlash = c.UI.enemyTeam.map(u => ({ uid: u.uid, _flash: u._flash, _isDead: u._isDead, _acted: u._acted, _resting: u._resting, _blocked: u._blocked }));
         c.UI.allyTeam.forEach(syncFields);
         c.UI.enemyTeam.forEach(syncFields);
-        // 恢复视觉标记（跳过已死亡的单位，保留其死亡特效）
         allyFlash.forEach(s => {
             const uiUnit = c.UI.allyTeam.find(u => u.uid === s.uid);
             if (uiUnit && !uiUnit._isDead) { uiUnit._flash = s._flash; uiUnit._acted = s._acted; uiUnit._resting = s._resting; uiUnit._blocked = s._blocked; }
@@ -538,7 +547,6 @@ if (!c || !c.UI.currentResult) return;
             const uiUnit = c.UI.enemyTeam.find(u => u.uid === s.uid);
             if (uiUnit && !uiUnit._isDead) { uiUnit._flash = s._flash; uiUnit._acted = s._acted; uiUnit._resting = s._resting; uiUnit._blocked = s._blocked; }
         });
-        // 添加新单位（拒马等）
         state.units.forEach(su => {
             if (su.camp === 'ally' && !c.UI.allyTeam.find(u => u.uid === su.uid)) c.UI.allyTeam.push({...su});
             if (su.camp === 'enemy' && !c.UI.enemyTeam.find(u => u.uid === su.uid)) c.UI.enemyTeam.push({...su});
@@ -546,6 +554,25 @@ if (!c || !c.UI.currentResult) return;
         // 移除已销毁的单位
         c.UI.allyTeam = c.UI.allyTeam.filter(u => state.units.find(su => su.uid === u.uid));
         c.UI.enemyTeam = c.UI.enemyTeam.filter(u => state.units.find(su => su.uid === u.uid));
+
+        // 死亡单位 3 秒后自动清除（从数据层移除）
+        if (!c._deathTimers) c._deathTimers = {};
+        for (const teamKey of ['allyTeam', 'enemyTeam']) {
+            for (const unit of c.UI[teamKey]) {
+                if (unit._isDead && !c._deathTimers[unit.uid]) {
+                    c._deathTimers[unit.uid] = true;
+                    const uid = unit.uid;
+                    setTimeout(() => {
+                        c.UI.allyTeam = c.UI.allyTeam.filter(u => u.uid !== uid);
+                        c.UI.enemyTeam = c.UI.enemyTeam.filter(u => u.uid !== uid);
+                        delete c._deathTimers[uid];
+                        // 同步移除 Store 中的单位，防止重绘时复活
+                        c.store.dispatch({ type: 'REMOVE_UNIT', uid: uid });
+                        c.updateUI(c.UI);
+                    }, 3000);
+                }
+            }
+        }
         c.updateUI(c.UI);
     });
 
@@ -557,45 +584,71 @@ if (!c || !c.UI.currentResult) return;
 
     let logDiv = document.getElementById('log');
     let backToBottomBtn = document.createElement('div'); backToBottomBtn.id = 'backToBottomBtn'; backToBottomBtn.style.cssText = 'position:absolute;right:8px;bottom:60px;width:32px;height:32px;background:rgba(0,0,0,0.6);color:#ffd700;border-radius:50%;display:none;align-items:center;justify-content:center;font-size:18px;cursor:pointer;z-index:20;'; backToBottomBtn.innerHTML = '↓';
-    backToBottomBtn.addEventListener('click', () => { logDiv.scrollTop = logDiv.scrollHeight; c.userScrolled = false; backToBottomBtn.style.display = 'none'; let mainCtx = window._getPlayerContext ? window._getPlayerContext() : c; if (mainCtx.manualSpeedLock) { mainCtx.slideSpeedActive = true; if (mainCtx.manualSpeedValue) { mainCtx.speed = mainCtx.manualSpeedValue; } if (mainCtx.updateSpeedButtons) mainCtx.updateSpeedButtons(); } });
+    backToBottomBtn.addEventListener('click', () => {
+        logDiv.scrollTop = logDiv.scrollHeight;
+        c.userScrolled = false;
+        backToBottomBtn.style.display = 'none';
+        // 恢复倍速
+        if (window._restoreSpeedFromScroll) window._restoreSpeedFromScroll();
+        let mainCtx = window._getPlayerContext ? window._getPlayerContext() : c;
+        if (mainCtx && mainCtx.speed) c.speed = mainCtx.speed;
+        else c.speed = 500;
+    });
     logDiv.parentElement.appendChild(backToBottomBtn);
-    logDiv.addEventListener('scroll', () => { let threshold = 10; let distToBottom = logDiv.scrollHeight - logDiv.scrollTop - logDiv.clientHeight; let mainCtx = window._getPlayerContext ? window._getPlayerContext() : c; if (distToBottom > threshold) { c.userScrolled = true; backToBottomBtn.style.display = 'flex'; if (mainCtx.manualSpeedLock && mainCtx.slideSpeedActive) { mainCtx.slideSpeedActive = false; if (!c._originalSpeed && c.speed !== 1800) { c._originalSpeed = c.speed; c.speed = 1800; } if (mainCtx.updateSpeedButtons) mainCtx.updateSpeedButtons(); } } else { c.userScrolled = false; backToBottomBtn.style.display = 'none'; if (mainCtx.manualSpeedLock && !mainCtx.slideSpeedActive) { mainCtx.slideSpeedActive = true; if (c._originalSpeed) { c.speed = c._originalSpeed; c._originalSpeed = null; } if (mainCtx.updateSpeedButtons) mainCtx.updateSpeedButtons(); } } });
+    logDiv.addEventListener('scroll', () => {
+        let threshold = 10;
+        let distToBottom = logDiv.scrollHeight - logDiv.scrollTop - logDiv.clientHeight;
+        if (distToBottom > threshold) {
+            c.userScrolled = true;
+            backToBottomBtn.style.display = 'flex';
+            if (window._activateScrollSlowdown) window._activateScrollSlowdown();
+            c.speed = 1800;
+        } else {
+            c.userScrolled = false;
+            backToBottomBtn.style.display = 'none';
+            if (window._restoreSpeedFromScroll) window._restoreSpeedFromScroll();
+            c.speed = getState.speed();
+        }
+    });
 
-    let battleState = { ally: c.snapshot.ally.map(u => u.clone()), enemy: c.snapshot.enemy.map(u => u.clone()), round: 1, activeBuffs: c.activeBuffs || [] };
+    let battleState = { ally: c.snapshot.ally.map(u => u.clone()), enemy: c.snapshot.enemy.map(u => u.clone()), round: 1, activeBuffs: c.activeBuffs ? c.activeBuffs.map(b => ({...b})) : [] };
     let isBattleOver = false; let finalWinner = null;
 
-    console.log('[诊断3] 进入播放循环, round:', battleState.round);
-while (!isBattleOver) {
+    while (!isBattleOver) {
         if (abortSig && abortSig.aborted) return;
-        let roundResult = runBattleRound(battleState);
 
-        // 使用 Store 同步引擎权威状态（防剧透逻辑不变，但由 Reducer 处理）
-        const startAlly = roundResult.ally.map(u => {
-            const prev = c.UI.allyTeam.find(p => p.uid === u.uid) || u;
-            if (u.hp > prev.hp || u.maxHp > prev.maxHp) {
-                return { ...u, alive: prev.alive, _isDead: !prev.alive };
+        const isFirstAttackRef = { value: true };
+        const stepper = createRoundStepper(battleState);
+        let lastStep = null;
+
+        for (const step of stepper) {
+            if (abortSig && abortSig.aborted) return;
+            await c.waitWhilePaused();
+            lastStep = step;
+
+            // 播放步骤日志（动画）
+            await playLogEntries(c, step.log, step, isFirstAttackRef);
+
+            // 动画播完后应用状态变更
+            if (step.events && step.events.length > 0) {
+                c.store.dispatch({ type: 'APPLY_EVENTS', events: step.events });
             }
-            return { ...u, hp: prev.hp, alive: prev.alive, _isDead: !prev.alive };
-        });
-        const startEnemy = roundResult.enemy.map(u => {
-            const prev = c.UI.enemyTeam.find(p => p.uid === u.uid) || u;
-            if (u.hp > prev.hp || u.maxHp > prev.maxHp) {
-                return { ...u, alive: prev.alive, _isDead: !prev.alive };
+
+            // 步骤间延迟，受倍速控制，确保逐步效果明显
+            await new Promise(r => setTimeout(r, Math.max(100, c.speed / 2)));
+
+            // 检查胜负
+            if (step.winner) {
+                finalWinner = step.winner;
+                isBattleOver = true;
+                break;
             }
-            return { ...u, hp: prev.hp, alive: prev.alive, _isDead: !prev.alive };
-        });
-        c.store.dispatch({ type: 'SYNC_FULL_STATE', ally: startAlly, enemy: startEnemy });
+        }
 
-        let mainCtx = window._getPlayerContext ? window._getPlayerContext() : null;
-        if (mainCtx && roundResult.doubleStrikeUid !== undefined) mainCtx.currentDoubleStrikeUid = roundResult.doubleStrikeUid;
-
-        let playResult = await playLogEntries(c, roundResult.log, roundResult);
-        isBattleOver = playResult ? playResult.isBattleOver : false;
-        if (roundResult.winner) { finalWinner = roundResult.winner; break; }
         if (isBattleOver) break;
 
-        // 回合间 Buff 选择（手动弹窗）
-        let nextActiveBuffs = roundResult.activeBuffs;
+        // 回合间 Buff 选择
+        let nextActiveBuffs = c.activeBuffs ? c.activeBuffs.map(b => ({...b, remaining: b.remaining - 1})).filter(b => b.remaining > 0) : [];
         if (battleState.round % 3 === 0 && battleState.round > 0) {
             let promDiv = document.createElement('div'); promDiv.innerHTML = `<span class="gold">✨ 请选择新的Buff（持续${CONFIG.BUFF_DURATION || 4}回合）</span><br>`; logDiv.appendChild(promDiv); c.autoScrollLog();
             c.isPaused = true;
@@ -603,12 +656,13 @@ while (!isBattleOver) {
             if (newBuff) {
                 nextActiveBuffs = [...(nextActiveBuffs || []), newBuff];
                 let msgDiv = document.createElement('div'); msgDiv.innerHTML = `<span class="gold">✨ 获得Buff：${newBuff.name}（持续${newBuff.remaining}回合）</span><br>`; logDiv.appendChild(msgDiv); c.autoScrollLog();
+                let mainCtx = window._getPlayerContext ? window._getPlayerContext() : null;
                 if (mainCtx) { mainCtx.activeBuffs = nextActiveBuffs; if (mainCtx.updateBuffSlots) mainCtx.updateBuffSlots(); }
             }
             c.isPaused = false;
         }
 
-        battleState = { ally: roundResult.ally, enemy: roundResult.enemy, round: battleState.round + 1, activeBuffs: nextActiveBuffs };
+        battleState = { ally: lastStep.ally, enemy: lastStep.enemy, round: battleState.round + 1, activeBuffs: nextActiveBuffs };
 
         if (c.autoMode) {
             await new Promise(r=>setTimeout(r, c.speed/2));

@@ -1,6 +1,6 @@
 // core/06battle-engine-core.js - 光明顶5v5 战斗核心循环
-// V4.0.7 | ~32000 bytes | 2026-07-06 回合开始后加分隔符
-export const VER = 'core/06battle-engine-core.js V4.0.7';
+// V5.0.0 | ~55000 bytes | 2026-07-06 引擎改造为逐步执行生成器
+export const VER = 'core/06battle-engine-core.js V5.0.0';
 
 import { CONFIG, DEF_TAUNT, HP_TAUNT } from './01config-5v5-test.js';
 import { rand, calcDamage, getFangLevel, isMelee, getFronts, isBlocked, getFlyDodgeRate, getRandomTaunt, getZhangNearTaunt, makeFXSnapshot, hasBuff } from './03battle-utils.js';
@@ -112,7 +112,12 @@ function resolveDodge(unit, target, attackerBuffStats, log) {
     let unitHpBeforeRebound = Math.floor(unit.hp);
     unit.hp = Math.max(0, unit.hp - reboundDmg);
     target.dmgDealt += reboundDmg; unit.dmgTaken += reboundDmg;
-    if (unit.hp <= 0) { unit.alive = false; unit._isDead = true; unit._flash = 'dead'; }
+    if (unit.hp <= 0) {
+        unit.alive = false;
+        unit._isDead = true;
+        unit._flash = 'dead';
+        if (!unit._deathTime) unit._deathTime = Date.now();
+    }
     emitEvent(unit, 'hp-change', { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: unit.atk, def: unit.def });
     let dg = {type:'attack-group', uidA:target.uid, uidD:unit.uid, entries:[], isDodge:true, hpAfter:unit.hp, alive:unit.alive, _fxSnapshot:makeFXSnapshot(target,unit), waveTaunt:null, waveUnit:null, buffEffects:[], _atkBonus:0, _defBonus:0};
     if (target.isWei) {
@@ -279,8 +284,12 @@ function processUnitAttack(unit, allySide, enemySide, log, A, B, state, doubleSt
     let dmg = Math.floor(raw);
     let hpAfter = Math.floor(target.hp) - dmg;
     let dead = hpAfter <= 0;
-    if (dead) { target.hp = 0; target.alive = false; target._isDead = true; }
-    else { target.hp = hpAfter; }
+    if (dead) {
+        target.hp = 0;
+        target.alive = false;
+        target._isDead = true;
+        if (!target._deathTime) target._deathTime = Date.now();
+    } else { target.hp = hpAfter; }
     unit.dmgDealt += dmg; target.dmgTaken += dmg;
     emitEvent(target, 'hp-change', { hp: target.hp, maxHp: target.maxHp, alive: target.alive, atk: target.atk, def: target.def });
 
@@ -356,7 +365,12 @@ function processUnitAttack(unit, allySide, enemySide, log, A, B, state, doubleSt
             unit.dmgTaken += rebound;
             unit.dmgTaken += rebound;
             zhang.reboundDone += rebound;
-            if (unit.hp <= 0) { unit.alive = false; unit._isDead = true; unit._flash = 'dead'; }
+            if (unit.hp <= 0) {
+        unit.alive = false;
+        unit._isDead = true;
+        unit._flash = 'dead';
+        if (!unit._deathTime) unit._deathTime = Date.now();
+    }
             let selfDmg = Math.floor(rebound * 0.1);
             zhang.hp -= selfDmg;
             zhang.dmgTaken += selfDmg;
@@ -407,9 +421,9 @@ function processUnitAttack(unit, allySide, enemySide, log, A, B, state, doubleSt
     return true;
 }
 
-// ==================== 回合循环 ====================
+// ==================== 新增：逐步执行生成器 ====================
 
-export function runBattleRound(state) {
+export function* createRoundStepper(state) {
     let A = state.ally.filter(u => u.alive).map(u => u.clone());
     let B = state.enemy.filter(u => u.alive).map(u => u.clone());
     let log = [];
@@ -450,7 +464,6 @@ export function runBattleRound(state) {
     window._currentBattleState = { ally: state.ally, enemy: state.enemy };
     logBuffSummary(A, log, doubleStrikeUnitUid);
     
-    // 拒马事件发射移到 logBuffSummary 之后
     log.filter(l => l.type === 'buff-summon').forEach(hl => {
         const team = hl.buffType === 'summon' ? A : B;
         const horse = team.find(u => u.uid === hl.horseUid);
@@ -510,59 +523,92 @@ export function runBattleRound(state) {
         u._extinctionUsed = false;
         u._acted = false;
     });
+
+    // 产出回合开始步骤
+    const roundStartEvents = [...window._battleEvents];
+    window._battleEvents = [];
+    yield { log: [...log], events: roundStartEvents, ally: A, enemy: B, winner: null, done: false };
+    log = [];
+
+    // 构建行动队列
+    const actionQueue = [];
     
     const kuLianUnit = checkKuLian(B);
     if (kuLianUnit) {
         kuLianUnit._kuLianActive = true;
         log.push({ type:'info', text:`<span class="gold">🏋️ 苦练：${kuLianUnit.name} 每回合最先行动！</span>` });
-        processUnitAttack(kuLianUnit, B, A, log, A, B, state, doubleStrikeUnitUid);
-        kuLianUnit._acted = true;
+        actionQueue.push({ unit: kuLianUnit, side: 'enemy' });
     }
     
+    // 交替顺序：从敌方开始
     let currentSide = 'enemy';
+    let allyRemaining = A.filter(u => u.alive && !u._acted).sort((a, b) => a.pos - b.pos);
+    let enemyRemaining = B.filter(u => u.alive && !u._acted).sort((a, b) => a.pos - b.pos);
+    // 排除苦练单位
+    if (kuLianUnit) enemyRemaining = enemyRemaining.filter(u => u.uid !== kuLianUnit.uid);
     
-    while (true) {
-        let team = currentSide === 'ally' ? A : B;
-        let otherTeam = currentSide === 'ally' ? B : A;
-        let unit = getNextAvailableUnit(team);
+    while (allyRemaining.length > 0 || enemyRemaining.length > 0) {
+        if (currentSide === 'enemy' && enemyRemaining.length > 0) {
+            actionQueue.push({ unit: enemyRemaining.shift(), side: 'enemy' });
+            currentSide = 'ally';
+        } else if (currentSide === 'ally' && allyRemaining.length > 0) {
+            actionQueue.push({ unit: allyRemaining.shift(), side: 'ally' });
+            currentSide = 'enemy';
+        } else if (enemyRemaining.length > 0) {
+            actionQueue.push({ unit: enemyRemaining.shift(), side: 'enemy' });
+        } else if (allyRemaining.length > 0) {
+            actionQueue.push({ unit: allyRemaining.shift(), side: 'ally' });
+        }
+    }
 
-        if (unit) {
-            if (unit.isZhang && !unit._zhangSwitched) checkZhangSwitch(A, log);
-            unit._blocked = isBlocked(unit, team);
-            unit.survivedRounds++;
-            
-            if ((unit.isHorse && unit.atk <= 0) || (unit._blocked && isMelee(unit.role))) {
-                if (unit._blocked && isMelee(unit.role)) {
-                    let hpBefore = Math.floor(unit.hp);
-                    unit.hp = Math.min(unit.maxHp, unit.hp + 10);
-                    let hpAfter = Math.floor(unit.hp);
-                    unit._resting = true;
-                    emitEvent(unit, 'hp-change', { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: unit.atk, def: unit.def });
-                    let bg = {type:'attack-group', uidA:unit.uid, uidD:null, entries:[], isBlock:true, _fxSnapshot:makeFXSnapshot(unit,null), waveTaunt:null, waveUnit:null, buffEffects:[], healAmount: 10, healUnitUid: unit.uid};
-                    bg.entries.push({type:'combat-text', text:`<span class="${unit.camp==='ally'?'blue':'orange'}">${unit.camp==='ally'?'明教':'六大派'} ${unit.name}</span> 被遮挡`});
-                    bg.entries.push({type:'info', text:`<span class="green">休息回复10点生命（${hpBefore} → ${hpAfter}）</span>`});
-                    bg._events = [...window._battleEvents];
-                    window._battleEvents = [];
-                    log.push(bg);
-                } else if (unit.isHorse) {
-                    log.push({type:'info', text:`<span class="gray">🐴 拒马无法攻击，自动跳过</span>`});
-                }
-                unit._acted = true;
-                continue;
+    // 逐个执行行动
+    for (const action of actionQueue) {
+        let unit = action.unit;
+        let allySide = unit.camp === 'ally' ? A : B;
+        let enemySide = unit.camp === 'ally' ? B : A;
+
+        if (unit.isZhang && !unit._zhangSwitched) checkZhangSwitch(A, log);
+        unit._blocked = isBlocked(unit, allySide);
+        unit.survivedRounds++;
+
+        if ((unit.isHorse && unit.atk <= 0) || (unit._blocked && isMelee(unit.role))) {
+            if (unit._blocked && isMelee(unit.role)) {
+                let hpBefore = Math.floor(unit.hp);
+                unit.hp = Math.min(unit.maxHp, unit.hp + 10);
+                let hpAfter = Math.floor(unit.hp);
+                unit._resting = true;
+                emitEvent(unit, 'hp-change', { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: unit.atk, def: unit.def });
+                let bg = {type:'attack-group', uidA:unit.uid, uidD:null, entries:[], isBlock:true, _fxSnapshot:makeFXSnapshot(unit,null), waveTaunt:null, waveUnit:null, buffEffects:[], healAmount: 10, healUnitUid: unit.uid};
+                bg.entries.push({type:'combat-text', text:`<span class="${unit.camp==='ally'?'blue':'orange'}">${unit.camp==='ally'?'明教':'六大派'} ${unit.name}</span> 被遮挡`});
+                bg.entries.push({type:'info', text:`<span class="green">休息回复10点生命（${hpBefore} → ${hpAfter}）</span>`});
+                bg._events = [...window._battleEvents];
+                window._battleEvents = [];
+                log.push(bg);
+            } else if (unit.isHorse) {
+                log.push({type:'info', text:`<span class="gray">🐴 拒马无法攻击，自动跳过</span>`});
             }
-            
-            let allySide = unit.camp === 'ally' ? A : B;
-            let enemySide = unit.camp === 'ally' ? B : A;
-            processUnitAttack(unit, allySide, enemySide, log, A, B, state, doubleStrikeUnitUid);
-            currentSide = currentSide === 'ally' ? 'enemy' : 'ally';
+            unit._acted = true;
         } else {
-            if (getNextAvailableUnit(otherTeam) === null) break;
-            currentSide = currentSide === 'ally' ? 'enemy' : 'ally';
+            processUnitAttack(unit, allySide, enemySide, log, A, B, state, doubleStrikeUnitUid);
         }
 
-        if (B.every(c => !c.alive) || A.every(c => !c.alive)) break;
+        // 产出步骤
+        const stepEvents = [...window._battleEvents];
+        window._battleEvents = [];
+        const allyAlive = A.some(u => u.alive);
+        const enemyAlive = B.some(u => u.alive);
+        let winner = null;
+        let done = false;
+        if (!allyAlive) { winner = '六大派'; done = true; }
+        else if (!enemyAlive) { winner = '明教'; done = true; }
+        
+        yield { log: [...log], events: stepEvents, ally: A, enemy: B, winner, done };
+        log = [];
+        
+        if (done) return;
     }
 
+    // 回合结束
     destroyHorse(A, log); destroyHorse(B, log);
     
     log.filter(l => l.type === 'buff-destroy').forEach(hl => {
@@ -577,20 +623,43 @@ export function runBattleRound(state) {
     B._activeBuffs = (B._activeBuffs || []).map(b => ({...b, remaining: b.remaining - 1})).filter(b => b.remaining > 0);
 
     let winner = null;
-    if (B.every(c => !c.alive) || A.every(c => !c.alive)) {
-        winner = A.some(c => c.alive) ? '明教' : '六大派';
+    let done = false;
+    if (B.every(c => !c.alive)) { winner = '明教'; done = true; }
+    else if (A.every(c => !c.alive)) { winner = '六大派'; done = true; }
+    if (round >= C.MAX_ROUND && !done) { winner = '平局'; done = true; }
+    
+    if (winner) {
         let losers = winner === '明教' ? B : A;
         losers.forEach(u => { u.hp = 0; u.alive = false; u._isDead = true; });
     }
-    if (round >= C.MAX_ROUND) { winner = '平局'; }
     
     log.push({type:'round-end', text:`<div class="separator">———— 第${round}回合结束 ————</div>`});
 
+    const endEvents = [...window._battleEvents];
+    window._battleEvents = [];
+    yield { log: [...log], events: endEvents, ally: A, enemy: B, winner, done };
+}
+
+// ==================== 保留原有 runBattleRound（内部调用生成器） ====================
+
+export function runBattleRound(state) {
+    const stepper = createRoundStepper(state);
+    let finalResult = null;
+    for (const step of stepper) {
+        finalResult = step;
+    }
     return {
-        ally: A, enemy: B, round: round, log: log, winner: winner,
-        activeBuffs: A._activeBuffs, doubleStrikeUid: doubleStrikeUnitUid
+        ally: finalResult.ally,
+        enemy: finalResult.enemy,
+        round: state.round,
+        log: [], // 日志已分散在各步骤中，旧接口不再返回日志
+        winner: finalResult.winner,
+        activeBuffs: finalResult.ally._activeBuffs || [],
+        doubleStrikeUid: null // 旧接口不再追踪连击UID
     };
 }
+
+// ==================== 保留原有 runBattle ====================
 
 export function runBattle(snapshot, activeBuffs = [], buffData = {}) {
     let state = {
@@ -602,21 +671,27 @@ export function runBattle(snapshot, activeBuffs = [], buffData = {}) {
     let finalWinner = null;
     let doubleStrikeUids = [];
     while (true) {
-        let result = runBattleRound(state);
-        fullLog = fullLog.concat(result.log);
-        doubleStrikeUids.push(result.doubleStrikeUid);
-        if (result.winner) {
-            finalWinner = result.winner;
+        const stepper = createRoundStepper(state);
+        let lastStep = null;
+        for (const step of stepper) {
+            fullLog = fullLog.concat(step.log);
+            lastStep = step;
+            if (step.done && step.winner) {
+                finalWinner = step.winner;
+                break;
+            }
+        }
+        if (finalWinner) {
             return {
                 winner: finalWinner, rounds: state.round, log: fullLog,
-                ally: result.ally, enemy: result.enemy,
-                activeBuffs: { ally: result.activeBuffs, enemy: [] },
+                ally: lastStep.ally, enemy: lastStep.enemy,
+                activeBuffs: { ally: lastStep.ally._activeBuffs || [], enemy: [] },
                 doubleStrikeUids
             };
         }
         state = {
-            ally: result.ally, enemy: result.enemy,
-            round: state.round + 1, activeBuffs: result.activeBuffs
+            ally: lastStep.ally, enemy: lastStep.enemy,
+            round: state.round + 1, activeBuffs: lastStep.ally._activeBuffs || []
         };
     }
 }
