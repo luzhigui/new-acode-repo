@@ -1,5 +1,5 @@
 // core/07battle-engine-5v5-test.js - 光明顶5v5 战斗引擎入口
-// V4.0.0 | ~100 lines | 2026-06-29 09:29
+// V4.0.0 | ~2752 bytes | 2026-07-05
 export const VER = 'core/07battle-engine-5v5-test.js V4.0.0';
 
 import { Unit } from './02unit.js';

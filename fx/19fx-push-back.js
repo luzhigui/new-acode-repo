@@ -1,5 +1,5 @@
 // fx/19fx-push-back.js - 光明顶5v5 击退特效
-// V4.0.0 | ~135 lines | 2026-06-29 09:29
+// V4.0.0 | ~4890 bytes | 2026-07-05
 export const VER = 'fx/19fx-push-back.js V4.0.0';
 
 /**

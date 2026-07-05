@@ -1,5 +1,5 @@
 // fx/17fx-crash-5v5-test.js - 光明顶5v5 飞撞与格挡特效
-// V4.0.0 | ~350 lines | 2026-06-29 09:29
+// V4.0.0 | ~18826 bytes | 2026-07-05
 export const VER = 'fx/17fx-crash-5v5-test.js V4.0.0';
 
 function showCloseRangeFX(unitA, unitD, role) {

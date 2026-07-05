@@ -1,5 +1,5 @@
 // core/05battle-horse.js - 光明顶5v5 拒马逻辑
-// V4.0.0 | ~80 lines | 2026-06-29 09:29
+// V4.0.0 | ~2280 bytes | 2026-07-05
 export const VER = 'core/05battle-horse.js V4.0.0';
 
 import { CONFIG } from './01config-5v5-test.js';

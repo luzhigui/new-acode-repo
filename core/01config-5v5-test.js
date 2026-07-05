@@ -1,5 +1,5 @@
 // core/01config-5v5-test.js - 光明顶5v5 全量配置
-// V4.0.0 | ~8271 bytes | 2026-06-29 09:29
+// V4.0.0 | ~11322 bytes | 2026-07-05
 export const VER = 'core/01config-5v5-test.js V4.0.0';
 
 const CONFIG = {

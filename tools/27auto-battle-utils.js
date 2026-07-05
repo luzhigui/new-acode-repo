@@ -1,5 +1,5 @@
 // tools/27auto-battle-utils.js - 光明顶5v5 自动批量战斗工具
-// V4.0.0 | ~120 lines | 2026-06-29 09:29
+// V4.0.0 | ~12572 bytes | 2026-07-05
 export const VER = 'tools/27auto-battle-utils.js V4.0.0';
 
 import { CONFIG, ENEMY_M } from '../core/01config-5v5-test.js';

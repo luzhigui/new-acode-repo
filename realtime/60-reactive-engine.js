@@ -1,6 +1,6 @@
-// realtime/01-reactive-engine.js - 光明顶5v5 响应式战斗引擎
-// V1.0.0 | 2026-07-04 不可变状态 + 发布订阅，UI实时同步
-export const VER = 'realtime/01-reactive-engine.js V1.0.0';
+// realtime/60-reactive-engine.js - 光明顶5v5 响应式战斗引擎
+// V4.0.3 | ~6954 bytes | 2026-07-05
+export const VER = 'realtime/60-reactive-engine.js V4.0.3';
 
 // ==================== 状态管理器 ====================
 

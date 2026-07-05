@@ -1,8 +1,8 @@
-// realtime/06-full-attack.js - 光明顶5v5 完整攻击流程
-// V1.0.0 | 2026-07-04 完全独立，零依赖，所有状态变更通过 store.dispatch
-export const VER = 'realtime/06-full-attack.js V1.0.0';
+// realtime/64-full-attack.js - 光明顶5v5 完整攻击流程
+// V4.0.3 | ~4932 bytes | 2026-07-05
+export const VER = 'realtime/64-full-attack.js V4.0.3';
 
-import { rand, calcDamage } from './04-test-utils.js';
+import { rand, calcDamage } from './62-test-utils.js';
 
 /**
  * 选择目标（简化版，不含精英技能的特殊选敌逻辑）

@@ -1,6 +1,6 @@
-// realtime/08-old-unit-adapter.js - 光明顶5v5 旧单位数据适配器
-// V1.0.0 | 2026-07-04 将旧 Unit 实例转换为新架构的普通对象
-export const VER = 'realtime/08-old-unit-adapter.js V1.0.0';
+// realtime/65-old-unit-adapter.js - 光明顶5v5 旧单位数据适配器
+// V4.0.3 | ~1641 bytes | 2026-07-05
+export const VER = 'realtime/65-old-unit-adapter.js V4.0.3';
 
 /**
  * 将旧架构的 Unit 实例（或克隆对象）转为新架构的普通对象

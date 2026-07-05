@@ -1,8 +1,8 @@
-// realtime/05-battle-round.js - 光明顶5v5 简化回合循环
-// V1.0.0 | 2026-07-04 仅用于验证新引擎的回合流程
-export const VER = 'realtime/05-battle-round.js V1.0.0';
+// realtime/63-battle-round.js - 光明顶5v5 简化回合循环
+// V4.0.3 | ~1220 bytes | 2026-07-05
+export const VER = 'realtime/63-battle-round.js V4.0.3';
 
-import { executeAttack } from './03-attack-steps.js';
+import { executeAttack } from './61-attack-steps.js';
 
 /**
  * 运行一个最简单的回合循环

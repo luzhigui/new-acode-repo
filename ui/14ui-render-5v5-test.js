@@ -1,5 +1,5 @@
 // ui/14ui-render-5v5-test.js - 光明顶5v5 UI渲染模块
-// V4.0.0 | ~610 lines | 2026-06-29 09:29
+// V4.0.0 | ~20023 bytes | 2026-07-05
 export const VER = 'ui/14ui-render-5v5-test.js V4.0.0';
 
 import { CONFIG } from '../core/01config-5v5-test.js';

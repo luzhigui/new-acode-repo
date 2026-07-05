@@ -1,6 +1,6 @@
-// realtime/11-main-reactive.js - 响应式架构入口，复用原版UI渲染
-// V1.0.0 | 2026-07-05 store+播放器，renderGrid原样复用
-export const VER = 'realtime/11-main-reactive.js V1.0.0';
+// realtime/67-main-reactive.js - 响应式架构入口，复用原版UI渲染
+// V4.0.3 | ~27658 bytes | 2026-07-05
+export const VER = 'realtime/67-main-reactive.js V4.0.3';
 
 import { CONFIG, ENEMY_M, KILL_TAUNT } from '../core/01config-5v5-test.js';
 import { Unit } from '../core/02unit.js';

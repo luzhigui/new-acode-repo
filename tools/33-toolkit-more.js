@@ -1,5 +1,5 @@
 // tools/33-toolkit-more.js - 光明顶5v5 开发工具箱（更多工具）
-// V4.1.0 | 2026-06-29 拆分自 32-toolkit.js
+// V4.0.0 | ~27945 bytes | 2026-07-05
 
 function escapeHtml(text) {
     return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -18,9 +18,9 @@ function escapeHtml(text) {
         '../fx/18fx-position-swap.js', '../fx/19fx-push-back.js', '../fx/20fx-dodge-bullet.js',
         '../fx/21fx-blood-slash.js', '../fx/22fx-fortify-counter.js',
         '../modules/23elite-skills.js', '../modules/24error-capture.js', '../modules/28audio-manager.js',
-        '../realtime/01-reactive-engine.js', '../realtime/03-attack-steps.js', '../realtime/04-test-utils.js',
-        '../realtime/05-battle-round.js', '../realtime/06-full-attack.js', '../realtime/08-old-unit-adapter.js',
-        '../realtime/11-main-reactive.js',
+        '../realtime/60-reactive-engine.js', '../realtime/61-attack-steps.js', '../realtime/62-test-utils.js',
+        '../realtime/63-battle-round.js', '../realtime/64-full-attack.js', '../realtime/65-old-unit-adapter.js',
+        '../realtime/67-main-reactive.js',
         '../tests/25unit-tests.js', '../tests/29health-rules.js',
         '../tests/35quiz-bank.js', '../tests/36runtime-sampler.js', '../tests/37health-core.js', '../tests/38health-ui.js',
         '../tools/31-toolkit.html', '../tools/32-toolkit.js', '../tools/33-toolkit-more.js',

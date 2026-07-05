@@ -1,5 +1,5 @@
 // core/04buff-system.js - 光明顶5v5 Buff系统
-// V4.0.0 | ~275 lines | 2026-06-29 09:29
+// V4.0.0 | ~15233 bytes | 2026-07-05
 export const VER = 'core/04buff-system.js V4.0.0';
 
 import { CONFIG } from './01config-5v5-test.js';

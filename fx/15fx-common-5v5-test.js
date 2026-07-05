@@ -1,5 +1,5 @@
 // fx/15fx-common-5v5-test.js - 光明顶5v5 基础特效池
-// V4.0.0 | ~380 lines | 2026-06-29 09:29
+// V4.0.0 | ~11587 bytes | 2026-07-05
 export const VER = 'fx/15fx-common-5v5-test.js V4.0.0';
 
 const POOL = {}; const POOL_SIZES = { danmaku: 8, dmgFloat: 6, dodge: 4, healFloat: 4, buffBanner: 2 };

@@ -1,5 +1,5 @@
 // tools/32-toolkit.js - 光明顶5v5 开发工具箱（文件复制器 / 拆分自原 32-toolkit.js）
-// V4.0.1 | 2026-06-29 优化打包 & 路径清单 & 规则提示 | ~7500 字符
+// V4.0.0 | ~25371 bytes | 2026-07-05
 
 /* ========== 标签页切换 ========== */
 document.querySelectorAll('.tab-btn').forEach(btn => {
@@ -37,9 +37,9 @@ function escapeHtml(text) {
         // modules
         '../modules/23elite-skills.js', '../modules/24error-capture.js', '../modules/28audio-manager.js',
         // realtime
-        '../realtime/01-reactive-engine.js', '../realtime/03-attack-steps.js', '../realtime/04-test-utils.js',
-        '../realtime/05-battle-round.js', '../realtime/06-full-attack.js', '../realtime/07-standalone-demo.html',
-        '../realtime/08-old-unit-adapter.js', '../realtime/10-reactive-demo.html', '../realtime/11-main-reactive.js',
+        '../realtime/60-reactive-engine.js', '../realtime/61-attack-steps.js', '../realtime/62-test-utils.js',
+        '../realtime/63-battle-round.js', '../realtime/64-full-attack.js',
+        '../realtime/65-old-unit-adapter.js', '../realtime/66-reactive-demo.html', '../realtime/67-main-reactive.js',
         // tests
         '../tests/25unit-tests.js', '../tests/29health-rules.js',
         '../tests/35quiz-bank.js', '../tests/36runtime-sampler.js', '../tests/37health-core.js',

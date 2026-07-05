@@ -1,5 +1,5 @@
 // core/03battle-utils.js - 光明顶5v5 战斗工具函数
-// V4.0.0 | ~300 lines | 2026-06-29 09:29
+// V4.0.0 | ~3442 bytes | 2026-07-05
 export const VER = 'core/03battle-utils.js V4.0.0';
 
 import { CONFIG, TAUNT_LIB, DEF_TAUNT, HP_TAUNT, ZHANG_NEAR_TAUNT } from './01config-5v5-test.js';

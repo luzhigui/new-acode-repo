@@ -1,5 +1,5 @@
 // ui/12main-utils.js - 光明顶5v5 主控工具函数
-// V4.0.0 | ~95 lines | 2026-06-29 09:29
+// V4.0.0 | ~5632 bytes | 2026-07-05
 export const VER = 'ui/12main-utils.js V4.0.0';
 
 export function showModal(text, buttons, onChoice, canMinimize, showCloseBtn) {
