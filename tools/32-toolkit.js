@@ -106,7 +106,7 @@ function escapeHtml(text) {
         groupDiv.className = 'file-group';
         const header = document.createElement('div');
         header.className = 'group-header';
-        header.innerHTML = `<span class="group-arrow">▶</span><span class="group-name">📁 ${group.displayName}</span><span class="group-count">${group.files.length} 个文件</span><button class="group-select-all-btn">全选组</button>`;
+        header.innerHTML = `<span class="group-arrow">▶</span><span class="group-name">📁 ${group.displayName}</span><span class="group-count">${group.files.length} 个文件</span><button class="group-select-all-btn">全选组</button><button class="group-deselect-btn">全不选组</button>`;
         const filesDiv = document.createElement('div');
         filesDiv.className = 'group-files';
         group.files.forEach(file => filesDiv.appendChild(buildCheckbox(file, false)));
@@ -115,13 +115,22 @@ function escapeHtml(text) {
         fileGroupsDiv.appendChild(groupDiv);
 
         header.addEventListener('click', (e) => {
-            if (e.target.classList.contains('group-select-all-btn')) return;
+            if (e.target.classList.contains('group-select-all-btn') || e.target.classList.contains('group-deselect-btn')) return;
             groupDiv.classList.toggle('open');
         });
-        header.querySelector('.group-select-all-btn').addEventListener('click', (e) => {
+        const selectBtn = header.querySelector('.group-select-all-btn');
+        selectBtn.addEventListener('click', (e) => {
             e.stopPropagation();
-            groupDiv.classList.add('open');
             filesDiv.querySelectorAll('input[type=checkbox]').forEach(cb => cb.checked = true);
+            selectBtn.textContent = '已全选';
+            selectBtn.classList.add('selected');
+        });
+        header.querySelector('.group-deselect-btn').addEventListener('click', (e) => {
+            e.stopPropagation();
+            filesDiv.querySelectorAll('input[type=checkbox]').forEach(cb => cb.checked = false);
+            selectBtn.textContent = '全选组';
+            selectBtn.classList.remove('selected');
+            groupDiv.classList.add('open'); // 展开文件夹方便逐个取消
         });
     });
 
@@ -154,9 +163,19 @@ function escapeHtml(text) {
 
     document.getElementById('fcBtnSelectAll').addEventListener('click', () => {
         document.querySelectorAll('#tab-file-copier input[type=checkbox]').forEach(cb => cb.checked = true);
+        // 所有组的"全选组"按钮变为蓝色"已全选"
+        document.querySelectorAll('.group-select-all-btn').forEach(btn => {
+            btn.textContent = '已全选';
+            btn.classList.add('selected');
+        });
     });
     document.getElementById('fcBtnDeselectAll').addEventListener('click', () => {
         document.querySelectorAll('#tab-file-copier input[type=checkbox]').forEach(cb => cb.checked = false);
+        // 所有组的"全选组"按钮恢复为"全选组"
+        document.querySelectorAll('.group-select-all-btn').forEach(btn => {
+            btn.textContent = '全选组';
+            btn.classList.remove('selected');
+        });
     });
 
     function splitLargeFile(fileName, content, charLimit) {
@@ -378,7 +397,8 @@ function escapeHtml(text) {
                 return `// ===== ${fn} =====\n${f.content}`;
             }).join('\n\n');
 
-            const header = `（⚠️ 包 ${index + 1}/${mergedBatches.length} 开始，本包共 ${batch.totalChars} 字符。请回复“收到，第 ${index + 1} 包”。）\n\n`;
+            const totalBytes = new Blob([fullCode]).size;
+            const header = `（⚠️ 包 ${index + 1}/${mergedBatches.length} 开始，本包共 ${totalBytes} 字节。请回复"收到，第 ${index + 1} 包"。）\n\n`;
             const footer = `\n\n（⚠️ 包 ${index + 1}/${mergedBatches.length} 结束，请回复“收到，第 ${index + 1} 包”。）`;
             const fullPayload = header + manifest + '\n\n--- 代码开始 ---\n\n' + fullCode + footer;
 
@@ -466,9 +486,9 @@ function escapeHtml(text) {
     async function nextBatch() {
         if (sendCancelled || sendIndex >= sendBatches.length) return renderSenderBar();
         const text = getBatchText(sendBatches[sendIndex]);
-        const totalChars = text.length;
+        const totalBytes = new Blob([text]).size;
         const currentIndex = sendIndex + 1;
-        const header = `（⚠️ 包 ${currentIndex}/${sendBatches.length} 开始，本包共 ${totalChars} 字符。请回复“收到，第 ${currentIndex} 包”。）\n\n`;
+        const header = `（⚠️ 包 ${currentIndex}/${sendBatches.length} 开始，本包共 ${totalBytes} 字节。请回复"收到，第 ${currentIndex} 包"。）\n\n`;
         const footer = `\n\n（⚠️ 包 ${currentIndex}/${sendBatches.length} 结束，请回复“收到，第 ${currentIndex} 包”。）`;
         const fullText = header + text + footer;
         try { await navigator.clipboard.writeText(fullText); } catch (e) {}

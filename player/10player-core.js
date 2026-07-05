@@ -387,10 +387,7 @@ export async function playLogEntries(c, log, roundResult) {
             await c.waitWhilePaused();
             let entry = log[i];
 
-            // 统一处理：每次处理日志条目时，如果有事件快照，先 dispatch 到 Store
-            if (entry._events && entry._events.length > 0) {
-                c.store.dispatch({ type: 'APPLY_EVENTS', events: entry._events });
-            }
+
 
             switch (entry.type) {
                 case 'buff-summon': {
@@ -456,6 +453,10 @@ export async function playLogEntries(c, log, roundResult) {
                 case 'round-start':          await handleRoundStart(c, entry, isFirstAttackInRoundRef); break;
                 case 'attack-group': {
                     let result = await handleAttackGroup(c, entry, roundResult, abortSig, isFirstAttackInRoundRef);
+                    // 动画播完后再应用状态变更，避免UI提前显示
+                    if (entry._events && entry._events.length > 0) {
+                        c.store.dispatch({ type: 'APPLY_EVENTS', events: entry._events });
+                    }
                     if (result && result.isBattleOver) return result;
                     break;
                 }

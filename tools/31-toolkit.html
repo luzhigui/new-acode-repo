@@ -44,8 +44,9 @@
         .file-group.open .group-arrow { transform: rotate(90deg); }
         .group-name { color: #ffd700; font-weight: bold; flex: 1; }
         .group-count { color: #888; font-size: 11px; }
-        .group-select-all-btn { background: #3a3a6e; color: #eee; border: 1px solid #555; padding: 3px 10px; border-radius: 4px; cursor: pointer; font-size: 11px; white-space: nowrap; }
-        .group-select-all-btn:hover { background: #4a4a8e; }
+        .group-select-all-btn, .group-deselect-btn { background: #3a3a6e; color: #eee; border: 1px solid #555; padding: 3px 10px; border-radius: 4px; cursor: pointer; font-size: 11px; white-space: nowrap; }
+        .group-select-all-btn:hover, .group-deselect-btn:hover { background: #4a4a8e; }
+        .group-select-all-btn.selected { background: #4fc3f7; color: #1a1a2e; border-color: #4fc3f7; }
         .group-files { display: none; padding: 4px; }
         .file-group.open .group-files { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 2px; }
 
