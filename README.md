@@ -79,6 +79,9 @@ ui/
   12main-utils.js             - 主控工具函数（弹窗、版本号）
   13main-5v5-test.js          - 主控模块（状态管理、按钮事件、战斗启动）
   14ui-render-5v5-test.js     - UI渲染模块（九宫格、血条、Buff图标）
+  39main-state.js             - 状态管理模块（全局状态读写、播放器上下文）
+  40main-dialogs.js           - 弹窗模块（战报弹窗、音乐设置、投票、倒计时）
+  41main-battle.js            - 战斗初始化模块（阵容生成、Buff选择、战斗日志）
 
 fx/
   15fx-common-5v5-test.js     - 基础特效池（飘字、弹幕、横幅）

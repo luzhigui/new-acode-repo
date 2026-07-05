@@ -1,6 +1,6 @@
 // ui/14ui-render-5v5-test.js - 光明顶5v5 UI渲染模块
-// V4.0.0 | ~20023 bytes | 2026-07-05
-export const VER = 'ui/14ui-render-5v5-test.js V4.0.0';
+// V4.0.1 | ~19000 bytes | 2026-07-06 修复：savedCloseBtn 重复声明
+export const VER = 'ui/14ui-render-5v5-test.js V4.0.1';
 
 import { CONFIG } from '../core/01config-5v5-test.js';
 import { rand } from '../core/03battle-utils.js';
@@ -97,9 +97,12 @@ function updateDetailPopupContent(activeBuffs, doubleStrikeUid) {
     let displayDef = u.def + defBonusVal;
     let hpPct = u.alive ? Math.floor((u.hp / u.maxHp) * 100) : 0;
     let hpColor = hpPct > 70 ? '#2e7d32' : (hpPct > 40 ? '#d2691e' : '#c0392b');
+
+    // 保留关闭按钮
     let closeBtn = detailPopup.querySelector('span');
     detailPopup.innerHTML = '';
     if (closeBtn) detailPopup.appendChild(closeBtn);
+
     let content = document.createElement('div');
     content.innerHTML = `
         <div style="font-weight:bold;font-size:15px;margin-bottom:8px;color:#5c4033;">${u.name} ${u.isHorse ? '🐴' : ''}${u.isZhang ? '[无忌]' : ''}${u.isWei ? '[韦一笑]' : ''}</div>
@@ -163,15 +166,21 @@ export function renderGrid(id, team, camp, debugMode, oldTeam) {
 
     for (let i = 0; i < displayOrder.length; i++) {
         let pos = displayOrder[i], unit = team.find(c => c.pos === pos);
-        // 仅当单位显式处于飞走模式时才跳过渲染
-if (unit && !unit.isHorse && (unit._flyMode || unit._isDead)) unit = null;
+        // 死亡/飞走的单位不能作为普通单位渲染，但必须保留尸体视觉
+        if (unit && !unit.isHorse) {
+            if (unit._flyMode) {
+                // 飞走状态：不渲染
+                unit = null;
+            } else if (unit._isDead) {
+                // 死亡状态：显示尸体
+                unit = { ...unit, _flash: 'dead', _resting: false, _acted: false, _blocked: false };
+            }
+        }
         if (!unit) {
             let div = document.createElement('div');
             div.className = 'cell';
-            // 检查该位置是否有正在飞走动画的单位（避免显示“空”）
             let flyUnit = team.find(c => c.pos === pos && c._flyMode);
             if (flyUnit) {
-                // 飞走模式：透明占位，不显示文字，不参与交互
                 div.style.opacity = '0';
                 div.style.pointerEvents = 'none';
                 div.innerHTML = '';
@@ -183,9 +192,14 @@ if (unit && !unit.isHorse && (unit._flyMode || unit._isDead)) unit = null;
             if (camp === 'ally' && isAdjustMode && selectedPos === pos) div.classList.add('adjust-selected');
             grid.appendChild(div); continue;
         }
-        let roleIcon = unit.role==='战士'?'⚔️':(unit.role==='防战'?'🛡️':(unit.role==='远程'?'🏹':'🦅'));
-        if (unit.isZhang && !unit.rangedForm) roleIcon = '⚔️';
-        if (unit.isHorse) roleIcon = '🐴';
+        let roleIcon;
+        if (unit.isZhang && !unit.rangedForm) {
+            roleIcon = '⚔️';
+        } else if (unit.isHorse) {
+            roleIcon = '🐴';
+        } else {
+            roleIcon = unit.role==='战士'?'⚔️':(unit.role==='防战'?'🛡️':(unit.role==='远程'?'🏹':'🦅'));
+        }
         let buffStats = getBuffStats(unit);
         let atkBonusVal = Math.floor(unit.atk * buffStats.atkBonus);
         let defBonusVal = Math.floor(unit.def * buffStats.defBonus);
@@ -208,7 +222,7 @@ if (unit && !unit.isHorse && (unit._flyMode || unit._isDead)) unit = null;
         if (isDead) { div.setAttribute('data-flash', 'dead'); }
         else if (unit._flash) { div.setAttribute('data-flash', unit._flash); }
         div.dataset.pos = pos;
-        div.dataset.uid = unit.uid; // ✅ 只在这里加这一句！
+        div.dataset.uid = unit.uid;
         if (camp === 'ally' && isAdjustMode) {
             if (unit.fixed) { div.classList.add('fixed-unit'); }
             else { div.classList.add('swappable'); if (selectedPos === pos) div.classList.add('adjust-selected'); }
@@ -224,7 +238,6 @@ if (unit && !unit.isHorse && (unit._flyMode || unit._isDead)) unit = null;
                 let info = CONFIG.BUFFS ? CONFIG.BUFFS[b.key] : null;
                 return info ? info.icon : '';
             }).filter(icon => icon).join('');
-            // 概率连击图标已在 buffIcons 中由 isUnitBenefitedByBuff 处理，不再重复添加
         }
         let atkStyle = atkBonusVal > 0 ? 'color:#b8860b;font-weight:bold;' : '';
         let defStyle = defBonusVal > 0 ? 'color:#b8860b;font-weight:bold;' : '';
@@ -274,16 +287,24 @@ export function spawnVictoryEffects(winnerCamp) {
     for(let i=0;i<60;i++){let particle=document.createElement('div');particle.className='party-particle';let angle=Math.random()*Math.PI*2,dist=40+Math.random()*80;particle.style.setProperty('--dx',Math.cos(angle)*dist+'px');particle.style.setProperty('--dy',Math.sin(angle)*dist+'px');particle.style.left=cx+'px';particle.style.top=cy+'px';particle.style.background=colors[Math.floor(Math.random()*colors.length)];document.body.appendChild(particle);setTimeout(()=>{if(particle.parentNode)particle.parentNode.removeChild(particle);},2800);}
     for(let i=0;i<15;i++){let star=document.createElement('div');star.className='star-particle';let angle=Math.random()*Math.PI*2,dist=30+Math.random()*50;star.style.setProperty('--dx',Math.cos(angle)*dist+'px');star.style.setProperty('--dy',Math.sin(angle)*dist+'px');star.style.left=cx+'px';star.style.top=cy+'px';star.textContent=['⭐','🌟','✨'][Math.floor(Math.random()*3)];document.body.appendChild(star);setTimeout(()=>{if(star.parentNode)star.parentNode.removeChild(star);},3300);}
     let logDiv=document.getElementById('log'),winColor=winnerCamp==='明教'?'blue':'orange';
-    // 胜利弹幕垃圾话：从随机词库中抽取
     const WIN_TAUNTS = [
         '赢了！', '哈哈，胜了！', '活下来了！', '敌人全灭了！', '太好了！',
         '好好好！', '哈哈哈！', '还有谁？', '干得漂亮！', '不过如此！',
         '总算结束了！', '痛快！', '明教必胜！', '再来啊！', '就这？'
     ];
-    aliveUnits.forEach(u => {
-        let taunt = WIN_TAUNTS[rand(0, WIN_TAUNTS.length - 1)];
-        showDanmaku(u, taunt);
-        logDiv.innerHTML += `<span class="${winColor}">🗯️ ${u.name}：${taunt}</span><br>`;
+    // 按贡献度排序：造成伤害高的优先，伤害相同时承受伤害高的优先
+    const sortedAlive = aliveUnits.sort((a, b) => {
+        if ((b.dmgDealt || 0) !== (a.dmgDealt || 0)) return (b.dmgDealt || 0) - (a.dmgDealt || 0);
+        return (b.dmgTaken || 0) - (a.dmgTaken || 0);
+    });
+    // 按序播放弹幕，每位英雄延迟 600ms 出场
+    sortedAlive.forEach((u, index) => {
+        const taunt = WIN_TAUNTS[rand(0, WIN_TAUNTS.length - 1)];
+        setTimeout(() => {
+            showDanmaku(u, taunt);
+            logDiv.innerHTML += `<span class="${winColor}">🗯️ ${u.name}：${taunt}</span><br>`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }, index * 600);
     });
     logDiv.innerHTML+=`<span class="gold">🎉🏆 <span class="${winColor}">${winnerCamp}</span>获得最终胜利！ 🏆🎉</span><br>`;logDiv.scrollTop=logDiv.scrollHeight;
 }

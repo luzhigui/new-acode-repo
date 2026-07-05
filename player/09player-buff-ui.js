@@ -116,7 +116,7 @@ export async function handleBuffSummon(c, entry, prevEntry) {
         c.UI.allyTeam.push(horse);
     }
     c.updateUI(c.UI, c.UI.lastSnapshot);
-    c.UI.lastSnapshot = { ally: c.UI.allyTeam.map(u => u.clone()), enemy: c.UI.enemyTeam.map(u => u.clone()) };
+    c.UI.lastSnapshot = { ally: c.UI.allyTeam.map(u => ({...u})), enemy: c.UI.enemyTeam.map(u => ({...u})) };
     if (entry.horseTaunt) {
         c.isPaused = true;
         await showBuffBanner('🐴 拒马阵！' + entry.horseTaunt);
@@ -144,7 +144,7 @@ export async function handleBuffDestroy(c, entry, prevEntry) {
     if (idx >= 0) {
         c.UI.allyTeam.splice(idx, 1);
         c.updateUI(c.UI, c.UI.lastSnapshot);
-        c.UI.lastSnapshot = { ally: c.UI.allyTeam.map(u => u.clone()), enemy: c.UI.enemyTeam.map(u => u.clone()) };
+        c.UI.lastSnapshot = { ally: c.UI.allyTeam.map(u => ({...u})), enemy: c.UI.enemyTeam.map(u => ({...u})) };
     }
     c.isPaused = true;
     await showBuffBanner('🐴 拒马已销毁');

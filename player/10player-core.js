@@ -286,8 +286,8 @@ async function handleAttackGroup(c, entry, roundResult, abortSig, isFirstAttackI
     
     // 闪避子弹时间
     if (entry.isDodge && unitA && unitD) { if (c.dodgeEffectEnabled) { let reboundDmg = Math.floor((unitD.atk + unitD.def) * 0.5); c.isPaused = true; window.bulletTimeActive = true; await showCriticalBanner('✨闪避反击✨'); await showDodgeBulletTime(unitA, unitD, reboundDmg); window.bulletTimeActive = false; c.isPaused = false; } else { showDodgeBubble(unitD, '闪避！'); } }
-    if (entry.isDead && unitD) { if (defTimer) clearTimeout(defTimer); setTimeout(async () => { await c.waitWhilePaused(); if (unitD && !unitD.alive && unitD._flash !== 'dead') { unitD._flash = 'dead'; unitD._isDead = true; c.updateUI(c.UI); } }, 600); }
-    if (entry.isDodge && unitA && !unitA.alive) { setTimeout(async () => { await c.waitWhilePaused(); if (unitA && !unitA.alive && unitA._flash !== 'dead') { unitA._flash = 'dead'; unitA._isDead = true; c.updateUI(c.UI); setTimeout(() => { unitA._isDead = true; c.updateUI(c.UI); }, 3500); } }, 600); }
+    if (entry.isDead && unitD) { if (defTimer) clearTimeout(defTimer); unitD._flash = 'dead'; unitD._isDead = true; c.updateUI(c.UI); }
+    if (entry.isDodge && unitA && !unitA.alive) { unitA._flash = 'dead'; unitA._isDead = true; c.updateUI(c.UI); }
     
     let lastDiv=null,healDiv=null, blockDelay=false;
     for(let entry2 of textEntries){
@@ -320,7 +320,7 @@ async function handleAttackGroup(c, entry, roundResult, abortSig, isFirstAttackI
     c.UI.allyTeam.concat(c.UI.enemyTeam).forEach(u => { if (u.alive) u._blocked = isBlocked(u, u.camp === 'ally' ? c.UI.allyTeam : c.UI.enemyTeam); });
     c.updateUI(c.UI);
     document.getElementById('roundDisplay').innerText = `📜 日志（第${c.UI.round}回合）`;
-    if(entry.isDead){ await new Promise(r=>setTimeout(r,deadDuration)); await c.waitWhilePaused(); if(unitD)setTimeout(()=>{unitD._isDead = true;c.updateUI(c.UI);},3500); }
+    // 死亡单位已立即设置 _isDead=true，此处不再重复设置
     if(entry.isDead&&(c.UI.allyTeam.every(ch=>!ch.alive)||c.UI.enemyTeam.every(ch=>!ch.alive))){ return { isBattleOver: true }; }
     c.updateUI(c.UI);
     return { isBattleOver: false };
@@ -368,7 +368,7 @@ async function handleRoundStart(c, entry, isFirstAttackInRoundRef) {
 
 async function handleRoundEnd(c, entry, log, i) {
     let hasSkill=log[i-1]&&log[i-1].type==='attack-group'&&log[i-1].entries.some(e=>e.type==='info'); if(!hasSkill){ let spacer=document.createElement('div');spacer.innerHTML='<br>';document.getElementById('log').appendChild(spacer);c.autoScrollLog(); }
-    let div=document.createElement('div');div.innerHTML=entry.text;document.getElementById('log').appendChild(div); c.autoScrollLog(); document.getElementById('roundDisplay').innerText = `📜 日志（第${c.UI.round}回合）`;
+    let div=document.createElement('div');div.innerHTML=entry.text + '<br>';document.getElementById('log').appendChild(div); c.autoScrollLog(); document.getElementById('roundDisplay').innerText = `📜 日志（第${c.UI.round}回合）`;
     if (c.tickBuffDurations) { c.tickBuffDurations(); c.updateBuffSlots(); }
     c.updateUI(c.UI);
     if (window._refreshGlowCells) window._refreshGlowCells();
@@ -393,10 +393,12 @@ export async function playLogEntries(c, log, roundResult) {
             }
 
             switch (entry.type) {
-                case 'buff-summon':
+                case 'buff-summon': {
                     await handleBuffSummon(c, entry, i > 0 ? log[i-1] : null);
-                    // 如果事件中包含 unit-add，已在上面 APPLY_EVENTS 处理，这里无需额外 dispatch
+                    const horse = c.UI.allyTeam.find(u => u.uid === entry.horseUid);
+                    if (horse) c.store.dispatch({ type: 'ADD_UNIT', unit: horse.clone() });
                     break;
+                }
                 case 'buff-destroy':
                     await handleBuffDestroy(c, entry, i > 0 ? log[i-1] : null);
                     break;
@@ -477,7 +479,8 @@ export async function playLogEntries(c, log, roundResult) {
 
 export async function playBattle() {
     const c = getCtx();
-    if (!c || !c.UI.currentResult) return;
+    console.log('[诊断2] playBattle 入口, currentResult:', !!c?.UI?.currentResult);
+if (!c || !c.UI.currentResult) return;
     const scheduler = new AnimationScheduler();
     c._scheduler = scheduler;
 
@@ -514,13 +517,30 @@ export async function playBattle() {
             const su = state.units.find(u => u.uid === uiUnit.uid);
             if (!su) return;
             GAME_STATE_FIELDS.forEach(f => { if (su[f] !== undefined) uiUnit[f] = su[f]; });
+            // 如果 Store 里标记为死亡，强制同步 _flash 为 'dead'，防止残留
+            if (su._isDead && !uiUnit._isDead) {
+                uiUnit._isDead = true;
+                uiUnit._flash = 'dead';
+            }
         };
+        // 同步前保存视觉标记，防止被 Store 覆盖
+        const allyFlash = c.UI.allyTeam.map(u => ({ uid: u.uid, _flash: u._flash, _isDead: u._isDead, _acted: u._acted, _resting: u._resting, _blocked: u._blocked }));
+        const enemyFlash = c.UI.enemyTeam.map(u => ({ uid: u.uid, _flash: u._flash, _isDead: u._isDead, _acted: u._acted, _resting: u._resting, _blocked: u._blocked }));
         c.UI.allyTeam.forEach(syncFields);
         c.UI.enemyTeam.forEach(syncFields);
+        // 恢复视觉标记（跳过已死亡的单位，保留其死亡特效）
+        allyFlash.forEach(s => {
+            const uiUnit = c.UI.allyTeam.find(u => u.uid === s.uid);
+            if (uiUnit && !uiUnit._isDead) { uiUnit._flash = s._flash; uiUnit._acted = s._acted; uiUnit._resting = s._resting; uiUnit._blocked = s._blocked; }
+        });
+        enemyFlash.forEach(s => {
+            const uiUnit = c.UI.enemyTeam.find(u => u.uid === s.uid);
+            if (uiUnit && !uiUnit._isDead) { uiUnit._flash = s._flash; uiUnit._acted = s._acted; uiUnit._resting = s._resting; uiUnit._blocked = s._blocked; }
+        });
         // 添加新单位（拒马等）
         state.units.forEach(su => {
-            if (su.camp === 'ally' && !c.UI.allyTeam.find(u => u.uid === su.uid)) c.UI.allyTeam.push(su.clone());
-            if (su.camp === 'enemy' && !c.UI.enemyTeam.find(u => u.uid === su.uid)) c.UI.enemyTeam.push(su.clone());
+            if (su.camp === 'ally' && !c.UI.allyTeam.find(u => u.uid === su.uid)) c.UI.allyTeam.push({...su});
+            if (su.camp === 'enemy' && !c.UI.enemyTeam.find(u => u.uid === su.uid)) c.UI.enemyTeam.push({...su});
         });
         // 移除已销毁的单位
         c.UI.allyTeam = c.UI.allyTeam.filter(u => state.units.find(su => su.uid === u.uid));
@@ -543,7 +563,8 @@ export async function playBattle() {
     let battleState = { ally: c.snapshot.ally.map(u => u.clone()), enemy: c.snapshot.enemy.map(u => u.clone()), round: 1, activeBuffs: c.activeBuffs || [] };
     let isBattleOver = false; let finalWinner = null;
 
-    while (!isBattleOver) {
+    console.log('[诊断3] 进入播放循环, round:', battleState.round);
+while (!isBattleOver) {
         if (abortSig && abortSig.aborted) return;
         let roundResult = runBattleRound(battleState);
 

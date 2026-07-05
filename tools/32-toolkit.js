@@ -19,7 +19,7 @@ function escapeHtml(text) {
 
 /* ========== 文件复制器 ========== */
 (function() {
-    // 项目全部文件列表（用于路径清单，更新为 48 个文件）
+    // 项目全部文件列表（用于路径清单，更新为 51 个文件）
     const ALL_PROJECT_FILES = [
         // core
         '../core/01config-5v5-test.js', '../core/02unit.js', '../core/03battle-utils.js',
@@ -30,6 +30,7 @@ function escapeHtml(text) {
         '../player/11battle-player-5v5-test.js',
         // ui
         '../ui/12main-utils.js', '../ui/13main-5v5-test.js', '../ui/14ui-render-5v5-test.js',
+        '../ui/39main-state.js', '../ui/40main-dialogs.js', '../ui/41main-battle.js',
         // fx
         '../fx/15fx-common-5v5-test.js', '../fx/16fx-arrows-5v5-test.js', '../fx/17fx-crash-5v5-test.js',
         '../fx/18fx-position-swap.js', '../fx/19fx-push-back.js', '../fx/20fx-dodge-bullet.js',
