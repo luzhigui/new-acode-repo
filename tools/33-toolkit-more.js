@@ -18,11 +18,14 @@ function escapeHtml(text) {
         '../fx/18fx-position-swap.js', '../fx/19fx-push-back.js', '../fx/20fx-dodge-bullet.js',
         '../fx/21fx-blood-slash.js', '../fx/22fx-fortify-counter.js',
         '../modules/23elite-skills.js', '../modules/24error-capture.js', '../modules/28audio-manager.js',
+        '../realtime/01-reactive-engine.js', '../realtime/03-attack-steps.js', '../realtime/04-test-utils.js',
+        '../realtime/05-battle-round.js', '../realtime/06-full-attack.js', '../realtime/08-old-unit-adapter.js',
+        '../realtime/11-main-reactive.js',
         '../tests/25unit-tests.js', '../tests/29health-rules.js',
         '../tests/35quiz-bank.js', '../tests/36runtime-sampler.js', '../tests/37health-core.js', '../tests/38health-ui.js',
         '../tools/31-toolkit.html', '../tools/32-toolkit.js', '../tools/33-toolkit-more.js',
         '../tools/27auto-battle-utils.js', '../tools/00build-5v5.cjs',
-        '../00index.html', '../tests/30test-runner.html', '../mode-5v5-test.html'
+        '../00index.html', '../tests/30test-runner.html', '../mode-5v5-test.html', '../realtime-demo.html', '../realtime-v2.html'
     ].filter(f => f.endsWith('.js'));
 
     const mapContainer = document.getElementById('fncMapContainer');
