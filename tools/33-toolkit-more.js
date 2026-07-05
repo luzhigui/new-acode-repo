@@ -14,6 +14,7 @@ function escapeHtml(text) {
         '../player/08player-text.js', '../player/09player-buff-ui.js', '../player/10player-core.js',
         '../player/11battle-player-5v5-test.js',
         '../ui/12main-utils.js', '../ui/13main-5v5-test.js', '../ui/14ui-render-5v5-test.js',
+        '../ui/39main-state.js', '../ui/40main-dialogs.js', '../ui/41main-battle.js',
         '../fx/15fx-common-5v5-test.js', '../fx/16fx-arrows-5v5-test.js', '../fx/17fx-crash-5v5-test.js',
         '../fx/18fx-position-swap.js', '../fx/19fx-push-back.js', '../fx/20fx-dodge-bullet.js',
         '../fx/21fx-blood-slash.js', '../fx/22fx-fortify-counter.js',

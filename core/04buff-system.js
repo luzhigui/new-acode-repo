@@ -14,8 +14,11 @@ export function computeBuffStats(unit, activeBuffs, allyTeam) {
     if (hasBuff(activeBuffs, 'holyFlame') && unit.camp === 'ally') {
         let buffObj = activeBuffs.find(b => b.key === 'holyFlame');
         if (buffObj) {
-            if (buffObj.col == null) buffObj.col = rand(1, 3);
-            if (buffObj.row == null) buffObj.row = rand(1, 3);
+            // 每次计算时检查行列，缺失则随机初始化（兼容选Buff时未赋值的情况）
+            if (buffObj.col == null || buffObj.row == null) {
+                buffObj.col = rand(1, 3);
+                buffObj.row = rand(1, 3);
+            }
             if (getUnitCol(unit.pos) === buffObj.col) { atkBonus += C.BUFFS.holyFlame.atkBonus; }
             if (getUnitRow(unit.pos) === buffObj.row) { defBonus += C.BUFFS.holyFlame.defBonus; }
         }
@@ -74,9 +77,10 @@ export function applyBuffEffectsBeforeAttack(unit, target, allyTeam, enemyTeam, 
 }
 
 export function applyBuffEffectsAfterAttack(unit, target, dmg, allySide, enemySide, log) {
-    let allyBuffs = allySide._activeBuffs || [];
+    // ★ 修复：根据攻击者阵营获取正确的 Buff 池
+    let unitBuffs = (unit.camp === 'ally' ? allySide._activeBuffs : enemySide._activeBuffs) || [];
     
-    if (hasBuff(allyBuffs, 'bloodthirst') && unit.role === '战士') {
+    if (hasBuff(unitBuffs, 'bloodthirst') && unit.role === '战士') {
         let leech = Math.floor(dmg * C.BUFFS.bloodthirst.leechRatio);
         let hpBefore = unit.hp;
         unit.hp = Math.min(unit.maxHp, unit.hp + leech);
@@ -84,7 +88,7 @@ export function applyBuffEffectsAfterAttack(unit, target, dmg, allySide, enemySi
         log.push({type:'buff-leech', text:`<span class="green">🗡️ ${unit.name} 的嗜血狂刀吸血+${leech}，血量 ${hpBefore} → ${unit.hp}</span>`, isHealEntry:true, buffType:'leech', healAmount:leech, healUnitUid:unit.uid});
     }
     
-    if (hasBuff(allyBuffs, 'hotBlood')) {
+    if (hasBuff(unitBuffs, 'hotBlood')) {
         if (!unit._hotBloodCount) unit._hotBloodCount = 0;
         unit._hotBloodCount++;
         let ratio = (unit._hotBloodCount % C.BUFFS.hotBlood.critInterval === 0) ? C.BUFFS.hotBlood.critRatio : C.BUFFS.hotBlood.leechRatio;
@@ -97,7 +101,7 @@ export function applyBuffEffectsAfterAttack(unit, target, dmg, allySide, enemySi
     }
     
     // 流星赶月：本体额外伤害 + 溅射合并
-    if (hasBuff(allyBuffs, 'meteorShower') && unit.role === '远程' && target.alive) {
+    if (hasBuff(unitBuffs, 'meteorShower') && unit.role === '远程' && target.alive) {
         let bonusDmg = Math.floor(dmg * C.BUFFS.meteorShower.bonusRatio);
         target.hp -= bonusDmg;
         unit.dmgDealt += bonusDmg;
@@ -135,7 +139,7 @@ export function applyBuffEffectsAfterAttack(unit, target, dmg, allySide, enemySi
         }
     }
     
-    if (hasBuff(allyBuffs, 'windAssault') && unit.role === '飞行' && target.alive) {
+    if (hasBuff(unitBuffs, 'windAssault') && unit.role === '飞行' && target.alive) {
         if (rand(1,100) <= 80) {
             let row = getUnitRow(target.pos);
             let rowTargets = enemySide.filter(u => u.alive && getUnitRow(u.pos) === row && u.uid !== target.uid);
@@ -171,7 +175,6 @@ export function applyBuffEffectsAfterAttack(unit, target, dmg, allySide, enemySi
         }
     }
 }
-
 export function logBuffSummary(allyTeam, log, doubleStrikeUid) {
     let buffs = allyTeam._activeBuffs || [];
     buffs.forEach(b => {
@@ -201,8 +204,10 @@ export function logBuffSummary(allyTeam, log, doubleStrikeUid) {
                 if (msUnits.length > 0) log.push({type:'buff-summary', text:`<span class="gold">☄️ 流星赶月：${msUnits.map(u=>u.name).join('、')} 伤害加深${Math.round(C.BUFFS.meteorShower.bonusRatio*100)}% 溅射${Math.round(C.BUFFS.meteorShower.splashRatio*100)}%</span>`, buffType:'buff_stat'});
                 break;
             case 'holyFlame': {
-                if (b.col == null) b.col = rand(1, 3);
-                if (b.row == null) b.row = rand(1, 3);
+                if (b.col == null || b.row == null) {
+                    b.col = rand(1, 3);
+                    b.row = rand(1, 3);
+                }
                 let col = b.col, row = b.row;
                 let colUnits = allyTeam.filter(u => u.alive && getUnitCol(u.pos) === col);
                 let rowUnits = allyTeam.filter(u => u.alive && getUnitRow(u.pos) === row);
@@ -238,4 +243,7 @@ desc += `）`;
                 break;
         }
     });
+    if (buffs.length > 0) {
+        log.push({ type:'info', text:'<span class="separator">- - - - -</span>' });
+    }
 }

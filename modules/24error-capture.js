@@ -115,13 +115,13 @@ export const VER = 'modules/24error-capture.js V4.0.0';
     }
 
     // ---------- 全局错误 ----------
-    window.addEventListener('error', function(e) {
-        const msg = e.error && e.error.stack 
-            ? e.error.stack 
-            : (e.message + ' @ ' + e.filename + ':' + e.lineno);
-        addLine(msg, 'error');
-    });
-
+window.addEventListener('error', function(e) {
+    const loc = e.filename ? `${e.filename}:${e.lineno}` : '';
+    const msg = e.error && e.error.stack 
+        ? loc + '\n' + e.error.stack 
+        : (e.message ? loc + ' ' + e.message : loc);
+    addLine(msg, 'error');
+});
     // ---------- Promise 拒绝 ----------
     window.addEventListener('unhandledrejection', function(e) {
         const reason = e.reason;

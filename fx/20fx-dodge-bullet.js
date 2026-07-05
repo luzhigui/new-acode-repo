@@ -141,11 +141,15 @@ export async function showDodgeBulletTime(attacker, defender, reboundDmg) {
         const skipBtn = document.createElement('div');
         skipBtn.className = 'skip-btn';
         skipBtn.textContent = '跳过';
-        skipBtn.style.cssText = 'position:fixed;bottom:12%;right:8%;z-index:10050;'
+        skipBtn.style.cssText = 'position:fixed;bottom:12%;right:8%;z-index:99999;'
             + 'color:rgba(255,255,255,0.7);font-size:18px;font-weight:bold;'
             + 'cursor:pointer;pointer-events:auto;transform:rotate(-30deg);'
             + 'text-align:center;line-height:1;letter-spacing:2px;';
-        skipBtn.addEventListener('click', () => { isSkipped = true; });
+        skipBtn.addEventListener('click', () => {
+            isSkipped = true;
+            const ctx = window._getPlayerContext ? window._getPlayerContext() : null;
+            if (ctx) ctx.isPaused = false;
+        });
         document.body.appendChild(skipBtn);
         cleanupElements.push(skipBtn);
 
