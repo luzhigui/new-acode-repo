@@ -151,7 +151,7 @@ export function getPlayerContext() {
         set store(v) { window._battleStore = v; },
 
         // 播放器上下文方法
-        updateUI,
+        updateUI: () => updateUI(),
         spawnVictoryEffects,
         updateButtons: window.updateButtons,
         enableAllButtons: window.enableAllButtons,
