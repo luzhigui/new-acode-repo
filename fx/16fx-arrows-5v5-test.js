@@ -155,10 +155,89 @@ export function showSplashArrows(attacker, primaryTarget, splashTargets, speed, 
                 requestAnimationFrame(flyStep);
             } else {
                 let defCell = gridD.children[idxD];
-                if (defCell) { defCell.classList.add('shake'); defCell.style.transition = 'background 0.15s ease'; defCell.style.background = '#ffd700'; setTimeout(() => { defCell.classList.remove('shake'); defCell.style.background = ''; }, 300); }
+                if (defCell) { applyImpactShrink(defCell, 250, getPausedFn); }
                 setTimeout(() => { if (container.parentNode) container.remove(); }, 400);
             }
         }
         requestAnimationFrame(flyStep);
     });
+}
+
+/**
+ * 九阴白骨爪特效
+ * 凝结利爪 → 朝目标飞行（不旋转，爪尖朝向敌人） → 命中缩小抖动
+ * 速度同飞箭，受击用通用 applyImpactShrink（黄色短闪）
+ */
+export function showBoneClaw(unitA, unitD, speed, getPausedFn, onHit) {
+    if (window._fastForwardActive) { if (onHit) onHit(); return; }
+    let gridAId = unitA.camp==='ally'?'allyGrid':'enemyGrid', gridDId = unitD.camp==='ally'?'allyGrid':'enemyGrid';
+    let gridA = document.getElementById(gridAId), gridD = document.getElementById(gridDId);
+    let orderA = unitA.camp==='enemy'?[7,8,9,4,5,6,1,2,3]:[1,2,3,4,5,6,7,8,9];
+    let orderD = unitD.camp==='enemy'?[7,8,9,4,5,6,1,2,3]:[1,2,3,4,5,6,7,8,9];
+    let idxA = orderA.indexOf(unitA.pos), idxD = orderD.indexOf(unitD.pos);
+    if(idxA<0||idxD<0||!gridA.children[idxA]||!gridD.children[idxD]) { if (onHit) onHit(); return; }
+    let rA = gridA.children[idxA].getBoundingClientRect(), rD = gridD.children[idxD].getBoundingClientRect();
+    let sx=rA.left+rA.width/2, sy=rA.top+rA.height/2, ex=rD.left+rD.width/2, ey=rD.top+rD.height/2;
+    let dx=ex-sx, dy=ey-sy, dist=Math.sqrt(dx*dx+dy*dy);
+    if(dist<1) { if (onHit) onHit(); return; }
+    let angle = Math.atan2(dy, dx);
+    let chargeTime = 500 * (speed / 1000);
+    let flyDuration = 600 * (speed / 1000);
+    let pauseAfterHit = 500 * (speed / 1000);
+
+    let claw = document.createElement('div');
+    claw.style.position = 'fixed';
+    claw.style.left = sx + 'px';
+    claw.style.top = sy + 'px';
+    claw.style.width = '44px';
+    claw.style.height = '44px';
+    claw.style.zIndex = '10001';
+    claw.style.pointerEvents = 'none';
+    claw.style.transformOrigin = 'center';
+    // 整体旋转一次让爪尖指向目标（飞行过程中不再旋转）
+    claw.style.transform = `translate(-50%,-50%) rotate(${angle}rad)`;
+    // SVG 三道弯曲细长爪痕（像鹰爪），爪尖朝向飞行方向（右方，旋转后对准目标）
+    claw.innerHTML = `<svg width="44" height="44" viewBox="0 0 44 44" xmlns="http://www.w3.org/2000/svg">
+        <path d="M 6 16 Q 14 22 26 30" stroke="#f0f0ff" stroke-width="2.6" fill="none" stroke-linecap="round"/>
+        <path d="M 10 10 Q 18 18 28 32" stroke="#ffffff" stroke-width="2.8" fill="none" stroke-linecap="round"/>
+        <path d="M 18 6 Q 24 18 30 34" stroke="#f0f0ff" stroke-width="2.6" fill="none" stroke-linecap="round"/>
+        <path d="M 28 10 Q 30 22 32 34" stroke="#e8e8ff" stroke-width="2.4" fill="none" stroke-linecap="round"/>
+    </svg>`;
+    claw.style.filter = 'drop-shadow(0 0 4px rgba(180,200,255,0.7))';
+    document.body.appendChild(claw);
+
+    // 凝结阶段：放大浮现
+    let startCharge = null;
+    function phaseCharge(ts) {
+        if (getPausedFn && getPausedFn()) { requestAnimationFrame(phaseCharge); return; }
+        if (!startCharge) startCharge = ts;
+        let p = Math.min(1, (ts - startCharge) / chargeTime);
+        let scale = 0.4 + 0.6 * p;
+        claw.style.transform = `translate(-50%,-50%) rotate(${angle}rad) scale(${scale})`;
+        claw.style.opacity = 0.5 + 0.5 * p;
+        if (p < 1) { requestAnimationFrame(phaseCharge); }
+        else { phaseFly(0); }
+    }
+    requestAnimationFrame(phaseCharge);
+
+    // 飞行阶段：从攻击者位置飞向目标，不旋转（保持爪尖朝向目标）
+    function phaseFly(ts) {
+        if (!ts) { requestAnimationFrame(phaseFly); return; }
+        if (getPausedFn && getPausedFn()) { requestAnimationFrame(phaseFly); return; }
+        let startFly = claw._flyStart || (claw._flyStart = ts);
+        let p = Math.min(1, (ts - startFly) / flyDuration);
+        let cx = sx + (ex - sx) * p;
+        let cy = sy + (ey - sy) * p;
+        claw.style.left = cx + 'px';
+        claw.style.top = cy + 'px';
+        if (p < 1) { requestAnimationFrame(phaseFly); }
+        else {
+            // 命中：受击反馈 + 伤害数字
+            let defCell = gridD.children[idxD];
+            if (defCell) { applyImpactShrink(defCell, 250, getPausedFn); }
+            if (onHit) onHit();
+            // 短暂停留后移除爪
+            setTimeout(() => { if (claw.parentNode) claw.remove(); }, pauseAfterHit);
+        }
+    }
 }
