@@ -1,6 +1,8 @@
-// fx/16fx-arrows-5v5-test.js - 光明顶5v5 飞箭特效
-// V4.0.0 | ~10737 bytes | 2026-07-05
-export const VER = 'fx/16fx-arrows-5v5-test.js V4.0.0';
+// fx/16fx-arrows-5v5-test.js - 光明顶5v5 飞箭+白骨爪特效
+// V4.1.1 | ~14000 bytes | 2026-07-06 新增 showBoneClaw、接入通用受击反馈
+export const VER = 'fx/16fx-arrows-5v5-test.js V4.1.1';
+
+import { applyImpactShrink } from './15fx-common-5v5-test.js';
 
 function applyWholeShake(elements, durationMs, basePositions, angle, getPausedFn, onComplete) {
     let start = null;
@@ -65,7 +67,7 @@ export function showRangedArrow(unitA, unitD, speed, getPausedFn, isMeteor = fal
         function flyStep(ts) { if (getPausedFn && getPausedFn()) { requestAnimationFrame(flyStep); return; } if (!startFly) startFly = ts; let p = Math.min(1, (ts - startFly) / flyDuration); let curStartX = sx + (finalStartX - sx) * p, curStartY = sy + (finalStartY - sy) * p; container.style.left = curStartX + 'px'; container.style.top = curStartY + 'px';
             if (p < 1) { requestAnimationFrame(flyStep); } else {
                 container.style.left = finalStartX + 'px'; container.style.top = finalStartY + 'px';
-                let defCell = gridD.children[idxD]; if (defCell) { defCell.classList.add('shake'); defCell.style.transition = 'background 0.15s ease'; defCell.style.background = '#ffd700'; setTimeout(() => { defCell.classList.remove('shake'); defCell.style.background = ''; }, 400); }
+                let defCell = gridD.children[idxD]; if (defCell) { applyImpactShrink(defCell, 300, getPausedFn); }
 
                 // 流星赶月：命中后显示蓄力光圈
                 if (isMeteor) {

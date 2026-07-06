@@ -51,6 +51,45 @@ function _executeBrush(div) { if (!div) return; let oldOverlay = div.querySelect
 export function applyBrushEffect(div) { _executeBrush(div); }
 export function applyBrushEffectOnHeal(div, nextDiv) { _executeBrush(div); if (nextDiv) _executeBrush(nextDiv); }
 
+// ==================== 通用受击反馈：缩小+颤动+短闪 ====================
+// 飞箭/溅射/白骨爪/飞撞/近身通用
+export function applyImpactShrink(cell, durationMs, getPausedFn, opts) {
+    if (window._fastForwardActive || !cell) return;
+    opts = opts || {};
+    let bgColor = opts.bgColor || '#ffd700';
+    let bgDuration = opts.bgDuration || Math.min(200, durationMs);
+    let originalTransform = cell.style.transform || '';
+    let originalTransition = cell.style.transition || '';
+    let originalBg = cell.style.background || '';
+    cell.style.transition = 'background 0.1s ease';
+    cell.style.background = bgColor;
+    let bgCleared = false;
+    let start = null;
+    function shake(ts) {
+        if (getPausedFn && getPausedFn()) { requestAnimationFrame(shake); return; }
+        if (!start) start = ts;
+        let elapsed = ts - start;
+        if (elapsed >= durationMs) {
+            cell.style.transform = originalTransform;
+            cell.style.transition = originalTransition;
+            if (!bgCleared) { cell.style.background = originalBg; bgCleared = true; }
+            return;
+        }
+        let progress = elapsed / durationMs;
+        let decay = 1 - progress;
+        let scale = 0.88 + 0.12 * progress;
+        let offsetX = (Math.random() - 0.5) * 4 * decay;
+        let offsetY = (Math.random() - 0.5) * 4 * decay;
+        cell.style.transform = `translate(${offsetX}px, ${offsetY}px) scale(${scale})`;
+        if (!bgCleared && elapsed > bgDuration) {
+            cell.style.background = originalBg;
+            bgCleared = true;
+        }
+        requestAnimationFrame(shake);
+    }
+    requestAnimationFrame(shake);
+}
+
 // ==================== 全屏横幅 ====================
 function createBuffBannerEl() { let d = document.createElement('div'); d.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);font-size:2.5rem;font-weight:bold;color:#ffd700;z-index:10030;pointer-events:none;text-shadow:0 0 20px rgba(255,215,0,0.8);white-space:nowrap;animation:bannerPop 1.5s ease-out forwards;'; return d; }
 initPool('buffBanner', createBuffBannerEl);
