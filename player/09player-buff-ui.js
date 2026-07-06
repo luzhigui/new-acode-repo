@@ -6,6 +6,7 @@ import { CONFIG } from '../core/01config-5v5-test.js';
 import { Unit } from '../core/07battle-engine-5v5-test.js';
 import { showDamageFloat, showHealFloat, showBuffBanner } from '../fx/15fx-common-5v5-test.js';
 
+
 let ctx = null;
 function getCtx() {
     if (!ctx) ctx = window._getPlayerContext();
@@ -115,7 +116,6 @@ export async function handleBuffSummon(c, entry, prevEntry) {
     if (!c.UI.allyTeam.some(u => u.uid === horse.uid)) {
         c.UI.allyTeam.push(horse);
     }
-    c.updateUI(c.UI, c.UI.lastSnapshot);
     c.UI.lastSnapshot = { ally: c.UI.allyTeam.map(u => ({...u})), enemy: c.UI.enemyTeam.map(u => ({...u})) };
     if (entry.horseTaunt) {
         c.isPaused = true;
@@ -125,7 +125,6 @@ export async function handleBuffSummon(c, entry, prevEntry) {
     let div=document.createElement('div');div.innerHTML=entry.text+'<br>';
     document.getElementById('log').appendChild(div);
     c.autoScrollLog();
-
 }
 
 export async function handleBuffDestroy(c, entry, prevEntry) {
@@ -139,7 +138,6 @@ export async function handleBuffDestroy(c, entry, prevEntry) {
     let idx = c.UI.allyTeam.findIndex(u => u.uid === entry.horseUid);
     if (idx >= 0) {
         c.UI.allyTeam.splice(idx, 1);
-        c.updateUI(c.UI, c.UI.lastSnapshot);
         c.UI.lastSnapshot = { ally: c.UI.allyTeam.map(u => ({...u})), enemy: c.UI.enemyTeam.map(u => ({...u})) };
     }
     c.isPaused = true;
@@ -155,7 +153,6 @@ export async function handleBuffLeech(c, entry) {
     if (healUnit && entry.healAmount) {
         showHealFloat(healUnit, entry.healAmount);
         healUnit.hp = Math.min(healUnit.maxHp, healUnit.hp + entry.healAmount);
-        c.updateUI(c.UI);
     }
     let bannerText = '🗡️ 嗜血狂刀！';
     if (entry.buffType === 'hotBlood') {
@@ -168,5 +165,3 @@ export async function handleBuffLeech(c, entry) {
     document.getElementById('log').appendChild(div);
     c.autoScrollLog();
 }
-
-// handleBuffSplash 已删除，逻辑已内联至 10player-core.js 的 case 'buff-splash'

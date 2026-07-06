@@ -45,6 +45,11 @@ export function showMeleeCrash(unitA, unitD, speed, getPausedFn, onCrash) {
     
     let cellA = gridA.children[idxA];
     let cellB = gridD.children[idxD];
+
+    if (cellA) {
+        cellA.setAttribute('data-flash', 'attack');
+        cellA.style.transition = 'none';
+    }
     
     let rA = cellA.getBoundingClientRect();
     let rB = cellB.getBoundingClientRect();
@@ -76,6 +81,8 @@ export function showMeleeCrash(unitA, unitD, speed, getPausedFn, onCrash) {
     let flyMode = window._crashMode || 'ghost';
 
     unitA._flyMode = flyMode;
+    const ctx = window._getPlayerContext ? window._getPlayerContext() : null;
+    if (ctx && ctx.store) ctx.store.dispatch({ type: 'SET_VISUAL', uid: unitA.uid, _flyMode: flyMode });
     let UI = window._getPlayerContext ? window._getPlayerContext().UI : null;
     if (UI) {
         let uiUnitA = UI.allyTeam.concat(UI.enemyTeam).find(u => u.uid === unitA.uid);
@@ -108,13 +115,12 @@ export function showMeleeCrash(unitA, unitD, speed, getPausedFn, onCrash) {
     clone.classList.add('crash-clone');
     document.body.appendChild(clone);
 
-    // 克隆之后再隐藏原格子
+    // 隐藏原格子（data-flash 已在上方设置过）
     if (flyMode === 'ghost') {
         // 虚影模式：半透明蓝色，保留一点视觉残留
         cellA.style.opacity = '0.3';
         cellA.style.background = '';
         cellA.style.border = '';
-        cellA.setAttribute('data-flash', 'attack');
     } else {
         // 飞走模式：彻底隐藏
         cellA.style.opacity = '0';
@@ -183,6 +189,7 @@ export function showMeleeCrash(unitA, unitD, speed, getPausedFn, onCrash) {
                             }
                             unitA._flash = null;
                             delete unitA._flyMode;
+                            if (ctx && ctx.store) ctx.store.dispatch({ type: 'SET_VISUAL', uid: unitA.uid, _flyMode: null });
                             if (UI) { let c = window._getPlayerContext(); c.updateUI(UI); }
                         }
                     }
@@ -211,6 +218,11 @@ export function showMeleeDodge(unitA, unitD, speed, getPausedFn) {
     
     let cellA = gridA.children[idxA];
     let cellB = gridD.children[idxD];
+
+    if (cellA) {
+        cellA.setAttribute('data-flash', 'attack');
+        cellA.style.transition = 'none';
+    }
     
     let rA = cellA.getBoundingClientRect();
     let rB = cellB.getBoundingClientRect();
