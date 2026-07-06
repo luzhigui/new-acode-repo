@@ -181,7 +181,7 @@ export function doInitBattle(currentStage, UI, snapshot, activeBuffs, selectedBu
     let stageText = currentStage === 1 ? '第一关' : `第${currentStage}关`;
     document.getElementById('labelEnemy').textContent = `六大派\n${stageText}`;
     document.getElementById('labelAlly').textContent = '明 教';
-    updateUI(UI);
+    updateUI();
 }
 
 // ==================== Buff 选择 ====================

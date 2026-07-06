@@ -1,6 +1,6 @@
-// ui/14ui-render-5v5-test.js - 光明顶5v5 UI渲染模块
-// V4.0.1 | ~19000 bytes | 2026-07-06 修复：savedCloseBtn 重复声明
-export const VER = 'ui/14ui-render-5v5-test.js V4.0.1';
+// ui/14ui-render-5v5-test.js - 光明顶5v5 UI渲染模块（响应式版）
+// V5.0.0 | ~18500 bytes | 2026-07-06 接入 Store 订阅，renderGrid/updateUI 不传参，自动读取
+export const VER = 'ui/14ui-render-5v5-test.js V5.0.0';
 
 import { CONFIG } from '../core/01config-5v5-test.js';
 import { rand } from '../core/03battle-utils.js';
@@ -8,6 +8,25 @@ import { showDanmaku as _showDanmaku } from '../fx/15fx-common-5v5-test.js';
 const showDanmaku = (...args) => { if (typeof _showDanmaku === 'function') return _showDanmaku(...args); };
 
 export function stripTags(html) { let div = document.createElement('div'); div.innerHTML = html; return div.textContent || ''; }
+
+// ==================== 响应式 Store 引用 ====================
+let _store = null;
+function getStore() {
+    if (!_store) {
+        // 尝试从全局获取（主流程 playBattle 中会设置 window._battleStore）
+        if (window._battleStore) _store = window._battleStore;
+    }
+    return _store;
+}
+// 暴露 setStore，供主流程在创建 Store 后调用
+export function setRenderStore(store) {
+    _store = store;
+}
+
+// ==================== 辅助函数 ====================
+function getCtx() {
+    return window._getPlayerContext ? window._getPlayerContext() : null;
+}
 
 function getBuffStats(unit) {
     return {
@@ -48,11 +67,12 @@ export function isUnitBenefitedByBuff(unit, buffKey, allyTeam, doubleStrikeUid, 
     }
 }
 
+// ==================== 详情弹窗 ====================
 let detailPopup = null;
 let detailPopupUnit = null;
 let detailPopupInterval = null;
 
-function openDetailPopup(unit, team, activeBuffs, doubleStrikeUid) {
+function openDetailPopup(unit) {
     closeDetailPopup();
     detailPopupUnit = unit;
     detailPopup = document.createElement('div');
@@ -63,32 +83,31 @@ function openDetailPopup(unit, team, activeBuffs, doubleStrikeUid) {
     closeBtn.style.cssText = 'position:absolute;top:6px;right:10px;cursor:pointer;font-size:18px;color:#8b7355;font-weight:bold;';
     closeBtn.addEventListener('click', (e) => { e.stopPropagation(); closeDetailPopup(); });
     detailPopup.appendChild(closeBtn);
-    updateDetailPopupContent(activeBuffs, doubleStrikeUid);
+    updateDetailPopupContent();
     document.body.appendChild(detailPopup);
     setTimeout(() => { document.addEventListener('click', closeDetailPopupOnClick); }, 100);
     detailPopupInterval = setInterval(() => {
         if (detailPopup && detailPopupUnit) {
-            let ctx = window._getPlayerContext ? window._getPlayerContext() : null;
-            if (ctx && ctx.activeBuffs) {
-                updateDetailPopupContent(ctx.activeBuffs, ctx.currentDoubleStrikeUid);
-            }
+            updateDetailPopupContent();
         }
     }, 1000);
 }
 
-function updateDetailPopupContent(activeBuffs, doubleStrikeUid) {
+function updateDetailPopupContent() {
     if (!detailPopup || !detailPopupUnit) return;
-    let ctx = window._getPlayerContext ? window._getPlayerContext() : null;
+    const ctx = getCtx();
     if (!ctx) return;
     let uid = detailPopupUnit.uid;
-    let latestUnit = ctx.UI.allyTeam.concat(ctx.UI.enemyTeam).find(u => u.uid === uid);
+    let allUnits = (ctx.UI.allyTeam || []).concat(ctx.UI.enemyTeam || []);
+    let latestUnit = allUnits.find(u => u.uid === uid);
     if (!latestUnit) { closeDetailPopup(); return; }
     detailPopupUnit = latestUnit;
     const u = latestUnit;
     let allyTeam = ctx.UI.allyTeam || [];
+    let activeBuffs = ctx.activeBuffs || [];
+    let doubleStrikeUid = ctx.currentDoubleStrikeUid;
     let unitBuffs = activeBuffs.filter(b => isUnitBenefitedByBuff(u, b.key, allyTeam, doubleStrikeUid, activeBuffs));
-    let buffText = '无';
-    if (unitBuffs.length > 0) buffText = unitBuffs.map(b => `${b.name}(${b.remaining}回)`).join('、');
+    let buffText = unitBuffs.length > 0 ? unitBuffs.map(b => `${b.name}(${b.remaining}回)`).join('、') : '无';
     let buffStats = getBuffStats(u);
     let atkBonusVal = Math.floor(u.atk * buffStats.atkBonus);
     let defBonusVal = Math.floor(u.def * buffStats.defBonus);
@@ -98,7 +117,6 @@ function updateDetailPopupContent(activeBuffs, doubleStrikeUid) {
     let hpPct = u.alive ? Math.floor((u.hp / u.maxHp) * 100) : 0;
     let hpColor = hpPct > 70 ? '#2e7d32' : (hpPct > 40 ? '#d2691e' : '#c0392b');
 
-    // 保留关闭按钮
     let closeBtn = detailPopup.querySelector('span');
     detailPopup.innerHTML = '';
     if (closeBtn) detailPopup.appendChild(closeBtn);
@@ -154,29 +172,45 @@ function createHorseSpawnAnim(cell) {
     setTimeout(() => { cell.style.transform = 'scale(1)'; cell.style.boxShadow = ''; }, 400);
 }
 
-export function renderGrid(id, team, camp, debugMode, oldTeam) {
-    let grid = document.getElementById(id); grid.innerHTML = '';
+// ==================== 核心渲染函数 ====================
+
+/**
+ * 渲染一个九宫格。不再接收 team 参数，改从 Store 读取。
+ * @param {string} id - 格子 DOM ID（'allyGrid' 或 'enemyGrid'）
+ * @param {string} camp - 'ally' 或 'enemy'
+ */
+export function renderGrid(id, camp) {
+    let grid = document.getElementById(id);
+    if (!grid) return;
+    grid.innerHTML = '';
+
+    // 从 Store 或 getPlayerContext 获取队伍数据
+    const store = getStore();
+    const ctx = getCtx();
+    let team = [];
+    if (store) {
+        const state = store.getState();
+        team = state.units.filter(u => u.camp === camp);
+    } else if (ctx && ctx.UI) {
+        team = camp === 'ally' ? (ctx.UI.allyTeam || []) : (ctx.UI.enemyTeam || []);
+    }
+
     let displayOrder = camp === 'enemy' ? [7,8,9,4,5,6,1,2,3] : [1,2,3,4,5,6,7,8,9];
-    let ctx = window._getPlayerContext ? window._getPlayerContext() : null;
     let isAdjustMode = ctx ? ctx.adjustMode : false;
     let selectedPos = ctx ? ctx.selectedAdjustPos : null;
     let activeBuffs = ctx ? (ctx.activeBuffs || []) : [];
-    let allyTeam = ctx ? ctx.UI.allyTeam : [];
+    let allyTeam = ctx ? (ctx.UI.allyTeam || []) : [];
     let doubleStrikeUid = ctx ? ctx.currentDoubleStrikeUid : null;
 
     for (let i = 0; i < displayOrder.length; i++) {
         let pos = displayOrder[i], unit = team.find(c => c.pos === pos);
-        // 死亡/飞走的单位不能作为普通单位渲染，但必须保留尸体视觉
         if (unit && !unit.isHorse) {
-            if (unit._flyMode) {
-                // 飞走状态：不渲染
+            if (unit._flyMode === 'fly') {
                 unit = null;
+            } else if (unit._flyMode === 'ghost') {
+                unit = { ...unit, _flash: null, _acted: true };
             } else if (unit._isDead) {
-                // 死亡状态：如果没有时间戳则补上当前时间，超过3秒的隐藏
-                if (!unit._deathTime) {
-                    unit._deathTime = Date.now();
-                }
-                if (Date.now() - unit._deathTime > 3000) {
+                if (unit._visuallyRemoved || (unit._deathTime && (Date.now() - unit._deathTime > 3000))) {
                     unit = null;
                 } else {
                     unit = { ...unit, _flash: 'dead', _resting: false, _acted: false, _blocked: false };
@@ -226,8 +260,8 @@ export function renderGrid(id, team, camp, debugMode, oldTeam) {
         let restingClass = (isBlocked && unit.alive && isResting && !(unit.isZhang && unit.rangedForm) && !isDead) ? 'resting' : '';
         let div = document.createElement('div');
         div.className = `cell occupied ${readyClass} ${actedClass} ${cheerClass} ${restingClass}`;
-        if (isDead) { div.setAttribute('data-flash', 'dead'); }
-        else if (unit._flash) { div.setAttribute('data-flash', unit._flash); }
+        if (isDead) { div.setAttribute('data-flash', 'dead'); div.style.transition = 'none'; }
+        else if (unit._flash) { div.setAttribute('data-flash', unit._flash); div.style.transition = 'none'; }
         div.dataset.pos = pos;
         div.dataset.uid = unit.uid;
         if (camp === 'ally' && isAdjustMode) {
@@ -253,24 +287,6 @@ export function renderGrid(id, team, camp, debugMode, oldTeam) {
         if (isDead) {
             let deadMark = document.createElement('span'); deadMark.className = 'dead-mark'; deadMark.textContent = '✕'; div.appendChild(deadMark);
             div.style.transform = 'scale(0.8)'; div.style.opacity = '0.9';
-
-            // 3秒后直接触发重绘，让尸体消失
-            if (!unit._clearScheduled) {
-                unit._clearScheduled = true;
-                const uid = unit.uid;
-                setTimeout(() => {
-                    const ctx2 = window._getPlayerContext ? window._getPlayerContext() : null;
-                    if (!ctx2 || !ctx2.UI) return;
-                    // 简单粗暴：给这个单位打上死亡时间戳为“很久以前”，下次渲染就跳过
-                    const team = ctx2.UI.allyTeam.concat(ctx2.UI.enemyTeam);
-                    const target = team.find(u => u.uid === uid);
-                    if (target && target._isDead) {
-                        target._deathTime = 1; // 设置一个极小的时间戳，让时间差必然超过3000ms
-                        target._clearScheduled = false;
-                    }
-                    if (ctx2.updateUI) ctx2.updateUI(ctx2.UI);
-                }, 3000);
-            }
         }
         if (isBlocked && unit.alive && isResting && !(unit.isZhang && unit.rangedForm) && !isDead) {
             let zzz = document.createElement('div'); zzz.className = 'zzz-mark'; zzz.innerHTML = '<span>z</span><span>Z</span><span>Z</span>'; div.appendChild(zzz);
@@ -278,28 +294,49 @@ export function renderGrid(id, team, camp, debugMode, oldTeam) {
         div.style.cursor = 'pointer';
         div.addEventListener('click', (e) => {
             if (isAdjustMode) return;
-            if (unit) openDetailPopup(unit, team, activeBuffs, doubleStrikeUid);
+            if (unit) openDetailPopup(unit);
         });
+        if (unit._flyMode === 'ghost') {
+            div.style.opacity = '0.35';
+            div.style.filter = 'grayscale(0.6)';
+            div.style.background = '#1e6bb8';
+        }
         grid.appendChild(div);
     }
 }
 
-export function updateUI(UI, oldUI) {
-    let allyTeam = UI.ally || UI.allyTeam || [];
-    let enemyTeam = UI.enemy || UI.enemyTeam || [];
-    let oldAlly = oldUI ? (oldUI.ally || oldUI.allyTeam || null) : null;
-    let oldEnemy = oldUI ? (oldUI.enemy || oldUI.enemyTeam || null) : null;
-    renderGrid('enemyGrid', enemyTeam, 'enemy', window._debugMode || false, oldEnemy);
-    renderGrid('allyGrid', allyTeam, 'ally', window._debugMode || false, oldAlly);
+/**
+ * 渲染全部九宫格。不再接收参数，从 Store 或全局读取数据。
+ * 同时订阅 Store，一旦状态变化就自动重绘。
+ */
+let _subscribed = false;
+export function updateUI() {
+    renderGrid('enemyGrid', 'enemy');
+    renderGrid('allyGrid', 'ally');
+
+    // 首次调用时订阅 Store，后续自动重绘
+    if (!_subscribed) {
+        const store = getStore();
+        if (store) {
+            store.subscribe(() => {
+                renderGrid('enemyGrid', 'enemy');
+                renderGrid('allyGrid', 'ally');
+            });
+            _subscribed = true;
+        }
+    }
 }
 
+// ==================== 胜利特效 ====================
 export function spawnVictoryEffects(winnerCamp) {
     let gridId = winnerCamp==='明教'?'allyGrid':'enemyGrid', grid = document.getElementById(gridId);
+    if (!grid) return;
     grid.classList.add('victory-border');
     let cells = grid.children;
     let displayOrder = winnerCamp==='明教'?[1,2,3,4,5,6,7,8,9]:[7,8,9,4,5,6,1,2,3];
-    let UI = window._getPlayerContext ? window._getPlayerContext().UI : null;
-    if (!UI) return;
+    let ctx = getCtx();
+    if (!ctx) return;
+    let UI = ctx.UI;
     for (let i=0;i<cells.length;i++) { let pos = displayOrder[i]; let unit = winnerCamp==='明教'?UI.allyTeam.find(c=>c.pos===pos):UI.enemyTeam.find(c=>c.pos===pos); if (unit && unit.alive) cells[i].classList.add('cell-cheer'); }
     let centerCell = grid.children[4], rect = centerCell?centerCell.getBoundingClientRect():grid.getBoundingClientRect();
     document.body.classList.add('shake'); setTimeout(()=>document.body.classList.remove('shake'),500);
@@ -317,12 +354,10 @@ export function spawnVictoryEffects(winnerCamp) {
         '好好好！', '哈哈哈！', '还有谁？', '干得漂亮！', '不过如此！',
         '总算结束了！', '痛快！', '明教必胜！', '再来啊！', '就这？'
     ];
-    // 按贡献度排序：造成伤害高的优先，伤害相同时承受伤害高的优先
     const sortedAlive = aliveUnits.sort((a, b) => {
         if ((b.dmgDealt || 0) !== (a.dmgDealt || 0)) return (b.dmgDealt || 0) - (a.dmgDealt || 0);
         return (b.dmgTaken || 0) - (a.dmgTaken || 0);
     });
-    // 按序播放弹幕，每位英雄延迟 600ms 出场
     sortedAlive.forEach((u, index) => {
         const taunt = WIN_TAUNTS[rand(0, WIN_TAUNTS.length - 1)];
         setTimeout(() => {
@@ -334,4 +369,5 @@ export function spawnVictoryEffects(winnerCamp) {
     logDiv.innerHTML+=`<span class="gold">🎉🏆 <span class="${winColor}">${winnerCamp}</span>获得最终胜利！ 🏆🎉</span><br>`;logDiv.scrollTop=logDiv.scrollHeight;
 }
 
+// ==================== 日志清除 ====================
 export function clearLogExceptFirst() { let logDiv = document.getElementById('log'), children = logDiv.children; while (children.length > 1) logDiv.removeChild(children[1]); let calibrator = document.createElement('div'); calibrator.style.display = 'block'; calibrator.innerHTML = ''; logDiv.appendChild(calibrator); }
