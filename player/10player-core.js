@@ -1,6 +1,6 @@
 // player/10player-core.js - 光明顶5v5 战斗播放器核心
-// V5.0.0 | ~48000 bytes | 2026-07-06 逐步执行、Store 驱动视觉标记
-export const VER = 'player/10player-core.js V5.0.0';
+// V5.0.1 | ~48000 bytes | 2026-07-06 分隔符规则重写、修复复制日志缺失、修复阵容重复打印
+export const VER = 'player/10player-core.js V5.0.1';
 
 import { isBlocked } from '../core/03battle-utils.js';
 import { showDanmaku, showDamageFloat, showDodgeBubble, showHealFloat, applyBrushEffect, showBuffBanner, showCriticalBanner, showHeartEffect, showPinkFlash } from '../fx/15fx-common-5v5-test.js';
@@ -196,7 +196,7 @@ async function handleBuffBonus(c, entry) {
 }
 
 async function handleBuffSwap(c, entry) {
-    insertBuffSeparator(document.getElementById('log'), c);
+    // 不再插入分隔符，由主循环 needSep 控制
     c.isPaused = true;
     window.bulletTimeActive = true;
     await showBuffBanner('🌀 惑人心智！');
@@ -214,7 +214,7 @@ async function handleBuffSwap(c, entry) {
 }
 
 async function handleBuffPush(c, entry) {
-    insertBuffSeparator(document.getElementById('log'), c);
+    // 不再插入分隔符
     c.isPaused = true;
     window.bulletTimeActive = true;
     await showBuffBanner('🦅 乘风突袭！');
@@ -231,7 +231,7 @@ async function handleBuffPush(c, entry) {
 }
 
 async function handleBuffReboundFortify(c, entry) {
-    insertBuffSeparator(document.getElementById('log'), c);
+    // 不再插入分隔符
     c.isPaused = true;
     window.bulletTimeActive = true;
     await showBuffBanner('🛡️ 严阵以待！');
@@ -354,7 +354,6 @@ async function handleRoundStart(c, entry, isFirstAttackRef) {
 }
 
 async function handleRoundEnd(c, entry, log, i) {
-    let hasSkill=log[i-1]&&log[i-1].type==='attack-group'&&log[i-1].entries.some(e=>e.type==='info'); if(!hasSkill){ let spacer=document.createElement('div');spacer.innerHTML='<br>';document.getElementById('log').appendChild(spacer);c.autoScrollLog(); }
     let div=document.createElement('div');div.innerHTML=entry.text + '<br>';document.getElementById('log').appendChild(div); c.autoScrollLog(); document.getElementById('roundDisplay').innerText = `📜 日志（第${c.UI.round}回合）`;
     if (c.tickBuffDurations) { c.tickBuffDurations(); c.updateBuffSlots(); }
     if (window._refreshGlowCells) window._refreshGlowCells();
@@ -363,9 +362,26 @@ async function handleRoundEnd(c, entry, log, i) {
 
 // ==================== 主分发器 ====================
 
+function shouldStartNewGroup(entry, lastType) {
+    if (!lastType) return false;
+    // 回合结束前不加分隔符
+    if (entry.type === 'round-end') return false;
+    // attack-group → attack-group：不同 unit 的攻击之间加分隔符（含闪避/格挡/未命中）
+    if (lastType === 'attack-group' && entry.type === 'attack-group') return true;
+    // buff-summary → attack-group：buff 说明后接第一个攻击，加分隔符
+    if (lastType === 'buff-summary' && entry.type === 'attack-group') return true;
+    // info → attack-group：系统提示（含连击失败、惑人心智等）后接攻击，加分隔符
+    if (lastType === 'info' && entry.type === 'attack-group') return true;
+    // attack-group → info：攻击后接系统提示，加分隔符
+    if (lastType === 'attack-group' && entry.type === 'info') return true;
+    // 其他所有情况：不加分隔符
+    return false;
+}
+
 export async function playLogEntries(c, log, roundResult, isFirstAttackRef) {
     let abortSig = c.abortController ? c.abortController.signal : null;
-    let lastEntryType = null;
+    // 如果上下文中有保存的 lastEntryType，则使用它；否则从 null 开始
+    let lastEntryType = c._lastLogType || null;
 
     try {
         for (let i = 0; i < log.length; i++) {
@@ -373,19 +389,11 @@ export async function playLogEntries(c, log, roundResult, isFirstAttackRef) {
             await c.waitWhilePaused();
             let entry = log[i];
 
-            const isAttackCore = (t) => t === 'attack-group' || t === 'buff-leech' || t === 'buff-splash';
-            const isAttackSub = (t) => t === 'buff-leech' || t === 'buff-splash' || t === 'buff-bonus';
-
-            const needSep =
-                (lastEntryType && isAttackCore(lastEntryType) && !isAttackSub(entry.type) && entry.type !== lastEntryType) ||
-                (lastEntryType === 'attack-group' && entry.type === 'attack-group');
-
-            if (needSep) {
+            if (shouldStartNewGroup(entry, lastEntryType)) {
                 let sepDiv = document.createElement('div');
                 sepDiv.innerHTML = '<span class="separator">- - - - -</span><br>';
                 document.getElementById('log').appendChild(sepDiv);
                 c.autoScrollLog();
-                await new Promise(r => setTimeout(r, c.speed / 4));
             }
 
             switch (entry.type) {
@@ -400,7 +408,7 @@ export async function playLogEntries(c, log, roundResult, isFirstAttackRef) {
                     lastEntryType = entry.type;
                     break;
                 case 'buff-leech':
-                    insertBuffSeparator(document.getElementById('log'), c);
+                    // 不再插入分隔符
                     if (entry.buffType === 'hotBlood') {
                         let div=document.createElement('div');div.innerHTML=entry.text+'<br>';
                         document.getElementById('log').appendChild(div);c.autoScrollLog();
@@ -470,6 +478,7 @@ export async function playLogEntries(c, log, roundResult, isFirstAttackRef) {
         console.error('playLogEntries 错误:', e);
         return { isBattleOver: false };
     }
+    c._lastLogType = lastEntryType;
     return { isBattleOver: false };
 }
 
@@ -595,6 +604,11 @@ export async function playBattle() {
             lastStep = step;
 
             await playLogEntries(c, step.log, step, isFirstAttackRef);
+
+            // 持久化 lastEntryType，为下一个 step 准备
+            if (typeof c._lastLogType !== 'undefined') {
+                // playLogEntries 内部会更新这个值，这里不需要额外操作
+            }
 
             if (step.events && step.events.length > 0) {
                 c.store.dispatch({ type: 'APPLY_EVENTS', events: step.events });

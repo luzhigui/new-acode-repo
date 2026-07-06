@@ -241,7 +241,6 @@ function processUnitAttack(unit, allySide, enemySide, log, A, B, state, doubleSt
         mg._events = [...window._battleEvents];
         window._battleEvents = [];
         log.push(mg);
-        log.push({ type: 'info', text: '<span class="separator">- - - - -</span>' });
         applyXinHunDeduction(unit, allySide, log);
         if (doubleStrikeUnitUid && unit.uid === doubleStrikeUnitUid && unit.alive && unit.camp === 'ally' && !unit._doubleStriked) {
             if (rand(1,100) <= 80) {
@@ -412,7 +411,6 @@ function processUnitAttack(unit, allySide, enemySide, log, A, B, state, doubleSt
     }
     unit._acted = true;
     log.push(group);
-    log.push({ type: 'info', text: '<span class="separator">- - - - -</span>' });
     
     applyXinHunDeduction(unit, allySide, log);
     let nineYinTotal = applyPostAttackEffects(unit, target, dmg, atkAct, defAct, reboundEntry, allySide, enemySide, log, A);
@@ -604,7 +602,6 @@ export function* createRoundStepper(state) {
                 bg._events = [...window._battleEvents];
                 window._battleEvents = [];
                 log.push(bg);
-                log.push({ type: 'info', text: '<span class="separator">- - - - -</span>' });
             } else if (unit.isHorse) {
                 log.push({type:'info', text:`<span class="gray">🐴 拒马无法攻击，自动跳过</span>`});
             }
