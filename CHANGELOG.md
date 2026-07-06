@@ -1,5 +1,24 @@
 # 光明顶 5v5 - 更改履历
 
+## V4.1.2 — 2026-07-06
+- **九阴白骨爪重写**（`modules/23elite-skills.js`）：伤害改为「已损失生命 × 5%（张无忌在场时 8%）」+ 首次必触发、后续 88% 概率 + 连锁触发自己（chainProcChance 88%，最多 3 次）+ 血量 ≤10% 直接斩杀；日志加 `isClawHit` 标记供播放器触发特效
+- **配置重写**（`core/01config-5v5-test.js`）：`nineYinClaw` 新增 `firstProcChance/procChance/chainProcChance/maxChain/lostHpRatio/jealousLostHpRatio/executeThreshold`，废弃 `bonusRatio/jealousBonus`
+- **播放器接入白骨爪**（`player/10player-core.js`）：`handleInfo` 检测 `isClawHit` 后 fire-and-forget 调用 `showBoneClaw`（不 await、不设 isPaused，避免卡住播放器）
+- **叛逆突袭改百分比**（`modules/23elite-skills.js`）：`getRebelTarget` 从绝对 hp 比较改为 `hp/maxHp` 百分比
+- **死人不再行动**（`core/06battle-engine-core.js`）：行动循环开头加 `if (!unit.alive) continue;`，防止队列构建后被白骨爪斩杀/玄冥毒/反击打死的单位继续行动
+- **拒马阵亡统一清理**（`core/06battle-engine-core.js`）：回合结束统一清理所有死拒马（含 destroyHorse 销毁的 + 被攻击致死的），emit unit-remove 并从 team 移除，避免堆积导致下回合 spawnHorse 同位、UI 残留
+- **热血奋战检查 alive/满血**（`core/04buff-system.js`）：加 `unit.alive` 和 `hp < maxHp` 检查，死人不回血、满血不推日志（计数仍累加以保证翻倍节奏）
+- **精英技能 logo**（`ui/14ui-render-5v5-test.js`）：cell-name 加 🐾 周芷若 / 💥 宋青书 精英技能图标
+- **白骨爪描述精简**（`ui/14ui-render-5v5-test.js`）：周芷若详情弹窗描述改为新机制一句话
+- **分隔符逻辑**：按用户要求本次未改动，单独讨论
+
+## V4.1.1 — 2026-07-06
+- **白骨爪利爪对敌人**（`fx/16fx-arrows-5v5-test.js`）：新增 `showBoneClaw`，SVG 三道弯曲细长爪痕，整体 `rotate(angle)` 让爪尖朝向目标；凝结（放大浮现）→ 飞行（飞箭速度，不再旋转）→ 命中触发受击反馈
+- **通用受击反馈函数**（`fx/15fx-common-5v5-test.js`）：`applyImpactShrink` 统一缩小+颤动+黄色短闪，飞箭/溅射/白骨爪/飞撞/近身通用
+- **飞箭接入受击反馈**（`fx/16fx-arrows-5v5-test.js`）：`showRangedArrow` 受击改用 `applyImpactShrink(defCell, 300, ...)`；`showSplashArrows` 改用 `applyImpactShrink(defCell, 250, ...)`
+- **飞撞/近身接入受击反馈**（`fx/17fx-crash-5v5-test.js`）：`showMeleeCrash` 和 `showCloseRangeFX` 受击改用 `applyImpactShrink`
+- **虚影蓝色化**（`fx/17fx-crash-5v5-test.js`）：ghost 模式改为 opacity=0.5 + 蓝色背景 `rgba(30,100,255,0.28)` + 蓝色 border + 蓝色 boxShadow，保留明显视觉残留
+
 ## V4.0.2 — 2026-07-02
 - **README 更新改代码展示规则**：去掉字节数示例括号、删除"改动点多优先贴完整函数"冗余段落，规则更精简
 - **CHANGELOG 同步新增 V4.0.2 条目**
