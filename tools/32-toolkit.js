@@ -19,7 +19,7 @@ function escapeHtml(text) {
 
 /* ========== 文件复制器 ========== */
 (function() {
-    // 项目全部文件列表（用于路径清单，更新为 51 个文件）
+    // 项目全部文件列表（用于路径清单，更新为 43 个文件）
     const ALL_PROJECT_FILES = [
         // core
         '../core/01config-5v5-test.js', '../core/02unit.js', '../core/03battle-utils.js',
@@ -37,22 +37,18 @@ function escapeHtml(text) {
         '../fx/21fx-blood-slash.js', '../fx/22fx-fortify-counter.js',
         // modules
         '../modules/23elite-skills.js', '../modules/24error-capture.js', '../modules/28audio-manager.js',
-        // realtime
-        '../realtime/60-reactive-engine.js', '../realtime/61-attack-steps.js', '../realtime/62-test-utils.js',
-        '../realtime/63-battle-round.js', '../realtime/64-full-attack.js',
-        '../realtime/65-old-unit-adapter.js', '../realtime/66-reactive-demo.html', '../realtime/67-main-reactive.js',
         // tests
         '../tests/25unit-tests.js', '../tests/29health-rules.js',
         '../tests/35quiz-bank.js', '../tests/36runtime-sampler.js', '../tests/37health-core.js',
         '../tests/38health-ui.js', '../tests/30test-runner.html',
         // tools
         '../tools/31-toolkit.html', '../tools/32-toolkit.js', '../tools/33-toolkit-more.js',
-        '../tools/27auto-battle-utils.js', '../tools/00build-5v5.cjs', '../tools/bugs to do.txt',
+        '../tools/27auto-battle-utils.js', '../tools/00build-5v5.cjs',
         // assets
         '../assets/sfx_arrow.mp3', '../assets/sfx_fly.mp3',
         '../assets/sfx_melee.mp3', '../assets/sfx_xinai.mp3',
         // 根目录
-        '../00index.html', '../mode-5v5-test.html', '../realtime-v2.html',
+        '../00index.html', '../mode-5v5-test.html',
         '../README.md', '../CHANGELOG.md', '../kaifazhunze.md', '../Test Runnerlogo.md',
         '../game-design.md'
     ];
@@ -66,7 +62,6 @@ function escapeHtml(text) {
         { name: 'ui', displayName: 'UI 主控', prefix: '../ui/' },
         { name: 'fx', displayName: '特效', prefix: '../fx/' },
         { name: 'modules', displayName: '模块', prefix: '../modules/' },
-        { name: 'realtime', displayName: '实时对战', prefix: '../realtime/' },
         { name: 'tests', displayName: '测试与体检', prefix: '../tests/' },
         { name: 'tools', displayName: '工具箱自身', prefix: '../tools/' },
         { name: 'root', displayName: '根目录页面', prefix: null }

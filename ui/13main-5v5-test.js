@@ -1,5 +1,5 @@
 // ui/13main-5v5-test.js - 光明顶5v5 主控模块
-// V5.0.0 | ~33000 bytes | 2026-07-06 倍速逻辑重写、activeBuffs 统一到全局状态
+// V5.0.0 | ~33000 bytes | 2026-07-06 倍速逻辑重写、activeBuffs 统一到全局状态、updateUI 响应式
 export const VER = 'ui/13main-5v5-test.js V5.0.0';
 
 import '../modules/24error-capture.js';
@@ -46,9 +46,9 @@ let abortController = null, waitingForNextRound = false, detailMode = true;
 let battleResultForInfo = null, resettleCount = 0;
 let gameStarted = false;
 let hasLoggedTeam = false;
-let manualSpeedLock = true;            // 默认锁定为手动选择的倍速
-let manualSpeedValue = 500;            // 初始 2 倍速
-let slideSpeedActive = true;           // 当前是否为手动倍速（非 0.5 自动切换）
+let manualSpeedLock = true;
+let manualSpeedValue = 500;
+let slideSpeedActive = true;
 let isBattleStarting = false;
 let currentStage = 1;
 window._crashMode = 'fly';
@@ -60,8 +60,6 @@ let runtimeMonitorInterval = null;
 
 window._voteScore = parseInt(localStorage.getItem('ming_vote_score_5v5_test') || '10');
 window._voteChoice = null; window._battleHasZhang = false; window._debugMode = false;
-
-// activeBuffs 已完全由 getState.activeBuffs() / setState.activeBuffs() 管理，此处不再声明局部变量
 
 const TRASH_TALK_ALLY = ['明教必胜！六大派受死！','光明顶，我守定了！','六大派也不过如此！','来战！明教弟子，何惧！','今日便让尔等见识魔教之威！'];
 const TRASH_TALK_ENEMY = ['魔教余孽，今日必灭！','少林武当，放马过来！','邪魔歪道，不足为惧！','今日便要踏平光明顶！'];
@@ -158,17 +156,15 @@ function updateDebugUI() { let panel=document.getElementById('debugPanel');if(de
 
 // ==================== 倍速系统 ====================
 function updateSpeedButtons() {
-    // 基础倍速按钮
-    const btn2 = document.getElementById('btnSpeed2');      // 2x (500)
-    const btn05 = document.getElementById('btnSpeed05');    // 0.5x (1800)
-    const btn7x = document.getElementById('btnSpeed7x');    // 7x (143)
-    const btn4x = document.getElementById('btnSpeed4x');    // 4x (250)
-    const btn2x = document.getElementById('btnSpeed2x');    // 2x (500) 在 debug 组
-    const btn05x = document.getElementById('btnSpeed05x');  // 0.5x (1800) 在 debug 组
+    const btn2 = document.getElementById('btnSpeed2');
+    const btn05 = document.getElementById('btnSpeed05');
+    const btn7x = document.getElementById('btnSpeed7x');
+    const btn4x = document.getElementById('btnSpeed4x');
+    const btn2x = document.getElementById('btnSpeed2x');
+    const btn05x = document.getElementById('btnSpeed05x');
     const grpH = document.getElementById('speedGroupHigh');
     const grpL = document.getElementById('speedGroupLow');
 
-    // 显示/隐藏 debug 倍速组
     if (debugMode) {
         if(btn2) btn2.style.display='none';
         if(btn05) btn05.style.display='none';
@@ -181,40 +177,30 @@ function updateSpeedButtons() {
         if(grpL) grpL.style.display='none';
     }
 
-    // 清除所有按钮的高亮和半高亮
     [btn2, btn05, btn7x, btn4x, btn2x, btn05x].forEach(b => {
         if (!b) return;
         b.classList.remove('active', 'semi-active');
     });
 
-    // 当前实际生效的速度
     const activeSpeed = speed;
 
-    // 如果当前处于滑动日志导致的 0.5x 自动切换（slideSpeedActive === false），
-    // 则 0.5x 按钮高亮，且原手动倍速按钮半亮
     if (!slideSpeedActive) {
-        // 0.5x 按钮高亮（当前实际生效的速度）
         const btn05Target = debugMode ? btn05x : btn05;
         if (btn05Target) btn05Target.classList.add('active');
-        // 原手动倍速按钮淡蓝（半高亮），表示被覆盖
         if (manualSpeedLock && manualSpeedValue && manualSpeedValue !== 1800) {
             const lockedBtn = getButtonBySpeedValue(manualSpeedValue, debugMode);
             if (lockedBtn) lockedBtn.classList.add('semi-active');
         }
-        // 禁用其他倍速按钮的点击
-        setAllSpeedButtonsEnabled(false);
+        // 不再调用 setAllSpeedButtonsEnabled，按钮外观保持不变
+        // semi-active 自带 pointer-events:none，阻止点击
     } else {
-        // 正常手动倍速：高亮当前生效的倍速按钮
         const activeBtn = getButtonBySpeedValue(activeSpeed, debugMode);
         if (activeBtn) activeBtn.classList.add('active');
-        // 启用所有倍速按钮
-        setAllSpeedButtonsEnabled(true);
     }
 }
 
 function activateScrollSlowdown() {
-    if (speed === 1800) return; // 已经是 0.5x，不做任何事
-    // 保存当前倍速作为手动锁定值（如果尚未锁定或值不同）
+    if (speed === 1800) return;
     if (!manualSpeedLock || manualSpeedValue !== speed) {
         manualSpeedValue = speed;
         manualSpeedLock = true;
@@ -222,17 +208,15 @@ function activateScrollSlowdown() {
     slideSpeedActive = false;
     speed = 1800;
     updateSpeedButtons();
-    // 同步到全局状态
     setState.speed(1800);
 }
 
 function restoreSpeedFromScroll() {
-    if (slideSpeedActive) return; // 已经是手动倍速，不需要恢复
+    if (slideSpeedActive) return;
     slideSpeedActive = true;
     const restoredSpeed = manualSpeedValue || 500;
     speed = restoredSpeed;
     updateSpeedButtons();
-    // 同步到全局状态
     setState.speed(restoredSpeed);
 }
 
@@ -249,20 +233,7 @@ function getButtonBySpeedValue(val, isDebug) {
     return null;
 }
 
-function setAllSpeedButtonsEnabled(enabled) {
-    const ids = ['btnSpeed2', 'btnSpeed05', 'btnSpeed7x', 'btnSpeed4x', 'btnSpeed2x', 'btnSpeed05x'];
-    ids.forEach(id => {
-        const btn = document.getElementById(id);
-        if (btn) {
-            btn.disabled = !enabled;
-            // 移除 disabled 带来的灰色样式，保留自定义半高亮
-            if (btn.disabled && btn.classList.contains('semi-active')) {
-                btn.style.opacity = '1';
-                btn.style.filter = 'none';
-            }
-        }
-    });
-}
+
 
 function setSpeed(val, lock) {
     speed = val;
@@ -278,10 +249,21 @@ function setSpeed(val, lock) {
 
 function attachSpeedButton(id, speedVal) {
     let btn = document.getElementById(id); if (!btn) return;
-    btn.addEventListener('click', function() { onAnyButtonClick(); setSpeed(speedVal, true); });
+    btn.addEventListener('click', function() {
+        onAnyButtonClick();
+        // 如果已锁定且当前速度等于此按钮速度，则取消锁定并恢复默认速度
+        if (manualSpeedLock && speed === speedVal) {
+            speed = 500;
+            manualSpeedLock = false;
+            slideSpeedActive = true;
+            updateSpeedButtons();
+            setState.speed(500);
+        } else {
+            setSpeed(speedVal, true);
+        }
+    });
 }
 
-// 初始化倍速按钮事件
 attachSpeedButton('btnSpeed2', 500);
 attachSpeedButton('btnSpeed7x', 143);
 attachSpeedButton('btnSpeed4x', 250);
@@ -303,7 +285,7 @@ function _triggerFX(fxSnapshot, unitA, unitD, isDead, isDodge, isMiss, isBlock, 
         else delay = 400;
         setTimeout(() => showDanmaku(waveUnit,waveTaunt), delay);
     }
-    if(unitA&&unitD){ if(attackerRole==='远程'&&!isBlock&&!isMiss&&!isDodge){showRangedArrow(unitA,unitD,speed,getPausedState);}else if(!isBlock){ if(isDodge){if(!dodgeEffectEnabled){showMeleeDodge(unitA,unitD,speed*2,getPausedState);}}else if(isMiss){showMeleeMiss(unitA,unitD,speed*2,getPausedState);}else{showMeleeCrash(unitA,unitD,speed,getPausedState, () => { if (isDead && unitD) { unitD._flash = 'dead'; updateUI(getState.UI()); } });} } }
+    if(unitA&&unitD){ if(attackerRole==='远程'&&!isBlock&&!isMiss&&!isDodge){showRangedArrow(unitA,unitD,speed,getPausedState);}else if(!isBlock){ if(isDodge){if(!dodgeEffectEnabled){showMeleeDodge(unitA,unitD,speed*2,getPausedState);}}else if(isMiss){showMeleeMiss(unitA,unitD,speed*2,getPausedState);}else{showMeleeCrash(unitA,unitD,speed,getPausedState, () => { if (isDead && unitD) { unitD._flash = 'dead'; } });} } }
     if(unitD&&dmg!==undefined&&!isBlock&&!isMiss&&!isDodge){showDamageFloat(unitD,dmg);}
     if(isDodge&&unitD&&unitA){let reboundDmg=Math.floor((unitD.atk+unitD.def)*0.5);showDamageFloat(unitA,reboundDmg);}
 }
@@ -325,7 +307,7 @@ function swapAllyPositions(posA, posB) {
         }
     }
     if (unitA) unitA.pos = posB; if (unitB) unitB.pos = posA;
-    updateUI(currentUI);
+    updateUI();
 }
 window._swapAllyPositions = swapAllyPositions;
 
@@ -399,26 +381,26 @@ document.addEventListener('DOMContentLoaded', function() {
                 abortController = result.abortController; waitingForNextRound = result.waitingForNextRound; isBattleStarting = result.isBattleStarting; setState.adjustMode(result.adjustMode); setState.selectedAdjustPos(result.selectedAdjustPos); setState.activeBuffs(result.activeBuffs); selectedBuffIndex = result.selectedBuffIndex; currentDoubleStrikeUid = result.currentDoubleStrikeUid;
                 clearLogExceptFirst(); clearAllEffects(); hasLoggedTeam=false;
                 doInitBattle(currentStage, getState.UI(), getState.snapshot(), getState.activeBuffs(), selectedBuffIndex, currentDoubleStrikeUid);
-                updateUI(getState.UI()); gs=S.IDLE; setState.isPaused(false); updateButtons(); enableAllButtons(); updateSpeedButtons(); if(window._refreshGlowCells)window._refreshGlowCells();
+                updateUI(); gs=S.IDLE; setState.isPaused(false); updateButtons(); enableAllButtons(); updateSpeedButtons(); if(window._refreshGlowCells)window._refreshGlowCells();
             } else {
                 currentStage++;
                 let result = abortAll(abortController, getState.UI(), waitingForNextRound, isBattleStarting, getState.adjustMode(), getState.selectedAdjustPos(), getState.activeBuffs(), selectedBuffIndex, currentDoubleStrikeUid, () => updateBuffSlots(getState.activeBuffs(), selectedBuffIndex));
                 abortController = result.abortController; waitingForNextRound = result.waitingForNextRound; isBattleStarting = result.isBattleStarting; setState.adjustMode(result.adjustMode); setState.selectedAdjustPos(result.selectedAdjustPos); setState.activeBuffs(result.activeBuffs); selectedBuffIndex = result.selectedBuffIndex; currentDoubleStrikeUid = result.currentDoubleStrikeUid;
                 clearLogExceptFirst(); clearAllEffects(); hasLoggedTeam=false;
                 doInitBattle(currentStage, getState.UI(), getState.snapshot(), getState.activeBuffs(), selectedBuffIndex, currentDoubleStrikeUid);
-                updateUI(getState.UI()); gs=S.IDLE; setState.isPaused(false); updateButtons(); enableAllButtons(); updateSpeedButtons(); if(window._refreshGlowCells)window._refreshGlowCells();
+                updateUI(); gs=S.IDLE; setState.isPaused(false); updateButtons(); enableAllButtons(); updateSpeedButtons(); if(window._refreshGlowCells)window._refreshGlowCells();
             }
         } else if(gs===S.IDLE&&!isBattleStarting){
             if(!getState.adjustMode()){
-                setState.adjustMode(true); setState.selectedAdjustPos(null); updateButtons(); updateUI(getState.UI()); if(window._refreshGlowCells)window._refreshGlowCells();
+                setState.adjustMode(true); setState.selectedAdjustPos(null); updateButtons(); updateUI(); if(window._refreshGlowCells)window._refreshGlowCells();
             } else {
-                setState.adjustMode(false); setState.selectedAdjustPos(null); isBattleStarting=true; updateButtons(); updateUI(getState.UI());
+                setState.adjustMode(false); setState.selectedAdjustPos(null); isBattleStarting=true; updateButtons(); updateUI();
                 showVoteDialog(async(choice)=>{
                     clearLogExceptFirst(); hasLoggedTeam=false; fadeBGMTo(0.1,2000); logTeamInfo('初始阵容', getState.UI(), gs, battleResultForInfo, getState.activeBuffs(), hasLoggedTeam); hasLoggedTeam = true;
                     await showCountdown(TRASH_TALK_ALLY, TRASH_TALK_ENEMY, rand, showDanmaku, autoScrollLog);
                     let logDiv=document.getElementById('log'); logDiv.innerHTML+='<div class="separator">⚔️ 5v5对决开始 ⚔️</div>';
                     autoScrollLog();
-                    await new Promise(resolve => { showBuffSelection(() => resolve(), getState.activeBuffs(), selectedBuffIndex, () => updateBuffSlots(getState.activeBuffs(), selectedBuffIndex), () => updateUI(getState.UI()), autoScrollLog); });
+                    await new Promise(resolve => { showBuffSelection(() => resolve(), getState.activeBuffs(), selectedBuffIndex, () => updateBuffSlots(getState.activeBuffs(), selectedBuffIndex), () => {}, autoScrollLog); });
                     await new Promise(r=>setTimeout(r,600));
                     try {
                         gs=S.RUNNING; updateButtons(); document.getElementById('btnNext').disabled=true;
@@ -438,7 +420,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         setState.snapshot(snap);
                         const currentUI = getState.UI();
                         currentUI.enemyTeam = enemyList;
-                        updateUI(currentUI);
+                        updateUI();
                         const battleResult = runBattle(snap, getState.activeBuffs());
                         setState.UI({ ...getState.UI(), currentResult: battleResult });
                         if (battleResult && battleResult.doubleStrikeUids) {
@@ -474,7 +456,6 @@ document.addEventListener('DOMContentLoaded', function() {
         isBattleStarting = false;
         updateButtons();
         enableAllButtons();
-        updateUI(getState.UI());
     });
     document.getElementById('btnPause').addEventListener('click',function(){onAnyButtonClick();if(gs===S.RUNNING){gs=S.PAUSED;setState.isPaused(true);window.bulletTimeActive = false;if(window._getPlayerContext()._scheduler)window._getPlayerContext()._scheduler.pause();document.body.classList.add('paused-animations');}else if(gs===S.PAUSED){gs=S.RUNNING;setState.isPaused(false);if(window._getPlayerContext()._scheduler)window._getPlayerContext()._scheduler.resume();document.body.classList.remove('paused-animations');}updateButtons();});
     document.getElementById('btnAuto').addEventListener('click',function(){
@@ -491,7 +472,7 @@ document.addEventListener('DOMContentLoaded', function() {
     });
     document.getElementById('debugToggle').addEventListener('click',function(){
         onAnyButtonClick(); debugMode=!debugMode; this.classList.toggle('active',debugMode); this.textContent='V3.0'; window._debugMode=debugMode;
-        updateSpeedButtons(); updateDebugUI(); updateUI(getState.UI());
+        updateSpeedButtons(); updateDebugUI(); updateUI();
         if (debugMode) { logVersions(); if (!runtimeMonitorActive) startRuntimeMonitor(); }
         else { if (runtimeMonitorActive) stopRuntimeMonitor(); }
     });
@@ -551,7 +532,7 @@ document.addEventListener('DOMContentLoaded', function() {
         clearLogExceptFirst(); clearAllEffects(); hasLoggedTeam=false;
         currentStage=stage;
         doInitBattle(currentStage, getState.UI(), getState.snapshot(), getState.activeBuffs(), selectedBuffIndex, currentDoubleStrikeUid);
-        updateUI(getState.UI()); gs=S.IDLE; updateButtons(); enableAllButtons();
+        updateUI(); gs=S.IDLE; updateButtons(); enableAllButtons();
     }
 
     function forceStopGame(){
@@ -562,14 +543,14 @@ document.addEventListener('DOMContentLoaded', function() {
         clearLogExceptFirst(); clearAllEffects(); hasLoggedTeam=false;
         gs=S.IDLE;setState.isPaused(false);waitingForNextRound=false;isBattleStarting=false;
         updateButtons();enableAllButtons();updateSpeedButtons();
-        try { updateUI(currentUI); } catch(e){}
+        try { updateUI(); } catch(e){}
     }
 
     function doManualReset(){
         setState.activeBuffs([]); setState.snapshot({ally:[],enemy:[]}); currentDoubleStrikeUid=null;
         forceStopGame();
         doInitBattle(currentStage, getState.UI(), getState.snapshot(), getState.activeBuffs(), selectedBuffIndex, currentDoubleStrikeUid);
-        updateUI(getState.UI());
+        updateUI();
         gs=S.IDLE;updateButtons();enableAllButtons();
     }
 
@@ -577,7 +558,6 @@ document.addEventListener('DOMContentLoaded', function() {
     window.forceStopGame = forceStopGame;
     window.doManualReset = doManualReset;
     window.getGameState = ()=>({ gs, currentStage, isPaused: getState.isPaused(), isBattleStarting, allyCount: getState.UI().allyTeam.length, enemyCount: getState.UI().enemyTeam.length });
-    // 暴露倍速控制函数给播放器使用
     window._activateScrollSlowdown = activateScrollSlowdown;
     window._restoreSpeedFromScroll = restoreSpeedFromScroll;
 
@@ -585,7 +565,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if (i >= getState.activeBuffs().length) return;
         selectedBuffIndex = selectedBuffIndex === i ? -1 : i;
         updateBuffSlots(getState.activeBuffs(), selectedBuffIndex);
-        updateUI(getState.UI());
+        updateUI();
         if (window._updateGlowColors) window._updateGlowColors(selectedBuffIndex);
     }); }
 
@@ -594,7 +574,6 @@ document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('coverOverlay').style.display='none';
         gameStarted=true; initBGM(); playBGM(); setBGMVolume(0.5);
         try { initGlowSystem(); } catch(e) { console.warn('光带特效初始化失败，已跳过', e); }
-        // 初始倍速 2x 高亮
         speed = 500; manualSpeedLock = true; manualSpeedValue = 500; slideSpeedActive = true;
         updateSpeedButtons();
     });
@@ -606,24 +585,14 @@ document.addEventListener('DOMContentLoaded', function() {
         let unit = currentUI.allyTeam.find(u => u.pos === pos);
         if (unit && unit.fixed) { cell.classList.add('cell-blocked'); setTimeout(() => cell.classList.remove('cell-blocked'), 500); return; }
         if (getState.selectedAdjustPos() === null) { setState.selectedAdjustPos(pos); }
-        else { let targetUnit = currentUI.allyTeam.find(u => u.pos === pos); if (targetUnit && targetUnit.fixed) { cell.classList.add('cell-blocked'); setTimeout(() => cell.classList.remove('cell-blocked'), 500); setState.selectedAdjustPos(null); updateUI(currentUI); return; } swapAllyPositions(getState.selectedAdjustPos(), pos); setState.selectedAdjustPos(null); }
-        updateUI(getState.UI()); if(window._refreshGlowCells)window._refreshGlowCells();
+        else { let targetUnit = currentUI.allyTeam.find(u => u.pos === pos); if (targetUnit && targetUnit.fixed) { cell.classList.add('cell-blocked'); setTimeout(() => cell.classList.remove('cell-blocked'), 500); setState.selectedAdjustPos(null); updateUI(); return; } swapAllyPositions(getState.selectedAdjustPos(), pos); setState.selectedAdjustPos(null); }
+        updateUI(); if(window._refreshGlowCells)window._refreshGlowCells();
     });
-
-    // 日志滚动事件：触发倍速切换
-    let logDiv = document.getElementById('log');
-    let backToBottomBtn = null; // 会被 playBattle 中创建，这里仅监听滚动
-    // 滚动监听将在 playBattle 中设置，但为了通用，我们也可以在这里设置一个全局滚动监听，
-    // 但 playBattle 内的设置会覆盖。为保持兼容，我们保留 playBattle 内的设置，同时确保这里的逻辑不会冲突。
-    // 实际上 10player-core.js 内已经设置了滚动监听，所以这里不需要重复。
-    // 但为了确保倍速逻辑独立工作，我们在 playBattle 之外也设置一个通用的滚动处理：
-    // 注意：可能产生重复监听，但 playBattle 内的监听是最新的，我们依赖它。
-    // 这里不再重复添加。
 
     try {
         updateButtons(); updateSpeedButtons(); updateDebugUI();
         doInitBattle(currentStage, getState.UI(), getState.snapshot(), getState.activeBuffs(), selectedBuffIndex, currentDoubleStrikeUid);
-        updateUI(getState.UI()); updateScoreBadge();
+        updateUI(); updateScoreBadge();
         document.getElementById('log').innerHTML = '<div class="separator">' + LOG_LINE1 + '</div>';
         document.getElementById('btnDetail').classList.toggle('active', detailMode);
         document.getElementById('btnAuto').classList.toggle('active', autoMode);
