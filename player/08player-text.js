@@ -11,6 +11,11 @@ function getCtx() {
 export function setPlayerContext(c) { ctx = c; }
 
 export async function playLineText(text, div) {
+    // 分隔符直接显示，不走逐字动画
+    if (text.includes('separator')) {
+        div.innerHTML = text + '<br>';
+        return;
+    }
     const c = getCtx(); let plain = text.replace(/<[^>]+>/g, ''); let htmlIdx=0,fullHtml='';
     let minCharDelay = 30;
     if (c.speed <= 143) minCharDelay = 2;

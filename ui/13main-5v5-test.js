@@ -212,12 +212,15 @@ function activateScrollSlowdown() {
 }
 
 function restoreSpeedFromScroll() {
-    if (slideSpeedActive) return;
     slideSpeedActive = true;
     const restoredSpeed = manualSpeedValue || 500;
     speed = restoredSpeed;
+    manualSpeedLock = false;
     updateSpeedButtons();
     setState.speed(restoredSpeed);
+    // 同步播放器内部速度
+    const ctx = window._getPlayerContext ? window._getPlayerContext() : null;
+    if (ctx && ctx._scheduler) ctx._scheduler.setSpeed(1);
 }
 
 function getButtonBySpeedValue(val, isDebug) {
@@ -494,10 +497,16 @@ document.addEventListener('DOMContentLoaded', function() {
                     if(seen.has(key)) return;
                     seen.add(key);
                 }
+                // 阵容详情去重
+                if(t.includes('初始阵容')||t.includes('阵容详情')){
+                    let key=t.substring(0,15);
+                    if(seen.has(key)) return;
+                    seen.add(key);
+                }
                 if(choice==='health'){
                     if(t.includes('[体检]')) lines.push(t);
                 } else if(choice==='normal'){
-                    if(!t.includes('[体检]')) lines.push(t);
+                    if(!t.includes('[体检]') && !t.includes('[版本信息]') && !t.includes('[子模块]')) lines.push(t);
                 } else {
                     lines.push(t);
                 }

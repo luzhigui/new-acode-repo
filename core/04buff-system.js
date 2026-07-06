@@ -243,7 +243,5 @@ desc += `）`;
                 break;
         }
     });
-    if (buffs.length > 0) {
-        log.push({ type:'info', text:'<span class="separator">- - - - -</span>' });
-    }
+    // buff-summary 的分隔符由播放器统一控制，引擎不再插入
 }

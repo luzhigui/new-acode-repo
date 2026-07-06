@@ -96,13 +96,6 @@ export function showBuffPopup(c) {
 }
 
 export async function handleBuffSummon(c, entry, prevEntry) {
-    if (prevEntry && (prevEntry.type === 'attack-group' || prevEntry.type === 'buff-leech' || prevEntry.type === 'buff-splash')) {
-        let sepDiv = document.createElement('div');
-        sepDiv.innerHTML = '<span class="separator">- - - - -</span><br>';
-        document.getElementById('log').appendChild(sepDiv);
-        c.autoScrollLog();
-        await new Promise(r=>setTimeout(r, c.speed/4));
-    }
     let horse = new Unit('拒马', 20, '防战', 'ally');
     horse.uid = entry.horseUid;
     horse.pos = entry.horsePos;
@@ -128,13 +121,6 @@ export async function handleBuffSummon(c, entry, prevEntry) {
 }
 
 export async function handleBuffDestroy(c, entry, prevEntry) {
-    if (prevEntry && (prevEntry.type === 'attack-group' || prevEntry.type === 'buff-leech' || prevEntry.type === 'buff-splash')) {
-        let sepDiv = document.createElement('div');
-        sepDiv.innerHTML = '<span class="separator">- - - - -</span><br>';
-        document.getElementById('log').appendChild(sepDiv);
-        c.autoScrollLog();
-        await new Promise(r=>setTimeout(r, c.speed/4));
-    }
     let idx = c.UI.allyTeam.findIndex(u => u.uid === entry.horseUid);
     if (idx >= 0) {
         c.UI.allyTeam.splice(idx, 1);
