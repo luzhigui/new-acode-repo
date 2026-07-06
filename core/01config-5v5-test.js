@@ -99,9 +99,16 @@ const CONFIG = {
     // 精英怪技能参数 (V3.1.0 新增宋青书/周芷若联动技能)
     ELITE_SKILLS: {
         extinctionCounter: { name: '灭绝双剑', hpThreshold: 0.5, counterRatio: 0.8, maxPerRound: 1 },
-        nineYinClaw: { 
-            name: '九阴白骨爪', procChance: 0.7, bonusRatio: 0.25, maxChain: 3, unavoidable: true,
-            jealousBonus: 0.4  // 嫉妒：张无忌在场时，伤害比例提升至40%
+        nineYinClaw: {
+            name: '九阴白骨爪',
+            firstProcChance: 1.0,    // 首次必定触发
+            procChance: 0.88,        // 后续触发概率 88%
+            chainProcChance: 0.88,   // 连锁再触发概率 88%（白骨爪可以自己触发自己）
+            maxChain: 3,              // 最多连锁 3 次
+            unavoidable: true,
+            lostHpRatio: 0.05,       // 伤害 = 对方已损失生命 × 5%（无无忌）
+            jealousLostHpRatio: 0.08,// 伤害 = 对方已损失生命 × 8%（张无忌在场）
+            executeThreshold: 0.10   // 血量 ≤ 10% 直接斩杀
         },
         rebelStrike: { 
             name: '叛逆突袭', dmgBonus: 0.3,  // 从0.2提升至0.3

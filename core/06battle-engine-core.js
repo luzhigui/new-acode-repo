@@ -582,6 +582,8 @@ export function* createRoundStepper(state) {
     // 逐个执行行动
     for (const action of actionQueue) {
         let unit = action.unit;
+        // 队列构建后可能在轮到前被打死（白骨爪斩杀/玄冥毒/反击等），死人不再行动
+        if (!unit.alive) continue;
         let allySide = unit.camp === 'ally' ? A : B;
         let enemySide = unit.camp === 'ally' ? B : A;
 
@@ -628,12 +630,16 @@ export function* createRoundStepper(state) {
 
     // 回合结束
     destroyHorse(A, log); destroyHorse(B, log);
-    
-    log.filter(l => l.type === 'buff-destroy').forEach(hl => {
-        const team = hl.buffType === 'destroy' ? A : B;
-        const horse = team.find(u => u.uid === hl.horseUid);
-        if (horse) {
-            emitEvent(horse, 'unit-remove', { uid: horse.uid });
+
+    // 统一清理所有死拒马（destroyHorse 销毁的 + 被攻击致死的），emit unit-remove 并从 team 移除
+    // 避免死拒马堆积导致下回合 spawnHorse 同位、UI 残留、死人继续占位
+    [A, B].forEach(team => {
+        for (let i = team.length - 1; i >= 0; i--) {
+            const u = team[i];
+            if (u.isHorse && !u.alive) {
+                emitEvent(u, 'unit-remove', { uid: u.uid });
+                team.splice(i, 1);
+            }
         }
     });
     
