@@ -5,7 +5,7 @@ export const VER = 'player/10player-core.js V5.0.1';
 import { isBlocked } from '../core/03battle-utils.js';
 import { showDanmaku, showDamageFloat, showDodgeBubble, showHealFloat, applyBrushEffect, showBuffBanner, showCriticalBanner, showHeartEffect, showPinkFlash } from '../fx/15fx-common-5v5-test.js';
 import { showDodgeBulletTime } from '../fx/20fx-dodge-bullet.js';
-import { showRangedArrow, showSplashArrows } from '../fx/16fx-arrows-5v5-test.js';
+import { showRangedArrow, showSplashArrows, showBoneClaw } from '../fx/16fx-arrows-5v5-test.js';
 import { CONFIG } from '../core/01config-5v5-test.js';
 import { playLineText } from './08player-text.js';
 import { animatePositionSwap } from '../fx/18fx-position-swap.js';
@@ -339,7 +339,15 @@ async function handleInfo(c, entry) {
             let match = entry.text.match(/回复(\d+)/);
             if (match && unit) showHealFloat(unit, parseInt(match[1]));
         }
-        let tempDiv=document.createElement('div');document.getElementById('log').appendChild(tempDiv); await playLineText(entry.text,tempDiv); 
+        // 九阴白骨爪：fire-and-forget 触发 showBoneClaw，不 await、不设 isPaused，避免卡住播放器
+        if (entry.isClawHit && entry.clawAttackerUid && entry.clawTargetUid) {
+            let attacker = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.uid === entry.clawAttackerUid);
+            let target = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.uid === entry.clawTargetUid);
+            if (attacker && target) {
+                showBoneClaw(attacker, target, c.speed, () => c.isPaused);
+            }
+        }
+        let tempDiv=document.createElement('div');document.getElementById('log').appendChild(tempDiv); await playLineText(entry.text,tempDiv);
     }
     document.getElementById('roundDisplay').innerText = `📜 日志（第${c.UI.round}回合）`;
 }

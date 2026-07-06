@@ -91,13 +91,16 @@ export function applyBuffEffectsAfterAttack(unit, target, dmg, allySide, enemySi
     if (hasBuff(unitBuffs, 'hotBlood')) {
         if (!unit._hotBloodCount) unit._hotBloodCount = 0;
         unit._hotBloodCount++;
-        let ratio = (unit._hotBloodCount % C.BUFFS.hotBlood.critInterval === 0) ? C.BUFFS.hotBlood.critRatio : C.BUFFS.hotBlood.leechRatio;
-        let leech = Math.min(Math.floor((unit.maxHp - unit.hp) * ratio), unit.maxHp - unit.hp);
-        let hpBefore = unit.hp;
-        unit.hp = Math.min(unit.maxHp, unit.hp + leech);
-        unit.healDone += leech;
-        let tag = (ratio > C.BUFFS.hotBlood.leechRatio) ? '❤️‍🔥 热血奋战(翻倍)' : '❤️ 热血奋战';
-        log.push({type:'buff-leech', text:`<span class="green">${tag}：${unit.name} 回复+${leech}，血量 ${hpBefore} → ${unit.hp}</span>`, isHealEntry:true, buffType:'hotBlood', healAmount:leech, healUnitUid:unit.uid});
+        // 死人不回血；满血时不回血也不推日志（计数仍累加以保证翻倍节奏）
+        if (unit.alive && unit.hp < unit.maxHp) {
+            let ratio = (unit._hotBloodCount % C.BUFFS.hotBlood.critInterval === 0) ? C.BUFFS.hotBlood.critRatio : C.BUFFS.hotBlood.leechRatio;
+            let leech = Math.min(Math.floor((unit.maxHp - unit.hp) * ratio), unit.maxHp - unit.hp);
+            let hpBefore = unit.hp;
+            unit.hp = Math.min(unit.maxHp, unit.hp + leech);
+            unit.healDone += leech;
+            let tag = (ratio > C.BUFFS.hotBlood.leechRatio) ? '❤️‍🔥 热血奋战(翻倍)' : '❤️ 热血奋战';
+            log.push({type:'buff-leech', text:`<span class="green">${tag}：${unit.name} 回复+${leech}，血量 ${hpBefore} → ${unit.hp}</span>`, isHealEntry:true, buffType:'hotBlood', healAmount:leech, healUnitUid:unit.uid});
+        }
     }
     
     // 流星赶月：本体额外伤害 + 溅射合并

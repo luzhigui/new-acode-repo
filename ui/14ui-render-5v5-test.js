@@ -141,7 +141,7 @@ function updateDetailPopupContent() {
                 if (u.name === '张无忌') skills = ['九阳神功：每回合回复5%生命', '乾坤大挪移：保护4/6号位队友，反弹15%伤害', '近战形态：前排无人时切换，攻+3/防+2/血+50'];
                 else if (u.name === '韦一笑') skills = ['寒冰掌：攻击吸血15%，增加生命上限', '青翼蝠王：基础闪避20%，无视行动状态闪避'];
                 else if (u.name === '宋青书') skills = ['叛逆突袭：优先攻击血量最高目标，伤害+30%，附加目标当前生命10%真实伤害', '苦练：场上无周芷若时每回合最先行动', '新婚：每次攻击扣除周芷若1点血，叠加快乐', '性奋：周芷若在场时攻击后可再次行动'];
-                else if (u.name === '周芷若') skills = ['九阴白骨爪：70%概率追加25%额外伤害，不可闪避，张无忌在场时提升至40%', '嫉妒：张无忌在场时伤害加深'];
+                else if (u.name === '周芷若') skills = ['九阴白骨爪：按已损失生命5%追击，可连锁触发，血量≤10%斩杀（张无忌在场时比例提升至8%）'];
                 else if (u.name === '成昆') skills = ['混元霹雳劲：附加已损失生命30%的真实伤害', '高生存：作为防战，防御极高且可反弹伤害'];
                 else if (u.name === '鹿杖客') skills = ['玄冥神掌：攻击附带寒毒，每回合损失3%最大生命，持续3回合', '与鹤笔翁联动：鹤笔翁对中毒目标伤害+50%'];
                 else if (u.name === '鹤笔翁') skills = ['鹿角杖法：忽略目标30%防御', '毒伤加成：对已中毒目标伤害额外+50%'];
@@ -283,7 +283,8 @@ export function renderGrid(id, camp) {
         let atkStyle = atkBonusVal > 0 ? 'color:#b8860b;font-weight:bold;' : '';
         let defStyle = defBonusVal > 0 ? 'color:#b8860b;font-weight:bold;' : '';
         let hpStyle = hpBonusVal > 0 ? 'color:#b8860b;font-weight:bold;' : '';
-        div.innerHTML = `<span class="cell-icon">${isBlocked && unit.alive && isResting && !(unit.isZhang && unit.rangedForm) && !isDead ? '😴' : roleIcon}</span><div class="cell-info"><span class="cell-name ${unit.isZhang?'gold':''}">${unit.name}${buffIcons ? ' ' + buffIcons : ''}</span><span class="cell-stats">攻<span style="${atkStyle}">${displayAtk}</span> 防<span style="${defStyle}">${displayDef}</span> <span class="${hpColorClass}" style="${hpStyle}">血${Math.floor(unit.hp)}</span></span></div><div class="hp-bar-wrap"><div class="hp-bar-inner" id="hpbar-${unit.uid}" style="height:${hpPct}%;background:${barColor};transition:none;"></div></div>`;
+        let eliteSkillIcon = unit.name === '周芷若' ? ' 🐾' : (unit.name === '宋青书' ? ' 💥' : '');
+        div.innerHTML = `<span class="cell-icon">${isBlocked && unit.alive && isResting && !(unit.isZhang && unit.rangedForm) && !isDead ? '😴' : roleIcon}</span><div class="cell-info"><span class="cell-name ${unit.isZhang?'gold':''}">${unit.name}${eliteSkillIcon}${buffIcons ? ' ' + buffIcons : ''}</span><span class="cell-stats">攻<span style="${atkStyle}">${displayAtk}</span> 防<span style="${defStyle}">${displayDef}</span> <span class="${hpColorClass}" style="${hpStyle}">血${Math.floor(unit.hp)}</span></span></div><div class="hp-bar-wrap"><div class="hp-bar-inner" id="hpbar-${unit.uid}" style="height:${hpPct}%;background:${barColor};transition:none;"></div></div>`;
         if (isDead) {
             let deadMark = document.createElement('span'); deadMark.className = 'dead-mark'; deadMark.textContent = '✕'; div.appendChild(deadMark);
             div.style.transform = 'scale(0.8)'; div.style.opacity = '0.9';

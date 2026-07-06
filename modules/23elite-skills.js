@@ -18,57 +18,84 @@ export function checkExtinctionCounter(defender, dmg) {
 }
 
 /**
- * 周芷若 - 九阴白骨爪：概率追击（含嫉妒联动）
- * 嫉妒：张无忌在场时伤害比例提升至40%
+ * 周芷若 - 九阴白骨爪：按已损失生命追击 + 连锁触发自己 + 低血斩杀
+ * 嫉妒：张无忌在场时比例由 5% → 8%
  */
 export function checkNineYinClaw(attacker, target, baseDmg, log) {
     if (attacker.name !== '周芷若') return 0;
+    if (!target || !target.alive) return 0;
     const s = ES.nineYinClaw;
-    const zhangAlive = window._currentBattleState && window._currentBattleState.ally && 
+
+    // 嫉妒联动：张无忌在场 → 8%，否则 5%
+    const zhangAlive = window._currentBattleState && window._currentBattleState.ally &&
         window._currentBattleState.ally.some(u => u.isZhang && u.alive);
-    const bonusRatio = zhangAlive ? s.jealousBonus : s.bonusRatio;
-    
+    const ratio = zhangAlive ? s.jealousLostHpRatio : s.lostHpRatio;
+
+    // 首次必定触发，后续按 procChance
     if (!attacker._nineYinFirstDone) {
         attacker._nineYinFirstDone = true;
     } else {
-        if (Math.random() > 0.85) return 0;
+        if (Math.random() > s.procChance) return 0;
     }
+
     let totalBonus = 0;
     for (let depth = 0; depth < s.maxChain; depth++) {
-        if (depth > 0 && Math.random() > 0.85) break;
-        const bonusDmg = Math.floor(baseDmg * bonusRatio);
-        totalBonus += bonusDmg;
-        if (target && target.alive) {
-            target.hp = Math.max(0, target.hp - bonusDmg);
-            attacker.dmgDealt += bonusDmg;
-            target.dmgTaken += bonusDmg;
-            if (target.hp <= 0) {
-                target.hp = 0;
-                target.alive = false;
-                target._isDead = true;
-                if (!target._deathTime) target._deathTime = Date.now();
-            }
-            if (typeof window._emitEvent === 'function') {
-                window._emitEvent(target, 'hp-change', { hp: target.hp, maxHp: target.maxHp, alive: target.alive, atk: target.atk, def: target.def });
-            }
+        // 连锁再触发：depth > 0 时按 chainProcChance
+        if (depth > 0 && Math.random() > s.chainProcChance) break;
+        if (!target.alive) break;
+
+        // 斩杀判定：血量 ≤ 10% 直接带走剩余血量
+        const hpPct = target.hp / target.maxHp;
+        let bonusDmg;
+        let isExecute = false;
+        if (hpPct <= s.executeThreshold) {
+            bonusDmg = target.hp;
+            isExecute = true;
+        } else {
+            // 伤害 = 已损失生命 × ratio（满血则不造成伤害）
+            const lostHp = target.maxHp - target.hp;
+            if (lostHp <= 0) break;
+            bonusDmg = Math.floor(lostHp * ratio);
+            if (bonusDmg <= 0) break;
         }
+
+        target.hp = Math.max(0, target.hp - bonusDmg);
+        totalBonus += bonusDmg;
+        attacker.dmgDealt += bonusDmg;
+        target.dmgTaken += bonusDmg;
+
+        if (target.hp <= 0) {
+            target.hp = 0;
+            target.alive = false;
+            target._isDead = true;
+            if (!target._deathTime) target._deathTime = Date.now();
+        }
+        if (typeof window._emitEvent === 'function') {
+            window._emitEvent(target, 'hp-change', { hp: target.hp, maxHp: target.maxHp, alive: target.alive, atk: target.atk, def: target.def });
+        }
+
+        // 单行精简日志，标记 isClawHit 给播放器触发 showBoneClaw（fire-and-forget）
         log.push({
-            type:'info', 
-            text:`<span class="purple">🦅 九阴白骨爪追击！${attacker.name} 额外造成 ${bonusDmg} 点伤害（不可闪避）${zhangAlive ? '【嫉妒】' : ''}</span>`, 
-            buffType:'elite_bonus'
+            type: 'info',
+            text: `<span class="purple">🐾 九阴白骨爪${depth > 0 ? '连锁' : '追击'}！${attacker.name} 对 ${target.name} 造成 ${bonusDmg} 点伤害${isExecute ? '（斩杀）' : (zhangAlive ? '【嫉妒】' : '')}</span>`,
+            buffType: 'elite_bonus',
+            isClawHit: true,
+            clawAttackerUid: attacker.uid,
+            clawTargetUid: target.uid,
+            isExecute: isExecute
         });
-        if (depth < s.maxChain - 1 && target && !target.alive) break;
     }
     return totalBonus;
 }
 
 /**
- * 宋青书 - 叛逆突袭：锁定血量最高目标
+ * 宋青书 - 叛逆突袭：锁定血量百分比最高目标
  */
 export function getRebelTarget(attacker, enemySide) {
     if (attacker.name !== '宋青书') return null;
     const alive = enemySide.filter(u => u.alive);
-    return alive.length > 0 ? alive.reduce((a, b) => a.hp > b.hp ? a : b) : null;
+    if (alive.length === 0) return null;
+    return alive.reduce((a, b) => (a.hp / a.maxHp) > (b.hp / b.maxHp) ? a : b);
 }
 
 /**
