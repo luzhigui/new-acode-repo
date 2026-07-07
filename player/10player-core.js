@@ -211,6 +211,10 @@ async function handleBuffSwap(c, entry) {
     let unitB = matchB ? units.find(u => u.name === matchB[1]) : null;
     if (unitA && unitB) {
         await animatePositionSwap(unitA, unitB, c);
+        if (c.store) {
+            c.store.dispatch({ type: 'SYNC_UNIT', uid: unitA.uid, fields: { pos: unitA.pos } });
+            c.store.dispatch({ type: 'SYNC_UNIT', uid: unitB.uid, fields: { pos: unitB.pos } });
+        }
     }
     window.bulletTimeActive = false;
     c.isPaused = false;
@@ -381,7 +385,7 @@ async function handleRoundStart(c, entry, isFirstAttackRef) {
 
 async function handleRoundEnd(c, entry, log, i) {
     let div=document.createElement('div');div.innerHTML=entry.text + '<br>';document.getElementById('log').appendChild(div); c.autoScrollLog(); document.getElementById('roundDisplay').innerText = `📜 日志（第${c.UI.round}回合）`;
-    if (c.tickBuffDurations) { c.tickBuffDurations(); c.updateBuffSlots(); }
+    if (c.updateBuffSlots) { c.updateBuffSlots(); }
     if (window._refreshGlowCells) window._refreshGlowCells();
     await new Promise(r=>setTimeout(r,c.speed/3));
 }
@@ -668,7 +672,7 @@ export async function playBattle() {
         if (isBattleOver) break;
 
         let nextActiveBuffs = c.activeBuffs ? c.activeBuffs.map(b => ({...b, remaining: b.remaining - 1})).filter(b => b.remaining > 0) : [];
-        if (battleState.round % 3 === 0 && battleState.round > 0) {
+        if (!window._fastForwardActive && battleState.round % 3 === 0 && battleState.round > 0) {
             let promDiv = document.createElement('div'); promDiv.innerHTML = `<span class="gold">✨ 请选择新的Buff（持续${CONFIG.BUFF_DURATION || 4}回合）</span><br>`; logDiv.appendChild(promDiv); c.autoScrollLog();
             c.isPaused = true;
             let newBuff = await showBuffPopup(c);

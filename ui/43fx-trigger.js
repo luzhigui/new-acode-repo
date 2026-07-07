@@ -29,7 +29,7 @@ function getPausedState() {
 export function _triggerFX(fxSnapshot, unitA, unitD, isDead, isDodge, isMiss, isBlock, dmg, waveTaunt, waveUnit, attackerRole) {
     const detailMode = getState.detailMode();
     const speed = getState.speed();
-    if (!detailMode) return;
+    if (!detailMode || window._fastForwardActive) return;
     if (isDead && unitA && !isBlock && !isMiss && !isDodge) {
         let killTaunt = getKillTaunt(unitA, KT);
         setTimeout(() => showDanmaku(unitA, killTaunt), 0);
