@@ -5,7 +5,7 @@ export const VER = 'fx/20fx-dodge-bullet.js V4.0.0';
 import { showComicBubble } from './15fx-common-5v5-test.js';
 
 // ==================== 辅助函数 ====================
-function wait(ms) { return new Promise(r => setTimeout(r, ms)); }
+function wait(ms) { return new Promise(r => setTimeout(r, window._fastForwardActive ? 1 : ms)); }
 
 function getCellElement(unit) {
     if (!unit || unit.pos == null) return null;
@@ -96,7 +96,7 @@ function createBgParticles(x, y) {
 
 function createCounterStorm(x, y) {
     const container = document.createElement('div'); container.className = 'counter-storm';
-    container.style.position = 'fixed'; container.style.zIndex = '9997'; container.style.pointerEvents = 'none';
+    container.style.position = 'fixed'; container.style.zIndex = '10030'; container.style.pointerEvents = 'none';
     container.style.left = (x - 45) + 'px'; container.style.top = (y - 45) + 'px';
     for (let i = 0; i < 4; i++) {
         const ring = document.createElement('div'); ring.className = 'storm-ring';

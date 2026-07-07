@@ -2,7 +2,7 @@
 // V4.0.0 | ~8771 bytes | 2026-07-05
 export const VER = 'fx/21fx-blood-slash.js V4.0.0';
 
-function wait(ms) { return new Promise(r => setTimeout(r, ms)); }
+function wait(ms) { return new Promise(r => setTimeout(r, window._fastForwardActive ? 1 : ms)); }
 
 function getCellCenter(unit) {
     if (!unit || unit.pos == null) return null;

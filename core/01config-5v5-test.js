@@ -102,13 +102,15 @@ const CONFIG = {
         nineYinClaw: {
             name: '九阴白骨爪',
             firstProcChance: 1.0,    // 首次必定触发
-            procChance: 0.88,        // 后续触发概率 88%
-            chainProcChance: 0.88,   // 连锁再触发概率 88%（白骨爪可以自己触发自己）
+            procChance: 0.80,        // 后续触发概率 80%
+            chainProcChance: 0.80,   // 连锁再触发概率 80%（白骨爪可以自己触发自己）
             maxChain: 3,              // 最多连锁 3 次
             unavoidable: true,
-            lostHpRatio: 0.05,       // 伤害 = 对方已损失生命 × 5%（无无忌）
-            jealousLostHpRatio: 0.08,// 伤害 = 对方已损失生命 × 8%（张无忌在场）
-            executeThreshold: 0.10   // 血量 ≤ 10% 直接斩杀
+            baseDmg: 3,              // 基础伤害（无无忌）
+            lostHpRatio: 0.02,       // 伤害 = 基础 + 已损失生命 × 2%（无无忌）
+            jealousBaseDmg: 5,       // 嫉妒基础伤害（张无忌在场）
+            jealousLostHpRatio: 0.03,// 伤害 = 基础 + 已损失生命 × 3%（张无忌在场）
+            executeThreshold: 0.15   // 血量 ≤ 15% 直接斩杀（伤害打完后判定）
         },
         rebelStrike: { 
             name: '叛逆突袭', dmgBonus: 0.3,  // 从0.2提升至0.3
