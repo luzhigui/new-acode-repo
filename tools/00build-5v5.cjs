@@ -1,5 +1,5 @@
 // tools/00build-5v5.cjs - 光明顶5v5 构建脚本
-// V4.0.0 | ~8346 bytes | 2026-07-05
+// V5.0.1 | ~8346 bytes | 2026-07-05
 
 const fs = require('fs');
 const path = require('path');

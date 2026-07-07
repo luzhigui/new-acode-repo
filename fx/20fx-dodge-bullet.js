@@ -1,6 +1,6 @@
 // fx/20fx-dodge-bullet.js - 光明顶5v5 闪避反击特效
-// V4.0.0 | ~22479 bytes | 2026-07-05
-export const VER = 'fx/20fx-dodge-bullet.js V4.0.0';
+// V5.0.1 | ~22479 bytes | 2026-07-05
+export const VER = 'fx/20fx-dodge-bullet.js V5.0.1';
 
 import { showComicBubble } from './15fx-common-5v5-test.js';
 
@@ -18,7 +18,7 @@ function getCellElement(unit) {
 
 function createZigzagLightning() {
     const svgNS = "http://www.w3.org/2000/svg";
-    const svg = document.createElementNS(svgNS, "svg"); svg.setAttribute("class", "lightning-split");
+    const svg = document.createElementNS(svgNS, "svg"); svg.setAttribute("class", "lightning-split"); svg.setAttribute('data-fx', 'temporary');
     svg.style.position = 'fixed'; svg.style.left = '0'; svg.style.top = '0';
     svg.style.width = '100%'; svg.style.height = '100%'; svg.style.pointerEvents = 'none';
     svg.style.zIndex = '9995';
@@ -158,7 +158,7 @@ export async function showDodgeBulletTime(attacker, defender, reboundDmg) {
         await wait(400);
         if (isSkipped) { cleanup(); return; }
         // 黑幕随后降临
-        const mask = document.createElement('div'); mask.className = 'bullet-mask';
+        const mask = document.createElement('div'); mask.className = 'bullet-mask'; mask.setAttribute('data-fx', 'temporary');
         mask.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;'
             + 'background:rgba(0,0,0,0.92);z-index:9999;pointer-events:none;';
         document.body.appendChild(mask); cleanupElements.push(mask);
@@ -166,7 +166,7 @@ export async function showDodgeBulletTime(attacker, defender, reboundDmg) {
         if (isSkipped) { cleanup(); return; }
 
         // ===== 修正：格子克隆使用 cloneNode + bullet-clone 类 =====
-        const cloneD = dCell.cloneNode(true); cloneD.classList.add('bullet-clone');
+        const cloneD = dCell.cloneNode(true); cloneD.setAttribute('data-fx', 'temporary'); cloneD.classList.add('bullet-clone');
         const dRect = dCell.getBoundingClientRect();
         cloneD.style.position = 'fixed'; cloneD.style.width = dRect.width+'px'; cloneD.style.height = dRect.height+'px';
         cloneD.style.left = innerWidth + 'px'; cloneD.style.top = pos.dy - dRect.height/2 + 'px';
@@ -178,7 +178,7 @@ export async function showDodgeBulletTime(attacker, defender, reboundDmg) {
         const defInitialLeft = pos.dx;
         const defInitialTop = pos.dy - dRect.height/2;
 
-        const cloneA = aCell.cloneNode(true); cloneA.classList.add('bullet-clone');
+        const cloneA = aCell.cloneNode(true); cloneA.setAttribute('data-fx', 'temporary'); cloneA.classList.add('bullet-clone');
         cloneA.removeAttribute('data-flash');
         cloneA.style.background = '#1e6bb8';
         cloneA.style.border = '3px solid #0d47a1';
@@ -197,6 +197,7 @@ export async function showDodgeBulletTime(attacker, defender, reboundDmg) {
 
         // ===== 修正：“看招”气泡下移避免遮挡攻击者 =====
         const kanzhao = showComicBubble('看招！', startAX + 40, startAY + 10, '', 2500);
+        if (kanzhao) kanzhao.setAttribute('data-fx', 'temporary');
         cleanupElements.push(kanzhao);
 
         // 攻击者进场
@@ -218,6 +219,7 @@ export async function showDodgeBulletTime(attacker, defender, reboundDmg) {
         // ===== 修正：“开打开打”气泡上移避免遮挡风暴 =====
         const bubbleY = defCenterY - dRect.height/2 - 80;
         const openBubble = showComicBubble('开打开打！', defCenterX, bubbleY, 'bubble-arrow-up', 3000);
+        if (openBubble) openBubble.setAttribute('data-fx', 'temporary');
         cleanupElements.push(openBubble);
 
         // 防御者进场
@@ -237,7 +239,7 @@ export async function showDodgeBulletTime(attacker, defender, reboundDmg) {
 
         // 屏息凝视阶段
         const glow = document.createElement('div'); glow.className = 'breath-glow'; cloneA.appendChild(glow);
-        const storm = createCounterStorm(defCenterX, defCenterY); cleanupElements.push(storm);
+        const storm = createCounterStorm(defCenterX, defCenterY); storm.setAttribute('data-fx', 'temporary'); cleanupElements.push(storm);
         storm.style.display = '';
         storm.style.opacity = '1';
         await wait(3000);
@@ -249,6 +251,7 @@ export async function showDodgeBulletTime(attacker, defender, reboundDmg) {
         const attackAngle = Math.atan2(pos.dy - pos.ay, pos.dx - pos.ax);
         const flameOffsetX = -25, flameOffsetY = -2;
         const flame = createFlameBehind(attackAngle, flameOffsetX, flameOffsetY, parseFloat(cloneA.style.left), parseFloat(cloneA.style.top));
+        if (flame) flame.setAttribute('data-fx', 'temporary');
         cleanupElements.push(flame);
 
         const windLines = createWindSplit(pos.ax, pos.ay); windLines.forEach(l => cleanupElements.push(l));
@@ -316,7 +319,7 @@ export async function showDodgeBulletTime(attacker, defender, reboundDmg) {
         // 碰撞
         const colX = (parseFloat(cloneA.style.left) + parseFloat(cloneD.style.left)) / 2;
         const colY = (parseFloat(cloneA.style.top) + parseFloat(cloneD.style.top)) / 2;
-        const shockwave = document.createElement('div'); shockwave.className = 'shockwave';
+        const shockwave = document.createElement('div'); shockwave.className = 'shockwave'; shockwave.setAttribute('data-fx', 'temporary');
         shockwave.style.left = (colX - 40)+'px'; shockwave.style.top = (colY - 40)+'px';
         document.body.appendChild(shockwave); cleanupElements.push(shockwave);
         const dmg = document.createElement('div');

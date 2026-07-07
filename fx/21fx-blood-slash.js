@@ -1,6 +1,6 @@
 // fx/21fx-blood-slash.js - 光明顶5v5 嗜血狂刀特效
-// V4.0.0 | ~8771 bytes | 2026-07-05
-export const VER = 'fx/21fx-blood-slash.js V4.0.0';
+// V5.0.1 | ~8771 bytes | 2026-07-05
+export const VER = 'fx/21fx-blood-slash.js V5.0.1';
 
 function wait(ms) { return new Promise(r => setTimeout(r, window._fastForwardActive ? 1 : ms)); }
 
@@ -18,6 +18,7 @@ function getCellCenter(unit) {
 // 创建剑元素
 function createSword(x, y, angle) {
     const container = document.createElement('div');
+    container.setAttribute('data-fx', 'temporary');
     container.style.cssText = `
         position: fixed; left: ${x}px; top: ${y}px;
         width: 90px; height: 10px;

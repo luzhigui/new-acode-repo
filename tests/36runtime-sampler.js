@@ -1,6 +1,6 @@
 // tests/36runtime-sampler.js - 光明顶5v5 运行时采样器
-// V4.0.0 | ~2503 bytes | 2026-07-05
-export const VER = 'tests/36runtime-sampler.js V4.0.0';
+// V5.0.1 | ~2503 bytes | 2026-07-05
+export const VER = 'tests/36runtime-sampler.js V5.0.1';
 
 import { createHealthRules } from './29health-rules.js';
 import { generateSnapshot } from '../tools/27auto-battle-utils.js';

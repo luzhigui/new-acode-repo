@@ -1,6 +1,6 @@
 // core/07battle-engine-5v5-test.js - 光明顶5v5 战斗引擎入口
-// V4.0.0 | ~2752 bytes | 2026-07-05
-export const VER = 'core/07battle-engine-5v5-test.js V4.0.0';
+// V5.0.1 | ~2752 bytes | 2026-07-05
+export const VER = 'core/07battle-engine-5v5-test.js V5.0.1';
 
 import { Unit } from './02unit.js';
 import {

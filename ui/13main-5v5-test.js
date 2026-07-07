@@ -1,6 +1,6 @@
 // ui/13main-5v5-test.js - 光明顶5v5 主控模块
-// V5.0.0 | ~33000 bytes | 2026-07-06 倍速逻辑重写、activeBuffs 统一到全局状态、updateUI 响应式
-export const VER = 'ui/13main-5v5-test.js V5.0.0';
+// V5.0.1 | ~24000 bytes | 2026-07-07 拆分音频到42、特效到43、倍速+按钮到44
+export const VER = 'ui/13main-5v5-test.js V5.0.1';
 
 import '../modules/24error-capture.js';
 import { CONFIG, STATE, KILL_TAUNT, ENEMY_M, VER as CFG_VER } from '../core/01config-5v5-test.js';
@@ -11,18 +11,18 @@ import { showRangedArrow, VER as FA_VER } from '../fx/16fx-arrows-5v5-test.js';
 import { showMeleeCrash, showMeleeDodge, showMeleeMiss, VER as FC_VER } from '../fx/17fx-crash-5v5-test.js';
 import { playBattle, playLineText, clearAllEffects, handleBuffSummon, handleBuffDestroy, handleBuffLeech, VER as BP_VER } from '../player/11battle-player-5v5-test.js';
 import { showModal, showAlert, updateCoverVersion } from './12main-utils.js';
-import { AudioManager } from '../modules/28audio-manager.js';
 
 // 拆分模块
 import { getPlayerContext, getState, setState, gs } from '../ui/39main-state.js';
-// 注意：gs 从 39main-state.js 导入（live binding），与 player-core.js 的 c.gs = 'GAMEOVER' 共享同一变量
-// 不能再声明本地 gs，否则会脱节导致按钮状态不同步
 import { showBattleReport, showMusicPanel, showVoteDialog, showCountdown } from './40main-dialogs.js';
 import {
     doInitBattle, generateBuffChoices, showBuffSelection,
     updateBuffSlots, tickBuffDurations, getActiveBuffList,
     logTeamInfo, abortAll
 } from './41main-battle.js';
+import { initBGM, playBGM, setBGMVolume, fadeBGMTo, toggleBGM, updateBGMBtn, lowerBGM } from './42audio-control.js';
+import { toggleDodgeEffect, _triggerFX, dodgeEffectEnabled } from './43fx-trigger.js';
+import { updateSpeedButtons, activateScrollSlowdown, restoreSpeedFromScroll, updateButtons, enableAllButtons, updateDebugUI } from './44ui-controls.js';
 
 import { VER as VER_BUFF } from '../core/04buff-system.js';
 import { VER as VER_HORSE } from '../core/05battle-horse.js';
@@ -38,7 +38,7 @@ import { runRuntimeSample } from '../tests/36runtime-sampler.js';
 
 const C = CONFIG, S = STATE, KT = KILL_TAUNT;
 
-const FILE_VER = '13main-5v5-test.js V5.0.0';
+const FILE_VER = '13main-5v5-test.js V5.0.1';
 const INDEX_VER = 'mode-5v5-test.html test V3.0';
 const LOG_LINE1 = '⚔️ 光明顶5v5对决 · 九宫格混战模式 ⚔️';
 
@@ -48,13 +48,9 @@ let abortController = null, waitingForNextRound = false, detailMode = true;
 let battleResultForInfo = null, resettleCount = 0;
 let gameStarted = false;
 let hasLoggedTeam = false;
-let manualSpeedLock = true;
-let manualSpeedValue = 500;
-let slideSpeedActive = true;
 let isBattleStarting = false;
 let currentStage = 1;
 window._crashMode = 'fly';
-let dodgeEffectEnabled = true;
 let selectedBuffIndex = -1;
 let currentDoubleStrikeUid = null;
 let runtimeMonitorActive = false;
@@ -68,42 +64,12 @@ const TRASH_TALK_ENEMY = ['魔教余孽，今日必灭！','少林武当，放�
 
 const ALL_BUFF_KEYS = Object.keys(C.BUFFS);
 
-// ==================== 音频管理 ====================
-function initBGM() { AudioManager.init(); }
-function playBGM() { AudioManager.play(); }
-function pauseBGM() { AudioManager.pause(); }
-function setBGMVolume(v) { AudioManager.setVolume(v); }
-function fadeBGMTo(targetVol, durationMs) { AudioManager.fadeTo(targetVol, durationMs); }
-function toggleBGM() { AudioManager.cycleSource(); updateBGMBtn(); }
-function updateBGMBtn() {
-    const btn = document.getElementById('btnBGM');
-    if (btn) {
-        const source = AudioManager.currentSource;
-        btn.classList.toggle('active', AudioManager.enabled);
-        if (source === 'network') btn.textContent = '🎵 网络';
-        else if (source === 'local') btn.textContent = '🎵 本地';
-        else btn.textContent = '🎵 静音';
-    }
-}
-
 function debugLog(msg) { if (!debugMode) return; let logDiv = document.getElementById('log'); let wrapper = document.createElement('div'); wrapper.innerHTML = `<span class="debug">[调试] ${msg}</span><br>`; logDiv.appendChild(wrapper); logDiv.scrollTop = logDiv.scrollHeight; }
 
 async function waitWhilePaused() { while (getState.isPaused()) { await new Promise(r => setTimeout(r, 100)); } }
-function getPausedState() { return window._getPlayerContext ? window._getPlayerContext().isPaused : false; }
-
-// ==================== 辅助函数 ====================
-function toggleDodgeEffect() {
-    dodgeEffectEnabled = !dodgeEffectEnabled;
-    let btn = document.getElementById('btnDodgeToggle');
-    if (btn) {
-        btn.classList.toggle('active', dodgeEffectEnabled);
-        btn.textContent = dodgeEffectEnabled ? '华丽' : '简单';
-    }
-}
 
 function updateScoreBadge() { document.getElementById('scoreBadge').textContent = `🏆 ${window._voteScore}分`; }
-function lowerBGM() { setBGMVolume(0.3); }
-function onAnyButtonClick() { if (!gameStarted) return; if (AudioManager.enabled && AudioManager.audio && AudioManager.audio.volume > 0.3) lowerBGM(); }
+export function onAnyButtonClick() { if (!gameStarted) return; const AudioManager = window.AudioManager; if (AudioManager && AudioManager.enabled && AudioManager.audio && AudioManager.audio.volume > 0.3) lowerBGM(); }
 function autoScrollLog() { if (userScrolled) return; let logDiv = document.getElementById('log'); if (logDiv) logDiv.scrollTop = logDiv.scrollHeight; }
 function onLogUserScroll() { let logDiv = document.getElementById('log'); if (!logDiv) return; let threshold = 10; let distToBottom = logDiv.scrollHeight - logDiv.scrollTop - logDiv.clientHeight; userScrolled = distToBottom > threshold; }
 
@@ -146,155 +112,6 @@ function initGlowSystem() {
     resizeCanvas(); collectCellsData(); requestAnimationFrame(animate);
     window.addEventListener('resize', () => { resizeCanvas(); collectCellsData(); });
 }
-
-function updateButtons() {
-    let mainBtn=document.getElementById('btnMain'),nextBtn=document.getElementById('btnNext'),settleBtn=document.getElementById('btnSettle'),pauseBtn=document.getElementById('btnPause'),randomBtn=document.getElementById('btnRandom'),stageBtn=document.getElementById('btnStageSelect'),infoBtn=document.getElementById('btnInfo'),copyBtn=document.getElementById('copyLog');
-    if(gs===S.IDLE){mainBtn.innerHTML=getState.adjustMode()?'▶ 开始<br><span style="font-size:8px;">(投票)</span>':'🔄 调整<br>站位';mainBtn.disabled=false;nextBtn.disabled=true;if(getState.adjustMode()){if(stageBtn)stageBtn.disabled=true;if(randomBtn)randomBtn.disabled=true;if(infoBtn)infoBtn.disabled=true;if(copyBtn)copyBtn.disabled=true;}else{if(stageBtn)stageBtn.disabled=false;if(randomBtn)randomBtn.disabled=false;if(infoBtn)infoBtn.disabled=false;if(copyBtn)copyBtn.disabled=false;}}else if(gs===S.GAMEOVER){mainBtn.innerHTML=currentStage>=6?'🔄 重新<br>开始':'▶ 下一关';mainBtn.disabled=false;nextBtn.disabled=true;}else{mainBtn.disabled=true;}if(gs===S.RUNNING||gs===S.PAUSED){settleBtn.textContent='⏭ 快进到底';settleBtn.disabled=false;}else if(gs===S.GAMEOVER){settleBtn.textContent='🔄 重新挑战';settleBtn.disabled=false;}else{settleBtn.disabled=true;}if(window.bulletTimeActive){pauseBtn.textContent='⏸️ 暂停';pauseBtn.disabled=true;pauseBtn.classList.remove('active');nextBtn.disabled=true;if(stageBtn)stageBtn.disabled=true;if(randomBtn)randomBtn.disabled=true;}else if(gs===S.RUNNING){pauseBtn.textContent='⏸️ 暂停';pauseBtn.disabled=false;pauseBtn.classList.remove('active');}else if(gs===S.PAUSED){pauseBtn.textContent='▶ 继续';pauseBtn.disabled=false;pauseBtn.classList.add('active');}else{pauseBtn.disabled=true;pauseBtn.classList.remove('active');}
-}
-window.updateButtons = updateButtons;
-function enableAllButtons() { document.querySelectorAll('.controls button').forEach(b => b.disabled = false); updateButtons(); }
-window.enableAllButtons = enableAllButtons;
-function updateDebugUI() { let panel=document.getElementById('debugPanel');if(debugMode){if(panel)panel.style.display='flex';}else{if(panel)panel.style.display='none';} }
-
-// ==================== 倍速系统 ====================
-function updateSpeedButtons() {
-    const btn2 = document.getElementById('btnSpeed2');
-    const btn05 = document.getElementById('btnSpeed05');
-    const btn7x = document.getElementById('btnSpeed7x');
-    const btn4x = document.getElementById('btnSpeed4x');
-    const btn2x = document.getElementById('btnSpeed2x');
-    const btn05x = document.getElementById('btnSpeed05x');
-    const grpH = document.getElementById('speedGroupHigh');
-    const grpL = document.getElementById('speedGroupLow');
-
-    if (debugMode) {
-        if(btn2) btn2.style.display='none';
-        if(btn05) btn05.style.display='none';
-        if(grpH) grpH.style.display='flex';
-        if(grpL) grpL.style.display='flex';
-    } else {
-        if(btn2) btn2.style.display='';
-        if(btn05) btn05.style.display='';
-        if(grpH) grpH.style.display='none';
-        if(grpL) grpL.style.display='none';
-    }
-
-    [btn2, btn05, btn7x, btn4x, btn2x, btn05x].forEach(b => {
-        if (!b) return;
-        b.classList.remove('active', 'semi-active');
-    });
-
-    const activeSpeed = speed;
-
-    if (!slideSpeedActive) {
-        const btn05Target = debugMode ? btn05x : btn05;
-        if (btn05Target) btn05Target.classList.add('active');
-        if (manualSpeedLock && manualSpeedValue && manualSpeedValue !== 1800) {
-            const lockedBtn = getButtonBySpeedValue(manualSpeedValue, debugMode);
-            if (lockedBtn) lockedBtn.classList.add('semi-active');
-        }
-        // 不再调用 setAllSpeedButtonsEnabled，按钮外观保持不变
-        // semi-active 自带 pointer-events:none，阻止点击
-    } else {
-        const activeBtn = getButtonBySpeedValue(activeSpeed, debugMode);
-        if (activeBtn) activeBtn.classList.add('active');
-    }
-}
-
-function activateScrollSlowdown() {
-    if (speed === 1800) return;
-    if (!manualSpeedLock || manualSpeedValue !== speed) {
-        manualSpeedValue = speed;
-        manualSpeedLock = true;
-    }
-    slideSpeedActive = false;
-    speed = 1800;
-    updateSpeedButtons();
-    setState.speed(1800);
-}
-
-function restoreSpeedFromScroll() {
-    slideSpeedActive = true;
-    const restoredSpeed = manualSpeedValue || 500;
-    speed = restoredSpeed;
-    manualSpeedLock = false;
-    updateSpeedButtons();
-    setState.speed(restoredSpeed);
-    // 同步播放器内部速度
-    const ctx = window._getPlayerContext ? window._getPlayerContext() : null;
-    if (ctx && ctx._scheduler) ctx._scheduler.setSpeed(1);
-}
-
-function getButtonBySpeedValue(val, isDebug) {
-    if (val === 500) {
-        return isDebug ? document.getElementById('btnSpeed2x') : document.getElementById('btnSpeed2');
-    } else if (val === 143) {
-        return document.getElementById('btnSpeed7x');
-    } else if (val === 250) {
-        return document.getElementById('btnSpeed4x');
-    } else if (val === 1800) {
-        return isDebug ? document.getElementById('btnSpeed05x') : document.getElementById('btnSpeed05');
-    }
-    return null;
-}
-
-
-
-function setSpeed(val, lock) {
-    speed = val;
-    if (lock) {
-        manualSpeedLock = true;
-        manualSpeedValue = val;
-        slideSpeedActive = true;
-    }
-    updateSpeedButtons();
-}
-
-
-
-function attachSpeedButton(id, speedVal) {
-    let btn = document.getElementById(id); if (!btn) return;
-    btn.addEventListener('click', function() {
-        onAnyButtonClick();
-        // 如果已锁定且当前速度等于此按钮速度，则取消锁定并恢复默认速度
-        if (manualSpeedLock && speed === speedVal) {
-            speed = 500;
-            manualSpeedLock = false;
-            slideSpeedActive = true;
-            updateSpeedButtons();
-            setState.speed(500);
-        } else {
-            setSpeed(speedVal, true);
-        }
-    });
-}
-
-attachSpeedButton('btnSpeed2', 500);
-attachSpeedButton('btnSpeed7x', 143);
-attachSpeedButton('btnSpeed4x', 250);
-attachSpeedButton('btnSpeed2x', 500);
-attachSpeedButton('btnSpeed05', 1800);
-attachSpeedButton('btnSpeed05x', 1800);
-
-window.updateSpeedButtons = updateSpeedButtons;
-
-function _triggerFX(fxSnapshot, unitA, unitD, isDead, isDodge, isMiss, isBlock, dmg, waveTaunt, waveUnit, attackerRole) {
-    if(!detailMode)return;
-    if(isDead&&unitA&&!isBlock&&!isMiss&&!isDodge){
-        let killTaunt=getKillTaunt(unitA,KT);
-        setTimeout(() => showDanmaku(unitA,killTaunt), 0);
-    } else if(waveTaunt&&waveUnit&&!isBlock&&!isMiss&&!isDodge){
-        let delay = 0;
-        if (dmg !== undefined && dmg >= 30) delay = 0;
-        else if (dmg !== undefined && dmg >= 20) delay = 200;
-        else delay = 400;
-        setTimeout(() => showDanmaku(waveUnit,waveTaunt), delay);
-    }
-    if(unitA&&unitD){ if(attackerRole==='远程'&&!isBlock&&!isMiss&&!isDodge){showRangedArrow(unitA,unitD,speed,getPausedState);}else if(!isBlock){ if(isDodge){if(!dodgeEffectEnabled){showMeleeDodge(unitA,unitD,speed*2,getPausedState);}}else if(isMiss){showMeleeMiss(unitA,unitD,speed*2,getPausedState);}else{showMeleeCrash(unitA,unitD,speed,getPausedState, () => { if (isDead && unitD) { unitD._flash = 'dead'; } });} } }
-    if(unitD&&dmg!==undefined&&!isBlock&&!isMiss&&!isDodge){showDamageFloat(unitD,dmg);}
-    if(isDodge&&unitD&&unitA){let reboundDmg=Math.floor((unitD.atk+unitD.def)*0.5);showDamageFloat(unitA,reboundDmg);}
-}
-window._triggerFX = _triggerFX;
 
 function swapAllyPositions(posA, posB) {
     const currentUI = getState.UI();
@@ -380,7 +197,6 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('btnMain').addEventListener('click', async function(){
         onAnyButtonClick();
         if(gs===S.GAMEOVER){
-            // 重置快进标志，防止上一局快进状态影响下一局
             window._fastForwardActive = false;
             if(currentStage>=6){
                 currentStage=1;
@@ -455,7 +271,6 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('btnSettle').addEventListener('click',async function(){
         onAnyButtonClick();
         if (gs === S.GAMEOVER) {
-            // 重新挑战本关：不改变 currentStage，重新初始化战斗
             clearAllEffects();
             window._fastForwardActive = false;
             setState.gs(S.IDLE);
@@ -467,7 +282,6 @@ document.addEventListener('DOMContentLoaded', function() {
             if (typeof doInitBattle === 'function') doInitBattle(currentStage);
             return;
         }
-        // 快进到底：设置快进标志 + 极速播放，不 abort 战斗
         window._fastForwardActive = true;
         let ffCtx = window._getPlayerContext ? window._getPlayerContext() : null;
         if (ffCtx) {
@@ -475,7 +289,6 @@ document.addEventListener('DOMContentLoaded', function() {
             ffCtx.speed = 1;
             if (ffCtx._scheduler && ffCtx._scheduler.setSpeed) ffCtx._scheduler.setSpeed(50);
         }
-        // 取消暂停状态，让战斗继续
         if (gs === S.PAUSED) {
             setState.gs(S.RUNNING);
             setState.isPaused(false);
@@ -486,7 +299,7 @@ document.addEventListener('DOMContentLoaded', function() {
         waitingForNextRound = false;
         updateButtons();
     });
-    document.getElementById('btnPause').addEventListener('click',function(){onAnyButtonClick();if(gs===S.RUNNING){gs=S.PAUSED;setState.isPaused(true);window.bulletTimeActive = false;if(window._getPlayerContext()._scheduler)window._getPlayerContext()._scheduler.pause();document.body.classList.add('paused-animations');}else if(gs===S.PAUSED){gs=S.RUNNING;setState.isPaused(false);if(window._getPlayerContext()._scheduler)window._getPlayerContext()._scheduler.resume();document.body.classList.remove('paused-animations');}updateButtons();});
+    document.getElementById('btnPause').addEventListener('click',function(){onAnyButtonClick();if(gs===S.RUNNING){setState.gs(S.PAUSED);setState.isPaused(true);window.bulletTimeActive = false;if(window._getPlayerContext()._scheduler)window._getPlayerContext()._scheduler.pause();document.body.classList.add('paused-animations');}else if(gs===S.PAUSED){setState.gs(S.RUNNING);setState.isPaused(false);if(window._getPlayerContext()._scheduler)window._getPlayerContext()._scheduler.resume();document.body.classList.remove('paused-animations');}updateButtons();});
     document.getElementById('btnAuto').addEventListener('click',function(){
         autoMode=!autoMode;this.classList.toggle('active',autoMode);this.textContent=autoMode?'自动':'手动';
         window._autoMode = autoMode;
@@ -523,7 +336,6 @@ document.addEventListener('DOMContentLoaded', function() {
                     if(seen.has(key)) return;
                     seen.add(key);
                 }
-                // 阵容详情去重
                 if(t.includes('初始阵容')||t.includes('阵容详情')){
                     let key=t.substring(0,15);
                     if(seen.has(key)) return;
@@ -609,8 +421,7 @@ document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('coverOverlay').style.display='none';
         gameStarted=true; initBGM(); playBGM(); setBGMVolume(0.5);
         try { initGlowSystem(); } catch(e) { console.warn('光带特效初始化失败，已跳过', e); }
-        speed = 500; manualSpeedLock = true; manualSpeedValue = 500; slideSpeedActive = true;
-        updateSpeedButtons();
+        speed = 500; updateSpeedButtons();
     });
     document.getElementById('allyGrid').addEventListener('click', function(e) {
         if (!getState.adjustMode()) return;

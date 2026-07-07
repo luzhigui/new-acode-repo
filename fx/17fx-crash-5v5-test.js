@@ -1,6 +1,6 @@
 // fx/17fx-crash-5v5-test.js - 光明顶5v5 飞撞与格挡特效
-// V4.1.1 | ~19500 bytes | 2026-07-06 虚影蓝色化、接入通用受击反馈
-export const VER = 'fx/17fx-crash-5v5-test.js V4.1.1';
+// V5.0.1 | ~19500 bytes | 2026-07-06 虚影蓝色化、接入通用受击反馈
+export const VER = 'fx/17fx-crash-5v5-test.js V5.0.1';
 
 import { applyImpactShrink } from './15fx-common-5v5-test.js';
 
@@ -16,7 +16,7 @@ function showCloseRangeFX(unitA, unitD, role) {
     let ndx = bx - ax, ndy = by - ay, ndist = Math.sqrt(ndx*ndx + ndy*ndy);
     let nnx = ndist > 0 ? ndx / ndist : 0, nny = ndist > 0 ? ndy / ndist : 0;
     cellA.style.transition = 'transform 0.6s ease-out'; cellA.style.transform = 'scale(1.2)';
-    setTimeout(() => { cellA.style.transform = 'scale(1)'; let icon = document.createElement('div'); icon.style.position = 'fixed'; icon.style.left = ax+'px'; icon.style.top = ay+'px'; icon.style.fontSize = '36px'; icon.style.zIndex = '99999'; icon.style.pointerEvents = 'none'; icon.style.transform = 'translate(-50%,-50%)'; if (role === '战士') icon.textContent = '⚔️'; else if (role === '防战') icon.textContent = '🛡️'; else if (role === '飞行') icon.textContent = '🦅'; document.body.appendChild(icon);
+    setTimeout(() => { cellA.style.transform = 'scale(1)'; let icon = document.createElement('div'); icon.setAttribute('data-fx', 'temporary'); icon.style.position = 'fixed'; icon.style.left = ax+'px'; icon.style.top = ay+'px'; icon.style.fontSize = '36px'; icon.style.zIndex = '99999'; icon.style.pointerEvents = 'none'; icon.style.transform = 'translate(-50%,-50%)'; if (role === '战士') icon.textContent = '⚔️'; else if (role === '防战') icon.textContent = '🛡️'; else if (role === '飞行') icon.textContent = '🦅'; document.body.appendChild(icon);
         let iconStart = null;
         function flyIcon(ts) { if (!iconStart) iconStart = ts; let p = Math.min(1, (ts - iconStart) / 800); let x = ax + (bx - ax) * p, y = ay + (by - ay) * p; icon.style.left = x + 'px'; icon.style.top = y + 'px'; if (p < 1) { requestAnimationFrame(flyIcon); } else {
             if (unitD) { unitD._shaking = true; unitD._shakeNx = nnx; unitD._shakeNy = nny;
@@ -97,6 +97,7 @@ export function showMeleeCrash(unitA, unitD, speed, getPausedFn, onCrash) {
 
     // 先创建克隆体（保留 data-flash 属性）
     let clone = cellA.cloneNode(true);
+    clone.setAttribute('data-fx', 'temporary');
     clone.style.cssText = `
         position: fixed;
         left: ${savedLeft}px;
@@ -296,6 +297,7 @@ export function showMeleeDodge(unitA, unitD, speed, getPausedFn) {
             clone.style.transition = 'transform 0.1s ease';
             clone.style.transform = 'scale(0.9)';
             setTimeout(() => {
+                clone.setAttribute('data-fx', 'temporary');
                 clone.style.transform = 'scale(1)';
             }, 100);
             
@@ -333,6 +335,7 @@ export function showMeleeDodge(unitA, unitD, speed, getPausedFn) {
                     } else {
                         // 彻底清理
                         clone.remove();
+                        clone.setAttribute('data-fx', 'temporary');
                         cellA.style.opacity = origOpacity || '1';
                         cellA.style.visibility = origVisibility || 'visible';
                         cellA.style.background = origBackground || '';
@@ -365,6 +368,7 @@ export function showMeleeMiss(unitA, unitD, speed, getPausedFn) {
 
     // 先创建克隆体（保留 data-flash 属性）
     let clone = cellA.cloneNode(true);
+    clone.setAttribute('data-fx', 'temporary');
     clone.style.cssText = `
         position: fixed;
         left: ${savedLeft}px;

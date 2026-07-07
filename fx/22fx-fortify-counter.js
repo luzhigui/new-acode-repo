@@ -1,6 +1,6 @@
 // fx/22fx-fortify-counter.js - 光明顶5v5 严阵以待反击特效
-// V4.0.0 | ~7600 bytes | 2026-07-05
-export const VER = 'fx/22fx-fortify-counter.js V4.0.0';
+// V5.0.1 | ~7600 bytes | 2026-07-05
+export const VER = 'fx/22fx-fortify-counter.js V5.0.1';
 
 import { showDamageFloat, showComicBubble } from './15fx-common-5v5-test.js';
 
@@ -20,6 +20,7 @@ function getCellCenter(unit) {
 // ==================== 光盾元素 ====================
 function createShield(x, y) {
     const container = document.createElement('div');
+    container.setAttribute('data-fx', 'temporary');
     container.style.cssText = `
         position: fixed; left: ${x}px; top: ${y}px;
         width: 0px; height: 0px;
@@ -60,6 +61,7 @@ function createShield(x, y) {
 // 小光盾幻影（飞箭反击用）
 function createMiniShield(x, y) {
     const mini = document.createElement('div');
+    mini.setAttribute('data-fx', 'temporary');
     mini.style.cssText = `
         position: fixed; left: ${x}px; top: ${y}px;
         width: 24px; height: 20px;

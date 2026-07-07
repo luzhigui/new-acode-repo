@@ -1,6 +1,6 @@
 // modules/24error-capture.js - 光明顶5v5 全局错误捕获
-// V4.0.0 | ~5796 bytes | 2026-07-05
-export const VER = 'modules/24error-capture.js V4.0.0';
+// V5.0.1 | ~5796 bytes | 2026-07-05
+export const VER = 'modules/24error-capture.js V5.0.1';
 
 (function initErrorCapture() {
     // ---------- 创建面板 ----------

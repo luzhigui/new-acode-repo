@@ -471,6 +471,7 @@ export function* createRoundStepper(state) {
     B._activeBuffs = state.activeBuffs.filter(b => b.target === 'enemy');
     
     window._battleEvents = [];
+    window._currentBattleState = null;
     
     log.push({ type:'round-start', text:`<div class="separator">———— 第${round}回合开始 ————</div>` });
     
@@ -566,6 +567,7 @@ export function* createRoundStepper(state) {
     const roundStartEvents = [...window._battleEvents];
     window._battleEvents = [];
     yield { log: [...log], events: roundStartEvents, ally: A, enemy: B, winner: null, done: false };
+    window._battleEvents = [];
     log = [];
 
     // 构建行动队列

@@ -48,7 +48,7 @@ function getCtx() {
 }
 
 export function clearAllEffects(){
-    document.querySelectorAll('.fly-shadow,.fly-ghost,.fly-arrow,.danmaku-bubble,.dmg-float,.heal-float,.arrow-overlay,.crash-clone,.victory-banner,.party-particle,.star-particle,.bullet-mask,.bullet-clone,.comic-bubble,.shockwave,.lightning-split,.flame-trail,.wind-split,.bg-particle,.counter-storm,.wind-shield').forEach(el=>{if(el.parentNode)el.parentNode.removeChild(el);});
+    document.querySelectorAll('[data-fx="temporary"]').forEach(el=>{if(el.parentNode)el.parentNode.removeChild(el);});
     document.querySelectorAll('.cell-cheer').forEach(cell => cell.classList.remove('cell-cheer'));
     document.querySelectorAll('.grid.victory-border').forEach(grid => grid.classList.remove('victory-border'));
 }
@@ -65,6 +65,7 @@ function insertBuffSeparator(logDiv, c) {
     c.autoScrollLog();
 }
 
+// ⚠️ 新增状态字段必须同步加入此列表，否则 Store 同步会丢失数据
 const GAME_STATE_FIELDS = ['hp','alive','maxHp','atk','def','role','rangedForm','_isDead','_baseMaxHp','dmgDealt','dmgTaken','healDone','reboundDone','leechDone','dodgeCount','critCount','survivedRounds','pos','buffAtkBonus','buffDefBonus','buffDodgeBonus','buffHpBonus'];
 
 function createStore(initialState, reducer) {

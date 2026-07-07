@@ -1,6 +1,6 @@
 // tests/29health-rules.js - 光明顶5v5 体检规则库
-// V4.0.0 | ~15781 bytes | 2026-07-05
-export const VER = 'tests/29health-rules.js V4.0.0';
+// V5.0.1 | ~15781 bytes | 2026-07-05
+export const VER = 'tests/29health-rules.js V5.0.1';
 
 function createHealthRules(win, doc) {
     function getCtx() {
