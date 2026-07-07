@@ -650,11 +650,10 @@ export function* createRoundStepper(state) {
         if (done) return;
     }
 
-    // 回合结束
+    // 回合结束：先销毁拒马（需要 Buff 还在），再扣减 Buff 回合
     destroyHorse(A, log); destroyHorse(B, log);
 
-    // 统一清理所有死拒马（destroyHorse 销毁的 + 被攻击致死的），emit unit-remove 并从 team 移除
-    // 避免死拒马堆积导致下回合 spawnHorse 同位、UI 残留、死人继续占位
+    // 统一清理所有死拒马
     [A, B].forEach(team => {
         for (let i = team.length - 1; i >= 0; i--) {
             const u = team[i];
@@ -665,6 +664,7 @@ export function* createRoundStepper(state) {
         }
     });
     
+    // Buff 扣减放在销毁判定之后，保证 horseFormation 在销毁时仍然存在
     A._activeBuffs = (A._activeBuffs || []).map(b => ({...b, remaining: b.remaining - 1})).filter(b => b.remaining > 0);
     B._activeBuffs = (B._activeBuffs || []).map(b => ({...b, remaining: b.remaining - 1})).filter(b => b.remaining > 0);
 

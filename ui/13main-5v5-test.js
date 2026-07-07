@@ -5,7 +5,7 @@ export const VER = 'ui/13main-5v5-test.js V5.0.1';
 import '../modules/24error-capture.js';
 import { CONFIG, STATE, KILL_TAUNT, ENEMY_M, VER as CFG_VER } from '../core/01config-5v5-test.js';
 import { Unit, rand, runBattle, getRandomTaunt, getKillTaunt, getZhangNearTaunt, makeFXSnapshot, VER as BE_VER } from '../core/07battle-engine-5v5-test.js';
-import { stripTags, renderGrid, updateUI, spawnVictoryEffects, clearLogExceptFirst, isUnitBenefitedByBuff, VER as UI_VER } from './14ui-render-5v5-test.js';
+import { stripTags, renderGrid, updateUI, setRenderStore, spawnVictoryEffects, clearLogExceptFirst, isUnitBenefitedByBuff, VER as UI_VER } from './14ui-render-5v5-test.js';
 import { showDanmaku, showDamageFloat, showDodgeBubble, showHealFloat, VER as FX_VER } from '../fx/15fx-common-5v5-test.js';
 import { showRangedArrow, VER as FA_VER } from '../fx/16fx-arrows-5v5-test.js';
 import { showMeleeCrash, showMeleeDodge, showMeleeMiss, VER as FC_VER } from '../fx/17fx-crash-5v5-test.js';
@@ -198,20 +198,22 @@ document.addEventListener('DOMContentLoaded', function() {
         onAnyButtonClick();
         if(gs===S.GAMEOVER){
             window._fastForwardActive = false;
+            setRenderStore(null);
             if(currentStage>=6){
                 currentStage=1;
                 let result = abortAll(abortController, getState.UI(), waitingForNextRound, isBattleStarting, getState.adjustMode(), getState.selectedAdjustPos(), getState.activeBuffs(), selectedBuffIndex, currentDoubleStrikeUid, () => updateBuffSlots(getState.activeBuffs(), selectedBuffIndex));
                 abortController = result.abortController; waitingForNextRound = result.waitingForNextRound; isBattleStarting = result.isBattleStarting; setState.adjustMode(result.adjustMode); setState.selectedAdjustPos(result.selectedAdjustPos); setState.activeBuffs(result.activeBuffs); selectedBuffIndex = result.selectedBuffIndex; currentDoubleStrikeUid = result.currentDoubleStrikeUid;
                 clearLogExceptFirst(); clearAllEffects(); hasLoggedTeam=false;
                 doInitBattle(currentStage, getState.UI(), getState.snapshot(), getState.activeBuffs(), selectedBuffIndex, currentDoubleStrikeUid);
-                updateUI(); setState.gs(S.IDLE); setState.isPaused(false); updateButtons(); enableAllButtons(); updateSpeedButtons(); if(window._refreshGlowCells)window._refreshGlowCells();
+                updateUI(); renderGrid('allyGrid', 'ally'); renderGrid('enemyGrid', 'enemy'); setState.gs(S.IDLE); setState.isPaused(false); updateButtons(); enableAllButtons(); updateSpeedButtons(); if(window._refreshGlowCells)window._refreshGlowCells();
             } else {
                 currentStage++;
+                setRenderStore(null);
                 let result = abortAll(abortController, getState.UI(), waitingForNextRound, isBattleStarting, getState.adjustMode(), getState.selectedAdjustPos(), getState.activeBuffs(), selectedBuffIndex, currentDoubleStrikeUid, () => updateBuffSlots(getState.activeBuffs(), selectedBuffIndex));
                 abortController = result.abortController; waitingForNextRound = result.waitingForNextRound; isBattleStarting = result.isBattleStarting; setState.adjustMode(result.adjustMode); setState.selectedAdjustPos(result.selectedAdjustPos); setState.activeBuffs(result.activeBuffs); selectedBuffIndex = result.selectedBuffIndex; currentDoubleStrikeUid = result.currentDoubleStrikeUid;
                 clearLogExceptFirst(); clearAllEffects(); hasLoggedTeam=false;
                 doInitBattle(currentStage, getState.UI(), getState.snapshot(), getState.activeBuffs(), selectedBuffIndex, currentDoubleStrikeUid);
-                updateUI(); setState.gs(S.IDLE); setState.isPaused(false); updateButtons(); enableAllButtons(); updateSpeedButtons(); if(window._refreshGlowCells)window._refreshGlowCells();
+                updateUI(); renderGrid('allyGrid', 'ally'); renderGrid('enemyGrid', 'enemy'); setState.gs(S.IDLE); setState.isPaused(false); updateButtons(); enableAllButtons(); updateSpeedButtons(); if(window._refreshGlowCells)window._refreshGlowCells();
             }
         } else if(gs===S.IDLE&&!isBattleStarting){
             if(!getState.adjustMode()){
@@ -273,6 +275,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if (gs === S.GAMEOVER) {
             clearAllEffects();
             window._fastForwardActive = false;
+            setState.speed(500);
             setState.gs(S.IDLE);
             setState.isPaused(false);
             waitingForNextRound = false;
@@ -283,6 +286,8 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
         window._fastForwardActive = true;
+        waitingForNextRound = false;
+        window._skipBuffPopup = true;
         let ffCtx = window._getPlayerContext ? window._getPlayerContext() : null;
         if (ffCtx) {
             if (!ffCtx._originalSpeed) ffCtx._originalSpeed = ffCtx.speed;
@@ -313,9 +318,9 @@ document.addEventListener('DOMContentLoaded', function() {
         let totalAfter = logDiv.scrollHeight; logDiv.scrollTop = scrollPos + (totalAfter - totalBefore);
     });
     document.getElementById('debugToggle').addEventListener('click',function(){
-        onAnyButtonClick(); debugMode=!debugMode; this.classList.toggle('active',debugMode); this.textContent='V3.0'; window._debugMode=debugMode;
+        onAnyButtonClick(); setState.debugMode(!getState.debugMode()); var dm = getState.debugMode(); this.classList.toggle('active',dm); this.textContent='V3.0'; window._debugMode=dm;
         updateSpeedButtons(); updateDebugUI(); updateUI();
-        if (debugMode) { logVersions(); if (!runtimeMonitorActive) startRuntimeMonitor(); }
+        if (dm) { logVersions(); if (!runtimeMonitorActive) startRuntimeMonitor(); }
         else { if (runtimeMonitorActive) stopRuntimeMonitor(); }
     });
     document.getElementById('copyLog').addEventListener('click',()=>{
