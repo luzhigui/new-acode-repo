@@ -2,7 +2,7 @@
 
 光明顶 5v5 对战
 
-版本: V5.0.1 | 更新: 2026-07-07
+版本: V5.0.2 | 更新: 2026-07-08
 
 类型: 5v5 回合制自走棋对战（明教 vs 六大派）| 九宫格站位、自动战斗、海克斯 Buff、精英技能
 
@@ -66,6 +66,83 @@ AI 助手在展示代码改动时必须遵守以下规则：
 
 ---
 
+核心铁律 (10条)
+
+1. 发代码必须经总座确认
+   - 任何代码修改，发送前必须等总座确认，禁止擅自改动。
+   - 优先发前后对比（旧代码块必须准确 → 新代码块），不要动不动发整个文件。
+   - 旧代码来源铁律：必须从用户提供的真实文件中逐字提取，禁止凭记忆重写。
+     如果用户搜不到 AI 给的旧代码 → 用户直接贴函数原文 → AI 基于原文做替换。
+     这是经过多次实战验证的唯一可靠方式。
+
+2. 错误可见，不靠瞎猜
+   - 异常必须在页面底部红色面板显示（18-error-capture.js），手机端也能看。
+
+3. 找全链条根因，不兜底
+   - Bug 修复必须先找到问题发生的全链条真正原因，从源头解决。
+   - 实在找不到根因，经用户确认后才可以实施兜底方案。
+   - 禁止没找到原因就直接绕过去、掩盖问题、或用"看起来修好了"的方式交差。
+
+4. 定位优先，修复滞后
+   - 先找到根因再动手。同一问题连续两次修不好，立刻停手回最小单元排查。
+
+5. 禁止凭感觉改代码
+   - 凡涉战斗规则、数值、Buff，不确定就问，严禁"猜测式修改"。
+
+6. 函数职责单一，看动分离
+   - 纯计算、纯判定、纯渲染必须隔离。播放器只消费日志，不参与计算。
+
+7. 数据驱动视图
+   - 特效走数据标记（_flash、_blocked、_flyMode 等），renderGrid 统一读取渲染。
+   - 禁止特效函数直接操作 DOM。
+
+8. 实验室代码逐行复刻
+   - 验证通过的函数原样搬入，不做"等价改写"。特效参数提到文件顶部可调。
+
+9. 交付前自审完整性
+   - 所有导出函数有实际实现、文件末尾完整、无注释占位符。
+   - 禁止"和之前一样"之类的省略。
+
+10. 精英技能完全配置化
+    - 参数全在 01-config.js 的 ELITE_SKILLS，逻辑在 05-elite-skills.js。
+    - UI 只读取配置，不硬编码。
+
+---
+
+代码交付标准 (4条)
+
+1. 前后对比优先
+   格式："旧代码块：" + 旧代码 + "新代码块：" + 新代码。
+   仅大改动或跨文件才发完整文件。
+
+2. 文件头部规范
+   // 文件名 - 描述
+   // 预估行数/字符, 时间, 版本
+   export const VER = '文件名 Vx.x.x';
+
+3. 版本号统一
+   格式 VX.X.X，发版前全文件对齐。当前统一 V5.0.2。
+
+4. 大文件分片规范
+   超 40000 字符自动分片，头部注明 [第 N/M 片]，结尾附确认提示。
+
+---
+
+经验案例库 (7条)
+
+1. 死机排查：先看红色错误面板，再 F12，逐函数追溯，不凭感觉。
+2. 数据污染：找源头改，不靠清理循环打补丁。先问"还有哪些地方能改这个数据？"
+3. 特效时序：横幅预告在特效前；暂停期间 isPaused=true 确保 DOM 查询准确。
+4. 特效残留：飞撞后必须恢复 opacity/visibility/display/filter/transform 全部样式。
+5. 模块合并：变量名唯一化、import 用 [\s\S]*? 跨行匹配、用绝对路径。
+6. 合并后 VER 冲突：各模块 VER 重命名为 VER_CONFIG、VER_CORE 等全局变量。
+7. 架构升级 · 数据流原则：
+   - 引擎发射事件（emitEvent），UI 消费事件，日志同步生成。
+   - 状态与动画彻底分离：动画只触发视觉，不修改 hp/alive 等状态。
+   - 统计字段（dmgDealt/dmgTaken/healDone 等）通过事件绝对值传递，UI 侧直接赋值，避免重复累加。
+
+---
+
 快速开始
 
 直接用浏览器打开 mode-5v5-test.html 即可开始游戏。
@@ -75,77 +152,79 @@ AI 助手在展示代码改动时必须遵守以下规则：
 目录结构
 
 ```
+
 core/
-  01config-5v5-test.js       - 全量配置（数值、角色、技能、BGM路径）
-  02unit.js                   - 战斗单位类
-  03battle-utils.js           - 战斗工具函数（伤害公式、站位判定等）
-  04buff-system.js            - Buff系统（计算加成、触发效果）
-  05battle-horse.js           - 拒马逻辑（生成、销毁）
-  06battle-engine-core.js     - 战斗核心循环（回合推进、攻击处理）
-  07battle-engine-5v5-test.js - 战斗引擎入口（全局函数挂载、导出）
+01config-5v5-test.js       - 全量配置（数值、角色、技能、BGM路径）
+02unit.js                   - 战斗单位类
+03battle-utils.js           - 战斗工具函数（伤害公式、站位判定等）
+04buff-system.js            - Buff系统（计算加成、触发效果）
+05battle-horse.js           - 拒马逻辑（生成、销毁）
+06battle-engine-core.js     - 战斗核心循环（回合推进、攻击处理）
+07battle-engine-5v5-test.js - 战斗引擎入口（全局函数挂载、导出）
 
 player/
-  08player-text.js            - 文字播放器（逐字显示日志）
-  09player-buff-ui.js         - Buff弹窗与横幅
-  10player-core.js            - 战斗播放器核心（日志解析、动画调度）
-  11battle-player-5v5-test.js - 播放器入口（导出汇总）
+08player-text.js            - 文字播放器（逐字显示日志）
+09player-buff-ui.js         - Buff弹窗与横幅
+10player-core.js            - 战斗播放器核心（日志解析、动画调度）
+11battle-player-5v5-test.js - 播放器入口（导出汇总）
 
 ui/
-  12main-utils.js             - 主控工具函数（弹窗、版本号）
-  13main-5v5-test.js          - 主控模块（初始化、事件绑定）
-  14ui-render-5v5-test.js     - UI渲染模块（九宫格、血条、Buff图标）
-  39main-state.js             - 状态管理模块（全局状态读写、播放器上下文）
-  40main-dialogs.js           - 弹窗模块（战报弹窗、音乐设置、投票、倒计时）
-  41main-battle.js            - 战斗初始化模块（阵容生成、Buff选择、战斗日志）
-  42audio-control.js          - 音频控制模块（BGM切换、音效按钮）
-  43fx-trigger.js             - 特效触发模块（攻击特效调度）
-  44ui-controls.js            - UI控制模块（倍速系统、按钮状态）
+12main-utils.js             - 主控工具函数（弹窗、版本号）
+13main-5v5-test.js          - 主控模块（初始化、事件绑定）
+14ui-render-5v5-test.js     - UI渲染模块（九宫格、血条、Buff图标）
+39main-state.js             - 状态管理模块（全局状态读写、播放器上下文）
+40main-dialogs.js           - 弹窗模块（战报弹窗、音乐设置、投票、倒计时）
+41main-battle.js            - 战斗初始化模块（阵容生成、Buff选择、战斗日志）
+42audio-control.js          - 音频控制模块（BGM切换、音效按钮）
+43fx-trigger.js             - 特效触发模块（攻击特效调度）
+44ui-controls.js            - UI控制模块（倍速系统、按钮状态）
 
 fx/
-  15fx-common-5v5-test.js     - 基础特效池（飘字、弹幕、横幅）
-  16fx-arrows-5v5-test.js     - 飞箭特效（远程攻击、流星溅射）
-  17fx-crash-5v5-test.js      - 飞撞与格挡特效（近战攻击、闪避、未命中）
-  18fx-position-swap.js       - 换位闪烁特效
-  19fx-push-back.js           - 击退特效
-  20fx-dodge-bullet.js        - 闪避反击子弹时间特效
-  21fx-blood-slash.js         - 嗜血狂刀特效
-  22fx-fortify-counter.js     - 严阵以待反击特效
+15fx-common-5v5-test.js     - 基础特效池（飘字、弹幕、横幅）
+16fx-arrows-5v5-test.js     - 飞箭特效（远程攻击、流星溅射）
+17fx-crash-5v5-test.js      - 飞撞与格挡特效（近战攻击、闪避、未命中）
+18fx-position-swap.js       - 换位闪烁特效
+19fx-push-back.js           - 击退特效
+20fx-dodge-bullet.js        - 闪避反击子弹时间特效
+21fx-blood-slash.js         - 嗜血狂刀特效
+22fx-fortify-counter.js     - 严阵以待反击特效
 
 modules/
-  23elite-skills.js           - 精英技能系统（灭绝、周芷若、宋青书、成昆、玄冥二老）
-  24error-capture.js          - 全局错误捕获面板
-  28audio-manager.js          - 音频管理器（BGM切换、音效播放）
+23elite-skills.js           - 精英技能系统（灭绝、周芷若、宋青书、成昆、玄冥二老）
+24error-capture.js          - 全局错误捕获面板
+28audio-manager.js          - 音频管理器（BGM切换、音效播放）
 
 tests/
-  25unit-tests.js             - 核心函数单元测试
-  29health-rules.js           - 体检规则库（70+条规则）
-  30test-runner.html          - 测试与诊断中心页面
-  35quiz-bank.js              - 题库（25道）
-  36runtime-sampler.js        - 运行时采样器
-  37health-core.js            - 体检核心逻辑
-  38health-ui.js              - 体检UI交互
+25unit-tests.js             - 核心函数单元测试
+29health-rules.js           - 体检规则库（70+条规则）
+30test-runner.html          - 测试与诊断中心页面
+35quiz-bank.js              - 题库（25道）
+36runtime-sampler.js        - 运行时采样器
+37health-core.js            - 体检核心逻辑
+38health-ui.js              - 体检UI交互
 
 tools/
-  00build-5v5.cjs             - 构建脚本（打包为单文件）
-  27auto-battle-utils.js      - 自动批量战斗工具（快照生成、批量战斗）
-  31-toolkit.html             - 开发工具箱页面
-  32-toolkit.js               - 工具箱主逻辑（文件复制器）
-  33-toolkit-more.js          - 工具箱附加工具（函数搜索、防战计算器、自动战斗）
+00build-5v5.cjs             - 构建脚本（打包为单文件）
+27auto-battle-utils.js      - 自动批量战斗工具（快照生成、批量战斗）
+31-toolkit.html             - 开发工具箱页面
+32-toolkit.js               - 工具箱主逻辑（文件复制器）
+33-toolkit-more.js          - 工具箱附加工具（函数搜索、防战计算器、自动战斗）
 
 assets/
-  sfx_arrow.mp3               - 远程攻击音效
-  sfx_fly.mp3                 - 飞行攻击音效
-  sfx_melee.mp3               - 近战攻击音效
-  sfx_xinai.mp3               - 背景音乐
+sfx_arrow.mp3               - 远程攻击音效
+sfx_fly.mp3                 - 飞行攻击音效
+sfx_melee.mp3               - 近战攻击音效
+sfx_xinai.mp3               - 背景音乐
 
 根目录
-  00index.html                - 开发集成入口
-  mode-5v5-test.html          - 主游戏页面
-  README.md                   - 项目说明（本文件）
-  CHANGELOG.md                - 变更履历
-  kaifazhunze.md              - 开发准则
-  Test Runnerlogo.md          - Test Runner 迭代变更日志
-  game-design.md              - 游戏设计文档
+00index.html                - 开发集成入口
+mode-5v5-test.html          - 主游戏页面
+README.md                   - 项目说明（本文件）
+CHANGELOG.md                - 变更履历
+kaifazhunze.md              - 开发准则
+Test Runnerlogo.md          - Test Runner 迭代变更日志
+game-design.md              - 游戏设计文档
+
 ```
 
 ---

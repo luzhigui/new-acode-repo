@@ -376,7 +376,6 @@ function processUnitAttack(unit, allySide, enemySide, log, A, B, state, doubleSt
             let rebound = Math.floor(dmg * 0.15);
             unit.hp = Math.max(0, unit.hp - rebound);
             unit.dmgTaken += rebound;
-            unit.dmgTaken += rebound;
             zhang.reboundDone += rebound;
             if (unit.hp <= 0) {
                 unit.alive = false;
