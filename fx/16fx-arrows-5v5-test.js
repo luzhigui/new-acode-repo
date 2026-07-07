@@ -182,7 +182,8 @@ export function showBoneClaw(unitA, unitD, speed, getPausedFn, onHit) {
     if(dist<1) { if (onHit) onHit(); return; }
     let angle = Math.atan2(dy, dx);
     let chargeTime = 500 * (speed / 1000);
-    let flyDuration = 600 * (speed / 1000);
+    // 飞行时间按距离给保底（周芷若在前排距离短会太快），最少 700ms
+    let flyDuration = Math.max(700, dist * 1.5) * (speed / 1000);
     let pauseAfterHit = 500 * (speed / 1000);
 
     let claw = document.createElement('div');
@@ -196,12 +197,13 @@ export function showBoneClaw(unitA, unitD, speed, getPausedFn, onHit) {
     claw.style.transformOrigin = 'center';
     // 整体旋转一次让爪尖指向目标（飞行过程中不再旋转）
     claw.style.transform = `translate(-50%,-50%) rotate(${angle}rad)`;
-    // SVG 三道弯曲细长爪痕（像鹰爪），爪尖朝向飞行方向（右方，旋转后对准目标）
+    // SVG 四道弯曲细长爪痕（像鹰爪）：手腕在左（汇聚），指尖在右（散开，朝目标）
+    // 旋转后：右侧朝目标=指尖对敌人，左侧=手腕对周芷若
     claw.innerHTML = `<svg width="44" height="44" viewBox="0 0 44 44" xmlns="http://www.w3.org/2000/svg">
-        <path d="M 6 16 Q 14 22 26 30" stroke="#f0f0ff" stroke-width="2.6" fill="none" stroke-linecap="round"/>
-        <path d="M 10 10 Q 18 18 28 32" stroke="#ffffff" stroke-width="2.8" fill="none" stroke-linecap="round"/>
-        <path d="M 18 6 Q 24 18 30 34" stroke="#f0f0ff" stroke-width="2.6" fill="none" stroke-linecap="round"/>
-        <path d="M 28 10 Q 30 22 32 34" stroke="#e8e8ff" stroke-width="2.4" fill="none" stroke-linecap="round"/>
+        <path d="M 12 30 Q 24 22 38 16" stroke="#f0f0ff" stroke-width="2.6" fill="none" stroke-linecap="round"/>
+        <path d="M 16 32 Q 26 18 34 10" stroke="#ffffff" stroke-width="2.8" fill="none" stroke-linecap="round"/>
+        <path d="M 14 34 Q 20 18 26 6" stroke="#f0f0ff" stroke-width="2.6" fill="none" stroke-linecap="round"/>
+        <path d="M 12 34 Q 14 22 16 10" stroke="#e8e8ff" stroke-width="2.4" fill="none" stroke-linecap="round"/>
     </svg>`;
     claw.style.filter = 'drop-shadow(0 0 4px rgba(180,200,255,0.7))';
     document.body.appendChild(claw);

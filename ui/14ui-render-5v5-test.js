@@ -283,7 +283,7 @@ export function renderGrid(id, camp) {
         let atkStyle = atkBonusVal > 0 ? 'color:#b8860b;font-weight:bold;' : '';
         let defStyle = defBonusVal > 0 ? 'color:#b8860b;font-weight:bold;' : '';
         let hpStyle = hpBonusVal > 0 ? 'color:#b8860b;font-weight:bold;' : '';
-        let eliteSkillIcon = unit.name === '周芷若' ? ' 🐾' : (unit.name === '宋青书' ? ' 💥' : '');
+        let eliteSkillIcon = (unit.name === '周芷若' && unit._hasKuaiLe) ? ' 💖' : (unit.name === '宋青书' && unit._hasXingFen) ? ' 💗' : '';
         div.innerHTML = `<span class="cell-icon">${isBlocked && unit.alive && isResting && !(unit.isZhang && unit.rangedForm) && !isDead ? '😴' : roleIcon}</span><div class="cell-info"><span class="cell-name ${unit.isZhang?'gold':''}">${unit.name}${eliteSkillIcon}${buffIcons ? ' ' + buffIcons : ''}</span><span class="cell-stats">攻<span style="${atkStyle}">${displayAtk}</span> 防<span style="${defStyle}">${displayDef}</span> <span class="${hpColorClass}" style="${hpStyle}">血${Math.floor(unit.hp)}</span></span></div><div class="hp-bar-wrap"><div class="hp-bar-inner" id="hpbar-${unit.uid}" style="height:${hpPct}%;background:${barColor};transition:none;"></div></div>`;
         if (isDead) {
             let deadMark = document.createElement('span'); deadMark.className = 'dead-mark'; deadMark.textContent = '✕'; div.appendChild(deadMark);

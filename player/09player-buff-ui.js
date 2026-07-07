@@ -83,6 +83,7 @@ export function showBuffPopup(c) {
                 floatBtn.id = 'buffFloatBtn';
                 floatBtn.className = 'vote-float';
                 floatBtn.style.display = 'flex';
+                floatBtn.style.bottom = '60px';
                 floatBtn.title = '恢复Buff选择';
                 floatBtn.innerHTML = '🛡️';
                 floatBtn.addEventListener('click', () => {

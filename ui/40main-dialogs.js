@@ -26,7 +26,7 @@ export function showBattleReport(UI, battleResultForInfo) {
         floatBtn.className = 'vote-float';
         floatBtn.style.display = 'flex';
         floatBtn.style.right = '20px';
-        floatBtn.style.bottom = '110px';
+        floatBtn.style.bottom = '60px';
         floatBtn.title = '恢复战报';
         floatBtn.innerHTML = '📊';
         floatBtn.addEventListener('click', () => {
