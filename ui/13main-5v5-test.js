@@ -388,14 +388,14 @@ document.addEventListener('DOMContentLoaded', function() {
                 abortController = result.abortController; waitingForNextRound = result.waitingForNextRound; isBattleStarting = result.isBattleStarting; setState.adjustMode(result.adjustMode); setState.selectedAdjustPos(result.selectedAdjustPos); setState.activeBuffs(result.activeBuffs); selectedBuffIndex = result.selectedBuffIndex; currentDoubleStrikeUid = result.currentDoubleStrikeUid;
                 clearLogExceptFirst(); clearAllEffects(); hasLoggedTeam=false;
                 doInitBattle(currentStage, getState.UI(), getState.snapshot(), getState.activeBuffs(), selectedBuffIndex, currentDoubleStrikeUid);
-                updateUI(); gs=S.IDLE; setState.isPaused(false); updateButtons(); enableAllButtons(); updateSpeedButtons(); if(window._refreshGlowCells)window._refreshGlowCells();
+                updateUI(); setState.gs(S.IDLE); setState.isPaused(false); updateButtons(); enableAllButtons(); updateSpeedButtons(); if(window._refreshGlowCells)window._refreshGlowCells();
             } else {
                 currentStage++;
                 let result = abortAll(abortController, getState.UI(), waitingForNextRound, isBattleStarting, getState.adjustMode(), getState.selectedAdjustPos(), getState.activeBuffs(), selectedBuffIndex, currentDoubleStrikeUid, () => updateBuffSlots(getState.activeBuffs(), selectedBuffIndex));
                 abortController = result.abortController; waitingForNextRound = result.waitingForNextRound; isBattleStarting = result.isBattleStarting; setState.adjustMode(result.adjustMode); setState.selectedAdjustPos(result.selectedAdjustPos); setState.activeBuffs(result.activeBuffs); selectedBuffIndex = result.selectedBuffIndex; currentDoubleStrikeUid = result.currentDoubleStrikeUid;
                 clearLogExceptFirst(); clearAllEffects(); hasLoggedTeam=false;
                 doInitBattle(currentStage, getState.UI(), getState.snapshot(), getState.activeBuffs(), selectedBuffIndex, currentDoubleStrikeUid);
-                updateUI(); gs=S.IDLE; setState.isPaused(false); updateButtons(); enableAllButtons(); updateSpeedButtons(); if(window._refreshGlowCells)window._refreshGlowCells();
+                updateUI(); setState.gs(S.IDLE); setState.isPaused(false); updateButtons(); enableAllButtons(); updateSpeedButtons(); if(window._refreshGlowCells)window._refreshGlowCells();
             }
         } else if(gs===S.IDLE&&!isBattleStarting){
             if(!getState.adjustMode()){
@@ -410,7 +410,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     await new Promise(resolve => { showBuffSelection(() => resolve(), getState.activeBuffs(), selectedBuffIndex, () => updateBuffSlots(getState.activeBuffs(), selectedBuffIndex), () => {}, autoScrollLog); });
                     await new Promise(r=>setTimeout(r,600));
                     try {
-                        gs=S.RUNNING; updateButtons(); document.getElementById('btnNext').disabled=true;
+                        setState.gs(S.RUNNING); updateButtons(); document.getElementById('btnNext').disabled=true;
                         abortController=new AbortController();
                         const snap = getState.snapshot();
                         snap.ally = getState.UI().allyTeam.map(u=>Object.freeze(u.clone()));
@@ -451,14 +451,14 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    document.getElementById('btnNext').addEventListener('click',function(){onAnyButtonClick();waitingForNextRound=false;gs=S.RUNNING;updateButtons();});
+    document.getElementById('btnNext').addEventListener('click',function(){onAnyButtonClick();waitingForNextRound=false;setState.gs(S.RUNNING);updateButtons();});
     document.getElementById('btnSettle').addEventListener('click',async function(){
         onAnyButtonClick();
         if (gs === S.GAMEOVER) {
             // 重新挑战本关：不改变 currentStage，重新初始化战斗
             clearAllEffects();
             window._fastForwardActive = false;
-            gs = S.IDLE;
+            setState.gs(S.IDLE);
             setState.isPaused(false);
             waitingForNextRound = false;
             isBattleStarting = false;
@@ -477,7 +477,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         // 取消暂停状态，让战斗继续
         if (gs === S.PAUSED) {
-            gs = S.RUNNING;
+            setState.gs(S.RUNNING);
             setState.isPaused(false);
             if (ffCtx && ffCtx._scheduler) ffCtx._scheduler.resume();
             document.body.classList.remove('paused-animations');
@@ -567,7 +567,7 @@ document.addEventListener('DOMContentLoaded', function() {
         clearLogExceptFirst(); clearAllEffects(); hasLoggedTeam=false;
         currentStage=stage;
         doInitBattle(currentStage, getState.UI(), getState.snapshot(), getState.activeBuffs(), selectedBuffIndex, currentDoubleStrikeUid);
-        updateUI(); gs=S.IDLE; updateButtons(); enableAllButtons();
+        updateUI(); setState.gs(S.IDLE); updateButtons(); enableAllButtons();
     }
 
     function forceStopGame(){
@@ -576,7 +576,7 @@ document.addEventListener('DOMContentLoaded', function() {
         let result = abortAll(abortController, currentUI, waitingForNextRound, isBattleStarting, getState.adjustMode(), getState.selectedAdjustPos(), getState.activeBuffs(), selectedBuffIndex, currentDoubleStrikeUid, () => updateBuffSlots(getState.activeBuffs(), selectedBuffIndex));
         abortController = result.abortController; waitingForNextRound = result.waitingForNextRound; isBattleStarting = result.isBattleStarting; setState.adjustMode(result.adjustMode); setState.selectedAdjustPos(result.selectedAdjustPos); setState.activeBuffs(result.activeBuffs); selectedBuffIndex = result.selectedBuffIndex; currentDoubleStrikeUid = result.currentDoubleStrikeUid;
         clearLogExceptFirst(); clearAllEffects(); hasLoggedTeam=false;
-        gs=S.IDLE;setState.isPaused(false);waitingForNextRound=false;isBattleStarting=false;
+        setState.gs(S.IDLE);setState.isPaused(false);waitingForNextRound=false;isBattleStarting=false;
         updateButtons();enableAllButtons();updateSpeedButtons();
         try { updateUI(); } catch(e){}
     }
@@ -586,7 +586,7 @@ document.addEventListener('DOMContentLoaded', function() {
         forceStopGame();
         doInitBattle(currentStage, getState.UI(), getState.snapshot(), getState.activeBuffs(), selectedBuffIndex, currentDoubleStrikeUid);
         updateUI();
-        gs=S.IDLE;updateButtons();enableAllButtons();
+        setState.gs(S.IDLE);updateButtons();enableAllButtons();
     }
 
     window.selectStage = (stage)=>{ if(stage===currentStage)return; forceStopGame(); switchToStageInternal(stage); };
