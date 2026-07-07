@@ -1,6 +1,6 @@
 // fx/16fx-arrows-5v5-test.js - 光明顶5v5 飞箭+白骨爪特效
-// V4.1.1 | ~14000 bytes | 2026-07-06 新增 showBoneClaw、接入通用受击反馈
-export const VER = 'fx/16fx-arrows-5v5-test.js V4.1.1';
+// V5.0.1 | ~14000 bytes | 2026-07-06 新增 showBoneClaw、接入通用受击反馈
+export const VER = 'fx/16fx-arrows-5v5-test.js V5.0.1';
 
 import { applyImpactShrink } from './15fx-common-5v5-test.js';
 
@@ -30,7 +30,7 @@ export function showRangedArrow(unitA, unitD, speed, getPausedFn, isMeteor = fal
     let flyDuration = isMeteor ? 400 : 600 * (speed / 1000);
     let pauseAfterHit = isMeteor ? 1200 : 600 * (speed / 1000);
 
-    let bowIcon = document.createElement('div'); bowIcon.style.position = 'fixed'; bowIcon.style.left = (sx-12)+'px'; bowIcon.style.top = (sy-20)+'px'; bowIcon.style.fontSize = '22px'; bowIcon.style.zIndex = '10002'; bowIcon.style.pointerEvents = 'none'; bowIcon.textContent = '🏹';
+    let bowIcon = document.createElement('div'); bowIcon.setAttribute('data-fx', 'temporary'); bowIcon.style.position = 'fixed'; bowIcon.style.left = (sx-12)+'px'; bowIcon.style.top = (sy-20)+'px'; bowIcon.style.fontSize = '22px'; bowIcon.style.zIndex = '10002'; bowIcon.style.pointerEvents = 'none'; bowIcon.textContent = '🏹';
     if (isMeteor) { bowIcon.style.filter = 'drop-shadow(0 0 6px gold)'; }
     document.body.appendChild(bowIcon);
     let bowStart = null;
@@ -40,6 +40,7 @@ export function showRangedArrow(unitA, unitD, speed, getPausedFn, isMeteor = fal
     function launchArrow() {
         let finalStartX = ex - Math.cos(angle) * arrowLen, finalStartY = ey - Math.sin(angle) * arrowLen;
         let container = document.createElement('div');
+        container.setAttribute('data-fx', 'temporary');
         container.style.position = 'fixed'; container.style.left = sx + 'px'; container.style.top = sy + 'px';
         container.style.transformOrigin = '0 50%'; container.style.transform = `rotate(${angle}rad)`;
         container.style.zIndex = '10001'; container.style.pointerEvents = 'none';
@@ -72,6 +73,7 @@ export function showRangedArrow(unitA, unitD, speed, getPausedFn, isMeteor = fal
                 // 流星赶月：命中后显示蓄力光圈
                 if (isMeteor) {
                     let ring = document.createElement('div');
+                    ring.setAttribute('data-fx', 'temporary');
                     ring.style.cssText = `position:fixed;left:${ex}px;top:${ey}px;width:40px;height:40px;border:3px solid #FFD700;border-radius:50%;transform:translate(-50%,-50%);z-index:10002;pointer-events:none;box-shadow:0 0 12px #FFA500;animation:meteorRing 0.8s ease-out forwards;`;
                     document.body.appendChild(ring);
                     setTimeout(() => { if (ring.parentNode) ring.remove(); }, 800);
@@ -124,6 +126,7 @@ export function showSplashArrows(attacker, primaryTarget, splashTargets, speed, 
         let finalStartY = ey - Math.sin(angle) * arrowLen;
         
         let container = document.createElement('div');
+        container.setAttribute('data-fx', 'temporary');
         container.style.position = 'fixed'; container.style.left = sx + 'px'; container.style.top = sy + 'px';
         container.style.transformOrigin = '0 50%'; container.style.transform = `rotate(${angle}rad)`;
         container.style.zIndex = '10003'; container.style.pointerEvents = 'none';
@@ -202,6 +205,7 @@ export function showBoneClaw(unitA, unitD, speed, getPausedFn, onHit, opts) {
     let clawRotation = angle + Math.PI / 2;
     claw.style.transform = `translate(-50%,-50%) rotate(${clawRotation}rad)`;
     // 🫳 emoji + 浅色滤镜（emoji 颜色偏黄，加亮 + 偏白滤镜让其更像白骨爪）
+    claw.setAttribute('data-fx', 'temporary');
     claw.style.fontSize = '40px';
     claw.style.lineHeight = '1';
     claw.style.textAlign = 'center';
@@ -285,6 +289,7 @@ function triggerExecuteShatter(defCell) {
     let rect = defCell.getBoundingClientRect();
     // 红色覆盖层
     let redFlash = document.createElement('div');
+    redFlash.setAttribute('data-fx', 'temporary');
     redFlash.style.cssText = `position:fixed;left:${rect.left}px;top:${rect.top}px;width:${rect.width}px;height:${rect.height}px;background:radial-gradient(circle, rgba(255,30,30,0.95), rgba(180,0,0,0.6));z-index:9998;pointer-events:none;opacity:0.95;border-radius:4px;`;
     document.body.appendChild(redFlash);
     // 碎片粒子（从格子中心向四周爆开）

@@ -1,5 +1,5 @@
 // tools/33-toolkit-more.js - 光明顶5v5 开发工具箱（更多工具）
-// V4.0.0 | ~27945 bytes | 2026-07-05
+// V5.0.1 | ~27945 bytes | 2026-07-05
 
 function escapeHtml(text) {
     return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -15,6 +15,7 @@ function escapeHtml(text) {
         '../player/11battle-player-5v5-test.js',
         '../ui/12main-utils.js', '../ui/13main-5v5-test.js', '../ui/14ui-render-5v5-test.js',
         '../ui/39main-state.js', '../ui/40main-dialogs.js', '../ui/41main-battle.js',
+        '../ui/42audio-control.js', '../ui/43fx-trigger.js', '../ui/44ui-controls.js',
         '../fx/15fx-common-5v5-test.js', '../fx/16fx-arrows-5v5-test.js', '../fx/17fx-crash-5v5-test.js',
         '../fx/18fx-position-swap.js', '../fx/19fx-push-back.js', '../fx/20fx-dodge-bullet.js',
         '../fx/21fx-blood-slash.js', '../fx/22fx-fortify-counter.js',

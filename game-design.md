@@ -1,6 +1,6 @@
 # 光明顶 5v5 游戏设定汇总
 
-版本：V4.0.x  
+版本：V5.0.1  
 整理日期：2026-07-01  
 
 > 本文件汇总了光明顶 5v5 对战游戏的所有设定，按“重要程度从高到低”排序。  
@@ -558,7 +558,7 @@ SFX: {
 
 - `MAX_ROUND = 35`，超过即平局。
 - `ATK_VAR = 6`, `DEF_VAR = 4`, `HP_BONUS_MIN = 0`, `HP_BONUS_MAX = 5`。
-- 防战 K 值表在 V4.0.2 修复后使用 Buff 后防御计算。
+- 防战 K 值表在 V5.0.0 修复后使用 Buff 后防御计算。
 
 ### 11.4 文件路径规范
 
@@ -583,28 +583,28 @@ assets/    音效
 
 | 模块 | 版本 |
 |------|------|
-| core/01config-5v5-test.js | V4.0.0 |
-| core/02unit.js | V4.0.0 |
-| core/03battle-utils.js | V4.0.0 |
-| core/04buff-system.js | V4.0.0 |
-| core/05battle-horse.js | V4.0.0 |
-| core/06battle-engine-core.js | V4.0.2 |
-| core/07battle-engine-5v5-test.js | V4.0.0 |
-| player/08player-text.js | V4.0.0 |
-| player/09player-buff-ui.js | V4.0.0 |
-| player/10player-core.js | V4.0.1 |
-| player/11battle-player-5v5-test.js | V4.0.0 |
-| ui/12main-utils.js | V4.0.0 |
-| ui/13main-5v5-test.js | V4.0.0 |
-| ui/14ui-render-5v5-test.js | V4.0.0 |
-| fx/15fx-common-5v5-test.js | V4.0.0 |
-| fx/16fx-arrows-5v5-test.js | V4.0.0 |
-| fx/17fx-crash-5v5-test.js | V4.0.0 |
-| fx/18fx-position-swap.js | V4.0.0 |
-| fx/19fx-push-back.js | V4.0.0 |
-| fx/20fx-dodge-bullet.js | V4.0.0 |
-| fx/21fx-blood-slash.js | V4.0.0 |
-| fx/22fx-fortify-counter.js | V4.0.0 |
-| modules/23elite-skills.js | V4.0.0 |
-| modules/24error-capture.js | V4.0.0 |
-| modules/28audio-manager.js | V4.0.0 |
+| core/01config-5v5-test.js | V5.0.1 |
+| core/02unit.js | V5.0.1 |
+| core/03battle-utils.js | V5.0.1 |
+| core/04buff-system.js | V5.0.1 |
+| core/05battle-horse.js | V5.0.1 |
+| core/06battle-engine-core.js | V5.0.0 |
+| core/07battle-engine-5v5-test.js | V5.0.1 |
+| player/08player-text.js | V5.0.1 |
+| player/09player-buff-ui.js | V5.0.1 |
+| player/10player-core.js | V5.0.1 |
+| player/11battle-player-5v5-test.js | V5.0.1 |
+| ui/12main-utils.js | V5.0.1 |
+| ui/13main-5v5-test.js | V5.0.1 |
+| ui/14ui-render-5v5-test.js | V5.0.1 |
+| fx/15fx-common-5v5-test.js | V5.0.1 |
+| fx/16fx-arrows-5v5-test.js | V5.0.1 |
+| fx/17fx-crash-5v5-test.js | V5.0.1 |
+| fx/18fx-position-swap.js | V5.0.1 |
+| fx/19fx-push-back.js | V5.0.1 |
+| fx/20fx-dodge-bullet.js | V5.0.1 |
+| fx/21fx-blood-slash.js | V5.0.1 |
+| fx/22fx-fortify-counter.js | V5.0.1 |
+| modules/23elite-skills.js | V5.0.1 |
+| modules/24error-capture.js | V5.0.1 |
+| modules/28audio-manager.js | V5.0.1 |

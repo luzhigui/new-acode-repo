@@ -1,12 +1,11 @@
 // ui/41main-battle.js - 光明顶5v5 战斗初始化
-// V4.0.0 | ~8000 bytes | 2026-07-06
-export const VER = 'ui/41main-battle.js V4.0.0';
+// V5.0.1 | ~10000 bytes | 2026-07-07 修复第五关额外单位、职业按模板分配、精英怪站位
+export const VER = 'ui/41main-battle.js V5.0.1';
 
 import { CONFIG, ENEMY_M } from '../core/01config-5v5-test.js';
 import { Unit, rand, runBattle } from '../core/07battle-engine-5v5-test.js';
 import { updateUI, clearLogExceptFirst } from './14ui-render-5v5-test.js';
 import { showModal } from './12main-utils.js';
-
 
 const C = CONFIG;
 const ALL_BUFF_KEYS = Object.keys(C.BUFFS);
@@ -16,7 +15,7 @@ export function doInitBattle(currentStage, UI, snapshot, activeBuffs, selectedBu
     let allyTeam = [], enemyTeam = [];
     const mingSquad = C.MING_SQUADS && C.MING_SQUADS[currentStage] ? C.MING_SQUADS[currentStage] : null;
     const enemySquad = C.ENEMY_SQUADS && C.ENEMY_SQUADS[currentStage] ? C.ENEMY_SQUADS[currentStage] : null;
-    
+
     let mingConfig;
     if (mingSquad) {
         if (currentStage === 1 && Array.isArray(mingSquad[0])) {
@@ -69,11 +68,13 @@ export function doInitBattle(currentStage, UI, snapshot, activeBuffs, selectedBu
         while (toLock.length < 3) { let pool = allyTeam.filter(u => !toLock.includes(u)); if (pool.length === 0) break; let pick = pool[rand(0, pool.length - 1)]; toLock.push(pick); }
         toLock.forEach(u => { u.fixed = true; });
     }
-    
+
     let enemyUnits = [];
     if (enemySquad) {
         let enemyPosSet = new Set();
         let xuanmingPairCount = 0;
+        let extraUnitForStage5 = null;
+
         for (let item of enemySquad) {
             if (typeof item === 'object' && item.name) {
                 let unit = new Unit(item.name, item.m, item.role, 'enemy');
@@ -100,6 +101,8 @@ export function doInitBattle(currentStage, UI, snapshot, activeBuffs, selectedBu
                 enemyUnits.push(unit);
             }
         }
+
+        // 第五关：玄冥二老在场时，额外增加一个敌人（固定 104，共 6 人）
         if (currentStage === 5 && xuanmingPairCount === 2) {
             let extraM = 104;
             let pool = Object.entries(ENEMY_M).filter(([n, v]) => v === extraM);
@@ -114,12 +117,39 @@ export function doInitBattle(currentStage, UI, snapshot, activeBuffs, selectedBu
             let role = C.ROLES[rand(0, 3)];
             let extraUnit = new Unit(name, extraM, role, 'enemy');
             extraUnit.init(); extraUnit.applyBonus();
-            enemyUnits.push(extraUnit);
+            extraUnitForStage5 = extraUnit;
         }
+
         let allUnits = [...enemyUnits];
         let template = C.ENEMY_POS_TEMPLATES && C.ENEMY_POS_TEMPLATES[currentStage] ? C.ENEMY_POS_TEMPLATES[currentStage] : null;
         let eliteUnits = allUnits.filter(u => C.ELITE_POOL && C.ELITE_POOL[currentStage] && C.ELITE_POOL[currentStage].some(e => e.name === u.name));
         let normalUnits = allUnits.filter(u => !eliteUnits.includes(u));
+
+        // 按站位模板调整普通单位的职业，确保每种职业的数量满足模板需求
+        if (template) {
+            let roleCounts = { '战士': 0, '防战': 0, '远程': 0, '飞行': 0 };
+            normalUnits.forEach(u => { if (roleCounts[u.role] !== undefined) roleCounts[u.role]++; });
+            let templateNeeds = {};
+            for (let [role, poses] of Object.entries(template)) {
+                if (role === 'random') continue;
+                templateNeeds[role] = poses.length;
+            }
+            for (let role of ['防战', '远程', '飞行', '战士']) {
+                let need = templateNeeds[role] || 0;
+                let current = roleCounts[role] || 0;
+                let shortage = need - current;
+                if (shortage > 0) {
+                    let others = normalUnits.filter(u => u.role !== role && (templateNeeds[u.role] || 0) < (roleCounts[u.role] || 0));
+                    for (let i = 0; i < Math.min(shortage, others.length); i++) {
+                        roleCounts[others[i].role]--;
+                        others[i].role = role;
+                        roleCounts[role]++;
+                    }
+                }
+            }
+        }
+
+        // 先分配站位模板（普通单位），保留精英怪位置不被抢占
         if (template) {
             for (let [role, poses] of Object.entries(template)) {
                 if (role === 'random') continue;
@@ -129,53 +159,102 @@ export function doInitBattle(currentStage, UI, snapshot, activeBuffs, selectedBu
                 }
             }
         }
-        let unplacedNormals = normalUnits.filter(u => u.pos == null);
-        let emptySlots = [1,2,3,4,5,6,7,8,9].filter(p => !enemyPosSet.has(p));
-        for (let u of unplacedNormals) {
-            if (emptySlots.length > 0) { let idx = rand(0, emptySlots.length - 1); u.pos = emptySlots[idx]; u._originalPos = u.pos; enemyPosSet.add(emptySlots[idx]); emptySlots.splice(idx, 1); }
-        }
+
+        // 精英怪站位：有偏好位置，但可能被普通单位抢占（保留随机性）
         const zhou = eliteUnits.find(u => u.name === '周芷若');
         const song = eliteUnits.find(u => u.name === '宋青书');
-        if (zhou) {
+
+        if (zhou && zhou.pos == null) {
             const zhouPriority = [2, 3, 4, 5, 6, 7, 8, 9];
+            let placed = false;
             for (const p of zhouPriority) {
                 if (!enemyPosSet.has(p)) {
-                    zhou.pos = p; zhou._originalPos = p; enemyPosSet.add(p);
+                    zhou.pos = p; zhou._originalPos = p; enemyPosSet.add(p); placed = true;
                     break;
                 }
+            }
+            if (!placed) {
+                // 硬保底：强制挤掉 2 号位的单位
+                let displaced = normalUnits.find(u => u.pos === 2);
+                if (displaced) { displaced.pos = null; displaced._originalPos = -1; }
+                zhou.pos = 2; zhou._originalPos = 2; enemyPosSet.add(2);
             }
         }
-        if (song) {
+
+        if (song && song.pos == null) {
             const zhouPos = zhou ? zhou.pos : 0;
+            let placed = false;
             for (let p = zhouPos + 1; p <= 9; p++) {
                 if (!enemyPosSet.has(p)) {
-                    song.pos = p; song._originalPos = p; enemyPosSet.add(p);
+                    song.pos = p; song._originalPos = p; enemyPosSet.add(p); placed = true;
                     break;
                 }
             }
-            if (song.pos == null) {
+            if (!placed) {
                 for (let p = 1; p <= 9; p++) {
                     if (!enemyPosSet.has(p)) {
-                        song.pos = p; song._originalPos = p; enemyPosSet.add(p);
+                        song.pos = p; song._originalPos = p; enemyPosSet.add(p); placed = true;
                         break;
                     }
                 }
             }
-        }
-        const otherElites = eliteUnits.filter(u => u !== zhou && u !== song && u.pos == null);
-        for (let u of otherElites) {
-            emptySlots = [1,2,3,4,5,6,7,8,9].filter(p => !enemyPosSet.has(p));
-            if (emptySlots.length > 0) {
-                let idx = rand(0, emptySlots.length - 1);
-                u.pos = emptySlots[idx]; u._originalPos = u.pos; enemyPosSet.add(emptySlots[idx]);
+            if (!placed) {
+                // 硬保底：强制挤掉周芷若后面的单位
+                let backPos = zhouPos + 1;
+                if (backPos <= 9) {
+                    let displaced = normalUnits.find(u => u.pos === backPos);
+                    if (displaced) { displaced.pos = null; displaced._originalPos = -1; }
+                    song.pos = backPos; song._originalPos = backPos; enemyPosSet.add(backPos); placed = true;
+                }
             }
         }
+
+        // 其他精英怪按优先级分配（成昆→1号位，鹿杖客→7号位，鹤笔翁→4号位）
+        const otherElites = eliteUnits.filter(u => u !== zhou && u !== song && u.pos == null);
+        for (let u of otherElites) {
+            let priority;
+            if (u.name === '成昆') priority = [1, 2, 3, 4, 5, 6, 7, 8, 9];
+            else if (u.name === '鹿杖客') priority = [7, 8, 9, 4, 5, 6, 1, 2, 3];
+            else if (u.name === '鹤笔翁') priority = [4, 5, 6, 7, 8, 9, 1, 2, 3];
+            else priority = [1, 2, 3, 4, 5, 6, 7, 8, 9];
+
+            for (const p of priority) {
+                if (!enemyPosSet.has(p)) {
+                    u.pos = p; u._originalPos = p; enemyPosSet.add(p);
+                    break;
+                }
+            }
+            if (u.pos == null) {
+                // 硬保底：挤掉优先位置的单位
+                let p = priority[0];
+                let displaced = normalUnits.find(u2 => u2.pos === p);
+                if (displaced) { displaced.pos = null; displaced._originalPos = -1; }
+                u.pos = p; u._originalPos = p; enemyPosSet.add(p);
+            }
+        }
+
+        // 剩余普通单位填充空位
+        let unplacedNormals = normalUnits.filter(u => u.pos == null);
+        let emptySlots = [1, 2, 3, 4, 5, 6, 7, 8, 9].filter(p => !enemyPosSet.has(p));
+        for (let u of unplacedNormals) {
+            if (emptySlots.length > 0) {
+                let idx = rand(0, emptySlots.length - 1);
+                u.pos = emptySlots[idx];
+                u._originalPos = u.pos;
+                enemyPosSet.add(emptySlots[idx]);
+                emptySlots.splice(idx, 1);
+            }
+        }
+
         enemyTeam = allUnits;
     }
 
-    snapshot.ally = allyTeam.map(u => Object.freeze(u.clone())); snapshot.enemy = enemyTeam.map(u => Object.freeze(u.clone()));
-    UI.allyTeam = allyTeam.map(u => u.clone()); UI.enemyTeam = enemyTeam.map(u => u.clone());
-    UI.currentResult = null; UI.round = 0;
+    snapshot.ally = allyTeam.map(u => Object.freeze(u.clone()));
+    snapshot.enemy = enemyTeam.map(u => Object.freeze(u.clone()));
+    UI.allyTeam = allyTeam.map(u => u.clone());
+    UI.enemyTeam = enemyTeam.map(u => u.clone());
+    UI.currentResult = null;
+    UI.round = 0;
     window._battleHasZhang = allyTeam.some(u => u.isZhang);
     window._lastBattleSeed = Date.now();
     let stageText = currentStage === 1 ? '第一关' : `第${currentStage}关`;
@@ -222,6 +301,7 @@ export function showBuffSelection(callback, activeBuffs, selectedBuffIndex, upda
         callback();
     }, true, false);
 }
+
 // ==================== Buff 槽 ====================
 export function updateBuffSlots(activeBuffs, selectedBuffIndex) {
     for (let i = 0; i < 2; i++) {

@@ -1,6 +1,6 @@
 // fx/15fx-common-5v5-test.js - 光明顶5v5 基础特效池
-// V4.0.0 | ~11587 bytes | 2026-07-05
-export const VER = 'fx/15fx-common-5v5-test.js V4.0.0';
+// V5.0.1 | ~11587 bytes | 2026-07-05
+export const VER = 'fx/15fx-common-5v5-test.js V5.0.1';
 
 const POOL = {}; const POOL_SIZES = { danmaku: 8, dmgFloat: 6, dodge: 4, healFloat: 4, buffBanner: 2 };
 function initPool(type, createFn) { if (!POOL[type]) { POOL[type] = { available: [], active: [] }; for (let i = 0; i < POOL_SIZES[type]; i++) { let el = createFn(); el.style.display = 'none'; document.body.appendChild(el); POOL[type].available.push(el); } } }
@@ -31,19 +31,19 @@ function acquireFromPool(type, setupFn, duration) {
 }
 function releaseToPool(type, el) { if (!POOL[type]) return; let pool = POOL[type], idx = pool.active.indexOf(el); if (idx >= 0) { pool.active.splice(idx, 1); el.style.display = 'none'; el._timeoutId = null; pool.available.push(el); } }
 
-function createDanmakuEl() { let b = document.createElement('div'); b.className = 'danmaku-bubble'; return b; }
+function createDanmakuEl() { let b = document.createElement('div'); b.className = 'danmaku-bubble'; b.setAttribute('data-fx', 'temporary'); return b; }
 initPool('danmaku', createDanmakuEl);
 export function showDanmaku(unit, text) { let gridId = unit.camp === 'ally' ? 'allyGrid' : 'enemyGrid', grid = document.getElementById(gridId), cells = grid.children; let displayOrder = unit.camp === 'enemy' ? [7,8,9,4,5,6,1,2,3] : [1,2,3,4,5,6,7,8,9], idx = displayOrder.indexOf(unit.pos); if (idx >= 0 && cells[idx]) { let rect = cells[idx].getBoundingClientRect(); acquireFromPool('danmaku', (bubble) => { bubble.textContent = text; bubble.className = 'danmaku-bubble'; bubble.classList.add(unit.camp==='ally'?'ally':'enemy'); bubble.style.left=(rect.left-4)+'px'; bubble.style.top=(rect.top+rect.height*0.35)+'px'; bubble.style.transform='translate(-100%, -50%)'; }, 3500); } }
 
-function createDmgFloatEl() { let d = document.createElement('div'); d.className = 'dmg-float'; return d; }
+function createDmgFloatEl() { let d = document.createElement('div'); d.className = 'dmg-float'; d.setAttribute('data-fx', 'temporary'); return d; }
 initPool('dmgFloat', createDmgFloatEl);
 export function showDamageFloat(unit, dmg) { let gridId = unit.camp === 'ally' ? 'allyGrid' : 'enemyGrid', grid = document.getElementById(gridId), cells = grid.children; let displayOrder = unit.camp === 'enemy' ? [7,8,9,4,5,6,1,2,3] : [1,2,3,4,5,6,7,8,9], idx = displayOrder.indexOf(unit.pos); if (idx >= 0 && cells[idx]) { let rect = cells[idx].getBoundingClientRect(); acquireFromPool('dmgFloat', (dmgEl) => { dmgEl.textContent = '-'+dmg; dmgEl.style.right=(window.innerWidth-rect.right+4)+'px'; dmgEl.style.top=(rect.top-4)+'px'; }, 1400); } }
 
-function createDodgeBubbleEl() { let b = document.createElement('div'); b.className = 'dodge-bubble'; return b; }
+function createDodgeBubbleEl() { let b = document.createElement('div'); b.className = 'dodge-bubble'; b.setAttribute('data-fx', 'temporary'); return b; }
 initPool('dodge', createDodgeBubbleEl);
 export function showDodgeBubble(unit, text) { let gridId = unit.camp === 'ally' ? 'allyGrid' : 'enemyGrid', grid = document.getElementById(gridId), cells = grid.children; let displayOrder = unit.camp === 'enemy' ? [7,8,9,4,5,6,1,2,3] : [1,2,3,4,5,6,7,8,9], idx = displayOrder.indexOf(unit.pos); if (idx >= 0 && cells[idx]) { let rect = cells[idx].getBoundingClientRect(); acquireFromPool('dodge', (bubble) => { bubble.textContent=text; bubble.style.left=(rect.left+rect.width/2)+'px'; bubble.style.top=(rect.top-8)+'px'; }, 1600); } }
 
-function createHealFloatEl() { let d = document.createElement('div'); d.className = 'heal-float'; return d; }
+function createHealFloatEl() { let d = document.createElement('div'); d.className = 'heal-float'; d.setAttribute('data-fx', 'temporary'); return d; }
 initPool('healFloat', createHealFloatEl);
 export function showHealFloat(unit, heal) { let gridId = unit.camp === 'ally' ? 'allyGrid' : 'enemyGrid', grid = document.getElementById(gridId), cells = grid.children; let displayOrder = unit.camp === 'enemy' ? [7,8,9,4,5,6,1,2,3] : [1,2,3,4,5,6,7,8,9], idx = displayOrder.indexOf(unit.pos); if (idx >= 0 && cells[idx]) { let rect = cells[idx].getBoundingClientRect(); acquireFromPool('healFloat', (healEl) => { healEl.textContent = '+' + heal; // 定位到格子外面左上角：右锚定到格子左边缘-4，让文字向左生长；顶部高于格子4px
             healEl.style.right = (window.innerWidth - rect.left + 4) + 'px'; healEl.style.left = 'auto'; healEl.style.top = (rect.top - 6) + 'px'; }, 1400); } }
@@ -158,6 +158,7 @@ export function showComicBubble(text, x, y, className) {
     bubble.style.boxShadow = '0 4px 15px rgba(0,0,0,0.3)';
     bubble.style.pointerEvents = 'none'; bubble.style.whiteSpace = 'nowrap';
     bubble.style.animation = 'bubbleIn 0.3s ease-out';
+    bubble.setAttribute('data-fx', 'temporary');
     document.body.appendChild(bubble);
     setTimeout(() => {
         bubble.style.transition = 'opacity 0.3s'; bubble.style.opacity = '0';
@@ -178,6 +179,7 @@ export function showHeartEffect(unit) {
 
     let heart = document.createElement('div');
     // 去掉了 newlywed-heart 类名，防止被其他 CSS 覆盖
+    heart.setAttribute('data-fx', 'temporary');
     heart.innerHTML = '💖';
     // 提高了 z-index 到 9999，并给父级 grid 加了相对定位保证
     grid.style.position = 'relative'; 
@@ -198,6 +200,7 @@ export function showPinkFlash(unit) {
     if (!grid) return;
     let flash = document.createElement('div');
     flash.className = 'pink-flash';
+    flash.setAttribute('data-fx', 'temporary');
     flash.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;background:rgba(255, 105, 180, 0.4);z-index:9;pointer-events:none;opacity:0;';
     grid.appendChild(flash);
     let blinks = 0;

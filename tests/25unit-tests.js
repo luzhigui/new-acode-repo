@@ -1,6 +1,6 @@
 // tests/25unit-tests.js - 光明顶5v5 单元测试
-// V4.0.0 | ~7907 bytes | 2026-07-05
-export const VER = 'tests/25unit-tests.js V4.0.0';
+// V5.0.1 | ~7907 bytes | 2026-07-05
+export const VER = 'tests/25unit-tests.js V5.0.1';
 
 import { calcDamage, getFronts, isBlocked, getFlyDodgeRate, getUnitRow, getUnitCol, getAdjacentPositions } from '../core/03battle-utils.js';
 import { computeBuffStats } from '../core/04buff-system.js';

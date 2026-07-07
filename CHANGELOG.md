@@ -1,5 +1,11 @@
 # 光明顶 5v5 - 更改履历
 
+## V5.0.1 — 2026-07-07
+- **版本号统一**：全部代码文件版本号统一为 V5.0.1（详见版本清单）
+- **文件复制器优化**：按主题分批发送（核心战斗 → 播放器 → UI → ...），每包前后添加分析提示词
+- **文件列表同步**：移除6个不存在文件（00-*前缀），补充6个新增UI文件（39-44）
+- **函数替换器同步**：TARGET_FILES 补充 42audio-control/43fx-trigger/44ui-controls
+
 ## V4.1.2 — 2026-07-06
 - **九阴白骨爪重写**（`modules/23elite-skills.js`）：伤害改为「已损失生命 × 5%（张无忌在场时 8%）」+ 首次必触发、后续 88% 概率 + 连锁触发自己（chainProcChance 88%，最多 3 次）+ 血量 ≤10% 直接斩杀；日志加 `isClawHit` 标记供播放器触发特效
 - **配置重写**（`core/01config-5v5-test.js`）：`nineYinClaw` 新增 `firstProcChance/procChance/chainProcChance/maxChain/lostHpRatio/jealousLostHpRatio/executeThreshold`，废弃 `bonusRatio/jealousBonus`

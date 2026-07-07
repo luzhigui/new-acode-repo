@@ -1,5 +1,5 @@
 // tools/32-toolkit.js - 光明顶5v5 开发工具箱（文件复制器 / 拆分自原 32-toolkit.js）
-// V4.0.0 | ~25371 bytes | 2026-07-05
+// V5.0.1 | ~25371 bytes | 2026-07-05
 
 /* ========== 标签页切换 ========== */
 document.querySelectorAll('.tab-btn').forEach(btn => {
@@ -19,39 +19,40 @@ function escapeHtml(text) {
 
 /* ========== 文件复制器 ========== */
 (function() {
-    // 项目全部文件列表（用于路径清单，更新为 43 个文件）
-    const ALL_PROJECT_FILES = [
-        // core
-        '../core/01config-5v5-test.js', '../core/02unit.js', '../core/03battle-utils.js',
-        '../core/04buff-system.js', '../core/05battle-horse.js', '../core/06battle-engine-core.js',
-        '../core/07battle-engine-5v5-test.js',
-        // player
-        '../player/08player-text.js', '../player/09player-buff-ui.js', '../player/10player-core.js',
-        '../player/11battle-player-5v5-test.js',
-        // ui
-        '../ui/12main-utils.js', '../ui/13main-5v5-test.js', '../ui/14ui-render-5v5-test.js',
-        '../ui/39main-state.js', '../ui/40main-dialogs.js', '../ui/41main-battle.js',
-        // fx
-        '../fx/15fx-common-5v5-test.js', '../fx/16fx-arrows-5v5-test.js', '../fx/17fx-crash-5v5-test.js',
-        '../fx/18fx-position-swap.js', '../fx/19fx-push-back.js', '../fx/20fx-dodge-bullet.js',
-        '../fx/21fx-blood-slash.js', '../fx/22fx-fortify-counter.js',
-        // modules
-        '../modules/23elite-skills.js', '../modules/24error-capture.js', '../modules/28audio-manager.js',
-        // tests
-        '../tests/25unit-tests.js', '../tests/29health-rules.js',
-        '../tests/35quiz-bank.js', '../tests/36runtime-sampler.js', '../tests/37health-core.js',
-        '../tests/38health-ui.js', '../tests/30test-runner.html',
-        // tools
-        '../tools/31-toolkit.html', '../tools/32-toolkit.js', '../tools/33-toolkit-more.js',
-        '../tools/27auto-battle-utils.js', '../tools/00build-5v5.cjs',
-        // assets
-        '../assets/sfx_arrow.mp3', '../assets/sfx_fly.mp3',
-        '../assets/sfx_melee.mp3', '../assets/sfx_xinai.mp3',
-        // 根目录
-        '../00index.html', '../mode-5v5-test.html',
-        '../README.md', '../CHANGELOG.md', '../kaifazhunze.md', '../Test Runnerlogo.md',
-        '../game-design.md'
-    ];
+    // 项目全部文件列表（用于路径清单）
+	    const ALL_PROJECT_FILES = [
+		        // core（核心战斗引擎）
+		        '../core/01config-5v5-test.js', '../core/02unit.js',
+		        '../core/03battle-utils.js', '../core/04buff-system.js', '../core/05battle-horse.js',
+		        '../core/06battle-engine-core.js', '../core/07battle-engine-5v5-test.js',
+		        // player（播放器）
+		        '../player/08player-text.js', '../player/09player-buff-ui.js', '../player/10player-core.js',
+		        '../player/11battle-player-5v5-test.js',
+		        // ui（UI 主控）
+		        '../ui/12main-utils.js', '../ui/13main-5v5-test.js', '../ui/14ui-render-5v5-test.js',
+		        '../ui/39main-state.js', '../ui/40main-dialogs.js', '../ui/41main-battle.js',
+		        '../ui/42audio-control.js', '../ui/43fx-trigger.js', '../ui/44ui-controls.js',
+	        // fx（特效）
+	        '../fx/15fx-common-5v5-test.js', '../fx/16fx-arrows-5v5-test.js', '../fx/17fx-crash-5v5-test.js',
+	        '../fx/18fx-position-swap.js', '../fx/19fx-push-back.js', '../fx/20fx-dodge-bullet.js',
+	        '../fx/21fx-blood-slash.js', '../fx/22fx-fortify-counter.js',
+	        // modules（模块）
+	        '../modules/23elite-skills.js', '../modules/24error-capture.js', '../modules/28audio-manager.js',
+	        // tests（测试与体检）
+	        '../tests/25unit-tests.js', '../tests/29health-rules.js',
+	        '../tests/35quiz-bank.js', '../tests/36runtime-sampler.js', '../tests/37health-core.js',
+	        '../tests/38health-ui.js', '../tests/30test-runner.html',
+	        // tools（工具箱）
+	        '../tools/31-toolkit.html', '../tools/32-toolkit.js', '../tools/33-toolkit-more.js',
+	        '../tools/27auto-battle-utils.js', '../tools/00build-5v5.cjs',
+	        // assets（音频）
+	        '../assets/sfx_arrow.mp3', '../assets/sfx_fly.mp3',
+	        '../assets/sfx_melee.mp3', '../assets/sfx_xinai.mp3',
+	        // 根目录
+	        '../00index.html', '../mode-5v5-test.html',
+	        '../README.md', '../CHANGELOG.md', '../kaifazhunze.md', '../Test Runnerlogo.md',
+	        '../game-design.md'
+	    ];
 
     // 用户可勾选的文件列表（不含 assets/ 和 .md 等不可 fetch 的文件）
     const FILES = ALL_PROJECT_FILES.filter(f => f.endsWith('.js') || f.endsWith('.html') || f.endsWith('.cjs') || f.endsWith('.md'));
@@ -241,54 +242,70 @@ function escapeHtml(text) {
             }
         }
 
-        // 打包策略：尽量不切割，超出软上限就整个包一起超，超大文件单独成包
+        // ===== 按主题分组打包 =====
         const batches = [];
-        // 先把读取失败的文件单独成包
         const errors = fileData.filter(f => f.error);
         const okFiles = fileData.filter(f => !f.error);
 
         errors.forEach(f => {
-            batches.push({ files: [f], totalChars: 0, hasFailures: true });
+            batches.push({ files: [f], totalChars: 0, hasFailures: true, groupName: '读取失败' });
         });
 
-        // 按大小排序：大的在前，优先放入
-        const sorted = [...okFiles].sort((a, b) => b.charCount - a.charCount);
-        const used = new Set();
-
-        for (const big of sorted) {
-            if (used.has(big.fileName)) continue;
-
-            // 超大文件：单独成包，不切割
-            if (big.charCount > HUGE_THRESHOLD) {
-                batches.push({ files: [big], totalChars: big.charCount, hasFailures: false });
-                used.add(big.fileName);
-                continue;
-            }
-
-            // 以当前文件为起点，尽量塞入更多小文件
-            const pack = { files: [big], totalChars: big.charCount, hasFailures: false };
-            used.add(big.fileName);
-
-            // 从小到大尝试塞入剩余文件
-            const remaining = sorted.filter(f => !used.has(f.fileName)).sort((a, b) => a.charCount - b.charCount);
-            for (const small of remaining) {
-                if (pack.totalChars + small.charCount <= HARD_LIMIT) {
-                    pack.files.push(small);
-                    pack.totalChars += small.charCount;
-                    used.add(small.fileName);
-                } else if (pack.totalChars < SOFT_LIMIT && pack.totalChars + small.charCount <= HUGE_THRESHOLD) {
-                    // 还没到软上限时，允许适度溢出
-                    pack.files.push(small);
-                    pack.totalChars += small.charCount;
-                    used.add(small.fileName);
+        // 将文件按 FILE_GROUPS 归类
+        const filesByGroup = {};
+        for (const g of FILE_GROUPS) {
+            filesByGroup[g.name] = { displayName: g.displayName, files: [] };
+        }
+        for (const f of okFiles) {
+            let matched = false;
+            for (const g of FILE_GROUPS) {
+                if (g.prefix && f.fileName.startsWith(g.prefix)) {
+                    filesByGroup[g.name].files.push(f);
+                    matched = true;
+                    break;
                 }
-                // 到了硬上限就不再塞了
-                if (pack.totalChars >= HARD_LIMIT) break;
             }
-            batches.push(pack);
+            if (!matched) {
+                filesByGroup['root'].files.push(f);
+            }
         }
 
-        // 合并孤立的极小尾包到前一个包
+        // 逐组打包（按 FILE_GROUPS 顺序：core → player → ui → fx → modules → tests → tools → root）
+        for (const g of FILE_GROUPS) {
+            const group = filesByGroup[g.name];
+            if (!group || group.files.length === 0) continue;
+
+            const groupFiles = group.files;
+            const sorted = [...groupFiles].sort((a, b) => b.charCount - a.charCount);
+            const used = new Set();
+
+            for (const big of sorted) {
+                if (used.has(big.fileName)) continue;
+                if (big.charCount > HUGE_THRESHOLD) {
+                    batches.push({ files: [big], totalChars: big.charCount, hasFailures: false, groupName: group.displayName });
+                    used.add(big.fileName);
+                    continue;
+                }
+                const pack = { files: [big], totalChars: big.charCount, hasFailures: false, groupName: group.displayName };
+                used.add(big.fileName);
+                const remaining = sorted.filter(f => !used.has(f.fileName)).sort((a, b) => a.charCount - b.charCount);
+                for (const small of remaining) {
+                    if (pack.totalChars + small.charCount <= HARD_LIMIT) {
+                        pack.files.push(small);
+                        pack.totalChars += small.charCount;
+                        used.add(small.fileName);
+                    } else if (pack.totalChars < SOFT_LIMIT && pack.totalChars + small.charCount <= HUGE_THRESHOLD) {
+                        pack.files.push(small);
+                        pack.totalChars += small.charCount;
+                        used.add(small.fileName);
+                    }
+                    if (pack.totalChars >= HARD_LIMIT) break;
+                }
+                batches.push(pack);
+            }
+        }
+
+        // 合并组内孤立小块（只合并同组、大小相近的）
         const mergedBatches = [];
         for (const batch of batches) {
             if (batch.hasFailures) {
@@ -297,7 +314,7 @@ function escapeHtml(text) {
             }
             if (batch.totalChars < 8000 && mergedBatches.length > 0) {
                 const prev = mergedBatches[mergedBatches.length - 1];
-                if (!prev.hasFailures && prev.totalChars + batch.totalChars <= HARD_LIMIT) {
+                if (!prev.hasFailures && prev.groupName === batch.groupName && prev.totalChars + batch.totalChars <= HARD_LIMIT) {
                     prev.files.push(...batch.files);
                     prev.totalChars += batch.totalChars;
                     continue;
@@ -363,9 +380,89 @@ function escapeHtml(text) {
             }
         }
 
+        // 主题分析提示词
+        const GROUP_PROMPTS = {
+            '战斗引擎核心': {
+                before: '请深入分析以下核心战斗引擎代码，重点关注：\n' +
+                    '1. 伤害计算公式（攻击力、防御力、Buff加成、随机波动）\n' +
+                    '2. Buff系统（召唤、销毁、吸血、击退、换位、反弹）\n' +
+                    '3. 闪避机制（普通闪避、Buff闪避、闪避反击）\n' +
+                    '4. 事件总线（事件类型、触发时机、状态同步）\n' +
+                    '5. 特殊角色逻辑（张无忌切换、周芷若白骨爪、韦一笑吸血等）\n' +
+                    '6. 拒马、海克斯等特殊机制',
+                after: '核心战斗引擎代码发送完毕。请确认已理解上述要点，准备分析播放器。'
+            },
+            '播放器': {
+                before: '请深入分析以下播放器代码，重点关注：\n' +
+                    '1. 如何将战斗事件转为UI动画（攻击、防御、闪避、死亡）\n' +
+                    '2. 状态同步机制（引擎状态 → UI状态）\n' +
+                    '3. 动画调度（AnimationScheduler、ActionWaiter、帧循环）\n' +
+                    '4. 文字播放（逐字输出、日志滚动）\n' +
+                    '5. 暂停/恢复/加速对播放器的影响',
+                after: '播放器代码发送完毕。请确认已理解事件→动画的转换流程。'
+            },
+            'UI 主控': {
+                before: '请深入分析以下UI渲染代码，重点关注：\n' +
+                    '1. 血条渲染（高度、颜色、百分比计算）\n' +
+                    '2. 攻防显示（基础值、Buff加成、公式）\n' +
+                    '3. 战斗状态UI（暂停、速度、回合数）\n' +
+                    '4. 弹窗与对话框（Buff选择、投票、游戏结束）',
+                after: 'UI渲染代码发送完毕。请确认已理解血条和状态显示逻辑。'
+            },
+            '特效': {
+                before: '请分析以下特效代码，重点关注：\n' +
+                    '1. 伤害飘字、治疗飘字、闪避气泡\n' +
+                    '2. 弹幕、横幅（Buff触发、暴击、闪避反击）\n' +
+                    '3. 飞箭、冲撞、换位、击退动画\n' +
+                    '4. 闪避子弹时间、血斩、反击特效',
+                after: '特效代码发送完毕。请确认已理解各类视觉效果的触发和播放。'
+            },
+            '模块': {
+                before: '请分析以下模块代码，重点关注：\n' +
+                    '1. 精英技能（玄冥神掌、新婚、快乐、性奋等）\n' +
+                    '2. 错误捕获（全局错误处理、日志收集）\n' +
+                    '3. 音频管理（音效播放、音量控制）',
+                after: '模块代码发送完毕。'
+            },
+            '测试与体检': {
+                before: '请分析以下测试与体检代码，重点关注：\n' +
+                    '1. 健康检查规则（启动检查、运行时检查）\n' +
+                    '2. 单元测试（引擎函数、边界情况）\n' +
+                    '3. 运行时采样（性能监控）\n' +
+                    '4. 题库系统',
+                after: '测试代码发送完毕。'
+            },
+            '工具箱自身': {
+                before: '请分析以下工具箱代码，重点关注：\n' +
+                    '1. 自动批量战斗（自动跑N轮、统计结果）\n' +
+                    '2. 构建脚本（打包、合并）\n' +
+                    '3. 工具箱UI（文件复制器、函数替换器、防战计算器）',
+                after: '工具箱代码发送完毕。'
+            },
+            '根目录页面': {
+                before: '请分析以下入口页面和文档，重点关注：\n' +
+                    '1. index.html（开发集成入口）\n' +
+                    '2. mode-5v5-test.html（主游戏页面）\n' +
+                    '3. 项目文档（README、CHANGELOG、开发协同标准、游戏设计）',
+                after: '入口页面和文档发送完毕。'
+            }
+        };
+
+        // 预计算：每组有多少个包
+        const groupBatchCounts = {};
+        mergedBatches.forEach(b => {
+            const gn = b.groupName || '其他';
+            groupBatchCounts[gn] = (groupBatchCounts[gn] || 0) + 1;
+        });
+
+        let currentGroup = null, groupBatchIndex = 0, groupBatchTotal = 0;
+
         // 渲染
         batchesDiv.innerHTML = '';
         mergedBatches.forEach((batch, index) => {
+            const gn = batch.groupName || '其他';
+            if (gn !== currentGroup) { currentGroup = gn; groupBatchIndex = 0; groupBatchTotal = groupBatchCounts[gn] || 1; }
+            groupBatchIndex++;
             const card = document.createElement('div');
             card.className = 'batch-card';
             if (batch.hasFailures) card.classList.add('read-fail');
@@ -381,7 +478,8 @@ function escapeHtml(text) {
             });
             const partLabel = batch.isSplit ? '（文件分片）' : '';
             const failLabel = batch.hasFailures ? ' ⚠️ 含读取失败' : '';
-            const manifest = `📦 复制包 #${index + 1}${partLabel}${failLabel}（共 ${batch.files.length} 个文件，合计 ${batch.totalChars} 字符）\n${manifestLines.join('\n')}`;
+            const groupLabel = gn && gn !== '读取失败' ? `【${gn}】` : '';
+            const manifest = `📦 ${groupLabel} 包 ${groupBatchIndex}/${groupBatchTotal}${partLabel}${failLabel}（共 ${batch.files.length} 个文件，合计 ${batch.totalChars} 字符）\n${manifestLines.join('\n')}`;
 
             const fullCode = batch.files.map(f => {
                 const fn = f.fileName || '';
@@ -393,13 +491,18 @@ function escapeHtml(text) {
             }).join('\n\n');
 
             const totalBytes = new Blob([fullCode]).size;
-            const header = `（⚠️ 包 ${index + 1}/${mergedBatches.length} 开始，本包共 ${totalBytes} 字节。请回复"收到，第 ${index + 1} 包"。）\n\n`;
-            const footer = `\n\n（⚠️ 包 ${index + 1}/${mergedBatches.length} 结束，请回复“收到，第 ${index + 1} 包”。）`;
-            const fullPayload = header + manifest + '\n\n--- 代码开始 ---\n\n' + fullCode + footer;
+            const prompts = GROUP_PROMPTS[gn] || { before: '', after: '' };
+            const beforePrompt = groupBatchIndex === 1 && prompts.before
+                ? `（⚠️ ${gn} 开始，共 ${groupBatchTotal} 包。\n${prompts.before}）\n\n`
+                : `（⚠️ ${gn} 包 ${groupBatchIndex}/${groupBatchTotal} 开始，本包共 ${totalBytes} 字节。请回复"收到，${gn} 包 ${groupBatchIndex}"。）\n\n`;
+            const afterPrompt = groupBatchIndex === groupBatchTotal && prompts.after
+                ? `\n\n（⚠️ ${gn} 包 ${groupBatchIndex}/${groupBatchTotal} 结束。${prompts.after}）`
+                : `\n\n（⚠️ ${gn} 包 ${groupBatchIndex}/${groupBatchTotal} 结束，请回复"收到，${gn} 包 ${groupBatchIndex} 已完成"。）`;
+            const fullPayload = beforePrompt + manifest + '\n\n--- 代码开始 ---\n\n' + fullCode + afterPrompt;
 
             card.innerHTML = `
                 <div class="batch-header">
-                    <span>📦 复制包 #${index + 1}${partLabel}${failLabel}（${batch.files.length} 文件 / ${batch.totalChars} 字符）</span>
+                    <span>📦 ${groupLabel} 包 ${groupBatchIndex}/${groupBatchTotal}${partLabel}${failLabel}（${batch.files.length} 文件 / ${batch.totalChars} 字符）</span>
                     <div class="header-btns">
                         <button class="download-batch-btn">📥 下载</button>
                         <button class="copy-batch-btn">📋 复制</button>
@@ -417,7 +520,7 @@ function escapeHtml(text) {
                     copyBtn.textContent = '已复制 ✓';
                     copyBtn.classList.add('copied');
                     card.classList.add('copied');
-                    statusDiv.textContent = `✅ 已复制包 #${index + 1}`;
+                    statusDiv.textContent = `✅ 已复制 ${gn} 包 ${groupBatchIndex}`;
                 } catch (e) {
                     statusDiv.textContent = '❌ 复制失败，请重试';
                 }
@@ -438,7 +541,7 @@ function escapeHtml(text) {
             batchesDiv.appendChild(card);
         });
 
-        statusDiv.textContent = `✅ 已生成 ${mergedBatches.length} 个复制包`;
+        statusDiv.textContent = `✅ 已生成 ${mergedBatches.length} 个复制包（按主题分组）`;
         document.getElementById('fcBtnAutoSend').style.display = 'inline-block';
     });
 

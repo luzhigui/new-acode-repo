@@ -1,6 +1,6 @@
 // tests/38health-ui.js - 光明顶5v5 体检UI交互
-// V4.0.0 | ~11598 bytes | 2026-07-05
-export const VER = 'tests/38health-ui.js V4.0.0';
+// V5.0.1 | ~11598 bytes | 2026-07-05
+export const VER = 'tests/38health-ui.js V5.0.1';
 
 import { runHealthCheck } from './37health-core.js';
 import { loadQuizBank, saveCustomQuiz } from './35quiz-bank.js';
