@@ -421,7 +421,11 @@ export async function playLogEntries(c, log, roundResult, isFirstAttackRef) {
                         let div=document.createElement('div');div.innerHTML=entry.text+'<br>';
                         document.getElementById('log').appendChild(div);c.autoScrollLog();
                         let healUnit = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.uid === entry.healUnitUid);
-                        if (healUnit && entry.healAmount) showHealFloat(healUnit, entry.healAmount);
+                        if (healUnit && entry.healAmount) {
+                            healUnit.hp = Math.min(healUnit.maxHp, healUnit.hp + entry.healAmount);
+                            showHealFloat(healUnit, entry.healAmount);
+                            c.store.dispatch({ type: 'SYNC_UNIT', uid: entry.healUnitUid, fields: { hp: healUnit.hp, maxHp: healUnit.maxHp } });
+                        }
                         if (entry.text.includes('翻倍')) {
                             c.isPaused = true; window.bulletTimeActive = true;
                             await showBuffBanner('❤️‍🔥 热血奋战(翻倍)！');

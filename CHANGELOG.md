@@ -8,9 +8,26 @@
 - **死人不再行动**（`core/06battle-engine-core.js`）：行动循环开头加 `if (!unit.alive) continue;`，防止队列构建后被白骨爪斩杀/玄冥毒/反击打死的单位继续行动
 - **拒马阵亡统一清理**（`core/06battle-engine-core.js`）：回合结束统一清理所有死拒马（含 destroyHorse 销毁的 + 被攻击致死的），emit unit-remove 并从 team 移除，避免堆积导致下回合 spawnHorse 同位、UI 残留
 - **热血奋战检查 alive/满血**（`core/04buff-system.js`）：加 `unit.alive` 和 `hp < maxHp` 检查，死人不回血、满血不推日志（计数仍累加以保证翻倍节奏）
+- **热血奋战 UI 血条同步**（`player/10player-core.js`）：hotBlood 分支补 `healUnit.hp` 更新与 `dispatch(SYNC_UNIT)`，修复飘数字但血条不动的 bug（DeepSeek 79b7bcc 丢失项补回）
 - **精英技能 logo**（`ui/14ui-render-5v5-test.js`）：cell-name 加 🐾 周芷若 / 💥 宋青书 精英技能图标
 - **白骨爪描述精简**（`ui/14ui-render-5v5-test.js`）：周芷若详情弹窗描述改为新机制一句话
 - **分隔符逻辑**：按用户要求本次未改动，单独讨论
+
+### V4.1.2 补记：DeepSeek 分支已重做覆盖的修复（历史履历同步）
+> 以下修复原本在 DeepSeek 分支（c1736a1 孤儿覆盖事件中被切断的另一条历史线），经逐一对比确认 main 上已有等价或更好实现，补记于此保持履历完整。
+- **carry 计算四处修复**（`core/06`、`core/05`）：删 `_baseMaxHp` 覆盖行修指数级叠加、spawnHorse 补 `_baseMaxHp` + carry 判断加 `!u.isHorse`、`allyTeamWithDead = A.slice()` 保留本回合毒死单位计死亡加成、删无忌豁免让其变身换后排按战士休息
+- **惑人心智死锁修复**（`player/10`）：`handleBuffSwap` 改为 `await showBuffBanner` + `await animatePositionSwap` 后直接解 isPaused，不依赖 scheduler，消除死锁
+- **战斗结束 mainCtx is not defined**（`player/10`）：循环外 `let mainCtx = window._getPlayerContext ? ...` 并带 null 保护
+- **站位预览与实际不一致**（`tools/33`）：先按 ELITE_POOL.pos 画精英、再画模板（跳过已占位），与 generateSnapshot 对齐
+- **闪避反击方向修正**（`core/06`）：resolveDodge 改为 `uidA:target.uid, uidD:unit.uid`，攻击者/防御者对调
+- **叛逆突袭伤害位置调整**（`core/06`）：`getRebelDmgBonus` 放到 processUnitAttack 作用域，避免重复计算
+- **emitEvent 事件系统**（`core/06`）：19 处调用 + helper + `group._events` 快照 + `_isAbsolute` 标记
+- **miss 后仍检查连击/性奋**（`core/06`）：miss 分支不再提前 return
+- **cloudBody 仅 ally**（`core/04`）：流云身法闪避只对己方生效
+- **张无忌近战第 2 次第二句台词**（`core/06`）：`nearAtkCount === 2` 触发
+- **删 07 冗余 window 挂载**（`core/07`）：33 个函数挂载移除，仅保留 `ALL_VERS` 版本串
+- **站位对齐 config + 一致性检测**（`tools/27`、`tools/33`）：精英读 config pos、跑 generateSnapshot 比对
+- **体检修复**（`tools/33`、`tests/`）：多回合状态对比、死亡标记、beforeAllies 时机、攻防公式
 
 ## V4.1.1 — 2026-07-06
 - **白骨爪利爪对敌人**（`fx/16fx-arrows-5v5-test.js`）：新增 `showBoneClaw`，SVG 三道弯曲细长爪痕，整体 `rotate(angle)` 让爪尖朝向目标；凝结（放大浮现）→ 飞行（飞箭速度，不再旋转）→ 命中触发受击反馈
