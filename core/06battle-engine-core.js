@@ -343,7 +343,7 @@ function processUnitAttack(unit, allySide, enemySide, log, A, B, state, doubleSt
         let heal = Math.floor(unit.maxHp * 0.05); 
         unit.hp = Math.min(unit.maxHp, unit.hp + heal); 
         unit.healDone += heal;
-        group.entries.push({type:'info', text:`<span class="green">☀️ 九阳神功回复${heal}，${hpBefore}→${Math.floor(unit.hp)}</span>`, isHealEntry:true});
+        group.entries.push({type:'info', text:`<span class="green">☀️ 九阳神功回复+${heal}，${hpBefore}→${Math.floor(unit.hp)}</span>`, isHealEntry:true, healAmount:heal, healUnitUid:unit.uid});
         emitEvent(unit, 'hp-change', { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: unit.atk, def: unit.def });
         if (!unit.rangedForm) {
             if (unit.nearAtkCount === 0 && !unit._zhangTauntDone) {

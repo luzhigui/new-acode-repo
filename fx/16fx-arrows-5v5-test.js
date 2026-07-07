@@ -165,11 +165,12 @@ export function showSplashArrows(attacker, primaryTarget, splashTargets, speed, 
 
 /**
  * 九阴白骨爪特效
- * 凝结利爪 → 朝目标飞行（不旋转，爪尖朝向敌人） → 命中缩小抖动
+ * 凝结🫳emoji → 朝目标飞行（旋转使指尖朝向敌人，手腕朝向周芷若） → 命中缩小抖动
  * 速度同飞箭，受击用通用 applyImpactShrink（黄色短闪）
  */
-export function showBoneClaw(unitA, unitD, speed, getPausedFn, onHit) {
+export function showBoneClaw(unitA, unitD, speed, getPausedFn, onHit, opts) {
     if (window._fastForwardActive) { if (onHit) onHit(); return; }
+    opts = opts || {};
     let gridAId = unitA.camp==='ally'?'allyGrid':'enemyGrid', gridDId = unitD.camp==='ally'?'allyGrid':'enemyGrid';
     let gridA = document.getElementById(gridAId), gridD = document.getElementById(gridDId);
     let orderA = unitA.camp==='enemy'?[7,8,9,4,5,6,1,2,3]:[1,2,3,4,5,6,7,8,9];
@@ -195,17 +196,18 @@ export function showBoneClaw(unitA, unitD, speed, getPausedFn, onHit) {
     claw.style.zIndex = '10001';
     claw.style.pointerEvents = 'none';
     claw.style.transformOrigin = 'center';
-    // 整体旋转一次让爪尖指向目标（飞行过程中不再旋转）
-    claw.style.transform = `translate(-50%,-50%) rotate(${angle}rad)`;
-    // SVG 四道弯曲细长爪痕（像鹰爪）：手腕在左（汇聚），指尖在右（散开，朝目标）
-    // 旋转后：右侧朝目标=指尖对敌人，左侧=手腕对周芷若
-    claw.innerHTML = `<svg width="44" height="44" viewBox="0 0 44 44" xmlns="http://www.w3.org/2000/svg">
-        <path d="M 12 30 Q 24 22 38 16" stroke="#f0f0ff" stroke-width="2.6" fill="none" stroke-linecap="round"/>
-        <path d="M 16 32 Q 26 18 34 10" stroke="#ffffff" stroke-width="2.8" fill="none" stroke-linecap="round"/>
-        <path d="M 14 34 Q 20 18 26 6" stroke="#f0f0ff" stroke-width="2.6" fill="none" stroke-linecap="round"/>
-        <path d="M 12 34 Q 14 22 16 10" stroke="#e8e8ff" stroke-width="2.4" fill="none" stroke-linecap="round"/>
-    </svg>`;
-    claw.style.filter = 'drop-shadow(0 0 4px rgba(180,200,255,0.7))';
+    // 整体旋转一次让指尖指向目标（飞行过程中不再旋转）
+    // 🫳 emoji 默认手掌朝下、指尖朝下；为了让指尖朝目标，需旋转 angle+90°
+    // 这样：emoji 上方=手腕朝周芷若（起点），下方=指尖朝目标（飞行方向）
+    let clawRotation = angle + Math.PI / 2;
+    claw.style.transform = `translate(-50%,-50%) rotate(${clawRotation}rad)`;
+    // 🫳 emoji + 浅色滤镜（emoji 颜色偏黄，加亮 + 偏白滤镜让其更像白骨爪）
+    claw.style.fontSize = '40px';
+    claw.style.lineHeight = '1';
+    claw.style.textAlign = 'center';
+    claw.style.color = '#ffffff';
+    claw.style.filter = 'drop-shadow(0 0 4px rgba(220,220,255,0.9)) brightness(1.6) saturate(0.6) hue-rotate(20deg)';
+    claw.textContent = '🫳';
     document.body.appendChild(claw);
 
     // 凝结阶段：放大浮现
@@ -215,14 +217,14 @@ export function showBoneClaw(unitA, unitD, speed, getPausedFn, onHit) {
         if (!startCharge) startCharge = ts;
         let p = Math.min(1, (ts - startCharge) / chargeTime);
         let scale = 0.4 + 0.6 * p;
-        claw.style.transform = `translate(-50%,-50%) rotate(${angle}rad) scale(${scale})`;
+        claw.style.transform = `translate(-50%,-50%) rotate(${clawRotation}rad) scale(${scale})`;
         claw.style.opacity = 0.5 + 0.5 * p;
         if (p < 1) { requestAnimationFrame(phaseCharge); }
         else { phaseFly(0); }
     }
     requestAnimationFrame(phaseCharge);
 
-    // 飞行阶段：从攻击者位置飞向目标，不旋转（保持爪尖朝向目标）
+    // 飞行阶段：从攻击者位置飞向目标，不旋转（保持指尖朝向目标）
     function phaseFly(ts) {
         if (!ts) { requestAnimationFrame(phaseFly); return; }
         if (getPausedFn && getPausedFn()) { requestAnimationFrame(phaseFly); return; }
@@ -234,12 +236,79 @@ export function showBoneClaw(unitA, unitD, speed, getPausedFn, onHit) {
         claw.style.top = cy + 'px';
         if (p < 1) { requestAnimationFrame(phaseFly); }
         else {
-            // 命中：受击反馈 + 伤害数字
+            // 命中：受击反馈
             let defCell = gridD.children[idxD];
             if (defCell) { applyImpactShrink(defCell, 250, getPausedFn); }
             if (onHit) onHit();
-            // 短暂停留后移除爪
-            setTimeout(() => { if (claw.parentNode) claw.remove(); }, pauseAfterHit);
+            if (opts.isExecute) {
+                // 斩杀特效：飞爪在格子上凝滞放大，对方格子原地大幅颤动后红色碎开消失
+                claw.style.transition = 'transform 0.4s ease-out, opacity 0.4s';
+                claw.style.transform = `translate(-50%,-50%) rotate(${clawRotation}rad) scale(2.2)`;
+                claw.style.opacity = '1';
+                setTimeout(() => {
+                    claw.style.transition = 'opacity 0.3s';
+                    claw.style.opacity = '0';
+                    setTimeout(() => { if (claw.parentNode) claw.remove(); }, 300);
+                }, 500);
+                // 格子大幅颤动
+                if (defCell) {
+                    let shakeStart = null;
+                    const shakeDur = 600;
+                    const origTransform = defCell.style.transform || '';
+                    function shakeFn(ts2) {
+                        if (!shakeStart) shakeStart = ts2;
+                        let elapsed = ts2 - shakeStart;
+                        if (elapsed >= shakeDur) {
+                            defCell.style.transform = origTransform;
+                            // 红色碎开消失
+                            triggerExecuteShatter(defCell);
+                            return;
+                        }
+                        let prog = elapsed / shakeDur;
+                        let amp = 8 * (1 - prog);
+                        defCell.style.transform = `translate(${(Math.random()-0.5)*amp*2}px, ${(Math.random()-0.5)*amp*2}px)`;
+                        requestAnimationFrame(shakeFn);
+                    }
+                    requestAnimationFrame(shakeFn);
+                }
+            } else {
+                // 短暂停留后移除爪
+                setTimeout(() => { if (claw.parentNode) claw.remove(); }, pauseAfterHit);
+            }
         }
     }
+}
+
+// 斩杀特效：格子红色闪光后碎开消失
+function triggerExecuteShatter(defCell) {
+    if (!defCell) return;
+    let rect = defCell.getBoundingClientRect();
+    // 红色覆盖层
+    let redFlash = document.createElement('div');
+    redFlash.style.cssText = `position:fixed;left:${rect.left}px;top:${rect.top}px;width:${rect.width}px;height:${rect.height}px;background:radial-gradient(circle, rgba(255,30,30,0.95), rgba(180,0,0,0.6));z-index:9998;pointer-events:none;opacity:0.95;border-radius:4px;`;
+    document.body.appendChild(redFlash);
+    // 碎片粒子（从格子中心向四周爆开）
+    let cx = rect.left + rect.width / 2, cy = rect.top + rect.height / 2;
+    let shards = [];
+    for (let i = 0; i < 14; i++) {
+        let shard = document.createElement('div');
+        let angle = (i / 14) * Math.PI * 2;
+        let dist = 40 + Math.random() * 60;
+        shard.style.cssText = `position:fixed;left:${cx}px;top:${cy}px;width:8px;height:8px;background:#ff3030;z-index:9999;pointer-events:none;border-radius:1px;box-shadow:0 0 8px rgba(255,0,0,0.8);transition:transform 0.7s ease-out, opacity 0.7s;`;
+        document.body.appendChild(shard);
+        requestAnimationFrame(() => {
+            shard.style.transform = `translate(${Math.cos(angle)*dist}px, ${Math.sin(angle)*dist}px) rotate(${Math.random()*360}deg) scale(0.2)`;
+            shard.style.opacity = '0';
+        });
+        shards.push(shard);
+    }
+    // 红色闪光淡出
+    setTimeout(() => {
+        redFlash.style.transition = 'opacity 0.4s';
+        redFlash.style.opacity = '0';
+    }, 300);
+    setTimeout(() => {
+        if (redFlash.parentNode) redFlash.remove();
+        shards.forEach(s => { if (s.parentNode) s.remove(); });
+    }, 1000);
 }

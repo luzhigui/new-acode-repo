@@ -18,17 +18,19 @@ export function checkExtinctionCounter(defender, dmg) {
 }
 
 /**
- * 周芷若 - 九阴白骨爪：按已损失生命追击 + 连锁触发自己 + 低血斩杀
- * 嫉妒：张无忌在场时比例由 5% → 8%
+ * 周芷若 - 九阴白骨爪：基础伤害 + 已损失生命追击 + 连锁触发自己 + 低血斩杀
+ * 嫉妒：张无忌在场时基础伤害与比例提升
+ * 斩杀：本次伤害打完后若剩余血量 ≤ 15% 直接斩杀（带走剩余血量）
  */
 export function checkNineYinClaw(attacker, target, baseDmg, log) {
     if (attacker.name !== '周芷若') return 0;
     if (!target || !target.alive) return 0;
     const s = ES.nineYinClaw;
 
-    // 嫉妒联动：张无忌在场 → 8%，否则 5%
+    // 嫉妒联动：张无忌在场 → 基础5+3%，否则 基础3+2%
     const zhangAlive = window._currentBattleState && window._currentBattleState.ally &&
         window._currentBattleState.ally.some(u => u.isZhang && u.alive);
+    const baseHit = zhangAlive ? (s.jealousBaseDmg || 5) : (s.baseDmg || 3);
     const ratio = zhangAlive ? s.jealousLostHpRatio : s.lostHpRatio;
 
     // 首次必定触发，后续按 procChance
@@ -44,25 +46,26 @@ export function checkNineYinClaw(attacker, target, baseDmg, log) {
         if (depth > 0 && Math.random() > s.chainProcChance) break;
         if (!target.alive) break;
 
-        // 斩杀判定：血量 ≤ 10% 直接带走剩余血量
-        const hpPct = target.hp / target.maxHp;
-        let bonusDmg;
-        let isExecute = false;
-        if (hpPct <= s.executeThreshold) {
-            bonusDmg = target.hp;
-            isExecute = true;
-        } else {
-            // 伤害 = 已损失生命 × ratio（满血则不造成伤害）
-            const lostHp = target.maxHp - target.hp;
-            if (lostHp <= 0) break;
-            bonusDmg = Math.floor(lostHp * ratio);
-            if (bonusDmg <= 0) break;
-        }
+        // 斩杀判定：本次伤害打完后，剩余血量 ≤ executeThreshold 直接带走
+        // 伤害 = 基础 + 已损失生命 × ratio
+        const lostHp = target.maxHp - target.hp;
+        const ratioDmg = Math.floor(lostHp * ratio);
+        let bonusDmg = baseHit + Math.max(0, ratioDmg);
 
+        // 先扣血
         target.hp = Math.max(0, target.hp - bonusDmg);
         totalBonus += bonusDmg;
         attacker.dmgDealt += bonusDmg;
         target.dmgTaken += bonusDmg;
+
+        // 斩杀判定：本次伤害打完后，剩余血量 ≤ executeThreshold 直接带走
+        const hpPctAfter = target.hp / target.maxHp;
+        let isExecute = false;
+        if (hpPctAfter <= s.executeThreshold && target.hp > 0) {
+            bonusDmg += target.hp;
+            target.hp = 0;
+            isExecute = true;
+        }
 
         if (target.hp <= 0) {
             target.hp = 0;
@@ -88,6 +91,8 @@ export function checkNineYinClaw(attacker, target, baseDmg, log) {
             clawTargetIsDead: target._isDead,
             isExecute: isExecute
         });
+
+        if (isExecute) break; // 斩杀后不再连锁
     }
     return totalBonus;
 }

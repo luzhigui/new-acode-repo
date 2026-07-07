@@ -11,6 +11,7 @@ export function stripTags(html) { let div = document.createElement('div'); div.i
 
 // ==================== 响应式 Store 引用 ====================
 let _store = null;
+let _subscribed = false;
 function getStore() {
     if (!_store) {
         // 尝试从全局获取（主流程 playBattle 中会设置 window._battleStore）
@@ -19,8 +20,10 @@ function getStore() {
     return _store;
 }
 // 暴露 setStore，供主流程在创建 Store 后调用
+// 切换 store 时重置 _subscribed，确保新战斗能重新订阅 renderGrid
 export function setRenderStore(store) {
     _store = store;
+    _subscribed = false;
 }
 
 // ==================== 辅助函数 ====================
@@ -310,7 +313,6 @@ export function renderGrid(id, camp) {
  * 渲染全部九宫格。不再接收参数，从 Store 或全局读取数据。
  * 同时订阅 Store，一旦状态变化就自动重绘。
  */
-let _subscribed = false;
 export function updateUI() {
     renderGrid('enemyGrid', 'enemy');
     renderGrid('allyGrid', 'ally');

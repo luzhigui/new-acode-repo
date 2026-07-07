@@ -14,7 +14,7 @@ function getCellElement(unit) {
     return idx >= 0 ? grid.children[idx] : null;
 }
 
-function wait(ms) { return new Promise(r => setTimeout(r, ms)); }
+function wait(ms) { return new Promise(r => setTimeout(r, window._fastForwardActive ? 1 : ms)); }
 
 /**
  * 换位闪烁动画（节奏加强版）

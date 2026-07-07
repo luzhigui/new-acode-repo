@@ -270,7 +270,7 @@ async function handleAttackGroup(c, entry, roundResult, abortSig, isFirstAttackR
     }
     
     // 日志逐行播放
-    let textEntries=entry.entries,lineCount=textEntries.length, speedFactor=Math.max(c.speed,600)/1000, textDuration=c.speed*lineCount, offset=200*speedFactor, atkFlashDuration=textDuration+300*speedFactor, defFlashDuration=atkFlashDuration, atkTimer=null;
+    let textEntries=entry.entries,lineCount=textEntries.length, speedFactor=window._fastForwardActive?0.001:Math.max(c.speed,600)/1000, textDuration=window._fastForwardActive?1:(c.speed*lineCount), offset=window._fastForwardActive?1:(200*speedFactor), atkFlashDuration=textDuration+300*speedFactor, defFlashDuration=atkFlashDuration, atkTimer=null;
     if(unitA&&!entry.isBlock)atkTimer=setTimeout(async()=>{ await c.waitWhilePaused(); if(unitA){c.store.dispatch({ type: 'CLEAR_UNIT_FLASH', uid: unitA.uid }); c.store.dispatch({ type: 'SET_VISUAL', uid: unitA.uid, _acted: true });} },atkFlashDuration);
     await new Promise(r=>setTimeout(r,offset)); await c.waitWhilePaused();
     if(abortSig&&abortSig.aborted){if(atkTimer)clearTimeout(atkTimer);return { isBattleOver: false };}
@@ -289,11 +289,14 @@ async function handleAttackGroup(c, entry, roundResult, abortSig, isFirstAttackR
         else if(entry2.isHealEntry && entry.isDead){ healDiv=document.createElement('div'); document.getElementById('log').appendChild(healDiv); await playLineText(entry2.text,healDiv); }
         else{
             if(entry2.isHealEntry && !entry.isDead) {
-                let match = entry2.text.match(/\+(\d+)/);
+                let healAmount = entry2.healAmount;
+                if (healAmount == null) {
+                    let match = entry2.text.match(/\+(\d+)/);
+                    if (match) healAmount = parseInt(match[1]);
+                }
                 let healUid = entry2.healUnitUid || (unitA ? unitA.uid : null);
                 let healUnit = healUid ? c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.uid === healUid) : null;
-                if(match && healUnit) {
-                    let healAmount = parseInt(match[1]);
+                if(healAmount != null && healUnit) {
                     showHealFloat(healUnit, healAmount);
                 }
             }
@@ -328,12 +331,15 @@ async function handleInfo(c, entry) {
         if (entry.buffType === 'elite_xinhun') {
             let song = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.name === '宋青书');
             let zhou = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.uid === entry.zhouUid);
-            if (song) showHeartEffect(song);
-            if (zhou) showHeartEffect(zhou);
-            // 红色闪光同步触发，避免 setTimeout 回调时 alive 已变 false
-            if (zhou && zhou.alive) showPinkFlash(zhou);
             // 标记周芷若有快乐状态（供渲染层显示快乐 logo）
             if (zhou) c.store.dispatch({ type: 'SET_VISUAL', uid: zhou.uid, _hasKuaiLe: true });
+            // 爱心/红闪必须在 SET_VISUAL 触发的 renderGrid 重建之后再添加，
+            // 否则 renderGrid 的 grid.innerHTML='' 会把刚加的爱心清掉
+            requestAnimationFrame(() => {
+                if (song) showHeartEffect(song);
+                if (zhou) showHeartEffect(zhou);
+                if (zhou && zhou.alive) showPinkFlash(zhou);
+            });
         }
         if (entry.buffType === 'elite_kuaile_heal' && entry.zhouUid) {
             let unit = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.uid === entry.zhouUid);
@@ -355,7 +361,7 @@ async function handleInfo(c, entry) {
                 }
             }
             if (attacker && target) {
-                showBoneClaw(attacker, target, c.speed, () => c.isPaused);
+                showBoneClaw(attacker, target, c.speed, () => c.isPaused, null, { isExecute: entry.isExecute });
             }
         }
         let tempDiv=document.createElement('div');document.getElementById('log').appendChild(tempDiv); await playLineText(entry.text,tempDiv);
@@ -393,6 +399,10 @@ function shouldStartNewGroup(entry, lastType) {
     if (lastType === 'info' && entry.type === 'attack-group') return true;
     // attack-group → info：攻击后接系统提示，加分隔符
     if (lastType === 'attack-group' && entry.type === 'info') return true;
+    // buff-rebound-fortify → attack-group：严阵以待反弹后接下一个攻击者动作，加分隔符
+    if (lastType === 'buff-rebound-fortify' && entry.type === 'attack-group') return true;
+    // buff-rebound-fortify → info：反弹后接 info（斩杀/连击等）也加分隔符
+    if (lastType === 'buff-rebound-fortify' && entry.type === 'info') return true;
     // 其他所有情况：不加分隔符
     return false;
 }
@@ -471,7 +481,7 @@ export async function playLogEntries(c, log, roundResult, isFirstAttackRef) {
                             if (targetUnit) showDamageFloat(targetUnit, entry.splashDmg);
                         });
                     }
-                    if (entry.buffType === 'meteor_splash') await new Promise(r=>setTimeout(r, 600));
+                    if (entry.buffType === 'meteor_splash') await new Promise(r=>setTimeout(r, window._fastForwardActive ? 1 : 600));
                     c.isPaused = false;
                     lastEntryType = entry.type;
                     break;
@@ -536,6 +546,8 @@ export async function playBattle() {
     ];
     c.store = createStore({ units: initialUnits, round: 1 }, battleReducer);
     setRenderStore(c.store);
+    // 显式触发一次渲染并建立 renderGrid 订阅，确保后续 ADD_UNIT 等分发能驱动重绘
+    updateUI();
 
     // 订阅 Store 变化 → 同步到 c.UI
     c.store.subscribe((state) => {
@@ -642,7 +654,8 @@ export async function playBattle() {
                 c.store.dispatch({ type: 'APPLY_EVENTS', events: step.events });
             }
 
-            await new Promise(r => setTimeout(r, Math.max(100, c.speed / 2)));
+            // 快进到底时大幅缩短回合间延迟
+            await new Promise(r => setTimeout(r, window._fastForwardActive ? 1 : Math.max(100, c.speed / 2)));
 
             if (step.winner) {
                 finalWinner = step.winner;
@@ -669,8 +682,9 @@ export async function playBattle() {
 
         battleState = { ally: lastStep.ally, enemy: lastStep.enemy, round: battleState.round + 1, activeBuffs: nextActiveBuffs, allAllies: battleState.allAllies };
 
-        if (c.autoMode) {
-            await new Promise(r=>setTimeout(r, c.speed/2));
+        if (c.autoMode || window._fastForwardActive) {
+            // 快进到底时跳过回合间等待，极速推进
+            await new Promise(r=>setTimeout(r, window._fastForwardActive ? 1 : c.speed/2));
         } else {
             document.getElementById('btnNext').disabled = false;
             c.waitingForNextRound = true;
@@ -701,19 +715,21 @@ export async function playBattle() {
         let units = winner === '明教' ? c.UI.allyTeam : c.UI.enemyTeam, alive = units.filter(u => u.alive);
         if (alive.length > 0) {
             alive.forEach(u => { c.store.dispatch({ type: 'SET_FLASH', uid: u.uid, flash: 'cheer' }); });
-            await new Promise(r => setTimeout(r, 800));
+            await new Promise(r => setTimeout(r, window._fastForwardActive ? 100 : 800));
             if (c.spawnVictoryEffects) c.spawnVictoryEffects(winner);
         }
         let winColor = winner === '明教' ? 'blue' : 'orange';
         logDiv.innerHTML += `<span class="gold">🎉🏆 <span class="${winColor}">${winner}</span>获得最终胜利！ 🏆🎉</span><br>`;
         logDiv.scrollTop = logDiv.scrollHeight;
-        await new Promise(r => setTimeout(r, 3000));
+        // 给玩家足够时间观看胜利弹幕和粒子特效（6000ms）；快进到底时缩短到 500ms
+        await new Promise(r => setTimeout(r, window._fastForwardActive ? 500 : 6000));
     } else {
         logDiv.innerHTML+='<span class="gray">🤝 平局！积分不变</span><br>';
         logDiv.scrollTop = logDiv.scrollHeight;
     }
 
-    c.store.dispatch({ type: 'CLEAR_ALL_FLASH' });
+    // 不再立即 CLEAR_ALL_FLASH，保留 cheer 状态让格子持续显示胜利效果
+    // 下一次战斗 initStore 时会重建 units，自然清除 cheer 状态
 
     let mainCtx = window._getPlayerContext ? window._getPlayerContext() : null;
     if (mainCtx && mainCtx.activeBuffs) mainCtx.activeBuffs = [];

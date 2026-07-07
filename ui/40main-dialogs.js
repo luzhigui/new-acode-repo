@@ -7,15 +7,23 @@ import { AudioManager } from '../modules/28audio-manager.js';
 
 // ==================== 战报弹窗 ====================
 export function showBattleReport(UI, battleResultForInfo) {
-    let ally = UI.allyTeam, enemy = UI.enemyTeam;
+    // 优先使用 battleResultForInfo（包含已被 3 秒清理机制移除的死单位快照），
+    // 否则回退到 UI.allyTeam/enemyTeam
+    let ally = (battleResultForInfo && battleResultForInfo.ally) ? battleResultForInfo.ally : UI.allyTeam;
+    let enemy = (battleResultForInfo && battleResultForInfo.enemy) ? battleResultForInfo.enemy : UI.enemyTeam;
     let allUnits = [...ally, ...enemy];
     let winner = battleResultForInfo.winner;
-    
+
     let overlay = document.createElement('div');
     overlay.className = 'modal-overlay';
     overlay.style.background = 'rgba(0,0,0,0.85)';
     overlay.id = 'battleReportOverlay';
 
+    let box = document.createElement('div');
+    box.className = 'modal-box';
+    box.style.cssText = 'background:#1a1a2e;border:2px solid #ffd700;border-radius:12px;padding:20px;max-width:580px;color:#eee;position:relative;';
+
+    // 最小化按钮挂在 box 内右上角（而非 overlay 上），避免出现在屏幕右上角
     let minimizeBtn = document.createElement('span');
     minimizeBtn.innerHTML = '∧';
     minimizeBtn.style.cssText = 'position:absolute;top:6px;right:10px;cursor:pointer;font-size:18px;color:#ffd700;z-index:10;font-weight:bold;';
@@ -35,11 +43,7 @@ export function showBattleReport(UI, battleResultForInfo) {
         });
         document.body.appendChild(floatBtn);
     };
-    overlay.appendChild(minimizeBtn);
-    
-    let box = document.createElement('div');
-    box.className = 'modal-box';
-    box.style.cssText = 'background:#1a1a2e;border:2px solid #ffd700;border-radius:12px;padding:20px;max-width:580px;color:#eee;';
+    box.appendChild(minimizeBtn);
     
     let title = document.createElement('div');
     title.style.cssText = 'color:#ffd700;font-size:18px;font-weight:bold;text-align:center;margin-bottom:12px;';

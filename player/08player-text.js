@@ -16,6 +16,11 @@ export async function playLineText(text, div) {
         div.innerHTML = text + '<br>';
         return;
     }
+    // 快进到底时跳过逐字动画，直接显示完整文本
+    if (window._fastForwardActive) {
+        div.innerHTML = text + '<br>';
+        return;
+    }
     const c = getCtx(); let plain = text.replace(/<[^>]+>/g, ''); let htmlIdx=0,fullHtml='';
     let minCharDelay = 30;
     if (c.speed <= 143) minCharDelay = 2;

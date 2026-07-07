@@ -4,7 +4,7 @@ export const VER = 'fx/22fx-fortify-counter.js V4.0.0';
 
 import { showDamageFloat, showComicBubble } from './15fx-common-5v5-test.js';
 
-function wait(ms) { return new Promise(r => setTimeout(r, ms)); }
+function wait(ms) { return new Promise(r => setTimeout(r, window._fastForwardActive ? 1 : ms)); }
 
 function getCellCenter(unit) {
     if (!unit || unit.pos == null) return null;

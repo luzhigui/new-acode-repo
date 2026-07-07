@@ -14,7 +14,9 @@ import { showModal, showAlert, updateCoverVersion } from './12main-utils.js';
 import { AudioManager } from '../modules/28audio-manager.js';
 
 // 拆分模块
-import { getPlayerContext, getState, setState } from '../ui/39main-state.js';
+import { getPlayerContext, getState, setState, gs } from '../ui/39main-state.js';
+// 注意：gs 从 39main-state.js 导入（live binding），与 player-core.js 的 c.gs = 'GAMEOVER' 共享同一变量
+// 不能再声明本地 gs，否则会脱节导致按钮状态不同步
 import { showBattleReport, showMusicPanel, showVoteDialog, showCountdown } from './40main-dialogs.js';
 import {
     doInitBattle, generateBuffChoices, showBuffSelection,
@@ -41,7 +43,7 @@ const INDEX_VER = 'mode-5v5-test.html test V3.0';
 const LOG_LINE1 = '⚔️ 光明顶5v5对决 · 九宫格混战模式 ⚔️';
 
 // ==================== 局部状态（仅 UI 控制，不包含 activeBuffs） ====================
-let gs = S.IDLE, autoMode = true, debugMode = false, speed = 500, userScrolled = false;
+let autoMode = true, debugMode = false, speed = 500, userScrolled = false;
 let abortController = null, waitingForNextRound = false, detailMode = true;
 let battleResultForInfo = null, resettleCount = 0;
 let gameStarted = false;
@@ -378,6 +380,8 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('btnMain').addEventListener('click', async function(){
         onAnyButtonClick();
         if(gs===S.GAMEOVER){
+            // 重置快进标志，防止上一局快进状态影响下一局
+            window._fastForwardActive = false;
             if(currentStage>=6){
                 currentStage=1;
                 let result = abortAll(abortController, getState.UI(), waitingForNextRound, isBattleStarting, getState.adjustMode(), getState.selectedAdjustPos(), getState.activeBuffs(), selectedBuffIndex, currentDoubleStrikeUid, () => updateBuffSlots(getState.activeBuffs(), selectedBuffIndex));
