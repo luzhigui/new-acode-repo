@@ -242,7 +242,7 @@ async function handleBuffReboundFortify(c, entry) {
     let attacker = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.uid === entry.attackerUid);
     if (attacker && entry.reboundDmg) showDamageFloat(attacker, entry.reboundDmg);
     let div=document.createElement('div');div.innerHTML=entry.text+'<br>';document.getElementById('log').appendChild(div);c.autoScrollLog();
-    await new Promise(r=>setTimeout(r, c.speed/2));
+    await new Promise(r=>setTimeout(r, window._fastForwardActive ? 1 : c.speed/2));
 }
 
 // 核心攻击动画（纯视觉，通过 Store dispatch 更新标记）
@@ -304,7 +304,7 @@ async function handleAttackGroup(c, entry, roundResult, abortSig, isFirstAttackR
             let tempDiv=document.createElement('div'); document.getElementById('log').appendChild(tempDiv); await playLineText(entry2.text,tempDiv);
         }
     }
-    if(blockDelay) await new Promise(r=>setTimeout(r, c.speed/2));
+    if(blockDelay) await new Promise(r=>setTimeout(r, window._fastForwardActive ? 1 : c.speed/2));
     if (entry.isDead && lastDiv && !entry.isBlock && !entry.isMiss && !entry.isDodge) { applyBrushEffect(lastDiv); }
     if(entry.isDodge&&unitD)showDodgeBubble(unitD,'闪避！'); if(entry.isMiss&&unitA)showDodgeBubble(unitA,'未命中');
     if(unitD&&entry.hpPctAfter!==undefined&&entry.hpPctBefore!==undefined){ if(entry.hpPctBefore>40&&entry.hpPctAfter<=40&&entry.hpPctAfter>20){let t=(unitD.camp==='ally'?'不好，必须反击了！':'小儿安敢伤我！');safeShowDanmaku(unitD,t);} else if(entry.hpPctBefore>20&&entry.hpPctAfter<=20){let t=(unitD.camp==='ally'?'撑住！':'已是强弩之末！');safeShowDanmaku(unitD,t);} }
@@ -327,7 +327,7 @@ async function handleInfo(c, entry) {
             await showBuffBanner('⚡ 概率连击！');
             c.isPaused = false;
         }
-        if (entry.text && entry.text.includes('拒马无法攻击')) { let sepDiv=document.createElement('div'); sepDiv.innerHTML='<span class="separator">- - - - -</span><br>'; document.getElementById('log').appendChild(sepDiv); c.autoScrollLog(); await new Promise(r=>setTimeout(r, c.speed/4)); } 
+        if (entry.text && entry.text.includes('拒马无法攻击')) { let sepDiv=document.createElement('div'); sepDiv.innerHTML='<span class="separator">- - - - -</span><br>'; document.getElementById('log').appendChild(sepDiv); c.autoScrollLog(); await new Promise(r=>setTimeout(r, window._fastForwardActive ? 1 : c.speed/4)); } 
         if (entry.buffType === 'elite_xinhun') {
             let song = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.name === '宋青书');
             let zhou = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.uid === entry.zhouUid);
@@ -375,7 +375,7 @@ async function handleRoundStart(c, entry, isFirstAttackRef) {
     c.UI.allyTeam.concat(c.UI.enemyTeam).forEach(u=>{if(u.alive){c.store.dispatch({ type: 'SET_VISUAL', uid: u.uid, _acted: false, _resting: false }); let blocked = isBlocked(u, u.camp==='ally'?c.UI.allyTeam:c.UI.enemyTeam); c.store.dispatch({ type: 'SET_VISUAL', uid: u.uid, _blocked: blocked });}});
     let div=document.createElement('div');div.innerHTML=entry.text+'<br>';document.getElementById('log').appendChild(div);c.autoScrollLog();
     document.getElementById('roundDisplay').innerText = `📜 日志（第${c.UI.round}回合）`;
-    await new Promise(r=>setTimeout(r, c.speed/3));
+    await new Promise(r=>setTimeout(r, window._fastForwardActive ? 1 : c.speed/3));
 }
 
 async function handleRoundEnd(c, entry, log, i) {
