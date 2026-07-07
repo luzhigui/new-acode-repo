@@ -24,6 +24,9 @@ function getStore() {
 export function setRenderStore(store) {
     _store = store;
     _subscribed = false;
+    // 清除旧的 battleStore 残留，防止 getStore() 回退到上一场战斗的 Store
+    // 否则下一关/重开后 renderGrid 会渲染旧数据，导致 UI 不刷新
+    if (store === null) window._battleStore = null;
 }
 
 // ==================== 辅助函数 ====================
