@@ -71,10 +71,11 @@ export function checkNineYinClaw(attacker, target, baseDmg, log) {
             if (!target._deathTime) target._deathTime = Date.now();
         }
         if (typeof window._emitEvent === 'function') {
-            window._emitEvent(target, 'hp-change', { hp: target.hp, maxHp: target.maxHp, alive: target.alive, atk: target.atk, def: target.def });
+            window._emitEvent(target, 'hp-change', { hp: target.hp, maxHp: target.maxHp, alive: target.alive, atk: target.atk, def: target.def, _isDead: target._isDead });
         }
 
         // 单行精简日志，标记 isClawHit 给播放器触发 showBoneClaw（fire-and-forget）
+        // 携带 clawTargetHpAfter/clawTargetAlive 供播放器分次同步血量（每次连锁变化一次）
         log.push({
             type: 'info',
             text: `<span class="purple">🐾 九阴白骨爪${depth > 0 ? '连锁' : '追击'}！${attacker.name} 对 ${target.name} 造成 ${bonusDmg} 点伤害${isExecute ? '（斩杀）' : (zhangAlive ? '【嫉妒】' : '')}</span>`,
@@ -82,6 +83,9 @@ export function checkNineYinClaw(attacker, target, baseDmg, log) {
             isClawHit: true,
             clawAttackerUid: attacker.uid,
             clawTargetUid: target.uid,
+            clawTargetHpAfter: target.hp,
+            clawTargetAlive: target.alive,
+            clawTargetIsDead: target._isDead,
             isExecute: isExecute
         });
     }

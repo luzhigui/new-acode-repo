@@ -153,15 +153,15 @@ export async function showDodgeBulletTime(attacker, defender, reboundDmg) {
         document.body.appendChild(skipBtn);
         cleanupElements.push(skipBtn);
 
-        // 黑幕
+        // 闪电先劈下（从屏幕右上角到左下角）
+        const lightning = createZigzagLightning(); cleanupElements.push(lightning);
+        await wait(400);
+        if (isSkipped) { cleanup(); return; }
+        // 黑幕随后降临
         const mask = document.createElement('div'); mask.className = 'bullet-mask';
         mask.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;'
             + 'background:rgba(0,0,0,0.92);z-index:9999;pointer-events:none;';
         document.body.appendChild(mask); cleanupElements.push(mask);
-        const lightning = createZigzagLightning(); cleanupElements.push(lightning);
-        await wait(300);
-        if (isSkipped) { cleanup(); return; }
-        // 直接使用深色背景，无需动画过渡
         await wait(200);
         if (isSkipped) { cleanup(); return; }
 

@@ -262,7 +262,7 @@ function processUnitAttack(unit, allySide, enemySide, log, A, B, state, doubleSt
     let unitActiveBuffs = unit.camp === 'ally' ? A._activeBuffs : B._activeBuffs;
     let unitAllyTeam = unit.camp === 'ally' ? A : B;
     if (hasBuff(unitActiveBuffs, 'carry') && unit.camp === 'ally') {
-        unitAllyTeam = unitAllyTeam.concat(state.ally.filter(c => !c.alive));
+        unitAllyTeam = unitAllyTeam.concat((state.allAllies || state.ally).filter(c => !c.alive));
         unitAllyTeam = unitAllyTeam.filter((u, i, arr) => arr.findIndex(v => v.uid === u.uid) === i);
     }
     let attackerBuffStats = computeBuffStats(unit, unitActiveBuffs, unitAllyTeam);
@@ -442,6 +442,26 @@ function processUnitAttack(unit, allySide, enemySide, log, A, B, state, doubleSt
 // ==================== 新增：逐步执行生成器 ====================
 
 export function* createRoundStepper(state) {
+    // 维护跨回合全量队友列表：保留已阵亡单位，供 carry 加成跨回合计算
+    // 根因：每回合 A = state.ally.filter(alive) 会丢弃死人，回合末 state.ally 被覆盖，
+    // 导致 carry 在第 3 回合起拿不到更早阵亡的队友，加成归零
+    if (!state.allAllies) {
+        state.allAllies = state.ally.map(u => u.clone());
+    } else {
+        const allyById = new Map(state.ally.map(u => [u.uid, u]));
+        state.allAllies.forEach(full => {
+            const cur = allyById.get(full.uid);
+            if (cur) {
+                // 本回合仍在列表中：同步最新存活状态
+                full.hp = cur.hp; full.maxHp = cur.maxHp; full.alive = cur.alive;
+                full.atk = cur.atk; full.def = cur.def;
+                if (cur._isDead !== undefined) full._isDead = cur._isDead;
+            } else {
+                // 已在先前回合被过滤掉（阵亡）：保持阵亡状态，不可复活
+                full.alive = false; full._isDead = true;
+            }
+        });
+    }
     let A = state.ally.filter(u => u.alive).map(u => u.clone());
     let B = state.enemy.filter(u => u.alive).map(u => u.clone());
     let log = [];
@@ -479,7 +499,7 @@ export function* createRoundStepper(state) {
         }
     }
     
-    window._currentBattleState = { ally: state.ally, enemy: state.enemy };
+    window._currentBattleState = { ally: state.allAllies, enemy: state.enemy };
     logBuffSummary(A, log, doubleStrikeUnitUid);
     
     log.filter(l => l.type === 'buff-summon').forEach(hl => {
@@ -494,7 +514,7 @@ export function* createRoundStepper(state) {
         if (!u.alive) return;
         let allyTeamWithDead = A.slice();
         if (hasBuff(A._activeBuffs, 'carry')) {
-            allyTeamWithDead = allyTeamWithDead.concat(state.ally.filter(c => !c.alive));
+            allyTeamWithDead = allyTeamWithDead.concat((state.allAllies || state.ally).filter(c => !c.alive));
             allyTeamWithDead = allyTeamWithDead.filter((u, i, arr) => arr.findIndex(v => v.uid === u.uid) === i);
         }
         let stats = computeBuffStats(u, A._activeBuffs || [], allyTeamWithDead);
@@ -694,7 +714,8 @@ export function runBattle(snapshot, activeBuffs = [], buffData = {}) {
     let state = {
         ally: snapshot.ally.map(u => u.clone()),
         enemy: snapshot.enemy.map(u => u.clone()),
-        round: 1, activeBuffs: activeBuffs
+        round: 1, activeBuffs: activeBuffs,
+        allAllies: snapshot.ally.map(u => u.clone())
     };
     let fullLog = [];
     let finalWinner = null;
@@ -720,7 +741,8 @@ export function runBattle(snapshot, activeBuffs = [], buffData = {}) {
         }
         state = {
             ally: lastStep.ally, enemy: lastStep.enemy,
-            round: state.round + 1, activeBuffs: lastStep.ally._activeBuffs || []
+            round: state.round + 1, activeBuffs: lastStep.ally._activeBuffs || [],
+            allAllies: state.allAllies
         };
     }
 }

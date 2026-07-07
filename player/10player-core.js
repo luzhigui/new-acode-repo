@@ -101,6 +101,8 @@ function battleReducer(state, action) {
                 if (action._blocked !== undefined) patch._blocked = action._blocked;
                 if (action._isDead !== undefined) patch._isDead = action._isDead;
                 if (action._flyMode !== undefined) patch._flyMode = action._flyMode;
+                if (action._hasKuaiLe !== undefined) patch._hasKuaiLe = action._hasKuaiLe;
+                if (action._hasXingFen !== undefined) patch._hasXingFen = action._hasXingFen;
                 return { ...u, ...patch };
             });
             return { ...state, units: next };
@@ -121,7 +123,7 @@ function battleReducer(state, action) {
             if (!events || events.length === 0) return state;
             let next = state.units.map(u => ({ ...u }));
             for (const ev of events) {
-                if (ev.eventType === 'hp-change' || ev.eventType === 'stat-bonus-change') {
+                if (ev.eventType === 'hp-change' || ev.eventType === 'stat-bonus-change' || ev.eventType === 'zhang-switch') {
                     const idx = next.findIndex(u => u.uid === ev.unitUid);
                     if (idx >= 0) {
                         const p = ev.payload;
@@ -144,8 +146,8 @@ function battleReducer(state, action) {
                         if (p.survivedRounds !== undefined) next[idx].survivedRounds = p.survivedRounds;
                         if (p._isDead !== undefined) next[idx]._isDead = p._isDead;
                         if (ev.eventType === 'zhang-switch') {
-                            next[idx].rangedForm = p.rangedForm !== undefined ? p.rangedForm : next[idx].rangedForm;
-                            next[idx].role = p.role || next[idx].role;
+                            if (p.rangedForm !== undefined) next[idx].rangedForm = p.rangedForm;
+                            if (p.role) next[idx].role = p.role;
                         }
                     }
                 } else if (ev.eventType === 'unit-add') {
@@ -295,7 +297,7 @@ async function handleAttackGroup(c, entry, roundResult, abortSig, isFirstAttackR
                     showHealFloat(healUnit, healAmount);
                 }
             }
-            if(entry.isBlock&&entry2.text&&entry2.text.includes('休息回复10点生命')&&unitA){c.store.dispatch({ type: 'SET_VISUAL', uid: unitA.uid, _resting: true });blockDelay = true;}
+            if(entry.isBlock&&entry2.text&&entry2.text.includes('休息回复10点生命')&&unitA){c.store.dispatch({ type: 'SET_VISUAL', uid: unitA.uid, _resting: true });blockDelay = true; showHealFloat(unitA, entry.healAmount || 10);}
             let tempDiv=document.createElement('div'); document.getElementById('log').appendChild(tempDiv); await playLineText(entry2.text,tempDiv);
         }
     }
@@ -328,11 +330,10 @@ async function handleInfo(c, entry) {
             let zhou = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.uid === entry.zhouUid);
             if (song) showHeartEffect(song);
             if (zhou) showHeartEffect(zhou);
-            if (zhou) {
-                setTimeout(() => {
-                    if (zhou.alive) showPinkFlash(zhou);
-                }, 800); 
-            }
+            // 红色闪光同步触发，避免 setTimeout 回调时 alive 已变 false
+            if (zhou && zhou.alive) showPinkFlash(zhou);
+            // 标记周芷若有快乐状态（供渲染层显示快乐 logo）
+            if (zhou) c.store.dispatch({ type: 'SET_VISUAL', uid: zhou.uid, _hasKuaiLe: true });
         }
         if (entry.buffType === 'elite_kuaile_heal' && entry.zhouUid) {
             let unit = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.uid === entry.zhouUid);
@@ -340,9 +341,19 @@ async function handleInfo(c, entry) {
             if (match && unit) showHealFloat(unit, parseInt(match[1]));
         }
         // 九阴白骨爪：fire-and-forget 触发 showBoneClaw，不 await、不设 isPaused，避免卡住播放器
+        // 每次连锁分次同步血量（clawTargetHpAfter），让血条逐步变化
         if (entry.isClawHit && entry.clawAttackerUid && entry.clawTargetUid) {
             let attacker = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.uid === entry.clawAttackerUid);
             let target = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.uid === entry.clawTargetUid);
+            if (target && entry.clawTargetHpAfter !== undefined) {
+                target.hp = entry.clawTargetHpAfter;
+                target.alive = entry.clawTargetAlive;
+                c.store.dispatch({ type: 'SYNC_UNIT', uid: entry.clawTargetUid, fields: { hp: target.hp, alive: target.alive } });
+                if (entry.clawTargetIsDead) {
+                    c.store.dispatch({ type: 'SET_VISUAL', uid: entry.clawTargetUid, _isDead: true });
+                    c.store.dispatch({ type: 'SET_FLASH', uid: entry.clawTargetUid, flash: 'dead' });
+                }
+            }
             if (attacker && target) {
                 showBoneClaw(attacker, target, c.speed, () => c.isPaused);
             }
@@ -426,11 +437,11 @@ export async function playLogEntries(c, log, roundResult, isFirstAttackRef) {
                             showHealFloat(healUnit, entry.healAmount);
                             c.store.dispatch({ type: 'SYNC_UNIT', uid: entry.healUnitUid, fields: { hp: healUnit.hp, maxHp: healUnit.maxHp } });
                         }
-                        if (entry.text.includes('翻倍')) {
-                            c.isPaused = true; window.bulletTimeActive = true;
-                            await showBuffBanner('❤️‍🔥 热血奋战(翻倍)！');
-                            window.bulletTimeActive = false; c.isPaused = false;
-                        }
+                        // 每次都触发字幕+子弹时间；翻倍时换文案
+                        c.isPaused = true; window.bulletTimeActive = true;
+                        let bannerText = entry.text.includes('翻倍') ? '❤️‍🔥 热血奋战(翻倍)！' : '❤️ 热血奋战！';
+                        await showBuffBanner(bannerText);
+                        window.bulletTimeActive = false; c.isPaused = false;
                     } else {
                         await handleBuffLeech(c, entry);
                         if (entry.healUnitUid && entry.healAmount) {
@@ -467,7 +478,7 @@ export async function playLogEntries(c, log, roundResult, isFirstAttackRef) {
                 case 'buff-bonus':           await handleBuffBonus(c, entry); lastEntryType = entry.type; break;
                 case 'buff-swap':            await handleBuffSwap(c, entry); lastEntryType = entry.type; break;
                 case 'buff-push':            await handleBuffPush(c, entry); lastEntryType = entry.type; break;
-                case 'buff-summary':         { let div2=document.createElement('div');div2.innerHTML=entry.text+'<br>';document.getElementById('log').appendChild(div2);c.autoScrollLog(); lastEntryType = entry.type; } break;
+                case 'buff-summary':         { let div2=document.createElement('div');div2.innerHTML=entry.text+'<br>';document.getElementById('log').appendChild(div2);c.autoScrollLog(); if(entry.buffType==='elite_xingfen'){let song=c.UI.allyTeam.concat(c.UI.enemyTeam).find(u=>u.name==='宋青书');if(song)c.store.dispatch({type:'SET_VISUAL',uid:song.uid,_hasXingFen:true});} lastEntryType = entry.type; } break;
                 case 'buff-rebound-fortify': await handleBuffReboundFortify(c, entry); lastEntryType = entry.type; break;
                 case 'round-start':          await handleRoundStart(c, entry, isFirstAttackRef); lastEntryType = entry.type; break;
                 case 'attack-group': {
@@ -558,6 +569,10 @@ export async function playBattle() {
                     c._deathTimers[unit.uid] = true;
                     const uid = unit.uid;
                     setTimeout(() => {
+                        // 保存死单位快照供战报使用（防止 3 秒后被清理导致战报缺人）
+                        if (!c._deadUnitsForReport) c._deadUnitsForReport = [];
+                        let deadUnit = c.UI.allyTeam.find(u => u.uid === uid) || c.UI.enemyTeam.find(u => u.uid === uid);
+                        if (deadUnit && !c._deadUnitsForReport.find(u => u.uid === uid)) c._deadUnitsForReport.push({...deadUnit});
                         c.UI.allyTeam = c.UI.allyTeam.filter(u => u.uid !== uid);
                         c.UI.enemyTeam = c.UI.enemyTeam.filter(u => u.uid !== uid);
                         delete c._deathTimers[uid];
@@ -570,6 +585,7 @@ export async function playBattle() {
 
     c.UI.allyTeam = initialUnits.filter(u => u.camp === 'ally').map(u => u.clone());
     c.UI.enemyTeam = initialUnits.filter(u => u.camp === 'enemy').map(u => u.clone());
+    c._deadUnitsForReport = [];
     document.getElementById('roundDisplay').innerText = `📜 日志（第1回合）`;
 
     let logDiv = document.getElementById('log');
@@ -600,7 +616,7 @@ export async function playBattle() {
         }
     });
 
-    let battleState = { ally: c.snapshot.ally.map(u => u.clone()), enemy: c.snapshot.enemy.map(u => u.clone()), round: 1, activeBuffs: c.activeBuffs ? c.activeBuffs.map(b => ({...b})) : [] };
+    let battleState = { ally: c.snapshot.ally.map(u => u.clone()), enemy: c.snapshot.enemy.map(u => u.clone()), round: 1, activeBuffs: c.activeBuffs ? c.activeBuffs.map(b => ({...b})) : [], allAllies: c.snapshot.ally.map(u => u.clone()) };
     let isBattleOver = false; let finalWinner = null;
 
     while (!isBattleOver) {
@@ -651,7 +667,7 @@ export async function playBattle() {
             c.isPaused = false;
         }
 
-        battleState = { ally: lastStep.ally, enemy: lastStep.enemy, round: battleState.round + 1, activeBuffs: nextActiveBuffs };
+        battleState = { ally: lastStep.ally, enemy: lastStep.enemy, round: battleState.round + 1, activeBuffs: nextActiveBuffs, allAllies: battleState.allAllies };
 
         if (c.autoMode) {
             await new Promise(r=>setTimeout(r, c.speed/2));
@@ -669,11 +685,19 @@ export async function playBattle() {
 
     if (!finalWinner) finalWinner = '平局';
     c.gs = 'GAMEOVER'; c.isPaused = false; c.waitingForNextRound = false; c.isBattleStarting = false;
+    // 快进到底结束时清除标志，恢复正常速度
+    window._fastForwardActive = false;
+    c.speed = c._originalSpeed || 500;
     c.updateButtons(); c.enableAllButtons();
 
     let winner = finalWinner;
     if (winner === '明教' || winner === '六大派') {
-        c.battleResultForInfo = { winner, ally: c.UI.allyTeam, enemy: c.UI.enemyTeam };
+        // 战报包含所有参战单位（含已被清理的死单位快照），防止缺人
+        let deadAllies = (c._deadUnitsForReport || []).filter(u => u.camp === 'ally');
+        let deadEnemies = (c._deadUnitsForReport || []).filter(u => u.camp === 'enemy');
+        let reportAllies = [...c.UI.allyTeam, ...deadAllies].filter((u, i, arr) => arr.findIndex(v => v.uid === u.uid) === i);
+        let reportEnemies = [...c.UI.enemyTeam, ...deadEnemies].filter((u, i, arr) => arr.findIndex(v => v.uid === u.uid) === i);
+        c.battleResultForInfo = { winner, ally: reportAllies, enemy: reportEnemies };
         let units = winner === '明教' ? c.UI.allyTeam : c.UI.enemyTeam, alive = units.filter(u => u.alive);
         if (alive.length > 0) {
             alive.forEach(u => { c.store.dispatch({ type: 'SET_FLASH', uid: u.uid, flash: 'cheer' }); });

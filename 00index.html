@@ -71,6 +71,7 @@
             <div class="btn-grid dev-toolbox-grid" id="devGuideGrid">
                 <button class="big-btn btn-tool" id="btnReadme">📖 README 项目大纲</button>
                 <button class="big-btn btn-tool" id="btnChangelog">📋 CHANGELOG 变更履历</button>
+                <button class="big-btn btn-tool" id="btnKaifazhunze">📋 开发准则</button>
                 <button class="big-btn btn-tool" id="btnTestRunner">📋 Test Runner 迭代变更日志</button>
 <button class="big-btn btn-tool" id="btnGameDesign">🎮 游戏设计</button>
             </div>
@@ -97,16 +98,19 @@
             window.open('tools/31-toolkit.html', '_blank');
         });
         document.getElementById('btnReadme').addEventListener('click', () => {
-            window.open('README.md', '_blank');
+            location.href = 'README.md';
         });
         document.getElementById('btnChangelog').addEventListener('click', () => {
-            window.open('CHANGELOG.md', '_blank');
+            location.href = 'CHANGELOG.md';
+        });
+        document.getElementById('btnKaifazhunze').addEventListener('click', () => {
+            location.href = 'kaifazhunze.md';
         });
 document.getElementById('btnTestRunner').addEventListener('click', () => {
-    window.open('Test Runnerlogo.md', '_blank');
+    location.href = 'Test Runnerlogo.md';
 });
 document.getElementById('btnGameDesign').addEventListener('click', () => {
-    window.open('game-design.md', '_blank');
+    location.href = 'game-design.md';
 });
 
         // ==================== 开发准则折叠 ====================
