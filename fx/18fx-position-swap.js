@@ -81,8 +81,8 @@ export async function animatePositionSwap(unit1, unit2, c) {
     // 同步到 Store：用 APPLY_EVENTS 批量更新，避免两次 SYNC_UNIT 导致中间态渲染不一致
     if (c.store) {
         c.store.dispatch({ type: 'APPLY_EVENTS', events: [
-            { uid: unit1.uid, pos: unit1.pos },
-            { uid: unit2.uid, pos: unit2.pos }
+            { eventType: 'pos-change', uid: unit1.uid, pos: unit1.pos },
+            { eventType: 'pos-change', uid: unit2.uid, pos: unit2.pos }
         ]});
     }
 
