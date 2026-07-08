@@ -89,7 +89,9 @@ export function checkNineYinClaw(attacker, target, baseDmg, log) {
             clawTargetHpAfter: target.hp,
             clawTargetAlive: target.alive,
             clawTargetIsDead: target._isDead,
-            isExecute: isExecute
+            isExecute: isExecute,
+            uidD: target.uid,
+            isDead: !target.alive
         });
 
         if (isExecute) break; // 斩杀后不再连锁
@@ -233,7 +235,9 @@ export function applyXinHunDeduction(attacker, allyTeam, log) {
         if (!zhou._deathTime) zhou._deathTime = Date.now();
         log.push({
             type: 'info',
-            text: `<span class="red">💀 ${zhou.name} 因新婚扣血而阵亡！</span>`
+            text: `<span class="red">💀 ${zhou.name} 因新婚扣血而阵亡！</span>`,
+            uidD: zhou.uid,
+            isDead: true
         });
     }
 }
