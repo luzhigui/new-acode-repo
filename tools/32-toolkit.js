@@ -20,39 +20,39 @@ function escapeHtml(text) {
 /* ========== 文件复制器 ========== */
 (function() {
     // 项目全部文件列表（用于路径清单）
-	    const ALL_PROJECT_FILES = [
-		        // core（核心战斗引擎）
-		        '../core/01config-5v5-test.js', '../core/02unit.js',
-		        '../core/03battle-utils.js', '../core/04buff-system.js', '../core/05battle-horse.js',
-		        '../core/06battle-engine-core.js', '../core/07battle-engine-5v5-test.js',
-		        // player（播放器）
-		        '../player/08player-text.js', '../player/09player-buff-ui.js', '../player/10player-core.js',
-		        '../player/11battle-player-5v5-test.js',
-		        // ui（UI 主控）
-		        '../ui/12main-utils.js', '../ui/13main-5v5-test.js', '../ui/14ui-render-5v5-test.js',
-		        '../ui/39main-state.js', '../ui/40main-dialogs.js', '../ui/41main-battle.js',
-		        '../ui/42audio-control.js', '../ui/43fx-trigger.js', '../ui/44ui-controls.js',
-	        // fx（特效）
-	        '../fx/15fx-common-5v5-test.js', '../fx/16fx-arrows-5v5-test.js', '../fx/17fx-crash-5v5-test.js',
-	        '../fx/18fx-position-swap.js', '../fx/19fx-push-back.js', '../fx/20fx-dodge-bullet.js',
-	        '../fx/21fx-blood-slash.js', '../fx/22fx-fortify-counter.js',
-	        // modules（模块）
-	        '../modules/23elite-skills.js', '../modules/24error-capture.js', '../modules/28audio-manager.js',
-	        // tests（测试与体检）
-	        '../tests/25unit-tests.js', '../tests/29health-rules.js',
-	        '../tests/35quiz-bank.js', '../tests/36runtime-sampler.js', '../tests/37health-core.js',
-	        '../tests/38health-ui.js', '../tests/30test-runner.html',
-	        // tools（工具箱）
-	        '../tools/31-toolkit.html', '../tools/32-toolkit.js', '../tools/33-toolkit-more.js',
-	        '../tools/27auto-battle-utils.js', '../tools/00build-5v5.cjs',
-	        // assets（音频）
-	        '../assets/sfx_arrow.mp3', '../assets/sfx_fly.mp3',
-	        '../assets/sfx_melee.mp3', '../assets/sfx_xinai.mp3',
-	        // 根目录
-	        '../00index.html', '../mode-5v5-test.html',
-	        '../README.md', '../CHANGELOG.md', '../kaifazhunze.md', '../Test Runnerlogo.md',
-	        '../game-design.md'
-	    ];
+    const ALL_PROJECT_FILES = [
+        // core（核心战斗引擎）
+        '../core/01config-5v5-test.js', '../core/02unit.js',
+        '../core/03battle-utils.js', '../core/04buff-system.js', '../core/05battle-horse.js',
+        '../core/06battle-engine-core.js', '../core/07battle-engine-5v5-test.js',
+        // player（播放器）
+        '../player/08player-text.js', '../player/09player-buff-ui.js', '../player/10player-core.js',
+        '../player/11battle-player-5v5-test.js',
+        // ui（UI 主控）
+        '../ui/12main-utils.js', '../ui/13main-5v5-test.js', '../ui/14ui-render-5v5-test.js',
+        '../ui/39main-state.js', '../ui/40main-dialogs.js', '../ui/41main-battle.js',
+        '../ui/42audio-control.js', '../ui/43fx-trigger.js', '../ui/44ui-controls.js',
+        // fx（特效）
+        '../fx/15fx-common-5v5-test.js', '../fx/16fx-arrows-5v5-test.js', '../fx/17fx-crash-5v5-test.js',
+        '../fx/18fx-position-swap.js', '../fx/19fx-push-back.js', '../fx/20fx-dodge-bullet.js',
+        '../fx/21fx-blood-slash.js', '../fx/22fx-fortify-counter.js',
+        // modules（模块）
+        '../modules/23elite-skills.js', '../modules/24error-capture.js', '../modules/28audio-manager.js',
+        // tests（测试与体检）
+        '../tests/25unit-tests.js', '../tests/29health-rules.js',
+        '../tests/35quiz-bank.js', '../tests/36runtime-sampler.js', '../tests/37health-core.js',
+        '../tests/38health-ui.js', '../tests/30test-runner.html',
+        // tools（工具箱）
+        '../tools/31-toolkit.html', '../tools/32-toolkit.js', '../tools/33-toolkit-more.js',
+        '../tools/27auto-battle-utils.js', '../tools/00build-5v5.cjs',
+        // assets（音频）
+        '../assets/sfx_arrow.mp3', '../assets/sfx_fly.mp3',
+        '../assets/sfx_melee.mp3', '../assets/sfx_xinai.mp3',
+        // 根目录
+        '../00index.html', '../mode-5v5-test.html',
+        '../README.md', '../CHANGELOG.md', '../kaifazhunze.md', '../Test Runnerlogo.md',
+        '../game-design.md'
+    ];
 
     // 用户可勾选的文件列表（不含 assets/ 和 .md 等不可 fetch 的文件）
     const FILES = ALL_PROJECT_FILES.filter(f => f.endsWith('.js') || f.endsWith('.html') || f.endsWith('.cjs') || f.endsWith('.md'));
@@ -67,6 +67,74 @@ function escapeHtml(text) {
         { name: 'tools', displayName: '工具箱自身', prefix: '../tools/' },
         { name: 'root', displayName: '根目录页面', prefix: null }
     ];
+
+    // 主题分析提示词（移到外部，供序列发送使用）
+    const GROUP_PROMPTS = {
+        '战斗引擎核心': {
+            before: '请深入分析以下核心战斗引擎代码，重点关注：\n' +
+                '1. 伤害计算公式（攻击力、防御力、Buff加成、随机波动）\n' +
+                '2. Buff系统（召唤、销毁、吸血、击退、换位、反弹）\n' +
+                '3. 闪避机制（普通闪避、Buff闪避、闪避反击）\n' +
+                '4. 事件总线（事件类型、触发时机、状态同步）\n' +
+                '5. 特殊角色逻辑（张无忌切换、周芷若白骨爪、韦一笑吸血等）\n' +
+                '6. 拒马、海克斯等特殊机制',
+            after: '核心战斗引擎代码发送完毕。请确认已理解上述要点，准备分析播放器。'
+        },
+        '播放器': {
+            before: '请深入分析以下播放器代码，重点关注：\n' +
+                '1. 如何将战斗事件转为UI动画（攻击、防御、闪避、死亡）\n' +
+                '2. 状态同步机制（引擎状态 → UI状态）\n' +
+                '3. 动画调度（AnimationScheduler、ActionWaiter、帧循环）\n' +
+                '4. 文字播放（逐字输出、日志滚动）\n' +
+                '5. 暂停/恢复/加速对播放器的影响',
+            after: '播放器代码发送完毕。请确认已理解事件→动画的转换流程。'
+        },
+        'UI 主控': {
+            before: '请深入分析以下UI渲染代码，重点关注：\n' +
+                '1. 血条渲染（高度、颜色、百分比计算）\n' +
+                '2. 攻防显示（基础值、Buff加成、公式）\n' +
+                '3. 战斗状态UI（暂停、速度、回合数）\n' +
+                '4. 弹窗与对话框（Buff选择、投票、游戏结束）',
+            after: 'UI渲染代码发送完毕。请确认已理解血条和状态显示逻辑。'
+        },
+        '特效': {
+            before: '请分析以下特效代码，重点关注：\n' +
+                '1. 伤害飘字、治疗飘字、闪避气泡\n' +
+                '2. 弹幕、横幅（Buff触发、暴击、闪避反击）\n' +
+                '3. 飞箭、冲撞、换位、击退动画\n' +
+                '4. 闪避子弹时间、血斩、反击特效',
+            after: '特效代码发送完毕。请确认已理解各类视觉效果的触发和播放。'
+        },
+        '模块': {
+            before: '请分析以下模块代码，重点关注：\n' +
+                '1. 精英技能（玄冥神掌、新婚、快乐、性奋等）\n' +
+                '2. 错误捕获（全局错误处理、日志收集）\n' +
+                '3. 音频管理（音效播放、音量控制）',
+            after: '模块代码发送完毕。'
+        },
+        '测试与体检': {
+            before: '请分析以下测试与体检代码，重点关注：\n' +
+                '1. 健康检查规则（启动检查、运行时检查）\n' +
+                '2. 单元测试（引擎函数、边界情况）\n' +
+                '3. 运行时采样（性能监控）\n' +
+                '4. 题库系统',
+            after: '测试代码发送完毕。'
+        },
+        '工具箱自身': {
+            before: '请分析以下工具箱代码，重点关注：\n' +
+                '1. 自动批量战斗（自动跑N轮、统计结果）\n' +
+                '2. 构建脚本（打包、合并）\n' +
+                '3. 工具箱UI（文件复制器、函数替换器、防战计算器）',
+            after: '工具箱代码发送完毕。'
+        },
+        '根目录页面': {
+            before: '请分析以下入口页面和文档，重点关注：\n' +
+                '1. index.html（开发集成入口）\n' +
+                '2. mode-5v5-test.html（主游戏页面）\n' +
+                '3. 项目文档（README、CHANGELOG、开发协同标准、游戏设计）',
+            after: '入口页面和文档发送完毕。'
+        }
+    };
 
     // 分组整理
     FILE_GROUPS.forEach(g => g.files = []);
@@ -380,74 +448,6 @@ function escapeHtml(text) {
             }
         }
 
-        // 主题分析提示词
-        const GROUP_PROMPTS = {
-            '战斗引擎核心': {
-                before: '请深入分析以下核心战斗引擎代码，重点关注：\n' +
-                    '1. 伤害计算公式（攻击力、防御力、Buff加成、随机波动）\n' +
-                    '2. Buff系统（召唤、销毁、吸血、击退、换位、反弹）\n' +
-                    '3. 闪避机制（普通闪避、Buff闪避、闪避反击）\n' +
-                    '4. 事件总线（事件类型、触发时机、状态同步）\n' +
-                    '5. 特殊角色逻辑（张无忌切换、周芷若白骨爪、韦一笑吸血等）\n' +
-                    '6. 拒马、海克斯等特殊机制',
-                after: '核心战斗引擎代码发送完毕。请确认已理解上述要点，准备分析播放器。'
-            },
-            '播放器': {
-                before: '请深入分析以下播放器代码，重点关注：\n' +
-                    '1. 如何将战斗事件转为UI动画（攻击、防御、闪避、死亡）\n' +
-                    '2. 状态同步机制（引擎状态 → UI状态）\n' +
-                    '3. 动画调度（AnimationScheduler、ActionWaiter、帧循环）\n' +
-                    '4. 文字播放（逐字输出、日志滚动）\n' +
-                    '5. 暂停/恢复/加速对播放器的影响',
-                after: '播放器代码发送完毕。请确认已理解事件→动画的转换流程。'
-            },
-            'UI 主控': {
-                before: '请深入分析以下UI渲染代码，重点关注：\n' +
-                    '1. 血条渲染（高度、颜色、百分比计算）\n' +
-                    '2. 攻防显示（基础值、Buff加成、公式）\n' +
-                    '3. 战斗状态UI（暂停、速度、回合数）\n' +
-                    '4. 弹窗与对话框（Buff选择、投票、游戏结束）',
-                after: 'UI渲染代码发送完毕。请确认已理解血条和状态显示逻辑。'
-            },
-            '特效': {
-                before: '请分析以下特效代码，重点关注：\n' +
-                    '1. 伤害飘字、治疗飘字、闪避气泡\n' +
-                    '2. 弹幕、横幅（Buff触发、暴击、闪避反击）\n' +
-                    '3. 飞箭、冲撞、换位、击退动画\n' +
-                    '4. 闪避子弹时间、血斩、反击特效',
-                after: '特效代码发送完毕。请确认已理解各类视觉效果的触发和播放。'
-            },
-            '模块': {
-                before: '请分析以下模块代码，重点关注：\n' +
-                    '1. 精英技能（玄冥神掌、新婚、快乐、性奋等）\n' +
-                    '2. 错误捕获（全局错误处理、日志收集）\n' +
-                    '3. 音频管理（音效播放、音量控制）',
-                after: '模块代码发送完毕。'
-            },
-            '测试与体检': {
-                before: '请分析以下测试与体检代码，重点关注：\n' +
-                    '1. 健康检查规则（启动检查、运行时检查）\n' +
-                    '2. 单元测试（引擎函数、边界情况）\n' +
-                    '3. 运行时采样（性能监控）\n' +
-                    '4. 题库系统',
-                after: '测试代码发送完毕。'
-            },
-            '工具箱自身': {
-                before: '请分析以下工具箱代码，重点关注：\n' +
-                    '1. 自动批量战斗（自动跑N轮、统计结果）\n' +
-                    '2. 构建脚本（打包、合并）\n' +
-                    '3. 工具箱UI（文件复制器、函数替换器、防战计算器）',
-                after: '工具箱代码发送完毕。'
-            },
-            '根目录页面': {
-                before: '请分析以下入口页面和文档，重点关注：\n' +
-                    '1. index.html（开发集成入口）\n' +
-                    '2. mode-5v5-test.html（主游戏页面）\n' +
-                    '3. 项目文档（README、CHANGELOG、开发协同标准、游戏设计）',
-                after: '入口页面和文档发送完毕。'
-            }
-        };
-
         // 预计算：每组有多少个包
         const groupBatchCounts = {};
         mergedBatches.forEach(b => {
@@ -509,7 +509,7 @@ function escapeHtml(text) {
                     </div>
                 </div>
                 <div class="batch-manifest">${manifest.replace(/\n/g, '<br>')}</div>
-                <div class="batch-code">${escapeHtml(fullCode)}</div>
+                <div class="batch-code">${escapeHtml(fullPayload)}</div>
             `;
 
             const copyBtn = card.querySelector('.copy-batch-btn');
@@ -545,13 +545,31 @@ function escapeHtml(text) {
         document.getElementById('fcBtnAutoSend').style.display = 'inline-block';
     });
 
-    // 序列发送器（保持不变）
+    // 序列发送器（使用GROUP_PROMPTS）
     const sendBtn = document.getElementById('fcBtnAutoSend');
     let senderBar = null, sendIndex = 0, sendCancelled = false, sendBatches = [], senderKeyHandler = null;
 
     function getBatchText(card) {
         const codeBlock = card.querySelector('.batch-code');
         return codeBlock ? codeBlock.textContent : '';
+    }
+
+    // 从batch-header提取groupName和包序号
+    function getGroupInfoFromCard(card) {
+        const headerSpan = card.querySelector('.batch-header span');
+        if (!headerSpan) return { gn: '其他', groupBatchIndex: 1, groupBatchTotal: 1 };
+        const text = headerSpan.textContent || '';
+        // 格式：📦 【战斗引擎核心】 包 1/3（...
+        const match = text.match(/【(.+?)】 包 (\d+)\/(\d+)/);
+        if (match) {
+            return { gn: match[1], groupBatchIndex: parseInt(match[2]), groupBatchTotal: parseInt(match[3]) };
+        }
+        // 格式：📦 包 1/5（... （无groupName）
+        const match2 = text.match(/包 (\d+)\/(\d+)/);
+        if (match2) {
+            return { gn: '其他', groupBatchIndex: parseInt(match2[1]), groupBatchTotal: parseInt(match2[2]) };
+        }
+        return { gn: '其他', groupBatchIndex: 1, groupBatchTotal: 1 };
     }
 
     function renderSenderBar(showIndex) {
@@ -570,9 +588,10 @@ function escapeHtml(text) {
             };
             return;
         }
+        const { gn, groupBatchIndex, groupBatchTotal } = getGroupInfoFromCard(sendBatches[sendIndex]);
         const chars = getBatchText(sendBatches[sendIndex]).length;
         const displayIndex = showIndex ?? sendIndex + 1;
-        senderBar.innerHTML = `<span>📦 包 <b>${displayIndex}</b> / ${total}（${chars} 字符）→ 粘贴发送后按 <b>Enter</b></span>
+        senderBar.innerHTML = `<span>📦 【${gn}】 包 <b>${groupBatchIndex}</b>/${groupBatchTotal}（${chars} 字符）→ 粘贴发送后按 <b>Enter</b></span>
             <div style="display:flex;gap:8px;">
                 <button id="senderNextBtn" style="background:#ffd700;color:#1a1a2e;border:none;padding:6px 16px;border-radius:4px;cursor:pointer;font-weight:bold;font-size:12px;">下一包 →</button>
                 <button id="senderCancelBtn" style="background:#f44336;color:#fff;border:none;padding:6px 12px;border-radius:4px;cursor:pointer;font-size:12px;">取消</button>
@@ -583,18 +602,14 @@ function escapeHtml(text) {
 
     async function nextBatch() {
         if (sendCancelled || sendIndex >= sendBatches.length) return renderSenderBar();
-        const text = getBatchText(sendBatches[sendIndex]);
-        const totalBytes = new Blob([text]).size;
-        const currentIndex = sendIndex + 1;
-        const header = `（⚠️ 包 ${currentIndex}/${sendBatches.length} 开始，本包共 ${totalBytes} 字节。请回复"收到，第 ${currentIndex} 包"。）\n\n`;
-        const footer = `\n\n（⚠️ 包 ${currentIndex}/${sendBatches.length} 结束，请回复“收到，第 ${currentIndex} 包”。）`;
-        const fullText = header + text + footer;
+        // batch-code已经存储了含提示词的完整内容，直接使用
+        const fullText = getBatchText(sendBatches[sendIndex]);
         try { await navigator.clipboard.writeText(fullText); } catch (e) {}
         sendIndex++;
         if (sendIndex < sendBatches.length) {
-            renderSenderBar(sendIndex);   // 显示的是刚刚复制完的包号，而非下一个包
+            renderSenderBar(sendIndex);
         } else {
-            renderSenderBar(); // 全部完成
+            renderSenderBar();
         }
     }
 
@@ -622,6 +637,6 @@ function escapeHtml(text) {
         senderBar.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:99999;background:#1a1a2e;border-bottom:2px solid #ffd700;padding:10px 16px;display:flex;align-items:center;justify-content:space-between;font-family:monospace;font-size:13px;color:#eee;';
         document.body.appendChild(senderBar);
         addSenderKeyListener();
-        nextBatch();          // 立刻复制第 1 包，完成后弹窗会自动显示“包1 xxx 字符，粘贴发送后按 Enter”
+        nextBatch();
     });
 })();
