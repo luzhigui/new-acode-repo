@@ -134,7 +134,7 @@ function resolveDodge(unit, target, attackerBuffStats, log) {
     dg.entries.push({type:'combat-text', text:`<span class="${unit.camp==='ally'?'blue':'orange'}">${unit.camp==='ally'?'明教':'六大派'} ${unit.name}</span>(攻${Math.floor(unit.atk)} 血${unitHpBeforeRebound}) → <span class="${target.camp==='ally'?'blue':'orange'}">${target.camp==='ally'?'明教':'六大派'} ${target.name}</span>(防${Math.floor(target.def)} 血${Math.floor(target.hp)})`});
     dg.entries.push({type:'info', text:`<span class="gray">🦅 ${target.name}闪避了攻击！</span>`});
     dg.entries.push({type:'damage-text', text:`<span class="red">🦅 ${target.name}反击 → ${unit.name} 造成 ${reboundDmg} 真实伤害（${unitHpBeforeRebound} → ${Math.floor(unit.hp)}）</span>`});
-    if (unit.hp <= 0) { unit.alive = false; unit._flash = 'dead'; unit._isDead = true; dg.entries.push({type:'info', text:`${unit.name}被反击击杀！`}); }
+    if (unit.hp <= 0) { unit.alive = false; unit._flash = 'dead'; unit._isDead = true; dg.isDead = true; dg.alive = false; dg.hpAfter = 0; dg.entries.push({type:'info', text:`${unit.name}被反击击杀！`}); }
     dg._events = [...window._battleEvents];
     window._battleEvents = [];
     log.push(dg);
@@ -210,7 +210,7 @@ function applyPostAttackEffects(unit, target, dmg, atkAct, defAct, reboundEntry,
             unit._isDead = true;
             if (!unit._deathTime) unit._deathTime = Date.now();
         }
-        log.push({type:'info', text:`<span class="red">⚔️ 灭绝双剑反击！${target.name} 对 ${unit.name} 造成 ${counterDmg} 点反击伤害</span>`, buffType:'elite_counter'});
+        log.push({type:'info', text:`<span class="red">⚔️ 灭绝双剑反击！${target.name} 对 ${unit.name} 造成 ${counterDmg} 点反击伤害</span>`, buffType:'elite_counter', uidD: unit.uid, isDead: !unit.alive});
         emitEvent(unit, 'hp-change', { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: unit.atk, def: unit.def });
     }
     const poisonLog = applyXuanmingPalm(unit, target);
@@ -314,7 +314,7 @@ function processUnitAttack(unit, allySide, enemySide, log, A, B, state, doubleSt
             reboundEntry = {
                 type: 'buff-rebound-fortify',
                 text: `<span class="gold">🛡️ 严阵以待反弹${reboundDmg}给${unit.name}，${unit.name}血量 ${attHpBefore} → ${Math.floor(unit.hp)}</span>`,
-                buffType: 'fortify_rebound', reboundDmg: reboundDmg, attackerUid: unit.uid, defenderUid: target.uid
+                buffType: 'fortify_rebound', reboundDmg: reboundDmg, attackerUid: unit.uid, defenderUid: target.uid, uidD: unit.uid, isDead: !unit.alive
             };
         }
     }
@@ -364,6 +364,9 @@ function processUnitAttack(unit, allySide, enemySide, log, A, B, state, doubleSt
                     target.alive = false;
                     target._isDead = true;
                     if (!target._deathTime) target._deathTime = Date.now();
+                    group.isDead = true;
+                    group.alive = false;
+                    group.hpAfter = 0;
                 }
                 emitEvent(target, 'hp-change', { hp: target.hp, maxHp: target.maxHp, alive: target.alive, atk: target.atk, def: target.def });
                 group.entries.push({type:'info', text:`<span class="red">🔥 融会贯通额外+${extra}（目标攻击${Math.floor(target.atk)}×15%）</span>`});
@@ -480,7 +483,7 @@ export function* createRoundStepper(state) {
         if (!u.alive) return;
         const dot = tickXuanmingPoison(u);
         if (dot > 0) {
-            log.push({ type:'info', text:`<span class="purple">❄️ 玄冥神掌寒毒发作，${u.name} 受到 ${dot} 点伤害</span>` });
+            log.push({ type:'info', text:`<span class="purple">❄️ 玄冥神掌寒毒发作，${u.name} 受到 ${dot} 点伤害</span>`, uidD: u.uid, isDead: !u.alive });
             emitEvent(u, 'hp-change', { hp: u.hp, maxHp: u.maxHp, alive: u.alive, atk: u.atk, def: u.def });
         }
     });
