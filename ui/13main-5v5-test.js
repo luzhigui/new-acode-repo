@@ -21,7 +21,7 @@ import {
     logTeamInfo, abortAll
 } from './41main-battle.js';
 import { initBGM, playBGM, setBGMVolume, fadeBGMTo, toggleBGM, updateBGMBtn, lowerBGM } from './42audio-control.js';
-import { toggleDodgeEffect, _triggerFX, dodgeEffectEnabled } from './43fx-trigger.js';
+import { toggleDodgeEffect, _triggerFX } from './43fx-trigger.js';
 import { updateSpeedButtons, activateScrollSlowdown, restoreSpeedFromScroll, updateButtons, enableAllButtons, updateDebugUI } from './44ui-controls.js';
 
 import { VER as VER_BUFF } from '../core/04buff-system.js';
@@ -43,8 +43,8 @@ const INDEX_VER = 'mode-5v5-test.html test V3.0';
 const LOG_LINE1 = '⚔️ 光明顶5v5对决 · 九宫格混战模式 ⚔️';
 
 // ==================== 局部状态（仅 UI 控制，不包含 activeBuffs） ====================
-let autoMode = true, debugMode = false, speed = 500, userScrolled = false;
-let abortController = null, waitingForNextRound = false, detailMode = true;
+let debugMode = false, speed = 500, userScrolled = false;
+let abortController = null, detailMode = true;
 let battleResultForInfo = null, resettleCount = 0;
 let gameStarted = false;
 let hasLoggedTeam = false;
@@ -201,16 +201,16 @@ document.addEventListener('DOMContentLoaded', function() {
             setRenderStore(null);
             if(currentStage>=6){
                 currentStage=1;
-                let result = abortAll(abortController, getState.UI(), waitingForNextRound, isBattleStarting, getState.adjustMode(), getState.selectedAdjustPos(), getState.activeBuffs(), selectedBuffIndex, currentDoubleStrikeUid, () => updateBuffSlots(getState.activeBuffs(), selectedBuffIndex));
-                abortController = result.abortController; waitingForNextRound = result.waitingForNextRound; isBattleStarting = result.isBattleStarting; setState.adjustMode(result.adjustMode); setState.selectedAdjustPos(result.selectedAdjustPos); setState.activeBuffs(result.activeBuffs); selectedBuffIndex = result.selectedBuffIndex; currentDoubleStrikeUid = result.currentDoubleStrikeUid;
+                let result = abortAll(abortController, getState.UI(), getState.waitingForNextRound(), isBattleStarting, getState.adjustMode(), getState.selectedAdjustPos(), getState.activeBuffs(), selectedBuffIndex, currentDoubleStrikeUid, () => updateBuffSlots(getState.activeBuffs(), selectedBuffIndex));
+                abortController = result.abortController; setState.waitingForNextRound(result.waitingForNextRound); isBattleStarting = result.isBattleStarting; setState.adjustMode(result.adjustMode); setState.selectedAdjustPos(result.selectedAdjustPos); setState.activeBuffs(result.activeBuffs); selectedBuffIndex = result.selectedBuffIndex; currentDoubleStrikeUid = result.currentDoubleStrikeUid;
                 clearLogExceptFirst(); clearAllEffects(); hasLoggedTeam=false;
                 doInitBattle(currentStage, getState.UI(), getState.snapshot(), getState.activeBuffs(), selectedBuffIndex, currentDoubleStrikeUid);
                 updateUI(); renderGrid('allyGrid', 'ally'); renderGrid('enemyGrid', 'enemy'); setState.gs(S.IDLE); setState.isPaused(false); updateButtons(); enableAllButtons(); updateSpeedButtons(); if(window._refreshGlowCells)window._refreshGlowCells();
             } else {
                 currentStage++;
                 setRenderStore(null);
-                let result = abortAll(abortController, getState.UI(), waitingForNextRound, isBattleStarting, getState.adjustMode(), getState.selectedAdjustPos(), getState.activeBuffs(), selectedBuffIndex, currentDoubleStrikeUid, () => updateBuffSlots(getState.activeBuffs(), selectedBuffIndex));
-                abortController = result.abortController; waitingForNextRound = result.waitingForNextRound; isBattleStarting = result.isBattleStarting; setState.adjustMode(result.adjustMode); setState.selectedAdjustPos(result.selectedAdjustPos); setState.activeBuffs(result.activeBuffs); selectedBuffIndex = result.selectedBuffIndex; currentDoubleStrikeUid = result.currentDoubleStrikeUid;
+                let result = abortAll(abortController, getState.UI(), getState.waitingForNextRound(), isBattleStarting, getState.adjustMode(), getState.selectedAdjustPos(), getState.activeBuffs(), selectedBuffIndex, currentDoubleStrikeUid, () => updateBuffSlots(getState.activeBuffs(), selectedBuffIndex));
+                abortController = result.abortController; setState.waitingForNextRound(result.waitingForNextRound); isBattleStarting = result.isBattleStarting; setState.adjustMode(result.adjustMode); setState.selectedAdjustPos(result.selectedAdjustPos); setState.activeBuffs(result.activeBuffs); selectedBuffIndex = result.selectedBuffIndex; currentDoubleStrikeUid = result.currentDoubleStrikeUid;
                 clearLogExceptFirst(); clearAllEffects(); hasLoggedTeam=false;
                 doInitBattle(currentStage, getState.UI(), getState.snapshot(), getState.activeBuffs(), selectedBuffIndex, currentDoubleStrikeUid);
                 updateUI(); renderGrid('allyGrid', 'ally'); renderGrid('enemyGrid', 'enemy'); setState.gs(S.IDLE); setState.isPaused(false); updateButtons(); enableAllButtons(); updateSpeedButtons(); if(window._refreshGlowCells)window._refreshGlowCells();
@@ -269,7 +269,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    document.getElementById('btnNext').addEventListener('click',function(){onAnyButtonClick();waitingForNextRound=false;setState.gs(S.RUNNING);updateButtons();});
+    document.getElementById('btnNext').addEventListener('click',function(){onAnyButtonClick();setState.waitingForNextRound(false);setState.gs(S.RUNNING);updateButtons();});
     document.getElementById('btnSettle').addEventListener('click',async function(){
         onAnyButtonClick();
         if (gs === S.GAMEOVER) {
@@ -278,7 +278,7 @@ document.addEventListener('DOMContentLoaded', function() {
             setState.speed(500);
             setState.gs(S.IDLE);
             setState.isPaused(false);
-            waitingForNextRound = false;
+            setState.waitingForNextRound(false);
             isBattleStarting = false;
             updateButtons();
             enableAllButtons();
@@ -286,7 +286,7 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
         window._fastForwardActive = true;
-        waitingForNextRound = false;
+        setState.waitingForNextRound(false);
         window._skipBuffPopup = true;
         let ffCtx = window._getPlayerContext ? window._getPlayerContext() : null;
         if (ffCtx) {
@@ -301,14 +301,17 @@ document.addEventListener('DOMContentLoaded', function() {
             document.body.classList.remove('paused-animations');
         }
         if (window.bulletTimeActive) window.bulletTimeActive = false;
-        waitingForNextRound = false;
+        setState.waitingForNextRound(false);
         updateButtons();
     });
     document.getElementById('btnPause').addEventListener('click',function(){onAnyButtonClick();if(gs===S.RUNNING){setState.gs(S.PAUSED);setState.isPaused(true);window.bulletTimeActive = false;if(window._getPlayerContext()._scheduler)window._getPlayerContext()._scheduler.pause();document.body.classList.add('paused-animations');}else if(gs===S.PAUSED){setState.gs(S.RUNNING);setState.isPaused(false);if(window._getPlayerContext()._scheduler)window._getPlayerContext()._scheduler.resume();document.body.classList.remove('paused-animations');}updateButtons();});
     document.getElementById('btnAuto').addEventListener('click',function(){
-        autoMode=!autoMode;this.classList.toggle('active',autoMode);this.textContent=autoMode?'自动':'手动';
-        window._autoMode = autoMode;
-        if(autoMode&&waitingForNextRound)waitingForNextRound=false;
+        setState.autoMode(!getState.autoMode());
+        let am = getState.autoMode();
+        this.classList.toggle('active', am);
+        this.textContent = am ? '自动' : '手动';
+        window._autoMode = am;
+        if (am && getState.waitingForNextRound()) setState.waitingForNextRound(false);
     });
     document.getElementById('btnDetail').addEventListener('click',function(){
         detailMode=!detailMode;this.classList.toggle('active',detailMode);this.textContent=detailMode?'详细':'简要';
@@ -379,8 +382,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function switchToStageInternal(stage){
         onAnyButtonClick();
-        let result = abortAll(abortController, getState.UI(), waitingForNextRound, isBattleStarting, getState.adjustMode(), getState.selectedAdjustPos(), getState.activeBuffs(), selectedBuffIndex, currentDoubleStrikeUid, () => updateBuffSlots(getState.activeBuffs(), selectedBuffIndex));
-        abortController = result.abortController; waitingForNextRound = result.waitingForNextRound; isBattleStarting = result.isBattleStarting; setState.adjustMode(result.adjustMode); setState.selectedAdjustPos(result.selectedAdjustPos); setState.activeBuffs(result.activeBuffs); selectedBuffIndex = result.selectedBuffIndex; currentDoubleStrikeUid = result.currentDoubleStrikeUid;
+        let result = abortAll(abortController, getState.UI(), getState.waitingForNextRound(), isBattleStarting, getState.adjustMode(), getState.selectedAdjustPos(), getState.activeBuffs(), selectedBuffIndex, currentDoubleStrikeUid, () => updateBuffSlots(getState.activeBuffs(), selectedBuffIndex));
+        abortController = result.abortController; setState.waitingForNextRound(result.waitingForNextRound); isBattleStarting = result.isBattleStarting; setState.adjustMode(result.adjustMode); setState.selectedAdjustPos(result.selectedAdjustPos); setState.activeBuffs(result.activeBuffs); selectedBuffIndex = result.selectedBuffIndex; currentDoubleStrikeUid = result.currentDoubleStrikeUid;
         clearLogExceptFirst(); clearAllEffects(); hasLoggedTeam=false;
         currentStage=stage;
         doInitBattle(currentStage, getState.UI(), getState.snapshot(), getState.activeBuffs(), selectedBuffIndex, currentDoubleStrikeUid);
@@ -390,12 +393,14 @@ document.addEventListener('DOMContentLoaded', function() {
     function forceStopGame(){
         const currentUI = getState.UI();
         if(!currentUI || !currentUI.allyTeam.length) return;
-        let result = abortAll(abortController, currentUI, waitingForNextRound, isBattleStarting, getState.adjustMode(), getState.selectedAdjustPos(), getState.activeBuffs(), selectedBuffIndex, currentDoubleStrikeUid, () => updateBuffSlots(getState.activeBuffs(), selectedBuffIndex));
-        abortController = result.abortController; waitingForNextRound = result.waitingForNextRound; isBattleStarting = result.isBattleStarting; setState.adjustMode(result.adjustMode); setState.selectedAdjustPos(result.selectedAdjustPos); setState.activeBuffs(result.activeBuffs); selectedBuffIndex = result.selectedBuffIndex; currentDoubleStrikeUid = result.currentDoubleStrikeUid;
+        let result = abortAll(abortController, currentUI, getState.waitingForNextRound(), isBattleStarting, getState.adjustMode(), getState.selectedAdjustPos(), getState.activeBuffs(), selectedBuffIndex, currentDoubleStrikeUid, () => updateBuffSlots(getState.activeBuffs(), selectedBuffIndex));
+        abortController = result.abortController; setState.waitingForNextRound(result.waitingForNextRound); isBattleStarting = result.isBattleStarting; setState.adjustMode(result.adjustMode); setState.selectedAdjustPos(result.selectedAdjustPos); setState.activeBuffs(result.activeBuffs); selectedBuffIndex = result.selectedBuffIndex; currentDoubleStrikeUid = result.currentDoubleStrikeUid;
         clearLogExceptFirst(); clearAllEffects(); hasLoggedTeam=false;
-        setState.gs(S.IDLE);setState.isPaused(false);waitingForNextRound=false;isBattleStarting=false;
-        updateButtons();enableAllButtons();updateSpeedButtons();
+        setState.gs(S.IDLE);setState.isPaused(false);setState.waitingForNextRound(false);isBattleStarting=false;
+        // 清除旧的 Store 引用，防止 renderGrid 访问无效 Store
+        setRenderStore(null);
         try { updateUI(); } catch(e){}
+        updateButtons();enableAllButtons();updateSpeedButtons();
     }
 
     function doManualReset(){
@@ -446,9 +451,9 @@ document.addEventListener('DOMContentLoaded', function() {
         updateUI(); updateScoreBadge();
         document.getElementById('log').innerHTML = '<div class="separator">' + LOG_LINE1 + '</div>';
         document.getElementById('btnDetail').classList.toggle('active', detailMode);
-        document.getElementById('btnAuto').classList.toggle('active', autoMode);
-        document.getElementById('btnDodgeToggle').classList.toggle('active', dodgeEffectEnabled);
-        document.getElementById('btnDodgeToggle').textContent = dodgeEffectEnabled ? '华丽' : '简单';
+        document.getElementById('btnAuto').classList.toggle('active', getState.autoMode());
+        document.getElementById('btnDodgeToggle').classList.toggle('active', getState.dodgeEffectEnabled());
+        document.getElementById('btnDodgeToggle').textContent = getState.dodgeEffectEnabled() ? '华丽' : '简单';
         document.getElementById('btnCrashMode').textContent = window._crashMode === 'fly' ? '🕊️飞走' : '👻虚影';
     } catch(e) {
         console.error('[光明顶5v5测试版] 初始化错误：', e.stack || e.message || e);

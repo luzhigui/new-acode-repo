@@ -41,24 +41,19 @@ export function checkNineYinClaw(attacker, target, baseDmg, log) {
     }
 
     let totalBonus = 0;
-    for (let depth = 0; depth < s.maxChain; depth++) {
-        // 连锁再触发：depth > 0 时按 chainProcChance
+    let depth = 0;
+    while (target.alive) {
         if (depth > 0 && Math.random() > s.chainProcChance) break;
-        if (!target.alive) break;
 
-        // 斩杀判定：本次伤害打完后，剩余血量 ≤ executeThreshold 直接带走
-        // 伤害 = 基础 + 已损失生命 × ratio
         const lostHp = target.maxHp - target.hp;
         const ratioDmg = Math.floor(lostHp * ratio);
         let bonusDmg = baseHit + Math.max(0, ratioDmg);
 
-        // 先扣血
         target.hp = Math.max(0, target.hp - bonusDmg);
         totalBonus += bonusDmg;
         attacker.dmgDealt += bonusDmg;
         target.dmgTaken += bonusDmg;
 
-        // 斩杀判定：本次伤害打完后，剩余血量 ≤ executeThreshold 直接带走
         const hpPctAfter = target.hp / target.maxHp;
         let isExecute = false;
         if (hpPctAfter <= s.executeThreshold && target.hp > 0) {
@@ -77,8 +72,6 @@ export function checkNineYinClaw(attacker, target, baseDmg, log) {
             window._emitEvent(target, 'hp-change', { hp: target.hp, maxHp: target.maxHp, alive: target.alive, atk: target.atk, def: target.def, _isDead: target._isDead });
         }
 
-        // 单行精简日志，标记 isClawHit 给播放器触发 showBoneClaw（fire-and-forget）
-        // 携带 clawTargetHpAfter/clawTargetAlive 供播放器分次同步血量（每次连锁变化一次）
         log.push({
             type: 'info',
             text: `<span style="color:#222">🐾 九阴白骨爪${depth > 0 ? '连锁' : '追击'}！${attacker.name} 对 ${target.name} 造成 ${bonusDmg} 点伤害${isExecute ? '（斩杀）' : (zhangAlive ? '【嫉妒】' : '')}</span>`,
@@ -94,7 +87,8 @@ export function checkNineYinClaw(attacker, target, baseDmg, log) {
             isDead: !target.alive
         });
 
-        if (isExecute) break; // 斩杀后不再连锁
+        depth++;
+        if (isExecute) break;
     }
     return totalBonus;
 }

@@ -359,9 +359,9 @@ async function handleInfo(c, entry) {
             let attacker = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.uid === entry.clawAttackerUid);
             let target = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.uid === entry.clawTargetUid);
             if (target && entry.clawTargetHpAfter !== undefined) {
-                target.hp = entry.clawTargetHpAfter;
-                target.alive = entry.clawTargetAlive;
-                c.store.dispatch({ type: 'SYNC_UNIT', uid: entry.clawTargetUid, fields: { hp: target.hp, alive: target.alive } });
+                // 直接 dispatch SYNC_UNIT，不再先修改 target.hp/alive
+                // subscribe 回调会同步字段到 target 对象，所以 dispatch 后 target.hp 就是最新值
+                c.store.dispatch({ type: 'SYNC_UNIT', uid: entry.clawTargetUid, fields: { hp: entry.clawTargetHpAfter, alive: entry.clawTargetAlive } });
                 if (entry.clawTargetIsDead) {
                     c.store.dispatch({ type: 'SET_VISUAL', uid: entry.clawTargetUid, _isDead: true });
                     c.store.dispatch({ type: 'SET_FLASH', uid: entry.clawTargetUid, flash: 'dead' });
@@ -447,9 +447,9 @@ export async function playLogEntries(c, log, roundResult, isFirstAttackRef) {
                         document.getElementById('log').appendChild(div);c.autoScrollLog();
                         let healUnit = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.uid === entry.healUnitUid);
                         if (healUnit && entry.healAmount) {
-                            healUnit.hp = Math.min(healUnit.maxHp, healUnit.hp + entry.healAmount);
+                            let newHp = Math.min(healUnit.maxHp, healUnit.hp + entry.healAmount);
                             showHealFloat(healUnit, entry.healAmount);
-                            c.store.dispatch({ type: 'SYNC_UNIT', uid: entry.healUnitUid, fields: { hp: healUnit.hp, maxHp: healUnit.maxHp } });
+                            c.store.dispatch({ type: 'SYNC_UNIT', uid: entry.healUnitUid, fields: { hp: newHp, maxHp: healUnit.maxHp } });
                         }
                         // 每次都触发字幕+子弹时间；翻倍时换文案
                         c.isPaused = true; window.bulletTimeActive = true;
@@ -460,7 +460,10 @@ export async function playLogEntries(c, log, roundResult, isFirstAttackRef) {
                         await handleBuffLeech(c, entry);
                         if (entry.healUnitUid && entry.healAmount) {
                             let healed = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.uid === entry.healUnitUid);
-                            if (healed) c.store.dispatch({ type: 'SYNC_UNIT', uid: entry.healUnitUid, fields: { hp: healed.hp, maxHp: healed.maxHp } });
+                            if (healed) {
+                                let newHp = Math.min(healed.maxHp, healed.hp + entry.healAmount);
+                                c.store.dispatch({ type: 'SYNC_UNIT', uid: entry.healUnitUid, fields: { hp: newHp, maxHp: healed.maxHp } });
+                            }
                         }
                     }
                     lastEntryType = entry.type;
@@ -542,6 +545,7 @@ export async function playBattle() {
     requestAnimationFrame(frameLoop);
 
     let abortSig = c.abortController ? c.abortController.signal : null;
+    c._battleEnded = false;  // 重玩时重置，确保 frameLoop 正常启动
 
     // ========== 初始化 Store ==========
     const initialUnits = [
@@ -589,8 +593,8 @@ export async function playBattle() {
                         if (!c._deadUnitsForReport) c._deadUnitsForReport = [];
                         let deadUnit = c.UI.allyTeam.find(u => u.uid === uid) || c.UI.enemyTeam.find(u => u.uid === uid);
                         if (deadUnit && !c._deadUnitsForReport.find(u => u.uid === uid)) c._deadUnitsForReport.push({...deadUnit});
-                        c.UI.allyTeam = c.UI.allyTeam.filter(u => u.uid !== uid);
-                        c.UI.enemyTeam = c.UI.enemyTeam.filter(u => u.uid !== uid);
+                        // 只通过 Store dispatch 移除单位，不再直接操作 c.UI.allyTeam / enemyTeam
+                        // subscribe 中的 filter 逻辑会自动从 c.UI 中移除该单位
                         delete c._deathTimers[uid];
                         c.store.dispatch({ type: 'REMOVE_UNIT', uid: uid });
                     }, 3000);
@@ -725,16 +729,11 @@ export async function playBattle() {
         let reportEnemies = [...c.UI.enemyTeam, ...deadEnemies].filter((u, i, arr) => arr.findIndex(v => v.uid === u.uid) === i);
         c.battleResultForInfo = { winner, ally: reportAllies, enemy: reportEnemies };
 
-        // 同步 alive 状态：从 battleState 回写 UI，防止 store 订阅过滤导致 alive 滞后
+        // 同步 alive 状态：从 battleState 回写 Store（不再直接修改 c.UI）
         const winState = finalStep ? (winner === '明教' ? finalStep.ally : finalStep.enemy) : null;
-        if (winState) {
-            const winTeam = winner === '明教' ? c.UI.allyTeam : c.UI.enemyTeam;
+        if (winState && c.store) {
             for (const su of winState) {
-                const uiUnit = winTeam.find(u => u.uid === su.uid);
-                if (uiUnit) {
-                    uiUnit.alive = su.alive;
-                    uiUnit.hp = su.hp;
-                }
+                c.store.dispatch({ type: 'SYNC_UNIT', uid: su.uid, fields: { hp: su.hp, alive: su.alive, _isDead: !su.alive } });
             }
         }
 

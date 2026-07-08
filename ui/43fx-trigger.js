@@ -7,18 +7,16 @@ import { getKillTaunt } from '../core/07battle-engine-5v5-test.js';
 import { showDanmaku, showDamageFloat } from '../fx/15fx-common-5v5-test.js';
 import { showRangedArrow } from '../fx/16fx-arrows-5v5-test.js';
 import { showMeleeCrash, showMeleeDodge, showMeleeMiss } from '../fx/17fx-crash-5v5-test.js';
-import { getState } from './39main-state.js';
+import { getState, setState } from './39main-state.js';
 
 const KT = KILL_TAUNT;
 
-export let dodgeEffectEnabled = true;
-
 export function toggleDodgeEffect() {
-    dodgeEffectEnabled = !dodgeEffectEnabled;
+    setState.dodgeEffectEnabled(!getState.dodgeEffectEnabled());
     let btn = document.getElementById('btnDodgeToggle');
     if (btn) {
-        btn.classList.toggle('active', dodgeEffectEnabled);
-        btn.textContent = dodgeEffectEnabled ? '华丽' : '简单';
+        btn.classList.toggle('active', getState.dodgeEffectEnabled());
+        btn.textContent = getState.dodgeEffectEnabled() ? '华丽' : '简单';
     }
 }
 
@@ -45,14 +43,23 @@ export function _triggerFX(fxSnapshot, unitA, unitD, isDead, isDodge, isMiss, is
             showRangedArrow(unitA, unitD, speed, getPausedState);
         } else if (!isBlock) {
             if (isDodge) {
-                if (!dodgeEffectEnabled) {
+                if (!getState.dodgeEffectEnabled()) {
                     showMeleeDodge(unitA, unitD, speed * 2, getPausedState);
                 }
             } else if (isMiss) {
                 showMeleeMiss(unitA, unitD, speed * 2, getPausedState);
             } else {
                 showMeleeCrash(unitA, unitD, speed, getPausedState, () => {
-                    if (isDead && unitD) { unitD._flash = 'dead'; }
+                    if (isDead && unitD) {
+                        // 通过 Store dispatch 设置死亡标记，不直接修改 unitD._flash
+                        const ctx = window._getPlayerContext ? window._getPlayerContext() : null;
+                        if (ctx && ctx.store) {
+                            ctx.store.dispatch({ type: 'SET_FLASH', uid: unitD.uid, flash: 'dead' });
+                            ctx.store.dispatch({ type: 'SET_VISUAL', uid: unitD.uid, _isDead: true });
+                        } else {
+                            unitD._flash = 'dead';  // 兜底
+                        }
+                    }
                 });
             }
         }

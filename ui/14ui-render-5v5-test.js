@@ -368,9 +368,12 @@ export function spawnVictoryEffects(winnerCamp) {
     sortedAlive.forEach((u, index) => {
         const taunt = WIN_TAUNTS[rand(0, WIN_TAUNTS.length - 1)];
         setTimeout(() => {
-            showDanmaku(u, taunt);
-            logDiv.innerHTML += `<span class="${winColor}">🗯️ ${u.name}：${taunt}</span><br>`;
-            logDiv.scrollTop = logDiv.scrollHeight;
+            // 延迟到 renderGrid 完成后再弹弹幕，避免格子位置不一致
+            requestAnimationFrame(() => {
+                showDanmaku(u, taunt);
+                logDiv.innerHTML += `<span class="${winColor}">🗯️ ${u.name}：${taunt}</span><br>`;
+                logDiv.scrollTop = logDiv.scrollHeight;
+            });
         }, index * 600);
     });
     logDiv.innerHTML+=`<span class="gold">🎉🏆 <span class="${winColor}">${winnerCamp}</span>获得最终胜利！ 🏆🎉</span><br>`;logDiv.scrollTop=logDiv.scrollHeight;

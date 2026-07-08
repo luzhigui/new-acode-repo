@@ -74,16 +74,17 @@ export async function animatePositionSwap(unit1, unit2, c) {
     cell2.style.opacity = '0';
     await wait(350);
 
-    // 交换数据
-    unit1.pos = pos2;
-    unit2.pos = pos1;
-
-    // 同步到 Store：用 APPLY_EVENTS 批量更新，避免两次 SYNC_UNIT 导致中间态渲染不一致
+    // 交换数据：不直接修改 unit.pos，全部通过 Store dispatch 完成
+    // subscribe 会自动同步单位字段，无需手动赋值
     if (c.store) {
         c.store.dispatch({ type: 'APPLY_EVENTS', events: [
-            { eventType: 'pos-change', uid: unit1.uid, pos: unit1.pos },
-            { eventType: 'pos-change', uid: unit2.uid, pos: unit2.pos }
+            { eventType: 'pos-change', uid: unit1.uid, pos: pos2 },
+            { eventType: 'pos-change', uid: unit2.uid, pos: pos1 }
         ]});
+    } else {
+        // 兜底：没有 Store 时保留直接赋值
+        unit1.pos = pos2;
+        unit2.pos = pos1;
     }
 
     // 清理样式并重绘
