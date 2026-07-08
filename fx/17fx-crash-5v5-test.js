@@ -187,9 +187,14 @@ export function showMeleeCrash(unitA, unitD, speed, getPausedFn, onCrash) {
                                 currentCell.style.transform = '';
                                 currentCell.removeAttribute('data-flash');
                             }
-                            unitA._flash = null;
-                            delete unitA._flyMode;
-                            if (ctx && ctx.store) ctx.store.dispatch({ type: 'SET_VISUAL', uid: unitA.uid, _flyMode: null });
+                            // 通过 Store 清除闪光和飞行模式
+                            if (ctx && ctx.store) {
+                                ctx.store.dispatch({ type: 'CLEAR_UNIT_FLASH', uid: unitA.uid });
+                                ctx.store.dispatch({ type: 'SET_VISUAL', uid: unitA.uid, _flyMode: null });
+                            } else {
+                                unitA._flash = null;
+                                delete unitA._flyMode;
+                            }
                             if (UI) { let c = window._getPlayerContext(); c.updateUI(UI); }
                         }
                     }
@@ -270,7 +275,12 @@ export function showMeleeDodge(unitA, unitD, speed, getPausedFn) {
     cellA.style.background = 'transparent';
     cellA.style.border = 'none';
     cellA.removeAttribute('data-flash');
-    unitA._flash = null;
+    const ctxD = window._getPlayerContext ? window._getPlayerContext() : null;
+    if (ctxD && ctxD.store) {
+        ctxD.store.dispatch({ type: 'CLEAR_UNIT_FLASH', uid: unitA.uid });
+    } else {
+        unitA._flash = null;
+    }
     cellA.classList.remove('ready');
 
     let flyDur = 350 * (speed / 1000);
@@ -394,7 +404,12 @@ export function showMeleeMiss(unitA, unitD, speed, getPausedFn) {
     cellA.style.background = 'transparent';
     cellA.style.border = 'none';
     cellA.removeAttribute('data-flash');
-    unitA._flash = null;
+    const ctxM = window._getPlayerContext ? window._getPlayerContext() : null;
+    if (ctxM && ctxM.store) {
+        ctxM.store.dispatch({ type: 'CLEAR_UNIT_FLASH', uid: unitA.uid });
+    } else {
+        unitA._flash = null;
+    }
     cellA.classList.remove('ready');
 
     let flyDur = 800 * (speed/1000); let start1 = null;

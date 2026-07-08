@@ -104,9 +104,16 @@ export async function animatePushSwap(frontUnit, rearUnit, c) {
     cellR.style.opacity = '0';
     await wait(150);
 
-    // 交换数据
-    frontUnit.pos = posR;
-    rearUnit.pos = posF;
+    // 交换数据：通过 Store dispatch，不直接修改 frontUnit/rearUnit.pos
+    if (c.store) {
+        c.store.dispatch({ type: 'APPLY_EVENTS', events: [
+            { eventType: 'pos-change', uid: frontUnit.uid, pos: posR },
+            { eventType: 'pos-change', uid: rearUnit.uid, pos: posF }
+        ]});
+    } else {
+        frontUnit.pos = posR;
+        rearUnit.pos = posF;
+    }
 
     // 清理样式
     cellF.style.transition = '';

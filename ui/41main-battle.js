@@ -117,6 +117,7 @@ export function doInitBattle(currentStage, UI, snapshot, activeBuffs, selectedBu
             let role = C.ROLES[rand(0, 3)];
             let extraUnit = new Unit(name, extraM, role, 'enemy');
             extraUnit.init(); extraUnit.applyBonus();
+            enemyUnits.push(extraUnit);          // ← 加入队伍
             extraUnitForStage5 = extraUnit;
         }
 

@@ -279,7 +279,7 @@ function processUnitAttack(unit, allySide, enemySide, log, A, B, state, doubleSt
     target.buffDodgeBonus = defenderBuffStats.dodgeBonus;
     target.buffHpBonus = defenderBuffStats.hpBonus;
 
-    if (resolveDodge(unit, target, attackerBuffStats, log)) return false;
+    if (resolveDodge(unit, target, defenderBuffStats, log)) return false;
 
     let dmgCalc = calcAttackDamage(unit, target, attackerBuffStats, defenderBuffStats);
     let { atkBase, defBase, atkAct, defAct, hpBonus, hpBefore, waveTaunt, waveUnit, raw, rawFormula, thunderBonus, hornBonus, trueDmg } = dmgCalc;
