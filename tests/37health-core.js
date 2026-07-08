@@ -1,6 +1,6 @@
 // tests/37health-core.js - 光明顶5v5 全面体检（实战验证）
-// V5.0.4 | ~20000 bytes | 2026-07-08 修正Carry战斗伤害/拒马敌方漏查/换位死亡误判
-export const VER = 'tests/37health-core.js V5.0.4';
+// V5.0.3 | ~20000 bytes | 2026-07-08 修正Carry/拒马/闪避误判，保留换位问题检测
+export const VER = 'tests/37health-core.js V5.0.3';
 
 import { runBattle } from '../core/07battle-engine-5v5-test.js';
 import { generateSnapshot } from '../tools/27auto-battle-utils.js';
@@ -83,28 +83,28 @@ function createCombatChecks(win, doc) {
             }
         },
 
-        // ========== 3. Carry血量合法性检查 ==========
+        // ========== 3. Carry血量检查（修正版：不强制等比，只检查方向合法） ==========
         {
             group: '✨ Buff',
-            name: 'Carry血量合法性检查',
+            name: 'Carry血量方向检查',
             test: function(ctx, log, beforeA, beforeE, afterA, afterE) {
-                var hasCarry = (ctx.activeBuffs || []).some(function(b) { return b.key === 'carry'; });
-                if (!hasCarry) return 'skip';
                 var carryUnit = (beforeA || []).find(function(u) { return u.pos === 5 && u.alive && !u.isHorse; });
                 if (!carryUnit) return 'skip';
                 var carryAfter = (afterA || []).find(function(u) { return u.uid === carryUnit.uid; });
                 if (!carryAfter) return 'skip';
-                // 只检查合法性：不超上限、不为负
-                // 注意：战斗伤害会自然降低hp，不能比较前后hp"方向"
-                if (carryAfter.hp > carryAfter.maxHp) {
-                    return { fail: true, msg: 'Carry血量超上限 | 根因: core/06battle-engine-core.js → carry加成逻辑 | 排查: hp=' + Math.floor(carryAfter.hp) + ' > maxHp=' + Math.floor(carryAfter.maxHp) };
+                // 只检查方向：maxHp 增加时 hp 不应减少，maxHp 减少时 hp 不应增加
+                if (carryAfter.maxHp > carryUnit.maxHp) {
+                    if (carryAfter.hp < carryUnit.hp - 2) {
+                        return { fail: true, msg: 'Carry血量方向异常 | 根因: core/06battle-engine-core.js → carry加成逻辑 | 排查: maxHp从' + Math.floor(carryUnit.maxHp) + '增加到' + Math.floor(carryAfter.maxHp) + '，但hp从' + Math.floor(carryUnit.hp) + '降到了' + Math.floor(carryAfter.hp) + '，方向反了' };
+                    }
+                } else if (carryAfter.maxHp < carryUnit.maxHp) {
+                    if (carryAfter.hp > carryUnit.hp + 2) {
+                        return { fail: true, msg: 'Carry血量方向异常 | 根因: core/06battle-engine-core.js → carry加成逻辑 | 排查: maxHp从' + Math.floor(carryUnit.maxHp) + '减少到' + Math.floor(carryAfter.maxHp) + '，但hp从' + Math.floor(carryUnit.hp) + '升到了' + Math.floor(carryAfter.hp) + '，方向反了' };
+                    }
                 }
-                if (carryAfter.hp < 0) {
-                    return { fail: true, msg: 'Carry血量为负 | 根因: core/06battle-engine-core.js → carry加成逻辑 | 排查: hp=' + Math.floor(carryAfter.hp) };
-                }
-                // maxHp不应低于_baseMaxHp（carry只会加血不会减基础值）
-                if (carryAfter._baseMaxHp && carryAfter.maxHp < carryAfter._baseMaxHp) {
-                    return { fail: true, msg: 'Carry maxHp低于基础值 | 根因: core/06battle-engine-core.js → carry加成逻辑 | 排查: maxHp=' + Math.floor(carryAfter.maxHp) + ' < _baseMaxHp=' + Math.floor(carryAfter._baseMaxHp) };
+                // 合法性检查：不超上限，不为负
+                if (carryAfter.hp > carryAfter.maxHp || carryAfter.hp < 0) {
+                    return { fail: true, msg: 'Carry血量非法 | 根因: core/06battle-engine-core.js → carry加成逻辑 | 排查: hp=' + Math.floor(carryAfter.hp) + ' maxHp=' + Math.floor(carryAfter.maxHp) };
                 }
                 return { fail: false };
             }
@@ -128,7 +128,7 @@ function createCombatChecks(win, doc) {
                 for (var i = 0; i < summonEvs.length; i++) {
                     var horseUid = summonEvs[i].horseUid;
                     var wasDestroyed = destroyEvs.some(function(e) { return e.horseUid === horseUid; });
-                    var horseInFinal = findUnitByUid((afterA || []).concat(afterE || []), horseUid);
+                    var horseInFinal = findUnitByUid((afterA || []), horseUid);
                     
                     if (!horseInFinal) {
                         // 马不在最终队伍：要么被销毁了，要么在战斗中死了
@@ -176,66 +176,40 @@ function createCombatChecks(win, doc) {
             }
         },
 
-        // ========== 5. 换位事件有效性检查 ==========
+        // ========== 5. 换位后单位存在性检查（保留：检测主代码 bug） ==========
         {
             group: '📍 换位',
-            name: '换位事件有效性检查',
+            name: '换位后双方单位存在',
             test: function(ctx, log, beforeA, beforeE, afterA, afterE) {
                 var swapEvs = log.filter(function(e) {
                     return e.type === 'buff-swap' || e.type === 'buff-push';
                 });
                 if (swapEvs.length === 0) return 'skip';
 
-                // 收集所有日志中出现过的单位名称（攻击日志的combat-text包含名字）
-                var allLogNames = {};
-                for (var li = 0; li < log.length; li++) {
-                    var le = log[li];
-                    if (le.type === 'attack-group' && le.entries) {
-                        for (var ei = 0; ei < le.entries.length; ei++) {
-                            var te = le.entries[ei];
-                            if (te.type === 'combat-text' && te.text) {
-                                var nm = te.text.replace(/<[^>]+>/g, '');
-                                // combat-text格式: "阵营 名字(攻X 血Y) → 阵营 名字(防X 血Y)"
-                                var nameMatches = nm.match(/[\u4e00-\u9fff·]+(?=\()/g);
-                                if (nameMatches) {
-                                    for (var nmi = 0; nmi < nameMatches.length; nmi++) {
-                                        allLogNames[nameMatches[nmi]] = true;
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-                var allFinalUnits = (afterA || []).concat(afterE || []);
-
                 for (var i = 0; i < swapEvs.length; i++) {
                     var ev = swapEvs[i];
                     var text = ev.text || '';
                     var names = [];
-                    // buff-swap 格式: "号位名字(角色)与...号位名字(角色)互换"
-                    // buff-push 格式: "名字从X号位击退至Y号位，名字被迫从..."
-                    if (ev.type === 'buff-swap') {
-                        var matches = text.match(/号位(.+?)\(/g);
-                        if (matches) {
-                            for (var m = 0; m < matches.length; m++) {
-                                var name = matches[m].replace(/号位/, '').replace(/\($/, '');
-                                if (name && names.indexOf(name) === -1) names.push(name);
-                            }
+                    var matches = text.match(/号位(.+?)\(/g);
+                    if (matches) {
+                        for (var m = 0; m < matches.length; m++) {
+                            var name = matches[m].replace(/号位/, '').replace(/\($/, '');
+                            if (name && names.indexOf(name) === -1) names.push(name);
                         }
-                    } else if (ev.type === 'buff-push') {
-                        // push事件直接有pushTarget和pushBehind字段
-                        if (ev.pushTarget) names.push(ev.pushTarget);
-                        if (ev.pushBehind) names.push(ev.pushBehind);
                     }
                     if (names.length < 2) continue;
 
                     for (var n = 0; n < names.length; n++) {
-                        var unit = findUnitByName(allFinalUnits, names[n]);
-                        if (unit) continue; // 在最终队伍中找到了
-                        // 不在最终队伍：检查是否在日志中出现过（说明参与了战斗后阵亡）
-                        if (allLogNames[names[n]]) continue; // 在战斗日志中出现过，说明阵亡后被过滤
-                        // 既不在最终队伍也没在日志中出现：真正丢失
-                        return { fail: true, msg: '换位单位完全丢失 | 根因: player/10player-core.js → handleBuffSwap/handleBuffPush 或 fx/18fx-position-swap.js | 排查: ' + names[n] + '在换位后既不在最终队伍也不在战斗日志中，可能被错误移除' };
+                        var unit = findUnitByName((afterA || []).concat(afterE || []), names[n]);
+                        if (!unit) {
+                            return { fail: true, msg: '换位后单位丢失 | 根因: player/10player-core.js → handleBuffSwap/handleBuffPush 或 fx/18fx-position-swap.js | 排查: ' + names[n] + '在换位后从队伍中消失。APPLY_EVENTS reducer 不支持无 eventType 的 pos 更新' };
+                        }
+                        if (unit.alive) {
+                            var cell = getCellElement(unit, doc);
+                            if (!cell) {
+                                return { fail: true, msg: '换位后格子为空 | 根因: 同上 | 排查: ' + names[n] + '在' + unit.pos + '号位的格子未渲染，位置更新可能被 Store 忽略' };
+                            }
+                        }
                     }
                 }
                 return { fail: false };
