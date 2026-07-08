@@ -1,6 +1,6 @@
 // fx/19fx-push-back.js - 光明顶5v5 击退特效
 // V5.0.1 | ~4890 bytes | 2026-07-05
-export const VER = 'fx/19fx-push-back.js V5.0.1';
+export const VER = 'fx/19fx-push-back.js V5.0.2';
 
 /**
  * 获取单位对应的格子 DOM 元素

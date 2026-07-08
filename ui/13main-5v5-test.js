@@ -1,6 +1,6 @@
 // ui/13main-5v5-test.js - 光明顶5v5 主控模块
 // V5.0.1 | ~24000 bytes | 2026-07-07 拆分音频到42、特效到43、倍速+按钮到44
-export const VER = 'ui/13main-5v5-test.js V5.0.1';
+export const VER = 'ui/13main-5v5-test.js V5.0.2';
 
 import '../modules/24error-capture.js';
 import { CONFIG, STATE, KILL_TAUNT, ENEMY_M, VER as CFG_VER } from '../core/01config-5v5-test.js';

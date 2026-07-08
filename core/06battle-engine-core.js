@@ -1,6 +1,6 @@
 // core/06battle-engine-core.js - 光明顶5v5 战斗核心循环
 // V5.0.0 | ~55000 bytes | 2026-07-06 引擎改造为逐步执行生成器
-export const VER = 'core/06battle-engine-core.js V5.0.0';
+export const VER = 'core/06battle-engine-core.js V5.0.2';
 
 import { CONFIG, DEF_TAUNT, HP_TAUNT } from './01config-5v5-test.js';
 import { rand, calcDamage, getFangLevel, isMelee, getFronts, isBlocked, getFlyDodgeRate, getRandomTaunt, getZhangNearTaunt, makeFXSnapshot, hasBuff } from './03battle-utils.js';
