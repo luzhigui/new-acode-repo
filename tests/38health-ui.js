@@ -3,7 +3,6 @@
 export const VER = 'tests/38health-ui.js V5.0.1';
 
 import { runHealthCheck } from './37health-core.js';
-import { loadQuizBank, saveCustomQuiz } from './35quiz-bank.js';
 
 function showCustomConfirm(msg, onConfirm, onCancel) {
     const overlay = document.createElement('div');
@@ -46,11 +45,6 @@ export function initTestRunner() {
     const progText = document.getElementById('progressText');
     const stageCbs = document.getElementById('stageCheckboxes');
     const groupCbs = document.getElementById('groupCheckboxes');
-    const quizPanel = document.getElementById('quizPanel');
-    const quizQ = document.getElementById('quizQuestion');
-    const quizOpts = document.getElementById('quizOptions');
-    const quizFeed = document.getElementById('quizFeedback');
-    const quizScoreEl = document.getElementById('quizScore');
     const feedbackArea = document.getElementById('feedbackArea');
     const feedbackInput = document.getElementById('feedbackInput');
     const feedbackHistory = document.getElementById('feedbackHistory');
@@ -60,75 +54,6 @@ export function initTestRunner() {
     // 初始化规则组复选框
     const allGroups = ['🚀 启动与加载', '🎨 九宫格基础', '❤️ 血条与属性', '✨ Buff 系统', '🎭 状态样式', '🎵 音效', '🎬 特效', '👹 精英', '🔗 数据', '⚙️ 引擎', '📋 日志', '📍 站位'];
     groupCbs.innerHTML = allGroups.map(g => '<label><input type="checkbox" value="' + g + '" checked> ' + (g.split(' ')[1] || g) + '</label>').join('');
-
-    // ==================== 答题功能 ====================
-    let quizActive = false;
-    let quizScore = 0;
-    const quizBank = loadQuizBank();
-
-    function showQuiz() {
-        if (!quizActive || !quizBank.length) return;
-        const q = quizBank[Math.floor(Math.random() * quizBank.length)];
-        quizQ.textContent = '❓ ' + q.q;
-        quizOpts.innerHTML = '';
-
-        let selectedIdx = -1;
-
-        q.o.forEach((opt, i) => {
-            const btn = document.createElement('button');
-            btn.className = 'quiz-option';
-            btn.textContent = opt;
-            btn.addEventListener('click', () => {
-                // 高亮当前选择
-                quizOpts.querySelectorAll('.quiz-option').forEach(o => o.style.borderColor = '#444');
-                btn.style.borderColor = '#ffd700';
-                selectedIdx = i;
-            });
-            quizOpts.appendChild(btn);
-        });
-
-        // 提交按钮
-        const submitBtn = document.createElement('button');
-        submitBtn.className = 'quiz-option';
-        submitBtn.textContent = '✅ 提交';
-        submitBtn.style.cssText = 'background:#ffd700;color:#1a1a2e;font-weight:bold;';
-        submitBtn.addEventListener('click', () => {
-            if (selectedIdx === -1) return; // 没选不能提交
-            const allOpts = quizOpts.querySelectorAll('.quiz-option');
-            allOpts.forEach(o => o.style.pointerEvents = 'none');
-            submitBtn.style.pointerEvents = 'none';
-            const correctIdx = q.a;
-            allOpts.forEach((o, i) => {
-                if (i === correctIdx) o.classList.add('correct');
-                else if (i === selectedIdx && i !== correctIdx) o.classList.add('wrong');
-            });
-            if (selectedIdx === correctIdx) {
-                quizScore += 10;
-                quizFeed.textContent = '✅ ' + q.e;
-            } else {
-                quizFeed.textContent = '❌ 正确答案：' + q.o[q.a] + '。' + q.e;
-                quizScore = Math.max(0, quizScore - 5);
-            }
-            quizScoreEl.textContent = '得分：' + quizScore;
-            setTimeout(() => { if (quizActive) showQuiz(); }, 3000);
-        });
-        quizOpts.appendChild(submitBtn);
-
-        quizFeed.textContent = '';
-    }
-
-    function startQuiz() {
-        quizScore = 0;
-        quizScoreEl.textContent = '得分：0';
-        quizActive = true;
-        quizPanel.style.display = 'block';
-        showQuiz();
-    }
-
-    function stopQuiz() {
-        quizActive = false;
-        quizPanel.style.display = 'none';
-    }
 
     // ==================== 快速反馈 ====================
     document.getElementById('toggleFeedback').addEventListener('click', () => {
@@ -201,13 +126,11 @@ export function initTestRunner() {
 
     // ==================== 开始体检 ====================
     runBtn.addEventListener('click', () => {
-        startQuiz();
         const config = {
             iframe, statusEl, reportEl, copySumBtn, copyFullBtn, runBtn,
             progCont, progFill, progText, stageCbs, groupCbs
         };
         runHealthCheck(config).then(() => {
-            stopQuiz();
             loadHistory();
         });
     });

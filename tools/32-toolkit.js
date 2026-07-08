@@ -40,7 +40,7 @@ function escapeHtml(text) {
         '../modules/23elite-skills.js', '../modules/24error-capture.js', '../modules/28audio-manager.js',
         // tests（测试与体检）
         '../tests/25unit-tests.js', '../tests/29health-rules.js',
-        '../tests/35quiz-bank.js', '../tests/36runtime-sampler.js', '../tests/37health-core.js',
+        '../tests/36runtime-sampler.js', '../tests/37health-core.js',
         '../tests/38health-ui.js', '../tests/30test-runner.html',
         // tools（工具箱）
         '../tools/31-toolkit.html', '../tools/32-toolkit.js', '../tools/33-toolkit-more.js',
@@ -116,8 +116,7 @@ function escapeHtml(text) {
             before: '请分析以下测试与体检代码，重点关注：\n' +
                 '1. 健康检查规则（启动检查、运行时检查）\n' +
                 '2. 单元测试（引擎函数、边界情况）\n' +
-                '3. 运行时采样（性能监控）\n' +
-                '4. 题库系统',
+                '3. 运行时采样（性能监控）',
             after: '测试代码发送完毕。'
         },
         '工具箱自身': {
