@@ -1,5 +1,5 @@
 // tests/37health-core.js - 光明顶5v5 全面体检（实战验证）
-// V5.0.3 | ~20000 bytes | 2026-07-08 修正Carry/拒马/闪避误判，保留换位问题检测
+// V5.0.3 | ~22000 bytes | 2026-07-08 日志自洽+DOM检测双轨，报错分日志/UI两大类
 export const VER = 'tests/37health-core.js V5.0.3';
 
 import { runBattle } from '../core/07battle-engine-5v5-test.js';
@@ -27,14 +27,84 @@ function findUnitByName(units, name) {
     return units.find(function(u) { return u.name === name; });
 }
 
+function getHpBarPct(unit, doc) {
+    var cell = getCellElement(unit, doc);
+    if (!cell) return null;
+    var bar = cell.querySelector('.hp-bar-inner');
+    if (!bar) return null;
+    return parseFloat(bar.style.height);
+}
+
 // ==================== 实战规则定义 ====================
 
 function createCombatChecks(win, doc) {
     return [
 
-        // ========== 1. 白骨爪伤害公式检查 ==========
+        // ========== 1. 分隔符缺失检查 ==========
         {
-            group: '👹 精英技能',
+            group: '日志格式',
+            name: '分隔符缺失检查',
+            test: function(ctx, log, beforeA, beforeE, afterA, afterE) {
+                var issues = [];
+                var logDiv = doc.getElementById('log');
+                if (!logDiv) return 'skip';
+
+                var allDivs = logDiv.querySelectorAll('div');
+                var divIndex = 0;
+
+                for (var i = 1; i < log.length; i++) {
+                    var prev = log[i-1];
+                    var curr = log[i];
+
+                    if (curr.type === 'attack-group' && prev.type !== 'attack-group' && prev.type !== 'round-start') {
+                        var needSepTypes = ['buff-leech','buff-summary','info','buff-rebound-fortify','buff-swap','buff-push','buff-bonus','buff-splash','buff-destroy','buff-summon'];
+                        if (needSepTypes.indexOf(prev.type) !== -1) {
+                            // 找前一条日志在DOM中的对应div
+                            var prevDiv = null;
+                            for (var d = divIndex; d < allDivs.length; d++) {
+                                var html = allDivs[d].innerHTML || '';
+                                if (html.indexOf('separator') === -1 && html.trim() !== '' && html !== '<br>') {
+                                    prevDiv = allDivs[d];
+                                    divIndex = d + 1;
+                                    break;
+                                }
+                            }
+                            var hasSep = false;
+                            if (prevDiv && prevDiv.nextElementSibling) {
+                                var nextHtml = prevDiv.nextElementSibling.innerHTML || '';
+                                hasSep = nextHtml.indexOf('separator') !== -1;
+                            }
+                            if (!hasSep && prevDiv) {
+                                var prevText = (prevDiv.textContent || '').substring(0, 50);
+                                var buffName = '';
+                                if (prev.buffType === 'leech') buffName = '嗜血狂刀';
+                                else if (prev.buffType === 'hotBlood') buffName = '热血奋战';
+                                else if (prev.buffType === 'fortify_rebound') buffName = '严阵以待反弹';
+                                else if (prev.buffType === 'elite_xingfen') buffName = '性奋';
+                                else if (prev.type === 'buff-summary') buffName = 'Buff说明';
+                                else if (prev.type === 'buff-swap') buffName = '惑人心智换位';
+                                else if (prev.type === 'buff-push') buffName = '乘风突袭击退';
+                                else if (prev.type === 'buff-bonus') buffName = '流星赶月伤害加深';
+                                else if (prev.type === 'buff-splash') buffName = '溅射';
+                                else if (prev.type === 'buff-destroy') buffName = '拒马销毁';
+                                else if (prev.type === 'buff-summon') buffName = '拒马召唤';
+                                else if (prev.type === 'info') buffName = '系统提示';
+                                else buffName = prev.type;
+                                issues.push('日志问题：' + buffName + '（"' + prevText + '"）后面缺少分隔符，直接接了攻击动作');
+                            }
+                        }
+                    }
+                }
+                if (issues.length > 0) {
+                    return { fail: true, msg: issues.slice(0, 3).join(' | ') + (issues.length > 3 ? ' 等' + issues.length + '处' : '') };
+                }
+                return { fail: false };
+            }
+        },
+
+        // ========== 2. 白骨爪伤害公式检查 ==========
+        {
+            group: '精英技能',
             name: '白骨爪伤害公式与斩杀',
             test: function(ctx, log, beforeA, beforeE, afterA, afterE) {
                 var clawEvents = log.filter(function(e) {
@@ -43,7 +113,9 @@ function createCombatChecks(win, doc) {
                 if (clawEvents.length === 0) return 'skip';
                 var zhangAlive = (beforeA || []).some(function(u) { return u.isZhang && u.alive; });
                 var baseHit = zhangAlive ? 5 : 3;
+                var ratio = zhangAlive ? 0.03 : 0.02;
                 var executeThreshold = 0.15;
+                var issues = [];
 
                 for (var i = 0; i < clawEvents.length; i++) {
                     var ev = clawEvents[i];
@@ -51,140 +123,197 @@ function createCombatChecks(win, doc) {
                     var targetAfter = findUnitByUid((afterA || []).concat(afterE || []), targetUid);
                     if (!targetAfter) continue;
                     var maxHp = targetAfter.maxHp;
+                    var hpBefore = maxHp;
                     var hpAfter = ev.clawTargetHpAfter !== undefined ? ev.clawTargetHpAfter : targetAfter.hp;
+                    var lostHp = maxHp - hpBefore;
+                    if (lostHp < 0) lostHp = 0;
+                    var expectedDmg = baseHit + Math.floor(lostHp * ratio);
                     var text = ev.text || '';
                     var dmgMatch = text.match(/造成\s*(\d+)\s*点伤害/);
                     var actualDmg = dmgMatch ? parseInt(dmgMatch[1]) : 0;
-                    if (actualDmg < baseHit) {
-                        return { fail: true, msg: '白骨爪伤害偏低 | 根因: modules/23elite-skills.js → checkNineYinClaw函数 | 排查: 确认baseHit和ratio是否按有无忌正确取值，当前有无忌=' + zhangAlive + '，基础值应为' + baseHit + '，实际只有' + actualDmg };
+
+                    var targetName = text.match(/(\S+)\s*造成/) || text.match(/对\s*(\S+)\s*造成/);
+                    var name = targetName ? targetName[1] : '目标';
+                    if (!name || name.length > 10) {
+                        var uidMatch = findUnitByUid((afterA || []).concat(afterE || []), targetUid);
+                        name = uidMatch ? uidMatch.name : '目标';
                     }
+
+                    if (actualDmg < expectedDmg - 3) {
+                        issues.push('日志问题：白骨爪对' + name + '造成' + actualDmg + '点伤害，但目标已损失' + lostHp + '血（' + Math.floor(hpBefore) + '/' + Math.floor(maxHp) + '），有无忌=' + zhangAlive + '，理论应为' + baseHit + '+' + Math.floor(lostHp * ratio) + '=' + expectedDmg + '，实际偏低');
+                    } else if (actualDmg > expectedDmg + 5) {
+                        issues.push('日志问题：白骨爪对' + name + '造成' + actualDmg + '点伤害，但目标已损失' + lostHp + '血（' + Math.floor(hpBefore) + '/' + Math.floor(maxHp) + '），有无忌=' + zhangAlive + '，理论应为' + baseHit + '+' + Math.floor(lostHp * ratio) + '=' + expectedDmg + '，实际偏高');
+                    }
+
                     var hpPct = hpAfter / maxHp;
                     if (hpPct <= executeThreshold && hpAfter > 0) {
                         if (!ev.isExecute) {
-                            return { fail: true, msg: '白骨爪未触发斩杀 | 根因: modules/23elite-skills.js → checkNineYinClaw函数 | 排查: 目标血量' + Math.floor(hpPct*100) + '%≤15%，isExecute应为true，检查executeThreshold判断或斩杀逻辑是否被跳过' };
+                            issues.push('日志问题：白骨爪后' + name + '血量' + Math.floor(hpPct*100) + '%≤' + Math.floor(executeThreshold*100) + '%斩杀线，但日志中没有"斩杀"标记');
                         }
                     }
+                    if (ev.isExecute && hpPct > executeThreshold) {
+                        issues.push('日志问题：白骨爪显示"斩杀"但' + name + '血量' + Math.floor(hpPct*100) + '%>' + Math.floor(executeThreshold*100) + '%斩杀线，不该触发斩杀');
+                    }
+                }
+                if (issues.length > 0) {
+                    return { fail: true, msg: issues.slice(0, 3).join(' | ') };
                 }
                 return { fail: false };
             }
         },
 
-        // ========== 2. 倍速取消高亮检查 ==========
+        // ========== 3. 倍速取消高亮检查 ==========
         {
-            group: '🎮 按钮状态',
+            group: '按钮状态',
             name: '倍速锁定状态检查',
             test: function(ctx, log, beforeA, beforeE, afterA, afterE) {
                 var speed = ctx.speed;
-                if (speed === 500) return { fail: false };
+                var issues = [];
+                var btn2 = doc.getElementById('btnSpeed2');
+                var btn7x = doc.getElementById('btnSpeed7x');
+                var btn4x = doc.getElementById('btnSpeed4x');
+                var btn05 = doc.getElementById('btnSpeed05');
+                var btn2x = doc.getElementById('btnSpeed2x');
+                var btn05x = doc.getElementById('btnSpeed05x');
+
+                var speedToBtn = { 500: btn2, 143: btn7x, 250: btn4x };
+                var expectedBtn = speedToBtn[speed];
+                if (expectedBtn && !expectedBtn.classList.contains('active') && !expectedBtn.classList.contains('semi-active')) {
+                    issues.push('UI问题：当前速度=' + speed + '，但对应按钮' + expectedBtn.id + '没有高亮');
+                }
                 if (ctx.manualSpeedLock && speed !== 500 && speed !== 143 && speed !== 250 && speed !== 1800) {
-                    return { fail: true, msg: '倍速值异常 | 根因: ui/44ui-controls.js → setSpeed或attachSpeedButton函数 | 排查: 当前速度' + speed + '不在已知倍速列表(500/143/250/1800)中，锁定状态=' + ctx.manualSpeedLock + '，检查赋值逻辑' };
+                    issues.push('UI问题：当前速度' + speed + '不在已知倍速列表(500/143/250/1800)中');
+                }
+                if (issues.length > 0) {
+                    return { fail: true, msg: issues.join(' | ') };
                 }
                 return { fail: false };
             }
         },
 
-        // ========== 3. Carry血量检查（修正版：不强制等比，只检查方向合法） ==========
+        // ========== 4. Carry血量方向检查 ==========
         {
-            group: '✨ Buff',
+            group: 'Buff效果',
             name: 'Carry血量方向检查',
             test: function(ctx, log, beforeA, beforeE, afterA, afterE) {
                 var carryUnit = (beforeA || []).find(function(u) { return u.pos === 5 && u.alive && !u.isHorse; });
                 if (!carryUnit) return 'skip';
                 var carryAfter = (afterA || []).find(function(u) { return u.uid === carryUnit.uid; });
                 if (!carryAfter) return 'skip';
-                // 只检查方向：maxHp 增加时 hp 不应减少，maxHp 减少时 hp 不应增加
+                var issues = [];
+
+                // 日志检查：找hp-change事件，看方向
+                var hpEvents = log.filter(function(e) {
+                    return e.type === 'attack-group' || e.type === 'info' || e.type === 'buff-leech' || e.type === 'buff-summary';
+                });
+
+                // DOM检查：对比血条和日志
+                if (carryAfter.alive) {
+                    var barPct = getHpBarPct(carryAfter, doc);
+                    if (barPct !== null) {
+                        var logPct = Math.floor((carryAfter.hp / carryAfter.maxHp) * 100);
+                        if (Math.abs(barPct - logPct) > 3) {
+                            issues.push('UI问题：' + carryAfter.name + '血条显示' + Math.floor(barPct) + '%，但日志记录hp/maxHp=' + Math.floor(carryAfter.hp) + '/' + Math.floor(carryAfter.maxHp) + '=' + logPct + '%，差距' + Math.abs(Math.floor(barPct) - logPct) + '%');
+                        }
+                    }
+                }
+
+                // 方向检查
                 if (carryAfter.maxHp > carryUnit.maxHp) {
                     if (carryAfter.hp < carryUnit.hp - 2) {
-                        return { fail: true, msg: 'Carry血量方向异常 | 根因: core/06battle-engine-core.js → carry加成逻辑 | 排查: maxHp从' + Math.floor(carryUnit.maxHp) + '增加到' + Math.floor(carryAfter.maxHp) + '，但hp从' + Math.floor(carryUnit.hp) + '降到了' + Math.floor(carryAfter.hp) + '，方向反了' };
+                        issues.push('日志问题：' + carryAfter.name + '的maxHp从' + Math.floor(carryUnit.maxHp) + '增加到' + Math.floor(carryAfter.maxHp) + '，但hp从' + Math.floor(carryUnit.hp) + '降到' + Math.floor(carryAfter.hp) + '，方向反了（可能战斗掉血掩盖了加成效果，检查hp-change事件的顺序）');
                     }
                 } else if (carryAfter.maxHp < carryUnit.maxHp) {
                     if (carryAfter.hp > carryUnit.hp + 2) {
-                        return { fail: true, msg: 'Carry血量方向异常 | 根因: core/06battle-engine-core.js → carry加成逻辑 | 排查: maxHp从' + Math.floor(carryUnit.maxHp) + '减少到' + Math.floor(carryAfter.maxHp) + '，但hp从' + Math.floor(carryUnit.hp) + '升到了' + Math.floor(carryAfter.hp) + '，方向反了' };
+                        issues.push('日志问题：' + carryAfter.name + '的maxHp从' + Math.floor(carryUnit.maxHp) + '减少到' + Math.floor(carryAfter.maxHp) + '，但hp从' + Math.floor(carryUnit.hp) + '升到' + Math.floor(carryAfter.hp) + '，方向反了');
                     }
                 }
-                // 合法性检查：不超上限，不为负
-                if (carryAfter.hp > carryAfter.maxHp || carryAfter.hp < 0) {
-                    return { fail: true, msg: 'Carry血量非法 | 根因: core/06battle-engine-core.js → carry加成逻辑 | 排查: hp=' + Math.floor(carryAfter.hp) + ' maxHp=' + Math.floor(carryAfter.maxHp) };
+                if (carryAfter.hp > carryAfter.maxHp) {
+                    issues.push('日志问题：' + carryAfter.name + '的hp=' + Math.floor(carryAfter.hp) + '超过maxHp=' + Math.floor(carryAfter.maxHp) + '，血量溢出');
+                }
+                if (carryAfter.hp < 0) {
+                    issues.push('日志问题：' + carryAfter.name + '的hp=' + Math.floor(carryAfter.hp) + '为负数');
+                }
+                if (issues.length > 0) {
+                    return { fail: true, msg: issues.join(' | ') };
                 }
                 return { fail: false };
             }
         },
 
-        // ========== 4. 拒马生成与销毁检查（修正版：允许战斗死亡） ==========
+        // ========== 5. 拒马存在性检查 ==========
         {
-            group: '🐴 拒马',
-            name: '拒马生成与销毁检查',
+            group: '拒马',
+            name: '拒马存在性检查',
             test: function(ctx, log, beforeA, beforeE, afterA, afterE) {
                 var hasHorseBuff = (ctx.activeBuffs || []).some(function(b) { return b.key === 'horseFormation'; });
                 if (!hasHorseBuff) return 'skip';
+                var issues = [];
 
                 var summonEvs = log.filter(function(e) { return e.type === 'buff-summon' && e.horseUid; });
                 var destroyEvs = log.filter(function(e) { return e.type === 'buff-destroy' && e.horseUid; });
 
                 if (summonEvs.length === 0) {
-                    return { fail: true, msg: '拒马未生成 | 根因: core/05battle-horse.js → spawnHorse函数或core/06battle-engine-core.js → createRoundStepper里spawnHorse调用处 | 排查: 有horseFormation Buff但日志无召唤事件。检查spawnHorse是否被调用、available空位是否=0、或hasBuff检查是否失败' };
+                    return { fail: true, msg: '日志问题：有horseFormation Buff但没有任何拒马召唤日志' };
                 }
 
                 for (var i = 0; i < summonEvs.length; i++) {
                     var horseUid = summonEvs[i].horseUid;
+                    var horsePos = summonEvs[i].horsePos;
                     var wasDestroyed = destroyEvs.some(function(e) { return e.horseUid === horseUid; });
-                    var horseInFinal = findUnitByUid((afterA || []), horseUid);
-                    
-                    if (!horseInFinal) {
-                        // 马不在最终队伍：要么被销毁了，要么在战斗中死了
-                        if (wasDestroyed) {
-                            // 被销毁了，这是正常的，继续下一匹
-                            continue;
-                        }
-                        // 没有被销毁，检查是否在战斗中死亡
-                        // 通过日志中是否有该马参与的 isDead 攻击事件来判断
-                        var diedInCombat = false;
-                        for (var j = 0; j < log.length; j++) {
-                            var entry = log[j];
-                            if (entry.type === 'attack-group' && entry.isDead) {
-                                if (entry.uidD === horseUid) {
-                                    diedInCombat = true;
-                                    break;
-                                }
-                            }
-                        }
-                        if (!diedInCombat) {
-                            return { fail: true, msg: '拒马异常丢失 | 根因: core/05battle-horse.js 或 core/06battle-engine-core.js | 排查: 拒马uid=' + horseUid + '未被销毁也未在战斗中阵亡，但不在最终队伍中，可能被错误移除' };
-                        }
-                        // 如果死于战斗，则正常，不报错
-                    } else {
-                        // 马在最终队伍，但可能已经死了却没有被销毁
-                        if (!horseInFinal.alive && !wasDestroyed) {
-                            // 马死了但没有销毁记录，检查是否死于战斗
-                            var diedInCombat2 = false;
-                            for (var k = 0; k < log.length; k++) {
-                                var entry2 = log[k];
-                                if (entry2.type === 'attack-group' && entry2.isDead) {
-                                    if (entry2.uidD === horseUid) {
-                                        diedInCombat2 = true;
-                                        break;
-                                    }
-                                }
-                            }
-                            if (!diedInCombat2) {
-                                return { fail: true, msg: '拒马死亡原因不明 | 根因: 拒马uid=' + horseUid + '已阵亡但未被销毁也未找到致死攻击，检查死亡逻辑' };
-                            }
+
+                    // 日志检查：追踪拒马uid在后续日志中的出现
+                    var appearCount = 0;
+                    for (var j = 0; j < log.length; j++) {
+                        var entry = log[j];
+                        if (entry.type === 'attack-group') {
+                            if (entry.uidA === horseUid || entry.uidD === horseUid) appearCount++;
                         }
                     }
+                    if (appearCount === 0 && !wasDestroyed) {
+                        issues.push('日志问题：拒马(uid=' + horseUid + ')在' + horsePos + '号位生成，但后续所有攻击日志中从未出现此uid，拒马可能隐身了');
+                    }
+
+                    // UI检查：DOM中对应位置是否有拒马格子
+                    var allCells = doc.querySelectorAll('#allyGrid .cell, #enemyGrid .cell');
+                    var foundHorse = false;
+                    for (var c = 0; c < allCells.length; c++) {
+                        var cellName = allCells[c].querySelector('.cell-name');
+                        if (cellName && cellName.textContent.indexOf('拒马') !== -1) {
+                            foundHorse = true;
+                            if (parseInt(allCells[c].dataset.pos) !== horsePos) {
+                                issues.push('UI问题：拒马在日志中生成于' + horsePos + '号位，但九宫格中拒马出现在' + allCells[c].dataset.pos + '号位，位置不一致');
+                            }
+                            break;
+                        }
+                    }
+                    if (!foundHorse && !wasDestroyed) {
+                        var horseInTeam = findUnitByUid((afterA || []), horseUid);
+                        if (horseInTeam && horseInTeam.alive) {
+                            issues.push('UI问题：拒马(uid=' + horseUid + ')在队伍中存活，但九宫格中找不到拒马格子');
+                        }
+                    }
+                    if (wasDestroyed && foundHorse) {
+                        issues.push('UI问题：拒马(uid=' + horseUid + ')已被销毁，但九宫格中仍有拒马格子');
+                    }
+                }
+                if (issues.length > 0) {
+                    return { fail: true, msg: issues.slice(0, 3).join(' | ') };
                 }
                 return { fail: false };
             }
         },
 
-        // ========== 5. 换位后单位存在性检查（保留：检测主代码 bug） ==========
+        // ========== 6. 换位后单位存在性检查 ==========
         {
-            group: '📍 换位',
+            group: '换位',
             name: '换位后双方单位存在',
             test: function(ctx, log, beforeA, beforeE, afterA, afterE) {
                 var swapEvs = log.filter(function(e) {
                     return e.type === 'buff-swap' || e.type === 'buff-push';
                 });
                 if (swapEvs.length === 0) return 'skip';
+                var issues = [];
 
                 for (var i = 0; i < swapEvs.length; i++) {
                     var ev = swapEvs[i];
@@ -199,67 +328,161 @@ function createCombatChecks(win, doc) {
                     }
                     if (names.length < 2) continue;
 
+                    // 日志检查：换位后单位是否还在队伍中
                     for (var n = 0; n < names.length; n++) {
-                        var unit = findUnitByName((afterA || []).concat(afterE || []), names[n]);
-                        if (!unit) {
-                            return { fail: true, msg: '换位后单位丢失 | 根因: player/10player-core.js → handleBuffSwap/handleBuffPush 或 fx/18fx-position-swap.js | 排查: ' + names[n] + '在换位后从队伍中消失。APPLY_EVENTS reducer 不支持无 eventType 的 pos 更新' };
+                        var unitInTeam = findUnitByName((afterA || []).concat(afterE || []), names[n]);
+                        if (!unitInTeam) {
+                            issues.push('日志问题：' + names[n] + '在换位日志中出现，但最终队伍中找不到此单位，换位后单位丢失');
+                            continue;
                         }
-                        if (unit.alive) {
-                            var cell = getCellElement(unit, doc);
+                        // UI检查：DOM中是否有此单位的格子
+                        if (unitInTeam.alive) {
+                            var cell = getCellElement(unitInTeam, doc);
                             if (!cell) {
-                                return { fail: true, msg: '换位后格子为空 | 根因: 同上 | 排查: ' + names[n] + '在' + unit.pos + '号位的格子未渲染，位置更新可能被 Store 忽略' };
+                                issues.push('UI问题：' + names[n] + '在队伍中存活(pos=' + unitInTeam.pos + ')，但九宫格中找不到对应格子');
+                            } else {
+                                var cellPos = parseInt(cell.dataset.pos);
+                                if (cellPos !== unitInTeam.pos) {
+                                    issues.push('UI问题：' + names[n] + '在队伍中pos=' + unitInTeam.pos + '，但九宫格格子data-pos=' + cellPos + '，位置不同步');
+                                }
+                            }
+                        }
+                    }
+
+                    // 日志检查：追踪后续攻击记录验证换位是否真的执行了
+                    var swapIdx = log.indexOf(ev);
+                    if (swapIdx >= 0) {
+                        for (var s = swapIdx + 1; s < log.length; s++) {
+                            var laterEntry = log[s];
+                            if (laterEntry.type === 'attack-group' && laterEntry.uidA) {
+                                var attacker = findUnitByUid((afterA || []).concat(afterE || []), laterEntry.uidA);
+                                if (attacker && names.indexOf(attacker.name) !== -1) {
+                                    var attackPos = attacker.pos;
+                                    var attackText = laterEntry.entries ? laterEntry.entries[0].text || '' : '';
+                                    var posMatch = attackText.match(/号位/);
+                                    if (posMatch) {
+                                        var mentionedPos = parseInt(attackText.match(/(\d)号位/)?.[1]);
+                                        if (mentionedPos && mentionedPos !== attackPos) {
+                                            issues.push('日志问题：' + attacker.name + '换位后pos=' + attackPos + '，但后续攻击日志中显示在' + mentionedPos + '号位，换位可能未生效');
+                                        }
+                                    }
+                                }
+                                break;
                             }
                         }
                     }
                 }
-                return { fail: false };
-            }
-        },
-
-        // ========== 6. 流云身法闪避率检查 ==========
-        {
-            group: '✨ Buff',
-            name: '流云身法闪避率',
-            test: function(ctx, log, beforeA, beforeE, afterA, afterE) {
-                var hasCloudBody = (ctx.activeBuffs || []).some(function(b) { return b.key === 'cloudBody'; });
-                if (!hasCloudBody) return 'skip';
-                var dodgeCount = log.filter(function(e) {
-                    return e.type === 'attack-group' && e.isDodge;
-                }).length;
-                var attackCount = log.filter(function(e) {
-                    return e.type === 'attack-group' && !e.isMiss && !e.isBlock;
-                }).length;
-                if (attackCount < 20) return 'skip';
-                if (dodgeCount === 0) {
-                    return { fail: true, msg: '流云身法未生效 | 根因: core/04buff-system.js → computeBuffStats函数或core/06battle-engine-core.js → resolveDodge函数 | 排查: 有cloudBody Buff但' + attackCount + '次攻击零闪避。检查dodgeBonus=0.25是否正确传入resolveDodge' };
+                if (issues.length > 0) {
+                    return { fail: true, msg: issues.slice(0, 3).join(' | ') };
                 }
                 return { fail: false };
             }
         },
 
-        // ========== 7. 闪避反击方向检查（修正版：移除闪避者阵亡检查） ==========
+        // ========== 7. 胜利弹幕检查 ==========
         {
-            group: '🦅 闪避反击',
-            name: '闪避反击方向正确',
+            group: '特效',
+            name: '胜利弹幕检查',
             test: function(ctx, log, beforeA, beforeE, afterA, afterE) {
-                var dodgeEvents = log.filter(function(e) {
-                    return e.type === 'attack-group' && e.isDodge;
-                });
+                var allyAlive = (afterA || []).filter(function(u) { return u.alive; });
+                var enemyAlive = (afterE || []).filter(function(u) { return u.alive; });
+                var winner = null;
+                var aliveCount = 0;
+                if (allyAlive.length > 0 && enemyAlive.length === 0) { winner = '明教'; aliveCount = allyAlive.length; }
+                else if (enemyAlive.length > 0 && allyAlive.length === 0) { winner = '六大派'; aliveCount = enemyAlive.length; }
+                else return 'skip';
+
+                var bubbles = doc.querySelectorAll('.danmaku-bubble');
+                if (bubbles.length === 0) {
+                    return { fail: true, msg: 'UI问题：' + winner + '获胜（' + aliveCount + '人存活），但没有任何胜利弹幕' };
+                }
+                if (bubbles.length < aliveCount) {
+                    return { fail: true, msg: 'UI问题：' + winner + '获胜，' + aliveCount + '人存活但只有' + bubbles.length + '条弹幕，缺少' + (aliveCount - bubbles.length) + '条' };
+                }
+                return { fail: false };
+            }
+        },
+
+        // ========== 8. 流云身法闪避率检查 ==========
+        {
+            group: 'Buff效果',
+            name: '流云身法闪避率',
+            test: function(ctx, log, beforeA, beforeE, afterA, afterE) {
+                var hasCloudBody = (ctx.activeBuffs || []).some(function(b) { return b.key === 'cloudBody'; });
+                if (!hasCloudBody) return 'skip';
+                var dodgeCount = log.filter(function(e) { return e.type === 'attack-group' && e.isDodge; }).length;
+                var attackCount = log.filter(function(e) { return e.type === 'attack-group' && !e.isMiss && !e.isBlock; }).length;
+                if (attackCount < 10) return 'skip';
+
+                var dodgeRate = dodgeCount / attackCount;
+                if (dodgeCount === 0) {
+                    return { fail: true, msg: '日志问题：有流云身法Buff，但' + attackCount + '次攻击中0次闪避（期望至少3~4次），流云身法可能未生效' };
+                }
+                if (dodgeRate > 0.5) {
+                    return { fail: true, msg: '日志问题：有流云身法Buff，闪避率' + Math.floor(dodgeRate*100) + '%（' + dodgeCount + '/' + attackCount + '），异常偏高，可能有双重闪避叠加' };
+                }
+                return { fail: false };
+            }
+        },
+
+        // ========== 9. 闪避反击方向检查 ==========
+        {
+            group: '闪避反击',
+            name: '闪避反击方向检查',
+            test: function(ctx, log, beforeA, beforeE, afterA, afterE) {
+                var dodgeEvents = log.filter(function(e) { return e.type === 'attack-group' && e.isDodge; });
                 if (dodgeEvents.length === 0) return 'skip';
+                var issues = [];
+
                 for (var i = 0; i < dodgeEvents.length; i++) {
                     var ev = dodgeEvents[i];
                     var dodgerUid = ev.uidA;
                     var attackerUid = ev.uidD;
                     if (!dodgerUid || !attackerUid) continue;
-                    var dodger = findUnitByUid((beforeA || []).concat(beforeE || []), dodgerUid);
-                    var attacker = findUnitByUid((beforeA || []).concat(beforeE || []), attackerUid);
-                    var attackerAfter = findUnitByUid((afterA || []).concat(afterE || []), attackerUid);
-                    if (!dodger || !attacker || !attackerAfter) continue;
-                    var attackerDmg = attacker.hp - attackerAfter.hp;
-                    // 只检查攻击者是否受伤（反击扣血），不再检查闪避者是否阵亡
-                    if (attackerDmg <= 0) {
-                        return { fail: true, msg: '闪避反击未扣血 | 根因: core/06battle-engine-core.js → resolveDodge函数 | 排查: ' + dodger.name + '闪避了' + attacker.name + '的攻击，但攻击者血量未降。检查reboundDmg计算和unit.hp赋值，或uidA/uidD身份是否对调' };
+                    var dodger = findUnitByUid((afterA || []).concat(afterE || []), dodgerUid);
+                    var attacker = findUnitByUid((afterA || []).concat(afterE || []), attackerUid);
+                    if (!dodger || !attacker) continue;
+
+                    // 日志检查：提取反击伤害值
+                    var reboundDmg = 0;
+                    if (ev.entries) {
+                        for (var e = 0; e < ev.entries.length; e++) {
+                            var entryText = ev.entries[e].text || '';
+                            var dmgMatch = entryText.match(/造成\s*(\d+)\s*真实伤害/);
+                            if (dmgMatch) { reboundDmg = parseInt(dmgMatch[1]); break; }
+                        }
                     }
+
+                    // UI检查：攻击者血条应下降
+                    if (attacker.alive) {
+                        var barPct = getHpBarPct(attacker, doc);
+                        if (barPct !== null) {
+                            var logPct = Math.floor((attacker.hp / attacker.maxHp) * 100);
+                            if (Math.abs(barPct - logPct) > 3) {
+                                issues.push('UI问题：' + dodger.name + '闪避后，攻击者' + attacker.name + '血条显示' + Math.floor(barPct) + '%，但日志hp/maxHp=' + Math.floor(attacker.hp) + '/' + Math.floor(attacker.maxHp) + '=' + logPct + '%，不同步');
+                            }
+                        }
+                        if (reboundDmg > 0 && barPct !== null) {
+                            var expectedDmg = Math.floor(reboundDmg / attacker.maxHp * 100);
+                            if (expectedDmg > 0 && barPct > 90) {
+                                issues.push('UI问题：' + dodger.name + '闪避后对' + attacker.name + '造成' + reboundDmg + '反击伤害，但攻击者血条仍为' + Math.floor(barPct) + '%，可能未扣血');
+                            }
+                        }
+                    }
+
+                    // 日志检查：反击伤害值合理性
+                    if (reboundDmg === 0 && attacker.alive) {
+                        var entryText2 = '';
+                        if (ev.entries) {
+                            for (var e2 = 0; e2 < ev.entries.length; e2++) {
+                                entryText2 += (ev.entries[e2].text || '') + ' ';
+                            }
+                        }
+                        issues.push('日志问题：' + dodger.name + '闪避了' + attacker.name + '的攻击，但日志中未找到反击伤害数值（理论应为(' + Math.floor(dodger.atk) + '+' + Math.floor(dodger.def) + ')×0.5=' + Math.floor((dodger.atk+dodger.def)*0.5) + '），日志可能遗漏了反击记录');
+                    }
+                }
+                if (issues.length > 0) {
+                    return { fail: true, msg: issues.slice(0, 3).join(' | ') };
                 }
                 return { fail: false };
             }
