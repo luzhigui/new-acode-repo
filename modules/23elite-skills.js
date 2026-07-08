@@ -81,7 +81,7 @@ export function checkNineYinClaw(attacker, target, baseDmg, log) {
         // 携带 clawTargetHpAfter/clawTargetAlive 供播放器分次同步血量（每次连锁变化一次）
         log.push({
             type: 'info',
-            text: `<span class="purple">🐾 九阴白骨爪${depth > 0 ? '连锁' : '追击'}！${attacker.name} 对 ${target.name} 造成 ${bonusDmg} 点伤害${isExecute ? '（斩杀）' : (zhangAlive ? '【嫉妒】' : '')}</span>`,
+            text: `<span style="color:#222">🐾 九阴白骨爪${depth > 0 ? '连锁' : '追击'}！${attacker.name} 对 ${target.name} 造成 ${bonusDmg} 点伤害${isExecute ? '（斩杀）' : (zhangAlive ? '【嫉妒】' : '')}</span>`,
             buffType: 'elite_bonus',
             isClawHit: true,
             clawAttackerUid: attacker.uid,

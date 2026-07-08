@@ -277,8 +277,9 @@ async function handleAttackGroup(c, entry, roundResult, abortSig, isFirstAttackR
     if(abortSig&&abortSig.aborted){if(atkTimer)clearTimeout(atkTimer);return { isBattleOver: false };}
     if(unitD&&!entry.isDodge&&!entry.isMiss){c.store.dispatch({ type: 'SET_FLASH', uid: unitD.uid, flash: 'defend' });} let defTimer=null; if(unitD&&!entry.isDodge&&!entry.isMiss)defTimer=setTimeout(async()=>{ await c.waitWhilePaused(); if(unitD&&!entry.isDead){c.store.dispatch({ type: 'CLEAR_UNIT_FLASH', uid: unitD.uid });} },defFlashDuration);
     
-    // 闪避子弹时间：unitA是防御者(闪避者)，unitD是攻击者；reboundDmg用防御者(unitA)的数值
-    if (entry.isDodge && unitA && unitD) { if (c.dodgeEffectEnabled) { let reboundDmg = Math.floor((unitA.atk + unitA.def) * 0.5); c.isPaused = true; window.bulletTimeActive = true; await showCriticalBanner('✨闪避反击✨'); await showDodgeBulletTime(unitD, unitA, reboundDmg); window.bulletTimeActive = false; c.isPaused = false; } else { showDodgeBubble(unitA, '闪避！'); } }
+    // 闪避子弹时间：unitA是防御者(闪避者)，unitD是攻击者
+    // 反击时 unitA 是反击发起者(attacker)，unitD 是反击承受者(defender)
+    if (entry.isDodge && unitA && unitD) { if (c.dodgeEffectEnabled) { let reboundDmg = Math.floor((unitA.atk + unitA.def) * 0.5); c.isPaused = true; window.bulletTimeActive = true; await showCriticalBanner('✨闪避反击✨'); await showDodgeBulletTime(unitA, unitD, reboundDmg); window.bulletTimeActive = false; c.isPaused = false; } else { showDodgeBubble(unitA, '闪避！'); } }
     if (entry.isDead && unitD) { if (defTimer) clearTimeout(defTimer); c.store.dispatch({ type: 'SET_FLASH', uid: unitD.uid, flash: 'dead' }); c.store.dispatch({ type: 'SET_VISUAL', uid: unitD.uid, _isDead: true }); }
     if (entry.isDodge && unitA && !unitA.alive) { c.store.dispatch({ type: 'SET_FLASH', uid: unitA.uid, flash: 'dead' }); c.store.dispatch({ type: 'SET_VISUAL', uid: unitA.uid, _isDead: true }); }
     
@@ -390,28 +391,17 @@ async function handleRoundEnd(c, entry, log, i) {
 
 function shouldStartNewGroup(entry, lastType) {
     if (!lastType) return false;
-    // 回合结束前不加分隔符
-    if (entry.type === 'round-end') return false;
-    // attack-group → attack-group：不同 unit 的攻击之间加分隔符（含闪避/格挡/未命中）
+    // 回合结束 → 任何条目：不加分隔符（回合结束本身已处理）
+    if (lastType === 'round-end') return false;
+    // 回合开始 → 任何条目：不加分隔符（回合开始本身已处理）
+    if (lastType === 'round-start') return false;
+    // 任何非 attack-group 的条目 → attack-group：加分隔符
+    // 覆盖：buff-leech, buff-swap, buff-push, buff-summary, buff-rebound-fortify, buff-bonus, buff-splash, buff-summon, buff-destroy, info 等所有类型
+    if (lastType !== 'attack-group' && entry.type === 'attack-group') return true;
+    // attack-group → attack-group：不同 unit 的攻击之间加分隔符
     if (lastType === 'attack-group' && entry.type === 'attack-group') return true;
-    // buff-summary → attack-group：buff 说明后接第一个攻击，加分隔符
-    if (lastType === 'buff-summary' && entry.type === 'attack-group') return true;
-    // info → attack-group：系统提示（含连击失败、惑人心智等）后接攻击，加分隔符
-    if (lastType === 'info' && entry.type === 'attack-group') return true;
     // attack-group → info：攻击后接系统提示，加分隔符
     if (lastType === 'attack-group' && entry.type === 'info') return true;
-    // buff-rebound-fortify → attack-group：严阵以待反弹后接下一个攻击者动作，加分隔符
-    if (lastType === 'buff-rebound-fortify' && entry.type === 'attack-group') return true;
-    // buff-rebound-fortify → info：反弹后接 info（斩杀/连击等）也加分隔符
-    if (lastType === 'buff-rebound-fortify' && entry.type === 'info') return true;
-    // buff-bonus → attack-group：流星赶月等 bonus 伤害后接攻击，加分隔符
-    if (lastType === 'buff-bonus' && entry.type === 'attack-group') return true;
-    // buff-bonus → info：bonus 伤害后接 info，加分隔符
-    if (lastType === 'buff-bonus' && entry.type === 'info') return true;
-    // buff-splash → attack-group：流星赶月/乘风突袭 splash 后接攻击，加分隔符
-    if (lastType === 'buff-splash' && entry.type === 'attack-group') return true;
-    // buff-splash → info：splash 后接 info，加分隔符
-    if (lastType === 'buff-splash' && entry.type === 'info') return true;
     // 其他所有情况：不加分隔符
     return false;
 }
@@ -638,6 +628,11 @@ export async function playBattle() {
     });
 
     let battleState = { ally: c.snapshot.ally.map(u => u.clone()), enemy: c.snapshot.enemy.map(u => u.clone()), round: 1, activeBuffs: c.activeBuffs ? c.activeBuffs.map(b => ({...b})) : [], allAllies: c.snapshot.ally.map(u => u.clone()) };
+    // 安全兜底：如果玩家已选马 buff 但 battleState 丢失，手动补回
+    if (c.activeBuffs && c.activeBuffs.some(b => b.key === 'horseFormation') && !battleState.activeBuffs.some(b => b.key === 'horseFormation')) {
+        const hb = c.activeBuffs.find(b => b.key === 'horseFormation');
+        battleState.activeBuffs.push({...hb});
+    }
     let isBattleOver = false; let finalWinner = null; let finalStep = null;
 
     while (!isBattleOver) {
