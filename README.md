@@ -76,7 +76,7 @@ AI 助手在展示代码改动时必须遵守以下规则：
      这是经过多次实战验证的唯一可靠方式。
 
 2. 错误可见，不靠瞎猜
-   - 异常必须在页面底部红色面板显示（18-error-capture.js），手机端也能看。
+   - 异常必须在页面底部红色面板显示（24error-capture.js），手机端也能看。
 
 3. 找全链条根因，不兜底
    - Bug 修复必须先找到问题发生的全链条真正原因，从源头解决。
@@ -104,7 +104,7 @@ AI 助手在展示代码改动时必须遵守以下规则：
    - 禁止"和之前一样"之类的省略。
 
 10. 精英技能完全配置化
-    - 参数全在 01-config.js 的 ELITE_SKILLS，逻辑在 05-elite-skills.js。
+    - 参数全在 core/01config-5v5-test.js 的 ELITE_SKILLS，逻辑在 modules/23elite-skills.js。
     - UI 只读取配置，不硬编码。
 
 ---
@@ -135,8 +135,7 @@ AI 助手在展示代码改动时必须遵守以下规则：
 3. 特效时序：横幅预告在特效前；暂停期间 isPaused=true 确保 DOM 查询准确。
 4. 特效残留：飞撞后必须恢复 opacity/visibility/display/filter/transform 全部样式。
 5. 模块合并：变量名唯一化、import 用 [\s\S]*? 跨行匹配、用绝对路径。
-6. 合并后 VER 冲突：各模块 VER 重命名为 VER_CONFIG、VER_CORE 等全局变量。
-7. 架构升级 · 数据流原则：
+6. 架构升级 · 数据流原则：
    - 引擎发射事件（emitEvent），UI 消费事件，日志同步生成。
    - 状态与动画彻底分离：动画只触发视觉，不修改 hp/alive 等状态。
    - 统计字段（dmgDealt/dmgTaken/healDone 等）通过事件绝对值传递，UI 侧直接赋值，避免重复累加。
@@ -198,7 +197,6 @@ tests/
 25unit-tests.js             - 核心函数单元测试
 29health-rules.js           - 体检规则库（70+条规则）
 30test-runner.html          - 测试与诊断中心页面
-35quiz-bank.js              - 题库（25道）
 36runtime-sampler.js        - 运行时采样器
 37health-core.js            - 体检核心逻辑
 38health-ui.js              - 体检UI交互

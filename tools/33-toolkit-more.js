@@ -21,7 +21,7 @@ function escapeHtml(text) {
         '../fx/21fx-blood-slash.js', '../fx/22fx-fortify-counter.js',
         '../modules/23elite-skills.js', '../modules/24error-capture.js', '../modules/28audio-manager.js',
         '../tests/25unit-tests.js', '../tests/29health-rules.js',
-        '../tests/35quiz-bank.js', '../tests/36runtime-sampler.js', '../tests/37health-core.js', '../tests/38health-ui.js',
+        '../tests/36runtime-sampler.js', '../tests/37health-core.js', '../tests/38health-ui.js',
         '../tools/32-toolkit.js', '../tools/33-toolkit-more.js',
         '../tools/27auto-battle-utils.js'
     ];
