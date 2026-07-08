@@ -1,6 +1,6 @@
 // player/10player-core.js - 光明顶5v5 战斗播放器核心
 // V5.0.1 | ~48000 bytes | 2026-07-06 分隔符规则重写、修复复制日志缺失、修复阵容重复打印
-export const VER = 'player/10player-core.js V5.0.1';
+export const VER = 'player/10player-core.js V5.0.2';
 
 import { isBlocked } from '../core/03battle-utils.js';
 import { showDanmaku, showDamageFloat, showDodgeBubble, showHealFloat, applyBrushEffect, showBuffBanner, showCriticalBanner, showHeartEffect, showPinkFlash } from '../fx/15fx-common-5v5-test.js';

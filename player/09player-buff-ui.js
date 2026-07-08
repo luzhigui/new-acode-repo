@@ -1,6 +1,6 @@
 // player/09player-buff-ui.js - 光明顶5v5 Buff弹窗与横幅
 // V5.0.1 | ~8171 bytes | 2026-07-05
-export const VER = 'player/09player-buff-ui.js V5.0.1';
+export const VER = 'player/09player-buff-ui.js V5.0.2';
 
 import { CONFIG } from '../core/01config-5v5-test.js';
 import { Unit } from '../core/07battle-engine-5v5-test.js';

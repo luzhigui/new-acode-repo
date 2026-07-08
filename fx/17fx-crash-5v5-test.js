@@ -1,6 +1,6 @@
 // fx/17fx-crash-5v5-test.js - 光明顶5v5 飞撞与格挡特效
 // V5.0.1 | ~19500 bytes | 2026-07-06 虚影蓝色化、接入通用受击反馈
-export const VER = 'fx/17fx-crash-5v5-test.js V5.0.1';
+export const VER = 'fx/17fx-crash-5v5-test.js V5.0.2';
 
 import { applyImpactShrink } from './15fx-common-5v5-test.js';
 
