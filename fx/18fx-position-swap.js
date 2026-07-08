@@ -78,10 +78,12 @@ export async function animatePositionSwap(unit1, unit2, c) {
     unit1.pos = pos2;
     unit2.pos = pos1;
 
-    // 同步到 Store，确保 updateUI 重绘时读取到最新位置
+    // 同步到 Store：用 APPLY_EVENTS 批量更新，避免两次 SYNC_UNIT 导致中间态渲染不一致
     if (c.store) {
-        c.store.dispatch({ type: 'SYNC_UNIT', uid: unit1.uid, fields: { pos: unit1.pos } });
-        c.store.dispatch({ type: 'SYNC_UNIT', uid: unit2.uid, fields: { pos: unit2.pos } });
+        c.store.dispatch({ type: 'APPLY_EVENTS', events: [
+            { uid: unit1.uid, pos: unit1.pos },
+            { uid: unit2.uid, pos: unit2.pos }
+        ]});
     }
 
     // 清理样式并重绘

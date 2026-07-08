@@ -87,6 +87,9 @@ function attachSpeedButton(id, speedVal) {
             manualSpeedLock = false;
             slideSpeedActive = true;
             updateSpeedButtons();
+            // 同步更新播放器调度器速度
+            const ctx = window._getPlayerContext ? window._getPlayerContext() : null;
+            if (ctx && ctx._scheduler) ctx._scheduler.setSpeed(1);
         } else {
             setSpeed(speedVal, true);
         }
