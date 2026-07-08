@@ -211,10 +211,6 @@ async function handleBuffSwap(c, entry) {
     let unitB = matchB ? units.find(u => u.name === matchB[1]) : null;
     if (unitA && unitB) {
         await animatePositionSwap(unitA, unitB, c);
-        if (c.store) {
-            c.store.dispatch({ type: 'SYNC_UNIT', uid: unitA.uid, fields: { pos: unitA.pos } });
-            c.store.dispatch({ type: 'SYNC_UNIT', uid: unitB.uid, fields: { pos: unitB.pos } });
-        }
     }
     window.bulletTimeActive = false;
     c.isPaused = false;
@@ -281,8 +277,8 @@ async function handleAttackGroup(c, entry, roundResult, abortSig, isFirstAttackR
     if(abortSig&&abortSig.aborted){if(atkTimer)clearTimeout(atkTimer);return { isBattleOver: false };}
     if(unitD&&!entry.isDodge&&!entry.isMiss){c.store.dispatch({ type: 'SET_FLASH', uid: unitD.uid, flash: 'defend' });} let defTimer=null; if(unitD&&!entry.isDodge&&!entry.isMiss)defTimer=setTimeout(async()=>{ await c.waitWhilePaused(); if(unitD&&!entry.isDead){c.store.dispatch({ type: 'CLEAR_UNIT_FLASH', uid: unitD.uid });} },defFlashDuration);
     
-    // 闪避子弹时间
-    if (entry.isDodge && unitA && unitD) { if (c.dodgeEffectEnabled) { let reboundDmg = Math.floor((unitD.atk + unitD.def) * 0.5); c.isPaused = true; window.bulletTimeActive = true; await showCriticalBanner('✨闪避反击✨'); await showDodgeBulletTime(unitA, unitD, reboundDmg); window.bulletTimeActive = false; c.isPaused = false; } else { showDodgeBubble(unitD, '闪避！'); } }
+    // 闪避子弹时间：unitA是防御者(闪避者)，unitD是攻击者；reboundDmg用防御者(unitA)的数值
+    if (entry.isDodge && unitA && unitD) { if (c.dodgeEffectEnabled) { let reboundDmg = Math.floor((unitA.atk + unitA.def) * 0.5); c.isPaused = true; window.bulletTimeActive = true; await showCriticalBanner('✨闪避反击✨'); await showDodgeBulletTime(unitD, unitA, reboundDmg); window.bulletTimeActive = false; c.isPaused = false; } else { showDodgeBubble(unitA, '闪避！'); } }
     if (entry.isDead && unitD) { if (defTimer) clearTimeout(defTimer); c.store.dispatch({ type: 'SET_FLASH', uid: unitD.uid, flash: 'dead' }); c.store.dispatch({ type: 'SET_VISUAL', uid: unitD.uid, _isDead: true }); }
     if (entry.isDodge && unitA && !unitA.alive) { c.store.dispatch({ type: 'SET_FLASH', uid: unitA.uid, flash: 'dead' }); c.store.dispatch({ type: 'SET_VISUAL', uid: unitA.uid, _isDead: true }); }
     
@@ -408,6 +404,14 @@ function shouldStartNewGroup(entry, lastType) {
     if (lastType === 'buff-rebound-fortify' && entry.type === 'attack-group') return true;
     // buff-rebound-fortify → info：反弹后接 info（斩杀/连击等）也加分隔符
     if (lastType === 'buff-rebound-fortify' && entry.type === 'info') return true;
+    // buff-bonus → attack-group：流星赶月等 bonus 伤害后接攻击，加分隔符
+    if (lastType === 'buff-bonus' && entry.type === 'attack-group') return true;
+    // buff-bonus → info：bonus 伤害后接 info，加分隔符
+    if (lastType === 'buff-bonus' && entry.type === 'info') return true;
+    // buff-splash → attack-group：流星赶月/乘风突袭 splash 后接攻击，加分隔符
+    if (lastType === 'buff-splash' && entry.type === 'attack-group') return true;
+    // buff-splash → info：splash 后接 info，加分隔符
+    if (lastType === 'buff-splash' && entry.type === 'info') return true;
     // 其他所有情况：不加分隔符
     return false;
 }
@@ -634,7 +638,7 @@ export async function playBattle() {
     });
 
     let battleState = { ally: c.snapshot.ally.map(u => u.clone()), enemy: c.snapshot.enemy.map(u => u.clone()), round: 1, activeBuffs: c.activeBuffs ? c.activeBuffs.map(b => ({...b})) : [], allAllies: c.snapshot.ally.map(u => u.clone()) };
-    let isBattleOver = false; let finalWinner = null;
+    let isBattleOver = false; let finalWinner = null; let finalStep = null;
 
     while (!isBattleOver) {
         if (abortSig && abortSig.aborted) return;
@@ -669,9 +673,12 @@ export async function playBattle() {
             }
         }
 
-        if (isBattleOver) break;
+        if (isBattleOver) { finalStep = lastStep; break; }
 
         let nextActiveBuffs = c.activeBuffs ? c.activeBuffs.map(b => ({...b, remaining: b.remaining - 1})).filter(b => b.remaining > 0) : [];
+        // 同步模块级 activeBuffs，确保 Buff 槽显示和后续 tick 使用最新值
+        c.activeBuffs = nextActiveBuffs;
+        if (c.updateBuffSlots) c.updateBuffSlots();
         if (!window._fastForwardActive && battleState.round % 3 === 0 && battleState.round > 0) {
             let promDiv = document.createElement('div'); promDiv.innerHTML = `<span class="gold">✨ 请选择新的Buff（持续${CONFIG.BUFF_DURATION || 4}回合）</span><br>`; logDiv.appendChild(promDiv); c.autoScrollLog();
             c.isPaused = true;
@@ -717,6 +724,20 @@ export async function playBattle() {
         let reportAllies = [...c.UI.allyTeam, ...deadAllies].filter((u, i, arr) => arr.findIndex(v => v.uid === u.uid) === i);
         let reportEnemies = [...c.UI.enemyTeam, ...deadEnemies].filter((u, i, arr) => arr.findIndex(v => v.uid === u.uid) === i);
         c.battleResultForInfo = { winner, ally: reportAllies, enemy: reportEnemies };
+
+        // 同步 alive 状态：从 battleState 回写 UI，防止 store 订阅过滤导致 alive 滞后
+        const winState = finalStep ? (winner === '明教' ? finalStep.ally : finalStep.enemy) : null;
+        if (winState) {
+            const winTeam = winner === '明教' ? c.UI.allyTeam : c.UI.enemyTeam;
+            for (const su of winState) {
+                const uiUnit = winTeam.find(u => u.uid === su.uid);
+                if (uiUnit) {
+                    uiUnit.alive = su.alive;
+                    uiUnit.hp = su.hp;
+                }
+            }
+        }
+
         let units = winner === '明教' ? c.UI.allyTeam : c.UI.enemyTeam, alive = units.filter(u => u.alive);
         if (alive.length > 0) {
             alive.forEach(u => { c.store.dispatch({ type: 'SET_FLASH', uid: u.uid, flash: 'cheer' }); });

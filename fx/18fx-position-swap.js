@@ -78,6 +78,12 @@ export async function animatePositionSwap(unit1, unit2, c) {
     unit1.pos = pos2;
     unit2.pos = pos1;
 
+    // 同步到 Store，确保 updateUI 重绘时读取到最新位置
+    if (c.store) {
+        c.store.dispatch({ type: 'SYNC_UNIT', uid: unit1.uid, fields: { pos: unit1.pos } });
+        c.store.dispatch({ type: 'SYNC_UNIT', uid: unit2.uid, fields: { pos: unit2.pos } });
+    }
+
     // 清理样式并重绘
     cell1.style.transform = '';
     cell2.style.transform = '';

@@ -280,9 +280,6 @@ export function showBuffSelection(callback, activeBuffs, selectedBuffIndex, upda
         cls: 'buff'
     }));
     showModal(text, buttons, (key) => {
-        for (let i = 0; i < activeBuffs.length; i++) {
-            activeBuffs[i].remaining += 1;
-        }
         let duration = C.BUFFS[key].duration || C.BUFF_DURATION;
         if (activeBuffs.length >= 2) {
             let shortest = activeBuffs.reduce((a, b) => a.remaining < b.remaining ? a : b);

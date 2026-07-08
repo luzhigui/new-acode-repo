@@ -97,7 +97,7 @@ function createBgParticles(x, y) {
 function createCounterStorm(x, y) {
     const container = document.createElement('div'); container.className = 'counter-storm';
     container.style.position = 'fixed'; container.style.zIndex = '10030'; container.style.pointerEvents = 'none';
-    container.style.left = (x - 45) + 'px'; container.style.top = (y - 45) + 'px';
+    container.style.left = (x - 45) + 'px'; container.style.top = (y - 60) + 'px';
     for (let i = 0; i < 4; i++) {
         const ring = document.createElement('div'); ring.className = 'storm-ring';
         ring.style.position = 'absolute'; ring.style.width = '90px'; ring.style.height = '15px';
