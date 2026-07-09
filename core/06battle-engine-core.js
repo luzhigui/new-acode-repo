@@ -244,11 +244,11 @@ function processUnitAttack(unit, allySide, enemySide, log, A, B, state, doubleSt
         applyXinHunDeduction(unit, allySide, log);
         if (doubleStrikeUnitUid && unit.uid === doubleStrikeUnitUid && unit.alive && unit.camp === 'ally' && !unit._doubleStriked) {
             if (rand(1,100) <= 80) {
-                log.push({type:'info', text:`<span class="gold">🔗 概率连击触发！</span>`, isDoubleStrikeBanner:true});
+                log.push({type:'info', text:`<span class="gold">⚡ 概率连击触发！</span>`, isDoubleStrikeBanner:true});
                 unit._doubleStriked = true; unit._acted = false;
                 processUnitAttack(unit, allySide, enemySide, log, A, B, state, doubleStrikeUnitUid);
             } else {
-                log.push({type:'info', text:`<span class="gray">🔗 概率连击触发失败，${unit.name} 未能再次攻击</span>`});
+                log.push({type:'info', text:`<span class="gray">⚡ 概率连击触发失败，${unit.name} 未能再次攻击</span>`});
             }
         }
         if (canXingFenTrigger(unit) && enemySide.some(u => u.alive)) {
@@ -424,11 +424,11 @@ function processUnitAttack(unit, allySide, enemySide, log, A, B, state, doubleSt
 
     if (doubleStrikeUnitUid && unit.uid === doubleStrikeUnitUid && unit.alive && unit.camp === 'ally' && !unit._doubleStriked) {
         if (rand(1,100) <= 80) {
-            log.push({type:'info', text:`<span class="gold">🔗 概率连击触发！</span>`, isDoubleStrikeBanner:true});
+            log.push({type:'info', text:`<span class="gold">⚡ 概率连击触发！</span>`, isDoubleStrikeBanner:true});
             unit._doubleStriked = true; unit._acted = false;
             processUnitAttack(unit, allySide, enemySide, log, A, B, state, doubleStrikeUnitUid);
         } else {
-            log.push({type:'info', text:`<span class="gray">🔗 概率连击触发失败，${unit.name} 未能再次攻击</span>`});
+            log.push({type:'info', text:`<span class="gray">⚡ 概率连击触发失败，${unit.name} 未能再次攻击</span>`});
         }
     }
 
@@ -687,6 +687,7 @@ export function* createRoundStepper(state) {
             u.alive = false;
             u._isDead = true;
             if (!u._deathTime) u._deathTime = Date.now();
+            emitEvent(u, 'hp-change', { hp: u.hp, maxHp: u.maxHp, alive: u.alive, atk: u.atk, def: u.def });
         });
     }
     
