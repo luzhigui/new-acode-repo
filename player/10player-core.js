@@ -432,8 +432,6 @@ export async function playLogEntries(c, log, roundResult, isFirstAttackRef) {
             switch (entry.type) {
                 case 'buff-summon':
                     await handleBuffSummon(c, entry, i > 0 ? log[i-1] : null);
-                    const horse = c.UI.allyTeam.find(u => u.uid === entry.horseUid);
-                    if (horse) c.store.dispatch({ type: 'ADD_UNIT', unit: horse.clone() });
                     lastEntryType = entry.type;
                     break;
                 case 'buff-destroy':
@@ -737,7 +735,8 @@ export async function playBattle() {
             }
         }
 
-        let units = winner === '明教' ? c.UI.allyTeam : c.UI.enemyTeam, alive = units.filter(u => u.alive);
+        let units = c.store ? c.store.getState().units.filter(u => u.camp === (winner === '明教' ? 'ally' : 'enemy')) : (winner === '明教' ? c.UI.allyTeam : c.UI.enemyTeam);
+        let alive = units.filter(u => u.alive);
         if (alive.length > 0) {
             alive.forEach(u => { c.store.dispatch({ type: 'SET_FLASH', uid: u.uid, flash: 'cheer' }); });
             await new Promise(r => setTimeout(r, window._fastForwardActive ? 100 : 800));

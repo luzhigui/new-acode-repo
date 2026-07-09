@@ -40,7 +40,13 @@ export async function animatePushBack(unit, c, targetPos) {
     await wait(200);
 
     // 阶段三：真实移动到目标位置
-    unit.pos = targetPos;
+    if (c.store) {
+        c.store.dispatch({ type: 'APPLY_EVENTS', events: [
+            { eventType: 'pos-change', uid: unit.uid, pos: targetPos }
+        ]});
+    } else {
+        unit.pos = targetPos;
+    }
     c.updateUI(c.UI);
 
     // 新格子出场动画
