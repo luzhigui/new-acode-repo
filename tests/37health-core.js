@@ -39,6 +39,14 @@ function getHpBarPct(unit, doc) {
 
 function enhanceBattleLog(battleLog, ally, enemy) {
     var allUnits = (ally || []).concat(enemy || []);
+    // 开局先记录所有单位的初始位置，供后续查不到时回退
+    var initPosMap = {};
+    for (var u = 0; u < allUnits.length; u++) {
+        var unit = allUnits[u];
+        if (unit && unit.uid) {
+            initPosMap[unit.uid] = { name: unit.name, pos: unit.pos };
+        }
+    }
     
     for (var i = 0; i < battleLog.length; i++) {
         var entry = battleLog[i];
@@ -50,6 +58,9 @@ function enhanceBattleLog(battleLog, ally, enemy) {
                 if (atkUnit) {
                     entry._atkPos = atkUnit.pos;
                     entry._atkName = atkUnit.name;
+                } else if (initPosMap[entry.uidA]) {
+                    entry._atkPos = initPosMap[entry.uidA].pos;
+                    entry._atkName = initPosMap[entry.uidA].name;
                 }
             }
             if (entry.uidD) {
@@ -57,6 +68,9 @@ function enhanceBattleLog(battleLog, ally, enemy) {
                 if (defUnit) {
                     entry._defPos = defUnit.pos;
                     entry._defName = defUnit.name;
+                } else if (initPosMap[entry.uidD]) {
+                    entry._defPos = initPosMap[entry.uidD].pos;
+                    entry._defName = initPosMap[entry.uidD].name;
                 }
             }
         }
@@ -112,10 +126,11 @@ function createCombatChecks(win, doc) {
                     if (curr.type === 'attack-group' && prev.type !== 'attack-group' && prev.type !== 'round-start') {
                         var needSepTypes = ['buff-leech','buff-summary','info','buff-rebound-fortify','buff-swap','buff-push','buff-bonus','buff-splash','buff-destroy','buff-summon'];
                         if (needSepTypes.indexOf(prev.type) !== -1) {
-                            // 排除战斗标题行
-                            var prevText = prev.text || '';
-                            if (prevText.indexOf('光明顶') !== -1 && prevText.indexOf('对决') !== -1) continue;
-                            if (prevText.indexOf('5v5对决开始') !== -1) continue;
+                            // 排除战斗标题行（buff-summary类型但内容为战斗标题的）
+                            if (prev.type === 'buff-summary' && prev.text) {
+                                var pt = prev.text;
+                                if (pt.indexOf('光明顶') !== -1 || pt.indexOf('对决开始') !== -1 || pt.indexOf('5v5') !== -1) continue;
+                            }
                             
                             var prevDiv = null;
                             for (var d = divIndex; d < allDivs.length; d++) {
@@ -423,10 +438,12 @@ function createCombatChecks(win, doc) {
 
                     // 分析结果
                     if (foundAfterSwapA && !correctPosA) {
-                        issues.push('日志问题：' + nameA + '换位后引擎pos=' + enginePosA + '，但后续攻击记录中位置不符，换位可能未生效');
+                        var reasonA = (enginePosA === undefined) ? '引擎pos缺失（单位可能已阵亡）' : '引擎pos=' + enginePosA + '，但后续攻击记录中实际位置不符';
+                        issues.push('日志问题：' + nameA + '换位后' + reasonA + '，换位可能未生效');
                     }
                     if (foundAfterSwapB && !correctPosB) {
-                        issues.push('日志问题：' + nameB + '换位后引擎pos=' + enginePosB + '，但后续攻击记录中位置不符，换位可能未生效');
+                        var reasonB = (enginePosB === undefined) ? '引擎pos缺失（单位可能已阵亡）' : '引擎pos=' + enginePosB + '，但后续攻击记录中实际位置不符';
+                        issues.push('日志问题：' + nameB + '换位后' + reasonB + '，换位可能未生效');
                     }
 
                     // 3. UI检测
