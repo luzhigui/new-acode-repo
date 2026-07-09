@@ -218,18 +218,12 @@ export function showBoneClaw(unitA, unitD, speed, getPausedFn, onHit, opts) {
     let clawRotation = angle + Math.PI / 2;
     claw.style.transform = `translate(-50%,-50%) rotate(${clawRotation}rad)`;
     claw.setAttribute('data-fx', 'temporary');
-    // CSS 绘制白骨爪（替代不兼容的 🫳 emoji）
-    // 掌心：椭圆形白色渐变
-    let palm = document.createElement('div');
-    palm.style.cssText = 'position:absolute;left:6px;top:18px;width:32px;height:20px;background:radial-gradient(ellipse, rgba(255,255,255,0.95), rgba(200,200,220,0.7));border-radius:40% 40% 35% 35%;box-shadow:0 0 6px rgba(220,220,255,0.8);';
-    claw.appendChild(palm);
-    // 三根手指：细长白色条
-    var fingerAngles = [-0.35, 0, 0.35];
-    for (var fi = 0; fi < 3; fi++) {
-        var finger = document.createElement('div');
-        finger.style.cssText = 'position:absolute;left:18px;top:0px;width:8px;height:20px;background:linear-gradient(180deg, rgba(255,255,255,0.95), rgba(200,200,220,0.6));border-radius:4px 4px 2px 2px;box-shadow:0 0 3px rgba(220,220,255,0.6);transform-origin:4px 18px;transform:rotate(' + fingerAngles[fi] + 'rad);';
-        claw.appendChild(finger);
-    }
+    claw.style.fontSize = '40px';
+    claw.style.lineHeight = '1';
+    claw.style.textAlign = 'center';
+    claw.style.color = '#ffffff';
+    claw.style.filter = 'drop-shadow(0 0 4px rgba(220,220,255,0.9)) brightness(1.6) saturate(0.6) hue-rotate(20deg)';
+    claw.textContent = '🫳';
     document.body.appendChild(claw);
 
     // 凝结阶段：放大浮现
