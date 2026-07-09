@@ -247,6 +247,12 @@ async function handleBuffReboundFortify(c, entry) {
     c.isPaused = false;
     let attacker = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.uid === entry.attackerUid);
     if (attacker && entry.reboundDmg) showDamageFloat(attacker, entry.reboundDmg);
+    // 如果反击导致攻击者死亡，同步标记死亡状态
+    if (attacker && entry.isDead && c.store) {
+        c.store.dispatch({ type: 'SET_FLASH', uid: attacker.uid, flash: 'dead' });
+        c.store.dispatch({ type: 'SET_VISUAL', uid: attacker.uid, _isDead: true });
+        if (!attacker._deathTime) attacker._deathTime = Date.now();
+    }
     let div=document.createElement('div');div.innerHTML=entry.text+'<br>';document.getElementById('log').appendChild(div);c.autoScrollLog();
     await new Promise(r=>setTimeout(r, window._fastForwardActive ? 1 : c.speed/2));
 }

@@ -179,8 +179,24 @@ export function showBoneClaw(unitA, unitD, speed, getPausedFn, onHit, opts) {
     let orderA = unitA.camp==='enemy'?[7,8,9,4,5,6,1,2,3]:[1,2,3,4,5,6,7,8,9];
     let orderD = unitD.camp==='enemy'?[7,8,9,4,5,6,1,2,3]:[1,2,3,4,5,6,7,8,9];
     let idxA = orderA.indexOf(unitA.pos), idxD = orderD.indexOf(unitD.pos);
-    if(idxA<0||idxD<0||!gridA.children[idxA]||!gridD.children[idxD]) { if (onHit) onHit(); return; }
-    let rA = gridA.children[idxA].getBoundingClientRect(), rD = gridD.children[idxD].getBoundingClientRect();
+    if(idxA<0||idxD<0||!gridA||!gridD) { if (onHit) onHit(); return; }
+    // 获取格子位置，如果格子不存在或rect为0则用grid整体rect推算
+    let cellA = gridA.children[idxA], cellD = gridD.children[idxD];
+    let rA = cellA ? cellA.getBoundingClientRect() : null;
+    let rD = cellD ? cellD.getBoundingClientRect() : null;
+    // 如果cell rect为0（手机端可能未渲染），用grid整体rect推算
+    if (!rA || (rA.width === 0 && rA.height === 0)) {
+        let gridRect = gridA.getBoundingClientRect();
+        let cellW = gridRect.width / 3, cellH = gridRect.height / 3;
+        let col = (idxA % 3), row = Math.floor(idxA / 3);
+        rA = { left: gridRect.left + col * cellW, top: gridRect.top + row * cellH, width: cellW, height: cellH };
+    }
+    if (!rD || (rD.width === 0 && rD.height === 0)) {
+        let gridRect = gridD.getBoundingClientRect();
+        let cellW = gridRect.width / 3, cellH = gridRect.height / 3;
+        let col = (idxD % 3), row = Math.floor(idxD / 3);
+        rD = { left: gridRect.left + col * cellW, top: gridRect.top + row * cellH, width: cellW, height: cellH };
+    }
     let sx=rA.left+rA.width/2, sy=rA.top+rA.height/2, ex=rD.left+rD.width/2, ey=rD.top+rD.height/2;
     let dx=ex-sx, dy=ey-sy, dist=Math.sqrt(dx*dx+dy*dy);
     if(dist<1) { if (onHit) onHit(); return; }
