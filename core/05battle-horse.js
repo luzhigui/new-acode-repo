@@ -38,6 +38,9 @@ export function destroyHorse(allyTeam, log) {
     if (rand(1,100) <= 50) {
         let horse = horses[rand(0, horses.length-1)];
         horse.hp = 0; horse.alive = false; horse._isDead = true;
+        if (typeof window._emitEvent === 'function') {
+            window._emitEvent(horse, 'hp-change', { hp: horse.hp, maxHp: horse.maxHp, alive: horse.alive, atk: horse.atk, def: horse.def });
+        }
         log.push({type:'buff-destroy', text:`<span class="gray">🐴 拒马阵：拒马在${horse.pos}号位消散</span>`, buffType:'destroy', horseUid: horse.uid});
     }
 }
