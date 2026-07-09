@@ -222,9 +222,9 @@ export function logBuffSummary(allyTeam, log, doubleStrikeUid) {
             case 'doubleStrike':
                 if (doubleStrikeUid) {
                     let dsUnit = allyTeam.find(u => u.uid === doubleStrikeUid);
-                    if (dsUnit) log.push({type:'buff-summary', text:`<span class="gold">⚡ 概率连击：${dsUnit.name} 80%概率额外攻击一次</span>`, buffType:'buff_stat'});
+                    if (dsUnit) log.push({type:'buff-summary', text:`<span class="gold">🔗 概率连击：${dsUnit.name} 80%概率额外攻击一次</span>`, buffType:'buff_stat'});
                 } else {
-                    log.push({type:'buff-summary', text:`<span class="gold">⚡ 概率连击：己方随机一人80%概率额外攻击一次</span>`, buffType:'buff_stat'});
+                    log.push({type:'buff-summary', text:`<span class="gold">🔗 概率连击：己方随机一人80%概率额外攻击一次</span>`, buffType:'buff_stat'});
                 }
                 break;
             case 'mindControl':

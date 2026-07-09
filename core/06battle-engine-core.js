@@ -167,7 +167,7 @@ function calcAttackDamage(unit, target, attackerBuffStats, defenderBuffStats) {
     let raw, rawFormula;
     if (unit.role === '防战') {
         let displayDef = Math.floor(unit.def + unit.def * (attackerBuffStats.defBonus || 0));
-        let lv = getFangLevel(displayDef, unit.m), k = C.FANG_K[lv];
+        let lv = getFangLevel(displayDef, unit.m), k = C.FANG_K[lv + 1] !== undefined ? C.FANG_K[lv + 1] : C.FANG_K[C.FANG_K.length - 1];
         let penPart = calcDamage(atkAct, defAct);
         raw = penPart + displayDef * k + unit.maxHp * 0.01;
         rawFormula = `${Math.floor(penPart)} + ${Math.floor(displayDef)}×${k} + ${Math.floor(unit.maxHp)}×0.01 = ${Math.floor(raw)}`;
@@ -244,11 +244,11 @@ function processUnitAttack(unit, allySide, enemySide, log, A, B, state, doubleSt
         applyXinHunDeduction(unit, allySide, log);
         if (doubleStrikeUnitUid && unit.uid === doubleStrikeUnitUid && unit.alive && unit.camp === 'ally' && !unit._doubleStriked) {
             if (rand(1,100) <= 80) {
-                log.push({type:'info', text:`<span class="gold">⚡ 概率连击触发！</span>`, isDoubleStrikeBanner:true});
+                log.push({type:'info', text:`<span class="gold">🔗 概率连击触发！</span>`, isDoubleStrikeBanner:true});
                 unit._doubleStriked = true; unit._acted = false;
                 processUnitAttack(unit, allySide, enemySide, log, A, B, state, doubleStrikeUnitUid);
             } else {
-                log.push({type:'info', text:`<span class="gray">⚡ 概率连击触发失败，${unit.name} 未能再次攻击</span>`});
+                log.push({type:'info', text:`<span class="gray">🔗 概率连击触发失败，${unit.name} 未能再次攻击</span>`});
             }
         }
         if (canXingFenTrigger(unit) && enemySide.some(u => u.alive)) {
@@ -424,11 +424,11 @@ function processUnitAttack(unit, allySide, enemySide, log, A, B, state, doubleSt
 
     if (doubleStrikeUnitUid && unit.uid === doubleStrikeUnitUid && unit.alive && unit.camp === 'ally' && !unit._doubleStriked) {
         if (rand(1,100) <= 80) {
-            log.push({type:'info', text:`<span class="gold">⚡ 概率连击触发！</span>`, isDoubleStrikeBanner:true});
+            log.push({type:'info', text:`<span class="gold">🔗 概率连击触发！</span>`, isDoubleStrikeBanner:true});
             unit._doubleStriked = true; unit._acted = false;
             processUnitAttack(unit, allySide, enemySide, log, A, B, state, doubleStrikeUnitUid);
         } else {
-            log.push({type:'info', text:`<span class="gray">⚡ 概率连击触发失败，${unit.name} 未能再次攻击</span>`});
+            log.push({type:'info', text:`<span class="gray">🔗 概率连击触发失败，${unit.name} 未能再次攻击</span>`});
         }
     }
 
@@ -548,6 +548,7 @@ export function* createRoundStepper(state) {
         }
         u._extinctionUsed = false;
         u._acted = false;
+        u._doubleStriked = false;
     });
     
     B.forEach(u => {
@@ -565,6 +566,7 @@ export function* createRoundStepper(state) {
         });
         u._extinctionUsed = false;
         u._acted = false;
+        u._doubleStriked = false;
     });
 
     // 产出回合开始步骤

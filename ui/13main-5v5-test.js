@@ -250,6 +250,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         setState.UI({ ...getState.UI(), currentResult: battleResult });
                         if (battleResult && battleResult.doubleStrikeUids) {
                             currentDoubleStrikeUid = battleResult.doubleStrikeUids[battleResult.doubleStrikeUids.length - 1] || null;
+                            getState.currentDoubleStrikeUid = currentDoubleStrikeUid;
                         }
                         await playBattle();
                         let ctx = window._getPlayerContext();
