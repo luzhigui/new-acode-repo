@@ -38,9 +38,7 @@ export function initTestRunner() {
     const runBtn = document.getElementById('runAutoCheckBtn');
     const statusEl = document.getElementById('autoStatus');
     const reportEl = document.getElementById('autoReport');
-    const copySumBtn = document.getElementById('copySummaryBtn');
     const copyFullBtn = document.getElementById('copyFullBtn');
-    const toggleLogBtn = document.getElementById('toggleLogBtn');
     const progCont = document.getElementById('progressContainer');
     const progFill = document.getElementById('progressFill');
     const progText = document.getElementById('progressText');
@@ -84,14 +82,6 @@ export function initTestRunner() {
     });
 
     // ==================== 复制按钮 ====================
-    copySumBtn.addEventListener('click', () => {
-        const text = statusEl.textContent + '\n' + (reportEl.textContent || reportEl.innerText);
-        navigator.clipboard.writeText(text).then(() => {
-            copySumBtn.innerHTML = '✅ 已复制<span class="btn-hint">状态行+报告</span>';
-            setTimeout(() => { copySumBtn.innerHTML = '📋 复制汇总<span class="btn-hint">状态行+报告</span>'; }, 1500);
-        });
-    });
-
     copyFullBtn.addEventListener('click', () => {
         const text = (reportEl.innerText || reportEl.textContent);
         navigator.clipboard.writeText(text).then(() => {
@@ -115,9 +105,7 @@ export function initTestRunner() {
         };
         runHealthCheck(config).then(() => {
             // 显示复制和日志按钮
-            copySumBtn.style.display = '';
             copyFullBtn.style.display = '';
-            toggleLogBtn.style.display = '';
 
             // 读取增强后的日志
             if (reportEl._battleLogs && reportEl._battleLogs.length > 0) {
@@ -130,11 +118,13 @@ export function initTestRunner() {
                         var line = '';
                         if (entry.type === 'round-start' || entry.type === 'round-end') {
                             line = (entry.text || '').replace(/<[^>]+>/g, '');
+                        } else if (entry.type === 'buff-summary' && entry.text && (entry.text.indexOf('光明顶') !== -1 || entry.text.indexOf('对决') !== -1)) {
+                            line = entry.text.replace(/<[^>]+>/g, '');
                         } else if (entry.type === 'attack-group') {
                             var atkName = entry._atkName || '?';
                             var defName = entry._defName || '?';
-                            var atkPos = entry._atkPos !== undefined ? entry._atkPos : '?';
-                            var defPos = entry._defPos !== undefined ? entry._defPos : '?';
+                            var atkPos = (entry._atkPos !== undefined && entry._atkPos !== null) ? entry._atkPos : '?';
+                            var defPos = (entry._defPos !== undefined && entry._defPos !== null) ? entry._defPos : '?';
                             var dmgText = '';
                             if (entry.entries) {
                                 for (var k = 0; k < entry.entries.length; k++) {
@@ -161,6 +151,21 @@ export function initTestRunner() {
                     logText += '\n';
                 }
                 logAttachmentBody.textContent = logText;
+                // 日志附件复制按钮
+                var existingCopyLogBtn = document.getElementById('copyLogAttachmentBtn');
+                if (!existingCopyLogBtn) {
+                    var copyLogBtn = document.createElement('button');
+                    copyLogBtn.id = 'copyLogAttachmentBtn';
+                    copyLogBtn.textContent = '复制日志';
+                    copyLogBtn.style.cssText = 'margin-top:4px;padding:3px 8px;font-size:10px;background:#2a2a4e;border:1px solid #555;border-radius:3px;color:#aaa;cursor:pointer;';
+                    copyLogBtn.onclick = function() {
+                        navigator.clipboard.writeText(logText).then(function() {
+                            copyLogBtn.textContent = '已复制';
+                            setTimeout(function() { copyLogBtn.textContent = '复制日志'; }, 1500);
+                        });
+                    };
+                    logAttachment.appendChild(copyLogBtn);
+                }
                 logAttachment.style.display = 'block';
             }
         });
