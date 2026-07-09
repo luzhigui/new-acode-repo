@@ -18,7 +18,6 @@ function escapeHtml(text) {
         '../ui/42audio-control.js', '../ui/43fx-trigger.js', '../ui/44ui-controls.js',
         '../fx/15fx-common-5v5-test.js', '../fx/16fx-arrows-5v5-test.js', '../fx/17fx-crash-5v5-test.js',
         '../fx/18fx-position-swap.js', '../fx/19fx-push-back.js', '../fx/20fx-dodge-bullet.js',
-        '../fx/21fx-blood-slash.js', '../fx/22fx-fortify-counter.js',
         '../modules/23elite-skills.js', '../modules/24error-capture.js', '../modules/28audio-manager.js',
         '../tests/25unit-tests.js', '../tests/29health-rules.js',
         '../tests/36runtime-sampler.js', '../tests/37health-core.js', '../tests/38health-ui.js',

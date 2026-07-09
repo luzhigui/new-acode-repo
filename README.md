@@ -165,8 +165,6 @@ fx/
 18fx-position-swap.js       - 换位闪烁特效
 19fx-push-back.js           - 击退特效
 20fx-dodge-bullet.js        - 闪避反击子弹时间特效
-21fx-blood-slash.js         - 嗜血狂刀特效
-22fx-fortify-counter.js     - 严阵以待反击特效
 
 modules/
 23elite-skills.js           - 精英技能系统（灭绝、周芷若、宋青书、成昆、玄冥二老）

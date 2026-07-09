@@ -36,7 +36,7 @@ const CONFIG = {
         '防战': 'hammer'
     },
     BUFFS: {
-        doubleStrike: { name: '概率连击', desc: '己方随机一人80%概率额外攻击一次', prob: 0.8, icon: '🔗' },
+        doubleStrike: { name: '概率连击', desc: '己方随机一人80%概率额外攻击一次', prob: 0.8, icon: '⚡' },
         carry: { name: '你就是carry', desc: '5号位获得队友基础加成，死亡队友加成翻倍', atkBonus: 0.08, defBonus: 0.08, hpBonus: 0.1, deathMultiplier: 3, icon: '👑' },
         cloudBody: { name: '流云身法', desc: '己方全体闪避概率+25%', dodgeBonus: 0.25, icon: '💨' },
         horseFormation: { name: '巨马阵', desc: '每回合开始生成巨马(20血/0攻/5防)，回合结束50%概率销毁', horseHp: 20, horseAtk: 0, horseDef: 5, spawnProb: 1.0, destroyProb: 0.5, icon: '🐴' },
