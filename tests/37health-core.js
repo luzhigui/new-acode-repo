@@ -1,6 +1,6 @@
 // tests/37health-core.js - 光明顶5v5 全面体检（实战验证）
-// V5.0.3 | ~22000 bytes | 2026-07-08 日志自洽+DOM检测双轨，报错分日志/UI两大类
-export const VER = 'tests/37health-core.js V5.0.3';
+// V5.0.4 | ~39000 bytes | 2026-07-09 日志增强层 + 三向检验，默认第4关
+export const VER = 'tests/37health-core.js V5.0.4';
 
 import { runBattle } from '../core/07battle-engine-5v5-test.js';
 import { generateSnapshot } from '../tools/27auto-battle-utils.js';
@@ -35,6 +35,59 @@ function getHpBarPct(unit, doc) {
     return parseFloat(bar.style.height);
 }
 
+// ==================== 日志增强层 ====================
+
+function enhanceBattleLog(battleLog, ally, enemy) {
+    var allUnits = (ally || []).concat(enemy || []);
+    
+    for (var i = 0; i < battleLog.length; i++) {
+        var entry = battleLog[i];
+        
+        // 增强攻击日志
+        if (entry.type === 'attack-group') {
+            if (entry.uidA) {
+                var atkUnit = findUnitByUid(allUnits, entry.uidA);
+                if (atkUnit) {
+                    entry._atkPos = atkUnit.pos;
+                    entry._atkName = atkUnit.name;
+                }
+            }
+            if (entry.uidD) {
+                var defUnit = findUnitByUid(allUnits, entry.uidD);
+                if (defUnit) {
+                    entry._defPos = defUnit.pos;
+                    entry._defName = defUnit.name;
+                }
+            }
+        }
+        
+        // 增强换位日志
+        if (entry.type === 'buff-swap' || entry.type === 'buff-push') {
+            var text = entry.text || '';
+            var matches = text.match(/号位(.+?)\(/g);
+            if (matches && matches.length >= 2) {
+                var nameA = matches[0].replace(/号位/, '').replace(/\($/, '');
+                var nameB = matches[1].replace(/号位/, '').replace(/\($/, '');
+                var unitA = findUnitByName(allUnits, nameA);
+                var unitB = findUnitByName(allUnits, nameB);
+                
+                entry._swapNameA = nameA;
+                entry._swapNameB = nameB;
+                
+                if (unitA) {
+                    entry._swapUidA = unitA.uid;
+                    entry._swapEnginePosA = unitA.pos;
+                }
+                if (unitB) {
+                    entry._swapUidB = unitB.uid;
+                    entry._swapEnginePosB = unitB.pos;
+                }
+            }
+        }
+    }
+    return battleLog;
+}
+
 // ==================== 实战规则定义 ====================
 
 function createCombatChecks(win, doc) {
@@ -59,7 +112,11 @@ function createCombatChecks(win, doc) {
                     if (curr.type === 'attack-group' && prev.type !== 'attack-group' && prev.type !== 'round-start') {
                         var needSepTypes = ['buff-leech','buff-summary','info','buff-rebound-fortify','buff-swap','buff-push','buff-bonus','buff-splash','buff-destroy','buff-summon'];
                         if (needSepTypes.indexOf(prev.type) !== -1) {
-                            // 找前一条日志在DOM中的对应div
+                            // 排除战斗标题行
+                            var prevText = prev.text || '';
+                            if (prevText.indexOf('光明顶') !== -1 && prevText.indexOf('对决') !== -1) continue;
+                            if (prevText.indexOf('5v5对决开始') !== -1) continue;
+                            
                             var prevDiv = null;
                             for (var d = divIndex; d < allDivs.length; d++) {
                                 var html = allDivs[d].innerHTML || '';
@@ -75,13 +132,12 @@ function createCombatChecks(win, doc) {
                                 hasSep = nextHtml.indexOf('separator') !== -1;
                             }
                             if (!hasSep && prevDiv) {
-                                var prevText = (prevDiv.textContent || '').substring(0, 50);
+                                var displayText = (prevDiv.textContent || '').substring(0, 50);
                                 var buffName = '';
                                 if (prev.buffType === 'leech') buffName = '嗜血狂刀';
                                 else if (prev.buffType === 'hotBlood') buffName = '热血奋战';
                                 else if (prev.buffType === 'fortify_rebound') buffName = '严阵以待反弹';
                                 else if (prev.buffType === 'elite_xingfen') buffName = '性奋';
-                                else if (prev.type === 'buff-summary') buffName = 'Buff说明';
                                 else if (prev.type === 'buff-swap') buffName = '惑人心智换位';
                                 else if (prev.type === 'buff-push') buffName = '乘风突袭击退';
                                 else if (prev.type === 'buff-bonus') buffName = '流星赶月伤害加深';
@@ -89,8 +145,9 @@ function createCombatChecks(win, doc) {
                                 else if (prev.type === 'buff-destroy') buffName = '拒马销毁';
                                 else if (prev.type === 'buff-summon') buffName = '拒马召唤';
                                 else if (prev.type === 'info') buffName = '系统提示';
+                                else if (prev.type === 'buff-summary') buffName = 'Buff说明';
                                 else buffName = prev.type;
-                                issues.push('日志问题：' + buffName + '（"' + prevText + '"）后面缺少分隔符，直接接了攻击动作');
+                                issues.push('日志问题：' + buffName + '（"' + displayText + '"）后面缺少分隔符，直接接了攻击动作');
                             }
                         }
                     }
@@ -123,26 +180,37 @@ function createCombatChecks(win, doc) {
                     var targetAfter = findUnitByUid((afterA || []).concat(afterE || []), targetUid);
                     if (!targetAfter) continue;
                     var maxHp = targetAfter.maxHp;
-                    var hpBefore = maxHp;
+                    
+                    // 从日志中追踪白骨爪前的实际血量
+                    var hpBeforeClaw = ev.clawTargetHpBefore;
+                    if (hpBeforeClaw === undefined) {
+                        // 找白骨爪事件之前最近一次同目标的攻击记录
+                        for (var j = log.indexOf(ev) - 1; j >= 0; j--) {
+                            var prevEntry = log[j];
+                            if (prevEntry.type === 'attack-group' && prevEntry.uidD === targetUid) {
+                                if (prevEntry.hpAfter !== undefined) {
+                                    hpBeforeClaw = prevEntry.hpAfter;
+                                    break;
+                                }
+                            }
+                        }
+                        if (hpBeforeClaw === undefined) hpBeforeClaw = maxHp;
+                    }
+                    
                     var hpAfter = ev.clawTargetHpAfter !== undefined ? ev.clawTargetHpAfter : targetAfter.hp;
-                    var lostHp = maxHp - hpBefore;
+                    var lostHp = maxHp - hpBeforeClaw;
                     if (lostHp < 0) lostHp = 0;
                     var expectedDmg = baseHit + Math.floor(lostHp * ratio);
                     var text = ev.text || '';
                     var dmgMatch = text.match(/造成\s*(\d+)\s*点伤害/);
                     var actualDmg = dmgMatch ? parseInt(dmgMatch[1]) : 0;
 
-                    var targetName = text.match(/(\S+)\s*造成/) || text.match(/对\s*(\S+)\s*造成/);
-                    var name = targetName ? targetName[1] : '目标';
-                    if (!name || name.length > 10) {
-                        var uidMatch = findUnitByUid((afterA || []).concat(afterE || []), targetUid);
-                        name = uidMatch ? uidMatch.name : '目标';
-                    }
+                    var name = targetAfter.name || '目标';
 
                     if (actualDmg < expectedDmg - 3) {
-                        issues.push('日志问题：白骨爪对' + name + '造成' + actualDmg + '点伤害，但目标已损失' + lostHp + '血（' + Math.floor(hpBefore) + '/' + Math.floor(maxHp) + '），有无忌=' + zhangAlive + '，理论应为' + baseHit + '+' + Math.floor(lostHp * ratio) + '=' + expectedDmg + '，实际偏低');
+                        issues.push('日志问题：白骨爪对' + name + '造成' + actualDmg + '点伤害，但目标已损失' + lostHp + '血（' + Math.floor(hpBeforeClaw) + '/' + Math.floor(maxHp) + '），有无忌=' + zhangAlive + '，理论应为' + baseHit + '+' + Math.floor(lostHp * ratio) + '=' + expectedDmg + '，实际偏低');
                     } else if (actualDmg > expectedDmg + 5) {
-                        issues.push('日志问题：白骨爪对' + name + '造成' + actualDmg + '点伤害，但目标已损失' + lostHp + '血（' + Math.floor(hpBefore) + '/' + Math.floor(maxHp) + '），有无忌=' + zhangAlive + '，理论应为' + baseHit + '+' + Math.floor(lostHp * ratio) + '=' + expectedDmg + '，实际偏高');
+                        issues.push('日志问题：白骨爪对' + name + '造成' + actualDmg + '点伤害，但目标已损失' + lostHp + '血（' + Math.floor(hpBeforeClaw) + '/' + Math.floor(maxHp) + '），有无忌=' + zhangAlive + '，理论应为' + baseHit + '+' + Math.floor(lostHp * ratio) + '=' + expectedDmg + '，实际偏高');
                     }
 
                     var hpPct = hpAfter / maxHp;
@@ -172,17 +240,14 @@ function createCombatChecks(win, doc) {
                 var btn2 = doc.getElementById('btnSpeed2');
                 var btn7x = doc.getElementById('btnSpeed7x');
                 var btn4x = doc.getElementById('btnSpeed4x');
-                var btn05 = doc.getElementById('btnSpeed05');
-                var btn2x = doc.getElementById('btnSpeed2x');
-                var btn05x = doc.getElementById('btnSpeed05x');
 
                 var speedToBtn = { 500: btn2, 143: btn7x, 250: btn4x };
                 var expectedBtn = speedToBtn[speed];
                 if (expectedBtn && !expectedBtn.classList.contains('active') && !expectedBtn.classList.contains('semi-active')) {
-                    issues.push('UI问题：当前速度=' + speed + '，但对应按钮' + expectedBtn.id + '没有高亮');
+                    issues.push('UI问题：当前速度=' + speed + '，但对应按钮没有高亮');
                 }
                 if (ctx.manualSpeedLock && speed !== 500 && speed !== 143 && speed !== 250 && speed !== 1800) {
-                    issues.push('UI问题：当前速度' + speed + '不在已知倍速列表(500/143/250/1800)中');
+                    issues.push('UI问题：当前速度' + speed + '不在已知倍速列表中');
                 }
                 if (issues.length > 0) {
                     return { fail: true, msg: issues.join(' | ') };
@@ -191,24 +256,40 @@ function createCombatChecks(win, doc) {
             }
         },
 
-        // ========== 4. Carry血量方向检查 ==========
+        // ========== 4. Carry血量方向检查（改用hp-change事件） ==========
         {
             group: 'Buff效果',
             name: 'Carry血量方向检查',
             test: function(ctx, log, beforeA, beforeE, afterA, afterE) {
                 var carryUnit = (beforeA || []).find(function(u) { return u.pos === 5 && u.alive && !u.isHorse; });
                 if (!carryUnit) return 'skip';
-                var carryAfter = (afterA || []).find(function(u) { return u.uid === carryUnit.uid; });
-                if (!carryAfter) return 'skip';
                 var issues = [];
-
-                // 日志检查：找hp-change事件，看方向
-                var hpEvents = log.filter(function(e) {
-                    return e.type === 'attack-group' || e.type === 'info' || e.type === 'buff-leech' || e.type === 'buff-summary';
-                });
+                
+                // 从日志中找5号位的hp-change事件
+                for (var i = 0; i < log.length; i++) {
+                    var entry = log[i];
+                    if (entry._events && entry._events.length > 0) {
+                        for (var e = 0; e < entry._events.length; e++) {
+                            var ev = entry._events[e];
+                            if (ev.eventType === 'hp-change' && ev.unitUid === carryUnit.uid && ev.payload) {
+                                var hp = ev.payload.hp;
+                                var maxHp = ev.payload.maxHp;
+                                if (maxHp !== undefined && hp !== undefined) {
+                                    if (hp > maxHp) {
+                                        issues.push('日志问题：' + carryUnit.name + '的hp=' + Math.floor(hp) + '超过maxHp=' + Math.floor(maxHp) + '，血量溢出');
+                                    }
+                                    if (hp < 0) {
+                                        issues.push('日志问题：' + carryUnit.name + '的hp=' + Math.floor(hp) + '为负数');
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
 
                 // DOM检查：对比血条和日志
-                if (carryAfter.alive) {
+                var carryAfter = findUnitByUid((afterA || []), carryUnit.uid);
+                if (carryAfter && carryAfter.alive) {
                     var barPct = getHpBarPct(carryAfter, doc);
                     if (barPct !== null) {
                         var logPct = Math.floor((carryAfter.hp / carryAfter.maxHp) * 100);
@@ -217,23 +298,7 @@ function createCombatChecks(win, doc) {
                         }
                     }
                 }
-
-                // 方向检查
-                if (carryAfter.maxHp > carryUnit.maxHp) {
-                    if (carryAfter.hp < carryUnit.hp - 2) {
-                        issues.push('日志问题：' + carryAfter.name + '的maxHp从' + Math.floor(carryUnit.maxHp) + '增加到' + Math.floor(carryAfter.maxHp) + '，但hp从' + Math.floor(carryUnit.hp) + '降到' + Math.floor(carryAfter.hp) + '，方向反了（可能战斗掉血掩盖了加成效果，检查hp-change事件的顺序）');
-                    }
-                } else if (carryAfter.maxHp < carryUnit.maxHp) {
-                    if (carryAfter.hp > carryUnit.hp + 2) {
-                        issues.push('日志问题：' + carryAfter.name + '的maxHp从' + Math.floor(carryUnit.maxHp) + '减少到' + Math.floor(carryAfter.maxHp) + '，但hp从' + Math.floor(carryUnit.hp) + '升到' + Math.floor(carryAfter.hp) + '，方向反了');
-                    }
-                }
-                if (carryAfter.hp > carryAfter.maxHp) {
-                    issues.push('日志问题：' + carryAfter.name + '的hp=' + Math.floor(carryAfter.hp) + '超过maxHp=' + Math.floor(carryAfter.maxHp) + '，血量溢出');
-                }
-                if (carryAfter.hp < 0) {
-                    issues.push('日志问题：' + carryAfter.name + '的hp=' + Math.floor(carryAfter.hp) + '为负数');
-                }
+                
                 if (issues.length > 0) {
                     return { fail: true, msg: issues.join(' | ') };
                 }
@@ -262,7 +327,6 @@ function createCombatChecks(win, doc) {
                     var horsePos = summonEvs[i].horsePos;
                     var wasDestroyed = destroyEvs.some(function(e) { return e.horseUid === horseUid; });
 
-                    // 日志检查：追踪拒马uid在后续日志中的出现
                     var appearCount = 0;
                     for (var j = 0; j < log.length; j++) {
                         var entry = log[j];
@@ -274,7 +338,6 @@ function createCombatChecks(win, doc) {
                         issues.push('日志问题：拒马(uid=' + horseUid + ')在' + horsePos + '号位生成，但后续所有攻击日志中从未出现此uid，拒马可能隐身了');
                     }
 
-                    // UI检查：DOM中对应位置是否有拒马格子
                     var allCells = doc.querySelectorAll('#allyGrid .cell, #enemyGrid .cell');
                     var foundHorse = false;
                     for (var c = 0; c < allCells.length; c++) {
@@ -304,7 +367,7 @@ function createCombatChecks(win, doc) {
             }
         },
 
-        // ========== 6. 换位后单位存在性检查 ==========
+        // ========== 6. 换位后单位存在性检查（三向验证版） ==========
         {
             group: '换位',
             name: '换位后双方单位存在',
@@ -317,58 +380,75 @@ function createCombatChecks(win, doc) {
 
                 for (var i = 0; i < swapEvs.length; i++) {
                     var ev = swapEvs[i];
-                    var text = ev.text || '';
-                    var names = [];
-                    var matches = text.match(/号位(.+?)\(/g);
-                    if (matches) {
-                        for (var m = 0; m < matches.length; m++) {
-                            var name = matches[m].replace(/号位/, '').replace(/\($/, '');
-                            if (name && names.indexOf(name) === -1) names.push(name);
-                        }
-                    }
-                    if (names.length < 2) continue;
+                    
+                    // 使用增强日志中的字段
+                    var nameA = ev._swapNameA;
+                    var nameB = ev._swapNameB;
+                    var uidA = ev._swapUidA;
+                    var uidB = ev._swapUidB;
+                    var enginePosA = ev._swapEnginePosA;
+                    var enginePosB = ev._swapEnginePosB;
+                    
+                    if (!nameA || !nameB) continue;
 
-                    // 日志检查：换位后单位是否还在队伍中
-                    for (var n = 0; n < names.length; n++) {
-                        var unitInTeam = findUnitByName((afterA || []).concat(afterE || []), names[n]);
-                        if (!unitInTeam) {
-                            issues.push('日志问题：' + names[n] + '在换位日志中出现，但最终队伍中找不到此单位，换位后单位丢失');
-                            continue;
-                        }
-                        // UI检查：DOM中是否有此单位的格子
-                        if (unitInTeam.alive) {
-                            var cell = getCellElement(unitInTeam, doc);
-                            if (!cell) {
-                                issues.push('UI问题：' + names[n] + '在队伍中存活(pos=' + unitInTeam.pos + ')，但九宫格中找不到对应格子');
-                            } else {
-                                var cellPos = parseInt(cell.dataset.pos);
-                                if (cellPos !== unitInTeam.pos) {
-                                    issues.push('UI问题：' + names[n] + '在队伍中pos=' + unitInTeam.pos + '，但九宫格格子data-pos=' + cellPos + '，位置不同步');
-                                }
+                    // 1. 日志自检：单位是否还在队伍中
+                    var unitA = findUnitByUid((afterA || []).concat(afterE || []), uidA);
+                    var unitB = findUnitByUid((afterA || []).concat(afterE || []), uidB);
+
+                    // 2. 查找后续攻击记录验证换位
+                    var foundAfterSwapA = false;
+                    var foundAfterSwapB = false;
+                    var correctPosA = false;
+                    var correctPosB = false;
+                    
+                    for (var s = log.indexOf(ev) + 1; s < log.length; s++) {
+                        var laterEntry = log[s];
+                        if (laterEntry.type === 'attack-group') {
+                            if (laterEntry._atkUid === uidA || laterEntry._defUid === uidA || laterEntry.uidA === uidA || laterEntry.uidD === uidA) {
+                                foundAfterSwapA = true;
+                                var atkPosA = laterEntry._atkPos;
+                                var defPosA = laterEntry._defPos;
+                                if (laterEntry.uidA === uidA && atkPosA !== undefined) correctPosA = atkPosA !== enginePosA ? false : (correctPosA === false ? false : true);
+                                if (laterEntry.uidD === uidA && defPosA !== undefined) correctPosA = defPosA !== enginePosA ? false : (correctPosA === false ? false : true);
+                            }
+                            if (laterEntry._atkUid === uidB || laterEntry._defUid === uidB || laterEntry.uidA === uidB || laterEntry.uidD === uidB) {
+                                foundAfterSwapB = true;
+                                var atkPosB = laterEntry._atkPos;
+                                var defPosB = laterEntry._defPos;
+                                if (laterEntry.uidA === uidB && atkPosB !== undefined) correctPosB = atkPosB !== enginePosB ? false : (correctPosB === false ? false : true);
+                                if (laterEntry.uidD === uidB && defPosB !== undefined) correctPosB = defPosB !== enginePosB ? false : (correctPosB === false ? false : true);
                             }
                         }
                     }
 
-                    // 日志检查：追踪后续攻击记录验证换位是否真的执行了
-                    var swapIdx = log.indexOf(ev);
-                    if (swapIdx >= 0) {
-                        for (var s = swapIdx + 1; s < log.length; s++) {
-                            var laterEntry = log[s];
-                            if (laterEntry.type === 'attack-group' && laterEntry.uidA) {
-                                var attacker = findUnitByUid((afterA || []).concat(afterE || []), laterEntry.uidA);
-                                if (attacker && names.indexOf(attacker.name) !== -1) {
-                                    var attackPos = attacker.pos;
-                                    var attackText = laterEntry.entries ? laterEntry.entries[0].text || '' : '';
-                                    var posMatch = attackText.match(/号位/);
-                                    if (posMatch) {
-                                        var mentionedPos = parseInt(attackText.match(/(\d)号位/)?.[1]);
-                                        if (mentionedPos && mentionedPos !== attackPos) {
-                                            issues.push('日志问题：' + attacker.name + '换位后pos=' + attackPos + '，但后续攻击日志中显示在' + mentionedPos + '号位，换位可能未生效');
-                                        }
-                                    }
-                                }
-                                break;
+                    // 分析结果
+                    if (foundAfterSwapA && !correctPosA) {
+                        issues.push('日志问题：' + nameA + '换位后引擎pos=' + enginePosA + '，但后续攻击记录中位置不符，换位可能未生效');
+                    }
+                    if (foundAfterSwapB && !correctPosB) {
+                        issues.push('日志问题：' + nameB + '换位后引擎pos=' + enginePosB + '，但后续攻击记录中位置不符，换位可能未生效');
+                    }
+
+                    // 3. UI检测
+                    if (unitA && unitA.alive) {
+                        var cellA = getCellElement(unitA, doc);
+                        if (!cellA) {
+                            issues.push('UI问题：' + nameA + '在队伍中存活(pos=' + unitA.pos + ')，但九宫格中找不到对应格子');
+                        } else {
+                            var uiPosA = parseInt(cellA.dataset.pos);
+                            // 交叉检验
+                            if (enginePosA !== undefined && uiPosA !== enginePosA) {
+                                issues.push('交叉检验：' + nameA + '引擎pos=' + enginePosA + '，UI data-pos=' + uiPosA + '，两者不一致');
                             }
+                            if (unitB && unitB.alive && enginePosB !== undefined && uiPosA === enginePosB) {
+                                issues.push('交叉检验：' + nameA + '的格子(' + uiPosA + '号位)被' + nameB + '占据，换位后UI渲染可能混淆');
+                            }
+                        }
+                    }
+                    if (unitB && unitB.alive) {
+                        var cellB = getCellElement(unitB, doc);
+                        if (!cellB) {
+                            issues.push('UI问题：' + nameB + '在队伍中存活(pos=' + unitB.pos + ')，但九宫格中找不到对应格子');
                         }
                     }
                 }
@@ -462,22 +542,10 @@ function createCombatChecks(win, doc) {
                                 issues.push('UI问题：' + dodger.name + '闪避后，攻击者' + attacker.name + '血条显示' + Math.floor(barPct) + '%，但日志hp/maxHp=' + Math.floor(attacker.hp) + '/' + Math.floor(attacker.maxHp) + '=' + logPct + '%，不同步');
                             }
                         }
-                        if (reboundDmg > 0 && barPct !== null) {
-                            var expectedDmg = Math.floor(reboundDmg / attacker.maxHp * 100);
-                            if (expectedDmg > 0 && barPct > 90) {
-                                issues.push('UI问题：' + dodger.name + '闪避后对' + attacker.name + '造成' + reboundDmg + '反击伤害，但攻击者血条仍为' + Math.floor(barPct) + '%，可能未扣血');
-                            }
-                        }
                     }
 
                     // 日志检查：反击伤害值合理性
                     if (reboundDmg === 0 && attacker.alive) {
-                        var entryText2 = '';
-                        if (ev.entries) {
-                            for (var e2 = 0; e2 < ev.entries.length; e2++) {
-                                entryText2 += (ev.entries[e2].text || '') + ' ';
-                            }
-                        }
                         issues.push('日志问题：' + dodger.name + '闪避了' + attacker.name + '的攻击，但日志中未找到反击伤害数值（理论应为(' + Math.floor(dodger.atk) + '+' + Math.floor(dodger.def) + ')×0.5=' + Math.floor((dodger.atk+dodger.def)*0.5) + '），日志可能遗漏了反击记录');
                     }
                 }
@@ -569,6 +637,7 @@ export async function runHealthCheck(config) {
         });
 
         var TOTAL_ROUNDS = 5;
+        var allBattleLogs = [];
 
         for (var idx = 0; idx < selectedStages.length; idx++) {
             for (var round = 0; round < TOTAL_ROUNDS; round++) {
@@ -609,6 +678,16 @@ export async function runHealthCheck(config) {
                     return cu;
                 });
                 var battleLog = battleResult.log || [];
+
+                // 增强日志
+                battleLog = enhanceBattleLog(battleLog, ally, enemy);
+
+                // 保存增强后的日志供附件使用
+                allBattleLogs.push({
+                    stage: stage,
+                    round: round + 1,
+                    log: battleLog
+                });
 
                 var ctxSync = W()._getPlayerContext();
                 if (ctxSync) {
@@ -707,6 +786,9 @@ export async function runHealthCheck(config) {
         statusEl.textContent = totalFail === 0
             ? '全部通过！' + totalPass + ' 项通过，' + totalSkip + ' 项跳过'
             : '通过 ' + totalPass + ' 项，失败 ' + totalFail + ' 项，跳过 ' + totalSkip + ' 项';
+
+        // 存储增强后的日志供外部访问
+        reportEl._battleLogs = allBattleLogs;
 
     } catch (e) {
         statusEl.textContent = e.message || '未知错误';

@@ -1,6 +1,6 @@
 // tests/38health-ui.js - 光明顶5v5 体检UI交互
-// V5.0.1 | ~11598 bytes | 2026-07-05
-export const VER = 'tests/38health-ui.js V5.0.1';
+// V5.0.2 | ~10000 bytes | 2026-07-09 简化模块、默认第4关/1轮、日志附件
+export const VER = 'tests/38health-ui.js V5.0.2';
 
 import { runHealthCheck } from './37health-core.js';
 
@@ -40,98 +40,129 @@ export function initTestRunner() {
     const reportEl = document.getElementById('autoReport');
     const copySumBtn = document.getElementById('copySummaryBtn');
     const copyFullBtn = document.getElementById('copyFullBtn');
+    const toggleLogBtn = document.getElementById('toggleLogBtn');
     const progCont = document.getElementById('progressContainer');
     const progFill = document.getElementById('progressFill');
     const progText = document.getElementById('progressText');
     const stageCbs = document.getElementById('stageCheckboxes');
-    const groupCbs = document.getElementById('groupCheckboxes');
-    const feedbackArea = document.getElementById('feedbackArea');
-    const feedbackInput = document.getElementById('feedbackInput');
-    const feedbackHistory = document.getElementById('feedbackHistory');
-    const historyPanel = document.getElementById('historyPanel');
+    const roundInput = document.getElementById('roundCount');
     const iframe = document.getElementById('autoIframe');
+    const logAttachment = document.getElementById('logAttachment');
+    const logAttachmentHeader = document.getElementById('logAttachmentHeader');
+    const logAttachmentBody = document.getElementById('logAttachmentBody');
+    const logToggleIcon = document.getElementById('logToggleIcon');
+    const selectAllBtn = document.getElementById('selectAllStages');
 
-    // 初始化规则组复选框
-    const allGroups = ['🚀 启动与加载', '🎨 九宫格基础', '❤️ 血条与属性', '✨ Buff 系统', '🎭 状态样式', '🎵 音效', '🎬 特效', '👹 精英', '🔗 数据', '⚙️ 引擎', '📋 日志', '📍 站位'];
-    groupCbs.innerHTML = allGroups.map(g => '<label><input type="checkbox" value="' + g + '" checked> ' + (g.split(' ')[1] || g) + '</label>').join('');
-
-    // ==================== 快速反馈 ====================
-    document.getElementById('toggleFeedback').addEventListener('click', () => {
-        feedbackArea.style.display = feedbackArea.style.display === 'block' ? 'none' : 'block';
-        loadFeedbackHistory();
+    // ==================== 全选按钮 ====================
+    selectAllBtn.addEventListener('click', () => {
+        const allChecked = stageCbs.querySelectorAll('input:checked').length === 6;
+        stageCbs.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+            cb.checked = !allChecked;
+        });
+        selectAllBtn.textContent = allChecked ? '全选' : '取消全选';
     });
-    document.getElementById('submitFeedback').addEventListener('click', () => {
-        const text = feedbackInput.value.trim();
-        if (!text) return;
-        const list = JSON.parse(localStorage.getItem('ming_feedback') || '[]');
-        list.unshift({ time: new Date().toLocaleString(), text });
-        if (list.length > 50) list.pop();
-        localStorage.setItem('ming_feedback', JSON.stringify(list));
-        feedbackInput.value = '';
-        loadFeedbackHistory();
+
+    // 更新全选按钮文字
+    function updateSelectAllText() {
+        const allChecked = stageCbs.querySelectorAll('input:checked').length === 6;
+        selectAllBtn.textContent = allChecked ? '取消全选' : '全选';
+    }
+    stageCbs.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+        cb.addEventListener('change', updateSelectAllText);
     });
-    function loadFeedbackHistory() {
-        const list = JSON.parse(localStorage.getItem('ming_feedback') || '[]');
-        feedbackHistory.innerHTML = list.length ? list.map((f, i) => '<div>' + f.time + ' ' + f.text + ' <button data-fi="' + i + '" style="font-size:10px;padding:0 4px;">复制</button></div>').join('') : '暂无反馈记录';
-        feedbackHistory.querySelectorAll('button').forEach(b => b.addEventListener('click', (e) => {
-            const i = parseInt(e.target.dataset.fi);
-            const item = JSON.parse(localStorage.getItem('ming_feedback') || '[]')[i];
-            if (item) navigator.clipboard.writeText(item.time + ' ' + item.text).then(() => statusEl.textContent = '📋 已复制');
-        }));
-    }
 
-    // ==================== 历史记录 ====================
-    function saveHistoryList(list) {
-        if (list.length > 50) list = list.slice(0, 50);
-        localStorage.setItem('ming_test_history', JSON.stringify(list));
-    }
-
-    function loadHistory() {
-        const hist = JSON.parse(localStorage.getItem('ming_test_history') || '[]');
-        if (!hist.length) { historyPanel.style.display = 'none'; historyPanel.innerHTML = ''; return; }
-        historyPanel.innerHTML = '<div style="color:#ffd700;font-weight:bold;display:flex;justify-content:space-between;align-items:center;"><span>📜 历史记录</span><button id="clearHistoryBtn" style="font-size:10px;padding:2px 8px;background:#f44336;color:#fff;border:none;border-radius:4px;">清空</button></div>'
-            + hist.map((h, i) => '<div class="history-item" data-id="' + (h.id || i) + '"><span>' + h.time + ' 通过' + h.pass + ' 失败' + h.fail + '</span><span><button data-action="copy" data-i="' + i + '" style="font-size:10px;padding:2px 6px;">复制</button><button data-action="del" data-i="' + i + '" style="font-size:10px;padding:2px 6px;margin-left:4px;background:#f44336;color:#fff;border:none;border-radius:4px;">删除</button></span></div>').join('');
-        historyPanel.style.display = 'block';
-        historyPanel.querySelectorAll('button').forEach(b => b.addEventListener('click', (e) => {
-            e.stopPropagation();
-            const i = parseInt(e.target.dataset.i);
-            const action = e.target.dataset.action;
-            let list = JSON.parse(localStorage.getItem('ming_test_history') || '[]');
-            if (action === 'copy') {
-                const h = list[i];
-                if (h) navigator.clipboard.writeText(h.text).then(() => statusEl.textContent = '📋 已复制');
-            } else if (action === 'del') {
-                list.splice(i, 1);
-                saveHistoryList(list);
-                loadHistory();
-            } else if (e.target.id === 'clearHistoryBtn') {
-                showCustomConfirm('确定清空全部历史记录？', () => { localStorage.removeItem('ming_test_history'); loadHistory(); });
-            }
-        }));
-    }
-    loadHistory();
+    // ==================== 日志附件展开/收起 ====================
+    logAttachmentHeader.addEventListener('click', () => {
+        const isOpen = logAttachmentBody.classList.contains('open');
+        if (isOpen) {
+            logAttachmentBody.classList.remove('open');
+            logToggleIcon.textContent = '▶';
+        } else {
+            logAttachmentBody.classList.add('open');
+            logToggleIcon.textContent = '▼';
+        }
+    });
 
     // ==================== 复制按钮 ====================
-    copySumBtn.style.display = 'inline-block';
     copySumBtn.addEventListener('click', () => {
         const text = statusEl.textContent + '\n' + (reportEl.textContent || reportEl.innerText);
-        navigator.clipboard.writeText(text).then(() => statusEl.textContent = '📋 已复制汇总');
+        navigator.clipboard.writeText(text).then(() => {
+            copySumBtn.innerHTML = '✅ 已复制<span class="btn-hint">状态行+报告</span>';
+            setTimeout(() => { copySumBtn.innerHTML = '📋 复制汇总<span class="btn-hint">状态行+报告</span>'; }, 1500);
+        });
     });
 
-    copyFullBtn.style.display = 'inline-block';
     copyFullBtn.addEventListener('click', () => {
         const text = (reportEl.innerText || reportEl.textContent);
-        navigator.clipboard.writeText(text).then(() => statusEl.textContent = '📋 已复制完整报告');
+        navigator.clipboard.writeText(text).then(() => {
+            copyFullBtn.innerHTML = '✅ 已复制<span class="btn-hint">全部文字内容</span>';
+            setTimeout(() => { copyFullBtn.innerHTML = '📄 复制完整报告<span class="btn-hint">全部文字内容</span>'; }, 1500);
+        });
     });
 
     // ==================== 开始体检 ====================
     runBtn.addEventListener('click', () => {
+        // 读取轮数
+        var totalRounds = parseInt(roundInput.value) || 1;
+        if (totalRounds < 1) totalRounds = 1;
+        if (totalRounds > 20) totalRounds = 20;
+        roundInput.value = totalRounds;
+
         const config = {
-            iframe, statusEl, reportEl, copySumBtn, copyFullBtn, runBtn,
-            progCont, progFill, progText, stageCbs, groupCbs
+            iframe, statusEl, reportEl, runBtn,
+            progCont, progFill, progText, stageCbs,
+            totalRounds: totalRounds
         };
         runHealthCheck(config).then(() => {
-            loadHistory();
+            // 显示复制和日志按钮
+            copySumBtn.style.display = '';
+            copyFullBtn.style.display = '';
+            toggleLogBtn.style.display = '';
+
+            // 读取增强后的日志
+            if (reportEl._battleLogs && reportEl._battleLogs.length > 0) {
+                var logText = '';
+                for (var i = 0; i < reportEl._battleLogs.length; i++) {
+                    var bl = reportEl._battleLogs[i];
+                    logText += '===== 第' + bl.stage + '关 第' + bl.round + '轮 =====\n';
+                    for (var j = 0; j < bl.log.length; j++) {
+                        var entry = bl.log[j];
+                        var line = '';
+                        if (entry.type === 'round-start' || entry.type === 'round-end') {
+                            line = (entry.text || '').replace(/<[^>]+>/g, '');
+                        } else if (entry.type === 'attack-group') {
+                            var atkName = entry._atkName || '?';
+                            var defName = entry._defName || '?';
+                            var atkPos = entry._atkPos !== undefined ? entry._atkPos : '?';
+                            var defPos = entry._defPos !== undefined ? entry._defPos : '?';
+                            var dmgText = '';
+                            if (entry.entries) {
+                                for (var k = 0; k < entry.entries.length; k++) {
+                                    if (entry.entries[k].type === 'damage-text') {
+                                        dmgText = ' ' + (entry.entries[k].text || '').replace(/<[^>]+>/g, '');
+                                    }
+                                }
+                            }
+                            var flags = [];
+                            if (entry.isDodge) flags.push('闪避');
+                            if (entry.isMiss) flags.push('未命中');
+                            if (entry.isBlock) flags.push('格挡');
+                            if (entry.isDead) flags.push('击杀');
+                            line = '[' + (flags.length > 0 ? flags.join(',') : '攻击') + '] ' + atkName + '(' + atkPos + '号位) → ' + defName + '(' + defPos + '号位)' + dmgText;
+                        } else if (entry.type === 'buff-swap' || entry.type === 'buff-push') {
+                            line = (entry.text || '').replace(/<[^>]+>/g, '');
+                        } else if (entry.type === 'buff-leech' || entry.type === 'buff-summon' || entry.type === 'buff-destroy') {
+                            line = (entry.text || '').replace(/<[^>]+>/g, '');
+                        } else if (entry.text) {
+                            line = entry.text.replace(/<[^>]+>/g, '');
+                        }
+                        if (line) logText += line + '\n';
+                    }
+                    logText += '\n';
+                }
+                logAttachmentBody.textContent = logText;
+                logAttachment.style.display = 'block';
+            }
         });
     });
 }
