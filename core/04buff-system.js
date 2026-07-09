@@ -55,6 +55,10 @@ export function applyBuffEffectsBeforeAttack(unit, target, allyTeam, enemyTeam, 
                     let b; do { b = enemies[rand(0, enemies.length-1)]; } while (b.uid === a.uid);
                     let posA = a.pos, posB = b.pos;
                     let tempPos = a.pos; a.pos = b.pos; b.pos = tempPos;
+                    if (window._battleEvents) {
+                        window._battleEvents.push({ uid: a.uid, eventType: 'pos-change', pos: a.pos });
+                        window._battleEvents.push({ uid: b.uid, eventType: 'pos-change', pos: b.pos });
+                    }
                     log.push({type:'buff-swap', text:`<span class="gold">🌀 惑人心智：${posA}号位${a.name}(${a.role})与${posB}号位${b.name}(${b.role})互换位置！</span>`, buffType:'swap'});
                 }
             } else {
@@ -67,6 +71,10 @@ export function applyBuffEffectsBeforeAttack(unit, target, allyTeam, enemyTeam, 
                     let b; do { b = allies[rand(0, allies.length-1)]; } while (b.uid === a.uid);
                     let posA = a.pos, posB = b.pos;
                     let tempPos = a.pos; a.pos = b.pos; b.pos = tempPos;
+                    if (window._battleEvents) {
+                        window._battleEvents.push({ uid: a.uid, eventType: 'pos-change', pos: a.pos });
+                        window._battleEvents.push({ uid: b.uid, eventType: 'pos-change', pos: b.pos });
+                    }
                     log.push({type:'buff-swap', text:`<span class="gold">🌀 惑人心智：己方${posA}号位${a.name}(${a.role})与${posB}号位${b.name}(${b.role})互换位置！</span>`, buffType:'swap'});
                 }
             } else {
@@ -85,6 +93,9 @@ export function applyBuffEffectsAfterAttack(unit, target, dmg, allySide, enemySi
         let hpBefore = unit.hp;
         unit.hp = Math.min(unit.maxHp, unit.hp + leech);
         unit.healDone += leech;
+        if (typeof window._emitEvent === 'function') {
+            window._emitEvent(unit, 'hp-change', { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: unit.atk, def: unit.def });
+        }
         log.push({type:'buff-leech', text:`<span class="green">🗡️ ${unit.name} 的嗜血狂刀吸血+${leech}，血量 ${hpBefore} → ${unit.hp}</span>`, isHealEntry:true, buffType:'leech', healAmount:leech, healUnitUid:unit.uid});
     }
     
@@ -98,18 +109,26 @@ export function applyBuffEffectsAfterAttack(unit, target, dmg, allySide, enemySi
             let hpBefore = unit.hp;
             unit.hp = Math.min(unit.maxHp, unit.hp + leech);
             unit.healDone += leech;
+            if (typeof window._emitEvent === 'function') {
+                window._emitEvent(unit, 'hp-change', { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: unit.atk, def: unit.def });
+            }
             let tag = (ratio > C.BUFFS.hotBlood.leechRatio) ? '❤️‍🔥 热血奋战(翻倍)' : '❤️ 热血奋战';
             log.push({type:'buff-leech', text:`<span class="green">${tag}：${unit.name} 回复+${leech}，血量 ${hpBefore} → ${unit.hp}</span>`, isHealEntry:true, buffType:'hotBlood', healAmount:leech, healUnitUid:unit.uid});
         }
     }
     
     // 流星赶月：本体额外伤害 + 溅射合并
-    if (hasBuff(unitBuffs, 'meteorShower') && unit.role === '远程' && target.alive) {
+    if (hasBuff(unitBuffs, 'meteorShower') && unit.role === '远程') {
         let bonusDmg = Math.floor(dmg * C.BUFFS.meteorShower.bonusRatio);
-        target.hp -= bonusDmg;
         unit.dmgDealt += bonusDmg;
-        target.dmgTaken += bonusDmg;
-        if (target.hp <= 0) { target.hp = 0; target.alive = false; }
+        if (target.alive) {
+            target.hp -= bonusDmg;
+            target.dmgTaken += bonusDmg;
+            if (target.hp <= 0) { target.hp = 0; target.alive = false; }
+            if (typeof window._emitEvent === 'function') {
+                window._emitEvent(target, 'hp-change', { hp: target.hp, maxHp: target.maxHp, alive: target.alive, atk: target.atk, def: target.def });
+            }
+        }
         log.push({
             type:'buff-bonus',
             text:`<span class="gold">☄️ 流星赶月伤害加深：${target.name} 额外-${bonusDmg}</span>`,
@@ -128,6 +147,9 @@ export function applyBuffEffectsAfterAttack(unit, target, dmg, allySide, enemySi
                 unit.dmgDealt += splashDmg;
                 st.dmgTaken += splashDmg;
                 if (st.hp <= 0) { st.hp = 0; st.alive = false; }
+                if (typeof window._emitEvent === 'function') {
+                    window._emitEvent(st, 'hp-change', { hp: st.hp, maxHp: st.maxHp, alive: st.alive, atk: st.atk, def: st.def });
+                }
                 return `${st.name}：${hpBefore}→${Math.floor(st.hp)}`;
             }).join('，');
             log.push({
@@ -152,6 +174,9 @@ export function applyBuffEffectsAfterAttack(unit, target, dmg, allySide, enemySi
                     let hpBefore = Math.floor(rt.hp);
                     rt.hp -= hitDmg; unit.dmgDealt += hitDmg; rt.dmgTaken += hitDmg;
                     if (rt.hp <= 0) { rt.hp = 0; rt.alive = false; }
+                    if (typeof window._emitEvent === 'function') {
+                        window._emitEvent(rt, 'hp-change', { hp: rt.hp, maxHp: rt.maxHp, alive: rt.alive, atk: rt.atk, def: rt.def });
+                    }
                     return `${rt.name}：${hpBefore}→${Math.floor(rt.hp)}`;
                 }).join('，');
                 log.push({type:'buff-splash', text:`<span class="orange">🦅 乘风突袭波及${details}，各 -${hitDmg}</span>`, buffType:'wind_assault', attackerUid: unit.uid});
@@ -167,9 +192,16 @@ export function applyBuffEffectsAfterAttack(unit, target, dmg, allySide, enemySi
                 if (behindUnit) {
                     let behindOldPos = behindUnit.pos;
                     let tempPos = target.pos; target.pos = behindPos; behindUnit.pos = tempPos;
+                    if (window._battleEvents) {
+                        window._battleEvents.push({ uid: target.uid, eventType: 'pos-change', pos: target.pos });
+                        window._battleEvents.push({ uid: behindUnit.uid, eventType: 'pos-change', pos: behindUnit.pos });
+                    }
                     log.push({type:'buff-push', text:`<span class="gold" style="font-size:1.1em;">🦅 乘风突袭击退！${target.name}从${oldPos}号位击退至${behindPos}号位，${behindUnit.name}被迫从${behindOldPos}号位移至${oldPos}号位</span>`, buffType:'push', pushTarget: target.name, pushBehind: behindUnit.name, pushPos: behindPos});
                 } else {
                     target.pos = behindPos;
+                    if (window._battleEvents) {
+                        window._battleEvents.push({ uid: target.uid, eventType: 'pos-change', pos: target.pos });
+                    }
                     log.push({type:'buff-push', text:`<span class="gold" style="font-size:1.1em;">🦅 乘风突袭击退！${target.name}从${oldPos}号位被击退至${behindPos}号位</span>`, buffType:'push', pushTarget: target.name, pushBehind: null, pushPos: behindPos});
                 }
             }
@@ -222,9 +254,9 @@ export function logBuffSummary(allyTeam, log, doubleStrikeUid) {
             case 'doubleStrike':
                 if (doubleStrikeUid) {
                     let dsUnit = allyTeam.find(u => u.uid === doubleStrikeUid);
-                    if (dsUnit) log.push({type:'buff-summary', text:`<span class="gold">🔗 概率连击：${dsUnit.name} 80%概率额外攻击一次</span>`, buffType:'buff_stat'});
+                    if (dsUnit) log.push({type:'buff-summary', text:`<span class="gold">⚡ 概率连击：${dsUnit.name} 80%概率额外攻击一次</span>`, buffType:'buff_stat'});
                 } else {
-                    log.push({type:'buff-summary', text:`<span class="gold">🔗 概率连击：己方随机一人80%概率额外攻击一次</span>`, buffType:'buff_stat'});
+                    log.push({type:'buff-summary', text:`<span class="gold">⚡ 概率连击：己方随机一人80%概率额外攻击一次</span>`, buffType:'buff_stat'});
                 }
                 break;
             case 'mindControl':
