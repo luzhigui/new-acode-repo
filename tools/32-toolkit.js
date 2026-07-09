@@ -35,7 +35,6 @@ function escapeHtml(text) {
         // fx（特效）
         '../fx/15fx-common-5v5-test.js', '../fx/16fx-arrows-5v5-test.js', '../fx/17fx-crash-5v5-test.js',
         '../fx/18fx-position-swap.js', '../fx/19fx-push-back.js', '../fx/20fx-dodge-bullet.js',
-        '../fx/21fx-blood-slash.js', '../fx/22fx-fortify-counter.js',
         // modules（模块）
         '../modules/23elite-skills.js', '../modules/24error-capture.js', '../modules/28audio-manager.js',
         // tests（测试与体检）
@@ -71,66 +70,35 @@ function escapeHtml(text) {
     // 主题分析提示词（移到外部，供序列发送使用）
     const GROUP_PROMPTS = {
         '战斗引擎核心': {
-            before: '请深入分析以下核心战斗引擎代码，重点关注：\n' +
-                '1. 伤害计算公式（攻击力、防御力、Buff加成、随机波动）\n' +
-                '2. Buff系统（召唤、销毁、吸血、击退、换位、反弹）\n' +
-                '3. 闪避机制（普通闪避、Buff闪避、闪避反击）\n' +
-                '4. 事件总线（事件类型、触发时机、状态同步）\n' +
-                '5. 特殊角色逻辑（张无忌切换、周芷若白骨爪、韦一笑吸血等）\n' +
-                '6. 拒马、海克斯等特殊机制',
-            after: '核心战斗引擎代码发送完毕。请确认已理解上述要点，准备分析播放器。'
+            before: '请深入分析核心战斗引擎代码（伤害计算、Buff系统、闪避机制、事件总线、特殊角色、拒马海克斯）。无需输出详细分析，收到全部代码后直接开始协助开发。',
+            after: '核心引擎代码发送完毕。'
         },
         '播放器': {
-            before: '请深入分析以下播放器代码，重点关注：\n' +
-                '1. 如何将战斗事件转为UI动画（攻击、防御、闪避、死亡）\n' +
-                '2. 状态同步机制（引擎状态 → UI状态）\n' +
-                '3. 动画调度（AnimationScheduler、ActionWaiter、帧循环）\n' +
-                '4. 文字播放（逐字输出、日志滚动）\n' +
-                '5. 暂停/恢复/加速对播放器的影响',
-            after: '播放器代码发送完毕。请确认已理解事件→动画的转换流程。'
+            before: '请深入分析播放器代码（事件→动画转换、状态同步、动画调度、文字播放、暂停恢复加速）。无需输出详细分析，收到全部代码后直接开始协助开发。',
+            after: '播放器代码发送完毕。'
         },
         'UI 主控': {
-            before: '请深入分析以下UI渲染代码，重点关注：\n' +
-                '1. 血条渲染（高度、颜色、百分比计算）\n' +
-                '2. 攻防显示（基础值、Buff加成、公式）\n' +
-                '3. 战斗状态UI（暂停、速度、回合数）\n' +
-                '4. 弹窗与对话框（Buff选择、投票、游戏结束）',
-            after: 'UI渲染代码发送完毕。请确认已理解血条和状态显示逻辑。'
+            before: '请深入分析UI渲染代码（血条渲染、攻防显示、战斗状态UI、弹窗对话框）。无需输出详细分析，收到全部代码后直接开始协助开发。',
+            after: 'UI渲染代码发送完毕。'
         },
         '特效': {
-            before: '请分析以下特效代码，重点关注：\n' +
-                '1. 伤害飘字、治疗飘字、闪避气泡\n' +
-                '2. 弹幕、横幅（Buff触发、暴击、闪避反击）\n' +
-                '3. 飞箭、冲撞、换位、击退动画\n' +
-                '4. 闪避子弹时间、血斩、反击特效',
-            after: '特效代码发送完毕。请确认已理解各类视觉效果的触发和播放。'
+            before: '请深入分析特效代码（飘字弹幕、飞箭冲撞、换位击退、子弹时间）。无需输出详细分析，收到全部代码后直接开始协助开发。',
+            after: '特效代码发送完毕。'
         },
         '模块': {
-            before: '请分析以下模块代码，重点关注：\n' +
-                '1. 精英技能（玄冥神掌、新婚、快乐、性奋等）\n' +
-                '2. 错误捕获（全局错误处理、日志收集）\n' +
-                '3. 音频管理（音效播放、音量控制）',
+            before: '请深入分析模块代码（精英技能、错误捕获、音频管理）。无需输出详细分析，收到全部代码后直接开始协助开发。',
             after: '模块代码发送完毕。'
         },
         '测试与体检': {
-            before: '请分析以下测试与体检代码，重点关注：\n' +
-                '1. 健康检查规则（启动检查、运行时检查）\n' +
-                '2. 单元测试（引擎函数、边界情况）\n' +
-                '3. 运行时采样（性能监控）',
+            before: '请深入分析测试与体检代码（健康检查、单元测试、运行时采样）。无需输出详细分析，收到全部代码后直接开始协助开发。',
             after: '测试代码发送完毕。'
         },
         '工具箱自身': {
-            before: '请分析以下工具箱代码，重点关注：\n' +
-                '1. 自动批量战斗（自动跑N轮、统计结果）\n' +
-                '2. 构建脚本（打包、合并）\n' +
-                '3. 工具箱UI（文件复制器、函数替换器、防战计算器）',
+            before: '请深入分析工具箱代码（自动战斗、构建脚本、工具箱UI）。无需输出详细分析，收到全部代码后直接开始协助开发。',
             after: '工具箱代码发送完毕。'
         },
         '根目录页面': {
-            before: '请分析以下入口页面和文档，重点关注：\n' +
-                '1. index.html（开发集成入口）\n' +
-                '2. mode-5v5-test.html（主游戏页面）\n' +
-                '3. 项目文档（README、CHANGELOG、开发协同标准、游戏设计）',
+            before: '请深入分析入口页面和文档（index、mode-5v5、README、CHANGELOG、开发准则、游戏设计）。无需输出详细分析，收到全部代码后直接开始协助开发。',
             after: '入口页面和文档发送完毕。'
         }
     };
@@ -571,7 +539,7 @@ function escapeHtml(text) {
         return { gn: '其他', groupBatchIndex: 1, groupBatchTotal: 1 };
     }
 
-    function renderSenderBar(showIndex) {
+    function renderSenderBar(showIndex, status) {
         if (!senderBar) return;
         const total = sendBatches.length;
         if (sendCancelled) {
@@ -587,29 +555,43 @@ function escapeHtml(text) {
             };
             return;
         }
-        const { gn, groupBatchIndex, groupBatchTotal } = getGroupInfoFromCard(sendBatches[sendIndex]);
-        const chars = getBatchText(sendBatches[sendIndex]).length;
-        const displayIndex = showIndex ?? sendIndex + 1;
-        senderBar.innerHTML = `<span>📦 【${gn}】 包 <b>${groupBatchIndex}</b>/${groupBatchTotal}（${chars} 字符）→ 粘贴发送后按 <b>Enter</b></span>
-            <div style="display:flex;gap:8px;">
-                <button id="senderNextBtn" style="background:#ffd700;color:#1a1a2e;border:none;padding:6px 16px;border-radius:4px;cursor:pointer;font-weight:bold;font-size:12px;">下一包 →</button>
-                <button id="senderCancelBtn" style="background:#f44336;color:#fff;border:none;padding:6px 12px;border-radius:4px;cursor:pointer;font-size:12px;">取消</button>
-            </div>`;
-        document.getElementById('senderNextBtn').onclick = nextBatch;
-        document.getElementById('senderCancelBtn').onclick = () => { sendCancelled = true; renderSenderBar(); };
+        const actualIndex = showIndex ?? sendIndex;
+        const { gn, groupBatchIndex, groupBatchTotal } = getGroupInfoFromCard(sendBatches[actualIndex]);
+        const chars = getBatchText(sendBatches[actualIndex]).length;
+        const displayIndex = actualIndex + 1;
+        const totalBatches = sendBatches.length;
+
+        if (status === 'copied') {
+            if (sendIndex + 1 < sendBatches.length) {
+                senderBar.innerHTML = `<span style="color:#4caf50;">✅ 已复制 全局 ${displayIndex}/${totalBatches} · 【${gn}】 组内 ${groupBatchIndex}/${groupBatchTotal}，按 <b>Enter</b> 复制下一包</span>
+                    <div style="display:flex;gap:8px;">
+                        <button id="senderNextBtn" style="background:#ffd700;color:#1a1a2e;border:none;padding:6px 16px;border-radius:4px;cursor:pointer;font-weight:bold;font-size:12px;">复制下一包 →</button>
+                        <button id="senderCancelBtn" style="background:#f44336;color:#fff;border:none;padding:6px 12px;border-radius:4px;cursor:pointer;font-size:12px;">取消</button>
+                    </div>`;
+                document.getElementById('senderNextBtn').onclick = nextBatch;
+                document.getElementById('senderCancelBtn').onclick = () => { sendCancelled = true; renderSenderBar(); };
+            } else {
+                senderBar.innerHTML = `<span style="color:#4caf50;">✅ 已复制 全局 ${displayIndex}/${totalBatches} · 【${gn}】 组内 ${groupBatchIndex}/${groupBatchTotal}，全部完成</span>`;
+            }
+        } else {
+            senderBar.innerHTML = `<span>📦 全局 ${displayIndex}/${totalBatches} · 【${gn}】 组内 ${groupBatchIndex}/${groupBatchTotal}（${chars} 字符）→ 按 <b>Enter</b> 复制当前包</span>
+                <div style="display:flex;gap:8px;">
+                    <button id="senderNextBtn" style="background:#ffd700;color:#1a1a2e;border:none;padding:6px 16px;border-radius:4px;cursor:pointer;font-weight:bold;font-size:12px;">复制下一包 →</button>
+                    <button id="senderCancelBtn" style="background:#f44336;color:#fff;border:none;padding:6px 12px;border-radius:4px;cursor:pointer;font-size:12px;">取消</button>
+                </div>`;
+            document.getElementById('senderNextBtn').onclick = nextBatch;
+            document.getElementById('senderCancelBtn').onclick = () => { sendCancelled = true; renderSenderBar(); };
+        }
     }
 
     async function nextBatch() {
-        if (sendCancelled || sendIndex >= sendBatches.length) return renderSenderBar();
-        // batch-code已经存储了含提示词的完整内容，直接使用
+        if (sendCancelled || sendIndex >= sendBatches.length) return;
+        // 复制当前包
         const fullText = getBatchText(sendBatches[sendIndex]);
         try { await navigator.clipboard.writeText(fullText); } catch (e) {}
+        // 显示"已复制当前包"，sendIndex 不变，确保显示的是当前刚复制的包
+        renderSenderBar(sendIndex, 'copied');
         sendIndex++;
-        if (sendIndex < sendBatches.length) {
-            renderSenderBar(sendIndex);
-        } else {
-            renderSenderBar();
-        }
     }
 
     function addSenderKeyListener() {
@@ -621,6 +603,11 @@ function escapeHtml(text) {
             if (e.key === 'Escape' && senderBar?.parentNode) { sendCancelled = true; renderSenderBar(); }
         };
         document.addEventListener('keydown', senderKeyHandler);
+    }
+
+    function renderSenderBarForWait() {
+        // 显示等待状态：下一个要复制的包
+        renderSenderBar(sendIndex);
     }
 
     function removeSenderKeyListener() {
@@ -636,6 +623,7 @@ function escapeHtml(text) {
         senderBar.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:99999;background:#1a1a2e;border-bottom:2px solid #ffd700;padding:10px 16px;display:flex;align-items:center;justify-content:space-between;font-family:monospace;font-size:13px;color:#eee;';
         document.body.appendChild(senderBar);
         addSenderKeyListener();
-        nextBatch();
+        // 直接复制第一个包并显示已复制，无需用户再点一次
+        setTimeout(() => nextBatch(), 100);
     });
 })();

@@ -259,7 +259,7 @@ async function handleBuffReboundFortify(c, entry) {
 
 // 核心攻击动画（纯视觉，通过 Store dispatch 更新标记）
 async function handleAttackGroup(c, entry, roundResult, abortSig, isFirstAttackRef) {
-    if (entry.isCombo) { let spacer = document.createElement('div'); spacer.innerHTML = '<br>'; document.getElementById('log').appendChild(spacer); c.autoScrollLog(); c.isPaused = true; window.bulletTimeActive = true; if (c._scheduler) { await new Promise(r => c._scheduler.schedule('banner', 1500, r)); showBuffBanner('🔗 连击！'); } else { await showBuffBanner('🔗 连击！'); } window.bulletTimeActive = false; c.isPaused = false; }
+    if (entry.isCombo) { let spacer = document.createElement('div'); spacer.innerHTML = '<br>'; document.getElementById('log').appendChild(spacer); c.autoScrollLog(); c.isPaused = true; window.bulletTimeActive = true; if (c._scheduler) { await new Promise(r => c._scheduler.schedule('banner', 1500, r)); showBuffBanner('⚡ 连击！'); } else { await showBuffBanner('⚡ 连击！'); } window.bulletTimeActive = false; c.isPaused = false; }
     let unitA=c.UI.allyTeam.concat(c.UI.enemyTeam).find(u=>u.uid===entry.uidA);
     let unitD=entry.uidD?c.UI.allyTeam.concat(c.UI.enemyTeam).find(u=>u.uid===entry.uidD):null;
     if(!entry.isBlock&&!entry.isMiss&&!entry.isDodge&&(!unitA||!unitD))return { isBattleOver: false };
@@ -290,7 +290,7 @@ async function handleAttackGroup(c, entry, roundResult, abortSig, isFirstAttackR
     
     // 闪避子弹时间：unitA是防御者(闪避者)，unitD是攻击者
     // 反击时 unitA 是反击发起者(attacker)，unitD 是反击承受者(defender)
-    if (entry.isDodge && unitA && unitD) { if (c.dodgeEffectEnabled) { let reboundDmg = Math.floor((unitA.atk + unitA.def) * 0.5); c.isPaused = true; window.bulletTimeActive = true; await showCriticalBanner('✨闪避反击✨'); await showDodgeBulletTime(unitA, unitD, reboundDmg); window.bulletTimeActive = false; c.isPaused = false; } else { showDodgeBubble(unitA, '闪避！'); } }
+    if (entry.isDodge && unitA && unitD) { if (c.dodgeEffectEnabled) { let reboundDmg = Math.floor((unitA.atk + unitA.def) * 0.5); c.isPaused = true; window.bulletTimeActive = true; await showCriticalBanner('✨闪避反击✨'); await showDodgeBulletTime(unitD, unitA, reboundDmg); window.bulletTimeActive = false; c.isPaused = false; } else { showDodgeBubble(unitA, '闪避！'); } }
     if (entry.isDead && unitD) { if (defTimer) clearTimeout(defTimer); c.store.dispatch({ type: 'SET_FLASH', uid: unitD.uid, flash: 'dead' }); c.store.dispatch({ type: 'SET_VISUAL', uid: unitD.uid, _isDead: true }); }
     if (entry.isDodge && unitA && !unitA.alive) { c.store.dispatch({ type: 'SET_FLASH', uid: unitA.uid, flash: 'dead' }); c.store.dispatch({ type: 'SET_VISUAL', uid: unitA.uid, _isDead: true }); }
     
@@ -319,7 +319,7 @@ async function handleAttackGroup(c, entry, roundResult, abortSig, isFirstAttackR
     }
     if(blockDelay) await new Promise(r=>setTimeout(r, window._fastForwardActive ? 1 : c.speed/2));
     if (entry.isDead && lastDiv && !entry.isBlock && !entry.isMiss && !entry.isDodge) { applyBrushEffect(lastDiv); }
-    if(entry.isDodge&&unitD)showDodgeBubble(unitD,'闪避！'); if(entry.isMiss&&unitA)showDodgeBubble(unitA,'未命中');
+    if(entry.isDodge&&unitA)showDodgeBubble(unitA,'闪避！'); if(entry.isMiss&&unitA)showDodgeBubble(unitA,'未命中');
     if(unitD&&entry.hpPctAfter!==undefined&&entry.hpPctBefore!==undefined){ if(entry.hpPctBefore>40&&entry.hpPctAfter<=40&&entry.hpPctAfter>20){let t=(unitD.camp==='ally'?'不好，必须反击了！':'小儿安敢伤我！');safeShowDanmaku(unitD,t);} else if(entry.hpPctBefore>20&&entry.hpPctAfter<=20){let t=(unitD.camp==='ally'?'撑住！':'已是强弩之末！');safeShowDanmaku(unitD,t);} }
     await new Promise(r=>setTimeout(r,offset)); await c.waitWhilePaused();
     if(atkTimer)clearTimeout(atkTimer); if(defTimer)clearTimeout(defTimer);
@@ -337,7 +337,7 @@ async function handleInfo(c, entry) {
     else { 
         if (entry.isDoubleStrikeBanner) {
             c.isPaused = true;
-            await showBuffBanner('🔗 概率连击！');
+            await showBuffBanner('⚡ 概率连击！');
             c.isPaused = false;
         }
         if (entry.text && entry.text.includes('拒马无法攻击')) { let sepDiv=document.createElement('div'); sepDiv.innerHTML='<span class="separator">- - - - -</span><br>'; document.getElementById('log').appendChild(sepDiv); c.autoScrollLog(); await new Promise(r=>setTimeout(r, window._fastForwardActive ? 1 : c.speed/4)); } 

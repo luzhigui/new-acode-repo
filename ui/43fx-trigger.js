@@ -44,7 +44,7 @@ export function _triggerFX(fxSnapshot, unitA, unitD, isDead, isDodge, isMiss, is
         } else if (!isBlock) {
             if (isDodge) {
                 if (!getState.dodgeEffectEnabled()) {
-                    showMeleeDodge(unitA, unitD, speed * 2, getPausedState);
+                    showMeleeDodge(unitD, unitA, speed * 2, getPausedState);
                 }
             } else if (isMiss) {
                 showMeleeMiss(unitA, unitD, speed * 2, getPausedState);

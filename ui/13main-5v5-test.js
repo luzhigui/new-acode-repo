@@ -38,8 +38,6 @@ import { runRuntimeSample } from '../tests/36runtime-sampler.js';
 
 const C = CONFIG, S = STATE, KT = KILL_TAUNT;
 
-const FILE_VER = '13main-5v5-test.js V5.0.1';
-const INDEX_VER = 'mode-5v5-test.html test V3.0';
 const LOG_LINE1 = '⚔️ 光明顶5v5对决 · 九宫格混战模式 ⚔️';
 
 // ==================== 局部状态（仅 UI 控制，不包含 activeBuffs） ====================
@@ -133,14 +131,7 @@ function swapAllyPositions(posA, posB) {
 }
 window._swapAllyPositions = swapAllyPositions;
 
-// ==================== 版本日志 ====================
-function logVersions() {
-    let logDiv=document.getElementById('log');
-    let appendDiv=(html)=>{let d=document.createElement('div');d.innerHTML=html+'<br>';logDiv.appendChild(d);};
-    appendDiv(`<span class="debug">[版本信息] ${INDEX_VER} | ${FILE_VER} | ${UI_VER||'ui-render 未上报'} | ${FX_VER||'fx-common 未上报'} | ${FA_VER||'fx-arrows 未上报'} | ${FC_VER||'fx-crash 未上报'} | ${BP_VER||'battle-player 未上报'} | ${BE_VER||'battle-engine 未上报'}</span>`);
-    appendDiv(`<span class="debug">[子模块] ${VER_UNIT||'?'} | ${VER_UTILS||'?'} | ${VER_BUFF||'?'} | ${VER_HORSE||'?'} | ${VER_CORE||'?'} | ${VER_TEXT||'?'} | ${VER_BUFF_UI||'?'} | ${VER_PLAYER_CORE||'?'} | ${VER_MAIN_UTILS||'?'}</span>`);
-    logDiv.scrollTop=logDiv.scrollHeight;
-}
+
 
 // ==================== 运行时监控 ====================
 function startRuntimeMonitor() {
@@ -324,8 +315,6 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('debugToggle').addEventListener('click',function(){
         onAnyButtonClick(); setState.debugMode(!getState.debugMode()); var dm = getState.debugMode(); this.classList.toggle('active',dm); this.textContent='V3.0'; window._debugMode=dm;
         updateSpeedButtons(); updateDebugUI(); updateUI();
-        if (dm) { logVersions(); if (!runtimeMonitorActive) startRuntimeMonitor(); }
-        else { if (runtimeMonitorActive) stopRuntimeMonitor(); }
     });
     document.getElementById('copyLog').addEventListener('click',()=>{
         showModal('选择复制类型', [
