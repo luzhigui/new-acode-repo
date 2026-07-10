@@ -215,7 +215,16 @@ async function handleBuffSwap(c, entry) {
     let unitA = matchA ? units.find(u => u.name === matchA[1]) : null;
     let unitB = matchB ? units.find(u => u.name === matchB[1]) : null;
     if (unitA && unitB) {
-        await animatePositionSwap(unitA, unitB, c);
+        // 从日志文本中解析交换前的位置
+        let posA = null, posB = null;
+        let matchPosA = entry.text.match(/(\d)号位/);
+        let matchPosB = entry.text.match(/与.*?(\d)号位/);
+        if (matchPosA) posA = parseInt(matchPosA[1]);
+        if (matchPosB) posB = parseInt(matchPosB[1]);
+        await animatePositionSwap(unitA, unitB, c, {
+            skipDataChange: true,
+            oldPositions: (posA && posB) ? [posA, posB] : null
+        });
     }
     window.bulletTimeActive = false;
     c.isPaused = false;
@@ -262,7 +271,16 @@ async function handleAttackGroup(c, entry, roundResult, abortSig, isFirstAttackR
     if (entry.isCombo) { let spacer = document.createElement('div'); spacer.innerHTML = '<br>'; document.getElementById('log').appendChild(spacer); c.autoScrollLog(); c.isPaused = true; window.bulletTimeActive = true; if (c._scheduler) { await new Promise(r => c._scheduler.schedule('banner', 1500, r)); showBuffBanner('⚡ 连击！'); } else { await showBuffBanner('⚡ 连击！'); } window.bulletTimeActive = false; c.isPaused = false; }
     let unitA=c.UI.allyTeam.concat(c.UI.enemyTeam).find(u=>u.uid===entry.uidA);
     let unitD=entry.uidD?c.UI.allyTeam.concat(c.UI.enemyTeam).find(u=>u.uid===entry.uidD):null;
-    if(!entry.isBlock&&!entry.isMiss&&!entry.isDodge&&(!unitA||!unitD))return { isBattleOver: false };
+    if(!entry.isBlock&&!entry.isMiss&&!entry.isDodge&&(!unitA||!unitD)){
+        // 单位已阵亡或被移除，仍输出基本日志，避免空分隔符
+        let fallbackDiv = document.createElement('div');
+        let attackerName = entry.uidA || '未知';
+        let defenderName = entry.uidD || '未知';
+        fallbackDiv.innerHTML = `<span class="gray">${attackerName} 攻击 ${defenderName}，但目标已不存在</span><br>`;
+        document.getElementById('log').appendChild(fallbackDiv);
+        c.autoScrollLog();
+        return { isBattleOver: false };
+    }
     // 攻击闪光（视觉）- 通过 Store dispatch
     if(unitA&&!entry.isBlock){
         c.store.dispatch({ type: 'SET_FLASH', uid: unitA.uid, flash: 'attack' });
@@ -293,8 +311,8 @@ async function handleAttackGroup(c, entry, roundResult, abortSig, isFirstAttackR
     if (entry.isDodge && unitA && unitD) { if (c.dodgeEffectEnabled) { let reboundDmg = Math.floor((unitA.atk + unitA.def) * 0.5); c.isPaused = true; window.bulletTimeActive = true; await showCriticalBanner('✨闪避反击✨'); await showDodgeBulletTime(unitD, unitA, reboundDmg); window.bulletTimeActive = false; c.isPaused = false; } else { showDodgeBubble(unitA, '闪避！'); } }
     if (unitA && entry.isDead && c.store) {
         c.store.dispatch({ type: 'SET_FLASH', uid: unitA.uid, flash: 'dead' });
-        c.store.dispatch({ type: 'SET_VISUAL', uid: unitA.uid, _isDead: true });
-        c.store.dispatch({ type: 'SYNC_UNIT', uid: unitA.uid, fields: { _deathTime: Date.now() } });
+        // 不再设置 _isDead，避免触发 Store 订阅回调中的即时移除逻辑
+        // 死亡移除统一由 playBattle 中的 _deathTimers 3秒延迟处理
     }
     
     let lastDiv=null,healDiv=null, blockDelay=false;

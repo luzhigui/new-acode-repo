@@ -1,6 +1,6 @@
-// tests/38health-auto.js - 光明顶5v5 体检自动控制
+// tests/45health-auto.js - 光明顶5v5 体检自动控制
 // V5.0.6 | ~14000 bytes | 注入游戏窗口的浮动按钮、全自动操作、跨窗口通信
-export const VER = 'tests/38health-auto.js V5.0.6';
+export const VER = 'tests/45health-auto.js V5.0.6';
 
 (function() {
     'use strict';

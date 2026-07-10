@@ -55,10 +55,7 @@ export function applyBuffEffectsBeforeAttack(unit, target, allyTeam, enemyTeam, 
                     let b; do { b = enemies[rand(0, enemies.length-1)]; } while (b.uid === a.uid);
                     let posA = a.pos, posB = b.pos;
                     let tempPos = a.pos; a.pos = b.pos; b.pos = tempPos;
-                    if (window._battleEvents) {
-                        window._battleEvents.push({ uid: a.uid, eventType: 'pos-change', pos: a.pos });
-                        window._battleEvents.push({ uid: b.uid, eventType: 'pos-change', pos: b.pos });
-                    }
+                    // 不推送 pos-change 事件，避免剧透 UI
                     log.push({type:'buff-swap', text:`<span class="gold">🌀 惑人心智：${posA}号位${a.name}(${a.role})与${posB}号位${b.name}(${b.role})互换位置！</span>`, buffType:'swap'});
                 }
             } else {
@@ -71,10 +68,7 @@ export function applyBuffEffectsBeforeAttack(unit, target, allyTeam, enemyTeam, 
                     let b; do { b = allies[rand(0, allies.length-1)]; } while (b.uid === a.uid);
                     let posA = a.pos, posB = b.pos;
                     let tempPos = a.pos; a.pos = b.pos; b.pos = tempPos;
-                    if (window._battleEvents) {
-                        window._battleEvents.push({ uid: a.uid, eventType: 'pos-change', pos: a.pos });
-                        window._battleEvents.push({ uid: b.uid, eventType: 'pos-change', pos: b.pos });
-                    }
+                    // 不推送 pos-change 事件，避免剧透 UI
                     log.push({type:'buff-swap', text:`<span class="gold">🌀 惑人心智：己方${posA}号位${a.name}(${a.role})与${posB}号位${b.name}(${b.role})互换位置！</span>`, buffType:'swap'});
                 }
             } else {
@@ -192,16 +186,11 @@ export function applyBuffEffectsAfterAttack(unit, target, dmg, allySide, enemySi
                 if (behindUnit) {
                     let behindOldPos = behindUnit.pos;
                     let tempPos = target.pos; target.pos = behindPos; behindUnit.pos = tempPos;
-                    if (window._battleEvents) {
-                        window._battleEvents.push({ uid: target.uid, eventType: 'pos-change', pos: target.pos });
-                        window._battleEvents.push({ uid: behindUnit.uid, eventType: 'pos-change', pos: behindUnit.pos });
-                    }
+                    // 不推送 pos-change 事件，避免剧透 UI
                     log.push({type:'buff-push', text:`<span class="gold" style="font-size:1.1em;">🦅 乘风突袭击退！${target.name}从${oldPos}号位击退至${behindPos}号位，${behindUnit.name}被迫从${behindOldPos}号位移至${oldPos}号位</span>`, buffType:'push', pushTarget: target.name, pushBehind: behindUnit.name, pushPos: behindPos});
                 } else {
                     target.pos = behindPos;
-                    if (window._battleEvents) {
-                        window._battleEvents.push({ uid: target.uid, eventType: 'pos-change', pos: target.pos });
-                    }
+                    // 不推送 pos-change 事件，避免剧透 UI
                     log.push({type:'buff-push', text:`<span class="gold" style="font-size:1.1em;">🦅 乘风突袭击退！${target.name}从${oldPos}号位被击退至${behindPos}号位</span>`, buffType:'push', pushTarget: target.name, pushBehind: null, pushPos: behindPos});
                 }
             }

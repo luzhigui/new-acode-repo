@@ -63,7 +63,8 @@ function checkZhangSwitch(A, log) {
     let col = (zhang.pos - 1) % 3;
     let hasFrontAlly = A.some(c => c.alive && !c.isHorse && c.pos === 1 + col && c.uid !== zhang.uid);
     if (!hasFrontAlly) {
-        zhang.rangedForm = false; zhang.atk += 3; zhang.def += 2; zhang.maxHp += 50;
+        zhang.rangedForm = false; zhang.atk += 3; zhang.def += 2;
+        zhang.maxHp = Math.min(zhang.maxHp + 50, zhang._baseMaxHp * 2);
         zhang.hp = Math.min(zhang.hp + 50, zhang.maxHp); zhang.role = '战士';
         zhang._blocked = false; zhang._resting = false; zhang._zhangSwitched = true;
         zhang._baseMaxHp = zhang.maxHp;
@@ -123,7 +124,8 @@ function resolveDodge(unit, target, attackerBuffStats, log) {
     if (target.isWei) {
         let heal = Math.floor(reboundDmg * 0.15);
         let wasFullHp = (target.hp >= target.maxHp);
-        target.maxHp += heal;
+        let newMaxHp = Math.min(target.maxHp + heal, target._baseMaxHp * 2);
+        target.maxHp = newMaxHp;
         target.hp = Math.min(target.hp + heal, target.maxHp);
         if (wasFullHp) { target.hp = target.maxHp; }
         target.healDone += heal;
@@ -225,7 +227,17 @@ function applyPostAttackEffects(unit, target, dmg, atkAct, defAct, reboundEntry,
 
 function processUnitAttack(unit, allySide, enemySide, log, A, B, state, doubleStrikeUnitUid) {
     let target = selectTarget(unit, enemySide);
-    if (!target) { unit._acted = true; return false; }
+    if (!target) {
+        // 无可选目标时仍记录日志，避免空分隔符
+        let emptyGroup = { type:'attack-group', uidA:unit.uid, uidD:null, entries:[], isMiss:true, _fxSnapshot:null, waveTaunt:null, waveUnit:null, buffEffects: [] };
+        emptyGroup.entries.push({type:'combat-text', text:`<span class="${unit.camp==='ally'?'blue':'orange'}">${unit.camp==='ally'?'明教':'六大派'} ${unit.name}</span> 无法选择目标`});
+        emptyGroup.entries.push({type:'info', text:`<span class="gray">无可选目标，跳过行动</span>`});
+        emptyGroup._events = [...window._battleEvents];
+        window._battleEvents = [];
+        log.push(emptyGroup);
+        unit._acted = true;
+        return false;
+    }
 
     let miss = false;
     let missChance = 0;
@@ -404,8 +416,11 @@ function processUnitAttack(unit, allySide, enemySide, log, A, B, state, doubleSt
     if (unit.camp === 'ally' && unit.isWei && dmg > 0) {
         let heal = Math.floor(dmg * 0.15);
         let wasFullHp = (unit.hp >= unit.maxHp);
-        unit.maxHp += heal;
-        unit.hp = Math.min(unit.hp + heal, unit.maxHp);
+        // 上限保护：maxHp不超过baseMaxHp的2倍
+        let newMaxHp = Math.min(unit.maxHp + heal, unit._baseMaxHp * 2);
+        let hpDelta = newMaxHp - unit.maxHp;
+        unit.maxHp = newMaxHp;
+        unit.hp = Math.min(unit.hp + hpDelta, unit.maxHp);
         if (wasFullHp) { unit.hp = unit.maxHp; }
         unit.healDone += heal; unit.leechDone += heal;
         group.entries.push({type:'info', text:`<span class="green">🦇 韦一笑吸血+${heal}，上限→${Math.floor(unit.maxHp)}</span>`, isHealEntry:true, healAmount:heal, healUnitUid:unit.uid});

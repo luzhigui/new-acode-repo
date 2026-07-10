@@ -18,6 +18,11 @@ export function getFronts(units) {
         let chars = units.filter(c => poses.includes(c.pos) && c.alive).sort((a, b) => a.pos - b.pos);
         if (chars.length > 0) fronts.push(chars[0]);
     }
+    // 兜底：如果按列找不到前排，退回所有存活单位作为前排
+    if (fronts.length === 0) {
+        let alive = units.filter(c => c.alive);
+        if (alive.length > 0) fronts = [alive[rand(0, alive.length - 1)]];
+    }
     return fronts;
 }
 

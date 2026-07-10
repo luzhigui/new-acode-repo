@@ -14,6 +14,13 @@ function getCellElement(unit) {
     return idx >= 0 ? grid.children[idx] : null;
 }
 
+function getCellByPos(camp, pos) {
+    const grid = document.getElementById(camp === 'ally' ? 'allyGrid' : 'enemyGrid');
+    if (!grid) return null;
+    const order = camp === 'enemy' ? [7,8,9,4,5,6,1,2,3] : [1,2,3,4,5,6,7,8,9];
+    const idx = order.indexOf(pos);
+    return idx >= 0 ? grid.children[idx] : null;
+}
 function wait(ms) { return new Promise(r => setTimeout(r, window._fastForwardActive ? 1 : ms)); }
 
 /**
@@ -22,12 +29,21 @@ function wait(ms) { return new Promise(r => setTimeout(r, window._fastForwardAct
  * 阶段二：中速位移 2 次，间隔渐长
  * 阶段三：最后一击长定格，淡出后在新位置淡入
  */
-export async function animatePositionSwap(unit1, unit2, c) {
-    const cell1 = getCellElement(unit1);
-    const cell2 = getCellElement(unit2);
+export async function animatePositionSwap(unit1, unit2, c, options = {}) {
+    const { skipDataChange, oldPositions } = options;
+    // 如果传入了旧位置，用旧位置找格子；否则用当前 unit.pos
+    let cell1, cell2;
+    if (oldPositions) {
+        cell1 = getCellByPos(unit1.camp, oldPositions[0]);
+        cell2 = getCellByPos(unit2.camp, oldPositions[1]);
+    } else {
+        cell1 = getCellElement(unit1);
+        cell2 = getCellElement(unit2);
+    }
     if (!cell1 || !cell2) return;
 
-    const pos1 = unit1.pos, pos2 = unit2.pos;
+    const pos1 = oldPositions ? oldPositions[0] : unit1.pos;
+    const pos2 = oldPositions ? oldPositions[1] : unit2.pos;
     const rect1 = cell1.getBoundingClientRect();
     const rect2 = cell2.getBoundingClientRect();
     const dx = rect2.left + rect2.width/2 - (rect1.left + rect1.width/2);
@@ -75,16 +91,17 @@ export async function animatePositionSwap(unit1, unit2, c) {
     await wait(350);
 
     // 交换数据：不直接修改 unit.pos，全部通过 Store dispatch 完成
-    // subscribe 会自动同步单位字段，无需手动赋值
-    if (c.store) {
-        c.store.dispatch({ type: 'APPLY_EVENTS', events: [
-            { eventType: 'pos-change', uid: unit1.uid, pos: pos2 },
-            { eventType: 'pos-change', uid: unit2.uid, pos: pos1 }
-        ]});
-    } else {
-        // 兜底：没有 Store 时保留直接赋值
-        unit1.pos = pos2;
-        unit2.pos = pos1;
+    if (!skipDataChange) {
+        if (c.store) {
+            c.store.dispatch({ type: 'APPLY_EVENTS', events: [
+                { eventType: 'pos-change', uid: unit1.uid, pos: pos2 },
+                { eventType: 'pos-change', uid: unit2.uid, pos: pos1 }
+            ]});
+        } else {
+            // 兜底：没有 Store 时保留直接赋值
+            unit1.pos = pos2;
+            unit2.pos = pos1;
+        }
     }
 
     // 清理样式并重绘

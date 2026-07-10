@@ -68,9 +68,8 @@ export function checkNineYinClaw(attacker, target, baseDmg, log) {
             target._isDead = true;
             if (!target._deathTime) target._deathTime = Date.now();
         }
-        if (typeof window._emitEvent === 'function') {
-            window._emitEvent(target, 'hp-change', { hp: target.hp, maxHp: target.maxHp, alive: target.alive, atk: target.atk, def: target.def, _isDead: target._isDead });
-        }
+        // 不在此处发射事件，避免播放器提前渲染死亡特效
+        // 事件统一由 processUnitAttack 在外层发射
 
         log.push({
             type: 'info',
@@ -152,6 +151,7 @@ export function tickXuanmingPoison(unit) {
     if (unit.hp <= 0) {
         unit.hp = 0;
         unit.alive = false;
+        unit._isDead = true;
         unit._isDead = true;
         if (!unit._deathTime) unit._deathTime = Date.now();
     }

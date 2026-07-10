@@ -19,12 +19,18 @@ export const rule60 = {
             var curr = log[i];
 
             if (curr.type === 'attack-group' && prev.type !== 'attack-group' && prev.type !== 'round-start') {
+                // 跳过战前日志条目：这些是 UI 注入的信息，不需要分隔符
+                if (prev.type === 'info' || prev.type === 'buff-summary') {
+                    var pt = (prev.text || '');
+                    if (pt.indexOf('初始阵容') !== -1 || pt.indexOf('Buff:') !== -1 || pt.indexOf('光明顶') !== -1) continue;
+                }
+                // info 类型日志本身也不需要分隔符（系统提示类）
+                if (prev.type === 'info') continue;
                 var needSepTypes = ['buff-leech','buff-summary','info','buff-rebound-fortify','buff-swap','buff-push','buff-bonus','buff-splash','buff-destroy','buff-summon'];
                 if (needSepTypes.indexOf(prev.type) !== -1) {
-                    // 跳过战斗标题行（text 为空或 undefined 说明是播放器注入的标题，引擎不产出）
                     if (prev.type === 'buff-summary') {
                         var pt = prev.text || '';
-                        if (!pt) continue;
+                        if (!pt || pt.indexOf('Buff:') !== -1 || pt.indexOf('光明顶') !== -1 || pt.indexOf('初始阵容') !== -1) continue;
                     }
                     
                     var prevDiv = null;
