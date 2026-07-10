@@ -335,7 +335,7 @@ export function updateUI() {
 }
 
 // ==================== 胜利特效 ====================
-export function spawnVictoryEffects(winnerCamp) {
+export function spawnVictoryEffects(winnerCamp, aliveUnitsOverride) {
     let gridId = winnerCamp==='明教'?'allyGrid':'enemyGrid', grid = document.getElementById(gridId);
     if (!grid) return;
     grid.classList.add('victory-border');
@@ -350,7 +350,7 @@ export function spawnVictoryEffects(winnerCamp) {
     let banner = document.createElement('div'); banner.className='victory-banner'; banner.textContent='🏆 胜利 🏆'; banner.style.top=Math.max(5,rect.top-12)+'px'; banner.style.left=(rect.left+rect.width/2)+'px'; document.body.appendChild(banner);
     setTimeout(()=>{if(banner.parentNode)banner.parentNode.removeChild(banner);},8000);
     let winUnits = winnerCamp==='明教'?UI.allyTeam:UI.enemyTeam;
-    let aliveUnits = winUnits.filter(u => u.alive);
+    let aliveUnits = aliveUnitsOverride || winUnits.filter(u => u.alive);
     let cx=rect.left+rect.width/2,cy=rect.top+rect.height/2;
     let colors=['#ffd700','#ff6b6b','#51cf66','#45a7ff','#ff9f43','#ff00ff'];
     for(let i=0;i<60;i++){let particle=document.createElement('div');particle.className='party-particle';let angle=Math.random()*Math.PI*2,dist=40+Math.random()*80;particle.style.setProperty('--dx',Math.cos(angle)*dist+'px');particle.style.setProperty('--dy',Math.sin(angle)*dist+'px');particle.style.left=cx+'px';particle.style.top=cy+'px';particle.style.background=colors[Math.floor(Math.random()*colors.length)];document.body.appendChild(particle);setTimeout(()=>{if(particle.parentNode)particle.parentNode.removeChild(particle);},2800);}
@@ -365,12 +365,14 @@ export function spawnVictoryEffects(winnerCamp) {
         if ((b.dmgDealt || 0) !== (a.dmgDealt || 0)) return (b.dmgDealt || 0) - (a.dmgDealt || 0);
         return (b.dmgTaken || 0) - (a.dmgTaken || 0);
     });
+    // 先用 aliveUnitsOverride 传入的存活单位弹弹幕（直接读格子位置）
+    const unitsForDanmaku = aliveUnitsOverride || aliveUnits;
     sortedAlive.forEach((u, index) => {
         const taunt = WIN_TAUNTS[rand(0, WIN_TAUNTS.length - 1)];
         setTimeout(() => {
-            // 延迟到 renderGrid 完成后再弹弹幕，避免格子位置不一致
             requestAnimationFrame(() => {
-                showDanmaku(u, taunt);
+                const unitForPos = unitsForDanmaku.find(v => v.uid === u.uid) || u;
+                showDanmaku(unitForPos, taunt);
                 logDiv.innerHTML += `<span class="${winColor}">🗯️ ${u.name}：${taunt}</span><br>`;
                 logDiv.scrollTop = logDiv.scrollHeight;
             });

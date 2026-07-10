@@ -82,9 +82,10 @@ export function showMeleeCrash(unitA, unitD, speed, getPausedFn, onCrash) {
     let flyDist = dist - rB.width * 0.28;
     let flyMode = window._crashMode || 'ghost';
 
-    unitA._flyMode = flyMode;
     const ctx = window._getPlayerContext ? window._getPlayerContext() : null;
-    if (ctx && ctx.store) ctx.store.dispatch({ type: 'SET_VISUAL', uid: unitA.uid, _flyMode: flyMode });
+    if (ctx && ctx.store) {
+        ctx.store.dispatch({ type: 'SET_VISUAL', uid: unitA.uid, _flyMode: flyMode });
+    }
     let UI = window._getPlayerContext ? window._getPlayerContext().UI : null;
     if (UI) {
         let uiUnitA = UI.allyTeam.concat(UI.enemyTeam).find(u => u.uid === unitA.uid);
@@ -278,8 +279,6 @@ export function showMeleeDodge(unitA, unitD, speed, getPausedFn) {
     const ctxD = window._getPlayerContext ? window._getPlayerContext() : null;
     if (ctxD && ctxD.store) {
         ctxD.store.dispatch({ type: 'CLEAR_UNIT_FLASH', uid: unitA.uid });
-    } else {
-        unitA._flash = null;
     }
     cellA.classList.remove('ready');
 

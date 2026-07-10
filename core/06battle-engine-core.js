@@ -535,14 +535,10 @@ export function* createRoundStepper(state) {
             let oldMaxHp = u.maxHp, oldHp = u.hp;
             let extraHp = Math.floor(u._baseMaxHp * stats.hpBonus);
             let newMaxHp = u._baseMaxHp + extraHp;
-            if (newMaxHp > oldMaxHp) {
-                // 加血：保持当前血量，加上新增的 HP 上限差额
+            if (newMaxHp !== oldMaxHp) {
+                let hpRatio = oldMaxHp > 0 ? oldHp / oldMaxHp : 1;
                 u.maxHp = newMaxHp;
-                u.hp = Math.min(u.hp + (newMaxHp - oldMaxHp), newMaxHp);
-            } else if (newMaxHp < oldMaxHp && oldMaxHp > 0) {
-                // 减血：等比回退，保持血量百分比不变（如 100/200 → 50/100）
-                u.hp = Math.floor(u.hp * newMaxHp / oldMaxHp);
-                u.maxHp = newMaxHp;
+                u.hp = Math.floor(hpRatio * newMaxHp);
             }
             emitEvent(u, 'hp-change', { hp: u.hp, maxHp: u.maxHp, alive: u.alive, atk: u.atk, def: u.def });
         }
@@ -687,7 +683,6 @@ export function* createRoundStepper(state) {
             u.alive = false;
             u._isDead = true;
             if (!u._deathTime) u._deathTime = Date.now();
-            emitEvent(u, 'hp-change', { hp: u.hp, maxHp: u.maxHp, alive: u.alive, atk: u.atk, def: u.def });
         });
     }
     
