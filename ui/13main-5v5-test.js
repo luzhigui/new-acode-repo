@@ -34,7 +34,7 @@ import { VER as VER_TEXT } from '../player/08player-text.js';
 import { VER as VER_BUFF_UI } from '../player/09player-buff-ui.js';
 import { VER as VER_MAIN_UTILS } from './12main-utils.js';
 
-import { runRuntimeSample } from '../tests/36runtime-sampler.js';
+
 
 const C = CONFIG, S = STATE, KT = KILL_TAUNT;
 
@@ -135,33 +135,7 @@ window._swapAllyPositions = swapAllyPositions;
 
 
 // ==================== 运行时监控 ====================
-function startRuntimeMonitor() {
-    if (runtimeMonitorActive) return;
-    runtimeMonitorActive = true;
-    const logDiv = document.getElementById('log');
-    let startDiv = document.createElement('div');
-    startDiv.innerHTML = `<span class="gold">[体检] 静默监控已启动，每隔 5 秒自动采样</span><br>`;
-    logDiv.appendChild(startDiv);
-    autoScrollLog();
-    runtimeMonitorInterval = setInterval(async () => {
-        const ctx = getPlayerContext();
-        if (!ctx || ctx.gs !== S.RUNNING) return;
-        try {
-            const result = await runRuntimeSample(ctx, 2);
-            if (!result.passed) {
-                let failDiv = document.createElement('div');
-                failDiv.innerHTML = `<span class="red">[体检] 发现问题：</span><br>`;
-                logDiv.appendChild(failDiv);
-                result.failures.forEach(f => {
-                    let lineDiv = document.createElement('div');
-                    lineDiv.innerHTML = `<span class="red">  ❌ ${f.name} → ${f.fix || f.error}</span><br>`;
-                    logDiv.appendChild(lineDiv);
-                });
-                autoScrollLog();
-            }
-        } catch (e) {}
-    }, 5000);
-}
+
 
 function stopRuntimeMonitor() {
     runtimeMonitorActive = false;
@@ -254,7 +228,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         console.error('战斗异常', e);
                     } finally {
                         abortController=null;
-                        if (runtimeMonitorActive) stopRuntimeMonitor();
+                    
                     }
                     updateButtons();
                 }, window._battleHasZhang);

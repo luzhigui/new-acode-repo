@@ -14,36 +14,20 @@ import { rule64 } from './37health-rules/64-horse.js';
 import { rule65 } from './37health-rules/65-swap.js';
 import { rule67 } from './37health-rules/67-cloud-dodge.js';
 import { rule68 } from './37health-rules/68-dodge-rebound.js';
+import { getCellElement } from './46health-utils.js';
 
 // ==================== 辅助函数 ====================
 
-function getCellElement(unit, doc) {
-    if (!unit || unit.pos == null) return null;
-    var gridId = unit.camp === 'ally' ? 'allyGrid' : 'enemyGrid';
-    var grid = doc.getElementById(gridId);
-    if (!grid) return null;
-    var order = unit.camp === 'enemy' ? [7,8,9,4,5,6,1,2,3] : [1,2,3,4,5,6,7,8,9];
-    var idx = order.indexOf(unit.pos);
-    return idx >= 0 ? grid.children[idx] : null;
-}
 
-function findUnitByUid(units, uid) {
-    if (!units || !uid) return null;
-    return units.find(function(u) { return u.uid === uid; });
-}
+
+
 
 function findUnitByName(units, name) {
     if (!units || !name) return null;
     return units.find(function(u) { return u.name === name; });
 }
 
-function getHpBarPct(unit, doc) {
-    var cell = getCellElement(unit, doc);
-    if (!cell) return null;
-    var bar = cell.querySelector('.hp-bar-inner');
-    if (!bar) return null;
-    return parseFloat(bar.style.height);
-}
+
 
 // ==================== 日志增强层 ====================
 
