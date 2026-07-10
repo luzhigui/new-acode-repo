@@ -1,107 +1,62 @@
-<!-- tests/30test-runner.html - 光明顶5v5 测试与体检中心 V5.0.2 -->
-<!-- V5.0.2 | ~8000 bytes | 2026-07-09 默认第4关/1轮、简化模块、日志附件 -->
+<!-- tests/30test-runner.html - 光明顶5v5 测试与体检中心 V5.0.7 -->
+<!-- V5.0.7 | ~9800 bytes | iframe内嵌游戏 + 事件驱动 + 可调频率扫描 -->
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>光明顶 5v5 测试与诊断 V5.0.2</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>光明顶 5v5 体检中心 V5.0.7</title>
     <style>
-        body { background: #1a1a2e; color: #eee; font-family: monospace; padding: 12px; font-size: 13px; margin: 0; }
-        h2 { color: #ffd700; text-align: center; margin: 8px 0; }
-        .tabs { display: flex; gap: 4px; margin-bottom: 16px; }
-        .tab-btn { flex: 1; padding: 10px; background: #2a2a4e; border: 2px solid #444; border-radius: 8px 8px 0 0; color: #aaa; cursor: pointer; font-size: 13px; font-weight: bold; text-align: center; }
-        .tab-btn.active { background: #1a1a2e; border-bottom-color: #1a1a2e; color: #ffd700; border-color: #ffd700 #ffd700 #1a1a2e #ffd700; }
-        .tab-panel { display: none; } .tab-panel.active { display: block; }
-        button { cursor: pointer; }
-        .summary { margin-top: 16px; padding: 10px; background: rgba(255,215,0,0.1); border: 1px solid #ffd700; border-radius: 6px; text-align: center; font-weight: bold; }
-        .auto-status { margin: 8px 0; color: #ff9800; font-size: 12px; text-align: center; min-height: 20px; }
-        #autoIframe { display: none; width: 100%; height: 500px; border: 2px solid #444; border-radius: 8px; margin-top: 12px; }
-        .progress-container { display: none; margin: 12px 0; }
-        .progress-bar-wrap { background: #2a2a4e; border-radius: 8px; height: 20px; overflow: hidden; border: 1px solid #444; }
-        .progress-bar-fill { height: 100%; background: linear-gradient(90deg, #4caf50, #ffd700); width: 0%; transition: width 0.3s ease; border-radius: 8px; }
-        .progress-text { text-align: center; font-size: 11px; color: #aaa; margin-top: 4px; }
-
-        .settings-row { display: flex; align-items: center; gap: 12px; margin: 8px 0; flex-wrap: wrap; }
-        .stage-checkboxes { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
-        .stage-checkboxes label { display: flex; align-items: center; gap: 3px; background: #2a2a4e; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 12px; }
-        .stage-checkboxes label input { margin: 0; }
-        .select-all-btn { padding: 4px 10px; background: #3a3a6e; border: 1px solid #ffd700; border-radius: 4px; color: #ffd700; font-size: 11px; cursor: pointer; }
-        .select-all-btn:hover { background: #4a4a8e; }
-
-        .round-input { width: 50px; padding: 4px 6px; background: #2a2a4e; border: 1px solid #444; border-radius: 4px; color: #eee; font-size: 12px; text-align: center; }
-        .round-label { font-size: 12px; color: #aaa; }
-
-        .module-checkboxes { display: flex; gap: 6px; align-items: center; }
-        .module-checkboxes label { display: flex; align-items: center; gap: 3px; background: #2a2a4e; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 12px; }
-        .module-checkboxes label input { margin: 0; }
-
-        .btn-row { display: flex; gap: 8px; align-items: center; margin-top: 12px; flex-wrap: wrap; }
-        .big-btn { padding: 12px 24px; background: #ffd700; color: #1a1a2e; border: none; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; }
-        .small-btn { padding: 6px 12px; background: #3a3a6e; border: 1px solid #555; border-radius: 4px; color: #ccc; font-size: 11px; cursor: pointer; }
-        .small-btn:hover { border-color: #ffd700; color: #ffd700; }
-        .small-btn .btn-hint { display: block; font-size: 9px; color: #888; margin-top: 1px; }
-
-        .log-attachment { margin-top: 12px; background: #111; border: 1px solid #333; border-radius: 6px; overflow: hidden; display: none; }
-        .log-attachment-header { padding: 8px 12px; background: #1a1a2e; cursor: pointer; display: flex; justify-content: space-between; align-items: center; font-size: 12px; color: #aaa; }
-        .log-attachment-header:hover { color: #ffd700; }
-        .log-attachment-body { max-height: 300px; overflow-y: auto; padding: 8px 12px; font-size: 10px; color: #888; display: none; white-space: pre-wrap; font-family: monospace; }
-        .log-attachment-body.open { display: block; }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { background: #1a1a2e; color: #eee; font-family: monospace; font-size: 12px; height: 100dvh; display: flex; flex-direction: column; overflow: hidden; }
+        #gameArea { flex: 1; min-height: 0; position: relative; display: none; }
+        #gameArea.active { display: block; }
+        #gameFrame { width: 100%; height: 100%; border: none; }
+        #reportArea { flex: 1; min-height: 0; overflow-y: auto; padding: 12px; display: none; }
+        #reportArea.active { display: block; }
+        #controlBar { flex-shrink: 0; padding: 6px 8px; background: #16213e; border-top: 2px solid #2a2a4e; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; justify-content: center; }
+        #controlBar button { padding: 6px 10px; border-radius: 4px; border: 1px solid #555; background: #2a2a4e; color: #eee; font-size: 11px; cursor: pointer; white-space: nowrap; }
+        #controlBar button:active { filter: brightness(1.3); }
+        #controlBar button.primary { background: #4caf50; border-color: #4caf50; }
+        #controlBar button.danger { background: #f44336; border-color: #f44336; }
+        #controlBar button.active { background: #ff9800; border-color: #ff9800; font-weight: bold; }
+        #freqGroup { display: flex; gap: 4px; align-items: center; }
+        #freqGroup span { font-size: 10px; color: #aaa; margin-right: 4px; }
+        #freqGroup button { font-size: 10px; padding: 4px 8px; }
+        #statusLine { width: 100%; text-align: center; font-size: 10px; color: #aaa; margin-top: 2px; }
+        .report-line { margin: 2px 0; font-size: 11px; line-height: 1.5; }
+        .report-group { color: #ff9800; font-weight: bold; margin-top: 10px; font-size: 13px; }
+        .report-fail { color: #f44336; }
+        .report-detail { color: #ff9800; font-size: 10px; margin-left: 14px; }
+        .report-pass { color: #4caf50; }
+        .copy-btn { margin-top: 10px; padding: 8px 16px; background: #3a3a6e; border: 1px solid #555; border-radius: 6px; color: #ccc; font-size: 11px; cursor: pointer; }
     </style>
 </head>
 <body>
-<h2>⚔️ 光明顶 5v5 测试与诊断 V5.0.2</h2>
-<div class="tabs">
-    <button class="tab-btn active" data-tab="health-check">💚 全面体检</button>
-</div>
-<div class="tab-panel active" id="health-check">
-    <div class="settings-row">
-        <span style="font-size:12px;color:#aaa;">关卡：</span>
-        <div class="stage-checkboxes" id="stageCheckboxes">
-            <label><input type="checkbox" value="1"> 1关</label>
-            <label><input type="checkbox" value="2"> 2关</label>
-            <label><input type="checkbox" value="3"> 3关</label>
-            <label><input type="checkbox" value="4" checked> 4关</label>
-            <label><input type="checkbox" value="5"> 5关</label>
-            <label><input type="checkbox" value="6"> 6关</label>
+    <div id="gameArea" class="active">
+        <iframe id="gameFrame" sandbox="allow-scripts allow-same-origin allow-popups allow-forms"></iframe>
+    </div>
+    <div id="reportArea">
+        <div class="report-group" style="color:#888;">点击“开始体检”加载游戏并启动监控</div>
+    </div>
+    <div id="controlBar">
+        <button class="primary" id="btnStartMonitor">▶ 开始体检</button>
+        <button id="btnStopMonitor" disabled>⏹️ 停止</button>
+        <button id="btnViewReport">📋 报告</button>
+        <button id="btnClearReport">🗑️ 清空</button>
+        <div id="freqGroup">
+            <span>扫描频率:</span>
+            <button data-freq="100">100ms</button>
+            <button data-freq="200" class="active">200ms</button>
+            <button data-freq="500">500ms</button>
+            <button data-freq="1000">1s</button>
+            <button data-freq="0">手动</button>
         </div>
-        <button class="select-all-btn" id="selectAllStages">全选</button>
+        <div id="statusLine">等待启动...</div>
     </div>
-    <div class="settings-row">
-        <span class="round-label">每关跑</span>
-        <input class="round-input" id="roundCount" type="number" value="1" min="1" max="20">
-        <span class="round-label">轮</span>
-    </div>
-    <div class="settings-row">
-        <span style="font-size:12px;color:#aaa;">检测范围：</span>
-        <div class="module-checkboxes" id="moduleCheckboxes">
-            <label><input type="checkbox" value="engine" checked> 引擎</label>
-            <label><input type="checkbox" value="log" checked> 日志</label>
-            <label><input type="checkbox" value="ui" checked> UI</label>
-        </div>
-    </div>
-    <div class="btn-row">
-        <button class="big-btn" id="runAutoCheckBtn">🤖 开始全面体检</button>
-        <button class="small-btn" id="copyFullBtn" style="display:none;">📋 复制报告<span class="btn-hint">体检全部文字</span></button>
-    </div>
-    <div class="progress-container" id="progressContainer">
-        <div class="progress-bar-wrap"><div class="progress-bar-fill" id="progressFill"></div></div>
-        <div class="progress-text" id="progressText">初始化...</div>
-    </div>
-    <div id="autoStatus" class="auto-status">默认检测第4关，每关跑1轮。点击按钮开始</div>
-    <div id="autoReport"></div>
-    <div class="log-attachment" id="logAttachment">
-        <div class="log-attachment-header" id="logAttachmentHeader">
-            <span>📜 本轮战斗日志（点击展开）</span>
-            <span id="logToggleIcon">▶</span>
-        </div>
-        <div class="log-attachment-body" id="logAttachmentBody"></div>
-    </div>
-    <iframe id="autoIframe" sandbox="allow-scripts allow-same-origin allow-popups allow-forms"></iframe>
-</div>
-<script type="module">
-import { initTestRunner } from './38health-ui.js';
-initTestRunner();
-</script>
+    <script type="module">
+        import { initMonitor } from './38health-monitor.js';
+        initMonitor();
+    </script>
 </body>
 </html>
