@@ -126,7 +126,8 @@ function swapAllyPositions(posA, posB) {
             return;
         }
     }
-    if (unitA) unitA.pos = posB; if (unitB) unitB.pos = posA;
+    if (unitA) { unitA.pos = posB; }
+    if (unitB) { unitB.pos = posA; }
     updateUI();
 }
 window._swapAllyPositions = swapAllyPositions;

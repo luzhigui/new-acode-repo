@@ -208,19 +208,13 @@ export function applyXinHunDeduction(attacker, allyTeam, log) {
     if (!zhou) return;
     zhou.hp = Math.max(0, zhou.hp - ES.xinHun.hpDeduct);
     zhou.dmgTaken += ES.xinHun.hpDeduct;
-    zhou._kuaiLeStack.push({ healPct: ES.xinHun.healLevels[0] });
-    if (zhou.hp <= 0) {
-        zhou.hp = 0;
-        zhou.alive = false;
-        zhou._isDead = true;
-        if (!zhou._deathTime) zhou._deathTime = Date.now();
-    }
     if (typeof window._emitEvent === 'function') {
         window._emitEvent(zhou, 'hp-change', { hp: zhou.hp, maxHp: zhou.maxHp, alive: zhou.alive, atk: zhou.atk, def: zhou.def });
     }
     if (typeof emitEvent === 'function') {
         emitEvent(zhou, 'hp-change', { hp: zhou.hp, maxHp: zhou.maxHp, alive: zhou.alive, atk: zhou.atk, def: zhou.def });
     }
+    zhou._kuaiLeStack.push({ healPct: ES.xinHun.healLevels[0] });
     log.push({
         type: 'info',
         text: `<span class="gold">💒 新婚：${attacker.name}攻击，${zhou.name}被扣除${ES.xinHun.hpDeduct}点血量，叠加一层快乐(16%)！当前快乐层数：${zhou._kuaiLeStack.length}</span>`,
@@ -228,7 +222,14 @@ export function applyXinHunDeduction(attacker, allyTeam, log) {
         zhouUid: zhou.uid,
         zhouHpAfter: zhou.hp
     });
-    if (!zhou.alive) {
+    if (zhou.hp <= 0) {
+        zhou.hp = 0;
+        zhou.alive = false;
+        zhou._isDead = true;
+        if (!zhou._deathTime) zhou._deathTime = Date.now();
+        if (typeof window._emitEvent === 'function') {
+            window._emitEvent(zhou, 'hp-change', { hp: 0, maxHp: zhou.maxHp, alive: false, atk: zhou.atk, def: zhou.def, _isDead: true });
+        }
         log.push({
             type: 'info',
             text: `<span class="red">💀 ${zhou.name} 因新婚扣血而阵亡！</span>`,

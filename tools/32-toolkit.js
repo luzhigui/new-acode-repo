@@ -39,8 +39,15 @@ function escapeHtml(text) {
         '../modules/23elite-skills.js', '../modules/24error-capture.js', '../modules/28audio-manager.js',
         // tests（测试与体检）
         '../tests/25unit-tests.js', '../tests/29health-rules.js',
-        '../tests/36runtime-sampler.js', '../tests/37health-core.js',
-        '../tests/38health-ui.js', '../tests/30test-runner.html',
+        '../tests/30test-runner.html',
+        '../tests/35quiz-bank.js', '../tests/36runtime-sampler.js',
+        '../tests/37health-core.js',
+        '../tests/37health-rules/60-separator.js', '../tests/37health-rules/61-boneclaw.js',
+        '../tests/37health-rules/62-speed-button.js', '../tests/37health-rules/63-carry-hp.js',
+        '../tests/37health-rules/64-horse.js', '../tests/37health-rules/65-swap.js',
+        '../tests/37health-rules/66-victory.js', '../tests/37health-rules/67-cloud-dodge.js',
+        '../tests/37health-rules/68-dodge-rebound.js',
+        '../tests/38health-auto.js', '../tests/38health-monitor.js', '../tests/38health-ui.js',
         // tools（工具箱）
         '../tools/31-toolkit.html', '../tools/32-toolkit.js', '../tools/33-toolkit-more.js',
         '../tools/27auto-battle-utils.js', '../tools/00build-5v5.cjs',
@@ -49,7 +56,7 @@ function escapeHtml(text) {
         '../assets/sfx_melee.mp3', '../assets/sfx_xinai.mp3',
         // 根目录
         '../00index.html', '../mode-5v5-test.html',
-        '../README.md', '../CHANGELOG.md', '../kaifazhunze.md', '../Test Runnerlogo.md',
+        '../README.md', '../CHANGELOG.md', '../kaifazhunze.md',
         '../game-design.md'
     ];
 

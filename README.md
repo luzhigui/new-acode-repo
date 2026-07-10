@@ -178,6 +178,18 @@ tests/
 35quiz-bank.js              - 题库
 36runtime-sampler.js        - 运行时采样器
 37health-core.js            - 体检核心逻辑
+37health-rules/             - 细分体检规则
+  60-separator.js           - 分隔线规则
+  61-boneclaw.js            - 骨爪规则
+  62-speed-button.js        - 倍速按钮规则
+  63-carry-hp.js            - 血量承载规则
+  64-horse.js               - 拒马规则
+  65-swap.js                - 换位规则
+  66-victory.js             - 胜利规则
+  67-cloud-dodge.js         - 云体闪避规则
+  68-dodge-rebound.js       - 闪避反击规则
+38health-auto.js            - 自动体检
+38health-monitor.js         - 体检监控
 38health-ui.js              - 体检UI交互
 
 tools/
@@ -199,7 +211,6 @@ mode-5v5-test.html          - 主游戏页面
 README.md                   - 项目说明（本文件）
 CHANGELOG.md                - 变更履历
 kaifazhunze.md              - 开发准则
-Test Runnerlogo.md          - Test Runner 迭代变更日志
 game-design.md              - 游戏设计文档
 
 ```

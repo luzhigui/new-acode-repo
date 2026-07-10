@@ -251,7 +251,7 @@ async function handleBuffReboundFortify(c, entry) {
     if (attacker && entry.isDead && c.store) {
         c.store.dispatch({ type: 'SET_FLASH', uid: attacker.uid, flash: 'dead' });
         c.store.dispatch({ type: 'SET_VISUAL', uid: attacker.uid, _isDead: true });
-        if (!attacker._deathTime) attacker._deathTime = Date.now();
+        c.store.dispatch({ type: 'SYNC_UNIT', uid: attacker.uid, fields: { _deathTime: Date.now() } });
     }
     let div=document.createElement('div');div.innerHTML=entry.text+'<br>';document.getElementById('log').appendChild(div);c.autoScrollLog();
     await new Promise(r=>setTimeout(r, window._fastForwardActive ? 1 : c.speed/2));
@@ -291,8 +291,11 @@ async function handleAttackGroup(c, entry, roundResult, abortSig, isFirstAttackR
     // 闪避子弹时间：unitA是防御者(闪避者)，unitD是攻击者
     // 反击时 unitA 是反击发起者(attacker)，unitD 是反击承受者(defender)
     if (entry.isDodge && unitA && unitD) { if (c.dodgeEffectEnabled) { let reboundDmg = Math.floor((unitA.atk + unitA.def) * 0.5); c.isPaused = true; window.bulletTimeActive = true; await showCriticalBanner('✨闪避反击✨'); await showDodgeBulletTime(unitD, unitA, reboundDmg); window.bulletTimeActive = false; c.isPaused = false; } else { showDodgeBubble(unitA, '闪避！'); } }
-    if (entry.isDead && unitD) { if (defTimer) clearTimeout(defTimer); c.store.dispatch({ type: 'SET_FLASH', uid: unitD.uid, flash: 'dead' }); c.store.dispatch({ type: 'SET_VISUAL', uid: unitD.uid, _isDead: true }); }
-    if (entry.isDodge && unitA && !unitA.alive) { c.store.dispatch({ type: 'SET_FLASH', uid: unitA.uid, flash: 'dead' }); c.store.dispatch({ type: 'SET_VISUAL', uid: unitA.uid, _isDead: true }); }
+    if (unitA && entry.isDead && c.store) {
+        c.store.dispatch({ type: 'SET_FLASH', uid: unitA.uid, flash: 'dead' });
+        c.store.dispatch({ type: 'SET_VISUAL', uid: unitA.uid, _isDead: true });
+        c.store.dispatch({ type: 'SYNC_UNIT', uid: unitA.uid, fields: { _deathTime: Date.now() } });
+    }
     
     let lastDiv=null,healDiv=null, blockDelay=false;
     for(let entry2 of textEntries){
@@ -449,11 +452,13 @@ export async function playLogEntries(c, log, roundResult, isFirstAttackRef) {
                     if (entry.buffType === 'hotBlood') {
                         let div=document.createElement('div');div.innerHTML=entry.text+'<br>';
                         document.getElementById('log').appendChild(div);c.autoScrollLog();
-                        let healUnit = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.uid === entry.healUnitUid);
-                        if (healUnit && entry.healAmount) {
-                            let newHp = Math.min(healUnit.maxHp, healUnit.hp + entry.healAmount);
-                            showHealFloat(healUnit, entry.healAmount);
-                            c.store.dispatch({ type: 'SYNC_UNIT', uid: entry.healUnitUid, fields: { hp: newHp, maxHp: healUnit.maxHp } });
+                        let stateUnits = c.store ? c.store.getState().units : [];
+                        let healState = stateUnits.find(u => u.uid === entry.healUnitUid);
+                        if (healState && entry.healAmount) {
+                            let newHp = Math.min(healState.maxHp, healState.hp + entry.healAmount);
+                            let healUnit = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.uid === entry.healUnitUid);
+                            if (healUnit) showHealFloat(healUnit, entry.healAmount);
+                            c.store.dispatch({ type: 'SYNC_UNIT', uid: entry.healUnitUid, fields: { hp: newHp, maxHp: healState.maxHp } });
                         }
                         // 每次都触发字幕+子弹时间；翻倍时换文案
                         c.isPaused = true; window.bulletTimeActive = true;
@@ -463,10 +468,11 @@ export async function playLogEntries(c, log, roundResult, isFirstAttackRef) {
                     } else {
                         await handleBuffLeech(c, entry);
                         if (entry.healUnitUid && entry.healAmount) {
-                            let healed = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.uid === entry.healUnitUid);
-                            if (healed) {
-                                let newHp = Math.min(healed.maxHp, healed.hp + entry.healAmount);
-                                c.store.dispatch({ type: 'SYNC_UNIT', uid: entry.healUnitUid, fields: { hp: newHp, maxHp: healed.maxHp } });
+                            let stateUnits = c.store ? c.store.getState().units : [];
+                            let healedState = stateUnits.find(u => u.uid === entry.healUnitUid);
+                            if (healedState) {
+                                let newHp = Math.min(healedState.maxHp, healedState.hp + entry.healAmount);
+                                c.store.dispatch({ type: 'SYNC_UNIT', uid: entry.healUnitUid, fields: { hp: newHp, maxHp: healedState.maxHp } });
                             }
                         }
                     }
@@ -741,12 +747,11 @@ export async function playBattle() {
             }
         }
 
-        let units = c.store ? c.store.getState().units.filter(u => u.camp === (winner === '明教' ? 'ally' : 'enemy')) : (winner === '明教' ? c.UI.allyTeam : c.UI.enemyTeam);
-        let alive = units.filter(u => u.alive);
-        if (alive.length > 0) {
-            alive.forEach(u => { c.store.dispatch({ type: 'SET_FLASH', uid: u.uid, flash: 'cheer' }); });
+        let aliveUnits = winState ? winState.filter(u => u.alive) : [];
+        if (aliveUnits.length > 0) {
+            aliveUnits.forEach(u => { c.store.dispatch({ type: 'SET_FLASH', uid: u.uid, flash: 'cheer' }); });
             await new Promise(r => setTimeout(r, window._fastForwardActive ? 100 : 800));
-            if (c.spawnVictoryEffects) c.spawnVictoryEffects(winner);
+            if (c.spawnVictoryEffects) c.spawnVictoryEffects(winner, aliveUnits);
         }
         let winColor = winner === '明教' ? 'blue' : 'orange';
         logDiv.innerHTML += `<span class="gold">🎉🏆 <span class="${winColor}">${winner}</span>获得最终胜利！ 🏆🎉</span><br>`;
