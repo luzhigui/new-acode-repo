@@ -1,6 +1,6 @@
 // fx/17fx-crash-5v5-test.js - 光明顶5v5 飞撞与格挡特效
-// V5.0.3 | ~19500 bytes | 2026-07-11 统一清理飞撞残留
-export const VER = 'fx/17fx-crash-5v5-test.js V5.0.3';
+// V5.0.4 | 2026-07-12 修复飞走模式原地残留蓝色格子（清除_flash标记）
+export const VER = 'fx/17fx-crash-5v5-test.js V5.0.4';
 
 import { applyImpactShrink } from './15fx-common-5v5-test.js';
 
@@ -20,11 +20,12 @@ function clearCrashStyles(cell) {
 
 function finishCrash(clone, cell, unitA, UI) {
     if (clone && clone.parentNode) clone.remove();
-    // 通过 data-uid 重新查找格子 DOM，防止动画过程中 Store 变化导致引用失效
     const currentCell = document.querySelector(`[data-uid="${unitA.uid}"]`);
-    // 先把原始 cell 也强制清理，防止残留蓝色 ghost 样式
-    if (cell) clearCrashStyles(cell);
-    if (currentCell && currentCell !== cell) clearCrashStyles(currentCell);
+    if (currentCell) {
+        clearCrashStyles(currentCell);
+    } else if (cell) {
+        clearCrashStyles(cell);
+    }
     const ctx = window._getPlayerContext ? window._getPlayerContext() : null;
     if (ctx && ctx.store) {
         ctx.store.dispatch({ type: 'CLEAR_UNIT_FLASH', uid: unitA.uid });
@@ -32,6 +33,8 @@ function finishCrash(clone, cell, unitA, UI) {
     } else {
         unitA._flash = null;
         delete unitA._flyMode;
+        if (currentCell) clearCrashStyles(currentCell);
+        else if (cell) clearCrashStyles(cell);
     }
     if (UI) {
         const c = window._getPlayerContext();
@@ -65,7 +68,7 @@ function showCloseRangeFX(unitA, unitD, role) {
     }, 600);
 }
 
-export function showMeleeCrash(unitA, unitD, speed, getPausedFn, onCrash, onComplete) {
+export function showMeleeCrash(unitA, unitD, speed, getPausedFn, onCrash) {
     let gridAId = unitA.camp === 'ally' ? 'allyGrid' : 'enemyGrid';
     let gridDId = unitD.camp === 'ally' ? 'allyGrid' : 'enemyGrid';
     let gridA = document.getElementById(gridAId);
@@ -158,12 +161,24 @@ export function showMeleeCrash(unitA, unitD, speed, getPausedFn, onCrash, onComp
         cellA.style.border = '2px solid rgba(100,150,255,0.6)';
         cellA.style.boxShadow = '0 0 12px rgba(100,150,255,0.5)';
         cellA.setAttribute('data-flash', 'attack');
+        // 立即清除闪光标记，防止重绘产生新蓝色格子
+        unitA._flash = null;
+        const ctxG = window._getPlayerContext ? window._getPlayerContext() : null;
+        if (ctxG && ctxG.store) {
+            ctxG.store.dispatch({ type: 'CLEAR_UNIT_FLASH', uid: unitA.uid });
+        }
     } else {
         cellA.style.opacity = '0';
         cellA.style.background = 'transparent';
         cellA.style.border = 'none';
         cellA.style.display = 'none';
         cellA.removeAttribute('data-flash');
+        // 立即清除闪光标记，防止重绘产生新蓝色格子
+        unitA._flash = null;
+        const ctxF = window._getPlayerContext ? window._getPlayerContext() : null;
+        if (ctxF && ctxF.store) {
+            ctxF.store.dispatch({ type: 'CLEAR_UNIT_FLASH', uid: unitA.uid });
+        }
     }
     unitA._flash = null;
     cellA.classList.remove('ready');
@@ -207,7 +222,6 @@ export function showMeleeCrash(unitA, unitD, speed, getPausedFn, onCrash, onComp
                         clone.style.top = (crashY + (savedTop - crashY) * ease3) + 'px';
                         if (p3 < 1) { requestAnimationFrame(phase3); }
                         else {
-                            if (onComplete) onComplete();
                             finishCrash(clone, cellA, unitA, UI);
                         }
                     }

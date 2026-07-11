@@ -1,6 +1,6 @@
 // fx/20fx-dodge-bullet.js - 光明顶5v5 闪避反击特效
-// V5.0.1 | ~22479 bytes | 2026-07-05
-export const VER = 'fx/20fx-dodge-bullet.js V5.0.1';
+// V5.0.5 | 2026-07-12 修复反击者错误显示蓝色闪光，强制黄色防御闪光
+export const VER = 'fx/20fx-dodge-bullet.js V5.0.5';
 
 import { showComicBubble } from './15fx-common-5v5-test.js';
 
@@ -129,18 +129,31 @@ export async function showDodgeBulletTime(attacker, defender, reboundDmg) {
         if (!resolved) { console.warn('[子弹时间] 超时，强制结束'); isSkipped = true; cleanup(); resolved = true; }
     }, TIMEOUT_MS);
 
+    let dCell = null;
+
     function cleanup() {
         cleanupElements.forEach(el => { if (el && el.parentNode) el.remove(); });
         clearTimeout(timeoutId);
+        if (dCell) {
+            dCell.removeAttribute('data-flash');
+            dCell.style.background = '';
+            dCell.style.color = '';
+            dCell.style.boxShadow = '';
+            dCell.querySelectorAll('*').forEach(el => { el.style.color = ''; });
+            if (ctx && ctx.store) {
+                ctx.store.dispatch({ type: 'CLEAR_UNIT_FLASH', uid: defender.uid });
+            }
+        }
     }
 
     try {
-        const aCell = getCellElement(attacker), dCell = getCellElement(defender);
+        const aCell = getCellElement(attacker);
+        dCell = getCellElement(defender);
         if (!aCell || !dCell) { cleanup(); return; }
 
         const pos = { ax: innerWidth * 0.09, ay: innerHeight * 0.16, dx: innerWidth * 0.64, dy: innerHeight * 0.68 };
 
-        // 跳过按钮（固定在右下角，避免被特效遮挡）
+        // 跳过按钮
         const skipBtn = document.createElement('div');
         skipBtn.className = 'skip-btn';
         skipBtn.textContent = '跳过';
@@ -156,11 +169,21 @@ export async function showDodgeBulletTime(attacker, defender, reboundDmg) {
         document.body.appendChild(skipBtn);
         cleanupElements.push(skipBtn);
 
-        // 闪电先劈下（从屏幕右上角到左下角）
+        // 闪电
         const lightning = createZigzagLightning(); cleanupElements.push(lightning);
         await wait(400);
         if (isSkipped) { cleanup(); return; }
-        // 黑幕随后降临
+
+        // 强制纠正反击者为黄色防御闪光
+        dCell.removeAttribute('data-flash');
+        dCell.setAttribute('data-flash', 'defend');
+        if (ctx && ctx.store) {
+            ctx.store.dispatch({ type: 'CLEAR_UNIT_FLASH', uid: defender.uid });
+            ctx.store.dispatch({ type: 'SET_FLASH', uid: defender.uid, flash: 'defend' });
+            ctx.updateUI(ctx.UI);
+        }
+
+        // 黑幕
         const mask = document.createElement('div'); mask.className = 'bullet-mask'; mask.setAttribute('data-fx', 'temporary');
         mask.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;'
             + 'background:rgba(0,0,0,0.92);z-index:9999;pointer-events:none;';
@@ -168,8 +191,10 @@ export async function showDodgeBulletTime(attacker, defender, reboundDmg) {
         await wait(200);
         if (isSkipped) { cleanup(); return; }
 
-        // ===== 修正：格子克隆使用 cloneNode + bullet-clone 类 =====
+        // 反击者高亮：直接操作原格子，已纠正为黄色闪光，无需额外金色
         const dRect = dCell.getBoundingClientRect();
+        const origBg = dCell.style.background;
+        const origColor = dCell.style.color;
         dCell.style.position = 'fixed';
         dCell.style.left = dRect.left + 'px';
         dCell.style.top = dRect.top + 'px';
@@ -177,13 +202,12 @@ export async function showDodgeBulletTime(attacker, defender, reboundDmg) {
         dCell.style.height = dRect.height + 'px';
         dCell.style.zIndex = '10060';
         dCell.style.margin = '0';
-        // 反击者格子高亮：金色背景+黑色文字，不管什么层级都一眼可见
-        const origBg = dCell.style.background;
-        const origColor = dCell.style.color;
         dCell.style.background = '#ffd700';
         dCell.style.color = '#1a1a1a';
         dCell.style.boxShadow = '0 0 20px rgba(255,215,0,0.9)';
         dCell.querySelectorAll('*').forEach(el => { el.style.color = '#1a1a1a'; });
+
+        // 飞入的克隆体
         const cloneD = dCell.cloneNode(true); cloneD.setAttribute('data-fx', 'temporary'); cloneD.classList.add('bullet-clone');
         cloneD.style.position = 'fixed'; cloneD.style.width = dRect.width+'px'; cloneD.style.height = dRect.height+'px';
         cloneD.style.left = innerWidth + 'px'; cloneD.style.top = pos.dy - dRect.height/2 + 'px';
@@ -201,9 +225,7 @@ export async function showDodgeBulletTime(attacker, defender, reboundDmg) {
         cloneA.style.border = '3px solid #0d47a1';
         cloneA.style.borderRadius = '5px';
         cloneA.style.boxSizing = 'border-box';
-        cloneA.querySelectorAll('*').forEach(el => {
-            el.style.color = '#ffffff';
-        });
+        cloneA.querySelectorAll('*').forEach(el => { el.style.color = '#ffffff'; });
         const aRect = aCell.getBoundingClientRect();
         cloneA.style.position = 'fixed'; cloneA.style.margin = '0';
         cloneA.style.width = aRect.width+'px'; cloneA.style.height = aRect.height+'px';
@@ -212,7 +234,6 @@ export async function showDodgeBulletTime(attacker, defender, reboundDmg) {
         cloneA.style.zIndex = '10020'; cloneA.style.transform = 'scale(0.6)';
         document.body.appendChild(cloneA); cleanupElements.push(cloneA);
 
-        // ===== 修正：“看招”气泡下移避免遮挡攻击者 =====
         const kanzhao = showComicBubble('看招！', startAX + 40, startAY + 10, '', 2500);
         if (kanzhao) kanzhao.setAttribute('data-fx', 'temporary');
         cleanupElements.push(kanzhao);
@@ -233,7 +254,6 @@ export async function showDodgeBulletTime(attacker, defender, reboundDmg) {
         await wait(100);
         if (isSkipped) { cleanup(); return; }
 
-        // ===== 修正：“开打开打”气泡上移避免遮挡风暴 =====
         const bubbleY = defCenterY - dRect.height/2 - 80;
         const openBubble = showComicBubble('开打开打！', defCenterX, bubbleY, 'bubble-arrow-up', 3000);
         if (openBubble) openBubble.setAttribute('data-fx', 'temporary');
@@ -254,7 +274,7 @@ export async function showDodgeBulletTime(attacker, defender, reboundDmg) {
         await wait(600);
         if (isSkipped) { cleanup(); return; }
 
-        // 屏息凝视阶段
+        // 屏息凝视
         const glow = document.createElement('div'); glow.className = 'breath-glow'; cloneA.appendChild(glow);
         const storm = createCounterStorm(defCenterX, defCenterY); storm.setAttribute('data-fx', 'temporary'); cleanupElements.push(storm);
         storm.style.display = '';
@@ -264,7 +284,7 @@ export async function showDodgeBulletTime(attacker, defender, reboundDmg) {
 
         glow.remove(); lightning.remove(); storm.remove();
 
-        // 飞行阶段：火焰 + 气流 + 粒子
+        // 飞行阶段
         const attackAngle = Math.atan2(pos.dy - pos.ay, pos.dx - pos.ax);
         const flameOffsetX = -25, flameOffsetY = -2;
         const flame = createFlameBehind(attackAngle, flameOffsetX, flameOffsetY, parseFloat(cloneA.style.left), parseFloat(cloneA.style.top));
@@ -276,7 +296,6 @@ export async function showDodgeBulletTime(attacker, defender, reboundDmg) {
         const shield = document.createElement('div'); shield.className = 'wind-shield';
         cloneA.appendChild(shield); cleanupElements.push(shield);
 
-        // ===== 修正：火焰跟随使用动态坐标读取 =====
         const updateFlame = () => updateFlamePosition(flame, parseFloat(cloneA.style.left), parseFloat(cloneA.style.top), flameOffsetX, flameOffsetY);
 
         let shakeCount = 0;
@@ -338,7 +357,7 @@ export async function showDodgeBulletTime(attacker, defender, reboundDmg) {
         const colY = (parseFloat(cloneA.style.top) + parseFloat(cloneD.style.top)) / 2;
         const shockwave = document.createElement('div'); shockwave.className = 'shockwave'; shockwave.setAttribute('data-fx', 'temporary');
         shockwave.style.left = (colX - 40)+'px'; shockwave.style.top = (colY - 40)+'px';
-    shockwave.style.zIndex = '10040';
+        shockwave.style.zIndex = '10040';
         document.body.appendChild(shockwave); cleanupElements.push(shockwave);
         const dmg = document.createElement('div');
         dmg.textContent = '反击! ' + reboundDmg; dmg.style.position = 'fixed';
@@ -398,7 +417,7 @@ export async function showDodgeBulletTime(attacker, defender, reboundDmg) {
 
         cloneA.style.animation = 'remnantRotate 1.5s linear infinite';
 
-        // ===== 新增：防御者返回动画 =====
+        // 防御者返回动画
         const returnDuration = 600;
         const returnStart = performance.now();
         const currentDLeft = parseFloat(cloneD.style.left);
@@ -416,7 +435,6 @@ export async function showDodgeBulletTime(attacker, defender, reboundDmg) {
         });
         if (isSkipped) { cleanup(); return; }
 
-        // “哼，一个能打的都没有”
         const defBubbleY = defInitialTop + dRect.height + 20;
         const grinBubble = showComicBubble('哼，一个能打的都没有', defCenterX, defBubbleY, 'bubble-arrow-up', 4000);
         cleanupElements.push(grinBubble);
@@ -439,7 +457,6 @@ export async function showDodgeBulletTime(attacker, defender, reboundDmg) {
         });
         if (isSkipped) { cleanup(); return; }
 
-        // “我一定会回来的”
         const attBubbleX = pos.ax + 60;
         const attBubbleY = pos.ay + 40;
         const returnBubble = showComicBubble('啊，我一定会回来的！', attBubbleX, attBubbleY, 'bubble-arrow-down', 5000);
@@ -452,19 +469,7 @@ export async function showDodgeBulletTime(attacker, defender, reboundDmg) {
         cloneA.style.opacity = '0'; cloneD.style.opacity = '0';
         shockwave.style.opacity = '0';
         await wait(200);
-        if (dCell) {
-            dCell.style.position = '';
-            dCell.style.left = '';
-            dCell.style.top = '';
-            dCell.style.width = '';
-            dCell.style.height = '';
-            dCell.style.margin = '';
-            dCell.style.zIndex = '';
-            dCell.style.background = origBg;
-            dCell.style.color = origColor;
-            dCell.style.boxShadow = '';
-            dCell.querySelectorAll('*').forEach(el => { el.style.color = ''; });
-        }
+
         cleanup();
     } catch (e) {
         cleanup();
