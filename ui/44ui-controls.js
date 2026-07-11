@@ -7,10 +7,11 @@ import { updateUI } from './14ui-render-5v5-test.js';
 import { onAnyButtonClick } from './13main-5v5-test.js';
 
 // ==================== 倍速系统 ====================
-// 这些变量从 39main-state 读写，这里只做 UI 逻辑
-let manualSpeedLock = true;
-let manualSpeedValue = 500;
+let manualSpeedLock = false;
+let manualSpeedValue = null;
 let slideSpeedActive = true;
+let preManualSpeedLock = false;
+let preManualSpeedValue = null;
 
 function getButtonBySpeedValue(val, isDebug) {
     if (val === 500) {
@@ -55,16 +56,20 @@ function updateSpeedButtons() {
     });
 
     if (!slideSpeedActive) {
+        // 滚动慢放中：0.5x 高亮
         const btn05Target = debugMode ? btn05x : btn05;
         if (btn05Target) btn05Target.classList.add('active');
+        // 如果之前手动锁定了非0.5x倍速，半高亮
         if (manualSpeedLock && manualSpeedValue && manualSpeedValue !== 1800) {
             const lockedBtn = getButtonBySpeedValue(manualSpeedValue, debugMode);
             if (lockedBtn) lockedBtn.classList.add('semi-active');
         }
-    } else {
+    } else if (manualSpeedLock) {
+        // 正常播放且有手动锁定：亮对应按钮
         const activeBtn = getButtonBySpeedValue(speed, debugMode);
         if (activeBtn) activeBtn.classList.add('active');
     }
+    // 其他情况：所有按钮不高亮
 }
 
 function setSpeed(val, lock) {
@@ -81,16 +86,17 @@ function attachSpeedButton(id, speedVal) {
     let btn = document.getElementById(id); if (!btn) return;
     btn.addEventListener('click', function() {
         if (typeof onAnyButtonClick === 'function') onAnyButtonClick();
-        const speed = getState.speed();
-        if (manualSpeedLock && speed === speedVal) {
+        if (btn.classList.contains('active')) {
+            // 取消高亮，恢复常速500
             setState.speed(500);
             manualSpeedLock = false;
+            manualSpeedValue = null;
             slideSpeedActive = true;
             updateSpeedButtons();
-            // 同步更新播放器调度器速度
             const ctx = window._getPlayerContext ? window._getPlayerContext() : null;
             if (ctx && ctx._scheduler) ctx._scheduler.setSpeed(1);
         } else {
+            // 切换至该倍速
             setSpeed(speedVal, true);
         }
     });
@@ -99,20 +105,27 @@ function attachSpeedButton(id, speedVal) {
 function activateScrollSlowdown() {
     const speed = getState.speed();
     if (speed === 1800) return;
-    if (!manualSpeedLock || manualSpeedValue !== speed) {
-        manualSpeedValue = speed;
-        manualSpeedLock = true;
-    }
+    // 保存当前状态
+    preManualSpeedLock = manualSpeedLock;
+    preManualSpeedValue = manualSpeedValue;
     slideSpeedActive = false;
     setState.speed(1800);
     updateSpeedButtons();
 }
 
 function restoreSpeedFromScroll() {
+    // 如果 slideSpeedActive 已经是 true，说明没有进入过慢放状态，不需要恢复
+    if (slideSpeedActive) return;
     slideSpeedActive = true;
-    const restoredSpeed = manualSpeedValue || 500;
-    setState.speed(restoredSpeed);
-    manualSpeedLock = false;
+    if (preManualSpeedLock) {
+        manualSpeedLock = true;
+        manualSpeedValue = preManualSpeedValue;
+        setState.speed(preManualSpeedValue);
+    } else {
+        manualSpeedLock = false;
+        manualSpeedValue = null;
+        setState.speed(500);
+    }
     updateSpeedButtons();
     const ctx = window._getPlayerContext ? window._getPlayerContext() : null;
     if (ctx && ctx._scheduler) ctx._scheduler.setSpeed(1);
@@ -125,6 +138,10 @@ attachSpeedButton('btnSpeed4x', 250);
 attachSpeedButton('btnSpeed2x', 500);
 attachSpeedButton('btnSpeed05', 1800);
 attachSpeedButton('btnSpeed05x', 1800);
+
+// 初始默认 2 倍速高亮
+setSpeed(500, true);
+updateSpeedButtons();
 
 // ==================== 更新按钮状态 ====================
 function updateButtons() {

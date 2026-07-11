@@ -31,19 +31,19 @@ function acquireFromPool(type, setupFn, duration) {
 }
 function releaseToPool(type, el) { if (!POOL[type]) return; let pool = POOL[type], idx = pool.active.indexOf(el); if (idx >= 0) { pool.active.splice(idx, 1); el.style.display = 'none'; el._timeoutId = null; pool.available.push(el); } }
 
-function createDanmakuEl() { let b = document.createElement('div'); b.className = 'danmaku-bubble'; b.setAttribute('data-fx', 'temporary'); return b; }
+function createDanmakuEl() { let b = document.createElement('div'); b.className = 'danmaku-bubble'; return b; }
 initPool('danmaku', createDanmakuEl);
 export function showDanmaku(unit, text) { let gridId = unit.camp === 'ally' ? 'allyGrid' : 'enemyGrid', grid = document.getElementById(gridId), cells = grid.children; let displayOrder = unit.camp === 'enemy' ? [7,8,9,4,5,6,1,2,3] : [1,2,3,4,5,6,7,8,9], idx = displayOrder.indexOf(unit.pos); if (idx >= 0 && cells[idx]) { let rect = cells[idx].getBoundingClientRect(); acquireFromPool('danmaku', (bubble) => { bubble.textContent = text; bubble.className = 'danmaku-bubble'; bubble.classList.add(unit.camp==='ally'?'ally':'enemy'); bubble.style.left=(rect.left-4)+'px'; bubble.style.top=(rect.top+rect.height*0.35)+'px'; bubble.style.transform='translate(-100%, -50%)'; }, 3500); } }
 
-function createDmgFloatEl() { let d = document.createElement('div'); d.className = 'dmg-float'; d.setAttribute('data-fx', 'temporary'); return d; }
+function createDmgFloatEl() { let d = document.createElement('div'); d.className = 'dmg-float'; return d; }
 initPool('dmgFloat', createDmgFloatEl);
 export function showDamageFloat(unit, dmg) { let gridId = unit.camp === 'ally' ? 'allyGrid' : 'enemyGrid', grid = document.getElementById(gridId), cells = grid.children; let displayOrder = unit.camp === 'enemy' ? [7,8,9,4,5,6,1,2,3] : [1,2,3,4,5,6,7,8,9], idx = displayOrder.indexOf(unit.pos); if (idx >= 0 && cells[idx]) { let rect = cells[idx].getBoundingClientRect(); acquireFromPool('dmgFloat', (dmgEl) => { dmgEl.textContent = '-'+dmg; dmgEl.style.right=(window.innerWidth-rect.right+4)+'px'; dmgEl.style.top=(rect.top-4)+'px'; }, 1400); } }
 
-function createDodgeBubbleEl() { let b = document.createElement('div'); b.className = 'dodge-bubble'; b.setAttribute('data-fx', 'temporary'); return b; }
+function createDodgeBubbleEl() { let b = document.createElement('div'); b.className = 'dodge-bubble'; return b; }
 initPool('dodge', createDodgeBubbleEl);
 export function showDodgeBubble(unit, text) { let gridId = unit.camp === 'ally' ? 'allyGrid' : 'enemyGrid', grid = document.getElementById(gridId), cells = grid.children; let displayOrder = unit.camp === 'enemy' ? [7,8,9,4,5,6,1,2,3] : [1,2,3,4,5,6,7,8,9], idx = displayOrder.indexOf(unit.pos); if (idx >= 0 && cells[idx]) { let rect = cells[idx].getBoundingClientRect(); acquireFromPool('dodge', (bubble) => { bubble.textContent=text; bubble.style.left=(rect.left+rect.width/2)+'px'; bubble.style.top=(rect.top-8)+'px'; }, 1600); } }
 
-function createHealFloatEl() { let d = document.createElement('div'); d.className = 'heal-float'; d.setAttribute('data-fx', 'temporary'); return d; }
+function createHealFloatEl() { let d = document.createElement('div'); d.className = 'heal-float'; return d; }
 initPool('healFloat', createHealFloatEl);
 export function showHealFloat(unit, heal) { let gridId = unit.camp === 'ally' ? 'allyGrid' : 'enemyGrid', grid = document.getElementById(gridId), cells = grid.children; let displayOrder = unit.camp === 'enemy' ? [7,8,9,4,5,6,1,2,3] : [1,2,3,4,5,6,7,8,9], idx = displayOrder.indexOf(unit.pos); if (idx >= 0 && cells[idx]) { let rect = cells[idx].getBoundingClientRect(); acquireFromPool('healFloat', (healEl) => { healEl.textContent = '+' + heal; // 定位到格子外面左上角：右锚定到格子左边缘-4，让文字向左生长；顶部高于格子4px
             healEl.style.right = (window.innerWidth - rect.left + 4) + 'px'; healEl.style.left = 'auto'; healEl.style.top = (rect.top - 6) + 'px'; }, 1400); } }

@@ -61,6 +61,7 @@ function finalizeDeaths(team) {
             u._isDead = true;
             if (!u._deathTime) u._deathTime = Date.now();
             emitEvent(u, 'hp-change', { hp: 0, maxHp: u.maxHp, alive: false, atk: u.atk, def: u.def, _isDead: true });
+            emitEvent(u, 'unit-remove', { uid: u.uid });
         }
     }
 }
@@ -587,7 +588,7 @@ export function* createRoundStepper(state) {
 
     const roundStartEvents = [...window._battleEvents];
     window._battleEvents = [];
-    yield { log: [...log], events: roundStartEvents, ally: A, enemy: B, winner: null, done: false };
+    yield { log: [...log], events: roundStartEvents, ally: A, enemy: B, winner: null, done: false, doubleStrikeUid: doubleStrikeUnitUid };
     window._battleEvents = [];
     log = [];
 

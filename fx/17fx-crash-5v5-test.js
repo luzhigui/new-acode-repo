@@ -1,8 +1,43 @@
 // fx/17fx-crash-5v5-test.js - 光明顶5v5 飞撞与格挡特效
-// V5.0.1 | ~19500 bytes | 2026-07-06 虚影蓝色化、接入通用受击反馈
-export const VER = 'fx/17fx-crash-5v5-test.js V5.0.2';
+// V5.0.3 | ~19500 bytes | 2026-07-11 统一清理飞撞残留
+export const VER = 'fx/17fx-crash-5v5-test.js V5.0.3';
 
 import { applyImpactShrink } from './15fx-common-5v5-test.js';
+
+function clearCrashStyles(cell) {
+    if (!cell) return;
+    cell.style.opacity = '1';
+    cell.style.visibility = 'visible';
+    cell.style.background = '';
+    cell.style.border = '';
+    cell.style.transform = '';
+    cell.style.boxShadow = '';
+    cell.style.transition = '';
+    cell.style.filter = '';
+    cell.removeAttribute('data-flash');
+    cell.classList.remove('ready', 'acted');
+}
+
+function finishCrash(clone, cell, unitA, UI) {
+    if (clone && clone.parentNode) clone.remove();
+    // 通过 data-uid 重新查找格子 DOM，防止动画过程中 Store 变化导致引用失效
+    const currentCell = document.querySelector(`[data-uid="${unitA.uid}"]`);
+    // 先把原始 cell 也强制清理，防止残留蓝色 ghost 样式
+    if (cell) clearCrashStyles(cell);
+    if (currentCell && currentCell !== cell) clearCrashStyles(currentCell);
+    const ctx = window._getPlayerContext ? window._getPlayerContext() : null;
+    if (ctx && ctx.store) {
+        ctx.store.dispatch({ type: 'CLEAR_UNIT_FLASH', uid: unitA.uid });
+        ctx.store.dispatch({ type: 'SET_VISUAL', uid: unitA.uid, _flyMode: null });
+    } else {
+        unitA._flash = null;
+        delete unitA._flyMode;
+    }
+    if (UI) {
+        const c = window._getPlayerContext();
+        if (c) c.updateUI(UI);
+    }
+}
 
 function showCloseRangeFX(unitA, unitD, role) {
     let gridAId = unitA.camp==='ally'?'allyGrid':'enemyGrid', gridDId = unitD.camp==='ally'?'allyGrid':'enemyGrid';
@@ -20,7 +55,6 @@ function showCloseRangeFX(unitA, unitD, role) {
         let iconStart = null;
         function flyIcon(ts) { if (!iconStart) iconStart = ts; let p = Math.min(1, (ts - iconStart) / 800); let x = ax + (bx - ax) * p, y = ay + (by - ay) * p; icon.style.left = x + 'px'; icon.style.top = y + 'px'; if (p < 1) { requestAnimationFrame(flyIcon); } else {
             if (unitD) { unitD._shaking = true; unitD._shakeNx = nnx; unitD._shakeNy = nny;
-                // 受击统一反馈：缩小+颤动+黄色短闪（与飞箭/白骨爪一致）
                 if (cellB) { applyImpactShrink(cellB, 400, () => false); }
                 let c = window._getPlayerContext ? window._getPlayerContext() : null;
                 if (c) { c.updateUI(c.UI); setTimeout(() => { unitD._shaking = false; unitD._shakeNx = 0; unitD._shakeNy = 0; c.updateUI(c.UI); }, 500); }
@@ -31,7 +65,7 @@ function showCloseRangeFX(unitA, unitD, role) {
     }, 600);
 }
 
-export function showMeleeCrash(unitA, unitD, speed, getPausedFn, onCrash) {
+export function showMeleeCrash(unitA, unitD, speed, getPausedFn, onCrash, onComplete) {
     let gridAId = unitA.camp === 'ally' ? 'allyGrid' : 'enemyGrid';
     let gridDId = unitD.camp === 'ally' ? 'allyGrid' : 'enemyGrid';
     let gridA = document.getElementById(gridAId);
@@ -96,7 +130,6 @@ export function showMeleeCrash(unitA, unitD, speed, getPausedFn, onCrash) {
 
     let savedLeft = rA.left, savedTop = rA.top, savedWidth = rA.width, savedHeight = rA.height;
 
-    // 先创建克隆体（保留 data-flash 属性）
     let clone = cellA.cloneNode(true);
     clone.setAttribute('data-fx', 'temporary');
     clone.style.cssText = `
@@ -119,25 +152,22 @@ export function showMeleeCrash(unitA, unitD, speed, getPausedFn, onCrash) {
     clone.classList.add('crash-clone');
     document.body.appendChild(clone);
 
-    // 隐藏原格子（data-flash 已在上方设置过）
     if (flyMode === 'ghost') {
-        // 虚影模式：半透明蓝色虚影，保留明显视觉残留
         cellA.style.opacity = '0.5';
         cellA.style.background = 'rgba(30,100,255,0.28)';
         cellA.style.border = '2px solid rgba(100,150,255,0.6)';
         cellA.style.boxShadow = '0 0 12px rgba(100,150,255,0.5)';
         cellA.setAttribute('data-flash', 'attack');
     } else {
-        // 飞走模式：彻底隐藏
         cellA.style.opacity = '0';
         cellA.style.background = 'transparent';
         cellA.style.border = 'none';
+        cellA.style.display = 'none';
         cellA.removeAttribute('data-flash');
     }
     unitA._flash = null;
     cellA.classList.remove('ready');
 
-    // 动画部分
     let chargeDur = 800 * (speed / 1000);
     let crashDur = 900 * (speed / 1000);
     let returnDur = 800 * (speed / 1000);
@@ -164,7 +194,6 @@ export function showMeleeCrash(unitA, unitD, speed, getPausedFn, onCrash) {
                 clone.style.top = (savedTop + ny * flown) + 'px';
                 if (p1 < 1) { requestAnimationFrame(phase1); }
                 else {
-                    // 受击统一反馈：缩小+颤动+黄色短闪
                     applyImpactShrink(cellB, 400, getPausedFn);
                     if (onCrash) onCrash();
                     let crashX = savedLeft + nx * flyDist, crashY = savedTop + ny * flyDist;
@@ -178,25 +207,8 @@ export function showMeleeCrash(unitA, unitD, speed, getPausedFn, onCrash) {
                         clone.style.top = (crashY + (savedTop - crashY) * ease3) + 'px';
                         if (p3 < 1) { requestAnimationFrame(phase3); }
                         else {
-                            clone.remove();
-                            let currentCell = gridA.children[orderA.indexOf(unitA.pos)];
-                            if (currentCell) {
-                                currentCell.style.opacity = '';
-                                currentCell.style.visibility = '';
-                                currentCell.style.background = '';
-                                currentCell.style.border = '';
-                                currentCell.style.transform = '';
-                                currentCell.removeAttribute('data-flash');
-                            }
-                            // 通过 Store 清除闪光和飞行模式
-                            if (ctx && ctx.store) {
-                                ctx.store.dispatch({ type: 'CLEAR_UNIT_FLASH', uid: unitA.uid });
-                                ctx.store.dispatch({ type: 'SET_VISUAL', uid: unitA.uid, _flyMode: null });
-                            } else {
-                                unitA._flash = null;
-                                delete unitA._flyMode;
-                            }
-                            if (UI) { let c = window._getPlayerContext(); c.updateUI(UI); }
+                            if (onComplete) onComplete();
+                            finishCrash(clone, cellA, unitA, UI);
                         }
                     }
                     requestAnimationFrame(phase3);
@@ -248,7 +260,6 @@ export function showMeleeDodge(unitA, unitD, speed, getPausedFn) {
     let ny = dy / dist;
     let approachDist = dist - rB.width * 0.35;
 
-    // 记录原始样式（用于恢复）
     const origOpacity = cellA.style.opacity;
     const origVisibility = cellA.style.visibility;
     const origBackground = cellA.style.background;
@@ -257,7 +268,6 @@ export function showMeleeDodge(unitA, unitD, speed, getPausedFn) {
     let startX = rA.left;
     let startY = rA.top;
 
-    // 先创建克隆体（保留 data-flash 属性）
     let clone = cellA.cloneNode(true);
     clone.style.position = 'fixed';
     clone.style.left = rA.left + 'px';
@@ -271,7 +281,6 @@ export function showMeleeDodge(unitA, unitD, speed, getPausedFn) {
     clone.classList.add('crash-clone');
     document.body.appendChild(clone);
 
-    // 克隆之后再彻底隐藏原单元格
     cellA.style.opacity = '0';
     cellA.style.background = 'transparent';
     cellA.style.border = 'none';
@@ -298,11 +307,9 @@ export function showMeleeDodge(unitA, unitD, speed, getPausedFn) {
         if (!blocked && p >= 0.85) {
             blocked = true;
             
-            // 防御者格挡：放大 + 前顶
             cellB.style.transition = 'transform 0.15s ease-out';
             cellB.style.transform = `translate(${-nx * 14}px, ${-ny * 14}px) scale(1.25)`;
             
-            // 攻击者抖动
             clone.style.transition = 'transform 0.1s ease';
             clone.style.transform = 'scale(0.9)';
             setTimeout(() => {
@@ -310,7 +317,6 @@ export function showMeleeDodge(unitA, unitD, speed, getPausedFn) {
                 clone.style.transform = 'scale(1)';
             }, 100);
             
-            // 停顿 200ms 后弹回
             setTimeout(() => {
                 cellB.style.transition = 'transform 0.25s cubic-bezier(0.25, 0.46, 0.45, 0.94)';
                 cellB.style.transform = 'translate(0,0) scale(1)';
@@ -342,15 +348,8 @@ export function showMeleeDodge(unitA, unitD, speed, getPausedFn) {
                     if (p2 < 1) {
                         requestAnimationFrame(phaseReturn);
                     } else {
-                        // 彻底清理
-                        clone.remove();
-                        clone.setAttribute('data-fx', 'temporary');
-                        cellA.style.opacity = origOpacity || '1';
-                        cellA.style.visibility = origVisibility || 'visible';
-                        cellA.style.background = origBackground || '';
-                        cellA.style.border = origBorder || '';
-                        cellA.style.transform = '';
-                        cellB.style.transform = '';
+                        finishCrash(clone, cellA, unitA, null);
+                        if (cellB) cellB.style.transform = '';
                     }
                 }
                 requestAnimationFrame(phaseReturn);
@@ -375,7 +374,6 @@ export function showMeleeMiss(unitA, unitD, speed, getPausedFn) {
     let dist = Math.sqrt(dx*dx+dy*dy); if(dist<1) return;
     let nx=dx/dist, ny=dy/dist;
 
-    // 先创建克隆体（保留 data-flash 属性）
     let clone = cellA.cloneNode(true);
     clone.setAttribute('data-fx', 'temporary');
     clone.style.cssText = `
@@ -398,7 +396,6 @@ export function showMeleeMiss(unitA, unitD, speed, getPausedFn) {
     clone.classList.add('crash-clone');
     document.body.appendChild(clone);
 
-    // 克隆之后再彻底隐藏原单元格
     cellA.style.opacity = '0';
     cellA.style.background = 'transparent';
     cellA.style.border = 'none';
@@ -414,7 +411,7 @@ export function showMeleeMiss(unitA, unitD, speed, getPausedFn) {
     let flyDur = 800 * (speed/1000); let start1 = null;
     function phaseFly(ts) { if (getPausedFn && getPausedFn()) { requestAnimationFrame(phaseFly); return; } if (!start1) start1 = ts; let p = Math.min(1, (ts - start1) / flyDur); let ease = 1 - Math.pow(1-p, 3); let flown = (dist - rB.width * 0.2) * ease; clone.style.left = (savedLeft + nx * flown) + 'px'; clone.style.top = (savedTop + ny * flown) + 'px'; if (p < 1) { requestAnimationFrame(phaseFly); } else {
         let returnDur = 600 * (speed/1000); let start2 = null;
-        function phaseReturn(ts2) { if (getPausedFn && getPausedFn()) { requestAnimationFrame(phaseReturn); return; } if (!start2) start2 = ts2; let p2 = Math.min(1, (ts2 - start2) / returnDur); let ease2 = 1 - Math.pow(1 - p2, 2); clone.style.left = (savedLeft + nx * (dist - rB.width * 0.2) * (1 - ease2)) + 'px'; clone.style.top = (savedTop + ny * (dist - rB.width * 0.2) * (1 - ease2)) + 'px'; if (p2 < 1) { requestAnimationFrame(phaseReturn); } else { clone.remove(); cellA.style.opacity = ''; cellA.style.visibility = ''; cellA.style.background = ''; cellA.style.border = ''; cellA.style.transform = ''; } }
+        function phaseReturn(ts2) { if (getPausedFn && getPausedFn()) { requestAnimationFrame(phaseReturn); return; } if (!start2) start2 = ts2; let p2 = Math.min(1, (ts2 - start2) / returnDur); let ease2 = 1 - Math.pow(1 - p2, 2); clone.style.left = (savedLeft + nx * (dist - rB.width * 0.2) * (1 - ease2)) + 'px'; clone.style.top = (savedTop + ny * (dist - rB.width * 0.2) * (1 - ease2)) + 'px'; if (p2 < 1) { requestAnimationFrame(phaseReturn); } else { finishCrash(clone, cellA, unitA, null); } }
         requestAnimationFrame(phaseReturn);
     } }
     requestAnimationFrame(phaseFly);

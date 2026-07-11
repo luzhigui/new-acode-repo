@@ -24,9 +24,7 @@ export let battleResultForInfo = null;
 export let resettleCount = 0;
 export let gameStarted = false;
 export let hasLoggedTeam = false;
-export let manualSpeedLock = false;
-export let manualSpeedValue = null;
-export let slideSpeedActive = false;
+
 export let isBattleStarting = false;
 export let adjustMode = false;
 export let selectedAdjustPos = null;
@@ -67,9 +65,7 @@ export const setState = {
     detailMode: (v) => { detailMode = v; },
     battleResultForInfo: (v) => { battleResultForInfo = v; },
     gameStarted: (v) => { gameStarted = v; },
-    manualSpeedLock: (v) => { manualSpeedLock = v; },
-    manualSpeedValue: (v) => { manualSpeedValue = v; },
-    slideSpeedActive: (v) => { slideSpeedActive = v; },
+
     isBattleStarting: (v) => { isBattleStarting = v; },
     adjustMode: (v) => { adjustMode = v; },
     selectedAdjustPos: (v) => { selectedAdjustPos = v; },
@@ -130,9 +126,9 @@ export function getPlayerContext() {
         get snapshot() { return snapshot; }, set snapshot(v) { snapshot = v; },
         get UI() { return UI; }, set UI(v) { UI = v; },
         get autoMode() { return autoMode; }, set autoMode(v) { autoMode = v; },
-        get manualSpeedLock() { return manualSpeedLock; },
-        get manualSpeedValue() { return manualSpeedValue; },
-        get slideSpeedActive() { return slideSpeedActive; }, set slideSpeedActive(v) { slideSpeedActive = v; },
+        get manualSpeedLock() { return false; },
+        get manualSpeedValue() { return null; },
+        get slideSpeedActive() { return false; },
         get battleResultForInfo() { return battleResultForInfo; }, set battleResultForInfo(v) { battleResultForInfo = v; },
         get isBattleStarting() { return isBattleStarting; }, set isBattleStarting(v) { isBattleStarting = v; },
         get adjustMode() { return adjustMode; },
