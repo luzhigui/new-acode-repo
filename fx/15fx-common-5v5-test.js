@@ -168,14 +168,8 @@ export function showComicBubble(text, x, y, className) {
 }
 // 新婚爱心特效（在格子中间显示淡粉红爱心）
 export function showHeartEffect(unit) {
-    console.log('[特效排查] 尝试触发爱心特效，目标 unit:', unit);
-    
     let grid = document.querySelector(`[data-uid="${unit.uid}"]`);
-    if (!grid) {
-        console.warn('[特效排查] ❌ 找不到目标 grid 元素！uid:', unit.uid);
-        return;
-    }
-    console.log('[特效排查] ✅ 成功找到 grid 元素，准备创建爱心。', grid);
+    if (!grid) return;
 
     let heart = document.createElement('div');
     // 去掉了 newlywed-heart 类名，防止被其他 CSS 覆盖

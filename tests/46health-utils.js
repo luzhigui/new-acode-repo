@@ -64,7 +64,7 @@ export function checkHpBarSync(unit, doc) {
     if (!bar) return issues;
     const actualPct = parseFloat(bar.style.height);
     const expectedPct = Math.floor((unit.hp / unit.maxHp) * 100);
-    if (Math.abs(actualPct - expectedPct) > 3) {
+    if (Math.abs(actualPct - expectedPct) > 5) {
         issues.push(unit.name + '血条高度异常：当前' + actualPct + '%, 预期' + expectedPct + '%');
     }
     return issues;

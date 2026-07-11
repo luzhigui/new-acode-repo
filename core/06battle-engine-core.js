@@ -53,6 +53,19 @@ function emitFullUnitState(unit, eventType) {
 
 // ==================== 拆分后的独立函数 ====================
 
+// ==================== 统一死亡结算 ====================
+function finalizeDeaths(team) {
+    for (const u of team) {
+        if (u.hp <= 0 && u.alive) {
+            u.hp = 0;
+            u.alive = false;
+            u._isDead = true;
+            if (!u._deathTime) u._deathTime = Date.now();
+            emitEvent(u, 'hp-change', { hp: 0, maxHp: u.maxHp, alive: false, atk: u.atk, def: u.def, _isDead: true });
+        }
+    }
+}
+
 function getNextAvailableUnit(team) {
     return team.filter(c => c.alive && !c._acted).sort((a, b) => a.pos - b.pos)[0] || null;
 }
@@ -116,7 +129,6 @@ function resolveDodge(unit, target, attackerBuffStats, log) {
     if (unit.hp <= 0) {
         unit.alive = false;
         unit._isDead = true;
-        unit._flash = 'dead';
         if (!unit._deathTime) unit._deathTime = Date.now();
     }
     emitEvent(unit, 'hp-change', { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: unit.atk, def: unit.def });
@@ -136,7 +148,7 @@ function resolveDodge(unit, target, attackerBuffStats, log) {
     dg.entries.push({type:'combat-text', text:`<span class="${unit.camp==='ally'?'blue':'orange'}">${unit.camp==='ally'?'明教':'六大派'} ${unit.name}</span>(攻${Math.floor(unit.atk)} 血${unitHpBeforeRebound}) → <span class="${target.camp==='ally'?'blue':'orange'}">${target.camp==='ally'?'明教':'六大派'} ${target.name}</span>(防${Math.floor(target.def)} 血${Math.floor(target.hp)})`});
     dg.entries.push({type:'info', text:`<span class="gray">🦅 ${target.name}闪避了攻击！</span>`});
     dg.entries.push({type:'damage-text', text:`<span class="red">🦅 ${target.name}反击 → ${unit.name} 造成 ${reboundDmg} 真实伤害（${unitHpBeforeRebound} → ${Math.floor(unit.hp)}）</span>`});
-    if (unit.hp <= 0) { unit.alive = false; unit._flash = 'dead'; unit._isDead = true; dg.isDead = true; dg.alive = false; dg.hpAfter = 0; dg.entries.push({type:'info', text:`${unit.name}被反击击杀！`}); }
+    if (unit.hp <= 0) { unit.alive = false; unit._isDead = true; dg.isDead = true; dg.alive = false; dg.hpAfter = 0; dg.entries.push({type:'info', text:`${unit.name}被反击击杀！`}); }
     dg._events = [...window._battleEvents];
     window._battleEvents = [];
     log.push(dg);
@@ -651,7 +663,10 @@ export function* createRoundStepper(state) {
             processUnitAttack(unit, allySide, enemySide, log, A, B, state, doubleStrikeUnitUid);
         }
 
-        // 产出步骤
+        // 先统一死亡结算，让事件进入队列
+        finalizeDeaths(A);
+        finalizeDeaths(B);
+        // 再产出步骤，确保死亡事件被捕获
         const stepEvents = [...window._battleEvents];
         window._battleEvents = [];
         const allyAlive = A.some(u => u.alive);
@@ -705,6 +720,8 @@ export function* createRoundStepper(state) {
 
     const endEvents = [...window._battleEvents];
     window._battleEvents = [];
+    finalizeDeaths(A);
+    finalizeDeaths(B);
     yield { log: [...log], events: endEvents, ally: A, enemy: B, winner, done };
 }
 

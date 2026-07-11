@@ -1,10 +1,7 @@
 // fx/19fx-push-back.js - 光明顶5v5 击退特效
-// V5.0.1 | ~4890 bytes | 2026-07-05
-export const VER = 'fx/19fx-push-back.js V5.0.2';
+// V5.0.1 | ~4890 bytes | 2026-07-11 支持 skipDataChange 参数
+export const VER = 'fx/19fx-push-back.js V5.0.3';
 
-/**
- * 获取单位对应的格子 DOM 元素
- */
 function getCellElement(unit) {
     if (!unit || unit.pos == null) return null;
     const grid = document.getElementById(unit.camp === 'ally' ? 'allyGrid' : 'enemyGrid');
@@ -16,40 +13,32 @@ function getCellElement(unit) {
 
 function wait(ms) { return new Promise(r => setTimeout(r, window._fastForwardActive ? 1 : ms)); }
 
-/**
- * 纯击退滑动动画（后面格子为空）
- * 动画节奏：向后弹出 → 回弹 → 真实移动到目标位置
- * @param {object} unit - 被击退的单位
- * @param {object} c - 播放器上下文（需包含 updateUI 方法和 UI 对象）
- * @param {number} targetPos - 击退目标位置
- */
-export async function animatePushBack(unit, c, targetPos) {
+export async function animatePushBack(unit, c, targetPos, options = {}) {
+    const { skipDataChange } = options;
     const cell = getCellElement(unit);
     if (!cell) return;
 
     const oldPos = unit.pos;
 
-    // 阶段一：向后弹出
     cell.style.transition = 'transform 0.3s ease-out';
     cell.style.transform = unit.camp === 'ally' ? 'translateY(20px)' : 'translateY(-20px)';
     await wait(300);
 
-    // 阶段二：回弹归位
     cell.style.transition = 'transform 0.2s ease-in';
     cell.style.transform = 'translate(0,0)';
     await wait(200);
 
-    // 阶段三：真实移动到目标位置
-    if (c.store) {
-        c.store.dispatch({ type: 'APPLY_EVENTS', events: [
-            { eventType: 'pos-change', uid: unit.uid, pos: targetPos }
-        ]});
-    } else {
-        unit.pos = targetPos;
+    if (!skipDataChange) {
+        if (c.store) {
+            c.store.dispatch({ type: 'APPLY_EVENTS', events: [
+                { eventType: 'pos-change', uid: unit.uid, pos: targetPos }
+            ]});
+        } else {
+            unit.pos = targetPos;
+        }
     }
     c.updateUI(c.UI);
 
-    // 新格子出场动画
     const newCell = getCellElement(unit);
     if (newCell) {
         newCell.style.transition = 'transform 0.15s ease';
@@ -60,15 +49,6 @@ export async function animatePushBack(unit, c, targetPos) {
     }
 }
 
-/**
- * 击退换位动画（后面有人，旋转挤开版）
- * 阶段一：前排猛退，后排旋转挤开
- * 阶段二：快速闪烁交换
- * 阶段三：落位淡入
- * @param {object} frontUnit - 被击退的前排单位
- * @param {object} rearUnit - 被挤开的后排单位
- * @param {object} c - 播放器上下文
- */
 export async function animatePushSwap(frontUnit, rearUnit, c) {
     const cellF = getCellElement(frontUnit);
     const cellR = getCellElement(rearUnit);
@@ -80,7 +60,6 @@ export async function animatePushSwap(frontUnit, rearUnit, c) {
     const dx = rectR.left + rectR.width/2 - (rectF.left + rectF.width/2);
     const dy = rectR.top + rectR.height/2 - (rectF.top + rectF.height/2);
 
-    // 阶段一：前排猛退，后排旋转挤开
     cellF.style.transition = 'transform 0.25s cubic-bezier(0.25, 0.46, 0.45, 0.94)';
     cellF.style.transform = `translate(${dx}px, ${dy}px)`;
 
@@ -93,7 +72,6 @@ export async function animatePushSwap(frontUnit, rearUnit, c) {
     cellR.style.transform = `translate(${-dx * 0.8}px, ${-dy * 0.8}px) rotate(${-10 * rotateDir}deg)`;
     await wait(300);
 
-    // 阶段二：快速闪烁交换
     cellF.style.transition = 'none';
     cellR.style.transition = 'none';
     for (let i = 0; i < 2; i++) {
@@ -105,12 +83,10 @@ export async function animatePushSwap(frontUnit, rearUnit, c) {
         await wait(70);
     }
 
-    // 阶段三：落位
     cellF.style.opacity = '0';
     cellR.style.opacity = '0';
     await wait(150);
 
-    // 交换数据：通过 Store dispatch，不直接修改 frontUnit/rearUnit.pos
     if (c.store) {
         c.store.dispatch({ type: 'APPLY_EVENTS', events: [
             { eventType: 'pos-change', uid: frontUnit.uid, pos: posR },
@@ -121,7 +97,6 @@ export async function animatePushSwap(frontUnit, rearUnit, c) {
         rearUnit.pos = posF;
     }
 
-    // 清理样式
     cellF.style.transition = '';
     cellF.style.transform = '';
     cellF.style.opacity = '1';
@@ -133,7 +108,6 @@ export async function animatePushSwap(frontUnit, rearUnit, c) {
 
     c.updateUI(c.UI);
 
-    // 新格子出场动画
     const newCellF = getCellElement(frontUnit);
     const newCellR = getCellElement(rearUnit);
     if (newCellF) {

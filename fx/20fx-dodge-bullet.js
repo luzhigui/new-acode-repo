@@ -172,7 +172,7 @@ export async function showDodgeBulletTime(attacker, defender, reboundDmg) {
         cloneD.style.left = innerWidth + 'px'; cloneD.style.top = pos.dy - dRect.height/2 + 'px';
         cloneD.style.transform = 'scale(0.8)';
         cloneD.style.filter = 'drop-shadow(0 0 8px #00bcd4) drop-shadow(0 0 20px rgba(0,188,212,0.5))';
-        cloneD.style.zIndex = '10001'; document.body.appendChild(cloneD); cleanupElements.push(cloneD);
+        cloneD.style.zIndex = '10050'; document.body.appendChild(cloneD); cleanupElements.push(cloneD);
 
         const defCenterX = pos.dx + dRect.width/2, defCenterY = pos.dy + dRect.height/2;
         const defInitialLeft = pos.dx;
@@ -321,6 +321,7 @@ export async function showDodgeBulletTime(attacker, defender, reboundDmg) {
         const colY = (parseFloat(cloneA.style.top) + parseFloat(cloneD.style.top)) / 2;
         const shockwave = document.createElement('div'); shockwave.className = 'shockwave'; shockwave.setAttribute('data-fx', 'temporary');
         shockwave.style.left = (colX - 40)+'px'; shockwave.style.top = (colY - 40)+'px';
+    shockwave.style.zIndex = '10040';
         document.body.appendChild(shockwave); cleanupElements.push(shockwave);
         const dmg = document.createElement('div');
         dmg.textContent = '反击! ' + reboundDmg; dmg.style.position = 'fixed';
