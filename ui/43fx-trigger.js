@@ -25,9 +25,8 @@ function getPausedState() {
 }
 
 export function _triggerFX(fxSnapshot, unitA, unitD, isDead, isDodge, isMiss, isBlock, dmg, waveTaunt, waveUnit, attackerRole) {
-    const detailMode = getState.detailMode();
     const speed = getState.speed();
-    if (!detailMode || window._fastForwardActive) return;
+    if (window._fastForwardActive) return;
     if (isDead && unitA && !isBlock && !isMiss && !isDodge) {
         let killTaunt = getKillTaunt(unitA, KT);
         setTimeout(() => showDanmaku(unitA, killTaunt), 0);
@@ -51,14 +50,21 @@ export function _triggerFX(fxSnapshot, unitA, unitD, isDead, isDodge, isMiss, is
             } else {
                 showMeleeCrash(unitA, unitD, speed, getPausedState, () => {
                     if (isDead && unitD) {
-                        // 通过 Store dispatch 设置死亡标记，不直接修改 unitD._flash
                         const ctx = window._getPlayerContext ? window._getPlayerContext() : null;
                         if (ctx && ctx.store) {
                             ctx.store.dispatch({ type: 'SET_FLASH', uid: unitD.uid, flash: 'dead' });
                             ctx.store.dispatch({ type: 'SET_VISUAL', uid: unitD.uid, _isDead: true });
                         } else {
-                            unitD._flash = 'dead';  // 兜底
+                            unitD._flash = 'dead';
                         }
+                    }
+                }, () => {
+                    // 飞撞动画完成，清除攻击闪光，防止原地残留蓝色格子
+                    const ctx = window._getPlayerContext ? window._getPlayerContext() : null;
+                    if (ctx && ctx.store) {
+                        ctx.store.dispatch({ type: 'CLEAR_UNIT_FLASH', uid: unitA.uid });
+                    } else {
+                        unitA._flash = null;
                     }
                 });
             }
@@ -73,4 +79,4 @@ export function _triggerFX(fxSnapshot, unitA, unitD, isDead, isDodge, isMiss, is
     }
 }
 
-window._triggerFX = _triggerFX;
+Object.defineProperty(window, '_triggerFX', { value: _triggerFX, writable: true, configurable: true });

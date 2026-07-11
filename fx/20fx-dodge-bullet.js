@@ -129,7 +129,10 @@ export async function showDodgeBulletTime(attacker, defender, reboundDmg) {
         if (!resolved) { console.warn('[子弹时间] 超时，强制结束'); isSkipped = true; cleanup(); resolved = true; }
     }, TIMEOUT_MS);
 
-    function cleanup() { cleanupElements.forEach(el => { if (el && el.parentNode) el.remove(); }); clearTimeout(timeoutId); }
+    function cleanup() {
+        cleanupElements.forEach(el => { if (el && el.parentNode) el.remove(); });
+        clearTimeout(timeoutId);
+    }
 
     try {
         const aCell = getCellElement(attacker), dCell = getCellElement(defender);
@@ -166,8 +169,22 @@ export async function showDodgeBulletTime(attacker, defender, reboundDmg) {
         if (isSkipped) { cleanup(); return; }
 
         // ===== 修正：格子克隆使用 cloneNode + bullet-clone 类 =====
-        const cloneD = dCell.cloneNode(true); cloneD.setAttribute('data-fx', 'temporary'); cloneD.classList.add('bullet-clone');
         const dRect = dCell.getBoundingClientRect();
+        dCell.style.position = 'fixed';
+        dCell.style.left = dRect.left + 'px';
+        dCell.style.top = dRect.top + 'px';
+        dCell.style.width = dRect.width + 'px';
+        dCell.style.height = dRect.height + 'px';
+        dCell.style.zIndex = '10060';
+        dCell.style.margin = '0';
+        // 反击者格子高亮：金色背景+黑色文字，不管什么层级都一眼可见
+        const origBg = dCell.style.background;
+        const origColor = dCell.style.color;
+        dCell.style.background = '#ffd700';
+        dCell.style.color = '#1a1a1a';
+        dCell.style.boxShadow = '0 0 20px rgba(255,215,0,0.9)';
+        dCell.querySelectorAll('*').forEach(el => { el.style.color = '#1a1a1a'; });
+        const cloneD = dCell.cloneNode(true); cloneD.setAttribute('data-fx', 'temporary'); cloneD.classList.add('bullet-clone');
         cloneD.style.position = 'fixed'; cloneD.style.width = dRect.width+'px'; cloneD.style.height = dRect.height+'px';
         cloneD.style.left = innerWidth + 'px'; cloneD.style.top = pos.dy - dRect.height/2 + 'px';
         cloneD.style.transform = 'scale(0.8)';
@@ -435,6 +452,19 @@ export async function showDodgeBulletTime(attacker, defender, reboundDmg) {
         cloneA.style.opacity = '0'; cloneD.style.opacity = '0';
         shockwave.style.opacity = '0';
         await wait(200);
+        if (dCell) {
+            dCell.style.position = '';
+            dCell.style.left = '';
+            dCell.style.top = '';
+            dCell.style.width = '';
+            dCell.style.height = '';
+            dCell.style.margin = '';
+            dCell.style.zIndex = '';
+            dCell.style.background = origBg;
+            dCell.style.color = origColor;
+            dCell.style.boxShadow = '';
+            dCell.querySelectorAll('*').forEach(el => { el.style.color = ''; });
+        }
         cleanup();
     } catch (e) {
         cleanup();

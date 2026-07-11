@@ -261,9 +261,11 @@ async function handleAttackGroup(c, entry, roundResult, abortSig, isFirstAttackR
     }
     if(unitA&&!entry.isBlock){
         c.store.dispatch({ type: 'SET_FLASH', uid: unitA.uid, flash: 'attack' });
-        setTimeout(() => {
-            c._triggerFX(entry._fxSnapshot,unitA,unitD,entry.isDead,entry.isDodge,entry.isMiss,entry.isBlock,entry._dmg,entry.waveTaunt,entry.waveUnit,entry.unitRole);
-        }, 0);
+        if (typeof window._triggerFX === 'function') {
+            setTimeout(() => {
+                window._triggerFX(entry._fxSnapshot,unitA,unitD,entry.isDead,entry.isDodge,entry.isMiss,entry.isBlock,entry._dmg,entry.waveTaunt,entry.waveUnit,entry.unitRole);
+            }, 0);
+        }
         if (unitD && unitD.role === '防战') {
             let defBuffs = (unitD.camp === 'ally' ? c.UI.allyTeam : c.UI.enemyTeam);
             defBuffs = defBuffs ? (defBuffs._activeBuffs || []) : [];
@@ -320,10 +322,8 @@ async function handleAttackGroup(c, entry, roundResult, abortSig, isFirstAttackR
     }
     document.getElementById('roundDisplay').innerText = `📜 日志（第${c.UI.round}回合）`;
 
-    // ★ 事件同步：attack-group 播放完毕后一次性应用引擎事件快照
-    if (entry._events && entry._events.length > 0) {
-        c.store.dispatch({ type: 'APPLY_EVENTS', events: entry._events });
-    }
+    // ★ 不在此处应用事件，交给外层统一处理以保证动画→数据时序
+    // 事件快照存入 entry._pendingEvents，由 playLogEntries 在动画完成后 apply
 
     if(entry.isDead&&(c.UI.allyTeam.every(ch=>!ch.alive)||c.UI.enemyTeam.every(ch=>!ch.alive))){ return { isBattleOver: true }; }
     return { isBattleOver: false };
@@ -368,6 +368,10 @@ async function handleInfo(c, entry) {
             }
             if (attacker && target) {
                 showBoneClaw(attacker, target, c.speed, () => c.isPaused, null, { isExecute: entry.isExecute });
+            }
+            // 立即应用白骨爪事件，每击单独刷新血量
+            if (entry._events && entry._events.length > 0) {
+                c.store.dispatch({ type: 'APPLY_EVENTS', events: entry._events });
             }
         }
         let tempDiv=document.createElement('div');document.getElementById('log').appendChild(tempDiv); await playLineText(entry.text,tempDiv);
@@ -484,6 +488,10 @@ export async function playLogEntries(c, log, roundResult, isFirstAttackRef) {
                     break;
                 case 'attack-group': {
                     let result = await handleAttackGroup(c, entry, roundResult, abortSig, isFirstAttackRef);
+                    // 动画完成后立即应用本组事件，保证血量在下一个 attack-group 开始前已同步
+                    if (entry._events && entry._events.length > 0) {
+                        c.store.dispatch({ type: 'APPLY_EVENTS', events: entry._events });
+                    }
                     lastEntryType = entry.type;
                     if (result && result.isBattleOver) return result;
                     break;
@@ -559,7 +567,24 @@ export async function playBattle() {
         });
         c.UI.allyTeam = c.UI.allyTeam.filter(u => state.units.find(su => su.uid === u.uid));
         c.UI.enemyTeam = c.UI.enemyTeam.filter(u => state.units.find(su => su.uid === u.uid));
-        // 死亡单位由 unit-remove 事件驱动移除，不再使用魔数计时器
+
+        // 死亡后保留 3 秒展示特效，然后移除
+        if (!c._deathTimers) c._deathTimers = {};
+        for (const su of state.units) {
+            if ((su._isDead || su.alive === false) && !c._deathTimers[su.uid]) {
+                c._deathTimers[su.uid] = true;
+                const uid = su.uid;
+                setTimeout(() => {
+                    if (!c._deadUnitsForReport) c._deadUnitsForReport = [];
+                    const dead = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.uid === uid);
+                    if (dead && !c._deadUnitsForReport.find(u => u.uid === uid)) {
+                        c._deadUnitsForReport.push({...dead});
+                    }
+                    delete c._deathTimers[uid];
+                    if (c.store) c.store.dispatch({ type: 'REMOVE_UNIT', uid: uid });
+                }, 3000);
+            }
+        }
     });
 
     c.UI.allyTeam = initialUnits.filter(u => u.camp === 'ally').map(u => u.clone());
@@ -614,14 +639,8 @@ export async function playBattle() {
             await c.waitWhilePaused();
             lastStep = step;
 
-            if (battleState.round === 1) {
-                for (const u of step.ally) {
-                    c.store.dispatch({ type: 'SYNC_UNIT', uid: u.uid, fields: u });
-                }
-                for (const u of step.enemy) {
-                    c.store.dispatch({ type: 'SYNC_UNIT', uid: u.uid, fields: u });
-                }
-            }
+            // Store 初始数据已在 createStore 时用快照设置，
+            // 后续所有血量变化统一由 APPLY_EVENTS 驱动，不再提前同步
 
             await playLogEntries(c, step.log, step, isFirstAttackRef);
 

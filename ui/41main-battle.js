@@ -382,6 +382,7 @@ export function logTeamInfo(label, UI, gs, battleResultForInfo, activeBuffs, has
 // ==================== 中止 ====================
 export function abortAll(abortController, UI, waitingForNextRound, isBattleStarting, adjustMode, selectedAdjustPos, activeBuffs, selectedBuffIndex, currentDoubleStrikeUid, updateBuffSlotsFn) {
     if (abortController) { abortController.abort(); abortController = null; }
+    window._fastForwardActive = false;  // 重置快进标志，防止弹幕被跳过
     UI.currentResult = null;
     waitingForNextRound = false;
     isBattleStarting = false;
