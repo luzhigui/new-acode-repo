@@ -1,6 +1,6 @@
 // player/10player-core.js - 光明顶5v5 战斗播放器核心
-// V5.0.1 | ~48000 bytes | 2026-07-11 双重执行修复、胜利弹幕修复
-export const VER = 'player/10player-core.js V5.0.3';
+// V5.0.3 | ~48000 bytes | 2026-07-11 事件链路重构：播放器纯消费日志，不补事件
+export const VER = 'player/10player-core.js V5.0.4';
 
 import { isBlocked } from '../core/03battle-utils.js';
 import { showDanmaku, showDamageFloat, showDodgeBubble, showHealFloat, applyBrushEffect, showBuffBanner, showCriticalBanner, showHeartEffect, showPinkFlash } from '../fx/15fx-common-5v5-test.js';
@@ -53,7 +53,6 @@ export function clearAllEffects(){
     document.querySelectorAll('.grid.victory-border').forEach(grid => grid.classList.remove('victory-border'));
 }
 
-// ⚠️ 新增状态字段必须同步加入此列表，否则 Store 同步会丢失数据
 const GAME_STATE_FIELDS = ['hp','alive','maxHp','atk','def','role','rangedForm','_isDead','_baseMaxHp','dmgDealt','dmgTaken','healDone','reboundDone','leechDone','dodgeCount','critCount','survivedRounds','pos','buffAtkBonus','buffDefBonus','buffDodgeBonus','buffHpBonus'];
 
 function createStore(initialState, reducer) {
@@ -181,8 +180,6 @@ function battleReducer(state, action) {
     }
 }
 
-// ==================== 视觉动画函数（不修改状态，仅触发 UI 效果） ====================
-
 async function handleBuffBonus(c, entry) {
     let div=document.createElement('div');div.innerHTML=entry.text+'<br>';
     document.getElementById('log').appendChild(div);c.autoScrollLog();
@@ -261,8 +258,6 @@ async function handleAttackGroup(c, entry, roundResult, abortSig, isFirstAttackR
         fallbackDiv.innerHTML = `<span class="gray">${attackerName} 攻击 ${defenderName}，但目标已不存在</span><br>`;
         document.getElementById('log').appendChild(fallbackDiv);
         c.autoScrollLog();
-        // 不再 return，继续执行后续弹幕逻辑
-        // 因为后续代码有 null 检查，unitA/unitD 为 null 时弹幕不会触发，但不会中断整个函数
     }
     if(unitA&&!entry.isBlock){
         c.store.dispatch({ type: 'SET_FLASH', uid: unitA.uid, flash: 'attack' });
@@ -280,18 +275,15 @@ async function handleAttackGroup(c, entry, roundResult, abortSig, isFirstAttackR
             AudioManager.playSfx(unitA.role);
         }
     }
-    
-    // unitA 攻击闪光定时器，无需修改，它本身有 unitA 检查
-    
+
     let textEntries=entry.entries,lineCount=textEntries.length, speedFactor=window._fastForwardActive?0.001:Math.max(c.speed,600)/1000, textDuration=window._fastForwardActive?1:(c.speed*lineCount), offset=window._fastForwardActive?1:(200*speedFactor), atkFlashDuration=textDuration+300*speedFactor, defFlashDuration=atkFlashDuration, atkTimer=null;
     if(unitA&&!entry.isBlock)atkTimer=setTimeout(async()=>{ await c.waitWhilePaused(); if(unitA){c.store.dispatch({ type: 'CLEAR_UNIT_FLASH', uid: unitA.uid }); c.store.dispatch({ type: 'SET_VISUAL', uid: unitA.uid, _acted: true });} },atkFlashDuration);
     await new Promise(r=>setTimeout(r,offset)); await c.waitWhilePaused();
     if(abortSig&&abortSig.aborted){if(atkTimer)clearTimeout(atkTimer);return { isBattleOver: false };}
     if(unitD&&!entry.isDodge&&!entry.isMiss){c.store.dispatch({ type: 'SET_FLASH', uid: unitD.uid, flash: 'defend' });} let defTimer=null; if(unitD&&!entry.isDodge&&!entry.isMiss)defTimer=setTimeout(async()=>{ await c.waitWhilePaused(); if(unitD&&!entry.isDead){c.store.dispatch({ type: 'CLEAR_UNIT_FLASH', uid: unitD.uid });} },defFlashDuration);
-    
+
     if (entry.isDodge && unitA && unitD) { if (c.dodgeEffectEnabled) { let reboundDmg = Math.floor((unitA.atk + unitA.def) * 0.5); c.isPaused = true; window.bulletTimeActive = true; await showCriticalBanner('✨闪避反击✨'); await showDodgeBulletTime(unitD, unitA, reboundDmg); window.bulletTimeActive = false; c.isPaused = false; } else { showDodgeBubble(unitA, '闪避！'); } }
-    // 死亡闪光统一由 handleAttackGroup 末尾的 APPLY_EVENTS 处理，避免剧透
-    
+
     let lastDiv=null,healDiv=null, blockDelay=false;
     for(let entry2 of textEntries){
         if(abortSig&&abortSig.aborted){if(atkTimer)clearTimeout(atkTimer);if(defTimer)clearTimeout(defTimer);return { isBattleOver: false };}
@@ -327,19 +319,25 @@ async function handleAttackGroup(c, entry, roundResult, abortSig, isFirstAttackR
         c.UI.allyTeam.concat(c.UI.enemyTeam).forEach(u => { if (u.alive) { let blocked = isBlocked(u, u.camp === 'ally' ? c.UI.allyTeam : c.UI.enemyTeam); c.store.dispatch({ type: 'SET_VISUAL', uid: u.uid, _blocked: blocked }); } });
     }
     document.getElementById('roundDisplay').innerText = `📜 日志（第${c.UI.round}回合）`;
+
+    // ★ 事件同步：attack-group 播放完毕后一次性应用引擎事件快照
+    if (entry._events && entry._events.length > 0) {
+        c.store.dispatch({ type: 'APPLY_EVENTS', events: entry._events });
+    }
+
     if(entry.isDead&&(c.UI.allyTeam.every(ch=>!ch.alive)||c.UI.enemyTeam.every(ch=>!ch.alive))){ return { isBattleOver: true }; }
     return { isBattleOver: false };
 }
 
 async function handleInfo(c, entry) {
     if(entry.isZhangSwitch&&entry.unit){ let zhangUnit = c.UI.allyTeam.find(u => u.isZhang); let sepDiv=document.createElement('div');sepDiv.innerHTML='<span class="separator">- - - - -</span><br>'; document.getElementById('log').appendChild(sepDiv); c.autoScrollLog(); let tempDiv=document.createElement('div');document.getElementById('log').appendChild(tempDiv); await playLineText(entry.text,tempDiv); if(zhangUnit) { c.store.dispatch({ type: 'SET_VISUAL', uid: zhangUnit.uid, _resting: false }); safeShowDanmaku(zhangUnit, '不好，要顶上去了！'); } }
-    else { 
+    else {
         if (entry.isDoubleStrikeBanner) {
             c.isPaused = true;
             await showBuffBanner('⚡ 概率连击！');
             c.isPaused = false;
         }
-        if (entry.text && entry.text.includes('拒马无法攻击')) { let sepDiv=document.createElement('div'); sepDiv.innerHTML='<span class="separator">- - - - -</span><br>'; document.getElementById('log').appendChild(sepDiv); c.autoScrollLog(); await new Promise(r=>setTimeout(r, window._fastForwardActive ? 1 : c.speed/4)); } 
+        if (entry.text && entry.text.includes('拒马无法攻击')) { let sepDiv=document.createElement('div'); sepDiv.innerHTML='<span class="separator">- - - - -</span><br>'; document.getElementById('log').appendChild(sepDiv); c.autoScrollLog(); await new Promise(r=>setTimeout(r, window._fastForwardActive ? 1 : c.speed/4)); }
         if (entry.buffType === 'elite_xinhun') {
             let song = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.name === '宋青书');
             let zhou = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.uid === entry.zhouUid);
@@ -349,6 +347,11 @@ async function handleInfo(c, entry) {
                 if (zhou) showHeartEffect(zhou);
                 if (zhou && zhou.alive) showPinkFlash(zhou);
             });
+            // 新婚掉血飘字
+            if (zhou) {
+                let match = entry.text.match(/被扣除(\d+)点血量/);
+                if (match) showDamageFloat(zhou, parseInt(match[1]));
+            }
         }
         if (entry.buffType === 'elite_kuaile_heal' && entry.zhouUid) {
             let unit = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.uid === entry.zhouUid);
@@ -358,7 +361,11 @@ async function handleInfo(c, entry) {
         if (entry.isClawHit && entry.clawAttackerUid && entry.clawTargetUid) {
             let attacker = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.uid === entry.clawAttackerUid);
             let target = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.uid === entry.clawTargetUid);
-            // 血量同步完全交由 attack-group 的 APPLY_EVENTS 处理，防止剧透
+            // 白骨爪飘字
+            if (target && entry.text) {
+                let dmgMatch = entry.text.match(/造成 (\d+) 点伤害/);
+                if (dmgMatch) showDamageFloat(target, parseInt(dmgMatch[1]));
+            }
             if (attacker && target) {
                 showBoneClaw(attacker, target, c.speed, () => c.isPaused, null, { isExecute: entry.isExecute });
             }
@@ -375,7 +382,7 @@ async function handleRoundStart(c, entry, isFirstAttackRef) {
     let div=document.createElement('div');div.innerHTML=entry.text+'<br>';document.getElementById('log').appendChild(div);c.autoScrollLog();
     document.getElementById('roundDisplay').innerText = `📜 日志（第${c.UI.round}回合）`;
     await new Promise(r=>setTimeout(r, window._fastForwardActive ? 1 : c.speed/3));
-    c.updateUI(c.UI); // 强制刷新 Buff 图标
+    c.updateUI(c.UI);
 }
 
 async function handleRoundEnd(c, entry, log, i) {
@@ -477,9 +484,6 @@ export async function playLogEntries(c, log, roundResult, isFirstAttackRef) {
                     break;
                 case 'attack-group': {
                     let result = await handleAttackGroup(c, entry, roundResult, abortSig, isFirstAttackRef);
-                    if (entry._events && entry._events.length > 0) {
-                        c.store.dispatch({ type: 'APPLY_EVENTS', events: entry._events });
-                    }
                     lastEntryType = entry.type;
                     if (result && result.isBattleOver) return result;
                     break;
@@ -555,23 +559,7 @@ export async function playBattle() {
         });
         c.UI.allyTeam = c.UI.allyTeam.filter(u => state.units.find(su => su.uid === u.uid));
         c.UI.enemyTeam = c.UI.enemyTeam.filter(u => state.units.find(su => su.uid === u.uid));
-
-        if (!c._deathTimers) c._deathTimers = {};
-        for (const teamKey of ['allyTeam', 'enemyTeam']) {
-            for (const unit of c.UI[teamKey]) {
-                if (unit._isDead && !c._deathTimers[unit.uid]) {
-                    c._deathTimers[unit.uid] = true;
-                    const uid = unit.uid;
-                    setTimeout(() => {
-                        if (!c._deadUnitsForReport) c._deadUnitsForReport = [];
-                        let deadUnit = c.UI.allyTeam.find(u => u.uid === uid) || c.UI.enemyTeam.find(u => u.uid === uid);
-                        if (deadUnit && !c._deadUnitsForReport.find(u => u.uid === uid)) c._deadUnitsForReport.push({...deadUnit});
-                        delete c._deathTimers[uid];
-                        c.store.dispatch({ type: 'REMOVE_UNIT', uid: uid });
-                    }, 3000);
-                }
-            }
-        }
+        // 死亡单位由 unit-remove 事件驱动移除，不再使用魔数计时器
     });
 
     c.UI.allyTeam = initialUnits.filter(u => u.camp === 'ally').map(u => u.clone());
@@ -626,7 +614,6 @@ export async function playBattle() {
             await c.waitWhilePaused();
             lastStep = step;
 
-            // 用第一步的完整数据初始化 Store，确保弹幕能找到单位
             if (battleState.round === 1) {
                 for (const u of step.ally) {
                     c.store.dispatch({ type: 'SYNC_UNIT', uid: u.uid, fields: u });
@@ -638,6 +625,7 @@ export async function playBattle() {
 
             await playLogEntries(c, step.log, step, isFirstAttackRef);
 
+            // 回合级事件（玄冥毒/拒马召唤/加攻等）在攻击组之后应用
             if (step.events && step.events.length > 0) {
                 c.store.dispatch({ type: 'APPLY_EVENTS', events: step.events });
             }
