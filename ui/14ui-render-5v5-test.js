@@ -1,6 +1,6 @@
 // ui/14ui-render-5v5-test.js - 光明顶5v5 UI渲染模块（响应式版）
-// V5.0.1 | ~18500 bytes | 2026-07-06 接入 Store 订阅，renderGrid/updateUI 不传参，自动读取
-export const VER = 'ui/14ui-render-5v5-test.js V5.0.2';
+// V5.0.2 | ~18500 bytes | 2026-07-11 数据驱动渲染，移除魔数清理
+export const VER = 'ui/14ui-render-5v5-test.js V5.0.3';
 
 import { CONFIG } from '../core/01config-5v5-test.js';
 import { rand } from '../core/03battle-utils.js';
@@ -14,18 +14,13 @@ let _store = null;
 let _subscribed = false;
 function getStore() {
     if (!_store) {
-        // 尝试从全局获取（主流程 playBattle 中会设置 window._battleStore）
         if (window._battleStore) _store = window._battleStore;
     }
     return _store;
 }
-// 暴露 setStore，供主流程在创建 Store 后调用
-// 切换 store 时重置 _subscribed，确保新战斗能重新订阅 renderGrid
 export function setRenderStore(store) {
     _store = store;
     _subscribed = false;
-    // 清除旧的 battleStore 残留，防止 getStore() 回退到上一场战斗的 Store
-    // 否则下一关/重开后 renderGrid 会渲染旧数据，导致 UI 不刷新
     if (store === null) window._battleStore = null;
 }
 
@@ -93,9 +88,7 @@ function openDetailPopup(unit) {
     document.body.appendChild(detailPopup);
     setTimeout(() => { document.addEventListener('click', closeDetailPopupOnClick); }, 100);
     detailPopupInterval = setInterval(() => {
-        if (detailPopup && detailPopupUnit) {
-            updateDetailPopupContent();
-        }
+        if (detailPopup && detailPopupUnit) updateDetailPopupContent();
     }, 1000);
 }
 
@@ -180,17 +173,11 @@ function createHorseSpawnAnim(cell) {
 
 // ==================== 核心渲染函数 ====================
 
-/**
- * 渲染一个九宫格。不再接收 team 参数，改从 Store 读取。
- * @param {string} id - 格子 DOM ID（'allyGrid' 或 'enemyGrid'）
- * @param {string} camp - 'ally' 或 'enemy'
- */
 export function renderGrid(id, camp) {
     let grid = document.getElementById(id);
     if (!grid) return;
     grid.innerHTML = '';
 
-    // 从 Store 或 getPlayerContext 获取队伍数据
     const store = getStore();
     const ctx = getCtx();
     let team = [];
@@ -211,29 +198,14 @@ export function renderGrid(id, camp) {
     for (let i = 0; i < displayOrder.length; i++) {
         let pos = displayOrder[i], unit = team.find(c => c.pos === pos);
         if (unit && !unit.isHorse) {
-            if (unit._flyMode === 'fly') {
-                unit = null;
-            } else if (unit._flyMode === 'ghost') {
-                unit = { ...unit, _flash: null, _acted: true };
-            } else if (unit._isDead) {
-                if (unit._visuallyRemoved || (unit._deathTime && (Date.now() - unit._deathTime > 3000))) {
-                    unit = null;
-                } else {
-                    unit = { ...unit, _flash: 'dead', _resting: false, _acted: false, _blocked: false };
-                }
+            if (unit._isDead) {
+                unit = { ...unit, _flash: 'dead', _resting: false, _acted: false, _blocked: false };
             }
         }
         if (!unit) {
             let div = document.createElement('div');
             div.className = 'cell';
-            let flyUnit = team.find(c => c.pos === pos && c._flyMode);
-            if (flyUnit) {
-                div.style.opacity = '0';
-                div.style.pointerEvents = 'none';
-                div.innerHTML = '';
-            } else {
-                div.innerHTML = '<span style="color:#999;">空</span>';
-            }
+            div.innerHTML = '<span style="color:#999;">空</span>';
             div.dataset.pos = pos;
             if (camp === 'ally' && isAdjustMode) div.classList.add('adjustable');
             if (camp === 'ally' && isAdjustMode && selectedPos === pos) div.classList.add('adjust-selected');
@@ -304,24 +276,14 @@ export function renderGrid(id, camp) {
             if (isAdjustMode) return;
             if (unit) openDetailPopup(unit);
         });
-        if (unit._flyMode === 'ghost') {
-            div.style.opacity = '0.35';
-            div.style.filter = 'grayscale(0.6)';
-            div.style.background = '#1e6bb8';
-        }
         grid.appendChild(div);
     }
 }
 
-/**
- * 渲染全部九宫格。不再接收参数，从 Store 或全局读取数据。
- * 同时订阅 Store，一旦状态变化就自动重绘。
- */
 export function updateUI() {
     renderGrid('enemyGrid', 'enemy');
     renderGrid('allyGrid', 'ally');
 
-    // 首次调用时订阅 Store，后续自动重绘
     if (!_subscribed) {
         const store = getStore();
         if (store) {
@@ -340,17 +302,20 @@ export function spawnVictoryEffects(winnerCamp, aliveUnitsOverride) {
     if (!grid) return;
     grid.classList.add('victory-border');
     let cells = grid.children;
-    let displayOrder = winnerCamp==='明教'?[1,2,3,4,5,6,7,8,9]:[7,8,9,4,5,6,1,2,3];
     let ctx = getCtx();
     if (!ctx) return;
     let UI = ctx.UI;
-    for (let i=0;i<cells.length;i++) { let pos = displayOrder[i]; let unit = winnerCamp==='明教'?UI.allyTeam.find(c=>c.pos===pos):UI.enemyTeam.find(c=>c.pos===pos); if (unit && unit.alive) cells[i].classList.add('cell-cheer'); }
+    let winUnits = winnerCamp==='明教'?UI.allyTeam:UI.enemyTeam;
+    let aliveUnits = aliveUnitsOverride || winUnits.filter(u => u.alive);
+    for (let i=0;i<cells.length;i++) {
+        let pos = winnerCamp==='明教'?([1,2,3,4,5,6,7,8,9][i]):([7,8,9,4,5,6,1,2,3][i]);
+        let unit = winUnits.find(c => c.pos === pos);
+        if (unit && unit.alive) cells[i].classList.add('cell-cheer');
+    }
     let centerCell = grid.children[4], rect = centerCell?centerCell.getBoundingClientRect():grid.getBoundingClientRect();
     document.body.classList.add('shake'); setTimeout(()=>document.body.classList.remove('shake'),500);
     let banner = document.createElement('div'); banner.className='victory-banner'; banner.textContent='🏆 胜利 🏆'; banner.style.top=Math.max(5,rect.top-12)+'px'; banner.style.left=(rect.left+rect.width/2)+'px'; document.body.appendChild(banner);
     setTimeout(()=>{if(banner.parentNode)banner.parentNode.removeChild(banner);},8000);
-    let winUnits = winnerCamp==='明教'?UI.allyTeam:UI.enemyTeam;
-    let aliveUnits = aliveUnitsOverride || winUnits.filter(u => u.alive);
     let cx=rect.left+rect.width/2,cy=rect.top+rect.height/2;
     let colors=['#ffd700','#ff6b6b','#51cf66','#45a7ff','#ff9f43','#ff00ff'];
     for(let i=0;i<60;i++){let particle=document.createElement('div');particle.className='party-particle';let angle=Math.random()*Math.PI*2,dist=40+Math.random()*80;particle.style.setProperty('--dx',Math.cos(angle)*dist+'px');particle.style.setProperty('--dy',Math.sin(angle)*dist+'px');particle.style.left=cx+'px';particle.style.top=cy+'px';particle.style.background=colors[Math.floor(Math.random()*colors.length)];document.body.appendChild(particle);setTimeout(()=>{if(particle.parentNode)particle.parentNode.removeChild(particle);},2800);}
@@ -365,14 +330,11 @@ export function spawnVictoryEffects(winnerCamp, aliveUnitsOverride) {
         if ((b.dmgDealt || 0) !== (a.dmgDealt || 0)) return (b.dmgDealt || 0) - (a.dmgDealt || 0);
         return (b.dmgTaken || 0) - (a.dmgTaken || 0);
     });
-    // 先用 aliveUnitsOverride 传入的存活单位弹弹幕（直接读格子位置）
-    const unitsForDanmaku = aliveUnitsOverride || aliveUnits;
     sortedAlive.forEach((u, index) => {
         const taunt = WIN_TAUNTS[rand(0, WIN_TAUNTS.length - 1)];
         setTimeout(() => {
             requestAnimationFrame(() => {
-                const unitForPos = unitsForDanmaku.find(v => v.uid === u.uid) || u;
-                showDanmaku(unitForPos, taunt);
+                showDanmaku(u, taunt);
                 logDiv.innerHTML += `<span class="${winColor}">🗯️ ${u.name}：${taunt}</span><br>`;
                 logDiv.scrollTop = logDiv.scrollHeight;
             });

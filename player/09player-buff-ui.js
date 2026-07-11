@@ -1,6 +1,6 @@
 // player/09player-buff-ui.js - 光明顶5v5 Buff弹窗与横幅
 // V5.0.1 | ~8171 bytes | 2026-07-05
-export const VER = 'player/09player-buff-ui.js V5.0.2';
+export const VER = 'player/09player-buff-ui.js V5.0.3';
 
 import { CONFIG } from '../core/01config-5v5-test.js';
 import { Unit } from '../core/07battle-engine-5v5-test.js';
@@ -169,11 +169,10 @@ export async function handleBuffDestroy(c, entry, prevEntry) {
 }
 
 export async function handleBuffLeech(c, entry) {
-    // 查找治疗目标（只用于飘字，不直接修改 hp）
+    // 只负责飘字和横幅，不修改血量（血量已由引擎事件同步到 Store）
     let healUnit = c.UI.allyTeam.find(u => u.uid === entry.healUnitUid) || c.UI.allyTeam.find(u => u.alive);
     if (healUnit && entry.healAmount) {
         showHealFloat(healUnit, entry.healAmount);
-        // 不再直接修改 healUnit.hp，由外层 dispatch SYNC_UNIT 统一处理
     }
     let bannerText = '🗡️ 嗜血狂刀！';
     if (entry.buffType === 'hotBlood') {

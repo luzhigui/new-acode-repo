@@ -1,9 +1,15 @@
 // modules/23elite-skills.js - 光明顶5v5 精英技能系统
-// V5.0.1 | ~10585 bytes | 2026-07-05
-export const VER = 'modules/23elite-skills.js V5.0.2';
+// V5.0.2 | ~10585 bytes | 2026-07-11 补全 emitEvent 调用
+export const VER = 'modules/23elite-skills.js V5.0.3';
 
 import { CONFIG } from '../core/01config-5v5-test.js';
 const ES = CONFIG.ELITE_SKILLS;
+
+function emitEvent(unit, eventType, payload) {
+    if (typeof window._emitEvent === 'function') {
+        window._emitEvent(unit, eventType, payload);
+    }
+}
 
 /**
  * 灭绝师太 - 灭绝双剑：残血反击
@@ -68,8 +74,17 @@ export function checkNineYinClaw(attacker, target, baseDmg, log) {
             target._isDead = true;
             if (!target._deathTime) target._deathTime = Date.now();
         }
-        // 不在此处发射事件，避免播放器提前渲染死亡特效
-        // 事件统一由 processUnitAttack 在外层发射
+
+        // 每次追击/斩杀后发射事件，播放器实时同步血量
+        emitEvent(target, 'hp-change', {
+            hp: target.hp,
+            maxHp: target.maxHp,
+            alive: target.alive,
+            atk: target.atk,
+            def: target.def,
+            _isDead: target._isDead || false,
+            _isAbsolute: true
+        });
 
         log.push({
             type: 'info',
@@ -152,9 +167,17 @@ export function tickXuanmingPoison(unit) {
         unit.hp = 0;
         unit.alive = false;
         unit._isDead = true;
-        unit._isDead = true;
         if (!unit._deathTime) unit._deathTime = Date.now();
     }
+    emitEvent(unit, 'hp-change', {
+        hp: unit.hp,
+        maxHp: unit.maxHp,
+        alive: unit.alive,
+        atk: unit.atk,
+        def: unit.def,
+        _isDead: unit._isDead || false,
+        _isAbsolute: true
+    });
     return dot;
 }
 
@@ -208,12 +231,14 @@ export function applyXinHunDeduction(attacker, allyTeam, log) {
     if (!zhou) return;
     zhou.hp = Math.max(0, zhou.hp - ES.xinHun.hpDeduct);
     zhou.dmgTaken += ES.xinHun.hpDeduct;
-    if (typeof window._emitEvent === 'function') {
-        window._emitEvent(zhou, 'hp-change', { hp: zhou.hp, maxHp: zhou.maxHp, alive: zhou.alive, atk: zhou.atk, def: zhou.def });
-    }
-    if (typeof emitEvent === 'function') {
-        emitEvent(zhou, 'hp-change', { hp: zhou.hp, maxHp: zhou.maxHp, alive: zhou.alive, atk: zhou.atk, def: zhou.def });
-    }
+    emitEvent(zhou, 'hp-change', {
+        hp: zhou.hp,
+        maxHp: zhou.maxHp,
+        alive: zhou.alive,
+        atk: zhou.atk,
+        def: zhou.def,
+        _isAbsolute: true
+    });
     zhou._kuaiLeStack.push({ healPct: ES.xinHun.healLevels[0] });
     log.push({
         type: 'info',
@@ -227,9 +252,15 @@ export function applyXinHunDeduction(attacker, allyTeam, log) {
         zhou.alive = false;
         zhou._isDead = true;
         if (!zhou._deathTime) zhou._deathTime = Date.now();
-        if (typeof window._emitEvent === 'function') {
-            window._emitEvent(zhou, 'hp-change', { hp: 0, maxHp: zhou.maxHp, alive: false, atk: zhou.atk, def: zhou.def, _isDead: true });
-        }
+        emitEvent(zhou, 'hp-change', {
+            hp: 0,
+            maxHp: zhou.maxHp,
+            alive: false,
+            atk: zhou.atk,
+            def: zhou.def,
+            _isDead: true,
+            _isAbsolute: true
+        });
         log.push({
             type: 'info',
             text: `<span class="red">💀 ${zhou.name} 因新婚扣血而阵亡！</span>`,
@@ -261,9 +292,14 @@ export function tickKuaiLeHeal(allUnits, log) {
             const hpBefore = unit.hp;
             unit.hp = Math.min(unit.maxHp, unit.hp + totalHeal);
             unit.healDone += totalHeal;
-            if (typeof window._emitEvent === 'function') {
-                window._emitEvent(unit, 'hp-change', { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: unit.atk, def: unit.def });
-            }
+            emitEvent(unit, 'hp-change', {
+                hp: unit.hp,
+                maxHp: unit.maxHp,
+                alive: unit.alive,
+                atk: unit.atk,
+                def: unit.def,
+                _isAbsolute: true
+            });
             log.push({
                 type: 'info',
                 text: `<span class="green">💚 快乐回血：${unit.name} 回复${totalHeal}点生命（${unit._kuaiLeStack.length}层触发），血量 ${Math.floor(hpBefore)} → ${Math.floor(unit.hp)}</span>`,

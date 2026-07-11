@@ -18,53 +18,37 @@ export const rule60 = {
             var prev = log[i-1];
             var curr = log[i];
 
-            if (curr.type === 'attack-group' && prev.type !== 'attack-group' && prev.type !== 'round-start') {
-                // 跳过战前日志条目：这些是 UI 注入的信息，不需要分隔符
-                if (prev.type === 'info' || prev.type === 'buff-summary') {
-                    var pt = (prev.text || '');
-                    if (pt.indexOf('初始阵容') !== -1 || pt.indexOf('Buff:') !== -1 || pt.indexOf('光明顶') !== -1) continue;
+            // 只检查明确需要分隔符的8种类型：上一步是buff触发动作，下一步是攻击动作
+            var needSepTypes = ['buff-leech','buff-rebound-fortify','buff-swap','buff-push','buff-bonus','buff-splash','buff-destroy','buff-summon'];
+            if (curr.type === 'attack-group' && needSepTypes.indexOf(prev.type) !== -1) {
+                var prevDiv = null;
+                for (var d = divIndex; d < allDivs.length; d++) {
+                    var html = allDivs[d].innerHTML || '';
+                    if (html.indexOf('separator') === -1 && html.trim() !== '' && html !== '<br>') {
+                        prevDiv = allDivs[d];
+                        divIndex = d + 1;
+                        break;
+                    }
                 }
-                // info 类型日志本身也不需要分隔符（系统提示类）
-                if (prev.type === 'info') continue;
-                var needSepTypes = ['buff-leech','buff-summary','info','buff-rebound-fortify','buff-swap','buff-push','buff-bonus','buff-splash','buff-destroy','buff-summon'];
-                if (needSepTypes.indexOf(prev.type) !== -1) {
-                    if (prev.type === 'buff-summary') {
-                        var pt = prev.text || '';
-                        if (!pt || pt.indexOf('Buff:') !== -1 || pt.indexOf('光明顶') !== -1 || pt.indexOf('初始阵容') !== -1) continue;
-                    }
-                    
-                    var prevDiv = null;
-                    for (var d = divIndex; d < allDivs.length; d++) {
-                        var html = allDivs[d].innerHTML || '';
-                        if (html.indexOf('separator') === -1 && html.trim() !== '' && html !== '<br>') {
-                            prevDiv = allDivs[d];
-                            divIndex = d + 1;
-                            break;
-                        }
-                    }
-                    var hasSep = false;
-                    if (prevDiv && prevDiv.nextElementSibling) {
-                        var nextHtml = prevDiv.nextElementSibling.innerHTML || '';
-                        hasSep = nextHtml.indexOf('separator') !== -1;
-                    }
-                    if (!hasSep && prevDiv) {
-                        var displayText = (prevDiv.textContent || '').substring(0, 50);
-                        var buffName = '';
-                        if (prev.buffType === 'leech') buffName = '嗜血狂刀';
-                        else if (prev.buffType === 'hotBlood') buffName = '热血奋战';
-                        else if (prev.buffType === 'fortify_rebound') buffName = '严阵以待反弹';
-                        else if (prev.buffType === 'elite_xingfen') buffName = '性奋';
-                        else if (prev.type === 'buff-swap') buffName = '惑人心智换位';
-                        else if (prev.type === 'buff-push') buffName = '乘风突袭击退';
-                        else if (prev.type === 'buff-bonus') buffName = '流星赶月伤害加深';
-                        else if (prev.type === 'buff-splash') buffName = '溅射';
-                        else if (prev.type === 'buff-destroy') buffName = '拒马销毁';
-                        else if (prev.type === 'buff-summon') buffName = '拒马召唤';
-                        else if (prev.type === 'info') buffName = '系统提示';
-                        else if (prev.type === 'buff-summary') buffName = 'Buff说明';
-                        else buffName = prev.type;
-                        issues.push('日志问题：' + buffName + '（"' + displayText + '"）后面缺少分隔符，直接接了攻击动作');
-                    }
+                var hasSep = false;
+                if (prevDiv && prevDiv.nextElementSibling) {
+                    var nextHtml = prevDiv.nextElementSibling.innerHTML || '';
+                    hasSep = nextHtml.indexOf('separator') !== -1;
+                }
+                if (!hasSep && prevDiv) {
+                    var displayText = (prevDiv.textContent || '').substring(0, 50);
+                    var buffName = '';
+                    if (prev.buffType === 'leech') buffName = '嗜血狂刀';
+                    else if (prev.buffType === 'hotBlood') buffName = '热血奋战';
+                    else if (prev.buffType === 'fortify_rebound') buffName = '严阵以待反弹';
+                    else if (prev.type === 'buff-swap') buffName = '惑人心智换位';
+                    else if (prev.type === 'buff-push') buffName = '乘风突袭击退';
+                    else if (prev.type === 'buff-bonus') buffName = '流星赶月伤害加深';
+                    else if (prev.type === 'buff-splash') buffName = '溅射';
+                    else if (prev.type === 'buff-destroy') buffName = '拒马销毁';
+                    else if (prev.type === 'buff-summon') buffName = '拒马召唤';
+                    else buffName = prev.type;
+                    issues.push('日志问题：' + buffName + '（"' + displayText + '"）后面缺少分隔符，直接接了攻击动作');
                 }
             }
         }

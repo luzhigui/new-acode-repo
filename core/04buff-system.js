@@ -55,8 +55,7 @@ export function applyBuffEffectsBeforeAttack(unit, target, allyTeam, enemyTeam, 
                     let b; do { b = enemies[rand(0, enemies.length-1)]; } while (b.uid === a.uid);
                     let posA = a.pos, posB = b.pos;
                     let tempPos = a.pos; a.pos = b.pos; b.pos = tempPos;
-                    // 不推送 pos-change 事件，避免剧透 UI
-                    log.push({type:'buff-swap', text:`<span class="gold">🌀 惑人心智：${posA}号位${a.name}(${a.role})与${posB}号位${b.name}(${b.role})互换位置！</span>`, buffType:'swap'});
+                    log.push({type:'buff-swap', uidA: a.uid, uidB: b.uid, oldPosA: posA, oldPosB: posB, buffType:'swap', text:`<span class="gold">🌀 惑人心智：${posA}号位${a.name}(${a.role})与${posB}号位${b.name}(${b.role})互换位置！</span>`});
                 }
             } else {
                 log.push({type:'info', text:`<span class="gray">🌀 惑人心智（敌方换位）触发失败</span>`});
@@ -68,8 +67,7 @@ export function applyBuffEffectsBeforeAttack(unit, target, allyTeam, enemyTeam, 
                     let b; do { b = allies[rand(0, allies.length-1)]; } while (b.uid === a.uid);
                     let posA = a.pos, posB = b.pos;
                     let tempPos = a.pos; a.pos = b.pos; b.pos = tempPos;
-                    // 不推送 pos-change 事件，避免剧透 UI
-                    log.push({type:'buff-swap', text:`<span class="gold">🌀 惑人心智：己方${posA}号位${a.name}(${a.role})与${posB}号位${b.name}(${b.role})互换位置！</span>`, buffType:'swap'});
+                    log.push({type:'buff-swap', uidA: a.uid, uidB: b.uid, oldPosA: posA, oldPosB: posB, buffType:'swap', text:`<span class="gold">🌀 惑人心智：己方${posA}号位${a.name}(${a.role})与${posB}号位${b.name}(${b.role})互换位置！</span>`});
                 }
             } else {
                 log.push({type:'info', text:`<span class="gray">🌀 惑人心智（己方换位）触发失败</span>`});
@@ -140,7 +138,7 @@ export function applyBuffEffectsAfterAttack(unit, target, dmg, allySide, enemySi
                 st.hp -= splashDmg;
                 unit.dmgDealt += splashDmg;
                 st.dmgTaken += splashDmg;
-                if (st.hp <= 0) { st.hp = 0; st.alive = false; }
+                if (st.hp <= 0) { st.hp = 0; st.alive = false; st._isDead = true; }
                 if (typeof window._emitEvent === 'function') {
                     window._emitEvent(st, 'hp-change', { hp: st.hp, maxHp: st.maxHp, alive: st.alive, atk: st.atk, def: st.def });
                 }
@@ -186,12 +184,10 @@ export function applyBuffEffectsAfterAttack(unit, target, dmg, allySide, enemySi
                 if (behindUnit) {
                     let behindOldPos = behindUnit.pos;
                     let tempPos = target.pos; target.pos = behindPos; behindUnit.pos = tempPos;
-                    // 不推送 pos-change 事件，避免剧透 UI
-                    log.push({type:'buff-push', text:`<span class="gold" style="font-size:1.1em;">🦅 乘风突袭击退！${target.name}从${oldPos}号位击退至${behindPos}号位，${behindUnit.name}被迫从${behindOldPos}号位移至${oldPos}号位</span>`, buffType:'push', pushTarget: target.name, pushBehind: behindUnit.name, pushPos: behindPos});
+                    log.push({type:'buff-push', pushTargetUid: target.uid, behindUid: behindUnit.uid, oldPos: oldPos, newPos: behindPos, behindOldPos: behindOldPos, buffType:'push', text:`<span class="gold" style="font-size:1.1em;">🦅 乘风突袭击退！${target.name}从${oldPos}号位击退至${behindPos}号位，${behindUnit.name}被迫从${behindOldPos}号位移至${oldPos}号位</span>`});
                 } else {
                     target.pos = behindPos;
-                    // 不推送 pos-change 事件，避免剧透 UI
-                    log.push({type:'buff-push', text:`<span class="gold" style="font-size:1.1em;">🦅 乘风突袭击退！${target.name}从${oldPos}号位被击退至${behindPos}号位</span>`, buffType:'push', pushTarget: target.name, pushBehind: null, pushPos: behindPos});
+                    log.push({type:'buff-push', pushTargetUid: target.uid, behindUid: null, oldPos: oldPos, newPos: behindPos, buffType:'push', text:`<span class="gold" style="font-size:1.1em;">🦅 乘风突袭击退！${target.name}从${oldPos}号位被击退至${behindPos}号位</span>`});
                 }
             }
         } else {

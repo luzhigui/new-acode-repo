@@ -1,6 +1,6 @@
 // player/10player-core.js - 光明顶5v5 战斗播放器核心
-// V5.0.1 | ~48000 bytes | 2026-07-06 分隔符规则重写、修复复制日志缺失、修复阵容重复打印
-export const VER = 'player/10player-core.js V5.0.2';
+// V5.0.1 | ~48000 bytes | 2026-07-11 双重执行修复、胜利弹幕修复
+export const VER = 'player/10player-core.js V5.0.3';
 
 import { isBlocked } from '../core/03battle-utils.js';
 import { showDanmaku, showDamageFloat, showDodgeBubble, showHealFloat, applyBrushEffect, showBuffBanner, showCriticalBanner, showHeartEffect, showPinkFlash } from '../fx/15fx-common-5v5-test.js';
@@ -51,18 +51,6 @@ export function clearAllEffects(){
     document.querySelectorAll('[data-fx="temporary"]').forEach(el=>{if(el.parentNode)el.parentNode.removeChild(el);});
     document.querySelectorAll('.cell-cheer').forEach(cell => cell.classList.remove('cell-cheer'));
     document.querySelectorAll('.grid.victory-border').forEach(grid => grid.classList.remove('victory-border'));
-}
-
-function insertBuffSeparator(logDiv, c) {
-    let lastChild = logDiv.lastElementChild;
-    if (lastChild) {
-        let lastHTML = lastChild.innerHTML || '';
-        if (lastHTML.includes('separator')) return;
-    }
-    let sep = document.createElement('div');
-    sep.innerHTML = '<span class="separator">- - - - -</span><br>';
-    logDiv.appendChild(sep);
-    c.autoScrollLog();
 }
 
 // ⚠️ 新增状态字段必须同步加入此列表，否则 Store 同步会丢失数据
@@ -192,6 +180,7 @@ function battleReducer(state, action) {
         default: return state;
     }
 }
+
 // ==================== 视觉动画函数（不修改状态，仅触发 UI 效果） ====================
 
 async function handleBuffBonus(c, entry) {
@@ -204,7 +193,6 @@ async function handleBuffBonus(c, entry) {
 }
 
 async function handleBuffSwap(c, entry) {
-    // 不再插入分隔符，由主循环 needSep 控制
     c.isPaused = true;
     window.bulletTimeActive = true;
     await showBuffBanner('🌀 惑人心智！');
@@ -215,15 +203,10 @@ async function handleBuffSwap(c, entry) {
     let unitA = matchA ? units.find(u => u.name === matchA[1]) : null;
     let unitB = matchB ? units.find(u => u.name === matchB[1]) : null;
     if (unitA && unitB) {
-        // 从日志文本中解析交换前的位置
-        let posA = null, posB = null;
-        let matchPosA = entry.text.match(/(\d)号位/);
-        let matchPosB = entry.text.match(/与.*?(\d)号位/);
-        if (matchPosA) posA = parseInt(matchPosA[1]);
-        if (matchPosB) posB = parseInt(matchPosB[1]);
+        let oldPosA = entry.oldPosA, oldPosB = entry.oldPosB;
         await animatePositionSwap(unitA, unitB, c, {
-            skipDataChange: true,
-            oldPositions: (posA && posB) ? [posA, posB] : null
+            skipDataChange: false,
+            oldPositions: (oldPosA != null && oldPosB != null) ? [oldPosA, oldPosB] : null
         });
     }
     window.bulletTimeActive = false;
@@ -231,7 +214,6 @@ async function handleBuffSwap(c, entry) {
 }
 
 async function handleBuffPush(c, entry) {
-    // 不再插入分隔符
     c.isPaused = true;
     window.bulletTimeActive = true;
     await showBuffBanner('🦅 乘风突袭！');
@@ -241,14 +223,18 @@ async function handleBuffPush(c, entry) {
     let targetUnit = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.name === entry.pushTarget);
     if (entry.pushBehind) {
         let behindUnit = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.name === entry.pushBehind);
-        if (targetUnit && behindUnit) { await animatePositionSwap(targetUnit, behindUnit, c); }
+        if (targetUnit && behindUnit) {
+            await animatePositionSwap(targetUnit, behindUnit, c, {
+                skipDataChange: false,
+                oldPositions: [entry.oldPos, entry.behindOldPos]
+            });
+        }
     } else if (targetUnit) {
-        await animatePushBack(targetUnit, c, entry.pushPos);
+        await animatePushBack(targetUnit, c, entry.newPos, { skipDataChange: false });
     }
 }
 
 async function handleBuffReboundFortify(c, entry) {
-    // 不再插入分隔符
     c.isPaused = true;
     window.bulletTimeActive = true;
     await showBuffBanner('🛡️ 严阵以待！');
@@ -256,32 +242,28 @@ async function handleBuffReboundFortify(c, entry) {
     c.isPaused = false;
     let attacker = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.uid === entry.attackerUid);
     if (attacker && entry.reboundDmg) showDamageFloat(attacker, entry.reboundDmg);
-    // 如果反击导致攻击者死亡，同步标记死亡状态
     if (attacker && entry.isDead && c.store) {
         c.store.dispatch({ type: 'SET_FLASH', uid: attacker.uid, flash: 'dead' });
         c.store.dispatch({ type: 'SET_VISUAL', uid: attacker.uid, _isDead: true });
-        c.store.dispatch({ type: 'SYNC_UNIT', uid: attacker.uid, fields: { _deathTime: Date.now() } });
     }
     let div=document.createElement('div');div.innerHTML=entry.text+'<br>';document.getElementById('log').appendChild(div);c.autoScrollLog();
     await new Promise(r=>setTimeout(r, window._fastForwardActive ? 1 : c.speed/2));
 }
 
-// 核心攻击动画（纯视觉，通过 Store dispatch 更新标记）
 async function handleAttackGroup(c, entry, roundResult, abortSig, isFirstAttackRef) {
     if (entry.isCombo) { let spacer = document.createElement('div'); spacer.innerHTML = '<br>'; document.getElementById('log').appendChild(spacer); c.autoScrollLog(); c.isPaused = true; window.bulletTimeActive = true; if (c._scheduler) { await new Promise(r => c._scheduler.schedule('banner', 1500, r)); showBuffBanner('⚡ 连击！'); } else { await showBuffBanner('⚡ 连击！'); } window.bulletTimeActive = false; c.isPaused = false; }
     let unitA=c.UI.allyTeam.concat(c.UI.enemyTeam).find(u=>u.uid===entry.uidA);
     let unitD=entry.uidD?c.UI.allyTeam.concat(c.UI.enemyTeam).find(u=>u.uid===entry.uidD):null;
     if(!entry.isBlock&&!entry.isMiss&&!entry.isDodge&&(!unitA||!unitD)){
-        // 单位已阵亡或被移除，仍输出基本日志，避免空分隔符
         let fallbackDiv = document.createElement('div');
         let attackerName = entry.uidA || '未知';
         let defenderName = entry.uidD || '未知';
         fallbackDiv.innerHTML = `<span class="gray">${attackerName} 攻击 ${defenderName}，但目标已不存在</span><br>`;
         document.getElementById('log').appendChild(fallbackDiv);
         c.autoScrollLog();
-        return { isBattleOver: false };
+        // 不再 return，继续执行后续弹幕逻辑
+        // 因为后续代码有 null 检查，unitA/unitD 为 null 时弹幕不会触发，但不会中断整个函数
     }
-    // 攻击闪光（视觉）- 通过 Store dispatch
     if(unitA&&!entry.isBlock){
         c.store.dispatch({ type: 'SET_FLASH', uid: unitA.uid, flash: 'attack' });
         setTimeout(() => {
@@ -299,21 +281,16 @@ async function handleAttackGroup(c, entry, roundResult, abortSig, isFirstAttackR
         }
     }
     
-    // 日志逐行播放
+    // unitA 攻击闪光定时器，无需修改，它本身有 unitA 检查
+    
     let textEntries=entry.entries,lineCount=textEntries.length, speedFactor=window._fastForwardActive?0.001:Math.max(c.speed,600)/1000, textDuration=window._fastForwardActive?1:(c.speed*lineCount), offset=window._fastForwardActive?1:(200*speedFactor), atkFlashDuration=textDuration+300*speedFactor, defFlashDuration=atkFlashDuration, atkTimer=null;
     if(unitA&&!entry.isBlock)atkTimer=setTimeout(async()=>{ await c.waitWhilePaused(); if(unitA){c.store.dispatch({ type: 'CLEAR_UNIT_FLASH', uid: unitA.uid }); c.store.dispatch({ type: 'SET_VISUAL', uid: unitA.uid, _acted: true });} },atkFlashDuration);
     await new Promise(r=>setTimeout(r,offset)); await c.waitWhilePaused();
     if(abortSig&&abortSig.aborted){if(atkTimer)clearTimeout(atkTimer);return { isBattleOver: false };}
     if(unitD&&!entry.isDodge&&!entry.isMiss){c.store.dispatch({ type: 'SET_FLASH', uid: unitD.uid, flash: 'defend' });} let defTimer=null; if(unitD&&!entry.isDodge&&!entry.isMiss)defTimer=setTimeout(async()=>{ await c.waitWhilePaused(); if(unitD&&!entry.isDead){c.store.dispatch({ type: 'CLEAR_UNIT_FLASH', uid: unitD.uid });} },defFlashDuration);
     
-    // 闪避子弹时间：unitA是防御者(闪避者)，unitD是攻击者
-    // 反击时 unitA 是反击发起者(attacker)，unitD 是反击承受者(defender)
     if (entry.isDodge && unitA && unitD) { if (c.dodgeEffectEnabled) { let reboundDmg = Math.floor((unitA.atk + unitA.def) * 0.5); c.isPaused = true; window.bulletTimeActive = true; await showCriticalBanner('✨闪避反击✨'); await showDodgeBulletTime(unitD, unitA, reboundDmg); window.bulletTimeActive = false; c.isPaused = false; } else { showDodgeBubble(unitA, '闪避！'); } }
-    if (unitA && entry.isDead && c.store) {
-        c.store.dispatch({ type: 'SET_FLASH', uid: unitA.uid, flash: 'dead' });
-        // 不再设置 _isDead，避免触发 Store 订阅回调中的即时移除逻辑
-        // 死亡移除统一由 playBattle 中的 _deathTimers 3秒延迟处理
-    }
+    // 死亡闪光统一由 handleAttackGroup 末尾的 APPLY_EVENTS 处理，避免剧透
     
     let lastDiv=null,healDiv=null, blockDelay=false;
     for(let entry2 of textEntries){
@@ -346,8 +323,9 @@ async function handleAttackGroup(c, entry, roundResult, abortSig, isFirstAttackR
     if(atkTimer)clearTimeout(atkTimer); if(defTimer)clearTimeout(defTimer);
     if(unitA && !unitA._isDead){c.store.dispatch({ type: 'CLEAR_UNIT_FLASH', uid: unitA.uid }); c.store.dispatch({ type: 'SET_VISUAL', uid: unitA.uid, _acted: true });}
     if(unitD && !entry.isDodge && !entry.isMiss && !entry.isDead && !unitD._isDead) c.store.dispatch({ type: 'CLEAR_UNIT_FLASH', uid: unitD.uid });
-    // 更新遮挡状态
-    c.UI.allyTeam.concat(c.UI.enemyTeam).forEach(u => { if (u.alive) { let blocked = isBlocked(u, u.camp === 'ally' ? c.UI.allyTeam : c.UI.enemyTeam); c.store.dispatch({ type: 'SET_VISUAL', uid: u.uid, _blocked: blocked }); } });
+    if (c.UI && c.UI.allyTeam && c.UI.enemyTeam) {
+        c.UI.allyTeam.concat(c.UI.enemyTeam).forEach(u => { if (u.alive) { let blocked = isBlocked(u, u.camp === 'ally' ? c.UI.allyTeam : c.UI.enemyTeam); c.store.dispatch({ type: 'SET_VISUAL', uid: u.uid, _blocked: blocked }); } });
+    }
     document.getElementById('roundDisplay').innerText = `📜 日志（第${c.UI.round}回合）`;
     if(entry.isDead&&(c.UI.allyTeam.every(ch=>!ch.alive)||c.UI.enemyTeam.every(ch=>!ch.alive))){ return { isBattleOver: true }; }
     return { isBattleOver: false };
@@ -365,10 +343,7 @@ async function handleInfo(c, entry) {
         if (entry.buffType === 'elite_xinhun') {
             let song = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.name === '宋青书');
             let zhou = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.uid === entry.zhouUid);
-            // 标记周芷若有快乐状态（供渲染层显示快乐 logo）
             if (zhou) c.store.dispatch({ type: 'SET_VISUAL', uid: zhou.uid, _hasKuaiLe: true });
-            // 爱心/红闪必须在 SET_VISUAL 触发的 renderGrid 重建之后再添加，
-            // 否则 renderGrid 的 grid.innerHTML='' 会把刚加的爱心清掉
             requestAnimationFrame(() => {
                 if (song) showHeartEffect(song);
                 if (zhou) showHeartEffect(zhou);
@@ -380,20 +355,10 @@ async function handleInfo(c, entry) {
             let match = entry.text.match(/回复(\d+)/);
             if (match && unit) showHealFloat(unit, parseInt(match[1]));
         }
-        // 九阴白骨爪：fire-and-forget 触发 showBoneClaw，不 await、不设 isPaused，避免卡住播放器
-        // 每次连锁分次同步血量（clawTargetHpAfter），让血条逐步变化
         if (entry.isClawHit && entry.clawAttackerUid && entry.clawTargetUid) {
             let attacker = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.uid === entry.clawAttackerUid);
             let target = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.uid === entry.clawTargetUid);
-            if (target && entry.clawTargetHpAfter !== undefined) {
-                // 直接 dispatch SYNC_UNIT，不再先修改 target.hp/alive
-                // subscribe 回调会同步字段到 target 对象，所以 dispatch 后 target.hp 就是最新值
-                c.store.dispatch({ type: 'SYNC_UNIT', uid: entry.clawTargetUid, fields: { hp: entry.clawTargetHpAfter, alive: entry.clawTargetAlive } });
-                if (entry.clawTargetIsDead) {
-                    c.store.dispatch({ type: 'SET_VISUAL', uid: entry.clawTargetUid, _isDead: true });
-                    c.store.dispatch({ type: 'SET_FLASH', uid: entry.clawTargetUid, flash: 'dead' });
-                }
-            }
+            // 血量同步完全交由 attack-group 的 APPLY_EVENTS 处理，防止剧透
             if (attacker && target) {
                 showBoneClaw(attacker, target, c.speed, () => c.isPaused, null, { isExecute: entry.isExecute });
             }
@@ -410,6 +375,7 @@ async function handleRoundStart(c, entry, isFirstAttackRef) {
     let div=document.createElement('div');div.innerHTML=entry.text+'<br>';document.getElementById('log').appendChild(div);c.autoScrollLog();
     document.getElementById('roundDisplay').innerText = `📜 日志（第${c.UI.round}回合）`;
     await new Promise(r=>setTimeout(r, window._fastForwardActive ? 1 : c.speed/3));
+    c.updateUI(c.UI); // 强制刷新 Buff 图标
 }
 
 async function handleRoundEnd(c, entry, log, i) {
@@ -419,28 +385,18 @@ async function handleRoundEnd(c, entry, log, i) {
     await new Promise(r=>setTimeout(r,c.speed/3));
 }
 
-// ==================== 主分发器 ====================
-
 function shouldStartNewGroup(entry, lastType) {
     if (!lastType) return false;
-    // 回合结束 → 任何条目：不加分隔符（回合结束本身已处理）
     if (lastType === 'round-end') return false;
-    // 回合开始 → 任何条目：不加分隔符（回合开始本身已处理）
     if (lastType === 'round-start') return false;
-    // 任何非 attack-group 的条目 → attack-group：加分隔符
-    // 覆盖：buff-leech, buff-swap, buff-push, buff-summary, buff-rebound-fortify, buff-bonus, buff-splash, buff-summon, buff-destroy, info 等所有类型
     if (lastType !== 'attack-group' && entry.type === 'attack-group') return true;
-    // attack-group → attack-group：不同 unit 的攻击之间加分隔符
     if (lastType === 'attack-group' && entry.type === 'attack-group') return true;
-    // attack-group → info：攻击后接系统提示，加分隔符
     if (lastType === 'attack-group' && entry.type === 'info') return true;
-    // 其他所有情况：不加分隔符
     return false;
 }
 
 export async function playLogEntries(c, log, roundResult, isFirstAttackRef) {
     let abortSig = c.abortController ? c.abortController.signal : null;
-    // 如果上下文中有保存的 lastEntryType，则使用它；否则从 null 开始
     let lastEntryType = c._lastLogType || null;
 
     try {
@@ -466,33 +422,19 @@ export async function playLogEntries(c, log, roundResult, isFirstAttackRef) {
                     lastEntryType = entry.type;
                     break;
                 case 'buff-leech':
-                    // 不再插入分隔符
                     if (entry.buffType === 'hotBlood') {
                         let div=document.createElement('div');div.innerHTML=entry.text+'<br>';
                         document.getElementById('log').appendChild(div);c.autoScrollLog();
-                        let stateUnits = c.store ? c.store.getState().units : [];
-                        let healState = stateUnits.find(u => u.uid === entry.healUnitUid);
-                        if (healState && entry.healAmount) {
-                            let newHp = Math.min(healState.maxHp, healState.hp + entry.healAmount);
-                            let healUnit = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.uid === entry.healUnitUid);
-                            if (healUnit) showHealFloat(healUnit, entry.healAmount);
-                            c.store.dispatch({ type: 'SYNC_UNIT', uid: entry.healUnitUid, fields: { hp: newHp, maxHp: healState.maxHp } });
+                        let healUnit = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.uid === entry.healUnitUid);
+                        if (healUnit && entry.healAmount) {
+                            showHealFloat(healUnit, entry.healAmount);
                         }
-                        // 每次都触发字幕+子弹时间；翻倍时换文案
                         c.isPaused = true; window.bulletTimeActive = true;
                         let bannerText = entry.text.includes('翻倍') ? '❤️‍🔥 热血奋战(翻倍)！' : '❤️ 热血奋战！';
                         await showBuffBanner(bannerText);
                         window.bulletTimeActive = false; c.isPaused = false;
                     } else {
                         await handleBuffLeech(c, entry);
-                        if (entry.healUnitUid && entry.healAmount) {
-                            let stateUnits = c.store ? c.store.getState().units : [];
-                            let healedState = stateUnits.find(u => u.uid === entry.healUnitUid);
-                            if (healedState) {
-                                let newHp = Math.min(healedState.maxHp, healedState.hp + entry.healAmount);
-                                c.store.dispatch({ type: 'SYNC_UNIT', uid: entry.healUnitUid, fields: { hp: newHp, maxHp: healedState.maxHp } });
-                            }
-                        }
                     }
                     lastEntryType = entry.type;
                     break;
@@ -525,7 +467,14 @@ export async function playLogEntries(c, log, roundResult, isFirstAttackRef) {
                 case 'buff-push':            await handleBuffPush(c, entry); lastEntryType = entry.type; break;
                 case 'buff-summary':         { let div2=document.createElement('div');div2.innerHTML=entry.text+'<br>';document.getElementById('log').appendChild(div2);c.autoScrollLog(); if(entry.buffType==='elite_xingfen'){let song=c.UI.allyTeam.concat(c.UI.enemyTeam).find(u=>u.name==='宋青书');if(song)c.store.dispatch({type:'SET_VISUAL',uid:song.uid,_hasXingFen:true});} lastEntryType = entry.type; } break;
                 case 'buff-rebound-fortify': await handleBuffReboundFortify(c, entry); lastEntryType = entry.type; break;
-                case 'round-start':          await handleRoundStart(c, entry, isFirstAttackRef); lastEntryType = entry.type; break;
+                case 'round-start':
+                    await handleRoundStart(c, entry, isFirstAttackRef);
+                    if (roundResult && roundResult.doubleStrikeUid) {
+                        c.currentDoubleStrikeUid = roundResult.doubleStrikeUid;
+                    }
+                    c.updateUI(c.UI);
+                    lastEntryType = entry.type;
+                    break;
                 case 'attack-group': {
                     let result = await handleAttackGroup(c, entry, roundResult, abortSig, isFirstAttackRef);
                     if (entry._events && entry._events.length > 0) {
@@ -573,19 +522,16 @@ export async function playBattle() {
     requestAnimationFrame(frameLoop);
 
     let abortSig = c.abortController ? c.abortController.signal : null;
-    c._battleEnded = false;  // 重玩时重置，确保 frameLoop 正常启动
+    c._battleEnded = false;
 
-    // ========== 初始化 Store ==========
     const initialUnits = [
         ...c.snapshot.ally.map(u => { let u2 = u.clone(); u2.hp = u2.maxHp; u2.alive = true; u2._isDead = false; u2._flash = null; u2._acted = false; u2._resting = false; u2._blocked = false; u2.camp = 'ally'; return u2; }),
         ...c.snapshot.enemy.map(u => { let u2 = u.clone(); u2.hp = u2.maxHp; u2.alive = true; u2._isDead = false; u2._flash = null; u2._acted = false; u2._resting = false; u2._blocked = false; u2.camp = 'enemy'; return u2; })
     ];
     c.store = createStore({ units: initialUnits, round: 1 }, battleReducer);
     setRenderStore(c.store);
-    // 显式触发一次渲染并建立 renderGrid 订阅，确保后续 ADD_UNIT 等分发能驱动重绘
     updateUI();
 
-    // 订阅 Store 变化 → 同步到 c.UI
     c.store.subscribe((state) => {
         if (!c.UI || !c.UI.allyTeam || !c.UI.enemyTeam) return;
         const syncFields = (uiUnit) => {
@@ -617,12 +563,9 @@ export async function playBattle() {
                     c._deathTimers[unit.uid] = true;
                     const uid = unit.uid;
                     setTimeout(() => {
-                        // 保存死单位快照供战报使用（防止 3 秒后被清理导致战报缺人）
                         if (!c._deadUnitsForReport) c._deadUnitsForReport = [];
                         let deadUnit = c.UI.allyTeam.find(u => u.uid === uid) || c.UI.enemyTeam.find(u => u.uid === uid);
                         if (deadUnit && !c._deadUnitsForReport.find(u => u.uid === uid)) c._deadUnitsForReport.push({...deadUnit});
-                        // 只通过 Store dispatch 移除单位，不再直接操作 c.UI.allyTeam / enemyTeam
-                        // subscribe 中的 filter 逻辑会自动从 c.UI 中移除该单位
                         delete c._deathTimers[uid];
                         c.store.dispatch({ type: 'REMOVE_UNIT', uid: uid });
                     }, 3000);
@@ -665,7 +608,6 @@ export async function playBattle() {
     });
 
     let battleState = { ally: c.snapshot.ally.map(u => u.clone()), enemy: c.snapshot.enemy.map(u => u.clone()), round: 1, activeBuffs: c.activeBuffs ? c.activeBuffs.map(b => ({...b})) : [], allAllies: c.snapshot.ally.map(u => u.clone()) };
-    // 安全兜底：如果玩家已选马 buff 但 battleState 丢失，手动补回
     if (c.activeBuffs && c.activeBuffs.some(b => b.key === 'horseFormation') && !battleState.activeBuffs.some(b => b.key === 'horseFormation')) {
         const hb = c.activeBuffs.find(b => b.key === 'horseFormation');
         battleState.activeBuffs.push({...hb});
@@ -684,18 +626,22 @@ export async function playBattle() {
             await c.waitWhilePaused();
             lastStep = step;
 
-            await playLogEntries(c, step.log, step, isFirstAttackRef);
-
-            // 持久化 lastEntryType，为下一个 step 准备
-            if (typeof c._lastLogType !== 'undefined') {
-                // playLogEntries 内部会更新这个值，这里不需要额外操作
+            // 用第一步的完整数据初始化 Store，确保弹幕能找到单位
+            if (battleState.round === 1) {
+                for (const u of step.ally) {
+                    c.store.dispatch({ type: 'SYNC_UNIT', uid: u.uid, fields: u });
+                }
+                for (const u of step.enemy) {
+                    c.store.dispatch({ type: 'SYNC_UNIT', uid: u.uid, fields: u });
+                }
             }
+
+            await playLogEntries(c, step.log, step, isFirstAttackRef);
 
             if (step.events && step.events.length > 0) {
                 c.store.dispatch({ type: 'APPLY_EVENTS', events: step.events });
             }
 
-            // 快进到底时大幅缩短回合间延迟
             await new Promise(r => setTimeout(r, window._fastForwardActive ? 1 : Math.max(100, c.speed / 2)));
 
             if (step.winner) {
@@ -708,7 +654,6 @@ export async function playBattle() {
         if (isBattleOver) { finalStep = lastStep; break; }
 
         let nextActiveBuffs = c.activeBuffs ? c.activeBuffs.map(b => ({...b, remaining: b.remaining - 1})).filter(b => b.remaining > 0) : [];
-        // 同步模块级 activeBuffs，确保 Buff 槽显示和后续 tick 使用最新值
         c.activeBuffs = nextActiveBuffs;
         if (c.updateBuffSlots) c.updateBuffSlots();
         if (!window._fastForwardActive && battleState.round % 3 === 0 && battleState.round > 0) {
@@ -727,7 +672,6 @@ export async function playBattle() {
         battleState = { ally: lastStep.ally, enemy: lastStep.enemy, round: battleState.round + 1, activeBuffs: nextActiveBuffs, allAllies: battleState.allAllies };
 
         if (c.autoMode || window._fastForwardActive) {
-            // 快进到底时跳过回合间等待，极速推进
             await new Promise(r=>setTimeout(r, window._fastForwardActive ? 1 : c.speed/2));
         } else {
             document.getElementById('btnNext').disabled = false;
@@ -743,21 +687,18 @@ export async function playBattle() {
 
     if (!finalWinner) finalWinner = '平局';
     c.gs = 'GAMEOVER'; c.isPaused = false; c.waitingForNextRound = false; c.isBattleStarting = false;
-    // 快进到底结束时清除标志，恢复正常速度
     window._fastForwardActive = false;
     c.speed = c._originalSpeed || 500;
     c.updateButtons(); c.enableAllButtons();
 
     let winner = finalWinner;
     if (winner === '明教' || winner === '六大派') {
-        // 战报包含所有参战单位（含已被清理的死单位快照），防止缺人
         let deadAllies = (c._deadUnitsForReport || []).filter(u => u.camp === 'ally');
         let deadEnemies = (c._deadUnitsForReport || []).filter(u => u.camp === 'enemy');
         let reportAllies = [...c.UI.allyTeam, ...deadAllies].filter((u, i, arr) => arr.findIndex(v => v.uid === u.uid) === i);
         let reportEnemies = [...c.UI.enemyTeam, ...deadEnemies].filter((u, i, arr) => arr.findIndex(v => v.uid === u.uid) === i);
         c.battleResultForInfo = { winner, ally: reportAllies, enemy: reportEnemies };
 
-        // 同步 alive 状态：从 battleState 回写 Store（不再直接修改 c.UI）
         const winState = finalStep ? (winner === '明教' ? finalStep.ally : finalStep.enemy) : null;
         if (winState && c.store) {
             for (const su of winState) {
@@ -774,15 +715,11 @@ export async function playBattle() {
         let winColor = winner === '明教' ? 'blue' : 'orange';
         logDiv.innerHTML += `<span class="gold">🎉🏆 <span class="${winColor}">${winner}</span>获得最终胜利！ 🏆🎉</span><br>`;
         logDiv.scrollTop = logDiv.scrollHeight;
-        // 给玩家足够时间观看胜利弹幕和粒子特效（6000ms）；快进到底时缩短到 500ms
         await new Promise(r => setTimeout(r, window._fastForwardActive ? 500 : 6000));
     } else {
         logDiv.innerHTML+='<span class="gray">🤝 平局！积分不变</span><br>';
         logDiv.scrollTop = logDiv.scrollHeight;
     }
-
-    // 不再立即 CLEAR_ALL_FLASH，保留 cheer 状态让格子持续显示胜利效果
-    // 下一次战斗 initStore 时会重建 units，自然清除 cheer 状态
 
     let mainCtx = window._getPlayerContext ? window._getPlayerContext() : null;
     if (mainCtx && mainCtx.activeBuffs) mainCtx.activeBuffs = [];
