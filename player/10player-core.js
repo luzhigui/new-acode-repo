@@ -323,7 +323,7 @@ async function handleAttackGroup(c, entry, roundResult, abortSig, isFirstAttackR
     if(unitD&&entry.hpPctAfter!==undefined&&entry.hpPctBefore!==undefined){ if(entry.hpPctBefore>40&&entry.hpPctAfter<=40&&entry.hpPctAfter>20){let t=(unitD.camp==='ally'?'不好，必须反击了！':'小儿安敢伤我！');safeShowDanmaku(unitD,t);} else if(entry.hpPctBefore>20&&entry.hpPctAfter<=20){let t=(unitD.camp==='ally'?'撑住！':'已是强弩之末！');safeShowDanmaku(unitD,t);} }
     await new Promise(r=>setTimeout(r,offset)); await c.waitWhilePaused();
     if(defTimer)clearTimeout(defTimer);
-    if(unitA && !unitA._isDead){const su = c.store ? c.store.getState().units.find(u => u.uid === unitA.uid) : null; if (!su || !su._flyMode) { c.store.dispatch({ type: 'CLEAR_UNIT_FLASH', uid: unitA.uid }); c.store.dispatch({ type: 'SET_VISUAL', uid: unitA.uid, _acted: true }); }}
+    if(unitA && !unitA._isDead){c.store.dispatch({ type: 'CLEAR_UNIT_FLASH', uid: unitA.uid }); c.store.dispatch({ type: 'SET_VISUAL', uid: unitA.uid, _acted: true });}
     if(unitD && !entry.isDodge && !entry.isMiss && !entry.isDead && !unitD._isDead) c.store.dispatch({ type: 'CLEAR_UNIT_FLASH', uid: unitD.uid });
     if (c.UI && c.UI.allyTeam && c.UI.enemyTeam) {
         c.UI.allyTeam.concat(c.UI.enemyTeam).forEach(u => { if (u.alive) { const su = c.store ? c.store.getState().units.find(s => s.uid === u.uid) : null; if (!su || !su._flyMode) { let blocked = isBlocked(u, u.camp === 'ally' ? c.UI.allyTeam : c.UI.enemyTeam); c.store.dispatch({ type: 'SET_VISUAL', uid: u.uid, _blocked: blocked }); } } });

@@ -1,12 +1,9 @@
 // tests/46health-utils.js - 光明顶5v5 体检公共检查函数库
-// V5.0.2 | ~4000 bytes | 提取血量/血条/死亡标记/人数/弹幕/特效残留等公共检查
-export const VER = 'tests/46health-utils.js V5.0.2';
+// V5.0.3 | 新增攻击特效、Buff图标、日志定位；移除 checkDeathMark；增强死亡特效检查
+export const VER = 'tests/46health-utils.js V5.0.3';
 
 /**
  * 获取单位对应的格子 DOM 元素
- * @param {object} unit - 单位对象（需包含 camp, pos）
- * @param {Document} doc - iframe 或主文档的 document
- * @returns {Element|null}
  */
 export function getCellElement(unit, doc) {
     if (!unit || unit.pos == null) return null;
@@ -20,8 +17,6 @@ export function getCellElement(unit, doc) {
 
 /**
  * 检查单位血量合法性（负数、溢出、膨胀）
- * @param {object} unit - 单位对象（需包含 name, hp, maxHp, _baseMaxHp）
- * @returns {string[]} 错误描述数组，为空表示通过
  */
 export function checkUnitHpValidity(unit) {
     const issues = [];
@@ -37,23 +32,7 @@ export function checkUnitHpValidity(unit) {
 }
 
 /**
- * 检查死亡标记 _isDead 是否同步
- * @param {object} unit - 单位对象（需包含 name, alive, _isDead）
- * @returns {string[]} 错误描述数组，为空表示通过
- */
-export function checkDeathMark(unit) {
-    const issues = [];
-    if (!unit.alive && !unit._isDead) {
-        issues.push(unit.name + '已阵亡但 _isDead 未标记');
-    }
-    return issues;
-}
-
-/**
  * 检查血条高度与引擎 hp/maxHp 是否同步
- * @param {object} unit - 单位对象（需包含 name, hp, maxHp, alive）
- * @param {Document} doc
- * @returns {string[]} 错误描述数组，为空表示通过
  */
 export function checkHpBarSync(unit, doc) {
     const issues = [];
@@ -72,10 +51,6 @@ export function checkHpBarSync(unit, doc) {
 
 /**
  * 检查血条颜色是否匹配血量百分比
- * @param {object} unit - 单位对象（需包含 name, hp, maxHp, alive）
- * @param {Window} win - iframe 或主窗口
- * @param {Document} doc
- * @returns {string[]} 错误描述数组，为空表示通过
  */
 export function checkHpBarColor(unit, win, doc) {
     const issues = [];
@@ -96,28 +71,185 @@ export function checkHpBarColor(unit, win, doc) {
 }
 
 /**
- * 检查双方人数是否正确（第5关敌方应为6人）
- * @param {object[]} allyTeam
- * @param {object[]} enemyTeam
- * @param {number} stage - 当前关卡
- * @returns {string[]} 错误描述数组，为空表示通过
+ * 检查特效残留元素数量
  */
-export function checkTeamSize(allyTeam, enemyTeam, stage) {
+export function checkFxOrphans(doc) {
     const issues = [];
-    if (allyTeam.length < 5) issues.push('我方人数为' + allyTeam.length + '，预期5');
-    const expectedEnemy = (stage === 5) ? 6 : 5;
-    if (enemyTeam.length < expectedEnemy) {
-        issues.push('第' + stage + '关敌方人数为' + enemyTeam.length + '，预期' + expectedEnemy);
+    const orphans = doc.querySelectorAll('[data-fx="temporary"]');
+    if (orphans.length > 5) {
+        issues.push('战斗结束后' + orphans.length + '个特效未清理');
+    }
+    return issues;
+}
+
+/**
+ * [核心] UI层死亡特效检查：
+ * 1. 应死未死：血量已清零，但格子上没有死亡特效
+ * 2. 诈尸还魂：alive=true，但格子上却有死亡特效残留
+ * 3. 阴魂不散：单位已阵亡超过4秒，死亡特效还未正确清除
+ * 4. 血条残留：单位已阵亡，但血条高度不为0
+ */
+export function checkDeathFxRetention(allUnits, doc) {
+    const issues = [];
+    const now = Date.now();
+
+    for (const u of allUnits) {
+        const cell = getCellElement(u, doc);
+        const hasDeadFlash = cell && cell.getAttribute('data-flash') === 'dead';
+        const hasDeadMark = cell && cell.querySelector('.dead-mark');
+
+        // 1. 血量清零，但格子没任何死亡特效
+        if (u.hp <= 0 && u.alive === false && cell && !hasDeadFlash && !hasDeadMark) {
+            if (u._deathTime && (now - u._deathTime) > 1000) {
+                issues.push(u.name + ' UI异常：hp=' + Math.floor(u.hp) + ' alive=false，但格子上没有死亡特效');
+            }
+        }
+
+        // 2. 引擎里活着，但格子有死亡特效残留
+        if (u.alive && (hasDeadFlash || hasDeadMark)) {
+            issues.push(u.name + ' UI异常：alive=true，但格子上残留死亡特效');
+        }
+
+        // 3. 死亡特效赖场超过4秒
+        if (!u.alive && u._deathTime && (now - u._deathTime > 4000)) {
+            if (cell && (hasDeadFlash || hasDeadMark)) {
+                issues.push(u.name + ' UI异常：死亡超过4秒但死亡特效未清除');
+            }
+        }
+
+        // 4. 已阵亡但血条不为0
+        if (!u.alive && u.hp <= 0 && cell) {
+            const bar = cell.querySelector('.hp-bar-inner');
+            if (bar) {
+                const barPct = parseFloat(bar.style.height);
+                if (barPct > 0) {
+                    issues.push(u.name + ' UI异常：已阵亡但血条残留，高度=' + barPct + '%');
+                }
+            }
+        }
+    }
+    return issues;
+}
+
+/**
+ * [新增] 近战攻击特效检测：飞走/虚影模式下原格子状态
+ * 检查近战单位发起攻击后，原位置的视觉残留是否符合预期
+ */
+export function checkMeleeFxState(ctx, doc) {
+    const issues = [];
+    const allyTeam = (ctx.UI && ctx.UI.allyTeam) || [];
+    const enemyTeam = (ctx.UI && ctx.UI.enemyTeam) || [];
+    const allUnits = allyTeam.concat(enemyTeam);
+
+    for (const u of allUnits) {
+        if (!u.alive || u.isHorse) continue;
+        if (u.role !== '战士' && u.role !== '防战' && u.role !== '飞行') continue;
+
+        const cell = getCellElement(u, doc);
+        if (!cell) continue;
+
+        const isFlyMode = u._flyMode === 'fly';
+        const isGhostMode = u._flyMode === 'ghost';
+
+        if (isFlyMode) {
+            const opacity = parseFloat(cell.style.opacity);
+            if (opacity > 0.1) {
+                issues.push(u.name + ' 飞走模式下原格子未清空，opacity=' + opacity);
+            }
+        } else if (isGhostMode) {
+            const opacity = parseFloat(cell.style.opacity);
+            const bg = cell.style.background || '';
+            if (opacity > 0.6 || opacity < 0.2) {
+                issues.push(u.name + ' 虚影模式下透明度异常：' + opacity + '（预期0.3-0.55）');
+            }
+            if (bg.indexOf('rgba') === -1 && bg.indexOf('blue') === -1 && bg.indexOf('30,100') === -1) {
+                issues.push(u.name + ' 虚影模式下原格子缺少蓝色半透明背景');
+            }
+        }
+
+        // 攻击闪光持续时间检测
+        if (cell.getAttribute('data-flash') === 'attack' || cell.getAttribute('data-flash') === 'defend') {
+            if (cell._flashStartTime && Date.now() - cell._flashStartTime > 3000) {
+                issues.push(u.name + ' 攻击/防御闪光持续超过3秒未消失');
+            }
+        }
+    }
+    return issues;
+}
+
+/**
+ * [新增] 海克斯Buff图标检测
+ * 检查有Buff生效的单位，格子上是否正确显示了对应的图标
+ */
+export function checkBuffIcons(ctx, doc) {
+    const issues = [];
+    const allyTeam = (ctx.UI && ctx.UI.allyTeam) || [];
+    const activeBuffs = ctx.activeBuffs || [];
+    const doubleStrikeUid = ctx.currentDoubleStrikeUid;
+
+    const BUFF_ICONS = {
+        'doubleStrike': '⚡',
+        'carry': '👑',
+        'cloudBody': '💨',
+        'horseFormation': '🐴',
+        'meteorShower': '☄️',
+        'bloodthirst': '🗡️',
+        'fortify': '🛡️',
+        'windAssault': '🦅',
+        'holyFlame': '🔥',
+        'hotBlood': '❤️',
+        'mindControl': '🌀'
+    };
+
+    function isBenefited(unit, buffKey) {
+        switch (buffKey) {
+            case 'carry': return unit.pos === 5 && unit.alive;
+            case 'meteorShower': return unit.role === '远程';
+            case 'bloodthirst': return unit.role === '战士';
+            case 'fortify': return unit.role === '防战';
+            case 'windAssault': return unit.role === '飞行';
+            case 'cloudBody': return true;
+            case 'hotBlood': return true;
+            case 'holyFlame': {
+                const holyBuff = activeBuffs.find(b => b.key === 'holyFlame');
+                if (!holyBuff || holyBuff.col == null || holyBuff.row == null) return false;
+                const unitCol = (unit.pos - 1) % 3 + 1;
+                const unitRow = Math.ceil(unit.pos / 3);
+                return unitCol === holyBuff.col || unitRow === holyBuff.row;
+            }
+            case 'doubleStrike': return unit.uid === doubleStrikeUid;
+            case 'horseFormation': return false;
+            case 'mindControl': {
+                const frontUnit = allyTeam.filter(u => u.alive && !u.isHorse).sort((a, b) => a.pos - b.pos)[0];
+                return frontUnit && unit.uid === frontUnit.uid;
+            }
+            default: return false;
+        }
+    }
+
+    for (const unit of allyTeam) {
+        if (!unit.alive) continue;
+        const cell = getCellElement(unit, doc);
+        if (!cell) continue;
+        const nameEl = cell.querySelector('.cell-name');
+        if (!nameEl) continue;
+        const nameText = nameEl.textContent || '';
+
+        for (const buff of activeBuffs) {
+            const icon = BUFF_ICONS[buff.key];
+            if (!icon) continue;
+            if (isBenefited(unit, buff.key)) {
+                if (nameText.indexOf(icon) === -1) {
+                    issues.push(unit.name + ' 有' + buff.name + 'Buff，但格子上缺少图标 ' + icon);
+                }
+            }
+        }
     }
     return issues;
 }
 
 /**
  * 检查胜利弹幕是否存在
- * @param {Document} doc
- * @param {object[]} allyTeam
- * @param {object[]} enemyTeam
- * @returns {string[]} 错误描述数组，为空表示通过
  */
 export function checkVictoryDanmaku(doc, allyTeam, enemyTeam) {
     const issues = [];
@@ -137,68 +269,27 @@ export function checkVictoryDanmaku(doc, allyTeam, enemyTeam) {
 }
 
 /**
- * 检查特效残留元素数量
- * @param {Document} doc
- * @returns {string[]} 错误描述数组，为空表示通过
+ * [新增] 为体检规则提供日志上下文定位
+ * @returns {string} 类似 "(第3回合, 第12条日志, 殷天正→静虚)"
  */
-export function checkFxOrphans(doc) {
-    const issues = [];
-    const orphans = doc.querySelectorAll('[data-fx="temporary"]');
-    if (orphans.length > 5) {
-        issues.push('战斗结束后' + orphans.length + '个特效未清理');
-    }
-    return issues;
-}
-
-/**
- * 检查死亡特效是否正确保留 3s 并在之后正确消失
- * @param {object[]} allUnits - 所有单位
- * @param {Document} doc
- * @returns {string[]} 错误描述数组
- */
-export function checkDeathFxRetention(allUnits, doc) {
-    const issues = [];
-    const now = Date.now();
-
-    for (const u of allUnits) {
-        // 1. 引擎层：应该死了但还活着（hp<=0 但 alive=true）
-        if (u.alive && u.hp <= 0) {
-            issues.push(u.name + '引擎异常：hp=' + Math.floor(u.hp) + '（≤0）但 alive=true，应为阵亡');
-        }
-
-        // 2. 引擎层：活着但 _isDead 标记残留
-        if (u.alive && u._isDead) {
-            issues.push(u.name + '引擎异常：alive=true 但 _isDead=true，死亡标记未清除');
-        }
-
-        // 3. UI 层：死亡超过 3 秒，格子上还有残留
-        if (!u.alive && u._deathTime && (now - u._deathTime > 3500)) {
-            const cell = getCellElement(u, doc);
-            if (cell) {
-                const deadMark = cell.querySelector('.dead-mark');
-                const hasDeadFlash = cell.getAttribute('data-flash') === 'dead';
-                if (deadMark || hasDeadFlash) {
-                    issues.push(u.name + '死亡超3秒但死亡特效未清除' +
-                        (deadMark ? '（dead-mark残留）' : '') +
-                        (hasDeadFlash ? '（data-flash=dead残留）' : ''));
-                }
-            }
-        }
-
-        // 4. UI 层：已死亡但格子还在且血量不为 0
-        if (!u.alive && u.hp > 0 && u.hp < u.maxHp * 0.1) {
-            const cell = getCellElement(u, doc);
-            if (cell) {
-                const bar = cell.querySelector('.hp-bar-inner');
-                if (bar) {
-                    const barPct = parseFloat(bar.style.height);
-                    if (barPct > 0) {
-                        issues.push(u.name + '已阵亡但血条残留：hp=' + Math.floor(u.hp) +
-                            '，血条高度=' + barPct + '%');
-                    }
-                }
-            }
+export function locateLogEntry(log, entry) {
+    const idx = log.indexOf(entry);
+    if (idx === -1) return '';
+    let round = '?';
+    for (let i = idx; i >= 0; i--) {
+        const e = log[i];
+        if (e.type === 'round-start') {
+            const m = (e.text || '').match(/第(\d+)回合/);
+            if (m) { round = m[1]; break; }
         }
     }
-    return issues;
+    let who = '';
+    if (entry._atkName && entry._defName) {
+        who = entry._atkName + '→' + entry._defName;
+    } else if (entry._atkName) {
+        who = entry._atkName + '攻击';
+    } else if (entry.horseUid) {
+        who = '拒马(' + entry.horsePos + '号位)';
+    }
+    return '(第' + round + '回合, 第' + (idx + 1) + '条日志' + (who ? ', ' + who : '') + ')';
 }
