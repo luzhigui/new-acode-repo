@@ -330,15 +330,22 @@ export function canXingFenTrigger(attacker) {
 
 export function consumeXingFen(attacker) {
     attacker._xingFenActive = false;
-    // 递增扣生命上限
-    if (!attacker._xingFenCount) attacker._xingFenCount = 0;
-    const penalty = attacker._xingFenCount;
-    attacker._xingFenCount++;
+}
+
+// 性奋 maxHp 惩罚：每次宋青书攻击后调用（含性奋额外攻击）。
+// 第1次攻击不扣，之后每次扣递增值（1,2,3...），使每回合2次攻击对应2次扣减。
+export function applyXingFenPenalty(attacker, log) {
+    if (attacker.name !== '宋青书') return;
+    if (!attacker._xingFenPenaltyCount) attacker._xingFenPenaltyCount = 0;
+    attacker._xingFenPenaltyCount++;
+    const penalty = attacker._xingFenPenaltyCount - 1; // 第1次攻击penalty=0不扣
     if (penalty > 0 && attacker.maxHp > 1) {
+        const oldMaxHp = attacker.maxHp;
         attacker.maxHp = Math.max(1, attacker.maxHp - penalty);
         attacker.hp = Math.min(attacker.hp, attacker.maxHp);
         if (typeof window._emitEvent === 'function') {
             window._emitEvent(attacker, 'hp-change', { hp: attacker.hp, maxHp: attacker.maxHp, alive: attacker.alive, atk: attacker.atk, def: attacker.def });
         }
+        if (log) log.push({ type:'info', text:`<span class="red">💗 性奋代价：${attacker.name} 血量上限 ${oldMaxHp} → ${attacker.maxHp}（-${penalty}）</span>` });
     }
 }
