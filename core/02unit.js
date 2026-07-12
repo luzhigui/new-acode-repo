@@ -51,6 +51,8 @@ export class Unit {
         c.buffDodgeBonus = this.buffDodgeBonus;
         c.buffHpBonus = this.buffHpBonus;
         c._baseMaxHp = this._baseMaxHp;
+        c._baseAtk = this._baseAtk;
+        c._baseDef = this._baseDef;
         c._deathTime = this._deathTime;
         // V3.1.0 新增字段深拷贝
         c._kuaiLeStack = this._kuaiLeStack.map(layer => ({ ...layer }));
@@ -71,5 +73,7 @@ export class Unit {
         switch(this.role){case'战士':this.atk+=3;this.def+=2;this.maxHp+=25;break;case'防战':this.atk-=6;this.def+=6;this.maxHp+=25;break;case'远程':this.atk+=6;this.def-=2;this.maxHp-=25;break;case'飞行':this.atk+=2;this.def-=2;this.maxHp-=25;break;}
         this.hp=this.maxHp;
         this._baseMaxHp = this.maxHp;
+        this._baseAtk = this.atk;
+        this._baseDef = this.def;
     }
 }

@@ -29,6 +29,7 @@ function emitEvent(unit, eventType, payload) {
     payload.buffDefBonus = unit.buffDefBonus || 0;
     payload.buffDodgeBonus = unit.buffDodgeBonus || 0;
     payload.buffHpBonus = unit.buffHpBonus || 0;
+    if (unit._phantomTarget !== undefined) payload._phantomTarget = unit._phantomTarget;
     payload._isAbsolute = true;
     window._battleEvents.push({ unitUid: unit.uid, eventType, payload });
 }
@@ -330,6 +331,13 @@ function processUnitAttack(unit, allySide, enemySide, log, A, B, state, doubleSt
         if (!target._deathTime) target._deathTime = Date.now();
     } else { target.hp = hpAfter; }
     unit.dmgDealt += dmg; target.dmgTaken += dmg;
+    // 成昆幻影伪装：攻击后随机模仿一个明教单位
+    if (unit.name === '成昆' && dmg > 0) {
+        const mingAlive = allySide.filter(u => u.alive && !u.isHorse);
+        if (mingAlive.length > 0) {
+            unit._phantomTarget = mingAlive[rand(0, mingAlive.length - 1)].uid;
+        }
+    }
     if (target.role === '防战' && dmg > 0 && target.def > 0) target.def = Math.max(0, target.def - 1);
     if (unit.role === '战士' && dmg > 0 && target.def > 0) target.def = Math.max(0, target.def - 2);
     emitEvent(target, 'hp-change', { hp: target.hp, maxHp: target.maxHp, alive: target.alive, atk: target.atk, def: target.def, _isDead: target._isDead || false });
@@ -604,6 +612,11 @@ export function* createRoundStepper(state) {
         });
         if (hasBuff(A._activeBuffs, 'carry') && u.pos === 5 && u._baseMaxHp !== undefined && !u.isHorse) {
             let oldMaxHp = u.maxHp, oldHp = u.hp;
+            // stats 里的 atkBonus/defBonus 在 computeBuffStats 里已经是绝对值，直接加
+            if (u._baseAtk !== undefined) u.atk = u._baseAtk;
+            if (u._baseDef !== undefined) u.def = u._baseDef;
+            if (stats.atkBonus) u.atk += Math.floor(stats.atkBonus);
+            if (stats.defBonus) u.def += Math.floor(stats.defBonus);
             let extraHp = Math.floor(stats.hpBonus);
             let newMaxHp = Math.min(u._baseMaxHp + extraHp, u._baseMaxHp * 2);
             if (newMaxHp !== oldMaxHp) {
@@ -616,6 +629,8 @@ export function* createRoundStepper(state) {
         u._extinctionUsed = false;
         u._acted = false;
         u._doubleStriked = false;
+        if (u.name === '成昆') u._phantomTarget = null;
+        // 保留 _phantomTarget 不清除
     });
 
     B.forEach(u => {
@@ -634,6 +649,8 @@ export function* createRoundStepper(state) {
         u._extinctionUsed = false;
         u._acted = false;
         u._doubleStriked = false;
+        if (u.name === '成昆') u._phantomTarget = null;
+        // 保留 _phantomTarget 不清除
     });
 
     const roundStartEvents = [...window._battleEvents];
