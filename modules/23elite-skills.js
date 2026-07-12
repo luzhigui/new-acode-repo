@@ -86,6 +86,10 @@ export function checkNineYinClaw(attacker, target, baseDmg, log) {
             _isAbsolute: true
         });
 
+        // 抓取本击事件快照，播放器逐次 apply 实现逐击刷新
+        const clawEvents = [...window._battleEvents];
+        window._battleEvents = [];
+
         log.push({
             type: 'info',
             text: `<span style="color:#222">🐾 九阴白骨爪${depth > 0 ? '连锁' : '追击'}！${attacker.name} 对 ${target.name} 造成 ${bonusDmg} 点伤害${isExecute ? '（斩杀）' : (zhangAlive ? '【嫉妒】' : '')}</span>`,
@@ -98,7 +102,8 @@ export function checkNineYinClaw(attacker, target, baseDmg, log) {
             clawTargetIsDead: target._isDead,
             isExecute: isExecute,
             uidD: target.uid,
-            isDead: !target.alive
+            isDead: !target.alive,
+            _events: clawEvents
         });
 
         depth++;

@@ -46,7 +46,7 @@ export function showDodgeBubble(unit, text) { let gridId = unit.camp === 'ally' 
 function createHealFloatEl() { let d = document.createElement('div'); d.className = 'heal-float'; return d; }
 initPool('healFloat', createHealFloatEl);
 export function showHealFloat(unit, heal) { let gridId = unit.camp === 'ally' ? 'allyGrid' : 'enemyGrid', grid = document.getElementById(gridId), cells = grid.children; let displayOrder = unit.camp === 'enemy' ? [7,8,9,4,5,6,1,2,3] : [1,2,3,4,5,6,7,8,9], idx = displayOrder.indexOf(unit.pos); if (idx >= 0 && cells[idx]) { let rect = cells[idx].getBoundingClientRect(); acquireFromPool('healFloat', (healEl) => { healEl.textContent = '+' + heal; // 定位到格子外面左上角：右锚定到格子左边缘-4，让文字向左生长；顶部高于格子4px
-            healEl.style.left = rect.left + 'px'; healEl.style.right = 'auto'; healEl.style.top = (rect.top - 6) + 'px'; healEl.style.transform = 'translate(0, -100%)'; }, 1400); } }
+            healEl.style.left = (rect.left - 4) + 'px'; healEl.style.right = 'auto'; healEl.style.top = (rect.top - 6) + 'px'; healEl.style.transform = 'translate(-100%, 0)'; }, 1400); } }
 
 function _executeBrush(div) { if (!div) return; let oldOverlay = div.querySelector('.brush-overlay'); if (oldOverlay) oldOverlay.remove(); div.style.width = 'auto'; div.offsetHeight; div.style.width = '100%'; div.style.minWidth = '100%'; let logEl = document.getElementById('log'), paddingLeft = 6; if (logEl) { let cs = getComputedStyle(logEl), pl = parseFloat(cs.paddingLeft); if (!isNaN(pl) && pl > 0) paddingLeft = pl; } let overlay = document.createElement('div'); overlay.className = 'brush-overlay'; overlay.style.position = 'absolute'; overlay.style.left = (-paddingLeft) + 'px'; overlay.style.top = '0'; overlay.style.width = 'calc(100% + ' + (paddingLeft*2) + 'px)'; overlay.style.height = '100%'; overlay.style.pointerEvents = 'none'; div.style.position = 'relative'; div.appendChild(overlay); let start = null; function animate(ts) { if (!start) start = ts; let progress = (ts - start) / 600; if (progress >= 1) { overlay.style.width = 'calc(100% + ' + (paddingLeft*2) + 'px)'; overlay.style.opacity = '0.6'; } else { overlay.style.width = (progress * 100) + '%'; requestAnimationFrame(animate); } } requestAnimationFrame(animate); }
 export function applyBrushEffect(div) { _executeBrush(div); }
@@ -177,7 +177,7 @@ export function showHeartEffect(unit) {
     heart.innerHTML = '💖';
     // 提高了 z-index 到 9999，并给父级 grid 加了相对定位保证
     grid.style.position = 'relative'; 
-    heart.style.cssText = 'position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:24px;color:#FFB6C1;text-shadow:0 0 8px #FFB6C1;z-index:10010;opacity:0;transition:opacity 0.3s, transform 0.3s;pointer-events:none;';
+    heart.style.cssText = 'position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:24px;color:#FFB6C1;text-shadow:0 0 8px #FFB6C1;z-index:9999;opacity:0;transition:opacity 0.3s, transform 0.3s;pointer-events:none;';
     grid.appendChild(heart);
     
     requestAnimationFrame(() => { 

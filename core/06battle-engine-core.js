@@ -1,6 +1,6 @@
 // core/06battle-engine-core.js - 光明顶5v5 战斗核心循环
-// V5.0.0 | ~55000 bytes | 2026-07-06 引擎改造为逐步执行生成器
-export const VER = 'core/06battle-engine-core.js V5.0.2';
+// V5.0.2 | ~55000 bytes | 2026-07-11 事件链路重构：所有数据修改必发事件
+export const VER = 'core/06battle-engine-core.js V5.0.3';
 
 import { CONFIG, DEF_TAUNT, HP_TAUNT } from './01config-5v5-test.js';
 import { rand, calcDamage, getFangLevel, isMelee, getFronts, isBlocked, getFlyDodgeRate, getRandomTaunt, getZhangNearTaunt, makeFXSnapshot, hasBuff } from './03battle-utils.js';
@@ -53,7 +53,6 @@ function emitFullUnitState(unit, eventType) {
 
 // ==================== 拆分后的独立函数 ====================
 
-// ==================== 统一死亡结算 ====================
 function finalizeDeaths(team) {
     for (const u of team) {
         if (u.hp <= 0 && u.alive) {
@@ -62,6 +61,7 @@ function finalizeDeaths(team) {
             u._isDead = true;
             if (!u._deathTime) u._deathTime = Date.now();
             emitEvent(u, 'hp-change', { hp: 0, maxHp: u.maxHp, alive: false, atk: u.atk, def: u.def, _isDead: true });
+            emitEvent(u, 'unit-remove', { uid: u.uid });
         }
     }
 }
@@ -131,7 +131,7 @@ function resolveDodge(unit, target, attackerBuffStats, log) {
         unit._isDead = true;
         if (!unit._deathTime) unit._deathTime = Date.now();
     }
-    emitEvent(unit, 'hp-change', { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: unit.atk, def: unit.def });
+    emitEvent(unit, 'hp-change', { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: unit.atk, def: unit.def, _isDead: unit._isDead || false });
     let dg = {type:'attack-group', uidA:target.uid, uidD:unit.uid, entries:[], isDodge:true, hpAfter:unit.hp, alive:unit.alive, _fxSnapshot:makeFXSnapshot(target,unit), waveTaunt:null, waveUnit:null, buffEffects:[], _atkBonus:0, _defBonus:0};
     if (target.isWei) {
         let heal = Math.floor(reboundDmg * 0.15);
@@ -224,8 +224,8 @@ function applyPostAttackEffects(unit, target, dmg, atkAct, defAct, reboundEntry,
             unit._isDead = true;
             if (!unit._deathTime) unit._deathTime = Date.now();
         }
+        emitEvent(unit, 'hp-change', { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: unit.atk, def: unit.def, _isDead: unit._isDead || false });
         log.push({type:'info', text:`<span class="red">⚔️ 灭绝双剑反击！${target.name} 对 ${unit.name} 造成 ${counterDmg} 点反击伤害</span>`, buffType:'elite_counter', uidD: unit.uid, isDead: !unit.alive});
-        emitEvent(unit, 'hp-change', { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: unit.atk, def: unit.def });
     }
     const poisonLog = applyXuanmingPalm(unit, target);
     if (poisonLog) { log.push(poisonLog); }
@@ -240,7 +240,6 @@ function applyPostAttackEffects(unit, target, dmg, atkAct, defAct, reboundEntry,
 function processUnitAttack(unit, allySide, enemySide, log, A, B, state, doubleStrikeUnitUid) {
     let target = selectTarget(unit, enemySide);
     if (!target) {
-        // 无可选目标时仍记录日志，避免空分隔符
         let emptyGroup = { type:'attack-group', uidA:unit.uid, uidD:null, entries:[], isMiss:true, _fxSnapshot:null, waveTaunt:null, waveUnit:null, buffEffects: [] };
         emptyGroup.entries.push({type:'combat-text', text:`<span class="${unit.camp==='ally'?'blue':'orange'}">${unit.camp==='ally'?'明教':'六大派'} ${unit.name}</span> 无法选择目标`});
         emptyGroup.entries.push({type:'info', text:`<span class="gray">无可选目标，跳过行动</span>`});
@@ -319,7 +318,7 @@ function processUnitAttack(unit, allySide, enemySide, log, A, B, state, doubleSt
         if (!target._deathTime) target._deathTime = Date.now();
     } else { target.hp = hpAfter; }
     unit.dmgDealt += dmg; target.dmgTaken += dmg;
-    emitEvent(target, 'hp-change', { hp: target.hp, maxHp: target.maxHp, alive: target.alive, atk: target.atk, def: target.def });
+    emitEvent(target, 'hp-change', { hp: target.hp, maxHp: target.maxHp, alive: target.alive, atk: target.atk, def: target.def, _isDead: target._isDead || false });
 
     let allyBuffs_fortify = (target.camp === 'ally' ? A._activeBuffs : B._activeBuffs) || [];
     let reboundEntry = null;
@@ -334,7 +333,7 @@ function processUnitAttack(unit, allySide, enemySide, log, A, B, state, doubleSt
                 unit._isDead = true;
                 if (!unit._deathTime) unit._deathTime = Date.now();
             }
-            emitEvent(unit, 'hp-change', { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: unit.atk, def: unit.def });
+            emitEvent(unit, 'hp-change', { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: unit.atk, def: unit.def, _isDead: unit._isDead || false });
             reboundEntry = {
                 type: 'buff-rebound-fortify',
                 text: `<span class="gold">🛡️ 严阵以待反弹${reboundDmg}给${unit.name}，${unit.name}血量 ${attHpBefore} → ${Math.floor(unit.hp)}</span>`,
@@ -362,10 +361,14 @@ function processUnitAttack(unit, allySide, enemySide, log, A, B, state, doubleSt
     group.entries.push({type:'detail', text:`<span class="gray small">计算：${rawFormula}</span>`});
     group.entries.push({type:'damage-text', deadFlag:dead, text:`<span class="damage-line ${dead?'brush-red':''} ${ac}">${dead?'💀击杀💀 ':''}${campA} ${unit.name}</span> 造成 <span class="red">${dmg}</span> 伤害，<span class="${dc}">${campD} ${target.name}</span> ${hpBefore} → ${Math.floor(target.hp)} ${dead?'💀阵亡':''}`});
 
+    // ★ 普攻事件快照：在精英技能/特效之前抓取，只含本次普攻的血量变化
+    group._events = [...window._battleEvents];
+    window._battleEvents = [];
+
     if (unit.camp === 'ally' && unit.isZhang && unit.alive) {
         const hpBefore = Math.floor(unit.hp);
-        let heal = Math.floor(unit.maxHp * 0.05); 
-        unit.hp = Math.min(unit.maxHp, unit.hp + heal); 
+        let heal = Math.floor(unit.maxHp * 0.05);
+        unit.hp = Math.min(unit.maxHp, unit.hp + heal);
         unit.healDone += heal;
         group.entries.push({type:'info', text:`<span class="green">☀️ 九阳神功回复+${heal}，${hpBefore}→${Math.floor(unit.hp)}</span>`, isHealEntry:true, healAmount:heal, healUnitUid:unit.uid});
         emitEvent(unit, 'hp-change', { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: unit.atk, def: unit.def });
@@ -392,7 +395,7 @@ function processUnitAttack(unit, allySide, enemySide, log, A, B, state, doubleSt
                     group.alive = false;
                     group.hpAfter = 0;
                 }
-                emitEvent(target, 'hp-change', { hp: target.hp, maxHp: target.maxHp, alive: target.alive, atk: target.atk, def: target.def });
+                emitEvent(target, 'hp-change', { hp: target.hp, maxHp: target.maxHp, alive: target.alive, atk: target.atk, def: target.def, _isDead: target._isDead || false });
                 group.entries.push({type:'info', text:`<span class="red">🔥 融会贯通额外+${extra}（目标攻击${Math.floor(target.atk)}×15%）</span>`});
             }
         }
@@ -413,6 +416,8 @@ function processUnitAttack(unit, allySide, enemySide, log, A, B, state, doubleSt
             let selfDmg = Math.floor(rebound * 0.1);
             zhang.hp -= selfDmg;
             zhang.dmgTaken += selfDmg;
+            emitEvent(unit, 'hp-change', { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: unit.atk, def: unit.def, _isDead: unit._isDead || false });
+            emitEvent(zhang, 'hp-change', { hp: zhang.hp, maxHp: zhang.maxHp, alive: zhang.alive, atk: zhang.atk, def: zhang.def });
             group.entries.push({type:'info', text:`<span class="gold">✨ 乾坤大挪移反弹${rebound}给${unit.name}（无忌自伤${selfDmg}）</span>`, buffType:'rebound'});
             if (unit.hp <= 0) { unit.alive = false; unit._isDead = true; }
             if (zhang.hp <= 0) {
@@ -421,30 +426,25 @@ function processUnitAttack(unit, allySide, enemySide, log, A, B, state, doubleSt
                 zhang._isDead = true;
                 if (!zhang._deathTime) zhang._deathTime = Date.now();
             }
-            emitEvent(unit, 'hp-change', { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: unit.atk, def: unit.def });
-            emitEvent(zhang, 'hp-change', { hp: zhang.hp, maxHp: zhang.maxHp, alive: zhang.alive, atk: zhang.atk, def: zhang.def });
         }
     }
     if (unit.camp === 'ally' && unit.isWei && dmg > 0) {
         let heal = Math.floor(dmg * 0.15);
         let wasFullHp = (unit.hp >= unit.maxHp);
-        // 上限保护：maxHp不超过baseMaxHp的2倍
         let newMaxHp = Math.min(unit.maxHp + heal, unit._baseMaxHp * 2);
         let hpDelta = newMaxHp - unit.maxHp;
         unit.maxHp = newMaxHp;
         unit.hp = Math.min(unit.hp + hpDelta, unit.maxHp);
         if (wasFullHp) { unit.hp = unit.maxHp; }
         unit.healDone += heal; unit.leechDone += heal;
-        group.entries.push({type:'info', text:`<span class="green">🦇 韦一笑吸血+${heal}，上限→${Math.floor(unit.maxHp)}</span>`, isHealEntry:true, healAmount:heal, healUnitUid:unit.uid});
         emitEvent(unit, 'hp-change', { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: unit.atk, def: unit.def });
+        group.entries.push({type:'info', text:`<span class="green">🦇 韦一笑吸血+${heal}，上限→${Math.floor(unit.maxHp)}</span>`, isHealEntry:true, healAmount:heal, healUnitUid:unit.uid});
     }
     unit._acted = true;
     log.push(group);
-    
+
     applyXinHunDeduction(unit, allySide, log);
     let nineYinTotal = applyPostAttackEffects(unit, target, dmg, atkAct, defAct, reboundEntry, allySide, enemySide, log, A);
-    group._events = [...window._battleEvents];
-    window._battleEvents = [];
     if (nineYinTotal > 0) {
         group._dmg += nineYinTotal;
     }
@@ -471,9 +471,6 @@ function processUnitAttack(unit, allySide, enemySide, log, A, B, state, doubleSt
 // ==================== 新增：逐步执行生成器 ====================
 
 export function* createRoundStepper(state) {
-    // 维护跨回合全量队友列表：保留已阵亡单位，供 carry 加成跨回合计算
-    // 根因：每回合 A = state.ally.filter(alive) 会丢弃死人，回合末 state.ally 被覆盖，
-    // 导致 carry 在第 3 回合起拿不到更早阵亡的队友，加成归零
     if (!state.allAllies) {
         state.allAllies = state.ally.map(u => u.clone());
     } else {
@@ -481,12 +478,10 @@ export function* createRoundStepper(state) {
         state.allAllies.forEach(full => {
             const cur = allyById.get(full.uid);
             if (cur) {
-                // 本回合仍在列表中：同步最新存活状态
                 full.hp = cur.hp; full.maxHp = cur.maxHp; full.alive = cur.alive;
                 full.atk = cur.atk; full.def = cur.def;
                 if (cur._isDead !== undefined) full._isDead = cur._isDead;
             } else {
-                // 已在先前回合被过滤掉（阵亡）：保持阵亡状态，不可复活
                 full.alive = false; full._isDead = true;
             }
         });
@@ -495,31 +490,30 @@ export function* createRoundStepper(state) {
     let B = state.enemy.filter(u => u.alive).map(u => u.clone());
     let log = [];
     let round = state.round;
-    
+
     A._activeBuffs = state.activeBuffs.filter(b => b.target === 'ally' || !b.target);
     B._activeBuffs = state.activeBuffs.filter(b => b.target === 'enemy');
-    
+
     window._battleEvents = [];
     window._currentBattleState = null;
-    
+
     log.push({ type:'round-start', text:`<div class="separator">———— 第${round}回合开始 ————</div>` });
-    
+
     tickKuaiLeHeal(A.concat(B), log);
-    
+
     A.concat(B).forEach(u => {
         if (!u.alive) return;
         const dot = tickXuanmingPoison(u);
         if (dot > 0) {
             log.push({ type:'info', text:`<span class="purple">❄️ 玄冥神掌寒毒发作，${u.name} 受到 ${dot} 点伤害</span>`, uidD: u.uid, isDead: !u.alive });
-            emitEvent(u, 'hp-change', { hp: u.hp, maxHp: u.maxHp, alive: u.alive, atk: u.atk, def: u.def });
         }
     });
-    
+
     spawnHorse(A, log, B);
     spawnHorse(B, log, A);
-    
+
     applyXingFenGrant(B, log);
-    
+
     let doubleStrikeUnitUid = null;
     if (hasBuff(A._activeBuffs, 'doubleStrike')) {
         let candidates = A.filter(u => u.alive && !u.isHorse);
@@ -528,10 +522,10 @@ export function* createRoundStepper(state) {
             doubleStrikeUnitUid = chosen.uid;
         }
     }
-    
+
     window._currentBattleState = { ally: state.allAllies, enemy: state.enemy };
     logBuffSummary(A, log, doubleStrikeUnitUid);
-    
+
     log.filter(l => l.type === 'buff-summon').forEach(hl => {
         const team = hl.buffType === 'summon' ? A : B;
         const horse = team.find(u => u.uid === hl.horseUid);
@@ -539,7 +533,7 @@ export function* createRoundStepper(state) {
             emitFullUnitState(horse, 'unit-add');
         }
     });
-    
+
     A.forEach(u => {
         if (!u.alive) return;
         let allyTeamWithDead = A.slice();
@@ -573,7 +567,7 @@ export function* createRoundStepper(state) {
         u._acted = false;
         u._doubleStriked = false;
     });
-    
+
     B.forEach(u => {
         if (!u.alive) return;
         let stats = computeBuffStats(u, B._activeBuffs || [], B);
@@ -592,30 +586,26 @@ export function* createRoundStepper(state) {
         u._doubleStriked = false;
     });
 
-    // 产出回合开始步骤
     const roundStartEvents = [...window._battleEvents];
     window._battleEvents = [];
-    yield { log: [...log], events: roundStartEvents, ally: A, enemy: B, winner: null, done: false };
+    yield { log: [...log], events: roundStartEvents, ally: A, enemy: B, winner: null, done: false, doubleStrikeUid: doubleStrikeUnitUid };
     window._battleEvents = [];
     log = [];
 
-    // 构建行动队列
     const actionQueue = [];
-    
+
     const kuLianUnit = checkKuLian(B);
     if (kuLianUnit) {
         kuLianUnit._kuLianActive = true;
         log.push({ type:'info', text:`<span class="gold">🏋️ 苦练：${kuLianUnit.name} 每回合最先行动！</span>` });
         actionQueue.push({ unit: kuLianUnit, side: 'enemy' });
     }
-    
-    // 交替顺序：从敌方开始
+
     let currentSide = 'enemy';
     let allyRemaining = A.filter(u => u.alive && !u._acted).sort((a, b) => a.pos - b.pos);
     let enemyRemaining = B.filter(u => u.alive && !u._acted).sort((a, b) => a.pos - b.pos);
-    // 排除苦练单位
     if (kuLianUnit) enemyRemaining = enemyRemaining.filter(u => u.uid !== kuLianUnit.uid);
-    
+
     while (allyRemaining.length > 0 || enemyRemaining.length > 0) {
         if (currentSide === 'enemy' && enemyRemaining.length > 0) {
             actionQueue.push({ unit: enemyRemaining.shift(), side: 'enemy' });
@@ -630,10 +620,8 @@ export function* createRoundStepper(state) {
         }
     }
 
-    // 逐个执行行动
     for (const action of actionQueue) {
         let unit = action.unit;
-        // 队列构建后可能在轮到前被打死（白骨爪斩杀/玄冥毒/反击等），死人不再行动
         if (!unit.alive) continue;
         let allySide = unit.camp === 'ally' ? A : B;
         let enemySide = unit.camp === 'ally' ? B : A;
@@ -663,10 +651,8 @@ export function* createRoundStepper(state) {
             processUnitAttack(unit, allySide, enemySide, log, A, B, state, doubleStrikeUnitUid);
         }
 
-        // 先统一死亡结算，让事件进入队列
         finalizeDeaths(A);
         finalizeDeaths(B);
-        // 再产出步骤，确保死亡事件被捕获
         const stepEvents = [...window._battleEvents];
         window._battleEvents = [];
         const allyAlive = A.some(u => u.alive);
@@ -675,17 +661,15 @@ export function* createRoundStepper(state) {
         let done = false;
         if (!allyAlive) { winner = '六大派'; done = true; }
         else if (!enemyAlive) { winner = '明教'; done = true; }
-        
+
         yield { log: [...log], events: stepEvents, ally: A, enemy: B, winner, done };
         log = [];
-        
+
         if (done) return;
     }
 
-    // 回合结束：先销毁拒马（需要 Buff 还在），再扣减 Buff 回合
     destroyHorse(A, log); destroyHorse(B, log);
 
-    // 统一清理所有死拒马
     [A, B].forEach(team => {
         for (let i = team.length - 1; i >= 0; i--) {
             const u = team[i];
@@ -695,8 +679,7 @@ export function* createRoundStepper(state) {
             }
         }
     });
-    
-    // Buff 扣减放在销毁判定之后，保证 horseFormation 在销毁时仍然存在
+
     A._activeBuffs = (A._activeBuffs || []).map(b => ({...b, remaining: b.remaining - 1})).filter(b => b.remaining > 0);
     B._activeBuffs = (B._activeBuffs || []).map(b => ({...b, remaining: b.remaining - 1})).filter(b => b.remaining > 0);
 
@@ -705,7 +688,7 @@ export function* createRoundStepper(state) {
     if (B.every(c => !c.alive)) { winner = '明教'; done = true; }
     else if (A.every(c => !c.alive)) { winner = '六大派'; done = true; }
     if (round >= C.MAX_ROUND && !done) { winner = '平局'; done = true; }
-    
+
     if (winner) {
         let losers = winner === '明教' ? B : A;
         losers.forEach(u => {
@@ -713,9 +696,10 @@ export function* createRoundStepper(state) {
             u.alive = false;
             u._isDead = true;
             if (!u._deathTime) u._deathTime = Date.now();
+            emitEvent(u, 'hp-change', { hp: 0, maxHp: u.maxHp, alive: false, atk: u.atk, def: u.def, _isDead: true });
         });
     }
-    
+
     log.push({type:'round-end', text:`<div class="separator">———— 第${round}回合结束 ————</div>`});
 
     const endEvents = [...window._battleEvents];
@@ -724,8 +708,6 @@ export function* createRoundStepper(state) {
     finalizeDeaths(B);
     yield { log: [...log], events: endEvents, ally: A, enemy: B, winner, done };
 }
-
-// ==================== 保留原有 runBattleRound（内部调用生成器） ====================
 
 export function runBattleRound(state) {
     const stepper = createRoundStepper(state);
@@ -743,8 +725,6 @@ export function runBattleRound(state) {
         doubleStrikeUid: null
     };
 }
-
-// ==================== 保留原有 runBattle ====================
 
 export function runBattle(snapshot, activeBuffs = [], buffData = {}) {
     let state = {
