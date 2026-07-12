@@ -246,9 +246,10 @@ function processUnitAttack(unit, allySide, enemySide, log, A, B, state, doubleSt
         const lostPct = (target.maxHp - target.hp) / target.maxHp;
         const chance = CONFIG.ELITE_SKILLS.phantomDisguise.baseChance + Math.floor(lostPct * 10) * CONFIG.ELITE_SKILLS.phantomDisguise.per10pctLost;
         if (Math.random() < chance) {
-            const fakeTarget = allySide.find(u => u.uid === target._phantomTarget);
+            const fakeTarget = allySide.find(u => u.uid === target._phantomTarget && u.alive && !u.isHorse);
             if (fakeTarget) {
-                phantomLog = `🌀 幻影伪装！${unit.name}误以为攻击的是${fakeTarget.name}！`;
+                phantomLog = `🌀 幻影伪装！${unit.name}被混乱，误攻队友${fakeTarget.name}！`;
+                target = fakeTarget;
             }
         }
     }
@@ -331,11 +332,11 @@ function processUnitAttack(unit, allySide, enemySide, log, A, B, state, doubleSt
         if (!target._deathTime) target._deathTime = Date.now();
     } else { target.hp = hpAfter; }
     unit.dmgDealt += dmg; target.dmgTaken += dmg;
-    // 成昆幻影伪装：攻击后随机模仿一个明教单位
+    // 成昆幻影伪装：攻击后随机模仿一个对方单位（变身目标应为敌方）
     if (unit.name === '成昆' && dmg > 0) {
-        const mingAlive = allySide.filter(u => u.alive && !u.isHorse);
-        if (mingAlive.length > 0) {
-            unit._phantomTarget = mingAlive[rand(0, mingAlive.length - 1)].uid;
+        const enemyAlive = enemySide.filter(u => u.alive && !u.isHorse);
+        if (enemyAlive.length > 0) {
+            unit._phantomTarget = enemyAlive[rand(0, enemyAlive.length - 1)].uid;
         }
     }
     if (target.role === '防战' && dmg > 0 && target.def > 0) target.def = Math.max(0, target.def - 1);
@@ -468,14 +469,6 @@ function processUnitAttack(unit, allySide, enemySide, log, A, B, state, doubleSt
     log.push(group);
 
     applyXinHunDeduction(unit, allySide, log);
-
-    // 成昆幻影伪装：攻击后随机模仿一个明教单位
-    if (unit.name === '成昆' && dmg > 0) {
-        const mingAlive = allySide.filter(u => u.alive && !u.isHorse);
-        if (mingAlive.length > 0) {
-            unit._phantomTarget = mingAlive[rand(0, mingAlive.length - 1)].uid;
-        }
-    }
 
     // 玄冥二老联动：互相触发攻击
     if (!unit._isLinkAttack && dmg > 0 && target.alive) {
@@ -612,12 +605,12 @@ export function* createRoundStepper(state) {
         });
         if (hasBuff(A._activeBuffs, 'carry') && u.pos === 5 && u._baseMaxHp !== undefined && !u.isHorse) {
             let oldMaxHp = u.maxHp, oldHp = u.hp;
-            // stats 里的 atkBonus/defBonus 在 computeBuffStats 里已经是绝对值，直接加
+            // carry 加成是绝对值，在回合开始时直接叠加到基础属性上（不在 calcAttackDamage 中做乘法）
             if (u._baseAtk !== undefined) u.atk = u._baseAtk;
             if (u._baseDef !== undefined) u.def = u._baseDef;
-            if (stats.atkBonus) u.atk += Math.floor(stats.atkBonus);
-            if (stats.defBonus) u.def += Math.floor(stats.defBonus);
-            let extraHp = Math.floor(stats.hpBonus);
+            if (stats.carryAtkAbs) u.atk += Math.floor(stats.carryAtkAbs);
+            if (stats.carryDefAbs) u.def += Math.floor(stats.carryDefAbs);
+            let extraHp = Math.floor(stats.carryHpAbs);
             let newMaxHp = Math.min(u._baseMaxHp + extraHp, u._baseMaxHp * 2);
             if (newMaxHp !== oldMaxHp) {
                 let hpRatio = oldMaxHp > 0 ? oldHp / oldMaxHp : 1;
