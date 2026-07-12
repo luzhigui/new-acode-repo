@@ -23,23 +23,23 @@ export function computeBuffStats(unit, activeBuffs, allyTeam) {
             if (getUnitRow(unit.pos) === buffObj.row) { defBonus += C.BUFFS.holyFlame.defBonus; }
         }
     }
+    // carry 加成是绝对值，单独返回，不混入 atkBonus/defBonus（那两个字段是比率，供 calcAttackDamage 做乘法用）
+    let carryAtkAbs = 0, carryDefAbs = 0, carryHpAbs = 0;
     if (hasBuff(activeBuffs, 'carry') && unit.pos === 5 && unit.alive) {
         if (allyTeam) {
             let allAllies = allyTeam.filter(u => u.uid !== unit.uid && !u.isHorse);
-            let totalAtk = 0, totalDef = 0, totalHp = 0;
             allAllies.forEach(a => {
                 let mult = a.alive ? 1 : (C.BUFFS.carry.deathMultiplier || 3);
-                totalAtk += Math.floor(a.atk * (C.BUFFS.carry.atkBonus || 0.08) * mult);
-                totalDef += Math.floor(a.def * (C.BUFFS.carry.defBonus || 0.08) * mult);
-                if (C.BUFFS.carry.hpBonus) totalHp += Math.floor(a._baseMaxHp ? a._baseMaxHp * C.BUFFS.carry.hpBonus * mult : 0);
+                carryAtkAbs += Math.floor(a.atk * (C.BUFFS.carry.atkBonus || 0.08) * mult);
+                carryDefAbs += Math.floor(a.def * (C.BUFFS.carry.defBonus || 0.08) * mult);
+                if (C.BUFFS.carry.hpBonus) carryHpAbs += Math.floor(a._baseMaxHp ? a._baseMaxHp * C.BUFFS.carry.hpBonus * mult : 0);
             });
-            atkBonus += totalAtk; defBonus += totalDef; hpBonus += totalHp;
         }
     }
     if (hasBuff(activeBuffs, 'fortify') && unit.role === '防战') { defBonus += C.BUFFS.fortify.defBonus; }
     if (hasBuff(activeBuffs, 'cloudBody') && unit.camp === 'ally') { dodgeBonus = C.BUFFS.cloudBody.dodgeBonus; }
     // console.log('computeBuffStats:', unit.name, 'atkBonus:', atkBonus, 'defBonus:', defBonus, 'activeBuffs:', activeBuffs?.map(b => b.key));
-    return { atkBonus, defBonus, dodgeBonus, hpBonus };
+    return { atkBonus, defBonus, dodgeBonus, hpBonus, carryAtkAbs, carryDefAbs, carryHpAbs };
 }
 
 export function applyBuffEffectsBeforeAttack(unit, target, allyTeam, enemyTeam, log) {
