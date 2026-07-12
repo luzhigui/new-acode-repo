@@ -10,7 +10,7 @@ import { Unit } from './02unit.js';
 import {
     checkExtinctionCounter, checkNineYinClaw, getRebelTarget, getRebelDmgBonus, getRebelTrueDmg,
     getPhantomThunderBonus, applyXuanmingPalm, tickXuanmingPoison, getHornStrikeBonus,
-    checkKuLian, applyXingFenGrant, applyXinHunDeduction, tickKuaiLeHeal, canXingFenTrigger, consumeXingFen
+    checkKuLian, applyXingFenGrant, applyXinHunDeduction, tickKuaiLeHeal, canXingFenTrigger, consumeXingFen, applyXingFenPenalty
 } from '../modules/23elite-skills.js';
 const C = CONFIG, DT = DEF_TAUNT, HT = HP_TAUNT;
 
@@ -279,6 +279,7 @@ function processUnitAttack(unit, allySide, enemySide, log, A, B, state, doubleSt
         window._battleEvents = [];
         log.push(mg);
         applyXinHunDeduction(unit, allySide, log);
+        applyXingFenPenalty(unit, log);
         if (doubleStrikeUnitUid && unit.uid === doubleStrikeUnitUid && unit.alive && unit.camp === 'ally' && !unit._doubleStriked) {
             if (rand(1,100) <= 80) {
                 log.push({type:'info', text:`<span class="gold">⚡ 概率连击触发！</span>`, isDoubleStrikeBanner:true});
@@ -339,8 +340,18 @@ function processUnitAttack(unit, allySide, enemySide, log, A, B, state, doubleSt
             unit._phantomTarget = enemyAlive[rand(0, enemyAlive.length - 1)].uid;
         }
     }
-    if (target.role === '防战' && dmg > 0 && target.def > 0) target.def = Math.max(0, target.def - 1);
-    if (unit.role === '战士' && dmg > 0 && target.def > 0) target.def = Math.max(0, target.def - 2);
+    let defReduced = 0;
+    if (target.role === '防战' && dmg > 0 && target.def > 0) {
+        defReduced = Math.min(1, target.def);
+        target.def = Math.max(0, target.def - 1);
+    }
+    if (unit.role === '战士' && dmg > 0 && target.def > 0) {
+        defReduced += Math.min(2, target.def);
+        target.def = Math.max(0, target.def - 2);
+    }
+    if (defReduced > 0) {
+        group.entries.push({type:'detail', text:`<span class="purple small">🗡️ ${unit.name} 破防：${target.name} 防御 -${defReduced}</span>`});
+    }
     emitEvent(target, 'hp-change', { hp: target.hp, maxHp: target.maxHp, alive: target.alive, atk: target.atk, def: target.def, _isDead: target._isDead || false });
 
     let allyBuffs_fortify = (target.camp === 'ally' ? A._activeBuffs : B._activeBuffs) || [];
@@ -452,7 +463,11 @@ function processUnitAttack(unit, allySide, enemySide, log, A, B, state, doubleSt
             }
         }
     }
-    if (unit.role === '远程' && dmg > 0) { unit.atk += 2; }
+    if (unit.role === '远程' && dmg > 0) {
+        unit.atk += 2;
+        emitEvent(unit, 'hp-change', { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: unit.atk, def: unit.def });
+        group.entries.push({type:'detail', text:`<span class="blue small">🏹 ${unit.name} 远程熟练：攻击 +2 → ${Math.floor(unit.atk)}</span>`});
+    }
     if (unit.camp === 'ally' && unit.isWei && dmg > 0) {
         let heal = Math.floor(dmg * 0.15);
         let wasFullHp = (unit.hp >= unit.maxHp);
@@ -469,6 +484,7 @@ function processUnitAttack(unit, allySide, enemySide, log, A, B, state, doubleSt
     log.push(group);
 
     applyXinHunDeduction(unit, allySide, log);
+    applyXingFenPenalty(unit, log);
 
     // 玄冥二老联动：互相触发攻击（搭档在同阵营 allySide，不是 enemySide）
     if (!unit._isLinkAttack && dmg > 0 && target.alive) {
@@ -552,8 +568,10 @@ export function* createRoundStepper(state) {
     applyXingFenGrant(B, log);
 
     // 苦练：宋青书每次行动前给全体队友+1攻+1防+2生命上限，自身翻倍
-    const kuLianSong = B.find(u => u.name === '宋青书' && u.alive && u._kuLianActive);
+    // 直接用 checkKuLian 判定，避免依赖 _kuLianActive 标志位的时序（标志位在下方 yield 后才置位）
+    const kuLianSong = checkKuLian(B);
     if (kuLianSong) {
+        kuLianSong._kuLianActive = true;
         const s = CONFIG.ELITE_SKILLS.kuLian;
         B.forEach(u => {
             if (!u.alive || u.isHorse) return;
@@ -562,7 +580,9 @@ export function* createRoundStepper(state) {
             u.def += s.defBonus * mult;
             u.maxHp += s.hpBonus * mult;
             u.hp = Math.min(u.hp + s.hpBonus * mult, u.maxHp);
+            emitEvent(u, 'hp-change', { hp: u.hp, maxHp: u.maxHp, alive: u.alive, atk: u.atk, def: u.def });
         });
+        log.push({ type:'info', text:`<span class="gold">🏋️ 苦练：${kuLianSong.name} 激励全体队友+${s.atkBonus}攻+${s.defBonus}防+${s.hpBonus}血上限（自身翻倍）！</span>` });
     }
 
     let doubleStrikeUnitUid = null;
@@ -618,6 +638,9 @@ export function* createRoundStepper(state) {
                 u.hp = Math.floor(hpRatio * newMaxHp);
             }
             emitEvent(u, 'hp-change', { hp: u.hp, maxHp: u.maxHp, alive: u.alive, atk: u.atk, def: u.def });
+            if (stats.carryAtkAbs || stats.carryDefAbs || stats.carryHpAbs) {
+                log.push({ type:'info', text:`<span class="gold">👑 carry：${u.name} 获得队友属性加成 攻+${stats.carryAtkAbs} 防+${stats.carryDefAbs} 血上限+${stats.carryHpAbs}</span>` });
+            }
         }
         u._extinctionUsed = false;
         u._acted = false;
@@ -654,9 +677,8 @@ export function* createRoundStepper(state) {
 
     const actionQueue = [];
 
-    const kuLianUnit = checkKuLian(B);
+    const kuLianUnit = kuLianSong;
     if (kuLianUnit) {
-        kuLianUnit._kuLianActive = true;
         log.push({ type:'info', text:`<span class="gold">🏋️ 苦练：${kuLianUnit.name} 每回合最先行动！</span>` });
         actionQueue.push({ unit: kuLianUnit, side: 'enemy' });
     }
