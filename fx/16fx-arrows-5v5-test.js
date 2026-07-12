@@ -298,7 +298,14 @@ export function showBoneClaw(unitA, unitD, speed, getPausedFn, onHit, opts) {
 // 斩杀特效：格子红色闪光后碎开消失
 function triggerExecuteShatter(defCell) {
     if (!defCell) return;
+    // 强制可见以避免 getBoundingClientRect 返回全零
+    const prevVisibility = defCell.style.visibility;
+    const prevDisplay = defCell.style.display;
+    defCell.style.visibility = 'visible';
+    defCell.style.display = 'flex';
     let rect = defCell.getBoundingClientRect();
+    defCell.style.visibility = prevVisibility;
+    defCell.style.display = prevDisplay;
     // 红色覆盖层
     let redFlash = document.createElement('div');
     redFlash.setAttribute('data-fx', 'temporary');

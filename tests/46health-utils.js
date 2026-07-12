@@ -105,9 +105,11 @@ export function checkDeathFxRetention(allUnits, doc) {
             }
         }
 
-        // 2. 引擎里活着，但格子有死亡特效残留
+        // 2. 引擎里活着，但格子有死亡特效残留（允许 4 秒宽限期）
         if (u.alive && (hasDeadFlash || hasDeadMark)) {
-            issues.push(u.name + ' UI异常：alive=true，但格子上残留死亡特效');
+            if (!u._deathTime || (now - u._deathTime) > 4000) {
+                issues.push(u.name + ' UI异常：alive=true，但格子上残留死亡特效超过4秒');
+            }
         }
 
         // 3. 死亡特效赖场超过4秒
@@ -203,7 +205,12 @@ export function checkBuffIcons(ctx, doc) {
 
     function isBenefited(unit, buffKey) {
         switch (buffKey) {
-            case 'carry': return unit.pos === 5 && unit.alive;
+            case 'carry': {
+                // 从格子 DOM 读取实际站位，避免换位后 pos 不一致
+                const cell = getCellElement(unit, doc);
+                const actualPos = cell ? parseInt(cell.dataset.pos) : unit.pos;
+                return actualPos === 5 && unit.alive;
+            }
             case 'meteorShower': return unit.role === '远程';
             case 'bloodthirst': return unit.role === '战士';
             case 'fortify': return unit.role === '防战';

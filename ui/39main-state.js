@@ -51,6 +51,7 @@ export const getState = {
     selectedAdjustPos: () => selectedAdjustPos, currentStage: () => currentStage,
     dodgeEffectEnabled: () => dodgeEffectEnabled, selectedBuffIndex: () => selectedBuffIndex,
     currentDoubleStrikeUid: () => currentDoubleStrikeUid, activeBuffs: () => activeBuffs,
+    autoLevel: () => autoLevel,
     snapshot: () => snapshot, UI: () => UI
 };
 
@@ -75,6 +76,7 @@ export const setState = {
     selectedBuffIndex: (v) => { selectedBuffIndex = v; },
     currentDoubleStrikeUid: (v) => { currentDoubleStrikeUid = v; },
     activeBuffs: (v) => { activeBuffs = v; },
+    autoLevel: (v) => { autoLevel = v; },
     snapshot: (v) => { snapshot = v; },
     UI: (v) => { UI = v; }
 };

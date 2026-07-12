@@ -217,7 +217,7 @@ export function doInitBattle(currentStage, UI, snapshot, activeBuffs, selectedBu
             let priority;
             if (u.name === '成昆') priority = [1, 2, 3, 4, 5, 6, 7, 8, 9];
             else if (u.name === '鹿杖客') priority = [7, 8, 9, 4, 5, 6, 1, 2, 3];
-            else if (u.name === '鹤笔翁') priority = [4, 5, 6, 7, 8, 9, 1, 2, 3];
+            else if (u.name === '鹤笔翁') priority = [3, 4, 5, 6, 7, 8, 9, 1, 2];
             else priority = [1, 2, 3, 4, 5, 6, 7, 8, 9];
 
             for (const p of priority) {

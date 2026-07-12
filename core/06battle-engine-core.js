@@ -183,7 +183,7 @@ function calcAttackDamage(unit, target, attackerBuffStats, defenderBuffStats) {
         let displayDef = Math.floor(unit.def + unit.def * (attackerBuffStats.defBonus || 0));
         let lv = getFangLevel(displayDef, unit.m), k = C.FANG_K[lv + 1] !== undefined ? C.FANG_K[lv + 1] : C.FANG_K[C.FANG_K.length - 1];
         let penPart = calcDamage(atkAct, defAct);
-        raw = penPart + displayDef * k + unit.maxHp * 0.01;
+        raw = penPart + displayDef * k + unit.maxHp * 0.05;
         rawFormula = `${Math.floor(penPart)} + ${Math.floor(displayDef)}×${k} + ${Math.floor(unit.maxHp)}×0.01 = ${Math.floor(raw)}`;
     } else {
         raw = calcDamage(atkAct, defAct);
@@ -239,6 +239,18 @@ function applyPostAttackEffects(unit, target, dmg, atkAct, defAct, reboundEntry,
 
 function processUnitAttack(unit, allySide, enemySide, log, A, B, state, doubleStrikeUnitUid) {
     let target = selectTarget(unit, enemySide);
+    // 成昆幻影伪装：混乱判定
+    let phantomLog = null;
+    if (target && target.name === '成昆' && target._phantomTarget && !target._isLinkAttack) {
+        const lostPct = (target.maxHp - target.hp) / target.maxHp;
+        const chance = CONFIG.ELITE_SKILLS.phantomDisguise.baseChance + Math.floor(lostPct * 10) * CONFIG.ELITE_SKILLS.phantomDisguise.per10pctLost;
+        if (Math.random() < chance) {
+            const fakeTarget = allySide.find(u => u.uid === target._phantomTarget);
+            if (fakeTarget) {
+                phantomLog = `🌀 幻影伪装！${unit.name}误以为攻击的是${fakeTarget.name}！`;
+            }
+        }
+    }
     if (!target) {
         let emptyGroup = { type:'attack-group', uidA:unit.uid, uidD:null, entries:[], isMiss:true, _fxSnapshot:null, waveTaunt:null, waveUnit:null, buffEffects: [] };
         emptyGroup.entries.push({type:'combat-text', text:`<span class="${unit.camp==='ally'?'blue':'orange'}">${unit.camp==='ally'?'明教':'六大派'} ${unit.name}</span> 无法选择目标`});
@@ -318,6 +330,8 @@ function processUnitAttack(unit, allySide, enemySide, log, A, B, state, doubleSt
         if (!target._deathTime) target._deathTime = Date.now();
     } else { target.hp = hpAfter; }
     unit.dmgDealt += dmg; target.dmgTaken += dmg;
+    if (target.role === '防战' && dmg > 0 && target.def > 0) target.def = Math.max(0, target.def - 1);
+    if (unit.role === '战士' && dmg > 0 && target.def > 0) target.def = Math.max(0, target.def - 2);
     emitEvent(target, 'hp-change', { hp: target.hp, maxHp: target.maxHp, alive: target.alive, atk: target.atk, def: target.def, _isDead: target._isDead || false });
 
     let allyBuffs_fortify = (target.camp === 'ally' ? A._activeBuffs : B._activeBuffs) || [];
@@ -350,6 +364,7 @@ function processUnitAttack(unit, allySide, enemySide, log, A, B, state, doubleSt
     let unitHpBefore = Math.floor(unit.hp);
     let group = { type:'attack-group', uidA:unit.uid, uidD:target.uid, entries:[], hpAfter:target.hp, alive:target.alive, isDead:dead, waveTaunt, waveUnit, unitRole:unit.role, _fxSnapshot:makeFXSnapshot(unit,target), _dmg:dmg, _isZhangNear:unit.isZhang && !unit.rangedForm, _nearAtkCount:unit.nearAtkCount, hpPctBefore, hpPctAfter, isMiss:miss, isDodge:false, buffEffects:[], _atkBonus:Math.floor(unit.atk * attackerBuffStats.atkBonus), _defBonus:Math.floor(target.def * defenderBuffStats.defBonus) };
     group.entries.push({type:'combat-text', text:`<span class="${ac}">${campA} ${unit.name}</span>(攻${displayAtk} 血${unitHpBefore}) → <span class="${dc}">${campD} ${target.name}</span>(防${displayDef} 血${hpBefore})`});
+    if (phantomLog) group.entries.push({type:'info', text:`<span class="gold">${phantomLog}</span>`});
     group.entries.push({type:'detail', text:`<span class="gray small">波动：攻${atkBase}→${atkAct} 防${defBase}→${defAct} 血${hpBonus >= 0 ? '+' + hpBonus : hpBonus}</span>`});
 
     if (thunderBonus > 0) group.entries.push({type:'detail', text:`<span class="red small">💥 混元霹雳劲+${thunderBonus}真实伤害</span>`});
@@ -428,6 +443,7 @@ function processUnitAttack(unit, allySide, enemySide, log, A, B, state, doubleSt
             }
         }
     }
+    if (unit.role === '远程' && dmg > 0) { unit.atk += 2; }
     if (unit.camp === 'ally' && unit.isWei && dmg > 0) {
         let heal = Math.floor(dmg * 0.15);
         let wasFullHp = (unit.hp >= unit.maxHp);
@@ -444,6 +460,26 @@ function processUnitAttack(unit, allySide, enemySide, log, A, B, state, doubleSt
     log.push(group);
 
     applyXinHunDeduction(unit, allySide, log);
+
+    // 成昆幻影伪装：攻击后随机模仿一个明教单位
+    if (unit.name === '成昆' && dmg > 0) {
+        const mingAlive = allySide.filter(u => u.alive && !u.isHorse);
+        if (mingAlive.length > 0) {
+            unit._phantomTarget = mingAlive[rand(0, mingAlive.length - 1)].uid;
+        }
+    }
+
+    // 玄冥二老联动：互相触发攻击
+    if (!unit._isLinkAttack && dmg > 0 && target.alive) {
+        if (unit.name === '鹤笔翁') {
+            const lu = enemySide.find(u => u.name === '鹿杖客' && u.alive);
+            if (lu) { lu._isLinkAttack = true; processUnitAttack(lu, enemySide, allySide, log, A, B, state, null); lu._isLinkAttack = false; }
+        } else if (unit.name === '鹿杖客') {
+            const he = enemySide.find(u => u.name === '鹤笔翁' && u.alive);
+            if (he) { he._isLinkAttack = true; processUnitAttack(he, enemySide, allySide, log, A, B, state, null); he._isLinkAttack = false; }
+        }
+    }
+
     let nineYinTotal = applyPostAttackEffects(unit, target, dmg, atkAct, defAct, reboundEntry, allySide, enemySide, log, A);
     if (nineYinTotal > 0) {
         group._dmg += nineYinTotal;
@@ -514,6 +550,20 @@ export function* createRoundStepper(state) {
 
     applyXingFenGrant(B, log);
 
+    // 苦练：宋青书每次行动前给全体队友+1攻+1防+2生命上限，自身翻倍
+    const kuLianSong = B.find(u => u.name === '宋青书' && u.alive && u._kuLianActive);
+    if (kuLianSong) {
+        const s = CONFIG.ELITE_SKILLS.kuLian;
+        B.forEach(u => {
+            if (!u.alive || u.isHorse) return;
+            const mult = u.uid === kuLianSong.uid ? 2 : 1;
+            u.atk += s.atkBonus * mult;
+            u.def += s.defBonus * mult;
+            u.maxHp += s.hpBonus * mult;
+            u.hp = Math.min(u.hp + s.hpBonus * mult, u.maxHp);
+        });
+    }
+
     let doubleStrikeUnitUid = null;
     if (hasBuff(A._activeBuffs, 'doubleStrike')) {
         let candidates = A.filter(u => u.alive && !u.isHorse);
@@ -554,8 +604,8 @@ export function* createRoundStepper(state) {
         });
         if (hasBuff(A._activeBuffs, 'carry') && u.pos === 5 && u._baseMaxHp !== undefined && !u.isHorse) {
             let oldMaxHp = u.maxHp, oldHp = u.hp;
-            let extraHp = Math.floor(u._baseMaxHp * stats.hpBonus);
-            let newMaxHp = u._baseMaxHp + extraHp;
+            let extraHp = Math.floor(stats.hpBonus);
+            let newMaxHp = Math.min(u._baseMaxHp + extraHp, u._baseMaxHp * 2);
             if (newMaxHp !== oldMaxHp) {
                 let hpRatio = oldMaxHp > 0 ? oldHp / oldMaxHp : 1;
                 u.maxHp = newMaxHp;
@@ -633,13 +683,13 @@ export function* createRoundStepper(state) {
         if ((unit.isHorse && unit.atk <= 0) || (unit._blocked && isMelee(unit.role))) {
             if (unit._blocked && isMelee(unit.role)) {
                 let hpBefore = Math.floor(unit.hp);
-                unit.hp = Math.min(unit.maxHp, unit.hp + 10);
+                unit.hp = Math.min(unit.maxHp, unit.hp + 20);
                 let hpAfter = Math.floor(unit.hp);
                 unit._resting = true;
                 emitEvent(unit, 'hp-change', { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: unit.atk, def: unit.def });
                 let bg = {type:'attack-group', uidA:unit.uid, uidD:null, entries:[], isBlock:true, _fxSnapshot:makeFXSnapshot(unit,null), waveTaunt:null, waveUnit:null, buffEffects:[], healAmount: 10, healUnitUid: unit.uid};
                 bg.entries.push({type:'combat-text', text:`<span class="${unit.camp==='ally'?'blue':'orange'}">${unit.camp==='ally'?'明教':'六大派'} ${unit.name}</span> 被遮挡`});
-                bg.entries.push({type:'info', text:`<span class="green">休息回复10点生命（${hpBefore} → ${hpAfter}）</span>`});
+                bg.entries.push({type:'info', text:`<span class="green">休息回复20点生命（${hpBefore} → ${hpAfter}）</span>`});
                 bg._events = [...window._battleEvents];
                 window._battleEvents = [];
                 log.push(bg);

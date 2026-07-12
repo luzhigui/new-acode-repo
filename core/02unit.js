@@ -24,8 +24,11 @@ export class Unit {
         this._baseMaxHp = 0;
         // V3.1.0 新增：宋青书/周芷若联动技能状态字段
         this._kuaiLeStack = [];       // 快乐层数数组，每层 { healPct: number }
-        this._xingFenActive = false;  // 性奋是否可用（本回合是否还能触发额外攻击）
-        this._kuLianActive = false;   // 苦练是否激活（本回合是否已经率先行动过）
+        this._xingFenActive = false;
+        this._xingFenCount = 0;  // 性奋已触发次数（影响生命上限扣减）（本回合是否还能触发额外攻击）
+        this._kuLianActive = false;
+        this._phantomTarget = null;  // 成昆模仿的目标 uid
+        this._isLinkAttack = false;   // 苦练是否激活（本回合是否已经率先行动过）
     }
     clone(){
         let c=new Unit(this.name,this.m,this.role,this.camp);
@@ -52,7 +55,10 @@ export class Unit {
         // V3.1.0 新增字段深拷贝
         c._kuaiLeStack = this._kuaiLeStack.map(layer => ({ ...layer }));
         c._xingFenActive = this._xingFenActive;
+        c._xingFenCount = this._xingFenCount;
         c._kuLianActive = this._kuLianActive;
+        c._phantomTarget = this._phantomTarget;
+        c._isLinkAttack = this._isLinkAttack;
         return c;
     }
     init(){
@@ -62,7 +68,7 @@ export class Unit {
         this.atk=a;this.def=d;this.maxHp=hp*2.5;this.hp=this.maxHp;
     }
     applyBonus(){
-        switch(this.role){case'战士':this.atk+=3;this.def+=2;this.maxHp+=25;break;case'防战':this.atk-=1;this.maxHp+=50;break;case'远程':this.atk+=6;this.def-=2;this.maxHp-=25;break;case'飞行':this.atk+=2;this.def-=2;this.maxHp-=25;break;}
+        switch(this.role){case'战士':this.atk+=3;this.def+=2;this.maxHp+=25;break;case'防战':this.atk-=6;this.def+=6;this.maxHp+=25;break;case'远程':this.atk+=6;this.def-=2;this.maxHp-=25;break;case'飞行':this.atk+=2;this.def-=2;this.maxHp-=25;break;}
         this.hp=this.maxHp;
         this._baseMaxHp = this.maxHp;
     }

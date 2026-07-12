@@ -50,8 +50,17 @@ AI 助手在展示代码改动时必须遵守以下规则：
 · 用户直接贴出目标函数的完整代码
 · AI 基于用户刚贴的原文，逐字提取旧代码片段做前后对比
 · 这种方式准确率接近 100%，是经过多次实战验证的最可靠方法
+· 禁止 AI 凭上一轮的修改记忆推测当前文件内容，必须以用户最新贴出的原文为唯一依据。
 
-6. 一次最多发 3 处改动
+6. 诊断代码走控制台，不污染源文件
+
+特效/动画/位置等 Bug 排查时，AI 应给出可直接粘贴到 F12 控制台的诊断脚本：
+· 劫持目标函数（appendChild / dispatch / MutationObserver）
+· 打印坐标、参数、元素引用
+· 刷新页面即恢复，不留下任何代码改动
+严禁在源代码文件中插入 `debugDot` 等临时调试元素。
+
+7. 一次最多发 3 处改动
 
 每次发送前后对比时，最多包含 3 处改动。发完等用户确认成功后，再继续下一批。
 这样可以避免一次性信息量过大导致遗漏或混乱。
@@ -223,7 +232,20 @@ game-design.md              - 游戏设计文档
 
 ---
 
-开发工具箱
+控制台调试
 
-打开 tools/31-toolkit.html 使用开发工具箱
+当需要诊断动画、定位、DOM 元素等问题时，直接在 F12 控制台粘贴诊断脚本运行：
+
+```javascript
+// 示例：劫持 appendChild 捕获特定元素
+(function() {
+  const orig = document.body.appendChild.bind(document.body);
+  document.body.appendChild = function(el) {
+    if (el.classList && el.classList.contains('目标类名')) {
+      console.log('元素已插入:', el.getBoundingClientRect());
+    }
+    return orig(el);
+  };
+  console.log('诊断脚本已注入，触发对应操作查看输出');
+})();
 ```

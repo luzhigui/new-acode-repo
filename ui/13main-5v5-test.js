@@ -162,6 +162,92 @@ document.addEventListener('DOMContentLoaded', function() {
 
     document.getElementById('btnMain').addEventListener('click', async function(){
         onAnyButtonClick();
+
+        // 全自动/手动共用战斗启动流程
+        const startBattle = async (choice) => {
+            clearLogExceptFirst(); hasLoggedTeam=false; fadeBGMTo(0.1,2000); logTeamInfo('初始阵容', getState.UI(), gs, battleResultForInfo, getState.activeBuffs(), hasLoggedTeam); hasLoggedTeam = true;
+            await showCountdown(TRASH_TALK_ALLY, TRASH_TALK_ENEMY, rand, showDanmaku, autoScrollLog);
+            let logDiv=document.getElementById('log'); logDiv.innerHTML+='<div class="separator">⚔️ 5v5对决开始 ⚔️</div>';
+            autoScrollLog();
+            if (getState.autoLevel() === 'full-auto') {
+                const allKeys = Object.keys(C.BUFFS);
+                const existing = getState.activeBuffs().map(b => b.key);
+                const available = allKeys.filter(k => !existing.includes(k));
+                if (available.length > 0) {
+                    const pick = available[rand(0, available.length - 1)];
+                    const duration = C.BUFFS[pick].duration || C.BUFF_DURATION;
+                    const buffs = getState.activeBuffs();
+                    if (buffs.length >= 2) {
+                        const shortest = buffs.reduce((a, b) => a.remaining < b.remaining ? a : b);
+                        buffs.splice(buffs.indexOf(shortest), 1);
+                    }
+                    if (pick === 'holyFlame') {
+                        buffs.push({ key: pick, target: 'ally', remaining: duration, name: C.BUFFS[pick].name, col: rand(1, 3), row: rand(1, 3) });
+                    } else {
+                        buffs.push({ key: pick, target: 'ally', remaining: duration, name: C.BUFFS[pick].name });
+                    }
+                    updateBuffSlots(getState.activeBuffs(), selectedBuffIndex);
+                    logDiv.innerHTML += `<span class="gold">✨ 获得Buff：${C.BUFFS[pick].name}（持续${duration}回合）</span><br>`;
+                    autoScrollLog();
+                }
+            } else {
+                await new Promise(resolve => { showBuffSelection(() => resolve(), getState.activeBuffs(), selectedBuffIndex, () => updateBuffSlots(getState.activeBuffs(), selectedBuffIndex), () => {}, autoScrollLog); });
+            }
+            await new Promise(r=>setTimeout(r,600));
+            try {
+                setState.gs(S.RUNNING); updateButtons(); document.getElementById('btnNext').disabled=true;
+                abortController=new AbortController();
+                const snap = getState.snapshot();
+                snap.ally = getState.UI().allyTeam.map(u=>Object.freeze(u.clone()));
+                let occupiedPositions = new Set(snap.ally.map(u => u.pos));
+                let freePositions = [1,2,3,4,5,6,7,8,9].filter(p => !occupiedPositions.has(p));
+                let enemyList = snap.enemy.map(u => u.clone());
+                for (let unit of enemyList) {
+                    if (unit.pos === -1 || unit.pos == null) {
+                        if (freePositions.length > 0) { unit.pos = freePositions[rand(0, freePositions.length - 1)]; unit._originalPos = unit.pos; freePositions = freePositions.filter(p => p !== unit.pos); }
+                        else { unit.pos = 1 + rand(0, 8); unit._originalPos = unit.pos; }
+                    }
+                }
+                snap.enemy = Object.freeze(enemyList.map(u => Object.freeze(u)));
+                setState.snapshot(snap);
+                const currentUI = getState.UI();
+                currentUI.enemyTeam = enemyList;
+                updateUI();
+                const battleResult = runBattle(snap, getState.activeBuffs());
+                setState.UI({ ...getState.UI(), currentResult: battleResult });
+                if (battleResult && battleResult.doubleStrikeUids) {
+                    currentDoubleStrikeUid = battleResult.doubleStrikeUids[battleResult.doubleStrikeUids.length - 1] || null;
+                    getState.currentDoubleStrikeUid = currentDoubleStrikeUid;
+                }
+                await playBattle();
+                let ctx = window._getPlayerContext();
+                if (ctx && ctx.battleResultForInfo) {
+                    showBattleReport(ctx.UI, ctx.battleResultForInfo);
+                    if (getState.autoLevel() === 'full-auto') {
+                        setTimeout(() => {
+                            const overlay = document.getElementById('battleReportOverlay');
+                            if (overlay) overlay.remove();
+                            const float = document.getElementById('battleReportFloat');
+                            if (float) float.remove();
+                        }, 3000);
+                    }
+                }
+            } catch (e) {
+                let logDiv=document.getElementById('log'); let errorDiv=document.createElement('div');
+                errorDiv.innerHTML=`<span class="red">❌ 战斗异常中断：${e.message || e}</span><br>`;
+                logDiv.appendChild(errorDiv); logDiv.scrollTop=logDiv.scrollHeight;
+                console.error('战斗异常', e);
+            } finally {
+                abortController=null;
+            }
+            updateButtons();
+            if (getState.autoLevel() === 'full-auto' && gs === 'GAMEOVER') {
+                setTimeout(() => {
+                    if (currentStage < 6) document.getElementById('btnMain').click();
+                }, 3500);
+            }
+        };
+
         if(gs===S.GAMEOVER){
             window._fastForwardActive = false;
             setRenderStore(null);
@@ -185,6 +271,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 renderGrid('allyGrid', 'ally');
                 renderGrid('enemyGrid', 'enemy');
                 setState.gs(S.IDLE); setState.isPaused(false); updateButtons(); enableAllButtons(); updateSpeedButtons(); if(window._refreshGlowCells)window._refreshGlowCells();
+                if (getState.autoLevel() === 'full-auto') { setTimeout(() => { if (getState.autoLevel() === 'full-auto' && !getState.isBattleStarting()) document.getElementById('btnMain').click(); }, 500); }
             } else {
                 currentStage++;
                 setRenderStore(null);
@@ -208,58 +295,24 @@ document.addEventListener('DOMContentLoaded', function() {
                 renderGrid('allyGrid', 'ally');
                 renderGrid('enemyGrid', 'enemy');
                 setState.gs(S.IDLE); setState.isPaused(false); updateButtons(); enableAllButtons(); updateSpeedButtons(); if(window._refreshGlowCells)window._refreshGlowCells();
+                if (getState.autoLevel() === 'full-auto') { setTimeout(() => { if (getState.autoLevel() === 'full-auto' && !getState.isBattleStarting()) document.getElementById('btnMain').click(); }, 500); }
             }
         } else if(gs===S.IDLE&&!isBattleStarting){
             if(!getState.adjustMode()){
+                if(getState.autoLevel() === 'full-auto') {
+                    // 全自动：跳过调整，直接进入战斗
+                    setState.adjustMode(false); setState.selectedAdjustPos(null); isBattleStarting=true; updateButtons(); updateUI();
+                    startBattle('明教');
+                    return;
+                }
                 setState.adjustMode(true); setState.selectedAdjustPos(null); updateButtons(); updateUI(); if(window._refreshGlowCells)window._refreshGlowCells();
             } else {
                 setState.adjustMode(false); setState.selectedAdjustPos(null); isBattleStarting=true; updateButtons(); updateUI();
-                showVoteDialog(async(choice)=>{
-                    clearLogExceptFirst(); hasLoggedTeam=false; fadeBGMTo(0.1,2000); logTeamInfo('初始阵容', getState.UI(), gs, battleResultForInfo, getState.activeBuffs(), hasLoggedTeam); hasLoggedTeam = true;
-                    await showCountdown(TRASH_TALK_ALLY, TRASH_TALK_ENEMY, rand, showDanmaku, autoScrollLog);
-                    let logDiv=document.getElementById('log'); logDiv.innerHTML+='<div class="separator">⚔️ 5v5对决开始 ⚔️</div>';
-                    autoScrollLog();
-                    await new Promise(resolve => { showBuffSelection(() => resolve(), getState.activeBuffs(), selectedBuffIndex, () => updateBuffSlots(getState.activeBuffs(), selectedBuffIndex), () => {}, autoScrollLog); });
-                    await new Promise(r=>setTimeout(r,600));
-                    try {
-                        setState.gs(S.RUNNING); updateButtons(); document.getElementById('btnNext').disabled=true;
-                        abortController=new AbortController();
-                        const snap = getState.snapshot();
-                        snap.ally = getState.UI().allyTeam.map(u=>Object.freeze(u.clone()));
-                        let occupiedPositions = new Set(snap.ally.map(u => u.pos));
-                        let freePositions = [1,2,3,4,5,6,7,8,9].filter(p => !occupiedPositions.has(p));
-                        let enemyList = snap.enemy.map(u => u.clone());
-                        for (let unit of enemyList) {
-                            if (unit.pos === -1 || unit.pos == null) {
-                                if (freePositions.length > 0) { unit.pos = freePositions[rand(0, freePositions.length - 1)]; unit._originalPos = unit.pos; freePositions = freePositions.filter(p => p !== unit.pos); }
-                                else { unit.pos = 1 + rand(0, 8); unit._originalPos = unit.pos; }
-                            }
-                        }
-                        snap.enemy = Object.freeze(enemyList.map(u => Object.freeze(u)));
-                        setState.snapshot(snap);
-                        const currentUI = getState.UI();
-                        currentUI.enemyTeam = enemyList;
-                        updateUI();
-                        const battleResult = runBattle(snap, getState.activeBuffs());
-                        setState.UI({ ...getState.UI(), currentResult: battleResult });
-                        if (battleResult && battleResult.doubleStrikeUids) {
-                            currentDoubleStrikeUid = battleResult.doubleStrikeUids[battleResult.doubleStrikeUids.length - 1] || null;
-                            getState.currentDoubleStrikeUid = currentDoubleStrikeUid;
-                        }
-                        await playBattle();
-                        let ctx = window._getPlayerContext();
-                        if (ctx && ctx.battleResultForInfo) { showBattleReport(ctx.UI, ctx.battleResultForInfo); }
-                    } catch (e) {
-                        let logDiv=document.getElementById('log'); let errorDiv=document.createElement('div');
-                        errorDiv.innerHTML=`<span class="red">❌ 战斗异常中断：${e.message || e}</span><br>`;
-                        logDiv.appendChild(errorDiv); logDiv.scrollTop=logDiv.scrollHeight;
-                        console.error('战斗异常', e);
-                    } finally {
-                        abortController=null;
-                    
-                    }
-                    updateButtons();
-                }, window._battleHasZhang);
+                if (getState.autoLevel() === 'full-auto') {
+                    startBattle('明教');
+                } else {
+                    showVoteDialog(startBattle, window._battleHasZhang);
+                }
             }
         }
     });

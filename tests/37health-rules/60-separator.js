@@ -57,6 +57,8 @@ export const rule60 = {
             var prev2 = log[j-1];
             var curr2 = log[j];
             
+            // 跳过攻击动作内部的 combat-text 和 detail，它们不是独立条目
+            if (curr2.type === 'combat-text' || curr2.type === 'detail') continue;
             var noSepTypes = ['info','buff-summary','buff-summon','buff-destroy','round-start','round-end'];
             if ((prev2.type === 'attack-group' || prev2.type === 'round-start') && noSepTypes.indexOf(curr2.type) !== -1) {
                 var prevDiv2 = null;

@@ -331,9 +331,7 @@ export function showMeleeDodge(unitA, unitD, speed, getPausedFn) {
     clone.classList.add('crash-clone');
     document.body.appendChild(clone);
 
-    cellA.style.opacity = '0';
-    cellA.style.background = 'transparent';
-    cellA.style.border = 'none';
+    cellA.style.display = 'none';
     cellA.removeAttribute('data-flash');
     const ctxD = window._getPlayerContext ? window._getPlayerContext() : null;
     if (ctxD && ctxD.store) {
@@ -448,9 +446,7 @@ export function showMeleeMiss(unitA, unitD, speed, getPausedFn) {
     clone.classList.add('crash-clone');
     document.body.appendChild(clone);
 
-    cellA.style.opacity = '0';
-    cellA.style.background = 'transparent';
-    cellA.style.border = 'none';
+    cellA.style.display = 'none';
     cellA.removeAttribute('data-flash');
     const ctxM = window._getPlayerContext ? window._getPlayerContext() : null;
     if (ctxM && ctxM.store) {
