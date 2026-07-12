@@ -198,22 +198,6 @@ export function renderGrid(id, camp) {
     for (let i = 0; i < displayOrder.length; i++) {
         let pos = displayOrder[i], unit = team.find(c => c.pos === pos);
         if (unit && !unit.isHorse) {
-            if (unit._flyMode) {
-                let div = document.createElement('div');
-                div.className = 'cell occupied';
-                div.dataset.pos = pos;
-                div.dataset.uid = unit.uid;
-                if (unit._flyMode === 'ghost') {
-                    let roleIcon = unit.role==='战士'?'⚔️':(unit.role==='防战'?'🛡️':(unit.role==='远程'?'🏹':'🦅'));
-                    div.innerHTML = `<span class="cell-icon">${roleIcon}</span><div class="cell-info"><span class="cell-name">${unit.name}</span><span class="cell-stats">攻${Math.floor(unit.atk)} 防${Math.floor(unit.def)} 血${Math.floor(unit.hp)}</span></div>`;
-                    div.style.opacity = '0.5';
-                    div.style.background = 'rgba(30,100,255,0.28)';
-                    div.style.border = '2px solid rgba(100,150,255,0.6)';
-                    div.style.boxShadow = '0 0 12px rgba(100,150,255,0.5)';
-                }
-                grid.appendChild(div);
-                continue;
-            }
             if (unit._isDead) {
                 unit = { ...unit, _flash: 'dead', _resting: false, _acted: false, _blocked: false };
             }

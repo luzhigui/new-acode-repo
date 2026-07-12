@@ -12,6 +12,7 @@ const ALL_BUFF_KEYS = Object.keys(C.BUFFS);
 
 // ==================== 阵容生成 ====================
 export function doInitBattle(currentStage, UI, snapshot, activeBuffs, selectedBuffIndex, currentDoubleStrikeUid) {
+    if (!UI || !snapshot) return;
     let allyTeam = [], enemyTeam = [];
     const mingSquad = C.MING_SQUADS && C.MING_SQUADS[currentStage] ? C.MING_SQUADS[currentStage] : null;
     const enemySquad = C.ENEMY_SQUADS && C.ENEMY_SQUADS[currentStage] ? C.ENEMY_SQUADS[currentStage] : null;
