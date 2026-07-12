@@ -159,7 +159,7 @@ export function showSplashArrows(attacker, primaryTarget, splashTargets, speed, 
             } else {
                 let defCell = gridD.children[idxD];
                 if (defCell) { applyImpactShrink(defCell, 250, getPausedFn); }
-                setTimeout(() => { if (container.parentNode) container.remove(); }, 400);
+                setTimeout(() => { if (container.parentNode) container.remove(); }, 600);
             }
         }
         requestAnimationFrame(flyStep);

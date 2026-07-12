@@ -20,26 +20,15 @@ function clearCrashStyles(cell) {
 
 function finishCrash(clone, cell, unitA, UI) {
     if (clone && clone.parentNode) clone.remove();
-    const currentCell = document.querySelector(`[data-uid="${unitA.uid}"]`);
-    if (currentCell) {
-        clearCrashStyles(currentCell);
-    } else if (cell) {
-        clearCrashStyles(cell);
-    }
     const ctx = window._getPlayerContext ? window._getPlayerContext() : null;
     if (ctx && ctx.store) {
-        ctx.store.dispatch({ type: 'CLEAR_UNIT_FLASH', uid: unitA.uid });
-        ctx.store.dispatch({ type: 'SET_VISUAL', uid: unitA.uid, _flyMode: null });
+        ctx.store.dispatch({ type: 'SET_VISUAL', uid: unitA.uid, _flyMode: null, _acted: true });
+        ctx.store.dispatch({ type: 'SET_FLASH', uid: unitA.uid, flash: 'attack' });
     } else {
-        unitA._flash = null;
         delete unitA._flyMode;
-        if (currentCell) clearCrashStyles(currentCell);
-        else if (cell) clearCrashStyles(cell);
     }
-    if (UI) {
-        const c = window._getPlayerContext();
-        if (c) c.updateUI(UI);
-    }
+    if (cell) clearCrashStyles(cell);
+    if (ctx) ctx.updateUI();
 }
 
 function showCloseRangeFX(unitA, unitD, role) {
@@ -135,6 +124,7 @@ export function showMeleeCrash(unitA, unitD, speed, getPausedFn, onCrash) {
 
     let clone = cellA.cloneNode(true);
     clone.setAttribute('data-fx', 'temporary');
+    clone.classList.remove('ready', 'acted');
     clone.style.cssText = `
         position: fixed;
         left: ${savedLeft}px;
@@ -156,39 +146,41 @@ export function showMeleeCrash(unitA, unitD, speed, getPausedFn, onCrash) {
     document.body.appendChild(clone);
 
     if (flyMode === 'ghost') {
+        cellA.classList.remove('ready', 'acted');
         cellA.style.opacity = '0.5';
         cellA.style.background = 'rgba(30,100,255,0.28)';
         cellA.style.border = '2px solid rgba(100,150,255,0.6)';
         cellA.style.boxShadow = '0 0 12px rgba(100,150,255,0.5)';
         cellA.setAttribute('data-flash', 'attack');
-        // 立即清除闪光标记，防止重绘产生新蓝色格子
-        unitA._flash = null;
         const ctxG = window._getPlayerContext ? window._getPlayerContext() : null;
         if (ctxG && ctxG.store) {
-            ctxG.store.dispatch({ type: 'CLEAR_UNIT_FLASH', uid: unitA.uid });
+            ctxG.store.dispatch({ type: 'SET_FLASH', uid: unitA.uid, flash: 'attack' });
+            ctxG.store.dispatch({ type: 'SET_VISUAL', uid: unitA.uid, _acted: true, _flyMode: flyMode });
         }
     } else {
-        cellA.style.opacity = '0';
-        cellA.style.background = 'transparent';
-        cellA.style.border = 'none';
-        cellA.style.display = 'none';
-        cellA.removeAttribute('data-flash');
-        // 立即清除闪光标记，防止重绘产生新蓝色格子
         unitA._flash = null;
         const ctxF = window._getPlayerContext ? window._getPlayerContext() : null;
         if (ctxF && ctxF.store) {
             ctxF.store.dispatch({ type: 'CLEAR_UNIT_FLASH', uid: unitA.uid });
+            ctxF.store.dispatch({ type: 'SET_VISUAL', uid: unitA.uid, _acted: true, _flyMode: flyMode });
         }
+        if (cellA.parentNode) {
+            cellA.parentNode.removeChild(cellA);
+        }
+        // 强制更新UI，把残留的旧格子数据清掉
+        const c = window._getPlayerContext();
+        if (c) c.updateUI();
     }
-    unitA._flash = null;
-    cellA.classList.remove('ready');
 
     let chargeDur = 800 * (speed / 1000);
     let crashDur = 900 * (speed / 1000);
     let returnDur = 800 * (speed / 1000);
 
-    cellA.style.transition = 'transform 0.3s ease-out';
-    cellA.style.transform = 'scale(1.15)';
+    if (flyMode === 'ghost') {
+        cellA.classList.remove('ready', 'acted');
+        cellA.style.transition = 'transform 0.3s ease-out';
+        cellA.style.transform = 'scale(1.15)';
+    }
 
     let startC = null;
     function phaseCharge(ts) {
@@ -197,7 +189,9 @@ export function showMeleeCrash(unitA, unitD, speed, getPausedFn, onCrash) {
         let p = Math.min(1, (ts - startC) / chargeDur);
         if (p < 1) { requestAnimationFrame(phaseCharge); }
         else {
-            cellA.style.transform = 'scale(1)'; cellA.style.transition = '';
+            if (flyMode === 'ghost') {
+                cellA.style.transform = 'scale(1)'; cellA.style.transition = '';
+            }
             let start1 = null;
             function phase1(ts1) {
                 if (getPausedFn && getPausedFn()) { requestAnimationFrame(phase1); return; }
@@ -231,7 +225,42 @@ export function showMeleeCrash(unitA, unitD, speed, getPausedFn, onCrash) {
             requestAnimationFrame(phase1);
         }
     }
-    requestAnimationFrame(phaseCharge);
+    if (flyMode === 'ghost') {
+        requestAnimationFrame(phaseCharge);
+    } else {
+        // fly 模式跳过 cellA 蓄力，直接进入飞行阶段
+        let start1 = null;
+        function phase1(ts1) {
+            if (getPausedFn && getPausedFn()) { requestAnimationFrame(phase1); return; }
+            if (!start1) start1 = ts1;
+            let p1 = Math.min(1, (ts1 - start1) / crashDur);
+            let ease = 1 - Math.pow(1 - p1, 3);
+            let flown = flyDist * ease;
+            clone.style.left = (savedLeft + nx * flown) + 'px';
+            clone.style.top = (savedTop + ny * flown) + 'px';
+            if (p1 < 1) { requestAnimationFrame(phase1); }
+            else {
+                applyImpactShrink(cellB, 400, getPausedFn);
+                if (onCrash) onCrash();
+                let crashX = savedLeft + nx * flyDist, crashY = savedTop + ny * flyDist;
+                let start3 = null;
+                function phase3(ts3) {
+                    if (getPausedFn && getPausedFn()) { requestAnimationFrame(phase3); return; }
+                    if (!start3) start3 = ts3;
+                    let p3 = Math.min(1, (ts3 - start3) / returnDur);
+                    let ease3 = 1 - Math.pow(1 - p3, 4);
+                    clone.style.left = (crashX + (savedLeft - crashX) * ease3) + 'px';
+                    clone.style.top = (crashY + (savedTop - crashY) * ease3) + 'px';
+                    if (p3 < 1) { requestAnimationFrame(phase3); }
+                    else {
+                        finishCrash(clone, cellA, unitA, UI);
+                    }
+                }
+                requestAnimationFrame(phase3);
+            }
+        }
+        requestAnimationFrame(phase1);
+    }
 }
 
 export function showMeleeDodge(unitA, unitD, speed, getPausedFn) {
@@ -283,6 +312,7 @@ export function showMeleeDodge(unitA, unitD, speed, getPausedFn) {
     let startY = rA.top;
 
     let clone = cellA.cloneNode(true);
+    clone.classList.remove('ready', 'acted');
     clone.style.position = 'fixed';
     clone.style.left = rA.left + 'px';
     clone.style.top = rA.top + 'px';
@@ -302,6 +332,7 @@ export function showMeleeDodge(unitA, unitD, speed, getPausedFn) {
     const ctxD = window._getPlayerContext ? window._getPlayerContext() : null;
     if (ctxD && ctxD.store) {
         ctxD.store.dispatch({ type: 'CLEAR_UNIT_FLASH', uid: unitA.uid });
+        ctxD.store.dispatch({ type: 'SET_VISUAL', uid: unitA.uid, _acted: true });
     }
     cellA.classList.remove('ready');
 
@@ -390,6 +421,7 @@ export function showMeleeMiss(unitA, unitD, speed, getPausedFn) {
 
     let clone = cellA.cloneNode(true);
     clone.setAttribute('data-fx', 'temporary');
+    clone.classList.remove('ready', 'acted');
     clone.style.cssText = `
         position: fixed;
         left: ${savedLeft}px;
@@ -417,6 +449,7 @@ export function showMeleeMiss(unitA, unitD, speed, getPausedFn) {
     const ctxM = window._getPlayerContext ? window._getPlayerContext() : null;
     if (ctxM && ctxM.store) {
         ctxM.store.dispatch({ type: 'CLEAR_UNIT_FLASH', uid: unitA.uid });
+        ctxM.store.dispatch({ type: 'SET_VISUAL', uid: unitA.uid, _acted: true });
     } else {
         unitA._flash = null;
     }
