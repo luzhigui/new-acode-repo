@@ -53,7 +53,7 @@ export function clearAllEffects(){
     document.querySelectorAll('.grid.victory-border').forEach(grid => grid.classList.remove('victory-border'));
 }
 
-const GAME_STATE_FIELDS = ['hp','alive','maxHp','atk','def','role','rangedForm','_isDead','_baseMaxHp','dmgDealt','dmgTaken','healDone','reboundDone','leechDone','dodgeCount','critCount','survivedRounds','pos','buffAtkBonus','buffDefBonus','buffDodgeBonus','buffHpBonus'];
+const GAME_STATE_FIELDS = ['hp','alive','maxHp','atk','def','role','rangedForm','_isDead','_baseMaxHp','dmgDealt','dmgTaken','healDone','reboundDone','leechDone','dodgeCount','critCount','survivedRounds','pos','buffAtkBonus','buffDefBonus','buffDodgeBonus','buffHpBonus','_phantomTarget'];
 
 function createStore(initialState, reducer) {
     let state = initialState;
@@ -133,6 +133,7 @@ function battleReducer(state, action) {
                         if (p.critCount !== undefined) next[idx].critCount = p.critCount;
                         if (p.survivedRounds !== undefined) next[idx].survivedRounds = p.survivedRounds;
                         if (p._isDead !== undefined) next[idx]._isDead = p._isDead;
+                        if (p._phantomTarget !== undefined) next[idx]._phantomTarget = p._phantomTarget;
                         if (ev.eventType === 'zhang-switch') {
                             if (p.rangedForm !== undefined) next[idx].rangedForm = p.rangedForm;
                             if (p.role) next[idx].role = p.role;
@@ -145,6 +146,7 @@ function battleReducer(state, action) {
                             uid: p.uid, name: p.name, role: p.role, camp: p.camp, pos: p.pos,
                             hp: p.hp, maxHp: p.maxHp, atk: p.atk, def: p.def, alive: p.alive,
                             isHorse: p.isHorse || false, _isDead: p._isDead || false,
+                            _phantomTarget: p._phantomTarget || null,
                             dmgDealt: 0, dmgTaken: 0, healDone: 0, reboundDone: 0, leechDone: 0,
                             dodgeCount: 0, critCount: 0, survivedRounds: 0,
                             buffAtkBonus: 0, buffDefBonus: 0, buffDodgeBonus: 0, buffHpBonus: 0,
