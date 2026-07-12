@@ -1,10 +1,9 @@
 // fx/20fx-dodge-bullet.js - 光明顶5v5 闪避反击特效
-// V5.0.5 | 2026-07-12 修复反击者错误显示蓝色闪光，强制黄色防御闪光
-export const VER = 'fx/20fx-dodge-bullet.js V5.0.5';
+// V5.0.6 | 2026-07-12 修复格子缩小与残留：完整保存/恢复原始格子状态
+export const VER = 'fx/20fx-dodge-bullet.js V5.0.6';
 
 import { showComicBubble } from './15fx-common-5v5-test.js';
 
-// ==================== 辅助函数 ====================
 function wait(ms) { return new Promise(r => setTimeout(r, window._fastForwardActive ? 1 : ms)); }
 
 function getCellElement(unit) {
@@ -97,7 +96,7 @@ function createBgParticles(x, y) {
 function createCounterStorm(x, y) {
     const container = document.createElement('div'); container.className = 'counter-storm';
     container.style.position = 'fixed'; container.style.zIndex = '10030'; container.style.pointerEvents = 'none';
-    container.style.left = (x - 45) + 'px'; container.style.top = (y - 60) + 'px';
+    container.style.left = (x - 45) + 'px'; container.style.top = (y - 100) + 'px';
     for (let i = 0; i < 4; i++) {
         const ring = document.createElement('div'); ring.className = 'storm-ring';
         ring.style.position = 'absolute'; ring.style.width = '90px'; ring.style.height = '15px';
@@ -129,27 +128,72 @@ export async function showDodgeBulletTime(attacker, defender, reboundDmg) {
         if (!resolved) { console.warn('[子弹时间] 超时，强制结束'); isSkipped = true; cleanup(); resolved = true; }
     }, TIMEOUT_MS);
 
-    let dCell = null;
+    // 保存原始格子状态，供 cleanup 恢复
+    let aCell = null, dCell = null;
+    let aCellSavedStyles = null, dCellSavedStyles = null;
+
+    function saveCellStyles(cell) {
+        if (!cell) return null;
+        return {
+            position: cell.style.position,
+            left: cell.style.left,
+            top: cell.style.top,
+            width: cell.style.width,
+            height: cell.style.height,
+            zIndex: cell.style.zIndex,
+            margin: cell.style.margin,
+            opacity: cell.style.opacity,
+            visibility: cell.style.visibility,
+            background: cell.style.background,
+            border: cell.style.border,
+            boxShadow: cell.style.boxShadow,
+            transform: cell.style.transform,
+            transition: cell.style.transition,
+            display: cell.style.display
+        };
+    }
+
+    function restoreCellStyles(cell, saved) {
+        if (!cell || !saved) return;
+        cell.style.position = saved.position;
+        cell.style.left = saved.left;
+        cell.style.top = saved.top;
+        cell.style.width = saved.width;
+        cell.style.height = saved.height;
+        cell.style.zIndex = saved.zIndex;
+        cell.style.margin = saved.margin;
+        cell.style.opacity = saved.opacity;
+        cell.style.visibility = saved.visibility;
+        cell.style.background = saved.background;
+        cell.style.border = saved.border;
+        cell.style.boxShadow = saved.boxShadow;
+        cell.style.transform = saved.transform;
+        cell.style.transition = saved.transition;
+        cell.style.display = saved.display;
+    }
 
     function cleanup() {
         cleanupElements.forEach(el => { if (el && el.parentNode) el.remove(); });
         clearTimeout(timeoutId);
-        if (dCell) {
-            dCell.removeAttribute('data-flash');
-            dCell.style.background = '';
-            dCell.style.color = '';
-            dCell.style.boxShadow = '';
-            dCell.querySelectorAll('*').forEach(el => { el.style.color = ''; });
-            if (ctx && ctx.store) {
-                ctx.store.dispatch({ type: 'CLEAR_UNIT_FLASH', uid: defender.uid });
-            }
+        // 恢复原始格子
+        restoreCellStyles(dCell, dCellSavedStyles);
+        restoreCellStyles(aCell, aCellSavedStyles);
+        // 清除闪光
+        if (ctx && ctx.store) {
+            if (attacker) ctx.store.dispatch({ type: 'CLEAR_UNIT_FLASH', uid: attacker.uid });
+            if (defender) ctx.store.dispatch({ type: 'CLEAR_UNIT_FLASH', uid: defender.uid });
+            ctx.updateUI(ctx.UI);
         }
     }
 
     try {
-        const aCell = getCellElement(attacker);
+        aCell = getCellElement(attacker);
         dCell = getCellElement(defender);
         if (!aCell || !dCell) { cleanup(); return; }
+
+        // 保存原始样式
+        aCellSavedStyles = saveCellStyles(aCell);
+        dCellSavedStyles = saveCellStyles(dCell);
 
         const pos = { ax: innerWidth * 0.09, ay: innerHeight * 0.16, dx: innerWidth * 0.64, dy: innerHeight * 0.68 };
 
@@ -163,7 +207,6 @@ export async function showDodgeBulletTime(attacker, defender, reboundDmg) {
             + 'text-align:center;line-height:1;letter-spacing:2px;';
         skipBtn.addEventListener('click', () => {
             isSkipped = true;
-            const ctx = window._getPlayerContext ? window._getPlayerContext() : null;
             if (ctx) ctx.isPaused = false;
         });
         document.body.appendChild(skipBtn);
@@ -174,14 +217,9 @@ export async function showDodgeBulletTime(attacker, defender, reboundDmg) {
         await wait(400);
         if (isSkipped) { cleanup(); return; }
 
-        // 强制纠正反击者为黄色防御闪光
-        dCell.removeAttribute('data-flash');
-        dCell.setAttribute('data-flash', 'defend');
-        if (ctx && ctx.store) {
-            ctx.store.dispatch({ type: 'CLEAR_UNIT_FLASH', uid: defender.uid });
-            ctx.store.dispatch({ type: 'SET_FLASH', uid: defender.uid, flash: 'defend' });
-            ctx.updateUI(ctx.UI);
-        }
+        // 隐藏原始格子（不修改样式，只隐藏，让克隆体表演）
+        aCell.style.opacity = '0';
+        dCell.style.opacity = '0';
 
         // 黑幕
         const mask = document.createElement('div'); mask.className = 'bullet-mask'; mask.setAttribute('data-fx', 'temporary');
@@ -191,48 +229,64 @@ export async function showDodgeBulletTime(attacker, defender, reboundDmg) {
         await wait(200);
         if (isSkipped) { cleanup(); return; }
 
-        // 反击者高亮：直接操作原格子，已纠正为黄色闪光，无需额外金色
+        // 获取位置信息
+        const aRect = aCell.getBoundingClientRect();
         const dRect = dCell.getBoundingClientRect();
-        const origBg = dCell.style.background;
-        const origColor = dCell.style.color;
-        dCell.style.position = 'fixed';
-        dCell.style.left = dRect.left + 'px';
-        dCell.style.top = dRect.top + 'px';
-        dCell.style.width = dRect.width + 'px';
-        dCell.style.height = dRect.height + 'px';
-        dCell.style.zIndex = '10060';
-        dCell.style.margin = '0';
-        dCell.style.background = '#ffd700';
-        dCell.style.color = '#1a1a1a';
-        dCell.style.boxShadow = '0 0 20px rgba(255,215,0,0.9)';
-        dCell.querySelectorAll('*').forEach(el => { el.style.color = '#1a1a1a'; });
 
-        // 飞入的克隆体
-        const cloneD = dCell.cloneNode(true); cloneD.setAttribute('data-fx', 'temporary'); cloneD.classList.add('bullet-clone');
-        cloneD.style.position = 'fixed'; cloneD.style.width = dRect.width+'px'; cloneD.style.height = dRect.height+'px';
-        cloneD.style.left = innerWidth + 'px'; cloneD.style.top = pos.dy - dRect.height/2 + 'px';
-        cloneD.style.transform = 'scale(0.8)';
-        cloneD.style.filter = 'drop-shadow(0 0 8px #00bcd4) drop-shadow(0 0 20px rgba(0,188,212,0.5))';
-        cloneD.style.zIndex = '10050'; document.body.appendChild(cloneD); cleanupElements.push(cloneD);
+        // 反击者克隆体（从右侧飞入）
+        const cloneD = dCell.cloneNode(true);
+        cloneD.setAttribute('data-fx', 'temporary');
+        cloneD.classList.add('bullet-clone');
+        cloneD.removeAttribute('data-flash');
+        cloneD.style.cssText = `
+            position: fixed;
+            left: ${innerWidth}px;
+            top: ${pos.dy - dRect.height/2}px;
+            width: ${dRect.width}px;
+            height: ${dRect.height}px;
+            z-index: 10050;
+            margin: 0;
+            transform: scale(0.8);
+            filter: drop-shadow(0 0 8px #00bcd4) drop-shadow(0 0 20px rgba(0,188,212,0.5));
+            background: #ffd700;
+            border: 3px solid #b8860b;
+            border-radius: 5px;
+            box-sizing: border-box;
+            display: flex;
+        `;
+        cloneD.querySelectorAll('*').forEach(el => { el.style.color = '#1a1a1a'; });
+        document.body.appendChild(cloneD);
+        cleanupElements.push(cloneD);
 
         const defCenterX = pos.dx + dRect.width/2, defCenterY = pos.dy + dRect.height/2;
         const defInitialLeft = pos.dx;
         const defInitialTop = pos.dy - dRect.height/2;
 
-        const cloneA = aCell.cloneNode(true); cloneA.setAttribute('data-fx', 'temporary'); cloneA.classList.add('bullet-clone');
+        // 攻击者克隆体
+        const cloneA = aCell.cloneNode(true);
+        cloneA.setAttribute('data-fx', 'temporary');
+        cloneA.classList.add('bullet-clone');
         cloneA.removeAttribute('data-flash');
-        cloneA.style.background = '#1e6bb8';
-        cloneA.style.border = '3px solid #0d47a1';
-        cloneA.style.borderRadius = '5px';
-        cloneA.style.boxSizing = 'border-box';
+        cloneA.style.cssText = `
+            position: fixed;
+            left: ${pos.ax - innerWidth*0.06}px;
+            top: ${pos.ay - innerHeight*0.06}px;
+            width: ${aRect.width}px;
+            height: ${aRect.height}px;
+            z-index: 10020;
+            margin: 0;
+            transform: scale(0.6);
+            background: #1e6bb8;
+            border: 3px solid #0d47a1;
+            border-radius: 5px;
+            box-sizing: border-box;
+            display: flex;
+        `;
         cloneA.querySelectorAll('*').forEach(el => { el.style.color = '#ffffff'; });
-        const aRect = aCell.getBoundingClientRect();
-        cloneA.style.position = 'fixed'; cloneA.style.margin = '0';
-        cloneA.style.width = aRect.width+'px'; cloneA.style.height = aRect.height+'px';
+        document.body.appendChild(cloneA);
+        cleanupElements.push(cloneA);
+
         const startAX = pos.ax - innerWidth*0.06, startAY = pos.ay - innerHeight*0.06;
-        cloneA.style.left = startAX + 'px'; cloneA.style.top = startAY + 'px';
-        cloneA.style.zIndex = '10020'; cloneA.style.transform = 'scale(0.6)';
-        document.body.appendChild(cloneA); cleanupElements.push(cloneA);
 
         const kanzhao = showComicBubble('看招！', startAX + 40, startAY + 10, '', 2500);
         if (kanzhao) kanzhao.setAttribute('data-fx', 'temporary');
@@ -254,7 +308,7 @@ export async function showDodgeBulletTime(attacker, defender, reboundDmg) {
         await wait(100);
         if (isSkipped) { cleanup(); return; }
 
-        const bubbleY = defCenterY - dRect.height/2 - 80;
+        const bubbleY = defCenterY - dRect.height/2 - 100;
         const openBubble = showComicBubble('开打开打！', defCenterX, bubbleY, 'bubble-arrow-up', 3000);
         if (openBubble) openBubble.setAttribute('data-fx', 'temporary');
         cleanupElements.push(openBubble);
@@ -276,7 +330,7 @@ export async function showDodgeBulletTime(attacker, defender, reboundDmg) {
 
         // 屏息凝视
         const glow = document.createElement('div'); glow.className = 'breath-glow'; cloneA.appendChild(glow);
-        const storm = createCounterStorm(defCenterX, defCenterY); storm.setAttribute('data-fx', 'temporary'); cleanupElements.push(storm);
+        const storm = createCounterStorm(defCenterX, defCenterY - 20); storm.setAttribute('data-fx', 'temporary'); cleanupElements.push(storm);
         storm.style.display = '';
         storm.style.opacity = '1';
         await wait(3000);

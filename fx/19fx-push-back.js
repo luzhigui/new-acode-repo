@@ -37,7 +37,8 @@ export async function animatePushBack(unit, c, targetPos, options = {}) {
             unit.pos = targetPos;
         }
     }
-    c.updateUI(c.UI);
+    const ctx = window._getPlayerContext ? window._getPlayerContext() : c;
+    if (ctx) ctx.updateUI();
 
     const newCell = getCellElement(unit);
     if (newCell) {

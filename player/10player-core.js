@@ -260,7 +260,8 @@ async function handleAttackGroup(c, entry, roundResult, abortSig, isFirstAttackR
         c.autoScrollLog();
     }
     if(unitA&&!entry.isBlock){
-        c.store.dispatch({ type: 'SET_FLASH', uid: unitA.uid, flash: 'attack' });
+        const flashType = entry.isDodge ? 'defend' : 'attack';
+        c.store.dispatch({ type: 'SET_FLASH', uid: unitA.uid, flash: flashType });
         if (typeof window._triggerFX === 'function') {
             setTimeout(() => {
                 window._triggerFX(entry._fxSnapshot,unitA,unitD,entry.isDead,entry.isDodge,entry.isMiss,entry.isBlock,entry._dmg,entry.waveTaunt,entry.waveUnit,entry.unitRole);
@@ -279,10 +280,17 @@ async function handleAttackGroup(c, entry, roundResult, abortSig, isFirstAttackR
     }
 
     let textEntries=entry.entries,lineCount=textEntries.length, speedFactor=window._fastForwardActive?0.001:Math.max(c.speed,600)/1000, textDuration=window._fastForwardActive?1:(c.speed*lineCount), offset=window._fastForwardActive?1:(200*speedFactor), atkFlashDuration=textDuration+300*speedFactor, defFlashDuration=atkFlashDuration, atkTimer=null;
+    // 近战攻击：闪光保留时间覆盖飞撞动画+展示时间（800+900+800+1000=3500ms）
+    if (unitA && !entry.isBlock && !entry.isDodge && !entry.isMiss && (unitA.role === '战士' || unitA.role === '防战' || unitA.role === '飞行')) {
+        atkFlashDuration = Math.max(atkFlashDuration, 3500 * speedFactor);
+    }
     if(unitA&&!entry.isBlock)atkTimer=setTimeout(async()=>{ await c.waitWhilePaused(); if(unitA){c.store.dispatch({ type: 'CLEAR_UNIT_FLASH', uid: unitA.uid }); c.store.dispatch({ type: 'SET_VISUAL', uid: unitA.uid, _acted: true });} },atkFlashDuration);
     await new Promise(r=>setTimeout(r,offset)); await c.waitWhilePaused();
     if(abortSig&&abortSig.aborted){if(atkTimer)clearTimeout(atkTimer);return { isBattleOver: false };}
-    if(unitD&&!entry.isDodge&&!entry.isMiss){c.store.dispatch({ type: 'SET_FLASH', uid: unitD.uid, flash: 'defend' });} let defTimer=null; if(unitD&&!entry.isDodge&&!entry.isMiss)defTimer=setTimeout(async()=>{ await c.waitWhilePaused(); if(unitD&&!entry.isDead){c.store.dispatch({ type: 'CLEAR_UNIT_FLASH', uid: unitD.uid });} },defFlashDuration);
+    if(unitD&&!entry.isMiss){
+        const flashTypeD = entry.isDodge ? 'attack' : 'defend';
+        c.store.dispatch({ type: 'SET_FLASH', uid: unitD.uid, flash: flashTypeD });
+    } let defTimer=null; if(unitD&&!entry.isDodge&&!entry.isMiss)defTimer=setTimeout(async()=>{ await c.waitWhilePaused(); if(unitD&&!entry.isDead){c.store.dispatch({ type: 'CLEAR_UNIT_FLASH', uid: unitD.uid });} },defFlashDuration);
 
     if (entry.isDodge && unitA && unitD) { if (c.dodgeEffectEnabled) { let reboundDmg = Math.floor((unitA.atk + unitA.def) * 0.5); c.isPaused = true; window.bulletTimeActive = true; await showCriticalBanner('✨闪避反击✨'); await showDodgeBulletTime(unitD, unitA, reboundDmg); window.bulletTimeActive = false; c.isPaused = false; } else { showDodgeBubble(unitA, '闪避！'); } }
 
@@ -314,11 +322,11 @@ async function handleAttackGroup(c, entry, roundResult, abortSig, isFirstAttackR
     if(entry.isDodge&&unitA)showDodgeBubble(unitA,'闪避！'); if(entry.isMiss&&unitA)showDodgeBubble(unitA,'未命中');
     if(unitD&&entry.hpPctAfter!==undefined&&entry.hpPctBefore!==undefined){ if(entry.hpPctBefore>40&&entry.hpPctAfter<=40&&entry.hpPctAfter>20){let t=(unitD.camp==='ally'?'不好，必须反击了！':'小儿安敢伤我！');safeShowDanmaku(unitD,t);} else if(entry.hpPctBefore>20&&entry.hpPctAfter<=20){let t=(unitD.camp==='ally'?'撑住！':'已是强弩之末！');safeShowDanmaku(unitD,t);} }
     await new Promise(r=>setTimeout(r,offset)); await c.waitWhilePaused();
-    if(atkTimer)clearTimeout(atkTimer); if(defTimer)clearTimeout(defTimer);
-    if(unitA && !unitA._isDead){c.store.dispatch({ type: 'CLEAR_UNIT_FLASH', uid: unitA.uid }); c.store.dispatch({ type: 'SET_VISUAL', uid: unitA.uid, _acted: true });}
+    if(defTimer)clearTimeout(defTimer);
+    if(unitA && !unitA._isDead){const su = c.store ? c.store.getState().units.find(u => u.uid === unitA.uid) : null; if (!su || !su._flyMode) { c.store.dispatch({ type: 'CLEAR_UNIT_FLASH', uid: unitA.uid }); c.store.dispatch({ type: 'SET_VISUAL', uid: unitA.uid, _acted: true }); }}
     if(unitD && !entry.isDodge && !entry.isMiss && !entry.isDead && !unitD._isDead) c.store.dispatch({ type: 'CLEAR_UNIT_FLASH', uid: unitD.uid });
     if (c.UI && c.UI.allyTeam && c.UI.enemyTeam) {
-        c.UI.allyTeam.concat(c.UI.enemyTeam).forEach(u => { if (u.alive) { let blocked = isBlocked(u, u.camp === 'ally' ? c.UI.allyTeam : c.UI.enemyTeam); c.store.dispatch({ type: 'SET_VISUAL', uid: u.uid, _blocked: blocked }); } });
+        c.UI.allyTeam.concat(c.UI.enemyTeam).forEach(u => { if (u.alive) { const su = c.store ? c.store.getState().units.find(s => s.uid === u.uid) : null; if (!su || !su._flyMode) { let blocked = isBlocked(u, u.camp === 'ally' ? c.UI.allyTeam : c.UI.enemyTeam); c.store.dispatch({ type: 'SET_VISUAL', uid: u.uid, _blocked: blocked }); } } });
     }
     document.getElementById('roundDisplay').innerText = `📜 日志（第${c.UI.round}回合）`;
 
