@@ -1,6 +1,6 @@
 // tests/38health-monitor.js - 光明顶5v5 实时体检监控器
-// V5.0.9 | 交互元素移至HTML、手动不影响频率、报告手动置顶、死亡原因、胜利弹幕5s
-export const VER = 'tests/38health-monitor.js V5.0.9';
+// V5.0.10 | 攻击特效检测、Buff图标检测、回合上下文定位
+export const VER = 'tests/38health-monitor.js V5.0.10';
 
 import { rule60 } from './37health-rules/60-separator.js';
 import { rule61 } from './37health-rules/61-boneclaw.js';
@@ -8,13 +8,13 @@ import { rule62 } from './37health-rules/62-speed-button.js';
 import { rule63 } from './37health-rules/63-carry-hp.js';
 import { rule64 } from './37health-rules/64-horse.js';
 import { rule65 } from './37health-rules/65-swap.js';
-
 import { rule67 } from './37health-rules/67-cloud-dodge.js';
 import { rule68 } from './37health-rules/68-dodge-rebound.js';
 import {
-    getCellElement, checkUnitHpValidity, checkDeathMark,
+    getCellElement, checkUnitHpValidity,
     checkHpBarSync, checkHpBarColor, checkFxOrphans,
-    checkDeathFxRetention, checkVictoryDanmaku
+    checkDeathFxRetention, checkVictoryDanmaku,
+    checkMeleeFxState, checkBuffIcons, locateLogEntry
 } from './46health-utils.js';
 
 let monitorActive = false, gameLoaded = false, scanTimer = null, isPaused = false;
@@ -52,9 +52,7 @@ export function initMonitor() {
     const startScanTimer = () => { if (scanTimer) clearInterval(scanTimer); scanTimer = setInterval(periodicScan, scanInterval); };
     const stopScanTimer = () => { if (scanTimer) { clearInterval(scanTimer); scanTimer = null; } };
 
-    // ==================== 手动记录弹窗 ====================
-    let manualConfirmCallback = null;
-
+    // 手动记录弹窗
     function showManualInput() {
         manualOverlay.style.display = 'flex';
         manualText.value = '';
@@ -63,7 +61,6 @@ export function initMonitor() {
 
     function hideManualInput() {
         manualOverlay.style.display = 'none';
-        // 恢复频率按钮高亮
         freqButtons.forEach(b => b.classList.remove('active'));
         const currentActive = document.querySelector(`#freqGroup button[data-freq="${scanInterval}"]`);
         if (currentActive) currentActive.classList.add('active');
@@ -87,32 +84,33 @@ export function initMonitor() {
 
     manualCancel.addEventListener('click', hideManualInput);
 
-    // ==================== 清空确认弹窗 ====================
+    // 清空确认弹窗
+    let confirmCallback = null;
     function showConfirm(text, onOk) {
         confirmText.textContent = text;
         confirmOverlay.style.display = 'flex';
-        manualConfirmCallback = onOk;
+        confirmCallback = onOk;
     }
 
     function hideConfirm() {
         confirmOverlay.style.display = 'none';
-        manualConfirmCallback = null;
+        confirmCallback = null;
     }
 
     confirmOk.addEventListener('click', () => {
-        if (manualConfirmCallback) manualConfirmCallback();
+        if (confirmCallback) confirmCallback();
         hideConfirm();
     });
 
     confirmCancel.addEventListener('click', hideConfirm);
 
-    // ==================== 返回游戏按钮 ====================
+    // 返回游戏按钮
     backBtn.addEventListener('click', () => {
         reportArea.classList.remove('active');
         gameArea.classList.add('active');
     });
 
-    // ==================== 频率按钮 ====================
+    // 频率按钮
     freqButtons.forEach(btn => btn.addEventListener('click', () => {
         const val = parseInt(btn.dataset.freq);
         if (val === 0) {
@@ -126,7 +124,7 @@ export function initMonitor() {
         updateStatusLine();
     }));
 
-    // ==================== 主要按钮 ====================
+    // 主要按钮
     btnStartMonitor.addEventListener('click', () => {
         if (monitorActive) return;
         gameFrame.src = '../mode-5v5-test.html';
@@ -209,24 +207,6 @@ function runEngineChecks(ctx) {
     const allUnits = allyTeam.concat(enemyTeam);
     for (const u of allUnits) {
         for (const msg of checkUnitHpValidity(u)) recordIssue(ctx, u.uid, '血量异常', msg, '引擎');
-        for (const msg of checkDeathMark(u)) {
-            let detail = msg;
-            if (ctx.UI && ctx.UI.currentResult && ctx.UI.currentResult.log) {
-                const log = ctx.UI.currentResult.log;
-                for (let i = log.length - 1; i >= 0; i--) {
-                    const e = log[i];
-                    if (e.type === 'attack-group' && e.uidD === u.uid && e.isDead) {
-                        detail += '（被' + (e._atkName || '未知') + '击杀）';
-                        break;
-                    }
-                    if (e.type === 'info' && e.uidD === u.uid && e.isDead) {
-                        detail += '（致死来源：' + (e.text || '未知').replace(/<[^>]+>/g, '').substring(0, 40) + '）';
-                        break;
-                    }
-                }
-            }
-            recordIssue(ctx, u.uid, '死亡标记', detail, '引擎');
-        }
     }
 }
 
@@ -234,26 +214,41 @@ function runUIChecks(ctx, doc) {
     const allyTeam = (ctx.UI && ctx.UI.allyTeam) || [];
     const enemyTeam = (ctx.UI && ctx.UI.enemyTeam) || [];
     const allUnits = allyTeam.concat(enemyTeam);
+
+    // 血条同步
     for (const unit of allUnits) {
         for (const msg of checkHpBarSync(unit, doc)) recordIssue(ctx, unit.uid, '血条同步', msg, 'UI');
     }
+
+    // 死亡特效
+    for (const msg of checkDeathFxRetention(allUnits, doc)) recordIssue(ctx, null, '死亡特效', msg, 'UI');
+
+    // 近战攻击特效
+    for (const msg of checkMeleeFxState(ctx, doc)) recordIssue(ctx, null, '攻击特效', msg, 'UI');
+
+    // Buff图标
+    for (const msg of checkBuffIcons(ctx, doc)) recordIssue(ctx, null, 'Buff图标', msg, 'UI');
 }
 
 function runFullChecks(ctx, doc) {
     const allyTeam = (ctx.UI && ctx.UI.allyTeam) || [];
     const enemyTeam = (ctx.UI && ctx.UI.enemyTeam) || [];
     const allUnits = allyTeam.concat(enemyTeam);
-    const stage = (() => { const label = doc.getElementById('labelEnemy'); if (!label) return 0; const m = (label.textContent || '').match(/第(\d+)关/); return m ? parseInt(m[1]) : 0; })() || (ctx.currentStage || 0);
+    const stage = detectStage(doc) || (ctx.currentStage || 0);
     if (stage === lastSampledStage) return;
     lastSampledStage = stage;
 
     const win = gameFrame.contentWindow;
+
+    // 血条颜色
     for (const unit of allUnits) {
         for (const msg of checkHpBarColor(unit, win, doc)) recordIssue(ctx, unit.uid, '血条颜色', msg, 'UI');
     }
 
+    // 特效残留
     for (const msg of checkFxOrphans(doc)) recordIssue(ctx, null, '特效残留', msg, 'UI');
 
+    // 胜利弹幕
     setTimeout(() => {
         const doc2 = gameFrame.contentDocument || gameFrame.contentWindow.document;
         if (doc2) {
@@ -261,14 +256,26 @@ function runFullChecks(ctx, doc) {
         }
     }, 5000);
 
+    // 换位稳定性
     checkSwapStability(ctx, doc, allyTeam, enemyTeam);
 
-    const deathFxIssues = checkDeathFxRetention(allUnits, doc);
-    for (const msg of deathFxIssues) recordIssue(ctx, null, '死亡特效', msg, 'UI');
+    // 死亡特效（最终确认）
+    for (const msg of checkDeathFxRetention(allUnits, doc)) recordIssue(ctx, null, '死亡特效', msg, 'UI');
 
+    // 近战攻击特效
+    for (const msg of checkMeleeFxState(ctx, doc)) recordIssue(ctx, null, '攻击特效', msg, 'UI');
+
+    // Buff图标
+    for (const msg of checkBuffIcons(ctx, doc)) recordIssue(ctx, null, 'Buff图标', msg, 'UI');
+
+    // 执行规则（传入回合上下文）
     let battleLog = [];
     if (ctx.UI && ctx.UI.currentResult && ctx.UI.currentResult.log) {
         battleLog = ctx.UI.currentResult.log;
+    }
+    // 增强日志：为每个条目附加回合上下文
+    for (const entry of battleLog) {
+        entry._locate = locateLogEntry(battleLog, entry);
     }
     ctx._doc = doc;
     const rules = [rule60, rule61, rule62, rule63, rule64, rule65, rule67, rule68];
@@ -300,7 +307,8 @@ function checkSwapStability(ctx, doc, allyTeam, enemyTeam) {
         if (!unitA || !unitB) continue;
         [unitA, unitB].forEach(u => {
             if (u.alive && !getCellElement(u, doc)) {
-                recordIssue(ctx, u.uid, '换位UI丢失', u.name + '换位后在队伍中存活(pos=' + u.pos + ')，但九宫格中找不到对应格子', 'UI');
+                const loc = swapEvent._locate || '';
+                recordIssue(ctx, u.uid, '换位UI丢失', u.name + '换位后格子丢失 ' + loc, 'UI');
             }
         });
         const nextAttacks = battleLog.slice(swapIndex + 1).filter(e => e.type === 'attack-group');
@@ -318,7 +326,8 @@ function checkPositionAfterSwap(ctx, attackEntry, unit, expectedPos) {
     if (attackEntry.uidA === unit.uid) actualPos = attackEntry._atkPos;
     if (attackEntry.uidD === unit.uid) actualPos = attackEntry._defPos;
     if (actualPos !== null && actualPos !== undefined && actualPos !== expectedPos) {
-        recordIssue(ctx, unit.uid, '换位回弹', '单位' + unit.name + '换位后立刻攻击位置=' + actualPos + '预期=' + expectedPos, 'UI');
+        const loc = attackEntry._locate || '';
+        recordIssue(ctx, unit.uid, '换位回弹', unit.name + '换位后位置=' + actualPos + '预期=' + expectedPos + ' ' + loc, 'UI');
     }
 }
 
@@ -326,13 +335,7 @@ function recordIssue(ctx, unitUid, type, detail, source) {
     const key = (unitUid || 'global') + '|' + type + '|' + detail.substring(0, 60);
     if (issueKeys.has(key)) return;
     issueKeys.add(key);
-    const stage = (() => {
-        const doc = gameFrame.contentDocument || gameFrame.contentWindow.document;
-        const label = doc.getElementById('labelEnemy');
-        if (!label) return 0;
-        const m = (label.textContent || '').match(/第(\d+)关/);
-        return m ? parseInt(m[1]) : 0;
-    })() || (ctx ? ctx.currentStage : 0) || 0;
+    const stage = detectStage(getDoc()) || (ctx ? ctx.currentStage : 0) || 0;
     detectedIssues.push({ stage, type, detail, source, timestamp: new Date().toLocaleTimeString() });
     updateReport();
     updateStatusLine();

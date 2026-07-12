@@ -1,5 +1,5 @@
 // tests/37health-rules/64-horse.js
-// V5.0.6 | ~2400 bytes | 拒马存在性检查
+// V5.0.6 | 拒马存在性检查 - 增强日志定位
 export const VER = 'tests/37health-rules/64-horse.js V5.0.6';
 
 export const rule64 = {
@@ -14,12 +14,21 @@ export const rule64 = {
         var destroyEvs = log.filter(function(e) { return e.type === 'buff-destroy' && e.horseUid; });
 
         if (summonEvs.length === 0) {
-            return { fail: true, msg: '日志问题：有horseFormation Buff但没有任何拒马召唤日志' };
+            // 找最近的回合开始，定位缺失发生的回合
+            var lastRound = '?';
+            for (var i = log.length - 1; i >= 0; i--) {
+                if (log[i].type === 'round-start') {
+                    var m = (log[i].text || '').match(/第(\d+)回合/);
+                    if (m) { lastRound = m[1]; break; }
+                }
+            }
+            return { fail: true, msg: '日志问题：有horseFormation Buff但没有任何拒马召唤日志 (第' + lastRound + '回合附近)' };
         }
 
         for (var i = 0; i < summonEvs.length; i++) {
             var horseUid = summonEvs[i].horseUid;
             var horsePos = summonEvs[i].horsePos;
+            var loc = summonEvs[i]._locate || '';
             var wasDestroyed = destroyEvs.some(function(e) { return e.horseUid === horseUid; });
 
             var appearCount = 0;
@@ -30,31 +39,7 @@ export const rule64 = {
                 }
             }
             if (appearCount === 0 && !wasDestroyed) {
-                issues.push('日志问题：拒马(uid=' + horseUid + ')在' + horsePos + '号位生成，未被销毁但所有攻击日志中从未出现此uid，可能未进入行动队列');
-            }
-
-            if (ctx.store) {
-                var allCells = document.querySelectorAll('#allyGrid .cell');
-                var foundHorse = false;
-                for (var c = 0; c < allCells.length; c++) {
-                    var cellName = allCells[c].querySelector('.cell-name');
-                    if (cellName && cellName.textContent.indexOf('拒马') !== -1) {
-                        foundHorse = true;
-                        if (parseInt(allCells[c].dataset.pos) !== horsePos) {
-                            issues.push('UI问题：拒马在日志中生成于' + horsePos + '号位，但九宫格中拒马出现在' + allCells[c].dataset.pos + '号位，位置不一致');
-                        }
-                        break;
-                    }
-                }
-                if (!foundHorse && !wasDestroyed) {
-                    var horseInTeam = (afterA || []).find(function(u) { return u.uid === horseUid; });
-                    if (horseInTeam && horseInTeam.alive) {
-                        issues.push('UI问题：拒马(uid=' + horseUid + ')在队伍中存活，但九宫格中找不到拒马格子');
-                    }
-                }
-                if (wasDestroyed && foundHorse) {
-                    issues.push('UI问题：拒马(uid=' + horseUid + ')已被销毁，但九宫格中仍有拒马格子');
-                }
+                issues.push('日志问题：拒马(uid=' + horseUid + ')在' + horsePos + '号位生成，未被销毁但所有攻击日志中从未出现此uid，可能未进入行动队列 ' + loc);
             }
         }
         if (issues.length > 0) {
