@@ -95,21 +95,31 @@ function createBgParticles(x, y) {
 
 function createCounterStorm(x, y) {
     const container = document.createElement('div'); container.className = 'counter-storm';
-    container.style.position = 'fixed'; container.style.zIndex = '10030'; container.style.pointerEvents = 'none';
-    container.style.left = (x - 45) + 'px'; container.style.top = (y - 100) + 'px';
+    container.style.position = 'fixed'; container.style.zIndex = '10060'; container.style.pointerEvents = 'none';
+    container.style.left = (x - 45) + 'px'; container.style.top = (y - 20) + 'px';
+    container.style.width = '90px'; container.style.height = '40px';
+    container.style.transformStyle = 'preserve-3d';
+    container.style.transform = 'rotateX(75deg)';
     for (let i = 0; i < 4; i++) {
         const ring = document.createElement('div'); ring.className = 'storm-ring';
-        ring.style.position = 'absolute'; ring.style.width = '90px'; ring.style.height = '15px';
-        ring.style.border = '2px solid rgba(255,255,255,0.9)'; ring.style.borderRadius = '50%';
-        ring.style.transform = 'rotateX(75deg)';
-        ring.style.animation = 'stormSpin 0.6s linear infinite';
+        ring.style.position = 'absolute'; ring.style.left = '0px'; ring.style.top = (i * 12) + 'px';
+        ring.style.width = '90px'; ring.style.height = '10px';
+        ring.style.setProperty('border', '3px solid #ffffff', 'important');
+        ring.style.setProperty('border-radius', '50%', 'important');
+        ring.style.setProperty('box-shadow', '0 0 8px #ffffff, 0 0 20px rgba(255,255,255,0.5)', 'important');
+        // animation 走 CSS 类 .storm-ring，不在此处内联设置
         if (i > 0) ring.style.animationDelay = `-${i * 0.15}s`;
         container.appendChild(ring);
     }
+    const hammerLeft = document.createElement('div');
+    hammerLeft.style.cssText = 'position:absolute;left:0px;top:5px;width:8px;height:8px;background:white;border-radius:50%;box-shadow:0 0 8px white;';
+    container.appendChild(hammerLeft);
+    const hammerRight = document.createElement('div');
+    hammerRight.style.cssText = 'position:absolute;right:0px;top:5px;width:8px;height:8px;background:white;border-radius:50%;box-shadow:0 0 8px white;';
+    container.appendChild(hammerRight);
     document.body.appendChild(container);
     return container;
 }
-
 function triggerShake() {
     document.body.classList.add('shake-screen');
     setTimeout(() => document.body.classList.remove('shake-screen'), 200);
@@ -345,9 +355,15 @@ export async function showDodgeBulletTime(attacker, defender, reboundDmg) {
 
         // 屏息凝视
         const glow = document.createElement('div'); glow.className = 'breath-glow'; cloneA.appendChild(glow);
-        const storm = createCounterStorm(defCenterX, defCenterY + 10); storm.setAttribute('data-fx', 'temporary'); cleanupElements.push(storm);
+        // 获取克隆体的实时屏幕位置，把风暴精准放在其头顶
+        const cloneDRect = cloneD.getBoundingClientRect();
+        const stormCX = cloneDRect.left + cloneDRect.width / 2;
+        const stormCY = cloneDRect.top - 10; // 风暴底部紧贴 cloneD 顶部
+        const storm = createCounterStorm(stormCX, stormCY);
+        storm.setAttribute('data-fx', 'temporary'); cleanupElements.push(storm);
         storm.style.display = '';
         storm.style.opacity = '1';
+        document.body.appendChild(storm);
         await wait(3000);
         if (isSkipped) { cleanup(); return; }
 
