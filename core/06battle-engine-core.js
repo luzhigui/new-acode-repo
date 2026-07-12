@@ -470,14 +470,14 @@ function processUnitAttack(unit, allySide, enemySide, log, A, B, state, doubleSt
 
     applyXinHunDeduction(unit, allySide, log);
 
-    // 玄冥二老联动：互相触发攻击
+    // 玄冥二老联动：互相触发攻击（搭档在同阵营 allySide，不是 enemySide）
     if (!unit._isLinkAttack && dmg > 0 && target.alive) {
         if (unit.name === '鹤笔翁') {
-            const lu = enemySide.find(u => u.name === '鹿杖客' && u.alive);
-            if (lu) { lu._isLinkAttack = true; processUnitAttack(lu, enemySide, allySide, log, A, B, state, null); lu._isLinkAttack = false; }
+            const lu = allySide.find(u => u.name === '鹿杖客' && u.alive);
+            if (lu) { lu._isLinkAttack = true; processUnitAttack(lu, allySide, enemySide, log, A, B, state, null); lu._isLinkAttack = false; }
         } else if (unit.name === '鹿杖客') {
-            const he = enemySide.find(u => u.name === '鹤笔翁' && u.alive);
-            if (he) { he._isLinkAttack = true; processUnitAttack(he, enemySide, allySide, log, A, B, state, null); he._isLinkAttack = false; }
+            const he = allySide.find(u => u.name === '鹤笔翁' && u.alive);
+            if (he) { he._isLinkAttack = true; processUnitAttack(he, allySide, enemySide, log, A, B, state, null); he._isLinkAttack = false; }
         }
     }
 
