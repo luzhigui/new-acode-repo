@@ -170,16 +170,44 @@ document.addEventListener('DOMContentLoaded', function() {
                 let result = abortAll(abortController, getState.UI(), getState.waitingForNextRound(), isBattleStarting, getState.adjustMode(), getState.selectedAdjustPos(), getState.activeBuffs(), selectedBuffIndex, currentDoubleStrikeUid, () => updateBuffSlots(getState.activeBuffs(), selectedBuffIndex));
                 abortController = result.abortController; setState.waitingForNextRound(result.waitingForNextRound); isBattleStarting = result.isBattleStarting; setState.adjustMode(result.adjustMode); setState.selectedAdjustPos(result.selectedAdjustPos); setState.activeBuffs(result.activeBuffs); selectedBuffIndex = result.selectedBuffIndex; currentDoubleStrikeUid = result.currentDoubleStrikeUid;
                 clearLogExceptFirst(); clearAllEffects(); hasLoggedTeam=false;
-                doInitBattle(currentStage, getState.UI(), getState.snapshot(), getState.activeBuffs(), selectedBuffIndex, currentDoubleStrikeUid);
-                updateUI(); renderGrid('allyGrid', 'ally'); renderGrid('enemyGrid', 'enemy'); setState.gs(S.IDLE); setState.isPaused(false); updateButtons(); enableAllButtons(); updateSpeedButtons(); if(window._refreshGlowCells)window._refreshGlowCells();
+                setState.snapshot({ ally: [], enemy: [] });  // 强制重置快照，与 doManualReset 保持一致
+                let currentUI = getState.UI();
+                let currentSnapshot = getState.snapshot();
+                if (!currentUI || !currentUI.allyTeam || !currentUI.allyTeam.length) {
+                    currentUI = { allyTeam: [], enemyTeam: [], currentResult: null, round: 0, lastSnapshot: null };
+                    setState.UI(currentUI);
+                }
+                // 快照已强制清空，无需再条件初始化
+                doInitBattle(currentStage, currentUI, currentSnapshot, getState.activeBuffs(), selectedBuffIndex, currentDoubleStrikeUid);
+                setState.UI(currentUI);
+                setState.snapshot(currentSnapshot);
+                updateUI();
+                renderGrid('allyGrid', 'ally');
+                renderGrid('enemyGrid', 'enemy');
+                setState.gs(S.IDLE); setState.isPaused(false); updateButtons(); enableAllButtons(); updateSpeedButtons(); if(window._refreshGlowCells)window._refreshGlowCells();
             } else {
                 currentStage++;
                 setRenderStore(null);
                 let result = abortAll(abortController, getState.UI(), getState.waitingForNextRound(), isBattleStarting, getState.adjustMode(), getState.selectedAdjustPos(), getState.activeBuffs(), selectedBuffIndex, currentDoubleStrikeUid, () => updateBuffSlots(getState.activeBuffs(), selectedBuffIndex));
                 abortController = result.abortController; setState.waitingForNextRound(result.waitingForNextRound); isBattleStarting = result.isBattleStarting; setState.adjustMode(result.adjustMode); setState.selectedAdjustPos(result.selectedAdjustPos); setState.activeBuffs(result.activeBuffs); selectedBuffIndex = result.selectedBuffIndex; currentDoubleStrikeUid = result.currentDoubleStrikeUid;
                 clearLogExceptFirst(); clearAllEffects(); hasLoggedTeam=false;
-                doInitBattle(currentStage, getState.UI(), getState.snapshot(), getState.activeBuffs(), selectedBuffIndex, currentDoubleStrikeUid);
-                updateUI(); renderGrid('allyGrid', 'ally'); renderGrid('enemyGrid', 'enemy'); setState.gs(S.IDLE); setState.isPaused(false); updateButtons(); enableAllButtons(); updateSpeedButtons(); if(window._refreshGlowCells)window._refreshGlowCells();
+                let currentUI = getState.UI();
+                let currentSnapshot = getState.snapshot();
+                if (!currentUI || !currentUI.allyTeam || !currentUI.allyTeam.length) {
+                    currentUI = { allyTeam: [], enemyTeam: [], currentResult: null, round: 0, lastSnapshot: null };
+                    setState.UI(currentUI);
+                }
+                if (!currentSnapshot || !currentSnapshot.ally || !currentSnapshot.ally.length) {
+                    currentSnapshot = { ally: [], enemy: [] };
+                    setState.snapshot(currentSnapshot);
+                }
+                doInitBattle(currentStage, currentUI, currentSnapshot, getState.activeBuffs(), selectedBuffIndex, currentDoubleStrikeUid);
+                setState.UI(currentUI);
+                setState.snapshot(currentSnapshot);
+                updateUI();
+                renderGrid('allyGrid', 'ally');
+                renderGrid('enemyGrid', 'enemy');
+                setState.gs(S.IDLE); setState.isPaused(false); updateButtons(); enableAllButtons(); updateSpeedButtons(); if(window._refreshGlowCells)window._refreshGlowCells();
             }
         } else if(gs===S.IDLE&&!isBattleStarting){
             if(!getState.adjustMode()){
@@ -352,6 +380,8 @@ document.addEventListener('DOMContentLoaded', function() {
         clearLogExceptFirst(); clearAllEffects(); hasLoggedTeam=false;
         currentStage=stage;
         doInitBattle(currentStage, getState.UI(), getState.snapshot(), getState.activeBuffs(), selectedBuffIndex, currentDoubleStrikeUid);
+        setState.UI(getState.UI());
+        setState.snapshot(getState.snapshot());
         updateUI(); setState.gs(S.IDLE); updateButtons(); enableAllButtons();
     }
 
@@ -372,6 +402,8 @@ document.addEventListener('DOMContentLoaded', function() {
         setState.activeBuffs([]); setState.snapshot({ally:[],enemy:[]}); currentDoubleStrikeUid=null;
         forceStopGame();
         doInitBattle(currentStage, getState.UI(), getState.snapshot(), getState.activeBuffs(), selectedBuffIndex, currentDoubleStrikeUid);
+        setState.UI(getState.UI());
+        setState.snapshot(getState.snapshot());
         updateUI();
         setState.gs(S.IDLE);updateButtons();enableAllButtons();
     }
@@ -413,6 +445,8 @@ document.addEventListener('DOMContentLoaded', function() {
     try {
         updateButtons(); updateSpeedButtons(); updateDebugUI();
         doInitBattle(currentStage, getState.UI(), getState.snapshot(), getState.activeBuffs(), selectedBuffIndex, currentDoubleStrikeUid);
+        setState.UI(getState.UI());
+        setState.snapshot(getState.snapshot());
         updateUI(); updateScoreBadge();
         document.getElementById('log').innerHTML = '<div class="separator">' + LOG_LINE1 + '</div>';
         document.getElementById('btnDetail').classList.toggle('active', detailMode);
