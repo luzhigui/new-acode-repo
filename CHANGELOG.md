@@ -1,5 +1,25 @@
 # 光明顶 5v5 - 更改履历
 
+## V5.0.3 — 2026-07-09 ~ 2026-07-12
+- **事件链路重构**（`core/06battle-engine-core.js`）：所有数据修改必发 emitEvent，击杀路径补齐 uidD/isDead，败方清零/拒马销毁/新婚扣血/Buff 效果全部补 emitEvent，确保 Store 与引擎状态同步
+- **连击系统修复**（`core/06` + `core/04`）：K 值索引错位修正、连击每回合复位、连击 logo 改 🔗 与闪避 ⚡ 区分、连击 uid 同步 Store
+- **闪避子弹时间重写**（`fx/20fx-dodge-bullet.js`）：大幅重写闪避特效，修复子弹时间触发与恢复逻辑
+- **近身碰撞优化**（`fx/17fx-crash-5v5-test.js`）：重写碰撞检测与虚影蓝色化，修复手机端位置推算
+- **击退特效改走 Store**（`fx/19fx-push-back.js`）：animatePushBack 不再直接操作 DOM，统一通过 Store 读取 alive 状态
+- **播放器精简**（`player/10player-core.js`）：playBattle 大幅瘦身，移除冗余逻辑，胜利弹幕改用 Store 读取
+- **体检系统大改**（`tests/`）：37health-rules/ 拆分为 60-68 独立规则文件；新增 38health-monitor.js（监控器）、45health-auto.js（自动体检）、46health-utils.js（工具函数）；删除旧 29health-rules.js、36runtime-sampler.js、38health-ui.js 答题部分
+- **删除未使用特效**：移除 `fx/21fx-blood-slash.js`、`fx/22fx-fortify-counter.js`
+- **删除 Test Runnerlogo.md**：00index.html 按钮事件一并清除
+- **文件复制器优化**：一键序列发送第一包直接复制（无需再点一次）、弹窗显示当前包序号（非下一个）、GROUP_PROMPTS 精简提示词
+- **新增文件**：`成功经验.md`、`to do list.md`
+
+## V5.0.2 — 2026-07-08
+- **统一 Store 状态管理**（多文件）：修复闪避/自动手动/重玩等 7 个 Bug，动画/换位/击退统一走 Store dispatch
+- **击杀路径补齐字段**（`core/06` + `modules/23`）：所有击杀路径补 uidD 和 isDead，防止 Store 残留死单位
+- **删除体检答题功能**：移除 `35quiz-bank.js`、`38health-ui.js` 答题部分、`30test-runner.html` 答题页签
+- **文件复制器序列发送**（`tools/32-toolkit.js`）：一键序列发送改用 GROUP_PROMPTS 提示词，按主题分批
+- **版本号升级**：全部代码文件统一为 V5.0.2
+
 ## V5.0.1 — 2026-07-07
 - **版本号统一**：全部代码文件版本号统一为 V5.0.1（详见版本清单）
 - **文件复制器优化**：按主题分批发送（核心战斗 → 播放器 → UI → ...），每包前后添加分析提示词
