@@ -38,16 +38,16 @@ function escapeHtml(text) {
         // modules（模块）
         '../modules/23elite-skills.js', '../modules/24error-capture.js', '../modules/28audio-manager.js',
         // tests（测试与体检）
-        '../tests/25unit-tests.js', '../tests/29health-rules.js',
+        '../tests/25unit-tests.js',
         '../tests/30test-runner.html',
-        '../tests/35quiz-bank.js', '../tests/36runtime-sampler.js',
+        '../tests/35quiz-bank.js',
         '../tests/37health-core.js',
         '../tests/37health-rules/60-separator.js', '../tests/37health-rules/61-boneclaw.js',
         '../tests/37health-rules/62-speed-button.js', '../tests/37health-rules/63-carry-hp.js',
         '../tests/37health-rules/64-horse.js', '../tests/37health-rules/65-swap.js',
         '../tests/37health-rules/66-victory.js', '../tests/37health-rules/67-cloud-dodge.js',
         '../tests/37health-rules/68-dodge-rebound.js',
-        '../tests/38health-auto.js', '../tests/38health-monitor.js', '../tests/38health-ui.js',
+        '../tests/38health-monitor.js', '../tests/45health-auto.js', '../tests/46health-utils.js',
         // tools（工具箱）
         '../tools/31-toolkit.html', '../tools/32-toolkit.js', '../tools/33-toolkit-more.js',
         '../tools/27auto-battle-utils.js', '../tools/00build-5v5.cjs',
@@ -466,12 +466,14 @@ function escapeHtml(text) {
 
             const totalBytes = new Blob([fullCode]).size;
             const prompts = GROUP_PROMPTS[gn] || { before: '', after: '' };
+            const globalIndex = index + 1;
+            const globalTotal = mergedBatches.length;
             const beforePrompt = groupBatchIndex === 1 && prompts.before
-                ? `（⚠️ ${gn} 开始，共 ${groupBatchTotal} 包。\n${prompts.before}）\n\n`
-                : `（⚠️ ${gn} 包 ${groupBatchIndex}/${groupBatchTotal} 开始，本包共 ${totalBytes} 字节。请回复"收到，${gn} 包 ${groupBatchIndex}"。）\n\n`;
+                ? `（⚠️ 全局 ${globalIndex}/${globalTotal} · ${gn} 开始，共 ${groupBatchTotal} 包。\n${prompts.before}）\n\n`
+                : `（⚠️ 全局 ${globalIndex}/${globalTotal} · ${gn} 包 ${groupBatchIndex}/${groupBatchTotal} 开始，本包共 ${totalBytes} 字节。请回复"收到，${gn} 包 ${groupBatchIndex}"。）\n\n`;
             const afterPrompt = groupBatchIndex === groupBatchTotal && prompts.after
-                ? `\n\n（⚠️ ${gn} 包 ${groupBatchIndex}/${groupBatchTotal} 结束。${prompts.after}）`
-                : `\n\n（⚠️ ${gn} 包 ${groupBatchIndex}/${groupBatchTotal} 结束，请回复"收到，${gn} 包 ${groupBatchIndex} 已完成"。）`;
+                ? `\n\n（⚠️ 全局 ${globalIndex}/${globalTotal} · ${gn} 包 ${groupBatchIndex}/${groupBatchTotal} 结束。${prompts.after}）`
+                : `\n\n（⚠️ 全局 ${globalIndex}/${globalTotal} · ${gn} 包 ${groupBatchIndex}/${groupBatchTotal} 结束，请回复"收到，${gn} 包 ${groupBatchIndex} 已完成"。）`;
             const fullPayload = beforePrompt + manifest + '\n\n--- 代码开始 ---\n\n' + fullCode + afterPrompt;
 
             card.innerHTML = `

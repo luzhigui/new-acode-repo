@@ -217,14 +217,11 @@ async function handleBuffPush(c, entry) {
     window.bulletTimeActive = false;
     c.isPaused = false;
     let div=document.createElement('div');div.innerHTML=entry.text+'<br>';document.getElementById('log').appendChild(div);c.autoScrollLog();
-    let targetUnit = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.name === entry.pushTarget);
-    if (entry.pushBehind) {
-        let behindUnit = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.name === entry.pushBehind);
+    let targetUnit = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.uid === entry.pushTargetUid);
+    if (entry.behindUid) {
+        let behindUnit = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.uid === entry.behindUid);
         if (targetUnit && behindUnit) {
-            await animatePositionSwap(targetUnit, behindUnit, c, {
-                skipDataChange: false,
-                oldPositions: [entry.oldPos, entry.behindOldPos]
-            });
+            await animatePushSwap(targetUnit, behindUnit, c);
         }
     } else if (targetUnit) {
         await animatePushBack(targetUnit, c, entry.newPos, { skipDataChange: false });
@@ -345,7 +342,7 @@ async function handleInfo(c, entry) {
             await showBuffBanner('⚡ 概率连击！');
             c.isPaused = false;
         }
-        if (entry.text && entry.text.includes('拒马无法攻击')) { let sepDiv=document.createElement('div'); sepDiv.innerHTML='<span class="separator">- - - - -</span><br>'; document.getElementById('log').appendChild(sepDiv); c.autoScrollLog(); await new Promise(r=>setTimeout(r, window._fastForwardActive ? 1 : c.speed/4)); }
+
         if (entry.buffType === 'elite_xinhun') {
             let song = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.name === '宋青书');
             let zhou = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.uid === entry.zhouUid);

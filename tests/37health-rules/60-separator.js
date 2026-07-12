@@ -52,6 +52,39 @@ export const rule60 = {
                 }
             }
         }
+        // 反向检查：不应该有分隔符的地方多出了分隔符
+        for (var j = 1; j < log.length; j++) {
+            var prev2 = log[j-1];
+            var curr2 = log[j];
+            
+            var noSepTypes = ['info','buff-summary','buff-summon','buff-destroy','round-start','round-end'];
+            if ((prev2.type === 'attack-group' || prev2.type === 'round-start') && noSepTypes.indexOf(curr2.type) !== -1) {
+                var prevDiv2 = null;
+                for (var d2 = divIndex; d2 < allDivs.length; d2++) {
+                    var html2 = allDivs[d2].innerHTML || '';
+                    if (html2.indexOf('separator') === -1 && html2.trim() !== '' && html2 !== '<br>') {
+                        prevDiv2 = allDivs[d2];
+                        divIndex = d2 + 1;
+                        break;
+                    }
+                }
+                if (prevDiv2 && prevDiv2.nextElementSibling && prevDiv2.nextElementSibling.nextElementSibling) {
+                    var betweenHtml = prevDiv2.nextElementSibling.innerHTML || '';
+                    var nextNextHtml = prevDiv2.nextElementSibling.nextElementSibling.innerHTML || '';
+                    if (betweenHtml.indexOf('separator') !== -1 && nextNextHtml.indexOf('separator') === -1 && nextNextHtml.trim() !== '' && nextNextHtml !== '<br>') {
+                        var currName = '';
+                        if (curr2.type === 'info') currName = '系统提示';
+                        else if (curr2.type === 'buff-summary') currName = 'Buff说明';
+                        else if (curr2.type === 'buff-summon') currName = '拒马召唤';
+                        else if (curr2.type === 'buff-destroy') currName = '拒马销毁';
+                        else currName = curr2.type;
+                        var displayText2 = (prevDiv2.nextElementSibling.nextElementSibling.textContent || '').substring(0, 50);
+                        issues.push('日志问题：攻击动作与' + currName + '（"' + displayText2 + '"）之间多了一个分隔符');
+                    }
+                }
+            }
+        }
+
         if (issues.length > 0) {
             return { fail: true, msg: issues.slice(0, 3).join(' | ') + (issues.length > 3 ? ' 等' + issues.length + '处' : '') };
         }

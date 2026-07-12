@@ -19,15 +19,15 @@ function escapeHtml(text) {
         '../fx/15fx-common-5v5-test.js', '../fx/16fx-arrows-5v5-test.js', '../fx/17fx-crash-5v5-test.js',
         '../fx/18fx-position-swap.js', '../fx/19fx-push-back.js', '../fx/20fx-dodge-bullet.js',
         '../modules/23elite-skills.js', '../modules/24error-capture.js', '../modules/28audio-manager.js',
-        '../tests/25unit-tests.js', '../tests/29health-rules.js',
-        '../tests/35quiz-bank.js', '../tests/36runtime-sampler.js',
+        '../tests/25unit-tests.js',
+        '../tests/35quiz-bank.js',
         '../tests/37health-core.js',
         '../tests/37health-rules/60-separator.js', '../tests/37health-rules/61-boneclaw.js',
         '../tests/37health-rules/62-speed-button.js', '../tests/37health-rules/63-carry-hp.js',
         '../tests/37health-rules/64-horse.js', '../tests/37health-rules/65-swap.js',
         '../tests/37health-rules/66-victory.js', '../tests/37health-rules/67-cloud-dodge.js',
         '../tests/37health-rules/68-dodge-rebound.js',
-        '../tests/38health-auto.js', '../tests/38health-monitor.js', '../tests/38health-ui.js',
+        '../tests/38health-monitor.js', '../tests/45health-auto.js', '../tests/46health-utils.js',
         '../tools/32-toolkit.js', '../tools/33-toolkit-more.js',
         '../tools/27auto-battle-utils.js'
     ];

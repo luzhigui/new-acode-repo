@@ -1,5 +1,5 @@
 // tests/38health-monitor.js - 光明顶5v5 实时体检监控器
-// V5.0.10 | 攻击/Buff检测，日志定位，拒马修复，移除 checkDeathMark
+// V5.0.10 | 修复 detectStage 未定义，提取工具函数到顶层
 export const VER = 'tests/38health-monitor.js V5.0.10';
 
 import { rule60 } from './37health-rules/60-separator.js';
@@ -22,6 +22,18 @@ let detectedIssues = [], issueKeys = new Set(), lastSampledStage = 0;
 let battleEnded = false, battleStartTime = 0;
 let gameFrame, gameArea, reportArea, statusLine;
 
+// 工具函数 (模块顶层，可在任何地方使用)
+function getWin() { try { return gameFrame.contentWindow; } catch (e) { return null; } }
+function getDoc() { try { return gameFrame.contentDocument || getWin().document; } catch (e) { return null; } }
+function getCtx() { const w = getWin(); if (!w || !w._getPlayerContext) return null; try { return w._getPlayerContext(); } catch (e) { return null; } }
+function detectStage(doc) {
+    if (!doc) return 0;
+    const l = doc.getElementById('labelEnemy');
+    if (!l) return 0;
+    const m = (l.textContent || '').match(/第(\d+)关/);
+    return m ? parseInt(m[1]) : 0;
+}
+
 export function initMonitor() {
     gameArea = document.getElementById('gameArea');
     reportArea = document.getElementById('reportArea');
@@ -43,11 +55,6 @@ export function initMonitor() {
     statusLine = document.getElementById('statusLine');
 
     let scanInterval = 200;
-
-    const getWin = () => { try { return gameFrame.contentWindow; } catch (e) { return null; } };
-    const getDoc = () => { try { return gameFrame.contentDocument || getWin().document; } catch (e) { return null; } };
-    const getCtx = () => { const w = getWin(); if (!w || !w._getPlayerContext) return null; try { return w._getPlayerContext(); } catch (e) { return null; } };
-    const detectStage = (doc) => { if (!doc) return 0; const l = doc.getElementById('labelEnemy'); if (!l) return 0; const m = (l.textContent || '').match(/第(\d+)关/); return m ? parseInt(m[1]) : 0; };
 
     const startScanTimer = () => { if (scanTimer) clearInterval(scanTimer); scanTimer = setInterval(periodicScan, scanInterval); };
     const stopScanTimer = () => { if (scanTimer) { clearInterval(scanTimer); scanTimer = null; } };
@@ -180,12 +187,11 @@ export function initMonitor() {
 // ==================== 定时扫描 ====================
 function periodicScan() {
     if (!monitorActive || !gameLoaded || isPaused) return;
-    const win = gameFrame.contentWindow;
-    const doc = gameFrame.contentDocument || win.document;
-    const ctx = win._getPlayerContext ? win._getPlayerContext() : null;
+    const win = getWin();
+    const doc = getDoc();
+    const ctx = getCtx();
     if (!ctx || !doc) return;
 
-    // 实时缓存完整的战斗日志，供规则使用
     if (ctx.UI && ctx.UI.currentResult && ctx.UI.currentResult.log && ctx.UI.currentResult.log.length > 0) {
         ctx._enhancedBattleLog = ctx.UI.currentResult.log;
     }
@@ -199,8 +205,8 @@ function periodicScan() {
         battleEnded = true;
         setTimeout(() => {
             if (!monitorActive) return;
-            const ctx2 = (() => { const w = gameFrame.contentWindow; return w && w._getPlayerContext ? w._getPlayerContext() : null; })();
-            const doc2 = gameFrame.contentDocument || gameFrame.contentWindow.document;
+            const ctx2 = getCtx();
+            const doc2 = getDoc();
             if (ctx2 && doc2) runFullChecks(ctx2, doc2);
         }, 3000);
     }
@@ -220,18 +226,12 @@ function runUIChecks(ctx, doc) {
     const enemyTeam = (ctx.UI && ctx.UI.enemyTeam) || [];
     const allUnits = allyTeam.concat(enemyTeam);
 
-    // 血条同步
     for (const unit of allUnits) {
         for (const msg of checkHpBarSync(unit, doc)) recordIssue(ctx, unit.uid, '血条同步', msg, 'UI');
     }
 
-    // 死亡特效
     for (const msg of checkDeathFxRetention(allUnits, doc)) recordIssue(ctx, null, '死亡特效', msg, 'UI');
-
-    // 近战攻击特效
     for (const msg of checkMeleeFxState(ctx, doc)) recordIssue(ctx, null, '攻击特效', msg, 'UI');
-
-    // Buff图标
     for (const msg of checkBuffIcons(ctx, doc)) recordIssue(ctx, null, 'Buff图标', msg, 'UI');
 }
 
@@ -243,7 +243,7 @@ function runFullChecks(ctx, doc) {
     if (stage === lastSampledStage) return;
     lastSampledStage = stage;
 
-    const win = gameFrame.contentWindow;
+    const win = getWin();
     for (const unit of allUnits) {
         for (const msg of checkHpBarColor(unit, win, doc)) recordIssue(ctx, unit.uid, '血条颜色', msg, 'UI');
     }
@@ -251,7 +251,7 @@ function runFullChecks(ctx, doc) {
     for (const msg of checkFxOrphans(doc)) recordIssue(ctx, null, '特效残留', msg, 'UI');
 
     setTimeout(() => {
-        const doc2 = gameFrame.contentDocument || gameFrame.contentWindow.document;
+        const doc2 = getDoc();
         if (doc2) {
             for (const msg of checkVictoryDanmaku(doc2, allyTeam, enemyTeam)) recordIssue(ctx, null, '胜利弹幕', msg, 'UI');
         }
@@ -263,13 +263,11 @@ function runFullChecks(ctx, doc) {
     for (const msg of checkMeleeFxState(ctx, doc)) recordIssue(ctx, null, '攻击特效', msg, 'UI');
     for (const msg of checkBuffIcons(ctx, doc)) recordIssue(ctx, null, 'Buff图标', msg, 'UI');
 
-    // 优先使用缓存的完整日志
     let battleLog = ctx._enhancedBattleLog || [];
     if (battleLog.length === 0 && ctx.UI && ctx.UI.currentResult && ctx.UI.currentResult.log) {
         battleLog = ctx.UI.currentResult.log;
     }
 
-    // 为日志条目附加回合上下文
     for (const entry of battleLog) {
         entry._locate = locateLogEntry(battleLog, entry);
     }

@@ -270,14 +270,25 @@ document.addEventListener('DOMContentLoaded', function() {
         if (gs === S.GAMEOVER) {
             clearAllEffects();
             window._fastForwardActive = false;
+            setRenderStore(null);
             setState.speed(500);
             setState.gs(S.IDLE);
             setState.isPaused(false);
             setState.waitingForNextRound(false);
             isBattleStarting = false;
+            setState.activeBuffs([]);
+            setState.snapshot({ ally: [], enemy: [] });
+            let currentUI = { allyTeam: [], enemyTeam: [], currentResult: null, round: 0, lastSnapshot: null };
+            setState.UI(currentUI);
             updateButtons();
             enableAllButtons();
-            if (typeof doInitBattle === 'function') doInitBattle(currentStage);
+            doInitBattle(currentStage, currentUI, getState.snapshot(), getState.activeBuffs(), selectedBuffIndex, currentDoubleStrikeUid);
+            setState.UI(currentUI);
+            setState.snapshot(getState.snapshot());
+            updateUI();
+            renderGrid('allyGrid', 'ally');
+            renderGrid('enemyGrid', 'enemy');
+            if (window._refreshGlowCells) window._refreshGlowCells();
             return;
         }
         window._fastForwardActive = true;
@@ -300,13 +311,51 @@ document.addEventListener('DOMContentLoaded', function() {
         updateButtons();
     });
     document.getElementById('btnPause').addEventListener('click',function(){onAnyButtonClick();if(gs===S.RUNNING){setState.gs(S.PAUSED);setState.isPaused(true);window.bulletTimeActive = false;if(window._getPlayerContext()._scheduler)window._getPlayerContext()._scheduler.pause();document.body.classList.add('paused-animations');}else if(gs===S.PAUSED){setState.gs(S.RUNNING);setState.isPaused(false);if(window._getPlayerContext()._scheduler)window._getPlayerContext()._scheduler.resume();document.body.classList.remove('paused-animations');}updateButtons();});
-    document.getElementById('btnAuto').addEventListener('click',function(){
-        setState.autoMode(!getState.autoMode());
-        let am = getState.autoMode();
-        this.classList.toggle('active', am);
-        this.textContent = am ? '自动' : '手动';
-        window._autoMode = am;
-        if (am && getState.waitingForNextRound()) setState.waitingForNextRound(false);
+    document.getElementById('btnAuto').addEventListener('click',function(e){
+        e.stopPropagation();
+        const btn = this;
+        const rect = btn.getBoundingClientRect();
+
+        // 移除已有菜单
+        const existing = document.querySelector('.auto-menu-backdrop');
+        if (existing) { existing.remove(); return; }
+
+        const backdrop = document.createElement('div');
+        backdrop.className = 'auto-menu-backdrop';
+        backdrop.addEventListener('click', () => backdrop.remove());
+
+        const menu = document.createElement('div');
+        menu.className = 'auto-menu';
+        menu.style.left = (rect.left - 10) + 'px';
+        menu.style.bottom = (window.innerHeight - rect.top + 6) + 'px';
+
+        const levels = [
+            { key: 'manual', label: '手动' },
+            { key: 'auto', label: '自动' },
+            { key: 'full-auto', label: '全自动' }
+        ];
+        const cur = getState.autoLevel?.() || 'auto';
+        levels.forEach(l => {
+            const mb = document.createElement('button');
+            mb.textContent = l.label;
+            if (cur === l.key) mb.classList.add('checked');
+            mb.addEventListener('click', (ev) => {
+                ev.stopPropagation();
+                setState.autoLevel(l.key);
+                const isManual = l.key === 'manual';
+                const isFullAuto = l.key === 'full-auto';
+                setState.autoMode(!isManual);
+                btn.textContent = isManual ? '手动' : (isFullAuto ? '全自动' : '自动');
+                btn.classList.toggle('active', !isManual);
+                window._autoMode = !isManual;
+                if (!isManual && getState.waitingForNextRound()) setState.waitingForNextRound(false);
+                backdrop.remove();
+            });
+            menu.appendChild(mb);
+        });
+
+        backdrop.appendChild(menu);
+        document.body.appendChild(backdrop);
     });
     document.getElementById('btnDetail').addEventListener('click',function(){
         detailMode=!detailMode;this.classList.toggle('active',detailMode);this.textContent=detailMode?'详细':'简要';

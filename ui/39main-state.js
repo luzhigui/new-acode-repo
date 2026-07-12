@@ -13,6 +13,7 @@ const S = STATE;
 // ==================== 全部全局状态 ====================
 export let gs = S.IDLE;
 export let autoMode = true;
+export let autoLevel = 'auto'; // 'manual' | 'auto' | 'full-auto'
 export let debugMode = false;
 export let isPaused = false;
 export let speed = 500;
@@ -126,6 +127,7 @@ export function getPlayerContext() {
         get snapshot() { return snapshot; }, set snapshot(v) { snapshot = v; },
         get UI() { return UI; }, set UI(v) { UI = v; },
         get autoMode() { return autoMode; }, set autoMode(v) { autoMode = v; },
+        get autoLevel() { return autoLevel; }, set autoLevel(v) { autoLevel = v; },
         get manualSpeedLock() { return false; },
         get manualSpeedValue() { return null; },
         get slideSpeedActive() { return false; },
