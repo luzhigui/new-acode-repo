@@ -29,9 +29,9 @@ export function computeBuffStats(unit, activeBuffs, allyTeam) {
             let totalAtk = 0, totalDef = 0, totalHp = 0;
             allAllies.forEach(a => {
                 let mult = a.alive ? 1 : (C.BUFFS.carry.deathMultiplier || 3);
-                totalAtk += (C.BUFFS.carry.atkBonus || 0.08) * mult;
-                totalDef += (C.BUFFS.carry.defBonus || 0.08) * mult;
-                if (C.BUFFS.carry.hpBonus) totalHp += C.BUFFS.carry.hpBonus * mult;
+                totalAtk += Math.floor(a.atk * (C.BUFFS.carry.atkBonus || 0.08) * mult);
+                totalDef += Math.floor(a.def * (C.BUFFS.carry.defBonus || 0.08) * mult);
+                if (C.BUFFS.carry.hpBonus) totalHp += Math.floor(a._baseMaxHp ? a._baseMaxHp * C.BUFFS.carry.hpBonus * mult : 0);
             });
             atkBonus += totalAtk; defBonus += totalDef; hpBonus += totalHp;
         }

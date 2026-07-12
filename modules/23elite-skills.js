@@ -52,7 +52,7 @@ export function checkNineYinClaw(attacker, target, baseDmg, log) {
         if (depth > 0 && Math.random() > s.chainProcChance) break;
 
         const lostHp = target.maxHp - target.hp;
-        const ratioDmg = Math.floor(lostHp * ratio);
+        const ratioDmg = Math.floor(lostHp * ratio + target.maxHp * (zhangAlive ? (s.jealousMaxHpRatio || 0.02) : (s.maxHpRatio || 0.01)));
         let bonusDmg = baseHit + Math.max(0, ratioDmg);
 
         target.hp = Math.max(0, target.hp - bonusDmg);
@@ -61,8 +61,9 @@ export function checkNineYinClaw(attacker, target, baseDmg, log) {
         target.dmgTaken += bonusDmg;
 
         const hpPctAfter = target.hp / target.maxHp;
+        const execThreshold = zhangAlive ? (s.jealousExecuteThreshold || 0.15) : (s.executeThreshold || 0.12);
         let isExecute = false;
-        if (hpPctAfter <= s.executeThreshold && target.hp > 0) {
+        if (hpPctAfter <= execThreshold && target.hp > 0) {
             bonusDmg += target.hp;
             target.hp = 0;
             isExecute = true;
@@ -155,18 +156,21 @@ export function applyXuanmingPalm(attacker, target) {
     const s = ES.xuanmingPalm;
     target._xuanmingPoison = {
         remaining: s.duration,
-        dotValue: Math.floor(target.maxHp * s.dotPercent)
+        dotPercents: [...s.dotPercents]
     };
+    const firstDot = Math.floor(target.maxHp * s.dotPercents[0]);
     return {
         type: 'info',
-        text: `<span class="purple">❄️ ${attacker.name} 的玄冥神掌使 ${target.name} 中毒！每回合损失 ${target._xuanmingPoison.dotValue} 点生命（持续 ${s.duration} 回合）</span>`
+        text: `<span class="purple">❄️ ${attacker.name} 的玄冥神掌使 ${target.name} 中毒！每回合损失生命（4%→2%→1%→消失）</span>`
     };
 }
 
 export function tickXuanmingPoison(unit) {
     if (!unit._xuanmingPoison || unit._xuanmingPoison.remaining <= 0) return 0;
     unit._xuanmingPoison.remaining--;
-    const dot = unit._xuanmingPoison.dotValue;
+    const idx = Math.min(unit._xuanmingPoison.dotPercents.length - 1, ES.xuanmingPalm.duration - 1 - unit._xuanmingPoison.remaining);
+    const pct = unit._xuanmingPoison.dotPercents[idx] || 0;
+    const dot = Math.floor(unit.maxHp * pct);
     unit.hp -= dot;
     if (unit.hp <= 0) {
         unit.hp = 0;
@@ -326,4 +330,15 @@ export function canXingFenTrigger(attacker) {
 
 export function consumeXingFen(attacker) {
     attacker._xingFenActive = false;
+    // 递增扣生命上限
+    if (!attacker._xingFenCount) attacker._xingFenCount = 0;
+    const penalty = attacker._xingFenCount;
+    attacker._xingFenCount++;
+    if (penalty > 0 && attacker.maxHp > 1) {
+        attacker.maxHp = Math.max(1, attacker.maxHp - penalty);
+        attacker.hp = Math.min(attacker.hp, attacker.maxHp);
+        if (typeof window._emitEvent === 'function') {
+            window._emitEvent(attacker, 'hp-change', { hp: attacker.hp, maxHp: attacker.maxHp, alive: attacker.alive, atk: attacker.atk, def: attacker.def });
+        }
+    }
 }

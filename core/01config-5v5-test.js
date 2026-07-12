@@ -23,8 +23,8 @@ const CONFIG = {
     },
     ROLES: ['战士', '防战', '远程', '飞行'],
     ATK_VAR: 6, DEF_VAR: 4, HP_BONUS_MIN: 0, HP_BONUS_MAX: 5,
-    FANG_LEVELS: [0.244, 0.264, 0.279, 0.292, 0.306, 0.322, 0.342, 0.373, 0.445, 0.520],
-    FANG_K: [0, 0.02, 0.04, 0.07, 0.10, 0.14, 0.19, 0.28, 0.50, 1.00, 2.50],
+    FANG_LEVELS: [0.244, 0.264, 0.279, 0.292, 0.306, 0.322, 0.342, 0.373, 0.445, 0.520, 0.600],
+    FANG_K: [0, 0.02, 0.04, 0.07, 0.10, 0.14, 0.19, 0.28, 0.40, 0.80, 1.50, 2.50],
     MAX_ROUND: 35,
     BUFF_DURATION: 4,
     BUFF_CHOICES: 3,
@@ -67,11 +67,11 @@ const CONFIG = {
     },
     // 各关普通敌人站位模板
     ENEMY_POS_TEMPLATES: {
-        1: { '战士': [1, 5], '远程': [8], random: 3 },
-        2: { '防战': [1, 3], '战士': [5], '远程': [8, 9], random: 2 },
+        1: { '防战': [3], '战士': [1, 5], '远程': [8], random: 2 },
+        2: { '防战': [1, 3], '战士': [5], '飞行': [4, 6], '远程': [8, 9], random: 2 },
         3: { random: 5 },
         4: { '防战': [1], '远程': [7], random: 3 },
-        5: { '防战': [1], '战士': [2], '远程': [7], random: 3 },
+        5: { '防战': [1], '战士': [2], '远程': [8], random: 3 },
         6: { '防战': [1], '战士': [2], '远程': [7], '飞行': [8], random: 1 }
     },
     // 精英怪按职业的优先站位顺序
@@ -101,37 +101,45 @@ const CONFIG = {
         extinctionCounter: { name: '灭绝双剑', hpThreshold: 0.5, counterRatio: 0.8, maxPerRound: 1 },
         nineYinClaw: {
             name: '九阴白骨爪',
-            firstProcChance: 1.0,    // 首次必定触发
-            procChance: 0.80,        // 后续触发概率 80%
-            chainProcChance: 0.80,   // 连锁再触发概率 80%（白骨爪可以自己触发自己）
-            maxChain: 3,              // 最多连锁 3 次
+            firstProcChance: 1.0,
+            procChance: 0.80,
+            chainProcChance: 0.80,
+            maxChain: Infinity,       // 无连锁上限
             unavoidable: true,
-            baseDmg: 3,              // 基础伤害（无无忌）
-            lostHpRatio: 0.02,       // 伤害 = 基础 + 已损失生命 × 2%（无无忌）
-            jealousBaseDmg: 5,       // 嫉妒基础伤害（张无忌在场）
-            jealousLostHpRatio: 0.03,// 伤害 = 基础 + 已损失生命 × 3%（张无忌在场）
-            executeThreshold: 0.15   // 血量 ≤ 15% 直接斩杀（伤害打完后判定）
+            baseDmg: 1,               // 无无忌：基础1
+            lostHpRatio: 0.01,        // +已损失生命×1%
+            maxHpRatio: 0.01,         // +对方最大生命×1%
+            jealousBaseDmg: 2,        // 有无忌：基础2
+            jealousLostHpRatio: 0.015,// +已损失生命×1.5%
+            jealousMaxHpRatio: 0.02,  // +对方最大生命×2%
+            executeThreshold: 0.12,   // 无无忌斩杀线12%
+            jealousExecuteThreshold: 0.15 // 有无忌斩杀线15%
         },
         rebelStrike: { 
-            name: '叛逆突袭', dmgBonus: 0.3,  // 从0.2提升至0.3
-            currentHpRatio: 0.1  // 附加目标当前生命10%真实伤害
+            name: '叛逆突袭', dmgBonus: 0,  // 取消伤害加成
+            currentHpRatio: 0.1
         },
         phantomThunder: { name: '混元霹雳劲', lostHpRatio: 0.3 },
-        xuanmingPalm: { name: '玄冥神掌', dotPercent: 0.03, duration: 3 },
-        hornStrike: { name: '鹿角杖法', defIgnore: 0.3, poisonedBonus: 0.5 },
+        phantomDisguise: { name: '幻影伪装', baseChance: 0.20, per10pctLost: 0.03 },
+        xuanmingPalm: { name: '玄冥神掌', dotPercents: [0.04, 0.02, 0.01], duration: 3 },
+        hornStrike: { name: '鹿角杖法', defIgnore: 0.3, poisonedBonus: 0.3 },
         // ===== V3.1.0 新增联动技能 =====
         kuLian: {
             name: '苦练',
-            desc: '场上无周芷若时，宋青书每回合最先行动，不占用队伍行动次数'
+            icon: '💪',
+            desc: '场上无周芷若时每回合最先行动；每次行动前给全体队友+1攻+1防+2生命上限，自身翻倍',
+            atkBonus: 1,
+            defBonus: 1,
+            hpBonus: 2
         },
         xinHun: {
             name: '新婚',
-            hpDeduct: 1,  // 宋青书每次攻击扣除周芷若的血量
-            healLevels: [0.16, 0.08, 0.04, 0.02, 0.01]  // 快乐降级序列
+            hpDeduct: 1,
+            healLevels: [0.16, 0.10, 0.06, 0.03]  // 4层后消失
         },
         xingFen: {
             name: '性奋',
-            desc: '周芷若在场时授予宋青书，使其每次攻击后可再次攻击',
+            desc: '每次攻击后可再次攻击，每次攻击后自身减少递增生命上限（第1次0，第2次1，第3次2...），上限最低为1',
             maxTriggersPerRound: 1
         }
     }

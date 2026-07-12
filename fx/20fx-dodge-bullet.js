@@ -232,6 +232,9 @@ export async function showDodgeBulletTime(attacker, defender, reboundDmg) {
             + 'text-align:center;line-height:1;letter-spacing:2px;';
         skipBtn.addEventListener('click', () => {
             isSkipped = true;
+            cleanup();
+            resolved = true;
+            window.bulletTimeActive = false;
             if (ctx) ctx.isPaused = false;
         });
         document.body.appendChild(skipBtn);

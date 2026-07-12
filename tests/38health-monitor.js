@@ -181,7 +181,9 @@ export function initMonitor() {
     });
 
     btnStartMonitor.disabled = false; btnStopMonitor.disabled = true;
-    statusLine.textContent = '点击"开始体检"加载游戏并启动监控';
+    statusLine.textContent = '正在启动自动体检...';
+    // 自动启动体检，无需手动点击
+    btnStartMonitor.click();
 }
 
 // ==================== 定时扫描 ====================

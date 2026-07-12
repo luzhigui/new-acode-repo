@@ -405,9 +405,12 @@ function shouldStartNewGroup(entry, lastType) {
     if (!lastType) return false;
     if (lastType === 'round-end') return false;
     if (lastType === 'round-start') return false;
-    if (lastType !== 'attack-group' && entry.type === 'attack-group') return true;
+    if (entry.type === 'round-end') return false;
+    if (entry.type === 'round-start') return false;
     if (lastType === 'attack-group' && entry.type === 'attack-group') return true;
     if (lastType === 'attack-group' && entry.type === 'info') return true;
+    if (lastType === 'attack-group' && entry.type !== 'attack-group' && entry.type !== 'info') return true;
+    if (lastType !== 'attack-group' && entry.type === 'attack-group') return true;
     return false;
 }
 
@@ -669,9 +672,28 @@ export async function playBattle() {
         c.activeBuffs = nextActiveBuffs;
         if (c.updateBuffSlots) c.updateBuffSlots();
         if (!window._fastForwardActive && battleState.round % 3 === 0 && battleState.round > 0) {
+            const mainCtx2 = window._getPlayerContext ? window._getPlayerContext() : null;
+            const isFullAuto = mainCtx2 && mainCtx2.autoLevel === 'full-auto';
             let promDiv = document.createElement('div'); promDiv.innerHTML = `<span class="gold">✨ 请选择新的Buff（持续${CONFIG.BUFF_DURATION || 4}回合）</span><br>`; logDiv.appendChild(promDiv); c.autoScrollLog();
-            c.isPaused = true;
-            let newBuff = await showBuffPopup(c);
+            let newBuff = null;
+            if (isFullAuto) {
+                const allKeys = Object.keys(CONFIG.BUFFS);
+                const existing = (nextActiveBuffs || []).map(b => b.key);
+                const available = allKeys.filter(k => !existing.includes(k));
+                if (available.length > 0) {
+                    const pick = available[Math.floor(Math.random() * available.length)];
+                    const duration = CONFIG.BUFFS[pick].duration || CONFIG.BUFF_DURATION || 4;
+                    newBuff = { key: pick, target: 'ally', remaining: duration, name: CONFIG.BUFFS[pick].name };
+                    if (pick === 'holyFlame') {
+                        newBuff.col = Math.floor(Math.random() * 3) + 1;
+                        newBuff.row = Math.floor(Math.random() * 3) + 1;
+                    }
+                }
+                promDiv.innerHTML = `<span class="gold">🤖 全自动选择Buff：${newBuff ? newBuff.name : '无'}</span><br>`;
+            } else {
+                c.isPaused = true;
+                newBuff = await showBuffPopup(c);
+            }
             if (newBuff) {
                 nextActiveBuffs = [...(nextActiveBuffs || []), newBuff];
                 let msgDiv = document.createElement('div'); msgDiv.innerHTML = `<span class="gold">✨ 获得Buff：${newBuff.name}（持续${newBuff.remaining}回合）</span><br>`; logDiv.appendChild(msgDiv); c.autoScrollLog();

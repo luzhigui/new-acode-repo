@@ -139,11 +139,11 @@ function updateDetailPopupContent() {
                 let skills = [];
                 if (u.name === '张无忌') skills = ['九阳神功：每回合回复5%生命', '乾坤大挪移：保护4/6号位队友，反弹15%伤害', '近战形态：前排无人时切换，攻+3/防+2/血+50'];
                 else if (u.name === '韦一笑') skills = ['寒冰掌：攻击吸血15%，增加生命上限', '青翼蝠王：基础闪避20%，无视行动状态闪避'];
-                else if (u.name === '宋青书') skills = ['叛逆突袭：优先攻击血量最高目标，伤害+30%，附加目标当前生命10%真实伤害', '苦练：场上无周芷若时每回合最先行动', '新婚：每次攻击扣除周芷若1点血，叠加快乐', '性奋：周芷若在场时攻击后可再次行动'];
-                else if (u.name === '周芷若') skills = ['九阴白骨爪：按已损失生命5%追击，可连锁触发，血量≤10%斩杀（张无忌在场时比例提升至8%）'];
-                else if (u.name === '成昆') skills = ['混元霹雳劲：附加已损失生命30%的真实伤害', '高生存：作为防战，防御极高且可反弹伤害'];
-                else if (u.name === '鹿杖客') skills = ['玄冥神掌：攻击附带寒毒，每回合损失3%最大生命，持续3回合', '与鹤笔翁联动：鹤笔翁对中毒目标伤害+50%'];
-                else if (u.name === '鹤笔翁') skills = ['鹿角杖法：忽略目标30%防御', '毒伤加成：对已中毒目标伤害额外+50%'];
+                else if (u.name === '宋青书') skills = ['💥 叛逆突袭：优先攻击血量最高目标，附加目标当前生命10%真实伤害', '💪 苦练：场上无周芷若时最先行动；行动前全体队友+1攻+1防+2生命上限，自身翻倍', '💒 新婚：攻击扣除周芷若1血，叠快乐层（16%→10%→6%→3%）', '💗 性奋：周芷若在场时攻击后可再次行动；每次攻击后减少递增生命上限'];
+                else if (u.name === '周芷若') skills = ['🐾 九阴白骨爪：基础1+已损失1%+最大1%追击，≤12%斩杀（无忌在场：基础2+1.5%+2%，≤15%斩杀），可连锁'];
+                else if (u.name === '成昆') skills = ['💥 混元霹雳劲：附加已损失生命30%的真实伤害', '🌀 幻影伪装：攻击后模仿对方单位；对方攻击时20%概率混乱，每损失10%生命+3%'];
+                else if (u.name === '鹿杖客') skills = ['❄️ 玄冥神掌：中毒每回合损失4%→2%→1%→消失', '🔗 联动鹤笔翁：攻击后鹤笔翁立刻攻击同一目标'];
+                else if (u.name === '鹤笔翁') skills = ['🦌 鹿角杖法：忽略30%防御，中毒目标伤害+30%', '🔗 联动鹿杖客：攻击后鹿杖客立刻攻击同一目标'];
                 if (skills.length > 0) {
                     return `<span style="color:#888;">技能</span><span style="color:#b8860b;">${skills.join('<br>')}</span>`;
                 }
@@ -235,6 +235,17 @@ export function renderGrid(id, camp) {
         } else {
             roleIcon = unit.role==='战士'?'⚔️':(unit.role==='防战'?'🛡️':(unit.role==='远程'?'🏹':'🦅'));
         }
+        let displayName = unit.name;
+        let displayIsZhang = unit.isZhang || false;
+        if (unit.name === '成昆' && unit._phantomTarget) {
+            const allUnits = (ctx.UI.allyTeam || []).concat(ctx.UI.enemyTeam || []);
+            const mimicTarget = allUnits.find(u => u.uid === unit._phantomTarget);
+            if (mimicTarget) {
+                displayName = mimicTarget.name;
+                displayIsZhang = mimicTarget.isZhang || false;
+                roleIcon = mimicTarget.role==='战士'?'⚔️':(mimicTarget.role==='防战'?'🛡️':(mimicTarget.role==='远程'?'🏹':'🦅'));
+            }
+        }
         let buffStats = getBuffStats(unit);
         let atkBonusVal = Math.floor(unit.atk * buffStats.atkBonus);
         let defBonusVal = Math.floor(unit.def * buffStats.defBonus);
@@ -279,7 +290,7 @@ export function renderGrid(id, camp) {
         let hpStyle = hpBonusVal > 0 ? 'color:#b8860b;font-weight:bold;' : '';
         let eliteSkillIcon = (unit.name === '周芷若' && unit._hasKuaiLe) ? ' 💖' : (unit.name === '宋青书' && unit._hasXingFen) ? ' 💗' : '';
         if (unit._xuanmingPoison && unit._xuanmingPoison.remaining > 0) eliteSkillIcon += ' ❄️';
-        div.innerHTML = `<span class="cell-icon">${isBlocked && unit.alive && isResting && !(unit.isZhang && unit.rangedForm) && !isDead ? '😴' : roleIcon}</span><div class="cell-info"><span class="cell-name ${unit.isZhang?'gold':''}">${unit.name}${eliteSkillIcon}${buffIcons ? ' ' + buffIcons : ''}</span><span class="cell-stats">攻<span style="${atkStyle}">${displayAtk}</span> 防<span style="${defStyle}">${displayDef}</span> <span class="${hpColorClass}" style="${hpStyle}">血${Math.floor(unit.hp)}</span></span></div><div class="hp-bar-wrap"><div class="hp-bar-inner" id="hpbar-${unit.uid}" style="height:${hpPct}%;background:${barColor};transition:none;"></div></div>`;
+        div.innerHTML = `<span class="cell-icon">${isBlocked && unit.alive && isResting && !(unit.isZhang && unit.rangedForm) && !isDead ? '😴' : roleIcon}</span><div class="cell-info"><span class="cell-name ${displayIsZhang?'gold':''}">${displayName}${eliteSkillIcon}${buffIcons ? ' ' + buffIcons : ''}</span><span class="cell-stats">攻<span style="${atkStyle}">${displayAtk}</span> 防<span style="${defStyle}">${displayDef}</span> <span class="${hpColorClass}" style="${hpStyle}">血${Math.floor(unit.hp)}</span></span></div><div class="hp-bar-wrap"><div class="hp-bar-inner" id="hpbar-${unit.uid}" style="height:${hpPct}%;background:${barColor};transition:none;"></div></div>`;
         if (isDead) {
             let deadMark = document.createElement('span'); deadMark.className = 'dead-mark'; deadMark.textContent = '✕'; div.appendChild(deadMark);
             div.style.transform = 'scale(0.8)'; div.style.opacity = '0.9';
