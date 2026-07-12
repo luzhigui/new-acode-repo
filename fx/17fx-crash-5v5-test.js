@@ -22,8 +22,14 @@ function finishCrash(clone, cell, unitA, UI) {
     if (clone && clone.parentNode) clone.remove();
     const ctx = window._getPlayerContext ? window._getPlayerContext() : null;
     if (ctx && ctx.store) {
+        const su = ctx.store.getState().units.find(u => u.uid === unitA.uid);
+        const wasFlying = su && su._flyMode;
         ctx.store.dispatch({ type: 'SET_VISUAL', uid: unitA.uid, _flyMode: null, _acted: true });
-        ctx.store.dispatch({ type: 'SET_FLASH', uid: unitA.uid, flash: 'attack' });
+        if (wasFlying) {
+            ctx.store.dispatch({ type: 'SET_FLASH', uid: unitA.uid, flash: 'attack' });
+        } else {
+            ctx.store.dispatch({ type: 'CLEAR_UNIT_FLASH', uid: unitA.uid });
+        }
     } else {
         delete unitA._flyMode;
     }
