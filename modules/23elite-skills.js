@@ -382,15 +382,15 @@ export function transformXiaoZhao(unit, log) {
     if (unit._baseAtk !== undefined) unit._baseAtk += newStats.atk;
     if (unit._baseDef !== undefined) unit._baseDef += newStats.def;
 
-    // 生命上限变化：等比缩放当前血量（参考carry逻辑）
-    let oldMaxHp = unit.maxHp, oldHp = unit.hp;
-    let hpRatio = oldMaxHp > 0 ? oldHp / oldMaxHp : 1;
-    unit.maxHp += newStats.maxHp;
-
-    // 蝶变额外生命加成（+10上限，等比缩放）
-    unit.maxHp += 10;
-    if (unit._baseMaxHp !== undefined) unit._baseMaxHp += newStats.maxHp + 10;
-    unit.hp = Math.floor(hpRatio * unit.maxHp);
+    // 生命上限变化：上限加多少，当前血量同步加多少；上限减则血量不超过新上限
+    let hpDelta = newStats.maxHp + 10;  // 角色修正 + 额外+10
+    unit.maxHp += hpDelta;
+    if (unit._baseMaxHp !== undefined) unit._baseMaxHp += hpDelta;
+    if (hpDelta > 0) {
+        unit.hp += hpDelta;
+    } else {
+        unit.hp = Math.min(unit.hp, unit.maxHp);
+    }
 
     emitEvent(unit, 'hp-change', { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: unit.atk, def: unit.def, role: unit.role });
     log.push({ type:'info', text:`<span class="gold">🦋 蝶变：小昭变换为<span class="gold">${newRole}</span>（已精通${unit._masteredRoles.length}/4）</span>` });
