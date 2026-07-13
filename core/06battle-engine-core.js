@@ -516,7 +516,7 @@ function processUnitAttack(unit, allySide, enemySide, log, A, B, state, doubleSt
     }
     // 小昭衍生版乾坤大挪移：队友受伤时触发减伤/治疗/加攻（无忌不在时）
     if (target.camp === 'ally' && dmg > 0) {
-        applyXiaoZhaoDerived(A, target, dmg, log);
+        applyXiaoZhaoDerived(A, target, dmg, group);
     }
     if (unit.role === '远程' && dmg > 0) {
         unit.atk += 2;

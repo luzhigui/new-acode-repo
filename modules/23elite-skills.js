@@ -351,8 +351,8 @@ export function applyXingFenPenalty(attacker, log) {
 }
 
 /**
- * 小昭 - 蝶变：每回合随机变换职业，手动处理职业修正（避免满血重置），
- * 记录精通职业，每次变身+25生命上限（不重置当前血量）
+ * 小昭 - 蝶变：每回合随机变换职业，职业修正累加（不移除），
+ * 记录精通职业，每次变身+10生命上限（等比缩放血量）
  */
 export function transformXiaoZhao(unit, log) {
     if (!unit.isXiaoZhao || !unit.alive) return;
@@ -365,7 +365,7 @@ export function transformXiaoZhao(unit, log) {
         unit._masteredRoles.push(newRole);
     }
 
-    // 职业修正参数
+    // 职业修正参数（绝对值，累加不移除）
     const roleStats = {
         '战士': { atk: 3, def: 2, maxHp: 25 },
         '防战': { atk: -6, def: 6, maxHp: 25 },
@@ -373,26 +373,24 @@ export function transformXiaoZhao(unit, log) {
         '飞行': { atk: 2, def: -2, maxHp: -25 }
     };
 
-    // 获取当前职业和新职业的修正值
-    const oldStats = roleStats[unit.role] || { atk: 0, def: 0, maxHp: 0 };
     const newStats = roleStats[newRole] || { atk: 0, def: 0, maxHp: 0 };
 
-    // 先移除旧职业的修正
-    unit.atk -= oldStats.atk;
-    unit.def -= oldStats.def;
-    unit.maxHp -= oldStats.maxHp;
-
-    // 切换职业
+    // 职业修正累加（不移除旧修正）
     unit.role = newRole;
-
-    // 应用新职业的修正
     unit.atk += newStats.atk;
     unit.def += newStats.def;
+    if (unit._baseAtk !== undefined) unit._baseAtk += newStats.atk;
+    if (unit._baseDef !== undefined) unit._baseDef += newStats.def;
+
+    // 生命上限变化：等比缩放当前血量（参考carry逻辑）
+    let oldMaxHp = unit.maxHp, oldHp = unit.hp;
+    let hpRatio = oldMaxHp > 0 ? oldHp / oldMaxHp : 1;
     unit.maxHp += newStats.maxHp;
 
-    // 蝶变额外生命加成（+25上限，不重置当前血量）
-    unit.maxHp += 25;
-    unit.hp = Math.min(unit.hp, unit.maxHp);
+    // 蝶变额外生命加成（+10上限，等比缩放）
+    unit.maxHp += 10;
+    if (unit._baseMaxHp !== undefined) unit._baseMaxHp += newStats.maxHp + 10;
+    unit.hp = Math.floor(hpRatio * unit.maxHp);
 
     emitEvent(unit, 'hp-change', { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: unit.atk, def: unit.def, role: unit.role });
     log.push({ type:'info', text:`<span class="gold">🦋 蝶变：小昭变换为<span class="gold">${newRole}</span>（已精通${unit._masteredRoles.length}/4）</span>` });
@@ -417,7 +415,7 @@ export function computeButterflyMastery(unit) {
  * 小昭 - 乾坤大挪移（衍生版）：队友受伤时触发减伤/治疗/加攻
  * 仅在张无忌不在场时生效
  */
-export function applyXiaoZhaoDerived(allyTeam, target, dmg, log) {
+export function applyXiaoZhaoDerived(allyTeam, target, dmg, group) {
     const xiaoZhao = allyTeam.find(u => u.isXiaoZhao && u.alive);
     if (!xiaoZhao) return;
     const zhang = allyTeam.find(u => u.isZhang && u.alive);
@@ -440,6 +438,8 @@ export function applyXiaoZhaoDerived(allyTeam, target, dmg, log) {
         lucky.atk += atkGain;
         lucky.healDone += heal;
         emitEvent(lucky, 'hp-change', { hp: lucky.hp, maxHp: lucky.maxHp, alive: lucky.alive, atk: lucky.atk, def: lucky.def });
-        log.push({ type:'info', text:`<span class="gold">🦋 小昭的乾坤大挪移（衍生）：${target.name}减伤${reduce}，${lucky.name}获得治疗+${heal}和攻击+${atkGain}</span>` });
+        if (group && group.entries) {
+            group.entries.push({ type:'info', text:`<span class="gold">🦋 乾坤衍生：${target.name}减伤${reduce}，${lucky.name}治疗+${heal} 攻击+${atkGain}</span>` });
+        }
     }
 }
