@@ -702,6 +702,14 @@ export async function playBattle() {
                     if (c.UI && c.UI.allyTeam && c.UI.allyTeam.some(u => u.isXiaoZhao)) {
                         newBuff.remaining = Infinity;
                     }
+                    // 小昭永久海克斯存储
+                    if (c.UI && c.UI.allyTeam) {
+                        const xiaoZhao = c.UI.allyTeam.find(u => u.isXiaoZhao);
+                        if (xiaoZhao) {
+                            if (!xiaoZhao._permanentBuffs) xiaoZhao._permanentBuffs = [];
+                            xiaoZhao._permanentBuffs.push({ ...newBuff, remaining: Infinity });
+                        }
+                    }
                     if (pick === 'holyFlame') {
                         newBuff.col = Math.floor(Math.random() * 3) + 1;
                         newBuff.row = Math.floor(Math.random() * 3) + 1;

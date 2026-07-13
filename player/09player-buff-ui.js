@@ -45,7 +45,17 @@ export function showBuffPopup(c) {
                 let floatBtn = document.getElementById('buffFloatBtn');
                 if (floatBtn) floatBtn.remove();
                 let duration = CONFIG.BUFFS[b.value]?.duration || CONFIG.BUFF_DURATION || 4;
-                resolve({ key: b.value, target: 'ally', remaining: duration, name: CONFIG.BUFFS[b.value]?.name || b.value });
+                const newBuff = { key: b.value, target: 'ally', remaining: duration, name: CONFIG.BUFFS[b.value]?.name || b.value };
+                // 小昭永久海克斯存储
+                const ctx = window._getPlayerContext?.();
+                if (ctx && ctx.UI && ctx.UI.allyTeam) {
+                    const xiaoZhao = ctx.UI.allyTeam.find(u => u.isXiaoZhao);
+                    if (xiaoZhao) {
+                        if (!xiaoZhao._permanentBuffs) xiaoZhao._permanentBuffs = [];
+                        xiaoZhao._permanentBuffs.push({ ...newBuff, remaining: Infinity });
+                    }
+                }
+                resolve(newBuff);
             });
             btnsDiv.appendChild(btn);
         });

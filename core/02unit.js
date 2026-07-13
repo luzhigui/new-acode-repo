@@ -29,8 +29,9 @@ export class Unit {
         this._kuLianActive = false;
         this._phantomTarget = null;  // 成昆模仿的目标 uid
         this._isLinkAttack = false;
-        this.isXiaoZhao = false;
         this.isXiaoZhao = false;      // 小昭标记
+        this._masteredRoles = [];
+        this._permanentBuffs = [];
     }
     clone(){
         let c=new Unit(this.name,this.m,this.role,this.camp);
@@ -64,6 +65,8 @@ export class Unit {
         c._phantomTarget = this._phantomTarget;
         c._isLinkAttack = this._isLinkAttack;
         c.isXiaoZhao = this.isXiaoZhao;
+        c._masteredRoles = [...this._masteredRoles];
+        c._permanentBuffs = this._permanentBuffs.map(b => ({...b}));
         return c;
     }
     init(){

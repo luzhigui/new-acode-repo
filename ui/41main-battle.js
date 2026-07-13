@@ -336,6 +336,14 @@ export function showBuffSelection(callback, activeBuffs, selectedBuffIndex, upda
         } else {
             activeBuffs.push({ key, target: 'ally', remaining: duration, name: C.BUFFS[key].name });
         }
+        // 小昭永久海克斯存储
+        if (allyTeam) {
+            const xiaoZhao = allyTeam.find(u => u.isXiaoZhao);
+            if (xiaoZhao) {
+                if (!xiaoZhao._permanentBuffs) xiaoZhao._permanentBuffs = [];
+                xiaoZhao._permanentBuffs.push({ key, target: 'ally', remaining: Infinity, name: C.BUFFS[key].name });
+            }
+        }
         updateBuffSlotsFn();
         let logDiv = document.getElementById('log');
         if (logDiv) { logDiv.innerHTML += `<span class="gold">✨ 获得Buff：${C.BUFFS[key].name}（持续${duration}回合）</span><br>`; autoScrollLogFn(); }
