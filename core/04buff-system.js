@@ -4,6 +4,7 @@ export const VER = 'core/04buff-system.js V5.0.1';
 
 import { CONFIG } from './01config-5v5-test.js';
 import { rand, hasBuff, getUnitRow, getUnitCol, getAdjacentPositions } from './03battle-utils.js';
+import { checkKuLian, applyXingFenGrant, applyXinHunDeduction, tickKuaiLeHeal, canXingFenTrigger, consumeXingFen, applyXingFenPenalty, applyXiaoZhaoDerived, computeButterflyMastery } from '../modules/23elite-skills.js';
 const C = CONFIG;
 
 export function computeBuffStats(unit, activeBuffs, allyTeam) {
@@ -38,22 +39,44 @@ export function computeBuffStats(unit, activeBuffs, allyTeam) {
     }
     if (hasBuff(activeBuffs, 'fortify') && unit.role === '防战') { defBonus += C.BUFFS.fortify.defBonus; }
     if (hasBuff(activeBuffs, 'cloudBody') && unit.camp === 'ally') { dodgeBonus = C.BUFFS.cloudBody.dodgeBonus; }
-    // 小昭永久海克斯：根据当前职业自动匹配对应职业Buff
-    if (unit.isXiaoZhao && activeBuffs) {
-        const permanentKeys = C.XIAO_ZHAO_PERMANENT_BUFFS || ['fortify', 'bloodthirst', 'meteorShower', 'windAssault', 'cloudBody', 'hotBlood'];
-        permanentKeys.forEach(key => {
-            if (!hasBuff(activeBuffs, key)) return;
-            const roleMap = { fortify: '防战', bloodthirst: '战士', meteorShower: '远程', windAssault: '飞行' };
-            if (roleMap[key] && unit.role !== roleMap[key]) return;
-            if (key === 'fortify' && unit.role === '防战') defBonus += C.BUFFS.fortify.defBonus;
-            if (key === 'cloudBody') dodgeBonus = C.BUFFS.cloudBody.dodgeBonus;
+    // 小昭永久海克斯：根据当前职业匹配职业限定Buff
+    if (unit.isXiaoZhao && unit._permanentBuffs) {
+        const roleMap = { fortify: '防战', bloodthirst: '战士', meteorShower: '远程', windAssault: '飞行' };
+        unit._permanentBuffs.forEach(b => {
+            if (roleMap[b.key] && unit.role !== roleMap[b.key]) return; // 职业不匹配，跳过
+            if (b.key === 'fortify' && unit.role === '防战') defBonus += 0.5;
+            if (b.key === 'cloudBody') dodgeBonus = 0.25;
         });
     }
+
+    // 小昭变身精通加成
+    if (unit.isXiaoZhao) {
+        const mastery = computeButterflyMastery(unit);
+        atkBonus += mastery.atk;
+        defBonus += mastery.def;
+        hpBonus += mastery.hp;
+    }
+
     return { atkBonus, defBonus, dodgeBonus, hpBonus, carryAtkAbs, carryDefAbs, carryHpAbs };
 }
 
 export function applyBuffEffectsBeforeAttack(unit, target, allyTeam, enemyTeam, log) {
     let buffs = allyTeam._activeBuffs || [];
+    
+    // 小昭永久惑人心智：独立触发换位
+    if (unit.isXiaoZhao && unit._permanentBuffs && unit._permanentBuffs.some(b => b.key === 'mindControl')) {
+        if (rand(1,100) <= 80) {
+            // 敌方换位逻辑（与原有惑人心智相同）
+            let enemies = enemyTeam.filter(u => u.alive);
+            if (enemies.length >= 2) {
+                let a = enemies[rand(0, enemies.length-1)];
+                let b; do { b = enemies[rand(0, enemies.length-1)]; } while (b.uid === a.uid);
+                let posA = a.pos, posB = b.pos;
+                let tempPos = a.pos; a.pos = b.pos; b.pos = tempPos;
+                log.push({type:'buff-swap', uidA: a.uid, uidB: b.uid, oldPosA: posA, oldPosB: posB, buffType:'swap', text:`<span class="gold">🦋 蝶舞迷心：小昭触发惑人心智，${posA}号位${a.name}与${posB}号位${b.name}互换位置！</span>`});
+            }
+        }
+    }
     
     if (hasBuff(buffs, 'mindControl')) {
         let frontUnit = allyTeam.filter(u => u.alive && !u.isHorse).sort((a,b) => a.pos - b.pos)[0];
@@ -89,6 +112,29 @@ export function applyBuffEffectsBeforeAttack(unit, target, allyTeam, enemyTeam, 
 export function applyBuffEffectsAfterAttack(unit, target, dmg, allySide, enemySide, log) {
     // ★ 修复：根据攻击者阵营获取正确的 Buff 池
     let unitBuffs = (unit.camp === 'ally' ? allySide._activeBuffs : enemySide._activeBuffs) || [];
+    
+    // 小昭永久嗜血狂刀：战士形态吸血
+    if (unit.isXiaoZhao && unit.role === '战士' && unit._permanentBuffs && unit._permanentBuffs.some(b => b.key === 'bloodthirst')) {
+        let leech = Math.floor(dmg * 0.8);
+        if (leech > 0) {
+            unit.hp = Math.min(unit.maxHp, unit.hp + leech);
+            unit.healDone += leech;
+            log.push({type:'buff-leech', text:`<span class="green">🦋 蝶血：小昭嗜血狂刀吸血+${leech}</span>`, isHealEntry:true, healAmount:leech, healUnitUid:unit.uid});
+        }
+    }
+    
+    // 小昭永久热血奋战：攻击回血
+    if (unit.isXiaoZhao && unit._permanentBuffs && unit._permanentBuffs.some(b => b.key === 'hotBlood')) {
+        if (!unit._hotBloodCount) unit._hotBloodCount = 0;
+        unit._hotBloodCount++;
+        if (unit.alive && unit.hp < unit.maxHp) {
+            let ratio = (unit._hotBloodCount % 3 === 0) ? 0.3 : 0.15;
+            let leech = Math.min(Math.floor((unit.maxHp - unit.hp) * ratio), unit.maxHp - unit.hp);
+            unit.hp = Math.min(unit.maxHp, unit.hp + leech);
+            unit.healDone += leech;
+            log.push({type:'buff-leech', text:`<span class="green">🦋 热血：小昭热血奋战回复+${leech}</span>`, isHealEntry:true, healAmount:leech, healUnitUid:unit.uid});
+        }
+    }
     
     if (hasBuff(unitBuffs, 'bloodthirst') && unit.role === '战士') {
         let leech = Math.floor(dmg * C.BUFFS.bloodthirst.leechRatio);

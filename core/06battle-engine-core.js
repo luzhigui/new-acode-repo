@@ -11,7 +11,7 @@ import {
     checkExtinctionCounter, checkNineYinClaw, getRebelTarget, getRebelDmgBonus, getRebelTrueDmg,
     getPhantomThunderBonus, applyXuanmingPalm, tickXuanmingPoison, getHornStrikeBonus,
     checkKuLian, applyXingFenGrant, applyXinHunDeduction, tickKuaiLeHeal, canXingFenTrigger, consumeXingFen, applyXingFenPenalty,
-    applyXiaoZhaoDerived, transformXiaoZhao
+    applyXiaoZhaoDerived, transformXiaoZhao, computeButterflyMastery
 } from '../modules/23elite-skills.js';
 const C = CONFIG, DT = DEF_TAUNT, HT = HP_TAUNT;
 
@@ -639,14 +639,20 @@ export function* createRoundStepper(state) {
 
     applyXingFenGrant(B, log);
 
-    // 小昭蝶变：每回合随机变换职业
-    A.forEach(u => { if (u.isXiaoZhao && u.alive) transformXiaoZhao(u, log); });
-
-    // 小昭拒马：有永久海克斯且场上无拒马时额外召唤一匹
+    // 小昭永久拒马：每回合无条件召唤一匹
     const xiaoZhao = A.find(u => u.isXiaoZhao && u.alive);
-    if (xiaoZhao && hasBuff(A._activeBuffs, 'horseFormation') && !A.some(u => u.isHorse && u.alive)) {
+    if (xiaoZhao && xiaoZhao._permanentBuffs && xiaoZhao._permanentBuffs.some(b => b.key === 'horseFormation')) {
         spawnHorse(A, log, B);
     }
+
+    // 小昭永久圣火令：每回合自动释放给全队（持续4回合，可叠加）
+    if (xiaoZhao && xiaoZhao._permanentBuffs && xiaoZhao._permanentBuffs.some(b => b.key === 'holyFlame')) {
+        A._activeBuffs = A._activeBuffs || [];
+        A._activeBuffs.push({ key: 'holyFlame', target: 'ally', remaining: 4, name: '圣火令', col: Math.floor(Math.random() * 3) + 1, row: Math.floor(Math.random() * 3) + 1 });
+    }
+
+    // 小昭蝶变：每回合随机变换职业
+    A.forEach(u => { if (u.isXiaoZhao && u.alive) transformXiaoZhao(u, log); });
 
     // 苦练：宋青书每次行动前给全体队友+1攻+1防+2生命上限，自身翻倍
     // 直接用 checkKuLian 判定，避免依赖 _kuLianActive 标志位的时序（标志位在下方 yield 后才置位）

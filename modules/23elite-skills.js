@@ -351,18 +351,66 @@ export function applyXingFenPenalty(attacker, log) {
 }
 
 /**
- * 小昭 - 蝶变：每回合随机变换职业，重新吃职业加成，额外+5生命上限
+ * 小昭 - 蝶变：每回合随机变换职业，手动处理职业修正（避免满血重置），
+ * 记录精通职业，每次变身+25生命上限（不重置当前血量）
  */
 export function transformXiaoZhao(unit, log) {
     if (!unit.isXiaoZhao || !unit.alive) return;
     const roles = ['战士', '防战', '远程', '飞行'];
     const newRole = roles[Math.floor(Math.random() * roles.length)];
+
+    // 记录精通职业（去重）
+    if (!unit._masteredRoles) unit._masteredRoles = [];
+    if (!unit._masteredRoles.includes(newRole)) {
+        unit._masteredRoles.push(newRole);
+    }
+
+    // 职业修正参数
+    const roleStats = {
+        '战士': { atk: 3, def: 2, maxHp: 25 },
+        '防战': { atk: -6, def: 6, maxHp: 25 },
+        '远程': { atk: 6, def: -2, maxHp: -25 },
+        '飞行': { atk: 2, def: -2, maxHp: -25 }
+    };
+
+    // 获取当前职业和新职业的修正值
+    const oldStats = roleStats[unit.role] || { atk: 0, def: 0, maxHp: 0 };
+    const newStats = roleStats[newRole] || { atk: 0, def: 0, maxHp: 0 };
+
+    // 先移除旧职业的修正
+    unit.atk -= oldStats.atk;
+    unit.def -= oldStats.def;
+    unit.maxHp -= oldStats.maxHp;
+
+    // 切换职业
     unit.role = newRole;
-    unit.applyBonus();
-    unit.maxHp += 5;
-    unit.hp = Math.min(unit.hp + 5, unit.maxHp);
+
+    // 应用新职业的修正
+    unit.atk += newStats.atk;
+    unit.def += newStats.def;
+    unit.maxHp += newStats.maxHp;
+
+    // 蝶变额外生命加成（+25上限，不重置当前血量）
+    unit.maxHp += 25;
+    unit.hp = Math.min(unit.hp, unit.maxHp);
+
     emitEvent(unit, 'hp-change', { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: unit.atk, def: unit.def, role: unit.role });
-    log.push({ type:'info', text:`<span class="gold">🦋 蝶变：小昭变换为<span class="gold">${newRole}</span>，攻防血全面强化！</span>` });
+    log.push({ type:'info', text:`<span class="gold">🦋 蝶变：小昭变换为<span class="gold">${newRole}</span>（已精通${unit._masteredRoles.length}/4）</span>` });
+}
+
+/**
+ * 小昭 - 变身精通加成
+ * 每精通一个职业：+4攻击 +4防御 +25血量上限
+ * 最多精通4个职业：+20攻击 +20防御 +150血量上限
+ */
+export function computeButterflyMastery(unit) {
+    if (!unit.isXiaoZhao || !unit._masteredRoles) return { atk: 0, def: 0, hp: 0 };
+    const count = unit._masteredRoles.length;
+    return {
+        atk: count * 4,
+        def: count * 4,
+        hp: count * 25
+    };
 }
 
 /**
