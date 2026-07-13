@@ -65,12 +65,44 @@ export function doInitBattle(currentStage, UI, snapshot, activeBuffs, selectedBu
             else { u.pos = 5; }
         }
         allyTeam.forEach(u => { u.fixed = false; });
-        let toLock = [zhang, wei].filter(Boolean);
-        while (toLock.length < 3) { let pool = allyTeam.filter(u => !toLock.includes(u)); if (pool.length === 0) break; let pick = pool[rand(0, pool.length - 1)]; toLock.push(pick); }
-        toLock.forEach(u => { u.fixed = true; });
+let toLock = [zhang, wei].filter(Boolean);
+
+// 随机插入小昭到明教阵容（替换一个普通单位，保持5人）
+if (Math.random() < 0.3) {
+    const removable = allyTeam.filter(u => !u.isZhang && !u.isWei);
+    if (removable.length > 0) {
+        const removed = removable[rand(0, removable.length - 1)];
+        allyTeam.splice(allyTeam.indexOf(removed), 1);
+        // 如果移除的是2号位队友，需要从剩余队友中补一个到2号位
+        if (removed.pos === 2) {
+            const fill = allyTeam.find(u => !u.isZhang && !u.isWei && u.pos !== 4 && u.pos !== 5 && u.pos !== 6);
+            if (fill) {
+                takenPos.delete(2);
+                fill.pos = 2;
+                takenPos.add(2);
+            }
+        }
+    }
+    let xiaoZhao = new Unit('小昭', 107, C.ROLES[rand(0, 3)], 'ally');
+    xiaoZhao.isXiaoZhao = true;
+    xiaoZhao.initXiaoZhao();
+    xiaoZhao.applyBonus();
+    xiaoZhao._baseMaxHp = xiaoZhao.maxHp;
+    xiaoZhao._baseAtk = xiaoZhao.atk;
+    xiaoZhao._baseDef = xiaoZhao.def;
+    xiaoZhao.pos = 4;
+    xiaoZhao.fixed = true;
+    allyTeam.push(xiaoZhao);
+    takenPos.add(4);
+    toLock.push(xiaoZhao);
+}
+
+while (toLock.length < 3) { let pool = allyTeam.filter(u => !toLock.includes(u)); if (pool.length === 0) break; let pick = pool[rand(0, pool.length - 1)]; toLock.push(pick); }
+toLock.forEach(u => { u.fixed = true; });
     }
 
     let enemyUnits = [];
+    const usedEnemyNames = [];
     if (enemySquad) {
         let enemyPosSet = new Set();
         let xuanmingPairCount = 0;
@@ -81,25 +113,26 @@ export function doInitBattle(currentStage, UI, snapshot, activeBuffs, selectedBu
                 let unit = new Unit(item.name, item.m, item.role, 'enemy');
                 unit.pos = null; unit.init(); unit.applyBonus();
                 enemyUnits.push(unit);
+                usedEnemyNames.push(item.name);
                 if (item.name === '鹿杖客' || item.name === '鹤笔翁') {
                     xuanmingPairCount++;
                 }
             } else {
                 let mVal = item;
                 let pool = Object.entries(ENEMY_M).filter(([n, v]) => v === mVal);
-                let usedNames = enemyUnits.map(u => u.name);
                 let name = null;
                 const squadDefs = Object.values(C.ENEMY_SQUADS).flat();
-                for (let def of squadDefs) { if (typeof def === 'object' && def.m === mVal && !usedNames.includes(def.name)) { name = def.name; break; } }
+                for (let def of squadDefs) { if (typeof def === 'object' && def.m === mVal && !usedEnemyNames.includes(def.name)) { name = def.name; break; } }
                 if (!name && pool.length > 0) {
                     let attempts = 0;
-                    while ((!name || usedNames.includes(name)) && attempts < 50) { let pick = pool[rand(0, pool.length - 1)]; name = pick[0]; attempts++; }
+                    while ((!name || usedEnemyNames.includes(name)) && attempts < 50) { let pick = pool[rand(0, pool.length - 1)]; name = pick[0]; attempts++; }
                 }
                 if (!name) name = '六大派弟子';
                 let role = C.ROLES[rand(0, 3)];
                 let unit = new Unit(name, mVal, role, 'enemy');
                 unit.pos = null; unit.init(); unit.applyBonus();
                 enemyUnits.push(unit);
+                usedEnemyNames.push(name);
             }
         }
 
@@ -149,6 +182,12 @@ export function doInitBattle(currentStage, UI, snapshot, activeBuffs, selectedBu
                     }
                 }
             }
+            // 职业被修改后重新计算属性
+            normalUnits.forEach(u => {
+                if (!u._originalRole) u._originalRole = u.role;
+                u.init();
+                u.applyBonus();
+            });
         }
 
         // 先分配站位模板（普通单位），保留精英怪位置不被抢占
@@ -266,15 +305,20 @@ export function doInitBattle(currentStage, UI, snapshot, activeBuffs, selectedBu
 }
 
 // ==================== Buff 选择 ====================
-export function generateBuffChoices(activeBuffs) {
+export function generateBuffChoices(activeBuffs, allyTeam = []) {
     let activeBuffKeys = activeBuffs.map(b => b.key);
-    let available = ALL_BUFF_KEYS.filter(k => !activeBuffKeys.includes(k));
+    let available = ALL_BUFF_KEYS.filter(k => {
+        if (activeBuffKeys.includes(k)) return false;
+        const requiredRole = C.BUFF_ROLE_REQUIREMENTS[k];
+        if (requiredRole && !allyTeam.some(u => u.alive && u.role === requiredRole)) return false;
+        return true;
+    });
     let shuffled = [...available].sort(() => Math.random() - 0.5);
     return shuffled.slice(0, C.BUFF_CHOICES);
 }
 
-export function showBuffSelection(callback, activeBuffs, selectedBuffIndex, updateBuffSlotsFn, updateUIFn, autoScrollLogFn) {
-    const choices = generateBuffChoices(activeBuffs);
+export function showBuffSelection(callback, activeBuffs, selectedBuffIndex, updateBuffSlotsFn, updateUIFn, autoScrollLogFn, allyTeam) {
+    const choices = generateBuffChoices(activeBuffs, allyTeam);
     const text = '选择 Buff（持续 ' + C.BUFF_DURATION + ' 回合）';
     const buttons = choices.map(key => ({
         text: (C.BUFFS[key]?.icon || '?') + ' ' + (C.BUFFS[key]?.name || key) + '\n' + (C.BUFFS[key]?.desc || ''),

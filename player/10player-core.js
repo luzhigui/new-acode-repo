@@ -3,13 +3,13 @@
 export const VER = 'player/10player-core.js V5.0.4';
 
 import { isBlocked } from '../core/03battle-utils.js';
-import { showDanmaku, showDamageFloat, showDodgeBubble, showHealFloat, applyBrushEffect, showBuffBanner, showCriticalBanner, showHeartEffect, showPinkFlash } from '../fx/15fx-common-5v5-test.js';
+import { showDanmaku, showDamageFloat, showDodgeBubble, showHealFloat, applyBrushEffect, showBuffBanner, showCriticalBanner, showHeartEffect, showPinkFlash, showKuLianEffect } from '../fx/15fx-common-5v5-test.js';
 import { showDodgeBulletTime } from '../fx/20fx-dodge-bullet.js';
 import { showRangedArrow, showSplashArrows, showBoneClaw } from '../fx/16fx-arrows-5v5-test.js';
 import { CONFIG } from '../core/01config-5v5-test.js';
 import { playLineText } from './08player-text.js';
 import { animatePositionSwap } from '../fx/18fx-position-swap.js';
-import { animatePushBack } from '../fx/19fx-push-back.js';
+import { animatePushBack, animatePushSwap } from '../fx/19fx-push-back.js';
 import { AudioManager } from '../modules/28audio-manager.js';
 import { handleBuffSummon, handleBuffDestroy, handleBuffLeech, showBuffPopup } from './09player-buff-ui.js';
 import { createRoundStepper } from '../core/06battle-engine-core.js';
@@ -120,6 +120,7 @@ function battleReducer(state, action) {
                         if (p.alive !== undefined) next[idx].alive = p.alive;
                         if (p.atk !== undefined) next[idx].atk = p.atk;
                         if (p.def !== undefined) next[idx].def = p.def;
+                        if (p.role !== undefined) next[idx].role = p.role;
                         if (p.buffAtkBonus !== undefined) next[idx].buffAtkBonus = p.buffAtkBonus;
                         if (p.buffDefBonus !== undefined) next[idx].buffDefBonus = p.buffDefBonus;
                         if (p.buffDodgeBonus !== undefined) next[idx].buffDodgeBonus = p.buffDodgeBonus;
@@ -260,6 +261,12 @@ async function handleAttackGroup(c, entry, roundResult, abortSig, isFirstAttackR
     }
     if(unitA&&!entry.isBlock){
         const flashType = entry.isDodge ? 'defend' : 'attack';
+        // 苦练特效：在飞撞前单独播放，让玩家看清楚
+        if (entry.isKuLianAttack && unitA) {
+            const team = unitA.camp === 'ally' ? c.UI.allyTeam : c.UI.enemyTeam;
+            showKuLianEffect(unitA, team);
+            await new Promise(r => setTimeout(r, 1200));
+        }
         c.store.dispatch({ type: 'SET_FLASH', uid: unitA.uid, flash: flashType });
         if (typeof window._triggerFX === 'function') {
             setTimeout(() => {
@@ -681,11 +688,20 @@ export async function playBattle() {
             if (isFullAuto) {
                 const allKeys = Object.keys(CONFIG.BUFFS);
                 const existing = (nextActiveBuffs || []).map(b => b.key);
-                const available = allKeys.filter(k => !existing.includes(k));
+                const allyTeam = c.UI?.allyTeam || [];
+                let available = allKeys.filter(k => {
+                    if (existing.includes(k)) return false;
+                    const requiredRole = CONFIG.BUFF_ROLE_REQUIREMENTS?.[k];
+                    if (requiredRole && !allyTeam.some(u => u.alive && u.role === requiredRole)) return false;
+                    return true;
+                });
                 if (available.length > 0) {
                     const pick = available[Math.floor(Math.random() * available.length)];
                     const duration = CONFIG.BUFFS[pick].duration || CONFIG.BUFF_DURATION || 4;
                     newBuff = { key: pick, target: 'ally', remaining: duration, name: CONFIG.BUFFS[pick].name };
+                    if (c.UI && c.UI.allyTeam && c.UI.allyTeam.some(u => u.isXiaoZhao)) {
+                        newBuff.remaining = Infinity;
+                    }
                     if (pick === 'holyFlame') {
                         newBuff.col = Math.floor(Math.random() * 3) + 1;
                         newBuff.row = Math.floor(Math.random() * 3) + 1;
@@ -697,6 +713,8 @@ export async function playBattle() {
                 newBuff = await showBuffPopup(c);
             }
             if (newBuff) {
+                // 小昭永久海克斯
+
                 nextActiveBuffs = [...(nextActiveBuffs || []), newBuff];
                 let msgDiv = document.createElement('div'); msgDiv.innerHTML = `<span class="gold">✨ 获得Buff：${newBuff.name}（持续${newBuff.remaining}回合）</span><br>`; logDiv.appendChild(msgDiv); c.autoScrollLog();
                 let mainCtx = window._getPlayerContext ? window._getPlayerContext() : null;

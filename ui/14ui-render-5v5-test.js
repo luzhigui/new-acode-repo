@@ -106,7 +106,13 @@ function updateDetailPopupContent() {
     let activeBuffs = ctx.activeBuffs || [];
     let doubleStrikeUid = ctx.currentDoubleStrikeUid;
     let unitBuffs = activeBuffs.filter(b => isUnitBenefitedByBuff(u, b.key, allyTeam, doubleStrikeUid, activeBuffs));
-    let buffText = unitBuffs.length > 0 ? unitBuffs.map(b => `${b.name}(${b.remaining}回)`).join('、') : '无';
+    let buffText = '无';
+    if (u.isXiaoZhao) {
+        const permanentBuffs = activeBuffs.filter(b => b.remaining === Infinity);
+        buffText = permanentBuffs.length > 0 ? permanentBuffs.map(b => b.name).join('、') : '无';
+    } else if (unitBuffs.length > 0) {
+        buffText = unitBuffs.map(b => `${b.name}(${b.remaining}回)`).join('、');
+    }
     let buffStats = getBuffStats(u);
     let atkBonusVal = Math.floor(u.atk * buffStats.atkBonus);
     let defBonusVal = Math.floor(u.def * buffStats.defBonus);
@@ -144,6 +150,7 @@ function updateDetailPopupContent() {
                 else if (u.name === '成昆') skills = ['💥 混元霹雳劲：附加已损失生命30%的真实伤害', '🌀 幻影伪装：攻击后模仿对方单位；对方攻击时20%概率混乱，每损失10%生命+3%'];
                 else if (u.name === '鹿杖客') skills = ['❄️ 玄冥神掌：中毒每回合损失4%→2%→1%→消失', '🔗 联动鹤笔翁：攻击后鹤笔翁立刻攻击同一目标'];
                 else if (u.name === '鹤笔翁') skills = ['🦌 鹿角杖法：忽略30%防御，中毒目标伤害+30%', '🔗 联动鹿杖客：攻击后鹿杖客立刻攻击同一目标'];
+                else if (u.name === '小昭') skills = ['🦋 蝶变：每回合随机变换职业，重新获得职业加成+5血量上限', '✨ 乾坤大挪移（衍生）：张无忌不在时，队友受伤触发减伤、治疗和攻击加成', '🛡️ 乾坤大挪移（升级）：张无忌在场时，全队减伤30%并反弹伤害', '♾️ 永久海克斯：获得的海克斯效果永久持续，按当前职业自动匹配'];
                 if (skills.length > 0) {
                     return `<span style="color:#888;">技能</span><span style="color:#b8860b;">${skills.join('<br>')}</span>`;
                 }
@@ -285,10 +292,10 @@ export function renderGrid(id, camp) {
                 return info ? info.icon : '';
             }).filter(icon => icon).join('');
         }
-        let atkStyle = atkBonusVal > 0 ? 'color:#b8860b;font-weight:bold;' : '';
-        let defStyle = defBonusVal > 0 ? 'color:#b8860b;font-weight:bold;' : '';
-        let hpStyle = hpBonusVal > 0 ? 'color:#b8860b;font-weight:bold;' : '';
-        let eliteSkillIcon = (unit.name === '周芷若' && unit._hasKuaiLe) ? ' 💖' : (unit.name === '宋青书' && unit._hasXingFen) ? ' 💗' : '';
+        let atkStyle = atkBonusVal > 0 ? 'color:#daa520;font-weight:bold;' : '';
+        let defStyle = defBonusVal > 0 ? 'color:#daa520;font-weight:bold;' : '';
+        let hpStyle = hpBonusVal > 0 ? 'color:#daa520;font-weight:bold;' : '';
+        let eliteSkillIcon = (unit.name === '周芷若' && unit._hasKuaiLe) ? ' 💖' : (unit.name === '宋青书' && unit._hasXingFen) ? ' 💗' : (unit.isXiaoZhao ? ' 🦋' : '');
         if (unit._xuanmingPoison && unit._xuanmingPoison.remaining > 0) eliteSkillIcon += ' ❄️';
         div.innerHTML = `<span class="cell-icon">${isBlocked && unit.alive && isResting && !(unit.isZhang && unit.rangedForm) && !isDead ? '😴' : roleIcon}</span><div class="cell-info"><span class="cell-name ${displayIsZhang?'gold':''}">${displayName}${eliteSkillIcon}${buffIcons ? ' ' + buffIcons : ''}</span><span class="cell-stats">攻<span style="${atkStyle}">${displayAtk}</span> 防<span style="${defStyle}">${displayDef}</span> <span class="${hpColorClass}" style="${hpStyle}">血${Math.floor(unit.hp)}</span></span></div><div class="hp-bar-wrap"><div class="hp-bar-inner" id="hpbar-${unit.uid}" style="height:${hpPct}%;background:${barColor};transition:none;"></div></div>`;
         if (isDead) {

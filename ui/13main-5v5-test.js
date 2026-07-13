@@ -191,7 +191,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     autoScrollLog();
                 }
             } else {
-                await new Promise(resolve => { showBuffSelection(() => resolve(), getState.activeBuffs(), selectedBuffIndex, () => updateBuffSlots(getState.activeBuffs(), selectedBuffIndex), () => {}, autoScrollLog); });
+                await new Promise(resolve => { showBuffSelection(() => resolve(), getState.activeBuffs(), selectedBuffIndex, () => updateBuffSlots(getState.activeBuffs(), selectedBuffIndex), () => {}, autoScrollLog, getState.UI().allyTeam); });
             }
             await new Promise(r=>setTimeout(r,600));
             try {

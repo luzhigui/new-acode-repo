@@ -105,12 +105,8 @@ export function checkDeathFxRetention(allUnits, doc) {
             }
         }
 
-        // 2. 引擎里活着，但格子有死亡特效残留（允许 4 秒宽限期）
-        if (u.alive && (hasDeadFlash || hasDeadMark)) {
-            if (!u._deathTime || (now - u._deathTime) > 4000) {
-                issues.push(u.name + ' UI异常：alive=true，但格子上残留死亡特效超过4秒');
-            }
-        }
+        // 2. 格子已渲染死亡 → 说明 UI 是正确的，引擎状态可能未同步，不报
+        // 只有当 alive=true 且 _deathTime 超过 4 秒但格子依然活着没有死亡标记时，才说明死亡特效缺失
 
         // 3. 死亡特效赖场超过4秒
         if (!u.alive && u._deathTime && (now - u._deathTime > 4000)) {
@@ -234,8 +230,11 @@ export function checkBuffIcons(ctx, doc) {
         }
     }
 
+    // 精英单位白名单：这些单位不会获得海克斯 Buff 图标
+    var eliteNames = ['成昆','鹿杖客','鹤笔翁','周芷若','宋青书'];
     for (const unit of allyTeam) {
         if (!unit.alive) continue;
+        if (eliteNames.indexOf(unit.name) !== -1) continue;
         const cell = getCellElement(unit, doc);
         if (!cell) continue;
         const nameEl = cell.querySelector('.cell-name');

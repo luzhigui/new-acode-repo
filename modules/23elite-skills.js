@@ -349,3 +349,49 @@ export function applyXingFenPenalty(attacker, log) {
         if (log) log.push({ type:'info', text:`<span class="red">💗 性奋代价：${attacker.name} 血量上限 ${oldMaxHp} → ${attacker.maxHp}（-${penalty}）</span>` });
     }
 }
+
+/**
+ * 小昭 - 蝶变：每回合随机变换职业，重新吃职业加成，额外+5生命上限
+ */
+export function transformXiaoZhao(unit, log) {
+    if (!unit.isXiaoZhao || !unit.alive) return;
+    const roles = ['战士', '防战', '远程', '飞行'];
+    const newRole = roles[Math.floor(Math.random() * roles.length)];
+    unit.role = newRole;
+    unit.applyBonus();
+    unit.maxHp += 5;
+    unit.hp = Math.min(unit.hp + 5, unit.maxHp);
+    emitEvent(unit, 'hp-change', { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: unit.atk, def: unit.def, role: unit.role });
+    log.push({ type:'info', text:`<span class="gold">🦋 蝶变：小昭变换为<span class="gold">${newRole}</span>，攻防血全面强化！</span>` });
+}
+
+/**
+ * 小昭 - 乾坤大挪移（衍生版）：队友受伤时触发减伤/治疗/加攻
+ * 仅在张无忌不在场时生效
+ */
+export function applyXiaoZhaoDerived(allyTeam, target, dmg, log) {
+    const xiaoZhao = allyTeam.find(u => u.isXiaoZhao && u.alive);
+    if (!xiaoZhao) return;
+    const zhang = allyTeam.find(u => u.isZhang && u.alive);
+    if (zhang) return; // 张无忌在场时，衍生技失效
+    const s = ES.xiaoZhao;
+    if (!s) return;
+
+    // 减伤
+    let reduce = Math.max(s.minReduce || 1, Math.floor(dmg * target.def / (s.defToReduce || 100)));
+    target.hp = Math.min(target.maxHp, target.hp + reduce);
+    target.dmgTaken -= reduce;
+
+    // 随机一名队友获得治疗和攻击
+    const aliveAllies = allyTeam.filter(u => u.alive && !u.isHorse);
+    if (aliveAllies.length > 0) {
+        const lucky = aliveAllies[Math.floor(Math.random() * aliveAllies.length)];
+        let heal = Math.max(s.minHeal || 1, Math.floor(lucky.def / (s.defToHeal || 5)));
+        let atkGain = Math.max(s.minAtk || 1, Math.floor(lucky.def / (s.defToAtk || 10)));
+        lucky.hp = Math.min(lucky.maxHp, lucky.hp + heal);
+        lucky.atk += atkGain;
+        lucky.healDone += heal;
+        emitEvent(lucky, 'hp-change', { hp: lucky.hp, maxHp: lucky.maxHp, alive: lucky.alive, atk: lucky.atk, def: lucky.def });
+        log.push({ type:'info', text:`<span class="gold">🦋 小昭的乾坤大挪移（衍生）：${target.name}减伤${reduce}，${lucky.name}获得治疗+${heal}和攻击+${atkGain}</span>` });
+    }
+}
