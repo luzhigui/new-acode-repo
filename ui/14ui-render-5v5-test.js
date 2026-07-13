@@ -78,7 +78,7 @@ function openDetailPopup(unit) {
     detailPopupUnit = unit;
     detailPopup = document.createElement('div');
     detailPopup.className = 'detail-popup';
-    detailPopup.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:#fdf5e6;border:3px solid #b8860b;border-radius:12px;padding:16px;z-index:10050;min-width:220px;box-shadow:0 8px 30px rgba(0,0,0,0.5);font-size:13px;line-height:1.6;';
+    detailPopup.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:#fdf5e6;border:3px solid #b8860b;border-radius:12px;padding:16px;z-index:10050;min-width:240px;max-width:300px;max-height:85vh;overflow-y:auto;box-shadow:0 8px 30px rgba(0,0,0,0.5);font-size:13px;line-height:1.6;';
     let closeBtn = document.createElement('span');
     closeBtn.textContent = '✕';
     closeBtn.style.cssText = 'position:absolute;top:6px;right:10px;cursor:pointer;font-size:18px;color:#8b7355;font-weight:bold;';
@@ -107,9 +107,14 @@ function updateDetailPopupContent() {
     let doubleStrikeUid = ctx.currentDoubleStrikeUid;
     let unitBuffs = activeBuffs.filter(b => isUnitBenefitedByBuff(u, b.key, allyTeam, doubleStrikeUid, activeBuffs));
     let buffText = '无';
+    let masteryText = '';
     if (u.isXiaoZhao) {
-        const permanentBuffs = activeBuffs.filter(b => b.remaining === Infinity);
-        buffText = permanentBuffs.length > 0 ? permanentBuffs.map(b => b.name).join('、') : '无';
+        // 小昭：显示永久海克斯列表
+        const perms = u._permanentBuffs || [];
+        buffText = perms.length > 0 ? perms.map(b => b.name).join('、') : '无';
+        // 精通进度
+        const mastered = u._masteredRoles || [];
+        masteryText = mastered.length > 0 ? `<span style="color:#888;">精通</span><span>${mastered.join('、')}（${mastered.length}/4，需carry才生效）</span>` : '';
     } else if (unitBuffs.length > 0) {
         buffText = unitBuffs.map(b => `${b.name}(${b.remaining}回)`).join('、');
     }
@@ -141,6 +146,7 @@ function updateDetailPopupContent() {
             <span style="color:#888;">闪避次数</span><span>${u.dodgeCount || 0}</span>
             <span style="color:#888;">暴击次数</span><span>${u.critCount || 0}</span>
             <span style="color:#888;">Buff</span><span>${buffText}</span>
+            ${masteryText}
             ${(() => {
                 let skills = [];
                 if (u.name === '张无忌') skills = ['九阳神功：每回合回复5%生命', '乾坤大挪移：保护4/6号位队友，反弹15%伤害', '近战形态：前排无人时切换，攻+3/防+2/血+50'];
@@ -150,7 +156,7 @@ function updateDetailPopupContent() {
                 else if (u.name === '成昆') skills = ['💥 混元霹雳劲：附加已损失生命30%的真实伤害', '🌀 幻影伪装：攻击后模仿对方单位；对方攻击时20%概率混乱，每损失10%生命+3%'];
                 else if (u.name === '鹿杖客') skills = ['❄️ 玄冥神掌：中毒每回合损失4%→2%→1%→消失', '🔗 联动鹤笔翁：攻击后鹤笔翁立刻攻击同一目标'];
                 else if (u.name === '鹤笔翁') skills = ['🦌 鹿角杖法：忽略30%防御，中毒目标伤害+30%', '🔗 联动鹿杖客：攻击后鹿杖客立刻攻击同一目标'];
-                else if (u.name === '小昭') skills = ['🦋 蝶变：每回合随机变换职业，重新获得职业加成+5血量上限', '✨ 乾坤大挪移（衍生）：张无忌不在时，队友受伤触发减伤、治疗和攻击加成', '🛡️ 乾坤大挪移（升级）：张无忌在场时，全队减伤30%并反弹伤害', '♾️ 永久海克斯：获得的海克斯效果永久持续，按当前职业自动匹配'];
+                else if (u.name === '小昭') skills = ['🦋 蝶变：每回合随机变换职业，记录精通，+25血上限', '✨ 乾坤大挪移（衍生）：张无忌不在时，队友受伤触发减伤、治疗和攻击加成', '🛡️ 乾坤大挪移（升级）：张无忌在场时，全队减伤30%并反弹伤害', '♾️ 永久海克斯：获得的海克斯效果永久持续，按当前职业自动匹配', '🏆 精通（需carry）：每精通一个职业+4攻+4防+25血上限（最多4职业）'];
                 if (skills.length > 0) {
                     return `<span style="color:#888;">技能</span><span style="color:#b8860b;">${skills.join('<br>')}</span>`;
                 }

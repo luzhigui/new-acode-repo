@@ -49,12 +49,12 @@ export function computeBuffStats(unit, activeBuffs, allyTeam) {
         });
     }
 
-    // 小昭变身精通加成
-    if (unit.isXiaoZhao) {
+    // 小昭变身精通加成：需有carry才生效，加成是绝对值（加到carry字段，非比率字段）
+    if (unit.isXiaoZhao && hasBuff(activeBuffs, 'carry')) {
         const mastery = computeButterflyMastery(unit);
-        atkBonus += mastery.atk;
-        defBonus += mastery.def;
-        hpBonus += mastery.hp;
+        carryAtkAbs += mastery.atk;
+        carryDefAbs += mastery.def;
+        carryHpAbs += mastery.hp;
     }
 
     return { atkBonus, defBonus, dodgeBonus, hpBonus, carryAtkAbs, carryDefAbs, carryHpAbs };
