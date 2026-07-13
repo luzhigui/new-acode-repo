@@ -38,7 +38,17 @@ export function computeBuffStats(unit, activeBuffs, allyTeam) {
     }
     if (hasBuff(activeBuffs, 'fortify') && unit.role === '防战') { defBonus += C.BUFFS.fortify.defBonus; }
     if (hasBuff(activeBuffs, 'cloudBody') && unit.camp === 'ally') { dodgeBonus = C.BUFFS.cloudBody.dodgeBonus; }
-    // console.log('computeBuffStats:', unit.name, 'atkBonus:', atkBonus, 'defBonus:', defBonus, 'activeBuffs:', activeBuffs?.map(b => b.key));
+    // 小昭永久海克斯：根据当前职业自动匹配对应职业Buff
+    if (unit.isXiaoZhao && activeBuffs) {
+        const permanentKeys = C.XIAO_ZHAO_PERMANENT_BUFFS || ['fortify', 'bloodthirst', 'meteorShower', 'windAssault', 'cloudBody', 'hotBlood'];
+        permanentKeys.forEach(key => {
+            if (!hasBuff(activeBuffs, key)) return;
+            const roleMap = { fortify: '防战', bloodthirst: '战士', meteorShower: '远程', windAssault: '飞行' };
+            if (roleMap[key] && unit.role !== roleMap[key]) return;
+            if (key === 'fortify' && unit.role === '防战') defBonus += C.BUFFS.fortify.defBonus;
+            if (key === 'cloudBody') dodgeBonus = C.BUFFS.cloudBody.dodgeBonus;
+        });
+    }
     return { atkBonus, defBonus, dodgeBonus, hpBonus, carryAtkAbs, carryDefAbs, carryHpAbs };
 }
 

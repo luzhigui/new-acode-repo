@@ -26,6 +26,7 @@ const CONFIG = {
     FANG_LEVELS: [0.244, 0.264, 0.279, 0.292, 0.306, 0.322, 0.342, 0.373, 0.445, 0.520, 0.600],
     FANG_K: [0, 0.02, 0.04, 0.07, 0.10, 0.14, 0.19, 0.28, 0.40, 0.80, 1.50, 2.50],
     MAX_ROUND: 35,
+    HP_DMG_RATIO: 0.05,
     BUFF_DURATION: 4,
     BUFF_CHOICES: 3,
     BGM_LOCAL: 'assets/sfx_xinai.mp3',
@@ -48,6 +49,14 @@ const CONFIG = {
         hotBlood: { name: '热血奋战', desc: '攻击时回复15%已损失生命值，每第3次攻击回血翻倍', leechRatio: 0.15, critRatio: 0.3, critInterval: 3, icon: '❤️' },
         mindControl: { name: '惑人心智', desc: '最前排单位攻击时：80%扰乱敌方换位，40%扰乱己方换位', enemySwapProb: 0.8, allySwapProb: 0.4, duration: 2, icon: '🌀' }
     },
+    BUFF_ROLE_REQUIREMENTS: {
+        bloodthirst: '战士',
+        fortify: '防战',
+        meteorShower: '远程',
+        windAssault: '飞行'
+    },
+    // 小昭永久海克斯列表（除了职业限定的，她也能永久享有）
+    XIAO_ZHAO_PERMANENT_BUFFS: ['fortify', 'bloodthirst', 'meteorShower', 'windAssault', 'cloudBody', 'hotBlood', 'carry', 'doubleStrike', 'mindControl'],
     // 各关定制阵容（M值总和约束）
     MING_SQUADS: {
         1: [['韦一笑',104,100,97,95], ['张无忌',104,97,95,95], [104,104,104,104,95]],
@@ -69,7 +78,7 @@ const CONFIG = {
     ENEMY_POS_TEMPLATES: {
         1: { '防战': [3], '战士': [1, 5], '远程': [8], random: 2 },
         2: { '防战': [1, 3], '战士': [5], '飞行': [4, 6], '远程': [8, 9], random: 2 },
-        3: { random: 5 },
+        3: { '防战': [1, 3], '战士': [2], '远程': [8], random: 1 },
         4: { '防战': [1], '远程': [7], random: 3 },
         5: { '防战': [1], '战士': [2], '远程': [8], random: 3 },
         6: { '防战': [1], '战士': [2], '远程': [7], '飞行': [8], random: 1 }
@@ -131,6 +140,32 @@ const CONFIG = {
             atkBonus: 1,
             defBonus: 1,
             hpBonus: 2
+        },
+        xiaoZhao: {
+            name: '蝶变乾坤',
+            icon: '🦋',
+            desc: '每回合随机变换职业，继承队友遗志。无张无忌时，队友受伤触发减伤、治疗和攻击加成。张无忌在场时，升级乾坤大挪移为全队减伤30%并反弹。',
+            defToReduce: 100,
+            defToHeal: 5,
+            defToAtk: 10,
+            minReduce: 1,
+            minHeal: 1,
+            minAtk: 1,
+            upgradedReducePct: 0.3,
+            horseSpawnLimit: 1
+        },
+        xiaoZhao: {
+            name: '蝶变乾坤',
+            icon: '🦋',
+            desc: '每回合随机变换职业，继承队友遗志。无张无忌时，队友受伤触发减伤、治疗和攻击加成。张无忌在场时，升级乾坤大挪移为全队减伤30%并反弹。',
+            defToReduce: 100,
+            defToHeal: 5,
+            defToAtk: 10,
+            minReduce: 1,
+            minHeal: 1,
+            minAtk: 1,
+            upgradedReducePct: 0.3,
+            horseSpawnLimit: 1
         },
         xinHun: {
             name: '新婚',

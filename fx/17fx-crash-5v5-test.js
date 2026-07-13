@@ -37,7 +37,7 @@ function finishCrash(clone, cell, unitA, UI) {
     if (ctx) ctx.updateUI();
 }
 
-function showCloseRangeFX(unitA, unitD, role) {
+function showCloseRangeFX(unitA, unitD, role, getPausedFn) {
     let gridAId = unitA.camp==='ally'?'allyGrid':'enemyGrid', gridDId = unitD.camp==='ally'?'allyGrid':'enemyGrid';
     let gridA = document.getElementById(gridAId), gridD = document.getElementById(gridDId);
     let orderA = unitA.camp==='enemy'?[7,8,9,4,5,6,1,2,3]:[1,2,3,4,5,6,7,8,9], orderD = unitD.camp==='enemy'?[7,8,9,4,5,6,1,2,3]:[1,2,3,4,5,6,7,8,9];
@@ -51,7 +51,9 @@ function showCloseRangeFX(unitA, unitD, role) {
     cellA.style.transition = 'transform 0.6s ease-out'; cellA.style.transform = 'scale(1.2)';
     setTimeout(() => { cellA.style.transform = 'scale(1)'; let icon = document.createElement('div'); icon.setAttribute('data-fx', 'temporary'); icon.style.position = 'fixed'; icon.style.left = ax+'px'; icon.style.top = ay+'px'; icon.style.fontSize = '36px'; icon.style.zIndex = '99999'; icon.style.pointerEvents = 'none'; icon.style.transform = 'translate(-50%,-50%)'; if (role === '战士') icon.textContent = '⚔️'; else if (role === '防战') icon.textContent = '🛡️'; else if (role === '飞行') icon.textContent = '🦅'; document.body.appendChild(icon);
         let iconStart = null;
-        function flyIcon(ts) { if (!iconStart) iconStart = ts; let p = Math.min(1, (ts - iconStart) / 800); let x = ax + (bx - ax) * p, y = ay + (by - ay) * p; icon.style.left = x + 'px'; icon.style.top = y + 'px'; if (p < 1) { requestAnimationFrame(flyIcon); } else {
+        function flyIcon(ts) {
+            if (getPausedFn && getPausedFn()) { requestAnimationFrame(flyIcon); return; }
+            if (!iconStart) iconStart = ts; let p = Math.min(1, (ts - iconStart) / 800); let x = ax + (bx - ax) * p, y = ay + (by - ay) * p; icon.style.left = x + 'px'; icon.style.top = y + 'px'; if (p < 1) { requestAnimationFrame(flyIcon); } else {
             if (unitD) { unitD._shaking = true; unitD._shakeNx = nnx; unitD._shakeNy = nny;
                 if (cellB) { applyImpactShrink(cellB, 400, () => false); }
                 let c = window._getPlayerContext ? window._getPlayerContext() : null;
@@ -104,7 +106,7 @@ export function showMeleeCrash(unitA, unitD, speed, getPausedFn, onCrash) {
                   (aPos === 1 && dPos === 2) || (aPos === 2 && dPos === 1) || (aPos === 2 && dPos === 3) || (aPos === 3 && dPos === 2);
     
     if (isClose) {
-        showCloseRangeFX(unitA, unitD, unitA.role);
+        showCloseRangeFX(unitA, unitD, unitA.role, getPausedFn);
         if (onCrash) onCrash();
         return;
     }

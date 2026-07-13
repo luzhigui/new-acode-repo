@@ -84,7 +84,6 @@ export function generateSnapshot(currentStage = 1) {
                 let mVal = item;
                 // 优先从 ENEMY_SQUADS 的定义中查找名字，其次从 ENEMY_M 中查找，最后兜底为“六大派弟子”
                 let pool = Object.entries(ENEMY_M).filter(([n, v]) => v === mVal);
-                let usedNames = enemyUnits.map(u => u.name);
                 let name = null;
                 // 先从 ENEMY_SQUADS 中按 mVal 查找未被使用的名字
                 const squadDefs = Object.values(C.ENEMY_SQUADS).flat();

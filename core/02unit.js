@@ -28,7 +28,9 @@ export class Unit {
         this._xingFenCount = 0;  // 性奋已触发次数（影响生命上限扣减）（本回合是否还能触发额外攻击）
         this._kuLianActive = false;
         this._phantomTarget = null;  // 成昆模仿的目标 uid
-        this._isLinkAttack = false;   // 苦练是否激活（本回合是否已经率先行动过）
+        this._isLinkAttack = false;
+        this.isXiaoZhao = false;
+        this.isXiaoZhao = false;      // 小昭标记
     }
     clone(){
         let c=new Unit(this.name,this.m,this.role,this.camp);
@@ -61,6 +63,7 @@ export class Unit {
         c._kuLianActive = this._kuLianActive;
         c._phantomTarget = this._phantomTarget;
         c._isLinkAttack = this._isLinkAttack;
+        c.isXiaoZhao = this.isXiaoZhao;
         return c;
     }
     init(){
@@ -75,5 +78,15 @@ export class Unit {
         this._baseMaxHp = this.maxHp;
         this._baseAtk = this.atk;
         this._baseDef = this.def;
+    }
+    initXiaoZhao(){
+        let hpBase = Math.floor(this.m / 2);
+        let rem = this.m - hpBase;
+        let atk = Math.floor(rem / 2);
+        let def = rem - atk;
+        this.atk = atk;
+        this.def = def;
+        this.maxHp = hpBase * 2.5;
+        this.hp = this.maxHp;
     }
 }

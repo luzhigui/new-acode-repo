@@ -10,7 +10,8 @@ import { Unit } from './02unit.js';
 import {
     checkExtinctionCounter, checkNineYinClaw, getRebelTarget, getRebelDmgBonus, getRebelTrueDmg,
     getPhantomThunderBonus, applyXuanmingPalm, tickXuanmingPoison, getHornStrikeBonus,
-    checkKuLian, applyXingFenGrant, applyXinHunDeduction, tickKuaiLeHeal, canXingFenTrigger, consumeXingFen, applyXingFenPenalty
+    checkKuLian, applyXingFenGrant, applyXinHunDeduction, tickKuaiLeHeal, canXingFenTrigger, consumeXingFen, applyXingFenPenalty,
+    applyXiaoZhaoDerived, transformXiaoZhao
 } from '../modules/23elite-skills.js';
 const C = CONFIG, DT = DEF_TAUNT, HT = HP_TAUNT;
 
@@ -30,6 +31,7 @@ function emitEvent(unit, eventType, payload) {
     payload.buffDodgeBonus = unit.buffDodgeBonus || 0;
     payload.buffHpBonus = unit.buffHpBonus || 0;
     if (unit._phantomTarget !== undefined) payload._phantomTarget = unit._phantomTarget;
+    if (unit._resting !== undefined) payload._resting = unit._resting;
     payload._isAbsolute = true;
     window._battleEvents.push({ unitUid: unit.uid, eventType, payload });
 }
@@ -111,6 +113,23 @@ function selectTarget(unit, enemySide) {
     } else {
         target = targets[rand(0, targets.length - 1)];
     }
+
+    // 成昆幻影伪装：混乱判定 —— 攻击者去打自己阵营里成昆伪装的那个队友
+    if (target && unit.camp === 'ally') {
+        const chengkun = enemySide.find(u => u.name === '成昆' && u.alive && u._phantomTarget);
+        if (chengkun && !unit._isLinkAttack) {
+            const lostPct = (chengkun.maxHp - chengkun.hp) / chengkun.maxHp;
+            const chance = CONFIG.ELITE_SKILLS.phantomDisguise.baseChance + Math.floor(lostPct * 10) * CONFIG.ELITE_SKILLS.phantomDisguise.per10pctLost;
+            if (Math.random() < chance) {
+                const fakeTarget = enemySide.find(u => u.uid === chengkun._phantomTarget && u.alive && !u.isHorse);
+                if (fakeTarget) {
+                    chengkun._phantomLog = `🌀 幻影伪装！${unit.name}被混乱，误攻队友${fakeTarget.name}！`;
+                    target = fakeTarget;
+                }
+            }
+        }
+    }
+
     return target;
 }
 
@@ -184,8 +203,8 @@ function calcAttackDamage(unit, target, attackerBuffStats, defenderBuffStats) {
         let displayDef = Math.floor(unit.def + unit.def * (attackerBuffStats.defBonus || 0));
         let lv = getFangLevel(displayDef, unit.m), k = C.FANG_K[lv + 1] !== undefined ? C.FANG_K[lv + 1] : C.FANG_K[C.FANG_K.length - 1];
         let penPart = calcDamage(atkAct, defAct);
-        raw = penPart + displayDef * k + unit.maxHp * 0.05;
-        rawFormula = `${Math.floor(penPart)} + ${Math.floor(displayDef)}×${k} + ${Math.floor(unit.maxHp)}×0.01 = ${Math.floor(raw)}`;
+        raw = penPart + displayDef * k + unit.maxHp * C.HP_DMG_RATIO;
+        rawFormula = `${Math.floor(penPart)} + ${Math.floor(displayDef)}×${k} + ${Math.floor(unit.maxHp)}×${C.HP_DMG_RATIO} = ${Math.floor(raw)}`;
     } else {
         raw = calcDamage(atkAct, defAct);
         rawFormula = `${atkAct}×(${atkAct}/(${atkAct}+${defAct})) = ${Math.floor(raw)}`;
@@ -240,16 +259,19 @@ function applyPostAttackEffects(unit, target, dmg, atkAct, defAct, reboundEntry,
 
 function processUnitAttack(unit, allySide, enemySide, log, A, B, state, doubleStrikeUnitUid) {
     let target = selectTarget(unit, enemySide);
-    // 成昆幻影伪装：混乱判定
     let phantomLog = null;
-    if (target && target.name === '成昆' && target._phantomTarget && !target._isLinkAttack) {
-        const lostPct = (target.maxHp - target.hp) / target.maxHp;
-        const chance = CONFIG.ELITE_SKILLS.phantomDisguise.baseChance + Math.floor(lostPct * 10) * CONFIG.ELITE_SKILLS.phantomDisguise.per10pctLost;
-        if (Math.random() < chance) {
-            const fakeTarget = allySide.find(u => u.uid === target._phantomTarget && u.alive && !u.isHorse);
-            if (fakeTarget) {
-                phantomLog = `🌀 幻影伪装！${unit.name}被混乱，误攻队友${fakeTarget.name}！`;
-                target = fakeTarget;
+    // 成昆幻影伪装：混乱判定 —— 攻击者去打自己阵营里成昆伪装的那个队友
+    if (target && unit.camp === 'ally') {
+        const chengkun = enemySide.find(u => u.name === '成昆' && u.alive && u._phantomTarget);
+        if (chengkun && !unit._isLinkAttack) {
+            const lostPct = (chengkun.maxHp - chengkun.hp) / chengkun.maxHp;
+            const chance = CONFIG.ELITE_SKILLS.phantomDisguise.baseChance + Math.floor(lostPct * 10) * CONFIG.ELITE_SKILLS.phantomDisguise.per10pctLost;
+            if (Math.random() < chance) {
+                const fakeTarget = allySide.find(u => u.uid === chengkun._phantomTarget && u.alive && !u.isHorse);
+                if (fakeTarget && fakeTarget.uid !== unit.uid) {
+                    phantomLog = `🎭 幻影伪装！${unit.name}被混乱，误攻队友${fakeTarget.name}！`;
+                    target = fakeTarget;
+                }
             }
         }
     }
@@ -333,11 +355,16 @@ function processUnitAttack(unit, allySide, enemySide, log, A, B, state, doubleSt
         if (!target._deathTime) target._deathTime = Date.now();
     } else { target.hp = hpAfter; }
     unit.dmgDealt += dmg; target.dmgTaken += dmg;
-    // 成昆幻影伪装：攻击后随机模仿一个对方单位（变身目标应为敌方）
+    // 成昆幻影伪装：攻击前变回自己
+    if (unit.name === '成昆') {
+        unit._phantomTarget = null;
+    }
+    // 成昆幻影伪装：攻击后随机模仿一个对方单位
     if (unit.name === '成昆' && dmg > 0) {
         const enemyAlive = enemySide.filter(u => u.alive && !u.isHorse);
         if (enemyAlive.length > 0) {
             unit._phantomTarget = enemyAlive[rand(0, enemyAlive.length - 1)].uid;
+            emitEvent(unit, 'hp-change', { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: unit.atk, def: unit.def, _phantomTarget: unit._phantomTarget });
         }
     }
     let defReduced = 0;
@@ -379,14 +406,10 @@ function processUnitAttack(unit, allySide, enemySide, log, A, B, state, doubleSt
     let displayAtk = Math.floor(unit.atk + unit.atk * attackerBuffStats.atkBonus);
     let displayDef = Math.floor(target.def + target.def * defenderBuffStats.defBonus);
     let unitHpBefore = Math.floor(unit.hp);
-    let group = { type:'attack-group', uidA:unit.uid, uidD:target.uid, entries:[], hpAfter:target.hp, alive:target.alive, isDead:dead, waveTaunt, waveUnit, unitRole:unit.role, _fxSnapshot:makeFXSnapshot(unit,target), _dmg:dmg, _isZhangNear:unit.isZhang && !unit.rangedForm, _nearAtkCount:unit.nearAtkCount, hpPctBefore, hpPctAfter, isMiss:miss, isDodge:false, buffEffects:[], _atkBonus:Math.floor(unit.atk * attackerBuffStats.atkBonus), _defBonus:Math.floor(target.def * defenderBuffStats.defBonus) };
+    let group = { type:'attack-group', uidA:unit.uid, uidD:target.uid, entries:[], hpAfter:target.hp, alive:target.alive, isDead:dead, waveTaunt, waveUnit, unitRole:unit.role, _fxSnapshot:makeFXSnapshot(unit,target), _dmg:dmg, _isZhangNear:unit.isZhang && !unit.rangedForm, _nearAtkCount:unit.nearAtkCount, hpPctBefore, hpPctAfter, isMiss:miss, isDodge:false, buffEffects:[], _atkBonus:Math.floor(unit.atk * attackerBuffStats.atkBonus), _defBonus:Math.floor(target.def * defenderBuffStats.defBonus), isKuLianAttack: !!(unit.name === '宋青书' && unit._kuLianActive) };
     group.entries.push({type:'combat-text', text:`<span class="${ac}">${campA} ${unit.name}</span>(攻${displayAtk} 血${unitHpBefore}) → <span class="${dc}">${campD} ${target.name}</span>(防${displayDef} 血${hpBefore})`});
     if (phantomLog) group.entries.push({type:'info', text:`<span class="gold">${phantomLog}</span>`});
     group.entries.push({type:'detail', text:`<span class="gray small">波动：攻${atkBase}→${atkAct} 防${defBase}→${defAct} 血${hpBonus >= 0 ? '+' + hpBonus : hpBonus}</span>`});
-    if (defReduced > 0) {
-        group.entries.push({type:'detail', text:`<span class="purple small">🗡️ ${unit.name} 破防：${target.name} 防御 -${defReduced}</span>`});
-    }
-
     if (thunderBonus > 0) group.entries.push({type:'detail', text:`<span class="red small">💥 混元霹雳劲+${thunderBonus}真实伤害</span>`});
     if (hornBonus.defIgnore > 0) {
         let poisonTag = hornBonus.dmgMultiplier > 1 ? '，目标已中毒伤害+50%' : '';
@@ -395,6 +418,9 @@ function processUnitAttack(unit, allySide, enemySide, log, A, B, state, doubleSt
     if (trueDmg > 0) group.entries.push({type:'detail', text:`<span class="red small">⚔️ 叛逆真伤+${trueDmg}（目标当前生命10%）</span>`});
     group.entries.push({type:'detail', text:`<span class="gray small">计算：${rawFormula}</span>`});
     group.entries.push({type:'damage-text', deadFlag:dead, text:`<span class="damage-line ${dead?'brush-red':''} ${ac}">${dead?'💀击杀💀 ':''}${campA} ${unit.name}</span> 造成 <span class="red">${dmg}</span> 伤害，<span class="${dc}">${campD} ${target.name}</span> ${hpBefore} → ${Math.floor(target.hp)} ${dead?'💀阵亡':''}`});
+    if (defReduced > 0) {
+        group.entries.push({type:'detail', text:`<span class="purple small">🗡️ ${unit.name} 破防：${target.name} 防御 -${defReduced}</span>`});
+    }
 
     // ★ 普攻事件快照：在精英技能/特效之前抓取，只含本次普攻的血量变化
     group._events = [...window._battleEvents];
@@ -435,7 +461,32 @@ function processUnitAttack(unit, allySide, enemySide, log, A, B, state, doubleSt
             }
         }
     }
-    if (target.camp === 'ally' && (target.pos === 4 || target.pos === 6) && dmg > 0) {
+      // 小昭升级版乾坤大挪移：全场减伤30%，反弹给攻击者，无忌自伤最低1
+    const xiaoZhao = A.find(u => u.isXiaoZhao && u.alive);
+    const zhangUpgraded = A.find(c => c.isZhang && c.alive);
+    if (target.camp === 'ally' && dmg > 0 && xiaoZhao && zhangUpgraded) {
+        dmg = Math.floor(dmg * 0.7);
+        let rebound = Math.floor(dmg * 0.15);
+        unit.hp = Math.max(0, unit.hp - rebound);
+        unit.dmgTaken += rebound;
+        zhangUpgraded.reboundDone += rebound;
+        if (unit.hp <= 0) {
+            unit.alive = false;
+            unit._isDead = true;
+            if (!unit._deathTime) unit._deathTime = Date.now();
+        }
+        let selfDmg = Math.max(1, Math.floor(rebound * 0.1));
+        zhangUpgraded.hp -= selfDmg;
+        zhangUpgraded.dmgTaken += selfDmg;
+        emitEvent(unit, 'hp-change', { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: unit.atk, def: unit.def, _isDead: unit._isDead || false });
+        emitEvent(zhangUpgraded, 'hp-change', { hp: zhangUpgraded.hp, maxHp: zhangUpgraded.maxHp, alive: zhangUpgraded.alive, atk: zhangUpgraded.atk, def: zhangUpgraded.def });
+        if (!unit._xiaoZhaoReboundLogged) {
+            group.entries.push({type:'info', text:`<span class="gold">🦋 乾坤大挪移（升级版）：全队减伤30%，反弹${rebound}给${unit.name}（无忌自伤${selfDmg}）</span>`, buffType:'rebound'});
+            unit._xiaoZhaoReboundLogged = true;
+        }
+    }
+    // 普通乾坤大挪移：仅保护4/6号位
+    if (target.camp === 'ally' && (target.pos === 4 || target.pos === 6) && dmg > 0 && !xiaoZhao) {
         let zhang = (target.camp === 'ally' ? A : B).find(c => c.isZhang && c.alive && c.rangedForm);
         if (zhang) {
             let rebound = Math.floor(dmg * 0.15);
@@ -448,7 +499,7 @@ function processUnitAttack(unit, allySide, enemySide, log, A, B, state, doubleSt
                 unit._flash = 'dead';
                 if (!unit._deathTime) unit._deathTime = Date.now();
             }
-            let selfDmg = Math.floor(rebound * 0.1);
+            let selfDmg = Math.max(1, Math.floor(rebound * 0.1));
             zhang.hp -= selfDmg;
             zhang.dmgTaken += selfDmg;
             emitEvent(unit, 'hp-change', { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: unit.atk, def: unit.def, _isDead: unit._isDead || false });
@@ -462,6 +513,10 @@ function processUnitAttack(unit, allySide, enemySide, log, A, B, state, doubleSt
                 if (!zhang._deathTime) zhang._deathTime = Date.now();
             }
         }
+    }
+    // 小昭衍生版乾坤大挪移：队友受伤时触发减伤/治疗/加攻（无忌不在时）
+    if (target.camp === 'ally' && dmg > 0) {
+        applyXiaoZhaoDerived(A, target, dmg, log);
     }
     if (unit.role === '远程' && dmg > 0) {
         unit.atk += 2;
@@ -486,14 +541,31 @@ function processUnitAttack(unit, allySide, enemySide, log, A, B, state, doubleSt
     applyXinHunDeduction(unit, allySide, log);
     applyXingFenPenalty(unit, log);
 
-    // 玄冥二老联动：互相触发攻击（搭档在同阵营 allySide，不是 enemySide）
+    // 玄冥二老联动：互相触发攻击，锁定同一目标
     if (!unit._isLinkAttack && dmg > 0 && target.alive) {
         if (unit.name === '鹤笔翁') {
-            const lu = allySide.find(u => u.name === '鹿杖客' && u.alive);
-            if (lu) { lu._isLinkAttack = true; processUnitAttack(lu, allySide, enemySide, log, A, B, state, null); lu._isLinkAttack = false; }
+            const lu = allySide.find(u => u.name === '鹿杖客' && u.alive && !u._acted);
+            if (lu) {
+                lu._isLinkAttack = true;
+                // 强制鹿杖客攻击鹤笔翁刚才的目标
+                const origSelectTarget = selectTarget;
+                selectTarget = (u, enemies) => enemies.find(e => e.uid === target.uid) || origSelectTarget(u, enemies);
+                processUnitAttack(lu, allySide, enemySide, log, A, B, state, null);
+                selectTarget = origSelectTarget;
+                lu._isLinkAttack = false;
+                lu._acted = false; // 联动攻击不消耗行动
+            }
         } else if (unit.name === '鹿杖客') {
-            const he = allySide.find(u => u.name === '鹤笔翁' && u.alive);
-            if (he) { he._isLinkAttack = true; processUnitAttack(he, allySide, enemySide, log, A, B, state, null); he._isLinkAttack = false; }
+            const he = allySide.find(u => u.name === '鹤笔翁' && u.alive && !u._acted);
+            if (he) {
+                he._isLinkAttack = true;
+                const origSelectTarget = selectTarget;
+                selectTarget = (u, enemies) => enemies.find(e => e.uid === target.uid) || origSelectTarget(u, enemies);
+                processUnitAttack(he, allySide, enemySide, log, A, B, state, null);
+                selectTarget = origSelectTarget;
+                he._isLinkAttack = false;
+                he._acted = false;
+            }
         }
     }
 
@@ -567,6 +639,15 @@ export function* createRoundStepper(state) {
 
     applyXingFenGrant(B, log);
 
+    // 小昭蝶变：每回合随机变换职业
+    A.forEach(u => { if (u.isXiaoZhao && u.alive) transformXiaoZhao(u, log); });
+
+    // 小昭拒马：有永久海克斯且场上无拒马时额外召唤一匹
+    const xiaoZhao = A.find(u => u.isXiaoZhao && u.alive);
+    if (xiaoZhao && hasBuff(A._activeBuffs, 'horseFormation') && !A.some(u => u.isHorse && u.alive)) {
+        spawnHorse(A, log, B);
+    }
+
     // 苦练：宋青书每次行动前给全体队友+1攻+1防+2生命上限，自身翻倍
     // 直接用 checkKuLian 判定，避免依赖 _kuLianActive 标志位的时序（标志位在下方 yield 后才置位）
     const kuLianSong = checkKuLian(B);
@@ -613,10 +694,6 @@ export function* createRoundStepper(state) {
             allyTeamWithDead = allyTeamWithDead.filter((u, i, arr) => arr.findIndex(v => v.uid === u.uid) === i);
         }
         let stats = computeBuffStats(u, A._activeBuffs || [], allyTeamWithDead);
-        u.buffAtkBonus = stats.atkBonus;
-        u.buffDefBonus = stats.defBonus;
-        u.buffDodgeBonus = stats.dodgeBonus;
-        u.buffHpBonus = stats.hpBonus;
         emitEvent(u, 'stat-bonus-change', {
             buffAtkBonus: stats.atkBonus,
             buffDefBonus: stats.defBonus,
@@ -624,7 +701,12 @@ export function* createRoundStepper(state) {
             buffHpBonus: stats.hpBonus
         });
         if (hasBuff(A._activeBuffs, 'carry') && u.pos === 5 && u._baseMaxHp !== undefined && !u.isHorse) {
-            let oldMaxHp = u.maxHp, oldHp = u.hp;
+            // 先按比例回退当前血量，再回退上限
+            if (u.maxHp > 0 && u._baseMaxHp > 0) {
+                u.hp = Math.floor(u.hp * (u._baseMaxHp / u.maxHp));
+            }
+            u.maxHp = u._baseMaxHp;
+            let oldMaxHp = u.maxHp, oldHp = Math.min(u.hp, u.maxHp);
             // carry 加成是绝对值，在回合开始时直接叠加到基础属性上（不在 calcAttackDamage 中做乘法）
             if (u._baseAtk !== undefined) u.atk = u._baseAtk;
             if (u._baseDef !== undefined) u.def = u._baseDef;
@@ -645,6 +727,7 @@ export function* createRoundStepper(state) {
         u._extinctionUsed = false;
         u._acted = false;
         u._doubleStriked = false;
+        u._xiaoZhaoReboundLogged = false;
         if (u.name === '成昆') u._phantomTarget = null;
         // 保留 _phantomTarget 不清除
     });
@@ -652,10 +735,6 @@ export function* createRoundStepper(state) {
     B.forEach(u => {
         if (!u.alive) return;
         let stats = computeBuffStats(u, B._activeBuffs || [], B);
-        u.buffAtkBonus = stats.atkBonus;
-        u.buffDefBonus = stats.defBonus;
-        u.buffDodgeBonus = stats.dodgeBonus;
-        u.buffHpBonus = stats.hpBonus;
         emitEvent(u, 'stat-bonus-change', {
             buffAtkBonus: stats.atkBonus,
             buffDefBonus: stats.defBonus,
@@ -665,6 +744,7 @@ export function* createRoundStepper(state) {
         u._extinctionUsed = false;
         u._acted = false;
         u._doubleStriked = false;
+        u._xiaoZhaoReboundLogged = false;
         if (u.name === '成昆') u._phantomTarget = null;
         // 保留 _phantomTarget 不清除
     });

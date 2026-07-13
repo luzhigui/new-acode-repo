@@ -52,15 +52,16 @@ export const rule60 = {
                 }
             }
         }
-        // 反向检查：不应该有分隔符的地方多出了分隔符
+        // 反向检查：只抓真正多余的分隔符（连续两个分隔符 / round-start后面紧跟分隔符）
         for (var j = 1; j < log.length; j++) {
             var prev2 = log[j-1];
             var curr2 = log[j];
             
-            // 跳过攻击动作内部的 combat-text 和 detail，它们不是独立条目
             if (curr2.type === 'combat-text' || curr2.type === 'detail') continue;
-            var noSepTypes = ['info','buff-summary','buff-summon','buff-destroy','round-start','round-end'];
-            if ((prev2.type === 'attack-group' || prev2.type === 'round-start') && noSepTypes.indexOf(curr2.type) !== -1) {
+            
+            // 只有 round-start 或 attack-group 后面紧跟分隔符才算多余
+            // attack-group→attack-group 中间有分隔符是正常的，attack-group→round-end 也是正常的
+            if (prev2.type === 'round-start' || (prev2.type === 'attack-group' && curr2.type === 'attack-group')) {
                 var prevDiv2 = null;
                 for (var d2 = divIndex; d2 < allDivs.length; d2++) {
                     var html2 = allDivs[d2].innerHTML || '';
@@ -72,16 +73,10 @@ export const rule60 = {
                 }
                 if (prevDiv2 && prevDiv2.nextElementSibling && prevDiv2.nextElementSibling.nextElementSibling) {
                     var betweenHtml = prevDiv2.nextElementSibling.innerHTML || '';
-                    var nextNextHtml = prevDiv2.nextElementSibling.nextElementSibling.innerHTML || '';
-                    if (betweenHtml.indexOf('separator') !== -1 && nextNextHtml.indexOf('separator') === -1 && nextNextHtml.trim() !== '' && nextNextHtml !== '<br>') {
-                        var currName = '';
-                        if (curr2.type === 'info') currName = '系统提示';
-                        else if (curr2.type === 'buff-summary') currName = 'Buff说明';
-                        else if (curr2.type === 'buff-summon') currName = '拒马召唤';
-                        else if (curr2.type === 'buff-destroy') currName = '拒马销毁';
-                        else currName = curr2.type;
-                        var displayText2 = (prevDiv2.nextElementSibling.nextElementSibling.textContent || '').substring(0, 50);
-                        issues.push('日志问题：攻击动作与' + currName + '（"' + displayText2 + '"）之间多了一个分隔符');
+                    var nextHtml2 = prevDiv2.nextElementSibling.nextElementSibling.innerHTML || '';
+                    // 如果中间是分隔符，且紧挨着下一个还是分隔符 → 连续两个分隔符，报多余
+                    if (betweenHtml.indexOf('separator') !== -1 && nextHtml2.indexOf('separator') !== -1) {
+                        issues.push('日志问题：存在连续两个多余的分隔符');
                     }
                 }
             }

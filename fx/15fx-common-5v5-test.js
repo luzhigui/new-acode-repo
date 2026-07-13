@@ -91,6 +91,43 @@ export function applyImpactShrink(cell, durationMs, getPausedFn, opts) {
     requestAnimationFrame(shake);
 }
 
+// 苦练特效：全队格子闪烁并显示肌肉logo
+export function showKuLianEffect(unit, team) {
+    team.forEach(member => {
+        if (!member.alive || member.isHorse) return;
+        let grid = document.querySelector(`[data-uid="${member.uid}"]`);
+        if (!grid) return;
+
+        let muscle = document.createElement('div');
+        muscle.setAttribute('data-fx', 'temporary');
+        muscle.innerHTML = '💪';
+        muscle.style.cssText = 'position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:20px;z-index:10005;pointer-events:none;opacity:0;transition:opacity 0.3s, transform 0.3s;';
+        grid.style.position = 'relative';
+        grid.appendChild(muscle);
+
+        requestAnimationFrame(() => {
+            muscle.style.opacity = '1';
+            muscle.style.transform = 'translate(-50%, -120%)';
+        });
+
+        const blinks = member.uid === unit.uid ? 3 : 2;
+        let blinkCount = 0;
+        const blinkInterval = setInterval(() => {
+            grid.style.transition = 'box-shadow 0.3s';
+            grid.style.boxShadow = grid.style.boxShadow === '0 0 12px rgba(255,215,0,0.7)' ? '' : '0 0 12px rgba(255,215,0,0.7)';
+            blinkCount++;
+            if (blinkCount >= blinks * 2) {
+                clearInterval(blinkInterval);
+                grid.style.boxShadow = '';
+                grid.style.transition = '';
+            }
+        }, 400);
+
+        setTimeout(() => { muscle.style.opacity = '0'; }, 1500);
+        setTimeout(() => { if (muscle.parentNode) muscle.remove(); }, 2000);
+    });
+}
+
 // ==================== 全屏横幅 ====================
 function createBuffBannerEl() { let d = document.createElement('div'); d.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);font-size:2.5rem;font-weight:bold;color:#ffd700;z-index:10030;pointer-events:none;text-shadow:0 0 20px rgba(255,215,0,0.8);white-space:nowrap;animation:bannerPop 1.5s ease-out forwards;'; return d; }
 initPool('buffBanner', createBuffBannerEl);
