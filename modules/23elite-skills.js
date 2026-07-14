@@ -3,6 +3,7 @@
 export const VER = 'modules/23elite-skills.js V5.0.3';
 
 import { CONFIG } from '../core/01config-5v5-test.js';
+import { showHealFloat, showAtkBuffFloat } from '../fx/15fx-common-5v5-test.js';
 const ES = CONFIG.ELITE_SKILLS;
 
 function emitEvent(unit, eventType, payload) {
@@ -74,6 +75,34 @@ export function checkNineYinClaw(attacker, target, baseDmg, log) {
             target.alive = false;
             target._isDead = true;
             if (!target._deathTime) target._deathTime = Date.now();
+        }
+
+        // 追击触发乾坤衍生（直接调用飘字）
+        const zhang = window._currentBattleState && window._currentBattleState.ally ? window._currentBattleState.ally.find(u => u.isZhang && u.alive) : null;
+        if (!zhang) {
+            const allyTeam = window._currentBattleState?.ally || [];
+            if (allyTeam.length > 0) {
+                const xiaoZhao = allyTeam.find(u => u.isXiaoZhao && u.alive);
+                if (xiaoZhao) {
+                    let reduce = Math.max(1, Math.floor(bonusDmg * target.def / (ES.xiaoZhao.defToReduce || 100)));
+                    target.hp = Math.min(target.maxHp, target.hp + reduce);
+                    target.dmgTaken -= reduce;
+                    const aliveAllies = allyTeam.filter(u => u.alive && !u.isHorse);
+                    if (aliveAllies.length > 0) {
+                        const lucky = aliveAllies[Math.floor(Math.random() * aliveAllies.length)];
+                        let heal = Math.max(1, Math.floor(lucky.def / (ES.xiaoZhao.defToHeal || 5)));
+                        let atkGain = Math.max(1, Math.floor(lucky.def / (ES.xiaoZhao.defToAtk || 10)));
+                        lucky.hp = Math.min(lucky.maxHp, lucky.hp + heal);
+                        lucky.atk += atkGain;
+                        lucky.healDone += heal;
+                        emitEvent(lucky, 'hp-change', { hp: lucky.hp, maxHp: lucky.maxHp, alive: lucky.alive, atk: lucky.atk, def: lucky.def });
+                        log.push({ type:'info', text:`<span class="gold">🦋 乾坤衍生：${target.name}减伤${reduce}，${lucky.name}治疗+${heal} 攻击+${atkGain}</span>` });
+                        // 飘字特效
+                        try { showHealFloat(lucky, heal); } catch(e) {}
+                        try { showAtkBuffFloat(lucky, atkGain); } catch(e) {}
+                    }
+                }
+            }
         }
 
         // 每次追击/斩杀后发射事件，播放器实时同步血量
@@ -201,6 +230,56 @@ export function getHornStrikeBonus(attacker, target) {
         defIgnore: s.defIgnore,
         dmgMultiplier: poisoned ? 1 + s.poisonedBonus : 1
     };
+}
+
+/**
+ * 伤害修正钩子：在伤害计算完成后、应用前调用
+ * 返回修正后的 dmg 和附加日志条目
+ * 各精英技能的伤害修正统一在此处理
+ */
+export function applyDamageModifiers(unit, target, dmg, allySide, enemySide, log) {
+    let modifiedDmg = dmg;
+    const entries = [];
+    const ES = CONFIG.ELITE_SKILLS;
+
+    // 乾坤大挪移升级版：张无忌+小昭同时在场，全队减伤30%并反弹15%
+    const xiaoZhao = allySide.find(u => u.isXiaoZhao && u.alive);
+    const zhangUpgraded = allySide.find(c => c.isZhang && c.alive);
+    if (target.camp === 'ally' && xiaoZhao && zhangUpgraded) {
+        const reducedDmg = Math.floor(dmg * (1 - ES.xiaoZhao.upgradedReducePct));
+        const rebound = Math.floor(reducedDmg * 0.15);
+        const selfDmg = Math.max(1, Math.floor(rebound * 0.1));
+
+        // 反弹给攻击者
+        unit.hp = Math.max(0, unit.hp - rebound);
+        unit.dmgTaken += rebound;
+        zhangUpgraded.reboundDone += rebound;
+        if (unit.hp <= 0) {
+            unit.alive = false;
+            unit._isDead = true;
+            if (!unit._deathTime) unit._deathTime = Date.now();
+        }
+
+        // 张无忌自伤
+        zhangUpgraded.hp -= selfDmg;
+        zhangUpgraded.dmgTaken += selfDmg;
+
+        emitEvent(unit, 'hp-change', { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: unit.atk, def: unit.def, _isDead: unit._isDead || false });
+        emitEvent(zhangUpgraded, 'hp-change', { hp: zhangUpgraded.hp, maxHp: zhangUpgraded.maxHp, alive: zhangUpgraded.alive, atk: zhangUpgraded.atk, def: zhangUpgraded.def });
+
+        if (!target._xiaoZhaoReboundLogged) {
+            entries.push({
+                type: 'info',
+                text: `<span class="gold">🦋 乾坤大挪移（升级版）：全队减伤30%，反弹${rebound}给${unit.name}（无忌自伤${selfDmg}）</span>`,
+                buffType: 'rebound'
+            });
+            target._xiaoZhaoReboundLogged = true;
+        }
+
+        modifiedDmg = reducedDmg;
+    }
+
+    return { modifiedDmg, entries };
 }
 
 // ==================== V3.1.0 新增：宋青书/周芷若联动技能 ====================
@@ -375,24 +454,21 @@ export function transformXiaoZhao(unit, log) {
 
     const newStats = roleStats[newRole] || { atk: 0, def: 0, maxHp: 0 };
 
-    // 职业修正累加（不移除旧修正）
+    // 职业修正累加（不移除旧修正），但不修改 base 值
     unit.role = newRole;
     unit.atk += newStats.atk;
     unit.def += newStats.def;
-    if (unit._baseAtk !== undefined) unit._baseAtk += newStats.atk;
-    if (unit._baseDef !== undefined) unit._baseDef += newStats.def;
 
     // 生命上限变化：上限加多少，当前血量同步加多少；上限减则血量不超过新上限
     let hpDelta = newStats.maxHp + 10;  // 角色修正 + 额外+10
     unit.maxHp += hpDelta;
-    if (unit._baseMaxHp !== undefined) unit._baseMaxHp += hpDelta;
     if (hpDelta > 0) {
         unit.hp += hpDelta;
     } else {
         unit.hp = Math.min(unit.hp, unit.maxHp);
     }
 
-    emitEvent(unit, 'hp-change', { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: unit.atk, def: unit.def, role: unit.role });
+    emitEvent(unit, 'hp-change', { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: unit.atk, def: unit.def, role: unit.role, _masteredRoles: unit._masteredRoles });
     log.push({ type:'info', text:`<span class="gold">🦋 蝶变：小昭变换为<span class="gold">${newRole}</span>（已精通${unit._masteredRoles.length}/4）</span>` });
 }
 
@@ -405,10 +481,27 @@ export function computeButterflyMastery(unit) {
     if (!unit.isXiaoZhao || !unit._masteredRoles) return { atk: 0, def: 0, hp: 0 };
     const count = unit._masteredRoles.length;
     return {
-        atk: count * 4,
-        def: count * 4,
-        hp: count * 25
+        atk: count * 3,
+        def: count * 3,
+        hp: count * 20
     };
+}
+
+/**
+ * 小昭 - 永久海克斯存储
+ * 统一入口：将海克斯 Buff 存入小昭的永久海克斯列表
+ * 调用方：选 Buff 弹窗、全自动选 Buff、showBuffSelection
+ */
+export function addPermanentBuff(xiaoZhao, buffKey, buffName, extraFields = {}) {
+    if (!xiaoZhao || !xiaoZhao.isXiaoZhao) return;
+    if (!xiaoZhao._permanentBuffs) xiaoZhao._permanentBuffs = [];
+    xiaoZhao._permanentBuffs.push({
+        key: buffKey,
+        target: 'ally',
+        remaining: Infinity,
+        name: buffName,
+        ...extraFields
+    });
 }
 
 /**
@@ -441,5 +534,8 @@ export function applyXiaoZhaoDerived(allyTeam, target, dmg, group) {
         if (group && group.entries) {
             group.entries.push({ type:'info', text:`<span class="gold">🦋 乾坤衍生：${target.name}减伤${reduce}，${lucky.name}治疗+${heal} 攻击+${atkGain}</span>` });
         }
+        // 飘字特效
+        try { showHealFloat(lucky, heal); } catch(e) {}
+        try { showAtkBuffFloat(lucky, atkGain); } catch(e) {}
     }
 }

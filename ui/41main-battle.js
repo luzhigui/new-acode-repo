@@ -4,6 +4,7 @@ export const VER = 'ui/41main-battle.js V5.0.2';
 
 import { CONFIG, ENEMY_M } from '../core/01config-5v5-test.js';
 import { Unit, rand, runBattle } from '../core/07battle-engine-5v5-test.js';
+import { addPermanentBuff } from '../modules/23elite-skills.js';
 import { updateUI, clearLogExceptFirst } from './14ui-render-5v5-test.js';
 import { showModal } from './12main-utils.js';
 
@@ -14,109 +15,176 @@ const ALL_BUFF_KEYS = Object.keys(C.BUFFS);
 export function doInitBattle(currentStage, UI, snapshot, activeBuffs, selectedBuffIndex, currentDoubleStrikeUid) {
     if (!UI || !snapshot) return;
     let allyTeam = [], enemyTeam = [];
-    const mingSquad = C.MING_SQUADS && C.MING_SQUADS[currentStage] ? C.MING_SQUADS[currentStage] : null;
-    const enemySquad = C.ENEMY_SQUADS && C.ENEMY_SQUADS[currentStage] ? C.ENEMY_SQUADS[currentStage] : null;
+    const mingSquadTemplate = C.MING_SQUADS && C.MING_SQUADS[currentStage] ? C.MING_SQUADS[currentStage] : null;
+    const elitePower = C.ELITE_POWER || {};
+    const eliteRate = C.ELITE_RATE || {};
+    const normalPower = C.NORMAL_POWER || {};
+    const targetPower = C.MING_TARGET_POWER && C.MING_TARGET_POWER[currentStage] ? C.MING_TARGET_POWER[currentStage] : null;
 
-    let mingConfig;
-    if (mingSquad) {
-        if (currentStage === 1 && Array.isArray(mingSquad[0])) {
-            mingConfig = mingSquad[rand(0, mingSquad.length - 1)];
-        } else {
-            mingConfig = mingSquad;
-        }
-        if (!Array.isArray(mingConfig)) mingConfig = [mingConfig];
+    if (mingSquadTemplate && currentStage === 1) {
+        // 第一关：四套模板随机选一
+        const template = mingSquadTemplate[rand(0, mingSquadTemplate.length - 1)];
         let takenPos = new Set();
-        for (let item of mingConfig) {
+        for (const item of template) {
             let name, mVal;
             if (typeof item === 'string') { name = item; mVal = C.MING_M[name] || 95; }
-            else {
-                mVal = item;
-                if (mVal === 95) {
-                    const existingDisciples = allyTeam.filter(u => u.name && u.name.startsWith('明教弟子'));
-                    name = '明教弟子' + (existingDisciples.length + 1);
-                } else {
-                    const usedNames = allyTeam.map(u => u.name);
-                    const candidates = Object.entries(C.MING_M).filter(([n, v]) => v === mVal && !usedNames.includes(n));
-                    if (candidates.length > 0) name = candidates[rand(0, candidates.length - 1)][0];
-                    else {
-                        const allCandidates = Object.entries(C.MING_M).filter(([n, v]) => v === mVal);
-                        name = allCandidates.length > 0 ? allCandidates[rand(0, allCandidates.length - 1)][0] : ('明教弟子' + (allyTeam.length + 1));
-                    }
-                }
+            else { mVal = item; name = null; }
+            if (!name) {
+                const usedNames = allyTeam.map(u => u.name);
+                const candidates = Object.entries(C.MING_M).filter(([n, v]) => v === mVal && !usedNames.includes(n) && !['张无忌','韦一笑','小昭'].includes(n));
+                if (candidates.length > 0) name = candidates[rand(0, candidates.length - 1)][0];
+                else name = '明教弟子' + (allyTeam.length + 1);
             }
-            if (!name) name = '明教弟子' + (allyTeam.length + 1);
-            if (!mVal) mVal = 95;
-            let role = name === '张无忌' ? '远程' : (name === '韦一笑' ? '飞行' : C.ROLES[rand(0, 3)]);
-            let unit = new Unit(name, mVal, role, 'ally');
+            let role = name === '张无忌' ? '远程' : (name === '韦一笑' ? '飞行' : (name === '小昭' ? '远程' : C.ROLES[rand(0, 3)]));
+            let unit = new Unit(name, C.MING_M[name] || mVal, role, 'ally');
             if (name === '张无忌') unit.isZhang = true;
             if (name === '韦一笑') unit.isWei = true;
-            unit.pos = null; unit.init(); unit.applyBonus();
+            if (name === '小昭') { unit.isXiaoZhao = true; unit.initXiaoZhao(); unit.applyBonus(); unit._baseMaxHp = unit.maxHp; unit._baseAtk = unit.atk; unit._baseDef = unit.def; }
+            else { unit.init(); unit.applyBonus(); }
+            unit.pos = null;
             allyTeam.push(unit);
         }
         let zhang = allyTeam.find(u => u.isZhang);
         let wei = allyTeam.find(u => u.isWei);
+        let xz = allyTeam.find(u => u.isXiaoZhao);
         if (zhang) { zhang.pos = 5; takenPos.add(5); }
         if (wei) { wei.pos = 6; takenPos.add(6); }
-        let others = allyTeam.filter(u => !u.isZhang && !u.isWei);
+        if (xz) { xz.pos = 4; takenPos.add(4); }
+        let others = allyTeam.filter(u => !u.isZhang && !u.isWei && !u.isXiaoZhao);
         if (others.length > 0 && zhang && !takenPos.has(2)) { others[0].pos = 2; takenPos.add(2); others.shift(); }
         let remainingSlots = [1,2,3,4,5,6,7,8,9].filter(p => !takenPos.has(p));
         for (let u of others) {
             if (remainingSlots.length > 0) { let idx = rand(0, remainingSlots.length - 1); u.pos = remainingSlots[idx]; takenPos.add(remainingSlots[idx]); remainingSlots.splice(idx, 1); }
             else { u.pos = 5; }
         }
-        allyTeam.forEach(u => { u.fixed = false; });
-let toLock = [zhang, wei].filter(Boolean);
+        let toLock = [zhang, wei, xz].filter(Boolean);
+        while (toLock.length < 3) { let pool = allyTeam.filter(u => !toLock.includes(u)); if (pool.length === 0) break; let pick = pool[rand(0, pool.length - 1)]; toLock.push(pick); }
+        toLock.forEach(u => { u.fixed = true; });
+        // 强制小昭模式
+        if (window._forceXiaoZhao && !allyTeam.some(u => u.isXiaoZhao)) {
+            const swappable = allyTeam.find(u => !u.isZhang && !u.isWei);
+            if (swappable) allyTeam.splice(allyTeam.indexOf(swappable), 1);
+            let xzUnit = new Unit('小昭', 107, C.ROLES[rand(0, 3)], 'ally');
+            xzUnit.isXiaoZhao = true; xzUnit.initXiaoZhao(); xzUnit.applyBonus();
+            xzUnit._baseMaxHp = xzUnit.maxHp; xzUnit._baseAtk = xzUnit.atk; xzUnit._baseDef = xzUnit.def;
+            xzUnit.pos = null; allyTeam.push(xzUnit);
+        }
 
-// 随机插入小昭到明教阵容（替换一个普通单位，保持5人）
-if (Math.random() < 0.3) {
-    const removable = allyTeam.filter(u => !u.isZhang && !u.isWei);
-    if (removable.length > 0) {
-        const removed = removable[rand(0, removable.length - 1)];
-        allyTeam.splice(allyTeam.indexOf(removed), 1);
-        // 如果移除的是2号位队友，需要从剩余队友中补一个到2号位
-        if (removed.pos === 2) {
-            const fill = allyTeam.find(u => !u.isZhang && !u.isWei && u.pos !== 4 && u.pos !== 5 && u.pos !== 6);
-            if (fill) {
-                takenPos.delete(2);
-                fill.pos = 2;
-                takenPos.add(2);
+    } else {
+        // 第二关以后：按战斗力滚动分配
+        const eliteConfigs = [
+            { name: '张无忌', m: 115, role: '远程', isZhang: true },
+            { name: '韦一笑', m: 107, role: '飞行', isWei: true },
+            { name: '小昭', m: 107, role: '远程', isXiaoZhao: true }
+        ];
+        const candidatePool = [];
+        for (const cfg of eliteConfigs) {
+            if (Math.random() < (eliteRate[cfg.name] || 0.30)) {
+                candidatePool.push({ ...cfg, power: elitePower[cfg.name] || 140 });
             }
         }
-    }
-    let xiaoZhao = new Unit('小昭', 107, C.ROLES[rand(0, 3)], 'ally');
-    xiaoZhao.isXiaoZhao = true;
-    xiaoZhao.initXiaoZhao();
-    xiaoZhao.applyBonus();
-    xiaoZhao._baseMaxHp = xiaoZhao.maxHp;
-    xiaoZhao._baseAtk = xiaoZhao.atk;
-    xiaoZhao._baseDef = xiaoZhao.def;
-    xiaoZhao.pos = 4;
-    xiaoZhao.fixed = true;
-    allyTeam.push(xiaoZhao);
-    takenPos.add(4);
-    toLock.push(xiaoZhao);
-}
+        if (!candidatePool.some(c => c.isZhang || c.isWei || c.isXiaoZhao)) {
+            const roll = Math.random();
+            const forcedName = roll < 0.4 ? '张无忌' : (roll < 0.7 ? '韦一笑' : '小昭');
+            const forcedCfg = eliteConfigs.find(c => c.name === forcedName);
+            if (forcedCfg) candidatePool.push({ ...forcedCfg, power: elitePower[forcedCfg.name] || 140 });
+        }
+        for (const [name, m] of Object.entries(C.MING_M)) {
+            if (['张无忌','韦一笑','小昭'].includes(name)) continue;
+            if (m >= 95 && m <= 104) candidatePool.push({ name, m, role: null, power: normalPower[m] || 90 });
+        }
+        candidatePool.sort((a, b) => a.power - b.power);
+        const remainingCandidates = [...candidatePool];
+        let remainingPower = targetPower || 500;
+        let remainingSlots = 5;
+        for (let slot = 0; slot < 5; slot++) {
+            const avgPower = remainingPower / remainingSlots;
+            const candidates = [];
+            const above = remainingCandidates.filter(c => c.power >= avgPower).sort((a, b) => a.power - b.power).slice(0, 3);
+            const below = remainingCandidates.filter(c => c.power < avgPower).sort((a, b) => b.power - a.power).slice(0, 2);
+            candidates.push(...above);
+            for (const c of below) { if (!candidates.some(x => x.name === c.name)) candidates.push(c); }
+            if (candidates.length === 0) candidates.push(...remainingCandidates.slice(0, 5));
+            const pick = candidates[rand(0, candidates.length - 1)];
+            const idx = remainingCandidates.findIndex(c => c.name === pick.name);
+            if (idx >= 0) remainingCandidates.splice(idx, 1);
+            let unit;
+            if (pick.isZhang || pick.isWei || pick.isXiaoZhao) {
+                unit = new Unit(pick.name, pick.m, pick.role, 'ally');
+                if (pick.isZhang) unit.isZhang = true;
+                if (pick.isWei) unit.isWei = true;
+                if (pick.isXiaoZhao) { unit.isXiaoZhao = true; unit.initXiaoZhao(); unit.applyBonus(); unit._baseMaxHp = unit.maxHp; unit._baseAtk = unit.atk; unit._baseDef = unit.def; }
+                else { unit.init(); unit.applyBonus(); }
+            } else {
+                const role = C.ROLES[rand(0, 3)];
+                unit = new Unit(pick.name, pick.m, role, 'ally');
+                unit.init(); unit.applyBonus();
+            }
+            unit.pos = null;
+            allyTeam.push(unit);
+            remainingPower -= pick.power;
+            remainingSlots--;
+        }
 
-while (toLock.length < 3) { let pool = allyTeam.filter(u => !toLock.includes(u)); if (pool.length === 0) break; let pick = pool[rand(0, pool.length - 1)]; toLock.push(pick); }
-toLock.forEach(u => { u.fixed = true; });
+        // 强制小昭模式
+        if (window._forceXiaoZhao && !allyTeam.some(u => u.isXiaoZhao)) {
+            const swappable = allyTeam.find(u => !u.isZhang && !u.isWei);
+            if (swappable) {
+                allyTeam.splice(allyTeam.indexOf(swappable), 1);
+                remainingPower += (normalPower[swappable.m] || 90);
+            }
+            let xzUnit = new Unit('小昭', 107, C.ROLES[rand(0, 3)], 'ally');
+            xzUnit.isXiaoZhao = true; xzUnit.initXiaoZhao(); xzUnit.applyBonus();
+            xzUnit._baseMaxHp = xzUnit.maxHp; xzUnit._baseAtk = xzUnit.atk; xzUnit._baseDef = xzUnit.def;
+            xzUnit.pos = null;
+            allyTeam.push(xzUnit);
+            remainingPower -= (elitePower['小昭'] || 140);
+        }
+
+        // 至少一个前排
+        if (!allyTeam.some(u => u.role === '防战' || u.role === '战士')) {
+            const nonFixed = allyTeam.filter(u => !u.isZhang && !u.isWei && !u.isXiaoZhao);
+            if (nonFixed.length > 0) {
+                nonFixed[0].role = rand(0, 1) === 0 ? '防战' : '战士';
+                nonFixed[0].init(); nonFixed[0].applyBonus();
+            }
+        }
+
+        // 站位
+        const takenPos = new Set();
+        let zhang = allyTeam.find(u => u.isZhang);
+        let wei = allyTeam.find(u => u.isWei);
+        let xz = allyTeam.find(u => u.isXiaoZhao);
+        if (zhang) { zhang.pos = 5; takenPos.add(5); }
+        if (wei) { wei.pos = 6; takenPos.add(6); }
+        if (xz) { xz.pos = 4; takenPos.add(4); }
+        let others = allyTeam.filter(u => !u.isZhang && !u.isWei && !u.isXiaoZhao);
+        if (others.length > 0 && zhang && !takenPos.has(2)) { others[0].pos = 2; takenPos.add(2); others.shift(); }
+        let emptySlots = [1,2,3,4,5,6,7,8,9].filter(p => !takenPos.has(p));
+        for (let u of others) {
+            if (emptySlots.length > 0) { let idx = rand(0, emptySlots.length - 1); u.pos = emptySlots[idx]; takenPos.add(emptySlots[idx]); emptySlots.splice(idx, 1); }
+            else { u.pos = 5; }
+        }
+        let toLock = [zhang, wei, xz].filter(Boolean);
+        while (toLock.length < 3) { let pool = allyTeam.filter(u => !toLock.includes(u)); if (pool.length === 0) break; let pick = pool[rand(0, pool.length - 1)]; toLock.push(pick); }
+        toLock.forEach(u => { u.fixed = true; });
     }
 
+    // ==================== 六大派阵容生成 ====================
+    const enemySquad = C.ENEMY_SQUADS && C.ENEMY_SQUADS[currentStage] ? C.ENEMY_SQUADS[currentStage] : null;
     let enemyUnits = [];
     const usedEnemyNames = [];
+
     if (enemySquad) {
         let enemyPosSet = new Set();
         let xuanmingPairCount = 0;
-        let extraUnitForStage5 = null;
-
         for (let item of enemySquad) {
             if (typeof item === 'object' && item.name) {
                 let unit = new Unit(item.name, item.m, item.role, 'enemy');
                 unit.pos = null; unit.init(); unit.applyBonus();
                 enemyUnits.push(unit);
                 usedEnemyNames.push(item.name);
-                if (item.name === '鹿杖客' || item.name === '鹤笔翁') {
-                    xuanmingPairCount++;
-                }
+                if (item.name === '鹿杖客' || item.name === '鹤笔翁') xuanmingPairCount++;
             } else {
                 let mVal = item;
                 let pool = Object.entries(ENEMY_M).filter(([n, v]) => v === mVal);
@@ -135,8 +203,6 @@ toLock.forEach(u => { u.fixed = true; });
                 usedEnemyNames.push(name);
             }
         }
-
-        // 第五关：玄冥二老在场时，额外增加一个敌人（固定 104，共 6 人）
         if (currentStage === 5 && xuanmingPairCount === 2) {
             let extraM = 104;
             let pool = Object.entries(ENEMY_M).filter(([n, v]) => v === extraM);
@@ -151,46 +217,28 @@ toLock.forEach(u => { u.fixed = true; });
             let role = C.ROLES[rand(0, 3)];
             let extraUnit = new Unit(name, extraM, role, 'enemy');
             extraUnit.init(); extraUnit.applyBonus();
-            enemyUnits.push(extraUnit);          // ← 加入队伍
-            extraUnitForStage5 = extraUnit;
+            enemyUnits.push(extraUnit);
         }
-
         let allUnits = [...enemyUnits];
         let template = C.ENEMY_POS_TEMPLATES && C.ENEMY_POS_TEMPLATES[currentStage] ? C.ENEMY_POS_TEMPLATES[currentStage] : null;
         let eliteUnits = allUnits.filter(u => C.ELITE_POOL && C.ELITE_POOL[currentStage] && C.ELITE_POOL[currentStage].some(e => e.name === u.name));
         let normalUnits = allUnits.filter(u => !eliteUnits.includes(u));
-
-        // 按站位模板调整普通单位的职业，确保每种职业的数量满足模板需求
         if (template) {
             let roleCounts = { '战士': 0, '防战': 0, '远程': 0, '飞行': 0 };
             normalUnits.forEach(u => { if (roleCounts[u.role] !== undefined) roleCounts[u.role]++; });
             let templateNeeds = {};
-            for (let [role, poses] of Object.entries(template)) {
-                if (role === 'random') continue;
-                templateNeeds[role] = poses.length;
-            }
+            for (let [role, poses] of Object.entries(template)) { if (role === 'random') continue; templateNeeds[role] = poses.length; }
             for (let role of ['防战', '远程', '飞行', '战士']) {
                 let need = templateNeeds[role] || 0;
                 let current = roleCounts[role] || 0;
                 let shortage = need - current;
                 if (shortage > 0) {
                     let others = normalUnits.filter(u => u.role !== role && (templateNeeds[u.role] || 0) < (roleCounts[u.role] || 0));
-                    for (let i = 0; i < Math.min(shortage, others.length); i++) {
-                        roleCounts[others[i].role]--;
-                        others[i].role = role;
-                        roleCounts[role]++;
-                    }
+                    for (let i = 0; i < Math.min(shortage, others.length); i++) { roleCounts[others[i].role]--; others[i].role = role; roleCounts[role]++; }
                 }
             }
-            // 职业被修改后重新计算属性
-            normalUnits.forEach(u => {
-                if (!u._originalRole) u._originalRole = u.role;
-                u.init();
-                u.applyBonus();
-            });
+            normalUnits.forEach(u => { u.init(); u.applyBonus(); });
         }
-
-        // 先分配站位模板（普通单位），保留精英怪位置不被抢占
         if (template) {
             for (let [role, poses] of Object.entries(template)) {
                 if (role === 'random') continue;
@@ -200,57 +248,21 @@ toLock.forEach(u => { u.fixed = true; });
                 }
             }
         }
-
-        // 精英怪站位：有偏好位置，但可能被普通单位抢占（保留随机性）
         const zhou = eliteUnits.find(u => u.name === '周芷若');
         const song = eliteUnits.find(u => u.name === '宋青书');
-
         if (zhou && zhou.pos == null) {
             const zhouPriority = [2, 3, 4, 5, 6, 7, 8, 9];
             let placed = false;
-            for (const p of zhouPriority) {
-                if (!enemyPosSet.has(p)) {
-                    zhou.pos = p; zhou._originalPos = p; enemyPosSet.add(p); placed = true;
-                    break;
-                }
-            }
-            if (!placed) {
-                // 硬保底：强制挤掉 2 号位的单位
-                let displaced = normalUnits.find(u => u.pos === 2);
-                if (displaced) { displaced.pos = null; displaced._originalPos = -1; }
-                zhou.pos = 2; zhou._originalPos = 2; enemyPosSet.add(2);
-            }
+            for (const p of zhouPriority) { if (!enemyPosSet.has(p)) { zhou.pos = p; zhou._originalPos = p; enemyPosSet.add(p); placed = true; break; } }
+            if (!placed) { let displaced = normalUnits.find(u => u.pos === 2); if (displaced) { displaced.pos = null; displaced._originalPos = -1; } zhou.pos = 2; zhou._originalPos = 2; enemyPosSet.add(2); }
         }
-
         if (song && song.pos == null) {
             const zhouPos = zhou ? zhou.pos : 0;
             let placed = false;
-            for (let p = zhouPos + 1; p <= 9; p++) {
-                if (!enemyPosSet.has(p)) {
-                    song.pos = p; song._originalPos = p; enemyPosSet.add(p); placed = true;
-                    break;
-                }
-            }
-            if (!placed) {
-                for (let p = 1; p <= 9; p++) {
-                    if (!enemyPosSet.has(p)) {
-                        song.pos = p; song._originalPos = p; enemyPosSet.add(p); placed = true;
-                        break;
-                    }
-                }
-            }
-            if (!placed) {
-                // 硬保底：强制挤掉周芷若后面的单位
-                let backPos = zhouPos + 1;
-                if (backPos <= 9) {
-                    let displaced = normalUnits.find(u => u.pos === backPos);
-                    if (displaced) { displaced.pos = null; displaced._originalPos = -1; }
-                    song.pos = backPos; song._originalPos = backPos; enemyPosSet.add(backPos); placed = true;
-                }
-            }
+            for (let p = zhouPos + 1; p <= 9; p++) { if (!enemyPosSet.has(p)) { song.pos = p; song._originalPos = p; enemyPosSet.add(p); placed = true; break; } }
+            if (!placed) { for (let p = 1; p <= 9; p++) { if (!enemyPosSet.has(p)) { song.pos = p; song._originalPos = p; enemyPosSet.add(p); placed = true; break; } } }
+            if (!placed) { let backPos = zhouPos + 1; if (backPos <= 9) { let displaced = normalUnits.find(u => u.pos === backPos); if (displaced) { displaced.pos = null; displaced._originalPos = -1; } song.pos = backPos; song._originalPos = backPos; enemyPosSet.add(backPos); } }
         }
-
-        // 其他精英怪按优先级分配（成昆→1号位，鹿杖客→7号位，鹤笔翁→4号位）
         const otherElites = eliteUnits.filter(u => u !== zhou && u !== song && u.pos == null);
         for (let u of otherElites) {
             let priority;
@@ -258,35 +270,12 @@ toLock.forEach(u => { u.fixed = true; });
             else if (u.name === '鹿杖客') priority = [7, 8, 9, 4, 5, 6, 1, 2, 3];
             else if (u.name === '鹤笔翁') priority = [3, 4, 5, 6, 7, 8, 9, 1, 2];
             else priority = [1, 2, 3, 4, 5, 6, 7, 8, 9];
-
-            for (const p of priority) {
-                if (!enemyPosSet.has(p)) {
-                    u.pos = p; u._originalPos = p; enemyPosSet.add(p);
-                    break;
-                }
-            }
-            if (u.pos == null) {
-                // 硬保底：挤掉优先位置的单位
-                let p = priority[0];
-                let displaced = normalUnits.find(u2 => u2.pos === p);
-                if (displaced) { displaced.pos = null; displaced._originalPos = -1; }
-                u.pos = p; u._originalPos = p; enemyPosSet.add(p);
-            }
+            for (const p of priority) { if (!enemyPosSet.has(p)) { u.pos = p; u._originalPos = p; enemyPosSet.add(p); break; } }
+            if (u.pos == null) { let p = priority[0]; let displaced = normalUnits.find(u2 => u2.pos === p); if (displaced) { displaced.pos = null; displaced._originalPos = -1; } u.pos = p; u._originalPos = p; enemyPosSet.add(p); }
         }
-
-        // 剩余普通单位填充空位
         let unplacedNormals = normalUnits.filter(u => u.pos == null);
         let emptySlots = [1, 2, 3, 4, 5, 6, 7, 8, 9].filter(p => !enemyPosSet.has(p));
-        for (let u of unplacedNormals) {
-            if (emptySlots.length > 0) {
-                let idx = rand(0, emptySlots.length - 1);
-                u.pos = emptySlots[idx];
-                u._originalPos = u.pos;
-                enemyPosSet.add(emptySlots[idx]);
-                emptySlots.splice(idx, 1);
-            }
-        }
-
+        for (let u of unplacedNormals) { if (emptySlots.length > 0) { let idx = rand(0, emptySlots.length - 1); u.pos = emptySlots[idx]; u._originalPos = u.pos; enemyPosSet.add(emptySlots[idx]); emptySlots.splice(idx, 1); } }
         enemyTeam = allUnits;
     }
 
@@ -302,9 +291,7 @@ toLock.forEach(u => { u.fixed = true; });
     document.getElementById('labelEnemy').textContent = `六大派\n${stageText}`;
     document.getElementById('labelAlly').textContent = '明 教';
     updateUI();
-}
-
-// ==================== Buff 选择 ====================
+}// ==================== Buff 选择 ====================
 export function generateBuffChoices(activeBuffs, allyTeam = []) {
     let activeBuffKeys = activeBuffs.map(b => b.key);
     let available = ALL_BUFF_KEYS.filter(k => {
@@ -340,8 +327,8 @@ export function showBuffSelection(callback, activeBuffs, selectedBuffIndex, upda
         if (allyTeam) {
             const xiaoZhao = allyTeam.find(u => u.isXiaoZhao);
             if (xiaoZhao) {
-                if (!xiaoZhao._permanentBuffs) xiaoZhao._permanentBuffs = [];
-                xiaoZhao._permanentBuffs.push({ key, target: 'ally', remaining: Infinity, name: C.BUFFS[key].name });
+                const extra = key === 'holyFlame' ? { col: Math.floor(Math.random() * 3) + 1, row: Math.floor(Math.random() * 3) + 1 } : {};
+                addPermanentBuff(xiaoZhao, key, C.BUFFS[key].name, extra);
             }
         }
         updateBuffSlotsFn();

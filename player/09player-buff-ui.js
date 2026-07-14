@@ -5,6 +5,7 @@ export const VER = 'player/09player-buff-ui.js V5.0.3';
 import { CONFIG } from '../core/01config-5v5-test.js';
 import { Unit } from '../core/07battle-engine-5v5-test.js';
 import { showDamageFloat, showHealFloat, showBuffBanner } from '../fx/15fx-common-5v5-test.js';
+import { addPermanentBuff } from '../modules/23elite-skills.js';
 
 
 let ctx = null;
@@ -51,8 +52,7 @@ export function showBuffPopup(c) {
                 if (ctx && ctx.UI && ctx.UI.allyTeam) {
                     const xiaoZhao = ctx.UI.allyTeam.find(u => u.isXiaoZhao);
                     if (xiaoZhao) {
-                        if (!xiaoZhao._permanentBuffs) xiaoZhao._permanentBuffs = [];
-                        xiaoZhao._permanentBuffs.push({ ...newBuff, remaining: Infinity });
+                        addPermanentBuff(xiaoZhao, b.value, newBuff.name, b.value === 'holyFlame' ? { col: newBuff.col, row: newBuff.row } : {});
                     }
                 }
                 resolve(newBuff);
