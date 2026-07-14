@@ -32,6 +32,7 @@ import { VER as VER_UNIT } from '../core/02unit.js';
 import { VER as VER_UTILS } from '../core/03battle-utils.js';
 import { VER as VER_TEXT } from '../player/08player-text.js';
 import { VER as VER_BUFF_UI } from '../player/09player-buff-ui.js';
+import { addPermanentBuff } from '../modules/23elite-skills.js';
 import { VER as VER_MAIN_UTILS } from './12main-utils.js';
 
 
@@ -185,6 +186,13 @@ document.addEventListener('DOMContentLoaded', function() {
                         buffs.push({ key: pick, target: 'ally', remaining: duration, name: C.BUFFS[pick].name, col: rand(1, 3), row: rand(1, 3) });
                     } else {
                         buffs.push({ key: pick, target: 'ally', remaining: duration, name: C.BUFFS[pick].name });
+                    }
+                    // 小昭永久海克斯备份
+                    const allyTeam = getState.UI().allyTeam;
+                    const xz = allyTeam.find(u => u.isXiaoZhao);
+                    if (xz) {
+                        const extra = pick === 'holyFlame' ? { col: rand(1, 3), row: rand(1, 3) } : {};
+                        addPermanentBuff(xz, pick, C.BUFFS[pick].name, extra);
                     }
                     updateBuffSlots(getState.activeBuffs(), selectedBuffIndex);
                     logDiv.innerHTML += `<span class="gold">✨ 获得Buff：${C.BUFFS[pick].name}（持续${duration}回合）</span><br>`;
@@ -419,6 +427,7 @@ document.addEventListener('DOMContentLoaded', function() {
     });
     document.getElementById('debugToggle').addEventListener('click',function(){
         onAnyButtonClick(); setState.debugMode(!getState.debugMode()); var dm = getState.debugMode(); this.classList.toggle('active',dm); this.textContent='V3.0'; window._debugMode=dm;
+        window._forceXiaoZhao = dm;
         updateSpeedButtons(); updateDebugUI(); updateUI();
     });
     document.getElementById('copyLog').addEventListener('click',()=>{
@@ -467,6 +476,10 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('btnBGM').addEventListener('click',()=>{ showMusicPanel(); });
     document.getElementById('btnCrashMode').addEventListener('click',function(){window._crashMode=window._crashMode==='fly'?'ghost':'fly';this.textContent=window._crashMode==='fly'?'🕊️飞走':'👻虚影';});
     document.getElementById('btnDodgeToggle').addEventListener('click',()=>{toggleDodgeEffect();});
+    document.getElementById('btnXiaoZhaoMode').addEventListener('click',function(){
+        window._forceXiaoZhao = !window._forceXiaoZhao;
+        this.classList.toggle('active', window._forceXiaoZhao);
+    });
     document.getElementById('btnStageSelect').addEventListener('click',()=>{ if(gs!==S.IDLE)return; openStageSelectModal(); });
 
     function openStageSelectModal(){

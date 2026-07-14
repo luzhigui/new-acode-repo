@@ -42,7 +42,8 @@ import {
     applyXinHunDeduction,
     tickKuaiLeHeal,
     canXingFenTrigger,
-    consumeXingFen
+    consumeXingFen,
+    applyDamageModifiers
 } from '../modules/23elite-skills.js';
 
 // Buff UI 函数（海克斯弹窗）

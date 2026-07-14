@@ -53,7 +53,7 @@ export function clearAllEffects(){
     document.querySelectorAll('.grid.victory-border').forEach(grid => grid.classList.remove('victory-border'));
 }
 
-const GAME_STATE_FIELDS = ['hp','alive','maxHp','atk','def','role','rangedForm','_isDead','_baseMaxHp','dmgDealt','dmgTaken','healDone','reboundDone','leechDone','dodgeCount','critCount','survivedRounds','pos','buffAtkBonus','buffDefBonus','buffDodgeBonus','buffHpBonus','_phantomTarget'];
+const GAME_STATE_FIELDS = ['hp','alive','maxHp','atk','def','role','rangedForm','_isDead','_baseMaxHp','dmgDealt','dmgTaken','healDone','reboundDone','leechDone','dodgeCount','critCount','survivedRounds','pos','buffAtkBonus','buffDefBonus','buffDodgeBonus','buffHpBonus','_phantomTarget', '_masteredRoles'];
 
 function createStore(initialState, reducer) {
     let state = initialState;
@@ -135,6 +135,7 @@ function battleReducer(state, action) {
                         if (p.survivedRounds !== undefined) next[idx].survivedRounds = p.survivedRounds;
                         if (p._isDead !== undefined) next[idx]._isDead = p._isDead;
                         if (p._phantomTarget !== undefined) next[idx]._phantomTarget = p._phantomTarget;
+                        if (p._masteredRoles !== undefined) next[idx]._masteredRoles = p._masteredRoles;
                         if (ev.eventType === 'zhang-switch') {
                             if (p.rangedForm !== undefined) next[idx].rangedForm = p.rangedForm;
                             if (p.role) next[idx].role = p.role;
@@ -496,6 +497,11 @@ export async function playLogEntries(c, log, roundResult, isFirstAttackRef) {
                 case 'buff-summary':         { let div2=document.createElement('div');div2.innerHTML=entry.text+'<br>';document.getElementById('log').appendChild(div2);c.autoScrollLog(); if(entry.buffType==='elite_xingfen'){let song=c.UI.allyTeam.concat(c.UI.enemyTeam).find(u=>u.name==='宋青书');if(song)c.store.dispatch({type:'SET_VISUAL',uid:song.uid,_hasXingFen:true});} lastEntryType = entry.type; } break;
                 case 'buff-rebound-fortify': await handleBuffReboundFortify(c, entry); lastEntryType = entry.type; break;
                 case 'round-start':
+                    // 先应用回合开始事件，再渲染 UI，避免 buffDefBonus 等延迟一帧
+                    if (roundResult && roundResult.events && roundResult.events.length > 0) {
+                        c.store.dispatch({ type: 'APPLY_EVENTS', events: roundResult.events });
+                        roundResult.events = [];
+                    }
                     await handleRoundStart(c, entry, isFirstAttackRef);
                     if (roundResult && roundResult.doubleStrikeUid) {
                         c.currentDoubleStrikeUid = roundResult.doubleStrikeUid;
@@ -699,9 +705,6 @@ export async function playBattle() {
                     const pick = available[Math.floor(Math.random() * available.length)];
                     const duration = CONFIG.BUFFS[pick].duration || CONFIG.BUFF_DURATION || 4;
                     newBuff = { key: pick, target: 'ally', remaining: duration, name: CONFIG.BUFFS[pick].name };
-                    if (c.UI && c.UI.allyTeam && c.UI.allyTeam.some(u => u.isXiaoZhao)) {
-                        newBuff.remaining = Infinity;
-                    }
                     // 小昭永久海克斯存储
                     if (c.UI && c.UI.allyTeam) {
                         const xiaoZhao = c.UI.allyTeam.find(u => u.isXiaoZhao);

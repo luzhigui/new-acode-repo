@@ -11,7 +11,7 @@ import {
     checkExtinctionCounter, checkNineYinClaw, getRebelTarget, getRebelDmgBonus, getRebelTrueDmg,
     getPhantomThunderBonus, applyXuanmingPalm, tickXuanmingPoison, getHornStrikeBonus,
     checkKuLian, applyXingFenGrant, applyXinHunDeduction, tickKuaiLeHeal, canXingFenTrigger, consumeXingFen, applyXingFenPenalty,
-    applyXiaoZhaoDerived, transformXiaoZhao, computeButterflyMastery
+    applyXiaoZhaoDerived, transformXiaoZhao, applyDamageModifiers
 } from '../modules/23elite-skills.js';
 const C = CONFIG, DT = DEF_TAUNT, HT = HP_TAUNT;
 
@@ -348,6 +348,21 @@ function processUnitAttack(unit, allySide, enemySide, log, A, B, state, doubleSt
     let dmg = Math.floor(raw);
     let hpAfter = Math.floor(target.hp) - dmg;
     let dead = hpAfter <= 0;
+
+    // ★ 伤害修正钩子：乾坤大挪移升级版等，在伤害应用前统一处理
+    let bonusEntries = [];
+    if (unit.camp === 'ally') {
+        // 攻击者是明教 → target 是六大派，不需要处理明教防御技能
+    } else {
+        // 攻击者是六大派 → target 是明教，触发防御技能
+        const modifierResult = applyDamageModifiers(unit, target, dmg, A, B, log);
+        dmg = modifierResult.modifiedDmg;
+        bonusEntries = modifierResult.entries || [];
+    }
+    hpAfter = Math.floor(target.hp) - dmg;
+    dead = hpAfter <= 0;
+
+    // 应用伤害
     if (dead) {
         target.hp = 0;
         target.alive = false;
@@ -426,6 +441,11 @@ function processUnitAttack(unit, allySide, enemySide, log, A, B, state, doubleSt
     group._events = [...window._battleEvents];
     window._battleEvents = [];
 
+    // 附加伤害修正日志（乾坤升级版等）
+    for (const entry of bonusEntries) {
+        group.entries.push(entry);
+    }
+
     if (unit.camp === 'ally' && unit.isZhang && unit.alive) {
         const hpBefore = Math.floor(unit.hp);
         let heal = Math.floor(unit.maxHp * 0.05);
@@ -461,56 +481,35 @@ function processUnitAttack(unit, allySide, enemySide, log, A, B, state, doubleSt
             }
         }
     }
-      // 小昭升级版乾坤大挪移：全场减伤30%，反弹给攻击者，无忌自伤最低1
-    const xiaoZhao = A.find(u => u.isXiaoZhao && u.alive);
-    const zhangUpgraded = A.find(c => c.isZhang && c.alive);
-    if (target.camp === 'ally' && dmg > 0 && xiaoZhao && zhangUpgraded) {
-        dmg = Math.floor(dmg * 0.7);
-        let rebound = Math.floor(dmg * 0.15);
-        unit.hp = Math.max(0, unit.hp - rebound);
-        unit.dmgTaken += rebound;
-        zhangUpgraded.reboundDone += rebound;
-        if (unit.hp <= 0) {
-            unit.alive = false;
-            unit._isDead = true;
-            if (!unit._deathTime) unit._deathTime = Date.now();
-        }
-        let selfDmg = Math.max(1, Math.floor(rebound * 0.1));
-        zhangUpgraded.hp -= selfDmg;
-        zhangUpgraded.dmgTaken += selfDmg;
-        emitEvent(unit, 'hp-change', { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: unit.atk, def: unit.def, _isDead: unit._isDead || false });
-        emitEvent(zhangUpgraded, 'hp-change', { hp: zhangUpgraded.hp, maxHp: zhangUpgraded.maxHp, alive: zhangUpgraded.alive, atk: zhangUpgraded.atk, def: zhangUpgraded.def });
-        if (!unit._xiaoZhaoReboundLogged) {
-            group.entries.push({type:'info', text:`<span class="gold">🦋 乾坤大挪移（升级版）：全队减伤30%，反弹${rebound}给${unit.name}（无忌自伤${selfDmg}）</span>`, buffType:'rebound'});
-            unit._xiaoZhaoReboundLogged = true;
-        }
-    }
     // 普通乾坤大挪移：仅保护4/6号位
-    if (target.camp === 'ally' && (target.pos === 4 || target.pos === 6) && dmg > 0 && !xiaoZhao) {
-        let zhang = (target.camp === 'ally' ? A : B).find(c => c.isZhang && c.alive && c.rangedForm);
-        if (zhang) {
-            let rebound = Math.floor(dmg * 0.15);
-            unit.hp = Math.max(0, unit.hp - rebound);
-            unit.dmgTaken += rebound;
-            zhang.reboundDone += rebound;
-            if (unit.hp <= 0) {
-                unit.alive = false;
-                unit._isDead = true;
-                unit._flash = 'dead';
-                if (!unit._deathTime) unit._deathTime = Date.now();
-            }
-            let selfDmg = Math.max(1, Math.floor(rebound * 0.1));
-            zhang.hp -= selfDmg;
-            zhang.dmgTaken += selfDmg;
-            emitEvent(unit, 'hp-change', { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: unit.atk, def: unit.def, _isDead: unit._isDead || false });
-            emitEvent(zhang, 'hp-change', { hp: zhang.hp, maxHp: zhang.maxHp, alive: zhang.alive, atk: zhang.atk, def: zhang.def });
-            group.entries.push({type:'info', text:`<span class="gold">✨ 乾坤大挪移反弹${rebound}给${unit.name}（无忌自伤${selfDmg}）</span>`, buffType:'rebound'});
-            if (unit.hp <= 0) { unit.alive = false; unit._isDead = true; }
-            if (zhang.hp <= 0) {
-                zhang.hp = 0;
-                zhang.alive = false;
-                zhang._isDead = true;
-                if (!zhang._deathTime) zhang._deathTime = Date.now();
+    if (target.camp === 'ally' && (target.pos === 4 || target.pos === 6) && dmg > 0) {
+        let xiaoZhaoActive = A.find(u => u.isXiaoZhao && u.alive);
+        if (!xiaoZhaoActive) { // 小昭在场时走升级版，不执行普通版
+            let zhang = A.find(c => c.isZhang && c.alive && c.rangedForm);
+            if (zhang) {
+                let rebound = Math.floor(dmg * 0.15);
+                unit.hp = Math.max(0, unit.hp - rebound);
+                unit.dmgTaken += rebound;
+                zhang.reboundDone += rebound;
+                if (unit.hp <= 0) {
+                    unit.alive = false;
+                    unit._isDead = true;
+                    unit._flash = 'dead';
+                    if (!unit._deathTime) unit._deathTime = Date.now();
+                }
+                let selfDmg = Math.max(1, Math.floor(rebound * 0.1));
+                zhang.hp -= selfDmg;
+                zhang.dmgTaken += selfDmg;
+                emitEvent(unit, 'hp-change', { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: unit.atk, def: unit.def, _isDead: unit._isDead || false });
+                emitEvent(zhang, 'hp-change', { hp: zhang.hp, maxHp: zhang.maxHp, alive: zhang.alive, atk: zhang.atk, def: zhang.def });
+                group.entries.push({type:'info', text:`<span class="gold">✨ 乾坤大挪移反弹${rebound}给${unit.name}（无忌自伤${selfDmg}）</span>`, buffType:'rebound'});
+                if (unit.hp <= 0) { unit.alive = false; unit._isDead = true; }
+                if (zhang.hp <= 0) {
+                    zhang.hp = 0;
+                    zhang.alive = false;
+                    zhang._isDead = true;
+                    if (!zhang._deathTime) zhang._deathTime = Date.now();
+                }
             }
         }
     }
@@ -547,13 +546,12 @@ function processUnitAttack(unit, allySide, enemySide, log, A, B, state, doubleSt
             const lu = allySide.find(u => u.name === '鹿杖客' && u.alive && !u._acted);
             if (lu) {
                 lu._isLinkAttack = true;
-                // 强制鹿杖客攻击鹤笔翁刚才的目标
                 const origSelectTarget = selectTarget;
                 selectTarget = (u, enemies) => enemies.find(e => e.uid === target.uid) || origSelectTarget(u, enemies);
                 processUnitAttack(lu, allySide, enemySide, log, A, B, state, null);
                 selectTarget = origSelectTarget;
                 lu._isLinkAttack = false;
-                lu._acted = false; // 联动攻击不消耗行动
+                lu._acted = false;
             }
         } else if (unit.name === '鹿杖客') {
             const he = allySide.find(u => u.name === '鹤笔翁' && u.alive && !u._acted);
@@ -583,6 +581,12 @@ function processUnitAttack(unit, allySide, enemySide, log, A, B, state, doubleSt
             log.push({type:'info', text:`<span class="gray">⚡ 概率连击触发失败，${unit.name} 未能再次攻击</span>`});
         }
     }
+    // 小昭永久概率连击：独立于团队，100%触发，用独立标记
+    if (unit.isXiaoZhao && unit._permanentBuffs && unit._permanentBuffs.some(b => b.key === 'doubleStrike') && unit.alive && !unit._xiaoZhaoDoubleStriked) {
+        unit._xiaoZhaoDoubleStriked = true; unit._acted = false;
+        log.push({type:'info', text:`<span class="gold">🦋 蝶击：小昭永久概率连击触发！</span>`, isDoubleStrikeBanner:true});
+        processUnitAttack(unit, allySide, enemySide, log, A, B, state, doubleStrikeUnitUid);
+    }
 
     if (canXingFenTrigger(unit) && enemySide.some(u => u.alive)) {
         consumeXingFen(unit);
@@ -592,7 +596,6 @@ function processUnitAttack(unit, allySide, enemySide, log, A, B, state, doubleSt
 
     return true;
 }
-
 // ==================== 新增：逐步执行生成器 ====================
 
 export function* createRoundStepper(state) {
@@ -639,20 +642,20 @@ export function* createRoundStepper(state) {
 
     applyXingFenGrant(B, log);
 
-    // 小昭永久拒马：每回合无条件召唤一匹
+    // 小昭蝶变：每回合随机变换职业
+    A.forEach(u => { if (u.isXiaoZhao && u.alive) transformXiaoZhao(u, log); });
+
+    // 小昭永久拒马 + 圣火令
     const xiaoZhao = A.find(u => u.isXiaoZhao && u.alive);
     if (xiaoZhao && xiaoZhao._permanentBuffs && xiaoZhao._permanentBuffs.some(b => b.key === 'horseFormation')) {
         spawnHorse(A, log, B);
     }
-
-    // 小昭永久圣火令：每回合自动释放给全队（持续4回合，可叠加）
     if (xiaoZhao && xiaoZhao._permanentBuffs && xiaoZhao._permanentBuffs.some(b => b.key === 'holyFlame')) {
+        const col = (xiaoZhao.pos - 1) % 3 + 1;
         A._activeBuffs = A._activeBuffs || [];
-        A._activeBuffs.push({ key: 'holyFlame', target: 'ally', remaining: 4, name: '圣火令', col: Math.floor(Math.random() * 3) + 1, row: Math.floor(Math.random() * 3) + 1 });
+        A._activeBuffs.push({ key: 'holyFlame', target: 'ally', remaining: 4, name: '圣火令', col: col, row: Math.ceil(xiaoZhao.pos / 3) });
+        log.push({ type:'info', text:`<span class="gold">🔥 小昭圣火令：第${col}列获得攻击+30%</span>` });
     }
-
-    // 小昭蝶变：每回合随机变换职业
-    A.forEach(u => { if (u.isXiaoZhao && u.alive) transformXiaoZhao(u, log); });
 
     // 苦练：宋青书每次行动前给全体队友+1攻+1防+2生命上限，自身翻倍
     // 直接用 checkKuLian 判定，避免依赖 _kuLianActive 标志位的时序（标志位在下方 yield 后才置位）
@@ -730,6 +733,7 @@ export function* createRoundStepper(state) {
                 log.push({ type:'info', text:`<span class="gold">👑 carry：${u.name} 获得队友属性加成 攻+${stats.carryAtkAbs} 防+${stats.carryDefAbs} 血上限+${stats.carryHpAbs}</span>` });
             }
         }
+        // 小昭精通加成已由 computeBuffStats 计算并融入属性变化，无需额外叠加
         u._extinctionUsed = false;
         u._acted = false;
         u._doubleStriked = false;

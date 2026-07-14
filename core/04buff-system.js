@@ -49,15 +49,16 @@ export function computeBuffStats(unit, activeBuffs, allyTeam) {
         });
     }
 
-    // 小昭变身精通加成：需有carry才生效，加成是绝对值（加到carry字段，非比率字段）
-    if (unit.isXiaoZhao && hasBuff(activeBuffs, 'carry')) {
+    // 小昭变身精通加成：永久生效，独立于 carry，回合开始时直接加到属性
+    let masteryAtkAbs = 0, masteryDefAbs = 0, masteryHpAbs = 0;
+    if (unit.isXiaoZhao) {
         const mastery = computeButterflyMastery(unit);
-        carryAtkAbs += mastery.atk;
-        carryDefAbs += mastery.def;
-        carryHpAbs += mastery.hp;
+        masteryAtkAbs = mastery.atk;
+        masteryDefAbs = mastery.def;
+        masteryHpAbs = mastery.hp;
     }
 
-    return { atkBonus, defBonus, dodgeBonus, hpBonus, carryAtkAbs, carryDefAbs, carryHpAbs };
+    return { atkBonus, defBonus, dodgeBonus, hpBonus, carryAtkAbs, carryDefAbs, carryHpAbs, masteryAtkAbs, masteryDefAbs, masteryHpAbs };
 }
 
 export function applyBuffEffectsBeforeAttack(unit, target, allyTeam, enemyTeam, log) {
@@ -133,6 +134,60 @@ export function applyBuffEffectsAfterAttack(unit, target, dmg, allySide, enemySi
             unit.hp = Math.min(unit.maxHp, unit.hp + leech);
             unit.healDone += leech;
             log.push({type:'buff-leech', text:`<span class="green">🦋 热血：小昭热血奋战回复+${leech}</span>`, isHealEntry:true, healAmount:leech, healUnitUid:unit.uid});
+        }
+    }
+    
+    // 小昭永久乘风突袭：飞行形态波及同行并击退
+    if (unit.isXiaoZhao && unit.role === '飞行' && unit._permanentBuffs && unit._permanentBuffs.some(b => b.key === 'windAssault') && target.alive) {
+        if (rand(1,100) <= 80) {
+            let row = getUnitRow(target.pos);
+            let rowTargets = enemySide.filter(u => u.alive && getUnitRow(u.pos) === row && u.uid !== target.uid);
+            if (rowTargets.length > 0) {
+                let hitDmg = Math.floor(dmg);
+                let details = rowTargets.map(rt => {
+                    let hpBefore = Math.floor(rt.hp);
+                    rt.hp -= hitDmg; unit.dmgDealt += hitDmg; rt.dmgTaken += hitDmg;
+                    if (rt.hp <= 0) { rt.hp = 0; rt.alive = false; }
+                    if (typeof window._emitEvent === 'function') {
+                        window._emitEvent(rt, 'hp-change', { hp: rt.hp, maxHp: rt.maxHp, alive: rt.alive, atk: rt.atk, def: rt.def });
+                    }
+                    return `${rt.name}：${hpBefore}→${Math.floor(rt.hp)}`;
+                }).join('，');
+                log.push({type:'buff-splash', text:`<span class="orange">🦋 蝶翼：小昭乘风突袭波及${details}，各 -${hitDmg}</span>`, buffType:'wind_assault', attackerUid: unit.uid});
+            }
+        }
+    }
+    
+    // 小昭永久流星赶月：远程形态伤害加深+溅射
+    if (unit.isXiaoZhao && unit.role === '远程' && unit._permanentBuffs && unit._permanentBuffs.some(b => b.key === 'meteorShower')) {
+        let bonusDmg = Math.floor(dmg * C.BUFFS.meteorShower.bonusRatio);
+        unit.dmgDealt += bonusDmg;
+        if (target.alive) {
+            target.hp -= bonusDmg;
+            target.dmgTaken += bonusDmg;
+            if (target.hp <= 0) { target.hp = 0; target.alive = false; }
+            if (typeof window._emitEvent === 'function') {
+                window._emitEvent(target, 'hp-change', { hp: target.hp, maxHp: target.maxHp, alive: target.alive, atk: target.atk, def: target.def });
+            }
+        }
+        log.push({type:'buff-bonus', text:`<span class="gold">🦋 蝶星：小昭流星赶月伤害加深：${target.name} 额外-${bonusDmg}</span>`, buffType:'meteor_bonus', targetUid: target.uid, bonusDmg: bonusDmg});
+        
+        let splashDmg = Math.floor(dmg * C.BUFFS.meteorShower.splashRatio);
+        let adjPositions = getAdjacentPositions(target.pos);
+        let splashTargets = enemySide.filter(u => u.alive && adjPositions.includes(u.pos));
+        if (splashTargets.length > 0) {
+            let details = splashTargets.map(st => {
+                let hpBefore = Math.floor(st.hp);
+                st.hp -= splashDmg;
+                unit.dmgDealt += splashDmg;
+                st.dmgTaken += splashDmg;
+                if (st.hp <= 0) { st.hp = 0; st.alive = false; st._isDead = true; }
+                if (typeof window._emitEvent === 'function') {
+                    window._emitEvent(st, 'hp-change', { hp: st.hp, maxHp: st.maxHp, alive: st.alive, atk: st.atk, def: st.def });
+                }
+                return `${st.name}：${hpBefore}→${Math.floor(st.hp)}`;
+            }).join('，');
+            log.push({type:'buff-splash', text:`<span class="orange">🦋 蝶星：小昭流星赶月溅射：${details}，各-${splashDmg}</span>`, buffType:'meteor_splash', attackerUid: unit.uid, primaryUid: target.uid, splashUids: splashTargets.map(st => st.uid), splashDmg: splashDmg});
         }
     }
     
@@ -280,6 +335,9 @@ export function logBuffSummary(allyTeam, log, doubleStrikeUid) {
                 if (msUnits.length > 0) log.push({type:'buff-summary', text:`<span class="gold">☄️ 流星赶月：${msUnits.map(u=>u.name).join('、')} 伤害加深${Math.round(C.BUFFS.meteorShower.bonusRatio*100)}% 溅射${Math.round(C.BUFFS.meteorShower.splashRatio*100)}%</span>`, buffType:'buff_stat'});
                 break;
             case 'holyFlame': {
+                const holyBuffs = buffs.filter(b => b.key === 'holyFlame');
+                const stackCount = holyBuffs.length;
+                const stackSuffix = stackCount > 1 ? ` ×${stackCount}` : '';
                 if (b.col == null || b.row == null) {
                     b.col = rand(1, 3);
                     b.row = rand(1, 3);
@@ -289,7 +347,7 @@ export function logBuffSummary(allyTeam, log, doubleStrikeUid) {
                 let rowUnits = allyTeam.filter(u => u.alive && getUnitRow(u.pos) === row);
                 let atkNames = colUnits.map(u=>u.name).join('、') || '无';
                 let defNames = rowUnits.map(u=>u.name).join('、') || '无';
-                log.push({type:'buff-summary', text:`<span class="gold">🔥 圣火令：第${col}列(${atkNames})攻击+${Math.round(C.BUFFS.holyFlame.atkBonus*100)}%，第${row}行(${defNames})防御+${Math.round(C.BUFFS.holyFlame.defBonus*100)}%</span>`, buffType:'buff_stat'});
+                log.push({type:'buff-summary', text:`<span class="gold">🔥 圣火令${stackSuffix}：第${col}列(${atkNames})攻击+${Math.round(C.BUFFS.holyFlame.atkBonus*100)}%，第${row}行(${defNames})防御+${Math.round(C.BUFFS.holyFlame.defBonus*100)}%</span>`, buffType:'buff_stat'});
                 break;
             }
             case 'doubleStrike':

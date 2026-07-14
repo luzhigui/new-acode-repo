@@ -87,14 +87,17 @@ function attachSpeedButton(id, speedVal) {
     btn.addEventListener('click', function() {
         if (typeof onAnyButtonClick === 'function') onAnyButtonClick();
         if (btn.classList.contains('active')) {
-            // 取消高亮，恢复常速500
+            // 取消高亮，恢复常速500，并强制同步播放器
             setState.speed(500);
+            const ctx = window._getPlayerContext ? window._getPlayerContext() : null;
+            if (ctx) {
+                ctx.speed = 500;
+                if (ctx._scheduler) ctx._scheduler.setSpeed(1);
+            }
             manualSpeedLock = false;
             manualSpeedValue = null;
             slideSpeedActive = true;
             updateSpeedButtons();
-            const ctx = window._getPlayerContext ? window._getPlayerContext() : null;
-            if (ctx && ctx._scheduler) ctx._scheduler.setSpeed(1);
         } else {
             // 切换至该倍速
             setSpeed(speedVal, true);
