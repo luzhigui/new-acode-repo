@@ -379,6 +379,12 @@ function processUnitAttack(unit, allySide, enemySide, log, A, B, state, doubleSt
         const modifierResult = applyDamageModifiers(unit, target, dmg, A, B, log);
         dmg = modifierResult.modifiedDmg;
         bonusEntries = modifierResult.entries || [];
+        // 减伤后更新公式显示
+        const originalDmg = Math.floor(raw);
+        if (dmg !== originalDmg) {
+            const reducePct = Math.round((1 - dmg / originalDmg) * 100);
+            rawFormula += `-${reducePct}%=${Math.floor(dmg)}`;
+        }
     }
     hpAfter = Math.floor(target.hp) - dmg;
     dead = hpAfter <= 0;
