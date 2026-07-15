@@ -144,19 +144,20 @@ export function applyBuffEffectsAfterAttack(unit, target, dmg, allySide, enemySi
         }
     }
     
-    // 小昭永久流星赶月：远程形态伤害加深+溅射
+    // 小昭永久流星赶月：远程形态伤害加深+溅射+降防
     if (unit.isXiaoZhao && unit.role === '远程' && unit._permanentBuffs && unit._permanentBuffs.some(b => b.key === 'meteorShower')) {
         let bonusDmg = Math.floor(dmg * C.BUFFS.meteorShower.bonusRatio);
         unit.dmgDealt += bonusDmg;
         if (target.alive) {
             target.hp -= bonusDmg;
             target.dmgTaken += bonusDmg;
+            target.def = Math.max(0, target.def - (C.BUFFS.meteorShower.mainDefReduce || 2));
             if (target.hp <= 0) { target.hp = 0; target.alive = false; }
             if (typeof window._emitEvent === 'function') {
                 window._emitEvent(target, 'hp-change', { hp: target.hp, maxHp: target.maxHp, alive: target.alive, atk: target.atk, def: target.def });
             }
         }
-        log.push({type:'buff-bonus', text:`<span class="gold">🦋 蝶星：小昭流星赶月伤害加深：${target.name} 额外-${bonusDmg}</span>`, buffType:'meteor_bonus', targetUid: target.uid, bonusDmg: bonusDmg});
+        log.push({type:'buff-bonus', text:`<span class="gold">🦋 蝶星：小昭流星赶月伤害加深：${target.name} 额外-${bonusDmg}，防御-${C.BUFFS.meteorShower.mainDefReduce || 2}</span>`, buffType:'meteor_bonus', targetUid: target.uid, bonusDmg: bonusDmg});
         
         let splashDmg = Math.floor(dmg * C.BUFFS.meteorShower.splashRatio);
         let adjPositions = getAdjacentPositions(target.pos);
@@ -167,13 +168,14 @@ export function applyBuffEffectsAfterAttack(unit, target, dmg, allySide, enemySi
                 st.hp -= splashDmg;
                 unit.dmgDealt += splashDmg;
                 st.dmgTaken += splashDmg;
+                st.def = Math.max(0, st.def - (C.BUFFS.meteorShower.splashDefReduce || 1));
                 if (st.hp <= 0) { st.hp = 0; st.alive = false; st._isDead = true; }
                 if (typeof window._emitEvent === 'function') {
                     window._emitEvent(st, 'hp-change', { hp: st.hp, maxHp: st.maxHp, alive: st.alive, atk: st.atk, def: st.def });
                 }
                 return `${st.name}：${hpBefore}→${Math.floor(st.hp)}`;
             }).join('，');
-            log.push({type:'buff-splash', text:`<span class="orange">🦋 蝶星：小昭流星赶月溅射：${details}，各-${splashDmg}</span>`, buffType:'meteor_splash', attackerUid: unit.uid, primaryUid: target.uid, splashUids: splashTargets.map(st => st.uid), splashDmg: splashDmg});
+            log.push({type:'buff-splash', text:`<span class="orange">🦋 蝶星：小昭流星赶月溅射：${details}，各-${splashDmg}，防御-${C.BUFFS.meteorShower.splashDefReduce || 1}</span>`, buffType:'meteor_splash', attackerUid: unit.uid, primaryUid: target.uid, splashUids: splashTargets.map(st => st.uid), splashDmg: splashDmg});
         }
     }
     
@@ -206,13 +208,14 @@ export function applyBuffEffectsAfterAttack(unit, target, dmg, allySide, enemySi
         }
     }
     
-    // 流星赶月：本体额外伤害 + 溅射合并
+    // 流星赶月：本体额外伤害 + 溅射合并 + 降防
     if (hasBuff(unitBuffs, 'meteorShower') && unit.role === '远程') {
         let bonusDmg = Math.floor(dmg * C.BUFFS.meteorShower.bonusRatio);
         unit.dmgDealt += bonusDmg;
         if (target.alive) {
             target.hp -= bonusDmg;
             target.dmgTaken += bonusDmg;
+            target.def = Math.max(0, target.def - (C.BUFFS.meteorShower.mainDefReduce || 2));
             if (target.hp <= 0) { target.hp = 0; target.alive = false; }
             if (typeof window._emitEvent === 'function') {
                 window._emitEvent(target, 'hp-change', { hp: target.hp, maxHp: target.maxHp, alive: target.alive, atk: target.atk, def: target.def });
@@ -220,7 +223,7 @@ export function applyBuffEffectsAfterAttack(unit, target, dmg, allySide, enemySi
         }
         log.push({
             type:'buff-bonus',
-            text:`<span class="gold">☄️ 流星赶月伤害加深：${target.name} 额外-${bonusDmg}</span>`,
+            text:`<span class="gold">☄️ 流星赶月伤害加深：${target.name} 额外-${bonusDmg}，防御-${C.BUFFS.meteorShower.mainDefReduce || 2}</span>`,
             buffType:'meteor_bonus',
             targetUid: target.uid,
             bonusDmg: bonusDmg
@@ -235,6 +238,7 @@ export function applyBuffEffectsAfterAttack(unit, target, dmg, allySide, enemySi
                 st.hp -= splashDmg;
                 unit.dmgDealt += splashDmg;
                 st.dmgTaken += splashDmg;
+                st.def = Math.max(0, st.def - (C.BUFFS.meteorShower.splashDefReduce || 1));
                 if (st.hp <= 0) { st.hp = 0; st.alive = false; st._isDead = true; }
                 if (typeof window._emitEvent === 'function') {
                     window._emitEvent(st, 'hp-change', { hp: st.hp, maxHp: st.maxHp, alive: st.alive, atk: st.atk, def: st.def });
@@ -243,7 +247,7 @@ export function applyBuffEffectsAfterAttack(unit, target, dmg, allySide, enemySi
             }).join('，');
             log.push({
                 type:'buff-splash',
-                text:`<span class="orange">☄️ 流星赶月溅射：${details}，各-${splashDmg}</span>`,
+                text:`<span class="orange">☄️ 流星赶月溅射：${details}，各-${splashDmg}，防御-${C.BUFFS.meteorShower.splashDefReduce || 1}</span>`,
                 buffType:'meteor_splash',
                 attackerUid: unit.uid,
                 primaryUid: target.uid,
@@ -320,7 +324,7 @@ export function logBuffSummary(allyTeam, log, doubleStrikeUid) {
                 break;
             case 'meteorShower':
                 let msUnits = allyTeam.filter(u => u.alive && u.role === '远程');
-                if (msUnits.length > 0) log.push({type:'buff-summary', text:`<span class="gold">☄️ 流星赶月：${msUnits.map(u=>u.name).join('、')} 伤害加深${Math.round(C.BUFFS.meteorShower.bonusRatio*100)}% 溅射${Math.round(C.BUFFS.meteorShower.splashRatio*100)}%</span>`, buffType:'buff_stat'});
+                if (msUnits.length > 0) log.push({type:'buff-summary', text:`<span class="gold">☄️ 流星赶月：${msUnits.map(u=>u.name).join('、')} 伤害加深${Math.round(C.BUFFS.meteorShower.bonusRatio*100)}% 溅射${Math.round(C.BUFFS.meteorShower.splashRatio*100)}%（主箭降2防，小箭降1防）</span>`, buffType:'buff_stat'});
                 break;
             case 'holyFlame': {
                 // 分团队圣火令和小昭圣火令

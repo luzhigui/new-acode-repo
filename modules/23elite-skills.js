@@ -538,28 +538,25 @@ export function applyXiaoZhaoDerived(allyTeam, target, dmg, group) {
         healTarget.hp = Math.min(healTarget.maxHp, healTarget.hp + heal);
         healTarget.healDone += heal;
         emitEvent(healTarget, 'hp-change', { hp: healTarget.hp, maxHp: healTarget.maxHp, alive: healTarget.alive, atk: healTarget.atk, def: healTarget.def });
-        if (group && group.entries) {
-            group.entries.push({
-                type: 'info',
-                text: `<span class="gold">🦋 乾坤衍生：${target.name}减伤${reduce}，${healTarget.name}治疗+${heal}</span>`,
-                isHealEntry: true,
-                healAmount: heal,
-                healUnitUid: healTarget.uid
-            });
-        }
-    }
-
-    // 随机另一名队友获得攻击（独立随机，可能和治疗同一人）
+        // 随机另一名队友获得攻击（独立随机，可能和治疗同一人）
+    let atkGainText = '';
     if (aliveAllies.length > 0) {
         const atkTarget = aliveAllies[Math.floor(Math.random() * aliveAllies.length)];
         let atkGain = Math.max(s.minAtk || 1, Math.floor(atkTarget.def / (s.defToAtk || 10)));
         atkTarget.atk += atkGain;
         emitEvent(atkTarget, 'hp-change', { hp: atkTarget.hp, maxHp: atkTarget.maxHp, alive: atkTarget.alive, atk: atkTarget.atk, def: atkTarget.def });
-        if (group && group.entries) {
-            group.entries.push({
-                type: 'info',
-                text: `<span class="gold">🦋 乾坤衍生：${atkTarget.name}攻击+${atkGain}</span>`
-            });
-        }
+        atkGainText = `，${atkTarget.name}攻击+${atkGain}`;
     }
+
+    // 合并日志：减伤+治疗+攻击
+    if (group && group.entries) {
+        group.entries.push({
+            type: 'info',
+            text: `<span class="gold">🦋 乾坤衍生：${target.name}减伤${reduce}，${healTarget.name}治疗+${heal}${atkGainText}</span>`,
+            isHealEntry: true,
+            healAmount: heal,
+            healUnitUid: healTarget.uid
+        });
+    }
+}
 }

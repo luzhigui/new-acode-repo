@@ -788,6 +788,12 @@ export function* createRoundStepper(state) {
     window._currentBattleState = { ally: state.allAllies, enemy: state.enemy };
     // logBuffSummary 调用已移除，圣火令日志在其生成处手动添加，避免重复
 
+    // 概率连击：回合开始时提示谁获得了连击
+    if (doubleStrikeUnitUid) {
+        const dsUnit = A.find(u => u.uid === doubleStrikeUnitUid);
+        if (dsUnit) log.push({type:'buff-summary', text:`<span class="gold">⚡ 概率连击：${dsUnit.name} 80%概率额外攻击一次</span>`, buffType:'buff_stat'});
+    }
+
     log.filter(l => l.type === 'buff-summon').forEach(hl => {
         const team = hl.buffType === 'summon' ? A : B;
         const horse = team.find(u => u.uid === hl.horseUid);
