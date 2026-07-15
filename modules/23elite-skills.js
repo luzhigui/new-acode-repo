@@ -251,7 +251,7 @@ export function applyDamageModifiers(unit, target, dmg, allySide, enemySide, log
     if (target.camp === 'ally' && xiaoZhao && zhangUpgraded && [2, 4, 6, 8].includes(target.pos)) {
         const reducedDmg = Math.floor(dmg * (1 - ES.xiaoZhao.upgradedReducePct));
         const rebound = dmg - reducedDmg; // 反弹的是免伤掉的那部分
-        const selfDmg = Math.max(1, Math.floor(rebound * 0.15));
+        const selfDmg = Math.max(1, Math.floor(dmg * 0.15)); // 初始伤害的15%，即减免伤害的一半
 
         // 反弹给攻击者
         unit.hp = Math.max(0, unit.hp - rebound);
