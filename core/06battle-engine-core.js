@@ -282,6 +282,20 @@ function processUnitAttack(unit, allySide, enemySide, log, A, B, state, doubleSt
             }
         }
     }
+    // 小昭永久惑人心智：20%概率混乱敌方，使其攻击自己人
+    if (target && unit.camp === 'enemy') {
+        const xiaoZhao = enemySide.find(u => u.isXiaoZhao && u.alive);
+        if (xiaoZhao && xiaoZhao._permanentBuffs && xiaoZhao._permanentBuffs.some(b => b.key === 'mindControl')) {
+            if (Math.random() < 0.20) {
+                // 敌方阵营中随机选一个存活非拒马单位作为攻击目标
+                const xzFakeTarget = enemySide.find(u => u.uid !== unit.uid && u.alive && !u.isHorse);
+                if (xzFakeTarget) {
+                    phantomLog = `🦋 蝶舞迷心！${unit.name}被小昭迷惑，误攻队友${xzFakeTarget.name}！`;
+                    target = xzFakeTarget;
+                }
+            }
+        }
+    }
     if (!target) {
         let emptyGroup = { type:'attack-group', uidA:unit.uid, uidD:null, entries:[], isMiss:true, _fxSnapshot:null, waveTaunt:null, waveUnit:null, buffEffects: [] };
         emptyGroup.entries.push({type:'combat-text', text:`<span class="${unit.camp==='ally'?'blue':'orange'}">${unit.camp==='ally'?'明教':'六大派'} ${unit.name}</span> 无法选择目标`});

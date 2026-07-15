@@ -252,6 +252,9 @@ export function renderGrid(id, camp) {
         let displayName = unit.name;
         let displayIsZhang = unit.isZhang || false;
         if (unit.name === '成昆' && unit._phantomTarget) {
+            eliteSkillIcon += ' 🎭';
+        }
+        if (unit.name === '成昆' && unit._phantomTarget) {
             const allUnits = (ctx.UI.allyTeam || []).concat(ctx.UI.enemyTeam || []);
             const mimicTarget = allUnits.find(u => u.uid === unit._phantomTarget);
             if (mimicTarget) {

@@ -63,20 +63,7 @@ export function computeBuffStats(unit, activeBuffs, allyTeam) {
 export function applyBuffEffectsBeforeAttack(unit, target, allyTeam, enemyTeam, log) {
     let buffs = allyTeam._activeBuffs || [];
     
-    // 小昭永久惑人心智：独立触发换位
-    if (unit.isXiaoZhao && unit._permanentBuffs && unit._permanentBuffs.some(b => b.key === 'mindControl')) {
-        if (rand(1,100) <= 80) {
-            // 敌方换位逻辑（与原有惑人心智相同）
-            let enemies = enemyTeam.filter(u => u.alive);
-            if (enemies.length >= 2) {
-                let a = enemies[rand(0, enemies.length-1)];
-                let b; do { b = enemies[rand(0, enemies.length-1)]; } while (b.uid === a.uid);
-                let posA = a.pos, posB = b.pos;
-                let tempPos = a.pos; a.pos = b.pos; b.pos = tempPos;
-                log.push({type:'buff-swap', uidA: a.uid, uidB: b.uid, oldPosA: posA, oldPosB: posB, buffType:'swap', text:`<span class="gold">🦋 蝶舞迷心：小昭触发惑人心智，${posA}号位${a.name}与${posB}号位${b.name}互换位置！</span>`});
-            }
-        }
-    }
+    // 小昭永久惑人心智：效果已改为幻影伪装，在 processUnitAttack 中处理
     
     if (hasBuff(buffs, 'mindControl')) {
         let frontUnit = allyTeam.filter(u => u.alive && !u.isHorse).sort((a,b) => a.pos - b.pos)[0];
