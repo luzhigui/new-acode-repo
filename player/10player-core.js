@@ -433,6 +433,8 @@ function shouldStartNewGroup(entry, lastType) {
     if (entry.type === 'round-start') return false;
     if (lastType === 'attack-group' && entry.type === 'attack-group') return true;
     if (lastType === 'attack-group' && entry.type === 'info') return true;
+    // buff-bonus/buff-splash 是攻击触发的效果，与攻击者之间不需要分隔符
+    if (lastType === 'attack-group' && (entry.type === 'buff-bonus' || entry.type === 'buff-splash')) return false;
     if (lastType === 'attack-group' && entry.type !== 'attack-group' && entry.type !== 'info') return true;
     if (lastType !== 'attack-group' && entry.type === 'attack-group') return true;
     return false;
@@ -498,7 +500,14 @@ export async function playLogEntries(c, log, roundResult, isFirstAttackRef) {
                         }
                         entry.splashUids.forEach(uid => {
                             let targetUnit = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.uid === uid);
-                            if (targetUnit) showDamageFloat(targetUnit, entry.splashDmg);
+                            if (targetUnit) {
+                                // 流星赶月溅射掉血字幕延迟0.15s，让分裂箭飞完再飘
+                                if (entry.buffType === 'meteor_splash') {
+                                    setTimeout(() => showDamageFloat(targetUnit, entry.splashDmg), 150);
+                                } else {
+                                    showDamageFloat(targetUnit, entry.splashDmg);
+                                }
+                            }
                         });
                     }
                     if (entry.buffType === 'meteor_splash') await new Promise(r=>setTimeout(r, window._fastForwardActive ? 1 : 600));

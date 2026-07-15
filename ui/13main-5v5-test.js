@@ -151,6 +151,11 @@ startApp();
 
 // ==================== DOM 初始化 ====================
 document.addEventListener('DOMContentLoaded', function() {
+    // 小昭模式：从封面页传入
+    if (localStorage.getItem('_forceXiaoZhao') === '1') {
+        window._forceXiaoZhao = true;
+        localStorage.removeItem('_forceXiaoZhao');
+    }
     const controls = document.querySelector('.controls');
     if (controls) controls.style.zIndex = '100';
     const canvas = document.getElementById('glowCanvas');
@@ -206,7 +211,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 setState.gs(S.RUNNING); updateButtons(); document.getElementById('btnNext').disabled=true;
                 abortController=new AbortController();
                 const snap = getState.snapshot();
-                snap.ally = getState.UI().allyTeam.map(u=>Object.freeze(u.clone()));
+                snap.ally = getState.UI().allyTeam.map(u=>u.clone());
                 let occupiedPositions = new Set(snap.ally.map(u => u.pos));
                 let freePositions = [1,2,3,4,5,6,7,8,9].filter(p => !occupiedPositions.has(p));
                 let enemyList = snap.enemy.map(u => u.clone());
@@ -427,7 +432,6 @@ document.addEventListener('DOMContentLoaded', function() {
     });
     document.getElementById('debugToggle').addEventListener('click',function(){
         onAnyButtonClick(); setState.debugMode(!getState.debugMode()); var dm = getState.debugMode(); this.classList.toggle('active',dm); this.textContent='V3.0'; window._debugMode=dm;
-        window._forceXiaoZhao = dm;
         updateSpeedButtons(); updateDebugUI(); updateUI();
     });
     document.getElementById('copyLog').addEventListener('click',()=>{
@@ -476,10 +480,6 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('btnBGM').addEventListener('click',()=>{ showMusicPanel(); });
     document.getElementById('btnCrashMode').addEventListener('click',function(){window._crashMode=window._crashMode==='fly'?'ghost':'fly';this.textContent=window._crashMode==='fly'?'🕊️飞走':'👻虚影';});
     document.getElementById('btnDodgeToggle').addEventListener('click',()=>{toggleDodgeEffect();});
-    document.getElementById('btnXiaoZhaoMode').addEventListener('click',function(){
-        window._forceXiaoZhao = !window._forceXiaoZhao;
-        this.classList.toggle('active', window._forceXiaoZhao);
-    });
     document.getElementById('btnStageSelect').addEventListener('click',()=>{ if(gs!==S.IDLE)return; openStageSelectModal(); });
 
     function openStageSelectModal(){
