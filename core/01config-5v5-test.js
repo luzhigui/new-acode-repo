@@ -56,7 +56,7 @@ const CONFIG = {
         windAssault: '飞行'
     },
     // 小昭永久海克斯列表（除了职业限定的，她也能永久享有）
-    XIAO_ZHAO_PERMANENT_BUFFS: ['fortify', 'bloodthirst', 'meteorShower', 'windAssault', 'cloudBody', 'hotBlood', 'carry', 'doubleStrike', 'mindControl'],
+    XIAO_ZHAO_PERMANENT_BUFFS: ['fortify', 'bloodthirst', 'meteorShower', 'windAssault', 'cloudBody', 'hotBlood', 'carry', 'doubleStrike', 'mindControl', 'horseFormation', 'holyFlame'],
     // 各关定制阵容（M值总和约束）
     MING_SQUADS: {
         1: [['张无忌', 100, 97, 97, 95], ['韦一笑', 104, 100, 97, 95], ['小昭', 104, 100, 97, 95], [104, 104, 104, 104, 95]]

@@ -744,7 +744,7 @@ export function* createRoundStepper(state) {
         const col = (xiaoZhao.pos - 1) % 3 + 1;
         const row = Math.ceil(xiaoZhao.pos / 3);
         A._activeBuffs = A._activeBuffs || [];
-        A._activeBuffs.push({ key: 'holyFlame', target: 'ally', remaining: 4, name: '圣火令', col: col, row: row, _xiaoZhao: true });
+        A._activeBuffs.push({ key: 'holyFlame', target: 'ally', remaining: 1, name: '圣火令', col: col, row: row, _xiaoZhao: true });
         // 同步给播放器上下文，确保UI能立即更新
         const ctx = window._getPlayerContext?.();
         if (ctx) {

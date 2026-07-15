@@ -271,15 +271,9 @@ export function applyDamageModifiers(unit, target, dmg, allySide, enemySide, log
         emitEvent(zhangUpgraded, 'hp-change', { hp: zhangUpgraded.hp, maxHp: zhangUpgraded.maxHp, alive: zhangUpgraded.alive, atk: zhangUpgraded.atk, def: zhangUpgraded.def });
 
         if (!target._xiaoZhaoReboundLogged) {
-            const originalDmg = dmg; // 减伤前的原始伤害
-            entries.push({
-                type: 'detail',
-                text: `<span class="gold small">✨ 乾坤大挪移（升级版）：原始伤害${originalDmg} × (1-30%) = ${reducedDmg}，反弹${rebound}给${unit.name}（无忌自伤${selfDmg}）</span>`,
-                buffType: 'rebound_detail'
-            });
             entries.push({
                 type: 'info',
-                text: `<span class="gold">🦋 乾坤大挪移（升级版）：全队减伤30%，反弹${rebound}给${unit.name}（无忌自伤${selfDmg}）</span>`,
+                text: `<span class="gold">🦋 乾坤大挪移（升级版）：全队减伤30%，原始伤害${dmg}→${reducedDmg}，反弹${rebound}给${unit.name}（无忌自伤${selfDmg}）</span>`,
                 buffType: 'rebound'
             });
             target._xiaoZhaoReboundLogged = true;
