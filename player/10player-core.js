@@ -248,6 +248,10 @@ async function handleBuffReboundFortify(c, entry) {
     c.isPaused = false;
     let attacker = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.uid === entry.attackerUid);
     if (attacker && entry.reboundDmg) showDamageFloat(attacker, entry.reboundDmg);
+    if (entry.selfDmg && entry.selfDmgUid) {
+        let selfTarget = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.uid === entry.selfDmgUid);
+        if (selfTarget) showDamageFloat(selfTarget, entry.selfDmg);
+    }
     if (attacker && entry.isDead && c.store) {
         c.store.dispatch({ type: 'SET_FLASH', uid: attacker.uid, flash: 'dead' });
         c.store.dispatch({ type: 'SET_VISUAL', uid: attacker.uid, _isDead: true });
