@@ -524,6 +524,9 @@ export async function playLogEntries(c, log, roundResult, isFirstAttackRef) {
                 case 'buff-summary':         { let div2=document.createElement('div');div2.innerHTML=entry.text+'<br>';document.getElementById('log').appendChild(div2);c.autoScrollLog(); if(entry.buffType==='elite_xingfen'){let song=c.UI.allyTeam.concat(c.UI.enemyTeam).find(u=>u.name==='宋青书');if(song)c.store.dispatch({type:'SET_VISUAL',uid:song.uid,_hasXingFen:true});} lastEntryType = entry.type; } break;
                 case 'buff-rebound-fortify': await handleBuffReboundFortify(c, entry); lastEntryType = entry.type; break;
                 case 'round-start':
+                    // 重置所有单位的已行动状态
+                    c.UI.allyTeam.forEach(u => { if (u.alive) c.store.dispatch({ type: 'SET_VISUAL', uid: u.uid, _acted: false }); });
+                    c.UI.enemyTeam.forEach(u => { if (u.alive) c.store.dispatch({ type: 'SET_VISUAL', uid: u.uid, _acted: false }); });
                     // 先应用回合开始事件，再渲染 UI，避免 buffDefBonus 等延迟一帧
                     if (roundResult && roundResult.events && roundResult.events.length > 0) {
                         c.store.dispatch({ type: 'APPLY_EVENTS', events: roundResult.events });
