@@ -53,6 +53,11 @@ export function showBuffPopup(c) {
                     const xiaoZhao = ctx.UI.allyTeam.find(u => u.isXiaoZhao);
                     if (xiaoZhao) {
                         addPermanentBuff(xiaoZhao, b.value, newBuff.name, b.value === 'holyFlame' ? { col: newBuff.col, row: newBuff.row } : {});
+                        // 同步回 snapshot，确保引擎 clone 时拿到最新 _permanentBuffs
+                        if (ctx.snapshot && ctx.snapshot.ally) {
+                            const snapXz = ctx.snapshot.ally.find(u => u.isXiaoZhao);
+                            if (snapXz) snapXz._permanentBuffs = xiaoZhao._permanentBuffs.map(b => ({...b}));
+                        }
                     }
                 }
                 resolve(newBuff);
@@ -149,6 +154,9 @@ export async function handleBuffSummon(c, entry, prevEntry) {
     // 保留 lastSnapshot 快照，后续可改为从 Store 计算，暂时保留直接赋值
     c.UI.lastSnapshot = { ally: c.UI.allyTeam.map(u => ({...u})), enemy: c.UI.enemyTeam.map(u => ({...u})) };
     if (entry.horseTaunt) {
+        // 先让格子渲染出来
+        c.updateUI(c.UI);
+        // 再暂停播弹幕，弹幕结束后格子已经在了
         c.isPaused = true;
         await showBuffBanner('🐴 拒马阵！' + entry.horseTaunt);
         c.isPaused = false;

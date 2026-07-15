@@ -103,7 +103,13 @@ export function generateSnapshot(currentStage = 1) {
                         attempts++;
                     }
                 }
-                if (!name) name = '六大派弟子';
+                if (!name) {
+                    // 兜底名字加序号，避免重名
+                    const fallbackSects = ['少林弟子', '武当弟子', '峨眉弟子', '昆仑弟子', '崆峒弟子'];
+                    const fallbackName = fallbackSects[rand(0, fallbackSects.length - 1)];
+                    const existingCount = usedEnemyNames.filter(n => n.startsWith(fallbackName)).length;
+                    name = fallbackName + (existingCount > 0 ? String(existingCount + 1) : '');
+                }
                 let role = C.ROLES[rand(0, 3)];
                 let unit = new Unit(name, mVal, role, 'enemy');
                 unit.init(); unit.applyBonus();

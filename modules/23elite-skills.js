@@ -96,10 +96,13 @@ export function checkNineYinClaw(attacker, target, baseDmg, log) {
                         lucky.atk += atkGain;
                         lucky.healDone += heal;
                         emitEvent(lucky, 'hp-change', { hp: lucky.hp, maxHp: lucky.maxHp, alive: lucky.alive, atk: lucky.atk, def: lucky.def });
-                        log.push({ type:'info', text:`<span class="gold">🦋 乾坤衍生：${target.name}减伤${reduce}，${lucky.name}治疗+${heal} 攻击+${atkGain}</span>` });
-                        // 飘字特效
-                        try { showHealFloat(lucky, heal); } catch(e) {}
-                        try { showAtkBuffFloat(lucky, atkGain); } catch(e) {}
+                        log.push({
+                            type: 'info',
+                            text: `<span class="gold">🦋 乾坤衍生：${target.name}减伤${reduce}，${lucky.name}治疗+${heal} 攻击+${atkGain}</span>`,
+                            isHealEntry: true,
+                            healAmount: heal,
+                            healUnitUid: lucky.uid
+                        });
                     }
                 }
             }
@@ -268,6 +271,12 @@ export function applyDamageModifiers(unit, target, dmg, allySide, enemySide, log
         emitEvent(zhangUpgraded, 'hp-change', { hp: zhangUpgraded.hp, maxHp: zhangUpgraded.maxHp, alive: zhangUpgraded.alive, atk: zhangUpgraded.atk, def: zhangUpgraded.def });
 
         if (!target._xiaoZhaoReboundLogged) {
+            const originalDmg = dmg; // 减伤前的原始伤害
+            entries.push({
+                type: 'detail',
+                text: `<span class="gold small">✨ 乾坤大挪移（升级版）：原始伤害${originalDmg} × (1-30%) = ${reducedDmg}，反弹${rebound}给${unit.name}（无忌自伤${selfDmg}）</span>`,
+                buffType: 'rebound_detail'
+            });
             entries.push({
                 type: 'info',
                 text: `<span class="gold">🦋 乾坤大挪移（升级版）：全队减伤30%，反弹${rebound}给${unit.name}（无忌自伤${selfDmg}）</span>`,
@@ -447,7 +456,7 @@ export function transformXiaoZhao(unit, log) {
     // 职业修正参数（绝对值，累加不移除）
     const roleStats = {
         '战士': { atk: 3, def: 2, maxHp: 25 },
-        '防战': { atk: -6, def: 6, maxHp: 25 },
+        '防战': { atk: -3, def: 0, maxHp: 50 },
         '远程': { atk: 6, def: -2, maxHp: -25 },
         '飞行': { atk: 2, def: -2, maxHp: -25 }
     };
@@ -521,21 +530,36 @@ export function applyXiaoZhaoDerived(allyTeam, target, dmg, group) {
     target.hp = Math.min(target.maxHp, target.hp + reduce);
     target.dmgTaken -= reduce;
 
-    // 随机一名队友获得治疗和攻击
+    // 随机一名队友获得治疗
     const aliveAllies = allyTeam.filter(u => u.alive && !u.isHorse);
     if (aliveAllies.length > 0) {
-        const lucky = aliveAllies[Math.floor(Math.random() * aliveAllies.length)];
-        let heal = Math.max(s.minHeal || 1, Math.floor(lucky.def / (s.defToHeal || 5)));
-        let atkGain = Math.max(s.minAtk || 1, Math.floor(lucky.def / (s.defToAtk || 10)));
-        lucky.hp = Math.min(lucky.maxHp, lucky.hp + heal);
-        lucky.atk += atkGain;
-        lucky.healDone += heal;
-        emitEvent(lucky, 'hp-change', { hp: lucky.hp, maxHp: lucky.maxHp, alive: lucky.alive, atk: lucky.atk, def: lucky.def });
+        const healTarget = aliveAllies[Math.floor(Math.random() * aliveAllies.length)];
+        let heal = Math.max(s.minHeal || 1, Math.floor(healTarget.def / (s.defToHeal || 5)));
+        healTarget.hp = Math.min(healTarget.maxHp, healTarget.hp + heal);
+        healTarget.healDone += heal;
+        emitEvent(healTarget, 'hp-change', { hp: healTarget.hp, maxHp: healTarget.maxHp, alive: healTarget.alive, atk: healTarget.atk, def: healTarget.def });
         if (group && group.entries) {
-            group.entries.push({ type:'info', text:`<span class="gold">🦋 乾坤衍生：${target.name}减伤${reduce}，${lucky.name}治疗+${heal} 攻击+${atkGain}</span>` });
+            group.entries.push({
+                type: 'info',
+                text: `<span class="gold">🦋 乾坤衍生：${target.name}减伤${reduce}，${healTarget.name}治疗+${heal}</span>`,
+                isHealEntry: true,
+                healAmount: heal,
+                healUnitUid: healTarget.uid
+            });
         }
-        // 飘字特效
-        try { showHealFloat(lucky, heal); } catch(e) {}
-        try { showAtkBuffFloat(lucky, atkGain); } catch(e) {}
+    }
+
+    // 随机另一名队友获得攻击（独立随机，可能和治疗同一人）
+    if (aliveAllies.length > 0) {
+        const atkTarget = aliveAllies[Math.floor(Math.random() * aliveAllies.length)];
+        let atkGain = Math.max(s.minAtk || 1, Math.floor(atkTarget.def / (s.defToAtk || 10)));
+        atkTarget.atk += atkGain;
+        emitEvent(atkTarget, 'hp-change', { hp: atkTarget.hp, maxHp: atkTarget.maxHp, alive: atkTarget.alive, atk: atkTarget.atk, def: atkTarget.def });
+        if (group && group.entries) {
+            group.entries.push({
+                type: 'info',
+                text: `<span class="gold">🦋 乾坤衍生：${atkTarget.name}攻击+${atkGain}</span>`
+            });
+        }
     }
 }

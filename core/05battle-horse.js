@@ -7,9 +7,9 @@ import { rand, hasBuff } from './03battle-utils.js';
 import { Unit } from './02unit.js';
 const C = CONFIG;
 
-export function spawnHorse(allyTeam, log, enemyTeam) {
+export function spawnHorse(allyTeam, log, enemyTeam, force = false) {
     let buffs = allyTeam._activeBuffs || [];
-    if (!hasBuff(buffs, 'horseFormation')) return;
+    if (!force && !hasBuff(buffs, 'horseFormation')) return;
     let occupiedPositions = new Set([
         ...allyTeam.filter(u => u.alive).map(u => u.pos),
         ...(enemyTeam ? enemyTeam.filter(u => u.alive).map(u => u.pos) : [])
@@ -27,7 +27,8 @@ export function spawnHorse(allyTeam, log, enemyTeam) {
     horse._baseMaxHp = horse.maxHp;  // 防止 carry 误判 _baseMaxHp=0 把马打成 maxHp=0
     horse.pos = horsePos; horse.isHorse = true; horse._originalPos = horsePos;
     allyTeam.push(horse);
-    log.push({type:'buff-summon', text:`<span class="gold">🐴 拒马阵：拒马出现在${horsePos}号位！</span>`, buffType:'summon', horsePos, horseUid: horse.uid, horseTaunt: '嘶——！'});
+    // 返回生成的拒马单位，让调用方自己写日志
+    return horse;
 }
 
 export function destroyHorse(allyTeam, log) {

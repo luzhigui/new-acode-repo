@@ -195,7 +195,13 @@ export function doInitBattle(currentStage, UI, snapshot, activeBuffs, selectedBu
                     let attempts = 0;
                     while ((!name || usedEnemyNames.includes(name)) && attempts < 50) { let pick = pool[rand(0, pool.length - 1)]; name = pick[0]; attempts++; }
                 }
-                if (!name) name = '六大派弟子';
+                if (!name) {
+                    // 兜底名字加序号，避免重名
+                    const fallbackSects = ['少林弟子', '武当弟子', '峨眉弟子', '昆仑弟子', '崆峒弟子'];
+                    const fallbackName = fallbackSects[rand(0, fallbackSects.length - 1)];
+                    const existingCount = usedEnemyNames.filter(n => n.startsWith(fallbackName)).length;
+                    name = fallbackName + (existingCount > 0 ? String(existingCount + 1) : '');
+                }
                 let role = C.ROLES[rand(0, 3)];
                 let unit = new Unit(name, mVal, role, 'enemy');
                 unit.pos = null; unit.init(); unit.applyBonus();
@@ -213,7 +219,12 @@ export function doInitBattle(currentStage, UI, snapshot, activeBuffs, selectedBu
                 name = pick[0];
                 if (usedNames.includes(name)) { name = null; pool.splice(pool.indexOf(pick), 1); }
             }
-            if (!name) name = '六大派弟子';
+            if (!name) {
+                const fallbackSects = ['少林弟子', '武当弟子', '峨眉弟子', '昆仑弟子', '崆峒弟子'];
+                const fallbackName = fallbackSects[rand(0, fallbackSects.length - 1)];
+                const existingCount = usedEnemyNames.filter(n => n.startsWith(fallbackName)).length;
+                name = fallbackName + (existingCount > 0 ? String(existingCount + 1) : '');
+            }
             let role = C.ROLES[rand(0, 3)];
             let extraUnit = new Unit(name, extraM, role, 'enemy');
             extraUnit.init(); extraUnit.applyBonus();

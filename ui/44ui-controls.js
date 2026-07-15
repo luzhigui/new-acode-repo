@@ -89,14 +89,22 @@ function attachSpeedButton(id, speedVal) {
         if (btn.classList.contains('active')) {
             // 取消高亮，恢复常速500，并强制同步播放器
             setState.speed(500);
-            const ctx = window._getPlayerContext ? window._getPlayerContext() : null;
-            if (ctx) {
-                ctx.speed = 500;
-                if (ctx._scheduler) ctx._scheduler.setSpeed(1);
-            }
             manualSpeedLock = false;
             manualSpeedValue = null;
             slideSpeedActive = true;
+            // 强制重置播放器速度
+            const ctx = window._getPlayerContext ? window._getPlayerContext() : null;
+            if (ctx) {
+                ctx.speed = 500;
+                if (ctx._scheduler) {
+                    ctx._scheduler.paused = false;
+                    ctx._scheduler.setSpeed(1);
+                }
+            }
+            // 立即清除所有按钮高亮状态，防止残留
+            document.querySelectorAll('.controls button').forEach(b => {
+                b.classList.remove('active', 'semi-active');
+            });
             updateSpeedButtons();
         } else {
             // 切换至该倍速

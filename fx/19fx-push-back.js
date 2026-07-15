@@ -46,6 +46,10 @@ export async function animatePushBack(unit, c, targetPos, options = {}) {
         newCell.style.transform = 'scale(0.85)';
         requestAnimationFrame(() => {
             newCell.style.transform = 'scale(1)';
+            // 动画结束后清理，防止残留 transform 导致重叠
+            setTimeout(() => {
+                if (newCell) newCell.style.transform = '';
+            }, 200);
         });
     }
 }
@@ -61,32 +65,49 @@ export async function animatePushSwap(frontUnit, rearUnit, c) {
     const dx = rectR.left + rectR.width/2 - (rectF.left + rectF.width/2);
     const dy = rectR.top + rectR.height/2 - (rectF.top + rectF.height/2);
 
-    cellF.style.transition = 'transform 0.25s cubic-bezier(0.25, 0.46, 0.45, 0.94)';
+    // 被击退者套红色光圈
+    cellF.style.boxShadow = '0 0 16px 4px rgba(255, 50, 50, 0.9)';
+    cellF.style.border = '2px solid #ff3333';
+
+    // 被挤位者套黄色光圈
+    cellR.style.boxShadow = '0 0 16px 4px rgba(255, 215, 0, 0.9)';
+    cellR.style.border = '2px solid #ffd700';
+
+    // 停顿让人看清光圈
+    await wait(400);
+
+    cellF.style.transition = 'transform 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94)';
     cellF.style.transform = `translate(${dx}px, ${dy}px)`;
 
     const rotateDir = (frontUnit.camp === 'ally') ? 1 : -1;
-    cellR.style.transition = 'transform 0.25s ease-out';
+    cellR.style.transition = 'transform 0.35s ease-out';
     cellR.style.transform = `translate(${dx * 0.3}px, ${dy * 0.3}px) rotate(${15 * rotateDir}deg)`;
-    await wait(250);
+    await wait(350);
 
-    cellR.style.transition = 'transform 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55)';
+    cellR.style.transition = 'transform 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55)';
     cellR.style.transform = `translate(${-dx * 0.8}px, ${-dy * 0.8}px) rotate(${-10 * rotateDir}deg)`;
-    await wait(300);
+    await wait(400);
+
+    // 清除光圈
+    cellF.style.boxShadow = '';
+    cellF.style.border = '';
+    cellR.style.boxShadow = '';
+    cellR.style.border = '';
 
     cellF.style.transition = 'none';
     cellR.style.transition = 'none';
     for (let i = 0; i < 2; i++) {
         cellF.style.visibility = 'hidden';
         cellR.style.visibility = 'hidden';
-        await wait(70);
+        await wait(100);
         cellF.style.visibility = 'visible';
         cellR.style.visibility = 'visible';
-        await wait(70);
+        await wait(100);
     }
 
     cellF.style.opacity = '0';
     cellR.style.opacity = '0';
-    await wait(150);
+    await wait(200);
 
     if (c.store) {
         c.store.dispatch({ type: 'APPLY_EVENTS', events: [
@@ -114,11 +135,17 @@ export async function animatePushSwap(frontUnit, rearUnit, c) {
     if (newCellF) {
         newCellF.style.transition = 'transform 0.2s ease';
         newCellF.style.transform = 'scale(0.8)';
-        requestAnimationFrame(() => { newCellF.style.transform = 'scale(1)'; });
+        requestAnimationFrame(() => {
+            newCellF.style.transform = 'scale(1)';
+            setTimeout(() => { if (newCellF) newCellF.style.transform = ''; }, 250);
+        });
     }
     if (newCellR) {
         newCellR.style.transition = 'transform 0.2s ease';
         newCellR.style.transform = 'scale(0.8)';
-        requestAnimationFrame(() => { newCellR.style.transform = 'scale(1)'; });
+        requestAnimationFrame(() => {
+            newCellR.style.transform = 'scale(1)';
+            setTimeout(() => { if (newCellR) newCellR.style.transform = ''; }, 250);
+        });
     }
 }

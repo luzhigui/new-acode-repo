@@ -118,14 +118,14 @@ const CONFIG = {
             chainProcChance: 0.80,
             maxChain: Infinity,       // 无连锁上限
             unavoidable: true,
-            baseDmg: 1,               // 无无忌：基础1
-            lostHpRatio: 0.01,        // +已损失生命×1%
+            baseDmg: 1.5,             // 无无忌：基础1.5
+            lostHpRatio: 0.015,       // +已损失生命×1.5%
             maxHpRatio: 0.01,         // +对方最大生命×1%
             jealousBaseDmg: 2,        // 有无忌：基础2
             jealousLostHpRatio: 0.015,// +已损失生命×1.5%
-            jealousMaxHpRatio: 0.02,  // +对方最大生命×2%
-            executeThreshold: 0.12,   // 无无忌斩杀线12%
-            jealousExecuteThreshold: 0.15 // 有无忌斩杀线15%
+            jealousMaxHpRatio: 0.015, // +对方最大生命×1.5%
+            executeThreshold: 0.15,   // 无无忌斩杀线15%
+            jealousExecuteThreshold: 0.18 // 有无忌斩杀线18%
         },
         rebelStrike: { 
             name: '叛逆突袭', dmgBonus: 0,  // 取消伤害加成
@@ -148,22 +148,9 @@ const CONFIG = {
             name: '蝶变乾坤',
             icon: '🦋',
             desc: '每回合随机变换职业，继承队友遗志。无张无忌时，队友受伤触发减伤、治疗和攻击加成。张无忌在场时，升级乾坤大挪移为全队减伤30%并反弹。',
-            defToReduce: 100,
-            defToHeal: 5,
-            defToAtk: 10,
-            minReduce: 1,
-            minHeal: 1,
-            minAtk: 1,
-            upgradedReducePct: 0.3,
-            horseSpawnLimit: 1
-        },
-        xiaoZhao: {
-            name: '蝶变乾坤',
-            icon: '🦋',
-            desc: '每回合随机变换职业，继承队友遗志。无张无忌时，队友受伤触发减伤、治疗和攻击加成。张无忌在场时，升级乾坤大挪移为全队减伤30%并反弹。',
-            defToReduce: 100,
-            defToHeal: 5,
-            defToAtk: 10,
+            defToReduce: 200,
+            defToHeal: 10,
+            defToAtk: 20,
             minReduce: 1,
             minHeal: 1,
             minAtk: 1,
