@@ -154,6 +154,10 @@ export async function handleBuffSummon(c, entry, prevEntry) {
     // 保留 lastSnapshot 快照，后续可改为从 Store 计算，暂时保留直接赋值
     c.UI.lastSnapshot = { ally: c.UI.allyTeam.map(u => ({...u})), enemy: c.UI.enemyTeam.map(u => ({...u})) };
     if (entry.horseTaunt) {
+        // 连续出拒马时稍作停顿，避免两匹同时弹幕太突兀
+        if (prevEntry && prevEntry.type === 'buff-summon' && prevEntry.horseTaunt) {
+            await new Promise(r => setTimeout(r, 600));
+        }
         // 先让格子渲染出来
         c.updateUI(c.UI);
         // 再暂停播弹幕，弹幕结束后格子已经在了
