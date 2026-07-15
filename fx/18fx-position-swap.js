@@ -104,11 +104,11 @@ export async function animatePositionSwap(unit1, unit2, c, options = {}) {
         }
     }
 
-    // 清理样式并重绘
-    cell1.style.transform = '';
-    cell2.style.transform = '';
-    cell1.style.opacity = '1';
-    cell2.style.opacity = '1';
+    // 强制清除所有可能残留的样式
+    cell1.style.cssText = '';
+    cell2.style.cssText = '';
+    cell1.classList.remove('swap-flash', 'swap-lock');
+    cell2.classList.remove('swap-flash', 'swap-lock');
     c.updateUI(c.UI);
 
     // 新格子出场动画

@@ -3,7 +3,7 @@
 export const VER = 'core/06battle-engine-core.js V5.0.3';
 
 import { CONFIG, DEF_TAUNT, HP_TAUNT } from './01config-5v5-test.js';
-import { rand, calcDamage, getFangLevel, isMelee, getFronts, isBlocked, getFlyDodgeRate, getRandomTaunt, getZhangNearTaunt, makeFXSnapshot, hasBuff } from './03battle-utils.js';
+import { rand, calcDamage, getFangLevel, isMelee, getFronts, isBlocked, getFlyDodgeRate, getRandomTaunt, getZhangNearTaunt, makeFXSnapshot, hasBuff, getUnitCol, getUnitRow } from './03battle-utils.js';
 import { computeBuffStats, applyBuffEffectsBeforeAttack, applyBuffEffectsAfterAttack, logBuffSummary } from './04buff-system.js';
 import { spawnHorse, destroyHorse } from './05battle-horse.js';
 import { Unit } from './02unit.js';
@@ -257,8 +257,15 @@ function applyPostAttackEffects(unit, target, dmg, atkAct, defAct, reboundEntry,
 
 // ==================== 攻击执行主函数 ====================
 
-function processUnitAttack(unit, allySide, enemySide, log, A, B, state, doubleStrikeUnitUid) {
-    let target = selectTarget(unit, enemySide);
+function processUnitAttack(unit, allySide, enemySide, log, A, B, state, doubleStrikeUnitUid, lockedTargetUid = null) {
+    // 连击锁定同一目标
+    let target;
+    if (lockedTargetUid) {
+        target = enemySide.find(u => u.uid === lockedTargetUid && u.alive) || null;
+        if (!target) target = selectTarget(unit, enemySide); // 目标死了，换目标
+    } else {
+        target = selectTarget(unit, enemySide);
+    }
     let phantomLog = null;
     // 成昆幻影伪装：混乱判定 —— 攻击者去打自己阵营里成昆伪装的那个队友
     if (target && unit.camp === 'ally') {
@@ -383,9 +390,13 @@ function processUnitAttack(unit, allySide, enemySide, log, A, B, state, doubleSt
         }
     }
     let defReduced = 0;
-    if (target.role === '防战' && dmg > 0 && target.def > 0) {
-        defReduced = Math.min(1, target.def);
-        target.def = Math.max(0, target.def - 1);
+    // 防战被攻击时积攒防御：每次被攻击 +0.5，上限 +6
+    if (target.role === '防战' && dmg > 0) {
+        if (!target._fortifyStacks) target._fortifyStacks = 0;
+        if (target._fortifyStacks < 6) {
+            target._fortifyStacks += 0.5;
+            target.def += 0.5;
+        }
     }
     if (unit.role === '战士' && dmg > 0 && target.def > 0) {
         defReduced += Math.min(2, target.def);
@@ -543,8 +554,23 @@ function processUnitAttack(unit, allySide, enemySide, log, A, B, state, doubleSt
     // 玄冥二老联动：互相触发攻击，锁定同一目标
     if (!unit._isLinkAttack && dmg > 0 && target.alive) {
         if (unit.name === '鹤笔翁') {
+            // 鹤笔翁攻击后，如果鹿杖客还没行动，触发他联动
             const lu = allySide.find(u => u.name === '鹿杖客' && u.alive && !u._acted);
-            if (lu) {
+            if (!lu) {
+                // 鹿杖客已经行动过了，检查是否是被联动触发的，如果是则让他再次联动
+                const luActed = allySide.find(u => u.name === '鹿杖客' && u.alive && u._acted && u._isLinkAttack);
+                if (luActed) {
+                    luActed._acted = false;
+                    luActed._isLinkAttack = true;
+                    const origSelectTarget = selectTarget;
+                    selectTarget = (u, enemies) => enemies.find(e => e.uid === target.uid) || origSelectTarget(u, enemies);
+                    processUnitAttack(luActed, allySide, enemySide, log, A, B, state, null);
+                    selectTarget = origSelectTarget;
+                    luActed._isLinkAttack = false;
+                    luActed._acted = false;
+                }
+            } else {
+                // 鹿杖客还没行动，正常触发联动
                 lu._isLinkAttack = true;
                 const origSelectTarget = selectTarget;
                 selectTarget = (u, enemies) => enemies.find(e => e.uid === target.uid) || origSelectTarget(u, enemies);
@@ -554,8 +580,23 @@ function processUnitAttack(unit, allySide, enemySide, log, A, B, state, doubleSt
                 lu._acted = false;
             }
         } else if (unit.name === '鹿杖客') {
+            // 鹿杖客攻击后，如果鹤笔翁还没行动，触发他联动
             const he = allySide.find(u => u.name === '鹤笔翁' && u.alive && !u._acted);
-            if (he) {
+            if (!he) {
+                // 鹤笔翁已经行动过了，检查是否是被联动触发的，如果是则让他再次联动
+                const heActed = allySide.find(u => u.name === '鹤笔翁' && u.alive && u._acted && u._isLinkAttack);
+                if (heActed) {
+                    heActed._acted = false;
+                    heActed._isLinkAttack = true;
+                    const origSelectTarget = selectTarget;
+                    selectTarget = (u, enemies) => enemies.find(e => e.uid === target.uid) || origSelectTarget(u, enemies);
+                    processUnitAttack(heActed, allySide, enemySide, log, A, B, state, null);
+                    selectTarget = origSelectTarget;
+                    heActed._isLinkAttack = false;
+                    heActed._acted = false;
+                }
+            } else {
+                // 鹤笔翁还没行动，正常触发联动
                 he._isLinkAttack = true;
                 const origSelectTarget = selectTarget;
                 selectTarget = (u, enemies) => enemies.find(e => e.uid === target.uid) || origSelectTarget(u, enemies);
@@ -581,11 +622,18 @@ function processUnitAttack(unit, allySide, enemySide, log, A, B, state, doubleSt
             log.push({type:'info', text:`<span class="gray">⚡ 概率连击触发失败，${unit.name} 未能再次攻击</span>`});
         }
     }
-    // 小昭永久概率连击：独立于团队，100%触发，用独立标记
+    // 小昭永久概率连击：80%概率触发，锁定同一目标直到目标死亡
     if (unit.isXiaoZhao && unit._permanentBuffs && unit._permanentBuffs.some(b => b.key === 'doubleStrike') && unit.alive && !unit._xiaoZhaoDoubleStriked) {
-        unit._xiaoZhaoDoubleStriked = true; unit._acted = false;
-        log.push({type:'info', text:`<span class="gold">🦋 蝶击：小昭永久概率连击触发！</span>`, isDoubleStrikeBanner:true});
-        processUnitAttack(unit, allySide, enemySide, log, A, B, state, doubleStrikeUnitUid);
+        const xzDoubleStrikeChance = window._xzDoubleStrikeChance ?? 80;
+        if (rand(1, 100) <= xzDoubleStrikeChance) {
+            unit._xiaoZhaoDoubleStriked = true; unit._acted = false;
+            log.push({type:'info', text:`<span class="gold">🦋 蝶击：小昭永久概率连击触发！</span>`, isDoubleStrikeBanner:true});
+            // 锁定同一目标：如果目标还活着，传过去让 selectTarget 优先选它
+            const lockedTargetUid = (target && target.alive) ? target.uid : null;
+            processUnitAttack(unit, allySide, enemySide, log, A, B, state, doubleStrikeUnitUid, lockedTargetUid);
+        } else {
+            log.push({type:'info', text:`<span class="gray">🦋 蝶击：小昭永久概率连击触发失败</span>`});
+        }
     }
 
     if (canXingFenTrigger(unit) && enemySide.some(u => u.alive)) {
@@ -622,6 +670,17 @@ export function* createRoundStepper(state) {
     A._activeBuffs = state.activeBuffs.filter(b => b.target === 'ally' || !b.target);
     B._activeBuffs = state.activeBuffs.filter(b => b.target === 'enemy');
 
+    // 为团队圣火令打印日志
+    for (const buff of A._activeBuffs) {
+        if (buff.key === 'holyFlame' && !buff._xiaoZhao) {
+            let colUnits = A.filter(u => u.alive && getUnitCol(u.pos) === buff.col);
+            let rowUnits = A.filter(u => u.alive && getUnitRow(u.pos) === buff.row);
+            let atkNames = colUnits.map(u=>u.name).join('、') || '无';
+            let defNames = rowUnits.map(u=>u.name).join('、') || '无';
+            log.push({type:'buff-summary', text:`<span class="gold">🔥 圣火令（团队）：第${buff.col}列(${atkNames})攻击+30%，第${buff.row}行(${defNames})防御+30%</span>`, buffType:'buff_stat'});
+        }
+    }
+
     window._battleEvents = [];
     window._currentBattleState = null;
 
@@ -637,8 +696,16 @@ export function* createRoundStepper(state) {
         }
     });
 
-    spawnHorse(A, log, B);
-    spawnHorse(B, log, A);
+    // 团队拒马 A
+    const teamHorseA = spawnHorse(A, log, B);
+    if (teamHorseA) {
+        log.push({type:'buff-summon', text:`<span class="gold">🐴 拒马阵：拒马出现在${teamHorseA.pos}号位！</span>`, buffType:'summon', horsePos: teamHorseA.pos, horseUid: teamHorseA.uid, horseTaunt: '嘶——！'});
+    }
+    // 团队拒马 B
+    const teamHorseB = spawnHorse(B, log, A);
+    if (teamHorseB) {
+        log.push({type:'buff-summon', text:`<span class="gold">🐴 拒马阵：拒马出现在${teamHorseB.pos}号位！</span>`, buffType:'summon', horsePos: teamHorseB.pos, horseUid: teamHorseB.uid, horseTaunt: '嘶——！'});
+    }
 
     applyXingFenGrant(B, log);
 
@@ -647,14 +714,34 @@ export function* createRoundStepper(state) {
 
     // 小昭永久拒马 + 圣火令
     const xiaoZhao = A.find(u => u.isXiaoZhao && u.alive);
-    if (xiaoZhao && xiaoZhao._permanentBuffs && xiaoZhao._permanentBuffs.some(b => b.key === 'horseFormation')) {
-        spawnHorse(A, log, B);
+    let hasPermanentHorse = xiaoZhao && xiaoZhao._permanentBuffs && xiaoZhao._permanentBuffs.some(b => b.key === 'horseFormation');
+    if (!hasPermanentHorse) {
+        const ctx = window._getPlayerContext?.();
+        const uiXz = ctx?.UI?.allyTeam?.find(u => u.isXiaoZhao);
+        hasPermanentHorse = uiXz && uiXz._permanentBuffs && uiXz._permanentBuffs.some(b => b.key === 'horseFormation');
+    }
+    if (hasPermanentHorse) {
+        const xzHorse = spawnHorse(A, log, B, true);
+        if (xzHorse) {
+            log.push({type:'buff-summon', text:`<span class="gold">🐴 小昭的拒马在${xzHorse.pos}号位出现！</span>`, buffType:'summon', horsePos: xzHorse.pos, horseUid: xzHorse.uid, horseTaunt: '嗷——！'});
+        }
     }
     if (xiaoZhao && xiaoZhao._permanentBuffs && xiaoZhao._permanentBuffs.some(b => b.key === 'holyFlame')) {
         const col = (xiaoZhao.pos - 1) % 3 + 1;
+        const row = Math.ceil(xiaoZhao.pos / 3);
         A._activeBuffs = A._activeBuffs || [];
-        A._activeBuffs.push({ key: 'holyFlame', target: 'ally', remaining: 4, name: '圣火令', col: col, row: Math.ceil(xiaoZhao.pos / 3) });
-        log.push({ type:'info', text:`<span class="gold">🔥 小昭圣火令：第${col}列获得攻击+30%</span>` });
+        A._activeBuffs.push({ key: 'holyFlame', target: 'ally', remaining: 4, name: '圣火令', col: col, row: row, _xiaoZhao: true });
+        // 同步给播放器上下文，确保UI能立即更新
+        const ctx = window._getPlayerContext?.();
+        if (ctx) {
+            ctx.activeBuffs = A._activeBuffs;
+        }
+        // 为小昭圣火令生成日志
+        let colUnits = A.filter(u => u.alive && getUnitCol(u.pos) === col);
+        let rowUnits = A.filter(u => u.alive && getUnitRow(u.pos) === row);
+        let atkNames = colUnits.map(u=>u.name).join('、') || '无';
+        let defNames = rowUnits.map(u=>u.name).join('、') || '无';
+        log.push({type:'buff-summary', text:`<span class="gold">🦋 圣火令（小昭）：第${col}列(${atkNames})攻击+30%，第${row}行(${defNames})防御+30%</span>`, buffType:'buff_stat'});
     }
 
     // 苦练：宋青书每次行动前给全体队友+1攻+1防+2生命上限，自身翻倍
@@ -685,7 +772,7 @@ export function* createRoundStepper(state) {
     }
 
     window._currentBattleState = { ally: state.allAllies, enemy: state.enemy };
-    logBuffSummary(A, log, doubleStrikeUnitUid);
+    // logBuffSummary 调用已移除，圣火令日志在其生成处手动添加，避免重复
 
     log.filter(l => l.type === 'buff-summon').forEach(hl => {
         const team = hl.buffType === 'summon' ? A : B;
@@ -721,12 +808,18 @@ export function* createRoundStepper(state) {
             if (u._baseDef !== undefined) u.def = u._baseDef;
             if (stats.carryAtkAbs) u.atk += Math.floor(stats.carryAtkAbs);
             if (stats.carryDefAbs) u.def += Math.floor(stats.carryDefAbs);
-            let extraHp = Math.floor(stats.carryHpAbs);
-            let newMaxHp = Math.min(u._baseMaxHp + extraHp, u._baseMaxHp * 2);
-            if (newMaxHp !== oldMaxHp) {
-                let hpRatio = oldMaxHp > 0 ? oldHp / oldMaxHp : 1;
+            if (stats.carryHpAbs) {
+                let extraHp = Math.floor(stats.carryHpAbs);
+                // 1. 移除旧加成：等比缩小当前血量
+                if (u.maxHp > u._baseMaxHp) {
+                    let hpRatio = u.hp / u.maxHp;
+                    u.hp = Math.floor(hpRatio * u._baseMaxHp);
+                    u.maxHp = u._baseMaxHp;
+                }
+                // 2. 应用新加成：直接增加等量的生命值
+                let newMaxHp = Math.min(u._baseMaxHp + extraHp, u._baseMaxHp * 2);
+                u.hp += extraHp;
                 u.maxHp = newMaxHp;
-                u.hp = Math.floor(hpRatio * newMaxHp);
             }
             emitEvent(u, 'hp-change', { hp: u.hp, maxHp: u.maxHp, alive: u.alive, atk: u.atk, def: u.def });
             if (stats.carryAtkAbs || stats.carryDefAbs || stats.carryHpAbs) {
@@ -738,6 +831,7 @@ export function* createRoundStepper(state) {
         u._acted = false;
         u._doubleStriked = false;
         u._xiaoZhaoReboundLogged = false;
+        u._xingFenPenaltyCount = u._xingFenPenaltyCount || 0; // 保留跨回合计数，不重置
         if (u.name === '成昆') u._phantomTarget = null;
         // 保留 _phantomTarget 不清除
     });
@@ -755,6 +849,7 @@ export function* createRoundStepper(state) {
         u._acted = false;
         u._doubleStriked = false;
         u._xiaoZhaoReboundLogged = false;
+        u._xingFenPenaltyCount = u._xingFenPenaltyCount || 0; // 保留跨回合计数，不重置
         if (u.name === '成昆') u._phantomTarget = null;
         // 保留 _phantomTarget 不清除
     });
@@ -765,36 +860,95 @@ export function* createRoundStepper(state) {
     window._battleEvents = [];
     log = [];
 
-    const actionQueue = [];
+    // 实时轮询行动：不再预构建队列，根据实时状态决定下一个行动者
+    let currentSide = 'enemy'; // 敌方先动
 
+    // 苦练：宋青书最优先行动一次
     const kuLianUnit = kuLianSong;
-    if (kuLianUnit) {
-        log.push({ type:'info', text:`<span class="gold">🏋️ 苦练：${kuLianUnit.name} 每回合最先行动！</span>` });
-        actionQueue.push({ unit: kuLianUnit, side: 'enemy' });
-    }
+    let kuLianDone = false;
 
-    let currentSide = 'enemy';
-    let allyRemaining = A.filter(u => u.alive && !u._acted).sort((a, b) => a.pos - b.pos);
-    let enemyRemaining = B.filter(u => u.alive && !u._acted).sort((a, b) => a.pos - b.pos);
-    if (kuLianUnit) enemyRemaining = enemyRemaining.filter(u => u.uid !== kuLianUnit.uid);
+    while (A.some(u => u.alive && !u._acted) || B.some(u => u.alive && !u._acted)) {
+        let actingUnit = null;
 
-    while (allyRemaining.length > 0 || enemyRemaining.length > 0) {
-        if (currentSide === 'enemy' && enemyRemaining.length > 0) {
-            actionQueue.push({ unit: enemyRemaining.shift(), side: 'enemy' });
-            currentSide = 'ally';
-        } else if (currentSide === 'ally' && allyRemaining.length > 0) {
-            actionQueue.push({ unit: allyRemaining.shift(), side: 'ally' });
-            currentSide = 'enemy';
-        } else if (enemyRemaining.length > 0) {
-            actionQueue.push({ unit: enemyRemaining.shift(), side: 'enemy' });
-        } else if (allyRemaining.length > 0) {
-            actionQueue.push({ unit: allyRemaining.shift(), side: 'ally' });
+        // 苦练优先级最高
+        if (!kuLianDone && kuLianUnit && kuLianUnit.alive && !kuLianUnit._acted) {
+            actingUnit = kuLianUnit;
+            kuLianDone = true;
+            log.push({ type:'info', text:`<span class="gold">🏋️ 苦练：${kuLianUnit.name} 每回合最先行动！</span>` });
+        } else {
+            // 从当前阵营找站位最靠前的存活未行动单位
+            const currentTeam = currentSide === 'ally' ? A : B;
+            const remaining = currentTeam.filter(u => u.alive && !u._acted).sort((a, b) => a.pos - b.pos);
+
+            if (remaining.length > 0) {
+                // 跳过拒马和无攻击力单位，但仍标记已行动
+                let found = null;
+                for (const u of remaining) {
+                    const allySide = u.camp === 'ally' ? A : B;
+                    const blocked = isBlocked(u, allySide);
+                    u._blocked = blocked;
+
+                    // 拒马无法攻击，直接标记跳过
+                    if (u.isHorse && u.atk <= 0) {
+                        u._acted = true;
+                        // 拒马回复20生命
+                        let hpBefore = Math.floor(u.hp);
+                        u.hp = Math.min(u.maxHp, u.hp + 20);
+                        let hpAfter = Math.floor(u.hp);
+                        u._resting = true;
+                        emitEvent(u, 'hp-change', { hp: u.hp, maxHp: u.maxHp, alive: u.alive, atk: u.atk, def: u.def });
+                        let bg = {type:'attack-group', uidA:u.uid, uidD:null, entries:[], isBlock:true, _fxSnapshot:makeFXSnapshot(u,null), waveTaunt:null, waveUnit:null, buffEffects:[], healAmount: 20, healUnitUid: u.uid};
+                        bg.entries.push({type:'combat-text', text:`<span class="${u.camp==='ally'?'blue':'orange'}">${u.camp==='ally'?'明教':'六大派'} ${u.name}</span> 无法攻击`});
+                        bg.entries.push({type:'info', text:`<span class="green">🐴 拒马休息回复20点生命（${hpBefore} → ${hpAfter}）</span>`});
+                        bg._events = [...window._battleEvents];
+                        window._battleEvents = [];
+                        log.push(bg);
+                        // 继续找同阵营下一个
+                        continue;
+                    }
+
+                    // 被遮挡的近战单位
+                    if (blocked && isMelee(u.role)) {
+                        u._acted = true;
+                        let hpBefore = Math.floor(u.hp);
+                        u.hp = Math.min(u.maxHp, u.hp + 20);
+                        let hpAfter = Math.floor(u.hp);
+                        u._resting = true;
+                        emitEvent(u, 'hp-change', { hp: u.hp, maxHp: u.maxHp, alive: u.alive, atk: u.atk, def: u.def });
+                        let bg = {type:'attack-group', uidA:u.uid, uidD:null, entries:[], isBlock:true, _fxSnapshot:makeFXSnapshot(u,null), waveTaunt:null, waveUnit:null, buffEffects:[], healAmount: 20, healUnitUid: u.uid};
+                        bg.entries.push({type:'combat-text', text:`<span class="${u.camp==='ally'?'blue':'orange'}">${u.camp==='ally'?'明教':'六大派'} ${u.name}</span> 被遮挡`});
+                        bg.entries.push({type:'info', text:`<span class="green">休息回复20点生命（${hpBefore} → ${hpAfter}）</span>`});
+                        bg._events = [...window._battleEvents];
+                        window._battleEvents = [];
+                        log.push(bg);
+                        // 继续找同阵营下一个
+                        continue;
+                    }
+
+                    // 找到可以攻击的单位
+                    found = u;
+                    break;
+                }
+
+                if (found) {
+                    actingUnit = found;
+                }
+                // 如果没找到（全都被跳过了），切换阵营继续
+            }
+
+            // 当前阵营没有可行动单位，切换阵营
+            if (!actingUnit) {
+                currentSide = currentSide === 'ally' ? 'enemy' : 'ally';
+                continue;
+            }
         }
-    }
 
-    for (const action of actionQueue) {
-        let unit = action.unit;
-        if (!unit.alive) continue;
+        if (!actingUnit) {
+            currentSide = currentSide === 'ally' ? 'enemy' : 'ally';
+            continue;
+        }
+
+        let unit = actingUnit;
         let allySide = unit.camp === 'ally' ? A : B;
         let enemySide = unit.camp === 'ally' ? B : A;
 
@@ -802,26 +956,10 @@ export function* createRoundStepper(state) {
         unit._blocked = isBlocked(unit, allySide);
         unit.survivedRounds++;
 
-        if ((unit.isHorse && unit.atk <= 0) || (unit._blocked && isMelee(unit.role))) {
-            if (unit._blocked && isMelee(unit.role)) {
-                let hpBefore = Math.floor(unit.hp);
-                unit.hp = Math.min(unit.maxHp, unit.hp + 20);
-                let hpAfter = Math.floor(unit.hp);
-                unit._resting = true;
-                emitEvent(unit, 'hp-change', { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: unit.atk, def: unit.def });
-                let bg = {type:'attack-group', uidA:unit.uid, uidD:null, entries:[], isBlock:true, _fxSnapshot:makeFXSnapshot(unit,null), waveTaunt:null, waveUnit:null, buffEffects:[], healAmount: 10, healUnitUid: unit.uid};
-                bg.entries.push({type:'combat-text', text:`<span class="${unit.camp==='ally'?'blue':'orange'}">${unit.camp==='ally'?'明教':'六大派'} ${unit.name}</span> 被遮挡`});
-                bg.entries.push({type:'info', text:`<span class="green">休息回复20点生命（${hpBefore} → ${hpAfter}）</span>`});
-                bg._events = [...window._battleEvents];
-                window._battleEvents = [];
-                log.push(bg);
-            } else if (unit.isHorse) {
-                log.push({type:'info', text:`<span class="gray">🐴 拒马无法攻击，自动跳过</span>`});
-            }
-            unit._acted = true;
-        } else {
-            processUnitAttack(unit, allySide, enemySide, log, A, B, state, doubleStrikeUnitUid);
-        }
+        processUnitAttack(unit, allySide, enemySide, log, A, B, state, doubleStrikeUnitUid);
+
+        // 攻击完成，切换阵营
+        currentSide = currentSide === 'ally' ? 'enemy' : 'ally';
 
         finalizeDeaths(A);
         finalizeDeaths(B);

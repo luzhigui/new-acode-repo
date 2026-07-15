@@ -202,8 +202,21 @@ export function showBoneClaw(unitA, unitD, speed, getPausedFn, onHit, opts) {
     if(dist<1) { if (onHit) onHit(); return; }
     let angle = Math.atan2(dy, dx);
     let chargeTime = 500 * (speed / 1000);
-    // 飞行时间按距离给保底（周芷若在前排距离短会太快），最少 700ms
-    let flyDuration = Math.max(700, dist * 1.5) * (speed / 1000);
+    // 飞行时间按距离给保底，最少 700ms
+    // 但小昭衍生技交替触发时会拖慢节奏，此时临时加速到 450ms
+    let baseMin = 700;
+    if (unitD && unitD.hp !== undefined) {
+        // 检测目标是否刚被小昭衍生技影响（减伤/治疗/加攻）
+        const xiaoZhaoActive = window._currentBattleState?.ally?.find(u => u.isXiaoZhao && u.alive);
+        if (xiaoZhaoActive) {
+            const zhang = window._currentBattleState?.ally?.find(u => u.isZhang && u.alive);
+            if (!zhang) { // 衍生技只在无忌不在时生效
+                const derivedHeal = Math.floor(unitD.def / 10); // 估计治疗量
+                if (derivedHeal > 0) baseMin = 450;
+            }
+        }
+    }
+    let flyDuration = Math.max(baseMin, dist * 1.5) * (speed / 1000);
     let pauseAfterHit = 500 * (speed / 1000);
 
     let claw = document.createElement('div');

@@ -206,9 +206,17 @@ async function handleBuffSwap(c, entry) {
     if (unitA && unitB) {
         let oldPosA = entry.oldPosA, oldPosB = entry.oldPosB;
         await animatePositionSwap(unitA, unitB, c, {
-            skipDataChange: false,
+            skipDataChange: true,
             oldPositions: (oldPosA != null && oldPosB != null) ? [oldPosA, oldPosB] : null
         });
+        // 统一通过 Store dispatch 换位，保证 UI 同步
+        if (c.store) {
+            c.store.dispatch({ type: 'APPLY_EVENTS', events: [
+                { eventType: 'pos-change', uid: unitA.uid, pos: oldPosB || unitB.pos },
+                { eventType: 'pos-change', uid: unitB.uid, pos: oldPosA || unitA.pos }
+            ]});
+            c.updateUI();
+        }
     }
     window.bulletTimeActive = false;
     c.isPaused = false;
@@ -320,6 +328,13 @@ async function handleAttackGroup(c, entry, roundResult, abortSig, isFirstAttackR
                     showHealFloat(healUnit, healAmount);
                 }
             }
+            // 处理来自衍生技的治疗条目
+            if (entry2.isHealEntry && !entry2.isDead && entry2.healUnitUid) {
+                let healUnit = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.uid === entry2.healUnitUid);
+                if (healUnit && entry2.healAmount) {
+                    showHealFloat(healUnit, entry2.healAmount);
+                }
+            }
             if(entry.isBlock&&entry2.text&&entry2.text.includes('休息回复10点生命')&&unitA){c.store.dispatch({ type: 'SET_VISUAL', uid: unitA.uid, _resting: true });blockDelay = true; showHealFloat(unitA, entry.healAmount || 10);}
             let tempDiv=document.createElement('div'); document.getElementById('log').appendChild(tempDiv); await playLineText(entry2.text,tempDiv);
         }
@@ -397,7 +412,6 @@ async function handleInfo(c, entry) {
 async function handleRoundStart(c, entry, isFirstAttackRef) {
     c.UI.round = parseInt(entry.text.match(/\d+/)[0])||1;
     if (isFirstAttackRef) isFirstAttackRef.value = true;
-    c.UI.allyTeam.concat(c.UI.enemyTeam).forEach(u=>{if(u.alive){c.store.dispatch({ type: 'SET_VISUAL', uid: u.uid, _acted: false, _resting: false }); let blocked = isBlocked(u, u.camp==='ally'?c.UI.allyTeam:c.UI.enemyTeam); c.store.dispatch({ type: 'SET_VISUAL', uid: u.uid, _blocked: blocked });}});
     let div=document.createElement('div');div.innerHTML=entry.text+'<br>';document.getElementById('log').appendChild(div);c.autoScrollLog();
     document.getElementById('roundDisplay').innerText = `📜 日志（第${c.UI.round}回合）`;
     await new Promise(r=>setTimeout(r, window._fastForwardActive ? 1 : c.speed/3));

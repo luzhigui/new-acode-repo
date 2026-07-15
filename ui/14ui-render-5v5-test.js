@@ -4,6 +4,7 @@ export const VER = 'ui/14ui-render-5v5-test.js V5.0.3';
 
 import { CONFIG } from '../core/01config-5v5-test.js';
 import { rand } from '../core/03battle-utils.js';
+import { computeBuffStats } from '../core/04buff-system.js';
 import { showDanmaku as _showDanmaku } from '../fx/15fx-common-5v5-test.js';
 const showDanmaku = (...args) => { if (typeof _showDanmaku === 'function') return _showDanmaku(...args); };
 
@@ -138,8 +139,8 @@ function updateDetailPopupContent() {
             <span style="color:#888;">角色</span><span>${u.role} M${u.m}</span>
             <span style="color:#888;">站位</span><span>${!u.alive ? '已阵亡' : (u.pos || '?') + '号位'}</span>
             <span style="color:#888;">血量</span><span style="color:${hpColor};font-weight:bold;">${Math.floor(u.hp)} / ${Math.floor(u.maxHp)} (${hpPct}%)</span>
-            <span style="color:#888;">攻击</span><span>${u.atk}${atkBonusVal > 0 ? ' <span style="color:#b8860b;">+' + atkBonusVal + '</span>' : ''} = <span style="font-weight:bold;">${displayAtk}</span></span>
-            <span style="color:#888;">防御</span><span>${u.def}${defBonusVal > 0 ? ' <span style="color:#b8860b;">+' + defBonusVal + '</span>' : ''} = <span style="font-weight:bold;">${displayDef}</span></span>
+            <span style="color:#888;">攻击</span><span>${u._baseAtk !== undefined && u.atk > u._baseAtk ? `${u._baseAtk}<span style="color:#daa520;">+${u.atk - u._baseAtk}</span> = <span style="color:#daa520;font-weight:bold;">${u.atk}</span>` : `${u.atk}${atkBonusVal > 0 ? ' <span style="color:#daa520;">+' + atkBonusVal + '</span> = ' + displayAtk : ''}`}</span>
+            <span style="color:#888;">防御</span><span>${u.def}${defBonusVal > 0 ? ' <span style="color:#daa520;">+' + defBonusVal + '</span>' : ''} = <span style="color:#daa520;font-weight:bold;">${displayDef}</span></span>
             <span style="color:#888;">造成伤害</span><span>${u.dmgDealt || 0}</span>
             <span style="color:#888;">承受伤害</span><span>${u.dmgTaken || 0}</span>
             <span style="color:#888;">治疗</span><span>${u.healDone || 0}</span>
@@ -259,15 +260,38 @@ export function renderGrid(id, camp) {
                 roleIcon = mimicTarget.role==='战士'?'⚔️':(mimicTarget.role==='防战'?'🛡️':(mimicTarget.role==='远程'?'🏹':'🦅'));
             }
         }
-        let buffStats = getBuffStats(unit);
-        let atkBonusVal = Math.floor(unit.atk * buffStats.atkBonus);
-        let defBonusVal = Math.floor(unit.def * buffStats.defBonus);
-        let hpBonusVal = Math.floor(unit.maxHp * buffStats.hpBonus);
-        let displayAtk = unit.atk + atkBonusVal;
-        let displayDef = unit.def + defBonusVal;
+        // 强制从Store获取最新单位数据，确保UI能立即响应属性变化
+        let latestUnit = unit;
+        if (store) {
+            const state = store.getState();
+            const freshUnit = state.units.find(u => u.uid === unit.uid);
+            if (freshUnit) {
+                latestUnit = freshUnit;
+            }
+        }
+
+        // 实时计算 Buff 加成，不依赖可能滞后的 unit.buffAtkBonus
+        let buffStats = computeBuffStats(latestUnit, activeBuffs, allyTeam);
+        let atkBonusVal = Math.floor(latestUnit.atk * buffStats.atkBonus);
+        let defBonusVal = Math.floor(latestUnit.def * buffStats.defBonus);
+        let hpBonusVal = Math.floor(latestUnit.maxHp * buffStats.hpBonus);
+        let displayAtk = latestUnit.atk + atkBonusVal;
+        let atkDisplayHtml = `${displayAtk}`;
+        if ((latestUnit._baseAtk !== undefined && displayAtk > latestUnit._baseAtk) || atkBonusVal > 0) {
+            atkDisplayHtml = `<span style="color:#daa520;font-weight:bold;">${displayAtk}</span>`;
+        }
+        let displayDef = latestUnit.def + defBonusVal;
+        let defDisplayHtml = `${displayDef}`;
+        if ((latestUnit._baseDef !== undefined && displayDef > latestUnit._baseDef) || defBonusVal > 0) {
+            defDisplayHtml = `<span style="color:#daa520;font-weight:bold;">${displayDef}</span>`;
+        }
         let hpPct = unit.alive ? Math.floor((unit.hp / unit.maxHp) * 100) : 0;
         let hpColorClass = hpPct>70?'hp-text-green':(hpPct>40?'hp-text-orange':'hp-text-red');
         let barColor = hpPct>70?'#4caf50':(hpPct>40?'#ff9800':'#f44336');
+        let hpDisplayHtml = `${Math.floor(unit.hp)}`;
+        if (hpBonusVal > 0 || (latestUnit._baseMaxHp !== undefined && latestUnit.maxHp > latestUnit._baseMaxHp)) {
+            hpDisplayHtml = `<span style="color:#daa520;font-weight:bold;">${Math.floor(unit.hp)}</span>`;
+        }
         let hasFlash = !!unit._flash;
         let isDead = (unit._flash==='dead' || !unit.alive || unit._isDead);
         let readyClass = (!hasFlash && !unit._acted && unit.alive && !isDead) ? 'ready' : '';
@@ -293,17 +317,24 @@ export function renderGrid(id, camp) {
         let buffIcons = '';
         if (ctx && camp === 'ally') {
             let unitBuffs = activeBuffs.filter(b => isUnitBenefitedByBuff(unit, b.key, allyTeam, doubleStrikeUid, activeBuffs));
-            buffIcons = unitBuffs.map(b => {
+            // 手动处理图标，以便显示 "x2"
+            let iconMap = {};
+            unitBuffs.forEach(b => {
                 let info = CONFIG.BUFFS ? CONFIG.BUFFS[b.key] : null;
-                return info ? info.icon : '';
-            }).filter(icon => icon).join('');
+                if (info && info.icon) {
+                    iconMap[info.icon] = (iconMap[info.icon] || 0) + 1;
+                }
+            });
+            buffIcons = Object.entries(iconMap).map(([icon, count]) => {
+                return icon + (count > 1 ? 'x' + count : '');
+            }).join('');
         }
         let atkStyle = atkBonusVal > 0 ? 'color:#daa520;font-weight:bold;' : '';
         let defStyle = defBonusVal > 0 ? 'color:#daa520;font-weight:bold;' : '';
         let hpStyle = hpBonusVal > 0 ? 'color:#daa520;font-weight:bold;' : '';
         let eliteSkillIcon = (unit.name === '周芷若' && unit._hasKuaiLe) ? ' 💖' : (unit.name === '宋青书' && unit._hasXingFen) ? ' 💗' : (unit.isXiaoZhao ? ' 🦋' : '');
         if (unit._xuanmingPoison && unit._xuanmingPoison.remaining > 0) eliteSkillIcon += ' ❄️';
-        div.innerHTML = `<span class="cell-icon">${isBlocked && unit.alive && isResting && !(unit.isZhang && unit.rangedForm) && !isDead ? '😴' : roleIcon}</span><div class="cell-info"><span class="cell-name ${displayIsZhang?'gold':''}">${displayName}${eliteSkillIcon}${buffIcons ? ' ' + buffIcons : ''}</span><span class="cell-stats">攻<span style="${atkStyle}">${displayAtk}</span> 防<span style="${defStyle}">${displayDef}</span> <span class="${hpColorClass}" style="${hpStyle}">血${Math.floor(unit.hp)}</span></span></div><div class="hp-bar-wrap"><div class="hp-bar-inner" id="hpbar-${unit.uid}" style="height:${hpPct}%;background:${barColor};transition:none;"></div></div>`;
+        div.innerHTML = `<span class="cell-icon">${isBlocked && unit.alive && isResting && !(unit.isZhang && unit.rangedForm) && !isDead ? '😴' : roleIcon}</span><div class="cell-info"><span class="cell-name ${displayIsZhang?'gold':''}">${displayName}${eliteSkillIcon}${buffIcons ? ' ' + buffIcons : ''}</span><span class="cell-stats">攻<span style="${atkStyle}">${atkDisplayHtml}</span> 防<span style="${defStyle}">${defDisplayHtml}</span> <span class="${hpColorClass}" style="${hpStyle}">血${hpDisplayHtml}</span></span></div><div class="hp-bar-wrap"><div class="hp-bar-inner" id="hpbar-${unit.uid}" style="height:${hpPct}%;background:${barColor};transition:none;"></div></div>`;
         if (isDead) {
             let deadMark = document.createElement('span'); deadMark.className = 'dead-mark'; deadMark.textContent = '✕'; div.appendChild(deadMark);
             div.style.transform = 'scale(0.8)'; div.style.opacity = '0.9';

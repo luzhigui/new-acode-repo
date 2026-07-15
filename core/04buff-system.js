@@ -12,10 +12,9 @@ export function computeBuffStats(unit, activeBuffs, allyTeam) {
     let atkBonus = 0, defBonus = 0, dodgeBonus = 0, hpBonus = 0;
     if (!activeBuffs) return { atkBonus, defBonus, dodgeBonus, hpBonus };
 
-    if (hasBuff(activeBuffs, 'holyFlame') && unit.camp === 'ally') {
-        let buffObj = activeBuffs.find(b => b.key === 'holyFlame');
-        if (buffObj) {
-            // 每次计算时检查行列，缺失则随机初始化（兼容选Buff时未赋值的情况）
+    if (unit.camp === 'ally') {
+        const holyBuffs = activeBuffs.filter(b => b.key === 'holyFlame');
+        for (const buffObj of holyBuffs) {
             if (buffObj.col == null || buffObj.row == null) {
                 buffObj.col = rand(1, 3);
                 buffObj.row = rand(1, 3);
@@ -26,7 +25,7 @@ export function computeBuffStats(unit, activeBuffs, allyTeam) {
     }
     // carry 加成是绝对值，单独返回，不混入 atkBonus/defBonus（那两个字段是比率，供 calcAttackDamage 做乘法用）
     let carryAtkAbs = 0, carryDefAbs = 0, carryHpAbs = 0;
-    if (hasBuff(activeBuffs, 'carry') && unit.pos === 5 && unit.alive) {
+    if ((hasBuff(activeBuffs, 'carry') || (unit._permanentBuffs && unit._permanentBuffs.some(b => b.key === 'carry'))) && unit.pos === 5 && unit.alive) {
         if (allyTeam) {
             let allAllies = allyTeam.filter(u => u.uid !== unit.uid && !u.isHorse);
             allAllies.forEach(a => {
@@ -267,7 +266,7 @@ export function applyBuffEffectsAfterAttack(unit, target, dmg, allySide, enemySi
         }
     }
     
-    if (hasBuff(unitBuffs, 'windAssault') && unit.role === '飞行' && target.alive) {
+    if ((hasBuff(unitBuffs, 'windAssault') || (unit._permanentBuffs && unit._permanentBuffs.some(b => b.key === 'windAssault'))) && unit.role === '飞行' && target.alive) {
         if (rand(1,100) <= 80) {
             let row = getUnitRow(target.pos);
             let rowTargets = enemySide.filter(u => u.alive && getUnitRow(u.pos) === row && u.uid !== target.uid);
@@ -291,7 +290,9 @@ export function applyBuffEffectsAfterAttack(unit, target, dmg, allySide, enemySi
             let behindPos = target.pos + 3;
             if (behindPos <= 9) {
                 let oldPos = target.pos;
-                let behindUnit = enemySide.find(u => u.pos === behindPos && u.alive);
+                // 限定同阵营查找后方单位，防止混乱攻击时跨阵营换位
+                let targetTeam = target.camp === 'ally' ? (unit.camp === 'ally' ? allySide : enemySide) : (unit.camp === 'ally' ? enemySide : allySide);
+                let behindUnit = targetTeam.find(u => u.pos === behindPos && u.alive);
                 if (behindUnit) {
                     let behindOldPos = behindUnit.pos;
                     let tempPos = target.pos; target.pos = behindPos; behindUnit.pos = tempPos;
@@ -335,19 +336,37 @@ export function logBuffSummary(allyTeam, log, doubleStrikeUid) {
                 if (msUnits.length > 0) log.push({type:'buff-summary', text:`<span class="gold">☄️ 流星赶月：${msUnits.map(u=>u.name).join('、')} 伤害加深${Math.round(C.BUFFS.meteorShower.bonusRatio*100)}% 溅射${Math.round(C.BUFFS.meteorShower.splashRatio*100)}%</span>`, buffType:'buff_stat'});
                 break;
             case 'holyFlame': {
-                const holyBuffs = buffs.filter(b => b.key === 'holyFlame');
-                const stackCount = holyBuffs.length;
-                const stackSuffix = stackCount > 1 ? ` ×${stackCount}` : '';
-                if (b.col == null || b.row == null) {
-                    b.col = rand(1, 3);
-                    b.row = rand(1, 3);
+                // 分团队圣火令和小昭圣火令
+                const teamHolyBuffs = buffs.filter(b => b.key === 'holyFlame' && !b._xiaoZhao);
+                const xiaoZhaoHolyBuffs = buffs.filter(b => b.key === 'holyFlame' && b._xiaoZhao);
+                
+                // 团队圣火令
+                if (teamHolyBuffs.length > 0) {
+                    for (const hb of teamHolyBuffs) {
+                        if (hb.col == null || hb.row == null) { hb.col = rand(1, 3); hb.row = rand(1, 3); }
+                        let colUnits = allyTeam.filter(u => u.alive && getUnitCol(u.pos) === hb.col);
+                        let rowUnits = allyTeam.filter(u => u.alive && getUnitRow(u.pos) === hb.row);
+                        let atkNames = colUnits.map(u=>u.name).join('、') || '无';
+                        let defNames = rowUnits.map(u=>u.name).join('、') || '无';
+                        log.push({type:'buff-summary', text:`<span class="gold">🔥 圣火令（团队）：第${hb.col}列(${atkNames})攻击+${Math.round(C.BUFFS.holyFlame.atkBonus*100)}%，第${hb.row}行(${defNames})防御+${Math.round(C.BUFFS.holyFlame.defBonus*100)}%</span>`, buffType:'buff_stat'});
+                    }
                 }
-                let col = b.col, row = b.row;
-                let colUnits = allyTeam.filter(u => u.alive && getUnitCol(u.pos) === col);
-                let rowUnits = allyTeam.filter(u => u.alive && getUnitRow(u.pos) === row);
-                let atkNames = colUnits.map(u=>u.name).join('、') || '无';
-                let defNames = rowUnits.map(u=>u.name).join('、') || '无';
-                log.push({type:'buff-summary', text:`<span class="gold">🔥 圣火令${stackSuffix}：第${col}列(${atkNames})攻击+${Math.round(C.BUFFS.holyFlame.atkBonus*100)}%，第${row}行(${defNames})防御+${Math.round(C.BUFFS.holyFlame.defBonus*100)}%</span>`, buffType:'buff_stat'});
+                
+                // 小昭圣火令
+                if (xiaoZhaoHolyBuffs.length > 0) {
+                    for (const hb of xiaoZhaoHolyBuffs) {
+                        if (hb.col == null || hb.row == null) { hb.col = rand(1, 3); hb.row = rand(1, 3); }
+                        let colUnits = allyTeam.filter(u => u.alive && getUnitCol(u.pos) === hb.col);
+                        let rowUnits = allyTeam.filter(u => u.alive && getUnitRow(u.pos) === hb.row);
+                        let atkNames = colUnits.map(u=>u.name).join('、') || '无';
+                        let defNames = rowUnits.map(u=>u.name).join('、') || '无';
+                        let xiaoZhaoLabel = '🦋 圣火令（小昭）';
+                        // 检查是否有单位同时受团队和小昭圣火令影响
+                        const hasOverlap = colUnits.some(u => teamHolyBuffs.some(tb => getUnitCol(u.pos) === tb.col)) || rowUnits.some(u => teamHolyBuffs.some(tb => getUnitRow(u.pos) === tb.row));
+                        const suffix = hasOverlap ? '（部分单位受双重影响 → 圣火令×2）' : '';
+                        log.push({type:'buff-summary', text:`<span class="gold">${xiaoZhaoLabel}：第${hb.col}列(${atkNames})攻击+${Math.round(C.BUFFS.holyFlame.atkBonus*100)}%，第${hb.row}行(${defNames})防御+${Math.round(C.BUFFS.holyFlame.defBonus*100)}%${suffix}</span>`, buffType:'buff_stat'});
+                    }
+                }
                 break;
             }
             case 'doubleStrike':
