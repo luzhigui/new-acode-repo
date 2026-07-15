@@ -855,7 +855,6 @@ export function* createRoundStepper(state) {
         u._extinctionUsed = false;
         u._acted = false;
         u._doubleStriked = false;
-        u._xiaoZhaoReboundLogged = false;
         u._xingFenPenaltyCount = u._xingFenPenaltyCount || 0; // 保留跨回合计数，不重置
         if (u.name === '成昆') u._phantomTarget = null;
         // 保留 _phantomTarget 不清除
@@ -873,7 +872,6 @@ export function* createRoundStepper(state) {
         u._extinctionUsed = false;
         u._acted = false;
         u._doubleStriked = false;
-        u._xiaoZhaoReboundLogged = false;
         u._xingFenPenaltyCount = u._xingFenPenaltyCount || 0; // 保留跨回合计数，不重置
         if (u.name === '成昆') u._phantomTarget = null;
         // 保留 _phantomTarget 不清除
