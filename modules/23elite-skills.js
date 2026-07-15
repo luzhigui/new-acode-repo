@@ -245,13 +245,13 @@ export function applyDamageModifiers(unit, target, dmg, allySide, enemySide, log
     const entries = [];
     const ES = CONFIG.ELITE_SKILLS;
 
-    // 乾坤大挪移升级版：张无忌+小昭同时在场，全队减伤30%并反弹15%
+    // 乾坤大挪移升级版：张无忌+小昭同时在场，保护2/4/6/8号位，减伤30%，反弹免伤部分，无忌自伤反弹的15%
     const xiaoZhao = allySide.find(u => u.isXiaoZhao && u.alive);
     const zhangUpgraded = allySide.find(c => c.isZhang && c.alive);
-    if (target.camp === 'ally' && xiaoZhao && zhangUpgraded) {
+    if (target.camp === 'ally' && xiaoZhao && zhangUpgraded && [2, 4, 6, 8].includes(target.pos)) {
         const reducedDmg = Math.floor(dmg * (1 - ES.xiaoZhao.upgradedReducePct));
-        const rebound = Math.floor(reducedDmg * 0.15);
-        const selfDmg = Math.max(1, Math.floor(rebound * 0.1));
+        const rebound = dmg - reducedDmg; // 反弹的是免伤掉的那部分
+        const selfDmg = Math.max(1, Math.floor(rebound * 0.15));
 
         // 反弹给攻击者
         unit.hp = Math.max(0, unit.hp - rebound);
@@ -273,7 +273,7 @@ export function applyDamageModifiers(unit, target, dmg, allySide, enemySide, log
         if (!target._xiaoZhaoReboundLogged) {
             entries.push({
                 type: 'info',
-                text: `<span class="gold">🦋 乾坤大挪移（升级版）：全队减伤30%，原始伤害${dmg}→${reducedDmg}，反弹${rebound}给${unit.name}（无忌自伤${selfDmg}）</span>`,
+                text: `<span class="gold">🦋 乾坤大挪移（升级版）：减伤30%，反弹${rebound}给${unit.name}（无忌自伤${selfDmg}）</span>`,
                 buffType: 'rebound'
             });
             target._xiaoZhaoReboundLogged = true;
