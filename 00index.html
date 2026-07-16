@@ -61,6 +61,7 @@
             <div class="btn-grid">
                 <button class="big-btn btn-play" id="btnGame">⚔️ 主游戏</button>
                 <button class="big-btn btn-play" id="btnXiaoZhaoMode" style="background:linear-gradient(135deg, #e040fb, #7c4dff);">🦋 小昭模式</button>
+                <button class="big-btn btn-play" id="btnBugMode" style="background:linear-gradient(135deg, #ff5252, #b71c1c);">🐛 Bug模式</button>
                 <button class="big-btn btn-health" id="btnHealthCheck">🩺 全面体检</button>
                 <button class="big-btn btn-tool" id="btnTools">🧰 工具箱</button>
             </div>
@@ -94,6 +95,10 @@
         });
         document.getElementById('btnXiaoZhaoMode').addEventListener('click', () => {
             localStorage.setItem('_forceXiaoZhao', '1');
+            window.open('mode-5v5-test.html', '_blank');
+        });
+        document.getElementById('btnBugMode').addEventListener('click', () => {
+            localStorage.setItem('_bugMode', '1');
             window.open('mode-5v5-test.html', '_blank');
         });
         document.getElementById('btnHealthCheck').addEventListener('click', () => {

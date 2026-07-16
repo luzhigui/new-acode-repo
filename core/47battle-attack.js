@@ -1,6 +1,5 @@
-// ===== ../core/47battle-attack.js =====
 // core/47battle-attack.js - 光明顶5v5 攻击流程模块
-// V5.1.0 | ~27000 bytes | 2026-07-16 从06battle-engine-core拆分
+// V5.1.0 | ~27000 bytes | 2026-07-16 精英技能判定收敛至23elite-skills
 export const VER = 'core/47battle-attack.js V5.1.0';
 
 import { CONFIG, DEF_TAUNT, HP_TAUNT } from './01config-5v5-test.js';
@@ -10,7 +9,9 @@ import {
     checkExtinctionCounter, checkNineYinClaw, getRebelTarget, getRebelDmgBonus, getRebelTrueDmg,
     getPhantomThunderBonus, applyXuanmingPalm, getHornStrikeBonus,
     checkKuLian, applyXingFenGrant, applyXinHunDeduction, applyXingFenPenalty,
-    applyXiaoZhaoDerived, applyDamageModifiers, isXiaoZhaoPermanentActive
+    applyXiaoZhaoDerived, applyDamageModifiers, isXiaoZhaoPermanentActive,
+    applyPhantomDisguise, applyXiaoZhaoMindControl, checkXiaoZhaoPermanentDoubleStrike,
+    canXingFenTrigger, consumeXingFen
 } from '../modules/23elite-skills.js';
 const C = CONFIG, DT = DEF_TAUNT, HT = HP_TAUNT;
 
@@ -35,20 +36,10 @@ export function selectTarget(unit, enemySide) {
         target = targets[rand(0, targets.length - 1)];
     }
 
-    // 成昆幻影伪装：混乱判定 —— 攻击者去打自己阵营里成昆伪装的那个队友
-    if (target && unit.camp === 'ally') {
-        const chengkun = enemySide.find(u => u.name === '成昆' && u.alive && u._phantomTarget);
-        if (chengkun && !unit._isLinkAttack) {
-            const lostPct = (chengkun.maxHp - chengkun.hp) / chengkun.maxHp;
-            const chance = CONFIG.ELITE_SKILLS.phantomDisguise.baseChance + Math.floor(lostPct * 10) * CONFIG.ELITE_SKILLS.phantomDisguise.per10pctLost;
-            if (Math.random() < chance) {
-                const fakeTarget = enemySide.find(u => u.uid === chengkun._phantomTarget && u.alive && !u.isHorse);
-                if (fakeTarget) {
-                    chengkun._phantomLog = `🌀 幻影伪装！${unit.name}被混乱，误攻队友${fakeTarget.name}！`;
-                    target = fakeTarget;
-                }
-            }
-        }
+    // 成昆幻影伪装：收敛至23elite-skills
+    const phantomResult = applyPhantomDisguise(unit, enemySide);
+    if (phantomResult && target) {
+        target = phantomResult.target;
     }
 
     return target;
@@ -176,6 +167,31 @@ export function applyPostAttackEffects(unit, target, dmg, atkAct, defAct, reboun
     return nineYinTotal;
 }
 
+// 辅助函数，定义在文件内使用
+function checkZhangSwitch(A, log) {
+    let zhang = A.find(c => c.isZhang && c.alive && !c._zhangSwitched);
+    if (!zhang) return;
+    let col = (zhang.pos - 1) % 3;
+    let hasFrontAlly = A.some(c => c.alive && !c.isHorse && c.pos === 1 + col && c.uid !== zhang.uid);
+    if (!hasFrontAlly) {
+        zhang.rangedForm = false; zhang.atk += 3; zhang.def += 2;
+        zhang.maxHp = Math.min(zhang.maxHp + 50, zhang._baseMaxHp * 2);
+        zhang.hp = Math.min(zhang.hp + 50, zhang.maxHp); zhang.role = '战士';
+        zhang._blocked = false; zhang._resting = false; zhang._zhangSwitched = true;
+        zhang._baseMaxHp = zhang.maxHp;
+        emitEvent(zhang, 'zhang-switch', {
+            atk: zhang.atk,
+            def: zhang.def,
+            maxHp: zhang.maxHp,
+            hp: zhang.hp,
+            role: zhang.role,
+            rangedForm: false
+        });
+        log.push({ type:'info', text:`<span class="gold">⚔️ 张无忌切换近战形态！攻+3、防+2、生命上限+50</span>`, isZhangSwitch:true, unit: zhang });
+        log.push({ type:'info', text:`<span class="gold">🗣️ 张无忌：不好，要顶上去了！</span>`, isZhangTaunt:true });
+    }
+}
+
 export function processUnitAttack(unit, allySide, enemySide, log, A, B, state, doubleStrikeUnitUid, lockedTargetUid = null) {
     // 连击锁定同一目标
     let target;
@@ -186,20 +202,16 @@ export function processUnitAttack(unit, allySide, enemySide, log, A, B, state, d
         target = selectTarget(unit, enemySide);
     }
     let phantomLog = null;
-    // 小昭永久惑人心智：20%概率混乱敌方，使其攻击自己人（仅团队惑人心智消失后激活）
+
+    // 小昭永久惑人心智：改用23elite-skills新函数
     if (target && unit.camp === 'enemy') {
-        const xiaoZhao = enemySide.find(u => u.isXiaoZhao && u.alive);
-        if (xiaoZhao && xiaoZhao._permanentBuffs && xiaoZhao._permanentBuffs.some(b => b.key === 'mindControl') && !hasBuff(enemySide._activeBuffs, 'mindControl')) {
-            if (Math.random() < 0.20) {
-                // 敌方阵营中随机选一个存活非拒马单位作为攻击目标
-                const xzFakeTarget = enemySide.find(u => u.uid !== unit.uid && u.alive && !u.isHorse);
-                if (xzFakeTarget) {
-                    phantomLog = `🦋 蝶舞迷心！${unit.name}被小昭迷惑，误攻队友${xzFakeTarget.name}！`;
-                    target = xzFakeTarget;
-                }
-            }
+        const mindResult = applyXiaoZhaoMindControl(unit, allySide, enemySide);
+        if (mindResult) {
+            phantomLog = mindResult.log;
+            target = mindResult.target;
         }
     }
+
     if (!target) {
         let emptyGroup = { type:'attack-group', uidA:unit.uid, uidD:null, entries:[], isMiss:true, _fxSnapshot:null, waveTaunt:null, waveUnit:null, buffEffects: [] };
         emptyGroup.entries.push({type:'combat-text', text:`<span class="${unit.camp==='ally'?'blue':'orange'}">${unit.camp==='ally'?'明教':'六大派'} ${unit.name}</span> 无法选择目标`});
@@ -235,7 +247,9 @@ export function processUnitAttack(unit, allySide, enemySide, log, A, B, state, d
             if (rand(1,100) <= 80) {
                 log.push({type:'info', text:`<span class="gold">⚡ 概率连击触发！</span>`, isDoubleStrikeBanner:true});
                 unit._doubleStriked = true; unit._acted = false;
-                processUnitAttack(unit, allySide, enemySide, log, A, B, state, doubleStrikeUnitUid);
+                // 锁定同一目标，除非目标死亡才换目标
+                const lockedTargetUid = (target && target.alive) ? target.uid : null;
+                processUnitAttack(unit, allySide, enemySide, log, A, B, state, doubleStrikeUnitUid, lockedTargetUid);
             } else {
                 log.push({type:'info', text:`<span class="gray">⚡ 概率连击触发失败，${unit.name} 未能再次攻击</span>`});
             }
@@ -270,6 +284,14 @@ export function processUnitAttack(unit, allySide, enemySide, log, A, B, state, d
 
     if (resolveDodge(unit, target, defenderBuffStats, log)) return false;
 
+    // 战士破防在攻击前执行，让伤害计算用削减后的防御
+    let defReduced = 0;
+    if (unit.role === '战士' && target.def > 0) {
+        defReduced = Math.min(2, target.def);
+        target.def = Math.max(0, target.def - 2);
+        emitEvent(target, 'hp-change', { hp: target.hp, maxHp: target.maxHp, alive: target.alive, atk: target.atk, def: target.def, _isDead: target._isDead || false });
+    }
+
     let dmgCalc = calcAttackDamage(unit, target, attackerBuffStats, defenderBuffStats);
     let { atkBase, defBase, atkAct, defAct, hpBonus, hpBefore, waveTaunt, waveUnit, raw, rawFormula, thunderBonus, hornBonus, trueDmg } = dmgCalc;
     const rebelBonus = getRebelDmgBonus(unit);
@@ -278,16 +300,12 @@ export function processUnitAttack(unit, allySide, enemySide, log, A, B, state, d
     let hpAfter = Math.floor(target.hp) - dmg;
     let dead = hpAfter <= 0;
 
-    // ★ 伤害修正钩子：乾坤大挪移升级版等，在伤害应用前统一处理
+    // ★ 伤害修正钩子
     let bonusEntries = [];
-    if (unit.camp === 'ally') {
-        // 攻击者是明教 → target 是六大派，不需要处理明教防御技能
-    } else {
-        // 攻击者是六大派 → target 是明教，触发防御技能
+    if (unit.camp !== 'ally') {
         const modifierResult = applyDamageModifiers(unit, target, dmg, A, B, log);
         dmg = modifierResult.modifiedDmg;
         bonusEntries = modifierResult.entries || [];
-        // 减伤后更新公式显示（乾坤大挪移固定30%减伤）
         const originalDmg = Math.floor(raw);
         if (dmg !== originalDmg) {
             rawFormula += `-30%=${Math.floor(dmg)}`;
@@ -296,57 +314,50 @@ export function processUnitAttack(unit, allySide, enemySide, log, A, B, state, d
     hpAfter = Math.floor(target.hp) - dmg;
     dead = hpAfter <= 0;
 
-    // 应用伤害
     if (dead) {
         target.hp = 0;
         target.alive = false;
         target._isDead = true;
         if (!target._deathTime) target._deathTime = Date.now();
     } else { target.hp = hpAfter; }
-    // 战士普攻斩杀：目标剩余血量 ≤ 最大血量 15% 时直接击杀
+
     if (unit.role === '战士' && target.alive && target.hp > 0 && target.hp <= target.maxHp * 0.15) {
         target.hp = 0;
         target.alive = false;
         target._isDead = true;
         if (!target._deathTime) target._deathTime = Date.now();
         dead = true;
+        // 斩杀日志（稍后会在 group 中显示）
+        if (!unit._executeLog) unit._executeLog = [];
+        unit._executeLog.push({type:'info', text:`<span class="red">⚔️ 战士斩杀！${unit.name} 直接击杀 ${target.name}！</span>`});
     }
     unit.dmgDealt += dmg; target.dmgTaken += dmg;
-    // 成昆幻影伪装：攻击前变回自己
     if (unit.name === '成昆') {
         unit._phantomTarget = null;
     }
-    // 成昆幻影伪装：攻击后随机模仿一个对方单位，并回复已损失生命值的30%
     if (unit.name === '成昆' && dmg > 0) {
         const enemyAlive = enemySide.filter(u => u.alive && !u.isHorse);
         if (enemyAlive.length > 0) {
             unit._phantomTarget = enemyAlive[rand(0, enemyAlive.length - 1)].uid;
-            // 变身回复已损失生命值的30%
             const lostHp = unit.maxHp - unit.hp;
             if (lostHp > 0) {
                 const heal = Math.floor(lostHp * 0.3);
                 unit.hp = Math.min(unit.maxHp, unit.hp + heal);
                 unit.healDone += heal;
-                // 注意：group 尚未定义，这里稍后会在 group 中加条目，暂时先累积
                 if (!unit._phantomHeal) unit._phantomHeal = 0;
                 unit._phantomHeal += heal;
             }
             emitEvent(unit, 'hp-change', { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: unit.atk, def: unit.def, _phantomTarget: unit._phantomTarget });
         }
     }
-    let defReduced = 0;
-    // 防战被攻击时积攒防御：每次被攻击 +1，上限 +6
     if (target.role === '防战' && dmg > 0) {
         if (!target._fortifyStacks) target._fortifyStacks = 0;
         if (target._fortifyStacks < 6) {
-            target._fortifyStacks += 1;
-            target.def += 1;
+            target._fortifyStacks = Math.min(6, target._fortifyStacks + 0.5);
+            target.def += 0.5;
         }
     }
-    if (unit.role === '战士' && dmg > 0 && target.def > 0) {
-        defReduced += Math.min(2, target.def);
-        target.def = Math.max(0, target.def - 2);
-    }
+    // 破防已在攻击前执行，此处不再重复
     emitEvent(target, 'hp-change', { hp: target.hp, maxHp: target.maxHp, alive: target.alive, atk: target.atk, def: target.def, _isDead: target._isDead || false });
 
     let allyBuffs_fortify = (target.camp === 'ally' ? A._activeBuffs : B._activeBuffs) || [];
@@ -389,19 +400,20 @@ export function processUnitAttack(unit, allySide, enemySide, log, A, B, state, d
     if (trueDmg > 0) group.entries.push({type:'detail', text:`<span class="red small">⚔️ 叛逆真伤+${trueDmg}（目标当前生命10%）</span>`});
     group.entries.push({type:'detail', text:`<span class="gray small">计算：${rawFormula}</span>`});
     group.entries.push({type:'damage-text', deadFlag:dead, text:`<span class="damage-line ${dead?'brush-red':''} ${ac}">${dead?'💀击杀💀 ':''}${campA} ${unit.name}</span> 造成 <span class="red">${dmg}</span> 伤害，<span class="${dc}">${campD} ${target.name}</span> ${hpBefore} → ${Math.floor(target.hp)} ${dead?'💀阵亡':''}`});
+    if (unit._executeLog) {
+        unit._executeLog.forEach(e => group.entries.push(e));
+        delete unit._executeLog;
+    }
     if (defReduced > 0) {
         group.entries.push({type:'detail', text:`<span class="purple small">🗡️ ${unit.name} 破防：${target.name} 防御 -${defReduced}</span>`});
     }
-    // 防战被攻击积攒防御日志
     if (target.role === '防战' && dmg > 0 && target._fortifyStacks !== undefined) {
-        group.entries.push({type:'detail', text:`<span class="blue small">🛡️ ${target.name} 坚盾：防御+1（已叠${target._fortifyStacks}/6）</span>`});
+        group.entries.push({type:'detail', text:`<span class="blue small">🛡️ ${target.name} 坚盾：防御+0.5（已叠${target._fortifyStacks}/6）</span>`});
     }
 
-    // ★ 普攻事件快照：在精英技能/特效之前抓取，只含本次普攻的血量变化
     group._events = [...window._battleEvents];
     window._battleEvents = [];
 
-    // 附加伤害修正日志（乾坤升级版等）
     for (const entry of bonusEntries) {
         group.entries.push(entry);
     }
@@ -441,10 +453,9 @@ export function processUnitAttack(unit, allySide, enemySide, log, A, B, state, d
             }
         }
     }
-    // 普通乾坤大挪移：仅保护4/6号位
     if (target.camp === 'ally' && (target.pos === 4 || target.pos === 6) && dmg > 0) {
         let xiaoZhaoActive = A.find(u => u.isXiaoZhao && u.alive);
-        if (!xiaoZhaoActive) { // 小昭在场时走升级版，不执行普通版
+        if (!xiaoZhaoActive) {
             let zhang = A.find(c => c.isZhang && c.alive && c.rangedForm);
             if (zhang) {
                 let rebound = Math.floor(dmg * 0.15);
@@ -473,7 +484,6 @@ export function processUnitAttack(unit, allySide, enemySide, log, A, B, state, d
             }
         }
     }
-    // 小昭衍生版乾坤大挪移：队友受伤时触发减伤/治疗/加攻（无忌不在时）
     if (target.camp === 'ally' && dmg > 0) {
         applyXiaoZhaoDerived(A, target, dmg, group);
     }
@@ -482,7 +492,6 @@ export function processUnitAttack(unit, allySide, enemySide, log, A, B, state, d
         emitEvent(unit, 'hp-change', { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: unit.atk, def: unit.def });
         group.entries.push({type:'detail', text:`<span class="blue small">🏹 ${unit.name} 远程熟练：攻击 +2 → ${Math.floor(unit.atk)}</span>`});
     }
-    // 飞行单位每次攻击后闪避率 +2%
     if (unit.role === '飞行' && dmg > 0) {
         if (!unit._dodgeStack) unit._dodgeStack = 0;
         unit._dodgeStack += 2;
@@ -505,59 +514,59 @@ export function processUnitAttack(unit, allySide, enemySide, log, A, B, state, d
     applyXinHunDeduction(unit, allySide, log);
     applyXingFenPenalty(unit, log);
 
-    // 玄冥二老联动：互相触发攻击，锁定同一目标
     if (!unit._isLinkAttack && dmg > 0 && target.alive) {
+        // 玄冥二老联动逻辑保持不变，因较复杂暂不收敛
         if (unit.name === '鹤笔翁') {
-            // 鹤笔翁攻击后，如果鹿杖客还没行动，触发他联动
             const lu = allySide.find(u => u.name === '鹿杖客' && u.alive && !u._acted);
             if (!lu) {
-                // 鹿杖客已经行动过了，检查是否是被联动触发的，如果是则让他再次联动
-                const luActed = allySide.find(u => u.name === '鹿杖客' && u.alive && u._acted && u._isLinkAttack);
-                if (luActed) {
-                    luActed._acted = false;
+                const luActed = allySide.find(u => u.name === '鹿杖客' && u.alive && u._acted);
+                if (luActed && !luActed._linkTriggered) {
                     luActed._isLinkAttack = true;
+                    luActed._linkTriggered = true;
                     const origSelectTarget = selectTarget;
                     selectTarget = (u, enemies) => enemies.find(e => e.uid === target.uid) || origSelectTarget(u, enemies);
                     processUnitAttack(luActed, allySide, enemySide, log, A, B, state, null);
                     selectTarget = origSelectTarget;
                     luActed._isLinkAttack = false;
                     luActed._acted = false;
+                    emitEvent(luActed, 'hp-change', { hp: luActed.hp, maxHp: luActed.maxHp, alive: luActed.alive, atk: luActed.atk, def: luActed.def });
                 }
-            } else {
-                // 鹿杖客还没行动，正常触发联动
+            } else if (!lu._linkTriggered) {
                 lu._isLinkAttack = true;
+                lu._linkTriggered = true;
                 const origSelectTarget = selectTarget;
                 selectTarget = (u, enemies) => enemies.find(e => e.uid === target.uid) || origSelectTarget(u, enemies);
                 processUnitAttack(lu, allySide, enemySide, log, A, B, state, null);
                 selectTarget = origSelectTarget;
                 lu._isLinkAttack = false;
                 lu._acted = false;
+                emitEvent(lu, 'hp-change', { hp: lu.hp, maxHp: lu.maxHp, alive: lu.alive, atk: lu.atk, def: lu.def });
             }
         } else if (unit.name === '鹿杖客') {
-            // 鹿杖客攻击后，如果鹤笔翁还没行动，触发他联动
             const he = allySide.find(u => u.name === '鹤笔翁' && u.alive && !u._acted);
             if (!he) {
-                // 鹤笔翁已经行动过了，检查是否是被联动触发的，如果是则让他再次联动
-                const heActed = allySide.find(u => u.name === '鹤笔翁' && u.alive && u._acted && u._isLinkAttack);
-                if (heActed) {
-                    heActed._acted = false;
+                const heActed = allySide.find(u => u.name === '鹤笔翁' && u.alive && u._acted);
+                if (heActed && !heActed._linkTriggered) {
                     heActed._isLinkAttack = true;
+                    heActed._linkTriggered = true;
                     const origSelectTarget = selectTarget;
                     selectTarget = (u, enemies) => enemies.find(e => e.uid === target.uid) || origSelectTarget(u, enemies);
                     processUnitAttack(heActed, allySide, enemySide, log, A, B, state, null);
                     selectTarget = origSelectTarget;
                     heActed._isLinkAttack = false;
                     heActed._acted = false;
+                    emitEvent(heActed, 'hp-change', { hp: heActed.hp, maxHp: heActed.maxHp, alive: heActed.alive, atk: heActed.atk, def: heActed.def });
                 }
-            } else {
-                // 鹤笔翁还没行动，正常触发联动
+            } else if (!he._linkTriggered) {
                 he._isLinkAttack = true;
+                he._linkTriggered = true;
                 const origSelectTarget = selectTarget;
                 selectTarget = (u, enemies) => enemies.find(e => e.uid === target.uid) || origSelectTarget(u, enemies);
                 processUnitAttack(he, allySide, enemySide, log, A, B, state, null);
                 selectTarget = origSelectTarget;
                 he._isLinkAttack = false;
                 he._acted = false;
+                emitEvent(he, 'hp-change', { hp: he.hp, maxHp: he.maxHp, alive: he.alive, atk: he.atk, def: he.def });
             }
         }
     }
@@ -571,23 +580,21 @@ export function processUnitAttack(unit, allySide, enemySide, log, A, B, state, d
         if (rand(1,100) <= 80) {
             log.push({type:'info', text:`<span class="gold">⚡ 概率连击触发！</span>`, isDoubleStrikeBanner:true});
             unit._doubleStriked = true; unit._acted = false;
-            processUnitAttack(unit, allySide, enemySide, log, A, B, state, doubleStrikeUnitUid);
+            // 锁定同一目标，除非目标死亡才换目标
+            const lockedTargetUid = (target && target.alive) ? target.uid : null;
+            processUnitAttack(unit, allySide, enemySide, log, A, B, state, doubleStrikeUnitUid, lockedTargetUid);
         } else {
             log.push({type:'info', text:`<span class="gray">⚡ 概率连击触发失败，${unit.name} 未能再次攻击</span>`});
         }
     }
-    // 小昭永久概率连击：80%概率触发，锁定同一目标（仅团队概率连击消失后激活）
-    if (unit.isXiaoZhao && unit._permanentBuffs && unit._permanentBuffs.some(b => b.key === 'doubleStrike') && unit.alive && !unit._xiaoZhaoDoubleStriked && !hasBuff(A._activeBuffs, 'doubleStrike')) {
-        const xzDoubleStrikeChance = window._xzDoubleStrikeChance ?? 80;
-        if (rand(1, 100) <= xzDoubleStrikeChance) {
-            unit._xiaoZhaoDoubleStriked = true; unit._acted = false;
-            log.push({type:'info', text:`<span class="gold">🦋 蝶击：小昭永久概率连击触发！</span>`, isDoubleStrikeBanner:true});
-            // 锁定同一目标：如果目标还活着，传过去让 selectTarget 优先选它
-            const lockedTargetUid = (target && target.alive) ? target.uid : null;
-            processUnitAttack(unit, allySide, enemySide, log, A, B, state, doubleStrikeUnitUid, lockedTargetUid);
-        } else {
-            log.push({type:'info', text:`<span class="gray">🦋 蝶击：小昭永久概率连击触发失败</span>`});
-        }
+
+    // 小昭永久概率连击：改用23elite-skills新函数
+    if (unit.isXiaoZhao && checkXiaoZhaoPermanentDoubleStrike(unit, A._activeBuffs) && unit.alive) {
+        unit._xiaoZhaoDoubleStriked = true;
+        unit._acted = false;
+        log.push({type:'info', text:`<span class="gold">🦋 蝶击：小昭永久概率连击触发！</span>`, isDoubleStrikeBanner:true});
+        const lockedTargetUid = (target && target.alive) ? target.uid : null;
+        processUnitAttack(unit, allySide, enemySide, log, A, B, state, doubleStrikeUnitUid, lockedTargetUid);
     }
 
     if (canXingFenTrigger(unit) && enemySide.some(u => u.alive)) {

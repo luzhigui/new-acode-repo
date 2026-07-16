@@ -1,5 +1,5 @@
 // player/10player-core.js - 光明顶5v5 战斗播放器核心
-// V5.1.0 | ~48000 bytes | 2026-07-11 事件链路重构：播放器纯消费日志，不补事件
+// V5.1.0 | ~48000 bytes | 2026-07-16 修复多源一致性：全量同步UI
 export const VER = 'player/10player-core.js V5.1.0';
 
 import { isBlocked } from '../core/03battle-utils.js';
@@ -53,7 +53,7 @@ export function clearAllEffects(){
     document.querySelectorAll('.grid.victory-border').forEach(grid => grid.classList.remove('victory-border'));
 }
 
-const GAME_STATE_FIELDS = ['hp','alive','maxHp','atk','def','role','rangedForm','_isDead','_baseMaxHp','_baseAtk','_baseDef','dmgDealt','dmgTaken','healDone','reboundDone','leechDone','dodgeCount','critCount','survivedRounds','pos','buffAtkBonus','buffDefBonus','buffDodgeBonus','buffHpBonus','_phantomTarget', '_masteredRoles', '_fortifyStacks', '_baseFangDef'];
+// GAME_STATE_FIELDS 已移除，改为全量同步
 
 function createStore(initialState, reducer) {
     let state = initialState;
@@ -599,29 +599,11 @@ export async function playBattle() {
 
     c.store.subscribe((state) => {
         if (!c.UI || !c.UI.allyTeam || !c.UI.enemyTeam) return;
-        const syncFields = (uiUnit) => {
-            const su = state.units.find(u => u.uid === uiUnit.uid);
-            if (!su) return;
-            GAME_STATE_FIELDS.forEach(f => { if (su[f] !== undefined) uiUnit[f] = su[f]; });
-            if (su._flash !== undefined) uiUnit._flash = su._flash;
-            if (su._acted !== undefined) uiUnit._acted = su._acted;
-            if (su._resting !== undefined) uiUnit._resting = su._resting;
-            if (su._blocked !== undefined) uiUnit._blocked = su._blocked;
-            if (su._isDead && !uiUnit._isDead) {
-                uiUnit._isDead = true;
-                uiUnit._flash = 'dead';
-            }
-        };
-        c.UI.allyTeam.forEach(syncFields);
-        c.UI.enemyTeam.forEach(syncFields);
-        state.units.forEach(su => {
-            if (su.camp === 'ally' && !c.UI.allyTeam.find(u => u.uid === su.uid)) c.UI.allyTeam.push({...su});
-            if (su.camp === 'enemy' && !c.UI.enemyTeam.find(u => u.uid === su.uid)) c.UI.enemyTeam.push({...su});
-        });
-        c.UI.allyTeam = c.UI.allyTeam.filter(u => state.units.find(su => su.uid === u.uid));
-        c.UI.enemyTeam = c.UI.enemyTeam.filter(u => state.units.find(su => su.uid === u.uid));
-
-        // 死亡后保留 3 秒展示特效，然后移除
+        // 全量替换 UI 单位数组，确保与 Store 完全同步，杜绝字段遗漏
+        c.UI.allyTeam = state.units.filter(u => u.camp === 'ally').map(u => ({...u}));
+        c.UI.enemyTeam = state.units.filter(u => u.camp === 'enemy').map(u => ({...u}));
+        
+        // 死亡后保留 3 秒展示特效，然后从 Store 移除
         if (!c._deathTimers) c._deathTimers = {};
         for (const su of state.units) {
             if ((su._isDead || su.alive === false) && !c._deathTimers[su.uid]) {
