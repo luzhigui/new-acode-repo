@@ -25,6 +25,7 @@ function escapeHtml(text) {
         '../core/01config-5v5-test.js', '../core/02unit.js',
         '../core/03battle-utils.js', '../core/04buff-system.js', '../core/05battle-horse.js',
         '../core/06battle-engine-core.js', '../core/07battle-engine-5v5-test.js',
+        '../core/47battle-attack.js', '../core/48battle-round.js',
         // player（播放器）
         '../player/08player-text.js', '../player/09player-buff-ui.js', '../player/10player-core.js',
         '../player/11battle-player-5v5-test.js',
