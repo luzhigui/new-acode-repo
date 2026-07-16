@@ -14,13 +14,14 @@ let preManualSpeedLock = false;
 let preManualSpeedValue = null;
 
 function getButtonBySpeedValue(val, isDebug) {
-    if (val === 500) {
+    // 常速500不高亮任何按钮
+    if (val === 250) {           // 2倍速
         return isDebug ? document.getElementById('btnSpeed2x') : document.getElementById('btnSpeed2');
-    } else if (val === 143) {
+    } else if (val === 71) {    // 约7倍速
         return document.getElementById('btnSpeed7x');
-    } else if (val === 250) {
+    } else if (val === 125) {   // 4倍速
         return document.getElementById('btnSpeed4x');
-    } else if (val === 1800) {
+    } else if (val === 1800) {  // 0.5倍速
         return isDebug ? document.getElementById('btnSpeed05x') : document.getElementById('btnSpeed05');
     }
     return null;
@@ -143,16 +144,19 @@ function restoreSpeedFromScroll() {
     if (ctx && ctx._scheduler) ctx._scheduler.setSpeed(1);
 }
 
-// 初始化倍速按钮
-attachSpeedButton('btnSpeed2', 500);
-attachSpeedButton('btnSpeed7x', 143);
-attachSpeedButton('btnSpeed4x', 250);
-attachSpeedButton('btnSpeed2x', 500);
-attachSpeedButton('btnSpeed05', 1800);
+// 初始化倍速按钮（速度值已修正为真实倍速）
+attachSpeedButton('btnSpeed2', 250);   // 2倍速 = 250ms延迟
+attachSpeedButton('btnSpeed7x', 71);   // 7倍速 ≈ 71ms延迟
+attachSpeedButton('btnSpeed4x', 125);  // 4倍速 = 125ms延迟
+attachSpeedButton('btnSpeed2x', 250);
+attachSpeedButton('btnSpeed05', 1800); // 0.5倍速 = 1800ms延迟
 attachSpeedButton('btnSpeed05x', 1800);
 
-// 初始默认 2 倍速高亮
-setSpeed(500, true);
+// 初始默认 2 倍速高亮（速度为250ms延迟）
+setState.speed(250);
+manualSpeedLock = true;
+manualSpeedValue = 250;
+slideSpeedActive = true;
 updateSpeedButtons();
 
 // ==================== 更新按钮状态 ====================

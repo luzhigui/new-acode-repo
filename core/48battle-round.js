@@ -12,72 +12,14 @@ import {
     transformXiaoZhao, canXingFenTrigger, consumeXingFen, applyXingFenPenalty, isXiaoZhaoPermanentActive
 } from '../modules/23elite-skills.js';
 import { selectTarget, processUnitAttack } from './47battle-attack.js';
+import { getNextAvailableUnit, finalizeDeaths, emitFullUnitState, checkZhangSwitch } from './06battle-engine-core.js';
 
 const C = CONFIG;
 
 // 从47battle-attack和06battle-engine-core中需要的辅助函数
 // 这些函数在06中定义，但回合模块也需要，为避免循环引用，在此处声明后由外部注入
 // 实际使用时将通过参数传入或从window获取
-function getNextAvailableUnit(team) {
-    return team.filter(c => c.alive && !c._acted).sort((a, b) => a.pos - b.pos)[0] || null;
-}
-
-function finalizeDeaths(team) {
-    for (const u of team) {
-        if (u.hp <= 0 && u.alive) {
-            u.hp = 0;
-            u.alive = false;
-            u._isDead = true;
-            if (!u._deathTime) u._deathTime = Date.now();
-            // emitEvent 将在回合主循环中统一处理
-        }
-    }
-}
-
-function emitFullUnitState(unit, eventType) {
-    if (typeof window._emitEvent === 'function') {
-        window._emitEvent(unit, eventType, {
-            uid: unit.uid,
-            name: unit.name,
-            role: unit.role,
-            camp: unit.camp,
-            pos: unit.pos,
-            hp: unit.hp,
-            maxHp: unit.maxHp,
-            atk: unit.atk,
-            def: unit.def,
-            alive: unit.alive,
-            isHorse: unit.isHorse || false,
-            _isDead: unit._isDead || false
-        });
-    }
-}
-
-function checkZhangSwitch(A, log) {
-    let zhang = A.find(c => c.isZhang && c.alive && !c._zhangSwitched);
-    if (!zhang) return;
-    let col = (zhang.pos - 1) % 3;
-    let hasFrontAlly = A.some(c => c.alive && !c.isHorse && c.pos === 1 + col && c.uid !== zhang.uid);
-    if (!hasFrontAlly) {
-        zhang.rangedForm = false; zhang.atk += 3; zhang.def += 2;
-        zhang.maxHp = Math.min(zhang.maxHp + 50, zhang._baseMaxHp * 2);
-        zhang.hp = Math.min(zhang.hp + 50, zhang.maxHp); zhang.role = '战士';
-        zhang._blocked = false; zhang._resting = false; zhang._zhangSwitched = true;
-        zhang._baseMaxHp = zhang.maxHp;
-        if (typeof window._emitEvent === 'function') {
-            window._emitEvent(zhang, 'zhang-switch', {
-                atk: zhang.atk,
-                def: zhang.def,
-                maxHp: zhang.maxHp,
-                hp: zhang.hp,
-                role: zhang.role,
-                rangedForm: false
-            });
-        }
-        log.push({ type:'info', text:`<span class="gold">⚔️ 张无忌切换近战形态！攻+3、防+2、生命上限+50</span>`, isZhangSwitch:true, unit: zhang });
-        log.push({ type:'info', text:`<span class="gold">🗣️ 张无忌：不好，要顶上去了！</span>`, isZhangTaunt:true });
-    }
-}
+// 已移至 06battle-engine-core.js，通过 import 使用
 
 export function* createRoundStepper(state) {
     if (!state.allAllies) {
@@ -103,14 +45,36 @@ export function* createRoundStepper(state) {
     A._activeBuffs = state.activeBuffs.filter(b => b.target === 'ally' || !b.target);
     B._activeBuffs = state.activeBuffs.filter(b => b.target === 'enemy');
 
-    // 为团队圣火令打印日志
+    // 圣火令：团队每回合追加随机行列效果（持续2回合），小昭在团队消失后每回合追加固定行列效果（持续1回合）
+    if (hasBuff(A._activeBuffs, 'holyFlame')) {
+        A._activeBuffs.push({
+            key: 'holyFlame', target: 'ally', remaining: 2, name: '圣火令',
+            col: Math.floor(Math.random() * 3) + 1,
+            row: Math.floor(Math.random() * 3) + 1,
+            _xiaoZhao: false
+        });
+    }
+    const xiaoZhao = A.find(u => u.isXiaoZhao && u.alive);
+    if (xiaoZhao && xiaoZhao._permanentBuffs && xiaoZhao._permanentBuffs.some(b => b.key === 'holyFlame') && !hasBuff(A._activeBuffs, 'holyFlame')) {
+        A._activeBuffs.push({
+            key: 'holyFlame', target: 'ally', remaining: 1, name: '圣火令',
+            col: (xiaoZhao.pos - 1) % 3 + 1,
+            row: Math.ceil(xiaoZhao.pos / 3),
+            _xiaoZhao: true
+        });
+    }
+    const ctx = window._getPlayerContext?.();
+    if (ctx) ctx.activeBuffs = A._activeBuffs;
+
+    // 圣火令日志
     for (const buff of A._activeBuffs) {
-        if (buff.key === 'holyFlame' && !buff._xiaoZhao) {
+        if (buff.key === 'holyFlame' && buff.col && buff.row) {
             let colUnits = A.filter(u => u.alive && getUnitCol(u.pos) === buff.col);
             let rowUnits = A.filter(u => u.alive && getUnitRow(u.pos) === buff.row);
             let atkNames = colUnits.map(u=>u.name).join('、') || '无';
             let defNames = rowUnits.map(u=>u.name).join('、') || '无';
-            log.push({type:'buff-summary', text:`<span class="gold">🔥 圣火令（团队）：第${buff.col}列(${atkNames})攻击+30%，第${buff.row}行(${defNames})防御+30%</span>`, buffType:'buff_stat'});
+            const label = buff._xiaoZhao ? '🦋 圣火令（小昭）' : '🔥 圣火令（团队）';
+            log.push({type:'buff-summary', text:`<span class="gold">${label}：第${buff.col}列(${atkNames})攻击+30%，第${buff.row}行(${defNames})防御+30%</span>`, buffType:'buff_stat'});
         }
     }
 
@@ -145,8 +109,7 @@ export function* createRoundStepper(state) {
     // 小昭蝶变：每回合随机变换职业
     A.forEach(u => { if (u.isXiaoZhao && u.alive) transformXiaoZhao(u, log); });
 
-    // 小昭永久拒马 + 圣火令
-    const xiaoZhao = A.find(u => u.isXiaoZhao && u.alive);
+    // 小昭永久拒马（xiaoZhao 已在上方定义）
     let teamHasHorse = hasBuff(A._activeBuffs, 'horseFormation');
     let hasPermanentHorse = xiaoZhao && !teamHasHorse && xiaoZhao._permanentBuffs && xiaoZhao._permanentBuffs.some(b => b.key === 'horseFormation');
     if (!hasPermanentHorse) {
@@ -161,21 +124,6 @@ export function* createRoundStepper(state) {
         if (xzHorse) {
             log.push({type:'buff-summon', text:`<span class="gold">🐴 小昭的拒马在${xzHorse.pos}号位出现！</span>`, buffType:'summon', horsePos: xzHorse.pos, horseUid: xzHorse.uid, horseTaunt: '嗷——！'});
         }
-    }
-    if (xiaoZhao && xiaoZhao._permanentBuffs && xiaoZhao._permanentBuffs.some(b => b.key === 'holyFlame') && !hasBuff(A._activeBuffs, 'holyFlame')) {
-        const col = (xiaoZhao.pos - 1) % 3 + 1;
-        const row = Math.ceil(xiaoZhao.pos / 3);
-        A._activeBuffs = A._activeBuffs || [];
-        A._activeBuffs.push({ key: 'holyFlame', target: 'ally', remaining: 1, name: '圣火令', col: col, row: row, _xiaoZhao: true });
-        const ctx = window._getPlayerContext?.();
-        if (ctx) {
-            ctx.activeBuffs = A._activeBuffs;
-        }
-        let colUnits = A.filter(u => u.alive && getUnitCol(u.pos) === col);
-        let rowUnits = A.filter(u => u.alive && getUnitRow(u.pos) === row);
-        let atkNames = colUnits.map(u=>u.name).join('、') || '无';
-        let defNames = rowUnits.map(u=>u.name).join('、') || '无';
-        log.push({type:'buff-summary', text:`<span class="gold">🦋 圣火令（小昭）：第${col}列(${atkNames})攻击+30%，第${row}行(${defNames})防御+30%</span>`, buffType:'buff_stat'});
     }
 
     // 苦练：宋青书每次行动前给全体队友+1攻+1防+2生命上限，自身翻倍
@@ -240,21 +188,18 @@ export function* createRoundStepper(state) {
             });
         }
         if (hasCarryActive && u.pos === 5 && u._baseMaxHp !== undefined && !u.isHorse) {
+            // 先回退旧加成
             if (u.maxHp > 0 && u._baseMaxHp > 0) {
                 u.hp = Math.floor(u.hp * (u._baseMaxHp / u.maxHp));
             }
             u.maxHp = u._baseMaxHp;
             if (u._baseAtk !== undefined) u.atk = u._baseAtk;
             if (u._baseDef !== undefined) u.def = u._baseDef;
+            // 再应用新加成
             if (stats.carryAtkAbs) u.atk += Math.floor(stats.carryAtkAbs);
             if (stats.carryDefAbs) u.def += Math.floor(stats.carryDefAbs);
             if (stats.carryHpAbs) {
                 let extraHp = Math.floor(stats.carryHpAbs);
-                if (u.maxHp > u._baseMaxHp) {
-                    let hpRatio = u.hp / u.maxHp;
-                    u.hp = Math.floor(hpRatio * u._baseMaxHp);
-                    u.maxHp = u._baseMaxHp;
-                }
                 let newMaxHp = Math.min(u._baseMaxHp + extraHp, u._baseMaxHp * 2);
                 u.hp += extraHp;
                 u.maxHp = newMaxHp;
@@ -265,10 +210,22 @@ export function* createRoundStepper(state) {
             if (stats.carryAtkAbs || stats.carryDefAbs || stats.carryHpAbs) {
                 log.push({ type:'info', text:`<span class="gold">👑 carry：${u.name} 获得队友属性加成 攻+${stats.carryAtkAbs} 防+${stats.carryDefAbs} 血上限+${stats.carryHpAbs}</span>` });
             }
+        } else if (u.pos === 5 && u._baseMaxHp !== undefined && !u.isHorse && !hasCarryActive) {
+            // carry 过期，回退全部加成
+            if (u.maxHp > 0 && u._baseMaxHp > 0) {
+                u.hp = Math.floor(u.hp * (u._baseMaxHp / u.maxHp));
+            }
+            u.maxHp = u._baseMaxHp;
+            if (u._baseAtk !== undefined) u.atk = u._baseAtk;
+            if (u._baseDef !== undefined) u.def = u._baseDef;
+            if (typeof window._emitEvent === 'function') {
+                window._emitEvent(u, 'hp-change', { hp: u.hp, maxHp: u.maxHp, alive: u.alive, atk: u.atk, def: u.def });
+            }
         }
         u._extinctionUsed = false;
         u._acted = false;
         u._doubleStriked = false;
+        u._linkTriggered = false;
         u._xingFenPenaltyCount = u._xingFenPenaltyCount || 0;
         if (u.name === '成昆') u._phantomTarget = null;
     });
@@ -287,6 +244,7 @@ export function* createRoundStepper(state) {
         u._extinctionUsed = false;
         u._acted = false;
         u._doubleStriked = false;
+        u._linkTriggered = false;
         u._xingFenPenaltyCount = u._xingFenPenaltyCount || 0;
         if (u.name === '成昆') u._phantomTarget = null;
     });
@@ -385,7 +343,10 @@ export function* createRoundStepper(state) {
 
         processUnitAttack(unit, allySide, enemySide, log, A, B, state, doubleStrikeUnitUid);
 
-        currentSide = currentSide === 'ally' ? 'enemy' : 'ally';
+        // 苦练不占用行动次数，不切换阵营
+        if (unit !== kuLianUnit) {
+            currentSide = currentSide === 'ally' ? 'enemy' : 'ally';
+        }
 
         finalizeDeaths(A);
         finalizeDeaths(B);

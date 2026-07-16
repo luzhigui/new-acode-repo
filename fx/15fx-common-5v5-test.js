@@ -133,6 +133,25 @@ export function showKuLianEffect(unit, team) {
     });
 }
 
+/**
+ * 获取单位对应的格子 DOM 元素（公共工具，避免多文件重复定义）
+ */
+export function getCellElement(unit) {
+    if (!unit || unit.pos == null) return null;
+    const grid = document.getElementById(unit.camp === 'ally' ? 'allyGrid' : 'enemyGrid');
+    if (!grid) return null;
+    const order = unit.camp === 'enemy' ? [7,8,9,4,5,6,1,2,3] : [1,2,3,4,5,6,7,8,9];
+    const idx = order.indexOf(unit.pos);
+    return idx >= 0 ? grid.children[idx] : null;
+}
+
+/**
+ * 异步等待（公共工具，避免多文件重复定义）
+ */
+export function wait(ms) {
+    return new Promise(r => setTimeout(r, window._fastForwardActive ? 1 : ms));
+}
+
 // ==================== 全屏横幅 ====================
 function createBuffBannerEl() { let d = document.createElement('div'); d.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);font-size:2.5rem;font-weight:bold;color:#ffd700;z-index:10030;pointer-events:none;text-shadow:0 0 20px rgba(255,215,0,0.8);white-space:nowrap;animation:bannerPop 1.5s ease-out forwards;'; return d; }
 initPool('buffBanner', createBuffBannerEl);

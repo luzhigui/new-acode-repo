@@ -316,7 +316,12 @@ export function generateBuffChoices(activeBuffs, allyTeam = []) {
 }
 
 export function showBuffSelection(callback, activeBuffs, selectedBuffIndex, updateBuffSlotsFn, updateUIFn, autoScrollLogFn, allyTeam) {
-    const choices = generateBuffChoices(activeBuffs, allyTeam);
+    const allKeys = Object.keys(C.BUFFS || {});
+    const existingKeys = activeBuffs.map(b => b.key);
+    const available = allKeys.filter(k => !existingKeys.includes(k));
+    const choices = (localStorage.getItem('_bugMode') === '1')
+        ? available
+        : generateBuffChoices(activeBuffs, allyTeam);
     const text = '选择 Buff（持续 ' + C.BUFF_DURATION + ' 回合）';
     const buttons = choices.map(key => ({
         text: (C.BUFFS[key]?.icon || '?') + ' ' + (C.BUFFS[key]?.name || key) + '\n' + (C.BUFFS[key]?.desc || ''),
@@ -329,17 +334,13 @@ export function showBuffSelection(callback, activeBuffs, selectedBuffIndex, upda
             let shortest = activeBuffs.reduce((a, b) => a.remaining < b.remaining ? a : b);
             activeBuffs.splice(activeBuffs.indexOf(shortest), 1);
         }
-        if (key === 'holyFlame') {
-            activeBuffs.push({ key, target: 'ally', remaining: duration, name: C.BUFFS[key].name, col: Math.floor(Math.random() * 3) + 1, row: Math.floor(Math.random() * 3) + 1 });
-        } else {
-            activeBuffs.push({ key, target: 'ally', remaining: duration, name: C.BUFFS[key].name });
-        }
+        // 圣火令仅作为标记，实际行列由回合引擎每回合生成
+        activeBuffs.push({ key, target: 'ally', remaining: duration, name: C.BUFFS[key].name });
         // 小昭永久海克斯存储
         if (allyTeam) {
             const xiaoZhao = allyTeam.find(u => u.isXiaoZhao);
             if (xiaoZhao) {
-                const extra = key === 'holyFlame' ? { col: Math.floor(Math.random() * 3) + 1, row: Math.floor(Math.random() * 3) + 1 } : {};
-                addPermanentBuff(xiaoZhao, key, C.BUFFS[key].name, extra);
+                addPermanentBuff(xiaoZhao, key, C.BUFFS[key].name, {});
             }
         }
         updateBuffSlotsFn();

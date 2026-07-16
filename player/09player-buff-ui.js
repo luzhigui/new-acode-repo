@@ -1,5 +1,5 @@
 // player/09player-buff-ui.js - 光明顶5v5 Buff弹窗与横幅
-// V5.1.0 | ~8171 bytes | 2026-07-05
+// V5.1.0 | ~8171 bytes | 2026-07-16 移除兜底分支，强制走Store
 export const VER = 'player/09player-buff-ui.js V5.1.0';
 
 import { CONFIG } from '../core/01config-5v5-test.js';
@@ -24,8 +24,14 @@ export function showBuffPopup(c) {
         let available = allKeys.filter(k => !existingKeys.includes(k));
         if (available.length === 0) { resolve(null); return; }
 
-        let shuffled = [...available].sort(() => Math.random() - 0.5);
-        let choices = shuffled.slice(0, CONFIG.BUFF_CHOICES || 3);
+        let choices;
+        if (localStorage.getItem('_bugMode') === '1') {
+            // Bug 模式：展示所有 Buff 供自由选择
+            choices = available;
+        } else {
+            let shuffled = [...available].sort(() => Math.random() - 0.5);
+            choices = shuffled.slice(0, CONFIG.BUFF_CHOICES || 3);
+        }
         let text = '选择 Buff（持续 ' + (CONFIG.BUFF_DURATION || 4) + ' 回合）';
         let buttons = choices.map(key => {
             let buff = CONFIG.BUFFS[key] || { name: key, icon: '?' };
@@ -47,12 +53,13 @@ export function showBuffPopup(c) {
                 if (floatBtn) floatBtn.remove();
                 let duration = CONFIG.BUFFS[b.value]?.duration || CONFIG.BUFF_DURATION || 4;
                 const newBuff = { key: b.value, target: 'ally', remaining: duration, name: CONFIG.BUFFS[b.value]?.name || b.value };
+                // 圣火令仅作为标记，实际行列由回合引擎每回合生成
                 // 小昭永久海克斯存储
                 const ctx = window._getPlayerContext?.();
                 if (ctx && ctx.UI && ctx.UI.allyTeam) {
                     const xiaoZhao = ctx.UI.allyTeam.find(u => u.isXiaoZhao);
                     if (xiaoZhao) {
-                        addPermanentBuff(xiaoZhao, b.value, newBuff.name, b.value === 'holyFlame' ? { col: newBuff.col, row: newBuff.row } : {});
+                        addPermanentBuff(xiaoZhao, b.value, newBuff.name, {});
                         // 同步回 snapshot，确保引擎 clone 时拿到最新 _permanentBuffs
                         if (ctx.snapshot && ctx.snapshot.ally) {
                             const snapXz = ctx.snapshot.ally.find(u => u.isXiaoZhao);
@@ -137,20 +144,7 @@ export async function handleBuffSummon(c, entry, prevEntry) {
         buffAtkBonus: 0, buffDefBonus: 0, buffDodgeBonus: 0, buffHpBonus: 0
     };
     // 通过 Store dispatch 添加单位，subscribe 会自动同步到 c.UI.allyTeam
-    if (c.store) {
-        c.store.dispatch({ type: 'ADD_UNIT', unit: horseData });
-    } else {
-        // 兜底：如果没有 Store（极端情况），保留直接操作
-        let horse = new Unit('拒马', 20, '防战', 'ally');
-        horse.uid = entry.horseUid;
-        horse.pos = entry.horsePos;
-        horse.alive = true;
-        horse.hp = 20; horse.maxHp = 20; horse.atk = 0; horse.def = 5;
-        horse.isHorse = true; horse._originalPos = entry.horsePos;
-        if (!c.UI.allyTeam.some(u => u.uid === horse.uid)) {
-            c.UI.allyTeam.push(horse);
-        }
-    }
+    c.store.dispatch({ type: 'ADD_UNIT', unit: horseData });
     // 保留 lastSnapshot 快照，后续可改为从 Store 计算，暂时保留直接赋值
     c.UI.lastSnapshot = { ally: c.UI.allyTeam.map(u => ({...u})), enemy: c.UI.enemyTeam.map(u => ({...u})) };
     if (entry.horseTaunt) {
@@ -172,14 +166,7 @@ export async function handleBuffSummon(c, entry, prevEntry) {
 
 export async function handleBuffDestroy(c, entry, prevEntry) {
     // 通过 Store dispatch 移除单位
-    if (c.store) {
-        c.store.dispatch({ type: 'REMOVE_UNIT', uid: entry.horseUid });
-    } else {
-        let idx = c.UI.allyTeam.findIndex(u => u.uid === entry.horseUid);
-        if (idx >= 0) {
-            c.UI.allyTeam.splice(idx, 1);
-        }
-    }
+    c.store.dispatch({ type: 'REMOVE_UNIT', uid: entry.horseUid });
     // 保留 lastSnapshot 快照
     c.UI.lastSnapshot = { ally: c.UI.allyTeam.map(u => ({...u})), enemy: c.UI.enemyTeam.map(u => ({...u})) };
     c.isPaused = true;

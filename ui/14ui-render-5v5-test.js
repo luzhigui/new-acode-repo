@@ -44,18 +44,16 @@ export function isUnitBenefitedByBuff(unit, buffKey, allyTeam, doubleStrikeUid, 
         case 'carry': return unit.pos === 5 && unit.alive;
         case 'meteorShower': return unit.role === '远程';
         case 'bloodthirst': return unit.role === '战士';
-        case 'fortify': return unit.role === '防战';
+        case 'fortify': return unit.role === '防战' && unit.camp === 'ally';
         case 'windAssault': return unit.role === '飞行';
         case 'cloudBody': return true;
         case 'holyFlame': {
             if (!activeBuffs) return false;
-            let holyBuff = activeBuffs.find(b => b.key === 'holyFlame');
-            if (!holyBuff) return false;
-            let col = holyBuff.col, row = holyBuff.row;
-            if (col == null || row == null) return false;
+            let holyBuffs = activeBuffs.filter(b => b.key === 'holyFlame');
+            if (holyBuffs.length === 0) return false;
             let unitCol = (unit.pos - 1) % 3 + 1;
             let unitRow = Math.ceil(unit.pos / 3);
-            return unitCol === col || unitRow === row;
+            return holyBuffs.some(b => b.col === unitCol || b.row === unitRow);
         }
         case 'hotBlood': return true;
         case 'doubleStrike': return unit.uid === doubleStrikeUid && doubleStrikeUid != null;
@@ -106,7 +104,15 @@ function updateDetailPopupContent() {
     let allyTeam = ctx.UI.allyTeam || [];
     let activeBuffs = ctx.activeBuffs || [];
     let doubleStrikeUid = ctx.currentDoubleStrikeUid;
-    let unitBuffs = activeBuffs.filter(b => isUnitBenefitedByBuff(u, b.key, allyTeam, doubleStrikeUid, activeBuffs));
+    // 正确统计所有覆盖该单位的圣火令
+    let holyFlameBuffs = activeBuffs.filter(b => 
+        b.key === 'holyFlame' && (b.col === (u.pos - 1) % 3 + 1 || b.row === Math.ceil(u.pos / 3))
+    );
+    let unitBuffs = activeBuffs.filter(b => b.key !== 'holyFlame' && isUnitBenefitedByBuff(u, b.key, allyTeam, doubleStrikeUid, activeBuffs));
+    if (holyFlameBuffs.length > 0) {
+        // 把圣火令加进去，让它在弹窗的Buff列表里显示出来
+        unitBuffs.push({ key: 'holyFlame', name: '圣火令', icon: '🔥', remaining: holyFlameBuffs[0].remaining });
+    }
     let buffText = '无';
     let masteryText = '';
     if (u.isXiaoZhao) {
@@ -320,12 +326,11 @@ export function renderGrid(id, camp) {
         }
         let buffIcons = '';
         if (ctx && camp === 'ally') {
-            let unitBuffs = activeBuffs.filter(b => isUnitBenefitedByBuff(unit, b.key, allyTeam, doubleStrikeUid, activeBuffs));
-            // 手动处理图标，以便显示 "x2"
+            // 统计所有 Buff 的图标，依靠 activeBuffs 自身的正确性
             let iconMap = {};
-            unitBuffs.forEach(b => {
+            activeBuffs.forEach(b => {
                 let info = CONFIG.BUFFS ? CONFIG.BUFFS[b.key] : null;
-                if (info && info.icon) {
+                if (info && info.icon && isUnitBenefitedByBuff(unit, b.key, allyTeam, doubleStrikeUid, activeBuffs)) {
                     iconMap[info.icon] = (iconMap[info.icon] || 0) + 1;
                 }
             });
