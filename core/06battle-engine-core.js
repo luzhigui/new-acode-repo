@@ -11,7 +11,7 @@ import {
     checkExtinctionCounter, checkNineYinClaw, getRebelTarget, getRebelDmgBonus, getRebelTrueDmg,
     getPhantomThunderBonus, applyXuanmingPalm, tickXuanmingPoison, getHornStrikeBonus,
     checkKuLian, applyXingFenGrant, applyXinHunDeduction, tickKuaiLeHeal, canXingFenTrigger, consumeXingFen, applyXingFenPenalty,
-    applyXiaoZhaoDerived, transformXiaoZhao, applyDamageModifiers
+    applyXiaoZhaoDerived, transformXiaoZhao, applyDamageModifiers, isXiaoZhaoPermanentActive
 } from '../modules/23elite-skills.js';
 const C = CONFIG, DT = DEF_TAUNT, HT = HP_TAUNT;
 
@@ -282,10 +282,10 @@ function processUnitAttack(unit, allySide, enemySide, log, A, B, state, doubleSt
             }
         }
     }
-    // 小昭永久惑人心智：20%概率混乱敌方，使其攻击自己人
+    // 小昭永久惑人心智：20%概率混乱敌方，使其攻击自己人（仅团队惑人心智消失后激活）
     if (target && unit.camp === 'enemy') {
         const xiaoZhao = enemySide.find(u => u.isXiaoZhao && u.alive);
-        if (xiaoZhao && xiaoZhao._permanentBuffs && xiaoZhao._permanentBuffs.some(b => b.key === 'mindControl')) {
+        if (xiaoZhao && xiaoZhao._permanentBuffs && xiaoZhao._permanentBuffs.some(b => b.key === 'mindControl') && !hasBuff(enemySide._activeBuffs, 'mindControl')) {
             if (Math.random() < 0.20) {
                 // 敌方阵营中随机选一个存活非拒马单位作为攻击目标
                 const xzFakeTarget = enemySide.find(u => u.uid !== unit.uid && u.alive && !u.isHorse);
@@ -400,21 +400,29 @@ function processUnitAttack(unit, allySide, enemySide, log, A, B, state, doubleSt
     if (unit.name === '成昆') {
         unit._phantomTarget = null;
     }
-    // 成昆幻影伪装：攻击后随机模仿一个对方单位
+    // 成昆幻影伪装：攻击后随机模仿一个对方单位，并回复已损失生命值的30%
     if (unit.name === '成昆' && dmg > 0) {
         const enemyAlive = enemySide.filter(u => u.alive && !u.isHorse);
         if (enemyAlive.length > 0) {
             unit._phantomTarget = enemyAlive[rand(0, enemyAlive.length - 1)].uid;
+            // 变身回复已损失生命值的30%
+            const lostHp = unit.maxHp - unit.hp;
+            if (lostHp > 0) {
+                const heal = Math.floor(lostHp * 0.3);
+                unit.hp = Math.min(unit.maxHp, unit.hp + heal);
+                unit.healDone += heal;
+                group.entries.push({type:'info', text:`<span class="green">🎭 成昆幻影变身：回复已损失生命30%（+${heal}）</span>`, isHealEntry:true, healAmount:heal, healUnitUid:unit.uid});
+            }
             emitEvent(unit, 'hp-change', { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: unit.atk, def: unit.def, _phantomTarget: unit._phantomTarget });
         }
     }
     let defReduced = 0;
-    // 防战被攻击时积攒防御：每次被攻击 +0.5，上限 +6
+    // 防战被攻击时积攒防御：每次被攻击 +1，上限 +6
     if (target.role === '防战' && dmg > 0) {
         if (!target._fortifyStacks) target._fortifyStacks = 0;
         if (target._fortifyStacks < 6) {
-            target._fortifyStacks += 0.5;
-            target.def += 0.5;
+            target._fortifyStacks += 1;
+            target.def += 1;
         }
     }
     if (unit.role === '战士' && dmg > 0 && target.def > 0) {
@@ -465,6 +473,10 @@ function processUnitAttack(unit, allySide, enemySide, log, A, B, state, doubleSt
     group.entries.push({type:'damage-text', deadFlag:dead, text:`<span class="damage-line ${dead?'brush-red':''} ${ac}">${dead?'💀击杀💀 ':''}${campA} ${unit.name}</span> 造成 <span class="red">${dmg}</span> 伤害，<span class="${dc}">${campD} ${target.name}</span> ${hpBefore} → ${Math.floor(target.hp)} ${dead?'💀阵亡':''}`});
     if (defReduced > 0) {
         group.entries.push({type:'detail', text:`<span class="purple small">🗡️ ${unit.name} 破防：${target.name} 防御 -${defReduced}</span>`});
+    }
+    // 防战被攻击积攒防御日志
+    if (target.role === '防战' && dmg > 0 && target._fortifyStacks !== undefined) {
+        group.entries.push({type:'detail', text:`<span class="blue small">🛡️ ${target.name} 坚盾：防御+1（已叠${target._fortifyStacks}/6）</span>`});
     }
 
     // ★ 普攻事件快照：在精英技能/特效之前抓取，只含本次普攻的血量变化
@@ -641,8 +653,8 @@ function processUnitAttack(unit, allySide, enemySide, log, A, B, state, doubleSt
             log.push({type:'info', text:`<span class="gray">⚡ 概率连击触发失败，${unit.name} 未能再次攻击</span>`});
         }
     }
-    // 小昭永久概率连击：80%概率触发，锁定同一目标直到目标死亡
-    if (unit.isXiaoZhao && unit._permanentBuffs && unit._permanentBuffs.some(b => b.key === 'doubleStrike') && unit.alive && !unit._xiaoZhaoDoubleStriked) {
+    // 小昭永久概率连击：80%概率触发，锁定同一目标（仅团队概率连击消失后激活）
+    if (unit.isXiaoZhao && unit._permanentBuffs && unit._permanentBuffs.some(b => b.key === 'doubleStrike') && unit.alive && !unit._xiaoZhaoDoubleStriked && !hasBuff(A._activeBuffs, 'doubleStrike')) {
         const xzDoubleStrikeChance = window._xzDoubleStrikeChance ?? 80;
         if (rand(1, 100) <= xzDoubleStrikeChance) {
             unit._xiaoZhaoDoubleStriked = true; unit._acted = false;
@@ -731,13 +743,16 @@ export function* createRoundStepper(state) {
     // 小昭蝶变：每回合随机变换职业
     A.forEach(u => { if (u.isXiaoZhao && u.alive) transformXiaoZhao(u, log); });
 
-    // 小昭永久拒马 + 圣火令
+    // 小昭永久拒马 + 圣火令（仅团队海克斯消失后才激活）
     const xiaoZhao = A.find(u => u.isXiaoZhao && u.alive);
-    let hasPermanentHorse = xiaoZhao && xiaoZhao._permanentBuffs && xiaoZhao._permanentBuffs.some(b => b.key === 'horseFormation');
+    let teamHasHorse = hasBuff(A._activeBuffs, 'horseFormation');
+    let hasPermanentHorse = xiaoZhao && !teamHasHorse && xiaoZhao._permanentBuffs && xiaoZhao._permanentBuffs.some(b => b.key === 'horseFormation');
     if (!hasPermanentHorse) {
         const ctx = window._getPlayerContext?.();
         const uiXz = ctx?.UI?.allyTeam?.find(u => u.isXiaoZhao);
-        hasPermanentHorse = uiXz && uiXz._permanentBuffs && uiXz._permanentBuffs.some(b => b.key === 'horseFormation');
+        if (uiXz && !teamHasHorse) {
+            hasPermanentHorse = uiXz._permanentBuffs && uiXz._permanentBuffs.some(b => b.key === 'horseFormation');
+        }
     }
     if (hasPermanentHorse) {
         const xzHorse = spawnHorse(A, log, B, true);
@@ -745,7 +760,7 @@ export function* createRoundStepper(state) {
             log.push({type:'buff-summon', text:`<span class="gold">🐴 小昭的拒马在${xzHorse.pos}号位出现！</span>`, buffType:'summon', horsePos: xzHorse.pos, horseUid: xzHorse.uid, horseTaunt: '嗷——！'});
         }
     }
-    if (xiaoZhao && xiaoZhao._permanentBuffs && xiaoZhao._permanentBuffs.some(b => b.key === 'holyFlame')) {
+    if (xiaoZhao && xiaoZhao._permanentBuffs && xiaoZhao._permanentBuffs.some(b => b.key === 'holyFlame') && !hasBuff(A._activeBuffs, 'holyFlame')) {
         const col = (xiaoZhao.pos - 1) % 3 + 1;
         const row = Math.ceil(xiaoZhao.pos / 3);
         A._activeBuffs = A._activeBuffs || [];
@@ -810,7 +825,8 @@ export function* createRoundStepper(state) {
     A.forEach(u => {
         if (!u.alive) return;
         let allyTeamWithDead = A.slice();
-        if (hasBuff(A._activeBuffs, 'carry')) {
+        let hasCarryActive = hasBuff(A._activeBuffs, 'carry') || (u.isXiaoZhao && isXiaoZhaoPermanentActive(u, A._activeBuffs, 'carry'));
+        if (hasCarryActive) {
             allyTeamWithDead = allyTeamWithDead.concat((state.allAllies || state.ally).filter(c => !c.alive));
             allyTeamWithDead = allyTeamWithDead.filter((u, i, arr) => arr.findIndex(v => v.uid === u.uid) === i);
         }
@@ -821,7 +837,7 @@ export function* createRoundStepper(state) {
             buffDodgeBonus: stats.dodgeBonus,
             buffHpBonus: stats.hpBonus
         });
-        if (hasBuff(A._activeBuffs, 'carry') && u.pos === 5 && u._baseMaxHp !== undefined && !u.isHorse) {
+        if (hasCarryActive && u.pos === 5 && u._baseMaxHp !== undefined && !u.isHorse) {
             // 先按比例回退当前血量，再回退上限
             if (u.maxHp > 0 && u._baseMaxHp > 0) {
                 u.hp = Math.floor(u.hp * (u._baseMaxHp / u.maxHp));

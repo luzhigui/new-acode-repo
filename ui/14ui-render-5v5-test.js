@@ -115,7 +115,7 @@ function updateDetailPopupContent() {
         buffText = perms.length > 0 ? perms.map(b => b.name).join('、') : '无';
         // 精通进度
         const mastered = u._masteredRoles || [];
-        masteryText = mastered.length > 0 ? `<span style="color:#888;">精通</span><span>${mastered.join('、')}（${mastered.length}/4，需carry才生效）</span>` : '';
+        masteryText = mastered.length > 0 ? `<span style="color:#888;">精通</span><span>${mastered.join('、')}（${mastered.length}/4，+${mastered.length * 2}攻+${mastered.length * 3}防+${(mastered.length * 12.5).toFixed(1)}血）</span>` : '';
     } else if (unitBuffs.length > 0) {
         buffText = unitBuffs.map(b => `${b.name}(${b.remaining}回)`).join('、');
     }
@@ -140,7 +140,7 @@ function updateDetailPopupContent() {
             <span style="color:#888;">站位</span><span>${!u.alive ? '已阵亡' : (u.pos || '?') + '号位'}</span>
             <span style="color:#888;">血量</span><span style="color:${hpColor};font-weight:bold;">${Math.floor(u.hp)} / ${Math.floor(u.maxHp)} (${hpPct}%)</span>
             <span style="color:#888;">攻击</span><span>${u._baseAtk !== undefined && u.atk > u._baseAtk ? `${u._baseAtk}<span style="color:#daa520;">+${u.atk - u._baseAtk}</span> = <span style="color:#daa520;font-weight:bold;">${u.atk}</span>` : `${u.atk}${atkBonusVal > 0 ? ' <span style="color:#daa520;">+' + atkBonusVal + '</span> = ' + displayAtk : ''}`}</span>
-            <span style="color:#888;">防御</span><span>${u.def}${defBonusVal > 0 ? ' <span style="color:#daa520;">+' + defBonusVal + '</span>' : ''} = <span style="color:#daa520;font-weight:bold;">${displayDef}</span></span>
+            <span style="color:#888;">防御</span><span>${(u._fortifyStacks || 0) > 0 ? `${Math.round(u.def - u._fortifyStacks)}<span style="color:#daa520;">+${u._fortifyStacks}</span> = <span style="color:#daa520;font-weight:bold;">${Math.round(u.def)}</span>` : `${u.def}${defBonusVal > 0 ? ' <span style="color:#daa520;">+' + defBonusVal + '</span> = <span style="color:#daa520;font-weight:bold;">' + displayDef + '</span>' : ''}`}</span>
             <span style="color:#888;">造成伤害</span><span>${u.dmgDealt || 0}</span>
             <span style="color:#888;">承受伤害</span><span>${u.dmgTaken || 0}</span>
             <span style="color:#888;">治疗</span><span>${u.healDone || 0}</span>
@@ -154,10 +154,10 @@ function updateDetailPopupContent() {
                 else if (u.name === '韦一笑') skills = ['寒冰掌：攻击吸血15%，增加生命上限', '青翼蝠王：基础闪避20%，无视行动状态闪避'];
                 else if (u.name === '宋青书') skills = ['💥 叛逆突袭：优先攻击血量最高目标，附加目标当前生命10%真实伤害', '💪 苦练：场上无周芷若时最先行动；行动前全体队友+1攻+1防+2生命上限，自身翻倍', '💒 新婚：攻击扣除周芷若1血，叠快乐层（16%→10%→6%→3%）', '💗 性奋：周芷若在场时攻击后可再次行动；每次攻击后减少递增生命上限'];
                 else if (u.name === '周芷若') skills = ['🐾 九阴白骨爪：基础1+已损失1%+最大1%追击，≤12%斩杀（无忌在场：基础2+1.5%+2%，≤15%斩杀），可连锁'];
-                else if (u.name === '成昆') skills = ['💥 混元霹雳劲：附加已损失生命30%的真实伤害', '🌀 幻影伪装：攻击后模仿对方单位；对方攻击时20%概率混乱，每损失10%生命+3%'];
+                else if (u.name === '成昆') skills = ['💥 混元霹雳劲：附加已损失生命30%的真实伤害', '🌀 幻影伪装：攻击后模仿对方单位并回复已损失30%生命；对方攻击时30%概率混乱，每损失10%生命+6%'];
                 else if (u.name === '鹿杖客') skills = ['❄️ 玄冥神掌：中毒每回合损失4%→2%→1%→消失', '🔗 联动鹤笔翁：攻击后鹤笔翁立刻攻击同一目标'];
                 else if (u.name === '鹤笔翁') skills = ['🦌 鹿角杖法：忽略30%防御，中毒目标伤害+30%', '🔗 联动鹿杖客：攻击后鹿杖客立刻攻击同一目标'];
-                else if (u.name === '小昭') skills = ['🦋 蝶变：每回合随机变换职业，记录精通，+25血上限', '✨ 乾坤大挪移（衍生）：张无忌不在时，队友受伤触发减伤、治疗和攻击加成', '🛡️ 乾坤大挪移（升级）：张无忌在场时，全队减伤30%并反弹伤害', '♾️ 永久海克斯：获得的海克斯效果永久持续，按当前职业自动匹配', '🏆 精通（需carry）：每精通一个职业+4攻+4防+25血上限（最多4职业）'];
+                else if (u.name === '小昭') skills = ['🦋 蝶变：每回合随机变换职业，记录精通，+5血上限', '✨ 乾坤大挪移（衍生）：张无忌不在时，队友受伤触发减伤、治疗和攻击加成', '🛡️ 乾坤大挪移（升级）：张无忌在场时，全队减伤30%并反弹20%伤害（无忌自伤10%）', '♾️ 永久海克斯：团队海克斯消失后，小昭单独续上效果', '🏆 精通：每精通一个职业+2攻+3防+12.5血上限（最多4职业，额外+一次）'];
                 if (skills.length > 0) {
                     return `<span style="color:#888;">技能</span><span style="color:#b8860b;">${skills.join('<br>')}</span>`;
                 }
@@ -282,7 +282,11 @@ export function renderGrid(id, camp) {
         }
         let displayDef = Math.round(latestUnit.def + defBonusVal);
         let defDisplayHtml = `${displayDef}`;
-        if ((latestUnit._baseDef !== undefined && displayDef > latestUnit._baseDef) || defBonusVal > 0) {
+        let fortifyStacks = latestUnit._fortifyStacks || 0;
+        if (fortifyStacks > 0) {
+            let baseDef = Math.round(latestUnit.def - fortifyStacks + defBonusVal);
+            defDisplayHtml = `<span style="color:#daa520;font-weight:bold;" title="基础${baseDef} + 坚盾${fortifyStacks} = ${displayDef}">${baseDef}+${fortifyStacks}</span>`;
+        } else if ((latestUnit._baseDef !== undefined && displayDef > latestUnit._baseDef) || defBonusVal > 0) {
             defDisplayHtml = `<span style="color:#daa520;font-weight:bold;">${displayDef}</span>`;
         }
         let hpPct = unit.alive ? Math.floor((unit.hp / unit.maxHp) * 100) : 0;
@@ -330,7 +334,7 @@ export function renderGrid(id, camp) {
             }).join('');
         }
         let atkStyle = atkBonusVal > 0 ? 'color:#daa520;font-weight:bold;' : '';
-        let defStyle = defBonusVal > 0 ? 'color:#daa520;font-weight:bold;' : '';
+        let defStyle = (defBonusVal > 0 || (latestUnit._fortifyStacks || 0) > 0) ? 'color:#daa520;font-weight:bold;' : '';
         let hpStyle = hpBonusVal > 0 ? 'color:#daa520;font-weight:bold;' : '';
         let eliteSkillIcon = (unit.name === '周芷若' && unit._hasKuaiLe) ? ' 💖' : (unit.name === '宋青书' && unit._hasXingFen) ? ' 💗' : (unit.isXiaoZhao ? ' 🦋' : '');
         if (unit.name === '成昆' && unit._phantomTarget) eliteSkillIcon += ' 🎭';

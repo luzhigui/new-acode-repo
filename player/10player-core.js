@@ -53,7 +53,7 @@ export function clearAllEffects(){
     document.querySelectorAll('.grid.victory-border').forEach(grid => grid.classList.remove('victory-border'));
 }
 
-const GAME_STATE_FIELDS = ['hp','alive','maxHp','atk','def','role','rangedForm','_isDead','_baseMaxHp','dmgDealt','dmgTaken','healDone','reboundDone','leechDone','dodgeCount','critCount','survivedRounds','pos','buffAtkBonus','buffDefBonus','buffDodgeBonus','buffHpBonus','_phantomTarget', '_masteredRoles'];
+const GAME_STATE_FIELDS = ['hp','alive','maxHp','atk','def','role','rangedForm','_isDead','_baseMaxHp','_baseAtk','_baseDef','dmgDealt','dmgTaken','healDone','reboundDone','leechDone','dodgeCount','critCount','survivedRounds','pos','buffAtkBonus','buffDefBonus','buffDodgeBonus','buffHpBonus','_phantomTarget', '_masteredRoles', '_fortifyStacks', '_baseFangDef'];
 
 function createStore(initialState, reducer) {
     let state = initialState;

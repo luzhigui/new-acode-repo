@@ -3,6 +3,7 @@
 export const VER = 'modules/23elite-skills.js V5.0.3';
 
 import { CONFIG } from '../core/01config-5v5-test.js';
+import { hasBuff } from '../core/03battle-utils.js';
 import { showHealFloat, showAtkBuffFloat } from '../fx/15fx-common-5v5-test.js';
 const ES = CONFIG.ELITE_SKILLS;
 
@@ -245,13 +246,13 @@ export function applyDamageModifiers(unit, target, dmg, allySide, enemySide, log
     const entries = [];
     const ES = CONFIG.ELITE_SKILLS;
 
-    // 乾坤大挪移升级版：张无忌+小昭同时在场，保护2/4/6/8号位，减伤30%，反弹免伤部分，无忌自伤反弹的15%
+    // 乾坤大挪移升级版：张无忌+小昭同时在场，保护2/4/6/8号位，减伤30%，反弹原伤害20%，无忌自伤原伤害10%
     const xiaoZhao = allySide.find(u => u.isXiaoZhao && u.alive);
     const zhangUpgraded = allySide.find(c => c.isZhang && c.alive);
     if (target.camp === 'ally' && xiaoZhao && zhangUpgraded && [2, 4, 6, 8].includes(target.pos)) {
         const reducedDmg = Math.round(dmg * (1 - ES.xiaoZhao.upgradedReducePct));
-        const rebound = dmg - reducedDmg; // 反弹的是免伤掉的那部分
-        const selfDmg = Math.max(1, Math.floor(dmg * 0.15)); // 初始伤害的15%，即减免伤害的一半
+        const rebound = Math.floor(dmg * 0.20); // 反弹原伤害的20%
+        const selfDmg = Math.max(1, Math.floor(dmg * 0.10)); // 无忌自伤原伤害的10%
 
         // 反弹给攻击者
         unit.hp = Math.max(0, unit.hp - rebound);
@@ -451,7 +452,7 @@ export function transformXiaoZhao(unit, log) {
     // 职业修正参数（绝对值，累加不移除）
     const roleStats = {
         '战士': { atk: 3, def: 2, maxHp: 25 },
-        '防战': { atk: -3, def: 0, maxHp: 50 },
+        '防战': { atk: -6, def: 0, maxHp: 50 },
         '远程': { atk: 6, def: -2, maxHp: -25 },
         '飞行': { atk: 2, def: -2, maxHp: -25 }
     };
@@ -463,8 +464,15 @@ export function transformXiaoZhao(unit, log) {
     unit.atk += newStats.atk;
     unit.def += newStats.def;
 
+    // 防战形态：初始防御+1（基础加成，不叠入 _fortifyStacks）
+    if (newRole === '防战') {
+        if (!unit._baseFangDef) unit._baseFangDef = 0;
+        unit._baseFangDef += 1;
+        unit.def += 1;
+    }
+
     // 生命上限变化：上限加多少，当前血量同步加多少；上限减则血量不超过新上限
-    let hpDelta = newStats.maxHp + 10;  // 角色修正 + 额外+10
+    let hpDelta = newStats.maxHp + 5;  // 角色修正 + 额外+5
     unit.maxHp += hpDelta;
     if (hpDelta > 0) {
         unit.hp += hpDelta;
@@ -478,16 +486,18 @@ export function transformXiaoZhao(unit, log) {
 
 /**
  * 小昭 - 变身精通加成
- * 每精通一个职业：+4攻击 +4防御 +25血量上限
- * 最多精通4个职业：+20攻击 +20防御 +150血量上限
+ * 每精通一个职业：+2攻击 +3防御 +12.5血量上限
+ * 四职业精通额外+一次：+2攻 +3防 +12.5血
+ * 最多精通4个职业：+10攻击 +15防御 +62.5血量上限
  */
 export function computeButterflyMastery(unit) {
     if (!unit.isXiaoZhao || !unit._masteredRoles) return { atk: 0, def: 0, hp: 0 };
     const count = unit._masteredRoles.length;
+    const extra = count >= 4 ? 1 : 0;
     return {
-        atk: count * 3,
-        def: count * 3,
-        hp: count * 20
+        atk: (count + extra) * 2,
+        def: (count + extra) * 3,
+        hp: (count + extra) * 12.5
     };
 }
 
@@ -506,6 +516,16 @@ export function addPermanentBuff(xiaoZhao, buffKey, buffName, extraFields = {}) 
         name: buffName,
         ...extraFields
     });
+}
+
+/**
+ * 检查小昭的永久海克斯是否应该激活
+ * 规则：团队海克斯还在时用团队的，团队消失后小昭单独续上
+ */
+export function isXiaoZhaoPermanentActive(unit, activeBuffs, buffKey) {
+    if (!unit || !unit.isXiaoZhao || !unit._permanentBuffs) return false;
+    if (activeBuffs && hasBuff(activeBuffs, buffKey)) return false; // 团队还有，不用小昭的
+    return unit._permanentBuffs.some(b => b.key === buffKey);
 }
 
 /**

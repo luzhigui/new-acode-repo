@@ -38,7 +38,7 @@ const CONFIG = {
     },
     BUFFS: {
         doubleStrike: { name: '概率连击', desc: '己方随机一人80%概率额外攻击一次（持续4回合）', prob: 0.8, icon: '⚡' },
-        carry: { name: '你就是carry', desc: '5号位获得队友基础加成，死亡队友加成翻倍（持续4回合）', atkBonus: 0.08, defBonus: 0.08, hpBonus: 0.1, deathMultiplier: 3, icon: '👑' },
+        carry: { name: '你就是carry', desc: '5号位获得队友基础加成，死亡队友加成翻倍（持续3回合）', atkBonus: 0.08, defBonus: 0.08, hpBonus: 0.1, deathMultiplier: 3, duration: 3, icon: '👑' },
         cloudBody: { name: '流云身法', desc: '己方全体闪避概率+25%（持续4回合）', dodgeBonus: 0.25, icon: '💨' },
         horseFormation: { name: '巨马阵', desc: '每回合开始生成巨马(20血/0攻/5防)，回合结束50%概率销毁（持续4回合）', horseHp: 20, horseAtk: 0, horseDef: 5, spawnProb: 1.0, destroyProb: 0.5, icon: '🐴' },
         meteorShower: { name: '流星赶月', desc: '己方远程对目标造成40%额外伤害，对周围溅射30%，主箭降2防，小箭降1防（持续4回合）', bonusRatio: 0.4, splashRatio: 0.3, mainDefReduce: 2, splashDefReduce: 1, icon: '☄️' },
@@ -132,7 +132,7 @@ const CONFIG = {
             currentHpRatio: 0.1
         },
         phantomThunder: { name: '混元霹雳劲', lostHpRatio: 0.3 },
-        phantomDisguise: { name: '幻影伪装', baseChance: 0.25, per10pctLost: 0.065 },
+        phantomDisguise: { name: '幻影伪装', baseChance: 0.30, per10pctLost: 0.06 },
         xuanmingPalm: { name: '玄冥神掌', dotPercents: [0.04, 0.02, 0.01], duration: 3 },
         hornStrike: { name: '鹿角杖法', defIgnore: 0.3, poisonedBonus: 0.3 },
         // ===== V3.1.0 新增联动技能 =====

@@ -4,7 +4,7 @@ export const VER = 'core/04buff-system.js V5.0.1';
 
 import { CONFIG } from './01config-5v5-test.js';
 import { rand, hasBuff, getUnitRow, getUnitCol, getAdjacentPositions } from './03battle-utils.js';
-import { checkKuLian, applyXingFenGrant, applyXinHunDeduction, tickKuaiLeHeal, canXingFenTrigger, consumeXingFen, applyXingFenPenalty, applyXiaoZhaoDerived, computeButterflyMastery } from '../modules/23elite-skills.js';
+import { checkKuLian, applyXingFenGrant, applyXinHunDeduction, tickKuaiLeHeal, canXingFenTrigger, consumeXingFen, applyXingFenPenalty, applyXiaoZhaoDerived, computeButterflyMastery, isXiaoZhaoPermanentActive } from '../modules/23elite-skills.js';
 const C = CONFIG;
 
 export function computeBuffStats(unit, activeBuffs, allyTeam) {
@@ -25,7 +25,7 @@ export function computeBuffStats(unit, activeBuffs, allyTeam) {
     }
     // carry 加成是绝对值，单独返回，不混入 atkBonus/defBonus（那两个字段是比率，供 calcAttackDamage 做乘法用）
     let carryAtkAbs = 0, carryDefAbs = 0, carryHpAbs = 0;
-    if ((hasBuff(activeBuffs, 'carry') || (unit._permanentBuffs && unit._permanentBuffs.some(b => b.key === 'carry'))) && unit.pos === 5 && unit.alive) {
+    if ((hasBuff(activeBuffs, 'carry') || isXiaoZhaoPermanentActive(unit, activeBuffs, 'carry')) && unit.pos === 5 && unit.alive) {
         if (allyTeam) {
             let allAllies = allyTeam.filter(u => u.uid !== unit.uid && !u.isHorse);
             allAllies.forEach(a => {
@@ -38,13 +38,14 @@ export function computeBuffStats(unit, activeBuffs, allyTeam) {
     }
     if (hasBuff(activeBuffs, 'fortify') && unit.role === '防战') { defBonus += C.BUFFS.fortify.defBonus; }
     if (hasBuff(activeBuffs, 'cloudBody') && unit.camp === 'ally') { dodgeBonus = C.BUFFS.cloudBody.dodgeBonus; }
-    // 小昭永久海克斯：根据当前职业匹配职业限定Buff
+    // 小昭永久海克斯：根据当前职业匹配职业限定Buff（仅团队海克斯消失后激活）
     if (unit.isXiaoZhao && unit._permanentBuffs) {
         const roleMap = { fortify: '防战', bloodthirst: '战士', meteorShower: '远程', windAssault: '飞行' };
         unit._permanentBuffs.forEach(b => {
             if (roleMap[b.key] && unit.role !== roleMap[b.key]) return; // 职业不匹配，跳过
+            if (activeBuffs && hasBuff(activeBuffs, b.key)) return; // 团队还有，不用小昭的
             if (b.key === 'fortify' && unit.role === '防战') defBonus += 0.5;
-            if (b.key === 'cloudBody') dodgeBonus = 0.25;
+            if (b.key === 'cloudBody' && !hasBuff(activeBuffs, 'cloudBody')) dodgeBonus = 0.25;
         });
     }
 
@@ -100,8 +101,8 @@ export function applyBuffEffectsAfterAttack(unit, target, dmg, allySide, enemySi
     // ★ 修复：根据攻击者阵营获取正确的 Buff 池
     let unitBuffs = (unit.camp === 'ally' ? allySide._activeBuffs : enemySide._activeBuffs) || [];
     
-    // 小昭永久嗜血狂刀：战士形态吸血
-    if (unit.isXiaoZhao && unit.role === '战士' && unit._permanentBuffs && unit._permanentBuffs.some(b => b.key === 'bloodthirst')) {
+    // 小昭永久嗜血狂刀：战士形态吸血（仅团队海克斯消失后激活）
+    if (unit.isXiaoZhao && unit.role === '战士' && isXiaoZhaoPermanentActive(unit, unitBuffs, 'bloodthirst')) {
         let leech = Math.floor(dmg * 0.8);
         if (leech > 0) {
             unit.hp = Math.min(unit.maxHp, unit.hp + leech);
@@ -110,8 +111,8 @@ export function applyBuffEffectsAfterAttack(unit, target, dmg, allySide, enemySi
         }
     }
     
-    // 小昭永久热血奋战：攻击回血
-    if (unit.isXiaoZhao && unit._permanentBuffs && unit._permanentBuffs.some(b => b.key === 'hotBlood')) {
+    // 小昭永久热血奋战：攻击回血（仅团队海克斯消失后激活）
+    if (unit.isXiaoZhao && isXiaoZhaoPermanentActive(unit, unitBuffs, 'hotBlood')) {
         if (!unit._hotBloodCount) unit._hotBloodCount = 0;
         unit._hotBloodCount++;
         if (unit.alive && unit.hp < unit.maxHp) {
@@ -123,8 +124,8 @@ export function applyBuffEffectsAfterAttack(unit, target, dmg, allySide, enemySi
         }
     }
     
-    // 小昭永久乘风突袭：飞行形态波及同行并击退
-    if (unit.isXiaoZhao && unit.role === '飞行' && unit._permanentBuffs && unit._permanentBuffs.some(b => b.key === 'windAssault') && target.alive) {
+    // 小昭永久乘风突袭：飞行形态波及同行并击退（仅团队海克斯消失后激活）
+    if (unit.isXiaoZhao && unit.role === '飞行' && isXiaoZhaoPermanentActive(unit, unitBuffs, 'windAssault') && target.alive) {
         if (rand(1,100) <= 80) {
             let row = getUnitRow(target.pos);
             let rowTargets = enemySide.filter(u => u.alive && getUnitRow(u.pos) === row && u.uid !== target.uid);
@@ -144,8 +145,8 @@ export function applyBuffEffectsAfterAttack(unit, target, dmg, allySide, enemySi
         }
     }
     
-    // 小昭永久流星赶月：远程形态伤害加深+溅射+降防
-    if (unit.isXiaoZhao && unit.role === '远程' && unit._permanentBuffs && unit._permanentBuffs.some(b => b.key === 'meteorShower')) {
+    // 小昭永久流星赶月：远程形态伤害加深+溅射+降防（仅团队海克斯消失后激活）
+    if (unit.isXiaoZhao && unit.role === '远程' && isXiaoZhaoPermanentActive(unit, unitBuffs, 'meteorShower')) {
         let bonusDmg = Math.floor(dmg * C.BUFFS.meteorShower.bonusRatio);
         unit.dmgDealt += bonusDmg;
         if (target.alive) {
@@ -257,7 +258,7 @@ export function applyBuffEffectsAfterAttack(unit, target, dmg, allySide, enemySi
         }
     }
     
-    if ((hasBuff(unitBuffs, 'windAssault') || (unit._permanentBuffs && unit._permanentBuffs.some(b => b.key === 'windAssault'))) && unit.role === '飞行' && target.alive) {
+    if ((hasBuff(unitBuffs, 'windAssault') || isXiaoZhaoPermanentActive(unit, unitBuffs, 'windAssault')) && unit.role === '飞行' && target.alive) {
         if (rand(1,100) <= 80) {
             let row = getUnitRow(target.pos);
             let rowTargets = enemySide.filter(u => u.alive && getUnitRow(u.pos) === row && u.uid !== target.uid);
