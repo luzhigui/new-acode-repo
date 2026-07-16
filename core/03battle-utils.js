@@ -39,8 +39,8 @@ export function isBlocked(unit, allies) {
 export function getFlyDodgeRate(unit, attacker) {
     // 韦一笑：固定20%基础闪避
     if (unit.isWei) return 0.20;
-    // 其他飞行单位：15%
-    if (unit.role === '飞行') return 0.15;
+    // 其他飞行单位：15% + 攻击累加
+    if (unit.role === '飞行') return 0.15 + (unit._dodgeStack || 0) / 100;
     // 非飞行单位：0.0基础闪避（仅能通过流云身法）
     return 0;
 }

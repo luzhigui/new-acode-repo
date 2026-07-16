@@ -309,8 +309,12 @@ function processUnitAttack(unit, allySide, enemySide, log, A, B, state, doubleSt
 
     let miss = false;
     let missChance = 0;
-    if (!unit.isWei && (unit.role === '远程' || unit.role === '飞行')) {
-        missChance = 5;
+    if (unit.role === '远程') {
+        missChance = 3;
+    } else if (unit.role === '飞行') {
+        missChance = 6;
+    } else {
+        missChance = 1;
     }
     if (missChance > 0 && rand(1,100) <= missChance) {
         miss = true;
@@ -395,6 +399,14 @@ function processUnitAttack(unit, allySide, enemySide, log, A, B, state, doubleSt
         target._isDead = true;
         if (!target._deathTime) target._deathTime = Date.now();
     } else { target.hp = hpAfter; }
+    // 战士普攻斩杀：目标剩余血量 ≤ 最大血量 15% 时直接击杀
+    if (unit.role === '战士' && target.alive && target.hp > 0 && target.hp <= target.maxHp * 0.15) {
+        target.hp = 0;
+        target.alive = false;
+        target._isDead = true;
+        if (!target._deathTime) target._deathTime = Date.now();
+        dead = true;
+    }
     unit.dmgDealt += dmg; target.dmgTaken += dmg;
     // 成昆幻影伪装：攻击前变回自己
     if (unit.name === '成昆') {
@@ -564,8 +576,13 @@ function processUnitAttack(unit, allySide, enemySide, log, A, B, state, doubleSt
         emitEvent(unit, 'hp-change', { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: unit.atk, def: unit.def });
         group.entries.push({type:'detail', text:`<span class="blue small">🏹 ${unit.name} 远程熟练：攻击 +2 → ${Math.floor(unit.atk)}</span>`});
     }
+    // 飞行单位每次攻击后闪避率 +2%
+    if (unit.role === '飞行' && dmg > 0) {
+        if (!unit._dodgeStack) unit._dodgeStack = 0;
+        unit._dodgeStack += 2;
+    }
     if (unit.camp === 'ally' && unit.isWei && dmg > 0) {
-        let heal = Math.floor(dmg * 0.15);
+        let heal = Math.floor(dmg * 0.18);
         let wasFullHp = (unit.hp >= unit.maxHp);
         let newMaxHp = Math.min(unit.maxHp + heal, unit._baseMaxHp * 2);
         let hpDelta = newMaxHp - unit.maxHp;
