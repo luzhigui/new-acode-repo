@@ -1,6 +1,6 @@
 // tests/37health-rules/64-horse.js
-// V5.0.6 | ~2400 bytes | 拒马存在性检查
-export const VER = 'tests/37health-rules/64-horse.js V5.0.6';
+// V5.1.0 | ~2400 bytes | 拒马存在性检查
+export const VER = 'tests/37health-rules/64-horse.js V5.1.0';
 
 export const rule64 = {
     group: '拒马',

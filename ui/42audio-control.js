@@ -1,6 +1,6 @@
 // ui/42audio-control.js - 光明顶5v5 音频控制
-// V5.0.1 | ~800 bytes | 2026-07-07
-export const VER = 'ui/42audio-control.js V5.0.1';
+// V5.1.0 | ~800 bytes | 2026-07-07
+export const VER = 'ui/42audio-control.js V5.1.0';
 
 import { AudioManager } from '../modules/28audio-manager.js';
 

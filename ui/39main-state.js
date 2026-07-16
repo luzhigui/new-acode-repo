@@ -1,6 +1,6 @@
 // ui/39main-state.js - 光明顶5v5 状态管理
-// V5.0.1 | ~6500 bytes | 2026-07-06 统一 activeBuffs 读写，移除局部副本
-export const VER = 'ui/39main-state.js V5.0.1';
+// V5.1.0 | ~6500 bytes | 2026-07-06 统一 activeBuffs 读写，移除局部副本
+export const VER = 'ui/39main-state.js V5.1.0';
 
 import { STATE } from '../core/01config-5v5-test.js';
 import { playLineText } from '../player/11battle-player-5v5-test.js';

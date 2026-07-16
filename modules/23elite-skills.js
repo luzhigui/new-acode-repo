@@ -1,6 +1,6 @@
 // modules/23elite-skills.js - 光明顶5v5 精英技能系统
-// V5.0.2 | ~10585 bytes | 2026-07-11 补全 emitEvent 调用
-export const VER = 'modules/23elite-skills.js V5.0.3';
+// V5.1.0 | ~10585 bytes | 2026-07-11 补全 emitEvent 调用
+export const VER = 'modules/23elite-skills.js V5.1.0';
 
 import { CONFIG } from '../core/01config-5v5-test.js';
 import { hasBuff } from '../core/03battle-utils.js';

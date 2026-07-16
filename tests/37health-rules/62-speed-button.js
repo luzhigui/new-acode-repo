@@ -1,6 +1,6 @@
 // tests/37health-rules/62-speed-button.js
-// V5.0.5 | 倍速锁定状态检查
-export const VER = 'tests/37health-rules/62-speed-button.js V5.0.5';
+// V5.1.0 | 倍速锁定状态检查
+export const VER = 'tests/37health-rules/62-speed-button.js V5.1.0';
 
 export const rule62 = {
     group: '按钮状态',

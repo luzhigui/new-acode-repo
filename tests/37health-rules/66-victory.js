@@ -1,6 +1,6 @@
 // tests/37health-rules/66-victory.js
-// V5.0.5 | 胜利弹幕检查
-export const VER = 'tests/37health-rules/66-victory.js V5.0.5';
+// V5.1.0 | 胜利弹幕检查
+export const VER = 'tests/37health-rules/66-victory.js V5.1.0';
 
 export const rule66 = {
     group: '特效',

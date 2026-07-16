@@ -1,6 +1,6 @@
 // core/02unit.js - 光明顶5v5 战斗单位类
-// V5.0.1 | ~3899 bytes | 2026-07-05
-export const VER = 'core/02unit.js V5.0.1';
+// V5.1.0 | ~3899 bytes | 2026-07-05
+export const VER = 'core/02unit.js V5.1.0';
 
 import { rand } from './03battle-utils.js';
 
