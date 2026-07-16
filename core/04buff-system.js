@@ -101,85 +101,7 @@ export function applyBuffEffectsAfterAttack(unit, target, dmg, allySide, enemySi
     // ★ 修复：根据攻击者阵营获取正确的 Buff 池
     let unitBuffs = (unit.camp === 'ally' ? allySide._activeBuffs : enemySide._activeBuffs) || [];
     
-    // 小昭永久嗜血狂刀：战士形态吸血（仅团队海克斯消失后激活）
-    if (unit.isXiaoZhao && unit.role === '战士' && isXiaoZhaoPermanentActive(unit, unitBuffs, 'bloodthirst')) {
-        let leech = Math.floor(dmg * 0.8);
-        if (leech > 0) {
-            unit.hp = Math.min(unit.maxHp, unit.hp + leech);
-            unit.healDone += leech;
-            log.push({type:'buff-leech', text:`<span class="green">🦋 蝶血：小昭嗜血狂刀吸血+${leech}</span>`, isHealEntry:true, healAmount:leech, healUnitUid:unit.uid});
-        }
-    }
-    
-    // 小昭永久热血奋战：攻击回血（仅团队海克斯消失后激活）
-    if (unit.isXiaoZhao && isXiaoZhaoPermanentActive(unit, unitBuffs, 'hotBlood')) {
-        if (!unit._hotBloodCount) unit._hotBloodCount = 0;
-        unit._hotBloodCount++;
-        if (unit.alive && unit.hp < unit.maxHp) {
-            let ratio = (unit._hotBloodCount % 3 === 0) ? 0.3 : 0.15;
-            let leech = Math.min(Math.floor((unit.maxHp - unit.hp) * ratio), unit.maxHp - unit.hp);
-            unit.hp = Math.min(unit.maxHp, unit.hp + leech);
-            unit.healDone += leech;
-            log.push({type:'buff-leech', text:`<span class="green">🦋 热血：小昭热血奋战回复+${leech}</span>`, isHealEntry:true, healAmount:leech, healUnitUid:unit.uid});
-        }
-    }
-    
-    // 小昭永久乘风突袭：飞行形态波及同行并击退（仅团队海克斯消失后激活）
-    if (unit.isXiaoZhao && unit.role === '飞行' && isXiaoZhaoPermanentActive(unit, unitBuffs, 'windAssault') && target.alive) {
-        if (rand(1,100) <= 80) {
-            let row = getUnitRow(target.pos);
-            let rowTargets = enemySide.filter(u => u.alive && getUnitRow(u.pos) === row && u.uid !== target.uid);
-            if (rowTargets.length > 0) {
-                let hitDmg = Math.floor(dmg);
-                let details = rowTargets.map(rt => {
-                    let hpBefore = Math.floor(rt.hp);
-                    rt.hp -= hitDmg; unit.dmgDealt += hitDmg; rt.dmgTaken += hitDmg;
-                    if (rt.hp <= 0) { rt.hp = 0; rt.alive = false; }
-                    if (typeof window._emitEvent === 'function') {
-                        window._emitEvent(rt, 'hp-change', { hp: rt.hp, maxHp: rt.maxHp, alive: rt.alive, atk: rt.atk, def: rt.def });
-                    }
-                    return `${rt.name}：${hpBefore}→${Math.floor(rt.hp)}`;
-                }).join('，');
-                log.push({type:'buff-splash', text:`<span class="orange">🦋 蝶翼：小昭乘风突袭波及${details}，各 -${hitDmg}</span>`, buffType:'wind_assault', attackerUid: unit.uid});
-            }
-        }
-    }
-    
-    // 小昭永久流星赶月：远程形态伤害加深+溅射+降防（仅团队海克斯消失后激活）
-    if (unit.isXiaoZhao && unit.role === '远程' && isXiaoZhaoPermanentActive(unit, unitBuffs, 'meteorShower')) {
-        let bonusDmg = Math.floor(dmg * C.BUFFS.meteorShower.bonusRatio);
-        unit.dmgDealt += bonusDmg;
-        if (target.alive) {
-            target.hp -= bonusDmg;
-            target.dmgTaken += bonusDmg;
-            target.def = Math.max(0, target.def - (C.BUFFS.meteorShower.mainDefReduce || 2));
-            if (target.hp <= 0) { target.hp = 0; target.alive = false; }
-            if (typeof window._emitEvent === 'function') {
-                window._emitEvent(target, 'hp-change', { hp: target.hp, maxHp: target.maxHp, alive: target.alive, atk: target.atk, def: target.def });
-            }
-        }
-        log.push({type:'buff-bonus', text:`<span class="gold">🦋 蝶星：小昭流星赶月伤害加深：${target.name} 额外-${bonusDmg}，防御-${C.BUFFS.meteorShower.mainDefReduce || 2}</span>`, buffType:'meteor_bonus', targetUid: target.uid, bonusDmg: bonusDmg});
-        
-        let splashDmg = Math.floor(dmg * C.BUFFS.meteorShower.splashRatio);
-        let adjPositions = getAdjacentPositions(target.pos);
-        let splashTargets = enemySide.filter(u => u.alive && adjPositions.includes(u.pos));
-        if (splashTargets.length > 0) {
-            let details = splashTargets.map(st => {
-                let hpBefore = Math.floor(st.hp);
-                st.hp -= splashDmg;
-                unit.dmgDealt += splashDmg;
-                st.dmgTaken += splashDmg;
-                st.def = Math.max(0, st.def - (C.BUFFS.meteorShower.splashDefReduce || 1));
-                if (st.hp <= 0) { st.hp = 0; st.alive = false; st._isDead = true; }
-                if (typeof window._emitEvent === 'function') {
-                    window._emitEvent(st, 'hp-change', { hp: st.hp, maxHp: st.maxHp, alive: st.alive, atk: st.atk, def: st.def });
-                }
-                return `${st.name}：${hpBefore}→${Math.floor(st.hp)}`;
-            }).join('，');
-            log.push({type:'buff-splash', text:`<span class="orange">🦋 蝶星：小昭流星赶月溅射：${details}，各-${splashDmg}，防御-${C.BUFFS.meteorShower.splashDefReduce || 1}</span>`, buffType:'meteor_splash', attackerUid: unit.uid, primaryUid: target.uid, splashUids: splashTargets.map(st => st.uid), splashDmg: splashDmg});
-        }
-    }
-    
+    // 嗜血狂刀：团队优先，团队过期后小昭接管
     if (hasBuff(unitBuffs, 'bloodthirst') && unit.role === '战士') {
         let leech = Math.floor(dmg * C.BUFFS.bloodthirst.leechRatio);
         let hpBefore = unit.hp;
@@ -189,12 +111,19 @@ export function applyBuffEffectsAfterAttack(unit, target, dmg, allySide, enemySi
             window._emitEvent(unit, 'hp-change', { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: unit.atk, def: unit.def });
         }
         log.push({type:'buff-leech', text:`<span class="green">🗡️ ${unit.name} 的嗜血狂刀吸血+${leech}，血量 ${hpBefore} → ${unit.hp}</span>`, isHealEntry:true, buffType:'leech', healAmount:leech, healUnitUid:unit.uid});
+    } else if (unit.isXiaoZhao && unit.role === '战士' && isXiaoZhaoPermanentActive(unit, unitBuffs, 'bloodthirst')) {
+        let leech = Math.floor(dmg * 0.8);
+        if (leech > 0) {
+            unit.hp = Math.min(unit.maxHp, unit.hp + leech);
+            unit.healDone += leech;
+            log.push({type:'buff-leech', text:`<span class="green">🦋 蝶血：小昭嗜血狂刀吸血+${leech}</span>`, isHealEntry:true, healAmount:leech, healUnitUid:unit.uid});
+        }
     }
     
+    // 热血奋战：团队优先，团队过期后小昭接管
     if (hasBuff(unitBuffs, 'hotBlood')) {
         if (!unit._hotBloodCount) unit._hotBloodCount = 0;
         unit._hotBloodCount++;
-        // 死人不回血；满血时不回血也不推日志（计数仍累加以保证翻倍节奏）
         if (unit.alive && unit.hp < unit.maxHp) {
             let ratio = (unit._hotBloodCount % C.BUFFS.hotBlood.critInterval === 0) ? C.BUFFS.hotBlood.critRatio : C.BUFFS.hotBlood.leechRatio;
             let leech = Math.min(Math.floor((unit.maxHp - unit.hp) * ratio), unit.maxHp - unit.hp);
@@ -207,58 +136,20 @@ export function applyBuffEffectsAfterAttack(unit, target, dmg, allySide, enemySi
             let tag = (ratio > C.BUFFS.hotBlood.leechRatio) ? '❤️‍🔥 热血奋战(翻倍)' : '❤️ 热血奋战';
             log.push({type:'buff-leech', text:`<span class="green">${tag}：${unit.name} 回复+${leech}，血量 ${hpBefore} → ${unit.hp}</span>`, isHealEntry:true, buffType:'hotBlood', healAmount:leech, healUnitUid:unit.uid});
         }
-    }
-    
-    // 流星赶月：本体额外伤害 + 溅射合并 + 降防
-    if (hasBuff(unitBuffs, 'meteorShower') && unit.role === '远程') {
-        let bonusDmg = Math.floor(dmg * C.BUFFS.meteorShower.bonusRatio);
-        unit.dmgDealt += bonusDmg;
-        if (target.alive) {
-            target.hp -= bonusDmg;
-            target.dmgTaken += bonusDmg;
-            target.def = Math.max(0, target.def - (C.BUFFS.meteorShower.mainDefReduce || 2));
-            if (target.hp <= 0) { target.hp = 0; target.alive = false; }
-            if (typeof window._emitEvent === 'function') {
-                window._emitEvent(target, 'hp-change', { hp: target.hp, maxHp: target.maxHp, alive: target.alive, atk: target.atk, def: target.def });
-            }
-        }
-        log.push({
-            type:'buff-bonus',
-            text:`<span class="gold">☄️ 流星赶月伤害加深：${target.name} 额外-${bonusDmg}，防御-${C.BUFFS.meteorShower.mainDefReduce || 2}</span>`,
-            buffType:'meteor_bonus',
-            targetUid: target.uid,
-            bonusDmg: bonusDmg
-        });
-        
-        let splashDmg = Math.floor(dmg * C.BUFFS.meteorShower.splashRatio);
-        let adjPositions = getAdjacentPositions(target.pos);
-        let splashTargets = enemySide.filter(u => u.alive && adjPositions.includes(u.pos));
-        if (splashTargets.length > 0) {
-            let details = splashTargets.map(st => {
-                let hpBefore = Math.floor(st.hp);
-                st.hp -= splashDmg;
-                unit.dmgDealt += splashDmg;
-                st.dmgTaken += splashDmg;
-                st.def = Math.max(0, st.def - (C.BUFFS.meteorShower.splashDefReduce || 1));
-                if (st.hp <= 0) { st.hp = 0; st.alive = false; st._isDead = true; }
-                if (typeof window._emitEvent === 'function') {
-                    window._emitEvent(st, 'hp-change', { hp: st.hp, maxHp: st.maxHp, alive: st.alive, atk: st.atk, def: st.def });
-                }
-                return `${st.name}：${hpBefore}→${Math.floor(st.hp)}`;
-            }).join('，');
-            log.push({
-                type:'buff-splash',
-                text:`<span class="orange">☄️ 流星赶月溅射：${details}，各-${splashDmg}，防御-${C.BUFFS.meteorShower.splashDefReduce || 1}</span>`,
-                buffType:'meteor_splash',
-                attackerUid: unit.uid,
-                primaryUid: target.uid,
-                splashUids: splashTargets.map(st => st.uid),
-                splashDmg: splashDmg
-            });
+    } else if (unit.isXiaoZhao && isXiaoZhaoPermanentActive(unit, unitBuffs, 'hotBlood')) {
+        if (!unit._hotBloodCount) unit._hotBloodCount = 0;
+        unit._hotBloodCount++;
+        if (unit.alive && unit.hp < unit.maxHp) {
+            let ratio = (unit._hotBloodCount % 3 === 0) ? 0.3 : 0.15;
+            let leech = Math.min(Math.floor((unit.maxHp - unit.hp) * ratio), unit.maxHp - unit.hp);
+            unit.hp = Math.min(unit.maxHp, unit.hp + leech);
+            unit.healDone += leech;
+            log.push({type:'buff-leech', text:`<span class="green">🦋 热血：小昭热血奋战回复+${leech}</span>`, isHealEntry:true, healAmount:leech, healUnitUid:unit.uid});
         }
     }
     
-    if ((hasBuff(unitBuffs, 'windAssault') || isXiaoZhaoPermanentActive(unit, unitBuffs, 'windAssault')) && unit.role === '飞行' && target.alive) {
+    // 乘风突袭：团队优先，团队过期后小昭接管
+    if (hasBuff(unitBuffs, 'windAssault') && unit.role === '飞行' && target.alive) {
         if (rand(1,100) <= 80) {
             let row = getUnitRow(target.pos);
             let rowTargets = enemySide.filter(u => u.alive && getUnitRow(u.pos) === row && u.uid !== target.uid);
@@ -282,7 +173,6 @@ export function applyBuffEffectsAfterAttack(unit, target, dmg, allySide, enemySi
             let behindPos = target.pos + 3;
             if (behindPos <= 9) {
                 let oldPos = target.pos;
-                // 限定同阵营查找后方单位，防止混乱攻击时跨阵营换位
                 let targetTeam = target.camp === 'ally' ? (unit.camp === 'ally' ? allySide : enemySide) : (unit.camp === 'ally' ? enemySide : allySide);
                 let behindUnit = targetTeam.find(u => u.pos === behindPos && u.alive);
                 if (behindUnit) {
@@ -296,6 +186,89 @@ export function applyBuffEffectsAfterAttack(unit, target, dmg, allySide, enemySi
             }
         } else {
             log.push({type:'info', text:`<span class="gray">🦅 乘风突袭击退触发失败</span>`});
+        }
+    } else if (unit.isXiaoZhao && unit.role === '飞行' && isXiaoZhaoPermanentActive(unit, unitBuffs, 'windAssault') && target.alive) {
+        if (rand(1,100) <= 80) {
+            let row = getUnitRow(target.pos);
+            let rowTargets = enemySide.filter(u => u.alive && getUnitRow(u.pos) === row && u.uid !== target.uid);
+            if (rowTargets.length > 0) {
+                let hitDmg = Math.floor(dmg);
+                let details = rowTargets.map(rt => {
+                    let hpBefore = Math.floor(rt.hp);
+                    rt.hp -= hitDmg; unit.dmgDealt += hitDmg; rt.dmgTaken += hitDmg;
+                    if (rt.hp <= 0) { rt.hp = 0; rt.alive = false; }
+                    if (typeof window._emitEvent === 'function') {
+                        window._emitEvent(rt, 'hp-change', { hp: rt.hp, maxHp: rt.maxHp, alive: rt.alive, atk: rt.atk, def: rt.def });
+                    }
+                    return `${rt.name}：${hpBefore}→${Math.floor(rt.hp)}`;
+                }).join('，');
+                log.push({type:'buff-splash', text:`<span class="orange">🦋 蝶翼：小昭乘风突袭波及${details}，各 -${hitDmg}</span>`, buffType:'wind_assault', attackerUid: unit.uid});
+            }
+        }
+    }
+    
+    // 流星赶月：团队优先，团队过期后小昭接管
+    if (hasBuff(unitBuffs, 'meteorShower') && unit.role === '远程') {
+        let bonusDmg = Math.floor(dmg * C.BUFFS.meteorShower.bonusRatio);
+        unit.dmgDealt += bonusDmg;
+        if (target.alive) {
+            target.hp -= bonusDmg;
+            target.dmgTaken += bonusDmg;
+            target.def = Math.max(0, target.def - (C.BUFFS.meteorShower.mainDefReduce || 2));
+            if (target.hp <= 0) { target.hp = 0; target.alive = false; }
+            if (typeof window._emitEvent === 'function') {
+                window._emitEvent(target, 'hp-change', { hp: target.hp, maxHp: target.maxHp, alive: target.alive, atk: target.atk, def: target.def });
+            }
+        }
+        log.push({type:'buff-bonus', text:`<span class="gold">☄️ 流星赶月伤害加深：${target.name} 额外-${bonusDmg}，防御-${C.BUFFS.meteorShower.mainDefReduce || 2}</span>`, buffType:'meteor_bonus', targetUid: target.uid, bonusDmg: bonusDmg});
+        let splashDmg = Math.floor(dmg * C.BUFFS.meteorShower.splashRatio);
+        let adjPositions = getAdjacentPositions(target.pos);
+        let splashTargets = enemySide.filter(u => u.alive && adjPositions.includes(u.pos));
+        if (splashTargets.length > 0) {
+            let details = splashTargets.map(st => {
+                let hpBefore = Math.floor(st.hp);
+                st.hp -= splashDmg;
+                unit.dmgDealt += splashDmg;
+                st.dmgTaken += splashDmg;
+                st.def = Math.max(0, st.def - (C.BUFFS.meteorShower.splashDefReduce || 1));
+                if (st.hp <= 0) { st.hp = 0; st.alive = false; st._isDead = true; }
+                if (typeof window._emitEvent === 'function') {
+                    window._emitEvent(st, 'hp-change', { hp: st.hp, maxHp: st.maxHp, alive: st.alive, atk: st.atk, def: st.def });
+                }
+                return `${st.name}：${hpBefore}→${Math.floor(st.hp)}`;
+            }).join('，');
+            log.push({type:'buff-splash', text:`<span class="orange">☄️ 流星赶月溅射：${details}，各-${splashDmg}，防御-${C.BUFFS.meteorShower.splashDefReduce || 1}</span>`, buffType:'meteor_splash', attackerUid: unit.uid, primaryUid: target.uid, splashUids: splashTargets.map(st => st.uid), splashDmg: splashDmg});
+        }
+    } else if (unit.isXiaoZhao && unit.role === '远程' && isXiaoZhaoPermanentActive(unit, unitBuffs, 'meteorShower')) {
+        let bonusDmg = Math.floor(dmg * C.BUFFS.meteorShower.bonusRatio);
+        unit.dmgDealt += bonusDmg;
+        if (target.alive) {
+            target.hp -= bonusDmg;
+            target.dmgTaken += bonusDmg;
+            target.def = Math.max(0, target.def - (C.BUFFS.meteorShower.mainDefReduce || 2));
+            if (target.hp <= 0) { target.hp = 0; target.alive = false; }
+            if (typeof window._emitEvent === 'function') {
+                window._emitEvent(target, 'hp-change', { hp: target.hp, maxHp: target.maxHp, alive: target.alive, atk: target.atk, def: target.def });
+            }
+        }
+        log.push({type:'buff-bonus', text:`<span class="gold">🦋 蝶星：小昭流星赶月伤害加深：${target.name} 额外-${bonusDmg}，防御-${C.BUFFS.meteorShower.mainDefReduce || 2}</span>`, buffType:'meteor_bonus', targetUid: target.uid, bonusDmg: bonusDmg});
+        let splashDmg = Math.floor(dmg * C.BUFFS.meteorShower.splashRatio);
+        let adjPositions = getAdjacentPositions(target.pos);
+        let splashTargets = enemySide.filter(u => u.alive && adjPositions.includes(u.pos));
+        if (splashTargets.length > 0) {
+            let details = splashTargets.map(st => {
+                let hpBefore = Math.floor(st.hp);
+                st.hp -= splashDmg;
+                unit.dmgDealt += splashDmg;
+                st.dmgTaken += splashDmg;
+                st.def = Math.max(0, st.def - (C.BUFFS.meteorShower.splashDefReduce || 1));
+                if (st.hp <= 0) { st.hp = 0; st.alive = false; st._isDead = true; }
+                if (typeof window._emitEvent === 'function') {
+                    window._emitEvent(st, 'hp-change', { hp: st.hp, maxHp: st.maxHp, alive: st.alive, atk: st.atk, def: st.def });
+                }
+                return `${st.name}：${hpBefore}→${Math.floor(st.hp)}`;
+            }).join('，');
+            log.push({type:'buff-splash', text:`<span class="orange">🦋 蝶星：小昭流星赶月溅射：${details}，各-${splashDmg}，防御-${C.BUFFS.meteorShower.splashDefReduce || 1}</span>`, buffType:'meteor_splash', attackerUid: unit.uid, primaryUid: target.uid, splashUids: splashTargets.map(st => st.uid), splashDmg: splashDmg});
         }
     }
 }
