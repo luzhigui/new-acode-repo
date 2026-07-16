@@ -1,6 +1,6 @@
 // core/01config-5v5-test.js - 光明顶5v5 全量配置
-// V5.0.1 | ~11322 bytes | 2026-07-05
-export const VER = 'core/01config-5v5-test.js V5.0.2';
+// V5.1.0 | ~11322 bytes | 2026-07-05
+export const VER = 'core/01config-5v5-test.js V5.1.0';
 
 const CONFIG = {
     MING_ALL: ['张无忌', '韦一笑', '殷天正', '杨逍', '范遥', '庄铮', '颜垣', '吴劲草', '周颠', '张中', '说不得', '冷谦', '彭莹玉', '明教·洪午', '明教·岳山', '明教·石虎', '明教弟子1', '明教弟子2', '明教弟子3'],

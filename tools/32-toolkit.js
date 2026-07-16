@@ -1,5 +1,5 @@
 // tools/32-toolkit.js - 光明顶5v5 开发工具箱（文件复制器 / 拆分自原 32-toolkit.js）
-// V5.0.1 | ~25371 bytes | 2026-07-05
+// V5.1.0 | ~25371 bytes | 2026-07-05
 
 /* ========== 标签页切换 ========== */
 document.querySelectorAll('.tab-btn').forEach(btn => {

@@ -1,6 +1,6 @@
 // tests/45health-auto.js - 光明顶5v5 体检自动控制
-// V5.0.6 | ~14000 bytes | 注入游戏窗口的浮动按钮、全自动操作、跨窗口通信
-export const VER = 'tests/45health-auto.js V5.0.6';
+// V5.1.0 | ~14000 bytes | 注入游戏窗口的浮动按钮、全自动操作、跨窗口通信
+export const VER = 'tests/45health-auto.js V5.1.0';
 
 (function() {
     'use strict';

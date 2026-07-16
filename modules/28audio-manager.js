@@ -1,6 +1,6 @@
 // modules/28audio-manager.js - 光明顶5v5 音频管理器
-// V5.0.1 | ~8328 bytes | 2026-07-05
-export const VER = 'modules/28audio-manager.js V5.0.1';
+// V5.1.0 | ~8328 bytes | 2026-07-05
+export const VER = 'modules/28audio-manager.js V5.1.0';
 
 import { CONFIG } from '../core/01config-5v5-test.js';
 

@@ -1,6 +1,6 @@
 // tests/37health-rules/67-cloud-dodge.js
-// V5.0.5 | 流云身法闪避率
-export const VER = 'tests/37health-rules/67-cloud-dodge.js V5.0.5';
+// V5.1.0 | 流云身法闪避率
+export const VER = 'tests/37health-rules/67-cloud-dodge.js V5.1.0';
 
 export const rule67 = {
     group: 'Buff效果',
