@@ -45,38 +45,7 @@ export function* createRoundStepper(state) {
     A._activeBuffs = state.activeBuffs.filter(b => b.target === 'ally' || !b.target);
     B._activeBuffs = state.activeBuffs.filter(b => b.target === 'enemy');
 
-    // 圣火令：团队每回合追加随机行列效果（持续2回合），小昭在团队消失后每回合追加固定行列效果（持续1回合）
-    if (hasBuff(A._activeBuffs, 'holyFlame')) {
-        A._activeBuffs.push({
-            key: 'holyFlame', target: 'ally', remaining: 2, name: '圣火令',
-            col: Math.floor(Math.random() * 3) + 1,
-            row: Math.floor(Math.random() * 3) + 1,
-            _xiaoZhao: false
-        });
-    }
     const xiaoZhao = A.find(u => u.isXiaoZhao && u.alive);
-    if (xiaoZhao && xiaoZhao._permanentBuffs && xiaoZhao._permanentBuffs.some(b => b.key === 'holyFlame') && !hasBuff(A._activeBuffs, 'holyFlame')) {
-        A._activeBuffs.push({
-            key: 'holyFlame', target: 'ally', remaining: 1, name: '圣火令',
-            col: (xiaoZhao.pos - 1) % 3 + 1,
-            row: Math.ceil(xiaoZhao.pos / 3),
-            _xiaoZhao: true
-        });
-    }
-    const ctx = window._getPlayerContext?.();
-    if (ctx) ctx.activeBuffs = A._activeBuffs;
-
-    // 圣火令日志
-    for (const buff of A._activeBuffs) {
-        if (buff.key === 'holyFlame' && buff.col && buff.row) {
-            let colUnits = A.filter(u => u.alive && getUnitCol(u.pos) === buff.col);
-            let rowUnits = A.filter(u => u.alive && getUnitRow(u.pos) === buff.row);
-            let atkNames = colUnits.map(u=>u.name).join('、') || '无';
-            let defNames = rowUnits.map(u=>u.name).join('、') || '无';
-            const label = buff._xiaoZhao ? '🦋 圣火令（小昭）' : '🔥 圣火令（团队）';
-            log.push({type:'buff-summary', text:`<span class="gold">${label}：第${buff.col}列(${atkNames})攻击+30%，第${buff.row}行(${defNames})防御+30%</span>`, buffType:'buff_stat'});
-        }
-    }
 
     window._battleEvents = [];
     window._currentBattleState = null;
@@ -93,6 +62,15 @@ export function* createRoundStepper(state) {
         }
     });
 
+    // 清理死马，腾出位置
+    [A, B].forEach(team => {
+        for (let i = team.length - 1; i >= 0; i--) {
+            const u = team[i];
+            if (u.isHorse && !u.alive) {
+                team.splice(i, 1);
+            }
+        }
+    });
     // 团队拒马 A
     const teamHorseA = spawnHorse(A, log, B);
     if (teamHorseA) {
@@ -221,14 +199,25 @@ export function* createRoundStepper(state) {
             if (typeof window._emitEvent === 'function') {
                 window._emitEvent(u, 'hp-change', { hp: u.hp, maxHp: u.maxHp, alive: u.alive, atk: u.atk, def: u.def });
             }
+        } else if (u.isXiaoZhao && isXiaoZhaoPermanentActive(u, A._activeBuffs, 'carry') && u._baseMaxHp !== undefined) {
+            // 小昭永久carry：固定两层精通加成（+3攻 +4防 +20血上限）
+            u.atk += 3;
+            u.def += 4;
+            u.maxHp += 20;
+            u.hp = Math.min(u.hp + 20, u.maxHp);
+            if (typeof window._emitEvent === 'function') {
+                window._emitEvent(u, 'hp-change', { hp: u.hp, maxHp: u.maxHp, alive: u.alive, atk: u.atk, def: u.def });
+            }
         }
         u._extinctionUsed = false;
         u._acted = false;
+        u._resting = false;
+        if (u._restingTimer) { clearTimeout(u._restingTimer); u._restingTimer = null; }
         u._doubleStriked = false;
+        u._xiaoZhaoDoubleStriked = false;
         u._bloodthirstStriked = false;
         u._linkTriggered = false;
         u._xingFenPenaltyCount = u._xingFenPenaltyCount || 0;
-        if (u.name === '成昆') u._phantomTarget = null;
     });
 
     B.forEach(u => {
@@ -244,11 +233,13 @@ export function* createRoundStepper(state) {
         }
         u._extinctionUsed = false;
         u._acted = false;
+        u._resting = false;
+        if (u._restingTimer) { clearTimeout(u._restingTimer); u._restingTimer = null; }
         u._doubleStriked = false;
+        u._xiaoZhaoDoubleStriked = false;
         u._bloodthirstStriked = false;
         u._linkTriggered = false;
         u._xingFenPenaltyCount = u._xingFenPenaltyCount || 0;
-        if (u.name === '成昆') u._phantomTarget = null;
     });
 
     const roundStartEvents = [...window._battleEvents];
@@ -285,6 +276,17 @@ export function* createRoundStepper(state) {
                         u.hp = Math.min(u.maxHp, u.hp + 20);
                         let hpAfter = Math.floor(u.hp);
                         u._resting = true;
+                        // 5秒后自动清除休息状态，防止绿色特效一直显示
+                        if (u._restingTimer) clearTimeout(u._restingTimer);
+                        u._restingTimer = setTimeout(() => {
+                            u._resting = false;
+                            if (typeof window._emitEvent === 'function') {
+                                window._emitEvent(u, 'hp-change', { hp: u.hp, maxHp: u.maxHp, alive: u.alive, atk: u.atk, def: u.def, _resting: false });
+                            }
+                            // 强制触发UI刷新，清除绿色休息特效
+                            const ctx = window._getPlayerContext?.();
+                            if (ctx && ctx.updateUI) ctx.updateUI();
+                        }, 5000);
                         if (typeof window._emitEvent === 'function') {
                             window._emitEvent(u, 'hp-change', { hp: u.hp, maxHp: u.maxHp, alive: u.alive, atk: u.atk, def: u.def });
                         }
@@ -304,6 +306,17 @@ export function* createRoundStepper(state) {
                         u.hp = Math.min(u.maxHp, u.hp + 20);
                         let hpAfter = Math.floor(u.hp);
                         u._resting = true;
+                        // 5秒后自动清除休息状态，防止绿色特效一直显示
+                        if (u._restingTimer) clearTimeout(u._restingTimer);
+                        u._restingTimer = setTimeout(() => {
+                            u._resting = false;
+                            if (typeof window._emitEvent === 'function') {
+                                window._emitEvent(u, 'hp-change', { hp: u.hp, maxHp: u.maxHp, alive: u.alive, atk: u.atk, def: u.def, _resting: false });
+                            }
+                            // 强制触发UI刷新，清除绿色休息特效
+                            const ctx = window._getPlayerContext?.();
+                            if (ctx && ctx.updateUI) ctx.updateUI();
+                        }, 5000);
                         if (typeof window._emitEvent === 'function') {
                             window._emitEvent(u, 'hp-change', { hp: u.hp, maxHp: u.maxHp, alive: u.alive, atk: u.atk, def: u.def });
                         }

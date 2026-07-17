@@ -12,20 +12,10 @@ export function computeBuffStats(unit, activeBuffs, allyTeam) {
     let atkBonus = 0, defBonus = 0, dodgeBonus = 0, hpBonus = 0;
     if (!activeBuffs) return { atkBonus, defBonus, dodgeBonus, hpBonus };
 
-    if (unit.camp === 'ally') {
-        const holyBuffs = activeBuffs.filter(b => b.key === 'holyFlame');
-        for (const buffObj of holyBuffs) {
-            if (buffObj.col == null || buffObj.row == null) {
-                buffObj.col = rand(1, 3);
-                buffObj.row = rand(1, 3);
-            }
-            if (getUnitCol(unit.pos) === buffObj.col) { atkBonus += C.BUFFS.holyFlame.atkBonus; }
-            if (getUnitRow(unit.pos) === buffObj.row) { defBonus += C.BUFFS.holyFlame.defBonus; }
-        }
-    }
+
     // carry 加成是绝对值，单独返回，不混入 atkBonus/defBonus（那两个字段是比率，供 calcAttackDamage 做乘法用）
     let carryAtkAbs = 0, carryDefAbs = 0, carryHpAbs = 0;
-    if ((hasBuff(activeBuffs, 'carry') || isXiaoZhaoPermanentActive(unit, activeBuffs, 'carry')) && unit.pos === 5 && unit.alive) {
+    if ((hasBuff(activeBuffs, 'carry') || isXiaoZhaoPermanentActive(unit, activeBuffs, 'carry')) && (unit.pos >= 4 && unit.pos <= 6) && unit.alive) {
         if (allyTeam) {
             let allAllies = allyTeam.filter(u => u.uid !== unit.uid && !u.isHorse);
             allAllies.forEach(a => {
@@ -244,6 +234,16 @@ export function applyBuffEffectsAfterAttack(unit, target, dmg, allySide, enemySi
                 return `${st.name}：${hpBefore}→${Math.floor(st.hp)}`;
             }).join('，');
             log.push({type:'buff-splash', text:`<span class="orange">☄️ 流星赶月溅射：${details}，各-${splashDmg}，防御-${C.BUFFS.meteorShower.splashDefReduce || 1}</span>`, buffType:'meteor_splash', attackerUid: unit.uid, primaryUid: target.uid, splashUids: splashTargets.map(st => st.uid), splashDmg: splashDmg});
+        }
+        // 小昭在场时，溅射每命中1人，攻击者+2攻
+        const xiaoZhao = allySide.find(u => u.isXiaoZhao && u.alive);
+        if (xiaoZhao && splashTargets && splashTargets.length > 0) {
+            const atkGain = splashTargets.length * 2;
+            unit.atk += atkGain;
+            if (typeof window._emitEvent === 'function') {
+                window._emitEvent(unit, 'hp-change', { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: unit.atk, def: unit.def });
+            }
+            log.push({type:'info', text:`<span class="gold">🦋 蝶舞：${unit.name} 溅射命中 ${splashTargets.length} 人，攻击+${atkGain}</span>`});
         }
     } else if (unit.isXiaoZhao && unit.role === '远程' && isXiaoZhaoPermanentActive(unit, unitBuffs, 'meteorShower')) {
         let bonusDmg = Math.floor(dmg * C.BUFFS.meteorShower.bonusRatio);

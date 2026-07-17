@@ -179,7 +179,7 @@ export async function handleBuffDestroy(c, entry, prevEntry) {
 
 export async function handleBuffLeech(c, entry) {
     // 只负责飘字和横幅，不修改血量（血量已由引擎事件同步到 Store）
-    let healUnit = c.UI.allyTeam.find(u => u.uid === entry.healUnitUid) || c.UI.allyTeam.find(u => u.alive);
+    let healUnit = (c.UI.allyTeam.concat(c.UI.enemyTeam)).find(u => u.uid === entry.healUnitUid);
     if (healUnit && entry.healAmount) {
         showHealFloat(healUnit, entry.healAmount);
     }

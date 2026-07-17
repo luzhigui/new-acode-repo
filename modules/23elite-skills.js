@@ -444,7 +444,9 @@ export function applyXingFenPenalty(attacker, log) {
 export function transformXiaoZhao(unit, log) {
     if (!unit.isXiaoZhao || !unit.alive) return;
     const roles = ['战士', '防战', '远程', '飞行'];
-    const newRole = roles[Math.floor(Math.random() * roles.length)];
+    const availableRoles = unit._lastRole ? roles.filter(r => r !== unit._lastRole) : roles;
+    const newRole = availableRoles[Math.floor(Math.random() * availableRoles.length)];
+    unit._lastRole = newRole;
 
     // 记录精通职业（去重）
     if (!unit._masteredRoles) unit._masteredRoles = [];
@@ -546,13 +548,12 @@ export function applyXiaoZhaoDerived(allyTeam, target, dmg, group) {
         emitEvent(healTarget, 'hp-change', { hp: healTarget.hp, maxHp: healTarget.maxHp, alive: healTarget.alive, atk: healTarget.atk, def: healTarget.def });
         // 随机另一名队友获得攻击（独立随机，可能和治疗同一人）
     let atkGainText = '';
-    if (aliveAllies.length > 0) {
-        const atkTarget = aliveAllies[Math.floor(Math.random() * aliveAllies.length)];
+    const atkTarget = aliveAllies[Math.floor(Math.random() * aliveAllies.length)];
         let atkGain = Math.max(s.minAtk || 1, Math.floor(atkTarget.def / (s.defToAtk || 10)));
         atkTarget.atk += atkGain;
         emitEvent(atkTarget, 'hp-change', { hp: atkTarget.hp, maxHp: atkTarget.maxHp, alive: atkTarget.alive, atk: atkTarget.atk, def: atkTarget.def });
+
         atkGainText = `，${atkTarget.name}攻击+${atkGain}`;
-    }
 
     // 合并日志：减伤+治疗+攻击
     if (group && group.entries) {
@@ -573,14 +574,14 @@ export function applyXiaoZhaoDerived(allyTeam, target, dmg, group) {
  * 成昆幻影伪装混乱判定
  * 在目标选择阶段调用，返回被迷惑后的目标（可能为自己队友）
  */
-export function applyPhantomDisguise(unit, enemySide) {
+export function applyPhantomDisguise(unit, enemySide, allySide = null) {
     if (unit.camp !== 'ally') return null;
     const chengkun = enemySide.find(u => u.name === '成昆' && u.alive && u._phantomTarget);
     if (!chengkun || unit._isLinkAttack) return null;
     const lostPct = (chengkun.maxHp - chengkun.hp) / chengkun.maxHp;
     const chance = ES.phantomDisguise.baseChance + Math.floor(lostPct * 10) * ES.phantomDisguise.per10pctLost;
     if (Math.random() < chance) {
-        const fakeTarget = enemySide.find(u => u.uid === chengkun._phantomTarget && u.alive && !u.isHorse);
+        const fakeTarget = allySide ? allySide.find(u => u.uid === chengkun._phantomTarget && u.alive && !u.isHorse) : null;
         if (fakeTarget) {
             return { target: fakeTarget, log: `🎭 幻影伪装！${unit.name}被混乱，误攻队友${fakeTarget.name}！` };
         }

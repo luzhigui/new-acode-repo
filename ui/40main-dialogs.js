@@ -137,7 +137,26 @@ export function showBattleReport(UI, battleResultForInfo) {
     let closeBtn = document.createElement('button');
     closeBtn.textContent = '关闭';
     closeBtn.style.cssText = 'background:#666;color:#fff;border:none;padding:8px 16px;border-radius:4px;cursor:pointer;font-weight:bold;';
-    closeBtn.onclick = () => document.body.removeChild(overlay);
+    closeBtn.onclick = () => {
+        overlay.style.display = 'none';
+        // 已有浮动按钮则复用
+        let floatBtn = document.getElementById('battleReportFloat');
+        if (!floatBtn) {
+            floatBtn = document.createElement('div');
+            floatBtn.id = 'battleReportFloat';
+            floatBtn.className = 'vote-float';
+            floatBtn.style.display = 'flex';
+            floatBtn.style.right = '20px';
+            floatBtn.style.bottom = '100px';
+            floatBtn.title = '恢复战报';
+            floatBtn.innerHTML = '📊';
+            floatBtn.addEventListener('click', () => {
+                overlay.style.display = 'flex';
+                floatBtn.remove();
+            });
+            document.body.appendChild(floatBtn);
+        }
+    };
     btnDiv.appendChild(closeBtn);
     
     box.appendChild(btnDiv);
