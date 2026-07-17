@@ -316,6 +316,11 @@ export function generateBuffChoices(activeBuffs, allyTeam = []) {
 }
 
 export function showBuffSelection(callback, activeBuffs, selectedBuffIndex, updateBuffSlotsFn, updateUIFn, autoScrollLogFn, allyTeam) {
+    // 如果传入的 allyTeam 无效，从全局状态重新获取
+    if (!allyTeam || !allyTeam.length || !allyTeam.some(u => u.alive)) {
+        const ctx = window._getPlayerContext?.();
+        allyTeam = ctx?.UI?.allyTeam || [];
+    }
     const allKeys = Object.keys(C.BUFFS || {});
     const existingKeys = activeBuffs.map(b => b.key);
     const available = allKeys.filter(k => !existingKeys.includes(k));
@@ -337,6 +342,39 @@ export function showBuffSelection(callback, activeBuffs, selectedBuffIndex, upda
         // 圣火令仅作为标记，实际行列由回合引擎每回合生成
         activeBuffs.push({ key, target: 'ally', remaining: duration, name: C.BUFFS[key].name });
         // 小昭永久海克斯存储
+        if (allyTeam) {
+            const xiaoZhao = allyTeam.find(u => u.isXiaoZhao);
+            if (xiaoZhao) {
+                addPermanentBuff(xiaoZhao, key, C.BUFFS[key].name, {});
+            }
+        }
+        updateBuffSlotsFn();
+        let logDiv = document.getElementById('log');
+        if (logDiv) { logDiv.innerHTML += `<span class="gold">✨ 获得Buff：${C.BUFFS[key].name}（持续${duration}回合）</span><br>`; autoScrollLogFn(); }
+        if (window._updateGlowColors) window._updateGlowColors(selectedBuffIndex);
+        updateUIFn();
+        callback();
+    }, true, false);
+}
+
+export function showBugModeBuffSelection(callback, activeBuffs, selectedBuffIndex, updateBuffSlotsFn, updateUIFn, autoScrollLogFn, allyTeam) {
+    const allKeys = Object.keys(C.BUFFS || {});
+    const existingKeys = activeBuffs.map(b => b.key);
+    const available = allKeys.filter(k => !existingKeys.includes(k));
+    const choices = available;
+    const text = '选择 Buff（持续 ' + C.BUFF_DURATION + ' 回合） [Bug模式]';
+    const buttons = choices.map(key => ({
+        text: (C.BUFFS[key]?.icon || '?') + ' ' + (C.BUFFS[key]?.name || key) + '\n' + (C.BUFFS[key]?.desc || ''),
+        value: key,
+        cls: 'buff'
+    }));
+    showModal(text, buttons, (key) => {
+        let duration = C.BUFFS[key].duration || C.BUFF_DURATION;
+        if (activeBuffs.length >= 2) {
+            let shortest = activeBuffs.reduce((a, b) => a.remaining < b.remaining ? a : b);
+            activeBuffs.splice(activeBuffs.indexOf(shortest), 1);
+        }
+        activeBuffs.push({ key, target: 'ally', remaining: duration, name: C.BUFFS[key].name });
         if (allyTeam) {
             const xiaoZhao = allyTeam.find(u => u.isXiaoZhao);
             if (xiaoZhao) {

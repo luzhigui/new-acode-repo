@@ -16,7 +16,7 @@ import { showModal, showAlert, updateCoverVersion } from './12main-utils.js';
 import { getPlayerContext, getState, setState, gs } from '../ui/39main-state.js';
 import { showBattleReport, showMusicPanel, showVoteDialog, showCountdown } from './40main-dialogs.js';
 import {
-    doInitBattle, generateBuffChoices, showBuffSelection,
+    doInitBattle, generateBuffChoices, showBuffSelection, showBugModeBuffSelection,
     updateBuffSlots, tickBuffDurations, getActiveBuffList,
     logTeamInfo, abortAll
 } from './41main-battle.js';
@@ -204,7 +204,11 @@ document.addEventListener('DOMContentLoaded', function() {
                     autoScrollLog();
                 }
             } else {
-                await new Promise(resolve => { showBuffSelection(() => resolve(), getState.activeBuffs(), selectedBuffIndex, () => updateBuffSlots(getState.activeBuffs(), selectedBuffIndex), () => {}, autoScrollLog, getState.UI().allyTeam); });
+                if (localStorage.getItem('_bugMode') === '1') {
+                    await new Promise(resolve => { showBugModeBuffSelection(resolve, getState.activeBuffs(), selectedBuffIndex, () => updateBuffSlots(getState.activeBuffs(), selectedBuffIndex), () => {}, autoScrollLog, getState.UI().allyTeam); });
+                } else {
+                    await new Promise(resolve => { showBuffSelection(resolve, getState.activeBuffs(), selectedBuffIndex, () => updateBuffSlots(getState.activeBuffs(), selectedBuffIndex), () => {}, autoScrollLog, getState.UI().allyTeam); });
+                }
             }
             await new Promise(r=>setTimeout(r,600));
             try {

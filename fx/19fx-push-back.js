@@ -2,8 +2,15 @@
 // V5.1.0 | ~4890 bytes | 2026-07-11 支持 skipDataChange 参数
 export const VER = 'fx/19fx-push-back.js V5.1.0';
 
-import { getCellElement, wait } from './15fx-common-5v5-test.js';
-// 已移至 15fx-common-5v5-test.js，通过 import 使用
+function getCellElement(unit) {
+    if (!unit || unit.pos == null) return null;
+    const grid = document.getElementById(unit.camp === 'ally' ? 'allyGrid' : 'enemyGrid');
+    if (!grid) return null;
+    const order = unit.camp === 'enemy' ? [7,8,9,4,5,6,1,2,3] : [1,2,3,4,5,6,7,8,9];
+    const idx = order.indexOf(unit.pos);
+    return idx >= 0 ? grid.children[idx] : null;
+}
+function wait(ms) { return new Promise(r => setTimeout(r, window._fastForwardActive ? 1 : ms)); }
 
 export async function animatePushBack(unit, c, targetPos, options = {}) {
     const { skipDataChange } = options;

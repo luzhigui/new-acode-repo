@@ -91,6 +91,7 @@
     <script>
         // ==================== 页面跳转 ====================
         document.getElementById('btnGame').addEventListener('click', () => {
+            localStorage.removeItem('_bugMode');
             window.open('mode-5v5-test.html', '_blank');
         });
         document.getElementById('btnXiaoZhaoMode').addEventListener('click', () => {

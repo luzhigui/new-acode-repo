@@ -2,11 +2,18 @@
 // V5.1.0 | ~3828 bytes | 2026-07-05
 export const VER = 'fx/18fx-position-swap.js V5.1.0';
 
-import { getCellElement, wait } from './15fx-common-5v5-test.js';
-
 /**
- * 获取单位对应的格子 DOM 元素
+ * 获取单位对应的格子 DOM 元素（本地定义，不依赖外部）
  */
+function getCellElement(unit) {
+    if (!unit || unit.pos == null) return null;
+    const grid = document.getElementById(unit.camp === 'ally' ? 'allyGrid' : 'enemyGrid');
+    if (!grid) return null;
+    const order = unit.camp === 'enemy' ? [7,8,9,4,5,6,1,2,3] : [1,2,3,4,5,6,7,8,9];
+    const idx = order.indexOf(unit.pos);
+    return idx >= 0 ? grid.children[idx] : null;
+}
+
 function getCellByPos(camp, pos) {
     const grid = document.getElementById(camp === 'ally' ? 'allyGrid' : 'enemyGrid');
     if (!grid) return null;
