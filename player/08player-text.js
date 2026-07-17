@@ -11,8 +11,8 @@ function getCtx() {
 export function setPlayerContext(c) { ctx = c; }
 
 export async function playLineText(text, div, forcedSpeed = null) {
-    // 分隔符直接显示，不走逐字动画
-    if (text.includes('separator')) {
+    // 分隔符、系统信息、瞬时提示直接显示，不走逐字动画
+    if (text.includes('separator') || text.includes('class="purple small"') || text.includes('class="blue small"') || text.includes('class="red small"') || text.includes('class="gray small"') || text.includes('class="gold small"') || text.includes('class="green small"')) {
         div.innerHTML = text + '<br>';
         return;
     }
@@ -23,10 +23,10 @@ export async function playLineText(text, div, forcedSpeed = null) {
     }
     const c = getCtx(); let plain = text.replace(/<[^>]+>/g, ''); let htmlIdx=0,fullHtml='';
     const effectiveSpeed = forcedSpeed !== null ? forcedSpeed : c.speed;
-    let minCharDelay = 30;
+    let minCharDelay = 20;
     if (effectiveSpeed <= 143) minCharDelay = 2;
-    else if (effectiveSpeed <= 250) minCharDelay = 5;
-    else if (effectiveSpeed <= 500) minCharDelay = 10;
+    else if (effectiveSpeed <= 250) minCharDelay = 4;
+    else if (effectiveSpeed <= 500) minCharDelay = 8;
     
     while(htmlIdx<text.length){
         if(c.abortController&&c.abortController.signal.aborted)return;

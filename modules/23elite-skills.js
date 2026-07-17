@@ -254,8 +254,8 @@ export function applyDamageModifiers(unit, target, dmg, allySide, enemySide, log
     const zhangUpgraded = allySide.find(c => c.isZhang && c.alive);
     if (target.camp === 'ally' && xiaoZhao && zhangUpgraded && [2, 4, 6, 8].includes(target.pos)) {
         const reducedDmg = Math.round(dmg * (1 - ES.xiaoZhao.upgradedReducePct));
-        const rebound = Math.floor(dmg * 0.20); // 反弹原伤害的20%
-        const selfDmg = Math.max(1, Math.floor(dmg * 0.10)); // 无忌自伤原伤害的10%
+        const rebound = Math.floor(dmg * (ES.xiaoZhao.upgradedReboundPct || 0.20)); // 反弹原伤害的20%
+        const selfDmg = Math.max(1, Math.floor(dmg * (ES.xiaoZhao.upgradedSelfDmgPct || 0.10))); // 无忌自伤原伤害的10%
 
         // 反弹给攻击者
         unit.hp = Math.max(0, unit.hp - rebound);
@@ -597,7 +597,7 @@ export function applyXiaoZhaoMindControl(unit, allySide, enemySide) {
     const xiaoZhao = enemySide.find(u => u.isXiaoZhao && u.alive);
     if (!xiaoZhao || !xiaoZhao._permanentBuffs || !xiaoZhao._permanentBuffs.some(b => b.key === 'mindControl')) return null;
     if (hasBuff(enemySide._activeBuffs, 'mindControl')) return null; // 团队惑心还在，小昭不生效
-    if (Math.random() < 0.20) {
+    if (Math.random() < 0.15) {
         // 迷惑后攻击的是自己的队友，所以从 allySide（攻击者阵营）中找假目标
         const xzFakeTarget = allySide.find(u => u.uid !== unit.uid && u.alive && !u.isHorse);
         if (xzFakeTarget) {

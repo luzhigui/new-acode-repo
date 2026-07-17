@@ -69,7 +69,8 @@ export function applyBuffEffectsBeforeAttack(unit, target, allyTeam, enemyTeam, 
     if (hasBuff(buffs, 'mindControl')) {
         let frontUnit = allyTeam.filter(u => u.alive && !u.isHorse).sort((a,b) => a.pos - b.pos)[0];
         if (frontUnit && frontUnit.uid === unit.uid) {
-            if (rand(1,100) <= 80) {
+            const mindSwapChance = (allyTeam.some(u => u.isXiaoZhao && u.alive) && !hasBuff(buffs, 'mindControl_xiaoZhao')) ? 95 : 80;
+            if (rand(1,100) <= mindSwapChance) {
                 let enemies = enemyTeam.filter(u => u.alive);
                 if (enemies.length >= 2) {
                     let a = enemies[rand(0, enemies.length-1)];
@@ -81,7 +82,7 @@ export function applyBuffEffectsBeforeAttack(unit, target, allyTeam, enemyTeam, 
             } else {
                 log.push({type:'info', text:`<span class="gray">🌀 惑人心智（敌方换位）触发失败</span>`});
             }
-            if (rand(1,100) <= 40) {
+            if (rand(1,100) <= (allyTeam.some(u => u.isXiaoZhao && u.alive) && !hasBuff(buffs, 'mindControl_xiaoZhao') ? 50 : 40)) {
                 let allies = allyTeam.filter(u => u.alive);
                 if (allies.length >= 2) {
                     let a = allies[rand(0, allies.length-1)];
@@ -124,8 +125,12 @@ export function applyBuffEffectsAfterAttack(unit, target, dmg, allySide, enemySi
     if (hasBuff(unitBuffs, 'hotBlood')) {
         if (!unit._hotBloodCount) unit._hotBloodCount = 0;
         unit._hotBloodCount++;
+        const xiaoZhaoActive = allySide.some(u => u.isXiaoZhao && u.alive);
+        const leechPct = xiaoZhaoActive ? 0.20 : C.BUFFS.hotBlood.leechRatio;
+        const critInterval = xiaoZhaoActive ? 2 : C.BUFFS.hotBlood.critInterval;
+        const critRatio = xiaoZhaoActive ? 0.40 : C.BUFFS.hotBlood.critRatio;
         if (unit.alive && unit.hp < unit.maxHp) {
-            let ratio = (unit._hotBloodCount % C.BUFFS.hotBlood.critInterval === 0) ? C.BUFFS.hotBlood.critRatio : C.BUFFS.hotBlood.leechRatio;
+            let ratio = (unit._hotBloodCount % critInterval === 0) ? critRatio : leechPct;
             let leech = Math.min(Math.floor((unit.maxHp - unit.hp) * ratio), unit.maxHp - unit.hp);
             let hpBefore = unit.hp;
             unit.hp = Math.min(unit.maxHp, unit.hp + leech);
@@ -140,7 +145,7 @@ export function applyBuffEffectsAfterAttack(unit, target, dmg, allySide, enemySi
         if (!unit._hotBloodCount) unit._hotBloodCount = 0;
         unit._hotBloodCount++;
         if (unit.alive && unit.hp < unit.maxHp) {
-            let ratio = (unit._hotBloodCount % 3 === 0) ? 0.3 : 0.15;
+            let ratio = (unit._hotBloodCount % 2 === 0) ? 0.40 : 0.20;
             let leech = Math.min(Math.floor((unit.maxHp - unit.hp) * ratio), unit.maxHp - unit.hp);
             unit.hp = Math.min(unit.maxHp, unit.hp + leech);
             unit.healDone += leech;
@@ -150,7 +155,8 @@ export function applyBuffEffectsAfterAttack(unit, target, dmg, allySide, enemySi
     
     // 乘风突袭：团队优先，团队过期后小昭接管
     if (hasBuff(unitBuffs, 'windAssault') && unit.role === '飞行' && target.alive) {
-        if (rand(1,100) <= 80) {
+        const xiaoZhaoActive = allySide.some(u => u.isXiaoZhao && u.alive);
+        if (rand(1,100) <= (xiaoZhaoActive ? 100 : 80)) {
             let row = getUnitRow(target.pos);
             let rowTargets = enemySide.filter(u => u.alive && getUnitRow(u.pos) === row && u.uid !== target.uid);
             if (rowTargets.length > 0) {
@@ -169,7 +175,7 @@ export function applyBuffEffectsAfterAttack(unit, target, dmg, allySide, enemySi
         } else {
             log.push({type:'info', text:`<span class="gray">🦅 乘风突袭波及触发失败</span>`});
         }
-        if (rand(1,100) <= 60) {
+        if (rand(1,100) <= (xiaoZhaoActive ? 80 : 60)) {
             let behindPos = target.pos + 3;
             if (behindPos <= 9) {
                 let oldPos = target.pos;
