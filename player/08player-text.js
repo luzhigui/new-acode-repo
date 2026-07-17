@@ -10,7 +10,7 @@ function getCtx() {
 
 export function setPlayerContext(c) { ctx = c; }
 
-export async function playLineText(text, div) {
+export async function playLineText(text, div, forcedSpeed = null) {
     // 分隔符直接显示，不走逐字动画
     if (text.includes('separator')) {
         div.innerHTML = text + '<br>';
@@ -22,15 +22,16 @@ export async function playLineText(text, div) {
         return;
     }
     const c = getCtx(); let plain = text.replace(/<[^>]+>/g, ''); let htmlIdx=0,fullHtml='';
+    const effectiveSpeed = forcedSpeed !== null ? forcedSpeed : c.speed;
     let minCharDelay = 30;
-    if (c.speed <= 143) minCharDelay = 2;
-    else if (c.speed <= 250) minCharDelay = 5;
-    else if (c.speed <= 500) minCharDelay = 10;
+    if (effectiveSpeed <= 143) minCharDelay = 2;
+    else if (effectiveSpeed <= 250) minCharDelay = 5;
+    else if (effectiveSpeed <= 500) minCharDelay = 10;
     
     while(htmlIdx<text.length){
         if(c.abortController&&c.abortController.signal.aborted)return;
         await c.waitWhilePaused();
-        let charDelay = c.speed / plain.length;
+        let charDelay = effectiveSpeed / plain.length;
         if (charDelay < minCharDelay) charDelay = minCharDelay;
         if(text[htmlIdx]==='<'){let tag='';while(text[htmlIdx]!=='>'){tag+=text[htmlIdx];htmlIdx++;}tag+='>';fullHtml+=tag;htmlIdx++;}
         else{

@@ -2,9 +2,18 @@
 // V5.1.0 | 2026-07-12 修复格子缩小与残留：完整保存/恢复原始格子状态
 export const VER = 'fx/20fx-dodge-bullet.js V5.1.0';
 
-import { showComicBubble, getCellElement, wait } from './15fx-common-5v5-test.js';
+import { showComicBubble } from './15fx-common-5v5-test.js';
 
-// 已移至 15fx-common-5v5-test.js，通过 import 使用
+function wait(ms) { return new Promise(r => setTimeout(r, window._fastForwardActive ? 1 : ms)); }
+
+function getCellElement(unit) {
+    if (!unit || unit.pos == null) return null;
+    const grid = document.getElementById(unit.camp === 'ally' ? 'allyGrid' : 'enemyGrid');
+    if (!grid) return null;
+    const order = unit.camp === 'enemy' ? [7,8,9,4,5,6,1,2,3] : [1,2,3,4,5,6,7,8,9];
+    const idx = order.indexOf(unit.pos);
+    return idx >= 0 ? grid.children[idx] : null;
+}
 
 function createZigzagLightning() {
     const svgNS = "http://www.w3.org/2000/svg";
