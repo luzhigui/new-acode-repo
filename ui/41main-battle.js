@@ -307,6 +307,8 @@ export function generateBuffChoices(activeBuffs, allyTeam = []) {
     let activeBuffKeys = activeBuffs.map(b => b.key);
     let available = ALL_BUFF_KEYS.filter(k => {
         if (activeBuffKeys.includes(k)) return false;
+        // 严阵以待：首次选海克斯不出现，必须3回合后
+        if (k === 'fortify' && !activeBuffs.some(b => b.remaining > 0)) return false;
         const requiredRole = C.BUFF_ROLE_REQUIREMENTS[k];
         if (requiredRole && !allyTeam.some(u => u.alive && u.role === requiredRole)) return false;
         return true;

@@ -16,13 +16,22 @@ export function spawnHorse(allyTeam, log, enemyTeam, force = false) {
     ]);
     let available = [1,2,3,4,5,6,7,8,9].filter(p => !occupiedPositions.has(p));
     if (available.length === 0) return;
-    let horsePos = available[rand(0, available.length-1)];
+    // Fisher–Yates 洗牌，确保真正的随机性
+    for (let i = available.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [available[i], available[j]] = [available[j], available[i]];
+    }
+    let horsePos = available[0];
     let horse = new Unit('拒马', 20, '防战', allyTeam[0].camp);
-    horse.atk = C.BUFFS.horseFormation.horseAtk;
-    let defVar = rand(0, 5);
-    horse.def = C.BUFFS.horseFormation.horseDef + defVar;
-    let hpVar = rand(0, 5);
-    horse.maxHp = C.BUFFS.horseFormation.horseHp + hpVar;
+    const xiaoZhaoActive = allyTeam.some(u => u.isXiaoZhao && u.alive);
+    horse.atk = 0;
+    if (xiaoZhaoActive) {
+        horse.def = 30;
+        horse.maxHp = 30;
+    } else {
+        horse.def = 5;
+        horse.maxHp = 25;
+    }
     horse.hp = horse.maxHp;
     horse._baseMaxHp = horse.maxHp;  // 防止 carry 误判 _baseMaxHp=0 把马打成 maxHp=0
     horse.pos = horsePos; horse.isHorse = true; horse._originalPos = horsePos;

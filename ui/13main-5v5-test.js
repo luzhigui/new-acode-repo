@@ -266,6 +266,13 @@ document.addEventListener('DOMContentLoaded', function() {
         };
 
         if(gs===S.GAMEOVER){
+            // 清除战报弹窗和浮动按钮
+            const reportOverlay = document.getElementById('battleReportOverlay');
+            if (reportOverlay) reportOverlay.remove();
+            const reportFloat = document.getElementById('battleReportFloat');
+            if (reportFloat) reportFloat.remove();
+            // 清除所有嘲讽弹幕
+            document.querySelectorAll('.danmaku-bubble').forEach(el => el.remove());
             window._fastForwardActive = false;
             setRenderStore(null);
             if(currentStage>=6){
@@ -435,7 +442,7 @@ document.addEventListener('DOMContentLoaded', function() {
         let totalAfter = logDiv.scrollHeight; logDiv.scrollTop = scrollPos + (totalAfter - totalBefore);
     });
     document.getElementById('debugToggle').addEventListener('click',function(){
-        onAnyButtonClick(); setState.debugMode(!getState.debugMode()); var dm = getState.debugMode(); this.classList.toggle('active',dm); this.textContent='V3.0'; window._debugMode=dm;
+        onAnyButtonClick(); setState.debugMode(!getState.debugMode()); var dm = getState.debugMode(); this.classList.toggle('active',dm); this.textContent='V5.0'; window._debugMode=dm;
         updateSpeedButtons(); updateDebugUI(); updateUI();
     });
     document.getElementById('copyLog').addEventListener('click',()=>{

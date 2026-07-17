@@ -96,6 +96,7 @@
         });
         document.getElementById('btnXiaoZhaoMode').addEventListener('click', () => {
             localStorage.setItem('_forceXiaoZhao', '1');
+            localStorage.removeItem('_bugMode');
             window.open('mode-5v5-test.html', '_blank');
         });
         document.getElementById('btnBugMode').addEventListener('click', () => {

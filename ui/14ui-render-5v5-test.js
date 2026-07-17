@@ -47,14 +47,7 @@ export function isUnitBenefitedByBuff(unit, buffKey, allyTeam, doubleStrikeUid, 
         case 'fortify': return unit.role === '防战' && unit.camp === 'ally';
         case 'windAssault': return unit.role === '飞行';
         case 'cloudBody': return true;
-        case 'holyFlame': {
-            if (!activeBuffs) return false;
-            let holyBuffs = activeBuffs.filter(b => b.key === 'holyFlame');
-            if (holyBuffs.length === 0) return false;
-            let unitCol = (unit.pos - 1) % 3 + 1;
-            let unitRow = Math.ceil(unit.pos / 3);
-            return holyBuffs.some(b => b.col === unitCol || b.row === unitRow);
-        }
+
         case 'hotBlood': return true;
         case 'doubleStrike': return unit.uid === doubleStrikeUid && doubleStrikeUid != null;
         case 'horseFormation': return false;
@@ -319,6 +312,14 @@ export function renderGrid(id, camp) {
         if (camp === 'ally' && isAdjustMode) {
             if (unit.fixed) { div.classList.add('fixed-unit'); }
             else { div.classList.add('swappable'); if (selectedPos === pos) div.classList.add('adjust-selected'); }
+        }
+        if (unit._phantomFlash) {
+            // 成昆幻影伪装闪烁效果
+            div.style.animation = 'phantomFlash 0.4s ease-in-out 2';
+            setTimeout(() => {
+                div.style.animation = '';
+                delete unit._phantomFlash;
+            }, 800);
         }
         if (unit.isHorse && unit.alive && !unit._isDead && !unit._horseSpawned) {
             unit._horseSpawned = true;

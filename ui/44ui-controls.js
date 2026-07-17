@@ -32,7 +32,7 @@ function updateSpeedButtons() {
     const speed = getState.speed();
     const btn2 = document.getElementById('btnSpeed2');
     const btn05 = document.getElementById('btnSpeed05');
-    const btn7x = document.getElementById('btnSpeed7x');
+    const btn8x = document.getElementById('btnSpeed8x');
     const btn4x = document.getElementById('btnSpeed4x');
     const btn2x = document.getElementById('btnSpeed2x');
     const btn05x = document.getElementById('btnSpeed05x');
@@ -51,7 +51,7 @@ function updateSpeedButtons() {
         if(grpL) grpL.style.display='none';
     }
 
-    [btn2, btn05, btn7x, btn4x, btn2x, btn05x].forEach(b => {
+    [btn2, btn05, btn8x, btn4x, btn2x, btn05x].forEach(b => {
         if (!b) return;
         b.classList.remove('active', 'semi-active');
     });
@@ -146,7 +146,7 @@ function restoreSpeedFromScroll() {
 
 // 初始化倍速按钮（速度值已修正为真实倍速）
 attachSpeedButton('btnSpeed2', 600);   // 2倍速 = 600ms延迟
-attachSpeedButton('btnSpeed7x', 100);  // 8倍速 ≈ 100ms延迟
+attachSpeedButton('btnSpeed8x', 100);  // 8倍速 = 100ms延迟
 attachSpeedButton('btnSpeed4x', 300);  // 4倍速 = 300ms延迟
 attachSpeedButton('btnSpeed2x', 600);
 attachSpeedButton('btnSpeed05', 1600); // 0.5倍速 = 1600ms延迟

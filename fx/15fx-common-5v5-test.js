@@ -2,7 +2,7 @@
 // V5.1.0 | ~11587 bytes | 2026-07-05
 export const VER = 'fx/15fx-common-5v5-test.js V5.1.0';
 
-const POOL = {}; const POOL_SIZES = { danmaku: 8, dmgFloat: 6, dodge: 4, healFloat: 4, buffBanner: 2 };
+const POOL = {}; const POOL_SIZES = { danmaku: 8, dmgFloat: 6, dodge: 4, healFloat: 4, atkBuffFloat: 4, buffBanner: 2 };
 function initPool(type, createFn) { if (!POOL[type]) { POOL[type] = { available: [], active: [] }; for (let i = 0; i < POOL_SIZES[type]; i++) { let el = createFn(); el.style.display = 'none'; document.body.appendChild(el); POOL[type].available.push(el); } } }
 
 function acquireFromPool(type, setupFn, duration) {
@@ -51,7 +51,7 @@ export function showHealFloat(unit, heal) { let gridId = unit.camp === 'ally' ? 
 // 攻击力增加飘字
 function createAtkBuffFloatEl() { let d = document.createElement('div'); d.className = 'heal-float'; d.style.color = '#ff8c00'; return d; }
 initPool('atkBuffFloat', createAtkBuffFloatEl);
-export function showAtkBuffFloat(unit, atk) { let gridId = unit.camp === 'ally' ? 'allyGrid' : 'enemyGrid', grid = document.getElementById(gridId), cells = grid.children; let displayOrder = unit.camp === 'enemy' ? [7,8,9,4,5,6,1,2,3] : [1,2,3,4,5,6,7,8,9], idx = displayOrder.indexOf(unit.pos); if (idx >= 0 && cells[idx]) { let rect = cells[idx].getBoundingClientRect(); acquireFromPool('atkBuffFloat', (el) => { el.textContent = '攻+' + atk; el.style.left = (rect.left + 36) + 'px'; el.style.right = 'auto'; el.style.top = (rect.top - 4) + 'px'; el.style.transform = 'translate(-100%, -100%)'; }, 1400); } }
+export function showAtkBuffFloat(unit, atk) { let gridId = unit.camp === 'ally' ? 'allyGrid' : 'enemyGrid', grid = document.getElementById(gridId), cells = grid.children; let displayOrder = unit.camp === 'enemy' ? [7,8,9,4,5,6,1,2,3] : [1,2,3,4,5,6,7,8,9], idx = displayOrder.indexOf(unit.pos); if (idx >= 0 && cells[idx]) { let rect = cells[idx].getBoundingClientRect(); acquireFromPool('atkBuffFloat', (el) => { el.textContent = '+' + atk; el.style.left = (rect.left + 48) + 'px'; el.style.right = 'auto'; el.style.top = (rect.top - 4) + 'px'; el.style.transform = 'translate(-100%, -100%)'; el.style.zIndex = '10004'; }, 1400); } }
 
 function _executeBrush(div) { if (!div) return; let oldOverlay = div.querySelector('.brush-overlay'); if (oldOverlay) oldOverlay.remove(); div.style.width = 'auto'; div.offsetHeight; div.style.width = '100%'; div.style.minWidth = '100%'; let logEl = document.getElementById('log'), paddingLeft = 6; if (logEl) { let cs = getComputedStyle(logEl), pl = parseFloat(cs.paddingLeft); if (!isNaN(pl) && pl > 0) paddingLeft = pl; } let overlay = document.createElement('div'); overlay.className = 'brush-overlay'; overlay.style.position = 'absolute'; overlay.style.left = (-paddingLeft) + 'px'; overlay.style.top = '0'; overlay.style.width = 'calc(100% + ' + (paddingLeft*2) + 'px)'; overlay.style.height = '100%'; overlay.style.pointerEvents = 'none'; div.style.position = 'relative'; div.appendChild(overlay); let start = null; function animate(ts) { if (!start) start = ts; let progress = (ts - start) / 600; if (progress >= 1) { overlay.style.width = 'calc(100% + ' + (paddingLeft*2) + 'px)'; overlay.style.opacity = '0.6'; } else { overlay.style.width = (progress * 100) + '%'; requestAnimationFrame(animate); } } requestAnimationFrame(animate); }
 export function applyBrushEffect(div) { _executeBrush(div); }
