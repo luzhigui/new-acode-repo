@@ -317,7 +317,7 @@ async function handleAttackGroup(c, entry, roundResult, abortSig, isFirstAttackR
     for(let entry2 of textEntries){
         if(abortSig&&abortSig.aborted){if(atkTimer)clearTimeout(atkTimer);if(defTimer)clearTimeout(defTimer);return { isBattleOver: false };}
         if(!c.detailMode&&entry2.type==='detail'){ let hiddenDiv=document.createElement('div'); hiddenDiv.className='detail-hidden'; hiddenDiv.innerHTML=entry2.text+'<br>'; document.getElementById('log').appendChild(hiddenDiv); c.autoScrollLog(); continue; }
-        if(entry2.type==='damage-text'){ lastDiv=document.createElement('div'); document.getElementById('log').appendChild(lastDiv); await playLineText(entry2.text,lastDiv, 500); }
+        if(entry2.type==='damage-text'){ lastDiv=document.createElement('div'); document.getElementById('log').appendChild(lastDiv); await playLineText(entry2.text,lastDiv, Math.max(c.speed || 1000, 1000)); }
         else if(entry2.isHealEntry && entry.isDead){ healDiv=document.createElement('div'); document.getElementById('log').appendChild(healDiv); await playLineText(entry2.text,healDiv); }
         else{
             if(entry2.isHealEntry && !entry.isDead) {
@@ -340,7 +340,13 @@ async function handleAttackGroup(c, entry, roundResult, abortSig, isFirstAttackR
                 }
             }
             if(entry.isBlock&&entry2.text&&entry2.text.includes('休息回复20点生命')&&unitA){c.store.dispatch({ type: 'SET_VISUAL', uid: unitA.uid, _resting: true });blockDelay = true; showHealFloat(unitA, entry.healAmount || 10);}
-            const forcedSpeed = (entry2.type === 'combat-text') ? 500 : null;
+            const currentSpeed = c.speed || 1000;
+            // 重要文本（战斗行、伤害行）：加速保底常速，减速跟随
+            // 次要文本（波动、计算等）：加速跟随，减速保底常速不跟随
+            const isImportant = (entry2.type === 'combat-text' || entry2.type === 'damage-text');
+            const forcedSpeed = isImportant
+                ? Math.max(currentSpeed, 1000)
+                : Math.min(currentSpeed, 1000);
             let tempDiv=document.createElement('div'); document.getElementById('log').appendChild(tempDiv); await playLineText(entry2.text, tempDiv, forcedSpeed);
         }
     }
