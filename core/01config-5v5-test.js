@@ -156,6 +156,10 @@ const CONFIG = {
             minHeal: 0.5,
             minAtk: 0.5,
             upgradedReducePct: 0.3,
+            normalReboundPct: 0.15,
+            normalSelfDmgPct: 0.1,
+            upgradedReboundPct: 0.20,
+            upgradedSelfDmgPct: 0.10,
             horseSpawnLimit: 1
         },
         xinHun: {

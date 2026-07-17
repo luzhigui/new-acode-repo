@@ -46,7 +46,9 @@ export function selectTarget(unit, enemySide) {
 }
 
 export function resolveDodge(unit, target, attackerBuffStats, log) {
-    if (!target.alive || (!target.isWei && target._acted)) return false;
+    const allyBuffs = (target.camp === 'ally' ? A._activeBuffs : B._activeBuffs) || (target.camp === 'enemy' ? B._activeBuffs : A._activeBuffs);
+    const hasCloudBody = hasBuff(allyBuffs, 'cloudBody') || (target.isXiaoZhao && target._permanentBuffs && target._permanentBuffs.some(b => b.key === 'cloudBody'));
+    if (!target.alive || (!target.isWei && !hasCloudBody && target._acted)) return false;
     let baseDodge = getFlyDodgeRate(target, unit);
     let buffDodge = attackerBuffStats.dodgeBonus;
     if (baseDodge + buffDodge <= 0) return false;
@@ -244,7 +246,7 @@ export function processUnitAttack(unit, allySide, enemySide, log, A, B, state, d
         applyXinHunDeduction(unit, allySide, log);
         applyXingFenPenalty(unit, log);
         if (doubleStrikeUnitUid && unit.uid === doubleStrikeUnitUid && unit.alive && unit.camp === 'ally' && !unit._doubleStriked) {
-            if (rand(1,100) <= 80) {
+    if (Math.random() < 0.15) {
                 log.push({type:'info', text:`<span class="gold">⚡ 概率连击触发！</span>`, isDoubleStrikeBanner:true});
                 unit._doubleStriked = true; unit._acted = false;
                 // 锁定同一目标，除非目标死亡才换目标
@@ -290,6 +292,8 @@ export function processUnitAttack(unit, allySide, enemySide, log, A, B, state, d
         defReduced = Math.min(2, target.def);
         target.def = Math.max(0, target.def - 2);
         emitEvent(target, 'hp-change', { hp: target.hp, maxHp: target.maxHp, alive: target.alive, atk: target.atk, def: target.def, _isDead: target._isDead || false });
+        // 暂存破防日志，待攻击组构建时插入
+        unit._pendingDefReduceEntry = {type:'detail', text:`<span class="purple small">🗡️ ${unit.name} 破防：${target.name} 防御 -${defReduced}</span>`};
     }
 
     let dmgCalc = calcAttackDamage(unit, target, attackerBuffStats, defenderBuffStats);
@@ -321,7 +325,8 @@ export function processUnitAttack(unit, allySide, enemySide, log, A, B, state, d
         if (!target._deathTime) target._deathTime = Date.now();
     } else { target.hp = hpAfter; }
 
-    if (unit.role === '战士' && target.alive && target.hp > 0 && target.hp <= target.maxHp * 0.15) {
+    const executeThreshold = A.some(u => u.isXiaoZhao && u.alive) ? 0.20 : 0.15;
+    if (unit.role === '战士' && target.alive && target.hp > 0 && target.hp <= target.maxHp * executeThreshold) {
         target.hp = 0;
         target.alive = false;
         target._isDead = true;
@@ -341,7 +346,8 @@ export function processUnitAttack(unit, allySide, enemySide, log, A, B, state, d
             unit._phantomTarget = enemyAlive[rand(0, enemyAlive.length - 1)].uid;
             const lostHp = unit.maxHp - unit.hp;
             if (lostHp > 0) {
-                const heal = Math.floor(lostHp * 0.3);
+                const aliveCount = enemySide.filter(u => u.alive).length;
+                const heal = Math.floor(lostHp * 0.06 * aliveCount);
                 unit.hp = Math.min(unit.maxHp, unit.hp + heal);
                 unit.healDone += heal;
                 if (!unit._phantomHeal) unit._phantomHeal = 0;
@@ -389,6 +395,11 @@ export function processUnitAttack(unit, allySide, enemySide, log, A, B, state, d
     let displayDef = Math.floor(target.def + target.def * defenderBuffStats.defBonus);
     let unitHpBefore = Math.floor(unit.hp);
     let group = { type:'attack-group', uidA:unit.uid, uidD:target.uid, entries:[], hpAfter:target.hp, alive:target.alive, isDead:dead, waveTaunt, waveUnit, unitRole:unit.role, _fxSnapshot:makeFXSnapshot(unit,target), _dmg:dmg, _isZhangNear:unit.isZhang && !unit.rangedForm, _nearAtkCount:unit.nearAtkCount, hpPctBefore, hpPctAfter, isMiss:miss, isDodge:false, buffEffects:[], _atkBonus:Math.floor(unit.atk * attackerBuffStats.atkBonus), _defBonus:Math.floor(target.def * defenderBuffStats.defBonus), isKuLianAttack: !!(unit.name === '宋青书' && unit._kuLianActive) };
+    // 将暂存的破防日志插入到战斗文本之前
+    if (unit._pendingDefReduceEntry) {
+        group.entries.push(unit._pendingDefReduceEntry);
+        delete unit._pendingDefReduceEntry;
+    }
     group.entries.push({type:'combat-text', text:`<span class="${ac}">${campA} ${unit.name}</span>(攻${displayAtk} 血${unitHpBefore}) → <span class="${dc}">${campD} ${target.name}</span>(防${displayDef} 血${hpBefore})`});
     if (phantomLog) group.entries.push({type:'info', text:`<span class="gold">${phantomLog}</span>`});
     group.entries.push({type:'detail', text:`<span class="gray small">波动：攻${atkBase}→${atkAct} 防${defBase}→${defAct} 血${hpBonus >= 0 ? '+' + hpBonus : hpBonus}</span>`});
@@ -404,9 +415,7 @@ export function processUnitAttack(unit, allySide, enemySide, log, A, B, state, d
         unit._executeLog.forEach(e => group.entries.push(e));
         delete unit._executeLog;
     }
-    if (defReduced > 0) {
-        group.entries.push({type:'detail', text:`<span class="purple small">🗡️ ${unit.name} 破防：${target.name} 防御 -${defReduced}</span>`});
-    }
+
     if (target.role === '防战' && dmg > 0 && target._fortifyStacks !== undefined) {
         group.entries.push({type:'detail', text:`<span class="blue small">🛡️ ${target.name} 坚盾：防御+0.5（已叠${target._fortifyStacks}/6）</span>`});
     }
@@ -458,7 +467,7 @@ export function processUnitAttack(unit, allySide, enemySide, log, A, B, state, d
         if (!xiaoZhaoActive) {
             let zhang = A.find(c => c.isZhang && c.alive && c.rangedForm);
             if (zhang) {
-                let rebound = Math.floor(dmg * 0.15);
+                let rebound = Math.floor(dmg * (CONFIG.ELITE_SKILLS.xiaoZhao.normalReboundPct || 0.15));
                 unit.hp = Math.max(0, unit.hp - rebound);
                 unit.dmgTaken += rebound;
                 zhang.reboundDone += rebound;
@@ -468,7 +477,7 @@ export function processUnitAttack(unit, allySide, enemySide, log, A, B, state, d
                     unit._flash = 'dead';
                     if (!unit._deathTime) unit._deathTime = Date.now();
                 }
-                let selfDmg = Math.max(1, Math.floor(rebound * 0.1));
+                let selfDmg = Math.max(1, Math.floor(rebound * (CONFIG.ELITE_SKILLS.xiaoZhao.normalSelfDmgPct || 0.1)));
                 zhang.hp -= selfDmg;
                 zhang.dmgTaken += selfDmg;
                 emitEvent(unit, 'hp-change', { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: unit.atk, def: unit.def, _isDead: unit._isDead || false });
@@ -495,6 +504,11 @@ export function processUnitAttack(unit, allySide, enemySide, log, A, B, state, d
     if (unit.role === '飞行' && dmg > 0) {
         if (!unit._dodgeStack) unit._dodgeStack = 0;
         unit._dodgeStack += 2;
+    }
+    // 嗜血狂刀：小昭在场时战士额外砍一刀
+    if (unit.role === '战士' && hasBuff(unitActiveBuffs, 'bloodthirst') && dmg > 0 && target.alive && A.some(u => u.isXiaoZhao && u.alive) && !unit._bloodthirstStriked) {
+        unit._bloodthirstStriked = true;
+        processUnitAttack(unit, allySide, enemySide, log, A, B, state, doubleStrikeUnitUid, target.uid);
     }
     if (unit.camp === 'ally' && unit.isWei && dmg > 0) {
         let heal = Math.floor(dmg * 0.18);

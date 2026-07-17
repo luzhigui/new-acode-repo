@@ -342,12 +342,16 @@ async function handleAttackGroup(c, entry, roundResult, abortSig, isFirstAttackR
             if(entry.isBlock&&entry2.text&&entry2.text.includes('休息回复20点生命')&&unitA){c.store.dispatch({ type: 'SET_VISUAL', uid: unitA.uid, _resting: true });blockDelay = true; showHealFloat(unitA, entry.healAmount || 10);}
             const currentSpeed = c.speed || 1000;
             // 重要文本（战斗行、伤害行）：加速保底常速，减速跟随
-            // 次要文本（波动、计算等）：加速跟随，减速保底常速不跟随
+            // 次要文本（波动、计算等）：完全跟随倍速，并整体加速
             const isImportant = (entry2.type === 'combat-text' || entry2.type === 'damage-text');
             const forcedSpeed = isImportant
-                ? Math.max(currentSpeed, 1000)
-                : Math.min(currentSpeed, 1000);
+                ? Math.max(currentSpeed, 600)
+                : Math.floor(currentSpeed * 0.8);
             let tempDiv=document.createElement('div'); document.getElementById('log').appendChild(tempDiv); await playLineText(entry2.text, tempDiv, forcedSpeed);
+            // 波动行和计算行之间加间隔，防止连续冲击
+            if (entry2.type === 'detail' || entry2.type === 'info' || entry2.type === 'buff-bonus' || entry2.type === 'buff-splash') {
+                await new Promise(r => setTimeout(r, 120));
+            }
         }
     }
     if(blockDelay) await new Promise(r=>setTimeout(r, window._fastForwardActive ? 1 : c.speed/2));

@@ -187,7 +187,7 @@ export function* createRoundStepper(state) {
                 buffHpBonus: stats.hpBonus
             });
         }
-        if (hasCarryActive && u.pos === 5 && u._baseMaxHp !== undefined && !u.isHorse) {
+        if (hasCarryActive && (u.pos >= 4 && u.pos <= 6) && u._baseMaxHp !== undefined && !u.isHorse) {
             // 先回退旧加成
             if (u.maxHp > 0 && u._baseMaxHp > 0) {
                 u.hp = Math.floor(u.hp * (u._baseMaxHp / u.maxHp));
@@ -210,7 +210,7 @@ export function* createRoundStepper(state) {
             if (stats.carryAtkAbs || stats.carryDefAbs || stats.carryHpAbs) {
                 log.push({ type:'info', text:`<span class="gold">👑 carry：${u.name} 获得队友属性加成 攻+${stats.carryAtkAbs} 防+${stats.carryDefAbs} 血上限+${stats.carryHpAbs}</span>` });
             }
-        } else if (u.pos === 5 && u._baseMaxHp !== undefined && !u.isHorse && !hasCarryActive) {
+        } else if ((u.pos >= 4 && u.pos <= 6) && u._baseMaxHp !== undefined && !u.isHorse && !hasCarryActive) {
             // carry 过期，回退全部加成
             if (u.maxHp > 0 && u._baseMaxHp > 0) {
                 u.hp = Math.floor(u.hp * (u._baseMaxHp / u.maxHp));
@@ -225,6 +225,7 @@ export function* createRoundStepper(state) {
         u._extinctionUsed = false;
         u._acted = false;
         u._doubleStriked = false;
+        u._bloodthirstStriked = false;
         u._linkTriggered = false;
         u._xingFenPenaltyCount = u._xingFenPenaltyCount || 0;
         if (u.name === '成昆') u._phantomTarget = null;
@@ -244,6 +245,7 @@ export function* createRoundStepper(state) {
         u._extinctionUsed = false;
         u._acted = false;
         u._doubleStriked = false;
+        u._bloodthirstStriked = false;
         u._linkTriggered = false;
         u._xingFenPenaltyCount = u._xingFenPenaltyCount || 0;
         if (u.name === '成昆') u._phantomTarget = null;
@@ -295,7 +297,8 @@ export function* createRoundStepper(state) {
                         continue;
                     }
 
-                    if (blocked && isMelee(u.role)) {
+                    const xiaoZhaoActive = A.some(u => u.isXiaoZhao && u.alive);
+                    if (blocked && isMelee(u.role) && !(xiaoZhaoActive && hasBuff(A._activeBuffs, 'doubleStrike') && u.uid === doubleStrikeUnitUid)) {
                         u._acted = true;
                         let hpBefore = Math.floor(u.hp);
                         u.hp = Math.min(u.maxHp, u.hp + 20);
