@@ -4,7 +4,7 @@ export const VER = 'core/48battle-round.js V5.1.0';
 
 import { CONFIG } from './01config-5v5-test.js';
 import { rand, isMelee, isBlocked, makeFXSnapshot, hasBuff, getUnitCol, getUnitRow } from './03battle-utils.js';
-import { computeBuffStats } from './04buff-system.js';
+import { computeBuffStats, logBuffSummary } from './04buff-system.js';
 import { spawnHorse, destroyHorse } from './05battle-horse.js';
 import { Unit } from './02unit.js';
 import {
@@ -247,6 +247,8 @@ export function* createRoundStepper(state) {
         u._xingFenPenaltyCount = u._xingFenPenaltyCount || 0;
     });
 
+    logBuffSummary(A, log, doubleStrikeUnitUid);
+
     const roundStartEvents = [...window._battleEvents];
     window._battleEvents = [];
     if (window.GlobalStore) window.GlobalStore.flushBattleEvents();
@@ -292,7 +294,7 @@ export function* createRoundStepper(state) {
                             // 强制触发UI刷新，清除绿色休息特效
                             const ctx = window._getPlayerContext?.();
                             if (ctx && ctx.updateUI) ctx.updateUI();
-                        }, 5000);
+                        }, 3000);
                         if (typeof window._emitEvent === 'function') {
                             window._emitEvent(u, 'hp-change', { hp: u.hp, maxHp: u.maxHp, alive: u.alive, atk: u.atk, def: u.def });
                         }
@@ -332,7 +334,7 @@ export function* createRoundStepper(state) {
                             // 强制触发UI刷新，清除绿色休息特效
                             const ctx = window._getPlayerContext?.();
                             if (ctx && ctx.updateUI) ctx.updateUI();
-                        }, 5000);
+                        }, 3000);
                         if (typeof window._emitEvent === 'function') {
                             window._emitEvent(u, 'hp-change', { hp: u.hp, maxHp: u.maxHp, alive: u.alive, atk: u.atk, def: u.def });
                         }
@@ -403,6 +405,12 @@ export function* createRoundStepper(state) {
     [A, B].forEach(team => {
         for (let i = team.length - 1; i >= 0; i--) {
             const u = team[i];
+            // 回合结束清除休息状态和定时器
+            u._resting = false;
+            if (u._restingTimer) { clearTimeout(u._restingTimer); u._restingTimer = null; }
+            if (typeof window._emitEvent === 'function') {
+                window._emitEvent(u, 'hp-change', { hp: u.hp, maxHp: u.maxHp, alive: u.alive, atk: u.atk, def: u.def, _resting: false });
+            }
             if (u.isHorse && !u.alive) {
                 if (typeof window._emitEvent === 'function') {
                     window._emitEvent(u, 'unit-remove', { uid: u.uid });

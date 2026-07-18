@@ -129,7 +129,7 @@ const CONFIG = {
         },
         rebelStrike: { 
             name: '叛逆突袭', dmgBonus: 0,  // 取消伤害加成
-            currentHpRatio: 0.1
+            currentHpRatio: 0.15
         },
         phantomThunder: { name: '混元霹雳劲', lostHpRatio: 0.3 },
         phantomDisguise: { name: '幻影伪装', baseChance: 0.30, per10pctLost: 0.06 },
@@ -168,7 +168,8 @@ const CONFIG = {
                 meteorShower: { atkPerSplash: 2 },
                 fortify: { healOnRebound: true },
                 horseFormation: { horseAtk: 0, horseDef: 30, horseHp: 30, reboundDmg: 5 },
-                carry: { multiTarget: true, targetPositions: [4, 5, 6] }
+                carry: { multiTarget: true, targetPositions: [4, 5, 6] },
+                holyFlame: { atkCols: 2, defRows: 2, atkBonus: 0.3, defBonus: 0.3, xiaoZhaoAtkCols: [1, 2], xiaoZhaoDefRows: [1, 2], xiaoZhaoPermanentSelf: true }
             }
         },
         xinHun: {

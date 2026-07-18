@@ -4,6 +4,7 @@ export const VER = 'tests/25unit-tests.js V5.1.0';
 
 import { calcDamage, getFronts, isBlocked, getFlyDodgeRate, getUnitRow, getUnitCol, getAdjacentPositions } from '../core/03battle-utils.js';
 import { computeBuffStats } from '../core/04buff-system.js';
+import { getUnitCol, getUnitRow } from '../core/03battle-utils.js';
 import { Unit } from '../core/02unit.js';
 
 export function runTests(logFn, errorFn) {

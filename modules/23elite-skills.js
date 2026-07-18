@@ -131,8 +131,8 @@ export function checkNineYinClaw(attacker, target, baseDmg, log) {
                         const atkTarget = aliveAllies[Math.floor(Math.random() * aliveAllies.length)];
                         let atkGain = Math.max(ES.xiaoZhao.minAtk || 0.5, Math.floor(atkTarget.def / (ES.xiaoZhao.defToAtk || 10)));
                         atkTarget.atk += atkGain;
+                        if (atkTarget._baseAtk !== undefined) atkTarget._baseAtk += atkGain;
                         emitEvent(atkTarget, 'hp-change', { hp: atkTarget.hp, maxHp: atkTarget.maxHp, alive: atkTarget.alive, atk: atkTarget.atk, def: atkTarget.def });
-                        showAtkBuffFloat(atkTarget, atkGain);
                         log.push({
                             type: 'info',
                             text: `<span class="gold">🦋 乾坤衍生：${target.name}减伤${reduce}，${healTarget.name}治疗+${heal}，${atkTarget.name}攻击+${atkGain}</span>`,
@@ -427,7 +427,7 @@ export function applyXingFenPenalty(attacker, log) {
     if (attacker.name !== '宋青书') return;
     if (!attacker._xingFenPenaltyCount) attacker._xingFenPenaltyCount = 0;
     attacker._xingFenPenaltyCount++;
-    const penalty = attacker._xingFenPenaltyCount - 1; // 第1次攻击penalty=0不扣
+    const penalty = attacker._xingFenPenaltyCount; // 从1开始计数，第1次攻击扣1
     if (penalty > 0 && attacker.maxHp > 1) {
         const oldMaxHp = attacker.maxHp;
         attacker.maxHp = Math.max(1, attacker.maxHp - penalty);
@@ -553,8 +553,8 @@ export function applyXiaoZhaoDerived(allyTeam, target, dmg, group) {
     const atkTarget = aliveAllies[Math.floor(Math.random() * aliveAllies.length)];
         let atkGain = Math.max(s.minAtk || 1, Math.floor(atkTarget.def / (s.defToAtk || 10)));
         atkTarget.atk += atkGain;
+        if (atkTarget._baseAtk !== undefined) atkTarget._baseAtk += atkGain;
         emitEvent(atkTarget, 'hp-change', { hp: atkTarget.hp, maxHp: atkTarget.maxHp, alive: atkTarget.alive, atk: atkTarget.atk, def: atkTarget.def });
-        showAtkBuffFloat(atkTarget, atkGain);
 
         atkGainText = `，${atkTarget.name}攻击+${atkGain}`;
 

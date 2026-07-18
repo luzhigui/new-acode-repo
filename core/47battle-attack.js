@@ -223,6 +223,7 @@ export function processUnitAttack(unit, allySide, enemySide, log, A, B, state, d
                 if (luActed && !luActed._linkTriggered) {
                     luActed._isLinkAttack = true;
                     luActed._linkTriggered = true;
+                    log.push({type:'info', text:`<span class="gold">🔗 ${luActed.name} 跟随 ${unit.name} 发动联动攻击！</span>`});
                     processUnitAttack(luActed, allySide, enemySide, log, A, B, state, null, target.uid);
                     luActed._isLinkAttack = false;
                     luActed._acted = false;
@@ -231,6 +232,7 @@ export function processUnitAttack(unit, allySide, enemySide, log, A, B, state, d
             } else if (!lu._linkTriggered) {
                 lu._isLinkAttack = true;
                 lu._linkTriggered = true;
+                log.push({type:'info', text:`<span class="gold">🔗 ${lu.name} 跟随 ${unit.name} 发动联动攻击！</span>`});
                 processUnitAttack(lu, allySide, enemySide, log, A, B, state, null, target.uid);
                 lu._isLinkAttack = false;
                 lu._acted = false;
@@ -243,6 +245,8 @@ export function processUnitAttack(unit, allySide, enemySide, log, A, B, state, d
                 if (heActed && !heActed._linkTriggered) {
                     heActed._isLinkAttack = true;
                     heActed._linkTriggered = true;
+                    log.push({type:'info', text:`<span class="gold">🔗 ${heActed.name} 跟随 ${unit.name} 发动联动攻击！</span>`});
+                    applyXuanmingPalm(unit, target);
                     processUnitAttack(heActed, allySide, enemySide, log, A, B, state, null, target.uid);
                     heActed._isLinkAttack = false;
                     heActed._acted = false;
@@ -251,6 +255,8 @@ export function processUnitAttack(unit, allySide, enemySide, log, A, B, state, d
             } else if (!he._linkTriggered) {
                 he._isLinkAttack = true;
                 he._linkTriggered = true;
+                log.push({type:'info', text:`<span class="gold">🔗 ${he.name} 跟随 ${unit.name} 发动联动攻击！</span>`});
+                applyXuanmingPalm(unit, target);
                 processUnitAttack(he, allySide, enemySide, log, A, B, state, null, target.uid);
                 he._isLinkAttack = false;
                 he._acted = false;

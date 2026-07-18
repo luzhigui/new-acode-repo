@@ -147,6 +147,7 @@ export function resolveAttackHit(unit, target, attackerBuffStats, defenderBuffSt
                 log.push(dg);
                 unit._acted = true;
                 unit._stunned = true;
+                dg.entries.push({type:'info', text:`<span class="gray">😵‍💫 ${unit.name} 被反击眩晕，本回合无法行动！</span>`});
                 return { skipped: true, retry: false, lockedTargetUid: null };
             }
         }
@@ -348,8 +349,9 @@ export function buildAttackGroup(unit, target, dmgCalc, dmgResult, attackerBuffS
     group.entries.push({type:'detail', text:`<span class="gray small">波动：攻${atkBase}→${atkAct} 防${defBase}→${defAct} 血${hpBonus >= 0 ? '+' + hpBonus : hpBonus}</span>`});
     if (thunderBonus > 0) group.entries.push({type:'detail', text:`<span class="red small">💥 混元霹雳劲+${thunderBonus}真实伤害</span>`});
     if (hornBonus.defIgnore > 0) {
-        let poisonTag = hornBonus.dmgMultiplier > 1 ? '，目标已中毒伤害+50%' : '';
-        group.entries.push({type:'detail', text:`<span class="purple small">🦌 鹿角杖法：防御 ${defReduction || ''}（忽略${Math.round(hornBonus.defIgnore*100)}%）${poisonTag}</span>`});
+        if (hornBonus.dmgMultiplier > 1) {
+            group.entries.push({type:'info', text:`<span class="gold">🦌 目标已中毒（玄冥神掌），鹤笔翁 鹿角杖法伤害+50%！</span>`});
+        }
     }
     if (trueDmg > 0) group.entries.push({type:'detail', text:`<span class="red small">⚔️ 叛逆真伤+${trueDmg}（目标当前生命10%）</span>`});
     group.entries.push({type:'detail', text:`<span class="gray small">计算：${rawFormula}</span>`});
