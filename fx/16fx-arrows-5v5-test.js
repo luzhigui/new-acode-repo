@@ -207,9 +207,10 @@ export function showBoneClaw(unitA, unitD, speed, getPausedFn, onHit, opts) {
     let baseMin = 700;
     if (unitD && unitD.hp !== undefined) {
         // 检测目标是否刚被小昭衍生技影响（减伤/治疗/加攻）
-        const xiaoZhaoActive = window._currentBattleState?.ally?.find(u => u.isXiaoZhao && u.alive);
+        const battleState = (window.GlobalStore && window.GlobalStore.getState().currentBattleState) || window._currentBattleState;
+        const xiaoZhaoActive = battleState?.ally?.find(u => u.isXiaoZhao && u.alive);
         if (xiaoZhaoActive) {
-            const zhang = window._currentBattleState?.ally?.find(u => u.isZhang && u.alive);
+            const zhang = battleState?.ally?.find(u => u.isZhang && u.alive);
             if (!zhang) { // 衍生技只在无忌不在时生效
                 const derivedHeal = Math.floor(unitD.def / 10); // 估计治疗量
                 if (derivedHeal > 0) baseMin = 450;

@@ -8,7 +8,8 @@ import { rand, calcDamage, getFangLevel, isMelee, getFronts, isBlocked, getFlyDo
 import { Unit } from './02unit.js';
 
 // 从攻击模块导入
-import { selectTarget, resolveDodge, calcAttackDamage, applyPostAttackEffects, processUnitAttack } from './47battle-attack.js';
+import { processUnitAttack } from './47battle-attack.js';
+import { selectTarget, resolveDodge, calcAttackDamage, applyPostAttackEffects } from './49battle-attack-steps.js';
 
 // 从回合模块导入
 import { createRoundStepper, runBattleRound, runBattle } from './48battle-round.js';
@@ -17,7 +18,7 @@ const C = CONFIG, DT = DEF_TAUNT, HT = HP_TAUNT;
 
 // ==================== 事件系统 ====================
 function emitEvent(unit, eventType, payload) {
-    if (typeof window._battleEvents === 'undefined') return;
+    if (typeof window._battleEvents === 'undefined' && !window.GlobalStore) return;
     payload.dmgDealt = unit.dmgDealt;
     payload.dmgTaken = unit.dmgTaken;
     payload.healDone = unit.healDone;

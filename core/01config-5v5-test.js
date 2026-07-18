@@ -160,7 +160,16 @@ const CONFIG = {
             normalSelfDmgPct: 0.1,
             upgradedReboundPct: 0.20,
             upgradedSelfDmgPct: 0.10,
-            horseSpawnLimit: 1
+            horseSpawnLimit: 1,
+            hexEnhance: {
+                bloodthirst: { extraStrike: true },
+                hotBlood: { leechPct: 0.20, critInterval: 2 },
+                windAssault: { hitProb: 1.0, pushProb: 0.80 },
+                meteorShower: { atkPerSplash: 2 },
+                fortify: { healOnRebound: true },
+                horseFormation: { horseAtk: 0, horseDef: 30, horseHp: 30, reboundDmg: 5 },
+                carry: { multiTarget: true, targetPositions: [4, 5, 6] }
+            }
         },
         xinHun: {
             name: '新婚',

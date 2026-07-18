@@ -4,7 +4,7 @@ export const VER = 'core/04buff-system.js V5.1.0';
 
 import { CONFIG } from './01config-5v5-test.js';
 import { rand, hasBuff, getUnitRow, getUnitCol, getAdjacentPositions } from './03battle-utils.js';
-import { checkKuLian, applyXingFenGrant, applyXinHunDeduction, tickKuaiLeHeal, canXingFenTrigger, consumeXingFen, applyXingFenPenalty, applyXiaoZhaoDerived, computeButterflyMastery, isXiaoZhaoPermanentActive } from '../modules/23elite-skills.js';
+import { checkKuLian, applyXingFenGrant, applyXinHunDeduction, tickKuaiLeHeal, canXingFenTrigger, consumeXingFen, applyXingFenPenalty, applyXiaoZhaoDerived, computeButterflyMastery, isXiaoZhaoPermanentActive, getXiaoZhaoHexEnhance } from '../modules/23elite-skills.js';
 const C = CONFIG;
 
 export function computeBuffStats(unit, activeBuffs, allyTeam) {
@@ -115,10 +115,10 @@ export function applyBuffEffectsAfterAttack(unit, target, dmg, allySide, enemySi
     if (hasBuff(unitBuffs, 'hotBlood')) {
         if (!unit._hotBloodCount) unit._hotBloodCount = 0;
         unit._hotBloodCount++;
-        const xiaoZhaoActive = allySide.some(u => u.isXiaoZhao && u.alive);
-        const leechPct = xiaoZhaoActive ? 0.20 : C.BUFFS.hotBlood.leechRatio;
-        const critInterval = xiaoZhaoActive ? 2 : C.BUFFS.hotBlood.critInterval;
-        const critRatio = xiaoZhaoActive ? 0.40 : C.BUFFS.hotBlood.critRatio;
+        const xiaoHHEnhance = getXiaoZhaoHexEnhance(allySide, unitBuffs, 'hotBlood');
+        const leechPct = xiaoHHEnhance ? xiaoHHEnhance.leechPct : C.BUFFS.hotBlood.leechRatio;
+        const critInterval = xiaoHHEnhance ? xiaoHHEnhance.critInterval : C.BUFFS.hotBlood.critInterval;
+        const critRatio = xiaoHHEnhance ? 0.40 : C.BUFFS.hotBlood.critRatio;
         if (unit.alive && unit.hp < unit.maxHp) {
             let ratio = (unit._hotBloodCount % critInterval === 0) ? critRatio : leechPct;
             let leech = Math.min(Math.floor((unit.maxHp - unit.hp) * ratio), unit.maxHp - unit.hp);
@@ -145,8 +145,8 @@ export function applyBuffEffectsAfterAttack(unit, target, dmg, allySide, enemySi
     
     // 乘风突袭：团队优先，团队过期后小昭接管
     if (hasBuff(unitBuffs, 'windAssault') && unit.role === '飞行' && target.alive) {
-        const xiaoZhaoActive = allySide.some(u => u.isXiaoZhao && u.alive);
-        if (rand(1,100) <= (xiaoZhaoActive ? 100 : 80)) {
+        const xiaoWEnhance = getXiaoZhaoHexEnhance(allySide, unitBuffs, 'windAssault');
+        if (rand(1,100) <= (xiaoWEnhance ? xiaoWEnhance.hitProb * 100 : 80)) {
             let row = getUnitRow(target.pos);
             let rowTargets = enemySide.filter(u => u.alive && getUnitRow(u.pos) === row && u.uid !== target.uid);
             if (rowTargets.length > 0) {
@@ -165,7 +165,7 @@ export function applyBuffEffectsAfterAttack(unit, target, dmg, allySide, enemySi
         } else {
             log.push({type:'info', text:`<span class="gray">🦅 乘风突袭波及触发失败</span>`});
         }
-        if (rand(1,100) <= (xiaoZhaoActive ? 80 : 60)) {
+        if (rand(1,100) <= (xiaoWEnhance ? xiaoWEnhance.pushProb * 100 : 60)) {
             let behindPos = target.pos + 3;
             if (behindPos <= 9) {
                 let oldPos = target.pos;
@@ -236,9 +236,9 @@ export function applyBuffEffectsAfterAttack(unit, target, dmg, allySide, enemySi
             log.push({type:'buff-splash', text:`<span class="orange">☄️ 流星赶月溅射：${details}，各-${splashDmg}，防御-${C.BUFFS.meteorShower.splashDefReduce || 1}</span>`, buffType:'meteor_splash', attackerUid: unit.uid, primaryUid: target.uid, splashUids: splashTargets.map(st => st.uid), splashDmg: splashDmg});
         }
         // 小昭在场时，溅射每命中1人，攻击者+2攻
-        const xiaoZhao = allySide.find(u => u.isXiaoZhao && u.alive);
-        if (xiaoZhao && splashTargets && splashTargets.length > 0) {
-            const atkGain = splashTargets.length * 2;
+        const xiaoMEnhance = getXiaoZhaoHexEnhance(allySide, unitBuffs, 'meteorShower');
+        if (xiaoMEnhance && splashTargets && splashTargets.length > 0) {
+            const atkGain = splashTargets.length * xiaoMEnhance.atkPerSplash;
             unit.atk += atkGain;
             if (typeof window._emitEvent === 'function') {
                 window._emitEvent(unit, 'hp-change', { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: unit.atk, def: unit.def });
@@ -355,7 +355,7 @@ export function logBuffSummary(allyTeam, log, doubleStrikeUid) {
                 let carryUnit = allyTeam.find(u => u.pos === 5 && u.alive);
                 if (carryUnit) {
                     // 需要从原始战斗状态中获取完整队友列表（包含已阵亡）
-                    let fullAllies = window._currentBattleState?.ally || allyTeam;
+                    let fullAllies = (window.GlobalStore ? window.GlobalStore.getState().currentBattleState?.ally : window._currentBattleState?.ally) || allyTeam;
                     let allAllies = fullAllies.filter(u => u.uid !== carryUnit.uid && !u.isHorse);
                     let aliveCount = allAllies.filter(a => a.alive).length;
                     let deadCount = allAllies.length - aliveCount;
