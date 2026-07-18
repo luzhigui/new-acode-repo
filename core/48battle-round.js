@@ -11,7 +11,8 @@ import {
     checkKuLian, applyXingFenGrant, tickXuanmingPoison, tickKuaiLeHeal,
     transformXiaoZhao, canXingFenTrigger, consumeXingFen, applyXingFenPenalty, isXiaoZhaoPermanentActive
 } from '../modules/23elite-skills.js';
-import { selectTarget, processUnitAttack } from './47battle-attack.js';
+import { processUnitAttack } from './47battle-attack.js';
+import { selectTarget } from './49battle-attack-steps.js';
 import { getNextAvailableUnit, finalizeDeaths, emitFullUnitState, checkZhangSwitch } from './06battle-engine-core.js';
 
 const C = CONFIG;
@@ -49,6 +50,7 @@ export function* createRoundStepper(state) {
 
     window._battleEvents = [];
     window._currentBattleState = null;
+    if (window.GlobalStore) { window.GlobalStore.flushBattleEvents(); window.GlobalStore.updateBattleState(null); }
 
     log.push({ type:'round-start', text:`<div class="separator">———— 第${round}回合开始 ————</div>` });
 
@@ -133,6 +135,7 @@ export function* createRoundStepper(state) {
     }
 
     window._currentBattleState = { ally: state.allAllies, enemy: state.enemy };
+    if (window.GlobalStore) window.GlobalStore.updateBattleState({ ally: state.allAllies, enemy: state.enemy });
 
     if (doubleStrikeUnitUid) {
         const dsUnit = A.find(u => u.uid === doubleStrikeUnitUid);
@@ -214,6 +217,7 @@ export function* createRoundStepper(state) {
         u._resting = false;
         if (u._restingTimer) { clearTimeout(u._restingTimer); u._restingTimer = null; }
         u._doubleStriked = false;
+        u._stunned = false;
         u._xiaoZhaoDoubleStriked = false;
         u._bloodthirstStriked = false;
         u._linkTriggered = false;
@@ -236,6 +240,7 @@ export function* createRoundStepper(state) {
         u._resting = false;
         if (u._restingTimer) { clearTimeout(u._restingTimer); u._restingTimer = null; }
         u._doubleStriked = false;
+        u._stunned = false;
         u._xiaoZhaoDoubleStriked = false;
         u._bloodthirstStriked = false;
         u._linkTriggered = false;
@@ -244,6 +249,7 @@ export function* createRoundStepper(state) {
 
     const roundStartEvents = [...window._battleEvents];
     window._battleEvents = [];
+    if (window.GlobalStore) window.GlobalStore.flushBattleEvents();
     yield { log: [...log], events: roundStartEvents, ally: A, enemy: B, winner: null, done: false, doubleStrikeUid: doubleStrikeUnitUid };
     window._battleEvents = [];
     log = [];
@@ -299,6 +305,16 @@ export function* createRoundStepper(state) {
                         continue;
                     }
 
+                    if (u._stunned) {
+                        u._acted = true;
+                        let bg = {type:'attack-group', uidA:u.uid, uidD:null, entries:[], isBlock:true, _fxSnapshot:makeFXSnapshot(u,null), waveTaunt:null, waveUnit:null, buffEffects:[]};
+                        bg.entries.push({type:'info', text:`<span class="gray">💫 ${u.name} 被眩晕，无法行动</span>`});
+                        bg._events = [...window._battleEvents];
+                        window._battleEvents = [];
+                        if (window.GlobalStore) window.GlobalStore.flushBattleEvents();
+                        log.push(bg);
+                        continue;
+                    }
                     const xiaoZhaoActive = A.some(u => u.isXiaoZhao && u.alive);
                     if (blocked && isMelee(u.role) && !(xiaoZhaoActive && hasBuff(A._activeBuffs, 'doubleStrike') && u.uid === doubleStrikeUnitUid)) {
                         u._acted = true;
@@ -368,6 +384,7 @@ export function* createRoundStepper(state) {
         finalizeDeaths(B);
         const stepEvents = [...window._battleEvents];
         window._battleEvents = [];
+        if (window.GlobalStore) window.GlobalStore.flushBattleEvents();
         const allyAlive = A.some(u => u.alive);
         const enemyAlive = B.some(u => u.alive);
         let winner = null;
@@ -421,6 +438,7 @@ export function* createRoundStepper(state) {
 
     const endEvents = [...window._battleEvents];
     window._battleEvents = [];
+    if (window.GlobalStore) window.GlobalStore.flushBattleEvents();
     finalizeDeaths(A);
     finalizeDeaths(B);
     yield { log: [...log], events: endEvents, ally: A, enemy: B, winner, done };

@@ -36,6 +36,7 @@ export class Unit {
         this._xingFenPenaltyCount = 0; // 性奋惩罚累计次数，跨回合递增
         this._kuLianActive = false;
         this._phantomTarget = null;  // 成昆模仿的目标 uid
+        this._stunned = false;       // 本回合是否被闪避反击眩晕
         this._isLinkAttack = false;
         this.isXiaoZhao = false;      // 小昭标记
         this._masteredRoles = [];
@@ -71,6 +72,7 @@ export class Unit {
         c._xingFenCount = this._xingFenCount;
         c._kuLianActive = this._kuLianActive;
         c._phantomTarget = this._phantomTarget;
+        c._stunned = this._stunned;
         c._isLinkAttack = this._isLinkAttack;
         c.isXiaoZhao = this.isXiaoZhao;
         c._masteredRoles = [...this._masteredRoles];

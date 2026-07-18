@@ -91,6 +91,7 @@ export function checkNineYinClaw(attacker, target, baseDmg, log) {
         // 抓取本击事件快照，播放器逐次 apply 实现逐击刷新
         const clawEvents = [...window._battleEvents];
         window._battleEvents = [];
+        if (window.GlobalStore) window.GlobalStore.flushBattleEvents();
 
         // 先写白骨爪日志
         log.push({
@@ -114,7 +115,7 @@ export function checkNineYinClaw(attacker, target, baseDmg, log) {
         if (!zhang) {
             const allyTeam = window._currentBattleState?.ally || [];
             if (allyTeam.length > 0) {
-                const xiaoZhao = allyTeam.find(u => u.isXiaoZhao && u.alive);
+                const xiaoZhao = allyTeam.find(u => u.isXiaoZhao && u.alive && !u._stunned);
                 if (xiaoZhao) {
                     let reduce = Math.max(1, Math.floor(bonusDmg * target.def / (ES.xiaoZhao.defToReduce || 100)));
                     target.hp = Math.min(target.maxHp, target.hp + reduce);
@@ -131,6 +132,7 @@ export function checkNineYinClaw(attacker, target, baseDmg, log) {
                         let atkGain = Math.max(ES.xiaoZhao.minAtk || 0.5, Math.floor(atkTarget.def / (ES.xiaoZhao.defToAtk || 10)));
                         atkTarget.atk += atkGain;
                         emitEvent(atkTarget, 'hp-change', { hp: atkTarget.hp, maxHp: atkTarget.maxHp, alive: atkTarget.alive, atk: atkTarget.atk, def: atkTarget.def });
+                        showAtkBuffFloat(atkTarget, atkGain);
                         log.push({
                             type: 'info',
                             text: `<span class="gold">🦋 乾坤衍生：${target.name}减伤${reduce}，${healTarget.name}治疗+${heal}，${atkTarget.name}攻击+${atkGain}</span>`,
@@ -527,7 +529,7 @@ export function isXiaoZhaoPermanentActive(unit, activeBuffs, buffKey) {
  */
 export function applyXiaoZhaoDerived(allyTeam, target, dmg, group) {
     const xiaoZhao = allyTeam.find(u => u.isXiaoZhao && u.alive);
-    if (!xiaoZhao) return;
+    if (!xiaoZhao || xiaoZhao._stunned) return;
     const zhang = allyTeam.find(u => u.isZhang && u.alive);
     if (zhang) return; // 张无忌在场时，衍生技失效
     const s = ES.xiaoZhao;
@@ -552,6 +554,7 @@ export function applyXiaoZhaoDerived(allyTeam, target, dmg, group) {
         let atkGain = Math.max(s.minAtk || 1, Math.floor(atkTarget.def / (s.defToAtk || 10)));
         atkTarget.atk += atkGain;
         emitEvent(atkTarget, 'hp-change', { hp: atkTarget.hp, maxHp: atkTarget.maxHp, alive: atkTarget.alive, atk: atkTarget.atk, def: atkTarget.def });
+        showAtkBuffFloat(atkTarget, atkGain);
 
         atkGainText = `，${atkTarget.name}攻击+${atkGain}`;
 
@@ -578,6 +581,8 @@ export function applyPhantomDisguise(unit, enemySide, allySide = null) {
     if (unit.camp !== 'ally') return null;
     const chengkun = enemySide.find(u => u.name === '成昆' && u.alive && u._phantomTarget);
     if (!chengkun || unit._isLinkAttack) return null;
+    // 被模仿者免疫幻影伪装
+    if (chengkun._phantomTarget === unit.uid) return null;
     const lostPct = (chengkun.maxHp - chengkun.hp) / chengkun.maxHp;
     const chance = ES.phantomDisguise.baseChance + Math.floor(lostPct * 10) * ES.phantomDisguise.per10pctLost;
     if (Math.random() < chance) {
@@ -619,4 +624,20 @@ export function checkXiaoZhaoPermanentDoubleStrike(unit, activeBuffs) {
     if (hasBuff(activeBuffs, 'doubleStrike')) return false; // 团队连击还在，小昭不生效
     const chance = ES.xiaoZhaoDoubleStrike ? ES.xiaoZhaoDoubleStrike.chance * 100 : 80;
     return rand(1, 100) <= chance;
+}
+
+/**
+ * 小昭对团队海克斯的强化判定
+ * @param {Object} allyTeam - 己方队伍
+ * @param {Array} activeBuffs - 当前活跃的团队 Buff
+ * @param {string} hexKey - 海克斯 key
+ * @returns {Object|null} 强化参数对象，小昭不在或团队 Buff 已过期返回 null
+ */
+export function getXiaoZhaoHexEnhance(allyTeam, activeBuffs, hexKey) {
+    const xiaoZhao = allyTeam.find(u => u.isXiaoZhao && u.alive);
+    if (!xiaoZhao) return null;
+    if (!hasBuff(activeBuffs, hexKey)) return null;
+    const s = ES.xiaoZhao;
+    if (!s || !s.hexEnhance || !s.hexEnhance[hexKey]) return null;
+    return s.hexEnhance[hexKey];
 }
