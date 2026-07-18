@@ -5,6 +5,7 @@ export const VER = 'ui/14ui-render-5v5-test.js V5.1.0';
 import { CONFIG } from '../core/01config-5v5-test.js';
 import { rand } from '../core/03battle-utils.js';
 import { computeBuffStats } from '../core/04buff-system.js';
+import { getUnitCol, getUnitRow } from '../core/03battle-utils.js';
 import { showDanmaku as _showDanmaku } from '../fx/15fx-common-5v5-test.js';
 const showDanmaku = (...args) => { if (typeof _showDanmaku === 'function') return _showDanmaku(...args); };
 
@@ -47,6 +48,15 @@ export function isUnitBenefitedByBuff(unit, buffKey, allyTeam, doubleStrikeUid, 
         case 'fortify': return unit.role === '防战' && unit.camp === 'ally';
         case 'windAssault': return unit.role === '飞行';
         case 'cloudBody': return true;
+        case 'holyFlame': {
+            if (!activeBuffs) return false;
+            const holyBuffs = activeBuffs.filter(b => b.key === 'holyFlame');
+            return holyBuffs.some(b => {
+                const cols = b.cols || [b.col];
+                const rows = b.rows || [b.row];
+                return cols.includes(getUnitCol(unit.pos)) || rows.includes(getUnitRow(unit.pos));
+            });
+        }
 
         case 'hotBlood': return true;
         case 'doubleStrike': return unit.uid === doubleStrikeUid && doubleStrikeUid != null;
@@ -139,7 +149,7 @@ function updateDetailPopupContent() {
             <span style="color:#888;">站位</span><span>${!u.alive ? '已阵亡' : (u.pos || '?') + '号位'}</span>
             <span style="color:#888;">血量</span><span style="color:${hpColor};font-weight:bold;">${Math.floor(u.hp)} / ${Math.floor(u.maxHp)} (${hpPct}%)</span>
             <span style="color:#888;">攻击</span><span>${u._baseAtk !== undefined && u.atk > u._baseAtk ? `${u._baseAtk}<span style="color:#daa520;">+${u.atk - u._baseAtk}</span> = <span style="color:#daa520;font-weight:bold;">${u.atk}</span>` : `${u.atk}${atkBonusVal > 0 ? ' <span style="color:#daa520;">+' + atkBonusVal + '</span> = ' + displayAtk : ''}`}</span>
-            <span style="color:#888;">防御</span><span>${(u._fortifyStacks || 0) > 0 ? `${Math.round(u.def - u._fortifyStacks)}<span style="color:#daa520;">+${u._fortifyStacks}</span> = <span style="color:#daa520;font-weight:bold;">${Math.round(u.def)}</span>` : `${u.def}${defBonusVal > 0 ? ' <span style="color:#daa520;">+' + defBonusVal + '</span> = <span style="color:#daa520;font-weight:bold;">' + displayDef + '</span>' : ''}`}</span>
+            <span style="color:#888;">防御</span><span>${(u._fortifyStacks || 0) > 0 ? `${Math.round(u.def - u._fortifyStacks)}<span style="color:#daa520;">+${u._fortifyStacks}</span> = <span style="color:#daa520;font-weight:bold;">${Math.round(u.def)}</span>` : (defBonusVal > 0 ? `${Math.round(u.def - defBonusVal)}<span style="color:#daa520;">+${defBonusVal}</span> = <span style="color:#daa520;font-weight:bold;">${displayDef}</span>` : `${u.def}`)}</span>
             <span style="color:#888;">造成伤害</span><span>${u.dmgDealt || 0}</span>
             <span style="color:#888;">承受伤害</span><span>${u.dmgTaken || 0}</span>
             <span style="color:#888;">治疗</span><span>${u.healDone || 0}</span>
@@ -280,12 +290,10 @@ export function renderGrid(id, camp) {
             atkDisplayHtml = `<span style="color:#daa520;font-weight:bold;">${displayAtk}</span>`;
         }
         let displayDef = Math.round(latestUnit.def + defBonusVal);
+        let baseDef = Math.round(latestUnit._baseDef !== undefined ? latestUnit._baseDef : (latestUnit.def - (latestUnit._fortifyStacks || 0)));
+        let bonusDef = displayDef - baseDef;
         let defDisplayHtml = `${displayDef}`;
-        let fortifyStacks = latestUnit._fortifyStacks || 0;
-        if (fortifyStacks > 0) {
-            let baseDef = Math.round(latestUnit.def - fortifyStacks + defBonusVal);
-            defDisplayHtml = `<span style="color:#daa520;font-weight:bold;" title="基础${baseDef} + 坚盾${fortifyStacks} = ${displayDef}">${baseDef}+${fortifyStacks}</span>`;
-        } else if ((latestUnit._baseDef !== undefined && displayDef > latestUnit._baseDef) || defBonusVal > 0) {
+        if (defBonusVal > 0 || (latestUnit._fortifyStacks || 0) > 0) {
             defDisplayHtml = `<span style="color:#daa520;font-weight:bold;">${displayDef}</span>`;
         }
         let hpPct = unit.alive ? Math.floor((unit.hp / unit.maxHp) * 100) : 0;
@@ -301,6 +309,7 @@ export function renderGrid(id, camp) {
         let actedClass = (!hasFlash && unit._acted && unit.alive && !isDead) ? 'acted' : '';
         let isBlocked = unit._blocked || false;
         let isResting = unit._resting || false;
+        let isStunned = unit._stunned || false;
         let cheerClass = (hasFlash && unit._flash==='cheer' && !isDead) ? 'cell-cheer' : '';
         let restingClass = (isBlocked && unit.alive && isResting && !(unit.isZhang && unit.rangedForm) && !isDead) ? 'resting' : '';
         let div = document.createElement('div');
@@ -345,7 +354,7 @@ export function renderGrid(id, camp) {
         let eliteSkillIcon = (unit.name === '周芷若' && unit._hasKuaiLe) ? ' 💖' : (unit.name === '宋青书' && unit._hasXingFen) ? ' 💗' : (unit.isXiaoZhao ? ' 🦋' : '');
         if (unit.name === '成昆' && unit._phantomTarget) eliteSkillIcon += ' 🎭';
         if (unit._xuanmingPoison && unit._xuanmingPoison.remaining > 0) eliteSkillIcon += ' ❄️';
-        div.innerHTML = `<span class="cell-icon">${isBlocked && unit.alive && isResting && !(unit.isZhang && unit.rangedForm) && !isDead ? '😴' : roleIcon}</span><div class="cell-info"><span class="cell-name ${displayIsZhang?'gold':''}">${displayName}${eliteSkillIcon}${buffIcons ? ' ' + buffIcons : ''}</span><span class="cell-stats">攻<span style="${atkStyle}">${atkDisplayHtml}</span> 防<span style="${defStyle}">${defDisplayHtml}</span> <span class="${hpColorClass}" style="${hpStyle}">血${hpDisplayHtml}</span></span></div><div class="hp-bar-wrap"><div class="hp-bar-inner" id="hpbar-${unit.uid}" style="height:${hpPct}%;background:${barColor};transition:none;"></div></div>`;
+        div.innerHTML = `<span class="cell-icon">${isStunned && !isDead ? '😵‍💫' : (isBlocked && unit.alive && isResting && !(unit.isZhang && unit.rangedForm) && !isDead ? '😴' : roleIcon)}</span><div class="cell-info"><span class="cell-name ${displayIsZhang?'gold':''}">${displayName}${eliteSkillIcon}${buffIcons ? ' ' + buffIcons : ''}</span><span class="cell-stats">攻<span style="${atkStyle}">${atkDisplayHtml}</span> 防<span style="${defStyle}">${defDisplayHtml}</span> <span class="${hpColorClass}" style="${hpStyle}">血${hpDisplayHtml}</span></span></div><div class="hp-bar-wrap"><div class="hp-bar-inner" id="hpbar-${unit.uid}" style="height:${hpPct}%;background:${barColor};transition:none;"></div></div>`;
         if (isDead) {
             let deadMark = document.createElement('span'); deadMark.className = 'dead-mark'; deadMark.textContent = '✕'; div.appendChild(deadMark);
             div.style.transform = 'scale(0.8)'; div.style.opacity = '0.9';

@@ -271,6 +271,10 @@ document.addEventListener('DOMContentLoaded', function() {
             if (reportOverlay) reportOverlay.remove();
             const reportFloat = document.getElementById('battleReportFloat');
             if (reportFloat) reportFloat.remove();
+            const voteFloat = document.getElementById('voteFloat');
+            if (voteFloat) voteFloat.style.display = 'none';
+            const buffFloat = document.getElementById('buffFloatBtn');
+            if (buffFloat) buffFloat.remove();
             // 清除所有嘲讽弹幕
             document.querySelectorAll('.danmaku-bubble').forEach(el => el.remove());
             window._fastForwardActive = false;
@@ -348,6 +352,14 @@ document.addEventListener('DOMContentLoaded', function() {
             clearAllEffects();
             window._fastForwardActive = false;
             setRenderStore(null);
+            const reportOverlay = document.getElementById('battleReportOverlay');
+            if (reportOverlay) reportOverlay.remove();
+            const reportFloat = document.getElementById('battleReportFloat');
+            if (reportFloat) reportFloat.remove();
+            const voteFloat = document.getElementById('voteFloat');
+            if (voteFloat) voteFloat.style.display = 'none';
+            const buffFloat = document.getElementById('buffFloatBtn');
+            if (buffFloat) buffFloat.remove();
             setState.speed(500);
             setState.gs(S.IDLE);
             setState.isPaused(false);
@@ -454,7 +466,12 @@ document.addEventListener('DOMContentLoaded', function() {
             let logDiv=document.getElementById('log');
             let lines=[];
             let seen=new Set();
-            logDiv.querySelectorAll('div').forEach(div=>{
+            const allDivs = logDiv.querySelectorAll('div');
+            if (allDivs.length === 0) {
+                // 兜底：用 innerText 按行分割
+                lines = logDiv.innerText.split('\n').map(s => s.trim()).filter(Boolean);
+            }
+            allDivs.forEach(div=>{
                 let t=div.textContent||'';
                 t=t.trim();
                 if(!t) return;

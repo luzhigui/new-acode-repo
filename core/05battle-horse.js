@@ -11,10 +11,9 @@ const C = CONFIG;
 export function spawnHorse(allyTeam, log, enemyTeam, force = false) {
     let buffs = allyTeam._activeBuffs || [];
     if (!force && !hasBuff(buffs, 'horseFormation')) return;
-    let occupiedPositions = new Set([
-        ...allyTeam.filter(u => u.alive).map(u => u.pos),
-        ...(enemyTeam ? enemyTeam.filter(u => u.alive).map(u => u.pos) : [])
-    ]);
+    let occupiedPositions = new Set(
+        allyTeam.filter(u => u.alive).map(u => u.pos)
+    );
     let available = [1,2,3,4,5,6,7,8,9].filter(p => !occupiedPositions.has(p));
     if (available.length === 0) return;
     // Fisher–Yates 洗牌，确保真正的随机性

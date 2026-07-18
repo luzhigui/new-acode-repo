@@ -342,7 +342,15 @@ export function showBuffSelection(callback, activeBuffs, selectedBuffIndex, upda
             activeBuffs.splice(activeBuffs.indexOf(shortest), 1);
         }
         // 圣火令仅作为标记，实际行列由回合引擎每回合生成
-        activeBuffs.push({ key, target: 'ally', remaining: duration, name: C.BUFFS[key].name });
+        if (key === 'holyFlame') {
+            const cols = [];
+            while (cols.length < 2) { const c = rand(1, 3); if (!cols.includes(c)) cols.push(c); }
+            const rows = [];
+            while (rows.length < 2) { const r = rand(1, 3); if (!rows.includes(r)) rows.push(r); }
+            activeBuffs.push({ key, target: 'ally', remaining: duration, name: C.BUFFS[key].name, cols, rows });
+        } else {
+            activeBuffs.push({ key, target: 'ally', remaining: duration, name: C.BUFFS[key].name });
+        }
         // 小昭永久海克斯存储
         if (allyTeam) {
             const xiaoZhao = allyTeam.find(u => u.isXiaoZhao);
@@ -376,7 +384,15 @@ export function showBugModeBuffSelection(callback, activeBuffs, selectedBuffInde
             let shortest = activeBuffs.reduce((a, b) => a.remaining < b.remaining ? a : b);
             activeBuffs.splice(activeBuffs.indexOf(shortest), 1);
         }
-        activeBuffs.push({ key, target: 'ally', remaining: duration, name: C.BUFFS[key].name });
+        if (key === 'holyFlame') {
+            const cols = [];
+            while (cols.length < 2) { const c = rand(1, 3); if (!cols.includes(c)) cols.push(c); }
+            const rows = [];
+            while (rows.length < 2) { const r = rand(1, 3); if (!rows.includes(r)) rows.push(r); }
+            activeBuffs.push({ key, target: 'ally', remaining: duration, name: C.BUFFS[key].name, cols, rows });
+        } else {
+            activeBuffs.push({ key, target: 'ally', remaining: duration, name: C.BUFFS[key].name });
+        }
         if (allyTeam) {
             const xiaoZhao = allyTeam.find(u => u.isXiaoZhao);
             if (xiaoZhao) {

@@ -212,6 +212,15 @@ export function checkBuffIcons(ctx, doc) {
             case 'fortify': return unit.role === '防战';
             case 'windAssault': return unit.role === '飞行';
             case 'cloudBody': return true;
+        case 'holyFlame': {
+            if (!activeBuffs) return false;
+            const holyBuffs = activeBuffs.filter(b => b.key === 'holyFlame');
+            return holyBuffs.some(b => {
+                const cols = b.cols || [b.col];
+                const rows = b.rows || [b.row];
+                return cols.includes(getUnitCol(unit.pos)) || rows.includes(getUnitRow(unit.pos));
+            });
+        }
             case 'hotBlood': return true;
             case 'holyFlame': {
                 const holyBuff = activeBuffs.find(b => b.key === 'holyFlame');

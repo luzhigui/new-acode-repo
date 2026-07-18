@@ -5,6 +5,8 @@ export const VER = 'fx/18fx-position-swap.js V5.1.0';
 /**
  * 获取单位对应的格子 DOM 元素（本地定义，不依赖外部）
  */
+function wait(ms) { return new Promise(r => setTimeout(r, window._fastForwardActive ? 1 : ms)); }
+
 function getCellElement(unit) {
     if (!unit || unit.pos == null) return null;
     const grid = document.getElementById(unit.camp === 'ally' ? 'allyGrid' : 'enemyGrid');

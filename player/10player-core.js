@@ -3,7 +3,7 @@
 export const VER = 'player/10player-core.js V5.1.0';
 
 import { isBlocked } from '../core/03battle-utils.js';
-import { showDanmaku, showDamageFloat, showDodgeBubble, showHealFloat, applyBrushEffect, showBuffBanner, showCriticalBanner, showHeartEffect, showPinkFlash, showKuLianEffect } from '../fx/15fx-common-5v5-test.js';
+import { showDanmaku, showDamageFloat, showDodgeBubble, showHealFloat, showAtkBuffFloat, applyBrushEffect, showBuffBanner, showCriticalBanner, showHeartEffect, showPinkFlash, showKuLianEffect } from '../fx/15fx-common-5v5-test.js';
 import { showDodgeBulletTime } from '../fx/20fx-dodge-bullet.js';
 import { showRangedArrow, showSplashArrows, showBoneClaw } from '../fx/16fx-arrows-5v5-test.js';
 import { CONFIG } from '../core/01config-5v5-test.js';
@@ -402,6 +402,21 @@ async function handleInfo(c, entry) {
             let unit = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.uid === entry.zhouUid);
             let match = entry.text.match(/回复(\d+)/);
             if (match && unit) showHealFloat(unit, parseInt(match[1]));
+        }
+        // 小昭衍生技：加攻弹幕（延迟于治疗数字）
+        if (entry.buffType !== 'elite_kuaile_heal' && entry.text && entry.text.includes('🦋 乾坤衍生') && entry.text.includes('攻击+')) {
+            const atkMatch = entry.text.match(/攻击\+(\d+)/);
+            if (atkMatch) {
+                const atkGain = parseInt(atkMatch[1]);
+                const nameMatch = entry.text.match(/(\S+)攻击\+/);
+                let atkTarget = null;
+                if (nameMatch) {
+                    atkTarget = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.name === nameMatch[1]);
+                }
+                if (atkTarget) {
+                    setTimeout(() => showAtkBuffFloat(atkTarget, atkGain), 180);
+                }
+            }
         }
         if (entry.isClawHit && entry.clawAttackerUid && entry.clawTargetUid) {
             let attacker = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.uid === entry.clawAttackerUid);
