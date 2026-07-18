@@ -128,7 +128,7 @@ function updateDetailPopupContent() {
     } else if (unitBuffs.length > 0) {
         buffText = unitBuffs.map(b => `${b.name}(${b.remaining}回)`).join('、');
     }
-    let buffStats = getBuffStats(u);
+    let buffStats = computeBuffStats(u, activeBuffs, allyTeam);
     let atkBonusVal = Math.floor(u.atk * buffStats.atkBonus);
     let defBonusVal = Math.floor(u.def * buffStats.defBonus);
     let hpBonusVal = Math.floor(u.maxHp * buffStats.hpBonus);
