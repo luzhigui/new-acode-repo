@@ -210,7 +210,11 @@ export function calcFinalDamage(unit, target, attackerBuffStats, defenderBuffSta
         raw += trueDmg;
         rawFormula = `${rawFormula} + 叛逆真伤${trueDmg} = ${Math.floor(raw)}`;
     }
-    if (hornBonus.dmgMultiplier > 1) raw *= hornBonus.dmgMultiplier;
+    if (hornBonus.dmgMultiplier > 1) {
+        const beforeHorn = Math.floor(raw);
+        raw *= hornBonus.dmgMultiplier;
+        rawFormula += `×${hornBonus.dmgMultiplier}=${Math.floor(raw)}`;
+    }
 
     // 伤害修正钩子
     let dmg = Math.floor(raw);
@@ -353,7 +357,7 @@ export function buildAttackGroup(unit, target, dmgCalc, dmgResult, attackerBuffS
             group.entries.push({type:'info', text:`<span class="gold">🦌 目标已中毒（玄冥神掌），鹤笔翁 鹿角杖法伤害+50%！</span>`});
         }
     }
-    if (trueDmg > 0) group.entries.push({type:'detail', text:`<span class="red small">⚔️ 叛逆真伤+${trueDmg}（目标当前生命10%）</span>`});
+    if (trueDmg > 0) group.entries.push({type:'detail', text:`<span class="red small">⚔️ 叛逆真伤+${trueDmg}（目标当前生命${Math.round((C.ELITE_SKILLS?.rebelStrike?.currentHpRatio || 0.12) * 100)}%）</span>`});
     group.entries.push({type:'detail', text:`<span class="gray small">计算：${rawFormula}</span>`});
     group.entries.push({type:'damage-text', deadFlag:dead, text:`<span class="damage-line ${dead?'brush-red':''} ${ac}">${dead?'💀击杀💀 ':''}${campA} ${unit.name}</span> 造成 <span class="red">${dmg}</span> 伤害，<span class="${dc}">${campD} ${target.name}</span> ${hpBefore} → ${Math.floor(target.hp)} ${dead?'💀阵亡':''}`});
     if (unit._executeLog) {

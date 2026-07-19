@@ -25,7 +25,7 @@ export function showBuffPopup(c) {
         if (available.length === 0) { resolve(null); return; }
 
         let choices;
-        if (localStorage.getItem('_bugMode') === '1') {
+        if (GlobalStore.get('bugMode')) {
             // Bug 模式：展示所有 Buff 供自由选择
             choices = available;
         } else {
@@ -111,6 +111,12 @@ export function showBuffPopup(c) {
                 floatBtn.addEventListener('click', () => {
                     overlay.style.display = 'flex';
                     floatBtn.remove();
+                });
+                const unsubscribe = GlobalStore.on('gs', (newGs) => {
+                    if (newGs === 'IDLE') {
+                        if (floatBtn.parentNode) floatBtn.remove();
+                        unsubscribe();
+                    }
                 });
                 document.body.appendChild(floatBtn);
             }

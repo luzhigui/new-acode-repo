@@ -3,7 +3,7 @@
 export const VER = 'ui/41main-battle.js V5.1.0';
 
 import { CONFIG, ENEMY_M } from '../core/01config-5v5-test.js';
-import { Unit, rand, runBattle } from '../core/07battle-engine-5v5-test.js';
+import { Unit, rand } from '../core/07battle-engine-5v5-test.js';
 import { addPermanentBuff } from '../modules/23elite-skills.js';
 import { updateUI, clearLogExceptFirst } from './14ui-render-5v5-test.js';
 import { showModal } from './12main-utils.js';
@@ -61,7 +61,7 @@ export function doInitBattle(currentStage, UI, snapshot, activeBuffs, selectedBu
         while (toLock.length < 3) { let pool = allyTeam.filter(u => !toLock.includes(u)); if (pool.length === 0) break; let pick = pool[rand(0, pool.length - 1)]; toLock.push(pick); }
         toLock.forEach(u => { u.fixed = true; });
         // 强制小昭模式
-        if (window._forceXiaoZhao && !allyTeam.some(u => u.isXiaoZhao)) {
+        if (GlobalStore.get('forceXiaoZhao') && !allyTeam.some(u => u.isXiaoZhao)) {
             const swappable = allyTeam.find(u => !u.isZhang && !u.isWei);
             if (swappable) allyTeam.splice(allyTeam.indexOf(swappable), 1);
             let xzUnit = new Unit('小昭', 107, C.ROLES[rand(0, 3)], 'ally');
@@ -127,7 +127,7 @@ export function doInitBattle(currentStage, UI, snapshot, activeBuffs, selectedBu
         }
 
         // 强制小昭模式
-        if (window._forceXiaoZhao && !allyTeam.some(u => u.isXiaoZhao)) {
+        if (GlobalStore.get('forceXiaoZhao') && !allyTeam.some(u => u.isXiaoZhao)) {
             const swappable = allyTeam.find(u => !u.isZhang && !u.isWei);
             if (swappable) {
                 allyTeam.splice(allyTeam.indexOf(swappable), 1);
@@ -346,8 +346,10 @@ export function showBuffSelection(callback, activeBuffs, selectedBuffIndex, upda
         if (key === 'holyFlame') {
             const cols = [];
             while (cols.length < 2) { const c = rand(1, 3); if (!cols.includes(c)) cols.push(c); }
+            cols.sort((a, b) => a - b);
             const rows = [];
             while (rows.length < 2) { const r = rand(1, 3); if (!rows.includes(r)) rows.push(r); }
+            rows.sort((a, b) => a - b);
             activeBuffs.push({ key, target: 'ally', remaining: duration, name: C.BUFFS[key].name, cols, rows });
         } else {
             activeBuffs.push({ key, target: 'ally', remaining: duration, name: C.BUFFS[key].name });
@@ -388,8 +390,10 @@ export function showBugModeBuffSelection(callback, activeBuffs, selectedBuffInde
         if (key === 'holyFlame') {
             const cols = [];
             while (cols.length < 2) { const c = rand(1, 3); if (!cols.includes(c)) cols.push(c); }
+            cols.sort((a, b) => a - b);
             const rows = [];
             while (rows.length < 2) { const r = rand(1, 3); if (!rows.includes(r)) rows.push(r); }
+            rows.sort((a, b) => a - b);
             activeBuffs.push({ key, target: 'ally', remaining: duration, name: C.BUFFS[key].name, cols, rows });
         } else {
             activeBuffs.push({ key, target: 'ally', remaining: duration, name: C.BUFFS[key].name });
