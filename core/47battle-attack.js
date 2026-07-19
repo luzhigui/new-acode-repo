@@ -226,7 +226,6 @@ export function processUnitAttack(unit, allySide, enemySide, log, A, B, state, d
                     log.push({type:'info', text:`<span class="gold">🔗 ${luActed.name} 跟随 ${unit.name} 发动联动攻击！</span>`});
                     processUnitAttack(luActed, allySide, enemySide, log, A, B, state, null, target.uid);
                     luActed._isLinkAttack = false;
-                    luActed._acted = false;
                     emitEvent(luActed, 'hp-change', { hp: luActed.hp, maxHp: luActed.maxHp, alive: luActed.alive, atk: luActed.atk, def: luActed.def });
                 }
             } else if (!lu._linkTriggered) {
@@ -235,7 +234,6 @@ export function processUnitAttack(unit, allySide, enemySide, log, A, B, state, d
                 log.push({type:'info', text:`<span class="gold">🔗 ${lu.name} 跟随 ${unit.name} 发动联动攻击！</span>`});
                 processUnitAttack(lu, allySide, enemySide, log, A, B, state, null, target.uid);
                 lu._isLinkAttack = false;
-                lu._acted = false;
                 emitEvent(lu, 'hp-change', { hp: lu.hp, maxHp: lu.maxHp, alive: lu.alive, atk: lu.atk, def: lu.def });
             }
         } else if (unit.name === '鹿杖客') {
@@ -249,7 +247,6 @@ export function processUnitAttack(unit, allySide, enemySide, log, A, B, state, d
                     applyXuanmingPalm(unit, target);
                     processUnitAttack(heActed, allySide, enemySide, log, A, B, state, null, target.uid);
                     heActed._isLinkAttack = false;
-                    heActed._acted = false;
                     emitEvent(heActed, 'hp-change', { hp: heActed.hp, maxHp: heActed.maxHp, alive: heActed.alive, atk: heActed.atk, def: heActed.def });
                 }
             } else if (!he._linkTriggered) {
@@ -259,7 +256,6 @@ export function processUnitAttack(unit, allySide, enemySide, log, A, B, state, d
                 applyXuanmingPalm(unit, target);
                 processUnitAttack(he, allySide, enemySide, log, A, B, state, null, target.uid);
                 he._isLinkAttack = false;
-                he._acted = false;
                 emitEvent(he, 'hp-change', { hp: he.hp, maxHp: he.maxHp, alive: he.alive, atk: he.atk, def: he.def });
             }
         }

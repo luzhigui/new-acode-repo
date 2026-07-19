@@ -108,9 +108,14 @@ function updateDetailPopupContent() {
     let activeBuffs = ctx.activeBuffs || [];
     let doubleStrikeUid = ctx.currentDoubleStrikeUid;
     // 正确统计所有覆盖该单位的圣火令
-    let holyFlameBuffs = activeBuffs.filter(b => 
-        b.key === 'holyFlame' && (b.col === (u.pos - 1) % 3 + 1 || b.row === Math.ceil(u.pos / 3))
-    );
+    let holyFlameBuffs = activeBuffs.filter(b => {
+        if (b.key !== 'holyFlame') return false;
+        const cols = b.cols || (b.col != null ? [b.col] : []);
+        const rows = b.rows || (b.row != null ? [b.row] : []);
+        const unitCol = (u.pos - 1) % 3 + 1;
+        const unitRow = Math.ceil(u.pos / 3);
+        return cols.includes(unitCol) || rows.includes(unitRow);
+    });
     let unitBuffs = activeBuffs.filter(b => b.key !== 'holyFlame' && isUnitBenefitedByBuff(u, b.key, allyTeam, doubleStrikeUid, activeBuffs));
     if (holyFlameBuffs.length > 0) {
         // 把圣火令加进去，让它在弹窗的Buff列表里显示出来
@@ -149,7 +154,7 @@ function updateDetailPopupContent() {
             <span style="color:#888;">站位</span><span>${!u.alive ? '已阵亡' : (u.pos || '?') + '号位'}</span>
             <span style="color:#888;">血量</span><span style="color:${hpColor};font-weight:bold;">${Math.floor(u.hp)} / ${Math.floor(u.maxHp)} (${hpPct}%)</span>
             <span style="color:#888;">攻击</span><span>${u._baseAtk !== undefined && u.atk > u._baseAtk ? `${u._baseAtk}<span style="color:#daa520;">+${u.atk - u._baseAtk}</span> = <span style="color:#daa520;font-weight:bold;">${u.atk}</span>` : `${u.atk}${atkBonusVal > 0 ? ' <span style="color:#daa520;">+' + atkBonusVal + '</span> = ' + displayAtk : ''}`}</span>
-            <span style="color:#888;">防御</span><span>${(u._fortifyStacks || 0) > 0 ? `${Math.round(u.def - u._fortifyStacks)}<span style="color:#daa520;">+${u._fortifyStacks}</span> = <span style="color:#daa520;font-weight:bold;">${Math.round(u.def)}</span>` : (defBonusVal > 0 ? `${Math.round(u.def - defBonusVal)}<span style="color:#daa520;">+${defBonusVal}</span> = <span style="color:#daa520;font-weight:bold;">${displayDef}</span>` : `${u.def}`)}</span>
+            <span style="color:#888;">防御</span><span>${u._baseDef !== undefined && u.def > u._baseDef ? `${Math.round(u._baseDef)}<span style="color:#daa520;">+${Math.round(u.def - u._baseDef)}</span> = <span style="color:#daa520;font-weight:bold;">${Math.round(u.def)}</span>` : `${Math.round(u.def)}`}</span>
             <span style="color:#888;">造成伤害</span><span>${u.dmgDealt || 0}</span>
             <span style="color:#888;">承受伤害</span><span>${u.dmgTaken || 0}</span>
             <span style="color:#888;">治疗</span><span>${u.healDone || 0}</span>
@@ -161,7 +166,7 @@ function updateDetailPopupContent() {
                 let skills = [];
                 if (u.name === '张无忌') skills = ['九阳神功：每回合回复5%生命', '乾坤大挪移：保护4/6号位队友，反弹15%伤害', '近战形态：前排无人时切换，攻+3/防+2/血+50'];
                 else if (u.name === '韦一笑') skills = ['寒冰掌：攻击吸血15%，增加生命上限', '青翼蝠王：基础闪避20%，无视行动状态闪避'];
-                else if (u.name === '宋青书') skills = ['💥 叛逆突袭：优先攻击血量最高目标，附加目标当前生命10%真实伤害', '💪 苦练：场上无周芷若时最先行动；行动前全体队友+1攻+1防+2生命上限，自身翻倍', '💒 新婚：攻击扣除周芷若1血，叠快乐层（16%→10%→6%→3%）', '💗 性奋：周芷若在场时攻击后可再次行动；每次攻击后减少递增生命上限'];
+                else if (u.name === '宋青书') skills = [`💥 叛逆突袭：优先攻击血量最高目标，附加目标当前生命${Math.round((CONFIG.ELITE_SKILLS.rebelStrike.currentHpRatio || 0.12) * 100)}%真实伤害`, `💪 苦练：场上无周芷若时最先行动；行动前全体队友+${CONFIG.ELITE_SKILLS.kuLian.atkBonus}攻+${CONFIG.ELITE_SKILLS.kuLian.defBonus}防+${CONFIG.ELITE_SKILLS.kuLian.hpBonus}生命上限，自身翻倍`, `💒 新婚：攻击扣除周芷若${CONFIG.ELITE_SKILLS.xinHun.hpDeduct}血，叠快乐层（${(CONFIG.ELITE_SKILLS.xinHun.healLevels || []).map(p => Math.round(p * 100) + '%').join('→')}）`, '💗 性奋：周芷若在场时攻击后可再次行动；每次攻击后减少递增生命上限'];
                 else if (u.name === '周芷若') skills = ['🐾 九阴白骨爪：基础1+已损失1%+最大1%追击，≤12%斩杀（无忌在场：基础2+1.5%+2%，≤15%斩杀），可连锁'];
                 else if (u.name === '成昆') skills = ['💥 混元霹雳劲：附加已损失生命30%的真实伤害', '🌀 幻影伪装：攻击后模仿对方单位并回复已损失30%生命；对方攻击时30%概率混乱，每损失10%生命+6%'];
                 else if (u.name === '鹿杖客') skills = ['❄️ 玄冥神掌：中毒每回合损失4%→2%→1%→消失', '🔗 联动鹤笔翁：攻击后鹤笔翁立刻攻击同一目标'];
@@ -250,8 +255,16 @@ export function renderGrid(id, camp) {
             if (camp === 'ally' && isAdjustMode && selectedPos === pos) div.classList.add('adjust-selected');
             grid.appendChild(div); continue;
         }
+        let hasFlash = !!unit._flash;
+        let isDead = (unit._flash==='dead' || !unit.alive || unit._isDead);
+        let isBlocked = unit._blocked || false;
+        let isResting = unit._resting || false;
+        let isStunned = unit._stunned || false;
+
         let roleIcon;
-        if (unit.isZhang && !unit.rangedForm) {
+        if (isStunned && !isDead) {
+            roleIcon = '💫';
+        } else if (unit.isZhang && !unit.rangedForm) {
             roleIcon = '⚔️';
         } else if (unit.isHorse) {
             roleIcon = '🐴';
@@ -293,7 +306,7 @@ export function renderGrid(id, camp) {
         let baseDef = Math.round(latestUnit._baseDef !== undefined ? latestUnit._baseDef : (latestUnit.def - (latestUnit._fortifyStacks || 0)));
         let bonusDef = displayDef - baseDef;
         let defDisplayHtml = `${displayDef}`;
-        if (defBonusVal > 0 || (latestUnit._fortifyStacks || 0) > 0) {
+        if (defBonusVal > 0 || (latestUnit._fortifyStacks || 0) > 0 || (latestUnit._baseDef !== undefined && latestUnit.def > latestUnit._baseDef)) {
             defDisplayHtml = `<span style="color:#daa520;font-weight:bold;">${displayDef}</span>`;
         }
         let hpPct = unit.alive ? Math.floor((unit.hp / unit.maxHp) * 100) : 0;
@@ -303,13 +316,8 @@ export function renderGrid(id, camp) {
         if (hpBonusVal > 0 || (latestUnit._baseMaxHp !== undefined && latestUnit.maxHp > latestUnit._baseMaxHp)) {
             hpDisplayHtml = `<span style="color:#daa520;font-weight:bold;">${Math.floor(unit.hp)}</span>`;
         }
-        let hasFlash = !!unit._flash;
-        let isDead = (unit._flash==='dead' || !unit.alive || unit._isDead);
         let readyClass = (!hasFlash && !unit._acted && unit.alive && !isDead) ? 'ready' : '';
         let actedClass = (!hasFlash && unit._acted && unit.alive && !isDead) ? 'acted' : '';
-        let isBlocked = unit._blocked || false;
-        let isResting = unit._resting || false;
-        let isStunned = unit._stunned || false;
         let cheerClass = (hasFlash && unit._flash==='cheer' && !isDead) ? 'cell-cheer' : '';
         let restingClass = (isBlocked && unit.alive && isResting && !(unit.isZhang && unit.rangedForm) && !isDead) ? 'resting' : '';
         let div = document.createElement('div');
@@ -354,7 +362,7 @@ export function renderGrid(id, camp) {
         let eliteSkillIcon = (unit.name === '周芷若' && unit._hasKuaiLe) ? ' 💖' : (unit.name === '宋青书' && unit._hasXingFen) ? ' 💗' : (unit.isXiaoZhao ? ' 🦋' : '');
         if (unit.name === '成昆' && unit._phantomTarget) eliteSkillIcon += ' 🎭';
         if (unit._xuanmingPoison && unit._xuanmingPoison.remaining > 0) eliteSkillIcon += ' ❄️';
-        div.innerHTML = `<span class="cell-icon">${isStunned && !isDead ? '😵‍💫' : (isBlocked && unit.alive && isResting && !(unit.isZhang && unit.rangedForm) && !isDead ? '😴' : roleIcon)}</span><div class="cell-info"><span class="cell-name ${displayIsZhang?'gold':''}">${displayName}${eliteSkillIcon}${buffIcons ? ' ' + buffIcons : ''}</span><span class="cell-stats">攻<span style="${atkStyle}">${atkDisplayHtml}</span> 防<span style="${defStyle}">${defDisplayHtml}</span> <span class="${hpColorClass}" style="${hpStyle}">血${hpDisplayHtml}</span></span></div><div class="hp-bar-wrap"><div class="hp-bar-inner" id="hpbar-${unit.uid}" style="height:${hpPct}%;background:${barColor};transition:none;"></div></div>`;
+        div.innerHTML = `<span class="cell-icon">${isBlocked && unit.alive && isResting && !(unit.isZhang && unit.rangedForm) && !isDead ? '😴' : roleIcon}</span><div class="cell-info"><span class="cell-name ${displayIsZhang?'gold':''}">${displayName}${eliteSkillIcon}${buffIcons ? ' ' + buffIcons : ''}</span><span class="cell-stats">攻<span style="${atkStyle}">${atkDisplayHtml}</span> 防<span style="${defStyle}">${defDisplayHtml}</span> <span class="${hpColorClass}" style="${hpStyle}">血${hpDisplayHtml}</span></span></div><div class="hp-bar-wrap"><div class="hp-bar-inner" id="hpbar-${unit.uid}" style="height:${hpPct}%;background:${barColor};transition:none;"></div></div>`;
         if (isDead) {
             let deadMark = document.createElement('span'); deadMark.className = 'dead-mark'; deadMark.textContent = '✕'; div.appendChild(deadMark);
             div.style.transform = 'scale(0.8)'; div.style.opacity = '0.9';
@@ -426,7 +434,7 @@ export function spawnVictoryEffects(winnerCamp, aliveUnitsOverride) {
         setTimeout(() => {
             requestAnimationFrame(() => {
                 showDanmaku(u, taunt);
-                logDiv.innerHTML += `<span class="${winColor}">🗯️ ${u.name}：${taunt}</span><br>`;
+                if (c.gs === 'GAMEOVER') logDiv.innerHTML += `<span class="${winColor}">🗯️ ${u.name}：${taunt}</span><br>`;
                 logDiv.scrollTop = logDiv.scrollHeight;
             });
         }, index * 600);

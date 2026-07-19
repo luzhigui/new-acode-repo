@@ -30,8 +30,7 @@ import {
     applyPostAttackEffects,
     processUnitAttack,
     createRoundStepper,
-    runBattleRound,
-    runBattle
+    runBattleRound
 } from './06battle-engine-core.js';
 
 // 特效函数
@@ -80,7 +79,7 @@ export { getRandomTaunt, getKillTaunt, getZhangNearTaunt, makeFXSnapshot };
 export { hasBuff, getUnitRow, getUnitCol, getAdjacentPositions, getActiveBuffs };
 export { computeBuffStats, applyBuffEffectsBeforeAttack, applyBuffEffectsAfterAttack, logBuffSummary };
 export { spawnHorse, destroyHorse };
-export { runBattleRound, runBattle };
+export { runBattleRound };
 export {
     emitEvent, emitFullUnitState, finalizeDeaths, getNextAvailableUnit, checkZhangSwitch,
     selectTarget, resolveDodge, calcAttackDamage, applyPostAttackEffects, processUnitAttack,

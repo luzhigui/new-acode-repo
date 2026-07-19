@@ -111,10 +111,10 @@ export function checkNineYinClaw(attacker, target, baseDmg, log) {
             _events: clawEvents
         });
 
-        // 再触发乾坤衍生（减伤/治疗/加攻），日志写在这里不会抢跑
+        // 再触发乾坤衍生（减伤/治疗/加攻）
         const zhang = battleState && battleState.ally ? battleState.ally.find(u => u.isZhang && u.alive) : null;
         if (!zhang) {
-            const allyTeam = window._currentBattleState?.ally || [];
+            const allyTeam = GlobalStore.get('currentBattleState')?.ally || [];
             if (allyTeam.length > 0) {
                 const xiaoZhao = allyTeam.find(u => u.isXiaoZhao && u.alive && !u._stunned);
                 if (xiaoZhao) {
@@ -123,7 +123,6 @@ export function checkNineYinClaw(attacker, target, baseDmg, log) {
                     target.dmgTaken -= reduce;
                     const aliveAllies = allyTeam.filter(u => u.alive && !u.isHorse);
                     if (aliveAllies.length > 0) {
-                        const lucky = aliveAllies[Math.floor(Math.random() * aliveAllies.length)];
                         const healTarget = aliveAllies[Math.floor(Math.random() * aliveAllies.length)];
                         let heal = Math.max(ES.xiaoZhao.minHeal || 0.5, Math.floor(healTarget.def / (ES.xiaoZhao.defToHeal || 5)));
                         healTarget.hp = Math.min(healTarget.maxHp, healTarget.hp + heal);
@@ -144,6 +143,27 @@ export function checkNineYinClaw(attacker, target, baseDmg, log) {
                     }
                 }
             }
+        }
+
+        // ★ 宋青书回血：每次白骨爪触发，回复等量生命值
+        const songQingShu = battleState?.ally ? null : null; // 敌方阵营找宋青书
+        const allUnitsForClaw = [...(battleState?.ally || []), ...(battleState?.enemy || [])];
+        const song = allUnitsForClaw.find(u => u.name === '宋青书' && u.alive);
+        if (song && bonusDmg > 0) {
+            const healAmount = Math.min(bonusDmg, song.maxHp - song.hp);
+            if (healAmount > 0) {
+                song.hp += healAmount;
+                song.healDone += healAmount;
+            }
+            emitEvent(song, 'hp-change', { hp: song.hp, maxHp: song.maxHp, alive: song.alive, atk: song.atk, def: song.def });
+            // 回血条目放在乾坤衍生之后
+            log.push({
+                type: 'info',
+                text: `<span class="green">💚 宋青书因九阴白骨爪回复${healAmount > 0 ? healAmount : 0}点生命${healAmount === 0 ? '（已满血）' : ''}</span>`,
+                isHealEntry: true,
+                healAmount: healAmount > 0 ? healAmount : bonusDmg,
+                healUnitUid: song.uid
+            });
         }
 
         depth++;
@@ -426,6 +446,7 @@ export function consumeXingFen(attacker) {
 // 第1次攻击不扣，之后每次扣递增值（1,2,3...），使每回合2次攻击对应2次扣减。
 export function applyXingFenPenalty(attacker, log) {
     if (attacker.name !== '宋青书') return;
+    if (!attacker._xingFenActive) return;  // ★ 只在性奋激活时才扣
     if (!attacker._xingFenPenaltyCount) attacker._xingFenPenaltyCount = 0;
     attacker._xingFenPenaltyCount++;
     const penalty = attacker._xingFenPenaltyCount; // 从1开始计数，第1次攻击扣1

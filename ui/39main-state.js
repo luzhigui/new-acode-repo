@@ -56,7 +56,10 @@ export const getState = {
 };
 
 export const setState = {
-    gs: (v) => { gs = v; },
+    gs: (v) => {
+        gs = v;
+        if (window.GlobalStore) window.GlobalStore.set('gs', v);
+    },
     autoMode: (v) => { autoMode = v; },
     debugMode: (v) => { debugMode = v; },
     isPaused: (v) => { isPaused = v; },

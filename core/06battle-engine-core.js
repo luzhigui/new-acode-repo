@@ -12,7 +12,7 @@ import { processUnitAttack } from './47battle-attack.js';
 import { selectTarget, resolveDodge, calcAttackDamage, applyPostAttackEffects } from './49battle-attack-steps.js';
 
 // 从回合模块导入
-import { createRoundStepper, runBattleRound, runBattle } from './48battle-round.js';
+import { createRoundStepper, runBattleRound } from './48battle-round.js';
 
 const C = CONFIG, DT = DEF_TAUNT, HT = HP_TAUNT;
 
@@ -111,6 +111,5 @@ export {
     applyPostAttackEffects,
     processUnitAttack,
     createRoundStepper,
-    runBattleRound,
-    runBattle
+    runBattleRound
 };

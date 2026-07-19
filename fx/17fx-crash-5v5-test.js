@@ -114,7 +114,7 @@ export function showMeleeCrash(unitA, unitD, speed, getPausedFn, onCrash) {
     let nx = dx / dist;
     let ny = dy / dist;
     let flyDist = dist - rB.width * 0.28;
-    let flyMode = window._crashMode || 'ghost';
+    let flyMode = GlobalStore.get('crashMode') || 'ghost';
 
     const ctx = window._getPlayerContext ? window._getPlayerContext() : null;
     if (ctx && ctx.store) {

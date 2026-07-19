@@ -363,7 +363,7 @@ async function handleAttackGroup(c, entry, roundResult, abortSig, isFirstAttackR
     if(unitD&&entry.hpPctAfter!==undefined&&entry.hpPctBefore!==undefined){ if(entry.hpPctBefore>40&&entry.hpPctAfter<=40&&entry.hpPctAfter>20){let t=(unitD.camp==='ally'?'不好，必须反击了！':'小儿安敢伤我！');safeShowDanmaku(unitD,t);} else if(entry.hpPctBefore>20&&entry.hpPctAfter<=20){let t=(unitD.camp==='ally'?'撑住！':'已是强弩之末！');safeShowDanmaku(unitD,t);} }
     await new Promise(r=>setTimeout(r,offset)); await c.waitWhilePaused();
     if(defTimer)clearTimeout(defTimer);
-    if(unitA && !unitA._isDead){c.store.dispatch({ type: 'CLEAR_UNIT_FLASH', uid: unitA.uid }); c.store.dispatch({ type: 'SET_VISUAL', uid: unitA.uid, _acted: true });}
+    if(unitA && !unitA._isDead){c.store.dispatch({ type: 'CLEAR_UNIT_FLASH', uid: unitA.uid }); if (!entry.isDodge) { c.store.dispatch({ type: 'SET_VISUAL', uid: unitA.uid, _acted: true }); }}
     if(unitD && !entry.isDodge && !entry.isMiss && !entry.isDead && !unitD._isDead) c.store.dispatch({ type: 'CLEAR_UNIT_FLASH', uid: unitD.uid });
     if (c.UI && c.UI.allyTeam && c.UI.enemyTeam) {
         c.UI.allyTeam.concat(c.UI.enemyTeam).forEach(u => { if (u.alive) { const su = c.store ? c.store.getState().units.find(s => s.uid === u.uid) : null; if (!su || !su._flyMode) { let blocked = isBlocked(u, u.camp === 'ally' ? c.UI.allyTeam : c.UI.enemyTeam); c.store.dispatch({ type: 'SET_VISUAL', uid: u.uid, _blocked: blocked }); } } });
@@ -421,6 +421,22 @@ async function handleInfo(c, entry) {
                 }
             }
         }
+        // 白骨爪触发的乾坤衍生加攻弹幕
+        if (entry.text && entry.text.includes('🦋 乾坤衍生') && entry.text.includes('攻击+')) {
+            const atkMatch = entry.text.match(/攻击\+(\d+)/);
+            if (atkMatch) {
+                const atkGain = parseInt(atkMatch[1]);
+                const nameMatch = entry.text.match(/(\S+)攻击\+/);
+                let atkTarget = null;
+                if (nameMatch) {
+                    atkTarget = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.name === nameMatch[1]);
+                }
+                if (atkTarget) {
+                    setTimeout(() => showAtkBuffFloat(atkTarget, atkGain), 180);
+                }
+            }
+        }
+
         if (entry.isClawHit && entry.clawAttackerUid && entry.clawTargetUid) {
             let attacker = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.uid === entry.clawAttackerUid);
             let target = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.uid === entry.clawTargetUid);
@@ -595,22 +611,10 @@ export async function playLogEntries(c, log, roundResult, isFirstAttackRef) {
 
 export async function playBattle() {
     const c = getCtx();
-    if (!c || !c.UI.currentResult) return;
+    if (!c || !c.snapshot || !c.snapshot.ally || !c.snapshot.ally.length) return;
     const scheduler = new AnimationScheduler();
     c._scheduler = scheduler;
 
-    GlobalStore.effect('fastForwardActive', (isActive) => {
-        if (isActive) {
-            if (!c._originalSpeed) c._originalSpeed = c.speed;
-            c.speed = 1;
-            if (c._scheduler && c._scheduler.setSpeed) c._scheduler.setSpeed(50);
-        } else {
-            c.speed = c._originalSpeed || 500;
-            if (c._scheduler && c._scheduler.setSpeed) c._scheduler.setSpeed(1);
-        }
-    });
-
-    // 注册副作用：快进/恢复时自动调整播放器速度
     GlobalStore.effect('fastForwardActive', (isActive) => {
         if (isActive) {
             if (!c._originalSpeed) c._originalSpeed = c.speed;
@@ -860,7 +864,7 @@ export async function playBattle() {
             if (c.spawnVictoryEffects) c.spawnVictoryEffects(winner, aliveUnits);
         }
         let winColor = winner === '明教' ? 'blue' : 'orange';
-        logDiv.innerHTML += `<span class="gold">🎉🏆 <span class="${winColor}">${winner}</span>获得最终胜利！ 🏆🎉</span><br>`;
+        if (c.gs === 'GAMEOVER') logDiv.innerHTML += `<span class="gold">🎉🏆 <span class="${winColor}">${winner}</span>获得最终胜利！ 🏆🎉</span><br>`;
         logDiv.scrollTop = logDiv.scrollHeight;
         await new Promise(r => setTimeout(r, window._fastForwardActive ? 500 : 6000));
     } else {
@@ -885,7 +889,7 @@ export async function playBattle() {
         setTimeout(() => { if (floatEl.parentNode) floatEl.parentNode.removeChild(floatEl); }, 3500);
         setTimeout(() => c.updateScoreBadge(), 3500);
         let voteMsg = correct ? `<span class="green">📊 你猜了${GlobalStore.get('voteChoice')}，正确！+${earnPoints}分！ 当前积分：${GlobalStore.get('voteScore')}</span>` : `<span class="red">📊 你猜了${GlobalStore.get('voteChoice')}，错误！-1分！当前积分：${GlobalStore.get('voteScore')}</span>`;
-        logDiv.innerHTML += voteMsg + '<br>'; logDiv.scrollTop = logDiv.scrollHeight;
+        if (c.gs === 'GAMEOVER') { logDiv.innerHTML += voteMsg + '<br>'; logDiv.scrollTop = logDiv.scrollHeight; }
     } else if (winner === '平局') {
         logDiv.innerHTML += '<span class="gray">📊 平局，积分不变，当前积分：' + window._voteScore + '</span><br>';
         logDiv.scrollTop = logDiv.scrollHeight;

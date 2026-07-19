@@ -7,6 +7,9 @@ import { AudioManager } from '../modules/28audio-manager.js';
 
 // ==================== 战报弹窗 ====================
 export function showBattleReport(UI, battleResultForInfo) {
+    // ★ 防残留：如果游戏已不在 GAMEOVER 状态，不创建弹窗
+    if (window._getPlayerContext && window._getPlayerContext().gs !== 'GAMEOVER') return;
+
     // 优先使用 battleResultForInfo（包含已被 3 秒清理机制移除的死单位快照），
     // 否则回退到 UI.allyTeam/enemyTeam
     let ally = (battleResultForInfo && battleResultForInfo.ally) ? battleResultForInfo.ally : UI.allyTeam;
@@ -153,6 +156,13 @@ export function showBattleReport(UI, battleResultForInfo) {
             floatBtn.addEventListener('click', () => {
                 overlay.style.display = 'flex';
                 floatBtn.remove();
+            });
+            // 游戏重置时自动销毁
+            const unsubscribe = GlobalStore.on('gs', (newGs) => {
+                if (newGs === 'IDLE') {
+                    if (floatBtn.parentNode) floatBtn.remove();
+                    unsubscribe();
+                }
             });
             document.body.appendChild(floatBtn);
         }

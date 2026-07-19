@@ -129,7 +129,7 @@ const CONFIG = {
         },
         rebelStrike: { 
             name: '叛逆突袭', dmgBonus: 0,  // 取消伤害加成
-            currentHpRatio: 0.15
+            currentHpRatio: 0.12
         },
         phantomThunder: { name: '混元霹雳劲', lostHpRatio: 0.3 },
         phantomDisguise: { name: '幻影伪装', baseChance: 0.30, per10pctLost: 0.06 },

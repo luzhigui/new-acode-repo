@@ -2,9 +2,10 @@
 // V5.1.0 | ~24000 bytes | 2026-07-07 拆分音频到42、特效到43、倍速+按钮到44
 export const VER = 'ui/13main-5v5-test.js V5.1.0';
 
+import '../modules/46global-store.js';
 import '../modules/24error-capture.js';
 import { CONFIG, STATE, KILL_TAUNT, ENEMY_M, VER as CFG_VER } from '../core/01config-5v5-test.js';
-import { Unit, rand, runBattle, getRandomTaunt, getKillTaunt, getZhangNearTaunt, makeFXSnapshot, VER as BE_VER } from '../core/07battle-engine-5v5-test.js';
+import { Unit, rand, getRandomTaunt, getKillTaunt, getZhangNearTaunt, makeFXSnapshot, VER as BE_VER } from '../core/07battle-engine-5v5-test.js';
 import { stripTags, renderGrid, updateUI, setRenderStore, spawnVictoryEffects, clearLogExceptFirst, isUnitBenefitedByBuff, VER as UI_VER } from './14ui-render-5v5-test.js';
 import { showDanmaku, showDamageFloat, showDodgeBubble, showHealFloat, VER as FX_VER } from '../fx/15fx-common-5v5-test.js';
 import { showRangedArrow, VER as FA_VER } from '../fx/16fx-arrows-5v5-test.js';
@@ -150,12 +151,27 @@ async function startApp() { updateCoverVersion(); }
 startApp();
 
 // ==================== DOM 初始化 ====================
-document.addEventListener('DOMContentLoaded', function() {
+function initBugAndXiaoZhaoModes() {
     // 小昭模式：从封面页传入
     if (localStorage.getItem('_forceXiaoZhao') === '1') {
         GlobalStore.set('forceXiaoZhao', true);
         localStorage.removeItem('_forceXiaoZhao');
     }
+    // Bug 模式：从封面页传入
+    if (localStorage.getItem('_bugMode') === '1') {
+        GlobalStore.set('bugMode', true);
+        localStorage.removeItem('_bugMode');
+    }
+}
+
+// ★ 确保初始化代码总能执行（解决 ES 模块加载时序导致 DOMContentLoaded 漏掉的问题）
+if (document.readyState === 'complete' || document.readyState === 'interactive') {
+    initBugAndXiaoZhaoModes();
+} else {
+    document.addEventListener('DOMContentLoaded', initBugAndXiaoZhaoModes);
+}
+
+document.addEventListener('DOMContentLoaded', function() {
     const controls = document.querySelector('.controls');
     if (controls) controls.style.zIndex = '100';
     const canvas = document.getElementById('glowCanvas');
@@ -230,12 +246,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 const currentUI = getState.UI();
                 currentUI.enemyTeam = enemyList;
                 updateUI();
-                const battleResult = runBattle(snap, getState.activeBuffs());
-                setState.UI({ ...getState.UI(), currentResult: battleResult });
-                if (battleResult && battleResult.doubleStrikeUids) {
-                    currentDoubleStrikeUid = battleResult.doubleStrikeUids[battleResult.doubleStrikeUids.length - 1] || null;
-                    getState.currentDoubleStrikeUid = currentDoubleStrikeUid;
-                }
                 await playBattle();
                 let ctx = window._getPlayerContext();
                 if (ctx && ctx.battleResultForInfo) {
@@ -353,6 +363,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if (gs === S.GAMEOVER) {
             clearAllEffects();
             GlobalStore.set('fastForwardActive', false);
+            GlobalStore.set('battleStore', null);
             setRenderStore(null);
             const reportOverlay = document.getElementById('battleReportOverlay');
             if (reportOverlay) reportOverlay.remove();
@@ -490,10 +501,13 @@ document.addEventListener('DOMContentLoaded', function() {
                     if(seen.has(key)) return;
                     seen.add(key);
                 }
+                if(t.includes('获得Buff')){
+                    // Buff 获取日志不做去重，始终保留
+                }
                 if(choice==='health'){
                     if(t.includes('[体检]')) lines.push(t);
                 } else if(choice==='normal'){
-                    if(!t.includes('[体检]') && !t.includes('[版本信息]') && !t.includes('[子模块]')) lines.push(t);
+                    if(t.includes('获得Buff') || (!t.includes('[体检]') && !t.includes('[版本信息]') && !t.includes('[子模块]'))) lines.push(t);
                 } else {
                     lines.push(t);
                 }
@@ -538,17 +552,17 @@ document.addEventListener('DOMContentLoaded', function() {
         if(!currentUI || !currentUI.allyTeam.length) return;
         let result = abortAll(abortController, currentUI, getState.waitingForNextRound(), isBattleStarting, getState.adjustMode(), getState.selectedAdjustPos(), getState.activeBuffs(), selectedBuffIndex, currentDoubleStrikeUid, () => updateBuffSlots(getState.activeBuffs(), selectedBuffIndex));
         abortController = result.abortController; setState.waitingForNextRound(result.waitingForNextRound); isBattleStarting = result.isBattleStarting; setState.adjustMode(result.adjustMode); setState.selectedAdjustPos(result.selectedAdjustPos); setState.activeBuffs(result.activeBuffs); selectedBuffIndex = result.selectedBuffIndex; currentDoubleStrikeUid = result.currentDoubleStrikeUid;
-        clearLogExceptFirst(); clearAllEffects(); hasLoggedTeam=false;
-        const reportOverlay = document.getElementById('battleReportOverlay');
-        if (reportOverlay) reportOverlay.remove();
-        const reportFloat = document.getElementById('battleReportFloat');
-        if (reportFloat) reportFloat.remove();
-        GlobalStore.set('fastForwardActive', false);
+1-183-70-EUR
         setState.gs(S.IDLE);setState.isPaused(false);setState.waitingForNextRound(false);isBattleStarting=false;
         // 清除旧的 Store 引用，防止 renderGrid 访问无效 Store
         GlobalStore.set('battleStore', null);
         setRenderStore(null);
         try { updateUI(); } catch(e){}
+        // 清理可能残留的战报弹窗和浮动按钮
+        const reportOverlay = document.getElementById('battleReportOverlay');
+        if (reportOverlay) reportOverlay.remove();
+        const reportFloat = document.getElementById('battleReportFloat');
+        if (reportFloat) reportFloat.remove();
         updateButtons();enableAllButtons();updateSpeedButtons();
     }
 

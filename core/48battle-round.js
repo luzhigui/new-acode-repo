@@ -190,8 +190,8 @@ export function* createRoundStepper(state) {
             if (stats.carryAtkAbs || stats.carryDefAbs || stats.carryHpAbs) {
                 log.push({ type:'info', text:`<span class="gold">👑 carry：${u.name} 获得队友属性加成 攻+${stats.carryAtkAbs} 防+${stats.carryDefAbs} 血上限+${stats.carryHpAbs}</span>` });
             }
-        } else if ((u.pos >= 4 && u.pos <= 6) && u._baseMaxHp !== undefined && !u.isHorse && !hasCarryActive) {
-            // carry 过期，回退全部加成
+        } else if ((u.pos >= 4 && u.pos <= 6) && u._baseMaxHp !== undefined && !u.isHorse && !hasCarryActive && !u.isXiaoZhao) {
+            // carry 过期，回退全部加成（小昭不参与carry回退，她的血量由蝶变管理）
             if (u.maxHp > 0 && u._baseMaxHp > 0) {
                 u.hp = Math.floor(u.hp * (u._baseMaxHp / u.maxHp));
             }
@@ -223,7 +223,7 @@ export function* createRoundStepper(state) {
         u._xiaoZhaoDoubleStriked = false;
         u._bloodthirstStriked = false;
         u._linkTriggered = false;
-        u._xingFenPenaltyCount = u._xingFenPenaltyCount || 0;
+        if (u._xingFenPenaltyCount === undefined) u._xingFenPenaltyCount = 0;
     });
 
     B.forEach(u => {
@@ -249,7 +249,7 @@ export function* createRoundStepper(state) {
         u._xiaoZhaoDoubleStriked = false;
         u._bloodthirstStriked = false;
         u._linkTriggered = false;
-        u._xingFenPenaltyCount = u._xingFenPenaltyCount || 0;
+        if (u._xingFenPenaltyCount === undefined) u._xingFenPenaltyCount = 0;
     });
 
     logBuffSummary(A, log, doubleStrikeUnitUid);
@@ -477,39 +477,4 @@ export function runBattleRound(state) {
     };
 }
 
-export function runBattle(snapshot, activeBuffs = [], buffData = {}) {
-    let state = {
-        ally: snapshot.ally.map(u => u.clone()),
-        enemy: snapshot.enemy.map(u => u.clone()),
-        round: 1, activeBuffs: activeBuffs,
-        allAllies: snapshot.ally.map(u => u.clone())
-    };
-    let fullLog = [];
-    let finalWinner = null;
-    let doubleStrikeUids = [];
-    while (true) {
-        const stepper = createRoundStepper(state);
-        let lastStep = null;
-        for (const step of stepper) {
-            fullLog = fullLog.concat(step.log);
-            lastStep = step;
-            if (step.done && step.winner) {
-                finalWinner = step.winner;
-                break;
-            }
-        }
-        if (finalWinner) {
-            return {
-                winner: finalWinner, rounds: state.round, log: fullLog,
-                ally: lastStep.ally, enemy: lastStep.enemy,
-                activeBuffs: { ally: lastStep.ally._activeBuffs || [], enemy: [] },
-                doubleStrikeUids
-            };
-        }
-        state = {
-            ally: lastStep.ally, enemy: lastStep.enemy,
-            round: state.round + 1, activeBuffs: lastStep.ally._activeBuffs || [],
-            allAllies: state.allAllies
-        };
-    }
-}
+// runBattle 已移除，播放器直接使用 createRoundStepper 逐步计算
