@@ -25,7 +25,7 @@ function escapeHtml(text) {
         '../core/01config-5v5-test.js', '../core/02unit.js',
         '../core/03battle-utils.js', '../core/04buff-system.js', '../core/05battle-horse.js',
         '../core/06battle-engine-core.js', '../core/07battle-engine-5v5-test.js',
-        '../core/47battle-attack.js', '../core/48battle-round.js',
+        '../core/47battle-attack.js', '../core/48battle-round.js', '../core/49battle-attack-steps.js',
         // player（播放器）
         '../player/08player-text.js', '../player/09player-buff-ui.js', '../player/10player-core.js',
         '../player/11battle-player-5v5-test.js',
@@ -38,6 +38,7 @@ function escapeHtml(text) {
         '../fx/18fx-position-swap.js', '../fx/19fx-push-back.js', '../fx/20fx-dodge-bullet.js',
         // modules（模块）
         '../modules/23elite-skills.js', '../modules/24error-capture.js', '../modules/28audio-manager.js',
+        '../modules/46global-store.js',
         // tests（测试与体检）
         '../tests/25unit-tests.js',
         '../tests/30test-runner.html',
@@ -58,11 +59,12 @@ function escapeHtml(text) {
         // 根目录
         '../00index.html', '../mode-5v5-test.html',
         '../README.md', '../CHANGELOG.md', '../kaifazhunze.md',
-        '../game-design.md'
+        '../game-design.md',
+        '../to do list.md'
     ];
 
-    // 用户可勾选的文件列表（不含 assets/ 和 .md 等不可 fetch 的文件）
-    const FILES = ALL_PROJECT_FILES.filter(f => f.endsWith('.js') || f.endsWith('.html') || f.endsWith('.cjs') || f.endsWith('.md'));
+    // 用户可勾选的文件列表（不含 assets/ 和 .md 等不可 fetch 的文件，排除文件名带空格的）
+    const FILES = ALL_PROJECT_FILES.filter(f => (f.endsWith('.js') || f.endsWith('.html') || f.endsWith('.cjs') || f.endsWith('.md')) && !f.includes(' '));
 
     const FILE_GROUPS = [
         { name: 'core', displayName: '战斗引擎核心', prefix: '../core/' },
