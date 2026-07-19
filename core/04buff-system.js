@@ -387,7 +387,7 @@ export function logBuffSummary(allyTeam, log, doubleStrikeUid) {
                 let carryUnit = allyTeam.find(u => u.pos === 5 && u.alive);
                 if (carryUnit) {
                     // 需要从原始战斗状态中获取完整队友列表（包含已阵亡）
-                    let fullAllies = (window.GlobalStore ? window.GlobalStore.getState().currentBattleState?.ally : window._currentBattleState?.ally) || allyTeam;
+                    let fullAllies = GlobalStore.get('currentBattleState')?.ally || allyTeam;
                     let allAllies = fullAllies.filter(u => u.uid !== carryUnit.uid && !u.isHorse);
                     let aliveCount = allAllies.filter(a => a.alive).length;
                     let deadCount = allAllies.length - aliveCount;

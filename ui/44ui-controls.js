@@ -115,7 +115,7 @@ function attachSpeedButton(id, speedVal) {
 }
 
 function activateScrollSlowdown() {
-    if (window._fastForwardActive) return;
+    if (GlobalStore.get('fastForwardActive')) return;
     const speed = getState.speed();
     if (speed === 1600) return;
     // 保存当前状态

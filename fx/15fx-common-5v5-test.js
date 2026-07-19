@@ -60,7 +60,7 @@ export function applyBrushEffectOnHeal(div, nextDiv) { _executeBrush(div); if (n
 // ==================== 通用受击反馈：缩小+颤动+短闪 ====================
 // 飞箭/溅射/白骨爪/飞撞/近身通用
 export function applyImpactShrink(cell, durationMs, getPausedFn, opts) {
-    if (window._fastForwardActive || !cell) return;
+    if (GlobalStore.get('fastForwardActive') || !cell) return;
     opts = opts || {};
     let bgColor = opts.bgColor || '#ffd700';
     let bgDuration = opts.bgDuration || Math.min(200, durationMs);

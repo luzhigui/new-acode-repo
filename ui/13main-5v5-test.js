@@ -49,14 +49,14 @@ let gameStarted = false;
 let hasLoggedTeam = false;
 let isBattleStarting = false;
 let currentStage = 1;
-window._crashMode = 'fly';
+GlobalStore.set('crashMode', 'fly');
 let selectedBuffIndex = -1;
 let currentDoubleStrikeUid = null;
 let runtimeMonitorActive = false;
 let runtimeMonitorInterval = null;
 
-window._voteScore = parseInt(localStorage.getItem('ming_vote_score_5v5_test') || '10');
-window._voteChoice = null; window._battleHasZhang = false; window._debugMode = false;
+GlobalStore.set('voteScore', parseInt(localStorage.getItem('ming_vote_score_5v5_test') || '10'));
+GlobalStore.set('voteChoice', null); GlobalStore.set('battleHasZhang', false); GlobalStore.set('debugMode', false);
 
 const TRASH_TALK_ALLY = ['明教必胜！六大派受死！','光明顶，我守定了！','六大派也不过如此！','来战！明教弟子，何惧！','今日便让尔等见识魔教之威！'];
 const TRASH_TALK_ENEMY = ['魔教余孽，今日必灭！','少林武当，放马过来！','邪魔歪道，不足为惧！','今日便要踏平光明顶！'];
@@ -67,7 +67,7 @@ function debugLog(msg) { if (!debugMode) return; let logDiv = document.getElemen
 
 async function waitWhilePaused() { while (getState.isPaused()) { await new Promise(r => setTimeout(r, 100)); } }
 
-function updateScoreBadge() { document.getElementById('scoreBadge').textContent = `🏆 ${window._voteScore}分`; }
+function updateScoreBadge() { document.getElementById('scoreBadge').textContent = `🏆 ${GlobalStore.get('voteScore')}分`; }
 export function onAnyButtonClick() { if (!gameStarted) return; const AudioManager = window.AudioManager; if (AudioManager && AudioManager.enabled && AudioManager.audio && AudioManager.audio.volume > 0.3) lowerBGM(); }
 function autoScrollLog() { if (userScrolled) return; let logDiv = document.getElementById('log'); if (logDiv) logDiv.scrollTop = logDiv.scrollHeight; }
 function onLogUserScroll() { let logDiv = document.getElementById('log'); if (!logDiv) return; let threshold = 10; let distToBottom = logDiv.scrollHeight - logDiv.scrollTop - logDiv.clientHeight; userScrolled = distToBottom > threshold; }
@@ -153,7 +153,7 @@ startApp();
 document.addEventListener('DOMContentLoaded', function() {
     // 小昭模式：从封面页传入
     if (localStorage.getItem('_forceXiaoZhao') === '1') {
-        window._forceXiaoZhao = true;
+        GlobalStore.set('forceXiaoZhao', true);
         localStorage.removeItem('_forceXiaoZhao');
     }
     const controls = document.querySelector('.controls');
@@ -204,7 +204,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     autoScrollLog();
                 }
             } else {
-                if (localStorage.getItem('_bugMode') === '1') {
+                if (GlobalStore.get('bugMode')) {
                     await new Promise(resolve => { showBugModeBuffSelection(resolve, getState.activeBuffs(), selectedBuffIndex, () => updateBuffSlots(getState.activeBuffs(), selectedBuffIndex), () => {}, autoScrollLog, getState.UI().allyTeam); });
                 } else {
                     await new Promise(resolve => { showBuffSelection(resolve, getState.activeBuffs(), selectedBuffIndex, () => updateBuffSlots(getState.activeBuffs(), selectedBuffIndex), () => {}, autoScrollLog, getState.UI().allyTeam); });
@@ -277,12 +277,14 @@ document.addEventListener('DOMContentLoaded', function() {
             if (buffFloat) buffFloat.remove();
             // 清除所有嘲讽弹幕
             document.querySelectorAll('.danmaku-bubble').forEach(el => el.remove());
-            window._fastForwardActive = false;
+            GlobalStore.set('fastForwardActive', false);
+            GlobalStore.set('battleStore', null);
             setRenderStore(null);
             if(currentStage>=6){
                 currentStage=1;
                 let result = abortAll(abortController, getState.UI(), getState.waitingForNextRound(), isBattleStarting, getState.adjustMode(), getState.selectedAdjustPos(), getState.activeBuffs(), selectedBuffIndex, currentDoubleStrikeUid, () => updateBuffSlots(getState.activeBuffs(), selectedBuffIndex));
                 abortController = result.abortController; setState.waitingForNextRound(result.waitingForNextRound); isBattleStarting = result.isBattleStarting; setState.adjustMode(result.adjustMode); setState.selectedAdjustPos(result.selectedAdjustPos); setState.activeBuffs(result.activeBuffs); selectedBuffIndex = result.selectedBuffIndex; currentDoubleStrikeUid = result.currentDoubleStrikeUid;
+                GlobalStore.set('fastForwardActive', false);
                 clearLogExceptFirst(); clearAllEffects(); hasLoggedTeam=false;
                 setState.snapshot({ ally: [], enemy: [] });  // 强制重置快照，与 doManualReset 保持一致
                 let currentUI = getState.UI();
@@ -350,7 +352,7 @@ document.addEventListener('DOMContentLoaded', function() {
         onAnyButtonClick();
         if (gs === S.GAMEOVER) {
             clearAllEffects();
-            window._fastForwardActive = false;
+            GlobalStore.set('fastForwardActive', false);
             setRenderStore(null);
             const reportOverlay = document.getElementById('battleReportOverlay');
             if (reportOverlay) reportOverlay.remove();
@@ -380,9 +382,9 @@ document.addEventListener('DOMContentLoaded', function() {
             if (window._refreshGlowCells) window._refreshGlowCells();
             return;
         }
-        window._fastForwardActive = true;
+        GlobalStore.set('fastForwardActive', true);
         setState.waitingForNextRound(false);
-        window._skipBuffPopup = true;
+        GlobalStore.set('skipBuffPopup', true);
         let ffCtx = window._getPlayerContext ? window._getPlayerContext() : null;
         if (ffCtx) {
             if (!ffCtx._originalSpeed) ffCtx._originalSpeed = ffCtx.speed;
@@ -397,6 +399,9 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         if (window.bulletTimeActive) window.bulletTimeActive = false;
         setState.waitingForNextRound(false);
+        userScrolled = false;
+        if (typeof window._restoreSpeedFromScroll === 'function') window._restoreSpeedFromScroll();
+        autoScrollLog();
         updateButtons();
     });
     document.getElementById('btnPause').addEventListener('click',function(){onAnyButtonClick();if(gs===S.RUNNING){setState.gs(S.PAUSED);setState.isPaused(true);window.bulletTimeActive = false;if(window._getPlayerContext()._scheduler)window._getPlayerContext()._scheduler.pause();document.body.classList.add('paused-animations');}else if(gs===S.PAUSED){setState.gs(S.RUNNING);setState.isPaused(false);if(window._getPlayerContext()._scheduler)window._getPlayerContext()._scheduler.resume();document.body.classList.remove('paused-animations');}updateButtons();});
@@ -454,7 +459,7 @@ document.addEventListener('DOMContentLoaded', function() {
         let totalAfter = logDiv.scrollHeight; logDiv.scrollTop = scrollPos + (totalAfter - totalBefore);
     });
     document.getElementById('debugToggle').addEventListener('click',function(){
-        onAnyButtonClick(); setState.debugMode(!getState.debugMode()); var dm = getState.debugMode(); this.classList.toggle('active',dm); this.textContent='V5.0'; window._debugMode=dm;
+        onAnyButtonClick(); setState.debugMode(!getState.debugMode()); var dm = getState.debugMode(); this.classList.toggle('active',dm); this.textContent='V5.0'; GlobalStore.set('debugMode', dm);
         updateSpeedButtons(); updateDebugUI(); updateUI();
     });
     document.getElementById('copyLog').addEventListener('click',()=>{
@@ -506,7 +511,7 @@ document.addEventListener('DOMContentLoaded', function() {
         hasLoggedTeam = logTeamInfo('阵容详情', currentUI, gs, battleResultForInfo, getState.activeBuffs(), hasLoggedTeam);
     });
     document.getElementById('btnBGM').addEventListener('click',()=>{ showMusicPanel(); });
-    document.getElementById('btnCrashMode').addEventListener('click',function(){window._crashMode=window._crashMode==='fly'?'ghost':'fly';this.textContent=window._crashMode==='fly'?'🕊️飞走':'👻虚影';});
+    document.getElementById('btnCrashMode').addEventListener('click',function(){const newMode=GlobalStore.get('crashMode')==='fly'?'ghost':'fly';GlobalStore.set('crashMode',newMode);this.textContent=newMode==='fly'?'🕊️飞走':'👻虚影';});
     document.getElementById('btnDodgeToggle').addEventListener('click',()=>{toggleDodgeEffect();});
     document.getElementById('btnStageSelect').addEventListener('click',()=>{ if(gs!==S.IDLE)return; openStageSelectModal(); });
 
@@ -534,8 +539,14 @@ document.addEventListener('DOMContentLoaded', function() {
         let result = abortAll(abortController, currentUI, getState.waitingForNextRound(), isBattleStarting, getState.adjustMode(), getState.selectedAdjustPos(), getState.activeBuffs(), selectedBuffIndex, currentDoubleStrikeUid, () => updateBuffSlots(getState.activeBuffs(), selectedBuffIndex));
         abortController = result.abortController; setState.waitingForNextRound(result.waitingForNextRound); isBattleStarting = result.isBattleStarting; setState.adjustMode(result.adjustMode); setState.selectedAdjustPos(result.selectedAdjustPos); setState.activeBuffs(result.activeBuffs); selectedBuffIndex = result.selectedBuffIndex; currentDoubleStrikeUid = result.currentDoubleStrikeUid;
         clearLogExceptFirst(); clearAllEffects(); hasLoggedTeam=false;
+        const reportOverlay = document.getElementById('battleReportOverlay');
+        if (reportOverlay) reportOverlay.remove();
+        const reportFloat = document.getElementById('battleReportFloat');
+        if (reportFloat) reportFloat.remove();
+        GlobalStore.set('fastForwardActive', false);
         setState.gs(S.IDLE);setState.isPaused(false);setState.waitingForNextRound(false);isBattleStarting=false;
         // 清除旧的 Store 引用，防止 renderGrid 访问无效 Store
+        GlobalStore.set('battleStore', null);
         setRenderStore(null);
         try { updateUI(); } catch(e){}
         updateButtons();enableAllButtons();updateSpeedButtons();
@@ -596,7 +607,7 @@ document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('btnAuto').classList.toggle('active', getState.autoMode());
         document.getElementById('btnDodgeToggle').classList.toggle('active', getState.dodgeEffectEnabled());
         document.getElementById('btnDodgeToggle').textContent = getState.dodgeEffectEnabled() ? '华丽' : '简单';
-        document.getElementById('btnCrashMode').textContent = window._crashMode === 'fly' ? '🕊️飞走' : '👻虚影';
+        document.getElementById('btnCrashMode').textContent = GlobalStore.get('crashMode') === 'fly' ? '🕊️飞走' : '👻虚影';
     } catch(e) {
         console.error('[光明顶5v5测试版] 初始化错误：', e.stack || e.message || e);
     }

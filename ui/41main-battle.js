@@ -136,7 +136,8 @@ export function doInitBattle(currentStage, UI, snapshot, activeBuffs, selectedBu
             let xzUnit = new Unit('小昭', 107, C.ROLES[rand(0, 3)], 'ally');
             xzUnit.isXiaoZhao = true; xzUnit.initXiaoZhao(); xzUnit.applyBonus();
             xzUnit._baseMaxHp = xzUnit.maxHp; xzUnit._baseAtk = xzUnit.atk; xzUnit._baseDef = xzUnit.def;
-            xzUnit.pos = null;
+            const replacedUnit = swappable;
+            xzUnit.pos = replacedUnit ? replacedUnit.pos : null;
             allyTeam.push(xzUnit);
             remainingPower -= (elitePower['小昭'] || 140);
         }
@@ -296,7 +297,7 @@ export function doInitBattle(currentStage, UI, snapshot, activeBuffs, selectedBu
     UI.enemyTeam = enemyTeam.map(u => u.clone());
     UI.currentResult = null;
     UI.round = 0;
-    window._battleHasZhang = allyTeam.some(u => u.isZhang);
+    GlobalStore.set('battleHasZhang', allyTeam.some(u => u.isZhang));
     window._lastBattleSeed = Date.now();
     let stageText = currentStage === 1 ? '第一关' : `第${currentStage}关`;
     document.getElementById('labelEnemy').textContent = `六大派\n${stageText}`;
@@ -326,7 +327,7 @@ export function showBuffSelection(callback, activeBuffs, selectedBuffIndex, upda
     const allKeys = Object.keys(C.BUFFS || {});
     const existingKeys = activeBuffs.map(b => b.key);
     const available = allKeys.filter(k => !existingKeys.includes(k));
-    const choices = (localStorage.getItem('_bugMode') === '1')
+    const choices = (GlobalStore.get('bugMode'))
         ? available
         : generateBuffChoices(activeBuffs, allyTeam);
     const text = '选择 Buff（持续 ' + C.BUFF_DURATION + ' 回合）';

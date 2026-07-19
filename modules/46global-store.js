@@ -18,6 +18,8 @@ const _state = {
 };
 
 const _listeners = [];
+const _listenersByKey = {};
+const _effects = {};
 
 export const GlobalStore = {
     getState() {
@@ -37,6 +39,38 @@ export const GlobalStore = {
         };
     },
 
+    // 通用读写（取代 window._* 直接访问）
+    get(key) { return _state[key]; },
+    set(key, value) {
+        _state[key] = value;
+        if (_effects[key]) {
+            try { _effects[key](value); } catch(e) { console.error('[GlobalStore] 副作用执行失败:', key, e); }
+        }
+        const fns = _listenersByKey[key];
+        if (fns) fns.forEach(fn => { try { fn(value); } catch(e) {} });
+    },
+    on(key, fn) {
+        if (!_listenersByKey[key]) _listenersByKey[key] = [];
+        _listenersByKey[key].push(fn);
+        return () => {
+            const arr = _listenersByKey[key];
+            if (arr) {
+                const i = arr.indexOf(fn);
+                if (i >= 0) arr.splice(i, 1);
+            }
+        };
+    },
+    off(key, fn) {
+        const arr = _listenersByKey[key];
+        if (arr) {
+            const i = arr.indexOf(fn);
+            if (i >= 0) arr.splice(i, 1);
+        }
+    },
+    effect(key, fn) {
+        _effects[key] = fn;
+    },
+
     // 引擎专用：追加一条战斗事件
     pushBattleEvent(event) {
         _state.battleEvents.push(event);
@@ -46,6 +80,9 @@ export const GlobalStore = {
     flushBattleEvents() {
         const events = _state.battleEvents;
         _state.battleEvents = [];
+        // 通知所有 battleEvents 的订阅者
+        const fns = _listenersByKey['battleEvents'];
+        if (fns) fns.forEach(fn => { try { fn(events); } catch(e) {} });
         return events;
     },
 
@@ -55,45 +92,5 @@ export const GlobalStore = {
     }
 };
 
-// 向后兼容：逐步替换 window._* 的读写
-// 阶段一：保留 window 挂载，但指向 Store 的值
-Object.defineProperty(window, '_fastForwardActive', {
-    get() { return _state.fastForwardActive; },
-    set(v) { _state.fastForwardActive = v; },
-    configurable: true
-});
-Object.defineProperty(window, '_voteScore', {
-    get() { return _state.voteScore; },
-    set(v) { _state.voteScore = v; localStorage.setItem('ming_vote_score_5v5_test', v); },
-    configurable: true
-});
-Object.defineProperty(window, '_voteChoice', {
-    get() { return _state.voteChoice; },
-    set(v) { _state.voteChoice = v; },
-    configurable: true
-});
-Object.defineProperty(window, '_battleHasZhang', {
-    get() { return _state.battleHasZhang; },
-    set(v) { _state.battleHasZhang = v; },
-    configurable: true
-});
-Object.defineProperty(window, '_bugMode', {
-    get() { return _state.bugMode; },
-    set(v) { _state.bugMode = v; },
-    configurable: true
-});
-Object.defineProperty(window, '_crashMode', {
-    get() { return _state.crashMode; },
-    set(v) { _state.crashMode = v; },
-    configurable: true
-});
-Object.defineProperty(window, '_currentBattleState', {
-    get() { return _state.currentBattleState; },
-    set(v) { _state.currentBattleState = v; },
-    configurable: true
-});
-Object.defineProperty(window, '_forceXiaoZhao', {
-    get() { return _state.forceXiaoZhao; },
-    set(v) { _state.forceXiaoZhao = v; },
-    configurable: true
-});
+// 所有兼容层已移除，统一使用 GlobalStore.get/set 读写状态
+window.GlobalStore = GlobalStore;
