@@ -96,11 +96,13 @@
         });
         document.getElementById('btnXiaoZhaoMode').addEventListener('click', () => {
             localStorage.setItem('_forceXiaoZhao', '1');
+            window.GlobalStore && window.GlobalStore.set('forceXiaoZhao', true);
             localStorage.removeItem('_bugMode');
             window.open('mode-5v5-test.html', '_blank');
         });
         document.getElementById('btnBugMode').addEventListener('click', () => {
             localStorage.setItem('_bugMode', '1');
+            window.GlobalStore && window.GlobalStore.set('bugMode', true);
             window.open('mode-5v5-test.html', '_blank');
         });
         document.getElementById('btnHealthCheck').addEventListener('click', () => {

@@ -172,7 +172,7 @@ export function showSplashArrows(attacker, primaryTarget, splashTargets, speed, 
  * 速度同飞箭，受击用通用 applyImpactShrink（黄色短闪）
  */
 export function showBoneClaw(unitA, unitD, speed, getPausedFn, onHit, opts) {
-    if (window._fastForwardActive) { if (onHit) onHit(); return; }
+    if (GlobalStore.get('fastForwardActive')) { if (onHit) onHit(); return; }
     opts = opts || {};
     let gridAId = unitA.camp==='ally'?'allyGrid':'enemyGrid', gridDId = unitD.camp==='ally'?'allyGrid':'enemyGrid';
     let gridA = document.getElementById(gridAId), gridD = document.getElementById(gridDId);
@@ -207,7 +207,7 @@ export function showBoneClaw(unitA, unitD, speed, getPausedFn, onHit, opts) {
     let baseMin = 700;
     if (unitD && unitD.hp !== undefined) {
         // 检测目标是否刚被小昭衍生技影响（减伤/治疗/加攻）
-        const battleState = (window.GlobalStore && window.GlobalStore.getState().currentBattleState) || window._currentBattleState;
+        const battleState = GlobalStore.get('currentBattleState');
         const xiaoZhaoActive = battleState?.ally?.find(u => u.isXiaoZhao && u.alive);
         if (xiaoZhaoActive) {
             const zhang = battleState?.ally?.find(u => u.isZhang && u.alive);

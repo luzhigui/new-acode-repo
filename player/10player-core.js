@@ -134,6 +134,8 @@ function battleReducer(state, action) {
                         if (p.critCount !== undefined) next[idx].critCount = p.critCount;
                         if (p.survivedRounds !== undefined) next[idx].survivedRounds = p.survivedRounds;
                         if (p._isDead !== undefined) next[idx]._isDead = p._isDead;
+                        if (p._resting !== undefined) next[idx]._resting = p._resting;
+                        if (p._blocked !== undefined) next[idx]._blocked = p._blocked;
                         if (p._phantomTarget !== undefined) next[idx]._phantomTarget = p._phantomTarget;
                         if (p._masteredRoles !== undefined) next[idx]._masteredRoles = p._masteredRoles;
                         if (ev.eventType === 'zhang-switch') {
@@ -298,7 +300,8 @@ async function handleAttackGroup(c, entry, roundResult, abortSig, isFirstAttackR
         }
     }
 
-    let textEntries=entry.entries,lineCount=textEntries.length, speedFactor=window._fastForwardActive?0.001:Math.max(c.speed,600)/1000, textDuration=window._fastForwardActive?1:(c.speed*lineCount), offset=window._fastForwardActive?1:(200*speedFactor), atkFlashDuration=textDuration+300*speedFactor, defFlashDuration=atkFlashDuration, atkTimer=null;
+    const isFF = GlobalStore.get('fastForwardActive');
+    let textEntries=entry.entries,lineCount=textEntries.length, speedFactor=isFF?0.001:Math.max(c.speed,600)/1000, textDuration=isFF?1:(c.speed*lineCount), offset=isFF?1:(200*speedFactor), atkFlashDuration=textDuration+300*speedFactor, defFlashDuration=atkFlashDuration, atkTimer=null;
     // 近战攻击：闪光保留时间覆盖飞撞动画+展示时间（800+900+800+1000=3500ms）
     if (unitA && !entry.isBlock && !entry.isDodge && !entry.isMiss && (unitA.role === '战士' || unitA.role === '防战' || unitA.role === '飞行')) {
         atkFlashDuration = Math.max(atkFlashDuration, 3500 * speedFactor);
@@ -354,7 +357,7 @@ async function handleAttackGroup(c, entry, roundResult, abortSig, isFirstAttackR
             }
         }
     }
-    if(blockDelay) await new Promise(r=>setTimeout(r, window._fastForwardActive ? 1 : c.speed/2));
+    if(blockDelay) await new Promise(r=>setTimeout(r, GlobalStore.get('fastForwardActive') ? 1 : c.speed/2));
     if (entry.isDead && lastDiv && !entry.isBlock && !entry.isMiss && !entry.isDodge) { applyBrushEffect(lastDiv); }
     if(entry.isDodge&&unitA)showDodgeBubble(unitA,'闪避！'); if(entry.isMiss&&unitA)showDodgeBubble(unitA,'未命中');
     if(unitD&&entry.hpPctAfter!==undefined&&entry.hpPctBefore!==undefined){ if(entry.hpPctBefore>40&&entry.hpPctAfter<=40&&entry.hpPctAfter>20){let t=(unitD.camp==='ally'?'不好，必须反击了！':'小儿安敢伤我！');safeShowDanmaku(unitD,t);} else if(entry.hpPctBefore>20&&entry.hpPctAfter<=20){let t=(unitD.camp==='ally'?'撑住！':'已是强弩之末！');safeShowDanmaku(unitD,t);} }
@@ -596,6 +599,29 @@ export async function playBattle() {
     const scheduler = new AnimationScheduler();
     c._scheduler = scheduler;
 
+    GlobalStore.effect('fastForwardActive', (isActive) => {
+        if (isActive) {
+            if (!c._originalSpeed) c._originalSpeed = c.speed;
+            c.speed = 1;
+            if (c._scheduler && c._scheduler.setSpeed) c._scheduler.setSpeed(50);
+        } else {
+            c.speed = c._originalSpeed || 500;
+            if (c._scheduler && c._scheduler.setSpeed) c._scheduler.setSpeed(1);
+        }
+    });
+
+    // 注册副作用：快进/恢复时自动调整播放器速度
+    GlobalStore.effect('fastForwardActive', (isActive) => {
+        if (isActive) {
+            if (!c._originalSpeed) c._originalSpeed = c.speed;
+            c.speed = 1;
+            if (c._scheduler && c._scheduler.setSpeed) c._scheduler.setSpeed(50);
+        } else {
+            c.speed = c._originalSpeed || 500;
+            if (c._scheduler && c._scheduler.setSpeed) c._scheduler.setSpeed(1);
+        }
+    });
+
     let lastTime = performance.now();
     function frameLoop() {
         const now = performance.now();
@@ -620,6 +646,7 @@ export async function playBattle() {
         ...c.snapshot.enemy.map(u => { let u2 = u.clone(); u2.hp = u2.maxHp; u2.alive = true; u2._isDead = false; u2._flash = null; u2._acted = false; u2._resting = false; u2._blocked = false; u2.camp = 'enemy'; return u2; })
     ];
     c.store = createStore({ units: initialUnits, round: 1 }, battleReducer);
+    GlobalStore.set('battleStore', c.store);
     setRenderStore(c.store);
     updateUI();
 
@@ -808,8 +835,7 @@ export async function playBattle() {
 
     if (!finalWinner) finalWinner = '平局';
     c.gs = 'GAMEOVER'; c.isPaused = false; c.waitingForNextRound = false; c.isBattleStarting = false;
-    window._fastForwardActive = false;
-    c.speed = c._originalSpeed || 500;
+    GlobalStore.set('fastForwardActive', false);
     c.updateButtons(); c.enableAllButtons();
 
     let winner = finalWinner;
@@ -847,23 +873,24 @@ export async function playBattle() {
     if (mainCtx && mainCtx.updateBuffSlots) mainCtx.updateBuffSlots();
     if (window._updateGlowColors) window._updateGlowColors(-1);
 
-    if (window._voteChoice && window._voteChoice !== 'skip' && winner !== '平局') {
+    if (GlobalStore.get('voteChoice') && GlobalStore.get('voteChoice') !== 'skip' && winner !== '平局') {
         let correct = (window._voteChoice === winner), earnPoints = 0;
-        if (correct) { earnPoints = window._battleHasZhang ? 3 : 2; window._voteScore += earnPoints; }
-        else { earnPoints = -1; window._voteScore += earnPoints; }
-        localStorage.setItem('ming_vote_score_5v5_test', window._voteScore);
+        if (correct) { earnPoints = window._battleHasZhang ? 3 : 2; }
+        else { earnPoints = -1; }
+        GlobalStore.set('voteScore', GlobalStore.get('voteScore') + earnPoints);
+        localStorage.setItem('ming_vote_score_5v5_test', GlobalStore.get('voteScore'));
         let badge = document.getElementById('scoreBadge'), floatEl = document.createElement('span');
         floatEl.className = 'score-float'; floatEl.textContent = (earnPoints > 0 ? '+' : '') + earnPoints + '🏆';
         badge.appendChild(floatEl);
         setTimeout(() => { if (floatEl.parentNode) floatEl.parentNode.removeChild(floatEl); }, 3500);
         setTimeout(() => c.updateScoreBadge(), 3500);
-        let voteMsg = correct ? `<span class="green">📊 你猜了${window._voteChoice}，正确！+${earnPoints}分！ 当前积分：${window._voteScore}</span>` : `<span class="red">📊 你猜了${window._voteChoice}，错误！-1分！当前积分：${window._voteScore}</span>`;
+        let voteMsg = correct ? `<span class="green">📊 你猜了${GlobalStore.get('voteChoice')}，正确！+${earnPoints}分！ 当前积分：${GlobalStore.get('voteScore')}</span>` : `<span class="red">📊 你猜了${GlobalStore.get('voteChoice')}，错误！-1分！当前积分：${GlobalStore.get('voteScore')}</span>`;
         logDiv.innerHTML += voteMsg + '<br>'; logDiv.scrollTop = logDiv.scrollHeight;
     } else if (winner === '平局') {
         logDiv.innerHTML += '<span class="gray">📊 平局，积分不变，当前积分：' + window._voteScore + '</span><br>';
         logDiv.scrollTop = logDiv.scrollHeight;
     }
-    window._voteChoice = null;
+    GlobalStore.set('voteChoice', null);
     c._battleEnded = true;
     c.abortController = null;
     c.store = null;

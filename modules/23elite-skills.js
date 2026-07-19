@@ -36,8 +36,9 @@ export function checkNineYinClaw(attacker, target, baseDmg, log) {
     if (!target || !target.alive) return 0;
     const s = ES.nineYinClaw;
 
-    const zhangAlive = window._currentBattleState && window._currentBattleState.ally &&
-        window._currentBattleState.ally.some(u => u.isZhang && u.alive);
+    const battleState = GlobalStore.get('currentBattleState');
+    const zhangAlive = battleState && battleState.ally &&
+        battleState.ally.some(u => u.isZhang && u.alive);
     const baseHit = zhangAlive ? (s.jealousBaseDmg || 5) : (s.baseDmg || 3);
     const ratio = zhangAlive ? s.jealousLostHpRatio : s.lostHpRatio;
 
@@ -111,7 +112,7 @@ export function checkNineYinClaw(attacker, target, baseDmg, log) {
         });
 
         // 再触发乾坤衍生（减伤/治疗/加攻），日志写在这里不会抢跑
-        const zhang = window._currentBattleState && window._currentBattleState.ally ? window._currentBattleState.ally.find(u => u.isZhang && u.alive) : null;
+        const zhang = battleState && battleState.ally ? battleState.ally.find(u => u.isZhang && u.alive) : null;
         if (!zhang) {
             const allyTeam = window._currentBattleState?.ally || [];
             if (allyTeam.length > 0) {

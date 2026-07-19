@@ -16,7 +16,7 @@ let _store = null;
 let _subscribed = false;
 function getStore() {
     if (!_store) {
-        if (window._battleStore) _store = window._battleStore;
+        if (GlobalStore.get('battleStore')) _store = GlobalStore.get('battleStore');
     }
     return _store;
 }
@@ -282,7 +282,7 @@ export function renderGrid(id, camp) {
         // 实时计算 Buff 加成，不依赖可能滞后的 unit.buffAtkBonus
         let buffStats = computeBuffStats(latestUnit, activeBuffs, allyTeam);
         let atkBonusVal = Math.floor(latestUnit.atk * buffStats.atkBonus);
-        let defBonusVal = Math.floor(latestUnit.def * buffStats.defBonus);
+        let defBonusVal = Math.floor((latestUnit._baseDef || latestUnit.def) * buffStats.defBonus);
         let hpBonusVal = Math.floor(latestUnit.maxHp * buffStats.hpBonus);
         let displayAtk = Math.round(latestUnit.atk + atkBonusVal);
         let atkDisplayHtml = `${displayAtk}`;

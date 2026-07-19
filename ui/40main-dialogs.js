@@ -286,7 +286,7 @@ export function showVoteDialog(callback, battleHasZhang) {
         {text:'明教', value:'明教', cls:'ming'},
         {text:'放弃', value:'skip', cls:'skip'}
     ], (choice) => {
-        window._voteChoice = choice;
+        GlobalStore.set('voteChoice', choice);
         if (choice === '明教') document.getElementById('labelAlly').textContent = '🚩明 教';
         else if (choice === '六大派') document.getElementById('labelEnemy').textContent = '🚩六大派';
         document.getElementById('voteModalOverlay')?.remove();

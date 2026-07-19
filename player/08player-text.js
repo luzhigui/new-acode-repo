@@ -17,7 +17,7 @@ export async function playLineText(text, div, forcedSpeed = null) {
         return;
     }
     // 快进到底时跳过逐字动画，直接显示完整文本
-    if (window._fastForwardActive) {
+    if (GlobalStore.get('fastForwardActive')) {
         div.innerHTML = text + '<br>';
         return;
     }

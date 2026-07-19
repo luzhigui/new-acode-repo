@@ -49,8 +49,8 @@ export function* createRoundStepper(state) {
     const xiaoZhao = A.find(u => u.isXiaoZhao && u.alive);
 
     window._battleEvents = [];
-    window._currentBattleState = null;
-    if (window.GlobalStore) { window.GlobalStore.flushBattleEvents(); window.GlobalStore.updateBattleState(null); }
+    GlobalStore.set('currentBattleState', null);
+    if (window.GlobalStore) { window.GlobalStore.flushBattleEvents(); }
 
     log.push({ type:'round-start', text:`<div class="separator">———— 第${round}回合开始 ————</div>` });
 
@@ -134,8 +134,7 @@ export function* createRoundStepper(state) {
         }
     }
 
-    window._currentBattleState = { ally: state.allAllies, enemy: state.enemy };
-    if (window.GlobalStore) window.GlobalStore.updateBattleState({ ally: state.allAllies, enemy: state.enemy });
+    GlobalStore.set('currentBattleState', { ally: state.allAllies, enemy: state.enemy });
 
     if (doubleStrikeUnitUid) {
         const dsUnit = A.find(u => u.uid === doubleStrikeUnitUid);
@@ -216,6 +215,9 @@ export function* createRoundStepper(state) {
         u._acted = false;
         u._resting = false;
         if (u._restingTimer) { clearTimeout(u._restingTimer); u._restingTimer = null; }
+        if (typeof window._emitEvent === 'function') {
+            window._emitEvent(u, 'hp-change', { hp: u.hp, maxHp: u.maxHp, alive: u.alive, atk: u.atk, def: u.def, _resting: false });
+        }
         u._doubleStriked = false;
         u._stunned = false;
         u._xiaoZhaoDoubleStriked = false;
@@ -239,6 +241,9 @@ export function* createRoundStepper(state) {
         u._acted = false;
         u._resting = false;
         if (u._restingTimer) { clearTimeout(u._restingTimer); u._restingTimer = null; }
+        if (typeof window._emitEvent === 'function') {
+            window._emitEvent(u, 'hp-change', { hp: u.hp, maxHp: u.maxHp, alive: u.alive, atk: u.atk, def: u.def, _resting: false });
+        }
         u._doubleStriked = false;
         u._stunned = false;
         u._xiaoZhaoDoubleStriked = false;
@@ -408,6 +413,9 @@ export function* createRoundStepper(state) {
             // 回合结束清除休息状态和定时器
             u._resting = false;
             if (u._restingTimer) { clearTimeout(u._restingTimer); u._restingTimer = null; }
+            if (typeof window._emitEvent === 'function') {
+                window._emitEvent(u, 'hp-change', { hp: u.hp, maxHp: u.maxHp, alive: u.alive, atk: u.atk, def: u.def, _resting: false });
+            }
             if (typeof window._emitEvent === 'function') {
                 window._emitEvent(u, 'hp-change', { hp: u.hp, maxHp: u.maxHp, alive: u.alive, atk: u.atk, def: u.def, _resting: false });
             }
