@@ -1,5 +1,172 @@
 # 光明顶 5v5 - 更改履历
 
+## V5.1.0 — 2026-07-13 ~ 2026-07-20
+
+### 版本与文档
+- **版本号统一升级到 V5.1.0**：00index.html、mode-5v5-test.html、README.md、kaifazhunze.md、game-design.md 以及 core/01-07/47/48/49、fx/15-20、modules/23/24/28/46、player/08-11、tests/25/30/37/38/45/46/60-68、tools/27/32/33、ui/12-14/39-44 等 58 个文件全部从 V5.0.x 升级到 V5.1.0，覆盖战斗引擎、播放器、UI、特效、体检、工具链全链路
+- **新增核心模块文件**
+  - `core/47battle-attack.js`：攻击流程编排模块，负责按步骤调用目标选择、命中判定、伤害计算、结果应用、日志构建，并处理连击/性奋/联动等递归攻击
+  - `core/48battle-round.js`：回合循环与生成器模块，从 `core/06battle-engine-core.js` 拆分，负责整回合的 buff 结算、拒马召唤、单位行动轮询与胜负判定
+  - `core/49battle-attack-steps.js`：攻击步骤拆分模块，从 `core/47battle-attack.js` 拆分，提供 `selectAttackTarget`、`resolveAttackHit`、`calcFinalDamage`、`applyAttackResult`、`buildAttackGroup` 等纯步骤函数
+  - `modules/46global-store.js`：新增全局状态管理模块，统一收敛原先散落在 `window._*` 上的全局变量
+- **`game-design.md` 大更新**：新增小昭专属体系（蝶变、永久海克斯、海克斯强化对比表）、全局状态管理章节、行动规则补充 `_stunned` 处理、严阵以待/圣火令/热血奋战/巨马阵/流星赶月/乘風突袭等 Buff 数值与规则同步 V5.1.0
+- **README.md 同步**：补充 V5.1.0 版本说明与开发准则更新
+
+### 全局状态管理收敛（modules/46global-store.js）
+- 新增 `GlobalStore`：`getState` / `setState` / `subscribe` / `on(key, fn)` / `effect(key, fn)` / `get(key)` / `set(key, value)`，支持按 key 订阅与副作用
+- 收敛的全局变量包括：`fastForwardActive`、`voteScore`、`voteChoice`、`battleHasZhang`、`bugMode`、`crashMode`、`currentBattleState`、`battleStore`、`forceXiaoZhao`、`skipBuffPopup`、`battleEvents`、`gs`
+- 兼容层已移除，统一通过 `GlobalStore.get/set` 读写状态；`window.GlobalStore = GlobalStore` 保留供旧代码无缝迁移
+- 涉及文件：`modules/46global-store.js`、`ui/13main-5v5-test.js`、`ui/39main-state.js`、`ui/40main-dialogs.js`、`ui/41main-battle.js`、`ui/43fx-trigger.js`、`ui/44ui-controls.js`、`player/08player-text.js`、`player/09player-buff-ui.js`、`player/10player-core.js`、`fx/15fx-common-5v5-test.js`、`fx/16fx-arrows-5v5-test.js`、`fx/17fx-crash-5v5-test.js`、`modules/23elite-skills.js`、`core/04buff-system.js`、`core/48battle-round.js`、`core/49battle-attack-steps.js`
+
+### 战斗引擎拆分（core/47/48/49）
+- `core/47battle-attack.js` 职责收窄为“攻击流程编排”：不再内含具体步骤实现，改为 `import` `core/49battle-attack-steps.js` 中的 5 个步骤函数，并负责连击/性奋/玄冥二老联动/小昭永久连击等递归调用
+- `core/49battle-attack-steps.js` 新增并导出：
+  - `selectAttackTarget`：目标选择（含成昆幻影伪装、小昭永久惑人心智）
+  - `resolveAttackHit`：未命中 + 闪避判定（含韦一笑吸血、眩晕、反击致死）
+  - `calcFinalDamage`：伤害计算（战士破防、防战坚盾、混元霹雳、叛逆突袭、鹿角杖法、伤害修正）
+  - `applyAttackResult`：应用伤害结果（击杀、战士斩杀、成昆幻影变身、拒马反伤、严阵以待反弹）
+  - `buildAttackGroup`：构建 `attack-group` 日志并触发攻击后效果
+- `core/48battle-round.js` 从 `core/06battle-engine-core.js` 拆出完整回合生成器 `createRoundStepper`，包含回合开始 buff 结算、玄冥毒、拒马召唤、苦练、概率连击、行动轮询、回合结束清理
+- `core/06battle-engine-core.js` 与 `core/07battle-engine-5v5-test.js` 移除 `runBattle` 导出，播放器改为直接使用 `createRoundStepper` 逐步推进战斗
+- 涉及文件：`core/47battle-attack.js`、`core/48battle-round.js`、`core/49battle-attack-steps.js`、`core/06battle-engine-core.js`、`core/07battle-engine-5v5-test.js`、`tools/27auto-battle-utils.js`、`ui/13main-5v5-test.js`、`ui/41main-battle.js`
+
+### 海克斯系统大更新（2026-07-17）
+- **新增「小昭海克斯强化」机制**：小昭在场时，部分团队海克斯会获得强化效果；团队海克斯过期后，小昭可继承对应的永久弱化版。强化参数统一收敛到 `CONFIG.ELITE_SKILLS.xiaoZhao.hexEnhance`
+  - 概率连击：普通 80% → 小昭强化 100% 必连击，且被遮挡单位可无视遮挡进攻
+  - 你就是 carry：普通仅 5 号位 → 小昭强化 4/5/6 号位同步享受；过期后小昭自身固定两层精通加成
+  - 流云身法：普通仅未行动单位闪避 → 小昭强化无视行动状态均闪避；过期后小昭自身永久闪避且无视职业
+  - 圣火令：普通随机两列攻 + 两行防 → 小昭强化额外给自己 +30% 攻防；过期后每回合仅给自己 +30% 攻防
+  - 巨马阵：普通 0/5/25 巨马 → 小昭强化 0/30/30 巨马，且攻击巨马者受 5 点反伤；过期后小昭每回合自己召一匹普通巨马
+  - 流星赶月：普通溅射 50% → 小昭强化溅射命中后攻击者每命中 1 人额外 +2 攻；过期后小昭远程且拥有普通流星赶月时生效
+  - 嗜血狂刀：普通战士吸血 80% → 小昭强化吸血后再补一刀，斩杀线 15% → 20%；过期后小昭战士且拥有普通嗜血时生效
+  - 严阵以待：普通反弹 50% 伤害差 → 小昭强化反弹同时恢复等量生命；过期后小昭防战且拥有普通严阵时生效
+  - 乘風突袭：普通飞行 80% 波及 / 60% 击退 → 小昭强化 100% 波及 / 80% 击退；过期后小昭飞行且拥有普通乘風时生效
+  - 热血奋战：普通恢复已损失 15%、每 3 次翻倍 → 小昭强化 20%、每 2 次翻倍；过期后小昭单独拥有强化版
+  - 惑人心智：普通 80% 乱敌方 / 40% 乱己方、持续 2 回合 → 小昭强化 95% / 50%、持续 3 回合；过期后小昭自身 15% 永久惑心
+- **圣火令重构**：从原来的单 `col`/`row` 改为 `cols`/`rows` 数组（随机两列攻 + 两行防），`logBuffSummary` 与 `computeBuffStats` 同步支持多列多行；选择海克斯时 `holyFlame` 自动生成不重复的 `cols`/`rows`
+- **严阵以待**：首次选择海克斯时不再出现，必须等待已有 Buff 剩余回合 > 0 后才可刷出
+- **巨马阵**：属性改为 0 攻 / 5 防 / 25 血；小昭强化时改为 0/30/30；召唤位置不再考虑敌方站位，使用 Fisher-Yates 洗牌保证真随机
+- **热血奋战**：普通版恢复已损失生命 15%，每 3 次翻倍；小昭强化版 20%，每 2 次翻倍
+- **乘風突袭/流星赶月/惑人心智/严阵以待/你就是 carry**：全部接入 `getXiaoZhaoHexEnhance` 读取强化参数
+- 涉及文件：`core/01config-5v5-test.js`、`core/04buff-system.js`、`core/05battle-horse.js`、`modules/23elite-skills.js`、`ui/41main-battle.js`、`ui/14ui-render-5v5-test.js`
+
+### 倍速逻辑调整
+- 速度档位数值全面调整（延迟值）：原 `500/250/71/125/1800` → 新 `1000/600/100/300/1600`
+  - 0.5x：`1800ms` → `1600ms`
+  - 1x：`500ms` → `1000ms`（取消高亮任何按钮）
+  - 2x：`250ms` → `600ms`（默认进入战斗后自动锁定 2x 高亮）
+  - 4x：`125ms` → `300ms`
+  - 7x 按钮改名为 8x，延迟 `71ms` → `100ms`
+- 快进状态统一走 `GlobalStore.get/set('fastForwardActive')`，替换所有 `window._fastForwardActive` 直接读取
+- 滚动降速逻辑同步新阈值：`1800` → `1600`
+- 涉及文件：`ui/44ui-controls.js`、`player/10player-core.js`、`player/08player-text.js`、`fx/15fx-common-5v5-test.js`、`fx/16fx-arrows-5v5-test.js`、`ui/43fx-trigger.js`、`ui/13main-5v5-test.js`
+
+### 攻击弹窗位置确认与优化
+- 新增/优化 `showAtkBuffFloat`（`fx/15fx-common-5v5-test.js`）：飘字内容从「攻+N」改为「+N」，水平位置左移、zIndex 提升到 `10004`，解决加攻弹幕被遮挡问题
+- 播放器 `handleInfo` 识别「乾坤衍生：攻击+」日志，延迟 180ms 触发 `showAtkBuffFloat`；同时识别白骨爪触发的衍生加攻也弹出加攻弹幕
+- 涉及文件：`fx/15fx-common-5v5-test.js`、`player/10player-core.js`
+
+### UI 渲染优化（ui/13、ui/14、ui/39-44）
+- **`ui/14ui-render-5v5-test.js`**
+  - 角色图标增加眩晕状态 `💫`（未死亡时优先显示）
+  - 防御显示改为基于 `_baseDef` 计算加成，解决坚盾叠加后防御显示异常
+  - 成昆幻影伪装新增 `_phantomFlash` 闪烁动画
+  - 详情弹窗宋青书技能描述改为读取 `CONFIG.ELITE_SKILLS` 实时数值
+  - `spawnVictoryEffects` 胜利弹幕只在 `ctx.gs === 'GAMEOVER'` 时写入日志，修复战斗结束后错误追加台词
+- **`ui/40main-dialogs.js`**
+  - 战报弹窗增加防残留：游戏不在 `GAMEOVER` 状态时不创建弹窗
+  - 关闭战报后改为隐藏并生成右下角浮动 📊 按钮，可恢复查看；游戏重置为 `IDLE` 时自动销毁
+  - 投票选择改用 `GlobalStore.set('voteChoice', choice)`
+- **`ui/41main-battle.js`**
+  - 移除 `runBattle` 导入，战斗由播放器逐步驱动
+  - `forceXiaoZhao`、`bugMode`、`battleHasZhang` 统一走 `GlobalStore`
+  - 强制小昭替换入队时继承被替换单位的 `pos`，不再置为 `null`
+  - 新增 `showBugModeBuffSelection`，Bug 模式下可选全部 Buff
+  - 圣火令选择时生成 `cols`/`rows`
+- **`ui/39main-state.js`**：`setState.gs` 写入时同步到 `GlobalStore.set('gs', v)`
+- **`ui/43fx-trigger.js`**：`fastForwardActive` 走 `GlobalStore`
+- **`ui/13main-5v5-test.js`**
+  - 导入 `modules/46global-store.js`，移除 `runBattle` 导入
+  - 所有 `window._voteScore`、`_voteChoice`、`_battleHasZhang`、`_debugMode`、`_crashMode`、`_forceXiaoZhao`、`_fastForwardActive`、`_skipBuffPopup` 改为 `GlobalStore`
+  - 新增 `initBugAndXiaoZhaoModes` 并在 DOM 就绪前/后双保险执行
+  - `GAMEOVER` 与重置时清理战报弹窗、浮动按钮、投票浮动按钮、Buff 浮动按钮、所有弹幕
+  - 复制日志时支持 innerText 兜底、Buff 获取日志保留、过滤规则优化
+- 涉及文件：`ui/13main-5v5-test.js`、`ui/14ui-render-5v5-test.js`、`ui/39main-state.js`、`ui/40main-dialogs.js`、`ui/41main-battle.js`、`ui/42audio-control.js`、`ui/43fx-trigger.js`、`ui/44ui-controls.js`
+
+### Buff 系统修复（core/04）
+- `computeBuffStats` 圣火令计算改为基于 `cols`/`rows` 数组，并接入小昭强化
+- `carry` 加成位置条件放宽：原仅 5 号位，现当小昭在场时 4/5/6 号位均可享受
+- 严阵以待防御加成仅对友方生效，避免敌方也吃到
+- 流云身法闪避仅对友方生效
+- `applyBuffEffectsBeforeAttack` 惑人心智概率在小昭在场且无 `mindControl_xiaoZhao` 标记时提升为 95% / 50%
+- `applyBuffEffectsAfterAttack` 热血奋战、乘風突袭、流星赶月全部接入小昭强化参数
+- 流星赶月溅射目标侧修正：当目标因惑心等效果与我方同阵营时，溅射正确作用到对应阵营
+- 小昭永久圣火令直接给自己加攻防
+- `logBuffSummary` 支持多列多行圣火令展示，并识别团队与小昭圣火令重叠
+- 涉及文件：`core/04buff-system.js`
+
+### 精英技能调整（modules/23）
+- **九阴白骨爪**：使用 `GlobalStore.get('currentBattleState')` 判断张无忌是否存活；触发后调用 `GlobalStore.flushBattleEvents()`；无张无忌时小昭衍生技仅在小昭未眩晕时触发；攻击增益同时更新 `_baseAtk`
+- **宋青书回血**：每次白骨爪触发时，宋青书恢复等量的生命（敌方阵营时找宋青书）
+- **叛逆突袭**：真实伤害比例从 `10%` 提升到 `12%`（`CONFIG.ELITE_SKILLS.rebelStrike.currentHpRatio`）
+- **性奋惩罚**：仅在 `_xingFenActive` 激活时扣减最大生命，且从第 1 次攻击就开始计数扣减
+- **苦练**：属性加成改为 `+1.5 攻 / +0.5 防 / +2 血上限`（配置化）
+- **新婚快乐**：回血百分比序列从 `[0.16, 0.08, 0.04, 0.02, 0.01]` 调整为 `[0.16, 0.10, 0.06, 0.03]`
+- **小昭蝶变**：每回合随机变职业，但不会与上回合重复；记录精通职业并修正变身加成；每次变身 +5 生命上限
+- **小昭衍生技**：张无忌在场时失效；小昭眩晕时不再触发；攻击增益更新 `_baseAtk`
+- **成昆幻影伪装**：修复目标查找逻辑——被混淆的目标应在攻击者自己的阵营（`allySide`）中查找；被模仿者自身免疫该次伪装；攻击前清除旧的 `_phantomTarget`
+- **小昭永久惑人心智**：触发概率从 `20%` 下调到 `15%`
+- 新增 `getXiaoZhaoHexEnhance(allyTeam, activeBuffs, hexKey)` 统一读取海克斯强化配置
+- 涉及文件：`modules/23elite-skills.js`、`core/01config-5v5-test.js`、`core/02unit.js`、`core/04buff-system.js`
+
+### 单位与战斗状态
+- `core/02unit.js`：新增 `_stunned` 字段标识本回合被闪避反击眩晕；`clone()` 同步拷贝
+- `core/48battle-round.js`：行动轮询跳过 `_stunned` 单位并输出「被眩晕，无法行动」；被遮挡近战单位休息回血从 `10` 提升到 `20`；回合结束清理休息状态与定时器
+- `core/49battle-attack-steps.js`：闪避反击成功后给攻击者设置 `_stunned = true`、`_acted = true`
+- 涉及文件：`core/02unit.js`、`core/48battle-round.js`、`core/49battle-attack-steps.js`
+
+### 播放器修复（player/09、player/10）
+- `player/10player-core.js`
+  - 恢复 `GAME_STATE_FIELDS` 常量，Store 同步 UI 时改为字段级 `syncFields`，不再整对象替换，解决状态字段遗漏
+  - `playBattle` 改为基于 `c.snapshot` 启动，不再依赖 `c.UI.currentResult`
+  - 注册 `GlobalStore.effect('fastForwardActive', ...)`，快进时把播放器速度提到 1ms、调度器 50 倍速；恢复时回到原速
+  - `handleAttackGroup` 重要文本（战斗行、伤害行）保底常速 600ms，次要文本（波动、计算）按倍速 ×0.8；波动/计算/info/buff 行间增加 120ms 间隔防止连冲
+  - 休息回血判断从「恢复 10」改为「恢复 20」
+  - 闪避时不再把攻击者 `_acted` 强制设为 true，避免闪避后单位被错误标记为已行动
+  - 战斗结束写日志、投票结算均增加 `c.gs === 'GAMEOVER'` 保护，防止战斗重开后残留写入
+  - 投票积分、voteChoice、fastForwardActive 全部走 `GlobalStore`
+- `player/09player-buff-ui.js`
+  - `bugMode` 读取改为 `GlobalStore.get('bugMode')`
+  - Buff 弹窗关闭后生成的浮动按钮在 `gs === 'IDLE'` 时自动销毁
+  - `handleBuffLeech` 可在敌我双方中查找 `healUnitUid`
+- `player/08player-text.js`
+  - `playLineText` 增加 `forcedSpeed` 参数
+  - 分隔符、系统信息、small 类提示文本直接显示不走逐字动画
+  - 速度阈值调整为新倍速档位
+  - 快进判断走 `GlobalStore`
+- 涉及文件：`player/08player-text.js`、`player/09player-buff-ui.js`、`player/10player-core.js`
+
+### 特效修复（fx/17、fx/19、fx/20、fx/15、fx/16、fx/18）
+- `fx/17fx-crash-5v5-test.js`：`flyMode` 从 `window._crashMode` 改为 `GlobalStore.get('crashMode')`
+- `fx/18fx-position-swap.js`、`fx/19fx-push-back.js`、`fx/20fx-dodge-bullet.js`：把原本依赖 `fx/15` 的 `getCellElement`、`wait` 改为本地定义，解除循环依赖；`wait` 的快进判断保留 `window._fastForwardActive` 本地兼容
+- `fx/15fx-common-5v5-test.js`
+  - 移除 `getCellElement` 与 `wait` 公共导出
+  - `applyImpactShrink`、`showBoneClaw` 等使用 `GlobalStore.get('fastForwardActive')`
+  - 加攻飘字位置、层级、文案优化
+- `fx/16fx-arrows-5v5-test.js`：`showBoneClaw` 通过 `GlobalStore` 读取战场状态判断小昭是否在场
+- 涉及文件：`fx/15fx-common-5v5-test.js`、`fx/16fx-arrows-5v5-test.js`、`fx/17fx-crash-5v5-test.js`、`fx/18fx-position-swap.js`、`fx/19fx-push-back.js`、`fx/20fx-dodge-bullet.js`
+
+### 文件复制器与函数替换器路径同步
+- `tools/32-toolkit.js`：ALL_PROJECT_FILES 增加 `core/49battle-attack-steps.js`、`modules/46global-store.js`、`to do list.md`；用户可选文件列表排除带空格的文件名
+- `tools/33-toolkit-more.js`：TARGET_FILES 同步增加 `core/49battle-attack-steps.js`、`modules/46global-store.js`
+- 涉及文件：`tools/32-toolkit.js`、`tools/33-toolkit-more.js`
+
+### 其他修复
+- **spawnVictoryEffects 变量修复**：`ui/14ui-render-5v5-test.js` 中 `spawnVictoryEffects` 原本错误使用未定义的 `c.gs`，改为 `ctx.gs`，避免 GAMEOVER 判断失效
+- **`core/05battle-horse.js`**：巨马属性改为 0 攻 / 5 防 / 25 血；小昭强化时 0/30/30；召唤位置使用 Fisher-Yates 洗牌；不再把敌方位置计入占用
+- **`tests/25unit-tests.js` / `tests/46health-utils.js`**：新增/同步小昭相关测试与健康检查规则
+- **`00index.html` / `mode-5v5-test.html`**：版本号、脚本引用同步 V5.1.0
+
 ## V5.0.3 — 2026-07-09 ~ 2026-07-12
 - **事件链路重构**（`core/06battle-engine-core.js`）：所有数据修改必发 emitEvent，击杀路径补齐 uidD/isDead，败方清零/拒马销毁/新婚扣血/Buff 效果全部补 emitEvent，确保 Store 与引擎状态同步
 - **连击系统修复**（`core/06` + `core/04`）：K 值索引错位修正、连击每回合复位、连击 logo 改 🔗 与闪避 ⚡ 区分、连击 uid 同步 Store
