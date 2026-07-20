@@ -306,7 +306,7 @@ async function handleAttackGroup(c, entry, roundResult, abortSig, isFirstAttackR
     if (unitA && !entry.isBlock && !entry.isDodge && !entry.isMiss && (unitA.role === '战士' || unitA.role === '防战' || unitA.role === '飞行')) {
         atkFlashDuration = Math.max(atkFlashDuration, 3500 * speedFactor);
     }
-    if(unitA&&!entry.isBlock)atkTimer=setTimeout(async()=>{ await c.waitWhilePaused(); if(unitA){c.store.dispatch({ type: 'CLEAR_UNIT_FLASH', uid: unitA.uid }); c.store.dispatch({ type: 'SET_VISUAL', uid: unitA.uid, _acted: true });} },atkFlashDuration);
+    if(unitA&&!entry.isBlock)atkTimer=setTimeout(async()=>{ await c.waitWhilePaused(); if(unitA){c.store.dispatch({ type: 'CLEAR_UNIT_FLASH', uid: unitA.uid }); if (!entry.isDodge) { c.store.dispatch({ type: 'SET_VISUAL', uid: unitA.uid, _acted: true }); }} },atkFlashDuration);
     await new Promise(r=>setTimeout(r,offset)); await c.waitWhilePaused();
     if(abortSig&&abortSig.aborted){if(atkTimer)clearTimeout(atkTimer);return { isBattleOver: false };}
     if(unitD&&!entry.isMiss){
@@ -342,6 +342,21 @@ async function handleAttackGroup(c, entry, roundResult, abortSig, isFirstAttackR
                     showHealFloat(healUnit, entry2.healAmount);
                 }
             }
+            // 乾坤衍生加攻弹幕
+            if (entry2.text && entry2.text.includes('🦋 乾坤衍生') && entry2.text.includes('攻击+')) {
+                const atkMatch = entry2.text.match(/攻击\+(\d+)/);
+                if (atkMatch) {
+                    const atkGain = parseInt(atkMatch[1]);
+                    const nameMatch = entry2.text.match(/(\S+)攻击\+/);
+                    let atkTarget = null;
+                    if (nameMatch) {
+                        atkTarget = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.name === nameMatch[1]);
+                    }
+                    if (atkTarget) {
+                        setTimeout(() => showAtkBuffFloat(atkTarget, atkGain), 180);
+                    }
+                }
+            }
             if(entry.isBlock&&entry2.text&&entry2.text.includes('休息回复20点生命')&&unitA){c.store.dispatch({ type: 'SET_VISUAL', uid: unitA.uid, _resting: true });blockDelay = true; showHealFloat(unitA, entry.healAmount || 10);}
             const currentSpeed = c.speed || 1000;
             // 重要文本（战斗行、伤害行）：加速保底常速，减速跟随
@@ -351,6 +366,7 @@ async function handleAttackGroup(c, entry, roundResult, abortSig, isFirstAttackR
                 ? Math.max(currentSpeed, 600)
                 : Math.floor(currentSpeed * 0.8);
             let tempDiv=document.createElement('div'); document.getElementById('log').appendChild(tempDiv); await playLineText(entry2.text, tempDiv, forcedSpeed);
+            if (!c.userScrolled) document.getElementById('log').scrollTop = document.getElementById('log').scrollHeight;
             // 波动行和计算行之间加间隔，防止连续冲击
             if (entry2.type === 'detail' || entry2.type === 'info' || entry2.type === 'buff-bonus' || entry2.type === 'buff-splash') {
                 await new Promise(r => setTimeout(r, 120));
@@ -378,6 +394,16 @@ async function handleAttackGroup(c, entry, roundResult, abortSig, isFirstAttackR
 }
 
 async function handleInfo(c, entry) {
+    // ★ 快速条目：白骨爪附带效果，直接显示不逐字播放
+    if (entry.fastEntry) {
+        let tempDiv = document.createElement('div');
+        document.getElementById('log').appendChild(tempDiv);
+        tempDiv.innerHTML = entry.text + '<br>';
+        c.autoScrollLog();
+        document.getElementById('roundDisplay').innerText = `📜 日志（第${c.UI.round}回合）`;
+        return;
+    }
+
     if(entry.isZhangSwitch&&entry.unit){ let zhangUnit = c.UI.allyTeam.find(u => u.isZhang); let sepDiv=document.createElement('div');sepDiv.innerHTML='<span class="separator">- - - - -</span><br>'; document.getElementById('log').appendChild(sepDiv); c.autoScrollLog(); let tempDiv=document.createElement('div');document.getElementById('log').appendChild(tempDiv); await playLineText(entry.text,tempDiv); if(zhangUnit) { c.store.dispatch({ type: 'SET_VISUAL', uid: zhangUnit.uid, _resting: false }); safeShowDanmaku(zhangUnit, '不好，要顶上去了！'); } }
     else {
         if (entry.isDoubleStrikeBanner) {
@@ -715,7 +741,7 @@ export async function playBattle() {
     });
     logDiv.parentElement.appendChild(backToBottomBtn);
     logDiv.addEventListener('scroll', () => {
-        let threshold = 10;
+        let threshold = 50;
         let distToBottom = logDiv.scrollHeight - logDiv.scrollTop - logDiv.clientHeight;
         if (distToBottom > threshold) {
             c.userScrolled = true;

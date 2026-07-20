@@ -304,6 +304,21 @@ export function doInitBattle(currentStage, UI, snapshot, activeBuffs, selectedBu
     document.getElementById('labelAlly').textContent = '明 教';
     updateUI();
 }// ==================== Buff 选择 ====================
+export function createBuffObject(key, duration) {
+    const buff = { key, target: 'ally', remaining: duration, name: CONFIG.BUFFS[key]?.name || key };
+    if (key === 'holyFlame') {
+        const cols = [];
+        while (cols.length < 2) { const c = rand(1, 3); if (!cols.includes(c)) cols.push(c); }
+        cols.sort((a, b) => a - b);
+        const rows = [];
+        while (rows.length < 2) { const r = rand(1, 3); if (!rows.includes(r)) rows.push(r); }
+        rows.sort((a, b) => a - b);
+        buff.cols = cols;
+        buff.rows = rows;
+    }
+    return buff;
+}
+
 export function generateBuffChoices(activeBuffs, allyTeam = []) {
     let activeBuffKeys = activeBuffs.map(b => b.key);
     let available = ALL_BUFF_KEYS.filter(k => {
@@ -343,17 +358,7 @@ export function showBuffSelection(callback, activeBuffs, selectedBuffIndex, upda
             activeBuffs.splice(activeBuffs.indexOf(shortest), 1);
         }
         // 圣火令仅作为标记，实际行列由回合引擎每回合生成
-        if (key === 'holyFlame') {
-            const cols = [];
-            while (cols.length < 2) { const c = rand(1, 3); if (!cols.includes(c)) cols.push(c); }
-            cols.sort((a, b) => a - b);
-            const rows = [];
-            while (rows.length < 2) { const r = rand(1, 3); if (!rows.includes(r)) rows.push(r); }
-            rows.sort((a, b) => a - b);
-            activeBuffs.push({ key, target: 'ally', remaining: duration, name: C.BUFFS[key].name, cols, rows });
-        } else {
-            activeBuffs.push({ key, target: 'ally', remaining: duration, name: C.BUFFS[key].name });
-        }
+        activeBuffs.push(createBuffObject(key, duration));
         // 小昭永久海克斯存储
         if (allyTeam) {
             const xiaoZhao = allyTeam.find(u => u.isXiaoZhao);
@@ -387,17 +392,7 @@ export function showBugModeBuffSelection(callback, activeBuffs, selectedBuffInde
             let shortest = activeBuffs.reduce((a, b) => a.remaining < b.remaining ? a : b);
             activeBuffs.splice(activeBuffs.indexOf(shortest), 1);
         }
-        if (key === 'holyFlame') {
-            const cols = [];
-            while (cols.length < 2) { const c = rand(1, 3); if (!cols.includes(c)) cols.push(c); }
-            cols.sort((a, b) => a - b);
-            const rows = [];
-            while (rows.length < 2) { const r = rand(1, 3); if (!rows.includes(r)) rows.push(r); }
-            rows.sort((a, b) => a - b);
-            activeBuffs.push({ key, target: 'ally', remaining: duration, name: C.BUFFS[key].name, cols, rows });
-        } else {
-            activeBuffs.push({ key, target: 'ally', remaining: duration, name: C.BUFFS[key].name });
-        }
+        activeBuffs.push(createBuffObject(key, duration));
         if (allyTeam) {
             const xiaoZhao = allyTeam.find(u => u.isXiaoZhao);
             if (xiaoZhao) {

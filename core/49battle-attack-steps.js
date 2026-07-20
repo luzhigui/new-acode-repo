@@ -166,7 +166,7 @@ export function calcFinalDamage(unit, target, attackerBuffStats, defenderBuffSta
         unit._pendingDefReduceEntry = {type:'detail', text:`<span class="purple small">🗡️ ${unit.name} 破防：${target.name} 防御 -${defReduced}</span>`};
     }
 
-    let atkBase = Math.floor(unit.atk) + Math.floor(unit.atk * attackerBuffStats.atkBonus);
+    let atkBase = Math.floor(unit.atk + (unit._carryAtkBonus || 0)) + Math.floor(unit.atk * attackerBuffStats.atkBonus);
     let defBase = Math.floor(target.def) + Math.floor(target.def * defenderBuffStats.defBonus);
     const hornBonus = getHornStrikeBonus(unit, target);
     if (hornBonus.defIgnore > 0) {
@@ -269,6 +269,7 @@ export function applyAttackResult(unit, target, dmgCalc, attackerBuffStats, defe
                 const heal = Math.floor(lostHp * 0.06 * aliveCount);
                 unit.hp = Math.min(unit.maxHp, unit.hp + heal);
                 unit.healDone += heal;
+                log.push({type:'info', text:`<span class="green">🎭 幻影伪装：${unit.name} 回复 ${heal} 点生命</span>`, isHealEntry:true, healAmount:heal, healUnitUid:unit.uid});
             }
             emitEvent(unit, 'hp-change', { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: unit.atk, def: unit.def, _phantomTarget: unit._phantomTarget });
         }
@@ -411,25 +412,7 @@ export function applyPostAttackEffects(unit, target, dmg, atkAct, defAct, reboun
     if (dead && target.camp === 'ally') { checkZhangSwitch(A, log); }
 }
 
-// 基础目标选择（不含迷惑判定），供旧代码兼容
-export function selectTarget(unit, enemySide, allySide = null) {
-    let targets = enemySide.filter(c => c.alive);
-    if (targets.length === 0) return null;
-    let target = null;
-    const rebelTarget = getRebelTarget(unit, enemySide);
-    if (rebelTarget) {
-        target = rebelTarget;
-    } else if (unit.isWei) {
-        target = targets.reduce((a,b) => a.hp < b.hp ? a : b);
-    } else if (isMelee(unit.role) || unit.isHorse) {
-        let fronts = getFronts(targets);
-        if (fronts.length === 0) return null;
-        target = fronts[rand(0, fronts.length - 1)];
-    } else {
-        target = targets[rand(0, targets.length - 1)];
-    }
-    return target;
-}
+// selectTarget 已移除，所有调用方统一使用 selectAttackTarget
 
 function checkZhangSwitch(A, log) {
     let zhang = A.find(c => c.isZhang && c.alive && !c._zhangSwitched);
@@ -457,52 +440,7 @@ function checkZhangSwitch(A, log) {
 
 export { calcFinalDamage as calcAttackDamage };
 
-// resolveDodge 已整合到 resolveAttackHit，此处提供兼容导出
-export function resolveDodge(unit, target, defenderBuffStats, log, A, B) {
-    const allyBuffs = (target.camp === 'ally' && A ? A._activeBuffs : (target.camp === 'enemy' && B ? B._activeBuffs : []));
-    const hasCloudBody = hasBuff(allyBuffs, 'cloudBody') || (target.isXiaoZhao && target._permanentBuffs && target._permanentBuffs.some(b => b.key === 'cloudBody'));
-    if (!target.alive || (!target.isWei && !hasCloudBody && target._acted)) return false;
-    let baseDodge = getFlyDodgeRate(target, unit);
-    let buffDodge = (defenderBuffStats && defenderBuffStats.dodgeBonus) || 0;
-    if (baseDodge + buffDodge <= 0) return false;
-    let finalHit = (1 - baseDodge) * (1 - buffDodge);
-    let totalDodge = 1 - finalHit;
-    if (rand(1,100) > totalDodge * 100) return false;
-    target.dodgeCount++;
-    let reboundDmg = Math.floor((target.atk + target.def) * 0.5);
-    let unitHpBeforeRebound = Math.floor(unit.hp);
-    unit.hp = Math.max(0, unit.hp - reboundDmg);
-    target.dmgDealt += reboundDmg; unit.dmgTaken += reboundDmg;
-    if (unit.hp <= 0) {
-        unit.alive = false;
-        unit._isDead = true;
-        if (!unit._deathTime) unit._deathTime = Date.now();
-    }
-    emitEvent(unit, 'hp-change', { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: unit.atk, def: unit.def, _isDead: unit._isDead || false });
-    let dg = {type:'attack-group', uidA:target.uid, uidD:unit.uid, entries:[], isDodge:true, hpAfter:unit.hp, alive:unit.alive, _fxSnapshot:makeFXSnapshot(target,unit), waveTaunt:null, waveUnit:null, buffEffects:[], _atkBonus:0, _defBonus:0};
-    dg.entries.push({type:'combat-text', text:`<span class="${unit.camp==='ally'?'blue':'orange'}">${unit.camp==='ally'?'明教':'六大派'} ${unit.name}</span>(攻${Math.floor(unit.atk)} 血${unitHpBeforeRebound}) → <span class="${target.camp==='ally'?'blue':'orange'}">${target.camp==='ally'?'明教':'六大派'} ${target.name}</span>(防${Math.floor(target.def)} 血${Math.floor(target.hp)})`});
-    dg.entries.push({type:'info', text:`<span class="gray">🦅 ${target.name}闪避了攻击！</span>`});
-    dg.entries.push({type:'damage-text', text:`<span class="red">🦅 ${target.name}反击 → ${unit.name} 造成 ${reboundDmg} 真实伤害（${unitHpBeforeRebound} → ${Math.floor(unit.hp)}）</span>`});
-    if (target.isWei) {
-        let heal = Math.floor(reboundDmg * 0.15);
-        let wasFullHp = (target.hp >= target.maxHp);
-        let newMaxHp = Math.min(target.maxHp + heal, target._baseMaxHp * 2);
-        target.maxHp = newMaxHp;
-        target.hp = Math.min(target.hp + heal, target.maxHp);
-        if (wasFullHp) { target.hp = target.maxHp; }
-        target.healDone += heal;
-        target.leechDone += heal;
-        emitEvent(target, 'hp-change', { hp: target.hp, maxHp: target.maxHp, alive: target.alive, atk: target.atk, def: target.def });
-        dg.entries.push({type:'info', text:`<span class="green">🦇 韦一笑闪避反击吸血+${heal}，上限→${Math.floor(target.maxHp)}</span>`, isHealEntry:true, healAmount:heal, healUnitUid:target.uid});
-    }
-    if (unit.hp <= 0) { unit.alive = false; unit._isDead = true; dg.isDead = true; dg.alive = false; dg.hpAfter = 0; dg.entries.push({type:'info', text:`${unit.name}被反击击杀！`}); }
-    dg._events = [...window._battleEvents];
-    window._battleEvents = [];
-    if (window.GlobalStore) window.GlobalStore.flushBattleEvents();
-    log.push(dg);
-    unit._acted = true;
-    return true;
-}
+// resolveDodge 已整合到 resolveAttackHit，旧兼容导出已移除
 
 export function isUnitStunned(unit) {
     return !!(unit && unit._stunned);

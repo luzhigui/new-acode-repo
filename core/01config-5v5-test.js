@@ -139,10 +139,10 @@ const CONFIG = {
         kuLian: {
             name: '苦练',
             icon: '💪',
-            desc: '场上无周芷若时每回合最先行动；每次行动前给全体队友+1.5攻+0.5防+2生命上限，自身翻倍',
-            atkBonus: 1.5,
-            defBonus: 0.5,
-            hpBonus: 2
+            desc: '场上无周芷若时每回合最先行动；每次行动前给全体队友+1攻+1防+2.5生命上限，自身翻倍',
+            atkBonus: 1,
+            defBonus: 1,
+            hpBonus: 2.5
         },
         xiaoZhaoDoubleStrike: { chance: 0.80 },
         xiaoZhao: {

@@ -58,16 +58,8 @@ export function computeBuffStats(unit, activeBuffs, allyTeam) {
         const holyFlameBuff = activeBuffs.find(b => b.key === 'holyFlame');
         if (holyFlameBuff) {
             const enhance = getXiaoZhaoHexEnhance(allyTeam, activeBuffs, 'holyFlame');
-            let cols, rows;
-            if (enhance) {
-                // 小昭强化版：固定第1、2行加防，随机1列+第2列加攻
-                const randCol = rand(1, 3);
-                cols = [...new Set([randCol, 2])];
-                rows = enhance.xiaoZhaoDefRows || [1, 2];
-            } else {
-                cols = holyFlameBuff.cols || [];
-                rows = holyFlameBuff.rows || [];
-            }
+            const cols = holyFlameBuff.cols || (holyFlameBuff.col != null ? [holyFlameBuff.col] : []);
+            const rows = holyFlameBuff.rows || (holyFlameBuff.row != null ? [holyFlameBuff.row] : []);
             if (unit.camp === 'ally') {
                 if (cols.includes(getUnitCol(unit.pos))) atkBonus += C.BUFFS.holyFlame.atkBonus;
                 if (rows.includes(getUnitRow(unit.pos))) defBonus += C.BUFFS.holyFlame.defBonus;
@@ -137,7 +129,7 @@ export function applyBuffEffectsAfterAttack(unit, target, dmg, allySide, enemySi
         if (leech > 0) {
             unit.hp = Math.min(unit.maxHp, unit.hp + leech);
             unit.healDone += leech;
-            log.push({type:'buff-leech', text:`<span class="green">🦋 蝶血：小昭嗜血狂刀吸血+${leech}</span>`, isHealEntry:true, healAmount:leech, healUnitUid:unit.uid});
+            log.push({type:'buff-leech', text:`<span class="green">🦋 蝶血：小昭热血奋战吸血+${leech}</span>`, isHealEntry:true, healAmount:leech, healUnitUid:unit.uid});
         }
     }
     

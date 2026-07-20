@@ -162,7 +162,8 @@ export function checkNineYinClaw(attacker, target, baseDmg, log) {
                 text: `<span class="green">💚 宋青书因九阴白骨爪回复${healAmount > 0 ? healAmount : 0}点生命${healAmount === 0 ? '（已满血）' : ''}</span>`,
                 isHealEntry: true,
                 healAmount: healAmount > 0 ? healAmount : bonusDmg,
-                healUnitUid: song.uid
+                healUnitUid: song.uid,
+                fastEntry: true
             });
         }
 

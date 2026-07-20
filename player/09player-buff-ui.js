@@ -3,6 +3,7 @@
 export const VER = 'player/09player-buff-ui.js V5.1.0';
 
 import { CONFIG } from '../core/01config-5v5-test.js';
+import { createBuffObject } from '../ui/41main-battle.js';
 import { Unit } from '../core/07battle-engine-5v5-test.js';
 import { showDamageFloat, showHealFloat, showBuffBanner } from '../fx/15fx-common-5v5-test.js';
 import { addPermanentBuff } from '../modules/23elite-skills.js';
@@ -52,8 +53,8 @@ export function showBuffPopup(c) {
                 let floatBtn = document.getElementById('buffFloatBtn');
                 if (floatBtn) floatBtn.remove();
                 let duration = CONFIG.BUFFS[b.value]?.duration || CONFIG.BUFF_DURATION || 4;
-                const newBuff = { key: b.value, target: 'ally', remaining: duration, name: CONFIG.BUFFS[b.value]?.name || b.value };
-                // 圣火令仅作为标记，实际行列由回合引擎每回合生成
+                const newBuff = createBuffObject(b.value, duration);
+                // 圣火令行列由 createBuffObject 统一生成
                 // 小昭永久海克斯存储
                 const ctx = window._getPlayerContext?.();
                 if (ctx && ctx.UI && ctx.UI.allyTeam) {
