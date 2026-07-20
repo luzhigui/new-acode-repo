@@ -675,7 +675,6 @@ export async function playBattle() {
         ...c.snapshot.ally.map(u => { let u2 = u.clone(); u2.hp = u2.maxHp; u2.alive = true; u2._isDead = false; u2._flash = null; u2._acted = false; u2._resting = false; u2._blocked = false; u2.camp = 'ally'; return u2; }),
         ...c.snapshot.enemy.map(u => { let u2 = u.clone(); u2.hp = u2.maxHp; u2.alive = true; u2._isDead = false; u2._flash = null; u2._acted = false; u2._resting = false; u2._blocked = false; u2.camp = 'enemy'; return u2; })
     ];
-    ReplayManager.startRecording(c.snapshot);   // +++ 新增：开始录制回放
     c.store = createStore({ units: initialUnits, round: 1 }, battleReducer);
     GlobalStore.set('battleStore', c.store);
     setRenderStore(c.store);
@@ -787,8 +786,6 @@ export async function playBattle() {
             }
 
             await new Promise(r => setTimeout(r, window._fastForwardActive ? 1 : Math.max(100, c.speed / 2)));
-
-            ReplayManager.pushStep(step, battleState.round, step.ally, step.enemy);   // +++ 新增：记录每一步
 
             if (step.winner) {
                 finalWinner = step.winner;
