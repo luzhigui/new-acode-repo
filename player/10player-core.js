@@ -866,7 +866,6 @@ export async function playBattle() {
         }
     }
 
-    ReplayManager.finishRecording(finalWinner || '平局');   // +++ 新增：结束录制并保存胜者
     if (!finalWinner) finalWinner = '平局';
     c.gs = 'GAMEOVER'; c.isPaused = false; c.waitingForNextRound = false; c.isBattleStarting = false;
     GlobalStore.set('fastForwardActive', false);
