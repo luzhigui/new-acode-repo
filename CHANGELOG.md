@@ -3,11 +3,12 @@
 ## V5.1.0 — 2026-07-13 ~ 2026-07-20
 
 ### 版本与文档
-- **版本号统一升级到 V5.1.0**：00index.html、mode-5v5-test.html、README.md、kaifazhunze.md、game-design.md 以及 core/01-07/47/48/49、fx/15-20、modules/23/24/28/46、player/08-11、tests/25/30/37/38/45/46/60-68、tools/27/32/33、ui/12-14/39-44 等 58 个文件全部从 V5.0.x 升级到 V5.1.0，覆盖战斗引擎、播放器、UI、特效、体检、工具链全链路
+- **版本号统一升级到 V5.1.0**：00index.html、mode-5v5-test.html、README.md、kaifazhunze.md、game-design.md 以及 core/01-07/47/48/49/50、fx/15-20、modules/23/24/28/46、player/08-11、tests/25/30/37/38/45/46/60-68、tools/27/32/33、ui/12-14/39-44 等 59 个文件全部从 V5.0.x 升级到 V5.1.0，覆盖战斗引擎、播放器、UI、特效、体检、工具链全链路
 - **新增核心模块文件**
   - `core/47battle-attack.js`：攻击流程编排模块，负责按步骤调用目标选择、命中判定、伤害计算、结果应用、日志构建，并处理连击/性奋/联动等递归攻击
   - `core/48battle-round.js`：回合循环与生成器模块，从 `core/06battle-engine-core.js` 拆分，负责整回合的 buff 结算、拒马召唤、单位行动轮询与胜负判定
   - `core/49battle-attack-steps.js`：攻击步骤拆分模块，从 `core/47battle-attack.js` 拆分，提供 `selectAttackTarget`、`resolveAttackHit`、`calcFinalDamage`、`applyAttackResult`、`buildAttackGroup` 等纯步骤函数
+  - `core/50battle-shared.js`：新增战斗共享工具模块，从 `core/06battle-engine-core.js` 提取 `emitEvent`、`emitFullUnitState`、`finalizeDeaths`、`getNextAvailableUnit`、`checkZhangSwitch`，解决 `06` 与 `48` 之间的循环依赖
   - `modules/46global-store.js`：新增全局状态管理模块，统一收敛原先散落在 `window._*` 上的全局变量
 - **`game-design.md` 大更新**：新增小昭专属体系（蝶变、永久海克斯、海克斯强化对比表）、全局状态管理章节、行动规则补充 `_stunned` 处理、严阵以待/圣火令/热血奋战/巨马阵/流星赶月/乘風突袭等 Buff 数值与规则同步 V5.1.0
 - **README.md 同步**：补充 V5.1.0 版本说明与开发准则更新
@@ -29,6 +30,16 @@
 - `core/48battle-round.js` 从 `core/06battle-engine-core.js` 拆出完整回合生成器 `createRoundStepper`，包含回合开始 buff 结算、玄冥毒、拒马召唤、苦练、概率连击、行动轮询、回合结束清理
 - `core/06battle-engine-core.js` 与 `core/07battle-engine-5v5-test.js` 移除 `runBattle` 导出，播放器改为直接使用 `createRoundStepper` 逐步推进战斗
 - 涉及文件：`core/47battle-attack.js`、`core/48battle-round.js`、`core/49battle-attack-steps.js`、`core/06battle-engine-core.js`、`core/07battle-engine-5v5-test.js`、`tools/27auto-battle-utils.js`、`ui/13main-5v5-test.js`、`ui/41main-battle.js`
+
+### 战斗共享模块提取（core/50battle-shared.js）
+- 新增 `core/50battle-shared.js`，从 `core/06battle-engine-core.js` 提取以下 5 个公共函数：
+  - `emitEvent`：统一事件入队（兼容 `window._battleEvents` 与 `GlobalStore`）
+  - `emitFullUnitState`：完整单位状态快照事件
+  - `finalizeDeaths`：将 `hp <= 0` 的单位标记为死亡并发送 `hp-change` / `unit-remove`
+  - `getNextAvailableUnit`：获取下一个未行动存活单位
+  - `checkZhangSwitch`：张无忌前排无友军时切换近战形态
+- `core/06battle-engine-core.js` 删除上述函数的内部实现与 `window._emitEvent` 挂载，改为从 `core/50battle-shared.js` 导入并重新导出；文件体积从约 22000 字节精简为入口/转发层
+- 涉及文件：`core/50battle-shared.js`、`core/06battle-engine-core.js`、`core/48battle-round.js`
 
 ### 海克斯系统大更新（2026-07-17）
 - **新增「小昭海克斯强化」机制**：小昭在场时，部分团队海克斯会获得强化效果；团队海克斯过期后，小昭可继承对应的永久弱化版。强化参数统一收敛到 `CONFIG.ELITE_SKILLS.xiaoZhao.hexEnhance`

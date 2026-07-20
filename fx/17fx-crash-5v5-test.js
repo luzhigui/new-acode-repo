@@ -55,7 +55,7 @@ function showCloseRangeFX(unitA, unitD, role, getPausedFn) {
             if (getPausedFn && getPausedFn()) { requestAnimationFrame(flyIcon); return; }
             if (!iconStart) iconStart = ts; let p = Math.min(1, (ts - iconStart) / 800); let x = ax + (bx - ax) * p, y = ay + (by - ay) * p; icon.style.left = x + 'px'; icon.style.top = y + 'px'; if (p < 1) { requestAnimationFrame(flyIcon); } else {
             if (unitD) { unitD._shaking = true; unitD._shakeNx = nnx; unitD._shakeNy = nny;
-                if (cellB) { applyImpactShrink(cellB, 400, () => false); }
+                if (cellB) { applyImpactShrink(cellB, 600, () => false); }
                 let c = window._getPlayerContext ? window._getPlayerContext() : null;
                 if (c) { c.updateUI(c.UI); setTimeout(() => { unitD._shaking = false; unitD._shakeNx = 0; unitD._shakeNy = 0; c.updateUI(c.UI); }, 500); }
             }
@@ -211,8 +211,8 @@ export function showMeleeCrash(unitA, unitD, speed, getPausedFn, onCrash) {
                 clone.style.top = (savedTop + ny * flown) + 'px';
                 if (p1 < 1) { requestAnimationFrame(phase1); }
                 else {
-                    applyImpactShrink(cellB, 400, getPausedFn);
                     if (onCrash) onCrash();
+                    applyImpactShrink(cellB, 400, getPausedFn);
                     let crashX = savedLeft + nx * flyDist, crashY = savedTop + ny * flyDist;
                     let start3 = null;
                     function phase3(ts3) {

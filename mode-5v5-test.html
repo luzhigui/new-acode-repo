@@ -270,5 +270,106 @@
 <div class="vote-float" id="voteFloat" title="恢复投票">🏳️</div>
 <script type="module" src="./modules/46global-store.js"></script>
 <script type="module" src="./ui/13main-5v5-test.js"></script>
+
+<!-- +++ 新增：回放模块（下载/导入） -->
+<script src="modules/100-replay.js"></script>
+
+<!-- ++++++++++ 新增：日志工具弹窗 ++++++++++ -->
+<div id="replayToolDialog" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); z-index:99999; justify-content:center; align-items:center;">
+  <div style="background:#fdf5e6; border:4px double #8b7355; border-radius:12px; padding:20px; max-width:280px; width:80%; text-align:center; box-shadow:0 0 20px rgba(0,0,0,0.5);">
+    <div style="font-size:16px; color:#5c4033; margin-bottom:16px;">🛠 日志工具</div>
+    <div style="display:flex; flex-direction:column; gap:10px;">
+      <button id="btnToolCopy" style="padding:10px; border:2px solid #8b7355; border-radius:8px; background:#e8d5b0; color:#5c4033; font-weight:bold; cursor:pointer;">📝 复制全部日志</button>
+      <button id="btnToolDownloadReplay" style="padding:10px; border:2px solid #8b7355; border-radius:8px; background:#e8d5b0; color:#5c4033; font-weight:bold; cursor:pointer; display:none;">⬇️ 下载回放</button>
+      <input type="file" id="replayFileInput" accept=".json" style="display:none">
+      <button id="btnToolImportReplay" style="padding:10px; border:2px solid #8b7355; border-radius:8px; background:#e8d5b0; color:#5c4033; font-weight:bold; cursor:pointer;">📂 导入回放</button>
+    </div>
+    <button id="btnCloseToolDialog" style="margin-top:16px; padding:6px 20px; border:1px solid #aaa; border-radius:6px; background:#ccc; color:#333; cursor:pointer;">关闭</button>
+  </div>
+</div>
+
+<script>
+(function() {
+    var dialog = document.getElementById('replayToolDialog');
+    var copyLogBtn = document.getElementById('copyLog');   // 顶部的“📝 复制”按钮
+    var btnToolCopy = document.getElementById('btnToolCopy');
+    var btnToolDownload = document.getElementById('btnToolDownloadReplay');
+    var btnToolImport = document.getElementById('btnToolImportReplay');
+    var fileInput = document.getElementById('replayFileInput');
+    var btnClose = document.getElementById('btnCloseToolDialog');
+
+    // 1. 劫持顶部“复制”按钮，点击后打开弹窗（不再直接复制）
+    if (copyLogBtn) {
+        // 移除原有的 onclick 属性（如果存在），避免执行旧逻辑
+        copyLogBtn.onclick = null;
+        copyLogBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            dialog.style.display = 'flex';
+        });
+    }
+
+    // 2. 关闭弹窗
+    if (btnClose) {
+        btnClose.addEventListener('click', function() { dialog.style.display = 'none'; });
+    }
+    dialog.addEventListener('click', function(e) {
+        if (e.target === dialog) dialog.style.display = 'none';
+    });
+
+    // 3. 弹窗内的“复制全部日志”功能
+    if (btnToolCopy) {
+        btnToolCopy.addEventListener('click', function() {
+            var logDiv = document.getElementById('log');
+            if (logDiv) {
+                var text = logDiv.innerText;
+                if (navigator.clipboard) {
+                    navigator.clipboard.writeText(text).then(function() { alert('日志已复制'); });
+                } else {
+                    var ta = document.createElement('textarea');
+                    ta.value = text;
+                    document.body.appendChild(ta);
+                    ta.select();
+                    document.execCommand('copy');
+                    document.body.removeChild(ta);
+                    alert('日志已复制');
+                }
+            }
+            dialog.style.display = 'none';
+        });
+    }
+
+    // 4. 回放相关按钮
+    window.showReplayDownloadBtn = function() {
+        // 战斗结束后，ReplayManager 会调用这个函数来显示下载按钮
+        if (btnToolDownload) btnToolDownload.style.display = 'block';
+    };
+
+    if (btnToolDownload) {
+        btnToolDownload.addEventListener('click', function() {
+            if (window.ReplayManager && ReplayManager.download) {
+                ReplayManager.download();
+            }
+            dialog.style.display = 'none';
+        });
+    }
+
+    if (btnToolImport) {
+        btnToolImport.addEventListener('click', function() {
+            fileInput.click();
+        });
+    }
+
+    if (fileInput) {
+        fileInput.addEventListener('change', function(e) {
+            var file = e.target.files[0];
+            if (file && window.ReplayManager && ReplayManager.importFile) {
+                ReplayManager.importFile(file);
+            }
+            dialog.style.display = 'none';
+        });
+    }
+})();
+</script>
 </body>
 </html>
