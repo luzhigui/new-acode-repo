@@ -171,7 +171,9 @@ function updateDetailPopupContent() {
                 else if (u.name === '成昆') skills = ['💥 混元霹雳劲：附加已损失生命30%的真实伤害', '🌀 幻影伪装：攻击后模仿对方单位并回复已损失30%生命；对方攻击时30%概率混乱，每损失10%生命+6%'];
                 else if (u.name === '鹿杖客') skills = ['❄️ 玄冥神掌：中毒每回合损失4%→2%→1%→消失', '🔗 联动鹤笔翁：攻击后鹤笔翁立刻攻击同一目标'];
                 else if (u.name === '鹤笔翁') skills = ['🦌 鹿角杖法：忽略30%防御，中毒目标伤害+30%', '🔗 联动鹿杖客：攻击后鹿杖客立刻攻击同一目标'];
-                else if (u.name === '小昭') skills = ['🦋 蝶变：每回合随机变换职业，记录精通，+5血上限', '✨ 乾坤大挪移（衍生）：张无忌不在时，队友受伤触发减伤、治疗和攻击加成', '🛡️ 乾坤大挪移（升级）：张无忌在场时，全队减伤30%并反弹20%伤害（无忌自伤10%）', '♾️ 永久海克斯：团队海克斯消失后，小昭单独续上效果', '🏆 精通：每精通一个职业+2攻+3防+12.5血上限（最多4职业，额外+一次）'];
+                else if (u.isXiaoZhaoSister) skills = ['🦋 蝶变附身：明教首次攻击前，附身到4号位后最近队友，转移一半攻/防/血，自身血量按队友比例调整', '🦋 乾坤衍生：张无忌不在时，队友受伤触发减伤、治疗和攻击加成', '🛡️ 乾坤大挪移（升级）：张无忌在场时，全队减伤30%并反弹20%伤害（无忌自伤10%）', '♾️ 永久海克斯：团队海克斯消失后，单独续上效果'];
+                else if (u.isXiaoZhaoBrother) skills = ['🕷️ 蛛变：每回合随机变换职业，记录精通，+5血上限', '🕷️ 飞天：首次受击/血量<70%/血量<40%触发，化为小蜘蛛（0攻/10*精通防/30*精通血），反伤精通*5，回合结束落下攻击随机敌人（穿透+精通*10）', '🛡️ 乾坤大挪移（升级）：张无忌在场时，全队减伤30%并反弹20%伤害（无忌自伤10%）', '♾️ 记忆海克斯：团队海克斯消失后，单独续上效果', '🏆 精通：每精通一个职业+1.5攻+2防+10血上限（最多4职业，额外+一次）'];
+                else if (u.isXiaoZhao) skills = ['🦋 蝶变：每回合随机变换职业，记录精通，+5血上限', '✨ 乾坤大挪移（衍生）：张无忌不在时，队友受伤触发减伤、治疗和攻击加成', '🛡️ 乾坤大挪移（升级）：张无忌在场时，全队减伤30%并反弹20%伤害（无忌自伤10%）', '♾️ 永久海克斯：团队海克斯消失后，小昭单独续上效果', '🏆 精通：每精通一个职业+2攻+3防+12.5血上限（最多4职业，额外+一次）'];
                 if (skills.length > 0) {
                     return `<span style="color:#888;">技能</span><span style="color:#b8860b;">${skills.join('<br>')}</span>`;
                 }
@@ -238,6 +240,22 @@ export function renderGrid(id, camp) {
                     div.style.background = 'rgba(30,100,255,0.28)';
                     div.style.border = '2px solid rgba(100,150,255,0.6)';
                     div.style.boxShadow = '0 0 12px rgba(100,150,255,0.5)';
+                } else if (unit._flyMode === 'butterfly') {
+                    const aliveCount = (allyTeam || []).filter(a => a.alive && !a.isHorse && a.uid !== unit.uid).length;
+                    const butterflyDef = 5 * aliveCount;
+                    const butterflyHp = 10 * aliveCount;
+                    div.innerHTML = `<span class="cell-icon">🦋</span><div class="cell-info"><span class="cell-name">蝴蝶</span><span class="cell-stats">攻0 防${butterflyDef} 血${butterflyHp}</span></div>`;
+                    div.style.opacity = '0.8';
+                    div.style.background = 'rgba(255, 192, 203, 0.25)';
+                    div.style.border = '2px solid rgba(255, 105, 180, 0.6)';
+                } else if (unit._flyMode === 'spider') {
+                    const mastery = (unit._masteredRoles || []).length;
+                    const spiderDef = 10 * mastery;
+                    const spiderHp = 30 * mastery;
+                    div.innerHTML = `<span class="cell-icon">🕷️</span><div class="cell-info"><span class="cell-name">小蜘蛛</span><span class="cell-stats">攻0 防${spiderDef} 血${spiderHp}</span></div>`;
+                    div.style.opacity = '0.8';
+                    div.style.background = 'rgba(128, 0, 128, 0.2)';
+                    div.style.border = '2px solid rgba(128, 0, 128, 0.6)';
                 }
                 grid.appendChild(div);
                 continue;
@@ -273,6 +291,8 @@ export function renderGrid(id, camp) {
         }
         let displayName = unit.name;
         let displayIsZhang = unit.isZhang || false;
+        if (unit.isXiaoZhaoSister) displayName += '·姊';
+        if (unit.isXiaoZhaoBrother) displayName += '·妹';
         if (unit.name === '成昆' && unit._phantomTarget) {
             const allUnits = (ctx.UI.allyTeam || []).concat(ctx.UI.enemyTeam || []);
             const mimicTarget = allUnits.find(u => u.uid === unit._phantomTarget);
@@ -359,7 +379,7 @@ export function renderGrid(id, camp) {
         let atkStyle = atkBonusVal > 0 ? 'color:#daa520;font-weight:bold;' : '';
         let defStyle = (defBonusVal > 0 || (latestUnit._fortifyStacks || 0) > 0) ? 'color:#daa520;font-weight:bold;' : '';
         let hpStyle = hpBonusVal > 0 ? 'color:#daa520;font-weight:bold;' : '';
-        let eliteSkillIcon = (unit.name === '周芷若' && unit._hasKuaiLe) ? ' 💖' : (unit.name === '宋青书' && unit._hasXingFen) ? ' 💗' : (unit.isXiaoZhao ? ' 🦋' : '');
+        let eliteSkillIcon = (unit.name === '周芷若' && unit._hasKuaiLe) ? ' 💖' : (unit.name === '宋青书' && unit._hasXingFen) ? ' 💗' : (unit.isXiaoZhaoSister ? ' 🦋' : (unit.isXiaoZhaoBrother ? ' 🕷️' : (unit.isXiaoZhao ? ' 🦋' : '')));
         if (unit.name === '成昆' && unit._phantomTarget) eliteSkillIcon += ' 🎭';
         if (unit._xuanmingPoison && unit._xuanmingPoison.remaining > 0) eliteSkillIcon += ' ❄️';
         div.innerHTML = `<span class="cell-icon">${isBlocked && unit.alive && isResting && !(unit.isZhang && unit.rangedForm) && !isDead ? '😴' : roleIcon}</span><div class="cell-info"><span class="cell-name ${displayIsZhang?'gold':''}">${displayName}${eliteSkillIcon}${buffIcons ? ' ' + buffIcons : ''}</span><span class="cell-stats">攻<span style="${atkStyle}">${atkDisplayHtml}</span> 防<span style="${defStyle}">${defDisplayHtml}</span> <span class="${hpColorClass}" style="${hpStyle}">血${hpDisplayHtml}</span></span></div><div class="hp-bar-wrap"><div class="hp-bar-inner" id="hpbar-${unit.uid}" style="height:${hpPct}%;background:${barColor};transition:none;"></div></div>`;

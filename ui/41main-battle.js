@@ -39,7 +39,16 @@ export function doInitBattle(currentStage, UI, snapshot, activeBuffs, selectedBu
             let unit = new Unit(name, C.MING_M[name] || mVal, role, 'ally');
             if (name === '张无忌') unit.isZhang = true;
             if (name === '韦一笑') unit.isWei = true;
-            if (name === '小昭') { unit.isXiaoZhao = true; unit.initXiaoZhao(); unit.applyBonus(); unit._baseMaxHp = unit.maxHp; unit._baseAtk = unit.atk; unit._baseDef = unit.def; }
+            if (name === '小昭') {
+                unit.isXiaoZhao = true;
+                if (Math.random() < 0.5) {
+                    unit.isXiaoZhaoSister = true;
+                } else {
+                    unit.isXiaoZhaoBrother = true;
+                }
+                unit.initXiaoZhao(); unit.applyBonus();
+                unit._baseMaxHp = unit.maxHp; unit._baseAtk = unit.atk; unit._baseDef = unit.def;
+            }
             else { unit.init(); unit.applyBonus(); }
             unit.pos = null;
             allyTeam.push(unit);

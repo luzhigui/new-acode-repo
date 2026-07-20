@@ -23,7 +23,7 @@ function emitEvent(unit, eventType, payload) {
 
 // ==================== 步骤1：选择攻击目标 ====================
 export function selectAttackTarget(unit, enemySide, allySide) {
-    let targets = enemySide.filter(c => c.alive);
+    let targets = enemySide.filter(c => c.alive && !(c.isXiaoZhaoSister && c._butterflyHost) && !(c.isXiaoZhaoBrother && c._spiderFlying));
     if (targets.length === 0) return { target: null, phantomLog: null };
 
     let target = null;
