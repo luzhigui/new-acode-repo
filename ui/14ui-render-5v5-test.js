@@ -434,7 +434,7 @@ export function spawnVictoryEffects(winnerCamp, aliveUnitsOverride) {
         setTimeout(() => {
             requestAnimationFrame(() => {
                 showDanmaku(u, taunt);
-                if (c.gs === 'GAMEOVER') logDiv.innerHTML += `<span class="${winColor}">🗯️ ${u.name}：${taunt}</span><br>`;
+                if (ctx.gs === 'GAMEOVER') logDiv.innerHTML += `<span class="${winColor}">🗯️ ${u.name}：${taunt}</span><br>`;
                 logDiv.scrollTop = logDiv.scrollHeight;
             });
         }, index * 600);
