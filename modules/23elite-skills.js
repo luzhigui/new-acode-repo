@@ -78,7 +78,6 @@ export function checkNineYinClaw(attacker, target, baseDmg, log) {
             if (!target._deathTime) target._deathTime = Date.now();
         }
 
-        // 每次追击/斩杀后发射事件，播放器实时同步血量
         emitEvent(target, 'hp-change', {
             hp: target.hp,
             maxHp: target.maxHp,
@@ -89,12 +88,10 @@ export function checkNineYinClaw(attacker, target, baseDmg, log) {
             _isAbsolute: true
         });
 
-        // 抓取本击事件快照，播放器逐次 apply 实现逐击刷新
         const clawEvents = [...window._battleEvents];
         window._battleEvents = [];
         if (window.GlobalStore) window.GlobalStore.flushBattleEvents();
 
-        // 先写白骨爪日志
         log.push({
             type: 'info',
             text: `<span style="color:#222">🐾 九阴白骨爪${depth > 0 ? '连锁' : '追击'}！${attacker.name} 对 ${target.name} 造成 ${bonusDmg} 点伤害${isExecute ? '（斩杀）' : (zhangAlive ? '【嫉妒】' : '')}</span>`,
@@ -111,12 +108,12 @@ export function checkNineYinClaw(attacker, target, baseDmg, log) {
             _events: clawEvents
         });
 
-        // 再触发乾坤衍生（减伤/治疗/加攻）
+        // 乾坤衍生（只有姐姐有）
         const zhang = battleState && battleState.ally ? battleState.ally.find(u => u.isZhang && u.alive) : null;
         if (!zhang) {
             const allyTeam = GlobalStore.get('currentBattleState')?.ally || [];
             if (allyTeam.length > 0) {
-                const xiaoZhao = allyTeam.find(u => u.isXiaoZhao && u.alive && !u._stunned);
+                const xiaoZhao = allyTeam.find(u => u.isXiaoZhaoSister && u.alive && !u._stunned);
                 if (xiaoZhao) {
                     let reduce = Math.max(1, Math.floor(bonusDmg * target.def / (ES.xiaoZhao.defToReduce || 100)));
                     target.hp = Math.min(target.maxHp, target.hp + reduce);
@@ -145,8 +142,8 @@ export function checkNineYinClaw(attacker, target, baseDmg, log) {
             }
         }
 
-        // ★ 宋青书回血：每次白骨爪触发，回复等量生命值
-        const songQingShu = battleState?.ally ? null : null; // 敌方阵营找宋青书
+        // 宋青书回血
+        const songQingShu = battleState?.ally ? null : null;
         const allUnitsForClaw = [...(battleState?.ally || []), ...(battleState?.enemy || [])];
         const song = allUnitsForClaw.find(u => u.name === '宋青书' && u.alive);
         if (song && bonusDmg > 0) {
@@ -156,7 +153,6 @@ export function checkNineYinClaw(attacker, target, baseDmg, log) {
                 song.healDone += healAmount;
             }
             emitEvent(song, 'hp-change', { hp: song.hp, maxHp: song.maxHp, alive: song.alive, atk: song.atk, def: song.def });
-            // 回血条目放在乾坤衍生之后
             log.push({
                 type: 'info',
                 text: `<span class="green">💚 宋青书因九阴白骨爪回复${healAmount > 0 ? healAmount : 0}点生命${healAmount === 0 ? '（已满血）' : ''}</span>`,
@@ -183,34 +179,22 @@ export function getRebelTarget(attacker, enemySide) {
     return alive.reduce((a, b) => (a.hp / a.maxHp) > (b.hp / b.maxHp) ? a : b);
 }
 
-/**
- * 宋青书增伤比例
- */
 export function getRebelDmgBonus(attacker) {
     if (attacker.name !== '宋青书') return 0;
     return ES.rebelStrike.dmgBonus;
 }
 
-/**
- * 宋青书 - 真实伤害
- */
 export function getRebelTrueDmg(attacker, target) {
     if (attacker.name !== '宋青书') return 0;
     return Math.floor(target.hp * ES.rebelStrike.currentHpRatio);
 }
 
-/**
- * 成昆 - 混元霹雳劲
- */
 export function getPhantomThunderBonus(attacker) {
     if (attacker.name !== '成昆') return 0;
     const lostHp = attacker.maxHp - attacker.hp;
     return Math.floor(lostHp * ES.phantomThunder.lostHpRatio);
 }
 
-/**
- * 鹿杖客 - 玄冥神掌
- */
 export function applyXuanmingPalm(attacker, target) {
     if (attacker.name !== '鹿杖客') return null;
     const s = ES.xuanmingPalm;
@@ -250,9 +234,6 @@ export function tickXuanmingPoison(unit) {
     return dot;
 }
 
-/**
- * 鹤笔翁 - 鹿角杖法
- */
 export function getHornStrikeBonus(attacker, target) {
     if (attacker.name !== '鹤笔翁') return { defIgnore: 0, dmgMultiplier: 1 };
     const s = ES.hornStrike;
@@ -263,25 +244,18 @@ export function getHornStrikeBonus(attacker, target) {
     };
 }
 
-/**
- * 伤害修正钩子：在伤害计算完成后、应用前调用
- * 返回修正后的 dmg 和附加日志条目
- * 各精英技能的伤害修正统一在此处理
- */
 export function applyDamageModifiers(unit, target, dmg, allySide, enemySide, log) {
     let modifiedDmg = dmg;
     const entries = [];
     const ES = CONFIG.ELITE_SKILLS;
 
-    // 乾坤大挪移升级版：张无忌+小昭同时在场，保护2/4/6/8号位，减伤30%，反弹原伤害20%，无忌自伤原伤害10%
-    const xiaoZhao = allySide.find(u => u.isXiaoZhao && u.alive);
+    const xiaoZhao = allySide.find(u => (u.isXiaoZhaoSister || u.isXiaoZhaoBrother) && u.alive);
     const zhangUpgraded = allySide.find(c => c.isZhang && c.alive);
     if (target.camp === 'ally' && xiaoZhao && zhangUpgraded && [2, 4, 6, 8].includes(target.pos)) {
         const reducedDmg = Math.round(dmg * (1 - ES.xiaoZhao.upgradedReducePct));
-        const rebound = Math.floor(dmg * (ES.xiaoZhao.upgradedReboundPct || 0.20)); // 反弹原伤害的20%
-        const selfDmg = Math.max(1, Math.floor(dmg * (ES.xiaoZhao.upgradedSelfDmgPct || 0.10))); // 无忌自伤原伤害的10%
+        const rebound = Math.floor(dmg * (ES.xiaoZhao.upgradedReboundPct || 0.20));
+        const selfDmg = Math.max(1, Math.floor(dmg * (ES.xiaoZhao.upgradedSelfDmgPct || 0.10)));
 
-        // 反弹给攻击者
         unit.hp = Math.max(0, unit.hp - rebound);
         unit.dmgTaken += rebound;
         zhangUpgraded.reboundDone += rebound;
@@ -291,7 +265,6 @@ export function applyDamageModifiers(unit, target, dmg, allySide, enemySide, log
             if (!unit._deathTime) unit._deathTime = Date.now();
         }
 
-        // 张无忌自伤
         zhangUpgraded.hp -= selfDmg;
         zhangUpgraded.dmgTaken += selfDmg;
 
@@ -314,11 +287,8 @@ export function applyDamageModifiers(unit, target, dmg, allySide, enemySide, log
     return { modifiedDmg, entries };
 }
 
-// ==================== V3.1.0 新增：宋青书/周芷若联动技能 ====================
+// ==================== 宋青书/周芷若联动技能 ====================
 
-/**
- * 苦练判定
- */
 export function checkKuLian(allyTeam) {
     const song = allyTeam.find(u => u.name === '宋青书' && u.alive);
     if (!song) return null;
@@ -327,9 +297,6 @@ export function checkKuLian(allyTeam) {
     return song;
 }
 
-/**
- * 性奋授予
- */
 export function applyXingFenGrant(allyTeam, log) {
     const zhou = allyTeam.find(u => u.name === '周芷若' && u.alive);
     const song = allyTeam.find(u => u.name === '宋青书' && u.alive);
@@ -342,9 +309,6 @@ export function applyXingFenGrant(allyTeam, log) {
     });
 }
 
-/**
- * 新婚扣血+叠快乐
- */
 export function applyXinHunDeduction(attacker, allyTeam, log) {
     if (attacker.name !== '宋青书') return;
     const zhou = allyTeam.find(u => u.name === '周芷若' && u.alive);
@@ -390,9 +354,6 @@ export function applyXinHunDeduction(attacker, allyTeam, log) {
     }
 }
 
-/**
- * 快乐回血+降级
- */
 export function tickKuaiLeHeal(allUnits, log) {
     allUnits.forEach(unit => {
         if (!unit._kuaiLeStack || unit._kuaiLeStack.length === 0) return;
@@ -443,14 +404,12 @@ export function consumeXingFen(attacker) {
     attacker._xingFenActive = false;
 }
 
-// 性奋 maxHp 惩罚：每次宋青书攻击后调用（含性奋额外攻击）。
-// 第1次攻击不扣，之后每次扣递增值（1,2,3...），使每回合2次攻击对应2次扣减。
 export function applyXingFenPenalty(attacker, log) {
     if (attacker.name !== '宋青书') return;
-    if (!attacker._xingFenActive) return;  // ★ 只在性奋激活时才扣
+    if (!attacker._xingFenActive) return;
     if (!attacker._xingFenPenaltyCount) attacker._xingFenPenaltyCount = 0;
     attacker._xingFenPenaltyCount++;
-    const penalty = attacker._xingFenPenaltyCount; // 从1开始计数，第1次攻击扣1
+    const penalty = attacker._xingFenPenaltyCount;
     if (penalty > 0 && attacker.maxHp > 1) {
         const oldMaxHp = attacker.maxHp;
         attacker.maxHp = Math.max(1, attacker.maxHp - penalty);
@@ -462,54 +421,168 @@ export function applyXingFenPenalty(attacker, log) {
     }
 }
 
+// ==================== 🦋 小昭·姊 — 蝶变附身 ====================
+
 /**
- * 小昭 - 蝶变：每回合随机变换职业，职业修正累加（不移除），
- * 记录精通职业，每次变身+10生命上限（等比缩放血量）
+ * 明教第一个攻击者出手前触发。姊附身到4号位后面最近的队友。
  */
-export function transformXiaoZhao(unit, log) {
-    if (!unit.isXiaoZhao || !unit.alive) return;
+export function butterflyAttach(unit, allyTeam, log) {
+    if (!unit.isXiaoZhaoSister || !unit.alive || unit._butterflyHost) return;
+    if (unit.pos !== 4) return;
+
+    const order = [5, 6, 7, 8, 9, 1, 2, 3];
+    let host = null;
+    for (const p of order) {
+        const u = allyTeam.find(a => a.pos === p && a.alive && !a.isHorse && a.uid !== unit.uid);
+        if (u) { host = u; break; }
+    }
+    if (!host) {
+        unit.hp = 0; unit.alive = false; unit._isDead = true;
+        if (!unit._deathTime) unit._deathTime = Date.now();
+        emitEvent(unit, 'hp-change', { hp: 0, maxHp: unit.maxHp, alive: false, atk: unit.atk, def: unit.def, _isDead: true });
+        log.push({ type:'info', text:`<span class="red">🦋 蝶变：${unit.name} 无队友可附身，香消玉殒！</span>` });
+        return;
+    }
+
+    unit._butterflyAtk = unit.atk;
+    unit._butterflyDef = unit.def;
+    unit._butterflyHp = unit.hp;
+
+    const atkTransfer = Math.floor(unit.atk / 2);
+    const defTransfer = Math.floor(unit.def / 2);
+    const hpTransfer = Math.floor(unit.maxHp / 2);
+    host.atk += atkTransfer;
+    host.def += defTransfer;
+    host.maxHp += hpTransfer;
+    host.hp = Math.min(host.maxHp, host.hp + hpTransfer);
+    emitEvent(host, 'hp-change', { hp: host.hp, maxHp: host.maxHp, alive: host.alive, atk: host.atk, def: host.def });
+
+    const aliveAllies = allyTeam.filter(a => a.alive && !a.isHorse && a.uid !== unit.uid);
+    const totalHp = aliveAllies.reduce((sum, a) => sum + a.hp, 0);
+    const totalMaxHp = aliveAllies.reduce((sum, a) => sum + a.maxHp, 0);
+    if (totalMaxHp > 0) {
+        unit.hp = Math.floor(unit.maxHp * (totalHp / totalMaxHp));
+    }
+    unit._butterflyHost = host.uid;
+    unit._flyMode = 'butterfly';
+
+    emitEvent(unit, 'hp-change', { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: unit.atk, def: unit.def });
+    log.push({ type:'info', text:`<span class="gold">🦋 蝶变：${unit.name} 化为蝴蝶附身于 ${host.name}！攻+${atkTransfer} 防+${defTransfer} 血上限+${hpTransfer}</span>` });
+}
+
+export function butterflyReturn(unit, allyTeam, log) {
+    if (!unit.isXiaoZhaoSister || !unit._butterflyHost) return;
+
+    unit.atk = unit._butterflyAtk;
+    unit.def = unit._butterflyDef;
+    unit.hp = unit._butterflyHp;
+    unit._butterflyAtk = 0; unit._butterflyDef = 0; unit._butterflyHp = 0;
+    unit._flyMode = null;
+    unit._butterflyHost = null;
+
+    const order = [4, 5, 6, 7, 8, 9, 1, 2, 3];
+    const occupied = new Set(allyTeam.filter(a => a.alive && !a.isHorse && a.uid !== unit.uid).map(a => a.pos));
+    for (const p of order) {
+        if (!occupied.has(p)) { unit.pos = p; break; }
+    }
+
+    emitEvent(unit, 'hp-change', { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: unit.atk, def: unit.def });
+    log.push({ type:'info', text:`<span class="gold">🦋 蝶变：${unit.name} 飞回，落在${unit.pos}号位！</span>` });
+}
+
+// ==================== 🕷️ 小昭·妹 — 蛛变 + 飞天 ====================
+
+export function spiderTransform(unit, log) {
+    if (!unit.isXiaoZhaoBrother || !unit.alive) return;
     const roles = ['战士', '防战', '远程', '飞行'];
     const availableRoles = unit._lastRole ? roles.filter(r => r !== unit._lastRole) : roles;
     const newRole = availableRoles[Math.floor(Math.random() * availableRoles.length)];
     unit._lastRole = newRole;
 
-    // 记录精通职业（去重）
     if (!unit._masteredRoles) unit._masteredRoles = [];
     if (!unit._masteredRoles.includes(newRole)) {
         unit._masteredRoles.push(newRole);
     }
 
-    // 职业修正参数统一使用 ROLE_BONUS（来源：02unit.js）
     const newStats = ROLE_BONUS[newRole] || { atk: 0, def: 0, maxHp: 0 };
-
-    // 职业修正累加（不移除旧修正），但不修改 base 值
     unit.role = newRole;
     unit.atk += newStats.atk;
     unit.def += newStats.def;
 
-    // 防战形态：额外防御加成已取消
-
-    // 生命上限变化：上限加多少，当前血量同步加多少；上限减则血量不超过新上限
-    let hpDelta = newStats.maxHp + 5;  // 角色修正 + 额外+5
+    let hpDelta = newStats.maxHp + 5;
     unit.maxHp += hpDelta;
-    if (hpDelta > 0) {
-        unit.hp += hpDelta;
-    } else {
-        unit.hp = Math.min(unit.hp, unit.maxHp);
-    }
+    if (hpDelta > 0) { unit.hp += hpDelta; } else { unit.hp = Math.min(unit.hp, unit.maxHp); }
 
     emitEvent(unit, 'hp-change', { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: unit.atk, def: unit.def, role: unit.role, _masteredRoles: unit._masteredRoles });
-    log.push({ type:'info', text:`<span class="gold">🦋 蝶变：小昭变换为<span class="gold">${newRole}</span>（已精通${unit._masteredRoles.length}/4）</span>` });
+    log.push({ type:'info', text:`<span class="gold">🕷️ 蛛变：${unit.name} 变换为<span class="gold">${newRole}</span>（已精通${unit._masteredRoles.length}/4）</span>` });
 }
 
-/**
- * 小昭 - 变身精通加成
- * 每精通一个职业：+2攻击 +3防御 +12.5血量上限
- * 四职业精通额外+一次：+2攻 +3防 +12.5血
- * 最多精通4个职业：+10攻击 +15防御 +62.5血量上限
- */
+export function spiderFlyCheck(unit, allyTeam, log) {
+    if (!unit.isXiaoZhaoBrother || !unit.alive || unit._spiderRemaining <= 0 || unit._spiderFlying) return;
+    if (unit._flyMode === 'spider') return;
+
+    let shouldFly = false;
+    let reason = '';
+    if (!unit._spiderTriggeredHit && unit.dmgTaken > 0) {
+        shouldFly = true;
+        reason = '首次受击';
+        unit._spiderTriggeredHit = true;
+    } else if (!unit._spiderTriggered70 && unit.hp / unit.maxHp < 0.7) {
+        shouldFly = true;
+        reason = '血量低于70%';
+        unit._spiderTriggered70 = true;
+    } else if (!unit._spiderTriggered40 && unit.hp / unit.maxHp < 0.4) {
+        shouldFly = true;
+        reason = '血量低于40%';
+        unit._spiderTriggered40 = true;
+    }
+
+    if (!shouldFly) return;
+
+    unit._spiderRemaining--;
+    unit._spiderFlying = true;
+    unit._flyMode = 'spider';
+    unit._spiderAttacked = unit._acted;
+
+    log.push({ type:'info', text:`<span class="gold">🕷️ 飞天：${unit.name} ${reason}，化为蜘蛛遁走！剩余次数：${unit._spiderRemaining}</span>` });
+}
+
+export function spiderReturn(unit, allyTeam, enemySide, log) {
+    if (!unit.isXiaoZhaoBrother || !unit._spiderFlying) return;
+
+    unit._spiderFlying = false;
+    unit._flyMode = null;
+    unit._acted = false;
+
+    const order = [4, 5, 6, 7, 8, 9, 1, 2, 3];
+    const occupied = new Set(allyTeam.filter(a => a.alive && !a.isHorse && a.uid !== unit.uid).map(a => a.pos));
+    for (const p of order) {
+        if (!occupied.has(p)) { unit.pos = p; break; }
+    }
+
+    emitEvent(unit, 'hp-change', { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: unit.atk, def: unit.def });
+    log.push({ type:'info', text:`<span class="gold">🕷️ 蛛落：${unit.name} 从天而降，落在${unit.pos}号位！</span>` });
+
+    // 落地攻击随机敌人
+    const aliveEnemies = enemySide.filter(u => u.alive);
+    if (aliveEnemies.length > 0) {
+        const target = aliveEnemies[rand(0, aliveEnemies.length - 1)];
+        const penetrationDmg = Math.floor(unit.atk * (unit.atk / (unit.atk + target.def)));
+        const extraDmg = (unit._masteredRoles?.length || 0) * 10;
+        const totalDmg = penetrationDmg + extraDmg;
+        target.hp = Math.max(0, target.hp - totalDmg);
+        unit.dmgDealt += totalDmg;
+        target.dmgTaken += totalDmg;
+        if (target.hp <= 0) { target.hp = 0; target.alive = false; target._isDead = true; if (!target._deathTime) target._deathTime = Date.now(); }
+        emitEvent(target, 'hp-change', { hp: target.hp, maxHp: target.maxHp, alive: target.alive, atk: target.atk, def: target.def, _isDead: target._isDead || false });
+        log.push({ type:'info', text:`<span class="gold">🕷️ 蛛袭：${unit.name} 落地攻击 ${target.name}，穿透${penetrationDmg} + 精通${extraDmg} = ${totalDmg} 伤害！</span>`, uidA: unit.uid, uidD: target.uid, isDead: !target.alive });
+    }
+}
+
+// ==================== 小昭共通 — 精通 + 永久海克斯 ====================
+
 export function computeButterflyMastery(unit) {
-    if (!unit.isXiaoZhao || !unit._masteredRoles) return { atk: 0, def: 0, hp: 0 };
+    if (!unit.isXiaoZhaoBrother || !unit._masteredRoles) return { atk: 0, def: 0, hp: 0 };
     const count = unit._masteredRoles.length;
     const extra = count >= 4 ? 1 : 0;
     return {
@@ -519,13 +592,8 @@ export function computeButterflyMastery(unit) {
     };
 }
 
-/**
- * 小昭 - 永久海克斯存储
- * 统一入口：将海克斯 Buff 存入小昭的永久海克斯列表
- * 调用方：选 Buff 弹窗、全自动选 Buff、showBuffSelection
- */
 export function addPermanentBuff(xiaoZhao, buffKey, buffName, extraFields = {}) {
-    if (!xiaoZhao || !xiaoZhao.isXiaoZhao) return;
+    if (!xiaoZhao || !(xiaoZhao.isXiaoZhaoSister || xiaoZhao.isXiaoZhaoBrother || xiaoZhao.isXiaoZhao)) return;
     if (!xiaoZhao._permanentBuffs) xiaoZhao._permanentBuffs = [];
     xiaoZhao._permanentBuffs.push({
         key: buffKey,
@@ -536,34 +604,24 @@ export function addPermanentBuff(xiaoZhao, buffKey, buffName, extraFields = {}) 
     });
 }
 
-/**
- * 检查小昭的永久海克斯是否应该激活
- * 规则：团队海克斯还在时用团队的，团队消失后小昭单独续上
- */
 export function isXiaoZhaoPermanentActive(unit, activeBuffs, buffKey) {
-    if (!unit || !unit.isXiaoZhao || !unit._permanentBuffs) return false;
-    if (activeBuffs && hasBuff(activeBuffs, buffKey)) return false; // 团队还有，不用小昭的
+    if (!unit || !(unit.isXiaoZhaoSister || unit.isXiaoZhaoBrother || unit.isXiaoZhao) || !unit._permanentBuffs) return false;
+    if (activeBuffs && hasBuff(activeBuffs, buffKey)) return false;
     return unit._permanentBuffs.some(b => b.key === buffKey);
 }
 
-/**
- * 小昭 - 乾坤大挪移（衍生版）：队友受伤时触发减伤/治疗/加攻
- * 仅在张无忌不在场时生效
- */
 export function applyXiaoZhaoDerived(allyTeam, target, dmg, group) {
-    const xiaoZhao = allyTeam.find(u => u.isXiaoZhao && u.alive);
+    const xiaoZhao = allyTeam.find(u => u.isXiaoZhaoSister && u.alive);
     if (!xiaoZhao || xiaoZhao._stunned) return;
     const zhang = allyTeam.find(u => u.isZhang && u.alive);
-    if (zhang) return; // 张无忌在场时，衍生技失效
+    if (zhang) return;
     const s = ES.xiaoZhao;
     if (!s) return;
 
-    // 减伤
     let reduce = Math.max(s.minReduce || 1, Math.floor(dmg * target.def / (s.defToReduce || 100)));
     target.hp = Math.min(target.maxHp, target.hp + reduce);
     target.dmgTaken -= reduce;
 
-    // 随机一名队友获得治疗
     const aliveAllies = allyTeam.filter(u => u.alive && !u.isHorse);
     if (aliveAllies.length > 0) {
         const healTarget = aliveAllies[Math.floor(Math.random() * aliveAllies.length)];
@@ -571,40 +629,31 @@ export function applyXiaoZhaoDerived(allyTeam, target, dmg, group) {
         healTarget.hp = Math.min(healTarget.maxHp, healTarget.hp + heal);
         healTarget.healDone += heal;
         emitEvent(healTarget, 'hp-change', { hp: healTarget.hp, maxHp: healTarget.maxHp, alive: healTarget.alive, atk: healTarget.atk, def: healTarget.def });
-        // 随机另一名队友获得攻击（独立随机，可能和治疗同一人）
-    let atkGainText = '';
-    const atkTarget = aliveAllies[Math.floor(Math.random() * aliveAllies.length)];
+
+        const atkTarget = aliveAllies[Math.floor(Math.random() * aliveAllies.length)];
         let atkGain = Math.max(s.minAtk || 1, Math.floor(atkTarget.def / (s.defToAtk || 10)));
         atkTarget.atk += atkGain;
         if (atkTarget._baseAtk !== undefined) atkTarget._baseAtk += atkGain;
         emitEvent(atkTarget, 'hp-change', { hp: atkTarget.hp, maxHp: atkTarget.maxHp, alive: atkTarget.alive, atk: atkTarget.atk, def: atkTarget.def });
 
-        atkGainText = `，${atkTarget.name}攻击+${atkGain}`;
-
-    // 合并日志：减伤+治疗+攻击
-    if (group && group.entries) {
-        group.entries.push({
-            type: 'info',
-            text: `<span class="gold">🦋 乾坤衍生：${target.name}减伤${reduce}，${healTarget.name}治疗+${heal}${atkGainText}</span>`,
-            isHealEntry: true,
-            healAmount: heal,
-            healUnitUid: healTarget.uid
-        });
+        if (group && group.entries) {
+            group.entries.push({
+                type: 'info',
+                text: `<span class="gold">🦋 乾坤衍生：${target.name}减伤${reduce}，${healTarget.name}治疗+${heal}，${atkTarget.name}攻击+${atkGain}</span>`,
+                isHealEntry: true,
+                healAmount: heal,
+                healUnitUid: healTarget.uid
+            });
+        }
     }
 }
-}
 
-// ==================== 新增：收敛的攻击判定函数 ====================
+// ==================== 成昆幻影 / 小昭惑心 / 连击 ====================
 
-/**
- * 成昆幻影伪装混乱判定
- * 在目标选择阶段调用，返回被迷惑后的目标（可能为自己队友）
- */
 export function applyPhantomDisguise(unit, enemySide, allySide = null) {
     if (unit.camp !== 'ally') return null;
     const chengkun = enemySide.find(u => u.name === '成昆' && u.alive && u._phantomTarget);
     if (!chengkun || unit._isLinkAttack) return null;
-    // 被模仿者免疫幻影伪装
     if (chengkun._phantomTarget === unit.uid) return null;
     const lostPct = (chengkun.maxHp - chengkun.hp) / chengkun.maxHp;
     const chance = ES.phantomDisguise.baseChance + Math.floor(lostPct * 10) * ES.phantomDisguise.per10pctLost;
@@ -617,17 +666,12 @@ export function applyPhantomDisguise(unit, enemySide, allySide = null) {
     return null;
 }
 
-/**
- * 小昭永久惑人心智混乱判定
- * 敌方攻击时，20%概率被小昭迷惑攻击自己人
- */
 export function applyXiaoZhaoMindControl(unit, allySide, enemySide) {
     if (unit.camp !== 'enemy') return null;
-    const xiaoZhao = enemySide.find(u => u.isXiaoZhao && u.alive);
+    const xiaoZhao = enemySide.find(u => (u.isXiaoZhaoSister || u.isXiaoZhaoBrother || u.isXiaoZhao) && u.alive);
     if (!xiaoZhao || !xiaoZhao._permanentBuffs || !xiaoZhao._permanentBuffs.some(b => b.key === 'mindControl')) return null;
-    if (hasBuff(enemySide._activeBuffs, 'mindControl')) return null; // 团队惑心还在，小昭不生效
+    if (hasBuff(enemySide._activeBuffs, 'mindControl')) return null;
     if (Math.random() < 0.15) {
-        // 迷惑后攻击的是自己的队友，所以从 allySide（攻击者阵营）中找假目标
         const xzFakeTarget = allySide.find(u => u.uid !== unit.uid && u.alive && !u.isHorse);
         if (xzFakeTarget) {
             return { target: xzFakeTarget, log: `🦋 蝶舞迷心！${unit.name}被小昭迷惑，误攻队友${xzFakeTarget.name}！` };
@@ -636,31 +680,22 @@ export function applyXiaoZhaoMindControl(unit, allySide, enemySide) {
     return null;
 }
 
-/**
- * 小昭永久概率连击判定
- * 在攻击流程最后调用，返回是否应触发连击
- */
 export function checkXiaoZhaoPermanentDoubleStrike(unit, activeBuffs) {
-    if (!unit.isXiaoZhao || !unit.alive || !unit._permanentBuffs) return false;
+    if (!(unit.isXiaoZhaoSister || unit.isXiaoZhaoBrother || unit.isXiaoZhao) || !unit.alive || !unit._permanentBuffs) return false;
     if (!unit._permanentBuffs.some(b => b.key === 'doubleStrike')) return false;
     if (unit._xiaoZhaoDoubleStriked) return false;
-    if (hasBuff(activeBuffs, 'doubleStrike')) return false; // 团队连击还在，小昭不生效
+    if (hasBuff(activeBuffs, 'doubleStrike')) return false;
     const chance = ES.xiaoZhaoDoubleStrike ? ES.xiaoZhaoDoubleStrike.chance * 100 : 80;
     return rand(1, 100) <= chance;
 }
 
-/**
- * 小昭对团队海克斯的强化判定
- * @param {Object} allyTeam - 己方队伍
- * @param {Array} activeBuffs - 当前活跃的团队 Buff
- * @param {string} hexKey - 海克斯 key
- * @returns {Object|null} 强化参数对象，小昭不在或团队 Buff 已过期返回 null
- */
 export function getXiaoZhaoHexEnhance(allyTeam, activeBuffs, hexKey) {
-    const xiaoZhao = allyTeam.find(u => u.isXiaoZhao && u.alive);
+    const xiaoZhao = allyTeam.find(u => (u.isXiaoZhaoSister || u.isXiaoZhaoBrother || u.isXiaoZhao) && u.alive);
     if (!xiaoZhao) return null;
     if (!hasBuff(activeBuffs, hexKey)) return null;
     const s = ES.xiaoZhao;
     if (!s || !s.hexEnhance || !s.hexEnhance[hexKey]) return null;
     return s.hexEnhance[hexKey];
 }
+
+// 旧的 transformXiaoZhao 已删除，由 butterflyAttach（姐）和 spiderTransform（妹）替代

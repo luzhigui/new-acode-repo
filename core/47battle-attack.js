@@ -13,6 +13,7 @@ import {
     applyXiaoZhaoDerived, applyDamageModifiers, isXiaoZhaoPermanentActive,
     applyPhantomDisguise, applyXiaoZhaoMindControl, checkXiaoZhaoPermanentDoubleStrike,
     canXingFenTrigger, consumeXingFen,
+    butterflyAttach, spiderFlyCheck,
     getXiaoZhaoHexEnhance
 } from '../modules/23elite-skills.js';
 import {
@@ -226,6 +227,19 @@ function applyExtraAttacks(unit, target, dmgCalc, allySide, enemySide, log, A, B
 // ==================== 主攻击流程 ====================
 
 export function processUnitAttack(unit, allySide, enemySide, log, A, B, state, doubleStrikeUnitUid, lockedTargetUid) {
+    // 🦋 小昭·姊 蝶变附身：明教首个攻击者出手前触发
+    if (unit.camp === 'ally' && A && !A._butterflyTriggered) {
+        A._butterflyTriggered = true;
+        const sister = A.find(u => u.isXiaoZhaoSister && u.alive && u.pos === 4 && !u._stunned);
+        if (sister && !sister._butterflyHost) {
+            butterflyAttach(sister, A, log);
+            if (unit.uid === sister.uid) {
+                unit._acted = true;
+                return true;
+            }
+        }
+    }
+
     // 步骤1：选择目标
     let target, phantomLog;
     if (lockedTargetUid) {
@@ -313,6 +327,11 @@ export function processUnitAttack(unit, allySide, enemySide, log, A, B, state, d
     applyXinHunDeduction(unit, allySide, log);
     applyXingFenPenalty(unit, log);
     applyExtraAttacks(unit, target, dmgCalc, allySide, enemySide, log, A, B, state, doubleStrikeUnitUid);
+
+    // 🕷️ 小昭·妹 飞天检查
+    if (A) {
+        A.forEach(u => { if (u.isXiaoZhaoBrother && u.alive) spiderFlyCheck(u, A, log); });
+    }
 
     return true;
 }

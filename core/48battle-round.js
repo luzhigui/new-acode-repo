@@ -9,7 +9,8 @@ import { spawnHorse, destroyHorse } from './05battle-horse.js';
 import { Unit } from './02unit.js';
 import {
     checkKuLian, applyXingFenGrant, tickXuanmingPoison, tickKuaiLeHeal,
-    transformXiaoZhao, canXingFenTrigger, consumeXingFen, applyXingFenPenalty, isXiaoZhaoPermanentActive
+    butterflyAttach, butterflyReturn, spiderTransform, spiderFlyCheck, spiderReturn,
+    canXingFenTrigger, consumeXingFen, applyXingFenPenalty, isXiaoZhaoPermanentActive
 } from '../modules/23elite-skills.js';
 import { processUnitAttack } from './47battle-attack.js';
 // selectTarget 已移除，无替代导入
@@ -87,7 +88,10 @@ export function* createRoundStepper(state) {
     applyXingFenGrant(B, log);
 
     // 小昭蝶变：每回合随机变换职业
-    A.forEach(u => { if (u.isXiaoZhao && u.alive) transformXiaoZhao(u, log); });
+    A.forEach(u => {
+        if (u.isXiaoZhaoSister && u.alive) { /* 姐的附身在明教首次攻击前触发，由47处理 */ }
+        if (u.isXiaoZhaoBrother && u.alive) spiderTransform(u, log);
+    });
 
     // 小昭永久拒马（xiaoZhao 已在上方定义）
     let teamHasHorse = hasBuff(A._activeBuffs, 'horseFormation');
@@ -149,6 +153,7 @@ export function* createRoundStepper(state) {
         }
     });
 
+    A._butterflyTriggered = false;
     A.forEach(u => {
         if (!u.alive) return;
         let allyTeamWithDead = A.slice();
@@ -392,6 +397,8 @@ export function* createRoundStepper(state) {
 
         finalizeDeaths(A);
         finalizeDeaths(B);
+        // 妹妹飞天检查（被攻击后触发）
+        A.forEach(u => { if (u.isXiaoZhaoBrother && u.alive) spiderFlyCheck(u, A, log); });
         const stepEvents = [...window._battleEvents];
         window._battleEvents = [];
         if (window.GlobalStore) window.GlobalStore.flushBattleEvents();
@@ -409,6 +416,14 @@ export function* createRoundStepper(state) {
     }
 
     destroyHorse(A, log); destroyHorse(B, log);
+
+    // 小昭·姊 回合结束飞回 / 小昭·妹 回合结束落下
+    A.forEach(u => {
+        if (u.isXiaoZhaoSister && u.alive && u._butterflyHost) butterflyReturn(u, A, log);
+    });
+    A.forEach(u => {
+        if (u.isXiaoZhaoBrother && u.alive && u._spiderFlying) spiderReturn(u, A, B, log);
+    });
 
     [A, B].forEach(team => {
         for (let i = team.length - 1; i >= 0; i--) {

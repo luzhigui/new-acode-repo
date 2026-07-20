@@ -635,58 +635,6 @@ export async function playLogEntries(c, log, roundResult, isFirstAttackRef) {
     return { isBattleOver: false };
 }
 
-export async function playReplay(replayData) {
-    const c = getCtx();
-    if (!c || !replayData || !replayData.snapshot || !replayData.rounds) return;
-
-    if (c.gs !== 'IDLE') {
-        if (typeof window.forceStopGame === 'function') window.forceStopGame();
-        await new Promise(r => setTimeout(r, 500));
-    }
-
-    c.snapshot = replayData.snapshot;
-    c.UI.allyTeam = replayData.snapshot.ally.map(u => ({ ...u }));
-    c.UI.enemyTeam = replayData.snapshot.enemy.map(u => ({ ...u }));
-    c.UI.currentResult = null;
-    c.UI.round = 1;
-
-    const initialUnits = [
-        ...c.UI.allyTeam.map(u => ({ ...u, camp: 'ally', _flash: null, _acted: false, _resting: false, _blocked: false, alive: true, hp: u.maxHp })),
-        ...c.UI.enemyTeam.map(u => ({ ...u, camp: 'enemy', _flash: null, _acted: false, _resting: false, _blocked: false, alive: true, hp: u.maxHp }))
-    ];
-    c.store = createStore({ units: initialUnits, round: 1 }, battleReducer);
-    GlobalStore.set('battleStore', c.store);
-    setRenderStore(c.store);
-    updateUI();
-
-    c.isPaused = false;
-    c._battleEnded = false;
-    c.gs = 'RUNNING';
-    if (typeof window.updateButtons === 'function') window.updateButtons();
-
-    const logDiv = document.getElementById('log');
-    logDiv.innerHTML = '';
-
-    for (let i = 0; i < replayData.rounds.length; i++) {
-        const round = replayData.rounds[i];
-        const roundStartEntry = { type: 'round-start', text: `<div class="separator">———— 第${i+1}回合开始 ————</div>` };
-        await handleRoundStart(c, roundStartEntry, { value: true });
-        await playLogEntries(c, round.log, null, { value: true });
-        if (round.events && round.events.length > 0) {
-            c.store.dispatch({ type: 'APPLY_EVENTS', events: round.events });
-        }
-        const allyAlive = c.UI.allyTeam.some(u => u.alive);
-        const enemyAlive = c.UI.enemyTeam.some(u => u.alive);
-        if (!allyAlive || !enemyAlive) break;
-    }
-
-    c.gs = 'IDLE';
-    if (typeof window.updateButtons === 'function') window.updateButtons();
-    logDiv.innerHTML += '<span class="gold">回放结束</span><br>';
-    GlobalStore.set('battleStore', null);
-    setRenderStore(null);
-}
-
 export async function playBattle() {
     const c = getCtx();
     if (!c || !c.snapshot || !c.snapshot.ally || !c.snapshot.ally.length) return;
@@ -814,7 +762,6 @@ export async function playBattle() {
         const hb = c.activeBuffs.find(b => b.key === 'horseFormation');
         battleState.activeBuffs.push({...hb});
     }
-    c._replayData = { snapshot: { ally: battleState.ally.map(u => u.clone()), enemy: battleState.enemy.map(u => u.clone()) }, rounds: [] };
     let isBattleOver = false; let finalWinner = null; let finalStep = null;
 
     while (!isBattleOver) {
@@ -833,8 +780,6 @@ export async function playBattle() {
             // 后续所有血量变化统一由 APPLY_EVENTS 驱动，不再提前同步
 
             await playLogEntries(c, step.log, step, isFirstAttackRef);
-
-            c._replayData.rounds.push({ log: step.log.slice(), events: step.events ? step.events.slice() : [] });
 
             // 回合级事件（玄冥毒/拒马召唤/加攻等）在攻击组之后应用
             if (step.events && step.events.length > 0) {

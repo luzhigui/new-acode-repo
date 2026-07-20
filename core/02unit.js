@@ -41,9 +41,18 @@ export class Unit {
         this._phantomTarget = null;  // 成昆模仿的目标 uid
         this._stunned = false;       // 本回合是否被闪避反击眩晕
         this._isLinkAttack = false;
-        this.isXiaoZhao = false;      // 小昭标记
+        this.isXiaoZhao = false;      // 小昭标记（保留，用于向后兼容）
+        this.isXiaoZhaoSister = false; // 🦋 小昭·姊
+        this.isXiaoZhaoBrother = false; // 🕷️ 小昭·妹
         this._masteredRoles = [];
         this._permanentBuffs = [];
+        this._butterflyHost = null;  // 🦋 附身目标 uid
+        this._butterflyAtk = 0;      // 🦋 附身时暂存的攻击
+        this._butterflyDef = 0;      // 🦋 附身时暂存的防御
+        this._butterflyHp = 0;       // 🦋 附身时暂存的血量
+        this._spiderRemaining = 3;   // 🕷️ 飞天剩余次数
+        this._spiderFlying = false;  // 🕷️ 是否在飞天状态
+        this._spiderAttacked = false; // 🕷️ 飞天前是否已攻击
     }
     clone(){
         let c=new Unit(this.name,this.m,this.role,this.camp);
@@ -83,6 +92,15 @@ export class Unit {
         c.isXiaoZhao = this.isXiaoZhao;
         c._masteredRoles = [...this._masteredRoles];
         c._permanentBuffs = this._permanentBuffs.map(b => ({...b}));
+        c.isXiaoZhaoSister = this.isXiaoZhaoSister;
+        c.isXiaoZhaoBrother = this.isXiaoZhaoBrother;
+        c._butterflyHost = this._butterflyHost;
+        c._butterflyAtk = this._butterflyAtk;
+        c._butterflyDef = this._butterflyDef;
+        c._butterflyHp = this._butterflyHp;
+        c._spiderRemaining = this._spiderRemaining;
+        c._spiderFlying = this._spiderFlying;
+        c._spiderAttacked = this._spiderAttacked;
         return c;
     }
     init(){
