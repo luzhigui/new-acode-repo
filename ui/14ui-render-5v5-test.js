@@ -52,8 +52,8 @@ export function isUnitBenefitedByBuff(unit, buffKey, allyTeam, doubleStrikeUid, 
             if (!activeBuffs) return false;
             const holyBuffs = activeBuffs.filter(b => b.key === 'holyFlame');
             return holyBuffs.some(b => {
-                const cols = b.cols || [b.col];
-                const rows = b.rows || [b.row];
+                const cols = b.cols || (b.col != null ? [b.col] : []);
+                const rows = b.rows || (b.row != null ? [b.row] : []);
                 return cols.includes(getUnitCol(unit.pos)) || rows.includes(getUnitRow(unit.pos));
             });
         }
@@ -297,7 +297,7 @@ export function renderGrid(id, camp) {
         let atkBonusVal = Math.floor(latestUnit.atk * buffStats.atkBonus);
         let defBonusVal = Math.floor((latestUnit._baseDef || latestUnit.def) * buffStats.defBonus);
         let hpBonusVal = Math.floor(latestUnit.maxHp * buffStats.hpBonus);
-        let displayAtk = Math.round(latestUnit.atk + atkBonusVal);
+        let displayAtk = Math.round(latestUnit.atk + (latestUnit._carryAtkBonus || 0) + atkBonusVal);
         let atkDisplayHtml = `${displayAtk}`;
         if ((latestUnit._baseAtk !== undefined && displayAtk > latestUnit._baseAtk) || atkBonusVal > 0) {
             atkDisplayHtml = `<span style="color:#daa520;font-weight:bold;">${displayAtk}</span>`;

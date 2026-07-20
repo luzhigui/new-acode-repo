@@ -216,8 +216,8 @@ export function checkBuffIcons(ctx, doc) {
             if (!activeBuffs) return false;
             const holyBuffs = activeBuffs.filter(b => b.key === 'holyFlame');
             return holyBuffs.some(b => {
-                const cols = b.cols || [b.col];
-                const rows = b.rows || [b.row];
+                const cols = b.cols || (b.col != null ? [b.col] : []);
+                const rows = b.rows || (b.row != null ? [b.row] : []);
                 return cols.includes(getUnitCol(unit.pos)) || rows.includes(getUnitRow(unit.pos));
             });
         }

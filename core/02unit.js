@@ -29,6 +29,9 @@ export class Unit {
         this.buffDodgeBonus = 0;
         this.buffHpBonus = 0;
         this._baseMaxHp = 0;
+        this._carryAtkBonus = 0;
+        this._carryDefBonus = 0;
+        this._carryHpBonus = 0;
         // V3.1.0 新增：宋青书/周芷若联动技能状态字段
         this._kuaiLeStack = [];       // 快乐层数数组，每层 { healPct: number }
         this._xingFenActive = false;
@@ -65,6 +68,9 @@ export class Unit {
         c._baseMaxHp = this._baseMaxHp;
         c._baseAtk = this._baseAtk;
         c._baseDef = this._baseDef;
+        c._carryAtkBonus = this._carryAtkBonus;
+        c._carryDefBonus = this._carryDefBonus;
+        c._carryHpBonus = this._carryHpBonus;
         c._deathTime = this._deathTime;
         // V3.1.0 新增字段深拷贝
         c._kuaiLeStack = this._kuaiLeStack.map(layer => ({ ...layer }));
@@ -86,7 +92,7 @@ export class Unit {
         this.atk=a;this.def=d;this.maxHp=hp*2.5;this.hp=this.maxHp;
     }
     applyBonus(){
-        switch(this.role){case'战士':this.atk+=3;this.def+=2;this.maxHp+=25;break;case'防战':this.atk-=7;this.def+=0;this.maxHp+=30;break;case'远程':this.atk+=6;this.def-=2;this.maxHp-=25;break;case'飞行':this.atk+=2;this.def-=2;this.maxHp-=25;break;}
+        switch(this.role){case'战士':this.atk+=3;this.def+=3;this.maxHp+=25;break;case'防战':this.atk-=6;this.def+=1;this.maxHp+=30;break;case'远程':this.atk+=6;this.def-=2;this.maxHp-=25;break;case'飞行':this.atk+=3;this.def-=2;this.maxHp-=25;break;}
         this.hp=this.maxHp;
         this._baseMaxHp = this.maxHp;
         this._baseAtk = this.atk;

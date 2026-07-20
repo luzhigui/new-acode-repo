@@ -17,7 +17,7 @@ import { showModal, showAlert, updateCoverVersion } from './12main-utils.js';
 import { getPlayerContext, getState, setState, gs } from '../ui/39main-state.js';
 import { showBattleReport, showMusicPanel, showVoteDialog, showCountdown } from './40main-dialogs.js';
 import {
-    doInitBattle, generateBuffChoices, showBuffSelection, showBugModeBuffSelection,
+    doInitBattle, generateBuffChoices, createBuffObject, showBuffSelection, showBugModeBuffSelection,
     updateBuffSlots, tickBuffDurations, getActiveBuffList,
     logTeamInfo, abortAll
 } from './41main-battle.js';
@@ -203,11 +203,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         const shortest = buffs.reduce((a, b) => a.remaining < b.remaining ? a : b);
                         buffs.splice(buffs.indexOf(shortest), 1);
                     }
-                    if (pick === 'holyFlame') {
-                        buffs.push({ key: pick, target: 'ally', remaining: duration, name: C.BUFFS[pick].name, col: rand(1, 3), row: rand(1, 3) });
-                    } else {
-                        buffs.push({ key: pick, target: 'ally', remaining: duration, name: C.BUFFS[pick].name });
-                    }
+                    buffs.push(createBuffObject(pick, duration));
                     // 小昭永久海克斯备份
                     const allyTeam = getState.UI().allyTeam;
                     const xz = allyTeam.find(u => u.isXiaoZhao);
@@ -563,6 +559,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if (reportOverlay) reportOverlay.remove();
         const reportFloat = document.getElementById('battleReportFloat');
         if (reportFloat) reportFloat.remove();
+        if (typeof restoreSpeedFromScroll === 'function') restoreSpeedFromScroll();
         updateButtons();enableAllButtons();updateSpeedButtons();
     }
 

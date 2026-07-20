@@ -12,8 +12,8 @@ import {
     transformXiaoZhao, canXingFenTrigger, consumeXingFen, applyXingFenPenalty, isXiaoZhaoPermanentActive
 } from '../modules/23elite-skills.js';
 import { processUnitAttack } from './47battle-attack.js';
-import { selectTarget } from './49battle-attack-steps.js';
-import { getNextAvailableUnit, finalizeDeaths, emitFullUnitState, checkZhangSwitch } from './06battle-engine-core.js';
+// selectTarget 已移除，无替代导入
+import { getNextAvailableUnit, finalizeDeaths, emitFullUnitState, checkZhangSwitch } from './50battle-shared.js';
 
 const C = CONFIG;
 
@@ -167,7 +167,7 @@ export function* createRoundStepper(state) {
                 buffHpBonus: stats.hpBonus
             });
         }
-        if (hasCarryActive && (u.pos >= 4 && u.pos <= 6) && u._baseMaxHp !== undefined && !u.isHorse) {
+        if (hasCarryActive && (u.pos >= 4 && u.pos <= 6) && u._baseMaxHp !== undefined && !u.isHorse && !u.isZhang) {
             // 先回退旧加成
             if (u.maxHp > 0 && u._baseMaxHp > 0) {
                 u.hp = Math.floor(u.hp * (u._baseMaxHp / u.maxHp));
@@ -176,12 +176,14 @@ export function* createRoundStepper(state) {
             if (u._baseAtk !== undefined) u.atk = u._baseAtk;
             if (u._baseDef !== undefined) u.def = u._baseDef;
             // 再应用新加成
-            if (stats.carryAtkAbs) u.atk += Math.floor(stats.carryAtkAbs);
-            if (stats.carryDefAbs) u.def += Math.floor(stats.carryDefAbs);
-            if (stats.carryHpAbs) {
-                let extraHp = Math.floor(stats.carryHpAbs);
-                let newMaxHp = Math.min(u._baseMaxHp + extraHp, u._baseMaxHp * 2);
-                u.hp += extraHp;
+            // ★ Carry 加成存入独立字段，不污染基础属性
+            u._carryAtkBonus = Math.floor(stats.carryAtkAbs);
+            u._carryDefBonus = Math.floor(stats.carryDefAbs);
+            u._carryHpBonus = Math.floor(stats.carryHpAbs);
+            if (u._carryHpBonus) {
+                let newMaxHp = Math.min(u._baseMaxHp + u._carryHpBonus, u._baseMaxHp * 2);
+                let extraHp = newMaxHp - u.maxHp;
+                if (extraHp > 0) u.hp += extraHp;
                 u.maxHp = newMaxHp;
             }
             if (typeof window._emitEvent === 'function') {
@@ -190,14 +192,15 @@ export function* createRoundStepper(state) {
             if (stats.carryAtkAbs || stats.carryDefAbs || stats.carryHpAbs) {
                 log.push({ type:'info', text:`<span class="gold">👑 carry：${u.name} 获得队友属性加成 攻+${stats.carryAtkAbs} 防+${stats.carryDefAbs} 血上限+${stats.carryHpAbs}</span>` });
             }
-        } else if ((u.pos >= 4 && u.pos <= 6) && u._baseMaxHp !== undefined && !u.isHorse && !hasCarryActive && !u.isXiaoZhao) {
-            // carry 过期，回退全部加成（小昭不参与carry回退，她的血量由蝶变管理）
-            if (u.maxHp > 0 && u._baseMaxHp > 0) {
+        } else if ((u.pos >= 4 && u.pos <= 6) && !u.isHorse && !hasCarryActive && !u.isXiaoZhao && !u.isZhang) {
+            // Carry 过期，只清零 Carry 字段，不动自身成长
+            if (u._carryHpBonus && u._baseMaxHp > 0 && u.maxHp > 0) {
                 u.hp = Math.floor(u.hp * (u._baseMaxHp / u.maxHp));
             }
-            u.maxHp = u._baseMaxHp;
-            if (u._baseAtk !== undefined) u.atk = u._baseAtk;
-            if (u._baseDef !== undefined) u.def = u._baseDef;
+            if (u._carryHpBonus) u.maxHp = u._baseMaxHp;
+            u._carryAtkBonus = 0;
+            u._carryDefBonus = 0;
+            u._carryHpBonus = 0;
             if (typeof window._emitEvent === 'function') {
                 window._emitEvent(u, 'hp-change', { hp: u.hp, maxHp: u.maxHp, alive: u.alive, atk: u.atk, def: u.def });
             }

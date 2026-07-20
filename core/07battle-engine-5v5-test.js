@@ -24,8 +24,6 @@ import {
     finalizeDeaths,
     getNextAvailableUnit,
     checkZhangSwitch,
-    selectTarget,
-    resolveDodge,
     calcAttackDamage,
     applyPostAttackEffects,
     processUnitAttack,
@@ -82,7 +80,7 @@ export { spawnHorse, destroyHorse };
 export { runBattleRound };
 export {
     emitEvent, emitFullUnitState, finalizeDeaths, getNextAvailableUnit, checkZhangSwitch,
-    selectTarget, resolveDodge, calcAttackDamage, applyPostAttackEffects, processUnitAttack,
+    calcAttackDamage, applyPostAttackEffects, processUnitAttack,
     createRoundStepper
 };
 

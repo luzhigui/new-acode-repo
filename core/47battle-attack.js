@@ -29,91 +29,12 @@ function emitEvent(unit, eventType, payload) {
     if (typeof window._emitEvent === 'function') window._emitEvent(unit, eventType, payload);
 }
 
+// ==================== 攻击后效果钩子 ====================
+
 /**
- * 攻击流程编排函数
- * 职责：依次调用5个步骤函数，处理递归（连击/性奋/联动）
+ * 远程成长 + 飞行闪避栈 + 嗜血狂刀额外砍
  */
-export function processUnitAttack(unit, allySide, enemySide, log, A, B, state, doubleStrikeUnitUid, lockedTargetUid) {
-    // 步骤1：选择目标
-    let target, phantomLog;
-    if (lockedTargetUid) {
-        target = enemySide.find(u => u.uid === lockedTargetUid && u.alive) || null;
-        phantomLog = null;
-        if (!target) {
-            let emptyGroup = { type:'attack-group', uidA:unit.uid, uidD:null, entries:[], isMiss:true, _fxSnapshot:null, waveTaunt:null, waveUnit:null, buffEffects: [] };
-            emptyGroup.entries.push({type:'combat-text', text:`<span class="${unit.camp==='ally'?'blue':'orange'}">${unit.camp==='ally'?'明教':'六大派'} ${unit.name}</span> 无法选择目标`});
-            emptyGroup.entries.push({type:'info', text:`<span class="gray">锁定目标已阵亡，跳过行动</span>`});
-            emptyGroup._events = [...window._battleEvents];
-            window._battleEvents = [];
-            if (window.GlobalStore) window.GlobalStore.flushBattleEvents();
-            log.push(emptyGroup);
-            unit._acted = true;
-            return false;
-        }
-    } else {
-        let targetResult = selectAttackTarget(unit, enemySide, allySide);
-        target = targetResult.target;
-        phantomLog = targetResult.phantomLog;
-    }
-
-    // 攻击前清除成昆的模仿状态（恢复真身）
-    if (unit.name === '成昆' && unit._phantomTarget) {
-        delete unit._phantomTarget;
-    }
-
-    if (!target) {
-        let emptyGroup = { type:'attack-group', uidA:unit.uid, uidD:null, entries:[], isMiss:true, _fxSnapshot:null, waveTaunt:null, waveUnit:null, buffEffects: [] };
-        emptyGroup.entries.push({type:'combat-text', text:`<span class="${unit.camp==='ally'?'blue':'orange'}">${unit.camp==='ally'?'明教':'六大派'} ${unit.name}</span> 无法选择目标`});
-        emptyGroup.entries.push({type:'info', text:`<span class="gray">无可选目标，跳过行动</span>`});
-        emptyGroup._events = [...window._battleEvents];
-        window._battleEvents = [];
-        if (window.GlobalStore) window.GlobalStore.flushBattleEvents();
-        log.push(emptyGroup);
-        unit._acted = true;
-        return false;
-    }
-
-    // 计算 Buff 加成
-    let unitActiveBuffs = unit.camp === 'ally' ? A._activeBuffs : B._activeBuffs;
-    let unitAllyTeam = unit.camp === 'ally' ? A : B;
-    if (hasBuff(unitActiveBuffs, 'carry') && unit.camp === 'ally') {
-        unitAllyTeam = unitAllyTeam.concat((state.allAllies || state.ally).filter(c => !c.alive));
-        unitAllyTeam = unitAllyTeam.filter((u, i, arr) => arr.findIndex(v => v.uid === u.uid) === i);
-    }
-    let attackerBuffStats = computeBuffStats(unit, unitActiveBuffs, unitAllyTeam);
-    unit.buffAtkBonus = attackerBuffStats.atkBonus;
-    unit.buffDefBonus = attackerBuffStats.defBonus;
-    unit.buffDodgeBonus = attackerBuffStats.dodgeBonus;
-    unit.buffHpBonus = attackerBuffStats.hpBonus;
-
-    let targetActiveBuffs = target.camp === 'ally' ? A._activeBuffs : B._activeBuffs;
-    let targetAllyTeam = target.camp === 'ally' ? A : B;
-    let defenderBuffStats = computeBuffStats(target, targetActiveBuffs, targetAllyTeam);
-    target.buffAtkBonus = defenderBuffStats.atkBonus;
-    target.buffDefBonus = defenderBuffStats.defBonus;
-    target.buffDodgeBonus = defenderBuffStats.dodgeBonus;
-    target.buffHpBonus = defenderBuffStats.hpBonus;
-
-    // 步骤2：未命中+闪避判定
-    let hitResult = resolveAttackHit(unit, target, attackerBuffStats, defenderBuffStats, log, A, B, doubleStrikeUnitUid);
-    if (hitResult.skipped) {
-        if (hitResult.retry) {
-            const retryUid = hitResult.lockedTargetUid || null;
-            processUnitAttack(unit, allySide, enemySide, log, A, B, state, doubleStrikeUnitUid, retryUid);
-        }
-        return true;
-    }
-
-    // 步骤3：伤害计算
-    let dmgCalc = calcFinalDamage(unit, target, attackerBuffStats, defenderBuffStats, allySide, enemySide, log);
-
-    // 步骤4：应用伤害结果
-    let dmgResult = applyAttackResult(unit, target, dmgCalc, attackerBuffStats, defenderBuffStats, allySide, enemySide, log, A, B, state, doubleStrikeUnitUid);
-
-    // 步骤5：构建攻击组日志
-    let group = buildAttackGroup(unit, target, dmgCalc, dmgResult, attackerBuffStats, defenderBuffStats, allySide, enemySide, log, A, B, state, doubleStrikeUnitUid, phantomLog);
-
-    // 攻击后效果（远程成长/飞行闪避/嗜血狂刀/韦一笑吸血/张无忌回血/乾坤大挪移/小昭衍生技）
+function applyRoleGrowth(unit, target, dmgCalc, group, unitActiveBuffs, allySide, enemySide, log, A, B, state, doubleStrikeUnitUid) {
     if (unit.role === '远程' && dmgCalc.dmg > 0) {
         unit.atk += 2;
         emitEvent(unit, 'hp-change', { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: unit.atk, def: unit.def });
@@ -127,41 +48,44 @@ export function processUnitAttack(unit, allySide, enemySide, log, A, B, state, d
         unit._bloodthirstStriked = true;
         processUnitAttack(unit, allySide, enemySide, log, A, B, state, doubleStrikeUnitUid, target.uid);
     }
-    if (unit.camp === 'ally' && unit.isZhang && unit.alive) {
-        const hpBeforeZhang = Math.floor(unit.hp);
-        let heal = Math.floor(unit.maxHp * 0.05);
-        unit.hp = Math.min(unit.maxHp, unit.hp + heal);
-        unit.healDone += heal;
-        group.entries.push({type:'info', text:`<span class="green">☀️ 九阳神功回复+${heal}，${hpBeforeZhang}→${Math.floor(unit.hp)}</span>`, isHealEntry:true, healAmount:heal, healUnitUid:unit.uid});
-        emitEvent(unit, 'hp-change', { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: unit.atk, def: unit.def });
-        if (!unit.rangedForm) {
-            if (unit.nearAtkCount === 0 && !unit._zhangTauntDone) {
-                let firstTaunt = getZhangNearTaunt(1);
-                if (firstTaunt) { group.entries.push({type:'info', text:`<span class="gold">🗣️ ${unit.name}：${firstTaunt}</span>`}); unit._zhangTauntDone = true; }
+}
+
+/**
+ * 张无忌：九阳回血 + 近战台词 + 融会贯通 + 乾坤反弹
+ */
+function applyZhangEffects(unit, target, dmgCalc, group, A, log) {
+    if (unit.camp !== 'ally' || !unit.isZhang || !unit.alive) return;
+    const hpBeforeZhang = Math.floor(unit.hp);
+    let heal = Math.floor(unit.maxHp * 0.05);
+    unit.hp = Math.min(unit.maxHp, unit.hp + heal);
+    unit.healDone += heal;
+    group.entries.push({type:'info', text:`<span class="green">☀️ 九阳神功回复+${heal}，${hpBeforeZhang}→${Math.floor(unit.hp)}</span>`, isHealEntry:true, healAmount:heal, healUnitUid:unit.uid});
+    emitEvent(unit, 'hp-change', { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: unit.atk, def: unit.def });
+    if (!unit.rangedForm) {
+        if (unit.nearAtkCount === 0 && !unit._zhangTauntDone) {
+            let firstTaunt = getZhangNearTaunt(1);
+            if (firstTaunt) { group.entries.push({type:'info', text:`<span class="gold">🗣️ ${unit.name}：${firstTaunt}</span>`}); unit._zhangTauntDone = true; }
+        }
+        unit.nearAtkCount++;
+        if (unit.nearAtkCount === 2) {
+            let secondTaunt = getZhangNearTaunt(2);
+            if (secondTaunt) group.entries.push({type:'info', text:`<span class="gold">🗣️ ${unit.name}：${secondTaunt}</span>`});
+        }
+        if (unit.nearAtkCount === 3) unit.ronghui = true;
+        if (unit.nearAtkCount === 3) {
+            let zt = getZhangNearTaunt(3); if (zt) group.entries.push({type:'info', text:`<span class="gold">🗣️ ${unit.name}：${zt}</span>`});
+            let extra = Math.floor(target.atk * 0.15); target.hp -= extra; unit.dmgDealt += extra;
+            if (target.hp <= 0) {
+                target.hp = 0; target.alive = false; target._isDead = true;
+                if (!target._deathTime) target._deathTime = Date.now();
+                group.isDead = true; group.alive = false; group.hpAfter = 0;
             }
-            unit.nearAtkCount++;
-            if (unit.nearAtkCount === 2) {
-                let secondTaunt = getZhangNearTaunt(2);
-                if (secondTaunt) group.entries.push({type:'info', text:`<span class="gold">🗣️ ${unit.name}：${secondTaunt}</span>`});
-            }
-            if (unit.nearAtkCount === 3) unit.ronghui = true;
-            if (unit.nearAtkCount === 3) {
-                let zt = getZhangNearTaunt(3); if (zt) group.entries.push({type:'info', text:`<span class="gold">🗣️ ${unit.name}：${zt}</span>`});
-                let extra = Math.floor(target.atk * 0.15); target.hp -= extra; unit.dmgDealt += extra;
-                if (target.hp <= 0) {
-                    target.hp = 0;
-                    target.alive = false;
-                    target._isDead = true;
-                    if (!target._deathTime) target._deathTime = Date.now();
-                    group.isDead = true;
-                    group.alive = false;
-                    group.hpAfter = 0;
-                }
-                emitEvent(target, 'hp-change', { hp: target.hp, maxHp: target.maxHp, alive: target.alive, atk: target.atk, def: target.def, _isDead: target._isDead || false });
-                group.entries.push({type:'info', text:`<span class="red">🔥 融会贯通额外+${extra}（目标攻击${Math.floor(target.atk)}×15%）</span>`});
-            }
+            emitEvent(target, 'hp-change', { hp: target.hp, maxHp: target.maxHp, alive: target.alive, atk: target.atk, def: target.def, _isDead: target._isDead || false });
+            group.entries.push({type:'info', text:`<span class="red">🔥 融会贯通额外+${extra}（目标攻击${Math.floor(target.atk)}×15%）</span>`});
         }
     }
+
+    // 乾坤大挪移反弹
     if (target.camp === 'ally' && (target.pos === 4 || target.pos === 6) && dmgCalc.dmg > 0) {
         let xiaoZhaoActive = A.find(u => u.isXiaoZhao && u.alive);
         if (!xiaoZhaoActive) {
@@ -173,9 +97,7 @@ export function processUnitAttack(unit, allySide, enemySide, log, A, B, state, d
                 zhang.reboundDone += rebound;
                 showDamageFloat(unit, rebound);
                 if (unit.hp <= 0) {
-                    unit.alive = false;
-                    unit._isDead = true;
-                    unit._flash = 'dead';
+                    unit.alive = false; unit._isDead = true; unit._flash = 'dead';
                     if (!unit._deathTime) unit._deathTime = Date.now();
                 }
                 let selfDmg = Math.max(1, Math.floor(rebound * (CONFIG.ELITE_SKILLS.xiaoZhao.normalSelfDmgPct || 0.1)));
@@ -185,15 +107,16 @@ export function processUnitAttack(unit, allySide, enemySide, log, A, B, state, d
                 emitEvent(zhang, 'hp-change', { hp: zhang.hp, maxHp: zhang.maxHp, alive: zhang.alive, atk: zhang.atk, def: zhang.def });
                 group.entries.push({type:'info', text:`<span class="gold">✨ 乾坤大挪移反弹${rebound}给${unit.name}（无忌自伤${selfDmg}）</span>`, buffType:'rebound'});
                 if (unit.hp <= 0) { unit.alive = false; unit._isDead = true; }
-                if (zhang.hp <= 0) {
-                    zhang.hp = 0;
-                    zhang.alive = false;
-                    zhang._isDead = true;
-                    if (!zhang._deathTime) zhang._deathTime = Date.now();
-                }
+                if (zhang.hp <= 0) { zhang.hp = 0; zhang.alive = false; zhang._isDead = true; if (!zhang._deathTime) zhang._deathTime = Date.now(); }
             }
         }
     }
+}
+
+/**
+ * 小昭衍生 + 韦一笑吸血
+ */
+function applyAllyEffects(unit, target, dmgCalc, group, A) {
     if (target.camp === 'ally' && dmgCalc.dmg > 0) {
         applyXiaoZhaoDerived(A, target, dmgCalc.dmg, group);
     }
@@ -209,11 +132,12 @@ export function processUnitAttack(unit, allySide, enemySide, log, A, B, state, d
         emitEvent(unit, 'hp-change', { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: unit.atk, def: unit.def });
         group.entries.push({type:'info', text:`<span class="green">🦇 韦一笑吸血+${healWei}，上限→${Math.floor(unit.maxHp)}</span>`, isHealEntry:true, healAmount:healWei, healUnitUid:unit.uid});
     }
-    unit._acted = true;
+}
 
-    applyXinHunDeduction(unit, allySide, log);
-    applyXingFenPenalty(unit, log);
-
+/**
+ * 玄冥二老联动 + 概率连击 + 小昭永久连击 + 性奋额外攻击
+ */
+function applyExtraAttacks(unit, target, dmgCalc, allySide, enemySide, log, A, B, state, doubleStrikeUnitUid) {
     // 玄冥二老联动
     if (!unit._isLinkAttack && dmgCalc.dmg > 0 && target.alive) {
         if (unit.name === '鹤笔翁') {
@@ -226,6 +150,7 @@ export function processUnitAttack(unit, allySide, enemySide, log, A, B, state, d
                     log.push({type:'info', text:`<span class="gold">🔗 ${luActed.name} 跟随 ${unit.name} 发动联动攻击！</span>`});
                     processUnitAttack(luActed, allySide, enemySide, log, A, B, state, null, target.uid);
                     luActed._isLinkAttack = false;
+                    luActed._acted = false;
                     emitEvent(luActed, 'hp-change', { hp: luActed.hp, maxHp: luActed.maxHp, alive: luActed.alive, atk: luActed.atk, def: luActed.def });
                 }
             } else if (!lu._linkTriggered) {
@@ -234,6 +159,7 @@ export function processUnitAttack(unit, allySide, enemySide, log, A, B, state, d
                 log.push({type:'info', text:`<span class="gold">🔗 ${lu.name} 跟随 ${unit.name} 发动联动攻击！</span>`});
                 processUnitAttack(lu, allySide, enemySide, log, A, B, state, null, target.uid);
                 lu._isLinkAttack = false;
+                lu._acted = false;
                 emitEvent(lu, 'hp-change', { hp: lu.hp, maxHp: lu.maxHp, alive: lu.alive, atk: lu.atk, def: lu.def });
             }
         } else if (unit.name === '鹿杖客') {
@@ -247,6 +173,7 @@ export function processUnitAttack(unit, allySide, enemySide, log, A, B, state, d
                     applyXuanmingPalm(unit, target);
                     processUnitAttack(heActed, allySide, enemySide, log, A, B, state, null, target.uid);
                     heActed._isLinkAttack = false;
+                    heActed._acted = false;
                     emitEvent(heActed, 'hp-change', { hp: heActed.hp, maxHp: heActed.maxHp, alive: heActed.alive, atk: heActed.atk, def: heActed.def });
                 }
             } else if (!he._linkTriggered) {
@@ -256,6 +183,7 @@ export function processUnitAttack(unit, allySide, enemySide, log, A, B, state, d
                 applyXuanmingPalm(unit, target);
                 processUnitAttack(he, allySide, enemySide, log, A, B, state, null, target.uid);
                 he._isLinkAttack = false;
+                he._acted = false;
                 emitEvent(he, 'hp-change', { hp: he.hp, maxHp: he.maxHp, alive: he.alive, atk: he.atk, def: he.def });
             }
         }
@@ -293,6 +221,98 @@ export function processUnitAttack(unit, allySide, enemySide, log, A, B, state, d
         log.push({type:'info', text:`<span class="gold">💗 性奋：${unit.name} 获得额外攻击机会！</span>`});
         processUnitAttack(unit, allySide, enemySide, log, A, B, state, doubleStrikeUnitUid);
     }
+}
+
+// ==================== 主攻击流程 ====================
+
+export function processUnitAttack(unit, allySide, enemySide, log, A, B, state, doubleStrikeUnitUid, lockedTargetUid) {
+    // 步骤1：选择目标
+    let target, phantomLog;
+    if (lockedTargetUid) {
+        target = enemySide.find(u => u.uid === lockedTargetUid && u.alive) || null;
+        phantomLog = null;
+        if (!target) {
+            let emptyGroup = { type:'attack-group', uidA:unit.uid, uidD:null, entries:[], isMiss:true, _fxSnapshot:null, waveTaunt:null, waveUnit:null, buffEffects: [] };
+            emptyGroup.entries.push({type:'combat-text', text:`<span class="${unit.camp==='ally'?'blue':'orange'}">${unit.camp==='ally'?'明教':'六大派'} ${unit.name}</span> 无法选择目标`});
+            emptyGroup.entries.push({type:'info', text:`<span class="gray">锁定目标已阵亡，跳过行动</span>`});
+            emptyGroup._events = [...window._battleEvents];
+            window._battleEvents = [];
+            if (window.GlobalStore) window.GlobalStore.flushBattleEvents();
+            log.push(emptyGroup);
+            unit._acted = true;
+            return false;
+        }
+    } else {
+        let targetResult = selectAttackTarget(unit, enemySide, allySide);
+        target = targetResult.target;
+        phantomLog = targetResult.phantomLog;
+    }
+
+    if (!target) {
+        let emptyGroup = { type:'attack-group', uidA:unit.uid, uidD:null, entries:[], isMiss:true, _fxSnapshot:null, waveTaunt:null, waveUnit:null, buffEffects: [] };
+        emptyGroup.entries.push({type:'combat-text', text:`<span class="${unit.camp==='ally'?'blue':'orange'}">${unit.camp==='ally'?'明教':'六大派'} ${unit.name}</span> 无法选择目标`});
+        emptyGroup.entries.push({type:'info', text:`<span class="gray">无可选目标，跳过行动</span>`});
+        emptyGroup._events = [...window._battleEvents];
+        window._battleEvents = [];
+        if (window.GlobalStore) window.GlobalStore.flushBattleEvents();
+        log.push(emptyGroup);
+        unit._acted = true;
+        return false;
+    }
+
+    // 计算 Buff 加成
+    let unitActiveBuffs = unit.camp === 'ally' ? A._activeBuffs : B._activeBuffs;
+    let unitAllyTeam = unit.camp === 'ally' ? A : B;
+    if (hasBuff(unitActiveBuffs, 'carry') && unit.camp === 'ally') {
+        unitAllyTeam = unitAllyTeam.concat((state.allAllies || state.ally).filter(c => !c.alive));
+        unitAllyTeam = unitAllyTeam.filter((u, i, arr) => arr.findIndex(v => v.uid === u.uid) === i);
+    }
+    let attackerBuffStats = computeBuffStats(unit, unitActiveBuffs, unitAllyTeam);
+    unit.buffAtkBonus = attackerBuffStats.atkBonus;
+    unit.buffDefBonus = attackerBuffStats.defBonus;
+    unit.buffDodgeBonus = attackerBuffStats.dodgeBonus;
+    unit.buffHpBonus = attackerBuffStats.hpBonus;
+
+    let targetActiveBuffs = target.camp === 'ally' ? A._activeBuffs : B._activeBuffs;
+    let targetAllyTeam = target.camp === 'ally' ? A : B;
+    let defenderBuffStats = computeBuffStats(target, targetActiveBuffs, targetAllyTeam);
+    target.buffAtkBonus = defenderBuffStats.atkBonus;
+    target.buffDefBonus = defenderBuffStats.defBonus;
+    target.buffDodgeBonus = defenderBuffStats.dodgeBonus;
+    target.buffHpBonus = defenderBuffStats.hpBonus;
+
+    // 攻击前清除成昆的模仿状态（恢复真身）
+    if (unit.name === '成昆' && unit._phantomTarget) {
+        delete unit._phantomTarget;
+    }
+
+    // 步骤2：未命中+闪避判定
+    let hitResult = resolveAttackHit(unit, target, attackerBuffStats, defenderBuffStats, log, A, B, doubleStrikeUnitUid);
+    if (hitResult.skipped) {
+        if (hitResult.retry) {
+            const retryUid = hitResult.lockedTargetUid || null;
+            processUnitAttack(unit, allySide, enemySide, log, A, B, state, doubleStrikeUnitUid, retryUid);
+        }
+        return true;
+    }
+
+    // 步骤3：伤害计算
+    let dmgCalc = calcFinalDamage(unit, target, attackerBuffStats, defenderBuffStats, allySide, enemySide, log);
+
+    // 步骤4：应用伤害结果
+    let dmgResult = applyAttackResult(unit, target, dmgCalc, attackerBuffStats, defenderBuffStats, allySide, enemySide, log, A, B, state, doubleStrikeUnitUid);
+
+    // 步骤5：构建攻击组日志
+    let group = buildAttackGroup(unit, target, dmgCalc, dmgResult, attackerBuffStats, defenderBuffStats, allySide, enemySide, log, A, B, state, doubleStrikeUnitUid, phantomLog);
+
+    // ★ 攻击后效果（钩子化）
+    applyRoleGrowth(unit, target, dmgCalc, group, unitActiveBuffs, allySide, enemySide, log, A, B, state, doubleStrikeUnitUid);
+    applyZhangEffects(unit, target, dmgCalc, group, A, log);
+    applyAllyEffects(unit, target, dmgCalc, group, A);
+    if (!unit._isLinkAttack) unit._acted = true;
+    applyXinHunDeduction(unit, allySide, log);
+    applyXingFenPenalty(unit, log);
+    applyExtraAttacks(unit, target, dmgCalc, allySide, enemySide, log, A, B, state, doubleStrikeUnitUid);
 
     return true;
 }
