@@ -1,7 +1,7 @@
-# 光明顶 5v5 游戏设定汇总
+﻿# 光明顶 5v5 游戏设定汇总
 
-版本：V5.1.0  
-整理日期：2026-07-19  
+版本：V5.2.0  
+整理日期：2026-07-20  
 
 > 本文件汇总了光明顶 5v5 对战游戏的所有设定，按"重要程度从高到低"排序。  
 > 包含：已确认实现的基础设定、代码层面的逻辑设定、以及部分备注/遗留设定。
@@ -569,60 +569,61 @@ assets/    音效
 
 | 模块 | 版本 |
 |------|------|
-| core/01config-5v5-test.js | V5.1.0 |
-| core/02unit.js | V5.1.0 |
-| core/03battle-utils.js | V5.1.0 |
-| core/04buff-system.js | V5.1.0 |
-| core/05battle-horse.js | V5.1.0 |
-| core/06battle-engine-core.js | V5.1.0 |
-| core/07battle-engine-5v5-test.js | V5.1.0 |
-| core/47battle-attack.js | V5.1.0 |
-| core/48battle-round.js | V5.1.0 |
-| core/49battle-attack-steps.js | V5.1.0 |
-| core/50battle-shared.js | V5.1.0 |
-| player/08player-text.js | V5.1.0 |
-| player/09player-buff-ui.js | V5.1.0 |
-| player/10player-core.js | V5.1.0 |
-| player/11battle-player-5v5-test.js | V5.1.0 |
-| ui/12main-utils.js | V5.1.0 |
-| ui/13main-5v5-test.js | V5.1.0 |
-| ui/14ui-render-5v5-test.js | V5.1.0 |
-| ui/39main-state.js | V5.1.0 |
-| ui/40main-dialogs.js | V5.1.0 |
-| ui/41main-battle.js | V5.1.0 |
-| ui/42audio-control.js | V5.1.0 |
-| ui/43fx-trigger.js | V5.1.0 |
-| ui/44ui-controls.js | V5.1.0 |
-| fx/15fx-common-5v5-test.js | V5.1.0 |
-| fx/16fx-arrows-5v5-test.js | V5.1.0 |
-| fx/17fx-crash-5v5-test.js | V5.1.0 |
-| fx/18fx-position-swap.js | V5.1.0 |
-| fx/19fx-push-back.js | V5.1.0 |
-| fx/20fx-dodge-bullet.js | V5.1.0 |
-| modules/23elite-skills.js | V5.1.0 |
-| modules/24error-capture.js | V5.1.0 |
-| modules/28audio-manager.js | V5.1.0 |
-| modules/46global-store.js | V5.1.0 |
-| tests/25unit-tests.js | V5.1.0 |
-| tests/30test-runner.html | V5.1.0 |
-| tests/35quiz-bank.js | V5.1.0 |
-| tests/37health-core.js | V5.1.0 |
-| tests/37health-rules/60-separator.js | V5.1.0 |
-| tests/37health-rules/61-boneclaw.js | V5.1.0 |
-| tests/37health-rules/62-speed-button.js | V5.1.0 |
-| tests/37health-rules/63-carry-hp.js | V5.1.0 |
-| tests/37health-rules/64-horse.js | V5.1.0 |
-| tests/37health-rules/65-swap.js | V5.1.0 |
-| tests/37health-rules/66-victory.js | V5.1.0 |
-| tests/37health-rules/67-cloud-dodge.js | V5.1.0 |
-| tests/37health-rules/68-dodge-rebound.js | V5.1.0 |
-| tests/38health-monitor.js | V5.1.0 |
-| tests/45health-auto.js | V5.1.0 |
-| tests/46health-utils.js | V5.1.0 |
-| tools/00build-5v5.cjs | V5.1.0 |
-| tools/27auto-battle-utils.js | V5.1.0 |
-| tools/31-toolkit.html | V5.1.0 |
-| tools/32-toolkit.js | V5.1.0 |
-| tools/33-toolkit-more.js | V5.1.0 |
-| 00index.html | V5.1.0 |
-| mode-5v5-test.html | V5.1.0 |
+| core/01config-5v5-test.js | V5.2.0 |
+| core/02unit.js | V5.2.0 |
+| core/03battle-utils.js | V5.2.0 |
+| core/04buff-system.js | V5.2.0 |
+| core/05battle-horse.js | V5.2.0 |
+| core/06battle-engine-core.js | V5.2.0 |
+| core/07battle-engine-5v5-test.js | V5.2.0 |
+| core/47battle-attack.js | V5.2.0 |
+| core/48battle-round.js | V5.2.0 |
+| core/49battle-attack-steps.js | V5.2.0 |
+| core/50battle-shared.js | V5.2.0 |
+| player/08player-text.js | V5.2.0 |
+| player/09player-buff-ui.js | V5.2.0 |
+| player/10player-core.js | V5.2.0 |
+| player/11battle-player-5v5-test.js | V5.2.0 |
+| ui/12main-utils.js | V5.2.0 |
+| ui/13main-5v5-test.js | V5.2.0 |
+| ui/14ui-render-5v5-test.js | V5.2.0 |
+| ui/39main-state.js | V5.2.0 |
+| ui/40main-dialogs.js | V5.2.0 |
+| ui/41main-battle.js | V5.2.0 |
+| ui/42audio-control.js | V5.2.0 |
+| ui/43fx-trigger.js | V5.2.0 |
+| ui/44ui-controls.js | V5.2.0 |
+| fx/15fx-common-5v5-test.js | V5.2.0 |
+| fx/16fx-arrows-5v5-test.js | V5.2.0 |
+| fx/17fx-crash-5v5-test.js | V5.2.0 |
+| fx/18fx-position-swap.js | V5.2.0 |
+| fx/19fx-push-back.js | V5.2.0 |
+| fx/20fx-dodge-bullet.js | V5.2.0 |
+| modules/23elite-skills.js | V5.2.0 |
+| modules/24error-capture.js | V5.2.0 |
+| modules/28audio-manager.js | V5.2.0 |
+| modules/46global-store.js | V5.2.0 |
+| modules/100-replay.js | V5.2.0 |
+| tests/25unit-tests.js | V5.2.0 |
+| tests/30test-runner.html | V5.2.0 |
+| tests/35quiz-bank.js | V5.2.0 |
+| tests/37health-core.js | V5.2.0 |
+| tests/37health-rules/60-separator.js | V5.2.0 |
+| tests/37health-rules/61-boneclaw.js | V5.2.0 |
+| tests/37health-rules/62-speed-button.js | V5.2.0 |
+| tests/37health-rules/63-carry-hp.js | V5.2.0 |
+| tests/37health-rules/64-horse.js | V5.2.0 |
+| tests/37health-rules/65-swap.js | V5.2.0 |
+| tests/37health-rules/66-victory.js | V5.2.0 |
+| tests/37health-rules/67-cloud-dodge.js | V5.2.0 |
+| tests/37health-rules/68-dodge-rebound.js | V5.2.0 |
+| tests/38health-monitor.js | V5.2.0 |
+| tests/45health-auto.js | V5.2.0 |
+| tests/46health-utils.js | V5.2.0 |
+| tools/00build-5v5.cjs | V5.2.0 |
+| tools/27auto-battle-utils.js | V5.2.0 |
+| tools/31-toolkit.html | V5.2.0 |
+| tools/32-toolkit.js | V5.2.0 |
+| tools/33-toolkit-more.js | V5.2.0 |
+| 00index.html | V5.2.0 |
+| mode-5v5-test.html | V5.2.0 |

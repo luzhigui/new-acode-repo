@@ -1,6 +1,6 @@
 // tests/37health-rules/63-carry-hp.js
-// V5.1.0 | Carry血量方向检查
-export const VER = 'tests/37health-rules/63-carry-hp.js V5.1.0';
+// V5.2.0 | Carry血量方向检查
+export const VER = 'tests/37health-rules/63-carry-hp.js V5.2.0';
 
 export const rule63 = {
     group: 'Buff效果',

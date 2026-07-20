@@ -1,6 +1,6 @@
 // fx/20fx-dodge-bullet.js - 光明顶5v5 闪避反击特效
-// V5.1.0 | 2026-07-12 修复格子缩小与残留：完整保存/恢复原始格子状态
-export const VER = 'fx/20fx-dodge-bullet.js V5.1.0';
+// V5.2.0 | 2026-07-12 修复格子缩小与残留：完整保存/恢复原始格子状态
+export const VER = 'fx/20fx-dodge-bullet.js V5.2.0';
 
 import { showComicBubble } from './15fx-common-5v5-test.js';
 

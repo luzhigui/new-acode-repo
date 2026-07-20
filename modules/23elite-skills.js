@@ -1,6 +1,6 @@
 // modules/23elite-skills.js - 光明顶5v5 精英技能系统
-// V5.1.0 | ~25000 bytes | 2026-07-16 收敛成昆幻影、小昭永久惑心/连击等判定逻辑
-export const VER = 'modules/23elite-skills.js V5.1.0';
+// V5.2.0 | ~25000 bytes | 2026-07-16 收敛成昆幻影、小昭永久惑心/连击等判定逻辑
+export const VER = 'modules/23elite-skills.js V5.2.0';
 
 import { CONFIG } from '../core/01config-5v5-test.js';
 import { ROLE_BONUS } from '../core/02unit.js';

@@ -1,7 +1,7 @@
 // ===== ../core/06battle-engine-core.js =====
 // core/06battle-engine-core.js - 光明顶5v5 战斗核心入口
-// V5.1.0 | ~22000 bytes | 2026-07-16 拆分攻击模块至47、回合模块至48
-export const VER = 'core/06battle-engine-core.js V5.1.0';
+// V5.2.0 | ~22000 bytes | 2026-07-16 拆分攻击模块至47、回合模块至48
+export const VER = 'core/06battle-engine-core.js V5.2.0';
 
 import { CONFIG, DEF_TAUNT, HP_TAUNT } from './01config-5v5-test.js';
 import { rand, calcDamage, getFangLevel, isMelee, getFronts, isBlocked, getFlyDodgeRate, getRandomTaunt, getZhangNearTaunt, makeFXSnapshot, hasBuff, getUnitCol, getUnitRow } from './03battle-utils.js';

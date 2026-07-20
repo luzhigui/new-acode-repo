@@ -1,6 +1,6 @@
 // fx/18fx-position-swap.js - 光明顶5v5 换位闪烁特效
-// V5.1.0 | ~3828 bytes | 2026-07-05
-export const VER = 'fx/18fx-position-swap.js V5.1.0';
+// V5.2.0 | ~3828 bytes | 2026-07-05
+export const VER = 'fx/18fx-position-swap.js V5.2.0';
 
 /**
  * 获取单位对应的格子 DOM 元素（本地定义，不依赖外部）
