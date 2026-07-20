@@ -1,6 +1,6 @@
 // tests/37health-rules/65-swap.js
-// V5.1.0 | 换位后双方单位存在 — 阵亡跳过，二次移动改文案
-export const VER = 'tests/37health-rules/65-swap.js V5.1.0';
+// V5.2.0 | 换位后双方单位存在 — 阵亡跳过，二次移动改文案
+export const VER = 'tests/37health-rules/65-swap.js V5.2.0';
 
 export const rule65 = {
     group: '换位',

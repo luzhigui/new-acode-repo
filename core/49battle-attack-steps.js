@@ -1,6 +1,6 @@
 // core/49battle-attack-steps.js - 光明顶5v5 攻击步骤拆分模块
-// V5.1.0 | ~18000 bytes | 2026-07-18 从47battle-attack拆分processUnitAttack
-export const VER = 'core/49battle-attack-steps.js V5.1.0';
+// V5.2.0 | ~18000 bytes | 2026-07-18 从47battle-attack拆分processUnitAttack
+export const VER = 'core/49battle-attack-steps.js V5.2.0';
 
 import { CONFIG, DEF_TAUNT, HP_TAUNT } from './01config-5v5-test.js';
 import { rand, calcDamage, getFangLevel, isMelee, getFronts, isBlocked, getFlyDodgeRate, getRandomTaunt, getZhangNearTaunt, makeFXSnapshot, hasBuff, getUnitCol, getUnitRow } from './03battle-utils.js';

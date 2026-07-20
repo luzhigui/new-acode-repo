@@ -1,6 +1,6 @@
 // core/04buff-system.js - 光明顶5v5 Buff系统
-// V5.1.0 | ~15233 bytes | 2026-07-05
-export const VER = 'core/04buff-system.js V5.1.0';
+// V5.2.0 | ~15233 bytes | 2026-07-05
+export const VER = 'core/04buff-system.js V5.2.0';
 
 import { CONFIG } from './01config-5v5-test.js';
 import { rand, hasBuff, getUnitRow, getUnitCol, getAdjacentPositions } from './03battle-utils.js';

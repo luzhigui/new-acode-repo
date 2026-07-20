@@ -1,6 +1,6 @@
 // tests/37health-rules/68-dodge-rebound.js
-// V5.1.0 | 闪避反击方向检查
-export const VER = 'tests/37health-rules/68-dodge-rebound.js V5.1.0';
+// V5.2.0 | 闪避反击方向检查
+export const VER = 'tests/37health-rules/68-dodge-rebound.js V5.2.0';
 
 export const rule68 = {
     group: '闪避反击',

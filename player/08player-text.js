@@ -1,6 +1,6 @@
 // player/08player-text.js - 光明顶5v5 文字播放器
-// V5.1.0 | ~1437 bytes | 2026-07-05
-export const VER = 'player/08player-text.js V5.1.0';
+// V5.2.0 | ~1437 bytes | 2026-07-05
+export const VER = 'player/08player-text.js V5.2.0';
 
 let ctx = null;
 function getCtx() {

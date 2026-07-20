@@ -1,7 +1,7 @@
 // ===== ../core/07battle-engine-5v5-test.js =====
 // core/07battle-engine-5v5-test.js - 光明顶5v5 战斗引擎入口
-// V5.1.0 | ~3000 bytes | 2026-07-16 适配攻击/回合模块拆分
-export const VER = 'core/07battle-engine-5v5-test.js V5.1.0';
+// V5.2.0 | ~3000 bytes | 2026-07-16 适配攻击/回合模块拆分
+export const VER = 'core/07battle-engine-5v5-test.js V5.2.0';
 
 import { Unit } from './02unit.js';
 import {

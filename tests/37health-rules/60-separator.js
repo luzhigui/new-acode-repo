@@ -1,6 +1,6 @@
 // tests/37health-rules/60-separator.js
-// V5.1.0 | 分隔符缺失检查 - 只检查8种触发动作类型
-export const VER = 'tests/37health-rules/60-separator.js V5.1.0';
+// V5.2.0 | 分隔符缺失检查 - 只检查8种触发动作类型
+export const VER = 'tests/37health-rules/60-separator.js V5.2.0';
 
 export const rule60 = {
     group: '日志格式',

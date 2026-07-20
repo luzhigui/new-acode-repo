@@ -1,6 +1,6 @@
 // tests/37health-rules/61-boneclaw.js
-// V5.1.0 | 白骨爪伤害公式与斩杀 - 改为疑似标记，放宽判定
-export const VER = 'tests/37health-rules/61-boneclaw.js V5.1.0';
+// V5.2.0 | 白骨爪伤害公式与斩杀 - 改为疑似标记，放宽判定
+export const VER = 'tests/37health-rules/61-boneclaw.js V5.2.0';
 
 export const rule61 = {
     group: '精英技能',
