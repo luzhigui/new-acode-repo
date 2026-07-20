@@ -635,6 +635,58 @@ export async function playLogEntries(c, log, roundResult, isFirstAttackRef) {
     return { isBattleOver: false };
 }
 
+export async function playReplay(replayData) {
+    const c = getCtx();
+    if (!c || !replayData || !replayData.snapshot || !replayData.rounds) return;
+
+    if (c.gs !== 'IDLE') {
+        if (typeof window.forceStopGame === 'function') window.forceStopGame();
+        await new Promise(r => setTimeout(r, 500));
+    }
+
+    c.snapshot = replayData.snapshot;
+    c.UI.allyTeam = replayData.snapshot.ally.map(u => ({ ...u }));
+    c.UI.enemyTeam = replayData.snapshot.enemy.map(u => ({ ...u }));
+    c.UI.currentResult = null;
+    c.UI.round = 1;
+
+    const initialUnits = [
+        ...c.UI.allyTeam.map(u => ({ ...u, camp: 'ally', _flash: null, _acted: false, _resting: false, _blocked: false, alive: true, hp: u.maxHp })),
+        ...c.UI.enemyTeam.map(u => ({ ...u, camp: 'enemy', _flash: null, _acted: false, _resting: false, _blocked: false, alive: true, hp: u.maxHp }))
+    ];
+    c.store = createStore({ units: initialUnits, round: 1 }, battleReducer);
+    GlobalStore.set('battleStore', c.store);
+    setRenderStore(c.store);
+    updateUI();
+
+    c.isPaused = false;
+    c._battleEnded = false;
+    c.gs = 'RUNNING';
+    if (typeof window.updateButtons === 'function') window.updateButtons();
+
+    const logDiv = document.getElementById('log');
+    logDiv.innerHTML = '';
+
+    for (let i = 0; i < replayData.rounds.length; i++) {
+        const round = replayData.rounds[i];
+        const roundStartEntry = { type: 'round-start', text: `<div class="separator">———— 第${i+1}回合开始 ————</div>` };
+        await handleRoundStart(c, roundStartEntry, { value: true });
+        await playLogEntries(c, round.log, null, { value: true });
+        if (round.events && round.events.length > 0) {
+            c.store.dispatch({ type: 'APPLY_EVENTS', events: round.events });
+        }
+        const allyAlive = c.UI.allyTeam.some(u => u.alive);
+        const enemyAlive = c.UI.enemyTeam.some(u => u.alive);
+        if (!allyAlive || !enemyAlive) break;
+    }
+
+    c.gs = 'IDLE';
+    if (typeof window.updateButtons === 'function') window.updateButtons();
+    logDiv.innerHTML += '<span class="gold">回放结束</span><br>';
+    GlobalStore.set('battleStore', null);
+    setRenderStore(null);
+}
+
 export async function playBattle() {
     const c = getCtx();
     if (!c || !c.snapshot || !c.snapshot.ally || !c.snapshot.ally.length) return;
@@ -675,6 +727,7 @@ export async function playBattle() {
         ...c.snapshot.ally.map(u => { let u2 = u.clone(); u2.hp = u2.maxHp; u2.alive = true; u2._isDead = false; u2._flash = null; u2._acted = false; u2._resting = false; u2._blocked = false; u2.camp = 'ally'; return u2; }),
         ...c.snapshot.enemy.map(u => { let u2 = u.clone(); u2.hp = u2.maxHp; u2.alive = true; u2._isDead = false; u2._flash = null; u2._acted = false; u2._resting = false; u2._blocked = false; u2.camp = 'enemy'; return u2; })
     ];
+    ReplayManager.startRecording(c.snapshot);   // +++ 新增：开始录制回放
     c.store = createStore({ units: initialUnits, round: 1 }, battleReducer);
     GlobalStore.set('battleStore', c.store);
     setRenderStore(c.store);
@@ -761,6 +814,7 @@ export async function playBattle() {
         const hb = c.activeBuffs.find(b => b.key === 'horseFormation');
         battleState.activeBuffs.push({...hb});
     }
+    c._replayData = { snapshot: { ally: battleState.ally.map(u => u.clone()), enemy: battleState.enemy.map(u => u.clone()) }, rounds: [] };
     let isBattleOver = false; let finalWinner = null; let finalStep = null;
 
     while (!isBattleOver) {
@@ -780,12 +834,16 @@ export async function playBattle() {
 
             await playLogEntries(c, step.log, step, isFirstAttackRef);
 
+            c._replayData.rounds.push({ log: step.log.slice(), events: step.events ? step.events.slice() : [] });
+
             // 回合级事件（玄冥毒/拒马召唤/加攻等）在攻击组之后应用
             if (step.events && step.events.length > 0) {
                 c.store.dispatch({ type: 'APPLY_EVENTS', events: step.events });
             }
 
             await new Promise(r => setTimeout(r, window._fastForwardActive ? 1 : Math.max(100, c.speed / 2)));
+
+            ReplayManager.pushStep(step, battleState.round, step.ally, step.enemy);   // +++ 新增：记录每一步
 
             if (step.winner) {
                 finalWinner = step.winner;
@@ -863,6 +921,7 @@ export async function playBattle() {
         }
     }
 
+    ReplayManager.finishRecording(finalWinner || '平局');   // +++ 新增：结束录制并保存胜者
     if (!finalWinner) finalWinner = '平局';
     c.gs = 'GAMEOVER'; c.isPaused = false; c.waitingForNextRound = false; c.isBattleStarting = false;
     GlobalStore.set('fastForwardActive', false);
@@ -908,7 +967,28 @@ export async function playBattle() {
         if (correct) { earnPoints = window._battleHasZhang ? 3 : 2; }
         else { earnPoints = -1; }
         GlobalStore.set('voteScore', GlobalStore.get('voteScore') + earnPoints);
-        localStorage.setItem('ming_vote_score_5v5_test', GlobalStore.get('voteScore'));
+        const newScore = GlobalStore.get('voteScore');
+const oldScoreStr = localStorage.getItem('ming_vote_score_5v5_test');
+const oldScore = oldScoreStr ? parseInt(oldScoreStr, 10) : 0;
+
+// 如果旧分数为 0（第一次玩），或者新分数大于等于旧分数，正常写入（加分或不变）
+if (oldScore === 0 || newScore >= oldScore) {
+    localStorage.setItem('ming_vote_score_5v5_test', newScore);
+}
+// 如果新分数小于旧分数，但下降幅度不超过 50，视为正常扣分，允许写入
+else if (oldScore - newScore <= 50) {
+    localStorage.setItem('ming_vote_score_5v5_test', newScore);
+}
+// 否则就是剧烈下降（异常重置），阻止写入，并打印调试信息
+else {
+    console.error(
+        `🚨 阻止可疑积分覆盖：${oldScore} → ${newScore}，下降幅度过大，已忽略写入`,
+        '\n调用栈:',
+        new Error().stack
+    );
+    // 如果想在异常发生时中断执行以便调试，可以取消下面这行的注释：
+    // debugger;
+}
         let badge = document.getElementById('scoreBadge'), floatEl = document.createElement('span');
         floatEl.className = 'score-float'; floatEl.textContent = (earnPoints > 0 ? '+' : '') + earnPoints + '🏆';
         badge.appendChild(floatEl);

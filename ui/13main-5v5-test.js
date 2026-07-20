@@ -473,16 +473,13 @@ document.addEventListener('DOMContentLoaded', function() {
         showModal('选择复制类型', [
             {text:'📋 复制普通日志', value:'normal', cls:'buff'},
             {text:'🩺 复制体检日志', value:'health', cls:'buff'},
-            {text:'📋 复制全部日志', value:'all', cls:'buff'}
+            {text:'📋 复制全部日志', value:'all', cls:'buff'},
+            {text:'💾 导出回放', value:'replay', cls:'buff'}
         ], (choice)=>{
             let logDiv=document.getElementById('log');
             let lines=[];
             let seen=new Set();
             const allDivs = logDiv.querySelectorAll('div');
-            if (allDivs.length === 0) {
-                // 兜底：用 innerText 按行分割
-                lines = logDiv.innerText.split('\n').map(s => s.trim()).filter(Boolean);
-            }
             allDivs.forEach(div=>{
                 let t=div.textContent||'';
                 t=t.trim();
@@ -500,7 +497,24 @@ document.addEventListener('DOMContentLoaded', function() {
                 if(t.includes('获得Buff')){
                     // Buff 获取日志不做去重，始终保留
                 }
-                if(choice==='health'){
+                if (choice === 'replay') {
+                const c = window._getPlayerContext?.();
+                if (c && c._replayData) {
+                    const json = JSON.stringify(c._replayData, null, 2);
+                    const blob = new Blob([json], { type: 'application/json' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = 'ming_replay_' + Date.now() + '.json';
+                    a.click();
+                    URL.revokeObjectURL(url);
+                    showAlert('回放已导出');
+                } else {
+                    showAlert('没有回放数据，请先完成一场战斗');
+                }
+                return;
+            }
+            if(choice==='health'){
                     if(t.includes('[体检]')) lines.push(t);
                 } else if(choice==='normal'){
                     if(t.includes('获得Buff') || (!t.includes('[体检]') && !t.includes('[版本信息]') && !t.includes('[子模块]'))) lines.push(t);
@@ -606,6 +620,30 @@ document.addEventListener('DOMContentLoaded', function() {
         else { let targetUnit = currentUI.allyTeam.find(u => u.pos === pos); if (targetUnit && targetUnit.fixed) { cell.classList.add('cell-blocked'); setTimeout(() => cell.classList.remove('cell-blocked'), 500); setState.selectedAdjustPos(null); updateUI(); return; } swapAllyPositions(getState.selectedAdjustPos(), pos); setState.selectedAdjustPos(null); }
         updateUI(); if(window._refreshGlowCells)window._refreshGlowCells();
     });
+
+    // 导入回放按钮
+    const btnImportReplay = document.createElement('button');
+    btnImportReplay.textContent = '📥 导入回放';
+    btnImportReplay.style.cssText = 'padding:6px 12px;border-radius:4px;border:1px solid #aaa;background:#f0f0f0;font-size:11px;cursor:pointer;';
+    btnImportReplay.addEventListener('click', () => {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = '.json';
+        input.onchange = async (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            const text = await file.text();
+            try {
+                const data = JSON.parse(text);
+                const { playReplay } = await import('../player/10player-core.js');
+                playReplay(data);
+            } catch (err) {
+                showAlert('回放文件格式错误');
+            }
+        };
+        input.click();
+    });
+    document.querySelector('.log-bottom-bar').appendChild(btnImportReplay);
 
     try {
         updateButtons(); updateSpeedButtons(); updateDebugUI();

@@ -579,6 +579,7 @@ assets/    音效
 | core/47battle-attack.js | V5.1.0 |
 | core/48battle-round.js | V5.1.0 |
 | core/49battle-attack-steps.js | V5.1.0 |
+| core/50battle-shared.js | V5.1.0 |
 | player/08player-text.js | V5.1.0 |
 | player/09player-buff-ui.js | V5.1.0 |
 | player/10player-core.js | V5.1.0 |
