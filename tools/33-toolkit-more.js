@@ -1,4 +1,4 @@
-// tools/33-toolkit-more.js - 光明顶5v5 开发工具箱（更多工具）
+﻿// tools/33-toolkit-more.js - 光明顶5v5 开发工具箱（更多工具）
 // V5.2.0 | ~27945 bytes | 2026-07-05
 
 function escapeHtml(text) {
@@ -33,6 +33,7 @@ function escapeHtml(text) {
         '../tests/37health-rules/68-dodge-rebound.js',
         '../tests/38health-monitor.js', '../tests/45health-auto.js', '../tests/46health-utils.js',
         '../tools/32-toolkit.js', '../tools/33-toolkit-more.js',
+        '../tools/34-shop.html',
         '../tools/27auto-battle-utils.js'
     ];
 

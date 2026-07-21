@@ -54,6 +54,7 @@ function escapeHtml(text) {
         '../tests/38health-monitor.js', '../tests/45health-auto.js', '../tests/46health-utils.js',
         // tools（工具箱）
         '../tools/31-toolkit.html', '../tools/32-toolkit.js', '../tools/33-toolkit-more.js',
+        '../tools/34-shop.html',
         '../tools/27auto-battle-utils.js', '../tools/00build-5v5.cjs',
         // assets（音频）
         '../assets/sfx_arrow.mp3', '../assets/sfx_fly.mp3',
