@@ -529,29 +529,38 @@ export function spiderTransform(unit, log) {
     log.push({ type:'info', text:`<span class="gold">🕷️ 蛛变：${unit.name} 变换为<span class="gold">${newRole}</span>（已精通${unit._masteredRoles.length}/4）</span>` });
 }
 
-export function spiderFlyCheck(unit, allyTeam, log) {
-    if (!unit.isXiaoZhaoBrother || !unit.alive || unit._spiderFlying) return;
-    if (unit._flyMode === 'spider') return;
+export function spiderFlyCheck(unit, allyTeam, log, incomingDmg) {
+    if (!unit.isXiaoZhaoBrother || !unit.alive || unit._spiderFlying) return false;
+    if (unit._flyMode === 'spider') return false;
+
+    const hpBefore = unit.hp;
+    const hpAfter = incomingDmg !== undefined ? hpBefore - incomingDmg : hpBefore;
+    const maxHp = unit.maxHp;
 
     let reason = '';
-    if (!unit._spiderTriggeredHit && unit.dmgTaken > 0) {
-        reason = '首次受击';
-        unit._spiderTriggeredHit = true;
-    } else if (!unit._spiderTriggered70 && unit.hp / unit.maxHp < 0.7) {
-        reason = '血量低于70%';
+    let remaining = 0;
+
+    if (!unit._spiderTriggered70 && hpBefore > maxHp * 0.7 && hpAfter <= maxHp * 0.7) {
+        reason = '血量即将低于70%';
         unit._spiderTriggered70 = true;
-    } else if (!unit._spiderTriggered40 && unit.hp / unit.maxHp < 0.4) {
-        reason = '血量低于40%';
+    } else if (!unit._spiderTriggered40 && hpBefore > maxHp * 0.4 && hpAfter <= maxHp * 0.4) {
+        reason = '血量即将低于40%';
         unit._spiderTriggered40 = true;
+    } else if (!unit._spiderTriggeredDeath && hpAfter <= 0) {
+        reason = '即将阵亡';
+        unit._spiderTriggeredDeath = true;
     }
 
-    if (!reason) return;
+    if (!reason) return false;
+
+    remaining = 3 - (unit._spiderTriggered70 ? 1 : 0) - (unit._spiderTriggered40 ? 1 : 0) - (unit._spiderTriggeredDeath ? 1 : 0);
 
     unit._spiderFlying = true;
     unit._flyMode = 'spider';
     unit._spiderAttacked = unit._acted;
 
-    log.push({ type:'info', text:`<span class="gold">🕷️ 飞天：${unit.name} ${reason}，化为蜘蛛遁走！剩余次数：${3 - (unit._spiderTriggeredHit ? 1 : 0) - (unit._spiderTriggered70 ? 1 : 0) - (unit._spiderTriggered40 ? 1 : 0)}</span>` });
+    log.push({ type:'info', text:`<span class="gold">🕷️ 飞天：${unit.name} ${reason}，免疫本次攻击的 ${incomingDmg || 0} 点伤害，化为蜘蛛遁走！剩余次数：${remaining}</span>` });
+    return true;
 }
 
 export function spiderReturn(unit, allyTeam, enemySide, log) {

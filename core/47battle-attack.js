@@ -313,6 +313,16 @@ export function processUnitAttack(unit, allySide, enemySide, log, A, B, state, d
     // 步骤3：伤害计算
     let dmgCalc = calcFinalDamage(unit, target, attackerBuffStats, defenderBuffStats, allySide, enemySide, log);
 
+    // 🕷️ 小昭·妹 飞天免疫伤害检查
+    if (A) {
+        const spiderImmune = A.filter(u => u.isXiaoZhaoBrother && u.alive && !u._spiderFlying);
+        for (const s of spiderImmune) {
+            if (spiderFlyCheck(s, A, log, dmgCalc.dmg)) {
+                dmgCalc.dmg = 0;
+            }
+        }
+    }
+
     // 步骤4：应用伤害结果
     let dmgResult = applyAttackResult(unit, target, dmgCalc, attackerBuffStats, defenderBuffStats, allySide, enemySide, log, A, B, state, doubleStrikeUnitUid);
 
@@ -327,11 +337,6 @@ export function processUnitAttack(unit, allySide, enemySide, log, A, B, state, d
     applyXinHunDeduction(unit, allySide, log);
     applyXingFenPenalty(unit, log);
     applyExtraAttacks(unit, target, dmgCalc, allySide, enemySide, log, A, B, state, doubleStrikeUnitUid);
-
-    // 🕷️ 小昭·妹 飞天检查
-    if (A) {
-        A.forEach(u => { if (u.isXiaoZhaoBrother && u.alive) spiderFlyCheck(u, A, log); });
-    }
 
     return true;
 }
