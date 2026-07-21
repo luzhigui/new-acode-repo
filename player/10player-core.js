@@ -404,33 +404,38 @@ async function handleInfo(c, entry) {
         return;
     }
 
-    // 🦋🕷️ 蝶蛛特效触发
+    // 🦋🕷️ 蝶蛛特效触发（兼容单文件构建：优先 window 全局，回退动态 import）
+    async function getButterflyFx(name) {
+        if (window[name]) return window[name];
+        const mod = await import('../fx/21fx-butterfly-spider.js');
+        return mod[name];
+    }
     if (entry.text) {
         if (entry.text.includes('🦋 蝶变') && entry.text.includes('化为蝴蝶附身于')) {
             const sister = c.UI.allyTeam?.find(u => u.isXiaoZhaoSister && u.alive);
             const hostName = entry.text.match(/附身于 (.+)！/)?.[1];
             const host = hostName ? c.UI.allyTeam?.find(u => u.name === hostName) : null;
             if (sister && host) {
-                const { showButterflyFlyOut } = await import('../fx/21fx-butterfly-spider.js');
+                const showButterflyFlyOut = await getButterflyFx('showButterflyFlyOut');
                 showButterflyFlyOut(sister, host);
             }
         } else if (entry.text.includes('🦋 蝶变') && entry.text.includes('飞回')) {
             const sister = c.UI.allyTeam?.find(u => u.isXiaoZhaoSister && u.alive);
             if (sister) {
-                const { showButterflyFlyBack } = await import('../fx/21fx-butterfly-spider.js');
+                const showButterflyFlyBack = await getButterflyFx('showButterflyFlyBack');
                 const host = c.UI.allyTeam?.find(u => u.uid === sister._butterflyHost);
                 if (host) showButterflyFlyBack(host, sister);
             }
         } else if (entry.text.includes('🕷️ 飞天')) {
             const brother = c.UI.allyTeam?.find(u => u.isXiaoZhaoBrother && u.alive);
             if (brother) {
-                const { showSpiderAscend } = await import('../fx/21fx-butterfly-spider.js');
+                const showSpiderAscend = await getButterflyFx('showSpiderAscend');
                 showSpiderAscend(brother);
             }
         } else if (entry.text.includes('🕷️ 蛛落')) {
             const brother = c.UI.allyTeam?.find(u => u.isXiaoZhaoBrother && u.alive);
             if (brother) {
-                const { showSpiderDescend } = await import('../fx/21fx-butterfly-spider.js');
+                const showSpiderDescend = await getButterflyFx('showSpiderDescend');
                 showSpiderDescend(brother);
             }
         }
