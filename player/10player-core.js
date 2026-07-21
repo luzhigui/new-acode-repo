@@ -137,6 +137,8 @@ function battleReducer(state, action) {
                         if (p._resting !== undefined) next[idx]._resting = p._resting;
                         if (p._blocked !== undefined) next[idx]._blocked = p._blocked;
                         if (p._phantomTarget !== undefined) next[idx]._phantomTarget = p._phantomTarget;
+                        if (p._flyMode !== undefined) next[idx]._flyMode = p._flyMode;
+                        if (p._butterflyHost !== undefined) next[idx]._butterflyHost = p._butterflyHost;
                         if (p._masteredRoles !== undefined) next[idx]._masteredRoles = p._masteredRoles;
                         if (ev.eventType === 'zhang-switch') {
                             if (p.rangedForm !== undefined) next[idx].rangedForm = p.rangedForm;

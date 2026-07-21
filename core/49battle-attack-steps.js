@@ -15,6 +15,7 @@ import {
     canXingFenTrigger, consumeXingFen,
     getXiaoZhaoHexEnhance
 } from '../modules/23elite-skills.js';
+import { applyFortifyRebound_Normal, applyFortifyRebound_Sister } from './50buff-effects.js';
 const C = CONFIG, DT = DEF_TAUNT, HT = HP_TAUNT;
 
 function emitEvent(unit, eventType, payload) {
@@ -300,30 +301,14 @@ export function applyAttackResult(unit, target, dmgCalc, attackerBuffStats, defe
     let reboundEntry = null;
     let allyBuffs_fortify = (target.camp === 'ally' ? A._activeBuffs : B._activeBuffs) || [];
     if (hasBuff(allyBuffs_fortify, 'fortify') && target.role === '防战' && dmg > 0) {
-        let reboundDmg = Math.floor((atkAct - Math.floor(calcDamage(atkAct, defAct))) / 2);
-        if (reboundDmg > 0) {
-            let attHpBefore = Math.floor(unit.hp);
-            unit.hp -= reboundDmg; target.reboundDone += reboundDmg;
-            unit.dmgTaken += reboundDmg;
-            if (unit.hp <= 0) {
-                unit.alive = false;
-                unit._isDead = true;
-                if (!unit._deathTime) unit._deathTime = Date.now();
-            }
-            emitEvent(unit, 'hp-change', { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: unit.atk, def: unit.def, _isDead: unit._isDead || false });
-            const xiaoFEnhance = getXiaoZhaoHexEnhance(A, A._activeBuffs, 'fortify');
-            if (xiaoFEnhance && xiaoFEnhance.healOnRebound) {
-                const healAmount = reboundDmg;
-                target.hp = Math.min(target.maxHp, target.hp + healAmount);
-                target.healDone += healAmount;
-                emitEvent(target, 'hp-change', { hp: target.hp, maxHp: target.maxHp, alive: target.alive, atk: target.atk, def: target.def });
-            }
-            reboundEntry = {
-                type: 'buff-rebound-fortify',
-                text: `<span class="gold">🛡️ 严阵以待反弹${reboundDmg}给${unit.name}，${unit.name}血量 ${attHpBefore} → ${Math.floor(unit.hp)}</span>`,
-                buffType: 'fortify_rebound', reboundDmg: reboundDmg, attackerUid: unit.uid, defenderUid: target.uid, uidD: unit.uid, isDead: !unit.alive
-            };
+        const hasSister = A && A.some(u => u.isXiaoZhaoSister && u.alive);
+        let entry;
+        if (hasSister) {
+            entry = applyFortifyRebound_Sister(unit, target, atkAct, defAct, A, B, log);
+        } else {
+            entry = applyFortifyRebound_Normal(unit, target, atkAct, defAct, A, B, log);
         }
+        if (entry) reboundEntry = entry;
     }
 
     return { dmg, dead, horseReboundEntry, reboundEntry, bonusEntries, hpBefore, defReduction, waveTaunt, waveUnit, rawFormula, thunderBonus, hornBonus, trueDmg, atkAct, defAct, hpBonus };

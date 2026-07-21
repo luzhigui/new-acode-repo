@@ -233,7 +233,11 @@ export function renderGrid(id, camp) {
                 div.className = 'cell occupied';
                 div.dataset.pos = pos;
                 div.dataset.uid = unit.uid;
-                if (unit._flyMode === 'ghost') {
+                if (unit._flyMode === 'fly') {
+                    div.style.background = 'transparent';
+                    div.style.border = '2px solid transparent';
+                    div.style.boxShadow = 'none';
+                } else if (unit._flyMode === 'ghost') {
                     let roleIcon = unit.role==='战士'?'⚔️':(unit.role==='防战'?'🛡️':(unit.role==='远程'?'🏹':'🦅'));
                     div.innerHTML = `<span class="cell-icon">${roleIcon}</span><div class="cell-info"><span class="cell-name">${unit.name}</span><span class="cell-stats">攻${Math.floor(unit.atk)} 防${Math.floor(unit.def)} 血${Math.floor(unit.hp)}</span></div>`;
                     div.style.opacity = '0.5';
@@ -241,21 +245,29 @@ export function renderGrid(id, camp) {
                     div.style.border = '2px solid rgba(100,150,255,0.6)';
                     div.style.boxShadow = '0 0 12px rgba(100,150,255,0.5)';
                 } else if (unit._flyMode === 'butterfly') {
-                    const aliveCount = (allyTeam || []).filter(a => a.alive && !a.isHorse && a.uid !== unit.uid).length;
-                    const butterflyDef = 5 * aliveCount;
-                    const butterflyHp = 10 * aliveCount;
-                    div.innerHTML = `<span class="cell-icon">🦋</span><div class="cell-info"><span class="cell-name">蝴蝶</span><span class="cell-stats">攻0 防${butterflyDef} 血${butterflyHp}</span></div>`;
-                    div.style.opacity = '0.8';
-                    div.style.background = 'rgba(255, 192, 203, 0.25)';
-                    div.style.border = '2px solid rgba(255, 105, 180, 0.6)';
+                    const crashMode = window.GlobalStore?.get('crashMode') || 'ghost';
+                    if (crashMode === 'fly') {
+                        div.innerHTML = '<span class="cell-icon">🦋</span>';
+                        div.style.background = 'transparent';
+                        div.style.border = '2px solid transparent';
+                    } else {
+                        div.innerHTML = '<span class="cell-icon">🦋</span><div class="cell-info"><span class="cell-name">蝴蝶</span></div>';
+                        div.style.opacity = '0.4';
+                        div.style.background = 'rgba(255, 192, 203, 0.15)';
+                        div.style.border = '2px solid rgba(255, 105, 180, 0.4)';
+                    }
                 } else if (unit._flyMode === 'spider') {
-                    const mastery = (unit._masteredRoles || []).length;
-                    const spiderDef = 10 * mastery;
-                    const spiderHp = 30 * mastery;
-                    div.innerHTML = `<span class="cell-icon">🕷️</span><div class="cell-info"><span class="cell-name">小蜘蛛</span><span class="cell-stats">攻0 防${spiderDef} 血${spiderHp}</span></div>`;
-                    div.style.opacity = '0.8';
-                    div.style.background = 'rgba(128, 0, 128, 0.2)';
-                    div.style.border = '2px solid rgba(128, 0, 128, 0.6)';
+                    const crashMode = window.GlobalStore?.get('crashMode') || 'ghost';
+                    if (crashMode === 'fly') {
+                        div.style.background = 'transparent';
+                        div.style.border = '2px solid transparent';
+                        div.style.boxShadow = 'none';
+                    } else {
+                        div.innerHTML = '<span class="cell-icon">🕷️</span>';
+                        div.style.opacity = '0.4';
+                        div.style.background = 'rgba(128, 0, 128, 0.1)';
+                        div.style.border = '2px solid rgba(128, 0, 128, 0.4)';
+                    }
                 }
                 grid.appendChild(div);
                 continue;
@@ -380,6 +392,11 @@ export function renderGrid(id, camp) {
         let defStyle = (defBonusVal > 0 || (latestUnit._fortifyStacks || 0) > 0) ? 'color:#daa520;font-weight:bold;' : '';
         let hpStyle = hpBonusVal > 0 ? 'color:#daa520;font-weight:bold;' : '';
         let eliteSkillIcon = (unit.name === '周芷若' && unit._hasKuaiLe) ? ' 💖' : (unit.name === '宋青书' && unit._hasXingFen) ? ' 💗' : (unit.isXiaoZhaoSister ? ' 🦋' : (unit.isXiaoZhaoBrother ? ' 🕷️' : (unit.isXiaoZhao ? ' 🦋' : '')));
+        // 如果这个单位是小昭·姊的附身宿主，名字后面加蝴蝶
+        if (!eliteSkillIcon && unit._phantomTarget) {
+            const sister = allyTeam.find(a => a.isXiaoZhaoSister && a.alive && a.uid === unit._phantomTarget);
+            if (sister) eliteSkillIcon = ' 🦋';
+        }
         if (unit.name === '成昆' && unit._phantomTarget) eliteSkillIcon += ' 🎭';
         if (unit._xuanmingPoison && unit._xuanmingPoison.remaining > 0) eliteSkillIcon += ' ❄️';
         div.innerHTML = `<span class="cell-icon">${isBlocked && unit.alive && isResting && !(unit.isZhang && unit.rangedForm) && !isDead ? '😴' : roleIcon}</span><div class="cell-info"><span class="cell-name ${displayIsZhang?'gold':''}">${displayName}${eliteSkillIcon}${buffIcons ? ' ' + buffIcons : ''}</span><span class="cell-stats">攻<span style="${atkStyle}">${atkDisplayHtml}</span> 防<span style="${defStyle}">${defDisplayHtml}</span> <span class="${hpColorClass}" style="${hpStyle}">血${hpDisplayHtml}</span></span></div><div class="hp-bar-wrap"><div class="hp-bar-inner" id="hpbar-${unit.uid}" style="height:${hpPct}%;background:${barColor};transition:none;"></div></div>`;

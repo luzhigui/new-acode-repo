@@ -1,7 +1,18 @@
 // core/04buff-system.js - 光明顶5v5 Buff系统
 // V5.2.0 | ~15233 bytes | 2026-07-05
 export const VER = 'core/04buff-system.js V5.2.0';
-
+import {
+    applyBloodthirst_Normal, applyBloodthirst_Sister, applyBloodthirst_Brother,
+    applyHotBlood_Normal, applyHotBlood_Sister, applyHotBlood_Brother,
+    applyWindAssault_Normal, applyWindAssault_Sister, applyWindAssault_Brother,
+    applyMeteorShower_Normal, applyMeteorShower_Sister, applyMeteorShower_Brother,
+    applyFortifyRebound_Normal, applyFortifyRebound_Sister, applyFortifyRebound_Brother,
+    applyMindControl_Normal, applyMindControl_Sister,
+    applyFortifyDef_Normal, applyFortifyDef_Sister, applyFortifyDef_Brother,
+    applyCloudBodyDodge_Normal, applyCloudBodyDodge_Sister, applyCloudBodyDodge_Brother,
+    applyHolyFlame_Normal, applyHolyFlame_Sister, applyHolyFlame_Brother,
+    calcCarryBonus_Normal, calcCarryBonus_Sister
+} from './50buff-effects.js';
 import { CONFIG } from './01config-5v5-test.js';
 import { rand, hasBuff, getUnitRow, getUnitCol, getAdjacentPositions } from './03battle-utils.js';
 import { checkKuLian, applyXingFenGrant, applyXinHunDeduction, tickKuaiLeHeal, canXingFenTrigger, consumeXingFen, applyXingFenPenalty, applyXiaoZhaoDerived, computeButterflyMastery, isXiaoZhaoPermanentActive, getXiaoZhaoHexEnhance } from '../modules/23elite-skills.js';
@@ -15,59 +26,47 @@ export function computeBuffStats(unit, activeBuffs, allyTeam) {
 
     // carry 加成是绝对值，单独返回，不混入 atkBonus/defBonus（那两个字段是比率，供 calcAttackDamage 做乘法用）
     let carryAtkAbs = 0, carryDefAbs = 0, carryHpAbs = 0;
-    const hasCarry = hasBuff(activeBuffs, 'carry') || isXiaoZhaoPermanentActive(unit, activeBuffs, 'carry');
-    const carryPosOk = hasCarry && (
-        unit.pos === 5 ||
-        (unit.pos >= 4 && unit.pos <= 6 && allyTeam && allyTeam.some(u => u.isXiaoZhao && u.alive))
-    );
-    if (carryPosOk && unit.alive) {
-        if (allyTeam) {
-            let allAllies = allyTeam.filter(u => u.uid !== unit.uid && !u.isHorse);
-            allAllies.forEach(a => {
-                let mult = a.alive ? 1 : (C.BUFFS.carry.deathMultiplier || 3);
-                carryAtkAbs += Math.floor(a.atk * (C.BUFFS.carry.atkBonus || 0.08) * mult);
-                carryDefAbs += Math.floor(a.def * (C.BUFFS.carry.defBonus || 0.08) * mult);
-                if (C.BUFFS.carry.hpBonus) carryHpAbs += Math.floor(a._baseMaxHp ? a._baseMaxHp * C.BUFFS.carry.hpBonus * mult : 0);
-            });
+    const hasCarry = hasBuff(activeBuffs, 'carry');
+    if (hasCarry && unit.alive && allyTeam) {
+        const hasSister = allyTeam.some(u => u.isXiaoZhaoSister && u.alive);
+        if (hasSister) {
+            const bonus = calcCarryBonus_Sister(unit, allyTeam);
+            carryAtkAbs = bonus.atkAbs; carryDefAbs = bonus.defAbs; carryHpAbs = bonus.hpAbs;
+        } else {
+            const bonus = calcCarryBonus_Normal(unit, allyTeam);
+            carryAtkAbs = bonus.atkAbs; carryDefAbs = bonus.defAbs; carryHpAbs = bonus.hpAbs;
         }
     }
-    if (hasBuff(activeBuffs, 'fortify') && unit.role === '防战' && unit.camp === 'ally') { defBonus += C.BUFFS.fortify.defBonus; }
-    if (hasBuff(activeBuffs, 'cloudBody') && unit.camp === 'ally') { dodgeBonus = C.BUFFS.cloudBody.dodgeBonus; }
-    // 小昭永久海克斯：根据当前职业匹配职业限定Buff（仅团队海克斯消失后激活）
-    if (unit.isXiaoZhao && unit._permanentBuffs) {
-        const roleMap = { fortify: '防战', bloodthirst: '战士', meteorShower: '远程', windAssault: '飞行' };
-        unit._permanentBuffs.forEach(b => {
-            if (roleMap[b.key] && unit.role !== roleMap[b.key]) return; // 职业不匹配，跳过
-            if (activeBuffs && hasBuff(activeBuffs, b.key)) return; // 团队还有，不用小昭的
-            if (b.key === 'fortify' && unit.role === '防战') defBonus += 0.5;
-            if (b.key === 'cloudBody' && !hasBuff(activeBuffs, 'cloudBody')) dodgeBonus = 0.25;
-        });
+    // ---- 严阵以待防御 ----
+    if (hasBuff(activeBuffs, 'fortify') && unit.role === '防战' && unit.camp === 'ally') {
+        if (allyTeam && allyTeam.some(u => u.isXiaoZhaoSister && u.alive)) applyFortifyDef_Sister(unit, { defBonus });
+        else applyFortifyDef_Normal(unit, { defBonus });
+    } else if (unit.isXiaoZhaoBrother && isXiaoZhaoPermanentActive(unit, activeBuffs, 'fortify') && unit.role === '防战') {
+        applyFortifyDef_Brother(unit, { defBonus });
     }
 
-    // 小昭变身精通加成：永久生效，独立于 carry，回合开始时直接加到属性
+    // ---- 流云身法闪避 ----
+    if (hasBuff(activeBuffs, 'cloudBody') && unit.camp === 'ally') {
+        if (allyTeam && allyTeam.some(u => u.isXiaoZhaoSister && u.alive)) applyCloudBodyDodge_Sister(unit, { dodgeBonus });
+        else applyCloudBodyDodge_Normal(unit, { dodgeBonus });
+    } else if (unit.isXiaoZhaoBrother && isXiaoZhaoPermanentActive(unit, activeBuffs, 'cloudBody')) {
+        applyCloudBodyDodge_Brother(unit, { dodgeBonus });
+    }
+
+    // ---- 小昭变身精通加成 ----
     let masteryAtkAbs = 0, masteryDefAbs = 0, masteryHpAbs = 0;
-    if (unit.isXiaoZhao) {
+    if (unit.isXiaoZhaoBrother) {
         const mastery = computeButterflyMastery(unit);
-        masteryAtkAbs = mastery.atk;
-        masteryDefAbs = mastery.def;
-        masteryHpAbs = mastery.hp;
+        masteryAtkAbs = mastery.atk; masteryDefAbs = mastery.def; masteryHpAbs = mastery.hp;
     }
 
-    // 圣火令加成
-    if (hasBuff(activeBuffs, 'holyFlame')) {
-        const holyFlameBuff = activeBuffs.find(b => b.key === 'holyFlame');
-        if (holyFlameBuff) {
-            const enhance = getXiaoZhaoHexEnhance(allyTeam, activeBuffs, 'holyFlame');
-            const cols = holyFlameBuff.cols || (holyFlameBuff.col != null ? [holyFlameBuff.col] : []);
-            const rows = holyFlameBuff.rows || (holyFlameBuff.row != null ? [holyFlameBuff.row] : []);
-            if (unit.camp === 'ally') {
-                if (cols.includes(getUnitCol(unit.pos))) atkBonus += C.BUFFS.holyFlame.atkBonus;
-                if (rows.includes(getUnitRow(unit.pos))) defBonus += C.BUFFS.holyFlame.defBonus;
-            }
-        }
-    } else if (unit.isXiaoZhao && isXiaoZhaoPermanentActive(unit, activeBuffs, 'holyFlame')) {
-        atkBonus += C.BUFFS.holyFlame.atkBonus;
-        defBonus += C.BUFFS.holyFlame.defBonus;
+    // ---- 圣火令 ----
+    const holyFlameTeam = hasBuff(activeBuffs, 'holyFlame');
+    if (holyFlameTeam) {
+        if (allyTeam && allyTeam.some(u => u.isXiaoZhaoSister && u.alive)) applyHolyFlame_Sister(unit, allyTeam, activeBuffs, { atkBonus, defBonus });
+        else applyHolyFlame_Normal(unit, allyTeam, activeBuffs, { atkBonus, defBonus });
+    } else if (unit.isXiaoZhaoBrother && isXiaoZhaoPermanentActive(unit, activeBuffs, 'holyFlame')) {
+        applyHolyFlame_Brother(unit, allyTeam, activeBuffs, { atkBonus, defBonus });
     }
 
     return { atkBonus, defBonus, dodgeBonus, hpBonus, carryAtkAbs, carryDefAbs, carryHpAbs, masteryAtkAbs, masteryDefAbs, masteryHpAbs };
@@ -75,237 +74,51 @@ export function computeBuffStats(unit, activeBuffs, allyTeam) {
 
 export function applyBuffEffectsBeforeAttack(unit, target, allyTeam, enemyTeam, log) {
     let buffs = allyTeam._activeBuffs || [];
-    
-    // 小昭永久惑人心智：效果已改为幻影伪装，在 processUnitAttack 中处理
-    
+    const hasSister = allyTeam.some(u => u.isXiaoZhaoSister && u.alive);
+
     if (hasBuff(buffs, 'mindControl')) {
-        let frontUnit = allyTeam.filter(u => u.alive && !u.isHorse).sort((a,b) => a.pos - b.pos)[0];
-        if (frontUnit && frontUnit.uid === unit.uid) {
-            const mindSwapChance = (allyTeam.some(u => u.isXiaoZhao && u.alive) && !hasBuff(buffs, 'mindControl_xiaoZhao')) ? 95 : 80;
-            if (rand(1,100) <= mindSwapChance) {
-                let enemies = enemyTeam.filter(u => u.alive);
-                if (enemies.length >= 2) {
-                    let a = enemies[rand(0, enemies.length-1)];
-                    let b; do { b = enemies[rand(0, enemies.length-1)]; } while (b.uid === a.uid);
-                    let posA = a.pos, posB = b.pos;
-                    let tempPos = a.pos; a.pos = b.pos; b.pos = tempPos;
-                    log.push({type:'buff-swap', uidA: a.uid, uidB: b.uid, oldPosA: posA, oldPosB: posB, buffType:'swap', text:`<span class="gold">🌀 惑人心智：${posA}号位${a.name}(${a.role})与${posB}号位${b.name}(${b.role})互换位置！</span>`});
-                }
-            } else {
-                log.push({type:'info', text:`<span class="gray">🌀 惑人心智（敌方换位）触发失败</span>`});
-            }
-            if (rand(1,100) <= (allyTeam.some(u => u.isXiaoZhao && u.alive) && !hasBuff(buffs, 'mindControl_xiaoZhao') ? 50 : 40)) {
-                let allies = allyTeam.filter(u => u.alive);
-                if (allies.length >= 2) {
-                    let a = allies[rand(0, allies.length-1)];
-                    let b; do { b = allies[rand(0, allies.length-1)]; } while (b.uid === a.uid);
-                    let posA = a.pos, posB = b.pos;
-                    let tempPos = a.pos; a.pos = b.pos; b.pos = tempPos;
-                    log.push({type:'buff-swap', uidA: a.uid, uidB: b.uid, oldPosA: posA, oldPosB: posB, buffType:'swap', text:`<span class="gold">🌀 惑人心智：己方${posA}号位${a.name}(${a.role})与${posB}号位${b.name}(${b.role})互换位置！</span>`});
-                }
-            } else {
-                log.push({type:'info', text:`<span class="gray">🌀 惑人心智（己方换位）触发失败</span>`});
-            }
-        }
+        if (hasSister) applyMindControl_Sister(unit, allyTeam, enemyTeam, log);
+        else applyMindControl_Normal(unit, allyTeam, enemyTeam, log);
     }
 }
 
 export function applyBuffEffectsAfterAttack(unit, target, dmg, allySide, enemySide, log) {
-    // ★ 修复：根据攻击者阵营获取正确的 Buff 池
     let unitBuffs = (unit.camp === 'ally' ? allySide._activeBuffs : enemySide._activeBuffs) || [];
-    
-    // 嗜血狂刀：团队优先，团队过期后小昭接管
-    if (hasBuff(unitBuffs, 'bloodthirst') && unit.role === '战士') {
-        let leech = Math.floor(dmg * C.BUFFS.bloodthirst.leechRatio);
-        let hpBefore = unit.hp;
-        unit.hp = Math.min(unit.maxHp, unit.hp + leech);
-        unit.healDone += leech;
-        if (typeof window._emitEvent === 'function') {
-            window._emitEvent(unit, 'hp-change', { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: unit.atk, def: unit.def });
-        }
-        log.push({type:'buff-leech', text:`<span class="green">🗡️ ${unit.name} 的嗜血狂刀吸血+${leech}，血量 ${hpBefore} → ${unit.hp}</span>`, isHealEntry:true, buffType:'leech', healAmount:leech, healUnitUid:unit.uid});
-    } else if (unit.isXiaoZhao && unit.role === '战士' && isXiaoZhaoPermanentActive(unit, unitBuffs, 'bloodthirst')) {
-        let leech = Math.floor(dmg * 0.8);
-        if (leech > 0) {
-            unit.hp = Math.min(unit.maxHp, unit.hp + leech);
-            unit.healDone += leech;
-            log.push({type:'buff-leech', text:`<span class="green">🦋 蝶血：小昭热血奋战吸血+${leech}</span>`, isHealEntry:true, healAmount:leech, healUnitUid:unit.uid});
-        }
+    const hasSister = allySide.some(u => u.isXiaoZhaoSister && u.alive);
+    const isBrother = unit.isXiaoZhaoBrother;
+
+    // ---- 嗜血狂刀 ----
+    if (hasBuff(unitBuffs, 'bloodthirst')) {
+        if (hasSister) applyBloodthirst_Sister(unit, target, dmg, allySide, enemySide, log);
+        else applyBloodthirst_Normal(unit, target, dmg, allySide, enemySide, log);
+    } else if (isBrother && isXiaoZhaoPermanentActive(unit, unitBuffs, 'bloodthirst')) {
+        applyBloodthirst_Brother(unit, target, dmg, allySide, enemySide, log);
     }
-    
-    // 热血奋战：团队优先，团队过期后小昭接管
+
+    // ---- 热血奋战 ----
     if (hasBuff(unitBuffs, 'hotBlood')) {
-        if (!unit._hotBloodCount) unit._hotBloodCount = 0;
-        unit._hotBloodCount++;
-        const xiaoHHEnhance = getXiaoZhaoHexEnhance(allySide, unitBuffs, 'hotBlood');
-        const leechPct = xiaoHHEnhance ? xiaoHHEnhance.leechPct : C.BUFFS.hotBlood.leechRatio;
-        const critInterval = xiaoHHEnhance ? xiaoHHEnhance.critInterval : C.BUFFS.hotBlood.critInterval;
-        const critRatio = xiaoHHEnhance ? 0.40 : C.BUFFS.hotBlood.critRatio;
-        if (unit.alive && unit.hp < unit.maxHp) {
-            let ratio = (unit._hotBloodCount % critInterval === 0) ? critRatio : leechPct;
-            let leech = Math.min(Math.floor((unit.maxHp - unit.hp) * ratio), unit.maxHp - unit.hp);
-            let hpBefore = unit.hp;
-            unit.hp = Math.min(unit.maxHp, unit.hp + leech);
-            unit.healDone += leech;
-            if (typeof window._emitEvent === 'function') {
-                window._emitEvent(unit, 'hp-change', { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: unit.atk, def: unit.def });
-            }
-            const baseLeechPct = xiaoHHEnhance ? xiaoHHEnhance.leechPct : C.BUFFS.hotBlood.leechRatio;
-            let tag = (ratio > baseLeechPct) ? '❤️‍🔥 热血奋战(翻倍)' : '❤️ 热血奋战';
-            log.push({type:'buff-leech', text:`<span class="green">${tag}：${unit.name} 回复+${leech}，血量 ${hpBefore} → ${unit.hp}</span>`, isHealEntry:true, buffType:'hotBlood', healAmount:leech, healUnitUid:unit.uid});
-        }
-    } else if (unit.isXiaoZhao && isXiaoZhaoPermanentActive(unit, unitBuffs, 'hotBlood')) {
-        if (!unit._hotBloodCount) unit._hotBloodCount = 0;
-        unit._hotBloodCount++;
-        if (unit.alive && unit.hp < unit.maxHp) {
-            let ratio = (unit._hotBloodCount % 2 === 0) ? 0.40 : 0.20;
-            let leech = Math.min(Math.floor((unit.maxHp - unit.hp) * ratio), unit.maxHp - unit.hp);
-            unit.hp = Math.min(unit.maxHp, unit.hp + leech);
-            unit.healDone += leech;
-            const basePermLeechPct = 0.20;
-            let permTag = (ratio > basePermLeechPct) ? '🦋 热血(翻倍)' : '🦋 热血';
-            log.push({type:'buff-leech', text:`<span class="green">${permTag}：小昭回复+${leech}</span>`, isHealEntry:true, healAmount:leech, healUnitUid:unit.uid});
-        }
+        if (hasSister) applyHotBlood_Sister(unit, target, dmg, allySide, enemySide, log);
+        else applyHotBlood_Normal(unit, target, dmg, allySide, enemySide, log);
+    } else if (isBrother && isXiaoZhaoPermanentActive(unit, unitBuffs, 'hotBlood')) {
+        applyHotBlood_Brother(unit, target, dmg, allySide, enemySide, log);
     }
-    
-    // 乘风突袭：团队优先，团队过期后小昭接管
+
+    // ---- 乘风突袭 ----
     if (hasBuff(unitBuffs, 'windAssault') && unit.role === '飞行' && target.alive) {
-        const xiaoWEnhance = getXiaoZhaoHexEnhance(allySide, unitBuffs, 'windAssault');
-        if (rand(1,100) <= (xiaoWEnhance ? xiaoWEnhance.hitProb * 100 : 80)) {
-            let row = getUnitRow(target.pos);
-            let rowTargets = enemySide.filter(u => u.alive && getUnitRow(u.pos) === row && u.uid !== target.uid);
-            if (rowTargets.length > 0) {
-                let hitDmg = Math.floor(dmg);
-                let details = rowTargets.map(rt => {
-                    let hpBefore = Math.floor(rt.hp);
-                    rt.hp -= hitDmg; unit.dmgDealt += hitDmg; rt.dmgTaken += hitDmg;
-                    if (rt.hp <= 0) { rt.hp = 0; rt.alive = false; }
-                    if (typeof window._emitEvent === 'function') {
-                        window._emitEvent(rt, 'hp-change', { hp: rt.hp, maxHp: rt.maxHp, alive: rt.alive, atk: rt.atk, def: rt.def });
-                    }
-                    return `${rt.name}：${hpBefore}→${Math.floor(rt.hp)}`;
-                }).join('，');
-                log.push({type:'buff-splash', text:`<span class="orange">🦅 乘风突袭波及${details}，各 -${hitDmg}</span>`, buffType:'wind_assault', attackerUid: unit.uid});
-            }
-        } else {
-            log.push({type:'info', text:`<span class="gray">🦅 乘风突袭波及触发失败</span>`});
-        }
-        if (rand(1,100) <= (xiaoWEnhance ? xiaoWEnhance.pushProb * 100 : 60)) {
-            let behindPos = target.pos + 3;
-            if (behindPos <= 9) {
-                let oldPos = target.pos;
-                let targetTeam = target.camp === 'ally' ? (unit.camp === 'ally' ? allySide : enemySide) : (unit.camp === 'ally' ? enemySide : allySide);
-                let behindUnit = targetTeam.find(u => u.pos === behindPos && u.alive);
-                if (behindUnit) {
-                    let behindOldPos = behindUnit.pos;
-                    let tempPos = target.pos; target.pos = behindPos; behindUnit.pos = tempPos;
-                    log.push({type:'buff-push', pushTargetUid: target.uid, behindUid: behindUnit.uid, oldPos: oldPos, newPos: behindPos, behindOldPos: behindOldPos, buffType:'push', text:`<span class="gold" style="font-size:1.1em;">🦅 乘风突袭击退！${target.name}从${oldPos}号位击退至${behindPos}号位，${behindUnit.name}被迫从${behindOldPos}号位移至${oldPos}号位</span>`});
-                } else {
-                    target.pos = behindPos;
-                    log.push({type:'buff-push', pushTargetUid: target.uid, behindUid: null, oldPos: oldPos, newPos: behindPos, buffType:'push', text:`<span class="gold" style="font-size:1.1em;">🦅 乘风突袭击退！${target.name}从${oldPos}号位被击退至${behindPos}号位</span>`});
-                }
-            }
-        } else {
-            log.push({type:'info', text:`<span class="gray">🦅 乘风突袭击退触发失败</span>`});
-        }
-    } else if (unit.isXiaoZhao && unit.role === '飞行' && isXiaoZhaoPermanentActive(unit, unitBuffs, 'windAssault') && target.alive) {
-        if (rand(1,100) <= 80) {
-            let row = getUnitRow(target.pos);
-            let rowTargets = enemySide.filter(u => u.alive && getUnitRow(u.pos) === row && u.uid !== target.uid);
-            if (rowTargets.length > 0) {
-                let hitDmg = Math.floor(dmg);
-                let details = rowTargets.map(rt => {
-                    let hpBefore = Math.floor(rt.hp);
-                    rt.hp -= hitDmg; unit.dmgDealt += hitDmg; rt.dmgTaken += hitDmg;
-                    if (rt.hp <= 0) { rt.hp = 0; rt.alive = false; }
-                    if (typeof window._emitEvent === 'function') {
-                        window._emitEvent(rt, 'hp-change', { hp: rt.hp, maxHp: rt.maxHp, alive: rt.alive, atk: rt.atk, def: rt.def });
-                    }
-                    return `${rt.name}：${hpBefore}→${Math.floor(rt.hp)}`;
-                }).join('，');
-                log.push({type:'buff-splash', text:`<span class="orange">🦋 蝶翼：小昭乘风突袭波及${details}，各 -${hitDmg}</span>`, buffType:'wind_assault', attackerUid: unit.uid});
-            }
-        }
+        if (hasSister) applyWindAssault_Sister(unit, target, dmg, allySide, enemySide, log);
+        else applyWindAssault_Normal(unit, target, dmg, allySide, enemySide, log);
+    } else if (isBrother && unit.role === '飞行' && isXiaoZhaoPermanentActive(unit, unitBuffs, 'windAssault') && target.alive) {
+        applyWindAssault_Brother(unit, target, dmg, allySide, enemySide, log);
     }
-    
-    // 流星赶月：团队优先，团队过期后小昭接管
+
+    // ---- 流星赶月 ----
     if (hasBuff(unitBuffs, 'meteorShower') && unit.role === '远程') {
-        let bonusDmg = Math.floor(dmg * C.BUFFS.meteorShower.bonusRatio);
-        unit.dmgDealt += bonusDmg;
-        if (target.alive) {
-            target.hp -= bonusDmg;
-            target.dmgTaken += bonusDmg;
-            target.def = Math.max(0, target.def - (C.BUFFS.meteorShower.mainDefReduce || 2));
-            if (target.hp <= 0) { target.hp = 0; target.alive = false; }
-            if (typeof window._emitEvent === 'function') {
-                window._emitEvent(target, 'hp-change', { hp: target.hp, maxHp: target.maxHp, alive: target.alive, atk: target.atk, def: target.def });
-            }
-        }
-        log.push({type:'buff-bonus', text:`<span class="gold">☄️ 流星赶月伤害加深：${target.name} 额外-${bonusDmg}，防御-${C.BUFFS.meteorShower.mainDefReduce || 2}</span>`, buffType:'meteor_bonus', targetUid: target.uid, bonusDmg: bonusDmg});
-        let splashDmg = Math.floor(dmg * C.BUFFS.meteorShower.splashRatio);
-        let adjPositions = getAdjacentPositions(target.pos);
-        const splashSide = target.camp === unit.camp ? allySide : enemySide;
-        let splashTargets = splashSide.filter(u => u.alive && adjPositions.includes(u.pos));
-        if (splashTargets.length > 0) {
-            let details = splashTargets.map(st => {
-                let hpBefore = Math.floor(st.hp);
-                st.hp -= splashDmg;
-                unit.dmgDealt += splashDmg;
-                st.dmgTaken += splashDmg;
-                st.def = Math.max(0, st.def - (C.BUFFS.meteorShower.splashDefReduce || 1));
-                if (st.hp <= 0) { st.hp = 0; st.alive = false; st._isDead = true; }
-                if (typeof window._emitEvent === 'function') {
-                    window._emitEvent(st, 'hp-change', { hp: st.hp, maxHp: st.maxHp, alive: st.alive, atk: st.atk, def: st.def });
-                }
-                return `${st.name}：${hpBefore}→${Math.floor(st.hp)}`;
-            }).join('，');
-            log.push({type:'buff-splash', text:`<span class="orange">☄️ 流星赶月溅射：${details}，各-${splashDmg}，防御-${C.BUFFS.meteorShower.splashDefReduce || 1}</span>`, buffType:'meteor_splash', attackerUid: unit.uid, primaryUid: target.uid, splashUids: splashTargets.map(st => st.uid), splashDmg: splashDmg});
-        }
-        // 小昭在场时，溅射每命中1人，攻击者+2攻
-        const xiaoMEnhance = getXiaoZhaoHexEnhance(allySide, unitBuffs, 'meteorShower');
-        if (xiaoMEnhance && splashTargets && splashTargets.length > 0) {
-            const atkGain = splashTargets.length * xiaoMEnhance.atkPerSplash;
-            unit.atk += atkGain;
-            if (typeof window._emitEvent === 'function') {
-                window._emitEvent(unit, 'hp-change', { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: unit.atk, def: unit.def });
-            }
-            log.push({type:'info', text:`<span class="gold">🦋 蝶舞：${unit.name} 溅射命中 ${splashTargets.length} 人，攻击+${atkGain}</span>`});
-        }
-    } else if (unit.isXiaoZhao && unit.role === '远程' && isXiaoZhaoPermanentActive(unit, unitBuffs, 'meteorShower')) {
-        let bonusDmg = Math.floor(dmg * C.BUFFS.meteorShower.bonusRatio);
-        unit.dmgDealt += bonusDmg;
-        if (target.alive) {
-            target.hp -= bonusDmg;
-            target.dmgTaken += bonusDmg;
-            target.def = Math.max(0, target.def - (C.BUFFS.meteorShower.mainDefReduce || 2));
-            if (target.hp <= 0) { target.hp = 0; target.alive = false; }
-            if (typeof window._emitEvent === 'function') {
-                window._emitEvent(target, 'hp-change', { hp: target.hp, maxHp: target.maxHp, alive: target.alive, atk: target.atk, def: target.def });
-            }
-        }
-        log.push({type:'buff-bonus', text:`<span class="gold">🦋 蝶星：小昭流星赶月伤害加深：${target.name} 额外-${bonusDmg}，防御-${C.BUFFS.meteorShower.mainDefReduce || 2}</span>`, buffType:'meteor_bonus', targetUid: target.uid, bonusDmg: bonusDmg});
-        let splashDmg = Math.floor(dmg * C.BUFFS.meteorShower.splashRatio);
-        let adjPositions = getAdjacentPositions(target.pos);
-        const splashSide = target.camp === unit.camp ? allySide : enemySide;
-        let splashTargets = splashSide.filter(u => u.alive && adjPositions.includes(u.pos));
-        if (splashTargets.length > 0) {
-            let details = splashTargets.map(st => {
-                let hpBefore = Math.floor(st.hp);
-                st.hp -= splashDmg;
-                unit.dmgDealt += splashDmg;
-                st.dmgTaken += splashDmg;
-                st.def = Math.max(0, st.def - (C.BUFFS.meteorShower.splashDefReduce || 1));
-                if (st.hp <= 0) { st.hp = 0; st.alive = false; st._isDead = true; }
-                if (typeof window._emitEvent === 'function') {
-                    window._emitEvent(st, 'hp-change', { hp: st.hp, maxHp: st.maxHp, alive: st.alive, atk: st.atk, def: st.def });
-                }
-                return `${st.name}：${hpBefore}→${Math.floor(st.hp)}`;
-            }).join('，');
-            log.push({type:'buff-splash', text:`<span class="orange">🦋 蝶星：小昭流星赶月溅射：${details}，各-${splashDmg}，防御-${C.BUFFS.meteorShower.splashDefReduce || 1}</span>`, buffType:'meteor_splash', attackerUid: unit.uid, primaryUid: target.uid, splashUids: splashTargets.map(st => st.uid), splashDmg: splashDmg});
-        }
+        if (hasSister) applyMeteorShower_Sister(unit, target, dmg, allySide, enemySide, log);
+        else applyMeteorShower_Normal(unit, target, dmg, allySide, enemySide, log);
+    } else if (isBrother && unit.role === '远程' && isXiaoZhaoPermanentActive(unit, unitBuffs, 'meteorShower')) {
+        applyMeteorShower_Brother(unit, target, dmg, allySide, enemySide, log);
     }
-}
-export function logBuffSummary(allyTeam, log, doubleStrikeUid) {
+}export function logBuffSummary(allyTeam, log, doubleStrikeUid) {
     let buffs = allyTeam._activeBuffs || [];
     buffs.forEach(b => {
         switch (b.key) {

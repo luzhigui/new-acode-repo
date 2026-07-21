@@ -138,7 +138,7 @@
 
     <!-- 底部 -->
     <div class="btn-row">
-        <button class="btn-back" onclick="window.close()">↩️ 返回游戏</button>
+        <button class="btn-back" id="backBtn">↩️ 返回游戏</button>
     </div>
 
     <div class="info">💡 积分通过战斗获得，圣火令可用于兑换海克斯Buff</div>
@@ -196,11 +196,11 @@ function loadData() {
         const raw = localStorage.getItem(STORAGE_KEY);
         if (raw) {
             const data = JSON.parse(raw);
-            // ★ 积分双向保护：导入的积分优先，否则从游戏读取
+            // ★ 积分读取：导入的积分优先，否则从游戏积分源读取（只读不写）
             if (data.scoreSource === 'import') {
                 // 用户通过串码导入过高分，用存档中的积分
             } else {
-                // 默认从游戏积分源读取最新值
+                // 默认从游戏积分源读取最新值，绝不写回游戏
                 data.score = parseInt(localStorage.getItem('ming_vote_score_5v5_test') || '100');
             }
             // 兼容旧数据（没有 scoreSource 字段）
@@ -209,6 +209,7 @@ function loadData() {
         }
     } catch (e) {}
     const def = getDefaultData();
+    // ★ 不主动修改游戏积分源，只在首次初始化时保存
     saveData(def);
     return def;
 }
@@ -335,6 +336,16 @@ document.getElementById('importBtn').addEventListener('click', () => {
     renderAll();
     resultText.textContent = '导入成功！积分 ' + data.score + '，圣火令 ' + (data.items['圣火令'] || 0);
     resultText.className = 'result-text ok';
+});
+
+// 返回游戏：优先关闭窗口，无法关闭则跳转
+document.getElementById('backBtn').addEventListener('click', () => {
+    window.close();
+    setTimeout(() => {
+        if (!window.closed) {
+            window.location.href = '../mode-5v5-test.html';
+        }
+    }, 1000);
 });
 
 renderAll();

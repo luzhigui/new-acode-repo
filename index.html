@@ -60,7 +60,10 @@
             <div class="section-title">🎮 主入口</div>
             <div class="btn-grid">
                 <button class="big-btn btn-play" id="btnGame">⚔️ 主游戏</button>
-                <button class="big-btn btn-play" id="btnXiaoZhaoMode" style="background:linear-gradient(135deg, #e040fb, #7c4dff);">🦋 小昭模式</button>
+                <div style="display:flex;gap:0;margin-bottom:10px;">
+                    <button class="big-btn btn-play" id="btnXiaoZhaoSister" style="flex:1;border-radius:10px 0 0 10px;background:linear-gradient(135deg, #e040fb, #7c4dff);">🦋 小昭·姊</button>
+                    <button class="big-btn btn-play" id="btnXiaoZhaoBrother" style="flex:1;border-radius:0 10px 10px 0;background:linear-gradient(135deg, #ff5252, #b71c1c);">🕷️ 小昭·妹</button>
+                </div>
                 <button class="big-btn btn-play" id="btnBugMode" style="background:linear-gradient(135deg, #ff5252, #b71c1c);">🐛 Bug模式</button>
                 <button class="big-btn btn-play" id="btnShop" style="background:linear-gradient(135deg, #ff9800, #f57c00);">🏪 圣火令商店</button>
                 <button class="big-btn btn-health" id="btnHealthCheck">🩺 全面体检</button>
@@ -95,9 +98,13 @@
             localStorage.removeItem('_bugMode');
             window.open('mode-5v5-test.html', '_blank');
         });
-        document.getElementById('btnXiaoZhaoMode').addEventListener('click', () => {
-            localStorage.setItem('_forceXiaoZhao', '1');
-            window.GlobalStore && window.GlobalStore.set('forceXiaoZhao', true);
+        document.getElementById('btnXiaoZhaoSister').addEventListener('click', () => {
+            localStorage.setItem('_forceXiaoZhao', 'sister');
+            localStorage.removeItem('_bugMode');
+            window.open('mode-5v5-test.html', '_blank');
+        });
+        document.getElementById('btnXiaoZhaoBrother').addEventListener('click', () => {
+            localStorage.setItem('_forceXiaoZhao', 'brother');
             localStorage.removeItem('_bugMode');
             window.open('mode-5v5-test.html', '_blank');
         });

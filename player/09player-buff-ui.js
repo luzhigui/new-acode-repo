@@ -22,7 +22,16 @@ export function showBuffPopup(c) {
         let activeBuffs = c.activeBuffs || [];
         let existingKeys = activeBuffs.map(b => b.key);
         let allKeys = Object.keys(CONFIG.BUFFS || {});
-        let available = allKeys.filter(k => !existingKeys.includes(k));
+        const allyTeam = c.UI?.allyTeam || [];
+        let available = allKeys.filter(k => {
+            if (existingKeys.includes(k)) return false;
+            // 严阵以待首次不出现
+            if (k === 'fortify' && !activeBuffs.some(b => b.remaining > 0)) return false;
+            // 职业筛选
+            const requiredRole = CONFIG.BUFF_ROLE_REQUIREMENTS?.[k];
+            if (requiredRole && !allyTeam.some(u => u.alive && u.role === requiredRole)) return false;
+            return true;
+        });
         if (available.length === 0) { resolve(null); return; }
 
         let choices;

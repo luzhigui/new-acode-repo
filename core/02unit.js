@@ -50,9 +50,12 @@ export class Unit {
         this._butterflyAtk = 0;      // 🦋 附身时暂存的攻击
         this._butterflyDef = 0;      // 🦋 附身时暂存的防御
         this._butterflyHp = 0;       // 🦋 附身时暂存的血量
-        this._spiderRemaining = 3;   // 🕷️ 飞天剩余次数
-        this._spiderFlying = false;  // 🕷️ 是否在飞天状态
-        this._spiderAttacked = false; // 🕷️ 飞天前是否已攻击
+        this._spiderRemaining = 3;
+        this._spiderFlying = false;
+        this._spiderAttacked = false;
+        this._spiderTriggeredHit = false;
+        this._spiderTriggered70 = false;
+        this._spiderTriggered40 = false;
     }
     clone(){
         let c=new Unit(this.name,this.m,this.role,this.camp);
@@ -102,6 +105,9 @@ export class Unit {
         c._spiderRemaining = this._spiderRemaining;
         c._spiderFlying = this._spiderFlying;
         c._spiderAttacked = this._spiderAttacked;
+        c._spiderTriggeredHit = this._spiderTriggeredHit;
+        c._spiderTriggered70 = this._spiderTriggered70;
+        c._spiderTriggered40 = this._spiderTriggered40;
         return c;
     }
     init(){

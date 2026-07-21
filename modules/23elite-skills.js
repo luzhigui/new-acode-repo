@@ -453,7 +453,7 @@ export function butterflyAttach(unit, allyTeam, log) {
     host.def += defTransfer;
     host.maxHp += hpTransfer;
     host.hp = Math.min(host.maxHp, host.hp + hpTransfer);
-    emitEvent(host, 'hp-change', { hp: host.hp, maxHp: host.maxHp, alive: host.alive, atk: host.atk, def: host.def });
+    emitEvent(host, 'hp-change', { hp: host.hp, maxHp: host.maxHp, alive: host.alive, atk: host.atk, def: host.def, _phantomTarget: unit.uid });
 
     const aliveAllies = allyTeam.filter(a => a.alive && !a.isHorse && a.uid !== unit.uid);
     const totalHp = aliveAllies.reduce((sum, a) => sum + a.hp, 0);
@@ -464,8 +464,17 @@ export function butterflyAttach(unit, allyTeam, log) {
     unit._butterflyHost = host.uid;
     unit._flyMode = 'butterfly';
 
-    emitEvent(unit, 'hp-change', { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: unit.atk, def: unit.def });
+    emitEvent(unit, 'hp-change', { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: unit.atk, def: unit.def, _flyMode: 'butterfly', _butterflyHost: unit._butterflyHost });
     log.push({ type:'info', text:`<span class="gold">🦋 蝶变：${unit.name} 化为蝴蝶附身于 ${host.name}！攻+${atkTransfer} 防+${defTransfer} 血上限+${hpTransfer}</span>` });
+
+    // ★ 立即刷新 Store，让 UI 瞬间更新宿主的攻防血和蝴蝶 logo
+    const ctx = window._getPlayerContext?.();
+    if (ctx && ctx.store) {
+        const events = [...window._battleEvents];
+        window._battleEvents = [];
+        if (window.GlobalStore) window.GlobalStore.flushBattleEvents();
+        if (events.length > 0) ctx.store.dispatch({ type: 'APPLY_EVENTS', events });
+    }
 }
 
 export function butterflyReturn(unit, allyTeam, log) {
@@ -548,12 +557,12 @@ export function spiderFlyCheck(unit, allyTeam, log, incomingDmg) {
         unit._spiderTriggered40 = true;
     } else if (!unit._spiderTriggeredDeath && hpAfter <= 0) {
         reason = '即将阵亡';
-        unit._spiderTriggeredDeath = true;
+        unit._spiderTriggeredHit = true;
     }
 
     if (!reason) return false;
 
-    remaining = 3 - (unit._spiderTriggered70 ? 1 : 0) - (unit._spiderTriggered40 ? 1 : 0) - (unit._spiderTriggeredDeath ? 1 : 0);
+    remaining = 2 - (unit._spiderTriggered70 ? 1 : 0) - (unit._spiderTriggered40 ? 1 : 0) - (unit._spiderTriggeredHit ? 1 : 0);
 
     unit._spiderFlying = true;
     unit._flyMode = 'spider';

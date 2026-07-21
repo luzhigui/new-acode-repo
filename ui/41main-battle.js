@@ -21,132 +21,77 @@ export function doInitBattle(currentStage, UI, snapshot, activeBuffs, selectedBu
     const normalPower = C.NORMAL_POWER || {};
     const targetPower = C.MING_TARGET_POWER && C.MING_TARGET_POWER[currentStage] ? C.MING_TARGET_POWER[currentStage] : null;
 
-    if (mingSquadTemplate && currentStage === 1) {
-        // 第一关：四套模板随机选一
-        const template = mingSquadTemplate[rand(0, mingSquadTemplate.length - 1)];
-        let takenPos = new Set();
-        for (const item of template) {
-            let name, mVal;
-            if (typeof item === 'string') { name = item; mVal = C.MING_M[name] || 95; }
-            else { mVal = item; name = null; }
-            if (!name) {
-                const usedNames = allyTeam.map(u => u.name);
-                const candidates = Object.entries(C.MING_M).filter(([n, v]) => v === mVal && !usedNames.includes(n) && !['张无忌','韦一笑','小昭'].includes(n));
-                if (candidates.length > 0) name = candidates[rand(0, candidates.length - 1)][0];
-                else name = '明教弟子' + (allyTeam.length + 1);
-            }
-            let role = name === '张无忌' ? '远程' : (name === '韦一笑' ? '飞行' : (name === '小昭' ? '远程' : C.ROLES[rand(0, 3)]));
-            let unit = new Unit(name, C.MING_M[name] || mVal, role, 'ally');
-            if (name === '张无忌') unit.isZhang = true;
-            if (name === '韦一笑') unit.isWei = true;
-            if (name === '小昭') {
+    // 统一阵容生成逻辑：按战斗力滚动分配
+    const eliteConfigs = [
+        { name: '张无忌', m: 115, role: '远程', isZhang: true },
+        { name: '韦一笑', m: 107, role: '飞行', isWei: true },
+        { name: '小昭', m: 107, role: '远程', isXiaoZhao: true }
+    ];
+    const candidatePool = [];
+    for (const cfg of eliteConfigs) {
+        if (Math.random() < (eliteRate[cfg.name] || 0.30)) {
+            candidatePool.push({ ...cfg, power: elitePower[cfg.name] || 140 });
+        }
+    }
+    if (!candidatePool.some(c => c.isZhang || c.isWei || c.isXiaoZhao)) {
+        const roll = Math.random();
+        const forcedName = roll < 0.4 ? '张无忌' : (roll < 0.7 ? '韦一笑' : '小昭');
+        const forcedCfg = eliteConfigs.find(c => c.name === forcedName);
+        if (forcedCfg) candidatePool.push({ ...forcedCfg, power: elitePower[forcedCfg.name] || 140 });
+    }
+    for (const [name, m] of Object.entries(C.MING_M)) {
+        if (['张无忌','韦一笑','小昭'].includes(name)) continue;
+        if (m >= 95 && m <= 104) candidatePool.push({ name, m, role: null, power: normalPower[m] || 90 });
+    }
+    candidatePool.sort((a, b) => a.power - b.power);
+    const remainingCandidates = [...candidatePool];
+    let remainingPower = targetPower || 500;
+    let remainingSlots = 5;
+    for (let slot = 0; slot < 5; slot++) {
+        const avgPower = remainingPower / remainingSlots;
+        const candidates = [];
+        const above = remainingCandidates.filter(c => c.power >= avgPower).sort((a, b) => a.power - b.power).slice(0, 3);
+        const below = remainingCandidates.filter(c => c.power < avgPower).sort((a, b) => b.power - a.power).slice(0, 2);
+        candidates.push(...above);
+        for (const c of below) { if (!candidates.some(x => x.name === c.name)) candidates.push(c); }
+        if (candidates.length === 0) candidates.push(...remainingCandidates.slice(0, 5));
+        const pick = candidates[rand(0, candidates.length - 1)];
+        const idx = remainingCandidates.findIndex(c => c.name === pick.name);
+        if (idx >= 0) remainingCandidates.splice(idx, 1);
+        let unit;
+        if (pick.isZhang || pick.isWei || pick.isXiaoZhao) {
+            unit = new Unit(pick.name, pick.m, pick.role, 'ally');
+            if (pick.isZhang) unit.isZhang = true;
+            if (pick.isWei) unit.isWei = true;
+            if (pick.isXiaoZhao) {
                 unit.isXiaoZhao = true;
-                if (Math.random() < 0.5) {
-                    unit.isXiaoZhaoSister = true;
-                } else {
-                    unit.isXiaoZhaoBrother = true;
-                }
+                if (Math.random() < 0.5) { unit.isXiaoZhaoSister = true; }
+                else { unit.isXiaoZhaoBrother = true; }
                 unit.initXiaoZhao(); unit.applyBonus();
                 unit._baseMaxHp = unit.maxHp; unit._baseAtk = unit.atk; unit._baseDef = unit.def;
             }
             else { unit.init(); unit.applyBonus(); }
-            unit.pos = null;
-            allyTeam.push(unit);
+        } else {
+            const role = C.ROLES[rand(0, 3)];
+            unit = new Unit(pick.name, pick.m, role, 'ally');
+            unit.init(); unit.applyBonus();
         }
-        let zhang = allyTeam.find(u => u.isZhang);
-        let wei = allyTeam.find(u => u.isWei);
-        let xz = allyTeam.find(u => u.isXiaoZhao);
-        if (zhang) { zhang.pos = 5; takenPos.add(5); }
-        if (wei) { wei.pos = 6; takenPos.add(6); }
-        if (xz) { xz.pos = 4; takenPos.add(4); }
-        let others = allyTeam.filter(u => !u.isZhang && !u.isWei && !u.isXiaoZhao);
-        if (others.length > 0 && zhang && !takenPos.has(2)) { others[0].pos = 2; takenPos.add(2); others.shift(); }
-        let remainingSlots = [1,2,3,4,5,6,7,8,9].filter(p => !takenPos.has(p));
-        for (let u of others) {
-            if (remainingSlots.length > 0) { let idx = rand(0, remainingSlots.length - 1); u.pos = remainingSlots[idx]; takenPos.add(remainingSlots[idx]); remainingSlots.splice(idx, 1); }
-            else { u.pos = 5; }
-        }
-        let toLock = [zhang, wei, xz].filter(Boolean);
-        while (toLock.length < 3) { let pool = allyTeam.filter(u => !toLock.includes(u)); if (pool.length === 0) break; let pick = pool[rand(0, pool.length - 1)]; toLock.push(pick); }
-        toLock.forEach(u => { u.fixed = true; });
-        // 强制小昭模式
-        if (GlobalStore.get('forceXiaoZhao') && !allyTeam.some(u => u.isXiaoZhao)) {
-            const swappable = allyTeam.find(u => !u.isZhang && !u.isWei);
-            if (swappable) allyTeam.splice(allyTeam.indexOf(swappable), 1);
-            let xzUnit = new Unit('小昭', 107, C.ROLES[rand(0, 3)], 'ally');
-            xzUnit.isXiaoZhao = true;
-            if (Math.random() < 0.5) { xzUnit.isXiaoZhaoSister = true; }
-            else { xzUnit.isXiaoZhaoBrother = true; }
-            xzUnit.initXiaoZhao(); xzUnit.applyBonus();
-            xzUnit._baseMaxHp = xzUnit.maxHp; xzUnit._baseAtk = xzUnit.atk; xzUnit._baseDef = xzUnit.def;
-            xzUnit.pos = swappable ? swappable.pos : null;
-            allyTeam.push(xzUnit);
-        }
+        unit.pos = null;
+        allyTeam.push(unit);
+        remainingPower -= pick.power;
+        remainingSlots--;
+    }
 
-    } else {
-        // 第二关以后：按战斗力滚动分配
-        const eliteConfigs = [
-            { name: '张无忌', m: 115, role: '远程', isZhang: true },
-            { name: '韦一笑', m: 107, role: '飞行', isWei: true },
-            { name: '小昭', m: 107, role: '远程', isXiaoZhao: true }
-        ];
-        const candidatePool = [];
-        for (const cfg of eliteConfigs) {
-            if (Math.random() < (eliteRate[cfg.name] || 0.30)) {
-                candidatePool.push({ ...cfg, power: elitePower[cfg.name] || 140 });
-            }
-        }
-        if (!candidatePool.some(c => c.isZhang || c.isWei || c.isXiaoZhao)) {
-            const roll = Math.random();
-            const forcedName = roll < 0.4 ? '张无忌' : (roll < 0.7 ? '韦一笑' : '小昭');
-            const forcedCfg = eliteConfigs.find(c => c.name === forcedName);
-            if (forcedCfg) candidatePool.push({ ...forcedCfg, power: elitePower[forcedCfg.name] || 140 });
-        }
-        for (const [name, m] of Object.entries(C.MING_M)) {
-            if (['张无忌','韦一笑','小昭'].includes(name)) continue;
-            if (m >= 95 && m <= 104) candidatePool.push({ name, m, role: null, power: normalPower[m] || 90 });
-        }
-        candidatePool.sort((a, b) => a.power - b.power);
-        const remainingCandidates = [...candidatePool];
-        let remainingPower = targetPower || 500;
-        let remainingSlots = 5;
-        for (let slot = 0; slot < 5; slot++) {
-            const avgPower = remainingPower / remainingSlots;
-            const candidates = [];
-            const above = remainingCandidates.filter(c => c.power >= avgPower).sort((a, b) => a.power - b.power).slice(0, 3);
-            const below = remainingCandidates.filter(c => c.power < avgPower).sort((a, b) => b.power - a.power).slice(0, 2);
-            candidates.push(...above);
-            for (const c of below) { if (!candidates.some(x => x.name === c.name)) candidates.push(c); }
-            if (candidates.length === 0) candidates.push(...remainingCandidates.slice(0, 5));
-            const pick = candidates[rand(0, candidates.length - 1)];
-            const idx = remainingCandidates.findIndex(c => c.name === pick.name);
-            if (idx >= 0) remainingCandidates.splice(idx, 1);
-            let unit;
-            if (pick.isZhang || pick.isWei || pick.isXiaoZhao) {
-                unit = new Unit(pick.name, pick.m, pick.role, 'ally');
-                if (pick.isZhang) unit.isZhang = true;
-                if (pick.isWei) unit.isWei = true;
-                if (pick.isXiaoZhao) {
-                    unit.isXiaoZhao = true;
-                    if (Math.random() < 0.5) { unit.isXiaoZhaoSister = true; }
-                    else { unit.isXiaoZhaoBrother = true; }
-                    unit.initXiaoZhao(); unit.applyBonus();
-                    unit._baseMaxHp = unit.maxHp; unit._baseAtk = unit.atk; unit._baseDef = unit.def;
-                }
-                else { unit.init(); unit.applyBonus(); }
-            } else {
-                const role = C.ROLES[rand(0, 3)];
-                unit = new Unit(pick.name, pick.m, role, 'ally');
-                unit.init(); unit.applyBonus();
-            }
-            unit.pos = null;
-            allyTeam.push(unit);
-            remainingPower -= pick.power;
-            remainingSlots--;
-        }
-
-        // 强制小昭模式
-        if (GlobalStore.get('forceXiaoZhao') && !allyTeam.some(u => u.isXiaoZhao)) {
+    // 强制小昭模式：如有小昭则修正标志，如无则添加
+    const forceXzMode = GlobalStore.get('forceXiaoZhao');
+    if (forceXzMode === 'sister' || forceXzMode === 'brother') {
+        const existingXz = allyTeam.find(u => u.isXiaoZhao);
+        if (existingXz) {
+            // 场上已有小昭，直接修正标志
+            existingXz.isXiaoZhaoSister = (forceXzMode === 'sister');
+            existingXz.isXiaoZhaoBrother = (forceXzMode === 'brother');
+        } else {
+            // 场上没有小昭，新增一个
             const swappable = allyTeam.find(u => !u.isZhang && !u.isWei);
             if (swappable) {
                 allyTeam.splice(allyTeam.indexOf(swappable), 1);
@@ -154,44 +99,43 @@ export function doInitBattle(currentStage, UI, snapshot, activeBuffs, selectedBu
             }
             let xzUnit = new Unit('小昭', 107, C.ROLES[rand(0, 3)], 'ally');
             xzUnit.isXiaoZhao = true;
-            if (Math.random() < 0.5) { xzUnit.isXiaoZhaoSister = true; }
-            else { xzUnit.isXiaoZhaoBrother = true; }
+            xzUnit.isXiaoZhaoSister = (forceXzMode === 'sister');
+            xzUnit.isXiaoZhaoBrother = (forceXzMode === 'brother');
             xzUnit.initXiaoZhao(); xzUnit.applyBonus();
             xzUnit._baseMaxHp = xzUnit.maxHp; xzUnit._baseAtk = xzUnit.atk; xzUnit._baseDef = xzUnit.def;
-            const replacedUnit = swappable;
-            xzUnit.pos = replacedUnit ? replacedUnit.pos : null;
+            xzUnit.pos = swappable ? swappable.pos : null;
             allyTeam.push(xzUnit);
             remainingPower -= (elitePower['小昭'] || 140);
         }
-
-        // 至少一个前排
-        if (!allyTeam.some(u => u.role === '防战' || u.role === '战士')) {
-            const nonFixed = allyTeam.filter(u => !u.isZhang && !u.isWei && !u.isXiaoZhao);
-            if (nonFixed.length > 0) {
-                nonFixed[0].role = rand(0, 1) === 0 ? '防战' : '战士';
-                nonFixed[0].init(); nonFixed[0].applyBonus();
-            }
-        }
-
-        // 站位
-        const takenPos = new Set();
-        let zhang = allyTeam.find(u => u.isZhang);
-        let wei = allyTeam.find(u => u.isWei);
-        let xz = allyTeam.find(u => u.isXiaoZhao);
-        if (zhang) { zhang.pos = 5; takenPos.add(5); }
-        if (wei) { wei.pos = 6; takenPos.add(6); }
-        if (xz) { xz.pos = 4; takenPos.add(4); }
-        let others = allyTeam.filter(u => !u.isZhang && !u.isWei && !u.isXiaoZhao);
-        if (others.length > 0 && zhang && !takenPos.has(2)) { others[0].pos = 2; takenPos.add(2); others.shift(); }
-        let emptySlots = [1,2,3,4,5,6,7,8,9].filter(p => !takenPos.has(p));
-        for (let u of others) {
-            if (emptySlots.length > 0) { let idx = rand(0, emptySlots.length - 1); u.pos = emptySlots[idx]; takenPos.add(emptySlots[idx]); emptySlots.splice(idx, 1); }
-            else { u.pos = 5; }
-        }
-        let toLock = [zhang, wei, xz].filter(Boolean);
-        while (toLock.length < 3) { let pool = allyTeam.filter(u => !toLock.includes(u)); if (pool.length === 0) break; let pick = pool[rand(0, pool.length - 1)]; toLock.push(pick); }
-        toLock.forEach(u => { u.fixed = true; });
     }
+
+    // 至少一个前排
+    if (!allyTeam.some(u => u.role === '防战' || u.role === '战士')) {
+        const nonFixed = allyTeam.filter(u => !u.isZhang && !u.isWei && !u.isXiaoZhao);
+        if (nonFixed.length > 0) {
+            nonFixed[0].role = rand(0, 1) === 0 ? '防战' : '战士';
+            nonFixed[0].init(); nonFixed[0].applyBonus();
+        }
+    }
+
+    // 站位
+    const takenPos = new Set();
+    let zhang = allyTeam.find(u => u.isZhang);
+    let wei = allyTeam.find(u => u.isWei);
+    let xz = allyTeam.find(u => u.isXiaoZhao);
+    if (zhang) { zhang.pos = 5; takenPos.add(5); }
+    if (wei) { wei.pos = 6; takenPos.add(6); }
+    if (xz) { xz.pos = 4; takenPos.add(4); }
+    let others = allyTeam.filter(u => !u.isZhang && !u.isWei && !u.isXiaoZhao);
+    if (others.length > 0 && zhang && !takenPos.has(2)) { others[0].pos = 2; takenPos.add(2); others.shift(); }
+    let emptySlots = [1,2,3,4,5,6,7,8,9].filter(p => !takenPos.has(p));
+    for (let u of others) {
+        if (emptySlots.length > 0) { let idx = rand(0, emptySlots.length - 1); u.pos = emptySlots[idx]; takenPos.add(emptySlots[idx]); emptySlots.splice(idx, 1); }
+        else { u.pos = 5; }
+    }
+    let toLock = [zhang, wei, xz].filter(Boolean);
+    while (toLock.length < 3) { let pool = allyTeam.filter(u => !toLock.includes(u)); if (pool.length === 0) break; let pick = pool[rand(0, pool.length - 1)]; toLock.push(pick); }
+    toLock.forEach(u => { u.fixed = true; });
 
     // ==================== 六大派阵容生成 ====================
     const enemySquad = C.ENEMY_SQUADS && C.ENEMY_SQUADS[currentStage] ? C.ENEMY_SQUADS[currentStage] : null;

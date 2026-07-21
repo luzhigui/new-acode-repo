@@ -90,7 +90,12 @@ export function* createRoundStepper(state) {
     // 小昭蝶变：每回合随机变换职业
     A.forEach(u => {
         if (u.isXiaoZhaoSister && u.alive) { /* 姐的附身在明教首次攻击前触发，由47处理 */ }
-        if (u.isXiaoZhaoBrother && u.alive) spiderTransform(u, log);
+        if (u.isXiaoZhaoBrother && u.alive) {
+            spiderTransform(u, log);
+            if (u._spiderTriggeredHit === undefined) u._spiderTriggeredHit = false;
+            if (u._spiderTriggered70 === undefined) u._spiderTriggered70 = false;
+            if (u._spiderTriggered40 === undefined) u._spiderTriggered40 = false;
+        }
     });
 
     // 小昭永久拒马（xiaoZhao 已在上方定义）
@@ -317,6 +322,11 @@ export function* createRoundStepper(state) {
                         bg._events = [...window._battleEvents];
                         window._battleEvents = [];
                         log.push(bg);
+                        continue;
+                    }
+
+                    if (u._spiderFlying || u._flyMode) {
+                        u._acted = true;
                         continue;
                     }
 
