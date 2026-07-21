@@ -474,6 +474,19 @@ export function butterflyReturn(unit, allyTeam, log) {
     unit.atk = unit._butterflyAtk;
     unit.def = unit._butterflyDef;
     unit.hp = unit._butterflyHp;
+    // 收回加给宿主的攻防血
+    const host = allyTeam.find(a => a.uid === unit._butterflyHost);
+    if (host) {
+        const atkTransfer = Math.floor(unit._butterflyAtk / 2);
+        const defTransfer = Math.floor(unit._butterflyDef / 2);
+        const hpTransfer = Math.floor(unit._butterflyHp / 2);
+        host.atk = Math.max(0, host.atk - atkTransfer);
+        host.def = Math.max(0, host.def - defTransfer);
+        host.maxHp = Math.max(1, host.maxHp - hpTransfer);
+        host.hp = Math.min(host.hp, host.maxHp);
+        emitEvent(host, 'hp-change', { hp: host.hp, maxHp: host.maxHp, alive: host.alive, atk: host.atk, def: host.def });
+    }
+
     unit._butterflyAtk = 0; unit._butterflyDef = 0; unit._butterflyHp = 0;
     unit._flyMode = null;
     unit._butterflyHost = null;
