@@ -62,6 +62,7 @@
                 <button class="big-btn btn-play" id="btnGame">⚔️ 主游戏</button>
                 <button class="big-btn btn-play" id="btnXiaoZhaoMode" style="background:linear-gradient(135deg, #e040fb, #7c4dff);">🦋 小昭模式</button>
                 <button class="big-btn btn-play" id="btnBugMode" style="background:linear-gradient(135deg, #ff5252, #b71c1c);">🐛 Bug模式</button>
+                <button class="big-btn btn-play" id="btnShop" style="background:linear-gradient(135deg, #ff9800, #f57c00);">🏪 圣火令商店</button>
                 <button class="big-btn btn-health" id="btnHealthCheck">🩺 全面体检</button>
                 <button class="big-btn btn-tool" id="btnTools">🧰 工具箱</button>
             </div>
@@ -104,6 +105,9 @@
             localStorage.setItem('_bugMode', '1');
             window.GlobalStore && window.GlobalStore.set('bugMode', true);
             window.open('mode-5v5-test.html', '_blank');
+        });
+        document.getElementById('btnShop').addEventListener('click', () => {
+            window.open('tools/34-shop.html', '_blank');
         });
         document.getElementById('btnHealthCheck').addEventListener('click', () => {
             window.open('tests/30test-runner.html', '_blank');

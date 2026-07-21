@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>光明顶 · 圣火令商店 V1</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            background: #1a1a2e; color: #eee; font-family: monospace;
+            display: flex; flex-direction: column; align-items: center;
+            min-height: 100vh; padding: 20px;
+        }
+        .container {
+            width: 100%; max-width: 420px; background: #16213e;
+            border-radius: 16px; padding: 24px 20px;
+            box-shadow: 0 8px 30px rgba(0,0,0,0.5);
+            position: relative;
+        }
+        .header {
+            display: flex; justify-content: space-between; align-items: center;
+            margin-bottom: 16px;
+        }
+        h2 { color: #ffd700; font-size: 1.2rem; }
+        .header-btns { display: flex; gap: 8px; }
+        .icon-btn {
+            width: 38px; height: 38px; border-radius: 50%;
+            border: 2px solid #ffd700; background: #1a1a2e;
+            color: #ffd700; font-size: 18px; cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+            transition: all 0.2s;
+        }
+        .icon-btn:hover { background: #2a2a4e; }
+
+        .score-row {
+            display: flex; gap: 12px; margin-bottom: 16px;
+        }
+        .stat-card {
+            flex: 1; background: #0f0f1a; border: 1px solid #333;
+            border-radius: 10px; padding: 12px; text-align: center;
+        }
+        .stat-card .icon { font-size: 24px; margin-bottom: 4px; }
+        .stat-card .value { font-size: 1.4rem; font-weight: bold; color: #ffd700; }
+        .stat-card .label { font-size: 0.7rem; color: #888; margin-top: 2px; }
+
+        .section-title {
+            color: #aaa; font-size: 0.75rem; font-weight: bold; margin: 16px 0 8px;
+            padding-left: 8px; border-left: 3px solid #ffd700;
+        }
+
+        .hero-card {
+            background: #0f0f1a; border: 1px solid #333; border-radius: 10px;
+            padding: 14px; display: flex; gap: 12px; align-items: center;
+            margin-bottom: 8px;
+        }
+        .hero-avatar {
+            font-size: 40px; min-width: 48px; text-align: center;
+        }
+        .hero-info { flex: 1; }
+        .hero-name { font-size: 1rem; font-weight: bold; color: #ffd700; }
+        .hero-role { font-size: 0.7rem; color: #888; margin-bottom: 4px; }
+        .hero-stats { font-size: 0.75rem; color: #ccc; }
+        .hero-stats span { margin-right: 12px; }
+
+        .btn-row { display: flex; gap: 8px; margin-top: 16px; }
+        button {
+            flex: 1; padding: 10px; border-radius: 8px; border: none;
+            font-size: 0.85rem; font-weight: bold; cursor: pointer;
+            font-family: monospace;
+        }
+        .btn-back { background: #444; color: #ccc; }
+
+        /* 串码弹窗 */
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.7); z-index: 9999;
+            display: flex; justify-content: center; align-items: center;
+            display: none;
+        }
+        .modal-overlay.show { display: flex; }
+        .modal-box {
+            background: #16213e; border: 2px solid #ffd700; border-radius: 12px;
+            padding: 20px; width: 90%; max-width: 380px; text-align: center;
+        }
+        .modal-box h3 { color: #ffd700; margin-bottom: 12px; }
+        .tab-row { display: flex; gap: 4px; margin-bottom: 12px; }
+        .tab-btn {
+            flex: 1; padding: 8px; border-radius: 6px; border: 1px solid #555;
+            background: #0f0f1a; color: #ccc; font-size: 0.8rem; cursor: pointer;
+            font-family: monospace;
+        }
+        .tab-btn.active { background: #ffd700; color: #1a1a2e; border-color: #ffd700; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        .code-box {
+            background: #0f0f1a; border: 1px solid #333; border-radius: 6px;
+            padding: 10px; font-size: 0.7rem; color: #ffd700; word-break: break-all;
+            margin-bottom: 8px; min-height: 40px; cursor: pointer;
+        }
+        .code-input {
+            width: 100%; padding: 10px; border-radius: 6px; border: 1px solid #444;
+            background: #0f0f1a; color: #ffd700; font-size: 0.8rem; font-family: monospace;
+            margin-bottom: 8px;
+        }
+        .result-text { font-size: 0.75rem; margin-top: 4px; }
+        .result-text.ok { color: #4caf50; }
+        .result-text.err { color: #f44336; }
+        .info { font-size: 0.7rem; color: #888; margin-top: 8px; text-align: center; line-height: 1.5; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <!-- 顶部 -->
+    <div class="header">
+        <h2>🏪 圣火令商店</h2>
+        <div class="header-btns">
+            <button class="icon-btn" id="serialBtn" title="串码导入/导出">🔐</button>
+        </div>
+    </div>
+
+    <!-- 积分 & 圣火令 -->
+    <div class="score-row">
+        <div class="stat-card">
+            <div class="icon">🏆</div>
+            <div class="value" id="scoreVal">100</div>
+            <div class="label">积分</div>
+        </div>
+        <div class="stat-card">
+            <div class="icon">🔥</div>
+            <div class="value" id="tokenVal">2</div>
+            <div class="label">圣火令</div>
+        </div>
+    </div>
+
+    <!-- 已解锁角色 -->
+    <div class="section-title">🦸 已解锁角色</div>
+    <div id="heroList"></div>
+
+    <!-- 底部 -->
+    <div class="btn-row">
+        <button class="btn-back" onclick="window.close()">↩️ 返回游戏</button>
+    </div>
+
+    <div class="info">💡 积分通过战斗获得，圣火令可用于兑换海克斯Buff</div>
+</div>
+
+<!-- 串码弹窗 -->
+<div class="modal-overlay" id="serialModal">
+    <div class="modal-box">
+        <h3>🔐 串码系统</h3>
+        <div class="tab-row">
+            <button class="tab-btn active" data-tab="export">📤 导出</button>
+            <button class="tab-btn" data-tab="import">📥 导入</button>
+        </div>
+        <div class="tab-content active" id="tabExport">
+            <div class="code-box" id="codeDisplay" title="点击复制">点击生成串码</div>
+            <button id="genCodeBtn" style="width:100%;">🔐 生成串码</button>
+        </div>
+        <div class="tab-content" id="tabImport">
+            <input class="code-input" id="importInput" placeholder="粘贴串码...">
+            <button id="importBtn" style="width:100%;">📥 导入并恢复</button>
+            <div class="result-text" id="resultText"></div>
+        </div>
+        <button style="width:100%;margin-top:12px;background:#444;color:#ccc;" id="closeModalBtn">关闭</button>
+    </div>
+</div>
+
+<script>
+// ==================== 数据管理 ====================
+const STORAGE_KEY = 'ming_shop_data';
+
+function getDefaultData() {
+    const score = parseInt(localStorage.getItem('ming_vote_score_5v5_test') || '100');
+    return {
+        v: 1,
+        score: score,
+        scoreSource: 'game',  // ★ 'game' = 从游戏读取, 'import' = 从串码导入
+        items: { '圣火令': 2 },
+        heroes: {
+            '小昭·妹': {
+                role: '远程',
+                atk: 33,
+                def: 25,
+                maxHp: 108,
+                hp: 108,
+                masteredRoles: ['远程'],
+                isXiaoZhaoBrother: true
+            }
+        },
+        unlocked: []
+    };
+}
+
+function loadData() {
+    try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (raw) {
+            const data = JSON.parse(raw);
+            // ★ 积分双向保护：导入的积分优先，否则从游戏读取
+            if (data.scoreSource === 'import') {
+                // 用户通过串码导入过高分，用存档中的积分
+            } else {
+                // 默认从游戏积分源读取最新值
+                data.score = parseInt(localStorage.getItem('ming_vote_score_5v5_test') || '100');
+            }
+            // 兼容旧数据（没有 scoreSource 字段）
+            if (!data.scoreSource) data.scoreSource = 'game';
+            return data;
+        }
+    } catch (e) {}
+    const def = getDefaultData();
+    saveData(def);
+    return def;
+}
+
+function saveData(data) {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+}
+
+let shopData = loadData();
+
+// ==================== 界面渲染 ====================
+function renderStats() {
+    document.getElementById('scoreVal').textContent = shopData.score;
+    document.getElementById('tokenVal').textContent = shopData.items['圣火令'] || 0;
+}
+
+function renderHeroes() {
+    const list = document.getElementById('heroList');
+    list.innerHTML = '';
+    const heroes = shopData.heroes || {};
+    for (const [name, h] of Object.entries(heroes)) {
+        const card = document.createElement('div');
+        card.className = 'hero-card';
+        const icon = h.isXiaoZhaoBrother ? '🕷️' : '🦋';
+        card.innerHTML = `
+            <div class="hero-avatar">${icon}</div>
+            <div class="hero-info">
+                <div class="hero-name">${name}</div>
+                <div class="hero-role">${h.role} · 精通${(h.masteredRoles||[]).length}/4</div>
+                <div class="hero-stats">
+                    <span>⚔️ ${h.atk}</span><span>🛡️ ${h.def}</span><span>❤️ ${h.hp}/${h.maxHp}</span>
+                </div>
+            </div>
+        `;
+        list.appendChild(card);
+    }
+    if (Object.keys(heroes).length === 0) {
+        list.innerHTML = '<div style="color:#888;text-align:center;padding:20px;">暂无已解锁角色</div>';
+    }
+}
+
+function renderAll() { renderStats(); renderHeroes(); }
+
+// ==================== 串码系统 ====================
+function checksum(str) {
+    let sum = 0;
+    for (let i = 0; i < str.length; i++) sum += str.charCodeAt(i);
+    return (sum & 0xFFFF).toString(16).padStart(4, '0').toUpperCase();
+}
+
+function encode(data) {
+    const json = JSON.stringify(data);
+    const base64 = btoa(unescape(encodeURIComponent(json)));
+    const chunked = base64.replace(/(.{6})/g, '$1-').replace(/-$/, '');
+    return 'M5V2-' + chunked + '-' + checksum(base64);
+}
+
+function decode(code) {
+    try {
+        if (!code.startsWith('M5V2-')) return null;
+        const body = code.slice(5);
+        const lastDash = body.lastIndexOf('-');
+        if (lastDash === -1) return null;
+        const payload = body.substring(0, lastDash);
+        const check = body.substring(lastDash + 1);
+        const base64 = payload.replace(/-/g, '');
+        if (checksum(base64) !== check) return null;
+        const json = decodeURIComponent(escape(atob(base64)));
+        return JSON.parse(json);
+    } catch (e) { return null; }
+}
+
+// ==================== 弹窗逻辑 ====================
+const modal = document.getElementById('serialModal');
+const codeDisplay = document.getElementById('codeDisplay');
+const importInput = document.getElementById('importInput');
+const resultText = document.getElementById('resultText');
+
+document.getElementById('serialBtn').addEventListener('click', () => modal.classList.add('show'));
+document.getElementById('closeModalBtn').addEventListener('click', () => modal.classList.remove('show'));
+
+// 选项卡切换
+document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+        btn.classList.add('active');
+        document.getElementById('tab' + btn.dataset.tab.charAt(0).toUpperCase() + btn.dataset.tab.slice(1)).classList.add('active');
+    });
+});
+
+// 生成串码
+document.getElementById('genCodeBtn').addEventListener('click', () => {
+    shopData = loadData();
+    const code = encode(shopData);
+    codeDisplay.textContent = code;
+    navigator.clipboard.writeText(code).then(() => {
+        codeDisplay.style.borderColor = '#4caf50';
+        resultText.textContent = '✅ 串码已复制到剪贴板';
+        resultText.className = 'result-text ok';
+    });
+});
+
+// 点击复制
+codeDisplay.addEventListener('click', () => {
+    if (codeDisplay.textContent === '点击生成串码') return;
+    navigator.clipboard.writeText(codeDisplay.textContent).then(() => {
+        codeDisplay.style.borderColor = '#4caf50';
+        setTimeout(() => codeDisplay.style.borderColor = '#333', 1500);
+    });
+});
+
+// 导入串码
+document.getElementById('importBtn').addEventListener('click', () => {
+    const code = importInput.value.trim();
+    if (!code) { resultText.textContent = '请先粘贴串码'; resultText.className = 'result-text err'; return; }
+    const data = decode(code);
+    if (!data) { resultText.textContent = '串码无效（校验失败）'; resultText.className = 'result-text err'; return; }
+    data.scoreSource = 'import';
+    saveData(data);
+    // ★ 同步更新游戏积分源，确保游戏和商店积分一致
+    localStorage.setItem('ming_vote_score_5v5_test', data.score);
+    shopData = data;
+    renderAll();
+    resultText.textContent = '导入成功！积分 ' + data.score + '，圣火令 ' + (data.items['圣火令'] || 0);
+    resultText.className = 'result-text ok';
+});
+
+renderAll();
+</script>
+</body>
+</html>

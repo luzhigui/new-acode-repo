@@ -510,12 +510,7 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 
-    document.getElementById('btnInfo').addEventListener('click',()=>{
-        const currentUI = getState.UI();
-        let ally=currentUI.allyTeam,enemy=currentUI.enemyTeam;
-        if(!ally.length){showAlert('无阵容信息');return;}
-        hasLoggedTeam = logTeamInfo('阵容详情', currentUI, gs, battleResultForInfo, getState.activeBuffs(), hasLoggedTeam);
-    });
+
     document.getElementById('btnBGM').addEventListener('click',()=>{ showMusicPanel(); });
     document.getElementById('btnCrashMode').addEventListener('click',function(){const newMode=GlobalStore.get('crashMode')==='fly'?'ghost':'fly';GlobalStore.set('crashMode',newMode);this.textContent=newMode==='fly'?'🕊️飞走':'👻虚影';});
     document.getElementById('btnDodgeToggle').addEventListener('click',()=>{toggleDodgeEffect();});
