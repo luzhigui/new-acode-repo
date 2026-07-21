@@ -74,9 +74,12 @@ export function doInitBattle(currentStage, UI, snapshot, activeBuffs, selectedBu
             const swappable = allyTeam.find(u => !u.isZhang && !u.isWei);
             if (swappable) allyTeam.splice(allyTeam.indexOf(swappable), 1);
             let xzUnit = new Unit('小昭', 107, C.ROLES[rand(0, 3)], 'ally');
-            xzUnit.isXiaoZhao = true; xzUnit.initXiaoZhao(); xzUnit.applyBonus();
+            xzUnit.isXiaoZhao = true;
+            if (Math.random() < 0.5) { xzUnit.isXiaoZhaoSister = true; }
+            else { xzUnit.isXiaoZhaoBrother = true; }
+            xzUnit.initXiaoZhao(); xzUnit.applyBonus();
             xzUnit._baseMaxHp = xzUnit.maxHp; xzUnit._baseAtk = xzUnit.atk; xzUnit._baseDef = xzUnit.def;
-            xzUnit.pos = null; allyTeam.push(xzUnit);
+            xzUnit.pos = replacedUnit ? replacedUnit.pos : null;allyTeam.push(xzUnit);
         }
 
     } else {
@@ -122,7 +125,13 @@ export function doInitBattle(currentStage, UI, snapshot, activeBuffs, selectedBu
                 unit = new Unit(pick.name, pick.m, pick.role, 'ally');
                 if (pick.isZhang) unit.isZhang = true;
                 if (pick.isWei) unit.isWei = true;
-                if (pick.isXiaoZhao) { unit.isXiaoZhao = true; unit.initXiaoZhao(); unit.applyBonus(); unit._baseMaxHp = unit.maxHp; unit._baseAtk = unit.atk; unit._baseDef = unit.def; }
+                if (pick.isXiaoZhao) {
+                    unit.isXiaoZhao = true;
+                    if (Math.random() < 0.5) { unit.isXiaoZhaoSister = true; }
+                    else { unit.isXiaoZhaoBrother = true; }
+                    unit.initXiaoZhao(); unit.applyBonus();
+                    unit._baseMaxHp = unit.maxHp; unit._baseAtk = unit.atk; unit._baseDef = unit.def;
+                }
                 else { unit.init(); unit.applyBonus(); }
             } else {
                 const role = C.ROLES[rand(0, 3)];
@@ -143,7 +152,10 @@ export function doInitBattle(currentStage, UI, snapshot, activeBuffs, selectedBu
                 remainingPower += (normalPower[swappable.m] || 90);
             }
             let xzUnit = new Unit('小昭', 107, C.ROLES[rand(0, 3)], 'ally');
-            xzUnit.isXiaoZhao = true; xzUnit.initXiaoZhao(); xzUnit.applyBonus();
+            xzUnit.isXiaoZhao = true;
+            if (Math.random() < 0.5) { xzUnit.isXiaoZhaoSister = true; }
+            else { xzUnit.isXiaoZhaoBrother = true; }
+            xzUnit.initXiaoZhao(); xzUnit.applyBonus();
             xzUnit._baseMaxHp = xzUnit.maxHp; xzUnit._baseAtk = xzUnit.atk; xzUnit._baseDef = xzUnit.def;
             const replacedUnit = swappable;
             xzUnit.pos = replacedUnit ? replacedUnit.pos : null;

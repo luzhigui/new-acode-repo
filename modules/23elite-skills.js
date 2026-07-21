@@ -690,7 +690,7 @@ export function checkXiaoZhaoPermanentDoubleStrike(unit, activeBuffs) {
 }
 
 export function getXiaoZhaoHexEnhance(allyTeam, activeBuffs, hexKey) {
-    const xiaoZhao = allyTeam.find(u => (u.isXiaoZhaoSister || u.isXiaoZhaoBrother || u.isXiaoZhao) && u.alive);
+    const xiaoZhao = allyTeam.find(u => (u.isXiaoZhaoSister || u.isXiaoZhao) && u.alive);
     if (!xiaoZhao) return null;
     if (!hasBuff(activeBuffs, hexKey)) return null;
     const s = ES.xiaoZhao;
