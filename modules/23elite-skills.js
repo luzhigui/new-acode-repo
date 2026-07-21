@@ -530,33 +530,28 @@ export function spiderTransform(unit, log) {
 }
 
 export function spiderFlyCheck(unit, allyTeam, log) {
-    if (!unit.isXiaoZhaoBrother || !unit.alive || unit._spiderRemaining <= 0 || unit._spiderFlying) return;
+    if (!unit.isXiaoZhaoBrother || !unit.alive || unit._spiderFlying) return;
     if (unit._flyMode === 'spider') return;
 
-    let shouldFly = false;
     let reason = '';
     if (!unit._spiderTriggeredHit && unit.dmgTaken > 0) {
-        shouldFly = true;
         reason = '首次受击';
         unit._spiderTriggeredHit = true;
     } else if (!unit._spiderTriggered70 && unit.hp / unit.maxHp < 0.7) {
-        shouldFly = true;
         reason = '血量低于70%';
         unit._spiderTriggered70 = true;
     } else if (!unit._spiderTriggered40 && unit.hp / unit.maxHp < 0.4) {
-        shouldFly = true;
         reason = '血量低于40%';
         unit._spiderTriggered40 = true;
     }
 
-    if (!shouldFly) return;
+    if (!reason) return;
 
-    unit._spiderRemaining--;
     unit._spiderFlying = true;
     unit._flyMode = 'spider';
     unit._spiderAttacked = unit._acted;
 
-    log.push({ type:'info', text:`<span class="gold">🕷️ 飞天：${unit.name} ${reason}，化为蜘蛛遁走！剩余次数：${unit._spiderRemaining}</span>` });
+    log.push({ type:'info', text:`<span class="gold">🕷️ 飞天：${unit.name} ${reason}，化为蜘蛛遁走！剩余次数：${3 - (unit._spiderTriggeredHit ? 1 : 0) - (unit._spiderTriggered70 ? 1 : 0) - (unit._spiderTriggered40 ? 1 : 0)}</span>` });
 }
 
 export function spiderReturn(unit, allyTeam, enemySide, log) {
@@ -702,7 +697,7 @@ export function checkXiaoZhaoPermanentDoubleStrike(unit, activeBuffs) {
 }
 
 export function getXiaoZhaoHexEnhance(allyTeam, activeBuffs, hexKey) {
-    const xiaoZhao = allyTeam.find(u => (u.isXiaoZhaoSister || u.isXiaoZhao) && u.alive);
+    const xiaoZhao = allyTeam.find(u => u.isXiaoZhaoSister && u.alive);
     if (!xiaoZhao) return null;
     if (!hasBuff(activeBuffs, hexKey)) return null;
     const s = ES.xiaoZhao;
