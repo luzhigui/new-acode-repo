@@ -172,12 +172,8 @@ export function showMeleeCrash(unitA, unitD, speed, getPausedFn, onCrash) {
             ctxF.store.dispatch({ type: 'CLEAR_UNIT_FLASH', uid: unitA.uid });
             ctxF.store.dispatch({ type: 'SET_VISUAL', uid: unitA.uid, _acted: true, _flyMode: flyMode });
         }
-        if (cellA.parentNode) {
-            cellA.parentNode.removeChild(cellA);
-        }
-        // 强制更新UI，把残留的旧格子数据清掉
-        const c = window._getPlayerContext();
-        if (c) c.updateUI();
+        cellA.style.opacity = '0';
+        cellA.style.transform = 'scale(0.8)';
     }
 
     let chargeDur = 800 * (speed / 1000);
