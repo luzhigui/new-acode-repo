@@ -152,9 +152,10 @@ startApp();
 
 // ==================== DOM 初始化 ====================
 function initBugAndXiaoZhaoModes() {
-    // 小昭模式：从封面页传入
-    if (localStorage.getItem('_forceXiaoZhao') === '1') {
-        GlobalStore.set('forceXiaoZhao', true);
+    // 小昭模式：从封面页传入（sister=姐, brother=妹）
+    const xzMode = localStorage.getItem('_forceXiaoZhao');
+    if (xzMode === 'sister' || xzMode === 'brother') {
+        GlobalStore.set('forceXiaoZhao', xzMode);
         localStorage.removeItem('_forceXiaoZhao');
     }
     // Bug 模式：从封面页传入
@@ -194,7 +195,14 @@ document.addEventListener('DOMContentLoaded', function() {
             if (getState.autoLevel() === 'full-auto') {
                 const allKeys = Object.keys(C.BUFFS);
                 const existing = getState.activeBuffs().map(b => b.key);
-                const available = allKeys.filter(k => !existing.includes(k));
+                const allyTeam = getState.UI().allyTeam || [];
+                const available = allKeys.filter(k => {
+                    if (existing.includes(k)) return false;
+                    if (k === 'fortify' && !getState.activeBuffs().some(b => b.remaining > 0)) return false;
+                    const requiredRole = C.BUFF_ROLE_REQUIREMENTS?.[k];
+                    if (requiredRole && !allyTeam.some(u => u.alive && u.role === requiredRole)) return false;
+                    return true;
+                });
                 if (available.length > 0) {
                     const pick = available[rand(0, available.length - 1)];
                     const duration = C.BUFFS[pick].duration || C.BUFF_DURATION;
