@@ -79,7 +79,8 @@ export function doInitBattle(currentStage, UI, snapshot, activeBuffs, selectedBu
             else { xzUnit.isXiaoZhaoBrother = true; }
             xzUnit.initXiaoZhao(); xzUnit.applyBonus();
             xzUnit._baseMaxHp = xzUnit.maxHp; xzUnit._baseAtk = xzUnit.atk; xzUnit._baseDef = xzUnit.def;
-            xzUnit.pos = replacedUnit ? replacedUnit.pos : null;allyTeam.push(xzUnit);
+            xzUnit.pos = swappable ? swappable.pos : null;
+            allyTeam.push(xzUnit);
         }
 
     } else {
