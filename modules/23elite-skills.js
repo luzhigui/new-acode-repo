@@ -414,9 +414,7 @@ export function applyXingFenPenalty(attacker, log) {
         const oldMaxHp = attacker.maxHp;
         attacker.maxHp = Math.max(1, attacker.maxHp - penalty);
         attacker.hp = Math.min(attacker.hp, attacker.maxHp);
-        if (typeof window._emitEvent === 'function') {
-            window._emitEvent(attacker, 'hp-change', { hp: attacker.hp, maxHp: attacker.maxHp, alive: attacker.alive, atk: attacker.atk, def: attacker.def });
-        }
+        emitEvent(attacker, 'hp-change', { hp: attacker.hp, maxHp: attacker.maxHp, alive: attacker.alive, atk: attacker.atk, def: attacker.def });
         if (log) log.push({ type:'info', text:`<span class="red">💗 性奋代价：${attacker.name} 血量上限 ${oldMaxHp} → ${attacker.maxHp}（-${penalty}）</span>` });
     }
 }
