@@ -626,5 +626,6 @@ assets/    音效
 | tools/31-toolkit.html | V5.2.0 |
 | tools/32-toolkit.js | V5.2.0 |
 | tools/33-toolkit-more.js | V5.2.0 |
+| tools/34-shop.html | V5.2.0 |
 | index.html | V5.2.0 |
 | mode-5v5-test.html | V5.2.0 |
