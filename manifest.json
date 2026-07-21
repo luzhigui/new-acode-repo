@@ -2,7 +2,7 @@
   "name": "光明顶 5v5 对战",
   "short_name": "光明顶",
   "description": "倚天屠龙记 明教 vs 六大派 5v5 回合制对战",
-  "start_url": "mode-5v5-test.html",
+  "start_url": "index.html",
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#f5f0e0",
