@@ -88,6 +88,7 @@ export class Unit {
         c._kuLianActive = this._kuLianActive;
         c._phantomTarget = this._phantomTarget;
         c._stunned = this._stunned;
+        c._lastRole = this._lastRole;
         c._isLinkAttack = this._isLinkAttack;
         c.isXiaoZhao = this.isXiaoZhao;
         c._masteredRoles = [...this._masteredRoles];

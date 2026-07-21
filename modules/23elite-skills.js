@@ -493,7 +493,8 @@ export function butterflyReturn(unit, allyTeam, log) {
 export function spiderTransform(unit, log) {
     if (!unit.isXiaoZhaoBrother || !unit.alive) return;
     const roles = ['战士', '防战', '远程', '飞行'];
-    const availableRoles = unit._lastRole ? roles.filter(r => r !== unit._lastRole) : roles;
+    let availableRoles = unit._lastRole ? roles.filter(r => r !== unit._lastRole) : roles;
+    if (availableRoles.length === 0) availableRoles = roles;
     const newRole = availableRoles[Math.floor(Math.random() * availableRoles.length)];
     unit._lastRole = newRole;
 
