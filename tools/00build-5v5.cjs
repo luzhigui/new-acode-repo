@@ -1,10 +1,10 @@
 // tools/00build-5v5.cjs - 光明顶5v5 构建脚本
-// V5.2.0 | ~8346 bytes | 2026-07-05
+// V5.2.0 | 更新：2026-07-21 合并新模块
 
 const fs = require('fs');
 const path = require('path');
 
-const ROOT = __dirname;
+const ROOT = path.resolve(__dirname, '..');
 
 const MODULES = [
     'core/01config-5v5-test.js',
@@ -15,6 +15,10 @@ const MODULES = [
     'core/05battle-horse.js',
     'core/06battle-engine-core.js',
     'core/07battle-engine-5v5-test.js',
+    'core/47battle-attack.js',
+    'core/48battle-round.js',
+    'core/49battle-attack-steps.js',
+    'core/50battle-shared.js',
     'player/08player-text.js',
     'fx/15fx-common-5v5-test.js',
     'fx/16fx-arrows-5v5-test.js',
@@ -22,15 +26,22 @@ const MODULES = [
     'fx/18fx-position-swap.js',
     'fx/19fx-push-back.js',
     'fx/20fx-dodge-bullet.js',
-    'fx/21fx-blood-slash.js',
-    'fx/22fx-fortify-counter.js',
+    'fx/21fx-butterfly-spider.js',
     'player/09player-buff-ui.js',
     'player/10player-core.js',
     'player/11battle-player-5v5-test.js',
     'ui/14ui-render-5v5-test.js',
     'ui/12main-utils.js',
     'modules/24error-capture.js',
+    'modules/28audio-manager.js',
+    'modules/46global-store.js',
     'tools/27auto-battle-utils.js',
+    'ui/39main-state.js',
+    'ui/40main-dialogs.js',
+    'ui/41main-battle.js',
+    'ui/42audio-control.js',
+    'ui/43fx-trigger.js',
+    'ui/44ui-controls.js',
     'ui/13main-5v5-test.js'
 ];
 
@@ -42,6 +53,10 @@ const VER_GLOBAL_MAP = {
     '05battle-horse.js':              'VER_HORSE',
     '06battle-engine-core.js':        'VER_CORE',
     '07battle-engine-5v5-test.js':    'VER_ENGINE',
+    '47battle-attack.js':             'VER_ATTACK',
+    '48battle-round.js':              'VER_ROUND',
+    '49battle-attack-steps.js':       'VER_ATTACK_STEPS',
+    '50battle-shared.js':             'VER_SHARED',
     '08player-text.js':               'VER_TEXT',
     '09player-buff-ui.js':            'VER_BUFF_UI',
     '10player-core.js':               'VER_PLAYER_CORE',
@@ -54,11 +69,19 @@ const VER_GLOBAL_MAP = {
     '18fx-position-swap.js':          'VER_FX_SWAP',
     '19fx-push-back.js':              'VER_FX_PUSH',
     '20fx-dodge-bullet.js':           'VER_FX_DODGE',
-    '21fx-blood-slash.js':            'VER_FX_BLOOD',
-    '22fx-fortify-counter.js':        'VER_FX_FORTIFY',
+    '21fx-butterfly-spider.js':       'VER_FX_BUTTERFLY',
     '23elite-skills.js':              'VER_ELITE_SKILLS',
     '24error-capture.js':             'VER_ERROR_CAPTURE',
-    '27auto-battle-utils.js':         'VER_AUTO_BATTLE_UTILS'
+    '28audio-manager.js':             'VER_AUDIO',
+    '46global-store.js':              'VER_GLOBAL_STORE',
+    '27auto-battle-utils.js':         'VER_AUTO_BATTLE_UTILS',
+    '39main-state.js':                'VER_MAIN_STATE',
+    '40main-dialogs.js':              'VER_MAIN_DIALOGS',
+    '41main-battle.js':               'VER_MAIN_BATTLE',
+    '42audio-control.js':             'VER_AUDIO_CTRL',
+    '43fx-trigger.js':                'VER_FX_TRIGGER',
+    '44ui-controls.js':               'VER_UI_CTRL',
+    '13main-5v5-test.js':             'VER_MAIN'
 };
 
 const HTML_TEMPLATE = 'mode-5v5-test.html';
@@ -80,11 +103,18 @@ function parseImports(code) {
             }
         });
     }
+    // Also handle side-effect imports: import '../path.js';
+    const sideRegex = /import\s+['"]([^'"]+)['"];?/g;
+    while ((m = sideRegex.exec(code)) !== null) {
+        const source = path.basename(m[1]);
+        imports.push({ localName: null, sourceFile: source });
+    }
     return imports;
 }
 
 function removeImportsExports(code) {
     code = code.replace(/import\s+[\s\S]*?from\s+['"][^'"]+['"];?/g, '');
+    code = code.replace(/import\s+['"][^'"]+['"];?/g, '');
     code = code.replace(/export\s*\{[\s\S]*?\};?/g, '');
     code = code.replace(/export\s+default\s+/g, '');
     code = code.replace(/export\s+(const|let|var|function|class|async\s+function)\s+/g, '$1 ');
@@ -148,15 +178,14 @@ function build() {
         // 处理自己的 VER：重命名声明并替换所有引用
         const ownGlobalVer = VER_GLOBAL_MAP[mod];
         if (ownGlobalVer) {
-            // 将 const/let/var VER = ... 改为 var 全局名 = ...
             code = code.replace(/\b(const|let|var)\s+VER\b/g, `var ${ownGlobalVer}`);
-            // 将代码中所有独立的 VER 替换为全局名（注意不替换类似 VER_UNIT 这样的单词）
             code = code.replace(/\bVER\b/g, ownGlobalVer);
         }
 
         // 构建 IIFE 头部：为导入变量创建局部绑定
         let iifeHead = '';
         for (const imp of imports) {
+            if (!imp.localName) continue; // side-effect import
             if (imp.localName === 'VER' && VER_GLOBAL_MAP[imp.sourceFile]) {
                 iifeHead += `  var VER = window.${VER_GLOBAL_MAP[imp.sourceFile]};\n`;
             } else {
@@ -174,7 +203,6 @@ function build() {
                 iifeTail += `  window.${expVar} = ${expVar};\n`;
             }
         }
-        // 确保自己的 VER 被挂载
         if (ownGlobalVer) {
             iifeTail += `  window.${ownGlobalVer} = ${ownGlobalVer};\n`;
         }
@@ -193,7 +221,8 @@ function build() {
         'FX_VER': 'VER_FX_COMMON',
         'FA_VER': 'VER_FX_ARROWS',
         'FC_VER': 'VER_FX_CRASH',
-        'BP_VER': 'VER_PLAYER'
+        'BP_VER': 'VER_PLAYER',
+        'AGS_VER': 'VER_GLOBAL_STORE'
     };
     for (const [oldName, newName] of Object.entries(ALIAS_MAP)) {
         combinedJS = combinedJS.replace(new RegExp(`\\b${oldName}\\b`, 'g'), newName);
@@ -208,22 +237,23 @@ function build() {
     }
     let html = fs.readFileSync(htmlPath, 'utf-8');
 
-    const scriptTagRegex = /<script\s+type="module"\s+src="\.\/13main-5v5-test\.js"><\/script>/;
-    if (!scriptTagRegex.test(html)) {
-        console.error('❌ 在 HTML 模板中未找到入口 script 标签');
-        process.exit(1);
-    }
-    html = html.replace(
-        scriptTagRegex,
-        `<script>\n${combinedJS}\n</script>`
-    );
+    // 替换两个 module script 标签为合并后的内联脚本
+    const moduleRegex = /<script\s+type="module"\s+src="[^"]+"><\/script>/g;
+    let first = true;
+    html = html.replace(moduleRegex, (match) => {
+        if (first) {
+            first = false;
+            return `<script>\n${combinedJS}\n</script>`;
+        }
+        return ''; // 移除后续的 module script 标签
+    });
 
     const outPath = path.join(ROOT, 'mode-5v5-combined.html');
     fs.writeFileSync(outPath, html, 'utf-8');
 
     const sizeKB = (fs.statSync(outPath).size / 1024).toFixed(1);
     console.log(`✅ 构建成功：${outPath} (${sizeKB} KB)`);
-    console.log('📌 可直接用浏览器打开，或通过 Live Server 获得最佳体验');
+    console.log('📌 可直接用浏览器打开，或上传到在线 APK 打包工具');
 }
 
 build();
