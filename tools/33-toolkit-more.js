@@ -20,6 +20,7 @@ function escapeHtml(text) {
         '../ui/42audio-control.js', '../ui/43fx-trigger.js', '../ui/44ui-controls.js',
         '../fx/15fx-common-5v5-test.js', '../fx/16fx-arrows-5v5-test.js', '../fx/17fx-crash-5v5-test.js',
         '../fx/18fx-position-swap.js', '../fx/19fx-push-back.js', '../fx/20fx-dodge-bullet.js',
+        '../fx/21fx-butterfly-spider.js',
         '../modules/23elite-skills.js', '../modules/24error-capture.js', '../modules/28audio-manager.js',
         '../modules/46global-store.js', '../modules/100-replay.js',
         '../tests/25unit-tests.js',

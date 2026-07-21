@@ -1,4 +1,4 @@
-# 光明顶 5v5 游戏设定汇总
+﻿# 光明顶 5v5 游戏设定汇总
 
 版本：V5.2.0  
 整理日期：2026-07-20  
@@ -599,6 +599,7 @@ assets/    音效
 | fx/18fx-position-swap.js | V5.2.0 |
 | fx/19fx-push-back.js | V5.2.0 |
 | fx/20fx-dodge-bullet.js | V5.2.0 |
+| fx/21fx-butterfly-spider.js | V5.2.0 |
 | modules/23elite-skills.js | V5.2.0 |
 | modules/24error-capture.js | V5.2.0 |
 | modules/28audio-manager.js | V5.2.0 |
@@ -625,5 +626,5 @@ assets/    音效
 | tools/31-toolkit.html | V5.2.0 |
 | tools/32-toolkit.js | V5.2.0 |
 | tools/33-toolkit-more.js | V5.2.0 |
-| 00index.html | V5.2.0 |
+| index.html | V5.2.0 |
 | mode-5v5-test.html | V5.2.0 |

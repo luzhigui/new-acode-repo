@@ -1,4 +1,4 @@
-// tools/32-toolkit.js - 光明顶5v5 开发工具箱（文件复制器 / 拆分自原 32-toolkit.js）
+﻿// tools/32-toolkit.js - 光明顶5v5 开发工具箱（文件复制器 / 拆分自原 32-toolkit.js）
 // V5.2.0 | ~25371 bytes | 2026-07-05
 
 /* ========== 标签页切换 ========== */
@@ -37,6 +37,7 @@ function escapeHtml(text) {
         // fx（特效）
         '../fx/15fx-common-5v5-test.js', '../fx/16fx-arrows-5v5-test.js', '../fx/17fx-crash-5v5-test.js',
         '../fx/18fx-position-swap.js', '../fx/19fx-push-back.js', '../fx/20fx-dodge-bullet.js',
+        '../fx/21fx-butterfly-spider.js',
         // modules（模块）
         '../modules/23elite-skills.js', '../modules/24error-capture.js', '../modules/28audio-manager.js',
         '../modules/46global-store.js', '../modules/100-replay.js',
@@ -58,7 +59,7 @@ function escapeHtml(text) {
         '../assets/sfx_arrow.mp3', '../assets/sfx_fly.mp3',
         '../assets/sfx_melee.mp3', '../assets/sfx_xinai.mp3',
         // 根目录
-        '../00index.html', '../mode-5v5-test.html',
+        '../index.html', '../mode-5v5-test.html',
         '../README.md', '../CHANGELOG.md', '../kaifazhunze.md',
         '../game-design.md',
         '../to do list.md'
