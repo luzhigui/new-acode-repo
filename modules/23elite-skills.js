@@ -482,7 +482,6 @@ export function butterflyReturn(unit, allyTeam, log) {
 
     unit.atk = unit._butterflyAtk;
     unit.def = unit._butterflyDef;
-    unit.hp = unit._butterflyHp;
     // 收回加给宿主的攻防血
     const host = allyTeam.find(a => a.uid === unit._butterflyHost);
     if (host) {
@@ -493,12 +492,26 @@ export function butterflyReturn(unit, allyTeam, log) {
         host.def = Math.max(0, host.def - defTransfer);
         host.maxHp = Math.max(1, host.maxHp - hpTransfer);
         host.hp = Math.min(host.hp, host.maxHp);
-        emitEvent(host, 'hp-change', { hp: host.hp, maxHp: host.maxHp, alive: host.alive, atk: host.atk, def: host.def });
+        host._phantomTarget = null;
+        emitEvent(host, 'hp-change', { hp: host.hp, maxHp: host.maxHp, alive: host.alive, atk: host.atk, def: host.def, _phantomTarget: null });
     }
 
     unit._butterflyAtk = 0; unit._butterflyDef = 0; unit._butterflyHp = 0;
     unit._flyMode = null;
     unit._butterflyHost = null;
+
+    // 根据全体队友（含已阵亡）的总生命值比例计算当前血量
+    const allies = allyTeam.filter(a => !a.isHorse && a.uid !== unit.uid);
+    const totalHp = allies.reduce((sum, a) => sum + (a.alive ? a.hp : 0), 0);
+    const totalMaxHp = allies.reduce((sum, a) => sum + a.maxHp, 0);
+    const ratio = totalMaxHp > 0 ? totalHp / totalMaxHp : 0;
+    unit.hp = Math.floor(unit.maxHp * ratio);
+    if (unit.hp <= 0) {
+        unit.hp = 0;
+        unit.alive = false;
+        unit._isDead = true;
+        if (!unit._deathTime) unit._deathTime = Date.now();
+    }
 
     const order = [4, 5, 6, 7, 8, 9, 1, 2, 3];
     const occupied = new Set(allyTeam.filter(a => a.alive && !a.isHorse && a.uid !== unit.uid).map(a => a.pos));
@@ -506,8 +519,8 @@ export function butterflyReturn(unit, allyTeam, log) {
         if (!occupied.has(p)) { unit.pos = p; break; }
     }
 
-    emitEvent(unit, 'hp-change', { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: unit.atk, def: unit.def, _flyMode: null, _butterflyHost: null });
-    log.push({ type:'info', text:`<span class="gold">🦋 蝶变：${unit.name} 飞回，落在${unit.pos}号位！</span>` });
+    emitEvent(unit, 'hp-change', { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: unit.atk, def: unit.def, _flyMode: null, _butterflyHost: null, _isDead: unit._isDead || false });
+    log.push({ type:'info', text:`<span class="gold">🦋 蝶变：${unit.name} 飞回，落在${unit.pos}号位！${Math.floor(unit.hp)}/${Math.floor(unit.maxHp)}</span>` });
 }
 
 // ==================== 🕷️ 小昭·妹 — 蛛变 + 飞天 ====================
