@@ -393,9 +393,9 @@ export function renderGrid(id, camp) {
         let hpStyle = hpBonusVal > 0 ? 'color:#daa520;font-weight:bold;' : '';
         let eliteSkillIcon = (unit.name === '周芷若' && unit._hasKuaiLe) ? ' 💖' : (unit.name === '宋青书' && unit._hasXingFen) ? ' 💗' : (unit.isXiaoZhaoSister ? ' 🦋' : (unit.isXiaoZhaoBrother ? ' 🕷️' : (unit.isXiaoZhao ? ' 🦋' : '')));
         // 如果这个单位是小昭·姊的附身宿主，名字后面加蝴蝶
-        if (!eliteSkillIcon && unit._phantomTarget) {
-            const sister = allyTeam.find(a => a.isXiaoZhaoSister && a.alive && a.uid === unit._phantomTarget);
-            if (sister) eliteSkillIcon = ' 🦋';
+        if (!eliteSkillIcon) {
+            const sisterHost = allyTeam.find(a => a.isXiaoZhaoSister && a.alive && a._butterflyHost === unit.uid);
+            if (sisterHost) eliteSkillIcon = ' 🦋';
         }
         if (unit.name === '成昆' && unit._phantomTarget) eliteSkillIcon += ' 🎭';
         if (unit._xuanmingPoison && unit._xuanmingPoison.remaining > 0) eliteSkillIcon += ' ❄️';
