@@ -100,7 +100,7 @@ export function* createRoundStepper(state) {
 
     // 小昭永久拒马（xiaoZhao 已在上方定义）
     let teamHasHorse = hasBuff(A._activeBuffs, 'horseFormation');
-    let hasPermanentHorse = xiaoZhao && !teamHasHorse && xiaoZhao._permanentBuffs && xiaoZhao._permanentBuffs.some(b => b.key === 'horseFormation');
+    let hasPermanentHorse = xiaoZhao && xiaoZhao.isXiaoZhaoBrother && !teamHasHorse && xiaoZhao._permanentBuffs && xiaoZhao._permanentBuffs.some(b => b.key === 'horseFormation');
     if (!hasPermanentHorse) {
         const ctx = window._getPlayerContext?.();
         const uiXz = ctx?.UI?.allyTeam?.find(u => u.isXiaoZhao);
@@ -111,6 +111,10 @@ export function* createRoundStepper(state) {
     if (hasPermanentHorse) {
         const xzHorse = spawnHorse(A, log, B, true);
         if (xzHorse) {
+            xzHorse.atk = 0;
+            xzHorse.def = 25;
+            xzHorse.maxHp = 25;
+            xzHorse.hp = 25;
             log.push({type:'buff-summon', text:`<span class="gold">🐴 小昭的拒马在${xzHorse.pos}号位出现！</span>`, buffType:'summon', horsePos: xzHorse.pos, horseUid: xzHorse.uid, horseTaunt: '嗷——！'});
         }
     }
@@ -126,6 +130,7 @@ export function* createRoundStepper(state) {
             u.atk += s.atkBonus * mult;
             u.def += s.defBonus * mult;
             u.maxHp += s.hpBonus * mult;
+            u._baseMaxHp = Math.max(u._baseMaxHp || u.maxHp, u.maxHp);
             u.hp = Math.min(u.hp + s.hpBonus * mult, u.maxHp);
             if (typeof window._emitEvent === 'function') {
                 window._emitEvent(u, 'hp-change', { hp: u.hp, maxHp: u.maxHp, alive: u.alive, atk: u.atk, def: u.def });
@@ -177,19 +182,25 @@ export function* createRoundStepper(state) {
                 buffHpBonus: stats.hpBonus
             });
         }
-        if (hasCarryActive && (u.pos >= 4 && u.pos <= 6) && u._baseMaxHp !== undefined && !u.isHorse && !u.isZhang) {
+        const sister = A.some(a => a.isXiaoZhaoSister && a.alive);
+        const carryPositions = sister ? [4, 5, 6] : [5];
+        if (hasCarryActive && carryPositions.includes(u.pos) && u._baseMaxHp !== undefined && !u.isHorse && !u.isZhang) {
             // 先回退旧加成
             if (u.maxHp > 0 && u._baseMaxHp > 0) {
                 u.hp = Math.floor(u.hp * (u._baseMaxHp / u.maxHp));
             }
             u.maxHp = u._baseMaxHp;
-            if (u._baseAtk !== undefined) u.atk = u._baseAtk;
-            if (u._baseDef !== undefined) u.def = u._baseDef;
+            if (u._baseAtk !== undefined) u.atk = u._baseAtk + (u._carryAtkBonus || 0) + (u._butterflyAtkBonus || 0);
+            if (u._baseDef !== undefined) u.def = u._baseDef + (u._carryDefBonus || 0) + (u._butterflyDefBonus || 0);
             // 再应用新加成
             // ★ Carry 加成存入独立字段，不污染基础属性
             u._carryAtkBonus = Math.floor(stats.carryAtkAbs);
             u._carryDefBonus = Math.floor(stats.carryDefAbs);
             u._carryHpBonus = Math.floor(stats.carryHpAbs);
+            const holyAtkBonus = Math.floor((u._baseAtk || u.atk) * stats.atkBonus);
+            const holyDefBonus = Math.floor((u._baseDef || u.def) * stats.defBonus);
+            u.atk = (u._baseAtk || u.atk) + u._carryAtkBonus + (u._butterflyAtkBonus || 0) + holyAtkBonus;
+            u.def = (u._baseDef || u.def) + u._carryDefBonus + (u._butterflyDefBonus || 0) + holyDefBonus;
             if (u._carryHpBonus) {
                 let newMaxHp = Math.min(u._baseMaxHp + u._carryHpBonus, u._baseMaxHp * 2);
                 let extraHp = newMaxHp - u.maxHp;
@@ -202,23 +213,30 @@ export function* createRoundStepper(state) {
             if (stats.carryAtkAbs || stats.carryDefAbs || stats.carryHpAbs) {
                 log.push({ type:'info', text:`<span class="gold">👑 carry：${u.name} 获得队友属性加成 攻+${stats.carryAtkAbs} 防+${stats.carryDefAbs} 血上限+${stats.carryHpAbs}</span>` });
             }
-        } else if ((u.pos >= 4 && u.pos <= 6) && !u.isHorse && !hasCarryActive && !u.isXiaoZhao && !u.isZhang) {
-            // Carry 过期，只清零 Carry 字段，不动自身成长
-            if (u._carryHpBonus && u._baseMaxHp > 0 && u.maxHp > 0) {
-                u.hp = Math.floor(u.hp * (u._baseMaxHp / u.maxHp));
-            }
-            if (u._carryHpBonus) u.maxHp = u._baseMaxHp;
-            u._carryAtkBonus = 0;
-            u._carryDefBonus = 0;
-            u._carryHpBonus = 0;
-            if (typeof window._emitEvent === 'function') {
-                window._emitEvent(u, 'hp-change', { hp: u.hp, maxHp: u.maxHp, alive: u.alive, atk: u.atk, def: u.def });
+        } else if (!u.isHorse && !hasCarryActive && !u.isXiaoZhao && !u.isZhang) {
+            const sister = A.some(a => a.isXiaoZhaoSister && a.alive);
+            const carryPositions = sister ? [4, 5, 6] : [5];
+            if (carryPositions.includes(u.pos) && (u._carryAtkBonus || u._carryDefBonus || u._carryHpBonus)) {
+                // Carry 过期，只清零 Carry 字段，不动自身成长和附身加成
+                if (u._carryHpBonus && u._baseMaxHp > 0 && u.maxHp > 0) {
+                    u.hp = Math.floor(u.hp * (u._baseMaxHp / u.maxHp));
+                }
+                if (u._carryHpBonus) u.maxHp = u._baseMaxHp;
+                u._carryAtkBonus = 0;
+                u._carryDefBonus = 0;
+                u._carryHpBonus = 0;
+                u.atk = (u._baseAtk || u.atk) + (u._butterflyAtkBonus || 0);
+                u.def = (u._baseDef || u.def) + (u._butterflyDefBonus || 0);
+                if (typeof window._emitEvent === 'function') {
+                    window._emitEvent(u, 'hp-change', { hp: u.hp, maxHp: u.maxHp, alive: u.alive, atk: u.atk, def: u.def });
+                }
             }
         } else if (u.isXiaoZhao && isXiaoZhaoPermanentActive(u, A._activeBuffs, 'carry') && u._baseMaxHp !== undefined) {
             // 小昭永久carry：固定两层精通加成（+3攻 +4防 +20血上限）
             u.atk += 3;
             u.def += 4;
             u.maxHp += 20;
+            u._baseMaxHp = u.maxHp;
             u.hp = Math.min(u.hp + 20, u.maxHp);
             if (typeof window._emitEvent === 'function') {
                 window._emitEvent(u, 'hp-change', { hp: u.hp, maxHp: u.maxHp, alive: u.alive, atk: u.atk, def: u.def });
@@ -299,7 +317,7 @@ export function* createRoundStepper(state) {
                     if (u.isHorse && u.atk <= 0) {
                         u._acted = true;
                         let hpBefore = Math.floor(u.hp);
-                        u.hp = Math.min(u.maxHp, u.hp + 20);
+                        u.hp = Math.min(u.maxHp, u.hp + 15);
                         let hpAfter = Math.floor(u.hp);
                         u._resting = true;
                         // 5秒后自动清除休息状态，防止绿色特效一直显示
@@ -316,7 +334,7 @@ export function* createRoundStepper(state) {
                         if (typeof window._emitEvent === 'function') {
                             window._emitEvent(u, 'hp-change', { hp: u.hp, maxHp: u.maxHp, alive: u.alive, atk: u.atk, def: u.def });
                         }
-                        let bg = {type:'attack-group', uidA:u.uid, uidD:null, entries:[], isBlock:true, _fxSnapshot:makeFXSnapshot(u,null), waveTaunt:null, waveUnit:null, buffEffects:[], healAmount: 20, healUnitUid: u.uid};
+                        let bg = {type:'attack-group', uidA:u.uid, uidD:null, entries:[], isBlock:true, _fxSnapshot:makeFXSnapshot(u,null), waveTaunt:null, waveUnit:null, buffEffects:[], healAmount: 15, healUnitUid: u.uid};
                         bg.entries.push({type:'combat-text', text:`<span class="${u.camp==='ally'?'blue':'orange'}">${u.camp==='ally'?'明教':'六大派'} ${u.name}</span> 无法攻击`});
                         bg.entries.push({type:'info', text:`<span class="green">🐴 拒马休息回复20点生命（${hpBefore} → ${hpAfter}）</span>`});
                         bg._events = [...window._battleEvents];
@@ -344,7 +362,7 @@ export function* createRoundStepper(state) {
                     if (blocked && isMelee(u.role) && !(xiaoZhaoActive && hasBuff(A._activeBuffs, 'doubleStrike') && u.uid === doubleStrikeUnitUid)) {
                         u._acted = true;
                         let hpBefore = Math.floor(u.hp);
-                        u.hp = Math.min(u.maxHp, u.hp + 20);
+                        u.hp = Math.min(u.maxHp, u.hp + 15);
                         let hpAfter = Math.floor(u.hp);
                         u._resting = true;
                         // 5秒后自动清除休息状态，防止绿色特效一直显示
@@ -361,7 +379,7 @@ export function* createRoundStepper(state) {
                         if (typeof window._emitEvent === 'function') {
                             window._emitEvent(u, 'hp-change', { hp: u.hp, maxHp: u.maxHp, alive: u.alive, atk: u.atk, def: u.def });
                         }
-                        let bg = {type:'attack-group', uidA:u.uid, uidD:null, entries:[], isBlock:true, _fxSnapshot:makeFXSnapshot(u,null), waveTaunt:null, waveUnit:null, buffEffects:[], healAmount: 20, healUnitUid: u.uid};
+                        let bg = {type:'attack-group', uidA:u.uid, uidD:null, entries:[], isBlock:true, _fxSnapshot:makeFXSnapshot(u,null), waveTaunt:null, waveUnit:null, buffEffects:[], healAmount: 15, healUnitUid: u.uid};
                         bg.entries.push({type:'combat-text', text:`<span class="${u.camp==='ally'?'blue':'orange'}">${u.camp==='ally'?'明教':'六大派'} ${u.name}</span> 被遮挡`});
                         bg.entries.push({type:'info', text:`<span class="green">休息回复20点生命（${hpBefore} → ${hpAfter}）</span>`});
                         bg._events = [...window._battleEvents];
@@ -441,9 +459,6 @@ export function* createRoundStepper(state) {
             // 回合结束清除休息状态和定时器
             u._resting = false;
             if (u._restingTimer) { clearTimeout(u._restingTimer); u._restingTimer = null; }
-            if (typeof window._emitEvent === 'function') {
-                window._emitEvent(u, 'hp-change', { hp: u.hp, maxHp: u.maxHp, alive: u.alive, atk: u.atk, def: u.def, _resting: false });
-            }
             if (typeof window._emitEvent === 'function') {
                 window._emitEvent(u, 'hp-change', { hp: u.hp, maxHp: u.maxHp, alive: u.alive, atk: u.atk, def: u.def, _resting: false });
             }

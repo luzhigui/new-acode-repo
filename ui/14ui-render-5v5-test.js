@@ -153,8 +153,41 @@ function updateDetailPopupContent() {
             <span style="color:#888;">角色</span><span>${u.role} M${u.m}</span>
             <span style="color:#888;">站位</span><span>${!u.alive ? '已阵亡' : (u.pos || '?') + '号位'}</span>
             <span style="color:#888;">血量</span><span style="color:${hpColor};font-weight:bold;">${Math.floor(u.hp)} / ${Math.floor(u.maxHp)} (${hpPct}%)</span>
-            <span style="color:#888;">攻击</span><span>${u._baseAtk !== undefined && u.atk > u._baseAtk ? `${u._baseAtk}<span style="color:#daa520;">+${u.atk - u._baseAtk}</span> = <span style="color:#daa520;font-weight:bold;">${u.atk}</span>` : `${u.atk}${atkBonusVal > 0 ? ' <span style="color:#daa520;">+' + atkBonusVal + '</span> = ' + displayAtk : ''}`}</span>
-            <span style="color:#888;">防御</span><span>${u._baseDef !== undefined && u.def > u._baseDef ? `${Math.round(u._baseDef)}<span style="color:#daa520;">+${Math.round(u.def - u._baseDef)}</span> = <span style="color:#daa520;font-weight:bold;">${Math.round(u.def)}</span>` : `${Math.round(u.def)}`}</span>
+            <span style="color:#888;">攻击</span><span>${(() => {
+                let initAtk = u._initAtk !== undefined ? u._initAtk : u.atk;
+                let holyAtkBonus = Math.floor(initAtk * buffStats.atkBonus);
+                let carryAtk = u._carryAtkBonus || 0;
+                let butterflyAtk = u._butterflyAtkBonus || 0;
+                let finalAtk = u.atk;
+                let permChange = finalAtk - initAtk - holyAtkBonus - carryAtk - butterflyAtk;
+                let parts = [String(initAtk)];
+                if (permChange > 0) parts.push(`<span style="color:#daa520;">+${permChange}永</span>`);
+                else if (permChange < 0) parts.push(`<span style="color:#c0392b;">${permChange}永</span>`);
+                if (holyAtkBonus > 0) parts.push(`<span style="color:#daa520;">+${holyAtkBonus}圣火令</span>`);
+                if (carryAtk > 0) parts.push(`<span style="color:#daa520;">+${carryAtk}carry</span>`);
+                if (butterflyAtk > 0) parts.push(`<span style="color:#daa520;">+${butterflyAtk}附身</span>`);
+                if (parts.length === 1) return parts[0];
+                return parts.join(' ') + ' = <span style="color:#daa520;font-weight:bold;">' + finalAtk + '</span>';
+            })()}</span>
+            <span style="color:#888;">防御</span><span>${(() => {
+                let initDef = u._initDef !== undefined ? u._initDef : u.def;
+                let holyDefBonus = Math.floor(initDef * buffStats.defBonus);
+                let carryDef = u._carryDefBonus || 0;
+                let butterflyDef = u._butterflyDefBonus || 0;
+                let fortifyStacks = u._fortifyStacks || 0;
+                let fortifyDef = fortifyStacks * 0.5;
+                let finalDef = Math.round(u.def);
+                let permChange = finalDef - Math.round(initDef) - holyDefBonus - carryDef - butterflyDef - fortifyDef;
+                let parts = [String(Math.round(initDef))];
+                if (permChange > 0) parts.push(`<span style="color:#daa520;">+${permChange}永</span>`);
+                else if (permChange < 0) parts.push(`<span style="color:#c0392b;">${permChange}永</span>`);
+                if (holyDefBonus > 0) parts.push(`<span style="color:#daa520;">+${holyDefBonus}圣火令</span>`);
+                if (carryDef > 0) parts.push(`<span style="color:#daa520;">+${carryDef}carry</span>`);
+                if (butterflyDef > 0) parts.push(`<span style="color:#daa520;">+${butterflyDef}附身</span>`);
+                if (fortifyDef > 0) parts.push(`<span style="color:#daa520;">+${fortifyDef}坚盾(${fortifyStacks}层)</span>`);
+                if (parts.length === 1) return parts[0];
+                return parts.join(' ') + ' = <span style="color:#daa520;font-weight:bold;">' + finalDef + '</span>';
+            })()}</span>
             <span style="color:#888;">造成伤害</span><span>${u.dmgDealt || 0}</span>
             <span style="color:#888;">承受伤害</span><span>${u.dmgTaken || 0}</span>
             <span style="color:#888;">治疗</span><span>${u.healDone || 0}</span>
@@ -259,11 +292,11 @@ export function renderGrid(id, camp) {
                 } else if (unit._flyMode === 'spider') {
                     const crashMode = window.GlobalStore?.get('crashMode') || 'ghost';
                     if (crashMode === 'fly') {
+                        div.innerHTML = '<span class="cell-icon">🕷️</span>';
                         div.style.background = 'transparent';
                         div.style.border = '2px solid transparent';
-                        div.style.boxShadow = 'none';
                     } else {
-                        div.innerHTML = '<span class="cell-icon">🕷️</span>';
+                        div.innerHTML = '<span class="cell-icon">🕷️</span><div class="cell-info"><span class="cell-name">蜘蛛</span></div>';
                         div.style.opacity = '0.4';
                         div.style.background = 'rgba(128, 0, 128, 0.1)';
                         div.style.border = '2px solid rgba(128, 0, 128, 0.4)';
@@ -330,16 +363,22 @@ export function renderGrid(id, camp) {
         let defBonusVal = Math.floor((latestUnit._baseDef || latestUnit.def) * buffStats.defBonus);
         let hpBonusVal = Math.floor(latestUnit.maxHp * buffStats.hpBonus);
         let displayAtk = Math.round(latestUnit.atk + (latestUnit._carryAtkBonus || 0) + atkBonusVal);
+        let initAtk = latestUnit._initAtk !== undefined ? latestUnit._initAtk : latestUnit.atk;
+        let totalChange = displayAtk - initAtk;
         let atkDisplayHtml = `${displayAtk}`;
-        if ((latestUnit._baseAtk !== undefined && displayAtk > latestUnit._baseAtk) || atkBonusVal > 0) {
+        if (totalChange > 0) {
             atkDisplayHtml = `<span style="color:#daa520;font-weight:bold;">${displayAtk}</span>`;
+        } else if (totalChange < 0) {
+            atkDisplayHtml = `<span style="color:#c0392b;font-weight:bold;">${displayAtk}</span>`;
         }
         let displayDef = Math.round(latestUnit.def + defBonusVal);
-        let baseDef = Math.round(latestUnit._baseDef !== undefined ? latestUnit._baseDef : (latestUnit.def - (latestUnit._fortifyStacks || 0)));
-        let bonusDef = displayDef - baseDef;
+        let initDef = latestUnit._initDef !== undefined ? Math.round(latestUnit._initDef) : Math.round(latestUnit.def);
+        let totalDefChange = displayDef - initDef;
         let defDisplayHtml = `${displayDef}`;
-        if (defBonusVal > 0 || (latestUnit._fortifyStacks || 0) > 0 || (latestUnit._baseDef !== undefined && latestUnit.def > latestUnit._baseDef)) {
+        if (totalDefChange > 0) {
             defDisplayHtml = `<span style="color:#daa520;font-weight:bold;">${displayDef}</span>`;
+        } else if (totalDefChange < 0) {
+            defDisplayHtml = `<span style="color:#c0392b;font-weight:bold;">${displayDef}</span>`;
         }
         let hpPct = unit.alive ? Math.floor((unit.hp / unit.maxHp) * 100) : 0;
         let hpColorClass = hpPct>70?'hp-text-green':(hpPct>40?'hp-text-orange':'hp-text-red');
@@ -398,6 +437,7 @@ export function renderGrid(id, camp) {
             if (sisterHost) eliteSkillIcon = ' 🦋';
         }
         if (unit.name === '成昆' && unit._phantomTarget) eliteSkillIcon += ' 🎭';
+        if (unit._piercing) eliteSkillIcon += ' 🔪';
         if (unit._xuanmingPoison && unit._xuanmingPoison.remaining > 0) eliteSkillIcon += ' ❄️';
         div.innerHTML = `<span class="cell-icon">${isBlocked && unit.alive && isResting && !(unit.isZhang && unit.rangedForm) && !isDead ? '😴' : roleIcon}</span><div class="cell-info"><span class="cell-name ${displayIsZhang?'gold':''}">${displayName}${eliteSkillIcon}${buffIcons ? ' ' + buffIcons : ''}</span><span class="cell-stats">攻<span style="${atkStyle}">${atkDisplayHtml}</span> 防<span style="${defStyle}">${defDisplayHtml}</span> <span class="${hpColorClass}" style="${hpStyle}">血${hpDisplayHtml}</span></span></div><div class="hp-bar-wrap"><div class="hp-bar-inner" id="hpbar-${unit.uid}" style="height:${hpPct}%;background:${barColor};transition:none;"></div></div>`;
         if (isDead) {

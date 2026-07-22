@@ -112,34 +112,7 @@ export function checkNineYinClaw(attacker, target, baseDmg, log) {
         const zhang = battleState && battleState.ally ? battleState.ally.find(u => u.isZhang && u.alive) : null;
         if (!zhang) {
             const allyTeam = GlobalStore.get('currentBattleState')?.ally || [];
-            if (allyTeam.length > 0) {
-                const xiaoZhao = allyTeam.find(u => u.isXiaoZhaoSister && u.alive && !u._stunned);
-                if (xiaoZhao) {
-                    let reduce = Math.max(1, Math.floor(bonusDmg * target.def / (ES.xiaoZhao.defToReduce || 100)));
-                    target.hp = Math.min(target.maxHp, target.hp + reduce);
-                    target.dmgTaken -= reduce;
-                    const aliveAllies = allyTeam.filter(u => u.alive && !u.isHorse);
-                    if (aliveAllies.length > 0) {
-                        const healTarget = aliveAllies[Math.floor(Math.random() * aliveAllies.length)];
-                        let heal = Math.max(ES.xiaoZhao.minHeal || 0.5, Math.floor(healTarget.def / (ES.xiaoZhao.defToHeal || 5)));
-                        healTarget.hp = Math.min(healTarget.maxHp, healTarget.hp + heal);
-                        healTarget.healDone += heal;
-                        emitEvent(healTarget, 'hp-change', { hp: healTarget.hp, maxHp: healTarget.maxHp, alive: healTarget.alive, atk: healTarget.atk, def: healTarget.def });
-                        const atkTarget = aliveAllies[Math.floor(Math.random() * aliveAllies.length)];
-                        let atkGain = Math.max(ES.xiaoZhao.minAtk || 0.5, Math.floor(atkTarget.def / (ES.xiaoZhao.defToAtk || 10)));
-                        atkTarget.atk += atkGain;
-                        if (atkTarget._baseAtk !== undefined) atkTarget._baseAtk += atkGain;
-                        emitEvent(atkTarget, 'hp-change', { hp: atkTarget.hp, maxHp: atkTarget.maxHp, alive: atkTarget.alive, atk: atkTarget.atk, def: atkTarget.def });
-                        log.push({
-                            type: 'info',
-                            text: `<span class="gold">🦋 乾坤衍生：${target.name}减伤${reduce}，${healTarget.name}治疗+${heal}，${atkTarget.name}攻击+${atkGain}</span>`,
-                            isHealEntry: true,
-                            healAmount: heal,
-                            healUnitUid: healTarget.uid
-                        });
-                    }
-                }
-            }
+            applyXiaoZhaoDerived(allyTeam, target, bonusDmg, null);
         }
 
         // 宋青书回血
@@ -448,7 +421,9 @@ export function butterflyAttach(unit, allyTeam, log) {
 
     const atkTransfer = Math.floor(unit.atk / 2);
     const defTransfer = Math.floor(unit.def / 2);
-    const hpTransfer = Math.floor(unit.maxHp / 2);
+    const hpTransfer = Math.floor(unit.hp / 2);
+    host._butterflyAtkBonus += atkTransfer;
+    host._butterflyDefBonus += defTransfer;
     host.atk += atkTransfer;
     host.def += defTransfer;
     host.maxHp += hpTransfer;
@@ -485,13 +460,18 @@ export function butterflyReturn(unit, allyTeam, log) {
     // 收回加给宿主的攻防血
     const host = allyTeam.find(a => a.uid === unit._butterflyHost);
     if (host) {
-        const atkTransfer = Math.floor(unit._butterflyAtk / 2);
-        const defTransfer = Math.floor(unit._butterflyDef / 2);
+        const atkTransfer = host._butterflyAtkBonus;
+        const defTransfer = host._butterflyDefBonus;
         const hpTransfer = Math.floor(unit._butterflyHp / 2);
+        host._butterflyAtkBonus = 0;
+        host._butterflyDefBonus = 0;
         host.atk = Math.max(0, host.atk - atkTransfer);
         host.def = Math.max(0, host.def - defTransfer);
+        const prevMaxHp = host.maxHp;
         host.maxHp = Math.max(1, host.maxHp - hpTransfer);
-        host.hp = Math.min(host.hp, host.maxHp);
+        host._baseMaxHp = Math.max(1, (host._baseMaxHp || prevMaxHp) - hpTransfer);
+        const hpRatio = prevMaxHp > 0 ? host.hp / prevMaxHp : 1;
+        host.hp = Math.floor(host.maxHp * hpRatio);
         host._phantomTarget = null;
         emitEvent(host, 'hp-change', { hp: host.hp, maxHp: host.maxHp, alive: host.alive, atk: host.atk, def: host.def, _phantomTarget: null });
     }
@@ -543,9 +523,15 @@ export function spiderTransform(unit, log) {
     unit.atk += newStats.atk;
     unit.def += newStats.def;
 
+    const prevMaxHp = unit.maxHp;
     let hpDelta = newStats.maxHp + 5;
     unit.maxHp += hpDelta;
-    if (hpDelta > 0) { unit.hp += hpDelta; } else { unit.hp = Math.min(unit.hp, unit.maxHp); }
+    if (hpDelta > 0) {
+        unit.hp += hpDelta;
+    } else {
+        const hpRatio = prevMaxHp > 0 ? unit.hp / prevMaxHp : 1;
+        unit.hp = Math.floor(unit.maxHp * hpRatio);
+    }
 
     emitEvent(unit, 'hp-change', { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: unit.atk, def: unit.def, role: unit.role, _masteredRoles: unit._masteredRoles });
     log.push({ type:'info', text:`<span class="gold">🕷️ 蛛变：${unit.name} 变换为<span class="gold">${newRole}</span>（已精通${unit._masteredRoles.length}/4）</span>` });
@@ -560,7 +546,6 @@ export function spiderFlyCheck(unit, allyTeam, log, incomingDmg) {
     const maxHp = unit.maxHp;
 
     let reason = '';
-    let remaining = 0;
 
     if (!unit._spiderTriggered70 && hpBefore > maxHp * 0.7 && hpAfter <= maxHp * 0.7) {
         reason = '血量即将低于70%';
@@ -575,13 +560,22 @@ export function spiderFlyCheck(unit, allyTeam, log, incomingDmg) {
 
     if (!reason) return false;
 
-    remaining = 2 - (unit._spiderTriggered70 ? 1 : 0) - (unit._spiderTriggered40 ? 1 : 0) - (unit._spiderTriggeredHit ? 1 : 0);
-
+    unit._spiderRemaining = (unit._spiderRemaining || 3) - 1;
     unit._spiderFlying = true;
     unit._flyMode = 'spider';
     unit._spiderAttacked = unit._acted;
+    emitEvent(unit, 'hp-change', { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: unit.atk, def: unit.def, _flyMode: 'spider', _spiderFlying: true });
 
-    log.push({ type:'info', text:`<span class="gold">🕷️ 飞天：${unit.name} ${reason}，免疫本次攻击的 ${incomingDmg || 0} 点伤害，化为蜘蛛遁走！剩余次数：${remaining}</span>` });
+    // 立即刷新 Store，确保格子瞬间消失
+    const ctx = window._getPlayerContext?.();
+    if (ctx && ctx.store) {
+        const events = [...window._battleEvents];
+        window._battleEvents = [];
+        if (window.GlobalStore) window.GlobalStore.flushBattleEvents();
+        if (events.length > 0) ctx.store.dispatch({ type: 'APPLY_EVENTS', events });
+    }
+
+    log.push({ type:'info', text:`<span class="gold">🕷️ 飞天：${unit.name} ${reason}，免疫本次攻击的 ${incomingDmg || 0} 点伤害，化为蜘蛛遁走！剩余次数：${unit._spiderRemaining}</span>` });
     return true;
 }
 
@@ -606,7 +600,9 @@ export function spiderReturn(unit, allyTeam, enemySide, log) {
     if (aliveEnemies.length > 0) {
         const target = aliveEnemies[rand(0, aliveEnemies.length - 1)];
         const penetrationDmg = Math.floor(unit.atk * (unit.atk / (unit.atk + target.def)));
-        const extraDmg = (unit._masteredRoles?.length || 0) * 10;
+        const masteryCount = unit._masteredRoles?.length || 0;
+        const extraDmgMap = [0, 5, 10, 15, 30];
+        const extraDmg = extraDmgMap[Math.min(masteryCount, 4)] || 0;
         const totalDmg = penetrationDmg + extraDmg;
         target.hp = Math.max(0, target.hp - totalDmg);
         unit.dmgDealt += totalDmg;
@@ -631,7 +627,7 @@ export function computeButterflyMastery(unit) {
 }
 
 export function addPermanentBuff(xiaoZhao, buffKey, buffName, extraFields = {}) {
-    if (!xiaoZhao || !(xiaoZhao.isXiaoZhaoSister || xiaoZhao.isXiaoZhaoBrother || xiaoZhao.isXiaoZhao)) return;
+    if (!xiaoZhao || !xiaoZhao.isXiaoZhaoBrother) return;
     if (!xiaoZhao._permanentBuffs) xiaoZhao._permanentBuffs = [];
     xiaoZhao._permanentBuffs.push({
         key: buffKey,
@@ -643,7 +639,7 @@ export function addPermanentBuff(xiaoZhao, buffKey, buffName, extraFields = {}) 
 }
 
 export function isXiaoZhaoPermanentActive(unit, activeBuffs, buffKey) {
-    if (!unit || !(unit.isXiaoZhaoSister || unit.isXiaoZhaoBrother || unit.isXiaoZhao) || !unit._permanentBuffs) return false;
+    if (!unit || !unit.isXiaoZhaoBrother || !unit._permanentBuffs) return false;
     if (activeBuffs && hasBuff(activeBuffs, buffKey)) return false;
     return unit._permanentBuffs.some(b => b.key === buffKey);
 }

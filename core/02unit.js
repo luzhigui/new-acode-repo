@@ -32,6 +32,10 @@ export class Unit {
         this._carryAtkBonus = 0;
         this._carryDefBonus = 0;
         this._carryHpBonus = 0;
+        this._butterflyAtkBonus = 0;
+        this._butterflyDefBonus = 0;
+        this._initAtk = 0;          // 战斗开始时的初始攻击（永不修改）
+        this._initDef = 0;          // 战斗开始时的初始防御（永不修改）
         // V3.1.0 新增：宋青书/周芷若联动技能状态字段
         this._kuaiLeStack = [];       // 快乐层数数组，每层 { healPct: number }
         this._xingFenActive = false;
@@ -56,6 +60,9 @@ export class Unit {
         this._spiderTriggeredHit = false;
         this._spiderTriggered70 = false;
         this._spiderTriggered40 = false;
+        this._spiderTriggeredDeath = false;
+        this._nineYinFirstDone = false;
+        this._extinctionUsed = false;
     }
     clone(){
         let c=new Unit(this.name,this.m,this.role,this.camp);
@@ -83,6 +90,10 @@ export class Unit {
         c._carryAtkBonus = this._carryAtkBonus;
         c._carryDefBonus = this._carryDefBonus;
         c._carryHpBonus = this._carryHpBonus;
+        c._butterflyAtkBonus = this._butterflyAtkBonus;
+        c._butterflyDefBonus = this._butterflyDefBonus;
+        c._initAtk = this._initAtk;
+        c._initDef = this._initDef;
         c._deathTime = this._deathTime;
         // V3.1.0 新增字段深拷贝
         c._kuaiLeStack = this._kuaiLeStack.map(layer => ({ ...layer }));
@@ -108,6 +119,10 @@ export class Unit {
         c._spiderTriggeredHit = this._spiderTriggeredHit;
         c._spiderTriggered70 = this._spiderTriggered70;
         c._spiderTriggered40 = this._spiderTriggered40;
+        c._spiderTriggeredDeath = this._spiderTriggeredDeath;
+        c._nineYinFirstDone = this._nineYinFirstDone;
+        c._extinctionUsed = this._extinctionUsed;
+        c._xingFenPenaltyCount = this._xingFenPenaltyCount;
         return c;
     }
     init(){
@@ -122,6 +137,8 @@ export class Unit {
         this._baseMaxHp = this.maxHp;
         this._baseAtk = this.atk;
         this._baseDef = this.def;
+        this._initAtk = this.atk;
+        this._initDef = this.def;
     }
     initXiaoZhao(){
         let hpBase = Math.floor(this.m / 2);

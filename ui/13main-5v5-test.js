@@ -56,7 +56,14 @@ let currentDoubleStrikeUid = null;
 let runtimeMonitorActive = false;
 let runtimeMonitorInterval = null;
 
-GlobalStore.set('voteScore', parseInt(localStorage.getItem('ming_vote_score_5v5_test') || '10'));
+const savedScore = localStorage.getItem('ming_vote_score_5v5_test');
+if (savedScore !== null) {
+    GlobalStore.set('voteScore', parseInt(savedScore, 10));
+}
+const savedToken = localStorage.getItem('ming_holy_token_5v5_test');
+if (savedToken !== null) {
+    GlobalStore.set('holyToken', parseInt(savedToken, 10));
+}
 GlobalStore.set('voteChoice', null); GlobalStore.set('battleHasZhang', false); GlobalStore.set('debugMode', false);
 
 const TRASH_TALK_ALLY = ['明教必胜！六大派受死！','光明顶，我守定了！','六大派也不过如此！','来战！明教弟子，何惧！','今日便让尔等见识魔教之威！'];
@@ -68,7 +75,13 @@ function debugLog(msg) { if (!debugMode) return; let logDiv = document.getElemen
 
 async function waitWhilePaused() { while (getState.isPaused()) { await new Promise(r => setTimeout(r, 100)); } }
 
-function updateScoreBadge() { document.getElementById('scoreBadge').textContent = `🏆 ${GlobalStore.get('voteScore')}分`; }
+function updateScoreBadge() {
+    const score = GlobalStore.get('voteScore');
+    const token = GlobalStore.get('holyToken');
+    const displayScore = (score === null || score === undefined) ? 0 : score;
+    const displayToken = (token === null || token === undefined) ? 0 : token;
+    document.getElementById('scoreBadge').innerHTML = `🏆 ${displayScore}分 🔥${displayToken}`;
+}
 export function onAnyButtonClick() { if (!gameStarted) return; const AudioManager = window.AudioManager; if (AudioManager && AudioManager.enabled && AudioManager.audio && AudioManager.audio.volume > 0.3) lowerBGM(); }
 function autoScrollLog() { if (userScrolled) return; let logDiv = document.getElementById('log'); if (logDiv) logDiv.scrollTop = logDiv.scrollHeight; }
 function onLogUserScroll() { let logDiv = document.getElementById('log'); if (!logDiv) return; let threshold = 10; let distToBottom = logDiv.scrollHeight - logDiv.scrollTop - logDiv.clientHeight; userScrolled = distToBottom > threshold; }
@@ -296,6 +309,7 @@ document.addEventListener('DOMContentLoaded', function() {
             setRenderStore(null);
             if(currentStage>=6){
                 currentStage=1;
+                GlobalStore.set('_hasPlayedFair', false);
                 let result = abortAll(abortController, getState.UI(), getState.waitingForNextRound(), isBattleStarting, getState.adjustMode(), getState.selectedAdjustPos(), getState.activeBuffs(), selectedBuffIndex, currentDoubleStrikeUid, () => updateBuffSlots(getState.activeBuffs(), selectedBuffIndex));
                 abortController = result.abortController; setState.waitingForNextRound(result.waitingForNextRound); isBattleStarting = result.isBattleStarting; setState.adjustMode(result.adjustMode); setState.selectedAdjustPos(result.selectedAdjustPos); setState.activeBuffs(result.activeBuffs); selectedBuffIndex = result.selectedBuffIndex; currentDoubleStrikeUid = result.currentDoubleStrikeUid;
                 GlobalStore.set('fastForwardActive', false);
@@ -312,12 +326,23 @@ document.addEventListener('DOMContentLoaded', function() {
                 setState.UI(currentUI);
                 setState.snapshot(currentSnapshot);
                 updateUI();
+                updateScoreBadge();
                 renderGrid('allyGrid', 'ally');
                 renderGrid('enemyGrid', 'enemy');
                 setState.gs(S.IDLE); setState.isPaused(false); updateButtons(); enableAllButtons(); updateSpeedButtons(); if(window._refreshGlowCells)window._refreshGlowCells();
                 if (getState.autoLevel() === 'full-auto') { setTimeout(() => { if (getState.autoLevel() === 'full-auto' && !getState.isBattleStarting()) document.getElementById('btnMain').click(); }, 500); }
             } else {
+                if (currentStage === 5 && !GlobalStore.get('_hasPlayedFair')) {
+                    // 检查是否从第1关连续打到第5关
+                    GlobalStore.set('_hasPlayedFair', true);
+                }
                 currentStage++;
+                if (currentStage === 6 && GlobalStore.get('_hasPlayedFair')) {
+                    let chests = parseInt(localStorage.getItem('ming_chest_count') || '0');
+                    chests++;
+                    localStorage.setItem('ming_chest_count', String(chests));
+                    GlobalStore.set('chestCount', chests);
+                }
                 setRenderStore(null);
                 let result = abortAll(abortController, getState.UI(), getState.waitingForNextRound(), isBattleStarting, getState.adjustMode(), getState.selectedAdjustPos(), getState.activeBuffs(), selectedBuffIndex, currentDoubleStrikeUid, () => updateBuffSlots(getState.activeBuffs(), selectedBuffIndex));
                 abortController = result.abortController; setState.waitingForNextRound(result.waitingForNextRound); isBattleStarting = result.isBattleStarting; setState.adjustMode(result.adjustMode); setState.selectedAdjustPos(result.selectedAdjustPos); setState.activeBuffs(result.activeBuffs); selectedBuffIndex = result.selectedBuffIndex; currentDoubleStrikeUid = result.currentDoubleStrikeUid;
@@ -336,6 +361,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 setState.UI(currentUI);
                 setState.snapshot(currentSnapshot);
                 updateUI();
+                updateScoreBadge();
                 renderGrid('allyGrid', 'ally');
                 renderGrid('enemyGrid', 'enemy');
                 setState.gs(S.IDLE); setState.isPaused(false); updateButtons(); enableAllButtons(); updateSpeedButtons(); if(window._refreshGlowCells)window._refreshGlowCells();

@@ -51,13 +51,20 @@
         .hero-card {
             background: #0f0f1a; border: 1px solid #333; border-radius: 10px;
             padding: 14px; display: flex; gap: 12px; align-items: center;
-            margin-bottom: 8px;
+            margin-bottom: 8px; transition: all 0.2s;
         }
+        .hero-card.unlocked { cursor: pointer; }
+        .hero-card.unlocked:hover { border-color: #ffd700; background: #1a1a3a; }
+        .hero-card.locked { opacity: 0.5; cursor: not-allowed; }
         .hero-avatar {
             font-size: 40px; min-width: 48px; text-align: center;
         }
         .hero-info { flex: 1; }
         .hero-name { font-size: 1rem; font-weight: bold; color: #ffd700; }
+        .hero-name .lock-tag {
+            font-size: 0.6rem; color: #888; margin-left: 6px;
+            padding: 2px 6px; border: 1px solid #555; border-radius: 4px;
+        }
         .hero-role { font-size: 0.7rem; color: #888; margin-bottom: 4px; }
         .hero-stats { font-size: 0.75rem; color: #ccc; }
         .hero-stats span { margin-right: 12px; }
@@ -69,6 +76,33 @@
             font-family: monospace;
         }
         .btn-back { background: #444; color: #ccc; }
+
+        /* 技能弹窗 */
+        .skill-modal {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.8); z-index: 9999;
+            display: none; justify-content: center; align-items: center;
+        }
+        .skill-modal.show { display: flex; }
+        .skill-box {
+            background: #16213e; border: 2px solid #ffd700; border-radius: 12px;
+            padding: 20px; width: 90%; max-width: 360px; max-height: 80vh;
+            overflow-y: auto; position: relative;
+        }
+        .skill-box h3 { color: #ffd700; margin-bottom: 4px; font-size: 1.1rem; }
+        .skill-box .role-line { color: #888; font-size: 0.75rem; margin-bottom: 10px; }
+        .skill-box .skill-item {
+            background: #0f0f1a; border: 1px solid #333; border-radius: 8px;
+            padding: 10px; margin-bottom: 8px; font-size: 0.8rem; line-height: 1.5;
+            color: #ccc;
+        }
+        .skill-box .skill-item .skill-name { color: #ffd700; font-weight: bold; margin-bottom: 4px; }
+        .close-btn {
+            position: absolute; top: 8px; right: 12px;
+            background: none; border: none; color: #888; font-size: 20px;
+            cursor: pointer; width: auto; padding: 0;
+        }
+        .close-btn:hover { color: #ffd700; }
 
         /* 串码弹窗 */
         .modal-overlay {
@@ -118,7 +152,7 @@
         </div>
     </div>
 
-    <!-- 积分 & 圣火令 -->
+    <!-- 积分 & 圣火令 & 宝箱 -->
     <div class="score-row">
         <div class="stat-card">
             <div class="icon">🏆</div>
@@ -130,10 +164,15 @@
             <div class="value" id="tokenVal">2</div>
             <div class="label">圣火令</div>
         </div>
+        <div class="stat-card">
+            <div class="icon">🎁</div>
+            <div class="value" id="chestVal">0</div>
+            <div class="label">宝箱</div>
+        </div>
     </div>
 
     <!-- 已解锁角色 -->
-    <div class="section-title">🦸 已解锁角色</div>
+    <div class="section-title">🦸 角色图鉴</div>
     <div id="heroList"></div>
 
     <!-- 底部 -->
@@ -141,7 +180,14 @@
         <button class="btn-back" id="backBtn">↩️ 返回游戏</button>
     </div>
 
-    <div class="info">💡 积分通过战斗获得，圣火令可用于兑换海克斯Buff</div>
+    <div class="info">💡 积分通过战斗获得，圣火令通过击杀/通关掉落获得<br>连续打通第1-6关可获得宝箱</div>
+</div>
+
+<!-- 技能详情弹窗 -->
+<div class="skill-modal" id="skillModal">
+    <div class="skill-box" id="skillBox">
+        <button class="close-btn" id="closeSkillBtn">✕</button>
+    </div>
 </div>
 
 <!-- 串码弹窗 -->
@@ -166,18 +212,73 @@
 </div>
 
 <script>
+// ==================== 角色技能库 ====================
+const SKILL_DB = {
+    '小昭·妹': {
+        icon: '🕷️',
+        role: '远程',
+        skills: [
+            { name: '蛛变', desc: '每回合随机变换职业（战士/防战/远程/飞行），不与上回合重复。记录精通职业，每次变身+5生命上限。精通加成：每职业+1.5攻+2防+10血上限（全精通额外+1次）。' },
+            { name: '飞天', desc: '整场战斗最多触发3次：首次受击/血量<70%/血量<40%时自动触发，化为小蜘蛛遁走并免疫当次伤害。回合结束落下攻击随机敌人（穿透伤害+精通×额外伤害，精通0=5/1=10/2=15/3=30）。' },
+            { name: '乾坤大挪移·升级', desc: '张无忌在场时，保护己方2/4/6/8号位，全队减伤30%，反弹20%伤害给攻击者（无忌自伤10%）。' },
+            { name: '记忆海克斯', desc: '团队海克斯过期后，妹妹可单独续上永久弱化版效果。仅职业匹配的Buff才激活。' }
+        ]
+    },
+    '小昭·姊': {
+        icon: '🦋',
+        role: '远程',
+        skills: [
+            { name: '蝶变附身', desc: '明教首次攻击前，附身到4号位后最近队友。转移一半攻/防/当前血量给宿主，自身血量按队友总血量比例调整。附身后格子消失（不挡后排、不被打、不吃衍生效果）。' },
+            { name: '乾坤衍生', desc: '张无忌不在时，队友受伤自动触发减伤、随机治疗、随机加攻。数值基于目标防御力计算。' },
+            { name: '乾坤大挪移·升级', desc: '张无忌在场时，全队减伤30%并反弹20%伤害（无忌自伤10%）。' },
+            { name: '团队强化', desc: '姐姐在场时，团队海克斯获得强化效果（连击100%、乘風100%波及、嗜血额外砍一刀等）。' }
+        ]
+    },
+    '张无忌': {
+        icon: '⚔️',
+        role: '远程/战士',
+        skills: [
+            { name: '九阳神功', desc: '每回合攻击后回复最大生命5%的血量。' },
+            { name: '乾坤大挪移', desc: '远程形态下，保护4/6号位队友。队友被攻击时反弹15%伤害给攻击者，无忌自伤10%。' },
+            { name: '近战切换', desc: '当前排无友军时自动切换近战形态：攻+3、防+2、生命上限+50，职业变为战士。前3次近战攻击有特殊台词，第3次触发"融会贯通"造成额外15%目标攻击伤害。' }
+        ]
+    },
+    '韦一笑': {
+        icon: '🦇',
+        role: '飞行',
+        skills: [
+            { name: '寒冰掌', desc: '每次造成伤害后吸血18%，并等量提升生命上限（最高为基础值2倍）。满血时仍可提升上限。' },
+            { name: '青翼蝠王', desc: '基础闪避20%，无视已行动状态。闪避反击造成(攻+防)×0.5真实伤害，攻击者被眩晕。' },
+            { name: '残血幻影', desc: '已损失生命比例×70%作为额外闪避率。乘法叠加：总命中=(1-基础20%)×(1-流云)×(1-残血)。空血最高70%额外闪避，与基础叠加后可达76%。' }
+        ]
+    },
+    '小昭': {
+        icon: '🦋',
+        role: '远程',
+        skills: [
+            { name: '蝶变乾坤', desc: '每回合随机变换职业，记录精通，+5血上限。精通加成：每职业+2攻+3防+12.5血上限（全精通额外+1次）。' },
+            { name: '乾坤大挪移·衍生', desc: '张无忌不在时，队友受伤触发减伤、治疗和攻击加成。' },
+            { name: '乾坤大挪移·升级', desc: '张无忌在场时，全队减伤30%并反弹20%伤害（无忌自伤10%）。' },
+            { name: '永久海克斯', desc: '团队海克斯消失后单独续上效果。' }
+        ]
+    }
+};
+
 // ==================== 数据管理 ====================
 const STORAGE_KEY = 'ming_shop_data';
 
 function getDefaultData() {
     const score = parseInt(localStorage.getItem('ming_vote_score_5v5_test') || '100');
+    const token = parseInt(localStorage.getItem('ming_holy_token_5v5_test') || '0');
     return {
         v: 1,
         score: score,
-        scoreSource: 'game',  // ★ 'game' = 从游戏读取, 'import' = 从串码导入
-        items: { '圣火令': 2 },
+        token: token,
+        scoreSource: 'game',
+        items: { '圣火令': token },
         heroes: {
             '小昭·妹': {
+                unlocked: true,
                 role: '远程',
                 atk: 33,
                 def: 25,
@@ -185,7 +286,11 @@ function getDefaultData() {
                 hp: 108,
                 masteredRoles: ['远程'],
                 isXiaoZhaoBrother: true
-            }
+            },
+            '小昭·姊': { unlocked: false },
+            '张无忌': { unlocked: false },
+            '韦一笑': { unlocked: false },
+            '小昭': { unlocked: false }
         },
         unlocked: []
     };
@@ -196,22 +301,33 @@ function loadData() {
         const raw = localStorage.getItem(STORAGE_KEY);
         if (raw) {
             const data = JSON.parse(raw);
-            // ★ 积分读取：导入的积分优先，否则从游戏积分源读取（只读不写）
-            if (data.scoreSource === 'import') {
-                // 用户通过串码导入过高分，用存档中的积分
+            const score = parseInt(localStorage.getItem('ming_vote_score_5v5_test') || '100');
+            const gameToken = localStorage.getItem('ming_holy_token_5v5_test');
+            let token;
+            if (gameToken !== null) {
+                token = parseInt(gameToken, 10);
             } else {
-                // 默认从游戏积分源读取最新值，绝不写回游戏
-                data.score = parseInt(localStorage.getItem('ming_vote_score_5v5_test') || '100');
+                // 新圣火令 key 尚未存在，从商店存档迁移
+                token = (data.items && data.items['圣火令']) ? data.items['圣火令'] : 0;
+                localStorage.setItem('ming_holy_token_5v5_test', String(token));
             }
-            // 兼容旧数据（没有 scoreSource 字段）
+            if (data.scoreSource !== 'import') data.score = score;
+            data.token = token;
+            data.items = data.items || {};
+            data.items['圣火令'] = token;
+            if (!data.heroes) data.heroes = getDefaultData().heroes;
+            // 确保所有角色存在
+            for (const name of Object.keys(SKILL_DB)) {
+                if (!data.heroes[name]) data.heroes[name] = { unlocked: false };
+            }
+            // 小昭·妹永远已解锁
+            if (!data.heroes['小昭·妹']) data.heroes['小昭·妹'] = { unlocked: true };
+            data.heroes['小昭·妹'].unlocked = true;
             if (!data.scoreSource) data.scoreSource = 'game';
             return data;
         }
     } catch (e) {}
-    const def = getDefaultData();
-    // ★ 不主动修改游戏积分源，只在首次初始化时保存
-    saveData(def);
-    return def;
+    return getDefaultData();
 }
 
 function saveData(data) {
@@ -224,32 +340,71 @@ let shopData = loadData();
 function renderStats() {
     document.getElementById('scoreVal').textContent = shopData.score;
     document.getElementById('tokenVal').textContent = shopData.items['圣火令'] || 0;
+    document.getElementById('chestVal').textContent = parseInt(localStorage.getItem('ming_chest_count') || '0');
 }
 
 function renderHeroes() {
     const list = document.getElementById('heroList');
     list.innerHTML = '';
-    const heroes = shopData.heroes || {};
-    for (const [name, h] of Object.entries(heroes)) {
+    const heroOrder = ['小昭·妹', '小昭·姊', '张无忌', '韦一笑', '小昭'];
+    for (const name of heroOrder) {
+        const heroData = shopData.heroes[name] || { unlocked: false };
+        const skillInfo = SKILL_DB[name] || { icon: '❓', role: '未知', skills: [] };
+        const unlocked = heroData.unlocked === true;
         const card = document.createElement('div');
-        card.className = 'hero-card';
-        const icon = h.isXiaoZhaoBrother ? '🕷️' : '🦋';
+        card.className = 'hero-card ' + (unlocked ? 'unlocked' : 'locked');
+        const masteredCount = heroData.masteredRoles ? heroData.masteredRoles.length : 0;
+        const statsHtml = unlocked && heroData.atk !== undefined
+            ? `<div class="hero-stats"><span>⚔️ ${heroData.atk}</span><span>🛡️ ${heroData.def}</span><span>❤️ ${heroData.hp}/${heroData.maxHp}</span></div>`
+            : '';
+        const roleText = unlocked
+            ? `${heroData.role || skillInfo.role}${masteredCount > 0 ? ' · 精通' + masteredCount + '/4' : ''}`
+            : '尚未解锁';
         card.innerHTML = `
-            <div class="hero-avatar">${icon}</div>
+            <div class="hero-avatar">${skillInfo.icon}</div>
             <div class="hero-info">
-                <div class="hero-name">${name}</div>
-                <div class="hero-role">${h.role} · 精通${(h.masteredRoles||[]).length}/4</div>
-                <div class="hero-stats">
-                    <span>⚔️ ${h.atk}</span><span>🛡️ ${h.def}</span><span>❤️ ${h.hp}/${h.maxHp}</span>
+                <div class="hero-name">
+                    ${name}
+                    ${unlocked ? '' : '<span class="lock-tag">未解锁</span>'}
                 </div>
+                <div class="hero-role">${roleText}</div>
+                ${statsHtml}
             </div>
         `;
+        if (unlocked) {
+            card.addEventListener('click', () => showSkillPopup(name));
+        }
         list.appendChild(card);
     }
-    if (Object.keys(heroes).length === 0) {
-        list.innerHTML = '<div style="color:#888;text-align:center;padding:20px;">暂无已解锁角色</div>';
-    }
 }
+
+// ==================== 技能弹窗 ====================
+function showSkillPopup(name) {
+    const skillInfo = SKILL_DB[name];
+    if (!skillInfo) return;
+    const heroData = shopData.heroes[name] || {};
+    const box = document.getElementById('skillBox');
+    let skillsHtml = '';
+    skillInfo.skills.forEach(s => {
+        skillsHtml += `<div class="skill-item"><div class="skill-name">${skillInfo.icon} ${s.name}</div>${s.desc}</div>`;
+    });
+    box.innerHTML = `
+        <button class="close-btn" id="closeSkillBtn">✕</button>
+        <h3>${skillInfo.icon} ${name}</h3>
+        <div class="role-line">职业：${heroData.role || skillInfo.role}${heroData.masteredRoles ? ' · 精通' + heroData.masteredRoles.length + '/4' : ''}</div>
+        ${skillsHtml}
+        <div style="color:#888;font-size:0.7rem;text-align:center;margin-top:10px;">点击外部关闭</div>
+    `;
+    document.getElementById('skillModal').classList.add('show');
+    // 重新绑定关闭按钮
+    document.getElementById('closeSkillBtn').addEventListener('click', () => {
+        document.getElementById('skillModal').classList.remove('show');
+    });
+}
+
+document.getElementById('skillModal').addEventListener('click', function(e) {
+    if (e.target === this) this.classList.remove('show');
+});
 
 function renderAll() { renderStats(); renderHeroes(); }
 
@@ -291,7 +446,6 @@ const resultText = document.getElementById('resultText');
 document.getElementById('serialBtn').addEventListener('click', () => modal.classList.add('show'));
 document.getElementById('closeModalBtn').addEventListener('click', () => modal.classList.remove('show'));
 
-// 选项卡切换
 document.querySelectorAll('.tab-btn').forEach(btn => {
     btn.addEventListener('click', () => {
         document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
@@ -301,7 +455,6 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
     });
 });
 
-// 生成串码
 document.getElementById('genCodeBtn').addEventListener('click', () => {
     shopData = loadData();
     const code = encode(shopData);
@@ -313,7 +466,6 @@ document.getElementById('genCodeBtn').addEventListener('click', () => {
     });
 });
 
-// 点击复制
 codeDisplay.addEventListener('click', () => {
     if (codeDisplay.textContent === '点击生成串码') return;
     navigator.clipboard.writeText(codeDisplay.textContent).then(() => {
@@ -322,7 +474,6 @@ codeDisplay.addEventListener('click', () => {
     });
 });
 
-// 导入串码
 document.getElementById('importBtn').addEventListener('click', () => {
     const code = importInput.value.trim();
     if (!code) { resultText.textContent = '请先粘贴串码'; resultText.className = 'result-text err'; return; }
@@ -330,7 +481,6 @@ document.getElementById('importBtn').addEventListener('click', () => {
     if (!data) { resultText.textContent = '串码无效（校验失败）'; resultText.className = 'result-text err'; return; }
     data.scoreSource = 'import';
     saveData(data);
-    // ★ 同步更新游戏积分源，确保游戏和商店积分一致
     localStorage.setItem('ming_vote_score_5v5_test', data.score);
     shopData = data;
     renderAll();
@@ -338,7 +488,6 @@ document.getElementById('importBtn').addEventListener('click', () => {
     resultText.className = 'result-text ok';
 });
 
-// 返回游戏：优先关闭窗口，无法关闭则跳转
 document.getElementById('backBtn').addEventListener('click', () => {
     window.close();
     setTimeout(() => {

@@ -203,10 +203,8 @@ async function handleBuffSwap(c, entry) {
     await showBuffBanner('🌀 惑人心智！');
     let div=document.createElement('div');div.innerHTML=entry.text+'<br>';document.getElementById('log').appendChild(div);c.autoScrollLog();
     let units = c.UI.allyTeam.concat(c.UI.enemyTeam);
-    let matchA = entry.text.match(/号位(.+?)\(/);
-    let matchB = entry.text.match(/与.*?号位(.+?)\(/);
-    let unitA = matchA ? units.find(u => u.name === matchA[1]) : null;
-    let unitB = matchB ? units.find(u => u.name === matchB[1]) : null;
+    let unitA = entry.uidA ? units.find(u => u.uid === entry.uidA) : null;
+    let unitB = entry.uidB ? units.find(u => u.uid === entry.uidB) : null;
     if (unitA && unitB) {
         let oldPosA = entry.oldPosA, oldPosB = entry.oldPosB;
         await animatePositionSwap(unitA, unitB, c, {
@@ -911,6 +909,18 @@ export async function playBattle() {
     c.updateButtons(); c.enableAllButtons();
 
     let winner = finalWinner;
+    if (winner === '明教' && c.currentStage) {
+        const stage = c.currentStage;
+        const killRate = [0, 7, 8, 9, 10, 11, 12][stage] / 100;
+        const clearRate = stage === 5 ? killRate * 6 : killRate * 5;
+        if (Math.random() < clearRate) {
+            const currentToken = GlobalStore.get('holyToken') || 0;
+            GlobalStore.set('holyToken', currentToken + 1);
+            localStorage.setItem('ming_holy_token_5v5_test', String(currentToken + 1));
+            logDiv.innerHTML += `<span class="gold">🔥 通关奖励：获得1枚圣火令！当前总数：${currentToken + 1}</span><br>`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+    }
     if (winner === '明教' || winner === '六大派') {
         let deadAllies = (c._deadUnitsForReport || []).filter(u => u.camp === 'ally');
         let deadEnemies = (c._deadUnitsForReport || []).filter(u => u.camp === 'enemy');
@@ -946,10 +956,11 @@ export async function playBattle() {
     if (window._updateGlowColors) window._updateGlowColors(-1);
 
     if (GlobalStore.get('voteChoice') && GlobalStore.get('voteChoice') !== 'skip' && winner !== '平局') {
-        let correct = (window._voteChoice === winner), earnPoints = 0;
-        if (correct) { earnPoints = window._battleHasZhang ? 3 : 2; }
+        let correct = (GlobalStore.get('voteChoice') === winner), earnPoints = 0;
+        if (correct) { earnPoints = GlobalStore.get('battleHasZhang') ? 3 : 2; }
         else { earnPoints = -1; }
         GlobalStore.set('voteScore', GlobalStore.get('voteScore') + earnPoints);
+        localStorage.setItem('ming_vote_score_5v5_test', String(GlobalStore.get('voteScore')));
         const newScore = GlobalStore.get('voteScore');
 const oldScoreStr = localStorage.getItem('ming_vote_score_5v5_test');
 const oldScore = oldScoreStr ? parseInt(oldScoreStr, 10) : 0;
@@ -980,7 +991,7 @@ else {
         let voteMsg = correct ? `<span class="green">📊 你猜了${GlobalStore.get('voteChoice')}，正确！+${earnPoints}分！ 当前积分：${GlobalStore.get('voteScore')}</span>` : `<span class="red">📊 你猜了${GlobalStore.get('voteChoice')}，错误！-1分！当前积分：${GlobalStore.get('voteScore')}</span>`;
         if (c.gs === 'GAMEOVER') { logDiv.innerHTML += voteMsg + '<br>'; logDiv.scrollTop = logDiv.scrollHeight; }
     } else if (winner === '平局') {
-        logDiv.innerHTML += '<span class="gray">📊 平局，积分不变，当前积分：' + window._voteScore + '</span><br>';
+        logDiv.innerHTML += '<span class="gray">📊 平局，积分不变，当前积分：' + GlobalStore.get('voteScore') + '</span><br>';
         logDiv.scrollTop = logDiv.scrollHeight;
     }
     GlobalStore.set('voteChoice', null);
