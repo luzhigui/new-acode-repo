@@ -1,4 +1,4 @@
-﻿// tools/32-toolkit.js - 光明顶5v5 开发工具箱（文件复制器 / 拆分自原 32-toolkit.js）
+﻿﻿﻿﻿﻿// tools/32-toolkit.js - 光明顶5v5 开发工具箱（文件复制器 / 拆分自原 32-toolkit.js）
 // V5.2.0 | ~25371 bytes | 2026-07-05
 
 /* ========== 标签页切换 ========== */
@@ -26,7 +26,7 @@ function escapeHtml(text) {
         '../core/03battle-utils.js', '../core/04buff-system.js', '../core/05battle-horse.js',
         '../core/06battle-engine-core.js', '../core/07battle-engine-5v5-test.js',
         '../core/47battle-attack.js', '../core/48battle-round.js', '../core/49battle-attack-steps.js',
-        '../core/50battle-shared.js',
+        '../core/50battle-shared.js', '../core/50buff-effects.js',
         // player（播放器）
         '../player/08player-text.js', '../player/09player-buff-ui.js', '../player/10player-core.js',
         '../player/11battle-player-5v5-test.js',

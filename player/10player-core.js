@@ -729,6 +729,9 @@ export async function playBattle() {
             if (su._acted !== undefined) uiUnit._acted = su._acted;
             if (su._resting !== undefined) uiUnit._resting = su._resting;
             if (su._blocked !== undefined) uiUnit._blocked = su._blocked;
+            if (su._flyMode !== undefined) uiUnit._flyMode = su._flyMode;
+            if (su._butterflyHost !== undefined) uiUnit._butterflyHost = su._butterflyHost;
+            if (su._phantomTarget !== undefined) uiUnit._phantomTarget = su._phantomTarget;
             if (su._isDead && !uiUnit._isDead) {
                 uiUnit._isDead = true;
                 uiUnit._flash = 'dead';

@@ -1,4 +1,4 @@
-﻿# 光明顶 5v5 游戏设定汇总
+﻿﻿﻿﻿﻿# 光明顶 5v5 游戏设定汇总
 
 版本：V5.2.0  
 整理日期：2026-07-20  
@@ -580,6 +580,7 @@ assets/    音效
 | core/48battle-round.js | V5.2.0 |
 | core/49battle-attack-steps.js | V5.2.0 |
 | core/50battle-shared.js | V5.2.0 |
+| core/50buff-effects.js | V5.2.0 |
 | player/08player-text.js | V5.2.0 |
 | player/09player-buff-ui.js | V5.2.0 |
 | player/10player-core.js | V5.2.0 |

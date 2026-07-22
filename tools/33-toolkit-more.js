@@ -1,4 +1,4 @@
-﻿// tools/33-toolkit-more.js - 光明顶5v5 开发工具箱（更多工具）
+﻿﻿﻿﻿﻿// tools/33-toolkit-more.js - 光明顶5v5 开发工具箱（更多工具）
 // V5.2.0 | ~27945 bytes | 2026-07-05
 
 function escapeHtml(text) {
@@ -12,7 +12,7 @@ function escapeHtml(text) {
         '../core/04buff-system.js', '../core/05battle-horse.js', '../core/06battle-engine-core.js',
         '../core/07battle-engine-5v5-test.js',
         '../core/47battle-attack.js', '../core/48battle-round.js', '../core/49battle-attack-steps.js',
-        '../core/50battle-shared.js',
+        '../core/50battle-shared.js', '../core/50buff-effects.js',
         '../player/08player-text.js', '../player/09player-buff-ui.js', '../player/10player-core.js',
         '../player/11battle-player-5v5-test.js',
         '../ui/12main-utils.js', '../ui/13main-5v5-test.js', '../ui/14ui-render-5v5-test.js',
