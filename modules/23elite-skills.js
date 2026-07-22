@@ -506,7 +506,7 @@ export function butterflyReturn(unit, allyTeam, log) {
         if (!occupied.has(p)) { unit.pos = p; break; }
     }
 
-    emitEvent(unit, 'hp-change', { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: unit.atk, def: unit.def });
+    emitEvent(unit, 'hp-change', { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: unit.atk, def: unit.def, _flyMode: null, _butterflyHost: null });
     log.push({ type:'info', text:`<span class="gold">🦋 蝶变：${unit.name} 飞回，落在${unit.pos}号位！</span>` });
 }
 
