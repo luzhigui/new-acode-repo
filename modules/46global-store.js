@@ -4,7 +4,8 @@ export const VER = 'modules/46global-store.js V5.2.0';
 
 const _state = {
     fastForwardActive: false,
-    voteScore: parseInt(localStorage.getItem('ming_vote_score_5v5_test') || '10'),
+    voteScore: null,
+    holyToken: null,
     voteChoice: null,
     battleHasZhang: false,
     bugMode: false,

@@ -127,6 +127,7 @@ function applyAllyEffects(unit, target, dmgCalc, group, A) {
         let newMaxHpWei = Math.min(unit.maxHp + healWei, unit._baseMaxHp * 2);
         let hpDeltaWei = newMaxHpWei - unit.maxHp;
         unit.maxHp = newMaxHpWei;
+        unit._baseMaxHp = Math.max(unit._baseMaxHp, newMaxHpWei);
         unit.hp = Math.min(unit.hp + hpDeltaWei, unit.maxHp);
         if (wasFullHpWei) { unit.hp = unit.maxHp; }
         unit.healDone += healWei; unit.leechDone += healWei;
@@ -260,6 +261,9 @@ export function processUnitAttack(unit, allySide, enemySide, log, A, B, state, d
         let targetResult = selectAttackTarget(unit, enemySide, allySide);
         target = targetResult.target;
         phantomLog = targetResult.phantomLog;
+        if (unit._piercing && target) {
+            log.push({ type:'info', text:`<span class="gold">🔪 破阵穿透：${unit.name} 穿透敌方空列，锁定后排 ${target.name}！</span>`, fastEntry: true });
+        }
     }
 
     if (!target) {
@@ -315,12 +319,12 @@ export function processUnitAttack(unit, allySide, enemySide, log, A, B, state, d
 
     // 🕷️ 小昭·妹 飞天免疫伤害检查
     if (A && target.isXiaoZhaoBrother && target.alive && !target._spiderFlying && spiderFlyCheck(target, A, log, dmgCalc.dmg)) {
-        group = { type:'attack-group', uidA:unit.uid, uidD:target.uid, entries:[], hpAfter:target.hp, alive:target.alive, isDead:false, _fxSnapshot:makeFXSnapshot(unit,target), _dmg:0, waveTaunt:null, waveUnit:null, buffEffects:[], _events:[] };
-        group.entries.push({type:'combat-text', text:`<span class="${unit.camp==='ally'?'blue':'orange'}">${unit.camp==='ally'?'明教':'六大派'} ${unit.name}</span> 的攻击被免疫`});
-        group.entries.push({type:'info', text:`<span class="gold">🕷️ 飞天：${target.name} 免疫本次攻击的 ${dmgCalc.dmg} 点伤害！</span>`});
-        group._events = [...window._battleEvents]; window._battleEvents = [];
+        let flyImmuneGroup = { type:'attack-group', uidA:unit.uid, uidD:target.uid, entries:[], hpAfter:target.hp, alive:target.alive, isDead:false, _fxSnapshot:makeFXSnapshot(unit,target), _dmg:0, waveTaunt:null, waveUnit:null, buffEffects:[], _events:[] };
+        flyImmuneGroup.entries.push({type:'combat-text', text:`<span class="${unit.camp==='ally'?'blue':'orange'}">${unit.camp==='ally'?'明教':'六大派'} ${unit.name}</span> 的攻击被免疫`});
+        flyImmuneGroup.entries.push({type:'info', text:`<span class="gold">🕷️ 飞天：${target.name} 免疫本次攻击的 ${dmgCalc.dmg} 点伤害！</span>`});
+        flyImmuneGroup._events = [...window._battleEvents]; window._battleEvents = [];
         if (window.GlobalStore) window.GlobalStore.flushBattleEvents();
-        log.push(group);
+        log.push(flyImmuneGroup);
         unit._acted = true;
         applyXinHunDeduction(unit, allySide, log);
         applyXingFenPenalty(unit, log);

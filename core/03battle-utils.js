@@ -15,7 +15,7 @@ export function getFronts(units) {
     let fronts = [];
     for (let col = 0; col < 3; col++) {
         let poses = [1+col, 4+col, 7+col];
-        let chars = units.filter(c => poses.includes(c.pos) && c.alive).sort((a, b) => a.pos - b.pos);
+        let chars = units.filter(c => poses.includes(c.pos) && c.alive && !(c._flyMode === 'butterfly')).sort((a, b) => a.pos - b.pos);
         if (chars.length > 0) fronts.push(chars[0]);
     }
     // 兜底：如果按列找不到前排，退回所有存活单位作为前排
@@ -28,9 +28,10 @@ export function getFronts(units) {
 
 export function isBlocked(unit, allies) {
     if (unit.role === '飞行') return false;
+    if (unit._flyMode === 'butterfly') return false;
     let col = (unit.pos - 1) % 3;
     let poses = [1+col, 4+col, 7+col];
-    let front = poses.find(p => allies.some(a => a.pos === p && a.alive && !a.isHorse));
+    let front = poses.find(p => allies.some(a => a.pos === p && a.alive && !a.isHorse && !(a._flyMode === 'butterfly')));
     if (!front) return false;
     if (unit.pos === front) return false;
     return unit.pos > front;

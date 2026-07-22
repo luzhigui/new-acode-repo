@@ -71,6 +71,7 @@ function checkZhangSwitch(A, log) {
     if (!hasFrontAlly) {
         zhang.rangedForm = false; zhang.atk += 3; zhang.def += 2;
         zhang.maxHp = Math.min(zhang.maxHp + 50, zhang._baseMaxHp * 2);
+        zhang._baseMaxHp = zhang.maxHp;
         zhang.hp = Math.min(zhang.hp + 50, zhang.maxHp); zhang.role = '战士';
         zhang._blocked = false; zhang._resting = false; zhang._zhangSwitched = true;
         zhang._baseMaxHp = zhang.maxHp;

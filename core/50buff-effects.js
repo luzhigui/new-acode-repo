@@ -290,7 +290,11 @@ function applyMindControlCore(unit, allySide, enemySide, log, swapChanceEnemy, s
             let posA = a.pos, posB = b.pos;
             a.pos = posB; b.pos = posA;
             log.push({type:'buff-swap', uidA: a.uid, uidB: b.uid, oldPosA: posA, oldPosB: posB, buffType:'swap', text:`<span class="gold">🌀 惑人心智：${posA}号位${a.name}与${posB}号位${b.name}互换位置！</span>`});
+        } else {
+            log.push({type:'info', text:`<span class="gray">🌀 惑人心智敌方换位失败（可用单位不足）</span>`});
         }
+    } else {
+        log.push({type:'info', text:`<span class="gray">🌀 惑人心智敌方换位未触发</span>`});
     }
     if (rand(1,100) <= swapChanceAlly) {
         let allies = allySide.filter(u => u.alive);
@@ -300,7 +304,11 @@ function applyMindControlCore(unit, allySide, enemySide, log, swapChanceEnemy, s
             let posA = a.pos, posB = b.pos;
             a.pos = posB; b.pos = posA;
             log.push({type:'buff-swap', uidA: a.uid, uidB: b.uid, oldPosA: posA, oldPosB: posB, buffType:'swap', text:`<span class="gold">🌀 惑人心智：己方${posA}号位${a.name}与${posB}号位${b.name}互换位置！</span>`});
+        } else {
+            log.push({type:'info', text:`<span class="gray">🌀 惑人心智己方换位失败（可用单位不足）</span>`});
         }
+    } else {
+        log.push({type:'info', text:`<span class="gray">🌀 惑人心智己方换位未触发</span>`});
     }
 }
 

@@ -43,11 +43,22 @@ export function spawnHorse(allyTeam, log, enemyTeam, force = false) {
 export function destroyHorse(allyTeam, log) {
     let buffs = allyTeam._activeBuffs || [];
     if (!hasBuff(buffs, 'horseFormation')) return;
-    let horses = allyTeam.filter(u => u.isHorse && u.alive);
+    let horses = allyTeam.filter(u => u.isHorse && u.alive).sort((a, b) => b.pos - a.pos);
     if (horses.length === 0) return;
-    if (rand(1,100) <= 50) {
-        let horse = horses[rand(0, horses.length-1)];
-        horse.hp = 0; horse.alive = false; horse._isDead = true;
-        log.push({type:'buff-destroy', text:`<span class="gray">🐴 拒马阵：拒马在${horse.pos}号位消散</span>`, buffType:'destroy', horseUid: horse.uid});
+
+    let currentProb = 50;
+    for (const horse of horses) {
+        const roll = rand(1, 100);
+        const success = roll <= currentProb;
+        if (success) {
+            horse.hp = 0;
+            horse.alive = false;
+            horse._isDead = true;
+            log.push({type:'buff-destroy', text:`<span class="gray">🐴 拒马阵：${horse.pos}号位拒马消散（成功率${currentProb}%，${roll}）</span>`, buffType:'destroy', horseUid: horse.uid});
+            currentProb = Math.floor(currentProb / 2);
+        } else {
+            log.push({type:'info', text:`<span class="gray">🐴 拒马阵：${horse.pos}号位拒马未消散（成功率${currentProb}%，${roll}）</span>`});
+            currentProb = 50;
+        }
     }
 }
