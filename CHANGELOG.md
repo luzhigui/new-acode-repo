@@ -1,5 +1,55 @@
 # 光明顶 5v5 - 更改履历
 
+## V5.2.0 — 2026-07-20 ~ 2026-07-21
+
+### 蝶蛛双生系统：小昭姐妹拆分
+- **小昭拆分为姐妹双形态**：姐姐（附身流）和妹妹（飞天流），在 `modules/23elite-skills.js` 中实现
+- **姐姐·蝶变附身**（`butterflyAttach` / `butterflyReturn`）：每回合开始化为蝴蝶附身到队友身上，转移攻/防/血上限给宿主；回合结束飞回原位，恢复属性并接受宿主返还的一半生命。附身期间自身不可选中、不可攻击。
+- **妹妹·蛛变飞天**（`spiderTransform` / `spiderFlyCheck` / `spiderLand`）：每回合随机变职业（不重复），记录精通；受致命伤时化为蜘蛛飞天免疫本次伤害（每场限 2 次），回合结束落下并攻击最近敌人，附带穿透 + 精通加成伤害。
+- **新增特效模块 `fx/21fx-butterfly-spider.js`**：四段完整特效——
+  - `showButterflyFlyOut`：🦋 蝴蝶从姐姐格子飞出，波浪轨迹飞向宿主，命中后粉色闪烁
+  - `showButterflyFlyBack`：🦋 蝴蝶从宿主飞回姐姐原位，带正弦波动
+  - `showSpiderAscend`：🕷️ 妹妹格子变紫色 + 克隆体 + 蜘蛛丝 + 蜘蛛图标缩小上升消失
+  - `showSpiderDescend`：🕷️ 蜘蛛从上方沿丝线降下，落地紫色闪烁
+- **播放器接入**（`player/10player-core.js`）：新增 `getButterflyFx()` 动态加载兼容函数（优先 `window` 全局、回退 `await import`），识别「🦋 蝶变」「🦋 飞回」「🕷️ 飞天」「🕷️ 蛛落」日志自动触发对应特效
+- 涉及文件：`modules/23elite-skills.js`、`fx/21fx-butterfly-spider.js`、`player/10player-core.js`、`core/01config-5v5-test.js`、`core/02unit.js`
+
+### 海克斯效果函数库（core/50buff-effects.js）
+- 新增独立模块 `core/50buff-effects.js`，按身份拆分海克斯效果函数：
+  - `_Normal`：普通团队版
+  - `_Sister`：姐姐强化版（小昭姐在场时团队海克斯强化）
+  - `_Brother`：妹妹永久版（团队海克斯过期后妹妹单独续上）
+- 涵盖 9 类海克斯：嗜血狂刀、热血奋战、乘风突袭、流星赶月、严阵以待、流云身法、圣火令、Carry 加成、惑人心智
+- 从 `core/04buff-system.js` 中提取效果执行逻辑，解耦 Buff 数值计算与效果触发
+- 涉及文件：`core/50buff-effects.js`、`core/04buff-system.js`
+
+### 回放系统（modules/100-replay.js）
+- 新增 `ReplayManager` 全局回放管理器：
+  - `startRecording(snapshot)`：记录战斗初始快照
+  - `pushStep(step, round, ally, enemy)`：每步推进时记录日志 + 事件 + 双方状态
+  - `finishRecording(winner)`：标记胜者，触发下载按钮
+  - `download(filename)`：导出 JSON 回放文件
+  - `importFile(file)`：导入回放文件并自动开始重放
+  - `startReplay(data)`：逐帧播放日志，支持速度控制
+- 涉及文件：`modules/100-replay.js`
+
+### 飞撞特效优化（fx/17fx-crash-5v5-test.js）
+- 飞走单位改用 `opacity` + `scale` 过渡替代 `removeChild`，避免 DOM 移除导致的布局抖动和残留问题
+- 所有飞撞/格挡/闪避特效不再直接移除 DOM 元素
+
+### 构建脚本更新（tools/00build-5v5.cjs）
+- ROOT 路径修正为 `path.resolve(__dirname, '..')`（原为 `__dirname`，指向 tools/）
+- MODULES 列表新增：`core/50buff-effects.js`、`fx/21fx-butterfly-spider.js`、`modules/100-replay.js`
+- VER_GLOBAL_MAP 同步新增对应映射
+
+### 文件整理
+- `00index.html` 重命名为 `index.html`，适配 GitHub Pages 默认入口
+- 新增 `.gitattributes` 强制所有文本文件 LF 行尾，解决手机 acode 上 BOM 导致的 git 误判变更
+- `README.md`、`game-design.md`、`kaifazhunze.md`、`to do list.md` 等 MD 文件 BOM 清理
+
+### 版本号统一
+- 全部 61 个文件版本号统一升级到 V5.2.0
+
 ## V5.1.0 — 2026-07-13 ~ 2026-07-20
 
 ### 版本与文档
