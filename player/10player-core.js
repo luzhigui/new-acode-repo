@@ -1,5 +1,5 @@
-﻿// player/10player-core.js - 光明顶5v5 战斗播放器核心
-// V5.2.0 | ~59600 bytes | 2026-07-11 事件链路重构：播放器纯消费日志，不补事件
+// player/10player-core.js - 光明顶5v5 战斗播放器核心
+// V5.2.0 | ~48000 bytes | 2026-07-11 事件链路重构：播放器纯消费日志，不补事件
 export const VER = 'player/10player-core.js V5.2.0';
 
 import { isBlocked } from '../core/03battle-utils.js';
@@ -11,7 +11,7 @@ import { playLineText } from './08player-text.js';
 import { animatePositionSwap } from '../fx/18fx-position-swap.js';
 import { animatePushBack, animatePushSwap } from '../fx/19fx-push-back.js';
 import { AudioManager } from '../modules/28audio-manager.js';
-import { handleBuffSummon, handleBuffDestroy, handleBuffLeech, showBuffPopup } from './09player-buff-ui.js';
+import { handleBuffSummon, handleBuffDestroy, handleBuffLeech, showBuffPopup, handleHolyTokenDrop } from './09player-buff-ui.js';
 import { createRoundStepper } from '../core/06battle-engine-core.js';
 import { getState } from '../ui/39main-state.js';
 import { setRenderStore, updateUI } from '../ui/14ui-render-5v5-test.js';
@@ -500,6 +500,27 @@ async function handleInfo(c, entry) {
             }
         }
 
+        if (entry.uidA && entry.uidD && entry.text && entry.text.includes('🕷️ 蛛袭')) {
+            const spiderUnit = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.uid === entry.uidA);
+            const strikeTarget = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.uid === entry.uidD);
+            if (spiderUnit && strikeTarget) {
+                c.isPaused = true;
+                window.bulletTimeActive = true;
+                const { showSpiderStrike } = await import('../fx/21fx-butterfly-spider.js');
+                await showSpiderStrike(spiderUnit, strikeTarget);
+                if (spiderUnit && c.store) {
+                    c.store.dispatch({ type: 'SET_VISUAL', uid: spiderUnit.uid, _flyMode: null, _acted: false });
+                }
+                if (entry.text && entry.isDead && strikeTarget && c.store) {
+                    c.store.dispatch({ type: 'SET_FLASH', uid: strikeTarget.uid, flash: 'dead' });
+                    c.store.dispatch({ type: 'SET_VISUAL', uid: strikeTarget.uid, _isDead: true });
+                }
+                await new Promise(r => setTimeout(r, 1500));
+                window.bulletTimeActive = false;
+                c.isPaused = false;
+            }
+        }
+
         if (entry.isClawHit && entry.clawAttackerUid && entry.clawTargetUid) {
             let attacker = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.uid === entry.clawAttackerUid);
             let target = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.uid === entry.clawTargetUid);
@@ -570,6 +591,15 @@ export async function playLogEntries(c, log, roundResult, isFirstAttackRef) {
             }
 
             switch (entry.type) {
+                case 'info':
+                    if (entry.text && entry.text.includes('🔥 圣火令掉落')) {
+                        await handleHolyTokenDrop(c, entry);
+                        lastEntryType = entry.type;
+                        break;
+                    }
+                    await handleInfo(c, entry);
+                    lastEntryType = entry.type;
+                    break;
                 case 'buff-summon':
                     await handleBuffSummon(c, entry, i > 0 ? log[i-1] : null);
                     lastEntryType = entry.type;
@@ -657,7 +687,15 @@ export async function playLogEntries(c, log, roundResult, isFirstAttackRef) {
                     if (result && result.isBattleOver) return result;
                     break;
                 }
-                case 'info':  await handleInfo(c, entry); lastEntryType = entry.type; break;
+                case 'info':
+                    if (entry.text && entry.text.includes('🔥 圣火令掉落')) {
+                        await handleHolyTokenDrop(c, entry);
+                        lastEntryType = entry.type;
+                        break;
+                    }
+                    await handleInfo(c, entry);
+                    lastEntryType = entry.type;
+                    break;
                 case 'round-end': await handleRoundEnd(c, entry, log, i); lastEntryType = entry.type; break;
             }
 
@@ -911,13 +949,25 @@ export async function playBattle() {
     let winner = finalWinner;
     if (winner === '明教' && c.currentStage) {
         const stage = c.currentStage;
-        const killRate = [0, 7, 8, 9, 10, 11, 12][stage] / 100;
+        const killRate = [0, 1.5, 2, 2.5, 4, 5.5, 6][stage] / 100;
         const clearRate = stage === 5 ? killRate * 6 : killRate * 5;
         if (Math.random() < clearRate) {
             const currentToken = GlobalStore.get('holyToken') || 0;
             GlobalStore.set('holyToken', currentToken + 1);
             localStorage.setItem('ming_holy_token_5v5_test', String(currentToken + 1));
             logDiv.innerHTML += `<span class="gold">🔥 通关奖励：获得1枚圣火令！当前总数：${currentToken + 1}</span><br>`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+    }
+    // 宝箱通关掉落
+    if (winner === '明教' && c.currentStage) {
+        const chestClearRate = 1 / 100;
+        if (Math.random() < chestClearRate) {
+            let chests = parseInt(localStorage.getItem('ming_chest_count') || '0');
+            chests++;
+            localStorage.setItem('ming_chest_count', String(chests));
+            GlobalStore.set('chestCount', chests);
+            logDiv.innerHTML += `<span class="gold">🎁 通关宝箱：获得1个宝箱！当前总数：${chests}</span><br>`;
             logDiv.scrollTop = logDiv.scrollHeight;
         }
     }
@@ -962,6 +1012,8 @@ export async function playBattle() {
         GlobalStore.set('voteScore', GlobalStore.get('voteScore') + earnPoints);
         localStorage.setItem('ming_vote_score_5v5_test', String(GlobalStore.get('voteScore')));
         const newScore = GlobalStore.get('voteScore');
+        // 双重保险：在结算完成后强制同步一次积分，防止任何异常覆盖
+        localStorage.setItem('ming_vote_score_5v5_test', String(GlobalStore.get('voteScore')));
 const oldScoreStr = localStorage.getItem('ming_vote_score_5v5_test');
 const oldScore = oldScoreStr ? parseInt(oldScoreStr, 10) : 0;
 

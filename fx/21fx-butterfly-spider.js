@@ -1,5 +1,5 @@
 ﻿// fx/21fx-butterfly-spider.js - 光明顶5v5 蝶蛛双生特效
-// V5.2.0 | ~11200 bytes | 从实验室移植，蝴蝶飞走/飞回 + 蜘蛛升天/降下
+// V5.2.0 | 从实验室移植，蝴蝶飞走/飞回 + 蜘蛛升天/降下
 export const VER = 'fx/21fx-butterfly-spider.js V5.2.0';
 
 function wait(ms) { return new Promise(r => setTimeout(r, window._fastForwardActive ? 1 : ms)); }
@@ -275,4 +275,73 @@ export async function showSpiderDescend(toUnit) {
     silk.remove();
     toCell.classList.add('purple-flash');
     setTimeout(() => toCell.classList.remove('purple-flash'), 600);
+}
+
+/**
+ * 🕷️ 蜘蛛爆炸 — 妹妹落地后发射蜘蛛到目标头上爆炸
+ */
+export async function showSpiderStrike(fromUnit, toUnit) {
+    const fromCell = getCellElement(fromUnit);
+    const toCell = getCellElement(toUnit);
+    if (!fromCell || !toCell) return;
+    const fromCenter = getCellCenter(fromUnit);
+    const toCenter = getCellCenter(toUnit);
+    if (!fromCenter || !toCenter) return;
+
+    const spider = document.createElement('div');
+    spider.setAttribute('data-fx', 'temporary');
+    spider.style.cssText = 'position:fixed;z-index:10020;pointer-events:none;font-size:28px;filter:drop-shadow(0 0 6px rgba(200,50,50,0.9));transition:none;';
+    spider.textContent = '🕷️';
+    spider.style.left = fromCenter.x + 'px';
+    spider.style.top = fromCenter.y + 'px';
+    spider.style.transform = 'translate(-50%, -50%)';
+    document.body.appendChild(spider);
+
+    const startX = fromCenter.x, startY = fromCenter.y;
+    const endX = toCenter.x, endY = toCenter.y;
+    const duration = 500;
+    const startTime = performance.now();
+
+    await new Promise(res => {
+        function step(ts) {
+            const elapsed = ts - startTime;
+            const t = Math.min(1, elapsed / duration);
+            const curX = startX + (endX - startX) * t;
+            const curY = startY + (endY - startY) * t - 30 * Math.sin(t * Math.PI);
+            spider.style.left = curX + 'px';
+            spider.style.top = curY + 'px';
+            spider.style.transform = `translate(-50%, -50%) scale(${1 + t * 0.3})`;
+            if (t < 1) requestAnimationFrame(step);
+            else res();
+        }
+        requestAnimationFrame(step);
+    });
+
+    // 爆炸：放大变红碎开
+    spider.style.transition = 'transform 0.3s ease-out, opacity 0.3s';
+    spider.style.transform = 'translate(-50%, -50%) scale(2.5)';
+    spider.style.filter = 'drop-shadow(0 0 15px rgba(255,0,0,1)) brightness(0.4) sepia(1) saturate(3) hue-rotate(-20deg)';
+    spider.style.opacity = '0';
+    toCell.classList.add('red-flash');
+    setTimeout(() => toCell.classList.remove('red-flash'), 500);
+
+    // 碎片粒子
+    const cx = endX, cy = endY;
+    const shards = [];
+    for (let i = 0; i < 10; i++) {
+        const shard = document.createElement('div');
+        const angle = (i / 10) * Math.PI * 2;
+        const dist = 25 + Math.random() * 35;
+        shard.style.cssText = `position:fixed;left:${cx}px;top:${cy}px;width:6px;height:6px;background:#ff2020;z-index:10021;pointer-events:none;border-radius:1px;box-shadow:0 0 6px rgba(255,0,0,0.8);transition:transform 0.6s ease-out, opacity 0.6s;`;
+        document.body.appendChild(shard);
+        requestAnimationFrame(() => {
+            shard.style.transform = `translate(${Math.cos(angle)*dist}px, ${Math.sin(angle)*dist}px) scale(0.2)`;
+            shard.style.opacity = '0';
+        });
+        shards.push(shard);
+    }
+
+    await wait(600);
+    spider.remove();
+    shards.forEach(s => { if (s.parentNode) s.remove(); });
 }

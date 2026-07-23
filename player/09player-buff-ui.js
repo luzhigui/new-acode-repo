@@ -1,5 +1,5 @@
 ﻿// player/09player-buff-ui.js - 光明顶5v5 Buff弹窗与横幅
-// V5.2.0 | ~9800 bytes | 2026-07-16 移除兜底分支，强制走Store
+// V5.2.0 | ~8171 bytes | 2026-07-16 移除兜底分支，强制走Store
 export const VER = 'player/09player-buff-ui.js V5.2.0';
 
 import { CONFIG } from '../core/01config-5v5-test.js';
@@ -132,6 +132,59 @@ export function showBuffPopup(c) {
             }
         });
     });
+}
+
+export async function handleHolyTokenDrop(c, entry) {
+    c.isPaused = true;
+    window.bulletTimeActive = true;
+
+    const unit = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.uid === entry.unitUid);
+    const gridId = unit?.camp === 'ally' ? 'allyGrid' : 'enemyGrid';
+    const grid = document.getElementById(gridId);
+    const order = unit?.camp === 'enemy' ? [7,8,9,4,5,6,1,2,3] : [1,2,3,4,5,6,7,8,9];
+    const idx = unit ? order.indexOf(unit.pos) : -1;
+    const cell = idx >= 0 && grid ? grid.children[idx] : null;
+    const cellRect = cell ? cell.getBoundingClientRect() : null;
+
+    const icon = document.createElement('div');
+    icon.setAttribute('data-fx', 'temporary');
+    icon.textContent = '🔥';
+    icon.style.cssText = `
+        position: fixed; z-index: 10030; pointer-events: none;
+        font-size: 40px; filter: drop-shadow(0 0 10px rgba(255,215,0,0.9));
+        transition: all 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    `;
+    if (cellRect) {
+        icon.style.left = (cellRect.left + cellRect.width / 2) + 'px';
+        icon.style.top = (cellRect.top + cellRect.height / 2) + 'px';
+        icon.style.transform = 'translate(-50%, -50%) scale(0.5)';
+    }
+    document.body.appendChild(icon);
+
+    // 放大旋转
+    await new Promise(r => {
+        requestAnimationFrame(() => {
+            icon.style.transform = 'translate(-50%, -50%) scale(1.5) rotate(360deg)';
+            r();
+        });
+    });
+    await new Promise(r => setTimeout(r, 400));
+
+    // 飘到积分徽章
+    const badge = document.getElementById('scoreBadge');
+    const badgeRect = badge ? badge.getBoundingClientRect() : null;
+    if (badgeRect && cellRect) {
+        icon.style.left = (badgeRect.left + badgeRect.width - 20) + 'px';
+        icon.style.top = (badgeRect.top + badgeRect.height / 2) + 'px';
+        icon.style.transform = 'translate(-50%, -50%) scale(0.8)';
+        icon.style.opacity = '0.6';
+    }
+    await new Promise(r => setTimeout(r, 800));
+
+    icon.remove();
+    c.updateScoreBadge();
+    window.bulletTimeActive = false;
+    c.isPaused = false;
 }
 
 export async function handleBuffSummon(c, entry, prevEntry) {

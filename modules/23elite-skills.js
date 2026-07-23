@@ -1,5 +1,5 @@
-﻿// modules/23elite-skills.js - 光明顶5v5 精英技能系统
-// V5.2.0 | ~32200 bytes | 2026-07-16 收敛成昆幻影、小昭永久惑心/连击等判定逻辑
+// modules/23elite-skills.js - 光明顶5v5 精英技能系统
+// V5.2.0 | ~25000 bytes | 2026-07-16 收敛成昆幻影、小昭永久惑心/连击等判定逻辑
 export const VER = 'modules/23elite-skills.js V5.2.0';
 
 import { CONFIG } from '../core/01config-5v5-test.js';
@@ -379,7 +379,6 @@ export function consumeXingFen(attacker) {
 
 export function applyXingFenPenalty(attacker, log) {
     if (attacker.name !== '宋青书') return;
-    if (!attacker._xingFenActive) return;
     if (!attacker._xingFenPenaltyCount) attacker._xingFenPenaltyCount = 0;
     attacker._xingFenPenaltyCount++;
     const penalty = attacker._xingFenPenaltyCount;
@@ -583,7 +582,7 @@ export function spiderReturn(unit, allyTeam, enemySide, log) {
     if (!unit.isXiaoZhaoBrother || !unit._spiderFlying) return;
 
     unit._spiderFlying = false;
-    unit._flyMode = null;
+    // _flyMode 延迟清除，由播放器在特效播放完后通过 Store 更新
     unit._acted = false;
 
     const order = [4, 5, 6, 7, 8, 9, 1, 2, 3];
@@ -592,13 +591,15 @@ export function spiderReturn(unit, allyTeam, enemySide, log) {
         if (!occupied.has(p)) { unit.pos = p; break; }
     }
 
-    emitEvent(unit, 'hp-change', { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: unit.atk, def: unit.def });
+    emitEvent(unit, 'hp-change', { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: unit.atk, def: unit.def, _spiderFlying: false });
+    // 不在这里清除 _flyMode，由播放器在特效播放完后通过 Store 更新
     log.push({ type:'info', text:`<span class="gold">🕷️ 蛛落：${unit.name} 从天而降，落在${unit.pos}号位！</span>` });
 
-    // 落地攻击随机敌人
+    // 落地攻击随机敌人（攻击前再次确认目标存活）
     const aliveEnemies = enemySide.filter(u => u.alive);
     if (aliveEnemies.length > 0) {
         const target = aliveEnemies[rand(0, aliveEnemies.length - 1)];
+        if (!target.alive) { log.push({ type:'info', text:`<span class="gray">🕷️ 蛛袭：目标已死亡，攻击取消</span>` }); return; }
         const penetrationDmg = Math.floor(unit.atk * (unit.atk / (unit.atk + target.def)));
         const masteryCount = unit._masteredRoles?.length || 0;
         const extraDmgMap = [0, 5, 10, 15, 30];
@@ -609,7 +610,7 @@ export function spiderReturn(unit, allyTeam, enemySide, log) {
         target.dmgTaken += totalDmg;
         if (target.hp <= 0) { target.hp = 0; target.alive = false; target._isDead = true; if (!target._deathTime) target._deathTime = Date.now(); }
         emitEvent(target, 'hp-change', { hp: target.hp, maxHp: target.maxHp, alive: target.alive, atk: target.atk, def: target.def, _isDead: target._isDead || false });
-        log.push({ type:'info', text:`<span class="gold">🕷️ 蛛袭：${unit.name} 落地攻击 ${target.name}，穿透${penetrationDmg} + 精通${extraDmg} = ${totalDmg} 伤害！</span>`, uidA: unit.uid, uidD: target.uid, isDead: !target.alive });
+        log.push({ type:'info', text:`<span class="gold">🕷️ 蛛袭：${unit.name} 落地攻击 ${target.name}，穿透${penetrationDmg} + 精通${extraDmg} = ${totalDmg} 伤害！</span>`, uidA: unit.uid, uidD: target.uid, isDead: !target.alive, isSpiderStrike: true });
     }
 }
 

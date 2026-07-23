@@ -1,5 +1,5 @@
-﻿// ui/13main-5v5-test.js - 光明顶5v5 主控模块
-// V5.2.0 | ~41200 bytes | 2026-07-07 拆分音频到42、特效到43、倍速+按钮到44
+// ui/13main-5v5-test.js - 光明顶5v5 主控模块
+// V5.2.0 | ~24000 bytes | 2026-07-07 拆分音频到42、特效到43、倍速+按钮到44
 export const VER = 'ui/13main-5v5-test.js V5.2.0';
 
 import '../modules/46global-store.js';
@@ -17,7 +17,7 @@ import { showModal, showAlert, updateCoverVersion } from './12main-utils.js';
 import { getPlayerContext, getState, setState, gs } from '../ui/39main-state.js';
 import { showBattleReport, showMusicPanel, showVoteDialog, showCountdown } from './40main-dialogs.js';
 import {
-    doInitBattle, generateBuffChoices, createBuffObject, showBuffSelection, showBugModeBuffSelection,
+    doInitBattle, generateBuffChoices, createBuffObject, showBuffSelection,
     updateBuffSlots, tickBuffDurations, getActiveBuffList,
     logTeamInfo, abortAll
 } from './41main-battle.js';
@@ -237,11 +237,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     autoScrollLog();
                 }
             } else {
-                if (GlobalStore.get('bugMode')) {
-                    await new Promise(resolve => { showBugModeBuffSelection(resolve, getState.activeBuffs(), selectedBuffIndex, () => updateBuffSlots(getState.activeBuffs(), selectedBuffIndex), () => {}, autoScrollLog, getState.UI().allyTeam); });
-                } else {
-                    await new Promise(resolve => { showBuffSelection(resolve, getState.activeBuffs(), selectedBuffIndex, () => updateBuffSlots(getState.activeBuffs(), selectedBuffIndex), () => {}, autoScrollLog, getState.UI().allyTeam); });
-                }
+                await new Promise(resolve => { showBuffSelection(resolve, getState.activeBuffs(), selectedBuffIndex, () => updateBuffSlots(getState.activeBuffs(), selectedBuffIndex), () => {}, autoScrollLog, getState.UI().allyTeam); });
             }
             await new Promise(r=>setTimeout(r,600));
             try {
@@ -573,7 +569,6 @@ document.addEventListener('DOMContentLoaded', function() {
         if(!currentUI || !currentUI.allyTeam.length) return;
         let result = abortAll(abortController, currentUI, getState.waitingForNextRound(), isBattleStarting, getState.adjustMode(), getState.selectedAdjustPos(), getState.activeBuffs(), selectedBuffIndex, currentDoubleStrikeUid, () => updateBuffSlots(getState.activeBuffs(), selectedBuffIndex));
         abortController = result.abortController; setState.waitingForNextRound(result.waitingForNextRound); isBattleStarting = result.isBattleStarting; setState.adjustMode(result.adjustMode); setState.selectedAdjustPos(result.selectedAdjustPos); setState.activeBuffs(result.activeBuffs); selectedBuffIndex = result.selectedBuffIndex; currentDoubleStrikeUid = result.currentDoubleStrikeUid;
-1-183-70-EUR
         setState.gs(S.IDLE);setState.isPaused(false);setState.waitingForNextRound(false);isBattleStarting=false;
         // 清除旧的 Store 引用，防止 renderGrid 访问无效 Store
         GlobalStore.set('battleStore', null);

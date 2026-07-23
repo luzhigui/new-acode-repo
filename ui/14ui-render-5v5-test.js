@@ -1,5 +1,5 @@
 ﻿// ui/14ui-render-5v5-test.js - 光明顶5v5 UI渲染模块（响应式版）
-// V5.2.0 | ~34100 bytes | 2026-07-11 数据驱动渲染，移除魔数清理
+// V5.2.0 | ~18500 bytes | 2026-07-11 数据驱动渲染，移除魔数清理
 export const VER = 'ui/14ui-render-5v5-test.js V5.2.0';
 
 import { CONFIG } from '../core/01config-5v5-test.js';
@@ -437,7 +437,6 @@ export function renderGrid(id, camp) {
             if (sisterHost) eliteSkillIcon = ' 🦋';
         }
         if (unit.name === '成昆' && unit._phantomTarget) eliteSkillIcon += ' 🎭';
-        if (unit._piercing) eliteSkillIcon += ' 🔪';
         if (unit._xuanmingPoison && unit._xuanmingPoison.remaining > 0) eliteSkillIcon += ' ❄️';
         div.innerHTML = `<span class="cell-icon">${isBlocked && unit.alive && isResting && !(unit.isZhang && unit.rangedForm) && !isDead ? '😴' : roleIcon}</span><div class="cell-info"><span class="cell-name ${displayIsZhang?'gold':''}">${displayName}${eliteSkillIcon}${buffIcons ? ' ' + buffIcons : ''}</span><span class="cell-stats">攻<span style="${atkStyle}">${atkDisplayHtml}</span> 防<span style="${defStyle}">${defDisplayHtml}</span> <span class="${hpColorClass}" style="${hpStyle}">血${hpDisplayHtml}</span></span></div><div class="hp-bar-wrap"><div class="hp-bar-inner" id="hpbar-${unit.uid}" style="height:${hpPct}%;background:${barColor};transition:none;"></div></div>`;
         if (isDead) {

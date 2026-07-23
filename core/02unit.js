@@ -1,5 +1,5 @@
-﻿// core/02unit.js - 光明顶5v5 战斗单位类
-// V5.2.0 | ~7800 bytes | 2026-07-05
+// core/02unit.js - 光明顶5v5 战斗单位类
+// V5.2.0 | ~3899 bytes | 2026-07-05
 export const VER = 'core/02unit.js V5.2.0';
 
 import { rand } from './03battle-utils.js';
@@ -63,6 +63,13 @@ export class Unit {
         this._spiderTriggeredDeath = false;
         this._nineYinFirstDone = false;
         this._extinctionUsed = false;
+        this._emptyColBonus = 0;
+        this._bloodAuraBonus = 0;
+        this._holyAtkBonus = 0;
+        this._holyDefBonus = 0;
+        this._fortifyDefBonus = 0;
+        this._fortifyStacks = 0;
+        this._dodgeStack = 0;
     }
     clone(){
         let c=new Unit(this.name,this.m,this.role,this.camp);
@@ -123,6 +130,13 @@ export class Unit {
         c._nineYinFirstDone = this._nineYinFirstDone;
         c._extinctionUsed = this._extinctionUsed;
         c._xingFenPenaltyCount = this._xingFenPenaltyCount;
+        c._emptyColBonus = this._emptyColBonus;
+        c._bloodAuraBonus = this._bloodAuraBonus;
+        c._holyAtkBonus = this._holyAtkBonus;
+        c._holyDefBonus = this._holyDefBonus;
+        c._fortifyDefBonus = this._fortifyDefBonus;
+        c._fortifyStacks = this._fortifyStacks;
+        c._dodgeStack = this._dodgeStack;
         return c;
     }
     init(){

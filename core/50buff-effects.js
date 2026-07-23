@@ -1,5 +1,5 @@
-﻿// core/50buff-effects.js - 光明顶5v5 海克斯效果函数库
-// V5.2.0 | ~19600 bytes | 按身份拆分：普通团队 / 姐姐强化 / 妹妹永久
+// core/50buff-effects.js - 光明顶5v5 海克斯效果函数库
+// V5.2.0 | 按身份拆分：普通团队 / 姐姐强化 / 妹妹永久
 export const VER = 'core/50buff-effects.js V5.2.0';
 
 import { CONFIG } from './01config-5v5-test.js';
@@ -88,7 +88,7 @@ function applyWindAssaultCore(unit, target, dmg, allySide, enemySide, log, hitPr
     if (unit.role !== '飞行' || !target.alive) return;
     if (rand(1,100) <= hitProb) {
         let row = getUnitRow(target.pos);
-        let rowTargets = enemySide.filter(u => u.alive && getUnitRow(u.pos) === row && u.uid !== target.uid);
+        let rowTargets = enemySide.filter(u => u.alive && getUnitRow(u.pos) === row && u.uid !== target.uid && !(u._flyMode === 'butterfly') && !(u._flyMode === 'spider') && !u._spiderFlying);
         if (rowTargets.length > 0) {
             let hitDmg = Math.floor(dmg);
             let details = rowTargets.map(rt => {
@@ -151,7 +151,7 @@ function applyMeteorShowerCore(unit, target, dmg, allySide, enemySide, log, labe
     let splashDmg = Math.floor(dmg * C.BUFFS.meteorShower.splashRatio);
     let adjPositions = getAdjacentPositions(target.pos);
     const splashSide = target.camp === unit.camp ? allySide : enemySide;
-    let splashTargets = splashSide.filter(u => u.alive && adjPositions.includes(u.pos));
+    let splashTargets = splashSide.filter(u => u.alive && adjPositions.includes(u.pos) && !(u._flyMode === 'butterfly') && !(u._flyMode === 'spider') && !u._spiderFlying);
     if (splashTargets.length > 0) {
         let details = splashTargets.map(st => {
             let hpBefore = Math.floor(st.hp);
@@ -283,7 +283,7 @@ function applyMindControlCore(unit, allySide, enemySide, log, swapChanceEnemy, s
     if (!frontUnit || frontUnit.uid !== unit.uid) return;
     
     if (rand(1,100) <= swapChanceEnemy) {
-        let enemies = enemySide.filter(u => u.alive);
+        let enemies = enemySide.filter(u => u.alive && u._flyMode !== 'butterfly' && u._flyMode !== 'spider' && !u._spiderFlying);
         if (enemies.length >= 2) {
             let a = enemies[rand(0, enemies.length-1)];
             let b; do { b = enemies[rand(0, enemies.length-1)]; } while (b.uid === a.uid);
@@ -297,7 +297,7 @@ function applyMindControlCore(unit, allySide, enemySide, log, swapChanceEnemy, s
         log.push({type:'info', text:`<span class="gray">🌀 惑人心智敌方换位未触发</span>`});
     }
     if (rand(1,100) <= swapChanceAlly) {
-        let allies = allySide.filter(u => u.alive);
+        let allies = allySide.filter(u => u.alive && u._flyMode !== 'butterfly' && u._flyMode !== 'spider' && !u._spiderFlying);
         if (allies.length >= 2) {
             let a = allies[rand(0, allies.length-1)];
             let b; do { b = allies[rand(0, allies.length-1)]; } while (b.uid === a.uid);
