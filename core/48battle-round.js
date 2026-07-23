@@ -1,10 +1,10 @@
 ﻿// core/48battle-round.js - 光明顶5v5 回合循环与生成器
-// V5.2.0 | ~26100 bytes | 2026-07-16 从06battle-engine-core拆分
-export const VER = 'core/48battle-round.js V5.2.0';
+// V5.2.1 | ~22000 bytes | 2026-07-23 圣火令/严阵以待独立函数化
+export const VER = 'core/48battle-round.js V5.2.1';
 
 import { CONFIG } from './01config-5v5-test.js';
-import { rand, isMelee, isBlocked, makeFXSnapshot, hasBuff, getUnitCol, getUnitRow } from './03battle-utils.js';
-import { computeBuffStats, logBuffSummary } from './04buff-system.js';
+import { rand, isMelee, isBlocked, makeFXSnapshot, hasBuff, getUnitCol, getUnitRow, hasAnyEnemyEmptyCol, getBloodAuraBonus } from './03battle-utils.js';
+import { computeBuffStats, logBuffSummary, applyHolyFlameBonus, applyFortifyBonus } from './04buff-system.js';
 import { spawnHorse, destroyHorse } from './05battle-horse.js';
 import { Unit } from './02unit.js';
 import {
@@ -13,15 +13,9 @@ import {
     canXingFenTrigger, consumeXingFen, applyXingFenPenalty, isXiaoZhaoPermanentActive
 } from '../modules/23elite-skills.js';
 import { processUnitAttack } from './47battle-attack.js';
-// selectTarget 已移除，无替代导入
 import { getNextAvailableUnit, finalizeDeaths, emitFullUnitState, checkZhangSwitch } from './50battle-shared.js';
 
 const C = CONFIG;
-
-// 从47battle-attack和06battle-engine-core中需要的辅助函数
-// 这些函数在06中定义，但回合模块也需要，为避免循环引用，在此处声明后由外部注入
-// 实际使用时将通过参数传入或从window获取
-// 已移至 06battle-engine-core.js，通过 import 使用
 
 export function* createRoundStepper(state) {
     if (!state.allAllies) {
@@ -65,7 +59,6 @@ export function* createRoundStepper(state) {
         }
     });
 
-    // 清理死马，腾出位置
     [A, B].forEach(team => {
         for (let i = team.length - 1; i >= 0; i--) {
             const u = team[i];
@@ -74,12 +67,10 @@ export function* createRoundStepper(state) {
             }
         }
     });
-    // 团队拒马 A
     const teamHorseA = spawnHorse(A, log, B);
     if (teamHorseA) {
         log.push({type:'buff-summon', text:`<span class="gold">🐴 拒马阵：拒马出现在${teamHorseA.pos}号位！</span>`, buffType:'summon', horsePos: teamHorseA.pos, horseUid: teamHorseA.uid, horseTaunt: '嘶——！'});
     }
-    // 团队拒马 B
     const teamHorseB = spawnHorse(B, log, A);
     if (teamHorseB) {
         log.push({type:'buff-summon', text:`<span class="gold">🐴 拒马阵：拒马出现在${teamHorseB.pos}号位！</span>`, buffType:'summon', horsePos: teamHorseB.pos, horseUid: teamHorseB.uid, horseTaunt: '嘶——！'});
@@ -87,7 +78,6 @@ export function* createRoundStepper(state) {
 
     applyXingFenGrant(B, log);
 
-    // 小昭蝶变：每回合随机变换职业
     A.forEach(u => {
         if (u.isXiaoZhaoSister && u.alive) { /* 姐的附身在明教首次攻击前触发，由47处理 */ }
         if (u.isXiaoZhaoBrother && u.alive) {
@@ -98,15 +88,10 @@ export function* createRoundStepper(state) {
         }
     });
 
-    // 小昭永久拒马（xiaoZhao 已在上方定义）
     let teamHasHorse = hasBuff(A._activeBuffs, 'horseFormation');
     let hasPermanentHorse = xiaoZhao && xiaoZhao.isXiaoZhaoBrother && !teamHasHorse && xiaoZhao._permanentBuffs && xiaoZhao._permanentBuffs.some(b => b.key === 'horseFormation');
     if (!hasPermanentHorse) {
-        const ctx = window._getPlayerContext?.();
-        const uiXz = ctx?.UI?.allyTeam?.find(u => u.isXiaoZhao);
-        if (uiXz && !teamHasHorse) {
-            hasPermanentHorse = uiXz._permanentBuffs && uiXz._permanentBuffs.some(b => b.key === 'horseFormation');
-        }
+        hasPermanentHorse = xiaoZhao && xiaoZhao.isXiaoZhaoBrother && !teamHasHorse && xiaoZhao._permanentBuffs && xiaoZhao._permanentBuffs.some(b => b.key === 'horseFormation');
     }
     if (hasPermanentHorse) {
         const xzHorse = spawnHorse(A, log, B, true);
@@ -119,7 +104,6 @@ export function* createRoundStepper(state) {
         }
     }
 
-    // 苦练：宋青书每次行动前给全体队友+1攻+1防+2生命上限，自身翻倍
     const kuLianSong = checkKuLian(B);
     if (kuLianSong) {
         kuLianSong._kuLianActive = true;
@@ -163,6 +147,36 @@ export function* createRoundStepper(state) {
         }
     });
 
+    // 空列加成
+    const hasEmptyCol = hasAnyEnemyEmptyCol(B);
+    if (hasEmptyCol) {
+        log.push({ type:'info', text:`<span class="gold">🔍 空列检测：敌方有空列，己方飞行单位+5攻击</span>` });
+    }
+    A.forEach(u => {
+        if (u.role === '飞行' && u.alive && !u.isHorse) {
+            const prevBonus = u._emptyColBonus || 0;
+            const newBonus = hasEmptyCol ? 5 : 0;
+            if (prevBonus !== newBonus) {
+                u.atk += newBonus - prevBonus;
+                u._emptyColBonus = newBonus;
+                if (typeof window._emitEvent === 'function') window._emitEvent(u, 'hp-change', { hp: u.hp, maxHp: u.maxHp, alive: u.alive, atk: u.atk, def: u.def });
+            }
+        }
+    });
+
+    // 残血光环
+    const bloodBonus = getBloodAuraBonus(A.concat(B));
+    A.forEach(u => {
+        if (u.role === '飞行' && u.alive && !u.isHorse) {
+            const prev = u._bloodAuraBonus || 0;
+            if (prev !== bloodBonus) {
+                u.atk += bloodBonus - prev;
+                u._bloodAuraBonus = bloodBonus;
+                if (typeof window._emitEvent === 'function') window._emitEvent(u, 'hp-change', { hp: u.hp, maxHp: u.maxHp, alive: u.alive, atk: u.atk, def: u.def });
+            }
+        }
+    });
+
     A._butterflyTriggered = false;
     A.forEach(u => {
         if (!u.alive) return;
@@ -173,7 +187,12 @@ export function* createRoundStepper(state) {
             allyTeamWithDead = allyTeamWithDead.filter((u, i, arr) => arr.findIndex(v => v.uid === u.uid) === i);
         }
         let stats = computeBuffStats(u, A._activeBuffs || [], allyTeamWithDead);
-        // emit stat-bonus-change
+
+        // 独立应用圣火令和严阵以待加成
+        applyHolyFlameBonus(u, A._activeBuffs || []);
+        applyFortifyBonus(u, A._activeBuffs || []);
+
+        // 发送统计事件
         if (typeof window._emitEvent === 'function') {
             window._emitEvent(u, 'stat-bonus-change', {
                 buffAtkBonus: stats.atkBonus,
@@ -182,25 +201,26 @@ export function* createRoundStepper(state) {
                 buffHpBonus: stats.hpBonus
             });
         }
+
         const sister = A.some(a => a.isXiaoZhaoSister && a.alive);
         const carryPositions = sister ? [4, 5, 6] : [5];
         if (hasCarryActive && carryPositions.includes(u.pos) && u._baseMaxHp !== undefined && !u.isHorse && !u.isZhang) {
-            // 先回退旧加成
+            // 回退旧加成
             if (u.maxHp > 0 && u._baseMaxHp > 0) {
                 u.hp = Math.floor(u.hp * (u._baseMaxHp / u.maxHp));
             }
             u.maxHp = u._baseMaxHp;
             if (u._baseAtk !== undefined) u.atk = u._baseAtk + (u._carryAtkBonus || 0) + (u._butterflyAtkBonus || 0);
             if (u._baseDef !== undefined) u.def = u._baseDef + (u._carryDefBonus || 0) + (u._butterflyDefBonus || 0);
-            // 再应用新加成
-            // ★ Carry 加成存入独立字段，不污染基础属性
+
+            // 应用Carry新加成
             u._carryAtkBonus = Math.floor(stats.carryAtkAbs);
             u._carryDefBonus = Math.floor(stats.carryDefAbs);
             u._carryHpBonus = Math.floor(stats.carryHpAbs);
-            const holyAtkBonus = Math.floor((u._baseAtk || u.atk) * stats.atkBonus);
-            const holyDefBonus = Math.floor((u._baseDef || u.def) * stats.defBonus);
-            u.atk = (u._baseAtk || u.atk) + u._carryAtkBonus + (u._butterflyAtkBonus || 0) + holyAtkBonus;
-            u.def = (u._baseDef || u.def) + u._carryDefBonus + (u._butterflyDefBonus || 0) + holyDefBonus;
+
+            u.atk = (u._baseAtk || u.atk) + u._carryAtkBonus + (u._butterflyAtkBonus || 0);
+            u.def = (u._baseDef || u.def) + u._carryDefBonus + (u._butterflyDefBonus || 0);
+
             if (u._carryHpBonus) {
                 let newMaxHp = Math.min(u._baseMaxHp + u._carryHpBonus, u._baseMaxHp * 2);
                 let extraHp = newMaxHp - u.maxHp;
@@ -217,7 +237,6 @@ export function* createRoundStepper(state) {
             const sister = A.some(a => a.isXiaoZhaoSister && a.alive);
             const carryPositions = sister ? [4, 5, 6] : [5];
             if (carryPositions.includes(u.pos) && (u._carryAtkBonus || u._carryDefBonus || u._carryHpBonus)) {
-                // Carry 过期，只清零 Carry 字段，不动自身成长和附身加成
                 if (u._carryHpBonus && u._baseMaxHp > 0 && u.maxHp > 0) {
                     u.hp = Math.floor(u.hp * (u._baseMaxHp / u.maxHp));
                 }
@@ -232,7 +251,6 @@ export function* createRoundStepper(state) {
                 }
             }
         } else if (u.isXiaoZhao && isXiaoZhaoPermanentActive(u, A._activeBuffs, 'carry') && u._baseMaxHp !== undefined) {
-            // 小昭永久carry：固定两层精通加成（+3攻 +4防 +20血上限）
             u.atk += 3;
             u.def += 4;
             u.maxHp += 20;
@@ -242,6 +260,11 @@ export function* createRoundStepper(state) {
                 window._emitEvent(u, 'hp-change', { hp: u.hp, maxHp: u.maxHp, alive: u.alive, atk: u.atk, def: u.def });
             }
         }
+
+        // 统一叠加所有独立加成（圣火令、严阵以待、飞行光环、空列）
+        u.atk = (u._baseAtk || u.atk) + (u._carryAtkBonus || 0) + (u._butterflyAtkBonus || 0) + (u._holyAtkBonus || 0) + (u._emptyColBonus || 0) + (u._bloodAuraBonus || 0);
+        u.def = (u._baseDef || u.def) + (u._carryDefBonus || 0) + (u._butterflyDefBonus || 0) + (u._holyDefBonus || 0) + (u._fortifyDefBonus || 0);
+
         u._extinctionUsed = false;
         u._acted = false;
         u._resting = false;
@@ -257,7 +280,27 @@ export function* createRoundStepper(state) {
         if (u._xingFenPenaltyCount === undefined) u._xingFenPenaltyCount = 0;
     });
 
+    // 敌方空列检测
+    const enemyHasEmptyCol = hasAnyEnemyEmptyCol(A);
+    if (enemyHasEmptyCol) {
+        log.push({ type:'info', text:`<span class="gold">🔍 空列检测：己方有空列，敌方飞行单位+5攻击</span>` });
+    }
     B.forEach(u => {
+        if (u.role === '飞行' && u.alive && !u.isHorse) {
+            const prevColBonus = u._emptyColBonus || 0;
+            const newColBonus = enemyHasEmptyCol ? 5 : 0;
+            if (prevColBonus !== newColBonus) {
+                u.atk += newColBonus - prevColBonus;
+                u._emptyColBonus = newColBonus;
+                if (typeof window._emitEvent === 'function') window._emitEvent(u, 'hp-change', { hp: u.hp, maxHp: u.maxHp, alive: u.alive, atk: u.atk, def: u.def });
+            }
+            const prevBloodBonus = u._bloodAuraBonus || 0;
+            if (prevBloodBonus !== bloodBonus) {
+                u.atk += bloodBonus - prevBloodBonus;
+                u._bloodAuraBonus = bloodBonus;
+                if (typeof window._emitEvent === 'function') window._emitEvent(u, 'hp-change', { hp: u.hp, maxHp: u.maxHp, alive: u.alive, atk: u.atk, def: u.def });
+            }
+        }
         if (!u.alive) return;
         let stats = computeBuffStats(u, B._activeBuffs || [], B);
         if (typeof window._emitEvent === 'function') {
@@ -320,14 +363,12 @@ export function* createRoundStepper(state) {
                         u.hp = Math.min(u.maxHp, u.hp + 15);
                         let hpAfter = Math.floor(u.hp);
                         u._resting = true;
-                        // 5秒后自动清除休息状态，防止绿色特效一直显示
                         if (u._restingTimer) clearTimeout(u._restingTimer);
                         u._restingTimer = setTimeout(() => {
                             u._resting = false;
                             if (typeof window._emitEvent === 'function') {
                                 window._emitEvent(u, 'hp-change', { hp: u.hp, maxHp: u.maxHp, alive: u.alive, atk: u.atk, def: u.def, _resting: false });
                             }
-                            // 强制触发UI刷新，清除绿色休息特效
                             const ctx = window._getPlayerContext?.();
                             if (ctx && ctx.updateUI) ctx.updateUI();
                         }, 3000);
@@ -336,14 +377,18 @@ export function* createRoundStepper(state) {
                         }
                         let bg = {type:'attack-group', uidA:u.uid, uidD:null, entries:[], isBlock:true, _fxSnapshot:makeFXSnapshot(u,null), waveTaunt:null, waveUnit:null, buffEffects:[], healAmount: 15, healUnitUid: u.uid};
                         bg.entries.push({type:'combat-text', text:`<span class="${u.camp==='ally'?'blue':'orange'}">${u.camp==='ally'?'明教':'六大派'} ${u.name}</span> 无法攻击`});
-                        bg.entries.push({type:'info', text:`<span class="green">🐴 拒马休息回复20点生命（${hpBefore} → ${hpAfter}）</span>`});
+                        bg.entries.push({type:'info', text:`<span class="green">🐴 拒马休息回复15点生命（${hpBefore} → ${hpAfter}）</span>`});
                         bg._events = [...window._battleEvents];
                         window._battleEvents = [];
                         log.push(bg);
                         continue;
                     }
 
-                    if (u._spiderFlying || u._flyMode) {
+                    if (u._spiderFlying) {
+                        u._acted = true;
+                        continue;
+                    }
+                    if (u._flyMode && u._flyMode !== 'butterfly') {
                         u._acted = true;
                         continue;
                     }
@@ -365,14 +410,12 @@ export function* createRoundStepper(state) {
                         u.hp = Math.min(u.maxHp, u.hp + 15);
                         let hpAfter = Math.floor(u.hp);
                         u._resting = true;
-                        // 5秒后自动清除休息状态，防止绿色特效一直显示
                         if (u._restingTimer) clearTimeout(u._restingTimer);
                         u._restingTimer = setTimeout(() => {
                             u._resting = false;
                             if (typeof window._emitEvent === 'function') {
                                 window._emitEvent(u, 'hp-change', { hp: u.hp, maxHp: u.maxHp, alive: u.alive, atk: u.atk, def: u.def, _resting: false });
                             }
-                            // 强制触发UI刷新，清除绿色休息特效
                             const ctx = window._getPlayerContext?.();
                             if (ctx && ctx.updateUI) ctx.updateUI();
                         }, 3000);
@@ -381,7 +424,7 @@ export function* createRoundStepper(state) {
                         }
                         let bg = {type:'attack-group', uidA:u.uid, uidD:null, entries:[], isBlock:true, _fxSnapshot:makeFXSnapshot(u,null), waveTaunt:null, waveUnit:null, buffEffects:[], healAmount: 15, healUnitUid: u.uid};
                         bg.entries.push({type:'combat-text', text:`<span class="${u.camp==='ally'?'blue':'orange'}">${u.camp==='ally'?'明教':'六大派'} ${u.name}</span> 被遮挡`});
-                        bg.entries.push({type:'info', text:`<span class="green">休息回复20点生命（${hpBefore} → ${hpAfter}）</span>`});
+                        bg.entries.push({type:'info', text:`<span class="green">休息回复15点生命（${hpBefore} → ${hpAfter}）</span>`});
                         bg._events = [...window._battleEvents];
                         window._battleEvents = [];
                         log.push(bg);
@@ -418,14 +461,12 @@ export function* createRoundStepper(state) {
 
         processUnitAttack(unit, allySide, enemySide, log, A, B, state, doubleStrikeUnitUid);
 
-        // 苦练不占用行动次数，不切换阵营
         if (unit !== kuLianUnit) {
             currentSide = currentSide === 'ally' ? 'enemy' : 'ally';
         }
 
         finalizeDeaths(A);
         finalizeDeaths(B);
-        // 妹妹飞天检查（被攻击后触发）
         A.forEach(u => { if (u.isXiaoZhaoBrother && u.alive) spiderFlyCheck(u, A, log); });
         const stepEvents = [...window._battleEvents];
         window._battleEvents = [];
@@ -443,9 +484,6 @@ export function* createRoundStepper(state) {
         if (done) return;
     }
 
-    destroyHorse(A, log); destroyHorse(B, log);
-
-    // 小昭·姊 回合结束飞回 / 小昭·妹 回合结束落下
     A.forEach(u => {
         if (u.isXiaoZhaoSister && u.alive && u._butterflyHost) butterflyReturn(u, A, log);
     });
@@ -456,7 +494,6 @@ export function* createRoundStepper(state) {
     [A, B].forEach(team => {
         for (let i = team.length - 1; i >= 0; i--) {
             const u = team[i];
-            // 回合结束清除休息状态和定时器
             u._resting = false;
             if (u._restingTimer) { clearTimeout(u._restingTimer); u._restingTimer = null; }
             if (typeof window._emitEvent === 'function') {
@@ -471,6 +508,8 @@ export function* createRoundStepper(state) {
         }
     });
 
+    // 先判定拒马消散，再清理过期Buff（确保到期拒马阵也参与判定）
+    destroyHorse(A, log); destroyHorse(B, log);
     A._activeBuffs = (A._activeBuffs || []).map(b => ({...b, remaining: b.remaining - 1})).filter(b => b.remaining > 0);
     B._activeBuffs = (B._activeBuffs || []).map(b => ({...b, remaining: b.remaining - 1})).filter(b => b.remaining > 0);
 
@@ -519,5 +558,3 @@ export function runBattleRound(state) {
         doubleStrikeUid: null
     };
 }
-
-// runBattle 已移除，播放器直接使用 createRoundStepper 逐步计算

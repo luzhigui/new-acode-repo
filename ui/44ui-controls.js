@@ -1,5 +1,5 @@
 ﻿// ui/44ui-controls.js - 光明顶5v5 UI控制（倍速系统+按钮状态）
-// V5.2.0 | ~8800 bytes | 2026-07-07
+// V5.2.0 | ~3500 bytes | 2026-07-07
 export const VER = 'ui/44ui-controls.js V5.2.0';
 
 import { getState, setState, gs } from './39main-state.js';

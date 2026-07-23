@@ -1,9 +1,9 @@
-﻿// core/47battle-attack.js - 光明顶5v5 攻击流程模块
-// V5.2.0 | ~20600 bytes | 2026-07-18 拆分步骤至49battle-attack-steps
+// core/47battle-attack.js - 光明顶5v5 攻击流程模块
+// V5.2.0 | ~20000 bytes | 2026-07-18 拆分步骤至49battle-attack-steps
 export const VER = 'core/47battle-attack.js V5.2.0';
 
 import { CONFIG, DEF_TAUNT, HP_TAUNT } from './01config-5v5-test.js';
-import { rand, calcDamage, getFangLevel, isMelee, getFronts, isBlocked, getFlyDodgeRate, getRandomTaunt, getZhangNearTaunt, makeFXSnapshot, hasBuff, getUnitCol, getUnitRow } from './03battle-utils.js';
+import { rand, calcDamage, getFangLevel, isMelee, getFronts, isBlocked, getFlyDodgeRate, getRandomTaunt, getZhangNearTaunt, makeFXSnapshot, hasBuff, getUnitCol, getUnitRow, hasAnyEnemyEmptyCol, getBloodAuraBonus } from './03battle-utils.js';
 import { computeBuffStats, applyBuffEffectsBeforeAttack, applyBuffEffectsAfterAttack } from './04buff-system.js';
 import { showDamageFloat } from '../fx/15fx-common-5v5-test.js';
 import {
@@ -72,8 +72,8 @@ function applyZhangEffects(unit, target, dmgCalc, group, A, log) {
             let secondTaunt = getZhangNearTaunt(2);
             if (secondTaunt) group.entries.push({type:'info', text:`<span class="gold">🗣️ ${unit.name}：${secondTaunt}</span>`});
         }
-        if (unit.nearAtkCount === 3) unit.ronghui = true;
-        if (unit.nearAtkCount === 3) {
+        if (unit.nearAtkCount >= 3) unit.ronghui = true;
+        if (unit.nearAtkCount >= 3) {
             let zt = getZhangNearTaunt(3); if (zt) group.entries.push({type:'info', text:`<span class="gold">🗣️ ${unit.name}：${zt}</span>`});
             let extra = Math.floor(target.atk * 0.15); target.hp -= extra; unit.dmgDealt += extra;
             if (target.hp <= 0) {
@@ -261,9 +261,7 @@ export function processUnitAttack(unit, allySide, enemySide, log, A, B, state, d
         let targetResult = selectAttackTarget(unit, enemySide, allySide);
         target = targetResult.target;
         phantomLog = targetResult.phantomLog;
-        if (unit._piercing && target) {
-            log.push({ type:'info', text:`<span class="gold">🔪 破阵穿透：${unit.name} 穿透敌方空列，锁定后排 ${target.name}！</span>`, fastEntry: true });
-        }
+
     }
 
     if (!target) {
@@ -317,6 +315,9 @@ export function processUnitAttack(unit, allySide, enemySide, log, A, B, state, d
     // 步骤3：伤害计算
     let dmgCalc = calcFinalDamage(unit, target, attackerBuffStats, defenderBuffStats, allySide, enemySide, log);
 
+    // 🐾 九阴白骨爪：提前触发，避免被飞天免疫拦截
+    checkNineYinClaw(unit, target, dmgCalc.dmg, log);
+
     // 🕷️ 小昭·妹 飞天免疫伤害检查
     if (A && target.isXiaoZhaoBrother && target.alive && !target._spiderFlying && spiderFlyCheck(target, A, log, dmgCalc.dmg)) {
         let flyImmuneGroup = { type:'attack-group', uidA:unit.uid, uidD:target.uid, entries:[], hpAfter:target.hp, alive:target.alive, isDead:false, _fxSnapshot:makeFXSnapshot(unit,target), _dmg:0, waveTaunt:null, waveUnit:null, buffEffects:[], _events:[] };
@@ -345,6 +346,53 @@ export function processUnitAttack(unit, allySide, enemySide, log, A, B, state, d
     applyXinHunDeduction(unit, allySide, log);
     applyXingFenPenalty(unit, log);
     applyExtraAttacks(unit, target, dmgCalc, allySide, enemySide, log, A, B, state, doubleStrikeUnitUid);
+
+    // 空列检测 + 残血光环：每次行动后重新判定
+    const allUnits = A.concat(B);
+    const allyFlyers = A.filter(u => u.role === '飞行' && u.alive && !u.isHorse);
+    const enemyFlyers = B.filter(u => u.role === '飞行' && u.alive && !u.isHorse);
+    const allyHasEmpty = hasAnyEnemyEmptyCol(B);
+    const enemyHasEmpty = hasAnyEnemyEmptyCol(A);
+    const bloodAuraBonus = getBloodAuraBonus(allUnits);
+    if (allyHasEmpty) {
+        log.push({ type:'info', text:`<span class="gold">🔍 空列检测：敌方有空列，己方飞行单位+5攻击</span>`, fastEntry: true });
+    }
+    if (enemyHasEmpty) {
+        log.push({ type:'info', text:`<span class="gold">🔍 空列检测：己方有空列，敌方飞行单位+5攻击</span>`, fastEntry: true });
+    }
+    if (bloodAuraBonus > 0) {
+        log.push({ type:'info', text:`<span class="gold">🩸 残血光环：全场低血量单位触发了+${bloodAuraBonus}攻击加成</span>`, fastEntry: true });
+    }
+    allyFlyers.forEach(u => {
+        const prevColBonus = u._emptyColBonus || 0;
+        const newColBonus = allyHasEmpty ? 5 : 0;
+        if (prevColBonus !== newColBonus) {
+            u.atk += newColBonus - prevColBonus;
+            u._emptyColBonus = newColBonus;
+            emitEvent(u, 'hp-change', { hp: u.hp, maxHp: u.maxHp, alive: u.alive, atk: u.atk, def: u.def });
+        }
+        const prevBloodBonus = u._bloodAuraBonus || 0;
+        if (prevBloodBonus !== bloodAuraBonus) {
+            u.atk += bloodAuraBonus - prevBloodBonus;
+            u._bloodAuraBonus = bloodAuraBonus;
+            emitEvent(u, 'hp-change', { hp: u.hp, maxHp: u.maxHp, alive: u.alive, atk: u.atk, def: u.def });
+        }
+    });
+    enemyFlyers.forEach(u => {
+        const prevColBonus = u._emptyColBonus || 0;
+        const newColBonus = enemyHasEmpty ? 5 : 0;
+        if (prevColBonus !== newColBonus) {
+            u.atk += newColBonus - prevColBonus;
+            u._emptyColBonus = newColBonus;
+            emitEvent(u, 'hp-change', { hp: u.hp, maxHp: u.maxHp, alive: u.alive, atk: u.atk, def: u.def });
+        }
+        const prevBloodBonus = u._bloodAuraBonus || 0;
+        if (prevBloodBonus !== bloodAuraBonus) {
+            u.atk += bloodAuraBonus - prevBloodBonus;
+            u._bloodAuraBonus = bloodAuraBonus;
+            emitEvent(u, 'hp-change', { hp: u.hp, maxHp: u.maxHp, alive: u.alive, atk: u.atk, def: u.def });
+        }
+    });
 
     return true;
 }
