@@ -1,5 +1,5 @@
-// tests/37health-rules/61-boneclaw.js
-// V5.2.0 | 白骨爪伤害公式与斩杀 - 改为疑似标记，放宽判定
+﻿// tests/37health-rules/61-boneclaw.js
+// V5.2.0 | ~4300 bytes | 白骨爪伤害公式与斩杀 - 改为疑似标记，放宽判定
 export const VER = 'tests/37health-rules/61-boneclaw.js V5.2.0';
 
 export const rule61 = {

@@ -1,5 +1,5 @@
-// core/50buff-effects.js - 光明顶5v5 海克斯效果函数库
-// V5.2.0 | 按身份拆分：普通团队 / 姐姐强化 / 妹妹永久
+﻿// core/50buff-effects.js - 光明顶5v5 海克斯效果函数库
+// V5.2.0 | ~19600 bytes | 按身份拆分：普通团队 / 姐姐强化 / 妹妹永久
 export const VER = 'core/50buff-effects.js V5.2.0';
 
 import { CONFIG } from './01config-5v5-test.js';

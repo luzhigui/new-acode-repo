@@ -1,5 +1,5 @@
-// player/09player-buff-ui.js - 光明顶5v5 Buff弹窗与横幅
-// V5.2.0 | ~8171 bytes | 2026-07-16 移除兜底分支，强制走Store
+﻿// player/09player-buff-ui.js - 光明顶5v5 Buff弹窗与横幅
+// V5.2.0 | ~9800 bytes | 2026-07-16 移除兜底分支，强制走Store
 export const VER = 'player/09player-buff-ui.js V5.2.0';
 
 import { CONFIG } from '../core/01config-5v5-test.js';

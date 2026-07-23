@@ -1,5 +1,5 @@
-// core/49battle-attack-steps.js - 光明顶5v5 攻击步骤拆分模块
-// V5.2.0 | ~18000 bytes | 2026-07-18 从47battle-attack拆分processUnitAttack
+﻿// core/49battle-attack-steps.js - 光明顶5v5 攻击步骤拆分模块
+// V5.2.0 | ~27100 bytes | 2026-07-18 从47battle-attack拆分processUnitAttack
 export const VER = 'core/49battle-attack-steps.js V5.2.0';
 
 import { CONFIG, DEF_TAUNT, HP_TAUNT } from './01config-5v5-test.js';

@@ -1,5 +1,5 @@
-// fx/17fx-crash-5v5-test.js - 光明顶5v5 飞撞与格挡特效
-// V5.2.0 | 2026-07-12 修复飞走模式原地残留蓝色格子（清除_flash标记）
+﻿// fx/17fx-crash-5v5-test.js - 光明顶5v5 飞撞与格挡特效
+// V5.2.0 | ~21100 bytes | 2026-07-12 修复飞走模式原地残留蓝色格子（清除_flash标记）
 export const VER = 'fx/17fx-crash-5v5-test.js V5.2.0';
 
 import { applyImpactShrink } from './15fx-common-5v5-test.js';

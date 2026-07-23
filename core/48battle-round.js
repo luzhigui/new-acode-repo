@@ -1,5 +1,5 @@
-// core/48battle-round.js - 光明顶5v5 回合循环与生成器
-// V5.2.0 | ~16000 bytes | 2026-07-16 从06battle-engine-core拆分
+﻿// core/48battle-round.js - 光明顶5v5 回合循环与生成器
+// V5.2.0 | ~26100 bytes | 2026-07-16 从06battle-engine-core拆分
 export const VER = 'core/48battle-round.js V5.2.0';
 
 import { CONFIG } from './01config-5v5-test.js';
