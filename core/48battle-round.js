@@ -102,11 +102,7 @@ export function* createRoundStepper(state) {
     let teamHasHorse = hasBuff(A._activeBuffs, 'horseFormation');
     let hasPermanentHorse = xiaoZhao && xiaoZhao.isXiaoZhaoBrother && !teamHasHorse && xiaoZhao._permanentBuffs && xiaoZhao._permanentBuffs.some(b => b.key === 'horseFormation');
     if (!hasPermanentHorse) {
-        const ctx = window._getPlayerContext?.();
-        const uiXz = ctx?.UI?.allyTeam?.find(u => u.isXiaoZhao);
-        if (uiXz && !teamHasHorse) {
-            hasPermanentHorse = uiXz._permanentBuffs && uiXz._permanentBuffs.some(b => b.key === 'horseFormation');
-        }
+        hasPermanentHorse = xiaoZhao && xiaoZhao.isXiaoZhaoBrother && !teamHasHorse && xiaoZhao._permanentBuffs && xiaoZhao._permanentBuffs.some(b => b.key === 'horseFormation');
     }
     if (hasPermanentHorse) {
         const xzHorse = spawnHorse(A, log, B, true);
