@@ -1,5 +1,5 @@
-// modules/24error-capture.js - 光明顶5v5 全局错误捕获
-// V5.2.0 | ~5796 bytes | 2026-07-05
+﻿// modules/24error-capture.js - 光明顶5v5 全局错误捕获
+// V5.2.0 | ~5700 bytes | 2026-07-05
 export const VER = 'modules/24error-capture.js V5.2.0';
 
 (function initErrorCapture() {

@@ -1,5 +1,5 @@
 ﻿﻿﻿﻿﻿// tools/33-toolkit-more.js - 光明顶5v5 开发工具箱（更多工具）
-// V5.2.0 | ~27945 bytes | 2026-07-05
+// V5.2.0 | ~27800 bytes | 2026-07-05
 
 function escapeHtml(text) {
     return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');

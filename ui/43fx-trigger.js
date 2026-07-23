@@ -1,5 +1,5 @@
-// ui/43fx-trigger.js - 光明顶5v5 特效触发
-// V5.2.0 | ~1800 bytes | 2026-07-07
+﻿// ui/43fx-trigger.js - 光明顶5v5 特效触发
+// V5.2.0 | ~3700 bytes | 2026-07-07
 export const VER = 'ui/43fx-trigger.js V5.2.0';
 
 import { KILL_TAUNT } from '../core/01config-5v5-test.js';

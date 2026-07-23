@@ -1,5 +1,5 @@
-// core/04buff-system.js - 光明顶5v5 Buff系统
-// V5.2.0 | ~15233 bytes | 2026-07-05
+﻿// core/04buff-system.js - 光明顶5v5 Buff系统
+// V5.2.0 | ~15100 bytes | 2026-07-05
 export const VER = 'core/04buff-system.js V5.2.0';
 import {
     applyBloodthirst_Normal, applyBloodthirst_Sister, applyBloodthirst_Brother,

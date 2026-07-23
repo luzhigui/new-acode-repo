@@ -1,5 +1,5 @@
-// tests/37health-rules/64-horse.js
-// V5.2.0 | ~2400 bytes | 拒马存在性检查
+﻿// tests/37health-rules/64-horse.js
+// V5.2.0 | ~3200 bytes | 拒马存在性检查
 export const VER = 'tests/37health-rules/64-horse.js V5.2.0';
 
 export const rule64 = {

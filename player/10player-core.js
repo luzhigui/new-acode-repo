@@ -1,5 +1,5 @@
-// player/10player-core.js - 光明顶5v5 战斗播放器核心
-// V5.2.0 | ~48000 bytes | 2026-07-11 事件链路重构：播放器纯消费日志，不补事件
+﻿// player/10player-core.js - 光明顶5v5 战斗播放器核心
+// V5.2.0 | ~59600 bytes | 2026-07-11 事件链路重构：播放器纯消费日志，不补事件
 export const VER = 'player/10player-core.js V5.2.0';
 
 import { isBlocked } from '../core/03battle-utils.js';

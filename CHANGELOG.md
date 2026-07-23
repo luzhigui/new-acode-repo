@@ -1,6 +1,11 @@
 # 光明顶 5v5 - 更改履历
 
-## V5.2.0 — 2026-07-20 ~ 2026-07-21
+## V5.2.0 — 2026-07-20 ~ 2026-07-23
+
+### 工程维护
+- **文件头部字节数校准**：统一检查并修正 56 个 JS/HTML/CJS 文件第二行注释中的 `~XXXXX bytes` 预估值，使其与当前实际文件大小保持一致；为原本缺少字节数的文件补全该字段
+- **工具路径同步确认**：文件复制器 `tools/32-toolkit.js` 的 `ALL_PROJECT_FILES` 与函数提取器 `tools/33-toolkit-more.js` 的 `TARGET_FILES` 已包含 `core/50buff-effects.js`、`fx/21fx-butterfly-spider.js`、`modules/100-replay.js`、`tools/34-shop.html` 等新增文件
+- **换行符策略回退**：删除 `.gitattributes`，仓库级 `core.autocrlf` 恢复为 `true`，避免 Windows 本地反复出现 CRLF/LF 导致的假变更
 
 ### 蝶蛛双生系统：小昭姐妹拆分
 - **小昭拆分为姐妹双形态**：姐姐（附身流）和妹妹（飞天流），在 `modules/23elite-skills.js` 中实现

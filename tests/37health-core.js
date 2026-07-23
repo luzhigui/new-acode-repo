@@ -1,5 +1,5 @@
-// tests/37health-core.js - 光明顶5v5 全面体检（实战验证）
-// V5.2.0 | 日志增强层 + 三向检验，规则拆分为独立文件
+﻿// tests/37health-core.js - 光明顶5v5 全面体检（实战验证）
+// V5.2.0 | ~25600 bytes | 日志增强层 + 三向检验，规则拆分为独立文件
 export const VER = 'tests/37health-core.js V5.2.0';
 
 import { runBattle, Unit, rand } from '../core/07battle-engine-5v5-test.js';
