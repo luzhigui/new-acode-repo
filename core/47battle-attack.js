@@ -204,7 +204,7 @@ function applyExtraAttacks(unit, target, dmgCalc, allySide, enemySide, log, A, B
     }
 
     // 小昭永久概率连击
-    if (unit.isXiaoZhao && unit.alive && !unit._xiaoZhaoDoubleStriked && unit._permanentBuffs && unit._permanentBuffs.some(b => b.key === 'doubleStrike') && !hasBuff(A._activeBuffs, 'doubleStrike')) {
+    if (unit.isXiaoZhaoBrother && unit.alive && !unit._xiaoZhaoDoubleStriked && unit._permanentBuffs && unit._permanentBuffs.some(b => b.key === 'doubleStrike') && !hasBuff(A._activeBuffs, 'doubleStrike')) {
         const chance = (CONFIG.ELITE_SKILLS.xiaoZhaoDoubleStrike && CONFIG.ELITE_SKILLS.xiaoZhaoDoubleStrike.chance) ? CONFIG.ELITE_SKILLS.xiaoZhaoDoubleStrike.chance * 100 : 80;
         if (rand(1, 100) <= chance) {
             unit._xiaoZhaoDoubleStriked = true;
@@ -318,8 +318,16 @@ export function processUnitAttack(unit, allySide, enemySide, log, A, B, state, d
     // 🐾 九阴白骨爪：提前触发，避免被飞天免疫拦截
     checkNineYinClaw(unit, target, dmgCalc.dmg, log);
 
-    // 🕷️ 小昭·妹 飞天免疫伤害检查
+    // 步骤4：应用伤害结果
+    let dmgResult = applyAttackResult(unit, target, dmgCalc, attackerBuffStats, defenderBuffStats, allySide, enemySide, log, A, B, state, doubleStrikeUnitUid);
+
+    // 🕷️ 小昭·妹 飞天免疫伤害检查（必须在伤害应用后，确保 hp 已实际扣减）
     if (A && target.isXiaoZhaoBrother && target.alive && !target._spiderFlying && spiderFlyCheck(target, A, log, dmgCalc.dmg)) {
+        // 恢复被扣除的伤害（免疫本次攻击）
+        target.hp = Math.min(target.maxHp, target.hp + dmgCalc.dmg);
+        unit.dmgDealt -= dmgCalc.dmg;
+        target.dmgTaken -= dmgCalc.dmg;
+        emitEvent(target, 'hp-change', { hp: target.hp, maxHp: target.maxHp, alive: target.alive, atk: target.atk, def: target.def });
         let flyImmuneGroup = { type:'attack-group', uidA:unit.uid, uidD:target.uid, entries:[], hpAfter:target.hp, alive:target.alive, isDead:false, _fxSnapshot:makeFXSnapshot(unit,target), _dmg:0, waveTaunt:null, waveUnit:null, buffEffects:[], _events:[] };
         flyImmuneGroup.entries.push({type:'combat-text', text:`<span class="${unit.camp==='ally'?'blue':'orange'}">${unit.camp==='ally'?'明教':'六大派'} ${unit.name}</span> 的攻击被免疫`});
         flyImmuneGroup.entries.push({type:'info', text:`<span class="gold">🕷️ 飞天：${target.name} 免疫本次攻击的 ${dmgCalc.dmg} 点伤害！</span>`});
@@ -331,9 +339,6 @@ export function processUnitAttack(unit, allySide, enemySide, log, A, B, state, d
         applyXingFenPenalty(unit, log);
         return true;
     }
-
-    // 步骤4：应用伤害结果
-    let dmgResult = applyAttackResult(unit, target, dmgCalc, attackerBuffStats, defenderBuffStats, allySide, enemySide, log, A, B, state, doubleStrikeUnitUid);
 
     // 步骤5：构建攻击组日志
     let group = buildAttackGroup(unit, target, dmgCalc, dmgResult, attackerBuffStats, defenderBuffStats, allySide, enemySide, log, A, B, state, doubleStrikeUnitUid, phantomLog);
@@ -354,15 +359,7 @@ export function processUnitAttack(unit, allySide, enemySide, log, A, B, state, d
     const allyHasEmpty = hasAnyEnemyEmptyCol(B);
     const enemyHasEmpty = hasAnyEnemyEmptyCol(A);
     const bloodAuraBonus = getBloodAuraBonus(allUnits);
-    if (allyHasEmpty) {
-        log.push({ type:'info', text:`<span class="gold">🔍 空列检测：敌方有空列，己方飞行单位+5攻击</span>`, fastEntry: true });
-    }
-    if (enemyHasEmpty) {
-        log.push({ type:'info', text:`<span class="gold">🔍 空列检测：己方有空列，敌方飞行单位+5攻击</span>`, fastEntry: true });
-    }
-    if (bloodAuraBonus > 0) {
-        log.push({ type:'info', text:`<span class="gold">🩸 残血光环：全场低血量单位触发了+${bloodAuraBonus}攻击加成</span>`, fastEntry: true });
-    }
+    // 空列和残血光环日志已移至回合初统一输出，行动中不再重复打印
     allyFlyers.forEach(u => {
         const prevColBonus = u._emptyColBonus || 0;
         const newColBonus = allyHasEmpty ? 5 : 0;
@@ -371,6 +368,7 @@ export function processUnitAttack(unit, allySide, enemySide, log, A, B, state, d
             u._emptyColBonus = newColBonus;
             emitEvent(u, 'hp-change', { hp: u.hp, maxHp: u.maxHp, alive: u.alive, atk: u.atk, def: u.def });
         }
+        
         const prevBloodBonus = u._bloodAuraBonus || 0;
         if (prevBloodBonus !== bloodAuraBonus) {
             u.atk += bloodAuraBonus - prevBloodBonus;

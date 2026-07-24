@@ -521,6 +521,10 @@ export function spiderTransform(unit, log) {
     unit.role = newRole;
     unit.atk += newStats.atk;
     unit.def += newStats.def;
+    unit._baseAtk = (unit._baseAtk || unit.atk) + newStats.atk;
+    unit._baseDef = (unit._baseDef || unit.def) + newStats.def;
+    unit._baseAtk = (unit._baseAtk || unit.atk) + newStats.atk;
+    unit._baseDef = (unit._baseDef || unit.def) + newStats.def;
 
     const prevMaxHp = unit.maxHp;
     let hpDelta = newStats.maxHp + 5;
@@ -582,7 +586,7 @@ export function spiderReturn(unit, allyTeam, enemySide, log) {
     if (!unit.isXiaoZhaoBrother || !unit._spiderFlying) return;
 
     unit._spiderFlying = false;
-    // _flyMode 延迟清除，由播放器在特效播放完后通过 Store 更新
+    unit._flyMode = null;
     unit._acted = false;
 
     const order = [4, 5, 6, 7, 8, 9, 1, 2, 3];
@@ -591,8 +595,7 @@ export function spiderReturn(unit, allyTeam, enemySide, log) {
         if (!occupied.has(p)) { unit.pos = p; break; }
     }
 
-    emitEvent(unit, 'hp-change', { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: unit.atk, def: unit.def, _spiderFlying: false });
-    // 不在这里清除 _flyMode，由播放器在特效播放完后通过 Store 更新
+    emitEvent(unit, 'hp-change', { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: unit.atk, def: unit.def, _flyMode: null, _spiderFlying: false });
     log.push({ type:'info', text:`<span class="gold">🕷️ 蛛落：${unit.name} 从天而降，落在${unit.pos}号位！</span>` });
 
     // 落地攻击随机敌人（攻击前再次确认目标存活）
@@ -703,7 +706,7 @@ export function applyPhantomDisguise(unit, enemySide, allySide = null) {
 
 export function applyXiaoZhaoMindControl(unit, allySide, enemySide) {
     if (unit.camp !== 'enemy') return null;
-    const xiaoZhao = enemySide.find(u => (u.isXiaoZhaoSister || u.isXiaoZhaoBrother || u.isXiaoZhao) && u.alive);
+    const xiaoZhao = enemySide.find(u => (u.isXiaoZhaoSister || u.isXiaoZhaoBrother) && u.alive);
     if (!xiaoZhao || !xiaoZhao._permanentBuffs || !xiaoZhao._permanentBuffs.some(b => b.key === 'mindControl')) return null;
     if (hasBuff(enemySide._activeBuffs, 'mindControl')) return null;
     if (Math.random() < 0.15) {
@@ -716,7 +719,7 @@ export function applyXiaoZhaoMindControl(unit, allySide, enemySide) {
 }
 
 export function checkXiaoZhaoPermanentDoubleStrike(unit, activeBuffs) {
-    if (!(unit.isXiaoZhaoSister || unit.isXiaoZhaoBrother || unit.isXiaoZhao) || !unit.alive || !unit._permanentBuffs) return false;
+    if (!(unit.isXiaoZhaoSister || unit.isXiaoZhaoBrother) || !unit.alive || !unit._permanentBuffs) return false;
     if (!unit._permanentBuffs.some(b => b.key === 'doubleStrike')) return false;
     if (unit._xiaoZhaoDoubleStriked) return false;
     if (hasBuff(activeBuffs, 'doubleStrike')) return false;

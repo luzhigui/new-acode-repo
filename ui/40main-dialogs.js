@@ -9,6 +9,8 @@ import { AudioManager } from '../modules/28audio-manager.js';
 export function showBattleReport(UI, battleResultForInfo) {
     // ★ 防残留：如果游戏已不在 GAMEOVER 状态，不创建弹窗
     if (window._getPlayerContext && window._getPlayerContext().gs !== 'GAMEOVER') return;
+    // 刷新积分显示
+    if (typeof window.updateScoreBadge === 'function') window.updateScoreBadge();
 
     // 优先使用 battleResultForInfo（包含已被 3 秒清理机制移除的死单位快照），
     // 否则回退到 UI.allyTeam/enemyTeam

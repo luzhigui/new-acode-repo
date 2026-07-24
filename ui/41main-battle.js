@@ -26,7 +26,7 @@ export function doInitBattle(currentStage, UI, snapshot, activeBuffs, selectedBu
     const eliteConfigs = [
         { name: '张无忌', m: 115, role: '远程', isZhang: true },
         { name: '韦一笑', m: 107, role: '飞行', isWei: true },
-        { name: '小昭', m: 107, role: '远程', isXiaoZhao: true }
+        { name: '小昭', m: 107, role: '远程', isXiaoZhaoBrother: true }
     ];
     const candidatePool = [];
     for (const cfg of eliteConfigs) {
@@ -34,7 +34,7 @@ export function doInitBattle(currentStage, UI, snapshot, activeBuffs, selectedBu
             candidatePool.push({ ...cfg, power: elitePower[cfg.name] || 140 });
         }
     }
-    if (!candidatePool.some(c => c.isZhang || c.isWei || c.isXiaoZhao)) {
+    if (!candidatePool.some(c => c.isZhang || c.isWei || c.isXiaoZhaoBrother)) {
         const roll = Math.random();
         const forcedName = roll < 0.4 ? '张无忌' : (roll < 0.7 ? '韦一笑' : '小昭');
         const forcedCfg = eliteConfigs.find(c => c.name === forcedName);
@@ -60,12 +60,11 @@ export function doInitBattle(currentStage, UI, snapshot, activeBuffs, selectedBu
         const idx = remainingCandidates.findIndex(c => c.name === pick.name);
         if (idx >= 0) remainingCandidates.splice(idx, 1);
         let unit;
-        if (pick.isZhang || pick.isWei || pick.isXiaoZhao) {
+        if (pick.isZhang || pick.isWei || pick.isXiaoZhaoBrother) {
             unit = new Unit(pick.name, pick.m, pick.role, 'ally');
             if (pick.isZhang) unit.isZhang = true;
             if (pick.isWei) unit.isWei = true;
-            if (pick.isXiaoZhao) {
-                unit.isXiaoZhao = true;
+            if (pick.isXiaoZhaoBrother) {
                 if (Math.random() < 0.5) { unit.isXiaoZhaoSister = true; }
                 else { unit.isXiaoZhaoBrother = true; }
                 unit.initXiaoZhao(); unit.applyBonus();
@@ -86,7 +85,7 @@ export function doInitBattle(currentStage, UI, snapshot, activeBuffs, selectedBu
     // 强制小昭模式：如有小昭则修正标志，如无则添加
     const forceXzMode = GlobalStore.get('forceXiaoZhao');
     if (forceXzMode === 'sister' || forceXzMode === 'brother') {
-        const existingXz = allyTeam.find(u => u.isXiaoZhao);
+        const existingXz = allyTeam.find(u => u.isXiaoZhaoSister || u.isXiaoZhaoBrother);
         if (existingXz) {
             // 场上已有小昭，直接修正标志
             existingXz.isXiaoZhaoSister = (forceXzMode === 'sister');
@@ -99,7 +98,6 @@ export function doInitBattle(currentStage, UI, snapshot, activeBuffs, selectedBu
                 remainingPower += (normalPower[swappable.m] || 90);
             }
             let xzUnit = new Unit('小昭', 107, C.ROLES[rand(0, 3)], 'ally');
-            xzUnit.isXiaoZhao = true;
             xzUnit.isXiaoZhaoSister = (forceXzMode === 'sister');
             xzUnit.isXiaoZhaoBrother = (forceXzMode === 'brother');
             xzUnit.initXiaoZhao(); xzUnit.applyBonus();
@@ -112,7 +110,7 @@ export function doInitBattle(currentStage, UI, snapshot, activeBuffs, selectedBu
 
     // 至少一个前排
     if (!allyTeam.some(u => u.role === '防战' || u.role === '战士')) {
-        const nonFixed = allyTeam.filter(u => !u.isZhang && !u.isWei && !u.isXiaoZhao);
+        const nonFixed = allyTeam.filter(u => !u.isZhang && !u.isWei && !u.isXiaoZhaoSister && !u.isXiaoZhaoBrother);
         if (nonFixed.length > 0) {
             nonFixed[0].role = rand(0, 1) === 0 ? '防战' : '战士';
             nonFixed[0].init(); nonFixed[0].applyBonus();
@@ -123,11 +121,11 @@ export function doInitBattle(currentStage, UI, snapshot, activeBuffs, selectedBu
     const takenPos = new Set();
     let zhang = allyTeam.find(u => u.isZhang);
     let wei = allyTeam.find(u => u.isWei);
-    let xz = allyTeam.find(u => u.isXiaoZhao);
+    let xz = allyTeam.find(u => u.isXiaoZhaoSister || u.isXiaoZhaoBrother);
     if (zhang) { zhang.pos = 5; takenPos.add(5); }
     if (wei) { wei.pos = 6; takenPos.add(6); }
     if (xz) { xz.pos = 4; takenPos.add(4); }
-    let others = allyTeam.filter(u => !u.isZhang && !u.isWei && !u.isXiaoZhao);
+    let others = allyTeam.filter(u => !u.isZhang && !u.isWei && !u.isXiaoZhaoSister && !u.isXiaoZhaoBrother);
     if (others.length > 0 && zhang && !takenPos.has(2)) { others[0].pos = 2; takenPos.add(2); others.shift(); }
     let emptySlots = [1,2,3,4,5,6,7,8,9].filter(p => !takenPos.has(p));
     for (let u of others) {

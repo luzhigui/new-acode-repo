@@ -40,7 +40,12 @@ export function selectAttackTarget(unit, enemySide, allySide) {
         if (lowHpTargets.length > 0) {
             target = lowHpTargets[rand(0, lowHpTargets.length - 1)];
         } else {
-            target = targets[rand(0, targets.length - 1)];
+            let fronts = getFronts(targets);
+            if (fronts.length > 0) {
+                target = fronts[rand(0, fronts.length - 1)];
+            } else {
+                target = targets[rand(0, targets.length - 1)];
+            }
         }
     } else if (isMelee(unit.role) || unit.isHorse) {
         let fronts = getFronts(targets);
