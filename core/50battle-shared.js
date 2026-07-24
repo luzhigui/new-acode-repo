@@ -3,6 +3,7 @@
 export const VER = 'core/50battle-shared.js V5.2.0';
 
 import { CONFIG } from './01config-5v5-test.js';
+import { ROLE_BONUS } from './02unit.js';
 const C = CONFIG;
 
 // ==================== 事件系统 ====================
@@ -69,11 +70,14 @@ function checkZhangSwitch(A, log) {
     let col = (zhang.pos - 1) % 3;
     let hasFrontAlly = A.some(c => c.alive && !c.isHorse && c.pos === 1 + col && c.uid !== zhang.uid);
     if (!hasFrontAlly) {
-        zhang.rangedForm = false; zhang.atk += 3; zhang.def += 2;
-        zhang.maxHp = Math.min(zhang.maxHp + 50, zhang._baseMaxHp * 2);
-        zhang._baseMaxHp = zhang.maxHp;
-        zhang.hp = Math.min(zhang.hp + 50, zhang.maxHp); zhang.role = '战士';
-        zhang._blocked = false; zhang._resting = false; zhang._zhangSwitched = true;
+        zhang.rangedForm = false;
+        const warriorBonus = ROLE_BONUS['战士'];
+        zhang.atk += warriorBonus.atk * 2;
+        zhang.def += warriorBonus.def * 2;
+        zhang.maxHp = Math.min(zhang.maxHp + warriorBonus.maxHp * 2, zhang._baseMaxHp * 2);
+        zhang.hp = Math.min(zhang.hp + warriorBonus.maxHp * 2, zhang.maxHp);
+        zhang.role = '战士';
+        zhang._resting = false; zhang._zhangSwitched = true;
         zhang._baseMaxHp = zhang.maxHp;
         emitEvent(zhang, 'zhang-switch', {
             atk: zhang.atk,

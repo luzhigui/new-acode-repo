@@ -146,7 +146,8 @@ export class Unit {
         this.atk=a;this.def=d;this.maxHp=hp*2.5;this.hp=this.maxHp;
     }
     applyBonus(){
-        switch(this.role){case'战士':this.atk+=3;this.def+=3;this.maxHp+=25;break;case'防战':this.atk-=6;this.def+=1;this.maxHp+=30;break;case'远程':this.atk+=6;this.def-=2;this.maxHp-=25;break;case'飞行':this.atk+=3;this.def-=2;this.maxHp-=25;break;}
+        const bonus = ROLE_BONUS[this.role];
+        if (bonus) { this.atk += bonus.atk; this.def += bonus.def; this.maxHp += bonus.maxHp; }
         this.hp=this.maxHp;
         this._baseMaxHp = this.maxHp;
         this._baseAtk = this.atk;
