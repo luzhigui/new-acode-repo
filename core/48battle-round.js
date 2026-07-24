@@ -41,7 +41,7 @@ export function* createRoundStepper(state) {
     A._activeBuffs = state.activeBuffs.filter(b => b.target === 'ally' || !b.target);
     B._activeBuffs = state.activeBuffs.filter(b => b.target === 'enemy');
 
-    const xiaoZhao = A.find(u => u.isXiaoZhao && u.alive);
+    const xiaoZhao = A.find(u => (u.isXiaoZhaoSister || u.isXiaoZhaoBrother) && u.alive);
 
     window._battleEvents = [];
     GlobalStore.set('currentBattleState', null);
@@ -149,39 +149,32 @@ export function* createRoundStepper(state) {
 
     // 空列加成
     const hasEmptyCol = hasAnyEnemyEmptyCol(B);
-    if (hasEmptyCol) {
+    const hasAllyFlyer = A.some(u => u.role === '飞行' && u.alive && !u.isHorse);
+    if (hasEmptyCol && hasAllyFlyer) {
         log.push({ type:'info', text:`<span class="gold">🔍 空列检测：敌方有空列，己方飞行单位+5攻击</span>` });
     }
     A.forEach(u => {
         if (u.role === '飞行' && u.alive && !u.isHorse) {
-            const prevBonus = u._emptyColBonus || 0;
-            const newBonus = hasEmptyCol ? 5 : 0;
-            if (prevBonus !== newBonus) {
-                u.atk += newBonus - prevBonus;
-                u._emptyColBonus = newBonus;
-                if (typeof window._emitEvent === 'function') window._emitEvent(u, 'hp-change', { hp: u.hp, maxHp: u.maxHp, alive: u.alive, atk: u.atk, def: u.def });
-            }
+            u._emptyColBonus = hasEmptyCol ? 5 : 0;
         }
     });
 
-    // 残血光环
+    // 残血光环（只设字段值，不直接动atk，交给统一叠加处理）
     const bloodBonus = getBloodAuraBonus(A.concat(B));
     A.forEach(u => {
         if (u.role === '飞行' && u.alive && !u.isHorse) {
-            const prev = u._bloodAuraBonus || 0;
-            if (prev !== bloodBonus) {
-                u.atk += bloodBonus - prev;
-                u._bloodAuraBonus = bloodBonus;
-                if (typeof window._emitEvent === 'function') window._emitEvent(u, 'hp-change', { hp: u.hp, maxHp: u.maxHp, alive: u.alive, atk: u.atk, def: u.def });
-            }
+            u._bloodAuraBonus = bloodBonus;
         }
     });
+    if (bloodBonus > 0 && hasAllyFlyer) {
+        log.push({ type:'info', text:`<span class="gold">🩸 残血光环：全场低血量单位触发了+${bloodBonus}攻击加成</span>` });
+    }
 
     A._butterflyTriggered = false;
     A.forEach(u => {
         if (!u.alive) return;
         let allyTeamWithDead = A.slice();
-        let hasCarryActive = hasBuff(A._activeBuffs, 'carry') || (u.isXiaoZhao && isXiaoZhaoPermanentActive(u, A._activeBuffs, 'carry'));
+        let hasCarryActive = hasBuff(A._activeBuffs, 'carry') || (u.isXiaoZhaoBrother && isXiaoZhaoPermanentActive(u, A._activeBuffs, 'carry'));
         if (hasCarryActive) {
             allyTeamWithDead = allyTeamWithDead.concat((state.allAllies || state.ally).filter(c => !c.alive));
             allyTeamWithDead = allyTeamWithDead.filter((u, i, arr) => arr.findIndex(v => v.uid === u.uid) === i);
@@ -204,7 +197,7 @@ export function* createRoundStepper(state) {
 
         const sister = A.some(a => a.isXiaoZhaoSister && a.alive);
         const carryPositions = sister ? [4, 5, 6] : [5];
-        if (hasCarryActive && carryPositions.includes(u.pos) && u._baseMaxHp !== undefined && !u.isHorse && !u.isZhang) {
+        if (hasCarryActive && carryPositions.includes(u.pos) && u._baseMaxHp !== undefined && !u.isHorse && !u.isZhang && !u.isXiaoZhao) {
             // 回退旧加成
             if (u.maxHp > 0 && u._baseMaxHp > 0) {
                 u.hp = Math.floor(u.hp * (u._baseMaxHp / u.maxHp));
@@ -233,7 +226,7 @@ export function* createRoundStepper(state) {
             if (stats.carryAtkAbs || stats.carryDefAbs || stats.carryHpAbs) {
                 log.push({ type:'info', text:`<span class="gold">👑 carry：${u.name} 获得队友属性加成 攻+${stats.carryAtkAbs} 防+${stats.carryDefAbs} 血上限+${stats.carryHpAbs}</span>` });
             }
-        } else if (!u.isHorse && !hasCarryActive && !u.isXiaoZhao && !u.isZhang) {
+        } else if (!u.isHorse && !hasCarryActive && !u.isXiaoZhao && !u.isZhang && !u.isXiaoZhao) {
             const sister = A.some(a => a.isXiaoZhaoSister && a.alive);
             const carryPositions = sister ? [4, 5, 6] : [5];
             if (carryPositions.includes(u.pos) && (u._carryAtkBonus || u._carryDefBonus || u._carryHpBonus)) {
@@ -250,7 +243,7 @@ export function* createRoundStepper(state) {
                     window._emitEvent(u, 'hp-change', { hp: u.hp, maxHp: u.maxHp, alive: u.alive, atk: u.atk, def: u.def });
                 }
             }
-        } else if (u.isXiaoZhao && isXiaoZhaoPermanentActive(u, A._activeBuffs, 'carry') && u._baseMaxHp !== undefined) {
+        } else if (u.isXiaoZhaoBrother && isXiaoZhaoPermanentActive(u, A._activeBuffs, 'carry') && u._baseMaxHp !== undefined) {
             u.atk += 3;
             u.def += 4;
             u.maxHp += 20;
@@ -262,6 +255,7 @@ export function* createRoundStepper(state) {
         }
 
         // 统一叠加所有独立加成（圣火令、严阵以待、飞行光环、空列）
+        // 先恢复到基准值，清除所有临时加成残留，再叠加最新值
         u.atk = (u._baseAtk || u.atk) + (u._carryAtkBonus || 0) + (u._butterflyAtkBonus || 0) + (u._holyAtkBonus || 0) + (u._emptyColBonus || 0) + (u._bloodAuraBonus || 0);
         u.def = (u._baseDef || u.def) + (u._carryDefBonus || 0) + (u._butterflyDefBonus || 0) + (u._holyDefBonus || 0) + (u._fortifyDefBonus || 0);
 
@@ -282,25 +276,19 @@ export function* createRoundStepper(state) {
 
     // 敌方空列检测
     const enemyHasEmptyCol = hasAnyEnemyEmptyCol(A);
-    if (enemyHasEmptyCol) {
+    const hasEnemyFlyer = B.some(u => u.role === '飞行' && u.alive && !u.isHorse);
+    if (enemyHasEmptyCol && hasEnemyFlyer) {
         log.push({ type:'info', text:`<span class="gold">🔍 空列检测：己方有空列，敌方飞行单位+5攻击</span>` });
     }
     B.forEach(u => {
         if (u.role === '飞行' && u.alive && !u.isHorse) {
-            const prevColBonus = u._emptyColBonus || 0;
-            const newColBonus = enemyHasEmptyCol ? 5 : 0;
-            if (prevColBonus !== newColBonus) {
-                u.atk += newColBonus - prevColBonus;
-                u._emptyColBonus = newColBonus;
-                if (typeof window._emitEvent === 'function') window._emitEvent(u, 'hp-change', { hp: u.hp, maxHp: u.maxHp, alive: u.alive, atk: u.atk, def: u.def });
-            }
-            const prevBloodBonus = u._bloodAuraBonus || 0;
-            if (prevBloodBonus !== bloodBonus) {
-                u.atk += bloodBonus - prevBloodBonus;
-                u._bloodAuraBonus = bloodBonus;
-                if (typeof window._emitEvent === 'function') window._emitEvent(u, 'hp-change', { hp: u.hp, maxHp: u.maxHp, alive: u.alive, atk: u.atk, def: u.def });
-            }
+            u._emptyColBonus = enemyHasEmptyCol ? 5 : 0;
+            u._bloodAuraBonus = bloodBonus;
         }
+        // 统一叠加所有独立加成（圣火令、严阵以待、飞行光环、空列）
+        u.atk = u.atk + (u._holyAtkBonus || 0) + (u._emptyColBonus || 0) + (u._bloodAuraBonus || 0);
+        u.def = u.def + (u._holyDefBonus || 0) + (u._fortifyDefBonus || 0);
+
         if (!u.alive) return;
         let stats = computeBuffStats(u, B._activeBuffs || [], B);
         if (typeof window._emitEvent === 'function') {

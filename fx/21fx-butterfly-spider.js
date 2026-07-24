@@ -108,7 +108,7 @@ export async function showButterflyFlyBack(hostUnit, toUnit) {
     const startX = hostCenter.x, startY = hostCenter.y;
     const endX = toCenter.x, endY = toCenter.y;
     const dx = endX - startX, dy = endY - startY;
-    const duration = 500;
+    const duration = 700;
     const startTime = performance.now();
 
     await new Promise(res => {
@@ -299,7 +299,7 @@ export async function showSpiderStrike(fromUnit, toUnit) {
 
     const startX = fromCenter.x, startY = fromCenter.y;
     const endX = toCenter.x, endY = toCenter.y;
-    const duration = 500;
+    const duration = 700;
     const startTime = performance.now();
 
     await new Promise(res => {

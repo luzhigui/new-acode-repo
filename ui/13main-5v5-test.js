@@ -325,7 +325,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 updateScoreBadge();
                 renderGrid('allyGrid', 'ally');
                 renderGrid('enemyGrid', 'enemy');
-                setState.gs(S.IDLE); setState.isPaused(false); updateButtons(); enableAllButtons(); updateSpeedButtons(); if(window._refreshGlowCells)window._refreshGlowCells();
+                setState.gs(S.IDLE); setState.isPaused(false); updateButtons(); enableAllButtons(); updateSpeedButtons(); updateScoreBadge(); if(window._refreshGlowCells)window._refreshGlowCells();
                 if (getState.autoLevel() === 'full-auto') { setTimeout(() => { if (getState.autoLevel() === 'full-auto' && !getState.isBattleStarting()) document.getElementById('btnMain').click(); }, 500); }
             } else {
                 if (currentStage === 5 && !GlobalStore.get('_hasPlayedFair')) {
@@ -360,7 +360,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 updateScoreBadge();
                 renderGrid('allyGrid', 'ally');
                 renderGrid('enemyGrid', 'enemy');
-                setState.gs(S.IDLE); setState.isPaused(false); updateButtons(); enableAllButtons(); updateSpeedButtons(); if(window._refreshGlowCells)window._refreshGlowCells();
+                setState.gs(S.IDLE); setState.isPaused(false); updateButtons(); enableAllButtons(); updateSpeedButtons(); updateScoreBadge(); if(window._refreshGlowCells)window._refreshGlowCells();
                 if (getState.autoLevel() === 'full-auto') { setTimeout(() => { if (getState.autoLevel() === 'full-auto' && !getState.isBattleStarting()) document.getElementById('btnMain').click(); }, 500); }
             }
         } else if(gs===S.IDLE&&!isBattleStarting){
@@ -410,6 +410,7 @@ document.addEventListener('DOMContentLoaded', function() {
             setState.UI(currentUI);
             updateButtons();
             enableAllButtons();
+            updateScoreBadge();
             doInitBattle(currentStage, currentUI, getState.snapshot(), getState.activeBuffs(), selectedBuffIndex, currentDoubleStrikeUid);
             setState.UI(currentUI);
             setState.snapshot(getState.snapshot());
@@ -561,7 +562,7 @@ document.addEventListener('DOMContentLoaded', function() {
         doInitBattle(currentStage, getState.UI(), getState.snapshot(), getState.activeBuffs(), selectedBuffIndex, currentDoubleStrikeUid);
         setState.UI(getState.UI());
         setState.snapshot(getState.snapshot());
-        updateUI(); setState.gs(S.IDLE); updateButtons(); enableAllButtons();
+        updateUI(); setState.gs(S.IDLE); updateButtons(); enableAllButtons(); updateScoreBadge();
     }
 
     function forceStopGame(){
@@ -580,7 +581,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const reportFloat = document.getElementById('battleReportFloat');
         if (reportFloat) reportFloat.remove();
         if (typeof restoreSpeedFromScroll === 'function') restoreSpeedFromScroll();
-        updateButtons();enableAllButtons();updateSpeedButtons();
+        updateButtons();enableAllButtons();updateSpeedButtons();updateSpeedButtons();
     }
 
     function doManualReset(){

@@ -281,5 +281,15 @@
 
 
 
+<script>
+// 立即用 localStorage 的真实积分替换 HTML 默认的 10 分
+(function() {
+    var saved = localStorage.getItem('ming_vote_score_5v5_test');
+    var badge = document.getElementById('scoreBadge');
+    if (badge && saved !== null) {
+        badge.textContent = '🏆 ' + saved + '分';
+    }
+})();
+</script>
 </body>
 </html>

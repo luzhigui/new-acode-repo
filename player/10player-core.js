@@ -435,6 +435,8 @@ async function handleInfo(c, entry) {
         } else if (entry.text.includes('🕷️ 蛛落')) {
             const brother = c.UI.allyTeam?.find(u => u.isXiaoZhaoBrother && u.alive);
             if (brother) {
+                // 立即清除飞天状态，让格子在蜘蛛落下瞬间恢复
+                c.store.dispatch({ type: 'SET_VISUAL', uid: brother.uid, _flyMode: null, _acted: false });
                 const showSpiderDescend = await getButterflyFx('showSpiderDescend');
                 showSpiderDescend(brother);
             }
@@ -508,14 +510,11 @@ async function handleInfo(c, entry) {
                 window.bulletTimeActive = true;
                 const { showSpiderStrike } = await import('../fx/21fx-butterfly-spider.js');
                 await showSpiderStrike(spiderUnit, strikeTarget);
-                if (spiderUnit && c.store) {
-                    c.store.dispatch({ type: 'SET_VISUAL', uid: spiderUnit.uid, _flyMode: null, _acted: false });
-                }
                 if (entry.text && entry.isDead && strikeTarget && c.store) {
                     c.store.dispatch({ type: 'SET_FLASH', uid: strikeTarget.uid, flash: 'dead' });
                     c.store.dispatch({ type: 'SET_VISUAL', uid: strikeTarget.uid, _isDead: true });
                 }
-                await new Promise(r => setTimeout(r, 1500));
+                await new Promise(r => setTimeout(r, 1800));
                 window.bulletTimeActive = false;
                 c.isPaused = false;
             }
@@ -565,7 +564,7 @@ function shouldStartNewGroup(entry, lastType) {
     if (entry.type === 'round-end') return false;
     if (entry.type === 'round-start') return false;
     if (lastType === 'attack-group' && entry.type === 'attack-group') return true;
-    if (lastType === 'attack-group' && entry.type === 'info') return true;
+    if (lastType === 'attack-group' && entry.type === 'info' && !entry.isDoubleStrikeBanner) return true;
     // buff-bonus/buff-splash 是攻击触发的效果，与攻击者之间不需要分隔符
     if (lastType === 'attack-group' && (entry.type === 'buff-bonus' || entry.type === 'buff-splash')) return false;
     if (lastType === 'attack-group' && entry.type !== 'attack-group' && entry.type !== 'info') return true;
@@ -898,7 +897,7 @@ export async function playBattle() {
                     newBuff = { key: pick, target: 'ally', remaining: duration, name: CONFIG.BUFFS[pick].name };
                     // 小昭永久海克斯存储
                     if (c.UI && c.UI.allyTeam) {
-                        const xiaoZhao = c.UI.allyTeam.find(u => u.isXiaoZhao);
+                        const xiaoZhao = c.UI.allyTeam.find(u => u.isXiaoZhaoBrother);
                         if (xiaoZhao) {
                             if (!xiaoZhao._permanentBuffs) xiaoZhao._permanentBuffs = [];
                             xiaoZhao._permanentBuffs.push({ ...newBuff, remaining: Infinity });
@@ -1012,8 +1011,6 @@ export async function playBattle() {
         GlobalStore.set('voteScore', GlobalStore.get('voteScore') + earnPoints);
         localStorage.setItem('ming_vote_score_5v5_test', String(GlobalStore.get('voteScore')));
         const newScore = GlobalStore.get('voteScore');
-        // 双重保险：在结算完成后强制同步一次积分，防止任何异常覆盖
-        localStorage.setItem('ming_vote_score_5v5_test', String(GlobalStore.get('voteScore')));
 const oldScoreStr = localStorage.getItem('ming_vote_score_5v5_test');
 const oldScore = oldScoreStr ? parseInt(oldScoreStr, 10) : 0;
 

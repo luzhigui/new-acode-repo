@@ -218,13 +218,8 @@ export function logBuffSummary(allyTeam, log, doubleStrikeUid) {
                 }
                 break;
             }
+            // 概率连击日志已移至回合初统一输出，此处不再重复
             case 'doubleStrike':
-                if (doubleStrikeUid) {
-                    let dsUnit = allyTeam.find(u => u.uid === doubleStrikeUid);
-                    if (dsUnit) log.push({type:'buff-summary', text:`<span class="gold">⚡ 概率连击：${dsUnit.name} 80%概率额外攻击一次</span>`, buffType:'buff_stat'});
-                } else {
-                    log.push({type:'buff-summary', text:`<span class="gold">⚡ 概率连击：己方随机一人80%概率额外攻击一次</span>`, buffType:'buff_stat'});
-                }
                 break;
             case 'mindControl':
                 log.push({type:'buff-summary', text:`<span class="gold">🌀 惑人心智：最前排80%扰乱敌方换位，40%扰乱己方换位</span>`, buffType:'buff_stat'});

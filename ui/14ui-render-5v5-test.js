@@ -123,7 +123,7 @@ function updateDetailPopupContent() {
     }
     let buffText = '无';
     let masteryText = '';
-    if (u.isXiaoZhao) {
+    if (u.isXiaoZhaoSister || u.isXiaoZhaoBrother) {
         // 小昭：显示永久海克斯列表
         const perms = u._permanentBuffs || [];
         buffText = perms.length > 0 ? perms.map(b => b.name).join('、') : '无';

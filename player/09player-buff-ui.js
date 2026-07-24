@@ -67,7 +67,7 @@ export function showBuffPopup(c) {
                 // 小昭永久海克斯存储
                 const ctx = window._getPlayerContext?.();
                 if (ctx && ctx.UI && ctx.UI.allyTeam) {
-                    const xiaoZhao = ctx.UI.allyTeam.find(u => u.isXiaoZhao);
+                    const xiaoZhao = ctx.UI.allyTeam.find(u => u.isXiaoZhaoBrother);
                     if (xiaoZhao) {
                         addPermanentBuff(xiaoZhao, b.value, newBuff.name, {});
                         // 同步回 snapshot，确保引擎 clone 时拿到最新 _permanentBuffs
