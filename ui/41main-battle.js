@@ -1,5 +1,6 @@
 ﻿// ui/41main-battle.js - 光明顶5v5 战斗初始化
 // V5.2.0 | ~10000 bytes | 2026-07-07 修复第五关额外单位、职业按模板分配、精英怪站位
+// V5.2.0 | ~10000 bytes | 2026-07-07 修复第五关额外单位、职业按模板分配、精英怪站位
 export const VER = 'ui/41main-battle.js V5.2.0';
 
 import { CONFIG, ENEMY_M } from '../core/01config-5v5-test.js';
@@ -341,7 +342,38 @@ export function showBuffSelection(callback, activeBuffs, selectedBuffIndex, upda
     }, true, false);
 }
 
-
+export function showBugModeBuffSelection(callback, activeBuffs, selectedBuffIndex, updateBuffSlotsFn, updateUIFn, autoScrollLogFn, allyTeam) {
+    const allKeys = Object.keys(C.BUFFS || {});
+    const existingKeys = activeBuffs.map(b => b.key);
+    const available = allKeys.filter(k => !existingKeys.includes(k));
+    const choices = available;
+    const text = '选择 Buff（持续 ' + C.BUFF_DURATION + ' 回合） [Bug模式]';
+    const buttons = choices.map(key => ({
+        text: (C.BUFFS[key]?.icon || '?') + ' ' + (C.BUFFS[key]?.name || key) + '\n' + (C.BUFFS[key]?.desc || ''),
+        value: key,
+        cls: 'buff'
+    }));
+    showModal(text, buttons, (key) => {
+        let duration = C.BUFFS[key].duration || C.BUFF_DURATION;
+        if (activeBuffs.length >= 2) {
+            let shortest = activeBuffs.reduce((a, b) => a.remaining < b.remaining ? a : b);
+            activeBuffs.splice(activeBuffs.indexOf(shortest), 1);
+        }
+        activeBuffs.push(createBuffObject(key, duration));
+        if (allyTeam) {
+            const xiaoZhao = allyTeam.find(u => u.isXiaoZhao);
+            if (xiaoZhao) {
+                addPermanentBuff(xiaoZhao, key, C.BUFFS[key].name, {});
+            }
+        }
+        updateBuffSlotsFn();
+        let logDiv = document.getElementById('log');
+        if (logDiv) { logDiv.innerHTML += `<span class="gold">✨ 获得Buff：${C.BUFFS[key].name}（持续${duration}回合）</span><br>`; autoScrollLogFn(); }
+        if (window._updateGlowColors) window._updateGlowColors(selectedBuffIndex);
+        updateUIFn();
+        callback();
+    }, true, false);
+}
 
 // ==================== Buff 槽 ====================
 export function updateBuffSlots(activeBuffs, selectedBuffIndex) {
