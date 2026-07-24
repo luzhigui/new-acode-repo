@@ -399,7 +399,7 @@ document.addEventListener('DOMContentLoaded', function() {
             if (voteFloat) voteFloat.style.display = 'none';
             const buffFloat = document.getElementById('buffFloatBtn');
             if (buffFloat) buffFloat.remove();
-            setState.speed(500);
+            setState.speed(600);
             setState.gs(S.IDLE);
             setState.isPaused(false);
             setState.waitingForNextRound(false);
@@ -410,6 +410,7 @@ document.addEventListener('DOMContentLoaded', function() {
             setState.UI(currentUI);
             updateButtons();
             enableAllButtons();
+            updateSpeedButtons();
             updateScoreBadge();
             doInitBattle(currentStage, currentUI, getState.snapshot(), getState.activeBuffs(), selectedBuffIndex, currentDoubleStrikeUid);
             setState.UI(currentUI);

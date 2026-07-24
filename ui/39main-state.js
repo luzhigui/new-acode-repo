@@ -110,8 +110,13 @@ function onLogUserScroll() {
 
 function updateScoreBadge() {
     const badge = document.getElementById('scoreBadge');
-    if (badge) badge.textContent = `🏆 ${window._voteScore || 10}分`;
+    const score = GlobalStore.get('voteScore');
+    const token = GlobalStore.get('holyToken');
+    const displayScore = (score === null || score === undefined) ? 0 : score;
+    const displayToken = (token === null || token === undefined) ? 0 : token;
+    if (badge) badge.innerHTML = `🏆 ${displayScore}分 🔥${displayToken}`;
 }
+window.updateScoreBadge = updateScoreBadge;
 
 function tickBuffDurations() {
     activeBuffs = activeBuffs.map(b => ({...b, remaining: b.remaining - 1})).filter(b => b.remaining > 0);
