@@ -1,5 +1,5 @@
 ﻿// fx/18fx-position-swap.js - 光明顶5v5 换位闪烁特效
-// V5.2.0 | ~5000 bytes | 2026-07-05
+// V5.2.0 | ~3828 bytes | 2026-07-05
 export const VER = 'fx/18fx-position-swap.js V5.2.0';
 
 /**

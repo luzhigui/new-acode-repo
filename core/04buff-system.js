@@ -1,6 +1,6 @@
-﻿// core/04buff-system.js - 光明顶5v5 Buff系统
-// V5.2.0 | ~15100 bytes | 2026-07-05
-export const VER = 'core/04buff-system.js V5.2.0';
+// core/04buff-system.js - 光明顶5v5 Buff系统
+// V5.2.1 | ~14800 bytes | 2026-07-23
+export const VER = 'core/04buff-system.js V5.2.1';
 import {
     applyBloodthirst_Normal, applyBloodthirst_Sister, applyBloodthirst_Brother,
     applyHotBlood_Normal, applyHotBlood_Sister, applyHotBlood_Brother,
@@ -18,13 +18,40 @@ import { rand, hasBuff, getUnitRow, getUnitCol, getAdjacentPositions } from './0
 import { checkKuLian, applyXingFenGrant, applyXinHunDeduction, tickKuaiLeHeal, canXingFenTrigger, consumeXingFen, applyXingFenPenalty, applyXiaoZhaoDerived, computeButterflyMastery, isXiaoZhaoPermanentActive, getXiaoZhaoHexEnhance } from '../modules/23elite-skills.js';
 const C = CONFIG;
 
+/**
+ * 圣火令绝对值加成（独立于Carry）
+ */
+export function applyHolyFlameBonus(unit, activeBuffs) {
+    unit._holyAtkBonus = 0;
+    unit._holyDefBonus = 0;
+    if (!activeBuffs || unit.camp !== 'ally') return;
+    const holyFlameBuff = activeBuffs.find(b => b.key === 'holyFlame');
+    if (!holyFlameBuff) return;
+    const cols = holyFlameBuff.cols || (holyFlameBuff.col != null ? [holyFlameBuff.col] : []);
+    const rows = holyFlameBuff.rows || (holyFlameBuff.row != null ? [holyFlameBuff.row] : []);
+    const baseAtk = unit._baseAtk || unit.atk;
+    const baseDef = unit._baseDef || unit.def;
+    if (cols.includes(getUnitCol(unit.pos))) unit._holyAtkBonus = Math.floor(baseAtk * C.BUFFS.holyFlame.atkBonus);
+    if (rows.includes(getUnitRow(unit.pos))) unit._holyDefBonus = Math.floor(baseDef * C.BUFFS.holyFlame.defBonus);
+}
+
+/**
+ * 严阵以待绝对值加成（独立于Carry）
+ */
+export function applyFortifyBonus(unit, activeBuffs) {
+    unit._fortifyDefBonus = 0;
+    if (unit.role !== '防战' || unit.camp !== 'ally') return;
+    if (activeBuffs && activeBuffs.some(b => b.key === 'fortify')) {
+        const baseDef = unit._baseDef || unit.def;
+        unit._fortifyDefBonus = Math.floor(baseDef * C.BUFFS.fortify.defBonus);
+    }
+}
+
 export function computeBuffStats(unit, activeBuffs, allyTeam) {
-    // console.log('computeBuffStats called, activeBuffs:', JSON.stringify(activeBuffs?.map(b => ({ key: b.key, target: b.target, remaining: b.remaining }))));
     let atkBonus = 0, defBonus = 0, dodgeBonus = 0, hpBonus = 0;
     if (!activeBuffs) return { atkBonus, defBonus, dodgeBonus, hpBonus };
 
-
-    // carry 加成是绝对值，单独返回，不混入 atkBonus/defBonus（那两个字段是比率，供 calcAttackDamage 做乘法用）
+    // carry 加成是绝对值，单独返回
     let carryAtkAbs = 0, carryDefAbs = 0, carryHpAbs = 0;
     const hasCarry = hasBuff(activeBuffs, 'carry');
     if (hasCarry && unit.alive && allyTeam) {
@@ -37,7 +64,8 @@ export function computeBuffStats(unit, activeBuffs, allyTeam) {
             carryAtkAbs = bonus.atkAbs; carryDefAbs = bonus.defAbs; carryHpAbs = bonus.hpAbs;
         }
     }
-    // ---- 严阵以待防御 ----
+
+    // ---- 严阵以待防御（比率） ----
     if (hasBuff(activeBuffs, 'fortify') && unit.role === '防战' && unit.camp === 'ally') {
         if (allyTeam && allyTeam.some(u => u.isXiaoZhaoSister && u.alive)) applyFortifyDef_Sister(unit, { defBonus });
         else applyFortifyDef_Normal(unit, { defBonus });
@@ -60,7 +88,7 @@ export function computeBuffStats(unit, activeBuffs, allyTeam) {
         masteryAtkAbs = mastery.atk; masteryDefAbs = mastery.def; masteryHpAbs = mastery.hp;
     }
 
-    // ---- 圣火令 ----
+    // ---- 圣火令（比率） ----
     const holyFlameTeam = hasBuff(activeBuffs, 'holyFlame');
     if (holyFlameTeam) {
         if (allyTeam && allyTeam.some(u => u.isXiaoZhaoSister && u.alive)) applyHolyFlame_Sister(unit, allyTeam, activeBuffs, { atkBonus, defBonus });
@@ -118,7 +146,9 @@ export function applyBuffEffectsAfterAttack(unit, target, dmg, allySide, enemySi
     } else if (isBrother && unit.role === '远程' && isXiaoZhaoPermanentActive(unit, unitBuffs, 'meteorShower')) {
         applyMeteorShower_Brother(unit, target, dmg, allySide, enemySide, log);
     }
-}export function logBuffSummary(allyTeam, log, doubleStrikeUid) {
+}
+
+export function logBuffSummary(allyTeam, log, doubleStrikeUid) {
     let buffs = allyTeam._activeBuffs || [];
     buffs.forEach(b => {
         switch (b.key) {
@@ -147,11 +177,9 @@ export function applyBuffEffectsAfterAttack(unit, target, dmg, allySide, enemySi
                 if (msUnits.length > 0) log.push({type:'buff-summary', text:`<span class="gold">☄️ 流星赶月：${msUnits.map(u=>u.name).join('、')} 伤害加深${Math.round(C.BUFFS.meteorShower.bonusRatio*100)}% 溅射${Math.round(C.BUFFS.meteorShower.splashRatio*100)}%（主箭降2防，小箭降1防）</span>`, buffType:'buff_stat'});
                 break;
             case 'holyFlame': {
-                // 分团队圣火令和小昭圣火令
                 const teamHolyBuffs = buffs.filter(b => b.key === 'holyFlame' && !b._xiaoZhao);
                 const xiaoZhaoHolyBuffs = buffs.filter(b => b.key === 'holyFlame' && b._xiaoZhao);
                 
-                // 团队圣火令
                 if (teamHolyBuffs.length > 0) {
                     for (const hb of teamHolyBuffs) {
                         const cols = hb.cols || (hb.col != null ? [hb.col] : [rand(1, 3), rand(1, 3)]);
@@ -166,7 +194,6 @@ export function applyBuffEffectsAfterAttack(unit, target, dmg, allySide, enemySi
                     }
                 }
                 
-                // 小昭圣火令
                 if (xiaoZhaoHolyBuffs.length > 0) {
                     for (const hb of xiaoZhaoHolyBuffs) {
                         const xzCols = hb.cols || (hb.col != null ? [hb.col] : [rand(1, 3), rand(1, 3)]);
@@ -176,7 +203,6 @@ export function applyBuffEffectsAfterAttack(unit, target, dmg, allySide, enemySi
                         let atkNames = colUnits.map(u=>u.name).join('、') || '无';
                         let defNames = rowUnits.map(u=>u.name).join('、') || '无';
                         let xiaoZhaoLabel = '🦋 圣火令（小昭）';
-                        // 检查是否有单位同时受团队和小昭圣火令影响
                         const hasOverlap = colUnits.some(u => teamHolyBuffs.some(tb => {
                             const tcols = tb.cols || (tb.col != null ? [tb.col] : []);
                             return tcols.includes(getUnitCol(u.pos));
@@ -206,7 +232,6 @@ export function applyBuffEffectsAfterAttack(unit, target, dmg, allySide, enemySi
             case 'carry':
                 let carryUnit = allyTeam.find(u => u.pos === 5 && u.alive);
                 if (carryUnit) {
-                    // 需要从原始战斗状态中获取完整队友列表（包含已阵亡）
                     let fullAllies = GlobalStore.get('currentBattleState')?.ally || allyTeam;
                     let allAllies = fullAllies.filter(u => u.uid !== carryUnit.uid && !u.isHorse);
                     let aliveCount = allAllies.filter(a => a.alive).length;
@@ -219,5 +244,4 @@ desc += `）`;
                 break;
         }
     });
-    // buff-summary 的分隔符由播放器统一控制，引擎不再插入
 }

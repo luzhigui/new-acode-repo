@@ -1,5 +1,5 @@
 ﻿// tests/37health-rules/67-cloud-dodge.js
-// V5.2.0 | ~1300 bytes | 流云身法闪避率
+// V5.2.0 | 流云身法闪避率
 export const VER = 'tests/37health-rules/67-cloud-dodge.js V5.2.0';
 
 export const rule67 = {

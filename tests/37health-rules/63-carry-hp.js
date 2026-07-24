@@ -1,5 +1,5 @@
 ﻿// tests/37health-rules/63-carry-hp.js
-// V5.2.0 | ~2800 bytes | Carry血量方向检查
+// V5.2.0 | Carry血量方向检查
 export const VER = 'tests/37health-rules/63-carry-hp.js V5.2.0';
 
 export const rule63 = {

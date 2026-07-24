@@ -1,5 +1,5 @@
 ﻿<!-- mode-5v5-test.html - 光明顶5v5 V5.2.0 -->
-<!-- V5.2.0 | ~30200 bytes | 2026-07-05 -->
+<!-- V5.2.0 | ~31266 bytes | 2026-07-05 -->
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
@@ -115,6 +115,8 @@
         .dodge-toggle { width: 56px; height: 32px; padding: 4px 8px; border-radius: 4px; border: 1px solid #aaa; background: #f0f0f0; font-size: 9px; cursor: pointer; white-space: nowrap; margin-right: 4px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
         .dodge-toggle.active { background: #ffd700; border-color: #b8860b; color: #5c4033; }
         .orange { color: #d2691e; font-weight: bold; } .blue { color: #1e6bb8; font-weight: bold; } .red { color: #c0392b; } .gray { color: #888; } .green { color: #2e7d32; } .gold { color: #b8860b; font-weight: bold; }
+        .red-flash { animation: redFlash 0.5s ease-out; }
+        @keyframes redFlash { 0% { box-shadow: 0 0 20px rgba(255,0,0,0.8); background: rgba(255,0,0,0.3); } 100% { box-shadow: none; background: transparent; } }
         .hp-text-green { color: #2e7d32; } .hp-text-orange { color: #d2691e; } .hp-text-red { color: #c0392b; }
         .danmaku-bubble { position: fixed; z-index: 10001; pointer-events: none; font-size: 11px; font-weight: bold; padding: 5px 10px; border-radius: 6px; white-space: nowrap; animation: danmakuPop 3.5s ease-out forwards; box-shadow: 0 3px 10px rgba(0,0,0,0.3); }
         .danmaku-bubble.ally { background: rgba(30,110,180,0.85); color: #fff; } .danmaku-bubble.enemy { background: rgba(210,105,30,0.85); color: #fff; }
@@ -274,7 +276,6 @@
 <div class="vote-float" id="voteFloat" title="恢复投票">🏳️</div>
 <script type="module" src="./modules/46global-store.js"></script>
 <script type="module" src="./ui/13main-5v5-test.js"></script>
-
 
 
 
