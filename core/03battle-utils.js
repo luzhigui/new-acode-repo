@@ -1,5 +1,5 @@
-﻿// core/03battle-utils.js - 光明顶5v5 战斗工具函数
-// V5.2.0 | ~3900 bytes | 2026-07-05
+// core/03battle-utils.js - 光明顶5v5 战斗工具函数
+// V5.2.0 | ~3442 bytes | 2026-07-05
 export const VER = 'core/03battle-utils.js V5.2.0';
 
 import { CONFIG, TAUNT_LIB, DEF_TAUNT, HP_TAUNT, ZHANG_NEAR_TAUNT } from './01config-5v5-test.js';
@@ -15,7 +15,7 @@ export function getFronts(units) {
     let fronts = [];
     for (let col = 0; col < 3; col++) {
         let poses = [1+col, 4+col, 7+col];
-        let chars = units.filter(c => poses.includes(c.pos) && c.alive && !(c._flyMode === 'butterfly')).sort((a, b) => a.pos - b.pos);
+        let chars = units.filter(c => poses.includes(c.pos) && c.alive && !(c._flyMode === 'butterfly') && !(c._flyMode === 'spider') && !c._spiderFlying).sort((a, b) => a.pos - b.pos);
         if (chars.length > 0) fronts.push(chars[0]);
     }
     // 兜底：如果按列找不到前排，退回所有存活单位作为前排
@@ -29,9 +29,10 @@ export function getFronts(units) {
 export function isBlocked(unit, allies) {
     if (unit.role === '飞行') return false;
     if (unit._flyMode === 'butterfly') return false;
+    if (unit._flyMode === 'spider') return false;
     let col = (unit.pos - 1) % 3;
     let poses = [1+col, 4+col, 7+col];
-    let front = poses.find(p => allies.some(a => a.pos === p && a.alive && !a.isHorse && !(a._flyMode === 'butterfly')));
+    let front = poses.find(p => allies.some(a => a.pos === p && a.alive && !a.isHorse && !(a._flyMode === 'butterfly') && !(a._flyMode === 'spider')));
     if (!front) return false;
     if (unit.pos === front) return false;
     return unit.pos > front;
@@ -68,4 +69,24 @@ export function getAdjacentPositions(pos) {
         }
     }
     return adj;
+}
+
+export function hasAnyEnemyEmptyCol(enemySide) {
+    const cols = [[1,4,7], [2,5,8], [3,6,9]];
+    return cols.some(poses => !enemySide.some(u => u.alive && poses.includes(u.pos)));
+}
+
+export function hasEnemyLowHp(enemySide, threshold = 0.4) {
+    return enemySide.some(u => u.alive && u.hp / u.maxHp < threshold);
+}
+
+export function getBloodAuraBonus(allUnits) {
+    let totalBonus = 0;
+    allUnits.forEach(u => {
+        if (!u.alive) return;
+        const pct = u.hp / u.maxHp;
+        if (pct < 0.4) totalBonus += 3;
+        else if (pct < 0.7) totalBonus += 1;
+    });
+    return totalBonus;
 }

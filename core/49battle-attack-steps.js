@@ -1,5 +1,5 @@
-﻿// core/49battle-attack-steps.js - 光明顶5v5 攻击步骤拆分模块
-// V5.2.0 | ~27100 bytes | 2026-07-18 从47battle-attack拆分processUnitAttack
+// core/49battle-attack-steps.js - 光明顶5v5 攻击步骤拆分模块
+// V5.2.0 | ~18000 bytes | 2026-07-18 从47battle-attack拆分processUnitAttack
 export const VER = 'core/49battle-attack-steps.js V5.2.0';
 
 import { CONFIG, DEF_TAUNT, HP_TAUNT } from './01config-5v5-test.js';
@@ -25,7 +25,7 @@ function emitEvent(unit, eventType, payload) {
 
 // ==================== 步骤1：选择攻击目标 ====================
 export function selectAttackTarget(unit, enemySide, allySide) {
-    let targets = enemySide.filter(c => c.alive && !(c.isXiaoZhaoSister && c._butterflyHost) && !(c.isXiaoZhaoBrother && c._spiderFlying) && !(c._flyMode === 'butterfly'));
+    let targets = enemySide.filter(c => c.alive && c._flyMode !== 'butterfly' && c._flyMode !== 'spider' && !c._spiderFlying);
     if (targets.length === 0) return { target: null, phantomLog: null };
 
     let target = null;
@@ -34,25 +34,14 @@ export function selectAttackTarget(unit, enemySide, allySide) {
         target = rebelTarget;
     } else if (unit.isWei) {
         target = targets.reduce((a,b) => a.hp < b.hp ? a : b);
-    } else if (unit.role === '飞行') {
-        const col = (unit.pos - 1) % 3;
-        const unitColPoses = [[1,4,7], [2,5,8], [3,6,9]][col];
-        const colEmpty = !enemySide.some(u => u.alive && unitColPoses.includes(u.pos));
-        if (colEmpty) {
-            if (!unit._piercing) {
-                unit._piercing = true; unit.atk += 10; unit._baseAtk = (unit._baseAtk || unit.atk) + 10;
-                emitEvent(unit, 'hp-change', { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: unit.atk, def: unit.def, _piercing: true });
-                window._battleEvents.push({ unitUid: unit.uid, eventType: 'info', payload: { text: `🔪 破阵穿透！${unit.name} 所在列敌方全空，永久+10攻击，锁定后排！`, fastEntry: true } });
-            }
-            const pierceOrder = col === 0 ? [8,5,2,9,6,3] : (col === 2 ? [8,5,2,7,4,1] : null);
-            if (pierceOrder) {
-                for (const p of pierceOrder) { const t = targets.find(u => u.pos === p); if (t) { target = t; break; } }
-            } else {
-                const flankPoses = [7,9,4,6,1,3];
-                for (const p of flankPoses) { const t = targets.find(u => u.pos === p); if (t) { target = t; break; } }
-            }
-        }
         if (!target) target = targets[rand(0, targets.length - 1)];
+    } else if (unit.role === '飞行') {
+        const lowHpTargets = targets.filter(u => u.hp / u.maxHp < 0.4);
+        if (lowHpTargets.length > 0) {
+            target = lowHpTargets[rand(0, lowHpTargets.length - 1)];
+        } else {
+            target = targets[rand(0, targets.length - 1)];
+        }
     } else if (isMelee(unit.role) || unit.isHorse) {
         let fronts = getFronts(targets);
         if (fronts.length === 0) return { target: null, phantomLog: null };
@@ -193,8 +182,8 @@ export function calcFinalDamage(unit, target, attackerBuffStats, defenderBuffSta
         unit._pendingDefReduceEntry = {type:'detail', text:`<span class="purple small">🗡️ ${unit.name} 破防：${target.name} 防御 -${defReduced}</span>`};
     }
 
-    let atkBase = Math.floor(unit.atk + (unit._carryAtkBonus || 0)) + Math.floor((unit._baseAtk || unit.atk) * attackerBuffStats.atkBonus);
-    let defBase = Math.floor(target.def + (target._carryDefBonus || 0)) + Math.floor((target._baseDef || target.def) * defenderBuffStats.defBonus);
+    let atkBase = Math.floor(unit.atk);
+    let defBase = Math.floor(target.def);
     const hornBonus = getHornStrikeBonus(unit, target);
     if (hornBonus.defIgnore > 0) {
         let defBefore = defBase;
@@ -216,7 +205,7 @@ export function calcFinalDamage(unit, target, attackerBuffStats, defenderBuffSta
     }
     let raw, rawFormula;
     if (unit.role === '防战') {
-        let displayDef = Math.floor(unit.def + unit.def * (attackerBuffStats.defBonus || 0));
+        let displayDef = Math.floor(unit.def);
         let lv = getFangLevel(displayDef, unit.m), k = C.FANG_K[lv + 1] !== undefined ? C.FANG_K[lv + 1] : C.FANG_K[C.FANG_K.length - 1];
         let penPart = calcDamage(atkAct, defAct);
         raw = penPart + displayDef * k + unit.maxHp * C.HP_DMG_RATIO;
@@ -286,13 +275,26 @@ export function applyAttackResult(unit, target, dmgCalc, attackerBuffStats, defe
     unit.dmgDealt += dmg; target.dmgTaken += dmg;
     if (dead && target.camp === 'enemy' && unit.camp === 'ally' && !target._tokenDropped) {
         const stage = GlobalStore.get('currentStage') || 1;
-        const dropRate = [0, 7, 8, 9, 10, 11, 12][stage] / 100;
+        const dropRate = [0, 1.5, 2, 2.5, 4, 5.5, 6][stage] / 100;
         if (Math.random() < dropRate) {
             target._tokenDropped = true;
             const currentToken = GlobalStore.get('holyToken') || 0;
             GlobalStore.set('holyToken', currentToken + 1);
             localStorage.setItem('ming_holy_token_5v5_test', String(currentToken + 1));
             window._battleEvents.push({ unitUid: unit.uid, eventType: 'info', payload: { text: `🔥 圣火令掉落！${unit.name} 击杀 ${target.name}，获得1枚圣火令！当前总数：${currentToken + 1}`, fastEntry: true } });
+        }
+    }
+    // 宝箱击杀掉落
+    if (dead && target.camp === 'enemy' && unit.camp === 'ally' && !target._chestDropped) {
+        const stage = GlobalStore.get('currentStage') || 1;
+        const chestKillRate = 0.2 / 100;
+        if (Math.random() < chestKillRate) {
+            target._chestDropped = true;
+            let chests = parseInt(localStorage.getItem('ming_chest_count') || '0');
+            chests++;
+            localStorage.setItem('ming_chest_count', String(chests));
+            GlobalStore.set('chestCount', chests);
+            window._battleEvents.push({ unitUid: unit.uid, eventType: 'info', payload: { text: `🎁 宝箱掉落！${unit.name} 击杀 ${target.name}，获得1个宝箱！当前总数：${chests}`, fastEntry: true } });
         }
     }
 
@@ -415,7 +417,7 @@ export function applyPostAttackEffects(unit, target, dmg, atkAct, defAct, reboun
     if (unit.camp === 'ally') {
         applyBuffEffectsAfterAttack(unit, target, dmg, allySide, enemySide, log);
     }
-    checkNineYinClaw(unit, target, dmg, log);
+    // checkNineYinClaw 已移至 processUnitAttack 中提前调用
     const counterDmg = checkExtinctionCounter(target, dmg);
     if (counterDmg > 0) {
         unit.hp -= counterDmg; target.dmgDealt += counterDmg; unit.dmgTaken += counterDmg;

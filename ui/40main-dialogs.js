@@ -1,5 +1,5 @@
 ﻿// ui/40main-dialogs.js - 光明顶5v5 弹窗模块
-// V5.2.0 | ~15600 bytes | 2026-07-06
+// V5.2.0 | ~6500 bytes | 2026-07-06
 export const VER = 'ui/40main-dialogs.js V5.2.0';
 
 import { showModal, showAlert } from './12main-utils.js';
