@@ -128,7 +128,8 @@ export function resolveAttackHit(unit, target, attackerBuffStats, defenderBuffSt
             let bloodDodge = 0;
             if (target.isWei) {
                 const lostPct = (target.maxHp - target.hp) / target.maxHp;
-                bloodDodge = lostPct * 0.70;
+                const maxRatio = (CONFIG.ELITE_SKILLS.weiBloodDodge && CONFIG.ELITE_SKILLS.weiBloodDodge.maxRatio) ? CONFIG.ELITE_SKILLS.weiBloodDodge.maxRatio : 0;
+                bloodDodge = lostPct * maxRatio;
             }
             let finalHit = (1 - baseDodge) * (1 - buffDodge) * (1 - bloodDodge);
             let totalDodge = 1 - finalHit;
