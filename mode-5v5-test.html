@@ -172,6 +172,7 @@
         @keyframes bubbleIn { 0% { opacity: 0; transform: scale(0.5); } 100% { opacity: 1; transform: scale(1); } }
         @keyframes bannerPop { 0% { opacity: 0; transform: translate(-50%, -50%) scale(0.3); } 30% { opacity: 1; transform: translate(-50%, -50%) scale(1.1); } 50% { transform: translate(-50%, -50%) scale(1); } 100% { opacity: 0; transform: translate(-50%, -50%) scale(1); } }
         @keyframes meteorRing { 0% { transform:translate(-50%,-50%) scale(0.5); opacity:1; } 100% { transform:translate(-50%,-50%) scale(2.0); opacity:0; } }
+        @keyframes clawSlash { 0% { opacity:1; transform: scaleX(0.3) translateX(-10px); } 40% { opacity:1; transform: scaleX(1.1) translateX(2px); } 100% { opacity:0; transform: scaleX(0.8) translateX(10px); } }
         .comic-bubble::after { content: ""; position: absolute; width: 0; height: 0; border: 10px solid transparent; }
         .bubble-defender-below::after { bottom: -18px; left: 50%; transform: translateX(-50%); border-top-color: white; }
         .bubble-attacker-below::after { top: -18px; left: 20%; border-bottom-color: white; transform: rotate(-20deg); }

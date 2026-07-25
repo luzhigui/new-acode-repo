@@ -96,7 +96,40 @@ export function applyImpactShrink(cell, durationMs, getPausedFn, opts) {
     requestAnimationFrame(shake);
 }
 
-// 苦练特效：全队格子闪烁并显示肌肉logo
+/**
+ * 乘风突袭波及爪痕特效
+ */
+export function showWindClaw(unit) {
+    let grid = document.querySelector(`[data-uid="${unit.uid}"]`);
+    if (!grid) return;
+
+    const rect = grid.getBoundingClientRect();
+    const cx = rect.left + rect.width / 2;
+    const cy = rect.top + rect.height / 2;
+
+    for (let i = 0; i < 3; i++) {
+        const claw = document.createElement('div');
+        claw.setAttribute('data-fx', 'temporary');
+        const angle = -30 + Math.random() * 20;
+        const len = 20 + Math.random() * 15;
+        const thickness = 1 + Math.random() * 2.5;
+        const offsetX = (Math.random() - 0.5) * 20;
+        const offsetY = (Math.random() - 0.5) * 20;
+        claw.style.cssText = `
+            position:fixed; left:${cx + offsetX}px; top:${cy + offsetY}px;
+            width:${len}px; height:${thickness}px;
+            background: linear-gradient(to right, rgba(255,255,255,0.9), rgba(255,255,255,0.1));
+            transform: rotate(${angle}deg);
+            z-index:10010; pointer-events:none;
+            border-radius: 1px;
+            filter: drop-shadow(0 0 3px rgba(255,255,255,0.7));
+            animation: clawSlash 0.5s ease-out forwards;
+            animation-delay: ${i * 0.08}s;
+        `;
+        document.body.appendChild(claw);
+        setTimeout(() => { if (claw.parentNode) claw.remove(); }, 600);
+    }
+}
 export function showKuLianEffect(unit, team) {
     team.forEach(member => {
         if (!member.alive || member.isHorse) return;

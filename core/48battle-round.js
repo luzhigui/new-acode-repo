@@ -155,9 +155,10 @@ export function* createRoundStepper(state) {
     if (hasEmptyCol && hasAllyFlyer) {
         log.push({ type:'info', text:`<span class="gold">🔍 空列检测：敌方有空列，己方飞行单位+5攻击</span>` });
     }
+    const enemyEmptyCols = countEnemyEmptyCols(B);
     A.forEach(u => {
         if (u.role === '飞行' && u.alive && !u.isHorse) {
-            u._emptyColBonus = hasEmptyCol ? 5 : 0;
+            u._emptyColBonus = enemyEmptyCols * 5;
         }
     });
 
@@ -282,9 +283,10 @@ export function* createRoundStepper(state) {
     if (enemyHasEmptyCol && hasEnemyFlyer) {
         log.push({ type:'info', text:`<span class="gold">🔍 空列检测：己方有空列，敌方飞行单位+5攻击</span>` });
     }
+    const allyEmptyCols = countEnemyEmptyCols(A);
     B.forEach(u => {
         if (u.role === '飞行' && u.alive && !u.isHorse) {
-            u._emptyColBonus = enemyHasEmptyCol ? 5 : 0;
+            u._emptyColBonus = allyEmptyCols * 5;
             u._bloodAuraBonus = bloodBonus;
         }
         // 统一叠加所有独立加成（圣火令、严阵以待、飞行光环、空列）

@@ -1,5 +1,5 @@
-﻿﻿﻿﻿﻿﻿﻿// tools/33-toolkit-more.js - 光明顶5v5 开发工具箱（更多工具）
-// V5.2.0 | ~27945 bytes | 2026-07-05
+﻿﻿﻿﻿﻿﻿﻿﻿﻿// tools/33-toolkit-more.js - 光明顶5v5 开发工具箱（更多工具）
+// V5.2.1 | ~28600 bytes | 2026-07-24
 
 function escapeHtml(text) {
     return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -23,6 +23,10 @@ function escapeHtml(text) {
         '../fx/21fx-butterfly-spider.js',
         '../modules/23elite-skills.js', '../modules/24error-capture.js', '../modules/28audio-manager.js',
         '../modules/46global-store.js', '../modules/100-replay.js',
+        '../modules/91elite-xiaozhao-brother.js', '../modules/92elite-xiaozhao-sister.js',
+        '../modules/93elite-hebiweng.js', '../modules/94elite-luzhangke.js', '../modules/95elite-chengkun.js',
+        '../modules/96elite-zhouzhiruo.js', '../modules/97elite-songqingshu.js', '../modules/98elite-weiyixiao.js',
+        '../modules/99elite-zhangwuji.js',
         '../tests/25unit-tests.js',
         '../tests/35quiz-bank.js',
         '../tests/37health-core.js',

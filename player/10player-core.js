@@ -3,7 +3,7 @@
 export const VER = 'player/10player-core.js V5.2.0';
 
 import { isBlocked } from '../core/03battle-utils.js';
-import { showDanmaku, showDamageFloat, showDodgeBubble, showHealFloat, showAtkBuffFloat, applyBrushEffect, showBuffBanner, showCriticalBanner, showHeartEffect, showPinkFlash, showKuLianEffect } from '../fx/15fx-common-5v5-test.js';
+import { showDanmaku, showDamageFloat, showDodgeBubble, showHealFloat, showAtkBuffFloat, applyBrushEffect, showBuffBanner, showCriticalBanner, showHeartEffect, showPinkFlash, showKuLianEffect, showWindClaw } from '../fx/15fx-common-5v5-test.js';
 import { showDodgeBulletTime } from '../fx/20fx-dodge-bullet.js';
 import { showRangedArrow, showSplashArrows, showBoneClaw } from '../fx/16fx-arrows-5v5-test.js';
 import { CONFIG } from '../core/01config-5v5-test.js';
@@ -137,6 +137,7 @@ function battleReducer(state, action) {
                         if (p._resting !== undefined) next[idx]._resting = p._resting;
                         if (p._blocked !== undefined) next[idx]._blocked = p._blocked;
                         if (p._phantomTarget !== undefined) next[idx]._phantomTarget = p._phantomTarget;
+                        if (p._stunned !== undefined) next[idx]._stunned = p._stunned;
                         if (p._flyMode !== undefined) next[idx]._flyMode = p._flyMode;
                         if (p._butterflyHost !== undefined) next[idx]._butterflyHost = p._butterflyHost;
                         if (p._masteredRoles !== undefined) next[idx]._masteredRoles = p._masteredRoles;
@@ -626,7 +627,15 @@ export async function playLogEntries(c, log, roundResult, isFirstAttackRef) {
                     break;
                 case 'buff-splash':
                     c.isPaused = true; window.bulletTimeActive = true;
-                    if (entry.buffType === 'wind_assault') await showBuffBanner('🦅 乘风突袭！');
+                    if (entry.buffType === 'wind_assault') {
+                        await showBuffBanner('🦅 乘风突袭！');
+                        if (entry.splashUids) {
+                            entry.splashUids.forEach(uid => {
+                                const targetUnit = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.uid === uid);
+                                if (targetUnit) showWindClaw(targetUnit);
+                            });
+                        }
+                    }
                     else if (entry.buffType === 'meteor_splash') await showBuffBanner('☄️ 流星赶月！');
                     else await showBuffBanner('🦅 乘风突袭！');
                     window.bulletTimeActive = false;
