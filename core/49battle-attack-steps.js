@@ -10,12 +10,15 @@ import { computeBuffStats, applyBuffEffectsBeforeAttack, applyBuffEffectsAfterAt
 import {
     getRebelTarget, getRebelDmgBonus, getRebelTrueDmg,
     checkKuLian, applyXingFenGrant,
-    applyXiaoZhaoDerived, applyDamageModifiers, isXiaoZhaoPermanentActive,
+    applyDamageModifiers, isXiaoZhaoPermanentActive,
     applyPhantomDisguise, applyXiaoZhaoMindControl, checkXiaoZhaoPermanentDoubleStrike,
-    canXingFenTrigger, consumeXingFen,
-    getXiaoZhaoHexEnhance
+    getXiaoZhaoHexEnhance,
+    canXingFenTrigger, consumeXingFen
 } from '../modules/23elite-skills.js';
 import { applyFortifyRebound_Normal, applyFortifyRebound_Sister } from './50buff-effects.js';
+import { createChengKunComponent } from '../modules/95elite-chengkun.js';
+import { createHeBiWengComponent } from '../modules/93elite-hebiweng.js';
+import { createXiaoZhaoSisterComponent } from '../modules/92elite-xiaozhao-sister.js';
 const C = CONFIG, DT = DEF_TAUNT, HT = HP_TAUNT;
 
 function emitEvent(unit, eventType, payload) {
@@ -163,6 +166,7 @@ export function resolveAttackHit(unit, target, attackerBuffStats, defenderBuffSt
                 log.push(dg);
                 unit._acted = true;
                 unit._stunned = true;
+                emitEvent(unit, 'hp-change', { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: unit.atk, def: unit.def, _stunned: true });
                 dg.entries.push({type:'info', text:`<span class="gray">😵‍💫 ${unit.name} 被反击眩晕，本回合无法行动！</span>`});
                 return { skipped: true, retry: false, lockedTargetUid: null };
             }
@@ -185,12 +189,17 @@ export function calcFinalDamage(unit, target, attackerBuffStats, defenderBuffSta
 
     let atkBase = Math.floor(unit.atk);
     let defBase = Math.floor(target.def);
-    const hornBonus = getHornStrikeBonus(unit, target);
-    if (hornBonus.defIgnore > 0) {
+    // 精英组件变量提前声明
+    let hornDefIgnore = 0;
+    let hornDmgMultiplier = 1;
+    let hornDefBefore = null;
+    let hornDefAfter = null;
+    // 鹤笔翁鹿角杖法防御忽略 → 组件模式
+    if (hornDefIgnore > 0) {
         let defBefore = defBase;
-        defBase = Math.floor(defBase * (1 - hornBonus.defIgnore));
-        hornBonus._defBefore = defBefore;
-        hornBonus._defAfter = defBase;
+        defBase = Math.floor(defBase * (1 - hornDefIgnore));
+        hornDefBefore = defBefore;
+        hornDefAfter = defBase;
     }
     let atkVar = rand(0, C.ATK_VAR), defVar = rand(0, C.DEF_VAR), hpBonus = rand(C.HP_BONUS_MIN, C.HP_BONUS_MAX);
     let atkAct = atkBase + atkVar, defAct = defBase + defVar;
@@ -215,9 +224,22 @@ export function calcFinalDamage(unit, target, attackerBuffStats, defenderBuffSta
         raw = calcDamage(atkAct, defAct);
         rawFormula = `${atkAct}×(${atkAct}/(${atkAct}+${defAct})) = ${Math.floor(raw)}`;
     }
-    const thunderBonus = getPhantomThunderBonus(unit);
+    // 成昆混元霹雳劲 + 鹤笔翁鹿角杖法 → 组件模式
+    let thunderBonus = 0;
+    if (unit.camp !== 'ally') {
+        const chengkunComp = createChengKunComponent();
+        const ckResult = chengkunComp.onDamageCalc(unit, target, raw);
+        thunderBonus = ckResult - raw;
+        if (thunderBonus > 0) rawFormula += ` + 混元霹雳劲${thunderBonus}`;
+        
+        const hebiwengComp = createHeBiWengComponent();
+        const hbResult = hebiwengComp.onDamageCalc(unit, target, raw);
+        if (hbResult && hbResult.defIgnore) {
+            hornDefIgnore = hbResult.defIgnore;
+            hornDmgMultiplier = hbResult.dmgMultiplier || 1;
+        }
+    }
     raw += thunderBonus;
-    if (thunderBonus > 0) rawFormula += ` + 混元霹雳劲${thunderBonus}`;
     const rebelBonus = getRebelDmgBonus(unit);
     const trueDmg = getRebelTrueDmg(unit, target);
     if (rebelBonus > 0) {
@@ -227,10 +249,10 @@ export function calcFinalDamage(unit, target, attackerBuffStats, defenderBuffSta
         raw += trueDmg;
         rawFormula = `${rawFormula} + 叛逆真伤${trueDmg} = ${Math.floor(raw)}`;
     }
-    if (hornBonus.dmgMultiplier > 1) {
+    if (hornDmgMultiplier > 1) {
         const beforeHorn = Math.floor(raw);
-        raw *= hornBonus.dmgMultiplier;
-        rawFormula += `×${hornBonus.dmgMultiplier}=${Math.floor(raw)}`;
+        raw *= hornDmgMultiplier;
+        rawFormula += `×${hornDmgMultiplier}=${Math.floor(raw)}`;
     }
 
     // 伤害修正钩子
@@ -246,12 +268,12 @@ export function calcFinalDamage(unit, target, attackerBuffStats, defenderBuffSta
         }
     }
 
-    return { atkBase, defBase, atkAct, defAct, hpBonus, hpBefore, waveTaunt, waveUnit, raw, rawFormula, thunderBonus, hornBonus, trueDmg, dmg, bonusEntries, defReduced, defReduction: hornBonus._defBefore ? `${hornBonus._defBefore}→${hornBonus._defAfter}` : null };
+    return { atkBase, defBase, atkAct, defAct, hpBonus, hpBefore, waveTaunt, waveUnit, raw, rawFormula, thunderBonus, hornDmgMultiplier, hornDefIgnore, trueDmg, dmg, bonusEntries, defReduced, defReduction: hornDefBefore ? `${hornDefBefore}→${hornDefAfter}` : null };
 }
 
 // ==================== 步骤4：应用伤害结果 ====================
 export function applyAttackResult(unit, target, dmgCalc, attackerBuffStats, defenderBuffStats, allySide, enemySide, log, A, B, state, doubleStrikeUnitUid) {
-    let { atkBase, defBase, atkAct, defAct, hpBonus, hpBefore, waveTaunt, waveUnit, raw, rawFormula, thunderBonus, hornBonus, trueDmg, dmg, bonusEntries, defReduction } = dmgCalc;
+    let { atkBase, defBase, atkAct, defAct, hpBonus, hpBefore, waveTaunt, waveUnit, raw, rawFormula, thunderBonus, hornDmgMultiplier, hornDefIgnore, trueDmg, dmg, bonusEntries, defReduction } = dmgCalc;
 
     let hpAfter = Math.floor(target.hp) - dmg;
     let dead = hpAfter <= 0;
@@ -283,6 +305,7 @@ export function applyAttackResult(unit, target, dmgCalc, attackerBuffStats, defe
             GlobalStore.set('holyToken', currentToken + 1);
             localStorage.setItem('ming_holy_token_5v5_test', String(currentToken + 1));
             window._battleEvents.push({ unitUid: unit.uid, eventType: 'info', payload: { text: `🔥 圣火令掉落！${unit.name} 击杀 ${target.name}，获得1枚圣火令！当前总数：${currentToken + 1}`, fastEntry: true } });
+            log.push({type:'info', text:`<span class="gold">🔥 圣火令掉落！${unit.name} 击杀 ${target.name}，获得1枚圣火令！当前总数：${currentToken + 1}</span>`, fastEntry: true});
         }
     }
     // 宝箱击杀掉落
@@ -322,6 +345,12 @@ export function applyAttackResult(unit, target, dmgCalc, attackerBuffStats, defe
     }
     emitEvent(target, 'hp-change', { hp: target.hp, maxHp: target.maxHp, alive: target.alive, atk: target.atk, def: target.def, _isDead: target._isDead || false });
 
+    // 小昭姐乾坤衍生
+    if (target.camp === 'ally') {
+        const sisterComp = createXiaoZhaoSisterComponent();
+        sisterComp.onAllyDamaged(target, dmg, A, null);
+    }
+
     // 严阵以待反弹
     let reboundEntry = null;
     let allyBuffs_fortify = (target.camp === 'ally' ? A._activeBuffs : B._activeBuffs) || [];
@@ -336,12 +365,12 @@ export function applyAttackResult(unit, target, dmgCalc, attackerBuffStats, defe
         if (entry) reboundEntry = entry;
     }
 
-    return { dmg, dead, horseReboundEntry, reboundEntry, bonusEntries, hpBefore, defReduction, waveTaunt, waveUnit, rawFormula, thunderBonus, hornBonus, trueDmg, atkAct, defAct, hpBonus };
+    return { dmg, dead, horseReboundEntry, reboundEntry, bonusEntries, hpBefore, defReduction, waveTaunt, waveUnit, rawFormula, thunderBonus, hornDmgMultiplier, trueDmg, atkAct, defAct, hpBonus };
 }
 
 // ==================== 步骤5：构建攻击组日志 + 攻击后效果 ====================
 export function buildAttackGroup(unit, target, dmgCalc, dmgResult, attackerBuffStats, defenderBuffStats, allySide, enemySide, log, A, B, state, doubleStrikeUnitUid, phantomLog) {
-    let { atkBase, defBase, atkAct, defAct, hpBonus, hpBefore, waveTaunt, waveUnit, rawFormula, thunderBonus, hornBonus, trueDmg, defReduction } = dmgCalc;
+    let { atkBase, defBase, atkAct, defAct, hpBonus, hpBefore, waveTaunt, waveUnit, rawFormula, thunderBonus, hornDmgMultiplier, hornDefIgnore, trueDmg, defReduction } = dmgCalc;
     let { dmg, dead, horseReboundEntry, reboundEntry, bonusEntries } = dmgResult;
 
     let hpPctBefore = Math.floor((hpBefore / target.maxHp) * 100), hpPctAfter = Math.floor((target.hp / target.maxHp) * 100);
@@ -363,8 +392,8 @@ export function buildAttackGroup(unit, target, dmgCalc, dmgResult, attackerBuffS
     if (horseReboundEntry) group.entries.push(horseReboundEntry);
     group.entries.push({type:'detail', text:`<span class="gray small">波动：攻${atkBase}→${atkAct} 防${defBase}→${defAct} 血${hpBonus >= 0 ? '+' + hpBonus : hpBonus}</span>`});
     if (thunderBonus > 0) group.entries.push({type:'detail', text:`<span class="red small">💥 混元霹雳劲+${thunderBonus}真实伤害</span>`});
-    if (hornBonus.defIgnore > 0) {
-        if (hornBonus.dmgMultiplier > 1) {
+    if (hornDefIgnore > 0) {
+        if (hornDmgMultiplier > 1) {
             group.entries.push({type:'info', text:`<span class="gold">🦌 目标已中毒（玄冥神掌），鹤笔翁 鹿角杖法伤害+50%！</span>`});
         }
     }

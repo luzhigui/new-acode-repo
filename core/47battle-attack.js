@@ -3,7 +3,7 @@
 export const VER = 'core/47battle-attack.js V5.2.0';
 
 import { CONFIG, DEF_TAUNT, HP_TAUNT } from './01config-5v5-test.js';
-import { rand, calcDamage, getFangLevel, isMelee, getFronts, isBlocked, getFlyDodgeRate, getRandomTaunt, getZhangNearTaunt, makeFXSnapshot, hasBuff, getUnitCol, getUnitRow, hasAnyEnemyEmptyCol, getBloodAuraBonus } from './03battle-utils.js';
+import { rand, calcDamage, getFangLevel, isMelee, getFronts, isBlocked, getFlyDodgeRate, getRandomTaunt, getZhangNearTaunt, makeFXSnapshot, hasBuff, getUnitCol, getUnitRow, hasAnyEnemyEmptyCol, countEnemyEmptyCols, getBloodAuraBonus } from './03battle-utils.js';
 import { computeBuffStats, applyBuffEffectsBeforeAttack, applyBuffEffectsAfterAttack } from './04buff-system.js';
 // showDamageFloat 已随张无忌乾坤反弹迁移，47 不再直接使用
 import {
@@ -20,6 +20,15 @@ import {
     applyAttackResult,
     buildAttackGroup
 } from './49battle-attack-steps.js';
+import { createZhangWujiComponent } from '../modules/99elite-zhangwuji.js';
+import { createWeiYixiaoComponent } from '../modules/98elite-weiyixiao.js';
+import { createSongQingshuComponent } from '../modules/97elite-songqingshu.js';
+import { createZhouZhiruoComponent } from '../modules/96elite-zhouzhiruo.js';
+import { createChengKunComponent } from '../modules/95elite-chengkun.js';
+import { createLuZhangKeComponent } from '../modules/94elite-luzhangke.js';
+import { createHeBiWengComponent } from '../modules/93elite-hebiweng.js';
+import { createXiaoZhaoSisterComponent } from '../modules/92elite-xiaozhao-sister.js';
+import { createXiaoZhaoBrotherComponent } from '../modules/91elite-xiaozhao-brother.js';
 
 const C = CONFIG, DT = DEF_TAUNT, HT = HP_TAUNT;
 
@@ -57,57 +66,7 @@ function applyRoleGrowth(unit, target, dmgCalc, group, unitActiveBuffs, allySide
  * 玄冥二老联动 + 概率连击 + 小昭永久连击 + 性奋额外攻击
  */
 function applyExtraAttacks(unit, target, dmgCalc, allySide, enemySide, log, A, B, state, doubleStrikeUnitUid) {
-    // 玄冥二老联动
-    if (!unit._isLinkAttack && dmgCalc.dmg > 0 && target.alive) {
-        if (unit.name === '鹤笔翁') {
-            const lu = allySide.find(u => u.name === '鹿杖客' && u.alive && !u._acted);
-            if (!lu) {
-                const luActed = allySide.find(u => u.name === '鹿杖客' && u.alive && u._acted);
-                if (luActed && !luActed._linkTriggered) {
-                    luActed._isLinkAttack = true;
-                    luActed._linkTriggered = true;
-                    log.push({type:'info', text:`<span class="gold">🔗 ${luActed.name} 跟随 ${unit.name} 发动联动攻击！</span>`});
-                    // 玄冥神掌上毒已迁移至 modules/94elite-luzhangke.js 组件
-                    processUnitAttack(luActed, allySide, enemySide, log, A, B, state, null, target.uid);
-                    luActed._isLinkAttack = false;
-                    luActed._acted = false;
-                    emitEvent(luActed, 'hp-change', { hp: luActed.hp, maxHp: luActed.maxHp, alive: luActed.alive, atk: luActed.atk, def: luActed.def });
-                }
-            } else if (!lu._linkTriggered) {
-                lu._isLinkAttack = true;
-                lu._linkTriggered = true;
-                log.push({type:'info', text:`<span class="gold">🔗 ${lu.name} 跟随 ${unit.name} 发动联动攻击！</span>`});
-                processUnitAttack(lu, allySide, enemySide, log, A, B, state, null, target.uid);
-                lu._isLinkAttack = false;
-                lu._acted = false;
-                emitEvent(lu, 'hp-change', { hp: lu.hp, maxHp: lu.maxHp, alive: lu.alive, atk: lu.atk, def: lu.def });
-            }
-        } else if (unit.name === '鹿杖客') {
-            const he = allySide.find(u => u.name === '鹤笔翁' && u.alive && !u._acted);
-            if (!he) {
-                const heActed = allySide.find(u => u.name === '鹤笔翁' && u.alive && u._acted);
-                if (heActed && !heActed._linkTriggered) {
-                    heActed._isLinkAttack = true;
-                    heActed._linkTriggered = true;
-                    log.push({type:'info', text:`<span class="gold">🔗 ${heActed.name} 跟随 ${unit.name} 发动联动攻击！</span>`});
-                    // 玄冥神掌上毒已迁移至 modules/94elite-luzhangke.js 组件
-                    processUnitAttack(heActed, allySide, enemySide, log, A, B, state, null, target.uid);
-                    heActed._isLinkAttack = false;
-                    heActed._acted = false;
-                    emitEvent(heActed, 'hp-change', { hp: heActed.hp, maxHp: heActed.maxHp, alive: heActed.alive, atk: heActed.atk, def: heActed.def });
-                }
-            } else if (!he._linkTriggered) {
-                he._isLinkAttack = true;
-                he._linkTriggered = true;
-                log.push({type:'info', text:`<span class="gold">🔗 ${he.name} 跟随 ${unit.name} 发动联动攻击！</span>`});
-                applyXuanmingPalm(unit, target);
-                processUnitAttack(he, allySide, enemySide, log, A, B, state, null, target.uid);
-                he._isLinkAttack = false;
-                he._acted = false;
-                emitEvent(he, 'hp-change', { hp: he.hp, maxHp: he.maxHp, alive: he.alive, atk: he.atk, def: he.def });
-            }
-        }
-    }
+    // 玄冥二老联动已迁移至 modules/94elite-luzhangke.js + modules/93elite-hebiweng.js 组件
 
     // 概率连击
     if (doubleStrikeUnitUid && unit.uid === doubleStrikeUnitUid && unit.alive && unit.camp === 'ally' && !unit._doubleStriked) {
@@ -141,7 +100,16 @@ function applyExtraAttacks(unit, target, dmgCalc, allySide, enemySide, log, A, B
 // ==================== 主攻击流程 ====================
 
 export function processUnitAttack(unit, allySide, enemySide, log, A, B, state, doubleStrikeUnitUid, lockedTargetUid) {
-    // 小昭·姊蝶变附身已迁移至 modules/92elite-xiaozhao-sister.js 组件
+    // 🦋 小昭·姊蝶变附身
+    if (unit.camp === 'ally' && A && !A._butterflyTriggered) {
+        A._butterflyTriggered = true;
+        const sisterComp = createXiaoZhaoSisterComponent();
+        const sister = sisterComp.onBeforeFirstAttack(A, log);
+        if (sister && unit.uid === sister.uid) {
+            unit._acted = true;
+            return true;
+        }
+    }
 
     // 步骤1：选择目标
     let target, phantomLog;
@@ -217,35 +185,66 @@ export function processUnitAttack(unit, allySide, enemySide, log, A, B, state, d
     // 步骤3：伤害计算
     let dmgCalc = calcFinalDamage(unit, target, attackerBuffStats, defenderBuffStats, allySide, enemySide, log);
 
-    // 九阴白骨爪已迁移至 modules/96elite-zhouzhiruo.js 组件
-
     // 步骤4：应用伤害结果
     let dmgResult = applyAttackResult(unit, target, dmgCalc, attackerBuffStats, defenderBuffStats, allySide, enemySide, log, A, B, state, doubleStrikeUnitUid);
-
-    // 小昭·妹飞天免疫已迁移至 modules/91elite-xiaozhao-brother.js 组件
 
     // 步骤5：构建攻击组日志
     let group = buildAttackGroup(unit, target, dmgCalc, dmgResult, attackerBuffStats, defenderBuffStats, allySide, enemySide, log, A, B, state, doubleStrikeUnitUid, phantomLog);
 
+    // 九阴白骨爪（主攻击日志输出后再触发追击）
+    createZhouZhiruoComponent().onAfterDamageCalc(unit, target, dmgCalc.dmg, log, allySide, enemySide);
+
+    // 小昭·妹飞天免疫
+    if (A && target.isXiaoZhaoBrother && target.alive && !target._spiderFlying) {
+        const brotherComp = createXiaoZhaoBrotherComponent();
+        const immune = brotherComp.onBeforeDeath(target, dmgCalc.dmg, A, log);
+        if (immune) {
+            target.hp = Math.min(target.maxHp, target.hp + dmgCalc.dmg);
+            unit.dmgDealt -= dmgCalc.dmg;
+            target.dmgTaken -= dmgCalc.dmg;
+            emitEvent(target, 'hp-change', { hp: target.hp, maxHp: target.maxHp, alive: target.alive, atk: target.atk, def: target.def });
+            log.push({type:'info', text:`<span class="gold">🕷️ 飞天：${target.name} 免疫本次攻击的 ${dmgCalc.dmg} 点伤害！</span>`});
+            unit._acted = true;
+            return true;
+        }
+    }
+
     // ★ 攻击后效果（钩子化）
     applyRoleGrowth(unit, target, dmgCalc, group, unitActiveBuffs, allySide, enemySide, log, A, B, state, doubleStrikeUnitUid);
-    // 张无忌效果已迁移至 modules/99elite-zhangwuji.js 组件
-    // 韦一笑效果已迁移至 modules/98elite-weiyixiao.js 组件
+    
+    // 精英组件钩子
+    const allySideForComp = unit.camp === 'ally' ? A : B;
+    const enemySideForComp = unit.camp === 'ally' ? B : A;
+    
+    if (unit.camp === 'ally') {
+        createZhangWujiComponent().onAfterApplyDamage(unit, target, dmgCalc, group, A, log);
+        createWeiYixiaoComponent().onAfterApplyDamage(unit, target, dmgCalc, group, A, log);
+    }
+    createSongQingshuComponent().onAfterApplyDamage(unit, target, dmgCalc, group, allySideForComp, log);
+    createLuZhangKeComponent().onAfterApplyDamage(unit, target, dmgCalc, group, allySideForComp, log);
+    createChengKunComponent().onAfterApplyDamage(unit, target, dmgCalc, group, enemySideForComp, log);
+    
     if (!unit._isLinkAttack) unit._acted = true;
-    // 宋青书新婚扣血 + 性奋代价 → modules/97elite-songqingshu.js 组件
+
+    // 玄冥二老联动钩子
+    if (unit.camp !== 'ally') {
+        createLuZhangKeComponent().onAfterAttack(unit, target, dmgCalc, allySide, enemySide, log, A, B, state);
+        createHeBiWengComponent().onAfterAttack(unit, target, dmgCalc, allySide, enemySide, log, A, B, state);
+    }
+
     applyExtraAttacks(unit, target, dmgCalc, allySide, enemySide, log, A, B, state, doubleStrikeUnitUid);
 
     // 空列检测 + 残血光环：每次行动后重新判定
     const allUnits = A.concat(B);
     const allyFlyers = A.filter(u => u.role === '飞行' && u.alive && !u.isHorse);
     const enemyFlyers = B.filter(u => u.role === '飞行' && u.alive && !u.isHorse);
-    const allyHasEmpty = hasAnyEnemyEmptyCol(B);
-    const enemyHasEmpty = hasAnyEnemyEmptyCol(A);
+    const allyEmptyCols = countEnemyEmptyCols(B);
+    const enemyEmptyCols = countEnemyEmptyCols(A);
     const bloodAuraBonus = getBloodAuraBonus(allUnits);
     // 空列和残血光环日志已移至回合初统一输出，行动中不再重复打印
     allyFlyers.forEach(u => {
         const prevColBonus = u._emptyColBonus || 0;
-        const newColBonus = allyHasEmpty ? 5 : 0;
+        const newColBonus = allyEmptyCols * 5;
         if (prevColBonus !== newColBonus) {
             u.atk += newColBonus - prevColBonus;
             u._emptyColBonus = newColBonus;
@@ -261,7 +260,7 @@ export function processUnitAttack(unit, allySide, enemySide, log, A, B, state, d
     });
     enemyFlyers.forEach(u => {
         const prevColBonus = u._emptyColBonus || 0;
-        const newColBonus = enemyHasEmpty ? 5 : 0;
+        const newColBonus = enemyEmptyCols * 5;
         if (prevColBonus !== newColBonus) {
             u.atk += newColBonus - prevColBonus;
             u._emptyColBonus = newColBonus;

@@ -76,6 +76,15 @@ export function hasAnyEnemyEmptyCol(enemySide) {
     return cols.some(poses => !enemySide.some(u => u.alive && poses.includes(u.pos)));
 }
 
+export function countEnemyEmptyCols(enemySide) {
+    const cols = [[1,4,7], [2,5,8], [3,6,9]];
+    let count = 0;
+    for (const poses of cols) {
+        if (!enemySide.some(u => u.alive && poses.includes(u.pos))) count++;
+    }
+    return count;
+}
+
 export function hasEnemyLowHp(enemySide, threshold = 0.4) {
     return enemySide.some(u => u.alive && u.hp / u.maxHp < threshold);
 }
@@ -85,8 +94,7 @@ export function getBloodAuraBonus(allUnits) {
     allUnits.forEach(u => {
         if (!u.alive) return;
         const pct = u.hp / u.maxHp;
-        if (pct < 0.4) totalBonus += 3;
-        else if (pct < 0.7) totalBonus += 1;
+        if (pct < 0.4) totalBonus += 2;
     });
     return totalBonus;
 }
