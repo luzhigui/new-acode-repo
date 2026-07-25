@@ -38,6 +38,7 @@ function emitEvent(unit, eventType, payload) {
 function applyRoleGrowth(unit, target, dmgCalc, group, unitActiveBuffs, allySide, enemySide, log, A, B, state, doubleStrikeUnitUid) {
     if (unit.role === '远程' && dmgCalc.dmg > 0) {
         unit.atk += 2;
+        if (unit._baseAtk !== undefined) unit._baseAtk += 2;
         emitEvent(unit, 'hp-change', { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: unit.atk, def: unit.def });
         group.entries.push({type:'detail', text:`<span class="blue small">🏹 ${unit.name} 远程熟练：攻击 +2 → ${Math.floor(unit.atk)}</span>`});
     }
