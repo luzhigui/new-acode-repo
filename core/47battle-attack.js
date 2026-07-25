@@ -5,15 +5,12 @@ export const VER = 'core/47battle-attack.js V5.2.0';
 import { CONFIG, DEF_TAUNT, HP_TAUNT } from './01config-5v5-test.js';
 import { rand, calcDamage, getFangLevel, isMelee, getFronts, isBlocked, getFlyDodgeRate, getRandomTaunt, getZhangNearTaunt, makeFXSnapshot, hasBuff, getUnitCol, getUnitRow, hasAnyEnemyEmptyCol, getBloodAuraBonus } from './03battle-utils.js';
 import { computeBuffStats, applyBuffEffectsBeforeAttack, applyBuffEffectsAfterAttack } from './04buff-system.js';
-import { showDamageFloat } from '../fx/15fx-common-5v5-test.js';
+// showDamageFloat 已随张无忌乾坤反弹迁移，47 不再直接使用
 import {
-    checkExtinctionCounter, checkNineYinClaw, getRebelTarget, getRebelDmgBonus, getRebelTrueDmg,
-    getPhantomThunderBonus, applyXuanmingPalm, getHornStrikeBonus,
-    checkKuLian, applyXingFenGrant, applyXinHunDeduction, applyXingFenPenalty,
-    applyXiaoZhaoDerived, applyDamageModifiers, isXiaoZhaoPermanentActive,
+    getRebelTarget, getRebelDmgBonus, getRebelTrueDmg,
+    checkKuLian, applyXingFenGrant,
+    applyDamageModifiers, isXiaoZhaoPermanentActive,
     applyPhantomDisguise, applyXiaoZhaoMindControl, checkXiaoZhaoPermanentDoubleStrike,
-    canXingFenTrigger, consumeXingFen,
-    butterflyAttach, spiderFlyCheck,
     getXiaoZhaoHexEnhance
 } from '../modules/23elite-skills.js';
 import {
@@ -42,100 +39,19 @@ function applyRoleGrowth(unit, target, dmgCalc, group, unitActiveBuffs, allySide
         emitEvent(unit, 'hp-change', { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: unit.atk, def: unit.def });
         group.entries.push({type:'detail', text:`<span class="blue small">🏹 ${unit.name} 远程熟练：攻击 +2 → ${Math.floor(unit.atk)}</span>`});
     }
-    if (unit.role === '飞行' && dmgCalc.dmg > 0) {
-        if (!unit._dodgeStack) unit._dodgeStack = 0;
-        unit._dodgeStack += 2;
-    }
     if (unit.role === '战士' && hasBuff(unitActiveBuffs, 'bloodthirst') && dmgCalc.dmg > 0 && target.alive && getXiaoZhaoHexEnhance(allySide, unitActiveBuffs, 'bloodthirst') && !unit._bloodthirstStriked) {
         unit._bloodthirstStriked = true;
         processUnitAttack(unit, allySide, enemySide, log, A, B, state, doubleStrikeUnitUid, target.uid);
     }
 }
 
-/**
- * 张无忌：九阳回血 + 近战台词 + 融会贯通 + 乾坤反弹
- */
-function applyZhangEffects(unit, target, dmgCalc, group, A, log) {
-    if (unit.camp !== 'ally' || !unit.isZhang || !unit.alive) return;
-    const hpBeforeZhang = Math.floor(unit.hp);
-    let heal = Math.floor(unit.maxHp * 0.05);
-    unit.hp = Math.min(unit.maxHp, unit.hp + heal);
-    unit.healDone += heal;
-    group.entries.push({type:'info', text:`<span class="green">☀️ 九阳神功回复+${heal}，${hpBeforeZhang}→${Math.floor(unit.hp)}</span>`, isHealEntry:true, healAmount:heal, healUnitUid:unit.uid});
-    emitEvent(unit, 'hp-change', { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: unit.atk, def: unit.def });
-    if (!unit.rangedForm) {
-        if (unit.nearAtkCount === 0 && !unit._zhangTauntDone) {
-            let firstTaunt = getZhangNearTaunt(1);
-            if (firstTaunt) { group.entries.push({type:'info', text:`<span class="gold">🗣️ ${unit.name}：${firstTaunt}</span>`}); unit._zhangTauntDone = true; }
-        }
-        unit.nearAtkCount++;
-        if (unit.nearAtkCount === 2) {
-            let secondTaunt = getZhangNearTaunt(2);
-            if (secondTaunt) group.entries.push({type:'info', text:`<span class="gold">🗣️ ${unit.name}：${secondTaunt}</span>`});
-        }
-        if (unit.nearAtkCount >= 3) unit.ronghui = true;
-        if (unit.nearAtkCount >= 3) {
-            let zt = getZhangNearTaunt(3); if (zt) group.entries.push({type:'info', text:`<span class="gold">🗣️ ${unit.name}：${zt}</span>`});
-            let extra = Math.floor(target.atk * 0.15); target.hp -= extra; unit.dmgDealt += extra;
-            if (target.hp <= 0) {
-                target.hp = 0; target.alive = false; target._isDead = true;
-                if (!target._deathTime) target._deathTime = Date.now();
-                group.isDead = true; group.alive = false; group.hpAfter = 0;
-            }
-            emitEvent(target, 'hp-change', { hp: target.hp, maxHp: target.maxHp, alive: target.alive, atk: target.atk, def: target.def, _isDead: target._isDead || false });
-            group.entries.push({type:'info', text:`<span class="red">🔥 融会贯通额外+${extra}（目标攻击${Math.floor(target.atk)}×15%）</span>`});
-        }
-    }
-
-    // 乾坤大挪移反弹
-    if (target.camp === 'ally' && (target.pos === 4 || target.pos === 6) && dmgCalc.dmg > 0) {
-        let xiaoZhaoActive = A.find(u => u.isXiaoZhao && u.alive);
-        if (!xiaoZhaoActive) {
-            let zhang = A.find(c => c.isZhang && c.alive && c.rangedForm && !c._stunned);
-            if (zhang) {
-                let rebound = Math.floor(dmgCalc.dmg * (CONFIG.ELITE_SKILLS.xiaoZhao.normalReboundPct || 0.15));
-                unit.hp = Math.max(0, unit.hp - rebound);
-                unit.dmgTaken += rebound;
-                zhang.reboundDone += rebound;
-                showDamageFloat(unit, rebound);
-                if (unit.hp <= 0) {
-                    unit.alive = false; unit._isDead = true; unit._flash = 'dead';
-                    if (!unit._deathTime) unit._deathTime = Date.now();
-                }
-                let selfDmg = Math.max(1, Math.floor(rebound * (CONFIG.ELITE_SKILLS.xiaoZhao.normalSelfDmgPct || 0.1)));
-                zhang.hp -= selfDmg;
-                zhang.dmgTaken += selfDmg;
-                emitEvent(unit, 'hp-change', { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: unit.atk, def: unit.def, _isDead: unit._isDead || false });
-                emitEvent(zhang, 'hp-change', { hp: zhang.hp, maxHp: zhang.maxHp, alive: zhang.alive, atk: zhang.atk, def: zhang.def });
-                group.entries.push({type:'info', text:`<span class="gold">✨ 乾坤大挪移反弹${rebound}给${unit.name}（无忌自伤${selfDmg}）</span>`, buffType:'rebound'});
-                if (unit.hp <= 0) { unit.alive = false; unit._isDead = true; }
-                if (zhang.hp <= 0) { zhang.hp = 0; zhang.alive = false; zhang._isDead = true; if (!zhang._deathTime) zhang._deathTime = Date.now(); }
-            }
-        }
-    }
-}
+// 已迁移至 modules/99elite-zhangwuji.js 组件
 
 /**
  * 小昭衍生 + 韦一笑吸血
  */
-function applyAllyEffects(unit, target, dmgCalc, group, A) {
-    if (target.camp === 'ally' && dmgCalc.dmg > 0) {
-        applyXiaoZhaoDerived(A, target, dmgCalc.dmg, group);
-    }
-    if (unit.camp === 'ally' && unit.isWei && dmgCalc.dmg > 0) {
-        let healWei = Math.floor(dmgCalc.dmg * 0.18);
-        let wasFullHpWei = (unit.hp >= unit.maxHp);
-        let newMaxHpWei = Math.min(unit.maxHp + healWei, unit._baseMaxHp * 2);
-        let hpDeltaWei = newMaxHpWei - unit.maxHp;
-        unit.maxHp = newMaxHpWei;
-        unit._baseMaxHp = Math.max(unit._baseMaxHp, newMaxHpWei);
-        unit.hp = Math.min(unit.hp + hpDeltaWei, unit.maxHp);
-        if (wasFullHpWei) { unit.hp = unit.maxHp; }
-        unit.healDone += healWei; unit.leechDone += healWei;
-        emitEvent(unit, 'hp-change', { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: unit.atk, def: unit.def });
-        group.entries.push({type:'info', text:`<span class="green">🦇 韦一笑吸血+${healWei}，上限→${Math.floor(unit.maxHp)}</span>`, isHealEntry:true, healAmount:healWei, healUnitUid:unit.uid});
-    }
-}
+// 已迁移：韦一笑吸血 → modules/98elite-weiyixiao.js 组件
+// 已迁移：小昭衍生 → 后续小昭组件（modules/92/91）
 
 /**
  * 玄冥二老联动 + 概率连击 + 小昭永久连击 + 性奋额外攻击
@@ -151,6 +67,7 @@ function applyExtraAttacks(unit, target, dmgCalc, allySide, enemySide, log, A, B
                     luActed._isLinkAttack = true;
                     luActed._linkTriggered = true;
                     log.push({type:'info', text:`<span class="gold">🔗 ${luActed.name} 跟随 ${unit.name} 发动联动攻击！</span>`});
+                    // 玄冥神掌上毒已迁移至 modules/94elite-luzhangke.js 组件
                     processUnitAttack(luActed, allySide, enemySide, log, A, B, state, null, target.uid);
                     luActed._isLinkAttack = false;
                     luActed._acted = false;
@@ -173,7 +90,7 @@ function applyExtraAttacks(unit, target, dmgCalc, allySide, enemySide, log, A, B
                     heActed._isLinkAttack = true;
                     heActed._linkTriggered = true;
                     log.push({type:'info', text:`<span class="gold">🔗 ${heActed.name} 跟随 ${unit.name} 发动联动攻击！</span>`});
-                    applyXuanmingPalm(unit, target);
+                    // 玄冥神掌上毒已迁移至 modules/94elite-luzhangke.js 组件
                     processUnitAttack(heActed, allySide, enemySide, log, A, B, state, null, target.uid);
                     heActed._isLinkAttack = false;
                     heActed._acted = false;
@@ -218,29 +135,13 @@ function applyExtraAttacks(unit, target, dmgCalc, allySide, enemySide, log, A, B
         }
     }
 
-    // 性奋额外攻击
-    if (canXingFenTrigger(unit) && enemySide.some(u => u.alive)) {
-        consumeXingFen(unit);
-        log.push({type:'info', text:`<span class="gold">💗 性奋：${unit.name} 获得额外攻击机会！</span>`});
-        processUnitAttack(unit, allySide, enemySide, log, A, B, state, doubleStrikeUnitUid);
-    }
+    // 性奋额外攻击已迁移至 modules/97elite-songqingshu.js 组件
 }
 
 // ==================== 主攻击流程 ====================
 
 export function processUnitAttack(unit, allySide, enemySide, log, A, B, state, doubleStrikeUnitUid, lockedTargetUid) {
-    // 🦋 小昭·姊 蝶变附身：明教首个攻击者出手前触发
-    if (unit.camp === 'ally' && A && !A._butterflyTriggered) {
-        A._butterflyTriggered = true;
-        const sister = A.find(u => u.isXiaoZhaoSister && u.alive && u.pos === 4 && !u._stunned);
-        if (sister && !sister._butterflyHost) {
-            butterflyAttach(sister, A, log);
-            if (unit.uid === sister.uid) {
-                unit._acted = true;
-                return true;
-            }
-        }
-    }
+    // 小昭·姊蝶变附身已迁移至 modules/92elite-xiaozhao-sister.js 组件
 
     // 步骤1：选择目标
     let target, phantomLog;
@@ -316,41 +217,22 @@ export function processUnitAttack(unit, allySide, enemySide, log, A, B, state, d
     // 步骤3：伤害计算
     let dmgCalc = calcFinalDamage(unit, target, attackerBuffStats, defenderBuffStats, allySide, enemySide, log);
 
-    // 🐾 九阴白骨爪：提前触发，避免被飞天免疫拦截
-    checkNineYinClaw(unit, target, dmgCalc.dmg, log);
+    // 九阴白骨爪已迁移至 modules/96elite-zhouzhiruo.js 组件
 
     // 步骤4：应用伤害结果
     let dmgResult = applyAttackResult(unit, target, dmgCalc, attackerBuffStats, defenderBuffStats, allySide, enemySide, log, A, B, state, doubleStrikeUnitUid);
 
-    // 🕷️ 小昭·妹 飞天免疫伤害检查（必须在伤害应用后，确保 hp 已实际扣减）
-    if (A && target.isXiaoZhaoBrother && target.alive && !target._spiderFlying && spiderFlyCheck(target, A, log, dmgCalc.dmg)) {
-        // 恢复被扣除的伤害（免疫本次攻击）
-        target.hp = Math.min(target.maxHp, target.hp + dmgCalc.dmg);
-        unit.dmgDealt -= dmgCalc.dmg;
-        target.dmgTaken -= dmgCalc.dmg;
-        emitEvent(target, 'hp-change', { hp: target.hp, maxHp: target.maxHp, alive: target.alive, atk: target.atk, def: target.def });
-        let flyImmuneGroup = { type:'attack-group', uidA:unit.uid, uidD:target.uid, entries:[], hpAfter:target.hp, alive:target.alive, isDead:false, _fxSnapshot:makeFXSnapshot(unit,target), _dmg:0, waveTaunt:null, waveUnit:null, buffEffects:[], _events:[] };
-        flyImmuneGroup.entries.push({type:'combat-text', text:`<span class="${unit.camp==='ally'?'blue':'orange'}">${unit.camp==='ally'?'明教':'六大派'} ${unit.name}</span> 的攻击被免疫`});
-        flyImmuneGroup.entries.push({type:'info', text:`<span class="gold">🕷️ 飞天：${target.name} 免疫本次攻击的 ${dmgCalc.dmg} 点伤害！</span>`});
-        flyImmuneGroup._events = [...window._battleEvents]; window._battleEvents = [];
-        if (window.GlobalStore) window.GlobalStore.flushBattleEvents();
-        log.push(flyImmuneGroup);
-        unit._acted = true;
-        applyXinHunDeduction(unit, allySide, log);
-        applyXingFenPenalty(unit, log);
-        return true;
-    }
+    // 小昭·妹飞天免疫已迁移至 modules/91elite-xiaozhao-brother.js 组件
 
     // 步骤5：构建攻击组日志
     let group = buildAttackGroup(unit, target, dmgCalc, dmgResult, attackerBuffStats, defenderBuffStats, allySide, enemySide, log, A, B, state, doubleStrikeUnitUid, phantomLog);
 
     // ★ 攻击后效果（钩子化）
     applyRoleGrowth(unit, target, dmgCalc, group, unitActiveBuffs, allySide, enemySide, log, A, B, state, doubleStrikeUnitUid);
-    applyZhangEffects(unit, target, dmgCalc, group, A, log);
-    applyAllyEffects(unit, target, dmgCalc, group, A);
+    // 张无忌效果已迁移至 modules/99elite-zhangwuji.js 组件
+    // 韦一笑效果已迁移至 modules/98elite-weiyixiao.js 组件
     if (!unit._isLinkAttack) unit._acted = true;
-    applyXinHunDeduction(unit, allySide, log);
-    applyXingFenPenalty(unit, log);
+    // 宋青书新婚扣血 + 性奋代价 → modules/97elite-songqingshu.js 组件
     applyExtraAttacks(unit, target, dmgCalc, allySide, enemySide, log, A, B, state, doubleStrikeUnitUid);
 
     // 空列检测 + 残血光环：每次行动后重新判定

@@ -17,14 +17,7 @@ function emitEvent(unit, eventType, payload) {
 /**
  * 灭绝师太 - 灭绝双剑：残血反击
  */
-export function checkExtinctionCounter(defender, dmg) {
-    if (defender.name !== '灭绝师太') return 0;
-    const s = ES.extinctionCounter;
-    if (defender.hp / defender.maxHp >= s.hpThreshold) return 0;
-    if (defender._extinctionUsed) return 0;
-    defender._extinctionUsed = true;
-    return Math.floor(defender.atk * s.counterRatio);
-}
+
 
 /**
  * 周芷若 - 九阴白骨爪：基础伤害 + 已损失生命追击 + 连锁触发自己 + 低血斩杀

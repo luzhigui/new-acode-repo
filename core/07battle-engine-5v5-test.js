@@ -40,7 +40,6 @@ import { showDodgeBulletTime } from '../fx/20fx-dodge-bullet.js';
 
 // 精英技能函数
 import {
-    checkExtinctionCounter,
     checkNineYinClaw,
     getRebelTarget,
     getRebelDmgBonus,

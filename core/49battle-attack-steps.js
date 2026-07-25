@@ -6,11 +6,10 @@ import { CONFIG, DEF_TAUNT, HP_TAUNT } from './01config-5v5-test.js';
 import { rand, calcDamage, getFangLevel, isMelee, getFronts, isBlocked, getFlyDodgeRate, getRandomTaunt, getZhangNearTaunt, makeFXSnapshot, hasBuff, getUnitCol, getUnitRow } from './03battle-utils.js';
 import { checkZhangSwitch } from './50battle-shared.js';
 import { computeBuffStats, applyBuffEffectsBeforeAttack, applyBuffEffectsAfterAttack } from './04buff-system.js';
-import { showDamageFloat } from '../fx/15fx-common-5v5-test.js';
+// showDamageFloat 已随张无忌乾坤反弹迁移，47 不再直接使用
 import {
-    checkExtinctionCounter, checkNineYinClaw, getRebelTarget, getRebelDmgBonus, getRebelTrueDmg,
-    getPhantomThunderBonus, applyXuanmingPalm, getHornStrikeBonus,
-    checkKuLian, applyXingFenGrant, applyXinHunDeduction, applyXingFenPenalty,
+    getRebelTarget, getRebelDmgBonus, getRebelTrueDmg,
+    checkKuLian, applyXingFenGrant,
     applyXiaoZhaoDerived, applyDamageModifiers, isXiaoZhaoPermanentActive,
     applyPhantomDisguise, applyXiaoZhaoMindControl, checkXiaoZhaoPermanentDoubleStrike,
     canXingFenTrigger, consumeXingFen,
@@ -94,10 +93,6 @@ export function resolveAttackHit(unit, target, attackerBuffStats, defenderBuffSt
         window._battleEvents = [];
         if (window.GlobalStore) window.GlobalStore.flushBattleEvents();
         log.push(mg);
-
-        const allySide = unit.camp === 'ally' ? A : B;
-        applyXinHunDeduction(unit, allySide, log);
-        applyXingFenPenalty(unit, log);
 
         // 未命中后的连击/性奋判定
         if (doubleStrikeUnitUid && unit.uid === doubleStrikeUnitUid && unit.alive && unit.camp === 'ally' && !unit._doubleStriked) {
@@ -268,7 +263,7 @@ export function applyAttackResult(unit, target, dmgCalc, attackerBuffStats, defe
     } else { target.hp = hpAfter; }
 
     // 战士斩杀
-    const executeThreshold = A.some(u => u.isXiaoZhao && u.alive) ? 0.20 : 0.15;
+    const executeThreshold = hasBuff(A._activeBuffs, 'bloodthirst') ? 0.20 : 0.15;
     if (unit.role === '战士' && target.alive && target.hp > 0 && target.hp <= target.maxHp * executeThreshold) {
         target.hp = 0;
         target.alive = false;
@@ -304,22 +299,7 @@ export function applyAttackResult(unit, target, dmgCalc, attackerBuffStats, defe
         }
     }
 
-    // 成昆幻影变身
-    if (unit.name === '成昆' && dmg > 0) {
-        const enemyAlive = enemySide.filter(u => u.alive && !u.isHorse);
-        if (enemyAlive.length > 0) {
-            unit._phantomTarget = enemyAlive[rand(0, enemyAlive.length - 1)].uid;
-            const lostHp = unit.maxHp - unit.hp;
-            if (lostHp > 0) {
-                const aliveCount = enemySide.filter(u => u.alive).length;
-                const heal = Math.floor(lostHp * 0.06 * aliveCount);
-                unit.hp = Math.min(unit.maxHp, unit.hp + heal);
-                unit.healDone += heal;
-                log.push({type:'info', text:`<span class="green">🎭 幻影伪装：${unit.name} 回复 ${heal} 点生命</span>`, isHealEntry:true, healAmount:heal, healUnitUid:unit.uid});
-            }
-            emitEvent(unit, 'hp-change', { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: unit.atk, def: unit.def, _phantomTarget: unit._phantomTarget });
-        }
-    }
+    // 成昆幻影伪装已迁移至 modules/95elite-chengkun.js 组件
 
     // 拒马反伤
     let horseReboundEntry = null;
@@ -423,20 +403,7 @@ export function applyPostAttackEffects(unit, target, dmg, atkAct, defAct, reboun
     if (unit.camp === 'ally') {
         applyBuffEffectsAfterAttack(unit, target, dmg, allySide, enemySide, log);
     }
-    // checkNineYinClaw 已移至 processUnitAttack 中提前调用
-    const counterDmg = checkExtinctionCounter(target, dmg);
-    if (counterDmg > 0) {
-        unit.hp -= counterDmg; target.dmgDealt += counterDmg; unit.dmgTaken += counterDmg;
-        if (unit.hp <= 0) {
-            unit.alive = false;
-            unit._isDead = true;
-            if (!unit._deathTime) unit._deathTime = Date.now();
-        }
-        emitEvent(unit, 'hp-change', { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: unit.atk, def: unit.def, _isDead: unit._isDead || false });
-        log.push({type:'info', text:`<span class="red">⚔️ 灭绝双剑反击！${target.name} 对 ${unit.name} 造成 ${counterDmg} 点反击伤害</span>`, buffType:'elite_counter', uidD: unit.uid, isDead: !unit.alive});
-    }
-    const poisonLog = applyXuanmingPalm(unit, target);
-    if (poisonLog) { log.push(poisonLog); }
+    // 玄冥神掌已迁移至 modules/94elite-luzhangke.js 组件
     if (reboundEntry) { log.push(reboundEntry); }
     let dead = !target.alive;
     if (dead && target.camp === 'ally') { checkZhangSwitch(A, log); }

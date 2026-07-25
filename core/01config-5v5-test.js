@@ -110,7 +110,6 @@ const CONFIG = {
     },
     // 精英怪技能参数 (V3.1.0 新增宋青书/周芷若联动技能)
     ELITE_SKILLS: {
-        extinctionCounter: { name: '灭绝双剑', hpThreshold: 0.5, counterRatio: 0.8, maxPerRound: 1 },
         weiBloodDodge: { name: '残血幻影', maxRatio: 0.70 },
         nineYinClaw: {
             name: '九阴白骨爪',
