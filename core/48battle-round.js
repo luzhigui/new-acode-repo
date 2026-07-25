@@ -271,6 +271,9 @@ export function* createRoundStepper(state) {
         }
         u._doubleStriked = false;
         u._stunned = false;
+        if (typeof window._emitEvent === 'function') {
+            window._emitEvent(u, 'hp-change', { hp: u.hp, maxHp: u.maxHp, alive: u.alive, atk: u.atk, def: u.def, _stunned: false });
+        }
         u._xiaoZhaoDoubleStriked = false;
         u._bloodthirstStriked = false;
         u._linkTriggered = false;
@@ -313,6 +316,9 @@ export function* createRoundStepper(state) {
         }
         u._doubleStriked = false;
         u._stunned = false;
+        if (typeof window._emitEvent === 'function') {
+            window._emitEvent(u, 'hp-change', { hp: u.hp, maxHp: u.maxHp, alive: u.alive, atk: u.atk, def: u.def, _stunned: false });
+        }
         u._xiaoZhaoDoubleStriked = false;
         u._bloodthirstStriked = false;
         u._linkTriggered = false;
