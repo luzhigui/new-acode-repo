@@ -114,6 +114,8 @@ export function* createRoundStepper(state) {
             u.atk += s.atkBonus * mult;
             u.def += s.defBonus * mult;
             u.maxHp += s.hpBonus * mult;
+            u._baseAtk = (u._baseAtk || u.atk) + s.atkBonus * mult;
+            u._baseDef = (u._baseDef || u.def) + s.defBonus * mult;
             u._baseMaxHp = Math.max(u._baseMaxHp || u.maxHp, u.maxHp);
             u.hp = Math.min(u.hp + s.hpBonus * mult, u.maxHp);
             if (typeof window._emitEvent === 'function') {
@@ -286,8 +288,9 @@ export function* createRoundStepper(state) {
             u._bloodAuraBonus = bloodBonus;
         }
         // 统一叠加所有独立加成（圣火令、严阵以待、飞行光环、空列）
-        u.atk = u.atk + (u._holyAtkBonus || 0) + (u._emptyColBonus || 0) + (u._bloodAuraBonus || 0);
-        u.def = u.def + (u._holyDefBonus || 0) + (u._fortifyDefBonus || 0);
+        // 先恢复到基准值，再叠加最新值（与己方对齐，防止重复累加）
+        u.atk = (u._baseAtk || u.atk) + (u._holyAtkBonus || 0) + (u._emptyColBonus || 0) + (u._bloodAuraBonus || 0);
+        u.def = (u._baseDef || u.def) + (u._holyDefBonus || 0) + (u._fortifyDefBonus || 0);
 
         if (!u.alive) return;
         let stats = computeBuffStats(u, B._activeBuffs || [], B);
