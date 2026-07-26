@@ -1,11 +1,11 @@
 // core/02unit.js - 光明顶5v5 战斗单位类
-// V5.2.0 | ~3899 bytes | 2026-07-05
-export const VER = 'core/02unit.js V5.2.0';
+// V5.2.1 | ~3899 bytes | 2026-07-05
+export const VER = 'core/02unit.js V5.2.1';
 
 import { rand } from './03battle-utils.js';
 
 export const ROLE_BONUS = {
-    '战士': { atk: 3, def: 2, maxHp: 25 },
+    '战士': { atk: 3, def: 3, maxHp: 30 },
     '防战': { atk: -7, def: 0, maxHp: 30 },
     '远程': { atk: 6, def: -2, maxHp: -25 },
     '飞行': { atk: 2, def: -2, maxHp: -25 }

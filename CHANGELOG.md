@@ -1,5 +1,11 @@
 # 光明顶 5v5 - 更改履历
 
+## V5.2.1 — 2026-07-24
+
+### 工程维护
+- **工具路径同步更新**：文件复制器 `tools/32-toolkit.js` 的 `ALL_PROJECT_FILES` 与函数提取器 `tools/33-toolkit-more.js` 的 `TARGET_FILES` 新增注册 `modules/91elite-xiaozhao-brother.js`、`modules/92elite-xiaozhao-sister.js`、`modules/93elite-hebiweng.js`、`modules/94elite-luzhangke.js`、`modules/95elite-chengkun.js`、`modules/96elite-zhouzhiruo.js`、`modules/97elite-songqingshu.js`、`modules/98elite-weiyixiao.js`、`modules/99elite-zhangwuji.js` 等精英角色拆分模块
+- **工具箱版本号升级**：`tools/32-toolkit.js`、`tools/33-toolkit-more.js` 版本号由 V5.2.0 升级到 V5.2.1
+
 ## V5.2.0 — 2026-07-20 ~ 2026-07-23
 
 ### 工程维护

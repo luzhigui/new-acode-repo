@@ -1,6 +1,6 @@
 // core/03battle-utils.js - 光明顶5v5 战斗工具函数
-// V5.2.0 | ~3442 bytes | 2026-07-05
-export const VER = 'core/03battle-utils.js V5.2.0';
+// V5.2.1 | ~3442 bytes | 2026-07-05
+export const VER = 'core/03battle-utils.js V5.2.1';
 
 import { CONFIG, TAUNT_LIB, DEF_TAUNT, HP_TAUNT, ZHANG_NEAR_TAUNT } from './01config-5v5-test.js';
 const C = CONFIG, TL = TAUNT_LIB, DT = DEF_TAUNT, HT = HP_TAUNT, ZT = ZHANG_NEAR_TAUNT;
@@ -39,12 +39,12 @@ export function isBlocked(unit, allies) {
 }
 
 export function getFlyDodgeRate(unit, attacker) {
-    // 韦一笑：固定20%基础闪避
-    if (unit.isWei) return 0.20;
-    // 其他飞行单位：15% + 攻击累加
-    if (unit.role === '飞行') return 0.15 + (unit._dodgeStack || 0) / 100;
-    // 非飞行单位：0.0基础闪避（仅能通过流云身法）
-    return 0;
+    // 韦一笑：复用飞行基础闪避，乘法叠加两次
+    if (unit.isWei) return C.BASE_DODGE_FLY;
+    // 其他飞行单位：读配置
+    if (unit.role === '飞行') return C.BASE_DODGE_FLY;
+    // 非飞行单位：读配置
+    return C.BASE_DODGE_GROUND;
 }
 
 export function getRandomTaunt(unit) { if (unit.isZhang) return TL['张无忌'][rand(0,TL['张无忌'].length-1)]; if (unit.isWei) return TL['韦一笑'][rand(0,TL['韦一笑'].length-1)]; let pool=TL[unit.role]; if(pool) return pool[rand(0,pool.length-1)]; return '看招！'; }
