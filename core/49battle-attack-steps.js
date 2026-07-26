@@ -230,12 +230,13 @@ export function calcFinalDamage(unit, target, attackerBuffStats, defenderBuffSta
     }
     // 成昆混元霹雳劲 + 鹤笔翁鹿角杖法 → 组件模式
     let thunderBonus = 0;
-    if (unit.camp !== 'ally') {
-        const chengkunComp = createChengKunComponent();
-        const ckResult = chengkunComp.onDamageCalc(unit, target, raw);
-        thunderBonus = ckResult - raw;
+    const chengkunComp = createChengKunComponent();
+    const ckBonus = chengkunComp.onDamageCalc(unit, target, raw);
+    thunderBonus = ckBonus;
+    if (thunderBonus > 0) rawFormula += ` + 混元霹雳劲${thunderBonus}`;
         if (thunderBonus > 0) rawFormula += ` + 混元霹雳劲${thunderBonus}`;
-        
+
+    if (unit.camp !== 'ally') {
         const hebiwengComp = createHeBiWengComponent();
         const hbResult = hebiwengComp.onDamageCalc(unit, target, raw);
         if (hbResult && hbResult.defIgnore) {
@@ -309,7 +310,7 @@ export function applyAttackResult(unit, target, dmgCalc, attackerBuffStats, defe
             GlobalStore.set('holyToken', currentToken + 1);
             localStorage.setItem('ming_holy_token_5v5_test', String(currentToken + 1));
             window._battleEvents.push({ unitUid: unit.uid, eventType: 'info', payload: { text: `🔥 圣火令掉落！${unit.name} 击杀 ${target.name}，获得1枚圣火令！当前总数：${currentToken + 1}`, fastEntry: true } });
-            log.push({type:'info', text:`<span class="gold">🔥 圣火令掉落！${unit.name} 击杀 ${target.name}，获得1枚圣火令！当前总数：${currentToken + 1}</span>`, fastEntry: true});
+            log.push({type:'info', text:`<span class="gold">🔥 圣火令掉落！${unit.name} 击杀 ${target.name}，获得1枚圣火令！当前总数：${currentToken + 1}</span>`, fastEntry: true, unitUid: unit.uid});
         }
     }
     // 宝箱击杀掉落

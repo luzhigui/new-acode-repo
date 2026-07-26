@@ -118,11 +118,11 @@ export function showWindClaw(unit) {
         claw.style.cssText = `
             position:fixed; left:${cx + offsetX}px; top:${cy + offsetY}px;
             width:${len}px; height:${thickness}px;
-            background: linear-gradient(to right, rgba(255,255,255,0.9), rgba(255,255,255,0.1));
+            background: linear-gradient(to right, rgba(255,215,0,0.95), rgba(255,180,0,0.3));
             transform: rotate(${angle}deg);
             z-index:10010; pointer-events:none;
             border-radius: 1px;
-            filter: drop-shadow(0 0 3px rgba(255,255,255,0.7));
+            filter: drop-shadow(0 0 6px rgba(255,215,0,0.9)) drop-shadow(0 0 2px rgba(0,0,0,0.4));
             animation: clawSlash 0.5s ease-out forwards;
             animation-delay: ${i * 0.08}s;
         `;

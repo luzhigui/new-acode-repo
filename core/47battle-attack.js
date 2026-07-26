@@ -94,7 +94,7 @@ function applyExtraAttacks(unit, target, dmgCalc, allySide, enemySide, log, A, B
         }
     }
 
-    // 性奋额外攻击已迁移至 modules/97elite-songqingshu.js 组件
+    // 性奋额外攻击已由组件钩子 onAfterAttack 处理
 }
 
 // ==================== 主攻击流程 ====================
@@ -226,10 +226,19 @@ export function processUnitAttack(unit, allySide, enemySide, log, A, B, state, d
     
     if (!unit._isLinkAttack) unit._acted = true;
 
+    // 宋青书性奋额外攻击
+    createSongQingshuComponent().onAfterAttack(unit, target, allySide, enemySide, log, A, B, state);
+
     // 玄冥二老联动钩子
     if (unit.camp !== 'ally') {
-        createLuZhangKeComponent().onAfterAttack(unit, target, dmgCalc, allySide, enemySide, log, A, B, state);
-        createHeBiWengComponent().onAfterAttack(unit, target, dmgCalc, allySide, enemySide, log, A, B, state);
+        const linkAllySide = unit.camp === 'ally' ? A : B;
+        const linkEnemySide = unit.camp === 'ally' ? B : A;
+        if (unit.name === '鹿杖客') {
+            createLuZhangKeComponent().onAfterAttack(unit, target, dmgCalc, linkAllySide, linkEnemySide, log, A, B, state);
+        }
+        if (unit.name === '鹤笔翁') {
+            createHeBiWengComponent().onAfterAttack(unit, target, dmgCalc, linkAllySide, linkEnemySide, log, A, B, state);
+        }
     }
 
     applyExtraAttacks(unit, target, dmgCalc, allySide, enemySide, log, A, B, state, doubleStrikeUnitUid);
