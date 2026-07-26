@@ -1,6 +1,6 @@
 // modules/99elite-zhangwuji.js - 张无忌精英组件
-// V5.2.0 | ~1200 bytes | 2026-07-25
-export const VER = 'modules/99elite-zhangwuji.js V5.2.0';
+// V5.2.1 | ~1200 bytes | 2026-07-25
+export const VER = 'modules/99elite-zhangwuji.js V5.2.1';
 
 /**
  * 张无忌组件

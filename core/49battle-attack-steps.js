@@ -1,6 +1,6 @@
 // core/49battle-attack-steps.js - 光明顶5v5 攻击步骤拆分模块
-// V5.2.0 | ~18000 bytes | 2026-07-18 从47battle-attack拆分processUnitAttack
-export const VER = 'core/49battle-attack-steps.js V5.2.0';
+// V5.2.1 | ~18000 bytes | 2026-07-18 从47battle-attack拆分processUnitAttack
+export const VER = 'core/49battle-attack-steps.js V5.2.1';
 
 import { CONFIG, DEF_TAUNT, HP_TAUNT } from './01config-5v5-test.js';
 import { rand, calcDamage, getFangLevel, isMelee, getFronts, isBlocked, getFlyDodgeRate, getRandomTaunt, getZhangNearTaunt, makeFXSnapshot, hasBuff, getUnitCol, getUnitRow } from './03battle-utils.js';
@@ -60,6 +60,11 @@ export function selectAttackTarget(unit, enemySide, allySide) {
     // 成昆幻影伪装
     let phantomLog = null;
     if (unit.camp === 'ally' && target) {
+        // 被模仿者未行动：识破伪装，强制锁定成昆
+        const chengkun = enemySide.find(u => u.name === '成昆' && u.alive && u._phantomTarget === unit.uid);
+        if (chengkun && !unit._acted) {
+            return { target: chengkun, phantomLog: `🎭 ${unit.name} 识破伪装，锁定真正的成昆！` };
+        }
         const phantomResult = applyPhantomDisguise(unit, enemySide, allySide);
         if (phantomResult && phantomResult.target) {
             phantomLog = phantomResult.log;
@@ -201,14 +206,13 @@ export function calcFinalDamage(unit, target, attackerBuffStats, defenderBuffSta
         hornDefBefore = defBefore;
         hornDefAfter = defBase;
     }
-    let atkVar = rand(0, C.ATK_VAR), defVar = rand(0, C.DEF_VAR), hpBonus = rand(C.HP_BONUS_MIN, C.HP_BONUS_MAX);
+    let atkVar = rand(1, C.ATK_VAR), defVar = rand(1, C.DEF_VAR), hpBonus = rand(C.HP_BONUS_MIN + 1, C.HP_BONUS_MAX);
     let atkAct = atkBase + atkVar, defAct = defBase + defVar;
     let hpBefore = Math.floor(target.hp);
     target.hp += hpBonus;
     let waveTaunt = null, waveUnit = null;
     if (atkVar === C.ATK_VAR) { waveTaunt = getRandomTaunt(unit); waveUnit = unit; unit.critCount++; }
-    else if (defVar === C.DEF_VAR) { waveTaunt = DT[rand(0, DT.length - 1)]; waveUnit = target; }
-    else if (hpBonus === C.HP_BONUS_MAX) { waveTaunt = HT[rand(0, HT.length - 1)]; waveUnit = target; }
+    else if (defVar + hpBonus >= 7) { waveTaunt = DT[rand(0, DT.length - 1)]; waveUnit = target; }
     if (unit.isZhang && !unit.rangedForm && unit.nearAtkCount < 3) {
         let zt = getZhangNearTaunt(unit.nearAtkCount + 1);
         if (zt && !waveTaunt) { waveTaunt = zt; waveUnit = unit; }
@@ -339,8 +343,9 @@ export function applyAttackResult(unit, target, dmgCalc, attackerBuffStats, defe
     if (target.role === '防战' && dmg > 0) {
         if (!target._fortifyStacks) target._fortifyStacks = 0;
         if (target._fortifyStacks < 6) {
-            target._fortifyStacks = Math.min(6, target._fortifyStacks + 0.5);
-            target.def += 0.5;
+            const increment = target.name === '成昆' ? 1 : 0.5;
+            target._fortifyStacks = Math.min(6, target._fortifyStacks + increment);
+            target.def += increment;
         }
     }
     emitEvent(target, 'hp-change', { hp: target.hp, maxHp: target.maxHp, alive: target.alive, atk: target.atk, def: target.def, _isDead: target._isDead || false });

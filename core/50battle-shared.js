@@ -1,6 +1,6 @@
-﻿// core/50battle-shared.js - 光明顶5v5 战斗共享工具
-// V5.2.0 | 提取06和48的公共依赖，解开循环引用
-export const VER = 'core/50battle-shared.js V5.2.0';
+﻿﻿// core/50battle-shared.js - 光明顶5v5 战斗共享工具
+// V5.2.1 | 提取06和48的公共依赖，解开循环引用
+export const VER = 'core/50battle-shared.js V5.2.1';
 
 import { CONFIG } from './01config-5v5-test.js';
 import { ROLE_BONUS } from './02unit.js';
@@ -87,7 +87,7 @@ function checkZhangSwitch(A, log) {
             role: zhang.role,
             rangedForm: false
         });
-        log.push({ type:'info', text:`<span class="gold">⚔️ 张无忌切换近战形态！攻+3、防+2、生命上限+50</span>`, isZhangSwitch:true, unit: zhang });
+        log.push({ type:'info', text:`<span class="gold">⚔️ 张无忌切换近战形态！攻+${warriorBonus.atk * 2}、防+${warriorBonus.def * 2}、生命上限+${warriorBonus.maxHp * 2}</span>`, isZhangSwitch:true, unit: zhang });
         log.push({ type:'info', text:`<span class="gold">🗣️ 张无忌：不好，要顶上去了！</span>`, isZhangTaunt:true });
     }
 }

@@ -1,6 +1,6 @@
 // modules/91elite-xiaozhao-brother.js - 小昭·妹精英组件
-// V5.2.0 | ~1200 bytes | 2026-07-25
-export const VER = 'modules/91elite-xiaozhao-brother.js V5.2.0';
+// V5.2.1 | ~1200 bytes | 2026-07-25
+export const VER = 'modules/91elite-xiaozhao-brother.js V5.2.1';
 
 import { ROLE_BONUS } from '../core/02unit.js';
 import { rand } from '../core/03battle-utils.js';

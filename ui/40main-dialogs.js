@@ -1,6 +1,6 @@
-﻿// ui/40main-dialogs.js - 光明顶5v5 弹窗模块
-// V5.2.0 | ~6500 bytes | 2026-07-06
-export const VER = 'ui/40main-dialogs.js V5.2.0';
+﻿﻿// ui/40main-dialogs.js - 光明顶5v5 弹窗模块
+// V5.2.1 | ~6500 bytes | 2026-07-06
+export const VER = 'ui/40main-dialogs.js V5.2.1';
 
 import { showModal, showAlert } from './12main-utils.js';
 import { AudioManager } from '../modules/28audio-manager.js';

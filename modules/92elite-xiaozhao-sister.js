@@ -1,6 +1,6 @@
 // modules/92elite-xiaozhao-sister.js - 小昭·姊精英组件
-// V5.2.0 | ~1800 bytes | 2026-07-25
-export const VER = 'modules/92elite-xiaozhao-sister.js V5.2.0';
+// V5.2.1 | ~1800 bytes | 2026-07-25
+export const VER = 'modules/92elite-xiaozhao-sister.js V5.2.1';
 
 import { CONFIG } from '../core/01config-5v5-test.js';
 const ES = CONFIG.ELITE_SKILLS;

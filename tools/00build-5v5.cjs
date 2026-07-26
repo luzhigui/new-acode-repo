@@ -1,5 +1,5 @@
 ﻿// tools/00build-5v5.cjs - 光明顶5v5 构建脚本
-// V5.2.0 | 更新：2026-07-21 合并新模块
+// V5.2.1 | 更新：2026-07-21 合并新模块
 
 const fs = require('fs');
 const path = require('path');

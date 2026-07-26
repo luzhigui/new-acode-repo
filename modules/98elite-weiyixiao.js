@@ -1,6 +1,6 @@
 // modules/98elite-weiyixiao.js - 韦一笑精英组件
-// V5.2.0 | ~800 bytes | 2026-07-25
-export const VER = 'modules/98elite-weiyixiao.js V5.2.0';
+// V5.2.1 | ~800 bytes | 2026-07-25
+export const VER = 'modules/98elite-weiyixiao.js V5.2.1';
 
 /**
  * 韦一笑组件

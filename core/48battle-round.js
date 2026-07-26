@@ -1,4 +1,4 @@
-﻿﻿// core/48battle-round.js - 光明顶5v5 回合循环与生成器
+﻿﻿﻿﻿// core/48battle-round.js - 光明顶5v5 回合循环与生成器
 // V5.2.1 | ~22000 bytes | 2026-07-23 圣火令/严阵以待独立函数化
 export const VER = 'core/48battle-round.js V5.2.1';
 

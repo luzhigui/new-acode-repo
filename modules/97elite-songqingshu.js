@@ -1,6 +1,6 @@
 // modules/97elite-songqingshu.js - 宋青书精英组件
-// V5.2.0 | ~1000 bytes | 2026-07-25
-export const VER = 'modules/97elite-songqingshu.js V5.2.0';
+// V5.2.1 | ~1000 bytes | 2026-07-25
+export const VER = 'modules/97elite-songqingshu.js V5.2.1';
 
 import { CONFIG } from '../core/01config-5v5-test.js';
 const ES = CONFIG.ELITE_SKILLS;

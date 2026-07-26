@@ -1,7 +1,7 @@
 ﻿// ui/41main-battle.js - 光明顶5v5 战斗初始化
-// V5.2.0 | ~10000 bytes | 2026-07-07 修复第五关额外单位、职业按模板分配、精英怪站位
-// V5.2.0 | ~10000 bytes | 2026-07-07 修复第五关额外单位、职业按模板分配、精英怪站位
-export const VER = 'ui/41main-battle.js V5.2.0';
+// V5.2.1 | ~10000 bytes | 2026-07-07 修复第五关额外单位、职业按模板分配、精英怪站位
+// V5.2.1 | ~10000 bytes | 2026-07-07 修复第五关额外单位、职业按模板分配、精英怪站位
+export const VER = 'ui/41main-battle.js V5.2.1';
 
 import { CONFIG, ENEMY_M } from '../core/01config-5v5-test.js';
 import { Unit, rand } from '../core/07battle-engine-5v5-test.js';

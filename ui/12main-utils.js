@@ -1,6 +1,6 @@
-﻿// ui/12main-utils.js - 光明顶5v5 主控工具函数
-// V5.2.0 | ~5632 bytes | 2026-07-05
-export const VER = 'ui/12main-utils.js V5.2.0';
+﻿﻿// ui/12main-utils.js - 光明顶5v5 主控工具函数
+// V5.2.1 | ~5632 bytes | 2026-07-05
+export const VER = 'ui/12main-utils.js V5.2.1';
 
 export function showModal(text, buttons, onChoice, canMinimize, showCloseBtn) {
     let overlay = document.createElement('div'); overlay.className = 'modal-overlay'; overlay.id = 'voteModalOverlay';

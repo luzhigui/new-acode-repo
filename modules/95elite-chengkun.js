@@ -1,6 +1,6 @@
 // modules/95elite-chengkun.js - 成昆精英组件
-// V5.2.0 | ~1200 bytes | 2026-07-25
-export const VER = 'modules/95elite-chengkun.js V5.2.0';
+// V5.2.1 | ~1200 bytes | 2026-07-25
+export const VER = 'modules/95elite-chengkun.js V5.2.1';
 
 import { CONFIG } from '../core/01config-5v5-test.js';
 import { rand } from '../core/03battle-utils.js';
