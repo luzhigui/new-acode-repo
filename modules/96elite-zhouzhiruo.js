@@ -98,6 +98,27 @@ export function createZhouZhiruoComponent() {
                     _events: clawEvents
                 });
 
+                // 宋青书回血
+                if (battleState) {
+                    const allUnits = [...(battleState.ally || []), ...(battleState.enemy || [])];
+                    const song = allUnits.find(u => u.name === '宋青书' && u.alive);
+                    if (song) {
+                        const healAmount = Math.min(bonusDmg, song.maxHp - song.hp);
+                        if (healAmount > 0) {
+                            song.hp += healAmount;
+                            song.healDone += healAmount;
+                        }
+                        emitEvent(song, 'hp-change', { hp: song.hp, maxHp: song.maxHp, alive: song.alive, atk: song.atk, def: song.def });
+                        log.push({
+                            type: 'info',
+                            text: `<span class="green">💚 宋青书因九阴白骨爪回复${healAmount}点生命${healAmount === 0 ? '（已满血）' : ''}</span>`,
+                            isHealEntry: true,
+                            healAmount: healAmount > 0 ? healAmount : bonusDmg,
+                            healUnitUid: song.uid
+                        });
+                    }
+                }
+
                 depth++;
                 if (isExecute) break;
             }

@@ -54,9 +54,9 @@ export function createChengKunComponent() {
          * 伤害计算：混元霹雳劲
          */
         onDamageCalc(unit, target, rawDmg) {
-            if (unit.name !== '成昆') return rawDmg;
+            if (unit.name !== '成昆') return 0;
             const lostHp = unit.maxHp - unit.hp;
-            return rawDmg + Math.floor(lostHp * ES.phantomThunder.lostHpRatio);
+            return Math.floor(lostHp * ES.phantomThunder.lostHpRatio);
         }
     };
 }

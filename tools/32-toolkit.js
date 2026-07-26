@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿// tools/32-toolkit.js - 光明顶5v5 开发工具箱（文件复制器 / 拆分自原 32-toolkit.js）
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// tools/32-toolkit.js - 光明顶5v5 开发工具箱（文件复制器 / 拆分自原 32-toolkit.js）
 // V5.2.1 | ~26000 bytes | 2026-07-24
 
 /* ========== 标签页切换 ========== */
@@ -66,7 +66,8 @@ function escapeHtml(text) {
         // 根目录
         '../index.html', '../mode-5v5-test.html',
         '../README.md', '../CHANGELOG.md', '../kaifazhunze.md',
-        '../game-design.md',
+        '../game-design.md', '../design-notes.md', '../readme-player.md',
+        '../成功经验.md',
         '../to do list.md'
     ];
 

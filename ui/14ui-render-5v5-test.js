@@ -505,13 +505,14 @@ export function spawnVictoryEffects(winnerCamp, aliveUnitsOverride) {
         if ((b.dmgDealt || 0) !== (a.dmgDealt || 0)) return (b.dmgDealt || 0) - (a.dmgDealt || 0);
         return (b.dmgTaken || 0) - (a.dmgTaken || 0);
     });
+    const winColorClass = winnerCamp === '明教' ? 'blue' : 'orange';
     sortedAlive.forEach((u, index) => {
         const taunt = WIN_TAUNTS[rand(0, WIN_TAUNTS.length - 1)];
+        // 立即写入日志，确保复制时不被遗漏
+        logDiv.innerHTML += `<span class="${winColorClass}">🗯️ ${u.name}：${taunt}</span><br>`;
         setTimeout(() => {
             requestAnimationFrame(() => {
                 showDanmaku(u, taunt);
-                if (ctx.gs === 'GAMEOVER') logDiv.innerHTML += `<span class="${winColor}">🗯️ ${u.name}：${taunt}</span><br>`;
-                logDiv.scrollTop = logDiv.scrollHeight;
             });
         }, index * 600);
     });

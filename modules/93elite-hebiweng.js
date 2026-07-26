@@ -38,10 +38,13 @@ export function createHeBiWengComponent() {
                 partner._linkTriggered = true;
                 log.push({type:'info', text:`<span class="gold">🔗 ${partner.name} 跟随 ${unit.name} 发动联动攻击！</span>`});
                 if (typeof processUnitAttack === 'function') {
-                    processUnitAttack(partner, allySide, enemySide, log, A, B, state, null, target.uid);
+                    const linkResult = processUnitAttack(partner, allySide, enemySide, log, A, B, state, null, target.uid);
+                    if (!linkResult) {
+                        partner._acted = true;
+                    }
                 }
                 partner._isLinkAttack = false;
-                partner._acted = false;
+                partner._linkTriggered = false;
                 emitEvent(partner, 'hp-change', { hp: partner.hp, maxHp: partner.maxHp, alive: partner.alive, atk: partner.atk, def: partner.def });
             }
         }

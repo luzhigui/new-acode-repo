@@ -68,16 +68,18 @@ export function createSongQingshuComponent() {
                 }
             }
 
-            // === 性奋代价 ===
-            if (!unit._xingFenPenaltyCount) unit._xingFenPenaltyCount = 0;
-            unit._xingFenPenaltyCount++;
-            const penalty = unit._xingFenPenaltyCount;
-            if (penalty > 0 && unit.maxHp > 1) {
-                const oldMaxHp = unit.maxHp;
-                unit.maxHp = Math.max(1, unit.maxHp - penalty);
-                unit.hp = Math.min(unit.hp, unit.maxHp);
-                emitEvent(unit, 'hp-change', { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: unit.atk, def: unit.def });
-                log.push({ type:'info', text:`<span class="red">💗 性奋代价：${unit.name} 血量上限 ${oldMaxHp} → ${unit.maxHp}（-${penalty}）</span>` });
+            // === 性奋代价（仅周芷若在场时触发） ===
+            if (zhou && !unit._xingFenPenaltyCount) unit._xingFenPenaltyCount = 0;
+            if (zhou) {
+                unit._xingFenPenaltyCount = (unit._xingFenPenaltyCount || 0) + 1;
+                const penalty = unit._xingFenPenaltyCount;
+                if (penalty > 0 && unit.maxHp > 1) {
+                    const oldMaxHp = unit.maxHp;
+                    unit.maxHp = Math.max(1, unit.maxHp - penalty);
+                    unit.hp = Math.min(unit.hp, unit.maxHp);
+                    emitEvent(unit, 'hp-change', { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: unit.atk, def: unit.def });
+                    log.push({ type:'info', text:`<span class="red">💗 性奋代价：${unit.name} 血量上限 ${oldMaxHp} → ${unit.maxHp}（-${penalty}）</span>` });
+                }
             }
         },
 

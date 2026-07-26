@@ -525,8 +525,9 @@ document.addEventListener('DOMContentLoaded', function() {
                     if(seen.has(key)) return;
                     seen.add(key);
                 }
-                if(t.includes('获得Buff')){
-                    // Buff 获取日志不做去重，始终保留
+                if(t.includes('获得Buff') || t.includes('🗯️') || t.includes('🗣️')){
+                    if(choice==='normal'||choice==='all') lines.push(t);
+                    return;
                 }
                 if(choice==='health'){
                     if(t.includes('[体检]')) lines.push(t);
