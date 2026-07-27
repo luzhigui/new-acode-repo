@@ -1,4 +1,4 @@
-﻿﻿// ui/43fx-trigger.js - 光明顶5v5 特效触发
+﻿﻿﻿﻿// ui/43fx-trigger.js - 光明顶5v5 特效触发
 // V5.2.1 | ~1800 bytes | 2026-07-07
 export const VER = 'ui/43fx-trigger.js V5.2.1';
 

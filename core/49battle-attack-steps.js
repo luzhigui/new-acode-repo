@@ -172,7 +172,7 @@ export function resolveAttackHit(unit, target, attackerBuffStats, defenderBuffSt
                 unit._acted = true;
                 unit._stunned = true;
                 emitEvent(unit, 'hp-change', { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: unit.atk, def: unit.def, _stunned: true });
-                dg.entries.push({type:'info', text:`<span class="gray">😵‍💫 ${unit.name} 被反击眩晕，本回合无法行动！</span>`});
+                dg.entries.push({type:'info', text:`<span class="gray">😵${unit.name} 被反击眩晕，本回合无法行动！</span>`});
                 return { skipped: true, retry: false, lockedTargetUid: null };
             }
         }

@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿// tools/33-toolkit-more.js - 光明顶5v5 开发工具箱（更多工具）
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// tools/33-toolkit-more.js - 光明顶5v5 开发工具箱（更多工具）
 // V5.2.1 | ~28600 bytes | 2026-07-24
 
 function escapeHtml(text) {

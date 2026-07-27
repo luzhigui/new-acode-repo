@@ -1,4 +1,4 @@
-﻿﻿// tests/37health-rules/64-horse.js
+﻿﻿﻿﻿// tests/37health-rules/64-horse.js
 // V5.2.0 | ~2400 bytes | 拒马存在性检查
 export const VER = 'tests/37health-rules/64-horse.js V5.2.0';
 

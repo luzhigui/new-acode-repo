@@ -1,4 +1,4 @@
-﻿﻿// tests/37health-rules/66-victory.js
+﻿﻿﻿﻿// tests/37health-rules/66-victory.js
 // V5.2.0 | 胜利弹幕检查
 export const VER = 'tests/37health-rules/66-victory.js V5.2.0';
 
