@@ -1,4 +1,4 @@
-﻿﻿// modules/46global-store.js - 光明顶5v5 全局状态管理
+﻿﻿﻿﻿// modules/46global-store.js - 光明顶5v5 全局状态管理
 // V5.2.1 | ~1200 bytes | 2026-07-18 第一步：收敛 window._* 全局变量
 export const VER = 'modules/46global-store.js V5.2.1';
 

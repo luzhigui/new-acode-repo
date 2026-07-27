@@ -1,4 +1,4 @@
-﻿// ui/41main-battle.js - 光明顶5v5 战斗初始化
+﻿﻿// ui/41main-battle.js - 光明顶5v5 战斗初始化
 // V5.2.1 | ~10000 bytes | 2026-07-07 修复第五关额外单位、职业按模板分配、精英怪站位
 // V5.2.1 | ~10000 bytes | 2026-07-07 修复第五关额外单位、职业按模板分配、精英怪站位
 export const VER = 'ui/41main-battle.js V5.2.1';
@@ -374,22 +374,7 @@ export function showBugModeBuffSelection(callback, activeBuffs, selectedBuffInde
 }
 
 // ==================== Buff 槽 ====================
-export function updateBuffSlots(activeBuffs, selectedBuffIndex) {
-    for (let i = 0; i < 2; i++) {
-        let slot = document.getElementById('buffSlot' + i);
-        if (!slot) continue;
-        if (i < activeBuffs.length) {
-            let buff = activeBuffs[i];
-            slot.textContent = buff.name + '/' + buff.remaining + '回';
-            slot.classList.add('glow');
-            if (selectedBuffIndex === i) slot.classList.add('active');
-            else slot.classList.remove('active');
-        } else {
-            slot.textContent = 'buff' + (i + 1);
-            slot.classList.remove('active', 'glow');
-        }
-    }
-}
+
 
 export function tickBuffDurations(activeBuffs, selectedBuffIndex, updateBuffSlotsFn) {
     activeBuffs = activeBuffs.map(b => ({...b, remaining: b.remaining - 1})).filter(b => b.remaining > 0);

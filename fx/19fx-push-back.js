@@ -1,4 +1,4 @@
-﻿﻿// fx/19fx-push-back.js - 光明顶5v5 击退特效
+﻿﻿﻿﻿// fx/19fx-push-back.js - 光明顶5v5 击退特效
 // V5.2.1 | ~4890 bytes | 2026-07-11 支持 skipDataChange 参数
 export const VER = 'fx/19fx-push-back.js V5.2.1';
 

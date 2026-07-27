@@ -24,7 +24,13 @@ export function applyBloodthirst_Normal(unit, target, dmg, allySide, enemySide, 
 
 export function applyBloodthirst_Sister(unit, target, dmg, allySide, enemySide, log) {
     applyBloodthirst_Normal(unit, target, dmg, allySide, enemySide, log);
-    // 姐姐强化：额外再砍一刀（在调度中心处理连击）
+    // 姐姐强化：额外再砍一刀
+    if (unit.alive && target.alive && !unit._bloodthirstStriked) {
+        unit._bloodthirstStriked = true;
+        if (typeof processUnitAttack === 'function') {
+            processUnitAttack(unit, allySide, enemySide, log, allySide, enemySide, null, null, target.uid);
+        }
+    }
 }
 
 export function applyBloodthirst_Brother(unit, target, dmg, allySide, enemySide, log) {

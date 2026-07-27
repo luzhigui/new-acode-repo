@@ -1,10 +1,9 @@
-﻿﻿// ui/44ui-controls.js - 光明顶5v5 UI控制（倍速系统+按钮状态）
-// V5.2.1 | ~3500 bytes | 2026-07-07
+﻿﻿// ui/44ui-controls.js - 光明顶5v5 UI控制（倍速系统+按钮状态+事件绑定）
+// V5.2.1 | ~11000 bytes | 2026-07-27 合并13main按钮绑定、Buff槽更新
 export const VER = 'ui/44ui-controls.js V5.2.1';
 
 import { getState, setState, gs } from './39main-state.js';
 import { updateUI } from './14ui-render-5v5-test.js';
-import { onAnyButtonClick } from './13main-5v5-test.js';
 
 // ==================== 倍速系统 ====================
 let manualSpeedLock = false;
@@ -14,14 +13,13 @@ let preManualSpeedLock = false;
 let preManualSpeedValue = null;
 
 function getButtonBySpeedValue(val, isDebug) {
-    // 常速1000不高亮任何按钮
-    if (val === 600) {           // 2倍速
+    if (val === 600) {
         return isDebug ? document.getElementById('btnSpeed2x') : document.getElementById('btnSpeed2');
-    } else if (val === 100) {    // 8倍速
+    } else if (val === 100) {
         return document.getElementById('btnSpeed8x');
-    } else if (val === 300) {   // 4倍速
+    } else if (val === 300) {
         return document.getElementById('btnSpeed4x');
-    } else if (val === 1600) {  // 0.5倍速
+    } else if (val === 1600) {
         return isDebug ? document.getElementById('btnSpeed05x') : document.getElementById('btnSpeed05');
     }
     return null;
@@ -57,20 +55,31 @@ function updateSpeedButtons() {
     });
 
     if (!slideSpeedActive) {
-        // 滚动慢放中：0.5x 高亮
         const btn05Target = debugMode ? btn05x : btn05;
         if (btn05Target) btn05Target.classList.add('active');
-        // 如果之前手动锁定了非0.5x倍速，半高亮
         if (manualSpeedLock && manualSpeedValue && manualSpeedValue !== 1600) {
             const lockedBtn = getButtonBySpeedValue(manualSpeedValue, debugMode);
             if (lockedBtn) lockedBtn.classList.add('semi-active');
         }
     } else if (manualSpeedLock) {
-        // 正常播放且有手动锁定：亮对应按钮
         const activeBtn = getButtonBySpeedValue(speed, debugMode);
         if (activeBtn) activeBtn.classList.add('active');
     }
-    // 其他情况：所有按钮不高亮
+}
+
+export function updateBuffSlots(activeBuffs) {
+    for (let i = 0; i < 2; i++) {
+        let slot = document.getElementById('buffSlot' + i);
+        if (!slot) continue;
+        if (i < activeBuffs.length) {
+            let buff = activeBuffs[i];
+            slot.textContent = buff.name + '/' + buff.remaining + '回';
+            slot.classList.add('glow');
+        } else {
+            slot.textContent = 'buff' + (i + 1);
+            slot.classList.remove('glow');
+        }
+    }
 }
 
 function setSpeed(val, lock) {
@@ -86,14 +95,12 @@ function setSpeed(val, lock) {
 function attachSpeedButton(id, speedVal) {
     let btn = document.getElementById(id); if (!btn) return;
     btn.addEventListener('click', function() {
-        if (typeof onAnyButtonClick === 'function') onAnyButtonClick();
+        if (typeof window.onAnyButtonClick === 'function') window.onAnyButtonClick();
         if (btn.classList.contains('active')) {
-            // 取消高亮，恢复常速1000，并强制同步播放器
             setState.speed(1000);
             manualSpeedLock = false;
             manualSpeedValue = null;
             slideSpeedActive = true;
-            // 强制重置播放器速度
             const ctx = window._getPlayerContext ? window._getPlayerContext() : null;
             if (ctx) {
                 ctx.speed = 1000;
@@ -102,23 +109,20 @@ function attachSpeedButton(id, speedVal) {
                     ctx._scheduler.setSpeed(1);
                 }
             }
-            // 立即清除所有按钮高亮状态，防止残留
             document.querySelectorAll('.controls button').forEach(b => {
                 b.classList.remove('active', 'semi-active');
             });
             updateSpeedButtons();
         } else {
-            // 切换至该倍速
             setSpeed(speedVal, true);
         }
     });
 }
 
 function activateScrollSlowdown() {
-    if (GlobalStore.get('fastForwardActive')) return;
+    if (window.GlobalStore?.get('fastForwardActive')) return;
     const speed = getState.speed();
     if (speed === 1600) return;
-    // 保存当前状态
     preManualSpeedLock = manualSpeedLock;
     preManualSpeedValue = manualSpeedValue;
     slideSpeedActive = false;
@@ -127,7 +131,6 @@ function activateScrollSlowdown() {
 }
 
 function restoreSpeedFromScroll() {
-    // 如果 slideSpeedActive 已经是 true，说明没有进入过慢放状态，不需要恢复
     if (slideSpeedActive) return;
     slideSpeedActive = true;
     if (preManualSpeedLock) {
@@ -144,20 +147,21 @@ function restoreSpeedFromScroll() {
     if (ctx && ctx._scheduler) ctx._scheduler.setSpeed(1);
 }
 
-// 初始化倍速按钮（速度值已修正为真实倍速）
-attachSpeedButton('btnSpeed2', 600);   // 2倍速 = 600ms延迟
-attachSpeedButton('btnSpeed8x', 100);  // 8倍速 = 100ms延迟
-attachSpeedButton('btnSpeed4x', 300);  // 4倍速 = 300ms延迟
-attachSpeedButton('btnSpeed2x', 600);
-attachSpeedButton('btnSpeed05', 1600); // 0.5倍速 = 1600ms延迟
-attachSpeedButton('btnSpeed05x', 1600);
-
-// 初始默认 2 倍速高亮（速度为600ms延迟）
-setState.speed(600);
-manualSpeedLock = true;
-manualSpeedValue = 600;
-slideSpeedActive = true;
-updateSpeedButtons();
+// 倍速按钮初始化延迟到 DOM 就绪后执行，避免循环依赖
+function initSpeedButtons() {
+    attachSpeedButton('btnSpeed2', 600);
+    attachSpeedButton('btnSpeed8x', 100);
+    attachSpeedButton('btnSpeed4x', 300);
+    attachSpeedButton('btnSpeed2x', 600);
+    attachSpeedButton('btnSpeed05', 1600);
+    attachSpeedButton('btnSpeed05x', 1600);
+    setState.speed(600);
+    manualSpeedLock = true;
+    manualSpeedValue = 600;
+    slideSpeedActive = true;
+    updateSpeedButtons();
+}
+window._initSpeedButtons = initSpeedButtons;
 
 // ==================== 更新按钮状态 ====================
 function updateButtons() {
@@ -170,12 +174,294 @@ function updateButtons() {
 function enableAllButtons() { document.querySelectorAll('.controls button').forEach(b => b.disabled = false); updateButtons(); updateSpeedButtons(); }
 function updateDebugUI() { let panel=document.getElementById('debugPanel'); const debugMode = getState.debugMode(); if(debugMode){if(panel)panel.style.display='flex';}else{if(panel)panel.style.display='none';} }
 
-// ==================== 导出 ====================
-export { updateSpeedButtons, setSpeed, activateScrollSlowdown, restoreSpeedFromScroll, updateButtons, enableAllButtons, updateDebugUI };
-
-// 挂载到 window 供其他模块调用
 window.updateButtons = updateButtons;
 window.enableAllButtons = enableAllButtons;
 window.updateSpeedButtons = updateSpeedButtons;
 window._activateScrollSlowdown = activateScrollSlowdown;
 window._restoreSpeedFromScroll = restoreSpeedFromScroll;
+
+// ==================== 按钮事件绑定（从 13main 迁移） ====================
+
+export function bindCoverStart(gameStarted, updateSpeedButtons) {
+    document.getElementById('coverStartBtn').addEventListener('click', function () {
+        document.getElementById('coverOverlay').style.display = 'none';
+        gameStarted.val = true;
+        if (typeof window.AudioManager?.init === 'function') window.AudioManager.init();
+        if (typeof window.AudioManager?.play === 'function') window.AudioManager.play();
+        if (typeof window.AudioManager?.setVolume === 'function') window.AudioManager.setVolume(0.5);
+        updateSpeedButtons();
+    });
+}
+
+export function bindPauseButton(getState, setState, updateButtons) {
+    document.getElementById('btnPause').addEventListener('click', function () {
+        if (typeof window.onAnyButtonClick === 'function') window.onAnyButtonClick();
+        if (getState.gs() === 'RUNNING') {
+            setState.gs('PAUSED');
+            setState.isPaused(true);
+            window.bulletTimeActive = false;
+            const ctx = window._getPlayerContext?.();
+            if (ctx?._scheduler) ctx._scheduler.pause();
+            document.body.classList.add('paused-animations');
+        } else if (getState.gs() === 'PAUSED') {
+            setState.gs('RUNNING');
+            setState.isPaused(false);
+            const ctx = window._getPlayerContext?.();
+            if (ctx?._scheduler) ctx._scheduler.resume();
+            document.body.classList.remove('paused-animations');
+        }
+        updateButtons();
+    });
+}
+
+export function bindNextButton(setState, updateButtons) {
+    document.getElementById('btnNext').addEventListener('click', function () {
+        if (typeof window.onAnyButtonClick === 'function') window.onAnyButtonClick();
+        setState.waitingForNextRound(false);
+        setState.gs('RUNNING');
+        updateButtons();
+    });
+}
+
+export function bindDetailButton(getState, setState) {
+    document.getElementById('btnDetail').addEventListener('click', function () {
+        const newMode = !getState.detailMode();
+        setState.detailMode(newMode);
+        this.classList.toggle('active', newMode);
+        this.textContent = newMode ? '详细' : '简要';
+        const logDiv = document.getElementById('log');
+        const scrollPos = logDiv.scrollTop;
+        const totalBefore = logDiv.scrollHeight;
+        if (!newMode) {
+            document.querySelectorAll('#log .gray.small').forEach(el => { if (el.parentElement) el.parentElement.classList.add('detail-hidden'); });
+        } else {
+            document.querySelectorAll('#log .detail-hidden').forEach(el => el.classList.remove('detail-hidden'));
+        }
+        const totalAfter = logDiv.scrollHeight;
+        logDiv.scrollTop = scrollPos + (totalAfter - totalBefore);
+    });
+}
+
+export function bindDebugButton(setState, updateSpeedButtons, updateDebugUI, updateUI) {
+    document.getElementById('debugToggle').addEventListener('click', function () {
+        if (typeof window.onAnyButtonClick === 'function') window.onAnyButtonClick();
+        setState.debugMode(!getState.debugMode());
+        const dm = getState.debugMode();
+        this.classList.toggle('active', dm);
+        this.textContent = 'V5.0';
+        window.GlobalStore?.set('debugMode', dm);
+        updateSpeedButtons();
+        updateDebugUI();
+        updateUI();
+    });
+}
+
+export function bindBGButton(showMusicPanel) {
+    document.getElementById('btnBGM').addEventListener('click', () => { showMusicPanel(); });
+}
+
+export function bindCrashModeButton() {
+    document.getElementById('btnCrashMode').addEventListener('click', function () {
+        const newMode = window.GlobalStore?.get('crashMode') === 'fly' ? 'ghost' : 'fly';
+        window.GlobalStore?.set('crashMode', newMode);
+        this.textContent = newMode === 'fly' ? '🕊️飞走' : '👻虚影';
+    });
+}
+
+export function bindDodgeButton(toggleDodgeEffect) {
+    document.getElementById('btnDodgeToggle').addEventListener('click', () => { toggleDodgeEffect(); });
+}
+
+export function bindSettleButton(currentStage, isBattleStarting, getState, setState, updateBuffSlots, updateUI, updateButtons, enableAllButtons, updateSpeedButtons, updateScoreBadge, doInitBattle, abortAll, clearAllEffects, clearLogExceptFirst, setRenderStore, renderGrid) {
+    document.getElementById('btnSettle').addEventListener('click', async function () {
+        if (typeof window.onAnyButtonClick === 'function') window.onAnyButtonClick();
+        const gs = getState.gs();
+        const S = { IDLE: 'IDLE', RUNNING: 'RUNNING', PAUSED: 'PAUSED', GAMEOVER: 'GAMEOVER' };
+        if (gs === S.GAMEOVER) {
+            clearAllEffects();
+            window.GlobalStore?.set('fastForwardActive', false);
+            window.GlobalStore?.set('battleStore', null);
+            setRenderStore(null);
+            const reportOverlay = document.getElementById('battleReportOverlay');
+            if (reportOverlay) reportOverlay.remove();
+            const reportFloat = document.getElementById('battleReportFloat');
+            if (reportFloat) reportFloat.remove();
+            const voteFloat = document.getElementById('voteFloat');
+            if (voteFloat) voteFloat.style.display = 'none';
+            const buffFloat = document.getElementById('buffFloatBtn');
+            if (buffFloat) buffFloat.remove();
+            setState.speed(600);
+            setState.gs(S.IDLE);
+            setState.isPaused(false);
+            setState.waitingForNextRound(false);
+            isBattleStarting.val = false;
+            setState.activeBuffs([]);
+            setState.snapshot({ ally: [], enemy: [] });
+            let currentUI = { allyTeam: [], enemyTeam: [], currentResult: null, round: 0, lastSnapshot: null };
+            setState.UI(currentUI);
+            updateButtons();
+            enableAllButtons();
+            updateSpeedButtons();
+            updateScoreBadge();
+            doInitBattle(currentStage, currentUI, getState.snapshot(), getState.activeBuffs(), -1, null);
+            setState.UI(currentUI);
+            setState.snapshot(getState.snapshot());
+            updateUI();
+            renderGrid('allyGrid', 'ally');
+            renderGrid('enemyGrid', 'enemy');
+            return;
+        }
+        window.GlobalStore?.set('fastForwardActive', true);
+        setState.waitingForNextRound(false);
+        window.GlobalStore?.set('skipBuffPopup', true);
+        let ffCtx = window._getPlayerContext ? window._getPlayerContext() : null;
+        if (ffCtx) {
+            if (!ffCtx._originalSpeed) ffCtx._originalSpeed = ffCtx.speed;
+            ffCtx.speed = 1;
+            if (ffCtx._scheduler && ffCtx._scheduler.setSpeed) ffCtx._scheduler.setSpeed(50);
+        }
+        if (gs === S.PAUSED) {
+            setState.gs(S.RUNNING);
+            setState.isPaused(false);
+            if (ffCtx && ffCtx._scheduler) ffCtx._scheduler.resume();
+            document.body.classList.remove('paused-animations');
+        }
+        if (window.bulletTimeActive) window.bulletTimeActive = false;
+        setState.waitingForNextRound(false);
+        if (typeof window._restoreSpeedFromScroll === 'function') window._restoreSpeedFromScroll();
+        updateButtons();
+    });
+}
+
+export function bindAutoButton(getState, setState) {
+    document.getElementById('btnAuto').addEventListener('click', function (e) {
+        e.stopPropagation();
+        const btn = this;
+        const rect = btn.getBoundingClientRect();
+        const existing = document.querySelector('.auto-menu-backdrop');
+        if (existing) { existing.remove(); return; }
+        const backdrop = document.createElement('div');
+        backdrop.className = 'auto-menu-backdrop';
+        backdrop.addEventListener('click', () => backdrop.remove());
+        const menu = document.createElement('div');
+        menu.className = 'auto-menu';
+        menu.style.left = (rect.left - 10) + 'px';
+        menu.style.bottom = (window.innerHeight - rect.top + 6) + 'px';
+        const levels = [
+            { key: 'manual', label: '手动' },
+            { key: 'auto', label: '自动' },
+            { key: 'full-auto', label: '全自动' }
+        ];
+        const cur = getState.autoLevel?.() || 'auto';
+        levels.forEach(l => {
+            const mb = document.createElement('button');
+            mb.textContent = l.label;
+            if (cur === l.key) mb.classList.add('checked');
+            mb.addEventListener('click', (ev) => {
+                ev.stopPropagation();
+                setState.autoLevel(l.key);
+                const isManual = l.key === 'manual';
+                const isFullAuto = l.key === 'full-auto';
+                setState.autoMode(!isManual);
+                btn.textContent = isManual ? '手动' : (isFullAuto ? '全自动' : '自动');
+                btn.classList.toggle('active', !isManual);
+                window._autoMode = !isManual;
+                if (!isManual && getState.waitingForNextRound()) setState.waitingForNextRound(false);
+                backdrop.remove();
+            });
+            menu.appendChild(mb);
+        });
+        backdrop.appendChild(menu);
+        document.body.appendChild(backdrop);
+    });
+}
+
+export function bindStageSelectButton(currentStage, getState, setState, updateBuffSlots, updateUI, updateButtons, enableAllButtons, updateScoreBadge, abortAll, clearLogExceptFirst, clearAllEffects, doInitBattle, showModal) {
+    document.getElementById('btnStageSelect').addEventListener('click', () => {
+        if (getState.gs() !== 'IDLE') return;
+        const buttons = [];
+        for (let i = 1; i <= 6; i++) { buttons.push({ text: i === currentStage ? `第${i}关 ◀` : `第${i}关`, value: i, cls: 'buff' }); }
+        showModal('选择关卡', buttons, (stage) => {
+            if (stage === currentStage) return;
+            if (typeof window.onAnyButtonClick === 'function') window.onAnyButtonClick();
+            const result = abortAll(null, getState.UI(), getState.waitingForNextRound(), false, getState.adjustMode(), getState.selectedAdjustPos(), getState.activeBuffs(), -1, null, () => updateBuffSlots(getState.activeBuffs()));
+            setState.waitingForNextRound(result.waitingForNextRound);
+            setState.adjustMode(result.adjustMode);
+            setState.selectedAdjustPos(result.selectedAdjustPos);
+            setState.activeBuffs(result.activeBuffs);
+            clearLogExceptFirst();
+            clearAllEffects();
+            setState.currentStage(stage);
+            doInitBattle(stage, getState.UI(), getState.snapshot(), getState.activeBuffs(), -1, null);
+            setState.UI(getState.UI());
+            setState.snapshot(getState.snapshot());
+            updateUI();
+            setState.gs('IDLE');
+            updateButtons();
+            enableAllButtons();
+            updateScoreBadge();
+        }, false, false);
+    });
+}
+
+export function bindVoteFloat() {
+    document.getElementById('voteFloat').addEventListener('click', function () {
+        const overlay = document.getElementById('voteModalOverlay');
+        if (overlay) { overlay.style.display = 'flex'; this.style.display = 'none'; }
+    });
+}
+
+export function bindGridClick(getState, setState, updateUI) {
+    document.getElementById('allyGrid').addEventListener('click', function (e) {
+        if (!getState.adjustMode()) return;
+        const cell = e.target.closest('.cell');
+        if (!cell) return;
+        const pos = parseInt(cell.dataset.pos);
+        if (isNaN(pos)) return;
+        const currentUI = getState.UI();
+        const unit = currentUI.allyTeam.find(u => u.pos === pos);
+        if (unit?.fixed) { cell.classList.add('cell-blocked'); setTimeout(() => cell.classList.remove('cell-blocked'), 500); return; }
+        if (getState.selectedAdjustPos() === null) {
+            setState.selectedAdjustPos(pos);
+        } else {
+            const targetUnit = currentUI.allyTeam.find(u => u.pos === pos);
+            if (targetUnit?.fixed) { cell.classList.add('cell-blocked'); setTimeout(() => cell.classList.remove('cell-blocked'), 500); setState.selectedAdjustPos(null); updateUI(); return; }
+            const posA = getState.selectedAdjustPos();
+            const posB = pos;
+            const unitA = currentUI.allyTeam.find(u => u.pos === posA);
+            const unitB = currentUI.allyTeam.find(u => u.pos === posB);
+            if (unitA?.fixed || unitB?.fixed) return;
+            const zhang = currentUI.allyTeam.find(u => u.isZhang);
+            if (zhang?.pos === 5) {
+                const tempMap = {};
+                currentUI.allyTeam.forEach(u => { if (u.alive || u._isDead) tempMap[u.pos] = u; });
+                if (unitA) tempMap[posB] = unitA;
+                if (unitB) tempMap[posA] = unitB;
+                if (!unitB) delete tempMap[posA];
+                if (!unitA) delete tempMap[posB];
+                if (!tempMap[2]?.alive) {
+                    const zhangCell = document.querySelector('#allyGrid .cell[data-pos="5"]');
+                    if (zhangCell) { zhangCell.classList.add('cell-protected'); setTimeout(() => zhangCell.classList.remove('cell-protected'), 600); }
+                    return;
+                }
+            }
+            if (unitA) unitA.pos = posB;
+            if (unitB) unitB.pos = posA;
+            setState.selectedAdjustPos(null);
+        }
+        updateUI();
+    });
+}
+
+export function bindCopyLogButton(showModal, copyLogToClipboard) {
+    document.getElementById('copyLog').addEventListener('click', () => {
+        showModal('选择复制类型', [
+            { text: '📋 复制普通日志', value: 'normal', cls: 'buff' },
+            { text: '🩺 复制体检日志', value: 'health', cls: 'buff' },
+            { text: '📋 复制全部日志', value: 'all', cls: 'buff' }
+        ], (choice) => copyLogToClipboard(choice));
+    });
+}
+
+// ==================== 导出 ====================
+export { updateSpeedButtons, setSpeed, activateScrollSlowdown, restoreSpeedFromScroll, updateButtons, enableAllButtons, updateDebugUI };

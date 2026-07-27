@@ -1,4 +1,4 @@
-﻿﻿﻿﻿// core/48battle-round.js - 光明顶5v5 回合循环与生成器
+﻿﻿﻿﻿﻿﻿// core/48battle-round.js - 光明顶5v5 回合循环与生成器
 // V5.2.1 | ~22000 bytes | 2026-07-23 圣火令/严阵以待独立函数化
 export const VER = 'core/48battle-round.js V5.2.1';
 
@@ -12,7 +12,8 @@ import {
     butterflyAttach, butterflyReturn, spiderTransform, spiderFlyCheck, spiderReturn,
     canXingFenTrigger, consumeXingFen, applyXingFenPenalty, isXiaoZhaoPermanentActive
 } from '../modules/23elite-skills.js';
-import { processUnitAttack } from './47battle-attack.js';
+import { createXiaoZhaoBrotherComponent } from '../modules/91elite-xiaozhao-brother.js';
+import { processUnitAttack, registerDamageInterceptor, clearDamageInterceptors } from './47battle-attack.js';
 import { getNextAvailableUnit, finalizeDeaths, emitFullUnitState, checkZhangSwitch } from './50battle-shared.js';
 
 const C = CONFIG;
@@ -171,6 +172,25 @@ export function* createRoundStepper(state) {
     });
     if (bloodBonus > 0 && hasAllyFlyer) {
         log.push({ type:'info', text:`<span class="gold">🩸 残血光环：全场低血量单位触发了+${bloodBonus}攻击加成</span>` });
+    }
+
+    // 提前生成圣火令行列，确保 UI 渲染时 cols/rows 已存在
+    A.forEach(u => {
+        if (u.alive && u.camp === 'ally') {
+            applyHolyFlameBonus(u, A._activeBuffs || []);
+        }
+    });
+
+    clearDamageInterceptors();
+    const xiaoBrother = A.find(u => u.isXiaoZhaoBrother && u.alive);
+    if (xiaoBrother) {
+        const brotherComp = createXiaoZhaoBrotherComponent();
+        registerDamageInterceptor((target, incomingDmg, allyTeam, log) => {
+            if (target.uid === xiaoBrother.uid) {
+                return brotherComp.onBeforeDeath(target, incomingDmg, allyTeam, log);
+            }
+            return false;
+        });
     }
 
     A._butterflyTriggered = false;
