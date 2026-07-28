@@ -1,4 +1,4 @@
-﻿﻿﻿﻿// ui/39main-state.js - 光明顶5v5 状态管理
+﻿﻿﻿﻿﻿﻿// ui/39main-state.js - 光明顶5v5 状态管理
 // V5.2.1 | ~6500 bytes | 2026-07-06 统一 activeBuffs 读写，移除局部副本
 export const VER = 'ui/39main-state.js V5.2.1';
 
@@ -21,7 +21,7 @@ export let speed = 500;
 export let userScrolled = false;
 export let abortController = null;
 export let waitingForNextRound = false;
-export let detailMode = true;
+export let logLevel = 'detailed';  // 'detailed' | 'brief' | 'debug'
 export let battleResultForInfo = null;
 export let resettleCount = 0;
 export let gameStarted = false;
@@ -45,7 +45,7 @@ export const getState = {
     gs: () => gs, autoMode: () => autoMode, debugMode: () => debugMode,
     isPaused: () => isPaused, speed: () => speed, userScrolled: () => userScrolled,
     abortController: () => abortController, waitingForNextRound: () => waitingForNextRound,
-    detailMode: () => detailMode, battleResultForInfo: () => battleResultForInfo,
+    logLevel: () => logLevel, battleResultForInfo: () => battleResultForInfo,
     gameStarted: () => gameStarted, manualSpeedLock: () => manualSpeedLock,
     manualSpeedValue: () => manualSpeedValue, slideSpeedActive: () => slideSpeedActive,
     isBattleStarting: () => isBattleStarting, adjustMode: () => adjustMode,
@@ -68,7 +68,7 @@ export const setState = {
     userScrolled: (v) => { userScrolled = v; },
     abortController: (v) => { abortController = v; },
     waitingForNextRound: (v) => { waitingForNextRound = v; },
-    detailMode: (v) => { detailMode = v; },
+    logLevel: (v) => { logLevel = v; },
     battleResultForInfo: (v) => { battleResultForInfo = v; },
     gameStarted: (v) => { gameStarted = v; },
 
@@ -132,7 +132,7 @@ export function getPlayerContext() {
         get gs() { return gs; }, set gs(v) { gs = v; },
         get isPaused() { return isPaused; }, set isPaused(v) { isPaused = v; },
         get waitingForNextRound() { return waitingForNextRound; }, set waitingForNextRound(v) { waitingForNextRound = v; },
-        get detailMode() { return detailMode; },
+        get logLevel() { return logLevel; },
         get userScrolled() { return userScrolled; }, set userScrolled(v) { userScrolled = v; },
         get abortController() { return abortController; }, set abortController(v) { abortController = v; },
         get snapshot() { return snapshot; }, set snapshot(v) { snapshot = v; },

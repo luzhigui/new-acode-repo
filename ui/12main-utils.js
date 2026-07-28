@@ -1,4 +1,4 @@
-﻿﻿﻿﻿// ui/12main-utils.js - 光明顶5v5 主控工具函数
+﻿﻿﻿﻿﻿﻿// ui/12main-utils.js - 光明顶5v5 主控工具函数
 // V5.2.1 | ~5632 bytes | 2026-07-05
 export const VER = 'ui/12main-utils.js V5.2.1';
 
@@ -98,7 +98,10 @@ export function copyLogToClipboard(choice) {
             if (seen.has(key)) return;
             seen.add(key);
         }
-        if (choice === 'health') {
+        if (choice === 'detailed') choice = 'all';
+    if (choice === 'brief') choice = 'normal';
+    if (choice === 'debug') choice = 'all';
+    if (choice === 'health') {
             if (t.includes('[体检]')) lines.push(t);
         } else if (choice === 'normal') {
             if (!t.includes('[体检]') && !t.includes('[版本信息]') && !t.includes('[子模块]')) lines.push(t);
