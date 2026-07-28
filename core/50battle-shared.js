@@ -11,7 +11,7 @@ const C = CONFIG;
 // window._emitEvent 挂载已在文件末尾 emitCoreEvent 函数中完成
 
 function emitFullUnitState(unit, eventType) {
-    emitEvent(unit, eventType, {
+    emitCoreEvent(unit, eventType, {
         uid: unit.uid,
         name: unit.name,
         role: unit.role,
@@ -36,8 +36,8 @@ function finalizeDeaths(team) {
             u.alive = false;
             u._isDead = true;
             if (!u._deathTime) u._deathTime = Date.now();
-            emitEvent(u, 'hp-change', { hp: 0, maxHp: u.maxHp, alive: false, atk: u.atk, def: u.def, _isDead: true });
-            emitEvent(u, 'unit-remove', { uid: u.uid });
+            emitCoreEvent(u, 'hp-change', { hp: 0, maxHp: u.maxHp, alive: false, atk: u.atk, def: u.def, _isDead: true });
+            emitCoreEvent(u, 'unit-remove', { uid: u.uid });
         }
     }
 }
@@ -61,7 +61,7 @@ function checkZhangSwitch(A, log) {
         zhang.role = '战士';
         zhang._resting = false; zhang._zhangSwitched = true;
         zhang._baseMaxHp = zhang.maxHp;
-        emitEvent(zhang, 'zhang-switch', {
+        emitCoreEvent(zhang, 'zhang-switch', {
             atk: zhang.atk,
             def: zhang.def,
             maxHp: zhang.maxHp,
