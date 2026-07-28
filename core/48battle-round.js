@@ -1,4 +1,4 @@
-﻿﻿/// core/48battle-round.js - 光明顶5v5 回合循环与生成器
+﻿﻿// core/48battle-round.js - 光明顶5v5 回合循环与生成器
 // V5.2.2 | ~22000 bytes | 2026-07-28 迁移光环和联动至事件总线
 export const VER = 'core/48battle-round.js V5.2.2';
 
@@ -18,7 +18,7 @@ import { createSongQingshuComponent, createZhouZhiruoComponent } from '../module
 import { createChengKunComponent, createLuZhangKeComponent, createHeBiWengComponent } from '../modules/97elite-imperial.js';
 import { processUnitAttack } from './47battle-attack.js';
 import { eventBus } from './00-event-bus.js';
-import { getNextAvailableUnit, finalizeDeaths, emitFullUnitState, checkZhangSwitch } from './50battle-shared.js';
+import { getNextAvailableUnit, finalizeDeaths, emitFullUnitState, checkZhangSwitch, emitEvent } from './50battle-shared.js';
 
 const C = CONFIG;
 
@@ -96,9 +96,8 @@ export function* createRoundStepper(state) {
 
     const xiaoZhao = A.find(u => (u.isXiaoZhaoSister || u.isXiaoZhaoBrother) && u.alive);
 
-    window._battleEvents = [];
     GlobalStore.set('currentBattleState', null);
-    if (window.GlobalStore) { window.GlobalStore.flushBattleEvents(); }
+    GlobalStore.flushBattleEvents();
 
     log.push({ type:'round-start', text:`<div class="separator">———— 第${round}回合开始 ————</div>` });
 
@@ -171,9 +170,7 @@ export function* createRoundStepper(state) {
             u._baseDef = (u._baseDef || u.def) + s.defBonus * mult;
             u._baseMaxHp = Math.max(u._baseMaxHp || u.maxHp, u.maxHp);
             u.hp = Math.min(u.hp + s.hpBonus * mult, u.maxHp);
-            if (typeof window._emitEvent === 'function') {
-                window._emitEvent(u, 'hp-change', { hp: u.hp, maxHp: u.maxHp, alive: u.alive, atk: u.atk, def: u.def });
-            }
+            emitEvent(u, 'hp-change', { hp: u.hp, maxHp: u.maxHp, alive: u.alive, atk: u.atk, def: u.def });
         });
         log.push({ type:'info', text:`<span class="gold">🏋️ 苦练：${kuLianSong.name} 激励全体队友+${s.atkBonus}攻+${s.defBonus}防+${s.hpBonus}血上限（自身翻倍）！</span>` });
     }
@@ -332,18 +329,16 @@ export function* createRoundStepper(state) {
         applyHolyFlameBonus(u, A._activeBuffs || []);
         applyFortifyBonus(u, A._activeBuffs || []);
 
-        if (typeof window._emitEvent === 'function') {
-            window._emitEvent(u, 'stat-bonus-change', {
-                buffAtkBonus: stats.atkBonus,
-                buffDefBonus: stats.defBonus,
-                buffDodgeBonus: stats.dodgeBonus,
-                buffHpBonus: stats.hpBonus
-            });
-        }
+        emitEvent(u, 'stat-bonus-change', {
+            buffAtkBonus: stats.atkBonus,
+            buffDefBonus: stats.defBonus,
+            buffDodgeBonus: stats.dodgeBonus,
+            buffHpBonus: stats.hpBonus
+        });
 
         const sister = A.some(a => a.isXiaoZhaoSister && a.alive);
         const carryPositions = sister ? [4, 5, 6] : [5];
-        if (hasCarryActive && carryPositions.includes(u.pos) && u._baseMaxHp !== undefined && !u.isHorse && !u.isZhang && !u.isXiaoZhao) {
+        if (hasCarryActive && carryPositions.includes(u.pos) && u._baseMaxHp !== undefined && !u.isHorse && !u.isZhang && !u.isXiaoZhaoSister && !u.isXiaoZhaoBrother) {
             if (u.maxHp > 0 && u._baseMaxHp > 0) {
                 u.hp = Math.floor(u.hp * (u._baseMaxHp / u.maxHp));
             }
@@ -364,13 +359,11 @@ export function* createRoundStepper(state) {
                 if (extraHp > 0) u.hp += extraHp;
                 u.maxHp = newMaxHp;
             }
-            if (typeof window._emitEvent === 'function') {
-                window._emitEvent(u, 'hp-change', { hp: u.hp, maxHp: u.maxHp, alive: u.alive, atk: u.atk, def: u.def });
-            }
+            emitEvent(u, 'hp-change', { hp: u.hp, maxHp: u.maxHp, alive: u.alive, atk: u.atk, def: u.def });
             if (stats.carryAtkAbs || stats.carryDefAbs || stats.carryHpAbs) {
                 log.push({ type:'info', text:`<span class="gold">👑 carry：${u.name} 获得队友属性加成 攻+${stats.carryAtkAbs} 防+${stats.carryDefAbs} 血上限+${stats.carryHpAbs}</span>` });
             }
-        } else if (!u.isHorse && !hasCarryActive && !u.isXiaoZhao && !u.isZhang && !u.isXiaoZhao) {
+        } else if (!u.isHorse && !hasCarryActive && !u.isXiaoZhaoSister && !u.isXiaoZhaoBrother && !u.isZhang) {
             const sister = A.some(a => a.isXiaoZhaoSister && a.alive);
             const carryPositions = sister ? [4, 5, 6] : [5];
             if (carryPositions.includes(u.pos) && (u._carryAtkBonus || u._carryDefBonus || u._carryHpBonus)) {
@@ -383,9 +376,7 @@ export function* createRoundStepper(state) {
                 u._carryHpBonus = 0;
                 u.atk = (u._baseAtk || u.atk) + (u._butterflyAtkBonus || 0);
                 u.def = (u._baseDef || u.def) + (u._butterflyDefBonus || 0);
-                if (typeof window._emitEvent === 'function') {
-                    window._emitEvent(u, 'hp-change', { hp: u.hp, maxHp: u.maxHp, alive: u.alive, atk: u.atk, def: u.def });
-                }
+                emitEvent(u, 'hp-change', { hp: u.hp, maxHp: u.maxHp, alive: u.alive, atk: u.atk, def: u.def });
             }
         } else if (u.isXiaoZhaoBrother && isXiaoZhaoPermanentActive(u, A._activeBuffs, 'carry') && u._baseMaxHp !== undefined) {
             u.atk += 3;
@@ -393,9 +384,7 @@ export function* createRoundStepper(state) {
             u.maxHp += 20;
             u._baseMaxHp = u.maxHp;
             u.hp = Math.min(u.hp + 20, u.maxHp);
-            if (typeof window._emitEvent === 'function') {
-                window._emitEvent(u, 'hp-change', { hp: u.hp, maxHp: u.maxHp, alive: u.alive, atk: u.atk, def: u.def });
-            }
+            emitEvent(u, 'hp-change', { hp: u.hp, maxHp: u.maxHp, alive: u.alive, atk: u.atk, def: u.def });
         }
 
         u.atk = (u._baseAtk || u.atk) + (u._carryAtkBonus || 0) + (u._butterflyAtkBonus || 0) + (u._holyAtkBonus || 0) + (u._emptyColBonus || 0) + (u._bloodAuraBonus || 0);
@@ -425,15 +414,13 @@ export function* createRoundStepper(state) {
         u._xiaoZhaoDoubleStriked = false;
         u._bloodthirstStriked = false;
         u._linkTriggered = false;
+        u._fortifyThisRound = 0;
     });
 
     logBuffSummary(A, log, doubleStrikeUnitUid);
 
-    const roundStartEvents = [...window._battleEvents];
-    window._battleEvents = [];
-    if (window.GlobalStore) window.GlobalStore.flushBattleEvents();
+    const roundStartEvents = GlobalStore.flushBattleEvents();
     yield { log: [...log], events: roundStartEvents, ally: A, enemy: B, winner: null, done: false, doubleStrikeUid: doubleStrikeUnitUid };
-    window._battleEvents = [];
     log = [];
 
     let currentSide = 'enemy';
@@ -467,20 +454,17 @@ export function* createRoundStepper(state) {
                         if (u._restingTimer) clearTimeout(u._restingTimer);
                         u._restingTimer = setTimeout(() => {
                             u._resting = false;
-                            if (typeof window._emitEvent === 'function') {
-                                window._emitEvent(u, 'hp-change', { hp: u.hp, maxHp: u.maxHp, alive: u.alive, atk: u.atk, def: u.def, _resting: false });
-                            }
+                            emitEvent(u, 'hp-change', { hp: u.hp, maxHp: u.maxHp, alive: u.alive, atk: u.atk, def: u.def, _resting: false });
                         }, 3000);
                         let bg = {type:'attack-group', uidA:u.uid, uidD:null, entries:[], isBlock:true, _fxSnapshot:makeFXSnapshot(u,null), waveTaunt:null, waveUnit:null, buffEffects:[], healAmount: 15, healUnitUid: u.uid};
                         bg.entries.push({type:'combat-text', text:`<span class="${u.camp==='ally'?'blue':'orange'}">${u.camp==='ally'?'明教':'六大派'} ${u.name}</span> 无法攻击`});
                         bg.entries.push({type:'info', text:`<span class="green">🐴 拒马休息回复15点生命（${hpBefore} → ${hpAfter}）</span>`});
-                        bg._events = [...window._battleEvents];
-                        window._battleEvents = [];
+                        bg._events = GlobalStore.flushBattleEvents();
                         log.push(bg);
                         continue;
                     }
 
-                    if (u._spiderFlying || (u._flyMode && u._flyMode !== 'butterfly')) {
+                    if (u._spiderFlying || u._flyMode === 'spider' || u._flyMode === 'butterfly') {
                         u._acted = true;
                         continue;
                     }
@@ -489,9 +473,7 @@ export function* createRoundStepper(state) {
                         u._acted = true;
                         let bg = {type:'attack-group', uidA:u.uid, uidD:null, entries:[], isBlock:true, _fxSnapshot:makeFXSnapshot(u,null), waveTaunt:null, waveUnit:null, buffEffects:[]};
                         bg.entries.push({type:'info', text:`<span class="gray">💫 ${u.name} 被眩晕，无法行动</span>`});
-                        bg._events = [...window._battleEvents];
-                        window._battleEvents = [];
-                        if (window.GlobalStore) window.GlobalStore.flushBattleEvents();
+                        bg._events = GlobalStore.flushBattleEvents();
                         log.push(bg);
                         continue;
                     }
@@ -505,15 +487,12 @@ export function* createRoundStepper(state) {
                         if (u._restingTimer) clearTimeout(u._restingTimer);
                         u._restingTimer = setTimeout(() => {
                             u._resting = false;
-                            if (typeof window._emitEvent === 'function') {
-                                window._emitEvent(u, 'hp-change', { hp: u.hp, maxHp: u.maxHp, alive: u.alive, atk: u.atk, def: u.def, _resting: false });
-                            }
+                            emitEvent(u, 'hp-change', { hp: u.hp, maxHp: u.maxHp, alive: u.alive, atk: u.atk, def: u.def, _resting: false });
                         }, 3000);
                         let bg = {type:'attack-group', uidA:u.uid, uidD:null, entries:[], isBlock:true, _fxSnapshot:makeFXSnapshot(u,null), waveTaunt:null, waveUnit:null, buffEffects:[], healAmount: 15, healUnitUid: u.uid};
                         bg.entries.push({type:'combat-text', text:`<span class="${u.camp==='ally'?'blue':'orange'}">${u.camp==='ally'?'明教':'六大派'} ${u.name}</span> 被遮挡`});
                         bg.entries.push({type:'info', text:`<span class="green">休息回复15点生命（${hpBefore} → ${hpAfter}）</span>`});
-                        bg._events = [...window._battleEvents];
-                        window._battleEvents = [];
+                        bg._events = GlobalStore.flushBattleEvents();
                         log.push(bg);
                         continue;
                     }
@@ -551,10 +530,8 @@ export function* createRoundStepper(state) {
 
         finalizeDeaths(A);
         finalizeDeaths(B);
-        A.forEach(u => { if (u.isXiaoZhaoBrother && u.alive) spiderFlyCheck(u, A, log); });
-        const stepEvents = [...window._battleEvents];
-        window._battleEvents = [];
-        if (window.GlobalStore) window.GlobalStore.flushBattleEvents();
+        // 小昭妹飞天检查已在 beforeDamageApply 信号中处理
+        const stepEvents = GlobalStore.flushBattleEvents();
         const allyAlive = A.some(u => u.alive);
         const enemyAlive = B.some(u => u.alive);
         let winner = null;
@@ -581,9 +558,7 @@ export function* createRoundStepper(state) {
             u._resting = false;
             if (u._restingTimer) { clearTimeout(u._restingTimer); u._restingTimer = null; }
             if (u.isHorse && !u.alive) {
-                if (typeof window._emitEvent === 'function') {
-                    window._emitEvent(u, 'unit-remove', { uid: u.uid });
-                }
+                emitEvent(u, 'unit-remove', { uid: u.uid });
                 team.splice(i, 1);
             }
         }
@@ -605,17 +580,13 @@ export function* createRoundStepper(state) {
             u.hp = 0;
             u.alive = false;
             u._isDead = true;
-            if (typeof window._emitEvent === 'function') {
-                window._emitEvent(u, 'hp-change', { hp: 0, maxHp: u.maxHp, alive: false, atk: u.atk, def: u.def, _isDead: true });
-            }
+            emitEvent(u, 'hp-change', { hp: 0, maxHp: u.maxHp, alive: false, atk: u.atk, def: u.def, _isDead: true });
         });
     }
 
     log.push({type:'round-end', text:`<div class="separator">———— 第${round}回合结束 ————</div>`});
 
-    const endEvents = [...window._battleEvents];
-    window._battleEvents = [];
-    if (window.GlobalStore) window.GlobalStore.flushBattleEvents();
+    const endEvents = GlobalStore.flushBattleEvents();
     finalizeDeaths(A);
     finalizeDeaths(B);
     yield { log: [...log], events: endEvents, ally: A, enemy: B, winner, done };
