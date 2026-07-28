@@ -396,6 +396,8 @@ async function handleAttackGroup(c, entry, roundResult, abortSig, isFirstAttackR
 }
 
 async function handleInfo(c, entry) {
+    // 跳过空日志（仅用于传递事件的虚拟条目）
+    if (!entry.text && !entry.fastEntry) return;
     // ★ 快速条目：白骨爪附带效果，直接显示不逐字播放
     if (entry.fastEntry) {
         let tempDiv = document.createElement('div');

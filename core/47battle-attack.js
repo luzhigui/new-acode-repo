@@ -20,12 +20,9 @@ import {
 } from './49battle-attack-steps.js';
 import { eventBus } from './00-event-bus.js';
 import { createXiaoZhaoSisterComponent } from '../modules/99elite-mingjiao.js';
+import { emitEvent } from './50battle-shared.js';
 
 const C = CONFIG, DT = DEF_TAUNT, HT = HP_TAUNT;
-
-function emitEvent(unit, eventType, payload) {
-    if (typeof window._emitEvent === 'function') window._emitEvent(unit, eventType, payload);
-}
 
 
 
@@ -39,11 +36,14 @@ export function processUnitAttack(unit, allySide, enemySide, log, A, B, state, d
         const sister = sisterComp.onBeforeFirstAttack(A, log);
         if (sister && unit.uid === sister.uid) {
             unit._acted = true;
-            const events = [...window._battleEvents];
-            window._battleEvents = [];
-            if (window.GlobalStore) window.GlobalStore.flushBattleEvents();
+            const events = window.GlobalStore ? window.GlobalStore.flushBattleEvents() : [];
             log.push({ type: 'info', text: '', _events: events });
             return true;
+        }
+        // 姐姐附身成功但当前攻击者不是姐姐本人 → 立即刷新 UI，确保格子消失且不可被攻击
+        if (sister) {
+            const events = GlobalStore.flushBattleEvents();
+            log.push({ type: 'info', text: '', _events: events });
         }
     }
 
@@ -56,9 +56,7 @@ export function processUnitAttack(unit, allySide, enemySide, log, A, B, state, d
             let emptyGroup = { type:'attack-group', uidA:unit.uid, uidD:null, entries:[], isMiss:true, _fxSnapshot:null, waveTaunt:null, waveUnit:null, buffEffects: [] };
             emptyGroup.entries.push({type:'combat-text', text:`<span class="${unit.camp==='ally'?'blue':'orange'}">${unit.camp==='ally'?'明教':'六大派'} ${unit.name}</span> 无法选择目标`});
             emptyGroup.entries.push({type:'info', text:`<span class="gray">锁定目标已阵亡，跳过行动</span>`});
-            emptyGroup._events = [...window._battleEvents];
-            window._battleEvents = [];
-            if (window.GlobalStore) window.GlobalStore.flushBattleEvents();
+            emptyGroup._events = window.GlobalStore ? window.GlobalStore.flushBattleEvents() : [];
             log.push(emptyGroup);
             unit._acted = true;
             return false;
@@ -124,9 +122,7 @@ export function processUnitAttack(unit, allySide, enemySide, log, A, B, state, d
         target.dmgTaken -= dmgCalc.dmg;
         emitEvent(target, 'hp-change', { hp: target.hp, maxHp: target.maxHp, alive: target.alive, atk: target.atk, def: target.def });
         unit._acted = true;
-        const events = [...window._battleEvents];
-        window._battleEvents = [];
-        if (window.GlobalStore) window.GlobalStore.flushBattleEvents();
+        const events = window.GlobalStore ? window.GlobalStore.flushBattleEvents() : [];
         log.push({ type: 'info', text: '', _events: events });
         return true;
     }
