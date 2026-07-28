@@ -70,6 +70,7 @@ export class Unit {
         this._fortifyDefBonus = 0;
         this._fortifyStacks = 0;
         this._dodgeStack = 0;
+        this._linkedPartnerUid = null;  // 联动搭档 uid（宋青书↔周芷若、鹿杖客↔鹤笔翁）
     }
     clone(){
         let c=new Unit(this.name,this.m,this.role,this.camp);
@@ -111,6 +112,7 @@ export class Unit {
         c._stunned = this._stunned;
         c._lastRole = this._lastRole;
         c._isLinkAttack = this._isLinkAttack;
+        c._linkedPartnerUid = this._linkedPartnerUid;
         c.isXiaoZhao = this.isXiaoZhao;
         c._masteredRoles = [...this._masteredRoles];
         c._permanentBuffs = this._permanentBuffs.map(b => ({...b}));
