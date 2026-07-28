@@ -3,6 +3,7 @@
 export const VER = 'core/03battle-utils.js V5.2.1';
 
 import { CONFIG, TAUNT_LIB, DEF_TAUNT, HP_TAUNT, ZHANG_NEAR_TAUNT } from './01config-5v5-test.js';
+import { emitEvent } from './50battle-shared.js';
 const C = CONFIG, TL = TAUNT_LIB, DT = DEF_TAUNT, HT = HP_TAUNT, ZT = ZHANG_NEAR_TAUNT;
 
 export function rand(min, max) { return Math.floor(Math.random() * (max - min + 1)) + min; }
@@ -251,9 +252,7 @@ export function registerWarriorBreakDefense(eventBus) {
         target.def = Math.max(0, target.def - 3);
         target._baseDef = Math.max(0, (target._baseDef || target.def) - 3);
         unit._pendingDefReduceEntry = {type:'detail', text:`<span class="purple small">🗡️ ${unit.name} 破防：${target.name} 防御 -${defReduced}</span>`};
-        if (typeof window._emitEvent === 'function') {
-            window._emitEvent(target, 'hp-change', { hp: target.hp, maxHp: target.maxHp, alive: target.alive, atk: target.atk, def: target.def, _isDead: target._isDead || false });
-        }
+        emitEvent(target, 'hp-change', { hp: target.hp, maxHp: target.maxHp, alive: target.alive, atk: target.atk, def: target.def, _isDead: target._isDead || false });
     });
 }
 
@@ -266,9 +265,7 @@ export function registerRangedGrowth(eventBus) {
         if (unit.role !== '远程' || dmg <= 0) return;
         unit.atk += 2;
         if (unit._baseAtk !== undefined) unit._baseAtk += 2;
-        if (typeof window._emitEvent === 'function') {
-            window._emitEvent(unit, 'hp-change', { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: unit.atk, def: unit.def });
-        }
+        emitEvent(unit, 'hp-change', { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: unit.atk, def: unit.def });
         if (group && group.entries) {
             group.entries.push({type:'detail', text:`<span class="blue small">🏹 ${unit.name} 远程熟练：攻击 +2 → ${Math.floor(unit.atk)}</span>`});
         }
@@ -292,8 +289,6 @@ export function registerFortifyShield(eventBus) {
             target._fortifyThisRound += increment;
             target.def += increment;
         }
-        if (typeof window._emitEvent === 'function') {
-            window._emitEvent(target, 'hp-change', { hp: target.hp, maxHp: target.maxHp, alive: target.alive, atk: target.atk, def: target.def, _isDead: target._isDead || false });
-        }
+        emitEvent(target, 'hp-change', { hp: target.hp, maxHp: target.maxHp, alive: target.alive, atk: target.atk, def: target.def, _isDead: target._isDead || false });
     });
 }

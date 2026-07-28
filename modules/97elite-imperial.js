@@ -14,6 +14,21 @@ function emitEvent(unit, eventType, payload) {
 export function createChengKunComponent() {
     return {
         name: '成昆',
+        register(eventBus, A, B, log) {
+            const cheng = B.find(u => u.name === '成昆' && u.alive);
+            if (!cheng) return;
+            // 幻影伪装
+            eventBus.on('afterDamageApplied', 40, (data) => {
+                if (data.unit.name !== '成昆') return;
+                cheng.onAfterApplyDamage(data.unit, data.target, { dmg: data.dmg }, data.group, A, data.log);
+            });
+            // 混元霹雳劲
+            eventBus.on('beforeDamageCalcFinal', 10, (data) => {
+                if (data.unit.name === '成昆') {
+                    data.dmgResult.thunderBonus = cheng.onDamageCalc(data.unit, data.target, data.dmgResult.value);
+                }
+            });
+        },
         onAfterApplyDamage(unit, target, dmgCalc, group, enemySide, log) {
             if (unit.name !== '成昆' || dmgCalc.dmg <= 0) return;
             const enemyAlive = enemySide.filter(u => u.alive && !u.isHorse);
@@ -42,6 +57,15 @@ export function createChengKunComponent() {
 export function createLuZhangKeComponent() {
     return {
         name: '鹿杖客',
+        register(eventBus, A, B, log) {
+            const lu = B.find(u => u.name === '鹿杖客' && u.alive);
+            if (!lu) return;
+            // 玄冥神掌中毒
+            eventBus.on('afterDamageApplied', 40, (data) => {
+                if (data.unit.name !== '鹿杖客') return;
+                lu.onAfterApplyDamage(data.unit, data.target, { dmg: data.dmg }, data.group, B, data.log);
+            });
+        },
         onAfterApplyDamage(unit, target, dmgCalc, group, allySide, log) {
             if (unit.name !== '鹿杖客') return;
             const s = ES.xuanmingPalm;
@@ -55,6 +79,20 @@ export function createLuZhangKeComponent() {
 export function createHeBiWengComponent() {
     return {
         name: '鹤笔翁',
+        register(eventBus, A, B, log) {
+            const he = B.find(u => u.name === '鹤笔翁' && u.alive);
+            if (!he) return;
+            // 鹿角杖法
+            eventBus.on('beforeDamageCalcFinal', 20, (data) => {
+                if (data.unit.name === '鹤笔翁') {
+                    const result = he.onDamageCalc(data.unit, data.target, data.dmgResult.value);
+                    if (result && result.defIgnore) {
+                        data.dmgResult.hornDefIgnore = result.defIgnore;
+                        data.dmgResult.hornDmgMultiplier = result.dmgMultiplier || 1;
+                    }
+                }
+            });
+        },
         onDamageCalc(unit, target, rawDmg) {
             if (unit.name !== '鹤笔翁') return { defIgnore:0, dmgMultiplier:1, rawDmg };
             const s = ES.hornStrike;
