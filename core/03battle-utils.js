@@ -1,5 +1,5 @@
 // core/03battle-utils.js - 光明顶5v5 战斗工具函数
-// V5.2.1 | ~3442 bytes | 2026-07-05
+// V5.2.1 | ~4000 bytes | 2026-07-28 新增事件总线监听器注册
 export const VER = 'core/03battle-utils.js V5.2.1';
 
 import { CONFIG, TAUNT_LIB, DEF_TAUNT, HP_TAUNT, ZHANG_NEAR_TAUNT } from './01config-5v5-test.js';
@@ -18,7 +18,6 @@ export function getFronts(units) {
         let chars = units.filter(c => poses.includes(c.pos) && c.alive && !(c._flyMode === 'butterfly') && !(c._flyMode === 'spider') && !c._spiderFlying).sort((a, b) => a.pos - b.pos);
         if (chars.length > 0) fronts.push(chars[0]);
     }
-    // 兜底：如果按列找不到前排，退回所有存活单位作为前排
     if (fronts.length === 0) {
         let alive = units.filter(c => c.alive);
         if (alive.length > 0) fronts = [alive[rand(0, alive.length - 1)]];
@@ -39,12 +38,10 @@ export function isBlocked(unit, allies) {
 }
 
 export function getFlyDodgeRate(unit, attacker) {
-    // 韦一笑：复用飞行基础闪避，乘法叠加两次
-    if (unit.isWei) return C.BASE_DODGE_FLY;
-    // 其他飞行单位：读配置
-    if (unit.role === '飞行') return C.BASE_DODGE_FLY;
-    // 非飞行单位：读配置
-    return C.BASE_DODGE_GROUND;
+    const FLY_BASE_DODGE = C.BASE_DODGE_FLY || 0.15;
+    if (unit.isWei) return FLY_BASE_DODGE;
+    if (unit.role === '飞行') return FLY_BASE_DODGE;
+    return C.BASE_DODGE_GROUND || 0.03;
 }
 
 export function getRandomTaunt(unit) { if (unit.isZhang) return TL['张无忌'][rand(0,TL['张无忌'].length-1)]; if (unit.isWei) return TL['韦一笑'][rand(0,TL['韦一笑'].length-1)]; let pool=TL[unit.role]; if(pool) return pool[rand(0,pool.length-1)]; return '看招！'; }
@@ -89,6 +86,145 @@ export function hasEnemyLowHp(enemySide, threshold = 0.4) {
     return enemySide.some(u => u.alive && u.hp / u.maxHp < threshold);
 }
 
+/**
+ * 飞行突进选目标：后排优先、中排次之、前排最后
+ * 返回可选目标，无则返回 null
+ */
+export function selectFlyTarget(unit, enemySide) {
+    if (unit.role !== '飞行' || unit.isWei) return null; // 韦一笑有自己的选目标逻辑
+    const alive = enemySide.filter(u => u.alive && u._flyMode !== 'butterfly' && u._flyMode !== 'spider' && !u._spiderFlying);
+    if (alive.length === 0) return null;
+
+    // 优先顺序：后排(789) > 中排(456) > 前排(123)
+    const backRow = [7,8,9], midRow = [4,5,6], frontRow = [1,2,3];
+    const priorityOrder = [...backRow, ...midRow, ...frontRow];
+    
+    // 获取第一排空位
+    const occupiedFront = new Set(alive.filter(u => [1,2,3].includes(u.pos)).map(u => u.pos));
+    const emptySlots = [1,2,3].filter(p => !occupiedFront.has(p));
+    if (emptySlots.length === 0) return null; // 第一排全满，无法入场
+
+    // 按优先级找目标
+    for (const pos of priorityOrder) {
+        const target = alive.find(u => u.pos === pos);
+        if (!target) continue;
+        
+        // 找能攻击到目标的攻击位置（十字相邻）
+        const col = (target.pos - 1) % 3 + 1;
+        const row = Math.ceil(target.pos / 3);
+        const attackPositions = [];
+        // 上
+        if (row > 1) attackPositions.push(target.pos - 3);
+        // 下
+        if (row < 3) attackPositions.push(target.pos + 3);
+        // 左
+        if (col > 1) attackPositions.push(target.pos - 1);
+        // 右
+        if (col < 3) attackPositions.push(target.pos + 1);
+
+        // 检查是否有空位能到达某个攻击位置
+        for (const attackPos of attackPositions) {
+            for (const slot of emptySlots) {
+                if (canReach(slot, attackPos, alive)) {
+                    return target;
+                }
+            }
+        }
+    }
+    return null;
+}
+
+/**
+ * 判断从空位 slot 到目标位置 targetPos 是否有直线无障碍路径
+ */
+function canReach(slot, targetPos, enemies) {
+    const slotCol = (slot - 1) % 3 + 1;
+    const slotRow = Math.ceil(slot / 3);
+    const targetCol = (targetPos - 1) % 3 + 1;
+    const targetRow = Math.ceil(targetPos / 3);
+
+    // 同列：纵向移动
+    if (slotCol === targetCol) {
+        const minRow = Math.min(slotRow, targetRow);
+        const maxRow = Math.max(slotRow, targetRow);
+        for (let r = minRow; r <= maxRow; r++) {
+            const checkPos = (r - 1) * 3 + slotCol;
+            // 终点位置可以有人（那是要停的位置），但路径中间不能有敌方阻挡
+            if (checkPos !== targetPos && enemies.some(e => e.pos === checkPos && e.alive)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    // 同行：横向移动
+    if (slotRow === targetRow) {
+        const minCol = Math.min(slotCol, targetCol);
+        const maxCol = Math.max(slotCol, targetCol);
+        for (let c = minCol; c <= maxCol; c++) {
+            const checkPos = (slotRow - 1) * 3 + c;
+            if (checkPos !== targetPos && enemies.some(e => e.pos === checkPos && e.alive)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    // 不同行不同列：需要拐弯。先横后竖或先竖后横，两条路都试试
+    // 先横向再纵向
+    const corner1 = (slotRow - 1) * 3 + targetCol;
+    if (!enemies.some(e => e.pos === corner1 && e.alive) || corner1 === targetPos) {
+        // 横向段（slot → corner1，不含起点）
+        const minCol1 = Math.min(slotCol, targetCol);
+        const maxCol1 = Math.max(slotCol, targetCol);
+        let blocked = false;
+        for (let c = minCol1; c <= maxCol1; c++) {
+            const p = (slotRow - 1) * 3 + c;
+            if (p !== slot && p !== corner1 && enemies.some(e => e.pos === p && e.alive)) {
+                blocked = true; break;
+            }
+        }
+        if (!blocked) {
+            const minRow1 = Math.min(slotRow, targetRow);
+            const maxRow1 = Math.max(slotRow, targetRow);
+            for (let r = minRow1; r <= maxRow1; r++) {
+                const p = (r - 1) * 3 + targetCol;
+                if (p !== corner1 && p !== targetPos && enemies.some(e => e.pos === p && e.alive)) {
+                    blocked = true; break;
+                }
+            }
+        }
+        if (!blocked) return true;
+    }
+
+    // 先纵向再横向
+    const corner2 = (targetRow - 1) * 3 + slotCol;
+    if (!enemies.some(e => e.pos === corner2 && e.alive) || corner2 === targetPos) {
+        const minRow2 = Math.min(slotRow, targetRow);
+        const maxRow2 = Math.max(slotRow, targetRow);
+        let blocked = false;
+        for (let r = minRow2; r <= maxRow2; r++) {
+            const p = (r - 1) * 3 + slotCol;
+            if (p !== slot && p !== corner2 && enemies.some(e => e.pos === p && e.alive)) {
+                blocked = true; break;
+            }
+        }
+        if (!blocked) {
+            const minCol2 = Math.min(slotCol, targetCol);
+            const maxCol2 = Math.max(slotCol, targetCol);
+            for (let c = minCol2; c <= maxCol2; c++) {
+                const p = (targetRow - 1) * 3 + c;
+                if (p !== corner2 && p !== targetPos && enemies.some(e => e.pos === p && e.alive)) {
+                    blocked = true; break;
+                }
+            }
+        }
+        if (!blocked) return true;
+    }
+
+    return false;
+}
+
 export function getBloodAuraBonus(allUnits) {
     let totalBonus = 0;
     allUnits.forEach(u => {
@@ -97,4 +233,67 @@ export function getBloodAuraBonus(allUnits) {
         if (pct < 0.4) totalBonus += 2;
     });
     return totalBonus;
+}
+
+// ==================== 事件总线监听器注册 ====================
+
+/**
+ * 注册战士破防监听器
+ */
+export function registerWarriorBreakDefense(eventBus) {
+    eventBus.on('beforeDamageCalc', 10, (data) => {
+        const { unit, target } = data;
+        if (unit.role !== '战士' || target.def <= 0) return;
+        // 破防概率 = 目标当前防御 × 2.5%，封顶 100%
+        const breakChance = Math.min(100, target.def * 2.5);
+        if (rand(1, 100) > breakChance) return;
+        const defReduced = Math.min(3, target.def);
+        target.def = Math.max(0, target.def - 3);
+        target._baseDef = Math.max(0, (target._baseDef || target.def) - 3);
+        unit._pendingDefReduceEntry = {type:'detail', text:`<span class="purple small">🗡️ ${unit.name} 破防：${target.name} 防御 -${defReduced}</span>`};
+        if (typeof window._emitEvent === 'function') {
+            window._emitEvent(target, 'hp-change', { hp: target.hp, maxHp: target.maxHp, alive: target.alive, atk: target.atk, def: target.def, _isDead: target._isDead || false });
+        }
+    });
+}
+
+/**
+ * 注册远程成长监听器
+ */
+export function registerRangedGrowth(eventBus) {
+    eventBus.on('afterDamageApplied', 20, (data) => {
+        const { unit, target, dmg, group } = data;
+        if (unit.role !== '远程' || dmg <= 0) return;
+        unit.atk += 2;
+        if (unit._baseAtk !== undefined) unit._baseAtk += 2;
+        if (typeof window._emitEvent === 'function') {
+            window._emitEvent(unit, 'hp-change', { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: unit.atk, def: unit.def });
+        }
+        if (group && group.entries) {
+            group.entries.push({type:'detail', text:`<span class="blue small">🏹 ${unit.name} 远程熟练：攻击 +2 → ${Math.floor(unit.atk)}</span>`});
+        }
+    });
+}
+
+/**
+ * 注册防战坚盾监听器
+ */
+export function registerFortifyShield(eventBus) {
+    eventBus.on('afterDamageApplied', 30, (data) => {
+        const { target, dmg } = data;
+        if (target.role !== '防战' || dmg <= 0) return;
+        // 初始化本回合叠盾计数
+        if (target._fortifyThisRound === undefined) target._fortifyThisRound = 0;
+        if (!target._fortifyStacks) target._fortifyStacks = 0;
+        // 每回合上限 3 点，60% 概率触发
+        if (target._fortifyThisRound < 3 && rand(1, 100) <= 60) {
+            const increment = target.name === '成昆' ? 2 : 1;
+            target._fortifyStacks += increment;
+            target._fortifyThisRound += increment;
+            target.def += increment;
+        }
+        if (typeof window._emitEvent === 'function') {
+            window._emitEvent(target, 'hp-change', { hp: target.hp, maxHp: target.maxHp, alive: target.alive, atk: target.atk, def: target.def, _isDead: target._isDead || false });
+        }
+    });
 }

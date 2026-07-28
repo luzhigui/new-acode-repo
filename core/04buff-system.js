@@ -1,5 +1,5 @@
 // core/04buff-system.js - 光明顶5v5 Buff系统
-// V5.2.1 | ~14800 bytes | 2026-07-23
+// V5.2.1 | ~17000 bytes | 2026-07-28 海克斯效果迁移至事件总线
 export const VER = 'core/04buff-system.js V5.2.1';
 import {
     applyBloodthirst_Normal, applyBloodthirst_Sister, applyBloodthirst_Brother,
@@ -101,13 +101,7 @@ export function computeBuffStats(unit, activeBuffs, allyTeam) {
 }
 
 export function applyBuffEffectsBeforeAttack(unit, target, allyTeam, enemyTeam, log) {
-    let buffs = allyTeam._activeBuffs || [];
-    const hasSister = allyTeam.some(u => u.isXiaoZhaoSister && u.alive);
-
-    if (hasBuff(buffs, 'mindControl')) {
-        if (hasSister) applyMindControl_Sister(unit, allyTeam, enemyTeam, log);
-        else applyMindControl_Normal(unit, allyTeam, enemyTeam, log);
-    }
+    // 惑人心智已迁移至事件总线监听器 registerMindControl
 }
 
 export function applyBuffEffectsAfterAttack(unit, target, dmg, allySide, enemySide, log) {
@@ -115,36 +109,21 @@ export function applyBuffEffectsAfterAttack(unit, target, dmg, allySide, enemySi
     const hasSister = allySide.some(u => u.isXiaoZhaoSister && u.alive);
     const isBrother = unit.isXiaoZhaoBrother;
 
-    // ---- 嗜血狂刀 ----
-    if (hasBuff(unitBuffs, 'bloodthirst')) {
-        if (hasSister) applyBloodthirst_Sister(unit, target, dmg, allySide, enemySide, log);
-        else applyBloodthirst_Normal(unit, target, dmg, allySide, enemySide, log);
-    } else if (isBrother && isXiaoZhaoPermanentActive(unit, unitBuffs, 'bloodthirst')) {
-        applyBloodthirst_Brother(unit, target, dmg, allySide, enemySide, log);
-    }
+    // ---- 嗜血狂刀已迁移至事件总线 ----
+    // ---- 热血奋战已迁移至事件总线 ----
+    // ---- 乘风突袭已迁移至事件总线 ----
+    // ---- 流星赶月已迁移至事件总线 ----
 
-    // ---- 热血奋战 ----
-    if (hasBuff(unitBuffs, 'hotBlood')) {
-        if (hasSister) applyHotBlood_Sister(unit, target, dmg, allySide, enemySide, log);
-        else applyHotBlood_Normal(unit, target, dmg, allySide, enemySide, log);
-    } else if (isBrother && isXiaoZhaoPermanentActive(unit, unitBuffs, 'hotBlood')) {
-        applyHotBlood_Brother(unit, target, dmg, allySide, enemySide, log);
-    }
-
-    // ---- 乘风突袭 ----
-    if (hasBuff(unitBuffs, 'windAssault') && unit.role === '飞行' && target.alive) {
-        if (hasSister) applyWindAssault_Sister(unit, target, dmg, allySide, enemySide, log);
-        else applyWindAssault_Normal(unit, target, dmg, allySide, enemySide, log);
-    } else if (isBrother && unit.role === '飞行' && isXiaoZhaoPermanentActive(unit, unitBuffs, 'windAssault') && target.alive) {
-        applyWindAssault_Brother(unit, target, dmg, allySide, enemySide, log);
-    }
-
-    // ---- 流星赶月 ----
-    if (hasBuff(unitBuffs, 'meteorShower') && unit.role === '远程') {
-        if (hasSister) applyMeteorShower_Sister(unit, target, dmg, allySide, enemySide, log);
-        else applyMeteorShower_Normal(unit, target, dmg, allySide, enemySide, log);
-    } else if (isBrother && unit.role === '远程' && isXiaoZhaoPermanentActive(unit, unitBuffs, 'meteorShower')) {
-        applyMeteorShower_Brother(unit, target, dmg, allySide, enemySide, log);
+    // ---- 严阵以待反弹 ----
+    let reboundEntry = null;
+    let allyBuffs_fortify = (target.camp === 'ally' ? allySide._activeBuffs : enemySide._activeBuffs) || [];
+    if (hasBuff(allyBuffs_fortify, 'fortify') && target.role === '防战' && dmg > 0) {
+        if (hasSister) {
+            reboundEntry = applyFortifyRebound_Sister(unit, target, 0, 0, allySide, enemySide, log);
+        } else {
+            reboundEntry = applyFortifyRebound_Normal(unit, target, 0, 0, allySide, enemySide, log);
+        }
+        if (reboundEntry) log.push(reboundEntry);
     }
 }
 
@@ -218,7 +197,6 @@ export function logBuffSummary(allyTeam, log, doubleStrikeUid) {
                 }
                 break;
             }
-            // 概率连击日志已移至回合初统一输出，此处不再重复
             case 'doubleStrike':
                 break;
             case 'mindControl':
@@ -237,6 +215,97 @@ desc += `）`;
                     log.push({type:'buff-summary', text:`<span class="gold">${desc}</span>`, buffType:'buff_stat'});
                 }
                 break;
+        }
+    });
+}
+
+export function registerBloodthirst(eventBus) {
+    eventBus.on('afterDamageApplied', 20, (data) => {
+        const { unit, target, dmg, allySide, enemySide, log } = data;
+        if (!unit.alive || unit.camp !== 'ally') return;
+        const unitBuffs = allySide._activeBuffs || [];
+        const hasSister = allySide.some(u => u.isXiaoZhaoSister && u.alive);
+        const isBrother = unit.isXiaoZhaoBrother;
+        
+        if (hasBuff(unitBuffs, 'bloodthirst') && unit.role === '战士' && dmg > 0) {
+            if (hasSister) {
+                applyBloodthirst_Normal(unit, target, dmg, allySide, enemySide, log);
+                if (unit.alive && target.alive && !unit._bloodthirstStriked) {
+                    unit._bloodthirstStriked = true;
+                    if (typeof processUnitAttack === 'function') {
+                        processUnitAttack(unit, allySide, enemySide, log, allySide, enemySide, null, null, target.uid);
+                    }
+                }
+            } else {
+                applyBloodthirst_Normal(unit, target, dmg, allySide, enemySide, log);
+            }
+        } else if (isBrother && isXiaoZhaoPermanentActive(unit, unitBuffs, 'bloodthirst') && unit.role === '战士') {
+            applyBloodthirst_Brother(unit, target, dmg, allySide, enemySide, log);
+        }
+    });
+}
+
+export function registerHotBlood(eventBus) {
+    eventBus.on('afterDamageApplied', 25, (data) => {
+        const { unit, dmg, allySide, enemySide, log } = data;
+        if (!unit.alive || unit.camp !== 'ally') return;
+        const unitBuffs = allySide._activeBuffs || [];
+        const hasSister = allySide.some(u => u.isXiaoZhaoSister && u.alive);
+        const isBrother = unit.isXiaoZhaoBrother;
+
+        if (hasBuff(unitBuffs, 'hotBlood')) {
+            if (hasSister) applyHotBlood_Sister(unit, null, dmg, allySide, enemySide, log);
+            else applyHotBlood_Normal(unit, null, dmg, allySide, enemySide, log);
+        } else if (isBrother && isXiaoZhaoPermanentActive(unit, unitBuffs, 'hotBlood')) {
+            applyHotBlood_Brother(unit, null, dmg, allySide, enemySide, log);
+        }
+    });
+}
+
+export function registerWindAssault(eventBus) {
+    eventBus.on('afterDamageApplied', 25, (data) => {
+        const { unit, target, dmg, allySide, enemySide, log } = data;
+        if (!unit.alive || unit.camp !== 'ally' || !target || !target.alive) return;
+        const unitBuffs = allySide._activeBuffs || [];
+        const hasSister = allySide.some(u => u.isXiaoZhaoSister && u.alive);
+        const isBrother = unit.isXiaoZhaoBrother;
+
+        if (hasBuff(unitBuffs, 'windAssault') && unit.role === '飞行') {
+            if (hasSister) applyWindAssault_Sister(unit, target, dmg, allySide, enemySide, log);
+            else applyWindAssault_Normal(unit, target, dmg, allySide, enemySide, log);
+        } else if (isBrother && unit.role === '飞行' && isXiaoZhaoPermanentActive(unit, unitBuffs, 'windAssault')) {
+            applyWindAssault_Brother(unit, target, dmg, allySide, enemySide, log);
+        }
+    });
+}
+
+export function registerMeteorShower(eventBus) {
+    eventBus.on('afterDamageApplied', 25, (data) => {
+        const { unit, target, dmg, allySide, enemySide, log } = data;
+        if (!unit.alive || unit.camp !== 'ally' || !target || !target.alive) return;
+        const unitBuffs = allySide._activeBuffs || [];
+        const hasSister = allySide.some(u => u.isXiaoZhaoSister && u.alive);
+        const isBrother = unit.isXiaoZhaoBrother;
+
+        if (hasBuff(unitBuffs, 'meteorShower') && unit.role === '远程') {
+            if (hasSister) applyMeteorShower_Sister(unit, target, dmg, allySide, enemySide, log);
+            else applyMeteorShower_Normal(unit, target, dmg, allySide, enemySide, log);
+        } else if (isBrother && unit.role === '远程' && isXiaoZhaoPermanentActive(unit, unitBuffs, 'meteorShower')) {
+            applyMeteorShower_Brother(unit, target, dmg, allySide, enemySide, log);
+        }
+    });
+}
+
+export function registerMindControl(eventBus) {
+    eventBus.on('beforeAttack', 10, (data) => {
+        const { unit, allySide, enemySide, log } = data;
+        if (!unit.alive || unit.camp !== 'ally') return;
+        const buffs = allySide._activeBuffs || [];
+        const hasSister = allySide.some(u => u.isXiaoZhaoSister && u.alive);
+
+        if (hasBuff(buffs, 'mindControl')) {
+            if (hasSister) applyMindControl_Sister(unit, allySide, enemySide, log);
+            else applyMindControl_Normal(unit, allySide, enemySide, log);
         }
     });
 }

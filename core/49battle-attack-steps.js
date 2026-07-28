@@ -1,24 +1,22 @@
 // core/49battle-attack-steps.js - 光明顶5v5 攻击步骤拆分模块
-// V5.2.1 | ~18000 bytes | 2026-07-18 从47battle-attack拆分processUnitAttack
-export const VER = 'core/49battle-attack-steps.js V5.2.1';
+// V5.2.2 | ~18000 bytes | 2026-07-28 乾坤反弹迁移至事件总线
+export const VER = 'core/49battle-attack-steps.js V5.2.2';
 
 import { CONFIG, DEF_TAUNT, HP_TAUNT } from './01config-5v5-test.js';
+import { eventBus } from './00-event-bus.js';
 import { rand, calcDamage, getFangLevel, isMelee, getFronts, isBlocked, getFlyDodgeRate, getRandomTaunt, getZhangNearTaunt, makeFXSnapshot, hasBuff, getUnitCol, getUnitRow } from './03battle-utils.js';
 import { checkZhangSwitch } from './50battle-shared.js';
 import { computeBuffStats, applyBuffEffectsBeforeAttack, applyBuffEffectsAfterAttack } from './04buff-system.js';
-// showDamageFloat 已随张无忌乾坤反弹迁移，47 不再直接使用
 import {
     getRebelTarget, getRebelDmgBonus, getRebelTrueDmg,
     checkKuLian, applyXingFenGrant,
     applyDamageModifiers, isXiaoZhaoPermanentActive,
     applyPhantomDisguise, applyXiaoZhaoMindControl, checkXiaoZhaoPermanentDoubleStrike,
-    getXiaoZhaoHexEnhance,
-    canXingFenTrigger, consumeXingFen
+    getXiaoZhaoHexEnhance
 } from '../modules/23elite-skills.js';
 import { applyFortifyRebound_Normal, applyFortifyRebound_Sister } from './50buff-effects.js';
-import { createChengKunComponent } from '../modules/95elite-chengkun.js';
-import { createHeBiWengComponent } from '../modules/93elite-hebiweng.js';
-import { createXiaoZhaoSisterComponent } from '../modules/92elite-xiaozhao-sister.js';
+
+
 const C = CONFIG, DT = DEF_TAUNT, HT = HP_TAUNT;
 
 function emitEvent(unit, eventType, payload) {
@@ -31,6 +29,12 @@ export function selectAttackTarget(unit, enemySide, allySide) {
     if (targets.length === 0) return { target: null, phantomLog: null };
 
     let target = null;
+    // 飞行突进等自定义选目标信号
+    let customTarget = { result: null };
+    eventBus.emit('beforeSelectTarget', { unit, enemySide, targetResult: customTarget });
+    if (customTarget.result) {
+        return { target: customTarget.result, phantomLog: null };
+    }
     const rebelTarget = getRebelTarget(unit, enemySide);
     if (rebelTarget) {
         target = rebelTarget;
@@ -57,10 +61,14 @@ export function selectAttackTarget(unit, enemySide, allySide) {
         target = targets[rand(0, targets.length - 1)];
     }
 
+    // 成昆攻击前清除旧伪装（恢复真身）
+    if (unit.name === '成昆' && unit._phantomTarget) {
+        delete unit._phantomTarget;
+    }
+
     // 成昆幻影伪装
     let phantomLog = null;
     if (unit.camp === 'ally' && target) {
-        // 被模仿者未行动：识破伪装，强制锁定成昆
         const chengkun = enemySide.find(u => u.name === '成昆' && u.alive && u._phantomTarget === unit.uid);
         if (chengkun && !unit._acted) {
             return { target: chengkun, phantomLog: `🎭 ${unit.name} 识破伪装，锁定真正的成昆！` };
@@ -86,7 +94,6 @@ export function selectAttackTarget(unit, enemySide, allySide) {
 
 // ==================== 步骤2：未命中+闪避判定 ====================
 export function resolveAttackHit(unit, target, attackerBuffStats, defenderBuffStats, log, A, B, doubleStrikeUnitUid) {
-    // 未命中判定
     let missChance = 0;
     if (unit.role === '远程') { missChance = 3; }
     else if (unit.role === '飞行') { missChance = 6; }
@@ -102,25 +109,11 @@ export function resolveAttackHit(unit, target, attackerBuffStats, defenderBuffSt
         if (window.GlobalStore) window.GlobalStore.flushBattleEvents();
         log.push(mg);
 
-        // 未命中后的连击/性奋判定
-        if (doubleStrikeUnitUid && unit.uid === doubleStrikeUnitUid && unit.alive && unit.camp === 'ally' && !unit._doubleStriked) {
-            const xiaoDoubleEnhance = getXiaoZhaoHexEnhance(unit.camp === 'ally' ? A : B, unit.camp === 'ally' ? A._activeBuffs : B._activeBuffs, 'doubleStrike');
-            const missChainChance = xiaoDoubleEnhance ? 1.0 : 0.8;
-            if (Math.random() < missChainChance) {
-                log.push({type:'info', text:`<span class="gold">⚡ 概率连击触发！</span>`, isDoubleStrikeBanner:true});
-                unit._doubleStriked = true; unit._acted = false;
-                return { skipped: true, retry: true, lockedTargetUid: (target && target.alive) ? target.uid : null };
-            }
-        }
-        if (canXingFenTrigger(unit) && B.some(u => u.alive)) {
-            consumeXingFen(unit);
-            log.push({type:'info', text:`<span class="gold">💗 性奋：${unit.name} 获得额外攻击机会！</span>`});
-            return { skipped: true, retry: true, lockedTargetUid: null };
-        }
+        // 概率连击已迁移至事件总线 afterMiss 信号
+        // 宋青书性奋重试已迁移至事件总线 afterMiss 信号
         return { skipped: true, retry: false, lockedTargetUid: null };
     }
 
-    // 闪避判定
     const allyBuffs = (target.camp === 'ally' && A ? A._activeBuffs : (target.camp === 'enemy' && B ? B._activeBuffs : []));
     if (target._stunned) return { skipped: false, retry: false, lockedTargetUid: null };
     const hasCloudBody = hasBuff(allyBuffs, 'cloudBody') || (target.isXiaoZhao && target._permanentBuffs && target._permanentBuffs.some(b => b.key === 'cloudBody'));
@@ -159,7 +152,7 @@ export function resolveAttackHit(unit, target, attackerBuffStats, defenderBuffSt
                     target.healDone += heal;
                     target.leechDone += heal;
                     emitEvent(target, 'hp-change', { hp: target.hp, maxHp: target.maxHp, alive: target.alive, atk: target.atk, def: target.def });
-                    dg.entries.push({type:'info', text:`<span class="green">🦇 韦一笑闪避反击吸血+${heal}，上限→${Math.floor(target.maxHp)}</span>`, isHealEntry:true, healAmount:heal, healUnitUid:target.uid});
+                    dg.entries.push({type:'info', text:`<span class="green">🦇 青翼蝠王·闪避反击吸血+${heal}，上限→${Math.floor(target.maxHp)}</span>`, isHealEntry:true, healAmount:heal, healUnitUid:target.uid});
                 }
                 dg.entries.push({type:'combat-text', text:`<span class="${unit.camp==='ally'?'blue':'orange'}">${unit.camp==='ally'?'明教':'六大派'} ${unit.name}</span>(攻${Math.floor(unit.atk)} 血${unitHpBeforeRebound}) → <span class="${target.camp==='ally'?'blue':'orange'}">${target.camp==='ally'?'明教':'六大派'} ${target.name}</span>(防${Math.floor(target.def)} 血${Math.floor(target.hp)})`});
                 dg.entries.push({type:'info', text:`<span class="gray">🦅 ${target.name}闪避了攻击！</span>`});
@@ -172,7 +165,7 @@ export function resolveAttackHit(unit, target, attackerBuffStats, defenderBuffSt
                 unit._acted = true;
                 unit._stunned = true;
                 emitEvent(unit, 'hp-change', { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: unit.atk, def: unit.def, _stunned: true });
-                dg.entries.push({type:'info', text:`<span class="gray">😵${unit.name} 被反击眩晕，本回合无法行动！</span>`});
+                dg.entries.push({type:'info', text:`<span class="gray">😵 ${unit.name} 被反击眩晕，本回合无法行动！</span>`});
                 return { skipped: true, retry: false, lockedTargetUid: null };
             }
         }
@@ -182,30 +175,24 @@ export function resolveAttackHit(unit, target, attackerBuffStats, defenderBuffSt
 
 // ==================== 步骤3：伤害计算 ====================
 export function calcFinalDamage(unit, target, attackerBuffStats, defenderBuffStats, allySide, enemySide, log) {
-    // 战士破防
+    // 战士破防已迁移至事件总线监听器
     let defReduced = 0;
-    if (unit.role === '战士' && target.def > 0) {
-        defReduced = Math.min(2, target.def);
-        target.def = Math.max(0, target.def - 2);
-        target._baseDef = Math.max(0, (target._baseDef || target.def) - 2);
-        emitEvent(target, 'hp-change', { hp: target.hp, maxHp: target.maxHp, alive: target.alive, atk: target.atk, def: target.def, _isDead: target._isDead || false });
-        unit._pendingDefReduceEntry = {type:'detail', text:`<span class="purple small">🗡️ ${unit.name} 破防：${target.name} 防御 -${defReduced}</span>`};
-    }
 
     let atkBase = Math.floor(unit.atk);
     let defBase = Math.floor(target.def);
-    // 精英组件变量提前声明
+
     let hornDefIgnore = 0;
     let hornDmgMultiplier = 1;
     let hornDefBefore = null;
     let hornDefAfter = null;
-    // 鹤笔翁鹿角杖法防御忽略 → 组件模式
+
     if (hornDefIgnore > 0) {
         let defBefore = defBase;
         defBase = Math.floor(defBase * (1 - hornDefIgnore));
         hornDefBefore = defBefore;
         hornDefAfter = defBase;
     }
+
     let atkVar = rand(1, C.ATK_VAR), defVar = rand(1, C.DEF_VAR), hpBonus = rand(C.HP_BONUS_MIN + 1, C.HP_BONUS_MAX);
     let atkAct = atkBase + atkVar, defAct = defBase + defVar;
     let hpBefore = Math.floor(target.hp);
@@ -228,21 +215,18 @@ export function calcFinalDamage(unit, target, attackerBuffStats, defenderBuffSta
         raw = calcDamage(atkAct, defAct);
         rawFormula = `${atkAct}×(${atkAct}/(${atkAct}+${defAct})) = ${Math.floor(raw)}`;
     }
-    // 成昆混元霹雳劲 + 鹤笔翁鹿角杖法 → 组件模式
-    let thunderBonus = 0;
-    const chengkunComp = createChengKunComponent();
-    const ckBonus = chengkunComp.onDamageCalc(unit, target, raw);
-    thunderBonus = ckBonus;
-    if (thunderBonus > 0) rawFormula += ` + 混元霹雳劲${thunderBonus}`;
-        if (thunderBonus > 0) rawFormula += ` + 混元霹雳劲${thunderBonus}`;
 
+    // 成昆混元霹雳劲 + 鹤笔翁鹿角杖法 → 事件总线
+    let thunderBonus = 0;
     if (unit.camp !== 'ally') {
-        const hebiwengComp = createHeBiWengComponent();
-        const hbResult = hebiwengComp.onDamageCalc(unit, target, raw);
-        if (hbResult && hbResult.defIgnore) {
-            hornDefIgnore = hbResult.defIgnore;
-            hornDmgMultiplier = hbResult.dmgMultiplier || 1;
+        const dmgResult = { value: raw, thunderBonus: 0, hornDefIgnore: 0, hornDmgMultiplier: 1 };
+        eventBus.emit('beforeDamageCalcFinal', { unit, target, dmgResult });
+        thunderBonus = dmgResult.thunderBonus;
+        if (dmgResult.hornDefIgnore > 0) {
+            hornDefIgnore = dmgResult.hornDefIgnore;
+            hornDmgMultiplier = dmgResult.hornDmgMultiplier || 1;
         }
+        if (thunderBonus > 0) rawFormula += ` + 混元霹雳劲${thunderBonus}`;
     }
     raw += thunderBonus;
     const rebelBonus = getRebelDmgBonus(unit);
@@ -260,7 +244,6 @@ export function calcFinalDamage(unit, target, attackerBuffStats, defenderBuffSta
         rawFormula += `×${hornDmgMultiplier}=${Math.floor(raw)}`;
     }
 
-    // 伤害修正钩子
     let dmg = Math.floor(raw);
     let bonusEntries = [];
     if (unit.camp !== 'ally') {
@@ -278,7 +261,7 @@ export function calcFinalDamage(unit, target, attackerBuffStats, defenderBuffSta
 
 // ==================== 步骤4：应用伤害结果 ====================
 export function applyAttackResult(unit, target, dmgCalc, attackerBuffStats, defenderBuffStats, allySide, enemySide, log, A, B, state, doubleStrikeUnitUid) {
-    let { atkBase, defBase, atkAct, defAct, hpBonus, hpBefore, waveTaunt, waveUnit, raw, rawFormula, thunderBonus, hornDmgMultiplier, hornDefIgnore, trueDmg, dmg, bonusEntries, defReduction } = dmgCalc;
+    let { atkBase, defBase, atkAct, defAct, hpBonus, hpBefore, waveTaunt, waveUnit, raw, rawFormula, thunderBonus, hornDmgMultiplier, trueDmg, dmg, bonusEntries, defReduction } = dmgCalc;
 
     let hpAfter = Math.floor(target.hp) - dmg;
     let dead = hpAfter <= 0;
@@ -313,7 +296,6 @@ export function applyAttackResult(unit, target, dmgCalc, attackerBuffStats, defe
             log.push({type:'info', text:`<span class="gold">🔥 圣火令掉落！${unit.name} 击杀 ${target.name}，获得1枚圣火令！当前总数：${currentToken + 1}</span>`, fastEntry: true, unitUid: unit.uid});
         }
     }
-    // 宝箱击杀掉落
     if (dead && target.camp === 'enemy' && unit.camp === 'ally' && !target._chestDropped) {
         const stage = GlobalStore.get('currentStage') || 1;
         const chestKillRate = 0.2 / 100;
@@ -327,8 +309,6 @@ export function applyAttackResult(unit, target, dmgCalc, attackerBuffStats, defe
         }
     }
 
-    // 成昆幻影伪装已迁移至 modules/95elite-chengkun.js 组件
-
     // 拒马反伤
     let horseReboundEntry = null;
     const xiaoHEnhance = getXiaoZhaoHexEnhance(A, A._activeBuffs, 'horseFormation');
@@ -340,22 +320,10 @@ export function applyAttackResult(unit, target, dmgCalc, attackerBuffStats, defe
         horseReboundEntry = {type:'info', text:`<span class="red">🐴 巨马反伤：${unit.name} 受到 5 点反伤</span>`};
     }
 
-    // 防战坚盾
-    if (target.role === '防战' && dmg > 0) {
-        if (!target._fortifyStacks) target._fortifyStacks = 0;
-        if (target._fortifyStacks < 6) {
-            const increment = target.name === '成昆' ? 1 : 0.5;
-            target._fortifyStacks = Math.min(6, target._fortifyStacks + increment);
-            target.def += increment;
-        }
-    }
+    // 防战坚盾已迁移至事件总线监听器
     emitEvent(target, 'hp-change', { hp: target.hp, maxHp: target.maxHp, alive: target.alive, atk: target.atk, def: target.def, _isDead: target._isDead || false });
 
-    // 小昭姐乾坤衍生
-    if (target.camp === 'ally') {
-        const sisterComp = createXiaoZhaoSisterComponent();
-        sisterComp.onAllyDamaged(target, dmg, A, null);
-    }
+    // 小昭姐乾坤衍生已迁移至事件总线 allyDamaged 信号
 
     // 严阵以待反弹
     let reboundEntry = null;
@@ -398,10 +366,8 @@ export function buildAttackGroup(unit, target, dmgCalc, dmgResult, attackerBuffS
     if (horseReboundEntry) group.entries.push(horseReboundEntry);
     group.entries.push({type:'detail', text:`<span class="gray small">波动：攻${atkBase}→${atkAct} 防${defBase}→${defAct} 血${hpBonus >= 0 ? '+' + hpBonus : hpBonus}</span>`});
     if (thunderBonus > 0) group.entries.push({type:'detail', text:`<span class="red small">💥 混元霹雳劲+${thunderBonus}真实伤害</span>`});
-    if (hornDefIgnore > 0) {
-        if (hornDmgMultiplier > 1) {
-            group.entries.push({type:'info', text:`<span class="gold">🦌 目标已中毒（玄冥神掌），鹤笔翁 鹿角杖法伤害+50%！</span>`});
-        }
+    if (hornDefIgnore > 0 && hornDmgMultiplier > 1) {
+        group.entries.push({type:'info', text:`<span class="gold">🦌 目标已中毒（玄冥神掌），鹤笔翁 鹿角杖法伤害+50%！</span>`});
     }
     if (trueDmg > 0) group.entries.push({type:'detail', text:`<span class="red small">⚔️ 叛逆真伤+${trueDmg}（目标当前生命${Math.round((C.ELITE_SKILLS?.rebelStrike?.currentHpRatio || 0.12) * 100)}%）</span>`});
     group.entries.push({type:'detail', text:`<span class="gray small">计算：${rawFormula}</span>`});
@@ -411,7 +377,7 @@ export function buildAttackGroup(unit, target, dmgCalc, dmgResult, attackerBuffS
         delete unit._executeLog;
     }
     if (target.role === '防战' && dmg > 0 && target._fortifyStacks !== undefined) {
-        group.entries.push({type:'detail', text:`<span class="blue small">🛡️ ${target.name} 坚盾：防御+0.5（已叠${target._fortifyStacks}/6）</span>`});
+        group.entries.push({type:'detail', text:`<span class="blue small">🛡️ ${target.name} 坚盾：防御+1（已叠${target._fortifyThisRound || 0}/3）</span>`});
     }
     group._events = [...window._battleEvents];
     window._battleEvents = [];
@@ -422,7 +388,6 @@ export function buildAttackGroup(unit, target, dmgCalc, dmgResult, attackerBuffS
 
     log.push(group);
 
-    // 攻击后效果
     applyPostAttackEffects(unit, target, dmg, atkAct, defAct, reboundEntry, allySide, enemySide, log, A);
     return group;
 }
@@ -438,18 +403,12 @@ export function applyPostAttackEffects(unit, target, dmg, atkAct, defAct, reboun
     if (unit.camp === 'ally') {
         applyBuffEffectsAfterAttack(unit, target, dmg, allySide, enemySide, log);
     }
-    // 玄冥神掌已迁移至 modules/94elite-luzhangke.js 组件
     if (reboundEntry) { log.push(reboundEntry); }
     let dead = !target.alive;
     if (dead && target.camp === 'ally') { checkZhangSwitch(A, log); }
 }
 
-// selectTarget 已移除，所有调用方统一使用 selectAttackTarget
-// checkZhangSwitch 已移除，统一使用 core/50battle-shared.js 的导出
-
 export { calcFinalDamage as calcAttackDamage };
-
-// resolveDodge 已整合到 resolveAttackHit，旧兼容导出已移除
 
 export function isUnitStunned(unit) {
     return !!(unit && unit._stunned);

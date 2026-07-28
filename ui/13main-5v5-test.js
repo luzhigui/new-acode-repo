@@ -151,7 +151,7 @@ document.addEventListener('DOMContentLoaded', function() {
     bindCoverStart({ val: gameStarted }, updateSpeedButtons);
     bindPauseButton(getState, setState, updateButtons);
     bindNextButton(setState, updateButtons, lowerBGM);
-    bindDetailButton(getState, setState);
+    bindDetailButton(getState, setState, showModal);
     bindDebugButton(setState, updateSpeedButtons, updateDebugUI, updateUI);
     bindBGButton(showMusicPanel);
     bindCrashModeButton();
@@ -415,7 +415,7 @@ document.addEventListener('DOMContentLoaded', function() {
         setState.snapshot(getState.snapshot());
         updateUI(); updateScoreBadge();
         document.getElementById('log').innerHTML = '<div class="separator">' + LOG_LINE1 + '</div>';
-        document.getElementById('btnDetail').classList.toggle('active', getState.detailMode());
+        document.getElementById('btnDetail').classList.toggle('active', getState.logLevel() !== 'brief');
         document.getElementById('btnAuto').classList.toggle('active', getState.autoMode());
         document.getElementById('btnDodgeToggle').classList.toggle('active', getState.dodgeEffectEnabled());
         document.getElementById('btnDodgeToggle').textContent = getState.dodgeEffectEnabled() ? '华丽' : '简单';

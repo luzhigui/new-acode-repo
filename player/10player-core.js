@@ -320,7 +320,8 @@ async function handleAttackGroup(c, entry, roundResult, abortSig, isFirstAttackR
     let lastDiv=null,healDiv=null, blockDelay=false;
     for(let entry2 of textEntries){
         if(abortSig&&abortSig.aborted){if(atkTimer)clearTimeout(atkTimer);if(defTimer)clearTimeout(defTimer);return { isBattleOver: false };}
-        if(!c.detailMode&&entry2.type==='detail'){ let hiddenDiv=document.createElement('div'); hiddenDiv.className='detail-hidden'; hiddenDiv.innerHTML=entry2.text+'<br>'; document.getElementById('log').appendChild(hiddenDiv); c.autoScrollLog(); continue; }
+        const logLevel = getState.logLevel();
+        if(logLevel==='brief'&&entry2.type==='detail'){ let hiddenDiv=document.createElement('div'); hiddenDiv.className='detail-hidden'; hiddenDiv.innerHTML=entry2.text+'<br>'; document.getElementById('log').appendChild(hiddenDiv); c.autoScrollLog(); continue; }
         if(entry2.type==='damage-text'){ lastDiv=document.createElement('div'); document.getElementById('log').appendChild(lastDiv); await playLineText(entry2.text,lastDiv, Math.max(c.speed || 1000, 1000)); }
         else if(entry2.isHealEntry && entry.isDead){ healDiv=document.createElement('div'); document.getElementById('log').appendChild(healDiv); await playLineText(entry2.text,healDiv); }
         else{
@@ -705,6 +706,16 @@ export async function playLogEntries(c, log, roundResult, isFirstAttackRef) {
                     lastEntryType = entry.type;
                     break;
                 case 'round-end': await handleRoundEnd(c, entry, log, i); lastEntryType = entry.type; break;
+                case 'signal':
+                    const logLevel = getState.logLevel();
+                    if (logLevel === 'debug') {
+                        let sigDiv = document.createElement('div');
+                        sigDiv.innerHTML = entry.text + '<br>';
+                        document.getElementById('log').appendChild(sigDiv);
+                        c.autoScrollLog();
+                    }
+                    lastEntryType = entry.type;
+                    break;
             }
 
             if (abortSig && abortSig.aborted) return { isBattleOver: false };
