@@ -5,10 +5,11 @@ export const VER = 'core/50buff-effects.js V5.2.1';
 import { CONFIG } from './01config-5v5-test.js';
 import { rand, hasBuff, getUnitRow, getUnitCol, getAdjacentPositions } from './03battle-utils.js';
 import { isXiaoZhaoPermanentActive, getXiaoZhaoHexEnhance } from '../modules/23elite-skills.js';
+import { emitEvent } from './50battle-shared.js';
 const C = CONFIG;
 
 function emit(unit, payload) {
-    if (typeof window._emitEvent === 'function') window._emitEvent(unit, 'hp-change', payload);
+    emitEvent(unit, 'hp-change', payload);
 }
 
 // ==================== 嗜血狂刀 ====================

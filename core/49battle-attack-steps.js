@@ -15,13 +15,9 @@ import {
     getXiaoZhaoHexEnhance
 } from '../modules/23elite-skills.js';
 import { applyFortifyRebound_Normal, applyFortifyRebound_Sister } from './50buff-effects.js';
-
+import { emitEvent } from './50battle-shared.js';
 
 const C = CONFIG, DT = DEF_TAUNT, HT = HP_TAUNT;
-
-function emitEvent(unit, eventType, payload) {
-    if (typeof window._emitEvent === 'function') window._emitEvent(unit, eventType, payload);
-}
 
 // ==================== 步骤1：选择攻击目标 ====================
 export function selectAttackTarget(unit, enemySide, allySide) {
@@ -158,9 +154,7 @@ export function resolveAttackHit(unit, target, attackerBuffStats, defenderBuffSt
                 dg.entries.push({type:'info', text:`<span class="gray">🦅 ${target.name}闪避了攻击！</span>`});
                 dg.entries.push({type:'damage-text', text:`<span class="red">🦅 ${target.name}反击 → ${unit.name} 造成 ${reboundDmg} 真实伤害（${unitHpBeforeRebound} → ${Math.floor(unit.hp)}）</span>`});
                 if (unit.hp <= 0) { unit.alive = false; unit._isDead = true; dg.isDead = true; dg.alive = false; dg.hpAfter = 0; dg.entries.push({type:'info', text:`${unit.name}被反击击杀！`}); }
-                dg._events = [...window._battleEvents];
-                window._battleEvents = [];
-                if (window.GlobalStore) window.GlobalStore.flushBattleEvents();
+                dg._events = GlobalStore.flushBattleEvents();
                 log.push(dg);
                 unit._acted = true;
                 unit._stunned = true;
@@ -292,7 +286,7 @@ export function applyAttackResult(unit, target, dmgCalc, attackerBuffStats, defe
             const currentToken = GlobalStore.get('holyToken') || 0;
             GlobalStore.set('holyToken', currentToken + 1);
             localStorage.setItem('ming_holy_token_5v5_test', String(currentToken + 1));
-            window._battleEvents.push({ unitUid: unit.uid, eventType: 'info', payload: { text: `🔥 圣火令掉落！${unit.name} 击杀 ${target.name}，获得1枚圣火令！当前总数：${currentToken + 1}`, fastEntry: true } });
+            window.GlobalStore.pushBattleEvent({ unitUid: unit.uid, eventType: 'info', payload: { text: `🔥 圣火令掉落！${unit.name} 击杀 ${target.name}，获得1枚圣火令！当前总数：${currentToken + 1}`, fastEntry: true } });
             log.push({type:'info', text:`<span class="gold">🔥 圣火令掉落！${unit.name} 击杀 ${target.name}，获得1枚圣火令！当前总数：${currentToken + 1}</span>`, fastEntry: true, unitUid: unit.uid});
         }
     }
@@ -305,7 +299,7 @@ export function applyAttackResult(unit, target, dmgCalc, attackerBuffStats, defe
             chests++;
             localStorage.setItem('ming_chest_count', String(chests));
             GlobalStore.set('chestCount', chests);
-            window._battleEvents.push({ unitUid: unit.uid, eventType: 'info', payload: { text: `🎁 宝箱掉落！${unit.name} 击杀 ${target.name}，获得1个宝箱！当前总数：${chests}`, fastEntry: true } });
+            window.GlobalStore.pushBattleEvent({ unitUid: unit.uid, eventType: 'info', payload: { text: `🎁 宝箱掉落！${unit.name} 击杀 ${target.name}，获得1个宝箱！当前总数：${chests}`, fastEntry: true } });
         }
     }
 
@@ -379,9 +373,7 @@ export function buildAttackGroup(unit, target, dmgCalc, dmgResult, attackerBuffS
     if (target.role === '防战' && dmg > 0 && target._fortifyStacks !== undefined) {
         group.entries.push({type:'detail', text:`<span class="blue small">🛡️ ${target.name} 坚盾：防御+1（已叠${target._fortifyThisRound || 0}/3）</span>`});
     }
-    group._events = [...window._battleEvents];
-    window._battleEvents = [];
-    if (window.GlobalStore) window.GlobalStore.flushBattleEvents();
+    group._events = GlobalStore.flushBattleEvents();
     for (const entry of bonusEntries) {
         group.entries.push(entry);
     }

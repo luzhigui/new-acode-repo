@@ -437,9 +437,7 @@ export function butterflyAttach(unit, allyTeam, log) {
     // ★ 立即刷新 Store，让 UI 瞬间更新宿主的攻防血和蝴蝶 logo
     const ctx = window._getPlayerContext?.();
     if (ctx && ctx.store) {
-        const events = [...window._battleEvents];
-        window._battleEvents = [];
-        if (window.GlobalStore) window.GlobalStore.flushBattleEvents();
+                const clawEvents = window.GlobalStore ? window.GlobalStore.flushBattleEvents() : [];
         if (events.length > 0) ctx.store.dispatch({ type: 'APPLY_EVENTS', events });
     }
 }
@@ -565,9 +563,7 @@ export function spiderFlyCheck(unit, allyTeam, log, incomingDmg) {
     // 立即刷新 Store，确保格子瞬间消失
     const ctx = window._getPlayerContext?.();
     if (ctx && ctx.store) {
-        const events = [...window._battleEvents];
-        window._battleEvents = [];
-        if (window.GlobalStore) window.GlobalStore.flushBattleEvents();
+                const clawEvents = window.GlobalStore ? window.GlobalStore.flushBattleEvents() : [];
         if (events.length > 0) ctx.store.dispatch({ type: 'APPLY_EVENTS', events });
     }
 
