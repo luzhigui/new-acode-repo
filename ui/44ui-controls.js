@@ -453,11 +453,10 @@ export function bindCopyLogButton(showModal, copyLogToClipboard) {
     document.getElementById('copyLog').addEventListener('click', () => {
         showModal('选择复制类型', [
             { text: '📋 复制普通日志', value: 'normal', cls: 'buff' },
-            { text: '🩺 复制体检日志', value: 'health', cls: 'buff' },
             { text: '📋 复制全部日志', value: 'all', cls: 'buff' }
         ], (choice) => copyLogToClipboard(choice));
     });
 }
 
 // ==================== 导出 ====================
-export { updateSpeedButtons, setSpeed, activateScrollSlowdown, restoreSpeedFromScroll, updateButtons, enableAllButtons, updateDebugUI };
+export { updateSpeedButtons, setSpeed, activateScrollSlowdown, restoreSpeedFromScroll, updateButtons, enableAllButtons, updateDebugUI, updateBuffSlots, bindCoverStart, bindPauseButton, bindNextButton, bindDetailButton, bindDebugButton, bindBGButton, bindCrashModeButton, bindDodgeButton, bindAutoButton, bindSettleButton, bindStageSelectButton, bindVoteFloat, bindGridClick, bindCopyLogButton };

@@ -286,45 +286,12 @@ export function* createRoundStepper(state) {
     // 注册精英组件钩子
     A.forEach(u => {
         if (!u.alive) return;
-        if (u.isZhang) {
-            const zhangComp = createZhangWujiComponent();
-            eventBus.on('afterDamageApplied', 40, (data) => {
-                zhangComp.onAfterApplyDamage(data.unit, data.target, { dmg: data.dmg }, data.group, A, data.log);
-            });
-            // 乾坤大挪移反弹：监听队友受伤信号
-            eventBus.on('allyDamaged', 40, (data) => {
-                const zhang = A.find(c => c.isZhang && c.alive && c.rangedForm && !c._stunned);
-                if (!zhang) return;
-                const { attacker, target, dmg } = data;
-                if (target.camp !== 'ally' || (target.pos !== 4 && target.pos !== 6) || dmg <= 0) return;
-                const xiaoZhaoActive = A.find(u => u.isXiaoZhao && u.alive);
-                if (xiaoZhaoActive) return; // 升级版由小昭姐处理
-                const rebound = Math.floor(dmg * (CONFIG.ELITE_SKILLS.xiaoZhao.normalReboundPct || 0.15));
-                attacker.hp = Math.max(0, attacker.hp - rebound);
-                attacker.dmgTaken += rebound;
-                zhang.reboundDone += rebound;
-                let selfDmg = Math.max(1, Math.floor(rebound * (CONFIG.ELITE_SKILLS.xiaoZhao.normalSelfDmgPct || 0.1)));
-                zhang.hp -= selfDmg;
-                zhang.dmgTaken += selfDmg;
-                if (typeof window._emitEvent === 'function') {
-                    window._emitEvent(attacker, 'hp-change', { hp: attacker.hp, maxHp: attacker.maxHp, alive: attacker.alive, atk: attacker.atk, def: attacker.def, _isDead: attacker._isDead || false });
-                    window._emitEvent(zhang, 'hp-change', { hp: zhang.hp, maxHp: zhang.maxHp, alive: zhang.alive, atk: zhang.atk, def: zhang.def });
-                }
-                data.log.push({type:'info', text:`<span class="gold">✨ 乾坤大挪移反弹${rebound}给${attacker.name}（无忌自伤${selfDmg}）</span>`, buffType:'rebound'});
-                if (attacker.hp <= 0) { attacker.alive = false; attacker._isDead = true; }
-                if (zhang.hp <= 0) { zhang.hp = 0; zhang.alive = false; zhang._isDead = true; if (!zhang._deathTime) zhang._deathTime = Date.now(); }
-            });
-        }
-        if (u.isWei) {
-            const weiComp = createWeiYixiaoComponent();
-            eventBus.on('afterDamageApplied', 40, (data) => {
-                weiComp.onAfterApplyDamage(data.unit, data.target, { dmg: data.dmg }, data.group, A, data.log);
-            });
-        }
+        if (u.isZhang) createZhangWujiComponent().register(eventBus, A, B, log);
+        if (u.isWei) createWeiYixiaoComponent().register(eventBus, A, B, log);
+        if (u.isXiaoZhaoBrother) createXiaoZhaoBrotherComponent().register(eventBus, A, B, log);
         if (u.isXiaoZhaoSister) {
             const sisterComp = createXiaoZhaoSisterComponent();
             A._sisterComp = sisterComp;
-            // 乾坤衍生：监听队友受伤信号（张无忌不在场时触发）
             eventBus.on('allyDamaged', 50, (data) => {
                 const xiaoZhao = A.find(u => u.isXiaoZhaoSister && u.alive && !u._stunned);
                 if (!xiaoZhao) return;
@@ -333,69 +300,23 @@ export function* createRoundStepper(state) {
                 sisterComp.onAllyDamaged(data.target, data.dmg, A, null);
             });
         }
-        if (u.isXiaoZhaoBrother) {
-            // 小昭妹飞天已通过 _damageInterceptors 机制处理
-        }
     });
     B.forEach(u => {
         if (!u.alive) return;
-        if (u.name === '宋青书') {
-            const songComp = createSongQingshuComponent();
-            eventBus.on('afterDamageApplied', 40, (data) => {
-                if (data.unit.name === '宋青书') {
-                    songComp.onAfterApplyDamage(data.unit, data.target, { dmg: data.dmg }, data.group, B, data.log);
-                }
-            });
-            eventBus.on('afterAttack', 40, (data) => {
-                if (data.unit.name === '宋青书') {
-                    songComp.onAfterAttack(data.unit, data.target, B, A, data.log, B, A, data.state);
-                }
-            });
-        }
-        if (u.name === '周芷若') {
-            const zhouComp = createZhouZhiruoComponent();
-            eventBus.on('afterAttack', 40, (data) => {
-                if (data.unit.name === '周芷若') {
-                    zhouComp.onAfterDamageCalc(data.unit, data.target, data.dmg, data.log, B, A);
-                }
-            });
-        }
-        if (u.name === '成昆') {
-            const chengComp = createChengKunComponent();
-            eventBus.on('afterDamageApplied', 40, (data) => {
-                if (data.unit.name === '成昆') {
-                    chengComp.onAfterApplyDamage(data.unit, data.target, { dmg: data.dmg }, data.group, A, data.log);
-                }
-            });
-            // 混元霹雳劲：伤害计算修正
-            eventBus.on('beforeDamageCalcFinal', 10, (data) => {
-                if (data.unit.name === '成昆') {
-                    data.dmgResult.thunderBonus = chengComp.onDamageCalc(data.unit, data.target, data.dmgResult.value);
-                }
-            });
-        }
-        if (u.name === '鹿杖客') {
-            const luComp = createLuZhangKeComponent();
-            eventBus.on('afterDamageApplied', 40, (data) => {
-                if (data.unit.name === '鹿杖客') {
-                    luComp.onAfterApplyDamage(data.unit, data.target, { dmg: data.dmg }, data.group, B, data.log);
-                }
-            });
-        }
-        if (u.name === '鹤笔翁') {
-            const heComp = createHeBiWengComponent();
-            // 鹿角杖法：伤害计算修正
-            eventBus.on('beforeDamageCalcFinal', 20, (data) => {
-                if (data.unit.name === '鹤笔翁') {
-                    const result = heComp.onDamageCalc(data.unit, data.target, data.dmgResult.value);
-                    if (result && result.defIgnore) {
-                        data.dmgResult.hornDefIgnore = result.defIgnore;
-                        data.dmgResult.hornDmgMultiplier = result.dmgMultiplier || 1;
-                    }
-                }
-            });
-        }
+        if (u.name === '宋青书') createSongQingshuComponent().register(eventBus, A, B, log);
+        if (u.name === '周芷若') createZhouZhiruoComponent().register(eventBus, A, B, log);
+        if (u.name === '成昆') createChengKunComponent().register(eventBus, A, B, log);
+        if (u.name === '鹿杖客') createLuZhangKeComponent().register(eventBus, A, B, log);
+        if (u.name === '鹤笔翁') createHeBiWengComponent().register(eventBus, A, B, log);
     });
+
+    // 建立精英联动引用（替代硬搜名字）
+    const song = B.find(u => u.name === '宋青书' && u.alive);
+    const zhou = B.find(u => u.name === '周芷若' && u.alive);
+    if (song && zhou) { song._linkedPartnerUid = zhou.uid; zhou._linkedPartnerUid = song.uid; }
+    const lu = B.find(u => u.name === '鹿杖客' && u.alive);
+    const he = B.find(u => u.name === '鹤笔翁' && u.alive);
+    if (lu && he) { lu._linkedPartnerUid = he.uid; he._linkedPartnerUid = lu.uid; }
 
     A._butterflyTriggered = false;
     A.forEach(u => {
