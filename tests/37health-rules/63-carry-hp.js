@@ -1,4 +1,4 @@
-﻿﻿﻿﻿// tests/37health-rules/63-carry-hp.js
+﻿﻿﻿﻿﻿﻿// tests/37health-rules/63-carry-hp.js
 // V5.2.0 | Carry血量方向检查
 export const VER = 'tests/37health-rules/63-carry-hp.js V5.2.0';
 
