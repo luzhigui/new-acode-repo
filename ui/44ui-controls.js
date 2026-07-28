@@ -1,4 +1,4 @@
-﻿﻿// ui/44ui-controls.js - 光明顶5v5 UI控制（倍速系统+按钮状态+事件绑定）
+﻿﻿﻿﻿// ui/44ui-controls.js - 光明顶5v5 UI控制（倍速系统+按钮状态+事件绑定）
 // V5.2.1 | ~11000 bytes | 2026-07-27 合并13main按钮绑定、Buff槽更新
 export const VER = 'ui/44ui-controls.js V5.2.1';
 
@@ -223,22 +223,18 @@ export function bindNextButton(setState, updateButtons) {
     });
 }
 
-export function bindDetailButton(getState, setState) {
+export function bindDetailButton(getState, setState, showModal) {
     document.getElementById('btnDetail').addEventListener('click', function () {
-        const newMode = !getState.detailMode();
-        setState.detailMode(newMode);
-        this.classList.toggle('active', newMode);
-        this.textContent = newMode ? '详细' : '简要';
-        const logDiv = document.getElementById('log');
-        const scrollPos = logDiv.scrollTop;
-        const totalBefore = logDiv.scrollHeight;
-        if (!newMode) {
-            document.querySelectorAll('#log .gray.small').forEach(el => { if (el.parentElement) el.parentElement.classList.add('detail-hidden'); });
-        } else {
-            document.querySelectorAll('#log .detail-hidden').forEach(el => el.classList.remove('detail-hidden'));
-        }
-        const totalAfter = logDiv.scrollHeight;
-        logDiv.scrollTop = scrollPos + (totalAfter - totalBefore);
+        const currentLevel = getState.logLevel();
+        showModal('选择日志模式', [
+            { text: '📋 详细', value: 'detailed', cls: currentLevel === 'detailed' ? 'active' : 'buff' },
+            { text: '📋 简要', value: 'brief', cls: currentLevel === 'brief' ? 'active' : 'buff' },
+            { text: '🩺 调试', value: 'debug', cls: currentLevel === 'debug' ? 'active' : 'buff' }
+        ], (choice) => {
+            setState.logLevel(choice);
+            this.textContent = choice === 'detailed' ? '详细' : (choice === 'brief' ? '简要' : '调试');
+            if (window._renderAllLogs) window._renderAllLogs();
+        });
     });
 }
 
