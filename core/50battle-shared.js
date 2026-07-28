@@ -7,26 +7,8 @@ import { ROLE_BONUS } from './02unit.js';
 const C = CONFIG;
 
 // ==================== 事件系统 ====================
-function emitEvent(unit, eventType, payload) {
-    if (typeof window._battleEvents === 'undefined' && !window.GlobalStore) return;
-    payload.dmgDealt = unit.dmgDealt;
-    payload.dmgTaken = unit.dmgTaken;
-    payload.healDone = unit.healDone;
-    payload.reboundDone = unit.reboundDone;
-    payload.leechDone = unit.leechDone;
-    payload.dodgeCount = unit.dodgeCount;
-    payload.critCount = unit.critCount;
-    payload.survivedRounds = unit.survivedRounds;
-    payload.buffAtkBonus = unit.buffAtkBonus || 0;
-    payload.buffDefBonus = unit.buffDefBonus || 0;
-    payload.buffDodgeBonus = unit.buffDodgeBonus || 0;
-    payload.buffHpBonus = unit.buffHpBonus || 0;
-    if (unit._phantomTarget !== undefined) payload._phantomTarget = unit._phantomTarget;
-    if (unit._resting !== undefined) payload._resting = unit._resting;
-    payload._isAbsolute = true;
-    window._battleEvents.push({ unitUid: unit.uid, eventType, payload });
-}
-window._emitEvent = emitEvent;
+// 原始 emitEvent 函数已在文件末尾通过 emitCoreEvent 统一处理，此处删除重复定义
+// window._emitEvent 挂载已在文件末尾 emitCoreEvent 函数中完成
 
 function emitFullUnitState(unit, eventType) {
     emitEvent(unit, eventType, {
@@ -92,8 +74,20 @@ function checkZhangSwitch(A, log) {
     }
 }
 
+// ==================== 统一事件发送 ====================
+// 优先使用 GlobalStore，回退到 window._emitEvent（兼容旧代码）
+function emitCoreEvent(unit, eventType, payload) {
+    if (window.GlobalStore) {
+        window.GlobalStore.pushBattleEvent({ unitUid: unit.uid, eventType, payload });
+    } else if (typeof window._emitEvent === 'function') {
+        window._emitEvent(unit, eventType, payload);
+    }
+}
+// 同时挂载到 window 以兼容非 core 层代码的调用
+window._emitEvent = emitCoreEvent;
+
 export {
-    emitEvent,
+    emitCoreEvent as emitEvent,
     emitFullUnitState,
     finalizeDeaths,
     getNextAvailableUnit,

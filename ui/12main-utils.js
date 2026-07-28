@@ -79,6 +79,9 @@ export function copyLogToClipboard(choice) {
     let logDiv = document.getElementById('log');
     let lines = [];
     let seen = new Set();
+    if (choice === 'detailed') choice = 'all';
+    if (choice === 'brief') choice = 'normal';
+    if (choice === 'debug') choice = 'all';
     const allDivs = logDiv.querySelectorAll('div');
     allDivs.forEach(div => {
         let t = div.textContent || '';
@@ -98,10 +101,7 @@ export function copyLogToClipboard(choice) {
             if (seen.has(key)) return;
             seen.add(key);
         }
-        if (choice === 'detailed') choice = 'all';
-    if (choice === 'brief') choice = 'normal';
-    if (choice === 'debug') choice = 'all';
-    if (choice === 'health') {
+        if (choice === 'health') {
             if (t.includes('[体检]')) lines.push(t);
         } else if (choice === 'normal') {
             if (!t.includes('[体检]') && !t.includes('[版本信息]') && !t.includes('[子模块]')) lines.push(t);

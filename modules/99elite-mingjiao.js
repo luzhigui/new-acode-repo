@@ -21,6 +21,35 @@ function getZhangNearTaunt(nearAtkCount) {
 export function createZhangWujiComponent() {
     return {
         name: '张无忌',
+        register(eventBus, A, B, log) {
+            const zhang = A.find(u => u.isZhang && u.alive);
+            if (!zhang) return;
+            // 九阳回血
+            eventBus.on('afterDamageApplied', 40, (data) => {
+                if (data.unit.uid !== zhang.uid) return;
+                zhang.onAfterApplyDamage(data.unit, data.target, { dmg: data.dmg }, data.group, A, data.log);
+            });
+            // 乾坤大挪移反弹
+            eventBus.on('allyDamaged', 40, (data) => {
+                if (!zhang || !zhang.alive || !zhang.rangedForm || zhang._stunned) return;
+                const { attacker, target, dmg } = data;
+                if (target.camp !== 'ally' || (target.pos !== 4 && target.pos !== 6) || dmg <= 0) return;
+                const xiaoZhaoActive = A.find(u => u.isXiaoZhao && u.alive);
+                if (xiaoZhaoActive) return;
+                const rebound = Math.floor(dmg * (CONFIG.ELITE_SKILLS.xiaoZhao.normalReboundPct || 0.15));
+                attacker.hp = Math.max(0, attacker.hp - rebound);
+                attacker.dmgTaken += rebound;
+                zhang.reboundDone += rebound;
+                let selfDmg = Math.max(1, Math.floor(rebound * (CONFIG.ELITE_SKILLS.xiaoZhao.normalSelfDmgPct || 0.1)));
+                zhang.hp -= selfDmg;
+                zhang.dmgTaken += selfDmg;
+                emitEvent(attacker, 'hp-change', { hp: attacker.hp, maxHp: attacker.maxHp, alive: attacker.alive, atk: attacker.atk, def: attacker.def, _isDead: attacker._isDead || false });
+                emitEvent(zhang, 'hp-change', { hp: zhang.hp, maxHp: zhang.maxHp, alive: zhang.alive, atk: zhang.atk, def: zhang.def });
+                data.log.push({type:'info', text:`<span class="gold">✨ 乾坤大挪移反弹${rebound}给${attacker.name}（无忌自伤${selfDmg}）</span>`, buffType:'rebound'});
+                if (attacker.hp <= 0) { attacker.alive = false; attacker._isDead = true; }
+                if (zhang.hp <= 0) { zhang.hp = 0; zhang.alive = false; zhang._isDead = true; if (!zhang._deathTime) zhang._deathTime = Date.now(); }
+            });
+        },
         onAfterApplyDamage(unit, target, dmgCalc, group, A, log) {
             if (unit.camp !== 'ally' || !unit.isZhang || !unit.alive) return;
             const hpBeforeZhang = Math.floor(unit.hp);
@@ -51,6 +80,14 @@ export function createZhangWujiComponent() {
 export function createWeiYixiaoComponent() {
     return {
         name: '韦一笑',
+        register(eventBus, A, B, log) {
+            const wei = A.find(u => u.isWei && u.alive);
+            if (!wei) return;
+            eventBus.on('afterDamageApplied', 40, (data) => {
+                if (data.unit.uid !== wei.uid) return;
+                wei.onAfterApplyDamage(data.unit, data.target, { dmg: data.dmg }, data.group, A, data.log);
+            });
+        },
         onAfterApplyDamage(unit, target, dmgCalc, group, A, log) {
             if (unit.camp !== 'ally' || !unit.isWei || !unit.alive || dmgCalc.dmg <= 0) return;
             const healWei = Math.floor(dmgCalc.dmg * 0.18);
@@ -116,6 +153,15 @@ export function createXiaoZhaoSisterComponent() {
 export function createXiaoZhaoBrotherComponent() {
     return {
         name: '小昭·妹',
+        register(eventBus, A, B, log) {
+            const brother = A.find(u => u.isXiaoZhaoBrother && u.alive);
+            if (!brother) return;
+            eventBus.on('beforeDamageApply', 100, (data) => {
+                if (data.target.uid !== brother.uid || !data.A) return;
+                const immune = brother.onBeforeDeath(data.target, data.dmg, data.A, data.log);
+                if (immune) data.result.immune = true;
+            });
+        },
         onBeforeDeath(unit, incomingDmg, A, log) {
             if (!unit.isXiaoZhaoBrother || !unit.alive || unit._spiderFlying || unit._flyMode === 'spider') return false;
             const hpBefore = unit.hp; const hpAfter = incomingDmg !== undefined ? hpBefore - incomingDmg : hpBefore; const maxHp = unit.maxHp; let reason = '';

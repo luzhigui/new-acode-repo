@@ -13,6 +13,20 @@ function emitEvent(unit, eventType, payload) {
 export function createSongQingshuComponent() {
     return {
         name: '宋青书',
+        register(eventBus, A, B, log) {
+            const song = B.find(u => u.name === '宋青书' && u.alive);
+            if (!song) return;
+            // 新婚扣血 + 性奋代价
+            eventBus.on('afterDamageApplied', 40, (data) => {
+                if (data.unit.name !== '宋青书') return;
+                song.onAfterApplyDamage(data.unit, data.target, { dmg: data.dmg }, data.group, B, data.log);
+            });
+            // 性奋额外攻击
+            eventBus.on('afterAttack', 40, (data) => {
+                if (data.unit.name !== '宋青书') return;
+                song.onAfterAttack(data.unit, data.target, B, A, data.log, B, A, data.state);
+            });
+        },
         onAfterApplyDamage(unit, target, dmgCalc, group, allySide, log) {
             if (unit.name !== '宋青书' || !unit.alive) return;
             const zhou = allySide.find(u => u.name === '周芷若' && u.alive);
@@ -50,6 +64,15 @@ export function createSongQingshuComponent() {
 export function createZhouZhiruoComponent() {
     return {
         name: '周芷若',
+        register(eventBus, A, B, log) {
+            const zhou = B.find(u => u.name === '周芷若' && u.alive);
+            if (!zhou) return;
+            // 九阴白骨爪追击
+            eventBus.on('afterAttack', 40, (data) => {
+                if (data.unit.name !== '周芷若') return;
+                zhou.onAfterDamageCalc(data.unit, data.target, data.dmg, data.log, B, A);
+            });
+        },
         onAfterDamageCalc(unit, target, dmg, log, allySide, enemySide) {
             if (unit.name !== '周芷若' || !target || !target.alive) return 0;
             const battleState = window.GlobalStore?.get('currentBattleState');
