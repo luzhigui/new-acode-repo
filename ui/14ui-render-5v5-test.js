@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿// ui/14ui-render-5v5-test.js - 光明顶5v5 UI渲染模块（响应式版）
+﻿﻿﻿﻿﻿﻿﻿﻿﻿// ui/14ui-render-5v5-test.js - 光明顶5v5 UI渲染模块（响应式版）
 // V5.2.1 | ~18500 bytes | 2026-07-11 数据驱动渲染，移除魔数清理
 export const VER = 'ui/14ui-render-5v5-test.js V5.2.1';
 

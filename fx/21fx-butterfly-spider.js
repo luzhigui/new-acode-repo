@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿// fx/21fx-butterfly-spider.js - 光明顶5v5 蝶蛛双生特效
+﻿﻿﻿﻿﻿﻿﻿﻿﻿// fx/21fx-butterfly-spider.js - 光明顶5v5 蝶蛛双生特效
 // V5.2.1 | 从实验室移植，蝴蝶飞走/飞回 + 蜘蛛升天/降下
 export const VER = 'fx/21fx-butterfly-spider.js V5.2.1';
 
