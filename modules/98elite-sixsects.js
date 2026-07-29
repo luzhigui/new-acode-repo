@@ -1,7 +1,7 @@
 // modules/98elite-sixsects.js - 六大派精英组件合集
 // V5.2.2 | ~4000 bytes | 2026-07-28 合并宋青书/周芷若
 export const VER = 'modules/98elite-sixsects.js V5.2.2';
-
+import { GlobalStore } from './46global-store.js';
 import { CONFIG } from '../core/01config-5v5-test.js';
 const ES = CONFIG.ELITE_SKILLS;
 
@@ -16,15 +16,17 @@ export function createSongQingshuComponent() {
         register(eventBus, A, B, log) {
             const song = B.find(u => u.name === '宋青书' && u.alive);
             if (!song) return;
+            const onAfterApplyDamage = this.onAfterApplyDamage;
+            const onAfterAttack = this.onAfterAttack;
             // 新婚扣血 + 性奋代价
             eventBus.on('afterDamageApplied', 40, (data) => {
                 if (data.unit.name !== '宋青书') return;
-                song.onAfterApplyDamage(data.unit, data.target, { dmg: data.dmg }, data.group, B, data.log);
+                onAfterApplyDamage(data.unit, data.target, { dmg: data.dmg }, data.group, B, data.log);
             });
             // 性奋额外攻击
             eventBus.on('afterAttack', 40, (data) => {
                 if (data.unit.name !== '宋青书') return;
-                song.onAfterAttack(data.unit, data.target, B, A, data.log, B, A, data.state);
+                onAfterAttack(data.unit, data.target, B, A, data.log, B, A, data.state);
             });
         },
         onAfterApplyDamage(unit, target, dmgCalc, group, allySide, log) {
@@ -51,11 +53,11 @@ export function createSongQingshuComponent() {
                 }
             }
         },
-        onAfterAttack(unit, target, allySide, enemySide, log, A, B, state) {
+        async onAfterAttack(unit, target, allySide, enemySide, log, A, B, state) {
             if (unit.name !== '宋青书' || !unit.alive || !unit._xingFenActive || !enemySide.some(u => u.alive)) return;
             unit._xingFenActive = false;
             log.push({ type:'info', text:`<span class="gold">💗 性奋：${unit.name} 获得额外攻击机会！</span>` });
-            if (typeof processUnitAttack === 'function') { processUnitAttack(unit, allySide, enemySide, log, A, B, state, null); }
+            if (typeof processUnitAttack === 'function') { await processUnitAttack(unit, allySide, enemySide, log, A, B, state, null); }
         }
     };
 }
@@ -67,10 +69,11 @@ export function createZhouZhiruoComponent() {
         register(eventBus, A, B, log) {
             const zhou = B.find(u => u.name === '周芷若' && u.alive);
             if (!zhou) return;
+            const onAfterDamageCalc = this.onAfterDamageCalc;
             // 九阴白骨爪追击
             eventBus.on('afterAttack', 40, (data) => {
                 if (data.unit.name !== '周芷若') return;
-                zhou.onAfterDamageCalc(data.unit, data.target, data.dmg, data.log, B, A);
+                onAfterDamageCalc(data.unit, data.target, data.dmg, data.log, B, A);
             });
         },
         onAfterDamageCalc(unit, target, dmg, log, allySide, enemySide) {
@@ -96,8 +99,7 @@ export function createZhouZhiruoComponent() {
                 if (hpPctAfter <= execThreshold && target.hp > 0) { bonusDmg += target.hp; target.hp = 0; isExecute = true; }
                 if (target.hp <= 0) { target.hp = 0; target.alive = false; target._isDead = true; if (!target._deathTime) target._deathTime = Date.now(); }
                 emitEvent(target, 'hp-change', { hp:target.hp, maxHp:target.maxHp, alive:target.alive, atk:target.atk, def:target.def, _isDead:target._isDead||false, _isAbsolute:true });
-                const clawEvents = [...window._battleEvents]; window._battleEvents = [];
-                if (window.GlobalStore) window.GlobalStore.flushBattleEvents();
+                const clawEvents = GlobalStore.flushBattleEvents();
                 log.push({ type:'info', text:`<span style="color:#222">🐾 九阴白骨爪${depth>0?'连锁':'追击'}！${unit.name} 对 ${target.name} 造成 ${bonusDmg} 点伤害${isExecute?'（斩杀）':(zhangAlive?'【嫉妒】':'')}</span>`, buffType:'elite_bonus', isClawHit:true, clawAttackerUid:unit.uid, clawTargetUid:target.uid, clawTargetHpAfter:target.hp, clawTargetAlive:target.alive, clawTargetIsDead:target._isDead, isExecute:isExecute, uidD:target.uid, isDead:!target.alive, _events:clawEvents });
                 if (battleState) {
                     const allUnits = [...(battleState.ally||[]), ...(battleState.enemy||[])];
@@ -106,10 +108,25 @@ export function createZhouZhiruoComponent() {
                         const healAmount = Math.min(bonusDmg, song.maxHp - song.hp);
                         if (healAmount > 0) { song.hp += healAmount; song.healDone += healAmount; }
                         emitEvent(song, 'hp-change', { hp:song.hp, maxHp:song.maxHp, alive:song.alive, atk:song.atk, def:song.def });
-                        log.push({ type:'info', text:`<span class="green">💚 宋青书因九阴白骨爪回复${healAmount}点生命${healAmount===0?'（已满血）':''}</span>`, isHealEntry:true, healAmount:healAmount>0?healAmount:bonusDmg, healUnitUid:song.uid });
                     }
                 }
                 depth++; if (isExecute) break;
+            }
+            // 汇总宋青书回血
+            if (totalBonus > 0) {
+                const battleState2 = window.GlobalStore?.get('currentBattleState');
+                if (battleState2) {
+                    const allUnits2 = [...(battleState2.ally||[]), ...(battleState2.enemy||[])];
+                    const song2 = allUnits2.find(u => u.name === '宋青书' && u.alive);
+                    if (song2) {
+                        const totalHeal = Math.min(totalBonus, song2.maxHp - song2.hp + (song2.healDone || 0));
+                        if (totalHeal > 0) {
+                            log.push({ type:'info', text:`<span class="green">💚 宋青书因九阴白骨爪共回复${totalHeal}点生命</span>`, isHealEntry:true, healAmount:totalHeal, healUnitUid:song2.uid });
+                        } else {
+                            log.push({ type:'info', text:`<span class="gray">💚 宋青书已满血，白骨爪未能回复生命</span>` });
+                        }
+                    }
+                }
             }
             return totalBonus;
         }

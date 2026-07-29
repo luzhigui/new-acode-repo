@@ -1,7 +1,6 @@
-// ===== ../core/07battle-engine-5v5-test.js =====
 // core/07battle-engine-5v5-test.js - 光明顶5v5 战斗引擎入口
-// V5.2.1 | ~3000 bytes | 2026-07-16 适配攻击/回合模块拆分
-export const VER = 'core/07battle-engine-5v5-test.js V5.2.1';
+// V5.2.2 | ~3000 bytes | 2026-07-29 清理退役函数导入
+export const VER = 'core/07battle-engine-5v5-test.js V5.2.2';
 
 import { Unit } from './02unit.js';
 import {
@@ -38,26 +37,21 @@ import { animatePositionSwap } from '../fx/18fx-position-swap.js';
 import { animatePushBack, animatePushSwap } from '../fx/19fx-push-back.js';
 import { showDodgeBulletTime } from '../fx/20fx-dodge-bullet.js';
 
-// 精英技能函数
+// 精英技能函数（只导入仍在使用的）
 import {
-    checkNineYinClaw,
-    getRebelTarget,
-    getRebelDmgBonus,
-    getRebelTrueDmg,
-    getPhantomThunderBonus,
-    applyXuanmingPalm,
-    tickXuanmingPoison,
-    getHornStrikeBonus,
-    checkKuLian,
-    applyXingFenGrant,
-    applyXinHunDeduction,
-    tickKuaiLeHeal,
-    canXingFenTrigger,
-    consumeXingFen,
+    getRebelTarget, getRebelDmgBonus, getRebelTrueDmg,
+    checkKuLian, applyXingFenGrant,
+    spiderTransform, spiderReturn,
+    tickXuanmingPoison, tickKuaiLeHeal,
+    canXingFenTrigger, consumeXingFen,
+    applyPhantomDisguise, applyXiaoZhaoMindControl,
+    checkXiaoZhaoPermanentDoubleStrike,
+    computeButterflyMastery, addPermanentBuff,
+    isXiaoZhaoPermanentActive, getXiaoZhaoHexEnhance,
     applyDamageModifiers
 } from '../modules/23elite-skills.js';
 
-// Buff UI 函数（海克斯弹窗）
+// Buff UI 函数
 import { showBuffPopup } from '../player/09player-buff-ui.js';
 
 // 子模块版本号
@@ -69,7 +63,6 @@ import { VER as VER_CORE } from './06battle-engine-core.js';
 import { VER as VER_ATTACK } from './47battle-attack.js';
 import { VER as VER_ROUND } from './48battle-round.js';
 
-// ===================== 原有导出 (保持不变) =====================
 export { Unit };
 export { rand, calcDamage, getFangLevel, isMelee, getFronts, isBlocked, getFlyDodgeRate };
 export { getRandomTaunt, getKillTaunt, getZhangNearTaunt, makeFXSnapshot };

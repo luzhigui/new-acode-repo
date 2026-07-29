@@ -4,6 +4,7 @@ export const VER = 'modules/97elite-imperial.js V5.2.2';
 
 import { CONFIG } from '../core/01config-5v5-test.js';
 import { rand } from '../core/03battle-utils.js';
+import { processUnitAttack } from '../core/47battle-attack.js';
 const ES = CONFIG.ELITE_SKILLS;
 
 function emitEvent(unit, eventType, payload) {
@@ -17,15 +18,17 @@ export function createChengKunComponent() {
         register(eventBus, A, B, log) {
             const cheng = B.find(u => u.name === '成昆' && u.alive);
             if (!cheng) return;
+            const onAfterApplyDamage = this.onAfterApplyDamage;
+            const onDamageCalc = this.onDamageCalc;
             // 幻影伪装
             eventBus.on('afterDamageApplied', 40, (data) => {
                 if (data.unit.name !== '成昆') return;
-                cheng.onAfterApplyDamage(data.unit, data.target, { dmg: data.dmg }, data.group, A, data.log);
+                onAfterApplyDamage(data.unit, data.target, { dmg: data.dmg }, data.group, A, data.log);
             });
             // 混元霹雳劲
             eventBus.on('beforeDamageCalcFinal', 10, (data) => {
                 if (data.unit.name === '成昆') {
-                    data.dmgResult.thunderBonus = cheng.onDamageCalc(data.unit, data.target, data.dmgResult.value);
+                    data.dmgResult.thunderBonus = onDamageCalc(data.unit, data.target, data.dmgResult.value);
                 }
             });
         },
@@ -60,10 +63,11 @@ export function createLuZhangKeComponent() {
         register(eventBus, A, B, log) {
             const lu = B.find(u => u.name === '鹿杖客' && u.alive);
             if (!lu) return;
+            const onAfterApplyDamage = this.onAfterApplyDamage;
             // 玄冥神掌中毒
             eventBus.on('afterDamageApplied', 40, (data) => {
                 if (data.unit.name !== '鹿杖客') return;
-                lu.onAfterApplyDamage(data.unit, data.target, { dmg: data.dmg }, data.group, B, data.log);
+                onAfterApplyDamage(data.unit, data.target, { dmg: data.dmg }, data.group, B, data.log);
             });
         },
         onAfterApplyDamage(unit, target, dmgCalc, group, allySide, log) {
@@ -82,10 +86,11 @@ export function createHeBiWengComponent() {
         register(eventBus, A, B, log) {
             const he = B.find(u => u.name === '鹤笔翁' && u.alive);
             if (!he) return;
+            const onDamageCalc = this.onDamageCalc;
             // 鹿角杖法
             eventBus.on('beforeDamageCalcFinal', 20, (data) => {
                 if (data.unit.name === '鹤笔翁') {
-                    const result = he.onDamageCalc(data.unit, data.target, data.dmgResult.value);
+                    const result = onDamageCalc(data.unit, data.target, data.dmgResult.value);
                     if (result && result.defIgnore) {
                         data.dmgResult.hornDefIgnore = result.defIgnore;
                         data.dmgResult.hornDmgMultiplier = result.dmgMultiplier || 1;
@@ -100,4 +105,26 @@ export function createHeBiWengComponent() {
             return { defIgnore:s.defIgnore, dmgMultiplier:poisoned ? 1+s.poisonedBonus : 1, rawDmg };
         }
     };
+}
+
+export function registerXuanmingLink(eventBus) {
+    eventBus.on('afterAttack', 10, async (data) => {
+        const { unit, target, dmg, allySide, enemySide, log, A, B, state } = data;
+        if (!unit || unit._isLinkAttack || dmg <= 0 || !target || !target.alive) return;
+        const isLuOrHe = (unit.name === '鹿杖客' || unit.name === '鹤笔翁');
+        if (!isLuOrHe) return;
+        const partnerName = unit.name === '鹿杖客' ? '鹤笔翁' : '鹿杖客';
+        const partner = allySide.find(u => u.name === partnerName && u.alive && !u._linkTriggered);
+        if (!partner) return;
+        const wasActed = partner._acted;
+        partner._isLinkAttack = true;
+        partner._linkTriggered = true;
+        partner._acted = false;
+        log.push({type:'info', text:`<span class="gold">🔗 ${partner.name} 跟随 ${unit.name} 发动联动攻击！</span>`});
+        if (typeof processUnitAttack === 'function') {
+            await processUnitAttack(partner, allySide, enemySide, log, A, B, state, null, target.uid);
+        }
+        partner._isLinkAttack = false;
+        partner._acted = wasActed;
+    });
 }

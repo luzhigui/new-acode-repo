@@ -15,7 +15,7 @@ import {
 } from './50buff-effects.js';
 import { CONFIG } from './01config-5v5-test.js';
 import { rand, hasBuff, getUnitRow, getUnitCol, getAdjacentPositions } from './03battle-utils.js';
-import { checkKuLian, applyXingFenGrant, applyXinHunDeduction, tickKuaiLeHeal, canXingFenTrigger, consumeXingFen, applyXingFenPenalty, applyXiaoZhaoDerived, computeButterflyMastery, isXiaoZhaoPermanentActive, getXiaoZhaoHexEnhance } from '../modules/23elite-skills.js';
+import { checkKuLian, applyXingFenGrant, tickKuaiLeHeal, computeButterflyMastery, isXiaoZhaoPermanentActive, getXiaoZhaoHexEnhance } from '../modules/23elite-skills.js';
 const C = CONFIG;
 
 /**
@@ -220,7 +220,7 @@ desc += `）`;
 }
 
 export function registerBloodthirst(eventBus) {
-    eventBus.on('afterDamageApplied', 20, (data) => {
+    eventBus.on('afterDamageApplied', 20, async (data) => {
         const { unit, target, dmg, allySide, enemySide, log } = data;
         if (!unit.alive || unit.camp !== 'ally') return;
         const unitBuffs = allySide._activeBuffs || [];
@@ -233,7 +233,7 @@ export function registerBloodthirst(eventBus) {
                 if (unit.alive && target.alive && !unit._bloodthirstStriked) {
                     unit._bloodthirstStriked = true;
                     if (typeof processUnitAttack === 'function') {
-                        processUnitAttack(unit, allySide, enemySide, log, allySide, enemySide, null, null, target.uid);
+                        await processUnitAttack(unit, allySide, enemySide, log, allySide, enemySide, null, null, target.uid);
                     }
                 }
             } else {
