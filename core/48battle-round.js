@@ -3,74 +3,32 @@
 export const VER = 'core/48battle-round.js V5.2.2';
 
 import { CONFIG } from './01config-5v5-test.js';
-import { rand, isMelee, isBlocked, makeFXSnapshot, hasBuff, getUnitCol, getUnitRow, hasAnyEnemyEmptyCol, countEnemyEmptyCols, getBloodAuraBonus, registerWarriorBreakDefense, registerRangedGrowth, registerFortifyShield, selectFlyTarget } from './03battle-utils.js';
+import { rand, isMelee, isBlocked, makeFXSnapshot, hasBuff, getUnitCol, getUnitRow, hasAnyEnemyEmptyCol, countEnemyEmptyCols, getBloodAuraBonus, registerWarriorBreakDefense, registerRangedGrowth, registerFortifyShield, selectFlyTarget, registerEmptyColBonus } from './03battle-utils.js';
 import { computeBuffStats, logBuffSummary, applyHolyFlameBonus, applyFortifyBonus, registerBloodthirst, registerHotBlood, registerWindAssault, registerMeteorShower, registerMindControl } from './04buff-system.js';
 import { spawnHorse, destroyHorse } from './05battle-horse.js';
 import { Unit } from './02unit.js';
 import {
     checkKuLian, applyXingFenGrant, tickXuanmingPoison, tickKuaiLeHeal,
-    butterflyAttach, butterflyReturn, spiderTransform, spiderFlyCheck, spiderReturn,
-    canXingFenTrigger, consumeXingFen, applyXingFenPenalty, isXiaoZhaoPermanentActive,
+    spiderTransform, spiderReturn,
+    canXingFenTrigger, consumeXingFen, isXiaoZhaoPermanentActive,
     getXiaoZhaoHexEnhance
 } from '../modules/23elite-skills.js';
-import { createZhangWujiComponent, createWeiYixiaoComponent, createXiaoZhaoSisterComponent, createXiaoZhaoBrotherComponent } from '../modules/99elite-mingjiao.js';
+import { createZhangWujiComponent, createWeiYixiaoComponent, createXiaoZhaoSisterComponent, createXiaoZhaoBrotherComponent, butterflyReturn } from '../modules/99elite-mingjiao.js';
 import { createSongQingshuComponent, createZhouZhiruoComponent } from '../modules/98elite-sixsects.js';
-import { createChengKunComponent, createLuZhangKeComponent, createHeBiWengComponent } from '../modules/97elite-imperial.js';
+import { createChengKunComponent, createLuZhangKeComponent, createHeBiWengComponent, registerXuanmingLink } from '../modules/97elite-imperial.js';
 import { processUnitAttack } from './47battle-attack.js';
 import { eventBus } from './00-event-bus.js';
 import { getNextAvailableUnit, finalizeDeaths, emitFullUnitState, checkZhangSwitch, emitEvent } from './50battle-shared.js';
 
 const C = CONFIG;
 
-// ==================== 回合级监听器 ====================
 
-function registerEmptyColBonus(eventBus) {
-    eventBus.on('afterAttack', 100, (data) => {
-        const { allySide, enemySide, log } = data;
-        const A = allySide, B = enemySide;
-        if (!A || !B) return;
-        const allyEmptyCols = countEnemyEmptyCols(B);
-        const enemyEmptyCols = countEnemyEmptyCols(A);
-        const allUnits = A.concat(B);
-        const bloodBonus = getBloodAuraBonus(allUnits);
-        const allyFlyers = A.filter(u => u.role === '飞行' && u.alive && !u.isHorse);
-        const enemyFlyers = B.filter(u => u.role === '飞行' && u.alive && !u.isHorse);
-        allyFlyers.forEach(u => {
-            u._emptyColBonus = allyEmptyCols * 5;
-            u._bloodAuraBonus = bloodBonus;
-            u.atk = (u._baseAtk || u.atk) + (u._emptyColBonus || 0) + (u._bloodAuraBonus || 0);
-        });
-        enemyFlyers.forEach(u => {
-            u._emptyColBonus = enemyEmptyCols * 5;
-            u._bloodAuraBonus = bloodBonus;
-            u.atk = (u._baseAtk || u.atk) + (u._emptyColBonus || 0) + (u._bloodAuraBonus || 0);
-        });
-    });
-}
 
-function registerXuanmingLink(eventBus) {
-    eventBus.on('afterAttack', 10, (data) => {
-        const { unit, target, dmg, allySide, enemySide, log, A, B, state } = data;
-        if (!unit || unit._isLinkAttack || dmg <= 0 || !target || !target.alive) return;
-        const isLuOrHe = (unit.name === '鹿杖客' || unit.name === '鹤笔翁');
-        if (!isLuOrHe) return;
-        const partnerName = unit.name === '鹿杖客' ? '鹤笔翁' : '鹿杖客';
-        const partner = allySide.find(u => u.name === partnerName && u.alive && !u._linkTriggered);
-        if (!partner) return;
-        const wasActed = partner._acted;
-        partner._isLinkAttack = true;
-        partner._linkTriggered = true;
-        partner._acted = false;
-        log.push({type:'info', text:`<span class="gold">🔗 ${partner.name} 跟随 ${unit.name} 发动联动攻击！</span>`});
-        processUnitAttack(partner, allySide, enemySide, log, A, B, state, null, target.uid);
-        partner._isLinkAttack = false;
-        if (wasActed) partner._acted = true;
-    });
-}
+
 
 // ==================== 回合生成器 ====================
 
-export function* createRoundStepper(state) {
+export async function* createRoundStepper(state) {
     if (!state.allAllies) {
         state.allAllies = state.ally.map(u => u.clone());
     } else {
@@ -207,16 +165,9 @@ export function* createRoundStepper(state) {
     });
 
     eventBus.clearAll();
-    const xiaoBrother = A.find(u => u.isXiaoZhaoBrother && u.alive);
-    if (xiaoBrother) {
-        const brotherComp = createXiaoZhaoBrotherComponent();
-        eventBus.on('beforeDamageApply', 100, (data) => {
-            if (data.target.uid === xiaoBrother.uid && data.A) {
-                const immune = brotherComp.onBeforeDeath(data.target, data.dmg, data.A, data.log);
-                if (immune) data.result.immune = true;
-            }
-        });
-    }
+    A.forEach(u => {
+        if (u.isXiaoZhaoBrother && u.alive) createXiaoZhaoBrotherComponent().register(eventBus, A, B, log);
+    });
 
     // 注册所有监听器
     registerWarriorBreakDefense(eventBus);
@@ -294,7 +245,7 @@ export function* createRoundStepper(state) {
                 if (!xiaoZhao) return;
                 const zhang = A.find(u => u.isZhang && u.alive);
                 if (zhang) return;
-                sisterComp.onAllyDamaged(data.target, data.dmg, A, null);
+                sisterComp.onAllyDamaged(data.target, data.dmg, A, data.log);
             });
         }
     });
@@ -318,6 +269,7 @@ export function* createRoundStepper(state) {
     A._butterflyTriggered = false;
     A.forEach(u => {
         if (!u.alive) return;
+        emitEvent(u, 'hp-change', { hp: u.hp, maxHp: u.maxHp, alive: u.alive, atk: u.atk, def: u.def, _stunned: false });
         let allyTeamWithDead = A.slice();
         let hasCarryActive = hasBuff(A._activeBuffs, 'carry') || (u.isXiaoZhaoBrother && isXiaoZhaoPermanentActive(u, A._activeBuffs, 'carry'));
         if (hasCarryActive) {
@@ -405,6 +357,7 @@ export function* createRoundStepper(state) {
 
     B.forEach(u => {
         if (!u.alive) return;
+        emitEvent(u, 'hp-change', { hp: u.hp, maxHp: u.maxHp, alive: u.alive, atk: u.atk, def: u.def, _stunned: false });
         u._acted = false;
         u._resting = false;
         u._doubleStriked = false;
@@ -522,7 +475,7 @@ export function* createRoundStepper(state) {
         unit._blocked = isBlocked(unit, allySide);
         unit.survivedRounds++;
 
-        processUnitAttack(unit, allySide, enemySide, log, A, B, state, doubleStrikeUnitUid);
+        await processUnitAttack(unit, allySide, enemySide, log, A, B, state, doubleStrikeUnitUid);
 
         if (unit !== kuLianUnit) {
             currentSide = currentSide === 'ally' ? 'enemy' : 'ally';

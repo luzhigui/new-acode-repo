@@ -185,6 +185,26 @@ function battleReducer(state, action) {
         case 'REMOVE_UNIT': {
             return { ...state, units: state.units.filter(u => u.uid !== action.uid) };
         }
+        case 'SYNC_BATTLE_STATS': {
+            const allyMap = new Map(action.ally.map(u => [u.uid, u]));
+            const enemyMap = new Map(action.enemy.map(u => [u.uid, u]));
+            let next = state.units.map(u => {
+                const src = u.camp === 'ally' ? allyMap.get(u.uid) : enemyMap.get(u.uid);
+                if (!src) return u;
+                return {
+                    ...u,
+                    dmgDealt: src.dmgDealt || 0,
+                    dmgTaken: src.dmgTaken || 0,
+                    healDone: src.healDone || 0,
+                    reboundDone: src.reboundDone || 0,
+                    leechDone: src.leechDone || 0,
+                    dodgeCount: src.dodgeCount || 0,
+                    critCount: src.critCount || 0,
+                    survivedRounds: src.survivedRounds || 0
+                };
+            });
+            return { ...state, units: next };
+        }
         default: return state;
     }
 }
@@ -265,6 +285,12 @@ async function handleBuffReboundFortify(c, entry) {
 
 async function handleAttackGroup(c, entry, roundResult, abortSig, isFirstAttackRef) {
     if (entry.isCombo) { let spacer = document.createElement('div'); spacer.innerHTML = '<br>'; document.getElementById('log').appendChild(spacer); c.autoScrollLog(); c.isPaused = true; window.bulletTimeActive = true; if (c._scheduler) { await new Promise(r => c._scheduler.schedule('banner', 1500, r)); showBuffBanner('⚡ 连击！'); } else { await showBuffBanner('⚡ 连击！'); } window.bulletTimeActive = false; c.isPaused = false; }
+    // 立即应用本组事件（含小昭附身/飞天），让格子第一时间刷新
+    if (entry._events && entry._events.length > 0) {
+        c.store.dispatch({ type: 'APPLY_EVENTS', events: entry._events });
+        c.updateUI(c.UI);
+        entry._events = [];
+    }
     let unitA=c.UI.allyTeam.concat(c.UI.enemyTeam).find(u=>u.uid===entry.uidA);
     let unitD=entry.uidD?c.UI.allyTeam.concat(c.UI.enemyTeam).find(u=>u.uid===entry.uidD):null;
     if(!entry.isBlock&&!entry.isMiss&&!entry.isDodge&&(!unitA||!unitD)){
@@ -396,8 +422,6 @@ async function handleAttackGroup(c, entry, roundResult, abortSig, isFirstAttackR
 }
 
 async function handleInfo(c, entry) {
-    // 跳过空日志（仅用于传递事件的虚拟条目）
-    if (!entry.text && !entry.fastEntry) return;
     // ★ 快速条目：白骨爪附带效果，直接显示不逐字播放
     if (entry.fastEntry) {
         let tempDiv = document.createElement('div');
@@ -539,6 +563,29 @@ async function handleInfo(c, entry) {
             if (entry._events && entry._events.length > 0) {
                 c.store.dispatch({ type: 'APPLY_EVENTS', events: entry._events });
             }
+        }
+        // 治疗/加攻/反弹飘字
+        if (entry.isHealEntry && entry.healAmount && entry.healUnitUid) {
+            let healUnit = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.uid === entry.healUnitUid);
+            if (healUnit) showHealFloat(healUnit, entry.healAmount);
+        }
+        if (entry.text && entry.text.includes('攻击+')) {
+            const atkMatch = entry.text.match(/攻击\+(\d+(?:\.\d+)?)/);
+            if (atkMatch) {
+                const atkGain = parseFloat(atkMatch[1]);
+                const nameMatch = entry.text.match(/(\S+)攻击\+/);
+                let atkTarget = null;
+                if (nameMatch) {
+                    atkTarget = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.name === nameMatch[1]);
+                }
+                if (atkTarget && atkGain > 0) {
+                    setTimeout(() => showAtkBuffFloat(atkTarget, atkGain), 180);
+                }
+            }
+        }
+        if (entry.reboundDmg && entry.attackerUid) {
+            let attacker = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.uid === entry.attackerUid);
+            if (attacker) showDamageFloat(attacker, entry.reboundDmg);
         }
         let tempDiv=document.createElement('div');document.getElementById('log').appendChild(tempDiv); await playLineText(entry.text,tempDiv);
     }
@@ -856,10 +903,6 @@ export async function playBattle() {
     });
 
     let battleState = { ally: c.snapshot.ally.map(u => u.clone()), enemy: c.snapshot.enemy.map(u => u.clone()), round: 1, activeBuffs: c.activeBuffs ? c.activeBuffs.map(b => ({...b})) : [], allAllies: c.snapshot.ally.map(u => u.clone()) };
-    if (c.activeBuffs && c.activeBuffs.some(b => b.key === 'horseFormation') && !battleState.activeBuffs.some(b => b.key === 'horseFormation')) {
-        const hb = c.activeBuffs.find(b => b.key === 'horseFormation');
-        battleState.activeBuffs.push({...hb});
-    }
     let isBattleOver = false; let finalWinner = null; let finalStep = null;
 
     while (!isBattleOver) {
@@ -869,7 +912,7 @@ export async function playBattle() {
         const stepper = createRoundStepper(battleState);
         let lastStep = null;
 
-        for (const step of stepper) {
+        for await (const step of stepper) {
             if (abortSig && abortSig.aborted) return;
             await c.waitWhilePaused();
             lastStep = step;
@@ -882,7 +925,10 @@ export async function playBattle() {
             // 回合级事件（玄冥毒/拒马召唤/加攻等）在攻击组之后应用
             if (step.events && step.events.length > 0) {
                 c.store.dispatch({ type: 'APPLY_EVENTS', events: step.events });
+                c.updateUI(c.UI);
             }
+            // 同步引擎侧的统计字段到 Store
+            c.store.dispatch({ type: 'SYNC_BATTLE_STATS', ally: step.ally, enemy: step.enemy });
 
             await new Promise(r => setTimeout(r, window._fastForwardActive ? 1 : Math.max(100, c.speed / 2)));
 

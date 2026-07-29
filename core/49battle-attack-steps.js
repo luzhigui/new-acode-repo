@@ -100,9 +100,7 @@ export function resolveAttackHit(unit, target, attackerBuffStats, defenderBuffSt
         mg.entries.push({type:'combat-text', text:`<span class="${unit.camp==='ally'?'blue':'orange'}">${unit.camp==='ally'?'明教':'六大派'} ${unit.name}</span> 的攻击`});
         mg.entries.push({type:'info', text:`<span class="gray">未命中！</span>`});
         unit._acted = true;
-        mg._events = [...window._battleEvents];
-        window._battleEvents = [];
-        if (window.GlobalStore) window.GlobalStore.flushBattleEvents();
+        mg._events = GlobalStore.flushBattleEvents();
         log.push(mg);
 
         // 概率连击已迁移至事件总线 afterMiss 信号
@@ -337,7 +335,7 @@ export function applyAttackResult(unit, target, dmgCalc, attackerBuffStats, defe
 }
 
 // ==================== 步骤5：构建攻击组日志 + 攻击后效果 ====================
-export function buildAttackGroup(unit, target, dmgCalc, dmgResult, attackerBuffStats, defenderBuffStats, allySide, enemySide, log, A, B, state, doubleStrikeUnitUid, phantomLog) {
+export async function buildAttackGroup(unit, target, dmgCalc, dmgResult, attackerBuffStats, defenderBuffStats, allySide, enemySide, log, A, B, state, doubleStrikeUnitUid, phantomLog) {
     let { atkBase, defBase, atkAct, defAct, hpBonus, hpBefore, waveTaunt, waveUnit, rawFormula, thunderBonus, hornDmgMultiplier, hornDefIgnore, trueDmg, defReduction } = dmgCalc;
     let { dmg, dead, horseReboundEntry, reboundEntry, bonusEntries } = dmgResult;
 
@@ -370,15 +368,39 @@ export function buildAttackGroup(unit, target, dmgCalc, dmgResult, attackerBuffS
         unit._executeLog.forEach(e => group.entries.push(e));
         delete unit._executeLog;
     }
-    if (target.role === '防战' && dmg > 0 && target._fortifyStacks !== undefined) {
-        group.entries.push({type:'detail', text:`<span class="blue small">🛡️ ${target.name} 坚盾：防御+1（已叠${target._fortifyThisRound || 0}/3）</span>`});
-    }
+
     group._events = GlobalStore.flushBattleEvents();
     for (const entry of bonusEntries) {
         group.entries.push(entry);
     }
 
     log.push(group);
+
+    // 小昭姐妹：攻击后立即检查是否有附身/飞天事件，提前触发特效
+    if (group._events && group._events.length > 0) {
+        for (const ev of group._events) {
+            if (ev.payload && ev.payload._flyMode === 'butterfly') {
+                const sister = c.UI.allyTeam.find(u => u.uid === ev.unitUid);
+                if (sister) {
+                    const { showButterflyFlyOut } = await import('../fx/21fx-butterfly-spider.js');
+                    const hostUid = ev.payload._butterflyHost;
+                    const host = hostUid ? c.UI.allyTeam.find(u => u.uid === hostUid) : null;
+                    if (host) showButterflyFlyOut(sister, host);
+                    c.store.dispatch({ type: 'APPLY_EVENTS', events: [ev] });
+                    c.updateUI(c.UI);
+                }
+            }
+            if (ev.payload && ev.payload._flyMode === 'spider') {
+                const brother = c.UI.allyTeam.find(u => u.uid === ev.unitUid);
+                if (brother) {
+                    const { showSpiderAscend } = await import('../fx/21fx-butterfly-spider.js');
+                    showSpiderAscend(brother);
+                    c.store.dispatch({ type: 'APPLY_EVENTS', events: [ev] });
+                    c.updateUI(c.UI);
+                }
+            }
+        }
+    }
 
     applyPostAttackEffects(unit, target, dmg, atkAct, defAct, reboundEntry, allySide, enemySide, log, A);
     return group;

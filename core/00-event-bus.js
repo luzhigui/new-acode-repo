@@ -30,6 +30,16 @@ class EventBus {
      */
     emit(signal, data) {
         const listeners = this._listeners[signal];
+        // 调试日志：信号发射时自动生成
+        if (data && data.log && data.unit) {
+            const logLevel = window._getPlayerContext?.()?.logLevel;
+            if (logLevel === 'debug') {
+                const name = data.unit ? data.unit.name : '?';
+                const targetName = data.target ? data.target.name : '';
+                const dmgStr = data.dmg !== undefined ? ` 伤害=${data.dmg}` : '';
+                data.log.push({ type: 'signal', text: `<span class="gray">[信号] ${signal} → ${name}${targetName ? '→' + targetName : ''}${dmgStr}</span>` });
+            }
+        }
         if (!listeners || listeners.length === 0) return;
         for (const { callback } of listeners) {
             try {

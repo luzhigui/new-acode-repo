@@ -54,6 +54,7 @@ export class Unit {
         this._butterflyAtk = 0;      // 🦋 附身时暂存的攻击
         this._butterflyDef = 0;      // 🦋 附身时暂存的防御
         this._butterflyHp = 0;       // 🦋 附身时暂存的血量
+        this._butterflyHpTransfer = 0; // 🦋 附身时转移给宿主的血上限值
         this._spiderRemaining = 3;
         this._spiderFlying = false;
         this._spiderAttacked = false;
@@ -122,6 +123,7 @@ export class Unit {
         c._butterflyAtk = this._butterflyAtk;
         c._butterflyDef = this._butterflyDef;
         c._butterflyHp = this._butterflyHp;
+        c._butterflyHpTransfer = this._butterflyHpTransfer;
         c._spiderRemaining = this._spiderRemaining;
         c._spiderFlying = this._spiderFlying;
         c._spiderAttacked = this._spiderAttacked;

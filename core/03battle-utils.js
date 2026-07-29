@@ -277,7 +277,7 @@ export function registerRangedGrowth(eventBus) {
  */
 export function registerFortifyShield(eventBus) {
     eventBus.on('afterDamageApplied', 30, (data) => {
-        const { target, dmg } = data;
+        const { target, dmg, group } = data;
         if (target.role !== '防战' || dmg <= 0) return;
         // 初始化本回合叠盾计数
         if (target._fortifyThisRound === undefined) target._fortifyThisRound = 0;
@@ -288,7 +288,34 @@ export function registerFortifyShield(eventBus) {
             target._fortifyStacks += increment;
             target._fortifyThisRound += increment;
             target.def += increment;
+            if (group && group.entries) {
+                group.entries.push({type:'detail', text:`<span class="blue small">🛡️ ${target.name} 坚盾：防御+${increment}（已叠${target._fortifyThisRound}/3）</span>`});
+            }
         }
         emitEvent(target, 'hp-change', { hp: target.hp, maxHp: target.maxHp, alive: target.alive, atk: target.atk, def: target.def, _isDead: target._isDead || false });
+    });
+}
+
+export function registerEmptyColBonus(eventBus) {
+    eventBus.on('afterAttack', 100, (data) => {
+        const { allySide, enemySide } = data;
+        const A = allySide, B = enemySide;
+        if (!A || !B) return;
+        const allyEmptyCols = countEnemyEmptyCols(B);
+        const enemyEmptyCols = countEnemyEmptyCols(A);
+        const allUnits = A.concat(B);
+        const bloodBonus = getBloodAuraBonus(allUnits);
+        const allyFlyers = A.filter(u => u.role === '飞行' && u.alive && !u.isHorse);
+        const enemyFlyers = B.filter(u => u.role === '飞行' && u.alive && !u.isHorse);
+        allyFlyers.forEach(u => {
+            u._emptyColBonus = allyEmptyCols * 5;
+            u._bloodAuraBonus = bloodBonus;
+            u.atk = (u._baseAtk || u.atk) + (u._emptyColBonus || 0) + (u._bloodAuraBonus || 0);
+        });
+        enemyFlyers.forEach(u => {
+            u._emptyColBonus = enemyEmptyCols * 5;
+            u._bloodAuraBonus = bloodBonus;
+            u.atk = (u._baseAtk || u.atk) + (u._emptyColBonus || 0) + (u._bloodAuraBonus || 0);
+        });
     });
 }
