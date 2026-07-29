@@ -153,7 +153,7 @@ export const AudioManager = {
             this.audio = new Audio(url);
             this.audio.loop = true;
             this.audio.volume = 0.5;
-            this.audio.onerror = () => { this.enabled = false; };
+            this.audio.onerror = () => { this.audio = null; };
         } catch (e) {
             this.audio = null;
             this.enabled = false;
@@ -232,6 +232,15 @@ export const AudioManager = {
                 break;
         }
         return this.currentSource;
+    },
+
+    resumeAudioContext() {
+        try {
+            const ctx = getAudioCtx();
+            if (ctx.state === 'suspended') {
+                ctx.resume();
+            }
+        } catch (e) {}
     },
 
     playSfx(role) {
