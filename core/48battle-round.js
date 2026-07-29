@@ -1,4 +1,4 @@
-﻿﻿// core/48battle-round.js - 光明顶5v5 回合循环与生成器
+﻿﻿﻿﻿// core/48battle-round.js - 光明顶5v5 回合循环与生成器
 // V5.2.2 | ~22000 bytes | 2026-07-28 迁移光环和联动至事件总线
 export const VER = 'core/48battle-round.js V5.2.2';
 

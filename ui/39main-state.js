@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿// ui/39main-state.js - 光明顶5v5 状态管理
+﻿﻿﻿﻿﻿﻿﻿﻿// ui/39main-state.js - 光明顶5v5 状态管理
 // V5.2.1 | ~6500 bytes | 2026-07-06 统一 activeBuffs 读写，移除局部副本
 export const VER = 'ui/39main-state.js V5.2.1';
 

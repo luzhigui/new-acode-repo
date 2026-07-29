@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿// tests/37health-rules/62-speed-button.js
+﻿﻿﻿﻿﻿﻿﻿﻿// tests/37health-rules/62-speed-button.js
 // V5.2.0 | 倍速锁定状态检查
 export const VER = 'tests/37health-rules/62-speed-button.js V5.2.0';
 
