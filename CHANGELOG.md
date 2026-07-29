@@ -1,5 +1,70 @@
 # 光明顶 5v5 - 更改履历
 
+## V5.3.0 — 2026-07-28
+
+### 事件总线架构（core/00-event-bus.js）
+- **新增 EventBus 模块**：提供 `on(event, handler, priority)` / `emit(event, data)` / `clearAll()`，支持优先级排序
+- **攻击流程信号化**：定义 9 个攻击生命周期信号——`beforeSelectTarget`、`beforeAttack`、`beforeDamageCalc`、`beforeDamageCalcFinal`、`beforeDamageApply`、`afterDamageApplied`、`allyDamaged`、`afterAttack`、`afterMiss`
+- **通用职业效果注册化**：战士破防、远程成长、防战坚盾分别改为 `registerArmorBreak(eventBus)` / `registerRangedGrowth(eventBus)` / `registerFortify(eventBus)` 模式
+- **海克斯效果注册化**：嗜血狂刀、热血奋战、乘风突袭、流星赶月、严阵以待反弹、惑人心智全部改为 EventBus 监听器
+- **精英技能注册化**：玄冥二老联动、概率连击、宋青书性奋重试、小昭永久连击改为监听 `afterAttack`/`afterMiss` 信号
+- 涉及文件：`core/00-event-bus.js`（新增）、`core/47battle-attack.js`、`core/49battle-attack-steps.js`、`core/50buff-effects.js`、`core/04buff-system.js`
+
+### 精英组件按阵营合并
+- **删除 9 个旧文件**：`modules/91elite-xiaozhao-brother.js` ~ `modules/99elite-zhangwuji.js`
+- **新增 3 个阵营文件**：
+  - `modules/99elite-mingjiao.js`：张无忌、韦一笑、小昭姐妹（蝶变附身 + 蛛变飞天）
+  - `modules/98elite-sixsects.js`：宋青书、周芷若（苦练/性奋/新婚联动 + 九阴白骨爪）
+  - `modules/97elite-imperial.js`：成昆、鹿杖客、鹤笔翁（幻影伪装 + 玄冥神掌联动）
+- 每个组件暴露 `register(eventBus, A, B, log)` 函数，注册逻辑从 `48battle-round.js` 下沉
+- 涉及文件：`modules/97elite-imperial.js`、`modules/98elite-sixsects.js`、`modules/99elite-mingjiao.js`（新增）、`core/48battle-round.js`
+
+### 攻击管道精简
+- **47battle-attack.js**：从 ~214 行缩减到 ~148 行（-31%），只保留五步骨架 + 信号发射
+- 删除内联的 `applyRoleGrowth`、`applyExtraAttacks`、硬编码精英组件调用、空列/残血光环刷新
+- **49battle-attack-steps.js**：删除硬编码的战士破防、防战坚盾、小昭姐乾坤衍生、乾坤反弹逻辑
+- 涉及文件：`core/47battle-attack.js`、`core/49battle-attack-steps.js`
+
+### core 层 window 耦合收敛
+- **50battle-shared.js** 新增 `emitCoreEvent` 统一发送事件，优先走 `GlobalStore.pushBattleEvent`
+- `47battle-attack.js`、`48battle-round.js`、`49battle-attack-steps.js`、`03battle-utils.js`、`50buff-effects.js`、`50battle-shared.js` 全部改为导入 `emitEvent`，不再直接访问 `window._emitEvent`
+- 所有 `window._battleEvents` 直接操作改为 `GlobalStore.flushBattleEvents()`
+- 涉及文件：`core/50battle-shared.js`、`core/47battle-attack.js`、`core/48battle-round.js`、`core/49battle-attack-steps.js`、`core/03battle-utils.js`、`core/50buff-effects.js`
+
+### 精英组件通信改走 Unit 字段
+- **02unit.js** 新增 `_linkedPartnerUid` 字段，用于精英角色间引用
+- 战斗初始化时自动为宋青书↔周芷若、鹿杖客↔鹤笔翁建立引用，替换硬编码 `find(u => u.name === 'xxx')` 搜索
+- 涉及文件：`core/02unit.js`、`core/48battle-round.js`
+
+### Bug 修复
+- **玄冥二老联动无限循环**：由 `_isLinkAttack` 标记阻止递归调用；初始不触发问题由精英钩子注册机制修复
+- **小昭姐妹**：姐姐附身后格子不立即消失、本体仍可被攻击 → 附身成功后立即 flush 事件；妹妹飞天触发条件缺失 → 改为监听 `beforeDamageApply` 信号
+- **双分隔符**：播放器 `handleInfo` 跳过空文本日志（仅用于传递事件的虚拟条目）
+- **B 队坚盾不重置**：`48battle-round.js` 的 B 队 forEach 循环补上 `_fortifyThisRound = 0`
+- **isXiaoZhao 废弃标记**：所有 `u.isXiaoZhao` 替换为 `(u.isXiaoZhaoSister || u.isXiaoZhaoBrother)`
+- **复制按钮失效**：`copyLog` 函数被同名 DOM 元素 id 全局属性覆盖 → 改名为 `copyLogToClipboard`
+- **圣火令首回合无 logo**：行列生成从 `applyHolyFlameBonus` 延迟执行改为 `createBuffObject` 中立即生成
+
+### 战斗机制重做
+- **战士破防重做**：概率 = 目标 def × 2.5%（封顶 100%），效果为 -3 防御
+- **防战坚盾重做**：受击 60% 概率 +1 防御（成昆 +2/次），每回合上限 3，无全局上限
+- **飞行突进目标选择**：新增 `selectFlyTarget` 函数，后排 > 中排 > 前排优先级，十字相邻攻击判定，路径不能穿越敌方
+- **日志三态弹窗**：`detailMode`（布尔）改为 `logLevel`（'detailed'/'brief'/'debug'），调试模式输出信号追踪日志
+
+### UI / 控制层重构
+- **按钮绑定迁移**：`13main-5v5-test.js` 中约 150 行按钮事件全部迁移到 `44ui-controls.js`
+- **Buff 槽更新迁移**：`updateBuffSlots` 从 `41main-battle.js` 移至 `44ui-controls.js`
+- **复制日志迁移**：`copyLogToClipboard` 从 `13main-5v5-test.js` 移至 `12main-utils.js`
+- **光带系统删除**：`initGlowSystem` 全部代码删除
+- **圣火令行列生成提前**：从 `04buff-system.js` 移至 `41main-battle.js` 的 `createBuffObject`
+- 涉及文件：`ui/44ui-controls.js`、`ui/13main-5v5-test.js`、`ui/41main-battle.js`、`ui/12main-utils.js`
+
+### 文件变动统计
+- **新增 4 个**：`core/00-event-bus.js`、`modules/97elite-imperial.js`、`modules/98elite-sixsects.js`、`modules/99elite-mingjiao.js`
+- **删除 11 个**：旧精英组件 9 个 + `manifest.json` + `sw.js`（PWA 放弃）
+- **大幅修改 ~10 个**：`47battle-attack.js`（-31%）、`48battle-round.js`、`49battle-attack-steps.js`（-11%）、`03battle-utils.js`（+196%）、`44ui-controls.js`、`13main-5v5-test.js`、`04buff-system.js`、`50buff-effects.js`、`50battle-shared.js`、`02unit.js`
+- **轻微修改 ~7 个**：`06battle-engine-core.js`、`07battle-engine-5v5-test.js`、`10player-core.js`、`12main-utils.js`、`39main-state.js`、`41main-battle.js`、`23elite-skills.js`
+
 ## V5.2.1 — 2026-07-24
 
 ### 工程维护
