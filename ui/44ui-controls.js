@@ -187,6 +187,7 @@ export function bindCoverStart(gameStarted, updateSpeedButtons) {
         document.getElementById('coverOverlay').style.display = 'none';
         gameStarted.val = true;
         if (typeof window.AudioManager?.init === 'function') window.AudioManager.init();
+        if (typeof window.AudioManager?.resumeAudioContext === 'function') window.AudioManager.resumeAudioContext();
         if (typeof window.AudioManager?.play === 'function') window.AudioManager.play();
         if (typeof window.AudioManager?.setVolume === 'function') window.AudioManager.setVolume(0.5);
         updateSpeedButtons();
