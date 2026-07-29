@@ -89,7 +89,7 @@ export function selectAttackTarget(unit, enemySide, allySide) {
 }
 
 // ==================== 步骤2：未命中+闪避判定 ====================
-export function resolveAttackHit(unit, target, attackerBuffStats, defenderBuffStats, log, A, B, doubleStrikeUnitUid) {
+export function resolveAttackHit(unit, target, attackerBuffStats, defenderBuffStats, log, A, B, doubleStrikeUnitUid, eventBus) {
     let missChance = 0;
     if (unit.role === '远程') { missChance = 3; }
     else if (unit.role === '飞行') { missChance = 6; }
@@ -103,8 +103,15 @@ export function resolveAttackHit(unit, target, attackerBuffStats, defenderBuffSt
         mg._events = GlobalStore.flushBattleEvents();
         log.push(mg);
 
-        // 概率连击已迁移至事件总线 afterMiss 信号
-        // 宋青书性奋重试已迁移至事件总线 afterMiss 信号
+        // 发射 afterMiss 信号，让监听器有机会设置重试
+        if (eventBus) {
+            let retryInfo = { retry: false, lockedTargetUid: null };
+            eventBus.emit('afterMiss', { unit, target, log, retryInfo });
+            if (retryInfo.retry) {
+                return { skipped: true, retry: true, lockedTargetUid: retryInfo.lockedTargetUid };
+            }
+        }
+
         return { skipped: true, retry: false, lockedTargetUid: null };
     }
 

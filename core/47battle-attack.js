@@ -104,7 +104,7 @@ export async function processUnitAttack(unit, allySide, enemySide, log, A, B, st
     let defenderBuffStats = computeBuffStats(target, targetActiveBuffs, targetAllyTeam);
 
     // 步骤2：未命中+闪避判定
-    let hitResult = resolveAttackHit(unit, target, attackerBuffStats, defenderBuffStats, log, A, B, doubleStrikeUnitUid);
+    let hitResult = resolveAttackHit(unit, target, attackerBuffStats, defenderBuffStats, log, A, B, doubleStrikeUnitUid, eventBus);
     if (hitResult.skipped) {
         if (hitResult.retry) {
             const retryUid = hitResult.lockedTargetUid || null;
