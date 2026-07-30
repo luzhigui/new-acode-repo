@@ -15,6 +15,13 @@ function getAudioCtx() {
 // 预加载的音效缓冲区
 const sfxBuffers = {};
 
+// BGM 缓存与播放控制
+let bgmBuffer = null;
+let bgmSource = null;
+let bgmGainNode = null;
+let bgmStartedAt = 0;
+let bgmPausedAt = 0;
+
 // 预加载所有 mp3 音效文件到内存
 async function loadSfxBuffer(key, url) {
     try {
@@ -40,6 +47,19 @@ export async function initSfx() {
     await Promise.all(promises);
 }
 
+// 预加载BGM文件到内存
+async function loadBgmBuffer(url) {
+    try {
+        const ctx = getAudioCtx();
+        const response = await fetch(url);
+        const arrayBuffer = await response.arrayBuffer();
+        bgmBuffer = await ctx.decodeAudioData(arrayBuffer);
+    } catch (e) {
+        console.warn('BGM加载失败:', url, e);
+        bgmBuffer = null;
+    }
+}
+
 // 播放已预加载的 mp3 音效（应用独立音量）
 function playBufferSfx(key, volume) {
     const buffer = sfxBuffers[key];
@@ -60,43 +80,7 @@ function playBufferSfx(key, volume) {
     }
 }
 
-// 防战专用：厚重大锤合成音效
-function playHammer() {
-    const ctx = getAudioCtx();
-    const now = ctx.currentTime;
 
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.type = 'sine';
-    osc.frequency.setValueAtTime(100, now);
-    osc.frequency.linearRampToValueAtTime(60, now + 0.3);
-    gain.gain.setValueAtTime(0.4, now);
-    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-    osc.start();
-    osc.stop(now + 0.3);
-
-    const noiseDuration = 0.25;
-    const bufferSize = ctx.sampleRate * noiseDuration;
-    const noiseBuffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
-    const data = noiseBuffer.getChannelData(0);
-    for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
-
-    const noise = ctx.createBufferSource();
-    noise.buffer = noiseBuffer;
-    const noiseGain = ctx.createGain();
-    const noiseFilter = ctx.createBiquadFilter();
-    noiseFilter.type = 'lowpass';
-    noiseFilter.frequency.setValueAtTime(800, now);
-    noiseGain.gain.setValueAtTime(0.25, now);
-    noiseGain.gain.exponentialRampToValueAtTime(0.01, now + noiseDuration);
-    noise.connect(noiseFilter);
-    noiseFilter.connect(noiseGain);
-    noiseGain.connect(ctx.destination);
-    noise.start();
-    noise.stop(now + noiseDuration);
-}
 
 // 战士专用：低频斩击合成音效
 function playSlash() {
@@ -144,77 +128,61 @@ export const AudioManager = {
     sfxVolume: 0.3,   // 音效独立音量
 
     init() {
-        const url = CONFIG.BGM_LOCAL;
-        try {
-            if (this.audio) {
-                this.audio.pause();
-                this.audio = null;
+        this._bgmFailed = false;
+        this.audio = null;
+        loadBgmBuffer(CONFIG.BGM_LOCAL).then(() => {
+            if (bgmBuffer && this.enabled && this.currentSource !== 'mute') {
+                this._playBgm();
             }
-            this.audio = new Audio(url);
-            this.audio.loop = true;
-            this.audio.volume = 0.5;
-            this.audio.onerror = () => { this.audio = null; };
-        } catch (e) {
-            this.audio = null;
-            this.enabled = false;
-        }
-        // 预加载所有 mp3 音效
+        });
         initSfx();
     },
     
     play() {
-        if (this.enabled && this.audio) {
-            this.audio.play().catch(() => {});
+        if (this.enabled && bgmBuffer && !this._bgmFailed) {
+            this._playBgm();
         }
     },
     
     pause() {
-        if (this.audio) {
-            this.audio.pause();
+        if (bgmSource) {
+            const ctx = getAudioCtx();
+            bgmPausedAt = ctx.currentTime - bgmStartedAt;
+            this._stopBgm();
         }
     },
     
     setVolume(v) {
-        if (this.audio) {
-            this.audio.volume = v;
+        if (bgmGainNode) {
+            const ctx = getAudioCtx();
+            bgmGainNode.gain.setValueAtTime(v, ctx.currentTime);
         }
     },
     
     fadeTo(targetVol, durationMs) {
-        if (!this.audio) return;
-        const startVol = this.audio.volume;
-        const startTime = Date.now();
-        const timer = setInterval(() => {
-            const elapsed = Date.now() - startTime;
-            const progress = Math.min(1, elapsed / durationMs);
-            this.audio.volume = startVol + (targetVol - startVol) * progress;
-            if (progress >= 1) clearInterval(timer);
-        }, 50);
+        if (!bgmGainNode) return;
+        const ctx = getAudioCtx();
+        const now = ctx.currentTime;
+        bgmGainNode.gain.setValueAtTime(bgmGainNode.gain.value, now);
+        bgmGainNode.gain.linearRampToValueAtTime(targetVol, now + durationMs / 1000);
     },
     
     switchSource(source) {
         if (source === this.currentSource) return;
-        const wasPlaying = this.enabled && this.audio && !this.audio.paused;
-        if (this.audio) {
-            this.audio.pause();
-            this.audio = null;
-        }
+        this._stopBgm();
         this.currentSource = source;
         if (source === 'mute') {
             this.enabled = false;
         } else {
             this.enabled = true;
-            const url = CONFIG.BGM_LOCAL;
-            try {
-                this.audio = new Audio(url);
-                this.audio.loop = true;
-                this.audio.volume = 0.5;
-            } catch (e) {
-                this.audio = null;
-                this.enabled = false;
+            if (bgmBuffer) {
+                this._playBgm();
+            } else {
+                loadBgmBuffer(CONFIG.BGM_LOCAL).then(() => {
+                    if (bgmBuffer && this.enabled) this._playBgm();
+                });
             }
         }
-        if (this.enabled) this.play();
     },
     
     cycleSource() {
@@ -234,6 +202,35 @@ export const AudioManager = {
         return this.currentSource;
     },
 
+    _playBgm() {
+        if (!bgmBuffer) return;
+        const ctx = getAudioCtx();
+        if (ctx.state === 'suspended') ctx.resume();
+        this._stopBgm();
+        bgmSource = ctx.createBufferSource();
+        bgmSource.buffer = bgmBuffer;
+        bgmSource.loop = true;
+        bgmGainNode = ctx.createGain();
+        bgmGainNode.gain.setValueAtTime(0.5, ctx.currentTime);
+        bgmSource.connect(bgmGainNode);
+        bgmGainNode.connect(ctx.destination);
+        bgmSource.start(0, bgmPausedAt);
+        bgmStartedAt = ctx.currentTime - bgmPausedAt;
+        bgmPausedAt = 0;
+    },
+
+    _stopBgm() {
+        if (bgmSource) {
+            try { bgmSource.stop(); } catch (e) {}
+            bgmSource.disconnect();
+            bgmSource = null;
+        }
+        if (bgmGainNode) {
+            bgmGainNode.disconnect();
+            bgmGainNode = null;
+        }
+    },
+
     resumeAudioContext() {
         try {
             const ctx = getAudioCtx();
@@ -246,19 +243,16 @@ export const AudioManager = {
     playSfx(role) {
         if (!this.enabled) return;
         try {
+            if (role === '防战') role = '战士';
             const sfxConfig = CONFIG.SFX || {};
             const sfx = sfxConfig[role];
             if (!sfx) return;
 
-            // 音效播放不再压低 BGM，保持背景音乐稳定
             const ctx = getAudioCtx();
             if (ctx.state === 'suspended') { ctx.resume(); }
-            if (sfx === 'hammer') {
-                playHammer();
-            } else if (sfx === 'slash') {
+            if (sfx === 'slash') {
                 playSlash();
             } else {
-                // 从预加载的缓冲区播放 mp3 音效，使用独立音量
                 playBufferSfx(role, this.sfxVolume);
             }
         } catch (e) {

@@ -142,41 +142,70 @@ document.getElementById('btnGameDesign').addEventListener('click', () => {
             this.innerHTML = expanded ? '📖 开发准则 ▾' : '📖 开发准则 ▸';
         });
 
-        // ==================== 独立背景音乐 ====================
-        let bgm = null;
+        // ==================== 独立背景音乐（Web Audio 缓存模式） ====================
+        let bgmCtx = null;
+        let bgmBuffer = null;
+        let bgmSource = null;
+        let bgmGainNode = null;
         let bgmPlaying = false;
 
-        function initBGM() {
+        function getBgmCtx() {
+            if (!bgmCtx) bgmCtx = new (window.AudioContext || window.webkitAudioContext)();
+            return bgmCtx;
+        }
+
+        async function loadBgm() {
             try {
-                bgm = new Audio('assets/sfx_xinai.mp3');
-                bgm.loop = true;
-                bgm.volume = 0.6;
-            } catch (e) {
-                bgm = null;
+                const ctx = getBgmCtx();
+                const resp = await fetch('assets/sfx_xinai.mp3');
+                const buf = await resp.arrayBuffer();
+                bgmBuffer = await ctx.decodeAudioData(buf);
+            } catch (e) { bgmBuffer = null; }
+        }
+
+        function playBgm() {
+            if (!bgmBuffer) return;
+            const ctx = getBgmCtx();
+            if (ctx.state === 'suspended') ctx.resume();
+            stopBgm();
+            bgmSource = ctx.createBufferSource();
+            bgmSource.buffer = bgmBuffer;
+            bgmSource.loop = true;
+            bgmGainNode = ctx.createGain();
+            bgmGainNode.gain.setValueAtTime(0.6, ctx.currentTime);
+            bgmSource.connect(bgmGainNode);
+            bgmGainNode.connect(ctx.destination);
+            bgmSource.start();
+            bgmPlaying = true;
+        }
+
+        function stopBgm() {
+            if (bgmSource) {
+                try { bgmSource.stop(); } catch (e) {}
+                bgmSource.disconnect();
+                bgmSource = null;
             }
+            if (bgmGainNode) {
+                bgmGainNode.disconnect();
+                bgmGainNode = null;
+            }
+            bgmPlaying = false;
         }
 
         document.getElementById('btnBGM').addEventListener('click', () => {
-            if (!bgm) {
-                try {
-                    bgm = new Audio('assets/sfx_xinai.mp3');
-                    bgm.loop = true;
-                    bgm.volume = 0.6;
-                } catch (e) {
-                    bgm = null;
-                }
-            }
-            if (!bgm) return;
-
             const btn = document.getElementById('btnBGM');
+            if (!bgmBuffer) {
+                loadBgm().then(() => {
+                    if (bgmBuffer) { playBgm(); btn.textContent = '🎵 背景音乐：播放中'; btn.classList.remove('muted'); }
+                });
+                return;
+            }
             if (bgmPlaying) {
-                bgm.pause();
-                bgmPlaying = false;
+                stopBgm();
                 btn.textContent = '🔇 背景音乐：已暂停';
                 btn.classList.add('muted');
             } else {
-                bgm.play().catch(() => {});
-                bgmPlaying = true;
+                playBgm();
                 btn.textContent = '🎵 背景音乐：播放中';
                 btn.classList.remove('muted');
             }

@@ -82,6 +82,14 @@ export function copyLogToClipboard(choice) {
     if (choice === 'detailed') choice = 'all';
     if (choice === 'brief') choice = 'normal';
     if (choice === 'debug') choice = 'all';
+    if (choice === 'recent15') {
+        const allDivs = logDiv.querySelectorAll('div');
+        const recent = Array.from(allDivs).slice(-15);
+        let text = recent.map(div => (div.textContent || '').trim()).filter(t => t).join('\n');
+        if (!text.trim()) { showAlert('没有匹配的日志'); return; }
+        navigator.clipboard.writeText(text).then(() => showAlert('最新15行日志已复制'));
+        return;
+    }
     const allDivs = logDiv.querySelectorAll('div');
     allDivs.forEach(div => {
         let t = div.textContent || '';

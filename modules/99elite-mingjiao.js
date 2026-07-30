@@ -42,7 +42,7 @@ export function createZhangWujiComponent() {
                 zhang.dmgTaken += selfDmg;
                 emitEvent(attacker, 'hp-change', { hp: attacker.hp, maxHp: attacker.maxHp, alive: attacker.alive, atk: attacker.atk, def: attacker.def, _isDead: attacker._isDead || false });
                 emitEvent(zhang, 'hp-change', { hp: zhang.hp, maxHp: zhang.maxHp, alive: zhang.alive, atk: zhang.atk, def: zhang.def });
-                data.log.push({type:'buff-rebound-fortify', attackerUid: attacker.uid, reboundDmg: rebound, selfDmg: selfDmg, selfDmgUid: zhang.uid, text:`<span class="gold">✨ 乾坤大挪移反弹${rebound}给${attacker.name}（无忌自伤${selfDmg}）</span>`, isDead: !attacker.alive});
+                data.log.push({type:'info', text:`<span class="gold">✨ 乾坤大挪移反弹${rebound}给${attacker.name}（无忌自伤${selfDmg}）</span>`});
                 if (attacker.hp <= 0) { attacker.alive = false; attacker._isDead = true; }
                 if (zhang.hp <= 0) { zhang.hp = 0; zhang.alive = false; zhang._isDead = true; if (!zhang._deathTime) zhang._deathTime = Date.now(); }
             });
@@ -50,7 +50,7 @@ export function createZhangWujiComponent() {
         onAfterApplyDamage(unit, target, dmgCalc, group, A, log) {
             if (unit.camp !== 'ally' || !unit.isZhang || !unit.alive) return;
             const hpBeforeZhang = Math.floor(unit.hp);
-            const heal = Math.floor(unit.maxHp * 0.05);
+            const heal = Math.floor(unit.maxHp * 0.08);
             unit.hp = Math.min(unit.maxHp, unit.hp + heal);
             unit.healDone += heal;
             group.entries.push({ type:'info', text:`<span class="green">☀️ 九阳神功回复+${heal}，${hpBeforeZhang}→${Math.floor(unit.hp)}</span>`, isHealEntry:true, healAmount:heal, healUnitUid:unit.uid });
@@ -88,7 +88,9 @@ export function createWeiYixiaoComponent() {
         },
         onAfterApplyDamage(unit, target, dmgCalc, group, A, log) {
             if (unit.camp !== 'ally' || !unit.isWei || !unit.alive || dmgCalc.dmg <= 0) return;
-            const healWei = Math.floor(dmgCalc.dmg * 0.18);
+            const lostPct = (unit.maxHp - unit.hp) / unit.maxHp;
+            const leechRate = 0.20 + (0.90 - 0.20) * lostPct;
+            const healWei = Math.floor(dmgCalc.dmg * leechRate);
             const wasFullHpWei = (unit.hp >= unit.maxHp);
             const newMaxHpWei = Math.min(unit.maxHp + healWei, unit._baseMaxHp * 2);
             const hpDeltaWei = newMaxHpWei - unit.maxHp;
@@ -213,8 +215,9 @@ export function butterflyReturn(sister, allyTeam, log) {
         host._butterflyAtkBonus = 0;
         host._butterflyDefBonus = 0;
         const hpTransfer = sister._butterflyHpTransfer || 0;
+        const oldHostMaxHp = host.maxHp;
         host.maxHp = Math.max(1, host.maxHp - hpTransfer);
-        host.hp = Math.min(host.hp, host.maxHp);
+        host.hp = Math.floor(host.hp * (host.maxHp / oldHostMaxHp));
         emitEvent(host, 'hp-change', {
             hp: host.hp, maxHp: host.maxHp, alive: host.alive,
             atk: host.atk, def: host.def

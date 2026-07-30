@@ -123,7 +123,7 @@ export async function processUnitAttack(unit, allySide, enemySide, log, A, B, st
     if (!unit._isLinkAttack) unit._acted = true;
 
     // 攻击结束信号（玄冥二老联动、白骨爪追击等）
-    eventBus.emit('afterAttack', { unit, target, dmg: dmgCalc.dmg, allySide, enemySide, log, A, B, state });
+    await eventBus.emit('afterAttack', { unit, target, dmg: dmgCalc.dmg, allySide, enemySide, log, A, B, state });
 
     // 队友受伤信号（乾坤反弹等）——排在白骨爪之后
     if (target.camp === 'ally') {

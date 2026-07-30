@@ -228,9 +228,9 @@ export function bindDetailButton(getState, setState, showModal) {
     document.getElementById('btnDetail').addEventListener('click', function () {
         const currentLevel = getState.logLevel();
         showModal('选择日志模式', [
-            { text: '📋 详细', value: 'detailed', cls: currentLevel === 'detailed' ? 'active' : 'buff' },
-            { text: '📋 简要', value: 'brief', cls: currentLevel === 'brief' ? 'active' : 'buff' },
-            { text: '🩺 调试', value: 'debug', cls: currentLevel === 'debug' ? 'active' : 'buff' }
+            { text: '📋 详细', value: 'detailed', cls: 'buff' },
+            { text: '📋 简要', value: 'brief', cls: 'buff' },
+            { text: '🩺 调试', value: 'debug', cls: 'buff' }
         ], (choice) => {
             setState.logLevel(choice);
             this.textContent = choice === 'detailed' ? '详细' : (choice === 'brief' ? '简要' : '调试');
@@ -454,7 +454,8 @@ export function bindCopyLogButton(showModal, copyLogToClipboard) {
     document.getElementById('copyLog').addEventListener('click', () => {
         showModal('选择复制类型', [
             { text: '📋 复制普通日志', value: 'normal', cls: 'buff' },
-            { text: '📋 复制全部日志', value: 'all', cls: 'buff' }
+            { text: '📋 复制全部日志', value: 'all', cls: 'buff' },
+            { text: '📋 复制最新15行', value: 'recent15', cls: 'buff' }
         ], (choice) => copyLogToClipboard(choice));
     });
 }
