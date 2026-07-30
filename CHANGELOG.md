@@ -65,6 +65,16 @@
 - **大幅修改 ~10 个**：`47battle-attack.js`（-31%）、`48battle-round.js`、`49battle-attack-steps.js`（-11%）、`03battle-utils.js`（+196%）、`44ui-controls.js`、`13main-5v5-test.js`、`04buff-system.js`、`50buff-effects.js`、`50battle-shared.js`、`02unit.js`
 - **轻微修改 ~7 个**：`06battle-engine-core.js`、`07battle-engine-5v5-test.js`、`10player-core.js`、`12main-utils.js`、`39main-state.js`、`41main-battle.js`、`23elite-skills.js`
 
+### 事件总线重构遗留问题修复
+- 补全缺失导出函数：`butterflyReturn`、`registerEmptyColBonus`、`registerXuanmingLink`
+- 修复所有精英组件 EventBus 监听器方法引用错误
+- 修复 `window._battleEvents` 残留引用和 `processUnitAttack` async 调用链
+- 修复小昭姐妹格子即时刷新、职业图标同步、眩晕清除
+- 修复首回合 Buff 生效、战报统计、附身攻击叠加
+- 优化白骨爪回血日志合并、乾坤反弹/衍生飘字
+- 调整姐姐附身转移比例 `1/2 → 1/3`，飞回血量纳入死亡队友
+- 涉及文件：`core/00-event-bus.js`、`core/47battle-attack.js`、`core/49battle-attack-steps.js`、`core/50buff-effects.js`、`modules/23elite-skills.js`、`modules/97elite-imperial.js`、`modules/98elite-sixsects.js`、`modules/99elite-mingjiao.js`
+
 ## V5.2.1 — 2026-07-24
 
 ### 工程维护
