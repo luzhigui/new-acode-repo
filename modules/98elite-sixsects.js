@@ -3,6 +3,7 @@
 export const VER = 'modules/98elite-sixsects.js V5.2.2';
 import { GlobalStore } from './46global-store.js';
 import { CONFIG } from '../core/01config-5v5-test.js';
+import { processUnitAttack } from '../core/47battle-attack.js';
 const ES = CONFIG.ELITE_SKILLS;
 
 function emitEvent(unit, eventType, payload) {

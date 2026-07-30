@@ -105,10 +105,10 @@ export function resolveAttackHit(unit, target, attackerBuffStats, defenderBuffSt
 
         // 发射 afterMiss 信号，让监听器有机会设置重试
         if (eventBus) {
-            let retryInfo = { retry: false, lockedTargetUid: null };
-            eventBus.emit('afterMiss', { unit, target, log, retryInfo });
-            if (retryInfo.retry) {
-                return { skipped: true, retry: true, lockedTargetUid: retryInfo.lockedTargetUid };
+            let data = { unit, target, log, retry: false, retryTargetUid: null };
+            eventBus.emit('afterMiss', data);
+            if (data.retry) {
+                return { skipped: true, retry: true, lockedTargetUid: data.retryTargetUid };
             }
         }
 
