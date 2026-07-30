@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// tools/33-toolkit-more.js - 光明顶5v5 开发工具箱（更多工具）
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// tools/33-toolkit-more.js - 光明顶5v5 开发工具箱（更多工具）
 // V5.2.1 | ~28600 bytes | 2026-07-24
 
 function escapeHtml(text) {
@@ -26,7 +26,6 @@ function escapeHtml(text) {
         '../modules/46global-store.js', '../modules/100-replay.js',
         '../modules/97elite-imperial.js', '../modules/98elite-sixsects.js', '../modules/99elite-mingjiao.js',
         '../tests/25unit-tests.js',
-        '../tests/35quiz-bank.js',
         '../tests/37health-core.js',
         '../tests/37health-rules/60-separator.js', '../tests/37health-rules/61-boneclaw.js',
         '../tests/37health-rules/62-speed-button.js', '../tests/37health-rules/63-carry-hp.js',
@@ -36,6 +35,7 @@ function escapeHtml(text) {
         '../tests/38health-monitor.js', '../tests/45health-auto.js', '../tests/46health-utils.js',
         '../tools/32-toolkit.js', '../tools/33-toolkit-more.js',
         '../tools/34-shop.html',
+        '../tools/35-version-calibrator.cjs',
         '../tools/27auto-battle-utils.js'
     ];
 

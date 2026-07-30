@@ -77,6 +77,24 @@ export const GlobalStore = {
         _state.battleEvents.push(event);
     },
 
+    // 统一状态变更入口：直接 dispatch action 到 GlobalStore
+    dispatch(action) {
+        if (!action || !action.type) return;
+        // 写入 _state
+        if (action.payload) {
+            Object.assign(_state, action.payload);
+        }
+        // 通知所有订阅者
+        _listeners.forEach(fn => { try { fn(_state, action); } catch(e) {} });
+        // 通知按 key 订阅的监听者
+        const fns = _listenersByKey[action.type];
+        if (fns) fns.forEach(fn => { try { fn(action.payload); } catch(e) {} });
+        // 触发副作用
+        if (_effects[action.type]) {
+            try { _effects[action.type](action.payload); } catch(e) {}
+        }
+    },
+
     // 引擎专用：替换当前战斗事件队列（读取并清空）
     flushBattleEvents() {
         const events = _state.battleEvents;

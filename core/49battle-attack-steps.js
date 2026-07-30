@@ -376,7 +376,6 @@ export async function buildAttackGroup(unit, target, dmgCalc, dmgResult, attacke
         delete unit._executeLog;
     }
 
-    group._events = GlobalStore.flushBattleEvents();
     for (const entry of bonusEntries) {
         group.entries.push(entry);
     }

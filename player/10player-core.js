@@ -285,11 +285,10 @@ async function handleBuffReboundFortify(c, entry) {
 
 async function handleAttackGroup(c, entry, roundResult, abortSig, isFirstAttackRef) {
     if (entry.isCombo) { let spacer = document.createElement('div'); spacer.innerHTML = '<br>'; document.getElementById('log').appendChild(spacer); c.autoScrollLog(); c.isPaused = true; window.bulletTimeActive = true; if (c._scheduler) { await new Promise(r => c._scheduler.schedule('banner', 1500, r)); showBuffBanner('⚡ 连击！'); } else { await showBuffBanner('⚡ 连击！'); } window.bulletTimeActive = false; c.isPaused = false; }
-    // 立即应用本组事件（含小昭附身/飞天），让格子第一时间刷新
-    if (entry._events && entry._events.length > 0) {
-        c.store.dispatch({ type: 'APPLY_EVENTS', events: entry._events });
-        c.updateUI(c.UI);
-        entry._events = [];
+    // 从 GlobalStore 直接消费本攻击组产生的所有事件
+    const groupEvents = GlobalStore.flushBattleEvents();
+    if (groupEvents && groupEvents.length > 0) {
+        c.store.dispatch({ type: 'APPLY_EVENTS', events: groupEvents });
     }
     let unitA=c.UI.allyTeam.concat(c.UI.enemyTeam).find(u=>u.uid===entry.uidA);
     let unitD=entry.uidD?c.UI.allyTeam.concat(c.UI.enemyTeam).find(u=>u.uid===entry.uidD):null;

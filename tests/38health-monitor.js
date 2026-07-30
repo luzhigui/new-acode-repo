@@ -10,6 +10,7 @@ import { rule64 } from './37health-rules/64-horse.js';
 import { rule65 } from './37health-rules/65-swap.js';
 import { rule67 } from './37health-rules/67-cloud-dodge.js';
 import { rule68 } from './37health-rules/68-dodge-rebound.js';
+import { rule70 } from './37health-rules/70-claw-heal-spam.js';
 import {
     getCellElement, checkUnitHpValidity,
     checkHpBarSync, checkHpBarColor, checkFxOrphans,
@@ -275,7 +276,7 @@ function runFullChecks(ctx, doc) {
     }
 
     ctx._doc = doc;
-    const rules = [rule60, rule61, rule62, rule63, rule64, rule65, rule67, rule68];
+    const rules = [rule60, rule61, rule62, rule63, rule64, rule65, rule67, rule68, rule70];
     const beforeAllies = allyTeam.map(u => ({ ...u }));
     const beforeEnemies = enemyTeam.map(u => ({ ...u }));
     for (const rule of rules) {
