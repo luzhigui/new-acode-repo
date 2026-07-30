@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// tools/32-toolkit.js - 光明顶5v5 开发工具箱（文件复制器 / 拆分自原 32-toolkit.js）
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// tools/32-toolkit.js - 光明顶5v5 开发工具箱（文件复制器 / 拆分自原 32-toolkit.js）
 // V5.2.1 | ~26000 bytes | 2026-07-24
 
 /* ========== 标签页切换 ========== */
@@ -46,7 +46,6 @@ function escapeHtml(text) {
         // tests（测试与体检）
         '../tests/25unit-tests.js',
         '../tests/30test-runner.html',
-        '../tests/35quiz-bank.js',
         '../tests/37health-core.js',
         '../tests/37health-rules/60-separator.js', '../tests/37health-rules/61-boneclaw.js',
         '../tests/37health-rules/62-speed-button.js', '../tests/37health-rules/63-carry-hp.js',
@@ -57,6 +56,7 @@ function escapeHtml(text) {
         // tools（工具箱）
         '../tools/31-toolkit.html', '../tools/32-toolkit.js', '../tools/33-toolkit-more.js',
         '../tools/34-shop.html',
+        '../tools/35-version-calibrator.cjs',
         '../tools/27auto-battle-utils.js', '../tools/00build-5v5.cjs',
         // assets（音频）
         '../assets/sfx_arrow.mp3', '../assets/sfx_fly.mp3',
@@ -67,6 +67,7 @@ function escapeHtml(text) {
         '../game-design.md', '../design-notes.md', '../readme-player.md',
         '../成功经验.md',
         '../to do list.md'
+        // 备注：根目录下 文件汇总20260730/ 为项目历史档案文件夹，不参与自动复制
     ];
 
     // 用户可勾选的文件列表（不含 assets/ 和 .md 等不可 fetch 的文件，排除文件名带空格的）

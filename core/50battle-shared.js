@@ -4,6 +4,7 @@ export const VER = 'core/50battle-shared.js V5.2.1';
 
 import { CONFIG } from './01config-5v5-test.js';
 import { ROLE_BONUS } from './02unit.js';
+import { GlobalStore } from '../modules/46global-store.js';
 const C = CONFIG;
 
 // ==================== 事件系统 ====================
@@ -78,9 +79,7 @@ function checkZhangSwitch(A, log) {
 // 优先使用 GlobalStore，回退到 window._emitEvent（兼容旧代码）
 function emitCoreEvent(unit, eventType, payload) {
     if (window.GlobalStore) {
-        window.GlobalStore.pushBattleEvent({ unitUid: unit.uid, eventType, payload });
-    } else if (typeof window._emitEvent === 'function') {
-        window._emitEvent(unit, eventType, payload);
+        window.GlobalStore.dispatch({ type: 'hp-change', unitUid: unit.uid, payload });
     }
 }
 // 同时挂载到 window 以兼容非 core 层代码的调用

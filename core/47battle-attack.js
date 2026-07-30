@@ -4,8 +4,7 @@ export const VER = 'core/47battle-attack.js V5.3.0';
 
 import { CONFIG, DEF_TAUNT, HP_TAUNT } from './01config-5v5-test.js';
 import { rand, hasBuff } from './03battle-utils.js';
-import { GlobalStore } from '../modules/46global-store.js';
-import { updateUI } from '../ui/14ui-render-5v5-test.js';
+
 import { computeBuffStats, applyBuffEffectsBeforeAttack, applyBuffEffectsAfterAttack } from './04buff-system.js';
 import {
     getRebelTarget, getRebelDmgBonus, getRebelTrueDmg,
@@ -38,26 +37,7 @@ export async function processUnitAttack(unit, allySide, enemySide, log, A, B, st
         const sister = sisterComp.onBeforeFirstAttack(A, log);
         if (sister && unit.uid === sister.uid) {
             unit._acted = true;
-            const events = GlobalStore.flushBattleEvents();
-            if (events && events.length > 0 && window.GlobalStore) {
-                const store = GlobalStore.get('battleStore');
-                if (store) {
-                    store.dispatch({ type: 'APPLY_EVENTS', events });
-                    if (typeof updateUI === 'function') updateUI();
-                }
-            }
             return true;
-        }
-        // 姐姐附身成功但当前攻击者不是姐姐本人 → 立即刷新 UI
-        if (sister) {
-            const events = GlobalStore.flushBattleEvents();
-            if (events && events.length > 0 && window.GlobalStore) {
-                const store = GlobalStore.get('battleStore');
-                if (store) {
-                    store.dispatch({ type: 'APPLY_EVENTS', events });
-                    if (typeof updateUI === 'function') updateUI();
-                }
-            }
         }
     }
 
@@ -70,7 +50,7 @@ export async function processUnitAttack(unit, allySide, enemySide, log, A, B, st
             let emptyGroup = { type:'attack-group', uidA:unit.uid, uidD:null, entries:[], isMiss:true, _fxSnapshot:null, waveTaunt:null, waveUnit:null, buffEffects: [] };
             emptyGroup.entries.push({type:'combat-text', text:`<span class="${unit.camp==='ally'?'blue':'orange'}">${unit.camp==='ally'?'明教':'六大派'} ${unit.name}</span> 无法选择目标`});
             emptyGroup.entries.push({type:'info', text:`<span class="gray">锁定目标已阵亡，跳过行动</span>`});
-            emptyGroup._events = window.GlobalStore ? window.GlobalStore.flushBattleEvents() : [];
+            GlobalStore.flushBattleEvents();
             log.push(emptyGroup);
             unit._acted = true;
             return false;
@@ -85,7 +65,7 @@ export async function processUnitAttack(unit, allySide, enemySide, log, A, B, st
         let emptyGroup = { type:'attack-group', uidA:unit.uid, uidD:null, entries:[], isMiss:true, _fxSnapshot:null, waveTaunt:null, waveUnit:null, buffEffects: [] };
         emptyGroup.entries.push({type:'combat-text', text:`<span class="${unit.camp==='ally'?'blue':'orange'}">${unit.camp==='ally'?'明教':'六大派'} ${unit.name}</span> 无法选择目标`});
         emptyGroup.entries.push({type:'info', text:`<span class="gray">无可选目标，跳过行动</span>`});
-        emptyGroup._events = GlobalStore.flushBattleEvents();
+        GlobalStore.flushBattleEvents();
         log.push(emptyGroup);
         unit._acted = true;
         return false;
@@ -131,11 +111,6 @@ export async function processUnitAttack(unit, allySide, enemySide, log, A, B, st
         target.dmgTaken -= dmgCalc.dmg;
         emitEvent(target, 'hp-change', { hp: target.hp, maxHp: target.maxHp, alive: target.alive, atk: target.atk, def: target.def });
         unit._acted = true;
-        const immuneEvents = GlobalStore.flushBattleEvents();
-        if (immuneEvents && immuneEvents.length > 0) {
-            const store = GlobalStore.get('battleStore');
-            if (store) { store.dispatch({ type: 'APPLY_EVENTS', events: immuneEvents }); updateUI(); }
-        }
         return true;
     }
 
