@@ -205,6 +205,38 @@ function battleReducer(state, action) {
             });
             return { ...state, units: next };
         }
+        case 'hp-change': {
+            const idx = state.units.findIndex(u => u.uid === action.unitUid);
+            if (idx < 0) return state;
+            let next = state.units.map(u => ({ ...u }));
+            const p = action.payload;
+            if (p.hp !== undefined) next[idx].hp = p.hp;
+            if (p.maxHp !== undefined) next[idx].maxHp = p.maxHp;
+            if (p.alive !== undefined) next[idx].alive = p.alive;
+            if (p.atk !== undefined) next[idx].atk = p.atk;
+            if (p.def !== undefined) next[idx].def = p.def;
+            if (p.role !== undefined) next[idx].role = p.role;
+            if (p._isDead !== undefined) next[idx]._isDead = p._isDead;
+            if (p._resting !== undefined) next[idx]._resting = p._resting;
+            if (p._blocked !== undefined) next[idx]._blocked = p._blocked;
+            if (p._stunned !== undefined) next[idx]._stunned = p._stunned;
+            if (p._flyMode !== undefined) next[idx]._flyMode = p._flyMode;
+            if (p._butterflyHost !== undefined) next[idx]._butterflyHost = p._butterflyHost;
+            if (p._phantomTarget !== undefined) next[idx]._phantomTarget = p._phantomTarget;
+            if (p.rangedForm !== undefined) next[idx].rangedForm = p.rangedForm;
+            return { ...state, units: next };
+        }
+        case 'stat-bonus-change': {
+            const idx = state.units.findIndex(u => u.uid === action.unitUid);
+            if (idx < 0) return state;
+            let next = state.units.map(u => ({ ...u }));
+            const p = action.payload;
+            if (p.buffAtkBonus !== undefined) next[idx].buffAtkBonus = p.buffAtkBonus;
+            if (p.buffDefBonus !== undefined) next[idx].buffDefBonus = p.buffDefBonus;
+            if (p.buffDodgeBonus !== undefined) next[idx].buffDodgeBonus = p.buffDodgeBonus;
+            if (p.buffHpBonus !== undefined) next[idx].buffHpBonus = p.buffHpBonus;
+            return { ...state, units: next };
+        }
         default: return state;
     }
 }
@@ -285,11 +317,6 @@ async function handleBuffReboundFortify(c, entry) {
 
 async function handleAttackGroup(c, entry, roundResult, abortSig, isFirstAttackRef) {
     if (entry.isCombo) { let spacer = document.createElement('div'); spacer.innerHTML = '<br>'; document.getElementById('log').appendChild(spacer); c.autoScrollLog(); c.isPaused = true; window.bulletTimeActive = true; if (c._scheduler) { await new Promise(r => c._scheduler.schedule('banner', 1500, r)); showBuffBanner('⚡ 连击！'); } else { await showBuffBanner('⚡ 连击！'); } window.bulletTimeActive = false; c.isPaused = false; }
-    // 从 GlobalStore 直接消费本攻击组产生的所有事件
-    const groupEvents = GlobalStore.flushBattleEvents();
-    if (groupEvents && groupEvents.length > 0) {
-        c.store.dispatch({ type: 'APPLY_EVENTS', events: groupEvents });
-    }
     let unitA=c.UI.allyTeam.concat(c.UI.enemyTeam).find(u=>u.uid===entry.uidA);
     let unitD=entry.uidD?c.UI.allyTeam.concat(c.UI.enemyTeam).find(u=>u.uid===entry.uidD):null;
     if(!entry.isBlock&&!entry.isMiss&&!entry.isDodge&&(!unitA||!unitD)){

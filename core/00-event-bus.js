@@ -28,7 +28,7 @@ class EventBus {
      * @param {string} signal - 信号名
      * @param {object} data - 传递给监听器的数据
      */
-    emit(signal, data) {
+    async emit(signal, data) {
         const listeners = this._listeners[signal];
         // 调试日志：信号发射时自动生成
         if (data && data.log && data.unit) {
@@ -41,13 +41,15 @@ class EventBus {
             }
         }
         if (!listeners || listeners.length === 0) return;
+        const promises = [];
         for (const { callback } of listeners) {
             try {
-                callback(data);
+                promises.push(callback(data));
             } catch (e) {
                 console.error(`[EventBus] 信号 "${signal}" 的监听器执行出错:`, e);
             }
         }
+        if (promises.length > 0) await Promise.all(promises);
     }
 
     /**

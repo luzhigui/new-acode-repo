@@ -72,13 +72,8 @@ export function applyDamageModifiers(unit, target, dmg, allySide, enemySide, log
         zhangUpgraded.dmgTaken += selfDmg;
 
         entries.push({
-            type: 'buff-rebound-fortify',
-            attackerUid: unit.uid,
-            reboundDmg: rebound,
-            selfDmg: selfDmg,
-            selfDmgUid: zhangUpgraded.uid,
-            text: `<span class="gold">🦋 乾坤大挪移（升级版）：减伤30%，反弹${rebound}给${unit.name}（无忌自伤${selfDmg}）</span>`,
-            isDead: !unit.alive
+            type: 'info',
+            text: `<span class="gold">🦋 乾坤大挪移（升级版）：减伤30%，反弹${rebound}给${unit.name}（无忌自伤${selfDmg}）</span>`
         });
 
         modifiedDmg = reducedDmg;

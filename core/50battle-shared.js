@@ -79,7 +79,10 @@ function checkZhangSwitch(A, log) {
 // 优先使用 GlobalStore，回退到 window._emitEvent（兼容旧代码）
 function emitCoreEvent(unit, eventType, payload) {
     if (window.GlobalStore) {
-        window.GlobalStore.dispatch({ type: 'hp-change', unitUid: unit.uid, payload });
+        const battleStore = window.GlobalStore.get('battleStore');
+        if (battleStore && typeof battleStore.dispatch === 'function') {
+            battleStore.dispatch({ type: eventType, unitUid: unit.uid, payload });
+        }
     }
 }
 // 同时挂载到 window 以兼容非 core 层代码的调用

@@ -15,18 +15,20 @@ export function createSongQingshuComponent() {
         name: '宋青书',
         register(eventBus, A, B, log) {
             const song = B.find(u => u.name === '宋青书' && u.alive);
-            if (!song) return;
+            if (!song) { console.log('[宋青书] 未找到宋青书，监听器未注册'); return; }
             const onAfterApplyDamage = this.onAfterApplyDamage;
             const onAfterAttack = this.onAfterAttack;
+            console.log('[宋青书] 注册监听器，song._xingFenActive =', song._xingFenActive);
             // 新婚扣血 + 性奋代价
             eventBus.on('afterDamageApplied', 40, (data) => {
                 if (data.unit.name !== '宋青书') return;
                 onAfterApplyDamage(data.unit, data.target, { dmg: data.dmg }, data.group, B, data.log);
             });
             // 性奋额外攻击
-            eventBus.on('afterAttack', 40, (data) => {
-                if (data.unit.name !== '宋青书') return;
-                onAfterAttack(data.unit, data.target, B, A, data.log, B, A, data.state);
+            eventBus.on('afterAttack', 40, async (data) => {
+                if (data.unit.name !== '宋青书') { return; }
+                console.log('[宋青书] afterAttack 触发，unit._xingFenActive =', song._xingFenActive);
+                await onAfterAttack(data.unit, data.target, B, A, data.log, B, A, data.state);
             });
         },
         onAfterApplyDamage(unit, target, dmgCalc, group, allySide, log) {
@@ -47,17 +49,23 @@ export function createSongQingshuComponent() {
                 if (penalty > 0 && unit.maxHp > 1) {
                     const oldMaxHp = unit.maxHp;
                     unit.maxHp = Math.max(1, unit.maxHp - penalty);
-                    unit.hp = Math.min(unit.hp, unit.maxHp);
+                    unit.hp = Math.floor(unit.hp * (unit.maxHp / oldMaxHp));
                     emitEvent(unit, 'hp-change', { hp:unit.hp, maxHp:unit.maxHp, alive:unit.alive, atk:unit.atk, def:unit.def });
                     log.push({ type:'info', text:`<span class="red">💗 性奋代价：${unit.name} 血量上限 ${oldMaxHp} → ${unit.maxHp}（-${penalty}）</span>` });
                 }
             }
         },
         async onAfterAttack(unit, target, allySide, enemySide, log, A, B, state) {
-            if (unit.name !== '宋青书' || !unit.alive || !unit._xingFenActive || !enemySide.some(u => u.alive)) return;
-            unit._xingFenActive = false;
+            if (unit.name !== '宋青书' || !unit.alive || !enemySide.some(u => u.alive)) return;
+            if (!unit._xingFenPenaltyCount || unit._xingFenPenaltyCount <= 0) return;
+            unit._xingFenPenaltyCount = 0;
             log.push({ type:'info', text:`<span class="gold">💗 性奋：${unit.name} 获得额外攻击机会！</span>` });
-            if (typeof processUnitAttack === 'function') { await processUnitAttack(unit, allySide, enemySide, log, A, B, state, null); }
+            if (typeof processUnitAttack === 'function') { 
+    const validTargets = enemySide.filter(c => c.alive && c._flyMode !== 'butterfly' && c._flyMode !== 'spider' && !c._spiderFlying);
+    log.push({ type:'info', text:`<span class="gray">[诊断] 额外攻击：可选目标${validTargets.length}个：${validTargets.map(c=>c.name+'('+c._flyMode+')').join('、')}，敌方总数${enemySide.length}个</span>` });
+    const result = await processUnitAttack(unit, allySide, enemySide, log, A, B, state, null);
+    log.push({ type:'info', text:`<span class="gray">[诊断] 额外攻击返回：${result}</span>` });
+}
         }
     };
 }
