@@ -336,7 +336,24 @@ export async function playBattle() {
             await playLogEntries(c, step.log, step, isFirstAttackRef);
 
             if (step.events && step.events.length > 0) {
-                c.store.dispatch({ type: 'APPLY_EVENTS', events: step.events });
+                // 血量事件延迟到攻击动画之后应用
+                const nonHpEvents = [];
+                const hpEvents = [];
+                for (const ev of step.events) {
+                    if (ev.eventType === 'hp-change' || ev.type === 'hp-change') {
+                        hpEvents.push(ev);
+                    } else {
+                        nonHpEvents.push(ev);
+                    }
+                }
+                if (nonHpEvents.length > 0) {
+                    c.store.dispatch({ type: 'APPLY_EVENTS', events: nonHpEvents });
+                }
+                if (hpEvents.length > 0) {
+                    c._scheduler.schedule('hp-sync', Math.min(c.speed / 2, 400), () => {
+                        c.store.dispatch({ type: 'APPLY_EVENTS', events: hpEvents });
+                    });
+                }
                 c.updateUI(c.UI);
             }
             c.store.dispatch({ type: 'SYNC_BATTLE_STATS', ally: step.ally, enemy: step.enemy });
