@@ -1,6 +1,6 @@
 // modules/23elite-skills.js - 光明顶5v5 精英技能系统
-// V5.2.3 | ~7200 bytes | 2026-07-31 清理退役函数：canXingFenTrigger, consumeXingFen, checkXiaoZhaoPermanentDoubleStrike, applyPhantomDisguise, applyXiaoZhaoMindControl
-export const VER = 'modules/23elite-skills.js V5.2.3';
+// V5.3.1 | ~13000 bytes| 2026-07-31 清理退役函数：canXingFenTrigger, consumeXingFen, checkXiaoZhaoPermanentDoubleStrike, applyPhantomDisguise, applyXiaoZhaoMindControl
+export const VER = 'modules/23elite-skills.js V5.3.1';
 
 import { CONFIG } from '../core/01config-5v5-test.js';
 import { ROLE_BONUS } from '../core/02unit.js';

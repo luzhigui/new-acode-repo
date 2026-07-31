@@ -1,6 +1,6 @@
 // modules/99elite-mingjiao.js - 明教精英组件合集
-// V5.2.2 | ~6000 bytes | 2026-07-28 合并张无忌/韦一笑/小昭姐/小昭妹
-export const VER = 'modules/99elite-mingjiao.js V5.2.2';
+// V5.3.1 | ~16300 bytes| 2026-07-28 合并张无忌/韦一笑/小昭姐/小昭妹
+export const VER = 'modules/99elite-mingjiao.js V5.3.1';
 
 import { CONFIG } from '../core/01config-5v5-test.js';
 import { ROLE_BONUS } from '../core/02unit.js';

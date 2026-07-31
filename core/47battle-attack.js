@@ -1,6 +1,6 @@
 // core/47battle-attack.js - 光明顶5v5 攻击流程模块
-// V5.3.0 | ~15000 bytes | 2026-07-28 重构为事件总线驱动
-export const VER = 'core/47battle-attack.js V5.3.0';
+// V5.3.1 | ~6600 bytes| 2026-07-28 重构为事件总线驱动
+export const VER = 'core/47battle-attack.js V5.3.1';
 
 import { CONFIG, DEF_TAUNT, HP_TAUNT } from './01config-5v5-test.js';
 import { rand, hasBuff } from './03battle-utils.js';

@@ -1,6 +1,6 @@
 // modules/97elite-imperial.js - 朝廷精英组件合集
-// V5.2.2 | ~4000 bytes | 2026-07-28 合并成昆/鹿杖客/鹤笔翁
-export const VER = 'modules/97elite-imperial.js V5.2.2';
+// V5.3.1 | ~6400 bytes| 2026-07-28 合并成昆/鹿杖客/鹤笔翁
+export const VER = 'modules/97elite-imperial.js V5.3.1';
 
 import { CONFIG } from '../core/01config-5v5-test.js';
 import { rand } from '../core/03battle-utils.js';

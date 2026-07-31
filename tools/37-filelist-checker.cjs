@@ -1,5 +1,5 @@
 // tools/37-filelist-checker.cjs - 光明顶5v5 文件清单一致性检查器
-// V5.3.1 | ~5000 bytes | 2026-07-28
+// V5.3.1 | ~5100 bytes| 2026-07-28
 
 const fs = require('fs');
 const path = require('path');
@@ -16,7 +16,7 @@ function collectActualFiles() {
   for (const entry of fs.readdirSync(ROOT)) {
     const ext = path.extname(entry).toLowerCase();
     if (EXTENSIONS.has(ext) && !entry.startsWith('_')) {
-      files.push(entry);
+      files.push(`../${entry}`);
     }
   }
 
@@ -37,7 +37,7 @@ function walkDir(dir, relDir, out) {
     if (stat.isDirectory()) {
       walkDir(fullPath, relPath, out);
     } else if (stat.isFile() && EXTENSIONS.has(path.extname(entry).toLowerCase()) && !entry.startsWith('_')) {
-      out.push(relPath);
+      out.push(`../${relPath}`);
     }
   }
 }
@@ -80,7 +80,7 @@ function main() {
   console.log(`33-toolkit-more.js 登记数: ${moreFiles.length}\n`);
 
   // 1. 实际存在但不在 32 清单里的文件
-  const missingInToolkit = [...actualFiles].filter(f => !toolkitSet.has(`../${f}`)).sort();
+  const missingInToolkit = [...actualFiles].filter(f => !toolkitSet.has(f)).sort();
   if (missingInToolkit.length > 0) {
     console.log(`❌ 实际存在但 32-toolkit.js 未登记 (${missingInToolkit.length} 个):`);
     for (const f of missingInToolkit) console.log(`   ${f}`);
@@ -88,7 +88,7 @@ function main() {
   }
 
   // 2. 32 清单里有但实际不存在的文件
-  const ghostInToolkit = toolkitFiles.filter(f => !actualFiles.has(f.replace(/^\.\.\//, ''))).sort();
+  const ghostInToolkit = toolkitFiles.filter(f => !actualFiles.has(f)).sort();
   if (ghostInToolkit.length > 0) {
     console.log(`❌ 32-toolkit.js 登记但实际不存在 (${ghostInToolkit.length} 个):`);
     for (const f of ghostInToolkit) console.log(`   ${f}`);
@@ -96,7 +96,7 @@ function main() {
   }
 
   // 3. 实际存在但不在 33 清单里的文件
-  const missingInMore = [...actualFiles].filter(f => !moreSet.has(`../${f}`)).sort();
+  const missingInMore = [...actualFiles].filter(f => !moreSet.has(f)).sort();
   if (missingInMore.length > 0) {
     console.log(`❌ 实际存在但 33-toolkit-more.js 未登记 (${missingInMore.length} 个):`);
     for (const f of missingInMore) console.log(`   ${f}`);
@@ -104,7 +104,7 @@ function main() {
   }
 
   // 4. 33 清单里有但实际不存在的文件
-  const ghostInMore = moreFiles.filter(f => !actualFiles.has(f.replace(/^\.\.\//, ''))).sort();
+  const ghostInMore = moreFiles.filter(f => !actualFiles.has(f)).sort();
   if (ghostInMore.length > 0) {
     console.log(`❌ 33-toolkit-more.js 登记但实际不存在 (${ghostInMore.length} 个):`);
     for (const f of ghostInMore) console.log(`   ${f}`);

@@ -2,7 +2,7 @@
 // 回归规则：姐姐附身属性叠加 — 修复后基于 _baseAtk/_baseDef 转移，不重复计算 Buff
 // 复发信号：附身转移值 atkTransfer != floor(_baseAtk/3)（转移值包含 Buff 加成，回退到直接操作 atk）
 // 对应已修 Bug：姐姐附身属性叠加（直接操作 atk/def 导致 Buff 重复计算）
-export const VER = 'tests/37health-rules/74-butterfly-stack.js V5.2.0';
+export const VER = 'tests/37health-rules/74-butterfly-stack.js V5.3.1';
 
 export const rule74 = {
     group: '精英技能回归',

@@ -1,6 +1,6 @@
 // player/53event-handlers.js - 光明顶5v5 事件处理器函数族
-// V5.2.2 | ~18000 bytes | 2026-07-31 从 player/10 提取动画 handler
-export const VER = 'player/53event-handlers.js V5.2.2';
+// V5.3.1 | ~26600 bytes| 2026-07-31 从 player/10 提取动画 handler
+export const VER = 'player/53event-handlers.js V5.3.1';
 
 import { isBlocked } from '../core/03battle-utils.js';
 import { showDanmaku, showDamageFloat, showDodgeBubble, showHealFloat, showAtkBuffFloat, applyBrushEffect, showBuffBanner, showCriticalBanner, showHeartEffect, showPinkFlash, showKuLianEffect, showWindClaw } from '../fx/15fx-common-5v5-test.js';

@@ -1,6 +1,6 @@
 // ui/13main-5v5-test.js - 光明顶5v5 主控模块
-// V5.2.1 | ~24000 bytes | 2026-07-07 拆分音频到42、特效到43、倍速+按钮到44
-export const VER = 'ui/13main-5v5-test.js V5.2.1';
+// V5.3.1 | ~27200 bytes| 2026-07-07 拆分音频到42、特效到43、倍速+按钮到44
+export const VER = 'ui/13main-5v5-test.js V5.3.1';
 
 import '../modules/46global-store.js';
 import '../modules/24error-capture.js';

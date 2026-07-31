@@ -2,7 +2,7 @@
 // 回归规则：白骨爪回血刷屏 — 修复后回血日志应在追击序列末尾统一输出一条汇总
 // 复发信号：回血日志夹在 clawHit 之间（说明又改回循环内逐条 push）
 // 对应已修 Bug：白骨爪回血刷屏（循环内累计，循环外统一输出一条）
-export const VER = 'tests/37health-rules/70-claw-heal-spam.js V5.2.0';
+export const VER = 'tests/37health-rules/70-claw-heal-spam.js V5.3.1';
 
 export const rule70 = {
     group: '精英技能回归',

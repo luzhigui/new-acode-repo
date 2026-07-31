@@ -1,5 +1,5 @@
 ﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// tools/32-toolkit.js - 光明顶5v5 开发工具箱（文件复制器 / 拆分自原 32-toolkit.js）
-// V5.3.1 | ~26000 bytes | 2026-07-28
+// V5.3.1 | ~34100 bytes| 2026-07-28
 
 /* ========== 标签页切换 ========== */
 document.querySelectorAll('.tab-btn').forEach(btn => {
@@ -43,15 +43,14 @@ function escapeHtml(text) {
         '../modules/46global-store.js', '../modules/52battle-store.js', '../modules/100-replay.js',
         '../modules/97elite-imperial.js', '../modules/98elite-sixsects.js', '../modules/99elite-mingjiao.js',
         // tests（体检规则与自动测试）
-        '../tests/25unit-tests.js',
         '../tests/30test-runner.html',
-        '../tests/37health-core.js',
-        '../tests/37health-rules/60-separator.js', '../tests/37health-rules/61-boneclaw.js',
-        '../tests/37health-rules/62-speed-button.js', '../tests/37health-rules/63-carry-hp.js',
-        '../tests/37health-rules/64-horse.js', '../tests/37health-rules/65-swap.js',
-        '../tests/37health-rules/66-victory.js', '../tests/37health-rules/67-cloud-dodge.js',
-        '../tests/37health-rules/68-dodge-rebound.js', '../tests/37health-rules/70-claw-heal-spam.js',
-        '../tests/38health-monitor.js', '../tests/45health-auto.js', '../tests/46health-utils.js',
+        '../tests/37health-rules/70-claw-heal-spam.js',
+        '../tests/37health-rules/71-aftermiss.js',
+        '../tests/37health-rules/72-fortify-timing.js',
+        '../tests/37health-rules/73-xuanming-link.js',
+        '../tests/37health-rules/74-butterfly-stack.js',
+        '../tests/37health-rules/75-butterfly-return.js',
+        '../tests/38health-monitor.js', '../tests/46health-utils.js',
         // tools（开发工具箱）
         '../tools/31-toolkit.html', '../tools/32-toolkit.js', '../tools/33-toolkit-more.js',
         '../tools/34-shop.html',

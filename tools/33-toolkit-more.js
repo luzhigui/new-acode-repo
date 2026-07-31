@@ -1,5 +1,5 @@
 ﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// tools/33-toolkit-more.js - 光明顶5v5 开发工具箱（函数提取器 / 函数替换器）
-// V5.3.1 | ~28600 bytes | 2026-07-28
+// V5.3.1 | ~28500 bytes| 2026-07-28
 
 function escapeHtml(text) {
     return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -24,15 +24,14 @@ function escapeHtml(text) {
         '../modules/23elite-skills.js', '../modules/24error-capture.js', '../modules/28audio-manager.js',
         '../modules/46global-store.js', '../modules/52battle-store.js', '../modules/100-replay.js',
         '../modules/97elite-imperial.js', '../modules/98elite-sixsects.js', '../modules/99elite-mingjiao.js',
-        '../tests/25unit-tests.js',
         '../tests/30test-runner.html',
-        '../tests/37health-core.js',
-        '../tests/37health-rules/60-separator.js', '../tests/37health-rules/61-boneclaw.js',
-        '../tests/37health-rules/62-speed-button.js', '../tests/37health-rules/63-carry-hp.js',
-        '../tests/37health-rules/64-horse.js', '../tests/37health-rules/65-swap.js',
-        '../tests/37health-rules/66-victory.js', '../tests/37health-rules/67-cloud-dodge.js',
-        '../tests/37health-rules/68-dodge-rebound.js', '../tests/37health-rules/70-claw-heal-spam.js',
-        '../tests/38health-monitor.js', '../tests/45health-auto.js', '../tests/46health-utils.js',
+        '../tests/37health-rules/70-claw-heal-spam.js',
+        '../tests/37health-rules/71-aftermiss.js',
+        '../tests/37health-rules/72-fortify-timing.js',
+        '../tests/37health-rules/73-xuanming-link.js',
+        '../tests/37health-rules/74-butterfly-stack.js',
+        '../tests/37health-rules/75-butterfly-return.js',
+        '../tests/38health-monitor.js', '../tests/46health-utils.js',
         '../tools/32-toolkit.js', '../tools/33-toolkit-more.js',
         '../tools/34-shop.html',
         '../tools/35-version-calibrator.cjs',

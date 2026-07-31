@@ -1,6 +1,6 @@
 ﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// ui/14ui-render-5v5-test.js - 光明顶5v5 UI渲染模块（响应式版）
-// V5.2.1 | ~18500 bytes | 2026-07-11 数据驱动渲染，移除魔数清理
-export const VER = 'ui/14ui-render-5v5-test.js V5.2.1';
+// V5.3.1 | ~34200 bytes| 2026-07-11 数据驱动渲染，移除魔数清理
+export const VER = 'ui/14ui-render-5v5-test.js V5.3.1';
 
 import { CONFIG } from '../core/01config-5v5-test.js';
 import { rand } from '../core/03battle-utils.js';

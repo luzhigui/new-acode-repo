@@ -1,9 +1,10 @@
 // modules/98elite-sixsects.js - 六大派精英组件合集
-// V5.2.2 | ~4000 bytes | 2026-07-28 合并宋青书/周芷若
-export const VER = 'modules/98elite-sixsects.js V5.2.2';
+// V5.3.1 | ~10700 bytes| 2026-07-28 合并宋青书/周芷若
+export const VER = 'modules/98elite-sixsects.js V5.3.1';
 import { GlobalStore } from './46global-store.js';
 import { CONFIG } from '../core/01config-5v5-test.js';
 import { processUnitAttack } from '../core/47battle-attack.js';
+import { canXingFenTrigger, consumeXingFen } from './23elite-skills.js';
 const ES = CONFIG.ELITE_SKILLS;
 
 function emitEvent(unit, eventType, payload) {
@@ -20,6 +21,30 @@ export function createSongQingshuComponent() {
             const onAfterApplyDamage = this.onAfterApplyDamage;
             const onAfterAttack = this.onAfterAttack;
             console.log('[宋青书] 注册监听器，song._xingFenActive =', song._xingFenActive);
+            // 未命中后性奋重试
+            eventBus.on('afterMiss', 50, (data) => {
+                const { unit, log } = data;
+                if (unit.name !== '宋青书' || !unit.alive) return;
+                if (!B || !B.some(u => u.alive)) return;
+                if (canXingFenTrigger(unit)) {
+                    consumeXingFen(unit);
+                    log.push({type:'info', text:`<span class="gold">💗 性奋：${unit.name} 获得额外攻击机会！</span>`});
+                    data.retry = true;
+                    data.retryTargetUid = null;
+                }
+            });
+            // 未命中后性奋重试
+            eventBus.on('afterMiss', 50, (data) => {
+                const { unit, log } = data;
+                if (unit.name !== '宋青书' || !unit.alive) return;
+                if (!B || !B.some(u => u.alive)) return;
+                if (canXingFenTrigger(unit)) {
+                    consumeXingFen(unit);
+                    log.push({type:'info', text:`<span class="gold">💗 性奋：${unit.name} 获得额外攻击机会！</span>`});
+                    data.retry = true;
+                    data.retryTargetUid = null;
+                }
+            });
             // 新婚扣血 + 性奋代价
             eventBus.on('afterDamageApplied', 40, (data) => {
                 if (data.unit.name !== '宋青书') return;

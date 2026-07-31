@@ -1,6 +1,6 @@
 // modules/52battle-store.js - 光明顶5v5 战斗Store工厂
-// V5.2.2 | ~3200 bytes | 2026-07-31 从 player/10 提取 Store 创建逻辑
-export const VER = 'modules/52battle-store.js V5.2.2';
+// V5.3.1 | ~11100 bytes| 2026-07-31 从 player/10 提取 Store 创建逻辑
+export const VER = 'modules/52battle-store.js V5.3.1';
 
 // ==================== Store 工厂 ====================
 export function createStore(initialState, reducer) {
