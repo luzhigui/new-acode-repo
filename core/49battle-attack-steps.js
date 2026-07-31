@@ -144,7 +144,9 @@ export function resolveAttackHit(unit, target, attackerBuffStats, defenderBuffSt
                 emitEvent(unit, 'hp-change', { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: unit.atk, def: unit.def, _isDead: unit._isDead || false });
                 let dg = {type:'attack-group', uidA:target.uid, uidD:unit.uid, entries:[], isDodge:true, hpAfter:unit.hp, alive:unit.alive, _fxSnapshot:makeFXSnapshot(target,unit), waveTaunt:null, waveUnit:null, buffEffects:[], _atkBonus:0, _defBonus:0};
                 if (target.isWei) {
-                    let heal = Math.floor(reboundDmg * 0.15);
+                    const lostPctWei = (target.maxHp - target.hp) / target.maxHp;
+                    const leechRateWei = 0.20 + (0.50 - 0.20) * lostPctWei;
+                    let heal = Math.floor(reboundDmg * leechRateWei);
                     let wasFullHp = (target.hp >= target.maxHp);
                     let newMaxHp = Math.min(target.maxHp + heal, target._baseMaxHp * 2);
                     target.maxHp = newMaxHp;
@@ -381,6 +383,8 @@ export async function buildAttackGroup(unit, target, dmgCalc, dmgResult, attacke
     }
 
     log.push(group);
+
+
 
     applyPostAttackEffects(unit, target, dmg, atkAct, defAct, reboundEntry, allySide, enemySide, log, A);
     return group;
