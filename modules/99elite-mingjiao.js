@@ -1,10 +1,10 @@
 // modules/99elite-mingjiao.js - 明教精英组件合集
-// V5.3.1 | ~16300 bytes| 2026-07-28 合并张无忌/韦一笑/小昭姐/小昭妹
+// V5.3.1 | ~17900 bytes| 2026-07-28 合并张无忌/韦一笑/小昭姐/小昭妹
 export const VER = 'modules/99elite-mingjiao.js V5.3.1';
 
 import { CONFIG } from '../core/01config-5v5-test.js';
 import { ROLE_BONUS } from '../core/02unit.js';
-import { rand } from '../core/03battle-utils.js';
+import { rand, hasBuff } from '../core/03battle-utils.js';
 import { checkZhangSwitch, emitEvent } from '../core/50battle-shared.js';
 const ES = CONFIG.ELITE_SKILLS;
 function getZhangNearTaunt(nearAtkCount) {
@@ -108,6 +108,18 @@ export function createWeiYixiaoComponent() {
 export function createXiaoZhaoSisterComponent() {
     return {
         name: '小昭·姊',
+        register(eventBus, A, B, log) {
+            const sister = A.find(u => u.isXiaoZhaoSister && u.alive && !u._stunned);
+            if (!sister) return;
+            const comp = this;
+            eventBus.on('allyDamaged', 50, (data) => {
+                const xiaoZhao = A.find(u => u.isXiaoZhaoSister && u.alive && !u._stunned);
+                if (!xiaoZhao) return;
+                const zhang = A.find(u => u.isZhang && u.alive);
+                if (zhang) return;
+                comp.onAllyDamaged(data.target, data.dmg, A, data.log);
+            });
+        },
         onBeforeFirstAttack(A, log) {
             const sister = A.find(u => u.isXiaoZhaoSister && u.alive && u.pos === 4 && !u._stunned);
             if (!sister || sister._butterflyHost) return null;
@@ -164,6 +176,21 @@ export function createXiaoZhaoBrotherComponent() {
                 if (data.target.uid !== brother.uid || !data.A) return;
                 const immune = onBeforeDeath(data.target, data.dmg, data.A, data.log);
                 if (immune) data.result.immune = true;
+            });
+            // 永久概率连击
+            eventBus.on('afterMiss', 60, (data) => {
+                const { unit, target, log } = data;
+                if (!unit.isXiaoZhaoBrother || !unit.alive || unit._xiaoZhaoDoubleStriked) return;
+                if (!unit._permanentBuffs || !unit._permanentBuffs.some(b => b.key === 'doubleStrike')) return;
+                if (hasBuff(A._activeBuffs, 'doubleStrike')) return;
+                const chance = (CONFIG.ELITE_SKILLS.xiaoZhaoDoubleStrike && CONFIG.ELITE_SKILLS.xiaoZhaoDoubleStrike.chance) ? CONFIG.ELITE_SKILLS.xiaoZhaoDoubleStrike.chance * 100 : 80;
+                if (rand(1, 100) <= chance) {
+                    unit._xiaoZhaoDoubleStriked = true;
+                    unit._acted = false;
+                    log.push({type:'info', text:`<span class="gold">🦋 蝶击：小昭永久概率连击触发！</span>`, isDoubleStrikeBanner:true});
+                    data.retry = true;
+                    data.retryTargetUid = (target && target.alive) ? target.uid : null;
+                }
             });
         },
         onBeforeDeath(unit, incomingDmg, A, log) {

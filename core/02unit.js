@@ -1,5 +1,5 @@
 // core/02unit.js - 光明顶5v5 战斗单位类
-// V5.3.1 | ~8600 bytes| 2026-07-05
+// V5.3.1 | ~8400 bytes| 2026-07-05
 export const VER = 'core/02unit.js V5.3.1';
 
 import { rand } from './03battle-utils.js';
@@ -45,7 +45,6 @@ export class Unit {
         this._phantomTarget = null;  // 成昆模仿的目标 uid
         this._stunned = false;       // 本回合是否被闪避反击眩晕
         this._isLinkAttack = false;
-        this.isXiaoZhao = false;      // 小昭标记（保留，用于向后兼容）
         this.isXiaoZhaoSister = false; // 🦋 小昭·姊
         this.isXiaoZhaoBrother = false; // 🕷️ 小昭·妹
         this._masteredRoles = [];
@@ -114,7 +113,6 @@ export class Unit {
         c._lastRole = this._lastRole;
         c._isLinkAttack = this._isLinkAttack;
         c._linkedPartnerUid = this._linkedPartnerUid;
-        c.isXiaoZhao = this.isXiaoZhao;
         c._masteredRoles = [...this._masteredRoles];
         c._permanentBuffs = this._permanentBuffs.map(b => ({...b}));
         c.isXiaoZhaoSister = this.isXiaoZhaoSister;

@@ -1,5 +1,5 @@
 // tools/37-filelist-checker.cjs - 光明顶5v5 文件清单一致性检查器
-// V5.3.1 | ~5100 bytes| 2026-07-28
+// V5.3.1 | ~5400 bytes| 2026-07-28
 
 const fs = require('fs');
 const path = require('path');
@@ -7,7 +7,10 @@ const path = require('path');
 const ROOT = path.resolve(__dirname, '..');
 
 const SCAN_DIRS = ['core', 'player', 'ui', 'fx', 'modules', 'tests', 'tools'];
-const EXTENSIONS = new Set(['.js', '.html', '.cjs']);
+const EXTENSIONS = new Set(['.js', '.html', '.cjs', '.md', '.mp3']);
+
+// 33-toolkit-more.js 是函数提取器，这些 HTML 页面没有独立导出函数，不强制登记
+const HTML_ONLY_IN_TOOLKIT = new Set(['../index.html', '../mode-5v5-test.html', '../tools/31-toolkit.html']);
 
 function collectActualFiles() {
   const files = [];
@@ -95,8 +98,8 @@ function main() {
     console.log('');
   }
 
-  // 3. 实际存在但不在 33 清单里的文件
-  const missingInMore = [...actualFiles].filter(f => !moreSet.has(f)).sort();
+  // 3. 实际存在但不在 33 清单里的文件（排除纯 HTML 页面）
+  const missingInMore = [...actualFiles].filter(f => !moreSet.has(f) && !HTML_ONLY_IN_TOOLKIT.has(f)).sort();
   if (missingInMore.length > 0) {
     console.log(`❌ 实际存在但 33-toolkit-more.js 未登记 (${missingInMore.length} 个):`);
     for (const f of missingInMore) console.log(`   ${f}`);
@@ -111,8 +114,8 @@ function main() {
     console.log('');
   }
 
-  // 5. 32 和 33 清单不一致的地方（只统计共同登记的文件）
-  const inToolkitNotMore = toolkitFiles.filter(f => !moreSet.has(f)).sort();
+  // 5. 32 和 33 清单不一致的地方（排除纯 HTML 页面）
+  const inToolkitNotMore = toolkitFiles.filter(f => !moreSet.has(f) && !HTML_ONLY_IN_TOOLKIT.has(f)).sort();
   const inMoreNotToolkit = moreFiles.filter(f => !toolkitSet.has(f)).sort();
   if (inToolkitNotMore.length > 0 || inMoreNotToolkit.length > 0) {
     console.log('⚠️  两份清单差异:');

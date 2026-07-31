@@ -1,17 +1,16 @@
 ﻿﻿﻿﻿﻿﻿﻿﻿// core/48battle-round.js - 光明顶5v5 回合循环与生成器
-// V5.3.1 | ~29700 bytes| 2026-07-28 迁移光环和联动至事件总线
+// V5.3.1 | ~26800 bytes| 2026-07-28 迁移光环和联动至事件总线
 export const VER = 'core/48battle-round.js V5.3.1';
 
 import { CONFIG } from './01config-5v5-test.js';
-import { rand, isMelee, isBlocked, makeFXSnapshot, hasBuff, getUnitCol, getUnitRow, hasAnyEnemyEmptyCol, countEnemyEmptyCols, getBloodAuraBonus, registerWarriorBreakDefense, registerRangedGrowth, registerFortifyShield, selectFlyTarget, registerEmptyColBonus } from './03battle-utils.js';
+import { rand, isMelee, isBlocked, makeFXSnapshot, hasBuff, getUnitCol, getUnitRow, hasAnyEnemyEmptyCol, countEnemyEmptyCols, getBloodAuraBonus, registerWarriorBreakDefense, registerRangedGrowth, registerFortifyShield, selectFlyTarget, registerEmptyColBonus, registerDoubleStrike } from './03battle-utils.js';
 import { computeBuffStats, logBuffSummary, applyHolyFlameBonus, applyFortifyBonus, registerBloodthirst, registerHotBlood, registerWindAssault, registerMeteorShower, registerMindControl } from './04buff-system.js';
 import { spawnHorse, destroyHorse } from './05battle-horse.js';
 import { Unit } from './02unit.js';
 import {
     checkKuLian, applyXingFenGrant, tickXuanmingPoison, tickKuaiLeHeal,
     spiderTransform, spiderReturn,
-    canXingFenTrigger, consumeXingFen, isXiaoZhaoPermanentActive,
-    getXiaoZhaoHexEnhance
+    isXiaoZhaoPermanentActive
 } from '../modules/23elite-skills.js';
 import { createZhangWujiComponent, createWeiYixiaoComponent, createXiaoZhaoSisterComponent, createXiaoZhaoBrotherComponent, butterflyReturn } from '../modules/99elite-mingjiao.js';
 import { createSongQingshuComponent, createZhouZhiruoComponent } from '../modules/98elite-sixsects.js';
@@ -184,50 +183,7 @@ export async function* createRoundStepper(state) {
         const flyTarget = selectFlyTarget(data.unit, data.enemySide);
         if (flyTarget) data.targetResult = flyTarget;
     });
-    // 概率连击监听器
-    if (doubleStrikeUnitUid) {
-        eventBus.on('afterMiss', 40, (data) => {
-            const { unit, target, log } = data;
-            if (unit.uid !== doubleStrikeUnitUid || !unit.alive || unit.camp !== 'ally' || unit._doubleStriked) return;
-            const xiaoDoubleEnhance = getXiaoZhaoHexEnhance(A, A._activeBuffs, 'doubleStrike');
-            const missChainChance = xiaoDoubleEnhance ? 1.0 : 0.8;
-            if (Math.random() < missChainChance) {
-                log.push({type:'info', text:`<span class="gold">⚡ 概率连击触发！</span>`, isDoubleStrikeBanner:true});
-                unit._doubleStriked = true; unit._acted = false;
-                data.retry = true; data.retryTargetUid = (target && target.alive) ? target.uid : null;
-            } else {
-                log.push({type:'info', text:`<span class="gray">⚡ 概率连击触发失败，${unit.name} 未能再次攻击</span>`});
-            }
-        });
-    }
-    // 宋青书未命中后性奋重试
-    eventBus.on('afterMiss', 50, (data) => {
-        const { unit, log } = data;
-        if (unit.name !== '宋青书' || !unit.alive) return;
-        const B = unit.camp === 'enemy' ? A : null;
-        if (!B || !B.some(u => u.alive)) return;
-        if (canXingFenTrigger(unit)) {
-            consumeXingFen(unit);
-            log.push({type:'info', text:`<span class="gold">💗 性奋：${unit.name} 获得额外攻击机会！</span>`});
-            data.retry = true;
-            data.retryTargetUid = null;
-        }
-    });
-    // 小昭永久概率连击
-    eventBus.on('afterMiss', 60, (data) => {
-        const { unit, target, log } = data;
-        if (!unit.isXiaoZhaoBrother || !unit.alive || unit._xiaoZhaoDoubleStriked) return;
-        if (!unit._permanentBuffs || !unit._permanentBuffs.some(b => b.key === 'doubleStrike')) return;
-        if (hasBuff(A._activeBuffs, 'doubleStrike')) return;
-        const chance = (CONFIG.ELITE_SKILLS.xiaoZhaoDoubleStrike && CONFIG.ELITE_SKILLS.xiaoZhaoDoubleStrike.chance) ? CONFIG.ELITE_SKILLS.xiaoZhaoDoubleStrike.chance * 100 : 80;
-        if (rand(1, 100) <= chance) {
-            unit._xiaoZhaoDoubleStriked = true;
-            unit._acted = false;
-            log.push({type:'info', text:`<span class="gold">🦋 蝶击：小昭永久概率连击触发！</span>`, isDoubleStrikeBanner:true});
-            data.retry = true;
-            data.retryTargetUid = (target && target.alive) ? target.uid : null;
-        }
-    });
+    registerDoubleStrike(eventBus, doubleStrikeUnitUid, A, A._activeBuffs);
     registerEmptyColBonus(eventBus);
     registerXuanmingLink(eventBus);
 
@@ -238,15 +194,7 @@ export async function* createRoundStepper(state) {
         if (u.isWei) createWeiYixiaoComponent().register(eventBus, A, B, log);
         if (u.isXiaoZhaoBrother) createXiaoZhaoBrotherComponent().register(eventBus, A, B, log);
         if (u.isXiaoZhaoSister) {
-            const sisterComp = createXiaoZhaoSisterComponent();
-            A._sisterComp = sisterComp;
-            eventBus.on('allyDamaged', 50, (data) => {
-                const xiaoZhao = A.find(u => u.isXiaoZhaoSister && u.alive && !u._stunned);
-                if (!xiaoZhao) return;
-                const zhang = A.find(u => u.isZhang && u.alive);
-                if (zhang) return;
-                sisterComp.onAllyDamaged(data.target, data.dmg, A, data.log);
-            });
+            createXiaoZhaoSisterComponent().register(eventBus, A, B, log);
         }
     });
     B.forEach(u => {

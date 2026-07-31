@@ -1,5 +1,5 @@
 // modules/98elite-sixsects.js - 六大派精英组件合集
-// V5.3.1 | ~10700 bytes| 2026-07-28 合并宋青书/周芷若
+// V5.3.1 | ~10000 bytes| 2026-07-28 合并宋青书/周芷若
 export const VER = 'modules/98elite-sixsects.js V5.3.1';
 import { GlobalStore } from './46global-store.js';
 import { CONFIG } from '../core/01config-5v5-test.js';
@@ -17,22 +17,9 @@ export function createSongQingshuComponent() {
         name: '宋青书',
         register(eventBus, A, B, log) {
             const song = B.find(u => u.name === '宋青书' && u.alive);
-            if (!song) { console.log('[宋青书] 未找到宋青书，监听器未注册'); return; }
+            if (!song) { return; }
             const onAfterApplyDamage = this.onAfterApplyDamage;
             const onAfterAttack = this.onAfterAttack;
-            console.log('[宋青书] 注册监听器，song._xingFenActive =', song._xingFenActive);
-            // 未命中后性奋重试
-            eventBus.on('afterMiss', 50, (data) => {
-                const { unit, log } = data;
-                if (unit.name !== '宋青书' || !unit.alive) return;
-                if (!B || !B.some(u => u.alive)) return;
-                if (canXingFenTrigger(unit)) {
-                    consumeXingFen(unit);
-                    log.push({type:'info', text:`<span class="gold">💗 性奋：${unit.name} 获得额外攻击机会！</span>`});
-                    data.retry = true;
-                    data.retryTargetUid = null;
-                }
-            });
             // 未命中后性奋重试
             eventBus.on('afterMiss', 50, (data) => {
                 const { unit, log } = data;
@@ -53,7 +40,6 @@ export function createSongQingshuComponent() {
             // 性奋额外攻击
             eventBus.on('afterAttack', 40, async (data) => {
                 if (data.unit.name !== '宋青书') { return; }
-                console.log('[宋青书] afterAttack 触发，unit._xingFenActive =', song._xingFenActive);
                 await onAfterAttack(data.unit, data.target, B, A, data.log, B, A, data.state);
             });
         },
@@ -87,10 +73,7 @@ export function createSongQingshuComponent() {
             unit._xingFenPenaltyCount = 0;
             log.push({ type:'info', text:`<span class="gold">💗 性奋：${unit.name} 获得额外攻击机会！</span>` });
             if (typeof processUnitAttack === 'function') { 
-    const validTargets = enemySide.filter(c => c.alive && c._flyMode !== 'butterfly' && c._flyMode !== 'spider' && !c._spiderFlying);
-    log.push({ type:'info', text:`<span class="gray">[诊断] 额外攻击：可选目标${validTargets.length}个：${validTargets.map(c=>c.name+'('+c._flyMode+')').join('、')}，敌方总数${enemySide.length}个</span>` });
-    const result = await processUnitAttack(unit, allySide, enemySide, log, A, B, state, null);
-    log.push({ type:'info', text:`<span class="gray">[诊断] 额外攻击返回：${result}</span>` });
+    await processUnitAttack(unit, allySide, enemySide, log, A, B, state, null);
 }
         }
     };
