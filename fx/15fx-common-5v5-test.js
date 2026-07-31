@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// fx/15fx-common-5v5-test.js - 光明顶5v5 基础特效池
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// fx/15fx-common-5v5-test.js - 光明顶5v5 基础特效池
 // V5.2.1 | ~11587 bytes | 2026-07-05
 export const VER = 'fx/15fx-common-5v5-test.js V5.2.1';
 

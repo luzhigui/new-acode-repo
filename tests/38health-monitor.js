@@ -1,15 +1,7 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// tests/38health-monitor.js - 光明顶5v5 实时体检监控器
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// tests/38health-monitor.js - 光明顶5v5 实时体检监控器
 // V5.2.0 | 修复 detectStage 未定义，提取工具函数到顶层
 export const VER = 'tests/38health-monitor.js V5.2.0';
 
-import { rule60 } from './37health-rules/60-separator.js';
-import { rule61 } from './37health-rules/61-boneclaw.js';
-import { rule62 } from './37health-rules/62-speed-button.js';
-import { rule63 } from './37health-rules/63-carry-hp.js';
-import { rule64 } from './37health-rules/64-horse.js';
-import { rule65 } from './37health-rules/65-swap.js';
-import { rule67 } from './37health-rules/67-cloud-dodge.js';
-import { rule68 } from './37health-rules/68-dodge-rebound.js';
 import { rule70 } from './37health-rules/70-claw-heal-spam.js';
 import {
     getCellElement, checkUnitHpValidity,
@@ -21,6 +13,7 @@ import {
 let monitorActive = false, gameLoaded = false, scanTimer = null, isPaused = false;
 let detectedIssues = [], issueKeys = new Set(), lastSampledStage = 0;
 let battleEnded = false, battleStartTime = 0;
+let rulePassCount = 0, ruleSkipCount = 0;
 let gameFrame, gameArea, reportArea, statusLine;
 
 // 工具函数 (模块顶层，可在任何地方使用)
@@ -276,7 +269,7 @@ function runFullChecks(ctx, doc) {
     }
 
     ctx._doc = doc;
-    const rules = [rule60, rule61, rule62, rule63, rule64, rule65, rule67, rule68, rule70];
+    const rules = [rule70];
     const beforeAllies = allyTeam.map(u => ({ ...u }));
     const beforeEnemies = enemyTeam.map(u => ({ ...u }));
     for (const rule of rules) {
@@ -285,6 +278,10 @@ function runFullChecks(ctx, doc) {
             if (result && result.fail) {
                 const msgs = (result.msg || '').split(' | ');
                 for (const m of msgs) if (m.trim()) recordIssue(ctx, null, m.substring(0, 30), m.trim(), '规则');
+            } else if (result === 'skip') {
+                ruleSkipCount++;
+            } else {
+                rulePassCount++;
             }
         } catch (e) {
             recordIssue(ctx, null, '规则异常', rule.name + ': ' + (e.message || '未知错误'), '系统');
@@ -343,7 +340,7 @@ function updateStatusLine() {
     if (!statusLine) return;
     if (!monitorActive) { statusLine.textContent = '监控已停止'; return; }
     if (isPaused) { statusLine.textContent = '监控已暂停'; return; }
-    statusLine.textContent = `监控运行中 | 异常:${detectedIssues.length}项`;
+    statusLine.textContent = `监控运行中 | 异常:${detectedIssues.length}项 | 规则:✅${rulePassCount} ⏭️${ruleSkipCount}`;
 }
 
 function updateReport() {

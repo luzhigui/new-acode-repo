@@ -1,5 +1,5 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// tools/33-toolkit-more.js - 光明顶5v5 开发工具箱（更多工具）
-// V5.2.1 | ~28600 bytes | 2026-07-24
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// tools/33-toolkit-more.js - 光明顶5v5 开发工具箱（函数提取器 / 函数替换器）
+// V5.3.1 | ~28600 bytes | 2026-07-28
 
 function escapeHtml(text) {
     return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -13,9 +13,9 @@ function escapeHtml(text) {
         '../core/04buff-system.js', '../core/05battle-horse.js', '../core/06battle-engine-core.js',
         '../core/07battle-engine-5v5-test.js',
         '../core/47battle-attack.js', '../core/48battle-round.js', '../core/49battle-attack-steps.js',
-        '../core/50battle-shared.js', '../core/50buff-effects.js',
+        '../core/50battle-shared.js', '../core/51buff-effects.js',
         '../player/08player-text.js', '../player/09player-buff-ui.js', '../player/10player-core.js',
-        '../player/11battle-player-5v5-test.js',
+        '../player/11battle-player-5v5-test.js', '../player/53event-handlers.js',
         '../ui/12main-utils.js', '../ui/13main-5v5-test.js', '../ui/14ui-render-5v5-test.js',
         '../ui/39main-state.js', '../ui/40main-dialogs.js', '../ui/41main-battle.js',
         '../ui/42audio-control.js', '../ui/43fx-trigger.js', '../ui/44ui-controls.js',
@@ -23,20 +23,21 @@ function escapeHtml(text) {
         '../fx/18fx-position-swap.js', '../fx/19fx-push-back.js', '../fx/20fx-dodge-bullet.js',
         '../fx/21fx-butterfly-spider.js',
         '../modules/23elite-skills.js', '../modules/24error-capture.js', '../modules/28audio-manager.js',
-        '../modules/46global-store.js', '../modules/100-replay.js',
+        '../modules/46global-store.js', '../modules/52battle-store.js', '../modules/100-replay.js',
         '../modules/97elite-imperial.js', '../modules/98elite-sixsects.js', '../modules/99elite-mingjiao.js',
         '../tests/25unit-tests.js',
+        '../tests/30test-runner.html',
         '../tests/37health-core.js',
         '../tests/37health-rules/60-separator.js', '../tests/37health-rules/61-boneclaw.js',
         '../tests/37health-rules/62-speed-button.js', '../tests/37health-rules/63-carry-hp.js',
         '../tests/37health-rules/64-horse.js', '../tests/37health-rules/65-swap.js',
         '../tests/37health-rules/66-victory.js', '../tests/37health-rules/67-cloud-dodge.js',
-        '../tests/37health-rules/68-dodge-rebound.js',
+        '../tests/37health-rules/68-dodge-rebound.js', '../tests/37health-rules/70-claw-heal-spam.js',
         '../tests/38health-monitor.js', '../tests/45health-auto.js', '../tests/46health-utils.js',
         '../tools/32-toolkit.js', '../tools/33-toolkit-more.js',
         '../tools/34-shop.html',
         '../tools/35-version-calibrator.cjs',
-        '../tools/27auto-battle-utils.js'
+        '../tools/27auto-battle-utils.js', '../tools/00build-5v5.cjs'
     ];
 
     const mapContainer = document.getElementById('fncMapContainer');
@@ -53,7 +54,7 @@ function escapeHtml(text) {
 
         for (const filename of TARGET_FILES) {
             try {
-                const response = await fetch(filename);
+                const response = await fetch(encodeURI(filename));
                 if (!response.ok) continue;
                 const code = await response.text();
                 fileContents[filename] = code;

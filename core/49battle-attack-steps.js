@@ -14,7 +14,7 @@ import {
     applyPhantomDisguise, applyXiaoZhaoMindControl, checkXiaoZhaoPermanentDoubleStrike,
     getXiaoZhaoHexEnhance
 } from '../modules/23elite-skills.js';
-import { applyFortifyRebound_Normal, applyFortifyRebound_Sister } from './50buff-effects.js';
+import { applyFortifyRebound_Normal, applyFortifyRebound_Sister } from './51buff-effects.js';
 import { emitEvent } from './50battle-shared.js';
 
 const C = CONFIG, DT = DEF_TAUNT, HT = HP_TAUNT;
@@ -381,32 +381,6 @@ export async function buildAttackGroup(unit, target, dmgCalc, dmgResult, attacke
     }
 
     log.push(group);
-
-    // 小昭姐妹：攻击后立即检查是否有附身/飞天事件，提前触发特效
-    if (group._events && group._events.length > 0) {
-        for (const ev of group._events) {
-            if (ev.payload && ev.payload._flyMode === 'butterfly') {
-                const sister = c.UI.allyTeam.find(u => u.uid === ev.unitUid);
-                if (sister) {
-                    const { showButterflyFlyOut } = await import('../fx/21fx-butterfly-spider.js');
-                    const hostUid = ev.payload._butterflyHost;
-                    const host = hostUid ? c.UI.allyTeam.find(u => u.uid === hostUid) : null;
-                    if (host) showButterflyFlyOut(sister, host);
-                    c.store.dispatch({ type: 'APPLY_EVENTS', events: [ev] });
-                    c.updateUI(c.UI);
-                }
-            }
-            if (ev.payload && ev.payload._flyMode === 'spider') {
-                const brother = c.UI.allyTeam.find(u => u.uid === ev.unitUid);
-                if (brother) {
-                    const { showSpiderAscend } = await import('../fx/21fx-butterfly-spider.js');
-                    showSpiderAscend(brother);
-                    c.store.dispatch({ type: 'APPLY_EVENTS', events: [ev] });
-                    c.updateUI(c.UI);
-                }
-            }
-        }
-    }
 
     applyPostAttackEffects(unit, target, dmg, atkAct, defAct, reboundEntry, allySide, enemySide, log, A);
     return group;
