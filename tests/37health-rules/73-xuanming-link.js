@@ -2,7 +2,7 @@
 // 回归规则：玄冥二老联动吞回合 — 修复后 partner._acted = wasActed 恢复联动前状态
 // 复发信号：玄冥联动多次发生，但搭档（跟随者）从无自己发起的攻击（被吞回合）
 // 对应已修 Bug：玄冥二老联动吞回合（partner._acted 被无条件设 true）
-export const VER = 'tests/37health-rules/73-xuanming-link.js V5.2.0';
+export const VER = 'tests/37health-rules/73-xuanming-link.js V5.3.1';
 
 export const rule73 = {
     group: '精英技能回归',

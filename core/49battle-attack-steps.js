@@ -1,6 +1,6 @@
 // core/49battle-attack-steps.js - 光明顶5v5 攻击步骤拆分模块
-// V5.2.2 | ~18000 bytes | 2026-07-28 乾坤反弹迁移至事件总线
-export const VER = 'core/49battle-attack-steps.js V5.2.2';
+// V5.3.1 | ~23800 bytes| 2026-07-28 乾坤反弹迁移至事件总线
+export const VER = 'core/49battle-attack-steps.js V5.3.1';
 
 import { CONFIG, DEF_TAUNT, HP_TAUNT } from './01config-5v5-test.js';
 import { eventBus } from './00-event-bus.js';

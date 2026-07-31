@@ -1,8 +1,13 @@
 ﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// tests/38health-monitor.js - 光明顶5v5 实时体检监控器
 // V5.2.0 | 修复 detectStage 未定义，提取工具函数到顶层
-export const VER = 'tests/38health-monitor.js V5.2.0';
+export const VER = 'tests/38health-monitor.js V5.3.1';
 
 import { rule70 } from './37health-rules/70-claw-heal-spam.js';
+import { rule71 } from './37health-rules/71-aftermiss.js';
+import { rule72 } from './37health-rules/72-fortify-timing.js';
+import { rule73 } from './37health-rules/73-xuanming-link.js';
+import { rule74 } from './37health-rules/74-butterfly-stack.js';
+import { rule75 } from './37health-rules/75-butterfly-return.js';
 import {
     getCellElement, checkUnitHpValidity,
     checkHpBarSync, checkHpBarColor, checkFxOrphans,
@@ -269,7 +274,7 @@ function runFullChecks(ctx, doc) {
     }
 
     ctx._doc = doc;
-    const rules = [rule70];
+    const rules = [rule70, rule71, rule72, rule73, rule74, rule75];
     const beforeAllies = allyTeam.map(u => ({ ...u }));
     const beforeEnemies = enemyTeam.map(u => ({ ...u }));
     for (const rule of rules) {

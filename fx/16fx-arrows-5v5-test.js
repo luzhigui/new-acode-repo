@@ -1,6 +1,6 @@
 ﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// fx/16fx-arrows-5v5-test.js - 光明顶5v5 飞箭+白骨爪特效
-// V5.2.1 | ~14000 bytes | 2026-07-06 新增 showBoneClaw、接入通用受击反馈
-export const VER = 'fx/16fx-arrows-5v5-test.js V5.2.1';
+// V5.3.1 | ~20300 bytes| 2026-07-06 新增 showBoneClaw、接入通用受击反馈
+export const VER = 'fx/16fx-arrows-5v5-test.js V5.3.1';
 
 import { applyImpactShrink } from './15fx-common-5v5-test.js';
 

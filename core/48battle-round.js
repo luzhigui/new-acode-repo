@@ -1,6 +1,6 @@
 ﻿﻿﻿﻿﻿﻿﻿﻿// core/48battle-round.js - 光明顶5v5 回合循环与生成器
-// V5.2.2 | ~22000 bytes | 2026-07-28 迁移光环和联动至事件总线
-export const VER = 'core/48battle-round.js V5.2.2';
+// V5.3.1 | ~29700 bytes| 2026-07-28 迁移光环和联动至事件总线
+export const VER = 'core/48battle-round.js V5.3.1';
 
 import { CONFIG } from './01config-5v5-test.js';
 import { rand, isMelee, isBlocked, makeFXSnapshot, hasBuff, getUnitCol, getUnitRow, hasAnyEnemyEmptyCol, countEnemyEmptyCols, getBloodAuraBonus, registerWarriorBreakDefense, registerRangedGrowth, registerFortifyShield, selectFlyTarget, registerEmptyColBonus } from './03battle-utils.js';

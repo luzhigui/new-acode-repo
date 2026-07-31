@@ -1,5 +1,5 @@
 // tools/35-version-calibrator.cjs - 光明顶5v5 版本号与字节数批量校准器
-// V5.3.1 | ~6000 bytes | 2026-07-28
+// V5.3.1 | ~6700 bytes| 2026-07-28
 
 const fs = require('fs');
 const path = require('path');
@@ -95,8 +95,8 @@ function calibrateFile(relPath, targetVersion, dryRun = false) {
   // HTML:   <!-- V5.2.0 | ~18638 bytes | 2026-07-05 -->
   if (lines.length >= 2) {
     const line2 = lines[1];
-    const htmlCommentRegex = /^(\s*<!--\s*)V\d+\.\d+\.\d+(\s*\|\s*~\d+\s*bytes\s*\|\s*.*)(\s*-->\s*)$/;
-    const jsCommentRegex = /^(\s*\/\/\s*)V\d+\.\d+\.\d+(\s*\|\s*~\d+\s*bytes\s*\|\s*.*)$/;
+    const htmlCommentRegex = /^(\s*<!--\s*)V\d+\.\d+\.\d+(\s*\|\s*~\d+\s*bytes)(\s*\|\s*.*)?(\s*-->\s*)$/;
+    const jsCommentRegex = /^(\s*\/\/\s*)V\d+\.\d+\.\d+(\s*\|\s*~\d+\s*bytes)(\s*\|\s*.*)$/;
 
     let newLine2 = null;
     let oldVersion = null;
@@ -107,19 +107,18 @@ function calibrateFile(relPath, targetVersion, dryRun = false) {
     if (htmlMatch) {
       oldVersion = line2.match(/V\d+\.\d+\.\d+/)[0];
       const prefix = htmlMatch[1];
-      const suffix = htmlMatch[3];
+      const sizePart = htmlMatch[2];      // e.g. " | ~9000 bytes"
+      const tailPart = htmlMatch[3] || ''; // e.g. " | 2026-07-05"
+      const suffix = htmlMatch[4];         // e.g. " -->"
       const version = targetVersion || oldVersion;
-      newLine2 = `${prefix}${version} | ~${roundedSize} bytes${suffix}`;
+      newLine2 = `${prefix}${version}${sizePart.replace(/~\d+/, `~${roundedSize}`)}${tailPart}${suffix}`;
     } else if (jsMatch) {
       oldVersion = line2.match(/V\d+\.\d+\.\d+/)[0];
       const prefix = jsMatch[1];
+      const sizePart = jsMatch[2];  // e.g. " | ~600 bytes"
+      const tailPart = jsMatch[3];  // e.g. " | 2026-07-28 信号系统基础设施"
       const version = targetVersion || oldVersion;
-      newLine2 = `${prefix}${version} | ~${roundedSize} bytes`;
-      // 保留原行尾可能有的其他内容（如 | 2026-07-24）
-      const restMatch = line2.match(/V\d+\.\d+\.\d+\s*\|\s*~\d+\s*bytes\s*(.*)$/);
-      if (restMatch) {
-        newLine2 = `${prefix}${version} | ~${roundedSize} bytes${restMatch[1]}`;
-      }
+      newLine2 = `${prefix}${version}${sizePart.replace(/~\d+/, `~${roundedSize}`)}${tailPart}`;
     }
 
     if (newLine2 && newLine2 !== line2) {

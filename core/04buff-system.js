@@ -1,6 +1,6 @@
 // core/04buff-system.js - 光明顶5v5 Buff系统
-// V5.2.1 | ~17000 bytes | 2026-07-28 海克斯效果迁移至事件总线
-export const VER = 'core/04buff-system.js V5.2.1';
+// V5.3.1 | ~18600 bytes| 2026-07-28 海克斯效果迁移至事件总线
+export const VER = 'core/04buff-system.js V5.3.1';
 import {
     applyBloodthirst_Normal, applyBloodthirst_Sister, applyBloodthirst_Brother,
     applyHotBlood_Normal, applyHotBlood_Sister, applyHotBlood_Brother,

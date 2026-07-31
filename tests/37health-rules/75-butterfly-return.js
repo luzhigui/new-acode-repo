@@ -2,7 +2,7 @@
 // 回归规则：姐姐飞回血量不合理 — 修复后按所有队友（含阵亡）比例计算
 // 复发信号：飞回血量 = maxHp（满血），可能只算存活队友导致比例偏高
 // 对应已修 Bug：姐姐飞回血量不合理（只算存活队友，死亡队友不影响比例）
-export const VER = 'tests/37health-rules/75-butterfly-return.js V5.2.0';
+export const VER = 'tests/37health-rules/75-butterfly-return.js V5.3.1';
 
 export const rule75 = {
     group: '精英技能回归',

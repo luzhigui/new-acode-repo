@@ -1,6 +1,6 @@
 // core/03battle-utils.js - 光明顶5v5 战斗工具函数
-// V5.2.1 | ~4000 bytes | 2026-07-28 新增事件总线监听器注册
-export const VER = 'core/03battle-utils.js V5.2.1';
+// V5.3.1 | ~15300 bytes| 2026-07-28 新增事件总线监听器注册
+export const VER = 'core/03battle-utils.js V5.3.1';
 
 import { CONFIG, TAUNT_LIB, DEF_TAUNT, HP_TAUNT, ZHANG_NEAR_TAUNT } from './01config-5v5-test.js';
 import { emitEvent } from './50battle-shared.js';
@@ -293,6 +293,23 @@ export function registerFortifyShield(eventBus) {
             }
         }
         emitEvent(target, 'hp-change', { hp: target.hp, maxHp: target.maxHp, alive: target.alive, atk: target.atk, def: target.def, _isDead: target._isDead || false });
+    });
+}
+
+export function registerDoubleStrike(eventBus, doubleStrikeUnitUid, allyTeam, activeBuffs) {
+    if (!doubleStrikeUnitUid) return;
+    eventBus.on('afterMiss', 40, (data) => {
+        const { unit, target, log } = data;
+        if (unit.uid !== doubleStrikeUnitUid || !unit.alive || unit.camp !== 'ally' || unit._doubleStriked) return;
+        const xiaoDoubleEnhance = getXiaoZhaoHexEnhance(allyTeam, activeBuffs, 'doubleStrike');
+        const missChainChance = xiaoDoubleEnhance ? 1.0 : 0.8;
+        if (Math.random() < missChainChance) {
+            log.push({type:'info', text:`<span class="gold">⚡ 概率连击触发！</span>`, isDoubleStrikeBanner:true});
+            unit._doubleStriked = true; unit._acted = false;
+            data.retry = true; data.retryTargetUid = (target && target.alive) ? target.uid : null;
+        } else {
+            log.push({type:'info', text:`<span class="gray">⚡ 概率连击触发失败，${unit.name} 未能再次攻击</span>`});
+        }
     });
 }
 
