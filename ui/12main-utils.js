@@ -125,36 +125,11 @@ export function copyLogToClipboard(choice) {
 export function updateCoverVersion() {
     let el = document.getElementById('coverVersion');
     if (!el) return;
-    const allVers = window.ALL_VERS || {};
-    // 挑 10 个最重要的模块，按顺序排
-    const keys = [
-        'config', 'engine', 'core', 'unit', 'utils', 'buff', 'horse',
-        'ui', 'fx_common', 'player_core',
-        'fx_arrows', 'fx_crash', 'fx_dodge', 'elite_skills', 'audio',
-        'fx_swap', 'fx_push', 'fx_blood', 'fx_fortify', 'error_capture',
-        'auto_battle', 'health_rules', 'runtime_sampler',
-        'health_core', 'health_ui', 'toolkit', 'toolkit_more', 'build',
-        'index', 'test_runner'
-    ];
-    const labels = {
-        config: '01config', engine: '07engine', core: '06core', unit: '02unit',
-        utils: '03utils', buff: '04buff', horse: '05horse',
-        ui: '14ui-render', fx_common: '15fx-common', player_core: '10player-core',
-        fx_arrows: '16fx-arrows', fx_crash: '17fx-crash', fx_dodge: '20fx-dodge',
-        elite_skills: '23elite', audio: '28audio',
-        fx_swap: '18fx-swap', fx_push: '19fx-push', fx_blood: '21fx-blood',
-        fx_fortify: '22fx-fortify', error_capture: '24error',
-        auto_battle: '27auto', health_rules: '29health-rules',
-        runtime_sampler: '36runtime',
-        toolkit: '32toolkit', toolkit_more: '33toolkit-more', build: '00build',
-        index: '00index', test_runner: '30test-runner'
-    };
     let html = '';
-    for (let key of keys) {
-        let ver = allVers[key] || '';
-        if (ver) {
-            let shortVer = ver.replace(/.*?(V[\d.]+).*/i, '$1');
-            html += `✅ ${labels[key] || key} ${shortVer}<br>`;
+    // 直接搜 window 上所有带 V5. 的版本字符串
+    for (let key of Object.getOwnPropertyNames(window)) {
+        if (typeof window[key] === 'string' && window[key].includes('V5.')) {
+            html += `✅ ${key}: ${window[key]}<br>`;
         }
     }
     el.innerHTML = html || '模块加载中...';
