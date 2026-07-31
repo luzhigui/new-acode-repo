@@ -3,7 +3,7 @@
 export const VER = 'ui/43fx-trigger.js V5.2.1';
 
 import { KILL_TAUNT } from '../core/01config-5v5-test.js';
-import { getKillTaunt } from '../core/07battle-engine-5v5-test.js';
+import { getKillTaunt } from '../core/03battle-utils.js';
 import { showDanmaku, showDamageFloat } from '../fx/15fx-common-5v5-test.js';
 import { showRangedArrow } from '../fx/16fx-arrows-5v5-test.js';
 import { showMeleeCrash, showMeleeDodge, showMeleeMiss } from '../fx/17fx-crash-5v5-test.js';

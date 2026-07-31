@@ -25,7 +25,6 @@ function escapeHtml(text) {
         '../core/00-event-bus.js',
         '../core/01config-5v5-test.js', '../core/02unit.js',
         '../core/03battle-utils.js', '../core/04buff-system.js', '../core/05battle-horse.js',
-        '../core/06battle-engine-core.js', '../core/07battle-engine-5v5-test.js',
         '../core/47battle-attack.js', '../core/48battle-round.js', '../core/49battle-attack-steps.js',
         '../core/50battle-shared.js', '../core/51buff-effects.js',
         // player（播放器）
@@ -57,6 +56,7 @@ function escapeHtml(text) {
         '../tools/31-toolkit.html', '../tools/32-toolkit.js', '../tools/33-toolkit-more.js',
         '../tools/34-shop.html',
         '../tools/35-version-calibrator.cjs',
+        '../tools/36-dead-code-scanner.cjs', '../tools/37-filelist-checker.cjs',
         '../tools/27auto-battle-utils.js', '../tools/00build-5v5.cjs',
         // assets（音频资源，不参与 fetch 复制）
         '../assets/sfx_arrow.mp3', '../assets/sfx_fly.mp3',

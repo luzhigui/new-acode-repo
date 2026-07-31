@@ -4,7 +4,7 @@ export const VER = 'player/09player-buff-ui.js V5.2.1';
 
 import { CONFIG } from '../core/01config-5v5-test.js';
 import { createBuffObject } from '../ui/41main-battle.js';
-import { Unit } from '../core/07battle-engine-5v5-test.js';
+import { Unit } from '../core/02unit.js';
 import { showDamageFloat, showHealFloat, showBuffBanner } from '../fx/15fx-common-5v5-test.js';
 import { addPermanentBuff } from '../modules/23elite-skills.js';
 

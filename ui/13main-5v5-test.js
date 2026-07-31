@@ -5,8 +5,8 @@ export const VER = 'ui/13main-5v5-test.js V5.2.1';
 import '../modules/46global-store.js';
 import '../modules/24error-capture.js';
 import { CONFIG, STATE, KILL_TAUNT, ENEMY_M, VER as CFG_VER } from '../core/01config-5v5-test.js';
-import { Unit } from '../core/02unit.js';
-import { rand, getRandomTaunt, getKillTaunt, getZhangNearTaunt, makeFXSnapshot } from '../core/03battle-utils.js';
+import { Unit, VER as VER_UNIT } from '../core/02unit.js';
+import { rand, getRandomTaunt, getKillTaunt, getZhangNearTaunt, makeFXSnapshot, VER as VER_UTILS } from '../core/03battle-utils.js';
 import { stripTags, renderGrid, updateUI, setRenderStore, spawnVictoryEffects, clearLogExceptFirst, isUnitBenefitedByBuff, VER as UI_VER } from './14ui-render-5v5-test.js';
 import { showDanmaku, showDamageFloat, showDodgeBubble, showHealFloat, VER as FX_VER } from '../fx/15fx-common-5v5-test.js';
 import { showRangedArrow, VER as FA_VER } from '../fx/16fx-arrows-5v5-test.js';
@@ -28,13 +28,11 @@ import { updateSpeedButtons, activateScrollSlowdown, restoreSpeedFromScroll, upd
 
 import { VER as VER_BUFF } from '../core/04buff-system.js';
 import { VER as VER_HORSE } from '../core/05battle-horse.js';
-import { VER as VER_CORE } from '../core/06battle-engine-core.js';
+import { VER as VER_CORE } from '../core/48battle-round.js';
 import { VER as VER_PLAYER_CORE } from '../player/10player-core.js';
-import { VER as VER_UNIT } from '../core/02unit.js';
-import { VER as VER_UTILS } from '../core/03battle-utils.js';
 import { VER as VER_TEXT } from '../player/08player-text.js';
 import { VER as VER_BUFF_UI } from '../player/09player-buff-ui.js';
-import { addPermanentBuff } from '../modules/23elite-skills.js';
+import { addPermanentBuff, VER as VER_ELITE } from '../modules/23elite-skills.js';
 import { VER as VER_MAIN_UTILS } from './12main-utils.js';
 
 
@@ -135,6 +133,18 @@ if (document.readyState === 'complete' || document.readyState === 'interactive')
 } else {
     document.addEventListener('DOMContentLoaded', initBugAndXiaoZhaoModes);
 }
+
+window.ALL_VERS = {
+    config: CFG_VER,
+    unit: VER_UNIT,
+    utils: VER_UTILS,
+    buff: VER_BUFF,
+    horse: VER_HORSE,
+    core: VER_CORE,
+    player_core: VER_PLAYER_CORE,
+    ui: UI_VER,
+    fx_common: FX_VER
+};
 
 document.addEventListener('DOMContentLoaded', function() {
     const controls = document.querySelector('.controls');
