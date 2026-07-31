@@ -54,8 +54,8 @@ export function createSongQingshuComponent() {
                 log.push({ type:'info', text:`<span class="gold">💒 新婚：${unit.name}攻击，${zhou.name}被扣除${ES.xinHun.hpDeduct}点血量，叠加一层快乐(16%)！当前快乐层数：${zhou._kuaiLeStack.length}</span>`, buffType:'elite_xinhun', zhouUid:zhou.uid, zhouHpAfter:zhou.hp });
                 if (zhou.hp <= 0) { zhou.hp = 0; zhou.alive = false; zhou._isDead = true; if (!zhou._deathTime) zhou._deathTime = Date.now(); emitEvent(zhou, 'hp-change', { hp:0, maxHp:zhou.maxHp, alive:false, atk:zhou.atk, def:zhou.def, _isDead:true, _isAbsolute:true }); log.push({ type:'info', text:`<span class="red">💀 ${zhou.name} 因新婚扣血而阵亡！</span>`, uidD:zhou.uid, isDead:true }); }
             }
-            if (zhou && !unit._xingFenPenaltyCount) unit._xingFenPenaltyCount = 0;
             if (zhou) {
+                if (!unit._xingFenPenaltyCount) unit._xingFenPenaltyCount = 0;
                 unit._xingFenPenaltyCount = (unit._xingFenPenaltyCount||0)+1;
                 const penalty = unit._xingFenPenaltyCount;
                 if (penalty > 0 && unit.maxHp > 1) {
@@ -70,11 +70,13 @@ export function createSongQingshuComponent() {
         async onAfterAttack(unit, target, allySide, enemySide, log, A, B, state) {
             if (unit.name !== '宋青书' || !unit.alive || !enemySide.some(u => u.alive)) return;
             if (!unit._xingFenPenaltyCount || unit._xingFenPenaltyCount <= 0) return;
-            unit._xingFenPenaltyCount = 0;
+            if (unit._xingFenExtraAttacking) return;
             log.push({ type:'info', text:`<span class="gold">💗 性奋：${unit.name} 获得额外攻击机会！</span>` });
+            unit._xingFenExtraAttacking = true;
             if (typeof processUnitAttack === 'function') { 
     await processUnitAttack(unit, allySide, enemySide, log, A, B, state, null);
 }
+            unit._xingFenExtraAttacking = false;
         }
     };
 }

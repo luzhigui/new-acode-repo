@@ -89,7 +89,7 @@ export function createWeiYixiaoComponent() {
         onAfterApplyDamage(unit, target, dmgCalc, group, A, log) {
             if (unit.camp !== 'ally' || !unit.isWei || !unit.alive || dmgCalc.dmg <= 0) return;
             const lostPct = (unit.maxHp - unit.hp) / unit.maxHp;
-            const leechRate = 0.20 + (0.90 - 0.20) * lostPct;
+            const leechRate = 0.20 + (0.50 - 0.20) * lostPct;
             const healWei = Math.floor(dmgCalc.dmg * leechRate);
             const wasFullHpWei = (unit.hp >= unit.maxHp);
             const newMaxHpWei = Math.min(unit.maxHp + healWei, unit._baseMaxHp * 2);

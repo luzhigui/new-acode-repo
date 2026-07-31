@@ -177,7 +177,7 @@ export async function* createRoundStepper(state) {
     registerWindAssault(eventBus);
     registerMeteorShower(eventBus);
     registerMindControl(eventBus);
-    // 飞行突进目标选择
+    // 飞行突进目标选择（⚠️ 预留给未来飞行精英角色使用，当前普通飞行单位不触发此逻辑）
     eventBus.on('beforeSelectTarget', 30, (data) => {
         if (data.unit.role !== '飞行' || data.unit.isWei) return;
         const flyTarget = selectFlyTarget(data.unit, data.enemySide);
@@ -304,6 +304,7 @@ export async function* createRoundStepper(state) {
         u._stunned = false;
         u._nineYinFirstDone = false;
         u._xingFenActive = false;
+        u._xingFenExtraAttacking = false;
         u._xiaoZhaoDoubleStriked = false;
         u._bloodthirstStriked = false;
         u._linkTriggered = false;
@@ -319,6 +320,7 @@ export async function* createRoundStepper(state) {
         u._stunned = false;
         u._nineYinFirstDone = false;
         u._xingFenActive = false;
+        u._xingFenExtraAttacking = false;
         u._xiaoZhaoDoubleStriked = false;
         u._bloodthirstStriked = false;
         u._linkTriggered = false;
@@ -438,6 +440,8 @@ export async function* createRoundStepper(state) {
 
         finalizeDeaths(A);
         finalizeDeaths(B);
+        // 张无忌：前排队友死后立即检查变身
+        A.forEach(u => { if (u.isZhang && u.alive && !u._zhangSwitched) checkZhangSwitch(A, log); });
         // 小昭妹飞天检查已在 beforeDamageApply 信号中处理
         const stepEvents = GlobalStore.flushBattleEvents();
         const allyAlive = A.some(u => u.alive);
