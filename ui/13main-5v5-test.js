@@ -421,6 +421,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     try {
         updateButtons(); updateSpeedButtons(); updateDebugUI();
+        setTimeout(() => updateCoverVersion(), 500);
         doInitBattle(currentStage, getState.UI(), getState.snapshot(), getState.activeBuffs(), -1, currentDoubleStrikeUid);
         setState.UI(getState.UI());
         setState.snapshot(getState.snapshot());
