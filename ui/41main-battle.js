@@ -30,6 +30,7 @@ export function doInitBattle(currentStage, UI, snapshot, activeBuffs, selectedBu
         { name: '小昭', m: 107, role: '远程', isXiaoZhaoBrother: true }
     ];
     const candidatePool = [];
+    let forcedElite = null;
     for (const cfg of eliteConfigs) {
         if (Math.random() < (eliteRate[cfg.name] || 0.30)) {
             candidatePool.push({ ...cfg, power: elitePower[cfg.name] || 140 });
@@ -39,7 +40,10 @@ export function doInitBattle(currentStage, UI, snapshot, activeBuffs, selectedBu
         const roll = Math.random();
         const forcedName = roll < 0.4 ? '张无忌' : (roll < 0.7 ? '韦一笑' : '小昭');
         const forcedCfg = eliteConfigs.find(c => c.name === forcedName);
-        if (forcedCfg) candidatePool.push({ ...forcedCfg, power: elitePower[forcedCfg.name] || 140 });
+        if (forcedCfg) {
+            forcedElite = { ...forcedCfg, power: elitePower[forcedCfg.name] || 140, forced: true };
+            candidatePool.push(forcedElite);
+        }
     }
     for (const [name, m] of Object.entries(C.MING_M)) {
         if (['张无忌','韦一笑','小昭'].includes(name)) continue;
@@ -81,6 +85,11 @@ export function doInitBattle(currentStage, UI, snapshot, activeBuffs, selectedBu
         allyTeam.push(unit);
         remainingPower -= pick.power;
         remainingSlots--;
+        if (pick.forced) {
+            pick.forced = false;
+            remainingPower += pick.power;
+            remainingSlots++;
+        }
     }
 
     // 强制小昭模式：如有小昭则修正标志，如无则添加
