@@ -117,7 +117,7 @@ export function resolveAttackHit(unit, target, attackerBuffStats, defenderBuffSt
 
     const allyBuffs = (target.camp === 'ally' && A ? A._activeBuffs : (target.camp === 'enemy' && B ? B._activeBuffs : []));
     if (target._stunned) return { skipped: false, retry: false, lockedTargetUid: null };
-    const hasCloudBody = hasBuff(allyBuffs, 'cloudBody') || (target.isXiaoZhao && target._permanentBuffs && target._permanentBuffs.some(b => b.key === 'cloudBody'));
+    const hasCloudBody = hasBuff(allyBuffs, 'cloudBody') || ((target.isXiaoZhaoSister || target.isXiaoZhaoBrother) && target._permanentBuffs && target._permanentBuffs.some(b => b.key === 'cloudBody'));
     if (target.alive && (target.isWei || hasCloudBody || !target._acted)) {
         let baseDodge = getFlyDodgeRate(target, unit);
         let buffDodge = defenderBuffStats.dodgeBonus || 0;
