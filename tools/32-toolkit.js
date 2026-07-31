@@ -1,5 +1,5 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// tools/32-toolkit.js - 光明顶5v5 开发工具箱（文件复制器 / 拆分自原 32-toolkit.js）
-// V5.2.1 | ~26000 bytes | 2026-07-24
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// tools/32-toolkit.js - 光明顶5v5 开发工具箱（文件复制器 / 拆分自原 32-toolkit.js）
+// V5.3.1 | ~26000 bytes | 2026-07-28
 
 /* ========== 标签页切换 ========== */
 document.querySelectorAll('.tab-btn').forEach(btn => {
@@ -27,10 +27,10 @@ function escapeHtml(text) {
         '../core/03battle-utils.js', '../core/04buff-system.js', '../core/05battle-horse.js',
         '../core/06battle-engine-core.js', '../core/07battle-engine-5v5-test.js',
         '../core/47battle-attack.js', '../core/48battle-round.js', '../core/49battle-attack-steps.js',
-        '../core/50battle-shared.js', '../core/50buff-effects.js',
+        '../core/50battle-shared.js', '../core/51buff-effects.js',
         // player（播放器）
         '../player/08player-text.js', '../player/09player-buff-ui.js', '../player/10player-core.js',
-        '../player/11battle-player-5v5-test.js',
+        '../player/11battle-player-5v5-test.js', '../player/53event-handlers.js',
         // ui（UI 主控）
         '../ui/12main-utils.js', '../ui/13main-5v5-test.js', '../ui/14ui-render-5v5-test.js',
         '../ui/39main-state.js', '../ui/40main-dialogs.js', '../ui/41main-battle.js',
@@ -39,11 +39,11 @@ function escapeHtml(text) {
         '../fx/15fx-common-5v5-test.js', '../fx/16fx-arrows-5v5-test.js', '../fx/17fx-crash-5v5-test.js',
         '../fx/18fx-position-swap.js', '../fx/19fx-push-back.js', '../fx/20fx-dodge-bullet.js',
         '../fx/21fx-butterfly-spider.js',
-        // modules（模块）
+        // modules（通用系统 + 精英角色组件）
         '../modules/23elite-skills.js', '../modules/24error-capture.js', '../modules/28audio-manager.js',
-        '../modules/46global-store.js', '../modules/100-replay.js',
+        '../modules/46global-store.js', '../modules/52battle-store.js', '../modules/100-replay.js',
         '../modules/97elite-imperial.js', '../modules/98elite-sixsects.js', '../modules/99elite-mingjiao.js',
-        // tests（测试与体检）
+        // tests（体检规则与自动测试）
         '../tests/25unit-tests.js',
         '../tests/30test-runner.html',
         '../tests/37health-core.js',
@@ -51,23 +51,21 @@ function escapeHtml(text) {
         '../tests/37health-rules/62-speed-button.js', '../tests/37health-rules/63-carry-hp.js',
         '../tests/37health-rules/64-horse.js', '../tests/37health-rules/65-swap.js',
         '../tests/37health-rules/66-victory.js', '../tests/37health-rules/67-cloud-dodge.js',
-        '../tests/37health-rules/68-dodge-rebound.js',
+        '../tests/37health-rules/68-dodge-rebound.js', '../tests/37health-rules/70-claw-heal-spam.js',
         '../tests/38health-monitor.js', '../tests/45health-auto.js', '../tests/46health-utils.js',
-        // tools（工具箱）
+        // tools（开发工具箱）
         '../tools/31-toolkit.html', '../tools/32-toolkit.js', '../tools/33-toolkit-more.js',
         '../tools/34-shop.html',
         '../tools/35-version-calibrator.cjs',
         '../tools/27auto-battle-utils.js', '../tools/00build-5v5.cjs',
-        // assets（音频）
+        // assets（音频资源，不参与 fetch 复制）
         '../assets/sfx_arrow.mp3', '../assets/sfx_fly.mp3',
         '../assets/sfx_melee.mp3', '../assets/sfx_xinai.mp3',
-        // 根目录
+        // 根目录（入口与设计文档）
         '../index.html', '../mode-5v5-test.html',
-        '../README.md', '../CHANGELOG.md', '../kaifazhunze.md',
-        '../game-design.md', '../design-notes.md', '../readme-player.md',
-        '../成功经验.md',
-        '../to do list.md'
-        // 备注：根目录下 文件汇总20260730/ 为项目历史档案文件夹，不参与自动复制
+        '../README.md',
+        '../档案-更改履历.md'
+        // 备注：其余 MD 文档已归档到 文件汇总20260730/，不参与自动复制
     ];
 
     // 用户可勾选的文件列表（不含 assets/ 和 .md 等不可 fetch 的文件，排除文件名带空格的）
@@ -277,7 +275,7 @@ function escapeHtml(text) {
         const fileData = [];
         for (const file of selectedFiles) {
             try {
-                const res = await fetch(file);
+                const res = await fetch(encodeURI(file));
                 if (res.ok) {
                     const content = await res.text();
                     fileData.push({

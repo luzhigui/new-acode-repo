@@ -1,6 +1,6 @@
 // modules/23elite-skills.js - 光明顶5v5 精英技能系统
-// V5.2.2 | ~8000 bytes | 2026-07-29 清理退役函数，保留仍在使用的精英技能
-export const VER = 'modules/23elite-skills.js V5.2.2';
+// V5.2.3 | ~7200 bytes | 2026-07-31 清理退役函数：canXingFenTrigger, consumeXingFen, checkXiaoZhaoPermanentDoubleStrike, applyPhantomDisguise, applyXiaoZhaoMindControl
+export const VER = 'modules/23elite-skills.js V5.2.3';
 
 import { CONFIG } from '../core/01config-5v5-test.js';
 import { ROLE_BONUS } from '../core/02unit.js';
@@ -245,8 +245,6 @@ export function isXiaoZhaoPermanentActive(unit, activeBuffs, buffKey) {
     if (activeBuffs && hasBuff(activeBuffs, buffKey)) return false;
     return unit._permanentBuffs.some(b => b.key === buffKey);
 }
-
-// ==================== 成昆幻影 / 小昭惑心 / 连击 ====================
 
 export function applyPhantomDisguise(unit, enemySide, allySide = null) {
     if (unit.camp !== 'ally') return null;

@@ -1,8 +1,9 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// ui/39main-state.js - 光明顶5v5 状态管理
-// V5.2.1 | ~6500 bytes | 2026-07-06 统一 activeBuffs 读写，移除局部副本
-export const VER = 'ui/39main-state.js V5.2.1';
+﻿﻿// ui/39main-state.js - 光明顶5v5 状态管理
+// V5.2.2 | ~6500 bytes | 2026-07-31 迁移至 GlobalStore 统一状态源
+export const VER = 'ui/39main-state.js V5.2.2';
 
 import { STATE } from '../core/01config-5v5-test.js';
+import { GlobalStore } from '../modules/46global-store.js';
 import { playLineText } from '../player/11battle-player-5v5-test.js';
 import { updateUI, spawnVictoryEffects } from './14ui-render-5v5-test.js';
 import { tickBuffDurations as _tickBuffDurations } from './41main-battle.js';
@@ -11,17 +12,19 @@ import { AudioManager } from '../modules/28audio-manager.js';
 
 const S = STATE;
 
-// ==================== 全部全局状态 ====================
+// ==================== 模块级变量降级为 GlobalStore 的初始化入口 ====================
+// 这些 export let 仅为向后兼容（外部可能存在直接引用），实际读写已全部走 GlobalStore
+
 export let gs = S.IDLE;
 export let autoMode = true;
-export let autoLevel = 'auto'; // 'manual' | 'auto' | 'full-auto'
+export let autoLevel = 'auto';
 export let debugMode = false;
 export let isPaused = false;
 export let speed = 500;
 export let userScrolled = false;
 export let abortController = null;
 export let waitingForNextRound = false;
-export let logLevel = 'detailed';  // 'detailed' | 'brief' | 'debug'
+export let logLevel = 'detailed';
 export let battleResultForInfo = null;
 export let resettleCount = 0;
 export let gameStarted = false;
@@ -36,60 +39,97 @@ export let selectedBuffIndex = -1;
 export let currentDoubleStrikeUid = null;
 export let runtimeMonitorActive = false;
 export let runtimeMonitorInterval = null;
-export let activeBuffs = [];                // ← 全局唯一的 activeBuffs
+export let activeBuffs = [];
 export let snapshot = { ally: [], enemy: [] };
 export let UI = { allyTeam: [], enemyTeam: [], currentResult: null, round: 0, lastSnapshot: null };
 
-// ==================== 状态读写 ====================
+// 初始化时同步模块级变量到 GlobalStore
+GlobalStore.set('gs', S.IDLE);
+GlobalStore.set('autoMode', true);
+GlobalStore.set('autoLevel', 'auto');
+GlobalStore.set('debugMode', false);
+GlobalStore.set('isPaused', false);
+GlobalStore.set('speed', 500);
+GlobalStore.set('userScrolled', false);
+GlobalStore.set('abortController', null);
+GlobalStore.set('waitingForNextRound', false);
+GlobalStore.set('logLevel', 'detailed');
+GlobalStore.set('battleResultForInfo', null);
+GlobalStore.set('gameStarted', false);
+GlobalStore.set('isBattleStarting', false);
+GlobalStore.set('adjustMode', false);
+GlobalStore.set('selectedAdjustPos', null);
+GlobalStore.set('currentStage', 1);
+GlobalStore.set('dodgeEffectEnabled', true);
+GlobalStore.set('selectedBuffIndex', -1);
+GlobalStore.set('currentDoubleStrikeUid', null);
+GlobalStore.set('activeBuffs', []);
+GlobalStore.set('snapshot', { ally: [], enemy: [] });
+GlobalStore.set('UI', { allyTeam: [], enemyTeam: [], currentResult: null, round: 0, lastSnapshot: null });
+
+// ==================== 状态读写 — 统一走 GlobalStore ====================
 export const getState = {
-    gs: () => gs, autoMode: () => autoMode, debugMode: () => debugMode,
-    isPaused: () => isPaused, speed: () => speed, userScrolled: () => userScrolled,
-    abortController: () => abortController, waitingForNextRound: () => waitingForNextRound,
-    logLevel: () => logLevel, battleResultForInfo: () => battleResultForInfo,
-    gameStarted: () => gameStarted, manualSpeedLock: () => manualSpeedLock,
-    manualSpeedValue: () => manualSpeedValue, slideSpeedActive: () => slideSpeedActive,
-    isBattleStarting: () => isBattleStarting, adjustMode: () => adjustMode,
-    selectedAdjustPos: () => selectedAdjustPos, currentStage: () => currentStage,
-    dodgeEffectEnabled: () => dodgeEffectEnabled, selectedBuffIndex: () => selectedBuffIndex,
-    currentDoubleStrikeUid: () => currentDoubleStrikeUid, activeBuffs: () => activeBuffs,
-    autoLevel: () => autoLevel,
-    snapshot: () => snapshot, UI: () => UI
+    gs: () => GlobalStore.get('gs'),
+    autoMode: () => GlobalStore.get('autoMode'),
+    debugMode: () => GlobalStore.get('debugMode'),
+    isPaused: () => GlobalStore.get('isPaused'),
+    speed: () => GlobalStore.get('speed'),
+    userScrolled: () => GlobalStore.get('userScrolled'),
+    abortController: () => GlobalStore.get('abortController'),
+    waitingForNextRound: () => GlobalStore.get('waitingForNextRound'),
+    logLevel: () => GlobalStore.get('logLevel'),
+    battleResultForInfo: () => GlobalStore.get('battleResultForInfo'),
+    gameStarted: () => GlobalStore.get('gameStarted'),
+    manualSpeedLock: () => false,
+    manualSpeedValue: () => null,
+    slideSpeedActive: () => false,
+    isBattleStarting: () => GlobalStore.get('isBattleStarting'),
+    adjustMode: () => GlobalStore.get('adjustMode'),
+    selectedAdjustPos: () => GlobalStore.get('selectedAdjustPos'),
+    currentStage: () => GlobalStore.get('currentStage'),
+    dodgeEffectEnabled: () => GlobalStore.get('dodgeEffectEnabled'),
+    selectedBuffIndex: () => GlobalStore.get('selectedBuffIndex'),
+    currentDoubleStrikeUid: () => GlobalStore.get('currentDoubleStrikeUid'),
+    activeBuffs: () => GlobalStore.get('activeBuffs'),
+    autoLevel: () => GlobalStore.get('autoLevel'),
+    snapshot: () => GlobalStore.get('snapshot'),
+    UI: () => GlobalStore.get('UI')
 };
 
 export const setState = {
     gs: (v) => {
         gs = v;
-        if (window.GlobalStore) window.GlobalStore.set('gs', v);
+        GlobalStore.set('gs', v);
     },
-    autoMode: (v) => { autoMode = v; },
-    debugMode: (v) => { debugMode = v; },
-    isPaused: (v) => { isPaused = v; },
-    speed: (v) => { speed = v; },
-    userScrolled: (v) => { userScrolled = v; },
-    abortController: (v) => { abortController = v; },
-    waitingForNextRound: (v) => { waitingForNextRound = v; },
-    logLevel: (v) => { logLevel = v; },
-    battleResultForInfo: (v) => { battleResultForInfo = v; },
-    gameStarted: (v) => { gameStarted = v; },
+    autoMode: (v) => { autoMode = v; GlobalStore.set('autoMode', v); },
+    debugMode: (v) => { debugMode = v; GlobalStore.set('debugMode', v); },
+    isPaused: (v) => { isPaused = v; GlobalStore.set('isPaused', v); },
+    speed: (v) => { speed = v; GlobalStore.set('speed', v); },
+    userScrolled: (v) => { userScrolled = v; GlobalStore.set('userScrolled', v); },
+    abortController: (v) => { abortController = v; GlobalStore.set('abortController', v); },
+    waitingForNextRound: (v) => { waitingForNextRound = v; GlobalStore.set('waitingForNextRound', v); },
+    logLevel: (v) => { logLevel = v; GlobalStore.set('logLevel', v); },
+    battleResultForInfo: (v) => { battleResultForInfo = v; GlobalStore.set('battleResultForInfo', v); },
+    gameStarted: (v) => { gameStarted = v; GlobalStore.set('gameStarted', v); },
 
-    isBattleStarting: (v) => { isBattleStarting = v; },
-    adjustMode: (v) => { adjustMode = v; },
-    selectedAdjustPos: (v) => { selectedAdjustPos = v; },
-    currentStage: (v) => { currentStage = v; },
-    dodgeEffectEnabled: (v) => { dodgeEffectEnabled = v; },
-    selectedBuffIndex: (v) => { selectedBuffIndex = v; },
-    currentDoubleStrikeUid: (v) => { currentDoubleStrikeUid = v; },
-    activeBuffs: (v) => { activeBuffs = v; },
-    autoLevel: (v) => { autoLevel = v; },
-    snapshot: (v) => { snapshot = v; },
-    UI: (v) => { UI = v; }
+    isBattleStarting: (v) => { isBattleStarting = v; GlobalStore.set('isBattleStarting', v); },
+    adjustMode: (v) => { adjustMode = v; GlobalStore.set('adjustMode', v); },
+    selectedAdjustPos: (v) => { selectedAdjustPos = v; GlobalStore.set('selectedAdjustPos', v); },
+    currentStage: (v) => { currentStage = v; GlobalStore.set('currentStage', v); },
+    dodgeEffectEnabled: (v) => { dodgeEffectEnabled = v; GlobalStore.set('dodgeEffectEnabled', v); },
+    selectedBuffIndex: (v) => { selectedBuffIndex = v; GlobalStore.set('selectedBuffIndex', v); },
+    currentDoubleStrikeUid: (v) => { currentDoubleStrikeUid = v; GlobalStore.set('currentDoubleStrikeUid', v); },
+    activeBuffs: (v) => { activeBuffs = v; GlobalStore.set('activeBuffs', v); },
+    autoLevel: (v) => { autoLevel = v; GlobalStore.set('autoLevel', v); },
+    snapshot: (v) => { snapshot = v; GlobalStore.set('snapshot', v); },
+    UI: (v) => { UI = v; GlobalStore.set('UI', v); }
 };
 
 // ==================== 内部函数（供 getPlayerContext 使用） ====================
 function waitWhilePaused() {
     return new Promise(r => {
         const check = () => {
-            if (!isPaused) { r(); return; }
+            if (!GlobalStore.get('isPaused')) { r(); return; }
             setTimeout(check, 100);
         };
         check();
@@ -97,7 +137,7 @@ function waitWhilePaused() {
 }
 
 function autoScrollLog() {
-    if (userScrolled) return;
+    if (GlobalStore.get('userScrolled')) return;
     let logDiv = document.getElementById('log');
     if (logDiv) logDiv.scrollTop = logDiv.scrollHeight;
 }
@@ -106,7 +146,7 @@ function onLogUserScroll() {
     let logDiv = document.getElementById('log');
     if (!logDiv) return;
     let distToBottom = logDiv.scrollHeight - logDiv.scrollTop - logDiv.clientHeight;
-    userScrolled = distToBottom > 10;
+    GlobalStore.set('userScrolled', distToBottom > 10);
 }
 
 function updateScoreBadge() {
@@ -120,42 +160,64 @@ function updateScoreBadge() {
 window.updateScoreBadge = updateScoreBadge;
 
 function tickBuffDurations() {
-    activeBuffs = activeBuffs.map(b => ({...b, remaining: b.remaining - 1})).filter(b => b.remaining > 0);
-    if (selectedBuffIndex >= activeBuffs.length) selectedBuffIndex = -1;
+    const activeBuffs = GlobalStore.get('activeBuffs') || [];
+    const result = _tickBuffDurations(activeBuffs, GlobalStore.get('selectedBuffIndex'), () => updateBuffSlots(GlobalStore.get('activeBuffs')));
+    GlobalStore.set('activeBuffs', result.activeBuffs);
+    GlobalStore.set('selectedBuffIndex', result.selectedBuffIndex);
     if (typeof window.updateBuffSlots === 'function') window.updateBuffSlots();
 }
 
 // ==================== getPlayerContext ====================
 export function getPlayerContext() {
     return {
-        get speed() { return speed; }, set speed(v) { speed = v; },
-        get gs() { return gs; }, set gs(v) { gs = v; },
-        get isPaused() { return isPaused; }, set isPaused(v) { isPaused = v; },
-        get waitingForNextRound() { return waitingForNextRound; }, set waitingForNextRound(v) { waitingForNextRound = v; },
-        get logLevel() { return logLevel; },
-        get userScrolled() { return userScrolled; }, set userScrolled(v) { userScrolled = v; },
-        get abortController() { return abortController; }, set abortController(v) { abortController = v; },
-        get snapshot() { return snapshot; }, set snapshot(v) { snapshot = v; },
-        get UI() { return UI; }, set UI(v) { UI = v; },
-        get autoMode() { return autoMode; }, set autoMode(v) { autoMode = v; },
-        get autoLevel() { return autoLevel; }, set autoLevel(v) { autoLevel = v; },
+        get speed() { return GlobalStore.get('speed'); },
+        set speed(v) { GlobalStore.set('speed', v); },
+        get gs() { return GlobalStore.get('gs'); },
+        set gs(v) { GlobalStore.set('gs', v); },
+        get isPaused() { return GlobalStore.get('isPaused'); },
+        set isPaused(v) { GlobalStore.set('isPaused', v); },
+        get waitingForNextRound() { return GlobalStore.get('waitingForNextRound'); },
+        set waitingForNextRound(v) { GlobalStore.set('waitingForNextRound', v); },
+        get logLevel() { return GlobalStore.get('logLevel'); },
+        get userScrolled() { return GlobalStore.get('userScrolled'); },
+        set userScrolled(v) { GlobalStore.set('userScrolled', v); },
+        get abortController() { return GlobalStore.get('abortController'); },
+        set abortController(v) { GlobalStore.set('abortController', v); },
+        get snapshot() { return GlobalStore.get('snapshot'); },
+        set snapshot(v) { GlobalStore.set('snapshot', v); },
+        get UI() { return GlobalStore.get('UI'); },
+        set UI(v) { GlobalStore.set('UI', v); },
+        get autoMode() { return GlobalStore.get('autoMode'); },
+        set autoMode(v) { GlobalStore.set('autoMode', v); },
+        get autoLevel() { return GlobalStore.get('autoLevel'); },
+        set autoLevel(v) { GlobalStore.set('autoLevel', v); },
         get manualSpeedLock() { return false; },
         get manualSpeedValue() { return null; },
         get slideSpeedActive() { return false; },
-        get battleResultForInfo() { return battleResultForInfo; }, set battleResultForInfo(v) { battleResultForInfo = v; },
-        get isBattleStarting() { return isBattleStarting; }, set isBattleStarting(v) { isBattleStarting = v; },
-        get adjustMode() { return adjustMode; },
-        get selectedAdjustPos() { return selectedAdjustPos; },
-        get currentStage() { return currentStage; }, set currentStage(v) { currentStage = v; },
-        get activeBuffs() { return activeBuffs; },
-        set activeBuffs(v) { activeBuffs = v; if (typeof window.updateBuffSlots === 'function') window.updateBuffSlots(); },
-        updateBuffSlots: () => {
-            if (!Array.isArray(activeBuffs)) return;
-            updateBuffSlots(activeBuffs, selectedBuffIndex);
+        get battleResultForInfo() { return GlobalStore.get('battleResultForInfo'); },
+        set battleResultForInfo(v) { GlobalStore.set('battleResultForInfo', v); },
+        get isBattleStarting() { return GlobalStore.get('isBattleStarting'); },
+        set isBattleStarting(v) { GlobalStore.set('isBattleStarting', v); },
+        get adjustMode() { return GlobalStore.get('adjustMode'); },
+        get selectedAdjustPos() { return GlobalStore.get('selectedAdjustPos'); },
+        get currentStage() { return GlobalStore.get('currentStage'); },
+        set currentStage(v) { GlobalStore.set('currentStage', v); },
+        get activeBuffs() { return GlobalStore.get('activeBuffs'); },
+        set activeBuffs(v) {
+            GlobalStore.set('activeBuffs', v);
+            if (typeof window.updateBuffSlots === 'function') window.updateBuffSlots();
         },
-        get selectedBuffIndex() { return selectedBuffIndex; }, set selectedBuffIndex(v) { selectedBuffIndex = v; },
-        get currentDoubleStrikeUid() { return currentDoubleStrikeUid; }, set currentDoubleStrikeUid(v) { currentDoubleStrikeUid = v; },
-        get dodgeEffectEnabled() { return dodgeEffectEnabled; }, set dodgeEffectEnabled(v) { dodgeEffectEnabled = v; },
+        updateBuffSlots: () => {
+            const buffs = GlobalStore.get('activeBuffs');
+            if (!Array.isArray(buffs)) return;
+            updateBuffSlots(buffs, GlobalStore.get('selectedBuffIndex'));
+        },
+        get selectedBuffIndex() { return GlobalStore.get('selectedBuffIndex'); },
+        set selectedBuffIndex(v) { GlobalStore.set('selectedBuffIndex', v); },
+        get currentDoubleStrikeUid() { return GlobalStore.get('currentDoubleStrikeUid'); },
+        set currentDoubleStrikeUid(v) { GlobalStore.set('currentDoubleStrikeUid', v); },
+        get dodgeEffectEnabled() { return GlobalStore.get('dodgeEffectEnabled'); },
+        set dodgeEffectEnabled(v) { GlobalStore.set('dodgeEffectEnabled', v); },
         get store() { return window._battleStore; },
         set store(v) { window._battleStore = v; },
 
@@ -170,12 +232,7 @@ export function getPlayerContext() {
         autoScrollLog,
         onLogUserScroll,
         updateScoreBadge,
-        tickBuffDurations: () => {
-            if (!Array.isArray(activeBuffs)) return;
-            const result = _tickBuffDurations(activeBuffs, selectedBuffIndex, () => updateBuffSlots(activeBuffs, selectedBuffIndex));
-            activeBuffs = result.activeBuffs;
-            selectedBuffIndex = result.selectedBuffIndex;
-        },
+        tickBuffDurations,
         fadeBGMTo: (targetVol, durationMs) => { AudioManager.fadeTo(targetVol, durationMs); },
         _scheduler: null,
         _battleEnded: false,

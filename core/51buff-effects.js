@@ -1,6 +1,6 @@
-// core/50buff-effects.js - 光明顶5v5 海克斯效果函数库
+// core/51buff-effects.js - 光明顶5v5 海克斯效果函数库
 // V5.2.1 | 按身份拆分：普通团队 / 姐姐强化 / 妹妹永久
-export const VER = 'core/50buff-effects.js V5.2.1';
+export const VER = 'core/51buff-effects.js V5.2.1';
 
 import { CONFIG } from './01config-5v5-test.js';
 import { rand, hasBuff, getUnitRow, getUnitCol, getAdjacentPositions } from './03battle-utils.js';

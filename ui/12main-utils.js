@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// ui/12main-utils.js - 光明顶5v5 主控工具函数
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// ui/12main-utils.js - 光明顶5v5 主控工具函数
 // V5.2.1 | ~5632 bytes | 2026-07-05
 export const VER = 'ui/12main-utils.js V5.2.1';
 
@@ -146,7 +146,6 @@ export function updateCoverVersion() {
         fx_fortify: '22fx-fortify', error_capture: '24error',
         auto_battle: '27auto', health_rules: '29health-rules',
         runtime_sampler: '36runtime',
-        health_core: '37health-core', health_ui: '38health-ui',
         toolkit: '32toolkit', toolkit_more: '33toolkit-more', build: '00build',
         index: '00index', test_runner: '30test-runner'
     };
@@ -166,7 +165,9 @@ export async function startApp(updateCoverVersion) {
     const failed = {};
     const modules = {
         '01config-5v5-test.js': './01config-5v5-test.js',
-        '07battle-engine-5v5-test.js': './07battle-engine-5v5-test.js',
+        '02unit.js': './02unit.js',
+        '03battle-utils.js': './03battle-utils.js',
+        '04buff-system.js': './04buff-system.js',
         '14ui-render-5v5-test.js': './14ui-render-5v5-test.js',
         '15fx-common-5v5-test.js': './15fx-common-5v5-test.js',
         '16fx-arrows-5v5-test.js': './16fx-arrows-5v5-test.js',

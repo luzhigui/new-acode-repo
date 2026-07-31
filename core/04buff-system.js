@@ -12,7 +12,7 @@ import {
     applyCloudBodyDodge_Normal, applyCloudBodyDodge_Sister, applyCloudBodyDodge_Brother,
     applyHolyFlame_Normal, applyHolyFlame_Sister, applyHolyFlame_Brother,
     calcCarryBonus_Normal, calcCarryBonus_Sister
-} from './50buff-effects.js';
+} from './51buff-effects.js';
 import { CONFIG } from './01config-5v5-test.js';
 import { rand, hasBuff, getUnitRow, getUnitCol, getAdjacentPositions } from './03battle-utils.js';
 import { checkKuLian, applyXingFenGrant, tickKuaiLeHeal, computeButterflyMastery, isXiaoZhaoPermanentActive, getXiaoZhaoHexEnhance } from '../modules/23elite-skills.js';
