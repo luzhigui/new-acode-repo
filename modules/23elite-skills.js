@@ -168,16 +168,11 @@ export function spiderTransform(unit, log) {
     unit._baseAtk = (unit._baseAtk || unit.atk) + newStats.atk;
     unit._baseDef = (unit._baseDef || unit.def) + newStats.def;
 
-    const prevMaxHp = unit.maxHp;
-    const baseMaxHp = unit._baseMaxHp || unit.maxHp;
     let hpDelta = newStats.maxHp + 5;
+    unit._baseMaxHp = (unit._baseMaxHp || unit.maxHp) + hpDelta;
     unit.maxHp += hpDelta;
-    if (hpDelta > 0) {
-        unit.hp += hpDelta;
-    } else {
-        const hpRatio = baseMaxHp > 0 ? unit.hp / baseMaxHp : 1;
-        unit.hp = Math.floor(baseMaxHp * hpRatio);
-    }
+    unit.hp = Math.min(unit.hp + hpDelta, unit.maxHp);
+    if (unit.hp < 1) unit.hp = 1;
 
     emitEvent(unit, 'hp-change', { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: unit.atk, def: unit.def, role: newRole });
     log.push({ type:'info', text:`<span class="gold">🕷️ 蛛变：${unit.name} 变换为<span class="gold">${newRole}</span>（已精通${unit._masteredRoles.length}/4）</span>` });
@@ -220,11 +215,12 @@ export function spiderReturn(unit, allyTeam, enemySide, log) {
 export function computeButterflyMastery(unit) {
     if (!unit.isXiaoZhaoBrother || !unit._masteredRoles) return { atk: 0, def: 0, hp: 0 };
     const count = unit._masteredRoles.length;
-    const extra = count >= 4 ? 1 : 0;
+    let layers = count;
+    if (count >= 4) layers = count + 2;  // 第4个职业额外多加两层
     return {
-        atk: (count + extra) * 1.5,
-        def: (count + extra) * 2,
-        hp: (count + extra) * 10
+        atk: layers * 2,
+        def: layers * 2,
+        hp: layers * 5
     };
 }
 

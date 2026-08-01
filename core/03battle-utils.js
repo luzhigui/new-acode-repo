@@ -4,6 +4,7 @@ export const VER = 'core/03battle-utils.js V5.3.1';
 
 import { CONFIG, TAUNT_LIB, DEF_TAUNT, HP_TAUNT, ZHANG_NEAR_TAUNT } from './01config-5v5-test.js';
 import { emitEvent } from './50battle-shared.js';
+import { getXiaoZhaoHexEnhance } from '../modules/23elite-skills.js';
 const C = CONFIG, TL = TAUNT_LIB, DT = DEF_TAUNT, HT = HP_TAUNT, ZT = ZHANG_NEAR_TAUNT;
 
 export function rand(min, max) { return Math.floor(Math.random() * (max - min + 1)) + min; }
@@ -298,7 +299,7 @@ export function registerFortifyShield(eventBus) {
 
 export function registerDoubleStrike(eventBus, doubleStrikeUnitUid, allyTeam, activeBuffs) {
     if (!doubleStrikeUnitUid) return;
-    eventBus.on('afterMiss', 40, (data) => {
+    eventBus.on('afterAttack', 40, (data) => {
         const { unit, target, log } = data;
         if (unit.uid !== doubleStrikeUnitUid || !unit.alive || unit.camp !== 'ally' || unit._doubleStriked) return;
         const xiaoDoubleEnhance = getXiaoZhaoHexEnhance(allyTeam, activeBuffs, 'doubleStrike');
