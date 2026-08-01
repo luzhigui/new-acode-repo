@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// tests/38health-monitor.js - 光明顶5v5 实时体检监控器
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// tests/38health-monitor.js - 光明顶5v5 实时体检监控器
 // V5.2.0 | 修复 detectStage 未定义，提取工具函数到顶层
 export const VER = 'tests/38health-monitor.js V5.3.1';
 
