@@ -368,6 +368,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
 
     function switchToStageInternal(stage){
+    if (stage === currentStage) { forceStopGame(); setState.gs(S.IDLE); updateButtons(); enableAllButtons(); updateUI(); return; }
         onAnyButtonClick();
         let result = abortAll(abortController, getState.UI(), getState.waitingForNextRound(), isBattleStarting, getState.adjustMode(), getState.selectedAdjustPos(), getState.activeBuffs(), -1, currentDoubleStrikeUid, () => updateBuffSlots(getState.activeBuffs()));
         abortController = result.abortController; setState.waitingForNextRound(result.waitingForNextRound); isBattleStarting = result.isBattleStarting; setState.adjustMode(result.adjustMode); setState.selectedAdjustPos(result.selectedAdjustPos); setState.activeBuffs(result.activeBuffs); currentDoubleStrikeUid = result.currentDoubleStrikeUid;

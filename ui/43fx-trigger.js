@@ -70,9 +70,7 @@ export function _triggerFX(fxSnapshot, unitA, unitD, isDead, isDodge, isMiss, is
             }
         }
     }
-    if (unitD && dmg !== undefined && !isBlock && !isMiss && !isDodge) {
-        showDamageFloat(unitD, dmg);
-    }
+    // 掉血弹幕已移至波动行末端弹出，此处不再触发
     if (isDodge && unitD && unitA) {
         let reboundDmg = Math.floor((unitD.atk + unitD.def) * 0.5);
         showDamageFloat(unitA, reboundDmg);

@@ -3,7 +3,8 @@
 export const VER = 'ui/44ui-controls.js V5.3.1';
 
 import { getState, setState, gs } from './39main-state.js';
-import { updateUI } from './14ui-render-5v5-test.js';
+import { updateUI, renderGrid } from './14ui-render-5v5-test.js';
+import { clearAllEffects } from '../player/10player-core.js';
 
 // ==================== 倍速系统 ====================
 let manualSpeedLock = false;
@@ -168,7 +169,20 @@ function updateButtons() {
     const S = { IDLE: 'IDLE', RUNNING: 'RUNNING', PAUSED: 'PAUSED', GAMEOVER: 'GAMEOVER' };
     const currentStage = getState.currentStage();
     let mainBtn=document.getElementById('btnMain'),nextBtn=document.getElementById('btnNext'),settleBtn=document.getElementById('btnSettle'),pauseBtn=document.getElementById('btnPause'),randomBtn=document.getElementById('btnRandom'),stageBtn=document.getElementById('btnStageSelect'),infoBtn=document.getElementById('btnInfo'),copyBtn=document.getElementById('copyLog');
-    if(gs===S.IDLE){mainBtn.innerHTML=getState.adjustMode()?'▶ 开始<br><span style="font-size:8px;">(投票)</span>':'🔄 调整<br>站位';mainBtn.disabled=false;nextBtn.disabled=true;if(getState.adjustMode()){if(stageBtn)stageBtn.disabled=true;if(randomBtn)randomBtn.disabled=true;if(infoBtn)infoBtn.disabled=true;if(copyBtn)copyBtn.disabled=true;}else{if(stageBtn)stageBtn.disabled=false;if(randomBtn)randomBtn.disabled=false;if(infoBtn)infoBtn.disabled=false;if(copyBtn)copyBtn.disabled=false;}}else if(gs===S.GAMEOVER){mainBtn.innerHTML=currentStage>=6?'🔄 重新<br>开始':'▶ 下一关';mainBtn.disabled=false;nextBtn.disabled=true;}else{mainBtn.disabled=true;}if(gs===S.RUNNING||gs===S.PAUSED){settleBtn.textContent='⏭ 快进到底';settleBtn.disabled=false;}else if(gs===S.GAMEOVER){settleBtn.textContent='🔄 重新挑战';settleBtn.disabled=false;}else{settleBtn.disabled=true;}if(window.bulletTimeActive){pauseBtn.textContent='⏸️ 暂停';pauseBtn.disabled=true;pauseBtn.classList.remove('active');nextBtn.disabled=true;if(stageBtn)stageBtn.disabled=true;if(randomBtn)randomBtn.disabled=true;}else if(gs===S.RUNNING){pauseBtn.textContent='⏸️ 暂停';pauseBtn.disabled=false;pauseBtn.classList.remove('active');}else if(gs===S.PAUSED){pauseBtn.textContent='▶ 继续';pauseBtn.disabled=false;pauseBtn.classList.add('active');}else{pauseBtn.disabled=true;pauseBtn.classList.remove('active');}
+    if(gs===S.IDLE){
+        mainBtn.innerHTML=getState.adjustMode()?'▶ 开始<br><span style="font-size:8px;">(投票)</span>':'🔄 调整<br>站位';
+        mainBtn.disabled=false;nextBtn.disabled=true;settleBtn.disabled=true;settleBtn.textContent='⏭ 快进到底';
+        if(getState.adjustMode()){if(stageBtn)stageBtn.disabled=true;if(randomBtn)randomBtn.disabled=true;if(infoBtn)infoBtn.disabled=true;if(copyBtn)copyBtn.disabled=true;}else{if(stageBtn)stageBtn.disabled=false;if(randomBtn)randomBtn.disabled=false;if(infoBtn)infoBtn.disabled=false;if(copyBtn)copyBtn.disabled=false;}
+    }else if(gs===S.GAMEOVER){
+        mainBtn.innerHTML=currentStage>=6?'🔄 重新<br>开始':'▶ 下一关';mainBtn.disabled=false;
+        nextBtn.innerHTML='🔄 原班再战';nextBtn.disabled=false;
+        settleBtn.textContent='🎲 随机重开';settleBtn.disabled=false;
+        if(stageBtn)stageBtn.disabled=false;
+    }else{
+        mainBtn.disabled=true;
+        if(gs===S.RUNNING||gs===S.PAUSED){settleBtn.textContent='⏭ 快进到底';settleBtn.disabled=false;}else{settleBtn.disabled=true;}
+    }
+    if(window.bulletTimeActive){pauseBtn.textContent='⏸️ 暂停';pauseBtn.disabled=true;pauseBtn.classList.remove('active');nextBtn.disabled=true;if(stageBtn)stageBtn.disabled=true;if(randomBtn)randomBtn.disabled=true;}else if(gs===S.RUNNING){pauseBtn.textContent='⏸️ 暂停';pauseBtn.disabled=false;pauseBtn.classList.remove('active');}else if(gs===S.PAUSED){pauseBtn.textContent='▶ 继续';pauseBtn.disabled=false;pauseBtn.classList.add('active');}else{pauseBtn.disabled=true;pauseBtn.classList.remove('active');}
 }
 
 function enableAllButtons() { document.querySelectorAll('.controls button').forEach(b => b.disabled = false); updateButtons(); updateSpeedButtons(); }
@@ -218,6 +232,20 @@ export function bindPauseButton(getState, setState, updateButtons) {
 export function bindNextButton(setState, updateButtons) {
     document.getElementById('btnNext').addEventListener('click', function () {
         if (typeof window.onAnyButtonClick === 'function') window.onAnyButtonClick();
+        if (getState.gs() === 'GAMEOVER') {
+            clearAllEffects();
+            GlobalStore.set('fastForwardActive', false);
+            setState.gs('IDLE');
+            setState.isPaused(false);
+            setState.waitingForNextRound(false);
+            setState.isBattleStarting(false);
+            updateButtons();
+            enableAllButtons();
+            updateUI();
+            renderGrid('allyGrid', 'ally');
+            renderGrid('enemyGrid', 'enemy');
+            return;
+        }
         setState.waitingForNextRound(false);
         setState.gs('RUNNING');
         updateButtons();
@@ -276,8 +304,8 @@ export function bindSettleButton(currentStage, isBattleStarting, getState, setSt
         const S = { IDLE: 'IDLE', RUNNING: 'RUNNING', PAUSED: 'PAUSED', GAMEOVER: 'GAMEOVER' };
         if (gs === S.GAMEOVER) {
             clearAllEffects();
-            window.GlobalStore?.set('fastForwardActive', false);
-            window.GlobalStore?.set('battleStore', null);
+            GlobalStore.set('fastForwardActive', false);
+            GlobalStore.set('battleStore', null);
             setRenderStore(null);
             const reportOverlay = document.getElementById('battleReportOverlay');
             if (reportOverlay) reportOverlay.remove();
@@ -287,25 +315,21 @@ export function bindSettleButton(currentStage, isBattleStarting, getState, setSt
             if (voteFloat) voteFloat.style.display = 'none';
             const buffFloat = document.getElementById('buffFloatBtn');
             if (buffFloat) buffFloat.remove();
-            setState.speed(600);
             setState.gs(S.IDLE);
             setState.isPaused(false);
             setState.waitingForNextRound(false);
-            isBattleStarting.val = false;
-            setState.activeBuffs([]);
-            setState.snapshot({ ally: [], enemy: [] });
             let currentUI = { allyTeam: [], enemyTeam: [], currentResult: null, round: 0, lastSnapshot: null };
+            let snap = { ally: [], enemy: [] };
+            doInitBattle(currentStage, currentUI, snap, [], -1, null);
             setState.UI(currentUI);
+            setState.snapshot(snap);
+            updateUI();
+            renderGrid('allyGrid', 'ally');
+            renderGrid('enemyGrid', 'enemy');
             updateButtons();
             enableAllButtons();
             updateSpeedButtons();
             updateScoreBadge();
-            doInitBattle(currentStage, currentUI, getState.snapshot(), getState.activeBuffs(), -1, null);
-            setState.UI(currentUI);
-            setState.snapshot(getState.snapshot());
-            updateUI();
-            renderGrid('allyGrid', 'ally');
-            renderGrid('enemyGrid', 'enemy');
             return;
         }
         window.GlobalStore?.set('fastForwardActive', true);
@@ -393,6 +417,8 @@ export function bindStageSelectButton(currentStage, getState, setState, updateBu
             setState.UI(getState.UI());
             setState.snapshot(getState.snapshot());
             updateUI();
+            renderGrid('allyGrid', 'ally');
+            renderGrid('enemyGrid', 'enemy');
             setState.gs('IDLE');
             updateButtons();
             enableAllButtons();
