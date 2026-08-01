@@ -416,6 +416,8 @@ export async function playBattle() {
     if (!finalWinner) finalWinner = '平局';
     c.gs = 'GAMEOVER'; c.isPaused = false; c.waitingForNextRound = false; c.isBattleStarting = false;
     GlobalStore.set('fastForwardActive', false);
+    // 同步更新 39main-state.js 的模块级 gs 变量，否则 updateButtons 里 import 的 gs 仍是旧值
+    if (typeof window._syncGs === 'function') window._syncGs('GAMEOVER');
     
     // 强制刷新按钮状态，确保 GAMEOVER 状态下的按钮布局正确生效
     if (typeof window.updateButtons === 'function') {

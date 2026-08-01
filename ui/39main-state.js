@@ -67,6 +67,9 @@ GlobalStore.set('activeBuffs', []);
 GlobalStore.set('snapshot', { ally: [], enemy: [] });
 GlobalStore.set('UI', { allyTeam: [], enemyTeam: [], currentResult: null, round: 0, lastSnapshot: null });
 
+// 外部（如 10player-core.js）直接写 GlobalStore 后，调用此函数同步模块级 gs 变量
+window._syncGs = function(v) { gs = v; };
+
 // ==================== 状态读写 — 统一走 GlobalStore ====================
 export const getState = {
     gs: () => GlobalStore.get('gs'),

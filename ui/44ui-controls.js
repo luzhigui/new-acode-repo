@@ -3,8 +3,9 @@
 export const VER = 'ui/44ui-controls.js V5.3.1';
 
 import { getState, setState, gs } from './39main-state.js';
-import { updateUI, renderGrid } from './14ui-render-5v5-test.js';
+import { updateUI, renderGrid, setRenderStore } from './14ui-render-5v5-test.js';
 import { clearAllEffects } from '../player/10player-core.js';
+import { GlobalStore } from '../modules/46global-store.js';
 
 // ==================== 倍速系统 ====================
 let manualSpeedLock = false;
@@ -231,14 +232,14 @@ export function bindPauseButton(getState, setState, updateButtons) {
     });
 }
 
-export function bindNextButton(setState, updateButtons) {
+export function bindNextButton(setState, updateButtons, enableAllButtons, updateSpeedButtons) {
     document.getElementById('btnNext').addEventListener('click', function () {
         if (typeof window.onAnyButtonClick === 'function') window.onAnyButtonClick();
         if (getState.gs() === 'GAMEOVER') {
             clearAllEffects();
             GlobalStore.set('fastForwardActive', false);
             GlobalStore.set('battleStore', null);
-            if (typeof setRenderStore === 'function') setRenderStore(null);
+            setRenderStore(null);
             const reportOverlay = document.getElementById('battleReportOverlay');
             if (reportOverlay) reportOverlay.remove();
             const reportFloat = document.getElementById('battleReportFloat');
@@ -249,6 +250,8 @@ export function bindNextButton(setState, updateButtons) {
             if (buffFloat) buffFloat.remove();
             document.querySelectorAll('.danmaku-bubble').forEach(el => el.remove());
             setState.activeBuffs([]);
+            setState.adjustMode(true);
+            setState.selectedAdjustPos(null);
             const currentUI = getState.UI();
             const snap = getState.snapshot();
             snap.ally = currentUI.allyTeam.filter(u => u.alive || u._isDead).map(u => u.clone());
@@ -259,7 +262,8 @@ export function bindNextButton(setState, updateButtons) {
             setState.waitingForNextRound(false);
             setState.isBattleStarting(false);
             updateButtons();
-            enableAllButtons();
+            if (typeof enableAllButtons === 'function') enableAllButtons();
+            if (typeof updateSpeedButtons === 'function') updateSpeedButtons();
             updateUI();
             renderGrid('allyGrid', 'ally');
             renderGrid('enemyGrid', 'enemy');
@@ -316,7 +320,7 @@ export function bindDodgeButton(toggleDodgeEffect) {
     document.getElementById('btnDodgeToggle').addEventListener('click', () => { toggleDodgeEffect(); });
 }
 
-export function bindSettleButton(currentStage, isBattleStarting, getState, setState, updateBuffSlots, updateUI, updateButtons, enableAllButtons, updateSpeedButtons, updateScoreBadge, doInitBattle, abortAll, clearAllEffects, clearLogExceptFirst, setRenderStore, renderGrid) {
+export function bindSettleButton(currentStageGetter, isBattleStarting, getState, setState, updateBuffSlots, updateUI, updateButtons, enableAllButtons, updateSpeedButtons, updateScoreBadge, doInitBattle, abortAll, clearAllEffects, clearLogExceptFirst, setRenderStore, renderGrid) {
     document.getElementById('btnSettle').addEventListener('click', async function () {
         if (typeof window.onAnyButtonClick === 'function') window.onAnyButtonClick();
         const gs = getState.gs();
@@ -341,7 +345,8 @@ export function bindSettleButton(currentStage, isBattleStarting, getState, setSt
             setState.isBattleStarting(false);
             let currentUI = { allyTeam: [], enemyTeam: [], currentResult: null, round: 0, lastSnapshot: null };
             let snap = { ally: [], enemy: [] };
-            doInitBattle(getState.currentStage(), currentUI, snap, [], -1, null);
+            const stage = typeof currentStageGetter === 'function' ? currentStageGetter() : currentStageGetter;
+            doInitBattle(stage, currentUI, snap, [], -1, null);
             setState.UI(currentUI);
             setState.snapshot(snap);
             updateUI();
@@ -418,9 +423,10 @@ export function bindAutoButton(getState, setState) {
     });
 }
 
-export function bindStageSelectButton(currentStage, getState, setState, updateBuffSlots, updateUI, updateButtons, enableAllButtons, updateScoreBadge, abortAll, clearLogExceptFirst, clearAllEffects, doInitBattle, showModal) {
+export function bindStageSelectButton(currentStageGetter, getState, setState, updateBuffSlots, updateUI, updateButtons, enableAllButtons, updateScoreBadge, abortAll, clearLogExceptFirst, clearAllEffects, doInitBattle, showModal) {
     document.getElementById('btnStageSelect').addEventListener('click', () => {
         if (getState.gs() !== 'IDLE') return;
+        const currentStage = typeof currentStageGetter === 'function' ? currentStageGetter() : currentStageGetter;
         const buttons = [];
         for (let i = 1; i <= 6; i++) { buttons.push({ text: i === currentStage ? `第${i}关 ◀` : `第${i}关`, value: i, cls: 'buff' }); }
         showModal('选择关卡', buttons, (stage) => {
