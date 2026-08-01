@@ -161,7 +161,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // 按钮事件绑定 → 44ui-controls.js
     bindCoverStart({ val: gameStarted }, updateSpeedButtons);
     bindPauseButton(getState, setState, updateButtons);
-    bindNextButton(setState, updateButtons, lowerBGM);
+    bindNextButton(setState, updateButtons);
     bindDetailButton(getState, setState, showModal);
     bindDebugButton(setState, updateSpeedButtons, updateDebugUI, updateUI);
     bindBGButton(showMusicPanel);

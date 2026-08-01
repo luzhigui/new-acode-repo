@@ -178,6 +178,8 @@ function updateButtons() {
         nextBtn.innerHTML='🔄 原班再战';nextBtn.disabled=false;
         settleBtn.textContent='🎲 随机重开';settleBtn.disabled=false;
         if(stageBtn)stageBtn.disabled=false;
+        pauseBtn.disabled=true;pauseBtn.classList.remove('active');
+        return;
     }else{
         mainBtn.disabled=true;
         if(gs===S.RUNNING||gs===S.PAUSED){settleBtn.textContent='⏭ 快进到底';settleBtn.disabled=false;}else{settleBtn.disabled=true;}
@@ -235,6 +237,23 @@ export function bindNextButton(setState, updateButtons) {
         if (getState.gs() === 'GAMEOVER') {
             clearAllEffects();
             GlobalStore.set('fastForwardActive', false);
+            GlobalStore.set('battleStore', null);
+            if (typeof setRenderStore === 'function') setRenderStore(null);
+            const reportOverlay = document.getElementById('battleReportOverlay');
+            if (reportOverlay) reportOverlay.remove();
+            const reportFloat = document.getElementById('battleReportFloat');
+            if (reportFloat) reportFloat.remove();
+            const voteFloat = document.getElementById('voteFloat');
+            if (voteFloat) voteFloat.style.display = 'none';
+            const buffFloat = document.getElementById('buffFloatBtn');
+            if (buffFloat) buffFloat.remove();
+            document.querySelectorAll('.danmaku-bubble').forEach(el => el.remove());
+            setState.activeBuffs([]);
+            const currentUI = getState.UI();
+            const snap = getState.snapshot();
+            snap.ally = currentUI.allyTeam.filter(u => u.alive || u._isDead).map(u => u.clone());
+            snap.enemy = currentUI.enemyTeam.filter(u => u.alive || u._isDead).map(u => u.clone());
+            setState.snapshot(snap);
             setState.gs('IDLE');
             setState.isPaused(false);
             setState.waitingForNextRound(false);
@@ -315,12 +334,14 @@ export function bindSettleButton(currentStage, isBattleStarting, getState, setSt
             if (voteFloat) voteFloat.style.display = 'none';
             const buffFloat = document.getElementById('buffFloatBtn');
             if (buffFloat) buffFloat.remove();
+            document.querySelectorAll('.danmaku-bubble').forEach(el => el.remove());
             setState.gs(S.IDLE);
             setState.isPaused(false);
             setState.waitingForNextRound(false);
+            setState.isBattleStarting(false);
             let currentUI = { allyTeam: [], enemyTeam: [], currentResult: null, round: 0, lastSnapshot: null };
             let snap = { ally: [], enemy: [] };
-            doInitBattle(currentStage, currentUI, snap, [], -1, null);
+            doInitBattle(getState.currentStage(), currentUI, snap, [], -1, null);
             setState.UI(currentUI);
             setState.snapshot(snap);
             updateUI();
