@@ -217,6 +217,25 @@ export function butterflyReturn(sister, allyTeam, log) {
     if (!sister._butterflyHost) return;
     const host = allyTeam.find(u => u.uid === sister._butterflyHost);
     
+    // 宿主已死，直接恢复姐姐本体，不转移属性
+    if (!host || !host.alive) {
+        sister._flyMode = null;
+        sister._butterflyHost = null;
+        sister._butterflyAtk = 0;
+        sister._butterflyDef = 0;
+        sister._butterflyHp = 0;
+        sister._butterflyHpTransfer = 0;
+        emitEvent(sister, 'hp-change', {
+            hp: sister.hp, maxHp: sister.maxHp, alive: sister.alive,
+            atk: sister.atk, def: sister.def, _flyMode: null, _butterflyHost: null
+        });
+        log.push({
+            type: 'info',
+            text: `<span class="gold">🦋 蝶变：宿主已阵亡，${sister.name} 被迫返回！</span>`
+        });
+        return;
+    }
+    
     // 计算姐姐血量：按所有队友（含阵亡）的总血量 / 总血上限比例，死亡队友计为 0 血
     const allAllies = allyTeam.filter(a => !a.isHorse && a.uid !== sister.uid);
     const totalHp = allAllies.reduce((sum, a) => sum + (a.alive ? a.hp : 0), 0);

@@ -440,6 +440,13 @@ export async function* createRoundStepper(state) {
 
         finalizeDeaths(A);
         finalizeDeaths(B);
+        // 宿主死亡时，姐姐立刻飞回
+        A.forEach(u => {
+            if (u.isXiaoZhaoSister && u.alive && u._butterflyHost) {
+                const host = A.find(h => h.uid === u._butterflyHost);
+                if (!host || !host.alive) butterflyReturn(u, A, log);
+            }
+        });
         // 张无忌：前排队友死后立即检查变身
         A.forEach(u => { if (u.isZhang && u.alive && !u._zhangSwitched) checkZhangSwitch(A, log); });
         // 小昭妹飞天检查已在 beforeDamageApply 信号中处理
@@ -451,15 +458,26 @@ export async function* createRoundStepper(state) {
         if (!allyAlive) { winner = '六大派'; done = true; }
         else if (!enemyAlive) { winner = '明教'; done = true; }
 
+        // 胜利时，若姐姐仍附身，强制飞回以计入存活统计
+        if (winner === '明教') {
+            A.forEach(u => {
+                if (u.isXiaoZhaoSister && u.alive && u._butterflyHost) butterflyReturn(u, A, log);
+            });
+        }
         yield { log: [...log], events: stepEvents, ally: A, enemy: B, winner, done };
         log = [];
 
         if (done) return;
     }
 
-    A.forEach(u => {
-        if (u.isXiaoZhaoSister && u.alive && u._butterflyHost) butterflyReturn(u, A, log);
-    });
+    // 战斗结束时，若姐姐仍在附身，强制飞回以正确统计存活
+    const finalAllyAlive = A.some(u => u.alive);
+    const finalEnemyAlive = B.some(u => u.alive);
+    if (finalAllyAlive && !finalEnemyAlive) {
+        A.forEach(u => {
+            if (u.isXiaoZhaoSister && u.alive && u._butterflyHost) butterflyReturn(u, A, log);
+        });
+    }
     A.forEach(u => {
         if (u.isXiaoZhaoBrother && u.alive && u._spiderFlying) spiderReturn(u, A, B, log);
     });
@@ -485,6 +503,13 @@ export async function* createRoundStepper(state) {
     if (B.every(c => !c.alive)) { winner = '明教'; done = true; }
     else if (A.every(c => !c.alive)) { winner = '六大派'; done = true; }
     if (round >= C.MAX_ROUND && !done) { winner = '平局'; done = true; }
+
+    // 战斗结束，若姐姐仍附身，先飞回再产出最终数据，确保统计正确
+    if (winner === '明教') {
+        A.forEach(u => {
+            if (u.isXiaoZhaoSister && u.alive && u._butterflyHost) butterflyReturn(u, A, log);
+        });
+    }
 
     if (winner) {
         let losers = winner === '明教' ? B : A;
