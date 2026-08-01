@@ -49,6 +49,8 @@ let gameStarted = false;
 let hasLoggedTeam = false;
 let isBattleStarting = false;
 let currentStage = 1;
+function setStage(v) { currentStage = v; GlobalStore.set('currentStage', v); }
+function getStage() { return currentStage; }
 GlobalStore.set('crashMode', 'fly');
 
 let currentDoubleStrikeUid = null;
@@ -161,15 +163,15 @@ document.addEventListener('DOMContentLoaded', function() {
     // 按钮事件绑定 → 44ui-controls.js
     bindCoverStart({ val: gameStarted }, updateSpeedButtons);
     bindPauseButton(getState, setState, updateButtons);
-    bindNextButton(setState, updateButtons);
+    bindNextButton(setState, updateButtons, enableAllButtons, updateSpeedButtons);
     bindDetailButton(getState, setState, showModal);
     bindDebugButton(setState, updateSpeedButtons, updateDebugUI, updateUI);
     bindBGButton(showMusicPanel);
     bindCrashModeButton();
     bindDodgeButton(toggleDodgeEffect);
     bindAutoButton(getState, setState);
-    bindSettleButton(currentStage, { val: isBattleStarting }, getState, setState, updateBuffSlots, updateUI, updateButtons, enableAllButtons, updateSpeedButtons, updateScoreBadge, doInitBattle, abortAll, clearAllEffects, clearLogExceptFirst, setRenderStore, renderGrid);
-    bindStageSelectButton(currentStage, getState, setState, updateBuffSlots, updateUI, updateButtons, enableAllButtons, updateScoreBadge, abortAll, clearLogExceptFirst, clearAllEffects, doInitBattle, showModal);
+    bindSettleButton(() => currentStage, { val: isBattleStarting }, getState, setState, updateBuffSlots, updateUI, updateButtons, enableAllButtons, updateSpeedButtons, updateScoreBadge, doInitBattle, abortAll, clearAllEffects, clearLogExceptFirst, setRenderStore, renderGrid);
+    bindStageSelectButton(() => currentStage, getState, setState, updateBuffSlots, updateUI, updateButtons, enableAllButtons, updateScoreBadge, abortAll, clearLogExceptFirst, clearAllEffects, doInitBattle, showModal);
     bindVoteFloat();
     bindGridClick(getState, setState, updateUI);
     bindCopyLogButton(showModal, copyLogToClipboard);
@@ -238,49 +240,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 currentUI.enemyTeam = enemyList;
                 updateUI();
                 await playBattle();
-                // 战斗结束，为 btnMain 更换 GAMEOVER 专用的点击逻辑
-                const mainBtn = document.getElementById('btnMain');
-                const newMainBtn = mainBtn.cloneNode(true);
-                mainBtn.parentNode.replaceChild(newMainBtn, mainBtn);
-                newMainBtn.addEventListener('click', function() {
-                    // 清理旧战斗的 UI 残留
-                    const reportOverlay = document.getElementById('battleReportOverlay');
-                    if (reportOverlay) reportOverlay.remove();
-                    const reportFloat = document.getElementById('battleReportFloat');
-                    if (reportFloat) reportFloat.remove();
-                    const voteFloat = document.getElementById('voteFloat');
-                    if (voteFloat) voteFloat.style.display = 'none';
-                    const buffFloat = document.getElementById('buffFloatBtn');
-                    if (buffFloat) buffFloat.remove();
-                    document.querySelectorAll('.danmaku-bubble').forEach(el => el.remove());
-                    GlobalStore.set('fastForwardActive', false);
-                    GlobalStore.set('battleStore', null);
-                    setRenderStore(null);
-                    clearLogExceptFirst(); clearAllEffects(); hasLoggedTeam=false;
-
-                    // 根据当前关卡执行不同逻辑
-                    if(currentStage>=6){
-                        // 通关后回到第一关
-                        currentStage=1;
-                        GlobalStore.set('_hasPlayedFair', false);
-                    } else {
-                        // 正常进入下一关
-                        currentStage++;
-                    }
-                    // 重置状态并生成新阵容
-                    let currentUI = getState.UI();
-                    let currentSnapshot = getState.snapshot();
-                    setState.snapshot({ ally: [], enemy: [] });
-                    setState.activeBuffs([]);
-                    doInitBattle(currentStage, currentUI, currentSnapshot, getState.activeBuffs(), -1, currentDoubleStrikeUid);
-                    setState.UI(currentUI);
-                    setState.snapshot(currentSnapshot);
-                    updateUI();
-                    updateScoreBadge();
-                    renderGrid('allyGrid', 'ally');
-                    renderGrid('enemyGrid', 'enemy');
-                    setState.gs(S.IDLE); setState.isPaused(false); updateButtons(); enableAllButtons(); updateSpeedButtons();
-                });
 
                 let ctx = window._getPlayerContext();
                 if (ctx && ctx.battleResultForInfo) {
@@ -309,6 +268,47 @@ document.addEventListener('DOMContentLoaded', function() {
                 }, 3500);
             }
         };
+
+        // ==================== GAMEOVER：下一关 / 重新开始 ====================
+        if(gs===S.GAMEOVER){
+            // 清理旧战斗的 UI 残留
+            const reportOverlay = document.getElementById('battleReportOverlay');
+            if (reportOverlay) reportOverlay.remove();
+            const reportFloat = document.getElementById('battleReportFloat');
+            if (reportFloat) reportFloat.remove();
+            const voteFloat = document.getElementById('voteFloat');
+            if (voteFloat) voteFloat.style.display = 'none';
+            const buffFloat = document.getElementById('buffFloatBtn');
+            if (buffFloat) buffFloat.remove();
+            document.querySelectorAll('.danmaku-bubble').forEach(el => el.remove());
+            GlobalStore.set('fastForwardActive', false);
+            GlobalStore.set('battleStore', null);
+            setRenderStore(null);
+            clearLogExceptFirst(); clearAllEffects(); hasLoggedTeam=false;
+
+            // 关卡推进
+            if(currentStage>=6){
+                setStage(1);
+                GlobalStore.set('_hasPlayedFair', false);
+            } else {
+                setStage(currentStage + 1);
+            }
+
+            // 重置状态并生成新阵容
+            let currentUI = getState.UI();
+            let currentSnapshot = getState.snapshot();
+            setState.snapshot({ ally: [], enemy: [] });
+            setState.activeBuffs([]);
+            doInitBattle(currentStage, currentUI, currentSnapshot, getState.activeBuffs(), -1, currentDoubleStrikeUid);
+            setState.UI(currentUI);
+            setState.snapshot(currentSnapshot);
+            updateUI();
+            updateScoreBadge();
+            renderGrid('allyGrid', 'ally');
+            renderGrid('enemyGrid', 'enemy');
+            setState.gs(S.IDLE); setState.isPaused(false); updateButtons(); enableAllButtons(); updateSpeedButtons();
+            return;
+        }
 
         if(gs===S.IDLE&&!isBattleStarting){
             if(!getState.adjustMode()){
@@ -343,6 +343,7 @@ document.addEventListener('DOMContentLoaded', function() {
         abortController = result.abortController; setState.waitingForNextRound(result.waitingForNextRound); isBattleStarting = result.isBattleStarting; setState.adjustMode(result.adjustMode); setState.selectedAdjustPos(result.selectedAdjustPos); setState.activeBuffs(result.activeBuffs); currentDoubleStrikeUid = result.currentDoubleStrikeUid;
         clearLogExceptFirst(); clearAllEffects(); hasLoggedTeam=false;
         currentStage=stage;
+        GlobalStore.set('currentStage', stage);
         doInitBattle(currentStage, getState.UI(), getState.snapshot(), getState.activeBuffs(), -1, currentDoubleStrikeUid);
         setState.UI(getState.UI());
         setState.snapshot(getState.snapshot());
