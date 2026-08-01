@@ -57,6 +57,7 @@ function escapeHtml(text) {
         '../tools/35-version-calibrator.cjs',
         '../tools/36-dead-code-scanner.cjs', '../tools/37-filelist-checker.cjs',
         '../tools/27auto-battle-utils.js', '../tools/00build-5v5.cjs',
+        '../tools/创意-精英战力评测脚本.js',
         // assets（音频资源，不参与 fetch 复制）
         '../assets/sfx_arrow.mp3', '../assets/sfx_fly.mp3',
         '../assets/sfx_melee.mp3', '../assets/sfx_xinai.mp3',

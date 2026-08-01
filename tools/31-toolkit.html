@@ -1,5 +1,5 @@
 ﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿<!DOCTYPE html>
-<!-- V5.3.1 | ~24100 bytes-->
+<!-- V5.3.1 | ~25000 bytes-->
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
@@ -315,6 +315,21 @@
                 <li>Node.js 必须已安装（一般都有）</li>
             </ol>
         </div>
+
+        <div class="tool-card">
+            <h3>🎯 精英战力评测脚本（控制台专用）</h3>
+            <p>自动跑 6 关 × 20 场模拟战斗，输出各精英（张无忌 / 韦一笑 / 小昭·姊 / 小昭·妹）带队胜率、输出、承伤、存活率。<br>
+            ⚠️ 此脚本用动态 <code>import()</code> 依赖游戏页面模块，在工具箱里跑不了，只能粘贴到游戏页面的浏览器控制台执行。</p>
+            <div class="tool-cmd">
+                <code>tools/创意-精英战力评测脚本.js</code>
+                <button id="btn-copy-script" onclick="copyScriptFile()">📋 复制完整脚本</button>
+            </div>
+            <ol class="tool-steps">
+                <li>打开游戏页面（mode-5v5-test.html），按 <kbd>F12</kbd> 打开控制台</li>
+                <li>点上方「复制完整脚本」，粘贴到控制台，按回车</li>
+                <li>等 6 关 × 20 场跑完，结果直接打印在控制台</li>
+            </ol>
+        </div>
     </div>
 
     <script>
@@ -335,6 +350,21 @@
                 document.execCommand('copy');
                 window.getSelection().removeAllRanges();
             });
+        }
+
+        async function copyScriptFile() {
+            try {
+                const res = await fetch(encodeURI('创意-精英战力评测脚本.js'));
+                if (!res.ok) throw new Error('HTTP ' + res.status);
+                const text = await res.text();
+                await navigator.clipboard.writeText(text);
+                const btn = document.getElementById('btn-copy-script');
+                const old = btn.innerText;
+                btn.innerText = '✅ 已复制';
+                setTimeout(() => btn.innerText = old, 1200);
+            } catch (e) {
+                alert('读取脚本失败：' + e.message);
+            }
         }
     </script>
 
