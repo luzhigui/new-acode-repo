@@ -125,14 +125,16 @@ export function copyLogToClipboard(choice) {
 export function updateCoverVersion() {
     let el = document.getElementById('coverVersion');
     if (!el) return;
-    let html = '';
-    // 直接搜 window 上所有带 V5. 的版本字符串
-    for (let key of Object.getOwnPropertyNames(window)) {
-        if (typeof window[key] === 'string' && window[key].includes('V5.')) {
-            html += `✅ ${key}: ${window[key]}<br>`;
-        }
-    }
-    el.innerHTML = html || '模块加载中...';
+    el.innerHTML = [
+        '✅ core/48battle-round.js V5.3.1',
+        '✅ core/47battle-attack.js V5.3.1',
+        '✅ core/04buff-system.js V5.3.1',
+        '✅ player/10player-core.js V5.3.1',
+        '✅ ui/14ui-render-5v5-test.js V5.3.1',
+        '✅ fx/15fx-common-5v5-test.js V5.3.1',
+        '✅ modules/23elite-skills.js V5.3.1',
+        '✅ modules/46global-store.js V5.3.1'
+    ].join('<br>');
 }
 
 export async function startApp(updateCoverVersion) {

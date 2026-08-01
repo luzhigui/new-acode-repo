@@ -52,6 +52,24 @@ export async function handleBuffSwap(c, entry) {
 export async function handleBuffPush(c, entry) {
     c.isPaused = true;
     window.bulletTimeActive = true;
+    // 先应用位置变更，动画只做视觉过渡
+    if (entry.pushTargetUid) {
+        const events = [];
+        const targetUnit = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.uid === entry.pushTargetUid);
+        if (entry.behindUid) {
+            const behindUnit = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.uid === entry.behindUid);
+            if (targetUnit && behindUnit) {
+                events.push({ eventType: 'pos-change', uid: targetUnit.uid, pos: entry.oldPos || behindUnit.pos });
+                events.push({ eventType: 'pos-change', uid: behindUnit.uid, pos: entry.behindOldPos || targetUnit.pos });
+            }
+        } else if (targetUnit && entry.newPos) {
+            events.push({ eventType: 'pos-change', uid: targetUnit.uid, pos: entry.newPos });
+        }
+        if (events.length > 0) {
+            c.store.dispatch({ type: 'APPLY_EVENTS', events });
+            c.updateUI();
+        }
+    }
     await showBuffBanner('🦅 乘风突袭！');
     window.bulletTimeActive = false;
     c.isPaused = false;
@@ -60,10 +78,10 @@ export async function handleBuffPush(c, entry) {
     if (entry.behindUid) {
         let behindUnit = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.uid === entry.behindUid);
         if (targetUnit && behindUnit) {
-            await animatePushSwap(targetUnit, behindUnit, c);
+            await animatePushSwap(targetUnit, behindUnit, c, { skipDataChange: true });
         }
     } else if (targetUnit) {
-        await animatePushBack(targetUnit, c, entry.newPos, { skipDataChange: false });
+        await animatePushBack(targetUnit, c, entry.newPos, { skipDataChange: true });
     }
 }
 
@@ -90,6 +108,8 @@ export async function handleBuffReboundFortify(c, entry) {
 export async function handleAttackGroup(c, entry, roundResult, abortSig, isFirstAttackRef) {
     if (entry.isCombo) { let spacer = document.createElement('div'); spacer.innerHTML = '<br>'; document.getElementById('log').appendChild(spacer); c.autoScrollLog(); c.isPaused = true; window.bulletTimeActive = true; if (c._scheduler) { await new Promise(r => c._scheduler.schedule('banner', 1500, r)); showBuffBanner('⚡ 连击！'); } else { await showBuffBanner('⚡ 连击！'); } window.bulletTimeActive = false; c.isPaused = false; }
 
+    // 统一事件分发：血量事件挂载到 entry 上，跟随攻击组生命周期
+    if (!entry._pendingHpEvents) entry._pendingHpEvents = [];
     if (entry._events && entry._events.length > 0) {
         for (const ev of entry._events) {
             if (ev.payload && ev.payload._flyMode === 'butterfly') {
@@ -102,8 +122,7 @@ export async function handleAttackGroup(c, entry, roundResult, abortSig, isFirst
                     c.store.dispatch({ type: 'APPLY_EVENTS', events: [ev] });
                     c.updateUI(c.UI);
                 }
-            }
-            if (ev.payload && ev.payload._flyMode === 'spider') {
+            } else if (ev.payload && ev.payload._flyMode === 'spider') {
                 const brother = c.UI.allyTeam.find(u => u.uid === ev.unitUid);
                 if (brother) {
                     const { showSpiderAscend } = await import('../fx/21fx-butterfly-spider.js');
@@ -111,6 +130,10 @@ export async function handleAttackGroup(c, entry, roundResult, abortSig, isFirst
                     c.store.dispatch({ type: 'APPLY_EVENTS', events: [ev] });
                     c.updateUI(c.UI);
                 }
+            } else if (ev.eventType === 'hp-change' || ev.type === 'hp-change') {
+                entry._pendingHpEvents.push(ev);
+            } else {
+                c.store.dispatch({ type: 'APPLY_EVENTS', events: [ev] });
             }
         }
     }
@@ -170,9 +193,20 @@ export async function handleAttackGroup(c, entry, roundResult, abortSig, isFirst
         if(abortSig&&abortSig.aborted){if(atkTimer)clearTimeout(atkTimer);if(defTimer)clearTimeout(defTimer);return { isBattleOver: false };}
         const logLevel = getState.logLevel();
         if(logLevel==='brief'&&entry2.type==='detail'){ let hiddenDiv=document.createElement('div'); hiddenDiv.className='detail-hidden'; hiddenDiv.innerHTML=entry2.text+'<br>'; document.getElementById('log').appendChild(hiddenDiv); c.autoScrollLog(); continue; }
-        if(entry2.type==='damage-text'){ lastDiv=document.createElement('div'); document.getElementById('log').appendChild(lastDiv); await playLineText(entry2.text,lastDiv, Math.max(c.speed || 1000, 1000)); }
+        if(entry2.type==='damage-text'){
+            lastDiv=document.createElement('div'); document.getElementById('log').appendChild(lastDiv); await playLineText(entry2.text,lastDiv, Math.max(c.speed || 1000, 1000));
+            // 伤害行播放完成：血量同步变化
+            if (entry._pendingHpEvents && entry._pendingHpEvents.length > 0) {
+                c.store.dispatch({ type: 'APPLY_EVENTS', events: entry._pendingHpEvents.splice(0) });
+            }
+        }
         else if(entry2.isHealEntry && entry.isDead){ healDiv=document.createElement('div'); document.getElementById('log').appendChild(healDiv); await playLineText(entry2.text,healDiv); }
         else{
+            // 白骨爪每次命中立即更新血量
+            if (entry2._events && entry2._events.length > 0) {
+                c.store.dispatch({ type: 'APPLY_EVENTS', events: entry2._events });
+                entry2._events = [];
+            }
             if(entry2.isHealEntry && !entry.isDead) {
                 let healAmount = entry2.healAmount;
                 if (healAmount == null) {
@@ -216,9 +250,20 @@ export async function handleAttackGroup(c, entry, roundResult, abortSig, isFirst
             if (entry2.type === 'detail' || entry2.type === 'info' || entry2.type === 'buff-bonus' || entry2.type === 'buff-splash') {
                 await new Promise(r => setTimeout(r, 120));
             }
+            // 波动行播放完毕（计算行）：飞箭/飞撞命中瞬间，弹出掉血弹幕
+            if (entry2.type === 'detail' && entry2.text && entry2.text.includes('计算：') && !entry._dmgFloatShown) {
+                entry._dmgFloatShown = true;
+                if (unitD && entry._dmg !== undefined && !entry.isBlock && !entry.isMiss && !entry.isDodge) {
+                    showDamageFloat(unitD, entry._dmg);
+                }
+            }
         }
     }
     if(blockDelay) await new Promise(r=>setTimeout(r, GlobalStore.get('fastForwardActive') ? 1 : c.speed/2));
+    // 保底：未走到 damage-text 的血量事件在此处应用
+    if (entry._pendingHpEvents && entry._pendingHpEvents.length > 0) {
+        c.store.dispatch({ type: 'APPLY_EVENTS', events: entry._pendingHpEvents.splice(0) });
+    }
     if (entry.isDead && lastDiv && !entry.isBlock && !entry.isMiss && !entry.isDodge) { applyBrushEffect(lastDiv); }
     if(entry.isDodge&&unitA)showDodgeBubble(unitA,'闪避！'); if(entry.isMiss&&unitA)showDodgeBubble(unitA,'未命中');
     if(unitD&&entry.hpPctAfter!==undefined&&entry.hpPctBefore!==undefined){ if(entry.hpPctBefore>40&&entry.hpPctAfter<=40&&entry.hpPctAfter>20){let t=(unitD.camp==='ally'?'不好，必须反击了！':'小儿安敢伤我！');safeShowDanmaku(unitD,t);} else if(entry.hpPctBefore>20&&entry.hpPctAfter<=20){let t=(unitD.camp==='ally'?'撑住！':'已是强弩之末！');safeShowDanmaku(unitD,t);} }
