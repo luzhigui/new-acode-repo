@@ -254,8 +254,9 @@ export function bindNextButton(setState, updateButtons, enableAllButtons, update
             setState.selectedAdjustPos(null);
             const currentUI = getState.UI();
             const snap = getState.snapshot();
-            snap.ally = currentUI.allyTeam.filter(u => u.alive || u._isDead).map(u => u.clone());
-            snap.enemy = currentUI.enemyTeam.filter(u => u.alive || u._isDead).map(u => u.clone());
+            // 原班再战：保留存活单位的当前状态（HP/属性等），不需要 clone
+            snap.ally = currentUI.allyTeam.filter(u => u.alive || u._isDead);
+            snap.enemy = currentUI.enemyTeam.filter(u => u.alive || u._isDead);
             setState.snapshot(snap);
             setState.gs('IDLE');
             setState.isPaused(false);
