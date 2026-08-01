@@ -21,7 +21,7 @@ const C = CONFIG, DT = DEF_TAUNT, HT = HP_TAUNT;
 
 // ==================== 步骤1：选择攻击目标 ====================
 export function selectAttackTarget(unit, enemySide, allySide) {
-    let targets = enemySide.filter(c => c.alive && c._flyMode !== 'butterfly' && c._flyMode !== 'spider' && !c._spiderFlying);
+    let targets = enemySide.filter(c => c.alive && !c._untargetable);
     if (targets.length === 0) return { target: null, phantomLog: null };
 
     let target = null;

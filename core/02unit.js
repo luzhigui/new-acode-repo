@@ -21,7 +21,7 @@ export class Unit {
         this.leechDone=0;this.dodgeCount=0;this.critCount=0;
         this._acted=false;this.survivedRounds=0;this._flash=null;
         this._blocked=false;this._isDead=false;this._resting=false;
-        this._flyMode=null;this.fixed=false;this._originalPos=-1;
+        this._flyMode=null;this._untargetable=false;this.fixed=false;this._originalPos=-1;
         this._hotBloodCount=0;this._doubleStriked=false;
         this._zhangSwitched = false;
         this.buffAtkBonus = 0;
@@ -83,7 +83,7 @@ export class Unit {
         c.dodgeCount=this.dodgeCount;c.critCount=this.critCount;
         c._acted=this._acted;c.survivedRounds=this.survivedRounds;
         c._flash=this._flash;c._blocked=this._blocked;c._isDead=this._isDead;
-        c._resting=this._resting;c._flyMode=this._flyMode;
+        c._resting=this._resting;c._flyMode=this._flyMode;c._untargetable=this._untargetable;
         c.fixed=this.fixed;c._originalPos=this._originalPos;
         c._hotBloodCount=this._hotBloodCount;c._doubleStriked=this._doubleStriked;
         c._zhangSwitched = this._zhangSwitched;

@@ -55,10 +55,10 @@ function checkZhangSwitch(A, log) {
     if (!hasFrontAlly) {
         zhang.rangedForm = false;
         const warriorBonus = ROLE_BONUS['战士'];
-        zhang.atk += warriorBonus.atk * 2;
-        zhang.def += warriorBonus.def * 2;
-        zhang.maxHp = Math.min(zhang.maxHp + warriorBonus.maxHp * 2, zhang._baseMaxHp * 2);
-        zhang.hp = Math.min(zhang.hp + warriorBonus.maxHp * 2, zhang.maxHp);
+        zhang.atk += warriorBonus.atk * 3;
+        zhang.def += warriorBonus.def * 3;
+        zhang.maxHp = Math.min(zhang.maxHp + warriorBonus.maxHp * 3, zhang._baseMaxHp * 3);
+        zhang.hp = Math.min(zhang.hp + warriorBonus.maxHp * 3, zhang.maxHp);
         zhang.role = '战士';
         zhang._resting = false; zhang._zhangSwitched = true;
         zhang._baseMaxHp = zhang.maxHp;

@@ -156,6 +156,19 @@ export async function* createRoundStepper(state) {
         }
     });
 
+    // 圣火令每回合重新随机行列
+    A._activeBuffs.forEach(b => {
+        if (b.key === 'holyFlame') {
+            const cols = [];
+            while (cols.length < 2) { const c = rand(1, 3); if (!cols.includes(c)) cols.push(c); }
+            cols.sort((a, b) => a - b);
+            const rows = [];
+            while (rows.length < 2) { const r = rand(1, 3); if (!rows.includes(r)) rows.push(r); }
+            rows.sort((a, b) => a - b);
+            b.cols = cols;
+            b.rows = rows;
+        }
+    });
     // 提前生成圣火令行列，确保 UI 渲染时 cols/rows 已存在
     A.forEach(u => {
         if (u.alive && u.camp === 'ally') {
@@ -440,11 +453,10 @@ export async function* createRoundStepper(state) {
 
         finalizeDeaths(A);
         finalizeDeaths(B);
-        // 宿主死亡时，姐姐立刻飞回
+        // 姐姐附身时，若即将死亡则强制飞回以避免统计错误
         A.forEach(u => {
-            if (u.isXiaoZhaoSister && u.alive && u._butterflyHost) {
-                const host = A.find(h => h.uid === u._butterflyHost);
-                if (!host || !host.alive) butterflyReturn(u, A, log);
+            if (u.isXiaoZhaoSister && u.alive && u._butterflyHost && u.hp <= 0) {
+                butterflyReturn(u, A, log);
             }
         });
         // 张无忌：前排队友死后立即检查变身

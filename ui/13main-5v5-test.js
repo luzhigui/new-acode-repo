@@ -238,6 +238,50 @@ document.addEventListener('DOMContentLoaded', function() {
                 currentUI.enemyTeam = enemyList;
                 updateUI();
                 await playBattle();
+                // 战斗结束，为 btnMain 更换 GAMEOVER 专用的点击逻辑
+                const mainBtn = document.getElementById('btnMain');
+                const newMainBtn = mainBtn.cloneNode(true);
+                mainBtn.parentNode.replaceChild(newMainBtn, mainBtn);
+                newMainBtn.addEventListener('click', function() {
+                    // 清理旧战斗的 UI 残留
+                    const reportOverlay = document.getElementById('battleReportOverlay');
+                    if (reportOverlay) reportOverlay.remove();
+                    const reportFloat = document.getElementById('battleReportFloat');
+                    if (reportFloat) reportFloat.remove();
+                    const voteFloat = document.getElementById('voteFloat');
+                    if (voteFloat) voteFloat.style.display = 'none';
+                    const buffFloat = document.getElementById('buffFloatBtn');
+                    if (buffFloat) buffFloat.remove();
+                    document.querySelectorAll('.danmaku-bubble').forEach(el => el.remove());
+                    GlobalStore.set('fastForwardActive', false);
+                    GlobalStore.set('battleStore', null);
+                    setRenderStore(null);
+                    clearLogExceptFirst(); clearAllEffects(); hasLoggedTeam=false;
+
+                    // 根据当前关卡执行不同逻辑
+                    if(currentStage>=6){
+                        // 通关后回到第一关
+                        currentStage=1;
+                        GlobalStore.set('_hasPlayedFair', false);
+                    } else {
+                        // 正常进入下一关
+                        currentStage++;
+                    }
+                    // 重置状态并生成新阵容
+                    let currentUI = getState.UI();
+                    let currentSnapshot = getState.snapshot();
+                    setState.snapshot({ ally: [], enemy: [] });
+                    setState.activeBuffs([]);
+                    doInitBattle(currentStage, currentUI, currentSnapshot, getState.activeBuffs(), -1, currentDoubleStrikeUid);
+                    setState.UI(currentUI);
+                    setState.snapshot(currentSnapshot);
+                    updateUI();
+                    updateScoreBadge();
+                    renderGrid('allyGrid', 'ally');
+                    renderGrid('enemyGrid', 'enemy');
+                    setState.gs(S.IDLE); setState.isPaused(false); updateButtons(); enableAllButtons(); updateSpeedButtons();
+                });
+
                 let ctx = window._getPlayerContext();
                 if (ctx && ctx.battleResultForInfo) {
                     showBattleReport(ctx.UI, ctx.battleResultForInfo);
@@ -266,82 +310,7 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         };
 
-        if(gs===S.GAMEOVER){
-            // 清除战报弹窗和浮动按钮
-            const reportOverlay = document.getElementById('battleReportOverlay');
-            if (reportOverlay) reportOverlay.remove();
-            const reportFloat = document.getElementById('battleReportFloat');
-            if (reportFloat) reportFloat.remove();
-            const voteFloat = document.getElementById('voteFloat');
-            if (voteFloat) voteFloat.style.display = 'none';
-            const buffFloat = document.getElementById('buffFloatBtn');
-            if (buffFloat) buffFloat.remove();
-            // 清除所有嘲讽弹幕
-            document.querySelectorAll('.danmaku-bubble').forEach(el => el.remove());
-            GlobalStore.set('fastForwardActive', false);
-            GlobalStore.set('battleStore', null);
-            setRenderStore(null);
-            if(currentStage>=6){
-                currentStage=1;
-                GlobalStore.set('_hasPlayedFair', false);
-                let result = abortAll(abortController, getState.UI(), getState.waitingForNextRound(), isBattleStarting, getState.adjustMode(), getState.selectedAdjustPos(), getState.activeBuffs(), -1, currentDoubleStrikeUid, () => updateBuffSlots(getState.activeBuffs()));
-                abortController = result.abortController; setState.waitingForNextRound(result.waitingForNextRound); isBattleStarting = result.isBattleStarting; setState.adjustMode(result.adjustMode); setState.selectedAdjustPos(result.selectedAdjustPos); setState.activeBuffs(result.activeBuffs); currentDoubleStrikeUid = result.currentDoubleStrikeUid;
-                GlobalStore.set('fastForwardActive', false);
-                clearLogExceptFirst(); clearAllEffects(); hasLoggedTeam=false;
-                setState.snapshot({ ally: [], enemy: [] });  // 强制重置快照，与 doManualReset 保持一致
-                let currentUI = getState.UI();
-                let currentSnapshot = getState.snapshot();
-                if (!currentUI || !currentUI.allyTeam || !currentUI.allyTeam.length) {
-                    currentUI = { allyTeam: [], enemyTeam: [], currentResult: null, round: 0, lastSnapshot: null };
-                    setState.UI(currentUI);
-                }
-                // 快照已强制清空，无需再条件初始化
-                doInitBattle(currentStage, currentUI, currentSnapshot, getState.activeBuffs(), -1, currentDoubleStrikeUid);
-                setState.UI(currentUI);
-                setState.snapshot(currentSnapshot);
-                updateUI();
-                updateScoreBadge();
-                renderGrid('allyGrid', 'ally');
-                renderGrid('enemyGrid', 'enemy');
-                setState.gs(S.IDLE); setState.isPaused(false); updateButtons(); enableAllButtons(); updateSpeedButtons(); updateScoreBadge(); if(window._refreshGlowCells)window._refreshGlowCells();
-                if (getState.autoLevel() === 'full-auto') { setTimeout(() => { if (getState.autoLevel() === 'full-auto' && !getState.isBattleStarting()) document.getElementById('btnMain').click(); }, 500); }
-            } else {
-                if (currentStage === 5 && !GlobalStore.get('_hasPlayedFair')) {
-                    // 检查是否从第1关连续打到第5关
-                    GlobalStore.set('_hasPlayedFair', true);
-                }
-                currentStage++;
-                if (currentStage === 6 && GlobalStore.get('_hasPlayedFair')) {
-                    let chests = parseInt(localStorage.getItem('ming_chest_count') || '0');
-                    chests++;
-                    localStorage.setItem('ming_chest_count', String(chests));
-                    GlobalStore.set('chestCount', chests);
-                }
-                setRenderStore(null);
-                let result = abortAll(abortController, getState.UI(), getState.waitingForNextRound(), isBattleStarting, getState.adjustMode(), getState.selectedAdjustPos(), getState.activeBuffs(), -1, currentDoubleStrikeUid, () => updateBuffSlots(getState.activeBuffs()));
-                abortController = result.abortController; setState.waitingForNextRound(result.waitingForNextRound); isBattleStarting = result.isBattleStarting; setState.adjustMode(result.adjustMode); setState.selectedAdjustPos(result.selectedAdjustPos); setState.activeBuffs(result.activeBuffs); currentDoubleStrikeUid = result.currentDoubleStrikeUid;
-                clearLogExceptFirst(); clearAllEffects(); hasLoggedTeam=false;
-                let currentUI = getState.UI();
-                let currentSnapshot = getState.snapshot();
-                if (!currentUI || !currentUI.allyTeam || !currentUI.allyTeam.length) {
-                    currentUI = { allyTeam: [], enemyTeam: [], currentResult: null, round: 0, lastSnapshot: null };
-                    setState.UI(currentUI);
-                }
-                if (!currentSnapshot || !currentSnapshot.ally || !currentSnapshot.ally.length) {
-                    currentSnapshot = { ally: [], enemy: [] };
-                    setState.snapshot(currentSnapshot);
-                }
-                doInitBattle(currentStage, currentUI, currentSnapshot, getState.activeBuffs(), -1, currentDoubleStrikeUid);
-                setState.UI(currentUI);
-                setState.snapshot(currentSnapshot);
-                updateUI();
-                updateScoreBadge();
-                renderGrid('allyGrid', 'ally');
-                renderGrid('enemyGrid', 'enemy');
-                setState.gs(S.IDLE); setState.isPaused(false); updateButtons(); enableAllButtons(); updateSpeedButtons(); updateScoreBadge(); if(window._refreshGlowCells)window._refreshGlowCells();
-                if (getState.autoLevel() === 'full-auto') { setTimeout(() => { if (getState.autoLevel() === 'full-auto' && !getState.isBattleStarting()) document.getElementById('btnMain').click(); }, 500); }
-            }
-        } else if(gs===S.IDLE&&!isBattleStarting){
+        if(gs===S.IDLE&&!isBattleStarting){
             if(!getState.adjustMode()){
                 if(getState.autoLevel() === 'full-auto') {
                     // 全自动：跳过调整，直接进入战斗

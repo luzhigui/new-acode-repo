@@ -416,7 +416,12 @@ export async function playBattle() {
     if (!finalWinner) finalWinner = '平局';
     c.gs = 'GAMEOVER'; c.isPaused = false; c.waitingForNextRound = false; c.isBattleStarting = false;
     GlobalStore.set('fastForwardActive', false);
-    c.updateButtons(); c.enableAllButtons();
+    
+    // 强制刷新按钮状态，确保 GAMEOVER 状态下的按钮布局正确生效
+    if (typeof window.updateButtons === 'function') {
+        window.updateButtons();
+    }
+    c.enableAllButtons();
 
     let winner = finalWinner;
     if (winner === '明教' && c.currentStage) {

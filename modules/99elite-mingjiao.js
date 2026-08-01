@@ -89,7 +89,7 @@ export function createWeiYixiaoComponent() {
         onAfterApplyDamage(unit, target, dmgCalc, group, A, log) {
             if (unit.camp !== 'ally' || !unit.isWei || !unit.alive || dmgCalc.dmg <= 0) return;
             const lostPct = (unit.maxHp - unit.hp) / unit.maxHp;
-            const leechRate = 0.20 + (0.50 - 0.20) * lostPct;
+            const leechRate = 0.20 + (0.40 - 0.20) * lostPct;
             const healWei = Math.floor(dmgCalc.dmg * leechRate);
             const wasFullHpWei = (unit.hp >= unit.maxHp);
             const newMaxHpWei = Math.min(unit.maxHp + healWei, unit._baseMaxHp * 2);
@@ -137,7 +137,7 @@ export function createXiaoZhaoSisterComponent() {
             const aliveAllies = A.filter(a => a.alive && !a.isHorse && a.uid !== sister.uid);
             const totalHp = aliveAllies.reduce((sum,a) => sum + a.hp, 0); const totalMaxHp = aliveAllies.reduce((sum,a) => sum + a.maxHp, 0);
             if (totalMaxHp > 0) { sister.hp = Math.floor(sister.maxHp * (totalHp/totalMaxHp)); }
-            sister._butterflyHost = host.uid; sister._flyMode = 'butterfly';
+            sister._butterflyHost = host.uid; sister._flyMode = 'butterfly'; sister._untargetable = true;
             emitEvent(sister, 'hp-change', { hp:sister.hp, maxHp:sister.maxHp, alive:sister.alive, atk:sister.atk, def:sister.def, _flyMode:'butterfly', _butterflyHost:sister._butterflyHost });
             log.push({ type:'info', text:`<span class="gold">🦋 蝶变：${sister.name} 化为蝴蝶附身于 ${host.name}！攻+${atkTransfer} 防+${defTransfer} 血上限+${hpTransfer}</span>` });
             return sister;
@@ -197,9 +197,10 @@ export function createXiaoZhaoBrotherComponent() {
             if (!unit.isXiaoZhaoBrother || !unit.alive || unit._spiderFlying || unit._flyMode === 'spider') return false;
             const hpBefore = unit.hp; const hpAfter = incomingDmg !== undefined ? hpBefore - incomingDmg : hpBefore;
             const maxHp = unit.maxHp; let reason = '';
-            if (!unit._spiderTriggered70 && hpBefore > maxHp*0.7 && hpAfter <= maxHp*0.7) { reason = '血量即将低于70%'; unit._spiderTriggered70 = true; }
-            else if (!unit._spiderTriggered40 && hpBefore > maxHp*0.4 && hpAfter <= maxHp*0.4) { reason = '血量即将低于40%'; unit._spiderTriggered40 = true; }
-            else if (!unit._spiderTriggeredDeath && hpAfter <= 0) { reason = '即将阵亡'; unit._spiderTriggeredHit = true; }
+            // 先标记所有已触发的阈值
+            if (!unit._spiderTriggered70 && hpBefore > maxHp*0.7 && hpAfter <= maxHp*0.7) { unit._spiderTriggered70 = true; if (!reason) reason = '血量即将低于70%'; }
+            if (!unit._spiderTriggered40 && hpBefore <= maxHp*0.7 && hpBefore > maxHp*0.4 && hpAfter <= maxHp*0.4) { unit._spiderTriggered40 = true; if (!reason) reason = '血量即将低于40%'; }
+            if (!unit._spiderTriggeredDeath && hpAfter <= 0) { unit._spiderTriggeredHit = true; if (!reason) reason = '即将阵亡'; }
             if (!reason) return false;
             unit._spiderRemaining = (unit._spiderRemaining||3)-1; unit._spiderFlying = true; unit._flyMode = 'spider'; unit._spiderAttacked = unit._acted;
             emitEvent(unit, 'hp-change', { hp:unit.hp, maxHp:unit.maxHp, alive:unit.alive, atk:unit.atk, def:unit.def, _flyMode:'spider', _spiderFlying:true });
@@ -219,7 +220,7 @@ export function butterflyReturn(sister, allyTeam, log) {
     
     // 宿主已死，直接恢复姐姐本体，不转移属性
     if (!host || !host.alive) {
-        sister._flyMode = null;
+        sister._flyMode = null; sister._untargetable = false;
         sister._butterflyHost = null;
         sister._butterflyAtk = 0;
         sister._butterflyDef = 0;
@@ -252,7 +253,7 @@ export function butterflyReturn(sister, allyTeam, log) {
     // 恢复姐姐的攻防（基于基础值，不保留 Buff，下回合重新计算）
     sister.atk = sister._baseAtk;
     sister.def = sister._baseDef;
-    sister._flyMode = null;
+    sister._flyMode = null; sister._untargetable = false;
     
     // 移除宿主身上的附身加成
     if (host && host.alive) {
@@ -276,6 +277,11 @@ export function butterflyReturn(sister, allyTeam, log) {
     sister._butterflyDef = 0;
     sister._butterflyHp = 0;
     sister._butterflyHpTransfer = 0;
+
+    // 确保姐姐在队伍数组中
+    if (!allyTeam.find(a => a.uid === sister.uid)) {
+        allyTeam.push(sister);
+    }
     
     emitEvent(sister, 'hp-change', {
         hp: sister.hp, maxHp: sister.maxHp, alive: sister.alive,

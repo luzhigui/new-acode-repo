@@ -50,10 +50,41 @@ export function doInitBattle(currentStage, UI, snapshot, activeBuffs, selectedBu
         if (m >= 95 && m <= 104) candidatePool.push({ name, m, role: null, power: normalPower[m] || 90 });
     }
     candidatePool.sort((a, b) => a.power - b.power);
+
+    // 强制补位精英直接占坑，不参与预算淘汰
+    if (forcedElite) {
+        let unit;
+        if (forcedElite.isZhang || forcedElite.isWei || forcedElite.isXiaoZhaoBrother) {
+            unit = new Unit(forcedElite.name, forcedElite.m, forcedElite.role, 'ally');
+            if (forcedElite.isZhang) unit.isZhang = true;
+            if (forcedElite.isWei) unit.isWei = true;
+            if (forcedElite.isXiaoZhaoBrother) {
+                if (Math.random() < 0.5) { unit.isXiaoZhaoSister = true; }
+                else { unit.isXiaoZhaoBrother = true; }
+                unit.initXiaoZhao(); unit.applyBonus();
+                unit._baseMaxHp = unit.maxHp; unit._baseAtk = unit.atk; unit._baseDef = unit.def;
+            } else { unit.init(); unit.applyBonus(); }
+        } else {
+            const role = C.ROLES[rand(0, 3)];
+            unit = new Unit(forcedElite.name, forcedElite.m, role, 'ally');
+            unit.init(); unit.applyBonus();
+        }
+        unit.pos = null;
+        allyTeam.push(unit);
+        // 从候选池中移除，防止在循环中被重复选中
+        const feIdx = candidatePool.findIndex(c => c.name === forcedElite.name);
+        if (feIdx >= 0) candidatePool.splice(feIdx, 1);
+    }
+
     const remainingCandidates = [...candidatePool];
     let remainingPower = targetPower || 500;
     let remainingSlots = 5;
-    for (let slot = 0; slot < 5; slot++) {
+    // 如果强制精英已占坑，扣除对应的名额和预算
+    if (forcedElite) {
+        remainingPower -= elitePower[forcedElite.name] || 140;
+        remainingSlots = 4;
+    }
+    for (let slot = 0; slot < remainingSlots; slot++) {
         const avgPower = remainingPower / remainingSlots;
         const candidates = [];
         const above = remainingCandidates.filter(c => c.power >= avgPower).sort((a, b) => a.power - b.power).slice(0, 3);
@@ -84,12 +115,6 @@ export function doInitBattle(currentStage, UI, snapshot, activeBuffs, selectedBu
         unit.pos = null;
         allyTeam.push(unit);
         remainingPower -= pick.power;
-        remainingSlots--;
-        if (pick.forced) {
-            pick.forced = false;
-            remainingPower += pick.power;
-            remainingSlots++;
-        }
     }
 
     // 强制小昭模式：如有小昭则修正标志，如无则添加
