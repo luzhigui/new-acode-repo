@@ -249,9 +249,9 @@ export function registerWarriorBreakDefense(eventBus) {
         // 破防概率 = 目标当前防御 × 2.5%，封顶 100%
         const breakChance = Math.min(100, target.def * 2.5);
         if (rand(1, 100) > breakChance) return;
-        const defReduced = Math.min(3, target.def);
-        target.def = Math.max(0, target.def - 3);
-        target._baseDef = Math.max(0, (target._baseDef || target.def) - 3);
+        const defReduced = Math.min(2, target.def);
+        target.def = Math.max(0, target.def - 2);
+        target._baseDef = Math.max(0, (target._baseDef || target.def) - 2);
         unit._pendingDefReduceEntry = {type:'detail', text:`<span class="purple small">🗡️ ${unit.name} 破防：${target.name} 防御 -${defReduced}</span>`};
         emitEvent(target, 'hp-change', { hp: target.hp, maxHp: target.maxHp, alive: target.alive, atk: target.atk, def: target.def, _isDead: target._isDead || false });
     });
@@ -275,26 +275,44 @@ export function registerRangedGrowth(eventBus) {
 
 /**
  * 注册防战坚盾监听器
+ * - 被攻击时 60% 概率触发坚盾（防御+1/成昆+2）
+ * - 攻击时 100% 概率触发坚盾（与被攻击共享每回合上限，成昆6/其他防战3）
+ * - 坚盾增加的防御永久保留（同步更新 _baseDef）
  */
 export function registerFortifyShield(eventBus) {
+    // 坚盾触发核心逻辑（被攻击 / 攻击共用）
+    function tryFortify(unit, chance, group, log, label) {
+        if (unit.role !== '防战') return;
+        if (unit._fortifyThisRound === undefined) unit._fortifyThisRound = 0;
+        if (!unit._fortifyStacks) unit._fortifyStacks = 0;
+        const increment = unit.name === '成昆' ? 2 : 1;
+        const cap = unit.name === '成昆' ? 6 : 3;  // 成昆每回合上限6，其他防战3
+        if (unit._fortifyThisRound + increment > cap) return;
+        if (rand(1, 100) > chance) return;
+        unit._fortifyStacks += increment;
+        unit._fortifyThisRound += increment;
+        unit.def += increment;
+        if (unit._baseDef !== undefined) unit._baseDef += increment;
+        const text = `<span class="blue small">🛡️ ${unit.name} ${label}：防御+${increment}（已叠${unit._fortifyThisRound}/${cap}）</span>`;
+        if (group && group.entries) {
+            group.entries.push({type:'detail', text});
+        } else if (log) {
+            log.push({type:'detail', text});
+        }
+        emitEvent(unit, 'hp-change', { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: unit.atk, def: unit.def, _isDead: unit._isDead || false });
+    }
+
+    // 被攻击时触发（60% 概率）
     eventBus.on('afterDamageApplied', 30, (data) => {
         const { target, dmg, group } = data;
-        if (target.role !== '防战' || dmg <= 0) return;
-        // 初始化本回合叠盾计数
-        if (target._fortifyThisRound === undefined) target._fortifyThisRound = 0;
-        if (!target._fortifyStacks) target._fortifyStacks = 0;
-        // 每回合上限：成昆6点，其他防战3点；60% 概率触发
-        const fortifyCap = target.name === '成昆' ? 6 : 3;
-        if (target._fortifyThisRound < fortifyCap && rand(1, 100) <= 60) {
-            const increment = target.name === '成昆' ? 2 : 1;
-            target._fortifyStacks += increment;
-            target._fortifyThisRound += increment;
-            target.def += increment;
-            if (group && group.entries) {
-                group.entries.push({type:'detail', text:`<span class="blue small">🛡️ ${target.name} 坚盾：防御+${increment}（已叠${target._fortifyThisRound}/${fortifyCap}）</span>`});
-            }
-        }
-        emitEvent(target, 'hp-change', { hp: target.hp, maxHp: target.maxHp, alive: target.alive, atk: target.atk, def: target.def, _isDead: target._isDead || false });
+        if (dmg <= 0) return;
+        tryFortify(target, 60, group, null, '坚盾');
+    });
+
+    // 攻击时触发（100% 概率，与被攻击共享每回合上限）
+    eventBus.on('afterAttack', 30, (data) => {
+        const { unit, log } = data;
+        tryFortify(unit, 100, null, log, '攻盾');
     });
 }
 

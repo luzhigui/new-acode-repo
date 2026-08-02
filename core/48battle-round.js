@@ -310,6 +310,9 @@ export async function* createRoundStepper(state) {
         u.atk = (u._baseAtk || u.atk) + (u._carryAtkBonus || 0) + (u._butterflyAtkBonus || 0) + (u._holyAtkBonus || 0) + (u._emptyColBonus || 0) + (u._bloodAuraBonus || 0);
         u.def = (u._baseDef || u.def) + (u._carryDefBonus || 0) + (u._butterflyDefBonus || 0) + (u._holyDefBonus || 0) + (u._fortifyDefBonus || 0);
 
+        // 圣火令等加成生效后，立即推送最终攻防到 Store 刷新格子显示
+        emitEvent(u, 'hp-change', { hp: u.hp, maxHp: u.maxHp, alive: u.alive, atk: u.atk, def: u.def });
+
         u._acted = false;
         u._resting = false;
         if (u._restingTimer) { clearTimeout(u._restingTimer); u._restingTimer = null; }
