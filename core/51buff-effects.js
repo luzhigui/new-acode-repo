@@ -23,14 +23,14 @@ export function applyBloodthirst_Normal(unit, target, dmg, allySide, enemySide, 
     log.push({type:'buff-leech', text:`<span class="green">🗡️ ${unit.name} 的嗜血狂刀吸血+${leech}，血量 ${hpBefore} → ${unit.hp}</span>`, isHealEntry:true, buffType:'leech', healAmount:leech, healUnitUid:unit.uid});
 }
 
+import { eventBus } from './00-event-bus.js';
+
 export async function applyBloodthirst_Sister(unit, target, dmg, allySide, enemySide, log) {
     applyBloodthirst_Normal(unit, target, dmg, allySide, enemySide, log);
-    // 姐姐强化：额外再砍一刀
+    // 姐姐强化：发射信号，由引擎层统一调度额外攻击
     if (unit.alive && target.alive && !unit._bloodthirstStriked) {
         unit._bloodthirstStriked = true;
-        if (typeof processUnitAttack === 'function') {
-            await processUnitAttack(unit, allySide, enemySide, log, allySide, enemySide, null, null, target.uid);
-        }
+        eventBus.emit('requestExtraAttack', { unit, target, allySide, enemySide, log });
     }
 }
 

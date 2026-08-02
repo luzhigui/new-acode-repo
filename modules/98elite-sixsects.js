@@ -3,7 +3,7 @@
 export const VER = 'modules/98elite-sixsects.js V5.3.1';
 import { GlobalStore } from './46global-store.js';
 import { CONFIG } from '../core/01config-5v5-test.js';
-import { processUnitAttack } from '../core/47battle-attack.js';
+import { eventBus } from '../core/00-event-bus.js';
 import { canXingFenTrigger, consumeXingFen, applyXingFenGrant, tickKuaiLeHeal, checkKuLian } from './23elite-skills.js';
 import { emitEvent } from '../core/50battle-shared.js';
 const ES = CONFIG.ELITE_SKILLS;
@@ -100,9 +100,8 @@ export function createSongQingshuComponent() {
             if (unit._xingFenExtraAttacking) return;
             log.push({ type:'info', text:`<span class="gold">💗 性奋：${unit.name} 获得额外攻击机会！</span>` });
             unit._xingFenExtraAttacking = true;
-            if (typeof processUnitAttack === 'function') { 
-    await processUnitAttack(unit, allySide, enemySide, log, A, B, state, null);
-}
+            // 改为发射信号，由 04buff-system.js 统一调度额外攻击
+            eventBus.emit('requestExtraAttack', { unit, target, allySide, enemySide, log });
             unit._xingFenExtraAttacking = false;
         }
     };
