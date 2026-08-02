@@ -90,7 +90,7 @@ export function resolveAttackHit(unit, target, attackerBuffStats, defenderBuffSt
     else { missChance = 1; }
 
     if (missChance > 0 && rand(1,100) <= missChance) {
-        let mg = {type:'attack-group', uidA:unit.uid, uidD:target.uid, entries:[], isMiss:true, _fxSnapshot:makeFXSnapshot(unit,target), waveTaunt:null, waveUnit:null, buffEffects: []};
+        let mg = {type:'attack-group', uidA:unit.uid, uidD:target.uid, entries:[], isMiss:true, _fxSnapshot:makeFXSnapshot(unit,target), waveTaunt:null, waveUnit:null, buffEffects: [], needsSeparator: true};
         mg.entries.push({type:'combat-text', text:`<span class="${unit.camp==='ally'?'blue':'orange'}">${unit.camp==='ally'?'明教':'六大派'} ${unit.name}</span> 的攻击`});
         mg.entries.push({type:'info', text:`<span class="gray">未命中！</span>`});
         unit._acted = true;
@@ -136,7 +136,7 @@ export function resolveAttackHit(unit, target, attackerBuffStats, defenderBuffSt
                     if (!unit._deathTime) unit._deathTime = Date.now();
                 }
                 emitEvent(unit, 'hp-change', { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: unit.atk, def: unit.def, _isDead: unit._isDead || false });
-                let dg = {type:'attack-group', uidA:target.uid, uidD:unit.uid, entries:[], isDodge:true, hpAfter:unit.hp, alive:unit.alive, _fxSnapshot:makeFXSnapshot(target,unit), waveTaunt:null, waveUnit:null, buffEffects:[], _atkBonus:0, _defBonus:0};
+                let dg = {type:'attack-group', uidA:target.uid, uidD:unit.uid, entries:[], isDodge:true, hpAfter:unit.hp, alive:unit.alive, _fxSnapshot:makeFXSnapshot(target,unit), waveTaunt:null, waveUnit:null, buffEffects:[], _atkBonus:0, _defBonus:0, needsSeparator: true};
                 if (target.isWei) {
                     const lostPctWei = (target.maxHp - target.hp) / target.maxHp;
                     const leechRateWei = 0.20 + (0.50 - 0.20) * lostPctWei;
@@ -348,7 +348,7 @@ export async function buildAttackGroup(unit, target, dmgCalc, dmgResult, attacke
     let displayAtk = Math.floor(unit.atk + unit.atk * attackerBuffStats.atkBonus);
     let displayDef = Math.floor(target.def + target.def * defenderBuffStats.defBonus);
     let unitHpBefore = Math.floor(unit.hp);
-    let group = { type:'attack-group', uidA:unit.uid, uidD:target.uid, entries:[], hpAfter:target.hp, alive:target.alive, isDead:dead, waveTaunt, waveUnit, unitRole:unit.role, _fxSnapshot:makeFXSnapshot(unit,target), _dmg:dmg, _isZhangNear:unit.isZhang && !unit.rangedForm, _nearAtkCount:unit.nearAtkCount, hpPctBefore, hpPctAfter, isMiss:false, isDodge:false, buffEffects:[], _atkBonus:Math.floor(unit.atk * attackerBuffStats.atkBonus), _defBonus:Math.floor(target.def * defenderBuffStats.defBonus), isKuLianAttack: !!(unit.name === '宋青书' && unit._kuLianActive) };
+    let group = { type:'attack-group', uidA:unit.uid, uidD:target.uid, entries:[], hpAfter:target.hp, alive:target.alive, isDead:dead, waveTaunt, waveUnit, unitRole:unit.role, _fxSnapshot:makeFXSnapshot(unit,target), _dmg:dmg, _isZhangNear:unit.isZhang && !unit.rangedForm, _nearAtkCount:unit.nearAtkCount, hpPctBefore, hpPctAfter, isMiss:false, isDodge:false, buffEffects:[], needsSeparator: true, _atkBonus:Math.floor(unit.atk * attackerBuffStats.atkBonus), _defBonus:Math.floor(target.def * defenderBuffStats.defBonus), isKuLianAttack: !!(unit.name === '宋青书' && unit._kuLianActive) };
 
     if (unit._pendingDefReduceEntry) {
         group.entries.push(unit._pendingDefReduceEntry);
