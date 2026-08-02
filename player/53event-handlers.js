@@ -106,6 +106,7 @@ export async function handleBuffReboundFortify(c, entry) {
 }
 
 export async function handleAttackGroup(c, entry, roundResult, abortSig, isFirstAttackRef) {
+    // 管道C — 飞天免疫：引擎在 beforeDamageApply 中单独构建 immuneGroup，显示攻击动作但回退伤害，不走 _pendingHpEvents
     if (entry.isCombo) { let spacer = document.createElement('div'); spacer.innerHTML = '<br>'; document.getElementById('log').appendChild(spacer); c.autoScrollLog(); c.isPaused = true; window.bulletTimeActive = true; if (c._scheduler) { await new Promise(r => c._scheduler.schedule('banner', 1500, r)); showBuffBanner('⚡ 连击！'); } else { await showBuffBanner('⚡ 连击！'); } window.bulletTimeActive = false; c.isPaused = false; }
 
     // 统一事件分发：血量事件挂载到 entry 上，跟随攻击组生命周期
@@ -195,14 +196,11 @@ export async function handleAttackGroup(c, entry, roundResult, abortSig, isFirst
         if(logLevel==='brief'&&entry2.type==='detail'){ let hiddenDiv=document.createElement('div'); hiddenDiv.className='detail-hidden'; hiddenDiv.innerHTML=entry2.text+'<br>'; document.getElementById('log').appendChild(hiddenDiv); c.autoScrollLog(); continue; }
         if(entry2.type==='damage-text'){
             lastDiv=document.createElement('div'); document.getElementById('log').appendChild(lastDiv); await playLineText(entry2.text,lastDiv, Math.max(c.speed || 1000, 1000));
-            // 伤害行播放完成：血量同步变化
-            if (entry._pendingHpEvents && entry._pendingHpEvents.length > 0) {
-                c.store.dispatch({ type: 'APPLY_EVENTS', events: entry._pendingHpEvents.splice(0) });
-            }
+            // 管道A — 普通伤害：不在此处同步血条，等循环结束后统一通过 _pendingHpEvents 保底 apply
         }
         else if(entry2.isHealEntry && entry.isDead){ healDiv=document.createElement('div'); document.getElementById('log').appendChild(healDiv); await playLineText(entry2.text,healDiv); }
         else{
-            // 白骨爪每次命中立即更新血量
+            // 管道B — 白骨爪连锁追击：每击后立即同步血条，因为目标可能在追击途中死亡
             if (entry2._events && entry2._events.length > 0) {
                 c.store.dispatch({ type: 'APPLY_EVENTS', events: entry2._events });
                 entry2._events = [];

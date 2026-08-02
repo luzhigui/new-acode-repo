@@ -406,6 +406,11 @@ export async function* createRoundStepper(state) {
         unit._blocked = isBlocked(unit, allySide);
         unit.survivedRounds++;
 
+        // 姐姐附身不占明教攻击轮次
+        if (unit.camp === 'ally' && unit.isXiaoZhaoSister && !unit._butterflyHost && !A._butterflyTriggered) {
+            isPriorityAction = true;
+        }
+
         await processUnitAttack(unit, allySide, enemySide, log, A, B, state, doubleStrikeUnitUid);
 
         // 普通行动结束后切换行动方；高优先级抢动的单位（苦练等）跳过切换，让本队继续出人

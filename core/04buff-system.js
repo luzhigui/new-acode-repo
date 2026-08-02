@@ -210,6 +210,16 @@ desc += `）`;
 }
 
 export function registerBloodthirst(eventBus) {
+    // 统一消费额外攻击请求（嗜血狂刀姐姐强化、宋青书性奋等）
+    eventBus.on('requestExtraAttack', 10, async (data) => {
+        const { unit, target, allySide, enemySide, log, A, B, state } = data;
+        if (unit.alive && target?.alive && typeof processUnitAttack === 'function') {
+            await processUnitAttack(unit, allySide, enemySide, log, A || allySide, B || enemySide, state || null, null, target.uid);
+        } else if (unit.alive && typeof processUnitAttack === 'function') {
+            await processUnitAttack(unit, allySide, enemySide, log, A || allySide, B || enemySide, state || null, null);
+        }
+    });
+
     eventBus.on('afterDamageApplied', 20, async (data) => {
         const { unit, target, dmg, allySide, enemySide, log } = data;
         if (!unit.alive || unit.camp !== 'ally') return;

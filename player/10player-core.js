@@ -57,13 +57,6 @@ export async function playLogEntries(c, log, roundResult, isFirstAttackRef) {
             await c.waitWhilePaused();
             let entry = log[i];
 
-            if (shouldStartNewGroup(entry, lastEntryType)) {
-                let sepDiv = document.createElement('div');
-                sepDiv.innerHTML = '<span class="separator">- - - - -</span><br>';
-                document.getElementById('log').appendChild(sepDiv);
-                c.autoScrollLog();
-            }
-
             switch (entry.type) {
                 case 'info':
                     if (entry.text && entry.text.includes('🔥 圣火令掉落')) {
@@ -163,12 +156,20 @@ export async function playLogEntries(c, log, roundResult, isFirstAttackRef) {
                     lastEntryType = entry.type;
                     break;
                 case 'attack-group': {
+                    if (entry.uidA && c._lastAttackerUid && entry.uidA !== c._lastAttackerUid) {
+                        let sepDiv = document.createElement('div');
+                        sepDiv.innerHTML = '<span class="separator">- - - - -</span><br>';
+                        document.getElementById('log').appendChild(sepDiv);
+                        c.autoScrollLog();
+                    }
+                    c._lastAttackerUid = entry.uidA;
                     let result = await handleAttackGroup(c, entry, roundResult, abortSig, isFirstAttackRef);
                     lastEntryType = entry.type;
                     if (result && result.isBattleOver) return result;
                     break;
                 }
-                case 'round-end': await handleRoundEnd(c, entry, log, i); lastEntryType = entry.type; break;
+                case 'round-end':
+                    await handleRoundEnd(c, entry, log, i); lastEntryType = entry.type; break;
                 case 'signal':
                     const logLevel = getState.logLevel();
                     if (logLevel === 'debug') {

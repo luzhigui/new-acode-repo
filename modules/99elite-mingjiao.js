@@ -165,7 +165,7 @@ export function createXiaoZhaoSisterComponent() {
             if (!host) { sister.hp = 0; sister.alive = false; sister._isDead = true; if (!sister._deathTime) sister._deathTime = Date.now(); emitEvent(sister, 'hp-change', { hp:0, maxHp:sister.maxHp, alive:false, atk:sister.atk, def:sister.def, _isDead:true }); log.push({ type:'info', text:`<span class="red">🦋 蝶变：${sister.name} 无队友可附身，香消玉殒！</span>` }); return null; }
             const atkTransfer = Math.floor(sister._baseAtk/3);
             const defTransfer = Math.floor(sister._baseDef/3);
-            const hpTransfer = Math.floor(sister.hp/3);
+            const hpTransfer = Math.floor(sister.hp/2);
             sister._butterflyHpTransfer = hpTransfer;
             sister._butterflyHpTransfer = hpTransfer;
             host._butterflyAtkBonus += atkTransfer; host._butterflyDefBonus += defTransfer;
