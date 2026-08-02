@@ -44,7 +44,7 @@ export async function processUnitAttack(unit, allySide, enemySide, log, A, B, st
         const interceptResult = { intercepted: false, interceptUnitUid: null };
         eventBus.emit('beforeFirstAllyAttack', { A, log, unit, result: interceptResult });
         if (interceptResult.intercepted) {
-            unit._acted = true;
+            // 姐姐附身不占攻击次数，拦截后让明教第一人继续行动
             return true;
         }
     }

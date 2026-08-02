@@ -114,17 +114,7 @@ export function applyBuffEffectsAfterAttack(unit, target, dmg, allySide, enemySi
     // ---- 乘风突袭已迁移至事件总线 ----
     // ---- 流星赶月已迁移至事件总线 ----
 
-    // ---- 严阵以待反弹 ----
-    let reboundEntry = null;
-    let allyBuffs_fortify = (target.camp === 'ally' ? allySide._activeBuffs : enemySide._activeBuffs) || [];
-    if (hasBuff(allyBuffs_fortify, 'fortify') && target.role === '防战' && dmg > 0) {
-        if (hasSister) {
-            reboundEntry = applyFortifyRebound_Sister(unit, target, 0, 0, allySide, enemySide, log);
-        } else {
-            reboundEntry = applyFortifyRebound_Normal(unit, target, 0, 0, allySide, enemySide, log);
-        }
-        if (reboundEntry) log.push(reboundEntry);
-    }
+    // 严阵以待反弹已在 applyAttackResult（步骤4）中处理，此处不再重复
 }
 
 export function logBuffSummary(allyTeam, log, doubleStrikeUid) {

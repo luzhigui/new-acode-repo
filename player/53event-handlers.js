@@ -437,7 +437,19 @@ export async function handleInfo(c, entry) {
             let attacker = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.uid === entry.attackerUid);
             if (attacker) showDamageFloat(attacker, entry.reboundDmg);
         }
-        let tempDiv=document.createElement('div');document.getElementById('log').appendChild(tempDiv); await playLineText(entry.text,tempDiv);
+        // 非攻击路径死亡特效（中毒、附身返回等）
+        if (entry.isDead && entry.uidD) {
+            let deadUnit = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.uid === entry.uidD);
+            if (deadUnit && c.store) {
+                c.store.dispatch({ type: 'SET_FLASH', uid: deadUnit.uid, flash: 'dead' });
+                c.store.dispatch({ type: 'SET_VISUAL', uid: deadUnit.uid, _isDead: true });
+            }
+            let tempDiv=document.createElement('div');document.getElementById('log').appendChild(tempDiv); await playLineText(entry.text,tempDiv);
+            applyBrushEffect(tempDiv);
+            if (entry.dmg && deadUnit) showDamageFloat(deadUnit, entry.dmg);
+        } else {
+            let tempDiv=document.createElement('div');document.getElementById('log').appendChild(tempDiv); await playLineText(entry.text,tempDiv);
+        }
     }
     document.getElementById('roundDisplay').innerText = `📜 日志（第${c.UI.round}回合）`;
 }
@@ -460,14 +472,8 @@ export async function handleRoundEnd(c, entry, log, i) {
 
 export function shouldStartNewGroup(entry, lastType) {
     if (!lastType) return false;
-    if (lastType === 'round-end') return false;
-    if (lastType === 'round-start') return false;
-    if (entry.type === 'round-end') return false;
-    if (entry.type === 'round-start') return false;
+    // 只在连续两个 attack-group 之间插入分隔符
     if (lastType === 'attack-group' && entry.type === 'attack-group') return true;
-    if (lastType === 'attack-group' && entry.type === 'info' && !entry.isDoubleStrikeBanner) return true;
-    if (lastType === 'attack-group' && (entry.type === 'buff-bonus' || entry.type === 'buff-splash')) return false;
-    if (lastType === 'attack-group' && entry.type !== 'attack-group' && entry.type !== 'info') return true;
-    if (lastType !== 'attack-group' && entry.type === 'attack-group') return true;
+    // 其他所有情况都不插入分隔符，确保攻击及其衍生效果（info/buff-*）不被打散
     return false;
 }
