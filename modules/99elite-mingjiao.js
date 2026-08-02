@@ -5,6 +5,8 @@ export const VER = 'modules/99elite-mingjiao.js V5.3.1';
 import { CONFIG } from '../core/01config-5v5-test.js';
 import { ROLE_BONUS } from '../core/02unit.js';
 import { rand, hasBuff } from '../core/03battle-utils.js';
+import { spawnHorse } from '../core/05battle-horse.js';
+import { spiderTransform, spiderReturn } from '../modules/23elite-skills.js';
 import { checkZhangSwitch, emitEvent } from '../core/50battle-shared.js';
 const ES = CONFIG.ELITE_SKILLS;
 function getZhangNearTaunt(nearAtkCount) {
@@ -25,6 +27,11 @@ export function createZhangWujiComponent() {
             eventBus.on('afterDamageApplied', 40, (data) => {
                 if (data.unit.uid !== zhang.uid) return;
                 onAfterApplyDamage(data.unit, data.target, { dmg: data.dmg }, data.group, A, data.log);
+            });
+            // 回合结束/每次行动后检查是否切换近战形态（前排队友死亡触发）
+            eventBus.on('onRoundEnd', 20, (data) => {
+                const { A, log } = data;
+                if (zhang && zhang.alive && !zhang._zhangSwitched) checkZhangSwitch(A, log);
             });
             // 乾坤大挪移反弹
             eventBus.on('allyDamaged', 40, (data) => {
@@ -112,6 +119,16 @@ export function createXiaoZhaoSisterComponent() {
             const sister = A.find(u => u.isXiaoZhaoSister && u.alive && !u._stunned);
             if (!sister) return;
             const comp = this;
+            // 明教首次攻击前蝶变附身（替代 47 中的硬编码调用）
+            eventBus.on('beforeFirstAllyAttack', 10, (data) => {
+                const { A, log, result } = data;
+                const sisterComp = createXiaoZhaoSisterComponent();
+                const sister = sisterComp.onBeforeFirstAttack(A, log);
+                if (sister) {
+                    result.intercepted = true;
+                    result.interceptUnitUid = sister.uid;
+                }
+            });
             eventBus.on('allyDamaged', 50, (data) => {
                 const xiaoZhao = A.find(u => u.isXiaoZhaoSister && u.alive && !u._stunned);
                 if (!xiaoZhao) return;
@@ -126,6 +143,19 @@ export function createXiaoZhaoSisterComponent() {
                     data.declaration.skip = true;
                 }
             });
+            // 回合结束/战斗结束时强制飞回
+            eventBus.on('onRoundEnd', 10, (data) => {
+                this.onRoundEnd(data);
+            });
+        },
+        onRoundEnd(data) {
+            const { A, log, forced } = data;
+            // 强制飞回（战斗结束/胜利）或宿主即将死亡时飞回
+            const sister = A.find(u => u.isXiaoZhaoSister && u.alive && u._butterflyHost);
+            if (!sister) return;
+            if (forced || sister.hp <= 0) {
+                butterflyReturn(sister, A, log);
+            }
         },
         onBeforeFirstAttack(A, log) {
             const sister = A.find(u => u.isXiaoZhaoSister && u.alive && u.pos === 4 && !u._stunned);
@@ -189,6 +219,50 @@ export function createXiaoZhaoBrotherComponent() {
                 if (!data.unit.isXiaoZhaoBrother || !data.unit.alive) return;
                 if (data.unit._spiderFlying || data.unit._flyMode === 'spider') {
                     data.declaration.skip = true;
+                }
+            });
+            // 回合结束/战斗结束时强制蛛落
+            eventBus.on('onRoundEnd', 10, (data) => {
+                const brother = A.find(u => u.isXiaoZhaoBrother && u.alive && u._spiderFlying);
+                if (brother) spiderReturn(brother, A, B, log);
+            });
+            // 回合开始：蛛变 + 飞天阈值初始化 + 永久拒马
+            eventBus.on('onRoundStart', 10, (data) => {
+                const { A, B, log } = data;
+                const brother = A.find(u => u.isXiaoZhaoBrother && u.alive);
+                if (!brother) return;
+
+                // 蛛变
+                spiderTransform(brother, log);
+
+                // 飞天阈值初始化
+                if (brother._spiderTriggeredHit === undefined) brother._spiderTriggeredHit = false;
+                if (brother._spiderTriggered70 === undefined) brother._spiderTriggered70 = false;
+                if (brother._spiderTriggered40 === undefined) brother._spiderTriggered40 = false;
+
+                // 永久拒马（团队海克斯消失后的个人拒马）
+                const teamHasHorse = hasBuff(A._activeBuffs, 'horseFormation');
+                const hasPermanent = brother._permanentBuffs?.some(b => b.key === 'horseFormation');
+                if (!teamHasHorse && hasPermanent) {
+                    const xzHorse = spawnHorse(A, log, B, true);
+                    if (xzHorse) {
+                        xzHorse.atk = 0;
+                        xzHorse.def = 25;
+                        xzHorse.maxHp = 25;
+                        xzHorse.hp = 25;
+                        log.push({type:'buff-summon', text:`<span class="gold">🐴 小昭的拒马在${xzHorse.pos}号位出现！</span>`, buffType:'summon', horsePos: xzHorse.pos, horseUid: xzHorse.uid, horseTaunt: '嗷——！'});
+                    }
+                }
+
+                // 永久 carry 海克斯（团队 carry 消失后，自身获得固定加成）
+                const hasTeamCarry = hasBuff(A._activeBuffs, 'carry');
+                if (!hasTeamCarry && brother._permanentBuffs?.some(b => b.key === 'carry') && brother._baseMaxHp !== undefined) {
+                    brother.atk += 3;
+                    brother.def += 4;
+                    brother.maxHp += 20;
+                    brother._baseMaxHp = brother.maxHp;
+                    brother.hp = Math.min(brother.hp + 20, brother.maxHp);
+                    emitEvent(brother, 'hp-change', { hp: brother.hp, maxHp: brother.maxHp, alive: brother.alive, atk: brother.atk, def: brother.def });
                 }
             });
             // 永久概率连击

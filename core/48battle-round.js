@@ -7,12 +7,8 @@ import { rand, isMelee, isBlocked, makeFXSnapshot, hasBuff, getUnitCol, getUnitR
 import { computeBuffStats, logBuffSummary, applyHolyFlameBonus, applyFortifyBonus, registerBloodthirst, registerHotBlood, registerWindAssault, registerMeteorShower, registerMindControl } from './04buff-system.js';
 import { spawnHorse, destroyHorse } from './05battle-horse.js';
 import { Unit } from './02unit.js';
-import {
-    checkKuLian, applyXingFenGrant, tickXuanmingPoison, tickKuaiLeHeal,
-    spiderTransform, spiderReturn,
-    isXiaoZhaoPermanentActive
-} from '../modules/23elite-skills.js';
-import { createZhangWujiComponent, createWeiYixiaoComponent, createXiaoZhaoSisterComponent, createXiaoZhaoBrotherComponent, butterflyReturn } from '../modules/99elite-mingjiao.js';
+
+import { createZhangWujiComponent, createWeiYixiaoComponent, createXiaoZhaoSisterComponent, createXiaoZhaoBrotherComponent } from '../modules/99elite-mingjiao.js';
 import { createSongQingshuComponent, createZhouZhiruoComponent } from '../modules/98elite-sixsects.js';
 import { createChengKunComponent, createLuZhangKeComponent, createHeBiWengComponent, registerXuanmingLink } from '../modules/97elite-imperial.js';
 import { processUnitAttack } from './47battle-attack.js';
@@ -58,15 +54,8 @@ export async function* createRoundStepper(state) {
 
     log.push({ type:'round-start', text:`<div class="separator">———— 第${round}回合开始 ————</div>` });
 
-    tickKuaiLeHeal(A.concat(B), log);
-
-    A.concat(B).forEach(u => {
-        if (!u.alive) return;
-        const dot = tickXuanmingPoison(u);
-        if (dot > 0) {
-            log.push({ type:'info', text:`<span class="purple">❄️ 玄冥神掌寒毒发作，${u.name} 受到 ${dot} 点伤害</span>`, uidD: u.uid, isDead: !u.alive });
-        }
-    });
+    // 发射回合开始信号，精英组件自行处理快乐回血、性奋、苦练等回合开始逻辑
+    eventBus.emit('onRoundStart', { A, B, log });
 
     [A, B].forEach(team => {
         for (let i = team.length - 1; i >= 0; i--) {
@@ -83,53 +72,6 @@ export async function* createRoundStepper(state) {
     const teamHorseB = spawnHorse(B, log, A);
     if (teamHorseB) {
         log.push({type:'buff-summon', text:`<span class="gold">🐴 拒马阵：拒马出现在${teamHorseB.pos}号位！</span>`, buffType:'summon', horsePos: teamHorseB.pos, horseUid: teamHorseB.uid, horseTaunt: '嘶——！'});
-    }
-
-    applyXingFenGrant(B, log);
-
-    A.forEach(u => {
-        if (u.isXiaoZhaoSister && u.alive) { /* 姐的附身在明教首次攻击前触发，由47处理 */ }
-        if (u.isXiaoZhaoBrother && u.alive) {
-            spiderTransform(u, log);
-            if (u._spiderTriggeredHit === undefined) u._spiderTriggeredHit = false;
-            if (u._spiderTriggered70 === undefined) u._spiderTriggered70 = false;
-            if (u._spiderTriggered40 === undefined) u._spiderTriggered40 = false;
-        }
-    });
-
-    let teamHasHorse = hasBuff(A._activeBuffs, 'horseFormation');
-    let hasPermanentHorse = xiaoZhao && xiaoZhao.isXiaoZhaoBrother && !teamHasHorse && xiaoZhao._permanentBuffs && xiaoZhao._permanentBuffs.some(b => b.key === 'horseFormation');
-    if (!hasPermanentHorse) {
-        hasPermanentHorse = xiaoZhao && xiaoZhao.isXiaoZhaoBrother && !teamHasHorse && xiaoZhao._permanentBuffs && xiaoZhao._permanentBuffs.some(b => b.key === 'horseFormation');
-    }
-    if (hasPermanentHorse) {
-        const xzHorse = spawnHorse(A, log, B, true);
-        if (xzHorse) {
-            xzHorse.atk = 0;
-            xzHorse.def = 25;
-            xzHorse.maxHp = 25;
-            xzHorse.hp = 25;
-            log.push({type:'buff-summon', text:`<span class="gold">🐴 小昭的拒马在${xzHorse.pos}号位出现！</span>`, buffType:'summon', horsePos: xzHorse.pos, horseUid: xzHorse.uid, horseTaunt: '嗷——！'});
-        }
-    }
-
-    const kuLianSong = checkKuLian(B);
-    if (kuLianSong) {
-        kuLianSong._kuLianActive = true;
-        const s = CONFIG.ELITE_SKILLS.kuLian;
-        B.forEach(u => {
-            if (!u.alive || u.isHorse) return;
-            const mult = u.uid === kuLianSong.uid ? 2 : 1;
-            u.atk += s.atkBonus * mult;
-            u.def += s.defBonus * mult;
-            u.maxHp += s.hpBonus * mult;
-            u._baseAtk = (u._baseAtk || u.atk) + s.atkBonus * mult;
-            u._baseDef = (u._baseDef || u.def) + s.defBonus * mult;
-            u._baseMaxHp = Math.max(u._baseMaxHp || u.maxHp, u.maxHp);
-            u.hp = Math.min(u.hp + s.hpBonus * mult, u.maxHp);
-            emitEvent(u, 'hp-change', { hp: u.hp, maxHp: u.maxHp, alive: u.alive, atk: u.atk, def: u.def, buffAtkBonus: u.buffAtkBonus, buffDefBonus: u.buffDefBonus, _holyAtkBonus: u._holyAtkBonus, _holyDefBonus: u._holyDefBonus, _fortifyDefBonus: u._fortifyDefBonus, _emptyColBonus: u._emptyColBonus, _bloodAuraBonus: u._bloodAuraBonus, _carryAtkBonus: u._carryAtkBonus, _carryDefBonus: u._carryDefBonus });
-        });
-        log.push({ type:'info', text:`<span class="gold">🏋️ 苦练：${kuLianSong.name} 激励全体队友+${s.atkBonus}攻+${s.defBonus}防+${s.hpBonus}血上限（自身翻倍）！</span>` });
     }
 
     let doubleStrikeUnitUid = null;
@@ -232,7 +174,7 @@ export async function* createRoundStepper(state) {
         if (!u.alive) return;
         emitEvent(u, 'hp-change', { hp: u.hp, maxHp: u.maxHp, alive: u.alive, atk: u.atk, def: u.def, _stunned: false });
         let allyTeamWithDead = A.slice();
-        let hasCarryActive = hasBuff(A._activeBuffs, 'carry') || (u.isXiaoZhaoBrother && isXiaoZhaoPermanentActive(u, A._activeBuffs, 'carry'));
+        let hasCarryActive = hasBuff(A._activeBuffs, 'carry');
         if (hasCarryActive) {
             allyTeamWithDead = allyTeamWithDead.concat((state.allAllies || state.ally).filter(c => !c.alive));
             allyTeamWithDead = allyTeamWithDead.filter((u, i, arr) => arr.findIndex(v => v.uid === u.uid) === i);
@@ -298,13 +240,6 @@ export async function* createRoundStepper(state) {
                 u.def = (u._baseDef || u.def) + (u._butterflyDefBonus || 0);
                 emitEvent(u, 'hp-change', { hp: u.hp, maxHp: u.maxHp, alive: u.alive, atk: u.atk, def: u.def, buffAtkBonus: u.buffAtkBonus, buffDefBonus: u.buffDefBonus, _holyAtkBonus: u._holyAtkBonus, _holyDefBonus: u._holyDefBonus, _fortifyDefBonus: u._fortifyDefBonus, _emptyColBonus: u._emptyColBonus, _bloodAuraBonus: u._bloodAuraBonus, _carryAtkBonus: u._carryAtkBonus, _carryDefBonus: u._carryDefBonus });
             }
-        } else if (u.isXiaoZhaoBrother && isXiaoZhaoPermanentActive(u, A._activeBuffs, 'carry') && u._baseMaxHp !== undefined) {
-            u.atk += 3;
-            u.def += 4;
-            u.maxHp += 20;
-            u._baseMaxHp = u.maxHp;
-            u.hp = Math.min(u.hp + 20, u.maxHp);
-            emitEvent(u, 'hp-change', { hp: u.hp, maxHp: u.maxHp, alive: u.alive, atk: u.atk, def: u.def, buffAtkBonus: u.buffAtkBonus, buffDefBonus: u.buffDefBonus, _holyAtkBonus: u._holyAtkBonus, _holyDefBonus: u._holyDefBonus, _fortifyDefBonus: u._fortifyDefBonus, _emptyColBonus: u._emptyColBonus, _bloodAuraBonus: u._bloodAuraBonus, _carryAtkBonus: u._carryAtkBonus, _carryDefBonus: u._carryDefBonus });
         }
 
         u.atk = (u._baseAtk || u.atk) + (u._carryAtkBonus || 0) + (u._butterflyAtkBonus || 0) + (u._holyAtkBonus || 0) + (u._emptyColBonus || 0) + (u._bloodAuraBonus || 0);
@@ -468,7 +403,6 @@ export async function* createRoundStepper(state) {
         let allySide = unit.camp === 'ally' ? A : B;
         let enemySide = unit.camp === 'ally' ? B : A;
 
-        if (unit.isZhang && !unit._zhangSwitched) checkZhangSwitch(A, log);
         unit._blocked = isBlocked(unit, allySide);
         unit.survivedRounds++;
 
@@ -481,15 +415,8 @@ export async function* createRoundStepper(state) {
 
         finalizeDeaths(A);
         finalizeDeaths(B);
-        // 姐姐附身时，若即将死亡则强制飞回以避免统计错误
-        A.forEach(u => {
-            if (u.isXiaoZhaoSister && u.alive && u._butterflyHost && u.hp <= 0) {
-                butterflyReturn(u, A, log);
-            }
-        });
-        // 张无忌：前排队友死后立即检查变身
-        A.forEach(u => { if (u.isZhang && u.alive && !u._zhangSwitched) checkZhangSwitch(A, log); });
-        // 小昭妹飞天检查已在 beforeDamageApply 信号中处理
+        // 发射回合结束信号，由组件自行处理附身飞回、变身检查等
+        eventBus.emit('onRoundEnd', { A, B, log, forced: false });
         const stepEvents = GlobalStore.flushBattleEvents();
         const allyAlive = A.some(u => u.alive);
         const enemyAlive = B.some(u => u.alive);
@@ -498,29 +425,13 @@ export async function* createRoundStepper(state) {
         if (!allyAlive) { winner = '六大派'; done = true; }
         else if (!enemyAlive) { winner = '明教'; done = true; }
 
-        // 胜利时，若姐姐仍附身，强制飞回以计入存活统计
-        if (winner === '明教') {
-            A.forEach(u => {
-                if (u.isXiaoZhaoSister && u.alive && u._butterflyHost) butterflyReturn(u, A, log);
-            });
-        }
+        // 胜利时发射回合结束信号，由组件自行处理附身飞回
+        eventBus.emit('onRoundEnd', { A, B, log, forced: true });
         yield { log: [...log], events: stepEvents, ally: A, enemy: B, winner, done };
         log = [];
 
         if (done) return;
     }
-
-    // 战斗结束时，若姐姐仍在附身，强制飞回以正确统计存活
-    const finalAllyAlive = A.some(u => u.alive);
-    const finalEnemyAlive = B.some(u => u.alive);
-    if (finalAllyAlive && !finalEnemyAlive) {
-        A.forEach(u => {
-            if (u.isXiaoZhaoSister && u.alive && u._butterflyHost) butterflyReturn(u, A, log);
-        });
-    }
-    A.forEach(u => {
-        if (u.isXiaoZhaoBrother && u.alive && u._spiderFlying) spiderReturn(u, A, B, log);
-    });
 
     [A, B].forEach(team => {
         for (let i = team.length - 1; i >= 0; i--) {
@@ -544,12 +455,8 @@ export async function* createRoundStepper(state) {
     else if (A.every(c => !c.alive)) { winner = '六大派'; done = true; }
     if (round >= C.MAX_ROUND && !done) { winner = '平局'; done = true; }
 
-    // 战斗结束，若姐姐仍附身，先飞回再产出最终数据，确保统计正确
-    if (winner === '明教') {
-        A.forEach(u => {
-            if (u.isXiaoZhaoSister && u.alive && u._butterflyHost) butterflyReturn(u, A, log);
-        });
-    }
+    // 战斗结束，发射回合结束信号（forced），组件自行处理飞回/蛛落
+    eventBus.emit('onRoundEnd', { A, B, log, forced: true });
 
     if (winner) {
         let losers = winner === '明教' ? B : A;

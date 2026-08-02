@@ -4,6 +4,7 @@ export const VER = 'modules/97elite-imperial.js V5.3.1';
 
 import { CONFIG } from '../core/01config-5v5-test.js';
 import { rand } from '../core/03battle-utils.js';
+import { tickXuanmingPoison } from './23elite-skills.js';
 import { processUnitAttack } from '../core/47battle-attack.js';
 const ES = CONFIG.ELITE_SKILLS;
 
@@ -68,6 +69,17 @@ export function createLuZhangKeComponent() {
             eventBus.on('afterDamageApplied', 40, (data) => {
                 if (data.unit.name !== '鹿杖客') return;
                 onAfterApplyDamage(data.unit, data.target, { dmg: data.dmg }, data.group, B, data.log);
+            });
+            // 回合开始：玄冥神掌寒毒发作
+            eventBus.on('onRoundStart', 10, (data) => {
+                const { A, B, log } = data;
+                A.concat(B).forEach(u => {
+                    if (!u.alive) return;
+                    const dot = tickXuanmingPoison(u);
+                    if (dot > 0) {
+                        log.push({ type:'info', text:`<span class="purple">❄️ 玄冥神掌寒毒发作，${u.name} 受到 ${dot} 点伤害</span>`, uidD: u.uid, isDead: !u.alive });
+                    }
+                });
             });
         },
         onAfterApplyDamage(unit, target, dmgCalc, group, allySide, log) {
