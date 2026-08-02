@@ -472,8 +472,10 @@ export async function handleRoundEnd(c, entry, log, i) {
 
 export function shouldStartNewGroup(entry, lastType) {
     if (!lastType) return false;
-    // 只在连续两个 attack-group 之间插入分隔符
+    // 在连续两个 attack-group 之间插入分隔符
     if (lastType === 'attack-group' && entry.type === 'attack-group') return true;
+    // 飞天免疫 info 紧跟 attack-group，下一个 attack-group 也需要分隔符
+    if (lastType === 'info' && entry.type === 'attack-group') return true;
     // 其他所有情况都不插入分隔符，确保攻击及其衍生效果（info/buff-*）不被打散
     return false;
 }

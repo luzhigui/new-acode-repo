@@ -235,10 +235,11 @@ export function createXiaoZhaoBrotherComponent() {
                 // 蛛变
                 spiderTransform(brother, log);
 
-                // 飞天阈值初始化
+                // 飞天阈值初始化 + 每回合重置触发标记
                 if (brother._spiderTriggeredHit === undefined) brother._spiderTriggeredHit = false;
                 if (brother._spiderTriggered70 === undefined) brother._spiderTriggered70 = false;
                 if (brother._spiderTriggered40 === undefined) brother._spiderTriggered40 = false;
+                brother._spiderTriggeredThisRound = false;
 
                 // 永久拒马（团队海克斯消失后的个人拒马）
                 const teamHasHorse = hasBuff(A._activeBuffs, 'horseFormation');
@@ -289,16 +290,16 @@ export function createXiaoZhaoBrotherComponent() {
             const hpAfter = Math.max(0, unit.hp - (incomingDmg || 0));
             let reason = '';
             
-            // 修正后的阈值判断逻辑，防止高血量误触发
-            if (!unit._spiderTriggered70 && unit.hp > maxHp * 0.7 && hpAfter <= maxHp * 0.7) {
+            // 三个触发条件：首次受击 / 血量即将低于70% / 血量即将低于40%
+            if (!unit._spiderTriggeredHit) {
+                unit._spiderTriggeredHit = true;
+                reason = '首次受击';
+            } else if (!unit._spiderTriggered70 && unit.hp > maxHp * 0.7 && hpAfter <= maxHp * 0.7) {
                 unit._spiderTriggered70 = true;
                 reason = '血量即将低于70%';
             } else if (!unit._spiderTriggered40 && unit.hp > maxHp * 0.4 && hpAfter <= maxHp * 0.4) {
                 unit._spiderTriggered40 = true;
                 reason = '血量即将低于40%';
-            } else if (!unit._spiderTriggeredDeath && hpAfter <= 0) {
-                unit._spiderTriggeredHit = true;
-                reason = '即将阵亡';
             }
             
             if (!reason) return false;

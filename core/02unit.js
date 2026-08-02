@@ -129,6 +129,7 @@ export class Unit {
         c._spiderTriggered70 = this._spiderTriggered70;
         c._spiderTriggered40 = this._spiderTriggered40;
         c._spiderTriggeredDeath = this._spiderTriggeredDeath;
+        c._spiderTriggeredThisRound = this._spiderTriggeredThisRound;
         c._nineYinFirstDone = this._nineYinFirstDone;
         c._extinctionUsed = this._extinctionUsed;
         c._xingFenPenaltyCount = this._xingFenPenaltyCount;
