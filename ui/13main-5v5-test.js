@@ -306,7 +306,7 @@ document.addEventListener('DOMContentLoaded', function() {
             updateScoreBadge();
             renderGrid('allyGrid', 'ally');
             renderGrid('enemyGrid', 'enemy');
-            setState.gs(S.IDLE); setState.isPaused(false); updateButtons(); enableAllButtons(); updateSpeedButtons();
+            setState.gs(S.IDLE); setState.isPaused(false); isBattleStarting=false; updateButtons(); enableAllButtons(); updateSpeedButtons();
             return;
         }
 
@@ -385,6 +385,8 @@ document.addEventListener('DOMContentLoaded', function() {
     window.getGameState = ()=>({ gs, currentStage, isPaused: getState.isPaused(), isBattleStarting, allyCount: getState.UI().allyTeam.length, enemyCount: getState.UI().enemyTeam.length });
     window._activateScrollSlowdown = activateScrollSlowdown;
     window._restoreSpeedFromScroll = restoreSpeedFromScroll;
+    // 44ui-controls.js 的 GAMEOVER 分支（原班再战/随机重开）需要重置局部变量
+    window._resetIsBattleStarting = () => { isBattleStarting = false; };
 
 
 
