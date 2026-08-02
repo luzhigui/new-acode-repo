@@ -283,14 +283,15 @@ export function registerFortifyShield(eventBus) {
         // 初始化本回合叠盾计数
         if (target._fortifyThisRound === undefined) target._fortifyThisRound = 0;
         if (!target._fortifyStacks) target._fortifyStacks = 0;
-        // 每回合上限 3 点，60% 概率触发
-        if (target._fortifyThisRound < 3 && rand(1, 100) <= 60) {
+        // 每回合上限：成昆6点，其他防战3点；60% 概率触发
+        const fortifyCap = target.name === '成昆' ? 6 : 3;
+        if (target._fortifyThisRound < fortifyCap && rand(1, 100) <= 60) {
             const increment = target.name === '成昆' ? 2 : 1;
             target._fortifyStacks += increment;
             target._fortifyThisRound += increment;
             target.def += increment;
             if (group && group.entries) {
-                group.entries.push({type:'detail', text:`<span class="blue small">🛡️ ${target.name} 坚盾：防御+${increment}（已叠${target._fortifyThisRound}/3）</span>`});
+                group.entries.push({type:'detail', text:`<span class="blue small">🛡️ ${target.name} 坚盾：防御+${increment}（已叠${target._fortifyThisRound}/${fortifyCap}）</span>`});
             }
         }
         emitEvent(target, 'hp-change', { hp: target.hp, maxHp: target.maxHp, alive: target.alive, atk: target.atk, def: target.def, _isDead: target._isDead || false });
