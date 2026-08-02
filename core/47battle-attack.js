@@ -3,7 +3,7 @@
 export const VER = 'core/47battle-attack.js V5.3.1';
 
 import { CONFIG, DEF_TAUNT, HP_TAUNT } from './01config-5v5-test.js';
-import { rand, hasBuff } from './03battle-utils.js';
+import { rand, hasBuff, makeFXSnapshot } from './03battle-utils.js';
 
 import { computeBuffStats, applyBuffEffectsBeforeAttack, applyBuffEffectsAfterAttack } from './04buff-system.js';
 import {
@@ -126,11 +126,25 @@ export async function processUnitAttack(unit, allySide, enemySide, log, A, B, st
     let interceptResult = { immune: false };
     eventBus.emit('beforeDamageApply', { target, dmg: dmgCalc.dmg, A, log, result: interceptResult });
     if (interceptResult.immune) {
+        // 回退伤害，但构建攻击组日志让 UI 正常显示攻击动作
         target.hp = Math.min(target.maxHp, target.hp + dmgCalc.dmg);
         unit.dmgDealt -= dmgCalc.dmg;
         target.dmgTaken -= dmgCalc.dmg;
         emitEvent(target, 'hp-change', { hp: target.hp, maxHp: target.maxHp, alive: target.alive, atk: target.atk, def: target.def });
-        unit._acted = true;
+
+        // 构建免疫攻击组：显示攻击动作但伤害为0，接飞天免疫提示
+        let immuneHpPctBefore = Math.floor((Math.min(target.hp + dmgCalc.dmg, target.maxHp) / target.maxHp) * 100);
+        let immuneHpPctAfter = Math.floor((target.hp / target.maxHp) * 100);
+        let campA = unit.camp === 'ally' ? '明教' : '六大派';
+        let campD = target.camp === 'ally' ? '明教' : '六大派';
+        let ac = unit.camp === 'ally' ? 'blue' : 'orange';
+        let dc = target.camp === 'ally' ? 'blue' : 'orange';
+        let immuneGroup = { type:'attack-group', uidA:unit.uid, uidD:target.uid, entries:[
+            {type:'combat-text', text:`<span class="${ac}">${campA} ${unit.name}</span>(攻${Math.floor(unit.atk)} 血${Math.floor(unit.hp)}) → <span class="${dc}">${campD} ${target.name}</span>(防${Math.floor(target.def)} 血${Math.floor(target.hp)})`},
+        ], hpAfter:target.hp, alive:target.alive, isDead:false, isImmune:true, waveTaunt:null, waveUnit:null, unitRole:unit.role, _fxSnapshot:makeFXSnapshot(unit,target), _dmg:0, hpPctBefore: immuneHpPctBefore, hpPctAfter: immuneHpPctAfter, isMiss:false, isDodge:false, buffEffects:[] };
+        log.push(immuneGroup);
+
+        if (!unit._isLinkAttack) unit._acted = true;
         return true;
     }
 

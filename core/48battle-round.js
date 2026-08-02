@@ -119,9 +119,6 @@ export async function* createRoundStepper(state) {
     });
 
     eventBus.clearAll();
-    A.forEach(u => {
-        if (u.isXiaoZhaoBrother && u.alive) createXiaoZhaoBrotherComponent().register(eventBus, A, B, log);
-    });
 
     // 注册所有监听器
     registerWarriorBreakDefense(eventBus);
