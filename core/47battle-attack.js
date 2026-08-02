@@ -20,7 +20,7 @@ import {
     buildAttackGroup
 } from './49battle-attack-steps.js';
 import { eventBus } from './00-event-bus.js';
-import { createXiaoZhaoSisterComponent } from '../modules/99elite-mingjiao.js';
+
 import { emitEvent } from './50battle-shared.js';
 
 const C = CONFIG, DT = DEF_TAUNT, HT = HP_TAUNT;
@@ -38,12 +38,12 @@ export async function processUnitAttack(unit, allySide, enemySide, log, A, B, st
         return false;
     }
 
-    // 🦋 小昭·姊蝶变附身
+    // 明教首次攻击前发射信号，由小昭姐组件自行处理蝶变附身
     if (unit.camp === 'ally' && A && !A._butterflyTriggered) {
         A._butterflyTriggered = true;
-        const sisterComp = createXiaoZhaoSisterComponent();
-        const sister = sisterComp.onBeforeFirstAttack(A, log);
-        if (sister && unit.uid === sister.uid) {
+        const interceptResult = { intercepted: false, interceptUnitUid: null };
+        eventBus.emit('beforeFirstAllyAttack', { A, log, unit, result: interceptResult });
+        if (interceptResult.intercepted) {
             unit._acted = true;
             return true;
         }

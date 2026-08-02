@@ -344,15 +344,15 @@ export function registerEmptyColBonus(eventBus) {
         const bloodBonus = getBloodAuraBonus(allUnits);
         const allyFlyers = A.filter(u => u.role === '飞行' && u.alive && !u.isHorse);
         const enemyFlyers = B.filter(u => u.role === '飞行' && u.alive && !u.isHorse);
+        // 空列和残血光环加成写入字段，由 48 的攻防汇总公式统一计算
+        // 详情弹窗可通过 _emptyColBonus / _bloodAuraBonus 查看加成来源
         allyFlyers.forEach(u => {
             u._emptyColBonus = allyEmptyCols * 5;
             u._bloodAuraBonus = bloodBonus;
-            u.atk = (u._baseAtk || u.atk) + (u._emptyColBonus || 0) + (u._bloodAuraBonus || 0);
         });
         enemyFlyers.forEach(u => {
             u._emptyColBonus = enemyEmptyCols * 5;
             u._bloodAuraBonus = bloodBonus;
-            u.atk = (u._baseAtk || u.atk) + (u._emptyColBonus || 0) + (u._bloodAuraBonus || 0);
         });
     });
 }

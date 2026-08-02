@@ -4,12 +4,9 @@ export const VER = 'modules/98elite-sixsects.js V5.3.1';
 import { GlobalStore } from './46global-store.js';
 import { CONFIG } from '../core/01config-5v5-test.js';
 import { processUnitAttack } from '../core/47battle-attack.js';
-import { canXingFenTrigger, consumeXingFen } from './23elite-skills.js';
+import { canXingFenTrigger, consumeXingFen, applyXingFenGrant, tickKuaiLeHeal, checkKuLian } from './23elite-skills.js';
+import { emitEvent } from '../core/50battle-shared.js';
 const ES = CONFIG.ELITE_SKILLS;
-
-function emitEvent(unit, eventType, payload) {
-    if (typeof window._emitEvent === 'function') window._emitEvent(unit, eventType, payload);
-}
 
 // ==================== 宋青书 ====================
 export function createSongQingshuComponent() {
@@ -46,6 +43,31 @@ export function createSongQingshuComponent() {
             eventBus.on('beforeActionSelect', 10, (data) => {
                 if (data.unit.name !== '宋青书' || !data.unit.alive || !data.unit._kuLianActive) return;
                 data.declaration.priority = 1;
+            });
+            // 回合开始：性奋授予 + 苦练 buff（⚠️ 必须同步执行，后续属性计算依赖此加成）
+            eventBus.on('onRoundStart', 10, (data) => {
+                const { A, B, log } = data;
+                applyXingFenGrant(B, log);
+
+                // 苦练：场上无周芷若时，全体队友获得属性加成（自身翻倍）
+                const kuLianSong = checkKuLian(B);
+                if (kuLianSong) {
+                    kuLianSong._kuLianActive = true;
+                    const s = CONFIG.ELITE_SKILLS.kuLian;
+                    B.forEach(u => {
+                        if (!u.alive || u.isHorse) return;
+                        const mult = u.uid === kuLianSong.uid ? 2 : 1;
+                        u.atk += s.atkBonus * mult;
+                        u.def += s.defBonus * mult;
+                        u.maxHp += s.hpBonus * mult;
+                        u._baseAtk = (u._baseAtk || u.atk) + s.atkBonus * mult;
+                        u._baseDef = (u._baseDef || u.def) + s.defBonus * mult;
+                        u._baseMaxHp = Math.max(u._baseMaxHp || u.maxHp, u.maxHp);
+                        u.hp = Math.min(u.hp + s.hpBonus * mult, u.maxHp);
+                        emitEvent(u, 'hp-change', { hp: u.hp, maxHp: u.maxHp, alive: u.alive, atk: u.atk, def: u.def });
+                    });
+                    log.push({ type:'info', text:`<span class="gold">🏋️ 苦练：${kuLianSong.name} 激励全体队友+${s.atkBonus}攻+${s.defBonus}防+${s.hpBonus}血上限（自身翻倍）！</span>` });
+                }
             });
         },
         onAfterApplyDamage(unit, target, dmgCalc, group, allySide, log) {
@@ -98,6 +120,11 @@ export function createZhouZhiruoComponent() {
             eventBus.on('afterAttack', 40, (data) => {
                 if (data.unit.name !== '周芷若') return;
                 onAfterDamageCalc(data.unit, data.target, data.dmg, data.log, B, A);
+            });
+            // 回合开始：快乐回血
+            eventBus.on('onRoundStart', 10, (data) => {
+                const { A, B, log } = data;
+                tickKuaiLeHeal(A.concat(B), log);
             });
         },
         onAfterDamageCalc(unit, target, dmg, log, allySide, enemySide) {
