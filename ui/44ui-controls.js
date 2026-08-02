@@ -262,6 +262,7 @@ export function bindNextButton(setState, updateButtons, enableAllButtons, update
             setState.isPaused(false);
             setState.waitingForNextRound(false);
             setState.isBattleStarting(false);
+            if (typeof window._resetIsBattleStarting === 'function') window._resetIsBattleStarting();
             restoreSpeedFromScroll();
             updateButtons();
             if (typeof enableAllButtons === 'function') enableAllButtons();
@@ -345,6 +346,7 @@ export function bindSettleButton(currentStageGetter, isBattleStarting, getState,
             setState.isPaused(false);
             setState.waitingForNextRound(false);
             setState.isBattleStarting(false);
+            if (typeof window._resetIsBattleStarting === 'function') window._resetIsBattleStarting();
             restoreSpeedFromScroll();
             let currentUI = { allyTeam: [], enemyTeam: [], currentResult: null, round: 0, lastSnapshot: null };
             let snap = { ally: [], enemy: [] };
