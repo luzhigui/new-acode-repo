@@ -59,7 +59,7 @@ export async function processUnitAttack(unit, allySide, enemySide, log, A, B, st
         target = enemySide.find(u => u.uid === lockedTargetUid && u.alive) || null;
         phantomLog = null;
         if (!target) {
-            let emptyGroup = { type:'attack-group', uidA:unit.uid, uidD:null, entries:[], isMiss:true, _fxSnapshot:null, waveTaunt:null, waveUnit:null, buffEffects: [] };
+            let emptyGroup = { type:'attack-group', uidA:unit.uid, uidD:null, entries:[], isMiss:true, _fxSnapshot:null, waveTaunt:null, waveUnit:null, buffEffects: [], needsSeparator: true };
             emptyGroup.entries.push({type:'combat-text', text:`<span class="${unit.camp==='ally'?'blue':'orange'}">${unit.camp==='ally'?'明教':'六大派'} ${unit.name}</span> 无法选择目标`});
             emptyGroup.entries.push({type:'info', text:`<span class="gray">锁定目标已阵亡，跳过行动</span>`});
             GlobalStore.flushBattleEvents();
@@ -74,7 +74,7 @@ export async function processUnitAttack(unit, allySide, enemySide, log, A, B, st
     }
 
     if (!target) {
-        let emptyGroup = { type:'attack-group', uidA:unit.uid, uidD:null, entries:[], isMiss:true, _fxSnapshot:null, waveTaunt:null, waveUnit:null, buffEffects: [] };
+        let emptyGroup = { type:'attack-group', uidA:unit.uid, uidD:null, entries:[], isMiss:true, _fxSnapshot:null, waveTaunt:null, waveUnit:null, buffEffects: [], needsSeparator: true };
         emptyGroup.entries.push({type:'combat-text', text:`<span class="${unit.camp==='ally'?'blue':'orange'}">${unit.camp==='ally'?'明教':'六大派'} ${unit.name}</span> 无法选择目标`});
         emptyGroup.entries.push({type:'info', text:`<span class="gray">无可选目标，跳过行动</span>`});
         GlobalStore.flushBattleEvents();
@@ -141,7 +141,7 @@ export async function processUnitAttack(unit, allySide, enemySide, log, A, B, st
         let dc = target.camp === 'ally' ? 'blue' : 'orange';
         let immuneGroup = { type:'attack-group', uidA:unit.uid, uidD:target.uid, entries:[
             {type:'combat-text', text:`<span class="${ac}">${campA} ${unit.name}</span>(攻${Math.floor(unit.atk)} 血${Math.floor(unit.hp)}) → <span class="${dc}">${campD} ${target.name}</span>(防${Math.floor(target.def)} 血${Math.floor(target.hp)})`},
-        ], hpAfter:target.hp, alive:target.alive, isDead:false, isImmune:true, waveTaunt:null, waveUnit:null, unitRole:unit.role, _fxSnapshot:makeFXSnapshot(unit,target), _dmg:0, hpPctBefore: immuneHpPctBefore, hpPctAfter: immuneHpPctAfter, isMiss:false, isDodge:false, buffEffects:[] };
+        ], hpAfter:target.hp, alive:target.alive, isDead:false, isImmune:true, waveTaunt:null, waveUnit:null, unitRole:unit.role, _fxSnapshot:makeFXSnapshot(unit,target), _dmg:0, hpPctBefore: immuneHpPctBefore, hpPctAfter: immuneHpPctAfter, isMiss:false, isDodge:false, buffEffects:[], needsSeparator: true };
         log.push(immuneGroup);
 
         if (!unit._isLinkAttack) unit._acted = true;
