@@ -290,16 +290,16 @@ export function createXiaoZhaoBrotherComponent() {
             const hpAfter = Math.max(0, unit.hp - (incomingDmg || 0));
             let reason = '';
             
-            // 三个触发条件：首次受击 / 血量即将低于70% / 血量即将低于40%
-            if (!unit._spiderTriggeredHit) {
-                unit._spiderTriggeredHit = true;
-                reason = '首次受击';
-            } else if (!unit._spiderTriggered70 && unit.hp > maxHp * 0.7 && hpAfter <= maxHp * 0.7) {
+            // 三个触发条件，每种整场仅触发一次：血量即将低于70% / 低于40% / 即将死亡
+            if (!unit._spiderTriggered70 && unit.hp > maxHp * 0.7 && hpAfter <= maxHp * 0.7) {
                 unit._spiderTriggered70 = true;
                 reason = '血量即将低于70%';
             } else if (!unit._spiderTriggered40 && unit.hp > maxHp * 0.4 && hpAfter <= maxHp * 0.4) {
                 unit._spiderTriggered40 = true;
                 reason = '血量即将低于40%';
+            } else if (!unit._spiderTriggeredDeath && hpAfter <= 0) {
+                unit._spiderTriggeredDeath = true;
+                reason = '即将阵亡';
             }
             
             if (!reason) return false;
