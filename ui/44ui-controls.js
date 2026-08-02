@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// ui/44ui-controls.js - 光明顶5v5 UI控制（倍速系统+按钮状态+事件绑定）
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// ui/44ui-controls.js - 光明顶5v5 UI控制（倍速系统+按钮状态+事件绑定）
 // V5.3.1 | ~22900 bytes| 2026-07-27 合并13main按钮绑定、Buff槽更新
 export const VER = 'ui/44ui-controls.js V5.3.1';
 
