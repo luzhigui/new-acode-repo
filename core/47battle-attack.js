@@ -37,6 +37,10 @@ export async function processUnitAttack(unit, allySide, enemySide, log, A, B, st
         unit._acted = true;
         return false;
     }
+    if (unit._spiderFlying || unit._flyMode === 'spider') {
+        unit._acted = true;
+        return false;
+    }
 
     // 明教首次攻击前发射信号，由小昭姐组件自行处理蝶变附身
     if (unit.camp === 'ally' && A && !A._butterflyTriggered) {

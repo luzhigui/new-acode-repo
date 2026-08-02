@@ -310,16 +310,17 @@ export async function* createRoundStepper(state) {
 
         if (topPriority > 0) {
             isPriorityAction = true;
-            const topUnits = priorityDeclarations.filter(d => d.priority === topPriority);
-            for (const d of topUnits) {
+            const validTopUnits = priorityDeclarations.filter(d => d.priority === topPriority && !d.pass);
+            for (const d of validTopUnits) {
                 if (d.unit._kuLianActive) {
                     log.push({ type:'info', text:`<span class="gold">🏋️ 苦练：${d.unit.name} 每回合最先行动！</span>` });
                     kuLianDone = true;
                 }
             }
-            actingUnit = topUnits[0].unit;
-            // 如果选中的单位是 pass（存在但无法攻击，如被遮挡），不占队伍回合
-            if (topUnits[0].pass) isPriorityAction = true;
+            if (validTopUnits.length > 0) {
+                actingUnit = validTopUnits[0].unit;
+                if (validTopUnits[0].pass) isPriorityAction = true;
+            }
         } else {
             // 复用已过滤 skip 的候选列表，引擎只问一次，不重复 emit
             const remaining = priorityDeclarations
