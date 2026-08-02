@@ -133,7 +133,7 @@ const CONFIG = {
             name: '叛逆突袭', dmgBonus: 0,  // 取消伤害加成
             currentHpRatio: 0.08
         },
-        phantomThunder: { name: '混元霹雳劲', lostHpRatio: 0.3 },
+        phantomThunder: { name: '混元霹雳劲', lostHpRatio: 0.2 },
         phantomDisguise: { name: '幻影伪装', baseChance: 0.30, per10pctLost: 0.06 },
         xuanmingPalm: { name: '玄冥神掌', dotPercents: [0.04, 0.02, 0.01], duration: 3 },
         hornStrike: { name: '鹿角杖法', defIgnore: 0.3, poisonedBonus: 0.3 },

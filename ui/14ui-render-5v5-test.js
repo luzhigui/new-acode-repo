@@ -201,7 +201,7 @@ function updateDetailPopupContent() {
                 else if (u.name === '韦一笑') skills = ['寒冰掌：攻击吸血15%，增加生命上限', '青翼蝠王：基础闪避20%，无视行动状态闪避'];
                 else if (u.name === '宋青书') skills = [`💥 叛逆突袭：优先攻击血量最高目标，附加目标当前生命${Math.round((CONFIG.ELITE_SKILLS.rebelStrike.currentHpRatio || 0.12) * 100)}%真实伤害`, `💪 苦练：场上无周芷若时最先行动；行动前全体队友+${CONFIG.ELITE_SKILLS.kuLian.atkBonus}攻+${CONFIG.ELITE_SKILLS.kuLian.defBonus}防+${CONFIG.ELITE_SKILLS.kuLian.hpBonus}生命上限，自身翻倍`, `💒 新婚：攻击扣除周芷若${CONFIG.ELITE_SKILLS.xinHun.hpDeduct}血，叠快乐层（${(CONFIG.ELITE_SKILLS.xinHun.healLevels || []).map(p => Math.round(p * 100) + '%').join('→')}）`, '💗 性奋：周芷若在场时攻击后可再次行动；每次攻击后减少递增生命上限'];
                 else if (u.name === '周芷若') skills = ['🐾 九阴白骨爪：基础1+已损失1%+最大1%追击，≤12%斩杀（无忌在场：基础2+1.5%+2%，≤15%斩杀），可连锁'];
-                else if (u.name === '成昆') skills = ['💥 混元霹雳劲：附加已损失生命30%的真实伤害', '🌀 幻影伪装：攻击后模仿对方单位并回复已损失30%生命；对方攻击时30%概率混乱，每损失10%生命+6%'];
+                else if (u.name === '成昆') skills = ['💥 混元霹雳劲：附加已损失生命20%的真实伤害', '🌀 幻影伪装：攻击后模仿对方单位并回复已损失30%生命；对方攻击时30%概率混乱，每损失10%生命+6%'];
                 else if (u.name === '鹿杖客') skills = ['❄️ 玄冥神掌：中毒每回合损失4%→2%→1%→消失', '🔗 联动鹤笔翁：攻击后鹤笔翁立刻攻击同一目标'];
                 else if (u.name === '鹤笔翁') skills = ['🦌 鹿角杖法：忽略30%防御，中毒目标伤害+30%', '🔗 联动鹿杖客：攻击后鹿杖客立刻攻击同一目标'];
                 else if (u.isXiaoZhaoSister) skills = ['🦋 蝶变附身：明教首次攻击前，附身到4号位后最近队友，转移一半攻/防/血，自身血量按队友比例调整', '🦋 乾坤衍生：张无忌不在时，队友受伤触发减伤、治疗和攻击加成', '🛡️ 乾坤大挪移（升级）：张无忌在场时，全队减伤30%并反弹20%伤害（无忌自伤10%）', '♾️ 永久海克斯：团队海克斯消失后，单独续上效果'];
