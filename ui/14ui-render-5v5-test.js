@@ -175,7 +175,7 @@ function updateDetailPopupContent() {
                 let carryDef = u._carryDefBonus || 0;
                 let butterflyDef = u._butterflyDefBonus || 0;
                 let fortifyStacks = u._fortifyStacks || 0;
-                let fortifyDef = fortifyStacks * 0.5;
+                let fortifyDef = fortifyStacks;
                 let finalDef = Math.round(u.def);
                 let permChange = finalDef - Math.round(initDef) - holyDefBonus - carryDef - butterflyDef - fortifyDef;
                 let parts = [String(Math.round(initDef))];
