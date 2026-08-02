@@ -250,7 +250,7 @@ export function applyPhantomDisguise(unit, enemySide, allySide = null) {
     const lostPct = (chengkun.maxHp - chengkun.hp) / chengkun.maxHp;
     const chance = ES.phantomDisguise.baseChance + Math.floor(lostPct * 10) * ES.phantomDisguise.per10pctLost;
     if (Math.random() < chance) {
-        const fakeTarget = allySide ? allySide.find(u => u.uid === chengkun._phantomTarget && u.alive && !u.isHorse) : null;
+        const fakeTarget = allySide ? allySide.find(u => u.uid === chengkun._phantomTarget && u.alive && !u.isHorse && !u._untargetable) : null;
         if (fakeTarget) {
             return { target: fakeTarget, log: `🎭 幻影伪装！${unit.name}被混乱，误攻队友${fakeTarget.name}！` };
         }

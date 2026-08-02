@@ -11,7 +11,7 @@ import {
     getRebelTarget, getRebelDmgBonus, getRebelTrueDmg,
     checkKuLian, applyXingFenGrant,
     applyDamageModifiers, isXiaoZhaoPermanentActive,
-    applyPhantomDisguise, applyXiaoZhaoMindControl, checkXiaoZhaoPermanentDoubleStrike,
+    applyXiaoZhaoMindControl, checkXiaoZhaoPermanentDoubleStrike,
     getXiaoZhaoHexEnhance
 } from '../modules/23elite-skills.js';
 import { applyFortifyRebound_Normal, applyFortifyRebound_Sister } from './51buff-effects.js';
@@ -57,32 +57,26 @@ export function selectAttackTarget(unit, enemySide, allySide) {
         target = targets[rand(0, targets.length - 1)];
     }
 
-    // 成昆攻击前清除旧伪装（恢复真身）
-    if (unit.name === '成昆' && unit._phantomTarget) {
-        delete unit._phantomTarget;
-    }
-
-    // 成昆幻影伪装
+    // 成昆幻影伪装：被模仿者必须锁定成昆本人（识破伪装）
     let phantomLog = null;
-    if (unit.camp === 'ally' && target) {
-        const chengkun = enemySide.find(u => u.name === '成昆' && u.alive && u._phantomTarget === unit.uid);
-        if (chengkun && !unit._acted) {
-            return { target: chengkun, phantomLog: `🎭 ${unit.name} 识破伪装，锁定真正的成昆！` };
-        }
-        const phantomResult = applyPhantomDisguise(unit, enemySide, allySide);
-        if (phantomResult && phantomResult.target) {
-            phantomLog = phantomResult.log;
-            target = phantomResult.target;
-        }
+    const chengkun = enemySide.find(u => u.name === '成昆' && u.alive && u._phantomTarget === unit.uid);
+    if (chengkun && !unit._acted) {
+        phantomLog = `🎭 ${unit.name} 识破伪装，锁定真正的成昆！`;
+        target = chengkun;
     }
 
-    // 小昭永久惑人心智
+    // 小昭永久惑人心智（在成昆伪装之后，防止覆盖）
     if (target && unit.camp === 'enemy') {
         const mindResult = applyXiaoZhaoMindControl(unit, allySide, enemySide);
         if (mindResult) {
             phantomLog = mindResult.log;
             target = mindResult.target;
         }
+    }
+
+    // 成昆攻击前清除旧伪装（恢复真身）——必须在目标确定后清除
+    if (unit.name === '成昆' && unit._phantomTarget) {
+        delete unit._phantomTarget;
     }
 
     return { target, phantomLog };

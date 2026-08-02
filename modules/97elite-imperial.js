@@ -21,7 +21,20 @@ export function createChengKunComponent() {
             if (!cheng) return;
             const onAfterApplyDamage = this.onAfterApplyDamage;
             const onDamageCalc = this.onDamageCalc;
-            // 幻影伪装
+            // 幻影伪装：裁判生成合法目标清单，成昆从中随机选择
+            eventBus.on('beforePhantomSelect', 10, (data) => {
+                if (data.unit.camp !== 'ally') return;
+                const chengkun = data.enemySide.find(u => u.name === '成昆' && u.alive);
+                if (!chengkun || !chengkun._phantomTarget) return;
+                // 裁判生成清单：存活、非马、非不可选中
+                const list = data.allySide.filter(u => u.alive && !u.isHorse && !u._untargetable);
+                if (list.length > 0) {
+                    const chosen = list[rand(0, list.length - 1)];
+                    data.phantomResult.target = chosen;
+                    data.phantomResult.log = `🎭 幻影伪装！${data.unit.name}被混乱，误攻队友${chosen.name}！`;
+                }
+            });
+            // 幻影伪装：攻击后更新伪装目标
             eventBus.on('afterDamageApplied', 40, (data) => {
                 if (data.unit.name !== '成昆') return;
                 onAfterApplyDamage(data.unit, data.target, { dmg: data.dmg }, data.group, A, data.log);
@@ -35,7 +48,7 @@ export function createChengKunComponent() {
         },
         onAfterApplyDamage(unit, target, dmgCalc, group, enemySide, log) {
             if (unit.name !== '成昆' || dmgCalc.dmg <= 0) return;
-            const enemyAlive = enemySide.filter(u => u.alive && !u.isHorse);
+            const enemyAlive = enemySide.filter(u => u.alive && !u.isHorse && !u._untargetable);
             if (enemyAlive.length > 0) {
                 unit._phantomTarget = enemyAlive[rand(0, enemyAlive.length - 1)].uid;
                 const lostHp = unit.maxHp - unit.hp;
@@ -77,7 +90,7 @@ export function createLuZhangKeComponent() {
                     if (!u.alive) return;
                     const dot = tickXuanmingPoison(u);
                     if (dot > 0) {
-                        log.push({ type:'info', text:`<span class="purple">❄️ 玄冥神掌寒毒发作，${u.name} 受到 ${dot} 点伤害</span>`, uidD: u.uid, isDead: !u.alive });
+                        log.push({ type:'info', text:`<span class="purple">❄️ 玄冥神掌寒毒发作，${u.name} 受到 ${dot} 点伤害</span>`, uidD: u.uid, isDead: !u.alive, dmg: dot });
                     }
                 });
             });

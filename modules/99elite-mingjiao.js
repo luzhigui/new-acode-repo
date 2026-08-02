@@ -1,5 +1,5 @@
 // modules/99elite-mingjiao.js - 明教精英组件合集
-// V5.3.1 | ~17900 bytes| 2026-07-28 合并张无忌/韦一笑/小昭姐/小昭妹
+// V5.3.2 | ~17900 bytes| 2026-08-03 修复小昭妹飞天状态异常
 export const VER = 'modules/99elite-mingjiao.js V5.3.1';
 
 import { CONFIG } from '../core/01config-5v5-test.js';
@@ -174,7 +174,7 @@ export function createXiaoZhaoSisterComponent() {
             const aliveAllies = A.filter(a => a.alive && !a.isHorse && a.uid !== sister.uid);
             const totalHp = aliveAllies.reduce((sum,a) => sum + a.hp, 0); const totalMaxHp = aliveAllies.reduce((sum,a) => sum + a.maxHp, 0);
             if (totalMaxHp > 0) { sister.hp = Math.floor(sister.maxHp * (totalHp/totalMaxHp)); }
-            sister._butterflyHost = host.uid; sister._flyMode = 'butterfly'; sister._untargetable = true;
+            sister._butterflyHost = host.uid; sister._flyMode = 'butterfly'; sister._untargetable = true; sister._acted = true;
             emitEvent(sister, 'hp-change', { hp:sister.hp, maxHp:sister.maxHp, alive:sister.alive, atk:sister.atk, def:sister.def, _flyMode:'butterfly', _butterflyHost:sister._butterflyHost });
             log.push({ type:'info', text:`<span class="gold">🦋 蝶变：${sister.name} 化为蝴蝶附身于 ${host.name}！攻+${atkTransfer} 防+${defTransfer} 血上限+${hpTransfer}</span>` });
             return sister;
@@ -282,15 +282,35 @@ export function createXiaoZhaoBrotherComponent() {
             });
         },
         onBeforeDeath(unit, incomingDmg, A, log) {
-            if (!unit.isXiaoZhaoBrother || !unit.alive || unit._spiderFlying || unit._flyMode === 'spider') return false;
-            const hpBefore = unit.hp; const hpAfter = incomingDmg !== undefined ? hpBefore - incomingDmg : hpBefore;
-            const maxHp = unit.maxHp; let reason = '';
-            // 先标记所有已触发的阈值
-            if (!unit._spiderTriggered70 && hpBefore > maxHp*0.7 && hpAfter <= maxHp*0.7) { unit._spiderTriggered70 = true; if (!reason) reason = '血量即将低于70%'; }
-            if (!unit._spiderTriggered40 && hpBefore <= maxHp*0.7 && hpBefore > maxHp*0.4 && hpAfter <= maxHp*0.4) { unit._spiderTriggered40 = true; if (!reason) reason = '血量即将低于40%'; }
-            if (!unit._spiderTriggeredDeath && hpAfter <= 0) { unit._spiderTriggeredHit = true; if (!reason) reason = '即将阵亡'; }
+            // 不可飞天的情况：非妹妹、已死、已在飞天、或本回合已触发过飞天
+            if (!unit.isXiaoZhaoBrother || !unit.alive || unit._spiderFlying || unit._flyMode === 'spider' || unit._spiderTriggeredThisRound) return false;
+            
+            const maxHp = unit.maxHp;
+            const hpAfter = Math.max(0, unit.hp - (incomingDmg || 0));
+            let reason = '';
+            
+            // 修正后的阈值判断逻辑，防止高血量误触发
+            if (!unit._spiderTriggered70 && unit.hp > maxHp * 0.7 && hpAfter <= maxHp * 0.7) {
+                unit._spiderTriggered70 = true;
+                reason = '血量即将低于70%';
+            } else if (!unit._spiderTriggered40 && unit.hp > maxHp * 0.4 && hpAfter <= maxHp * 0.4) {
+                unit._spiderTriggered40 = true;
+                reason = '血量即将低于40%';
+            } else if (!unit._spiderTriggeredDeath && hpAfter <= 0) {
+                unit._spiderTriggeredHit = true;
+                reason = '即将阵亡';
+            }
+            
             if (!reason) return false;
-            unit._spiderRemaining = (unit._spiderRemaining||3)-1; unit._spiderFlying = true; unit._flyMode = 'spider'; unit._spiderAttacked = unit._acted;
+
+            // 标记本回合已触发，并锁定状态
+            unit._spiderTriggeredThisRound = true;
+            unit._spiderRemaining = (unit._spiderRemaining || 3) - 1;
+            unit._spiderFlying = true;
+            unit._flyMode = 'spider';
+            unit._acted = true; // 飞天后立即标记已行动，防止再攻击
+            // 不再设置 _spiderAttacked，避免状态混乱
+            
             emitEvent(unit, 'hp-change', { hp:unit.hp, maxHp:unit.maxHp, alive:unit.alive, atk:unit.atk, def:unit.def, _flyMode:'spider', _spiderFlying:true });
             log.push({ type:'info', text:`<span class="gold">🕷️ 飞天：${unit.name} ${reason}，免疫本次攻击的 ${incomingDmg||0} 点伤害，化为蜘蛛遁走！剩余次数：${unit._spiderRemaining}</span>` });
             return true;
@@ -306,8 +326,19 @@ export function butterflyReturn(sister, allyTeam, log) {
     if (!sister._butterflyHost) return;
     const host = allyTeam.find(u => u.uid === sister._butterflyHost);
     
-    // 宿主已死，直接恢复姐姐本体，不转移属性
+    // 宿主已死，重新计算姐姐血量（按队友总血比例），再恢复本体
     if (!host || !host.alive) {
+        const allAllies = allyTeam.filter(a => !a.isHorse && a.uid !== sister.uid);
+        const totalHp = allAllies.reduce((sum, a) => sum + (a.alive ? a.hp : 0), 0);
+        const totalMaxHp = allAllies.reduce((sum, a) => sum + a.maxHp, 0);
+        if (totalMaxHp > 0) {
+            sister.hp = Math.floor(sister.maxHp * (totalHp / totalMaxHp));
+        } else {
+            sister.hp = 0;
+            sister.alive = false;
+            sister._isDead = true;
+            if (!sister._deathTime) sister._deathTime = Date.now();
+        }
         sister._flyMode = null; sister._untargetable = false;
         sister._butterflyHost = null;
         sister._butterflyAtk = 0;
@@ -320,7 +351,9 @@ export function butterflyReturn(sister, allyTeam, log) {
         });
         log.push({
             type: 'info',
-            text: `<span class="gold">🦋 蝶变：宿主已阵亡，${sister.name} 被迫返回！</span>`
+            text: `<span class="gold">🦋 蝶变：宿主已阵亡，${sister.name} 被迫返回！</span>`,
+            uidD: sister.uid,
+            isDead: !sister.alive
         });
         return;
     }

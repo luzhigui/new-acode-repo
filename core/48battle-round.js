@@ -321,8 +321,10 @@ export async function* createRoundStepper(state) {
             // 如果选中的单位是 pass（存在但无法攻击，如被遮挡），不占队伍回合
             if (topUnits[0].pass) isPriorityAction = true;
         } else {
-            const currentTeam = currentSide === 'ally' ? A : B;
-            const remaining = currentTeam.filter(u => u.alive && !u._acted).sort((a, b) => a.pos - b.pos);
+            // 复用已过滤 skip 的候选列表，引擎只问一次，不重复 emit
+            const remaining = priorityDeclarations
+                .map(d => d.unit)
+                .sort((a, b) => a.pos - b.pos);
 
             if (remaining.length > 0) {
                 let found = null;
@@ -425,8 +427,11 @@ export async function* createRoundStepper(state) {
         if (!allyAlive) { winner = '六大派'; done = true; }
         else if (!enemyAlive) { winner = '明教'; done = true; }
 
-        // 胜利时发射回合结束信号，由组件自行处理附身飞回
-        eventBus.emit('onRoundEnd', { A, B, log, forced: true });
+        // 胜利时先发射回合结束信号，再 yield，防止播放器提前重入
+        if (winner) {
+            eventBus.emit('onRoundEnd', { A, B, log, forced: true });
+        }
+
         yield { log: [...log], events: stepEvents, ally: A, enemy: B, winner, done };
         log = [];
 
