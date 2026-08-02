@@ -30,6 +30,14 @@ const C = CONFIG, DT = DEF_TAUNT, HT = HP_TAUNT;
 // ==================== 主攻击流程 ====================
 
 export async function processUnitAttack(unit, allySide, enemySide, log, A, B, state, doubleStrikeUnitUid, lockedTargetUid) {
+    // 统一拦截：眩晕单位无法响应任何攻击指令
+    // 即使外部调用方（如联动、随机队友攻击）传入了眩晕单位，裁判直接拒绝
+    if (unit._stunned) {
+        log.push({ type:'info', text:`<span class="gray">💫 ${unit.name} 被眩晕，无法响应攻击指令</span>` });
+        unit._acted = true;
+        return false;
+    }
+
     // 🦋 小昭·姊蝶变附身
     if (unit.camp === 'ally' && A && !A._butterflyTriggered) {
         A._butterflyTriggered = true;
@@ -90,6 +98,14 @@ export async function processUnitAttack(unit, allySide, enemySide, log, A, B, st
             const retryUid = hitResult.lockedTargetUid || null;
             await processUnitAttack(unit, allySide, enemySide, log, A, B, state, doubleStrikeUnitUid, retryUid);
         }
+        return true;
+    }
+
+    // 闪避反击可能导致攻击者眩晕，眩晕后本次攻击的后续效果全部作废
+    // 包括 afterAttack 信号、联动、性奋、白骨爪、飞天等均不触发
+    // 裁判统一拦截，组件无需各自检查
+    if (unit._stunned) {
+        unit._acted = true;
         return true;
     }
 

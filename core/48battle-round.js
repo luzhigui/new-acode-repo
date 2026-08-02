@@ -347,16 +347,41 @@ export async function* createRoundStepper(state) {
     log = [];
 
     let currentSide = 'enemy';
-    const kuLianUnit = kuLianSong;
     let kuLianDone = false;
 
     while (A.some(u => u.alive && !u._acted) || B.some(u => u.alive && !u._acted)) {
         let actingUnit = null;
+        // ⚠️ 优先级行动标记：高优先级单位（如苦练）抢先行动不占队伍回合
+        // 行动后不能切换 currentSide，否则会打乱正常轮次顺序
+        // 历史教训：V5.3.1 删除 kuLianUnit 后曾漏掉此判断，导致苦练后阵营错误切换
+        let isPriorityAction = false;
 
-        if (!kuLianDone && kuLianUnit && kuLianUnit.alive && !kuLianUnit._acted) {
-            actingUnit = kuLianUnit;
-            kuLianDone = true;
-            log.push({ type:'info', text:`<span class="gold">🏋️ 苦练：${kuLianUnit.name} 每回合最先行动！</span>` });
+        // 收集所有行动优先级声明，同时过滤 skip 单位（如小昭姐妹飞天/附身）
+        // pass: true = 单位存在但无法攻击（预留给被遮挡休息、眩晕等），行动后不切换阵营
+        const currentTeamCheck = currentSide === 'ally' ? A : B;
+        const remainingCheck = currentTeamCheck.filter(u => u.alive && !u._acted);
+        const priorityDeclarations = [];
+        for (const u of remainingCheck) {
+            const decl = { priority: 0, skip: false, pass: false };
+            eventBus.emit('beforeActionSelect', { unit: u, declaration: decl });
+            if (decl.skip) continue; // 单位不在战场（附身/飞天），不进入候选池
+            priorityDeclarations.push({ unit: u, priority: decl.priority, pass: decl.pass });
+        }
+        priorityDeclarations.sort((a, b) => b.priority - a.priority);
+        const topPriority = priorityDeclarations[0]?.priority || 0;
+
+        if (topPriority > 0) {
+            isPriorityAction = true;
+            const topUnits = priorityDeclarations.filter(d => d.priority === topPriority);
+            for (const d of topUnits) {
+                if (d.unit._kuLianActive) {
+                    log.push({ type:'info', text:`<span class="gold">🏋️ 苦练：${d.unit.name} 每回合最先行动！</span>` });
+                    kuLianDone = true;
+                }
+            }
+            actingUnit = topUnits[0].unit;
+            // 如果选中的单位是 pass（存在但无法攻击，如被遮挡），不占队伍回合
+            if (topUnits[0].pass) isPriorityAction = true;
         } else {
             const currentTeam = currentSide === 'ally' ? A : B;
             const remaining = currentTeam.filter(u => u.alive && !u._acted).sort((a, b) => a.pos - b.pos);
@@ -387,21 +412,19 @@ export async function* createRoundStepper(state) {
                         continue;
                     }
 
-                    if (u._spiderFlying || u._flyMode === 'spider' || u._flyMode === 'butterfly') {
-                        u._acted = true;
-                        continue;
-                    }
-
                     if (u._stunned) {
+                        // 眩晕单位存在但无法行动，设 pass 标记，行动后不切换阵营
                         u._acted = true;
                         let bg = {type:'attack-group', uidA:u.uid, uidD:null, entries:[], isBlock:true, _fxSnapshot:makeFXSnapshot(u,null), waveTaunt:null, waveUnit:null, buffEffects:[]};
                         bg.entries.push({type:'info', text:`<span class="gray">💫 ${u.name} 被眩晕，无法行动</span>`});
                         bg._events = GlobalStore.flushBattleEvents();
                         log.push(bg);
+                        isPriorityAction = true;
                         continue;
                     }
 
                     if (blocked && isMelee(u.role)) {
+                        // 被遮挡的单位存在但无法攻击，设 pass 标记，行动后不切换阵营
                         u._acted = true;
                         let hpBefore = Math.floor(u.hp);
                         u.hp = Math.min(u.maxHp, u.hp + 15);
@@ -417,6 +440,7 @@ export async function* createRoundStepper(state) {
                         bg.entries.push({type:'info', text:`<span class="green">休息回复15点生命（${hpBefore} → ${hpAfter}）</span>`});
                         bg._events = GlobalStore.flushBattleEvents();
                         log.push(bg);
+                        isPriorityAction = true;
                         continue;
                     }
 
@@ -447,7 +471,8 @@ export async function* createRoundStepper(state) {
 
         await processUnitAttack(unit, allySide, enemySide, log, A, B, state, doubleStrikeUnitUid);
 
-        if (unit !== kuLianUnit) {
+        // 普通行动结束后切换行动方；高优先级抢动的单位（苦练等）跳过切换，让本队继续出人
+        if (!isPriorityAction) {
             currentSide = currentSide === 'ally' ? 'enemy' : 'ally';
         }
 

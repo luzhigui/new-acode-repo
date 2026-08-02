@@ -119,6 +119,13 @@ export function createXiaoZhaoSisterComponent() {
                 if (zhang) return;
                 comp.onAllyDamaged(data.target, data.dmg, A, data.log);
             });
+            // 附身状态下不参与行动轮询
+            eventBus.on('beforeActionSelect', 10, (data) => {
+                if (!data.unit.isXiaoZhaoSister || !data.unit.alive) return;
+                if (data.unit._flyMode === 'butterfly' || data.unit._butterflyHost) {
+                    data.declaration.skip = true;
+                }
+            });
         },
         onBeforeFirstAttack(A, log) {
             const sister = A.find(u => u.isXiaoZhaoSister && u.alive && u.pos === 4 && !u._stunned);
@@ -176,6 +183,13 @@ export function createXiaoZhaoBrotherComponent() {
                 if (data.target.uid !== brother.uid || !data.A) return;
                 const immune = onBeforeDeath(data.target, data.dmg, data.A, data.log);
                 if (immune) data.result.immune = true;
+            });
+            // 飞天状态下不参与行动轮询
+            eventBus.on('beforeActionSelect', 10, (data) => {
+                if (!data.unit.isXiaoZhaoBrother || !data.unit.alive) return;
+                if (data.unit._spiderFlying || data.unit._flyMode === 'spider') {
+                    data.declaration.skip = true;
+                }
             });
             // 永久概率连击
             eventBus.on('afterMiss', 60, (data) => {

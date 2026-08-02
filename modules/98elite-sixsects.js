@@ -42,6 +42,11 @@ export function createSongQingshuComponent() {
                 if (data.unit.name !== '宋青书') { return; }
                 await onAfterAttack(data.unit, data.target, B, A, data.log, B, A, data.state);
             });
+            // 苦练优先行动
+            eventBus.on('beforeActionSelect', 10, (data) => {
+                if (data.unit.name !== '宋青书' || !data.unit.alive || !data.unit._kuLianActive) return;
+                data.declaration.priority = 1;
+            });
         },
         onAfterApplyDamage(unit, target, dmgCalc, group, allySide, log) {
             if (unit.name !== '宋青书' || !unit.alive) return;
