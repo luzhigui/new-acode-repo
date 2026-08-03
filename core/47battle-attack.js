@@ -17,7 +17,10 @@ import {
     resolveAttackHit,
     calcFinalDamage,
     applyAttackResult,
-    buildAttackGroup
+    buildAttackGroup,
+    resolveDamageImmune,
+    resolveAfterDamageEffects,
+    resolveDeaths
 } from './49battle-attack-steps.js';
 import { eventBus } from './00-event-bus.js';
 
@@ -160,11 +163,10 @@ export async function processUnitAttack(unit, allySide, enemySide, log, A, B, st
     eventBus.emit('afterDamageApplied', { unit, target, dmg: dmgCalc.dmg, group, allySide, enemySide, log, A, B, declarations: afterDamageDeclarations });
 
     // 严阵以待反弹声明并入攻击后效果
-    if (dmgResult._fortifyDeclarations && dmgResult._fortifyDeclarations.length > 0) {
-        afterDamageDeclarations.push(...dmgResult._fortifyDeclarations);
+    if (dmgResult.fortifyDeclarations && dmgResult.fortifyDeclarations.length > 0) {
+        afterDamageDeclarations.push(...dmgResult.fortifyDeclarations);
     }
     // 攻击后效果结算 — 裁判按规则统一执行
-    const { resolveAfterDamageEffects } = await import('./49battle-attack-steps.js');
     resolveAfterDamageEffects(afterDamageDeclarations, unit, target, group, log);
 
     if (!unit._isLinkAttack) unit._acted = true;
@@ -178,7 +180,6 @@ export async function processUnitAttack(unit, allySide, enemySide, log, A, B, st
     }
 
     // 死亡结算边裁：所有攻击后效果完成，统一裁定死亡
-    const { resolveDeaths } = await import('./49battle-attack-steps.js');
     resolveDeaths(allySide, enemySide, log);
 
     return true;

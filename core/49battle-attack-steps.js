@@ -291,19 +291,7 @@ export function applyAttackResult(unit, target, dmgCalc, attackerBuffStats, defe
         if (!target._deathTime) target._deathTime = Date.now();
     }
 
-    // 战士斩杀 — 由 afterDamageApplied 监听器提交 execute 声明，裁判统一执行
-    const executeDeclarations = [];
-    eventBus.emit('afterDamageApplied', { unit, target, dmg, allySide, enemySide, log, declarations: executeDeclarations });
-    for (const decl of executeDeclarations) {
-        if (decl.type === 'execute' && target.alive && target.hp > 0 && target.hp <= target.maxHp * (decl.threshold || 0.15)) {
-            target.hp = 0;
-            target._pendingDeath = true;
-            if (!target._deathTime) target._deathTime = Date.now();
-            dead = true;
-            if (!unit._executeLog) unit._executeLog = [];
-            unit._executeLog.push({type:'info', text: decl.logText || ''});
-        }
-    }
+    // 战士斩杀 — 已由 registerBloodthirst 通过 afterDamageApplied 声明提交并执行
     unit.dmgDealt += dmg; target.dmgTaken += dmg;
     if (dead && target.camp === 'enemy' && unit.camp === 'ally' && !target._tokenDropped) {
         const stage = GlobalStore.get('currentStage') || 1;
@@ -348,13 +336,13 @@ export function applyAttackResult(unit, target, dmgCalc, attackerBuffStats, defe
 
     // 严阵以待反弹 — 提交声明，由攻击后效果边裁统一执行
     let reboundEntry = null;
+    let fortifyDeclarations = null;
     let allyBuffs_fortify = (target.camp === 'ally' ? A._activeBuffs : B._activeBuffs) || [];
     if (hasBuff(allyBuffs_fortify, 'fortify') && target.role === '防战' && dmg > 0) {
         const reboundDmg = Math.floor((atkAct - Math.floor(atkAct * (atkAct / (atkAct + defAct)))) / 2);
         if (reboundDmg > 0) {
             const hasSister = A && A.some(u => u.isXiaoZhaoSister && u.alive);
-            if (!dmgResult._fortifyDeclarations) dmgResult._fortifyDeclarations = [];
-            dmgResult._fortifyDeclarations.push({
+            fortifyDeclarations = [{
                 type: 'rebound',
                 value: reboundDmg,
                 source: target,
@@ -363,11 +351,11 @@ export function applyAttackResult(unit, target, dmgCalc, attackerBuffStats, defe
                 logText: hasSister
                     ? `<span class="gold">🛡️ 严阵以待反弹${reboundDmg}给${unit.name}（姐姐强化：回复${reboundDmg}）</span>`
                     : `<span class="gold">🛡️ 严阵以待反弹${reboundDmg}给${unit.name}</span>`
-            });
+            }];
         }
     }
 
-    return { dmg, dead, horseReboundEntry, reboundEntry, bonusEntries, hpBefore, defReduction, waveTaunt, waveUnit, rawFormula, thunderBonus, hornDmgMultiplier, trueDmg, atkAct, defAct, hpBonus };
+    return { dmg, dead, horseReboundEntry, reboundEntry, bonusEntries, hpBefore, defReduction, waveTaunt, waveUnit, rawFormula, thunderBonus, hornDmgMultiplier, trueDmg, atkAct, defAct, hpBonus, fortifyDeclarations };
 }
 
 // ==================== 死亡结算边裁 ====================

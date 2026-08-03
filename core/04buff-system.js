@@ -16,6 +16,7 @@ import {
 import { CONFIG } from './01config-5v5-test.js';
 import { rand, hasBuff, getUnitRow, getUnitCol, getAdjacentPositions } from './03battle-utils.js';
 import { checkKuLian, applyXingFenGrant, tickKuaiLeHeal, computeButterflyMastery, isXiaoZhaoPermanentActive, getXiaoZhaoHexEnhance } from '../modules/23elite-skills.js';
+import { emitEvent } from './50battle-shared.js';
 const C = CONFIG;
 
 /**
