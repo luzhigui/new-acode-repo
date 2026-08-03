@@ -281,123 +281,130 @@ export async function* createRoundStepper(state) {
     yield { log: [...log], events: roundStartEvents, ally: A, enemy: B, winner: null, done: false, doubleStrikeUid: doubleStrikeUnitUid };
     log = [];
 
+    /**
+     * 行动调度边裁 — 裁定本轮行动者
+     * 三步：裁判感知 → 声明收集 → 冲突裁决
+     * 输入候选单位列表，输出 { actingUnit, isPriorityAction, passUnits }
+     * 裁决标准：priority 高优先，同 priority 按 pos 排
+     */
+    function resolveActionOrder(candidates, log) {
+        const passUnits = [];
+        const active = [];
+        for (const u of candidates) {
+            if (!u.alive || u._isDead) continue;
+            if (u._stunned) {
+                passUnits.push({ unit: u, reason: '眩晕' });
+                continue;
+            }
+            if (u.isHorse) {
+                passUnits.push({ unit: u, reason: '拒马休息' });
+                continue;
+            }
+            const allySide = u.camp === 'ally' ? candidates.filter(c => c.camp === 'ally') : candidates.filter(c => c.camp === 'enemy');
+            if (isBlocked(u, allySide) && isMelee(u.role)) {
+                passUnits.push({ unit: u, reason: '被遮挡' });
+                continue;
+            }
+            active.push(u);
+        }
+
+        const priorityDeclarations = [];
+        for (const u of active) {
+            const decl = { priority: 0, skip: false, pass: false };
+            eventBus.emit('beforeActionSelect', { unit: u, declaration: decl });
+            if (decl.skip) continue;
+            if (decl.pass) {
+                passUnits.push({ unit: u, reason: '组件声明pass' });
+                continue;
+            }
+            priorityDeclarations.push({ unit: u, priority: decl.priority });
+        }
+
+        const hasPriority = priorityDeclarations.filter(d => d.priority > 0);
+        if (hasPriority.length > 0) {
+            hasPriority.sort((a, b) => b.priority - a.priority || a.unit.pos - b.unit.pos);
+            const winner = hasPriority[0];
+            if (winner.unit._kuLianActive) {
+                log.push({ type:'info', text:`<span class="gold">🏋️ 苦练：${winner.unit.name} 每回合最先行动！</span>` });
+            }
+            return { actingUnit: winner.unit, isPriorityAction: true, passUnits };
+        }
+
+        const sorted = priorityDeclarations.sort((a, b) => a.unit.pos - b.unit.pos);
+        if (sorted.length > 0) {
+            return { actingUnit: sorted[0].unit, isPriorityAction: false, passUnits };
+        }
+
+        return { actingUnit: null, isPriorityAction: false, passUnits };
+    }
+
     let currentSide = 'enemy';
     let kuLianDone = false;
 
     while (A.some(u => u.alive && !u._acted) || B.some(u => u.alive && !u._acted)) {
-        let actingUnit = null;
-        // ⚠️ 优先级行动标记：高优先级单位（如苦练）抢先行动不占队伍回合
-        // 行动后不能切换 currentSide，否则会打乱正常轮次顺序
-        // 历史教训：V5.3.1 删除 kuLianUnit 后曾漏掉此判断，导致苦练后阵营错误切换
-        let isPriorityAction = false;
+        const currentTeam = currentSide === 'ally' ? A : B;
+        const candidates = currentTeam.filter(u => u.alive && !u._acted);
+        const orderResult = resolveActionOrder(candidates, log);
 
-        // 收集所有行动优先级声明，同时过滤 skip 单位（如小昭姐妹飞天/附身）
-        // pass: true = 单位存在但无法攻击（预留给被遮挡休息、眩晕等），行动后不切换阵营
-        const currentTeamCheck = currentSide === 'ally' ? A : B;
-        const remainingCheck = currentTeamCheck.filter(u => u.alive && !u._acted);
-        const priorityDeclarations = [];
-        for (const u of remainingCheck) {
-            const decl = { priority: 0, skip: false, pass: false };
-            eventBus.emit('beforeActionSelect', { unit: u, declaration: decl });
-            if (decl.skip) continue; // 单位不在战场（附身/飞天），不进入候选池
-            priorityDeclarations.push({ unit: u, priority: decl.priority, pass: decl.pass });
-        }
-        priorityDeclarations.sort((a, b) => b.priority - a.priority);
-        const topPriority = priorityDeclarations[0]?.priority || 0;
-
-        if (topPriority > 0) {
-            isPriorityAction = true;
-            const validTopUnits = priorityDeclarations.filter(d => d.priority === topPriority && !d.pass);
-            for (const d of validTopUnits) {
-                if (d.unit._kuLianActive) {
-                    log.push({ type:'info', text:`<span class="gold">🏋️ 苦练：${d.unit.name} 每回合最先行动！</span>` });
-                    kuLianDone = true;
+        if (orderResult.passUnits.length > 0) {
+            for (const { unit, reason } of orderResult.passUnits) {
+                unit._acted = true;
+                unit._blocked = isBlocked(unit, currentTeam);
+                if (reason === '被遮挡') {
+                    let hpBefore = Math.floor(unit.hp);
+                    unit.hp = Math.min(unit.maxHp, unit.hp + 15);
+                    let hpAfter = Math.floor(unit.hp);
+                    unit._resting = true;
+                    if (unit._restingTimer) clearTimeout(unit._restingTimer);
+                    unit._restingTimer = setTimeout(() => {
+                        unit._resting = false;
+                        emitEvent(unit, 'hp-change', { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: unit.atk, def: unit.def, _resting: false });
+                    }, 3000);
+                    let bg = {type:'attack-group', uidA:unit.uid, uidD:null, entries:[], isBlock:true, _fxSnapshot:makeFXSnapshot(unit,null), waveTaunt:null, waveUnit:null, buffEffects:[], needsSeparator: true, healAmount: 15, healUnitUid: unit.uid};
+                    bg.entries.push({type:'combat-text', text:`<span class="${unit.camp==='ally'?'blue':'orange'}">${unit.camp==='ally'?'明教':'六大派'} ${unit.name}</span> 被遮挡`});
+                    bg.entries.push({type:'info', text:`<span class="green">休息回复15点生命（${hpBefore} → ${hpAfter}）</span>`});
+                    bg._events = GlobalStore.flushBattleEvents();
+                    log.push(bg);
+                } else if (reason === '眩晕') {
+                    let bg = {type:'attack-group', uidA:unit.uid, uidD:null, entries:[], isBlock:true, _fxSnapshot:makeFXSnapshot(unit,null), waveTaunt:null, waveUnit:null, buffEffects:[], needsSeparator: true};
+                    bg.entries.push({type:'info', text:`<span class="gray">💫 ${unit.name} 被眩晕，无法行动</span>`});
+                    bg._events = GlobalStore.flushBattleEvents();
+                    log.push(bg);
+                } else if (reason === '拒马休息') {
+                    let hpBefore = Math.floor(unit.hp);
+                    unit.hp = Math.min(unit.maxHp, unit.hp + 15);
+                    let hpAfter = Math.floor(unit.hp);
+                    unit._resting = true;
+                    if (unit._restingTimer) clearTimeout(unit._restingTimer);
+                    unit._restingTimer = setTimeout(() => {
+                        unit._resting = false;
+                        emitEvent(unit, 'hp-change', { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: unit.atk, def: unit.def, _resting: false });
+                    }, 3000);
+                    let bg = {type:'attack-group', uidA:unit.uid, uidD:null, entries:[], isBlock:true, _fxSnapshot:makeFXSnapshot(unit,null), waveTaunt:null, waveUnit:null, buffEffects:[], needsSeparator: true, healAmount: 15, healUnitUid: unit.uid};
+                    bg.entries.push({type:'combat-text', text:`<span class="${unit.camp==='ally'?'blue':'orange'}">${unit.camp==='ally'?'明教':'六大派'} ${unit.name}</span> 无法攻击`});
+                    bg.entries.push({type:'info', text:`<span class="green">🐴 拒马休息回复15点生命（${hpBefore} → ${hpAfter}）</span>`});
+                    bg._events = GlobalStore.flushBattleEvents();
+                    log.push(bg);
+                } else {
+                    let bg = {type:'attack-group', uidA:unit.uid, uidD:null, entries:[], isBlock:true, _fxSnapshot:makeFXSnapshot(unit,null), waveTaunt:null, waveUnit:null, buffEffects:[], needsSeparator: true};
+                    bg.entries.push({type:'info', text:`<span class="gray">${unit.name} 无法行动</span>`});
+                    bg._events = GlobalStore.flushBattleEvents();
+                    log.push(bg);
                 }
             }
-            if (validTopUnits.length > 0) {
-                actingUnit = validTopUnits[0].unit;
-                if (validTopUnits[0].pass) isPriorityAction = true;
-            }
-        } else {
-            // 复用已过滤 skip 的候选列表，引擎只问一次，不重复 emit
-            const remaining = priorityDeclarations
-                .map(d => d.unit)
-                .sort((a, b) => a.pos - b.pos);
-
-            if (remaining.length > 0) {
-                let found = null;
-                for (const u of remaining) {
-                    const allySide = u.camp === 'ally' ? A : B;
-                    const blocked = isBlocked(u, allySide);
-                    u._blocked = blocked;
-
-                    if (u.isHorse && u.atk <= 0) {
-                        u._acted = true;
-                        let hpBefore = Math.floor(u.hp);
-                        u.hp = Math.min(u.maxHp, u.hp + 15);
-                        let hpAfter = Math.floor(u.hp);
-                        u._resting = true;
-                        if (u._restingTimer) clearTimeout(u._restingTimer);
-                        u._restingTimer = setTimeout(() => {
-                            u._resting = false;
-                            emitEvent(u, 'hp-change', { hp: u.hp, maxHp: u.maxHp, alive: u.alive, atk: u.atk, def: u.def, _resting: false });
-                        }, 3000);
-                        let bg = {type:'attack-group', uidA:u.uid, uidD:null, entries:[], isBlock:true, _fxSnapshot:makeFXSnapshot(u,null), waveTaunt:null, waveUnit:null, buffEffects:[], needsSeparator: true, healAmount: 15, healUnitUid: u.uid};
-                        bg.entries.push({type:'combat-text', text:`<span class="${u.camp==='ally'?'blue':'orange'}">${u.camp==='ally'?'明教':'六大派'} ${u.name}</span> 无法攻击`});
-                        bg.entries.push({type:'info', text:`<span class="green">🐴 拒马休息回复15点生命（${hpBefore} → ${hpAfter}）</span>`});
-                        bg._events = GlobalStore.flushBattleEvents();
-                        log.push(bg);
-                        continue;
-                    }
-
-                    if (u._stunned) {
-                        // 眩晕单位存在但无法行动，设 pass 标记，行动后不切换阵营
-                        u._acted = true;
-                        let bg = {type:'attack-group', uidA:u.uid, uidD:null, entries:[], isBlock:true, _fxSnapshot:makeFXSnapshot(u,null), waveTaunt:null, waveUnit:null, buffEffects:[], needsSeparator: true};
-                        bg.entries.push({type:'info', text:`<span class="gray">💫 ${u.name} 被眩晕，无法行动</span>`});
-                        bg._events = GlobalStore.flushBattleEvents();
-                        log.push(bg);
-                        isPriorityAction = true;
-                        continue;
-                    }
-
-                    if (blocked && isMelee(u.role)) {
-                        // 被遮挡的单位存在但无法攻击，设 pass 标记，行动后不切换阵营
-                        u._acted = true;
-                        let hpBefore = Math.floor(u.hp);
-                        u.hp = Math.min(u.maxHp, u.hp + 15);
-                        let hpAfter = Math.floor(u.hp);
-                        u._resting = true;
-                        if (u._restingTimer) clearTimeout(u._restingTimer);
-                        u._restingTimer = setTimeout(() => {
-                            u._resting = false;
-                            emitEvent(u, 'hp-change', { hp: u.hp, maxHp: u.maxHp, alive: u.alive, atk: u.atk, def: u.def, _resting: false });
-                        }, 3000);
-                        let bg = {type:'attack-group', uidA:u.uid, uidD:null, entries:[], isBlock:true, _fxSnapshot:makeFXSnapshot(u,null), waveTaunt:null, waveUnit:null, buffEffects:[], needsSeparator: true, healAmount: 15, healUnitUid: u.uid};
-                        bg.entries.push({type:'combat-text', text:`<span class="${u.camp==='ally'?'blue':'orange'}">${u.camp==='ally'?'明教':'六大派'} ${u.name}</span> 被遮挡`});
-                        bg.entries.push({type:'info', text:`<span class="green">休息回复15点生命（${hpBefore} → ${hpAfter}）</span>`});
-                        bg._events = GlobalStore.flushBattleEvents();
-                        log.push(bg);
-                        isPriorityAction = true;
-                        continue;
-                    }
-
-                    found = u;
-                    break;
-                }
-                if (found) actingUnit = found;
-            }
-
-            if (!actingUnit) {
+            if (!orderResult.actingUnit) {
                 currentSide = currentSide === 'ally' ? 'enemy' : 'ally';
                 continue;
             }
         }
 
-        if (!actingUnit) {
+        if (!orderResult.actingUnit) {
             currentSide = currentSide === 'ally' ? 'enemy' : 'ally';
             continue;
         }
+
+        let actingUnit = orderResult.actingUnit;
+        let isPriorityAction = orderResult.isPriorityAction;
 
         let unit = actingUnit;
         let allySide = unit.camp === 'ally' ? A : B;

@@ -228,19 +228,44 @@ export function registerBloodthirst(eventBus) {
         const isBrother = unit.isXiaoZhaoBrother;
         
         if (hasBuff(unitBuffs, 'bloodthirst') && unit.role === '战士' && dmg > 0) {
-            if (hasSister) {
-                applyBloodthirst_Normal(unit, target, dmg, allySide, enemySide, log);
-                if (unit.alive && target.alive && !unit._bloodthirstStriked) {
-                    unit._bloodthirstStriked = true;
-                    if (typeof processUnitAttack === 'function') {
-                        await processUnitAttack(unit, allySide, enemySide, log, allySide, enemySide, null, null, target.uid);
-                    }
-                }
-            } else {
-                applyBloodthirst_Normal(unit, target, dmg, allySide, enemySide, log);
+            const leechVal = Math.floor(dmg * C.BUFFS.bloodthirst.leechRatio);
+            const decl = {
+                type: 'leech',
+                value: leechVal,
+                source: unit,
+                logText: `<span class="green">🗡️ ${unit.name} 的嗜血狂刀吸血+${leechVal}</span>`
+            };
+            if (!data.declarations) data.declarations = [];
+            data.declarations.push(decl);
+            if (hasSister && unit.alive && target.alive && !unit._bloodthirstStriked) {
+                unit._bloodthirstStriked = true;
+                eventBus.emit('requestExtraAttack', { unit, target, allySide, enemySide, log });
             }
         } else if (isBrother && isXiaoZhaoPermanentActive(unit, unitBuffs, 'bloodthirst') && unit.role === '战士') {
-            applyBloodthirst_Brother(unit, target, dmg, allySide, enemySide, log);
+            const leechVal = Math.floor(dmg * 0.8);
+            const decl = {
+                type: 'leech',
+                value: leechVal,
+                source: unit,
+                logText: `<span class="green">🦋 蝶血：小昭嗜血狂刀吸血+${leechVal}</span>`
+            };
+            if (!data.declarations) data.declarations = [];
+            data.declarations.push(decl);
+        }
+
+        // 战士斩杀：嗜血狂刀激活时斩杀线提升至20%
+        if (unit.role === '战士' && target && target.alive && target.hp > 0) {
+            const hasBloodthirst = hasBuff(unitBuffs, 'bloodthirst');
+            const threshold = hasBloodthirst ? 0.20 : 0.15;
+            if (target.hp <= target.maxHp * threshold) {
+                const executeDecl = {
+                    type: 'execute',
+                    threshold: threshold,
+                    logText: `<span class="red">⚔️ 战士斩杀！${unit.name} 直接击杀 ${target.name}！</span>`
+                };
+                if (!data.declarations) data.declarations = [];
+                data.declarations.push(executeDecl);
+            }
         }
     });
 }
@@ -248,16 +273,51 @@ export function registerBloodthirst(eventBus) {
 export function registerHotBlood(eventBus) {
     eventBus.on('afterDamageApplied', 25, (data) => {
         const { unit, dmg, allySide, enemySide, log } = data;
-        if (!unit.alive || unit.camp !== 'ally') return;
+        if (!unit.alive || unit.camp !== 'ally' || unit.hp >= unit.maxHp) return;
         const unitBuffs = allySide._activeBuffs || [];
         const hasSister = allySide.some(u => u.isXiaoZhaoSister && u.alive);
         const isBrother = unit.isXiaoZhaoBrother;
 
         if (hasBuff(unitBuffs, 'hotBlood')) {
-            if (hasSister) applyHotBlood_Sister(unit, null, dmg, allySide, enemySide, log);
-            else applyHotBlood_Normal(unit, null, dmg, allySide, enemySide, log);
+            if (!unit._hotBloodCount) unit._hotBloodCount = 0;
+            unit._hotBloodCount++;
+            let ratio, tag;
+            if (hasSister) {
+                ratio = (unit._hotBloodCount % 2 === 0) ? 0.40 : 0.20;
+                tag = (unit._hotBloodCount % 2 === 0) ? '❤️‍🔥 热血奋战(翻倍)' : '❤️ 热血奋战';
+            } else {
+                ratio = (unit._hotBloodCount % 3 === 0) ? C.BUFFS.hotBlood.critRatio : C.BUFFS.hotBlood.leechRatio;
+                tag = (unit._hotBloodCount % 3 === 0) ? '❤️‍🔥 热血奋战(翻倍)' : '❤️ 热血奋战';
+            }
+            const leech = Math.min(Math.floor((unit.maxHp - unit.hp) * ratio), unit.maxHp - unit.hp);
+            if (leech > 0) {
+                const decl = {
+                    type: 'heal',
+                    value: leech,
+                    source: unit,
+                    logText: `<span class="green">${tag}：${unit.name} 回复+${leech}</span>`
+                };
+                if (!data.declarations) data.declarations = [];
+                data.declarations.push(decl);
+            }
         } else if (isBrother && isXiaoZhaoPermanentActive(unit, unitBuffs, 'hotBlood')) {
-            applyHotBlood_Brother(unit, null, dmg, allySide, enemySide, log);
+            if (!unit._hotBloodCount) unit._hotBloodCount = 0;
+            unit._hotBloodCount++;
+            if (unit.hp < unit.maxHp) {
+                let ratio = (unit._hotBloodCount % 2 === 0) ? 0.40 : 0.20;
+                const leech = Math.min(Math.floor((unit.maxHp - unit.hp) * ratio), unit.maxHp - unit.hp);
+                const tag = (unit._hotBloodCount % 2 === 0) ? '🦋 热血(翻倍)' : '🦋 热血';
+                if (leech > 0) {
+                    const decl = {
+                        type: 'heal',
+                        value: leech,
+                        source: unit,
+                        logText: `<span class="green">${tag}：小昭回复+${leech}</span>`
+                    };
+                    if (!data.declarations) data.declarations = [];
+                    data.declarations.push(decl);
+                }
+            }
         }
     });
 }
@@ -270,11 +330,55 @@ export function registerWindAssault(eventBus) {
         const hasSister = allySide.some(u => u.isXiaoZhaoSister && u.alive);
         const isBrother = unit.isXiaoZhaoBrother;
 
-        if (hasBuff(unitBuffs, 'windAssault') && unit.role === '飞行') {
-            if (hasSister) applyWindAssault_Sister(unit, target, dmg, allySide, enemySide, log);
-            else applyWindAssault_Normal(unit, target, dmg, allySide, enemySide, log);
-        } else if (isBrother && unit.role === '飞行' && isXiaoZhaoPermanentActive(unit, unitBuffs, 'windAssault')) {
-            applyWindAssault_Brother(unit, target, dmg, allySide, enemySide, log);
+        const active = hasBuff(unitBuffs, 'windAssault') && unit.role === '飞行';
+        const brotherActive = isBrother && unit.role === '飞行' && isXiaoZhaoPermanentActive(unit, unitBuffs, 'windAssault');
+        if (!active && !brotherActive) return;
+
+        const hitProb = hasSister ? 100 : 80;
+        const pushProb = hasSister ? 80 : 60;
+        const label = brotherActive ? '🦋 蝶翼' : '🦅 乘风突袭';
+
+        if (rand(1, 100) <= hitProb) {
+            const row = getUnitRow(target.pos);
+            const rowTargets = enemySide.filter(u => u.alive && getUnitRow(u.pos) === row && u.uid !== target.uid && !(u._flyMode === 'butterfly') && !(u._flyMode === 'spider') && !u._spiderFlying);
+            if (rowTargets.length > 0) {
+                const splashDmg = Math.floor(dmg);
+                const details = rowTargets.map(rt => `${rt.name}`).join('、');
+                const decl = {
+                    type: 'splash',
+                    value: splashDmg,
+                    targets: rowTargets,
+                    buffType: 'wind_assault',
+                    logText: `<span class="orange">${label}波及${details}，各 -${splashDmg}</span>`
+                };
+                if (!data.declarations) data.declarations = [];
+                data.declarations.push(decl);
+            } else {
+                log.push({type:'info', text:`<span class="gray">${label}波及触发失败</span>`});
+            }
+        } else {
+            log.push({type:'info', text:`<span class="gray">${label}波及触发失败</span>`});
+        }
+
+        // 击退逻辑保留在组件（改位置不冲突其他效果）
+        if (rand(1, 100) <= pushProb) {
+            const behindPos = target.pos + 3;
+            if (behindPos <= 9) {
+                const targetTeam = target.camp === 'ally' ? allySide : enemySide;
+                const behindUnit = targetTeam.find(u => u.pos === behindPos && u.alive);
+                const oldPos = target.pos;
+                if (behindUnit) {
+                    const behindOldPos = behindUnit.pos;
+                    target.pos = behindPos;
+                    behindUnit.pos = oldPos;
+                    log.push({type:'buff-push', pushTargetUid: target.uid, behindUid: behindUnit.uid, oldPos, newPos: behindPos, behindOldPos, buffType:'push', text:`<span class="gold" style="font-size:1.1em;">${label}击退！${target.name}从${oldPos}号位击退至${behindPos}号位，${behindUnit.name}被迫从${behindOldPos}号位移至${oldPos}号位</span>`});
+                } else {
+                    target.pos = behindPos;
+                    log.push({type:'buff-push', pushTargetUid: target.uid, behindUid: null, oldPos, newPos: behindPos, buffType:'push', text:`<span class="gold" style="font-size:1.1em;">${label}击退！${target.name}从${oldPos}号位被击退至${behindPos}号位</span>`});
+                }
+            }
+        } else {
+            log.push({type:'info', text:`<span class="gray">${label}击退触发失败</span>`});
         }
     });
 }
@@ -287,11 +391,45 @@ export function registerMeteorShower(eventBus) {
         const hasSister = allySide.some(u => u.isXiaoZhaoSister && u.alive);
         const isBrother = unit.isXiaoZhaoBrother;
 
-        if (hasBuff(unitBuffs, 'meteorShower') && unit.role === '远程') {
-            if (hasSister) applyMeteorShower_Sister(unit, target, dmg, allySide, enemySide, log);
-            else applyMeteorShower_Normal(unit, target, dmg, allySide, enemySide, log);
-        } else if (isBrother && unit.role === '远程' && isXiaoZhaoPermanentActive(unit, unitBuffs, 'meteorShower')) {
-            applyMeteorShower_Brother(unit, target, dmg, allySide, enemySide, log);
+        const active = hasBuff(unitBuffs, 'meteorShower') && unit.role === '远程';
+        const brotherActive = isBrother && unit.role === '远程' && isXiaoZhaoPermanentActive(unit, unitBuffs, 'meteorShower');
+        if (!active && !brotherActive) return;
+
+        const label = brotherActive ? '🦋 蝶星' : '☄️ 流星赶月';
+
+        // 主箭额外增伤 — 作为 bonusDmg 声明提交给伤害计算边裁（下一轮优化）
+        // 当前暂时保留直接修改，因为伤害计算边裁的 bonusDmg 声明通道未完全接入
+        const bonusDmg = Math.floor(dmg * C.BUFFS.meteorShower.bonusRatio);
+        unit.dmgDealt += bonusDmg;
+        if (target.alive) {
+            target.hp -= bonusDmg;
+            target.dmgTaken += bonusDmg;
+            target.def = Math.max(0, target.def - (C.BUFFS.meteorShower.mainDefReduce || 2));
+            if (target.hp <= 0) { target._pendingDeath = true; if (!target._deathTime) target._deathTime = Date.now(); }
+            emitEvent(target, 'hp-change', { hp: target.hp, maxHp: target.maxHp, alive: target.alive, atk: target.atk, def: target.def });
+        }
+        log.push({type:'buff-bonus', text:`<span class="gold">${label}伤害加深：${target.name} 额外-${bonusDmg}，防御-${C.BUFFS.meteorShower.mainDefReduce || 2}</span>`, buffType:'meteor_bonus', targetUid: target.uid, bonusDmg});
+
+        // 溅射 — 提交 splash 声明
+        const splashDmg = Math.floor(dmg * C.BUFFS.meteorShower.splashRatio);
+        const adjPositions = getAdjacentPositions(target.pos);
+        const splashSide = target.camp === unit.camp ? allySide : enemySide;
+        const splashTargets = splashSide.filter(u => u.alive && adjPositions.includes(u.pos) && !(u._flyMode === 'butterfly') && !(u._flyMode === 'spider') && !u._spiderFlying);
+        if (splashTargets.length > 0) {
+            const details = splashTargets.map(st => `${st.name}`).join('、');
+            const decl = {
+                type: 'splash',
+                value: splashDmg,
+                targets: splashTargets,
+                buffType: 'meteor_splash',
+                logText: `<span class="orange">${label}溅射：${details}，各-${splashDmg}，防御-${C.BUFFS.meteorShower.splashDefReduce || 1}</span>`
+            };
+            if (!data.declarations) data.declarations = [];
+            data.declarations.push(decl);
+            // 溅射降防由组件直接处理（无冲突）
+            for (const st of splashTargets) {
+                st.def = Math.max(0, st.def - (C.BUFFS.meteorShower.splashDefReduce || 1));
+            }
         }
     });
 }

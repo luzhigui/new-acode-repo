@@ -34,6 +34,14 @@ export function createSongQingshuComponent() {
                 if (data.unit.name !== '宋青书') return;
                 onAfterApplyDamage(data.unit, data.target, { dmg: data.dmg }, data.group, B, data.log);
             });
+            // 叛逆突袭：附加真实伤害
+            eventBus.on('beforeDamageCalc', 30, (data) => {
+                if (data.unit.name !== '宋青书' || !data.target || !data.target.alive || !data.declarations) return;
+                const trueDmg = Math.floor(data.target.hp * (CONFIG.ELITE_SKILLS.rebelStrike.currentHpRatio || 0.08));
+                if (trueDmg > 0) {
+                    data.declarations.push({ type: 'bonusDmg', value: trueDmg, source: data.unit });
+                }
+            });
             // 性奋额外攻击
             eventBus.on('afterAttack', 40, async (data) => {
                 if (data.unit.name !== '宋青书') { return; }
@@ -43,6 +51,15 @@ export function createSongQingshuComponent() {
             eventBus.on('beforeActionSelect', 10, (data) => {
                 if (data.unit.name !== '宋青书' || !data.unit.alive || !data.unit._kuLianActive) return;
                 data.declaration.priority = 1;
+            });
+            // 叛逆突袭：目标选择 — 优先攻击血量最高目标
+            eventBus.on('beforeSelectTarget', 20, (data) => {
+                if (data.unit.name !== '宋青书' || !data.unit.alive || !data.validTargets || data.validTargets.length === 0) return;
+                const rebelTarget = data.validTargets.reduce((a, b) => (a.hp / a.maxHp) > (b.hp / b.maxHp) ? a : b);
+                if (rebelTarget) {
+                    data.declaration.targetResult = rebelTarget;
+                    data.declaration.phantomLog = null;
+                }
             });
             // 回合开始：性奋授予 + 苦练 buff（⚠️ 必须同步执行，后续属性计算依赖此加成）
             eventBus.on('onRoundStart', 10, (data) => {
@@ -74,12 +91,14 @@ export function createSongQingshuComponent() {
             if (unit.name !== '宋青书' || !unit.alive) return;
             const zhou = allySide.find(u => u.name === '周芷若' && u.alive);
             if (zhou) {
+                // 提交新婚扣血声明
                 zhou.hp = Math.max(0, zhou.hp - ES.xinHun.hpDeduct);
                 zhou.dmgTaken += ES.xinHun.hpDeduct;
-                emitEvent(zhou, 'hp-change', { hp:zhou.hp, maxHp:zhou.maxHp, alive:zhou.alive, atk:zhou.atk, def:zhou.def, _isAbsolute:true });
                 zhou._kuaiLeStack.push({ healPct:ES.xinHun.healLevels[0] });
+                emitEvent(zhou, 'hp-change', { hp:zhou.hp, maxHp:zhou.maxHp, alive:zhou.alive, atk:zhou.atk, def:zhou.def, _isAbsolute:true });
+                if (zhou.hp <= 0) { zhou._pendingDeath = true; if (!zhou._deathTime) zhou._deathTime = Date.now(); }
                 log.push({ type:'info', text:`<span class="gold">💒 新婚：${unit.name}攻击，${zhou.name}被扣除${ES.xinHun.hpDeduct}点血量，叠加一层快乐(16%)！当前快乐层数：${zhou._kuaiLeStack.length}</span>`, buffType:'elite_xinhun', zhouUid:zhou.uid, zhouHpAfter:zhou.hp });
-                if (zhou.hp <= 0) { zhou.hp = 0; zhou.alive = false; zhou._isDead = true; if (!zhou._deathTime) zhou._deathTime = Date.now(); emitEvent(zhou, 'hp-change', { hp:0, maxHp:zhou.maxHp, alive:false, atk:zhou.atk, def:zhou.def, _isDead:true, _isAbsolute:true }); log.push({ type:'info', text:`<span class="red">💀 ${zhou.name} 因新婚扣血而阵亡！</span>`, uidD:zhou.uid, isDead:true }); }
+                if (zhou._pendingDeath) { log.push({ type:'info', text:`<span class="red">💀 ${zhou.name} 因新婚扣血而阵亡！</span>`, uidD:zhou.uid, isDead:true }); }
             }
             if (zhou) {
                 if (!unit._xingFenPenaltyCount) unit._xingFenPenaltyCount = 0;
@@ -89,6 +108,7 @@ export function createSongQingshuComponent() {
                     const oldMaxHp = unit.maxHp;
                     unit.maxHp = Math.max(1, unit.maxHp - penalty);
                     unit.hp = Math.floor(unit.hp * (unit.maxHp / oldMaxHp));
+                    if (unit.hp <= 0) { unit._pendingDeath = true; if (!unit._deathTime) unit._deathTime = Date.now(); }
                     emitEvent(unit, 'hp-change', { hp:unit.hp, maxHp:unit.maxHp, alive:unit.alive, atk:unit.atk, def:unit.def });
                     log.push({ type:'info', text:`<span class="red">💗 性奋代价：${unit.name} 血量上限 ${oldMaxHp} → ${unit.maxHp}（-${penalty}）</span>` });
                 }
@@ -147,7 +167,7 @@ export function createZhouZhiruoComponent() {
                 const execThreshold = zhangAlive ? (s.jealousExecuteThreshold||0.15) : (s.executeThreshold||0.12);
                 let isExecute = false;
                 if (hpPctAfter <= execThreshold && target.hp > 0) { bonusDmg += target.hp; target.hp = 0; isExecute = true; }
-                if (target.hp <= 0) { target.hp = 0; target.alive = false; target._isDead = true; if (!target._deathTime) target._deathTime = Date.now(); }
+                if (target.hp <= 0) { target._pendingDeath = true; if (!target._deathTime) target._deathTime = Date.now(); }
                 emitEvent(target, 'hp-change', { hp:target.hp, maxHp:target.maxHp, alive:target.alive, atk:target.atk, def:target.def, _isDead:target._isDead||false, _isAbsolute:true });
                 const clawEvents = GlobalStore.flushBattleEvents();
                 log.push({ type:'info', text:`<span style="color:#222">🐾 九阴白骨爪${depth>0?'连锁':'追击'}！${unit.name} 对 ${target.name} 造成 ${bonusDmg} 点伤害${isExecute?'（斩杀）':(zhangAlive?'【嫉妒】':'')}</span>`, buffType:'elite_bonus', isClawHit:true, clawAttackerUid:unit.uid, clawTargetUid:target.uid, clawTargetHpAfter:target.hp, clawTargetAlive:target.alive, clawTargetIsDead:target._isDead, isExecute:isExecute, uidD:target.uid, isDead:!target.alive, _events:clawEvents });

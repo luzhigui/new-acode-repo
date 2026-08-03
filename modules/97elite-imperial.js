@@ -21,17 +21,16 @@ export function createChengKunComponent() {
             if (!cheng) return;
             const onAfterApplyDamage = this.onAfterApplyDamage;
             const onDamageCalc = this.onDamageCalc;
-            // 幻影伪装：裁判生成合法目标清单，成昆从中随机选择
-            eventBus.on('beforePhantomSelect', 10, (data) => {
+            // 幻影伪装：被模仿者攻击时误伤队友
+            eventBus.on('beforeSelectTarget', 30, (data) => {
                 if (data.unit.camp !== 'ally') return;
-                const chengkun = data.enemySide.find(u => u.name === '成昆' && u.alive);
-                if (!chengkun || !chengkun._phantomTarget) return;
-                // 裁判生成清单：存活、非马、非不可选中
-                const list = data.allySide.filter(u => u.alive && !u.isHorse && !u._untargetable);
-                if (list.length > 0) {
-                    const chosen = list[rand(0, list.length - 1)];
-                    data.phantomResult.target = chosen;
-                    data.phantomResult.log = `🎭 幻影伪装！${data.unit.name}被混乱，误攻队友${chosen.name}！`;
+                const chengkun = data.enemySide.find(u => u.name === '成昆' && u.alive && u._phantomTarget);
+                if (!chengkun || chengkun._phantomTarget !== data.unit.uid) return;
+                const fakeList = data.allySide.filter(u => u.alive && !u.isHorse && !u._untargetable && u.uid !== data.unit.uid);
+                if (fakeList.length > 0) {
+                    const fakeTarget = fakeList[rand(0, fakeList.length - 1)];
+                    data.declaration.targetResult = fakeTarget;
+                    data.declaration.phantomLog = `🎭 幻影伪装！${data.unit.name}被混乱，误攻队友${fakeTarget.name}！`;
                 }
             });
             // 幻影伪装：攻击后更新伪装目标
@@ -39,10 +38,13 @@ export function createChengKunComponent() {
                 if (data.unit.name !== '成昆') return;
                 onAfterApplyDamage(data.unit, data.target, { dmg: data.dmg }, data.group, A, data.log);
             });
-            // 混元霹雳劲
-            eventBus.on('beforeDamageCalcFinal', 10, (data) => {
-                if (data.unit.name === '成昆') {
-                    data.dmgResult.thunderBonus = onDamageCalc(data.unit, data.target, data.dmgResult.value);
+            // 混元霹雳劲 → 提交伤害声明
+            eventBus.on('beforeDamageCalc', 15, (data) => {
+                if (data.unit.name !== '成昆' || !data.declarations) return;
+                const lostHp = data.unit.maxHp - data.unit.hp;
+                const bonus = Math.floor(lostHp * ES.phantomThunder.lostHpRatio);
+                if (bonus > 0) {
+                    data.declarations.push({ type: 'bonusDmg', value: bonus, source: data.unit });
                 }
             });
         },
@@ -62,11 +64,6 @@ export function createChengKunComponent() {
                 emitEvent(unit, 'hp-change', { hp:unit.hp, maxHp:unit.maxHp, alive:unit.alive, atk:unit.atk, def:unit.def, _phantomTarget:unit._phantomTarget });
             }
         },
-        onDamageCalc(unit, target, rawDmg) {
-            if (unit.name !== '成昆') return 0;
-            const lostHp = unit.maxHp - unit.hp;
-            return Math.floor(lostHp * ES.phantomThunder.lostHpRatio);
-        }
     };
 }
 
@@ -112,23 +109,16 @@ export function createHeBiWengComponent() {
             const he = B.find(u => u.name === '鹤笔翁' && u.alive);
             if (!he) return;
             const onDamageCalc = this.onDamageCalc;
-            // 鹿角杖法
-            eventBus.on('beforeDamageCalcFinal', 20, (data) => {
-                if (data.unit.name === '鹤笔翁') {
-                    const result = onDamageCalc(data.unit, data.target, data.dmgResult.value);
-                    if (result && result.defIgnore) {
-                        data.dmgResult.hornDefIgnore = result.defIgnore;
-                        data.dmgResult.hornDmgMultiplier = result.dmgMultiplier || 1;
-                    }
+            // 鹿角杖法 → 提交伤害声明
+            eventBus.on('beforeDamageCalc', 25, (data) => {
+                if (data.unit.name !== '鹤笔翁' || !data.declarations) return;
+                const poisoned = data.target._xuanmingPoison && data.target._xuanmingPoison.remaining > 0;
+                data.declarations.push({ type: 'ignoreDef', value: ES.hornStrike.defIgnore, source: data.unit });
+                if (poisoned) {
+                    data.declarations.push({ type: 'dmgMultiplier', value: 1 + ES.hornStrike.poisonedBonus, source: data.unit });
                 }
             });
         },
-        onDamageCalc(unit, target, rawDmg) {
-            if (unit.name !== '鹤笔翁') return { defIgnore:0, dmgMultiplier:1, rawDmg };
-            const s = ES.hornStrike;
-            const poisoned = target._xuanmingPoison && target._xuanmingPoison.remaining > 0;
-            return { defIgnore:s.defIgnore, dmgMultiplier:poisoned ? 1+s.poisonedBonus : 1, rawDmg };
-        }
     };
 }
 

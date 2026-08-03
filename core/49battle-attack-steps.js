@@ -17,64 +17,91 @@ import {
 import { applyFortifyRebound_Normal, applyFortifyRebound_Sister } from './51buff-effects.js';
 import { emitEvent } from './50battle-shared.js';
 
+// ==================== 闪避规则注册表 ====================
+// 裁判统一管理所有闪避规则。每个规则是一个函数 (unit, attacker) => dodgeRate (0~1)
+// 通用规则在模块加载时注册，精英规则通过事件总线在回合开始注册
+const _dodgeRules = [];
+
+/**
+ * 注册闪避规则（通用或精英均可调用）
+ * @param {function} fn - (unit, attacker) => dodgeRate
+ */
+export function registerDodgeRule(fn) {
+    _dodgeRules.push(fn);
+}
+
+/**
+ * 清除精英注册的动态规则，保留通用规则
+ */
+export function clearEliteDodgeRules() {
+    _dodgeRules.length = 2; // 保留前两条通用规则
+}
+
+// 通用规则：飞行单位基础闪避15%
+registerDodgeRule((unit, attacker) => {
+    if (unit.role === '飞行') return CONFIG.BASE_DODGE_FLY || 0.15;
+    return 0;
+});
+
+// 通用规则：非飞行单位基础闪避3%
+registerDodgeRule((unit, attacker) => {
+    if (unit.role !== '飞行') return CONFIG.BASE_DODGE_GROUND || 0.03;
+    return 0;
+});
+
 const C = CONFIG, DT = DEF_TAUNT, HT = HP_TAUNT;
 
 // ==================== 步骤1：选择攻击目标 ====================
 export function selectAttackTarget(unit, enemySide, allySide) {
-    let targets = enemySide.filter(c => c.alive && !c._untargetable);
-    if (targets.length === 0) return { target: null, phantomLog: null };
+    // 可选中目标池（存活、非不可选中）
+    const validTargets = enemySide.filter(c => c.alive && !c._untargetable);
+    if (validTargets.length === 0) return { target: null, phantomLog: null };
 
+    // ---------- 第一步：声明收集 ----------
+    // 组件可声明 { target, method, reason } 覆盖通用规则
+    const declaration = { targetResult: null };
+    eventBus.emit('beforeSelectTarget', { unit, enemySide, allySide, validTargets, declaration });
+
+    // ---------- 第二步：裁判裁定 ----------
     let target = null;
-    // 飞行突进等自定义选目标信号
-    let customTarget = { result: null };
-    eventBus.emit('beforeSelectTarget', { unit, enemySide, targetResult: customTarget });
-    if (customTarget.result) {
-        return { target: customTarget.result, phantomLog: null };
-    }
-    const rebelTarget = getRebelTarget(unit, enemySide);
-    if (rebelTarget) {
-        target = rebelTarget;
-    } else if (unit.isWei) {
-        target = targets.reduce((a,b) => a.hp < b.hp ? a : b);
-        if (!target) target = targets[rand(0, targets.length - 1)];
-    } else if (unit.role === '飞行') {
-        const lowHpTargets = targets.filter(u => u.hp / u.maxHp < 0.4);
-        if (lowHpTargets.length > 0) {
-            target = lowHpTargets[rand(0, lowHpTargets.length - 1)];
-        } else {
-            let fronts = getFronts(targets);
-            if (fronts.length > 0) {
-                target = fronts[rand(0, fronts.length - 1)];
-            } else {
-                target = targets[rand(0, targets.length - 1)];
-            }
-        }
-    } else if (isMelee(unit.role) || unit.isHorse) {
-        let fronts = getFronts(targets);
-        if (fronts.length === 0) return { target: null, phantomLog: null };
-        target = fronts[rand(0, fronts.length - 1)];
-    } else {
-        target = targets[rand(0, targets.length - 1)];
-    }
-
-    // 成昆幻影伪装：被模仿者必须锁定成昆本人（识破伪装）
     let phantomLog = null;
-    const chengkun = enemySide.find(u => u.name === '成昆' && u.alive && u._phantomTarget === unit.uid);
-    if (chengkun && !unit._acted) {
-        phantomLog = `🎭 ${unit.name} 识破伪装，锁定真正的成昆！`;
-        target = chengkun;
+
+    if (declaration.targetResult) {
+        // 组件直接指定目标 → 校验合法性
+        const declared = declaration.targetResult;
+        if (declared && validTargets.includes(declared)) {
+            target = declared;
+            phantomLog = declaration.phantomLog || null;
+        }
+        // 不合法则回退到通用规则
     }
 
-    // 小昭永久惑人心智（在成昆伪装之后，防止覆盖）
-    if (target && unit.camp === 'enemy') {
-        const mindResult = applyXiaoZhaoMindControl(unit, allySide, enemySide);
-        if (mindResult) {
-            phantomLog = mindResult.log;
-            target = mindResult.target;
+    if (!target) {
+        // 通用规则：按角色类型匹配选择方法
+        if (unit.isWei || (unit.role === '飞行' && !unit.isWei)) {
+            // 飞行 / 韦一笑：血量最低优先
+            const sorted = [...validTargets].sort((a, b) => a.hp - b.hp);
+            target = sorted[0];
+        } else if (isMelee(unit.role) || unit.isHorse) {
+            // 近战 / 拒马：前排随机
+            const fronts = getFronts(validTargets);
+            if (fronts.length === 0) return { target: null, phantomLog: null };
+            target = fronts[rand(0, fronts.length - 1)];
+        } else {
+            // 远程：全场随机
+            target = validTargets[rand(0, validTargets.length - 1)];
         }
     }
 
-    // 成昆攻击前清除旧伪装（恢复真身）——必须在目标确定后清除
+    // ---------- 第三步：感知校验 ----------
+    if (!target || !target.alive || target._untargetable) {
+        // 校验失败，尝试回退
+        const fallback = validTargets.filter(c => c.alive && !c._untargetable);
+        if (fallback.length === 0) return { target: null, phantomLog: null };
+        target = fallback[rand(0, fallback.length - 1)];
+    }
+
+    // 成昆攻击前清除旧伪装（恢复真身）——临时保留，后续迁移至成昆组件
     if (unit.name === '成昆' && unit._phantomTarget) {
         delete unit._phantomTarget;
     }
@@ -113,17 +140,15 @@ export function resolveAttackHit(unit, target, attackerBuffStats, defenderBuffSt
     if (target._stunned) return { skipped: false, retry: false, lockedTargetUid: null };
     const hasCloudBody = hasBuff(allyBuffs, 'cloudBody') || ((target.isXiaoZhaoSister || target.isXiaoZhaoBrother) && target._permanentBuffs && target._permanentBuffs.some(b => b.key === 'cloudBody'));
     if (target.alive && (target.isWei || hasCloudBody || !target._acted)) {
-        let baseDodge = getFlyDodgeRate(target, unit);
+        // 汇总闪避率：遍历规则注册表，累加每个规则返回的闪避值
+        let totalDodge = 0;
+        for (const ruleFn of _dodgeRules) {
+            totalDodge += ruleFn(target, unit) || 0;
+        }
+        // Buff 闪避加成
         let buffDodge = defenderBuffStats.dodgeBonus || 0;
-        if (baseDodge + buffDodge > 0) {
-            let bloodDodge = 0;
-            if (target.isWei) {
-                const lostPct = (target.maxHp - target.hp) / target.maxHp;
-                const maxRatio = (CONFIG.ELITE_SKILLS.weiBloodDodge && CONFIG.ELITE_SKILLS.weiBloodDodge.maxRatio) ? CONFIG.ELITE_SKILLS.weiBloodDodge.maxRatio : 0;
-                bloodDodge = lostPct * maxRatio;
-            }
-            let finalHit = (1 - baseDodge) * (1 - buffDodge) * (1 - bloodDodge);
-            let totalDodge = 1 - finalHit;
+        totalDodge += buffDodge;
+        if (totalDodge > 0) {
             if (rand(1,100) <= totalDodge * 100) {
                 target.dodgeCount++;
                 let reboundDmg = Math.floor((target.atk + target.def) * 0.5);
@@ -170,24 +195,42 @@ export function resolveAttackHit(unit, target, attackerBuffStats, defenderBuffSt
 
 // ==================== 步骤3：伤害计算 ====================
 export function calcFinalDamage(unit, target, attackerBuffStats, defenderBuffStats, allySide, enemySide, log) {
-    // 战士破防已迁移至事件总线监听器
-    let defReduced = 0;
+    // ---------- 第一步：伤害声明收集 ----------
+    // 组件一次性声明所有效果，格式 { type: 'breakDef'|'ignoreDef'|'bonusDmg'|'dmgMultiplier', value: number, target }
+    const damageDeclarations = [];
+    eventBus.emit('beforeDamageCalc', { unit, target, allySide, enemySide, log, declarations: damageDeclarations });
 
-    let atkBase = Math.floor(unit.atk);
+    // ---------- 第二步：裁判应用声明 ----------
     let defBase = Math.floor(target.def);
+    let defReduced = 0;
+    let ignoreDefRatio = 0;
+    let bonusDmgTotal = 0;
+    let dmgMultiplier = 1;
 
-    let hornDefIgnore = 0;
-    let hornDmgMultiplier = 1;
-    let hornDefBefore = null;
-    let hornDefAfter = null;
-
-    if (hornDefIgnore > 0) {
-        let defBefore = defBase;
-        defBase = Math.floor(defBase * (1 - hornDefIgnore));
-        hornDefBefore = defBefore;
-        hornDefAfter = defBase;
+    for (const decl of damageDeclarations) {
+        if (decl.type === 'breakDef') {
+            const reduce = Math.min(decl.value || 0, defBase);
+            defBase -= reduce;
+            defReduced = reduce;
+            if (reduce > 0) {
+                unit._pendingDefReduceEntry = {type:'detail', text:`<span class="purple small">🗡️ ${unit.name} 破防：${target.name} 防御 -${reduce}</span>`};
+                emitEvent(target, 'hp-change', { hp: target.hp, maxHp: target.maxHp, alive: target.alive, atk: target.atk, def: defBase, _isDead: target._isDead || false });
+            }
+        } else if (decl.type === 'ignoreDef') {
+            ignoreDefRatio = Math.max(ignoreDefRatio, decl.value || 0);
+        } else if (decl.type === 'bonusDmg') {
+            bonusDmgTotal += decl.value || 0;
+        } else if (decl.type === 'dmgMultiplier') {
+            dmgMultiplier *= decl.value || 1;
+        }
     }
 
+    if (ignoreDefRatio > 0) {
+        defBase = Math.floor(defBase * (1 - ignoreDefRatio));
+    }
+
+    // ---------- 第三步：基础伤害计算 ----------
+    let atkBase = Math.floor(unit.atk);
     let atkVar = rand(1, C.ATK_VAR), defVar = rand(1, C.DEF_VAR), hpBonus = rand(C.HP_BONUS_MIN + 1, C.HP_BONUS_MAX);
     let atkAct = atkBase + atkVar, defAct = defBase + defVar;
     let hpBefore = Math.floor(target.hp);
@@ -211,32 +254,14 @@ export function calcFinalDamage(unit, target, attackerBuffStats, defenderBuffSta
         rawFormula = `${atkAct}×(${atkAct}/(${atkAct}+${defAct})) = ${Math.floor(raw)}`;
     }
 
-    // 成昆混元霹雳劲 + 鹤笔翁鹿角杖法 → 事件总线
-    let thunderBonus = 0;
-    if (unit.camp !== 'ally') {
-        const dmgResult = { value: raw, thunderBonus: 0, hornDefIgnore: 0, hornDmgMultiplier: 1 };
-        eventBus.emit('beforeDamageCalcFinal', { unit, target, dmgResult });
-        thunderBonus = dmgResult.thunderBonus;
-        if (dmgResult.hornDefIgnore > 0) {
-            hornDefIgnore = dmgResult.hornDefIgnore;
-            hornDmgMultiplier = dmgResult.hornDmgMultiplier || 1;
-        }
-        if (thunderBonus > 0) rawFormula += ` + 混元霹雳劲${thunderBonus}`;
+    // ---------- 第四步：声明增伤结算 ----------
+    raw += bonusDmgTotal;
+    if (bonusDmgTotal > 0) {
+        rawFormula += ` + 额外伤害${bonusDmgTotal}`;
     }
-    raw += thunderBonus;
-    const rebelBonus = getRebelDmgBonus(unit);
-    const trueDmg = getRebelTrueDmg(unit, target);
-    if (rebelBonus > 0) {
-        raw = raw * (1 + rebelBonus) + trueDmg;
-        rawFormula = `(${rawFormula})×1.30 + 叛逆真伤${trueDmg} = ${Math.floor(raw)}`;
-    } else if (trueDmg > 0) {
-        raw += trueDmg;
-        rawFormula = `${rawFormula} + 叛逆真伤${trueDmg} = ${Math.floor(raw)}`;
-    }
-    if (hornDmgMultiplier > 1) {
-        const beforeHorn = Math.floor(raw);
-        raw *= hornDmgMultiplier;
-        rawFormula += `×${hornDmgMultiplier}=${Math.floor(raw)}`;
+    raw *= dmgMultiplier;
+    if (dmgMultiplier !== 1) {
+        rawFormula += `×${dmgMultiplier}`;
     }
 
     let dmg = Math.floor(raw);
@@ -251,7 +276,7 @@ export function calcFinalDamage(unit, target, attackerBuffStats, defenderBuffSta
         }
     }
 
-    return { atkBase, defBase, atkAct, defAct, hpBonus, hpBefore, waveTaunt, waveUnit, raw, rawFormula, thunderBonus, hornDmgMultiplier, hornDefIgnore, trueDmg, dmg, bonusEntries, defReduced, defReduction: hornDefBefore ? `${hornDefBefore}→${hornDefAfter}` : null };
+    return { atkBase, defBase, atkAct, defAct, hpBonus, hpBefore, waveTaunt, waveUnit, raw, rawFormula, thunderBonus: 0, hornDmgMultiplier: 1, hornDefIgnore: 0, trueDmg: 0, dmg, bonusEntries, defReduced, defReduction: null };
 }
 
 // ==================== 步骤4：应用伤害结果 ====================
@@ -260,23 +285,24 @@ export function applyAttackResult(unit, target, dmgCalc, attackerBuffStats, defe
 
     let hpAfter = Math.floor(target.hp) - dmg;
     let dead = hpAfter <= 0;
+    target.hp = Math.max(0, hpAfter);
     if (dead) {
-        target.hp = 0;
-        target.alive = false;
-        target._isDead = true;
+        target._pendingDeath = true;
         if (!target._deathTime) target._deathTime = Date.now();
-    } else { target.hp = hpAfter; }
+    }
 
-    // 战士斩杀
-    const executeThreshold = hasBuff(A._activeBuffs, 'bloodthirst') ? 0.20 : 0.15;
-    if (unit.role === '战士' && target.alive && target.hp > 0 && target.hp <= target.maxHp * executeThreshold) {
-        target.hp = 0;
-        target.alive = false;
-        target._isDead = true;
-        if (!target._deathTime) target._deathTime = Date.now();
-        dead = true;
-        if (!unit._executeLog) unit._executeLog = [];
-        unit._executeLog.push({type:'info', text:`<span class="red">⚔️ 战士斩杀！${unit.name} 直接击杀 ${target.name}！</span>`});
+    // 战士斩杀 — 由 afterDamageApplied 监听器提交 execute 声明，裁判统一执行
+    const executeDeclarations = [];
+    eventBus.emit('afterDamageApplied', { unit, target, dmg, allySide, enemySide, log, declarations: executeDeclarations });
+    for (const decl of executeDeclarations) {
+        if (decl.type === 'execute' && target.alive && target.hp > 0 && target.hp <= target.maxHp * (decl.threshold || 0.15)) {
+            target.hp = 0;
+            target._pendingDeath = true;
+            if (!target._deathTime) target._deathTime = Date.now();
+            dead = true;
+            if (!unit._executeLog) unit._executeLog = [];
+            unit._executeLog.push({type:'info', text: decl.logText || ''});
+        }
     }
     unit.dmgDealt += dmg; target.dmgTaken += dmg;
     if (dead && target.camp === 'enemy' && unit.camp === 'ally' && !target._tokenDropped) {
@@ -320,21 +346,137 @@ export function applyAttackResult(unit, target, dmgCalc, attackerBuffStats, defe
 
     // 小昭姐乾坤衍生已迁移至事件总线 allyDamaged 信号
 
-    // 严阵以待反弹
+    // 严阵以待反弹 — 提交声明，由攻击后效果边裁统一执行
     let reboundEntry = null;
     let allyBuffs_fortify = (target.camp === 'ally' ? A._activeBuffs : B._activeBuffs) || [];
     if (hasBuff(allyBuffs_fortify, 'fortify') && target.role === '防战' && dmg > 0) {
-        const hasSister = A && A.some(u => u.isXiaoZhaoSister && u.alive);
-        let entry;
-        if (hasSister) {
-            entry = applyFortifyRebound_Sister(unit, target, atkAct, defAct, A, B, log);
-        } else {
-            entry = applyFortifyRebound_Normal(unit, target, atkAct, defAct, A, B, log);
+        const reboundDmg = Math.floor((atkAct - Math.floor(atkAct * (atkAct / (atkAct + defAct)))) / 2);
+        if (reboundDmg > 0) {
+            const hasSister = A && A.some(u => u.isXiaoZhaoSister && u.alive);
+            if (!dmgResult._fortifyDeclarations) dmgResult._fortifyDeclarations = [];
+            dmgResult._fortifyDeclarations.push({
+                type: 'rebound',
+                value: reboundDmg,
+                source: target,
+                target: unit,
+                hasSister,
+                logText: hasSister
+                    ? `<span class="gold">🛡️ 严阵以待反弹${reboundDmg}给${unit.name}（姐姐强化：回复${reboundDmg}）</span>`
+                    : `<span class="gold">🛡️ 严阵以待反弹${reboundDmg}给${unit.name}</span>`
+            });
         }
-        if (entry) reboundEntry = entry;
     }
 
     return { dmg, dead, horseReboundEntry, reboundEntry, bonusEntries, hpBefore, defReduction, waveTaunt, waveUnit, rawFormula, thunderBonus, hornDmgMultiplier, trueDmg, atkAct, defAct, hpBonus };
+}
+
+// ==================== 死亡结算边裁 ====================
+// 裁判统一裁定死亡：扫描待死亡单位 → 发射声明 → 执行死亡 → 移除
+export function resolveDeaths(allySide, enemySide, log) {
+    const allUnits = [...allySide, ...enemySide];
+    const pending = allUnits.filter(u => u._pendingDeath && u.alive);
+    if (pending.length === 0) return;
+
+    // 发射死亡前声明（预留亡语接口）
+    eventBus.emit('onBeforeDeath', { units: pending, allySide, enemySide, log });
+
+    // 执行死亡
+    for (const u of pending) {
+        u.hp = 0;
+        u.alive = false;
+        u._isDead = true;
+        u._pendingDeath = false;
+        emitEvent(u, 'hp-change', { hp: 0, maxHp: u.maxHp, alive: false, atk: u.atk, def: u.def, _isDead: true });
+        emitEvent(u, 'unit-remove', { uid: u.uid });
+    }
+}
+
+// ==================== 伤害免疫边裁 ====================
+// 收集所有免疫声明，统一裁定本次伤害是否免疫
+// 当前规则：任一声明要求免疫即免疫。预留扩展为多声明时按 priority 选一个生效
+export function resolveDamageImmune(declarations) {
+    if (!declarations || declarations.length === 0) return null;
+    const immuneDecls = declarations.filter(d => d.immune);
+    if (immuneDecls.length === 0) return null;
+    // 多个免疫声明时取第一个（后续可改为按 priority 排序取最优）
+    return immuneDecls[0];
+}
+
+// ==================== 攻击后效果结算 ====================
+// 裁判统一执行攻击后附加效果。裁决顺序：吸血 → 回血 → 溅射波及 → 其他
+export function resolveAfterDamageEffects(declarations, unit, target, group, log) {
+    if (!declarations || declarations.length === 0) return;
+
+    // 按类型分组
+    const leechDecls = declarations.filter(d => d.type === 'leech');
+    const healDecls = declarations.filter(d => d.type === 'heal');
+    const splashDecls = declarations.filter(d => d.type === 'splash');
+    const otherDecls = declarations.filter(d => !['leech', 'heal', 'splash'].includes(d.type));
+
+    // 1. 吸血
+    for (const decl of leechDecls) {
+        if (!decl.source || !decl.source.alive) continue;
+        const hpBefore = Math.floor(decl.source.hp);
+        decl.source.hp = Math.min(decl.source.maxHp, decl.source.hp + (decl.value || 0));
+        decl.source.healDone = (decl.source.healDone || 0) + (decl.value || 0);
+        decl.source.leechDone = (decl.source.leechDone || 0) + (decl.value || 0);
+        emitEvent(decl.source, 'hp-change', { hp: decl.source.hp, maxHp: decl.source.maxHp, alive: decl.source.alive, atk: decl.source.atk, def: decl.source.def });
+        if (group && group.entries) {
+            group.entries.push({ type: 'info', text: decl.logText || '', isHealEntry: true, healAmount: decl.value || 0, healUnitUid: decl.source.uid });
+        }
+        if (log) log.push({ type: 'buff-leech', text: decl.logText || '', isHealEntry: true, buffType: 'leech', healAmount: decl.value || 0, healUnitUid: decl.source.uid });
+    }
+
+    // 2. 回血
+    for (const decl of healDecls) {
+        if (!decl.source || !decl.source.alive) continue;
+        decl.source.hp = Math.min(decl.source.maxHp, decl.source.hp + (decl.value || 0));
+        decl.source.healDone = (decl.source.healDone || 0) + (decl.value || 0);
+        emitEvent(decl.source, 'hp-change', { hp: decl.source.hp, maxHp: decl.source.maxHp, alive: decl.source.alive, atk: decl.source.atk, def: decl.source.def });
+        if (group && group.entries) {
+            group.entries.push({ type: 'info', text: decl.logText || '', isHealEntry: true, healAmount: decl.value || 0, healUnitUid: decl.source.uid });
+        }
+        if (log) log.push({ type: 'buff-leech', text: decl.logText || '', isHealEntry: true, healAmount: decl.value || 0, healUnitUid: decl.source.uid });
+    }
+
+    // 3. 溅射波及
+    for (const decl of splashDecls) {
+        if (!decl.targets || decl.targets.length === 0) continue;
+        const splashDmg = decl.value || 0;
+        for (const st of decl.targets) {
+            if (!st.alive) continue;
+            const hpBefore = Math.floor(st.hp);
+            st.hp = Math.max(0, st.hp - splashDmg);
+            unit.dmgDealt = (unit.dmgDealt || 0) + splashDmg;
+            st.dmgTaken = (st.dmgTaken || 0) + splashDmg;
+            if (st.hp <= 0) { st._pendingDeath = true; if (!st._deathTime) st._deathTime = Date.now(); }
+            emitEvent(st, 'hp-change', { hp: st.hp, maxHp: st.maxHp, alive: st.alive, atk: st.atk, def: st.def });
+        }
+        if (log) log.push({ type: 'buff-splash', text: decl.logText || '', buffType: decl.buffType || 'splash', attackerUid: unit.uid, splashUids: decl.targets.map(st => st.uid), splashDmg });
+    }
+
+    // 3.5 反弹（排在溅射之后、其他之前）
+    const reboundDecls = declarations.filter(d => d.type === 'rebound');
+    for (const decl of reboundDecls) {
+        if (!decl.target || !decl.target.alive) continue;
+        const attHpBefore = Math.floor(decl.target.hp);
+        decl.target.hp = Math.max(0, decl.target.hp - (decl.value || 0));
+        decl.target.dmgTaken = (decl.target.dmgTaken || 0) + (decl.value || 0);
+        if (decl.source) decl.source.reboundDone = (decl.source.reboundDone || 0) + (decl.value || 0);
+        if (decl.target.hp <= 0) { decl.target._pendingDeath = true; if (!decl.target._deathTime) decl.target._deathTime = Date.now(); }
+        emitEvent(decl.target, 'hp-change', { hp: decl.target.hp, maxHp: decl.target.maxHp, alive: decl.target.alive, atk: decl.target.atk, def: decl.target.def });
+        if (decl.hasSister && decl.source && decl.source.alive) {
+            decl.source.hp = Math.min(decl.source.maxHp, decl.source.hp + (decl.value || 0));
+            decl.source.healDone = (decl.source.healDone || 0) + (decl.value || 0);
+            emitEvent(decl.source, 'hp-change', { hp: decl.source.hp, maxHp: decl.source.maxHp, alive: decl.source.alive, atk: decl.source.atk, def: decl.source.def });
+        }
+        if (log && decl.logText) log.push({ type: 'buff-rebound-fortify', text: decl.logText, buffType: 'fortify_rebound', reboundDmg: decl.value || 0, attackerUid: decl.target.uid, defenderUid: decl.source ? decl.source.uid : null });
+    }
+
+    // 4. 其他（预留扩展）
+    for (const decl of otherDecls) {
+        if (log && decl.logText) log.push({ type: 'info', text: decl.logText });
+    }
 }
 
 // ==================== 步骤5：构建攻击组日志 + 攻击后效果 ====================
