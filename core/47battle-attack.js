@@ -121,18 +121,18 @@ export async function processUnitAttack(unit, allySide, enemySide, log, A, B, st
     // 步骤4：应用伤害结果
     let dmgResult = applyAttackResult(unit, target, dmgCalc, attackerBuffStats, defenderBuffStats, allySide, enemySide, log, A, B, state, doubleStrikeUnitUid);
 
-    // 伤害拦截信号（小昭妹飞天等监听）
-    let immune = false;
-    let interceptResult = { immune: false };
-    eventBus.emit('beforeDamageApply', { target, dmg: dmgCalc.dmg, A, log, result: interceptResult });
-    if (interceptResult.immune) {
+    // 伤害免疫声明收集（小昭妹飞天等监听）
+    const immuneDeclarations = [];
+    eventBus.emit('beforeDamageApply', { target, dmg: dmgCalc.dmg, A, log, declarations: immuneDeclarations });
+    const immuneResult = resolveDamageImmune(immuneDeclarations);
+    if (immuneResult) {
         // 回退伤害，但构建攻击组日志让 UI 正常显示攻击动作
         target.hp = Math.min(target.maxHp, target.hp + dmgCalc.dmg);
         unit.dmgDealt -= dmgCalc.dmg;
         target.dmgTaken -= dmgCalc.dmg;
         emitEvent(target, 'hp-change', { hp: target.hp, maxHp: target.maxHp, alive: target.alive, atk: target.atk, def: target.def });
 
-        // 构建免疫攻击组：显示攻击动作但伤害为0，接飞天免疫提示
+        // 构建免疫攻击组：显示攻击动作但伤害为0，附带免疫原因
         let immuneHpPctBefore = Math.floor((Math.min(target.hp + dmgCalc.dmg, target.maxHp) / target.maxHp) * 100);
         let immuneHpPctAfter = Math.floor((target.hp / target.maxHp) * 100);
         let campA = unit.camp === 'ally' ? '明教' : '六大派';
@@ -142,6 +142,9 @@ export async function processUnitAttack(unit, allySide, enemySide, log, A, B, st
         let immuneGroup = { type:'attack-group', uidA:unit.uid, uidD:target.uid, entries:[
             {type:'combat-text', text:`<span class="${ac}">${campA} ${unit.name}</span>(攻${Math.floor(unit.atk)} 血${Math.floor(unit.hp)}) → <span class="${dc}">${campD} ${target.name}</span>(防${Math.floor(target.def)} 血${Math.floor(target.hp)})`},
         ], hpAfter:target.hp, alive:target.alive, isDead:false, isImmune:true, waveTaunt:null, waveUnit:null, unitRole:unit.role, _fxSnapshot:makeFXSnapshot(unit,target), _dmg:0, hpPctBefore: immuneHpPctBefore, hpPctAfter: immuneHpPctAfter, isMiss:false, isDodge:false, buffEffects:[], needsSeparator: true };
+        if (immuneResult.reason) {
+            immuneGroup.entries.push({type:'info', text:`<span class="gold">${immuneResult.reason}</span>`});
+        }
         log.push(immuneGroup);
 
         if (!unit._isLinkAttack) unit._acted = true;
@@ -151,8 +154,18 @@ export async function processUnitAttack(unit, allySide, enemySide, log, A, B, st
     // 步骤5：构建攻击组日志
     let group = await buildAttackGroup(unit, target, dmgCalc, dmgResult, attackerBuffStats, defenderBuffStats, allySide, enemySide, log, A, B, state, doubleStrikeUnitUid, phantomLog);
 
-    // 攻击后信号
-    eventBus.emit('afterDamageApplied', { unit, target, dmg: dmgCalc.dmg, group, allySide, enemySide, log, A, B });
+    // ---------- 攻击后效果声明收集 ----------
+    // 组件提交 { type: 'leech'|'heal'|'rebound'|'splash'|'defReduce'|'other', value, target, source }
+    const afterDamageDeclarations = [];
+    eventBus.emit('afterDamageApplied', { unit, target, dmg: dmgCalc.dmg, group, allySide, enemySide, log, A, B, declarations: afterDamageDeclarations });
+
+    // 严阵以待反弹声明并入攻击后效果
+    if (dmgResult._fortifyDeclarations && dmgResult._fortifyDeclarations.length > 0) {
+        afterDamageDeclarations.push(...dmgResult._fortifyDeclarations);
+    }
+    // 攻击后效果结算 — 裁判按规则统一执行
+    const { resolveAfterDamageEffects } = await import('./49battle-attack-steps.js');
+    resolveAfterDamageEffects(afterDamageDeclarations, unit, target, group, log);
 
     if (!unit._isLinkAttack) unit._acted = true;
 
@@ -163,6 +176,10 @@ export async function processUnitAttack(unit, allySide, enemySide, log, A, B, st
     if (target.camp === 'ally') {
         eventBus.emit('allyDamaged', { attacker: unit, target, dmg: dmgCalc.dmg, allySide: A, enemySide: B, log });
     }
+
+    // 死亡结算边裁：所有攻击后效果完成，统一裁定死亡
+    const { resolveDeaths } = await import('./49battle-attack-steps.js');
+    resolveDeaths(allySide, enemySide, log);
 
     return true;
 }

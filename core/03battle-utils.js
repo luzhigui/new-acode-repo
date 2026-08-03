@@ -244,16 +244,14 @@ export function getBloodAuraBonus(allUnits) {
  */
 export function registerWarriorBreakDefense(eventBus) {
     eventBus.on('beforeDamageCalc', 10, (data) => {
-        const { unit, target } = data;
+        const { unit, target, declarations } = data;
+        if (!declarations) return;
         if (unit.role !== '战士' || target.def <= 0) return;
-        // 破防概率 = 目标当前防御 × 2.5%，封顶 100%
         const breakChance = Math.min(100, target.def * 2.5);
         if (rand(1, 100) > breakChance) return;
         const defReduced = Math.min(2, target.def);
-        target.def = Math.max(0, target.def - 2);
-        target._baseDef = Math.max(0, (target._baseDef || target.def) - 2);
+        declarations.push({ type: 'breakDef', value: defReduced, source: unit, target: target });
         unit._pendingDefReduceEntry = {type:'detail', text:`<span class="purple small">🗡️ ${unit.name} 破防：${target.name} 防御 -${defReduced}</span>`};
-        emitEvent(target, 'hp-change', { hp: target.hp, maxHp: target.maxHp, alive: target.alive, atk: target.atk, def: target.def, _isDead: target._isDead || false });
     });
 }
 

@@ -41,17 +41,19 @@ export function createZhangWujiComponent() {
                 const xiaoZhaoActive = A.find(u => u.isXiaoZhao && u.alive);
                 if (xiaoZhaoActive) return;
                 const rebound = Math.floor(dmg * (CONFIG.ELITE_SKILLS.xiaoZhao.normalReboundPct || 0.15));
+                let selfDmg = Math.max(1, Math.floor(rebound * (CONFIG.ELITE_SKILLS.xiaoZhao.normalSelfDmgPct || 0.1)));
+                // 反弹伤害给攻击者
                 attacker.hp = Math.max(0, attacker.hp - rebound);
                 attacker.dmgTaken += rebound;
                 zhang.reboundDone += rebound;
-                let selfDmg = Math.max(1, Math.floor(rebound * (CONFIG.ELITE_SKILLS.xiaoZhao.normalSelfDmgPct || 0.1)));
+                if (attacker.hp <= 0) { attacker._pendingDeath = true; if (!attacker._deathTime) attacker._deathTime = Date.now(); }
+                emitEvent(attacker, 'hp-change', { hp: attacker.hp, maxHp: attacker.maxHp, alive: attacker.alive, atk: attacker.atk, def: attacker.def, _isDead: attacker._isDead || false });
+                // 无忌自伤
                 zhang.hp -= selfDmg;
                 zhang.dmgTaken += selfDmg;
-                emitEvent(attacker, 'hp-change', { hp: attacker.hp, maxHp: attacker.maxHp, alive: attacker.alive, atk: attacker.atk, def: attacker.def, _isDead: attacker._isDead || false });
+                if (zhang.hp <= 0) { zhang._pendingDeath = true; if (!zhang._deathTime) zhang._deathTime = Date.now(); }
                 emitEvent(zhang, 'hp-change', { hp: zhang.hp, maxHp: zhang.maxHp, alive: zhang.alive, atk: zhang.atk, def: zhang.def });
                 data.log.push({type:'info', text:`<span class="gold">✨ 乾坤大挪移反弹${rebound}给${attacker.name}（无忌自伤${selfDmg}）</span>`});
-                if (attacker.hp <= 0) { attacker.alive = false; attacker._isDead = true; }
-                if (zhang.hp <= 0) { zhang.hp = 0; zhang.alive = false; zhang._isDead = true; if (!zhang._deathTime) zhang._deathTime = Date.now(); }
             });
         },
         onAfterApplyDamage(unit, target, dmgCalc, group, A, log) {
@@ -87,10 +89,39 @@ export function createWeiYixiaoComponent() {
         register(eventBus, A, B, log) {
             const wei = A.find(u => u.isWei && u.alive);
             if (!wei) return;
-            const onAfterApplyDamage = this.onAfterApplyDamage;
             eventBus.on('afterDamageApplied', 40, (data) => {
-                if (data.unit.uid !== wei.uid) return;
-                onAfterApplyDamage(data.unit, data.target, { dmg: data.dmg }, data.group, A, data.log);
+                if (data.unit.uid !== wei.uid || !wei.alive || data.dmg <= 0) return;
+                const lostPct = (wei.maxHp - wei.hp) / wei.maxHp;
+                const leechRate = 0.20 + (0.40 - 0.20) * lostPct;
+                const healWei = Math.floor(data.dmg * leechRate);
+                const wasFullHpWei = (wei.hp >= wei.maxHp);
+                const newMaxHpWei = Math.min(wei.maxHp + healWei, wei._baseMaxHp * 2);
+                const hpDeltaWei = newMaxHpWei - wei.maxHp;
+                // 吸血声明
+                const decl = {
+                    type: 'leech',
+                    value: healWei + hpDeltaWei,
+                    source: wei,
+                    logText: `<span class="green">🦇 青翼蝠王·吸血+${healWei}，上限→${Math.floor(newMaxHpWei)}</span>`
+                };
+                if (!data.declarations) data.declarations = [];
+                data.declarations.push(decl);
+                // maxHp 变化仍需组件自行更新（无冲突）
+                wei.maxHp = newMaxHpWei;
+                wei._baseMaxHp = Math.max(wei._baseMaxHp, newMaxHpWei);
+                if (wasFullHpWei) wei.hp = wei.maxHp;
+                emitEvent(wei, 'hp-change', { hp:wei.hp, maxHp:wei.maxHp, alive:wei.alive, atk:wei.atk, def:wei.def });
+            });
+            // 动态闪避规则：韦一笑血量越低闪避越高
+            eventBus.on('onRoundStart', 5, () => {
+                import('../core/49battle-attack-steps.js').then(mod => {
+                    mod.registerDodgeRule((unit, attacker) => {
+                        if (!unit.isWei || !unit.alive) return 0;
+                        const lostPct = (unit.maxHp - unit.hp) / unit.maxHp;
+                        const maxRatio = (CONFIG.ELITE_SKILLS.weiBloodDodge && CONFIG.ELITE_SKILLS.weiBloodDodge.maxRatio) ? CONFIG.ELITE_SKILLS.weiBloodDodge.maxRatio : 0;
+                        return lostPct * maxRatio;
+                    });
+                });
             });
         },
         onAfterApplyDamage(unit, target, dmgCalc, group, A, log) {
@@ -101,12 +132,28 @@ export function createWeiYixiaoComponent() {
             const wasFullHpWei = (unit.hp >= unit.maxHp);
             const newMaxHpWei = Math.min(unit.maxHp + healWei, unit._baseMaxHp * 2);
             const hpDeltaWei = newMaxHpWei - unit.maxHp;
-            unit.maxHp = newMaxHpWei; unit._baseMaxHp = Math.max(unit._baseMaxHp, newMaxHpWei);
-            unit.hp = Math.min(unit.hp + hpDeltaWei, unit.maxHp);
-            if (wasFullHpWei) { unit.hp = unit.maxHp; }
-            unit.healDone += healWei; unit.leechDone += healWei;
+            // 提交吸血声明给裁判，裁判统一修改状态
+            const logText = `<span class="green">🦇 青翼蝠王·吸血+${healWei}，上限→${Math.floor(newMaxHpWei)}</span>`;
+            // 通过声明传递最大生命值变化和回血
+            const leechDecl = {
+                type: 'leech',
+                value: healWei + hpDeltaWei, // 实际回血总量（含上限提升部分）
+                source: unit,
+                logText: logText,
+                extra: { wasFullHp: wasFullHpWei, newMaxHp: newMaxHpWei }
+            };
+            // 注意：裁判 leech 处理仅增加 hp，不处理 maxHp 变化。
+            // 此处保留 maxHp 的修改，因为 maxHp 变更属于自身属性成长，与其他组件无冲突。
+            unit.maxHp = newMaxHpWei;
+            unit._baseMaxHp = Math.max(unit._baseMaxHp, newMaxHpWei);
+            if (wasFullHpWei) unit.hp = unit.maxHp;
             emitEvent(unit, 'hp-change', { hp:unit.hp, maxHp:unit.maxHp, alive:unit.alive, atk:unit.atk, def:unit.def });
-            group.entries.push({ type:'info', text:`<span class="green">🦇 青翼蝠王·吸血+${healWei}，上限→${Math.floor(unit.maxHp)}</span>`, isHealEntry:true, healAmount:healWei, healUnitUid:unit.uid });
+            // 裁判会处理 group.entries 的追加，因此这里不 push，改为在 logText 中提供
+            // 但由于 group.entries 已经不在组件作用域内可靠修改（裁判接管），我们通过声明传递日志
+            // 暂时保留直接 push，因为裁判目前未接管 group 修改。
+            // 为了兼容，同时保留 push 和提交声明，但声明中不重复执行。
+            if (!data.declarations) data.declarations = [];
+            data.declarations.push(leechDecl);
         }
     };
 }
@@ -212,13 +259,29 @@ export function createXiaoZhaoBrotherComponent() {
             eventBus.on('beforeDamageApply', 100, (data) => {
                 if (data.target.uid !== brother.uid || !data.A) return;
                 const immune = onBeforeDeath(data.target, data.dmg, data.A, data.log);
-                if (immune) data.result.immune = true;
+                if (immune) {
+                    if (!data.declarations) data.declarations = [];
+                    data.declarations.push({ immune: true, reason: '🕷️ 飞天：免疫本次伤害' });
+                }
             });
             // 飞天状态下不参与行动轮询
             eventBus.on('beforeActionSelect', 10, (data) => {
                 if (!data.unit.isXiaoZhaoBrother || !data.unit.alive) return;
                 if (data.unit._spiderFlying || data.unit._flyMode === 'spider') {
                     data.declaration.skip = true;
+                }
+            });
+            // 永久惑人心智：敌方攻击时15%概率误伤队友
+            eventBus.on('beforeSelectTarget', 40, (data) => {
+                if (data.unit.camp !== 'enemy') return;
+                if (!brother || !brother.alive || !brother._permanentBuffs || !brother._permanentBuffs.some(b => b.key === 'mindControl')) return;
+                if (hasBuff(data.enemySide._activeBuffs, 'mindControl')) return;
+                if (Math.random() < 0.15) {
+                    const fakeTarget = data.allySide.find(u => u.alive && !u.isHorse && u.uid !== data.unit.uid);
+                    if (fakeTarget) {
+                        data.declaration.targetResult = fakeTarget;
+                        data.declaration.phantomLog = `🦋 蝶舞迷心！${data.unit.name}被小昭迷惑，误攻队友${fakeTarget.name}！`;
+                    }
                 }
             });
             // 回合结束/战斗结束时强制蛛落
