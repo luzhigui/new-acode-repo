@@ -57,6 +57,14 @@ export async function playLogEntries(c, log, roundResult, isFirstAttackRef) {
             await c.waitWhilePaused();
             let entry = log[i];
 
+            // 统一分隔符判断：在任何 entry 处理之前检查
+            if (shouldStartNewGroup(entry, lastEntryType)) {
+                let sepDiv = document.createElement('div');
+                sepDiv.innerHTML = '<span class="separator">- - - - -</span><br>';
+                document.getElementById('log').appendChild(sepDiv);
+                c.autoScrollLog();
+            }
+
             switch (entry.type) {
                 case 'info':
                     if (entry.text && entry.text.includes('🔥 圣火令掉落')) {
@@ -156,13 +164,6 @@ export async function playLogEntries(c, log, roundResult, isFirstAttackRef) {
                     lastEntryType = entry.type;
                     break;
                 case 'attack-group': {
-                    if (entry.uidA && c._lastAttackerUid && entry.uidA !== c._lastAttackerUid) {
-                        let sepDiv = document.createElement('div');
-                        sepDiv.innerHTML = '<span class="separator">- - - - -</span><br>';
-                        document.getElementById('log').appendChild(sepDiv);
-                        c.autoScrollLog();
-                    }
-                    c._lastAttackerUid = entry.uidA;
                     let result = await handleAttackGroup(c, entry, roundResult, abortSig, isFirstAttackRef);
                     lastEntryType = entry.type;
                     if (result && result.isBattleOver) return result;
