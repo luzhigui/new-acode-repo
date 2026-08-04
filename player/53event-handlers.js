@@ -385,6 +385,11 @@ export async function handleInfo(c, entry) {
             const spiderUnit = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.uid === entry.uidA);
             const strikeTarget = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.uid === entry.uidD);
             if (spiderUnit && strikeTarget) {
+                // 先写日志并滚动，再暂停播特效
+                let tempDiv = document.createElement('div');
+                document.getElementById('log').appendChild(tempDiv);
+                await playLineText(entry.text, tempDiv);
+                c.autoScrollLog();
                 c.isPaused = true;
                 window.bulletTimeActive = true;
                 const { showSpiderStrike } = await import('../fx/21fx-butterfly-spider.js');

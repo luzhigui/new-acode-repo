@@ -23,27 +23,52 @@ export function doInitBattle(currentStage, UI, snapshot, activeBuffs, selectedBu
     const normalPower = C.NORMAL_POWER || {};
     const targetPower = C.MING_TARGET_POWER && C.MING_TARGET_POWER[currentStage] ? C.MING_TARGET_POWER[currentStage] : null;
 
-    // 统一阵容生成逻辑：按战斗力滚动分配
+    // 精英出场率新规则：80%有精英，出精英时30%两个、5%三个
     const eliteConfigs = [
-        { name: '张无忌', m: 115, role: '远程', isZhang: true },
-        { name: '韦一笑', m: 107, role: '飞行', isWei: true },
-        { name: '小昭', m: 107, role: '远程', isXiaoZhaoBrother: true }
+        { name: '张无忌', m: 115, role: '远程', isZhang: true, power: elitePower['张无忌'] || 140 },
+        { name: '韦一笑', m: 107, role: '飞行', isWei: true, power: elitePower['韦一笑'] || 120 },
+        { name: '小昭', m: 107, role: '远程', isXiaoZhaoBrother: true, power: elitePower['小昭'] || 135 }
     ];
     const candidatePool = [];
-    let forcedElite = null;
-    for (const cfg of eliteConfigs) {
-        if (Math.random() < (eliteRate[cfg.name] || 0.30)) {
-            candidatePool.push({ ...cfg, power: elitePower[cfg.name] || 140 });
+    const hasElite = Math.random() < 0.80;
+    if (hasElite) {
+        const multiRoll = Math.random();
+        let eliteCount;
+        if (multiRoll < 0.05) {
+            eliteCount = 3;
+        } else if (multiRoll < 0.35) {
+            eliteCount = 2;
+        } else {
+            eliteCount = 1;
         }
-    }
-    if (!candidatePool.some(c => c.isZhang || c.isWei || c.isXiaoZhaoBrother)) {
-        const roll = Math.random();
-        const forcedName = roll < 0.4 ? '张无忌' : (roll < 0.7 ? '韦一笑' : '小昭');
-        const forcedCfg = eliteConfigs.find(c => c.name === forcedName);
-        if (forcedCfg) {
-            forcedElite = { ...forcedCfg, power: elitePower[forcedCfg.name] || 140, forced: true };
-            candidatePool.push(forcedElite);
+
+        const picked = [];
+        const pool = [...eliteConfigs];
+        if (eliteCount === 3) {
+            picked.push(...pool);
+        } else if (eliteCount === 2) {
+            const idx1 = Math.floor(Math.random() * 3);
+            const idx2 = (idx1 + 1 + Math.floor(Math.random() * 2)) % 3;
+            picked.push(pool[idx1], pool[idx2]);
+        } else {
+            picked.push(pool[Math.floor(Math.random() * 3)]);
         }
+
+        // 修正姐妹冲突
+        const hasSister = picked.some(c => c.name === '小昭' && Math.random() < 0.5);
+        picked.forEach(c => {
+            if (c.name === '小昭') {
+                if (hasSister) {
+                    c.isXiaoZhaoSister = true;
+                    c.isXiaoZhaoBrother = false;
+                } else {
+                    c.isXiaoZhaoSister = false;
+                    c.isXiaoZhaoBrother = true;
+                }
+            }
+        });
+
+        picked.forEach(c => candidatePool.push({ ...c }));
     }
     for (const [name, m] of Object.entries(C.MING_M)) {
         if (['张无忌','韦一笑','小昭'].includes(name)) continue;
@@ -51,39 +76,9 @@ export function doInitBattle(currentStage, UI, snapshot, activeBuffs, selectedBu
     }
     candidatePool.sort((a, b) => a.power - b.power);
 
-    // 强制补位精英直接占坑，不参与预算淘汰
-    if (forcedElite) {
-        let unit;
-        if (forcedElite.isZhang || forcedElite.isWei || forcedElite.isXiaoZhaoBrother) {
-            unit = new Unit(forcedElite.name, forcedElite.m, forcedElite.role, 'ally');
-            if (forcedElite.isZhang) unit.isZhang = true;
-            if (forcedElite.isWei) unit.isWei = true;
-            if (forcedElite.isXiaoZhaoBrother) {
-                if (Math.random() < 0.5) { unit.isXiaoZhaoSister = true; }
-                else { unit.isXiaoZhaoBrother = true; }
-                unit.initXiaoZhao(); unit.applyBonus();
-                unit._baseMaxHp = unit.maxHp; unit._baseAtk = unit.atk; unit._baseDef = unit.def;
-            } else { unit.init(); unit.applyBonus(); }
-        } else {
-            const role = C.ROLES[rand(0, 3)];
-            unit = new Unit(forcedElite.name, forcedElite.m, role, 'ally');
-            unit.init(); unit.applyBonus();
-        }
-        unit.pos = null;
-        allyTeam.push(unit);
-        // 从候选池中移除，防止在循环中被重复选中
-        const feIdx = candidatePool.findIndex(c => c.name === forcedElite.name);
-        if (feIdx >= 0) candidatePool.splice(feIdx, 1);
-    }
-
     const remainingCandidates = [...candidatePool];
     let remainingPower = targetPower || 500;
     let remainingSlots = 5;
-    // 如果强制精英已占坑，扣除对应的名额和预算
-    if (forcedElite) {
-        remainingPower -= elitePower[forcedElite.name] || 140;
-        remainingSlots = 4;
-    }
     for (let slot = 0; slot < remainingSlots; slot++) {
         const avgPower = remainingPower / remainingSlots;
         const candidates = [];

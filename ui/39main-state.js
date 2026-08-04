@@ -107,7 +107,7 @@ export const setState = {
     autoMode: (v) => { autoMode = v; GlobalStore.set('autoMode', v); },
     debugMode: (v) => { debugMode = v; GlobalStore.set('debugMode', v); },
     isPaused: (v) => { isPaused = v; GlobalStore.set('isPaused', v); },
-    speed: (v) => { speed = v; GlobalStore.set('speed', v); },
+    speed: (v) => { speed = v; GlobalStore.set('speed', v); if (typeof window.updateSpeedButtons === 'function') window.updateSpeedButtons(); },
     userScrolled: (v) => { userScrolled = v; GlobalStore.set('userScrolled', v); },
     abortController: (v) => { abortController = v; GlobalStore.set('abortController', v); },
     waitingForNextRound: (v) => { waitingForNextRound = v; GlobalStore.set('waitingForNextRound', v); },

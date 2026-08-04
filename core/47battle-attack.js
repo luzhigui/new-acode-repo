@@ -41,6 +41,7 @@ export async function processUnitAttack(unit, allySide, enemySide, log, A, B, st
         return false;
     }
     if (unit._spiderFlying || unit._flyMode === 'spider') {
+        log.push({ type:'info', text:`<span class="gray">🕷️ ${unit.name} 正在飞天，无法行动</span>` });
         unit._acted = true;
         return false;
     }
@@ -122,11 +123,11 @@ export async function processUnitAttack(unit, allySide, enemySide, log, A, B, st
     let dmgCalc = calcFinalDamage(unit, target, attackerBuffStats, defenderBuffStats, allySide, enemySide, log);
 
     // 步骤4：应用伤害结果
-    let dmgResult = applyAttackResult(unit, target, dmgCalc, attackerBuffStats, defenderBuffStats, allySide, enemySide, log, A, B, state, doubleStrikeUnitUid);
-
-    // 伤害免疫声明收集（小昭妹飞天等监听）
+    // 伤害免疫声明收集（小昭妹飞天等监听）——必须在扣血前发射，让监听器拿到攻击前血量
     const immuneDeclarations = [];
-    eventBus.emit('beforeDamageApply', { target, dmg: dmgCalc.dmg, A, log, declarations: immuneDeclarations });
+    eventBus.emit('beforeDamageApply', { target, dmg: dmgCalc.dmg, hpBefore: target.hp, A, log, declarations: immuneDeclarations });
+
+    let dmgResult = applyAttackResult(unit, target, dmgCalc, attackerBuffStats, defenderBuffStats, allySide, enemySide, log, A, B, state, doubleStrikeUnitUid);
     const immuneResult = resolveDamageImmune(immuneDeclarations);
     if (immuneResult) {
         // 回退伤害，但构建攻击组日志让 UI 正常显示攻击动作
@@ -172,7 +173,13 @@ export async function processUnitAttack(unit, allySide, enemySide, log, A, B, st
     if (!unit._isLinkAttack) unit._acted = true;
 
     // 攻击结束信号（玄冥二老联动、白骨爪追击等）
-    await eventBus.emit('afterAttack', { unit, target, dmg: dmgCalc.dmg, allySide, enemySide, log, A, B, state });
+    const afterAttackData = { unit, target, dmg: dmgCalc.dmg, allySide, enemySide, log, A, B, state, retry: false, retryTargetUid: null };
+    await eventBus.emit('afterAttack', afterAttackData);
+    if (afterAttackData.retry && unit.alive) {
+        const retryTargetUid = afterAttackData.retryTargetUid || (target && target.alive ? target.uid : null);
+        unit._acted = false;
+        await processUnitAttack(unit, allySide, enemySide, log, A, B, state, null, retryTargetUid);
+    }
 
     // 队友受伤信号（乾坤反弹等）——排在白骨爪之后
     if (target.camp === 'ally') {
