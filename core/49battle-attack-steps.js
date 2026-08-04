@@ -4,17 +4,10 @@ export const VER = 'core/49battle-attack-steps.js V5.3.1';
 
 import { CONFIG, DEF_TAUNT, HP_TAUNT } from './01config-5v5-test.js';
 import { eventBus } from './00-event-bus.js';
-import { rand, calcDamage, getFangLevel, isMelee, getFronts, isBlocked, getFlyDodgeRate, getRandomTaunt, getZhangNearTaunt, makeFXSnapshot, hasBuff, getUnitCol, getUnitRow } from './03battle-utils.js';
+import { rand, calcDamage, getFangLevel, isMelee, getFronts, isBlocked, getRandomTaunt, getZhangNearTaunt, makeFXSnapshot, hasBuff, getUnitCol, getUnitRow } from './03battle-utils.js';
 import { checkZhangSwitch } from './50battle-shared.js';
 import { computeBuffStats, applyBuffEffectsBeforeAttack, applyBuffEffectsAfterAttack } from './04buff-system.js';
-import {
-    getRebelTarget, getRebelDmgBonus, getRebelTrueDmg,
-    checkKuLian, applyXingFenGrant,
-    applyDamageModifiers, isXiaoZhaoPermanentActive,
-    applyXiaoZhaoMindControl, checkXiaoZhaoPermanentDoubleStrike,
-    getXiaoZhaoHexEnhance
-} from '../modules/23elite-skills.js';
-import { applyFortifyRebound_Normal, applyFortifyRebound_Sister } from './51buff-effects.js';
+import { applyDamageModifiers, getXiaoZhaoHexEnhance } from '../modules/23elite-skills.js';
 import { emitEvent } from './50battle-shared.js';
 
 // ==================== 闪避规则注册表 ====================
@@ -396,10 +389,26 @@ export function resolveAfterDamageEffects(declarations, unit, target, group, log
     if (!declarations || declarations.length === 0) return;
 
     // 按类型分组
+    const bonusDmgDecls = declarations.filter(d => d.type === 'bonusDmg');
     const leechDecls = declarations.filter(d => d.type === 'leech');
     const healDecls = declarations.filter(d => d.type === 'heal');
     const splashDecls = declarations.filter(d => d.type === 'splash');
-    const otherDecls = declarations.filter(d => !['leech', 'heal', 'splash'].includes(d.type));
+    const otherDecls = declarations.filter(d => !['bonusDmg', 'leech', 'heal', 'splash'].includes(d.type));
+
+    // 0. 对主目标的额外伤害（如流星赶月）
+    for (const decl of bonusDmgDecls) {
+        if (!decl.target || !decl.target.alive) continue;
+        const hpBefore = Math.floor(decl.target.hp);
+        decl.target.hp = Math.max(0, decl.target.hp - (decl.value || 0));
+        unit.dmgDealt = (unit.dmgDealt || 0) + (decl.value || 0);
+        decl.target.dmgTaken = (decl.target.dmgTaken || 0) + (decl.value || 0);
+        if (decl.target.hp <= 0) { decl.target._pendingDeath = true; if (!decl.target._deathTime) decl.target._deathTime = Date.now(); }
+        emitEvent(decl.target, 'hp-change', { hp: decl.target.hp, maxHp: decl.target.maxHp, alive: decl.target.alive, atk: decl.target.atk, def: decl.target.def });
+        if (group && group.entries) {
+            group.entries.push({ type: 'info', text: decl.logText || '', isHealEntry: false, healAmount: 0, healUnitUid: null });
+        }
+        if (log) log.push({ type: 'buff-bonus', text: decl.logText || '', buffType: decl.buffType || 'bonus_dmg', targetUid: decl.target.uid, bonusDmg: decl.value || 0 });
+    }
 
     // 1. 吸血
     for (const decl of leechDecls) {

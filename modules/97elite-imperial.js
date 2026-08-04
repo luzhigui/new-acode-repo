@@ -36,7 +36,7 @@ export function createChengKunComponent() {
             // 幻影伪装：攻击后更新伪装目标
             eventBus.on('afterDamageApplied', 40, (data) => {
                 if (data.unit.name !== '成昆') return;
-                onAfterApplyDamage(data.unit, data.target, { dmg: data.dmg }, data.group, A, data.log);
+                onAfterApplyDamage(data.unit, data.target, { dmg: data.dmg }, data.group, A, data.log, data);
             });
             // 混元霹雳劲 → 提交伤害声明
             eventBus.on('beforeDamageCalc', 15, (data) => {
@@ -48,7 +48,7 @@ export function createChengKunComponent() {
                 }
             });
         },
-        onAfterApplyDamage(unit, target, dmgCalc, group, enemySide, log) {
+        onAfterApplyDamage(unit, target, dmgCalc, group, enemySide, log, data) {
             if (unit.name !== '成昆' || dmgCalc.dmg <= 0) return;
             const enemyAlive = enemySide.filter(u => u.alive && !u.isHorse && !u._untargetable);
             if (enemyAlive.length > 0) {
@@ -57,9 +57,14 @@ export function createChengKunComponent() {
                 if (lostHp > 0) {
                     const aliveCount = enemySide.filter(u => u.alive).length;
                     const heal = Math.floor(lostHp * 0.06 * aliveCount);
-                    unit.hp = Math.min(unit.maxHp, unit.hp + heal);
-                    unit.healDone += heal;
-                    log.push({ type:'info', text:`<span class="green">🎭 幻影伪装：${unit.name} 回复 ${heal} 点生命</span>`, isHealEntry:true, healAmount:heal, healUnitUid:unit.uid });
+                    // 改为提交 heal 声明，由裁判统一处理
+                    if (!data.declarations) data.declarations = [];
+                    data.declarations.push({
+                        type: 'heal',
+                        value: heal,
+                        source: unit,
+                        logText: `<span class="green">🎭 幻影伪装：${unit.name} 回复 ${heal} 点生命</span>`
+                    });
                 }
                 emitEvent(unit, 'hp-change', { hp:unit.hp, maxHp:unit.maxHp, alive:unit.alive, atk:unit.atk, def:unit.def, _phantomTarget:unit._phantomTarget });
             }
