@@ -1,8 +1,8 @@
 // modules/23elite-skills.js - 光明顶5v5 精英技能系统
-// V5.3.1 | ~13000 bytes| 2026-07-31 精英技能函数库，调用方已从直接调用迁移至事件总线监听器
-export const VER = 'modules/23elite-skills.js V5.3.1';
+// V5.3.2 | ~12800 bytes| 2026-08-04 白骨爪/叛逆突袭接入 game-data
+export const VER = 'modules/23elite-skills.js V5.3.2';
 
-import { CONFIG } from '../core/01config-5v5-test.js';
+import { CONFIG, getSkillParams, getSkillParamsJealous } from '../core/01config-5v5-test.js';
 import { ROLE_BONUS } from '../core/02unit.js';
 import { hasBuff, rand } from '../core/03battle-utils.js';
 import { emitEvent } from '../core/50battle-shared.js';
@@ -24,7 +24,9 @@ export function getRebelDmgBonus(attacker) {
 
 export function getRebelTrueDmg(attacker, target) {
     if (attacker.name !== '宋青书') return 0;
-    return Math.floor(target.hp * ES.rebelStrike.currentHpRatio);
+    const rebelParams = getSkillParams('宋青书', 'rebelStrike') || ES.rebelStrike;
+    const ratio = (rebelParams.currentHpRatio || 8) / 100;
+    return Math.floor(target.hp * ratio);
 }
 
 // ==================== 玄冥二老 — 中毒/鹿角 ====================
@@ -32,7 +34,8 @@ export function getRebelTrueDmg(attacker, target) {
 export function tickXuanmingPoison(unit) {
     if (!unit._xuanmingPoison || unit._xuanmingPoison.remaining <= 0) return 0;
     unit._xuanmingPoison.remaining--;
-    const idx = Math.min(unit._xuanmingPoison.dotPercents.length - 1, ES.xuanmingPalm.duration - 1 - unit._xuanmingPoison.remaining);
+    const s = getSkillParams('鹿杖客', 'xuanmingPalm') || ES.xuanmingPalm;
+    const idx = Math.min(unit._xuanmingPoison.dotPercents.length - 1, s.duration - 1 - unit._xuanmingPoison.remaining);
     const pct = unit._xuanmingPoison.dotPercents[idx] || 0;
     const dot = Math.floor(unit.maxHp * pct);
     unit.hp -= dot;
@@ -55,9 +58,10 @@ export function applyDamageModifiers(unit, target, dmg, allySide, enemySide, log
     const xiaoZhao = allySide.find(u => (u.isXiaoZhaoSister || u.isXiaoZhaoBrother) && u.alive);
     const zhangUpgraded = allySide.find(c => c.isZhang && c.alive);
     if (target.camp === 'ally' && xiaoZhao && zhangUpgraded && [2, 4, 6, 8].includes(target.pos)) {
-        const reducedDmg = Math.round(dmg * (1 - ES.xiaoZhao.upgradedReducePct));
-        const rebound = Math.floor(dmg * (ES.xiaoZhao.upgradedReboundPct || 0.20));
-        const selfDmg = Math.max(1, Math.floor(dmg * (ES.xiaoZhao.upgradedSelfDmgPct || 0.10)));
+        const s = getSkillParams('小昭', 'qianKunUpgraded') || ES.xiaoZhao;
+        const reducedDmg = Math.round(dmg * (1 - (s.reducePct || s.upgradedReducePct) / 100));
+        const rebound = Math.floor(dmg * ((s.reboundPct || s.upgradedReboundPct || 20) / 100));
+        const selfDmg = Math.max(1, Math.floor(dmg * ((s.selfDmgPct || s.upgradedSelfDmgPct || 10) / 100)));
 
         unit.hp = Math.max(0, unit.hp - rebound);
         unit.dmgTaken += rebound;
@@ -168,7 +172,8 @@ export function spiderTransform(unit, log) {
     unit._baseAtk = (unit._baseAtk || unit.atk) + newStats.atk;
     unit._baseDef = (unit._baseDef || unit.def) + newStats.def;
 
-    let hpDelta = newStats.maxHp + 5;
+    const st = getSkillParams('小昭', 'spiderTransform') || { hpBonus: 5 };
+    let hpDelta = newStats.maxHp + (st.hpBonus || 5);
     unit._baseMaxHp = (unit._baseMaxHp || unit.maxHp) + hpDelta;
     unit.maxHp += hpDelta;
     unit.hp = Math.min(unit.hp + hpDelta, unit.maxHp);
@@ -199,7 +204,8 @@ export function spiderReturn(unit, allyTeam, enemySide, log) {
         if (!target.alive) { log.push({ type:'info', text:`<span class="gray">🕷️ 蛛袭：目标已死亡，攻击取消</span>` }); return; }
         const penetrationDmg = Math.floor(unit.atk * (unit.atk / (unit.atk + target.def)));
         const masteryCount = unit._masteredRoles?.length || 0;
-        const extraDmgMap = [0, 5, 10, 15, 30];
+        const params = getSkillParams('小昭', 'spiderStrike') || { extraDmgMap: [0, 5, 10, 15, 30] };
+        const extraDmgMap = params.extraDmgMap || [0, 5, 10, 15, 30];
         const extraDmg = extraDmgMap[Math.min(masteryCount, 4)] || 0;
         const totalDmg = penetrationDmg + extraDmg;
         target.hp = Math.max(0, target.hp - totalDmg);
@@ -216,11 +222,12 @@ export function computeButterflyMastery(unit) {
     if (!unit.isXiaoZhaoBrother || !unit._masteredRoles) return { atk: 0, def: 0, hp: 0 };
     const count = unit._masteredRoles.length;
     let layers = count;
-    if (count >= 4) layers = count + 2;  // 第4个职业额外多加两层
+    if (count >= 4) layers = count + 2;
+    const m = getSkillParams('小昭', 'mastery') || { atkPer: 2, defPer: 2, hpPer: 5 };
     return {
-        atk: layers * 2,
-        def: layers * 2,
-        hp: layers * 5
+        atk: layers * (m.atkPer || 2),
+        def: layers * (m.defPer || 2),
+        hp: layers * (m.hpPer || 5)
     };
 }
 
@@ -248,7 +255,8 @@ export function applyPhantomDisguise(unit, enemySide, allySide = null) {
     if (!chengkun || unit._isLinkAttack) return null;
     if (chengkun._phantomTarget === unit.uid) return null;
     const lostPct = (chengkun.maxHp - chengkun.hp) / chengkun.maxHp;
-    const chance = ES.phantomDisguise.baseChance + Math.floor(lostPct * 10) * ES.phantomDisguise.per10pctLost;
+    const p = getSkillParams('成昆', 'phantomDisguise') || ES.phantomDisguise;
+    const chance = p.baseChance + Math.floor(lostPct * 10) * p.per10pctLost;
     if (Math.random() < chance) {
         const fakeTarget = allySide ? allySide.find(u => u.uid === chengkun._phantomTarget && u.alive && !u.isHorse && !u._untargetable) : null;
         if (fakeTarget) {

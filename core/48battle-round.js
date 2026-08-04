@@ -3,8 +3,8 @@
 export const VER = 'core/48battle-round.js V5.3.1';
 
 import { CONFIG } from './01config-5v5-test.js';
-import { rand, isMelee, isBlocked, makeFXSnapshot, hasBuff, getUnitCol, getUnitRow, hasAnyEnemyEmptyCol, countEnemyEmptyCols, getBloodAuraBonus, registerWarriorBreakDefense, registerRangedGrowth, registerFortifyShield, selectFlyTarget, registerEmptyColBonus, registerDoubleStrike } from './03battle-utils.js';
-import { computeBuffStats, logBuffSummary, applyHolyFlameBonus, applyFortifyBonus, registerBloodthirst, registerHotBlood, registerWindAssault, registerMeteorShower, registerMindControl } from './04buff-system.js';
+import { rand, isMelee, isBlocked, makeFXSnapshot, hasBuff, getUnitCol, getUnitRow, hasAnyEnemyEmptyCol, countEnemyEmptyCols, getBloodAuraBonus, getAuraBonuses, registerWarriorBreakDefense, registerRangedGrowth, registerFortifyShield, selectFlyTarget, registerEmptyColBonus, registerDoubleStrike } from './03battle-utils.js';
+import { computeBuffStats, logBuffSummary, applyHolyFlameBonus, applyFortifyBonus, applyCarryBonus, registerBloodthirst, registerHotBlood, registerWindAssault, registerMeteorShower, registerMindControl } from './04buff-system.js';
 import { spawnHorse, destroyHorse } from './05battle-horse.js';
 import { Unit } from './02unit.js';
 
@@ -199,51 +199,10 @@ export async function* createRoundStepper(state) {
             buffHpBonus: stats.hpBonus
         });
 
-        const sister = A.some(a => a.isXiaoZhaoSister && a.alive);
-        const carryPositions = sister ? [4, 5, 6] : [5];
-        if (hasCarryActive && carryPositions.includes(u.pos) && u._baseMaxHp !== undefined && !u.isHorse && !u.isZhang && !u.isXiaoZhaoSister && !u.isXiaoZhaoBrother) {
-            if (u.maxHp > 0 && u._baseMaxHp > 0) {
-                u.hp = Math.floor(u.hp * (u._baseMaxHp / u.maxHp));
-            }
-            u.maxHp = u._baseMaxHp;
-            if (u._baseAtk !== undefined) u.atk = u._baseAtk + (u._carryAtkBonus || 0) + (u._butterflyAtkBonus || 0);
-            if (u._baseDef !== undefined) u.def = u._baseDef + (u._carryDefBonus || 0) + (u._butterflyDefBonus || 0);
+        applyCarryBonus(u, A, state, log, stats);
 
-            u._carryAtkBonus = Math.floor(stats.carryAtkAbs);
-            u._carryDefBonus = Math.floor(stats.carryDefAbs);
-            u._carryHpBonus = Math.floor(stats.carryHpAbs);
-
-            u.atk = (u._baseAtk || u.atk) + u._carryAtkBonus + (u._butterflyAtkBonus || 0);
-            u.def = (u._baseDef || u.def) + u._carryDefBonus + (u._butterflyDefBonus || 0);
-
-            if (u._carryHpBonus) {
-                let newMaxHp = Math.min(u._baseMaxHp + u._carryHpBonus, u._baseMaxHp * 2);
-                let extraHp = newMaxHp - u.maxHp;
-                if (extraHp > 0) u.hp += extraHp;
-                u.maxHp = newMaxHp;
-            }
-            emitEvent(u, 'hp-change', { hp: u.hp, maxHp: u.maxHp, alive: u.alive, atk: u.atk, def: u.def, buffAtkBonus: u.buffAtkBonus, buffDefBonus: u.buffDefBonus, _holyAtkBonus: u._holyAtkBonus, _holyDefBonus: u._holyDefBonus, _fortifyDefBonus: u._fortifyDefBonus, _emptyColBonus: u._emptyColBonus, _bloodAuraBonus: u._bloodAuraBonus, _carryAtkBonus: u._carryAtkBonus, _carryDefBonus: u._carryDefBonus });
-            if (stats.carryAtkAbs || stats.carryDefAbs || stats.carryHpAbs) {
-                log.push({ type:'info', text:`<span class="gold">👑 carry：${u.name} 获得队友属性加成 攻+${stats.carryAtkAbs} 防+${stats.carryDefAbs} 血上限+${stats.carryHpAbs}</span>` });
-            }
-        } else if (!u.isHorse && !hasCarryActive && !u.isXiaoZhaoSister && !u.isXiaoZhaoBrother && !u.isZhang) {
-            const sister = A.some(a => a.isXiaoZhaoSister && a.alive);
-            const carryPositions = sister ? [4, 5, 6] : [5];
-            if (carryPositions.includes(u.pos) && (u._carryAtkBonus || u._carryDefBonus || u._carryHpBonus)) {
-                if (u._carryHpBonus && u._baseMaxHp > 0 && u.maxHp > 0) {
-                    u.hp = Math.floor(u.hp * (u._baseMaxHp / u.maxHp));
-                }
-                if (u._carryHpBonus) u.maxHp = u._baseMaxHp;
-                u._carryAtkBonus = 0;
-                u._carryDefBonus = 0;
-                u._carryHpBonus = 0;
-                u.atk = (u._baseAtk || u.atk) + (u._butterflyAtkBonus || 0);
-                u.def = (u._baseDef || u.def) + (u._butterflyDefBonus || 0);
-                emitEvent(u, 'hp-change', { hp: u.hp, maxHp: u.maxHp, alive: u.alive, atk: u.atk, def: u.def, buffAtkBonus: u.buffAtkBonus, buffDefBonus: u.buffDefBonus, _holyAtkBonus: u._holyAtkBonus, _holyDefBonus: u._holyDefBonus, _fortifyDefBonus: u._fortifyDefBonus, _emptyColBonus: u._emptyColBonus, _bloodAuraBonus: u._bloodAuraBonus, _carryAtkBonus: u._carryAtkBonus, _carryDefBonus: u._carryDefBonus });
-            }
-        }
-
-        u.atk = (u._baseAtk || u.atk) + (u._carryAtkBonus || 0) + (u._butterflyAtkBonus || 0) + (u._holyAtkBonus || 0) + (u._emptyColBonus || 0) + (u._bloodAuraBonus || 0);
+        const auraBonuses = getAuraBonuses(u, A, B);
+        u.atk = (u._baseAtk || u.atk) + (u._carryAtkBonus || 0) + (u._butterflyAtkBonus || 0) + (u._holyAtkBonus || 0) + auraBonuses.emptyCol + auraBonuses.bloodAura;
         u.def = (u._baseDef || u.def) + (u._carryDefBonus || 0) + (u._butterflyDefBonus || 0) + (u._holyDefBonus || 0) + (u._fortifyDefBonus || 0);
 
         // 圣火令等加成生效后，立即推送最终攻防到 Store 刷新格子显示

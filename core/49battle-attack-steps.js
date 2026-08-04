@@ -71,10 +71,23 @@ export function selectAttackTarget(unit, enemySide, allySide) {
 
     if (!target) {
         // 通用规则：按角色类型匹配选择方法
-        if (unit.isWei || (unit.role === '飞行' && !unit.isWei)) {
-            // 飞行 / 韦一笑：血量最低优先
+        if (unit.isWei) {
+            // 韦一笑：全场血量最低优先
             const sorted = [...validTargets].sort((a, b) => a.hp - b.hp);
             target = sorted[0];
+        } else if (unit.role === '飞行') {
+            // 普通飞行：血量低于40%的残血优先，否则前排随机
+            const lowHpTargets = validTargets.filter(u => u.hp / u.maxHp < 0.4);
+            if (lowHpTargets.length > 0) {
+                target = lowHpTargets[rand(0, lowHpTargets.length - 1)];
+            } else {
+                let fronts = getFronts(validTargets);
+                if (fronts.length > 0) {
+                    target = fronts[rand(0, fronts.length - 1)];
+                } else {
+                    target = validTargets[rand(0, validTargets.length - 1)];
+                }
+            }
         } else if (isMelee(unit.role) || unit.isHorse) {
             // 近战 / 拒马：前排随机
             const fronts = getFronts(validTargets);
@@ -398,22 +411,19 @@ export function resolveAfterDamageEffects(declarations, unit, target, group, log
     // 0. 对主目标的额外伤害（如流星赶月）
     for (const decl of bonusDmgDecls) {
         if (!decl.target || !decl.target.alive) continue;
-        const hpBefore = Math.floor(decl.target.hp);
         decl.target.hp = Math.max(0, decl.target.hp - (decl.value || 0));
         unit.dmgDealt = (unit.dmgDealt || 0) + (decl.value || 0);
         decl.target.dmgTaken = (decl.target.dmgTaken || 0) + (decl.value || 0);
         if (decl.target.hp <= 0) { decl.target._pendingDeath = true; if (!decl.target._deathTime) decl.target._deathTime = Date.now(); }
         emitEvent(decl.target, 'hp-change', { hp: decl.target.hp, maxHp: decl.target.maxHp, alive: decl.target.alive, atk: decl.target.atk, def: decl.target.def });
         if (group && group.entries) {
-            group.entries.push({ type: 'info', text: decl.logText || '', isHealEntry: false, healAmount: 0, healUnitUid: null });
+            group.entries.push({ type: 'info', text: decl.logText || '' });
         }
-        if (log) log.push({ type: 'buff-bonus', text: decl.logText || '', buffType: decl.buffType || 'bonus_dmg', targetUid: decl.target.uid, bonusDmg: decl.value || 0 });
     }
 
     // 1. 吸血
     for (const decl of leechDecls) {
         if (!decl.source || !decl.source.alive) continue;
-        const hpBefore = Math.floor(decl.source.hp);
         decl.source.hp = Math.min(decl.source.maxHp, decl.source.hp + (decl.value || 0));
         decl.source.healDone = (decl.source.healDone || 0) + (decl.value || 0);
         decl.source.leechDone = (decl.source.leechDone || 0) + (decl.value || 0);
@@ -421,7 +431,6 @@ export function resolveAfterDamageEffects(declarations, unit, target, group, log
         if (group && group.entries) {
             group.entries.push({ type: 'info', text: decl.logText || '', isHealEntry: true, healAmount: decl.value || 0, healUnitUid: decl.source.uid });
         }
-        if (log) log.push({ type: 'buff-leech', text: decl.logText || '', isHealEntry: true, buffType: 'leech', healAmount: decl.value || 0, healUnitUid: decl.source.uid });
     }
 
     // 2. 回血
@@ -433,7 +442,6 @@ export function resolveAfterDamageEffects(declarations, unit, target, group, log
         if (group && group.entries) {
             group.entries.push({ type: 'info', text: decl.logText || '', isHealEntry: true, healAmount: decl.value || 0, healUnitUid: decl.source.uid });
         }
-        if (log) log.push({ type: 'buff-leech', text: decl.logText || '', isHealEntry: true, healAmount: decl.value || 0, healUnitUid: decl.source.uid });
     }
 
     // 3. 溅射波及
@@ -442,21 +450,21 @@ export function resolveAfterDamageEffects(declarations, unit, target, group, log
         const splashDmg = decl.value || 0;
         for (const st of decl.targets) {
             if (!st.alive) continue;
-            const hpBefore = Math.floor(st.hp);
             st.hp = Math.max(0, st.hp - splashDmg);
             unit.dmgDealt = (unit.dmgDealt || 0) + splashDmg;
             st.dmgTaken = (st.dmgTaken || 0) + splashDmg;
             if (st.hp <= 0) { st._pendingDeath = true; if (!st._deathTime) st._deathTime = Date.now(); }
             emitEvent(st, 'hp-change', { hp: st.hp, maxHp: st.maxHp, alive: st.alive, atk: st.atk, def: st.def });
         }
-        if (log) log.push({ type: 'buff-splash', text: decl.logText || '', buffType: decl.buffType || 'splash', attackerUid: unit.uid, splashUids: decl.targets.map(st => st.uid), splashDmg });
+        if (group && group.entries) {
+            group.entries.push({ type: 'info', text: decl.logText || '' });
+        }
     }
 
     // 3.5 反弹（排在溅射之后、其他之前）
     const reboundDecls = declarations.filter(d => d.type === 'rebound');
     for (const decl of reboundDecls) {
         if (!decl.target || !decl.target.alive) continue;
-        const attHpBefore = Math.floor(decl.target.hp);
         decl.target.hp = Math.max(0, decl.target.hp - (decl.value || 0));
         decl.target.dmgTaken = (decl.target.dmgTaken || 0) + (decl.value || 0);
         if (decl.source) decl.source.reboundDone = (decl.source.reboundDone || 0) + (decl.value || 0);
@@ -467,12 +475,16 @@ export function resolveAfterDamageEffects(declarations, unit, target, group, log
             decl.source.healDone = (decl.source.healDone || 0) + (decl.value || 0);
             emitEvent(decl.source, 'hp-change', { hp: decl.source.hp, maxHp: decl.source.maxHp, alive: decl.source.alive, atk: decl.source.atk, def: decl.source.def });
         }
-        if (log && decl.logText) log.push({ type: 'buff-rebound-fortify', text: decl.logText, buffType: 'fortify_rebound', reboundDmg: decl.value || 0, attackerUid: decl.target.uid, defenderUid: decl.source ? decl.source.uid : null });
+        if (group && group.entries && decl.logText) {
+            group.entries.push({ type: 'info', text: decl.logText });
+        }
     }
 
     // 4. 其他（预留扩展）
     for (const decl of otherDecls) {
-        if (log && decl.logText) log.push({ type: 'info', text: decl.logText });
+        if (group && group.entries && decl.logText) {
+            group.entries.push({ type: 'info', text: decl.logText });
+        }
     }
 }
 

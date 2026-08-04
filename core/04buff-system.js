@@ -42,6 +42,63 @@ export function applyFortifyBonus(unit, activeBuffs) {
     }
 }
 
+/**
+ * 应用 carry 加成（绝对值），含激活和清除逻辑
+ * @param {Unit} unit - 当前单位
+ * @param {Unit[]} A - 己方存活单位
+ * @param {object} state - 战斗状态，需包含 allAllies
+ * @param {string[]} log - 日志数组
+ * @param {object} stats - computeBuffStats 的返回值
+ */
+export function applyCarryBonus(unit, A, state, log, stats) {
+    if (unit.camp !== 'ally') return;
+    const activeBuffs = A._activeBuffs || [];
+    const hasCarryActive = hasBuff(activeBuffs, 'carry');
+    const sister = A.some(a => a.isXiaoZhaoSister && a.alive);
+    const carryPositions = sister ? [4, 5, 6] : [5];
+
+    if (hasCarryActive && carryPositions.includes(unit.pos) && unit._baseMaxHp !== undefined && !unit.isHorse && !unit.isZhang && !unit.isXiaoZhaoSister && !unit.isXiaoZhaoBrother) {
+        // carry 生效：先根据基础血量等比缩放当前血量，再重置为基值，然后加上 carry 加成
+        if (unit.maxHp > 0 && unit._baseMaxHp > 0) {
+            unit.hp = Math.floor(unit.hp * (unit._baseMaxHp / unit.maxHp));
+        }
+        unit.maxHp = unit._baseMaxHp;
+        if (unit._baseAtk !== undefined) unit.atk = unit._baseAtk + (unit._carryAtkBonus || 0) + (unit._butterflyAtkBonus || 0);
+        if (unit._baseDef !== undefined) unit.def = unit._baseDef + (unit._carryDefBonus || 0) + (unit._butterflyDefBonus || 0);
+
+        unit._carryAtkBonus = Math.floor(stats.carryAtkAbs);
+        unit._carryDefBonus = Math.floor(stats.carryDefAbs);
+        unit._carryHpBonus = Math.floor(stats.carryHpAbs);
+
+        unit.atk = (unit._baseAtk || unit.atk) + unit._carryAtkBonus + (unit._butterflyAtkBonus || 0);
+        unit.def = (unit._baseDef || unit.def) + unit._carryDefBonus + (unit._butterflyDefBonus || 0);
+
+        if (unit._carryHpBonus) {
+            let newMaxHp = Math.min(unit._baseMaxHp + unit._carryHpBonus, unit._baseMaxHp * 2);
+            let extraHp = newMaxHp - unit.maxHp;
+            if (extraHp > 0) unit.hp += extraHp;
+            unit.maxHp = newMaxHp;
+        }
+
+        if (stats.carryAtkAbs || stats.carryDefAbs || stats.carryHpAbs) {
+            log.push({ type:'info', text:`<span class="gold">👑 carry：${unit.name} 获得队友属性加成 攻+${stats.carryAtkAbs} 防+${stats.carryDefAbs} 血上限+${stats.carryHpAbs}</span>` });
+        }
+    } else if (!unit.isHorse && !hasCarryActive && !unit.isXiaoZhaoSister && !unit.isXiaoZhaoBrother && !unit.isZhang) {
+        // carry 消失：清除加成，恢复基值
+        if (carryPositions.includes(unit.pos) && (unit._carryAtkBonus || unit._carryDefBonus || unit._carryHpBonus)) {
+            if (unit._carryHpBonus && unit._baseMaxHp > 0 && unit.maxHp > 0) {
+                unit.hp = Math.floor(unit.hp * (unit._baseMaxHp / unit.maxHp));
+            }
+            if (unit._carryHpBonus) unit.maxHp = unit._baseMaxHp;
+            unit._carryAtkBonus = 0;
+            unit._carryDefBonus = 0;
+            unit._carryHpBonus = 0;
+            unit.atk = (unit._baseAtk || unit.atk) + (unit._butterflyAtkBonus || 0);
+            unit.def = (unit._baseDef || unit.def) + (unit._butterflyDefBonus || 0);
+        }
+    }
+}
+
 export function computeBuffStats(unit, activeBuffs, allyTeam) {
     let atkBonus = 0, defBonus = 0, dodgeBonus = 0, hpBonus = 0;
     if (!activeBuffs) return { atkBonus, defBonus, dodgeBonus, hpBonus };

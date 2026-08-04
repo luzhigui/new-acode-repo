@@ -1,6 +1,66 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// core/01config-5v5-test.js - 光明顶5v5 全量配置
-// V5.3.1 | ~14700 bytes| 2026-07-05
-export const VER = 'core/01config-5v5-test.js V5.3.1';
+﻿﻿// core/01config-5v5-test.js - 光明顶5v5 全量配置
+// V5.3.1 | ~14700 bytes| 2026-07-05 → V5.3.2 | 接入 content/101game-data.json
+export const VER = 'core/01config-5v5-test.js V5.3.2';
+
+// ==================== 游戏数据加载 ====================
+let gameData = null;
+
+async function loadGameData() {
+    if (gameData) return gameData;
+    try {
+        const resp = await fetch('./content/101game-data.json');
+        gameData = await resp.json();
+        return gameData;
+    } catch (e) {
+        console.warn('游戏数据加载失败，使用内置默认值', e);
+        return null;
+    }
+}
+
+// 同步获取（如果还没加载完就返回 null，调用方需要处理）
+function getGameData() {
+    return gameData;
+}
+
+// 从 gameData 读取角色技能参数，如果没加载完就回退到硬编码默认值
+function getSkillParams(characterName, skillKey) {
+    const ch = gameData?.characters?.[characterName];
+    const skill = ch?.skills?.[skillKey];
+    return skill?.params || null;
+}
+
+function getSkillParamsJealous(characterName, skillKey) {
+    const ch = gameData?.characters?.[characterName];
+    const skill = ch?.skills?.[skillKey];
+    return skill?.paramsJealous || null;
+}
+
+function getSkillName(characterName, skillKey) {
+    const ch = gameData?.characters?.[characterName];
+    const skill = ch?.skills?.[skillKey];
+    return skill?.name || skillKey;
+}
+
+function getSkillDesc(characterName, skillKey, jealous) {
+    const ch = gameData?.characters?.[characterName];
+    const skill = ch?.skills?.[skillKey];
+    if (!skill) return '';
+    const template = jealous ? (skill.descJealous || skill.desc) : skill.desc;
+    const params = jealous ? (skill.paramsJealous || skill.params) : (skill.params || {});
+    // 替换 {key} 占位符
+    return template.replace(/\{(\w+)\}/g, (_, key) => {
+        let val = params[key];
+        if (val === undefined || val === null) return `{${key}}`;
+        if (Array.isArray(val)) return val.map(v => v + '%').join('→');
+        if (key.toLowerCase().includes('ratio') || key === 'currentHpRatio') return val + '%';
+        return val;
+    });
+}
+
+// 导出加载函数供外部使用
+export { loadGameData, getGameData, getSkillParams, getSkillParamsJealous, getSkillName, getSkillDesc };
+
+// ==================== 原配置内容（不变） ====================
 
 const CONFIG = {
     MING_ALL: ['张无忌', '韦一笑', '殷天正', '杨逍', '范遥', '庄铮', '颜垣', '吴劲草', '周颠', '张中', '说不得', '冷谦', '彭莹玉', '明教·洪午', '明教·岳山', '明教·石虎', '明教弟子1', '明教弟子2', '明教弟子3'],
@@ -27,8 +87,8 @@ const CONFIG = {
     FANG_K: [0, 0.01, 0.03, 0.06, 0.10, 0.15, 0.21, 0.30, 0.42, 0.60, 0.86, 1.20],
     MAX_ROUND: 35,
     HP_DMG_RATIO: 0.02,
-    BASE_DODGE_FLY: 0.15,      // 飞行单位基础闪避率
-    BASE_DODGE_GROUND: 0.03,   // 非飞行单位基础闪避率
+    BASE_DODGE_FLY: 0.15,
+    BASE_DODGE_GROUND: 0.03,
     BUFF_DURATION: 4,
     BUFF_CHOICES: 3,
     BGM_LOCAL: 'assets/sfx_xinai.mp3',
@@ -57,19 +117,13 @@ const CONFIG = {
         meteorShower: '远程',
         windAssault: '飞行'
     },
-    // 小昭永久海克斯列表（除了职业限定的，她也能永久享有）
     XIAO_ZHAO_PERMANENT_BUFFS: ['fortify', 'bloodthirst', 'meteorShower', 'windAssault', 'cloudBody', 'hotBlood', 'carry', 'doubleStrike', 'mindControl', 'horseFormation', 'holyFlame'],
-    // 各关定制阵容（M值总和约束）
     MING_SQUADS: {
         1: [['张无忌', 100, 97, 97, 95], ['韦一笑', 104, 100, 97, 95], ['小昭', 104, 100, 97, 95], [104, 104, 104, 104, 95]]
     },
-    // 各关明教目标总战斗力（第1关走模板，不参与约束）
     MING_TARGET_POWER: { 2: 500, 3: 520, 4: 540, 5: 560, 6: 580 },
-    // 精英战斗力
     ELITE_POWER: { '张无忌': 130, '韦一笑': 120, '小昭': 135 },
-    // 精英出场概率
     ELITE_RATE: { '张无忌': 0.40, '韦一笑': 0.30, '小昭': 0.30 },
-    // 普通角色战斗力
     NORMAL_POWER: { 95: 90, 97: 95, 100: 100, 104: 110 },
     ENEMY_SQUADS: {
         1: [104,104,100,97,95],
@@ -79,7 +133,6 @@ const CONFIG = {
         5: [{ name: '鹿杖客', role: '远程', m: 112, skill: 'xuanmingPalm' }, { name: '鹤笔翁', role: '飞行', m: 112, skill: 'hornStrike' }, 104, 104, 100],
         6: [{ name: '成昆', role: '防战', m: 112 }, 104, 104, 104, 100]
     },
-    // 各关普通敌人站位模板
     ENEMY_POS_TEMPLATES: {
         1: { '防战': [3], '战士': [1, 5], '远程': [8], random: 2 },
         2: { '防战': [1, 3], '战士': [5], '飞行': [4, 6], '远程': [8, 9], random: 2 },
@@ -88,7 +141,6 @@ const CONFIG = {
         5: { '防战': [1], '战士': [2], '远程': [8], random: 3 },
         6: { '防战': [1], '战士': [2], '远程': [7], '飞行': [8], random: 1 }
     },
-    // 精英怪按职业的优先站位顺序
     ELITE_POS_PRIORITY: {
         '战士': [1, 2, 3, 4, 5, 6, 7, 8, 9],
         '防战': [1, 2, 3, 4, 5, 6, 7, 8, 9],
@@ -110,7 +162,8 @@ const CONFIG = {
             { name: '成昆', role: '防战', m: 112, skill: 'phantomThunder', pos: 1 }
         ]
     },
-    // 精英怪技能参数 (V3.1.0 新增宋青书/周芷若联动技能)
+    // 精英怪技能参数 — 宋青书/周芷若已迁移至 content/101game-data.json，
+    // 此处保留的键名仍用于代码引用，但数值由 gameData 覆盖
     ELITE_SKILLS: {
         weiBloodDodge: { name: '残血幻影', maxRatio: 0.70 },
         nineYinClaw: {
@@ -118,26 +171,25 @@ const CONFIG = {
             firstProcChance: 1.0,
             procChance: 0.80,
             chainProcChance: 0.80,
-            maxChain: Infinity,       // 无连锁上限
+            maxChain: Infinity,
             unavoidable: true,
-            baseDmg: 1.5,             // 无无忌：基础1.5
-            lostHpRatio: 0.015,       // +已损失生命×1.5%
-            maxHpRatio: 0.01,         // +对方最大生命×1%
-            jealousBaseDmg: 2,        // 有无忌：基础2
-            jealousLostHpRatio: 0.015,// +已损失生命×1.5%
-            jealousMaxHpRatio: 0.015, // +对方最大生命×1.5%
-            executeThreshold: 0.15,   // 无无忌斩杀线15%
-            jealousExecuteThreshold: 0.18 // 有无忌斩杀线18%
+            baseDmg: 1.5,
+            lostHpRatio: 0.015,
+            maxHpRatio: 0.01,
+            jealousBaseDmg: 2,
+            jealousLostHpRatio: 0.015,
+            jealousMaxHpRatio: 0.015,
+            executeThreshold: 0.15,
+            jealousExecuteThreshold: 0.18
         },
         rebelStrike: { 
-            name: '叛逆突袭', dmgBonus: 0,  // 取消伤害加成
+            name: '叛逆突袭', dmgBonus: 0,
             currentHpRatio: 0.08
         },
         phantomThunder: { name: '混元霹雳劲', lostHpRatio: 0.2 },
         phantomDisguise: { name: '幻影伪装', baseChance: 0.30, per10pctLost: 0.06 },
         xuanmingPalm: { name: '玄冥神掌', dotPercents: [0.04, 0.02, 0.01], duration: 3 },
         hornStrike: { name: '鹿角杖法', defIgnore: 0.3, poisonedBonus: 0.3 },
-        // ===== V3.1.0 新增联动技能 =====
         kuLian: {
             name: '苦练',
             icon: '💪',
@@ -177,7 +229,7 @@ const CONFIG = {
         xinHun: {
             name: '新婚',
             hpDeduct: 1,
-            healLevels: [0.16, 0.10, 0.06, 0.03]  // 4层后消失
+            healLevels: [0.16, 0.10, 0.06, 0.03]
         },
         xingFen: {
             name: '性奋',
