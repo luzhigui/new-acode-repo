@@ -14,6 +14,7 @@ import { createChengKunComponent, createLuZhangKeComponent, createHeBiWengCompon
 import { processUnitAttack } from './47battle-attack.js';
 import { eventBus } from './00-event-bus.js';
 import { getNextAvailableUnit, finalizeDeaths, emitFullUnitState, checkZhangSwitch, emitEvent } from './50battle-shared.js';
+import { resolveDeaths } from './49battle-attack-steps.js';
 
 const C = CONFIG;
 
@@ -119,6 +120,9 @@ export async function* createRoundStepper(state) {
     });
 
     eventBus.clearAll();
+
+    // 清除上回合精英注册的动态闪避规则，保留两条通用规则
+    import('../core/49battle-attack-steps.js').then(mod => mod.clearEliteDodgeRules());
 
     // 注册所有监听器
     registerWarriorBreakDefense(eventBus);
@@ -420,6 +424,9 @@ export async function* createRoundStepper(state) {
 
         await processUnitAttack(unit, allySide, enemySide, log, A, B, state, doubleStrikeUnitUid);
 
+        // 死亡结算：覆盖所有路径（连击、白骨爪、乾坤反弹等）
+        resolveDeaths(A, B, log);
+
         // 普通行动结束后切换行动方；高优先级抢动的单位（苦练等）跳过切换，让本队继续出人
         if (!isPriorityAction) {
             currentSide = currentSide === 'ally' ? 'enemy' : 'ally';
@@ -429,6 +436,8 @@ export async function* createRoundStepper(state) {
         finalizeDeaths(B);
         // 发射回合结束信号，由组件自行处理附身飞回、变身检查等
         eventBus.emit('onRoundEnd', { A, B, log, forced: false });
+        // 兜底：回合结束阶段产生的死亡标记
+        resolveDeaths(A, B, log);
         const stepEvents = GlobalStore.flushBattleEvents();
         const allyAlive = A.some(u => u.alive);
         const enemyAlive = B.some(u => u.alive);

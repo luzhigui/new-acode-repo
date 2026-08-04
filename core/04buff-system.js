@@ -2,12 +2,6 @@
 // V5.3.1 | ~18600 bytes| 2026-07-28 海克斯效果迁移至事件总线
 export const VER = 'core/04buff-system.js V5.3.1';
 import {
-    applyBloodthirst_Normal, applyBloodthirst_Sister, applyBloodthirst_Brother,
-    applyHotBlood_Normal, applyHotBlood_Sister, applyHotBlood_Brother,
-    applyWindAssault_Normal, applyWindAssault_Sister, applyWindAssault_Brother,
-    applyMeteorShower_Normal, applyMeteorShower_Sister, applyMeteorShower_Brother,
-    applyFortifyRebound_Normal, applyFortifyRebound_Sister, applyFortifyRebound_Brother,
-    applyMindControl_Normal, applyMindControl_Sister,
     applyFortifyDef_Normal, applyFortifyDef_Sister, applyFortifyDef_Brother,
     applyCloudBodyDodge_Normal, applyCloudBodyDodge_Sister, applyCloudBodyDodge_Brother,
     applyHolyFlame_Normal, applyHolyFlame_Sister, applyHolyFlame_Brother,
@@ -15,7 +9,7 @@ import {
 } from './51buff-effects.js';
 import { CONFIG } from './01config-5v5-test.js';
 import { rand, hasBuff, getUnitRow, getUnitCol, getAdjacentPositions } from './03battle-utils.js';
-import { checkKuLian, applyXingFenGrant, tickKuaiLeHeal, computeButterflyMastery, isXiaoZhaoPermanentActive, getXiaoZhaoHexEnhance } from '../modules/23elite-skills.js';
+import { computeButterflyMastery, isXiaoZhaoPermanentActive, getXiaoZhaoHexEnhance } from '../modules/23elite-skills.js';
 import { emitEvent } from './50battle-shared.js';
 const C = CONFIG;
 
@@ -398,18 +392,19 @@ export function registerMeteorShower(eventBus) {
 
         const label = brotherActive ? '🦋 蝶星' : '☄️ 流星赶月';
 
-        // 主箭额外增伤 — 作为 bonusDmg 声明提交给伤害计算边裁（下一轮优化）
-        // 当前暂时保留直接修改，因为伤害计算边裁的 bonusDmg 声明通道未完全接入
+        // 主箭额外增伤 — 改为提交 bonusDmg 声明
         const bonusDmg = Math.floor(dmg * C.BUFFS.meteorShower.bonusRatio);
-        unit.dmgDealt += bonusDmg;
-        if (target.alive) {
-            target.hp -= bonusDmg;
-            target.dmgTaken += bonusDmg;
-            target.def = Math.max(0, target.def - (C.BUFFS.meteorShower.mainDefReduce || 2));
-            if (target.hp <= 0) { target._pendingDeath = true; if (!target._deathTime) target._deathTime = Date.now(); }
-            emitEvent(target, 'hp-change', { hp: target.hp, maxHp: target.maxHp, alive: target.alive, atk: target.atk, def: target.def });
-        }
-        log.push({type:'buff-bonus', text:`<span class="gold">${label}伤害加深：${target.name} 额外-${bonusDmg}，防御-${C.BUFFS.meteorShower.mainDefReduce || 2}</span>`, buffType:'meteor_bonus', targetUid: target.uid, bonusDmg});
+        // 防御降低仍直接处理（属性修改，不与声明冲突）
+        target.def = Math.max(0, target.def - (C.BUFFS.meteorShower.mainDefReduce || 2));
+        const decl = {
+            type: 'bonusDmg',
+            value: bonusDmg,
+            target: target,
+            buffType: 'meteor_bonus',
+            logText: `<span class="gold">${label}伤害加深：${target.name} 额外-${bonusDmg}，防御-${C.BUFFS.meteorShower.mainDefReduce || 2}</span>`
+        };
+        if (!data.declarations) data.declarations = [];
+        data.declarations.push(decl);
 
         // 溅射 — 提交 splash 声明
         const splashDmg = Math.floor(dmg * C.BUFFS.meteorShower.splashRatio);

@@ -33,7 +33,7 @@ export function createZhangWujiComponent() {
                 const { A, log } = data;
                 if (zhang && zhang.alive && !zhang._zhangSwitched) checkZhangSwitch(A, log);
             });
-            // 乾坤大挪移反弹
+            // 乾坤大挪移反弹 — 提交声明，由裁判统一执行
             eventBus.on('allyDamaged', 40, (data) => {
                 if (!zhang || !zhang.alive || !zhang.rangedForm || zhang._stunned) return;
                 const { attacker, target, dmg } = data;
@@ -42,18 +42,21 @@ export function createZhangWujiComponent() {
                 if (xiaoZhaoActive) return;
                 const rebound = Math.floor(dmg * (CONFIG.ELITE_SKILLS.xiaoZhao.normalReboundPct || 0.15));
                 let selfDmg = Math.max(1, Math.floor(rebound * (CONFIG.ELITE_SKILLS.xiaoZhao.normalSelfDmgPct || 0.1)));
-                // 反弹伤害给攻击者
-                attacker.hp = Math.max(0, attacker.hp - rebound);
-                attacker.dmgTaken += rebound;
                 zhang.reboundDone += rebound;
-                if (attacker.hp <= 0) { attacker._pendingDeath = true; if (!attacker._deathTime) attacker._deathTime = Date.now(); }
-                emitEvent(attacker, 'hp-change', { hp: attacker.hp, maxHp: attacker.maxHp, alive: attacker.alive, atk: attacker.atk, def: attacker.def, _isDead: attacker._isDead || false });
-                // 无忌自伤
                 zhang.hp -= selfDmg;
                 zhang.dmgTaken += selfDmg;
                 if (zhang.hp <= 0) { zhang._pendingDeath = true; if (!zhang._deathTime) zhang._deathTime = Date.now(); }
                 emitEvent(zhang, 'hp-change', { hp: zhang.hp, maxHp: zhang.maxHp, alive: zhang.alive, atk: zhang.atk, def: zhang.def });
                 data.log.push({type:'info', text:`<span class="gold">✨ 乾坤大挪移反弹${rebound}给${attacker.name}（无忌自伤${selfDmg}）</span>`});
+                // 反弹伤害声明
+                if (!data.declarations) data.declarations = [];
+                data.declarations.push({
+                    type: 'rebound',
+                    value: rebound,
+                    target: attacker,
+                    source: zhang,
+                    logText: ''
+                });
             });
         },
         onAfterApplyDamage(unit, target, dmgCalc, group, A, log) {
@@ -112,48 +115,17 @@ export function createWeiYixiaoComponent() {
                 if (wasFullHpWei) wei.hp = wei.maxHp;
                 emitEvent(wei, 'hp-change', { hp:wei.hp, maxHp:wei.maxHp, alive:wei.alive, atk:wei.atk, def:wei.def });
             });
-            // 动态闪避规则：韦一笑血量越低闪避越高
-            eventBus.on('onRoundStart', 5, () => {
-                import('../core/49battle-attack-steps.js').then(mod => {
-                    mod.registerDodgeRule((unit, attacker) => {
-                        if (!unit.isWei || !unit.alive) return 0;
-                        const lostPct = (unit.maxHp - unit.hp) / unit.maxHp;
-                        const maxRatio = (CONFIG.ELITE_SKILLS.weiBloodDodge && CONFIG.ELITE_SKILLS.weiBloodDodge.maxRatio) ? CONFIG.ELITE_SKILLS.weiBloodDodge.maxRatio : 0;
-                        return lostPct * maxRatio;
-                    });
+        },
+        // 韦一笑动态闪避规则：回合开始时由引擎清除精英规则后重新注册
+        _registerDodgeRule(wei) {
+            import('../core/49battle-attack-steps.js').then(mod => {
+                mod.registerDodgeRule((unit, attacker) => {
+                    if (!unit.isWei || !unit.alive) return 0;
+                    const lostPct = (unit.maxHp - unit.hp) / unit.maxHp;
+                    const maxRatio = (CONFIG.ELITE_SKILLS.weiBloodDodge && CONFIG.ELITE_SKILLS.weiBloodDodge.maxRatio) ? CONFIG.ELITE_SKILLS.weiBloodDodge.maxRatio : 0;
+                    return lostPct * maxRatio;
                 });
             });
-        },
-        onAfterApplyDamage(unit, target, dmgCalc, group, A, log) {
-            if (unit.camp !== 'ally' || !unit.isWei || !unit.alive || dmgCalc.dmg <= 0) return;
-            const lostPct = (unit.maxHp - unit.hp) / unit.maxHp;
-            const leechRate = 0.20 + (0.40 - 0.20) * lostPct;
-            const healWei = Math.floor(dmgCalc.dmg * leechRate);
-            const wasFullHpWei = (unit.hp >= unit.maxHp);
-            const newMaxHpWei = Math.min(unit.maxHp + healWei, unit._baseMaxHp * 2);
-            const hpDeltaWei = newMaxHpWei - unit.maxHp;
-            // 提交吸血声明给裁判，裁判统一修改状态
-            const logText = `<span class="green">🦇 青翼蝠王·吸血+${healWei}，上限→${Math.floor(newMaxHpWei)}</span>`;
-            // 通过声明传递最大生命值变化和回血
-            const leechDecl = {
-                type: 'leech',
-                value: healWei + hpDeltaWei, // 实际回血总量（含上限提升部分）
-                source: unit,
-                logText: logText,
-                extra: { wasFullHp: wasFullHpWei, newMaxHp: newMaxHpWei }
-            };
-            // 注意：裁判 leech 处理仅增加 hp，不处理 maxHp 变化。
-            // 此处保留 maxHp 的修改，因为 maxHp 变更属于自身属性成长，与其他组件无冲突。
-            unit.maxHp = newMaxHpWei;
-            unit._baseMaxHp = Math.max(unit._baseMaxHp, newMaxHpWei);
-            if (wasFullHpWei) unit.hp = unit.maxHp;
-            emitEvent(unit, 'hp-change', { hp:unit.hp, maxHp:unit.maxHp, alive:unit.alive, atk:unit.atk, def:unit.def });
-            // 裁判会处理 group.entries 的追加，因此这里不 push，改为在 logText 中提供
-            // 但由于 group.entries 已经不在组件作用域内可靠修改（裁判接管），我们通过声明传递日志
-            // 暂时保留直接 push，因为裁判目前未接管 group 修改。
-            // 为了兼容，同时保留 push 和提交声明，但声明中不重复执行。
-            if (!data.declarations) data.declarations = [];
-            data.declarations.push(leechDecl);
         }
     };
 }
