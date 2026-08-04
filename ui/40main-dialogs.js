@@ -67,7 +67,7 @@ export function showBattleReport(UI, battleResultForInfo) {
     box.appendChild(switchBtn);
     
     let tableDiv = document.createElement('div');
-    tableDiv.style.maxHeight = '350px';
+    tableDiv.style.maxHeight = '60vh';
     tableDiv.style.overflowY = 'auto';
     box.appendChild(tableDiv);
     

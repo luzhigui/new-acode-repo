@@ -306,7 +306,7 @@ document.addEventListener('DOMContentLoaded', function() {
             updateScoreBadge();
             renderGrid('allyGrid', 'ally');
             renderGrid('enemyGrid', 'enemy');
-            setState.gs(S.IDLE); setState.isPaused(false); isBattleStarting=false; updateButtons(); enableAllButtons(); updateSpeedButtons();
+            setState.adjustMode(false); setState.gs(S.IDLE); setState.isPaused(false); isBattleStarting=false; updateButtons(); enableAllButtons(); updateSpeedButtons();
             return;
         }
 

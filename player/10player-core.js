@@ -113,7 +113,9 @@ export async function playLogEntries(c, log, roundResult, isFirstAttackRef) {
                             });
                         }
                     }
-                    else if (entry.buffType === 'meteor_splash') await showBuffBanner('☄️ 流星赶月！');
+                    else if (entry.buffType === 'meteor_splash') {
+                        await showBuffBanner('☄️ 流星赶月！');
+                    }
                     else await showBuffBanner('🦅 乘风突袭！');
                     window.bulletTimeActive = false;
                     let div=document.createElement('div');div.innerHTML=entry.text+'<br>';
@@ -206,7 +208,10 @@ export async function playBattle() {
             c.speed = 1;
             if (c._scheduler && c._scheduler.setSpeed) c._scheduler.setSpeed(50);
         } else {
-            c.speed = c._originalSpeed || 500;
+            const restored = c._originalSpeed || 600;
+            c.speed = restored;
+            GlobalStore.set('speed', restored);
+            if (typeof window.updateSpeedButtons === 'function') window.updateSpeedButtons();
             if (c._scheduler && c._scheduler.setSpeed) c._scheduler.setSpeed(1);
         }
     });
@@ -317,6 +322,11 @@ export async function playBattle() {
         }
     });
 
+    // 保存初始阵容快照，供"原班再战"使用
+    c._originalSnapshot = {
+        ally: c.snapshot.ally.map(u => u.clone()),
+        enemy: c.snapshot.enemy.map(u => u.clone())
+    };
     let battleState = { ally: c.snapshot.ally.map(u => u.clone()), enemy: c.snapshot.enemy.map(u => u.clone()), round: 1, activeBuffs: c.activeBuffs ? c.activeBuffs.map(b => ({...b})) : [], allAllies: c.snapshot.ally.map(u => u.clone()) };
     let isBattleOver = false; let finalWinner = null; let finalStep = null;
 
@@ -453,10 +463,19 @@ export async function playBattle() {
         }
     }
     if (winner === '明教' || winner === '六大派') {
-        let deadAllies = (c._deadUnitsForReport || []).filter(u => u.camp === 'ally');
-        let deadEnemies = (c._deadUnitsForReport || []).filter(u => u.camp === 'enemy');
-        let reportAllies = [...c.UI.allyTeam, ...deadAllies].filter((u, i, arr) => arr.findIndex(v => v.uid === u.uid) === i);
-        let reportEnemies = [...c.UI.enemyTeam, ...deadEnemies].filter((u, i, arr) => arr.findIndex(v => v.uid === u.uid) === i);
+        // 从 snapshot（初始完整名单）合并最终状态，确保阵亡单位也包含在内
+        const finalAllyState = finalStep ? finalStep.ally : [];
+        const finalEnemyState = finalStep ? finalStep.enemy : [];
+        const allyMap = new Map(finalAllyState.map(u => [u.uid, u]));
+        const enemyMap = new Map(finalEnemyState.map(u => [u.uid, u]));
+        const reportAllies = (c.snapshot.ally || []).map(u => {
+            const final = allyMap.get(u.uid);
+            return final ? { ...u, hp: final.hp, maxHp: final.maxHp, alive: final.alive, atk: final.atk, def: final.def, pos: final.pos, dmgDealt: final.dmgDealt, dmgTaken: final.dmgTaken, healDone: final.healDone, reboundDone: final.reboundDone, leechDone: final.leechDone, dodgeCount: final.dodgeCount, critCount: final.critCount, survivedRounds: final.survivedRounds, _isDead: final._isDead } : { ...u, alive: false, _isDead: true };
+        });
+        const reportEnemies = (c.snapshot.enemy || []).map(u => {
+            const final = enemyMap.get(u.uid);
+            return final ? { ...u, hp: final.hp, maxHp: final.maxHp, alive: final.alive, atk: final.atk, def: final.def, pos: final.pos, dmgDealt: final.dmgDealt, dmgTaken: final.dmgTaken, healDone: final.healDone, reboundDone: final.reboundDone, leechDone: final.leechDone, dodgeCount: final.dodgeCount, critCount: final.critCount, survivedRounds: final.survivedRounds, _isDead: final._isDead } : { ...u, alive: false, _isDead: true };
+        });
         c.battleResultForInfo = { winner, ally: reportAllies, enemy: reportEnemies };
 
         const winState = finalStep ? (winner === '明教' ? finalStep.ally : finalStep.enemy) : null;
@@ -476,6 +495,10 @@ export async function playBattle() {
         if (c.gs === 'GAMEOVER') logDiv.innerHTML += `<span class="gold">🎉🏆 <span class="${winColor}">${winner}</span>获得最终胜利！ 🏆🎉</span><br>`;
         logDiv.scrollTop = logDiv.scrollHeight;
         await new Promise(r => setTimeout(r, window._fastForwardActive ? 500 : 6000));
+        // 胜利弹幕播完，弹出战报
+        if (c.battleResultForInfo && typeof showBattleReport === 'function') {
+            showBattleReport(c.UI, c.battleResultForInfo);
+        }
     } else {
         logDiv.innerHTML+='<span class="gray">🤝 平局！积分不变</span><br>';
         logDiv.scrollTop = logDiv.scrollHeight;
@@ -524,4 +547,5 @@ else {
     c._battleEnded = true;
     c.abortController = null;
     c.store = null;
+    if (c._scheduler) { c._scheduler.setSpeed(1); c._scheduler = null; }
 }

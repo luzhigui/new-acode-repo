@@ -155,7 +155,7 @@ export function consumeXingFen(attacker) {
 export function spiderTransform(unit, log) {
     if (!unit.isXiaoZhaoBrother || !unit.alive) return;
     const roles = ['战士', '防战', '远程', '飞行'];
-    let availableRoles = unit._lastRole ? roles.filter(r => r !== unit._lastRole) : roles;
+    let availableRoles = roles.filter(r => r !== unit.role);
     if (availableRoles.length === 0) availableRoles = roles;
     const newRole = availableRoles[Math.floor(Math.random() * availableRoles.length)];
     unit._lastRole = newRole;

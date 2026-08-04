@@ -252,13 +252,16 @@ export function bindNextButton(setState, updateButtons, enableAllButtons, update
             setState.activeBuffs([]);
             setState.adjustMode(true);
             setState.selectedAdjustPos(null);
-            const currentUI = getState.UI();
             const snap = getState.snapshot();
-            // 原班再战：保留存活单位的当前状态（HP/属性等），不需要 clone
-            snap.ally = currentUI.allyTeam.filter(u => u.alive || u._isDead);
-            snap.enemy = currentUI.enemyTeam.filter(u => u.alive || u._isDead);
+            const ctx = window._getPlayerContext?.();
+            // 原班再战：恢复初始阵容（含全部单位、满血、初始属性），拒马不包含在内
+            if (ctx && ctx._originalSnapshot) {
+                snap.ally = ctx._originalSnapshot.ally.map(u => u.clone());
+                snap.enemy = ctx._originalSnapshot.enemy.map(u => u.clone());
+            }
             setState.snapshot(snap);
             setState.gs('IDLE');
+            setState.adjustMode(false);
             setState.isPaused(false);
             setState.waitingForNextRound(false);
             setState.isBattleStarting(false);
@@ -343,6 +346,7 @@ export function bindSettleButton(currentStageGetter, isBattleStarting, getState,
             if (buffFloat) buffFloat.remove();
             document.querySelectorAll('.danmaku-bubble').forEach(el => el.remove());
             setState.gs(S.IDLE);
+            setState.adjustMode(false);
             setState.isPaused(false);
             setState.waitingForNextRound(false);
             setState.isBattleStarting(false);

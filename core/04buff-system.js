@@ -475,6 +475,10 @@ export function registerMeteorShower(eventBus) {
                 value: splashDmg,
                 targets: splashTargets,
                 buffType: 'meteor_splash',
+                attackerUid: unit.uid,
+                primaryUid: target.uid,
+                splashUids: splashTargets.map(st => st.uid),
+                splashDmg: splashDmg,
                 logText: `<span class="orange">${label}溅射：${details}，各-${splashDmg}，防御-${C.BUFFS.meteorShower.splashDefReduce || 1}</span>`
             };
             if (!data.declarations) data.declarations = [];
