@@ -237,6 +237,21 @@ export function getBloodAuraBonus(allUnits) {
     return totalBonus;
 }
 
+/**
+ * 光环加成纯函数 — 实时扫描战场，当场计算飞行单位的光环加成
+ * 不依赖任何字段存储，每次调用返回最新值
+ */
+export function getAuraBonuses(unit, allySide, enemySide) {
+    if (unit.role !== '飞行' || unit.isHorse) return { emptyCol: 0, bloodAura: 0 };
+    const isAlly = unit.camp === 'ally';
+    const mySide = isAlly ? allySide : enemySide;
+    const oppSide = isAlly ? enemySide : allySide;
+    const emptyCols = countEnemyEmptyCols(oppSide);
+    const allUnits = mySide.concat(oppSide);
+    const bloodBonus = getBloodAuraBonus(allUnits);
+    return { emptyCol: emptyCols * 5, bloodAura: bloodBonus };
+}
+
 // ==================== 事件总线监听器注册 ====================
 
 /**
@@ -332,25 +347,6 @@ export function registerDoubleStrike(eventBus, doubleStrikeUnitUid, allyTeam, ac
 }
 
 export function registerEmptyColBonus(eventBus) {
-    eventBus.on('afterAttack', 100, (data) => {
-        const { allySide, enemySide } = data;
-        const A = allySide, B = enemySide;
-        if (!A || !B) return;
-        const allyEmptyCols = countEnemyEmptyCols(B);
-        const enemyEmptyCols = countEnemyEmptyCols(A);
-        const allUnits = A.concat(B);
-        const bloodBonus = getBloodAuraBonus(allUnits);
-        const allyFlyers = A.filter(u => u.role === '飞行' && u.alive && !u.isHorse);
-        const enemyFlyers = B.filter(u => u.role === '飞行' && u.alive && !u.isHorse);
-        // 空列和残血光环加成写入字段，由 48 的攻防汇总公式统一计算
-        // 详情弹窗可通过 _emptyColBonus / _bloodAuraBonus 查看加成来源
-        allyFlyers.forEach(u => {
-            u._emptyColBonus = allyEmptyCols * 5;
-            u._bloodAuraBonus = bloodBonus;
-        });
-        enemyFlyers.forEach(u => {
-            u._emptyColBonus = enemyEmptyCols * 5;
-            u._bloodAuraBonus = bloodBonus;
-        });
-    });
+    // 空列和残血光环已改为纯函数 getAuraBonuses 实时计算，不再需要事件监听
+    // 保留空函数以兼容所有调用方，后续可彻底移除调用
 }

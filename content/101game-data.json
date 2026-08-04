@@ -1,0 +1,303 @@
+// content/101game-data.json - 光明顶5v5 游戏内容数据
+// V5.3.2 | ~8200 bytes | 2026-08-04 迁入全角色技能+Buff描述+台词
+{
+  "version": "5.3.2",
+  "updated": "2026-08-04",
+
+  "roles": {
+    "战士": { "icon": "⚔️", "label": "战士" },
+    "防战": { "icon": "🛡️", "label": "防战" },
+    "远程": { "icon": "🏹", "label": "远程" },
+    "飞行": { "icon": "🦅", "label": "飞行" }
+  },
+
+  "characters": {
+    "周芷若": {
+      "tags": ["六大派", "战士", "精英"],
+      "skills": {
+        "nineYinClaw": {
+          "name": "九阴白骨爪",
+          "desc": "基础{baseDmg}+已损失{lostHpRatio}%+最大{maxHpRatio}%追击，≤{executeThreshold}%斩杀",
+          "descJealous": "基础{baseDmg}+已损失{lostHpRatio}%+最大{maxHpRatio}%追击，≤{executeThreshold}%斩杀（无忌在场强化）",
+          "params": {
+            "firstProcChance": 1.0,
+            "procChance": 0.80,
+            "chainProcChance": 0.80,
+            "maxChain": "∞",
+            "unavoidable": true,
+            "baseDmg": 1.5,
+            "lostHpRatio": 1.5,
+            "maxHpRatio": 1,
+            "executeThreshold": 15
+          },
+          "paramsJealous": {
+            "baseDmg": 2,
+            "lostHpRatio": 1.5,
+            "maxHpRatio": 1.5,
+            "executeThreshold": 18
+          }
+        }
+      },
+      "taunts": {
+        "attack": ["九阴白骨爪！", "看招！", "峨眉可不是好惹的！"],
+        "kill": []
+      }
+    },
+
+    "宋青书": {
+      "tags": ["六大派", "飞行", "精英"],
+      "skills": {
+        "rebelStrike": {
+          "name": "叛逆突袭",
+          "desc": "优先攻击血量最高目标，附加目标当前生命{currentHpRatio}%真实伤害",
+          "params": {
+            "dmgBonus": 0,
+            "currentHpRatio": 8
+          }
+        },
+        "kuLian": {
+          "name": "苦练",
+          "desc": "场上无周芷若时每回合最先行动；行动前给全体队友+{atkBonus}攻+{defBonus}防+{hpBonus}生命上限，自身翻倍",
+          "params": {
+            "atkBonus": 1,
+            "defBonus": 1,
+            "hpBonus": 2.5
+          }
+        },
+        "xinHun": {
+          "name": "新婚",
+          "desc": "攻击扣除周芷若{hpDeduct}血，叠快乐层（{healLevels}）",
+          "params": {
+            "hpDeduct": 1,
+            "healLevels": [16, 10, 6, 3]
+          }
+        },
+        "xingFen": {
+          "name": "性奋",
+          "desc": "每次攻击后可再次攻击，每次攻击后自身减少递增生命上限（第1次0，第2次1，第3次2...），上限最低为1",
+          "params": {
+            "maxTriggersPerRound": 1
+          }
+        }
+      },
+      "taunts": {
+        "attack": ["让你见识武当绝学！", "哼，不过如此！", "就这点本事？"],
+        "kill": []
+      }
+    },
+
+    "成昆": {
+      "tags": ["六大派", "防战", "精英"],
+      "skills": {
+        "phantomThunder": {
+          "name": "混元霹雳劲",
+          "desc": "附加已损失生命{lostHpRatio}%的真实伤害",
+          "params": { "lostHpRatio": 20 }
+        },
+        "phantomDisguise": {
+          "name": "幻影伪装",
+          "desc": "攻击后模仿对方单位；被模仿者攻击时{baseChance}%概率混乱，每损失10%生命+{per10pctLost}%",
+          "params": { "baseChance": 30, "per10pctLost": 6 }
+        }
+      },
+      "taunts": {
+        "attack": ["混元霹雳劲！", "受死吧！", "哈哈哈，无人能挡！"],
+        "kill": []
+      }
+    },
+
+    "鹿杖客": {
+      "tags": ["六大派", "远程", "精英"],
+      "skills": {
+        "xuanmingPalm": {
+          "name": "玄冥神掌",
+          "desc": "中毒每回合损失生命（{dotPercents}），持续{duration}回合",
+          "params": { "dotPercents": [4, 2, 1], "duration": 3 }
+        }
+      },
+      "taunts": {
+        "attack": ["玄冥神掌！", "尝尝这滋味！", "你们这些蝼蚁！"],
+        "kill": []
+      }
+    },
+
+    "鹤笔翁": {
+      "tags": ["六大派", "飞行", "精英"],
+      "skills": {
+        "hornStrike": {
+          "name": "鹿角杖法",
+          "desc": "忽略{defIgnore}%防御，中毒目标伤害+{poisonedBonus}%",
+          "params": { "defIgnore": 30, "poisonedBonus": 30 }
+        }
+      },
+      "taunts": {
+        "attack": ["鹿角杖法！", "看招！", "敢接我一杖吗？"],
+        "kill": []
+      }
+    },
+
+    "张无忌": {
+      "tags": ["明教", "远程", "精英"],
+      "skills": {
+        "nineYang": {
+          "name": "九阳神功",
+          "desc": "每次攻击后回复最大生命{healPct}%",
+          "params": { "healPct": 8 }
+        },
+        "qianKun": {
+          "name": "乾坤大挪移",
+          "desc": "保护4/6号位队友，反弹{reboundPct}%伤害（自身受{selfDmgPct}%），小昭不在时生效",
+          "params": { "reboundPct": 15, "selfDmgPct": 10 }
+        },
+        "nearSwitch": {
+          "name": "近战切换",
+          "desc": "前排无友军时切换近战形态，攻防血大幅提升，近战3次后融会贯通",
+          "params": {}
+        }
+      },
+      "taunts": {
+        "attack": ["看招！太极拳！", "乾坤大挪移！", "少林武当，也不过如此！"],
+        "kill": ["这就是太极拳的精髓！", "乾坤大挪移之下，无人能敌！", "魔教张无忌在此！"]
+      }
+    },
+
+    "韦一笑": {
+      "tags": ["明教", "飞行", "精英"],
+      "skills": {
+        "coldPalm": {
+          "name": "寒冰掌",
+          "desc": "攻击吸血{leechMin}%-{leechMax}%（随已损失生命递增），同时提升生命上限",
+          "params": { "leechMin": 20, "leechMax": 40 }
+        },
+        "bloodDodge": {
+          "name": "残血幻影",
+          "desc": "闪避率随已损失生命递增，最高{maxRatio}%",
+          "params": { "maxRatio": 70 }
+        }
+      },
+      "taunts": {
+        "attack": ["青翼蝠王，来去如风！", "哈哈哈，抓不到我！", "让你尝尝寒冰掌！"],
+        "kill": ["哼，不自量力！", "寒冰掌下无活口！", "想抓我？下辈子吧！"]
+      }
+    },
+
+    "小昭": {
+      "tags": ["明教", "远程", "精英"],
+      "skills": {
+        "butterflyAttach": {
+          "name": "蝶变附身",
+          "desc": "明教首次攻击前附身到4号位后最近队友，转移{atkTransfer}攻击/{defTransfer}防御/{hpTransfer}血量",
+          "params": { "atkTransfer": "1/3", "defTransfer": "1/3", "hpTransfer": "1/2" }
+        },
+        "butterflyReturn": {
+          "name": "蝶变飞回",
+          "desc": "回合结束飞回原位，按队友总血比例恢复血量",
+          "params": {}
+        },
+        "qianKunDerived": {
+          "name": "乾坤衍生",
+          "desc": "张无忌不在时，队友受伤触发减伤、治疗和攻击加成",
+          "params": { "defToReduce": 150, "defToHeal": 8, "defToAtk": 16 }
+        },
+        "qianKunUpgraded": {
+          "name": "乾坤大挪移（升级）",
+          "desc": "张无忌在场时，全队减伤{reducePct}%并反弹{reboundPct}%（无忌自伤{selfDmgPct}%）",
+          "params": { "reducePct": 30, "reboundPct": 20, "selfDmgPct": 10 }
+        },
+        "spiderTransform": {
+          "name": "蛛变",
+          "desc": "每回合随机变换职业，记录精通，+{hpBonus}血上限",
+          "params": { "hpBonus": 5 }
+        },
+        "spiderFly": {
+          "name": "飞天",
+          "desc": "首次受击/血量<70%/血量<40%触发，化为小蜘蛛免疫伤害，回合结束落下攻击",
+          "params": { "maxTriggers": 3 }
+        },
+        "spiderStrike": {
+          "name": "蛛袭",
+          "desc": "落下攻击随机敌人，穿透+精通额外伤害",
+          "params": { "extraDmgMap": [0, 5, 10, 15, 30] }
+        },
+        "permanentHex": {
+          "name": "永久海克斯",
+          "desc": "团队海克斯消失后，小昭单独续上效果",
+          "params": {}
+        },
+        "mastery": {
+          "name": "精通",
+          "desc": "每精通一个职业+{atkPer}攻+{defPer}防+{hpPer}血上限（最多4职业）",
+          "params": { "atkPer": 2, "defPer": 2, "hpPer": 5 }
+        }
+      },
+      "taunts": {
+        "attack": [],
+        "kill": []
+      }
+    }
+  },
+
+  "buffs": {
+    "bloodthirst": { "name": "嗜血狂刀", "desc": "己方战士攻击吸血80%伤害值", "icon": "🗡️" },
+    "hotBlood": { "name": "热血奋战", "desc": "攻击时回复15%已损失生命值，每第3次攻击回血翻倍", "icon": "❤️" },
+    "fortify": { "name": "严阵以待", "desc": "己方防战防御+50%，反弹50%伤害差值", "icon": "🛡️" },
+    "cloudBody": { "name": "流云身法", "desc": "己方全体闪避概率+25%", "icon": "💨" },
+    "windAssault": { "name": "乘风突袭", "desc": "飞行单位80%概率对同行敌人造成100%伤害，60%击退一格", "icon": "🦅" },
+    "meteorShower": { "name": "流星赶月", "desc": "己方远程对目标造成40%额外伤害，对周围溅射30%", "icon": "☄️" },
+    "carry": { "name": "你就是carry", "desc": "5号位获得队友基础加成，死亡队友加成双倍", "icon": "👑" },
+    "holyFlame": { "name": "圣火令", "desc": "随机两列+30%攻击，随机两行+30%防御", "icon": "🔥" },
+    "doubleStrike": { "name": "概率连击", "desc": "己方随机一人80%概率额外攻击一次", "icon": "⚡" },
+    "horseFormation": { "name": "巨马阵", "desc": "每回合开始生成巨马，回合结束50%概率销毁", "icon": "🐴" },
+    "mindControl": { "name": "惑人心智", "desc": "最前排80%扰乱敌方换位，40%扰乱己方换位", "icon": "🌀" }
+  },
+
+  "taunts": {
+    "张无忌": {
+      "attack": ["看招！太极拳！", "乾坤大挪移！", "少林武当，也不过如此！"],
+      "kill": ["这就是太极拳的精髓！", "乾坤大挪移之下，无人能敌！", "魔教张无忌在此！"]
+    },
+    "韦一笑": {
+      "attack": ["青翼蝠王，来去如风！", "哈哈哈，抓不到我！", "让你尝尝寒冰掌！"],
+      "kill": ["哼，不自量力！", "寒冰掌下无活口！", "想抓我？下辈子吧！"]
+    },
+    "宋青书": {
+      "attack": ["让你见识武当绝学！", "哼，不过如此！", "就这点本事？"],
+      "kill": []
+    },
+    "周芷若": {
+      "attack": ["九阴白骨爪！", "看招！", "峨眉可不是好惹的！"],
+      "kill": []
+    },
+    "成昆": {
+      "attack": ["混元霹雳劲！", "受死吧！", "哈哈哈，无人能挡！"],
+      "kill": []
+    },
+    "鹿杖客": {
+      "attack": ["玄冥神掌！", "尝尝这滋味！", "你们这些蝼蚁！"],
+      "kill": []
+    },
+    "鹤笔翁": {
+      "attack": ["鹿角杖法！", "看招！", "敢接我一杖吗？"],
+      "kill": []
+    },
+    "战士": {
+      "attack": ["看剑！", "接招吧！", "这一剑你可接得住？"],
+      "kill": ["一剑封喉！", "受死吧！", "剑下亡魂又多一个！"]
+    },
+    "防战": {
+      "attack": ["不动如山！", "放马过来！", "就这点本事吗？"],
+      "kill": ["螳臂当车！", "不过如此！", "谁能突破我的防御？"]
+    },
+    "远程": {
+      "attack": ["看箭！", "中！", "雕虫小技！"],
+      "kill": ["百步穿杨！", "箭无虚发！", "取你性命如探囊取物！"]
+    },
+    "飞行": {
+      "attack": ["来去如风！", "追得上我吗？", "鹰击长空！"],
+      "kill": ["鹰击长空，一击必杀！", "天上地下，唯我独尊！", "你的死期到了！"]
+    },
+    "zhangNear": ["还好，还记得七七八八。", "糟糕，只记得一两层了。", "不好，全忘光了！"],
+    "def": ["就这点攻击力？", "花拳绣腿！", "根本不够看！"],
+    "hp": ["撑住，必须撑住！", "这点小伤不算什么！", "还没完呢！"]
+  }
+}

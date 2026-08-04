@@ -1,11 +1,11 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// ui/14ui-render-5v5-test.js - 光明顶5v5 UI渲染模块（响应式版）
-// V5.3.1 | ~34200 bytes| 2026-07-11 数据驱动渲染，移除魔数清理
-export const VER = 'ui/14ui-render-5v5-test.js V5.3.1';
+﻿﻿// ui/14ui-render-5v5-test.js - 光明顶5v5 UI渲染模块（响应式版）
+// V5.3.3 | ~32200 bytes| 2026-08-04 技能描述接入 game-data
+export const VER = 'ui/14ui-render-5v5-test.js V5.3.3';
 
-import { CONFIG } from '../core/01config-5v5-test.js';
+import { CONFIG, getSkillDesc } from '../core/01config-5v5-test.js';
 import { rand } from '../core/03battle-utils.js';
 import { computeBuffStats } from '../core/04buff-system.js';
-import { getUnitCol, getUnitRow } from '../core/03battle-utils.js';
+import { getUnitCol, getUnitRow, getAuraBonuses } from '../core/03battle-utils.js';
 import { showDanmaku as _showDanmaku } from '../fx/15fx-common-5v5-test.js';
 const showDanmaku = (...args) => { if (typeof _showDanmaku === 'function') return _showDanmaku(...args); };
 
@@ -57,7 +57,6 @@ export function isUnitBenefitedByBuff(unit, buffKey, allyTeam, doubleStrikeUid, 
                 return cols.includes(getUnitCol(unit.pos)) || rows.includes(getUnitRow(unit.pos));
             });
         }
-
         case 'hotBlood': return true;
         case 'doubleStrike': return unit.uid === doubleStrikeUid && doubleStrikeUid != null;
         case 'horseFormation': return false;
@@ -94,6 +93,50 @@ function openDetailPopup(unit) {
     }, 1000);
 }
 
+function renderAtkDetail(u, buffStats, ctx) {
+    let initAtk = u._initAtk !== undefined ? u._initAtk : u.atk;
+    let holyAtkBonus = Math.floor(initAtk * buffStats.atkBonus);
+    let carryAtk = u._carryAtkBonus || 0;
+    let butterflyAtk = u._butterflyAtkBonus || 0;
+    let finalAtk = u.atk;
+    let permChange = finalAtk - initAtk - holyAtkBonus - carryAtk - butterflyAtk;
+    let parts = [String(initAtk)];
+    if (permChange > 0) parts.push(`<span style="color:#daa520;">+${permChange}永</span>`);
+    else if (permChange < 0) parts.push(`<span style="color:#c0392b;">${permChange}永</span>`);
+    if (holyAtkBonus > 0) parts.push(`<span style="color:#daa520;">+${holyAtkBonus}圣火令</span>`);
+    if (carryAtk > 0) parts.push(`<span style="color:#daa520;">+${carryAtk}carry</span>`);
+    if (butterflyAtk > 0) parts.push(`<span style="color:#daa520;">+${butterflyAtk}附身</span>`);
+    const enemyTeamForAura = ctx.UI.enemyTeam || [];
+    const allyTeamForAura = ctx.UI.allyTeam || [];
+    const auraSideA = u.camp === 'ally' ? allyTeamForAura : enemyTeamForAura;
+    const auraSideB = u.camp === 'ally' ? enemyTeamForAura : allyTeamForAura;
+    const aura = getAuraBonuses(u, auraSideA, auraSideB);
+    if (aura.emptyCol > 0) parts.push(`<span style="color:#daa520;">+${aura.emptyCol}空列</span>`);
+    if (aura.bloodAura > 0) parts.push(`<span style="color:#daa520;">+${aura.bloodAura}残血</span>`);
+    if (parts.length === 1) return parts[0];
+    return parts.join(' ') + ' = <span style="color:#daa520;font-weight:bold;">' + finalAtk + '</span>';
+}
+
+function renderDefDetail(u, buffStats) {
+    let initDef = u._initDef !== undefined ? u._initDef : u.def;
+    let holyDefBonus = Math.floor(initDef * buffStats.defBonus);
+    let carryDef = u._carryDefBonus || 0;
+    let butterflyDef = u._butterflyDefBonus || 0;
+    let fortifyStacks = u._fortifyStacks || 0;
+    let fortifyDef = fortifyStacks;
+    let finalDef = Math.round(u.def);
+    let permChange = finalDef - Math.round(initDef) - holyDefBonus - carryDef - butterflyDef - fortifyDef;
+    let parts = [String(Math.round(initDef))];
+    if (permChange > 0) parts.push(`<span style="color:#daa520;">+${permChange}永</span>`);
+    else if (permChange < 0) parts.push(`<span style="color:#c0392b;">${permChange}永</span>`);
+    if (holyDefBonus > 0) parts.push(`<span style="color:#daa520;">+${holyDefBonus}圣火令</span>`);
+    if (carryDef > 0) parts.push(`<span style="color:#daa520;">+${carryDef}carry</span>`);
+    if (butterflyDef > 0) parts.push(`<span style="color:#daa520;">+${butterflyDef}附身</span>`);
+    if (fortifyDef > 0) parts.push(`<span style="color:#daa520;">+${fortifyDef}坚盾(${fortifyStacks}层)</span>`);
+    if (parts.length === 1) return parts[0];
+    return parts.join(' ') + ' = <span style="color:#daa520;font-weight:bold;">' + finalDef + '</span>';
+}
+
 function updateDetailPopupContent() {
     if (!detailPopup || !detailPopupUnit) return;
     const ctx = getCtx();
@@ -107,7 +150,6 @@ function updateDetailPopupContent() {
     let allyTeam = ctx.UI.allyTeam || [];
     let activeBuffs = ctx.activeBuffs || [];
     let doubleStrikeUid = ctx.currentDoubleStrikeUid;
-    // 正确统计所有覆盖该单位的圣火令
     let holyFlameBuffs = activeBuffs.filter(b => {
         if (b.key !== 'holyFlame') return false;
         const cols = b.cols || (b.col != null ? [b.col] : []);
@@ -118,16 +160,13 @@ function updateDetailPopupContent() {
     });
     let unitBuffs = activeBuffs.filter(b => b.key !== 'holyFlame' && isUnitBenefitedByBuff(u, b.key, allyTeam, doubleStrikeUid, activeBuffs));
     if (holyFlameBuffs.length > 0) {
-        // 把圣火令加进去，让它在弹窗的Buff列表里显示出来
         unitBuffs.push({ key: 'holyFlame', name: '圣火令', icon: '🔥', remaining: holyFlameBuffs[0].remaining });
     }
     let buffText = '无';
     let masteryText = '';
     if (u.isXiaoZhaoSister || u.isXiaoZhaoBrother) {
-        // 小昭：显示永久海克斯列表
         const perms = u._permanentBuffs || [];
         buffText = perms.length > 0 ? perms.map(b => b.name).join('、') : '无';
-        // 精通进度
         const mastered = u._masteredRoles || [];
         masteryText = mastered.length > 0 ? `<span style="color:#888;">精通</span><span>${mastered.join('、')}（${mastered.length}/4，+${mastered.length * 2}攻+${mastered.length * 3}防+${(mastered.length * 12.5).toFixed(1)}血）</span>` : '';
     } else if (unitBuffs.length > 0) {
@@ -153,41 +192,8 @@ function updateDetailPopupContent() {
             <span style="color:#888;">角色</span><span>${u.role} M${u.m}</span>
             <span style="color:#888;">站位</span><span>${!u.alive ? '已阵亡' : (u.pos || '?') + '号位'}</span>
             <span style="color:#888;">血量</span><span style="color:${hpColor};font-weight:bold;">${Math.floor(u.hp)} / ${Math.floor(u.maxHp)} (${hpPct}%)</span>
-            <span style="color:#888;">攻击</span><span>${(() => {
-                let initAtk = u._initAtk !== undefined ? u._initAtk : u.atk;
-                let holyAtkBonus = Math.floor(initAtk * buffStats.atkBonus);
-                let carryAtk = u._carryAtkBonus || 0;
-                let butterflyAtk = u._butterflyAtkBonus || 0;
-                let finalAtk = u.atk;
-                let permChange = finalAtk - initAtk - holyAtkBonus - carryAtk - butterflyAtk;
-                let parts = [String(initAtk)];
-                if (permChange > 0) parts.push(`<span style="color:#daa520;">+${permChange}永</span>`);
-                else if (permChange < 0) parts.push(`<span style="color:#c0392b;">${permChange}永</span>`);
-                if (holyAtkBonus > 0) parts.push(`<span style="color:#daa520;">+${holyAtkBonus}圣火令</span>`);
-                if (carryAtk > 0) parts.push(`<span style="color:#daa520;">+${carryAtk}carry</span>`);
-                if (butterflyAtk > 0) parts.push(`<span style="color:#daa520;">+${butterflyAtk}附身</span>`);
-                if (parts.length === 1) return parts[0];
-                return parts.join(' ') + ' = <span style="color:#daa520;font-weight:bold;">' + finalAtk + '</span>';
-            })()}</span>
-            <span style="color:#888;">防御</span><span>${(() => {
-                let initDef = u._initDef !== undefined ? u._initDef : u.def;
-                let holyDefBonus = Math.floor(initDef * buffStats.defBonus);
-                let carryDef = u._carryDefBonus || 0;
-                let butterflyDef = u._butterflyDefBonus || 0;
-                let fortifyStacks = u._fortifyStacks || 0;
-                let fortifyDef = fortifyStacks;
-                let finalDef = Math.round(u.def);
-                let permChange = finalDef - Math.round(initDef) - holyDefBonus - carryDef - butterflyDef - fortifyDef;
-                let parts = [String(Math.round(initDef))];
-                if (permChange > 0) parts.push(`<span style="color:#daa520;">+${permChange}永</span>`);
-                else if (permChange < 0) parts.push(`<span style="color:#c0392b;">${permChange}永</span>`);
-                if (holyDefBonus > 0) parts.push(`<span style="color:#daa520;">+${holyDefBonus}圣火令</span>`);
-                if (carryDef > 0) parts.push(`<span style="color:#daa520;">+${carryDef}carry</span>`);
-                if (butterflyDef > 0) parts.push(`<span style="color:#daa520;">+${butterflyDef}附身</span>`);
-                if (fortifyDef > 0) parts.push(`<span style="color:#daa520;">+${fortifyDef}坚盾(${fortifyStacks}层)</span>`);
-                if (parts.length === 1) return parts[0];
-                return parts.join(' ') + ' = <span style="color:#daa520;font-weight:bold;">' + finalDef + '</span>';
-            })()}</span>
+            <span style="color:#888;">攻击</span><span>${renderAtkDetail(u, buffStats, ctx)}</span>
+            <span style="color:#888;">防御</span><span>${renderDefDetail(u, buffStats)}</span>
             <span style="color:#888;">造成伤害</span><span>${u.dmgDealt || 0}</span>
             <span style="color:#888;">承受伤害</span><span>${u.dmgTaken || 0}</span>
             <span style="color:#888;">治疗</span><span>${u.healDone || 0}</span>
@@ -197,16 +203,60 @@ function updateDetailPopupContent() {
             ${masteryText}
             ${(() => {
                 let skills = [];
-                if (u.name === '张无忌') skills = ['九阳神功：每回合回复5%生命', '乾坤大挪移：保护4/6号位队友，反弹15%伤害', '近战形态：前排无人时切换，攻+3/防+2/血+50'];
-                else if (u.name === '韦一笑') skills = ['寒冰掌：攻击吸血15%，增加生命上限', '青翼蝠王：基础闪避20%，无视行动状态闪避'];
-                else if (u.name === '宋青书') skills = [`💥 叛逆突袭：优先攻击血量最高目标，附加目标当前生命${Math.round((CONFIG.ELITE_SKILLS.rebelStrike.currentHpRatio || 0.12) * 100)}%真实伤害`, `💪 苦练：场上无周芷若时最先行动；行动前全体队友+${CONFIG.ELITE_SKILLS.kuLian.atkBonus}攻+${CONFIG.ELITE_SKILLS.kuLian.defBonus}防+${CONFIG.ELITE_SKILLS.kuLian.hpBonus}生命上限，自身翻倍`, `💒 新婚：攻击扣除周芷若${CONFIG.ELITE_SKILLS.xinHun.hpDeduct}血，叠快乐层（${(CONFIG.ELITE_SKILLS.xinHun.healLevels || []).map(p => Math.round(p * 100) + '%').join('→')}）`, '💗 性奋：周芷若在场时攻击后可再次行动；每次攻击后减少递增生命上限'];
-                else if (u.name === '周芷若') skills = ['🐾 九阴白骨爪：基础1+已损失1%+最大1%追击，≤12%斩杀（无忌在场：基础2+1.5%+2%，≤15%斩杀），可连锁'];
-                else if (u.name === '成昆') skills = ['💥 混元霹雳劲：附加已损失生命20%的真实伤害', '🌀 幻影伪装：攻击后模仿对方单位并回复已损失30%生命；对方攻击时30%概率混乱，每损失10%生命+6%'];
-                else if (u.name === '鹿杖客') skills = ['❄️ 玄冥神掌：中毒每回合损失4%→2%→1%→消失', '🔗 联动鹤笔翁：攻击后鹤笔翁立刻攻击同一目标'];
-                else if (u.name === '鹤笔翁') skills = ['🦌 鹿角杖法：忽略30%防御，中毒目标伤害+30%', '🔗 联动鹿杖客：攻击后鹿杖客立刻攻击同一目标'];
-                else if (u.isXiaoZhaoSister) skills = ['🦋 蝶变附身：明教首次攻击前，附身到4号位后最近队友，转移一半攻/防/血，自身血量按队友比例调整', '🦋 乾坤衍生：张无忌不在时，队友受伤触发减伤、治疗和攻击加成', '🛡️ 乾坤大挪移（升级）：张无忌在场时，全队减伤30%并反弹20%伤害（无忌自伤10%）', '♾️ 永久海克斯：团队海克斯消失后，单独续上效果'];
-                else if (u.isXiaoZhaoBrother) skills = ['🕷️ 蛛变：每回合随机变换职业，记录精通，+5血上限', '🕷️ 飞天：首次受击/血量<70%/血量<40%触发，化为小蜘蛛（0攻/10*精通防/30*精通血），反伤精通*5，回合结束落下攻击随机敌人（穿透+精通*10）', '🛡️ 乾坤大挪移（升级）：张无忌在场时，全队减伤30%并反弹20%伤害（无忌自伤10%）', '♾️ 记忆海克斯：团队海克斯消失后，单独续上效果', '🏆 精通：每精通一个职业+1.5攻+2防+10血上限（最多4职业，额外+一次）'];
-                else if (u.isXiaoZhao) skills = ['🦋 蝶变：每回合随机变换职业，记录精通，+5血上限', '✨ 乾坤大挪移（衍生）：张无忌不在时，队友受伤触发减伤、治疗和攻击加成', '🛡️ 乾坤大挪移（升级）：张无忌在场时，全队减伤30%并反弹20%伤害（无忌自伤10%）', '♾️ 永久海克斯：团队海克斯消失后，小昭单独续上效果', '🏆 精通：每精通一个职业+2攻+3防+12.5血上限（最多4职业，额外+一次）'];
+                if (u.name === '张无忌') skills = [
+                    getSkillDesc('张无忌', 'nineYang'),
+                    getSkillDesc('张无忌', 'qianKun'),
+                    getSkillDesc('张无忌', 'nearSwitch')
+                ];
+                else if (u.name === '韦一笑') skills = [
+                    getSkillDesc('韦一笑', 'coldPalm'),
+                    getSkillDesc('韦一笑', 'bloodDodge')
+                ];
+                else if (u.name === '宋青书') {
+                    skills = [
+                        `💥 ${getSkillDesc('宋青书', 'rebelStrike', false)}`,
+                        `💪 ${getSkillDesc('宋青书', 'kuLian', false)}`,
+                        `💒 ${getSkillDesc('宋青书', 'xinHun', false)}`,
+                        `💗 ${getSkillDesc('宋青书', 'xingFen', false)}`
+                    ];
+                }
+                else if (u.name === '周芷若') {
+                    const descNormal = getSkillDesc('周芷若', 'nineYinClaw', false);
+                    const descJealous = getSkillDesc('周芷若', 'nineYinClaw', true);
+                    skills = [`🐾 ${descNormal}（无忌在场：${descJealous}），可连锁`];
+                }
+                else if (u.name === '成昆') skills = [
+                    `💥 ${getSkillDesc('成昆', 'phantomThunder')}`,
+                    `🌀 ${getSkillDesc('成昆', 'phantomDisguise')}`
+                ];
+                else if (u.name === '鹿杖客') skills = [
+                    `❄️ ${getSkillDesc('鹿杖客', 'xuanmingPalm')}`,
+                    '🔗 联动鹤笔翁：攻击后鹤笔翁立刻攻击同一目标'
+                ];
+                else if (u.name === '鹤笔翁') skills = [
+                    `🦌 ${getSkillDesc('鹤笔翁', 'hornStrike')}`,
+                    '🔗 联动鹿杖客：攻击后鹿杖客立刻攻击同一目标'
+                ];
+                else if (u.isXiaoZhaoSister) skills = [
+                    `🦋 ${getSkillDesc('小昭', 'butterflyAttach')}`,
+                    `🦋 ${getSkillDesc('小昭', 'qianKunDerived')}`,
+                    `🛡️ ${getSkillDesc('小昭', 'qianKunUpgraded')}`,
+                    `♾️ ${getSkillDesc('小昭', 'permanentHex')}`
+                ];
+                else if (u.isXiaoZhaoBrother) skills = [
+                    `🕷️ ${getSkillDesc('小昭', 'spiderTransform')}`,
+                    `🕷️ ${getSkillDesc('小昭', 'spiderFly')}`,
+                    `🛡️ ${getSkillDesc('小昭', 'qianKunUpgraded')}`,
+                    `♾️ ${getSkillDesc('小昭', 'permanentHex')}`,
+                    `🏆 ${getSkillDesc('小昭', 'mastery')}`
+                ];
+                else if (u.isXiaoZhao) skills = [
+                    `🦋 ${getSkillDesc('小昭', 'butterflyAttach')}`,
+                    `✨ ${getSkillDesc('小昭', 'qianKunDerived')}`,
+                    `🛡️ ${getSkillDesc('小昭', 'qianKunUpgraded')}`,
+                    `♾️ ${getSkillDesc('小昭', 'permanentHex')}`,
+                    `🏆 ${getSkillDesc('小昭', 'mastery')}`
+                ];
                 if (skills.length > 0) {
                     return `<span style="color:#888;">技能</span><span style="color:#b8860b;">${skills.join('<br>')}</span>`;
                 }
@@ -347,7 +397,6 @@ export function renderGrid(id, camp) {
                 roleIcon = mimicTarget.role==='战士'?'⚔️':(mimicTarget.role==='防战'?'🛡️':(mimicTarget.role==='远程'?'🏹':'🦅'));
             }
         }
-        // 强制从Store获取最新单位数据，确保UI能立即响应属性变化
         let latestUnit = unit;
         if (store) {
             const state = store.getState();
@@ -357,7 +406,6 @@ export function renderGrid(id, camp) {
             }
         }
 
-        // 实时计算 Buff 加成，不依赖可能滞后的 unit.buffAtkBonus
         let buffStats = computeBuffStats(latestUnit, activeBuffs, allyTeam);
         let atkBonusVal = Math.floor(latestUnit.atk * buffStats.atkBonus);
         let defBonusVal = Math.floor((latestUnit._baseDef || latestUnit.def) * buffStats.defBonus);
@@ -402,7 +450,6 @@ export function renderGrid(id, camp) {
             else { div.classList.add('swappable'); if (selectedPos === pos) div.classList.add('adjust-selected'); }
         }
         if (unit._phantomFlash) {
-            // 成昆幻影伪装闪烁效果
             div.style.animation = 'phantomFlash 0.4s ease-in-out 2';
             setTimeout(() => {
                 div.style.animation = '';
@@ -415,7 +462,6 @@ export function renderGrid(id, camp) {
         }
         let buffIcons = '';
         if (ctx && camp === 'ally') {
-            // 统计所有 Buff 的图标，依靠 activeBuffs 自身的正确性
             let iconMap = {};
             activeBuffs.forEach(b => {
                 let info = CONFIG.BUFFS ? CONFIG.BUFFS[b.key] : null;
@@ -431,7 +477,6 @@ export function renderGrid(id, camp) {
         let defStyle = (defBonusVal > 0 || (latestUnit._fortifyStacks || 0) > 0) ? 'color:#daa520;font-weight:bold;' : '';
         let hpStyle = hpBonusVal > 0 ? 'color:#daa520;font-weight:bold;' : '';
         let eliteSkillIcon = (unit.name === '周芷若' && unit._hasKuaiLe) ? ' 💖' : (unit.name === '宋青书' && unit._hasXingFen) ? ' 💗' : (unit.isXiaoZhaoSister ? ' 🦋' : (unit.isXiaoZhaoBrother ? ' 🕷️' : (unit.isXiaoZhao ? ' 🦋' : '')));
-        // 如果这个单位是小昭·姊的附身宿主，名字后面加蝴蝶
         if (!eliteSkillIcon) {
             const sisterHost = allyTeam.find(a => a.isXiaoZhaoSister && a.alive && a._butterflyHost === unit.uid);
             if (sisterHost) eliteSkillIcon = ' 🦋';
@@ -508,7 +553,6 @@ export function spawnVictoryEffects(winnerCamp, aliveUnitsOverride) {
     const winColorClass = winnerCamp === '明教' ? 'blue' : 'orange';
     sortedAlive.forEach((u, index) => {
         const taunt = WIN_TAUNTS[rand(0, WIN_TAUNTS.length - 1)];
-        // 立即写入日志，确保复制时不被遗漏
         logDiv.innerHTML += `<span class="${winColorClass}">🗯️ ${u.name}：${taunt}</span><br>`;
         setTimeout(() => {
             requestAnimationFrame(() => {

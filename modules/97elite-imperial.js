@@ -1,8 +1,8 @@
 // modules/97elite-imperial.js - 朝廷精英组件合集
-// V5.3.1 | ~6400 bytes| 2026-07-28 合并成昆/鹿杖客/鹤笔翁
-export const VER = 'modules/97elite-imperial.js V5.3.1';
+// V5.3.2 | ~7500 bytes| 2026-08-04 技能参数接入 game-data
+export const VER = 'modules/97elite-imperial.js V5.3.2';
 
-import { CONFIG } from '../core/01config-5v5-test.js';
+import { CONFIG, getSkillParams } from '../core/01config-5v5-test.js';
 import { rand } from '../core/03battle-utils.js';
 import { tickXuanmingPoison } from './23elite-skills.js';
 import { processUnitAttack } from '../core/47battle-attack.js';
@@ -42,7 +42,8 @@ export function createChengKunComponent() {
             eventBus.on('beforeDamageCalc', 15, (data) => {
                 if (data.unit.name !== '成昆' || !data.declarations) return;
                 const lostHp = data.unit.maxHp - data.unit.hp;
-                const bonus = Math.floor(lostHp * ES.phantomThunder.lostHpRatio);
+                const params = getSkillParams('成昆', 'phantomThunder') || ES.phantomThunder;
+                const bonus = Math.floor(lostHp * (params.lostHpRatio / 100));
                 if (bonus > 0) {
                     data.declarations.push({ type: 'bonusDmg', value: bonus, source: data.unit });
                 }
@@ -99,9 +100,9 @@ export function createLuZhangKeComponent() {
         },
         onAfterApplyDamage(unit, target, dmgCalc, group, allySide, log) {
             if (unit.name !== '鹿杖客') return;
-            const s = ES.xuanmingPalm;
+            const s = getSkillParams('鹿杖客', 'xuanmingPalm') || ES.xuanmingPalm;
             target._xuanmingPoison = { remaining:s.duration, dotPercents:[...s.dotPercents] };
-            log.push({ type:'info', text:`<span class="purple">❄️ ${unit.name} 的玄冥神掌使 ${target.name} 中毒！每回合损失生命（4%→2%→1%→消失）</span>` });
+            log.push({ type:'info', text:`<span class="purple">❄️ ${unit.name} 的玄冥神掌使 ${target.name} 中毒！每回合损失生命（${s.dotPercents.join('%→')}%→消失）</span>` });
         }
     };
 }
@@ -117,10 +118,11 @@ export function createHeBiWengComponent() {
             // 鹿角杖法 → 提交伤害声明
             eventBus.on('beforeDamageCalc', 25, (data) => {
                 if (data.unit.name !== '鹤笔翁' || !data.declarations) return;
+                const s = getSkillParams('鹤笔翁', 'hornStrike') || ES.hornStrike;
                 const poisoned = data.target._xuanmingPoison && data.target._xuanmingPoison.remaining > 0;
-                data.declarations.push({ type: 'ignoreDef', value: ES.hornStrike.defIgnore, source: data.unit });
+                data.declarations.push({ type: 'ignoreDef', value: s.defIgnore / 100, source: data.unit });
                 if (poisoned) {
-                    data.declarations.push({ type: 'dmgMultiplier', value: 1 + ES.hornStrike.poisonedBonus, source: data.unit });
+                    data.declarations.push({ type: 'dmgMultiplier', value: 1 + s.poisonedBonus / 100, source: data.unit });
                 }
             });
         },
