@@ -44,14 +44,25 @@ export function doInitBattle(currentStage, UI, snapshot, activeBuffs, selectedBu
 
         const picked = [];
         const pool = [...eliteConfigs];
+        // 加权抽取：按 ELITE_RATE 权重选精英，不重复
+        function weightedPick(arr) {
+            const total = arr.reduce((s, c) => s + (eliteRate[c.name] || 1 / arr.length), 0);
+            let r = Math.random() * total;
+            for (let i = 0; i < arr.length; i++) {
+                r -= (eliteRate[arr[i].name] || 1 / arr.length);
+                if (r <= 0) return i;
+            }
+            return arr.length - 1;
+        }
         if (eliteCount === 3) {
             picked.push(...pool);
         } else if (eliteCount === 2) {
-            const idx1 = Math.floor(Math.random() * 3);
-            const idx2 = (idx1 + 1 + Math.floor(Math.random() * 2)) % 3;
-            picked.push(pool[idx1], pool[idx2]);
+            const i1 = weightedPick(pool);
+            const rest = pool.filter((_, i) => i !== i1);
+            const i2 = weightedPick(rest);
+            picked.push(pool[i1], rest[i2]);
         } else {
-            picked.push(pool[Math.floor(Math.random() * 3)]);
+            picked.push(pool[weightedPick(pool)]);
         }
 
         // 修正姐妹冲突
