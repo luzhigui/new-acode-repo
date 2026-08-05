@@ -6,8 +6,8 @@ const path = require('path');
 
 const ROOT = path.resolve(__dirname, '..');
 
-const SCAN_DIRS = ['core', 'player', 'ui', 'fx', 'modules', 'tests', 'tools', 'assets'];
-const EXTENSIONS = new Set(['.js', '.html', '.cjs', '.md', '.mp3']);
+const SCAN_DIRS = ['core', 'player', 'ui', 'fx', 'modules', 'content', 'tests', 'tools', 'assets'];
+const EXTENSIONS = new Set(['.js', '.html', '.cjs', '.json', '.md', '.mp3']);
 
 // 33-toolkit-more.js 是函数提取器，这些文件没有独立导出函数，不强制登记
 const IGNORE_IN_MORE = new Set(['../index.html', '../mode-5v5-test.html', '../tools/31-toolkit.html']);

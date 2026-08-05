@@ -13,12 +13,13 @@ const SCAN_DIRS = [
   'ui',
   'fx',
   'modules',
+  'content',
   'tests',
   'tools'
 ];
 
 // 扫描的文件扩展名
-const EXTENSIONS = new Set(['.js', '.html', '.cjs']);
+const EXTENSIONS = new Set(['.js', '.html', '.cjs', '.json']);
 
 // 跳过特殊文件
 const SKIP_FILES = new Set([

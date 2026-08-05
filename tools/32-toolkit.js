@@ -1,5 +1,5 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// tools/32-toolkit.js - 光明顶5v5 开发工具箱（文件复制器 / 拆分自原 32-toolkit.js）
-// V5.3.1 | ~34100 bytes| 2026-07-28
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// tools/32-toolkit.js - 光明顶5v5 开发工具箱（文件复制器 / 拆分自原 32-toolkit.js）
+// V5.3.1 | ~34700 bytes| 2026-07-28
 
 /* ========== 标签页切换 ========== */
 document.querySelectorAll('.tab-btn').forEach(btn => {
@@ -42,6 +42,8 @@ function escapeHtml(text) {
         '../modules/23elite-skills.js', '../modules/24error-capture.js', '../modules/28audio-manager.js',
         '../modules/46global-store.js', '../modules/52battle-store.js', '../modules/100-replay.js',
         '../modules/97elite-imperial.js', '../modules/98elite-sixsects.js', '../modules/99elite-mingjiao.js',
+        // content（游戏内容数据）
+        '../content/101game-data.json',
         // tests（体检规则与自动测试）
         '../tests/30test-runner.html',
         '../tests/37health-rules/70-claw-heal-spam.js',
@@ -64,12 +66,13 @@ function escapeHtml(text) {
         // 根目录（入口与设计文档）
         '../index.html', '../mode-5v5-test.html',
         '../README.md',
-        '../记录-更改履历.md'
+        '../记录-更改履历.md',
+        '../待办-bug待修.md'
         // 备注：其余 MD 文档已归档到 文件汇总20260730/，不参与自动复制
     ];
 
     // 用户可勾选的文件列表（不含 assets/ 和 .md 等不可 fetch 的文件，排除文件名带空格的）
-    const FILES = ALL_PROJECT_FILES.filter(f => (f.endsWith('.js') || f.endsWith('.html') || f.endsWith('.cjs') || f.endsWith('.md')) && !f.includes(' '));
+    const FILES = ALL_PROJECT_FILES.filter(f => (f.endsWith('.js') || f.endsWith('.html') || f.endsWith('.cjs') || f.endsWith('.md') || f.endsWith('.json')) && !f.includes(' '));
 
     const FILE_GROUPS = [
         { name: 'core', displayName: '战斗引擎核心', prefix: '../core/' },
@@ -77,6 +80,7 @@ function escapeHtml(text) {
         { name: 'ui', displayName: 'UI 主控', prefix: '../ui/' },
         { name: 'fx', displayName: '特效', prefix: '../fx/' },
         { name: 'modules', displayName: '模块', prefix: '../modules/' },
+        { name: 'content', displayName: '游戏内容数据', prefix: '../content/' },
         { name: 'tests', displayName: '测试与体检', prefix: '../tests/' },
         { name: 'tools', displayName: '工具箱自身', prefix: '../tools/' },
         { name: 'root', displayName: '根目录页面', prefix: null }
@@ -103,6 +107,10 @@ function escapeHtml(text) {
         '模块': {
             before: '请深入分析模块代码（精英技能、错误捕获、音频管理）。无需输出详细分析，收到全部代码后直接开始协助开发。',
             after: '模块代码发送完毕。'
+        },
+        '游戏内容数据': {
+            before: '请深入分析游戏内容数据（角色、技能、Buff、台词等配置）。无需输出详细分析，收到全部代码后直接开始协助开发。',
+            after: '游戏内容数据发送完毕。'
         },
         '测试与体检': {
             before: '请深入分析测试与体检代码（健康检查、单元测试、运行时采样）。无需输出详细分析，收到全部代码后直接开始协助开发。',
