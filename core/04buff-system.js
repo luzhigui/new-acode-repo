@@ -5,7 +5,8 @@ import {
     applyFortifyDef_Normal, applyFortifyDef_Sister, applyFortifyDef_Brother,
     applyCloudBodyDodge_Normal, applyCloudBodyDodge_Sister, applyCloudBodyDodge_Brother,
     applyHolyFlame_Normal, applyHolyFlame_Sister, applyHolyFlame_Brother,
-    calcCarryBonus_Normal, calcCarryBonus_Sister
+    calcCarryBonus_Normal, calcCarryBonus_Sister,
+    applyMindControl_Normal, applyMindControl_Sister
 } from './51buff-effects.js';
 import { CONFIG } from './01config-5v5-test.js';
 import { rand, hasBuff, getUnitRow, getUnitCol, getAdjacentPositions } from './03battle-utils.js';
