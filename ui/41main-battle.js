@@ -24,6 +24,7 @@ export function doInitBattle(currentStage, UI, snapshot, activeBuffs, selectedBu
     const targetPower = C.MING_TARGET_POWER && C.MING_TARGET_POWER[currentStage] ? C.MING_TARGET_POWER[currentStage] : null;
 
     // 精英出场率：80%一个、15%两个、5%三个，按 ELITE_RATE 权重选人
+    // 总预算不变，精英从预算里扣，普通兵分剩下的，保证总战力不超标
     const eliteConfigs = [
         { name: '张无忌', m: 115, role: '远程', isZhang: true, power: elitePower['张无忌'] || 140 },
         { name: '韦一笑', m: 107, role: '飞行', isWei: true, power: elitePower['韦一笑'] || 120 },
@@ -41,10 +42,6 @@ export function doInitBattle(currentStage, UI, snapshot, activeBuffs, selectedBu
     } else {
         eliteCount = 0;
     }
-    // 精英占战力预算，为避免明教战力过高，出精英时削减总预算
-    // 每个精英约比普通兵(90~110)高20~40战力，按精英数量等比削减 targetPower
-    const elitePowerDeduct = eliteCount * 35;
-    const adjustedTargetPower = Math.max(380, (targetPower || 500) - elitePowerDeduct);
 
     if (eliteCount > 0) {
         const picked = [];
@@ -93,7 +90,7 @@ export function doInitBattle(currentStage, UI, snapshot, activeBuffs, selectedBu
     candidatePool.sort((a, b) => a.power - b.power);
 
     const remainingCandidates = [...candidatePool];
-    let remainingPower = adjustedTargetPower;
+    let remainingPower = targetPower || 500;
     let remainingSlots = 5;
     for (let slot = 0; slot < remainingSlots; slot++) {
         const avgPower = remainingPower / remainingSlots;
