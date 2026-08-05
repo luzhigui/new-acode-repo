@@ -253,10 +253,12 @@ export async function* createRoundStepper(state) {
      * 裁决标准：priority 高优先，同 priority 按 pos 排
      */
     function resolveActionOrder(candidates, log) {
+        // 第一步：按站位排序，逐个判定
+        const sortedByPos = [...candidates].filter(u => u.alive && !u._isDead).sort((a, b) => a.pos - b.pos);
+        const priorityDeclarations = [];
         const passUnits = [];
-        const active = [];
-        for (const u of candidates) {
-            if (!u.alive || u._isDead) continue;
+
+        for (const u of sortedByPos) {
             if (u._stunned) {
                 passUnits.push({ unit: u, reason: '眩晕' });
                 continue;
@@ -265,16 +267,15 @@ export async function* createRoundStepper(state) {
                 passUnits.push({ unit: u, reason: '拒马休息' });
                 continue;
             }
+            if (u._flyMode === 'butterfly' || u._flyMode === 'spider' || u._spiderFlying) {
+                passUnits.push({ unit: u, reason: '飞天/附身' });
+                continue;
+            }
             const allySide = u.camp === 'ally' ? candidates.filter(c => c.camp === 'ally') : candidates.filter(c => c.camp === 'enemy');
             if (isBlocked(u, allySide) && isMelee(u.role)) {
                 passUnits.push({ unit: u, reason: '被遮挡' });
                 continue;
             }
-            active.push(u);
-        }
-
-        const priorityDeclarations = [];
-        for (const u of active) {
             const decl = { priority: 0, skip: false, pass: false };
             eventBus.emit('beforeActionSelect', { unit: u, declaration: decl });
             if (decl.skip) continue;
@@ -285,6 +286,7 @@ export async function* createRoundStepper(state) {
             priorityDeclarations.push({ unit: u, priority: decl.priority });
         }
 
+        // 第二步：优先行动声明（如苦练）
         const hasPriority = priorityDeclarations.filter(d => d.priority > 0);
         if (hasPriority.length > 0) {
             hasPriority.sort((a, b) => b.priority - a.priority || a.unit.pos - b.unit.pos);
@@ -295,9 +297,10 @@ export async function* createRoundStepper(state) {
             return { actingUnit: winner.unit, isPriorityAction: true, passUnits };
         }
 
-        const sorted = priorityDeclarations.sort((a, b) => a.unit.pos - b.unit.pos);
-        if (sorted.length > 0) {
-            return { actingUnit: sorted[0].unit, isPriorityAction: false, passUnits };
+        // 第三步：无优先声明，按站位取第一个
+        priorityDeclarations.sort((a, b) => a.unit.pos - b.unit.pos);
+        if (priorityDeclarations.length > 0) {
+            return { actingUnit: priorityDeclarations[0].unit, isPriorityAction: false, passUnits };
         }
 
         return { actingUnit: null, isPriorityAction: false, passUnits };
@@ -305,15 +308,27 @@ export async function* createRoundStepper(state) {
 
     let currentSide = 'enemy';
     let kuLianDone = false;
+    // 行动指针：双方各自按 1-9 站位顺序取下一个未行动单位
+    const allyOrder = A.filter(u => u.alive && !u._acted).sort((a, b) => a.pos - b.pos);
+    const enemyOrder = B.filter(u => u.alive && !u._acted).sort((a, b) => a.pos - b.pos);
+    let allyIdx = 0, enemyIdx = 0;
 
-    while (A.some(u => u.alive && !u._acted) || B.some(u => u.alive && !u._acted)) {
+    while (allyIdx < allyOrder.length || enemyIdx < enemyOrder.length) {
         const currentTeam = currentSide === 'ally' ? A : B;
+        const currentOrder = currentSide === 'ally' ? allyOrder : enemyOrder;
+        let idx = currentSide === 'ally' ? allyIdx : enemyIdx;
         const candidates = currentTeam.filter(u => u.alive && !u._acted);
         const orderResult = resolveActionOrder(candidates, log);
 
+        // 先处理 passUnits（只处理当前阵营当前指针所指单位的跳过）
         if (orderResult.passUnits.length > 0) {
             for (const { unit, reason } of orderResult.passUnits) {
                 unit._acted = true;
+                // 从 order 中移除该单位
+                const orderArr = currentSide === 'ally' ? allyOrder : enemyOrder;
+                const foundIdx = orderArr.findIndex(o => o.uid === unit.uid);
+                if (foundIdx >= 0) orderArr.splice(foundIdx, 1);
+                // 跳过完本队单位后，指针不变，让下一轮继续处理本队下一个
                 unit._blocked = isBlocked(unit, currentTeam);
                 if (reason === '被遮挡') {
                     let hpBefore = Math.floor(unit.hp);

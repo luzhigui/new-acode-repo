@@ -275,7 +275,7 @@ export function calcFinalDamage(unit, target, attackerBuffStats, defenderBuffSta
         bonusEntries = modifierResult.entries || [];
     }
 
-    return { atkBase, defBase, atkAct, defAct, hpBonus, hpBefore, waveTaunt, waveUnit, raw, rawFormula: null, thunderBonus: 0, hornDmgMultiplier: 1, hornDefIgnore: 0, trueDmg: 0, dmg, bonusEntries, defReduced, defReduction: null };
+    return { atkBase, defBase, atkAct, defAct, hpBonus, hpBefore, waveTaunt, waveUnit, raw, rawFormula: null, thunderBonus: 0, hornDmgMultiplier: 1, hornDefIgnore: 0, trueDmg: 0, dmg, bonusEntries, defReduced, defReduction: null, bonusDmgTotal, dmgMultiplier };
 }
 
 // ==================== 步骤4：应用伤害结果 ====================
@@ -448,7 +448,7 @@ export function resolveAfterDamageEffects(declarations, unit, target, group) {
 
 // ==================== 步骤5：构建攻击组日志 + 攻击后效果 ====================
 export async function buildAttackGroup(unit, target, dmgCalc, dmgResult, attackerBuffStats, defenderBuffStats, allySide, enemySide, log, A, B, state, doubleStrikeUnitUid, phantomLog) {
-    let { atkBase, defBase, atkAct, defAct, hpBonus, hpBefore, waveTaunt, waveUnit, raw, rawFormula, thunderBonus, hornDmgMultiplier, hornDefIgnore, trueDmg, defReduction } = dmgCalc;
+    let { atkBase, defBase, atkAct, defAct, hpBonus, hpBefore, waveTaunt, waveUnit, raw, rawFormula, thunderBonus, hornDmgMultiplier, hornDefIgnore, trueDmg, defReduction, bonusDmgTotal, dmgMultiplier } = dmgCalc;
     let { dmg, dead, horseReboundEntry, reboundEntry, bonusEntries } = dmgResult;
 
     let hpPctBefore = Math.floor((hpBefore / target.maxHp) * 100), hpPctAfter = Math.floor((target.hp / target.maxHp) * 100);
@@ -484,9 +484,8 @@ export async function buildAttackGroup(unit, target, dmgCalc, dmgResult, attacke
     } else {
         formulaText = `${atkAct}×(${atkAct}/(${atkAct}+${defAct})) = ${Math.floor(raw)}`;
     }
-    if (dmgCalc.bonusDmgTotal > 0) formulaText += ` + 额外伤害${dmgCalc.bonusDmgTotal}`;
-    if (dmgCalc.dmgMultiplier !== 1) formulaText += `×${dmgCalc.dmgMultiplier}`;
-    if (raw !== dmg) formulaText += `-30%=${Math.floor(dmg)}`;
+    if (bonusDmgTotal > 0) formulaText += ` + 额外伤害${bonusDmgTotal}`;
+    if (dmgMultiplier !== 1) formulaText += `×${dmgMultiplier}`;
     group.entries.push({type:'detail', text:`<span class="gray small">计算：${formulaText}</span>`});
     group.entries.push({type:'damage-text', deadFlag:dead, text:`<span class="damage-line ${dead?'brush-red':''} ${ac}">${dead?'💀击杀💀 ':''}${campA} ${unit.name}</span> 造成 <span class="red">${dmg}</span> 伤害，<span class="${dc}">${campD} ${target.name}</span> ${hpBefore} → ${Math.floor(target.hp)} ${dead?'💀阵亡':''}`});
     if (unit._executeLog) {
