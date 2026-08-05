@@ -7,7 +7,7 @@ import { ROLE_BONUS } from '../core/02unit.js';
 import { rand, hasBuff } from '../core/03battle-utils.js';
 import { spawnHorse } from '../core/05battle-horse.js';
 import { spiderTransform, spiderReturn } from '../modules/23elite-skills.js';
-import { checkZhangSwitch, emitEvent, applyStatChange } from '../core/50battle-shared.js';
+import { checkZhangSwitch, emitEvent, applyStatChange, applyMaxHpChange } from '../core/50battle-shared.js';
 import { EXECUTION_LAYER as L } from '../core/00-event-bus.js';
 const ES = CONFIG.ELITE_SKILLS;
 function getZhangNearTaunt(nearAtkCount) {
@@ -76,9 +76,7 @@ export function createZhangWujiComponent() {
                     unit.ronghui = true;
                     const zt = getZhangNearTaunt(3); if (zt) group.entries.push({ type:'info', text:`<span class="gold">🗣️ ${unit.name}：${zt}</span>` });
                     const extra = Math.floor(Math.abs(target.atk - target.def) * 0.5);
-                    target.hp -= extra; unit.dmgDealt += extra;
-                    if (target.hp <= 0) { target.hp = 0; target.alive = false; target._isDead = true; if (!target._deathTime) target._deathTime = Date.now(); group.isDead = true; group.alive = false; group.hpAfter = 0; }
-                    emitEvent(target, 'hp-change', { hp:target.hp, maxHp:target.maxHp, alive:target.alive, atk:target.atk, def:target.def, _isDead:target._isDead||false });
+                    applyStatChange(target, 'hp', -extra, unit, '融会贯通');
                     group.entries.push({ type:'info', text:`<span class="red">🔥 融会贯通额外+${extra}（目标攻击${Math.floor(target.atk)} 防御${Math.floor(target.def)}，差值绝对值×50%）</span>` });
                 }
             }
@@ -99,21 +97,17 @@ export function createWeiYixiaoComponent() {
                 const lostPct = (wei.maxHp - wei.hp) / wei.maxHp;
                 const leechRate = (s.leechMin + (s.leechMax - s.leechMin) * lostPct) / 100;
                 const healWei = Math.floor(data.dmg * leechRate);
-                const wasFullHpWei = (wei.hp >= wei.maxHp);
                 const newMaxHpWei = Math.min(wei.maxHp + healWei, wei._baseMaxHp * 2);
-                const hpDeltaWei = newMaxHpWei - wei.maxHp;
                 const decl = {
                     type: 'leech',
-                    value: healWei + hpDeltaWei,
+                    value: healWei,
                     source: wei,
                     logText: `<span class="green">🦇 青翼蝠王·吸血+${healWei}，上限→${Math.floor(newMaxHpWei)}</span>`
                 };
                 if (!data.declarations) data.declarations = [];
                 data.declarations.push(decl);
-                wei.maxHp = newMaxHpWei;
                 wei._baseMaxHp = Math.max(wei._baseMaxHp, newMaxHpWei);
-                if (wasFullHpWei) wei.hp = wei.maxHp;
-                emitEvent(wei, 'hp-change', { hp:wei.hp, maxHp:wei.maxHp, alive:wei.alive, atk:wei.atk, def:wei.def });
+                applyMaxHpChange(wei, newMaxHpWei, null, '韦一笑吸血上限提升');
             });
         },
         _registerDodgeRule(wei) {
@@ -176,7 +170,7 @@ export function createXiaoZhaoSisterComponent() {
             if (!sister || sister._butterflyHost) return null;
             const order = [5,6,7,8,9,1,2,3]; let host = null;
             for (const p of order) { const u = A.find(a => a.pos === p && a.alive && !a.isHorse && a.uid !== sister.uid); if (u) { host = u; break; } }
-            if (!host) { sister.hp = 0; sister.alive = false; sister._isDead = true; if (!sister._deathTime) sister._deathTime = Date.now(); emitEvent(sister, 'hp-change', { hp:0, maxHp:sister.maxHp, alive:false, atk:sister.atk, def:sister.def, _isDead:true }); log.push({ type:'info', text:`<span class="red">🦋 蝶变：${sister.name} 无队友可附身，香消玉殒！</span>` }); return null; }
+            if (!host) { applyStatChange(sister, 'hp', -sister.hp, null, '蝶变无宿主'); log.push({ type:'info', text:`<span class="red">🦋 蝶变：${sister.name} 无队友可附身，香消玉殒！</span>` }); return null; }
             const s = getSkillParams('小昭', 'butterflyAttach') || {};
             const atkRatio = 1/3;
             const defRatio = 1/3;
@@ -189,7 +183,8 @@ export function createXiaoZhaoSisterComponent() {
             host._butterflyAtkBonus += atkTransfer; host._butterflyDefBonus += defTransfer;
             applyStatChange(host, 'atk', atkTransfer, sister, '蝶变附身');
             applyStatChange(host, 'def', defTransfer, sister, '蝶变附身');
-            host.maxHp += hpTransfer; host.hp = Math.min(host.maxHp, host.hp + hpTransfer);
+            applyMaxHpChange(host, host.maxHp + hpTransfer, sister, '蝶变附身血上限');
+            host.hp = Math.min(host.maxHp, host.hp + hpTransfer);
             emitEvent(host, 'hp-change', { hp:host.hp, maxHp:host.maxHp, alive:host.alive, atk:host.atk, def:host.def, _phantomTarget:sister.uid });
             const aliveAllies = A.filter(a => a.alive && !a.isHorse && a.uid !== sister.uid);
             const totalHp = aliveAllies.reduce((sum,a) => sum + a.hp, 0); const totalMaxHp = aliveAllies.reduce((sum,a) => sum + a.maxHp, 0);
@@ -282,12 +277,11 @@ export function createXiaoZhaoBrotherComponent() {
                 }
                 const hasTeamCarry = hasBuff(A._activeBuffs, 'carry');
                 if (!hasTeamCarry && brother._permanentBuffs?.some(b => b.key === 'carry') && brother._baseMaxHp !== undefined) {
-                    brother.atk += 3;
-                    brother.def += 4;
-                    brother.maxHp += 20;
+                    applyStatChange(brother, 'atk', 3, null, '小昭永久carry');
+                    applyStatChange(brother, 'def', 4, null, '小昭永久carry');
+                    applyMaxHpChange(brother, brother.maxHp + 20, null, '小昭永久carry');
                     brother._baseMaxHp = brother.maxHp;
                     brother.hp = Math.min(brother.hp + 20, brother.maxHp);
-                    emitEvent(brother, 'hp-change', { hp: brother.hp, maxHp: brother.maxHp, alive: brother.alive, atk: brother.atk, def: brother.def });
                 }
             });
             eventBus.on('afterMiss', L.AFTER_MISS.XIAOZHAO_DOUBLE_RETRY, (data) => {
@@ -391,9 +385,7 @@ export function butterflyReturn(sister, allyTeam, log) {
         host._butterflyAtkBonus = 0;
         host._butterflyDefBonus = 0;
         const hpTransfer = sister._butterflyHpTransfer || 0;
-        const oldHostMaxHp = host.maxHp;
-        host.maxHp = Math.max(1, host.maxHp - hpTransfer);
-        host.hp = Math.floor(host.hp * (host.maxHp / oldHostMaxHp));
+        applyMaxHpChange(host, Math.max(1, host.maxHp - hpTransfer), sister, '蝶变飞回血上限');
         emitEvent(host, 'hp-change', {
             hp: host.hp, maxHp: host.maxHp, alive: host.alive,
             atk: host.atk, def: host.def

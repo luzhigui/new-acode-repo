@@ -11,7 +11,7 @@ import {
 import { CONFIG } from './01config-5v5-test.js';
 import { rand, hasBuff, getUnitRow, getUnitCol, getAdjacentPositions } from './03battle-utils.js';
 import { computeButterflyMastery, isXiaoZhaoPermanentActive, getXiaoZhaoHexEnhance } from '../modules/23elite-skills.js';
-import { emitEvent, applyStatChange } from './50battle-shared.js';
+import { emitEvent, applyStatChange, applyMaxHpChange } from './50battle-shared.js';
 import { EXECUTION_LAYER as L } from './00-event-bus.js';
 const C = CONFIG;
 
@@ -66,7 +66,7 @@ export function applyCarryBonus(unit, A, state, log, stats) {
             unit.hp = Math.floor(unit.hp * (unit._baseMaxHp / unit.maxHp));
             applyStatChange(unit, 'hp', unit.hp - oldHp, null, 'carry归位缩放');
         }
-        unit.maxHp = unit._baseMaxHp;
+        applyMaxHpChange(unit, unit._baseMaxHp, null, 'carry归位血上限');
         applyStatChange(unit, 'atk', (unit._baseAtk || unit.atk) + (unit._butterflyAtkBonus || 0) - unit.atk, null, 'carry归位');
         applyStatChange(unit, 'def', (unit._baseDef || unit.def) + (unit._butterflyDefBonus || 0) - unit.def, null, 'carry归位');
 
@@ -83,9 +83,7 @@ export function applyCarryBonus(unit, A, state, log, stats) {
 
         if (unit._carryHpBonus) {
             let newMaxHp = Math.min(unit._baseMaxHp + unit._carryHpBonus, unit._baseMaxHp * 2);
-            let extraHp = newMaxHp - unit.maxHp;
-            if (extraHp > 0) applyStatChange(unit, 'hp', extraHp, null, 'carry血上限提升');
-            unit.maxHp = newMaxHp;
+            applyMaxHpChange(unit, newMaxHp, null, 'carry血上限提升');
         }
 
         if (stats.carryAtkAbs || stats.carryDefAbs || stats.carryHpAbs) {
@@ -100,7 +98,7 @@ export function applyCarryBonus(unit, A, state, log, stats) {
                 const hpDelta = unit.hp - oldHp;
                 if (hpDelta !== 0) applyStatChange(unit, 'hp', hpDelta, null, 'carry清除');
             }
-            if (unit._carryHpBonus) unit.maxHp = unit._baseMaxHp;
+            if (unit._carryHpBonus) applyMaxHpChange(unit, unit._baseMaxHp, null, 'carry清除血上限');
             const clearAtk = unit._carryAtkBonus || 0;
             const clearDef = unit._carryDefBonus || 0;
             unit._carryAtkBonus = 0;

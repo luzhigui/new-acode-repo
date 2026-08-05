@@ -94,7 +94,7 @@ window._emitEvent = emitCoreEvent;
  * @param {string} reason - 变更原因（用于日志追踪）
  * @returns {boolean} 是否触发死亡标记
  */
-export function applyStatChange(target, field, delta, source, reason) {
+function applyStatChange(target, field, delta, source, reason) {
     if (delta === 0 || !target || !target.alive) return false;
     const oldVal = target[field];
     target[field] = field === 'hp' ? Math.max(0, target[field] + delta) : target[field] + delta;
@@ -120,10 +120,34 @@ export function applyStatChange(target, field, delta, source, reason) {
     return target._pendingDeath || false;
 }
 
+/**
+ * 最大生命值变更边裁 — 修改 maxHp 时等比缩放当前血量
+ * @param {Unit} target - 目标单位
+ * @param {number} newMaxHp - 新的最大生命值
+ * @param {Unit|null} source - 变更来源
+ * @param {string} reason - 变更原因
+ */
+function applyMaxHpChange(target, newMaxHp, source, reason) {
+    if (!target || !target.alive) return;
+    const oldMaxHp = target.maxHp;
+    if (oldMaxHp <= 0 || newMaxHp <= 0) return;
+    const oldHp = target.hp;
+    target.maxHp = newMaxHp;
+    target.hp = Math.floor(oldHp * (newMaxHp / oldMaxHp));
+    target.hp = Math.min(target.hp, target.maxHp);
+    if (target.hp <= 0) {
+        applyStatChange(target, 'hp', -target.hp, null, 'maxHp变更致死');
+    } else if (target.hp !== oldHp) {
+        applyStatChange(target, 'hp', target.hp - oldHp, source, reason);
+    }
+}
+
 export {
     emitCoreEvent as emitEvent,
     emitFullUnitState,
     finalizeDeaths,
     getNextAvailableUnit,
-    checkZhangSwitch
+    checkZhangSwitch,
+    applyStatChange,
+    applyMaxHpChange
 };

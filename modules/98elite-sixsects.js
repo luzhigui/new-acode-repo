@@ -5,7 +5,7 @@ import { GlobalStore } from './46global-store.js';
 import { CONFIG, getSkillParams } from '../core/01config-5v5-test.js';
 import { eventBus, EXECUTION_LAYER as L } from '../core/00-event-bus.js';
 import { canXingFenTrigger, consumeXingFen, applyXingFenGrant, tickKuaiLeHeal, checkKuLian } from './23elite-skills.js';
-import { emitEvent, applyStatChange } from '../core/50battle-shared.js';
+import { emitEvent, applyStatChange, applyMaxHpChange } from '../core/50battle-shared.js';
 const ES = CONFIG.ELITE_SKILLS;
 
 // ==================== 宋青书 ====================
@@ -73,7 +73,7 @@ export function createSongQingshuComponent() {
                         const mult = u.uid === kuLianSong.uid ? 2 : 1;
                         applyStatChange(u, 'atk', s.atkBonus * mult, null, '苦练');
                         applyStatChange(u, 'def', s.defBonus * mult, null, '苦练');
-                        u.maxHp += s.hpBonus * mult;
+                        applyMaxHpChange(u, u.maxHp + s.hpBonus * mult, null, '苦练血上限');
                         u._baseAtk = (u._baseAtk || u.atk) + s.atkBonus * mult;
                         u._baseDef = (u._baseDef || u.def) + s.defBonus * mult;
                         u._baseMaxHp = Math.max(u._baseMaxHp || u.maxHp, u.maxHp);
