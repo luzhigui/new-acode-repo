@@ -41,6 +41,7 @@ export function createSongQingshuComponent() {
             });
             eventBus.on('afterAttack', L.AFTER_ATTACK.SONG_XINGFEN_EXTRA, async (data) => {
                 if (data.unit.name !== '宋青书') { return; }
+                if (data.unit._xingFenExtraAttacking) { return; }
                 await onAfterAttack(data.unit, data.target, B, A, data.log, B, A, data.state);
             });
             eventBus.on('beforeActionSelect', L.BEFORE_ACTION.KULIAN_PRIORITY, (data) => {
