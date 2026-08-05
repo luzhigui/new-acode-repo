@@ -1,7 +1,6 @@
 ﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// ui/41main-battle.js - 光明顶5v5 战斗初始化
-// V5.3.1 | ~25600 bytes| 2026-07-07 修复第五关额外单位、职业按模板分配、精英怪站位
-// V5.2.1 | ~10000 bytes | 2026-07-07 修复第五关额外单位、职业按模板分配、精英怪站位
-export const VER = 'ui/41main-battle.js V5.3.1';
+// V5.3.3 | 2026-08-05 精英出场率改为80%/15%/5% + ELITE_RATE加权选人
+export const VER = 'ui/41main-battle.js V5.3.3';
 
 import { CONFIG, ENEMY_M } from '../core/01config-5v5-test.js';
 import { Unit } from '../core/02unit.js';
@@ -42,6 +41,7 @@ export function doInitBattle(currentStage, UI, snapshot, activeBuffs, selectedBu
     } else {
         eliteCount = 0;
     }
+    console.log('[V5.3.3] 精英出场判定: roll=', eliteRoll.toFixed(3), 'count=', eliteCount, 'rate=', JSON.stringify(eliteRate));
 
     if (eliteCount > 0) {
         const picked = [];
