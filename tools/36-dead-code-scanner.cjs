@@ -6,7 +6,7 @@ const path = require('path');
 
 const ROOT = path.resolve(__dirname, '..');
 
-const SCAN_DIRS = ['core', 'player', 'ui', 'fx', 'modules', 'tests', 'tools'];
+const SCAN_DIRS = ['core', 'player', 'ui', 'fx', 'modules', 'content', 'tests', 'tools'];
 const EXTENSIONS = new Set(['.js', '.cjs']);
 
 // 扫描时跳过的文件（入口/主控，导出会被外部 html 使用）

@@ -1,5 +1,5 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// tools/33-toolkit-more.js - 光明顶5v5 开发工具箱（函数提取器 / 函数替换器）
-// V5.3.1 | ~28500 bytes| 2026-07-28
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// tools/33-toolkit-more.js - 光明顶5v5 开发工具箱（函数提取器 / 函数替换器）
+// V5.3.1 | ~28700 bytes| 2026-07-28
 
 function escapeHtml(text) {
     return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -24,6 +24,7 @@ function escapeHtml(text) {
         '../modules/23elite-skills.js', '../modules/24error-capture.js', '../modules/28audio-manager.js',
         '../modules/46global-store.js', '../modules/52battle-store.js', '../modules/100-replay.js',
         '../modules/97elite-imperial.js', '../modules/98elite-sixsects.js', '../modules/99elite-mingjiao.js',
+        '../content/101game-data.json',
         '../tests/30test-runner.html',
         '../tests/37health-rules/70-claw-heal-spam.js',
         '../tests/37health-rules/71-aftermiss.js',
