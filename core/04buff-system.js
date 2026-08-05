@@ -11,7 +11,8 @@ import {
 import { CONFIG } from './01config-5v5-test.js';
 import { rand, hasBuff, getUnitRow, getUnitCol, getAdjacentPositions } from './03battle-utils.js';
 import { computeButterflyMastery, isXiaoZhaoPermanentActive, getXiaoZhaoHexEnhance } from '../modules/23elite-skills.js';
-import { emitEvent } from './50battle-shared.js';
+import { emitEvent, applyStatChange } from './50battle-shared.js';
+import { EXECUTION_LAYER as L } from './00-event-bus.js';
 const C = CONFIG;
 
 /**
@@ -61,23 +62,29 @@ export function applyCarryBonus(unit, A, state, log, stats) {
     if (hasCarryActive && carryPositions.includes(unit.pos) && unit._baseMaxHp !== undefined && !unit.isHorse && !unit.isZhang && !unit.isXiaoZhaoSister && !unit.isXiaoZhaoBrother) {
         // carry 生效：先根据基础血量等比缩放当前血量，再重置为基值，然后加上 carry 加成
         if (unit.maxHp > 0 && unit._baseMaxHp > 0) {
+            const oldHp = unit.hp;
             unit.hp = Math.floor(unit.hp * (unit._baseMaxHp / unit.maxHp));
+            applyStatChange(unit, 'hp', unit.hp - oldHp, null, 'carry归位缩放');
         }
         unit.maxHp = unit._baseMaxHp;
-        if (unit._baseAtk !== undefined) unit.atk = unit._baseAtk + (unit._carryAtkBonus || 0) + (unit._butterflyAtkBonus || 0);
-        if (unit._baseDef !== undefined) unit.def = unit._baseDef + (unit._carryDefBonus || 0) + (unit._butterflyDefBonus || 0);
+        applyStatChange(unit, 'atk', (unit._baseAtk || unit.atk) + (unit._butterflyAtkBonus || 0) - unit.atk, null, 'carry归位');
+        applyStatChange(unit, 'def', (unit._baseDef || unit.def) + (unit._butterflyDefBonus || 0) - unit.def, null, 'carry归位');
 
+        const oldCarryAtk = unit._carryAtkBonus || 0;
+        const oldCarryDef = unit._carryDefBonus || 0;
         unit._carryAtkBonus = Math.floor(stats.carryAtkAbs);
         unit._carryDefBonus = Math.floor(stats.carryDefAbs);
         unit._carryHpBonus = Math.floor(stats.carryHpAbs);
 
-        unit.atk = (unit._baseAtk || unit.atk) + unit._carryAtkBonus + (unit._butterflyAtkBonus || 0);
-        unit.def = (unit._baseDef || unit.def) + unit._carryDefBonus + (unit._butterflyDefBonus || 0);
+        const atkDelta = unit._carryAtkBonus - oldCarryAtk;
+        const defDelta = unit._carryDefBonus - oldCarryDef;
+        if (atkDelta !== 0) applyStatChange(unit, 'atk', atkDelta, null, 'carry激活');
+        if (defDelta !== 0) applyStatChange(unit, 'def', defDelta, null, 'carry激活');
 
         if (unit._carryHpBonus) {
             let newMaxHp = Math.min(unit._baseMaxHp + unit._carryHpBonus, unit._baseMaxHp * 2);
             let extraHp = newMaxHp - unit.maxHp;
-            if (extraHp > 0) unit.hp += extraHp;
+            if (extraHp > 0) applyStatChange(unit, 'hp', extraHp, null, 'carry血上限提升');
             unit.maxHp = newMaxHp;
         }
 
@@ -88,14 +95,19 @@ export function applyCarryBonus(unit, A, state, log, stats) {
         // carry 消失：清除加成，恢复基值
         if (carryPositions.includes(unit.pos) && (unit._carryAtkBonus || unit._carryDefBonus || unit._carryHpBonus)) {
             if (unit._carryHpBonus && unit._baseMaxHp > 0 && unit.maxHp > 0) {
+                const oldHp = unit.hp;
                 unit.hp = Math.floor(unit.hp * (unit._baseMaxHp / unit.maxHp));
+                const hpDelta = unit.hp - oldHp;
+                if (hpDelta !== 0) applyStatChange(unit, 'hp', hpDelta, null, 'carry清除');
             }
             if (unit._carryHpBonus) unit.maxHp = unit._baseMaxHp;
+            const clearAtk = unit._carryAtkBonus || 0;
+            const clearDef = unit._carryDefBonus || 0;
             unit._carryAtkBonus = 0;
             unit._carryDefBonus = 0;
             unit._carryHpBonus = 0;
-            unit.atk = (unit._baseAtk || unit.atk) + (unit._butterflyAtkBonus || 0);
-            unit.def = (unit._baseDef || unit.def) + (unit._butterflyDefBonus || 0);
+            applyStatChange(unit, 'atk', -clearAtk, null, 'carry清除');
+            applyStatChange(unit, 'def', -clearDef, null, 'carry清除');
         }
     }
 }
@@ -264,7 +276,7 @@ desc += `）`;
 
 export function registerBloodthirst(eventBus) {
     // 统一消费额外攻击请求（嗜血狂刀姐姐强化、宋青书性奋等）
-    eventBus.on('requestExtraAttack', 10, async (data) => {
+    eventBus.on('requestExtraAttack', L.REQUEST_EXTRA_ATTACK.DEFAULT, async (data) => {
         const { unit, target, allySide, enemySide, log, A, B, state } = data;
         if (unit.alive && target?.alive && typeof processUnitAttack === 'function') {
             await processUnitAttack(unit, allySide, enemySide, log, A || allySide, B || enemySide, state || null, null, target.uid);
@@ -273,7 +285,7 @@ export function registerBloodthirst(eventBus) {
         }
     });
 
-    eventBus.on('afterDamageApplied', 20, async (data) => {
+    eventBus.on('afterDamageApplied', L.AFTER_DAMAGE_APPLIED.BLOODTHIRST, async (data) => {
         const { unit, target, dmg, allySide, enemySide, log } = data;
         if (!unit.alive || unit.camp !== 'ally') return;
         const unitBuffs = allySide._activeBuffs || [];
@@ -324,7 +336,7 @@ export function registerBloodthirst(eventBus) {
 }
 
 export function registerHotBlood(eventBus) {
-    eventBus.on('afterDamageApplied', 25, (data) => {
+    eventBus.on('afterDamageApplied', L.AFTER_DAMAGE_APPLIED.HOT_BLOOD, (data) => {
         const { unit, dmg, allySide, enemySide, log } = data;
         if (!unit.alive || unit.camp !== 'ally' || unit.hp >= unit.maxHp) return;
         const unitBuffs = allySide._activeBuffs || [];
@@ -376,7 +388,7 @@ export function registerHotBlood(eventBus) {
 }
 
 export function registerWindAssault(eventBus) {
-    eventBus.on('afterDamageApplied', 25, (data) => {
+    eventBus.on('afterDamageApplied', L.AFTER_DAMAGE_APPLIED.WIND_ASSAULT, (data) => {
         const { unit, target, dmg, allySide, enemySide, log } = data;
         if (!unit.alive || unit.camp !== 'ally' || !target || !target.alive) return;
         const unitBuffs = allySide._activeBuffs || [];
@@ -437,7 +449,7 @@ export function registerWindAssault(eventBus) {
 }
 
 export function registerMeteorShower(eventBus) {
-    eventBus.on('afterDamageApplied', 25, (data) => {
+    eventBus.on('afterDamageApplied', L.AFTER_DAMAGE_APPLIED.METEOR_SHOWER, (data) => {
         const { unit, target, dmg, allySide, enemySide, log } = data;
         if (!unit.alive || unit.camp !== 'ally' || !target || !target.alive) return;
         const unitBuffs = allySide._activeBuffs || [];
@@ -452,8 +464,7 @@ export function registerMeteorShower(eventBus) {
 
         // 主箭额外增伤 — 改为提交 bonusDmg 声明
         const bonusDmg = Math.floor(dmg * C.BUFFS.meteorShower.bonusRatio);
-        // 防御降低仍直接处理（属性修改，不与声明冲突）
-        target.def = Math.max(0, target.def - (C.BUFFS.meteorShower.mainDefReduce || 2));
+        applyStatChange(target, 'def', -(C.BUFFS.meteorShower.mainDefReduce || 2), unit, '流星赶月');
         const decl = {
             type: 'bonusDmg',
             value: bonusDmg,
@@ -484,16 +495,15 @@ export function registerMeteorShower(eventBus) {
             };
             if (!data.declarations) data.declarations = [];
             data.declarations.push(decl);
-            // 溅射降防由组件直接处理（无冲突）
             for (const st of splashTargets) {
-                st.def = Math.max(0, st.def - (C.BUFFS.meteorShower.splashDefReduce || 1));
+                applyStatChange(st, 'def', -(C.BUFFS.meteorShower.splashDefReduce || 1), unit, '流星溅射');
             }
         }
     });
 }
 
 export function registerMindControl(eventBus) {
-    eventBus.on('beforeAttack', 10, (data) => {
+    eventBus.on('beforeAttack', L.BEFORE_ATTACK.MIND_CONTROL, (data) => {
         const { unit, allySide, enemySide, log } = data;
         if (!unit.alive || unit.camp !== 'ally') return;
         const buffs = allySide._activeBuffs || [];

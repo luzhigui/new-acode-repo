@@ -8,7 +8,7 @@ import { rand, calcDamage, getFangLevel, isMelee, getFronts, isBlocked, getRando
 import { checkZhangSwitch } from './50battle-shared.js';
 import { computeBuffStats, applyBuffEffectsBeforeAttack, applyBuffEffectsAfterAttack } from './04buff-system.js';
 import { applyDamageModifiers, getXiaoZhaoHexEnhance } from '../modules/23elite-skills.js';
-import { emitEvent } from './50battle-shared.js';
+import { emitEvent, applyStatChange } from './50battle-shared.js';
 
 // ==================== 闪避规则注册表 ====================
 // 裁判统一管理所有闪避规则。每个规则是一个函数 (unit, attacker) => dodgeRate (0~1)
@@ -107,11 +107,6 @@ export function selectAttackTarget(unit, enemySide, allySide) {
         target = fallback[rand(0, fallback.length - 1)];
     }
 
-    // 成昆攻击前清除旧伪装（恢复真身）——临时保留，后续迁移至成昆组件
-    if (unit.name === '成昆' && unit._phantomTarget) {
-        delete unit._phantomTarget;
-    }
-
     return { target, phantomLog };
 }
 
@@ -123,35 +118,39 @@ export function resolveAttackHit(unit, target, attackerBuffStats, defenderBuffSt
     else { missChance = 1; }
 
     if (missChance > 0 && rand(1,100) <= missChance) {
-        let mg = {type:'attack-group', uidA:unit.uid, uidD:target.uid, entries:[], isMiss:true, _fxSnapshot:makeFXSnapshot(unit,target), waveTaunt:null, waveUnit:null, buffEffects: [], needsSeparator: true};
-        mg.entries.push({type:'combat-text', text:`<span class="${unit.camp==='ally'?'blue':'orange'}">${unit.camp==='ally'?'明教':'六大派'} ${unit.name}</span> 的攻击`});
-        mg.entries.push({type:'info', text:`<span class="gray">未命中！</span>`});
+        // 未命中 — 返回日志数据让调用方拼接
+        const missData = {
+            skipped: true, retry: false, lockedTargetUid: null,
+            missGroup: {
+                type:'attack-group', uidA:unit.uid, uidD:target.uid, entries:[], isMiss:true,
+                _fxSnapshot:makeFXSnapshot(unit,target), waveTaunt:null, waveUnit:null,
+                buffEffects: [], needsSeparator: true,
+                combatText: `<span class="${unit.camp==='ally'?'blue':'orange'}">${unit.camp==='ally'?'明教':'六大派'} ${unit.name}</span> 的攻击`,
+                infoText: `<span class="gray">未命中！</span>`
+            }
+        };
         unit._acted = true;
-        mg._events = GlobalStore.flushBattleEvents();
-        log.push(mg);
+        missData.missGroup._events = GlobalStore.flushBattleEvents();
 
-        // 发射 afterMiss 信号，让监听器有机会设置重试
         if (eventBus) {
-            let data = { unit, target, log, retry: false, retryTargetUid: null };
-            eventBus.emit('afterMiss', data);
-            if (data.retry) {
-                return { skipped: true, retry: true, lockedTargetUid: data.retryTargetUid };
+            let afterMissData = { unit, target, log, retry: false, retryTargetUid: null };
+            eventBus.emit('afterMiss', afterMissData);
+            if (afterMissData.retry) {
+                return { skipped: true, retry: true, lockedTargetUid: afterMissData.retryTargetUid };
             }
         }
 
-        return { skipped: true, retry: false, lockedTargetUid: null };
+        return missData;
     }
 
     const allyBuffs = (target.camp === 'ally' && A ? A._activeBuffs : (target.camp === 'enemy' && B ? B._activeBuffs : []));
     if (target._stunned) return { skipped: false, retry: false, lockedTargetUid: null };
     const hasCloudBody = hasBuff(allyBuffs, 'cloudBody') || ((target.isXiaoZhaoSister || target.isXiaoZhaoBrother) && target._permanentBuffs && target._permanentBuffs.some(b => b.key === 'cloudBody'));
     if (target.alive && (target.isWei || hasCloudBody || !target._acted)) {
-        // 汇总闪避率：遍历规则注册表，累加每个规则返回的闪避值
         let totalDodge = 0;
         for (const ruleFn of _dodgeRules) {
             totalDodge += ruleFn(target, unit) || 0;
         }
-        // Buff 闪避加成
         let buffDodge = defenderBuffStats.dodgeBonus || 0;
         totalDodge += buffDodge;
         if (totalDodge > 0) {
@@ -159,15 +158,9 @@ export function resolveAttackHit(unit, target, attackerBuffStats, defenderBuffSt
                 target.dodgeCount++;
                 let reboundDmg = Math.floor((target.atk + target.def) * 0.5);
                 let unitHpBeforeRebound = Math.floor(unit.hp);
-                unit.hp = Math.max(0, unit.hp - reboundDmg);
-                target.dmgDealt += reboundDmg; unit.dmgTaken += reboundDmg;
-                if (unit.hp <= 0) {
-                    unit.alive = false;
-                    unit._isDead = true;
-                    if (!unit._deathTime) unit._deathTime = Date.now();
-                }
-                emitEvent(unit, 'hp-change', { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: unit.atk, def: unit.def, _isDead: unit._isDead || false });
-                let dg = {type:'attack-group', uidA:target.uid, uidD:unit.uid, entries:[], isDodge:true, hpAfter:unit.hp, alive:unit.alive, _fxSnapshot:makeFXSnapshot(target,unit), waveTaunt:null, waveUnit:null, buffEffects:[], _atkBonus:0, _defBonus:0, needsSeparator: true};
+                applyStatChange(unit, 'hp', -reboundDmg, target, '闪避反击');
+
+                let weiHealData = null;
                 if (target.isWei) {
                     const lostPctWei = (target.maxHp - target.hp) / target.maxHp;
                     const leechRateWei = 0.20 + (0.50 - 0.20) * lostPctWei;
@@ -180,19 +173,30 @@ export function resolveAttackHit(unit, target, attackerBuffStats, defenderBuffSt
                     target.healDone += heal;
                     target.leechDone += heal;
                     emitEvent(target, 'hp-change', { hp: target.hp, maxHp: target.maxHp, alive: target.alive, atk: target.atk, def: target.def });
-                    dg.entries.push({type:'info', text:`<span class="green">🦇 青翼蝠王·闪避反击吸血+${heal}，上限→${Math.floor(target.maxHp)}</span>`, isHealEntry:true, healAmount:heal, healUnitUid:target.uid});
+                    weiHealData = { heal, newMaxHp: Math.floor(target.maxHp) };
                 }
-                dg.entries.push({type:'combat-text', text:`<span class="${unit.camp==='ally'?'blue':'orange'}">${unit.camp==='ally'?'明教':'六大派'} ${unit.name}</span>(攻${Math.floor(unit.atk)} 血${unitHpBeforeRebound}) → <span class="${target.camp==='ally'?'blue':'orange'}">${target.camp==='ally'?'明教':'六大派'} ${target.name}</span>(防${Math.floor(target.def)} 血${Math.floor(target.hp)})`});
-                dg.entries.push({type:'info', text:`<span class="gray">🦅 ${target.name}闪避了攻击！</span>`});
-                dg.entries.push({type:'damage-text', text:`<span class="red">🦅 ${target.name}反击 → ${unit.name} 造成 ${reboundDmg} 真实伤害（${unitHpBeforeRebound} → ${Math.floor(unit.hp)}）</span>`});
-                if (unit.hp <= 0) { unit.alive = false; unit._isDead = true; dg.isDead = true; dg.alive = false; dg.hpAfter = 0; dg.entries.push({type:'info', text:`${unit.name}被反击击杀！`}); }
-                dg._events = GlobalStore.flushBattleEvents();
-                log.push(dg);
+
                 unit._acted = true;
                 unit._stunned = true;
                 emitEvent(unit, 'hp-change', { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: unit.atk, def: unit.def, _stunned: true });
-                dg.entries.push({type:'info', text:`<span class="gray">😵 ${unit.name} 被反击眩晕，本回合无法行动！</span>`});
-                return { skipped: true, retry: false, lockedTargetUid: null };
+
+                const dodgeData = {
+                    skipped: true, retry: false, lockedTargetUid: null,
+                    dodgeGroup: {
+                        type:'attack-group', uidA:target.uid, uidD:unit.uid, entries:[], isDodge:true,
+                        hpAfter:unit.hp, alive:unit.alive,
+                        _fxSnapshot:makeFXSnapshot(target,unit), waveTaunt:null, waveUnit:null,
+                        buffEffects:[], _atkBonus:0, _defBonus:0, needsSeparator: true,
+                        isDead: unit.hp <= 0,
+                        combatText: `<span class="${unit.camp==='ally'?'blue':'orange'}">${unit.camp==='ally'?'明教':'六大派'} ${unit.name}</span>(攻${Math.floor(unit.atk)} 血${unitHpBeforeRebound}) → <span class="${target.camp==='ally'?'blue':'orange'}">${target.camp==='ally'?'明教':'六大派'} ${target.name}</span>(防${Math.floor(target.def)} 血${Math.floor(target.hp)})`,
+                        dodgeText: `<span class="gray">🦅 ${target.name}闪避了攻击！</span>`,
+                        reboundText: `<span class="red">🦅 ${target.name}反击 → ${unit.name} 造成 ${reboundDmg} 真实伤害（${unitHpBeforeRebound} → ${Math.floor(unit.hp)}）</span>`,
+                        stunText: `<span class="gray">😵 ${unit.name} 被反击眩晕，本回合无法行动！</span>`,
+                        weiHealData: weiHealData,
+                        _events: GlobalStore.flushBattleEvents()
+                    }
+                };
+                return dodgeData;
             }
         }
     }
@@ -217,6 +221,7 @@ export function calcFinalDamage(unit, target, attackerBuffStats, defenderBuffSta
         if (decl.type === 'breakDef') {
             const reduce = Math.min(decl.value || 0, defBase);
             defBase -= reduce;
+            applyStatChange(target, 'def', -reduce, unit, '破防');
             defReduced = reduce;
             if (reduce > 0) {
                 unit._pendingDefReduceEntry = {type:'detail', text:`<span class="purple small">🗡️ ${unit.name} 破防：${target.name} 防御 -${reduce}</span>`};
@@ -254,21 +259,13 @@ export function calcFinalDamage(unit, target, attackerBuffStats, defenderBuffSta
         let lv = getFangLevel(displayDef, unit.m), k = C.FANG_K[lv + 1] !== undefined ? C.FANG_K[lv + 1] : C.FANG_K[C.FANG_K.length - 1];
         let penPart = calcDamage(atkAct, defAct);
         raw = penPart + displayDef * k + unit.maxHp * C.HP_DMG_RATIO;
-        rawFormula = `${Math.floor(penPart)} + ${Math.floor(displayDef)}×${k} + ${Math.floor(unit.maxHp)}×${C.HP_DMG_RATIO} = ${Math.floor(raw)}`;
     } else {
         raw = calcDamage(atkAct, defAct);
-        rawFormula = `${atkAct}×(${atkAct}/(${atkAct}+${defAct})) = ${Math.floor(raw)}`;
     }
 
     // ---------- 第四步：声明增伤结算 ----------
     raw += bonusDmgTotal;
-    if (bonusDmgTotal > 0) {
-        rawFormula += ` + 额外伤害${bonusDmgTotal}`;
-    }
     raw *= dmgMultiplier;
-    if (dmgMultiplier !== 1) {
-        rawFormula += `×${dmgMultiplier}`;
-    }
 
     let dmg = Math.floor(raw);
     let bonusEntries = [];
@@ -276,13 +273,9 @@ export function calcFinalDamage(unit, target, attackerBuffStats, defenderBuffSta
         const modifierResult = applyDamageModifiers(unit, target, dmg, enemySide, allySide, log);
         dmg = modifierResult.modifiedDmg;
         bonusEntries = modifierResult.entries || [];
-        const originalDmg = Math.floor(raw);
-        if (dmg !== originalDmg) {
-            rawFormula += `-30%=${Math.floor(dmg)}`;
-        }
     }
 
-    return { atkBase, defBase, atkAct, defAct, hpBonus, hpBefore, waveTaunt, waveUnit, raw, rawFormula, thunderBonus: 0, hornDmgMultiplier: 1, hornDefIgnore: 0, trueDmg: 0, dmg, bonusEntries, defReduced, defReduction: null };
+    return { atkBase, defBase, atkAct, defAct, hpBonus, hpBefore, waveTaunt, waveUnit, raw, rawFormula: null, thunderBonus: 0, hornDmgMultiplier: 1, hornDefIgnore: 0, trueDmg: 0, dmg, bonusEntries, defReduced, defReduction: null };
 }
 
 // ==================== 步骤4：应用伤害结果 ====================
@@ -329,9 +322,7 @@ export function applyAttackResult(unit, target, dmgCalc, attackerBuffStats, defe
     const xiaoHEnhance = getXiaoZhaoHexEnhance(A, A._activeBuffs, 'horseFormation');
     if (target.isHorse && dmg > 0 && xiaoHEnhance && hasBuff(A._activeBuffs, 'horseFormation')) {
         const rebound = xiaoHEnhance.reboundDmg;
-        unit.hp = Math.max(0, unit.hp - rebound);
-        unit.dmgTaken += rebound;
-        emitEvent(unit, 'hp-change', { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: unit.atk, def: unit.def });
+        applyStatChange(unit, 'hp', -rebound, target, '巨马反伤');
         horseReboundEntry = {type:'info', text:`<span class="red">🐴 巨马反伤：${unit.name} 受到 5 点反伤</span>`};
     }
 
@@ -374,13 +365,12 @@ export function resolveDeaths(allySide, enemySide, log) {
     // 发射死亡前声明（预留亡语接口）
     eventBus.emit('onBeforeDeath', { units: pending, allySide, enemySide, log });
 
-    // 执行死亡
+    // 执行死亡 — 走统一状态变更入口
     for (const u of pending) {
-        u.hp = 0;
+        applyStatChange(u, 'hp', -u.hp, null, '死亡结算');
         u.alive = false;
         u._isDead = true;
         u._pendingDeath = false;
-        emitEvent(u, 'hp-change', { hp: 0, maxHp: u.maxHp, alive: false, atk: u.atk, def: u.def, _isDead: true });
         emitEvent(u, 'unit-remove', { uid: u.uid });
     }
 }
@@ -398,99 +388,67 @@ export function resolveDamageImmune(declarations) {
 
 // ==================== 攻击后效果结算 ====================
 // 裁判统一执行攻击后附加效果。裁决顺序：吸血 → 回血 → 溅射波及 → 其他
-export function resolveAfterDamageEffects(declarations, unit, target, group, log) {
-    if (!declarations || declarations.length === 0) return;
+export function resolveAfterDamageEffects(declarations, unit, target, group) {
+    if (!declarations || declarations.length === 0) return [];
 
-    // 按类型分组
-    const bonusDmgDecls = declarations.filter(d => d.type === 'bonusDmg');
-    const leechDecls = declarations.filter(d => d.type === 'leech');
-    const healDecls = declarations.filter(d => d.type === 'heal');
-    const splashDecls = declarations.filter(d => d.type === 'splash');
-    const otherDecls = declarations.filter(d => !['bonusDmg', 'leech', 'heal', 'splash'].includes(d.type));
+    const executed = []; // 记录已执行的声明，供调用方拼接日志
 
-    // 0. 对主目标的额外伤害（如流星赶月）
-    for (const decl of bonusDmgDecls) {
+    // 0. 主目标额外伤害
+    for (const decl of declarations.filter(d => d.type === 'bonusDmg')) {
         if (!decl.target || !decl.target.alive) continue;
-        decl.target.hp = Math.max(0, decl.target.hp - (decl.value || 0));
-        unit.dmgDealt = (unit.dmgDealt || 0) + (decl.value || 0);
-        decl.target.dmgTaken = (decl.target.dmgTaken || 0) + (decl.value || 0);
-        if (decl.target.hp <= 0) { decl.target._pendingDeath = true; if (!decl.target._deathTime) decl.target._deathTime = Date.now(); }
-        emitEvent(decl.target, 'hp-change', { hp: decl.target.hp, maxHp: decl.target.maxHp, alive: decl.target.alive, atk: decl.target.atk, def: decl.target.def });
-        if (group && group.entries) {
-            group.entries.push({ type: 'info', text: decl.logText || '' });
-        }
+        applyStatChange(decl.target, 'hp', -(decl.value || 0), unit, '额外伤害');
+        executed.push(decl);
     }
 
     // 1. 吸血
-    for (const decl of leechDecls) {
+    for (const decl of declarations.filter(d => d.type === 'leech')) {
         if (!decl.source || !decl.source.alive) continue;
-        decl.source.hp = Math.min(decl.source.maxHp, decl.source.hp + (decl.value || 0));
-        decl.source.healDone = (decl.source.healDone || 0) + (decl.value || 0);
-        decl.source.leechDone = (decl.source.leechDone || 0) + (decl.value || 0);
-        emitEvent(decl.source, 'hp-change', { hp: decl.source.hp, maxHp: decl.source.maxHp, alive: decl.source.alive, atk: decl.source.atk, def: decl.source.def });
-        if (group && group.entries) {
-            group.entries.push({ type: 'info', text: decl.logText || '', isHealEntry: true, healAmount: decl.value || 0, healUnitUid: decl.source.uid });
-        }
+        const capped = Math.min(decl.value || 0, decl.source.maxHp - decl.source.hp);
+        applyStatChange(decl.source, 'hp', capped, null, '吸血');
+        decl.source.leechDone = (decl.source.leechDone || 0) + capped;
+        executed.push(decl);
     }
 
     // 2. 回血
-    for (const decl of healDecls) {
+    for (const decl of declarations.filter(d => d.type === 'heal')) {
         if (!decl.source || !decl.source.alive) continue;
-        decl.source.hp = Math.min(decl.source.maxHp, decl.source.hp + (decl.value || 0));
-        decl.source.healDone = (decl.source.healDone || 0) + (decl.value || 0);
-        emitEvent(decl.source, 'hp-change', { hp: decl.source.hp, maxHp: decl.source.maxHp, alive: decl.source.alive, atk: decl.source.atk, def: decl.source.def });
-        if (group && group.entries) {
-            group.entries.push({ type: 'info', text: decl.logText || '', isHealEntry: true, healAmount: decl.value || 0, healUnitUid: decl.source.uid });
-        }
+        const capped = Math.min(decl.value || 0, decl.source.maxHp - decl.source.hp);
+        applyStatChange(decl.source, 'hp', capped, null, '回血');
+        executed.push(decl);
     }
 
-    // 3. 溅射波及
-    for (const decl of splashDecls) {
+    // 3. 溅射
+    for (const decl of declarations.filter(d => d.type === 'splash')) {
         if (!decl.targets || decl.targets.length === 0) continue;
-        const splashDmg = decl.value || 0;
         for (const st of decl.targets) {
             if (!st.alive) continue;
-            st.hp = Math.max(0, st.hp - splashDmg);
-            unit.dmgDealt = (unit.dmgDealt || 0) + splashDmg;
-            st.dmgTaken = (st.dmgTaken || 0) + splashDmg;
-            if (st.hp <= 0) { st._pendingDeath = true; if (!st._deathTime) st._deathTime = Date.now(); }
-            emitEvent(st, 'hp-change', { hp: st.hp, maxHp: st.maxHp, alive: st.alive, atk: st.atk, def: st.def });
+            applyStatChange(st, 'hp', -(decl.value || 0), unit, '溅射');
         }
-        if (group && group.entries) {
-            group.entries.push({ type: 'info', text: decl.logText || '' });
-        }
+        executed.push(decl);
     }
 
-    // 3.5 反弹（排在溅射之后、其他之前）
-    const reboundDecls = declarations.filter(d => d.type === 'rebound');
-    for (const decl of reboundDecls) {
+    // 3.5 反弹
+    for (const decl of declarations.filter(d => d.type === 'rebound')) {
         if (!decl.target || !decl.target.alive) continue;
-        decl.target.hp = Math.max(0, decl.target.hp - (decl.value || 0));
-        decl.target.dmgTaken = (decl.target.dmgTaken || 0) + (decl.value || 0);
+        applyStatChange(decl.target, 'hp', -(decl.value || 0), decl.source, '反弹');
         if (decl.source) decl.source.reboundDone = (decl.source.reboundDone || 0) + (decl.value || 0);
-        if (decl.target.hp <= 0) { decl.target._pendingDeath = true; if (!decl.target._deathTime) decl.target._deathTime = Date.now(); }
-        emitEvent(decl.target, 'hp-change', { hp: decl.target.hp, maxHp: decl.target.maxHp, alive: decl.target.alive, atk: decl.target.atk, def: decl.target.def });
         if (decl.hasSister && decl.source && decl.source.alive) {
-            decl.source.hp = Math.min(decl.source.maxHp, decl.source.hp + (decl.value || 0));
-            decl.source.healDone = (decl.source.healDone || 0) + (decl.value || 0);
-            emitEvent(decl.source, 'hp-change', { hp: decl.source.hp, maxHp: decl.source.maxHp, alive: decl.source.alive, atk: decl.source.atk, def: decl.source.def });
+            applyStatChange(decl.source, 'hp', decl.value || 0, null, '反弹回复');
         }
-        if (group && group.entries && decl.logText) {
-            group.entries.push({ type: 'info', text: decl.logText });
-        }
+        executed.push(decl);
     }
 
-    // 4. 其他（预留扩展）
-    for (const decl of otherDecls) {
-        if (group && group.entries && decl.logText) {
-            group.entries.push({ type: 'info', text: decl.logText });
-        }
+    // 4. 其他
+    for (const decl of declarations.filter(d => !['bonusDmg','leech','heal','splash','rebound'].includes(d.type))) {
+        executed.push(decl);
     }
+
+    return executed;
 }
 
 // ==================== 步骤5：构建攻击组日志 + 攻击后效果 ====================
 export async function buildAttackGroup(unit, target, dmgCalc, dmgResult, attackerBuffStats, defenderBuffStats, allySide, enemySide, log, A, B, state, doubleStrikeUnitUid, phantomLog) {
-    let { atkBase, defBase, atkAct, defAct, hpBonus, hpBefore, waveTaunt, waveUnit, rawFormula, thunderBonus, hornDmgMultiplier, hornDefIgnore, trueDmg, defReduction } = dmgCalc;
+    let { atkBase, defBase, atkAct, defAct, hpBonus, hpBefore, waveTaunt, waveUnit, raw, rawFormula, thunderBonus, hornDmgMultiplier, hornDefIgnore, trueDmg, defReduction } = dmgCalc;
     let { dmg, dead, horseReboundEntry, reboundEntry, bonusEntries } = dmgResult;
 
     let hpPctBefore = Math.floor((hpBefore / target.maxHp) * 100), hpPctAfter = Math.floor((target.hp / target.maxHp) * 100);
@@ -516,7 +474,20 @@ export async function buildAttackGroup(unit, target, dmgCalc, dmgResult, attacke
         group.entries.push({type:'info', text:`<span class="gold">🦌 目标已中毒（玄冥神掌），鹤笔翁 鹿角杖法伤害+50%！</span>`});
     }
     if (trueDmg > 0) group.entries.push({type:'detail', text:`<span class="red small">⚔️ 叛逆真伤+${trueDmg}（目标当前生命${Math.round((C.ELITE_SKILLS?.rebelStrike?.currentHpRatio || 0.12) * 100)}%）</span>`});
-    group.entries.push({type:'detail', text:`<span class="gray small">计算：${rawFormula}</span>`});
+    // 拼接伤害公式
+    let formulaText = '';
+    if (unit.role === '防战') {
+        const penPart = calcDamage(atkAct, defAct);
+        const lv = getFangLevel(Math.floor(unit.def), unit.m);
+        const k = C.FANG_K[lv + 1] !== undefined ? C.FANG_K[lv + 1] : C.FANG_K[C.FANG_K.length - 1];
+        formulaText = `${Math.floor(penPart)} + ${Math.floor(unit.def)}×${k} + ${Math.floor(unit.maxHp)}×${C.HP_DMG_RATIO} = ${Math.floor(raw)}`;
+    } else {
+        formulaText = `${atkAct}×(${atkAct}/(${atkAct}+${defAct})) = ${Math.floor(raw)}`;
+    }
+    if (dmgCalc.bonusDmgTotal > 0) formulaText += ` + 额外伤害${dmgCalc.bonusDmgTotal}`;
+    if (dmgCalc.dmgMultiplier !== 1) formulaText += `×${dmgCalc.dmgMultiplier}`;
+    if (raw !== dmg) formulaText += `-30%=${Math.floor(dmg)}`;
+    group.entries.push({type:'detail', text:`<span class="gray small">计算：${formulaText}</span>`});
     group.entries.push({type:'damage-text', deadFlag:dead, text:`<span class="damage-line ${dead?'brush-red':''} ${ac}">${dead?'💀击杀💀 ':''}${campA} ${unit.name}</span> 造成 <span class="red">${dmg}</span> 伤害，<span class="${dc}">${campD} ${target.name}</span> ${hpBefore} → ${Math.floor(target.hp)} ${dead?'💀阵亡':''}`});
     if (unit._executeLog) {
         unit._executeLog.forEach(e => group.entries.push(e));
@@ -529,9 +500,8 @@ export async function buildAttackGroup(unit, target, dmgCalc, dmgResult, attacke
 
     log.push(group);
 
-
-
-    applyPostAttackEffects(unit, target, dmg, atkAct, defAct, reboundEntry, allySide, enemySide, log, A);
+    const postReboundEntry = applyPostAttackEffects(unit, target, dmg, atkAct, defAct, reboundEntry, allySide, enemySide, log, A);
+    if (postReboundEntry) { log.push(postReboundEntry); }
     return group;
 }
 
@@ -546,12 +516,11 @@ export function applyPostAttackEffects(unit, target, dmg, atkAct, defAct, reboun
     if (unit.camp === 'ally') {
         applyBuffEffectsAfterAttack(unit, target, dmg, allySide, enemySide, log);
     }
-    if (reboundEntry) { log.push(reboundEntry); }
+    // 反弹日志由调用方拼接，此处不再推送
     let dead = !target.alive;
     if (dead && target.camp === 'ally') { checkZhangSwitch(A, log); }
+    return reboundEntry;
 }
-
-export { calcFinalDamage as calcAttackDamage };
 
 export function isUnitStunned(unit) {
     return !!(unit && unit._stunned);

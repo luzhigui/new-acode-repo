@@ -102,6 +102,33 @@ export async function processUnitAttack(unit, allySide, enemySide, log, A, B, st
     // 步骤2：未命中+闪避判定
     let hitResult = resolveAttackHit(unit, target, attackerBuffStats, defenderBuffStats, log, A, B, doubleStrikeUnitUid, eventBus);
     if (hitResult.skipped) {
+        if (hitResult.missGroup) {
+            // 未命中 — 调用方拼日志
+            const mg = hitResult.missGroup;
+            mg.entries.push({type:'combat-text', text: mg.combatText});
+            mg.entries.push({type:'info', text: mg.infoText});
+            delete mg.combatText; delete mg.infoText;
+            log.push(mg);
+        }
+        if (hitResult.dodgeGroup) {
+            // 闪避 — 调用方拼日志
+            const dg = hitResult.dodgeGroup;
+            if (dg.weiHealData) {
+                dg.entries.push({type:'info', text:`<span class="green">🦇 青翼蝠王·闪避反击吸血+${dg.weiHealData.heal}，上限→${dg.weiHealData.newMaxHp}</span>`, isHealEntry:true, healAmount:dg.weiHealData.heal, healUnitUid:target.uid});
+                delete dg.weiHealData;
+            }
+            dg.entries.push({type:'combat-text', text: dg.combatText});
+            dg.entries.push({type:'info', text: dg.dodgeText});
+            dg.entries.push({type:'damage-text', text: dg.reboundText});
+            if (dg.isDead) {
+                unit.alive = false; unit._isDead = true;
+                dg.hpAfter = 0;
+                dg.entries.push({type:'info', text:`${unit.name}被反击击杀！`});
+            }
+            dg.entries.push({type:'info', text: dg.stunText});
+            delete dg.combatText; delete dg.dodgeText; delete dg.reboundText; delete dg.stunText;
+            log.push(dg);
+        }
         if (hitResult.retry) {
             const retryUid = hitResult.lockedTargetUid || null;
             await processUnitAttack(unit, allySide, enemySide, log, A, B, state, doubleStrikeUnitUid, retryUid);
@@ -167,8 +194,19 @@ export async function processUnitAttack(unit, allySide, enemySide, log, A, B, st
     if (dmgResult.fortifyDeclarations && dmgResult.fortifyDeclarations.length > 0) {
         afterDamageDeclarations.push(...dmgResult.fortifyDeclarations);
     }
-    // 攻击后效果结算 — 裁判按规则统一执行
-    resolveAfterDamageEffects(afterDamageDeclarations, unit, target, group, log);
+    // 攻击后效果结算 — 裁判执行，播放器拼日志
+    const executedDecls = resolveAfterDamageEffects(afterDamageDeclarations, unit, target, group);
+    for (const decl of executedDecls) {
+        if (group && group.entries && decl.logText) {
+            const entry = { type: 'info', text: decl.logText };
+            if (decl.type === 'leech' || decl.type === 'heal') {
+                entry.isHealEntry = true;
+                entry.healAmount = decl.value || 0;
+                entry.healUnitUid = decl.source ? decl.source.uid : null;
+            }
+            group.entries.push(entry);
+        }
+    }
 
     if (!unit._isLinkAttack) unit._acted = true;
 

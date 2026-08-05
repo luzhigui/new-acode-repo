@@ -5,7 +5,7 @@ export const VER = 'modules/23elite-skills.js V5.3.2';
 import { CONFIG, getSkillParams, getSkillParamsJealous } from '../core/01config-5v5-test.js';
 import { ROLE_BONUS } from '../core/02unit.js';
 import { hasBuff, rand } from '../core/03battle-utils.js';
-import { emitEvent } from '../core/50battle-shared.js';
+import { emitEvent, applyStatChange } from '../core/50battle-shared.js';
 const ES = CONFIG.ELITE_SKILLS;
 
 // ==================== 宋青书 — 叛逆突袭 ====================
@@ -38,13 +38,7 @@ export function tickXuanmingPoison(unit) {
     const idx = Math.min(unit._xuanmingPoison.dotPercents.length - 1, s.duration - 1 - unit._xuanmingPoison.remaining);
     const pct = unit._xuanmingPoison.dotPercents[idx] || 0;
     const dot = Math.floor(unit.maxHp * pct);
-    unit.hp -= dot;
-    if (unit.hp <= 0) {
-        unit.hp = 0;
-        unit.alive = false;
-        unit._isDead = true;
-        if (!unit._deathTime) unit._deathTime = Date.now();
-    }
+    applyStatChange(unit, 'hp', -dot, null, '玄冥中毒');
     return dot;
 }
 
@@ -63,17 +57,9 @@ export function applyDamageModifiers(unit, target, dmg, allySide, enemySide, log
         const rebound = Math.floor(dmg * ((s.reboundPct || s.upgradedReboundPct || 20) / 100));
         const selfDmg = Math.max(1, Math.floor(dmg * ((s.selfDmgPct || s.upgradedSelfDmgPct || 10) / 100)));
 
-        unit.hp = Math.max(0, unit.hp - rebound);
-        unit.dmgTaken += rebound;
         zhangUpgraded.reboundDone += rebound;
-        if (unit.hp <= 0) {
-            unit.alive = false;
-            unit._isDead = true;
-            if (!unit._deathTime) unit._deathTime = Date.now();
-        }
-
-        zhangUpgraded.hp -= selfDmg;
-        zhangUpgraded.dmgTaken += selfDmg;
+        applyStatChange(unit, 'hp', -rebound, zhangUpgraded, '乾坤反弹');
+        applyStatChange(zhangUpgraded, 'hp', -selfDmg, unit, '乾坤自伤');
 
         entries.push({
             type: 'info',
