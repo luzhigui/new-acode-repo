@@ -3,9 +3,9 @@
 export const VER = 'modules/98elite-sixsects.js V5.3.2';
 import { GlobalStore } from './46global-store.js';
 import { CONFIG, getSkillParams } from '../core/01config-5v5-test.js';
-import { eventBus } from '../core/00-event-bus.js';
+import { eventBus, EXECUTION_LAYER as L } from '../core/00-event-bus.js';
 import { canXingFenTrigger, consumeXingFen, applyXingFenGrant, tickKuaiLeHeal, checkKuLian } from './23elite-skills.js';
-import { emitEvent } from '../core/50battle-shared.js';
+import { emitEvent, applyStatChange } from '../core/50battle-shared.js';
 const ES = CONFIG.ELITE_SKILLS;
 
 // ==================== 宋青书 ====================
@@ -17,7 +17,7 @@ export function createSongQingshuComponent() {
             if (!song) { return; }
             const onAfterApplyDamage = this.onAfterApplyDamage;
             const onAfterAttack = this.onAfterAttack;
-            eventBus.on('afterMiss', 50, (data) => {
+            eventBus.on('afterMiss', L.AFTER_MISS.SONG_XINGFEN_RETRY, (data) => {
                 const { unit, log } = data;
                 if (unit.name !== '宋青书' || !unit.alive) return;
                 if (!B || !B.some(u => u.alive)) return;
@@ -28,26 +28,26 @@ export function createSongQingshuComponent() {
                     data.retryTargetUid = null;
                 }
             });
-            eventBus.on('afterDamageApplied', 40, (data) => {
+            eventBus.on('afterDamageApplied', L.AFTER_DAMAGE_APPLIED.SONG_XINGFEN, (data) => {
                 if (data.unit.name !== '宋青书') return;
                 onAfterApplyDamage(data.unit, data.target, { dmg: data.dmg }, data.group, B, data.log);
             });
-            eventBus.on('beforeDamageCalc', 30, (data) => {
+            eventBus.on('beforeDamageCalc', L.BEFORE_DAMAGE_CALC.SONG_TRUE_DMG, (data) => {
                 if (data.unit.name !== '宋青书' || !data.target || !data.target.alive || !data.declarations) return;
                 const trueDmg = Math.floor(data.target.hp * (CONFIG.ELITE_SKILLS.rebelStrike.currentHpRatio || 0.08));
                 if (trueDmg > 0) {
                     data.declarations.push({ type: 'bonusDmg', value: trueDmg, source: data.unit });
                 }
             });
-            eventBus.on('afterAttack', 40, async (data) => {
+            eventBus.on('afterAttack', L.AFTER_ATTACK.SONG_XINGFEN_EXTRA, async (data) => {
                 if (data.unit.name !== '宋青书') { return; }
                 await onAfterAttack(data.unit, data.target, B, A, data.log, B, A, data.state);
             });
-            eventBus.on('beforeActionSelect', 10, (data) => {
+            eventBus.on('beforeActionSelect', L.BEFORE_ACTION.KULIAN_PRIORITY, (data) => {
                 if (data.unit.name !== '宋青书' || !data.unit.alive || !data.unit._kuLianActive) return;
                 data.declaration.priority = 1;
             });
-            eventBus.on('beforeSelectTarget', 20, (data) => {
+            eventBus.on('beforeSelectTarget', L.BEFORE_SELECT_TARGET.SONG_REBEL, (data) => {
                 if (data.unit.name !== '宋青书' || !data.unit.alive || !data.validTargets || data.validTargets.length === 0) return;
                 const rebelTarget = data.validTargets.reduce((a, b) => (a.hp / a.maxHp) > (b.hp / b.maxHp) ? a : b);
                 if (rebelTarget) {
@@ -55,7 +55,7 @@ export function createSongQingshuComponent() {
                     data.declaration.phantomLog = null;
                 }
             });
-            eventBus.on('onRoundStart', 10, (data) => {
+            eventBus.on('onRoundStart', L.ROUND_START.XINGFEN_GRANT, (data) => {
                 const { A, B, log } = data;
                 applyXingFenGrant(B, log);
 
@@ -71,14 +71,13 @@ export function createSongQingshuComponent() {
                     B.forEach(u => {
                         if (!u.alive || u.isHorse) return;
                         const mult = u.uid === kuLianSong.uid ? 2 : 1;
-                        u.atk += s.atkBonus * mult;
-                        u.def += s.defBonus * mult;
+                        applyStatChange(u, 'atk', s.atkBonus * mult, null, '苦练');
+                        applyStatChange(u, 'def', s.defBonus * mult, null, '苦练');
                         u.maxHp += s.hpBonus * mult;
                         u._baseAtk = (u._baseAtk || u.atk) + s.atkBonus * mult;
                         u._baseDef = (u._baseDef || u.def) + s.defBonus * mult;
                         u._baseMaxHp = Math.max(u._baseMaxHp || u.maxHp, u.maxHp);
                         u.hp = Math.min(u.hp + s.hpBonus * mult, u.maxHp);
-                        emitEvent(u, 'hp-change', { hp: u.hp, maxHp: u.maxHp, alive: u.alive, atk: u.atk, def: u.def });
                     });
                     log.push({ type:'info', text:`<span class="gold">🏋️ 苦练：${kuLianSong.name} 激励全体队友+${s.atkBonus}攻+${s.defBonus}防+${s.hpBonus}血上限（自身翻倍）！</span>` });
                 }
@@ -133,11 +132,11 @@ export function createZhouZhiruoComponent() {
             const zhou = B.find(u => u.name === '周芷若' && u.alive);
             if (!zhou) return;
             const onAfterDamageCalc = this.onAfterDamageCalc;
-            eventBus.on('afterAttack', 40, (data) => {
+            eventBus.on('afterAttack', L.AFTER_ATTACK.ZHOU_CLAW, (data) => {
                 if (data.unit.name !== '周芷若') return;
                 onAfterDamageCalc(data.unit, data.target, data.dmg, data.log, B, A);
             });
-            eventBus.on('onRoundStart', 10, (data) => {
+            eventBus.on('onRoundStart', L.ROUND_START.XINGFEN_GRANT, (data) => {
                 const { A, B, log } = data;
                 tickKuaiLeHeal(A.concat(B), log);
             });
@@ -157,14 +156,15 @@ export function createZhouZhiruoComponent() {
                 const ratio = zhangAlive ? s.jealousLostHpRatio : s.lostHpRatio;
                 const ratioDmg = Math.floor(lostHp*ratio + target.maxHp*(zhangAlive?(s.jealousMaxHpRatio||0.02):(s.maxHpRatio||0.01)));
                 let bonusDmg = baseHit + Math.max(0, ratioDmg);
-                target.hp = Math.max(0, target.hp - bonusDmg); totalBonus += bonusDmg;
-                unit.dmgDealt += bonusDmg; target.dmgTaken += bonusDmg;
+                applyStatChange(target, 'hp', -bonusDmg, unit, '九阴白骨爪');
+                totalBonus += bonusDmg;
                 const hpPctAfter = target.hp/target.maxHp;
                 const execThreshold = zhangAlive ? (s.jealousExecuteThreshold||0.15) : (s.executeThreshold||0.12);
                 let isExecute = false;
-                if (hpPctAfter <= execThreshold && target.hp > 0) { bonusDmg += target.hp; target.hp = 0; isExecute = true; }
-                if (target.hp <= 0) { target._pendingDeath = true; if (!target._deathTime) target._deathTime = Date.now(); }
-                emitEvent(target, 'hp-change', { hp:target.hp, maxHp:target.maxHp, alive:target.alive, atk:target.atk, def:target.def, _isDead:target._isDead||false, _isAbsolute:true });
+                if (hpPctAfter <= execThreshold && target.hp > 0) {
+                    isExecute = true;
+                    applyStatChange(target, 'hp', -target.hp, unit, '白骨爪斩杀');
+                }
                 const clawEvents = GlobalStore.flushBattleEvents();
                 log.push({ type:'info', text:`<span style="color:#222">🐾 九阴白骨爪${depth>0?'连锁':'追击'}！${unit.name} 对 ${target.name} 造成 ${bonusDmg} 点伤害${isExecute?'（斩杀）':(zhangAlive?'【嫉妒】':'')}</span>`, buffType:'elite_bonus', isClawHit:true, clawAttackerUid:unit.uid, clawTargetUid:target.uid, clawTargetHpAfter:target.hp, clawTargetAlive:target.alive, clawTargetIsDead:target._isDead, isExecute:isExecute, uidD:target.uid, isDead:!target.alive, _events:clawEvents });
                 if (battleState) {

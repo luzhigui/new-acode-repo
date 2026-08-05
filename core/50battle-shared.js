@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// core/50battle-shared.js - 光明顶5v5 战斗共享工具
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// core/50battle-shared.js - 光明顶5v5 战斗共享工具
 // V5.2.1 | 提取06和48的公共依赖，解开循环引用
 export const VER = 'core/50battle-shared.js V5.3.1';
 
@@ -33,11 +33,10 @@ function emitFullUnitState(unit, eventType) {
 function finalizeDeaths(team) {
     for (const u of team) {
         if (u.hp <= 0 && u.alive) {
-            u.hp = 0;
+            applyStatChange(u, 'hp', -u.hp, null, '死亡结算');
             u.alive = false;
             u._isDead = true;
             if (!u._deathTime) u._deathTime = Date.now();
-            emitCoreEvent(u, 'hp-change', { hp: 0, maxHp: u.maxHp, alive: false, atk: u.atk, def: u.def, _isDead: true });
             emitCoreEvent(u, 'unit-remove', { uid: u.uid });
         }
     }
@@ -84,6 +83,42 @@ function emitCoreEvent(unit, eventType, payload) {
 }
 // 同时挂载到 window 以兼容非 core 层代码的调用
 window._emitEvent = emitCoreEvent;
+
+/**
+ * 状态变更裁定边裁 — 统一入口
+ * 所有直接修改 hp/atk/def/maxHp 的操作必须走此函数。
+ * @param {Unit} target - 目标单位
+ * @param {string} field - 'hp'|'atk'|'def'|'maxHp'
+ * @param {number} delta - 变更量（正为增加，负为减少）
+ * @param {Unit|null} source - 变更来源（可为 null）
+ * @param {string} reason - 变更原因（用于日志追踪）
+ * @returns {boolean} 是否触发死亡标记
+ */
+export function applyStatChange(target, field, delta, source, reason) {
+    if (delta === 0 || !target || !target.alive) return false;
+    const oldVal = target[field];
+    target[field] = field === 'hp' ? Math.max(0, target[field] + delta) : target[field] + delta;
+    if (field === 'hp' || field === 'maxHp') target[field] = Math.max(0, target[field]);
+    // 血量相关统计
+    if (field === 'hp') {
+        if (delta < 0) {
+            target.dmgTaken += Math.abs(delta);
+            if (source) source.dmgDealt = (source.dmgDealt || 0) + Math.abs(delta);
+        } else {
+            target.healDone += delta;
+        }
+    }
+    // 死亡标记
+    if (field === 'hp' && target.hp <= 0) {
+        target._pendingDeath = true;
+        if (!target._deathTime) target._deathTime = Date.now();
+    }
+    emitCoreEvent(target, 'hp-change', {
+        hp: target.hp, maxHp: target.maxHp, alive: target.alive,
+        atk: target.atk, def: target.def, _isDead: target._isDead || false
+    });
+    return target._pendingDeath || false;
+}
 
 export {
     emitCoreEvent as emitEvent,

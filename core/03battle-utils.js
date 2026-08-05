@@ -3,8 +3,9 @@
 export const VER = 'core/03battle-utils.js V5.3.1';
 
 import { CONFIG, TAUNT_LIB, DEF_TAUNT, HP_TAUNT, ZHANG_NEAR_TAUNT } from './01config-5v5-test.js';
-import { emitEvent } from './50battle-shared.js';
+import { emitEvent, applyStatChange } from './50battle-shared.js';
 import { getXiaoZhaoHexEnhance } from '../modules/23elite-skills.js';
+import { EXECUTION_LAYER as L } from './00-event-bus.js';
 const C = CONFIG, TL = TAUNT_LIB, DT = DEF_TAUNT, HT = HP_TAUNT, ZT = ZHANG_NEAR_TAUNT;
 
 export function rand(min, max) { return Math.floor(Math.random() * (max - min + 1)) + min; }
@@ -258,7 +259,7 @@ export function getAuraBonuses(unit, allySide, enemySide) {
  * 注册战士破防监听器
  */
 export function registerWarriorBreakDefense(eventBus) {
-    eventBus.on('beforeDamageCalc', 10, (data) => {
+    eventBus.on('beforeDamageCalc', L.BEFORE_DAMAGE_CALC.WARRIOR_BREAK, (data) => {
         const { unit, target, declarations } = data;
         if (!declarations) return;
         if (unit.role !== '战士' || target.def <= 0) return;
@@ -274,12 +275,11 @@ export function registerWarriorBreakDefense(eventBus) {
  * 注册远程成长监听器
  */
 export function registerRangedGrowth(eventBus) {
-    eventBus.on('afterDamageApplied', 20, (data) => {
+    eventBus.on('afterDamageApplied', L.AFTER_DAMAGE_APPLIED.RANGED_GROWTH, (data) => {
         const { unit, target, dmg, group } = data;
         if (unit.role !== '远程' || dmg <= 0) return;
-        unit.atk += 2;
+        applyStatChange(unit, 'atk', 2, null, '远程成长');
         if (unit._baseAtk !== undefined) unit._baseAtk += 2;
-        emitEvent(unit, 'hp-change', { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: unit.atk, def: unit.def });
         if (group && group.entries) {
             group.entries.push({type:'detail', text:`<span class="blue small">🏹 ${unit.name} 远程熟练：攻击 +2 → ${Math.floor(unit.atk)}</span>`});
         }
@@ -304,7 +304,7 @@ export function registerFortifyShield(eventBus) {
         if (rand(1, 100) > chance) return;
         unit._fortifyStacks += increment;
         unit._fortifyThisRound += increment;
-        unit.def += increment;
+        applyStatChange(unit, 'def', increment, null, '坚盾');
         if (unit._baseDef !== undefined) unit._baseDef += increment;
         const text = `<span class="blue small">🛡️ ${unit.name} ${label}：防御+${increment}（已叠${unit._fortifyThisRound}/${cap}）</span>`;
         if (group && group.entries) {
@@ -312,18 +312,17 @@ export function registerFortifyShield(eventBus) {
         } else if (log) {
             log.push({type:'detail', text});
         }
-        emitEvent(unit, 'hp-change', { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: unit.atk, def: unit.def, _isDead: unit._isDead || false });
     }
 
     // 被攻击时触发（60% 概率）
-    eventBus.on('afterDamageApplied', 30, (data) => {
+    eventBus.on('afterDamageApplied', L.AFTER_DAMAGE_APPLIED.SHIELD_DEFEND, (data) => {
         const { target, dmg, group } = data;
         if (dmg <= 0) return;
         tryFortify(target, 60, group, null, '坚盾');
     });
 
     // 攻击时触发（100% 概率，与被攻击共享每回合上限）
-    eventBus.on('afterAttack', 30, (data) => {
+    eventBus.on('afterAttack', L.AFTER_ATTACK.SHIELD_ATTACK, (data) => {
         const { unit, log } = data;
         tryFortify(unit, 100, null, log, '攻盾');
     });
@@ -331,7 +330,7 @@ export function registerFortifyShield(eventBus) {
 
 export function registerDoubleStrike(eventBus, doubleStrikeUnitUid, allyTeam, activeBuffs) {
     if (!doubleStrikeUnitUid) return;
-    eventBus.on('afterAttack', 40, (data) => {
+    eventBus.on('afterAttack', L.AFTER_ATTACK.DOUBLE_STRIKE, (data) => {
         const { unit, target, log } = data;
         if (unit.uid !== doubleStrikeUnitUid || !unit.alive || unit.camp !== 'ally' || unit._doubleStriked) return;
         const xiaoDoubleEnhance = getXiaoZhaoHexEnhance(allyTeam, activeBuffs, 'doubleStrike');

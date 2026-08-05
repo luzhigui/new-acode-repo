@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// core/48battle-round.js - 光明顶5v5 回合循环与生成器
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// core/48battle-round.js - 光明顶5v5 回合循环与生成器
 // V5.3.1 | ~26800 bytes| 2026-07-28 迁移光环和联动至事件总线
 export const VER = 'core/48battle-round.js V5.3.1';
 
@@ -12,8 +12,8 @@ import { createZhangWujiComponent, createWeiYixiaoComponent, createXiaoZhaoSiste
 import { createSongQingshuComponent, createZhouZhiruoComponent } from '../modules/98elite-sixsects.js';
 import { createChengKunComponent, createLuZhangKeComponent, createHeBiWengComponent, registerXuanmingLink } from '../modules/97elite-imperial.js';
 import { processUnitAttack } from './47battle-attack.js';
-import { eventBus } from './00-event-bus.js';
-import { getNextAvailableUnit, finalizeDeaths, emitFullUnitState, checkZhangSwitch, emitEvent } from './50battle-shared.js';
+import { eventBus, EXECUTION_LAYER as L } from './00-event-bus.js';
+import { getNextAvailableUnit, finalizeDeaths, emitFullUnitState, checkZhangSwitch, emitEvent, applyStatChange } from './50battle-shared.js';
 import { resolveDeaths } from './49battle-attack-steps.js';
 
 const C = CONFIG;
@@ -134,7 +134,7 @@ export async function* createRoundStepper(state) {
     registerMeteorShower(eventBus);
     registerMindControl(eventBus);
     // 飞行突进目标选择（⚠️ 预留给未来飞行精英角色使用，当前普通飞行单位不触发此逻辑）
-    eventBus.on('beforeSelectTarget', 30, (data) => {
+    eventBus.on('beforeSelectTarget', L.BEFORE_SELECT_TARGET.FLY_TARGET, (data) => {
         if (data.unit.role !== '飞行' || data.unit.isWei) return;
         const flyTarget = selectFlyTarget(data.unit, data.enemySide);
         if (flyTarget) data.targetResult = flyTarget;
@@ -202,8 +202,10 @@ export async function* createRoundStepper(state) {
         applyCarryBonus(u, A, state, log, stats);
 
         const auraBonuses = getAuraBonuses(u, A, B);
-        u.atk = (u._baseAtk || u.atk) + (u._carryAtkBonus || 0) + (u._butterflyAtkBonus || 0) + (u._holyAtkBonus || 0) + auraBonuses.emptyCol + auraBonuses.bloodAura;
-        u.def = (u._baseDef || u.def) + (u._carryDefBonus || 0) + (u._butterflyDefBonus || 0) + (u._holyDefBonus || 0) + (u._fortifyDefBonus || 0);
+        const targetAtk = (u._baseAtk || u.atk) + (u._carryAtkBonus || 0) + (u._butterflyAtkBonus || 0) + (u._holyAtkBonus || 0) + auraBonuses.emptyCol + auraBonuses.bloodAura;
+        const targetDef = (u._baseDef || u.def) + (u._carryDefBonus || 0) + (u._butterflyDefBonus || 0) + (u._holyDefBonus || 0) + (u._fortifyDefBonus || 0);
+        applyStatChange(u, 'atk', targetAtk - u.atk, null, '光环加成');
+        applyStatChange(u, 'def', targetDef - u.def, null, '光环加成');
 
         // 圣火令等加成生效后，立即推送最终攻防到 Store 刷新格子显示
         emitEvent(u, 'hp-change', { hp: u.hp, maxHp: u.maxHp, alive: u.alive, atk: u.atk, def: u.def });

@@ -7,7 +7,8 @@ import { ROLE_BONUS } from '../core/02unit.js';
 import { rand, hasBuff } from '../core/03battle-utils.js';
 import { spawnHorse } from '../core/05battle-horse.js';
 import { spiderTransform, spiderReturn } from '../modules/23elite-skills.js';
-import { checkZhangSwitch, emitEvent } from '../core/50battle-shared.js';
+import { checkZhangSwitch, emitEvent, applyStatChange } from '../core/50battle-shared.js';
+import { EXECUTION_LAYER as L } from '../core/00-event-bus.js';
 const ES = CONFIG.ELITE_SKILLS;
 function getZhangNearTaunt(nearAtkCount) {
     const ZHANG_NEAR_TAUNT = ['还好，还记得七七八八。', '糟糕，只记得一两层了。', '不好，全忘光了！'];
@@ -24,17 +25,17 @@ export function createZhangWujiComponent() {
             if (!zhang) return;
             const onAfterApplyDamage = this.onAfterApplyDamage;
             // 九阳回血
-            eventBus.on('afterDamageApplied', 40, (data) => {
+            eventBus.on('afterDamageApplied', L.AFTER_DAMAGE_APPLIED.ZHANG_JIUYANG, (data) => {
                 if (data.unit.uid !== zhang.uid) return;
                 onAfterApplyDamage(data.unit, data.target, { dmg: data.dmg }, data.group, A, data.log);
             });
             // 回合结束/每次行动后检查是否切换近战形态（前排队友死亡触发）
-            eventBus.on('onRoundEnd', 20, (data) => {
+            eventBus.on('onRoundEnd', L.ROUND_END.ZHANG_SWITCH, (data) => {
                 const { A, log } = data;
                 if (zhang && zhang.alive && !zhang._zhangSwitched) checkZhangSwitch(A, log);
             });
             // 乾坤大挪移反弹 — 提交声明，由裁判统一执行
-            eventBus.on('allyDamaged', 40, (data) => {
+            eventBus.on('allyDamaged', L.ALLY_DAMAGED.QIANKUN_REBOUND, (data) => {
                 if (!zhang || !zhang.alive || !zhang.rangedForm || zhang._stunned) return;
                 const { attacker, target, dmg } = data;
                 if (target.camp !== 'ally' || (target.pos !== 4 && target.pos !== 6) || dmg <= 0) return;
@@ -46,10 +47,7 @@ export function createZhangWujiComponent() {
                 const rebound = Math.floor(dmg * reboundPct);
                 let selfDmg = Math.max(1, Math.floor(rebound * selfDmgPct));
                 zhang.reboundDone += rebound;
-                zhang.hp -= selfDmg;
-                zhang.dmgTaken += selfDmg;
-                if (zhang.hp <= 0) { zhang._pendingDeath = true; if (!zhang._deathTime) zhang._deathTime = Date.now(); }
-                emitEvent(zhang, 'hp-change', { hp: zhang.hp, maxHp: zhang.maxHp, alive: zhang.alive, atk: zhang.atk, def: zhang.def });
+                applyStatChange(zhang, 'hp', -selfDmg, attacker, '乾坤反弹自伤');
                 data.log.push({type:'info', text:`<span class="gold">✨ 乾坤大挪移反弹${rebound}给${attacker.name}（无忌自伤${selfDmg}）</span>`});
                 if (!data.declarations) data.declarations = [];
                 data.declarations.push({
@@ -95,7 +93,7 @@ export function createWeiYixiaoComponent() {
         register(eventBus, A, B, log) {
             const wei = A.find(u => u.isWei && u.alive);
             if (!wei) return;
-            eventBus.on('afterDamageApplied', 40, (data) => {
+            eventBus.on('afterDamageApplied', L.AFTER_DAMAGE_APPLIED.WEI_LEECH, (data) => {
                 if (data.unit.uid !== wei.uid || !wei.alive || data.dmg <= 0) return;
                 const s = getSkillParams('韦一笑', 'coldPalm') || { leechMin: 20, leechMax: 40 };
                 const lostPct = (wei.maxHp - wei.hp) / wei.maxHp;
@@ -139,7 +137,7 @@ export function createXiaoZhaoSisterComponent() {
             const sister = A.find(u => u.isXiaoZhaoSister && u.alive && !u._stunned);
             if (!sister) return;
             const comp = this;
-            eventBus.on('beforeFirstAllyAttack', 10, (data) => {
+            eventBus.on('beforeFirstAllyAttack', L.BEFORE_FIRST_ALLY_ATTACK.BUTTERFLY_ATTACH, (data) => {
                 const { A, log, result } = data;
                 const sisterComp = createXiaoZhaoSisterComponent();
                 const sister = sisterComp.onBeforeFirstAttack(A, log);
@@ -148,20 +146,20 @@ export function createXiaoZhaoSisterComponent() {
                     result.interceptUnitUid = sister.uid;
                 }
             });
-            eventBus.on('allyDamaged', 50, (data) => {
+            eventBus.on('allyDamaged', L.ALLY_DAMAGED.QIANKUN_DERIVED, (data) => {
                 const xiaoZhao = A.find(u => u.isXiaoZhaoSister && u.alive && !u._stunned);
                 if (!xiaoZhao) return;
                 const zhang = A.find(u => u.isZhang && u.alive);
                 if (zhang) return;
                 comp.onAllyDamaged(data.target, data.dmg, A, data.log);
             });
-            eventBus.on('beforeActionSelect', 10, (data) => {
+            eventBus.on('beforeActionSelect', L.BEFORE_ACTION.BUTTERFLY_SKIP, (data) => {
                 if (!data.unit.isXiaoZhaoSister || !data.unit.alive) return;
                 if (data.unit._flyMode === 'butterfly' || data.unit._butterflyHost) {
                     data.declaration.skip = true;
                 }
             });
-            eventBus.on('onRoundEnd', 10, (data) => {
+            eventBus.on('onRoundEnd', L.ROUND_END.BUTTERFLY_RETURN, (data) => {
                 this.onRoundEnd(data);
             });
         },
@@ -189,7 +187,9 @@ export function createXiaoZhaoSisterComponent() {
             sister._butterflyHpTransfer = hpTransfer;
             sister._butterflyHpTransfer = hpTransfer;
             host._butterflyAtkBonus += atkTransfer; host._butterflyDefBonus += defTransfer;
-            host.atk += atkTransfer; host.def += defTransfer; host.maxHp += hpTransfer; host.hp = Math.min(host.maxHp, host.hp + hpTransfer);
+            applyStatChange(host, 'atk', atkTransfer, sister, '蝶变附身');
+            applyStatChange(host, 'def', defTransfer, sister, '蝶变附身');
+            host.maxHp += hpTransfer; host.hp = Math.min(host.maxHp, host.hp + hpTransfer);
             emitEvent(host, 'hp-change', { hp:host.hp, maxHp:host.maxHp, alive:host.alive, atk:host.atk, def:host.def, _phantomTarget:sister.uid });
             const aliveAllies = A.filter(a => a.alive && !a.isHorse && a.uid !== sister.uid);
             const totalHp = aliveAllies.reduce((sum,a) => sum + a.hp, 0); const totalMaxHp = aliveAllies.reduce((sum,a) => sum + a.maxHp, 0);
@@ -229,7 +229,7 @@ export function createXiaoZhaoBrotherComponent() {
             const brother = A.find(u => u.isXiaoZhaoBrother && u.alive);
             if (!brother) return;
             const onBeforeDeath = this.onBeforeDeath;
-            eventBus.on('beforeDamageApply', 100, (data) => {
+            eventBus.on('beforeDamageApply', L.BEFORE_DAMAGE_APPLY.SPIDER_IMMUNE, (data) => {
                 if (data.target.uid !== brother.uid || !data.A) return;
                 const immune = onBeforeDeath(data.target, data.dmg, data.A, data.log);
                 if (immune) {
@@ -237,13 +237,13 @@ export function createXiaoZhaoBrotherComponent() {
                     data.declarations.push({ immune: true, reason: '🕷️ 飞天：免疫本次伤害' });
                 }
             });
-            eventBus.on('beforeActionSelect', 10, (data) => {
+            eventBus.on('beforeActionSelect', L.BEFORE_ACTION.SPIDER_SKIP, (data) => {
                 if (!data.unit.isXiaoZhaoBrother || !data.unit.alive) return;
                 if (data.unit._spiderFlying || data.unit._flyMode === 'spider') {
                     data.declaration.skip = true;
                 }
             });
-            eventBus.on('beforeSelectTarget', 40, (data) => {
+            eventBus.on('beforeSelectTarget', L.BEFORE_SELECT_TARGET.PERMANENT_MIND_CONTROL, (data) => {
                 if (data.unit.camp !== 'enemy') return;
                 if (!brother || !brother.alive || !brother._permanentBuffs || !brother._permanentBuffs.some(b => b.key === 'mindControl')) return;
                 if (hasBuff(data.enemySide._activeBuffs, 'mindControl')) return;
@@ -255,11 +255,11 @@ export function createXiaoZhaoBrotherComponent() {
                     }
                 }
             });
-            eventBus.on('onRoundEnd', 10, (data) => {
+            eventBus.on('onRoundEnd', L.ROUND_END.SPIDER_RETURN, (data) => {
                 const brother = A.find(u => u.isXiaoZhaoBrother && u.alive && u._spiderFlying);
                 if (brother) spiderReturn(brother, A, B, log);
             });
-            eventBus.on('onRoundStart', 10, (data) => {
+            eventBus.on('onRoundStart', L.ROUND_START.SPIDER_TRANSFORM, (data) => {
                 const { A, B, log } = data;
                 const brother = A.find(u => u.isXiaoZhaoBrother && u.alive);
                 if (!brother) return;
@@ -290,7 +290,7 @@ export function createXiaoZhaoBrotherComponent() {
                     emitEvent(brother, 'hp-change', { hp: brother.hp, maxHp: brother.maxHp, alive: brother.alive, atk: brother.atk, def: brother.def });
                 }
             });
-            eventBus.on('afterMiss', 60, (data) => {
+            eventBus.on('afterMiss', L.AFTER_MISS.XIAOZHAO_DOUBLE_RETRY, (data) => {
                 const { unit, target, log } = data;
                 if (!unit.isXiaoZhaoBrother || !unit.alive || unit._xiaoZhaoDoubleStriked) return;
                 if (!unit._permanentBuffs || !unit._permanentBuffs.some(b => b.key === 'doubleStrike')) return;
@@ -386,8 +386,8 @@ export function butterflyReturn(sister, allyTeam, log) {
     sister.def = sister._baseDef;
     sister._flyMode = null; sister._untargetable = false;
     if (host && host.alive) {
-        host.atk = Math.max(0, host.atk - (host._butterflyAtkBonus || 0));
-        host.def = Math.max(0, host.def - (host._butterflyDefBonus || 0));
+        applyStatChange(host, 'atk', -(host._butterflyAtkBonus || 0), sister, '蝶变飞回');
+        applyStatChange(host, 'def', -(host._butterflyDefBonus || 0), sister, '蝶变飞回');
         host._butterflyAtkBonus = 0;
         host._butterflyDefBonus = 0;
         const hpTransfer = sister._butterflyHpTransfer || 0;

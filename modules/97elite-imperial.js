@@ -6,6 +6,7 @@ import { CONFIG, getSkillParams } from '../core/01config-5v5-test.js';
 import { rand } from '../core/03battle-utils.js';
 import { tickXuanmingPoison } from './23elite-skills.js';
 import { processUnitAttack } from '../core/47battle-attack.js';
+import { EXECUTION_LAYER as L } from '../core/00-event-bus.js';
 const ES = CONFIG.ELITE_SKILLS;
 
 function emitEvent(unit, eventType, payload) {
@@ -22,7 +23,11 @@ export function createChengKunComponent() {
             const onAfterApplyDamage = this.onAfterApplyDamage;
             const onDamageCalc = this.onDamageCalc;
             // 幻影伪装：被模仿者攻击时误伤队友
-            eventBus.on('beforeSelectTarget', 30, (data) => {
+            eventBus.on('beforeSelectTarget', L.BEFORE_SELECT_TARGET.CHENGKUN_DISGUISE, (data) => {
+                // 成昆攻击前清除旧伪装（恢复真身）
+                if (data.unit.name === '成昆' && data.unit._phantomTarget) {
+                    delete data.unit._phantomTarget;
+                }
                 if (data.unit.camp !== 'ally') return;
                 const chengkun = data.enemySide.find(u => u.name === '成昆' && u.alive && u._phantomTarget);
                 if (!chengkun || chengkun._phantomTarget !== data.unit.uid) return;
@@ -34,12 +39,12 @@ export function createChengKunComponent() {
                 }
             });
             // 幻影伪装：攻击后更新伪装目标
-            eventBus.on('afterDamageApplied', 40, (data) => {
+            eventBus.on('afterDamageApplied', L.AFTER_DAMAGE_APPLIED.CHENGKUN_DISGUISE, (data) => {
                 if (data.unit.name !== '成昆') return;
                 onAfterApplyDamage(data.unit, data.target, { dmg: data.dmg }, data.group, A, data.log, data);
             });
             // 混元霹雳劲 → 提交伤害声明
-            eventBus.on('beforeDamageCalc', 15, (data) => {
+            eventBus.on('beforeDamageCalc', L.BEFORE_DAMAGE_CALC.CHENGKUN_THUNDER, (data) => {
                 if (data.unit.name !== '成昆' || !data.declarations) return;
                 const lostHp = data.unit.maxHp - data.unit.hp;
                 const params = getSkillParams('成昆', 'phantomThunder') || ES.phantomThunder;
@@ -82,12 +87,12 @@ export function createLuZhangKeComponent() {
             if (!lu) return;
             const onAfterApplyDamage = this.onAfterApplyDamage;
             // 玄冥神掌中毒
-            eventBus.on('afterDamageApplied', 40, (data) => {
+            eventBus.on('afterDamageApplied', L.AFTER_DAMAGE_APPLIED.LU_XUANMING, (data) => {
                 if (data.unit.name !== '鹿杖客') return;
                 onAfterApplyDamage(data.unit, data.target, { dmg: data.dmg }, data.group, B, data.log);
             });
             // 回合开始：玄冥神掌寒毒发作
-            eventBus.on('onRoundStart', 10, (data) => {
+            eventBus.on('onRoundStart', L.ROUND_START.XUANMING_POISON, (data) => {
                 const { A, B, log } = data;
                 A.concat(B).forEach(u => {
                     if (!u.alive) return;
@@ -116,7 +121,7 @@ export function createHeBiWengComponent() {
             if (!he) return;
             const onDamageCalc = this.onDamageCalc;
             // 鹿角杖法 → 提交伤害声明
-            eventBus.on('beforeDamageCalc', 25, (data) => {
+            eventBus.on('beforeDamageCalc', L.BEFORE_DAMAGE_CALC.HE_HORN, (data) => {
                 if (data.unit.name !== '鹤笔翁' || !data.declarations) return;
                 const s = getSkillParams('鹤笔翁', 'hornStrike') || ES.hornStrike;
                 const poisoned = data.target._xuanmingPoison && data.target._xuanmingPoison.remaining > 0;
@@ -130,7 +135,7 @@ export function createHeBiWengComponent() {
 }
 
 export function registerXuanmingLink(eventBus) {
-    eventBus.on('afterAttack', 10, async (data) => {
+    eventBus.on('afterAttack', L.AFTER_ATTACK.XUANMING_LINK, async (data) => {
         const { unit, target, dmg, allySide, enemySide, log, A, B, state } = data;
         if (!unit || unit._isLinkAttack || dmg <= 0 || !target || !target.alive) return;
         const isLuOrHe = (unit.name === '鹿杖客' || unit.name === '鹤笔翁');
