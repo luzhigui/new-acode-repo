@@ -308,27 +308,15 @@ export async function* createRoundStepper(state) {
 
     let currentSide = 'enemy';
     let kuLianDone = false;
-    // 行动指针：双方各自按 1-9 站位顺序取下一个未行动单位
-    const allyOrder = A.filter(u => u.alive && !u._acted).sort((a, b) => a.pos - b.pos);
-    const enemyOrder = B.filter(u => u.alive && !u._acted).sort((a, b) => a.pos - b.pos);
-    let allyIdx = 0, enemyIdx = 0;
 
-    while (allyIdx < allyOrder.length || enemyIdx < enemyOrder.length) {
+    while (A.some(u => u.alive && !u._acted) || B.some(u => u.alive && !u._acted)) {
         const currentTeam = currentSide === 'ally' ? A : B;
-        const currentOrder = currentSide === 'ally' ? allyOrder : enemyOrder;
-        let idx = currentSide === 'ally' ? allyIdx : enemyIdx;
-        const candidates = currentTeam.filter(u => u.alive && !u._acted);
+        const candidates = currentTeam.filter(u => u.alive && !u._acted).sort((a, b) => a.pos - b.pos);
         const orderResult = resolveActionOrder(candidates, log);
 
-        // 先处理 passUnits（只处理当前阵营当前指针所指单位的跳过）
         if (orderResult.passUnits.length > 0) {
             for (const { unit, reason } of orderResult.passUnits) {
                 unit._acted = true;
-                // 从 order 中移除该单位
-                const orderArr = currentSide === 'ally' ? allyOrder : enemyOrder;
-                const foundIdx = orderArr.findIndex(o => o.uid === unit.uid);
-                if (foundIdx >= 0) orderArr.splice(foundIdx, 1);
-                // 跳过完本队单位后，指针不变，让下一轮继续处理本队下一个
                 unit._blocked = isBlocked(unit, currentTeam);
                 if (reason === '被遮挡') {
                     let hpBefore = Math.floor(unit.hp);
