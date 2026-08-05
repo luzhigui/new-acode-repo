@@ -23,13 +23,12 @@ export function doInitBattle(currentStage, UI, snapshot, activeBuffs, selectedBu
     const targetPower = C.MING_TARGET_POWER && C.MING_TARGET_POWER[currentStage] ? C.MING_TARGET_POWER[currentStage] : null;
 
     // 精英出场率：80%一个、15%两个、5%三个，按 ELITE_RATE 权重选人
-    // 总预算不变，精英从预算里扣，普通兵分剩下的，保证总战力不超标
+    // 精英先占坑，剩余位置和预算给普通兵
     const eliteConfigs = [
         { name: '张无忌', m: 115, role: '远程', isZhang: true, power: elitePower['张无忌'] || 140 },
         { name: '韦一笑', m: 107, role: '飞行', isWei: true, power: elitePower['韦一笑'] || 120 },
         { name: '小昭', m: 107, role: '远程', isXiaoZhaoBrother: true, power: elitePower['小昭'] || 135 }
     ];
-    const candidatePool = [];
     const eliteRoll = Math.random();
     let eliteCount;
     if (eliteRoll < 0.05) {
@@ -41,8 +40,8 @@ export function doInitBattle(currentStage, UI, snapshot, activeBuffs, selectedBu
     } else {
         eliteCount = 0;
     }
-    console.log('[V5.3.3] 精英出场判定: roll=', eliteRoll.toFixed(3), 'count=', eliteCount, 'rate=', JSON.stringify(eliteRate));
 
+    let usedPower = 0;
     if (eliteCount > 0) {
         const picked = [];
         const pool = [...eliteConfigs];
@@ -67,22 +66,27 @@ export function doInitBattle(currentStage, UI, snapshot, activeBuffs, selectedBu
             picked.push(pool[weightedPick(pool)]);
         }
 
-        // 修正姐妹冲突
-        const hasSister = picked.some(c => c.name === '小昭' && Math.random() < 0.5);
-        picked.forEach(c => {
-            if (c.name === '小昭') {
-                if (hasSister) {
-                    c.isXiaoZhaoSister = true;
-                    c.isXiaoZhaoBrother = false;
-                } else {
-                    c.isXiaoZhaoSister = false;
-                    c.isXiaoZhaoBrother = true;
-                }
+        // 精英直接占坑
+        for (const c of picked) {
+            let unit = new Unit(c.name, c.m, c.role, 'ally');
+            if (c.isZhang) unit.isZhang = true;
+            if (c.isWei) unit.isWei = true;
+            if (c.isXiaoZhaoBrother) {
+                if (Math.random() < 0.5) { unit.isXiaoZhaoSister = true; }
+                else { unit.isXiaoZhaoBrother = true; }
+                unit.initXiaoZhao(); unit.applyBonus();
+                unit._baseMaxHp = unit.maxHp; unit._baseAtk = unit.atk; unit._baseDef = unit.def;
+            } else {
+                unit.init(); unit.applyBonus();
             }
-        });
-
-        picked.forEach(c => candidatePool.push({ ...c }));
+            unit.pos = null;
+            allyTeam.push(unit);
+            usedPower += c.power;
+        }
     }
+
+    // 普通兵候选池
+    const candidatePool = [];
     for (const [name, m] of Object.entries(C.MING_M)) {
         if (['张无忌','韦一笑','小昭'].includes(name)) continue;
         if (m >= 95 && m <= 104) candidatePool.push({ name, m, role: null, power: normalPower[m] || 90 });
@@ -90,10 +94,10 @@ export function doInitBattle(currentStage, UI, snapshot, activeBuffs, selectedBu
     candidatePool.sort((a, b) => a.power - b.power);
 
     const remainingCandidates = [...candidatePool];
-    let remainingPower = targetPower || 500;
-    let remainingSlots = 5;
+    let remainingPower = (targetPower || 500) - usedPower;
+    let remainingSlots = 5 - allyTeam.length;
     for (let slot = 0; slot < remainingSlots; slot++) {
-        const avgPower = remainingPower / remainingSlots;
+        const avgPower = remainingSlots > 0 ? remainingPower / remainingSlots : 90;
         const candidates = [];
         const above = remainingCandidates.filter(c => c.power >= avgPower).sort((a, b) => a.power - b.power).slice(0, 3);
         const below = remainingCandidates.filter(c => c.power < avgPower).sort((a, b) => b.power - a.power).slice(0, 2);
@@ -103,23 +107,9 @@ export function doInitBattle(currentStage, UI, snapshot, activeBuffs, selectedBu
         const pick = candidates[rand(0, candidates.length - 1)];
         const idx = remainingCandidates.findIndex(c => c.name === pick.name);
         if (idx >= 0) remainingCandidates.splice(idx, 1);
-        let unit;
-        if (pick.isZhang || pick.isWei || pick.isXiaoZhaoBrother) {
-            unit = new Unit(pick.name, pick.m, pick.role, 'ally');
-            if (pick.isZhang) unit.isZhang = true;
-            if (pick.isWei) unit.isWei = true;
-            if (pick.isXiaoZhaoBrother) {
-                if (Math.random() < 0.5) { unit.isXiaoZhaoSister = true; }
-                else { unit.isXiaoZhaoBrother = true; }
-                unit.initXiaoZhao(); unit.applyBonus();
-                unit._baseMaxHp = unit.maxHp; unit._baseAtk = unit.atk; unit._baseDef = unit.def;
-            }
-            else { unit.init(); unit.applyBonus(); }
-        } else {
-            const role = C.ROLES[rand(0, 3)];
-            unit = new Unit(pick.name, pick.m, role, 'ally');
-            unit.init(); unit.applyBonus();
-        }
+        const role = C.ROLES[rand(0, 3)];
+        const unit = new Unit(pick.name, pick.m, role, 'ally');
+        unit.init(); unit.applyBonus();
         unit.pos = null;
         allyTeam.push(unit);
         remainingPower -= pick.power;
