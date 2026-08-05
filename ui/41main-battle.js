@@ -23,25 +23,30 @@ export function doInitBattle(currentStage, UI, snapshot, activeBuffs, selectedBu
     const normalPower = C.NORMAL_POWER || {};
     const targetPower = C.MING_TARGET_POWER && C.MING_TARGET_POWER[currentStage] ? C.MING_TARGET_POWER[currentStage] : null;
 
-    // 精英出场率新规则：80%有精英，出精英时30%两个、5%三个
+    // 精英出场率：80%一个、15%两个、5%三个，按 ELITE_RATE 权重选人
     const eliteConfigs = [
         { name: '张无忌', m: 115, role: '远程', isZhang: true, power: elitePower['张无忌'] || 140 },
         { name: '韦一笑', m: 107, role: '飞行', isWei: true, power: elitePower['韦一笑'] || 120 },
         { name: '小昭', m: 107, role: '远程', isXiaoZhaoBrother: true, power: elitePower['小昭'] || 135 }
     ];
     const candidatePool = [];
-    const hasElite = Math.random() < 0.80;
-    if (hasElite) {
-        const multiRoll = Math.random();
-        let eliteCount;
-        if (multiRoll < 0.05) {
-            eliteCount = 3;
-        } else if (multiRoll < 0.35) {
-            eliteCount = 2;
-        } else {
-            eliteCount = 1;
-        }
+    const eliteRoll = Math.random();
+    let eliteCount;
+    if (eliteRoll < 0.05) {
+        eliteCount = 3;
+    } else if (eliteRoll < 0.20) {
+        eliteCount = 2;
+    } else if (eliteRoll < 0.80) {
+        eliteCount = 1;
+    } else {
+        eliteCount = 0;
+    }
+    // 精英占战力预算，为避免明教战力过高，出精英时削减总预算
+    // 每个精英约比普通兵(90~110)高20~40战力，按精英数量等比削减 targetPower
+    const elitePowerDeduct = eliteCount * 35;
+    const adjustedTargetPower = Math.max(380, (targetPower || 500) - elitePowerDeduct);
 
+    if (eliteCount > 0) {
         const picked = [];
         const pool = [...eliteConfigs];
         // 加权抽取：按 ELITE_RATE 权重选精英，不重复
@@ -88,7 +93,7 @@ export function doInitBattle(currentStage, UI, snapshot, activeBuffs, selectedBu
     candidatePool.sort((a, b) => a.power - b.power);
 
     const remainingCandidates = [...candidatePool];
-    let remainingPower = targetPower || 500;
+    let remainingPower = adjustedTargetPower;
     let remainingSlots = 5;
     for (let slot = 0; slot < remainingSlots; slot++) {
         const avgPower = remainingPower / remainingSlots;
