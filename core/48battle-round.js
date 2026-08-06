@@ -1,6 +1,6 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// core/48battle-round.js - 光明顶5v5 回合循环与生成器
-// V5.3.1 | ~26800 bytes| 2026-07-28 迁移光环和联动至事件总线
-export const VER = 'core/48battle-round.js V5.3.1';
+﻿﻿// core/48battle-round.js - 光明顶5v5 回合循环与生成器
+// V5.3.2 | ~27200 bytes| 2026-08-06 小昭姐妹状态转换纳入声明→裁定模式
+export const VER = 'core/48battle-round.js V5.3.2';
 
 import { CONFIG } from './01config-5v5-test.js';
 import { rand, isMelee, isBlocked, makeFXSnapshot, hasBuff, getUnitCol, getUnitRow, hasAnyEnemyEmptyCol, countEnemyEmptyCols, getBloodAuraBonus, getAuraBonuses, registerWarriorBreakDefense, registerRangedGrowth, registerFortifyShield, selectFlyTarget, registerEmptyColBonus, registerDoubleStrike } from './03battle-utils.js';
@@ -13,14 +13,10 @@ import { createSongQingshuComponent, createZhouZhiruoComponent } from '../module
 import { createChengKunComponent, createLuZhangKeComponent, createHeBiWengComponent, registerXuanmingLink } from '../modules/97elite-imperial.js';
 import { processUnitAttack } from './47battle-attack.js';
 import { eventBus, EXECUTION_LAYER as L } from './00-event-bus.js';
-import { getNextAvailableUnit, finalizeDeaths, emitFullUnitState, emitEvent, applyStatChange } from './50battle-shared.js';
+import { getNextAvailableUnit, finalizeDeaths, emitFullUnitState, checkZhangSwitch, emitEvent, applyStatChange } from './50battle-shared.js';
 import { resolveDeaths } from './49battle-attack-steps.js';
 
 const C = CONFIG;
-
-
-
-
 
 // ==================== 回合生成器 ====================
 
@@ -143,15 +139,15 @@ export async function* createRoundStepper(state) {
     registerEmptyColBonus(eventBus);
     registerXuanmingLink(eventBus);
 
-    // 注册精英组件钩子
+    // 注册精英组件钩子，并保存小昭姐妹组件引用供裁判调用
+    const sisterComp = createXiaoZhaoSisterComponent();
+    const brotherComp = createXiaoZhaoBrotherComponent();
     A.forEach(u => {
         if (!u.alive) return;
         if (u.isZhang) createZhangWujiComponent().register(eventBus, A, B, log);
         if (u.isWei) createWeiYixiaoComponent().register(eventBus, A, B, log);
-        if (u.isXiaoZhaoBrother) createXiaoZhaoBrotherComponent().register(eventBus, A, B, log);
-        if (u.isXiaoZhaoSister) {
-            createXiaoZhaoSisterComponent().register(eventBus, A, B, log);
-        }
+        if (u.isXiaoZhaoBrother) brotherComp.register(eventBus, A, B, log);
+        if (u.isXiaoZhaoSister) sisterComp.register(eventBus, A, B, log);
     });
     B.forEach(u => {
         if (!u.alive) return;
@@ -253,6 +249,29 @@ export async function* createRoundStepper(state) {
      * 裁决标准：priority 高优先，同 priority 按 pos 排
      */
     function resolveActionOrder(candidates, log) {
+        // 第〇步：状态转换声明收集与裁定（附身/飞回/飞天/蛛落）
+        const stateTransitions = [];
+        // 合并各组件在信号处理中产生的延迟状态转换声明
+        if (A._pendingStateTransitions) {
+            stateTransitions.push(...A._pendingStateTransitions);
+            A._pendingStateTransitions = [];
+        }
+        if (B._pendingStateTransitions) {
+            stateTransitions.push(...B._pendingStateTransitions);
+            B._pendingStateTransitions = [];
+        }
+        eventBus.emit('beforeStateTransition', { A, B, log, declarations: stateTransitions });
+        for (const decl of stateTransitions) {
+            if (decl.type === 'butterflyAttach') {
+                sisterComp.executeAttach(A, log);
+            } else if (decl.type === 'butterflyReturn') {
+                sisterComp.executeReturn(decl.sister, A, log);
+            } else if (decl.type === 'spiderFly') {
+                brotherComp.executeFly(decl.unit, decl.incomingDmg, A, log);
+            } else if (decl.type === 'spiderDescend') {
+                brotherComp.executeDescend(decl.unit, A, B, log);
+            }
+        }
         // 第一步：按站位排序，逐个判定
         const sortedByPos = [...candidates].filter(u => u.alive && !u._isDead).sort((a, b) => a.pos - b.pos);
         const priorityDeclarations = [];
@@ -398,8 +417,16 @@ export async function* createRoundStepper(state) {
 
         finalizeDeaths(A);
         finalizeDeaths(B);
-        // 发射回合结束信号，由组件自行处理附身飞回、变身检查等
-        eventBus.emit('onRoundEnd', { A, B, log, forced: false });
+        // 发射回合结束信号，收集状态转换声明，由裁判统一裁定执行
+        const endStateTransitions = [];
+        eventBus.emit('onRoundEnd', { A, B, log, forced: false, declarations: endStateTransitions });
+        for (const decl of endStateTransitions) {
+            if (decl.type === 'butterflyReturn') {
+                sisterComp.executeReturn(decl.sister, A, log);
+            } else if (decl.type === 'spiderDescend') {
+                brotherComp.executeDescend(decl.unit, A, B, log);
+            }
+        }
         // 兜底：回合结束阶段产生的死亡标记
         resolveDeaths(A, B, log);
         const stepEvents = GlobalStore.flushBattleEvents();
