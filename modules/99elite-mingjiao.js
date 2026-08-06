@@ -256,17 +256,33 @@ export function createXiaoZhaoSisterComponent() {
             if (!sister) return; const zhang = allyTeam.find(u => u.isZhang && u.alive); if (zhang) return;
             const s = getSkillParams('小昭', 'qianKunDerived') || ES.xiaoZhao;
             let reduce = Math.max(1, Math.floor(dmg * target.def / (s.defToReduce||150)));
-            target.hp = Math.min(target.maxHp, target.hp + reduce); target.dmgTaken -= reduce;
             const aliveAllies = allyTeam.filter(u => u.alive && !u.isHorse);
             if (aliveAllies.length > 0) {
                 const healTarget = aliveAllies[Math.floor(Math.random()*aliveAllies.length)];
                 let heal = Math.max(1, Math.floor(healTarget.def/(s.defToHeal||8)));
-                healTarget.hp = Math.min(healTarget.maxHp, healTarget.hp + heal); healTarget.healDone += heal;
-                emitEvent(healTarget, 'hp-change', { hp:healTarget.hp, maxHp:healTarget.maxHp, alive:healTarget.alive, atk:healTarget.atk, def:healTarget.def });
                 const atkTarget = aliveAllies[Math.floor(Math.random()*aliveAllies.length)];
                 let atkGain = Math.max(1, Math.floor(atkTarget.def/(s.defToAtk||16)));
-                atkTarget.atk += atkGain; if (atkTarget._baseAtk !== undefined) atkTarget._baseAtk += atkGain;
-                emitEvent(atkTarget, 'hp-change', { hp:atkTarget.hp, maxHp:atkTarget.maxHp, alive:atkTarget.alive, atk:atkTarget.atk, def:atkTarget.def });
+                // 提交声明，由攻击后效果边裁统一执行
+                if (!data.declarations) data.declarations = [];
+                data.declarations.push({
+                    type: 'heal',
+                    value: reduce,
+                    source: target,
+                    logText: null
+                });
+                data.declarations.push({
+                    type: 'heal',
+                    value: heal,
+                    source: healTarget,
+                    logText: null
+                });
+                data.declarations.push({
+                    type: 'statChange',
+                    target: atkTarget,
+                    field: 'atk',
+                    delta: atkGain,
+                    logText: null
+                });
                 if (log) { log.push({ type:'info', text:`<span class="gold">🦋 乾坤衍生：${target.name}减伤${reduce}，${healTarget.name}治疗+${heal}，${atkTarget.name}攻击+${atkGain}</span>`, isHealEntry:true, healAmount:heal, healUnitUid:healTarget.uid }); }
             }
         }

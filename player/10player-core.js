@@ -115,21 +115,27 @@ export async function playLogEntries(c, log, roundResult, isFirstAttackRef) {
                     }
                     else if (entry.buffType === 'meteor_splash') {
                         await showBuffBanner('☄️ 流星赶月！');
-                    }
-                    else await showBuffBanner('🦅 乘风突袭！');
-                    window.bulletTimeActive = false;
-                    let div=document.createElement('div');div.innerHTML=entry.text+'<br>';
-                    document.getElementById('log').appendChild(div);c.autoScrollLog();
-                    if (entry.splashUids && entry.splashDmg) {
-                        if (entry.attackerUid && entry.primaryUid) {
+                        if (entry.attackerUid && entry.primaryUid && entry.splashUids && entry.splashUids.length > 0) {
                             let attacker = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.uid === entry.attackerUid);
                             let primary = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.uid === entry.primaryUid);
                             let splashTargets = entry.splashUids.map(uid => c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.uid === uid)).filter(u => u);
                             if (attacker && primary && splashTargets.length > 0) {
                                 const { showSplashArrows } = await import('../fx/16fx-arrows-5v5-test.js');
                                 showSplashArrows(attacker, primary, splashTargets, c.speed, () => c.isPaused);
+                                // 分裂箭音效：每发小箭间隔播放，营造万箭齐发感
+                                splashTargets.forEach((st, i) => {
+                                    setTimeout(() => {
+                                        AudioManager.playSfx(attacker);
+                                    }, i * 120);
+                                });
                             }
                         }
+                    }
+                    else await showBuffBanner('🦅 乘风突袭！');
+                    window.bulletTimeActive = false;
+                    let div=document.createElement('div');div.innerHTML=entry.text+'<br>';
+                    document.getElementById('log').appendChild(div);c.autoScrollLog();
+                    if (entry.splashUids && entry.splashDmg) {
                         const { showDamageFloat } = await import('../fx/15fx-common-5v5-test.js');
                         entry.splashUids.forEach(uid => {
                             let targetUnit = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.uid === uid);

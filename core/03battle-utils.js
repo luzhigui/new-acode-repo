@@ -263,9 +263,19 @@ export function registerWarriorBreakDefense(eventBus) {
         const { unit, target, declarations } = data;
         if (!declarations) return;
         if (unit.role !== '战士' || target.def <= 0) return;
-        const breakChance = Math.min(100, target.def * 2.5);
+        let defReduced = 2;
+        let breakChance = target.def * 2.5;
+        if (target.def <= 40) {
+            defReduced = 2;
+        } else if (target.def <= 50) {
+            defReduced = 3;
+            breakChance = 100;
+        } else {
+            defReduced = 4;
+            breakChance = 100;
+        }
         if (rand(1, 100) > breakChance) return;
-        const defReduced = Math.min(2, target.def);
+        defReduced = Math.min(defReduced, target.def);
         declarations.push({ type: 'breakDef', value: defReduced, source: unit, target: target });
         unit._pendingDefReduceEntry = {type:'detail', text:`<span class="purple small">🗡️ ${unit.name} 破防：${target.name} 防御 -${defReduced}</span>`};
     });
@@ -321,10 +331,10 @@ export function registerFortifyShield(eventBus) {
         tryFortify(target, 60, group, null, '坚盾');
     });
 
-    // 攻击时触发（100% 概率，与被攻击共享每回合上限）
+    // 攻击时触发（80% 概率，与被攻击共享每回合上限）
     eventBus.on('afterAttack', L.AFTER_ATTACK.SHIELD_ATTACK, (data) => {
-        const { unit, log } = data;
-        tryFortify(unit, 100, null, log, '攻盾');
+        const { unit, group, log } = data;
+        tryFortify(unit, 80, group, log, '攻盾');
     });
 }
 

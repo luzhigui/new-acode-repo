@@ -248,10 +248,11 @@ export async function* createRoundStepper(state) {
      * 输入候选单位列表，输出 { actingUnit, isPriorityAction, passUnits }
      * 裁决标准：priority 高优先，同 priority 按 pos 排
      */
-    function resolveActionOrder(candidates, log) {
-        // 第〇步：状态转换声明收集与裁定（附身/飞回/飞天/蛛落）
+    /**
+     * 状态转换边裁 — 收集声明并裁定执行
+     */
+    function resolveStateTransitions() {
         const stateTransitions = [];
-        // 合并各组件在信号处理中产生的延迟状态转换声明
         if (A._pendingStateTransitions) {
             stateTransitions.push(...A._pendingStateTransitions);
             A._pendingStateTransitions = [];
@@ -272,6 +273,14 @@ export async function* createRoundStepper(state) {
                 brotherComp.executeDescend(decl.unit, A, B, log);
             }
         }
+    }
+
+    /**
+     * 行动调度边裁 — 裁定本轮行动者
+     * 两步：裁判感知 → 声明收集与冲突裁决
+     */
+    function resolveActionOrder(candidates, log) {
+        resolveStateTransitions();
         // 第一步：按站位排序，逐个判定
         const sortedByPos = [...candidates].filter(u => u.alive && !u._isDead).sort((a, b) => a.pos - b.pos);
         const priorityDeclarations = [];

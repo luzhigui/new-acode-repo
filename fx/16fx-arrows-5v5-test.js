@@ -89,7 +89,7 @@ export function showRangedArrow(unitA, unitD, speed, getPausedFn, isMeteor = fal
  * 流星赶月分裂飞箭特效
  * 从目标位置向每个被溅射的单位发射小型橙色飞箭
  */
-export function showSplashArrows(attacker, primaryTarget, splashTargets, speed, getPausedFn) {
+export async function showSplashArrows(attacker, primaryTarget, splashTargets, speed, getPausedFn) {
     let gridAId = attacker.camp==='ally'?'allyGrid':'enemyGrid';
     let gridA = document.getElementById(gridAId);
     let orderA = attacker.camp==='enemy'?[7,8,9,4,5,6,1,2,3]:[1,2,3,4,5,6,7,8,9];
@@ -106,6 +106,17 @@ export function showSplashArrows(attacker, primaryTarget, splashTargets, speed, 
     let rPrimary = primaryGrid.children[idxPrimary].getBoundingClientRect();
     let px = rPrimary.left + rPrimary.width/2, py = rPrimary.top + rPrimary.height/2;
     
+    // 蓄力停顿：在主目标位置显示金色光圈，模拟流星命中后的能量聚集
+    const ring = document.createElement('div');
+    ring.setAttribute('data-fx', 'temporary');
+    ring.style.cssText = `position:fixed;left:${px}px;top:${py}px;width:40px;height:40px;border:3px solid #FFD700;border-radius:50%;transform:translate(-50%,-50%);z-index:10002;pointer-events:none;box-shadow:0 0 12px #FFA500;animation:meteorRing 0.8s ease-out forwards;`;
+    document.body.appendChild(ring);
+    setTimeout(() => { if (ring.parentNode) ring.remove(); }, 800);
+
+    // 停顿让蓄力动画播放
+    const pauseDuration = 300 * (speed / 1000);
+    await new Promise(r => setTimeout(r, Math.max(100, pauseDuration)));
+
     splashTargets.forEach(st => {
         let gridDId = st.camp==='ally'?'allyGrid':'enemyGrid';
         let gridD = document.getElementById(gridDId);

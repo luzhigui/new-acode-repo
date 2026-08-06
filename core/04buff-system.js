@@ -323,6 +323,8 @@ export function registerBloodthirst(eventBus) {
             if (target.hp <= target.maxHp * threshold) {
                 const executeDecl = {
                     type: 'execute',
+                    target: target,
+                    source: unit,
                     threshold: threshold,
                     logText: `<span class="red">⚔️ 战士斩杀！${unit.name} 直接击杀 ${target.name}！</span>`
                 };
