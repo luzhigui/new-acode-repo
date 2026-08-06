@@ -113,7 +113,13 @@ export function selectAttackTarget(unit, enemySide, allySide) {
 export function resolveAttackHit(unit, target, attackerBuffStats, defenderBuffStats, log, A, B, doubleStrikeUnitUid, eventBus) {
     let missChance = 0;
     if (unit.role === '远程') { missChance = 3; }
-    else if (unit.role === '飞行') { missChance = 6; }
+    else if (unit.role === '飞行') {
+        missChance = 6;
+        // 飞行攻击残血目标时，场上每有一个残血单位，未命中率 +3%
+        const allUnits = [...(A || []), ...(B || [])];
+        const lowHpCount = allUnits.filter(u => u.alive && u.hp / u.maxHp < 0.4).length;
+        missChance += lowHpCount * 3;
+    }
     else { missChance = 1; }
 
     if (missChance > 0 && rand(1,100) <= missChance) {
@@ -146,14 +152,22 @@ export function resolveAttackHit(unit, target, attackerBuffStats, defenderBuffSt
     if (target._stunned) return { skipped: false, retry: false, lockedTargetUid: null };
     const hasCloudBody = hasBuff(allyBuffs, 'cloudBody') || ((target.isXiaoZhaoSister || target.isXiaoZhaoBrother) && target._permanentBuffs && target._permanentBuffs.some(b => b.key === 'cloudBody'));
     if (target.alive && (target.isWei || hasCloudBody || !target._acted)) {
-        let totalDodge = 0;
+        // 各闪避来源独立判定（乘法叠加），任一触发即闪避
+        let dodgeTriggered = false;
         for (const ruleFn of _dodgeRules) {
-            totalDodge += ruleFn(target, unit) || 0;
+            const rate = ruleFn(target, unit) || 0;
+            if (rate > 0 && rand(1, 100) <= rate * 100) {
+                dodgeTriggered = true;
+                break;
+            }
         }
-        let buffDodge = defenderBuffStats.dodgeBonus || 0;
-        totalDodge += buffDodge;
-        if (totalDodge > 0) {
-            if (rand(1,100) <= totalDodge * 100) {
+        if (!dodgeTriggered) {
+            let buffDodge = defenderBuffStats.dodgeBonus || 0;
+            if (buffDodge > 0 && rand(1, 100) <= buffDodge * 100) {
+                dodgeTriggered = true;
+            }
+        }
+        if (dodgeTriggered) {
                 target.dodgeCount++;
                 let reboundDmg = Math.floor((target.atk + target.def) * 0.5);
                 let unitHpBeforeRebound = Math.floor(unit.hp);
@@ -198,7 +212,6 @@ export function resolveAttackHit(unit, target, attackerBuffStats, defenderBuffSt
                 return dodgeData;
             }
         }
-    }
     return { skipped: false, retry: false, lockedTargetUid: null };
 }
 

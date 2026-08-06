@@ -233,7 +233,7 @@ export function getBloodAuraBonus(allUnits) {
     allUnits.forEach(u => {
         if (!u.alive) return;
         const pct = u.hp / u.maxHp;
-        if (pct < 0.4) totalBonus += 2;
+        if (pct < 0.4) totalBonus += 3;
     });
     return totalBonus;
 }
