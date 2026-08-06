@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// tools/27auto-battle-utils.js - 光明顶5v5 自动批量战斗工具
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// tools/27auto-battle-utils.js - 光明顶5v5 自动批量战斗工具
 // V5.3.1 | ~13100 bytes| 2026-07-05
 export const VER = 'tools/27auto-battle-utils.js V5.3.1';
 
