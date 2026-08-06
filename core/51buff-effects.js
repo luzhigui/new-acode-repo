@@ -6,6 +6,7 @@ import { CONFIG } from './01config-5v5-test.js';
 import { rand, hasBuff, getUnitRow, getUnitCol, getAdjacentPositions } from './03battle-utils.js';
 import { isXiaoZhaoPermanentActive, getXiaoZhaoHexEnhance } from '../modules/23elite-skills.js';
 import { emitEvent } from './50battle-shared.js';
+import { eventBus } from './00-event-bus.js';
 const C = CONFIG;
 
 function emit(unit, payload) {
@@ -22,8 +23,6 @@ export function applyBloodthirst_Normal(unit, target, dmg, allySide, enemySide, 
     emit(unit, { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: unit.atk, def: unit.def });
     log.push({type:'buff-leech', text:`<span class="green">🗡️ ${unit.name} 的嗜血狂刀吸血+${leech}，血量 ${hpBefore} → ${unit.hp}</span>`, isHealEntry:true, buffType:'leech', healAmount:leech, healUnitUid:unit.uid});
 }
-
-import { eventBus } from './00-event-bus.js';
 
 export async function applyBloodthirst_Sister(unit, target, dmg, allySide, enemySide, log) {
     applyBloodthirst_Normal(unit, target, dmg, allySide, enemySide, log);
@@ -128,6 +127,9 @@ function applyWindAssaultCore(unit, target, dmg, allySide, enemySide, log, hitPr
     } else {
         log.push({type:'info', text:`<span class="gray">${label}击退触发失败</span>`});
     }
+
+    // 击退/换位完成后广播（被动技能监听，如张无忌前排检测）
+    eventBus.emit('onPositionSwap', { allySide, enemySide, log });
 }
 
 export function applyWindAssault_Normal(unit, target, dmg, allySide, enemySide, log) {
@@ -317,6 +319,9 @@ function applyMindControlCore(unit, allySide, enemySide, log, swapChanceEnemy, s
     } else {
         log.push({type:'info', text:`<span class="gray">🌀 惑人心智己方换位未触发</span>`});
     }
+
+    // 换位完成后广播（被动技能监听，如张无忌前排检测）
+    eventBus.emit('onPositionSwap', { allySide, enemySide, log });
 }
 
 export function applyMindControl_Normal(unit, allySide, enemySide, log) {

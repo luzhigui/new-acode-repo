@@ -29,10 +29,14 @@ export function createZhangWujiComponent() {
                 if (data.unit.uid !== zhang.uid) return;
                 onAfterApplyDamage(data.unit, data.target, { dmg: data.dmg }, data.group, A, data.log);
             });
-            // 回合结束/每次行动后检查是否切换近战形态（前排队友死亡触发）
-            eventBus.on('onRoundEnd', L.ROUND_END.ZHANG_SWITCH, (data) => {
-                const { A, log } = data;
-                if (zhang && zhang.alive && !zhang._zhangSwitched) checkZhangSwitch(A, log);
+            // 近战形态切换 — 被动监听：单位死亡、换位后自行检测前排
+            eventBus.on('onUnitDeath', L.ON_UNIT_DEATH.ZHANG_SWITCH, (data) => {
+                const { allySide, log } = data;
+                if (zhang && zhang.alive && !zhang._zhangSwitched) checkZhangSwitch(allySide, log);
+            });
+            eventBus.on('onPositionSwap', L.ON_POSITION_SWAP.ZHANG_SWITCH, (data) => {
+                const { allySide, log } = data;
+                if (zhang && zhang.alive && !zhang._zhangSwitched) checkZhangSwitch(allySide, log);
             });
             // 乾坤大挪移（基础版+升级版）已迁移至 applyDamageModifiers，由伤害计算边裁统一执行
         },

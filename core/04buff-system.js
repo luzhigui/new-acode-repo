@@ -443,6 +443,9 @@ export function registerWindAssault(eventBus) {
         } else {
             log.push({type:'info', text:`<span class="gray">${label}击退触发失败</span>`});
         }
+
+        // 击退/换位完成后广播（被动技能监听，如张无忌前排检测）
+        eventBus.emit('onPositionSwap', { allySide, enemySide, log });
     });
 }
 

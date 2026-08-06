@@ -5,7 +5,6 @@ export const VER = 'core/49battle-attack-steps.js V5.3.1';
 import { CONFIG, DEF_TAUNT, HP_TAUNT } from './01config-5v5-test.js';
 import { eventBus } from './00-event-bus.js';
 import { rand, calcDamage, getFangLevel, isMelee, getFronts, isBlocked, getRandomTaunt, getZhangNearTaunt, makeFXSnapshot, hasBuff, getUnitCol, getUnitRow } from './03battle-utils.js';
-import { checkZhangSwitch } from './50battle-shared.js';
 import { computeBuffStats, applyBuffEffectsBeforeAttack, applyBuffEffectsAfterAttack } from './04buff-system.js';
 import { applyDamageModifiers, getXiaoZhaoHexEnhance } from '../modules/23elite-skills.js';
 import { emitEvent, applyStatChange } from './50battle-shared.js';
@@ -373,6 +372,11 @@ export function resolveDeaths(allySide, enemySide, log) {
         u._pendingDeath = false;
         emitEvent(u, 'unit-remove', { uid: u.uid });
     }
+
+    // 死亡完成后广播（被动技能监听，如张无忌前排检测）
+    if (pending.length > 0) {
+        eventBus.emit('onUnitDeath', { deadUnits: pending, allySide, enemySide, log });
+    }
 }
 
 // ==================== 伤害免疫边裁 ====================
@@ -508,7 +512,6 @@ export async function buildAttackGroup(unit, target, dmgCalc, dmgResult, attacke
 export function applyPostAttackEffects(unit, target, dmg, atkAct, defAct, reboundEntry, allySide, enemySide, log, A) {
     if (unit.camp === 'ally') {
         applyBuffEffectsBeforeAttack(unit, target, allySide, enemySide, log);
-        checkZhangSwitch(A, log);
     } else {
         applyBuffEffectsBeforeAttack(unit, target, enemySide, allySide, log);
     }
@@ -517,7 +520,7 @@ export function applyPostAttackEffects(unit, target, dmg, atkAct, defAct, reboun
     }
     // 反弹日志由调用方拼接，此处不再推送
     let dead = !target.alive;
-    if (dead && target.camp === 'ally') { checkZhangSwitch(A, log); }
+    // 张无忌近战切换改为事件驱动：监听 onUnitDeath / onPositionSwap，不再手动调用
     return reboundEntry;
 }
 
