@@ -13,7 +13,7 @@ import { createSongQingshuComponent, createZhouZhiruoComponent } from '../module
 import { createChengKunComponent, createLuZhangKeComponent, createHeBiWengComponent, registerXuanmingLink } from '../modules/97elite-imperial.js';
 import { processUnitAttack } from './47battle-attack.js';
 import { eventBus, EXECUTION_LAYER as L } from './00-event-bus.js';
-import { getNextAvailableUnit, finalizeDeaths, emitFullUnitState, checkZhangSwitch, emitEvent, applyStatChange } from './50battle-shared.js';
+import { getNextAvailableUnit, finalizeDeaths, emitFullUnitState, emitEvent, applyStatChange } from './50battle-shared.js';
 import { resolveDeaths } from './49battle-attack-steps.js';
 
 const C = CONFIG;

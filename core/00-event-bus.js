@@ -75,7 +75,7 @@ export const eventBus = new EventBus();
 export const EXECUTION_LAYER = {
     // ── 回合生命周期 ──
     ROUND_START:      { SPIDER_TRANSFORM: 10, XUANMING_POISON: 10, XINGFEN_GRANT: 10, KULIAN_BUFF: 10, PERMANENT_CARRY: 10 },
-    ROUND_END:        { BUTTERFLY_RETURN: 10, SPIDER_RETURN: 10, ZHANG_SWITCH: 20 },
+    ROUND_END:        { BUTTERFLY_RETURN: 10, SPIDER_RETURN: 10 },
 
     // ── 行动调度 ──
     BEFORE_ACTION:    { BUTTERFLY_SKIP: 10, SPIDER_SKIP: 10, KULIAN_PRIORITY: 10 },
@@ -120,6 +120,10 @@ export const EXECUTION_LAYER = {
 
     // ── 死亡 ──
     ON_BEFORE_DEATH: {},
+    ON_UNIT_DEATH: { ZHANG_SWITCH: 10 }, // 单位死亡后（张无忌被动检测前排）
+
+    // ── 换位 ──
+    ON_POSITION_SWAP: { ZHANG_SWITCH: 10 }, // 换位后（张无忌被动检测前排）
 
     // ── 额外攻击请求 ──
     REQUEST_EXTRA_ATTACK: { DEFAULT: 10 }
