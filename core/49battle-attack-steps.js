@@ -417,7 +417,10 @@ export function resolveAfterDamageEffects(declarations, unit, target, group) {
     for (const decl of declarations.filter(d => d.type === 'heal')) {
         if (!decl.source || !decl.source.alive) continue;
         const capped = Math.min(decl.value || 0, decl.source.maxHp - decl.source.hp);
-        applyStatChange(decl.source, 'hp', capped, null, '回血');
+        if (capped > 0) {
+            applyStatChange(decl.source, 'hp', capped, null, '回血');
+            if (decl.source.dmgTaken !== undefined) decl.source.dmgTaken -= capped;
+        }
         executed.push(decl);
     }
 
@@ -427,6 +430,14 @@ export function resolveAfterDamageEffects(declarations, unit, target, group) {
         for (const st of decl.targets) {
             if (!st.alive) continue;
             applyStatChange(st, 'hp', -(decl.value || 0), unit, '溅射');
+        }
+        // 流星赶月溅射触发远程成长：每命中一个目标 +2 攻
+        if (unit && unit.role === '远程' && decl.buffType === 'meteor_splash') {
+            const hitCount = decl.targets.filter(t => t.alive).length;
+            if (hitCount > 0) {
+                applyStatChange(unit, 'atk', hitCount * 2, null, '流星溅射成长');
+                if (unit._baseAtk !== undefined) unit._baseAtk += hitCount * 2;
+            }
         }
         executed.push(decl);
     }
@@ -442,8 +453,25 @@ export function resolveAfterDamageEffects(declarations, unit, target, group) {
         executed.push(decl);
     }
 
+    // 3.5 属性变更（乾坤衍生加攻等）
+    for (const decl of declarations.filter(d => d.type === 'statChange')) {
+        if (!decl.target || !decl.target.alive) continue;
+        applyStatChange(decl.target, decl.field, decl.delta, null, '乾坤衍生');
+        if (decl.field === 'atk' && decl.target._baseAtk !== undefined) {
+            decl.target._baseAtk += decl.delta;
+        }
+        executed.push(decl);
+    }
+
+    // 3.6 斩杀（战士斩杀等）
+    for (const decl of declarations.filter(d => d.type === 'execute')) {
+        if (!decl.target || !decl.target.alive) continue;
+        applyStatChange(decl.target, 'hp', -decl.target.hp, decl.source, '斩杀');
+        executed.push(decl);
+    }
+
     // 4. 其他
-    for (const decl of declarations.filter(d => !['bonusDmg','leech','heal','splash','rebound'].includes(d.type))) {
+    for (const decl of declarations.filter(d => !['bonusDmg','leech','heal','splash','rebound','statChange','execute'].includes(d.type))) {
         executed.push(decl);
     }
 
