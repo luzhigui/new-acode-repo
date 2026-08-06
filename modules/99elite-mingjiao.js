@@ -34,30 +34,7 @@ export function createZhangWujiComponent() {
                 const { A, log } = data;
                 if (zhang && zhang.alive && !zhang._zhangSwitched) checkZhangSwitch(A, log);
             });
-            // 乾坤大挪移反弹 — 提交声明，由裁判统一执行
-            eventBus.on('allyDamaged', L.ALLY_DAMAGED.QIANKUN_REBOUND, (data) => {
-                if (!zhang || !zhang.alive || !zhang.rangedForm || zhang._stunned) return;
-                const { attacker, target, dmg } = data;
-                if (target.camp !== 'ally' || (target.pos !== 4 && target.pos !== 6) || dmg <= 0) return;
-                const xiaoZhaoActive = A.find(u => u.isXiaoZhao && u.alive);
-                if (xiaoZhaoActive) return;
-                const s = getSkillParams('张无忌', 'qianKun') || ES.xiaoZhao;
-                const reboundPct = (s.reboundPct || 15) / 100;
-                const selfDmgPct = (s.selfDmgPct || 10) / 100;
-                const rebound = Math.floor(dmg * reboundPct);
-                let selfDmg = Math.max(1, Math.floor(rebound * selfDmgPct));
-                zhang.reboundDone += rebound;
-                applyStatChange(zhang, 'hp', -selfDmg, attacker, '乾坤反弹自伤');
-                data.log.push({type:'info', text:`<span class="gold">✨ 乾坤大挪移反弹${rebound}给${attacker.name}（无忌自伤${selfDmg}）</span>`});
-                if (!data.declarations) data.declarations = [];
-                data.declarations.push({
-                    type: 'rebound',
-                    value: rebound,
-                    target: attacker,
-                    source: zhang,
-                    logText: ''
-                });
-            });
+            // 乾坤大挪移（基础版+升级版）已迁移至 applyDamageModifiers，由伤害计算边裁统一执行
         },
         onAfterApplyDamage(unit, target, dmgCalc, group, A, log) {
             if (unit.camp !== 'ally' || !unit.isZhang || !unit.alive) return;

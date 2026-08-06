@@ -50,20 +50,46 @@ export function applyDamageModifiers(unit, target, dmg, allySide, enemySide, log
     const ES = CONFIG.ELITE_SKILLS;
 
     const xiaoZhao = allySide.find(u => (u.isXiaoZhaoSister || u.isXiaoZhaoBrother) && u.alive);
-    const zhangUpgraded = allySide.find(c => c.isZhang && c.alive);
-    if (target.camp === 'ally' && xiaoZhao && zhangUpgraded && [2, 4, 6, 8].includes(target.pos)) {
-        const s = getSkillParams('小昭', 'qianKunUpgraded') || ES.xiaoZhao;
-        const reducedDmg = Math.round(dmg * (1 - (s.reducePct || s.upgradedReducePct) / 100));
-        const rebound = Math.floor(dmg * ((s.reboundPct || s.upgradedReboundPct || 20) / 100));
-        const selfDmg = Math.max(1, Math.floor(dmg * ((s.selfDmgPct || s.upgradedSelfDmgPct || 10) / 100)));
+    const zhang = allySide.find(c => c.isZhang && c.alive && c.rangedForm && !c._stunned);
+    if (target.camp !== 'ally' || !zhang) return { modifiedDmg, entries };
 
-        zhangUpgraded.reboundDone += rebound;
-        applyStatChange(unit, 'hp', -rebound, zhangUpgraded, '乾坤反弹');
-        applyStatChange(zhangUpgraded, 'hp', -selfDmg, unit, '乾坤自伤');
+    if (xiaoZhao && [2, 4, 6, 8].includes(target.pos)) {
+        // 升级版：减伤30%，反弹20%，自伤原始伤害10%
+        const s = getSkillParams('小昭', 'qianKunUpgraded') || ES.xiaoZhao;
+        const reducePct = s.reducePct || 30;
+        const reboundPct = s.reboundPct || 20;
+        const selfDmgPct = s.selfDmgPct || 10;
+        const reducedDmg = Math.round(dmg * (1 - reducePct / 100));
+        const rebound = Math.floor(dmg * (reboundPct / 100));
+        const selfDmg = Math.max(1, Math.floor(dmg * (selfDmgPct / 100)));
+
+        zhang.reboundDone += rebound;
+        applyStatChange(unit, 'hp', -rebound, zhang, '乾坤反弹');
+        applyStatChange(zhang, 'hp', -selfDmg, unit, '乾坤自伤');
 
         entries.push({
             type: 'info',
-            text: `<span class="gold">🦋 乾坤大挪移（升级版）：减伤30%，反弹${rebound}给${unit.name}（无忌自伤${selfDmg}）</span>`
+            text: `<span class="gold">🦋 乾坤大挪移（升级版）：减伤${reducePct}%，反弹${rebound}给${unit.name}（无忌自伤${selfDmg}）</span>`
+        });
+
+        modifiedDmg = reducedDmg;
+    } else if (!xiaoZhao && (target.pos === 4 || target.pos === 6)) {
+        // 基础版：减伤10%，反弹10%，自伤原始伤害10%
+        const s = getSkillParams('张无忌', 'qianKun') || { reducePct: 10, reboundPct: 10, selfDmgPct: 10 };
+        const reducePct = s.reducePct || 10;
+        const reboundPct = s.reboundPct || 10;
+        const selfDmgPct = s.selfDmgPct || 10;
+        const reducedDmg = Math.round(dmg * (1 - reducePct / 100));
+        const rebound = Math.floor(dmg * (reboundPct / 100));
+        const selfDmg = Math.max(1, Math.floor(dmg * (selfDmgPct / 100)));
+
+        zhang.reboundDone += rebound;
+        applyStatChange(unit, 'hp', -rebound, zhang, '乾坤反弹');
+        applyStatChange(zhang, 'hp', -selfDmg, unit, '乾坤自伤');
+
+        entries.push({
+            type: 'info',
+            text: `<span class="gold">✨ 乾坤大挪移：减伤${reducePct}%，反弹${rebound}给${unit.name}（无忌自伤${selfDmg}）</span>`
         });
 
         modifiedDmg = reducedDmg;
