@@ -69,7 +69,7 @@ function checkZhangSwitch(A, log) {
             role: zhang.role,
             rangedForm: false
         });
-        log.push({ type:'info', text:`<span class="gold">⚔️ 张无忌切换近战形态！攻+${warriorBonus.atk * 2}、防+${warriorBonus.def * 2}、生命上限+${warriorBonus.maxHp * 2}</span>`, isZhangSwitch:true, unit: zhang });
+        log.push({ type:'info', text:`<span class="gold">⚔️ 张无忌切换近战形态！攻+${warriorBonus.atk * 3}、防+${warriorBonus.def * 3}、生命上限+${warriorBonus.maxHp * 3}</span>`, isZhangSwitch:true, unit: zhang });
         log.push({ type:'info', text:`<span class="gold">🗣️ 张无忌：不好，要顶上去了！</span>`, isZhangTaunt:true });
     }
 }

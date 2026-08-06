@@ -146,8 +146,8 @@
         },
         "qianKun": {
           "name": "乾坤大挪移",
-          "desc": "保护4/6号位队友，反弹{reboundPct}%伤害（自身受{selfDmgPct}%），小昭不在时生效",
-          "params": { "reboundPct": 15, "selfDmgPct": 10 }
+          "desc": "保护4/6号位队友，减伤{reducePct}%并反弹{reboundPct}%伤害（自身受{selfDmgPct}%原始伤害），小昭在场时升级为全队版",
+          "params": { "reducePct": 10, "reboundPct": 10, "selfDmgPct": 10 }
         },
         "nearSwitch": {
           "name": "近战切换",
