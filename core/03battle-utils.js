@@ -297,6 +297,33 @@ export function registerRangedGrowth(eventBus) {
 }
 
 /**
+ * 注册战士斩杀监听器
+ * - 目标血量低于 15% 时直接斩杀
+ * - 嗜血狂刀激活时斩杀线提升至 20%
+ * - 不限阵营，六大派战士同样生效
+ */
+export function registerWarriorExecute(eventBus) {
+    eventBus.on('afterDamageApplied', L.AFTER_DAMAGE_APPLIED.WARRIOR_EXECUTE, (data) => {
+        const { unit, target, allySide, declarations } = data;
+        if (unit.role !== '战士' || !unit.alive) return;
+        if (!target || !target.alive || target.hp <= 0) return;
+        const unitBuffs = (allySide && allySide._activeBuffs) || [];
+        const hasBloodthirst = hasBuff(unitBuffs, 'bloodthirst');
+        const threshold = hasBloodthirst ? 0.20 : 0.15;
+        if (target.hp <= target.maxHp * threshold) {
+            if (!declarations) return;
+            declarations.push({
+                type: 'execute',
+                target: target,
+                source: unit,
+                threshold: threshold,
+                logText: `<span class="red">⚔️ 战士斩杀！${unit.name} 直接击杀 ${target.name}！</span>`
+            });
+        }
+    });
+}
+
+/**
  * 注册防战坚盾监听器
  * - 被攻击时 60% 概率触发坚盾（防御+1/成昆+2）
  * - 攻击时 100% 概率触发坚盾（与被攻击共享每回合上限，成昆6/其他防战3）

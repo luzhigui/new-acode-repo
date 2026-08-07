@@ -90,6 +90,7 @@ export const EXECUTION_LAYER = {
     // ── 攻击后 ──
     AFTER_DAMAGE_APPLIED: {
         BLOODTHIRST: 20,    // 嗜血狂刀（吸血）
+        WARRIOR_EXECUTE: 20, // 战士斩杀
         HOT_BLOOD: 25,      // 热血奋战（回血）
         WIND_ASSAULT: 25,   // 乘风突袭（溅射）
         METEOR_SHOWER: 25,  // 流星赶月（溅射）
