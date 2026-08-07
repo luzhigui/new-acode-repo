@@ -315,23 +315,6 @@ export function registerBloodthirst(eventBus) {
             if (!data.declarations) data.declarations = [];
             data.declarations.push(decl);
         }
-
-        // 战士斩杀：嗜血狂刀激活时斩杀线提升至20%
-        if (unit.role === '战士' && target && target.alive && target.hp > 0) {
-            const hasBloodthirst = hasBuff(unitBuffs, 'bloodthirst');
-            const threshold = hasBloodthirst ? 0.20 : 0.15;
-            if (target.hp <= target.maxHp * threshold) {
-                const executeDecl = {
-                    type: 'execute',
-                    target: target,
-                    source: unit,
-                    threshold: threshold,
-                    logText: `<span class="red">⚔️ 战士斩杀！${unit.name} 直接击杀 ${target.name}！</span>`
-                };
-                if (!data.declarations) data.declarations = [];
-                data.declarations.push(executeDecl);
-            }
-        }
     });
 }
 

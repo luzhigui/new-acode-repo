@@ -146,7 +146,6 @@ export async function processUnitAttack(unit, allySide, enemySide, log, A, B, st
 
     // 步骤3：伤害计算
     eventBus.emit('beforeAttack', { unit, allySide, enemySide, log });
-    eventBus.emit('beforeDamageCalc', { unit, target, allySide, enemySide, log });
     let dmgCalc = calcFinalDamage(unit, target, attackerBuffStats, defenderBuffStats, allySide, enemySide, log);
 
     // 步骤4：应用伤害结果
@@ -211,7 +210,7 @@ export async function processUnitAttack(unit, allySide, enemySide, log, A, B, st
     if (!unit._isLinkAttack) unit._acted = true;
 
     // 攻击结束信号（玄冥二老联动、白骨爪追击等）
-    const afterAttackData = { unit, target, dmg: dmgCalc.dmg, allySide, enemySide, log, A, B, state, retry: false, retryTargetUid: null };
+    const afterAttackData = { unit, target, dmg: dmgCalc.dmg, group, allySide, enemySide, log, A, B, state, retry: false, retryTargetUid: null };
     await eventBus.emit('afterAttack', afterAttackData);
     if (afterAttackData.retry && unit.alive) {
         const retryTargetUid = afterAttackData.retryTargetUid || (target && target.alive ? target.uid : null);
