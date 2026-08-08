@@ -9,6 +9,7 @@ import { spawnHorse } from '../core/05battle-horse.js';
 import { spiderTransform, spiderReturn } from '../modules/23elite-skills.js';
 import { checkZhangSwitch, emitEvent, applyStatChange, applyMaxHpChange } from '../core/50battle-shared.js';
 import { EXECUTION_LAYER as L } from '../core/00-event-bus.js';
+import { registerDodgeRule } from '../core/49battle-attack-steps.js';
 const ES = CONFIG.ELITE_SKILLS;
 function getZhangNearTaunt(nearAtkCount) {
     const ZHANG_NEAR_TAUNT = ['还好，还记得七七八八。', '糟糕，只记得一两层了。', '不好，全忘光了！'];
@@ -89,15 +90,13 @@ export function createWeiYixiaoComponent() {
                 wei._baseMaxHp = Math.max(wei._baseMaxHp, newMaxHpWei);
                 applyMaxHpChange(wei, newMaxHpWei, null, '韦一笑吸血上限提升');
             });
-        },
-        _registerDodgeRule(wei) {
-            import('../core/49battle-attack-steps.js').then(mod => {
-                mod.registerDodgeRule((unit, attacker) => {
-                    if (!unit.isWei || !unit.alive) return 0;
-                    const lostPct = (unit.maxHp - unit.hp) / unit.maxHp;
-                    const s = getSkillParams('韦一笑', 'bloodDodge') || { maxRatio: 70 };
-                    return lostPct * (s.maxRatio / 100);
-                });
+
+            // 血蝠闪避：损失血量比例 × maxRatio，乘法叠加到总闪避
+            registerDodgeRule((unit, attacker) => {
+                if (!unit.isWei || !unit.alive) return 0;
+                const lostPct = (unit.maxHp - unit.hp) / unit.maxHp;
+                const s = getSkillParams('韦一笑', 'bloodDodge') || { maxRatio: 70 };
+                return lostPct * (s.maxRatio / 100);
             });
         }
     };
