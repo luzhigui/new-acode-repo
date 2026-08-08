@@ -4,7 +4,7 @@ export const VER = 'core/05battle-horse.js V5.3.1';
 
 import { CONFIG } from './01config-5v5-test.js';
 import { rand, hasBuff } from './03battle-utils.js';
-import { getXiaoZhaoHexEnhance } from '../modules/23elite-skills.js';
+import { query } from './50battle-shared.js';
 import { Unit } from './02unit.js';
 const C = CONFIG;
 
@@ -23,7 +23,7 @@ export function spawnHorse(allyTeam, log, enemyTeam, force = false) {
     }
     let horsePos = available[0];
     let horse = new Unit('拒马', 20, '防战', allyTeam[0].camp);
-    const xiaoHEnhance = getXiaoZhaoHexEnhance(allyTeam, allyTeam._activeBuffs || [], 'horseFormation');
+    const xiaoHEnhance = query('xiaoHexEnhance', allyTeam, allyTeam._activeBuffs || [], 'horseFormation');
     horse.atk = 0;
     if (xiaoHEnhance) {
         horse.def = xiaoHEnhance.horseDef;

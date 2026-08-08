@@ -6,8 +6,7 @@ import { CONFIG, DEF_TAUNT, HP_TAUNT, getSkillParams } from './01config-5v5-test
 import { eventBus } from './00-event-bus.js';
 import { rand, calcDamage, getFangLevel, isMelee, getFronts, isBlocked, getRandomTaunt, getZhangNearTaunt, makeFXSnapshot, hasBuff, getUnitCol, getUnitRow } from './03battle-utils.js';
 import { computeBuffStats, applyBuffEffectsBeforeAttack, applyBuffEffectsAfterAttack } from './04buff-system.js';
-import { applyDamageModifiers, getXiaoZhaoHexEnhance } from '../modules/23elite-skills.js';
-import { emitEvent, applyStatChange } from './50battle-shared.js';
+import { emitEvent, applyStatChange, query } from './50battle-shared.js';
 
 // ==================== 闪避规则注册表 ====================
 // 裁判统一管理所有闪避规则。每个规则是一个函数 (unit, attacker) => dodgeRate (0~1)
@@ -283,7 +282,7 @@ export function calcFinalDamage(unit, target, attackerBuffStats, defenderBuffSta
     let dmg = Math.floor(raw);
     let bonusEntries = [];
     if (unit.camp !== 'ally') {
-        const modifierResult = applyDamageModifiers(unit, target, dmg, enemySide, allySide, log);
+        const modifierResult = query('damageModifiers', unit, target, dmg, enemySide, allySide, log);
         dmg = modifierResult.modifiedDmg;
         bonusEntries = modifierResult.entries || [];
     }
@@ -332,7 +331,7 @@ export function applyAttackResult(unit, target, dmgCalc, attackerBuffStats, defe
 
     // 拒马反伤
     let horseReboundEntry = null;
-    const xiaoHEnhance = getXiaoZhaoHexEnhance(A, A._activeBuffs, 'horseFormation');
+    const xiaoHEnhance = query('xiaoHexEnhance', A, A._activeBuffs, 'horseFormation');
     if (target.isHorse && dmg > 0 && xiaoHEnhance && hasBuff(A._activeBuffs, 'horseFormation')) {
         const rebound = xiaoHEnhance.reboundDmg;
         applyStatChange(unit, 'hp', -rebound, target, '巨马反伤');

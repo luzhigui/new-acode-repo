@@ -142,6 +142,12 @@ function applyMaxHpChange(target, newMaxHp, source, reason) {
     }
 }
 
+// ==================== 查询注册表 ====================
+// modules 层通过 registerQuery 注册查询处理器，core 层通过 query 调用，切断 core→modules 的反向依赖
+const _queries = {};
+export function registerQuery(name, fn) { _queries[name] = fn; }
+export function query(name, ...args) { return _queries[name] ? _queries[name](...args) : undefined; }
+
 export {
     emitCoreEvent as emitEvent,
     emitFullUnitState,

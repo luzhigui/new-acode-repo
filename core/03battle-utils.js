@@ -3,8 +3,7 @@
 export const VER = 'core/03battle-utils.js V5.3.1';
 
 import { CONFIG, TAUNT_LIB, DEF_TAUNT, HP_TAUNT, ZHANG_NEAR_TAUNT } from './01config-5v5-test.js';
-import { emitEvent, applyStatChange } from './50battle-shared.js';
-import { getXiaoZhaoHexEnhance } from '../modules/23elite-skills.js';
+import { emitEvent, applyStatChange, query } from './50battle-shared.js';
 import { EXECUTION_LAYER as L } from './00-event-bus.js';
 const C = CONFIG, TL = TAUNT_LIB, DT = DEF_TAUNT, HT = HP_TAUNT, ZT = ZHANG_NEAR_TAUNT;
 
@@ -370,7 +369,7 @@ export function registerDoubleStrike(eventBus, doubleStrikeUnitUid, allyTeam, ac
     eventBus.on('afterAttack', L.AFTER_ATTACK.DOUBLE_STRIKE, (data) => {
         const { unit, target, log } = data;
         if (unit.uid !== doubleStrikeUnitUid || !unit.alive || unit.camp !== 'ally' || unit._doubleStriked) return;
-        const xiaoDoubleEnhance = getXiaoZhaoHexEnhance(allyTeam, activeBuffs, 'doubleStrike');
+        const xiaoDoubleEnhance = query('xiaoHexEnhance', allyTeam, activeBuffs, 'doubleStrike');
         const missChainChance = xiaoDoubleEnhance ? 1.0 : 0.8;
         if (Math.random() < missChainChance) {
             log.push({type:'info', text:`<span class="gold">⚡ 概率连击触发！</span>`, isDoubleStrikeBanner:true});

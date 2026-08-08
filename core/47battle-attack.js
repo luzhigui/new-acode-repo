@@ -7,12 +7,6 @@ import { rand, hasBuff, makeFXSnapshot } from './03battle-utils.js';
 
 import { computeBuffStats, applyBuffEffectsBeforeAttack, applyBuffEffectsAfterAttack } from './04buff-system.js';
 import {
-    getRebelTarget, getRebelDmgBonus, getRebelTrueDmg,
-    applyDamageModifiers, isXiaoZhaoPermanentActive,
-    applyPhantomDisguise, applyXiaoZhaoMindControl, checkXiaoZhaoPermanentDoubleStrike,
-    getXiaoZhaoHexEnhance
-} from '../modules/23elite-skills.js';
-import {
     selectAttackTarget,
     resolveAttackHit,
     calcFinalDamage,
