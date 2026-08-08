@@ -87,6 +87,9 @@ export const EXECUTION_LAYER = {
     BEFORE_DAMAGE_CALC: { WARRIOR_BREAK: 10, CHENGKUN_THUNDER: 15, HE_HORN: 25, SONG_TRUE_DMG: 30 },
     BEFORE_DAMAGE_APPLY: { SPIDER_IMMUNE: 100 },
 
+    // ── 闪避后 ──
+    ON_DODGE:          { WEI_HEAL: 10 },
+
     // ── 攻击后 ──
     AFTER_DAMAGE_APPLIED: {
         BLOODTHIRST: 20,    // 嗜血狂刀（吸血）

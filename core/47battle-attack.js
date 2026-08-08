@@ -26,6 +26,20 @@ const C = CONFIG, DT = DEF_TAUNT, HT = HP_TAUNT;
 
 // ==================== 主攻击流程 ====================
 
+/**
+ * 单次攻击流程编排：拦截检查 → 目标选择 → Buff计算 → 命中判定 → 伤害计算 → 免疫检查 → 应用伤害 → 构建日志 → 攻击后效果 → 死亡结算
+ * 连击/性奋/联动等额外攻击通过 afterAttack 信号递归调用
+ * @param {Unit} unit - 攻击者
+ * @param {Array} allySide - 攻击者所在阵营
+ * @param {Array} enemySide - 目标所在阵营
+ * @param {Array} log - 日志数组
+ * @param {Array} A - 明教方单位数组
+ * @param {Array} B - 六大派方单位数组
+ * @param {object} state - 战斗状态对象
+ * @param {string|null} doubleStrikeUnitUid - 概率连击单位 uid
+ * @param {string|null} lockedTargetUid - 锁定目标 uid（连击/联动时强制打同一目标）
+ * @returns {Promise<boolean>} true=攻击完成，false=攻击被跳过（眩晕/飞天/无目标）
+ */
 export async function processUnitAttack(unit, allySide, enemySide, log, A, B, state, doubleStrikeUnitUid, lockedTargetUid) {
     // 统一拦截：眩晕单位无法响应任何攻击指令
     // 即使外部调用方（如联动、随机队友攻击）传入了眩晕单位，裁判直接拒绝

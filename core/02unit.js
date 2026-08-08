@@ -69,6 +69,8 @@ export class Unit {
         this._holyDefBonus = 0;
         this._fortifyDefBonus = 0;
         this._fortifyStacks = 0;
+        this._fortifyIncrement = CONFIG.FORTIFY_INCREMENT;
+        this._fortifyCap = CONFIG.FORTIFY_CAP;
         this._dodgeStack = 0;
         this._linkedPartnerUid = null;  // 联动搭档 uid（宋青书↔周芷若、鹿杖客↔鹤笔翁）
     }
@@ -139,6 +141,8 @@ export class Unit {
         c._holyDefBonus = this._holyDefBonus;
         c._fortifyDefBonus = this._fortifyDefBonus;
         c._fortifyStacks = this._fortifyStacks;
+        c._fortifyIncrement = this._fortifyIncrement;
+        c._fortifyCap = this._fortifyCap;
         c._dodgeStack = this._dodgeStack;
         return c;
     }
