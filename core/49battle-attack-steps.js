@@ -2,7 +2,7 @@
 // V5.3.1 | ~23800 bytes| 2026-07-28 乾坤反弹迁移至事件总线
 export const VER = 'core/49battle-attack-steps.js V5.3.1';
 
-import { CONFIG, DEF_TAUNT, HP_TAUNT } from './01config-5v5-test.js';
+import { CONFIG, DEF_TAUNT, HP_TAUNT, getSkillParams } from './01config-5v5-test.js';
 import { eventBus } from './00-event-bus.js';
 import { rand, calcDamage, getFangLevel, isMelee, getFronts, isBlocked, getRandomTaunt, getZhangNearTaunt, makeFXSnapshot, hasBuff, getUnitCol, getUnitRow } from './03battle-utils.js';
 import { computeBuffStats, applyBuffEffectsBeforeAttack, applyBuffEffectsAfterAttack } from './04buff-system.js';
@@ -175,8 +175,9 @@ export function resolveAttackHit(unit, target, attackerBuffStats, defenderBuffSt
 
                 let weiHealData = null;
                 if (target.isWei) {
+                    const s = getSkillParams('韦一笑', 'coldPalm') || { leechMin: 20, leechMax: 40 };
                     const lostPctWei = (target.maxHp - target.hp) / target.maxHp;
-                    const leechRateWei = 0.20 + (0.50 - 0.20) * lostPctWei;
+                    const leechRateWei = (s.leechMin + (s.leechMax - s.leechMin) * lostPctWei) / 100;
                     let heal = Math.floor(reboundDmg * leechRateWei);
                     let wasFullHp = (target.hp >= target.maxHp);
                     let newMaxHp = Math.min(target.maxHp + heal, target._baseMaxHp * 2);
