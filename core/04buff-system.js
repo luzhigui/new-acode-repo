@@ -10,8 +10,7 @@ import {
 } from './51buff-effects.js';
 import { CONFIG } from './01config-5v5-test.js';
 import { rand, hasBuff, getUnitRow, getUnitCol, getAdjacentPositions } from './03battle-utils.js';
-import { computeButterflyMastery, isXiaoZhaoPermanentActive, getXiaoZhaoHexEnhance } from '../modules/23elite-skills.js';
-import { emitEvent, applyStatChange, applyMaxHpChange } from './50battle-shared.js';
+import { emitEvent, applyStatChange, applyMaxHpChange, query } from './50battle-shared.js';
 import { EXECUTION_LAYER as L } from './00-event-bus.js';
 const C = CONFIG;
 
@@ -132,7 +131,7 @@ export function computeBuffStats(unit, activeBuffs, allyTeam) {
     if (hasBuff(activeBuffs, 'fortify') && unit.role === '防战' && unit.camp === 'ally') {
         if (allyTeam && allyTeam.some(u => u.isXiaoZhaoSister && u.alive)) applyFortifyDef_Sister(unit, { defBonus });
         else applyFortifyDef_Normal(unit, { defBonus });
-    } else if (unit.isXiaoZhaoBrother && isXiaoZhaoPermanentActive(unit, activeBuffs, 'fortify') && unit.role === '防战') {
+    } else if (unit.isXiaoZhaoBrother && query('xiaoPermanentActive', unit, activeBuffs, 'fortify') && unit.role === '防战') {
         applyFortifyDef_Brother(unit, { defBonus });
     }
 
@@ -140,14 +139,14 @@ export function computeBuffStats(unit, activeBuffs, allyTeam) {
     if (hasBuff(activeBuffs, 'cloudBody') && unit.camp === 'ally') {
         if (allyTeam && allyTeam.some(u => u.isXiaoZhaoSister && u.alive)) applyCloudBodyDodge_Sister(unit, { dodgeBonus });
         else applyCloudBodyDodge_Normal(unit, { dodgeBonus });
-    } else if (unit.isXiaoZhaoBrother && isXiaoZhaoPermanentActive(unit, activeBuffs, 'cloudBody')) {
+    } else if (unit.isXiaoZhaoBrother && query('xiaoPermanentActive', unit, activeBuffs, 'cloudBody')) {
         applyCloudBodyDodge_Brother(unit, { dodgeBonus });
     }
 
     // ---- 小昭变身精通加成 ----
     let masteryAtkAbs = 0, masteryDefAbs = 0, masteryHpAbs = 0;
     if (unit.isXiaoZhaoBrother) {
-        const mastery = computeButterflyMastery(unit);
+        const mastery = query('butterflyMastery', unit);
         masteryAtkAbs = mastery.atk; masteryDefAbs = mastery.def; masteryHpAbs = mastery.hp;
     }
 
@@ -156,7 +155,7 @@ export function computeBuffStats(unit, activeBuffs, allyTeam) {
     if (holyFlameTeam) {
         if (allyTeam && allyTeam.some(u => u.isXiaoZhaoSister && u.alive)) applyHolyFlame_Sister(unit, allyTeam, activeBuffs, { atkBonus, defBonus });
         else applyHolyFlame_Normal(unit, allyTeam, activeBuffs, { atkBonus, defBonus });
-    } else if (unit.isXiaoZhaoBrother && isXiaoZhaoPermanentActive(unit, activeBuffs, 'holyFlame')) {
+    } else if (unit.isXiaoZhaoBrother && query('xiaoPermanentActive', unit, activeBuffs, 'holyFlame')) {
         applyHolyFlame_Brother(unit, allyTeam, activeBuffs, { atkBonus, defBonus });
     }
 
@@ -304,7 +303,7 @@ export function registerBloodthirst(eventBus) {
                 unit._bloodthirstStriked = true;
                 eventBus.emit('requestExtraAttack', { unit, target, allySide, enemySide, log });
             }
-        } else if (isBrother && isXiaoZhaoPermanentActive(unit, unitBuffs, 'bloodthirst') && unit.role === '战士') {
+        } else if (isBrother && query('xiaoPermanentActive', unit, unitBuffs, 'bloodthirst') && unit.role === '战士') {
             const leechVal = Math.floor(dmg * 0.8);
             const decl = {
                 type: 'leech',
@@ -348,7 +347,7 @@ export function registerHotBlood(eventBus) {
                 if (!data.declarations) data.declarations = [];
                 data.declarations.push(decl);
             }
-        } else if (isBrother && isXiaoZhaoPermanentActive(unit, unitBuffs, 'hotBlood')) {
+        } else if (isBrother && query('xiaoPermanentActive', unit, unitBuffs, 'hotBlood')) {
             if (!unit._hotBloodCount) unit._hotBloodCount = 0;
             unit._hotBloodCount++;
             if (unit.hp < unit.maxHp) {
@@ -379,7 +378,7 @@ export function registerWindAssault(eventBus) {
         const isBrother = unit.isXiaoZhaoBrother;
 
         const active = hasBuff(unitBuffs, 'windAssault') && unit.role === '飞行';
-        const brotherActive = isBrother && unit.role === '飞行' && isXiaoZhaoPermanentActive(unit, unitBuffs, 'windAssault');
+        const brotherActive = isBrother && unit.role === '飞行' && query('xiaoPermanentActive', unit, unitBuffs, 'windAssault');
         if (!active && !brotherActive) return;
 
         const hitProb = hasSister ? 100 : 80;
@@ -443,7 +442,7 @@ export function registerMeteorShower(eventBus) {
         const isBrother = unit.isXiaoZhaoBrother;
 
         const active = hasBuff(unitBuffs, 'meteorShower') && unit.role === '远程';
-        const brotherActive = isBrother && unit.role === '远程' && isXiaoZhaoPermanentActive(unit, unitBuffs, 'meteorShower');
+        const brotherActive = isBrother && unit.role === '远程' && query('xiaoPermanentActive', unit, unitBuffs, 'meteorShower');
         if (!active && !brotherActive) return;
 
         const label = brotherActive ? '🦋 蝶星' : '☄️ 流星赶月';
