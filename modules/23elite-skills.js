@@ -5,7 +5,7 @@ export const VER = 'modules/23elite-skills.js V5.3.2';
 import { CONFIG, getSkillParams, getSkillParamsJealous } from '../core/01config-5v5-test.js';
 import { ROLE_BONUS } from '../core/02unit.js';
 import { hasBuff, rand } from '../core/03battle-utils.js';
-import { emitEvent, applyStatChange } from '../core/50battle-shared.js';
+import { emitEvent, applyStatChange, registerQuery } from '../core/50battle-shared.js';
 const ES = CONFIG.ELITE_SKILLS;
 
 // ==================== 宋青书 — 叛逆突袭 ====================
@@ -309,3 +309,10 @@ export function getXiaoZhaoHexEnhance(allyTeam, activeBuffs, hexKey) {
     if (!s || !s.hexEnhance || !s.hexEnhance[hexKey]) return null;
     return s.hexEnhance[hexKey];
 }
+
+// ==================== 查询注册 ====================
+// 注册到 core 的查询注册表，让 core 层通过 query() 调用，不直接 import 本文件
+registerQuery('xiaoHexEnhance', getXiaoZhaoHexEnhance);
+registerQuery('xiaoPermanentActive', isXiaoZhaoPermanentActive);
+registerQuery('butterflyMastery', computeButterflyMastery);
+registerQuery('damageModifiers', applyDamageModifiers);

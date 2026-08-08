@@ -3,8 +3,7 @@
 export const VER = 'core/03battle-utils.js V5.3.1';
 
 import { CONFIG, TAUNT_LIB, DEF_TAUNT, HP_TAUNT, ZHANG_NEAR_TAUNT } from './01config-5v5-test.js';
-import { emitEvent, applyStatChange } from './50battle-shared.js';
-import { getXiaoZhaoHexEnhance } from '../modules/23elite-skills.js';
+import { emitEvent, applyStatChange, query } from './50battle-shared.js';
 import { EXECUTION_LAYER as L } from './00-event-bus.js';
 const C = CONFIG, TL = TAUNT_LIB, DT = DEF_TAUNT, HT = HP_TAUNT, ZT = ZHANG_NEAR_TAUNT;
 
@@ -297,6 +296,33 @@ export function registerRangedGrowth(eventBus) {
 }
 
 /**
+ * 注册战士斩杀监听器
+ * - 目标血量低于 15% 时直接斩杀
+ * - 嗜血狂刀激活时斩杀线提升至 20%
+ * - 不限阵营，六大派战士同样生效
+ */
+export function registerWarriorExecute(eventBus) {
+    eventBus.on('afterDamageApplied', L.AFTER_DAMAGE_APPLIED.WARRIOR_EXECUTE, (data) => {
+        const { unit, target, allySide, declarations } = data;
+        if (unit.role !== '战士' || !unit.alive) return;
+        if (!target || !target.alive || target.hp <= 0) return;
+        const unitBuffs = (allySide && allySide._activeBuffs) || [];
+        const hasBloodthirst = hasBuff(unitBuffs, 'bloodthirst');
+        const threshold = hasBloodthirst ? 0.20 : 0.15;
+        if (target.hp <= target.maxHp * threshold) {
+            if (!declarations) return;
+            declarations.push({
+                type: 'execute',
+                target: target,
+                source: unit,
+                threshold: threshold,
+                logText: `<span class="red">⚔️ 战士斩杀！${unit.name} 直接击杀 ${target.name}！</span>`
+            });
+        }
+    });
+}
+
+/**
  * 注册防战坚盾监听器
  * - 被攻击时 60% 概率触发坚盾（防御+1/成昆+2）
  * - 攻击时 100% 概率触发坚盾（与被攻击共享每回合上限，成昆6/其他防战3）
@@ -343,7 +369,7 @@ export function registerDoubleStrike(eventBus, doubleStrikeUnitUid, allyTeam, ac
     eventBus.on('afterAttack', L.AFTER_ATTACK.DOUBLE_STRIKE, (data) => {
         const { unit, target, log } = data;
         if (unit.uid !== doubleStrikeUnitUid || !unit.alive || unit.camp !== 'ally' || unit._doubleStriked) return;
-        const xiaoDoubleEnhance = getXiaoZhaoHexEnhance(allyTeam, activeBuffs, 'doubleStrike');
+        const xiaoDoubleEnhance = query('xiaoHexEnhance', allyTeam, activeBuffs, 'doubleStrike');
         const missChainChance = xiaoDoubleEnhance ? 1.0 : 0.8;
         if (Math.random() < missChainChance) {
             log.push({type:'info', text:`<span class="gold">⚡ 概率连击触发！</span>`, isDoubleStrikeBanner:true});
