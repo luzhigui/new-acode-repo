@@ -78,7 +78,6 @@ export function createSongQingshuComponent() {
                         u._baseAtk = (u._baseAtk || u.atk) + s.atkBonus * mult;
                         u._baseDef = (u._baseDef || u.def) + s.defBonus * mult;
                         u._baseMaxHp = Math.max(u._baseMaxHp || u.maxHp, u.maxHp);
-                        u.hp = Math.min(u.hp + s.hpBonus * mult, u.maxHp);
                     });
                     log.push({ type:'info', text:`<span class="gold">🏋️ 苦练：${kuLianSong.name} 激励全体队友+${s.atkBonus}攻+${s.defBonus}防+${s.hpBonus}血上限（自身翻倍）！</span>` });
                 }

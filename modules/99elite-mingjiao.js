@@ -177,7 +177,6 @@ export function createXiaoZhaoSisterComponent() {
             applyStatChange(host, 'atk', atkTransfer, sister, '蝶变附身');
             applyStatChange(host, 'def', defTransfer, sister, '蝶变附身');
             applyMaxHpChange(host, host.maxHp + hpTransfer, sister, '蝶变附身血上限');
-            host.hp = Math.min(host.maxHp, host.hp + hpTransfer);
             emitEvent(host, 'hp-change', { hp:host.hp, maxHp:host.maxHp, alive:host.alive, atk:host.atk, def:host.def, _phantomTarget:sister.uid });
             const aliveAllies = A.filter(a => a.alive && !a.isHorse && a.uid !== sister.uid);
             const totalHp = aliveAllies.reduce((sum,a) => sum + a.hp, 0); const totalMaxHp = aliveAllies.reduce((sum,a) => sum + a.maxHp, 0);
@@ -384,7 +383,6 @@ export function createXiaoZhaoBrotherComponent() {
                     applyStatChange(brother, 'def', 4, null, '小昭永久carry');
                     applyMaxHpChange(brother, brother.maxHp + 20, null, '小昭永久carry');
                     brother._baseMaxHp = brother.maxHp;
-                    brother.hp = Math.min(brother.hp + 20, brother.maxHp);
                 }
             });
             eventBus.on('afterMiss', L.AFTER_MISS.XIAOZHAO_DOUBLE_RETRY, (data) => {

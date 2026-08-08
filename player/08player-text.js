@@ -10,6 +10,14 @@ function getCtx() {
 
 export function setPlayerContext(c) { ctx = c; }
 
+/**
+ * 逐字播放文本动画，支持倍速自适应和快进跳过
+ * 分隔符、系统提示（small 类）、快进模式下直接显示完整文本，不走逐字动画
+ * @param {string} text - HTML 格式的文本内容
+ * @param {HTMLElement} div - 目标 DOM 元素
+ * @param {number|null} forcedSpeed - 强制播放速度（ms），null 表示使用全局倍速
+ * @returns {Promise<void>}
+ */
 export async function playLineText(text, div, forcedSpeed = null) {
     // 分隔符、系统信息、瞬时提示直接显示，不走逐字动画
     if (text.includes('separator') || text.includes('class="purple small"') || text.includes('class="blue small"') || text.includes('class="red small"') || text.includes('class="gray small"') || text.includes('class="gold small"') || text.includes('class="green small"')) {

@@ -164,6 +164,11 @@ export function consumeXingFen(attacker) {
 
 // ==================== 小昭·妹 — 蛛变/飞天/蛛落 ====================
 
+/**
+ * 小昭妹妹每回合随机变换职业（不重复），记录精通职业，叠加对应属性加成
+ * @param {Unit} unit - 小昭妹妹单位
+ * @param {Array} log - 日志数组
+ */
 export function spiderTransform(unit, log) {
     if (!unit.isXiaoZhaoBrother || !unit.alive) return;
     const roles = ['战士', '防战', '远程', '飞行'];
@@ -195,6 +200,13 @@ export function spiderTransform(unit, log) {
     log.push({ type:'info', text:`<span class="gold">🕷️ 蛛变：${unit.name} 变换为<span class="gold">${newRole}</span>（已精通${unit._masteredRoles.length}/4）</span>` });
 }
 
+/**
+ * 小昭妹妹回合结束蛛落：解除飞天状态 → 找空位落地 → 随机攻击一个敌人（穿透 + 精通加成）
+ * @param {Unit} unit - 小昭妹妹单位
+ * @param {Array} allyTeam - 己方单位数组
+ * @param {Array} enemySide - 敌方单位数组
+ * @param {Array} log - 日志数组
+ */
 export function spiderReturn(unit, allyTeam, enemySide, log) {
     if (!unit.isXiaoZhaoBrother || !unit._spiderFlying) return;
 
@@ -227,6 +239,11 @@ export function spiderReturn(unit, allyTeam, enemySide, log) {
 
 // ==================== 小昭共通 — 精通 + 永久海克斯 ====================
 
+/**
+ * 计算小昭妹妹的精通加成（攻/防/血），精通 4 个职业后额外 +2 层
+ * @param {Unit} unit - 小昭妹妹单位
+ * @returns {{ atk: number, def: number, hp: number }} 精通加成的绝对值
+ */
 export function computeButterflyMastery(unit) {
     if (!unit.isXiaoZhaoBrother || !unit._masteredRoles) return { atk: 0, def: 0, hp: 0 };
     const count = unit._masteredRoles.length;

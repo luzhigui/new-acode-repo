@@ -121,7 +121,9 @@ function applyStatChange(target, field, delta, source, reason) {
 }
 
 /**
- * 最大生命值变更边裁 — 修改 maxHp 时等比缩放当前血量
+ * 最大生命值变更边裁
+ * - 上限增加：当前生命直接增加等额差值
+ * - 上限减少：当前生命等比缩放
  * @param {Unit} target - 目标单位
  * @param {number} newMaxHp - 新的最大生命值
  * @param {Unit|null} source - 变更来源
@@ -133,7 +135,11 @@ function applyMaxHpChange(target, newMaxHp, source, reason) {
     if (oldMaxHp <= 0 || newMaxHp <= 0) return;
     const oldHp = target.hp;
     target.maxHp = newMaxHp;
-    target.hp = Math.floor(oldHp * (newMaxHp / oldMaxHp));
+    if (newMaxHp > oldMaxHp) {
+        target.hp = oldHp + (newMaxHp - oldMaxHp);
+    } else {
+        target.hp = Math.floor(oldHp * (newMaxHp / oldMaxHp));
+    }
     target.hp = Math.min(target.hp, target.maxHp);
     if (target.hp <= 0) {
         applyStatChange(target, 'hp', -target.hp, null, 'maxHp变更致死');

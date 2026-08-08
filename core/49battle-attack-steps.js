@@ -627,11 +627,9 @@ export function resolveDodgeEffects(declarations, unit, target) {
         } else if (decl.type === 'stun') {
             unit._stunned = true;
         } else if (decl.type === 'weiHeal') {
-            const { heal, newMaxHp, wasFullHp } = decl.data;
+            const { heal, newMaxHp } = decl.data;
             applyMaxHpChange(target, newMaxHp, null, '韦一笑吸血上限提升');
             target._baseMaxHp = Math.max(target._baseMaxHp, newMaxHp);
-            applyStatChange(target, 'hp', heal, null, '韦一笑闪避吸血');
-            if (wasFullHp) { target.hp = target.maxHp; }
             target.healDone += heal;
             target.leechDone += heal;
         }

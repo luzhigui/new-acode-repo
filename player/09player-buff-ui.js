@@ -17,6 +17,12 @@ function getCtx() {
 
 export function setBuffUIContext(c) { ctx = c; }
 
+/**
+ * 显示海克斯选择弹窗，返回玩家选择的 Buff 对象
+ * 弹窗支持最小化（生成浮动按钮恢复）、Bug 模式全量可选、小昭永久海克斯存储
+ * @param {object} c - 播放器上下文
+ * @returns {Promise<object|null>} 选择的 Buff 对象 { key, target, remaining, name }，取消返回 null
+ */
 export function showBuffPopup(c) {
     return new Promise((resolve) => {
         let activeBuffs = c.activeBuffs || [];

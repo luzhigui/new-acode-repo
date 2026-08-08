@@ -21,6 +21,13 @@ export function createStore(initialState, reducer) {
 // ==================== 战斗 Reducer ====================
 export const GAME_STATE_FIELDS = ['hp','alive','maxHp','atk','def','role','rangedForm','_isDead','_baseMaxHp','_baseAtk','_baseDef','dmgDealt','dmgTaken','healDone','reboundDone','leechDone','dodgeCount','critCount','survivedRounds','pos','buffAtkBonus','buffDefBonus','buffDodgeBonus','buffHpBonus','_phantomTarget', '_masteredRoles', '_fortifyStacks', '_baseFangDef'];
 
+/**
+ * 战斗 Store 的 Reducer — 根据 action 类型处理单位状态变更
+ * 所有 UI 层的格子显示（闪光/死亡/血条/位置）通过 dispatch action → reducer → Store 订阅 → renderGrid 的链路完成
+ * @param {object} state - 当前 Store 状态 { units: Array }
+ * @param {object} action - { type: string, uid?: string, flash?: string, events?: Array, unit?: object, ... }
+ * @returns {object} 新状态
+ */
 export function battleReducer(state, action) {
     switch (action.type) {
         case 'INIT': return state;
