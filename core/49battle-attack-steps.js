@@ -282,7 +282,7 @@ export function calcFinalDamage(unit, target, attackerBuffStats, defenderBuffSta
     let raw, rawFormula;
     if (unit.role === '防战') {
         let displayDef = Math.floor(unit.def);
-        let lv = getFangLevel(displayDef, unit.m), k = C.FANG_K[lv + 1] !== undefined ? C.FANG_K[lv + 1] : C.FANG_K[C.FANG_K.length - 1];
+        let lv = getFangLevel(displayDef, unit.m), k = C.FANG_K[lv] !== undefined ? C.FANG_K[lv] : C.FANG_K[C.FANG_K.length - 1];
         let penPart = calcDamage(atkAct, defAct);
         raw = penPart + displayDef * k + unit.maxHp * C.HP_DMG_RATIO;
     } else {
@@ -565,7 +565,7 @@ export async function buildAttackGroup(unit, target, dmgCalc, dmgResult, attacke
     if (unit.role === '防战') {
         const penPart = calcDamage(atkAct, defAct);
         const lv = getFangLevel(Math.floor(unit.def), unit.m);
-        const k = C.FANG_K[lv + 1] !== undefined ? C.FANG_K[lv + 1] : C.FANG_K[C.FANG_K.length - 1];
+        const k = C.FANG_K[lv] !== undefined ? C.FANG_K[lv] : C.FANG_K[C.FANG_K.length - 1];
         formulaText = `${Math.floor(penPart)} + ${Math.floor(unit.def)}×${k} + ${Math.floor(unit.maxHp)}×${C.HP_DMG_RATIO} = ${Math.floor(raw)}`;
     } else {
         formulaText = `${atkAct}×(${atkAct}/(${atkAct}+${defAct})) = ${Math.floor(raw)}`;
