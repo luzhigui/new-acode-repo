@@ -91,11 +91,10 @@ export function createSongQingshuComponent() {
             const hpDeduct = xinHunParams.hpDeduct || 1;
             const healLevels = xinHunParams.healLevels || [0.16, 0.10, 0.06, 0.03];
             if (zhou) {
-                zhou.hp = Math.max(0, zhou.hp - hpDeduct);
+                applyStatChange(zhou, 'hp', -hpDeduct, unit, '新婚扣血');
                 zhou.dmgTaken += hpDeduct;
                 zhou._kuaiLeStack.push({ healPct: healLevels[0] });
-                emitEvent(zhou, 'hp-change', { hp:zhou.hp, maxHp:zhou.maxHp, alive:zhou.alive, atk:zhou.atk, def:zhou.def, _isAbsolute:true });
-                if (zhou.hp <= 0) { zhou._pendingDeath = true; if (!zhou._deathTime) zhou._deathTime = Date.now(); }
+                if (zhou.hp <= 0) { if (!zhou._deathTime) zhou._deathTime = Date.now(); }
                 log.push({ type:'info', text:`<span class="gold">💒 新婚：${unit.name}攻击，${zhou.name}被扣除${hpDeduct}点血量，叠加一层快乐(${Math.round(healLevels[0]*100)}%)！当前快乐层数：${zhou._kuaiLeStack.length}</span>`, buffType:'elite_xinhun', zhouUid:zhou.uid, zhouHpAfter:zhou.hp });
                 if (zhou._pendingDeath) { log.push({ type:'info', text:`<span class="red">💀 ${zhou.name} 因新婚扣血而阵亡！</span>`, uidD:zhou.uid, isDead:true }); }
             }
@@ -104,11 +103,8 @@ export function createSongQingshuComponent() {
                 unit._xingFenPenaltyCount = (unit._xingFenPenaltyCount||0)+1;
                 const penalty = unit._xingFenPenaltyCount;
                 if (penalty > 0 && unit.maxHp > 1) {
-                    const oldMaxHp = unit.maxHp;
-                    unit.maxHp = Math.max(1, unit.maxHp - penalty);
-                    unit.hp = Math.floor(unit.hp * (unit.maxHp / oldMaxHp));
-                    if (unit.hp <= 0) { unit._pendingDeath = true; if (!unit._deathTime) unit._deathTime = Date.now(); }
-                    emitEvent(unit, 'hp-change', { hp:unit.hp, maxHp:unit.maxHp, alive:unit.alive, atk:unit.atk, def:unit.def });
+                    applyMaxHpChange(unit, Math.max(1, unit.maxHp - penalty), null, '性奋代价');
+                    if (unit.hp <= 0) { if (!unit._deathTime) unit._deathTime = Date.now(); }
                     log.push({ type:'info', text:`<span class="red">💗 性奋代价：${unit.name} 血量上限 ${oldMaxHp} → ${unit.maxHp}（-${penalty}）</span>` });
                 }
             }
@@ -173,8 +169,10 @@ export function createZhouZhiruoComponent() {
                     const song = allUnits.find(u => u.name === '宋青书' && u.alive);
                     if (song) {
                         const healAmount = Math.min(bonusDmg, song.maxHp - song.hp);
-                        if (healAmount > 0) { song.hp += healAmount; song.healDone += healAmount; }
-                        emitEvent(song, 'hp-change', { hp:song.hp, maxHp:song.maxHp, alive:song.alive, atk:song.atk, def:song.def });
+                        if (healAmount > 0) {
+                            applyStatChange(song, 'hp', healAmount, unit, '九阴白骨爪联动');
+                            song.healDone += healAmount;
+                        }
                     }
                 }
                 depth++; if (isExecute) break;

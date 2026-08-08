@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿﻿// core/01config-5v5-test.js - 光明顶5v5 全量配置
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// core/01config-5v5-test.js - 光明顶5v5 全量配置
 // V5.3.1 | ~14700 bytes| 2026-07-05 → V5.3.2 | 接入 content/101game-data.json
 export const VER = 'core/01config-5v5-test.js V5.3.2';
 
@@ -89,6 +89,13 @@ const CONFIG = {
     HP_DMG_RATIO: 0.04,
     BASE_DODGE_FLY: 0.15,
     BASE_DODGE_GROUND: 0.03,
+    DODGE_REBOUND_RATIO: 0.5,
+    WARRIOR_BREAK_DEF: 2,
+    RANGED_GROWTH_ATK: 2,
+    FORTIFY_INCREMENT: 1,
+    FORTIFY_CAP: 3,
+    TOKEN_DROP_RATES: [0, 1.5, 2, 2.5, 4, 5.5, 6],
+    CHEST_DROP_RATE: 0.2,
     BUFF_DURATION: 4,
     BUFF_CHOICES: 3,
     BGM_LOCAL: 'assets/sfx_xinai.mp3',

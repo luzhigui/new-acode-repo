@@ -20,6 +20,13 @@ const C = CONFIG;
 
 // ==================== 回合生成器 ====================
 
+/**
+ * 回合推进生成器 — 逐步 yield 每个行动步骤，供播放器逐帧消费
+ * 每回合流程：回合开始（Buff结算/拒马召唤/精英注册）→ 行动调度（按站位轮流攻击）→ 回合结束（Buff过期/拒马销毁/胜负判定）
+ * @param {object} state - 战斗状态 { ally, enemy, round, activeBuffs, allAllies }
+ * @yields {{ log: Array, events: Array, ally: Array, enemy: Array, winner: string|null, done: boolean }}
+ *   每步产生日志、事件、当前双方状态，winner 非空表示战斗结束
+ */
 export async function* createRoundStepper(state) {
     if (!state.allAllies) {
         state.allAllies = state.ally.map(u => u.clone());
@@ -154,7 +161,11 @@ export async function* createRoundStepper(state) {
         if (!u.alive) return;
         if (u.name === '宋青书') createSongQingshuComponent().register(eventBus, A, B, log);
         if (u.name === '周芷若') createZhouZhiruoComponent().register(eventBus, A, B, log);
-        if (u.name === '成昆') createChengKunComponent().register(eventBus, A, B, log);
+        if (u.name === '成昆') {
+            u._fortifyIncrement = CONFIG.FORTIFY_INCREMENT * 2;
+            u._fortifyCap = CONFIG.FORTIFY_CAP * 2;
+            createChengKunComponent().register(eventBus, A, B, log);
+        }
         if (u.name === '鹿杖客') createLuZhangKeComponent().register(eventBus, A, B, log);
         if (u.name === '鹤笔翁') createHeBiWengComponent().register(eventBus, A, B, log);
     });

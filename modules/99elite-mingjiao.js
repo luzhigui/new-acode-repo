@@ -45,10 +45,9 @@ export function createZhangWujiComponent() {
             const hpBeforeZhang = Math.floor(unit.hp);
             const s = getSkillParams('张无忌', 'nineYang') || { healPct: 8 };
             const heal = Math.floor(unit.maxHp * (s.healPct / 100));
-            unit.hp = Math.min(unit.maxHp, unit.hp + heal);
+            applyStatChange(unit, 'hp', heal, null, '九阳神功');
             unit.healDone += heal;
             group.entries.push({ type:'info', text:`<span class="green">☀️ 九阳神功回复+${heal}，${hpBeforeZhang}→${Math.floor(unit.hp)}</span>`, isHealEntry:true, healAmount:heal, healUnitUid:unit.uid });
-            emitEvent(unit, 'hp-change', { hp:unit.hp, maxHp:unit.maxHp, alive:unit.alive, atk:unit.atk, def:unit.def });
             if (!unit.rangedForm) {
                 if (unit.nearAtkCount === 0 && !unit._zhangTauntDone) { const firstTaunt = getZhangNearTaunt(1); if (firstTaunt) { group.entries.push({ type:'info', text:`<span class="gold">🗣️ ${unit.name}：${firstTaunt}</span>` }); unit._zhangTauntDone = true; } }
                 unit.nearAtkCount++;
@@ -89,6 +88,22 @@ export function createWeiYixiaoComponent() {
                 data.declarations.push(decl);
                 wei._baseMaxHp = Math.max(wei._baseMaxHp, newMaxHpWei);
                 applyMaxHpChange(wei, newMaxHpWei, null, '韦一笑吸血上限提升');
+            });
+
+            // 闪避反击吸血：通过 onDodge 信号提交声明
+            eventBus.on('onDodge', L.AFTER_DAMAGE_APPLIED.WEI_LEECH, (data) => {
+                const { unit, target, reboundDmg, declarations } = data;
+                if (!target.isWei || !target.alive) return;
+                const s = getSkillParams('韦一笑', 'coldPalm') || { leechMin: 20, leechMax: 40 };
+                const lostPct = (target.maxHp - target.hp) / target.maxHp;
+                const leechRate = (s.leechMin + (s.leechMax - s.leechMin) * lostPct) / 100;
+                const heal = Math.floor(reboundDmg * leechRate);
+                const wasFullHp = (target.hp >= target.maxHp);
+                const newMaxHp = Math.min(target.maxHp + heal, target._baseMaxHp * 2);
+                declarations.push({
+                    type: 'weiHeal',
+                    data: { heal, newMaxHp, wasFullHp }
+                });
             });
 
             // 血蝠闪避：损失血量比例 × maxRatio，乘法叠加到总闪避

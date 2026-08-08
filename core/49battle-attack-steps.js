@@ -6,7 +6,7 @@ import { CONFIG, DEF_TAUNT, HP_TAUNT, getSkillParams } from './01config-5v5-test
 import { eventBus } from './00-event-bus.js';
 import { rand, calcDamage, getFangLevel, isMelee, getFronts, isBlocked, getRandomTaunt, getZhangNearTaunt, makeFXSnapshot, hasBuff, getUnitCol, getUnitRow } from './03battle-utils.js';
 import { computeBuffStats, applyBuffEffectsBeforeAttack, applyBuffEffectsAfterAttack } from './04buff-system.js';
-import { emitEvent, applyStatChange, query } from './50battle-shared.js';
+import { emitEvent, applyStatChange, applyMaxHpChange, query } from './50battle-shared.js';
 
 // ==================== 闪避规则注册表 ====================
 // 裁判统一管理所有闪避规则。每个规则是一个函数 (unit, attacker) => dodgeRate (0~1)
@@ -109,6 +109,20 @@ export function selectAttackTarget(unit, enemySide, allySide) {
 }
 
 // ==================== 步骤2：未命中+闪避判定 ====================
+/**
+ * 判定本次攻击是否命中/被闪避
+ * @param {Unit} unit - 攻击者
+ * @param {Unit} target - 目标
+ * @param {object} attackerBuffStats - 攻击者 Buff 统计 { atkBonus, defBonus, dodgeBonus }
+ * @param {object} defenderBuffStats - 目标 Buff 统计
+ * @param {Array} log - 日志数组
+ * @param {Array} A - 明教方单位数组
+ * @param {Array} B - 六大派方单位数组
+ * @param {string|null} doubleStrikeUnitUid - 概率连击单位 uid
+ * @param {EventBus} eventBus - 事件总线实例
+ * @returns {{ skipped: boolean, retry: boolean, lockedTargetUid: string|null, missGroup?: object, dodgeGroup?: object }}
+ *   返回命中结果：skipped=true 表示跳过后续伤害步骤，retry=true 需递归重试
+ */
 export function resolveAttackHit(unit, target, attackerBuffStats, defenderBuffStats, log, A, B, doubleStrikeUnitUid, eventBus) {
     let missChance = 0;
     if (unit.role === '远程') { missChance = 3; }
@@ -167,55 +181,55 @@ export function resolveAttackHit(unit, target, attackerBuffStats, defenderBuffSt
             }
         }
         if (dodgeTriggered) {
-                target.dodgeCount++;
-                let reboundDmg = Math.floor((target.atk + target.def) * 0.5);
-                let unitHpBeforeRebound = Math.floor(unit.hp);
-                applyStatChange(unit, 'hp', -reboundDmg, target, '闪避反击');
+            target.dodgeCount++;
+            let reboundDmg = Math.floor((target.atk + target.def) * C.DODGE_REBOUND_RATIO);
+            let unitHpBeforeRebound = Math.floor(unit.hp);
 
-                let weiHealData = null;
-                if (target.isWei) {
-                    const s = getSkillParams('韦一笑', 'coldPalm') || { leechMin: 20, leechMax: 40 };
-                    const lostPctWei = (target.maxHp - target.hp) / target.maxHp;
-                    const leechRateWei = (s.leechMin + (s.leechMax - s.leechMin) * lostPctWei) / 100;
-                    let heal = Math.floor(reboundDmg * leechRateWei);
-                    let wasFullHp = (target.hp >= target.maxHp);
-                    let newMaxHp = Math.min(target.maxHp + heal, target._baseMaxHp * 2);
-                    target.maxHp = newMaxHp;
-                    target.hp = Math.min(target.hp + heal, target.maxHp);
-                    if (wasFullHp) { target.hp = target.maxHp; }
-                    target.healDone += heal;
-                    target.leechDone += heal;
-                    emitEvent(target, 'hp-change', { hp: target.hp, maxHp: target.maxHp, alive: target.alive, atk: target.atk, def: target.def });
-                    weiHealData = { heal, newMaxHp: Math.floor(target.maxHp) };
+            // ---------- 闪避后效果声明收集 ----------
+            const dodgeDeclarations = [];
+            eventBus.emit('onDodge', { unit, target, reboundDmg, declarations: dodgeDeclarations });
+
+            // ---------- 裁判执行闪避后效果 ----------
+            resolveDodgeEffects(dodgeDeclarations, unit, target);
+
+            unit._acted = true;
+            emitEvent(unit, 'hp-change', { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: unit.atk, def: unit.def, _stunned: unit._stunned });
+
+            const dodgeData = {
+                skipped: true, retry: false, lockedTargetUid: null,
+                dodgeGroup: {
+                    type:'attack-group', uidA:target.uid, uidD:unit.uid, entries:[], isDodge:true,
+                    hpAfter:unit.hp, alive:unit.alive,
+                    _fxSnapshot:makeFXSnapshot(target,unit), waveTaunt:null, waveUnit:null,
+                    buffEffects:[], _atkBonus:0, _defBonus:0, needsSeparator: true,
+                    isDead: unit.hp <= 0,
+                    combatText: `<span class="${unit.camp==='ally'?'blue':'orange'}">${unit.camp==='ally'?'明教':'六大派'} ${unit.name}</span>(攻${Math.floor(unit.atk)} 血${unitHpBeforeRebound}) → <span class="${target.camp==='ally'?'blue':'orange'}">${target.camp==='ally'?'明教':'六大派'} ${target.name}</span>(防${Math.floor(target.def)} 血${Math.floor(target.hp)})`,
+                    dodgeText: `<span class="gray">🦅 ${target.name}闪避了攻击！</span>`,
+                    reboundText: `<span class="red">🦅 ${target.name}反击 → ${unit.name} 造成 ${reboundDmg} 真实伤害（${unitHpBeforeRebound} → ${Math.floor(unit.hp)}）</span>`,
+                    stunText: `<span class="gray">😵 ${unit.name} 被反击眩晕，本回合无法行动！</span>`,
+                    weiHealData: dodgeDeclarations.find(d => d.type === 'weiHeal')?.data || null,
+                    _events: GlobalStore.flushBattleEvents()
                 }
-
-                unit._acted = true;
-                unit._stunned = true;
-                emitEvent(unit, 'hp-change', { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: unit.atk, def: unit.def, _stunned: true });
-
-                const dodgeData = {
-                    skipped: true, retry: false, lockedTargetUid: null,
-                    dodgeGroup: {
-                        type:'attack-group', uidA:target.uid, uidD:unit.uid, entries:[], isDodge:true,
-                        hpAfter:unit.hp, alive:unit.alive,
-                        _fxSnapshot:makeFXSnapshot(target,unit), waveTaunt:null, waveUnit:null,
-                        buffEffects:[], _atkBonus:0, _defBonus:0, needsSeparator: true,
-                        isDead: unit.hp <= 0,
-                        combatText: `<span class="${unit.camp==='ally'?'blue':'orange'}">${unit.camp==='ally'?'明教':'六大派'} ${unit.name}</span>(攻${Math.floor(unit.atk)} 血${unitHpBeforeRebound}) → <span class="${target.camp==='ally'?'blue':'orange'}">${target.camp==='ally'?'明教':'六大派'} ${target.name}</span>(防${Math.floor(target.def)} 血${Math.floor(target.hp)})`,
-                        dodgeText: `<span class="gray">🦅 ${target.name}闪避了攻击！</span>`,
-                        reboundText: `<span class="red">🦅 ${target.name}反击 → ${unit.name} 造成 ${reboundDmg} 真实伤害（${unitHpBeforeRebound} → ${Math.floor(unit.hp)}）</span>`,
-                        stunText: `<span class="gray">😵 ${unit.name} 被反击眩晕，本回合无法行动！</span>`,
-                        weiHealData: weiHealData,
-                        _events: GlobalStore.flushBattleEvents()
-                    }
-                };
-                return dodgeData;
-            }
+            };
+            return dodgeData;
         }
+    }
     return { skipped: false, retry: false, lockedTargetUid: null };
 }
 
 // ==================== 步骤3：伤害计算 ====================
+/**
+ * 计算本次攻击的最终伤害值
+ * 第一步收集组件声明的破防/忽略防御/附加伤害/增伤倍率，第二步裁判统一结算，第三步基础伤害公式计算
+ * @param {Unit} unit - 攻击者
+ * @param {Unit} target - 目标
+ * @param {object} attackerBuffStats - 攻击者 Buff 统计
+ * @param {object} defenderBuffStats - 目标 Buff 统计
+ * @param {Array} allySide - 攻击者阵营单位数组
+ * @param {Array} enemySide - 目标阵营单位数组
+ * @param {Array} log - 日志数组
+ * @returns {{ atkBase: number, defBase: number, dmg: number, ... }} 伤害计算完整数据包
+ */
 export function calcFinalDamage(unit, target, attackerBuffStats, defenderBuffStats, allySide, enemySide, log) {
     // ---------- 第一步：伤害声明收集 ----------
     // 组件一次性声明所有效果，格式 { type: 'breakDef'|'ignoreDef'|'bonusDmg'|'dmgMultiplier', value: number, target }
@@ -291,6 +305,15 @@ export function calcFinalDamage(unit, target, attackerBuffStats, defenderBuffSta
 }
 
 // ==================== 步骤4：应用伤害结果 ====================
+/**
+ * 将计算好的伤害应用到目标，处理击杀、掉落、拒马反伤、严阵以待反弹声明
+ * @param {Unit} unit - 攻击者
+ * @param {Unit} target - 目标
+ * @param {object} dmgCalc - calcFinalDamage 的返回值（伤害计算数据包）
+ * @param {Array} A - 明教方单位数组
+ * @param {Array} B - 六大派方单位数组
+ * @returns {{ dmg: number, dead: boolean, fortifyDeclarations: Array|null, ... }}
+ */
 export function applyAttackResult(unit, target, dmgCalc, attackerBuffStats, defenderBuffStats, allySide, enemySide, log, A, B, state, doubleStrikeUnitUid) {
     let { atkBase, defBase, atkAct, defAct, hpBonus, hpBefore, waveTaunt, waveUnit, raw, rawFormula, thunderBonus, hornDmgMultiplier, trueDmg, dmg, bonusEntries, defReduction } = dmgCalc;
 
@@ -306,7 +329,7 @@ export function applyAttackResult(unit, target, dmgCalc, attackerBuffStats, defe
     unit.dmgDealt += dmg; target.dmgTaken += dmg;
     if (dead && target.camp === 'enemy' && unit.camp === 'ally' && !target._tokenDropped) {
         const stage = GlobalStore.get('currentStage') || 1;
-        const dropRate = [0, 1.5, 2, 2.5, 4, 5.5, 6][stage] / 100;
+        const dropRate = (C.TOKEN_DROP_RATES[stage] || 0) / 100;
         if (Math.random() < dropRate) {
             target._tokenDropped = true;
             const currentToken = GlobalStore.get('holyToken') || 0;
@@ -317,8 +340,7 @@ export function applyAttackResult(unit, target, dmgCalc, attackerBuffStats, defe
         }
     }
     if (dead && target.camp === 'enemy' && unit.camp === 'ally' && !target._chestDropped) {
-        const stage = GlobalStore.get('currentStage') || 1;
-        const chestKillRate = 0.2 / 100;
+        const chestKillRate = C.CHEST_DROP_RATE / 100;
         if (Math.random() < chestKillRate) {
             target._chestDropped = true;
             let chests = parseInt(localStorage.getItem('ming_chest_count') || '0');
@@ -335,7 +357,7 @@ export function applyAttackResult(unit, target, dmgCalc, attackerBuffStats, defe
     if (target.isHorse && dmg > 0 && xiaoHEnhance && hasBuff(A._activeBuffs, 'horseFormation')) {
         const rebound = xiaoHEnhance.reboundDmg;
         applyStatChange(unit, 'hp', -rebound, target, '巨马反伤');
-        horseReboundEntry = {type:'info', text:`<span class="red">🐴 巨马反伤：${unit.name} 受到 5 点反伤</span>`};
+        horseReboundEntry = {type:'info', text:`<span class="red">🐴 巨马反伤：${unit.name} 受到 ${rebound} 点反伤</span>`};
     }
 
     // 防战坚盾已迁移至事件总线监听器
@@ -404,7 +426,14 @@ export function resolveDamageImmune(declarations) {
 }
 
 // ==================== 攻击后效果结算 ====================
-// 裁判统一执行攻击后附加效果。裁决顺序：吸血 → 回血 → 溅射波及 → 其他
+/**
+ * 裁判统一执行攻击后附加效果。裁决顺序：额外伤害 → 吸血 → 回血 → 溅射 → 反弹 → 属性变更 → 斩杀 → 其他
+ * @param {Array} declarations - 攻击后效果声明数组，组件通过 afterDamageApplied 信号提交
+ * @param {Unit} unit - 攻击者
+ * @param {Unit} target - 目标
+ * @param {object} group - 攻击组日志对象（未使用，预留）
+ * @returns {Array} 已执行的声明列表，供调用方拼接日志
+ */
 export function resolveAfterDamageEffects(declarations, unit, target, group) {
     if (!declarations || declarations.length === 0) return [];
 
@@ -492,6 +521,18 @@ export function resolveAfterDamageEffects(declarations, unit, target, group) {
 }
 
 // ==================== 步骤5：构建攻击组日志 + 攻击后效果 ====================
+/**
+ * 构建 attack-group 日志对象并推入 log 数组，触发攻击后 Buff 效果
+ * @param {Unit} unit - 攻击者
+ * @param {Unit} target - 目标
+ * @param {object} dmgCalc - calcFinalDamage 的返回值
+ * @param {object} dmgResult - applyAttackResult 的返回值
+ * @param {Array} log - 日志数组（直接修改，push group）
+ * @param {Array} A - 明教方单位数组
+ * @param {Array} B - 六大派方单位数组
+ * @param {string|null} phantomLog - 幻影伪装日志文本
+ * @returns {object} group - 攻击组日志对象，供播放器消费
+ */
 export async function buildAttackGroup(unit, target, dmgCalc, dmgResult, attackerBuffStats, defenderBuffStats, allySide, enemySide, log, A, B, state, doubleStrikeUnitUid, phantomLog) {
     let { atkBase, defBase, atkAct, defAct, hpBonus, hpBefore, waveTaunt, waveUnit, raw, rawFormula, thunderBonus, hornDmgMultiplier, hornDefIgnore, trueDmg, defReduction, bonusDmgTotal, dmgMultiplier } = dmgCalc;
     let { dmg, dead, horseReboundEntry, reboundEntry, bonusEntries } = dmgResult;
@@ -567,4 +608,32 @@ export function applyPostAttackEffects(unit, target, dmg, atkAct, defAct, reboun
 
 export function isUnitStunned(unit) {
     return !!(unit && unit._stunned);
+}
+
+// ==================== 闪避后效果边裁 ====================
+/**
+ * 统一裁定执行闪避后效果（反击伤害、眩晕、韦一笑吸血）
+ * 组件通过 onDodge 信号提交声明，此函数由 resolveAttackHit 调用
+ * @param {Array} declarations - 闪避后效果声明数组，每项 { type: 'rebound'|'stun'|'weiHeal', value?, data? }
+ * @param {Unit} unit - 攻击者（闪避反击的承受方）
+ * @param {Unit} target - 闪避者（闪避反击的来源方）
+ */
+export function resolveDodgeEffects(declarations, unit, target) {
+    if (!declarations || declarations.length === 0) return;
+
+    for (const decl of declarations) {
+        if (decl.type === 'rebound') {
+            applyStatChange(unit, 'hp', -decl.value, target, '闪避反击');
+        } else if (decl.type === 'stun') {
+            unit._stunned = true;
+        } else if (decl.type === 'weiHeal') {
+            const { heal, newMaxHp, wasFullHp } = decl.data;
+            applyMaxHpChange(target, newMaxHp, null, '韦一笑吸血上限提升');
+            target._baseMaxHp = Math.max(target._baseMaxHp, newMaxHp);
+            applyStatChange(target, 'hp', heal, null, '韦一笑闪避吸血');
+            if (wasFullHp) { target.hp = target.maxHp; }
+            target.healDone += heal;
+            target.leechDone += heal;
+        }
+    }
 }

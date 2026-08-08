@@ -262,7 +262,7 @@ export function registerWarriorBreakDefense(eventBus) {
         const { unit, target, declarations } = data;
         if (!declarations) return;
         if (unit.role !== '战士' || target.def <= 0) return;
-        let defReduced = 2;
+        let defReduced = C.WARRIOR_BREAK_DEF;
         let breakChance = target.def * 2.5;
         if (target.def <= 40) {
             defReduced = 2;
@@ -276,7 +276,7 @@ export function registerWarriorBreakDefense(eventBus) {
         if (rand(1, 100) > breakChance) return;
         defReduced = Math.min(defReduced, target.def);
         declarations.push({ type: 'breakDef', value: defReduced, source: unit, target: target });
-        unit._pendingDefReduceEntry = {type:'detail', text:`<span class="purple small">🗡️ ${unit.name} 破防：${target.name} 防御 -${defReduced}</span>`};
+        unit._pendingDefReduceEntry = {type:'detail', text:`<span class="purple small">🗡️ ${unit.name} 破防：${target.name} 防御 -${C.WARRIOR_BREAK_DEF}</span>`};
     });
 }
 
@@ -287,10 +287,11 @@ export function registerRangedGrowth(eventBus) {
     eventBus.on('afterDamageApplied', L.AFTER_DAMAGE_APPLIED.RANGED_GROWTH, (data) => {
         const { unit, target, dmg, group } = data;
         if (unit.role !== '远程' || dmg <= 0) return;
-        applyStatChange(unit, 'atk', 2, null, '远程成长');
-        if (unit._baseAtk !== undefined) unit._baseAtk += 2;
+        const growth = C.RANGED_GROWTH_ATK;
+        applyStatChange(unit, 'atk', growth, null, '远程成长');
+        if (unit._baseAtk !== undefined) unit._baseAtk += growth;
         if (group && group.entries) {
-            group.entries.push({type:'detail', text:`<span class="blue small">🏹 ${unit.name} 远程熟练：攻击 +2 → ${Math.floor(unit.atk)}</span>`});
+            group.entries.push({type:'detail', text:`<span class="blue small">🏹 ${unit.name} 远程熟练：攻击 +${growth} → ${Math.floor(unit.atk)}</span>`});
         }
     });
 }
@@ -334,8 +335,8 @@ export function registerFortifyShield(eventBus) {
         if (unit.role !== '防战') return;
         if (unit._fortifyThisRound === undefined) unit._fortifyThisRound = 0;
         if (!unit._fortifyStacks) unit._fortifyStacks = 0;
-        const increment = unit.name === '成昆' ? 2 : 1;
-        const cap = unit.name === '成昆' ? 6 : 3;  // 成昆每回合上限6，其他防战3
+        const increment = unit._fortifyIncrement || 1;
+        const cap = unit._fortifyCap || 3;
         if (unit._fortifyThisRound + increment > cap) return;
         if (rand(1, 100) > chance) return;
         unit._fortifyStacks += increment;
