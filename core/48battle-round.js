@@ -304,31 +304,55 @@ export async function* createRoundStepper(state) {
      */
     function resolveActionOrder(candidates, log) {
         resolveStateTransitions();
-        // 按站位排序，只返回第一个单位的判定结果
         const sortedByPos = [...candidates].filter(u => u.alive && !u._isDead).sort((a, b) => a.pos - b.pos);
+        const priorityDeclarations = [];
+        const passUnits = [];
 
         for (const u of sortedByPos) {
             if (u._stunned) {
-                return { actingUnit: null, passEntry: { unit: u, reason: '眩晕' }, isPriorityAction: false };
+                passUnits.push({ unit: u, reason: '眩晕' });
+                continue;
             }
             if (u.isHorse) {
-                return { actingUnit: null, passEntry: { unit: u, reason: '拒马休息' }, isPriorityAction: false };
+                passUnits.push({ unit: u, reason: '拒马休息' });
+                continue;
             }
             if (u._flyMode === 'butterfly' || u._flyMode === 'spider' || u._spiderFlying) {
-                return { actingUnit: null, passEntry: { unit: u, reason: '飞天/附身' }, isPriorityAction: false };
+                passUnits.push({ unit: u, reason: '飞天/附身' });
+                continue;
             }
             const fullAllySide = u.camp === 'ally' ? A : B;
             if (isBlocked(u, fullAllySide) && isMelee(u.role)) {
-                return { actingUnit: null, passEntry: { unit: u, reason: '被遮挡' }, isPriorityAction: false };
+                passUnits.push({ unit: u, reason: '被遮挡' });
+                continue;
             }
             const decl = { priority: 0, skip: false, pass: false };
             eventBus.emit('beforeActionSelect', { unit: u, declaration: decl });
             if (decl.skip) continue;
             if (decl.pass) {
-                return { actingUnit: null, passEntry: { unit: u, reason: '组件声明pass' }, isPriorityAction: false };
+                passUnits.push({ unit: u, reason: '组件声明pass' });
+                continue;
             }
-            // 第一个能行动的单位
-            return { actingUnit: u, passEntry: null, isPriorityAction: decl.priority > 0 };
+            priorityDeclarations.push({ unit: u, priority: decl.priority });
+        }
+
+        if (passUnits.length > 0) {
+            return { actingUnit: null, passEntry: passUnits[0], isPriorityAction: false };
+        }
+
+        const hasPriority = priorityDeclarations.filter(d => d.priority > 0);
+        if (hasPriority.length > 0) {
+            hasPriority.sort((a, b) => b.priority - a.priority || a.unit.pos - b.unit.pos);
+            const winner = hasPriority[0];
+            if (winner.unit._kuLianActive) {
+                log.push({ type:'info', text:`<span class="gold">🏋️ 苦练：${winner.unit.name} 每回合最先行动！</span>` });
+            }
+            return { actingUnit: winner.unit, passEntry: null, isPriorityAction: true };
+        }
+
+        priorityDeclarations.sort((a, b) => a.unit.pos - b.unit.pos);
+        if (priorityDeclarations.length > 0) {
+            return { actingUnit: priorityDeclarations[0].unit, passEntry: null, isPriorityAction: false };
         }
 
         return { actingUnit: null, passEntry: null, isPriorityAction: false };
