@@ -58,9 +58,6 @@ export async function* createRoundStepper(state) {
 
     log.push({ type:'round-start', text:`<div class="separator">———— 第${round}回合开始 ————</div>` });
 
-    // 发射回合开始信号，精英组件自行处理快乐回血、性奋、苦练等回合开始逻辑
-    eventBus.emit('onRoundStart', { A, B, log });
-
     [A, B].forEach(team => {
         for (let i = team.length - 1; i >= 0; i--) {
             const u = team[i];
@@ -182,6 +179,9 @@ export async function* createRoundStepper(state) {
     const lu = B.find(u => u.name === '鹿杖客' && u.alive);
     const he = B.find(u => u.name === '鹤笔翁' && u.alive);
     if (lu && he) { lu._linkedPartnerUid = he.uid; he._linkedPartnerUid = lu.uid; }
+
+    // 发射回合开始信号（在所有监听器注册完成后）
+    eventBus.emit('onRoundStart', { A, B, log });
 
     A._butterflyTriggered = false;
             A._mindControlTriggered = false;
