@@ -173,6 +173,7 @@ const CONFIG = {
     // 此处保留的键名仍用于代码引用，但数值由 gameData 覆盖
     ELITE_SKILLS: {
         weiBloodDodge: { name: '残血幻影', maxRatio: 0.70 },
+        coldPalm: { name: '寒冰掌', leechMin: 15, leechMax: 45 },
         nineYinClaw: {
             name: '九阴白骨爪',
             firstProcChance: 1.0,

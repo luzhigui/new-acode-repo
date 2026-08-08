@@ -102,6 +102,7 @@ export function createSongQingshuComponent() {
                 unit._xingFenPenaltyCount = (unit._xingFenPenaltyCount||0)+1;
                 const penalty = unit._xingFenPenaltyCount;
                 if (penalty > 0 && unit.maxHp > 1) {
+                    const oldMaxHp = unit.maxHp;
                     applyMaxHpChange(unit, Math.max(1, unit.maxHp - penalty), null, '性奋代价');
                     if (unit.hp <= 0) { if (!unit._deathTime) unit._deathTime = Date.now(); }
                     log.push({ type:'info', text:`<span class="red">💗 性奋代价：${unit.name} 血量上限 ${oldMaxHp} → ${unit.maxHp}（-${penalty}）</span>` });

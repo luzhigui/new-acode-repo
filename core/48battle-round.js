@@ -230,6 +230,9 @@ export async function* createRoundStepper(state) {
         u._bloodthirstStriked = false;
         u._linkTriggered = false;
         u._fortifyThisRound = 0;
+        u._butterflyHpBonus = 0;
+        u._butterflyAtkBonus = 0;
+        u._butterflyDefBonus = 0;
     });
 
     B.forEach(u => {
@@ -253,6 +256,8 @@ export async function* createRoundStepper(state) {
     const roundStartEvents = GlobalStore.flushBattleEvents();
     yield { log: [...log], events: roundStartEvents, ally: A, enemy: B, winner: null, done: false, doubleStrikeUid: doubleStrikeUnitUid };
     log = [];
+
+
 
     /**
      * 行动调度边裁 — 裁定本轮行动者
@@ -293,57 +298,34 @@ export async function* createRoundStepper(state) {
      */
     function resolveActionOrder(candidates, log) {
         resolveStateTransitions();
-        // 第一步：按站位排序，逐个判定
+        // 按站位排序，只返回第一个单位的判定结果
         const sortedByPos = [...candidates].filter(u => u.alive && !u._isDead).sort((a, b) => a.pos - b.pos);
-        const priorityDeclarations = [];
-        const passUnits = [];
 
         for (const u of sortedByPos) {
             if (u._stunned) {
-                passUnits.push({ unit: u, reason: '眩晕' });
-                continue;
+                return { actingUnit: null, passEntry: { unit: u, reason: '眩晕' }, isPriorityAction: false };
             }
             if (u.isHorse) {
-                passUnits.push({ unit: u, reason: '拒马休息' });
-                continue;
+                return { actingUnit: null, passEntry: { unit: u, reason: '拒马休息' }, isPriorityAction: false };
             }
             if (u._flyMode === 'butterfly' || u._flyMode === 'spider' || u._spiderFlying) {
-                passUnits.push({ unit: u, reason: '飞天/附身' });
-                continue;
+                return { actingUnit: null, passEntry: { unit: u, reason: '飞天/附身' }, isPriorityAction: false };
             }
             const allySide = u.camp === 'ally' ? candidates.filter(c => c.camp === 'ally') : candidates.filter(c => c.camp === 'enemy');
             if (isBlocked(u, allySide) && isMelee(u.role)) {
-                passUnits.push({ unit: u, reason: '被遮挡' });
-                continue;
+                return { actingUnit: null, passEntry: { unit: u, reason: '被遮挡' }, isPriorityAction: false };
             }
             const decl = { priority: 0, skip: false, pass: false };
             eventBus.emit('beforeActionSelect', { unit: u, declaration: decl });
             if (decl.skip) continue;
             if (decl.pass) {
-                passUnits.push({ unit: u, reason: '组件声明pass' });
-                continue;
+                return { actingUnit: null, passEntry: { unit: u, reason: '组件声明pass' }, isPriorityAction: false };
             }
-            priorityDeclarations.push({ unit: u, priority: decl.priority });
+            // 第一个能行动的单位
+            return { actingUnit: u, passEntry: null, isPriorityAction: decl.priority > 0 };
         }
 
-        // 第二步：优先行动声明（如苦练）
-        const hasPriority = priorityDeclarations.filter(d => d.priority > 0);
-        if (hasPriority.length > 0) {
-            hasPriority.sort((a, b) => b.priority - a.priority || a.unit.pos - b.unit.pos);
-            const winner = hasPriority[0];
-            if (winner.unit._kuLianActive) {
-                log.push({ type:'info', text:`<span class="gold">🏋️ 苦练：${winner.unit.name} 每回合最先行动！</span>` });
-            }
-            return { actingUnit: winner.unit, isPriorityAction: true, passUnits };
-        }
-
-        // 第三步：无优先声明，按站位取第一个
-        priorityDeclarations.sort((a, b) => a.unit.pos - b.unit.pos);
-        if (priorityDeclarations.length > 0) {
-            return { actingUnit: priorityDeclarations[0].unit, isPriorityAction: false, passUnits };
-        }
-
-        return { actingUnit: null, isPriorityAction: false, passUnits };
+        return { actingUnit: null, passEntry: null, isPriorityAction: false };
     }
 
     let currentSide = 'enemy';
@@ -351,59 +333,69 @@ export async function* createRoundStepper(state) {
 
     while (A.some(u => u.alive && !u._acted) || B.some(u => u.alive && !u._acted)) {
         const currentTeam = currentSide === 'ally' ? A : B;
+        // 姐姐附身：明教第一次被调度时触发，先于任何明教单位行动
+        if (currentSide === 'ally' && !A._butterflyTriggered) {
+            A._butterflyTriggered = true;
+            const sisterForAttach = A.find(u => u.isXiaoZhaoSister && u.alive && u.pos === 4 && !u._stunned && !u._butterflyHost);
+            if (sisterForAttach) {
+                sisterComp.executeAttach(A, log);
+                // 附身完后 yield 一次，让事件出队刷新 UI
+                const attachEvents = GlobalStore.flushBattleEvents();
+                yield { log: [...log], events: attachEvents, ally: A, enemy: B, winner: null, done: false, doubleStrikeUid: doubleStrikeUnitUid };
+                log = [];
+                // 重新拉取候选人列表（附身可能改变 _acted 状态）
+            }
+        }
         const candidates = currentTeam.filter(u => u.alive && !u._acted).sort((a, b) => a.pos - b.pos);
         const orderResult = resolveActionOrder(candidates, log);
 
-        if (orderResult.passUnits.length > 0) {
-            for (const { unit, reason } of orderResult.passUnits) {
-                unit._acted = true;
-                unit._blocked = isBlocked(unit, currentTeam);
-                if (reason === '被遮挡') {
-                    let hpBefore = Math.floor(unit.hp);
-                    unit.hp = Math.min(unit.maxHp, unit.hp + 15);
-                    let hpAfter = Math.floor(unit.hp);
-                    unit._resting = true;
-                    if (unit._restingTimer) clearTimeout(unit._restingTimer);
-                    unit._restingTimer = setTimeout(() => {
-                        unit._resting = false;
-                        emitEvent(unit, 'hp-change', { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: unit.atk, def: unit.def, _resting: false });
-                    }, 3000);
-                    let bg = {type:'attack-group', uidA:unit.uid, uidD:null, entries:[], isBlock:true, _fxSnapshot:makeFXSnapshot(unit,null), waveTaunt:null, waveUnit:null, buffEffects:[], needsSeparator: true, healAmount: 15, healUnitUid: unit.uid};
-                    bg.entries.push({type:'combat-text', text:`<span class="${unit.camp==='ally'?'blue':'orange'}">${unit.camp==='ally'?'明教':'六大派'} ${unit.name}</span> 被遮挡`});
-                    bg.entries.push({type:'info', text:`<span class="green">休息回复15点生命（${hpBefore} → ${hpAfter}）</span>`});
-                    bg._events = GlobalStore.flushBattleEvents();
-                    log.push(bg);
-                } else if (reason === '眩晕') {
-                    let bg = {type:'attack-group', uidA:unit.uid, uidD:null, entries:[], isBlock:true, _fxSnapshot:makeFXSnapshot(unit,null), waveTaunt:null, waveUnit:null, buffEffects:[], needsSeparator: true};
-                    bg.entries.push({type:'info', text:`<span class="gray">💫 ${unit.name} 被眩晕，无法行动</span>`});
-                    bg._events = GlobalStore.flushBattleEvents();
-                    log.push(bg);
-                } else if (reason === '拒马休息') {
-                    let hpBefore = Math.floor(unit.hp);
-                    unit.hp = Math.min(unit.maxHp, unit.hp + 15);
-                    let hpAfter = Math.floor(unit.hp);
-                    unit._resting = true;
-                    if (unit._restingTimer) clearTimeout(unit._restingTimer);
-                    unit._restingTimer = setTimeout(() => {
-                        unit._resting = false;
-                        emitEvent(unit, 'hp-change', { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: unit.atk, def: unit.def, _resting: false });
-                    }, 3000);
-                    let bg = {type:'attack-group', uidA:unit.uid, uidD:null, entries:[], isBlock:true, _fxSnapshot:makeFXSnapshot(unit,null), waveTaunt:null, waveUnit:null, buffEffects:[], needsSeparator: true, healAmount: 15, healUnitUid: unit.uid};
-                    bg.entries.push({type:'combat-text', text:`<span class="${unit.camp==='ally'?'blue':'orange'}">${unit.camp==='ally'?'明教':'六大派'} ${unit.name}</span> 无法攻击`});
-                    bg.entries.push({type:'info', text:`<span class="green">🐴 拒马休息回复15点生命（${hpBefore} → ${hpAfter}）</span>`});
-                    bg._events = GlobalStore.flushBattleEvents();
-                    log.push(bg);
-                } else {
-                    let bg = {type:'attack-group', uidA:unit.uid, uidD:null, entries:[], isBlock:true, _fxSnapshot:makeFXSnapshot(unit,null), waveTaunt:null, waveUnit:null, buffEffects:[], needsSeparator: true};
-                    bg.entries.push({type:'info', text:`<span class="gray">${unit.name} 无法行动</span>`});
-                    bg._events = GlobalStore.flushBattleEvents();
-                    log.push(bg);
-                }
+        if (orderResult.passEntry) {
+            const { unit, reason } = orderResult.passEntry;
+            unit._acted = true;
+            unit._blocked = isBlocked(unit, currentTeam);
+            if (reason === '被遮挡') {
+                let hpBefore = Math.floor(unit.hp);
+                unit.hp = Math.min(unit.maxHp, unit.hp + 15);
+                let hpAfter = Math.floor(unit.hp);
+                unit._resting = true;
+                if (unit._restingTimer) clearTimeout(unit._restingTimer);
+                unit._restingTimer = setTimeout(() => {
+                    unit._resting = false;
+                    emitEvent(unit, 'hp-change', { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: unit.atk, def: unit.def, _resting: false });
+                }, 3000);
+                let bg = {type:'attack-group', uidA:unit.uid, uidD:null, entries:[], isBlock:true, _fxSnapshot:makeFXSnapshot(unit,null), waveTaunt:null, waveUnit:null, buffEffects:[], needsSeparator: true, healAmount: 15, healUnitUid: unit.uid};
+                bg.entries.push({type:'combat-text', text:`<span class="${unit.camp==='ally'?'blue':'orange'}">${unit.camp==='ally'?'明教':'六大派'} ${unit.name}</span> 被遮挡`});
+                bg.entries.push({type:'info', text:`<span class="green">休息回复15点生命（${hpBefore} → ${hpAfter}）</span>`});
+                bg._events = GlobalStore.flushBattleEvents();
+                log.push(bg);
+            } else if (reason === '眩晕') {
+                let bg = {type:'attack-group', uidA:unit.uid, uidD:null, entries:[], isBlock:true, _fxSnapshot:makeFXSnapshot(unit,null), waveTaunt:null, waveUnit:null, buffEffects:[], needsSeparator: true};
+                bg.entries.push({type:'info', text:`<span class="gray">💫 ${unit.name} 被眩晕，无法行动</span>`});
+                bg._events = GlobalStore.flushBattleEvents();
+                log.push(bg);
+            } else if (reason === '拒马休息') {
+                let hpBefore = Math.floor(unit.hp);
+                unit.hp = Math.min(unit.maxHp, unit.hp + 15);
+                let hpAfter = Math.floor(unit.hp);
+                unit._resting = true;
+                if (unit._restingTimer) clearTimeout(unit._restingTimer);
+                unit._restingTimer = setTimeout(() => {
+                    unit._resting = false;
+                    emitEvent(unit, 'hp-change', { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: unit.atk, def: unit.def, _resting: false });
+                }, 3000);
+                let bg = {type:'attack-group', uidA:unit.uid, uidD:null, entries:[], isBlock:true, _fxSnapshot:makeFXSnapshot(unit,null), waveTaunt:null, waveUnit:null, buffEffects:[], needsSeparator: true, healAmount: 15, healUnitUid: unit.uid};
+                bg.entries.push({type:'combat-text', text:`<span class="${unit.camp==='ally'?'blue':'orange'}">${unit.camp==='ally'?'明教':'六大派'} ${unit.name}</span> 无法攻击`});
+                bg.entries.push({type:'info', text:`<span class="green">🐴 拒马休息回复15点生命（${hpBefore} → ${hpAfter}）</span>`});
+                bg._events = GlobalStore.flushBattleEvents();
+                log.push(bg);
+            } else {
+                let bg = {type:'attack-group', uidA:unit.uid, uidD:null, entries:[], isBlock:true, _fxSnapshot:makeFXSnapshot(unit,null), waveTaunt:null, waveUnit:null, buffEffects:[], needsSeparator: true};
+                bg.entries.push({type:'info', text:`<span class="gray">${unit.name} 无法行动</span>`});
+                bg._events = GlobalStore.flushBattleEvents();
+                log.push(bg);
             }
-            if (!orderResult.actingUnit) {
-                currentSide = currentSide === 'ally' ? 'enemy' : 'ally';
-                continue;
-            }
+            // 休息不占攻击轮次，继续在当前阵营内调度
+            continue;
         }
 
         if (!orderResult.actingUnit) {

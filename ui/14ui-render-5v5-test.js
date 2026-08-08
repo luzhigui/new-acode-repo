@@ -101,18 +101,18 @@ function renderAtkDetail(u, buffStats, ctx) {
     let finalAtk = u.atk;
     let permChange = finalAtk - initAtk - holyAtkBonus - carryAtk - butterflyAtk;
     let parts = [String(initAtk)];
-    if (permChange > 0) parts.push(`<span style="color:#daa520;">+${permChange}永</span>`);
+    if (permChange > 0) parts.push(`<span style="color:#2e7d32;">+${permChange}永</span>`);
     else if (permChange < 0) parts.push(`<span style="color:#c0392b;">${permChange}永</span>`);
-    if (holyAtkBonus > 0) parts.push(`<span style="color:#daa520;">+${holyAtkBonus}圣火令</span>`);
-    if (carryAtk > 0) parts.push(`<span style="color:#daa520;">+${carryAtk}carry</span>`);
     if (butterflyAtk > 0) parts.push(`<span style="color:#daa520;">+${butterflyAtk}附身</span>`);
+    if (holyAtkBonus > 0) parts.push(`<span style="color:#ff8c00;">+${holyAtkBonus}临</span>`);
+    if (carryAtk > 0) parts.push(`<span style="color:#ff8c00;">+${carryAtk}临</span>`);
     const enemyTeamForAura = ctx.UI.enemyTeam || [];
     const allyTeamForAura = ctx.UI.allyTeam || [];
     const auraSideA = u.camp === 'ally' ? allyTeamForAura : enemyTeamForAura;
     const auraSideB = u.camp === 'ally' ? enemyTeamForAura : allyTeamForAura;
     const aura = getAuraBonuses(u, auraSideA, auraSideB);
-    if (aura.emptyCol > 0) parts.push(`<span style="color:#daa520;">+${aura.emptyCol}空列</span>`);
-    if (aura.bloodAura > 0) parts.push(`<span style="color:#daa520;">+${aura.bloodAura}残血</span>`);
+    if (aura.emptyCol > 0) parts.push(`<span style="color:#ff8c00;">+${aura.emptyCol}光环</span>`);
+    if (aura.bloodAura > 0) parts.push(`<span style="color:#ff8c00;">+${aura.bloodAura}光环</span>`);
     if (parts.length === 1) return parts[0];
     return parts.join(' ') + ' = <span style="color:#daa520;font-weight:bold;">' + finalAtk + '</span>';
 }
@@ -127,12 +127,12 @@ function renderDefDetail(u, buffStats) {
     let finalDef = Math.round(u.def);
     let permChange = finalDef - Math.round(initDef) - holyDefBonus - carryDef - butterflyDef - fortifyDef;
     let parts = [String(Math.round(initDef))];
-    if (permChange > 0) parts.push(`<span style="color:#daa520;">+${permChange}永</span>`);
+    if (permChange > 0) parts.push(`<span style="color:#2e7d32;">+${permChange}永</span>`);
     else if (permChange < 0) parts.push(`<span style="color:#c0392b;">${permChange}永</span>`);
-    if (holyDefBonus > 0) parts.push(`<span style="color:#daa520;">+${holyDefBonus}圣火令</span>`);
-    if (carryDef > 0) parts.push(`<span style="color:#daa520;">+${carryDef}carry</span>`);
     if (butterflyDef > 0) parts.push(`<span style="color:#daa520;">+${butterflyDef}附身</span>`);
-    if (fortifyDef > 0) parts.push(`<span style="color:#daa520;">+${fortifyDef}坚盾(${fortifyStacks}层)</span>`);
+    if (holyDefBonus > 0) parts.push(`<span style="color:#ff8c00;">+${holyDefBonus}临</span>`);
+    if (carryDef > 0) parts.push(`<span style="color:#ff8c00;">+${carryDef}临</span>`);
+    if (fortifyDef > 0) parts.push(`<span style="color:#ff8c00;">+${fortifyDef}坚盾(${fortifyStacks}层)</span>`);
     if (parts.length === 1) return parts[0];
     return parts.join(' ') + ' = <span style="color:#daa520;font-weight:bold;">' + finalDef + '</span>';
 }
@@ -176,6 +176,10 @@ function updateDetailPopupContent() {
     let atkBonusVal = Math.floor(u.atk * buffStats.atkBonus);
     let defBonusVal = Math.floor(u.def * buffStats.defBonus);
     let hpBonusVal = Math.floor(u.maxHp * buffStats.hpBonus);
+    let butterflyHpBonus = u._butterflyHpBonus || 0;
+    if (butterflyHpBonus > 0) {
+        hpStyle = 'color:#daa520;font-weight:bold;';
+    }
     let displayAtk = u.atk + atkBonusVal;
     let displayDef = u.def + defBonusVal;
     let hpPct = u.alive ? Math.floor((u.hp / u.maxHp) * 100) : 0;
@@ -432,7 +436,8 @@ export function renderGrid(id, camp) {
         let hpColorClass = hpPct>70?'hp-text-green':(hpPct>40?'hp-text-orange':'hp-text-red');
         let barColor = hpPct>70?'#4caf50':(hpPct>40?'#ff9800':'#f44336');
         let hpDisplayHtml = `${Math.floor(unit.hp)}`;
-        if (hpBonusVal > 0 || (latestUnit._baseMaxHp !== undefined && latestUnit.maxHp > latestUnit._baseMaxHp)) {
+        const hasButterflyHpBonus = (latestUnit._butterflyHpBonus || 0) > 0;
+        if (hpBonusVal > 0 || (latestUnit._baseMaxHp !== undefined && latestUnit.maxHp > latestUnit._baseMaxHp) || hasButterflyHpBonus) {
             hpDisplayHtml = `<span style="color:#daa520;font-weight:bold;">${Math.floor(unit.hp)}</span>`;
         }
         let readyClass = (!hasFlash && !unit._acted && unit.alive && !isDead) ? 'ready' : '';

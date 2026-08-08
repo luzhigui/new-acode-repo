@@ -44,9 +44,11 @@ export function createZhangWujiComponent() {
             if (unit.camp !== 'ally' || !unit.isZhang || !unit.alive) return;
             const hpBeforeZhang = Math.floor(unit.hp);
             const s = getSkillParams('张无忌', 'nineYang') || { healPct: 8 };
-            const heal = Math.floor(unit.maxHp * (s.healPct / 100));
-            applyStatChange(unit, 'hp', heal, null, '九阳神功');
-            unit.healDone += heal;
+            const heal = Math.min(Math.floor(unit.maxHp * (s.healPct / 100)), unit.maxHp - unit.hp);
+            if (heal > 0) {
+                applyStatChange(unit, 'hp', heal, null, '九阳神功');
+                unit.healDone += heal;
+            }
             group.entries.push({ type:'info', text:`<span class="green">☀️ 九阳神功回复+${heal}，${hpBeforeZhang}→${Math.floor(unit.hp)}</span>`, isHealEntry:true, healAmount:heal, healUnitUid:unit.uid });
             if (!unit.rangedForm) {
                 if (unit.nearAtkCount === 0 && !unit._zhangTauntDone) { const firstTaunt = getZhangNearTaunt(1); if (firstTaunt) { group.entries.push({ type:'info', text:`<span class="gold">🗣️ ${unit.name}：${firstTaunt}</span>` }); unit._zhangTauntDone = true; } }
@@ -73,7 +75,7 @@ export function createWeiYixiaoComponent() {
             if (!wei) return;
             eventBus.on('afterDamageApplied', L.AFTER_DAMAGE_APPLIED.WEI_LEECH, (data) => {
                 if (data.unit.uid !== wei.uid || !wei.alive || data.dmg <= 0) return;
-                const s = getSkillParams('韦一笑', 'coldPalm') || { leechMin: 20, leechMax: 40 };
+                const s = getSkillParams('韦一笑', 'coldPalm') || CONFIG.ELITE_SKILLS.coldPalm;
                 const lostPct = (wei.maxHp - wei.hp) / wei.maxHp;
                 const leechRate = (s.leechMin + (s.leechMax - s.leechMin) * lostPct) / 100;
                 const healWei = Math.floor(data.dmg * leechRate);
@@ -94,7 +96,7 @@ export function createWeiYixiaoComponent() {
             eventBus.on('onDodge', L.AFTER_DAMAGE_APPLIED.WEI_LEECH, (data) => {
                 const { unit, target, reboundDmg, declarations } = data;
                 if (!target.isWei || !target.alive) return;
-                const s = getSkillParams('韦一笑', 'coldPalm') || { leechMin: 20, leechMax: 40 };
+                const s = getSkillParams('韦一笑', 'coldPalm') || CONFIG.ELITE_SKILLS.coldPalm;
                 const lostPct = (target.maxHp - target.hp) / target.maxHp;
                 const leechRate = (s.leechMin + (s.leechMax - s.leechMin) * lostPct) / 100;
                 const heal = Math.floor(reboundDmg * leechRate);
@@ -135,12 +137,44 @@ export function createXiaoZhaoSisterComponent() {
                 result.intercepted = true;
                 result.interceptUnitUid = sister.uid;
             });
-            eventBus.on('allyDamaged', L.ALLY_DAMAGED.QIANKUN_DERIVED, (data) => {
+            eventBus.on('beforeDamageCalc', L.BEFORE_DAMAGE_CALC.WARRIOR_BREAK, (data) => {
                 const xiaoZhao = A.find(u => u.isXiaoZhaoSister && u.alive && !u._stunned);
                 if (!xiaoZhao) return;
                 const zhang = A.find(u => u.isZhang && u.alive);
                 if (zhang) return;
-                comp.onAllyDamaged(data.target, data.dmg, A, data.log);
+                const target = data.target;
+                if (!target || target.camp !== 'ally') return;
+                const dmg = data.unit ? data.unit.atk * (data.unit.atk / (data.unit.atk + target.def)) : 0;
+                const s = getSkillParams('小昭', 'qianKunDerived') || ES.xiaoZhao;
+                const reduce = Math.max(1, Math.floor(dmg * target.def / (s.defToReduce || 150)));
+                if (!data.declarations) data.declarations = [];
+                data.declarations.push({
+                    type: 'dmgReduction',
+                    value: reduce,
+                    source: xiaoZhao,
+                    logText: null
+                });
+                const aliveAllies = A.filter(u => u.alive && !u.isHorse);
+                if (aliveAllies.length > 0) {
+                    const healTarget = aliveAllies[Math.floor(Math.random() * aliveAllies.length)];
+                    const heal = Math.max(1, Math.floor(healTarget.def / (s.defToHeal || 8)));
+                    const atkTarget = aliveAllies[Math.floor(Math.random() * aliveAllies.length)];
+                    const atkGain = Math.max(1, Math.floor(atkTarget.def / (s.defToAtk || 16)));
+                    if (!data.declarations) data.declarations = [];
+                    data.declarations.push({
+                        type: 'heal',
+                        value: heal,
+                        source: healTarget,
+                        logText: `<span class="gold">🦋 乾坤衍生：${target.name}减伤${reduce}，${healTarget.name}治疗+${heal}，${atkTarget.name}攻击+${atkGain}</span>`
+                    });
+                    data.declarations.push({
+                        type: 'statChange',
+                        target: atkTarget,
+                        field: 'atk',
+                        delta: atkGain,
+                        logText: null
+                    });
+                }
             });
             eventBus.on('beforeActionSelect', L.BEFORE_ACTION.BUTTERFLY_SKIP, (data) => {
                 if (!data.unit.isXiaoZhaoSister || !data.unit.alive) return;
@@ -173,6 +207,7 @@ export function createXiaoZhaoSisterComponent() {
             const defTransfer = Math.floor(sister._baseDef * defRatio);
             const hpTransfer = Math.floor(sister.hp * hpRatio);
             sister._butterflyHpTransfer = hpTransfer;
+            host._butterflyHpBonus = (host._butterflyHpBonus || 0) + hpTransfer;
             host._butterflyAtkBonus += atkTransfer; host._butterflyDefBonus += defTransfer;
             applyStatChange(host, 'atk', atkTransfer, sister, '蝶变附身');
             applyStatChange(host, 'def', defTransfer, sister, '蝶变附身');
@@ -180,7 +215,11 @@ export function createXiaoZhaoSisterComponent() {
             emitEvent(host, 'hp-change', { hp:host.hp, maxHp:host.maxHp, alive:host.alive, atk:host.atk, def:host.def, _phantomTarget:sister.uid });
             const aliveAllies = A.filter(a => a.alive && !a.isHorse && a.uid !== sister.uid);
             const totalHp = aliveAllies.reduce((sum,a) => sum + a.hp, 0); const totalMaxHp = aliveAllies.reduce((sum,a) => sum + a.maxHp, 0);
-            if (totalMaxHp > 0) { sister.hp = Math.floor(sister.maxHp * (totalHp/totalMaxHp)); }
+            if (totalMaxHp > 0) {
+                const newHp = Math.floor(sister.maxHp * (totalHp/totalMaxHp));
+                const delta = newHp - sister.hp;
+                applyStatChange(sister, 'hp', delta, null, '蝶变附身血量');
+            }
             sister._butterflyHost = host.uid; sister._flyMode = 'butterfly'; sister._untargetable = true; sister._acted = true;
             emitEvent(sister, 'hp-change', { hp:sister.hp, maxHp:sister.maxHp, alive:sister.alive, atk:sister.atk, def:sister.def, _flyMode:'butterfly', _butterflyHost:sister._butterflyHost });
             log.push({ type:'info', text:`<span class="gold">🦋 蝶变：${sister.name} 化为蝴蝶附身于 ${host.name}！攻+${atkTransfer} 防+${defTransfer} 血上限+${hpTransfer}</span>`, needsSeparator: true });
@@ -195,12 +234,11 @@ export function createXiaoZhaoSisterComponent() {
                 const totalHp = allAllies.reduce((sum, a) => sum + (a.alive ? a.hp : 0), 0);
                 const totalMaxHp = allAllies.reduce((sum, a) => sum + a.maxHp, 0);
                 if (totalMaxHp > 0) {
-                    sister.hp = Math.floor(sister.maxHp * (totalHp / totalMaxHp));
+                    const newHp = Math.floor(sister.maxHp * (totalHp / totalMaxHp));
+                    const delta = newHp - sister.hp;
+                    applyStatChange(sister, 'hp', delta, null, '蝶变飞回血量');
                 } else {
-                    sister.hp = 0;
-                    sister.alive = false;
-                    sister._isDead = true;
-                    if (!sister._deathTime) sister._deathTime = Date.now();
+                    applyStatChange(sister, 'hp', -sister.hp, null, '蝶变飞回无队友');
                 }
                 sister._flyMode = null; sister._untargetable = false;
                 sister._butterflyHost = null;
@@ -208,10 +246,6 @@ export function createXiaoZhaoSisterComponent() {
                 sister._butterflyDef = 0;
                 sister._butterflyHp = 0;
                 sister._butterflyHpTransfer = 0;
-                emitEvent(sister, 'hp-change', {
-                    hp: sister.hp, maxHp: sister.maxHp, alive: sister.alive,
-                    atk: sister.atk, def: sister.def, _flyMode: null, _butterflyHost: null
-                });
                 log.push({
                     type: 'info',
                     text: `<span class="gold">🦋 蝶变：宿主已阵亡，${sister.name} 被迫返回！</span>`,
@@ -224,12 +258,11 @@ export function createXiaoZhaoSisterComponent() {
             const totalHp = allAllies.reduce((sum, a) => sum + (a.alive ? a.hp : 0), 0);
             const totalMaxHp = allAllies.reduce((sum, a) => sum + a.maxHp, 0);
             if (totalMaxHp > 0) {
-                sister.hp = Math.floor(sister.maxHp * (totalHp / totalMaxHp));
+                const newHp = Math.floor(sister.maxHp * (totalHp / totalMaxHp));
+                const delta = newHp - sister.hp;
+                applyStatChange(sister, 'hp', delta, null, '蝶变飞回血量');
             } else {
-                sister.hp = 0;
-                sister.alive = false;
-                sister._isDead = true;
-                if (!sister._deathTime) sister._deathTime = Date.now();
+                applyStatChange(sister, 'hp', -sister.hp, null, '蝶变飞回无队友');
             }
             sister.atk = sister._baseAtk;
             sister.def = sister._baseDef;
@@ -239,6 +272,7 @@ export function createXiaoZhaoSisterComponent() {
                 applyStatChange(host, 'def', -(host._butterflyDefBonus || 0), sister, '蝶变飞回');
                 host._butterflyAtkBonus = 0;
                 host._butterflyDefBonus = 0;
+                host._butterflyHpBonus = 0;
                 const hpTransfer = sister._butterflyHpTransfer || 0;
                 applyMaxHpChange(host, Math.max(1, host.maxHp - hpTransfer), sister, '蝶变飞回血上限');
                 emitEvent(host, 'hp-change', {
@@ -264,41 +298,7 @@ export function createXiaoZhaoSisterComponent() {
                 needsSeparator: true
             });
         },
-        onAllyDamaged(target, dmg, allyTeam, log) {
-            const sister = allyTeam.find(u => u.isXiaoZhaoSister && u.alive && !u._stunned);
-            if (!sister) return; const zhang = allyTeam.find(u => u.isZhang && u.alive); if (zhang) return;
-            const s = getSkillParams('小昭', 'qianKunDerived') || ES.xiaoZhao;
-            let reduce = Math.max(1, Math.floor(dmg * target.def / (s.defToReduce||150)));
-            const aliveAllies = allyTeam.filter(u => u.alive && !u.isHorse);
-            if (aliveAllies.length > 0) {
-                const healTarget = aliveAllies[Math.floor(Math.random()*aliveAllies.length)];
-                let heal = Math.max(1, Math.floor(healTarget.def/(s.defToHeal||8)));
-                const atkTarget = aliveAllies[Math.floor(Math.random()*aliveAllies.length)];
-                let atkGain = Math.max(1, Math.floor(atkTarget.def/(s.defToAtk||16)));
-                // 提交声明，由攻击后效果边裁统一执行
-                if (!data.declarations) data.declarations = [];
-                data.declarations.push({
-                    type: 'heal',
-                    value: reduce,
-                    source: target,
-                    logText: null
-                });
-                data.declarations.push({
-                    type: 'heal',
-                    value: heal,
-                    source: healTarget,
-                    logText: null
-                });
-                data.declarations.push({
-                    type: 'statChange',
-                    target: atkTarget,
-                    field: 'atk',
-                    delta: atkGain,
-                    logText: null
-                });
-                if (log) { log.push({ type:'info', text:`<span class="gold">🦋 乾坤衍生：${target.name}减伤${reduce}，${healTarget.name}治疗+${heal}，${atkTarget.name}攻击+${atkGain}</span>`, isHealEntry:true, healAmount:heal, healUnitUid:healTarget.uid }); }
-            }
-        }
+
     };
 }
 

@@ -135,16 +135,18 @@ function applyMaxHpChange(target, newMaxHp, source, reason) {
     if (oldMaxHp <= 0 || newMaxHp <= 0) return;
     const oldHp = target.hp;
     target.maxHp = newMaxHp;
+    let newHp;
     if (newMaxHp > oldMaxHp) {
-        target.hp = oldHp + (newMaxHp - oldMaxHp);
+        newHp = oldHp + (newMaxHp - oldMaxHp);
     } else {
-        target.hp = Math.floor(oldHp * (newMaxHp / oldMaxHp));
+        newHp = Math.floor(oldHp * (newMaxHp / oldMaxHp));
     }
-    target.hp = Math.min(target.hp, target.maxHp);
-    if (target.hp <= 0) {
+    newHp = Math.min(newHp, target.maxHp);
+    const delta = newHp - oldHp;
+    if (newHp <= 0) {
         applyStatChange(target, 'hp', -target.hp, null, 'maxHp变更致死');
-    } else if (target.hp !== oldHp) {
-        applyStatChange(target, 'hp', target.hp - oldHp, source, reason);
+    } else if (delta !== 0) {
+        applyStatChange(target, 'hp', delta, source, reason);
     }
 }
 
