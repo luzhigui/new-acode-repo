@@ -477,13 +477,14 @@ export function registerMeteorShower(eventBus) {
 }
 
 export function registerMindControl(eventBus) {
-    eventBus.on('beforeAttack', L.BEFORE_ATTACK.MIND_CONTROL, (data) => {
+    eventBus.on('afterAttack', L.AFTER_ATTACK.MIND_CONTROL, (data) => {
         const { unit, allySide, enemySide, log } = data;
         if (!unit.alive || unit.camp !== 'ally') return;
         const buffs = allySide._activeBuffs || [];
         const hasSister = allySide.some(u => u.isXiaoZhaoSister && u.alive);
 
-        if (hasBuff(buffs, 'mindControl')) {
+        if (hasBuff(buffs, 'mindControl') && !allySide._mindControlTriggered) {
+            allySide._mindControlTriggered = true;
             if (hasSister) applyMindControl_Sister(unit, allySide, enemySide, log);
             else applyMindControl_Normal(unit, allySide, enemySide, log);
         }
