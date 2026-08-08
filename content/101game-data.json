@@ -166,12 +166,12 @@
       "skills": {
         "coldPalm": {
           "name": "寒冰掌",
-          "desc": "攻击吸血{leechMin}%-{leechMax}%（随已损失生命递增），同时提升生命上限",
-          "params": { "leechMin": 20, "leechMax": 40 }
+          "desc": "优先攻击全场血量最低的敌人。造成伤害后吸血，吸血率 = {leechMin}% + 已损失生命比例×30%（满血15%，濒死45%）。吸血值 = 本次伤害×吸血率，等量提升生命上限和当前血量，上限封顶初始血量的2倍。",
+          "params": { "leechMin": 15, "leechMax": 45 }
         },
         "bloodDodge": {
           "name": "残血幻影",
-          "desc": "闪避率随已损失生命递增，最高{maxRatio}%",
+          "desc": "额外闪避率 = 已损失生命比例×{maxRatio}%（满血0%，濒死70%）。与基础飞行闪避（15%）及其他闪避源独立判定，互不覆盖。",
           "params": { "maxRatio": 70 }
         }
       },

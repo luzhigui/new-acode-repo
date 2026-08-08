@@ -54,16 +54,7 @@ export async function processUnitAttack(unit, allySide, enemySide, log, A, B, st
         return false;
     }
 
-    // 明教首次攻击前发射信号，由小昭姐组件自行处理蝶变附身
-    if (unit.camp === 'ally' && A && !A._butterflyTriggered) {
-        A._butterflyTriggered = true;
-        const interceptResult = { intercepted: false, interceptUnitUid: null };
-        eventBus.emit('beforeFirstAllyAttack', { A, log, unit, result: interceptResult });
-        if (interceptResult.intercepted) {
-            // 姐姐附身不占攻击次数，拦截后让明教第一人继续行动
-            return true;
-        }
-    }
+
 
     // 步骤1：选择目标
     let target, phantomLog;

@@ -30,6 +30,9 @@
             for (let run = 0; run < RUNS; run++) {
                 // 重置事件总线
                 eventBus.clearAll();
+                // 重置全局状态
+                GlobalStore.set('currentBattleState', null);
+                GlobalStore.flushBattleEvents();
 
                 // 1. 生成阵容
                 let UI = { allyTeam: [], enemyTeam: [], currentResult: null, round: 0, lastSnapshot: null };
@@ -91,7 +94,21 @@
                     // 更新下一回合状态
                     state.ally = lastStep.ally;
                     state.enemy = lastStep.enemy;
-                    state.activeBuffs = (lastStep.ally._activeBuffs || [])
+                    // 同步 allAllies：保持已死亡队友的状态追踪
+                    if (lastStep.ally._allAllies || state.allAllies) {
+                        const baseAllies = lastStep.ally._allAllies || state.allAllies;
+                        state.allAllies = baseAllies.map(full => {
+                            const cur = lastStep.ally.find(a => a.uid === full.uid);
+                            if (cur) {
+                                full.hp = cur.hp; full.maxHp = cur.maxHp; full.alive = cur.alive;
+                                full.atk = cur.atk; full.def = cur.def;
+                                if (cur._isDead !== undefined) full._isDead = cur._isDead;
+                            }
+                            return full;
+                        });
+                    }
+                    state.activeBuffs = (lastStep.ally._activeBuffs || state.activeBuffs || [])
+                        .filter(b => b && b.remaining > 0)
                         .map(b => ({...b, remaining: b.remaining - 1}))
                         .filter(b => b.remaining > 0);
                     state.round = r + 1;
