@@ -59,12 +59,7 @@ export function applyCarryBonus(unit, A, state, log, stats) {
     const carryPositions = sister ? [4, 5, 6] : [5];
 
     if (hasCarryActive && carryPositions.includes(unit.pos) && unit._baseMaxHp !== undefined && !unit.isHorse && !unit.isZhang && !unit.isXiaoZhaoSister && !unit.isXiaoZhaoBrother) {
-        // carry 生效：先根据基础血量等比缩放当前血量，再重置为基值，然后加上 carry 加成
-        if (unit.maxHp > 0 && unit._baseMaxHp > 0) {
-            const oldHp = unit.hp;
-            unit.hp = Math.floor(unit.hp * (unit._baseMaxHp / unit.maxHp));
-            applyStatChange(unit, 'hp', unit.hp - oldHp, null, 'carry归位缩放');
-        }
+        // carry 生效：先回到基础血上限，再叠加本次 carry 加成
         applyMaxHpChange(unit, unit._baseMaxHp, null, 'carry归位血上限');
         applyStatChange(unit, 'atk', (unit._baseAtk || unit.atk) + (unit._butterflyAtkBonus || 0) - unit.atk, null, 'carry归位');
         applyStatChange(unit, 'def', (unit._baseDef || unit.def) + (unit._butterflyDefBonus || 0) - unit.def, null, 'carry归位');
@@ -91,12 +86,6 @@ export function applyCarryBonus(unit, A, state, log, stats) {
     } else if (!unit.isHorse && !hasCarryActive && !unit.isXiaoZhaoSister && !unit.isXiaoZhaoBrother && !unit.isZhang) {
         // carry 消失：清除加成，恢复基值
         if (carryPositions.includes(unit.pos) && (unit._carryAtkBonus || unit._carryDefBonus || unit._carryHpBonus)) {
-            if (unit._carryHpBonus && unit._baseMaxHp > 0 && unit.maxHp > 0) {
-                const oldHp = unit.hp;
-                unit.hp = Math.floor(unit.hp * (unit._baseMaxHp / unit.maxHp));
-                const hpDelta = unit.hp - oldHp;
-                if (hpDelta !== 0) applyStatChange(unit, 'hp', hpDelta, null, 'carry清除');
-            }
             if (unit._carryHpBonus) applyMaxHpChange(unit, unit._baseMaxHp, null, 'carry清除血上限');
             const clearAtk = unit._carryAtkBonus || 0;
             const clearDef = unit._carryDefBonus || 0;

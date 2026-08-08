@@ -105,6 +105,16 @@ export async function handleBuffReboundFortify(c, entry) {
     await new Promise(r=>setTimeout(r, window._fastForwardActive ? 1 : c.speed/2));
 }
 
+/**
+ * 消费 attack-group 日志条目，驱动攻击动画全流程
+ * 负责：管道C飞天免疫 → 事件分发（蝶变/蛛变/hp-change）→ 闪光动画 → 音效播放 → 文字逐帧 → 掉血弹幕 → 闪避特效
+ * @param {object} c - 播放器上下文
+ * @param {object} entry - 攻击组日志对象 { uidA, uidD, entries, isDead, isDodge, isMiss, _dmg, ... }
+ * @param {object} roundResult - 回合结果快照
+ * @param {AbortSignal|null} abortSig - 中止信号
+ * @param {{ value: boolean }} isFirstAttackRef - 是否首次攻击引用（用于回合开始判断）
+ * @returns {Promise<{ isBattleOver: boolean }>}
+ */
 export async function handleAttackGroup(c, entry, roundResult, abortSig, isFirstAttackRef) {
     // 管道C — 飞天免疫：引擎在 beforeDamageApply 中单独构建 immuneGroup，显示攻击动作但回退伤害，不走 _pendingHpEvents
     if (entry.isCombo) { let spacer = document.createElement('div'); spacer.innerHTML = '<br>'; document.getElementById('log').appendChild(spacer); c.autoScrollLog(); c.isPaused = true; window.bulletTimeActive = true; if (c._scheduler) { await new Promise(r => c._scheduler.schedule('banner', 1500, r)); showBuffBanner('⚡ 连击！'); } else { await showBuffBanner('⚡ 连击！'); } window.bulletTimeActive = false; c.isPaused = false; }
@@ -278,6 +288,13 @@ export async function handleAttackGroup(c, entry, roundResult, abortSig, isFirst
     return { isBattleOver: false };
 }
 
+/**
+ * 消费 info 类型日志条目，驱动非攻击动画（蝶变/蛛变/白骨爪/新婚/乾坤衍生等）
+ * 根据 entry 的标记字段（isClawHit/isZhangSwitch/buffType 等）触发对应特效
+ * @param {object} c - 播放器上下文
+ * @param {object} entry - info 日志对象 { text, fastEntry?, isZhangSwitch?, isClawHit?, buffType?, ... }
+ * @returns {Promise<void>}
+ */
 export async function handleInfo(c, entry) {
     if (entry.fastEntry) {
         let tempDiv = document.createElement('div');
@@ -457,6 +474,13 @@ export async function handleInfo(c, entry) {
     document.getElementById('roundDisplay').innerText = `📜 日志（第${c.UI.round}回合）`;
 }
 
+/**
+ * 消费 round-start 日志条目，更新 UI 回合数并触发首次攻击标记重置
+ * @param {object} c - 播放器上下文
+ * @param {object} entry - 日志对象 { text }
+ * @param {{ value: boolean }} isFirstAttackRef - 首次攻击标记引用
+ * @returns {Promise<void>}
+ */
 export async function handleRoundStart(c, entry, isFirstAttackRef) {
     c.UI.round = parseInt(entry.text.match(/\d+/)[0])||1;
     if (isFirstAttackRef) isFirstAttackRef.value = true;
@@ -466,6 +490,14 @@ export async function handleRoundStart(c, entry, isFirstAttackRef) {
     c.updateUI(c.UI);
 }
 
+/**
+ * 消费 round-end 日志条目，刷新 Buff 槽显示和光带效果
+ * @param {object} c - 播放器上下文
+ * @param {object} entry - 日志对象 { text }
+ * @param {Array} log - 日志数组（未使用）
+ * @param {number} i - 当前日志索引（未使用）
+ * @returns {Promise<void>}
+ */
 export async function handleRoundEnd(c, entry, log, i) {
     let div=document.createElement('div');div.innerHTML=entry.text + '<br>';document.getElementById('log').appendChild(div); c.autoScrollLog(); document.getElementById('roundDisplay').innerText = `📜 日志（第${c.UI.round}回合）`;
     if (c.updateBuffSlots) { c.updateBuffSlots(); }

@@ -47,6 +47,15 @@ export function clearAllEffects(){
     document.querySelectorAll('.grid.victory-border').forEach(grid => grid.classList.remove('victory-border'));
 }
 
+/**
+ * 逐条消费日志条目，根据 type 分发到对应的 handler（info/attack-group/buff-summon 等）
+ * 负责：暂停等待 → 分隔符判断 → 条目分发 → 更新 lastLogType
+ * @param {object} c - 播放器上下文
+ * @param {Array} log - 日志条目数组
+ * @param {object} roundResult - 回合结果快照 { events, doubleStrikeUid }
+ * @param {{ value: boolean }} isFirstAttackRef - 是否首次攻击引用
+ * @returns {Promise<{ isBattleOver: boolean }>}
+ */
 export async function playLogEntries(c, log, roundResult, isFirstAttackRef) {
     let abortSig = c.abortController ? c.abortController.signal : null;
     let lastEntryType = c._lastLogType || null;
@@ -202,6 +211,11 @@ export async function playLogEntries(c, log, roundResult, isFirstAttackRef) {
     return { isBattleOver: false };
 }
 
+/**
+ * 战斗播放主循环 — 创建回合推进器，逐帧消费日志并调度动画
+ * 负责：Store 创建与订阅 → AnimationScheduler 帧循环 → 快进/暂停响应 → 倍速/滚动交互 → 战斗结束处理
+ * @returns {Promise<void>}
+ */
 export async function playBattle() {
     const c = getCtx();
     if (!c || !c.snapshot || !c.snapshot.ally || !c.snapshot.ally.length) return;

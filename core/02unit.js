@@ -2,6 +2,7 @@
 // V5.3.1 | ~8400 bytes| 2026-07-05
 export const VER = 'core/02unit.js V5.3.1';
 
+import { CONFIG } from './01config-5v5-test.js';
 import { rand } from './03battle-utils.js';
 
 export const ROLE_BONUS = {
@@ -76,74 +77,17 @@ export class Unit {
     }
     clone(){
         let c=new Unit(this.name,this.m,this.role,this.camp);
-        c.pos=this.pos;c.alive=this.alive;c.atk=this.atk;c.def=this.def;
-        c.maxHp=this.maxHp;c.hp=this.hp;c.uid=this.uid;
-        c.isZhang=this.isZhang;c.isWei=this.isWei;c.isHorse=this.isHorse;
-        c.rangedForm=this.rangedForm;c.nearAtkCount=this.nearAtkCount;c.ronghui=this.ronghui;
-        c.dmgDealt=this.dmgDealt;c.dmgTaken=this.dmgTaken;c.healDone=this.healDone;
-        c.reboundDone=this.reboundDone;c.leechDone=this.leechDone;
-        c.dodgeCount=this.dodgeCount;c.critCount=this.critCount;
-        c._acted=this._acted;c.survivedRounds=this.survivedRounds;
-        c._flash=this._flash;c._blocked=this._blocked;c._isDead=this._isDead;
-        c._resting=this._resting;c._flyMode=this._flyMode;c._untargetable=this._untargetable;
-        c.fixed=this.fixed;c._originalPos=this._originalPos;
-        c._hotBloodCount=this._hotBloodCount;c._doubleStriked=this._doubleStriked;
-        c._zhangSwitched = this._zhangSwitched;
-        c._xuanmingPoison = this._xuanmingPoison ? { ...this._xuanmingPoison } : null;
-        c.buffAtkBonus = this.buffAtkBonus;
-        c.buffDefBonus = this.buffDefBonus;
-        c.buffDodgeBonus = this.buffDodgeBonus;
-        c.buffHpBonus = this.buffHpBonus;
-        c._baseMaxHp = this._baseMaxHp;
-        c._baseAtk = this._baseAtk;
-        c._baseDef = this._baseDef;
-        c._carryAtkBonus = this._carryAtkBonus;
-        c._carryDefBonus = this._carryDefBonus;
-        c._carryHpBonus = this._carryHpBonus;
-        c._butterflyAtkBonus = this._butterflyAtkBonus;
-        c._butterflyDefBonus = this._butterflyDefBonus;
-        c._initAtk = this._initAtk;
-        c._initDef = this._initDef;
-        c._deathTime = this._deathTime;
-        // V3.1.0 新增字段深拷贝
+        // 基础类型自动拷贝（跳过需要深拷贝的数组/对象字段）
+        const deepKeys = ['_kuaiLeStack', '_permanentBuffs', '_masteredRoles', '_xuanmingPoison'];
+        for (const key of Object.keys(this)) {
+            if (deepKeys.includes(key)) continue;
+            c[key] = this[key];
+        }
+        // 需要深拷贝的字段
         c._kuaiLeStack = this._kuaiLeStack.map(layer => ({ ...layer }));
-        c._xingFenActive = this._xingFenActive;
-        c._xingFenCount = this._xingFenCount;
-        c._kuLianActive = this._kuLianActive;
-        c._phantomTarget = this._phantomTarget;
-        c._stunned = this._stunned;
-        c._lastRole = this._lastRole;
-        c._isLinkAttack = this._isLinkAttack;
-        c._linkedPartnerUid = this._linkedPartnerUid;
-        c._masteredRoles = [...this._masteredRoles];
         c._permanentBuffs = this._permanentBuffs.map(b => ({...b}));
-        c.isXiaoZhaoSister = this.isXiaoZhaoSister;
-        c.isXiaoZhaoBrother = this.isXiaoZhaoBrother;
-        c._butterflyHost = this._butterflyHost;
-        c._butterflyAtk = this._butterflyAtk;
-        c._butterflyDef = this._butterflyDef;
-        c._butterflyHp = this._butterflyHp;
-        c._butterflyHpTransfer = this._butterflyHpTransfer;
-        c._spiderRemaining = this._spiderRemaining;
-        c._spiderFlying = this._spiderFlying;
-        c._spiderAttacked = this._spiderAttacked;
-        c._spiderTriggeredHit = this._spiderTriggeredHit;
-        c._spiderTriggered70 = this._spiderTriggered70;
-        c._spiderTriggered40 = this._spiderTriggered40;
-        c._spiderTriggeredDeath = this._spiderTriggeredDeath;
-        c._spiderTriggeredThisRound = this._spiderTriggeredThisRound;
-        c._nineYinFirstDone = this._nineYinFirstDone;
-        c._extinctionUsed = this._extinctionUsed;
-        c._xingFenPenaltyCount = this._xingFenPenaltyCount;
-        c._emptyColBonus = this._emptyColBonus;
-        c._bloodAuraBonus = this._bloodAuraBonus;
-        c._holyAtkBonus = this._holyAtkBonus;
-        c._holyDefBonus = this._holyDefBonus;
-        c._fortifyDefBonus = this._fortifyDefBonus;
-        c._fortifyStacks = this._fortifyStacks;
-        c._fortifyIncrement = this._fortifyIncrement;
-        c._fortifyCap = this._fortifyCap;
-        c._dodgeStack = this._dodgeStack;
+        c._masteredRoles = [...this._masteredRoles];
+        c._xuanmingPoison = this._xuanmingPoison ? { ...this._xuanmingPoison } : null;
         return c;
     }
     init(){
