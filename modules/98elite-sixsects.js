@@ -44,10 +44,7 @@ export function createSongQingshuComponent() {
                 if (data.unit._xingFenExtraAttacking) { return; }
                 await onAfterAttack(data.unit, data.target, B, A, data.log, B, A, data.state);
             });
-            eventBus.on('beforeActionSelect', L.BEFORE_ACTION.KULIAN_PRIORITY, (data) => {
-                if (data.unit.name !== '宋青书' || !data.unit.alive || !data.unit._kuLianActive) return;
-                data.declaration.priority = 1;
-            });
+            
             eventBus.on('beforeSelectTarget', L.BEFORE_SELECT_TARGET.SONG_REBEL, (data) => {
                 if (data.unit.name !== '宋青书' || !data.unit.alive || !data.validTargets || data.validTargets.length === 0) return;
                 const rebelTarget = data.validTargets.reduce((a, b) => (a.hp / a.maxHp) > (b.hp / b.maxHp) ? a : b);

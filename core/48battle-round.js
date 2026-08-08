@@ -137,6 +137,11 @@ export async function* createRoundStepper(state) {
     registerWindAssault(eventBus);
     registerMeteorShower(eventBus);
     registerMindControl(eventBus);
+    // 苦练优先行动（通用注册，不依赖 onRoundStart 后的精英注册）
+    eventBus.on('beforeActionSelect', L.BEFORE_ACTION.KULIAN_PRIORITY, (data) => {
+        if (data.unit.name !== '宋青书' || !data.unit.alive || !data.unit._kuLianActive) return;
+        data.declaration.priority = 1;
+    });
     // 飞行突进目标选择（⚠️ 预留给未来飞行精英角色使用，当前普通飞行单位不触发此逻辑）
     eventBus.on('beforeSelectTarget', L.BEFORE_SELECT_TARGET.FLY_TARGET, (data) => {
         if (data.unit.role !== '飞行' || data.unit.isWei) return;
@@ -179,6 +184,7 @@ export async function* createRoundStepper(state) {
     if (lu && he) { lu._linkedPartnerUid = he.uid; he._linkedPartnerUid = lu.uid; }
 
     A._butterflyTriggered = false;
+            A._mindControlTriggered = false;
     A.forEach(u => {
         if (!u.alive) return;
         emitEvent(u, 'hp-change', { hp: u.hp, maxHp: u.maxHp, alive: u.alive, atk: u.atk, def: u.def, _stunned: false });
@@ -311,8 +317,8 @@ export async function* createRoundStepper(state) {
             if (u._flyMode === 'butterfly' || u._flyMode === 'spider' || u._spiderFlying) {
                 return { actingUnit: null, passEntry: { unit: u, reason: '飞天/附身' }, isPriorityAction: false };
             }
-            const allySide = u.camp === 'ally' ? candidates.filter(c => c.camp === 'ally') : candidates.filter(c => c.camp === 'enemy');
-            if (isBlocked(u, allySide) && isMelee(u.role)) {
+            const fullAllySide = u.camp === 'ally' ? A : B;
+            if (isBlocked(u, fullAllySide) && isMelee(u.role)) {
                 return { actingUnit: null, passEntry: { unit: u, reason: '被遮挡' }, isPriorityAction: false };
             }
             const decl = { priority: 0, skip: false, pass: false };
