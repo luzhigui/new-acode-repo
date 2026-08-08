@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// ui/41main-battle.js - 光明顶5v5 战斗初始化
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// ui/41main-battle.js - 光明顶5v5 战斗初始化
 // V5.3.3 | 2026-08-05 精英出场率改为80%/15%/5% + ELITE_RATE加权选人
 export const VER = 'ui/41main-battle.js V5.3.3';
 
