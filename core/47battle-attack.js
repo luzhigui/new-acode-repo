@@ -183,6 +183,14 @@ export async function processUnitAttack(unit, allySide, enemySide, log, A, B, st
     // 步骤5：构建攻击组日志
     let group = await buildAttackGroup(unit, target, dmgCalc, dmgResult, attackerBuffStats, defenderBuffStats, allySide, enemySide, log, A, B, state, doubleStrikeUnitUid, phantomLog);
 
+    // 追加乾坤衍生等暂存日志到当前攻击组末尾
+    if (unit._pendingDerivedEntries) {
+        for (const entry of unit._pendingDerivedEntries) {
+            group.entries.push(entry);
+        }
+        delete unit._pendingDerivedEntries;
+    }
+
     // ---------- 攻击后效果声明收集 ----------
     // 组件提交 { type: 'leech'|'heal'|'rebound'|'splash'|'defReduce'|'other', value, target, source }
     const afterDamageDeclarations = [];

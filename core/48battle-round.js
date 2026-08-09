@@ -252,6 +252,15 @@ export async function* createRoundStepper(state) {
 
     logBuffSummary(A, log, doubleStrikeUnitUid);
 
+    // 第一回合开始前弹出姐姐附身方向选择（后续回合在 playBattle 的 Buff 弹窗后处理）
+    if (round === 1 && A.some(u => u.isXiaoZhaoSister && u.alive)) {
+        const { showFlyDirectionPopup } = await import('../ui/41main-battle.js');
+        const direction = await new Promise(resolve => {
+            showFlyDirectionPopup(resolve);
+        });
+        A._flyDirection = direction || 'right';
+    }
+
     const roundStartEvents = GlobalStore.flushBattleEvents();
     yield { log: [...log], events: roundStartEvents, ally: A, enemy: B, winner: null, done: false, doubleStrikeUid: doubleStrikeUnitUid };
     log = [];
@@ -278,20 +287,26 @@ export async function* createRoundStepper(state) {
             B._pendingStateTransitions = [];
         }
         eventBus.emit('beforeStateTransition', { A, B, log, declarations: stateTransitions });
+        const delayedDecls = [];
         for (const decl of stateTransitions) {
             if (decl.type === 'butterflyAttach') {
                 sisterComp.executeAttach(A, log);
             } else if (decl.type === 'butterflyReturn') {
-                // 飞回只在回合结束时处理，不在这里执行
-                if (!A._pendingStateTransitions) A._pendingStateTransitions = [];
-                A._pendingStateTransitions.push(decl);
+                // 飞回只在回合结束时处理，跳过并暂存
+                delayedDecls.push(decl);
+                continue;
             } else if (decl.type === 'spiderFly') {
                 brotherComp.executeFly(decl.unit, decl.incomingDmg, A, log);
             } else if (decl.type === 'spiderDescend') {
-                // 蛛落也只在回合结束时处理，不在这里执行
-                if (!A._pendingStateTransitions) A._pendingStateTransitions = [];
-                A._pendingStateTransitions.push(decl);
+                // 蛛落也只在回合结束时处理，跳过并暂存
+                delayedDecls.push(decl);
+                continue;
             }
+        }
+        // 将跳过的延迟声明放回队列，供回合结束时消费
+        if (delayedDecls.length > 0) {
+            if (!A._pendingStateTransitions) A._pendingStateTransitions = [];
+            A._pendingStateTransitions.push(...delayedDecls);
         }
     }
 
@@ -473,11 +488,14 @@ export async function* createRoundStepper(state) {
         // 发射回合结束信号，收集状态转换声明，由裁判统一裁定执行
         const endStateTransitions = [];
         eventBus.emit('onRoundEnd', { A, B, log, forced: false, declarations: endStateTransitions });
+        // 飞回和蛛落只在真正回合结束时执行，攻击循环内暂存
         for (const decl of endStateTransitions) {
             if (decl.type === 'butterflyReturn') {
-                sisterComp.executeReturn(decl.sister, A, log);
+                if (!A._pendingStateTransitions) A._pendingStateTransitions = [];
+                A._pendingStateTransitions.push(decl);
             } else if (decl.type === 'spiderDescend') {
-                brotherComp.executeDescend(decl.unit, A, B, log);
+                if (!A._pendingStateTransitions) A._pendingStateTransitions = [];
+                A._pendingStateTransitions.push(decl);
             }
         }
         // 兜底：回合结束阶段产生的死亡标记
@@ -490,15 +508,38 @@ export async function* createRoundStepper(state) {
         if (!allyAlive) { winner = '六大派'; done = true; }
         else if (!enemyAlive) { winner = '明教'; done = true; }
 
-        // 胜利时先发射回合结束信号，再 yield，防止播放器提前重入
+        // 胜利时先执行飞回/蛛落，让姐姐归队后再展示胜利画面
         if (winner) {
             eventBus.emit('onRoundEnd', { A, B, log, forced: true });
+            // 消费本次 onRoundEnd 产生的飞回/蛛落声明
+            const winPendingDecls = [];
+            if (A._pendingStateTransitions) { winPendingDecls.push(...A._pendingStateTransitions); A._pendingStateTransitions = []; }
+            if (B._pendingStateTransitions) { winPendingDecls.push(...B._pendingStateTransitions); B._pendingStateTransitions = []; }
+            for (const decl of winPendingDecls) {
+                if (decl.type === 'butterflyReturn') {
+                    sisterComp.executeReturn(decl.sister, A, log);
+                } else if (decl.type === 'spiderDescend') {
+                    brotherComp.executeDescend(decl.unit, A, B, log);
+                }
+            }
         }
 
         yield { log: [...log], events: stepEvents, ally: A, enemy: B, winner, done };
         log = [];
 
         if (done) return;
+    }
+
+    // 回合真正结束时，执行暂存的飞回和蛛落声明
+    const allPendingDecls = [];
+    if (A._pendingStateTransitions) { allPendingDecls.push(...A._pendingStateTransitions); A._pendingStateTransitions = []; }
+    if (B._pendingStateTransitions) { allPendingDecls.push(...B._pendingStateTransitions); B._pendingStateTransitions = []; }
+    for (const decl of allPendingDecls) {
+        if (decl.type === 'butterflyReturn') {
+            sisterComp.executeReturn(decl.sister, A, log);
+        } else if (decl.type === 'spiderDescend') {
+            brotherComp.executeDescend(decl.unit, A, B, log);
+        }
     }
 
     [A, B].forEach(team => {

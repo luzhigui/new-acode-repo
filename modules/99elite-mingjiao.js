@@ -161,7 +161,21 @@ export function createXiaoZhaoSisterComponent() {
                     applyStatChange(healTarget, 'hp', heal, xiaoZhao, '乾坤衍生治疗');
                     applyStatChange(atkTarget, 'atk', atkGain, xiaoZhao, '乾坤衍生加攻');
                     if (atkTarget._baseAtk !== undefined) atkTarget._baseAtk += atkGain;
-                    data.log.push({ type:'info', text:`<span class="gold">🦋 乾坤衍生：${target.name}减伤${reduce}，${healTarget.name}治疗+${heal}，${atkTarget.name}攻击+${atkGain}</span>` });
+                    // 将日志挂在当前攻击组末尾，并携带弹幕字段
+                    const derivedEntry = {
+                        type:'info',
+                        text:`<span class="gold">🦋 乾坤衍生：${target.name}减伤${reduce}，${healTarget.name}治疗+${heal}，${atkTarget.name}攻击+${atkGain}</span>`,
+                        isHealEntry: true,
+                        healAmount: heal,
+                        healUnitUid: healTarget.uid,
+                        // 加工弹幕字段
+                        buffType: 'qiankun_atk',
+                        atkGain: atkGain,
+                        atkTargetUid: atkTarget.uid
+                    };
+                    // 暂存到 unit，等 buildAttackGroup 后由 processUnitAttack 追加到 group.entries
+                    if (!data.unit._pendingDerivedEntries) data.unit._pendingDerivedEntries = [];
+                    data.unit._pendingDerivedEntries.push(derivedEntry);
                 }
             });
             eventBus.on('beforeActionSelect', L.BEFORE_ACTION.BUTTERFLY_SKIP, (data) => {
@@ -183,12 +197,14 @@ export function createXiaoZhaoSisterComponent() {
         executeAttach(A, log) {
             const sister = A.find(u => u.isXiaoZhaoSister && u.alive && u.pos === 4 && !u._stunned);
             if (!sister || sister._butterflyHost) return null;
-            const order = [5,6,7,8,9,1,2,3]; let host = null;
+            const flyDirection = A._flyDirection || 'right';
+            const order = flyDirection === 'left' ? [3,2,1,9,8,7,6,5] : [5,6,7,8,9,1,2,3];
+            let host = null;
             for (const p of order) { const u = A.find(a => a.pos === p && a.alive && !a.isHorse && a.uid !== sister.uid); if (u) { host = u; break; } }
             if (!host) { applyStatChange(sister, 'hp', -sister.hp, null, '蝶变无宿主'); log.push({ type:'info', text:`<span class="red">🦋 蝶变：${sister.name} 无队友可附身，香消玉殒！</span>` }); return null; }
             const s = getSkillParams('小昭', 'butterflyAttach') || {};
-            const atkRatio = 1/3;
-            const defRatio = 1/3;
+            const atkRatio = flyDirection === 'left' ? 0 : 1/2;
+            const defRatio = flyDirection === 'left' ? 1/2 : 0;
             const hpRatio = 1/2;
             const atkTransfer = Math.floor(sister._baseAtk * atkRatio);
             const defTransfer = Math.floor(sister._baseDef * defRatio);
@@ -214,8 +230,8 @@ export function createXiaoZhaoSisterComponent() {
         },
         // 裁判接口：执行飞回（由 onRoundEnd 裁判调用）
         executeReturn(sister, A, log) {
-            if (!sister._butterflyHost) return;
-            const host = A.find(u => u.uid === sister._butterflyHost);
+            if (!sister.alive || !sister._butterflyHost) return;
+            const host = A.find(u => u.uid === sister._butterflyHost && u.alive);
             if (!host || !host.alive) {
                 const allAllies = A.filter(a => !a.isHorse && a.uid !== sister.uid);
                 const totalHp = allAllies.reduce((sum, a) => sum + (a.alive ? a.hp : 0), 0);
