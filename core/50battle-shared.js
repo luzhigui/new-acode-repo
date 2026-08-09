@@ -61,6 +61,8 @@ function checkZhangSwitch(A, log) {
         zhang.role = '战士';
         zhang._resting = false; zhang._zhangSwitched = true;
         zhang._baseMaxHp = zhang.maxHp;
+        zhang._baseAtk = zhang.atk;
+        zhang._baseDef = zhang.def;
         emitCoreEvent(zhang, 'zhang-switch', {
             atk: zhang.atk,
             def: zhang.def,

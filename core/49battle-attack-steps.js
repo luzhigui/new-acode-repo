@@ -329,6 +329,7 @@ export function applyAttackResult(unit, target, dmgCalc, attackerBuffStats, defe
     let dead = hpAfter <= 0;
     target.hp = Math.max(0, hpAfter);
     if (dead) {
+        target.alive = false;
         target._pendingDeath = true;
         if (!target._deathTime) target._deathTime = Date.now();
     }
