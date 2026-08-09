@@ -1,6 +1,6 @@
 ﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// ui/14ui-render-5v5-test.js - 光明顶5v5 UI渲染模块（响应式版）
-// V5.3.3 | ~32200 bytes| 2026-08-04 技能描述接入 game-data
-export const VER = 'ui/14ui-render-5v5-test.js V5.3.3';
+// V5.4.0 | ~33600 bytes| 2026-08-04 技能描述接入 game-data
+export const VER = 'ui/14ui-render-5v5-test.js V5.4.0';
 
 import { CONFIG, getSkillDesc } from '../core/01config-5v5-test.js';
 import { rand } from '../core/03battle-utils.js';

@@ -1,6 +1,6 @@
 // modules/98elite-sixsects.js - 六大派精英组件合集
-// V5.3.2 | ~12600 bytes| 2026-08-04 宋青书苦练/新婚接入 game-data
-export const VER = 'modules/98elite-sixsects.js V5.3.2';
+// V5.4.0 | ~12500 bytes| 2026-08-04 宋青书苦练/新婚接入 game-data
+export const VER = 'modules/98elite-sixsects.js V5.4.0';
 import { GlobalStore } from './46global-store.js';
 import { CONFIG, getSkillParams } from '../core/01config-5v5-test.js';
 import { eventBus, EXECUTION_LAYER as L } from '../core/00-event-bus.js';

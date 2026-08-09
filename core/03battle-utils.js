@@ -1,6 +1,6 @@
 // core/03battle-utils.js - 光明顶5v5 战斗工具函数
-// V5.3.1 | ~15300 bytes| 2026-07-28 新增事件总线监听器注册
-export const VER = 'core/03battle-utils.js V5.3.1';
+// V5.4.0 | ~17200 bytes| 2026-07-28 新增事件总线监听器注册
+export const VER = 'core/03battle-utils.js V5.4.0';
 
 import { CONFIG, TAUNT_LIB, DEF_TAUNT, HP_TAUNT, ZHANG_NEAR_TAUNT } from './01config-5v5-test.js';
 import { emitEvent, applyStatChange, query } from './50battle-shared.js';

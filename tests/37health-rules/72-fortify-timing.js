@@ -2,7 +2,7 @@
 // 回归规则：坚盾计数"已叠0/3" — 修复后坚盾日志在监听器内生成，_fortifyThisRound 已更新
 // 复发信号：坚盾日志显示"已叠0/3"（_fortifyThisRound 未更新就读取，时序回退）
 // 对应已修 Bug：坚盾计数"已叠0/3"（日志读取早于监听器更新）
-export const VER = 'tests/37health-rules/72-fortify-timing.js V5.3.1';
+export const VER = 'tests/37health-rules/72-fortify-timing.js V5.4.0';
 
 export const rule72 = {
     group: '精英技能回归',

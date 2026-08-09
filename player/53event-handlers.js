@@ -1,6 +1,6 @@
 // player/53event-handlers.js - 光明顶5v5 事件处理器函数族
-// V5.3.1 | ~26600 bytes| 2026-07-31 从 player/10 提取动画 handler
-export const VER = 'player/53event-handlers.js V5.3.1';
+// V5.4.0 | ~32000 bytes| 2026-07-31 从 player/10 提取动画 handler
+export const VER = 'player/53event-handlers.js V5.4.0';
 
 import { isBlocked } from '../core/03battle-utils.js';
 import { showDanmaku, showDamageFloat, showDodgeBubble, showHealFloat, showAtkBuffFloat, applyBrushEffect, showBuffBanner, showCriticalBanner, showHeartEffect, showPinkFlash, showKuLianEffect, showWindClaw } from '../fx/15fx-common-5v5-test.js';
@@ -232,6 +232,14 @@ export async function handleAttackGroup(c, entry, roundResult, abortSig, isFirst
                 if (healUnit && entry2.healAmount) {
                     showHealFloat(healUnit, entry2.healAmount);
                 }
+            }
+            if (entry2.reboundDmg && entry2.reboundTargetUid) {
+                let reboundTarget = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.uid === entry2.reboundTargetUid);
+                if (reboundTarget) showDamageFloat(reboundTarget, entry2.reboundDmg);
+            }
+            if (entry2.selfDmg && entry2.selfDmgUid) {
+                let selfTarget = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.uid === entry2.selfDmgUid);
+                if (selfTarget) showDamageFloat(selfTarget, entry2.selfDmg);
             }
             if (entry2.text && entry2.text.includes('🦋 乾坤衍生') && entry2.text.includes('攻击+')) {
                 const atkMatch = entry2.text.match(/攻击\+(\d+)/);

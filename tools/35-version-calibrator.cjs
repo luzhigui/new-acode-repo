@@ -1,5 +1,5 @@
 // tools/35-version-calibrator.cjs - 光明顶5v5 版本号与字节数批量校准器
-// V5.3.1 | ~6700 bytes| 2026-07-28
+// V5.4.0 | ~6900 bytes| 2026-07-28
 
 const fs = require('fs');
 const path = require('path');

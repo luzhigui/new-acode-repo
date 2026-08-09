@@ -1,5 +1,5 @@
 ﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿<!DOCTYPE html>
-<!-- V5.3.3 | ~10500 bytes-->
+<!-- V5.4.0 | ~11500 bytes-->
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
@@ -64,6 +64,10 @@
                     <button class="big-btn btn-play" id="btnXiaoZhaoSister" style="flex:1;border-radius:10px 0 0 10px;background:linear-gradient(135deg, #e040fb, #7c4dff);">🦋 小昭·姊</button>
                     <button class="big-btn btn-play" id="btnXiaoZhaoBrother" style="flex:1;border-radius:0 10px 10px 0;background:linear-gradient(135deg, #ff5252, #b71c1c);">🕷️ 小昭·妹</button>
                 </div>
+                <div style="display:flex;gap:0;margin-bottom:10px;">
+                    <button class="big-btn btn-play" id="btnZhangWuji" style="flex:1;border-radius:10px 0 0 10px;background:linear-gradient(135deg, #ffd700, #ffaa00);">☀️ 张无忌</button>
+                    <button class="big-btn btn-play" id="btnWeiYixiao" style="flex:1;border-radius:0 10px 10px 0;background:linear-gradient(135deg, #6a0dad, #4b0082);">🦇 韦一笑</button>
+                </div>
                 <button class="big-btn btn-play" id="btnBugMode" style="background:linear-gradient(135deg, #ff5252, #b71c1c);">🐛 Bug模式</button>
                 <button class="big-btn btn-play" id="btnShop" style="background:linear-gradient(135deg, #ff9800, #f57c00);">🏪 圣火令商店</button>
                 <button class="big-btn btn-health" id="btnHealthCheck">🩺 全面体检</button>
@@ -105,6 +109,16 @@
         });
         document.getElementById('btnXiaoZhaoBrother').addEventListener('click', () => {
             localStorage.setItem('_forceXiaoZhao', 'brother');
+            localStorage.removeItem('_bugMode');
+            window.open('mode-5v5-test.html', '_blank');
+        });
+        document.getElementById('btnZhangWuji').addEventListener('click', () => {
+            localStorage.setItem('_forceZhang', '1');
+            localStorage.removeItem('_bugMode');
+            window.open('mode-5v5-test.html', '_blank');
+        });
+        document.getElementById('btnWeiYixiao').addEventListener('click', () => {
+            localStorage.setItem('_forceWei', '1');
             localStorage.removeItem('_bugMode');
             window.open('mode-5v5-test.html', '_blank');
         });

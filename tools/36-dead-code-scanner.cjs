@@ -1,5 +1,5 @@
 // tools/36-dead-code-scanner.cjs - 光明顶5v5 死代码扫描器
-// V5.3.1 | ~4500 bytes| 2026-07-28
+// V5.4.0 | ~4700 bytes| 2026-07-28
 
 const fs = require('fs');
 const path = require('path');

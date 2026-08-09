@@ -1,5 +1,5 @@
 // modules/99elite-mingjiao.js - 明教精英组件合集
-// V5.4.0 | ~23700 bytes| 2026-08-06 状态转换迁移至声明→裁定模式
+// V5.4.0 | ~26900 bytes| 2026-08-06 状态转换迁移至声明→裁定模式
 export const VER = 'modules/99elite-mingjiao.js V5.4.0';
 
 import { CONFIG, getSkillParams } from '../core/01config-5v5-test.js';

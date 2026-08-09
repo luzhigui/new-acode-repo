@@ -1,6 +1,6 @@
 // modules/97elite-imperial.js - 朝廷精英组件合集
-// V5.3.2 | ~7500 bytes| 2026-08-04 技能参数接入 game-data
-export const VER = 'modules/97elite-imperial.js V5.3.2';
+// V5.4.0 | ~8600 bytes| 2026-08-04 技能参数接入 game-data
+export const VER = 'modules/97elite-imperial.js V5.4.0';
 
 import { CONFIG, getSkillParams } from '../core/01config-5v5-test.js';
 import { rand } from '../core/03battle-utils.js';
