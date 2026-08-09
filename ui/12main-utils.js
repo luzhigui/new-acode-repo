@@ -1,6 +1,6 @@
 ﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// ui/12main-utils.js - 光明顶5v5 主控工具函数
-// V5.3.1 | ~6900 bytes| 2026-07-05
-export const VER = 'ui/12main-utils.js V5.3.1';
+// V5.4.0 | ~7400 bytes| 2026-07-05
+export const VER = 'ui/12main-utils.js V5.4.0';
 
 import { GlobalStore } from '../modules/46global-store.js';
 
@@ -69,6 +69,14 @@ export function initBugAndXiaoZhaoModes() {
     if (localStorage.getItem('_bugMode') === '1') {
         GlobalStore.set('bugMode', true);
         localStorage.removeItem('_bugMode');
+    }
+    if (localStorage.getItem('_forceZhang') === '1') {
+        GlobalStore.set('forceZhang', true);
+        localStorage.removeItem('_forceZhang');
+    }
+    if (localStorage.getItem('_forceWei') === '1') {
+        GlobalStore.set('forceWei', true);
+        localStorage.removeItem('_forceWei');
     }
 }
 

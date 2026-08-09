@@ -1,6 +1,6 @@
 // core/04buff-system.js - 光明顶5v5 Buff系统
-// V5.3.1 | ~18600 bytes| 2026-07-28 海克斯效果迁移至事件总线
-export const VER = 'core/04buff-system.js V5.3.1';
+// V5.4.0 | ~28700 bytes| 2026-07-28 海克斯效果迁移至事件总线
+export const VER = 'core/04buff-system.js V5.4.0';
 import {
     applyFortifyDef_Normal, applyFortifyDef_Sister, applyFortifyDef_Brother,
     applyCloudBodyDodge_Normal, applyCloudBodyDodge_Sister, applyCloudBodyDodge_Brother,

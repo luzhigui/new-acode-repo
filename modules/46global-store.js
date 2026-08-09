@@ -1,6 +1,6 @@
 ﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// modules/46global-store.js - 光明顶5v5 全局状态管理
-// V5.3.1 | ~3600 bytes| 2026-07-18 第一步：收敛 window._* 全局变量
-export const VER = 'modules/46global-store.js V5.3.1';
+// V5.4.0 | ~3700 bytes| 2026-07-18 第一步：收敛 window._* 全局变量
+export const VER = 'modules/46global-store.js V5.4.0';
 
 const _state = {
     fastForwardActive: false,

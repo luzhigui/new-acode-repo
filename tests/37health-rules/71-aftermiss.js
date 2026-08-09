@@ -2,7 +2,7 @@
 // 回归规则：宋青书未命中后不重试 — 修复后 resolveAttackHit 未命中时发射 afterMiss 信号触发重试
 // 复发信号：宋青书出现未命中但整场无任何重试攻击（afterMiss 信号可能未发射）
 // 对应已修 Bug：宋青书未命中后不重试（afterMiss 信号未发射）
-export const VER = 'tests/37health-rules/71-aftermiss.js V5.3.1';
+export const VER = 'tests/37health-rules/71-aftermiss.js V5.4.0';
 
 export const rule71 = {
     group: '精英技能回归',

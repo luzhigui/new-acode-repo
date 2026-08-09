@@ -1,7 +1,7 @@
 // core/51buff-effects.js - 光明顶5v5 海克斯效果函数库
 // V5.3.1 | 按身份拆分：普通团队 / 姐姐强化 / 妹妹永久
 // 死代码已清理：Bloodthirst/HotBlood/WindAssault/MeteorShower/FortifyRebound 系列已迁移至事件总线监听器
-export const VER = 'core/51buff-effects.js V5.3.1';
+export const VER = 'core/51buff-effects.js V5.4.0';
 
 import { CONFIG } from './01config-5v5-test.js';
 import { rand, getUnitRow, getUnitCol } from './03battle-utils.js';

@@ -1,6 +1,6 @@
 // modules/23elite-skills.js - 光明顶5v5 精英技能系统
-// V5.3.2 | ~12800 bytes| 2026-08-04 白骨爪/叛逆突袭接入 game-data
-export const VER = 'modules/23elite-skills.js V5.3.2';
+// V5.4.0 | ~15700 bytes| 2026-08-04 白骨爪/叛逆突袭接入 game-data
+export const VER = 'modules/23elite-skills.js V5.4.0';
 
 import { CONFIG, getSkillParams, getSkillParamsJealous } from '../core/01config-5v5-test.js';
 import { ROLE_BONUS } from '../core/02unit.js';
@@ -69,7 +69,11 @@ export function applyDamageModifiers(unit, target, dmg, allySide, enemySide, log
 
         entries.push({
             type: 'info',
-            text: `<span class="gold">🦋 乾坤大挪移（升级版）：减伤${reducePct}%，反弹${rebound}给${unit.name}（无忌自伤${selfDmg}）</span>`
+            text: `<span class="gold">🦋 乾坤大挪移（升级版）：减伤${reducePct}%，反弹${rebound}给${unit.name}（无忌自伤${selfDmg}）</span>`,
+            reboundDmg: rebound,
+            reboundTargetUid: unit.uid,
+            selfDmg: selfDmg,
+            selfDmgUid: zhang.uid
         });
 
         modifiedDmg = reducedDmg;
@@ -89,7 +93,11 @@ export function applyDamageModifiers(unit, target, dmg, allySide, enemySide, log
 
         entries.push({
             type: 'info',
-            text: `<span class="gold">✨ 乾坤大挪移：减伤${reducePct}%，反弹${rebound}给${unit.name}（无忌自伤${selfDmg}）</span>`
+            text: `<span class="gold">✨ 乾坤大挪移：减伤${reducePct}%，反弹${rebound}给${unit.name}（无忌自伤${selfDmg}）</span>`,
+            reboundDmg: rebound,
+            reboundTargetUid: unit.uid,
+            selfDmg: selfDmg,
+            selfDmgUid: zhang.uid
         });
 
         modifiedDmg = reducedDmg;

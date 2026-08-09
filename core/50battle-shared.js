@@ -1,6 +1,6 @@
 ﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// core/50battle-shared.js - 光明顶5v5 战斗共享工具
 // V5.2.1 | 提取06和48的公共依赖，解开循环引用
-export const VER = 'core/50battle-shared.js V5.3.1';
+export const VER = 'core/50battle-shared.js V5.4.0';
 
 import { CONFIG } from './01config-5v5-test.js';
 import { ROLE_BONUS } from './02unit.js';
@@ -37,7 +37,7 @@ function finalizeDeaths(team) {
             u.alive = false;
             u._isDead = true;
             if (!u._deathTime) u._deathTime = Date.now();
-            emitCoreEvent(u, 'unit-remove', { uid: u.uid });
+            // 不再发射 unit-remove，死亡单位保留在数组中供战报读取
         }
     }
 }

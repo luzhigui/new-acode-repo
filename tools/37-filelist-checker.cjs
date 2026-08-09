@@ -1,5 +1,5 @@
 // tools/37-filelist-checker.cjs - 光明顶5v5 文件清单一致性检查器
-// V5.3.1 | ~5500 bytes| 2026-07-28
+// V5.4.0 | ~5600 bytes| 2026-07-28
 
 const fs = require('fs');
 const path = require('path');

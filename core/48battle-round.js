@@ -1,6 +1,6 @@
 ﻿﻿﻿﻿﻿﻿﻿﻿// core/48battle-round.js - 光明顶5v5 回合循环与生成器
-// V5.3.2 | ~27200 bytes| 2026-08-06 小昭姐妹状态转换纳入声明→裁定模式
-export const VER = 'core/48battle-round.js V5.3.2';
+// V5.4.0 | ~28000 bytes| 2026-08-06 小昭姐妹状态转换纳入声明→裁定模式
+export const VER = 'core/48battle-round.js V5.4.0';
 
 import { CONFIG } from './01config-5v5-test.js';
 import { rand, isMelee, isBlocked, makeFXSnapshot, hasBuff, getUnitCol, getUnitRow, hasAnyEnemyEmptyCol, countEnemyEmptyCols, getBloodAuraBonus, getAuraBonuses, registerWarriorBreakDefense, registerRangedGrowth, registerFortifyShield, registerWarriorExecute, selectFlyTarget, registerEmptyColBonus, registerDoubleStrike } from './03battle-utils.js';
@@ -43,8 +43,8 @@ export async function* createRoundStepper(state) {
             }
         });
     }
-    let A = state.ally.filter(u => u.alive).map(u => u.clone());
-    let B = state.enemy.filter(u => u.alive).map(u => u.clone());
+    let A = state.ally.map(u => u.clone());
+    let B = state.enemy.map(u => u.clone());
     let log = [];
     let round = state.round;
 
@@ -58,14 +58,7 @@ export async function* createRoundStepper(state) {
 
     log.push({ type:'round-start', text:`<div class="separator">———— 第${round}回合开始 ————</div>` });
 
-    [A, B].forEach(team => {
-        for (let i = team.length - 1; i >= 0; i--) {
-            const u = team[i];
-            if (u.isHorse && !u.alive) {
-                team.splice(i, 1);
-            }
-        }
-    });
+    // 死马不再删除，保留在数组中供战报统计承伤
     const teamHorseA = spawnHorse(A, log, B);
     if (teamHorseA) {
         log.push({type:'buff-summon', text:`<span class="gold">🐴 拒马阵：拒马出现在${teamHorseA.pos}号位！</span>`, buffType:'summon', horsePos: teamHorseA.pos, horseUid: teamHorseA.uid, horseTaunt: '嘶——！'});
@@ -305,8 +298,8 @@ export async function* createRoundStepper(state) {
     function resolveActionOrder(candidates, log) {
         resolveStateTransitions();
         const sortedByPos = [...candidates].filter(u => u.alive && !u._isDead).sort((a, b) => a.pos - b.pos);
-        const priorityDeclarations = [];
         const passUnits = [];
+        const priorityDeclarations = [];
 
         for (const u of sortedByPos) {
             if (u._stunned) {
@@ -336,30 +329,38 @@ export async function* createRoundStepper(state) {
             priorityDeclarations.push({ unit: u, priority: decl.priority });
         }
 
-        if (passUnits.length > 0) {
-            return { actingUnit: null, passEntry: passUnits[0], isPriorityAction: false };
+        // 将 pass 单位也放入排序队列，按站位插入
+        // 构造一个统一的排队序列：priority > 0 优先排在前面，同 priority 按 pos 排
+        const queue = [];
+        for (const d of priorityDeclarations) {
+            queue.push({ unit: d.unit, isPass: false, priority: d.priority, reason: null });
         }
+        for (const p of passUnits) {
+            queue.push({ unit: p.unit, isPass: true, priority: 0, reason: p.reason });
+        }
+        // 排序：priority 高优先，同 priority 按 pos
+        queue.sort((a, b) => {
+            if (a.priority !== b.priority) return b.priority - a.priority;
+            return a.unit.pos - b.unit.pos;
+        });
 
-        const hasPriority = priorityDeclarations.filter(d => d.priority > 0);
-        if (hasPriority.length > 0) {
-            hasPriority.sort((a, b) => b.priority - a.priority || a.unit.pos - b.unit.pos);
-            const winner = hasPriority[0];
-            if (winner.unit._kuLianActive) {
-                log.push({ type:'info', text:`<span class="gold">🏋️ 苦练：${winner.unit.name} 每回合最先行动！</span>` });
+        // 取出排在最前面的
+        if (queue.length === 0) return { actingUnit: null, passEntry: null, isPriorityAction: false };
+        const head = queue[0];
+        if (head.isPass) {
+            if (head.unit._kuLianActive) {
+                log.push({ type:'info', text:`<span class="gold">🏋️ 苦练：${head.unit.name} 每回合最先行动！</span>` });
             }
-            return { actingUnit: winner.unit, passEntry: null, isPriorityAction: true };
+            return { actingUnit: null, passEntry: { unit: head.unit, reason: head.reason }, isPriorityAction: false };
         }
-
-        priorityDeclarations.sort((a, b) => a.unit.pos - b.unit.pos);
-        if (priorityDeclarations.length > 0) {
-            return { actingUnit: priorityDeclarations[0].unit, passEntry: null, isPriorityAction: false };
+        // 普通或优先行动单位
+        if (head.priority > 0 && head.unit._kuLianActive) {
+            log.push({ type:'info', text:`<span class="gold">🏋️ 苦练：${head.unit.name} 每回合最先行动！</span>` });
         }
-
-        return { actingUnit: null, passEntry: null, isPriorityAction: false };
+        return { actingUnit: head.unit, passEntry: null, isPriorityAction: head.priority > 0 };
     }
 
     let currentSide = 'enemy';
-    let kuLianDone = false;
 
     while (A.some(u => u.alive && !u._acted) || B.some(u => u.alive && !u._acted)) {
         const currentTeam = currentSide === 'ally' ? A : B;
@@ -377,8 +378,13 @@ export async function* createRoundStepper(state) {
             }
         }
         const candidates = currentTeam.filter(u => u.alive && !u._acted).sort((a, b) => a.pos - b.pos);
+        if (candidates.length === 0) {
+            currentSide = currentSide === 'ally' ? 'enemy' : 'ally';
+            continue;
+        }
         const orderResult = resolveActionOrder(candidates, log);
 
+        // 被跳过单位（遮挡/眩晕/拒马）：轮到它时才执行休息回血和日志
         if (orderResult.passEntry) {
             const { unit, reason } = orderResult.passEntry;
             unit._acted = true;
@@ -424,7 +430,7 @@ export async function* createRoundStepper(state) {
                 bg._events = GlobalStore.flushBattleEvents();
                 log.push(bg);
             }
-            // 休息不占攻击轮次，继续在当前阵营内调度
+            // pass 单位不切换阵营，当前阵营继续出下一个
             continue;
         }
 
@@ -496,10 +502,7 @@ export async function* createRoundStepper(state) {
             const u = team[i];
             u._resting = false;
             if (u._restingTimer) { clearTimeout(u._restingTimer); u._restingTimer = null; }
-            if (u.isHorse && !u.alive) {
-                emitEvent(u, 'unit-remove', { uid: u.uid });
-                team.splice(i, 1);
-            }
+            // 死马不再删除，保留在数组中供战报统计承伤
         }
     });
 

@@ -1,6 +1,6 @@
 ﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// ui/41main-battle.js - 光明顶5v5 战斗初始化
 // V5.3.3 | 2026-08-05 精英出场率改为80%/15%/5% + ELITE_RATE加权选人
-export const VER = 'ui/41main-battle.js V5.3.3';
+export const VER = 'ui/41main-battle.js V5.4.0';
 
 import { CONFIG, ENEMY_M } from '../core/01config-5v5-test.js';
 import { Unit } from '../core/02unit.js';
@@ -42,7 +42,42 @@ export function doInitBattle(currentStage, UI, snapshot, activeBuffs, selectedBu
     }
 
     let usedPower = 0;
-    if (eliteCount > 0) {
+
+    // 强制精英模式：张无忌/韦一笑独立覆盖
+    const forceZhang = GlobalStore.get('forceZhang');
+    const forceWei = GlobalStore.get('forceWei');
+    if (forceZhang || forceWei) {
+        // 重置精英计数器，强制覆盖
+        eliteCount = Math.max(eliteCount, 1);
+        // 从 eliteConfigs 中找到对应精英配置
+        if (forceZhang) {
+            const cfg = eliteConfigs.find(c => c.name === '张无忌');
+            if (cfg && !allyTeam.some(u => u.name === '张无忌')) {
+                let unit = new Unit(cfg.name, cfg.m, cfg.role, 'ally');
+                unit.isZhang = true;
+                unit.init(); unit.applyBonus();
+                unit.pos = null;
+                allyTeam.push(unit);
+                usedPower += cfg.power;
+            }
+        }
+        if (forceWei) {
+            const cfg = eliteConfigs.find(c => c.name === '韦一笑');
+            if (cfg && !allyTeam.some(u => u.name === '韦一笑')) {
+                let unit = new Unit(cfg.name, cfg.m, cfg.role, 'ally');
+                unit.isWei = true;
+                unit.init(); unit.applyBonus();
+                unit.pos = null;
+                allyTeam.push(unit);
+                usedPower += cfg.power;
+            }
+        }
+        // 清理标记，防止影响后续战斗
+        GlobalStore.set('forceZhang', false);
+        GlobalStore.set('forceWei', false);
+    }
+
+    if (eliteCount > 0 && !forceZhang && !forceWei) {
         const picked = [];
         const pool = [...eliteConfigs];
         // 加权抽取：按 ELITE_RATE 权重选精英，不重复
@@ -482,6 +517,19 @@ export function abortAll(abortController, UI, waitingForNextRound, isBattleStart
     activeBuffs = [];
     selectedBuffIndex = -1;
     currentDoubleStrikeUid = null;
+    // 清理所有单位的视觉标记，防止战斗重置后 UI 残留 _flash / _isDead 等状态
+    [UI.allyTeam, UI.enemyTeam].forEach(team => {
+        team.forEach(u => {
+            u._flash = null;
+            u._acted = false;
+            u._resting = false;
+            u._blocked = false;
+            u._isDead = false;
+            u.alive = true;
+            u.hp = u.maxHp;
+            u._stunned = false;
+        });
+    });
     updateBuffSlotsFn();
     return { abortController, waitingForNextRound, isBattleStarting, adjustMode, selectedAdjustPos, activeBuffs, selectedBuffIndex, currentDoubleStrikeUid };
 }

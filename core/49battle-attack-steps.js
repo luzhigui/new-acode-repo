@@ -1,6 +1,6 @@
 // core/49battle-attack-steps.js - 光明顶5v5 攻击步骤拆分模块
-// V5.3.1 | ~23800 bytes| 2026-07-28 乾坤反弹迁移至事件总线
-export const VER = 'core/49battle-attack-steps.js V5.3.1';
+// V5.4.0 | ~34600 bytes| 2026-07-28 乾坤反弹迁移至事件总线
+export const VER = 'core/49battle-attack-steps.js V5.4.0';
 
 import { CONFIG, DEF_TAUNT, HP_TAUNT, getSkillParams } from './01config-5v5-test.js';
 import { eventBus } from './00-event-bus.js';
@@ -279,12 +279,22 @@ export function calcFinalDamage(unit, target, attackerBuffStats, defenderBuffSta
         let zt = getZhangNearTaunt(unit.nearAtkCount + 1);
         if (zt && !waveTaunt) { waveTaunt = zt; waveUnit = unit; }
     }
-    let raw, rawFormula;
+    let raw, rawFormula, hpRatio = 0;
     if (unit.role === '防战') {
         let displayDef = Math.floor(unit.def);
         let lv = getFangLevel(displayDef, unit.m), k = C.FANG_K[lv] !== undefined ? C.FANG_K[lv] : C.FANG_K[C.FANG_K.length - 1];
         let penPart = calcDamage(atkAct, defAct);
-        raw = penPart + displayDef * k + unit.maxHp * C.HP_DMG_RATIO;
+        const maxHpRatio = unit.maxHp / unit.m;
+        if (maxHpRatio >= 1.85) hpRatio = 0.060;
+        else if (maxHpRatio >= 1.775) hpRatio = 0.050;
+        else if (maxHpRatio >= 1.725) hpRatio = 0.039;
+        else if (maxHpRatio >= 1.675) hpRatio = 0.033;
+        else if (maxHpRatio >= 1.60) hpRatio = 0.028;
+        else if (maxHpRatio >= 1.55) hpRatio = 0.022;
+        else if (maxHpRatio >= 1.475) hpRatio = 0.017;
+        else if (maxHpRatio >= 1.425) hpRatio = 0.013;
+        else hpRatio = 0.01;
+        raw = penPart + displayDef * k + unit.maxHp * hpRatio;
     } else {
         raw = calcDamage(atkAct, defAct);
     }
@@ -295,13 +305,11 @@ export function calcFinalDamage(unit, target, attackerBuffStats, defenderBuffSta
 
     let dmg = Math.floor(raw);
     let bonusEntries = [];
-    if (unit.camp !== 'ally') {
-        const modifierResult = query('damageModifiers', unit, target, dmg, enemySide, allySide, log);
-        dmg = modifierResult.modifiedDmg;
-        bonusEntries = modifierResult.entries || [];
-    }
+    const modifierResult = query('damageModifiers', unit, target, dmg, enemySide, allySide, log);
+    dmg = modifierResult.modifiedDmg;
+    bonusEntries = modifierResult.entries || [];
 
-    return { atkBase, defBase, atkAct, defAct, hpBonus, hpBefore, waveTaunt, waveUnit, raw, rawFormula: null, thunderBonus: 0, hornDmgMultiplier: 1, hornDefIgnore: 0, trueDmg: 0, dmg, bonusEntries, defReduced, defReduction: null, bonusDmgTotal, dmgMultiplier };
+    return { atkBase, defBase, atkAct, defAct, hpBonus, hpBefore, waveTaunt, waveUnit, raw, rawFormula: null, thunderBonus: 0, hornDmgMultiplier: 1, hornDefIgnore: 0, trueDmg: 0, dmg, bonusEntries, defReduced, defReduction: null, bonusDmgTotal, dmgMultiplier, hpRatio: unit.role === '防战' ? hpRatio : 0 };
 }
 
 // ==================== 步骤4：应用伤害结果 ====================
@@ -534,7 +542,7 @@ export function resolveAfterDamageEffects(declarations, unit, target, group) {
  * @returns {object} group - 攻击组日志对象，供播放器消费
  */
 export async function buildAttackGroup(unit, target, dmgCalc, dmgResult, attackerBuffStats, defenderBuffStats, allySide, enemySide, log, A, B, state, doubleStrikeUnitUid, phantomLog) {
-    let { atkBase, defBase, atkAct, defAct, hpBonus, hpBefore, waveTaunt, waveUnit, raw, rawFormula, thunderBonus, hornDmgMultiplier, hornDefIgnore, trueDmg, defReduction, bonusDmgTotal, dmgMultiplier } = dmgCalc;
+    let { atkBase, defBase, atkAct, defAct, hpBonus, hpBefore, waveTaunt, waveUnit, raw, rawFormula, thunderBonus, hornDmgMultiplier, hornDefIgnore, trueDmg, defReduction, bonusDmgTotal, dmgMultiplier, hpRatio } = dmgCalc;
     let { dmg, dead, horseReboundEntry, reboundEntry, bonusEntries } = dmgResult;
 
     let hpPctBefore = Math.floor((hpBefore / target.maxHp) * 100), hpPctAfter = Math.floor((target.hp / target.maxHp) * 100);
@@ -566,12 +574,18 @@ export async function buildAttackGroup(unit, target, dmgCalc, dmgResult, attacke
         const penPart = calcDamage(atkAct, defAct);
         const lv = getFangLevel(Math.floor(unit.def), unit.m);
         const k = C.FANG_K[lv] !== undefined ? C.FANG_K[lv] : C.FANG_K[C.FANG_K.length - 1];
-        formulaText = `${Math.floor(penPart)} + ${Math.floor(unit.def)}×${k} + ${Math.floor(unit.maxHp)}×${C.HP_DMG_RATIO} = ${Math.floor(raw)}`;
+        const z = hpRatio !== undefined ? hpRatio : C.HP_DMG_RATIO;
+        formulaText = `${Math.floor(penPart)} + ${Math.floor(unit.def)}×${k} + ${Math.floor(unit.maxHp)}×${z} = ${Math.floor(raw)}`;
     } else {
         formulaText = `${atkAct}×(${atkAct}/(${atkAct}+${defAct})) = ${Math.floor(raw)}`;
     }
     if (bonusDmgTotal > 0) formulaText += ` + 额外伤害${bonusDmgTotal}`;
     if (dmgMultiplier !== 1) formulaText += `×${dmgMultiplier}`;
+    // 如果最终伤害与公式原始值不同，追加减伤说明
+    if (dmg !== Math.floor(raw)) {
+        const reduction = Math.floor(raw) - dmg;
+        formulaText += ` → 减伤${reduction} = ${dmg}`;
+    }
     group.entries.push({type:'detail', text:`<span class="gray small">计算：${formulaText}</span>`});
     group.entries.push({type:'damage-text', deadFlag:dead, text:`<span class="damage-line ${dead?'brush-red':''} ${ac}">${dead?'💀击杀💀 ':''}${campA} ${unit.name}</span> 造成 <span class="red">${dmg}</span> 伤害，<span class="${dc}">${campD} ${target.name}</span> ${hpBefore} → ${Math.floor(target.hp)} ${dead?'💀阵亡':''}`});
     if (unit._executeLog) {
@@ -626,6 +640,7 @@ export function resolveDodgeEffects(declarations, unit, target) {
             applyStatChange(unit, 'hp', -decl.value, target, '闪避反击');
         } else if (decl.type === 'stun') {
             unit._stunned = true;
+            emitEvent(unit, 'hp-change', { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: unit.atk, def: unit.def, _stunned: true });
         } else if (decl.type === 'weiHeal') {
             const { heal, newMaxHp } = decl.data;
             applyMaxHpChange(target, newMaxHp, null, '韦一笑吸血上限提升');

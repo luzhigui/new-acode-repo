@@ -1,6 +1,6 @@
 ﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// ui/44ui-controls.js - 光明顶5v5 UI控制（倍速系统+按钮状态+事件绑定）
-// V5.3.1 | ~22900 bytes| 2026-07-27 合并13main按钮绑定、Buff槽更新
-export const VER = 'ui/44ui-controls.js V5.3.1';
+// V5.4.0 | ~26300 bytes| 2026-07-27 合并13main按钮绑定、Buff槽更新
+export const VER = 'ui/44ui-controls.js V5.4.0';
 
 import { getState, setState, gs } from './39main-state.js';
 import { updateUI, renderGrid, setRenderStore } from './14ui-render-5v5-test.js';
@@ -261,10 +261,14 @@ export function bindNextButton(setState, updateButtons, enableAllButtons, update
             }
             setState.snapshot(snap);
             setState.gs('IDLE');
-            setState.adjustMode(false);
-            setState.isPaused(false);
-            setState.waitingForNextRound(false);
-            setState.isBattleStarting(false);
+    [A, B].forEach(team => {
+        for (let i = team.length - 1; i >= 0; i--) {
+            const u = team[i];
+            u._resting = false;
+            if (u._restingTimer) { clearTimeout(u._restingTimer); u._restingTimer = null; }
+            // 死马不再删除，保留在数组中供战报统计承伤
+        }
+    });
             if (typeof window._resetIsBattleStarting === 'function') window._resetIsBattleStarting();
             restoreSpeedFromScroll();
             updateButtons();
@@ -346,10 +350,14 @@ export function bindSettleButton(currentStageGetter, isBattleStarting, getState,
             if (buffFloat) buffFloat.remove();
             document.querySelectorAll('.danmaku-bubble').forEach(el => el.remove());
             setState.gs(S.IDLE);
-            setState.adjustMode(false);
-            setState.isPaused(false);
-            setState.waitingForNextRound(false);
-            setState.isBattleStarting(false);
+    [A, B].forEach(team => {
+        for (let i = team.length - 1; i >= 0; i--) {
+            const u = team[i];
+            u._resting = false;
+            if (u._restingTimer) { clearTimeout(u._restingTimer); u._restingTimer = null; }
+            // 死马不再删除，保留在数组中供战报统计承伤
+        }
+    });
             if (typeof window._resetIsBattleStarting === 'function') window._resetIsBattleStarting();
             restoreSpeedFromScroll();
             let currentUI = { allyTeam: [], enemyTeam: [], currentResult: null, round: 0, lastSnapshot: null };

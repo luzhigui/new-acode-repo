@@ -1,6 +1,6 @@
 // player/10player-core.js - 光明顶5v5 战斗播放器核心
-// V5.3.1 | ~29200 bytes| 2026-07-31 提取事件处理器到53，精简核心调度
-export const VER = 'player/10player-core.js V5.3.1';
+// V5.4.0 | ~32600 bytes| 2026-07-31 提取事件处理器到53，精简核心调度
+export const VER = 'player/10player-core.js V5.4.0';
 
 import { showBuffBanner } from '../fx/15fx-common-5v5-test.js';
 import { CONFIG } from '../core/01config-5v5-test.js';

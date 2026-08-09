@@ -1,6 +1,6 @@
 ﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// tests/46health-utils.js - 光明顶5v5 体检公共检查函数库
 // V5.2.0 | 新增攻击特效、Buff图标、日志定位；移除 checkDeathMark；增强死亡特效检查
-export const VER = 'tests/46health-utils.js V5.3.1';
+export const VER = 'tests/46health-utils.js V5.4.0';
 
 /**
  * 获取单位对应的格子 DOM 元素
