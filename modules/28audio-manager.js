@@ -211,7 +211,9 @@ export const AudioManager = {
         bgmSource.buffer = bgmBuffer;
         bgmSource.loop = true;
         bgmGainNode = ctx.createGain();
-        bgmGainNode.gain.setValueAtTime(0.5, ctx.currentTime);
+        let initVol = 0.5;
+        try { initVol = parseFloat(localStorage.getItem('ming_bgm_volume') || '0.5'); } catch (e) {}
+        bgmGainNode.gain.setValueAtTime(initVol, ctx.currentTime);
         bgmSource.connect(bgmGainNode);
         bgmGainNode.connect(ctx.destination);
         bgmSource.start(0, bgmPausedAt);

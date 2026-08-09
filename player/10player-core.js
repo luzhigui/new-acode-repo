@@ -255,6 +255,12 @@ export async function playBattle() {
     let abortSig = c.abortController ? c.abortController.signal : null;
     c._battleEnded = false;
 
+    // 从 localStorage 读用户偏好音量，默认 0.5
+    const preferredVolume = parseFloat(localStorage.getItem('ming_bgm_volume') || '0.5');
+    if (typeof AudioManager !== 'undefined' && AudioManager.setVolume) {
+        AudioManager.fadeTo(preferredVolume, 1500);
+    }
+
     const initialUnits = [
         ...c.snapshot.ally.map(u => { let u2 = u.clone(); u2.hp = u2.maxHp; u2.alive = true; u2._isDead = false; u2._flash = null; u2._acted = false; u2._resting = false; u2._blocked = false; u2.camp = 'ally'; return u2; }),
         ...c.snapshot.enemy.map(u => { let u2 = u.clone(); u2.hp = u2.maxHp; u2.alive = true; u2._isDead = false; u2._flash = null; u2._acted = false; u2._resting = false; u2._blocked = false; u2.camp = 'enemy'; return u2; })

@@ -216,16 +216,33 @@ export function showMusicPanel() {
 
     const bgmRow = document.createElement('div');
     bgmRow.style.marginBottom = '12px';
-    bgmRow.innerHTML = '<span>🎼 背景音乐：<span id="musicBgmLabel">50%</span></span>';
+    const savedVolText = Math.round(parseFloat(localStorage.getItem('ming_bgm_volume') || '0.5') * 100) + '%';
+    bgmRow.innerHTML = '<span>🎼 背景音乐：<span id="musicBgmLabel">' + savedVolText + '</span></span>';
     const bgmSlider = document.createElement('input');
     bgmSlider.id = 'musicBgmSlider';
     bgmSlider.type = 'range'; bgmSlider.min = '0'; bgmSlider.max = '100';
-    bgmSlider.value = 50;
+    const savedVol = parseFloat(localStorage.getItem('ming_bgm_volume') || '0.5');
+    bgmSlider.value = Math.round(savedVol * 100);
     bgmSlider.style.width = '100%';
     bgmSlider.oninput = () => {
         const vol = parseInt(bgmSlider.value) / 100;
-        AudioManager.setVolume(vol);
-        document.getElementById('musicBgmLabel').textContent = Math.round(vol * 100) + '%';
+        // 优先操作 AudioManager 的节点
+        if (window.AudioManager && window.AudioManager.bgmGainNode) {
+            const ctx = window.AudioManager.bgmGainNode.context;
+            window.AudioManager.bgmGainNode.gain.setValueAtTime(vol, ctx.currentTime);
+        } else if (AudioManager.setVolume) {
+            AudioManager.setVolume(vol);
+        }
+        // 兜底：操作 index.html 独立 BGM 的全局 bgmGainNode 变量
+        if (typeof window.bgmGainNode !== 'undefined' && window.bgmGainNode) {
+            try {
+                const ctx = window.bgmGainNode.context;
+                window.bgmGainNode.gain.setValueAtTime(vol, ctx.currentTime);
+            } catch (e) {}
+        }
+        try { localStorage.setItem('ming_bgm_volume', String(vol)); } catch (e) {}
+        const label = document.getElementById('musicBgmLabel');
+        if (label) label.textContent = Math.round(vol * 100) + '%';
     };
     bgmRow.appendChild(bgmSlider);
     box.appendChild(bgmRow);
