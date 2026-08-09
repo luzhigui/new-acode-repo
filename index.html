@@ -157,40 +157,61 @@ document.getElementById('btnGameDesign').addEventListener('click', () => {
         });
 
         // ==================== 独立背景音乐（Web Audio 缓存模式） ====================
-        let bgmCtx = null;
-        let bgmBuffer = null;
-        let bgmSource = null;
-        let bgmGainNode = null;
-        let bgmPlaying = false;
+        var bgmCtx = null;
+        var bgmBuffer = null;
+        var bgmSource = null;
+        var bgmGainNode = null;
+        var bgmPlaying = false;
 
         function getBgmCtx() {
-            if (!bgmCtx) bgmCtx = new (window.AudioContext || window.webkitAudioContext)();
-            return bgmCtx;
+            try {
+                if (!bgmCtx) bgmCtx = new (window.AudioContext || window.webkitAudioContext)();
+                return bgmCtx;
+            } catch (e) {
+                // 移动端无用户手势时创建 AudioContext 会报错，静默忽略
+                return null;
+            }
         }
 
         async function loadBgm() {
             try {
                 const ctx = getBgmCtx();
+                if (!ctx) return;
                 const resp = await fetch('assets/sfx_xinai.mp3');
                 const buf = await resp.arrayBuffer();
-                bgmBuffer = await ctx.decodeAudioData(buf);
+                try {
+                    bgmBuffer = await ctx.decodeAudioData(buf);
+                } catch (e) {
+                    // decodeAudioData 在移动端可能被拒
+                    bgmBuffer = null;
+                }
             } catch (e) { bgmBuffer = null; }
         }
 
         function playBgm() {
             if (!bgmBuffer) return;
             const ctx = getBgmCtx();
-            if (ctx.state === 'suspended') ctx.resume();
+            if (!ctx) return;
+            try { if (ctx.state === 'suspended') ctx.resume(); } catch (e) {}
             stopBgm();
-            bgmSource = ctx.createBufferSource();
-            bgmSource.buffer = bgmBuffer;
-            bgmSource.loop = true;
-            bgmGainNode = ctx.createGain();
-            bgmGainNode.gain.setValueAtTime(0.6, ctx.currentTime);
-            bgmSource.connect(bgmGainNode);
-            bgmGainNode.connect(ctx.destination);
-            bgmSource.start();
-            bgmPlaying = true;
+            try {
+                bgmSource = ctx.createBufferSource();
+                bgmSource.buffer = bgmBuffer;
+                bgmSource.loop = true;
+                bgmGainNode = ctx.createGain();
+                let savedVol = 0.6;
+                try {
+                    savedVol = parseFloat(localStorage.getItem('ming_bgm_volume') || '0.6');
+                } catch (e) {}
+                bgmGainNode.gain.setValueAtTime(savedVol, ctx.currentTime);
+                bgmSource.connect(bgmGainNode);
+                bgmGainNode.connect(ctx.destination);
+                bgmSource.start();
+                bgmPlaying = true;
+            } catch (e) {
+                // 移动端 AudioContext 受限，静默失败
+                bgmPlaying = false;
+            }
         }
 
         function stopBgm() {
