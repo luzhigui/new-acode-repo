@@ -45,7 +45,6 @@ export function createZhangWujiComponent() {
             const heal = Math.min(Math.floor(unit.maxHp * (s.healPct / 100)), unit.maxHp - unit.hp);
             if (heal > 0) {
                 applyStatChange(unit, 'hp', heal, null, '九阳神功');
-                unit.healDone += heal;
             }
             group.entries.push({ type:'info', text:`<span class="green">☀️ 九阳神功回复+${heal}，${hpBeforeZhang}→${Math.floor(unit.hp)}</span>`, isHealEntry:true, healAmount:heal, healUnitUid:unit.uid });
             if (!unit.rangedForm) {
@@ -158,20 +157,11 @@ export function createXiaoZhaoSisterComponent() {
                     const heal = Math.max(1, Math.floor(healTarget.def / (s.defToHeal || 8)));
                     const atkTarget = aliveAllies[Math.floor(Math.random() * aliveAllies.length)];
                     const atkGain = Math.max(1, Math.floor(atkTarget.def / (s.defToAtk || 16)));
-                    if (!data.declarations) data.declarations = [];
-                    data.declarations.push({
-                        type: 'heal',
-                        value: heal,
-                        source: healTarget,
-                        logText: `<span class="gold">🦋 乾坤衍生：${target.name}减伤${reduce}，${healTarget.name}治疗+${heal}，${atkTarget.name}攻击+${atkGain}</span>`
-                    });
-                    data.declarations.push({
-                        type: 'statChange',
-                        target: atkTarget,
-                        field: 'atk',
-                        delta: atkGain,
-                        logText: null
-                    });
+                    // 治疗和加攻直接执行，不走声明
+                    applyStatChange(healTarget, 'hp', heal, xiaoZhao, '乾坤衍生治疗');
+                    applyStatChange(atkTarget, 'atk', atkGain, xiaoZhao, '乾坤衍生加攻');
+                    if (atkTarget._baseAtk !== undefined) atkTarget._baseAtk += atkGain;
+                    data.log.push({ type:'info', text:`<span class="gold">🦋 乾坤衍生：${target.name}减伤${reduce}，${healTarget.name}治疗+${heal}，${atkTarget.name}攻击+${atkGain}</span>` });
                 }
             });
             eventBus.on('beforeActionSelect', L.BEFORE_ACTION.BUTTERFLY_SKIP, (data) => {
@@ -184,10 +174,9 @@ export function createXiaoZhaoSisterComponent() {
             eventBus.on('onRoundEnd', L.ROUND_END.BUTTERFLY_RETURN, (data) => {
                 const sister = A.find(u => u.isXiaoZhaoSister && u.alive && u._butterflyHost);
                 if (!sister) return;
-                if (data.forced || sister.hp <= 0) {
-                    if (!data.declarations) data.declarations = [];
-                    data.declarations.push({ type: 'butterflyReturn', sister, A, log: data.log });
-                }
+                // 每回合结束都飞回，不再要求 forced 或 hp<=0
+                if (!data.declarations) data.declarations = [];
+                data.declarations.push({ type: 'butterflyReturn', sister, A, log: data.log });
             });
         },
         // 裁判接口：执行附身（由 resolveActionOrder 调用）

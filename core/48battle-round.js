@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿﻿// core/48battle-round.js - 光明顶5v5 回合循环与生成器
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// core/48battle-round.js - 光明顶5v5 回合循环与生成器
 // V5.4.0 | ~28000 bytes| 2026-08-06 小昭姐妹状态转换纳入声明→裁定模式
 export const VER = 'core/48battle-round.js V5.4.0';
 
@@ -282,11 +282,15 @@ export async function* createRoundStepper(state) {
             if (decl.type === 'butterflyAttach') {
                 sisterComp.executeAttach(A, log);
             } else if (decl.type === 'butterflyReturn') {
-                sisterComp.executeReturn(decl.sister, A, log);
+                // 飞回只在回合结束时处理，不在这里执行
+                if (!A._pendingStateTransitions) A._pendingStateTransitions = [];
+                A._pendingStateTransitions.push(decl);
             } else if (decl.type === 'spiderFly') {
                 brotherComp.executeFly(decl.unit, decl.incomingDmg, A, log);
             } else if (decl.type === 'spiderDescend') {
-                brotherComp.executeDescend(decl.unit, A, B, log);
+                // 蛛落也只在回合结束时处理，不在这里执行
+                if (!A._pendingStateTransitions) A._pendingStateTransitions = [];
+                A._pendingStateTransitions.push(decl);
             }
         }
     }

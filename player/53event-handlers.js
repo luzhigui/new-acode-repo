@@ -290,6 +290,15 @@ export async function handleAttackGroup(c, entry, roundResult, abortSig, isFirst
         c.store.dispatch({ type: 'SET_FLASH', uid: unitD.uid, flash: 'dead' });
         c.store.dispatch({ type: 'SET_VISUAL', uid: unitD.uid, _isDead: true });
     }
+    // 战士斩杀等非主伤害路径致死后，补刷红色覆盖特效
+    if (entry.entries) {
+        for (const e of entry.entries) {
+            if ((e.isExecute || e.type === 'execute') && entry.isDead && lastDiv) {
+                applyBrushEffect(lastDiv);
+                break;
+            }
+        }
+    }
     if(unitD && !entry.isDodge && !entry.isMiss && !entry.isDead && !unitD._isDead) c.store.dispatch({ type: 'CLEAR_UNIT_FLASH', uid: unitD.uid });
     if (c.UI && c.UI.allyTeam && c.UI.enemyTeam) {
         c.UI.allyTeam.concat(c.UI.enemyTeam).forEach(u => { if (u.alive) { const su = c.store ? c.store.getState().units.find(s => s.uid === u.uid) : null; if (!su || !su._flyMode) { let blocked = isBlocked(u, u.camp === 'ally' ? c.UI.allyTeam : c.UI.enemyTeam); c.store.dispatch({ type: 'SET_VISUAL', uid: u.uid, _blocked: blocked }); } } });

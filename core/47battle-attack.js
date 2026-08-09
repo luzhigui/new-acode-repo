@@ -195,6 +195,11 @@ export async function processUnitAttack(unit, allySide, enemySide, log, A, B, st
     // 攻击后效果结算 — 裁判执行，播放器拼日志
     const executedDecls = resolveAfterDamageEffects(afterDamageDeclarations, unit, target, group);
     for (const decl of executedDecls) {
+        // 斩杀等声明携带的事件追加到当前攻击组，确保死亡特效不被延迟
+        if (decl._events && decl._events.length > 0) {
+            if (!group._events) group._events = [];
+            group._events.push(...decl._events);
+        }
         if (group && group.entries && decl.logText) {
             const entry = { type: 'info', text: decl.logText };
             if (decl.type === 'leech' || decl.type === 'heal') {
