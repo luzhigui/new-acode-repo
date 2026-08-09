@@ -34,7 +34,7 @@ export function createSongQingshuComponent() {
             });
             eventBus.on('beforeDamageCalc', L.BEFORE_DAMAGE_CALC.SONG_TRUE_DMG, (data) => {
                 if (data.unit.name !== '宋青书' || !data.target || !data.target.alive || !data.declarations) return;
-                const trueDmg = Math.floor(data.target.hp * (CONFIG.ELITE_SKILLS.rebelStrike.currentHpRatio || 0.08));
+                const trueDmg = Math.floor(data.target.hp * (CONFIG.ELITE_SKILLS.rebelStrike.currentHpRatio || 0.10));
                 if (trueDmg > 0) {
                     data.declarations.push({ type: 'bonusDmg', value: trueDmg, source: data.unit });
                 }
