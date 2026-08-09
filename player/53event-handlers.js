@@ -242,16 +242,23 @@ export async function handleAttackGroup(c, entry, roundResult, abortSig, isFirst
                 if (selfTarget) showDamageFloat(selfTarget, entry2.selfDmg);
             }
             if (entry2.text && entry2.text.includes('🦋 乾坤衍生') && entry2.text.includes('攻击+')) {
-                const atkMatch = entry2.text.match(/攻击\+(\d+)/);
-                if (atkMatch) {
-                    const atkGain = parseInt(atkMatch[1]);
-                    const nameMatch = entry2.text.match(/(\S+)攻击\+/);
-                    let atkTarget = null;
-                    if (nameMatch) {
-                        atkTarget = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.name === nameMatch[1]);
-                    }
+                if (entry2.atkTargetUid && entry2.atkGain) {
+                    const atkTarget = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.uid === entry2.atkTargetUid);
                     if (atkTarget) {
-                        setTimeout(() => showAtkBuffFloat(atkTarget, atkGain), 180);
+                        setTimeout(() => showAtkBuffFloat(atkTarget, entry2.atkGain), 180);
+                    }
+                } else {
+                    const atkMatch = entry2.text.match(/攻击\+(\d+)/);
+                    if (atkMatch) {
+                        const atkGain = parseInt(atkMatch[1]);
+                        const nameMatch = entry2.text.match(/(\S+)攻击\+/);
+                        let atkTarget = null;
+                        if (nameMatch) {
+                            atkTarget = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.name === nameMatch[1]);
+                        }
+                        if (atkTarget) {
+                            setTimeout(() => showAtkBuffFloat(atkTarget, atkGain), 180);
+                        }
                     }
                 }
             }

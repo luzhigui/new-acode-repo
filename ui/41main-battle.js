@@ -336,6 +336,55 @@ export function doInitBattle(currentStage, UI, snapshot, activeBuffs, selectedBu
     document.getElementById('labelAlly').textContent = '明 教';
     updateUI();
 }// ==================== Buff 选择 ====================
+/**
+ * 弹窗选择姐姐附身方向
+ * @param {function} callback - 选完后调用，参数 'right' 或 'left'
+ */
+export function showFlyDirectionPopup(callback) {
+    const overlay = document.createElement('div');
+    overlay.className = 'modal-overlay';
+    overlay.id = 'flyDirectionModalOverlay';
+
+    const box = document.createElement('div');
+    box.className = 'modal-box';
+    box.style.cssText = 'max-width:340px;background:#1a1a2e;color:#eee;padding:20px;position:relative;';
+
+    const title = document.createElement('div');
+    title.textContent = '🦋 姐姐附身方向';
+    title.style.cssText = 'color:#ffd700;font-size:16px;font-weight:bold;margin-bottom:12px;text-align:center;';
+    box.appendChild(title);
+
+    const desc = document.createElement('div');
+    desc.textContent = '选择本回合蝴蝶飞行方向';
+    desc.style.cssText = 'color:#aaa;font-size:12px;margin-bottom:16px;text-align:center;';
+    box.appendChild(desc);
+
+    const btnDiv = document.createElement('div');
+    btnDiv.style.cssText = 'display:flex;gap:10px;justify-content:center;';
+
+    const btnLeft = document.createElement('button');
+    btnLeft.textContent = '🦋 向左飞\n（防+血）';
+    btnLeft.style.cssText = 'flex:1;padding:12px;border-radius:8px;border:2px solid #ff69b4;background:#2a2a4e;color:#ff69b4;font-size:13px;cursor:pointer;white-space:pre-line;';
+    btnLeft.onclick = () => {
+        document.body.removeChild(overlay);
+        callback('left');
+    };
+
+    const btnRight = document.createElement('button');
+    btnRight.textContent = '🦋 向右飞\n（攻+血）';
+    btnRight.style.cssText = 'flex:1;padding:12px;border-radius:8px;border:2px solid #ffd700;background:#2a2a4e;color:#ffd700;font-size:13px;cursor:pointer;white-space:pre-line;';
+    btnRight.onclick = () => {
+        document.body.removeChild(overlay);
+        callback('right');
+    };
+
+    btnDiv.appendChild(btnLeft);
+    btnDiv.appendChild(btnRight);
+    box.appendChild(btnDiv);
+    overlay.appendChild(box);
+    document.body.appendChild(overlay);
+}
+
 export function createBuffObject(key, duration) {
     const buff = { key, target: 'ally', remaining: duration, name: CONFIG.BUFFS[key]?.name || key };
     if (key === 'holyFlame') {

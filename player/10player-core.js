@@ -429,6 +429,22 @@ export async function playBattle() {
             c.isPaused = false;
         }
 
+        // 姐姐附身方向选择（第1/4/7/10…回合，姐姐存活时）
+        const nextRound = battleState.round + 1;
+        if (nextRound % 3 === 1 && lastStep) {
+            const hasSister = lastStep.ally && lastStep.ally.some(u => u.isXiaoZhaoSister && u.alive);
+            if (hasSister) {
+                c.isPaused = true;
+                const { showFlyDirectionPopup } = await import('../ui/41main-battle.js');
+                const direction = await new Promise(resolve => {
+                    showFlyDirectionPopup(resolve);
+                });
+                if (!lastStep.ally._flyDirection) lastStep.ally._flyDirection = 'right';
+                lastStep.ally._flyDirection = direction;
+                c.isPaused = false;
+            }
+        }
+
         battleState = { ally: lastStep.ally, enemy: lastStep.enemy, round: battleState.round + 1, activeBuffs: nextActiveBuffs, allAllies: battleState.allAllies };
 
         if (c.autoMode || window._fastForwardActive) {
