@@ -32,12 +32,10 @@ export function createZhangWujiComponent() {
             });
             // 近战形态切换 — 被动监听：单位死亡、换位后自行检测前排
             eventBus.on('onUnitDeath', L.ON_UNIT_DEATH.ZHANG_SWITCH, (data) => {
-                const { allySide, log } = data;
-                if (zhang && zhang.alive && !zhang._zhangSwitched) checkZhangSwitch(allySide, log);
+                if (zhang && zhang.alive && !zhang._zhangSwitched) checkZhangSwitch(A, data.log);
             });
             eventBus.on('onPositionSwap', L.ON_POSITION_SWAP.ZHANG_SWITCH, (data) => {
-                const { allySide, log } = data;
-                if (zhang && zhang.alive && !zhang._zhangSwitched) checkZhangSwitch(allySide, log);
+                if (zhang && zhang.alive && !zhang._zhangSwitched) checkZhangSwitch(A, data.log);
             });
         },
         onAfterApplyDamage(unit, target, dmgCalc, group, A, log) {

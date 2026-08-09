@@ -267,11 +267,11 @@
             <h3>🧹 版本号 / 字节数校准器</h3>
             <p>把项目所有 JS/HTML/CJS 文件头部的版本号统一升级，并把 <code>~XXXXX bytes</code> 修正为实际字节数的近似值。升级版本前跑一遍。</p>
             <div class="tool-cmd">
-                <code id="cmd-calibrator">node tools/35-version-calibrator.cjs V5.3.1</code>
+                <code id="cmd-calibrator">node tools/35-version-calibrator.cjs V5.4.0</code>
                 <button onclick="copyCmd('cmd-calibrator')">📋 复制命令</button>
             </div>
             <ol class="tool-steps">
-                <li>把命令里的 <code>V5.3.1</code> 改成你要升到的版本号</li>
+                <li>把命令里的 <code>V5.4.0</code> 改成你要升到的版本号</li>
                 <li>先加 <code>--dry-run</code> 试运行，确认要改哪些文件</li>
                 <li>去掉 <code>--dry-run</code> 正式执行</li>
                 <li>执行 <code>git add -A</code> → <code>git commit</code> → <code>git push</code></li>

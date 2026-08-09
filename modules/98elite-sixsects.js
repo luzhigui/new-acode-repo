@@ -112,7 +112,8 @@ export function createSongQingshuComponent() {
             if (unit._xingFenExtraAttacking) return;
             log.push({ type:'info', text:`<span class="gold">💗 性奋：${unit.name} 获得额外攻击机会！</span>` });
             unit._xingFenExtraAttacking = true;
-            eventBus.emit('requestExtraAttack', { unit, target, allySide, enemySide, log });
+            const { processUnitAttack } = await import('../core/47battle-attack.js');
+            await processUnitAttack(unit, allySide, enemySide, log, B, A, state, null, null);
             unit._xingFenExtraAttacking = false;
         }
     };
@@ -161,31 +162,24 @@ export function createZhouZhiruoComponent() {
                 }
                 const clawEvents = GlobalStore.flushBattleEvents();
                 log.push({ type:'info', text:`<span style="color:#222">🐾 九阴白骨爪${depth>0?'连锁':'追击'}！${unit.name} 对 ${target.name} 造成 ${bonusDmg} 点伤害${isExecute?'（斩杀）':(zhangAlive?'【嫉妒】':'')}</span>`, buffType:'elite_bonus', isClawHit:true, clawAttackerUid:unit.uid, clawTargetUid:target.uid, clawTargetHpAfter:target.hp, clawTargetAlive:target.alive, clawTargetIsDead:target._isDead, isExecute:isExecute, uidD:target.uid, isDead:!target.alive, _events:clawEvents });
-                if (battleState) {
-                    const allUnits = [...(battleState.ally||[]), ...(battleState.enemy||[])];
-                    const song = allUnits.find(u => u.name === '宋青书' && u.alive);
-                    if (song) {
-                        const healAmount = Math.min(bonusDmg, song.maxHp - song.hp);
-                        if (healAmount > 0) {
-                            applyStatChange(song, 'hp', healAmount, unit, '九阴白骨爪联动');
-                            song.healDone += healAmount;
-                        }
+                // 从 B 数组实时查找，不用 currentBattleState 快照
+                const song = B.find(u => u.name === '宋青书' && u.alive);
+                if (song) {
+                    const healAmount = Math.min(bonusDmg, song.maxHp - song.hp);
+                    if (healAmount > 0) {
+                        applyStatChange(song, 'hp', healAmount, unit, '九阴白骨爪联动');
                     }
                 }
                 depth++; if (isExecute) break;
             }
             if (totalBonus > 0) {
-                const battleState2 = window.GlobalStore?.get('currentBattleState');
-                if (battleState2) {
-                    const allUnits2 = [...(battleState2.ally||[]), ...(battleState2.enemy||[])];
-                    const song2 = allUnits2.find(u => u.name === '宋青书' && u.alive);
-                    if (song2) {
-                        const totalHeal = Math.min(totalBonus, song2.maxHp - song2.hp + (song2.healDone || 0));
-                        if (totalHeal > 0) {
-                            log.push({ type:'info', text:`<span class="green">💚 宋青书因九阴白骨爪共回复${totalHeal}点生命</span>`, isHealEntry:true, healAmount:totalHeal, healUnitUid:song2.uid });
-                        } else {
-                            log.push({ type:'info', text:`<span class="gray">💚 宋青书已满血，白骨爪未能回复生命</span>` });
-                        }
+                const song2 = B.find(u => u.name === '宋青书' && u.alive);
+                if (song2) {
+                    const totalHeal = Math.min(totalBonus, song2.maxHp - song2.hp);
+                    if (totalHeal > 0) {
+                        log.push({ type:'info', text:`<span class="green">💚 宋青书因九阴白骨爪共回复${totalHeal}点生命</span>`, isHealEntry:true, healAmount:totalHeal, healUnitUid:song2.uid });
+                    } else {
+                        log.push({ type:'info', text:`<span class="gray">💚 宋青书已满血，白骨爪未能回复生命</span>` });
                     }
                 }
             }

@@ -12,6 +12,7 @@ import { CONFIG } from './01config-5v5-test.js';
 import { rand, hasBuff, getUnitRow, getUnitCol, getAdjacentPositions } from './03battle-utils.js';
 import { emitEvent, applyStatChange, applyMaxHpChange, query } from './50battle-shared.js';
 import { EXECUTION_LAYER as L } from './00-event-bus.js';
+import { processUnitAttack } from './47battle-attack.js';
 const C = CONFIG;
 
 /**
