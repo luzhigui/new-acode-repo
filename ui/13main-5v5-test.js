@@ -4,7 +4,7 @@ export const VER = 'ui/13main-5v5-test.js V5.4.0';
 
 import '../modules/46global-store.js';
 import '../modules/24error-capture.js';
-import { CONFIG, STATE, KILL_TAUNT, ENEMY_M, VER as CFG_VER } from '../core/01config-5v5-test.js';
+import { CONFIG, STATE, KILL_TAUNT, ENEMY_M, loadGameData, VER as CFG_VER } from '../core/01config-5v5-test.js';
 import { Unit, VER as VER_UNIT } from '../core/02unit.js';
 import { rand, getRandomTaunt, getKillTaunt, getZhangNearTaunt, makeFXSnapshot, VER as VER_UTILS } from '../core/03battle-utils.js';
 import { stripTags, renderGrid, updateUI, setRenderStore, spawnVictoryEffects, clearLogExceptFirst, isUnitBenefitedByBuff, VER as UI_VER } from './14ui-render-5v5-test.js';
@@ -148,7 +148,7 @@ window.ALL_VERS = {
     fx_common: FX_VER
 };
 
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', async function() {
     const controls = document.querySelector('.controls');
     if (controls) controls.style.zIndex = '100';
 
@@ -287,11 +287,12 @@ document.addEventListener('DOMContentLoaded', function() {
             clearLogExceptFirst(); clearAllEffects(); hasLoggedTeam=false;
 
             // 关卡推进
-            if(currentStage>=6){
+            const curStage = GlobalStore.get('currentStage');
+            if(curStage >= 6){
                 setStage(1);
                 GlobalStore.set('_hasPlayedFair', false);
             } else {
-                setStage(currentStage + 1);
+                setStage(curStage + 1);
             }
 
             // 重置状态并生成新阵容
@@ -306,7 +307,14 @@ document.addEventListener('DOMContentLoaded', function() {
             updateScoreBadge();
             renderGrid('allyGrid', 'ally');
             renderGrid('enemyGrid', 'enemy');
-            setState.adjustMode(false); setState.gs(S.IDLE); setState.isPaused(false); isBattleStarting=false; updateButtons(); enableAllButtons(); updateSpeedButtons();
+            // 全自动模式直接进入调整状态，让接下来的自动点击能直接开始战斗
+            setState.adjustMode(getState.autoLevel() === 'full-auto');
+            setState.gs(S.IDLE);
+            setState.isPaused(false);
+            isBattleStarting = false;
+            updateButtons();
+            enableAllButtons();
+            updateSpeedButtons();
             return;
         }
 
@@ -395,6 +403,7 @@ document.addEventListener('DOMContentLoaded', function() {
     try {
         updateButtons(); updateSpeedButtons(); updateDebugUI();
         setTimeout(() => updateCoverVersion(), 500);
+        await loadGameData();
         doInitBattle(currentStage, getState.UI(), getState.snapshot(), getState.activeBuffs(), -1, currentDoubleStrikeUid);
         setState.UI(getState.UI());
         setState.snapshot(getState.snapshot());

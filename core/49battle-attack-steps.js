@@ -180,6 +180,8 @@ export function resolveAttackHit(unit, target, attackerBuffStats, defenderBuffSt
                 dodgeTriggered = true;
             }
         }
+        // 将最终总闪避率写入单位，供面板显示
+        target._dodgeChance = Math.round((defenderBuffStats.dodgeBonus || 0) * 100);
         if (dodgeTriggered) {
             target.dodgeCount++;
             let reboundDmg = Math.floor((target.atk + target.def) * C.DODGE_REBOUND_RATIO);
@@ -192,8 +194,9 @@ export function resolveAttackHit(unit, target, attackerBuffStats, defenderBuffSt
             // ---------- 裁判执行闪避后效果 ----------
             resolveDodgeEffects(dodgeDeclarations, unit, target);
 
+            unit._stunned = true;
             unit._acted = true;
-            emitEvent(unit, 'hp-change', { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: unit.atk, def: unit.def, _stunned: unit._stunned });
+            emitEvent(unit, 'hp-change', { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: unit.atk, def: unit.def, _stunned: true });
 
             const dodgeData = {
                 skipped: true, retry: false, lockedTargetUid: null,
@@ -259,6 +262,9 @@ export function calcFinalDamage(unit, target, attackerBuffStats, defenderBuffSta
             bonusDmgTotal += decl.value || 0;
         } else if (decl.type === 'dmgMultiplier') {
             dmgMultiplier *= decl.value || 1;
+        } else if (decl.type === 'dmgReduction') {
+            // 乾坤衍生减伤：追加到 bonusDmgTotal（负数）或直接调整 raw
+            bonusDmgTotal -= (decl.value || 0);
         }
     }
 
@@ -518,6 +524,8 @@ export function resolveAfterDamageEffects(declarations, unit, target, group) {
     for (const decl of declarations.filter(d => d.type === 'execute')) {
         if (!decl.target || !decl.target.alive) continue;
         applyStatChange(decl.target, 'hp', -decl.target.hp, decl.source, '斩杀');
+        // 斩杀产生的事件（hp-change/_isDead）立即收集，避免被后续攻击组抢占
+        decl._events = GlobalStore.flushBattleEvents();
         executed.push(decl);
     }
 
