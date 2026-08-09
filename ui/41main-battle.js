@@ -44,8 +44,8 @@ export function doInitBattle(currentStage, UI, snapshot, activeBuffs, selectedBu
     let usedPower = 0;
 
     // 强制精英模式：张无忌/韦一笑独立覆盖
-    const forceZhang = GlobalStore.get('forceZhang');
-    const forceWei = GlobalStore.get('forceWei');
+    const forceZhang = GlobalStore.get('forceZhang') || localStorage.getItem('_forceZhang') === '1';
+    const forceWei = GlobalStore.get('forceWei') || localStorage.getItem('_forceWei') === '1';
     if (forceZhang || forceWei) {
         // 重置精英计数器，强制覆盖
         eliteCount = Math.max(eliteCount, 1);
@@ -73,8 +73,7 @@ export function doInitBattle(currentStage, UI, snapshot, activeBuffs, selectedBu
             }
         }
         // 清理标记，防止影响后续战斗
-        GlobalStore.set('forceZhang', false);
-        GlobalStore.set('forceWei', false);
+        // 不清理标记，选关后仍可强制精英出场
     }
 
     if (eliteCount > 0 && !forceZhang && !forceWei) {
