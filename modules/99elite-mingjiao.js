@@ -214,15 +214,6 @@ export function createXiaoZhaoSisterComponent() {
             const fsm = this._buildFsm(sister, A, log);
             sister._fsm = fsm;
             const comp = this;
-            // 蝶变附身
-            eventBus.on('beforeFirstAllyAttack', L.BEFORE_FIRST_ALLY_ATTACK.BUTTERFLY_ATTACH, (data) => {
-                const sis = A.find(u => u.isXiaoZhaoSister && u.alive && u.pos === 4 && !u.state._stunned);
-                if (!sis || sis.state._butterflyHost) return;
-                if (!data.declarations) data.declarations = [];
-                data.declarations.push({ type: 'butterflyAttach', sister: sis, A, log });
-                result.intercepted = true;
-                result.interceptUnitUid = sis.uid;
-            });
             eventBus.on('beforeDamageCalc', L.BEFORE_DAMAGE_CALC.WARRIOR_BREAK, (data) => {
                 const xiaoZhao = A.find(u => u.isXiaoZhaoSister && u.alive && !u.state._stunned);
                 if (!xiaoZhao) return;

@@ -1,33 +1,12 @@
 // modules/23elite-skills.js - 光明顶5v5 精英技能系统
-// V5.4.0 | ~15700 bytes| 2026-08-04 白骨爪/叛逆突袭接入 game-data
+// V5.4.0 | ~13400 bytes| 2026-08-04 白骨爪/叛逆突袭接入 game-data
 export const VER = 'modules/23elite-skills.js V5.4.0';
 
-import { CONFIG, getSkillParams, getSkillParamsJealous } from '../core/01config-5v5-test.js';
+import { CONFIG, getSkillParams } from '../core/01config-5v5-test.js';
 import { ROLE_BONUS } from '../core/02unit.js';
 import { hasBuff } from '../core/03battle-utils.js';
 import { emitEvent, applyStatChange, registerQuery, getBattleRng } from '../core/50battle-shared.js';
 const ES = CONFIG.ELITE_SKILLS;
-
-// ==================== 宋青书 — 叛逆突袭 ====================
-
-export function getRebelTarget(attacker, enemySide) {
-    if (attacker.name !== '宋青书') return null;
-    const alive = enemySide.filter(u => u.alive);
-    if (alive.length === 0) return null;
-    return alive.reduce((a, b) => (a.hp / a.maxHp) > (b.hp / b.maxHp) ? a : b);
-}
-
-export function getRebelDmgBonus(attacker) {
-    if (attacker.name !== '宋青书') return 0;
-    return ES.rebelStrike.dmgBonus;
-}
-
-export function getRebelTrueDmg(attacker, target) {
-    if (attacker.name !== '宋青书') return 0;
-    const rebelParams = getSkillParams('宋青书', 'rebelStrike') || ES.rebelStrike;
-    const ratio = (rebelParams.currentHpRatio || 8) / 100;
-    return Math.floor(target.hp * ratio);
-}
 
 // ==================== 玄冥二老 — 中毒/鹿角 ====================
 
@@ -283,49 +262,6 @@ export function isXiaoZhaoPermanentActive(unit, activeBuffs, buffKey) {
     if (!unit || !unit.isXiaoZhaoBrother || !unit._permanentBuffs) return false;
     if (activeBuffs && hasBuff(activeBuffs, buffKey)) return false;
     return unit._permanentBuffs.some(b => b.key === buffKey);
-}
-
-export function applyPhantomDisguise(unit, enemySide, allySide = null) {
-    if (unit.camp !== 'ally') return null;
-    const rng = getBattleRng();
-    const chengkun = enemySide.find(u => u.name === '成昆' && u.alive && u.state._phantomTarget);
-    if (!chengkun || unit._isLinkAttack) return null;
-    if (chengkun.state._phantomTarget === unit.uid) return null;
-    const lostPct = (chengkun.maxHp - chengkun.hp) / chengkun.maxHp;
-    const p = getSkillParams('成昆', 'phantomDisguise') || ES.phantomDisguise;
-    const chance = p.baseChance + Math.floor(lostPct * 10) * p.per10pctLost;
-    if (rng.next() < chance) {
-        const fakeTarget = allySide ? allySide.find(u => u.uid === chengkun.state._phantomTarget && u.alive && !u.isHorse && !u._untargetable) : null;
-        if (fakeTarget) {
-            return { target: fakeTarget, log: `🎭 幻影伪装！${unit.name}被混乱，误攻队友${fakeTarget.name}！` };
-        }
-    }
-    return null;
-}
-
-export function applyXiaoZhaoMindControl(unit, allySide, enemySide) {
-    if (unit.camp !== 'enemy') return null;
-    const rng = getBattleRng();
-    const xiaoZhao = enemySide.find(u => (u.isXiaoZhaoSister || u.isXiaoZhaoBrother) && u.alive);
-    if (!xiaoZhao || !xiaoZhao._permanentBuffs || !xiaoZhao._permanentBuffs.some(b => b.key === 'mindControl')) return null;
-    if (hasBuff(enemySide._activeBuffs, 'mindControl')) return null;
-    if (rng.next() < 0.15) {
-        const xzFakeTarget = allySide.find(u => u.uid !== unit.uid && u.alive && !u.isHorse);
-        if (xzFakeTarget) {
-            return { target: xzFakeTarget, log: `🦋 蝶舞迷心！${unit.name}被小昭迷惑，误攻队友${xzFakeTarget.name}！` };
-        }
-    }
-    return null;
-}
-
-export function checkXiaoZhaoPermanentDoubleStrike(unit, activeBuffs) {
-    if (!(unit.isXiaoZhaoSister || unit.isXiaoZhaoBrother) || !unit.alive || !unit._permanentBuffs) return false;
-    const rng = getBattleRng();
-    if (!unit._permanentBuffs.some(b => b.key === 'doubleStrike')) return false;
-    if (unit._xiaoZhaoDoubleStriked) return false;
-    if (hasBuff(activeBuffs, 'doubleStrike')) return false;
-    const chance = ES.xiaoZhaoDoubleStrike ? ES.xiaoZhaoDoubleStrike.chance * 100 : 80;
-    return rng.nextInt(1, 100) <= chance;
 }
 
 export function getXiaoZhaoHexEnhance(allyTeam, activeBuffs, hexKey) {

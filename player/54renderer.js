@@ -1,5 +1,5 @@
 // player/54renderer.js - 光明顶5v5 播放器渲染层
-// V5.4.0 | ~3500 bytes| 2026-08-10 从10player-core提取DOM操作
+// V5.4.0 | ~3300 bytes| 2026-08-10 从10player-core提取DOM操作
 export const VER = 'player/54renderer.js V5.4.0';
 
 let _ctx = null;
@@ -19,14 +19,6 @@ export function appendLogHTML(html) {
 
 export function appendLogElement(el) {
     getLogDiv().appendChild(el);
-    autoScrollLog();
-}
-
-export function prependLogHTML(html) {
-    const div = document.createElement('div');
-    div.innerHTML = html;
-    const log = getLogDiv();
-    log.insertBefore(div, log.firstChild);
     autoScrollLog();
 }
 
