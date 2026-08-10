@@ -25,11 +25,12 @@ function escapeHtml(text) {
         '../core/00-event-bus.js',
         '../core/01config-5v5-test.js', '../core/02unit.js',
         '../core/03battle-utils.js', '../core/04buff-system.js', '../core/05battle-horse.js',
+        '../core/06-fsm.js', '../core/07-rng.js',
         '../core/47battle-attack.js', '../core/48battle-round.js', '../core/49battle-attack-steps.js',
         '../core/50battle-shared.js', '../core/51buff-effects.js',
         // player（播放器）
         '../player/08player-text.js', '../player/09player-buff-ui.js', '../player/10player-core.js',
-        '../player/11battle-player-5v5-test.js', '../player/53event-handlers.js',
+        '../player/11battle-player-5v5-test.js', '../player/53event-handlers.js', '../player/54renderer.js',
         // ui（UI 主控）
         '../ui/12main-utils.js', '../ui/13main-5v5-test.js', '../ui/14ui-render-5v5-test.js',
         '../ui/39main-state.js', '../ui/40main-dialogs.js', '../ui/41main-battle.js',
