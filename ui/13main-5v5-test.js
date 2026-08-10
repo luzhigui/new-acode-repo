@@ -1,5 +1,5 @@
 // ui/13main-5v5-test.js - 光明顶5v5 主控模块
-// V5.4.0 | ~23900 bytes| 2026-07-07 拆分音频到42、特效到43、倍速+按钮到44
+// V5.4.0 | ~24200 bytes| 2026-07-07 拆分音频到42、特效到43、倍速+按钮到44
 export const VER = 'ui/13main-5v5-test.js V5.4.0';
 
 import '../modules/46global-store.js';
@@ -95,7 +95,7 @@ function swapAllyPositions(posA, posB) {
     if (unitA && unitA.fixed) return; if (unitB && unitB.fixed) return;
     let zhang = currentUI.allyTeam.find(u => u.isZhang);
     if (zhang && zhang.pos === 5) {
-        let tempMap = {}; currentUI.allyTeam.forEach(u => { if (u.alive || u._isDead) tempMap[u.pos] = u; });
+        let tempMap = {}; currentUI.allyTeam.forEach(u => { if (u.alive || u.state._isDead) tempMap[u.pos] = u; });
         if (unitA) tempMap[posB] = unitA; if (unitB) tempMap[posA] = unitB;
         if (unitA && !unitB) delete tempMap[posA]; if (!unitA && unitB) delete tempMap[posB];
         if (!tempMap[2] || !tempMap[2].alive) {

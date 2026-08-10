@@ -70,7 +70,7 @@ function applyMindControlCore(unit, allySide, enemySide, log, swapChanceEnemy, s
     if (!frontUnit || frontUnit.uid !== unit.uid) return;
 
     if (rand(1,100) <= swapChanceEnemy) {
-        let enemies = enemySide.filter(u => u.alive && u._flyMode !== 'butterfly' && u._flyMode !== 'spider' && !u._spiderFlying);
+        let enemies = enemySide.filter(u => u.alive && u.state._flyMode !== 'butterfly' && u.state._flyMode !== 'spider' && !u.state._spiderFlying);
         if (enemies.length >= 2) {
             let a = enemies[rand(0, enemies.length-1)];
             let b; do { b = enemies[rand(0, enemies.length-1)]; } while (b.uid === a.uid);
@@ -84,7 +84,7 @@ function applyMindControlCore(unit, allySide, enemySide, log, swapChanceEnemy, s
         log.push({type:'info', text:`<span class="gray">🌀 惑人心智敌方换位未触发</span>`});
     }
     if (rand(1,100) <= swapChanceAlly) {
-        let allies = allySide.filter(u => u.alive && u._flyMode !== 'butterfly' && u._flyMode !== 'spider' && !u._spiderFlying);
+        let allies = allySide.filter(u => u.alive && u.state._flyMode !== 'butterfly' && u.state._flyMode !== 'spider' && !u.state._spiderFlying);
         if (allies.length >= 2) {
             let a = allies[rand(0, allies.length-1)];
             let b; do { b = allies[rand(0, allies.length-1)]; } while (b.uid === a.uid);

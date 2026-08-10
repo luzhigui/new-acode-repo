@@ -147,7 +147,7 @@ export function resolveAttackHit(unit, target, attackerBuffStats, defenderBuffSt
                 infoText: `<span class="gray">未命中！</span>`
             }
         };
-        unit._acted = true;
+        unit.state._acted = true;
         missData.missGroup._events = GlobalStore.flushBattleEvents();
 
         if (eventBus) {
@@ -162,9 +162,9 @@ export function resolveAttackHit(unit, target, attackerBuffStats, defenderBuffSt
     }
 
     const allyBuffs = (target.camp === 'ally' && A ? A._activeBuffs : (target.camp === 'enemy' && B ? B._activeBuffs : []));
-    if (target._stunned) return { skipped: false, retry: false, lockedTargetUid: null };
+    if (target.state._stunned) return { skipped: false, retry: false, lockedTargetUid: null };
     const hasCloudBody = hasBuff(allyBuffs, 'cloudBody') || ((target.isXiaoZhaoSister || target.isXiaoZhaoBrother) && target._permanentBuffs && target._permanentBuffs.some(b => b.key === 'cloudBody'));
-    if (target.alive && (target.isWei || hasCloudBody || !target._acted)) {
+    if (target.alive && (target.isWei || hasCloudBody || !target.state._acted)) {
         // 各闪避来源独立判定（乘法叠加），任一触发即闪避
         let dodgeTriggered = false;
         for (const ruleFn of _dodgeRules) {
@@ -200,7 +200,7 @@ export function resolveAttackHit(unit, target, attackerBuffStats, defenderBuffSt
             // ---------- 裁判执行闪避后效果 ----------
             resolveDodgeEffects(dodgeDeclarations, unit, target);
 
-            unit._acted = true;
+            unit.state._acted = true;
             emitEvent(unit, 'hp-change', { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: unit.atk, def: unit.def, _stunned: true });
 
             const dodgeData = {
@@ -259,7 +259,7 @@ export function calcFinalDamage(unit, target, attackerBuffStats, defenderBuffSta
             defReduced = reduce;
             if (reduce > 0) {
                 unit._pendingDefReduceEntry = {type:'detail', text:`<span class="purple small">🗡️ ${unit.name} 破防：${target.name} 防御 -${reduce}</span>`};
-                emitEvent(target, 'hp-change', { hp: target.hp, maxHp: target.maxHp, alive: target.alive, atk: target.atk, def: defBase, _isDead: target._isDead || false });
+                emitEvent(target, 'hp-change', { hp: target.hp, maxHp: target.maxHp, alive: target.alive, atk: target.atk, def: defBase, _isDead: target.state._isDead || false });
             }
         } else if (decl.type === 'ignoreDef') {
             ignoreDefRatio = Math.max(ignoreDefRatio, decl.value || 0);
@@ -381,7 +381,7 @@ export function applyAttackResult(unit, target, dmgCalc, attackerBuffStats, defe
     }
 
     // 防战坚盾已迁移至事件总线监听器
-    emitEvent(target, 'hp-change', { hp: target.hp, maxHp: target.maxHp, alive: target.alive, atk: target.atk, def: target.def, _isDead: target._isDead || false });
+    emitEvent(target, 'hp-change', { hp: target.hp, maxHp: target.maxHp, alive: target.alive, atk: target.atk, def: target.def, _isDead: target.state._isDead || false });
 
     // 小昭姐乾坤衍生已迁移至事件总线 allyDamaged 信号
 
@@ -423,7 +423,7 @@ export function resolveDeaths(allySide, enemySide, log) {
     for (const u of pending) {
         applyStatChange(u, 'hp', -u.hp, null, '死亡结算');
         u.alive = false;
-        u._isDead = true;
+        u.state._isDead = true;
         u._pendingDeath = false;
         emitEvent(u, 'unit-remove', { uid: u.uid });
     }
@@ -635,7 +635,7 @@ export function applyPostAttackEffects(unit, target, dmg, atkAct, defAct, reboun
 }
 
 export function isUnitStunned(unit) {
-    return !!(unit && unit._stunned);
+    return !!(unit && unit.state._stunned);
 }
 
 // ==================== 闪避后效果边裁 ====================
@@ -653,7 +653,7 @@ export function resolveDodgeEffects(declarations, unit, target) {
         if (decl.type === 'rebound') {
             applyStatChange(unit, 'hp', -decl.value, target, '闪避反击');
         } else if (decl.type === 'stun') {
-            unit._stunned = true;
+            unit.state._stunned = true;
             emitEvent(unit, 'hp-change', { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: unit.atk, def: unit.def, _stunned: true });
         } else if (decl.type === 'weiHeal') {
             const { heal, newMaxHp } = decl.data;

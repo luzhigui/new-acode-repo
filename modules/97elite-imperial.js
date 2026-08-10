@@ -1,5 +1,5 @@
 // modules/97elite-imperial.js - 朝廷精英组件合集
-// V5.4.0 | ~8600 bytes| 2026-08-04 技能参数接入 game-data
+// V5.4.0 | ~8700 bytes| 2026-08-04 技能参数接入 game-data
 export const VER = 'modules/97elite-imperial.js V5.4.0';
 
 import { CONFIG, getSkillParams } from '../core/01config-5v5-test.js';
@@ -25,12 +25,12 @@ export function createChengKunComponent() {
             // 幻影伪装：被模仿者攻击时误伤队友
             eventBus.on('beforeSelectTarget', L.BEFORE_SELECT_TARGET.CHENGKUN_DISGUISE, (data) => {
                 // 成昆攻击前清除旧伪装（恢复真身）
-                if (data.unit.name === '成昆' && data.unit._phantomTarget) {
-                    delete data.unit._phantomTarget;
+                if (data.unit.name === '成昆' && data.unit.state._phantomTarget) {
+                    delete data.unit.state._phantomTarget;
                 }
                 if (data.unit.camp !== 'ally') return;
-                const chengkun = data.enemySide.find(u => u.name === '成昆' && u.alive && u._phantomTarget);
-                if (!chengkun || chengkun._phantomTarget !== data.unit.uid) return;
+                const chengkun = data.enemySide.find(u => u.name === '成昆' && u.alive && u.state._phantomTarget);
+                if (!chengkun || chengkun.state._phantomTarget !== data.unit.uid) return;
                 const fakeList = data.allySide.filter(u => u.alive && !u.isHorse && !u._untargetable && u.uid !== data.unit.uid);
                 if (fakeList.length > 0) {
                     const fakeTarget = fakeList[rand(0, fakeList.length - 1)];
@@ -58,7 +58,7 @@ export function createChengKunComponent() {
             if (unit.name !== '成昆' || dmgCalc.dmg <= 0) return;
             const enemyAlive = enemySide.filter(u => u.alive && !u.isHorse && !u._untargetable);
             if (enemyAlive.length > 0) {
-                unit._phantomTarget = enemyAlive[rand(0, enemyAlive.length - 1)].uid;
+                unit.state._phantomTarget = enemyAlive[rand(0, enemyAlive.length - 1)].uid;
                 const lostHp = unit.maxHp - unit.hp;
                 if (lostHp > 0) {
                     const aliveCount = enemySide.filter(u => u.alive).length;
@@ -72,7 +72,7 @@ export function createChengKunComponent() {
                         logText: `<span class="green">🎭 幻影伪装：${unit.name} 回复 ${heal} 点生命</span>`
                     });
                 }
-                emitEvent(unit, 'hp-change', { hp:unit.hp, maxHp:unit.maxHp, alive:unit.alive, atk:unit.atk, def:unit.def, _phantomTarget:unit._phantomTarget });
+                emitEvent(unit, 'hp-change', { hp:unit.hp, maxHp:unit.maxHp, alive:unit.alive, atk:unit.atk, def:unit.def, _phantomTarget:unit.state._phantomTarget });
             }
         },
     };
@@ -143,15 +143,15 @@ export function registerXuanmingLink(eventBus) {
         const partnerName = unit.name === '鹿杖客' ? '鹤笔翁' : '鹿杖客';
         const partner = allySide.find(u => u.name === partnerName && u.alive && !u._linkTriggered);
         if (!partner) return;
-        const wasActed = partner._acted;
+        const wasActed = partner.state._acted;
         partner._isLinkAttack = true;
         partner._linkTriggered = true;
-        partner._acted = false;
+        partner.state._acted = false;
         log.push({type:'info', text:`<span class="gold">🔗 ${partner.name} 跟随 ${unit.name} 发动联动攻击！</span>`});
         if (typeof processUnitAttack === 'function') {
             await processUnitAttack(partner, allySide, enemySide, log, A, B, state, null, target.uid);
         }
         partner._isLinkAttack = false;
-        partner._acted = wasActed;
+        partner.state._acted = wasActed;
     });
 }

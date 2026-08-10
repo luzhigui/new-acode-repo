@@ -377,7 +377,7 @@ export function registerWindAssault(eventBus) {
 
         if (rand(1, 100) <= hitProb) {
             const row = getUnitRow(target.pos);
-            const rowTargets = enemySide.filter(u => u.alive && getUnitRow(u.pos) === row && u.uid !== target.uid && !(u._flyMode === 'butterfly') && !(u._flyMode === 'spider') && !u._spiderFlying);
+            const rowTargets = enemySide.filter(u => u.alive && getUnitRow(u.pos) === row && u.uid !== target.uid && !(u.state._flyMode === 'butterfly') && !(u.state._flyMode === 'spider') && !u.state._spiderFlying);
             if (rowTargets.length > 0) {
                 const splashDmg = Math.floor(dmg);
                 const details = rowTargets.map(rt => `${rt.name}`).join('、');
@@ -454,7 +454,7 @@ export function registerMeteorShower(eventBus) {
         const splashDmg = Math.floor(dmg * C.BUFFS.meteorShower.splashRatio);
         const adjPositions = getAdjacentPositions(target.pos);
         const splashSide = target.camp === unit.camp ? allySide : enemySide;
-        const splashTargets = splashSide.filter(u => u.alive && adjPositions.includes(u.pos) && !(u._flyMode === 'butterfly') && !(u._flyMode === 'spider') && !u._spiderFlying);
+        const splashTargets = splashSide.filter(u => u.alive && adjPositions.includes(u.pos) && !(u.state._flyMode === 'butterfly') && !(u.state._flyMode === 'spider') && !u.state._spiderFlying);
         if (splashTargets.length > 0) {
             const details = splashTargets.map(st => `${st.name}`).join('、');
             const decl = {

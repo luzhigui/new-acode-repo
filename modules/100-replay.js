@@ -118,7 +118,7 @@ const ReplayManager = (() => {
       x: unit.x,
       y: unit.y,
       buffs: unit.buffs ? unit.buffs.map(b => ({ key: b.key, remaining: b.remaining })) : [],
-      _isDead: unit._isDead,
+      _isDead: unit.state._isDead,
       _flash: unit._flash
       // 可自行扩展其他需要显示的属性
     };

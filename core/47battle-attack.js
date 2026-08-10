@@ -43,14 +43,14 @@ const C = CONFIG, DT = DEF_TAUNT, HT = HP_TAUNT;
 export async function processUnitAttack(unit, allySide, enemySide, log, A, B, state, doubleStrikeUnitUid, lockedTargetUid) {
     // 统一拦截：眩晕单位无法响应任何攻击指令
     // 即使外部调用方（如联动、随机队友攻击）传入了眩晕单位，裁判直接拒绝
-    if (unit._stunned) {
+    if (unit.state._stunned) {
         log.push({ type:'info', text:`<span class="gray">💫 ${unit.name} 被眩晕，无法响应攻击指令</span>` });
-        unit._acted = true;
+        unit.state._acted = true;
         return false;
     }
-    if (unit._spiderFlying || unit._flyMode === 'spider') {
+    if (unit.state._spiderFlying || unit.state._flyMode === 'spider' || (unit._fsm && unit._fsm.is('flying'))) {
         log.push({ type:'info', text:`<span class="gray">🕷️ ${unit.name} 正在飞天，无法行动</span>` });
-        unit._acted = true;
+        unit.state._acted = true;
         return false;
     }
 
@@ -67,7 +67,7 @@ export async function processUnitAttack(unit, allySide, enemySide, log, A, B, st
             emptyGroup.entries.push({type:'info', text:`<span class="gray">锁定目标已阵亡，跳过行动</span>`});
             GlobalStore.flushBattleEvents();
             log.push(emptyGroup);
-            unit._acted = true;
+            unit.state._acted = true;
             return false;
         }
     } else {
@@ -82,7 +82,7 @@ export async function processUnitAttack(unit, allySide, enemySide, log, A, B, st
         emptyGroup.entries.push({type:'info', text:`<span class="gray">无可选目标，跳过行动</span>`});
         GlobalStore.flushBattleEvents();
         log.push(emptyGroup);
-        unit._acted = true;
+        unit.state._acted = true;
         return false;
     }
 
@@ -120,7 +120,7 @@ export async function processUnitAttack(unit, allySide, enemySide, log, A, B, st
             dg.entries.push({type:'info', text: dg.dodgeText});
             dg.entries.push({type:'damage-text', text: dg.reboundText});
             if (dg.isDead) {
-                unit.alive = false; unit._isDead = true;
+                unit.alive = false; unit.state._isDead = true;
                 dg.hpAfter = 0;
                 dg.entries.push({type:'info', text:`${unit.name}被反击击杀！`});
             }
@@ -138,8 +138,8 @@ export async function processUnitAttack(unit, allySide, enemySide, log, A, B, st
     // 闪避反击可能导致攻击者眩晕，眩晕后本次攻击的后续效果全部作废
     // 包括 afterAttack 信号、联动、性奋、白骨爪、飞天等均不触发
     // 裁判统一拦截，组件无需各自检查
-    if (unit._stunned) {
-        unit._acted = true;
+    if (unit.state._stunned) {
+        unit.state._acted = true;
         return true;
     }
 
@@ -176,7 +176,7 @@ export async function processUnitAttack(unit, allySide, enemySide, log, A, B, st
         }
         log.push(immuneGroup);
 
-        if (!unit._isLinkAttack) unit._acted = true;
+        if (!unit._isLinkAttack) unit.state._acted = true;
         return true;
     }
 
@@ -219,14 +219,14 @@ export async function processUnitAttack(unit, allySide, enemySide, log, A, B, st
         }
     }
 
-    if (!unit._isLinkAttack) unit._acted = true;
+    if (!unit._isLinkAttack) unit.state._acted = true;
 
     // 攻击结束信号（玄冥二老联动、白骨爪追击等）
     const afterAttackData = { unit, target, dmg: dmgCalc.dmg, group, allySide, enemySide, log, A, B, state, retry: false, retryTargetUid: null };
     await eventBus.emit('afterAttack', afterAttackData);
     if (afterAttackData.retry && unit.alive) {
         const retryTargetUid = afterAttackData.retryTargetUid || (target && target.alive ? target.uid : null);
-        unit._acted = false;
+        unit.state._acted = false;
         await processUnitAttack(unit, allySide, enemySide, log, A, B, state, null, retryTargetUid);
     }
 

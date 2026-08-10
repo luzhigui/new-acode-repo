@@ -102,7 +102,7 @@
                             if (cur) {
                                 full.hp = cur.hp; full.maxHp = cur.maxHp; full.alive = cur.alive;
                                 full.atk = cur.atk; full.def = cur.def;
-                                if (cur._isDead !== undefined) full._isDead = cur._isDead;
+                                if (cur.state._isDead !== undefined) full.state._isDead = cur.state._isDead;
                             }
                             return full;
                         });

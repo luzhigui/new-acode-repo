@@ -1,5 +1,5 @@
 // player/10player-core.js - 光明顶5v5 战斗播放器核心
-// V5.4.0 | ~32600 bytes| 2026-07-31 提取事件处理器到53，精简核心调度
+// V5.4.0 | ~34200 bytes| 2026-07-31 提取事件处理器到53，精简核心调度
 export const VER = 'player/10player-core.js V5.4.0';
 
 import { showBuffBanner } from '../fx/15fx-common-5v5-test.js';
@@ -262,8 +262,8 @@ export async function playBattle() {
     }
 
     const initialUnits = [
-        ...c.snapshot.ally.map(u => { let u2 = u.clone(); u2.hp = u2.maxHp; u2.alive = true; u2._isDead = false; u2._flash = null; u2._acted = false; u2._resting = false; u2._blocked = false; u2.camp = 'ally'; return u2; }),
-        ...c.snapshot.enemy.map(u => { let u2 = u.clone(); u2.hp = u2.maxHp; u2.alive = true; u2._isDead = false; u2._flash = null; u2._acted = false; u2._resting = false; u2._blocked = false; u2.camp = 'enemy'; return u2; })
+        ...c.snapshot.ally.map(u => { let u2 = u.clone(); u2.hp = u2.maxHp; u2.alive = true; u2.state._isDead = false; u2._flash = null; u2.state._acted = false; u2.state._resting = false; u2.state._blocked = false; u2.camp = 'ally'; return u2; }),
+        ...c.snapshot.enemy.map(u => { let u2 = u.clone(); u2.hp = u2.maxHp; u2.alive = true; u2.state._isDead = false; u2._flash = null; u2.state._acted = false; u2.state._resting = false; u2.state._blocked = false; u2.camp = 'enemy'; return u2; })
     ];
     c.store = createStore({ units: initialUnits, round: 1 }, battleReducer);
     GlobalStore.set('battleStore', c.store);
@@ -275,24 +275,26 @@ export async function playBattle() {
         const syncFields = (uiUnit) => {
             const su = state.units.find(u => u.uid === uiUnit.uid);
             if (!su) return;
-            GAME_STATE_FIELDS.forEach(f => { if (su[f] !== undefined) uiUnit[f] = su[f]; });
+            GAME_STATE_FIELDS.forEach(f => { if (su[f] !== undefined) { if (f === '_isDead' || f === '_phantomTarget') uiUnit.state[f] = su[f]; else uiUnit[f] = su[f]; } });
             if (su._flash !== undefined) uiUnit._flash = su._flash;
-            if (su._acted !== undefined) uiUnit._acted = su._acted;
-            if (su._resting !== undefined) uiUnit._resting = su._resting;
-            if (su._blocked !== undefined) uiUnit._blocked = su._blocked;
-            if (su._flyMode !== undefined) uiUnit._flyMode = su._flyMode;
-            if (su._butterflyHost !== undefined) uiUnit._butterflyHost = su._butterflyHost;
-            if (su._phantomTarget !== undefined) uiUnit._phantomTarget = su._phantomTarget;
-            if (su._isDead && !uiUnit._isDead) {
-                uiUnit._isDead = true;
+            if (su.state && su.state._acted !== undefined) uiUnit.state._acted = su.state._acted;
+            if (su.state && su.state._resting !== undefined) uiUnit.state._resting = su.state._resting;
+            if (su.state && su.state._blocked !== undefined) uiUnit.state._blocked = su.state._blocked;
+            if (su.state && su.state._flyMode !== undefined) uiUnit.state._flyMode = su.state._flyMode;
+            if (su.state && su.state._butterflyHost !== undefined) uiUnit.state._butterflyHost = su.state._butterflyHost;
+            if (su.state && su.state._phantomTarget !== undefined) uiUnit.state._phantomTarget = su.state._phantomTarget;
+            if (su.state && su.state._isDead && !uiUnit.state._isDead) {
+                uiUnit.state._isDead = true;
                 uiUnit._flash = 'dead';
             }
         };
         c.UI.allyTeam.forEach(syncFields);
         c.UI.enemyTeam.forEach(syncFields);
         state.units.forEach(su => {
-            if (su.camp === 'ally' && !c.UI.allyTeam.find(u => u.uid === su.uid)) c.UI.allyTeam.push({...su});
-            if (su.camp === 'enemy' && !c.UI.enemyTeam.find(u => u.uid === su.uid)) c.UI.enemyTeam.push({...su});
+            const copyState = {};
+            ['_acted','_stunned','_isDead','_resting','_blocked','_flyMode','_butterflyHost','_spiderFlying','_spiderTriggeredHit','_spiderTriggered70','_spiderTriggered40','_spiderTriggeredDeath','_spiderTriggeredThisRound','_phantomTarget'].forEach(f => { if (su.state && su.state[f] !== undefined) copyState[f] = su.state[f]; });
+            if (su.camp === 'ally' && !c.UI.allyTeam.find(u => u.uid === su.uid)) c.UI.allyTeam.push({...su, state: copyState});
+            if (su.camp === 'enemy' && !c.UI.enemyTeam.find(u => u.uid === su.uid)) c.UI.enemyTeam.push({...su, state: copyState});
         });
         c.UI.allyTeam = c.UI.allyTeam.filter(u => state.units.find(su => su.uid === u.uid));
         c.UI.enemyTeam = c.UI.enemyTeam.filter(u => state.units.find(su => su.uid === u.uid));
@@ -512,11 +514,11 @@ export async function playBattle() {
         const enemyMap = new Map(finalEnemyState.map(u => [u.uid, u]));
         const reportAllies = (c.snapshot.ally || []).map(u => {
             const final = allyMap.get(u.uid);
-            return final ? { ...u, hp: final.hp, maxHp: final.maxHp, alive: final.alive, atk: final.atk, def: final.def, pos: final.pos, dmgDealt: final.dmgDealt, dmgTaken: final.dmgTaken, healDone: final.healDone, reboundDone: final.reboundDone, leechDone: final.leechDone, dodgeCount: final.dodgeCount, critCount: final.critCount, survivedRounds: final.survivedRounds, _isDead: final._isDead } : { ...u, alive: false, _isDead: true };
+            return final ? { ...u, hp: final.hp, maxHp: final.maxHp, alive: final.alive, atk: final.atk, def: final.def, pos: final.pos, dmgDealt: final.dmgDealt, dmgTaken: final.dmgTaken, healDone: final.healDone, reboundDone: final.reboundDone, leechDone: final.leechDone, dodgeCount: final.dodgeCount, critCount: final.critCount, survivedRounds: final.survivedRounds, _isDead: final.state._isDead } : { ...u, alive: false, _isDead: true };
         });
         const reportEnemies = (c.snapshot.enemy || []).map(u => {
             const final = enemyMap.get(u.uid);
-            return final ? { ...u, hp: final.hp, maxHp: final.maxHp, alive: final.alive, atk: final.atk, def: final.def, pos: final.pos, dmgDealt: final.dmgDealt, dmgTaken: final.dmgTaken, healDone: final.healDone, reboundDone: final.reboundDone, leechDone: final.leechDone, dodgeCount: final.dodgeCount, critCount: final.critCount, survivedRounds: final.survivedRounds, _isDead: final._isDead } : { ...u, alive: false, _isDead: true };
+            return final ? { ...u, hp: final.hp, maxHp: final.maxHp, alive: final.alive, atk: final.atk, def: final.def, pos: final.pos, dmgDealt: final.dmgDealt, dmgTaken: final.dmgTaken, healDone: final.healDone, reboundDone: final.reboundDone, leechDone: final.leechDone, dodgeCount: final.dodgeCount, critCount: final.critCount, survivedRounds: final.survivedRounds, _isDead: final.state._isDead } : { ...u, alive: false, _isDead: true };
         });
         c.battleResultForInfo = { winner, ally: reportAllies, enemy: reportEnemies };
 

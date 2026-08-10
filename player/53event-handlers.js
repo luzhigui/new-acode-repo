@@ -1,5 +1,5 @@
 // player/53event-handlers.js - 光明顶5v5 事件处理器函数族
-// V5.4.0 | ~32000 bytes| 2026-07-31 从 player/10 提取动画 handler
+// V5.4.0 | ~33000 bytes| 2026-07-31 从 player/10 提取动画 handler
 export const VER = 'player/53event-handlers.js V5.4.0';
 
 import { isBlocked } from '../core/03battle-utils.js';
@@ -123,7 +123,7 @@ export async function handleAttackGroup(c, entry, roundResult, abortSig, isFirst
     if (!entry._pendingHpEvents) entry._pendingHpEvents = [];
     if (entry._events && entry._events.length > 0) {
         for (const ev of entry._events) {
-            if (ev.payload && ev.payload._flyMode === 'butterfly') {
+            if (ev.payload && (ev.payload._flyMode === 'butterfly' || ev.payload._butterflyHost)) {
                 const sister = c.UI.allyTeam.find(u => u.uid === ev.unitUid);
                 if (sister) {
                     const { showButterflyFlyOut } = await import('../fx/21fx-butterfly-spider.js');
@@ -292,7 +292,7 @@ export async function handleAttackGroup(c, entry, roundResult, abortSig, isFirst
     if(unitD&&entry.hpPctAfter!==undefined&&entry.hpPctBefore!==undefined){ if(entry.hpPctBefore>40&&entry.hpPctAfter<=40&&entry.hpPctAfter>20){let t=(unitD.camp==='ally'?'不好，必须反击了！':'小儿安敢伤我！');safeShowDanmaku(unitD,t);} else if(entry.hpPctBefore>20&&entry.hpPctAfter<=20){let t=(unitD.camp==='ally'?'撑住！':'已是强弩之末！');safeShowDanmaku(unitD,t);} }
     await new Promise(r=>setTimeout(r,offset)); await c.waitWhilePaused();
     if(defTimer)clearTimeout(defTimer);
-    if(unitA && !unitA._isDead){c.store.dispatch({ type: 'CLEAR_UNIT_FLASH', uid: unitA.uid }); if (!entry.isDodge) { c.store.dispatch({ type: 'SET_VISUAL', uid: unitA.uid, _acted: true }); }}
+    if(unitA && !unitA.state._isDead){c.store.dispatch({ type: 'CLEAR_UNIT_FLASH', uid: unitA.uid }); if (!entry.isDodge) { c.store.dispatch({ type: 'SET_VISUAL', uid: unitA.uid, _acted: true }); }}
     if (entry.isDead && unitD && !entry.isBlock && !entry.isMiss && !entry.isDodge) {
         c.store.dispatch({ type: 'SET_FLASH', uid: unitD.uid, flash: 'dead' });
         c.store.dispatch({ type: 'SET_VISUAL', uid: unitD.uid, _isDead: true });
@@ -306,7 +306,7 @@ export async function handleAttackGroup(c, entry, roundResult, abortSig, isFirst
             }
         }
     }
-    if(unitD && !entry.isDodge && !entry.isMiss && !entry.isDead && !unitD._isDead) c.store.dispatch({ type: 'CLEAR_UNIT_FLASH', uid: unitD.uid });
+    if(unitD && !entry.isDodge && !entry.isMiss && !entry.isDead && !unitD.state._isDead) c.store.dispatch({ type: 'CLEAR_UNIT_FLASH', uid: unitD.uid });
     if (c.UI && c.UI.allyTeam && c.UI.enemyTeam) {
         c.UI.allyTeam.concat(c.UI.enemyTeam).forEach(u => { if (u.alive) { const su = c.store ? c.store.getState().units.find(s => s.uid === u.uid) : null; if (!su || !su._flyMode) { let blocked = isBlocked(u, u.camp === 'ally' ? c.UI.allyTeam : c.UI.enemyTeam); c.store.dispatch({ type: 'SET_VISUAL', uid: u.uid, _blocked: blocked }); } } });
     }
@@ -351,7 +351,7 @@ export async function handleInfo(c, entry) {
             const sister = c.UI.allyTeam?.find(u => u.isXiaoZhaoSister && u.alive);
             if (sister) {
                 const showButterflyFlyBack = await getButterflyFx('showButterflyFlyBack');
-                const host = c.UI.allyTeam?.find(u => u.uid === sister._butterflyHost);
+                const host = c.UI.allyTeam?.find(u => u.uid === sister.state._butterflyHost);
                 if (host) showButterflyFlyBack(host, sister);
             }
         } else if (entry.text.includes('🕷️ 飞天')) {

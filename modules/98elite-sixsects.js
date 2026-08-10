@@ -1,5 +1,5 @@
 // modules/98elite-sixsects.js - 六大派精英组件合集
-// V5.4.0 | ~12500 bytes| 2026-08-04 宋青书苦练/新婚接入 game-data
+// V5.4.0 | ~12900 bytes| 2026-08-04 宋青书苦练/新婚接入 game-data
 export const VER = 'modules/98elite-sixsects.js V5.4.0';
 import { GlobalStore } from './46global-store.js';
 import { CONFIG, getSkillParams } from '../core/01config-5v5-test.js';
@@ -163,7 +163,7 @@ export function createZhouZhiruoComponent() {
                     applyStatChange(target, 'hp', -target.hp, unit, '白骨爪斩杀');
                 }
                 const clawEvents = GlobalStore.flushBattleEvents();
-                log.push({ type:'info', text:`<span style="color:#222">🐾 九阴白骨爪${depth>0?'连锁':'追击'}！${unit.name} 对 ${target.name} 造成 ${bonusDmg} 点伤害${isExecute?'（斩杀）':(zhangAlive?'【嫉妒】':'')}</span>`, buffType:'elite_bonus', isClawHit:true, clawAttackerUid:unit.uid, clawTargetUid:target.uid, clawTargetHpAfter:target.hp, clawTargetAlive:target.alive, clawTargetIsDead:target._isDead, isExecute:isExecute, uidD:target.uid, isDead:!target.alive, _events:clawEvents });
+                log.push({ type:'info', text:`<span style="color:#222">🐾 九阴白骨爪${depth>0?'连锁':'追击'}！${unit.name} 对 ${target.name} 造成 ${bonusDmg} 点伤害${isExecute?'（斩杀）':(zhangAlive?'【嫉妒】':'')}</span>`, buffType:'elite_bonus', isClawHit:true, clawAttackerUid:unit.uid, clawTargetUid:target.uid, clawTargetHpAfter:target.hp, clawTargetAlive:target.alive, clawTargetIsDead:target.state._isDead, isExecute:isExecute, uidD:target.uid, isDead:!target.alive, _events:clawEvents });
                 // 从 B 数组实时查找，不用 currentBattleState 快照
                 const song = B.find(u => u.name === '宋青书' && u.alive);
                 if (song) {

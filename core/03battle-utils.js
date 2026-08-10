@@ -17,7 +17,7 @@ export function getFronts(units) {
     let fronts = [];
     for (let col = 0; col < 3; col++) {
         let poses = [1+col, 4+col, 7+col];
-        let chars = units.filter(c => poses.includes(c.pos) && c.alive && !(c._flyMode === 'butterfly') && !(c._flyMode === 'spider') && !c._spiderFlying).sort((a, b) => a.pos - b.pos);
+        let chars = units.filter(c => poses.includes(c.pos) && c.alive && !(c.state._flyMode === 'butterfly') && !(c.state._flyMode === 'spider') && !c.state._spiderFlying && !(c._fsm && (c._fsm.is('attached') || c._fsm.is('flying')))).sort((a, b) => a.pos - b.pos);
         if (chars.length > 0) fronts.push(chars[0]);
     }
     if (fronts.length === 0) {
@@ -29,11 +29,12 @@ export function getFronts(units) {
 
 export function isBlocked(unit, allies) {
     if (unit.role === '飞行') return false;
-    if (unit._flyMode === 'butterfly') return false;
-    if (unit._flyMode === 'spider') return false;
+    if (unit.state._flyMode === 'butterfly') return false;
+    if (unit.state._flyMode === 'spider') return false;
+    if (unit._fsm && (unit._fsm.is('attached') || unit._fsm.is('flying'))) return false;
     let col = (unit.pos - 1) % 3;
     let poses = [1+col, 4+col, 7+col];
-    let front = poses.find(p => allies.some(a => a.pos === p && a.alive && !a.isHorse && !(a._flyMode === 'butterfly') && !(a._flyMode === 'spider')));
+    let front = poses.find(p => allies.some(a => a.pos === p && a.alive && !a.isHorse && !(a.state._flyMode === 'butterfly') && !(a.state._flyMode === 'spider')));
     if (!front) return false;
     if (unit.pos === front) return false;
     return unit.pos > front;
@@ -94,7 +95,7 @@ export function hasEnemyLowHp(enemySide, threshold = 0.4) {
  */
 export function selectFlyTarget(unit, enemySide) {
     if (unit.role !== '飞行' || unit.isWei) return null; // 韦一笑有自己的选目标逻辑
-    const alive = enemySide.filter(u => u.alive && u._flyMode !== 'butterfly' && u._flyMode !== 'spider' && !u._spiderFlying);
+    const alive = enemySide.filter(u => u.alive && !(u.state._flyMode === 'butterfly') && !(u.state._flyMode === 'spider') && !u.state._spiderFlying && !(u._fsm && (u._fsm.is('attached') || u._fsm.is('flying'))));
     if (alive.length === 0) return null;
 
     // 优先顺序：后排(789) > 中排(456) > 前排(123)
@@ -396,7 +397,7 @@ export function registerDoubleStrike(eventBus, doubleStrikeUnitUid, allyTeam, ac
         const missChainChance = xiaoDoubleEnhance ? 1.0 : 0.8;
         if (Math.random() < missChainChance) {
             log.push({type:'info', text:`<span class="gold">⚡ 概率连击触发！</span>`, isDoubleStrikeBanner:true});
-            unit._doubleStriked = true; unit._acted = false;
+            unit._doubleStriked = true; unit.state._acted = false;
             data.retry = true; data.retryTargetUid = (target && target.alive) ? target.uid : null;
         } else {
             log.push({type:'info', text:`<span class="gray">⚡ 概率连击触发失败，${unit.name} 未能再次攻击</span>`});

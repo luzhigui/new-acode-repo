@@ -146,8 +146,8 @@ export function checkMeleeFxState(ctx, doc) {
         const cell = getCellElement(u, doc);
         if (!cell) continue;
 
-        const isFlyMode = u._flyMode === 'fly';
-        const isGhostMode = u._flyMode === 'ghost';
+        const isFlyMode = u.state._flyMode === 'fly';
+        const isGhostMode = u.state._flyMode === 'ghost';
 
         if (isFlyMode) {
             const opacity = parseFloat(cell.style.opacity);

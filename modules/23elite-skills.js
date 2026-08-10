@@ -50,7 +50,7 @@ export function applyDamageModifiers(unit, target, dmg, allySide, enemySide, log
     const ES = CONFIG.ELITE_SKILLS;
 
     const xiaoZhao = allySide.find(u => (u.isXiaoZhaoSister || u.isXiaoZhaoBrother) && u.alive);
-    const zhang = allySide.find(c => c.isZhang && c.alive && c.rangedForm && !c._stunned);
+    const zhang = allySide.find(c => c.isZhang && c.alive && c.rangedForm && !c.state._stunned);
     if (target.camp !== 'ally' || !zhang) return { modifiedDmg, entries };
 
     if (xiaoZhao && [2, 4, 6, 8].includes(target.pos)) {
@@ -216,11 +216,11 @@ export function spiderTransform(unit, log) {
  * @param {Array} log - 日志数组
  */
 export function spiderReturn(unit, allyTeam, enemySide, log) {
-    if (!unit.isXiaoZhaoBrother || !unit._spiderFlying) return;
+    if (!unit.isXiaoZhaoBrother || !unit.state._spiderFlying) return;
 
-    unit._spiderFlying = false;
-    unit._flyMode = null;
-    unit._acted = false;
+    unit.state._spiderFlying = false;
+    unit.state._flyMode = null;
+    unit.state._acted = false;
 
     const order = [4, 5, 6, 7, 8, 9, 1, 2, 3];
     const occupied = new Set(allyTeam.filter(a => a.alive && !a.isHorse && a.uid !== unit.uid).map(a => a.pos));
@@ -285,14 +285,14 @@ export function isXiaoZhaoPermanentActive(unit, activeBuffs, buffKey) {
 
 export function applyPhantomDisguise(unit, enemySide, allySide = null) {
     if (unit.camp !== 'ally') return null;
-    const chengkun = enemySide.find(u => u.name === '成昆' && u.alive && u._phantomTarget);
+    const chengkun = enemySide.find(u => u.name === '成昆' && u.alive && u.state._phantomTarget);
     if (!chengkun || unit._isLinkAttack) return null;
-    if (chengkun._phantomTarget === unit.uid) return null;
+    if (chengkun.state._phantomTarget === unit.uid) return null;
     const lostPct = (chengkun.maxHp - chengkun.hp) / chengkun.maxHp;
     const p = getSkillParams('成昆', 'phantomDisguise') || ES.phantomDisguise;
     const chance = p.baseChance + Math.floor(lostPct * 10) * p.per10pctLost;
     if (Math.random() < chance) {
-        const fakeTarget = allySide ? allySide.find(u => u.uid === chengkun._phantomTarget && u.alive && !u.isHorse && !u._untargetable) : null;
+        const fakeTarget = allySide ? allySide.find(u => u.uid === chengkun.state._phantomTarget && u.alive && !u.isHorse && !u._untargetable) : null;
         if (fakeTarget) {
             return { target: fakeTarget, log: `🎭 幻影伪装！${unit.name}被混乱，误攻队友${fakeTarget.name}！` };
         }

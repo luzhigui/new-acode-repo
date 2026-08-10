@@ -31,7 +31,7 @@ function finishCrash(clone, cell, unitA, UI) {
             ctx.store.dispatch({ type: 'CLEAR_UNIT_FLASH', uid: unitA.uid });
         }
     } else {
-        delete unitA._flyMode;
+        delete unitA.state._flyMode;
     }
     if (cell) clearCrashStyles(cell);
     if (ctx) ctx.updateUI();
@@ -123,7 +123,7 @@ export function showMeleeCrash(unitA, unitD, speed, getPausedFn, onCrash) {
     let UI = window._getPlayerContext ? window._getPlayerContext().UI : null;
     if (UI) {
         let uiUnitA = UI.allyTeam.concat(UI.enemyTeam).find(u => u.uid === unitA.uid);
-        if (uiUnitA) uiUnitA._acted = true;
+        if (uiUnitA) uiUnitA.state._acted = true;
         let c = window._getPlayerContext();
         c.updateUI(UI);
     }
