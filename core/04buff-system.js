@@ -10,7 +10,7 @@ import {
 } from './51buff-effects.js';
 import { CONFIG } from './01config-5v5-test.js';
 import { rand, hasBuff, getUnitRow, getUnitCol, getAdjacentPositions } from './03battle-utils.js';
-import { emitEvent, applyStatChange, applyMaxHpChange, query } from './50battle-shared.js';
+import { emitEvent, applyStatChange, applyMaxHpChange, query, getBattleRng } from './50battle-shared.js';
 import { EXECUTION_LAYER as L } from './00-event-bus.js';
 import { processUnitAttack } from './47battle-attack.js';
 const C = CONFIG;
@@ -171,6 +171,7 @@ export function applyBuffEffectsAfterAttack(unit, target, dmg, allySide, enemySi
 
 export function logBuffSummary(allyTeam, log, doubleStrikeUid) {
     let buffs = allyTeam._activeBuffs || [];
+    const rng = getBattleRng();
     buffs.forEach(b => {
         switch (b.key) {
             case 'bloodthirst':
@@ -203,8 +204,8 @@ export function logBuffSummary(allyTeam, log, doubleStrikeUid) {
                 
                 if (teamHolyBuffs.length > 0) {
                     for (const hb of teamHolyBuffs) {
-                        const cols = hb.cols || (hb.col != null ? [hb.col] : [rand(1, 3), rand(1, 3)]);
-                        const rows = hb.rows || (hb.row != null ? [hb.row] : [rand(1, 3), rand(1, 3)]);
+                        const cols = hb.cols || (hb.col != null ? [hb.col] : [rng.nextInt(1, 3), rng.nextInt(1, 3)]);
+                        const rows = hb.rows || (hb.row != null ? [hb.row] : [rng.nextInt(1, 3), rng.nextInt(1, 3)]);
                         let colUnits = allyTeam.filter(u => u.alive && cols.includes(getUnitCol(u.pos)));
                         let rowUnits = allyTeam.filter(u => u.alive && u.camp === 'ally' && rows.includes(getUnitRow(u.pos)));
                         let atkNames = colUnits.map(u=>u.name).join('、') || '无';
@@ -217,8 +218,8 @@ export function logBuffSummary(allyTeam, log, doubleStrikeUid) {
                 
                 if (xiaoZhaoHolyBuffs.length > 0) {
                     for (const hb of xiaoZhaoHolyBuffs) {
-                        const xzCols = hb.cols || (hb.col != null ? [hb.col] : [rand(1, 3), rand(1, 3)]);
-                        const xzRows = hb.rows || (hb.row != null ? [hb.row] : [rand(1, 3), rand(1, 3)]);
+                        const xzCols = hb.cols || (hb.col != null ? [hb.col] : [rng.nextInt(1, 3), rng.nextInt(1, 3)]);
+                        const xzRows = hb.rows || (hb.row != null ? [hb.row] : [rng.nextInt(1, 3), rng.nextInt(1, 3)]);
                         let colUnits = allyTeam.filter(u => u.alive && xzCols.includes(getUnitCol(u.pos)));
                         let rowUnits = allyTeam.filter(u => u.alive && u.camp === 'ally' && xzRows.includes(getUnitRow(u.pos)));
                         let atkNames = colUnits.map(u=>u.name).join('、') || '无';
@@ -362,6 +363,7 @@ export function registerHotBlood(eventBus) {
 export function registerWindAssault(eventBus) {
     eventBus.on('afterDamageApplied', L.AFTER_DAMAGE_APPLIED.WIND_ASSAULT, (data) => {
         const { unit, target, dmg, allySide, enemySide, log } = data;
+        const rng = getBattleRng();
         if (!unit.alive || unit.camp !== 'ally' || !target || !target.alive) return;
         const unitBuffs = allySide._activeBuffs || [];
         const hasSister = allySide.some(u => u.isXiaoZhaoSister && u.alive);
@@ -375,7 +377,7 @@ export function registerWindAssault(eventBus) {
         const pushProb = hasSister ? 80 : 60;
         const label = brotherActive ? '🦋 蝶翼' : '🦅 乘风突袭';
 
-        if (rand(1, 100) <= hitProb) {
+        if (rng.nextInt(1, 100) <= hitProb) {
             const row = getUnitRow(target.pos);
             const rowTargets = enemySide.filter(u => u.alive && getUnitRow(u.pos) === row && u.uid !== target.uid && !(u.state._flyMode === 'butterfly') && !(u.state._flyMode === 'spider') && !u.state._spiderFlying);
             if (rowTargets.length > 0) {
@@ -398,7 +400,7 @@ export function registerWindAssault(eventBus) {
         }
 
         // 击退逻辑保留在组件（改位置不冲突其他效果）
-        if (rand(1, 100) <= pushProb) {
+        if (rng.nextInt(1, 100) <= pushProb) {
             const behindPos = target.pos + 3;
             if (behindPos <= 9) {
                 const targetTeam = target.camp === 'ally' ? allySide : enemySide;

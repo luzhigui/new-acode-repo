@@ -4,7 +4,7 @@ export const VER = 'core/05battle-horse.js V5.4.0';
 
 import { CONFIG } from './01config-5v5-test.js';
 import { rand, hasBuff } from './03battle-utils.js';
-import { query } from './50battle-shared.js';
+import { query, getBattleRng } from './50battle-shared.js';
 import { Unit } from './02unit.js';
 const C = CONFIG;
 
@@ -17,8 +17,9 @@ export function spawnHorse(allyTeam, log, enemyTeam, force = false) {
     let available = [1,2,3,4,5,6,7,8,9].filter(p => !occupiedPositions.has(p));
     if (available.length === 0) return;
     // Fisher–Yates 洗牌，确保真正的随机性
+    const rng = getBattleRng();
     for (let i = available.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
+        const j = rng.nextInt(0, i);
         [available[i], available[j]] = [available[j], available[i]];
     }
     let horsePos = available[0];
@@ -47,8 +48,9 @@ export function destroyHorse(allyTeam, log) {
     if (horses.length === 0) return;
 
     let currentProb = 50;
+    const rng = getBattleRng();
     for (const horse of horses) {
-        const roll = rand(1, 100);
+        const roll = rng.nextInt(1, 100);
         const success = roll <= currentProb;
         if (success) {
             horse.hp = 0;

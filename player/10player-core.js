@@ -1,6 +1,6 @@
 // player/10player-core.js - 光明顶5v5 战斗播放器核心
-// V5.4.0 | ~34200 bytes| 2026-07-31 提取事件处理器到53，精简核心调度
-export const VER = 'player/10player-core.js V5.4.0';
+// V5.5.0 | ~31000 bytes| 2026-08-10 播放器分层收口，DOM操作迁移至54renderer
+export const VER = 'player/10player-core.js V5.5.0';
 
 import { showBuffBanner } from '../fx/15fx-common-5v5-test.js';
 import { CONFIG } from '../core/01config-5v5-test.js';
@@ -10,7 +10,9 @@ import { createRoundStepper } from '../core/48battle-round.js';
 import { getState } from '../ui/39main-state.js';
 import { setRenderStore, updateUI } from '../ui/14ui-render-5v5-test.js';
 import { createStore, battleReducer, GAME_STATE_FIELDS } from '../modules/52battle-store.js';
+import '../modules/100-replay.js';
 import { handleBuffBonus, handleBuffSwap, handleBuffPush, handleBuffReboundFortify, handleAttackGroup, handleInfo, handleRoundStart, handleRoundEnd, shouldStartNewGroup } from './53event-handlers.js';
+import { getLogDiv, appendLogHTML, appendLogElement, autoScrollLog, updateRoundDisplay, renderSeparator, renderRoundStart, renderRoundEnd, renderInfoLine, renderVictoryLine, setBtnDisabled, setBtnText, initRenderer } from './54renderer.js';
 
 class AnimationScheduler {
     constructor() {
@@ -68,10 +70,7 @@ export async function playLogEntries(c, log, roundResult, isFirstAttackRef) {
 
             // 统一分隔符判断：在任何 entry 处理之前检查
             if (shouldStartNewGroup(entry, lastEntryType)) {
-                let sepDiv = document.createElement('div');
-                sepDiv.innerHTML = '<span class="separator">- - - - -</span><br>';
-                document.getElementById('log').appendChild(sepDiv);
-                c.autoScrollLog();
+                renderSeparator();
             }
 
             switch (entry.type) {
@@ -94,8 +93,7 @@ export async function playLogEntries(c, log, roundResult, isFirstAttackRef) {
                     break;
                 case 'buff-leech':
                     if (entry.buffType === 'hotBlood') {
-                        let div=document.createElement('div');div.innerHTML=entry.text+'<br>';
-                        document.getElementById('log').appendChild(div);c.autoScrollLog();
+                        appendLogHTML(entry.text + '<br>');
                         let healUnit = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.uid === entry.healUnitUid);
                         if (healUnit && entry.healAmount) {
                             const { showHealFloat } = await import('../fx/15fx-common-5v5-test.js');
@@ -142,8 +140,7 @@ export async function playLogEntries(c, log, roundResult, isFirstAttackRef) {
                     }
                     else await showBuffBanner('🦅 乘风突袭！');
                     window.bulletTimeActive = false;
-                    let div=document.createElement('div');div.innerHTML=entry.text+'<br>';
-                    document.getElementById('log').appendChild(div);c.autoScrollLog();
+                    appendLogHTML(entry.text + '<br>');
                     if (entry.splashUids && entry.splashDmg) {
                         const { showDamageFloat } = await import('../fx/15fx-common-5v5-test.js');
                         entry.splashUids.forEach(uid => {
@@ -164,7 +161,7 @@ export async function playLogEntries(c, log, roundResult, isFirstAttackRef) {
                 case 'buff-bonus':           await handleBuffBonus(c, entry); lastEntryType = entry.type; break;
                 case 'buff-swap':            await handleBuffSwap(c, entry); lastEntryType = entry.type; break;
                 case 'buff-push':            await handleBuffPush(c, entry); lastEntryType = entry.type; break;
-                case 'buff-summary':         { let div2=document.createElement('div');div2.innerHTML=entry.text+'<br>';document.getElementById('log').appendChild(div2);c.autoScrollLog(); if(entry.buffType==='elite_xingfen'){let song=c.UI.allyTeam.concat(c.UI.enemyTeam).find(u=>u.name==='宋青书');if(song)c.store.dispatch({type:'SET_VISUAL',uid:song.uid,_hasXingFen:true});} lastEntryType = entry.type; } break;
+                case 'buff-summary':         { appendLogHTML(entry.text + '<br>'); if(entry.buffType==='elite_xingfen'){let song=c.UI.allyTeam.concat(c.UI.enemyTeam).find(u=>u.name==='宋青书');if(song)c.store.dispatch({type:'SET_VISUAL',uid:song.uid,_hasXingFen:true});} lastEntryType = entry.type; } break;
                 case 'buff-rebound-fortify': await handleBuffReboundFortify(c, entry); lastEntryType = entry.type; break;
                 case 'round-start':
                     c.UI.allyTeam.forEach(u => { if (u.alive) c.store.dispatch({ type: 'SET_VISUAL', uid: u.uid, _acted: false }); });
@@ -189,12 +186,8 @@ export async function playLogEntries(c, log, roundResult, isFirstAttackRef) {
                 case 'round-end':
                     await handleRoundEnd(c, entry, log, i); lastEntryType = entry.type; break;
                 case 'signal':
-                    const logLevel = getState.logLevel();
-                    if (logLevel === 'debug') {
-                        let sigDiv = document.createElement('div');
-                        sigDiv.innerHTML = entry.text + '<br>';
-                        document.getElementById('log').appendChild(sigDiv);
-                        c.autoScrollLog();
+                    if (getState.logLevel() === 'debug') {
+                        appendLogHTML(entry.text + '<br>');
                     }
                     lastEntryType = entry.type;
                     break;
@@ -320,7 +313,8 @@ export async function playBattle() {
     c.UI.allyTeam = initialUnits.filter(u => u.camp === 'ally').map(u => u.clone());
     c.UI.enemyTeam = initialUnits.filter(u => u.camp === 'enemy').map(u => u.clone());
     c._deadUnitsForReport = [];
-    document.getElementById('roundDisplay').innerText = `📜 日志（第1回合）`;
+    initRenderer(c);
+    updateRoundDisplay('📜 日志（第1回合）');
 
     let logDiv = document.getElementById('log');
     let backToBottomBtn = document.createElement('div'); backToBottomBtn.id = 'backToBottomBtn'; backToBottomBtn.style.cssText = 'position:absolute;right:8px;bottom:60px;width:32px;height:32px;background:rgba(0,0,0,0.6);color:#ffd700;border-radius:50%;display:none;align-items:center;justify-content:center;font-size:18px;cursor:pointer;z-index:20;'; backToBottomBtn.innerHTML = '↓';
@@ -356,6 +350,7 @@ export async function playBattle() {
         enemy: c.snapshot.enemy.map(u => u.clone())
     };
     let battleState = { ally: c.snapshot.ally.map(u => u.clone()), enemy: c.snapshot.enemy.map(u => u.clone()), round: 1, activeBuffs: c.activeBuffs ? c.activeBuffs.map(b => ({...b})) : [], allAllies: c.snapshot.ally.map(u => u.clone()) };
+    window.ReplayManager.startRecordingWithSeed(c.snapshot, Date.now());
     let isBattleOver = false; let finalWinner = null; let finalStep = null;
 
     while (!isBattleOver) {
@@ -369,6 +364,7 @@ export async function playBattle() {
             if (abortSig && abortSig.aborted) return;
             await c.waitWhilePaused();
             lastStep = step;
+            window.ReplayManager.pushStep(step, battleState.round, step.ally, step.enemy);
 
             await playLogEntries(c, step.log, step, isFirstAttackRef);
 
@@ -395,7 +391,7 @@ export async function playBattle() {
         if (!window._fastForwardActive && battleState.round % 3 === 0 && battleState.round > 0) {
             const mainCtx2 = window._getPlayerContext ? window._getPlayerContext() : null;
             const isFullAuto = mainCtx2 && mainCtx2.autoLevel === 'full-auto';
-            let promDiv = document.createElement('div'); promDiv.innerHTML = `<span class="gold">✨ 请选择新的Buff（持续${CONFIG.BUFF_DURATION || 4}回合）</span><br>`; logDiv.appendChild(promDiv); c.autoScrollLog();
+            appendLogHTML(`<span class="gold">✨ 请选择新的Buff（持续${CONFIG.BUFF_DURATION || 4}回合）</span><br>`);
             let newBuff = null;
             if (isFullAuto) {
                 const allKeys = Object.keys(CONFIG.BUFFS);
@@ -423,14 +419,14 @@ export async function playBattle() {
                         newBuff.row = Math.floor(Math.random() * 3) + 1;
                     }
                 }
-                promDiv.innerHTML = `<span class="gold">🤖 全自动选择Buff：${newBuff ? newBuff.name : '无'}</span><br>`;
+                appendLogHTML(`<span class="gold">🤖 全自动选择Buff：${newBuff ? newBuff.name : '无'}</span><br>`);
             } else {
                 c.isPaused = true;
                 newBuff = await showBuffPopup(c);
             }
             if (newBuff) {
                 nextActiveBuffs = [...(nextActiveBuffs || []), newBuff];
-                let msgDiv = document.createElement('div'); msgDiv.innerHTML = `<span class="gold">✨ 获得Buff：${newBuff.name}（持续${newBuff.remaining}回合）</span><br>`; logDiv.appendChild(msgDiv); c.autoScrollLog();
+                appendLogHTML(`<span class="gold">✨ 获得Buff：${newBuff.name}（持续${newBuff.remaining}回合）</span><br>`);
                 let mainCtx = window._getPlayerContext ? window._getPlayerContext() : null;
                 if (mainCtx) { mainCtx.activeBuffs = nextActiveBuffs; if (mainCtx.updateBuffSlots) mainCtx.updateBuffSlots(); }
             }
@@ -458,19 +454,20 @@ export async function playBattle() {
         if (c.autoMode || window._fastForwardActive) {
             await new Promise(r=>setTimeout(r, window._fastForwardActive ? 1 : c.speed/2));
         } else {
-            document.getElementById('btnNext').disabled = false;
+            setBtnDisabled('btnNext', false);
             c.waitingForNextRound = true;
             await new Promise((resolve) => {
                 let check = setInterval(() => { if (!c.waitingForNextRound || (abortSig && abortSig.aborted)) { clearInterval(check); resolve(); } }, 200);
             });
             if (abortSig && abortSig.aborted) return;
             c.waitingForNextRound = false;
-            document.getElementById('btnNext').disabled = true;
+            setBtnDisabled('btnNext', true);
         }
     }
 
     if (!finalWinner) finalWinner = '平局';
     c.gs = 'GAMEOVER'; c.isPaused = false; c.waitingForNextRound = false; c.isBattleStarting = false;
+    window.ReplayManager.finishRecording(finalWinner);
     GlobalStore.set('fastForwardActive', false);
     // 同步更新 39main-state.js 的模块级 gs 变量，否则 updateButtons 里 import 的 gs 仍是旧值
     if (typeof window._syncGs === 'function') window._syncGs('GAMEOVER');
@@ -491,8 +488,7 @@ export async function playBattle() {
             const currentToken = GlobalStore.get('holyToken') || 0;
             GlobalStore.set('holyToken', currentToken + 1);
             localStorage.setItem('ming_holy_token_5v5_test', String(currentToken + 1));
-            logDiv.innerHTML += `<span class="gold">🔥 通关奖励：获得1枚圣火令！当前总数：${currentToken + 1}</span><br>`;
-            logDiv.scrollTop = logDiv.scrollHeight;
+            renderVictoryLine(`<span class="gold">🔥 通关奖励：获得1枚圣火令！当前总数：${currentToken + 1}</span><br>`);
         }
     }
     if (winner === '明教' && c.currentStage) {
@@ -502,8 +498,7 @@ export async function playBattle() {
             chests++;
             localStorage.setItem('ming_chest_count', String(chests));
             GlobalStore.set('chestCount', chests);
-            logDiv.innerHTML += `<span class="gold">🎁 通关宝箱：获得1个宝箱！当前总数：${chests}</span><br>`;
-            logDiv.scrollTop = logDiv.scrollHeight;
+            renderVictoryLine(`<span class="gold">🎁 通关宝箱：获得1个宝箱！当前总数：${chests}</span><br>`);
         }
     }
     if (winner === '明教' || winner === '六大派') {
@@ -536,16 +531,16 @@ export async function playBattle() {
             if (c.spawnVictoryEffects) c.spawnVictoryEffects(winner, aliveUnits);
         }
         let winColor = winner === '明教' ? 'blue' : 'orange';
-        if (c.gs === 'GAMEOVER') logDiv.innerHTML += `<span class="gold">🎉🏆 <span class="${winColor}">${winner}</span>获得最终胜利！ 🏆🎉</span><br>`;
-        logDiv.scrollTop = logDiv.scrollHeight;
+        if (c.gs === 'GAMEOVER') renderVictoryLine(`<span class="gold">🎉🏆 <span class="${winColor}">${winner}</span>获得最终胜利！ 🏆🎉</span><br>`);
+        autoScrollLog();
         await new Promise(r => setTimeout(r, window._fastForwardActive ? 500 : 6000));
         // 胜利弹幕播完，弹出战报
         if (c.battleResultForInfo && typeof showBattleReport === 'function') {
             showBattleReport(c.UI, c.battleResultForInfo);
         }
     } else {
-        logDiv.innerHTML+='<span class="gray">🤝 平局！积分不变</span><br>';
-        logDiv.scrollTop = logDiv.scrollHeight;
+        renderVictoryLine('<span class="gray">🤝 平局！积分不变</span><br>');
+        autoScrollLog();
     }
 
     let mainCtx = window._getPlayerContext ? window._getPlayerContext() : null;
@@ -582,10 +577,9 @@ else {
         setTimeout(() => { if (floatEl.parentNode) floatEl.parentNode.removeChild(floatEl); }, 3500);
         setTimeout(() => c.updateScoreBadge(), 3500);
         let voteMsg = correct ? `<span class="green">📊 你猜了${GlobalStore.get('voteChoice')}，正确！+${earnPoints}分！ 当前积分：${GlobalStore.get('voteScore')}</span>` : `<span class="red">📊 你猜了${GlobalStore.get('voteChoice')}，错误！-1分！当前积分：${GlobalStore.get('voteScore')}</span>`;
-        if (c.gs === 'GAMEOVER') { logDiv.innerHTML += voteMsg + '<br>'; logDiv.scrollTop = logDiv.scrollHeight; }
+        if (c.gs === 'GAMEOVER') { renderVictoryLine(voteMsg + '<br>'); }
     } else if (winner === '平局') {
-        logDiv.innerHTML += '<span class="gray">📊 平局，积分不变，当前积分：' + GlobalStore.get('voteScore') + '</span><br>';
-        logDiv.scrollTop = logDiv.scrollHeight;
+        renderVictoryLine('<span class="gray">📊 平局，积分不变，当前积分：' + GlobalStore.get('voteScore') + '</span><br>');
     }
     GlobalStore.set('voteChoice', null);
     c._battleEnded = true;

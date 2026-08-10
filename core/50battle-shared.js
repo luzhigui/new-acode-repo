@@ -30,6 +30,11 @@ function emitFullUnitState(unit, eventType) {
 
 // ==================== 辅助函数 ====================
 
+// 确定性 RNG：createRoundStepper 创建并注入，核心引擎各处通过 getBattleRng 获取
+let _battleRng = null;
+export function setBattleRng(rng) { _battleRng = rng; }
+export function getBattleRng() { return _battleRng; }
+
 function finalizeDeaths(team) {
     for (const u of team) {
         if (u.hp <= 0 && u.alive) {

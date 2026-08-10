@@ -1,5 +1,5 @@
 ﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// core/48battle-round.js - 光明顶5v5 回合循环与生成器
-// V5.4.0 | ~28000 bytes| 2026-08-06 小昭姐妹状态转换纳入声明→裁定模式
+// V5.4.0 | ~31000 bytes| 2026-08-06 小昭姐妹状态转换纳入声明→裁定模式
 export const VER = 'core/48battle-round.js V5.4.0';
 
 import { CONFIG } from './01config-5v5-test.js';
@@ -13,7 +13,8 @@ import { createSongQingshuComponent, createZhouZhiruoComponent } from '../module
 import { createChengKunComponent, createLuZhangKeComponent, createHeBiWengComponent, registerXuanmingLink } from '../modules/97elite-imperial.js';
 import { processUnitAttack } from './47battle-attack.js';
 import { eventBus, EXECUTION_LAYER as L } from './00-event-bus.js';
-import { getNextAvailableUnit, finalizeDeaths, emitFullUnitState, checkZhangSwitch, emitEvent, applyStatChange } from './50battle-shared.js';
+import { getNextAvailableUnit, finalizeDeaths, emitFullUnitState, checkZhangSwitch, emitEvent, applyStatChange, setBattleRng } from './50battle-shared.js';
+import { SeededRNG } from './07-rng.js';
 import { resolveDeaths } from './49battle-attack-steps.js';
 
 const C = CONFIG;
@@ -28,6 +29,10 @@ const C = CONFIG;
  *   每步产生日志、事件、当前双方状态，winner 非空表示战斗结束
  */
 export async function* createRoundStepper(state) {
+    // 确定性 RNG：同一种子 → 同一次战斗结果（回放/复现基础）
+    const rng = state._rng || new SeededRNG(Date.now());
+    state._rng = rng;
+    setBattleRng(rng);
     if (!state.allAllies) {
         state.allAllies = state.ally.map(u => u.clone());
     } else {
@@ -72,7 +77,7 @@ export async function* createRoundStepper(state) {
     if (hasBuff(A._activeBuffs, 'doubleStrike')) {
         let candidates = A.filter(u => u.alive && !u.isHorse);
         if (candidates.length > 0) {
-            let chosen = candidates[rand(0, candidates.length - 1)];
+            let chosen = candidates[rng.nextInt(0, candidates.length - 1)];
             doubleStrikeUnitUid = chosen.uid;
         }
     }
@@ -96,10 +101,10 @@ export async function* createRoundStepper(state) {
     A._activeBuffs.forEach(b => {
         if (b.key === 'holyFlame') {
             const cols = [];
-            while (cols.length < 2) { const c = rand(1, 3); if (!cols.includes(c)) cols.push(c); }
+            while (cols.length < 2) { const c = rng.nextInt(1, 3); if (!cols.includes(c)) cols.push(c); }
             cols.sort((a, b) => a - b);
             const rows = [];
-            while (rows.length < 2) { const r = rand(1, 3); if (!rows.includes(r)) rows.push(r); }
+            while (rows.length < 2) { const r = rng.nextInt(1, 3); if (!rows.includes(r)) rows.push(r); }
             rows.sort((a, b) => a - b);
             b.cols = cols;
             b.rows = rows;

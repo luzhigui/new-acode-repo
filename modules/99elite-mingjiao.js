@@ -4,10 +4,10 @@ export const VER = 'modules/99elite-mingjiao.js V5.5.0';
 
 import { CONFIG, getSkillParams } from '../core/01config-5v5-test.js';
 import { ROLE_BONUS } from '../core/02unit.js';
-import { rand, hasBuff } from '../core/03battle-utils.js';
+import { hasBuff } from '../core/03battle-utils.js';
 import { spawnHorse } from '../core/05battle-horse.js';
 import { spiderTransform, spiderReturn } from '../modules/23elite-skills.js';
-import { checkZhangSwitch, emitEvent, applyStatChange, applyMaxHpChange } from '../core/50battle-shared.js';
+import { checkZhangSwitch, emitEvent, applyStatChange, applyMaxHpChange, getBattleRng } from '../core/50battle-shared.js';
 import { EXECUTION_LAYER as L } from '../core/00-event-bus.js';
 import { registerDodgeRule } from '../core/49battle-attack-steps.js';
 import { StateMachine } from '../core/06-fsm.js';
@@ -242,9 +242,10 @@ export function createXiaoZhaoSisterComponent() {
                 });
                 const aliveAllies = A.filter(u => u.alive && !u.isHorse);
                 if (aliveAllies.length > 0) {
-                    const healTarget = aliveAllies[Math.floor(Math.random() * aliveAllies.length)];
+                    const rng = getBattleRng();
+                    const healTarget = aliveAllies[rng.nextInt(0, aliveAllies.length - 1)];
                     const heal = Math.max(1, Math.floor(healTarget.def / (s.defToHeal || 8)));
-                    const atkTarget = aliveAllies[Math.floor(Math.random() * aliveAllies.length)];
+                    const atkTarget = aliveAllies[rng.nextInt(0, aliveAllies.length - 1)];
                     const atkGain = Math.max(1, Math.floor(atkTarget.def / (s.defToAtk || 16)));
                     applyStatChange(healTarget, 'hp', heal, xiaoZhao, '乾坤衍生治疗');
                     applyStatChange(atkTarget, 'atk', atkGain, xiaoZhao, '乾坤衍生加攻');
@@ -493,7 +494,7 @@ export function createXiaoZhaoBrotherComponent() {
                 if (data.unit.camp !== 'enemy') return;
                 if (!brother || !brother.alive || !brother._permanentBuffs || !brother._permanentBuffs.some(b => b.key === 'mindControl')) return;
                 if (hasBuff(data.enemySide._activeBuffs, 'mindControl')) return;
-                if (Math.random() < 0.15) {
+                if (getBattleRng().next() < 0.15) {
                     const fakeTarget = data.allySide.find(u => u.alive && !u.isHorse && u.uid !== data.unit.uid);
                     if (fakeTarget) {
                         data.declaration.targetResult = fakeTarget;
@@ -546,7 +547,7 @@ export function createXiaoZhaoBrotherComponent() {
                 if (hasBuff(A._activeBuffs, 'doubleStrike')) return;
                 const s = getSkillParams('小昭', 'spiderFly') || {};
                 const chance = (s.xiaoZhaoDoubleStrikeChance || 80);
-                if (rand(1, 100) <= chance) {
+                if (getBattleRng().nextInt(1, 100) <= chance) {
                     unit._xiaoZhaoDoubleStriked = true;
                     unit.state._acted = false;
                     log.push({type:'info', text:`<span class="gold">🦋 蝶击：小昭永久概率连击触发！</span>`, isDoubleStrikeBanner:true});

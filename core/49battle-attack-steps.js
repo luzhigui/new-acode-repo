@@ -1,12 +1,12 @@
 // core/49battle-attack-steps.js - 光明顶5v5 攻击步骤拆分模块
-// V5.4.0 | ~34600 bytes| 2026-07-28 乾坤反弹迁移至事件总线
+// V5.4.0 | ~35600 bytes| 2026-07-28 乾坤反弹迁移至事件总线
 export const VER = 'core/49battle-attack-steps.js V5.4.0';
 
 import { CONFIG, DEF_TAUNT, HP_TAUNT, getSkillParams } from './01config-5v5-test.js';
 import { eventBus } from './00-event-bus.js';
 import { rand, calcDamage, getFangLevel, isMelee, getFronts, isBlocked, getRandomTaunt, getZhangNearTaunt, makeFXSnapshot, hasBuff, getUnitCol, getUnitRow } from './03battle-utils.js';
 import { computeBuffStats, applyBuffEffectsBeforeAttack, applyBuffEffectsAfterAttack } from './04buff-system.js';
-import { emitEvent, applyStatChange, applyMaxHpChange, query } from './50battle-shared.js';
+import { emitEvent, applyStatChange, applyMaxHpChange, query, getBattleRng } from './50battle-shared.js';
 
 // ==================== 闪避规则注册表 ====================
 // 裁判统一管理所有闪避规则。每个规则是一个函数 (unit, attacker) => dodgeRate (0~1)
@@ -44,6 +44,7 @@ const C = CONFIG, DT = DEF_TAUNT, HT = HP_TAUNT;
 
 // ==================== 步骤1：选择攻击目标 ====================
 export function selectAttackTarget(unit, enemySide, allySide) {
+    const rng = getBattleRng();
     // 可选中目标池（存活、非不可选中）
     const validTargets = enemySide.filter(c => c.alive && !c._untargetable);
     if (validTargets.length === 0) return { target: null, phantomLog: null };
@@ -77,23 +78,23 @@ export function selectAttackTarget(unit, enemySide, allySide) {
             // 普通飞行：血量低于40%的残血优先，否则前排随机
             const lowHpTargets = validTargets.filter(u => u.hp / u.maxHp < 0.4);
             if (lowHpTargets.length > 0) {
-                target = lowHpTargets[rand(0, lowHpTargets.length - 1)];
+                target = lowHpTargets[rng.nextInt(0, lowHpTargets.length - 1)];
             } else {
                 let fronts = getFronts(validTargets);
                 if (fronts.length > 0) {
-                    target = fronts[rand(0, fronts.length - 1)];
+                    target = fronts[rng.nextInt(0, fronts.length - 1)];
                 } else {
-                    target = validTargets[rand(0, validTargets.length - 1)];
+                    target = validTargets[rng.nextInt(0, validTargets.length - 1)];
                 }
             }
         } else if (isMelee(unit.role) || unit.isHorse) {
             // 近战 / 拒马：前排随机
             const fronts = getFronts(validTargets);
             if (fronts.length === 0) return { target: null, phantomLog: null };
-            target = fronts[rand(0, fronts.length - 1)];
+            target = fronts[rng.nextInt(0, fronts.length - 1)];
         } else {
             // 远程：全场随机
-            target = validTargets[rand(0, validTargets.length - 1)];
+            target = validTargets[rng.nextInt(0, validTargets.length - 1)];
         }
     }
 
@@ -102,7 +103,7 @@ export function selectAttackTarget(unit, enemySide, allySide) {
         // 校验失败，尝试回退
         const fallback = validTargets.filter(c => c.alive && !c._untargetable);
         if (fallback.length === 0) return { target: null, phantomLog: null };
-        target = fallback[rand(0, fallback.length - 1)];
+        target = fallback[rng.nextInt(0, fallback.length - 1)];
     }
 
     return { target, phantomLog };
@@ -124,6 +125,7 @@ export function selectAttackTarget(unit, enemySide, allySide) {
  *   返回命中结果：skipped=true 表示跳过后续伤害步骤，retry=true 需递归重试
  */
 export function resolveAttackHit(unit, target, attackerBuffStats, defenderBuffStats, log, A, B, doubleStrikeUnitUid, eventBus) {
+    const rng = getBattleRng();
     let missChance = 0;
     if (unit.role === '远程') { missChance = 3; }
     else if (unit.role === '飞行') {
@@ -135,7 +137,7 @@ export function resolveAttackHit(unit, target, attackerBuffStats, defenderBuffSt
     }
     else { missChance = 1; }
 
-    if (missChance > 0 && rand(1,100) <= missChance) {
+    if (missChance > 0 && rng.nextInt(1,100) <= missChance) {
         // 未命中 — 返回日志数据让调用方拼接
         const missData = {
             skipped: true, retry: false, lockedTargetUid: null,
@@ -169,14 +171,14 @@ export function resolveAttackHit(unit, target, attackerBuffStats, defenderBuffSt
         let dodgeTriggered = false;
         for (const ruleFn of _dodgeRules) {
             const rate = ruleFn(target, unit) || 0;
-            if (rate > 0 && rand(1, 100) <= rate * 100) {
+            if (rate > 0 && rng.nextInt(1, 100) <= rate * 100) {
                 dodgeTriggered = true;
                 break;
             }
         }
         if (!dodgeTriggered) {
             let buffDodge = defenderBuffStats.dodgeBonus || 0;
-            if (buffDodge > 0 && rand(1, 100) <= buffDodge * 100) {
+            if (buffDodge > 0 && rng.nextInt(1, 100) <= buffDodge * 100) {
                 dodgeTriggered = true;
             }
         }
@@ -279,13 +281,14 @@ export function calcFinalDamage(unit, target, attackerBuffStats, defenderBuffSta
 
     // ---------- 第三步：基础伤害计算 ----------
     let atkBase = Math.floor(unit.atk);
-    let atkVar = rand(1, C.ATK_VAR), defVar = rand(1, C.DEF_VAR), hpBonus = rand(C.HP_BONUS_MIN + 1, C.HP_BONUS_MAX);
+    const rng = getBattleRng();
+    let atkVar = rng.nextInt(1, C.ATK_VAR), defVar = rng.nextInt(1, C.DEF_VAR), hpBonus = rng.nextInt(C.HP_BONUS_MIN + 1, C.HP_BONUS_MAX);
     let atkAct = atkBase + atkVar, defAct = defBase + defVar;
     let hpBefore = Math.floor(target.hp);
     target.hp += hpBonus;
     let waveTaunt = null, waveUnit = null;
     if (atkVar === C.ATK_VAR) { waveTaunt = getRandomTaunt(unit); waveUnit = unit; unit.critCount++; }
-    else if (defVar + hpBonus >= 7) { waveTaunt = DT[rand(0, DT.length - 1)]; waveUnit = target; }
+    else if (defVar + hpBonus >= 7) { waveTaunt = DT[rng.nextInt(0, DT.length - 1)]; waveUnit = target; }
     if (unit.isZhang && !unit.rangedForm && unit.nearAtkCount < 3) {
         let zt = getZhangNearTaunt(unit.nearAtkCount + 1);
         if (zt && !waveTaunt) { waveTaunt = zt; waveUnit = unit; }
@@ -334,6 +337,7 @@ export function calcFinalDamage(unit, target, attackerBuffStats, defenderBuffSta
  * @returns {{ dmg: number, dead: boolean, fortifyDeclarations: Array|null, ... }}
  */
 export function applyAttackResult(unit, target, dmgCalc, attackerBuffStats, defenderBuffStats, allySide, enemySide, log, A, B, state, doubleStrikeUnitUid) {
+    const rng = getBattleRng();
     let { atkBase, defBase, atkAct, defAct, hpBonus, hpBefore, waveTaunt, waveUnit, raw, rawFormula, thunderBonus, hornDmgMultiplier, trueDmg, dmg, bonusEntries, defReduction } = dmgCalc;
 
     let hpAfter = Math.floor(target.hp) - dmg;
@@ -350,7 +354,7 @@ export function applyAttackResult(unit, target, dmgCalc, attackerBuffStats, defe
     if (dead && target.camp === 'enemy' && unit.camp === 'ally' && !target._tokenDropped) {
         const stage = GlobalStore.get('currentStage') || 1;
         const dropRate = (C.TOKEN_DROP_RATES[stage] || 0) / 100;
-        if (Math.random() < dropRate) {
+        if (rng.next() < dropRate) {
             target._tokenDropped = true;
             const currentToken = GlobalStore.get('holyToken') || 0;
             GlobalStore.set('holyToken', currentToken + 1);
@@ -361,7 +365,7 @@ export function applyAttackResult(unit, target, dmgCalc, attackerBuffStats, defe
     }
     if (dead && target.camp === 'enemy' && unit.camp === 'ally' && !target._chestDropped) {
         const chestKillRate = C.CHEST_DROP_RATE / 100;
-        if (Math.random() < chestKillRate) {
+        if (rng.next() < chestKillRate) {
             target._chestDropped = true;
             let chests = parseInt(localStorage.getItem('ming_chest_count') || '0');
             chests++;
