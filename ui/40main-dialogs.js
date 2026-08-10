@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// ui/40main-dialogs.js - 光明顶5v5 弹窗模块
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// ui/40main-dialogs.js - 光明顶5v5 弹窗模块
 // V5.4.0 | ~16100 bytes| 2026-07-06
 export const VER = 'ui/40main-dialogs.js V5.4.0';
 
