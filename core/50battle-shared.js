@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// core/50battle-shared.js - 光明顶5v5 战斗共享工具
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// core/50battle-shared.js - 光明顶5v5 战斗共享工具
 // V5.2.1 | 提取06和48的公共依赖，解开循环引用
 export const VER = 'core/50battle-shared.js V5.4.0';
 
@@ -24,7 +24,7 @@ function emitFullUnitState(unit, eventType) {
         def: unit.def,
         alive: unit.alive,
         isHorse: unit.isHorse || false,
-        _isDead: unit._isDead || false
+        _isDead: unit.state._isDead || false
     });
 }
 
@@ -35,7 +35,7 @@ function finalizeDeaths(team) {
         if (u.hp <= 0 && u.alive) {
             applyStatChange(u, 'hp', -u.hp, null, '死亡结算');
             u.alive = false;
-            u._isDead = true;
+            u.state._isDead = true;
             if (!u._deathTime) u._deathTime = Date.now();
             // 不再发射 unit-remove，死亡单位保留在数组中供战报读取
         }
@@ -43,7 +43,7 @@ function finalizeDeaths(team) {
 }
 
 function getNextAvailableUnit(team) {
-    return team.filter(c => c.alive && !c._acted).sort((a, b) => a.pos - b.pos)[0] || null;
+    return team.filter(c => c.alive && !c.state._acted).sort((a, b) => a.pos - b.pos)[0] || null;
 }
 
 function checkZhangSwitch(A, log) {
@@ -59,7 +59,7 @@ function checkZhangSwitch(A, log) {
         zhang.maxHp = Math.min(zhang.maxHp + warriorBonus.maxHp * 3, zhang._baseMaxHp * 3);
         zhang.hp = Math.min(zhang.hp + warriorBonus.maxHp * 3, zhang.maxHp);
         zhang.role = '战士';
-        zhang._resting = false; zhang._zhangSwitched = true;
+        zhang.state._resting = false; zhang._zhangSwitched = true;
         zhang._baseMaxHp = zhang.maxHp;
         zhang._baseAtk = zhang.atk;
         zhang._baseDef = zhang.def;
@@ -117,7 +117,7 @@ function applyStatChange(target, field, delta, source, reason) {
     }
     emitCoreEvent(target, 'hp-change', {
         hp: target.hp, maxHp: target.maxHp, alive: target.alive,
-        atk: target.atk, def: target.def, _isDead: target._isDead || false
+        atk: target.atk, def: target.def, _isDead: target.state._isDead || false
     });
     return target._pendingDeath || false;
 }

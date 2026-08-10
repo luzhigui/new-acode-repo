@@ -569,13 +569,13 @@ export function abortAll(abortController, UI, waitingForNextRound, isBattleStart
     [UI.allyTeam, UI.enemyTeam].forEach(team => {
         team.forEach(u => {
             u._flash = null;
-            u._acted = false;
-            u._resting = false;
-            u._blocked = false;
-            u._isDead = false;
+            u.state._acted = false;
+            u.state._resting = false;
+            u.state._blocked = false;
+            u.state._isDead = false;
             u.alive = true;
             u.hp = u.maxHp;
-            u._stunned = false;
+            u.state._stunned = false;
         });
     });
     updateBuffSlotsFn();

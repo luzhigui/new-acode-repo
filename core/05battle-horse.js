@@ -53,7 +53,7 @@ export function destroyHorse(allyTeam, log) {
         if (success) {
             horse.hp = 0;
             horse.alive = false;
-            horse._isDead = true;
+            horse.state._isDead = true;
             log.push({type:'buff-destroy', text:`<span class="gray">🐴 拒马阵：${horse.pos}号位拒马消散（成功率${currentProb}%，${roll}）</span>`, buffType:'destroy', horseUid: horse.uid, needsSeparator: true});
             currentProb = Math.floor(currentProb / 2);
         } else {

@@ -37,9 +37,9 @@ export async function* createRoundStepper(state) {
             if (cur) {
                 full.hp = cur.hp; full.maxHp = cur.maxHp; full.alive = cur.alive;
                 full.atk = cur.atk; full.def = cur.def;
-                if (cur._isDead !== undefined) full._isDead = cur._isDead;
+                if (cur.state._isDead !== undefined) full.state._isDead = cur.state._isDead;
             } else {
-                full.alive = false; full._isDead = true;
+                full.alive = false; full.state._isDead = true;
             }
         });
     }
@@ -217,11 +217,11 @@ export async function* createRoundStepper(state) {
         // 圣火令等加成生效后，立即推送最终攻防到 Store 刷新格子显示
         emitEvent(u, 'hp-change', { hp: u.hp, maxHp: u.maxHp, alive: u.alive, atk: u.atk, def: u.def });
 
-        u._acted = false;
-        u._resting = false;
-        if (u._restingTimer) { clearTimeout(u._restingTimer); u._restingTimer = null; }
+        u.state._acted = false;
+        u.state._resting = false;
+        if (u.state._restingTimer) { clearTimeout(u.state._restingTimer); u.state._restingTimer = null; }
         u._doubleStriked = false;
-        u._stunned = false;
+        u.state._stunned = false;
         u._nineYinFirstDone = false;
         u._xingFenActive = false;
         u._xingFenExtraAttacking = false;
@@ -237,10 +237,10 @@ export async function* createRoundStepper(state) {
     B.forEach(u => {
         if (!u.alive) return;
         emitEvent(u, 'hp-change', { hp: u.hp, maxHp: u.maxHp, alive: u.alive, atk: u.atk, def: u.def, _stunned: false });
-        u._acted = false;
-        u._resting = false;
+        u.state._acted = false;
+        u.state._resting = false;
         u._doubleStriked = false;
-        u._stunned = false;
+        u.state._stunned = false;
         u._nineYinFirstDone = false;
         u._xingFenActive = false;
         u._xingFenExtraAttacking = false;
@@ -316,12 +316,12 @@ export async function* createRoundStepper(state) {
      */
     function resolveActionOrder(candidates, log) {
         resolveStateTransitions();
-        const sortedByPos = [...candidates].filter(u => u.alive && !u._isDead).sort((a, b) => a.pos - b.pos);
+        const sortedByPos = [...candidates].filter(u => u.alive && !u.state._isDead).sort((a, b) => a.pos - b.pos);
         const passUnits = [];
         const priorityDeclarations = [];
 
         for (const u of sortedByPos) {
-            if (u._stunned) {
+            if (u.state._stunned) {
                 passUnits.push({ unit: u, reason: '眩晕' });
                 continue;
             }
@@ -329,7 +329,7 @@ export async function* createRoundStepper(state) {
                 passUnits.push({ unit: u, reason: '拒马休息' });
                 continue;
             }
-            if (u._flyMode === 'butterfly' || u._flyMode === 'spider' || u._spiderFlying) {
+            if (u.state._flyMode === 'butterfly' || u.state._flyMode === 'spider' || u.state._spiderFlying || (u._fsm && u._fsm.is('flying'))) {
                 passUnits.push({ unit: u, reason: '飞天/附身' });
                 continue;
             }
@@ -381,12 +381,12 @@ export async function* createRoundStepper(state) {
 
     let currentSide = 'enemy';
 
-    while (A.some(u => u.alive && !u._acted) || B.some(u => u.alive && !u._acted)) {
+    while (A.some(u => u.alive && !u.state._acted) || B.some(u => u.alive && !u.state._acted)) {
         const currentTeam = currentSide === 'ally' ? A : B;
         // 姐姐附身：明教第一次被调度时触发，先于任何明教单位行动
         if (currentSide === 'ally' && !A._butterflyTriggered) {
             A._butterflyTriggered = true;
-            const sisterForAttach = A.find(u => u.isXiaoZhaoSister && u.alive && u.pos === 4 && !u._stunned && !u._butterflyHost);
+            const sisterForAttach = A.find(u => u.isXiaoZhaoSister && u.alive && u.pos === 4 && !u.state._stunned && !u.state._butterflyHost);
             if (sisterForAttach) {
                 sisterComp.executeAttach(A, log);
                 // 附身完后 yield 一次，让事件出队刷新 UI
@@ -396,7 +396,7 @@ export async function* createRoundStepper(state) {
                 // 重新拉取候选人列表（附身可能改变 _acted 状态）
             }
         }
-        const candidates = currentTeam.filter(u => u.alive && !u._acted).sort((a, b) => a.pos - b.pos);
+        const candidates = currentTeam.filter(u => u.alive && !u.state._acted).sort((a, b) => a.pos - b.pos);
         if (candidates.length === 0) {
             currentSide = currentSide === 'ally' ? 'enemy' : 'ally';
             continue;
@@ -406,16 +406,16 @@ export async function* createRoundStepper(state) {
         // 被跳过单位（遮挡/眩晕/拒马）：轮到它时才执行休息回血和日志
         if (orderResult.passEntry) {
             const { unit, reason } = orderResult.passEntry;
-            unit._acted = true;
-            unit._blocked = isBlocked(unit, currentTeam);
+            unit.state._acted = true;
+            unit.state._blocked = isBlocked(unit, currentTeam);
             if (reason === '被遮挡') {
                 let hpBefore = Math.floor(unit.hp);
                 unit.hp = Math.min(unit.maxHp, unit.hp + 15);
                 let hpAfter = Math.floor(unit.hp);
-                unit._resting = true;
-                if (unit._restingTimer) clearTimeout(unit._restingTimer);
-                unit._restingTimer = setTimeout(() => {
-                    unit._resting = false;
+                unit.state._resting = true;
+                if (unit.state._restingTimer) clearTimeout(unit.state._restingTimer);
+                unit.state._restingTimer = setTimeout(() => {
+                    unit.state._resting = false;
                     emitEvent(unit, 'hp-change', { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: unit.atk, def: unit.def, _resting: false });
                 }, 3000);
                 let bg = {type:'attack-group', uidA:unit.uid, uidD:null, entries:[], isBlock:true, _fxSnapshot:makeFXSnapshot(unit,null), waveTaunt:null, waveUnit:null, buffEffects:[], needsSeparator: true, healAmount: 15, healUnitUid: unit.uid};
@@ -432,10 +432,10 @@ export async function* createRoundStepper(state) {
                 let hpBefore = Math.floor(unit.hp);
                 unit.hp = Math.min(unit.maxHp, unit.hp + 15);
                 let hpAfter = Math.floor(unit.hp);
-                unit._resting = true;
-                if (unit._restingTimer) clearTimeout(unit._restingTimer);
-                unit._restingTimer = setTimeout(() => {
-                    unit._resting = false;
+                unit.state._resting = true;
+                if (unit.state._restingTimer) clearTimeout(unit.state._restingTimer);
+                unit.state._restingTimer = setTimeout(() => {
+                    unit.state._resting = false;
                     emitEvent(unit, 'hp-change', { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: unit.atk, def: unit.def, _resting: false });
                 }, 3000);
                 let bg = {type:'attack-group', uidA:unit.uid, uidD:null, entries:[], isBlock:true, _fxSnapshot:makeFXSnapshot(unit,null), waveTaunt:null, waveUnit:null, buffEffects:[], needsSeparator: true, healAmount: 15, healUnitUid: unit.uid};
@@ -465,11 +465,11 @@ export async function* createRoundStepper(state) {
         let allySide = unit.camp === 'ally' ? A : B;
         let enemySide = unit.camp === 'ally' ? B : A;
 
-        unit._blocked = isBlocked(unit, allySide);
+        unit.state._blocked = isBlocked(unit, allySide);
         unit.survivedRounds++;
 
         // 姐姐附身不占明教攻击轮次
-        if (unit.camp === 'ally' && unit.isXiaoZhaoSister && !unit._butterflyHost && !A._butterflyTriggered) {
+        if (unit.camp === 'ally' && unit.isXiaoZhaoSister && !(unit._fsm && unit._fsm.is('attached')) && !A._butterflyTriggered) {
             isPriorityAction = true;
         }
 
@@ -545,8 +545,8 @@ export async function* createRoundStepper(state) {
     [A, B].forEach(team => {
         for (let i = team.length - 1; i >= 0; i--) {
             const u = team[i];
-            u._resting = false;
-            if (u._restingTimer) { clearTimeout(u._restingTimer); u._restingTimer = null; }
+            u.state._resting = false;
+            if (u.state._restingTimer) { clearTimeout(u.state._restingTimer); u.state._restingTimer = null; }
             // 死马不再删除，保留在数组中供战报统计承伤
         }
     });
@@ -569,7 +569,7 @@ export async function* createRoundStepper(state) {
         losers.forEach(u => {
             u.hp = 0;
             u.alive = false;
-            u._isDead = true;
+            u.state._isDead = true;
             emitEvent(u, 'hp-change', { hp: 0, maxHp: u.maxHp, alive: false, atk: u.atk, def: u.def, _isDead: true });
         });
     }
