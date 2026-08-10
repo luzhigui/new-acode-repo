@@ -41,15 +41,16 @@ export function battleReducer(state, action) {
         case 'SET_VISUAL': {
             let next = state.units.map(u => {
                 if (u.uid !== action.uid) return u;
-                const patch = {};
-                if (action._acted !== undefined) patch._acted = action._acted;
-                if (action._resting !== undefined) patch._resting = action._resting;
-                if (action._blocked !== undefined) patch._blocked = action._blocked;
-                if (action._isDead !== undefined) patch._isDead = action._isDead;
-                if (action._flyMode !== undefined) patch._flyMode = action._flyMode;
-                if (action._hasKuaiLe !== undefined) patch._hasKuaiLe = action._hasKuaiLe;
-                if (action._hasXingFen !== undefined) patch._hasXingFen = action._hasXingFen;
-                return { ...u, ...patch };
+                const newState = { ...(u.state || {}) };
+                if (action._acted !== undefined) newState._acted = action._acted;
+                if (action._resting !== undefined) newState._resting = action._resting;
+                if (action._blocked !== undefined) newState._blocked = action._blocked;
+                if (action._isDead !== undefined) newState._isDead = action._isDead;
+                if (action._flyMode !== undefined) newState._flyMode = action._flyMode;
+                const updated = { ...u, state: newState };
+                if (action._hasKuaiLe !== undefined) updated._hasKuaiLe = action._hasKuaiLe;
+                if (action._hasXingFen !== undefined) updated._hasXingFen = action._hasXingFen;
+                return updated;
             });
             return { ...state, units: next };
         }
@@ -91,13 +92,14 @@ export function battleReducer(state, action) {
                         if (p.dodgeCount !== undefined) next[idx].dodgeCount = p.dodgeCount;
                         if (p.critCount !== undefined) next[idx].critCount = p.critCount;
                         if (p.survivedRounds !== undefined) next[idx].survivedRounds = p.survivedRounds;
-                        if (p._isDead !== undefined) next[idx]._isDead = p._isDead;
-                        if (p._resting !== undefined) next[idx]._resting = p._resting;
-                        if (p._blocked !== undefined) next[idx]._blocked = p._blocked;
-                        if (p._phantomTarget !== undefined) next[idx]._phantomTarget = p._phantomTarget;
-                        if (p._stunned !== undefined) next[idx]._stunned = p._stunned;
-                        if (p._flyMode !== undefined) next[idx]._flyMode = p._flyMode;
-                        if (p._butterflyHost !== undefined) next[idx]._butterflyHost = p._butterflyHost;
+                        if (!next[idx].state) next[idx].state = {};
+                        if (p._isDead !== undefined) next[idx].state._isDead = p._isDead;
+                        if (p._resting !== undefined) next[idx].state._resting = p._resting;
+                        if (p._blocked !== undefined) next[idx].state._blocked = p._blocked;
+                        if (p._phantomTarget !== undefined) next[idx].state._phantomTarget = p._phantomTarget;
+                        if (p._stunned !== undefined) next[idx].state._stunned = p._stunned;
+                        if (p._flyMode !== undefined) next[idx].state._flyMode = p._flyMode;
+                        if (p._butterflyHost !== undefined) next[idx].state._butterflyHost = p._butterflyHost;
                         if (p._masteredRoles !== undefined) next[idx]._masteredRoles = p._masteredRoles;
                         if (ev.eventType === 'zhang-switch') {
                             if (p.rangedForm !== undefined) next[idx].rangedForm = p.rangedForm;
@@ -110,12 +112,16 @@ export function battleReducer(state, action) {
                         next.push({
                             uid: p.uid, name: p.name, role: p.role, camp: p.camp, pos: p.pos,
                             hp: p.hp, maxHp: p.maxHp, atk: p.atk, def: p.def, alive: p.alive,
-                            isHorse: p.isHorse || false, _isDead: p._isDead || false,
-                            _phantomTarget: p._phantomTarget || null,
+                            isHorse: p.isHorse || false,
                             dmgDealt: 0, dmgTaken: 0, healDone: 0, reboundDone: 0, leechDone: 0,
                             dodgeCount: 0, critCount: 0, survivedRounds: 0,
                             buffAtkBonus: 0, buffDefBonus: 0, buffDodgeBonus: 0, buffHpBonus: 0,
-                            _flash: null, _acted: false, _resting: false, _blocked: false
+                            _flash: null,
+                            state: {
+                                _acted: false, _resting: false, _blocked: false,
+                                _isDead: p._isDead || false,
+                                _phantomTarget: p._phantomTarget || null
+                            }
                         });
                     }
                 } else if (ev.eventType === 'unit-remove') {

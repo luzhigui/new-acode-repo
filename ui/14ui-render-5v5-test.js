@@ -348,8 +348,10 @@ export function renderGrid(id, camp) {
 
     for (let i = 0; i < displayOrder.length; i++) {
         let pos = displayOrder[i], unit = team.find(c => c.pos === pos);
+        // 确保每个单位都有 state 字典
+        if (unit && !unit.state) unit.state = {};
         if (unit && !unit.isHorse) {
-            if (unit.state._flyMode || (unit._fsm && (unit._fsm.is('attached') || unit._fsm.is('flying')))) {
+            if ((unit.state && unit.state._flyMode) || (unit._fsm && (unit._fsm.is('attached') || unit._fsm.is('flying')))) {
                 let div = document.createElement('div');
                 div.className = 'cell occupied';
                 div.dataset.pos = pos;
@@ -393,7 +395,7 @@ export function renderGrid(id, camp) {
                 grid.appendChild(div);
                 continue;
             }
-            if (unit.state._isDead) {
+            if (unit.state && unit.state._isDead) {
                 unit = { ...unit, _flash: 'dead', _resting: false, _acted: false, _blocked: false };
             }
         }
@@ -408,9 +410,9 @@ export function renderGrid(id, camp) {
         }
         let hasFlash = !!unit._flash;
         let isDead = (unit._flash==='dead' || !unit.alive || unit.state._isDead);
-        let isBlocked = unit.state._blocked || false;
-        let isResting = unit.state._resting || false;
-        let isStunned = unit.state._stunned || false;
+        let isBlocked = (unit.state && unit.state._blocked) || false;
+        let isResting = (unit.state && unit.state._resting) || false;
+        let isStunned = (unit.state && unit.state._stunned) || false;
 
         let roleIcon;
         if (isStunned && !isDead) {
@@ -426,7 +428,7 @@ export function renderGrid(id, camp) {
         let displayIsZhang = unit.isZhang || false;
         if (unit.isXiaoZhaoSister) displayName += '·姊';
         if (unit.isXiaoZhaoBrother) displayName += '·妹';
-        if (unit.name === '成昆' && unit.state._phantomTarget) {
+        if (unit.name === '成昆' && unit.state && unit.state._phantomTarget) {
             const allUnits = (ctx.UI.allyTeam || []).concat(ctx.UI.enemyTeam || []);
             const mimicTarget = allUnits.find(u => u.uid === unit.state._phantomTarget);
             if (mimicTarget) {
@@ -474,8 +476,8 @@ export function renderGrid(id, camp) {
         if (hpBonusVal > 0 || (latestUnit._baseMaxHp !== undefined && latestUnit.maxHp > latestUnit._baseMaxHp) || hasButterflyHpBonus) {
             hpDisplayHtml = `<span style="color:#daa520;font-weight:bold;">${Math.floor(unit.hp)}</span>`;
         }
-        let readyClass = (!hasFlash && !unit.state._acted && unit.alive && !isDead) ? 'ready' : '';
-        let actedClass = (!hasFlash && unit.state._acted && unit.alive && !isDead) ? 'acted' : '';
+        let readyClass = (!hasFlash && !(unit.state && unit.state._acted) && unit.alive && !isDead) ? 'ready' : '';
+        let actedClass = (!hasFlash && (unit.state && unit.state._acted) && unit.alive && !isDead) ? 'acted' : '';
         let cheerClass = (hasFlash && unit._flash==='cheer' && !isDead) ? 'cell-cheer' : '';
         let restingClass = (isBlocked && unit.alive && isResting && !(unit.isZhang && unit.rangedForm) && !isDead) ? 'resting' : '';
         let div = document.createElement('div');
@@ -495,7 +497,7 @@ export function renderGrid(id, camp) {
                 delete unit._phantomFlash;
             }, 800);
         }
-        if (unit.isHorse && unit.alive && !unit.state._isDead && !unit._horseSpawned) {
+        if (unit.isHorse && unit.alive && !(unit.state && unit.state._isDead) && !unit._horseSpawned) {
             unit._horseSpawned = true;
             requestAnimationFrame(() => createHorseSpawnAnim(div));
         }
@@ -517,10 +519,10 @@ export function renderGrid(id, camp) {
         let hpStyle = hpBonusVal > 0 ? 'color:#daa520;font-weight:bold;' : '';
         let eliteSkillIcon = (unit.name === '周芷若' && unit._hasKuaiLe) ? ' 💖' : (unit.name === '宋青书' && unit._hasXingFen) ? ' 💗' : (unit.isXiaoZhaoSister ? ' 🦋' : (unit.isXiaoZhaoBrother ? ' 🕷️' : (unit.isXiaoZhao ? ' 🦋' : '')));
         if (!eliteSkillIcon) {
-            const sisterHost = allyTeam.find(a => a.isXiaoZhaoSister && a.alive && a.state._butterflyHost === unit.uid);
+            const sisterHost = allyTeam.find(a => a.isXiaoZhaoSister && a.alive && a.state && a.state._butterflyHost === unit.uid);
             if (sisterHost) eliteSkillIcon = ' 🦋';
         }
-        if (unit.name === '成昆' && unit.state._phantomTarget) eliteSkillIcon += ' 🎭';
+        if (unit.name === '成昆' && unit.state && unit.state._phantomTarget) eliteSkillIcon += ' 🎭';
         if (unit._xuanmingPoison && unit._xuanmingPoison.remaining > 0) eliteSkillIcon += ' ❄️';
         div.innerHTML = `<span class="cell-icon">${isBlocked && unit.alive && isResting && !(unit.isZhang && unit.rangedForm) && !isDead ? '😴' : roleIcon}</span><div class="cell-info"><span class="cell-name ${displayIsZhang?'gold':''}">${displayName}${eliteSkillIcon}${buffIcons ? ' ' + buffIcons : ''}</span><span class="cell-stats">攻<span style="${atkStyle}">${atkDisplayHtml}</span> 防<span style="${defStyle}">${defDisplayHtml}</span> <span class="${hpColorClass}" style="${hpStyle}">血${hpDisplayHtml}</span></span></div><div class="hp-bar-wrap"><div class="hp-bar-inner" id="hpbar-${unit.uid}" style="height:${hpPct}%;background:${barColor};transition:height 0.4s ease, background 0.4s ease;"></div></div>`;
         if (isDead) {

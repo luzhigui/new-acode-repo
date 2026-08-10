@@ -163,14 +163,15 @@ export function showMeleeCrash(unitA, unitD, speed, getPausedFn, onCrash) {
         const ctxG = window._getPlayerContext ? window._getPlayerContext() : null;
         if (ctxG && ctxG.store) {
             ctxG.store.dispatch({ type: 'SET_FLASH', uid: unitA.uid, flash: 'attack' });
-            ctxG.store.dispatch({ type: 'SET_VISUAL', uid: unitA.uid, _acted: true, _flyMode: flyMode });
+            ctxG.store.dispatch({ type: 'SET_VISUAL', uid: unitA.uid, _acted: true });
+            if (unitA.state) unitA.state._flyMode = flyMode;
         }
     } else {
         unitA._flash = null;
         const ctxF = window._getPlayerContext ? window._getPlayerContext() : null;
         if (ctxF && ctxF.store) {
             ctxF.store.dispatch({ type: 'CLEAR_UNIT_FLASH', uid: unitA.uid });
-            ctxF.store.dispatch({ type: 'SET_VISUAL', uid: unitA.uid, _acted: true, _flyMode: flyMode });
+            ctxF.store.dispatch({ type: 'SET_VISUAL', uid: unitA.uid, _acted: true, 'state._flyMode': flyMode });
         }
         cellA.style.opacity = '0';
         cellA.style.transform = 'scale(0.8)';
