@@ -192,17 +192,38 @@ const ReplayManager = (() => {
         const ally = this.data.snapshot.ally.map(u => {
           const unit = new Unit(u.name, u.m, u.role, 'ally');
           Object.assign(unit, u);
-          unit.state = unit.state || {};
-          unit.state._isDead = u._isDead || false;
+          if (!unit.state) unit.state = {};
+          if (u.state) Object.assign(unit.state, u.state);
+          unit.alive = u.alive !== false;
+          unit.hp = u.hp || unit.maxHp;
+          unit.pos = u.pos || unit.pos;
           return unit;
         });
         const enemy = this.data.snapshot.enemy.map(u => {
           const unit = new Unit(u.name, u.m, u.role, 'enemy');
           Object.assign(unit, u);
-          unit.state = unit.state || {};
-          unit.state._isDead = u._isDead || false;
+          if (!unit.state) unit.state = {};
+          if (u.state) Object.assign(unit.state, u.state);
+          unit.alive = u.alive !== false;
+          unit.hp = u.hp || unit.maxHp;
+          unit.pos = u.pos || unit.pos;
           return unit;
         });
+
+        // 强制停止当前战斗，设置状态为 IDLE
+        if (typeof window.forceStopGame === 'function') window.forceStopGame();
+        const ctx = window._getPlayerContext ? window._getPlayerContext() : null;
+        if (ctx) {
+          ctx.gs = 'IDLE';
+          ctx.isPaused = false;
+          ctx._battleEnded = false;
+          ctx.abortController = null;
+        }
+        // 初始化 Store，确保 UI 能同步回放状态
+        if (ctx && !ctx.store) {
+          const { createStore, battleReducer } = await import('../modules/52battle-store.js');
+          ctx.store = createStore({ units: [...ally, ...enemy], round: 1 }, battleReducer);
+        }
 
         let battleState = { ally, enemy, round: 1, activeBuffs: [], allAllies: ally.map(u => u.clone()), _rng: rng };
         const stepper = createRoundStepper(battleState);
@@ -225,8 +246,8 @@ const ReplayManager = (() => {
             }
           }
 
-          if (step.events && step.events.length > 0 && window._getPlayerContext) {
-            const ctx = window._getPlayerContext();
+          if (step.events && step.events.length > 0) {
+            const ctx = window._getPlayerContext ? window._getPlayerContext() : null;
             if (ctx && ctx.store) {
               ctx.store.dispatch({ type: 'APPLY_EVENTS', events: step.events });
             }
