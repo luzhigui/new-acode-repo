@@ -20,11 +20,18 @@ export class Unit {
         this.rangedForm=true;this.nearAtkCount=0;this.ronghui=false;
         this.dmgDealt=0;this.dmgTaken=0;this.healDone=0;this.reboundDone=0;
         this.leechDone=0;this.dodgeCount=0;this.critCount=0;
-        this._acted=false;this.survivedRounds=0;this._flash=null;
-        this._blocked=false;this._isDead=false;this._resting=false;
-        this._flyMode=null;this._untargetable=false;this.fixed=false;this._originalPos=-1;
+        this.survivedRounds=0;this._flash=null;
+        this._untargetable=false;this.fixed=false;this._originalPos=-1;
         this._hotBloodCount=0;this._doubleStriked=false;
         this._zhangSwitched = false;
+        this.state = {
+            _acted: false, _stunned: false, _isDead: false, _resting: false,
+            _blocked: false, _flyMode: null, _butterflyHost: null,
+            _spiderFlying: false, _spiderTriggeredHit: false,
+            _spiderTriggered70: false, _spiderTriggered40: false,
+            _spiderTriggeredDeath: false, _spiderTriggeredThisRound: false,
+            _phantomTarget: null
+        };
         this.buffAtkBonus = 0;
         this.buffDefBonus = 0;
         this.buffDodgeBonus = 0;
@@ -43,25 +50,18 @@ export class Unit {
         this._xingFenCount = 0;  // 性奋已触发次数（影响生命上限扣减）（本回合是否还能触发额外攻击）
         this._xingFenPenaltyCount = 0; // 性奋惩罚累计次数，跨回合递增
         this._kuLianActive = false;
-        this._phantomTarget = null;  // 成昆模仿的目标 uid
-        this._stunned = false;       // 本回合是否被闪避反击眩晕
+
         this._isLinkAttack = false;
         this.isXiaoZhaoSister = false; // 🦋 小昭·姊
         this.isXiaoZhaoBrother = false; // 🕷️ 小昭·妹
         this._masteredRoles = [];
         this._permanentBuffs = [];
-        this._butterflyHost = null;  // 🦋 附身目标 uid
         this._butterflyAtk = 0;      // 🦋 附身时暂存的攻击
         this._butterflyDef = 0;      // 🦋 附身时暂存的防御
         this._butterflyHp = 0;       // 🦋 附身时暂存的血量
         this._butterflyHpTransfer = 0; // 🦋 附身时转移给宿主的血上限值
         this._spiderRemaining = 3;
-        this._spiderFlying = false;
         this._spiderAttacked = false;
-        this._spiderTriggeredHit = false;
-        this._spiderTriggered70 = false;
-        this._spiderTriggered40 = false;
-        this._spiderTriggeredDeath = false;
         this._nineYinFirstDone = false;
         this._extinctionUsed = false;
         this._emptyColBonus = 0;
@@ -78,7 +78,7 @@ export class Unit {
     clone(){
         let c=new Unit(this.name,this.m,this.role,this.camp);
         // 基础类型自动拷贝（跳过需要深拷贝的数组/对象字段）
-        const deepKeys = ['_kuaiLeStack', '_permanentBuffs', '_masteredRoles', '_xuanmingPoison'];
+        const deepKeys = ['_kuaiLeStack', '_permanentBuffs', '_masteredRoles', '_xuanmingPoison', 'state'];
         for (const key of Object.keys(this)) {
             if (deepKeys.includes(key)) continue;
             c[key] = this[key];
@@ -88,6 +88,7 @@ export class Unit {
         c._permanentBuffs = this._permanentBuffs.map(b => ({...b}));
         c._masteredRoles = [...this._masteredRoles];
         c._xuanmingPoison = this._xuanmingPoison ? { ...this._xuanmingPoison } : null;
+        c.state = { ...this.state };
         return c;
     }
     init(){

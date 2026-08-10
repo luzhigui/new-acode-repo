@@ -189,12 +189,17 @@ export function resolveAttackHit(unit, target, attackerBuffStats, defenderBuffSt
 
             // ---------- 闪避后效果声明收集 ----------
             const dodgeDeclarations = [];
+            // 反击伤害提交声明
+            dodgeDeclarations.push({ type: 'rebound', value: reboundDmg });
+            // 眩晕提交声明
+            dodgeDeclarations.push({ type: 'stun' });
+
+            // 韦一笑吸血等组件通过 onDodge 追加声明
             eventBus.emit('onDodge', { unit, target, reboundDmg, declarations: dodgeDeclarations });
 
             // ---------- 裁判执行闪避后效果 ----------
             resolveDodgeEffects(dodgeDeclarations, unit, target);
 
-            unit._stunned = true;
             unit._acted = true;
             emitEvent(unit, 'hp-change', { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: unit.atk, def: unit.def, _stunned: true });
 
