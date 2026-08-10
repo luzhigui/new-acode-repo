@@ -28,7 +28,7 @@ export function createZhangWujiComponent() {
             // 九阳回血
             eventBus.on('afterDamageApplied', L.AFTER_DAMAGE_APPLIED.ZHANG_JIUYANG, (data) => {
                 if (data.unit.uid !== zhang.uid) return;
-                onAfterApplyDamage(data.unit, data.target, { dmg: data.dmg }, data.group, A, data.log);
+                onAfterApplyDamage(data.unit, data.target, { dmg: data.dmg }, data.group, A, data.log, data);
             });
             // 近战形态切换 — 被动监听：单位死亡、换位后自行检测前排
             eventBus.on('onUnitDeath', L.ON_UNIT_DEATH.ZHANG_SWITCH, (data) => {
@@ -38,15 +38,26 @@ export function createZhangWujiComponent() {
                 if (zhang && zhang.alive && !zhang._zhangSwitched) checkZhangSwitch(A, data.log);
             });
         },
-        onAfterApplyDamage(unit, target, dmgCalc, group, A, log) {
+        onAfterApplyDamage(unit, target, dmgCalc, group, A, log, data) {
             if (unit.camp !== 'ally' || !unit.isZhang || !unit.alive) return;
             const hpBeforeZhang = Math.floor(unit.hp);
             const s = getSkillParams('张无忌', 'nineYang') || { healPct: 8 };
             const heal = Math.min(Math.floor(unit.maxHp * (s.healPct / 100)), unit.maxHp - unit.hp);
             if (heal > 0) {
-                applyStatChange(unit, 'hp', heal, null, '九阳神功');
+                if (data && data.declarations) {
+                    data.declarations.push({
+                        type: 'heal',
+                        value: heal,
+                        source: unit,
+                        logText: `<span class="green">☀️ 九阳神功回复+${heal}，${hpBeforeZhang}→${Math.floor(unit.hp + heal)}</span>`
+                    });
+                } else {
+                    applyStatChange(unit, 'hp', heal, null, '九阳神功');
+                }
             }
-            group.entries.push({ type:'info', text:`<span class="green">☀️ 九阳神功回复+${heal}，${hpBeforeZhang}→${Math.floor(unit.hp)}</span>`, isHealEntry:true, healAmount:heal, healUnitUid:unit.uid });
+            if (!data || !data.declarations) {
+                group.entries.push({ type:'info', text:`<span class="green">☀️ 九阳神功回复+${heal}，${hpBeforeZhang}→${Math.floor(unit.hp)}</span>`, isHealEntry:true, healAmount:heal, healUnitUid:unit.uid });
+            }
             if (!unit.rangedForm) {
                 if (unit.nearAtkCount === 0 && !unit._zhangTauntDone) { const firstTaunt = getZhangNearTaunt(1); if (firstTaunt) { group.entries.push({ type:'info', text:`<span class="gold">🗣️ ${unit.name}：${firstTaunt}</span>` }); unit._zhangTauntDone = true; } }
                 unit.nearAtkCount++;
@@ -55,7 +66,16 @@ export function createZhangWujiComponent() {
                     unit.ronghui = true;
                     const zt = getZhangNearTaunt(3); if (zt) group.entries.push({ type:'info', text:`<span class="gold">🗣️ ${unit.name}：${zt}</span>` });
                     const extra = Math.floor(Math.abs(target.atk - target.def) * 0.5);
-                    applyStatChange(target, 'hp', -extra, unit, '融会贯通');
+                    if (data && data.declarations) {
+                        data.declarations.push({
+                            type: 'bonusDmg',
+                            value: extra,
+                            target: target,
+                            logText: null
+                        });
+                    } else {
+                        applyStatChange(target, 'hp', -extra, unit, '融会贯通');
+                    }
                     group.entries.push({ type:'info', text:`<span class="red">🔥 融会贯通额外+${extra}（目标攻击${Math.floor(target.atk)} 防御${Math.floor(target.def)}，差值绝对值×50%）</span>` });
                 }
             }

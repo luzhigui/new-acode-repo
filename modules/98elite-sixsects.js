@@ -146,6 +146,7 @@ export function createZhouZhiruoComponent() {
             if (!unit._nineYinFirstDone) { unit._nineYinFirstDone = true; }
             else { if (Math.random() > s.procChance) return 0; }
             let totalBonus = 0; let depth = 0;
+            const healDeclarations = [];
             while (target.alive) {
                 if (depth > 0 && Math.random() > s.chainProcChance) break;
                 const lostHp = target.maxHp - target.hp;
@@ -168,20 +169,28 @@ export function createZhouZhiruoComponent() {
                 if (song) {
                     const healAmount = Math.min(bonusDmg, song.maxHp - song.hp);
                     if (healAmount > 0) {
-                        applyStatChange(song, 'hp', healAmount, unit, '九阴白骨爪联动');
+                        healDeclarations.push({ type: 'heal', value: healAmount, source: song });
                     }
                 }
                 depth++; if (isExecute) break;
             }
+            let songForSummary = B.find(u => u.name === '宋青书' && u.alive);
             if (totalBonus > 0) {
-                const song2 = B.find(u => u.name === '宋青书' && u.alive);
-                if (song2) {
-                    const totalHeal = Math.min(totalBonus, song2.maxHp - song2.hp);
+                if (!songForSummary) songForSummary = B.find(u => u.name === '宋青书' && u.alive);
+                if (songForSummary) {
+                    const totalHeal = Math.min(totalBonus, songForSummary.maxHp - songForSummary.hp);
                     if (totalHeal > 0) {
-                        log.push({ type:'info', text:`<span class="green">💚 宋青书因九阴白骨爪共回复${totalHeal}点生命</span>`, isHealEntry:true, healAmount:totalHeal, healUnitUid:song2.uid });
+                        healDeclarations.push({ type: 'heal', value: totalHeal, source: songForSummary });
+                        log.push({ type:'info', text:`<span class="green">💚 宋青书因九阴白骨爪共回复${totalHeal}点生命</span>`, isHealEntry:true, healAmount:totalHeal, healUnitUid:songForSummary.uid });
                     } else {
                         log.push({ type:'info', text:`<span class="gray">💚 宋青书已满血，白骨爪未能回复生命</span>` });
                     }
+                }
+            }
+            // 统一执行回血
+            for (const decl of healDeclarations) {
+                if (decl.source && decl.source.alive) {
+                    applyStatChange(decl.source, 'hp', decl.value, unit, '九阴白骨爪联动');
                 }
             }
             return totalBonus;

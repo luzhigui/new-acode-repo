@@ -285,13 +285,21 @@ export function registerWarriorBreakDefense(eventBus) {
  */
 export function registerRangedGrowth(eventBus) {
     eventBus.on('afterDamageApplied', L.AFTER_DAMAGE_APPLIED.RANGED_GROWTH, (data) => {
-        const { unit, target, dmg, group } = data;
+        const { unit, target, dmg } = data;
         if (unit.role !== '远程' || dmg <= 0) return;
         const growth = C.RANGED_GROWTH_ATK;
-        applyStatChange(unit, 'atk', growth, null, '远程成长');
+        if (!data.declarations) data.declarations = [];
+        data.declarations.push({
+            type: 'statChange',
+            field: 'atk',
+            delta: growth,
+            target: unit,
+            oldValue: unit.atk,
+            logText: null
+        });
         if (unit._baseAtk !== undefined) unit._baseAtk += growth;
         if (group && group.entries) {
-            group.entries.push({type:'detail', text:`<span class="blue small">🏹 ${unit.name} 远程熟练：攻击 +${growth} → ${Math.floor(unit.atk)}</span>`});
+            group.entries.push({type:'detail', text:`<span class="blue small">🏹 ${unit.name} 远程熟练：攻击 +${growth} → ${Math.floor(unit.atk + growth)}</span>`});
         }
     });
 }
@@ -331,7 +339,7 @@ export function registerWarriorExecute(eventBus) {
  */
 export function registerFortifyShield(eventBus) {
     // 坚盾触发核心逻辑（被攻击 / 攻击共用）
-    function tryFortify(unit, chance, group, log, label) {
+    function tryFortify(unit, chance, group, log, label, skipStatChange) {
         if (unit.role !== '防战') return;
         if (unit._fortifyThisRound === undefined) unit._fortifyThisRound = 0;
         if (!unit._fortifyStacks) unit._fortifyStacks = 0;
@@ -341,7 +349,9 @@ export function registerFortifyShield(eventBus) {
         if (rand(1, 100) > chance) return;
         unit._fortifyStacks += increment;
         unit._fortifyThisRound += increment;
-        applyStatChange(unit, 'def', increment, null, '坚盾');
+        if (!skipStatChange) {
+            applyStatChange(unit, 'def', increment, null, '坚盾');
+        }
         if (unit._baseDef !== undefined) unit._baseDef += increment;
         const text = `<span class="blue small">🛡️ ${unit.name} ${label}：防御+${increment}（已叠${unit._fortifyThisRound}/${cap}）</span>`;
         if (group && group.entries) {
@@ -355,7 +365,19 @@ export function registerFortifyShield(eventBus) {
     eventBus.on('afterDamageApplied', L.AFTER_DAMAGE_APPLIED.SHIELD_DEFEND, (data) => {
         const { target, dmg, group } = data;
         if (dmg <= 0) return;
-        tryFortify(target, 60, group, null, '坚盾');
+        const prevStacks = target._fortifyStacks || 0;
+        tryFortify(target, 60, group, null, '坚盾', true);
+        if ((target._fortifyStacks || 0) > prevStacks) {
+            const increment = (target._fortifyStacks || 0) - prevStacks;
+            if (!data.declarations) data.declarations = [];
+            data.declarations.push({
+                type: 'statChange',
+                field: 'def',
+                delta: increment,
+                target: target,
+                logText: null
+            });
+        }
     });
 
     // 攻击时触发（80% 概率，与被攻击共享每回合上限）
