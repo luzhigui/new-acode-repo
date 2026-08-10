@@ -4,8 +4,8 @@ export const VER = 'modules/23elite-skills.js V5.4.0';
 
 import { CONFIG, getSkillParams, getSkillParamsJealous } from '../core/01config-5v5-test.js';
 import { ROLE_BONUS } from '../core/02unit.js';
-import { hasBuff, rand } from '../core/03battle-utils.js';
-import { emitEvent, applyStatChange, registerQuery } from '../core/50battle-shared.js';
+import { hasBuff } from '../core/03battle-utils.js';
+import { emitEvent, applyStatChange, registerQuery, getBattleRng } from '../core/50battle-shared.js';
 const ES = CONFIG.ELITE_SKILLS;
 
 // ==================== 宋青书 — 叛逆突袭 ====================
@@ -179,10 +179,11 @@ export function consumeXingFen(attacker) {
  */
 export function spiderTransform(unit, log) {
     if (!unit.isXiaoZhaoBrother || !unit.alive) return;
+    const rng = getBattleRng();
     const roles = ['战士', '防战', '远程', '飞行'];
     let availableRoles = roles.filter(r => r !== unit.role);
     if (availableRoles.length === 0) availableRoles = roles;
-    const newRole = availableRoles[Math.floor(Math.random() * availableRoles.length)];
+    const newRole = availableRoles[rng.nextInt(0, availableRoles.length - 1)];
     unit._lastRole = newRole;
 
     if (!unit._masteredRoles) unit._masteredRoles = [];
@@ -217,6 +218,7 @@ export function spiderTransform(unit, log) {
  */
 export function spiderReturn(unit, allyTeam, enemySide, log) {
     if (!unit.isXiaoZhaoBrother || !unit.state._spiderFlying) return;
+    const rng = getBattleRng();
 
     unit.state._spiderFlying = false;
     unit.state._flyMode = null;
@@ -232,7 +234,7 @@ export function spiderReturn(unit, allyTeam, enemySide, log) {
 
     const aliveEnemies = enemySide.filter(u => u.alive);
     if (aliveEnemies.length > 0) {
-        const target = aliveEnemies[rand(0, aliveEnemies.length - 1)];
+        const target = aliveEnemies[rng.nextInt(0, aliveEnemies.length - 1)];
         if (!target.alive) { log.push({ type:'info', text:`<span class="gray">🕷️ 蛛袭：目标已死亡，攻击取消</span>` }); return; }
         const penetrationDmg = Math.floor(unit.atk * (unit.atk / (unit.atk + target.def)));
         const masteryCount = unit._masteredRoles?.length || 0;
@@ -285,13 +287,14 @@ export function isXiaoZhaoPermanentActive(unit, activeBuffs, buffKey) {
 
 export function applyPhantomDisguise(unit, enemySide, allySide = null) {
     if (unit.camp !== 'ally') return null;
+    const rng = getBattleRng();
     const chengkun = enemySide.find(u => u.name === '成昆' && u.alive && u.state._phantomTarget);
     if (!chengkun || unit._isLinkAttack) return null;
     if (chengkun.state._phantomTarget === unit.uid) return null;
     const lostPct = (chengkun.maxHp - chengkun.hp) / chengkun.maxHp;
     const p = getSkillParams('成昆', 'phantomDisguise') || ES.phantomDisguise;
     const chance = p.baseChance + Math.floor(lostPct * 10) * p.per10pctLost;
-    if (Math.random() < chance) {
+    if (rng.next() < chance) {
         const fakeTarget = allySide ? allySide.find(u => u.uid === chengkun.state._phantomTarget && u.alive && !u.isHorse && !u._untargetable) : null;
         if (fakeTarget) {
             return { target: fakeTarget, log: `🎭 幻影伪装！${unit.name}被混乱，误攻队友${fakeTarget.name}！` };
@@ -302,10 +305,11 @@ export function applyPhantomDisguise(unit, enemySide, allySide = null) {
 
 export function applyXiaoZhaoMindControl(unit, allySide, enemySide) {
     if (unit.camp !== 'enemy') return null;
+    const rng = getBattleRng();
     const xiaoZhao = enemySide.find(u => (u.isXiaoZhaoSister || u.isXiaoZhaoBrother) && u.alive);
     if (!xiaoZhao || !xiaoZhao._permanentBuffs || !xiaoZhao._permanentBuffs.some(b => b.key === 'mindControl')) return null;
     if (hasBuff(enemySide._activeBuffs, 'mindControl')) return null;
-    if (Math.random() < 0.15) {
+    if (rng.next() < 0.15) {
         const xzFakeTarget = allySide.find(u => u.uid !== unit.uid && u.alive && !u.isHorse);
         if (xzFakeTarget) {
             return { target: xzFakeTarget, log: `🦋 蝶舞迷心！${unit.name}被小昭迷惑，误攻队友${xzFakeTarget.name}！` };
@@ -316,11 +320,12 @@ export function applyXiaoZhaoMindControl(unit, allySide, enemySide) {
 
 export function checkXiaoZhaoPermanentDoubleStrike(unit, activeBuffs) {
     if (!(unit.isXiaoZhaoSister || unit.isXiaoZhaoBrother) || !unit.alive || !unit._permanentBuffs) return false;
+    const rng = getBattleRng();
     if (!unit._permanentBuffs.some(b => b.key === 'doubleStrike')) return false;
     if (unit._xiaoZhaoDoubleStriked) return false;
     if (hasBuff(activeBuffs, 'doubleStrike')) return false;
     const chance = ES.xiaoZhaoDoubleStrike ? ES.xiaoZhaoDoubleStrike.chance * 100 : 80;
-    return rand(1, 100) <= chance;
+    return rng.nextInt(1, 100) <= chance;
 }
 
 export function getXiaoZhaoHexEnhance(allyTeam, activeBuffs, hexKey) {

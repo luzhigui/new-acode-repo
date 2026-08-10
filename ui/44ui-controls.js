@@ -522,11 +522,90 @@ export function bindGridClick(getState, setState, updateUI) {
 
 export function bindCopyLogButton(showModal, copyLogToClipboard) {
     document.getElementById('copyLog').addEventListener('click', () => {
-        showModal('选择复制类型', [
-            { text: '📋 复制普通日志', value: 'normal', cls: 'buff' },
-            { text: '📋 复制全部日志', value: 'all', cls: 'buff' },
-            { text: '📋 复制最新15行', value: 'recent15', cls: 'buff' }
-        ], (choice) => copyLogToClipboard(choice));
+        // 移除已有弹窗
+        const existing = document.getElementById('logPanelOverlay');
+        if (existing) existing.remove();
+
+        const overlay = document.createElement('div');
+        overlay.id = 'logPanelOverlay';
+        overlay.className = 'modal-overlay';
+        overlay.style.background = 'rgba(0,0,0,0.7)';
+
+        const box = document.createElement('div');
+        box.className = 'modal-box';
+        box.style.cssText = 'max-width:340px;background:#1a1a2e;color:#eee;padding:20px;position:relative;border:2px solid #ffd700;border-radius:12px;';
+
+        // 标题
+        const title = document.createElement('div');
+        title.textContent = '📋 日志工具';
+        title.style.cssText = 'color:#ffd700;font-size:16px;font-weight:bold;margin-bottom:16px;text-align:center;';
+        box.appendChild(title);
+
+        // ── 日志复制区 ──
+        const copySection = document.createElement('div');
+        copySection.style.cssText = 'margin-bottom:12px;';
+        copySection.innerHTML = '<div style="color:#aaa;font-size:11px;margin-bottom:6px;">📝 日志复制</div>';
+
+        const copyBtns = [
+            { text: '📋 普通日志', value: 'normal', desc: '不含体检/版本信息' },
+            { text: '📋 全部日志', value: 'all', desc: '包含所有内容' },
+            { text: '📋 最新15行', value: 'recent15', desc: '最近15条记录' }
+        ];
+        copyBtns.forEach(b => {
+            const btn = document.createElement('button');
+            btn.textContent = b.text;
+            btn.title = b.desc;
+            btn.style.cssText = 'display:block;width:100%;margin-bottom:4px;padding:8px;background:#2a2a4e;color:#eee;border:1px solid #555;border-radius:6px;font-size:12px;cursor:pointer;text-align:left;';
+            btn.onclick = () => {
+                overlay.remove();
+                copyLogToClipboard(b.value);
+            };
+            copySection.appendChild(btn);
+        });
+        box.appendChild(copySection);
+
+        // ── 分隔线 ──
+        const divider = document.createElement('div');
+        divider.style.cssText = 'border-top:1px solid #444;margin:12px 0;';
+        box.appendChild(divider);
+
+        // ── 回放区 ──
+        const replaySection = document.createElement('div');
+        replaySection.style.cssText = 'margin-bottom:12px;';
+        replaySection.innerHTML = '<div style="color:#aaa;font-size:11px;margin-bottom:6px;">📼 回放</div>';
+
+        const replayInput = document.createElement('input');
+        replayInput.type = 'file';
+        replayInput.accept = '.json';
+        replayInput.style.display = 'none';
+        replayInput.addEventListener('change', (e) => {
+            if (e.target.files[0]) {
+                overlay.remove();
+                window.ReplayManager.importFile(e.target.files[0]);
+            }
+        });
+
+        const importBtn = document.createElement('button');
+        importBtn.textContent = '📥 导入回放文件';
+        importBtn.style.cssText = 'display:block;width:100%;padding:8px;background:#ff9800;color:#fff;border:none;border-radius:6px;font-size:12px;cursor:pointer;font-weight:bold;';
+        importBtn.onclick = () => replayInput.click();
+        replaySection.appendChild(importBtn);
+        replaySection.appendChild(replayInput);
+        box.appendChild(replaySection);
+
+        // ── 关闭按钮 ──
+        const closeBtn = document.createElement('button');
+        closeBtn.textContent = '关闭';
+        closeBtn.style.cssText = 'display:block;width:100%;padding:8px;background:#444;color:#fff;border:none;border-radius:6px;font-size:12px;cursor:pointer;';
+        closeBtn.onclick = () => overlay.remove();
+        box.appendChild(closeBtn);
+
+        overlay.appendChild(box);
+        document.body.appendChild(overlay);
+
+        overlay.addEventListener('click', (e) => {
+            if (e.target === overlay) overlay.remove();
+        });
     });
 }
 

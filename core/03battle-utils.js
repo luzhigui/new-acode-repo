@@ -1,13 +1,14 @@
 // core/03battle-utils.js - 光明顶5v5 战斗工具函数
-// V5.4.0 | ~17200 bytes| 2026-07-28 新增事件总线监听器注册
+// V5.4.0 | ~18500 bytes| 2026-07-28 新增事件总线监听器注册
 export const VER = 'core/03battle-utils.js V5.4.0';
 
 import { CONFIG, TAUNT_LIB, DEF_TAUNT, HP_TAUNT, ZHANG_NEAR_TAUNT } from './01config-5v5-test.js';
-import { emitEvent, applyStatChange, query } from './50battle-shared.js';
+import { emitEvent, applyStatChange, query, getBattleRng } from './50battle-shared.js';
 import { EXECUTION_LAYER as L } from './00-event-bus.js';
 const C = CONFIG, TL = TAUNT_LIB, DT = DEF_TAUNT, HT = HP_TAUNT, ZT = ZHANG_NEAR_TAUNT;
 
 export function rand(min, max) { return Math.floor(Math.random() * (max - min + 1)) + min; }
+// 废弃，保留兼容。核心引擎改用 rng.nextInt(min, max)
 export function calcDamage(atk, def) { if (def <= 0) return atk; let d = atk * (atk / (atk + def)); return Math.max(d, atk * 0.1); }
 export function getFangLevel(def, m) { let ratio = def / m; for (let i = C.FANG_LEVELS.length - 1; i >= 0; i--) { if (ratio >= C.FANG_LEVELS[i]) return i; } return 0; }
 
@@ -22,7 +23,7 @@ export function getFronts(units) {
     }
     if (fronts.length === 0) {
         let alive = units.filter(c => c.alive);
-        if (alive.length > 0) fronts = [alive[rand(0, alive.length - 1)]];
+        if (alive.length > 0) fronts = [alive[getBattleRng().nextInt(0, alive.length - 1)]];
     }
     return fronts;
 }
@@ -47,8 +48,8 @@ export function getFlyDodgeRate(unit, attacker) {
     return C.BASE_DODGE_GROUND || 0.03;
 }
 
-export function getRandomTaunt(unit) { if (unit.isZhang) return TL['张无忌'][rand(0,TL['张无忌'].length-1)]; if (unit.isWei) return TL['韦一笑'][rand(0,TL['韦一笑'].length-1)]; let pool=TL[unit.role]; if(pool) return pool[rand(0,pool.length-1)]; return '看招！'; }
-export function getKillTaunt(unit, KT) { if (unit.isZhang) return KT['张无忌'][rand(0,KT['张无忌'].length-1)]; if (unit.isWei) return KT['韦一笑'][rand(0,KT['韦一笑'].length-1)]; let pool=KT[unit.role]; if(pool) return pool[rand(0,pool.length-1)]; return '受死吧！'; }
+export function getRandomTaunt(unit) { const rng = getBattleRng(); if (unit.isZhang) return TL['张无忌'][rng.nextInt(0,TL['张无忌'].length-1)]; if (unit.isWei) return TL['韦一笑'][rng.nextInt(0,TL['韦一笑'].length-1)]; let pool=TL[unit.role]; if(pool) return pool[rng.nextInt(0,pool.length-1)]; return '看招！'; }
+export function getKillTaunt(unit, KT) { const rng = getBattleRng(); if (unit.isZhang) return KT['张无忌'][rng.nextInt(0,KT['张无忌'].length-1)]; if (unit.isWei) return KT['韦一笑'][rng.nextInt(0,KT['韦一笑'].length-1)]; let pool=KT[unit.role]; if(pool) return pool[rng.nextInt(0,pool.length-1)]; return '受死吧！'; }
 export function getZhangNearTaunt(nearAtkCount) { if (nearAtkCount>=1&&nearAtkCount<=3) return ZT[nearAtkCount-1]; return null; }
 export function makeFXSnapshot(attacker, defender) { return { attackerPos: attacker?attacker.pos:null, defenderPos: defender?defender.pos:null }; }
 
@@ -274,7 +275,7 @@ export function registerWarriorBreakDefense(eventBus) {
             defReduced = 4;
             breakChance = 100;
         }
-        if (rand(1, 100) > breakChance) return;
+        if (getBattleRng().nextInt(1, 100) > breakChance) return;
         defReduced = Math.min(defReduced, target.def);
         declarations.push({ type: 'breakDef', value: defReduced, source: unit, target: target });
         unit._pendingDefReduceEntry = {type:'detail', text:`<span class="purple small">🗡️ ${unit.name} 破防：${target.name} 防御 -${C.WARRIOR_BREAK_DEF}</span>`};
@@ -286,7 +287,7 @@ export function registerWarriorBreakDefense(eventBus) {
  */
 export function registerRangedGrowth(eventBus) {
     eventBus.on('afterDamageApplied', L.AFTER_DAMAGE_APPLIED.RANGED_GROWTH, (data) => {
-        const { unit, target, dmg } = data;
+        const { unit, target, dmg, group } = data;
         if (unit.role !== '远程' || dmg <= 0) return;
         const growth = C.RANGED_GROWTH_ATK;
         if (!data.declarations) data.declarations = [];
@@ -347,7 +348,7 @@ export function registerFortifyShield(eventBus) {
         const increment = unit._fortifyIncrement || 1;
         const cap = unit._fortifyCap || 3;
         if (unit._fortifyThisRound + increment > cap) return;
-        if (rand(1, 100) > chance) return;
+        if (getBattleRng().nextInt(1, 100) > chance) return;
         unit._fortifyStacks += increment;
         unit._fortifyThisRound += increment;
         if (!skipStatChange) {
@@ -395,7 +396,7 @@ export function registerDoubleStrike(eventBus, doubleStrikeUnitUid, allyTeam, ac
         if (unit.uid !== doubleStrikeUnitUid || !unit.alive || unit.camp !== 'ally' || unit._doubleStriked) return;
         const xiaoDoubleEnhance = query('xiaoHexEnhance', allyTeam, activeBuffs, 'doubleStrike');
         const missChainChance = xiaoDoubleEnhance ? 1.0 : 0.8;
-        if (Math.random() < missChainChance) {
+        if (getBattleRng().next() < missChainChance) {
             log.push({type:'info', text:`<span class="gold">⚡ 概率连击触发！</span>`, isDoubleStrikeBanner:true});
             unit._doubleStriked = true; unit.state._acted = false;
             data.retry = true; data.retryTargetUid = (target && target.alive) ? target.uid : null;

@@ -5,7 +5,7 @@ import { GlobalStore } from './46global-store.js';
 import { CONFIG, getSkillParams } from '../core/01config-5v5-test.js';
 import { eventBus, EXECUTION_LAYER as L } from '../core/00-event-bus.js';
 import { canXingFenTrigger, consumeXingFen, applyXingFenGrant, tickKuaiLeHeal, checkKuLian } from './23elite-skills.js';
-import { emitEvent, applyStatChange, applyMaxHpChange } from '../core/50battle-shared.js';
+import { emitEvent, applyStatChange, applyMaxHpChange, getBattleRng } from '../core/50battle-shared.js';
 const ES = CONFIG.ELITE_SKILLS;
 
 // ==================== 宋青书 ====================
@@ -139,16 +139,17 @@ export function createZhouZhiruoComponent() {
         },
         onAfterDamageCalc(unit, target, dmg, log, allySide, enemySide) {
             if (unit.name !== '周芷若' || !target || !target.alive) return 0;
+            const rng = getBattleRng();
             const battleState = window.GlobalStore?.get('currentBattleState');
             const zhangAlive = battleState && battleState.ally && battleState.ally.some(u => u.isZhang && u.alive);
             const s = ES.nineYinClaw;
             const baseHit = zhangAlive ? (s.jealousBaseDmg||5) : (s.baseDmg||3);
             if (!unit._nineYinFirstDone) { unit._nineYinFirstDone = true; }
-            else { if (Math.random() > s.procChance) return 0; }
+            else { if (rng.next() > s.procChance) return 0; }
             let totalBonus = 0; let depth = 0;
             const healDeclarations = [];
             while (target.alive) {
-                if (depth > 0 && Math.random() > s.chainProcChance) break;
+                if (depth > 0 && rng.next() > s.chainProcChance) break;
                 const lostHp = target.maxHp - target.hp;
                 const ratio = zhangAlive ? s.jealousLostHpRatio : s.lostHpRatio;
                 const ratioDmg = Math.floor(lostHp*ratio + target.maxHp*(zhangAlive?(s.jealousMaxHpRatio||0.02):(s.maxHpRatio||0.01)));

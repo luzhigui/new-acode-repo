@@ -1,6 +1,6 @@
 // player/53event-handlers.js - 光明顶5v5 事件处理器函数族
-// V5.4.0 | ~33000 bytes| 2026-07-31 从 player/10 提取动画 handler
-export const VER = 'player/53event-handlers.js V5.4.0';
+// V5.5.0 | ~31000 bytes| 2026-08-10 DOM操作迁移至54renderer
+export const VER = 'player/53event-handlers.js V5.5.0';
 
 import { isBlocked } from '../core/03battle-utils.js';
 import { showDanmaku, showDamageFloat, showDodgeBubble, showHealFloat, showAtkBuffFloat, applyBrushEffect, showBuffBanner, showCriticalBanner, showHeartEffect, showPinkFlash, showKuLianEffect, showWindClaw } from '../fx/15fx-common-5v5-test.js';
@@ -11,12 +11,12 @@ import { animatePositionSwap } from '../fx/18fx-position-swap.js';
 import { animatePushBack, animatePushSwap } from '../fx/19fx-push-back.js';
 import { AudioManager } from '../modules/28audio-manager.js';
 import { getState } from '../ui/39main-state.js';
+import { appendLogHTML, appendLogElement, autoScrollLog, updateRoundDisplay, renderSeparator } from './54renderer.js';
 
 const safeShowDanmaku = (...args) => { try { return showDanmaku(...args); } catch(e) {} };
 
 export async function handleBuffBonus(c, entry) {
-    let div=document.createElement('div');div.innerHTML=entry.text+'<br>';
-    document.getElementById('log').appendChild(div);c.autoScrollLog();
+    appendLogHTML(entry.text + '<br>');
     if (entry.targetUid && entry.bonusDmg) {
         let targetUnit = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.uid === entry.targetUid);
         if (targetUnit) showDamageFloat(targetUnit, entry.bonusDmg);
@@ -27,7 +27,7 @@ export async function handleBuffSwap(c, entry) {
     c.isPaused = true;
     window.bulletTimeActive = true;
     await showBuffBanner('🌀 惑人心智！');
-    let div=document.createElement('div');div.innerHTML=entry.text+'<br>';document.getElementById('log').appendChild(div);c.autoScrollLog();
+    appendLogHTML(entry.text + '<br>');
     let units = c.UI.allyTeam.concat(c.UI.enemyTeam);
     let unitA = entry.uidA ? units.find(u => u.uid === entry.uidA) : null;
     let unitB = entry.uidB ? units.find(u => u.uid === entry.uidB) : null;
@@ -52,7 +52,6 @@ export async function handleBuffSwap(c, entry) {
 export async function handleBuffPush(c, entry) {
     c.isPaused = true;
     window.bulletTimeActive = true;
-    // 先应用位置变更，动画只做视觉过渡
     if (entry.pushTargetUid) {
         const events = [];
         const targetUnit = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.uid === entry.pushTargetUid);
@@ -73,7 +72,7 @@ export async function handleBuffPush(c, entry) {
     await showBuffBanner('🦅 乘风突袭！');
     window.bulletTimeActive = false;
     c.isPaused = false;
-    let div=document.createElement('div');div.innerHTML=entry.text+'<br>';document.getElementById('log').appendChild(div);c.autoScrollLog();
+    appendLogHTML(entry.text + '<br>');
     let targetUnit = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.uid === entry.pushTargetUid);
     if (entry.behindUid) {
         let behindUnit = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.uid === entry.behindUid);
@@ -101,25 +100,13 @@ export async function handleBuffReboundFortify(c, entry) {
         c.store.dispatch({ type: 'SET_FLASH', uid: attacker.uid, flash: 'dead' });
         c.store.dispatch({ type: 'SET_VISUAL', uid: attacker.uid, _isDead: true });
     }
-    let div=document.createElement('div');div.innerHTML=entry.text+'<br>';document.getElementById('log').appendChild(div);c.autoScrollLog();
+    appendLogHTML(entry.text + '<br>');
     await new Promise(r=>setTimeout(r, window._fastForwardActive ? 1 : c.speed/2));
 }
 
-/**
- * 消费 attack-group 日志条目，驱动攻击动画全流程
- * 负责：管道C飞天免疫 → 事件分发（蝶变/蛛变/hp-change）→ 闪光动画 → 音效播放 → 文字逐帧 → 掉血弹幕 → 闪避特效
- * @param {object} c - 播放器上下文
- * @param {object} entry - 攻击组日志对象 { uidA, uidD, entries, isDead, isDodge, isMiss, _dmg, ... }
- * @param {object} roundResult - 回合结果快照
- * @param {AbortSignal|null} abortSig - 中止信号
- * @param {{ value: boolean }} isFirstAttackRef - 是否首次攻击引用（用于回合开始判断）
- * @returns {Promise<{ isBattleOver: boolean }>}
- */
 export async function handleAttackGroup(c, entry, roundResult, abortSig, isFirstAttackRef) {
-    // 管道C — 飞天免疫：引擎在 beforeDamageApply 中单独构建 immuneGroup，显示攻击动作但回退伤害，不走 _pendingHpEvents
-    if (entry.isCombo) { let spacer = document.createElement('div'); spacer.innerHTML = '<br>'; document.getElementById('log').appendChild(spacer); c.autoScrollLog(); c.isPaused = true; window.bulletTimeActive = true; if (c._scheduler) { await new Promise(r => c._scheduler.schedule('banner', 1500, r)); showBuffBanner('⚡ 连击！'); } else { await showBuffBanner('⚡ 连击！'); } window.bulletTimeActive = false; c.isPaused = false; }
+    if (entry.isCombo) { appendLogHTML('<br>'); c.isPaused = true; window.bulletTimeActive = true; if (c._scheduler) { await new Promise(r => c._scheduler.schedule('banner', 1500, r)); showBuffBanner('⚡ 连击！'); } else { await showBuffBanner('⚡ 连击！'); } window.bulletTimeActive = false; c.isPaused = false; }
 
-    // 统一事件分发：血量事件挂载到 entry 上，跟随攻击组生命周期
     if (!entry._pendingHpEvents) entry._pendingHpEvents = [];
     if (entry._events && entry._events.length > 0) {
         for (const ev of entry._events) {
@@ -152,12 +139,7 @@ export async function handleAttackGroup(c, entry, roundResult, abortSig, isFirst
     let unitA=c.UI.allyTeam.concat(c.UI.enemyTeam).find(u=>u.uid===entry.uidA);
     let unitD=entry.uidD?c.UI.allyTeam.concat(c.UI.enemyTeam).find(u=>u.uid===entry.uidD):null;
     if(!entry.isBlock&&!entry.isMiss&&!entry.isDodge&&(!unitA||!unitD)){
-        let fallbackDiv = document.createElement('div');
-        let attackerName = entry.uidA || '未知';
-        let defenderName = entry.uidD || '未知';
-        fallbackDiv.innerHTML = `<span class="gray">${attackerName} 攻击 ${defenderName}，但目标已不存在</span><br>`;
-        document.getElementById('log').appendChild(fallbackDiv);
-        c.autoScrollLog();
+        appendLogHTML(`<span class="gray">${entry.uidA || '未知'} 攻击 ${entry.uidD || '未知'}，但目标已不存在</span><br>`);
     }
     if(unitA&&!entry.isBlock){
         const flashType = entry.isDodge ? 'defend' : 'attack';
@@ -203,14 +185,12 @@ export async function handleAttackGroup(c, entry, roundResult, abortSig, isFirst
     for(let entry2 of textEntries){
         if(abortSig&&abortSig.aborted){if(atkTimer)clearTimeout(atkTimer);if(defTimer)clearTimeout(defTimer);return { isBattleOver: false };}
         const logLevel = getState.logLevel();
-        if(logLevel==='brief'&&entry2.type==='detail'){ let hiddenDiv=document.createElement('div'); hiddenDiv.className='detail-hidden'; hiddenDiv.innerHTML=entry2.text+'<br>'; document.getElementById('log').appendChild(hiddenDiv); c.autoScrollLog(); continue; }
+        if(logLevel==='brief'&&entry2.type==='detail'){ let hiddenDiv=document.createElement('div'); hiddenDiv.className='detail-hidden'; hiddenDiv.innerHTML=entry2.text+'<br>'; appendLogElement(hiddenDiv); continue; }
         if(entry2.type==='damage-text'){
-            lastDiv=document.createElement('div'); document.getElementById('log').appendChild(lastDiv); await playLineText(entry2.text,lastDiv, Math.max(c.speed || 1000, 1000));
-            // 管道A — 普通伤害：不在此处同步血条，等循环结束后统一通过 _pendingHpEvents 保底 apply
+            let tempDiv=document.createElement('div'); appendLogElement(tempDiv); lastDiv=tempDiv; await playLineText(entry2.text,tempDiv, Math.max(c.speed || 1000, 1000));
         }
-        else if(entry2.isHealEntry && entry.isDead){ healDiv=document.createElement('div'); document.getElementById('log').appendChild(healDiv); await playLineText(entry2.text,healDiv); }
+        else if(entry2.isHealEntry && entry.isDead){ let tempDiv=document.createElement('div'); appendLogElement(tempDiv); healDiv=tempDiv; await playLineText(entry2.text,tempDiv); }
         else{
-            // 管道B — 白骨爪连锁追击：每击后立即同步血条，因为目标可能在追击途中死亡
             if (entry2._events && entry2._events.length > 0) {
                 c.store.dispatch({ type: 'APPLY_EVENTS', events: entry2._events });
                 entry2._events = [];
@@ -268,12 +248,11 @@ export async function handleAttackGroup(c, entry, roundResult, abortSig, isFirst
             const forcedSpeed = isImportant
                 ? Math.max(currentSpeed, 600)
                 : Math.floor(currentSpeed * 0.8);
-            let tempDiv=document.createElement('div'); document.getElementById('log').appendChild(tempDiv); await playLineText(entry2.text, tempDiv, forcedSpeed);
-            if (!c.userScrolled) document.getElementById('log').scrollTop = document.getElementById('log').scrollHeight;
+            let tempDiv=document.createElement('div'); appendLogElement(tempDiv); await playLineText(entry2.text, tempDiv, forcedSpeed);
+            if (!c.userScrolled) autoScrollLog();
             if (entry2.type === 'detail' || entry2.type === 'info' || entry2.type === 'buff-bonus' || entry2.type === 'buff-splash') {
                 await new Promise(r => setTimeout(r, 120));
             }
-            // 波动行播放完毕（计算行）：飞箭/飞撞命中瞬间，弹出掉血弹幕
             if (entry2.type === 'detail' && entry2.text && entry2.text.includes('计算：') && !entry._dmgFloatShown) {
                 entry._dmgFloatShown = true;
                 if (unitD && entry._dmg !== undefined && !entry.isBlock && !entry.isMiss && !entry.isDodge) {
@@ -283,7 +262,6 @@ export async function handleAttackGroup(c, entry, roundResult, abortSig, isFirst
         }
     }
     if(blockDelay) await new Promise(r=>setTimeout(r, GlobalStore.get('fastForwardActive') ? 1 : c.speed/2));
-    // 保底：未走到 damage-text 的血量事件在此处应用
     if (entry._pendingHpEvents && entry._pendingHpEvents.length > 0) {
         c.store.dispatch({ type: 'APPLY_EVENTS', events: entry._pendingHpEvents.splice(0) });
     }
@@ -297,7 +275,6 @@ export async function handleAttackGroup(c, entry, roundResult, abortSig, isFirst
         c.store.dispatch({ type: 'SET_FLASH', uid: unitD.uid, flash: 'dead' });
         c.store.dispatch({ type: 'SET_VISUAL', uid: unitD.uid, _isDead: true });
     }
-    // 战士斩杀等非主伤害路径致死后，补刷红色覆盖特效
     if (entry.entries) {
         for (const e of entry.entries) {
             if ((e.isExecute || e.type === 'execute') && entry.isDead && lastDiv) {
@@ -310,26 +287,16 @@ export async function handleAttackGroup(c, entry, roundResult, abortSig, isFirst
     if (c.UI && c.UI.allyTeam && c.UI.enemyTeam) {
         c.UI.allyTeam.concat(c.UI.enemyTeam).forEach(u => { if (u.alive) { const su = c.store ? c.store.getState().units.find(s => s.uid === u.uid) : null; if (!su || !su._flyMode) { let blocked = isBlocked(u, u.camp === 'ally' ? c.UI.allyTeam : c.UI.enemyTeam); c.store.dispatch({ type: 'SET_VISUAL', uid: u.uid, _blocked: blocked }); } } });
     }
-    document.getElementById('roundDisplay').innerText = `📜 日志（第${c.UI.round}回合）`;
+    updateRoundDisplay(`📜 日志（第${c.UI.round}回合）`);
 
     if(entry.isDead&&(c.UI.allyTeam.every(ch=>!ch.alive)||c.UI.enemyTeam.every(ch=>!ch.alive))){ return { isBattleOver: true }; }
     return { isBattleOver: false };
 }
 
-/**
- * 消费 info 类型日志条目，驱动非攻击动画（蝶变/蛛变/白骨爪/新婚/乾坤衍生等）
- * 根据 entry 的标记字段（isClawHit/isZhangSwitch/buffType 等）触发对应特效
- * @param {object} c - 播放器上下文
- * @param {object} entry - info 日志对象 { text, fastEntry?, isZhangSwitch?, isClawHit?, buffType?, ... }
- * @returns {Promise<void>}
- */
 export async function handleInfo(c, entry) {
     if (entry.fastEntry) {
-        let tempDiv = document.createElement('div');
-        document.getElementById('log').appendChild(tempDiv);
-        tempDiv.innerHTML = entry.text + '<br>';
-        c.autoScrollLog();
-        document.getElementById('roundDisplay').innerText = `📜 日志（第${c.UI.round}回合）`;
+        appendLogHTML(entry.text + '<br>');
+        updateRoundDisplay(`📜 日志（第${c.UI.round}回合）`);
         return;
     }
 
@@ -351,7 +318,8 @@ export async function handleInfo(c, entry) {
             const sister = c.UI.allyTeam?.find(u => u.isXiaoZhaoSister && u.alive);
             if (sister) {
                 const showButterflyFlyBack = await getButterflyFx('showButterflyFlyBack');
-                const host = c.UI.allyTeam?.find(u => u.uid === sister.state._butterflyHost);
+                const hostUid = (sister.state && sister.state._butterflyHost) || sister._butterflyHost;
+                const host = hostUid ? c.UI.allyTeam?.find(u => u.uid === hostUid) : null;
                 if (host) showButterflyFlyBack(host, sister);
             }
         } else if (entry.text.includes('🕷️ 飞天')) {
@@ -370,7 +338,7 @@ export async function handleInfo(c, entry) {
         }
     }
 
-    if(entry.isZhangSwitch&&entry.unit){ let zhangUnit = c.UI.allyTeam.find(u => u.isZhang); let sepDiv=document.createElement('div');sepDiv.innerHTML='<span class="separator">- - - - -</span><br>'; document.getElementById('log').appendChild(sepDiv); c.autoScrollLog(); let tempDiv=document.createElement('div');document.getElementById('log').appendChild(tempDiv); await playLineText(entry.text,tempDiv); if(zhangUnit) { c.store.dispatch({ type: 'SET_VISUAL', uid: zhangUnit.uid, _resting: false }); safeShowDanmaku(zhangUnit, '不好，要顶上去了！'); } }
+    if(entry.isZhangSwitch&&entry.unit){ let zhangUnit = c.UI.allyTeam.find(u => u.isZhang); renderSeparator(); let tempDiv=document.createElement('div'); appendLogElement(tempDiv); await playLineText(entry.text,tempDiv); if(zhangUnit) { c.store.dispatch({ type: 'SET_VISUAL', uid: zhangUnit.uid, _resting: false }); safeShowDanmaku(zhangUnit, '不好，要顶上去了！'); } }
     else {
         if (entry.isDoubleStrikeBanner) {
             c.isPaused = true;
@@ -430,11 +398,9 @@ export async function handleInfo(c, entry) {
             const spiderUnit = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.uid === entry.uidA);
             const strikeTarget = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.uid === entry.uidD);
             if (spiderUnit && strikeTarget) {
-                // 先写日志并滚动，再暂停播特效
                 let tempDiv = document.createElement('div');
-                document.getElementById('log').appendChild(tempDiv);
+                appendLogElement(tempDiv);
                 await playLineText(entry.text, tempDiv);
-                c.autoScrollLog();
                 c.isPaused = true;
                 window.bulletTimeActive = true;
                 const { showSpiderStrike } = await import('../fx/21fx-butterfly-spider.js');
@@ -485,49 +451,34 @@ export async function handleInfo(c, entry) {
             let attacker = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.uid === entry.attackerUid);
             if (attacker) showDamageFloat(attacker, entry.reboundDmg);
         }
-        // 非攻击路径死亡特效（中毒、附身返回等）
         if (entry.isDead && entry.uidD) {
             let deadUnit = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.uid === entry.uidD);
             if (deadUnit && c.store) {
                 c.store.dispatch({ type: 'SET_FLASH', uid: deadUnit.uid, flash: 'dead' });
                 c.store.dispatch({ type: 'SET_VISUAL', uid: deadUnit.uid, _isDead: true });
             }
-            let tempDiv=document.createElement('div');document.getElementById('log').appendChild(tempDiv); await playLineText(entry.text,tempDiv);
+            let tempDiv=document.createElement('div'); appendLogElement(tempDiv); await playLineText(entry.text,tempDiv);
             applyBrushEffect(tempDiv);
             if (entry.dmg && deadUnit) showDamageFloat(deadUnit, entry.dmg);
         } else {
-            let tempDiv=document.createElement('div');document.getElementById('log').appendChild(tempDiv); await playLineText(entry.text,tempDiv);
+            let tempDiv=document.createElement('div'); appendLogElement(tempDiv); await playLineText(entry.text,tempDiv);
         }
     }
-    document.getElementById('roundDisplay').innerText = `📜 日志（第${c.UI.round}回合）`;
+    updateRoundDisplay(`📜 日志（第${c.UI.round}回合）`);
 }
 
-/**
- * 消费 round-start 日志条目，更新 UI 回合数并触发首次攻击标记重置
- * @param {object} c - 播放器上下文
- * @param {object} entry - 日志对象 { text }
- * @param {{ value: boolean }} isFirstAttackRef - 首次攻击标记引用
- * @returns {Promise<void>}
- */
 export async function handleRoundStart(c, entry, isFirstAttackRef) {
     c.UI.round = parseInt(entry.text.match(/\d+/)[0])||1;
     if (isFirstAttackRef) isFirstAttackRef.value = true;
-    let div=document.createElement('div');div.innerHTML=entry.text+'<br>';document.getElementById('log').appendChild(div);c.autoScrollLog();
-    document.getElementById('roundDisplay').innerText = `📜 日志（第${c.UI.round}回合）`;
+    appendLogHTML(entry.text + '<br>');
+    updateRoundDisplay(`📜 日志（第${c.UI.round}回合）`);
     await new Promise(r=>setTimeout(r, window._fastForwardActive ? 1 : c.speed/3));
     c.updateUI(c.UI);
 }
 
-/**
- * 消费 round-end 日志条目，刷新 Buff 槽显示和光带效果
- * @param {object} c - 播放器上下文
- * @param {object} entry - 日志对象 { text }
- * @param {Array} log - 日志数组（未使用）
- * @param {number} i - 当前日志索引（未使用）
- * @returns {Promise<void>}
- */
 export async function handleRoundEnd(c, entry, log, i) {
-    let div=document.createElement('div');div.innerHTML=entry.text + '<br>';document.getElementById('log').appendChild(div); c.autoScrollLog(); document.getElementById('roundDisplay').innerText = `📜 日志（第${c.UI.round}回合）`;
+    appendLogHTML(entry.text + '<br>');
+    updateRoundDisplay(`📜 日志（第${c.UI.round}回合）`);
     if (c.updateBuffSlots) { c.updateBuffSlots(); }
     if (window._refreshGlowCells) window._refreshGlowCells();
     await new Promise(r=>setTimeout(r,c.speed/3));
@@ -535,7 +486,6 @@ export async function handleRoundEnd(c, entry, log, i) {
 
 export function shouldStartNewGroup(entry, lastType) {
     if (!lastType) return false;
-    // 统一检查 entry.needsSeparator 标记
     if (entry.needsSeparator) return true;
     return false;
 }

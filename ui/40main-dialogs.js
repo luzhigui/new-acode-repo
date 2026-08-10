@@ -139,6 +139,12 @@ export function showBattleReport(UI, battleResultForInfo) {
     };
     btnDiv.appendChild(exportBtn);
     
+    let replayBtn = document.createElement('button');
+    replayBtn.textContent = '📼 下载回放';
+    replayBtn.style.cssText = 'background:#ff9800;color:#fff;border:none;padding:8px 16px;border-radius:4px;cursor:pointer;font-weight:bold;';
+    replayBtn.onclick = () => { window.ReplayManager.download(); };
+    btnDiv.appendChild(replayBtn);
+
     let closeBtn = document.createElement('button');
     closeBtn.textContent = '关闭';
     closeBtn.style.cssText = 'background:#666;color:#fff;border:none;padding:8px 16px;border-radius:4px;cursor:pointer;font-weight:bold;';

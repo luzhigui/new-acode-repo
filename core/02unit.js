@@ -89,6 +89,7 @@ export class Unit {
         c._masteredRoles = [...this._masteredRoles];
         c._xuanmingPoison = this._xuanmingPoison ? { ...this._xuanmingPoison } : null;
         c.state = { ...this.state };
+        c._rng = this._rng; // RNG 状态通过 state 传递，不在 clone 中复制
         return c;
     }
     init(){

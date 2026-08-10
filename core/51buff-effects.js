@@ -6,6 +6,7 @@ export const VER = 'core/51buff-effects.js V5.4.0';
 import { CONFIG } from './01config-5v5-test.js';
 import { rand, getUnitRow, getUnitCol } from './03battle-utils.js';
 import { eventBus } from './00-event-bus.js';
+import { getBattleRng } from './50battle-shared.js';
 const C = CONFIG;
 
 // ==================== 严阵以待防御加成 ====================
@@ -66,14 +67,15 @@ export function calcCarryBonus_Sister(unit, allyTeam) {
 
 // ==================== 惑人心智 ====================
 function applyMindControlCore(unit, allySide, enemySide, log, swapChanceEnemy, swapChanceAlly) {
+    const rng = getBattleRng();
     let frontUnit = allySide.filter(u => u.alive && !u.isHorse).sort((a,b) => a.pos - b.pos)[0];
     if (!frontUnit || frontUnit.uid !== unit.uid) return;
 
-    if (rand(1,100) <= swapChanceEnemy) {
+    if (rng.nextInt(1,100) <= swapChanceEnemy) {
         let enemies = enemySide.filter(u => u.alive && u.state._flyMode !== 'butterfly' && u.state._flyMode !== 'spider' && !u.state._spiderFlying);
         if (enemies.length >= 2) {
-            let a = enemies[rand(0, enemies.length-1)];
-            let b; do { b = enemies[rand(0, enemies.length-1)]; } while (b.uid === a.uid);
+            let a = enemies[rng.nextInt(0, enemies.length-1)];
+            let b; do { b = enemies[rng.nextInt(0, enemies.length-1)]; } while (b.uid === a.uid);
             let posA = a.pos, posB = b.pos;
             a.pos = posB; b.pos = posA;
             log.push({type:'buff-swap', uidA: a.uid, uidB: b.uid, oldPosA: posA, oldPosB: posB, buffType:'swap', text:`<span class="gold">🌀 惑人心智：${posA}号位${a.name}与${posB}号位${b.name}互换位置！</span>`});
@@ -83,11 +85,11 @@ function applyMindControlCore(unit, allySide, enemySide, log, swapChanceEnemy, s
     } else {
         log.push({type:'info', text:`<span class="gray">🌀 惑人心智敌方换位未触发</span>`});
     }
-    if (rand(1,100) <= swapChanceAlly) {
+    if (rng.nextInt(1,100) <= swapChanceAlly) {
         let allies = allySide.filter(u => u.alive && u.state._flyMode !== 'butterfly' && u.state._flyMode !== 'spider' && !u.state._spiderFlying);
         if (allies.length >= 2) {
-            let a = allies[rand(0, allies.length-1)];
-            let b; do { b = allies[rand(0, allies.length-1)]; } while (b.uid === a.uid);
+            let a = allies[rng.nextInt(0, allies.length-1)];
+            let b; do { b = allies[rng.nextInt(0, allies.length-1)]; } while (b.uid === a.uid);
             let posA = a.pos, posB = b.pos;
             a.pos = posB; b.pos = posA;
             log.push({type:'buff-swap', uidA: a.uid, uidB: b.uid, oldPosA: posA, oldPosB: posB, buffType:'swap', text:`<span class="gold">🌀 惑人心智：己方${posA}号位${a.name}与${posB}号位${b.name}互换位置！</span>`});

@@ -3,7 +3,7 @@
 export const VER = 'modules/97elite-imperial.js V5.4.0';
 
 import { CONFIG, getSkillParams } from '../core/01config-5v5-test.js';
-import { rand } from '../core/03battle-utils.js';
+import { getBattleRng } from '../core/50battle-shared.js';
 import { tickXuanmingPoison } from './23elite-skills.js';
 import { processUnitAttack } from '../core/47battle-attack.js';
 import { EXECUTION_LAYER as L } from '../core/00-event-bus.js';
@@ -33,7 +33,7 @@ export function createChengKunComponent() {
                 if (!chengkun || chengkun.state._phantomTarget !== data.unit.uid) return;
                 const fakeList = data.allySide.filter(u => u.alive && !u.isHorse && !u._untargetable && u.uid !== data.unit.uid);
                 if (fakeList.length > 0) {
-                    const fakeTarget = fakeList[rand(0, fakeList.length - 1)];
+                    const fakeTarget = fakeList[getBattleRng().nextInt(0, fakeList.length - 1)];
                     data.declaration.targetResult = fakeTarget;
                     data.declaration.phantomLog = `🎭 幻影伪装！${data.unit.name}被混乱，误攻队友${fakeTarget.name}！`;
                 }
@@ -58,7 +58,7 @@ export function createChengKunComponent() {
             if (unit.name !== '成昆' || dmgCalc.dmg <= 0) return;
             const enemyAlive = enemySide.filter(u => u.alive && !u.isHorse && !u._untargetable);
             if (enemyAlive.length > 0) {
-                unit.state._phantomTarget = enemyAlive[rand(0, enemyAlive.length - 1)].uid;
+                unit.state._phantomTarget = enemyAlive[getBattleRng().nextInt(0, enemyAlive.length - 1)].uid;
                 const lostHp = unit.maxHp - unit.hp;
                 if (lostHp > 0) {
                     const aliveCount = enemySide.filter(u => u.alive).length;
