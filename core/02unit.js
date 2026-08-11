@@ -99,11 +99,12 @@ export class Unit {
         }
         return c;
     }
-    init(){
-        let hp=rand(Math.ceil(this.m*0.4),Math.floor(this.m*0.6)),rem=this.m-hp,a,d;
+    init(rng){
+        const roll = rng ? (min, max) => rng.nextInt(min, max) : rand;
+        let hp=roll(Math.ceil(this.m*0.4),Math.floor(this.m*0.6)),rem=this.m-hp,a,d;
         if(this.role==='防战'){
-            d=rand(Math.ceil(rem*0.5),rem-1);a=rem-d;
-            while(d-a>20){d=rand(Math.ceil(rem*0.5),rem-1);a=rem-d;}
+            d=roll(Math.ceil(rem*0.5),rem-1);a=rem-d;
+            while(d-a>20){d=roll(Math.ceil(rem*0.5),rem-1);a=rem-d;}
             // 根据初始血量占比锁定血量系数（之后不变）
             const hpPct = hp / this.m;
             if (hpPct >= 0.60) this._hpDmgRatio = 0.06;
@@ -115,8 +116,8 @@ export class Unit {
             else if (hpPct >= 0.43) this._hpDmgRatio = 0.015;
             else this._hpDmgRatio = 0.01;
         } else {
-            d=rand(Math.ceil(rem*0.3),Math.floor(rem*0.5));a=rem-d;
-            while(a-d<3||a-d>13){d=rand(Math.ceil(rem*0.3),Math.floor(rem*0.5));a=rem-d;}
+            d=roll(Math.ceil(rem*0.3),Math.floor(rem*0.5));a=rem-d;
+            while(a-d<3||a-d>13){d=roll(Math.ceil(rem*0.3),Math.floor(rem*0.5));a=rem-d;}
         }
         this.atk=a;this.def=d;this.maxHp=hp*2.5;this.hp=this.maxHp;
     }

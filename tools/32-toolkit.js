@@ -522,12 +522,14 @@ function escapeHtml(text) {
             const downloadBtn = card.querySelector('.download-batch-btn');
             downloadBtn.addEventListener('click', () => {
                 const blob = new Blob([fullCode], { type: 'text/plain;charset=utf-8' });
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = `batch-${index + 1}.txt`;
-                a.click();
-                URL.revokeObjectURL(url);
+                const reader = new FileReader();
+                reader.onload = () => {
+                    const a = document.createElement('a');
+                    a.href = reader.result;
+                    a.download = `batch-${index + 1}.txt`;
+                    a.click();
+                };
+                reader.readAsDataURL(blob);
                 statusDiv.textContent = `✅ 已下载包 #${index + 1}`;
             });
 
