@@ -204,7 +204,7 @@ export function logBuffSummary(allyTeam, log, doubleStrikeUid) {
                 
                 if (teamHolyBuffs.length > 0) {
                     for (const hb of teamHolyBuffs) {
-                        const cols = hb.cols || (hb.col != null ? [hb.col] : [rng.nextInt(1, 3), rng.nextInt(1, 3)]);
+                        const cols = hb.cols || (hb.col != null ? [hb.col] : [rng.nextInt(1, 3)]);
                         const rows = hb.rows || (hb.row != null ? [hb.row] : [rng.nextInt(1, 3), rng.nextInt(1, 3)]);
                         let colUnits = allyTeam.filter(u => u.alive && cols.includes(getUnitCol(u.pos)));
                         let rowUnits = allyTeam.filter(u => u.alive && u.camp === 'ally' && rows.includes(getUnitRow(u.pos)));
@@ -218,7 +218,7 @@ export function logBuffSummary(allyTeam, log, doubleStrikeUid) {
                 
                 if (xiaoZhaoHolyBuffs.length > 0) {
                     for (const hb of xiaoZhaoHolyBuffs) {
-                        const xzCols = hb.cols || (hb.col != null ? [hb.col] : [rng.nextInt(1, 3), rng.nextInt(1, 3)]);
+                        const xzCols = hb.cols || (hb.col != null ? [hb.col] : [rng.nextInt(1, 3)]);
                         const xzRows = hb.rows || (hb.row != null ? [hb.row] : [rng.nextInt(1, 3), rng.nextInt(1, 3)]);
                         let colUnits = allyTeam.filter(u => u.alive && xzCols.includes(getUnitCol(u.pos)));
                         let rowUnits = allyTeam.filter(u => u.alive && u.camp === 'ally' && xzRows.includes(getUnitRow(u.pos)));

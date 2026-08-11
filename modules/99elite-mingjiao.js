@@ -310,7 +310,7 @@ export function createXiaoZhaoSisterComponent() {
             sister.state._butterflyHost = host.uid;
             sister._fsm.transition('attached');
             emitEvent(sister, 'hp-change', { hp:sister.hp, maxHp:sister.maxHp, alive:sister.alive, atk:sister.atk, def:sister.def, _flyMode:'butterfly', _butterflyHost:sister.state._butterflyHost });
-            log.push({ type:'info', text:`<span class="gold">🦋 蝶变：${sister.name} 化为蝴蝶附身于 ${host.name}！攻+${atkTransfer} 防+${defTransfer} 血上限+${hpTransfer}</span>`, needsSeparator: true });
+            log.push({ type:'info', text:`<span class="gold">🦋 蝶变：${sister.name} 化为蝴蝶附身于 ${host.name}！方向：${flyDirection === 'left' ? '←左' : '右→'} 攻+${atkTransfer} 防+${defTransfer} 血上限+${hpTransfer}</span>`, needsSeparator: true });
             return sister;
         },
         _executeReturn(sister, A, log) {
@@ -387,7 +387,9 @@ export function createXiaoZhaoSisterComponent() {
             });
         },
         executeAttach(A, log) {
-            const sister = A.find(u => u.isXiaoZhaoSister && u.alive && u.pos === 4 && !u.state._stunned);
+            let sister = A.find(u => u.isXiaoZhaoSister && u.alive && u.pos === 4 && !u.state._stunned);
+            // 如果4号位没有，尝试找任意位置的姐姐
+            if (!sister) sister = A.find(u => u.isXiaoZhaoSister && u.alive && !u.state._stunned);
             if (!sister || sister.state._butterflyHost) return null;
             const fsm = sister._fsm;
             if (fsm && fsm.is('normal')) fsm.transition('attaching');
