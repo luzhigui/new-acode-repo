@@ -415,7 +415,7 @@ export async function* createRoundStepper(state) {
             unit.state._blocked = isBlocked(unit, currentTeam);
             if (reason === '被遮挡') {
                 let hpBefore = Math.floor(unit.hp);
-                unit.hp = Math.min(unit.maxHp, unit.hp + 15);
+                applyStatChange(unit, 'hp', 15, null, '休息回复');
                 let hpAfter = Math.floor(unit.hp);
                 unit.state._resting = true;
                 if (unit.state._restingTimer) clearTimeout(unit.state._restingTimer);
@@ -435,7 +435,7 @@ export async function* createRoundStepper(state) {
                 log.push(bg);
             } else if (reason === '拒马休息') {
                 let hpBefore = Math.floor(unit.hp);
-                unit.hp = Math.min(unit.maxHp, unit.hp + 15);
+                applyStatChange(unit, 'hp', 15, null, '拒马休息回复');
                 let hpAfter = Math.floor(unit.hp);
                 unit.state._resting = true;
                 if (unit.state._restingTimer) clearTimeout(unit.state._restingTimer);
@@ -572,7 +572,7 @@ export async function* createRoundStepper(state) {
     if (winner) {
         let losers = winner === '明教' ? B : A;
         losers.forEach(u => {
-            u.hp = 0;
+            applyStatChange(u, 'hp', -u.hp, null, '战斗结束');
             u.alive = false;
             u.state._isDead = true;
             emitEvent(u, 'hp-change', { hp: 0, maxHp: u.maxHp, alive: false, atk: u.atk, def: u.def, _isDead: true });
