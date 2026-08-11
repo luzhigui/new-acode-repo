@@ -193,7 +193,7 @@ export function spiderTransform(unit, log) {
  * @param {Array} log - 日志数组
  */
 export function spiderReturn(unit, allyTeam, enemySide, log) {
-    if (!unit.isXiaoZhaoBrother || !unit.state._spiderFlying) return;
+    if (!unit.isXiaoZhaoBrother) return;
     const rng = getBattleRng();
 
     unit.state._spiderFlying = false;
