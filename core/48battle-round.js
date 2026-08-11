@@ -375,13 +375,13 @@ export async function* createRoundStepper(state) {
         const head = queue[0];
         if (head.isPass) {
             if (head.unit._kuLianActive) {
-                log.push({ type:'info', text:`<span class="gold">🏋️ 苦练：${head.unit.name} 每回合最先行动！</span>` });
+                log.push({ type:'info', text:`<span class="gold">🏋️ 苦练：${head.unit.name} 每回合最先行动！（不占用本队行动轮次）</span>` });
             }
             return { actingUnit: null, passEntry: { unit: head.unit, reason: head.reason }, isPriorityAction: false };
         }
         // 普通或优先行动单位
         if (head.priority > 0 && head.unit._kuLianActive) {
-            log.push({ type:'info', text:`<span class="gold">🏋️ 苦练：${head.unit.name} 每回合最先行动！</span>` });
+            log.push({ type:'info', text:`<span class="gold">🏋️ 苦练：${head.unit.name} 每回合最先行动！（不占用本队行动轮次）</span>` });
         }
         return { actingUnit: head.unit, passEntry: null, isPriorityAction: head.priority > 0 };
     }

@@ -77,7 +77,6 @@ export function createSongQingshuComponent() {
                         u._baseMaxHp = Math.max(u._baseMaxHp || u.maxHp, u.maxHp);
                     });
                     log.push({ type:'info', text:`<span class="gold">🏋️ 苦练：${kuLianSong.name} 激励全体队友+${s.atkBonus}攻+${s.defBonus}防+${s.hpBonus}血上限（自身翻倍）！</span>` });
-                    log.push({ type:'info', text:`<span class="gray">🏋️ 苦练：${kuLianSong.name} 每回合最先行动（不占用本队行动轮次）</span>` });
                 }
             });
         },
