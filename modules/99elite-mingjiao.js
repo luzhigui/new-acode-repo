@@ -23,6 +23,7 @@ export function createZhangWujiComponent() {
     return {
         name: '张无忌',
         _buildFsm(zhang, A, log) {
+            let fsm;
             const states = {
                 ranged: {
                     onEnter() { zhang.rangedForm = true; zhang.role = '远程'; },
@@ -31,6 +32,7 @@ export function createZhangWujiComponent() {
                 switching: {
                     onEnter() {
                         checkZhangSwitch(A, log);
+                        if (fsm) fsm.transition('near');
                     },
                     onExit() {}
                 },
@@ -48,12 +50,13 @@ export function createZhangWujiComponent() {
                 }
             };
             const initial = zhang.rangedForm ? 'ranged' : 'near';
-            return new StateMachine(states, initial, {
+            fsm = new StateMachine(states, initial, {
                 ranged: ['switching'],
                 switching: ['near'],
                 near: ['ronghui'],
                 ronghui: []
             });
+            return fsm;
         },
         register(eventBus, A, B, log) {
             const zhang = A.find(u => u.isZhang && u.alive);
