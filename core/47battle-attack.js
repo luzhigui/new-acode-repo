@@ -209,12 +209,17 @@ export async function processUnitAttack(unit, allySide, enemySide, log, A, B, st
             group._events.push(...decl._events);
         }
         if (group && group.entries && decl.logText) {
-            const entry = { type: 'info', text: decl.logText };
+            const entry = { type: decl.type === 'splash' ? 'buff-splash' : 'info', text: decl.logText };
             if (decl.type === 'leech' || decl.type === 'heal') {
                 entry.isHealEntry = true;
                 entry.healAmount = decl.value || 0;
                 entry.healUnitUid = decl.source ? decl.source.uid : null;
             }
+            if (decl.buffType) entry.buffType = decl.buffType;
+            if (decl.attackerUid) entry.attackerUid = decl.attackerUid;
+            if (decl.primaryUid) entry.primaryUid = decl.primaryUid;
+            if (decl.splashUids) entry.splashUids = decl.splashUids;
+            if (decl.splashDmg !== undefined) entry.splashDmg = decl.splashDmg;
             group.entries.push(entry);
         }
     }
