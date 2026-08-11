@@ -164,8 +164,8 @@ export function createZhouZhiruoComponent() {
                 }
                 const clawEvents = GlobalStore.flushBattleEvents();
                 log.push({ type:'info', text:`<span style="color:#222">🐾 九阴白骨爪${depth>0?'连锁':'追击'}！${unit.name} 对 ${target.name} 造成 ${bonusDmg} 点伤害${isExecute?'（斩杀）':(zhangAlive?'【嫉妒】':'')}</span>`, buffType:'elite_bonus', isClawHit:true, clawAttackerUid:unit.uid, clawTargetUid:target.uid, clawTargetHpAfter:target.hp, clawTargetAlive:target.alive, clawTargetIsDead:target.state._isDead, isExecute:isExecute, uidD:target.uid, isDead:!target.alive, _events:clawEvents });
-                // 从 B 数组实时查找，不用 currentBattleState 快照
-                const song = B.find(u => u.name === '宋青书' && u.alive);
+                // 从 allySide 实时查找，不用 currentBattleState 快照
+                const song = allySide.find(u => u.name === '宋青书' && u.alive);
                 if (song) {
                     const healAmount = Math.min(bonusDmg, song.maxHp - song.hp);
                     if (healAmount > 0) {
@@ -174,9 +174,9 @@ export function createZhouZhiruoComponent() {
                 }
                 depth++; if (isExecute) break;
             }
-            let songForSummary = B.find(u => u.name === '宋青书' && u.alive);
+            let songForSummary = allySide.find(u => u.name === '宋青书' && u.alive);
             if (totalBonus > 0) {
-                if (!songForSummary) songForSummary = B.find(u => u.name === '宋青书' && u.alive);
+                if (!songForSummary) songForSummary = allySide.find(u => u.name === '宋青书' && u.alive);
                 if (songForSummary) {
                     const totalHeal = Math.min(totalBonus, songForSummary.maxHp - songForSummary.hp);
                     if (totalHeal > 0) {
