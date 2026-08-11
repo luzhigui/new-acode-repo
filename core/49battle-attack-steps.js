@@ -504,6 +504,7 @@ export function resolveAfterDamageEffects(declarations, unit, target, group) {
             if (hitCount > 0) {
                 applyStatChange(unit, 'atk', hitCount * 2, null, '流星溅射成长');
                 if (unit._baseAtk !== undefined) unit._baseAtk += hitCount * 2;
+                decl.logText += ` <span class="gold">⚡ ${unit.name} 攻击+${hitCount * 2}</span>`;
             }
         }
         executed.push(decl);

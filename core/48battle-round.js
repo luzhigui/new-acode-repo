@@ -50,6 +50,8 @@ export async function* createRoundStepper(state) {
     }
     let A = state.ally.map(u => u.clone());
     let B = state.enemy.map(u => u.clone());
+    // 保留数组自定义属性（_flyDirection 等）
+    if (state.ally._flyDirection) A._flyDirection = state.ally._flyDirection;
     let log = [];
     let round = state.round;
 
