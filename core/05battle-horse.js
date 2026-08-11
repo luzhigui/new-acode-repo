@@ -4,7 +4,7 @@ export const VER = 'core/05battle-horse.js V5.4.0';
 
 import { CONFIG } from './01config-5v5-test.js';
 import { rand, hasBuff } from './03battle-utils.js';
-import { query, getBattleRng } from './50battle-shared.js';
+import { query, getBattleRng, applyStatChange } from './50battle-shared.js';
 import { Unit } from './02unit.js';
 const C = CONFIG;
 
@@ -27,13 +27,13 @@ export function spawnHorse(allyTeam, log, enemyTeam, force = false) {
     const xiaoHEnhance = query('xiaoHexEnhance', allyTeam, allyTeam._activeBuffs || [], 'horseFormation');
     horse.atk = 0;
     if (xiaoHEnhance) {
-        horse.def = xiaoHEnhance.horseDef;
-        horse.maxHp = xiaoHEnhance.horseHp;
+        applyStatChange(horse, 'def', xiaoHEnhance.horseDef, null, '拒马初始化');
+        applyStatChange(horse, 'maxHp', xiaoHEnhance.horseHp, null, '拒马初始化');
     } else {
-        horse.def = 5;
-        horse.maxHp = 25;
+        applyStatChange(horse, 'def', 5, null, '拒马初始化');
+        applyStatChange(horse, 'maxHp', 25, null, '拒马初始化');
     }
-    horse.hp = horse.maxHp;
+    applyStatChange(horse, 'hp', horse.maxHp, null, '拒马初始化');
     horse._baseMaxHp = horse.maxHp;  // 防止 carry 误判 _baseMaxHp=0 把马打成 maxHp=0
     horse.pos = horsePos; horse.isHorse = true; horse._originalPos = horsePos;
     allyTeam.push(horse);
@@ -53,7 +53,7 @@ export function destroyHorse(allyTeam, log) {
         const roll = rng.nextInt(1, 100);
         const success = roll <= currentProb;
         if (success) {
-            horse.hp = 0;
+            applyStatChange(horse, 'hp', -horse.hp, null, '拒马消散');
             horse.alive = false;
             horse.state._isDead = true;
             log.push({type:'buff-destroy', text:`<span class="gray">🐴 拒马阵：${horse.pos}号位拒马消散（成功率${currentProb}%，${roll}）</span>`, buffType:'destroy', horseUid: horse.uid, needsSeparator: true});

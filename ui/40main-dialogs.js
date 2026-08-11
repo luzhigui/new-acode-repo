@@ -132,10 +132,14 @@ export function showBattleReport(UI, battleResultForInfo) {
         });
         const csv = header + '\n' + rows.join('\n');
         const blob = new Blob([csv], {type:'text/csv;charset=utf-8'});
-        const a = document.createElement('a');
-        a.href = URL.createObjectURL(blob);
-        a.download = 'battle_report_' + Date.now() + '.csv';
-        a.click();
+        const reader = new FileReader();
+        reader.onload = () => {
+            const a = document.createElement('a');
+            a.href = reader.result;
+            a.download = 'battle_report_' + Date.now() + '.csv';
+            a.click();
+        };
+        reader.readAsDataURL(blob);
     };
     btnDiv.appendChild(exportBtn);
     

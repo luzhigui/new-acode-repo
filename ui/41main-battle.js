@@ -264,7 +264,7 @@ export function doInitBattle(currentStage, UI, snapshot, activeBuffs, selectedBu
             }
             let role = C.ROLES[_rand(0, 3)];
             let extraUnit = new Unit(name, extraM, role, 'enemy');
-            extraUnit.init(); extraUnit.applyBonus();
+            extraUnit.init(_rng); extraUnit.applyBonus();
             enemyUnits.push(extraUnit);
         }
         let allUnits = [...enemyUnits];

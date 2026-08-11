@@ -83,14 +83,16 @@ const ReplayManager = (() => {
     const name = filename || `replay-${new Date(replayData.timestamp).toISOString().slice(0,19).replace(/:/g, '-')}.json`;
     const json = JSON.stringify(exportData, null, 2);
     const blob = new Blob([json], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = name;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    const reader = new FileReader();
+    reader.onload = () => {
+        const a = document.createElement('a');
+        a.href = reader.result;
+        a.download = name;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+    };
+    reader.readAsDataURL(blob);
   }
 
   // 导入回放文件（接受 File 对象）

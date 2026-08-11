@@ -531,10 +531,6 @@ export function createXiaoZhaoBrotherComponent() {
                 if (!teamHasHorse && hasPermanent) {
                     const xzHorse = spawnHorse(A, log, B, true);
                     if (xzHorse) {
-                        xzHorse.atk = 0;
-                        xzHorse.def = 25;
-                        xzHorse.maxHp = 25;
-                        xzHorse.hp = 25;
                         log.push({type:'buff-summon', text:`<span class="gold">🐴 小昭的拒马在${xzHorse.pos}号位出现！</span>`, buffType:'summon', horsePos: xzHorse.pos, horseUid: xzHorse.uid, horseTaunt: '嗷——！'});
                     }
                 }
