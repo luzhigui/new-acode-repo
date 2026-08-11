@@ -59,7 +59,7 @@ export function applyCarryBonus(unit, A, state, log, stats) {
     const sister = A.some(a => a.isXiaoZhaoSister && a.alive);
     const carryPositions = sister ? [4, 5, 6] : [5];
 
-    if (hasCarryActive && carryPositions.includes(unit.pos) && unit._baseMaxHp !== undefined && !unit.isHorse && !unit.isZhang && !unit.isXiaoZhaoSister && !unit.isXiaoZhaoBrother) {
+    if (hasCarryActive && carryPositions.includes(unit.pos) && unit._baseMaxHp !== undefined && !unit.isHorse && !unit.isXiaoZhaoSister && !unit.isXiaoZhaoBrother) {
         // carry 生效：先回到基础血上限，再叠加本次 carry 加成
         applyMaxHpChange(unit, unit._baseMaxHp, null, 'carry归位血上限');
         applyStatChange(unit, 'atk', (unit._baseAtk || unit.atk) + (unit._butterflyAtkBonus || 0) - unit.atk, null, 'carry归位');
@@ -84,7 +84,7 @@ export function applyCarryBonus(unit, A, state, log, stats) {
         if (stats.carryAtkAbs || stats.carryDefAbs || stats.carryHpAbs) {
             log.push({ type:'info', text:`<span class="gold">👑 carry：${unit.name} 获得队友属性加成 攻+${stats.carryAtkAbs} 防+${stats.carryDefAbs} 血上限+${stats.carryHpAbs}</span>` });
         }
-    } else if (!unit.isHorse && !hasCarryActive && !unit.isXiaoZhaoSister && !unit.isXiaoZhaoBrother && !unit.isZhang) {
+    } else if (!unit.isHorse && !hasCarryActive && !unit.isXiaoZhaoSister && !unit.isXiaoZhaoBrother) {
         // carry 消失：清除加成，恢复基值
         if (carryPositions.includes(unit.pos) && (unit._carryAtkBonus || unit._carryDefBonus || unit._carryHpBonus)) {
             if (unit._carryHpBonus) applyMaxHpChange(unit, unit._baseMaxHp, null, 'carry清除血上限');
