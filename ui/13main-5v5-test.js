@@ -315,6 +315,12 @@ document.addEventListener('DOMContentLoaded', async function() {
             updateButtons();
             enableAllButtons();
             updateSpeedButtons();
+            // 全自动模式：自动触发第二次点击，从 IDLE 进入战斗
+            if (getState.autoLevel() === 'full-auto') {
+                setTimeout(() => {
+                    document.getElementById('btnMain').click();
+                }, 800);
+            }
             return;
         }
 
