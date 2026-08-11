@@ -1,9 +1,12 @@
 // core/02unit.js - 光明顶5v5 战斗单位类
-// V5.4.0 | ~6400 bytes| 2026-07-05
-export const VER = 'core/02unit.js V5.4.0';
+// V5.5.0 | ~6400 bytes| 2026-08-11 init() 支持 seeded RNG，uid 改用确定性计数器
+export const VER = 'core/02unit.js V5.5.0';
 
 import { CONFIG } from './01config-5v5-test.js';
 import { rand } from './03battle-utils.js';
+import { StateMachine } from './06-fsm.js';
+
+let _uidCounter = 0;
 
 export const ROLE_BONUS = {
     '战士': { atk: 3, def: 3, maxHp: 30 },
@@ -15,7 +18,7 @@ export const ROLE_BONUS = {
 export class Unit {
     constructor(name,m,role,camp){
         this.name=name;this.m=m;this.role=role;this.camp=camp;this.pos=null;this.alive=true;
-        this.atk=0;this.def=0;this.maxHp=0;this.hp=0;this.uid=Math.random().toString(36).substr(2,8);
+        this.atk=0;this.def=0;this.maxHp=0;this.hp=0;this.uid='u'+(++_uidCounter);
         this.isZhang=false;this.isWei=false;this.isHorse=false;
         this.rangedForm=true;this.nearAtkCount=0;this.ronghui=false;
         this.dmgDealt=0;this.dmgTaken=0;this.healDone=0;this.reboundDone=0;
@@ -78,7 +81,7 @@ export class Unit {
     clone(){
         let c=new Unit(this.name,this.m,this.role,this.camp);
         // 基础类型自动拷贝（跳过需要深拷贝的数组/对象字段）
-        const deepKeys = ['_kuaiLeStack', '_permanentBuffs', '_masteredRoles', '_xuanmingPoison', 'state'];
+        const deepKeys = ['_kuaiLeStack', '_permanentBuffs', '_masteredRoles', '_xuanmingPoison', 'state', '_fsm'];
         for (const key of Object.keys(this)) {
             if (deepKeys.includes(key)) continue;
             c[key] = this[key];
@@ -89,7 +92,11 @@ export class Unit {
         c._masteredRoles = [...this._masteredRoles];
         c._xuanmingPoison = this._xuanmingPoison ? { ...this._xuanmingPoison } : null;
         c.state = { ...this.state };
-        c._rng = this._rng; // RNG 状态通过 state 传递，不在 clone 中复制
+        // FSM：重建新实例，避免克隆单位共享状态机引用
+        if (this._fsm) {
+            c._fsm = new StateMachine(this._fsm.states, this._fsm.current);
+            c._fsm.transitions = this._fsm.transitions;
+        }
         return c;
     }
     init(){

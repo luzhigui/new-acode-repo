@@ -7,6 +7,7 @@ import { eventBus } from './00-event-bus.js';
 import { rand, calcDamage, getFangLevel, isMelee, getFronts, isBlocked, getRandomTaunt, getZhangNearTaunt, makeFXSnapshot, hasBuff, getUnitCol, getUnitRow } from './03battle-utils.js';
 import { computeBuffStats, applyBuffEffectsBeforeAttack, applyBuffEffectsAfterAttack } from './04buff-system.js';
 import { emitEvent, applyStatChange, applyMaxHpChange, query, getBattleRng } from './50battle-shared.js';
+import { GlobalStore } from '../modules/46global-store.js';
 
 // ==================== 闪避规则注册表 ====================
 // 裁判统一管理所有闪避规则。每个规则是一个函数 (unit, attacker) => dodgeRate (0~1)
@@ -285,7 +286,7 @@ export function calcFinalDamage(unit, target, attackerBuffStats, defenderBuffSta
     let atkVar = rng.nextInt(1, C.ATK_VAR), defVar = rng.nextInt(1, C.DEF_VAR), hpBonus = rng.nextInt(C.HP_BONUS_MIN + 1, C.HP_BONUS_MAX);
     let atkAct = atkBase + atkVar, defAct = defBase + defVar;
     let hpBefore = Math.floor(target.hp);
-    target.hp += hpBonus;
+    applyStatChange(target, 'hp', hpBonus, unit, '伤害波动回血');
     let waveTaunt = null, waveUnit = null;
     if (atkVar === C.ATK_VAR) { waveTaunt = getRandomTaunt(unit); waveUnit = unit; unit.critCount++; }
     else if (defVar + hpBonus >= 7) { waveTaunt = DT[rng.nextInt(0, DT.length - 1)]; waveUnit = target; }
@@ -342,7 +343,7 @@ export function applyAttackResult(unit, target, dmgCalc, attackerBuffStats, defe
 
     let hpAfter = Math.floor(target.hp) - dmg;
     let dead = hpAfter <= 0;
-    target.hp = Math.max(0, hpAfter);
+    applyStatChange(target, 'hp', -dmg, unit, '攻击伤害');
     if (dead) {
         target.alive = false;
         target._pendingDeath = true;

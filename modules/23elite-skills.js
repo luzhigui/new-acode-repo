@@ -5,7 +5,7 @@ export const VER = 'modules/23elite-skills.js V5.4.0';
 import { CONFIG, getSkillParams } from '../core/01config-5v5-test.js';
 import { ROLE_BONUS } from '../core/02unit.js';
 import { hasBuff } from '../core/03battle-utils.js';
-import { emitEvent, applyStatChange, registerQuery, getBattleRng } from '../core/50battle-shared.js';
+import { emitEvent, applyStatChange, applyMaxHpChange, registerQuery, getBattleRng } from '../core/50battle-shared.js';
 const ES = CONFIG.ELITE_SKILLS;
 
 // ==================== 玄冥二老 — 中毒/鹿角 ====================
@@ -123,12 +123,11 @@ export function tickKuaiLeHeal(allUnits, log) {
             }
         });
         if (totalHeal > 0) {
-            const hpBefore = unit.hp;
-            unit.hp = Math.min(unit.maxHp, unit.hp + totalHeal);
-            unit.healDone += totalHeal;
+            const hpBefore = Math.floor(unit.hp);
+            applyStatChange(unit, 'hp', totalHeal, null, '快乐回血');
             log.push({
                 type: 'info',
-                text: `<span class="green">💚 快乐回血：${unit.name} 回复${totalHeal}点生命（${unit._kuaiLeStack.length}层触发），血量 ${Math.floor(hpBefore)} → ${Math.floor(unit.hp)}</span>`,
+                text: `<span class="green">💚 快乐回血：${unit.name} 回复${totalHeal}点生命（${unit._kuaiLeStack.length}层触发），血量 ${hpBefore} → ${Math.floor(unit.hp)}</span>`,
                 buffType: 'elite_kuaile_heal',
                 zhouUid: unit.uid,
                 zhouHpAfter: unit.hp
@@ -172,17 +171,15 @@ export function spiderTransform(unit, log) {
 
     const newStats = ROLE_BONUS[newRole] || { atk: 0, def: 0, maxHp: 0 };
     unit.role = newRole;
-    unit.atk += newStats.atk;
-    unit.def += newStats.def;
+    applyStatChange(unit, 'atk', newStats.atk, null, '蛛变');
+    applyStatChange(unit, 'def', newStats.def, null, '蛛变');
     unit._baseAtk = (unit._baseAtk || unit.atk) + newStats.atk;
     unit._baseDef = (unit._baseDef || unit.def) + newStats.def;
 
     const st = getSkillParams('小昭', 'spiderTransform') || { hpBonus: 5 };
     let hpDelta = newStats.maxHp + (st.hpBonus || 5);
     unit._baseMaxHp = (unit._baseMaxHp || unit.maxHp) + hpDelta;
-    unit.maxHp += hpDelta;
-    unit.hp = Math.min(unit.hp + hpDelta, unit.maxHp);
-    if (unit.hp < 1) unit.hp = 1;
+    applyMaxHpChange(unit, unit.maxHp + hpDelta, null, '蛛变');
 
     emitEvent(unit, 'hp-change', { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: unit.atk, def: unit.def, role: newRole });
     log.push({ type:'info', text:`<span class="gold">🕷️ 蛛变：${unit.name} 变换为<span class="gold">${newRole}</span>（已精通${unit._masteredRoles.length}/4）</span>` });

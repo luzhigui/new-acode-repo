@@ -5,6 +5,7 @@ export const VER = 'ui/41main-battle.js V5.4.0';
 import { CONFIG, ENEMY_M } from '../core/01config-5v5-test.js';
 import { Unit } from '../core/02unit.js';
 import { rand } from '../core/03battle-utils.js';
+import { SeededRNG } from '../core/07-rng.js';
 import { addPermanentBuff } from '../modules/23elite-skills.js';
 import { updateUI, clearLogExceptFirst } from './14ui-render-5v5-test.js';
 import { showModal } from './12main-utils.js';
@@ -15,6 +16,9 @@ const ALL_BUFF_KEYS = Object.keys(C.BUFFS);
 // ==================== 阵容生成 ====================
 export function doInitBattle(currentStage, UI, snapshot, activeBuffs, selectedBuffIndex, currentDoubleStrikeUid) {
     if (!UI || !snapshot) return;
+    // 确定性 RNG：确保 init() 属性分配具有确定性，回放时可复现
+    const _rng = snapshot._rngSeed ? new SeededRNG(snapshot._rngSeed) : new SeededRNG(Date.now());
+    const _rand = (min, max) => _rng.nextInt(min, max);
     let allyTeam = [], enemyTeam = [];
     const mingSquadTemplate = C.MING_SQUADS && C.MING_SQUADS[currentStage] ? C.MING_SQUADS[currentStage] : null;
     const elitePower = C.ELITE_POWER || {};
@@ -29,7 +33,7 @@ export function doInitBattle(currentStage, UI, snapshot, activeBuffs, selectedBu
         { name: '韦一笑', m: 107, role: '飞行', isWei: true, power: elitePower['韦一笑'] || 120 },
         { name: '小昭', m: 107, role: '远程', isXiaoZhaoBrother: true, power: elitePower['小昭'] || 135 }
     ];
-    const eliteRoll = Math.random();
+    const eliteRoll = _rng.next();
     let eliteCount;
     if (eliteRoll < 0.05) {
         eliteCount = 3;
@@ -55,7 +59,7 @@ export function doInitBattle(currentStage, UI, snapshot, activeBuffs, selectedBu
             if (cfg && !allyTeam.some(u => u.name === '张无忌')) {
                 let unit = new Unit(cfg.name, cfg.m, cfg.role, 'ally');
                 unit.isZhang = true;
-                unit.init(); unit.applyBonus();
+                unit.init(_rng); unit.applyBonus();
                 unit.pos = null;
                 allyTeam.push(unit);
                 usedPower += cfg.power;
@@ -66,7 +70,7 @@ export function doInitBattle(currentStage, UI, snapshot, activeBuffs, selectedBu
             if (cfg && !allyTeam.some(u => u.name === '韦一笑')) {
                 let unit = new Unit(cfg.name, cfg.m, cfg.role, 'ally');
                 unit.isWei = true;
-                unit.init(); unit.applyBonus();
+                unit.init(_rng); unit.applyBonus();
                 unit.pos = null;
                 allyTeam.push(unit);
                 usedPower += cfg.power;
@@ -82,7 +86,7 @@ export function doInitBattle(currentStage, UI, snapshot, activeBuffs, selectedBu
         // 加权抽取：按 ELITE_RATE 权重选精英，不重复
         function weightedPick(arr) {
             const total = arr.reduce((s, c) => s + (eliteRate[c.name] || 1 / arr.length), 0);
-            let r = Math.random() * total;
+            let r = _rng.next() * total;
             for (let i = 0; i < arr.length; i++) {
                 r -= (eliteRate[arr[i].name] || 1 / arr.length);
                 if (r <= 0) return i;
@@ -106,12 +110,12 @@ export function doInitBattle(currentStage, UI, snapshot, activeBuffs, selectedBu
             if (c.isZhang) unit.isZhang = true;
             if (c.isWei) unit.isWei = true;
             if (c.isXiaoZhaoBrother) {
-                if (Math.random() < 0.5) { unit.isXiaoZhaoSister = true; }
+                if (_rng.next() < 0.5) { unit.isXiaoZhaoSister = true; }
                 else { unit.isXiaoZhaoBrother = true; }
                 unit.initXiaoZhao(); unit.applyBonus();
                 unit._baseMaxHp = unit.maxHp; unit._baseAtk = unit.atk; unit._baseDef = unit.def;
             } else {
-                unit.init(); unit.applyBonus();
+                unit.init(_rng); unit.applyBonus();
             }
             unit.pos = null;
             allyTeam.push(unit);
@@ -138,12 +142,12 @@ export function doInitBattle(currentStage, UI, snapshot, activeBuffs, selectedBu
         candidates.push(...above);
         for (const c of below) { if (!candidates.some(x => x.name === c.name)) candidates.push(c); }
         if (candidates.length === 0) candidates.push(...remainingCandidates.slice(0, 5));
-        const pick = candidates[rand(0, candidates.length - 1)];
+        const pick = candidates[_rand(0, candidates.length - 1)];
         const idx = remainingCandidates.findIndex(c => c.name === pick.name);
         if (idx >= 0) remainingCandidates.splice(idx, 1);
-        const role = C.ROLES[rand(0, 3)];
+        const role = C.ROLES[_rand(0, 3)];
         const unit = new Unit(pick.name, pick.m, role, 'ally');
-        unit.init(); unit.applyBonus();
+        unit.init(_rng); unit.applyBonus();
         unit.pos = null;
         allyTeam.push(unit);
         remainingPower -= pick.power;
@@ -164,7 +168,7 @@ export function doInitBattle(currentStage, UI, snapshot, activeBuffs, selectedBu
                 allyTeam.splice(allyTeam.indexOf(swappable), 1);
                 remainingPower += (normalPower[swappable.m] || 90);
             }
-            let xzUnit = new Unit('小昭', 107, C.ROLES[rand(0, 3)], 'ally');
+            let xzUnit = new Unit('小昭', 107, C.ROLES[_rand(0, 3)], 'ally');
             xzUnit.isXiaoZhaoSister = (forceXzMode === 'sister');
             xzUnit.isXiaoZhaoBrother = (forceXzMode === 'brother');
             xzUnit.initXiaoZhao(); xzUnit.applyBonus();
@@ -179,8 +183,8 @@ export function doInitBattle(currentStage, UI, snapshot, activeBuffs, selectedBu
     if (!allyTeam.some(u => u.role === '防战' || u.role === '战士')) {
         const nonFixed = allyTeam.filter(u => !u.isZhang && !u.isWei && !u.isXiaoZhaoSister && !u.isXiaoZhaoBrother);
         if (nonFixed.length > 0) {
-            nonFixed[0].role = rand(0, 1) === 0 ? '防战' : '战士';
-            nonFixed[0].init(); nonFixed[0].applyBonus();
+            nonFixed[0].role = _rand(0, 1) === 0 ? '防战' : '战士';
+            nonFixed[0].init(_rng); nonFixed[0].applyBonus();
         }
     }
 
@@ -196,11 +200,11 @@ export function doInitBattle(currentStage, UI, snapshot, activeBuffs, selectedBu
     if (others.length > 0 && zhang && !takenPos.has(2)) { others[0].pos = 2; takenPos.add(2); others.shift(); }
     let emptySlots = [1,2,3,4,5,6,7,8,9].filter(p => !takenPos.has(p));
     for (let u of others) {
-        if (emptySlots.length > 0) { let idx = rand(0, emptySlots.length - 1); u.pos = emptySlots[idx]; takenPos.add(emptySlots[idx]); emptySlots.splice(idx, 1); }
+        if (emptySlots.length > 0) { let idx = _rand(0, emptySlots.length - 1); u.pos = emptySlots[idx]; takenPos.add(emptySlots[idx]); emptySlots.splice(idx, 1); }
         else { u.pos = 5; }
     }
     let toLock = [zhang, wei, xz].filter(Boolean);
-    while (toLock.length < 3) { let pool = allyTeam.filter(u => !toLock.includes(u)); if (pool.length === 0) break; let pick = pool[rand(0, pool.length - 1)]; toLock.push(pick); }
+    while (toLock.length < 3) { let pool = allyTeam.filter(u => !toLock.includes(u)); if (pool.length === 0) break; let pick = pool[_rand(0, pool.length - 1)]; toLock.push(pick); }
     toLock.forEach(u => { u.fixed = true; });
 
     // ==================== 六大派阵容生成 ====================
@@ -214,7 +218,7 @@ export function doInitBattle(currentStage, UI, snapshot, activeBuffs, selectedBu
         for (let item of enemySquad) {
             if (typeof item === 'object' && item.name) {
                 let unit = new Unit(item.name, item.m, item.role, 'enemy');
-                unit.pos = null; unit.init(); unit.applyBonus();
+                unit.pos = null; unit.init(_rng); unit.applyBonus();
                 enemyUnits.push(unit);
                 usedEnemyNames.push(item.name);
                 if (item.name === '鹿杖客' || item.name === '鹤笔翁') xuanmingPairCount++;
@@ -226,18 +230,18 @@ export function doInitBattle(currentStage, UI, snapshot, activeBuffs, selectedBu
                 for (let def of squadDefs) { if (typeof def === 'object' && def.m === mVal && !usedEnemyNames.includes(def.name)) { name = def.name; break; } }
                 if (!name && pool.length > 0) {
                     let attempts = 0;
-                    while ((!name || usedEnemyNames.includes(name)) && attempts < 50) { let pick = pool[rand(0, pool.length - 1)]; name = pick[0]; attempts++; }
+                    while ((!name || usedEnemyNames.includes(name)) && attempts < 50) { let pick = pool[_rand(0, pool.length - 1)]; name = pick[0]; attempts++; }
                 }
                 if (!name) {
                     // 兜底名字加序号，避免重名
                     const fallbackSects = ['少林弟子', '武当弟子', '峨眉弟子', '昆仑弟子', '崆峒弟子'];
-                    const fallbackName = fallbackSects[rand(0, fallbackSects.length - 1)];
+                    const fallbackName = fallbackSects[_rand(0, fallbackSects.length - 1)];
                     const existingCount = usedEnemyNames.filter(n => n.startsWith(fallbackName)).length;
                     name = fallbackName + (existingCount > 0 ? String(existingCount + 1) : '');
                 }
-                let role = C.ROLES[rand(0, 3)];
+                let role = C.ROLES[_rand(0, 3)];
                 let unit = new Unit(name, mVal, role, 'enemy');
-                unit.pos = null; unit.init(); unit.applyBonus();
+                unit.pos = null; unit.init(_rng); unit.applyBonus();
                 enemyUnits.push(unit);
                 usedEnemyNames.push(name);
             }
@@ -248,17 +252,17 @@ export function doInitBattle(currentStage, UI, snapshot, activeBuffs, selectedBu
             let usedNames = enemyUnits.map(u => u.name);
             let name = null;
             while ((!name || usedNames.includes(name)) && pool.length > 0) {
-                let pick = pool[rand(0, pool.length - 1)];
+                let pick = pool[_rand(0, pool.length - 1)];
                 name = pick[0];
                 if (usedNames.includes(name)) { name = null; pool.splice(pool.indexOf(pick), 1); }
             }
             if (!name) {
                 const fallbackSects = ['少林弟子', '武当弟子', '峨眉弟子', '昆仑弟子', '崆峒弟子'];
-                const fallbackName = fallbackSects[rand(0, fallbackSects.length - 1)];
+                const fallbackName = fallbackSects[_rand(0, fallbackSects.length - 1)];
                 const existingCount = usedEnemyNames.filter(n => n.startsWith(fallbackName)).length;
                 name = fallbackName + (existingCount > 0 ? String(existingCount + 1) : '');
             }
-            let role = C.ROLES[rand(0, 3)];
+            let role = C.ROLES[_rand(0, 3)];
             let extraUnit = new Unit(name, extraM, role, 'enemy');
             extraUnit.init(); extraUnit.applyBonus();
             enemyUnits.push(extraUnit);
@@ -281,7 +285,7 @@ export function doInitBattle(currentStage, UI, snapshot, activeBuffs, selectedBu
                     for (let i = 0; i < Math.min(shortage, others.length); i++) { roleCounts[others[i].role]--; others[i].role = role; roleCounts[role]++; }
                 }
             }
-            normalUnits.forEach(u => { u.init(); u.applyBonus(); });
+            normalUnits.forEach(u => { u.init(_rng); u.applyBonus(); });
         }
         if (template) {
             for (let [role, poses] of Object.entries(template)) {
@@ -319,7 +323,7 @@ export function doInitBattle(currentStage, UI, snapshot, activeBuffs, selectedBu
         }
         let unplacedNormals = normalUnits.filter(u => u.pos == null);
         let emptySlots = [1, 2, 3, 4, 5, 6, 7, 8, 9].filter(p => !enemyPosSet.has(p));
-        for (let u of unplacedNormals) { if (emptySlots.length > 0) { let idx = rand(0, emptySlots.length - 1); u.pos = emptySlots[idx]; u._originalPos = u.pos; enemyPosSet.add(emptySlots[idx]); emptySlots.splice(idx, 1); } }
+        for (let u of unplacedNormals) { if (emptySlots.length > 0) { let idx = _rand(0, emptySlots.length - 1); u.pos = emptySlots[idx]; u._originalPos = u.pos; enemyPosSet.add(emptySlots[idx]); emptySlots.splice(idx, 1); } }
         enemyTeam = allUnits;
     }
 
@@ -331,6 +335,7 @@ export function doInitBattle(currentStage, UI, snapshot, activeBuffs, selectedBu
     UI.round = 0;
     GlobalStore.set('battleHasZhang', allyTeam.some(u => u.isZhang));
     window._lastBattleSeed = Date.now();
+    snapshot._rngSeed = _rng.getState();
     let stageText = currentStage === 1 ? '第一关' : `第${currentStage}关`;
     document.getElementById('labelEnemy').textContent = `六大派\n${stageText}`;
     document.getElementById('labelAlly').textContent = '明 教';
