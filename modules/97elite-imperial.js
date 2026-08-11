@@ -22,7 +22,7 @@ export function createChengKunComponent() {
             if (!cheng) return;
             const onAfterApplyDamage = this.onAfterApplyDamage;
             const onDamageCalc = this.onDamageCalc;
-            // 幻影伪装：被模仿者攻击时误伤队友
+            // 幻影伪装：被模仿者攻击成昆，其他明教单位概率混乱误攻队友
             eventBus.on('beforeSelectTarget', L.BEFORE_SELECT_TARGET.CHENGKUN_DISGUISE, (data) => {
                 // 成昆攻击前清除旧伪装（恢复真身）
                 if (data.unit.name === '成昆' && data.unit.state._phantomTarget) {
@@ -32,26 +32,25 @@ export function createChengKunComponent() {
                 const chengkun = data.enemySide.find(u => u.name === '成昆' && u.alive && u.state._phantomTarget);
                 if (!chengkun) return;
 
-                // 被模仿者：100% 混乱误攻队友
+                // 被模仿者：100% 强制攻击成昆
                 const isPhantomTarget = (chengkun.state._phantomTarget === data.unit.uid);
-                // 其他明教单位：概率混乱（基于成昆已损失血量）
-                let shouldConfuse = isPhantomTarget;
-                if (!isPhantomTarget) {
-                    const params = getSkillParams('成昆', 'phantomDisguise') || ES.phantomDisguise;
-                    const lostHpPct = (chengkun.maxHp - chengkun.hp) / chengkun.maxHp;
-                    const confuseChance = (params.baseChance || 0.30) + (params.per10pctLost || 0.06) * (lostHpPct * 10);
-                    if (getBattleRng().next() < confuseChance) {
-                        shouldConfuse = true;
-                    }
+                if (isPhantomTarget) {
+                    data.declaration.targetResult = chengkun;
+                    data.declaration.phantomLog = `🎭 幻影伪装！${data.unit.name}被成昆迷惑，强制攻击成昆！`;
+                    return;
                 }
-                if (!shouldConfuse) return;
+
+                // 其他明教单位：概率混乱误攻队友（基于成昆已损失血量）
+                const params = getSkillParams('成昆', 'phantomDisguise') || ES.phantomDisguise;
+                const lostHpPct = (chengkun.maxHp - chengkun.hp) / chengkun.maxHp;
+                const confuseChance = (params.baseChance || 0.30) + (params.per10pctLost || 0.06) * (lostHpPct * 10);
+                if (getBattleRng().next() >= confuseChance) return;
 
                 const fakeList = data.allySide.filter(u => u.alive && !u.isHorse && !u._untargetable && u.uid !== data.unit.uid);
                 if (fakeList.length > 0) {
                     const fakeTarget = fakeList[getBattleRng().nextInt(0, fakeList.length - 1)];
                     data.declaration.targetResult = fakeTarget;
-                    const reason = isPhantomTarget ? '被幻影伪装迷惑' : '被祸乱心智';
-                    data.declaration.phantomLog = `🎭 幻影伪装！${data.unit.name}${reason}，误攻队友${fakeTarget.name}！`;
+                    data.declaration.phantomLog = `🎭 幻影伪装！${data.unit.name}被祸乱心智，误攻队友${fakeTarget.name}！`;
                 }
             });
             // 幻影伪装：攻击后更新伪装目标
