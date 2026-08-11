@@ -461,7 +461,8 @@ export function createXiaoZhaoBrotherComponent() {
                 }
             };
             return new StateMachine(states, 'normal', {
-                normal: ['flying'],
+                normal: ['flying', 'transforming'],
+                transforming: ['normal'],
                 flying: ['descending'],
                 descending: ['normal'],
                 dead: []
@@ -524,7 +525,7 @@ export function createXiaoZhaoBrotherComponent() {
                 const bro = A.find(u => u.isXiaoZhaoBrother && u.alive);
                 if (!bro) return;
                 if (bro._fsm && bro._fsm.is('normal')) bro._fsm.transition('transforming');
-                bro._fsm.transition('normal');
+                if (bro._fsm && bro._fsm.is('transforming')) bro._fsm.transition('normal');
                 if (bro.state._spiderTriggeredHit === undefined) bro.state._spiderTriggeredHit = false;
                 if (bro.state._spiderTriggered70 === undefined) bro.state._spiderTriggered70 = false;
                 if (bro.state._spiderTriggered40 === undefined) bro.state._spiderTriggered40 = false;
