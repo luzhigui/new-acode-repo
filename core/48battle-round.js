@@ -7,6 +7,7 @@ import { rand, isMelee, isBlocked, makeFXSnapshot, hasBuff, getUnitCol, getUnitR
 import { computeBuffStats, logBuffSummary, applyHolyFlameBonus, applyFortifyBonus, applyCarryBonus, registerBloodthirst, registerHotBlood, registerWindAssault, registerMeteorShower, registerMindControl } from './04buff-system.js';
 import { spawnHorse, destroyHorse } from './05battle-horse.js';
 import { Unit } from './02unit.js';
+import { clearEliteDodgeRules } from './49battle-attack-steps.js';
 
 import { createZhangWujiComponent, createWeiYixiaoComponent, createXiaoZhaoSisterComponent, createXiaoZhaoBrotherComponent } from '../modules/99elite-mingjiao.js';
 import { createSongQingshuComponent, createZhouZhiruoComponent } from '../modules/98elite-sixsects.js';
@@ -122,7 +123,7 @@ export async function* createRoundStepper(state) {
     eventBus.clearAll();
 
     // 清除上回合精英注册的动态闪避规则，保留两条通用规则
-    import('../core/49battle-attack-steps.js').then(mod => mod.clearEliteDodgeRules());
+    clearEliteDodgeRules();
 
     // 注册所有监听器
     registerWarriorBreakDefense(eventBus);
@@ -256,6 +257,22 @@ export async function* createRoundStepper(state) {
         u._linkTriggered = false;
         u._fortifyThisRound = 0;
     });
+
+    // 初始化所有单位的闪避率，供面板实时显示
+    const allUnits = [...A, ...B];
+    for (const u of allUnits) {
+        if (!u.alive) continue;
+        let totalDodge = 0;
+        const dodgeRules = window._dodgeRules || [];
+        for (const ruleFn of dodgeRules) {
+            totalDodge += ruleFn(u, null) || 0;
+        }
+        const allyTeam = u.camp === 'ally' ? A : B;
+        const activeBuffs = u.camp === 'ally' ? A._activeBuffs : B._activeBuffs;
+        const buffStats = computeBuffStats(u, activeBuffs, allyTeam);
+        totalDodge += buffStats.dodgeBonus || 0;
+        u._dodgeChance = Math.round(totalDodge * 100);
+    }
 
     logBuffSummary(A, log, doubleStrikeUnitUid);
 
