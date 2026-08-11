@@ -49,7 +49,7 @@ export function createZhangWujiComponent() {
                     onExit() {}
                 }
             };
-            const initial = zhang.rangedForm ? 'ranged' : 'near';
+            const initial = (zhang._fsm && zhang._fsm.current) ? zhang._fsm.current : (zhang.rangedForm ? 'ranged' : 'near');
             fsm = new StateMachine(states, initial, {
                 ranged: ['switching'],
                 switching: ['near'],
