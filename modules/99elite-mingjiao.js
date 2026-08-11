@@ -192,8 +192,8 @@ export function createXiaoZhaoSisterComponent() {
                     onExit() {}
                 },
                 attaching: {
-                    onEnter() {
-                        comp._executeAttach(sister, A, log);
+                    onEnter(data) {
+                        comp._executeAttach(sister, A, (data && data.log) ? data.log : log);
                     },
                     onExit() {}
                 },
@@ -205,8 +205,8 @@ export function createXiaoZhaoSisterComponent() {
                     onExit() {}
                 },
                 returning: {
-                    onEnter() {
-                        comp._executeReturn(sister, A, log);
+                    onEnter(data) {
+                        comp._executeReturn(sister, A, (data && data.log) ? data.log : log);
                     },
                     onExit() {}
                 }
@@ -392,13 +392,13 @@ export function createXiaoZhaoSisterComponent() {
             if (!sister) sister = A.find(u => u.isXiaoZhaoSister && u.alive && !u.state._stunned);
             if (!sister || sister.state._butterflyHost) return null;
             const fsm = sister._fsm;
-            if (fsm && fsm.is('normal')) fsm.transition('attaching');
+            if (fsm && fsm.is('normal')) fsm.transition('attaching', { log });
             return sister;
         },
         executeReturn(sister, A, log) {
             if (!sister.alive || !sister.state._butterflyHost) return;
             const fsm = sister._fsm;
-            if (fsm && fsm.is('attached')) fsm.transition('returning');
+            if (fsm && fsm.is('attached')) fsm.transition('returning', { log });
         },
     };
 }
@@ -422,7 +422,8 @@ export function createXiaoZhaoBrotherComponent() {
                 },
                 flying: {
                     onEnter(data) {
-                        const reason = data ? data.reason : '';
+                        const currentLog = (data && data.log) ? data.log : log;
+                        let reason = data ? data.reason : '';
                         const incomingDmg = data ? data.incomingDmg : 0;
                         if (!brother.state._spiderTriggered70 && brother.hp > brother.maxHp * 0.7) {
                             brother.state._spiderTriggered70 = true;
@@ -440,7 +441,7 @@ export function createXiaoZhaoBrotherComponent() {
                         brother.state._flyMode = 'spider';
                         brother.state._acted = true;
                         emitEvent(brother, 'hp-change', { hp:brother.hp, maxHp:brother.maxHp, alive:brother.alive, atk:brother.atk, def:brother.def, _flyMode:'spider', _spiderFlying:true });
-                        log.push({ type:'info', text:`<span class="gold">🕷️ 飞天：${brother.name} ${reason}，免疫本次攻击的 ${incomingDmg||0} 点伤害，化为蜘蛛遁走！剩余次数：${brother._spiderRemaining}</span>`, needsSeparator: true });
+                        currentLog.push({ type:'info', text:`<span class="gold">🕷️ 飞天：${brother.name} ${reason}，免疫本次攻击的 ${incomingDmg||0} 点伤害，化为蜘蛛遁走！剩余次数：${brother._spiderRemaining}</span>`, needsSeparator: true });
                     },
                     onExit() {
                         brother.state._spiderFlying = false;
@@ -489,7 +490,7 @@ export function createXiaoZhaoBrotherComponent() {
                 if (shouldFly) {
                     if (!data.declarations) data.declarations = [];
                     data.declarations.push({ immune: true, reason: '🕷️ 飞天：免疫本次伤害' });
-                    fsm.transition('flying', { reason, incomingDmg: data.dmg });
+                    fsm.transition('flying', { reason, incomingDmg: data.dmg, log: data.log || log });
                 }
             });
             eventBus.on('beforeActionSelect', L.BEFORE_ACTION.SPIDER_SKIP, (data) => {
@@ -575,7 +576,7 @@ export function createXiaoZhaoBrotherComponent() {
                 reason = '即将阵亡';
             }
             if (!reason) return false;
-            fsm.transition('flying', { reason, incomingDmg });
+            fsm.transition('flying', { reason, incomingDmg, log });
             return true;
         },
         executeDescend(unit, A, B, log) {
