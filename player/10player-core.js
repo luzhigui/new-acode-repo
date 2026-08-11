@@ -7,6 +7,7 @@ import { CONFIG } from '../core/01config-5v5-test.js';
 import { AudioManager } from '../modules/28audio-manager.js';
 import { handleBuffSummon, handleBuffDestroy, handleBuffLeech, showBuffPopup, handleHolyTokenDrop } from './09player-buff-ui.js';
 import { createRoundStepper } from '../core/48battle-round.js';
+import { SeededRNG } from '../core/07-rng.js';
 import { getState } from '../ui/39main-state.js';
 import { setRenderStore, updateUI } from '../ui/14ui-render-5v5-test.js';
 import { createStore, battleReducer, GAME_STATE_FIELDS } from '../modules/52battle-store.js';
@@ -350,6 +351,10 @@ export async function playBattle() {
         enemy: c.snapshot.enemy.map(u => u.clone())
     };
     let battleState = { ally: c.snapshot.ally.map(u => u.clone()), enemy: c.snapshot.enemy.map(u => u.clone()), round: 1, activeBuffs: c.activeBuffs ? c.activeBuffs.map(b => ({...b})) : [], allAllies: c.snapshot.ally.map(u => u.clone()) };
+    // 确定性 RNG：从 snapshot 恢复，延续 doInitBattle 的随机序列
+    if (c.snapshot._rngSeed !== undefined) {
+        battleState._rng = new SeededRNG(c.snapshot._rngSeed);
+    }
     window.ReplayManager.startRecordingWithSeed(c.snapshot, Date.now());
     let isBattleOver = false; let finalWinner = null; let finalStep = null;
 
