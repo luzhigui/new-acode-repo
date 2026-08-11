@@ -131,15 +131,30 @@ export function showBattleReport(UI, battleResultForInfo) {
             rows.push(`六大派,${u.name},${u.role},${u.dmgDealt||0},${u.dmgTaken||0},${u.healDone||0},${u.dodgeCount||0},${u.critCount||0},${u.survivedRounds||0},${u.alive?'存活':'阵亡'}`);
         });
         const csv = header + '\n' + rows.join('\n');
-        const blob = new Blob([csv], {type:'text/csv;charset=utf-8'});
-        const reader = new FileReader();
-        reader.onload = () => {
-            const a = document.createElement('a');
-            a.href = reader.result;
-            a.download = 'battle_report_' + Date.now() + '.csv';
-            a.click();
+        const name = 'battle_report_' + Date.now() + '.csv';
+        // 自定义下载弹窗
+        const overlay = document.createElement('div');
+        overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);z-index:99999;display:flex;align-items:center;justify-content:center;';
+        const dialog = document.createElement('div');
+        dialog.style.cssText = 'background:#1a1a2e;border:2px solid #ffd700;border-radius:12px;padding:20px;max-width:90vw;max-height:85vh;display:flex;flex-direction:column;min-width:300px;';
+        dialog.innerHTML = '<div style="color:#ffd700;font-size:16px;font-weight:bold;margin-bottom:12px;">📥 ' + name + '</div>' +
+          '<textarea readonly style="flex:1;min-height:150px;max-height:50vh;background:#0d0d1a;color:#ccc;border:1px solid #444;border-radius:6px;padding:10px;font-size:12px;font-family:monospace;resize:vertical;">' + csv + '</textarea>' +
+          '<div style="display:flex;gap:10px;margin-top:12px;justify-content:flex-end;">' +
+          '<button id="_csvCopyBtn" style="background:#4caf50;color:#fff;border:none;padding:10px 20px;border-radius:6px;cursor:pointer;font-weight:bold;font-size:14px;">📋 复制内容</button>' +
+          '<button id="_csvCloseBtn" style="background:#666;color:#fff;border:none;padding:10px 20px;border-radius:6px;cursor:pointer;font-size:14px;">关闭</button></div>';
+        overlay.appendChild(dialog);
+        document.body.appendChild(overlay);
+        dialog.querySelector('#_csvCopyBtn').onclick = () => {
+            navigator.clipboard.writeText(csv).then(() => {
+                dialog.querySelector('#_csvCopyBtn').textContent = '✅ 已复制！';
+            }).catch(() => {
+                dialog.querySelector('textarea').select();
+                document.execCommand('copy');
+                dialog.querySelector('#_csvCopyBtn').textContent = '✅ 已复制！';
+            });
         };
-        reader.readAsDataURL(blob);
+        dialog.querySelector('#_csvCloseBtn').onclick = () => document.body.removeChild(overlay);
+        overlay.onclick = (e) => { if (e.target === overlay) document.body.removeChild(overlay); };
     };
     btnDiv.appendChild(exportBtn);
     

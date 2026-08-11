@@ -114,7 +114,7 @@ const CONFIG = {
         bloodthirst: { name: '嗜血狂刀', desc: '己方战士攻击吸血80%伤害值（持续4回合）', leechRatio: 0.8, icon: '🗡️' },
         fortify: { name: '严阵以待', desc: '己方防战防御+50%，反弹50%伤害差值（持续4回合）', defBonus: 0.5, reboundRatio: 0.5, icon: '🛡️' },
         windAssault: { name: '乘风突袭', desc: '飞行单位80%概率对同行敌人造成100%伤害，60%击退一格（持续3回合）', hitProb: 0.8, pushProb: 0.6, duration: 3, icon: '🦅' },
-        holyFlame: { name: '圣火令', desc: '随机两列+30%攻击，随机两行+30%防御（持续4回合）', atkBonus: 0.3, defBonus: 0.3, icon: '🔥' },
+        holyFlame: { name: '圣火令', desc: '随机1列+30%攻击，随机2行+30%防御（持续4回合）', atkBonus: 0.3, defBonus: 0.3, icon: '🔥' },
         hotBlood: { name: '热血奋战', desc: '攻击时回复15%已损失生命值，每第3次攻击回血翻倍（持续4回合）', leechRatio: 0.15, critRatio: 0.3, critInterval: 3, icon: '❤️' },
         mindControl: { name: '惑人心智', desc: '最前排单位攻击时：80%扰乱敌方换位，40%扰乱己方换位（持续2回合）', enemySwapProb: 0.8, allySwapProb: 0.4, duration: 2, icon: '🌀' }
     },

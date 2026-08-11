@@ -104,7 +104,7 @@ window._emitEvent = emitCoreEvent;
 function applyStatChange(target, field, delta, source, reason) {
     if (delta === 0 || !target || !target.alive) return false;
     const oldVal = target[field];
-    target[field] = field === 'hp' ? Math.max(0, target[field] + delta) : target[field] + delta;
+    target[field] = field === 'hp' ? Math.min(target.maxHp, Math.max(0, target[field] + delta)) : target[field] + delta;
     if (field === 'hp' || field === 'maxHp') target[field] = Math.max(0, target[field]);
     // 血量相关统计
     if (field === 'hp') {

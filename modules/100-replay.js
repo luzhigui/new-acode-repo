@@ -82,17 +82,44 @@ const ReplayManager = (() => {
       : replayData;
     const name = filename || `replay-${new Date(replayData.timestamp).toISOString().slice(0,19).replace(/:/g, '-')}.json`;
     const json = JSON.stringify(exportData, null, 2);
-    const blob = new Blob([json], { type: 'application/json' });
-    const reader = new FileReader();
-    reader.onload = () => {
-        const a = document.createElement('a');
-        a.href = reader.result;
-        a.download = name;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
+    showDownloadDialog(name, json, 'application/json');
+  }
+
+  // 自定义下载弹窗（避免 Android WebView blob URL 报错）
+  function showDownloadDialog(filename, content, mimeType) {
+    const overlay = document.createElement('div');
+    overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);z-index:99999;display:flex;align-items:center;justify-content:center;';
+    const dialog = document.createElement('div');
+    dialog.style.cssText = 'background:#1a1a2e;border:2px solid #ffd700;border-radius:12px;padding:20px;max-width:90vw;max-height:85vh;display:flex;flex-direction:column;min-width:300px;';
+    dialog.innerHTML = `
+      <div style="color:#ffd700;font-size:16px;font-weight:bold;margin-bottom:12px;word-break:break-all;">📥 ${filename}</div>
+      <textarea readonly style="flex:1;min-height:200px;max-height:50vh;background:#0d0d1a;color:#ccc;border:1px solid #444;border-radius:6px;padding:10px;font-size:12px;font-family:monospace;resize:vertical;">${content}</textarea>
+      <div style="display:flex;gap:10px;margin-top:12px;justify-content:flex-end;">
+        <button id="_dlCopyBtn" style="background:#4caf50;color:#fff;border:none;padding:10px 20px;border-radius:6px;cursor:pointer;font-weight:bold;font-size:14px;">📋 复制内容</button>
+        <button id="_dlCloseBtn" style="background:#666;color:#fff;border:none;padding:10px 20px;border-radius:6px;cursor:pointer;font-size:14px;">关闭</button>
+      </div>`;
+    overlay.appendChild(dialog);
+    document.body.appendChild(overlay);
+
+    dialog.querySelector('#_dlCopyBtn').onclick = () => {
+      navigator.clipboard.writeText(content).then(() => {
+        const btn = dialog.querySelector('#_dlCopyBtn');
+        btn.textContent = '✅ 已复制！';
+        btn.style.background = '#2e7d32';
+        setTimeout(() => { btn.textContent = '📋 复制内容'; btn.style.background = '#4caf50'; }, 2000);
+      }).catch(() => {
+        // fallback: select text
+        const ta = dialog.querySelector('textarea');
+        ta.select();
+        document.execCommand('copy');
+        const btn = dialog.querySelector('#_dlCopyBtn');
+        btn.textContent = '✅ 已复制！';
+        btn.style.background = '#2e7d32';
+        setTimeout(() => { btn.textContent = '📋 复制内容'; btn.style.background = '#4caf50'; }, 2000);
+      });
     };
-    reader.readAsDataURL(blob);
+    dialog.querySelector('#_dlCloseBtn').onclick = () => document.body.removeChild(overlay);
+    overlay.onclick = (e) => { if (e.target === overlay) document.body.removeChild(overlay); };
   }
 
   // 导入回放文件（接受 File 对象）

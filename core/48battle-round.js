@@ -97,11 +97,11 @@ export async function* createRoundStepper(state) {
         }
     });
 
-    // 圣火令每回合重新随机行列
+    // 圣火令每回合重新随机行列（2行×1列）
     A._activeBuffs.forEach(b => {
         if (b.key === 'holyFlame') {
             const cols = [];
-            while (cols.length < 2) { const c = rng.nextInt(1, 3); if (!cols.includes(c)) cols.push(c); }
+            while (cols.length < 1) { const c = rng.nextInt(1, 3); if (!cols.includes(c)) cols.push(c); }
             cols.sort((a, b) => a - b);
             const rows = [];
             while (rows.length < 2) { const r = rng.nextInt(1, 3); if (!rows.includes(r)) rows.push(r); }
@@ -391,7 +391,7 @@ export async function* createRoundStepper(state) {
         // 姐姐附身：明教第一次被调度时触发，先于任何明教单位行动
         if (currentSide === 'ally' && !A._butterflyTriggered) {
             A._butterflyTriggered = true;
-            const sisterForAttach = A.find(u => u.isXiaoZhaoSister && u.alive && u.pos === 4 && !u.state._stunned && !u.state._butterflyHost);
+            const sisterForAttach = A.find(u => u.isXiaoZhaoSister && u.alive && !u.state._stunned && !u.state._butterflyHost);
             if (sisterForAttach) {
                 sisterComp.executeAttach(A, log);
                 // 附身完后 yield 一次，让事件出队刷新 UI
