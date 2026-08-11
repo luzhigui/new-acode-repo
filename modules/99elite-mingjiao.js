@@ -48,7 +48,12 @@ export function createZhangWujiComponent() {
                 }
             };
             const initial = zhang.rangedForm ? 'ranged' : 'near';
-            return new StateMachine(states, initial);
+            return new StateMachine(states, initial, {
+                ranged: ['switching'],
+                switching: ['near'],
+                near: ['ronghui'],
+                ronghui: []
+            });
         },
         register(eventBus, A, B, log) {
             const zhang = A.find(u => u.isZhang && u.alive);
@@ -206,7 +211,12 @@ export function createXiaoZhaoSisterComponent() {
                     onExit() {}
                 }
             };
-            return new StateMachine(states, 'normal');
+            return new StateMachine(states, 'normal', {
+                normal: ['attaching'],
+                attaching: ['attached'],
+                attached: ['returning'],
+                returning: ['normal']
+            });
         },
         register(eventBus, A, B, log) {
             const sister = A.find(u => u.isXiaoZhaoSister && u.alive && !u.state._stunned);
@@ -342,8 +352,8 @@ export function createXiaoZhaoSisterComponent() {
             } else {
                 applyStatChange(sister, 'hp', -sister.hp, null, '蝶变飞回无队友');
             }
-            sister.atk = sister._baseAtk;
-            sister.def = sister._baseDef;
+            applyStatChange(sister, 'atk', sister._baseAtk - sister.atk, null, '蝶变飞回重置攻');
+            applyStatChange(sister, 'def', sister._baseDef - sister.def, null, '蝶变飞回重置防');
             if (host && host.alive) {
                 applyStatChange(host, 'atk', -(host._butterflyAtkBonus || 0), sister, '蝶变飞回');
                 applyStatChange(host, 'def', -(host._butterflyDefBonus || 0), sister, '蝶变飞回');
@@ -447,7 +457,12 @@ export function createXiaoZhaoBrotherComponent() {
                     onExit() {}
                 }
             };
-            return new StateMachine(states, 'normal');
+            return new StateMachine(states, 'normal', {
+                normal: ['flying'],
+                flying: ['descending'],
+                descending: ['normal'],
+                dead: []
+            });
         },
         register(eventBus, A, B, log) {
             const brother = A.find(u => u.isXiaoZhaoBrother && u.alive);
