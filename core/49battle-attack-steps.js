@@ -13,6 +13,8 @@ import { GlobalStore } from '../modules/46global-store.js';
 // 裁判统一管理所有闪避规则。每个规则是一个函数 (unit, attacker) => dodgeRate (0~1)
 // 通用规则在模块加载时注册，精英规则通过事件总线在回合开始注册
 const _dodgeRules = [];
+// 暴露给UI面板实时计算闪避率
+window._dodgeRules = _dodgeRules;
 
 /**
  * 注册闪避规则（通用或精英均可调用）
@@ -183,8 +185,12 @@ export function resolveAttackHit(unit, target, attackerBuffStats, defenderBuffSt
                 dodgeTriggered = true;
             }
         }
-        // 将最终总闪避率写入单位，供面板显示
-        target._dodgeChance = Math.round((defenderBuffStats.dodgeBonus || 0) * 100);
+        // 将最终总闪避率写入单位，供面板显示（含所有规则 + Buff）
+        let totalDodge = (defenderBuffStats.dodgeBonus || 0);
+        for (const ruleFn of _dodgeRules) {
+            totalDodge += ruleFn(target, unit) || 0;
+        }
+        target._dodgeChance = Math.round(totalDodge * 100);
         if (dodgeTriggered) {
             target.dodgeCount++;
             let reboundDmg = Math.floor((target.atk + target.def) * C.DODGE_REBOUND_RATIO);

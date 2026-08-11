@@ -17,6 +17,7 @@ import {
     resolveDeaths
 } from './49battle-attack-steps.js';
 import { eventBus } from './00-event-bus.js';
+import { GlobalStore } from '../modules/46global-store.js';
 
 import { emitEvent } from './50battle-shared.js';
 
@@ -225,6 +226,9 @@ export async function processUnitAttack(unit, allySide, enemySide, log, A, B, st
     }
 
     if (!unit._isLinkAttack) unit.state._acted = true;
+
+    // 将本攻击产生的所有事件（hp-change等）写入攻击组，确保UI在连击/联动等后续攻击前刷新
+    group._events = (group._events || []).concat(GlobalStore.flushBattleEvents());
 
     // 攻击结束信号（玄冥二老联动、白骨爪追击等）
     const afterAttackData = { unit, target, dmg: dmgCalc.dmg, group, allySide, enemySide, log, A, B, state, retry: false, retryTargetUid: null };
