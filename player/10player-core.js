@@ -8,6 +8,7 @@ import { AudioManager } from '../modules/28audio-manager.js';
 import { handleBuffSummon, handleBuffDestroy, handleBuffLeech, showBuffPopup, handleHolyTokenDrop } from './09player-buff-ui.js';
 import { createRoundStepper } from '../core/48battle-round.js';
 import { SeededRNG } from '../core/07-rng.js';
+import { getBattleRng } from '../core/50battle-shared.js';
 import { getState } from '../ui/39main-state.js';
 import { setRenderStore, updateUI } from '../ui/14ui-render-5v5-test.js';
 import { createStore, battleReducer, GAME_STATE_FIELDS } from '../modules/52battle-store.js';
@@ -421,8 +422,8 @@ export async function playBattle() {
                         }
                     }
                     if (pick === 'holyFlame') {
-                        newBuff.col = Math.floor(Math.random() * 3) + 1;
-                        newBuff.row = Math.floor(Math.random() * 3) + 1;
+                        newBuff.col = getBattleRng().nextInt(1, 3);
+                        newBuff.row = getBattleRng().nextInt(1, 3);
                     }
                 }
                 appendLogHTML(`<span class="gold">🤖 全自动选择Buff：${newBuff ? newBuff.name : '无'}</span><br>`);
@@ -488,7 +489,7 @@ export async function playBattle() {
         const stage = c.currentStage;
         const killRate = [0, 1.5, 2, 2.5, 4, 5.5, 6][stage] / 100;
         const clearRate = stage === 5 ? killRate * 6 : killRate * 5;
-        if (Math.random() < clearRate) {
+        if (getBattleRng().next() < clearRate) {
             const currentToken = GlobalStore.get('holyToken') || 0;
             GlobalStore.set('holyToken', currentToken + 1);
             localStorage.setItem('ming_holy_token_5v5_test', String(currentToken + 1));
@@ -497,7 +498,7 @@ export async function playBattle() {
     }
     if (winner === '明教' && c.currentStage) {
         const chestClearRate = 1 / 100;
-        if (Math.random() < chestClearRate) {
+        if (getBattleRng().next() < chestClearRate) {
             let chests = parseInt(localStorage.getItem('ming_chest_count') || '0');
             chests++;
             localStorage.setItem('ming_chest_count', String(chests));

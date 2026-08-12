@@ -7,7 +7,7 @@ import { eventBus } from './00-event-bus.js';
 import { calcDamage, getFangLevel, isMelee, getFronts, isBlocked, getRandomTaunt, getZhangNearTaunt, makeFXSnapshot, hasBuff, getUnitCol, getUnitRow } from './03battle-utils.js';
 import { computeBuffStats, applyBuffEffectsBeforeAttack, applyBuffEffectsAfterAttack } from './04buff-system.js';
 import { emitEvent, applyStatChange, applyMaxHpChange, query, getBattleRng } from './50battle-shared.js';
-import { GlobalStore } from '../modules/46global-store.js';
+import { flushBattleEvents, pushBattleEvent, getBattleState, setBattleState } from './09-battle-event-store.js';
 
 // ==================== 闪避规则注册表 ====================
 // 裁判统一管理所有闪避规则。每个规则是一个函数 (unit, attacker) => dodgeRate (0~1)
@@ -153,7 +153,7 @@ export function resolveAttackHit(unit, target, attackerBuffStats, defenderBuffSt
             }
         };
         unit.state._acted = true;
-        missData.missGroup._events = GlobalStore.flushBattleEvents();
+        missData.missGroup._events = flushBattleEvents();
 
         if (eventBus) {
             let afterMissData = { unit, target, log, retry: false, retryTargetUid: null };
@@ -225,7 +225,7 @@ export function resolveAttackHit(unit, target, attackerBuffStats, defenderBuffSt
                     reboundText: `<span class="red">🦅 ${target.name}反击 → ${unit.name} 造成 ${reboundDmg} 真实伤害（${unitHpBeforeRebound} → ${Math.floor(unit.hp)}）</span>`,
                     stunText: `<span class="gray">😵 ${unit.name} 被反击眩晕，本回合无法行动！</span>`,
                     weiHealData: dodgeDeclarations.find(d => d.type === 'weiHeal')?.data || null,
-                    _events: GlobalStore.flushBattleEvents()
+                    _events: flushBattleEvents()
                 }
             };
             return dodgeData;
@@ -359,14 +359,14 @@ export function applyAttackResult(unit, target, dmgCalc, attackerBuffStats, defe
     // 战士斩杀 — 已由 registerBloodthirst 通过 afterDamageApplied 声明提交并执行
     unit.dmgDealt += dmg; target.dmgTaken += dmg;
     if (dead && target.camp === 'enemy' && unit.camp === 'ally' && !target._tokenDropped) {
-        const stage = GlobalStore.get('currentStage') || 1;
+        const stage = getBattleState('currentStage') || 1;
         const dropRate = (C.TOKEN_DROP_RATES[stage] || 0) / 100;
         if (rng.next() < dropRate) {
             target._tokenDropped = true;
-            const currentToken = GlobalStore.get('holyToken') || 0;
-            GlobalStore.set('holyToken', currentToken + 1);
+            const currentToken = getBattleState('holyToken') || 0;
+            setBattleState('holyToken', currentToken + 1);
             localStorage.setItem('ming_holy_token_5v5_test', String(currentToken + 1));
-            window.GlobalStore.pushBattleEvent({ unitUid: unit.uid, eventType: 'info', payload: { text: `🔥 圣火令掉落！${unit.name} 击杀 ${target.name}，获得1枚圣火令！当前总数：${currentToken + 1}`, fastEntry: true } });
+            pushBattleEvent({ unitUid: unit.uid, eventType: 'info', payload: { text: `🔥 圣火令掉落！${unit.name} 击杀 ${target.name}，获得1枚圣火令！当前总数：${currentToken + 1}`, fastEntry: true } });
             log.push({type:'info', text:`<span class="gold">🔥 圣火令掉落！${unit.name} 击杀 ${target.name}，获得1枚圣火令！当前总数：${currentToken + 1}</span>`, fastEntry: true, unitUid: unit.uid});
         }
     }
@@ -377,8 +377,8 @@ export function applyAttackResult(unit, target, dmgCalc, attackerBuffStats, defe
             let chests = parseInt(localStorage.getItem('ming_chest_count') || '0');
             chests++;
             localStorage.setItem('ming_chest_count', String(chests));
-            GlobalStore.set('chestCount', chests);
-            window.GlobalStore.pushBattleEvent({ unitUid: unit.uid, eventType: 'info', payload: { text: `🎁 宝箱掉落！${unit.name} 击杀 ${target.name}，获得1个宝箱！当前总数：${chests}`, fastEntry: true } });
+            setBattleState('chestCount', chests);
+            pushBattleEvent({ unitUid: unit.uid, eventType: 'info', payload: { text: `🎁 宝箱掉落！${unit.name} 击杀 ${target.name}，获得1个宝箱！当前总数：${chests}`, fastEntry: true } });
         }
     }
 
@@ -542,7 +542,7 @@ export function resolveAfterDamageEffects(declarations, unit, target, group) {
         if (!decl.target || !decl.target.alive) continue;
         applyStatChange(decl.target, 'hp', -decl.target.hp, decl.source, '斩杀');
         // 斩杀产生的事件（hp-change/_isDead）立即收集，避免被后续攻击组抢占
-        decl._events = GlobalStore.flushBattleEvents();
+        decl._events = flushBattleEvents();
         executed.push(decl);
     }
 

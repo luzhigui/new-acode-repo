@@ -1,10 +1,10 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// core/50battle-shared.js - 光明顶5v5 战斗共享工具
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// core/50battle-shared.js - 光明顶5v5 战斗共享工具
 // V5.2.1 | 提取06和48的公共依赖，解开循环引用
 export const VER = 'core/50battle-shared.js V5.4.0';
 
 import { CONFIG } from './01config-5v5-test.js';
 import { ROLE_BONUS } from './02unit.js';
-import { GlobalStore } from '../modules/46global-store.js';
+import { pushBattleEvent } from './09-battle-event-store.js';
 const C = CONFIG;
 
 // ==================== 事件系统 ====================
@@ -82,13 +82,10 @@ function checkZhangSwitch(A, log) {
 }
 
 // ==================== 统一事件发送 ====================
-// 优先使用 GlobalStore，回退到 window._emitEvent（兼容旧代码）
 function emitCoreEvent(unit, eventType, payload) {
-    if (window.GlobalStore) {
-        window.GlobalStore.pushBattleEvent({ unitUid: unit.uid, eventType, payload });
-    }
+    pushBattleEvent({ unitUid: unit.uid, eventType, payload });
 }
-// 同时挂载到 window 以兼容非 core 层代码的调用
+// 挂载到 window 以兼容非 core 层代码的调用
 window._emitEvent = emitCoreEvent;
 
 /**
