@@ -9,7 +9,8 @@ import { handleBuffSummon, handleBuffDestroy, handleBuffLeech, showBuffPopup, ha
 import { createRoundStepper } from '../core/48battle-round.js';
 import { SeededRNG } from '../core/07-rng.js';
 import { getBattleRng } from '../core/50battle-shared.js';
-import { getState } from '../ui/39main-state.js';
+import { getState, getPlayerContext } from '../ui/39main-state.js';
+import { GlobalStore } from '../modules/46global-store.js';
 import { setRenderStore, updateUI } from '../ui/14ui-render-5v5-test.js';
 import { createStore, battleReducer, GAME_STATE_FIELDS } from '../modules/52battle-store.js';
 import '../modules/100-replay.js';
@@ -42,7 +43,7 @@ class AnimationScheduler {
 }
 
 function getCtx() {
-    return window._getPlayerContext ? window._getPlayerContext() : null;
+    return getPlayerContext();
 }
 
 export function clearAllEffects(){
@@ -156,7 +157,7 @@ export async function playLogEntries(c, log, roundResult, isFirstAttackRef) {
                             }
                         });
                     }
-                    if (entry.buffType === 'meteor_splash') await new Promise(r=>setTimeout(r, window._fastForwardActive ? 1 : 600));
+                    if (entry.buffType === 'meteor_splash') await new Promise(r=>setTimeout(r, GlobalStore.get('fastForwardActive') ? 1 : 600));
                     c.isPaused = false;
                     lastEntryType = entry.type;
                     break;
@@ -395,7 +396,7 @@ export async function playBattle() {
         c.activeBuffs = nextActiveBuffs;
         if (c.updateBuffSlots) c.updateBuffSlots();
         if (!GlobalStore.get('fastForwardActive') && battleState.round % 3 === 0 && battleState.round > 0) {
-            const mainCtx2 = window._getPlayerContext ? window._getPlayerContext() : null;
+            const mainCtx2 = getPlayerContext();
             const isFullAuto = mainCtx2 && mainCtx2.autoLevel === 'full-auto';
             appendLogHTML(`<span class="gold">✨ 请选择新的Buff（持续${CONFIG.BUFF_DURATION || 4}回合）</span><br>`);
             let newBuff = null;
@@ -434,7 +435,7 @@ export async function playBattle() {
             if (newBuff) {
                 nextActiveBuffs = [...(nextActiveBuffs || []), newBuff];
                 appendLogHTML(`<span class="gold">✨ 获得Buff：${newBuff.name}（持续${newBuff.remaining}回合）</span><br>`);
-                let mainCtx = window._getPlayerContext ? window._getPlayerContext() : null;
+                let mainCtx = getPlayerContext();
                 if (mainCtx) { mainCtx.activeBuffs = nextActiveBuffs; if (mainCtx.updateBuffSlots) mainCtx.updateBuffSlots(); }
             }
             c.isPaused = false;
@@ -458,7 +459,7 @@ export async function playBattle() {
 
         battleState = { ally: lastStep.ally, enemy: lastStep.enemy, round: battleState.round + 1, activeBuffs: nextActiveBuffs, allAllies: battleState.allAllies };
 
-        if (c.autoMode || window._fastForwardActive) {
+        if (c.autoMode || GlobalStore.get('fastForwardActive')) {
             await new Promise(r=>setTimeout(r, GlobalStore.get('fastForwardActive') ? 1 : c.speed/2));
         } else {
             setBtnDisabled('btnNext', false);
@@ -548,7 +549,7 @@ export async function playBattle() {
         autoScrollLog();
     }
 
-    let mainCtx = window._getPlayerContext ? window._getPlayerContext() : null;
+    let mainCtx = getPlayerContext();
     if (mainCtx && mainCtx.activeBuffs) mainCtx.activeBuffs = [];
     if (mainCtx && mainCtx.updateBuffSlots) mainCtx.updateBuffSlots();
     GlobalStore.set('glowColors', -1);
