@@ -88,3 +88,60 @@ export function setBtnText(id, text) {
 export function initRenderer(c) {
     setRenderCtx(c);
 }
+
+// ==================== 特效清理 ====================
+
+export function clearAllEffects() {
+    document.querySelectorAll('[data-fx="temporary"]').forEach(el => { if (el.parentNode) el.parentNode.removeChild(el); });
+    document.querySelectorAll('.cell-cheer').forEach(cell => cell.classList.remove('cell-cheer'));
+    document.querySelectorAll('.grid.victory-border').forEach(grid => grid.classList.remove('victory-border'));
+}
+
+// ==================== 日志滚动控制 ====================
+
+export function initLogScrollControls(c) {
+    const logDiv = getLogDiv();
+    if (!logDiv) return;
+    const btn = document.createElement('div');
+    btn.id = 'backToBottomBtn';
+    btn.style.cssText = 'position:absolute;right:8px;bottom:60px;width:32px;height:32px;background:rgba(0,0,0,0.6);color:#ffd700;border-radius:50%;display:none;align-items:center;justify-content:center;font-size:18px;cursor:pointer;z-index:20;';
+    btn.innerHTML = '↓';
+    btn.addEventListener('click', () => {
+        logDiv.scrollTop = logDiv.scrollHeight;
+        c.userScrolled = false;
+        btn.style.display = 'none';
+        if (window._restoreSpeedFromScroll) window._restoreSpeedFromScroll();
+        const mainCtx = ctx();
+        if (mainCtx && mainCtx.speed) c.speed = mainCtx.speed;
+        else c.speed = 500;
+    });
+    logDiv.parentElement.appendChild(btn);
+    logDiv.addEventListener('scroll', () => {
+        const distToBottom = logDiv.scrollHeight - logDiv.scrollTop - logDiv.clientHeight;
+        if (distToBottom > 50) {
+            c.userScrolled = true;
+            btn.style.display = 'flex';
+            GlobalStore.set('scrollSlowdown', true);
+            c.speed = 1800;
+        } else {
+            c.userScrolled = false;
+            btn.style.display = 'none';
+            if (window._restoreSpeedFromScroll) window._restoreSpeedFromScroll();
+            c.speed = GlobalStore.get('speed');
+        }
+    });
+}
+
+// ==================== 积分浮动 ====================
+
+export function showScoreFloat(earnPoints) {
+    const badge = document.getElementById('scoreBadge');
+    if (!badge) return;
+    const floatEl = document.createElement('span');
+    floatEl.className = 'score-float';
+    floatEl.textContent = (earnPoints > 0 ? '+' : '') + earnPoints + '🏆';
+    badge.appendChild(floatEl);
+    setTimeout(() => { if (floatEl.parentNode) floatEl.parentNode.removeChild(floatEl); }, 3500);
+    const c = ctx();
+    if (c && c.updateScoreBadge) setTimeout(() => c.updateScoreBadge(), 3500);
+}

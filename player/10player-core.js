@@ -15,7 +15,7 @@ import { setRenderStore, updateUI } from '../ui/14ui-render-5v5-test.js';
 import { createStore, battleReducer, GAME_STATE_FIELDS } from '../modules/52battle-store.js';
 import '../modules/100-replay.js';
 import { handleBuffBonus, handleBuffSwap, handleBuffPush, handleBuffReboundFortify, handleAttackGroup, handleInfo, handleRoundStart, handleRoundEnd, shouldStartNewGroup } from './53event-handlers.js';
-import { getLogDiv, appendLogHTML, appendLogElement, autoScrollLog, updateRoundDisplay, renderSeparator, renderRoundStart, renderRoundEnd, renderInfoLine, renderVictoryLine, setBtnDisabled, setBtnText, initRenderer } from './54renderer.js';
+import { getLogDiv, appendLogHTML, appendLogElement, autoScrollLog, updateRoundDisplay, renderSeparator, renderRoundStart, renderRoundEnd, renderInfoLine, renderVictoryLine, setBtnDisabled, setBtnText, initRenderer, initLogScrollControls, showScoreFloat } from './54renderer.js';
 
 class AnimationScheduler {
     constructor() {
@@ -46,11 +46,8 @@ function getCtx() {
     return getPlayerContext();
 }
 
-export function clearAllEffects(){
-    document.querySelectorAll('[data-fx="temporary"]').forEach(el=>{if(el.parentNode)el.parentNode.removeChild(el);});
-    document.querySelectorAll('.cell-cheer').forEach(cell => cell.classList.remove('cell-cheer'));
-    document.querySelectorAll('.grid.victory-border').forEach(grid => grid.classList.remove('victory-border'));
-}
+// clearAllEffects 已迁移至 54renderer（渲染层），此处 re-export 保持既有导入路径
+export { clearAllEffects } from './54renderer.js';
 
 /**
  * 逐条消费日志条目，根据 type 分发到对应的 handler（info/attack-group/buff-summon 等）
@@ -319,33 +316,7 @@ export async function playBattle() {
     initRenderer(c);
     updateRoundDisplay('📜 日志（第1回合）');
 
-    let logDiv = document.getElementById('log');
-    let backToBottomBtn = document.createElement('div'); backToBottomBtn.id = 'backToBottomBtn'; backToBottomBtn.style.cssText = 'position:absolute;right:8px;bottom:60px;width:32px;height:32px;background:rgba(0,0,0,0.6);color:#ffd700;border-radius:50%;display:none;align-items:center;justify-content:center;font-size:18px;cursor:pointer;z-index:20;'; backToBottomBtn.innerHTML = '↓';
-    backToBottomBtn.addEventListener('click', () => {
-        logDiv.scrollTop = logDiv.scrollHeight;
-        c.userScrolled = false;
-        backToBottomBtn.style.display = 'none';
-        if (window._restoreSpeedFromScroll) window._restoreSpeedFromScroll();
-        let mainCtx = getPlayerContext();
-        if (mainCtx && mainCtx.speed) c.speed = mainCtx.speed;
-        else c.speed = 500;
-    });
-    logDiv.parentElement.appendChild(backToBottomBtn);
-    logDiv.addEventListener('scroll', () => {
-        let threshold = 50;
-        let distToBottom = logDiv.scrollHeight - logDiv.scrollTop - logDiv.clientHeight;
-        if (distToBottom > threshold) {
-            c.userScrolled = true;
-            backToBottomBtn.style.display = 'flex';
-            GlobalStore.set('scrollSlowdown', true);
-            c.speed = 1800;
-        } else {
-            c.userScrolled = false;
-            backToBottomBtn.style.display = 'none';
-            if (window._restoreSpeedFromScroll) window._restoreSpeedFromScroll();
-            c.speed = getState.speed();
-        }
-    });
+    initLogScrollControls(c);
 
     // 保存初始阵容快照，供"原班再战"使用
     c._originalSnapshot = {
@@ -577,11 +548,7 @@ else {
         new Error().stack
     );
 }
-        let badge = document.getElementById('scoreBadge'), floatEl = document.createElement('span');
-        floatEl.className = 'score-float'; floatEl.textContent = (earnPoints > 0 ? '+' : '') + earnPoints + '🏆';
-        badge.appendChild(floatEl);
-        setTimeout(() => { if (floatEl.parentNode) floatEl.parentNode.removeChild(floatEl); }, 3500);
-        setTimeout(() => c.updateScoreBadge(), 3500);
+        showScoreFloat(earnPoints);
         let voteMsg = correct ? `<span class="green">📊 你猜了${GlobalStore.get('voteChoice')}，正确！+${earnPoints}分！ 当前积分：${GlobalStore.get('voteScore')}</span>` : `<span class="red">📊 你猜了${GlobalStore.get('voteChoice')}，错误！-1分！当前积分：${GlobalStore.get('voteScore')}</span>`;
         if (c.gs === 'GAMEOVER') { renderVictoryLine(voteMsg + '<br>'); }
     } else if (winner === '平局') {
