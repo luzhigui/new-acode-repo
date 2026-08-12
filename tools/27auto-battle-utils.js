@@ -1,10 +1,10 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// tools/27auto-battle-utils.js - 光明顶5v5 自动批量战斗工具
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// tools/27auto-battle-utils.js - 光明顶5v5 自动批量战斗工具
 // V5.4.0 | ~13100 bytes| 2026-07-05
 export const VER = 'tools/27auto-battle-utils.js V5.4.0';
 
 import { CONFIG, ENEMY_M } from '../core/01config-5v5-test.js';
 import { Unit } from '../core/02unit.js';
-import { rand } from '../core/03battle-utils.js';
+const _randLocal = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
 import { addPermanentBuff } from '../modules/23elite-skills.js';
 const C = CONFIG;
 
@@ -19,7 +19,7 @@ export function generateSnapshot(currentStage = 1) {
     if (mingSquad) {
         let mingConfig;
         if (currentStage === 1 && Array.isArray(mingSquad[0])) {
-            mingConfig = mingSquad[rand(0, mingSquad.length - 1)];
+            mingConfig = mingSquad[_randLocal(0, mingSquad.length - 1)];
         } else {
             mingConfig = mingSquad;
         }
@@ -44,16 +44,16 @@ export function generateSnapshot(currentStage = 1) {
                     const usedNames = allyTeam.map(u => u.name);
                     const candidates = Object.entries(C.MING_M).filter(([n, v]) => v === mVal && !usedNames.includes(n));
                     if (candidates.length > 0) {
-                        name = candidates[rand(0, candidates.length - 1)][0];
+                        name = candidates[_randLocal(0, candidates.length - 1)][0];
                     } else {
                         const allCandidates = Object.entries(C.MING_M).filter(([n, v]) => v === mVal);
-                        name = allCandidates.length > 0 ? allCandidates[rand(0, allCandidates.length - 1)][0] : ('明教弟子' + (allyTeam.length + 1));
+                        name = allCandidates.length > 0 ? allCandidates[_randLocal(0, allCandidates.length - 1)][0] : ('明教弟子' + (allyTeam.length + 1));
                     }
                 }
             }
             if (!name) name = '明教弟子' + (allyTeam.length + 1);
             if (!mVal) mVal = 95;
-            let role = name === '张无忌' ? '远程' : (name === '韦一笑' ? '飞行' : C.ROLES[rand(0, 3)]);
+            let role = name === '张无忌' ? '远程' : (name === '韦一笑' ? '飞行' : C.ROLES[_randLocal(0, 3)]);
             let unit = new Unit(name, mVal, role, 'ally');
             if (name === '张无忌') unit.isZhang = true;
             if (name === '韦一笑') unit.isWei = true;
@@ -99,7 +99,7 @@ export function generateSnapshot(currentStage = 1) {
                 if (!name && pool.length > 0) {
                     let attempts = 0;
                     while ((!name || usedNames.includes(name)) && attempts < 50) {
-                        let pick = pool[rand(0, pool.length - 1)];
+                        let pick = pool[_randLocal(0, pool.length - 1)];
                         name = pick[0];
                         attempts++;
                     }
@@ -107,11 +107,11 @@ export function generateSnapshot(currentStage = 1) {
                 if (!name) {
                     // 兜底名字加序号，避免重名
                     const fallbackSects = ['少林弟子', '武当弟子', '峨眉弟子', '昆仑弟子', '崆峒弟子'];
-                    const fallbackName = fallbackSects[rand(0, fallbackSects.length - 1)];
+                    const fallbackName = fallbackSects[_randLocal(0, fallbackSects.length - 1)];
                     const existingCount = usedEnemyNames.filter(n => n.startsWith(fallbackName)).length;
                     name = fallbackName + (existingCount > 0 ? String(existingCount + 1) : '');
                 }
-                let role = C.ROLES[rand(0, 3)];
+                let role = C.ROLES[_randLocal(0, 3)];
                 let unit = new Unit(name, mVal, role, 'enemy');
                 unit.init(); unit.applyBonus();
                 enemyUnits.push(unit);
@@ -149,7 +149,7 @@ export function generateSnapshot(currentStage = 1) {
         let allPos = [1,2,3,4,5,6,7,8,9].filter(p => !enemyPosSet.has(p));
         for (let u of remainingNormals) {
             if (allPos.length > 0) {
-                let idx = rand(0, allPos.length - 1);
+                let idx = _randLocal(0, allPos.length - 1);
                 u.pos = allPos[idx]; u._originalPos = u.pos;
                 enemyPosSet.add(allPos[idx]);
                 allPos.splice(idx, 1);
@@ -210,7 +210,7 @@ export function generateSnapshot(currentStage = 1) {
         for (let u of otherElites) {
             allPos = [1,2,3,4,5,6,7,8,9].filter(p => !enemyPosSet.has(p));
             if (allPos.length > 0) {
-                let idx = rand(0, allPos.length - 1);
+                let idx = _randLocal(0, allPos.length - 1);
                 u.pos = allPos[idx]; u._originalPos = u.pos;
                 enemyPosSet.add(allPos[idx]);
             }
@@ -221,13 +221,13 @@ export function generateSnapshot(currentStage = 1) {
             let finalPositions = [1,2,3,4,5,6,7,8,9].filter(p => !enemyPosSet.has(p));
             for (let u of stillUnplaced) {
                 if (finalPositions.length > 0) {
-                    let idx = rand(0, finalPositions.length - 1);
+                    let idx = _randLocal(0, finalPositions.length - 1);
                     u.pos = finalPositions[idx]; u._originalPos = u.pos;
                     enemyPosSet.add(finalPositions[idx]);
                     finalPositions.splice(idx, 1);
                 } else {
                     // 极端情况：所有位置被占，强行给一个合法位置
-                    u.unit.pos = 1 + rand(0, 8);
+                    u.unit.pos = 1 + _randLocal(0, 8);
                 }
             }
         }
