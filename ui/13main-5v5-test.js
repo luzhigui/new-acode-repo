@@ -29,6 +29,8 @@ import { updateSpeedButtons, activateScrollSlowdown, restoreSpeedFromScroll, upd
 import { VER as VER_BUFF } from '../core/04buff-system.js';
 import { VER as VER_HORSE } from '../core/05battle-horse.js';
 import { VER as VER_CORE } from '../core/48battle-round.js';
+import { SeededRNG } from '../core/07-rng.js';
+import { setBattleRng } from '../core/50battle-shared.js';
 import { VER as VER_PLAYER_CORE } from '../player/10player-core.js';
 import { VER as VER_TEXT } from '../player/08player-text.js';
 import { VER as VER_BUFF_UI } from '../player/09player-buff-ui.js';
@@ -217,6 +219,9 @@ document.addEventListener('DOMContentLoaded', async function() {
                     autoScrollLog();
                 }
             } else {
+                // 选 Buff 前注入战斗 RNG：showBuffSelection 的洗牌需要确定性 RNG（与 doInitBattle 同源）
+                const _snap = getState.snapshot();
+                setBattleRng(new SeededRNG(_snap?._rngSeed || Date.now()));
                 await new Promise(resolve => { showBuffSelection(resolve, getState.activeBuffs(), -1, () => updateBuffSlots(getState.activeBuffs()), () => {}, autoScrollLog, getState.UI().allyTeam); });
             }
             await new Promise(r=>setTimeout(r,600));
