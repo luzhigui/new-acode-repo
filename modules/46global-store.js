@@ -1,11 +1,12 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// modules/46global-store.js - 光明顶5v5 全局状态管理
-// V5.4.0 | ~3700 bytes| 2026-07-18 第一步：收敛 window._* 全局变量
-export const VER = 'modules/46global-store.js V5.4.0';
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// modules/46global-store.js - 光明顶5v5 全局状态管理
+// V5.5.0 | ~3700 bytes| 2026-08-12 战斗事件/状态桥接至 core/09-battle-event-store.js
+export const VER = 'modules/46global-store.js V5.5.0';
+
+import { pushBattleEvent, flushBattleEvents, onBattleEvents, getBattleState, setBattleState, isBattleStateKey } from '../core/09-battle-event-store.js';
 
 const _state = {
     fastForwardActive: false,
     voteScore: null,
-    holyToken: null,
     voteChoice: null,
     battleHasZhang: false,
     bugMode: false,
@@ -13,9 +14,7 @@ const _state = {
     currentBattleState: null,
     battleStore: null,
     forceXiaoZhao: false,
-    skipBuffPopup: false,
-    battleEvents: [],
-    currentBattleState: null
+    skipBuffPopup: false
 };
 
 const _listeners = [];
@@ -41,9 +40,16 @@ export const GlobalStore = {
     },
 
     // 通用读写（取代 window._* 直接访问）
-    get(key) { return _state[key]; },
+    get(key) {
+        if (isBattleStateKey(key)) return getBattleState(key);
+        return _state[key];
+    },
     set(key, value) {
-        _state[key] = value;
+        if (isBattleStateKey(key)) {
+            setBattleState(key, value);
+        } else {
+            _state[key] = value;
+        }
         if (_effects[key]) {
             try { _effects[key](value); } catch(e) { console.error('[GlobalStore] 副作用执行失败:', key, e); }
         }
@@ -51,6 +57,7 @@ export const GlobalStore = {
         if (fns) fns.forEach(fn => { try { fn(value); } catch(e) {} });
     },
     on(key, fn) {
+        if (key === 'battleEvents') return onBattleEvents(fn);
         if (!_listenersByKey[key]) _listenersByKey[key] = [];
         _listenersByKey[key].push(fn);
         return () => {
@@ -72,9 +79,9 @@ export const GlobalStore = {
         _effects[key] = fn;
     },
 
-    // 引擎专用：追加一条战斗事件
+    // 引擎专用：追加一条战斗事件（桥接至 core/09-battle-event-store.js）
     pushBattleEvent(event) {
-        _state.battleEvents.push(event);
+        pushBattleEvent(event);
     },
 
     // 统一状态变更入口：直接 dispatch action 到 GlobalStore
@@ -95,14 +102,9 @@ export const GlobalStore = {
         }
     },
 
-    // 引擎专用：替换当前战斗事件队列（读取并清空）
+    // 引擎专用：替换当前战斗事件队列（读取并清空，桥接至 core/09-battle-event-store.js）
     flushBattleEvents() {
-        const events = _state.battleEvents;
-        _state.battleEvents = [];
-        // 通知所有 battleEvents 的订阅者
-        const fns = _listenersByKey['battleEvents'];
-        if (fns) fns.forEach(fn => { try { fn(events); } catch(e) {} });
-        return events;
+        return flushBattleEvents();
     },
 
     // 引擎专用：更新当前战场快照

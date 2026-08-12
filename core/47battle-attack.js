@@ -17,7 +17,7 @@ import {
     resolveDeaths
 } from './49battle-attack-steps.js';
 import { eventBus } from './00-event-bus.js';
-import { GlobalStore } from '../modules/46global-store.js';
+import { flushBattleEvents } from './09-battle-event-store.js';
 
 import { emitEvent } from './50battle-shared.js';
 
@@ -66,7 +66,7 @@ export async function processUnitAttack(unit, allySide, enemySide, log, A, B, st
             let emptyGroup = { type:'attack-group', uidA:unit.uid, uidD:null, entries:[], isMiss:true, _fxSnapshot:null, waveTaunt:null, waveUnit:null, buffEffects: [], needsSeparator: true };
             emptyGroup.entries.push({type:'combat-text', text:`<span class="${unit.camp==='ally'?'blue':'orange'}">${unit.camp==='ally'?'明教':'六大派'} ${unit.name}</span> 无法选择目标`});
             emptyGroup.entries.push({type:'info', text:`<span class="gray">锁定目标已阵亡，跳过行动</span>`});
-            GlobalStore.flushBattleEvents();
+            flushBattleEvents();
             log.push(emptyGroup);
             unit.state._acted = true;
             return false;
@@ -81,7 +81,7 @@ export async function processUnitAttack(unit, allySide, enemySide, log, A, B, st
         let emptyGroup = { type:'attack-group', uidA:unit.uid, uidD:null, entries:[], isMiss:true, _fxSnapshot:null, waveTaunt:null, waveUnit:null, buffEffects: [], needsSeparator: true };
         emptyGroup.entries.push({type:'combat-text', text:`<span class="${unit.camp==='ally'?'blue':'orange'}">${unit.camp==='ally'?'明教':'六大派'} ${unit.name}</span> 无法选择目标`});
         emptyGroup.entries.push({type:'info', text:`<span class="gray">无可选目标，跳过行动</span>`});
-        GlobalStore.flushBattleEvents();
+        flushBattleEvents();
         log.push(emptyGroup);
         unit.state._acted = true;
         return false;
@@ -228,7 +228,7 @@ export async function processUnitAttack(unit, allySide, enemySide, log, A, B, st
     if (!unit._isLinkAttack) unit.state._acted = true;
 
     // 将本攻击产生的所有事件（hp-change等）写入攻击组，确保UI在连击/联动等后续攻击前刷新
-    group._events = (group._events || []).concat(GlobalStore.flushBattleEvents());
+    group._events = (group._events || []).concat(flushBattleEvents());
 
     // 攻击结束信号（玄冥二老联动、白骨爪追击等）
     const afterAttackData = { unit, target, dmg: dmgCalc.dmg, group, allySide, enemySide, log, A, B, state, retry: false, retryTargetUid: null };
