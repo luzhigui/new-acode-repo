@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// ui/39main-state.js - 光明顶5v5 状态管理
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// ui/39main-state.js - 光明顶5v5 状态管理
 // V5.4.0 | ~12500 bytes| 2026-07-31 迁移至 GlobalStore 统一状态源
 export const VER = 'ui/39main-state.js V5.4.0';
 
