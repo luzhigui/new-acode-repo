@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// core/48battle-round.js - 光明顶5v5 回合循环与生成器
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// core/48battle-round.js - 光明顶5v5 回合循环与生成器
 // V5.4.0 | ~31000 bytes| 2026-08-06 小昭姐妹状态转换纳入声明→裁定模式
 export const VER = 'core/48battle-round.js V5.4.0';
 
@@ -146,10 +146,12 @@ export async function* createRoundStepper(state) {
     });
     registerDoubleStrike(eventBus, doubleStrikeUnitUid, A, A._activeBuffs);
     registerEmptyColBonus(eventBus);
-    registerXuanmingLink(eventBus);
 
     // 注册精英组件钩子，并保存小昭姐妹组件引用供裁判调用
     const factories = getEliteFactories();
+    // 玄冥二老联动：从注册表获取（玄冥联动注册的是直接函数，非组件工厂）
+    const xuanmingLinkFn = factories.get('玄冥联动');
+    if (xuanmingLinkFn) xuanmingLinkFn(eventBus);
     let sisterComp = null;
     let brotherComp = null;
     const allUnits = [...A, ...B];

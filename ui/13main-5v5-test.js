@@ -35,6 +35,10 @@ import { VER as VER_PLAYER_CORE } from '../player/10player-core.js';
 import { VER as VER_TEXT } from '../player/08player-text.js';
 import { VER as VER_BUFF_UI } from '../player/09player-buff-ui.js';
 import { addPermanentBuff, VER as VER_ELITE } from '../modules/23elite-skills.js';
+// 精英组件注册（副作用：registerElite 注册到 08-elite-registry）
+import '../modules/97elite-imperial.js';
+import '../modules/98elite-sixsects.js';
+import '../modules/99elite-mingjiao.js';
 import { VER as VER_MAIN_UTILS } from './12main-utils.js';
 
 const _randLocal = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
