@@ -7,11 +7,12 @@ import { createBuffObject } from '../ui/41main-battle.js';
 import { Unit } from '../core/02unit.js';
 import { showDamageFloat, showHealFloat, showBuffBanner } from '../fx/15fx-common-5v5-test.js';
 import { addPermanentBuff } from '../modules/23elite-skills.js';
+import { GlobalStore } from '../modules/46global-store.js';
 
 
 let ctx = null;
 function getCtx() {
-    if (!ctx) ctx = window._getPlayerContext ? window._getPlayerContext() : GlobalStore.get('playerContext');
+    if (!ctx) ctx = GlobalStore.get('playerContext');
     return ctx;
 }
 
