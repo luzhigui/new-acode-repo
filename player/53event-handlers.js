@@ -101,7 +101,7 @@ export async function handleBuffReboundFortify(c, entry) {
         c.store.dispatch({ type: 'SET_VISUAL', uid: attacker.uid, _isDead: true });
     }
     appendLogHTML(entry.text + '<br>');
-    await new Promise(r=>setTimeout(r, window._fastForwardActive ? 1 : c.speed/2));
+    await new Promise(r=>setTimeout(r, GlobalStore.get('fastForwardActive') ? 1 : c.speed/2));
 }
 
 export async function handleAttackGroup(c, entry, roundResult, abortSig, isFirstAttackRef) {
@@ -472,7 +472,7 @@ export async function handleRoundStart(c, entry, isFirstAttackRef) {
     if (isFirstAttackRef) isFirstAttackRef.value = true;
     appendLogHTML(entry.text + '<br>');
     updateRoundDisplay(`📜 日志（第${c.UI.round}回合）`);
-    await new Promise(r=>setTimeout(r, window._fastForwardActive ? 1 : c.speed/3));
+    await new Promise(r=>setTimeout(r, GlobalStore.get('fastForwardActive') ? 1 : c.speed/3));
     c.updateUI(c.UI);
 }
 
