@@ -130,7 +130,7 @@ export async function showDodgeBulletTime(attacker, defender, reboundDmg) {
     const TIMEOUT_MS = 18000;
     let isSkipped = false;
     let cleanupElements = [];
-    const ctx = window._getPlayerContext ? window._getPlayerContext() : null;
+    const ctx = GlobalStore.get('playerContext');
     if (ctx) ctx.isPaused = true;
     let resolved = false;
 
@@ -234,7 +234,7 @@ export async function showDodgeBulletTime(attacker, defender, reboundDmg) {
             isSkipped = true;
             cleanup();
             resolved = true;
-            window.bulletTimeActive = false;
+            GlobalStore.set('bulletTimeActive', true);
             if (ctx) ctx.isPaused = false;
         });
         document.body.appendChild(skipBtn);
@@ -562,7 +562,7 @@ export async function showDodgeBulletTime(attacker, defender, reboundDmg) {
     } catch (e) {
         cleanup();
     } finally {
-        window.bulletTimeActive = false;
+        GlobalStore.set('bulletTimeActive', true);
         if (ctx) ctx.isPaused = false;
         clearTimeout(timeoutId);
         resolved = true;

@@ -2,6 +2,7 @@
 // V5.4.0 | ~8700 bytes| 2026-08-04 技能参数接入 game-data
 export const VER = 'modules/97elite-imperial.js V5.4.0';
 
+import { registerElite } from '../core/08-elite-registry.js';
 import { CONFIG, getSkillParams } from '../core/01config-5v5-test.js';
 import { getBattleRng } from '../core/50battle-shared.js';
 import { tickXuanmingPoison } from './23elite-skills.js';
@@ -170,3 +171,8 @@ export function registerXuanmingLink(eventBus) {
         partner.state._acted = wasActed;
     });
 }
+
+registerElite('成昆', createChengKunComponent);
+registerElite('鹿杖客', createLuZhangKeComponent);
+registerElite('鹤笔翁', createHeBiWengComponent);
+registerElite('玄冥联动', registerXuanmingLink);

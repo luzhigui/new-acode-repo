@@ -20,7 +20,7 @@ function clearCrashStyles(cell) {
 
 function finishCrash(clone, cell, unitA, UI) {
     if (clone && clone.parentNode) clone.remove();
-    const ctx = window._getPlayerContext ? window._getPlayerContext() : null;
+    const ctx = GlobalStore.get('playerContext');
     if (ctx && ctx.store) {
         const su = ctx.store.getState().units.find(u => u.uid === unitA.uid);
         const wasFlying = su && su._flyMode;
@@ -116,7 +116,7 @@ export function showMeleeCrash(unitA, unitD, speed, getPausedFn, onCrash) {
     let flyDist = dist - rB.width * 0.28;
     let flyMode = GlobalStore.get('crashMode') || 'ghost';
 
-    const ctx = window._getPlayerContext ? window._getPlayerContext() : null;
+    const ctx = GlobalStore.get('playerContext');
     if (ctx && ctx.store) {
         ctx.store.dispatch({ type: 'SET_VISUAL', uid: unitA.uid, _flyMode: flyMode });
     }

@@ -103,7 +103,7 @@ function attachSpeedButton(id, speedVal) {
             manualSpeedLock = false;
             manualSpeedValue = null;
             slideSpeedActive = true;
-            const ctx = window._getPlayerContext ? window._getPlayerContext() : null;
+            const ctx = GlobalStore.get('playerContext');
             if (ctx) {
                 ctx.speed = 1000;
                 if (ctx._scheduler) {
@@ -145,7 +145,7 @@ function restoreSpeedFromScroll() {
         setState.speed(1000);
     }
     updateSpeedButtons();
-    const ctx = window._getPlayerContext ? window._getPlayerContext() : null;
+    const ctx = GlobalStore.get('playerContext');
     if (ctx && ctx._scheduler) ctx._scheduler.setSpeed(1);
 }
 
@@ -185,7 +185,7 @@ function updateButtons() {
         mainBtn.disabled=true;
         if(gs===S.RUNNING||gs===S.PAUSED){settleBtn.textContent='⏭ 快进到底';settleBtn.disabled=false;}else{settleBtn.disabled=true;}
     }
-    if(window.bulletTimeActive && gs !== S.GAMEOVER){pauseBtn.textContent='⏸️ 暂停';pauseBtn.disabled=true;pauseBtn.classList.remove('active');nextBtn.disabled=true;if(stageBtn)stageBtn.disabled=true;if(randomBtn)randomBtn.disabled=true;}else if(gs===S.RUNNING){pauseBtn.textContent='⏸️ 暂停';pauseBtn.disabled=false;pauseBtn.classList.remove('active');}else if(gs===S.PAUSED){pauseBtn.textContent='▶ 继续';pauseBtn.disabled=false;pauseBtn.classList.add('active');}else{pauseBtn.disabled=true;pauseBtn.classList.remove('active');}
+    if(GlobalStore.get('bulletTimeActive') && gs !== S.GAMEOVER){pauseBtn.textContent='⏸️ 暂停';pauseBtn.disabled=true;pauseBtn.classList.remove('active');nextBtn.disabled=true;if(stageBtn)stageBtn.disabled=true;if(randomBtn)randomBtn.disabled=true;}else if(gs===S.RUNNING){pauseBtn.textContent='⏸️ 暂停';pauseBtn.disabled=false;pauseBtn.classList.remove('active');}else if(gs===S.PAUSED){pauseBtn.textContent='▶ 继续';pauseBtn.disabled=false;pauseBtn.classList.add('active');}else{pauseBtn.disabled=true;pauseBtn.classList.remove('active');}
 }
 
 function enableAllButtons() { document.querySelectorAll('.controls button').forEach(b => b.disabled = false); updateButtons(); updateSpeedButtons(); }
@@ -217,7 +217,7 @@ export function bindPauseButton(getState, setState, updateButtons) {
         if (getState.gs() === 'RUNNING') {
             setState.gs('PAUSED');
             setState.isPaused(true);
-            window.bulletTimeActive = false;
+            GlobalStore.set('bulletTimeActive', true);
             const ctx = window._getPlayerContext?.();
             if (ctx?._scheduler) ctx._scheduler.pause();
             document.body.classList.add('paused-animations');
@@ -390,7 +390,7 @@ export function bindSettleButton(currentStageGetter, isBattleStarting, getState,
             if (ffCtx && ffCtx._scheduler) ffCtx._scheduler.resume();
             document.body.classList.remove('paused-animations');
         }
-        if (window.bulletTimeActive) window.bulletTimeActive = false;
+        if (GlobalStore.get('bulletTimeActive')) GlobalStore.set('bulletTimeActive', false);
         setState.waitingForNextRound(false);
         if (typeof window._restoreSpeedFromScroll === 'function') window._restoreSpeedFromScroll();
         updateButtons();
@@ -581,7 +581,7 @@ export function bindCopyLogButton(showModal, copyLogToClipboard) {
         replayInput.addEventListener('change', (e) => {
             if (e.target.files[0]) {
                 overlay.remove();
-                window.ReplayManager.importFile(e.target.files[0]);
+                GlobalStore.get('replayManager').importFile(e.target.files[0]);
             }
         });
 

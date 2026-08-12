@@ -4,7 +4,7 @@ export const VER = 'player/08player-text.js V5.4.0';
 
 let ctx = null;
 function getCtx() {
-    if (!ctx) ctx = window._getPlayerContext();
+    if (!ctx) ctx = GlobalStore.get('playerContext');
     return ctx;
 }
 

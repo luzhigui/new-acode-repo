@@ -50,7 +50,7 @@ export function _triggerFX(fxSnapshot, unitA, unitD, isDead, isDodge, isMiss, is
             } else {
                 showMeleeCrash(unitA, unitD, speed, getPausedState, () => {
                     if (isDead && unitD) {
-                        const ctx = window._getPlayerContext ? window._getPlayerContext() : null;
+                        const ctx = GlobalStore.get('playerContext');
                         if (ctx && ctx.store) {
                             ctx.store.dispatch({ type: 'SET_FLASH', uid: unitD.uid, flash: 'dead' });
                             ctx.store.dispatch({ type: 'SET_VISUAL', uid: unitD.uid, _isDead: true });
@@ -60,7 +60,7 @@ export function _triggerFX(fxSnapshot, unitA, unitD, isDead, isDodge, isMiss, is
                     }
                 }, () => {
                     // 飞撞动画完成，清除攻击闪光，防止原地残留蓝色格子
-                    const ctx = window._getPlayerContext ? window._getPlayerContext() : null;
+                    const ctx = GlobalStore.get('playerContext');
                     if (ctx && ctx.store) {
                         ctx.store.dispatch({ type: 'CLEAR_UNIT_FLASH', uid: unitA.uid });
                     } else {

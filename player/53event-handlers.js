@@ -25,7 +25,7 @@ export async function handleBuffBonus(c, entry) {
 
 export async function handleBuffSwap(c, entry) {
     c.isPaused = true;
-    window.bulletTimeActive = true;
+    GlobalStore.set('bulletTimeActive', true);
     await showBuffBanner('🌀 惑人心智！');
     appendLogHTML(entry.text + '<br>');
     let units = c.UI.allyTeam.concat(c.UI.enemyTeam);
@@ -45,13 +45,13 @@ export async function handleBuffSwap(c, entry) {
             c.updateUI();
         }
     }
-    window.bulletTimeActive = false;
+    GlobalStore.set('bulletTimeActive', true);
     c.isPaused = false;
 }
 
 export async function handleBuffPush(c, entry) {
     c.isPaused = true;
-    window.bulletTimeActive = true;
+    GlobalStore.set('bulletTimeActive', true);
     if (entry.pushTargetUid) {
         const events = [];
         const targetUnit = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.uid === entry.pushTargetUid);
@@ -70,7 +70,7 @@ export async function handleBuffPush(c, entry) {
         }
     }
     await showBuffBanner('🦅 乘风突袭！');
-    window.bulletTimeActive = false;
+    GlobalStore.set('bulletTimeActive', true);
     c.isPaused = false;
     appendLogHTML(entry.text + '<br>');
     let targetUnit = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.uid === entry.pushTargetUid);
@@ -86,9 +86,9 @@ export async function handleBuffPush(c, entry) {
 
 export async function handleBuffReboundFortify(c, entry) {
     c.isPaused = true;
-    window.bulletTimeActive = true;
+    GlobalStore.set('bulletTimeActive', true);
     await showBuffBanner('🛡️ 严阵以待！');
-    window.bulletTimeActive = false;
+    GlobalStore.set('bulletTimeActive', true);
     c.isPaused = false;
     let attacker = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.uid === entry.attackerUid);
     if (attacker && entry.reboundDmg) showDamageFloat(attacker, entry.reboundDmg);
@@ -105,7 +105,7 @@ export async function handleBuffReboundFortify(c, entry) {
 }
 
 export async function handleAttackGroup(c, entry, roundResult, abortSig, isFirstAttackRef) {
-    if (entry.isCombo) { appendLogHTML('<br>'); c.isPaused = true; window.bulletTimeActive = true; if (c._scheduler) { await new Promise(r => c._scheduler.schedule('banner', 1500, r)); showBuffBanner('⚡ 连击！'); } else { await showBuffBanner('⚡ 连击！'); } window.bulletTimeActive = false; c.isPaused = false; }
+    if (entry.isCombo) { appendLogHTML('<br>'); c.isPaused = true; GlobalStore.set('bulletTimeActive', true); if (c._scheduler) { await new Promise(r => c._scheduler.schedule('banner', 1500, r)); showBuffBanner('⚡ 连击！'); } else { await showBuffBanner('⚡ 连击！'); } GlobalStore.set('bulletTimeActive', false); c.isPaused = false; }
 
     if (!entry._pendingHpEvents) entry._pendingHpEvents = [];
     if (entry._events && entry._events.length > 0) {
@@ -179,7 +179,7 @@ export async function handleAttackGroup(c, entry, roundResult, abortSig, isFirst
         c.store.dispatch({ type: 'SET_FLASH', uid: unitD.uid, flash: flashTypeD });
     } let defTimer=null; if(unitD&&!entry.isDodge&&!entry.isMiss)defTimer=setTimeout(async()=>{ await c.waitWhilePaused(); if(unitD&&!entry.isDead){c.store.dispatch({ type: 'CLEAR_UNIT_FLASH', uid: unitD.uid });} },defFlashDuration);
 
-    if (entry.isDodge && unitA && unitD) { if (c.dodgeEffectEnabled) { let reboundDmg = Math.floor((unitA.atk + unitA.def) * 0.5); c.isPaused = true; window.bulletTimeActive = true; await showCriticalBanner('✨闪避反击✨'); await showDodgeBulletTime(unitD, unitA, reboundDmg); window.bulletTimeActive = false; c.isPaused = false; } else { showDodgeBubble(unitA, '闪避！'); } }
+    if (entry.isDodge && unitA && unitD) { if (c.dodgeEffectEnabled) { let reboundDmg = Math.floor((unitA.atk + unitA.def) * 0.5); c.isPaused = true; GlobalStore.set('bulletTimeActive', true); await showCriticalBanner('✨闪避反击✨'); await showDodgeBulletTime(unitD, unitA, reboundDmg); GlobalStore.set('bulletTimeActive', false); c.isPaused = false; } else { showDodgeBubble(unitA, '闪避！'); } }
 
     let lastDiv=null,healDiv=null, blockDelay=false;
     for(let entry2 of textEntries){
@@ -402,7 +402,7 @@ export async function handleInfo(c, entry) {
                 appendLogElement(tempDiv);
                 await playLineText(entry.text, tempDiv);
                 c.isPaused = true;
-                window.bulletTimeActive = true;
+                GlobalStore.set('bulletTimeActive', true);
                 const { showSpiderStrike } = await import('../fx/21fx-butterfly-spider.js');
                 await showSpiderStrike(spiderUnit, strikeTarget);
                 if (entry.text && entry.isDead && strikeTarget && c.store) {
@@ -410,7 +410,7 @@ export async function handleInfo(c, entry) {
                     c.store.dispatch({ type: 'SET_VISUAL', uid: strikeTarget.uid, _isDead: true });
                 }
                 await new Promise(r => setTimeout(r, 1800));
-                window.bulletTimeActive = false;
+                GlobalStore.set('bulletTimeActive', true);
                 c.isPaused = false;
             }
         }

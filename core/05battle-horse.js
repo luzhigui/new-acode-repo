@@ -3,7 +3,7 @@
 export const VER = 'core/05battle-horse.js V5.4.0';
 
 import { CONFIG } from './01config-5v5-test.js';
-import { rand, hasBuff } from './03battle-utils.js';
+import { hasBuff } from './03battle-utils.js';
 import { query, getBattleRng, applyStatChange } from './50battle-shared.js';
 import { Unit } from './02unit.js';
 const C = CONFIG;

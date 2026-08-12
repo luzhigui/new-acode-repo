@@ -32,7 +32,7 @@ class EventBus {
         const listeners = this._listeners[signal];
         // 调试日志：信号发射时自动生成
         if (data && data.log && data.unit) {
-            const logLevel = window._getPlayerContext?.()?.logLevel;
+            const logLevel = GlobalStore.get('playerContext')?.logLevel;
             if (logLevel === 'debug') {
                 const name = data.unit ? data.unit.name : '?';
                 const targetName = data.target ? data.target.name : '';

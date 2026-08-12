@@ -100,17 +100,17 @@ export async function playLogEntries(c, log, roundResult, isFirstAttackRef) {
                             const { showHealFloat } = await import('../fx/15fx-common-5v5-test.js');
                             showHealFloat(healUnit, entry.healAmount);
                         }
-                        c.isPaused = true; window.bulletTimeActive = true;
+                        c.isPaused = true; GlobalStore.set('bulletTimeActive', true);
                         let bannerText = entry.text.includes('翻倍') ? '❤️‍🔥 热血奋战(翻倍)！' : '❤️ 热血奋战！';
                         await showBuffBanner(bannerText);
-                        window.bulletTimeActive = false; c.isPaused = false;
+                        GlobalStore.set('bulletTimeActive', false); c.isPaused = false;
                     } else {
                         await handleBuffLeech(c, entry);
                     }
                     lastEntryType = entry.type;
                     break;
                 case 'buff-splash':
-                    c.isPaused = true; window.bulletTimeActive = true;
+                    c.isPaused = true; GlobalStore.set('bulletTimeActive', true);
                     if (entry.buffType === 'wind_assault') {
                         await showBuffBanner('🦅 乘风突袭！');
                         if (entry.splashUids) {
@@ -140,7 +140,7 @@ export async function playLogEntries(c, log, roundResult, isFirstAttackRef) {
                         }
                     }
                     else await showBuffBanner('🦅 乘风突袭！');
-                    window.bulletTimeActive = false;
+                    GlobalStore.set('bulletTimeActive', false);
                     appendLogHTML(entry.text + '<br>');
                     if (entry.splashUids && entry.splashDmg) {
                         const { showDamageFloat } = await import('../fx/15fx-common-5v5-test.js');
@@ -197,7 +197,7 @@ export async function playLogEntries(c, log, roundResult, isFirstAttackRef) {
             if (abortSig && abortSig.aborted) return { isBattleOver: false };
         }
     } catch (e) {
-        window.bulletTimeActive = false;
+        GlobalStore.set('bulletTimeActive', true);
         console.error('playLogEntries 错误:', e);
         return { isBattleOver: false };
     }
@@ -225,7 +225,7 @@ export async function playBattle() {
             const restored = c._originalSpeed || 600;
             c.speed = restored;
             GlobalStore.set('speed', restored);
-            if (typeof window.updateSpeedButtons === 'function') window.updateSpeedButtons();
+            GlobalStore.set('speedButtonsNeedUpdate', true);
             if (c._scheduler && c._scheduler.setSpeed) c._scheduler.setSpeed(1);
         }
     });
@@ -234,7 +234,7 @@ export async function playBattle() {
     function frameLoop() {
         const now = performance.now();
         if (c.isPaused) {
-            window.bulletTimeActive = false;
+            GlobalStore.set('bulletTimeActive', true);
             lastTime = now;
             if (!c._battleEnded) requestAnimationFrame(frameLoop);
             return;
@@ -335,7 +335,7 @@ export async function playBattle() {
         if (distToBottom > threshold) {
             c.userScrolled = true;
             backToBottomBtn.style.display = 'flex';
-            if (window._activateScrollSlowdown) window._activateScrollSlowdown();
+            GlobalStore.set('scrollSlowdown', true);
             c.speed = 1800;
         } else {
             c.userScrolled = false;
@@ -355,7 +355,7 @@ export async function playBattle() {
     if (c.snapshot._rngSeed !== undefined) {
         battleState._rng = new SeededRNG(c.snapshot._rngSeed);
     }
-    window.ReplayManager.startRecordingWithSeed(c.snapshot, Date.now());
+    GlobalStore.get('replayManager').startRecordingWithSeed(c.snapshot, Date.now());
     let isBattleOver = false; let finalWinner = null; let finalStep = null;
 
     while (!isBattleOver) {
@@ -369,7 +369,7 @@ export async function playBattle() {
             if (abortSig && abortSig.aborted) return;
             await c.waitWhilePaused();
             lastStep = step;
-            window.ReplayManager.pushStep(step, battleState.round, step.ally, step.enemy);
+            GlobalStore.get('replayManager').pushStep(step, battleState.round, step.ally, step.enemy);
 
             await playLogEntries(c, step.log, step, isFirstAttackRef);
 
@@ -379,7 +379,7 @@ export async function playBattle() {
             }
             c.store.dispatch({ type: 'SYNC_BATTLE_STATS', ally: step.ally, enemy: step.enemy });
 
-            await new Promise(r => setTimeout(r, window._fastForwardActive ? 1 : Math.max(100, c.speed / 2)));
+            await new Promise(r => setTimeout(r, GlobalStore.get('fastForwardActive') ? 1 : Math.max(100, c.speed / 2)));
 
             if (step.winner) {
                 finalWinner = step.winner;
@@ -393,7 +393,7 @@ export async function playBattle() {
         let nextActiveBuffs = c.activeBuffs ? c.activeBuffs.map(b => ({...b, remaining: b.remaining - 1})).filter(b => b.remaining > 0) : [];
         c.activeBuffs = nextActiveBuffs;
         if (c.updateBuffSlots) c.updateBuffSlots();
-        if (!window._fastForwardActive && battleState.round % 3 === 0 && battleState.round > 0) {
+        if (!GlobalStore.get('fastForwardActive') && battleState.round % 3 === 0 && battleState.round > 0) {
             const mainCtx2 = window._getPlayerContext ? window._getPlayerContext() : null;
             const isFullAuto = mainCtx2 && mainCtx2.autoLevel === 'full-auto';
             appendLogHTML(`<span class="gold">✨ 请选择新的Buff（持续${CONFIG.BUFF_DURATION || 4}回合）</span><br>`);
@@ -409,7 +409,8 @@ export async function playBattle() {
                     return true;
                 });
                 if (available.length > 0) {
-                    const pick = available[Math.floor(Math.random() * available.length)];
+                    const rng = getBattleRng();
+            const pick = available[rng.nextInt(0, available.length - 1)];
                     const duration = CONFIG.BUFFS[pick].duration || CONFIG.BUFF_DURATION || 4;
                     newBuff = { key: pick, target: 'ally', remaining: duration, name: CONFIG.BUFFS[pick].name };
                     if (c.UI && c.UI.allyTeam) {
@@ -457,7 +458,7 @@ export async function playBattle() {
         battleState = { ally: lastStep.ally, enemy: lastStep.enemy, round: battleState.round + 1, activeBuffs: nextActiveBuffs, allAllies: battleState.allAllies };
 
         if (c.autoMode || window._fastForwardActive) {
-            await new Promise(r=>setTimeout(r, window._fastForwardActive ? 1 : c.speed/2));
+            await new Promise(r=>setTimeout(r, GlobalStore.get('fastForwardActive') ? 1 : c.speed/2));
         } else {
             setBtnDisabled('btnNext', false);
             c.waitingForNextRound = true;
@@ -472,16 +473,14 @@ export async function playBattle() {
 
     if (!finalWinner) finalWinner = '平局';
     c.gs = 'GAMEOVER'; c.isPaused = false; c.waitingForNextRound = false; c.isBattleStarting = false;
-    window.ReplayManager.finishRecording(finalWinner);
+    GlobalStore.get('replayManager').finishRecording(finalWinner);
     GlobalStore.set('fastForwardActive', false);
     // 同步更新 39main-state.js 的模块级 gs 变量，否则 updateButtons 里 import 的 gs 仍是旧值
-    if (typeof window._syncGs === 'function') window._syncGs('GAMEOVER');
+    GlobalStore.set('gs', 'GAMEOVER');
     
     // 强制刷新按钮状态，确保 GAMEOVER 状态下的按钮布局正确生效
-    if (typeof window._restoreSpeedFromScroll === 'function') window._restoreSpeedFromScroll();
-    if (typeof window.updateButtons === 'function') {
-        window.updateButtons();
-    }
+    GlobalStore.set('restoreSpeed', true);
+    GlobalStore.set('gs', 'GAMEOVER');
     c.enableAllButtons();
 
     let winner = finalWinner;
@@ -532,13 +531,13 @@ export async function playBattle() {
         let aliveUnits = winState ? winState.filter(u => u.alive) : [];
         if (aliveUnits.length > 0) {
             aliveUnits.forEach(u => { c.store.dispatch({ type: 'SET_FLASH', uid: u.uid, flash: 'cheer' }); });
-            await new Promise(r => setTimeout(r, window._fastForwardActive ? 100 : 800));
+            await new Promise(r => setTimeout(r, GlobalStore.get('fastForwardActive') ? 100 : 800));
             if (c.spawnVictoryEffects) c.spawnVictoryEffects(winner, aliveUnits);
         }
         let winColor = winner === '明教' ? 'blue' : 'orange';
         if (c.gs === 'GAMEOVER') renderVictoryLine(`<span class="gold">🎉🏆 <span class="${winColor}">${winner}</span>获得最终胜利！ 🏆🎉</span><br>`);
         autoScrollLog();
-        await new Promise(r => setTimeout(r, window._fastForwardActive ? 500 : 6000));
+        await new Promise(r => setTimeout(r, GlobalStore.get('fastForwardActive') ? 500 : 6000));
         // 胜利弹幕播完，弹出战报
         if (c.battleResultForInfo && typeof showBattleReport === 'function') {
             showBattleReport(c.UI, c.battleResultForInfo);
@@ -551,7 +550,7 @@ export async function playBattle() {
     let mainCtx = window._getPlayerContext ? window._getPlayerContext() : null;
     if (mainCtx && mainCtx.activeBuffs) mainCtx.activeBuffs = [];
     if (mainCtx && mainCtx.updateBuffSlots) mainCtx.updateBuffSlots();
-    if (window._updateGlowColors) window._updateGlowColors(-1);
+    GlobalStore.set('glowColors', -1);
 
     if (GlobalStore.get('voteChoice') && GlobalStore.get('voteChoice') !== 'skip' && winner !== '平局') {
         let correct = (GlobalStore.get('voteChoice') === winner), earnPoints = 0;

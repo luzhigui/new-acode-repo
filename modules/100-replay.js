@@ -241,7 +241,7 @@ const ReplayManager = (() => {
 
         // 强制停止当前战斗，设置状态为 IDLE
         if (typeof window.forceStopGame === 'function') window.forceStopGame();
-        const ctx = window._getPlayerContext ? window._getPlayerContext() : null;
+        const ctx = GlobalStore.get('playerContext');
         if (ctx) {
           ctx.gs = 'IDLE';
           ctx.isPaused = false;
@@ -276,7 +276,7 @@ const ReplayManager = (() => {
           }
 
           if (step.events && step.events.length > 0) {
-            const ctx = window._getPlayerContext ? window._getPlayerContext() : null;
+            const ctx = GlobalStore.get('playerContext');
             if (ctx && ctx.store) {
               ctx.store.dispatch({ type: 'APPLY_EVENTS', events: step.events });
             }
@@ -299,7 +299,7 @@ const ReplayManager = (() => {
           }
 
           if (window.playLogEntries && step.logs && step.logs.length > 0) {
-            const fakeCtx = window._getPlayerContext ? window._getPlayerContext() : { UI: { allyTeam: [], enemyTeam: [] } };
+            const fakeCtx = GlobalStore.get('playerContext') || { UI: { allyTeam: [], enemyTeam: [] } };
             await window.playLogEntries(fakeCtx, step.logs);
           } else {
             for (const entry of step.logs) {

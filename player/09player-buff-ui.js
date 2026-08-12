@@ -11,7 +11,7 @@ import { addPermanentBuff } from '../modules/23elite-skills.js';
 
 let ctx = null;
 function getCtx() {
-    if (!ctx) ctx = window._getPlayerContext();
+    if (!ctx) ctx = GlobalStore.get('playerContext');
     return ctx;
 }
 
@@ -42,10 +42,14 @@ export function showBuffPopup(c) {
 
         let choices;
         if (GlobalStore.get('bugMode')) {
-            // Bug 模式：展示所有 Buff 供自由选择
             choices = available;
         } else {
-            let shuffled = [...available].sort(() => Math.random() - 0.5);
+            const shuffled = [...available];
+            const rng = getBattleRng();
+            for (let i = shuffled.length - 1; i > 0; i--) {
+                const j = rng.nextInt(0, i);
+                [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+            }
             choices = shuffled.slice(0, CONFIG.BUFF_CHOICES || 3);
         }
         let text = '选择 Buff（持续 ' + (CONFIG.BUFF_DURATION || 4) + ' 回合）';
@@ -71,7 +75,7 @@ export function showBuffPopup(c) {
                 const newBuff = createBuffObject(b.value, duration);
                 // 圣火令行列由 createBuffObject 统一生成
                 // 小昭永久海克斯存储
-                const ctx = window._getPlayerContext?.();
+                const ctx = GlobalStore.get('playerContext');
                 if (ctx && ctx.UI && ctx.UI.allyTeam) {
                     const xiaoZhao = ctx.UI.allyTeam.find(u => u.isXiaoZhaoBrother);
                     if (xiaoZhao) {
@@ -142,7 +146,7 @@ export function showBuffPopup(c) {
 
 export async function handleHolyTokenDrop(c, entry) {
     c.isPaused = true;
-    window.bulletTimeActive = true;
+    GlobalStore.set('bulletTimeActive', true);
 
     const unit = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.uid === entry.unitUid);
     const gridId = unit?.camp === 'ally' ? 'allyGrid' : 'enemyGrid';
@@ -189,7 +193,7 @@ export async function handleHolyTokenDrop(c, entry) {
 
     icon.remove();
     c.updateScoreBadge();
-    window.bulletTimeActive = false;
+    GlobalStore.set('bulletTimeActive', true);
     c.isPaused = false;
 }
 

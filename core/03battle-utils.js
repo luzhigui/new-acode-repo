@@ -7,8 +7,7 @@ import { emitEvent, applyStatChange, query, getBattleRng } from './50battle-shar
 import { EXECUTION_LAYER as L } from './00-event-bus.js';
 const C = CONFIG, TL = TAUNT_LIB, DT = DEF_TAUNT, HT = HP_TAUNT, ZT = ZHANG_NEAR_TAUNT;
 
-export function rand(min, max) { return Math.floor(Math.random() * (max - min + 1)) + min; }
-// 废弃，保留兼容。核心引擎改用 rng.nextInt(min, max)
+
 export function calcDamage(atk, def) { if (def <= 0) return atk; let d = atk * (atk / (atk + def)); return Math.max(d, atk * 0.1); }
 export function getFangLevel(def, m) { let ratio = def / m; for (let i = C.FANG_LEVELS.length - 1; i >= 0; i--) { if (ratio >= C.FANG_LEVELS[i]) return i; } return 0; }
 

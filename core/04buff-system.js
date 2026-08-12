@@ -9,7 +9,7 @@ import {
     applyMindControl_Normal, applyMindControl_Sister
 } from './51buff-effects.js';
 import { CONFIG } from './01config-5v5-test.js';
-import { rand, hasBuff, getUnitRow, getUnitCol, getAdjacentPositions } from './03battle-utils.js';
+import { hasBuff, getUnitRow, getUnitCol, getAdjacentPositions } from './03battle-utils.js';
 import { emitEvent, applyStatChange, applyMaxHpChange, query, getBattleRng } from './50battle-shared.js';
 import { EXECUTION_LAYER as L } from './00-event-bus.js';
 import { processUnitAttack } from './47battle-attack.js';

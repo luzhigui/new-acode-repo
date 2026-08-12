@@ -4,7 +4,7 @@
 export const VER = 'core/51buff-effects.js V5.4.0';
 
 import { CONFIG } from './01config-5v5-test.js';
-import { rand, getUnitRow, getUnitCol } from './03battle-utils.js';
+import { getUnitRow, getUnitCol } from './03battle-utils.js';
 import { eventBus } from './00-event-bus.js';
 import { getBattleRng } from './50battle-shared.js';
 const C = CONFIG;
