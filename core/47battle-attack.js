@@ -3,7 +3,7 @@
 export const VER = 'core/47battle-attack.js V5.4.0';
 
 import { CONFIG, DEF_TAUNT, HP_TAUNT } from './01config-5v5-test.js';
-import { rand, hasBuff, makeFXSnapshot } from './03battle-utils.js';
+import { hasBuff, makeFXSnapshot } from './03battle-utils.js';
 
 import { computeBuffStats, applyBuffEffectsBeforeAttack, applyBuffEffectsAfterAttack } from './04buff-system.js';
 import {
@@ -157,7 +157,7 @@ export async function processUnitAttack(unit, allySide, enemySide, log, A, B, st
     const immuneResult = resolveDamageImmune(immuneDeclarations);
     if (immuneResult) {
         // 回退伤害，但构建攻击组日志让 UI 正常显示攻击动作
-        target.hp = Math.min(target.maxHp, target.hp + dmgCalc.dmg);
+        applyStatChange(target, 'hp', dmgCalc.dmg, null, '免疫回退');
         unit.dmgDealt -= dmgCalc.dmg;
         target.dmgTaken -= dmgCalc.dmg;
         emitEvent(target, 'hp-change', { hp: target.hp, maxHp: target.maxHp, alive: target.alive, atk: target.atk, def: target.def });

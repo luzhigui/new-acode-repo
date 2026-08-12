@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// core/50battle-shared.js - 光明顶5v5 战斗共享工具
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// core/50battle-shared.js - 光明顶5v5 战斗共享工具
 // V5.2.1 | 提取06和48的公共依赖，解开循环引用
 export const VER = 'core/50battle-shared.js V5.4.0';
 
@@ -61,8 +61,8 @@ function checkZhangSwitch(A, log) {
         const warriorBonus = ROLE_BONUS['战士'];
         zhang.atk += warriorBonus.atk * 3;
         zhang.def += warriorBonus.def * 3;
-        zhang.maxHp = Math.min(zhang.maxHp + warriorBonus.maxHp * 3, zhang._baseMaxHp * 3);
-        zhang.hp = Math.min(zhang.hp + warriorBonus.maxHp * 3, zhang.maxHp);
+        const newMaxHp = Math.min(zhang.maxHp + warriorBonus.maxHp * 3, zhang._baseMaxHp * 3);
+        applyMaxHpChange(zhang, newMaxHp, null, '乾坤大挪移变身');
         zhang.role = '战士';
         zhang.state._resting = false; zhang._zhangSwitched = true;
         zhang._baseMaxHp = zhang.maxHp;

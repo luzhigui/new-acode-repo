@@ -3,15 +3,13 @@
 export const VER = 'core/48battle-round.js V5.4.0';
 
 import { CONFIG } from './01config-5v5-test.js';
-import { rand, isMelee, isBlocked, makeFXSnapshot, hasBuff, getUnitCol, getUnitRow, hasAnyEnemyEmptyCol, countEnemyEmptyCols, getBloodAuraBonus, getAuraBonuses, registerWarriorBreakDefense, registerRangedGrowth, registerFortifyShield, registerWarriorExecute, selectFlyTarget, registerEmptyColBonus, registerDoubleStrike } from './03battle-utils.js';
+import { isMelee, isBlocked, makeFXSnapshot, hasBuff, getUnitCol, getUnitRow, hasAnyEnemyEmptyCol, countEnemyEmptyCols, getBloodAuraBonus, getAuraBonuses, registerWarriorBreakDefense, registerRangedGrowth, registerFortifyShield, registerWarriorExecute, selectFlyTarget, registerEmptyColBonus, registerDoubleStrike } from './03battle-utils.js';
 import { computeBuffStats, logBuffSummary, applyHolyFlameBonus, applyFortifyBonus, applyCarryBonus, registerBloodthirst, registerHotBlood, registerWindAssault, registerMeteorShower, registerMindControl } from './04buff-system.js';
 import { spawnHorse, destroyHorse } from './05battle-horse.js';
 import { Unit } from './02unit.js';
 import { clearEliteDodgeRules } from './49battle-attack-steps.js';
 
-import { createZhangWujiComponent, createWeiYixiaoComponent, createXiaoZhaoSisterComponent, createXiaoZhaoBrotherComponent } from '../modules/99elite-mingjiao.js';
-import { createSongQingshuComponent, createZhouZhiruoComponent } from '../modules/98elite-sixsects.js';
-import { createChengKunComponent, createLuZhangKeComponent, createHeBiWengComponent, registerXuanmingLink } from '../modules/97elite-imperial.js';
+import { getEliteFactories } from './08-elite-registry.js';
 import { processUnitAttack } from './47battle-attack.js';
 import { eventBus, EXECUTION_LAYER as L } from './00-event-bus.js';
 import { getNextAvailableUnit, finalizeDeaths, emitFullUnitState, checkZhangSwitch, emitEvent, applyStatChange, setBattleRng } from './50battle-shared.js';
@@ -151,27 +149,34 @@ export async function* createRoundStepper(state) {
     registerXuanmingLink(eventBus);
 
     // 注册精英组件钩子，并保存小昭姐妹组件引用供裁判调用
-    const sisterComp = createXiaoZhaoSisterComponent();
-    const brotherComp = createXiaoZhaoBrotherComponent();
-    A.forEach(u => {
-        if (!u.alive) return;
-        if (u.isZhang) createZhangWujiComponent().register(eventBus, A, B, log);
-        if (u.isWei) createWeiYixiaoComponent().register(eventBus, A, B, log);
-        if (u.isXiaoZhaoBrother) brotherComp.register(eventBus, A, B, log);
-        if (u.isXiaoZhaoSister) sisterComp.register(eventBus, A, B, log);
-    });
-    B.forEach(u => {
-        if (!u.alive) return;
-        if (u.name === '宋青书') createSongQingshuComponent().register(eventBus, A, B, log);
-        if (u.name === '周芷若') createZhouZhiruoComponent().register(eventBus, A, B, log);
-        if (u.name === '成昆') {
+    const factories = getEliteFactories();
+    let sisterComp = null;
+    let brotherComp = null;
+    const allUnits = [...A, ...B];
+    for (const u of allUnits) {
+        if (!u.alive) continue;
+        // 成昆特殊处理
+        if (u.name === '成昆' && u.camp === 'enemy') {
             u._fortifyIncrement = CONFIG.FORTIFY_INCREMENT * 2;
             u._fortifyCap = CONFIG.FORTIFY_CAP * 2;
-            createChengKunComponent().register(eventBus, A, B, log);
         }
-        if (u.name === '鹿杖客') createLuZhangKeComponent().register(eventBus, A, B, log);
-        if (u.name === '鹤笔翁') createHeBiWengComponent().register(eventBus, A, B, log);
-    });
+        // 小昭姐妹特殊处理：单例引用
+        if (u.isXiaoZhaoSister && u.camp === 'ally') {
+            const Factory = factories.get('小昭·姊');
+            if (Factory && !sisterComp) sisterComp = Factory();
+            if (sisterComp) sisterComp.register(eventBus, A, B, log);
+        } else if (u.isXiaoZhaoBrother && u.camp === 'ally') {
+            const Factory = factories.get('小昭·妹');
+            if (Factory && !brotherComp) brotherComp = Factory();
+            if (brotherComp) brotherComp.register(eventBus, A, B, log);
+        } else {
+            const Factory = factories.get(u.name);
+            if (Factory) Factory().register(eventBus, A, B, log);
+        }
+    }
+    // 注册玄冥联动（独立于精英工厂）
+    const xuanmingFactory = factories.get('玄冥联动');
+    if (xuanmingFactory) xuanmingFactory(eventBus);
 
     // 建立精英联动引用（替代硬搜名字）
     const song = B.find(u => u.name === '宋青书' && u.alive);
@@ -259,8 +264,8 @@ export async function* createRoundStepper(state) {
     });
 
     // 初始化所有单位的闪避率，供面板实时显示
-    const allUnits = [...A, ...B];
-    for (const u of allUnits) {
+    const dodgeUnits = [...A, ...B];
+    for (const u of dodgeUnits) {
         if (!u.alive) continue;
         let totalDodge = 0;
         const dodgeRules = window._dodgeRules || [];

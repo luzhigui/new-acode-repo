@@ -2,6 +2,7 @@
 // V5.5.0 | ~33000 bytes| 2026-08-10 关键单位显式FSM迁移
 export const VER = 'modules/99elite-mingjiao.js V5.5.0';
 
+import { registerElite } from '../core/08-elite-registry.js';
 import { CONFIG, getSkillParams } from '../core/01config-5v5-test.js';
 import { ROLE_BONUS } from '../core/02unit.js';
 import { hasBuff } from '../core/03battle-utils.js';
@@ -595,3 +596,8 @@ export function createXiaoZhaoBrotherComponent() {
         }
     };
 }
+
+registerElite('张无忌', createZhangWujiComponent);
+registerElite('韦一笑', createWeiYixiaoComponent);
+registerElite('小昭·姊', createXiaoZhaoSisterComponent);
+registerElite('小昭·妹', createXiaoZhaoBrotherComponent);

@@ -4,7 +4,7 @@ export const VER = 'core/49battle-attack-steps.js V5.4.0';
 
 import { CONFIG, DEF_TAUNT, HP_TAUNT, getSkillParams } from './01config-5v5-test.js';
 import { eventBus } from './00-event-bus.js';
-import { rand, calcDamage, getFangLevel, isMelee, getFronts, isBlocked, getRandomTaunt, getZhangNearTaunt, makeFXSnapshot, hasBuff, getUnitCol, getUnitRow } from './03battle-utils.js';
+import { calcDamage, getFangLevel, isMelee, getFronts, isBlocked, getRandomTaunt, getZhangNearTaunt, makeFXSnapshot, hasBuff, getUnitCol, getUnitRow } from './03battle-utils.js';
 import { computeBuffStats, applyBuffEffectsBeforeAttack, applyBuffEffectsAfterAttack } from './04buff-system.js';
 import { emitEvent, applyStatChange, applyMaxHpChange, query, getBattleRng } from './50battle-shared.js';
 import { GlobalStore } from '../modules/46global-store.js';
