@@ -243,6 +243,30 @@ export async function handleAttackGroup(c, entry, roundResult, abortSig, isFirst
                 }
             }
             if(entry.isBlock&&entry2.text&&entry2.text.includes('休息回复20点生命')&&unitA){c.store.dispatch({ type: 'SET_VISUAL', uid: unitA.uid, _resting: true });blockDelay = true; showHealFloat(unitA, entry.healAmount || 10);}
+            if (entry2.type === 'buff-splash') {
+                if (entry2.buffType === 'meteor_splash' && entry2.attackerUid && entry2.primaryUid && entry2.splashUids && entry2.splashUids.length > 0) {
+                    let attacker = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.uid === entry2.attackerUid);
+                    let primary = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.uid === entry2.primaryUid);
+                    let splashU = entry2.splashUids.map(uid => c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.uid === uid)).filter(u => u);
+                    if (attacker && primary && splashU.length > 0) {
+                        c.isPaused = true; GlobalStore.set('bulletTimeActive', true);
+                        await showBuffBanner('☄️ 流星赶月！');
+                        showSplashArrows(attacker, primary, splashU, c.speed, () => c.isPaused);
+                        splashU.forEach((st, i) => { setTimeout(() => { AudioManager.playSfx(attacker); }, i * 120); });
+                        GlobalStore.set('bulletTimeActive', false); c.isPaused = false;
+                    }
+                }
+                if (entry2.splashUids && entry2.splashDmg) {
+                    entry2.splashUids.forEach(uid => {
+                        let t = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.uid === uid);
+                        if (t) {
+                            if (entry2.buffType === 'meteor_splash') setTimeout(() => showDamageFloat(t, entry2.splashDmg), 150);
+                            else showDamageFloat(t, entry2.splashDmg);
+                        }
+                    });
+                }
+                if (entry2.buffType === 'meteor_splash') await new Promise(r=>setTimeout(r, GlobalStore.get('fastForwardActive') ? 1 : 600));
+            }
             const currentSpeed = c.speed || 1000;
             const isImportant = (entry2.type === 'combat-text' || entry2.type === 'damage-text');
             const forcedSpeed = isImportant

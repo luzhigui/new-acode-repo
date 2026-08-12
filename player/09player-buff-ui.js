@@ -8,6 +8,7 @@ import { Unit } from '../core/02unit.js';
 import { showDamageFloat, showHealFloat, showBuffBanner } from '../fx/15fx-common-5v5-test.js';
 import { addPermanentBuff } from '../modules/23elite-skills.js';
 import { GlobalStore } from '../modules/46global-store.js';
+import { getBattleRng } from '../core/50battle-shared.js';
 
 
 let ctx = null;
