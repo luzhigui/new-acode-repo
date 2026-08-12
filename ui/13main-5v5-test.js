@@ -6,7 +6,7 @@ import '../modules/46global-store.js';
 import '../modules/24error-capture.js';
 import { CONFIG, STATE, KILL_TAUNT, ENEMY_M, loadGameData, VER as CFG_VER } from '../core/01config-5v5-test.js';
 import { Unit, VER as VER_UNIT } from '../core/02unit.js';
-import { rand, getRandomTaunt, getKillTaunt, getZhangNearTaunt, makeFXSnapshot, VER as VER_UTILS } from '../core/03battle-utils.js';
+import { getRandomTaunt, getKillTaunt, getZhangNearTaunt, makeFXSnapshot, VER as VER_UTILS } from '../core/03battle-utils.js';
 import { stripTags, renderGrid, updateUI, setRenderStore, spawnVictoryEffects, clearLogExceptFirst, isUnitBenefitedByBuff, VER as UI_VER } from './14ui-render-5v5-test.js';
 import { showDanmaku, showDamageFloat, showDodgeBubble, showHealFloat, VER as FX_VER } from '../fx/15fx-common-5v5-test.js';
 import { showRangedArrow, VER as FA_VER } from '../fx/16fx-arrows-5v5-test.js';
@@ -35,7 +35,7 @@ import { VER as VER_BUFF_UI } from '../player/09player-buff-ui.js';
 import { addPermanentBuff, VER as VER_ELITE } from '../modules/23elite-skills.js';
 import { VER as VER_MAIN_UTILS } from './12main-utils.js';
 
-
+const _randLocal = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
 
 const C = CONFIG, S = STATE, KT = KILL_TAUNT;
 
@@ -182,7 +182,7 @@ document.addEventListener('DOMContentLoaded', async function() {
         // 全自动/手动共用战斗启动流程
         const startBattle = async (choice) => {
             clearLogExceptFirst(); hasLoggedTeam=false; fadeBGMTo(0.1,2000); logTeamInfo('初始阵容', getState.UI(), gs, battleResultForInfo, getState.activeBuffs(), hasLoggedTeam); hasLoggedTeam = true;
-            await showCountdown(TRASH_TALK_ALLY, TRASH_TALK_ENEMY, rand, showDanmaku, autoScrollLog);
+            await showCountdown(TRASH_TALK_ALLY, TRASH_TALK_ENEMY, _randLocal, showDanmaku, autoScrollLog);
             let logDiv=document.getElementById('log'); logDiv.innerHTML+='<div class="separator">⚔️ 5v5对决开始 ⚔️</div>';
             autoScrollLog();
             if (getState.autoLevel() === 'full-auto') {
@@ -197,7 +197,7 @@ document.addEventListener('DOMContentLoaded', async function() {
                     return true;
                 });
                 if (available.length > 0) {
-                    const pick = available[rand(0, available.length - 1)];
+                    const pick = available[_randLocal(0, available.length - 1)];
                     const duration = C.BUFFS[pick].duration || C.BUFF_DURATION;
                     const buffs = getState.activeBuffs();
                     if (buffs.length >= 2) {
@@ -209,7 +209,7 @@ document.addEventListener('DOMContentLoaded', async function() {
                     const allyTeam = getState.UI().allyTeam;
                     const xz = allyTeam.find(u => u.isXiaoZhao);
                     if (xz) {
-                        const extra = pick === 'holyFlame' ? { col: rand(1, 3), row: rand(1, 3) } : {};
+                        const extra = pick === 'holyFlame' ? { col: _randLocal(1, 3), row: _randLocal(1, 3) } : {};
                         addPermanentBuff(xz, pick, C.BUFFS[pick].name, extra);
                     }
                     updateBuffSlots(getState.activeBuffs());
@@ -230,8 +230,8 @@ document.addEventListener('DOMContentLoaded', async function() {
                 let enemyList = snap.enemy.map(u => u.clone());
                 for (let unit of enemyList) {
                     if (unit.pos === -1 || unit.pos == null) {
-                        if (freePositions.length > 0) { unit.pos = freePositions[rand(0, freePositions.length - 1)]; unit._originalPos = unit.pos; freePositions = freePositions.filter(p => p !== unit.pos); }
-                        else { unit.pos = 1 + rand(0, 8); unit._originalPos = unit.pos; }
+                        if (freePositions.length > 0) { unit.pos = freePositions[_randLocal(0, freePositions.length - 1)]; unit._originalPos = unit.pos; freePositions = freePositions.filter(p => p !== unit.pos); }
+                        else { unit.pos = 1 + _randLocal(0, 8); unit._originalPos = unit.pos; }
                     }
                 }
                 snap.enemy = Object.freeze(enemyList.map(u => Object.freeze(u)));

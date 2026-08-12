@@ -4,7 +4,6 @@ export const VER = 'ui/41main-battle.js V5.4.0';
 
 import { CONFIG, ENEMY_M } from '../core/01config-5v5-test.js';
 import { Unit } from '../core/02unit.js';
-import { rand } from '../core/03battle-utils.js';
 import { SeededRNG } from '../core/07-rng.js';
 import { addPermanentBuff } from '../modules/23elite-skills.js';
 import { updateUI, clearLogExceptFirst } from './14ui-render-5v5-test.js';
@@ -142,10 +141,10 @@ export function doInitBattle(currentStage, UI, snapshot, activeBuffs, selectedBu
         candidates.push(...above);
         for (const c of below) { if (!candidates.some(x => x.name === c.name)) candidates.push(c); }
         if (candidates.length === 0) candidates.push(...remainingCandidates.slice(0, 5));
-        const pick = candidates[_rand(0, candidates.length - 1)];
+        const pick = candidates[__rand(0, candidates.length - 1)];
         const idx = remainingCandidates.findIndex(c => c.name === pick.name);
         if (idx >= 0) remainingCandidates.splice(idx, 1);
-        const role = C.ROLES[_rand(0, 3)];
+        const role = C.ROLES[__rand(0, 3)];
         const unit = new Unit(pick.name, pick.m, role, 'ally');
         unit.init(_rng); unit.applyBonus();
         unit.pos = null;
@@ -168,7 +167,7 @@ export function doInitBattle(currentStage, UI, snapshot, activeBuffs, selectedBu
                 allyTeam.splice(allyTeam.indexOf(swappable), 1);
                 remainingPower += (normalPower[swappable.m] || 90);
             }
-            let xzUnit = new Unit('小昭', 107, C.ROLES[_rand(0, 3)], 'ally');
+            let xzUnit = new Unit('小昭', 107, C.ROLES[__rand(0, 3)], 'ally');
             xzUnit.isXiaoZhaoSister = (forceXzMode === 'sister');
             xzUnit.isXiaoZhaoBrother = (forceXzMode === 'brother');
             xzUnit.initXiaoZhao(); xzUnit.applyBonus();
@@ -183,7 +182,7 @@ export function doInitBattle(currentStage, UI, snapshot, activeBuffs, selectedBu
     if (!allyTeam.some(u => u.role === '防战' || u.role === '战士')) {
         const nonFixed = allyTeam.filter(u => !u.isZhang && !u.isWei && !u.isXiaoZhaoSister && !u.isXiaoZhaoBrother);
         if (nonFixed.length > 0) {
-            nonFixed[0].role = _rand(0, 1) === 0 ? '防战' : '战士';
+            nonFixed[0].role = __rand(0, 1) === 0 ? '防战' : '战士';
             nonFixed[0].init(_rng); nonFixed[0].applyBonus();
         }
     }
@@ -199,12 +198,17 @@ export function doInitBattle(currentStage, UI, snapshot, activeBuffs, selectedBu
     let others = allyTeam.filter(u => !u.isZhang && !u.isWei && !u.isXiaoZhaoSister && !u.isXiaoZhaoBrother);
     if (others.length > 0 && zhang && !takenPos.has(2)) { others[0].pos = 2; takenPos.add(2); others.shift(); }
     let emptySlots = [1,2,3,4,5,6,7,8,9].filter(p => !takenPos.has(p));
+    // Fisher–Yates 洗牌
+    for (let i = emptySlots.length - 1; i > 0; i--) {
+        const j = _rng.nextInt(0, i);
+        [emptySlots[i], emptySlots[j]] = [emptySlots[j], emptySlots[i]];
+    }
     for (let u of others) {
-        if (emptySlots.length > 0) { let idx = _rand(0, emptySlots.length - 1); u.pos = emptySlots[idx]; takenPos.add(emptySlots[idx]); emptySlots.splice(idx, 1); }
+        if (emptySlots.length > 0) { u.pos = emptySlots.shift(); takenPos.add(u.pos); }
         else { u.pos = 5; }
     }
     let toLock = [zhang, wei, xz].filter(Boolean);
-    while (toLock.length < 3) { let pool = allyTeam.filter(u => !toLock.includes(u)); if (pool.length === 0) break; let pick = pool[_rand(0, pool.length - 1)]; toLock.push(pick); }
+    while (toLock.length < 3) { let pool = allyTeam.filter(u => !toLock.includes(u)); if (pool.length === 0) break; let pick = pool[__rand(0, pool.length - 1)]; toLock.push(pick); }
     toLock.forEach(u => { u.fixed = true; });
 
     // ==================== 六大派阵容生成 ====================
@@ -230,16 +234,16 @@ export function doInitBattle(currentStage, UI, snapshot, activeBuffs, selectedBu
                 for (let def of squadDefs) { if (typeof def === 'object' && def.m === mVal && !usedEnemyNames.includes(def.name)) { name = def.name; break; } }
                 if (!name && pool.length > 0) {
                     let attempts = 0;
-                    while ((!name || usedEnemyNames.includes(name)) && attempts < 50) { let pick = pool[_rand(0, pool.length - 1)]; name = pick[0]; attempts++; }
+                    while ((!name || usedEnemyNames.includes(name)) && attempts < 50) { let pick = pool[__rand(0, pool.length - 1)]; name = pick[0]; attempts++; }
                 }
                 if (!name) {
                     // 兜底名字加序号，避免重名
                     const fallbackSects = ['少林弟子', '武当弟子', '峨眉弟子', '昆仑弟子', '崆峒弟子'];
-                    const fallbackName = fallbackSects[_rand(0, fallbackSects.length - 1)];
+                    const fallbackName = fallbackSects[__rand(0, fallbackSects.length - 1)];
                     const existingCount = usedEnemyNames.filter(n => n.startsWith(fallbackName)).length;
                     name = fallbackName + (existingCount > 0 ? String(existingCount + 1) : '');
                 }
-                let role = C.ROLES[_rand(0, 3)];
+                let role = C.ROLES[__rand(0, 3)];
                 let unit = new Unit(name, mVal, role, 'enemy');
                 unit.pos = null; unit.init(_rng); unit.applyBonus();
                 enemyUnits.push(unit);
@@ -252,17 +256,17 @@ export function doInitBattle(currentStage, UI, snapshot, activeBuffs, selectedBu
             let usedNames = enemyUnits.map(u => u.name);
             let name = null;
             while ((!name || usedNames.includes(name)) && pool.length > 0) {
-                let pick = pool[_rand(0, pool.length - 1)];
+                let pick = pool[__rand(0, pool.length - 1)];
                 name = pick[0];
                 if (usedNames.includes(name)) { name = null; pool.splice(pool.indexOf(pick), 1); }
             }
             if (!name) {
                 const fallbackSects = ['少林弟子', '武当弟子', '峨眉弟子', '昆仑弟子', '崆峒弟子'];
-                const fallbackName = fallbackSects[_rand(0, fallbackSects.length - 1)];
+                const fallbackName = fallbackSects[__rand(0, fallbackSects.length - 1)];
                 const existingCount = usedEnemyNames.filter(n => n.startsWith(fallbackName)).length;
                 name = fallbackName + (existingCount > 0 ? String(existingCount + 1) : '');
             }
-            let role = C.ROLES[_rand(0, 3)];
+            let role = C.ROLES[__rand(0, 3)];
             let extraUnit = new Unit(name, extraM, role, 'enemy');
             extraUnit.init(_rng); extraUnit.applyBonus();
             enemyUnits.push(extraUnit);
@@ -323,7 +327,7 @@ export function doInitBattle(currentStage, UI, snapshot, activeBuffs, selectedBu
         }
         let unplacedNormals = normalUnits.filter(u => u.pos == null);
         let emptySlots = [1, 2, 3, 4, 5, 6, 7, 8, 9].filter(p => !enemyPosSet.has(p));
-        for (let u of unplacedNormals) { if (emptySlots.length > 0) { let idx = _rand(0, emptySlots.length - 1); u.pos = emptySlots[idx]; u._originalPos = u.pos; enemyPosSet.add(emptySlots[idx]); emptySlots.splice(idx, 1); } }
+        for (let u of unplacedNormals) { if (emptySlots.length > 0) { let idx = __rand(0, emptySlots.length - 1); u.pos = emptySlots[idx]; u._originalPos = u.pos; enemyPosSet.add(emptySlots[idx]); emptySlots.splice(idx, 1); } }
         enemyTeam = allUnits;
     }
 
@@ -394,10 +398,10 @@ export function createBuffObject(key, duration) {
     const buff = { key, target: 'ally', remaining: duration, name: CONFIG.BUFFS[key]?.name || key };
     if (key === 'holyFlame') {
         const cols = [];
-        while (cols.length < 2) { const c = rand(1, 3); if (!cols.includes(c)) cols.push(c); }
+        while (cols.length < 2) { const c = _rand(1, 3); if (!cols.includes(c)) cols.push(c); }
         cols.sort((a, b) => a - b);
         const rows = [];
-        while (rows.length < 2) { const r = rand(1, 3); if (!rows.includes(r)) rows.push(r); }
+        while (rows.length < 2) { const r = _rand(1, 3); if (!rows.includes(r)) rows.push(r); }
         rows.sort((a, b) => a - b);
         buff.cols = cols;
         buff.rows = rows;
@@ -405,17 +409,21 @@ export function createBuffObject(key, duration) {
     return buff;
 }
 
-export function generateBuffChoices(activeBuffs, allyTeam = []) {
+export function generateBuffChoices(activeBuffs, allyTeam = [], rng = null) {
     let activeBuffKeys = activeBuffs.map(b => b.key);
     let available = ALL_BUFF_KEYS.filter(k => {
         if (activeBuffKeys.includes(k)) return false;
-        // 严阵以待：首次选海克斯不出现，必须3回合后
         if (k === 'fortify' && !activeBuffs.some(b => b.remaining > 0)) return false;
         const requiredRole = C.BUFF_ROLE_REQUIREMENTS[k];
         if (requiredRole && !allyTeam.some(u => u.alive && u.role === requiredRole)) return false;
         return true;
     });
-    let shuffled = [...available].sort(() => Math.random() - 0.5);
+    const shuffled = [...available];
+    const r = rng || getBattleRng();
+    for (let i = shuffled.length - 1; i > 0; i--) {
+        const j = r.nextInt(0, i);
+        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
     return shuffled.slice(0, C.BUFF_CHOICES);
 }
 
@@ -430,7 +438,7 @@ export function showBuffSelection(callback, activeBuffs, selectedBuffIndex, upda
     const available = allKeys.filter(k => !existingKeys.includes(k));
     const choices = (GlobalStore.get('bugMode'))
         ? available
-        : generateBuffChoices(activeBuffs, allyTeam);
+        : generateBuffChoices(activeBuffs, allyTeam, getBattleRng());
     const text = '选择 Buff（持续 ' + C.BUFF_DURATION + ' 回合）';
     const buttons = choices.map(key => ({
         text: (C.BUFFS[key]?.icon || '?') + ' ' + (C.BUFFS[key]?.name || key) + '\n' + (C.BUFFS[key]?.desc || ''),
@@ -465,7 +473,9 @@ export function showBugModeBuffSelection(callback, activeBuffs, selectedBuffInde
     const allKeys = Object.keys(C.BUFFS || {});
     const existingKeys = activeBuffs.map(b => b.key);
     const available = allKeys.filter(k => !existingKeys.includes(k));
-    const choices = available;
+    const choices = (GlobalStore.get('bugMode'))
+        ? available
+        : generateBuffChoices(activeBuffs, allyTeam, getBattleRng());
     const text = '选择 Buff（持续 ' + C.BUFF_DURATION + ' 回合） [Bug模式]';
     const buttons = choices.map(key => ({
         text: (C.BUFFS[key]?.icon || '?') + ' ' + (C.BUFFS[key]?.name || key) + '\n' + (C.BUFFS[key]?.desc || ''),

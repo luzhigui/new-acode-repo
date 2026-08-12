@@ -3,7 +3,6 @@
 export const VER = 'ui/14ui-render-5v5-test.js V5.4.0';
 
 import { CONFIG, getSkillDesc } from '../core/01config-5v5-test.js';
-import { rand } from '../core/03battle-utils.js';
 import { computeBuffStats } from '../core/04buff-system.js';
 import { getUnitCol, getUnitRow, getAuraBonuses } from '../core/03battle-utils.js';
 import { showDanmaku as _showDanmaku } from '../fx/15fx-common-5v5-test.js';
@@ -593,7 +592,7 @@ export function spawnVictoryEffects(winnerCamp, aliveUnitsOverride) {
     });
     const winColorClass = winnerCamp === '明教' ? 'blue' : 'orange';
     sortedAlive.forEach((u, index) => {
-        const taunt = WIN_TAUNTS[rand(0, WIN_TAUNTS.length - 1)];
+        const taunt = WIN_TAUNTS[Math.floor(Math.random() * WIN_TAUNTS.length)];
         logDiv.innerHTML += `<span class="${winColorClass}">🗯️ ${u.name}：${taunt}</span><br>`;
         setTimeout(() => {
             requestAnimationFrame(() => {
