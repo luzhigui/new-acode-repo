@@ -4,7 +4,7 @@ export const VER = 'player/54renderer.js V5.4.0';
 
 let _ctx = null;
 export function setRenderCtx(c) { _ctx = c; }
-function ctx() { return _ctx || GlobalStore.get('playerContext'); }
+function ctx() { return _ctx || (window._getPlayerContext ? window._getPlayerContext() : GlobalStore.get('playerContext')); }
 
 // ==================== 日志区 DOM 操作 ====================
 
