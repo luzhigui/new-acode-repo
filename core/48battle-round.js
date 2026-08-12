@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// core/48battle-round.js - 光明顶5v5 回合循环与生成器
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// core/48battle-round.js - 光明顶5v5 回合循环与生成器
 // V5.4.0 | ~31000 bytes| 2026-08-06 小昭姐妹状态转换纳入声明→裁定模式
 export const VER = 'core/48battle-round.js V5.4.0';
 
