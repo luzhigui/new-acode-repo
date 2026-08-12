@@ -92,10 +92,10 @@ export class Unit {
         c._masteredRoles = [...this._masteredRoles];
         c._xuanmingPoison = this._xuanmingPoison ? { ...this._xuanmingPoison } : null;
         c.state = { ...this.state };
-        // FSM：重建新实例，避免克隆单位共享状态机引用
+        // FSM：重建新实例，深拷贝 transitions 避免共享引用
         if (this._fsm) {
-            c._fsm = new StateMachine(this._fsm.states, this._fsm.current);
-            c._fsm.transitions = this._fsm.transitions;
+            const tr = this._fsm.transitions ? JSON.parse(JSON.stringify(this._fsm.transitions)) : null;
+            c._fsm = new StateMachine(this._fsm.states, this._fsm.current, tr);
         }
         return c;
     }

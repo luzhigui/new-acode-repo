@@ -326,7 +326,7 @@ export async function playBattle() {
         c.userScrolled = false;
         backToBottomBtn.style.display = 'none';
         if (window._restoreSpeedFromScroll) window._restoreSpeedFromScroll();
-        let mainCtx = window._getPlayerContext ? window._getPlayerContext() : c;
+        let mainCtx = getPlayerContext();
         if (mainCtx && mainCtx.speed) c.speed = mainCtx.speed;
         else c.speed = 500;
     });
