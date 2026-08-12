@@ -11,7 +11,7 @@ import { addPermanentBuff } from '../modules/23elite-skills.js';
 
 let ctx = null;
 function getCtx() {
-    if (!ctx) ctx = GlobalStore.get('playerContext');
+    if (!ctx) ctx = window._getPlayerContext ? window._getPlayerContext() : GlobalStore.get('playerContext');
     return ctx;
 }
 
