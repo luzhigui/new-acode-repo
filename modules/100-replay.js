@@ -337,3 +337,4 @@ const ReplayManager = (() => {
 })();
 
 window.ReplayManager = ReplayManager;
+GlobalStore.set('replayManager', ReplayManager);
