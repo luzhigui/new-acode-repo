@@ -2,9 +2,11 @@
 // V5.4.0 | ~2700 bytes| 2026-07-05
 export const VER = 'player/08player-text.js V5.4.0';
 
+import { GlobalStore } from '../modules/46global-store.js';
+
 let ctx = null;
 function getCtx() {
-    if (!ctx) ctx = window._getPlayerContext ? window._getPlayerContext() : GlobalStore.get('playerContext');
+    if (!ctx) ctx = GlobalStore.get('playerContext');
     return ctx;
 }
 

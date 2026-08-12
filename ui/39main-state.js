@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// ui/39main-state.js - 光明顶5v5 状态管理
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// ui/39main-state.js - 光明顶5v5 状态管理
 // V5.4.0 | ~12500 bytes| 2026-07-31 迁移至 GlobalStore 统一状态源
 export const VER = 'ui/39main-state.js V5.4.0';
 
@@ -171,8 +171,10 @@ function tickBuffDurations() {
 }
 
 // ==================== getPlayerContext ====================
+let _playerCtx = null;
 export function getPlayerContext() {
-    return {
+    if (_playerCtx) return _playerCtx;
+    _playerCtx = {
         get speed() { return GlobalStore.get('speed'); },
         set speed(v) { GlobalStore.set('speed', v); },
         get gs() { return GlobalStore.get('gs'); },
@@ -243,6 +245,8 @@ export function getPlayerContext() {
         swapAllyPositions: window._swapAllyPositions,
         _triggerFX: (...args) => { if (window._triggerFX) window._triggerFX(...args); }
     };
+    GlobalStore.set('playerContext', _playerCtx);
+    return _playerCtx;
 }
 
 window._getPlayerContext = getPlayerContext;

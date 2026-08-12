@@ -2,9 +2,11 @@
 // V5.4.0 | ~3300 bytes| 2026-08-10 从10player-core提取DOM操作
 export const VER = 'player/54renderer.js V5.4.0';
 
+import { GlobalStore } from '../modules/46global-store.js';
+
 let _ctx = null;
 export function setRenderCtx(c) { _ctx = c; }
-function ctx() { return _ctx || (window._getPlayerContext ? window._getPlayerContext() : GlobalStore.get('playerContext')); }
+function ctx() { return _ctx || GlobalStore.get('playerContext'); }
 
 // ==================== 日志区 DOM 操作 ====================
 
