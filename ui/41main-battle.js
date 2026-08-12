@@ -8,6 +8,7 @@ import { SeededRNG } from '../core/07-rng.js';
 import { addPermanentBuff } from '../modules/23elite-skills.js';
 import { updateUI, clearLogExceptFirst } from './14ui-render-5v5-test.js';
 import { showModal } from './12main-utils.js';
+import { getBattleRng } from '../core/50battle-shared.js';
 
 const C = CONFIG;
 const ALL_BUFF_KEYS = Object.keys(C.BUFFS);
