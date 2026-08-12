@@ -422,7 +422,7 @@ export function generateBuffChoices(activeBuffs, allyTeam = [], rng = null) {
     const shuffled = [...available];
     const r = rng || getBattleRng();
     for (let i = shuffled.length - 1; i > 0; i--) {
-        const j = r.nextInt(0, i);
+        const j = r ? r.nextInt(0, i) : Math.floor(Math.random() * (i + 1));
         [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
     }
     return shuffled.slice(0, C.BUFF_CHOICES);
