@@ -284,6 +284,133 @@ export function checkVictoryDanmaku(doc, allyTeam, enemyTeam) {
 }
 
 /**
+ * [新增] 底部控制按钮状态检查 — 随游戏状态机(IDLE/RUNNING/PAUSED/GAMEOVER)校验按钮的启用/禁用与文本
+ * 主按钮 btnMain 的 4 种状态：IDLE+adjustMode="开始(投票)"、IDLE+非adjustMode="调整站位"、
+ * 战斗中禁用(变灰无作用)、GAMEOVER="下一关/重新开始"。
+ * 下一回合 btnNext：IDLE 禁用、GAMEOVER="原班再战"、自动模式战斗中禁用。
+ * 结算 btnSettle：IDLE 禁用"快进到底"、RUNNING/PAUSED 启用"快进到底"、GAMEOVER 启用"随机重开"。
+ * 暂停 btnPause：RUNNING="暂停"、PAUSED="继续"(高亮)、IDLE/GAMEOVER 禁用。
+ */
+export function checkBottomButtonStates(ctx, doc) {
+    const issues = [];
+    if (!doc || !ctx) return issues;
+    const win = doc.defaultView || null;
+    const gs = ctx.gs;
+    const btnMain = doc.getElementById('btnMain');
+    const btnNext = doc.getElementById('btnNext');
+    const btnSettle = doc.getElementById('btnSettle');
+    const btnPause = doc.getElementById('btnPause');
+    const txt = (el) => el ? (el.textContent || '').replace(/\s+/g, '') : '';
+    const stage = ctx.currentStage || 0;
+    const adjustMode = !!ctx.adjustMode;
+    const autoMode = !!ctx.autoMode;
+    const bulletTime = !!(win && win.GlobalStore && win.GlobalStore.get('bulletTimeActive'));
+
+    function expectDisabled(el, name, want) {
+        if (!el) return;
+        const isD = !!el.disabled;
+        if (isD !== want) issues.push(name + '按钮 disabled 异常：当前' + (isD ? '禁用(灰)' : '启用') + '，预期' + (want ? '禁用(灰)' : '启用'));
+    }
+    function expectText(el, name, keyword, not) {
+        if (!el) return;
+        const t = txt(el);
+        const has = t.indexOf(keyword) !== -1;
+        if (not ? has : !has) issues.push(name + '按钮文本异常：当前"' + t + '"，' + (not ? '不应含"' + keyword + '"' : '应含"' + keyword + '"'));
+    }
+
+    if (gs === 'IDLE') {
+        // 主按钮：adjustMode 时显示"开始(投票)"，否则"调整站位"，均可点击
+        expectDisabled(btnMain, '主按钮', false);
+        expectText(btnMain, '主按钮', adjustMode ? '开始' : '调整');
+        expectDisabled(btnNext, '下一回合', true);
+        expectDisabled(btnSettle, '结算', true);
+        expectText(btnSettle, '结算', '快进到底');
+        expectDisabled(btnPause, '暂停', true);
+    } else if (gs === 'RUNNING') {
+        expectDisabled(btnMain, '主按钮', true);
+        expectDisabled(btnSettle, '结算', false);
+        expectText(btnSettle, '结算', '快进到底');
+        if (!bulletTime) {
+            expectDisabled(btnPause, '暂停', false);
+            expectText(btnPause, '暂停', '暂停');
+        }
+        if (autoMode) expectDisabled(btnNext, '下一回合', true);
+    } else if (gs === 'PAUSED') {
+        expectDisabled(btnMain, '主按钮', true);
+        expectDisabled(btnSettle, '结算', false);
+        expectText(btnSettle, '结算', '快进到底');
+        expectDisabled(btnPause, '暂停', false);
+        expectText(btnPause, '暂停', '继续');
+        if (btnPause && !btnPause.classList.contains('active')) issues.push('暂停按钮在PAUSED状态应高亮(active)');
+    } else if (gs === 'GAMEOVER') {
+        expectDisabled(btnMain, '主按钮', false);
+        expectText(btnMain, '主按钮', stage >= 6 ? '重新' : '下一关');
+        expectDisabled(btnNext, '下一回合', false);
+        expectText(btnNext, '下一回合', '原班再战');
+        expectDisabled(btnSettle, '结算', false);
+        expectText(btnSettle, '结算', '随机重开');
+        expectDisabled(btnPause, '暂停', true);
+        if (btnPause && btnPause.classList.contains('active')) issues.push('暂停按钮在GAMEOVER状态不应高亮');
+    }
+    return issues;
+}
+
+/**
+ * [新增] 模式按钮状态检查 — 校验顶部/底部那排切换按钮是否符合当前模式
+ * 华丽/简单、详细、自动/全自动、调试、虚影/飞走
+ */
+export function checkModeButtonStates(ctx, doc) {
+    const issues = [];
+    if (!doc || !ctx) return issues;
+    const win = doc.defaultView || null;
+    const gs = win && win.GlobalStore;
+
+    const dodgeBtn = doc.getElementById('btnDodgeToggle');
+    if (dodgeBtn) {
+        const wantActive = !!ctx.dodgeEffectEnabled;
+        const isActive = dodgeBtn.classList.contains('active');
+        const wantText = wantActive ? '华丽' : '简单';
+        const t = (dodgeBtn.textContent || '').trim();
+        if (isActive !== wantActive) issues.push('华丽/简单按钮状态异常：active=' + isActive + '，预期=' + wantActive);
+        if (t !== wantText) issues.push('华丽/简单按钮文本异常：当前"' + t + '"，预期"' + wantText + '"');
+    }
+
+    const detailBtn = doc.getElementById('btnDetail');
+    if (detailBtn) {
+        const wantActive = (ctx.logLevel !== 'brief');
+        const isActive = detailBtn.classList.contains('active');
+        if (isActive !== wantActive) issues.push('详细按钮状态异常：active=' + isActive + '，预期=' + wantActive + '（logLevel=' + ctx.logLevel + '）');
+    }
+
+    const autoBtn = doc.getElementById('btnAuto');
+    if (autoBtn) {
+        const lvl = ctx.autoLevel;
+        const expectMap = { manual: ['手动', false], auto: ['自动', true], 'full-auto': ['全自动', true] };
+        const want = expectMap[lvl] || ['自动', true];
+        const t = (autoBtn.textContent || '').trim();
+        const isActive = autoBtn.classList.contains('active');
+        if (isActive !== want[1]) issues.push('自动按钮状态异常：active=' + isActive + '，预期=' + want[1] + '（模式=' + lvl + '）');
+        if (t !== want[0]) issues.push('自动按钮文本异常：当前"' + t + '"，预期"' + want[0] + '"（模式=' + lvl + '）');
+    }
+
+    const debugBtn = doc.getElementById('debugToggle');
+    if (debugBtn && gs) {
+        const wantActive = !!gs.get('debugMode');
+        const isActive = debugBtn.classList.contains('active');
+        if (isActive !== wantActive) issues.push('调试按钮状态异常：active=' + isActive + '，预期=' + wantActive);
+    }
+
+    const crashBtn = doc.getElementById('btnCrashMode');
+    if (crashBtn && gs) {
+        const mode = gs.get('crashMode');
+        const wantText = mode === 'fly' ? '🕊️飞走' : '👻虚影';
+        const t = (crashBtn.textContent || '').trim();
+        if (t !== wantText) issues.push('虚影按钮文本异常：当前"' + t + '"，预期"' + wantText + '"');
+    }
+    return issues;
+}
+
+/**
  * [新增] 为体检规则提供日志上下文定位
  * @returns {string} 类似 "(第3回合, 第12条日志, 殷天正→静虚)"
  */

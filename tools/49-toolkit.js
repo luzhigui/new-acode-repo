@@ -57,6 +57,7 @@ function escapeHtml(text) {
         '../tests/58health-rules/64-spider-fly-count.js',
         '../tests/58health-rules/65-fortify-overflow.js',
         '../tests/58health-rules/66-separator-duplicate.js',
+        '../tests/58health-rules/67-claw-damage.js',
         '../tests/56health-monitor.js', '../tests/57health-utils.js',
         // tools（开发工具箱）
         '../tools/48-toolkit.html', '../tools/49-toolkit.js', '../tools/50-toolkit-more.js',
