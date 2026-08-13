@@ -4,7 +4,7 @@ export const VER = 'ui/33main-state.js V5.4.0';
 
 import { STATE } from '../core/01config-5v5-test.js';
 import { GlobalStore } from '../modules/18global-store.js';
-import { playLineText } from '../player/27battle-player-5v5-test.js';
+
 import { updateUI, spawnVictoryEffects } from './32ui-render-5v5-test.js';
 import { tickBuffDurations as _tickBuffDurations } from './35main-battle.js';
 import { updateBuffSlots } from './38ui-controls.js';
@@ -232,7 +232,7 @@ export function getPlayerContext() {
         updateButtons: window.updateButtons,
         enableAllButtons: window.enableAllButtons,
         updateSpeedButtons: window.updateSpeedButtons,
-        playLineTextWrapper: playLineText,
+        
         waitWhilePaused,
         autoScrollLog,
         onLogUserScroll,
