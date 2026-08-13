@@ -1,0 +1,296 @@
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// player/25player-buff-ui.js - 光明顶5v5 Buff弹窗与横幅
+// V5.4.0 | ~12400 bytes| 2026-07-16 移除兜底分支，强制走Store
+export const VER = 'player/25player-buff-ui.js V5.4.0';
+
+import { CONFIG } from '../core/01config-5v5-test.js';
+import { createBuffObject } from '../ui/35main-battle.js';
+import { Unit } from '../core/02unit.js';
+import { showDamageFloat, showHealFloat, showBuffBanner } from '../fx/39fx-common-5v5-test.js';
+import { addPermanentBuff } from '../modules/15elite-skills.js';
+import { GlobalStore } from '../modules/18global-store.js';
+import { getBattleRng } from '../core/13battle-shared.js';
+
+
+let ctx = null;
+function getCtx() {
+    if (!ctx) ctx = GlobalStore.get('playerContext');
+    return ctx;
+}
+
+export function setBuffUIContext(c) { ctx = c; }
+
+/**
+ * 显示海克斯选择弹窗，返回玩家选择的 Buff 对象
+ * 弹窗支持最小化（生成浮动按钮恢复）、Bug 模式全量可选、小昭永久海克斯存储
+ * @param {object} c - 播放器上下文
+ * @returns {Promise<object|null>} 选择的 Buff 对象 { key, target, remaining, name }，取消返回 null
+ */
+export function showBuffPopup(c) {
+    return new Promise((resolve) => {
+        // 快进/跳过：如果 skipBuffPopup 已经为 true，直接返回 null
+        if (GlobalStore.get('skipBuffPopup')) {
+            GlobalStore.set('skipBuffPopup', false);
+            resolve(null);
+            return;
+        }
+        let activeBuffs = c.activeBuffs || [];
+        let existingKeys = activeBuffs.map(b => b.key);
+        let allKeys = Object.keys(CONFIG.BUFFS || {});
+        const allyTeam = c.UI?.allyTeam || [];
+        let available = allKeys.filter(k => {
+            if (existingKeys.includes(k)) return false;
+            // 严阵以待首次不出现
+            if (k === 'fortify' && !activeBuffs.some(b => b.remaining > 0)) return false;
+            // 职业筛选
+            const requiredRole = CONFIG.BUFF_ROLE_REQUIREMENTS?.[k];
+            if (requiredRole && !allyTeam.some(u => u.alive && u.role === requiredRole)) return false;
+            return true;
+        });
+        if (available.length === 0) { resolve(null); return; }
+
+        let choices;
+        if (GlobalStore.get('bugMode')) {
+            choices = available;
+        } else {
+            const shuffled = [...available];
+            const rng = getBattleRng();
+            for (let i = shuffled.length - 1; i > 0; i--) {
+                const j = rng.nextInt(0, i);
+                [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+            }
+            choices = shuffled.slice(0, CONFIG.BUFF_CHOICES || 3);
+        }
+        let text = '选择 Buff（持续 ' + (CONFIG.BUFF_DURATION || 4) + ' 回合）';
+        let buttons = choices.map(key => {
+            let buff = CONFIG.BUFFS[key] || { name: key, icon: '?' };
+            return { text: (buff.icon || '?') + ' ' + (buff.name || key) + '\n' + (buff.desc || ''), value: key, cls: 'buff' };
+        });
+        if (buttons.length === 0) { resolve(null); return; }
+
+        let overlay = document.createElement('div'); overlay.className = 'modal-overlay'; overlay.id = 'buffModalOverlay';
+        let box = document.createElement('div'); box.className = 'modal-box';
+        let inner = `<div class="modal-text">${text}</div><span class="modal-minimize" id="buffModalMinimize">∧</span><div class="modal-buttons"></div>`;
+        box.innerHTML = inner;
+        let btnsDiv = box.querySelector('.modal-buttons');
+        let unsubSkip = null;
+        buttons.forEach(b => {
+            let btn = document.createElement('button'); btn.className = 'modal-btn ' + (b.cls || '');
+            btn.textContent = b.text;
+            btn.addEventListener('click', () => {
+                if (unsubSkip) unsubSkip();
+                document.body.removeChild(overlay);
+                let floatBtn = document.getElementById('buffFloatBtn');
+                if (floatBtn) floatBtn.remove();
+                let duration = CONFIG.BUFFS[b.value]?.duration || CONFIG.BUFF_DURATION || 4;
+                const newBuff = createBuffObject(b.value, duration);
+                // 圣火令行列由 createBuffObject 统一生成
+                // 小昭永久海克斯存储
+                const ctx = GlobalStore.get('playerContext');
+                if (ctx && ctx.UI && ctx.UI.allyTeam) {
+                    const xiaoZhao = ctx.UI.allyTeam.find(u => u.isXiaoZhaoBrother);
+                    if (xiaoZhao) {
+                        addPermanentBuff(xiaoZhao, b.value, newBuff.name, {});
+                        // 同步回 snapshot，确保引擎 clone 时拿到最新 _permanentBuffs
+                        if (ctx.snapshot && ctx.snapshot.ally) {
+                            const snapXz = ctx.snapshot.ally.find(u => u.isXiaoZhao);
+                            if (snapXz) snapXz._permanentBuffs = xiaoZhao._permanentBuffs.map(b => ({...b}));
+                        }
+                    }
+                }
+                resolve(newBuff);
+            });
+            btnsDiv.appendChild(btn);
+        });
+        overlay.appendChild(box); document.body.appendChild(overlay);
+        // 监听快进/跳过：弹窗已显示时如果 skipBuffPopup 变为 true，自动关闭
+        unsubSkip = GlobalStore.on('skipBuffPopup', (val) => {
+            if (val) {
+                unsubSkip();
+                if (overlay.parentNode) overlay.remove();
+                let floatBtn = document.getElementById('buffFloatBtn');
+                if (floatBtn) floatBtn.remove();
+                GlobalStore.set('skipBuffPopup', false);
+                resolve(null);
+            }
+        });
+        // 清理可能残留的关闭按钮（来自投票弹窗等）
+        document.querySelectorAll('#buffModalOverlay .modal-box > span').forEach(s => {
+            if (s.textContent === '✕') s.remove();
+        });
+        // 移除可能残留的关闭按钮（来自之前的弹窗）
+        const existingClose = box.querySelector('span');
+        if (existingClose && existingClose.textContent === '✕') {
+            existingClose.remove();
+        }
+
+        document.getElementById('buffModalMinimize').addEventListener('click', () => {
+            overlay.style.display = 'none';
+            let floatBtn = document.createElement('div');
+            floatBtn.id = 'buffFloatBtn';
+            floatBtn.className = 'vote-float';
+            floatBtn.style.display = 'flex';
+            floatBtn.style.bottom = '60px';
+            floatBtn.title = '恢复Buff选择';
+            floatBtn.innerHTML = '🛡️';
+            floatBtn.addEventListener('click', () => {
+                overlay.style.display = 'flex';
+                floatBtn.remove();
+            });
+            document.body.appendChild(floatBtn);
+        });
+
+        overlay.addEventListener('click', function(e) {
+            if (e.target === overlay) {
+                overlay.style.display = 'none';
+                let floatBtn = document.createElement('div');
+                floatBtn.id = 'buffFloatBtn';
+                floatBtn.className = 'vote-float';
+                floatBtn.style.display = 'flex';
+                floatBtn.style.bottom = '60px';
+                floatBtn.title = '恢复Buff选择';
+                floatBtn.innerHTML = '🛡️';
+                floatBtn.addEventListener('click', () => {
+                    overlay.style.display = 'flex';
+                    floatBtn.remove();
+                });
+                const unsubscribe = GlobalStore.on('gs', (newGs) => {
+                    if (newGs === 'IDLE') {
+                        if (floatBtn.parentNode) floatBtn.remove();
+                        unsubscribe();
+                    }
+                });
+                document.body.appendChild(floatBtn);
+            }
+        });
+    });
+}
+
+export async function handleHolyTokenDrop(c, entry) {
+    c.isPaused = true;
+    GlobalStore.set('bulletTimeActive', true);
+
+    const unit = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.uid === entry.unitUid);
+    const gridId = unit?.camp === 'ally' ? 'allyGrid' : 'enemyGrid';
+    const grid = document.getElementById(gridId);
+    const order = unit?.camp === 'enemy' ? [7,8,9,4,5,6,1,2,3] : [1,2,3,4,5,6,7,8,9];
+    const idx = unit ? order.indexOf(unit.pos) : -1;
+    const cell = idx >= 0 && grid ? grid.children[idx] : null;
+    const cellRect = cell ? cell.getBoundingClientRect() : null;
+
+    const icon = document.createElement('div');
+    icon.setAttribute('data-fx', 'temporary');
+    icon.textContent = '🔥';
+    icon.style.cssText = `
+        position: fixed; z-index: 10030; pointer-events: none;
+        font-size: 40px; filter: drop-shadow(0 0 10px rgba(255,215,0,0.9));
+        transition: all 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    `;
+    if (cellRect) {
+        icon.style.left = (cellRect.left + cellRect.width / 2) + 'px';
+        icon.style.top = (cellRect.top + cellRect.height / 2) + 'px';
+        icon.style.transform = 'translate(-50%, -50%) scale(0.5)';
+    }
+    document.body.appendChild(icon);
+
+    // 放大旋转
+    await new Promise(r => {
+        requestAnimationFrame(() => {
+            icon.style.transform = 'translate(-50%, -50%) scale(1.5) rotate(360deg)';
+            r();
+        });
+    });
+    await new Promise(r => setTimeout(r, 400));
+
+    // 飘到积分徽章
+    const badge = document.getElementById('scoreBadge');
+    const badgeRect = badge ? badge.getBoundingClientRect() : null;
+    if (badgeRect && cellRect) {
+        icon.style.left = (badgeRect.left + badgeRect.width - 20) + 'px';
+        icon.style.top = (badgeRect.top + badgeRect.height / 2) + 'px';
+        icon.style.transform = 'translate(-50%, -50%) scale(0.8)';
+        icon.style.opacity = '0.6';
+    }
+    await new Promise(r => setTimeout(r, 800));
+
+    icon.remove();
+    c.updateScoreBadge();
+    GlobalStore.set('bulletTimeActive', true);
+    c.isPaused = false;
+}
+
+export async function handleBuffSummon(c, entry, prevEntry) {
+    // 构建拒马单位数据（纯对象，非 Unit 实例，供 Store 使用）
+    const horseData = {
+        uid: entry.horseUid,
+        name: '拒马',
+        role: '防战',
+        camp: 'ally',
+        pos: entry.horsePos,
+        alive: true,
+        hp: 20,
+        maxHp: 20,
+        atk: 0,
+        def: 5,
+        isHorse: true,
+        _originalPos: entry.horsePos,
+        _baseMaxHp: 20,
+        _isDead: false,
+        _flash: null,
+        _acted: false,
+        _resting: false,
+        _blocked: false,
+        dmgDealt: 0, dmgTaken: 0, healDone: 0, reboundDone: 0, leechDone: 0,
+        dodgeCount: 0, critCount: 0, survivedRounds: 0,
+        buffAtkBonus: 0, buffDefBonus: 0, buffDodgeBonus: 0, buffHpBonus: 0
+    };
+    // 通过 Store dispatch 添加单位，subscribe 会自动同步到 c.UI.allyTeam
+    c.store.dispatch({ type: 'ADD_UNIT', unit: horseData });
+    // 保留 lastSnapshot 快照，后续可改为从 Store 计算，暂时保留直接赋值
+    c.UI.lastSnapshot = { ally: c.UI.allyTeam.map(u => ({...u})), enemy: c.UI.enemyTeam.map(u => ({...u})) };
+    if (entry.horseTaunt) {
+        // 连续出拒马时稍作停顿，避免两匹同时弹幕太突兀
+        if (prevEntry && prevEntry.type === 'buff-summon' && prevEntry.horseTaunt) {
+            await new Promise(r => setTimeout(r, 600));
+        }
+        // 先让格子渲染出来
+        c.updateUI(c.UI);
+        // 再暂停播弹幕，弹幕结束后格子已经在了
+        c.isPaused = true;
+        await showBuffBanner('🐴 拒马阵！' + entry.horseTaunt);
+        c.isPaused = false;
+    }
+    let div=document.createElement('div');div.innerHTML=entry.text+'<br>';
+    document.getElementById('log').appendChild(div);
+    c.autoScrollLog();
+}
+
+export async function handleBuffDestroy(c, entry, prevEntry) {
+    // 通过 Store dispatch 移除单位
+    c.store.dispatch({ type: 'REMOVE_UNIT', uid: entry.horseUid });
+    // 保留 lastSnapshot 快照
+    c.UI.lastSnapshot = { ally: c.UI.allyTeam.map(u => ({...u})), enemy: c.UI.enemyTeam.map(u => ({...u})) };
+    c.isPaused = true;
+    await showBuffBanner('🐴 拒马已销毁');
+    c.isPaused = false;
+    let div=document.createElement('div');div.innerHTML=entry.text+'<br>';
+    document.getElementById('log').appendChild(div);
+    c.autoScrollLog();
+}
+
+export async function handleBuffLeech(c, entry) {
+    // 只负责飘字和横幅，不修改血量（血量已由引擎事件同步到 Store）
+    let healUnit = (c.UI.allyTeam.concat(c.UI.enemyTeam)).find(u => u.uid === entry.healUnitUid);
+    if (healUnit && entry.healAmount) {
+        showHealFloat(healUnit, entry.healAmount);
+    }
+    let bannerText = '🗡️ 嗜血狂刀！';
+    if (entry.buffType === 'hotBlood') {
+        bannerText = entry.text.includes('翻倍') ? '❤️‍🔥 热血奋战(翻倍)！' : '❤️ 热血奋战！';
+    }
+    c.isPaused = true;
+    await showBuffBanner(bannerText);
+    c.isPaused = false;
+    let div=document.createElement('div');div.innerHTML=entry.text+'<br>';
+    document.getElementById('log').appendChild(div);
+    c.autoScrollLog();
+}

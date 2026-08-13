@@ -3,7 +3,7 @@
 export const VER = 'core/03battle-utils.js V5.4.0';
 
 import { CONFIG, TAUNT_LIB, DEF_TAUNT, HP_TAUNT, ZHANG_NEAR_TAUNT } from './01config-5v5-test.js';
-import { emitEvent, applyStatChange, query, getBattleRng } from './50battle-shared.js';
+import { emitEvent, applyStatChange, query, getBattleRng } from './13battle-shared.js';
 import { EXECUTION_LAYER as L } from './00-event-bus.js';
 const C = CONFIG, TL = TAUNT_LIB, DT = DEF_TAUNT, HT = HP_TAUNT, ZT = ZHANG_NEAR_TAUNT;
 

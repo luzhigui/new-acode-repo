@@ -2,8 +2,8 @@
 // 用法：浏览器控制台粘贴执行，自动跑指定关卡×20场
 
 (async function() {
-    const { createRoundStepper } = await import('./core/48battle-round.js');
-    const { doInitBattle } = await import('./ui/41main-battle.js');
+    const { createRoundStepper } = await import('./core/11battle-round.js');
+    const { doInitBattle } = await import('./ui/35main-battle.js');
     const { eventBus } = await import('./core/00-event-bus.js');
 
     const configs = [
