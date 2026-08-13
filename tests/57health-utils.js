@@ -240,7 +240,7 @@ export function checkBuffIcons(ctx, doc) {
     }
 
     // 精英单位白名单：这些单位不会获得海克斯 Buff 图标
-    var eliteNames = ['成昆','鹿杖客','鹤笔翁','周芷若','宋青书'];
+    var eliteNames = ['成昆','鹿杖客','鹤笔翁','周芷若','宋青书','张无忌','韦一笑','小昭·姊','小昭·妹'];
     for (const unit of allyTeam) {
         if (!unit.alive) continue;
         if (eliteNames.indexOf(unit.name) !== -1) continue;
