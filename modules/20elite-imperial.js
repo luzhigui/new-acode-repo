@@ -23,7 +23,7 @@ export function createChengKunComponent() {
             if (!cheng) return;
             const onAfterApplyDamage = this.onAfterApplyDamage;
             const onDamageCalc = this.onDamageCalc;
-            // 幻影伪装：被模仿者攻击成昆，其他明教单位概率混乱误攻队友
+            // 成昆-幻影伪装：攻击前清除旧伪装；被模仿者强制攻成昆，其他明教概率混乱误攻队友
             eventBus.on('beforeSelectTarget', L.BEFORE_SELECT_TARGET.CHENGKUN_DISGUISE, (data) => {
                 // 成昆攻击前清除旧伪装（恢复真身）
                 if (data.unit.name === '成昆' && data.unit.state._phantomTarget) {
@@ -54,12 +54,12 @@ export function createChengKunComponent() {
                     data.declaration.phantomLog = `🎭 幻影伪装！${data.unit.name}被祸乱心智，误攻队友${fakeTarget.name}！`;
                 }
             });
-            // 幻影伪装：攻击后更新伪装目标
+            // 成昆-幻影伪装：攻击后随机选择敌方伪装目标+按损失生命回血
             eventBus.on('afterDamageApplied', L.AFTER_DAMAGE_APPLIED.CHENGKUN_DISGUISE, (data) => {
                 if (data.unit.name !== '成昆') return;
                 onAfterApplyDamage(data.unit, data.target, { dmg: data.dmg }, data.group, A, data.log, data);
             });
-            // 混元霹雳劲 → 提交伤害声明
+            // 成昆-混元霹雳劲：已损失生命值比例转化为额外伤害声明
             eventBus.on('beforeDamageCalc', L.BEFORE_DAMAGE_CALC.CHENGKUN_THUNDER, (data) => {
                 if (data.unit.name !== '成昆' || !data.declarations) return;
                 const lostHp = data.unit.maxHp - data.unit.hp;
@@ -102,12 +102,12 @@ export function createLuZhangKeComponent() {
             const lu = B.find(u => u.name === '鹿杖客' && u.alive);
             if (!lu) return;
             const onAfterApplyDamage = this.onAfterApplyDamage;
-            // 玄冥神掌中毒
+            // 鹿杖客-玄冥神掌：攻击后施加中毒dot（逐回合衰减伤害）
             eventBus.on('afterDamageApplied', L.AFTER_DAMAGE_APPLIED.LU_XUANMING, (data) => {
                 if (data.unit.name !== '鹿杖客') return;
                 onAfterApplyDamage(data.unit, data.target, { dmg: data.dmg }, data.group, B, data.log);
             });
-            // 回合开始：玄冥神掌寒毒发作
+            // 鹿杖客-寒毒发作：回合开始结算所有单位玄冥寒毒伤害
             eventBus.on('onRoundStart', L.ROUND_START.XUANMING_POISON, (data) => {
                 const { A, B, log } = data;
                 A.concat(B).forEach(u => {
@@ -136,7 +136,7 @@ export function createHeBiWengComponent() {
             const he = B.find(u => u.name === '鹤笔翁' && u.alive);
             if (!he) return;
             const onDamageCalc = this.onDamageCalc;
-            // 鹿角杖法 → 提交伤害声明
+            // 鹤笔翁-鹿角杖法：无视防御+对中毒目标额外伤害加成声明
             eventBus.on('beforeDamageCalc', L.BEFORE_DAMAGE_CALC.HE_HORN, (data) => {
                 if (data.unit.name !== '鹤笔翁' || !data.declarations) return;
                 const s = getSkillParams('鹤笔翁', 'hornStrike') || ES.hornStrike;
@@ -151,6 +151,7 @@ export function createHeBiWengComponent() {
 }
 
 export function registerXuanmingLink(eventBus) {
+    // 玄冥二老-联动攻击：鹿杖客/鹤笔翁攻击后另一方跟随联动攻击
     eventBus.on('afterAttack', L.AFTER_ATTACK.XUANMING_LINK, async (data) => {
         const { unit, target, dmg, allySide, enemySide, log, A, B, state } = data;
         if (!unit || unit._isLinkAttack || dmg <= 0 || !target || !target.alive) return;

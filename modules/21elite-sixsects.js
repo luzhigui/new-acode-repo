@@ -19,6 +19,7 @@ export function createSongQingshuComponent() {
             const onAfterApplyDamage = this.onAfterApplyDamage;
             const onAfterAttack = this.onAfterAttack;
             eventBus.on('afterMiss', L.AFTER_MISS.SONG_XINGFEN_RETRY, (data) => {
+                // 宋青书-性奋：miss后获得额外攻击机会
                 const { unit, log } = data;
                 if (unit.name !== '宋青书' || !unit.alive) return;
                 if (!B || !B.some(u => u.alive)) return;
@@ -30,10 +31,12 @@ export function createSongQingshuComponent() {
                 }
             });
             eventBus.on('afterDamageApplied', L.AFTER_DAMAGE_APPLIED.SONG_XINGFEN, (data) => {
+                // 宋青书-性奋：攻击后扣血+降最大生命上限（周芷若存活时触发）
                 if (data.unit.name !== '宋青书') return;
                 onAfterApplyDamage(data.unit, data.target, { dmg: data.dmg }, data.group, B, data.log);
             });
             eventBus.on('beforeDamageCalc', L.BEFORE_DAMAGE_CALC.SONG_TRUE_DMG, (data) => {
+                // 宋青书-叛逆突袭：目标当前生命值10%作为额外真伤（bonusDmg声明）
                 if (data.unit.name !== '宋青书' || !data.target || !data.target.alive || !data.declarations) return;
                 const trueDmg = Math.floor(data.target.hp * (CONFIG.ELITE_SKILLS.rebelStrike.currentHpRatio || 0.10));
                 if (trueDmg > 0) {
@@ -128,10 +131,12 @@ export function createZhouZhiruoComponent() {
             const zhou = B.find(u => u.name === '周芷若' && u.alive);
             if (!zhou) return;
             const onAfterDamageCalc = this.onAfterDamageCalc;
+            // 周芷若-九阴白骨爪：攻击后触发白骨爪追击/斩杀/宋青书联动回血
             eventBus.on('afterAttack', L.AFTER_ATTACK.ZHOU_CLAW, (data) => {
                 if (data.unit.name !== '周芷若') return;
                 onAfterDamageCalc(data.unit, data.target, data.dmg, data.log, B, A);
             });
+            // 周芷若-快乐回血：回合开始结算快乐层数回血
             eventBus.on('onRoundStart', L.ROUND_START.XINGFEN_GRANT, (data) => {
                 const { A, B, log } = data;
                 tickKuaiLeHeal(A.concat(B), log);
