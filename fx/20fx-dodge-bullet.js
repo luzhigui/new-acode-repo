@@ -562,7 +562,7 @@ export async function showDodgeBulletTime(attacker, defender, reboundDmg) {
     } catch (e) {
         cleanup();
     } finally {
-        GlobalStore.set('bulletTimeActive', true);
+        GlobalStore.set('bulletTimeActive', false);
         if (ctx) ctx.isPaused = false;
         clearTimeout(timeoutId);
         resolved = true;
