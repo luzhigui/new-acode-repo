@@ -1,6 +1,6 @@
 // core/02unit.js - 光明顶5v5 战斗单位类
-// V5.5.0 | ~6400 bytes| 2026-08-11 init() 支持 seeded RNG，uid 改用确定性计数器
-export const VER = 'core/02unit.js V5.5.0';
+// V5.4.0 | ~6400 bytes| 2026-08-11 init() 支持 seeded RNG，uid 改用确定性计数器
+export const VER = 'core/02unit.js V5.4.0';
 
 import { CONFIG } from './01config-5v5-test.js';
 

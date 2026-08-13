@@ -1,6 +1,6 @@
 // core/06-fsm.js - 光明顶5v5 轻量状态机
-// V5.5.0 | ~1800 bytes| 2026-08-11 新增转换约束表
-export const VER = 'core/06-fsm.js V5.5.0';
+// V5.4.0 | ~1800 bytes| 2026-08-11 新增转换约束表
+export const VER = 'core/06-fsm.js V5.4.0';
 
 export class StateMachine {
     /**

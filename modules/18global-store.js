@@ -1,6 +1,6 @@
 ﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// modules/18global-store.js - 光明顶5v5 全局状态管理
-// V5.5.0 | ~3700 bytes| 2026-08-12 战斗事件/状态桥接至 core/09-battle-event-store.js
-export const VER = 'modules/18global-store.js V5.5.0';
+// V5.4.0 | ~3700 bytes| 2026-08-12 战斗事件/状态桥接至 core/09-battle-event-store.js
+export const VER = 'modules/18global-store.js V5.4.0';
 
 import { pushBattleEvent, flushBattleEvents, onBattleEvents, getBattleState, setBattleState, isBattleStateKey } from '../core/09-battle-event-store.js';
 

@@ -1,6 +1,6 @@
 // player/26player-core.js - 光明顶5v5 战斗播放器核心
-// V5.5.0 | ~31000 bytes| 2026-08-10 播放器分层收口，DOM操作迁移至54renderer
-export const VER = 'player/26player-core.js V5.5.0';
+// V5.4.0 | ~31000 bytes| 2026-08-10 播放器分层收口，DOM操作迁移至54renderer
+export const VER = 'player/26player-core.js V5.4.0';
 
 import { showBuffBanner } from '../fx/39fx-common-5v5-test.js';
 import { CONFIG } from '../core/01config-5v5-test.js';

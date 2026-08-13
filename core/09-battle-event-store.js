@@ -1,6 +1,6 @@
 // core/09-battle-event-store.js - core层战斗事件与状态存储
-// V5.5.0 | ~1200 bytes| 2026-08-12 core层定义接口，modules层GlobalStore桥接
-export const VER = 'core/09-battle-event-store.js V5.5.0';
+// V5.4.0 | ~1200 bytes| 2026-08-12 core层定义接口，modules层GlobalStore桥接
+export const VER = 'core/09-battle-event-store.js V5.4.0';
 
 // ==================== 战斗事件缓冲区 ====================
 let _eventBuffer = [];

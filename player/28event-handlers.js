@@ -1,6 +1,6 @@
 // player/28event-handlers.js - 光明顶5v5 事件处理器函数族
-// V5.5.0 | ~31000 bytes| 2026-08-10 DOM操作迁移至54renderer
-export const VER = 'player/28event-handlers.js V5.5.0';
+// V5.4.0 | ~31000 bytes| 2026-08-10 DOM操作迁移至54renderer
+export const VER = 'player/28event-handlers.js V5.4.0';
 
 import { isBlocked } from '../core/03battle-utils.js';
 import { showDanmaku, showDamageFloat, showDodgeBubble, showHealFloat, showAtkBuffFloat, applyBrushEffect, showBuffBanner, showCriticalBanner, showHeartEffect, showPinkFlash, showKuLianEffect, showWindClaw } from '../fx/39fx-common-5v5-test.js';
