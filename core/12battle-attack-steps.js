@@ -601,12 +601,17 @@ export async function buildAttackGroup(unit, target, dmgCalc, dmgResult, attacke
         const lv = getFangLevel(Math.floor(unit.def), unit.m);
         const k = C.FANG_K[lv] !== undefined ? C.FANG_K[lv] : C.FANG_K[C.FANG_K.length - 1];
         const z = hpRatio !== undefined ? hpRatio : C.HP_DMG_RATIO;
-        formulaText = `${Math.floor(penPart)} + ${Math.floor(unit.def)}×${k} + ${Math.floor(unit.maxHp)}×${z} = ${Math.floor(raw)}`;
+        const baseRaw = Math.floor(raw - bonusDmgTotal);
+        formulaText = `${Math.floor(penPart)} + ${Math.floor(unit.def)}×${k} + ${Math.floor(unit.maxHp)}×${z} = ${baseRaw}`;
+        if (bonusDmgTotal > 0) formulaText += ` + 额外伤害${bonusDmgTotal} = ${Math.floor(raw)}`;
+        if (dmgMultiplier !== 1) formulaText += `×${dmgMultiplier} = ${Math.floor(raw)}`;
     } else {
-        formulaText = `${atkAct}×(${atkAct}/(${atkAct}+${defAct})) = ${Math.floor(raw)}`;
+        const baseRaw = Math.floor(raw - bonusDmgTotal);
+        formulaText = `${atkAct}×(${atkAct}/(${atkAct}+${defAct})) = ${baseRaw}`;
+        if (bonusDmgTotal > 0) formulaText += ` + 额外伤害${bonusDmgTotal} = ${Math.floor(raw)}`;
+        if (dmgMultiplier !== 1) formulaText += `×${dmgMultiplier} = ${Math.floor(raw)}`;
     }
-    if (bonusDmgTotal > 0) formulaText += ` + 额外伤害${bonusDmgTotal}`;
-    if (dmgMultiplier !== 1) formulaText += `×${dmgMultiplier}`;
+    if (bonusDmgTotal === 0 && dmgMultiplier !== 1) formulaText += `×${dmgMultiplier}`;
     // 如果最终伤害与公式原始值不同，追加减伤说明
     if (dmg !== Math.floor(raw)) {
         const reduction = Math.floor(raw) - dmg;
