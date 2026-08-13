@@ -25,6 +25,8 @@ export function createZhangWujiComponent() {
         name: '张无忌',
         _buildFsm(zhang, A, log) {
             let fsm;
+            const col = (zhang.pos - 1) % 3;
+            const hasFrontAlly = A.some(c => c.alive && !c.isHorse && c.pos === 1 + col && c.uid !== zhang.uid);
             const states = {
                 ranged: {
                     onEnter() { zhang.rangedForm = true; zhang.role = '远程'; zhang._zhangSwitched = false; },
@@ -38,7 +40,7 @@ export function createZhangWujiComponent() {
                     onExit() {}
                 },
                 near: {
-                    onEnter() {},
+                    onEnter() { zhang.rangedForm = false; },
                     onExit() {}
                 },
                 ronghui: {
@@ -50,7 +52,7 @@ export function createZhangWujiComponent() {
                     onExit() {}
                 }
             };
-            const initial = (zhang._fsm && zhang._fsm.current) ? zhang._fsm.current : (zhang.rangedForm ? 'ranged' : 'near');
+            const initial = (zhang._fsm && zhang._fsm.current) ? zhang._fsm.current : (hasFrontAlly ? 'ranged' : 'near');
             fsm = new StateMachine(states, initial, {
                 ranged: ['switching'],
                 switching: ['near'],
@@ -69,6 +71,14 @@ export function createZhangWujiComponent() {
             eventBus.on('afterDamageApplied', L.AFTER_DAMAGE_APPLIED.ZHANG_JIUYANG, (data) => {
                 if (data.unit.uid !== zhang.uid) return;
                 onAfterApplyDamage(data.unit, data.target, { dmg: data.dmg }, data.group, A, data.log, data);
+            });
+            // 近战形态切换 — 回合开始主动检测：满足条件（有前排）才是远程，否则近战
+            eventBus.on('onRoundStart', L.ROUND_START.ZHANG_RANGE_CHECK, (data) => {
+                if (zhang && zhang.alive && !zhang._zhangSwitched && fsm.is('ranged')) {
+                    const col = (zhang.pos - 1) % 3;
+                    const hasFrontAlly = A.some(c => c.alive && !c.isHorse && c.pos === 1 + col && c.uid !== zhang.uid);
+                    if (!hasFrontAlly) fsm.transition('switching');
+                }
             });
             // 近战形态切换 — 被动监听：单位死亡、换位后自行检测前排
             eventBus.on('onUnitDeath', L.ON_UNIT_DEATH.ZHANG_SWITCH, (data) => {
