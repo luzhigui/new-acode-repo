@@ -85,8 +85,27 @@ const ReplayManager = (() => {
     showDownloadDialog(name, json, 'application/json');
   }
 
-  // 自定义下载弹窗（避免 Android WebView blob URL 报错）
+  // 触发真实文件下载（Blob URL），失败时回退到复制粘贴
   function showDownloadDialog(filename, content, mimeType) {
+    // 1. 尝试标准文件下载
+    let downloaded = false;
+    try {
+      const blob = new Blob([content], { type: mimeType });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      a.style.display = 'none';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 2000);
+      downloaded = true;
+    } catch(e) { /* 下载失败，走备用方案 */ }
+
+    // 2. 备用方案：弹窗 + 复制（Android WebView 等不支持的场景）
+    if (downloaded) return;
+
     const overlay = document.createElement('div');
     overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);z-index:99999;display:flex;align-items:center;justify-content:center;';
     const dialog = document.createElement('div');
@@ -108,7 +127,6 @@ const ReplayManager = (() => {
         btn.style.background = '#2e7d32';
         setTimeout(() => { btn.textContent = '📋 复制内容'; btn.style.background = '#4caf50'; }, 2000);
       }).catch(() => {
-        // fallback: select text
         const ta = dialog.querySelector('textarea');
         ta.select();
         document.execCommand('copy');
