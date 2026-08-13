@@ -178,7 +178,11 @@ export function checkMeleeFxState(ctx, doc) {
 /**
  * [新增] 海克斯Buff图标检测
  * 检查有Buff生效的单位，格子上是否正确显示了对应的图标
+ * 渲染时序容错：图标缺失需持续超过 ICON_BUFFER_MS 才上报，避免 Buff 刚生效、
+ * 格子尚未重绘时误报。
  */
+const ICON_BUFFER_MS = 1000;
+const _missingBuffIconSince = {};
 export function checkBuffIcons(ctx, doc) {
     const issues = [];
     const allyTeam = (ctx.UI && ctx.UI.allyTeam) || [];
@@ -239,11 +243,8 @@ export function checkBuffIcons(ctx, doc) {
         }
     }
 
-    // 精英单位白名单：这些单位不会获得海克斯 Buff 图标
-    var eliteNames = ['成昆','鹿杖客','鹤笔翁','周芷若','宋青书','张无忌','韦一笑','小昭·姊','小昭·妹'];
     for (const unit of allyTeam) {
         if (!unit.alive) continue;
-        if (eliteNames.indexOf(unit.name) !== -1) continue;
         const cell = getCellElement(unit, doc);
         if (!cell) continue;
         const nameEl = cell.querySelector('.cell-name');
@@ -253,10 +254,19 @@ export function checkBuffIcons(ctx, doc) {
         for (const buff of activeBuffs) {
             const icon = BUFF_ICONS[buff.key];
             if (!icon) continue;
-            if (isBenefited(unit, buff.key)) {
-                if (nameText.indexOf(icon) === -1) {
-                    issues.push(unit.name + ' 有' + buff.name + 'Buff，但格子上缺少图标 ' + icon);
+            if (!isBenefited(unit, buff.key)) continue;
+            const missKey = unit.uid + '|' + buff.key;
+            if (nameText.indexOf(icon) === -1) {
+                // 图标缺失：记录首次缺失时间，持续超过缓冲(给渲染留时间)才上报，避免渲染时序误报
+                if (!_missingBuffIconSince[missKey]) {
+                    _missingBuffIconSince[missKey] = Date.now();
+                } else if (Date.now() - _missingBuffIconSince[missKey] > ICON_BUFFER_MS) {
+                    issues.push(unit.name + ' 有' + buff.name + 'Buff，但格子上缺少图标 ' + icon +
+                        '（持续' + Math.round((Date.now() - _missingBuffIconSince[missKey]) / 1000) + '秒）');
+                    delete _missingBuffIconSince[missKey];
                 }
+            } else {
+                delete _missingBuffIconSince[missKey];
             }
         }
     }
