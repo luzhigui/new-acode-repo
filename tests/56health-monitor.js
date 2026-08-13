@@ -8,6 +8,9 @@ import { rule72 } from './58health-rules/60-fortify-timing.js';
 import { rule73 } from './58health-rules/61-xuanming-link.js';
 import { rule74 } from './58health-rules/62-butterfly-stack.js';
 import { rule75 } from './58health-rules/63-butterfly-return.js';
+import { rule76 } from './58health-rules/64-spider-fly-count.js';
+import { rule77 } from './58health-rules/65-fortify-overflow.js';
+import { rule78 } from './58health-rules/66-separator-duplicate.js';
 import {
     getCellElement, checkUnitHpValidity,
     checkHpBarSync, checkHpBarColor, checkFxOrphans,
@@ -295,7 +298,7 @@ function runFullChecks(ctx, doc) {
     }
 
     ctx._doc = doc;
-    const rules = [rule70, rule71, rule72, rule73, rule74, rule75];
+    const rules = [rule70, rule71, rule72, rule73, rule74, rule75, rule76, rule77, rule78];
     const beforeAllies = allyTeam.map(u => ({ ...u }));
     const beforeEnemies = enemyTeam.map(u => ({ ...u }));
     for (const rule of rules) {
