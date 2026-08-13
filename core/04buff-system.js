@@ -7,12 +7,12 @@ import {
     applyHolyFlame_Normal, applyHolyFlame_Sister, applyHolyFlame_Brother,
     calcCarryBonus_Normal, calcCarryBonus_Sister,
     applyMindControl_Normal, applyMindControl_Sister
-} from './51buff-effects.js';
+} from './14buff-effects.js';
 import { CONFIG } from './01config-5v5-test.js';
 import { hasBuff, getUnitRow, getUnitCol, getAdjacentPositions } from './03battle-utils.js';
-import { emitEvent, applyStatChange, applyMaxHpChange, query, getBattleRng } from './50battle-shared.js';
+import { emitEvent, applyStatChange, applyMaxHpChange, query, getBattleRng } from './13battle-shared.js';
 import { EXECUTION_LAYER as L } from './00-event-bus.js';
-import { processUnitAttack } from './47battle-attack.js';
+import { processUnitAttack } from './10battle-attack.js';
 const C = CONFIG;
 
 /**
