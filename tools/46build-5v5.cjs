@@ -37,6 +37,7 @@ const MODULES = [
     'player/29renderer.js',
     'player/28event-handlers.js',
     'modules/19battle-store.js',
+    'modules/23replay.js',
     'player/26player-core.js',
     'player/27battle-player-5v5-test.js',
     // --- UI 层 ---

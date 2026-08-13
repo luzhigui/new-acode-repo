@@ -366,12 +366,13 @@ export async function playBattle() {
         let nextActiveBuffs = c.activeBuffs ? c.activeBuffs.map(b => ({...b, remaining: b.remaining - 1})).filter(b => b.remaining > 0) : [];
         c.activeBuffs = nextActiveBuffs;
         if (c.updateBuffSlots) c.updateBuffSlots();
-        if (!GlobalStore.get('fastForwardActive') && battleState.round % 3 === 0 && battleState.round > 0) {
+        if (battleState.round % 3 === 0 && battleState.round > 0) {
             const mainCtx2 = getPlayerContext();
             const isFullAuto = mainCtx2 && mainCtx2.autoLevel === 'full-auto';
+            const isFastForward = GlobalStore.get('fastForwardActive');
             appendLogHTML(`<span class="gold">✨ 请选择新的Buff（持续${CONFIG.BUFF_DURATION || 4}回合）</span><br>`);
             let newBuff = null;
-            if (isFullAuto) {
+            if (isFullAuto || isFastForward) {
                 const allKeys = Object.keys(CONFIG.BUFFS);
                 const existing = (nextActiveBuffs || []).map(b => b.key);
                 const allyTeam = c.UI?.allyTeam || [];
@@ -383,7 +384,7 @@ export async function playBattle() {
                 });
                 if (available.length > 0) {
                     const rng = getBattleRng();
-            const pick = available[rng.nextInt(0, available.length - 1)];
+                    const pick = available[rng.nextInt(0, available.length - 1)];
                     const duration = CONFIG.BUFFS[pick].duration || CONFIG.BUFF_DURATION || 4;
                     newBuff = { key: pick, target: 'ally', remaining: duration, name: CONFIG.BUFFS[pick].name };
                     if (c.UI && c.UI.allyTeam) {
@@ -398,7 +399,7 @@ export async function playBattle() {
                         newBuff.row = getBattleRng().nextInt(1, 3);
                     }
                 }
-                appendLogHTML(`<span class="gold">🤖 全自动选择Buff：${newBuff ? newBuff.name : '无'}</span><br>`);
+                appendLogHTML(`<span class="gold">🤖 自动选择Buff：${newBuff ? newBuff.name : '无'}</span><br>`);
             } else {
                 c.isPaused = true;
                 newBuff = await showBuffPopup(c);
@@ -449,11 +450,11 @@ export async function playBattle() {
     GlobalStore.get('replayManager').finishRecording(finalWinner);
     GlobalStore.set('fastForwardActive', false);
     // 同步更新 33main-state.js 的模块级 gs 变量，否则 updateButtons 里 import 的 gs 仍是旧值
+    if (window._syncGs) window._syncGs('GAMEOVER');
     GlobalStore.set('gs', 'GAMEOVER');
     
     // 强制刷新按钮状态，确保 GAMEOVER 状态下的按钮布局正确生效
     GlobalStore.set('restoreSpeed', true);
-    GlobalStore.set('gs', 'GAMEOVER');
     c.enableAllButtons();
 
     let winner = finalWinner;
