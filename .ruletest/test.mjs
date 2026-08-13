@@ -1,6 +1,7 @@
 import { rule76 } from './r64.mjs';
 import { rule77 } from './r65.mjs';
 import { rule78 } from './r66.mjs';
+import { rule79 } from './r67.mjs';
 
 function run(name, rule, log) {
     const r = rule.test(null, log, [], [], [], []);
@@ -40,4 +41,27 @@ run('78-fail(第2回合开始两次)', rule78, [
 run('78-fail(第1回合结束两次)', rule78, [
     { type: 'round-end', text: '<div class="separator">———— 第1回合结束 ————</div>' },
     { type: 'round-end', text: '<div class="separator">———— 第1回合结束 ————</div>' }
+]);
+
+console.log('--- rule79 九阴白骨爪伤害/调血 ---');
+run('79-skip(无九阴白骨爪)', rule79, [{ type: 'info', text: '普通日志' }]);
+run('79-pass(正常单次)', rule79, [
+    { type: 'info', text: '周芷若 施展九阴白骨爪 对 张无忌 造成 35 点伤害' }
+]);
+run('79-pass(连锁递增)', rule79, [
+    { type: 'info', text: '周芷若 施展九阴白骨爪 对 张无忌 造成 30 点伤害' },
+    { type: 'info', text: '周芷若 施展九阴白骨爪 对 张无忌 造成 45 点伤害' }
+]);
+run('79-fail(伤害为0)', rule79, [
+    { type: 'info', text: '周芷若 施展九阴白骨爪 对 张无忌 造成 0 点伤害' }
+]);
+run('79-fail(连锁递减)', rule79, [
+    { type: 'info', text: '周芷若 施展九阴白骨爪 对 张无忌 造成 45 点伤害' },
+    { type: 'info', text: '周芷若 施展九阴白骨爪 对 张无忌 造成 20 点伤害' }
+]);
+run('79-fail(斩杀残留HP)', rule79, [
+    { type: 'info', text: '周芷若 施展九阴白骨爪 斩杀 对 张无忌 造成 60 点伤害', isExecute: true, clawTargetHpAfter: 5 }
+]);
+run('79-pass(斩杀调血为0)', rule79, [
+    { type: 'info', text: '周芷若 施展九阴白骨爪 斩杀 对 张无忌 造成 60 点伤害', isExecute: true, clawTargetHpAfter: 0 }
 ]);

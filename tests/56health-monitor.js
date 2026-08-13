@@ -11,11 +11,13 @@ import { rule75 } from './58health-rules/63-butterfly-return.js';
 import { rule76 } from './58health-rules/64-spider-fly-count.js';
 import { rule77 } from './58health-rules/65-fortify-overflow.js';
 import { rule78 } from './58health-rules/66-separator-duplicate.js';
+import { rule79 } from './58health-rules/67-claw-damage.js';
 import {
     getCellElement, checkUnitHpValidity,
     checkHpBarSync, checkHpBarColor, checkFxOrphans,
     checkDeathFxRetention, checkVictoryDanmaku,
-    checkMeleeFxState, checkBuffIcons, locateLogEntry
+    checkMeleeFxState, checkBuffIcons, locateLogEntry,
+    checkBottomButtonStates, checkModeButtonStates
 } from './57health-utils.js';
 
 let monitorActive = false, gameLoaded = false, scanTimer = null, isPaused = false;
@@ -221,6 +223,10 @@ function periodicScan() {
         ctx._enhancedBattleLog = ctx.UI.currentResult.log;
     }
 
+    // 实时按钮状态检查：随游戏状态机(IDLE/RUNNING/PAUSED/GAMEOVER)校验底部控制按钮与模式按钮
+    for (const msg of checkBottomButtonStates(ctx, doc)) recordIssue(ctx, null, '按钮状态', msg, 'UI');
+    for (const msg of checkModeButtonStates(ctx, doc)) recordIssue(ctx, null, '模式按钮', msg, 'UI');
+
     if (ctx.gs === 'RUNNING' || ctx.gs === 'PAUSED') {
         if (battleStartTime === 0) { battleStartTime = Date.now(); battleEnded = false; }
         runEngineChecks(ctx);
@@ -298,7 +304,7 @@ function runFullChecks(ctx, doc) {
     }
 
     ctx._doc = doc;
-    const rules = [rule70, rule71, rule72, rule73, rule74, rule75, rule76, rule77, rule78];
+    const rules = [rule70, rule71, rule72, rule73, rule74, rule75, rule76, rule77, rule78, rule79];
     const beforeAllies = allyTeam.map(u => ({ ...u }));
     const beforeEnemies = enemyTeam.map(u => ({ ...u }));
     for (const rule of rules) {
