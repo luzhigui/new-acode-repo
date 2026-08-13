@@ -412,9 +412,9 @@ export async function playBattle() {
             c.isPaused = false;
         }
 
-        // 姐姐附身方向选择（第1/4/7/10…回合，姐姐存活时）
+        // 姐姐附身方向选择（第1/4/7/10…回合，姐姐存活时，非快进）
         const nextRound = battleState.round + 1;
-        if (nextRound % 3 === 1 && lastStep) {
+        if (!GlobalStore.get('fastForwardActive') && nextRound % 3 === 1 && lastStep) {
             const hasSister = lastStep.ally && lastStep.ally.some(u => u.isXiaoZhaoSister && u.alive);
             if (hasSister) {
                 c.isPaused = true;
