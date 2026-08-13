@@ -74,7 +74,7 @@ export const eventBus = new EventBus();
 // 层级按数字从小到大依次执行。同层级内按注册顺序执行。
 export const EXECUTION_LAYER = {
     // ── 回合生命周期 ──
-    ROUND_START:      { SPIDER_TRANSFORM: 10, XUANMING_POISON: 10, XINGFEN_GRANT: 10, KULIAN_BUFF: 10, PERMANENT_CARRY: 10 },
+    ROUND_START:      { ZHANG_RANGE_CHECK: 5, SPIDER_TRANSFORM: 10, XUANMING_POISON: 10, XINGFEN_GRANT: 10, KULIAN_BUFF: 10, PERMANENT_CARRY: 10 },
     ROUND_END:        { BUTTERFLY_RETURN: 10, SPIDER_RETURN: 10 },
 
     // ── 行动调度 ──
