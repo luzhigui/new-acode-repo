@@ -149,6 +149,27 @@ export function initMonitor() {
                 clearInterval(waitReady); gameLoaded = true;
                 const w = getWin();
                 if (w && typeof w.selectStage === 'function') w.selectStage(4);
+                // 开启全自动模式：自动选Buff、自动开战、自动推进关卡，实现无人值守实时体检
+                try { if (w && w.GlobalStore) w.GlobalStore.set('autoLevel', 'full-auto'); } catch (e) {}
+                // 等关卡就绪(IDLE)后自动点击"开始战斗"，避免 selectStage 尚未完成时误点
+                const tryStart = setInterval(() => {
+                    const c = getCtx();
+                    const d = getDoc();
+                    if (!c || !d) return;
+                    if (c.gs === 'IDLE') {
+                        clearInterval(tryStart);
+                        const btn = d.getElementById('btnMain');
+                        if (btn) btn.click();
+                    }
+                }, 400);
+                // 超时保护：6秒后若仍未开战则强制点击一次
+                setTimeout(() => {
+                    clearInterval(tryStart);
+                    const c = getCtx();
+                    const d = getDoc();
+                    const btn = d && d.getElementById('btnMain');
+                    if (btn && c && c.gs === 'IDLE') btn.click();
+                }, 6000);
                 startScanTimer();
                 updateStatusLine();
             }
