@@ -9,6 +9,7 @@ import { addPermanentBuff } from '../modules/23elite-skills.js';
 import { updateUI, clearLogExceptFirst } from './14ui-render-5v5-test.js';
 import { showModal } from './12main-utils.js';
 import { getBattleRng } from '../core/50battle-shared.js';
+import { GlobalStore } from '../modules/46global-store.js';
 
 const C = CONFIG;
 const ALL_BUFF_KEYS = Object.keys(C.BUFFS);
@@ -351,6 +352,11 @@ export function doInitBattle(currentStage, UI, snapshot, activeBuffs, selectedBu
  * @param {function} callback - 选完后调用，参数 'right' 或 'left'
  */
 export function showFlyDirectionPopup(callback) {
+    // 快进/跳过：直接默认方向，不弹窗
+    if (GlobalStore.get('fastForwardActive') || GlobalStore.get('skipBuffPopup')) {
+        callback('right');
+        return;
+    }
     const overlay = document.createElement('div');
     overlay.className = 'modal-overlay';
     overlay.id = 'flyDirectionModalOverlay';
@@ -393,16 +399,29 @@ export function showFlyDirectionPopup(callback) {
     box.appendChild(btnDiv);
     overlay.appendChild(box);
     document.body.appendChild(overlay);
+    // 监听快进/跳过：弹窗已显示时如果 fastForwardActive 变为 true，自动关闭
+    const unsub = GlobalStore.on('fastForwardActive', (val) => {
+        if (val) {
+            unsub();
+            if (overlay.parentNode) overlay.remove();
+            callback('right');
+        }
+    });
+    // 包装 callback，确保清理监听
+    const wrappedCallback = (dir) => { unsub(); callback(dir); };
+    btnLeft.onclick = () => { document.body.removeChild(overlay); wrappedCallback('left'); };
+    btnRight.onclick = () => { document.body.removeChild(overlay); wrappedCallback('right'); };
 }
 
 export function createBuffObject(key, duration) {
     const buff = { key, target: 'ally', remaining: duration, name: CONFIG.BUFFS[key]?.name || key };
     if (key === 'holyFlame') {
         const cols = [];
-        while (cols.length < 2) { const c = _rand(1, 3); if (!cols.includes(c)) cols.push(c); }
+        const rng = getBattleRng();
+        while (cols.length < 2) { const c = rng.nextInt(1, 3); if (!cols.includes(c)) cols.push(c); }
         cols.sort((a, b) => a - b);
         const rows = [];
-        while (rows.length < 2) { const r = _rand(1, 3); if (!rows.includes(r)) rows.push(r); }
+        while (rows.length < 2) { const r = rng.nextInt(1, 3); if (!rows.includes(r)) rows.push(r); }
         rows.sort((a, b) => a - b);
         buff.cols = cols;
         buff.rows = rows;

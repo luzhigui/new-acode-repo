@@ -27,6 +27,12 @@ export function setBuffUIContext(c) { ctx = c; }
  */
 export function showBuffPopup(c) {
     return new Promise((resolve) => {
+        // 快进/跳过：如果 skipBuffPopup 已经为 true，直接返回 null
+        if (GlobalStore.get('skipBuffPopup')) {
+            GlobalStore.set('skipBuffPopup', false);
+            resolve(null);
+            return;
+        }
         let activeBuffs = c.activeBuffs || [];
         let existingKeys = activeBuffs.map(b => b.key);
         let allKeys = Object.keys(CONFIG.BUFFS || {});
@@ -66,10 +72,12 @@ export function showBuffPopup(c) {
         let inner = `<div class="modal-text">${text}</div><span class="modal-minimize" id="buffModalMinimize">∧</span><div class="modal-buttons"></div>`;
         box.innerHTML = inner;
         let btnsDiv = box.querySelector('.modal-buttons');
+        let unsubSkip = null;
         buttons.forEach(b => {
             let btn = document.createElement('button'); btn.className = 'modal-btn ' + (b.cls || '');
             btn.textContent = b.text;
             btn.addEventListener('click', () => {
+                if (unsubSkip) unsubSkip();
                 document.body.removeChild(overlay);
                 let floatBtn = document.getElementById('buffFloatBtn');
                 if (floatBtn) floatBtn.remove();
@@ -94,6 +102,17 @@ export function showBuffPopup(c) {
             btnsDiv.appendChild(btn);
         });
         overlay.appendChild(box); document.body.appendChild(overlay);
+        // 监听快进/跳过：弹窗已显示时如果 skipBuffPopup 变为 true，自动关闭
+        unsubSkip = GlobalStore.on('skipBuffPopup', (val) => {
+            if (val) {
+                unsubSkip();
+                if (overlay.parentNode) overlay.remove();
+                let floatBtn = document.getElementById('buffFloatBtn');
+                if (floatBtn) floatBtn.remove();
+                GlobalStore.set('skipBuffPopup', false);
+                resolve(null);
+            }
+        });
         // 清理可能残留的关闭按钮（来自投票弹窗等）
         document.querySelectorAll('#buffModalOverlay .modal-box > span').forEach(s => {
             if (s.textContent === '✕') s.remove();
