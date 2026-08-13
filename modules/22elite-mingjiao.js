@@ -1,6 +1,6 @@
 // modules/22elite-mingjiao.js - 明教精英组件合集
-// V5.5.0 | ~33000 bytes| 2026-08-10 关键单位显式FSM迁移
-export const VER = 'modules/22elite-mingjiao.js V5.5.0';
+// V5.4.0 | ~33000 bytes| 2026-08-10 关键单位显式FSM迁移
+export const VER = 'modules/22elite-mingjiao.js V5.4.0';
 
 import { registerElite } from '../core/08-elite-registry.js';
 import { CONFIG, getSkillParams } from '../core/01config-5v5-test.js';

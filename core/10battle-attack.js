@@ -121,7 +121,7 @@ export async function processUnitAttack(unit, allySide, enemySide, log, A, B, st
             dg.entries.push({type:'info', text: dg.dodgeText});
             dg.entries.push({type:'damage-text', text: dg.reboundText});
             if (dg.isDead) {
-                unit.alive = false; unit.state._isDead = true;
+                unit.alive = false; unit._pendingDeath = true;
                 dg.hpAfter = 0;
                 dg.entries.push({type:'info', text:`${unit.name}被反击击杀！`});
             }
