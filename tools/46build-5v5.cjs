@@ -7,18 +7,24 @@ const path = require('path');
 const ROOT = path.resolve(__dirname, '..');
 
 const MODULES = [
+    // --- 基础层 (core) ---
+    'core/00-event-bus.js',
     'core/01config-5v5-test.js',
     'core/03battle-utils.js',
     'core/02unit.js',
+    'core/08-elite-registry.js',
+    'core/09-battle-event-store.js',
     'modules/15elite-skills.js',
     'core/04buff-system.js',
     'core/05battle-horse.js',
+    'core/14buff-effects.js',
     'core/10battle-attack.js',
     'core/11battle-round.js',
     'core/12battle-attack-steps.js',
     'core/13battle-shared.js',
     'core/06-fsm.js',
     'core/07-rng.js',
+    // --- 播放器层 (player) ---
     'player/24player-text.js',
     'fx/39fx-common-5v5-test.js',
     'fx/40fx-arrows-5v5-test.js',
@@ -28,8 +34,12 @@ const MODULES = [
     'fx/44fx-dodge-bullet.js',
     'fx/45fx-butterfly-spider.js',
     'player/25player-buff-ui.js',
+    'player/29renderer.js',
+    'player/28event-handlers.js',
+    'modules/19battle-store.js',
     'player/26player-core.js',
     'player/27battle-player-5v5-test.js',
+    // --- UI 层 ---
     'ui/32ui-render-5v5-test.js',
     'ui/30main-utils.js',
     'modules/16error-capture.js',
@@ -42,6 +52,10 @@ const MODULES = [
     'ui/36audio-control.js',
     'ui/37fx-trigger.js',
     'ui/38ui-controls.js',
+    // --- 精英模块 + 入口 ---
+    'modules/20elite-imperial.js',
+    'modules/21elite-sixsects.js',
+    'modules/22elite-mingjiao.js',
     'ui/31main-5v5-test.js'
 ];
 
