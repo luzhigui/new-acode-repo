@@ -45,7 +45,7 @@ export async function handleBuffSwap(c, entry) {
             c.updateUI();
         }
     }
-    GlobalStore.set('bulletTimeActive', true);
+    GlobalStore.set('bulletTimeActive', false);
     c.isPaused = false;
 }
 
@@ -70,7 +70,7 @@ export async function handleBuffPush(c, entry) {
         }
     }
     await showBuffBanner('🦅 乘风突袭！');
-    GlobalStore.set('bulletTimeActive', true);
+    GlobalStore.set('bulletTimeActive', false);
     c.isPaused = false;
     appendLogHTML(entry.text + '<br>');
     let targetUnit = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.uid === entry.pushTargetUid);
@@ -88,7 +88,7 @@ export async function handleBuffReboundFortify(c, entry) {
     c.isPaused = true;
     GlobalStore.set('bulletTimeActive', true);
     await showBuffBanner('🛡️ 严阵以待！');
-    GlobalStore.set('bulletTimeActive', true);
+    GlobalStore.set('bulletTimeActive', false);
     c.isPaused = false;
     let attacker = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.uid === entry.attackerUid);
     if (attacker && entry.reboundDmg) showDamageFloat(attacker, entry.reboundDmg);

@@ -46,12 +46,8 @@ export async function playLineText(text, div, forcedSpeed = null) {
         if(text[htmlIdx]==='<'){let tag='';while(text[htmlIdx]!=='>'){tag+=text[htmlIdx];htmlIdx++;}tag+='>';fullHtml+=tag;htmlIdx++;}
         else{
             fullHtml+=text[htmlIdx];htmlIdx++;
-            const ctx2 = getCtx();
-            if (ctx2 && ctx2._scheduler) {
-                await new Promise(r => ctx2._scheduler.schedule('text', charDelay, r));
-            } else {
-                await new Promise(r => setTimeout(r, charDelay));
-            }
+            // 使用 setTimeout 而非 scheduler，避免 isPaused 时 scheduler 不 tick 导致死锁
+            await new Promise(r => setTimeout(r, charDelay));
         }
         div.innerHTML=fullHtml+'<br>';
         c.autoScrollLog();
