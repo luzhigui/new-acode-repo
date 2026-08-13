@@ -145,18 +145,23 @@ const ReplayManager = (() => {
     if (!file) return;
     const reader = new FileReader();
     reader.onload = (e) => {
-      try {
-        const data = JSON.parse(e.target.result);
-        if (data.version && data.snapshot) {
-          startReplay(data);
-        } else {
-          alert('无效的回放文件：缺少 version 或 snapshot 字段');
-        }
-      } catch (err) {
-        alert('文件解析失败：' + err.message);
-      }
+      importText(e.target.result);
     };
     reader.readAsText(file);
+  }
+
+  // 导入回放文本（粘贴 JSON 内容）
+  function importText(text) {
+    try {
+      const data = JSON.parse(text);
+      if (data.version && data.snapshot) {
+        startReplay(data);
+      } else {
+        alert('无效的回放文件：缺少 version 或 snapshot 字段');
+      }
+    } catch (err) {
+      alert('文件解析失败：' + err.message);
+    }
   }
 
   // 开始回放
@@ -350,6 +355,7 @@ const ReplayManager = (() => {
     finishRecording,
     download,
     importFile,
+    importText,
     startReplay
   };
 })();
