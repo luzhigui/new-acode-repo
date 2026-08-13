@@ -187,14 +187,9 @@ export async function showBuffBanner(text) {
             console.error('showBuffBanner 对象池异常:', e);
         }
 
-        const ctxB = GlobalStore.get('playerContext');
-        if (ctxB && ctxB._scheduler) {
-            ctxB._scheduler.schedule('banner', 1500, finish);
-            ctxB._scheduler.schedule('banner', 3000, finish); // 最终保险
-        } else {
-            setTimeout(finish, 1500);
-            setTimeout(finish, 3000);
-        }
+        // 使用 setTimeout 而非 scheduler，避免 isPaused 时 scheduler 不 tick 导致死锁
+        setTimeout(finish, 1500);
+        setTimeout(finish, 3000); // 最终保险
     });
 }
 
