@@ -10,16 +10,23 @@ import { getBattleRng } from './13battle-shared.js';
 const C = CONFIG;
 
 // ==================== 严阵以待防御加成 ====================
+// 严阵-普通：防战防御比率加成
 export function applyFortifyDef_Normal(unit, stats) { stats.defBonus += CONFIG.BUFFS.fortify.defBonus; }
+// 严阵-姐姐：防战防御比率加成（同普通）
 export function applyFortifyDef_Sister(unit, stats) { stats.defBonus += CONFIG.BUFFS.fortify.defBonus; }
+// 严阵-妹妹：防战固定50%防御加成
 export function applyFortifyDef_Brother(unit, stats) { stats.defBonus += 0.5; }
 
 // ==================== 流云身法闪避 ====================
+// 流云-普通：全队闪避率加成
 export function applyCloudBodyDodge_Normal(unit, stats) { stats.dodgeBonus = CONFIG.BUFFS.cloudBody.dodgeBonus; }
+// 流云-姐姐：全队闪避率加成（同普通）
 export function applyCloudBodyDodge_Sister(unit, stats) { stats.dodgeBonus = CONFIG.BUFFS.cloudBody.dodgeBonus; }
+// 流云-妹妹：固定25%闪避率
 export function applyCloudBodyDodge_Brother(unit, stats) { stats.dodgeBonus = 0.25; }
 
 // ==================== 圣火令加成 ====================
+// 圣火-普通：按随机行列加攻防比率
 export function applyHolyFlame_Normal(unit, allyTeam, activeBuffs, stats) {
     const holyFlameBuff = activeBuffs.find(b => b.key === 'holyFlame');
     if (!holyFlameBuff || unit.camp !== 'ally') return;
@@ -29,16 +36,19 @@ export function applyHolyFlame_Normal(unit, allyTeam, activeBuffs, stats) {
     if (rows.includes(getUnitRow(unit.pos))) stats.defBonus += CONFIG.BUFFS.holyFlame.defBonus;
 }
 
+// 圣火-姐姐：同普通圣火令
 export function applyHolyFlame_Sister(unit, allyTeam, activeBuffs, stats) {
     applyHolyFlame_Normal(unit, allyTeam, activeBuffs, stats);
 }
 
+// 圣火-妹妹：全队攻防比率加成
 export function applyHolyFlame_Brother(unit, allyTeam, activeBuffs, stats) {
     stats.atkBonus += CONFIG.BUFFS.holyFlame.atkBonus;
     stats.defBonus += CONFIG.BUFFS.holyFlame.defBonus;
 }
 
 // ==================== Carry 加成 ====================
+// Carry-普通：5号位获取队友属性加成（死亡翻倍）
 export function calcCarryBonus_Normal(unit, allyTeam) {
     if (unit.pos !== 5 || !unit.alive || unit.isHorse) return { atkAbs: 0, defAbs: 0, hpAbs: 0 };
     let carryAtkAbs = 0, carryDefAbs = 0, carryHpAbs = 0;
@@ -52,6 +62,7 @@ export function calcCarryBonus_Normal(unit, allyTeam) {
     return { atkAbs: carryAtkAbs, defAbs: carryDefAbs, hpAbs: carryHpAbs };
 }
 
+// Carry-姐姐：4-6号位获取队友属性加成
 export function calcCarryBonus_Sister(unit, allyTeam) {
     if ((unit.pos < 4 || unit.pos > 6) || !unit.alive || unit.isHorse) return { atkAbs: 0, defAbs: 0, hpAbs: 0 };
     let carryAtkAbs = 0, carryDefAbs = 0, carryHpAbs = 0;
@@ -104,10 +115,12 @@ function applyMindControlCore(unit, allySide, enemySide, log, swapChanceEnemy, s
     eventBus.emit('onPositionSwap', { allySide, enemySide, log });
 }
 
+// 惑心-普通：80%扰乱敌方换位，40%己方换位
 export function applyMindControl_Normal(unit, allySide, enemySide, log) {
     applyMindControlCore(unit, allySide, enemySide, log, 80, 40);
 }
 
+// 惑心-姐姐：95%扰乱敌方换位，50%己方换位
 export function applyMindControl_Sister(unit, allySide, enemySide, log) {
     applyMindControlCore(unit, allySide, enemySide, log, 95, 50);
 }

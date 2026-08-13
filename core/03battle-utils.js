@@ -8,11 +8,14 @@ import { EXECUTION_LAYER as L } from './00-event-bus.js';
 const C = CONFIG, TL = TAUNT_LIB, DT = DEF_TAUNT, HT = HP_TAUNT, ZT = ZHANG_NEAR_TAUNT;
 
 
+// 工具-伤害公式：基础伤害 = atk²/(atk+def)
 export function calcDamage(atk, def) { if (def <= 0) return atk; let d = atk * (atk / (atk + def)); return Math.max(d, atk * 0.1); }
+// 工具-防战等级：根据防御/兵力比查表
 export function getFangLevel(def, m) { let ratio = def / m; for (let i = C.FANG_LEVELS.length - 1; i >= 0; i--) { if (ratio >= C.FANG_LEVELS[i]) return i; } return 0; }
-
+// 工具-近战判断：战士/防战/飞行为近战
 export function isMelee(role) { return role === '战士' || role === '防战' || role === '飞行'; }
 
+// 工具-前排：获取每列最靠前的存活单位
 export function getFronts(units) {
     let fronts = [];
     for (let col = 0; col < 3; col++) {
@@ -27,6 +30,7 @@ export function getFronts(units) {
     return fronts;
 }
 
+// 工具-遮挡：判断单位是否被前排遮挡
 export function isBlocked(unit, allies) {
     if (unit.role === '飞行') return false;
     if (unit.state._flyMode === 'butterfly') return false;
@@ -56,8 +60,11 @@ export function getActiveBuffs(allies, enemy) {
     let ally = allies[0]?.camp === 'ally' ? allies : enemy;
     return ally._activeBuffs || [];
 }
+// 工具-查找Buff：检查Buff列表中是否存在指定key
 export function hasBuff(buffs, buffKey) { return buffs.some(b => b.key === buffKey); }
+// 工具-行号：1-3行
 export function getUnitRow(pos) { return Math.ceil(pos / 3); }
+// 工具-列号：1-3列
 export function getUnitCol(pos) { return (pos - 1) % 3 + 1; }
 export function getAdjacentPositions(pos) {
     const row = getUnitRow(pos), col = getUnitCol(pos);
@@ -242,6 +249,7 @@ export function getBloodAuraBonus(allUnits) {
  * 光环加成纯函数 — 实时扫描战场，当场计算飞行单位的光环加成
  * 不依赖任何字段存储，每次调用返回最新值
  */
+// 工具-光环：飞行单位空列+残血光环加成
 export function getAuraBonuses(unit, allySide, enemySide) {
     if (unit.role !== '飞行' || unit.isHorse) return { emptyCol: 0, bloodAura: 0 };
     const isAlly = unit.camp === 'ally';
@@ -258,6 +266,7 @@ export function getAuraBonuses(unit, allySide, enemySide) {
 /**
  * 注册战士破防监听器
  */
+// 事件-战士破防：概率降低目标防御
 export function registerWarriorBreakDefense(eventBus) {
     eventBus.on('beforeDamageCalc', L.BEFORE_DAMAGE_CALC.WARRIOR_BREAK, (data) => {
         const { unit, target, declarations } = data;
@@ -284,6 +293,7 @@ export function registerWarriorBreakDefense(eventBus) {
 /**
  * 注册远程成长监听器
  */
+// 事件-远程成长：每次攻击+2攻击力
 export function registerRangedGrowth(eventBus) {
     eventBus.on('afterDamageApplied', L.AFTER_DAMAGE_APPLIED.RANGED_GROWTH, (data) => {
         const { unit, target, dmg, group } = data;
@@ -311,6 +321,7 @@ export function registerRangedGrowth(eventBus) {
  * - 嗜血狂刀激活时斩杀线提升至 20%
  * - 不限阵营，六大派战士同样生效
  */
+// 事件-战士斩杀：低血量直接击杀（15%/20%阈值）
 export function registerWarriorExecute(eventBus) {
     eventBus.on('afterDamageApplied', L.AFTER_DAMAGE_APPLIED.WARRIOR_EXECUTE, (data) => {
         const { unit, target, allySide, declarations } = data;
@@ -338,6 +349,7 @@ export function registerWarriorExecute(eventBus) {
  * - 攻击时 100% 概率触发坚盾（与被攻击共享每回合上限，成昆6/其他防战3）
  * - 坚盾增加的防御永久保留（同步更新 _baseDef）
  */
+// 事件-防战坚盾：被攻/攻击时概率叠防御（每回合上限）
 export function registerFortifyShield(eventBus) {
     // 坚盾触发核心逻辑（被攻击 / 攻击共用）
     function tryFortify(unit, chance, group, log, label, skipStatChange) {
@@ -388,6 +400,7 @@ export function registerFortifyShield(eventBus) {
     });
 }
 
+// 事件-概率连击：80%概率额外攻击一次
 export function registerDoubleStrike(eventBus, doubleStrikeUnitUid, allyTeam, activeBuffs) {
     if (!doubleStrikeUnitUid) return;
     eventBus.on('afterAttack', L.AFTER_ATTACK.DOUBLE_STRIKE, (data) => {
@@ -405,6 +418,7 @@ export function registerDoubleStrike(eventBus, doubleStrikeUnitUid, allyTeam, ac
     });
 }
 
+// 事件-空列加成：已改为纯函数（保留空壳兼容）
 export function registerEmptyColBonus(eventBus) {
     // 空列和残血光环已改为纯函数 getAuraBonuses 实时计算，不再需要事件监听
     // 保留空函数以兼容所有调用方，后续可彻底移除调用

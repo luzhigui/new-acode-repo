@@ -6,10 +6,12 @@ export const VER = 'core/09-battle-event-store.js V5.4.0';
 let _eventBuffer = [];
 const _eventSubscribers = [];
 
+// 事件-推送：战斗事件入缓冲区
 export function pushBattleEvent(event) {
     _eventBuffer.push(event);
 }
 
+// 事件-刷新：清空缓冲区并通知订阅者
 export function flushBattleEvents() {
     const events = _eventBuffer;
     _eventBuffer = [];
@@ -19,6 +21,7 @@ export function flushBattleEvents() {
     return events;
 }
 
+// 事件-订阅：注册事件缓冲区消费者
 export function onBattleEvents(fn) {
     if (!_eventSubscribers.includes(fn)) _eventSubscribers.push(fn);
     return () => {

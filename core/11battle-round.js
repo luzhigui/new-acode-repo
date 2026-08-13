@@ -27,6 +27,7 @@ const C = CONFIG;
  * @yields {{ log: Array, events: Array, ally: Array, enemy: Array, winner: string|null, done: boolean }}
  *   每步产生日志、事件、当前双方状态，winner 非空表示战斗结束
  */
+// 回合-生成器：逐yield行动步骤供播放器消费
 export async function* createRoundStepper(state) {
     // 确定性 RNG：同一种子 → 同一次战斗结果（回放/复现基础）
     const rng = state._rng || new SeededRNG(Date.now());
@@ -307,6 +308,7 @@ export async function* createRoundStepper(state) {
     /**
      * 状态转换边裁 — 收集声明并裁定执行
      */
+    // 回合-状态转换边裁：收集声明并裁定执行
     function resolveStateTransitions() {
         const stateTransitions = [];
         if (A._pendingStateTransitions) {
@@ -345,6 +347,7 @@ export async function* createRoundStepper(state) {
      * 行动调度边裁 — 裁定本轮行动者
      * 两步：裁判感知 → 声明收集与冲突裁决
      */
+    // 回合-行动调度：裁定本轮行动者（priority+pos排序）
     function resolveActionOrder(candidates, log) {
         resolveStateTransitions();
         const sortedByPos = [...candidates].filter(u => u.alive && !u.state._isDead).sort((a, b) => a.pos - b.pos);
@@ -613,6 +616,7 @@ export async function* createRoundStepper(state) {
     yield { log: [...log], events: endEvents, ally: A, enemy: B, winner, done };
 }
 
+// 回合-同步执行：创建stepper并逐步骤推进
 export function runBattleRound(state) {
     const stepper = createRoundStepper(state);
     let finalResult = null;

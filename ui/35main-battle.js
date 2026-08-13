@@ -15,6 +15,7 @@ const C = CONFIG;
 const ALL_BUFF_KEYS = Object.keys(C.BUFFS);
 
 // ==================== 阵容生成 ====================
+// 战斗-初始化：生成明教+六大派阵容
 export function doInitBattle(currentStage, UI, snapshot, activeBuffs, selectedBuffIndex, currentDoubleStrikeUid) {
     if (!UI || !snapshot) return;
     // 确定性 RNG：确保 init() 属性分配具有确定性，回放时可复现
@@ -351,6 +352,7 @@ export function doInitBattle(currentStage, UI, snapshot, activeBuffs, selectedBu
  * 弹窗选择姐姐附身方向
  * @param {function} callback - 选完后调用，参数 'right' 或 'left'
  */
+// 战斗-弹窗：姐姐附身方向选择（左防御/右攻击）
 export function showFlyDirectionPopup(callback) {
     // 快进/跳过：直接默认方向，不弹窗
     if (GlobalStore.get('fastForwardActive') || GlobalStore.get('skipBuffPopup')) {
@@ -413,6 +415,7 @@ export function showFlyDirectionPopup(callback) {
     btnRight.onclick = () => { document.body.removeChild(overlay); wrappedCallback('right'); };
 }
 
+// Buff-创建：构建Buff对象（含圣火令随机行列）
 export function createBuffObject(key, duration) {
     const buff = { key, target: 'ally', remaining: duration, name: CONFIG.BUFFS[key]?.name || key };
     if (key === 'holyFlame') {
@@ -429,6 +432,7 @@ export function createBuffObject(key, duration) {
     return buff;
 }
 
+// Buff-选择：生成可选Buff列表（过滤已激活+角色需求）
 export function generateBuffChoices(activeBuffs, allyTeam = [], rng = null) {
     let activeBuffKeys = activeBuffs.map(b => b.key);
     let available = ALL_BUFF_KEYS.filter(k => {
@@ -447,6 +451,7 @@ export function generateBuffChoices(activeBuffs, allyTeam = [], rng = null) {
     return shuffled.slice(0, C.BUFF_CHOICES);
 }
 
+// Buff-弹窗：显示Buff选择界面（普通模式）
 export function showBuffSelection(callback, activeBuffs, selectedBuffIndex, updateBuffSlotsFn, updateUIFn, autoScrollLogFn, allyTeam) {
     // 如果传入的 allyTeam 无效，从全局状态重新获取
     if (!allyTeam || !allyTeam.length || !allyTeam.some(u => u.alive)) {
@@ -489,6 +494,7 @@ export function showBuffSelection(callback, activeBuffs, selectedBuffIndex, upda
     }, true, false);
 }
 
+// Buff-弹窗：显示Buff选择界面（Bug调试模式）
 export function showBugModeBuffSelection(callback, activeBuffs, selectedBuffIndex, updateBuffSlotsFn, updateUIFn, autoScrollLogFn, allyTeam) {
     const allKeys = Object.keys(C.BUFFS || {});
     const existingKeys = activeBuffs.map(b => b.key);
@@ -527,6 +533,7 @@ export function showBugModeBuffSelection(callback, activeBuffs, selectedBuffInde
 // ==================== Buff 槽 ====================
 
 
+// Buff-计时：回合结束后递减Buff持续时间
 export function tickBuffDurations(activeBuffs, selectedBuffIndex, updateBuffSlotsFn) {
     activeBuffs = activeBuffs.map(b => ({...b, remaining: b.remaining - 1})).filter(b => b.remaining > 0);
     if (selectedBuffIndex >= activeBuffs.length) selectedBuffIndex = -1;
@@ -534,11 +541,13 @@ export function tickBuffDurations(activeBuffs, selectedBuffIndex, updateBuffSlot
     return { activeBuffs, selectedBuffIndex };
 }
 
+// Buff-列表：格式化当前激活Buff摘要
 export function getActiveBuffList(activeBuffs) {
     return activeBuffs.map(b => b.name + '(' + b.remaining + '回)').join('、') || '无';
 }
 
 // ==================== 战斗日志 ====================
+// 日志-阵容：输出双方阵容详情到日志区
 export function logTeamInfo(label, UI, gs, battleResultForInfo, activeBuffs, hasLoggedTeam) {
     let ally = UI.allyTeam, enemy = UI.enemyTeam;
     if (!ally.length || !enemy.length) return;
@@ -589,6 +598,7 @@ export function logTeamInfo(label, UI, gs, battleResultForInfo, activeBuffs, has
 }
 
 // ==================== 中止 ====================
+// 战斗-中止：重置所有战斗状态+清理视觉标记
 export function abortAll(abortController, UI, waitingForNextRound, isBattleStarting, adjustMode, selectedAdjustPos, activeBuffs, selectedBuffIndex, currentDoubleStrikeUid, updateBuffSlotsFn) {
     if (abortController) { abortController.abort(); abortController = null; }
     window._fastForwardActive = false;  // 重置快进标志，防止弹幕被跳过

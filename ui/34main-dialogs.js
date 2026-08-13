@@ -6,6 +6,7 @@ import { showModal, showAlert } from './30main-utils.js';
 import { AudioManager } from '../modules/17audio-manager.js';
 
 // ==================== 战报弹窗 ====================
+// 弹窗-战报：战斗结束统计数据展示+导出
 export function showBattleReport(UI, battleResultForInfo) {
     // ★ 防残留：如果游戏已不在 GAMEOVER 状态，不创建弹窗
     if (window._getPlayerContext && window._getPlayerContext().gs !== 'GAMEOVER') return;
@@ -202,6 +203,7 @@ export function showBattleReport(UI, battleResultForInfo) {
 }
 
 // ==================== 音乐设置弹窗 ====================
+// 弹窗-音乐：BGM/音效音量+音源选择
 export function showMusicPanel() {
     const existing = document.getElementById('musicPanelOverlay');
     if (existing) existing.remove();
@@ -330,6 +332,7 @@ export function showMusicPanel() {
 }
 
 // ==================== 投票弹窗 ====================
+// 弹窗-投票：战斗前预测胜负（张无忌双倍）
 export function showVoteDialog(callback, battleHasZhang) {
     let hasZhang = battleHasZhang || false;
     let text = '你看好哪边？' + (hasZhang ? ' (张无忌在场，猜对双倍积分!)' : '');
@@ -349,6 +352,7 @@ export function showVoteDialog(callback, battleHasZhang) {
 }
 
 // ==================== 倒计时 ====================
+// 弹窗-倒计时：3-2-1动画+垃圾话弹幕
 export async function showCountdown(trashTalkAlly, trashTalkEnemy, randFn, showDanmakuFn, autoScrollLogFn) {
     let nums = ['3', '2', '1'];
     let mainBtn = document.getElementById('btnMain');

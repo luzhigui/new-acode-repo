@@ -18,6 +18,7 @@ const C = CONFIG;
 /**
  * 圣火令绝对值加成（独立于Carry）
  */
+// Buff-圣火令：绝对值攻防加成（按行列）
 export function applyHolyFlameBonus(unit, activeBuffs) {
     unit._holyAtkBonus = 0;
     unit._holyDefBonus = 0;
@@ -35,6 +36,7 @@ export function applyHolyFlameBonus(unit, activeBuffs) {
 /**
  * 严阵以待绝对值加成（独立于Carry）
  */
+// Buff-严阵以待：防战绝对值防御加成
 export function applyFortifyBonus(unit, activeBuffs) {
     unit._fortifyDefBonus = 0;
     if (unit.role !== '防战' || unit.camp !== 'ally') return;
@@ -52,6 +54,7 @@ export function applyFortifyBonus(unit, activeBuffs) {
  * @param {string[]} log - 日志数组
  * @param {object} stats - computeBuffStats 的返回值
  */
+// Buff-Carry：单位获得队友属性加成（含激活/清除）
 export function applyCarryBonus(unit, A, state, log, stats) {
     if (unit.camp !== 'ally') return;
     const activeBuffs = A._activeBuffs || [];
@@ -99,6 +102,7 @@ export function applyCarryBonus(unit, A, state, log, stats) {
     }
 }
 
+// Buff-计算：汇总所有Buff的攻防闪避加成
 export function computeBuffStats(unit, activeBuffs, allyTeam) {
     let atkBonus = 0, defBonus = 0, dodgeBonus = 0, hpBonus = 0;
     if (!activeBuffs) return { atkBonus, defBonus, dodgeBonus, hpBonus };
@@ -152,10 +156,12 @@ export function computeBuffStats(unit, activeBuffs, allyTeam) {
     return { atkBonus, defBonus, dodgeBonus, hpBonus, carryAtkAbs, carryDefAbs, carryHpAbs, masteryAtkAbs, masteryDefAbs, masteryHpAbs };
 }
 
+// Buff-攻击前：已迁移至事件总线（空壳保留）
 export function applyBuffEffectsBeforeAttack(unit, target, allyTeam, enemyTeam, log) {
     // 惑人心智已迁移至事件总线监听器 registerMindControl
 }
 
+// Buff-攻击后：已迁移至事件总线（保留入口）
 export function applyBuffEffectsAfterAttack(unit, target, dmg, allySide, enemySide, log) {
     let unitBuffs = (unit.camp === 'ally' ? allySide._activeBuffs : enemySide._activeBuffs) || [];
     const hasSister = allySide.some(u => u.isXiaoZhaoSister && u.alive);
@@ -169,6 +175,7 @@ export function applyBuffEffectsAfterAttack(unit, target, dmg, allySide, enemySi
     // 严阵以待反弹已在 applyAttackResult（步骤4）中处理，此处不再重复
 }
 
+// Buff-日志：汇总输出当前Buff摘要信息
 export function logBuffSummary(allyTeam, log, doubleStrikeUid) {
     let buffs = allyTeam._activeBuffs || [];
     const rng = getBattleRng();
@@ -262,6 +269,7 @@ desc += `）`;
     });
 }
 
+// Buff-事件注册：嗜血狂刀吸血+姐姐强化额外攻击
 export function registerBloodthirst(eventBus) {
     // 统一消费额外攻击请求（嗜血狂刀姐姐强化、宋青书性奋等）
     eventBus.on('requestExtraAttack', L.REQUEST_EXTRA_ATTACK.DEFAULT, async (data) => {
@@ -308,6 +316,7 @@ export function registerBloodthirst(eventBus) {
     });
 }
 
+// Buff-事件注册：热血奋战攻击回血（每N次翻倍）
 export function registerHotBlood(eventBus) {
     eventBus.on('afterDamageApplied', L.AFTER_DAMAGE_APPLIED.HOT_BLOOD, (data) => {
         const { unit, dmg, allySide, enemySide, log } = data;
@@ -360,6 +369,7 @@ export function registerHotBlood(eventBus) {
     });
 }
 
+// Buff-事件注册：乘风突袭飞行波及同行+击退
 export function registerWindAssault(eventBus) {
     eventBus.on('afterDamageApplied', L.AFTER_DAMAGE_APPLIED.WIND_ASSAULT, (data) => {
         const { unit, target, dmg, allySide, enemySide, log } = data;
@@ -425,6 +435,7 @@ export function registerWindAssault(eventBus) {
     });
 }
 
+// Buff-事件注册：流星赶月远程伤害加深+溅射降防
 export function registerMeteorShower(eventBus) {
     eventBus.on('afterDamageApplied', L.AFTER_DAMAGE_APPLIED.METEOR_SHOWER, (data) => {
         const { unit, target, dmg, allySide, enemySide, log } = data;
@@ -479,6 +490,7 @@ export function registerMeteorShower(eventBus) {
     });
 }
 
+// Buff-事件注册：惑人心智最前排换位扰乱
 export function registerMindControl(eventBus) {
     eventBus.on('afterAttack', L.AFTER_ATTACK.MIND_CONTROL, (data) => {
         const { unit, allySide, enemySide, log } = data;

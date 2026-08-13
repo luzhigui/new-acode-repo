@@ -172,6 +172,7 @@ function tickBuffDurations() {
 
 // ==================== getPlayerContext ====================
 let _playerCtx = null;
+// 状态-创建上下文：构建玩家上下文对象（GlobalStore接入）
 export function getPlayerContext() {
     if (_playerCtx) return _playerCtx;
     _playerCtx = {

@@ -15,6 +15,7 @@ const ReplayManager = (() => {
   let seedMode = false;
 
   // 开始记录战斗（完整快照模式，兼容旧回放文件）
+  // 回放-录制：开始记录战斗（完整快照模式）
   function startRecording(snapshot) {
     recording = true;
     seedMode = false;
@@ -31,6 +32,7 @@ const ReplayManager = (() => {
   }
 
   // 开始记录战斗（种子模式，推荐）
+  // 回放-录制种子：基于SeededRNG的种子回放模式
   function startRecordingWithSeed(snapshot, seed) {
     recording = true;
     seedMode = true;
@@ -48,6 +50,7 @@ const ReplayManager = (() => {
   }
 
   // 每步推进时记录（种子模式下同样记录，用于快速跳转）
+  // 回放-记录步骤：每步推进时保存状态快照
   function pushStep(step, round, allyState, enemyState) {
     if (!recording) return;
     replayData.steps.push({
@@ -60,6 +63,7 @@ const ReplayManager = (() => {
   }
 
   // 战斗结束，确定胜者
+  // 回放-结束：确定胜者并停止录制
   function finishRecording(winner) {
     if (!recording) return;
     replayData.winner = winner;
@@ -71,6 +75,7 @@ const ReplayManager = (() => {
   }
 
   // 下载回放文件
+  // 回放-下载：导出回放JSON文件
   function download(filename) {
     if (!replayData || (!replayData.steps.length && !replayData.seed)) {
       alert('没有可下载的回放数据，请先完成一场战斗');
@@ -151,6 +156,7 @@ const ReplayManager = (() => {
   }
 
   // 导入回放文件（接受 File 对象）
+  // 回放-导入文件：读取File对象并解析JSON
   function importFile(file) {
     if (!file) return;
     const reader = new FileReader();
@@ -161,6 +167,7 @@ const ReplayManager = (() => {
   }
 
   // 导入回放文本（粘贴 JSON 内容）
+  // 回放-导入文本：解析JSON并启动回放
   function importText(text) {
     try {
       const data = JSON.parse(text);
@@ -175,6 +182,7 @@ const ReplayManager = (() => {
   }
 
   // 开始回放
+  // 回放-启动：创建播放器并开始回放
   async function startReplay(data) {
     if (replayPlayer && replayPlayer.running) {
       replayPlayer.stop();

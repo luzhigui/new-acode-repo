@@ -2,6 +2,7 @@
 // V5.4.0 | ~1800 bytes| 2026-08-11 新增转换约束表
 export const VER = 'core/06-fsm.js V5.4.0';
 
+// FSM-类：轻量状态机（含转换约束表）
 export class StateMachine {
     /**
      * @param {Object<string, {onEnter?: Function, onExit?: Function}>} states - 状态定义
@@ -22,6 +23,7 @@ export class StateMachine {
      * @param {*} data - 传递给 onEnter/onExit 的数据
      * @returns {boolean} 是否允许转换（目标状态存在且合法则允许）
      */
+    // FSM-转换：执行状态变更+约束检查+onEnter/onExit
     transition(newState, data) {
         const old = this.states[this.current];
         const next = this.states[newState];
