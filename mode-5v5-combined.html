@@ -277,6 +277,146 @@
 <div class="vote-float" id="voteFloat" title="恢复投票">🏳️</div>
 <script>
 
+// ===== core/00-event-bus.js (133 lines) =====
+(function() {
+
+// core/00-event-bus.js - 光明顶5v5 事件总线
+// V5.4.0 | ~5200 bytes| 2026-07-28 信号系统基础设施
+const VER = 'core/00-event-bus.js V5.4.0';
+
+class EventBus {
+    constructor() {
+        this._listeners = {};
+    }
+
+    /**
+     * 注册监听器
+     * @param {string} signal - 信号名
+     * @param {number} priority - 优先级，数字越小越先执行
+     * @param {function} callback - 回调函数
+     */
+    on(signal, priority, callback) {
+        if (!this._listeners[signal]) {
+            this._listeners[signal] = [];
+        }
+        // 去重：同一个回调函数不重复注册
+        if (this._listeners[signal].some(l => l.callback === callback)) return;
+        this._listeners[signal].push({ priority, callback });
+        this._listeners[signal].sort((a, b) => a.priority - b.priority);
+    }
+
+    /**
+     * 发射信号
+     * @param {string} signal - 信号名
+     * @param {object} data - 传递给监听器的数据
+     */
+    async emit(signal, data) {
+        const listeners = this._listeners[signal];
+        // 调试日志：信号发射时自动生成
+        if (data && data.log && data.unit) {
+            const logLevel = GlobalStore.get('playerContext')?.logLevel;
+            if (logLevel === 'debug') {
+                const name = data.unit ? data.unit.name : '?';
+                const targetName = data.target ? data.target.name : '';
+                const dmgStr = data.dmg !== undefined ? ` 伤害=${data.dmg}` : '';
+                data.log.push({ type: 'signal', text: `<span class="gray">[信号] ${signal} → ${name}${targetName ? '→' + targetName : ''}${dmgStr}</span>` });
+            }
+        }
+        if (!listeners || listeners.length === 0) return;
+        const promises = [];
+        for (const { callback } of listeners) {
+            try {
+                promises.push(callback(data));
+            } catch (e) {
+                console.error(`[EventBus] 信号 "${signal}" 的监听器执行出错:`, e);
+            }
+        }
+        if (promises.length > 0) await Promise.all(promises);
+    }
+
+    /**
+     * 清除某个信号上的所有监听器（用于调试或重置）
+     */
+    clear(signal) {
+        delete this._listeners[signal];
+    }
+
+    /**
+     * 清除所有信号上的所有监听器
+     */
+    clearAll() {
+        this._listeners = {};
+    }
+}
+
+const eventBus = new EventBus();
+
+// ==================== 执行层级定义 ====================
+// 所有 eventBus.on 的 priority 参数必须使用此枚举，禁止魔法数字。
+// 层级按数字从小到大依次执行。同层级内按注册顺序执行。
+const EXECUTION_LAYER = {
+    // ── 回合生命周期 ──
+    ROUND_START:      { SPIDER_TRANSFORM: 10, XUANMING_POISON: 10, XINGFEN_GRANT: 10, KULIAN_BUFF: 10, PERMANENT_CARRY: 10 },
+    ROUND_END:        { BUTTERFLY_RETURN: 10, SPIDER_RETURN: 10 },
+
+    // ── 行动调度 ──
+    BEFORE_ACTION:    { BUTTERFLY_SKIP: 10, SPIDER_SKIP: 10, KULIAN_PRIORITY: 10 },
+
+    // ── 攻击前 ──
+    BEFORE_ATTACK:     { MIND_CONTROL: 10 },
+    BEFORE_SELECT_TARGET: { CHENGKUN_DISGUISE: 30, SONG_REBEL: 20, FLY_TARGET: 30, PERMANENT_MIND_CONTROL: 40 },
+    BEFORE_DAMAGE_CALC: { WARRIOR_BREAK: 10, CHENGKUN_THUNDER: 15, HE_HORN: 25, SONG_TRUE_DMG: 30 },
+    BEFORE_DAMAGE_APPLY: { SPIDER_IMMUNE: 100 },
+
+    // ── 闪避后 ──
+    ON_DODGE:          { WEI_HEAL: 10 },
+
+    // ── 攻击后 ──
+    AFTER_DAMAGE_APPLIED: {
+        BLOODTHIRST: 20,    // 嗜血狂刀（吸血）
+        WARRIOR_EXECUTE: 20, // 战士斩杀
+        HOT_BLOOD: 25,      // 热血奋战（回血）
+        WIND_ASSAULT: 25,   // 乘风突袭（溅射）
+        METEOR_SHOWER: 25,  // 流星赶月（溅射）
+        RANGED_GROWTH: 20,  // 远程成长
+        SHIELD_DEFEND: 30,  // 坚盾（被攻击）
+        CHENGKUN_DISGUISE: 40, // 成昆伪装
+        LU_XUANMING: 40,    // 鹿杖客玄冥
+        SONG_XINGFEN: 40,   // 宋青书新婚
+        WEI_LEECH: 40,      // 韦一笑吸血
+        ZHANG_JIUYANG: 40   // 张无忌九阳
+    },
+    AFTER_ATTACK: {
+        SHIELD_ATTACK: 30,  // 坚盾（攻击触发）
+        SONG_XINGFEN_EXTRA: 40, // 宋青书性奋额外攻击
+        ZHOU_CLAW: 40,      // 周芷若白骨爪
+        XUANMING_LINK: 10,  // 玄冥联动
+        DOUBLE_STRIKE: 40,  // 概率连击
+        XIAOZHAO_DOUBLE: 40 // 小昭永久连击
+    },
+    AFTER_MISS: {
+        SONG_XINGFEN_RETRY: 50, // 宋青书性奋重试
+        XIAOZHAO_DOUBLE_RETRY: 60 // 小昭永久连击重试
+    },
+    ALLY_DAMAGED: {
+        QIANKUN_REBOUND: 40, // 乾坤反弹
+        QIANKUN_DERIVED: 50  // 乾坤衍生
+    },
+
+    // ── 死亡 ──
+    ON_BEFORE_DEATH: {},
+    ON_UNIT_DEATH: { ZHANG_SWITCH: 10 }, // 单位死亡后（张无忌被动检测前排）
+
+    // ── 换位 ──
+    ON_POSITION_SWAP: { ZHANG_SWITCH: 10 }, // 换位后（张无忌被动检测前排）
+
+    // ── 额外攻击请求 ──
+    REQUEST_EXTRA_ATTACK: { DEFAULT: 10 }
+};
+  window.eventBus = eventBus;
+  window.EXECUTION_LAYER = EXECUTION_LAYER;
+})();
+
 // ===== core/01config-5v5-test.js (295 lines) =====
 (function() {
 
@@ -1197,6 +1337,93 @@ class Unit {
   window.Unit = Unit;
 })();
 
+// ===== core/08-elite-registry.js (22 lines) =====
+(function() {
+
+// core/08-elite-registry.js - 光明顶5v5 精英组件注册表
+// V5.4.0 | ~800 bytes| 2026-08-12 core层定义注册接口，modules层注册
+const VER = 'core/08-elite-registry.js V5.4.0';
+
+const eliteRegistry = new Map();
+
+/**
+ * 注册精英组件工厂
+ * @param {string} name - 角色名
+ * @param {function} factory - 工厂函数，返回 { register(eventBus, A, B, log) }
+ */
+function registerElite(name, factory) {
+    eliteRegistry.set(name, factory);
+}
+
+/**
+ * 获取所有已注册的精英工厂
+ * @returns {Map<string, function>}
+ */
+function getEliteFactories() {
+    return eliteRegistry;
+}
+  window.registerElite = registerElite;
+  window.getEliteFactories = getEliteFactories;
+})();
+
+// ===== core/09-battle-event-store.js (47 lines) =====
+(function() {
+
+// core/09-battle-event-store.js - core层战斗事件与状态存储
+// V5.4.0 | ~1200 bytes| 2026-08-12 core层定义接口，modules层GlobalStore桥接
+const VER = 'core/09-battle-event-store.js V5.4.0';
+
+// ==================== 战斗事件缓冲区 ====================
+let _eventBuffer = [];
+const _eventSubscribers = [];
+
+function pushBattleEvent(event) {
+    _eventBuffer.push(event);
+}
+
+function flushBattleEvents() {
+    const events = _eventBuffer;
+    _eventBuffer = [];
+    for (const fn of _eventSubscribers) {
+        try { fn(events); } catch(e) {}
+    }
+    return events;
+}
+
+function onBattleEvents(fn) {
+    if (!_eventSubscribers.includes(fn)) _eventSubscribers.push(fn);
+    return () => {
+        const i = _eventSubscribers.indexOf(fn);
+        if (i >= 0) _eventSubscribers.splice(i, 1);
+    };
+}
+
+// ==================== 战斗状态（core层自有，GlobalStore桥接同步） ====================
+const _battleState = {};
+
+// 这些key由core层拥有，GlobalStore的get/set会对这些key做桥接
+const _battleStateKeys = new Set(['currentStage', 'holyToken', 'chestCount']);
+
+function getBattleState(key) {
+    return _battleState[key];
+}
+
+function setBattleState(key, value) {
+    _battleState[key] = value;
+}
+
+function isBattleStateKey(key) {
+    return _battleStateKeys.has(key);
+}
+
+  window.pushBattleEvent = pushBattleEvent;
+  window.flushBattleEvents = flushBattleEvents;
+  window.onBattleEvents = onBattleEvents;
+  window.getBattleState = getBattleState;
+  window.setBattleState = setBattleState;
+  window.isBattleStateKey = isBattleStateKey;
+})();
+
 // ===== modules/15elite-skills.js (278 lines) =====
 (function() {
   var CONFIG = window.CONFIG;
@@ -2110,6 +2337,143 @@ function destroyHorse(allyTeam, log) {
 }
   window.spawnHorse = spawnHorse;
   window.destroyHorse = destroyHorse;
+})();
+
+// ===== core/14buff-effects.js (114 lines) =====
+(function() {
+  var CONFIG = window.CONFIG;
+  var getUnitRow = window.getUnitRow;
+  var getUnitCol = window.getUnitCol;
+  var eventBus = window.eventBus;
+  var getBattleRng = window.getBattleRng;
+
+// core/14buff-effects.js - 光明顶5v5 海克斯效果函数库
+// V5.3.1 | 按身份拆分：普通团队 / 姐姐强化 / 妹妹永久
+// 死代码已清理：Bloodthirst/HotBlood/WindAssault/MeteorShower/FortifyRebound 系列已迁移至事件总线监听器
+const VER = 'core/14buff-effects.js V5.4.0';
+
+
+
+
+
+const C = CONFIG;
+
+// ==================== 严阵以待防御加成 ====================
+function applyFortifyDef_Normal(unit, stats) { stats.defBonus += CONFIG.BUFFS.fortify.defBonus; }
+function applyFortifyDef_Sister(unit, stats) { stats.defBonus += CONFIG.BUFFS.fortify.defBonus; }
+function applyFortifyDef_Brother(unit, stats) { stats.defBonus += 0.5; }
+
+// ==================== 流云身法闪避 ====================
+function applyCloudBodyDodge_Normal(unit, stats) { stats.dodgeBonus = CONFIG.BUFFS.cloudBody.dodgeBonus; }
+function applyCloudBodyDodge_Sister(unit, stats) { stats.dodgeBonus = CONFIG.BUFFS.cloudBody.dodgeBonus; }
+function applyCloudBodyDodge_Brother(unit, stats) { stats.dodgeBonus = 0.25; }
+
+// ==================== 圣火令加成 ====================
+function applyHolyFlame_Normal(unit, allyTeam, activeBuffs, stats) {
+    const holyFlameBuff = activeBuffs.find(b => b.key === 'holyFlame');
+    if (!holyFlameBuff || unit.camp !== 'ally') return;
+    const cols = holyFlameBuff.cols || (holyFlameBuff.col != null ? [holyFlameBuff.col] : []);
+    const rows = holyFlameBuff.rows || (holyFlameBuff.row != null ? [holyFlameBuff.row] : []);
+    if (cols.includes(getUnitCol(unit.pos))) stats.atkBonus += CONFIG.BUFFS.holyFlame.atkBonus;
+    if (rows.includes(getUnitRow(unit.pos))) stats.defBonus += CONFIG.BUFFS.holyFlame.defBonus;
+}
+
+function applyHolyFlame_Sister(unit, allyTeam, activeBuffs, stats) {
+    applyHolyFlame_Normal(unit, allyTeam, activeBuffs, stats);
+}
+
+function applyHolyFlame_Brother(unit, allyTeam, activeBuffs, stats) {
+    stats.atkBonus += CONFIG.BUFFS.holyFlame.atkBonus;
+    stats.defBonus += CONFIG.BUFFS.holyFlame.defBonus;
+}
+
+// ==================== Carry 加成 ====================
+function calcCarryBonus_Normal(unit, allyTeam) {
+    if (unit.pos !== 5 || !unit.alive || unit.isHorse) return { atkAbs: 0, defAbs: 0, hpAbs: 0 };
+    let carryAtkAbs = 0, carryDefAbs = 0, carryHpAbs = 0;
+    let allAllies = allyTeam.filter(u => u.uid !== unit.uid && !u.isHorse);
+    allAllies.forEach(a => {
+        let mult = a.alive ? 1 : (CONFIG.BUFFS.carry.deathMultiplier || 3);
+        carryAtkAbs += Math.floor(a.atk * (CONFIG.BUFFS.carry.atkBonus || 0.08) * mult);
+        carryDefAbs += Math.floor(a.def * (CONFIG.BUFFS.carry.defBonus || 0.08) * mult);
+        if (CONFIG.BUFFS.carry.hpBonus) carryHpAbs += Math.floor(a._baseMaxHp ? a._baseMaxHp * CONFIG.BUFFS.carry.hpBonus * mult : 0);
+    });
+    return { atkAbs: carryAtkAbs, defAbs: carryDefAbs, hpAbs: carryHpAbs };
+}
+
+function calcCarryBonus_Sister(unit, allyTeam) {
+    if ((unit.pos < 4 || unit.pos > 6) || !unit.alive || unit.isHorse) return { atkAbs: 0, defAbs: 0, hpAbs: 0 };
+    let carryAtkAbs = 0, carryDefAbs = 0, carryHpAbs = 0;
+    let allAllies = allyTeam.filter(u => u.uid !== unit.uid && !u.isHorse);
+    allAllies.forEach(a => {
+        let mult = a.alive ? 1 : (CONFIG.BUFFS.carry.deathMultiplier || 3);
+        carryAtkAbs += Math.floor(a.atk * (CONFIG.BUFFS.carry.atkBonus || 0.08) * mult);
+        carryDefAbs += Math.floor(a.def * (CONFIG.BUFFS.carry.defBonus || 0.08) * mult);
+        if (CONFIG.BUFFS.carry.hpBonus) carryHpAbs += Math.floor(a._baseMaxHp ? a._baseMaxHp * CONFIG.BUFFS.carry.hpBonus * mult : 0);
+    });
+    return { atkAbs: carryAtkAbs, defAbs: carryDefAbs, hpAbs: carryHpAbs };
+}
+
+// ==================== 惑人心智 ====================
+function applyMindControlCore(unit, allySide, enemySide, log, swapChanceEnemy, swapChanceAlly) {
+    const rng = getBattleRng();
+    let frontUnit = allySide.filter(u => u.alive && !u.isHorse).sort((a,b) => a.pos - b.pos)[0];
+    if (!frontUnit || frontUnit.uid !== unit.uid) return;
+
+    if (rng.nextInt(1,100) <= swapChanceEnemy) {
+        let enemies = enemySide.filter(u => u.alive && u.state._flyMode !== 'butterfly' && u.state._flyMode !== 'spider' && !u.state._spiderFlying);
+        if (enemies.length >= 2) {
+            let a = enemies[rng.nextInt(0, enemies.length-1)];
+            let b; do { b = enemies[rng.nextInt(0, enemies.length-1)]; } while (b.uid === a.uid);
+            let posA = a.pos, posB = b.pos;
+            a.pos = posB; b.pos = posA;
+            log.push({type:'buff-swap', uidA: a.uid, uidB: b.uid, oldPosA: posA, oldPosB: posB, buffType:'swap', text:`<span class="gold">🌀 惑人心智：${posA}号位${a.name}与${posB}号位${b.name}互换位置！</span>`});
+        } else {
+            log.push({type:'info', text:`<span class="gray">🌀 惑人心智敌方换位失败（可用单位不足）</span>`});
+        }
+    } else {
+        log.push({type:'info', text:`<span class="gray">🌀 惑人心智敌方换位未触发</span>`});
+    }
+    if (rng.nextInt(1,100) <= swapChanceAlly) {
+        let allies = allySide.filter(u => u.alive && u.state._flyMode !== 'butterfly' && u.state._flyMode !== 'spider' && !u.state._spiderFlying);
+        if (allies.length >= 2) {
+            let a = allies[rng.nextInt(0, allies.length-1)];
+            let b; do { b = allies[rng.nextInt(0, allies.length-1)]; } while (b.uid === a.uid);
+            let posA = a.pos, posB = b.pos;
+            a.pos = posB; b.pos = posA;
+            log.push({type:'buff-swap', uidA: a.uid, uidB: b.uid, oldPosA: posA, oldPosB: posB, buffType:'swap', text:`<span class="gold">🌀 惑人心智：己方${posA}号位${a.name}与${posB}号位${b.name}互换位置！</span>`});
+        } else {
+            log.push({type:'info', text:`<span class="gray">🌀 惑人心智己方换位失败（可用单位不足）</span>`});
+        }
+    } else {
+        log.push({type:'info', text:`<span class="gray">🌀 惑人心智己方换位未触发</span>`});
+    }
+
+    // 换位完成后广播（被动技能监听，如张无忌前排检测）
+    eventBus.emit('onPositionSwap', { allySide, enemySide, log });
+}
+
+function applyMindControl_Normal(unit, allySide, enemySide, log) {
+    applyMindControlCore(unit, allySide, enemySide, log, 80, 40);
+}
+
+function applyMindControl_Sister(unit, allySide, enemySide, log) {
+    applyMindControlCore(unit, allySide, enemySide, log, 95, 50);
+}
+
+  window.applyFortifyDef_Normal = applyFortifyDef_Normal;
+  window.applyFortifyDef_Sister = applyFortifyDef_Sister;
+  window.applyFortifyDef_Brother = applyFortifyDef_Brother;
+  window.applyCloudBodyDodge_Normal = applyCloudBodyDodge_Normal;
+  window.applyCloudBodyDodge_Sister = applyCloudBodyDodge_Sister;
+  window.applyCloudBodyDodge_Brother = applyCloudBodyDodge_Brother;
+  window.applyHolyFlame_Normal = applyHolyFlame_Normal;
+  window.applyHolyFlame_Sister = applyHolyFlame_Sister;
+  window.applyHolyFlame_Brother = applyHolyFlame_Brother;
+  window.calcCarryBonus_Normal = calcCarryBonus_Normal;
+  window.calcCarryBonus_Sister = calcCarryBonus_Sister;
+  window.applyMindControl_Normal = applyMindControl_Normal;
+  window.applyMindControl_Sister = applyMindControl_Sister;
 })();
 
 // ===== core/10battle-attack.js (251 lines) =====
@@ -6816,6 +7180,947 @@ async function handleBuffLeech(c, entry) {
   window.handleBuffLeech = handleBuffLeech;
 })();
 
+// ===== player/29renderer.js (147 lines) =====
+(function() {
+  var GlobalStore = window.GlobalStore;
+
+// player/29renderer.js - 光明顶5v5 播放器渲染层
+// V5.4.0 | ~3300 bytes| 2026-08-10 从10player-core提取DOM操作
+const VER = 'player/29renderer.js V5.4.0';
+
+
+
+let _ctx = null;
+function setRenderCtx(c) { _ctx = c; }
+function ctx() { return _ctx || GlobalStore.get('playerContext'); }
+
+// ==================== 日志区 DOM 操作 ====================
+
+function getLogDiv() { return document.getElementById('log'); }
+
+function appendLogHTML(html) {
+    const div = document.createElement('div');
+    div.innerHTML = html;
+    getLogDiv().appendChild(div);
+    autoScrollLog();
+}
+
+function appendLogElement(el) {
+    getLogDiv().appendChild(el);
+    autoScrollLog();
+}
+
+function autoScrollLog() {
+    const c = ctx();
+    if (c && c.userScrolled) return;
+    const log = getLogDiv();
+    if (log) log.scrollTop = log.scrollHeight;
+}
+
+function updateRoundDisplay(text) {
+    const el = document.getElementById('roundDisplay');
+    if (el) el.innerText = text;
+}
+
+// ==================== 分隔符 ====================
+
+function renderSeparator() {
+    const div = document.createElement('div');
+    div.innerHTML = '<span class="separator">- - - - -</span><br>';
+    getLogDiv().appendChild(div);
+    autoScrollLog();
+}
+
+// ==================== 回合开始/结束 ====================
+
+function renderRoundStart(text) {
+    appendLogHTML(text + '<br>');
+}
+
+function renderRoundEnd(text) {
+    appendLogHTML(text + '<br>');
+}
+
+// ==================== 信息行 ====================
+
+function renderInfoLine(text) {
+    appendLogHTML(text + '<br>');
+}
+
+// ==================== 战斗结束 ====================
+
+function renderVictoryLine(html) {
+    getLogDiv().innerHTML += html;
+    getLogDiv().scrollTop = getLogDiv().scrollHeight;
+}
+
+// ==================== 按钮状态 ====================
+
+function setBtnDisabled(id, disabled) {
+    const btn = document.getElementById(id);
+    if (btn) btn.disabled = disabled;
+}
+
+function setBtnText(id, text) {
+    const btn = document.getElementById(id);
+    if (btn) {
+        if (text.includes('<br>')) btn.innerHTML = text;
+        else btn.textContent = text;
+    }
+}
+
+// ==================== 初始化 ====================
+
+function initRenderer(c) {
+    setRenderCtx(c);
+}
+
+// ==================== 特效清理 ====================
+
+function clearAllEffects() {
+    document.querySelectorAll('[data-fx="temporary"]').forEach(el => { if (el.parentNode) el.parentNode.removeChild(el); });
+    document.querySelectorAll('.cell-cheer').forEach(cell => cell.classList.remove('cell-cheer'));
+    document.querySelectorAll('.grid.victory-border').forEach(grid => grid.classList.remove('victory-border'));
+}
+
+// ==================== 日志滚动控制 ====================
+
+function initLogScrollControls(c) {
+    const logDiv = getLogDiv();
+    if (!logDiv) return;
+    const btn = document.createElement('div');
+    btn.id = 'backToBottomBtn';
+    btn.style.cssText = 'position:absolute;right:8px;bottom:60px;width:32px;height:32px;background:rgba(0,0,0,0.6);color:#ffd700;border-radius:50%;display:none;align-items:center;justify-content:center;font-size:18px;cursor:pointer;z-index:20;';
+    btn.innerHTML = '↓';
+    btn.addEventListener('click', () => {
+        logDiv.scrollTop = logDiv.scrollHeight;
+        c.userScrolled = false;
+        btn.style.display = 'none';
+        if (window._restoreSpeedFromScroll) window._restoreSpeedFromScroll();
+        const mainCtx = ctx();
+        if (mainCtx && mainCtx.speed) c.speed = mainCtx.speed;
+        else c.speed = 500;
+    });
+    logDiv.parentElement.appendChild(btn);
+    logDiv.addEventListener('scroll', () => {
+        const distToBottom = logDiv.scrollHeight - logDiv.scrollTop - logDiv.clientHeight;
+        if (distToBottom > 50) {
+            c.userScrolled = true;
+            btn.style.display = 'flex';
+            GlobalStore.set('scrollSlowdown', true);
+            c.speed = 1800;
+        } else {
+            c.userScrolled = false;
+            btn.style.display = 'none';
+            if (window._restoreSpeedFromScroll) window._restoreSpeedFromScroll();
+            c.speed = GlobalStore.get('speed');
+        }
+    });
+}
+
+// ==================== 积分浮动 ====================
+
+function showScoreFloat(earnPoints) {
+    const badge = document.getElementById('scoreBadge');
+    if (!badge) return;
+    const floatEl = document.createElement('span');
+    floatEl.className = 'score-float';
+    floatEl.textContent = (earnPoints > 0 ? '+' : '') + earnPoints + '🏆';
+    badge.appendChild(floatEl);
+    setTimeout(() => { if (floatEl.parentNode) floatEl.parentNode.removeChild(floatEl); }, 3500);
+    const c = ctx();
+    if (c && c.updateScoreBadge) setTimeout(() => c.updateScoreBadge(), 3500);
+}
+  window.setRenderCtx = setRenderCtx;
+  window.getLogDiv = getLogDiv;
+  window.appendLogHTML = appendLogHTML;
+  window.appendLogElement = appendLogElement;
+  window.autoScrollLog = autoScrollLog;
+  window.updateRoundDisplay = updateRoundDisplay;
+  window.renderSeparator = renderSeparator;
+  window.renderRoundStart = renderRoundStart;
+  window.renderRoundEnd = renderRoundEnd;
+  window.renderInfoLine = renderInfoLine;
+  window.renderVictoryLine = renderVictoryLine;
+  window.setBtnDisabled = setBtnDisabled;
+  window.setBtnText = setBtnText;
+  window.initRenderer = initRenderer;
+  window.clearAllEffects = clearAllEffects;
+  window.initLogScrollControls = initLogScrollControls;
+  window.showScoreFloat = showScoreFloat;
+})();
+
+// ===== player/28event-handlers.js (515 lines) =====
+(function() {
+  var isBlocked = window.isBlocked;
+  var showDanmaku = window.showDanmaku;
+  var showDamageFloat = window.showDamageFloat;
+  var showDodgeBubble = window.showDodgeBubble;
+  var showHealFloat = window.showHealFloat;
+  var showAtkBuffFloat = window.showAtkBuffFloat;
+  var applyBrushEffect = window.applyBrushEffect;
+  var showBuffBanner = window.showBuffBanner;
+  var showCriticalBanner = window.showCriticalBanner;
+  var showHeartEffect = window.showHeartEffect;
+  var showPinkFlash = window.showPinkFlash;
+  var showKuLianEffect = window.showKuLianEffect;
+  var showWindClaw = window.showWindClaw;
+  var showDodgeBulletTime = window.showDodgeBulletTime;
+  var showRangedArrow = window.showRangedArrow;
+  var showSplashArrows = window.showSplashArrows;
+  var showBoneClaw = window.showBoneClaw;
+  var playLineText = window.playLineText;
+  var animatePositionSwap = window.animatePositionSwap;
+  var animatePushBack = window.animatePushBack;
+  var animatePushSwap = window.animatePushSwap;
+  var AudioManager = window.AudioManager;
+  var getState = window.getState;
+  var appendLogHTML = window.appendLogHTML;
+  var appendLogElement = window.appendLogElement;
+  var autoScrollLog = window.autoScrollLog;
+  var updateRoundDisplay = window.updateRoundDisplay;
+  var renderSeparator = window.renderSeparator;
+
+// player/28event-handlers.js - 光明顶5v5 事件处理器函数族
+// V5.4.0 | ~31000 bytes| 2026-08-10 DOM操作迁移至54renderer
+const VER = 'player/28event-handlers.js V5.4.0';
+
+
+
+
+
+
+
+
+
+
+
+
+const safeShowDanmaku = (...args) => { try { return showDanmaku(...args); } catch(e) {} };
+
+async function handleBuffBonus(c, entry) {
+    appendLogHTML(entry.text + '<br>');
+    if (entry.targetUid && entry.bonusDmg) {
+        let targetUnit = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.uid === entry.targetUid);
+        if (targetUnit) showDamageFloat(targetUnit, entry.bonusDmg);
+    }
+}
+
+async function handleBuffSwap(c, entry) {
+    c.isPaused = true;
+    GlobalStore.set('bulletTimeActive', true);
+    await showBuffBanner('🌀 惑人心智！');
+    appendLogHTML(entry.text + '<br>');
+    let units = c.UI.allyTeam.concat(c.UI.enemyTeam);
+    let unitA = entry.uidA ? units.find(u => u.uid === entry.uidA) : null;
+    let unitB = entry.uidB ? units.find(u => u.uid === entry.uidB) : null;
+    if (unitA && unitB) {
+        let oldPosA = entry.oldPosA, oldPosB = entry.oldPosB;
+        await animatePositionSwap(unitA, unitB, c, {
+            skipDataChange: true,
+            oldPositions: (oldPosA != null && oldPosB != null) ? [oldPosA, oldPosB] : null
+        });
+        if (c.store) {
+            c.store.dispatch({ type: 'APPLY_EVENTS', events: [
+                { eventType: 'pos-change', uid: unitA.uid, pos: oldPosB || unitB.pos },
+                { eventType: 'pos-change', uid: unitB.uid, pos: oldPosA || unitA.pos }
+            ]});
+            c.updateUI();
+        }
+    }
+    GlobalStore.set('bulletTimeActive', false);
+    c.isPaused = false;
+}
+
+async function handleBuffPush(c, entry) {
+    c.isPaused = true;
+    GlobalStore.set('bulletTimeActive', true);
+    if (entry.pushTargetUid) {
+        const events = [];
+        const targetUnit = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.uid === entry.pushTargetUid);
+        if (entry.behindUid) {
+            const behindUnit = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.uid === entry.behindUid);
+            if (targetUnit && behindUnit) {
+                events.push({ eventType: 'pos-change', uid: targetUnit.uid, pos: entry.oldPos || behindUnit.pos });
+                events.push({ eventType: 'pos-change', uid: behindUnit.uid, pos: entry.behindOldPos || targetUnit.pos });
+            }
+        } else if (targetUnit && entry.newPos) {
+            events.push({ eventType: 'pos-change', uid: targetUnit.uid, pos: entry.newPos });
+        }
+        if (events.length > 0) {
+            c.store.dispatch({ type: 'APPLY_EVENTS', events });
+            c.updateUI();
+        }
+    }
+    await showBuffBanner('🦅 乘风突袭！');
+    GlobalStore.set('bulletTimeActive', false);
+    c.isPaused = false;
+    appendLogHTML(entry.text + '<br>');
+    let targetUnit = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.uid === entry.pushTargetUid);
+    if (entry.behindUid) {
+        let behindUnit = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.uid === entry.behindUid);
+        if (targetUnit && behindUnit) {
+            await animatePushSwap(targetUnit, behindUnit, c, { skipDataChange: true });
+        }
+    } else if (targetUnit) {
+        await animatePushBack(targetUnit, c, entry.newPos, { skipDataChange: true });
+    }
+}
+
+async function handleBuffReboundFortify(c, entry) {
+    c.isPaused = true;
+    GlobalStore.set('bulletTimeActive', true);
+    await showBuffBanner('🛡️ 严阵以待！');
+    GlobalStore.set('bulletTimeActive', false);
+    c.isPaused = false;
+    let attacker = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.uid === entry.attackerUid);
+    if (attacker && entry.reboundDmg) showDamageFloat(attacker, entry.reboundDmg);
+    if (entry.selfDmg && entry.selfDmgUid) {
+        let selfTarget = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.uid === entry.selfDmgUid);
+        if (selfTarget) showDamageFloat(selfTarget, entry.selfDmg);
+    }
+    if (attacker && entry.isDead && c.store) {
+        c.store.dispatch({ type: 'SET_FLASH', uid: attacker.uid, flash: 'dead' });
+        c.store.dispatch({ type: 'SET_VISUAL', uid: attacker.uid, _isDead: true });
+    }
+    appendLogHTML(entry.text + '<br>');
+    await new Promise(r=>setTimeout(r, GlobalStore.get('fastForwardActive') ? 1 : c.speed/2));
+}
+
+async function handleAttackGroup(c, entry, roundResult, abortSig, isFirstAttackRef) {
+    if (entry.isCombo) { appendLogHTML('<br>'); c.isPaused = true; GlobalStore.set('bulletTimeActive', true); await new Promise(r => setTimeout(r, 1500)); showBuffBanner('⚡ 连击！'); GlobalStore.set('bulletTimeActive', false); c.isPaused = false; }
+
+    if (!entry._pendingHpEvents) entry._pendingHpEvents = [];
+    if (entry._events && entry._events.length > 0) {
+        for (const ev of entry._events) {
+            if (ev.payload && (ev.payload._flyMode === 'butterfly' || ev.payload._butterflyHost)) {
+                const sister = c.UI.allyTeam.find(u => u.uid === ev.unitUid);
+                if (sister) {
+                    const { showButterflyFlyOut } = await import('../fx/45fx-butterfly-spider.js');
+                    const hostUid = ev.payload._butterflyHost;
+                    const host = hostUid ? c.UI.allyTeam.find(u => u.uid === hostUid) : null;
+                    if (host) showButterflyFlyOut(sister, host);
+                    c.store.dispatch({ type: 'APPLY_EVENTS', events: [ev] });
+                    c.updateUI(c.UI);
+                }
+            } else if (ev.payload && ev.payload._flyMode === 'spider') {
+                const brother = c.UI.allyTeam.find(u => u.uid === ev.unitUid);
+                if (brother) {
+                    const { showSpiderAscend } = await import('../fx/45fx-butterfly-spider.js');
+                    showSpiderAscend(brother);
+                    c.store.dispatch({ type: 'APPLY_EVENTS', events: [ev] });
+                    c.updateUI(c.UI);
+                }
+            } else if (ev.eventType === 'hp-change' || ev.type === 'hp-change') {
+                entry._pendingHpEvents.push(ev);
+            } else {
+                c.store.dispatch({ type: 'APPLY_EVENTS', events: [ev] });
+            }
+        }
+    }
+
+    let unitA=c.UI.allyTeam.concat(c.UI.enemyTeam).find(u=>u.uid===entry.uidA);
+    let unitD=entry.uidD?c.UI.allyTeam.concat(c.UI.enemyTeam).find(u=>u.uid===entry.uidD):null;
+    if(!entry.isBlock&&!entry.isMiss&&!entry.isDodge&&(!unitA||!unitD)){
+        appendLogHTML(`<span class="gray">${entry.uidA || '未知'} 攻击 ${entry.uidD || '未知'}，但目标已不存在</span><br>`);
+    }
+    if(unitA&&!entry.isBlock){
+        const flashType = entry.isDodge ? 'defend' : 'attack';
+        if (entry.isKuLianAttack && unitA) {
+            const team = unitA.camp === 'ally' ? c.UI.allyTeam : c.UI.enemyTeam;
+            showKuLianEffect(unitA, team);
+            await new Promise(r => setTimeout(r, 1200));
+        }
+        c.store.dispatch({ type: 'SET_FLASH', uid: unitA.uid, flash: flashType });
+        if (typeof window._triggerFX === 'function') {
+            setTimeout(() => {
+                window._triggerFX(entry._fxSnapshot,unitA,unitD,entry.isDead,entry.isDodge,entry.isMiss,entry.isBlock,entry._dmg,entry.waveTaunt,entry.waveUnit,entry.unitRole);
+            }, 0);
+        }
+        if (unitD && unitD.role === '防战') {
+            let defBuffs = (unitD.camp === 'ally' ? c.UI.allyTeam : c.UI.enemyTeam);
+            defBuffs = defBuffs ? (defBuffs._activeBuffs || []) : [];
+            if (defBuffs.some(b => b.key === 'fortify')) {
+                c._scheduler.schedule('banner', Math.min(400, c.speed / 3), () => showBuffBanner('🛡️ 严阵以待！'));
+            }
+        }
+        if (!entry.isBlock && !entry.isMiss && !entry.isDodge && unitA) {
+            AudioManager.playSfx(unitA.role);
+        }
+    }
+
+    const isFF = GlobalStore.get('fastForwardActive');
+    let textEntries=entry.entries,lineCount=textEntries.length, speedFactor=isFF?0.001:Math.max(c.speed,600)/1000, textDuration=isFF?1:(c.speed*lineCount), offset=isFF?1:(200*speedFactor), atkFlashDuration=textDuration+300*speedFactor, defFlashDuration=atkFlashDuration, atkTimer=null;
+    if (unitA && !entry.isBlock && !entry.isDodge && !entry.isMiss && (unitA.role === '战士' || unitA.role === '防战' || unitA.role === '飞行')) {
+        atkFlashDuration = Math.max(atkFlashDuration, 3500 * speedFactor);
+    }
+    if(unitA&&!entry.isBlock)atkTimer=setTimeout(async()=>{ await c.waitWhilePaused(); if(unitA){c.store.dispatch({ type: 'CLEAR_UNIT_FLASH', uid: unitA.uid }); if (!entry.isDodge) { c.store.dispatch({ type: 'SET_VISUAL', uid: unitA.uid, _acted: true }); }} },atkFlashDuration);
+    await new Promise(r=>setTimeout(r,offset)); await c.waitWhilePaused();
+    if(abortSig&&abortSig.aborted){if(atkTimer)clearTimeout(atkTimer);return { isBattleOver: false };}
+    if(unitD&&!entry.isMiss){
+        const flashTypeD = entry.isDodge ? 'attack' : 'defend';
+        c.store.dispatch({ type: 'SET_FLASH', uid: unitD.uid, flash: flashTypeD });
+    } let defTimer=null; if(unitD&&!entry.isDodge&&!entry.isMiss)defTimer=setTimeout(async()=>{ await c.waitWhilePaused(); if(unitD&&!entry.isDead){c.store.dispatch({ type: 'CLEAR_UNIT_FLASH', uid: unitD.uid });} },defFlashDuration);
+
+    if (entry.isDodge && unitA && unitD) { if (c.dodgeEffectEnabled) { let reboundDmg = Math.floor((unitA.atk + unitA.def) * 0.5); c.isPaused = true; GlobalStore.set('bulletTimeActive', true); await showCriticalBanner('✨闪避反击✨'); await showDodgeBulletTime(unitD, unitA, reboundDmg); GlobalStore.set('bulletTimeActive', false); c.isPaused = false; } else { showDodgeBubble(unitA, '闪避！'); } }
+
+    let lastDiv=null,healDiv=null, blockDelay=false;
+    for(let entry2 of textEntries){
+        if(abortSig&&abortSig.aborted){if(atkTimer)clearTimeout(atkTimer);if(defTimer)clearTimeout(defTimer);return { isBattleOver: false };}
+        const logLevel = getState.logLevel();
+        if(logLevel==='brief'&&entry2.type==='detail'){ let hiddenDiv=document.createElement('div'); hiddenDiv.className='detail-hidden'; hiddenDiv.innerHTML=entry2.text+'<br>'; appendLogElement(hiddenDiv); continue; }
+        if(entry2.type==='damage-text'){
+            let tempDiv=document.createElement('div'); appendLogElement(tempDiv); lastDiv=tempDiv; await playLineText(entry2.text,tempDiv, Math.max(c.speed || 1000, 1000));
+        }
+        else if(entry2.isHealEntry && entry.isDead){ let tempDiv=document.createElement('div'); appendLogElement(tempDiv); healDiv=tempDiv; await playLineText(entry2.text,tempDiv); }
+        else{
+            if (entry2._events && entry2._events.length > 0) {
+                c.store.dispatch({ type: 'APPLY_EVENTS', events: entry2._events });
+                entry2._events = [];
+            }
+            if(entry2.isHealEntry && !entry.isDead) {
+                let healAmount = entry2.healAmount;
+                if (healAmount == null) {
+                    let match = entry2.text.match(/\+(\d+)/);
+                    if (match) healAmount = parseInt(match[1]);
+                }
+                let healUid = entry2.healUnitUid || (unitA ? unitA.uid : null);
+                let healUnit = healUid ? c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.uid === healUid) : null;
+                if(healAmount != null && healUnit) {
+                    showHealFloat(healUnit, healAmount);
+                }
+            }
+            if (entry2.isHealEntry && !entry2.isDead && entry2.healUnitUid) {
+                let healUnit = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.uid === entry2.healUnitUid);
+                if (healUnit && entry2.healAmount) {
+                    showHealFloat(healUnit, entry2.healAmount);
+                }
+            }
+            if (entry2.reboundDmg && entry2.reboundTargetUid) {
+                let reboundTarget = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.uid === entry2.reboundTargetUid);
+                if (reboundTarget) showDamageFloat(reboundTarget, entry2.reboundDmg);
+            }
+            if (entry2.selfDmg && entry2.selfDmgUid) {
+                let selfTarget = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.uid === entry2.selfDmgUid);
+                if (selfTarget) showDamageFloat(selfTarget, entry2.selfDmg);
+            }
+            if (entry2.text && entry2.text.includes('🦋 乾坤衍生') && entry2.text.includes('攻击+')) {
+                if (entry2.atkTargetUid && entry2.atkGain) {
+                    const atkTarget = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.uid === entry2.atkTargetUid);
+                    if (atkTarget) {
+                        setTimeout(() => showAtkBuffFloat(atkTarget, entry2.atkGain), 180);
+                    }
+                } else {
+                    const atkMatch = entry2.text.match(/攻击\+(\d+)/);
+                    if (atkMatch) {
+                        const atkGain = parseInt(atkMatch[1]);
+                        const nameMatch = entry2.text.match(/(\S+)攻击\+/);
+                        let atkTarget = null;
+                        if (nameMatch) {
+                            atkTarget = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.name === nameMatch[1]);
+                        }
+                        if (atkTarget) {
+                            setTimeout(() => showAtkBuffFloat(atkTarget, atkGain), 180);
+                        }
+                    }
+                }
+            }
+            if(entry.isBlock&&entry2.text&&entry2.text.includes('休息回复20点生命')&&unitA){c.store.dispatch({ type: 'SET_VISUAL', uid: unitA.uid, _resting: true });blockDelay = true; showHealFloat(unitA, entry.healAmount || 10);}
+            if (entry2.type === 'buff-splash') {
+                if (entry2.buffType === 'meteor_splash' && entry2.attackerUid && entry2.primaryUid && entry2.splashUids && entry2.splashUids.length > 0) {
+                    let attacker = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.uid === entry2.attackerUid);
+                    let primary = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.uid === entry2.primaryUid);
+                    let splashU = entry2.splashUids.map(uid => c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.uid === uid)).filter(u => u);
+                    if (attacker && primary && splashU.length > 0) {
+                        c.isPaused = true; GlobalStore.set('bulletTimeActive', true);
+                        await showBuffBanner('☄️ 流星赶月！');
+                        showSplashArrows(attacker, primary, splashU, c.speed, () => c.isPaused);
+                        splashU.forEach((st, i) => { setTimeout(() => { AudioManager.playSfx(attacker); }, i * 120); });
+                        GlobalStore.set('bulletTimeActive', false); c.isPaused = false;
+                    }
+                }
+                if (entry2.splashUids && entry2.splashDmg) {
+                    entry2.splashUids.forEach(uid => {
+                        let t = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.uid === uid);
+                        if (t) {
+                            if (entry2.buffType === 'meteor_splash') setTimeout(() => showDamageFloat(t, entry2.splashDmg), 150);
+                            else showDamageFloat(t, entry2.splashDmg);
+                        }
+                    });
+                }
+                if (entry2.buffType === 'meteor_splash') await new Promise(r=>setTimeout(r, GlobalStore.get('fastForwardActive') ? 1 : 600));
+            }
+            const currentSpeed = c.speed || 1000;
+            const isImportant = (entry2.type === 'combat-text' || entry2.type === 'damage-text');
+            const forcedSpeed = isImportant
+                ? Math.max(currentSpeed, 600)
+                : Math.floor(currentSpeed * 0.8);
+            let tempDiv=document.createElement('div'); appendLogElement(tempDiv); await playLineText(entry2.text, tempDiv, forcedSpeed);
+            if (!c.userScrolled) autoScrollLog();
+            if (entry2.type === 'detail' || entry2.type === 'info' || entry2.type === 'buff-bonus' || entry2.type === 'buff-splash') {
+                await new Promise(r => setTimeout(r, 120));
+            }
+            if (entry2.type === 'detail' && entry2.text && entry2.text.includes('计算：') && !entry._dmgFloatShown) {
+                entry._dmgFloatShown = true;
+                if (unitD && entry._dmg !== undefined && !entry.isBlock && !entry.isMiss && !entry.isDodge) {
+                    showDamageFloat(unitD, entry._dmg);
+                }
+            }
+        }
+    }
+    if(blockDelay) await new Promise(r=>setTimeout(r, GlobalStore.get('fastForwardActive') ? 1 : c.speed/2));
+    if (entry._pendingHpEvents && entry._pendingHpEvents.length > 0) {
+        c.store.dispatch({ type: 'APPLY_EVENTS', events: entry._pendingHpEvents.splice(0) });
+    }
+    if (entry.isDead && lastDiv && !entry.isBlock && !entry.isMiss && !entry.isDodge) { applyBrushEffect(lastDiv); }
+    if(entry.isDodge&&unitA)showDodgeBubble(unitA,'闪避！'); if(entry.isMiss&&unitA)showDodgeBubble(unitA,'未命中');
+    if(unitD&&entry.hpPctAfter!==undefined&&entry.hpPctBefore!==undefined){ if(entry.hpPctBefore>40&&entry.hpPctAfter<=40&&entry.hpPctAfter>20){let t=(unitD.camp==='ally'?'不好，必须反击了！':'小儿安敢伤我！');safeShowDanmaku(unitD,t);} else if(entry.hpPctBefore>20&&entry.hpPctAfter<=20){let t=(unitD.camp==='ally'?'撑住！':'已是强弩之末！');safeShowDanmaku(unitD,t);} }
+    await new Promise(r=>setTimeout(r,offset)); await c.waitWhilePaused();
+    if(defTimer)clearTimeout(defTimer);
+    if(unitA && !unitA.state._isDead){c.store.dispatch({ type: 'CLEAR_UNIT_FLASH', uid: unitA.uid }); if (!entry.isDodge) { c.store.dispatch({ type: 'SET_VISUAL', uid: unitA.uid, _acted: true }); }}
+    if (entry.isDead && unitD && !entry.isBlock && !entry.isMiss && !entry.isDodge) {
+        c.store.dispatch({ type: 'SET_FLASH', uid: unitD.uid, flash: 'dead' });
+        c.store.dispatch({ type: 'SET_VISUAL', uid: unitD.uid, _isDead: true });
+    }
+    if (entry.entries) {
+        for (const e of entry.entries) {
+            if ((e.isExecute || e.type === 'execute') && entry.isDead && lastDiv) {
+                applyBrushEffect(lastDiv);
+                break;
+            }
+        }
+    }
+    if(unitD && !entry.isDodge && !entry.isMiss && !entry.isDead && !unitD.state._isDead) c.store.dispatch({ type: 'CLEAR_UNIT_FLASH', uid: unitD.uid });
+    if (c.UI && c.UI.allyTeam && c.UI.enemyTeam) {
+        c.UI.allyTeam.concat(c.UI.enemyTeam).forEach(u => { if (u.alive) { const su = c.store ? c.store.getState().units.find(s => s.uid === u.uid) : null; if (!su || !su._flyMode) { let blocked = isBlocked(u, u.camp === 'ally' ? c.UI.allyTeam : c.UI.enemyTeam); c.store.dispatch({ type: 'SET_VISUAL', uid: u.uid, _blocked: blocked }); } } });
+    }
+    updateRoundDisplay(`📜 日志（第${c.UI.round}回合）`);
+
+    if(entry.isDead&&(c.UI.allyTeam.every(ch=>!ch.alive)||c.UI.enemyTeam.every(ch=>!ch.alive))){ return { isBattleOver: true }; }
+    return { isBattleOver: false };
+}
+
+async function handleInfo(c, entry) {
+    if (entry.fastEntry) {
+        appendLogHTML(entry.text + '<br>');
+        updateRoundDisplay(`📜 日志（第${c.UI.round}回合）`);
+        return;
+    }
+
+    async function getButterflyFx(name) {
+        if (window[name]) return window[name];
+        const mod = await import('../fx/45fx-butterfly-spider.js');
+        return mod[name];
+    }
+    if (entry.text) {
+        if (entry.text.includes('🦋 蝶变') && entry.text.includes('化为蝴蝶附身于')) {
+            const sister = c.UI.allyTeam?.find(u => u.isXiaoZhaoSister && u.alive);
+            const hostName = entry.text.match(/附身于 (.+)！/)?.[1];
+            const host = hostName ? c.UI.allyTeam?.find(u => u.name === hostName) : null;
+            if (sister && host) {
+                const showButterflyFlyOut = await getButterflyFx('showButterflyFlyOut');
+                showButterflyFlyOut(sister, host);
+            }
+        } else if (entry.text.includes('🦋 蝶变') && entry.text.includes('飞回')) {
+            const sister = c.UI.allyTeam?.find(u => u.isXiaoZhaoSister && u.alive);
+            if (sister) {
+                const showButterflyFlyBack = await getButterflyFx('showButterflyFlyBack');
+                const hostUid = (sister.state && sister.state._butterflyHost) || sister._butterflyHost;
+                const host = hostUid ? c.UI.allyTeam?.find(u => u.uid === hostUid) : null;
+                if (host) showButterflyFlyBack(host, sister);
+            }
+        } else if (entry.text.includes('🕷️ 飞天')) {
+            const brother = c.UI.allyTeam?.find(u => u.isXiaoZhaoBrother && u.alive);
+            if (brother) {
+                const showSpiderAscend = await getButterflyFx('showSpiderAscend');
+                showSpiderAscend(brother);
+            }
+        } else if (entry.text.includes('🕷️ 蛛落')) {
+            const brother = c.UI.allyTeam?.find(u => u.isXiaoZhaoBrother && u.alive);
+            if (brother) {
+                c.store.dispatch({ type: 'SET_VISUAL', uid: brother.uid, _flyMode: null, _acted: false });
+                const showSpiderDescend = await getButterflyFx('showSpiderDescend');
+                showSpiderDescend(brother);
+            }
+        }
+    }
+
+    if(entry.isZhangSwitch&&entry.unit){ let zhangUnit = c.UI.allyTeam.find(u => u.isZhang); renderSeparator(); let tempDiv=document.createElement('div'); appendLogElement(tempDiv); await playLineText(entry.text,tempDiv); if(zhangUnit) { c.store.dispatch({ type: 'SET_VISUAL', uid: zhangUnit.uid, _resting: false }); safeShowDanmaku(zhangUnit, '不好，要顶上去了！'); } }
+    else {
+        if (entry.isDoubleStrikeBanner) {
+            c.isPaused = true;
+            await showBuffBanner('⚡ 概率连击！');
+            c.isPaused = false;
+        }
+
+        if (entry.buffType === 'elite_xinhun') {
+            let song = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.name === '宋青书');
+            let zhou = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.uid === entry.zhouUid);
+            if (zhou) c.store.dispatch({ type: 'SET_VISUAL', uid: zhou.uid, _hasKuaiLe: true });
+            requestAnimationFrame(() => {
+                if (song) showHeartEffect(song);
+                if (zhou) showHeartEffect(zhou);
+                if (zhou && zhou.alive) showPinkFlash(zhou);
+            });
+            if (zhou) {
+                let match = entry.text.match(/被扣除(\d+)点血量/);
+                if (match) showDamageFloat(zhou, parseInt(match[1]));
+            }
+        }
+        if (entry.buffType === 'elite_kuaile_heal' && entry.zhouUid) {
+            let unit = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.uid === entry.zhouUid);
+            let match = entry.text.match(/回复(\d+)/);
+            if (match && unit) showHealFloat(unit, parseInt(match[1]));
+        }
+        if (entry.buffType !== 'elite_kuaile_heal' && entry.text && entry.text.includes('🦋 乾坤衍生') && entry.text.includes('攻击+')) {
+            const atkMatch = entry.text.match(/攻击\+(\d+)/);
+            if (atkMatch) {
+                const atkGain = parseInt(atkMatch[1]);
+                const nameMatch = entry.text.match(/(\S+)攻击\+/);
+                let atkTarget = null;
+                if (nameMatch) {
+                    atkTarget = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.name === nameMatch[1]);
+                }
+                if (atkTarget) {
+                    setTimeout(() => showAtkBuffFloat(atkTarget, atkGain), 180);
+                }
+            }
+        }
+        if (entry.text && entry.text.includes('🦋 乾坤衍生') && entry.text.includes('攻击+')) {
+            const atkMatch = entry.text.match(/攻击\+(\d+)/);
+            if (atkMatch) {
+                const atkGain = parseInt(atkMatch[1]);
+                const nameMatch = entry.text.match(/(\S+)攻击\+/);
+                let atkTarget = null;
+                if (nameMatch) {
+                    atkTarget = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.name === nameMatch[1]);
+                }
+                if (atkTarget) {
+                    setTimeout(() => showAtkBuffFloat(atkTarget, atkGain), 180);
+                }
+            }
+        }
+
+        if (entry.uidA && entry.uidD && entry.text && entry.text.includes('🕷️ 蛛袭')) {
+            const spiderUnit = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.uid === entry.uidA);
+            const strikeTarget = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.uid === entry.uidD);
+            if (spiderUnit && strikeTarget) {
+                let tempDiv = document.createElement('div');
+                appendLogElement(tempDiv);
+                await playLineText(entry.text, tempDiv);
+                c.isPaused = true;
+                GlobalStore.set('bulletTimeActive', true);
+                const { showSpiderStrike } = await import('../fx/45fx-butterfly-spider.js');
+                await showSpiderStrike(spiderUnit, strikeTarget);
+                if (entry.text && entry.isDead && strikeTarget && c.store) {
+                    c.store.dispatch({ type: 'SET_FLASH', uid: strikeTarget.uid, flash: 'dead' });
+                    c.store.dispatch({ type: 'SET_VISUAL', uid: strikeTarget.uid, _isDead: true });
+                }
+                await new Promise(r => setTimeout(r, 1800));
+                GlobalStore.set('bulletTimeActive', true);
+                c.isPaused = false;
+            }
+        }
+
+        if (entry.isClawHit && entry.clawAttackerUid && entry.clawTargetUid) {
+            let attacker = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.uid === entry.clawAttackerUid);
+            let target = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.uid === entry.clawTargetUid);
+            if (target && entry.text) {
+                let dmgMatch = entry.text.match(/造成 (\d+) 点伤害/);
+                if (dmgMatch) showDamageFloat(target, parseInt(dmgMatch[1]));
+            }
+            if (attacker && target) {
+                showBoneClaw(attacker, target, c.speed, () => c.isPaused, null, { isExecute: entry.isExecute });
+            }
+            if (entry._events && entry._events.length > 0) {
+                c.store.dispatch({ type: 'APPLY_EVENTS', events: entry._events });
+            }
+        }
+        if (entry.isHealEntry && entry.healAmount && entry.healUnitUid) {
+            let healUnit = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.uid === entry.healUnitUid);
+            if (healUnit) showHealFloat(healUnit, entry.healAmount);
+        }
+        if (entry.text && entry.text.includes('攻击+')) {
+            const atkMatch = entry.text.match(/攻击\+(\d+(?:\.\d+)?)/);
+            if (atkMatch) {
+                const atkGain = parseFloat(atkMatch[1]);
+                const nameMatch = entry.text.match(/(\S+)攻击\+/);
+                let atkTarget = null;
+                if (nameMatch) {
+                    atkTarget = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.name === nameMatch[1]);
+                }
+                if (atkTarget && atkGain > 0) {
+                    setTimeout(() => showAtkBuffFloat(atkTarget, atkGain), 180);
+                }
+            }
+        }
+        if (entry.reboundDmg && entry.attackerUid) {
+            let attacker = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.uid === entry.attackerUid);
+            if (attacker) showDamageFloat(attacker, entry.reboundDmg);
+        }
+        if (entry.isDead && entry.uidD) {
+            let deadUnit = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.uid === entry.uidD);
+            if (deadUnit && c.store) {
+                c.store.dispatch({ type: 'SET_FLASH', uid: deadUnit.uid, flash: 'dead' });
+                c.store.dispatch({ type: 'SET_VISUAL', uid: deadUnit.uid, _isDead: true });
+            }
+            let tempDiv=document.createElement('div'); appendLogElement(tempDiv); await playLineText(entry.text,tempDiv);
+            applyBrushEffect(tempDiv);
+            if (entry.dmg && deadUnit) showDamageFloat(deadUnit, entry.dmg);
+        } else {
+            let tempDiv=document.createElement('div'); appendLogElement(tempDiv); await playLineText(entry.text,tempDiv);
+        }
+    }
+    updateRoundDisplay(`📜 日志（第${c.UI.round}回合）`);
+}
+
+async function handleRoundStart(c, entry, isFirstAttackRef) {
+    c.UI.round = parseInt(entry.text.match(/\d+/)[0])||1;
+    if (isFirstAttackRef) isFirstAttackRef.value = true;
+    appendLogHTML(entry.text + '<br>');
+    updateRoundDisplay(`📜 日志（第${c.UI.round}回合）`);
+    await new Promise(r=>setTimeout(r, GlobalStore.get('fastForwardActive') ? 1 : c.speed/3));
+    c.updateUI(c.UI);
+}
+
+async function handleRoundEnd(c, entry, log, i) {
+    appendLogHTML(entry.text + '<br>');
+    updateRoundDisplay(`📜 日志（第${c.UI.round}回合）`);
+    if (c.updateBuffSlots) { c.updateBuffSlots(); }
+    if (window._refreshGlowCells) window._refreshGlowCells();
+    await new Promise(r=>setTimeout(r,c.speed/3));
+}
+
+function shouldStartNewGroup(entry, lastType) {
+    if (!lastType) return false;
+    if (entry.needsSeparator) return true;
+    return false;
+}
+  window.handleBuffBonus = handleBuffBonus;
+  window.handleBuffSwap = handleBuffSwap;
+  window.handleBuffPush = handleBuffPush;
+  window.handleBuffReboundFortify = handleBuffReboundFortify;
+  window.handleAttackGroup = handleAttackGroup;
+  window.handleInfo = handleInfo;
+  window.handleRoundStart = handleRoundStart;
+  window.handleRoundEnd = handleRoundEnd;
+  window.shouldStartNewGroup = shouldStartNewGroup;
+})();
+
+// ===== modules/19battle-store.js (206 lines) =====
+(function() {
+
+// modules/19battle-store.js - 光明顶5v5 战斗Store工厂
+// V5.4.0 | ~11600 bytes| 2026-07-31 从 player/10 提取 Store 创建逻辑
+const VER = 'modules/19battle-store.js V5.4.0';
+
+// ==================== Store 工厂 ====================
+function createStore(initialState, reducer) {
+    let state = initialState;
+    const listeners = [];
+    return {
+        getState: () => state,
+        dispatch: (action) => {
+            const next = reducer(state, action);
+            if (next === state) return;
+            state = next;
+            listeners.forEach(fn => { try { fn(state, action); } catch(e) { console.error('Store subscriber error:', e); } });
+        },
+        subscribe: (fn) => { listeners.push(fn); return () => { const i = listeners.indexOf(fn); if (i >= 0) listeners.splice(i, 1); }; }
+    };
+}
+
+// ==================== 战斗 Reducer ====================
+const GAME_STATE_FIELDS = ['hp','alive','maxHp','atk','def','role','rangedForm','_isDead','_baseMaxHp','_baseAtk','_baseDef','dmgDealt','dmgTaken','healDone','reboundDone','leechDone','dodgeCount','critCount','survivedRounds','pos','buffAtkBonus','buffDefBonus','buffDodgeBonus','buffHpBonus','_phantomTarget', '_masteredRoles', '_fortifyStacks', '_baseFangDef', '_butterflyAtkBonus', '_butterflyDefBonus', '_butterflyHpBonus'];
+
+/**
+ * 战斗 Store 的 Reducer — 根据 action 类型处理单位状态变更
+ * 所有 UI 层的格子显示（闪光/死亡/血条/位置）通过 dispatch action → reducer → Store 订阅 → renderGrid 的链路完成
+ * @param {object} state - 当前 Store 状态 { units: Array }
+ * @param {object} action - { type: string, uid?: string, flash?: string, events?: Array, unit?: object, ... }
+ * @returns {object} 新状态
+ */
+function battleReducer(state, action) {
+    switch (action.type) {
+        case 'INIT': return state;
+        case 'SET_FLASH': {
+            let next = state.units.map(u => {
+                if (u.uid !== action.uid) return u;
+                return { ...u, _flash: action.flash };
+            });
+            return { ...state, units: next };
+        }
+        case 'SET_VISUAL': {
+            let next = state.units.map(u => {
+                if (u.uid !== action.uid) return u;
+                const newState = { ...(u.state || {}) };
+                if (action._acted !== undefined) newState._acted = action._acted;
+                if (action._resting !== undefined) newState._resting = action._resting;
+                if (action._blocked !== undefined) newState._blocked = action._blocked;
+                if (action._isDead !== undefined) newState._isDead = action._isDead;
+                if (action._flyMode !== undefined) newState._flyMode = action._flyMode;
+                const updated = { ...u, state: newState };
+                if (action._hasKuaiLe !== undefined) updated._hasKuaiLe = action._hasKuaiLe;
+                if (action._hasXingFen !== undefined) updated._hasXingFen = action._hasXingFen;
+                return updated;
+            });
+            return { ...state, units: next };
+        }
+        case 'CLEAR_ALL_FLASH': {
+            let next = state.units.map(u => ({ ...u, _flash: null }));
+            return { ...state, units: next };
+        }
+        case 'CLEAR_UNIT_FLASH': {
+            let next = state.units.map(u => {
+                if (u.uid !== action.uid) return u;
+                return { ...u, _flash: null };
+            });
+            return { ...state, units: next };
+        }
+        case 'APPLY_EVENTS': {
+            const events = action.events;
+            if (!events || events.length === 0) return state;
+            let next = state.units.map(u => ({ ...u }));
+            for (const ev of events) {
+                if (ev.eventType === 'hp-change' || ev.eventType === 'stat-bonus-change' || ev.eventType === 'zhang-switch') {
+                    const idx = next.findIndex(u => u.uid === ev.unitUid);
+                    if (idx >= 0) {
+                        const p = ev.payload;
+                        if (p.hp !== undefined) next[idx].hp = p.hp;
+                        if (p.maxHp !== undefined) next[idx].maxHp = p.maxHp;
+                        if (p.alive !== undefined) next[idx].alive = p.alive;
+                        if (p.atk !== undefined) next[idx].atk = p.atk;
+                        if (p.def !== undefined) next[idx].def = p.def;
+                        if (p.role !== undefined) next[idx].role = p.role;
+                        if (p.buffAtkBonus !== undefined) next[idx].buffAtkBonus = p.buffAtkBonus;
+                        if (p.buffDefBonus !== undefined) next[idx].buffDefBonus = p.buffDefBonus;
+                        if (p.buffDodgeBonus !== undefined) next[idx].buffDodgeBonus = p.buffDodgeBonus;
+                        if (p.buffHpBonus !== undefined) next[idx].buffHpBonus = p.buffHpBonus;
+                        if (p.dmgDealt !== undefined) next[idx].dmgDealt = p.dmgDealt;
+                        if (p.dmgTaken !== undefined) next[idx].dmgTaken = p.dmgTaken;
+                        if (p.healDone !== undefined) next[idx].healDone = p.healDone;
+                        if (p.reboundDone !== undefined) next[idx].reboundDone = p.reboundDone;
+                        if (p.leechDone !== undefined) next[idx].leechDone = p.leechDone;
+                        if (p.dodgeCount !== undefined) next[idx].dodgeCount = p.dodgeCount;
+                        if (p.critCount !== undefined) next[idx].critCount = p.critCount;
+                        if (p.survivedRounds !== undefined) next[idx].survivedRounds = p.survivedRounds;
+                        if (!next[idx].state) next[idx].state = {};
+                        if (p._isDead !== undefined) next[idx].state._isDead = p._isDead;
+                        if (p._resting !== undefined) next[idx].state._resting = p._resting;
+                        if (p._blocked !== undefined) next[idx].state._blocked = p._blocked;
+                        if (p._phantomTarget !== undefined) next[idx].state._phantomTarget = p._phantomTarget;
+                        if (p._stunned !== undefined) next[idx].state._stunned = p._stunned;
+                        if (p._flyMode !== undefined) next[idx].state._flyMode = p._flyMode;
+                        if (p._butterflyHost !== undefined) next[idx].state._butterflyHost = p._butterflyHost;
+                        if (p._masteredRoles !== undefined) next[idx]._masteredRoles = p._masteredRoles;
+                        if (ev.eventType === 'zhang-switch') {
+                            if (p.rangedForm !== undefined) next[idx].rangedForm = p.rangedForm;
+                            if (p.role) next[idx].role = p.role;
+                        }
+                    }
+                } else if (ev.eventType === 'unit-add') {
+                    const p = ev.payload;
+                    if (!next.find(u => u.uid === p.uid)) {
+                        next.push({
+                            uid: p.uid, name: p.name, role: p.role, camp: p.camp, pos: p.pos,
+                            hp: p.hp, maxHp: p.maxHp, atk: p.atk, def: p.def, alive: p.alive,
+                            isHorse: p.isHorse || false,
+                            dmgDealt: 0, dmgTaken: 0, healDone: 0, reboundDone: 0, leechDone: 0,
+                            dodgeCount: 0, critCount: 0, survivedRounds: 0,
+                            buffAtkBonus: 0, buffDefBonus: 0, buffDodgeBonus: 0, buffHpBonus: 0,
+                            _flash: null,
+                            state: {
+                                _acted: false, _resting: false, _blocked: false,
+                                _isDead: p._isDead || false,
+                                _phantomTarget: p._phantomTarget || null
+                            }
+                        });
+                    }
+                } else if (ev.eventType === 'unit-remove') {
+                    next = next.filter(u => u.uid !== ev.payload.uid);
+                } else if (ev.eventType === 'pos-change') {
+                    const idx = next.findIndex(u => u.uid === ev.uid);
+                    if (idx >= 0) {
+                        next[idx].pos = ev.pos;
+                    }
+                }
+            }
+            return { ...state, units: next };
+        }
+        case 'SYNC_UNIT': {
+            let next = state.units.map(u => {
+                if (u.uid !== action.uid) return u;
+                return { ...u, ...action.fields };
+            });
+            return { ...state, units: next };
+        }
+        case 'ADD_UNIT': {
+            if (state.units.find(u => u.uid === action.unit.uid)) return state;
+            return { ...state, units: [...state.units, action.unit] };
+        }
+        case 'REMOVE_UNIT': {
+            return { ...state, units: state.units.filter(u => u.uid !== action.uid) };
+        }
+        case 'SYNC_BATTLE_STATS': {
+            const allyMap = new Map(action.ally.map(u => [u.uid, u]));
+            const enemyMap = new Map(action.enemy.map(u => [u.uid, u]));
+            let next = state.units.map(u => {
+                const src = u.camp === 'ally' ? allyMap.get(u.uid) : enemyMap.get(u.uid);
+                if (!src) return u;
+                return {
+                    ...u,
+                    dmgDealt: src.dmgDealt || 0,
+                    dmgTaken: src.dmgTaken || 0,
+                    healDone: src.healDone || 0,
+                    reboundDone: src.reboundDone || 0,
+                    leechDone: src.leechDone || 0,
+                    dodgeCount: src.dodgeCount || 0,
+                    critCount: src.critCount || 0,
+                    survivedRounds: src.survivedRounds || 0
+                };
+            });
+            return { ...state, units: next };
+        }
+        case 'hp-change': {
+            const idx = state.units.findIndex(u => u.uid === action.unitUid);
+            if (idx < 0) return state;
+            let next = state.units.map(u => ({ ...u }));
+            const p = action.payload;
+            if (p.hp !== undefined) next[idx].hp = p.hp;
+            if (p.maxHp !== undefined) next[idx].maxHp = p.maxHp;
+            if (p.alive !== undefined) next[idx].alive = p.alive;
+            if (p.atk !== undefined) next[idx].atk = p.atk;
+            if (p.def !== undefined) next[idx].def = p.def;
+            if (p.role !== undefined) next[idx].role = p.role;
+            if (p._isDead !== undefined) next[idx]._isDead = p._isDead;
+            if (p._resting !== undefined) next[idx]._resting = p._resting;
+            if (p._blocked !== undefined) next[idx]._blocked = p._blocked;
+            if (p._stunned !== undefined) next[idx]._stunned = p._stunned;
+            if (p._flyMode !== undefined) next[idx]._flyMode = p._flyMode;
+            if (p._butterflyHost !== undefined) next[idx]._butterflyHost = p._butterflyHost;
+            if (p._phantomTarget !== undefined) next[idx]._phantomTarget = p._phantomTarget;
+            if (p.rangedForm !== undefined) next[idx].rangedForm = p.rangedForm;
+            return { ...state, units: next };
+        }
+        case 'stat-bonus-change': {
+            const idx = state.units.findIndex(u => u.uid === action.unitUid);
+            if (idx < 0) return state;
+            let next = state.units.map(u => ({ ...u }));
+            const p = action.payload;
+            if (p.buffAtkBonus !== undefined) next[idx].buffAtkBonus = p.buffAtkBonus;
+            if (p.buffDefBonus !== undefined) next[idx].buffDefBonus = p.buffDefBonus;
+            if (p.buffDodgeBonus !== undefined) next[idx].buffDodgeBonus = p.buffDodgeBonus;
+            if (p.buffHpBonus !== undefined) next[idx].buffHpBonus = p.buffHpBonus;
+            return { ...state, units: next };
+        }
+        default: return state;
+    }
+}
+  window.createStore = createStore;
+  window.GAME_STATE_FIELDS = GAME_STATE_FIELDS;
+  window.battleReducer = battleReducer;
+})();
+
 // ===== player/26player-core.js (562 lines) =====
 (function() {
   var showBuffBanner = window.showBuffBanner;
@@ -11244,6 +12549,1053 @@ function bindCopyLogButton(showModal, copyLogToClipboard) {
   window.updateButtons = updateButtons;
   window.enableAllButtons = enableAllButtons;
   window.updateDebugUI = updateDebugUI;
+})();
+
+// ===== modules/20elite-imperial.js (178 lines) =====
+(function() {
+  var registerElite = window.registerElite;
+  var CONFIG = window.CONFIG;
+  var getSkillParams = window.getSkillParams;
+  var getBattleRng = window.getBattleRng;
+  var tickXuanmingPoison = window.tickXuanmingPoison;
+  var processUnitAttack = window.processUnitAttack;
+  var L = window.L;
+
+// modules/20elite-imperial.js - 朝廷精英组件合集
+// V5.4.0 | ~8700 bytes| 2026-08-04 技能参数接入 game-data
+const VER = 'modules/20elite-imperial.js V5.4.0';
+
+
+
+
+
+
+
+const ES = CONFIG.ELITE_SKILLS;
+
+function emitEvent(unit, eventType, payload) {
+    if (typeof window._emitEvent === 'function') window._emitEvent(unit, eventType, payload);
+}
+
+// ==================== 成昆 ====================
+function createChengKunComponent() {
+    return {
+        name: '成昆',
+        register(eventBus, A, B, log) {
+            const cheng = B.find(u => u.name === '成昆' && u.alive);
+            if (!cheng) return;
+            const onAfterApplyDamage = this.onAfterApplyDamage;
+            const onDamageCalc = this.onDamageCalc;
+            // 幻影伪装：被模仿者攻击成昆，其他明教单位概率混乱误攻队友
+            eventBus.on('beforeSelectTarget', L.BEFORE_SELECT_TARGET.CHENGKUN_DISGUISE, (data) => {
+                // 成昆攻击前清除旧伪装（恢复真身）
+                if (data.unit.name === '成昆' && data.unit.state._phantomTarget) {
+                    delete data.unit.state._phantomTarget;
+                }
+                if (data.unit.camp !== 'ally') return;
+                const chengkun = data.enemySide.find(u => u.name === '成昆' && u.alive && u.state._phantomTarget);
+                if (!chengkun) return;
+
+                // 被模仿者：100% 强制攻击成昆
+                const isPhantomTarget = (chengkun.state._phantomTarget === data.unit.uid);
+                if (isPhantomTarget) {
+                    data.declaration.targetResult = chengkun;
+                    data.declaration.phantomLog = `🎭 幻影伪装！${data.unit.name}被成昆迷惑，强制攻击成昆！`;
+                    return;
+                }
+
+                // 其他明教单位：概率混乱误攻队友（基于成昆已损失血量）
+                const params = getSkillParams('成昆', 'phantomDisguise') || ES.phantomDisguise;
+                const lostHpPct = (chengkun.maxHp - chengkun.hp) / chengkun.maxHp;
+                const confuseChance = (params.baseChance || 0.30) + (params.per10pctLost || 0.06) * (lostHpPct * 10);
+                if (getBattleRng().next() >= confuseChance) return;
+
+                const fakeList = data.allySide.filter(u => u.alive && !u.isHorse && !u._untargetable && u.uid !== data.unit.uid);
+                if (fakeList.length > 0) {
+                    const fakeTarget = fakeList[getBattleRng().nextInt(0, fakeList.length - 1)];
+                    data.declaration.targetResult = fakeTarget;
+                    data.declaration.phantomLog = `🎭 幻影伪装！${data.unit.name}被祸乱心智，误攻队友${fakeTarget.name}！`;
+                }
+            });
+            // 幻影伪装：攻击后更新伪装目标
+            eventBus.on('afterDamageApplied', L.AFTER_DAMAGE_APPLIED.CHENGKUN_DISGUISE, (data) => {
+                if (data.unit.name !== '成昆') return;
+                onAfterApplyDamage(data.unit, data.target, { dmg: data.dmg }, data.group, A, data.log, data);
+            });
+            // 混元霹雳劲 → 提交伤害声明
+            eventBus.on('beforeDamageCalc', L.BEFORE_DAMAGE_CALC.CHENGKUN_THUNDER, (data) => {
+                if (data.unit.name !== '成昆' || !data.declarations) return;
+                const lostHp = data.unit.maxHp - data.unit.hp;
+                const params = getSkillParams('成昆', 'phantomThunder') || ES.phantomThunder;
+                const bonus = Math.floor(lostHp * (params.lostHpRatio / 100));
+                if (bonus > 0) {
+                    data.declarations.push({ type: 'bonusDmg', value: bonus, source: data.unit });
+                }
+            });
+        },
+        onAfterApplyDamage(unit, target, dmgCalc, group, enemySide, log, data) {
+            if (unit.name !== '成昆' || dmgCalc.dmg <= 0) return;
+            const enemyAlive = enemySide.filter(u => u.alive && !u.isHorse && !u._untargetable);
+            if (enemyAlive.length > 0) {
+                unit.state._phantomTarget = enemyAlive[getBattleRng().nextInt(0, enemyAlive.length - 1)].uid;
+                const lostHp = unit.maxHp - unit.hp;
+                if (lostHp > 0) {
+                    const aliveCount = enemySide.filter(u => u.alive).length;
+                    const heal = Math.floor(lostHp * 0.06 * aliveCount);
+                    // 改为提交 heal 声明，由裁判统一处理
+                    if (!data.declarations) data.declarations = [];
+                    data.declarations.push({
+                        type: 'heal',
+                        value: heal,
+                        source: unit,
+                        logText: `<span class="green">🎭 幻影伪装：${unit.name} 回复 ${heal} 点生命</span>`
+                    });
+                }
+                emitEvent(unit, 'hp-change', { hp:unit.hp, maxHp:unit.maxHp, alive:unit.alive, atk:unit.atk, def:unit.def, _phantomTarget:unit.state._phantomTarget });
+            }
+        },
+    };
+}
+
+// ==================== 鹿杖客 ====================
+function createLuZhangKeComponent() {
+    return {
+        name: '鹿杖客',
+        register(eventBus, A, B, log) {
+            const lu = B.find(u => u.name === '鹿杖客' && u.alive);
+            if (!lu) return;
+            const onAfterApplyDamage = this.onAfterApplyDamage;
+            // 玄冥神掌中毒
+            eventBus.on('afterDamageApplied', L.AFTER_DAMAGE_APPLIED.LU_XUANMING, (data) => {
+                if (data.unit.name !== '鹿杖客') return;
+                onAfterApplyDamage(data.unit, data.target, { dmg: data.dmg }, data.group, B, data.log);
+            });
+            // 回合开始：玄冥神掌寒毒发作
+            eventBus.on('onRoundStart', L.ROUND_START.XUANMING_POISON, (data) => {
+                const { A, B, log } = data;
+                A.concat(B).forEach(u => {
+                    if (!u.alive) return;
+                    const dot = tickXuanmingPoison(u);
+                    if (dot > 0) {
+                        log.push({ type:'info', text:`<span class="purple">❄️ 玄冥神掌寒毒发作，${u.name} 受到 ${dot} 点伤害</span>`, uidD: u.uid, isDead: !u.alive, dmg: dot });
+                    }
+                });
+            });
+        },
+        onAfterApplyDamage(unit, target, dmgCalc, group, allySide, log) {
+            if (unit.name !== '鹿杖客') return;
+            const s = getSkillParams('鹿杖客', 'xuanmingPalm') || ES.xuanmingPalm;
+            target._xuanmingPoison = { remaining:s.duration, dotPercents:[...s.dotPercents] };
+            log.push({ type:'info', text:`<span class="purple">❄️ ${unit.name} 的玄冥神掌使 ${target.name} 中毒！每回合损失生命（${s.dotPercents.join('%→')}%→消失）</span>` });
+        }
+    };
+}
+
+// ==================== 鹤笔翁 ====================
+function createHeBiWengComponent() {
+    return {
+        name: '鹤笔翁',
+        register(eventBus, A, B, log) {
+            const he = B.find(u => u.name === '鹤笔翁' && u.alive);
+            if (!he) return;
+            const onDamageCalc = this.onDamageCalc;
+            // 鹿角杖法 → 提交伤害声明
+            eventBus.on('beforeDamageCalc', L.BEFORE_DAMAGE_CALC.HE_HORN, (data) => {
+                if (data.unit.name !== '鹤笔翁' || !data.declarations) return;
+                const s = getSkillParams('鹤笔翁', 'hornStrike') || ES.hornStrike;
+                const poisoned = data.target._xuanmingPoison && data.target._xuanmingPoison.remaining > 0;
+                data.declarations.push({ type: 'ignoreDef', value: s.defIgnore / 100, source: data.unit });
+                if (poisoned) {
+                    data.declarations.push({ type: 'dmgMultiplier', value: 1 + s.poisonedBonus / 100, source: data.unit });
+                }
+            });
+        },
+    };
+}
+
+function registerXuanmingLink(eventBus) {
+    eventBus.on('afterAttack', L.AFTER_ATTACK.XUANMING_LINK, async (data) => {
+        const { unit, target, dmg, allySide, enemySide, log, A, B, state } = data;
+        if (!unit || unit._isLinkAttack || dmg <= 0 || !target || !target.alive) return;
+        const isLuOrHe = (unit.name === '鹿杖客' || unit.name === '鹤笔翁');
+        if (!isLuOrHe) return;
+        const partnerName = unit.name === '鹿杖客' ? '鹤笔翁' : '鹿杖客';
+        const partner = allySide.find(u => u.name === partnerName && u.alive && !u._linkTriggered);
+        if (!partner) return;
+        const wasActed = partner.state._acted;
+        partner._isLinkAttack = true;
+        partner._linkTriggered = true;
+        partner.state._acted = false;
+        log.push({type:'info', text:`<span class="gold">🔗 ${partner.name} 跟随 ${unit.name} 发动联动攻击！</span>`});
+        if (typeof processUnitAttack === 'function') {
+            await processUnitAttack(partner, allySide, enemySide, log, A, B, state, null, target.uid);
+        }
+        partner._isLinkAttack = false;
+        partner.state._acted = wasActed;
+    });
+}
+
+registerElite('成昆', createChengKunComponent);
+registerElite('鹿杖客', createLuZhangKeComponent);
+registerElite('鹤笔翁', createHeBiWengComponent);
+registerElite('玄冥联动', registerXuanmingLink);
+  window.createChengKunComponent = createChengKunComponent;
+  window.createLuZhangKeComponent = createLuZhangKeComponent;
+  window.createHeBiWengComponent = createHeBiWengComponent;
+  window.registerXuanmingLink = registerXuanmingLink;
+})();
+
+// ===== modules/21elite-sixsects.js (203 lines) =====
+(function() {
+  var registerElite = window.registerElite;
+  var GlobalStore = window.GlobalStore;
+  var CONFIG = window.CONFIG;
+  var getSkillParams = window.getSkillParams;
+  var eventBus = window.eventBus;
+  var L = window.L;
+  var canXingFenTrigger = window.canXingFenTrigger;
+  var consumeXingFen = window.consumeXingFen;
+  var applyXingFenGrant = window.applyXingFenGrant;
+  var tickKuaiLeHeal = window.tickKuaiLeHeal;
+  var checkKuLian = window.checkKuLian;
+  var emitEvent = window.emitEvent;
+  var applyStatChange = window.applyStatChange;
+  var applyMaxHpChange = window.applyMaxHpChange;
+  var getBattleRng = window.getBattleRng;
+
+// modules/21elite-sixsects.js - 六大派精英组件合集
+// V5.4.0 | ~12900 bytes| 2026-08-04 宋青书苦练/新婚接入 game-data
+const VER = 'modules/21elite-sixsects.js V5.4.0';
+
+
+
+
+
+
+const ES = CONFIG.ELITE_SKILLS;
+
+// ==================== 宋青书 ====================
+function createSongQingshuComponent() {
+    return {
+        name: '宋青书',
+        register(eventBus, A, B, log) {
+            const song = B.find(u => u.name === '宋青书' && u.alive);
+            if (!song) { return; }
+            const onAfterApplyDamage = this.onAfterApplyDamage;
+            const onAfterAttack = this.onAfterAttack;
+            eventBus.on('afterMiss', L.AFTER_MISS.SONG_XINGFEN_RETRY, (data) => {
+                const { unit, log } = data;
+                if (unit.name !== '宋青书' || !unit.alive) return;
+                if (!B || !B.some(u => u.alive)) return;
+                if (canXingFenTrigger(unit)) {
+                    consumeXingFen(unit);
+                    log.push({type:'info', text:`<span class="gold">💗 性奋：${unit.name} 获得额外攻击机会！</span>`});
+                    data.retry = true;
+                    data.retryTargetUid = null;
+                }
+            });
+            eventBus.on('afterDamageApplied', L.AFTER_DAMAGE_APPLIED.SONG_XINGFEN, (data) => {
+                if (data.unit.name !== '宋青书') return;
+                onAfterApplyDamage(data.unit, data.target, { dmg: data.dmg }, data.group, B, data.log);
+            });
+            eventBus.on('beforeDamageCalc', L.BEFORE_DAMAGE_CALC.SONG_TRUE_DMG, (data) => {
+                if (data.unit.name !== '宋青书' || !data.target || !data.target.alive || !data.declarations) return;
+                const trueDmg = Math.floor(data.target.hp * (CONFIG.ELITE_SKILLS.rebelStrike.currentHpRatio || 0.10));
+                if (trueDmg > 0) {
+                    data.declarations.push({ type: 'bonusDmg', value: trueDmg, source: data.unit });
+                }
+            });
+            eventBus.on('afterAttack', L.AFTER_ATTACK.SONG_XINGFEN_EXTRA, async (data) => {
+                if (data.unit.name !== '宋青书') { return; }
+                if (data.unit._xingFenExtraAttacking) { return; }
+                await onAfterAttack(data.unit, data.target, B, A, data.log, B, A, data.state);
+            });
+            
+            eventBus.on('beforeSelectTarget', L.BEFORE_SELECT_TARGET.SONG_REBEL, (data) => {
+                if (data.unit.name !== '宋青书' || !data.unit.alive || !data.validTargets || data.validTargets.length === 0) return;
+                const rebelTarget = data.validTargets.reduce((a, b) => (a.hp / a.maxHp) > (b.hp / b.maxHp) ? a : b);
+                if (rebelTarget) {
+                    data.declaration.targetResult = rebelTarget;
+                    data.declaration.phantomLog = null;
+                }
+            });
+            eventBus.on('onRoundStart', L.ROUND_START.XINGFEN_GRANT, (data) => {
+                const { A, B, log } = data;
+                applyXingFenGrant(B, log);
+
+                const kuLianSong = checkKuLian(B);
+                if (kuLianSong) {
+                    kuLianSong._kuLianActive = true;
+                    const kuLianParams = getSkillParams('宋青书', 'kuLian') || CONFIG.ELITE_SKILLS.kuLian;
+                    const s = {
+                        atkBonus: kuLianParams.atkBonus || 1,
+                        defBonus: kuLianParams.defBonus || 1,
+                        hpBonus: kuLianParams.hpBonus || 2.5
+                    };
+                    B.forEach(u => {
+                        if (!u.alive || u.isHorse) return;
+                        const mult = u.uid === kuLianSong.uid ? 2 : 1;
+                        applyStatChange(u, 'atk', s.atkBonus * mult, null, '苦练');
+                        applyStatChange(u, 'def', s.defBonus * mult, null, '苦练');
+                        applyMaxHpChange(u, u.maxHp + s.hpBonus * mult, null, '苦练血上限');
+                        u._baseAtk = (u._baseAtk || u.atk) + s.atkBonus * mult;
+                        u._baseDef = (u._baseDef || u.def) + s.defBonus * mult;
+                        u._baseMaxHp = Math.max(u._baseMaxHp || u.maxHp, u.maxHp);
+                    });
+                    log.push({ type:'info', text:`<span class="gold">🏋️ 苦练：${kuLianSong.name} 激励全体队友+${s.atkBonus}攻+${s.defBonus}防+${s.hpBonus}血上限（自身翻倍）！</span>` });
+                }
+            });
+        },
+        onAfterApplyDamage(unit, target, dmgCalc, group, allySide, log) {
+            if (unit.name !== '宋青书' || !unit.alive) return;
+            const zhou = allySide.find(u => u.name === '周芷若' && u.alive);
+            const xinHunParams = getSkillParams('宋青书', 'xinHun') || ES.xinHun;
+            const hpDeduct = xinHunParams.hpDeduct || 1;
+            const healLevels = xinHunParams.healLevels || [0.16, 0.10, 0.06, 0.03];
+            if (zhou) {
+                applyStatChange(zhou, 'hp', -hpDeduct, unit, '新婚扣血');
+                zhou.dmgTaken += hpDeduct;
+                zhou._kuaiLeStack.push({ healPct: healLevels[0] });
+                if (zhou.hp <= 0) { if (!zhou._deathTime) zhou._deathTime = Date.now(); }
+                log.push({ type:'info', text:`<span class="gold">💒 新婚：${unit.name}攻击，${zhou.name}被扣除${hpDeduct}点血量，叠加一层快乐(${Math.round(healLevels[0]*100)}%)！当前快乐层数：${zhou._kuaiLeStack.length}</span>`, buffType:'elite_xinhun', zhouUid:zhou.uid, zhouHpAfter:zhou.hp });
+                if (zhou._pendingDeath) { log.push({ type:'info', text:`<span class="red">💀 ${zhou.name} 因新婚扣血而阵亡！</span>`, uidD:zhou.uid, isDead:true }); }
+            }
+            if (zhou) {
+                if (!unit._xingFenPenaltyCount) unit._xingFenPenaltyCount = 0;
+                unit._xingFenPenaltyCount = (unit._xingFenPenaltyCount||0)+1;
+                const penalty = unit._xingFenPenaltyCount;
+                if (penalty > 0 && unit.maxHp > 1) {
+                    const oldMaxHp = unit.maxHp;
+                    applyMaxHpChange(unit, Math.max(1, unit.maxHp - penalty), null, '性奋代价');
+                    if (unit.hp <= 0) { if (!unit._deathTime) unit._deathTime = Date.now(); }
+                    log.push({ type:'info', text:`<span class="red">💗 性奋代价：${unit.name} 血量上限 ${oldMaxHp} → ${unit.maxHp}（-${penalty}）</span>` });
+                }
+            }
+        },
+        async onAfterAttack(unit, target, allySide, enemySide, log, A, B, state) {
+            if (unit.name !== '宋青书' || !unit.alive || !enemySide.some(u => u.alive)) return;
+            if (!unit._xingFenPenaltyCount || unit._xingFenPenaltyCount <= 0) return;
+            if (unit._xingFenExtraAttacking) return;
+            log.push({ type:'info', text:`<span class="gold">💗 性奋：${unit.name} 获得额外攻击机会！</span>` });
+            unit._xingFenExtraAttacking = true;
+            const { processUnitAttack } = await import('../core/10battle-attack.js');
+            await processUnitAttack(unit, allySide, enemySide, log, B, A, state, null, null);
+            unit._xingFenExtraAttacking = false;
+        }
+    };
+}
+
+// ==================== 周芷若 ====================
+function createZhouZhiruoComponent() {
+    return {
+        name: '周芷若',
+        register(eventBus, A, B, log) {
+            const zhou = B.find(u => u.name === '周芷若' && u.alive);
+            if (!zhou) return;
+            const onAfterDamageCalc = this.onAfterDamageCalc;
+            eventBus.on('afterAttack', L.AFTER_ATTACK.ZHOU_CLAW, (data) => {
+                if (data.unit.name !== '周芷若') return;
+                onAfterDamageCalc(data.unit, data.target, data.dmg, data.log, B, A);
+            });
+            eventBus.on('onRoundStart', L.ROUND_START.XINGFEN_GRANT, (data) => {
+                const { A, B, log } = data;
+                tickKuaiLeHeal(A.concat(B), log);
+            });
+        },
+        onAfterDamageCalc(unit, target, dmg, log, allySide, enemySide) {
+            if (unit.name !== '周芷若' || !target || !target.alive) return 0;
+            const rng = getBattleRng();
+            const battleState = window.GlobalStore?.get('currentBattleState');
+            const zhangAlive = battleState && battleState.ally && battleState.ally.some(u => u.isZhang && u.alive);
+            const s = ES.nineYinClaw;
+            const baseHit = zhangAlive ? (s.jealousBaseDmg||5) : (s.baseDmg||3);
+            if (!unit._nineYinFirstDone) { unit._nineYinFirstDone = true; }
+            else { if (rng.next() > s.procChance) return 0; }
+            let totalBonus = 0; let depth = 0;
+            const healDeclarations = [];
+            while (target.alive) {
+                if (depth > 0 && rng.next() > s.chainProcChance) break;
+                const lostHp = target.maxHp - target.hp;
+                const ratio = zhangAlive ? s.jealousLostHpRatio : s.lostHpRatio;
+                const ratioDmg = Math.floor(lostHp*ratio + target.maxHp*(zhangAlive?(s.jealousMaxHpRatio||0.02):(s.maxHpRatio||0.01)));
+                let bonusDmg = baseHit + Math.max(0, ratioDmg);
+                applyStatChange(target, 'hp', -bonusDmg, unit, '九阴白骨爪');
+                totalBonus += bonusDmg;
+                const hpPctAfter = target.hp/target.maxHp;
+                const execThreshold = zhangAlive ? (s.jealousExecuteThreshold||0.15) : (s.executeThreshold||0.12);
+                let isExecute = false;
+                if (hpPctAfter <= execThreshold && target.hp > 0) {
+                    isExecute = true;
+                    applyStatChange(target, 'hp', -target.hp, unit, '白骨爪斩杀');
+                }
+                const clawEvents = GlobalStore.flushBattleEvents();
+                log.push({ type:'info', text:`<span style="color:#222">🐾 九阴白骨爪${depth>0?'连锁':'追击'}！${unit.name} 对 ${target.name} 造成 ${bonusDmg} 点伤害${isExecute?'（斩杀）':(zhangAlive?'【嫉妒】':'')}</span>`, buffType:'elite_bonus', isClawHit:true, clawAttackerUid:unit.uid, clawTargetUid:target.uid, clawTargetHpAfter:target.hp, clawTargetAlive:target.alive, clawTargetIsDead:target.state._isDead, isExecute:isExecute, uidD:target.uid, isDead:!target.alive, _events:clawEvents });
+                // 从 allySide 实时查找，不用 currentBattleState 快照
+                const song = allySide.find(u => u.name === '宋青书' && u.alive);
+                if (song) {
+                    const healAmount = Math.min(bonusDmg, song.maxHp - song.hp);
+                    if (healAmount > 0) {
+                        healDeclarations.push({ type: 'heal', value: healAmount, source: song });
+                    }
+                }
+                depth++; if (isExecute) break;
+            }
+            let songForSummary = allySide.find(u => u.name === '宋青书' && u.alive);
+            if (totalBonus > 0) {
+                if (!songForSummary) songForSummary = allySide.find(u => u.name === '宋青书' && u.alive);
+                if (songForSummary) {
+                    const totalHeal = Math.min(totalBonus, songForSummary.maxHp - songForSummary.hp);
+                    if (totalHeal > 0) {
+                        healDeclarations.push({ type: 'heal', value: totalHeal, source: songForSummary });
+                        log.push({ type:'info', text:`<span class="green">💚 宋青书因九阴白骨爪共回复${totalHeal}点生命</span>`, isHealEntry:true, healAmount:totalHeal, healUnitUid:songForSummary.uid });
+                    } else {
+                        log.push({ type:'info', text:`<span class="gray">💚 宋青书已满血，白骨爪未能回复生命</span>` });
+                    }
+                }
+            }
+            // 统一执行回血
+            for (const decl of healDeclarations) {
+                if (decl.source && decl.source.alive) {
+                    applyStatChange(decl.source, 'hp', decl.value, unit, '九阴白骨爪联动');
+                }
+            }
+            return totalBonus;
+        }
+    };
+}
+
+registerElite('宋青书', createSongQingshuComponent);
+registerElite('周芷若', createZhouZhiruoComponent);
+  window.createSongQingshuComponent = createSongQingshuComponent;
+  window.createZhouZhiruoComponent = createZhouZhiruoComponent;
+})();
+
+// ===== modules/22elite-mingjiao.js (603 lines) =====
+(function() {
+  var registerElite = window.registerElite;
+  var CONFIG = window.CONFIG;
+  var getSkillParams = window.getSkillParams;
+  var ROLE_BONUS = window.ROLE_BONUS;
+  var hasBuff = window.hasBuff;
+  var spawnHorse = window.spawnHorse;
+  var spiderTransform = window.spiderTransform;
+  var spiderReturn = window.spiderReturn;
+  var checkZhangSwitch = window.checkZhangSwitch;
+  var emitEvent = window.emitEvent;
+  var applyStatChange = window.applyStatChange;
+  var applyMaxHpChange = window.applyMaxHpChange;
+  var getBattleRng = window.getBattleRng;
+  var L = window.L;
+  var registerDodgeRule = window.registerDodgeRule;
+  var StateMachine = window.StateMachine;
+
+// modules/22elite-mingjiao.js - 明教精英组件合集
+// V5.4.0 | ~33000 bytes| 2026-08-10 关键单位显式FSM迁移
+const VER = 'modules/22elite-mingjiao.js V5.4.0';
+
+
+
+
+
+
+
+
+
+
+
+const ES = CONFIG.ELITE_SKILLS;
+function getZhangNearTaunt(nearAtkCount) {
+    const ZHANG_NEAR_TAUNT = ['还好，还记得七七八八。', '糟糕，只记得一两层了。', '不好，全忘光了！'];
+    if (nearAtkCount >= 1 && nearAtkCount <= 3) return ZHANG_NEAR_TAUNT[nearAtkCount - 1];
+    return null;
+}
+
+// ==================== 张无忌 ====================
+function createZhangWujiComponent() {
+    return {
+        name: '张无忌',
+        _buildFsm(zhang, A, log) {
+            let fsm;
+            const states = {
+                ranged: {
+                    onEnter() { zhang.rangedForm = true; zhang.role = '远程'; },
+                    onExit() {}
+                },
+                switching: {
+                    onEnter() {
+                        checkZhangSwitch(A, log);
+                        if (fsm) fsm.transition('near');
+                    },
+                    onExit() {}
+                },
+                near: {
+                    onEnter() {},
+                    onExit() {}
+                },
+                ronghui: {
+                    onEnter() {
+                        zhang.ronghui = true;
+                        const zt = getZhangNearTaunt(3);
+                        if (zt) log.push({ type:'info', text:`<span class="gold">🗣️ ${zhang.name}：${zt}</span>` });
+                    },
+                    onExit() {}
+                }
+            };
+            const initial = (zhang._fsm && zhang._fsm.current) ? zhang._fsm.current : (zhang.rangedForm ? 'ranged' : 'near');
+            fsm = new StateMachine(states, initial, {
+                ranged: ['switching'],
+                switching: ['near'],
+                near: ['ronghui'],
+                ronghui: []
+            });
+            return fsm;
+        },
+        register(eventBus, A, B, log) {
+            const zhang = A.find(u => u.isZhang && u.alive);
+            if (!zhang) return;
+            const fsm = this._buildFsm(zhang, A, log);
+            zhang._fsm = fsm;
+            const onAfterApplyDamage = this.onAfterApplyDamage;
+            // 九阳回血
+            eventBus.on('afterDamageApplied', L.AFTER_DAMAGE_APPLIED.ZHANG_JIUYANG, (data) => {
+                if (data.unit.uid !== zhang.uid) return;
+                onAfterApplyDamage(data.unit, data.target, { dmg: data.dmg }, data.group, A, data.log, data);
+            });
+            // 近战形态切换 — 被动监听：单位死亡、换位后自行检测前排
+            eventBus.on('onUnitDeath', L.ON_UNIT_DEATH.ZHANG_SWITCH, (data) => {
+                if (zhang && zhang.alive && !zhang._zhangSwitched && fsm.is('ranged')) {
+                    const col = (zhang.pos - 1) % 3;
+                    const hasFrontAlly = A.some(c => c.alive && !c.isHorse && c.pos === 1 + col && c.uid !== zhang.uid);
+                    if (!hasFrontAlly) fsm.transition('switching');
+                }
+            });
+            eventBus.on('onPositionSwap', L.ON_POSITION_SWAP.ZHANG_SWITCH, (data) => {
+                if (zhang && zhang.alive && !zhang._zhangSwitched && fsm.is('ranged')) {
+                    const col = (zhang.pos - 1) % 3;
+                    const hasFrontAlly = A.some(c => c.alive && !c.isHorse && c.pos === 1 + col && c.uid !== zhang.uid);
+                    if (!hasFrontAlly) fsm.transition('switching');
+                }
+            });
+        },
+        onAfterApplyDamage(unit, target, dmgCalc, group, A, log, data) {
+            if (unit.camp !== 'ally' || !unit.isZhang || !unit.alive) return;
+            const fsm = unit._fsm;
+            const hpBeforeZhang = Math.floor(unit.hp);
+            const s = getSkillParams('张无忌', 'nineYang') || { healPct: 8 };
+            const heal = Math.min(Math.floor(unit.maxHp * (s.healPct / 100)), unit.maxHp - unit.hp);
+            if (heal > 0) {
+                if (data && data.declarations) {
+                    data.declarations.push({
+                        type: 'heal',
+                        value: heal,
+                        source: unit,
+                        logText: `<span class="green">☀️ 九阳神功回复+${heal}，${hpBeforeZhang}→${Math.floor(unit.hp + heal)}</span>`
+                    });
+                } else {
+                    applyStatChange(unit, 'hp', heal, null, '九阳神功');
+                }
+            }
+            if (!data || !data.declarations) {
+                group.entries.push({ type:'info', text:`<span class="green">☀️ 九阳神功回复+${heal}，${hpBeforeZhang}→${Math.floor(unit.hp)}</span>`, isHealEntry:true, healAmount:heal, healUnitUid:unit.uid });
+            }
+            if (fsm && fsm.is('near')) {
+                if (unit.nearAtkCount === 0 && !unit._zhangTauntDone) { const firstTaunt = getZhangNearTaunt(1); if (firstTaunt) { group.entries.push({ type:'info', text:`<span class="gold">🗣️ ${unit.name}：${firstTaunt}</span>` }); unit._zhangTauntDone = true; } }
+                unit.nearAtkCount++;
+                if (unit.nearAtkCount === 2) { const secondTaunt = getZhangNearTaunt(2); if (secondTaunt) group.entries.push({ type:'info', text:`<span class="gold">🗣️ ${unit.name}：${secondTaunt}</span>` }); }
+                if (unit.nearAtkCount >= 3 && !fsm.is('ronghui')) {
+                    fsm.transition('ronghui');
+                    const extra = Math.floor(Math.abs(target.atk - target.def) * 0.5);
+                    if (data && data.declarations) {
+                        data.declarations.push({
+                            type: 'bonusDmg',
+                            value: extra,
+                            target: target,
+                            logText: null
+                        });
+                    } else {
+                        applyStatChange(target, 'hp', -extra, unit, '融会贯通');
+                    }
+                    group.entries.push({ type:'info', text:`<span class="red">🔥 融会贯通额外+${extra}（目标攻击${Math.floor(target.atk)} 防御${Math.floor(target.def)}，差值绝对值×50%）</span>` });
+                }
+            }
+        }
+    };
+}
+
+// ==================== 韦一笑 ====================
+function createWeiYixiaoComponent() {
+    return {
+        name: '韦一笑',
+        register(eventBus, A, B, log) {
+            const wei = A.find(u => u.isWei && u.alive);
+            if (!wei) return;
+            eventBus.on('afterDamageApplied', L.AFTER_DAMAGE_APPLIED.WEI_LEECH, (data) => {
+                if (data.unit.uid !== wei.uid || !wei.alive || data.dmg <= 0) return;
+                const s = getSkillParams('韦一笑', 'coldPalm') || CONFIG.ELITE_SKILLS.coldPalm;
+                const lostPct = (wei.maxHp - wei.hp) / wei.maxHp;
+                const leechRate = (s.leechMin + (s.leechMax - s.leechMin) * lostPct) / 100;
+                const healWei = Math.floor(data.dmg * leechRate);
+                const newMaxHpWei = Math.min(wei.maxHp + healWei, wei._baseMaxHp * 2);
+                const decl = {
+                    type: 'leech',
+                    value: healWei,
+                    source: wei,
+                    logText: `<span class="green">🦇 青翼蝠王·吸血+${healWei}，上限→${Math.floor(newMaxHpWei)}</span>`
+                };
+                if (!data.declarations) data.declarations = [];
+                data.declarations.push(decl);
+                wei._baseMaxHp = Math.max(wei._baseMaxHp, newMaxHpWei);
+                applyMaxHpChange(wei, newMaxHpWei, null, '韦一笑吸血上限提升');
+            });
+
+            // 闪避反击吸血：通过 onDodge 信号提交声明
+            eventBus.on('onDodge', L.AFTER_DAMAGE_APPLIED.WEI_LEECH, (data) => {
+                const { unit, target, reboundDmg, declarations } = data;
+                if (!target.isWei || !target.alive) return;
+                const s = getSkillParams('韦一笑', 'coldPalm') || CONFIG.ELITE_SKILLS.coldPalm;
+                const lostPct = (target.maxHp - target.hp) / target.maxHp;
+                const leechRate = (s.leechMin + (s.leechMax - s.leechMin) * lostPct) / 100;
+                const heal = Math.floor(reboundDmg * leechRate);
+                const wasFullHp = (target.hp >= target.maxHp);
+                const newMaxHp = Math.min(target.maxHp + heal, target._baseMaxHp * 2);
+                declarations.push({
+                    type: 'weiHeal',
+                    data: { heal, newMaxHp, wasFullHp }
+                });
+            });
+
+            // 血蝠闪避：损失血量比例 × maxRatio，乘法叠加到总闪避
+            registerDodgeRule((unit, attacker) => {
+                if (!unit.isWei || !unit.alive) return 0;
+                const lostPct = (unit.maxHp - unit.hp) / unit.maxHp;
+                const s = getSkillParams('韦一笑', 'bloodDodge') || { maxRatio: 70 };
+                return lostPct * (s.maxRatio / 100);
+            });
+        }
+    };
+}
+
+// ==================== 小昭·姊 ====================
+function createXiaoZhaoSisterComponent() {
+    return {
+        name: '小昭·姊',
+        _buildFsm(sister, A, log) {
+            const comp = this;
+            const states = {
+                normal: {
+                    onEnter() {},
+                    onExit() {}
+                },
+                attaching: {
+                    onEnter(data) {
+                        comp._executeAttach(sister, A, (data && data.log) ? data.log : log);
+                    },
+                    onExit() {}
+                },
+                attached: {
+                    onEnter() {
+                        sister.state._acted = true;
+                        sister._untargetable = true;
+                    },
+                    onExit() {}
+                },
+                returning: {
+                    onEnter(data) {
+                        comp._executeReturn(sister, A, (data && data.log) ? data.log : log);
+                    },
+                    onExit() {}
+                }
+            };
+            return new StateMachine(states, 'normal', {
+                normal: ['attaching'],
+                attaching: ['attached'],
+                attached: ['returning'],
+                returning: ['normal']
+            });
+        },
+        register(eventBus, A, B, log) {
+            const sister = A.find(u => u.isXiaoZhaoSister && u.alive && !u.state._stunned);
+            if (!sister) return;
+            const fsm = this._buildFsm(sister, A, log);
+            sister._fsm = fsm;
+            const comp = this;
+            eventBus.on('beforeDamageCalc', L.BEFORE_DAMAGE_CALC.WARRIOR_BREAK, (data) => {
+                const xiaoZhao = A.find(u => u.isXiaoZhaoSister && u.alive && !u.state._stunned);
+                if (!xiaoZhao) return;
+                const zhang = A.find(u => u.isZhang && u.alive);
+                if (zhang) return;
+                const target = data.target;
+                if (!target || target.camp !== 'ally') return;
+                const dmg = data.unit ? data.unit.atk * (data.unit.atk / (data.unit.atk + target.def)) : 0;
+                const s = getSkillParams('小昭', 'qianKunDerived') || ES.xiaoZhao;
+                const reduce = Math.max(1, Math.floor(dmg * target.def / (s.defToReduce || 150)));
+                if (!data.declarations) data.declarations = [];
+                data.declarations.push({
+                    type: 'dmgReduction',
+                    value: reduce,
+                    source: xiaoZhao,
+                    logText: null
+                });
+                const aliveAllies = A.filter(u => u.alive && !u.isHorse);
+                if (aliveAllies.length > 0) {
+                    const rng = getBattleRng();
+                    const healTarget = aliveAllies[rng.nextInt(0, aliveAllies.length - 1)];
+                    const heal = Math.max(1, Math.floor(healTarget.def / (s.defToHeal || 8)));
+                    const atkTarget = aliveAllies[rng.nextInt(0, aliveAllies.length - 1)];
+                    const atkGain = Math.max(1, Math.floor(atkTarget.def / (s.defToAtk || 16)));
+                    applyStatChange(healTarget, 'hp', heal, xiaoZhao, '乾坤衍生治疗');
+                    applyStatChange(atkTarget, 'atk', atkGain, xiaoZhao, '乾坤衍生加攻');
+                    if (atkTarget._baseAtk !== undefined) atkTarget._baseAtk += atkGain;
+                    const derivedEntry = {
+                        type:'info',
+                        text:`<span class="gold">🦋 乾坤衍生：${target.name}减伤${reduce}，${healTarget.name}治疗+${heal}，${atkTarget.name}攻击+${atkGain}</span>`,
+                        isHealEntry: true,
+                        healAmount: heal,
+                        healUnitUid: healTarget.uid,
+                        buffType: 'qiankun_atk',
+                        atkGain: atkGain,
+                        atkTargetUid: atkTarget.uid
+                    };
+                    if (!data.unit._pendingDerivedEntries) data.unit._pendingDerivedEntries = [];
+                    data.unit._pendingDerivedEntries.push(derivedEntry);
+                }
+            });
+            eventBus.on('beforeActionSelect', L.BEFORE_ACTION.BUTTERFLY_SKIP, (data) => {
+                if (!data.unit.isXiaoZhaoSister || !data.unit.alive) return;
+                if (fsm.is('attached')) {
+                    data.declaration.skip = true;
+                }
+            });
+            // 蝶变飞回
+            eventBus.on('onRoundEnd', L.ROUND_END.BUTTERFLY_RETURN, (data) => {
+                const sis = A.find(u => u.isXiaoZhaoSister && u.alive && u.state._butterflyHost);
+                if (!sis || !fsm.is('attached')) return;
+                if (!data.declarations) data.declarations = [];
+                data.declarations.push({ type: 'butterflyReturn', sister: sis, A, log: data.log });
+            });
+        },
+        _executeAttach(sister, A, log) {
+            if (sister.state._butterflyHost) return null;
+            const flyDirection = A._flyDirection || 'right';
+            const order = flyDirection === 'left' ? [3,2,1,9,8,7,6,5] : [5,6,7,8,9,1,2,3];
+            let host = null;
+            for (const p of order) { const u = A.find(a => a.pos === p && a.alive && !a.isHorse && a.uid !== sister.uid); if (u) { host = u; break; } }
+            if (!host) { applyStatChange(sister, 'hp', -sister.hp, null, '蝶变无宿主'); log.push({ type:'info', text:`<span class="red">🦋 蝶变：${sister.name} 无队友可附身，香消玉殒！</span>` }); return null; }
+            const s = getSkillParams('小昭', 'butterflyAttach') || {};
+            const atkRatio = flyDirection === 'left' ? 0 : 1/2;
+            const defRatio = flyDirection === 'left' ? 1/2 : 0;
+            const hpRatio = 1/2;
+            const atkTransfer = Math.floor(sister._baseAtk * atkRatio);
+            const defTransfer = Math.floor(sister._baseDef * defRatio);
+            const hpTransfer = Math.floor(sister.hp * hpRatio);
+            sister._butterflyHpTransfer = hpTransfer;
+            host._butterflyHpBonus = (host._butterflyHpBonus || 0) + hpTransfer;
+            host._butterflyAtkBonus += atkTransfer; host._butterflyDefBonus += defTransfer;
+            applyStatChange(host, 'atk', atkTransfer, sister, '蝶变附身');
+            applyStatChange(host, 'def', defTransfer, sister, '蝶变附身');
+            applyMaxHpChange(host, host.maxHp + hpTransfer, sister, '蝶变附身血上限');
+            emitEvent(host, 'hp-change', { hp:host.hp, maxHp:host.maxHp, alive:host.alive, atk:host.atk, def:host.def, _phantomTarget:sister.uid });
+            const aliveAllies = A.filter(a => a.alive && !a.isHorse && a.uid !== sister.uid);
+            const totalHp = aliveAllies.reduce((sum,a) => sum + a.hp, 0); const totalMaxHp = aliveAllies.reduce((sum,a) => sum + a.maxHp, 0);
+            if (totalMaxHp > 0) {
+                const newHp = Math.floor(sister.maxHp * (totalHp/totalMaxHp));
+                const delta = newHp - sister.hp;
+                applyStatChange(sister, 'hp', delta, null, '蝶变附身血量');
+            }
+            sister.state._butterflyHost = host.uid;
+            sister._fsm.transition('attached');
+            emitEvent(sister, 'hp-change', { hp:sister.hp, maxHp:sister.maxHp, alive:sister.alive, atk:sister.atk, def:sister.def, _flyMode:'butterfly', _butterflyHost:sister.state._butterflyHost });
+            log.push({ type:'info', text:`<span class="gold">🦋 蝶变：${sister.name} 化为蝴蝶附身于 ${host.name}！方向：${flyDirection === 'left' ? '←左' : '右→'} 攻+${atkTransfer} 防+${defTransfer} 血上限+${hpTransfer}</span>`, needsSeparator: true });
+            return sister;
+        },
+        _executeReturn(sister, A, log) {
+            if (!sister.alive || !sister.state._butterflyHost) return;
+            const host = A.find(u => u.uid === sister.state._butterflyHost && u.alive);
+            if (!host || !host.alive) {
+                const allAllies = A.filter(a => !a.isHorse && a.uid !== sister.uid);
+                const totalHp = allAllies.reduce((sum, a) => sum + (a.alive ? a.hp : 0), 0);
+                const totalMaxHp = allAllies.reduce((sum, a) => sum + a.maxHp, 0);
+                if (totalMaxHp > 0) {
+                    const newHp = Math.floor(sister.maxHp * (totalHp / totalMaxHp));
+                    const delta = newHp - sister.hp;
+                    applyStatChange(sister, 'hp', delta, null, '蝶变飞回血量');
+                } else {
+                    applyStatChange(sister, 'hp', -sister.hp, null, '蝶变飞回无队友');
+                }
+                sister.state._flyMode = null; sister._untargetable = false;
+                sister.state._butterflyHost = null;
+                sister._butterflyAtk = 0;
+                sister._butterflyDef = 0;
+                sister._butterflyHp = 0;
+                sister._butterflyHpTransfer = 0;
+                sister._fsm.transition('normal');
+                log.push({
+                    type: 'info',
+                    text: `<span class="gold">🦋 蝶变：宿主已阵亡，${sister.name} 被迫返回！</span>`,
+                    uidD: sister.uid,
+                    isDead: !sister.alive
+                });
+                return;
+            }
+            const allAllies = A.filter(a => !a.isHorse && a.uid !== sister.uid);
+            const totalHp = allAllies.reduce((sum, a) => sum + (a.alive ? a.hp : 0), 0);
+            const totalMaxHp = allAllies.reduce((sum, a) => sum + a.maxHp, 0);
+            if (totalMaxHp > 0) {
+                const newHp = Math.floor(sister.maxHp * (totalHp / totalMaxHp));
+                const delta = newHp - sister.hp;
+                applyStatChange(sister, 'hp', delta, null, '蝶变飞回血量');
+            } else {
+                applyStatChange(sister, 'hp', -sister.hp, null, '蝶变飞回无队友');
+            }
+            applyStatChange(sister, 'atk', sister._baseAtk - sister.atk, null, '蝶变飞回重置攻');
+            applyStatChange(sister, 'def', sister._baseDef - sister.def, null, '蝶变飞回重置防');
+            if (host && host.alive) {
+                applyStatChange(host, 'atk', -(host._butterflyAtkBonus || 0), sister, '蝶变飞回');
+                applyStatChange(host, 'def', -(host._butterflyDefBonus || 0), sister, '蝶变飞回');
+                host._butterflyAtkBonus = 0;
+                host._butterflyDefBonus = 0;
+                host._butterflyHpBonus = 0;
+                const hpTransfer = sister._butterflyHpTransfer || 0;
+                applyMaxHpChange(host, Math.max(1, host.maxHp - hpTransfer), sister, '蝶变飞回血上限');
+                emitEvent(host, 'hp-change', {
+                    hp: host.hp, maxHp: host.maxHp, alive: host.alive,
+                    atk: host.atk, def: host.def
+                });
+            }
+            sister.state._butterflyHost = null;
+            sister._butterflyAtk = 0;
+            sister._butterflyDef = 0;
+            sister._butterflyHp = 0;
+            sister._butterflyHpTransfer = 0;
+            if (!A.find(a => a.uid === sister.uid)) {
+                A.push(sister);
+            }
+            sister._fsm.transition('normal');
+            emitEvent(sister, 'hp-change', {
+                hp: sister.hp, maxHp: sister.maxHp, alive: sister.alive,
+                atk: sister.atk, def: sister.def, _flyMode: null, _butterflyHost: null
+            });
+            log.push({
+                type: 'info',
+                text: `<span class="gold">🦋 蝶变：${sister.name} 从 ${host ? host.name : '宿主'} 飞回，恢复原形！攻 ${sister.atk} 防 ${sister.def} 血 ${sister.hp}</span>`,
+                needsSeparator: true
+            });
+        },
+        executeAttach(A, log) {
+            let sister = A.find(u => u.isXiaoZhaoSister && u.alive && u.pos === 4 && !u.state._stunned);
+            // 如果4号位没有，尝试找任意位置的姐姐
+            if (!sister) sister = A.find(u => u.isXiaoZhaoSister && u.alive && !u.state._stunned);
+            if (!sister || sister.state._butterflyHost) return null;
+            const fsm = sister._fsm;
+            if (fsm && fsm.is('normal')) fsm.transition('attaching', { log });
+            return sister;
+        },
+        executeReturn(sister, A, log) {
+            if (!sister.alive || !sister.state._butterflyHost) return;
+            const fsm = sister._fsm;
+            if (fsm && fsm.is('attached')) fsm.transition('returning', { log });
+        },
+    };
+}
+
+// ==================== 小昭·妹 ====================
+function createXiaoZhaoBrotherComponent() {
+    return {
+        name: '小昭·妹',
+        _buildFsm(brother, A, B, log) {
+            const comp = this;
+            const states = {
+                normal: {
+                    onEnter() {},
+                    onExit() {}
+                },
+                transforming: {
+                    onEnter() {
+                        spiderTransform(brother, log);
+                    },
+                    onExit() {}
+                },
+                flying: {
+                    onEnter(data) {
+                        const currentLog = (data && data.log) ? data.log : log;
+                        let reason = data ? data.reason : '';
+                        const incomingDmg = data ? data.incomingDmg : 0;
+                        if (!brother.state._spiderTriggered70 && brother.hp > brother.maxHp * 0.7) {
+                            brother.state._spiderTriggered70 = true;
+                            reason = reason || '血量即将低于70%';
+                        } else if (!brother.state._spiderTriggered40 && brother.hp > brother.maxHp * 0.4) {
+                            brother.state._spiderTriggered40 = true;
+                            reason = reason || '血量即将低于40%';
+                        } else if (!brother.state._spiderTriggeredDeath) {
+                            brother.state._spiderTriggeredDeath = true;
+                            reason = reason || '即将阵亡';
+                        }
+                        brother.state._spiderTriggeredThisRound = true;
+                        brother._spiderRemaining = (brother._spiderRemaining || 3) - 1;
+                        brother.state._spiderFlying = true;
+                        brother.state._flyMode = 'spider';
+                        brother.state._acted = true;
+                        emitEvent(brother, 'hp-change', { hp:brother.hp, maxHp:brother.maxHp, alive:brother.alive, atk:brother.atk, def:brother.def, _flyMode:'spider', _spiderFlying:true });
+                        currentLog.push({ type:'info', text:`<span class="gold">🕷️ 飞天：${brother.name} ${reason}，免疫本次攻击的 ${incomingDmg||0} 点伤害，化为蜘蛛遁走！剩余次数：${brother._spiderRemaining}</span>`, needsSeparator: true });
+                    },
+                    onExit() {
+                        brother.state._spiderFlying = false;
+                        brother.state._flyMode = null;
+                        brother.state._acted = false;
+                    }
+                },
+                descending: {
+                    onEnter() {
+                        spiderReturn(brother, A, B, log);
+                    },
+                    onExit() {}
+                },
+                dead: {
+                    onEnter() {},
+                    onExit() {}
+                }
+            };
+            return new StateMachine(states, 'normal', {
+                normal: ['flying', 'transforming'],
+                transforming: ['normal'],
+                flying: ['descending'],
+                descending: ['normal'],
+                dead: []
+            });
+        },
+        register(eventBus, A, B, log) {
+            const brother = A.find(u => u.isXiaoZhaoBrother && u.alive);
+            if (!brother) return;
+            const fsm = this._buildFsm(brother, A, B, log);
+            brother._fsm = fsm;
+            // 飞天触发
+            eventBus.on('beforeDamageApply', L.BEFORE_DAMAGE_APPLY.SPIDER_IMMUNE, (data) => {
+                if (data.target.uid !== brother.uid || !data.A) return;
+                if (fsm.is('flying') || fsm.is('dead')) return;
+                const maxHp = brother.maxHp;
+                const hpAfter = Math.max(0, brother.hp - (data.dmg || 0));
+                let shouldFly = false;
+                let reason = '';
+                if (!brother.state._spiderTriggered70 && brother.hp > maxHp * 0.7 && hpAfter <= maxHp * 0.7) {
+                    shouldFly = true; reason = '血量即将低于70%';
+                } else if (!brother.state._spiderTriggered40 && brother.hp > maxHp * 0.4 && hpAfter <= maxHp * 0.4) {
+                    shouldFly = true; reason = '血量即将低于40%';
+                } else if (!brother.state._spiderTriggeredDeath && hpAfter <= 0) {
+                    shouldFly = true; reason = '即将阵亡';
+                }
+                if (shouldFly) {
+                    if (!data.declarations) data.declarations = [];
+                    data.declarations.push({ immune: true, reason: '🕷️ 飞天：免疫本次伤害' });
+                    fsm.transition('flying', { reason, incomingDmg: data.dmg, log: data.log || log });
+                }
+            });
+            eventBus.on('beforeActionSelect', L.BEFORE_ACTION.SPIDER_SKIP, (data) => {
+                if (!data.unit.isXiaoZhaoBrother || !data.unit.alive) return;
+                if (fsm.is('flying') || fsm.is('dead')) {
+                    data.declaration.skip = true;
+                }
+            });
+            eventBus.on('beforeSelectTarget', L.BEFORE_SELECT_TARGET.PERMANENT_MIND_CONTROL, (data) => {
+                if (data.unit.camp !== 'enemy') return;
+                if (!brother || !brother.alive || !brother._permanentBuffs || !brother._permanentBuffs.some(b => b.key === 'mindControl')) return;
+                if (hasBuff(data.enemySide._activeBuffs, 'mindControl')) return;
+                if (getBattleRng().next() < 0.15) {
+                    const fakeTarget = data.allySide.find(u => u.alive && !u.isHorse && u.uid !== data.unit.uid);
+                    if (fakeTarget) {
+                        data.declaration.targetResult = fakeTarget;
+                        data.declaration.phantomLog = `🦋 蝶舞迷心！${data.unit.name}被小昭迷惑，误攻队友${fakeTarget.name}！`;
+                    }
+                }
+            });
+            // 蛛落
+            eventBus.on('onRoundEnd', L.ROUND_END.SPIDER_RETURN, (data) => {
+                const bro = A.find(u => u.isXiaoZhaoBrother && u.alive && u.state._spiderFlying);
+                if (bro && bro._fsm && bro._fsm.is('flying')) {
+                    if (!data.declarations) data.declarations = [];
+                    data.declarations.push({ type: 'spiderDescend', unit: bro, A, B, log: data.log });
+                }
+            });
+            eventBus.on('onRoundStart', L.ROUND_START.SPIDER_TRANSFORM, (data) => {
+                const { A, B, log } = data;
+                const bro = A.find(u => u.isXiaoZhaoBrother && u.alive);
+                if (!bro) return;
+                if (bro._fsm && bro._fsm.is('normal')) bro._fsm.transition('transforming');
+                if (bro._fsm && bro._fsm.is('transforming')) bro._fsm.transition('normal');
+                if (bro.state._spiderTriggeredHit === undefined) bro.state._spiderTriggeredHit = false;
+                if (bro.state._spiderTriggered70 === undefined) bro.state._spiderTriggered70 = false;
+                if (bro.state._spiderTriggered40 === undefined) bro.state._spiderTriggered40 = false;
+                bro.state._spiderTriggeredThisRound = false;
+                const teamHasHorse = hasBuff(A._activeBuffs, 'horseFormation');
+                const hasPermanent = bro._permanentBuffs?.some(b => b.key === 'horseFormation');
+                if (!teamHasHorse && hasPermanent) {
+                    const xzHorse = spawnHorse(A, log, B, true);
+                    if (xzHorse) {
+                        log.push({type:'buff-summon', text:`<span class="gold">🐴 小昭的拒马在${xzHorse.pos}号位出现！</span>`, buffType:'summon', horsePos: xzHorse.pos, horseUid: xzHorse.uid, horseTaunt: '嗷——！'});
+                    }
+                }
+                const hasTeamCarry = hasBuff(A._activeBuffs, 'carry');
+                if (!hasTeamCarry && bro._permanentBuffs?.some(b => b.key === 'carry') && bro._baseMaxHp !== undefined) {
+                    applyStatChange(bro, 'atk', 3, null, '小昭永久carry');
+                    applyStatChange(bro, 'def', 4, null, '小昭永久carry');
+                    applyMaxHpChange(bro, bro.maxHp + 20, null, '小昭永久carry');
+                    bro._baseMaxHp = bro.maxHp;
+                }
+            });
+            eventBus.on('afterMiss', L.AFTER_MISS.XIAOZHAO_DOUBLE_RETRY, (data) => {
+                const { unit, target, log } = data;
+                if (!unit.isXiaoZhaoBrother || !unit.alive || unit._xiaoZhaoDoubleStriked) return;
+                if (!unit._permanentBuffs || !unit._permanentBuffs.some(b => b.key === 'doubleStrike')) return;
+                if (hasBuff(A._activeBuffs, 'doubleStrike')) return;
+                const s = getSkillParams('小昭', 'spiderFly') || {};
+                const chance = (s.xiaoZhaoDoubleStrikeChance || 80);
+                if (getBattleRng().nextInt(1, 100) <= chance) {
+                    unit._xiaoZhaoDoubleStriked = true;
+                    unit.state._acted = false;
+                    log.push({type:'info', text:`<span class="gold">🦋 蝶击：小昭永久概率连击触发！</span>`, isDoubleStrikeBanner:true});
+                    data.retry = true;
+                    data.retryTargetUid = (target && target.alive) ? target.uid : null;
+                }
+            });
+        },
+        executeFly(unit, incomingDmg, A, log) {
+            if (!unit.isXiaoZhaoBrother || !unit.alive) return false;
+            const fsm = unit._fsm;
+            if (!fsm || !fsm.is('normal')) return false;
+            const maxHp = unit.maxHp;
+            const hpAfter = Math.max(0, unit.hp - (incomingDmg || 0));
+            let reason = '';
+            if (!unit.state._spiderTriggered70 && unit.hp > maxHp * 0.7 && hpAfter <= maxHp * 0.7) {
+                reason = '血量即将低于70%';
+            } else if (!unit.state._spiderTriggered40 && unit.hp > maxHp * 0.4 && hpAfter <= maxHp * 0.4) {
+                reason = '血量即将低于40%';
+            } else if (!unit.state._spiderTriggeredDeath && hpAfter <= 0) {
+                reason = '即将阵亡';
+            }
+            if (!reason) return false;
+            fsm.transition('flying', { reason, incomingDmg, log });
+            return true;
+        },
+        executeDescend(unit, A, B, log) {
+            const fsm = unit._fsm;
+            if (fsm && fsm.is('flying')) {
+                fsm.transition('descending');
+                if (fsm.is('descending')) fsm.transition('normal');
+            }
+        },
+        onAfterApplyDamage(unit) {
+            if (!unit.isXiaoZhaoBrother || !unit.alive) return;
+        }
+    };
+}
+
+registerElite('张无忌', createZhangWujiComponent);
+registerElite('韦一笑', createWeiYixiaoComponent);
+registerElite('小昭·姊', createXiaoZhaoSisterComponent);
+registerElite('小昭·妹', createXiaoZhaoBrotherComponent);
+  window.createZhangWujiComponent = createZhangWujiComponent;
+  window.createWeiYixiaoComponent = createWeiYixiaoComponent;
+  window.createXiaoZhaoSisterComponent = createXiaoZhaoSisterComponent;
+  window.createXiaoZhaoBrotherComponent = createXiaoZhaoBrotherComponent;
 })();
 
 // ===== ui/31main-5v5-test.js (435 lines) =====
