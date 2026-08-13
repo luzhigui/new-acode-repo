@@ -8,6 +8,7 @@ import { query, getBattleRng, applyStatChange } from './13battle-shared.js';
 import { Unit } from './02unit.js';
 const C = CONFIG;
 
+// 拒马-生成：创建拒马单位并随机站位
 export function spawnHorse(allyTeam, log, enemyTeam, force = false) {
     let buffs = allyTeam._activeBuffs || [];
     if (!force && !hasBuff(buffs, 'horseFormation')) return;
@@ -41,6 +42,7 @@ export function spawnHorse(allyTeam, log, enemyTeam, force = false) {
     return horse;
 }
 
+// 拒马-销毁：回合结束概率消散拒马
 export function destroyHorse(allyTeam, log) {
     let buffs = allyTeam._activeBuffs || [];
     if (!hasBuff(buffs, 'horseFormation')) return;

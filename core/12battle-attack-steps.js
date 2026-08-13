@@ -46,6 +46,7 @@ registerDodgeRule((unit, attacker) => {
 const C = CONFIG, DT = DEF_TAUNT, HT = HP_TAUNT;
 
 // ==================== 步骤1：选择攻击目标 ====================
+// 攻击-步骤1：目标选择（声明→裁定→感知校验）
 export function selectAttackTarget(unit, enemySide, allySide) {
     const rng = getBattleRng();
     // 可选中目标池（存活、非不可选中）
@@ -127,6 +128,7 @@ export function selectAttackTarget(unit, enemySide, allySide) {
  * @returns {{ skipped: boolean, retry: boolean, lockedTargetUid: string|null, missGroup?: object, dodgeGroup?: object }}
  *   返回命中结果：skipped=true 表示跳过后续伤害步骤，retry=true 需递归重试
  */
+// 攻击-步骤2：命中/闪避判定（未命中率+闪避规则）
 export function resolveAttackHit(unit, target, attackerBuffStats, defenderBuffStats, log, A, B, doubleStrikeUnitUid, eventBus) {
     const rng = getBattleRng();
     let missChance = 0;
@@ -247,6 +249,7 @@ export function resolveAttackHit(unit, target, attackerBuffStats, defenderBuffSt
  * @param {Array} log - 日志数组
  * @returns {{ atkBase: number, defBase: number, dmg: number, ... }} 伤害计算完整数据包
  */
+// 攻击-步骤3：伤害计算（声明→裁定→公式）
 export function calcFinalDamage(unit, target, attackerBuffStats, defenderBuffStats, allySide, enemySide, log) {
     // ---------- 第一步：伤害声明收集 ----------
     // 组件一次性声明所有效果，格式 { type: 'breakDef'|'ignoreDef'|'bonusDmg'|'dmgMultiplier', value: number, target }
@@ -343,6 +346,7 @@ export function calcFinalDamage(unit, target, attackerBuffStats, defenderBuffSta
  * @param {Array} B - 六大派方单位数组
  * @returns {{ dmg: number, dead: boolean, fortifyDeclarations: Array|null, ... }}
  */
+// 攻击-步骤4：应用伤害结果（扣血+击杀+掉落+反伤）
 export function applyAttackResult(unit, target, dmgCalc, attackerBuffStats, defenderBuffStats, allySide, enemySide, log, A, B, state, doubleStrikeUnitUid) {
     const rng = getBattleRng();
     let { atkBase, defBase, atkAct, defAct, hpBonus, hpBefore, waveTaunt, waveUnit, raw, rawFormula, thunderBonus, hornDmgMultiplier, trueDmg, dmg, bonusEntries, defReduction } = dmgCalc;
@@ -422,6 +426,7 @@ export function applyAttackResult(unit, target, dmgCalc, attackerBuffStats, defe
 
 // ==================== 死亡结算边裁 ====================
 // 裁判统一裁定死亡：扫描待死亡单位 → 发射声明 → 执行死亡 → 移除
+// 死亡-边裁：扫描待死亡→声明→执行死亡→广播
 export function resolveDeaths(allySide, enemySide, log) {
     const allUnits = [...allySide, ...enemySide];
     const pending = allUnits.filter(u => u._pendingDeath && u.alive);
@@ -448,6 +453,7 @@ export function resolveDeaths(allySide, enemySide, log) {
 // ==================== 伤害免疫边裁 ====================
 // 收集所有免疫声明，统一裁定本次伤害是否免疫
 // 当前规则：任一声明要求免疫即免疫。预留扩展为多声明时按 priority 选一个生效
+// 免疫-边裁：收集免伤声明统一裁定
 export function resolveDamageImmune(declarations) {
     if (!declarations || declarations.length === 0) return null;
     const immuneDecls = declarations.filter(d => d.immune);
@@ -465,6 +471,7 @@ export function resolveDamageImmune(declarations) {
  * @param {object} group - 攻击组日志对象（未使用，预留）
  * @returns {Array} 已执行的声明列表，供调用方拼接日志
  */
+// 攻击后-边裁：统一执行附加效果（吸血/溅射/反弹/斩杀）
 export function resolveAfterDamageEffects(declarations, unit, target, group) {
     if (!declarations || declarations.length === 0) return [];
 
@@ -567,6 +574,7 @@ export function resolveAfterDamageEffects(declarations, unit, target, group) {
  * @param {string|null} phantomLog - 幻影伪装日志文本
  * @returns {object} group - 攻击组日志对象，供播放器消费
  */
+// 攻击-步骤5：构建攻击组日志+触发攻击后效果
 export async function buildAttackGroup(unit, target, dmgCalc, dmgResult, attackerBuffStats, defenderBuffStats, allySide, enemySide, log, A, B, state, doubleStrikeUnitUid, phantomLog) {
     let { atkBase, defBase, atkAct, defAct, hpBonus, hpBefore, waveTaunt, waveUnit, raw, rawFormula, thunderBonus, hornDmgMultiplier, hornDefIgnore, trueDmg, defReduction, bonusDmgTotal, dmgMultiplier, hpRatio } = dmgCalc;
     let { dmg, dead, horseReboundEntry, reboundEntry, bonusEntries } = dmgResult;
@@ -636,6 +644,7 @@ export async function buildAttackGroup(unit, target, dmgCalc, dmgResult, attacke
 }
 
 // 辅助函数
+// 攻击后-辅助：调用Buff前后效果+反弹日志
 export function applyPostAttackEffects(unit, target, dmg, atkAct, defAct, reboundEntry, allySide, enemySide, log, A) {
     if (unit.camp === 'ally') {
         applyBuffEffectsBeforeAttack(unit, target, allySide, enemySide, log);
@@ -651,6 +660,7 @@ export function applyPostAttackEffects(unit, target, dmg, atkAct, defAct, reboun
     return reboundEntry;
 }
 
+// 攻击-工具：检查单位是否眩晕
 export function isUnitStunned(unit) {
     return !!(unit && unit.state._stunned);
 }
@@ -663,6 +673,7 @@ export function isUnitStunned(unit) {
  * @param {Unit} unit - 攻击者（闪避反击的承受方）
  * @param {Unit} target - 闪避者（闪避反击的来源方）
  */
+// 闪避-边裁：统一执行闪避后效果（反击/眩晕/吸血）
 export function resolveDodgeEffects(declarations, unit, target) {
     if (!declarations || declarations.length === 0) return;
 

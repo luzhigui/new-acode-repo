@@ -82,6 +82,7 @@ function checkZhangSwitch(A, log) {
 }
 
 // ==================== 统一事件发送 ====================
+// 战斗-事件：发送单位事件到缓冲区
 function emitCoreEvent(unit, eventType, payload) {
     pushBattleEvent({ unitUid: unit.uid, eventType, payload });
 }
@@ -98,6 +99,7 @@ window._emitEvent = emitCoreEvent;
  * @param {string} reason - 变更原因（用于日志追踪）
  * @returns {boolean} 是否触发死亡标记
  */
+// 战斗-状态变更：统一hp/atk/def/maxHp增减入口
 function applyStatChange(target, field, delta, source, reason) {
     if (delta === 0 || !target || !target.alive) return false;
     const oldVal = target[field];
@@ -133,6 +135,7 @@ function applyStatChange(target, field, delta, source, reason) {
  * @param {Unit|null} source - 变更来源
  * @param {string} reason - 变更原因
  */
+// 战斗-血量上限变更：增减等比缩放当前血量
 function applyMaxHpChange(target, newMaxHp, source, reason) {
     if (!target || !target.alive) return;
     const oldMaxHp = target.maxHp;
@@ -157,7 +160,9 @@ function applyMaxHpChange(target, newMaxHp, source, reason) {
 // ==================== 查询注册表 ====================
 // modules 层通过 registerQuery 注册查询处理器，core 层通过 query 调用，切断 core→modules 的反向依赖
 const _queries = {};
+// 战斗-查询注册：core层通过注册表解耦模块依赖
 export function registerQuery(name, fn) { _queries[name] = fn; }
+// 战斗-查询调用：根据名称调用已注册的查询处理器
 export function query(name, ...args) { return _queries[name] ? _queries[name](...args) : undefined; }
 
 export {

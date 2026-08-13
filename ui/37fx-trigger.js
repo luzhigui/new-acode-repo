@@ -11,6 +11,7 @@ import { getState, setState } from './33main-state.js';
 
 const KT = KILL_TAUNT;
 
+// 特效-切换：简单/华丽闪避效果开关
 export function toggleDodgeEffect() {
     setState.dodgeEffectEnabled(!getState.dodgeEffectEnabled());
     let btn = document.getElementById('btnDodgeToggle');
@@ -24,6 +25,7 @@ function getPausedState() {
     return window._getPlayerContext ? window._getPlayerContext().isPaused : false;
 }
 
+// 特效-触发：统一视觉特效入口（弹幕/箭矢/飞撞/死亡）
 export function _triggerFX(fxSnapshot, unitA, unitD, isDead, isDodge, isMiss, isBlock, dmg, waveTaunt, waveUnit, attackerRole) {
     const speed = getState.speed();
     if (GlobalStore.get('fastForwardActive')) return;
