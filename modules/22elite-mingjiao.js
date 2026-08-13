@@ -27,7 +27,7 @@ export function createZhangWujiComponent() {
             let fsm;
             const states = {
                 ranged: {
-                    onEnter() { zhang.rangedForm = true; zhang.role = '远程'; },
+                    onEnter() { zhang.rangedForm = true; zhang.role = '远程'; zhang._zhangSwitched = false; },
                     onExit() {}
                 },
                 switching: {
@@ -50,7 +50,7 @@ export function createZhangWujiComponent() {
                     onExit() {}
                 }
             };
-            const initial = (zhang._fsm && zhang._fsm.current) ? zhang._fsm.current : (zhang.rangedForm ? 'ranged' : 'near');
+            const initial = zhang.rangedForm ? 'ranged' : 'near';
             fsm = new StateMachine(states, initial, {
                 ranged: ['switching'],
                 switching: ['near'],

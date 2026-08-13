@@ -224,6 +224,22 @@ export async function processUnitAttack(unit, allySide, enemySide, log, A, B, st
             group.entries.push(entry);
         }
     }
+    // 斩杀后更新攻击组：补上死亡特效和红色底（execute 发生在 buildAttackGroup 之后）
+    if (!target.alive && !dmgResult.dead) {
+        const hasExecute = executedDecls.some(d => d.type === 'execute' && d.target === target);
+        if (hasExecute) {
+            group.isDead = true;
+            const dmgEntry = group.entries.find(e => e.type === 'damage-text');
+            if (dmgEntry) {
+                dmgEntry.deadFlag = true;
+                const ac = unit.camp === 'ally' ? 'blue' : 'orange';
+                const dc = target.camp === 'ally' ? 'blue' : 'orange';
+                const campA = unit.camp === 'ally' ? '明教' : '六大派';
+                const campD = target.camp === 'ally' ? '明教' : '六大派';
+                dmgEntry.text = `<span class="damage-line brush-red ${ac}">💀击杀💀 ${campA} ${unit.name}</span> 造成 <span class="red">${dmgCalc.dmg}</span> 伤害，<span class="${dc}">${campD} ${target.name}</span> ${dmgResult.hpBefore} → ${Math.floor(target.hp)} 💀阵亡`;
+            }
+        }
+    }
 
     if (!unit._isLinkAttack) unit.state._acted = true;
 
