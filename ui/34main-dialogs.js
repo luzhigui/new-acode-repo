@@ -1,6 +1,6 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// ui/34main-dialogs.js - 光明顶5v5 弹窗模块
-// V5.4.0 | ~16100 bytes| 2026-07-06
-export const VER = 'ui/34main-dialogs.js V5.4.0';
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// ui/34main-dialogs.js - 光明顶5v5 弹窗模块
+// V5.5.0 | ~15700 bytes| 2026-08-14 移除下载回放按钮
+export const VER = 'ui/34main-dialogs.js V5.5.0';
 
 import { showModal, showAlert } from './30main-utils.js';
 import { AudioManager } from '../modules/17audio-manager.js';
@@ -159,11 +159,6 @@ export function showBattleReport(UI, battleResultForInfo) {
     };
     btnDiv.appendChild(exportBtn);
     
-    let replayBtn = document.createElement('button');
-    replayBtn.textContent = '📼 下载回放';
-    replayBtn.style.cssText = 'background:#ff9800;color:#fff;border:none;padding:8px 16px;border-radius:4px;cursor:pointer;font-weight:bold;';
-    replayBtn.onclick = () => { window.ReplayManager.download(); };
-    btnDiv.appendChild(replayBtn);
 
     let closeBtn = document.createElement('button');
     closeBtn.textContent = '关闭';

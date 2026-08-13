@@ -1,6 +1,6 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// ui/38ui-controls.js - 光明顶5v5 UI控制（倍速系统+按钮状态+事件绑定）
-// V5.4.0 | ~26400 bytes| 2026-07-27 合并13main按钮绑定、Buff槽更新
-export const VER = 'ui/38ui-controls.js V5.4.0';
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// ui/38ui-controls.js - 光明顶5v5 UI控制（倍速系统+按钮状态+事件绑定）
+// V5.5.0 | ~25700 bytes| 2026-08-14 移除回放导入区块
+export const VER = 'ui/38ui-controls.js V5.5.0';
 
 import { getState, setState, gs } from './33main-state.js';
 import { updateUI, renderGrid, setRenderStore } from './32ui-render-5v5-test.js';
@@ -569,45 +569,6 @@ export function bindCopyLogButton(showModal, copyLogToClipboard) {
         const divider = document.createElement('div');
         divider.style.cssText = 'border-top:1px solid #444;margin:12px 0;';
         box.appendChild(divider);
-
-        // ── 回放区 ──
-        const replaySection = document.createElement('div');
-        replaySection.style.cssText = 'margin-bottom:12px;';
-        replaySection.innerHTML = '<div style="color:#aaa;font-size:11px;margin-bottom:6px;">📼 回放</div>';
-
-        const replayInput = document.createElement('input');
-        replayInput.type = 'file';
-        replayInput.accept = '.json';
-        replayInput.style.display = 'none';
-        replayInput.addEventListener('change', (e) => {
-            if (e.target.files[0]) {
-                overlay.remove();
-                GlobalStore.get('replayManager').importFile(e.target.files[0]);
-            }
-        });
-
-        const importBtn = document.createElement('button');
-        importBtn.textContent = '📥 导入回放文件';
-        importBtn.style.cssText = 'display:block;width:100%;padding:8px;background:#ff9800;color:#fff;border:none;border-radius:6px;font-size:12px;cursor:pointer;font-weight:bold;margin-bottom:6px;';
-        importBtn.onclick = () => replayInput.click();
-        replaySection.appendChild(importBtn);
-
-        const pasteBtn = document.createElement('button');
-        pasteBtn.textContent = '📋 粘贴导入回放';
-        pasteBtn.style.cssText = 'display:block;width:100%;padding:8px;background:#e65100;color:#fff;border:none;border-radius:6px;font-size:12px;cursor:pointer;font-weight:bold;';
-        pasteBtn.onclick = async () => {
-          try {
-            const text = await navigator.clipboard.readText();
-            if (!text) { alert('剪贴板为空'); return; }
-            overlay.remove();
-            GlobalStore.get('replayManager').importText(text);
-          } catch (e) {
-            alert('读取剪贴板失败，请用文件导入');
-          }
-        };
-        replaySection.appendChild(pasteBtn);
-        replaySection.appendChild(replayInput);
-        box.appendChild(replaySection);
 
         // ── 关闭按钮 ──
         const closeBtn = document.createElement('button');

@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// tools/46build-5v5.cjs - 光明顶5v5 构建脚本
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// tools/46build-5v5.cjs - 光明顶5v5 构建脚本
 // V5.2.1 | 更新：2026-07-21 合并新模块
 
 const fs = require('fs');
@@ -37,7 +37,6 @@ const MODULES = [
     'player/29renderer.js',
     'player/28event-handlers.js',
     'modules/19battle-store.js',
-    'modules/23replay.js',
     'player/26player-core.js',
     'player/27battle-player-5v5-test.js',
     // --- UI 层 ---

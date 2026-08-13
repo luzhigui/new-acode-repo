@@ -27,7 +27,6 @@ const EXPORT_WHITELIST = new Set([
   'Unit',
   'GlobalStore',
   'AudioManager',
-  'ReplayManager',
   'EventBus'
 ]);
 
