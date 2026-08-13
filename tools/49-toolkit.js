@@ -26,6 +26,7 @@ function escapeHtml(text) {
         '../core/01config-5v5-test.js', '../core/02unit.js',
         '../core/03battle-utils.js', '../core/04buff-system.js', '../core/05battle-horse.js',
         '../core/06-fsm.js', '../core/07-rng.js',
+        '../core/08-elite-registry.js', '../core/09-battle-event-store.js',
         '../core/10battle-attack.js', '../core/11battle-round.js', '../core/12battle-attack-steps.js',
         '../core/13battle-shared.js', '../core/14buff-effects.js',
         // player（播放器）
