@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// tools/49-toolkit.js - 光明顶5v5 开发工具箱（文件复制器 / 拆分自原 49-toolkit.js）
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// tools/49-toolkit.js - 光明顶5v5 开发工具箱（文件复制器 / 拆分自原 49-toolkit.js）
 // V5.4.1 | ~34776 bytes| 2026-08-06
 
 /* ========== 标签页切换 ========== */
@@ -42,7 +42,7 @@ function escapeHtml(text) {
         '../fx/45fx-butterfly-spider.js',
         // modules（通用系统 + 精英角色组件）
         '../modules/15elite-skills.js', '../modules/16error-capture.js', '../modules/17audio-manager.js',
-        '../modules/18global-store.js', '../modules/19battle-store.js', '../modules/23replay.js',
+        '../modules/18global-store.js', '../modules/19battle-store.js',
         '../modules/20elite-imperial.js', '../modules/21elite-sixsects.js', '../modules/22elite-mingjiao.js',
         // content（游戏内容数据）
         '../content/64game-data.json',

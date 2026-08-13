@@ -1,6 +1,6 @@
 // player/26player-core.js - 光明顶5v5 战斗播放器核心
-// V5.4.0 | ~31000 bytes| 2026-08-10 播放器分层收口，DOM操作迁移至54renderer
-export const VER = 'player/26player-core.js V5.4.0';
+// V5.5.0 | ~30900 bytes| 2026-08-14 移除回放系统（modules/23replay.js）
+export const VER = 'player/26player-core.js V5.5.0';
 
 import { showBuffBanner } from '../fx/39fx-common-5v5-test.js';
 import { CONFIG } from '../core/01config-5v5-test.js';
@@ -13,7 +13,6 @@ import { getState, getPlayerContext } from '../ui/33main-state.js';
 import { GlobalStore } from '../modules/18global-store.js';
 import { setRenderStore, updateUI } from '../ui/32ui-render-5v5-test.js';
 import { createStore, battleReducer, GAME_STATE_FIELDS } from '../modules/19battle-store.js';
-import '../modules/23replay.js';
 import { handleBuffBonus, handleBuffSwap, handleBuffPush, handleBuffReboundFortify, handleAttackGroup, handleInfo, handleRoundStart, handleRoundEnd, shouldStartNewGroup } from './28event-handlers.js';
 import { getLogDiv, appendLogHTML, appendLogElement, autoScrollLog, updateRoundDisplay, renderSeparator, renderRoundStart, renderRoundEnd, renderInfoLine, renderVictoryLine, setBtnDisabled, setBtnText, initRenderer, initLogScrollControls, showScoreFloat } from './29renderer.js';
 
@@ -328,7 +327,6 @@ export async function playBattle() {
     if (c.snapshot._rngSeed !== undefined) {
         battleState._rng = new SeededRNG(c.snapshot._rngSeed);
     }
-    GlobalStore.get('replayManager').startRecordingWithSeed(c.snapshot, Date.now());
     let isBattleOver = false; let finalWinner = null; let finalStep = null;
 
     while (!isBattleOver) {
@@ -342,8 +340,6 @@ export async function playBattle() {
             if (abortSig && abortSig.aborted) return;
             await c.waitWhilePaused();
             lastStep = step;
-            GlobalStore.get('replayManager').pushStep(step, battleState.round, step.ally, step.enemy);
-
             await playLogEntries(c, step.log, step, isFirstAttackRef);
 
             if (step.events && step.events.length > 0) {
@@ -447,7 +443,6 @@ export async function playBattle() {
 
     if (!finalWinner) finalWinner = '平局';
     c.gs = 'GAMEOVER'; c.isPaused = false; c.waitingForNextRound = false; c.isBattleStarting = false;
-    GlobalStore.get('replayManager').finishRecording(finalWinner);
     GlobalStore.set('fastForwardActive', false);
     // 同步更新 33main-state.js 的模块级 gs 变量，否则 updateButtons 里 import 的 gs 仍是旧值
     if (window._syncGs) window._syncGs('GAMEOVER');
