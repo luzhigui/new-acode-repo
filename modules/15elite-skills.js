@@ -10,6 +10,7 @@ const ES = CONFIG.ELITE_SKILLS;
 
 // ==================== 玄冥二老 — 中毒/鹿角 ====================
 
+// 玄冥二老-寒毒发作：逐回合衰减dot伤害结算
 export function tickXuanmingPoison(unit) {
     if (!unit._xuanmingPoison || unit._xuanmingPoison.remaining <= 0) return 0;
     unit._xuanmingPoison.remaining--;
@@ -23,6 +24,7 @@ export function tickXuanmingPoison(unit) {
 
 // ==================== 乾坤大挪移升级版减伤 ====================
 
+// 张无忌-乾坤大挪移：减伤+反弹+自伤（基础版/升级版）
 export function applyDamageModifiers(unit, target, dmg, allySide, enemySide, log) {
     let modifiedDmg = dmg;
     const entries = [];
@@ -87,6 +89,7 @@ export function applyDamageModifiers(unit, target, dmg, allySide, enemySide, log
 
 // ==================== 宋青书/周芷若联动 — 回合级 ====================
 
+// 宋青书-苦练检测：周芷若阵亡时宋青书苦练激活
 export function checkKuLian(allyTeam) {
     const song = allyTeam.find(u => u.name === '宋青书' && u.alive);
     if (!song) return null;
@@ -95,6 +98,7 @@ export function checkKuLian(allyTeam) {
     return song;
 }
 
+// 宋青书-性奋授予：周芷若存活时宋青书获得性奋buff
 export function applyXingFenGrant(allyTeam, log) {
     const zhou = allyTeam.find(u => u.name === '周芷若' && u.alive);
     const song = allyTeam.find(u => u.name === '宋青书' && u.alive);
@@ -107,6 +111,7 @@ export function applyXingFenGrant(allyTeam, log) {
     });
 }
 
+// 周芷若-快乐回血：回合开始逐层衰退快乐回血结算
 export function tickKuaiLeHeal(allUnits, log) {
     allUnits.forEach(unit => {
         if (!unit._kuaiLeStack || unit._kuaiLeStack.length === 0) return;
@@ -155,6 +160,7 @@ export function consumeXingFen(attacker) {
  * @param {Unit} unit - 小昭妹妹单位
  * @param {Array} log - 日志数组
  */
+// 小昭·妹-蛛变：随机变换职业叠加精通加成
 export function spiderTransform(unit, log) {
     if (!unit.isXiaoZhaoBrother || !unit.alive) return;
     const rng = getBattleRng();
@@ -192,6 +198,7 @@ export function spiderTransform(unit, log) {
  * @param {Array} enemySide - 敌方单位数组
  * @param {Array} log - 日志数组
  */
+// 小昭·妹-蛛落：解除飞天+找空位落地+穿透攻击+精通加成
 export function spiderReturn(unit, allyTeam, enemySide, log) {
     if (!unit.isXiaoZhaoBrother) return;
     const rng = getBattleRng();
@@ -230,6 +237,7 @@ export function spiderReturn(unit, allyTeam, enemySide, log) {
  * @param {Unit} unit - 小昭妹妹单位
  * @returns {{ atk: number, def: number, hp: number }} 精通加成的绝对值
  */
+// 小昭·妹-精通加成：计算精通职业数×层数累加攻防血
 export function computeButterflyMastery(unit) {
     if (!unit.isXiaoZhaoBrother || !unit._masteredRoles) return { atk: 0, def: 0, hp: 0 };
     const count = unit._masteredRoles.length;
@@ -243,6 +251,7 @@ export function computeButterflyMastery(unit) {
     };
 }
 
+// 小昭·妹-永久海克斯：添加永久buff到小昭_buff列表
 export function addPermanentBuff(xiaoZhao, buffKey, buffName, extraFields = {}) {
     if (!xiaoZhao || !xiaoZhao.isXiaoZhaoBrother) return;
     if (!xiaoZhao._permanentBuffs) xiaoZhao._permanentBuffs = [];
@@ -255,12 +264,14 @@ export function addPermanentBuff(xiaoZhao, buffKey, buffName, extraFields = {}) 
     });
 }
 
+// 小昭·妹-永久海克斯检查：判断永久buff是否激活且未被团队覆盖
 export function isXiaoZhaoPermanentActive(unit, activeBuffs, buffKey) {
     if (!unit || !unit.isXiaoZhaoBrother || !unit._permanentBuffs) return false;
     if (activeBuffs && hasBuff(activeBuffs, buffKey)) return false;
     return unit._permanentBuffs.some(b => b.key === buffKey);
 }
 
+// 小昭·姊-海克斯增强：获取海克斯buff的增强参数
 export function getXiaoZhaoHexEnhance(allyTeam, activeBuffs, hexKey) {
     const xiaoZhao = allyTeam.find(u => u.isXiaoZhaoSister && u.alive);
     if (!xiaoZhao) return null;

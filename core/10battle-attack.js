@@ -41,6 +41,7 @@ const C = CONFIG, DT = DEF_TAUNT, HT = HP_TAUNT;
  * @param {string|null} lockedTargetUid - 锁定目标 uid（连击/联动时强制打同一目标）
  * @returns {Promise<boolean>} true=攻击完成，false=攻击被跳过（眩晕/飞天/无目标）
  */
+// 主攻击流程：拦截→选目标→Buff计算→命中判定→伤害计算→免疫→应用→日志→后效→死亡
 export async function processUnitAttack(unit, allySide, enemySide, log, A, B, state, doubleStrikeUnitUid, lockedTargetUid) {
     // 统一拦截：眩晕单位无法响应任何攻击指令
     // 即使外部调用方（如联动、随机队友攻击）传入了眩晕单位，裁判直接拒绝
@@ -57,7 +58,7 @@ export async function processUnitAttack(unit, allySide, enemySide, log, A, B, st
 
 
 
-    // 步骤1：选择目标
+    // 步骤1：选择目标（含锁定目标/幻影伪装等干涉）
     let target, phantomLog;
     if (lockedTargetUid) {
         target = enemySide.find(u => u.uid === lockedTargetUid && u.alive) || null;
@@ -87,7 +88,7 @@ export async function processUnitAttack(unit, allySide, enemySide, log, A, B, st
         return false;
     }
 
-    // 计算 Buff 加成
+    // 步骤1.5：计算Buff加成（攻击/防御方）
     let unitActiveBuffs = unit.camp === 'ally' ? A._activeBuffs : B._activeBuffs;
     let unitAllyTeam = unit.camp === 'ally' ? A : B;
     if (hasBuff(unitActiveBuffs, 'carry') && unit.camp === 'ally') {
@@ -99,7 +100,7 @@ export async function processUnitAttack(unit, allySide, enemySide, log, A, B, st
     let targetAllyTeam = target.camp === 'ally' ? A : B;
     let defenderBuffStats = computeBuffStats(target, targetActiveBuffs, targetAllyTeam);
 
-    // 步骤2：未命中+闪避判定
+    // 步骤2：未命中+闪避判定+眩晕拦截+重试
     let hitResult = resolveAttackHit(unit, target, attackerBuffStats, defenderBuffStats, log, A, B, doubleStrikeUnitUid, eventBus);
     if (hitResult.skipped) {
         if (hitResult.missGroup) {
@@ -144,15 +145,15 @@ export async function processUnitAttack(unit, allySide, enemySide, log, A, B, st
         return true;
     }
 
-    // 步骤3：伤害计算
+    // 步骤3：伤害计算（beforeAttack信号→精英伤害声明合并）
     eventBus.emit('beforeAttack', { unit, allySide, enemySide, log });
     let dmgCalc = calcFinalDamage(unit, target, attackerBuffStats, defenderBuffStats, allySide, enemySide, log);
 
-    // 步骤4：应用伤害结果
-    // 伤害免疫声明收集（小昭妹飞天等监听）——必须在扣血前发射，让监听器拿到攻击前血量
+    // 步骤4：伤害免疫声明收集（飞天等监听必须在扣血前发射）
     const immuneDeclarations = [];
     eventBus.emit('beforeDamageApply', { target, dmg: dmgCalc.dmg, hpBefore: target.hp, A, log, declarations: immuneDeclarations });
 
+    // 步骤4.5：应用伤害结果+免疫回退检查
     let dmgResult = applyAttackResult(unit, target, dmgCalc, attackerBuffStats, defenderBuffStats, allySide, enemySide, log, A, B, state, doubleStrikeUnitUid);
     const immuneResult = resolveDamageImmune(immuneDeclarations);
     if (immuneResult) {
@@ -181,7 +182,7 @@ export async function processUnitAttack(unit, allySide, enemySide, log, A, B, st
         return true;
     }
 
-    // 步骤5：构建攻击组日志
+    // 步骤5：构建攻击组日志（含乾坤衍生等暂存日志追加）
     let group = await buildAttackGroup(unit, target, dmgCalc, dmgResult, attackerBuffStats, defenderBuffStats, allySide, enemySide, log, A, B, state, doubleStrikeUnitUid, phantomLog);
 
     // 追加乾坤衍生等暂存日志到当前攻击组末尾
@@ -192,8 +193,7 @@ export async function processUnitAttack(unit, allySide, enemySide, log, A, B, st
         delete unit._pendingDerivedEntries;
     }
 
-    // ---------- 攻击后效果声明收集 ----------
-    // 组件提交 { type: 'leech'|'heal'|'rebound'|'splash'|'defReduce'|'other', value, target, source }
+    // 步骤6：攻击后效果声明收集（吸血/治疗/反弹/溅射等）
     const afterDamageDeclarations = [];
     eventBus.emit('afterDamageApplied', { unit, target, dmg: dmgCalc.dmg, group, allySide, enemySide, log, A, B, declarations: afterDamageDeclarations });
 
