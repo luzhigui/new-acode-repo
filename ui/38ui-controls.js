@@ -587,9 +587,24 @@ export function bindCopyLogButton(showModal, copyLogToClipboard) {
 
         const importBtn = document.createElement('button');
         importBtn.textContent = '📥 导入回放文件';
-        importBtn.style.cssText = 'display:block;width:100%;padding:8px;background:#ff9800;color:#fff;border:none;border-radius:6px;font-size:12px;cursor:pointer;font-weight:bold;';
+        importBtn.style.cssText = 'display:block;width:100%;padding:8px;background:#ff9800;color:#fff;border:none;border-radius:6px;font-size:12px;cursor:pointer;font-weight:bold;margin-bottom:6px;';
         importBtn.onclick = () => replayInput.click();
         replaySection.appendChild(importBtn);
+
+        const pasteBtn = document.createElement('button');
+        pasteBtn.textContent = '📋 粘贴导入回放';
+        pasteBtn.style.cssText = 'display:block;width:100%;padding:8px;background:#e65100;color:#fff;border:none;border-radius:6px;font-size:12px;cursor:pointer;font-weight:bold;';
+        pasteBtn.onclick = async () => {
+          try {
+            const text = await navigator.clipboard.readText();
+            if (!text) { alert('剪贴板为空'); return; }
+            overlay.remove();
+            GlobalStore.get('replayManager').importText(text);
+          } catch (e) {
+            alert('读取剪贴板失败，请用文件导入');
+          }
+        };
+        replaySection.appendChild(pasteBtn);
         replaySection.appendChild(replayInput);
         box.appendChild(replaySection);
 
