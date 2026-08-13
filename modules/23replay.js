@@ -85,33 +85,43 @@ const ReplayManager = (() => {
     showDownloadDialog(name, json, 'application/json');
   }
 
-  // 触发真实文件下载（Blob URL），失败时回退到复制粘贴
-  function showDownloadDialog(filename, content, mimeType) {
-    // 1. 尝试标准文件下载
-    let downloaded = false;
-    try {
-      const blob = new Blob([content], { type: mimeType });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = filename;
-      a.style.display = 'none';
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      setTimeout(() => URL.revokeObjectURL(url), 2000);
-      downloaded = true;
-    } catch(e) { /* 下载失败，走备用方案 */ }
+  // 文件下载：优先使用 Web Share API（Android 等移动端），否则弹窗复制
+  async function showDownloadDialog(filename, content, mimeType) {
+    const blob = new Blob([content], { type: mimeType });
 
-    // 2. 备用方案：弹窗 + 复制（Android WebView 等不支持的场景）
-    if (downloaded) return;
+    // 1. 尝试 Web Share API（Android 等移动端原生分享/保存）
+    if (navigator.canShare && navigator.canShare({ files: [new File([blob], filename, { type: mimeType })] })) {
+      try {
+        await navigator.share({ files: [new File([blob], filename, { type: mimeType })] });
+        return;
+      } catch(e) { /* 用户取消或分享失败，走备用方案 */ }
+    }
 
+    // 2. 桌面环境尝试标准 <a> 下载
+    const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+    if (!isMobile) {
+      try {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        a.style.display = 'none';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(url), 2000);
+        return;
+      } catch(e) { /* 下载失败，走备用方案 */ }
+    }
+
+    // 3. 备用方案：弹窗 + 复制（移动端 WebView 等不支持的场景）
     const overlay = document.createElement('div');
     overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);z-index:99999;display:flex;align-items:center;justify-content:center;';
     const dialog = document.createElement('div');
     dialog.style.cssText = 'background:#1a1a2e;border:2px solid #ffd700;border-radius:12px;padding:20px;max-width:90vw;max-height:85vh;display:flex;flex-direction:column;min-width:300px;';
     dialog.innerHTML = `
       <div style="color:#ffd700;font-size:16px;font-weight:bold;margin-bottom:12px;word-break:break-all;">📥 ${filename}</div>
+      <div style="color:#aaa;font-size:11px;margin-bottom:8px;">💡 移动端：复制内容后，粘贴到新建 .json 文件保存</div>
       <textarea readonly style="flex:1;min-height:200px;max-height:50vh;background:#0d0d1a;color:#ccc;border:1px solid #444;border-radius:6px;padding:10px;font-size:12px;font-family:monospace;resize:vertical;">${content}</textarea>
       <div style="display:flex;gap:10px;margin-top:12px;justify-content:flex-end;">
         <button id="_dlCopyBtn" style="background:#4caf50;color:#fff;border:none;padding:10px 20px;border-radius:6px;cursor:pointer;font-weight:bold;font-size:14px;">📋 复制内容</button>
