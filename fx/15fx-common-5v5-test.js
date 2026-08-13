@@ -205,18 +205,11 @@ export function showCriticalBanner(text) {
         banner.textContent = text;
         banner.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);font-size:3.5rem;font-weight:bold;color:#FFD700;z-index:10050;pointer-events:none;text-shadow:0 0 30px rgba(255,215,0,0.9), 0 0 10px black;white-space:nowrap;animation:bannerPop 2.5s ease-out forwards;';
         document.body.appendChild(banner);
-        const ctx = GlobalStore.get('playerContext');
-        if (ctx && ctx._scheduler) {
-            ctx._scheduler.schedule('banner', 2500, () => {
-                if (banner.parentNode) banner.remove();
-                resolve();
-            });
-        } else {
-            setTimeout(() => {
-                if (banner.parentNode) banner.remove();
-                resolve();
-            }, 2500);
-        }
+        // 使用 setTimeout 而非 scheduler，避免 isPaused 时 scheduler 不 tick 导致死锁
+        setTimeout(() => {
+            if (banner.parentNode) banner.remove();
+            resolve();
+        }, 2500);
     });
 }
 

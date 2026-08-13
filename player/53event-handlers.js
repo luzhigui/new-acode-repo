@@ -105,7 +105,7 @@ export async function handleBuffReboundFortify(c, entry) {
 }
 
 export async function handleAttackGroup(c, entry, roundResult, abortSig, isFirstAttackRef) {
-    if (entry.isCombo) { appendLogHTML('<br>'); c.isPaused = true; GlobalStore.set('bulletTimeActive', true); if (c._scheduler) { await new Promise(r => c._scheduler.schedule('banner', 1500, r)); showBuffBanner('⚡ 连击！'); } else { await showBuffBanner('⚡ 连击！'); } GlobalStore.set('bulletTimeActive', false); c.isPaused = false; }
+    if (entry.isCombo) { appendLogHTML('<br>'); c.isPaused = true; GlobalStore.set('bulletTimeActive', true); await new Promise(r => setTimeout(r, 1500)); showBuffBanner('⚡ 连击！'); GlobalStore.set('bulletTimeActive', false); c.isPaused = false; }
 
     if (!entry._pendingHpEvents) entry._pendingHpEvents = [];
     if (entry._events && entry._events.length > 0) {
