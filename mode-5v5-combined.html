@@ -9137,7 +9137,6 @@ async function runAutoBattle(rounds, onProgress, stage = 1, preferredBuffs = [])
 (function() {
   var STATE = window.STATE;
   var GlobalStore = window.GlobalStore;
-  var playLineText = window.playLineText;
   var updateUI = window.updateUI;
   var spawnVictoryEffects = window.spawnVictoryEffects;
   var _tickBuffDurations = window._tickBuffDurations;
@@ -9378,7 +9377,7 @@ function getPlayerContext() {
         updateButtons: window.updateButtons,
         enableAllButtons: window.enableAllButtons,
         updateSpeedButtons: window.updateSpeedButtons,
-        playLineTextWrapper: playLineText,
+        
         waitWhilePaused,
         autoScrollLog,
         onLogUserScroll,
