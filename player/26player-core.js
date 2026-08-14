@@ -9,9 +9,7 @@ import { handleBuffSummon, handleBuffDestroy, handleBuffLeech, showBuffPopup, ha
 import { createRoundStepper } from '../core/11battle-round.js';
 import { SeededRNG } from '../core/07-rng.js';
 import { getBattleRng } from '../core/13battle-shared.js';
-import { GlobalStore, getState } from '../modules/18global-store.js';
-import { getPlayerContext } from '../ui/33main-state.js';
-import { setRenderStore, updateUI } from '../ui/32ui-render-5v5-test.js';
+import { GlobalStore, getState, getPlayerContext } from '../modules/18global-store.js';
 import { createStore, battleReducer, GAME_STATE_FIELDS } from '../modules/19battle-store.js';
 import { handleBuffBonus, handleBuffSwap, handleBuffPush, handleBuffReboundFortify, handleAttackGroup, handleInfo, handleRoundStart, handleRoundEnd, shouldStartNewGroup } from './28event-handlers.js';
 import { getLogDiv, appendLogHTML, appendLogElement, autoScrollLog, updateRoundDisplay, renderSeparator, renderRoundStart, renderRoundEnd, renderInfoLine, renderVictoryLine, setBtnDisabled, setBtnText, initRenderer, initLogScrollControls, showScoreFloat } from './29renderer.js';
@@ -236,8 +234,8 @@ export async function playBattle() {
     ];
     c.store = createStore({ units: initialUnits, round: 1 }, battleReducer);
     GlobalStore.set('battleStore', c.store);
-    setRenderStore(c.store);
-    updateUI();
+    window._setRenderStore(c.store);
+    c.updateUI();
 
     c.store.subscribe((state) => {
         if (!c.UI || !c.UI.allyTeam || !c.UI.enemyTeam) return;

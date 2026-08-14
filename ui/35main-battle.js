@@ -415,22 +415,8 @@ export function showFlyDirectionPopup(callback) {
     btnRight.onclick = () => { document.body.removeChild(overlay); wrappedCallback('right'); };
 }
 
-// Buff-创建：构建Buff对象（含圣火令随机行列）
-export function createBuffObject(key, duration) {
-    const buff = { key, target: 'ally', remaining: duration, name: CONFIG.BUFFS[key]?.name || key };
-    if (key === 'holyFlame') {
-        const cols = [];
-        const rng = getBattleRng();
-        while (cols.length < 2) { const c = rng.nextInt(1, 3); if (!cols.includes(c)) cols.push(c); }
-        cols.sort((a, b) => a - b);
-        const rows = [];
-        while (rows.length < 2) { const r = rng.nextInt(1, 3); if (!rows.includes(r)) rows.push(r); }
-        rows.sort((a, b) => a - b);
-        buff.cols = cols;
-        buff.rows = rows;
-    }
-    return buff;
-}
+// Buff-创建：构建Buff对象（含圣火令随机行列）—— 实现已移至 modules/18global-store.js
+export { createBuffObject } from '../modules/18global-store.js';
 
 // Buff-选择：生成可选Buff列表（过滤已激活+角色需求）
 export function generateBuffChoices(activeBuffs, allyTeam = [], rng = null) {
