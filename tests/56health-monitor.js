@@ -1,6 +1,6 @@
 ﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// tests/56health-monitor.js - 光明顶5v5 实时体检监控器
-// V5.2.0 | 修复 detectStage 未定义，提取工具函数到顶层
-export const VER = 'tests/56health-monitor.js V5.4.0';
+// V5.5.0 | 新增 ?auto=1 无头后台模式：后台自动跑完整关卡，结束时在 window.__healthResult 输出完整报告
+export const VER = 'tests/56health-monitor.js V5.5.0';
 
 import { rule70 } from './58health-rules/58-claw-heal-spam.js';
 import { rule71 } from './58health-rules/59-aftermiss.js';
@@ -25,6 +25,21 @@ let detectedIssues = [], issueKeys = new Set(), lastSampledStage = 0;
 let battleEnded = false, battleStartTime = 0;
 let rulePassCount = 0, ruleSkipCount = 0;
 let gameFrame, gameArea, reportArea, statusLine;
+
+// ==================== 自动/无头后台模式参数 (?auto=1&budget=秒&stages=目标关&speed=速度值) ====================
+// 与手动自检模式（55test-runner.html 交互）并行：auto=1 时无人值守自动跑完整关卡，
+// 结束（跑完目标关或超时）后在 window.__healthResult 暴露完整报告，供自动化工具快速读取
+let autoMode = false, autoBudgetMs = 240000, autoStageTarget = 6, autoSpeedVal = 300;
+let autoStartedAt = 0, autoTargetReached = false, autoDone = false, maxStageSeen = 0, autoTargetDoneAt = 0;
+try {
+    const _p = new URLSearchParams(window.location.search);
+    autoMode = _p.get('auto') === '1' || _p.get('auto') === 'true';
+    if (autoMode) {
+        autoBudgetMs = (parseInt(_p.get('budget'), 10) || 240) * 1000;
+        autoStageTarget = parseInt(_p.get('stages'), 10) || 6;
+        autoSpeedVal = parseInt(_p.get('speed'), 10) || 300; // 游戏 speed 值：100=8x, 300=4x, 500=默认
+    }
+} catch (e) {}
 
 // 工具函数 (模块顶层，可在任何地方使用)
 function getWin() { try { return gameFrame.contentWindow; } catch (e) { return null; } }
@@ -156,6 +171,16 @@ export function initMonitor() {
                 if (w && typeof w.selectStage === 'function') w.selectStage(4);
                 // 开启全自动模式：自动选Buff、自动开战、自动推进关卡，实现无人值守实时体检
                 try { if (w && w.GlobalStore) w.GlobalStore.set('autoLevel', 'full-auto'); } catch (e) {}
+                // 自动后台模式：快进(1ms/步) + 计时，结束后输出报告，保证快速出结果
+                if (autoMode && w) {
+                    try {
+                        if (w.GlobalStore) {
+                            w.GlobalStore.set('speed', autoSpeedVal);
+                            w.GlobalStore.set('fastForwardActive', true);
+                        }
+                    } catch (e) {}
+                    autoStartedAt = Date.now(); autoDone = false; autoTargetReached = false; maxStageSeen = 0; autoTargetDoneAt = 0;
+                }
                 // 等关卡就绪(IDLE)后自动点击"开始战斗"，避免 selectStage 尚未完成时误点
                 const tryStart = setInterval(() => {
                     const c = getCtx();
@@ -240,6 +265,26 @@ function periodicScan() {
             const doc2 = getDoc();
             if (ctx2 && doc2) runFullChecks(ctx2, doc2);
         }, 3000);
+    }
+
+    // ============ 自动后台模式：推进关卡 / 超时判定，结束后输出报告 ============
+    if (autoMode && !autoDone) {
+        // 每场战斗结束会把 fastForwardActive 复位为 false，这里持续保持快进，确保后续关卡也快速打完
+        try { if (win && win.GlobalStore && !win.GlobalStore.get('fastForwardActive')) win.GlobalStore.set('fastForwardActive', true); } catch (e) {}
+        const stage = ctx.currentStage || detectStage(doc) || 0;
+        if (stage > maxStageSeen) maxStageSeen = stage;
+        if (stage >= autoStageTarget) autoTargetReached = true;
+        const overBudget = autoStartedAt > 0 && (Date.now() - autoStartedAt > autoBudgetMs);
+        // 快速出结果：跑到目标关且该关战斗已结束(GAMEOVER)即完成，无需等一整圈
+        const targetBattleDone = autoTargetReached && stage >= autoStageTarget && ctx.gs === 'GAMEOVER';
+        if (targetBattleDone && !autoTargetDoneAt) autoTargetDoneAt = Date.now();
+        const settleDone = autoTargetDoneAt > 0 && (Date.now() - autoTargetDoneAt > 3000); // 留3s让最终检查跑完
+        const loopDone = autoTargetReached && stage <= 1; // 兼容旧逻辑：跑完目标关卡后回到第1关 = 一圈完成
+        if (overBudget || loopDone || settleDone) {
+            finalizeAutoReport(ctx, doc, overBudget ? 'timeout' : (autoTargetDoneAt ? 'target-reached' : 'loop-complete'));
+        } else {
+            updateAutoProgress(stage);
+        }
     }
 }
 
@@ -433,4 +478,42 @@ function updateReport() {
     };
     reportArea.appendChild(copyBtn);
     reportArea.scrollTop = reportArea.scrollHeight;
+}
+
+// ==================== 自动模式：进度更新 ====================
+function updateAutoProgress(stage) {
+    const elapsed = (Date.now() - autoStartedAt) / 1000;
+    try {
+        const progress = { stage, maxStageSeen, target: autoStageTarget, elapsed: Math.round(elapsed), budget: Math.round(autoBudgetMs / 1000), flag: maxStageSeen >= autoStageTarget ? '✓目标达成' : '→推进中' };
+        window.__healthProgress = progress;
+        statusLine.textContent = `自动模式 | 关${stage}/${autoStageTarget} | ${Math.round(elapsed)}s`;
+    } catch (e) {}
+}
+
+// ==================== 自动模式：最终报告 ====================
+function finalizeAutoReport(ctx, doc, reason) {
+    if (autoDone) return;
+    autoDone = true;
+    const elapsed = (Date.now() - autoStartedAt) / 1000;
+    try {
+        const finalIssues = detectedIssues.map(i => ({ stage: i.stage, type: i.type, detail: i.detail, source: i.source }));
+        const report = {
+            status: 'completed',
+            reason: reason,
+            elapsed: Math.round(elapsed),
+            maxStageSeen: maxStageSeen,
+            targetStage: autoStageTarget,
+            issues: finalIssues,
+            issueCount: finalIssues.length,
+            rulePass: rulePassCount,
+            ruleSkip: ruleSkipCount
+        };
+        window.__healthResult = report;
+        statusLine.textContent = `自动模式 ✅ | ${Math.round(elapsed)}s | 异常${finalIssues.length}项 | 规则✅${rulePassCount} ⏭️${ruleSkipCount}`;
+        console.log('===== [AUTO-HEALTH-DONE] =====');
+        console.log(JSON.stringify(report, null, 2));
+        console.log('===== [AUTO-HEALTH-END] =====');
+    } catch (e) {
+        window.__healthResult = { status: 'error', reason: 'finalize-fail', error: String(e) };
+    }
 }
