@@ -3,11 +3,10 @@
 export const VER = 'player/25player-buff-ui.js V5.4.0';
 
 import { CONFIG } from '../core/01config-5v5-test.js';
-import { createBuffObject } from '../ui/35main-battle.js';
 import { Unit } from '../core/02unit.js';
 import { showDamageFloat, showHealFloat, showBuffBanner } from '../fx/39fx-common-5v5-test.js';
 import { addPermanentBuff } from '../modules/15elite-skills.js';
-import { GlobalStore } from '../modules/18global-store.js';
+import { GlobalStore, createBuffObject } from '../modules/18global-store.js';
 import { getBattleRng } from '../core/13battle-shared.js';
 
 
