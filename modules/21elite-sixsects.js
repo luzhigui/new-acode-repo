@@ -153,7 +153,7 @@ export function createZhouZhiruoComponent() {
             else { if (rng.next() > s.procChance) return 0; }
             let totalBonus = 0; let depth = 0;
             const healDeclarations = [];
-            while (target.alive) {
+            while (target.alive && !target._pendingDeath && depth < 15) {
                 if (depth > 0 && rng.next() > s.chainProcChance) break;
                 const lostHp = target.maxHp - target.hp;
                 const ratio = zhangAlive ? s.jealousLostHpRatio : s.lostHpRatio;
@@ -161,6 +161,8 @@ export function createZhouZhiruoComponent() {
                 let bonusDmg = baseHit + Math.max(0, ratioDmg);
                 applyStatChange(target, 'hp', -bonusDmg, unit, '九阴白骨爪');
                 totalBonus += bonusDmg;
+                // 目标已死亡，立即停止追击/连锁
+                if (!target.alive || target._pendingDeath) break;
                 const hpPctAfter = target.hp/target.maxHp;
                 const execThreshold = zhangAlive ? (s.jealousExecuteThreshold||0.15) : (s.executeThreshold||0.12);
                 let isExecute = false;
@@ -178,7 +180,7 @@ export function createZhouZhiruoComponent() {
                         healDeclarations.push({ type: 'heal', value: healAmount, source: song });
                     }
                 }
-                depth++; if (isExecute) break;
+                depth++; if (isExecute || !target.alive || target._pendingDeath) break;
             }
             let songForSummary = allySide.find(u => u.name === '宋青书' && u.alive);
             if (totalBonus > 0) {
