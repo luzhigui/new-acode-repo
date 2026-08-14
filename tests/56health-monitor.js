@@ -26,6 +26,11 @@ let battleEnded = false, battleStartTime = 0;
 let rulePassCount = 0, ruleSkipCount = 0;
 let gameFrame, gameArea, reportArea, statusLine;
 
+// UI 类异常去抖：full-auto 快进下状态机切换极快，渲染常有滞后一拍。
+// 同一异常需连续 UI_CONFIRM_TIMES 次采样确认才上报，过滤瞬时时序误报（按钮态/血条/弹幕等）。
+const UI_CONFIRM_TIMES = 3;
+let pendingIssueCounts = {};
+
 // ==================== 自动/无头后台模式参数 (?auto=1&budget=秒&stages=目标关&speed=速度值) ====================
 // 与手动自检模式（55test-runner.html 交互）并行：auto=1 时无人值守自动跑完整关卡，
 // 结束（跑完目标关或超时）后在 window.__healthResult 暴露完整报告，供自动化工具快速读取
@@ -158,7 +163,7 @@ export function initMonitor() {
         btnStartMonitor.disabled = true; btnStartMonitor.textContent = '体检中...';
         btnStopMonitor.disabled = false; btnStopMonitor.textContent = '⏸️ 暂停';
         isPaused = false; monitorActive = true; gameLoaded = false;
-        detectedIssues = []; issueKeys.clear(); lastSampledStage = 0;
+        detectedIssues = []; issueKeys.clear(); pendingIssueCounts = {}; lastSampledStage = 0;
         battleEnded = false; battleStartTime = 0;
         updateReport(); statusLine.textContent = '正在加载游戏...';
         const waitReady = setInterval(() => {
@@ -171,6 +176,11 @@ export function initMonitor() {
                 if (w && typeof w.selectStage === 'function') w.selectStage(4);
                 // 开启全自动模式：自动选Buff、自动开战、自动推进关卡，实现无人值守实时体检
                 try { if (w && w.GlobalStore) w.GlobalStore.set('autoLevel', 'full-auto'); } catch (e) {}
+                // 同步模式按钮显示，避免 checkModeButtonStates 误报"自动 vs 全自动"（体检直接改 GlobalStore 绕过了按钮逻辑）
+                try {
+                    const autoBtn = doc.getElementById('btnAuto');
+                    if (autoBtn) { autoBtn.textContent = '全自动'; autoBtn.classList.add('active'); }
+                } catch (e) {}
                 // 自动后台模式：快进(1ms/步) + 计时，结束后输出报告，保证快速出结果
                 if (autoMode && w) {
                     try {
@@ -249,8 +259,12 @@ function periodicScan() {
     }
 
     // 实时按钮状态检查：随游戏状态机(IDLE/RUNNING/PAUSED/GAMEOVER)校验底部控制按钮与模式按钮
-    for (const msg of checkBottomButtonStates(ctx, doc)) recordIssue(ctx, null, '按钮状态', msg, 'UI');
-    for (const msg of checkModeButtonStates(ctx, doc)) recordIssue(ctx, null, '模式按钮', msg, 'UI');
+    // full-auto 自动模式会接管按钮（自动开战/推进、战斗中禁用主按钮），且体检注入的 full-auto + 快进下
+    // 状态机与 DOM 渲染异步，按钮态必然滞后 → 检查失真误报。仅手动/自动模式才检查按钮。
+    if (ctx.autoLevel !== 'full-auto') {
+        for (const msg of checkBottomButtonStates(ctx, doc)) recordIssue(ctx, null, '按钮状态', msg, 'UI');
+        for (const msg of checkModeButtonStates(ctx, doc)) recordIssue(ctx, null, '模式按钮', msg, 'UI');
+    }
 
     if (ctx.gs === 'RUNNING' || ctx.gs === 'PAUSED') {
         if (battleStartTime === 0) { battleStartTime = Date.now(); battleEnded = false; }
@@ -329,9 +343,10 @@ function runFullChecks(ctx, doc) {
     setTimeout(() => {
         const doc2 = getDoc();
         if (doc2) {
+            // 弹幕仅存活 3.5s（acquireFromPool 3500ms），须在存活窗口内检查；5s 时弹幕已消失必然误报
             for (const msg of checkVictoryDanmaku(doc2, allyTeam, enemyTeam)) recordIssue(ctx, null, '胜利弹幕', msg, 'UI');
         }
-    }, 5000);
+    }, 2000);
 
     checkSwapStability(ctx, doc, allyTeam, enemyTeam);
 
@@ -409,6 +424,13 @@ function checkPositionAfterSwap(ctx, attackEntry, unit, expectedPos) {
 function recordIssue(ctx, unitUid, type, detail, source) {
     const key = (unitUid || 'global') + '|' + type + '|' + detail.substring(0, 60);
     if (issueKeys.has(key)) return;
+    // UI 类异常先进入待确认状态，需连续采样命中才正式上报，避免渲染时序/状态机切换导致的瞬时误报
+    if (source === 'UI') {
+        const n = (pendingIssueCounts[key] || 0) + 1;
+        pendingIssueCounts[key] = n;
+        if (n < UI_CONFIRM_TIMES) return;
+        delete pendingIssueCounts[key];
+    }
     issueKeys.add(key);
     const stage = detectStage(getDoc()) || (ctx ? ctx.currentStage : 0) || 0;
     detectedIssues.push({ stage, type, detail, source, timestamp: new Date().toLocaleTimeString() });
@@ -513,6 +535,17 @@ function finalizeAutoReport(ctx, doc, reason) {
         console.log('===== [AUTO-HEALTH-DONE] =====');
         console.log(JSON.stringify(report, null, 2));
         console.log('===== [AUTO-HEALTH-END] =====');
+        // 页面级傻瓜展示：切到报告视图 + 顶部完成横幅
+        try {
+            const rep = document.getElementById('reportArea');
+            const gameA = document.getElementById('gameArea');
+            if (gameA) gameA.classList.remove('active');
+            if (rep) rep.classList.add('active');
+            const banner = document.createElement('div');
+            banner.style.cssText = 'color:#4caf50;font-weight:bold;padding:10px 12px;border:1px solid #4caf50;border-radius:8px;margin-bottom:10px;background:rgba(76,175,80,0.08);';
+            banner.textContent = `✅ 自动体检完成（${reason}）| 耗时 ${Math.round(elapsed)}s | 目标关${autoStageTarget} 到达${maxStageSeen} | 异常 ${finalIssues.length} 项 | 规则 ✅${rulePassCount} ⏭️${ruleSkipCount}`;
+            rep.prepend(banner);
+        } catch (e) {}
     } catch (e) {
         window.__healthResult = { status: 'error', reason: 'finalize-fail', error: String(e) };
     }

@@ -40,7 +40,8 @@
         <div class="report-group" style="color:#888;">点击“开始体检”加载游戏并启动监控</div>
     </div>
     <div id="controlBar">
-        <button class="primary" id="btnStartMonitor">▶ 开始体检</button>
+        <button class="primary" id="btnAutoRun">🚀 一键自动体检</button>
+        <button id="btnStartMonitor">▶ 开始体检</button>
         <button id="btnStopMonitor" disabled>⏹️ 停止</button>
         <button id="btnViewReport">📋 报告</button>
         <button id="btnClearReport">🗑️ 清空</button>
@@ -57,6 +58,16 @@
     <script type="module">
         import { initMonitor } from './56health-monitor.js';
         initMonitor();
+
+        // 🚀 一键自动体检：傻瓜式，点一下即进入自动后台模式（带快进+目标关+报告），无需任何终端命令
+        document.getElementById('btnAutoRun').addEventListener('click', () => {
+            const url = new URL(window.location.href);
+            url.searchParams.set('auto', '1');
+            if (!url.searchParams.get('stages')) url.searchParams.set('stages', '6');
+            if (!url.searchParams.get('budget')) url.searchParams.set('budget', '240');
+            if (!url.searchParams.get('speed')) url.searchParams.set('speed', '100');
+            window.location.href = url.href;
+        });
     </script>
 <!-- 手动记录弹窗 -->
 <div id="healthManualOverlay" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);display:none;justify-content:center;align-items:center;z-index:99999;">
