@@ -15,6 +15,12 @@ function shouldIgnoreInMore(f) {
     return IGNORE_IN_MORE.has(f) || f.endsWith('.md') || f.endsWith('.mp3');
 }
 
+// 有意从复制清单剔除的中文文件名（手机静态服务器对中文 URL 处理不稳，fetch 会卡住）
+const INTENTIONALLY_EXCLUDED = new Set(['../记录-更改履历.md', '../待办-bug待修.md', '../tools/创意-精英战力评测脚本.js']);
+function shouldIgnoreInToolkit(f) {
+    return INTENTIONALLY_EXCLUDED.has(f);
+}
+
 function collectActualFiles() {
   const files = [];
 
@@ -86,7 +92,7 @@ function main() {
   console.log(`50-toolkit-more.js 登记数: ${moreFiles.length}\n`);
 
   // 1. 实际存在但不在 32 清单里的文件
-  const missingInToolkit = [...actualFiles].filter(f => !toolkitSet.has(f)).sort();
+  const missingInToolkit = [...actualFiles].filter(f => !toolkitSet.has(f) && !shouldIgnoreInToolkit(f)).sort();
   if (missingInToolkit.length > 0) {
     console.log(`❌ 实际存在但 49-toolkit.js 未登记 (${missingInToolkit.length} 个):`);
     for (const f of missingInToolkit) console.log(`   ${f}`);
@@ -102,7 +108,7 @@ function main() {
   }
 
   // 3. 实际存在但不在 33 清单里的文件（排除纯 HTML 页面和 md）
-  const missingInMore = [...actualFiles].filter(f => !moreSet.has(f) && !shouldIgnoreInMore(f)).sort();
+  const missingInMore = [...actualFiles].filter(f => !moreSet.has(f) && !shouldIgnoreInMore(f) && !shouldIgnoreInToolkit(f)).sort();
   if (missingInMore.length > 0) {
     console.log(`❌ 实际存在但 50-toolkit-more.js 未登记 (${missingInMore.length} 个):`);
     for (const f of missingInMore) console.log(`   ${f}`);
@@ -118,7 +124,7 @@ function main() {
   }
 
   // 5. 32 和 33 清单不一致的地方（排除纯 HTML 页面和 md）
-  const inToolkitNotMore = toolkitFiles.filter(f => !moreSet.has(f) && !shouldIgnoreInMore(f)).sort();
+  const inToolkitNotMore = toolkitFiles.filter(f => !moreSet.has(f) && !shouldIgnoreInMore(f) && !shouldIgnoreInToolkit(f)).sort();
   const inMoreNotToolkit = moreFiles.filter(f => !toolkitSet.has(f)).sort();
   if (inToolkitNotMore.length > 0 || inMoreNotToolkit.length > 0) {
     console.log('⚠️  两份清单差异:');

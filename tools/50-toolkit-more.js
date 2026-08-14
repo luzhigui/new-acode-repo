@@ -43,8 +43,7 @@ function escapeHtml(text) {
         '../tools/51-shop.html',
         '../tools/52-version-calibrator.cjs',
         '../tools/53-dead-code-scanner.cjs', '../tools/54-filelist-checker.cjs',
-        '../tools/47auto-battle-utils.js', '../tools/46build-5v5.cjs',
-        '../tools/创意-精英战力评测脚本.js'
+        '../tools/47auto-battle-utils.js', '../tools/46build-5v5.cjs'
     ];
 
     const mapContainer = document.getElementById('fncMapContainer');
