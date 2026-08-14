@@ -62,6 +62,7 @@ function escapeHtml(text) {
         // tools（开发工具箱）
         '../tools/48-toolkit.html', '../tools/49-toolkit.js', '../tools/50-toolkit-more.js',
         '../tools/51-shop.html',
+        // 移除了：52-version-calibrator / 53-dead-code-scanner / 54-filelist-checker（这些工作直接问 AI 更高效）
         '../tools/47auto-battle-utils.js', '../tools/46build-5v5.cjs',
         // assets（音频资源，不参与 fetch 复制）
         '../assets/sfx_arrow.mp3', '../assets/sfx_fly.mp3',
