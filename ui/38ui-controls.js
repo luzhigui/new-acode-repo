@@ -165,10 +165,24 @@ function initSpeedButtons() {
 }
 window._initSpeedButtons = initSpeedButtons;
 
+// ==================== 自动模式按钮同步 ====================
+// btnAuto 文本/高亮必须实时反映真实 autoLevel。原实现只在玩家点菜单时更新文本，
+// 外部(如体检)直接改 GlobalStore 的 autoLevel 时按钮会显示失真 → 属真 UI 缺陷，此处统一兜底。
+const AUTO_LABELS = { manual: '手动', auto: '自动', 'full-auto': '全自动' };
+function updateAutoModeButton() {
+    const btn = document.getElementById('btnAuto');
+    if (!btn) return;
+    const lvl = getState.autoLevel?.() || 'auto';
+    btn.textContent = AUTO_LABELS[lvl] || '自动';
+    btn.classList.toggle('active', lvl !== 'manual');
+    window._autoMode = lvl !== 'manual';
+}
+
 // ==================== 更新按钮状态 ====================
 function updateButtons() {
     const S = { IDLE: 'IDLE', RUNNING: 'RUNNING', PAUSED: 'PAUSED', GAMEOVER: 'GAMEOVER' };
     const currentStage = getState.currentStage();
+    updateAutoModeButton();
     let mainBtn=document.getElementById('btnMain'),nextBtn=document.getElementById('btnNext'),settleBtn=document.getElementById('btnSettle'),pauseBtn=document.getElementById('btnPause'),randomBtn=document.getElementById('btnRandom'),stageBtn=document.getElementById('btnStageSelect'),infoBtn=document.getElementById('btnInfo'),copyBtn=document.getElementById('copyLog');
     if(gs===S.IDLE){
         mainBtn.innerHTML=getState.adjustMode()?'▶ 开始<br><span style="font-size:8px;">(投票)</span>':'🔄 调整<br>站位';
@@ -194,6 +208,7 @@ function updateDebugUI() { let panel=document.getElementById('debugPanel'); cons
 window.updateButtons = updateButtons;
 window.enableAllButtons = enableAllButtons;
 window.updateSpeedButtons = updateSpeedButtons;
+window.updateAutoModeButton = updateAutoModeButton;
 window._activateScrollSlowdown = activateScrollSlowdown;
 window._restoreSpeedFromScroll = restoreSpeedFromScroll;
 
@@ -587,4 +602,4 @@ export function bindCopyLogButton(showModal, copyLogToClipboard) {
 }
 
 // ==================== 导出 ====================
-export { updateSpeedButtons, setSpeed, activateScrollSlowdown, restoreSpeedFromScroll, updateButtons, enableAllButtons, updateDebugUI };
+export { updateSpeedButtons, setSpeed, activateScrollSlowdown, restoreSpeedFromScroll, updateButtons, updateAutoModeButton, enableAllButtons, updateDebugUI };

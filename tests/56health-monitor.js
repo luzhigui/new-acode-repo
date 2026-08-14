@@ -176,11 +176,9 @@ export function initMonitor() {
                 if (w && typeof w.selectStage === 'function') w.selectStage(4);
                 // 开启全自动模式：自动选Buff、自动开战、自动推进关卡，实现无人值守实时体检
                 try { if (w && w.GlobalStore) w.GlobalStore.set('autoLevel', 'full-auto'); } catch (e) {}
-                // 同步模式按钮显示，避免 checkModeButtonStates 误报"自动 vs 全自动"（体检直接改 GlobalStore 绕过了按钮逻辑）
-                try {
-                    const autoBtn = doc.getElementById('btnAuto');
-                    if (autoBtn) { autoBtn.textContent = '全自动'; autoBtn.classList.add('active'); }
-                } catch (e) {}
+                // 同步模式按钮显示：体检直接改 GlobalStore 的 autoLevel，调用游戏自带的 updateAutoModeButton
+                // 让按钮如实显示"全自动"（这是真 UI 缺陷的修复，不是掩盖问题）
+                try { if (w && w.updateAutoModeButton) w.updateAutoModeButton(); } catch (e) {}
                 // 自动后台模式：快进(1ms/步) + 计时，结束后输出报告，保证快速出结果
                 if (autoMode && w) {
                     try {
@@ -258,12 +256,14 @@ function periodicScan() {
         ctx._enhancedBattleLog = ctx.UI.currentResult.log;
     }
 
-    // 实时按钮状态检查：随游戏状态机(IDLE/RUNNING/PAUSED/GAMEOVER)校验底部控制按钮与模式按钮
-    // full-auto 自动模式会接管按钮（自动开战/推进、战斗中禁用主按钮），且体检注入的 full-auto + 快进下
-    // 状态机与 DOM 渲染异步，按钮态必然滞后 → 检查失真误报。仅手动/自动模式才检查按钮。
+    // 实时按钮状态检查
+    // - checkModeButtonStates(模式按钮)：静态真值检查"按钮是否如实反映模式"，任何模式都必须跑。
+    //   体检改 autoLevel 后已调 updateAutoModeButton 同步，full-auto 下按钮应显示"全自动"。
+    // - checkBottomButtonStates(底部控制按钮)：期望模型按手动流程校验(IDLE可点/RUNNING禁用...)；
+    //   full-auto 自动接管并飞快切换状态，按钮瞬时态必然滞后 → 该期望模型不适用，故仍跳过，避免时序误报。
+    for (const msg of checkModeButtonStates(ctx, doc)) recordIssue(ctx, null, '模式按钮', msg, 'UI');
     if (ctx.autoLevel !== 'full-auto') {
         for (const msg of checkBottomButtonStates(ctx, doc)) recordIssue(ctx, null, '按钮状态', msg, 'UI');
-        for (const msg of checkModeButtonStates(ctx, doc)) recordIssue(ctx, null, '模式按钮', msg, 'UI');
     }
 
     if (ctx.gs === 'RUNNING' || ctx.gs === 'PAUSED') {
