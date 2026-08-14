@@ -1,10 +1,10 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// player/25player-buff-ui.js - 光明顶5v5 Buff弹窗与横幅
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// player/25player-buff-ui.js - 光明顶5v5 Buff弹窗与横幅
 // V5.4.0 | ~12400 bytes| 2026-07-16 移除兜底分支，强制走Store
 export const VER = 'player/25player-buff-ui.js V5.4.0';
 
 import { CONFIG } from '../core/01config-5v5-test.js';
 import { Unit } from '../core/02unit.js';
-import { showDamageFloat, showHealFloat, showBuffBanner } from '../fx/39fx-common-5v5-test.js';
+import { showDamageFloat, showHealFloat, showBuffBanner } from '../fx/69fx-manager.js';
 import { addPermanentBuff } from '../modules/15elite-skills.js';
 import { GlobalStore, createBuffObject } from '../modules/18global-store.js';
 import { getBattleRng } from '../core/13battle-shared.js';

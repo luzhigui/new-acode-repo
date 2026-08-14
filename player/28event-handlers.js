@@ -4,11 +4,7 @@ export const VER = 'player/28event-handlers.js V5.4.1';
 
 import { isBlocked } from '../core/03battle-utils.js';
 import { _triggerFX } from '../ui/37fx-trigger.js';
-import { showDanmaku, showDamageFloat, showDodgeBubble, showHealFloat, showAtkBuffFloat, applyBrushEffect, showBuffBanner, showCriticalBanner, showHeartEffect, showPinkFlash, showKuLianEffect, showWindClaw } from '../fx/39fx-common-5v5-test.js';
-import { showDodgeBulletTime } from '../fx/44fx-dodge-bullet.js';
-import { showRangedArrow, showSplashArrows, showBoneClaw } from '../fx/40fx-arrows-5v5-test.js';
-import { animatePositionSwap } from '../fx/42fx-position-swap.js';
-import { animatePushBack, animatePushSwap } from '../fx/43fx-push-back.js';
+import { showDanmaku, showDamageFloat, showDodgeBubble, showHealFloat, showAtkBuffFloat, applyBrushEffect, showBuffBanner, showCriticalBanner, showHeartEffect, showPinkFlash, showKuLianEffect, showWindClaw, showDodgeBulletTime, showRangedArrow, showSplashArrows, showBoneClaw, animatePositionSwap, animatePushBack, animatePushSwap, showButterflyFlyOut, showButterflyFlyBack, showSpiderAscend, showSpiderDescend, showSpiderStrike } from '../fx/69fx-manager.js';
 import { AudioManager } from '../modules/17audio-manager.js';
 import { getState } from '../modules/18global-store.js';
 import { appendLogHTML, appendLogElement, autoScrollLog, updateRoundDisplay, renderSeparator, playLogLine, appendHiddenDetail } from './29renderer.js';
