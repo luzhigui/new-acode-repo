@@ -1,18 +1,17 @@
 // player/28event-handlers.js - 光明顶5v5 事件处理器函数族
-// V5.4.0 | ~31000 bytes| 2026-08-10 DOM操作迁移至54renderer
-export const VER = 'player/28event-handlers.js V5.4.0';
+// V5.4.1 | ~28600 bytes| 2026-08-14 DOM操作收口至29renderer
+export const VER = 'player/28event-handlers.js V5.4.1';
 
 import { isBlocked } from '../core/03battle-utils.js';
 import { _triggerFX } from '../ui/37fx-trigger.js';
 import { showDanmaku, showDamageFloat, showDodgeBubble, showHealFloat, showAtkBuffFloat, applyBrushEffect, showBuffBanner, showCriticalBanner, showHeartEffect, showPinkFlash, showKuLianEffect, showWindClaw } from '../fx/39fx-common-5v5-test.js';
 import { showDodgeBulletTime } from '../fx/44fx-dodge-bullet.js';
 import { showRangedArrow, showSplashArrows, showBoneClaw } from '../fx/40fx-arrows-5v5-test.js';
-import { playLineText } from './24player-text.js';
 import { animatePositionSwap } from '../fx/42fx-position-swap.js';
 import { animatePushBack, animatePushSwap } from '../fx/43fx-push-back.js';
 import { AudioManager } from '../modules/17audio-manager.js';
 import { getState } from '../modules/18global-store.js';
-import { appendLogHTML, appendLogElement, autoScrollLog, updateRoundDisplay, renderSeparator } from './29renderer.js';
+import { appendLogHTML, appendLogElement, autoScrollLog, updateRoundDisplay, renderSeparator, playLogLine, appendHiddenDetail } from './29renderer.js';
 
 const safeShowDanmaku = (...args) => { try { return showDanmaku(...args); } catch(e) {} };
 
@@ -184,11 +183,11 @@ export async function handleAttackGroup(c, entry, roundResult, abortSig, isFirst
     for(let entry2 of textEntries){
         if(abortSig&&abortSig.aborted){if(atkTimer)clearTimeout(atkTimer);if(defTimer)clearTimeout(defTimer);return { isBattleOver: false };}
         const logLevel = getState.logLevel();
-        if(logLevel==='brief'&&entry2.type==='detail'){ let hiddenDiv=document.createElement('div'); hiddenDiv.className='detail-hidden'; hiddenDiv.innerHTML=entry2.text+'<br>'; appendLogElement(hiddenDiv); continue; }
+        if(logLevel==='brief'&&entry2.type==='detail'){ appendHiddenDetail(entry2.text); continue; }
         if(entry2.type==='damage-text'){
-            let tempDiv=document.createElement('div'); appendLogElement(tempDiv); lastDiv=tempDiv; await playLineText(entry2.text,tempDiv, Math.max(c.speed || 1000, 1000));
+            lastDiv = await playLogLine(entry2.text, Math.max(c.speed || 1000, 1000));
         }
-        else if(entry2.isHealEntry && entry.isDead){ let tempDiv=document.createElement('div'); appendLogElement(tempDiv); healDiv=tempDiv; await playLineText(entry2.text,tempDiv); }
+        else if(entry2.isHealEntry && entry.isDead){ healDiv = await playLogLine(entry2.text); }
         else{
             if (entry2._events && entry2._events.length > 0) {
                 c.store.dispatch({ type: 'APPLY_EVENTS', events: entry2._events });
@@ -271,7 +270,7 @@ export async function handleAttackGroup(c, entry, roundResult, abortSig, isFirst
             const forcedSpeed = isImportant
                 ? Math.max(currentSpeed, 600)
                 : Math.floor(currentSpeed * 0.8);
-            let tempDiv=document.createElement('div'); appendLogElement(tempDiv); await playLineText(entry2.text, tempDiv, forcedSpeed);
+            await playLogLine(entry2.text, forcedSpeed);
             if (!c.userScrolled) autoScrollLog();
             if (entry2.type === 'detail' || entry2.type === 'info' || entry2.type === 'buff-bonus' || entry2.type === 'buff-splash') {
                 await new Promise(r => setTimeout(r, 120));
@@ -361,7 +360,7 @@ export async function handleInfo(c, entry) {
         }
     }
 
-    if(entry.isZhangSwitch&&entry.unit){ let zhangUnit = c.UI.allyTeam.find(u => u.isZhang); renderSeparator(); let tempDiv=document.createElement('div'); appendLogElement(tempDiv); await playLineText(entry.text,tempDiv); if(zhangUnit) { c.store.dispatch({ type: 'SET_VISUAL', uid: zhangUnit.uid, _resting: false }); safeShowDanmaku(zhangUnit, '不好，要顶上去了！'); } }
+    if(entry.isZhangSwitch&&entry.unit){ let zhangUnit = c.UI.allyTeam.find(u => u.isZhang); renderSeparator(); await playLogLine(entry.text); if(zhangUnit) { c.store.dispatch({ type: 'SET_VISUAL', uid: zhangUnit.uid, _resting: false }); safeShowDanmaku(zhangUnit, '不好，要顶上去了！'); } }
     else {
         if (entry.isDoubleStrikeBanner) {
             c.isPaused = true;
@@ -421,9 +420,7 @@ export async function handleInfo(c, entry) {
             const spiderUnit = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.uid === entry.uidA);
             const strikeTarget = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.uid === entry.uidD);
             if (spiderUnit && strikeTarget) {
-                let tempDiv = document.createElement('div');
-                appendLogElement(tempDiv);
-                await playLineText(entry.text, tempDiv);
+                await playLogLine(entry.text);
                 c.isPaused = true;
                 GlobalStore.set('bulletTimeActive', true);
                 const { showSpiderStrike } = await import('../fx/45fx-butterfly-spider.js');
@@ -480,11 +477,11 @@ export async function handleInfo(c, entry) {
                 c.store.dispatch({ type: 'SET_FLASH', uid: deadUnit.uid, flash: 'dead' });
                 c.store.dispatch({ type: 'SET_VISUAL', uid: deadUnit.uid, _isDead: true });
             }
-            let tempDiv=document.createElement('div'); appendLogElement(tempDiv); await playLineText(entry.text,tempDiv);
-            applyBrushEffect(tempDiv);
+            const deadDiv = await playLogLine(entry.text);
+            applyBrushEffect(deadDiv);
             if (entry.dmg && deadUnit) showDamageFloat(deadUnit, entry.dmg);
         } else {
-            let tempDiv=document.createElement('div'); appendLogElement(tempDiv); await playLineText(entry.text,tempDiv);
+            await playLogLine(entry.text);
         }
     }
     updateRoundDisplay(`📜 日志（第${c.UI.round}回合）`);

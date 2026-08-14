@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// tools/49-toolkit.js - 光明顶5v5 开发工具箱（文件复制器 / 拆分自原 49-toolkit.js）
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// tools/49-toolkit.js - 光明顶5v5 开发工具箱（文件复制器 / 拆分自原 49-toolkit.js）
 // V5.4.1 | ~34776 bytes| 2026-08-06
 
 /* ========== 标签页切换 ========== */
@@ -62,8 +62,6 @@ function escapeHtml(text) {
         // tools（开发工具箱）
         '../tools/48-toolkit.html', '../tools/49-toolkit.js', '../tools/50-toolkit-more.js',
         '../tools/51-shop.html',
-        '../tools/52-version-calibrator.cjs',
-        '../tools/53-dead-code-scanner.cjs', '../tools/54-filelist-checker.cjs',
         '../tools/47auto-battle-utils.js', '../tools/46build-5v5.cjs',
         // assets（音频资源，不参与 fetch 复制）
         '../assets/sfx_arrow.mp3', '../assets/sfx_fly.mp3',

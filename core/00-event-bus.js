@@ -131,3 +131,21 @@ export const EXECUTION_LAYER = {
     // ── 额外攻击请求 ──
     REQUEST_EXTRA_ATTACK: { DEFAULT: 10 }
 };
+
+// ==================== 效果类型常量 ====================
+// 所有效果声明对象的 type 字段必须使用此枚举，禁止裸字符串。
+export const EFFECT_TYPES = {
+    BONUS_DMG: 'bonusDmg',
+    LEECH: 'leech',
+    HEAL: 'heal',
+    SPLASH: 'splash',
+    REBOUND: 'rebound',
+    STAT_CHANGE: 'statChange',
+    EXECUTE: 'execute',
+    STUN: 'stun',
+    WEI_HEAL: 'weiHeal',
+    BREAK_DEF: 'breakDef',
+    IGNORE_DEF: 'ignoreDef',
+    DMG_MULTIPLIER: 'dmgMultiplier',
+    DMG_REDUCTION: 'dmgReduction'
+};

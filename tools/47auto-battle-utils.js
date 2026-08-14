@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// tools/47auto-battle-utils.js - 光明顶5v5 自动批量战斗工具
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// tools/47auto-battle-utils.js - 光明顶5v5 自动批量战斗工具
 // V5.4.0 | ~13100 bytes| 2026-07-05
 export const VER = 'tools/47auto-battle-utils.js V5.4.0';
 
@@ -84,6 +84,8 @@ export function generateSnapshot(currentStage = 1) {
                 enemyUnits.push(unit);
             } else {
                 let mVal = item;
+                // 已使用的敌人名字（用于避免重名）
+                let usedNames = enemyUnits.map(u => u.name);
                 // 优先从 ENEMY_SQUADS 的定义中查找名字，其次从 ENEMY_M 中查找，最后兜底为“六大派弟子”
                 let pool = Object.entries(ENEMY_M).filter(([n, v]) => v === mVal);
                 let name = null;
@@ -108,7 +110,7 @@ export function generateSnapshot(currentStage = 1) {
                     // 兜底名字加序号，避免重名
                     const fallbackSects = ['少林弟子', '武当弟子', '峨眉弟子', '昆仑弟子', '崆峒弟子'];
                     const fallbackName = fallbackSects[_randLocal(0, fallbackSects.length - 1)];
-                    const existingCount = usedEnemyNames.filter(n => n.startsWith(fallbackName)).length;
+                    const existingCount = usedNames.filter(n => n.startsWith(fallbackName)).length;
                     name = fallbackName + (existingCount > 0 ? String(existingCount + 1) : '');
                 }
                 let role = C.ROLES[_randLocal(0, 3)];
@@ -187,18 +189,6 @@ export function generateSnapshot(currentStage = 1) {
             for (let p = zhouPos + 1; p <= 9; p++) {
                 if (!enemyPosSet.has(p)) songPriority.push(p);
             }
-        // 4) 宋青书后占位：必须在周芷若序号之后，且靠前
-        if (song && song.pos == null) {
-            const zhouPos = zhou ? zhou.pos : 0;
-            const songPriority = [];
-            for (let p = zhouPos + 1; p <= 9; p++) {
-                if (!enemyPosSet.has(p)) songPriority.push(p);
-            }
-            if (songPriority.length > 0) {
-                song.pos = songPriority[0]; song._originalPos = song.pos;
-                enemyPosSet.add(songPriority[0]);
-            }
-        }
             if (songPriority.length > 0) {
                 song.pos = songPriority[0]; song._originalPos = song.pos;
                 enemyPosSet.add(songPriority[0]);
@@ -227,11 +217,11 @@ export function generateSnapshot(currentStage = 1) {
                     finalPositions.splice(idx, 1);
                 } else {
                     // 极端情况：所有位置被占，强行给一个合法位置
-                    u.unit.pos = 1 + _randLocal(0, 8);
+                    u.pos = 1 + _randLocal(0, 8);
                 }
             }
         }
-        enemyTeam = enemyUnits.map(e => e.unit || e);
+        enemyTeam = enemyUnits;
     }
 
     return {

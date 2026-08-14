@@ -9,7 +9,7 @@ import { hasBuff } from '../core/03battle-utils.js';
 import { spawnHorse } from '../core/05battle-horse.js';
 import { spiderTransform, spiderReturn } from '../modules/15elite-skills.js';
 import { checkZhangSwitch, emitEvent, applyStatChange, applyMaxHpChange, getBattleRng } from '../core/13battle-shared.js';
-import { EXECUTION_LAYER as L } from '../core/00-event-bus.js';
+import { EXECUTION_LAYER as L, EFFECT_TYPES } from '../core/00-event-bus.js';
 import { registerDodgeRule } from '../core/12battle-attack-steps.js';
 import { StateMachine } from '../core/06-fsm.js';
 const ES = CONFIG.ELITE_SKILLS;
@@ -106,7 +106,7 @@ export function createZhangWujiComponent() {
             if (heal > 0) {
                 if (data && data.declarations) {
                     data.declarations.push({
-                        type: 'heal',
+                        type: EFFECT_TYPES.HEAL,
                         value: heal,
                         source: unit,
                         logText: `<span class="green">☀️ 九阳神功回复+${heal}，${hpBeforeZhang}→${Math.floor(unit.hp + heal)}</span>`
@@ -127,7 +127,7 @@ export function createZhangWujiComponent() {
                     const extra = Math.floor(Math.abs(target.atk - target.def) * 0.5);
                     if (data && data.declarations) {
                         data.declarations.push({
-                            type: 'bonusDmg',
+                            type: EFFECT_TYPES.BONUS_DMG,
                             value: extra,
                             target: target,
                             logText: null
@@ -158,7 +158,7 @@ export function createWeiYixiaoComponent() {
                 const healWei = Math.floor(data.dmg * leechRate);
                 const newMaxHpWei = Math.min(wei.maxHp + healWei, wei._baseMaxHp * 2);
                 const decl = {
-                    type: 'leech',
+                    type: EFFECT_TYPES.LEECH,
                     value: healWei,
                     source: wei,
                     logText: `<span class="green">🦇 青翼蝠王·吸血+${healWei}，上限→${Math.floor(newMaxHpWei)}</span>`
@@ -180,7 +180,7 @@ export function createWeiYixiaoComponent() {
                 const wasFullHp = (target.hp >= target.maxHp);
                 const newMaxHp = Math.min(target.maxHp + heal, target._baseMaxHp * 2);
                 declarations.push({
-                    type: 'weiHeal',
+                    type: EFFECT_TYPES.WEI_HEAL,
                     data: { heal, newMaxHp, wasFullHp }
                 });
             });
@@ -258,7 +258,7 @@ export function createXiaoZhaoSisterComponent() {
                 const reduce = Math.max(1, Math.floor(dmg * target.def / (s.defToReduce || 150)));
                 if (!data.declarations) data.declarations = [];
                 data.declarations.push({
-                    type: 'dmgReduction',
+                    type: EFFECT_TYPES.DMG_REDUCTION,
                     value: reduce,
                     source: xiaoZhao,
                     logText: null

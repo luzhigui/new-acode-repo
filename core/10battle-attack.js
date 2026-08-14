@@ -16,7 +16,7 @@ import {
     resolveAfterDamageEffects,
     resolveDeaths
 } from './12battle-attack-steps.js';
-import { eventBus } from './00-event-bus.js';
+import { eventBus, EFFECT_TYPES } from './00-event-bus.js';
 import { flushBattleEvents } from './09-battle-event-store.js';
 
 import { emitEvent, applyStatChange } from './13battle-shared.js';
@@ -210,8 +210,8 @@ export async function processUnitAttack(unit, allySide, enemySide, log, A, B, st
             group._events.push(...decl._events);
         }
         if (group && group.entries && decl.logText) {
-            const entry = { type: decl.type === 'splash' ? 'buff-splash' : 'info', text: decl.logText };
-            if (decl.type === 'leech' || decl.type === 'heal') {
+            const entry = { type: decl.type === EFFECT_TYPES.SPLASH ? 'buff-splash' : 'info', text: decl.logText };
+            if (decl.type === EFFECT_TYPES.LEECH || decl.type === EFFECT_TYPES.HEAL) {
                 entry.isHealEntry = true;
                 entry.healAmount = decl.value || 0;
                 entry.healUnitUid = decl.source ? decl.source.uid : null;
@@ -226,7 +226,7 @@ export async function processUnitAttack(unit, allySide, enemySide, log, A, B, st
     }
     // 斩杀后更新攻击组：补上死亡特效和红色底（execute 发生在 buildAttackGroup 之后）
     if (!target.alive && !dmgResult.dead) {
-        const hasExecute = executedDecls.some(d => d.type === 'execute' && d.target === target);
+        const hasExecute = executedDecls.some(d => d.type === EFFECT_TYPES.EXECUTE && d.target === target);
         if (hasExecute) {
             group.isDead = true;
             const dmgEntry = group.entries.find(e => e.type === 'damage-text');

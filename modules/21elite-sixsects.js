@@ -4,7 +4,7 @@ export const VER = 'modules/21elite-sixsects.js V5.4.0';
 import { registerElite } from '../core/08-elite-registry.js';
 import { GlobalStore } from './18global-store.js';
 import { CONFIG, getSkillParams } from '../core/01config-5v5-test.js';
-import { eventBus, EXECUTION_LAYER as L } from '../core/00-event-bus.js';
+import { eventBus, EXECUTION_LAYER as L, EFFECT_TYPES } from '../core/00-event-bus.js';
 import { canXingFenTrigger, consumeXingFen, applyXingFenGrant, tickKuaiLeHeal, checkKuLian } from './15elite-skills.js';
 import { emitEvent, applyStatChange, applyMaxHpChange, getBattleRng } from '../core/13battle-shared.js';
 const ES = CONFIG.ELITE_SKILLS;
@@ -40,7 +40,7 @@ export function createSongQingshuComponent() {
                 if (data.unit.name !== '宋青书' || !data.target || !data.target.alive || !data.declarations) return;
                 const trueDmg = Math.floor(data.target.hp * (CONFIG.ELITE_SKILLS.rebelStrike.currentHpRatio || 0.10));
                 if (trueDmg > 0) {
-                    data.declarations.push({ type: 'bonusDmg', value: trueDmg, source: data.unit });
+                    data.declarations.push({ type: EFFECT_TYPES.BONUS_DMG, value: trueDmg, source: data.unit });
                 }
             });
             eventBus.on('afterAttack', L.AFTER_ATTACK.SONG_XINGFEN_EXTRA, async (data) => {
@@ -177,7 +177,7 @@ export function createZhouZhiruoComponent() {
                 if (song) {
                     const healAmount = Math.min(bonusDmg, song.maxHp - song.hp);
                     if (healAmount > 0) {
-                        healDeclarations.push({ type: 'heal', value: healAmount, source: song });
+                        healDeclarations.push({ type: EFFECT_TYPES.HEAL, value: healAmount, source: song });
                     }
                 }
                 depth++; if (isExecute || !target.alive || target._pendingDeath) break;
@@ -188,7 +188,7 @@ export function createZhouZhiruoComponent() {
                 if (songForSummary) {
                     const totalHeal = Math.min(totalBonus, songForSummary.maxHp - songForSummary.hp);
                     if (totalHeal > 0) {
-                        healDeclarations.push({ type: 'heal', value: totalHeal, source: songForSummary });
+                        healDeclarations.push({ type: EFFECT_TYPES.HEAL, value: totalHeal, source: songForSummary });
                         log.push({ type:'info', text:`<span class="green">💚 宋青书因九阴白骨爪共回复${totalHeal}点生命</span>`, isHealEntry:true, healAmount:totalHeal, healUnitUid:songForSummary.uid });
                     } else {
                         log.push({ type:'info', text:`<span class="gray">💚 宋青书已满血，白骨爪未能回复生命</span>` });

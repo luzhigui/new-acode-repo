@@ -7,7 +7,7 @@ import { CONFIG, getSkillParams } from '../core/01config-5v5-test.js';
 import { getBattleRng, emitEvent } from '../core/13battle-shared.js';
 import { tickXuanmingPoison } from './15elite-skills.js';
 import { processUnitAttack } from '../core/10battle-attack.js';
-import { EXECUTION_LAYER as L } from '../core/00-event-bus.js';
+import { EXECUTION_LAYER as L, EFFECT_TYPES } from '../core/00-event-bus.js';
 const ES = CONFIG.ELITE_SKILLS;
 
 // ==================== 成昆 ====================
@@ -62,7 +62,7 @@ export function createChengKunComponent() {
                 const params = getSkillParams('成昆', 'phantomThunder') || ES.phantomThunder;
                 const bonus = Math.floor(lostHp * (params.lostHpRatio / 100));
                 if (bonus > 0) {
-                    data.declarations.push({ type: 'bonusDmg', value: bonus, source: data.unit });
+                    data.declarations.push({ type: EFFECT_TYPES.BONUS_DMG, value: bonus, source: data.unit });
                 }
             });
         },
@@ -78,7 +78,7 @@ export function createChengKunComponent() {
                     // 改为提交 heal 声明，由裁判统一处理
                     if (!data.declarations) data.declarations = [];
                     data.declarations.push({
-                        type: 'heal',
+                        type: EFFECT_TYPES.HEAL,
                         value: heal,
                         source: unit,
                         logText: `<span class="green">🎭 幻影伪装：${unit.name} 回复 ${heal} 点生命</span>`
@@ -137,9 +137,9 @@ export function createHeBiWengComponent() {
                 if (data.unit.name !== '鹤笔翁' || !data.declarations) return;
                 const s = getSkillParams('鹤笔翁', 'hornStrike') || ES.hornStrike;
                 const poisoned = data.target._xuanmingPoison && data.target._xuanmingPoison.remaining > 0;
-                data.declarations.push({ type: 'ignoreDef', value: s.defIgnore / 100, source: data.unit });
+                data.declarations.push({ type: EFFECT_TYPES.IGNORE_DEF, value: s.defIgnore / 100, source: data.unit });
                 if (poisoned) {
-                    data.declarations.push({ type: 'dmgMultiplier', value: 1 + s.poisonedBonus / 100, source: data.unit });
+                    data.declarations.push({ type: EFFECT_TYPES.DMG_MULTIPLIER, value: 1 + s.poisonedBonus / 100, source: data.unit });
                 }
             });
         },
