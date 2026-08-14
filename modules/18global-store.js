@@ -115,3 +115,60 @@ export const GlobalStore = {
 
 // 所有兼容层已移除，统一使用 GlobalStore.get/set 读写状态
 window.GlobalStore = GlobalStore;
+
+// ==================== 状态读写器 — 供 player/ 和 ui/ 共用，避免循环依赖 ====================
+export const getState = {
+    gs: () => GlobalStore.get('gs'),
+    autoMode: () => GlobalStore.get('autoMode'),
+    debugMode: () => GlobalStore.get('debugMode'),
+    isPaused: () => GlobalStore.get('isPaused'),
+    speed: () => GlobalStore.get('speed'),
+    userScrolled: () => GlobalStore.get('userScrolled'),
+    abortController: () => GlobalStore.get('abortController'),
+    waitingForNextRound: () => GlobalStore.get('waitingForNextRound'),
+    logLevel: () => GlobalStore.get('logLevel'),
+    battleResultForInfo: () => GlobalStore.get('battleResultForInfo'),
+    gameStarted: () => GlobalStore.get('gameStarted'),
+    manualSpeedLock: () => false,
+    manualSpeedValue: () => null,
+    slideSpeedActive: () => false,
+    isBattleStarting: () => GlobalStore.get('isBattleStarting'),
+    adjustMode: () => GlobalStore.get('adjustMode'),
+    selectedAdjustPos: () => GlobalStore.get('selectedAdjustPos'),
+    currentStage: () => GlobalStore.get('currentStage'),
+    dodgeEffectEnabled: () => GlobalStore.get('dodgeEffectEnabled'),
+    selectedBuffIndex: () => GlobalStore.get('selectedBuffIndex'),
+    currentDoubleStrikeUid: () => GlobalStore.get('currentDoubleStrikeUid'),
+    activeBuffs: () => GlobalStore.get('activeBuffs'),
+    autoLevel: () => GlobalStore.get('autoLevel'),
+    snapshot: () => GlobalStore.get('snapshot'),
+    UI: () => GlobalStore.get('UI')
+};
+
+export const setState = {
+    gs: (v) => {
+        if (typeof window !== 'undefined' && window._syncGs) window._syncGs(v);
+        GlobalStore.set('gs', v);
+    },
+    autoMode: (v) => GlobalStore.set('autoMode', v),
+    debugMode: (v) => GlobalStore.set('debugMode', v),
+    isPaused: (v) => GlobalStore.set('isPaused', v),
+    speed: (v) => { GlobalStore.set('speed', v); if (typeof window !== 'undefined' && window.updateSpeedButtons) window.updateSpeedButtons(); },
+    userScrolled: (v) => GlobalStore.set('userScrolled', v),
+    abortController: (v) => GlobalStore.set('abortController', v),
+    waitingForNextRound: (v) => GlobalStore.set('waitingForNextRound', v),
+    logLevel: (v) => GlobalStore.set('logLevel', v),
+    battleResultForInfo: (v) => GlobalStore.set('battleResultForInfo', v),
+    gameStarted: (v) => GlobalStore.set('gameStarted', v),
+    isBattleStarting: (v) => GlobalStore.set('isBattleStarting', v),
+    adjustMode: (v) => GlobalStore.set('adjustMode', v),
+    selectedAdjustPos: (v) => GlobalStore.set('selectedAdjustPos', v),
+    currentStage: (v) => GlobalStore.set('currentStage', v),
+    dodgeEffectEnabled: (v) => GlobalStore.set('dodgeEffectEnabled', v),
+    selectedBuffIndex: (v) => GlobalStore.set('selectedBuffIndex', v),
+    currentDoubleStrikeUid: (v) => GlobalStore.set('currentDoubleStrikeUid', v),
+    activeBuffs: (v) => GlobalStore.set('activeBuffs', v),
+    autoLevel: (v) => GlobalStore.set('autoLevel', v),
+    snapshot: (v) => GlobalStore.set('snapshot', v),
+    UI: (v) => GlobalStore.set('UI', v)
+};

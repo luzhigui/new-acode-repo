@@ -15,7 +15,7 @@ function escapeHtml(text) {
         '../core/08-elite-registry.js', '../core/09-battle-event-store.js',
         '../core/10battle-attack.js', '../core/11battle-round.js', '../core/12battle-attack-steps.js',
         '../core/13battle-shared.js', '../core/14buff-effects.js',
-        '../player/24player-text.js', '../player/25player-buff-ui.js', '../player/26player-core.js',
+        '../player/24player-text.js', '../player/25player-buff-ui.js', '../player/26-animation-scheduler.js', '../player/26player-core.js',
         '../player/27battle-player-5v5-test.js', '../player/28event-handlers.js', '../player/29renderer.js',
         '../ui/30main-utils.js', '../ui/31main-5v5-test.js', '../ui/32ui-render-5v5-test.js',
         '../ui/33main-state.js', '../ui/34main-dialogs.js', '../ui/35main-battle.js',
