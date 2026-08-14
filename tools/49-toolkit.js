@@ -65,15 +65,13 @@ function escapeHtml(text) {
         '../tools/52-version-calibrator.cjs',
         '../tools/53-dead-code-scanner.cjs', '../tools/54-filelist-checker.cjs',
         '../tools/47auto-battle-utils.js', '../tools/46build-5v5.cjs',
-        '../tools/创意-精英战力评测脚本.js',
         // assets（音频资源，不参与 fetch 复制）
         '../assets/sfx_arrow.mp3', '../assets/sfx_fly.mp3',
         '../assets/sfx_melee.mp3', '../assets/sfx_xinai.mp3',
         // 根目录（入口与设计文档）
+        // 注意：中文文件名（记录-更改履历.md、待办-bug待修.md）在手机上 fetch 会卡住，已从清单剔除
         '../index.html', '../mode-5v5-test.html',
-        '../README.md',
-        '../记录-更改履历.md',
-        '../待办-bug待修.md'
+        '../README.md'
         // 备注：其余 MD 文档已归档到 文件汇总20260730/，不参与自动复制
     ];
 
@@ -287,22 +285,31 @@ function escapeHtml(text) {
         batchesDiv.innerHTML = '';
 
         const fileData = [];
-        for (const file of selectedFiles) {
+        const FETCH_TIMEOUT = 10000; // 单个文件读取超时（毫秒），避免某个文件卡住导致整批无结果
+        for (let i = 0; i < selectedFiles.length; i++) {
+            const file = selectedFiles[i];
+            statusDiv.textContent = `正在读取文件 (${i + 1}/${selectedFiles.length}) ${file}...`;
+            const controller = new AbortController();
+            const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT);
+            let res;
             try {
-                const res = await fetch(encodeURI(file));
-                if (res.ok) {
-                    const content = await res.text();
-                    fileData.push({
-                        fileName: file,
-                        content,
-                        charCount: content.length,
-                        lineCount: content.split('\n').length
-                    });
-                } else {
-                    fileData.push({ fileName: file, content: null, charCount: 0, lineCount: 0, error: 'HTTP ' + res.status });
-                }
+                res = await fetch(encodeURI(file), { signal: controller.signal });
             } catch (e) {
-                fileData.push({ fileName: file, content: null, charCount: 0, lineCount: 0, error: e.message });
+                clearTimeout(timer);
+                fileData.push({ fileName: file, content: null, charCount: 0, lineCount: 0, error: (e && e.name === 'AbortError') ? '读取超时(10s)' : (e && e.message) || '读取失败' });
+                continue;
+            }
+            clearTimeout(timer);
+            if (res.ok) {
+                const content = await res.text();
+                fileData.push({
+                    fileName: file,
+                    content,
+                    charCount: content.length,
+                    lineCount: content.split('\n').length
+                });
+            } else {
+                fileData.push({ fileName: file, content: null, charCount: 0, lineCount: 0, error: 'HTTP ' + res.status });
             }
         }
 
