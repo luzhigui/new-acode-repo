@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿<!DOCTYPE html>
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿<!DOCTYPE html>
 <!-- V5.4.0 | ~25900 bytes-->
 <html lang="zh-CN">
 <head>
@@ -263,49 +263,6 @@
     </div>
 
     <div class="tab-content" id="tab-node-tools">
-        <div class="tool-card">
-            <h3>🧹 版本号 / 字节数校准器</h3>
-            <p>把项目所有 JS/HTML/CJS 文件头部的版本号统一升级，并把 <code>~XXXXX bytes</code> 修正为实际字节数的近似值。升级版本前跑一遍。</p>
-            <div class="tool-cmd">
-                <code id="cmd-calibrator">node tools/52-version-calibrator.cjs V5.4.0</code>
-                <button onclick="copyCmd('cmd-calibrator')">📋 复制命令</button>
-            </div>
-            <ol class="tool-steps">
-                <li>把命令里的 <code>V5.4.0</code> 改成你要升到的版本号</li>
-                <li>先加 <code>--dry-run</code> 试运行，确认要改哪些文件</li>
-                <li>去掉 <code>--dry-run</code> 正式执行</li>
-                <li>执行 <code>git add -A</code> → <code>git commit</code> → <code>git push</code></li>
-            </ol>
-        </div>
-
-        <div class="tool-card">
-            <h3>🔍 死代码扫描器</h3>
-            <p>扫描所有 JS/CJS 文件里 export 出来的函数/常量，列出哪些从来没被其他文件 import 过。用来清理废弃函数。</p>
-            <div class="tool-cmd">
-                <code id="cmd-deadcode">node tools/53-dead-code-scanner.cjs</code>
-                <button onclick="copyCmd('cmd-deadcode')">📋 复制命令</button>
-            </div>
-            <ol class="tool-steps">
-                <li>直接运行，看输出列表</li>
-                <li>列表里带 ❌ 的是疑似死代码</li>
-                <li>删除前务必人工确认——有些函数是运行时动态调用的，扫描器识别不到</li>
-            </ol>
-        </div>
-
-        <div class="tool-card">
-            <h3>🧾 文件清单一致性检查器</h3>
-            <p>对比实际文件和文件复制器 / 函数提取器的登记清单，报告：新文件没登记、删了的文件没清、两份清单不一致。</p>
-            <div class="tool-cmd">
-                <code id="cmd-filelist">node tools/54-filelist-checker.cjs</code>
-                <button onclick="copyCmd('cmd-filelist')">📋 复制命令</button>
-            </div>
-            <ol class="tool-steps">
-                <li>直接运行</li>
-                <li>关注 ❌ 级别的项；⚠️ 级别的很多是正常设计差异（如 HTML 不在函数提取器里）</li>
-                <li>根据报告更新 <code>tools/49-toolkit.js</code> 和 <code>tools/50-toolkit-more.js</code></li>
-            </ol>
-        </div>
-
         <div class="tool-card">
             <h3>🖥️ 怎么运行这些命令</h3>
             <ol class="tool-steps">

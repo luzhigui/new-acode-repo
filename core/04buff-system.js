@@ -11,7 +11,7 @@ import {
 import { CONFIG } from './01config-5v5-test.js';
 import { hasBuff, getUnitRow, getUnitCol, getAdjacentPositions } from './03battle-utils.js';
 import { emitEvent, applyStatChange, applyMaxHpChange, query, getBattleRng } from './13battle-shared.js';
-import { EXECUTION_LAYER as L } from './00-event-bus.js';
+import { EXECUTION_LAYER as L, EFFECT_TYPES } from './00-event-bus.js';
 import { processUnitAttack } from './10battle-attack.js';
 const C = CONFIG;
 
@@ -291,7 +291,7 @@ export function registerBloodthirst(eventBus) {
         if (hasBuff(unitBuffs, 'bloodthirst') && unit.role === '战士' && dmg > 0) {
             const leechVal = Math.floor(dmg * C.BUFFS.bloodthirst.leechRatio);
             const decl = {
-                type: 'leech',
+                type: EFFECT_TYPES.LEECH,
                 value: leechVal,
                 source: unit,
                 logText: `<span class="green">🗡️ ${unit.name} 的嗜血狂刀吸血+${leechVal}</span>`
@@ -305,7 +305,7 @@ export function registerBloodthirst(eventBus) {
         } else if (isBrother && query('xiaoPermanentActive', unit, unitBuffs, 'bloodthirst') && unit.role === '战士') {
             const leechVal = Math.floor(dmg * 0.8);
             const decl = {
-                type: 'leech',
+                type: EFFECT_TYPES.LEECH,
                 value: leechVal,
                 source: unit,
                 logText: `<span class="green">🦋 蝶血：小昭嗜血狂刀吸血+${leechVal}</span>`
@@ -339,7 +339,7 @@ export function registerHotBlood(eventBus) {
             const leech = Math.min(Math.floor((unit.maxHp - unit.hp) * ratio), unit.maxHp - unit.hp);
             if (leech > 0) {
                 const decl = {
-                    type: 'heal',
+                    type: EFFECT_TYPES.HEAL,
                     value: leech,
                     source: unit,
                     logText: `<span class="green">${tag}：${unit.name} 回复+${leech}</span>`
@@ -356,7 +356,7 @@ export function registerHotBlood(eventBus) {
                 const tag = (unit._hotBloodCount % 2 === 0) ? '🦋 热血(翻倍)' : '🦋 热血';
                 if (leech > 0) {
                     const decl = {
-                        type: 'heal',
+                        type: EFFECT_TYPES.HEAL,
                         value: leech,
                         source: unit,
                         logText: `<span class="green">${tag}：小昭回复+${leech}</span>`
@@ -394,7 +394,7 @@ export function registerWindAssault(eventBus) {
                 const splashDmg = Math.floor(dmg);
                 const details = rowTargets.map(rt => `${rt.name}`).join('、');
                 const decl = {
-                    type: 'splash',
+                    type: EFFECT_TYPES.SPLASH,
                     value: splashDmg,
                     targets: rowTargets,
                     buffType: 'wind_assault',
@@ -454,7 +454,7 @@ export function registerMeteorShower(eventBus) {
         const bonusDmg = Math.floor(dmg * C.BUFFS.meteorShower.bonusRatio);
         applyStatChange(target, 'def', -(C.BUFFS.meteorShower.mainDefReduce || 2), unit, '流星赶月');
         const decl = {
-            type: 'bonusDmg',
+            type: EFFECT_TYPES.BONUS_DMG,
             value: bonusDmg,
             target: target,
             buffType: 'meteor_bonus',
@@ -471,7 +471,7 @@ export function registerMeteorShower(eventBus) {
         if (splashTargets.length > 0) {
             const details = splashTargets.map(st => `${st.name}`).join('、');
             const decl = {
-                type: 'splash',
+                type: EFFECT_TYPES.SPLASH,
                 value: splashDmg,
                 targets: splashTargets,
                 buffType: 'meteor_splash',

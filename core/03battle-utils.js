@@ -4,7 +4,7 @@ export const VER = 'core/03battle-utils.js V5.4.0';
 
 import { CONFIG, TAUNT_LIB, DEF_TAUNT, HP_TAUNT, ZHANG_NEAR_TAUNT } from './01config-5v5-test.js';
 import { emitEvent, applyStatChange, query, getBattleRng } from './13battle-shared.js';
-import { EXECUTION_LAYER as L } from './00-event-bus.js';
+import { EXECUTION_LAYER as L, EFFECT_TYPES } from './00-event-bus.js';
 const C = CONFIG, TL = TAUNT_LIB, DT = DEF_TAUNT, HT = HP_TAUNT, ZT = ZHANG_NEAR_TAUNT;
 
 
@@ -285,7 +285,7 @@ export function registerWarriorBreakDefense(eventBus) {
         }
         if (getBattleRng().nextInt(1, 100) > breakChance) return;
         defReduced = Math.min(defReduced, target.def);
-        declarations.push({ type: 'breakDef', value: defReduced, source: unit, target: target });
+        declarations.push({ type: EFFECT_TYPES.BREAK_DEF, value: defReduced, source: unit, target: target });
         unit._pendingDefReduceEntry = {type:'detail', text:`<span class="purple small">🗡️ ${unit.name} 破防：${target.name} 防御 -${C.WARRIOR_BREAK_DEF}</span>`};
     });
 }
@@ -301,7 +301,7 @@ export function registerRangedGrowth(eventBus) {
         const growth = C.RANGED_GROWTH_ATK;
         if (!data.declarations) data.declarations = [];
         data.declarations.push({
-            type: 'statChange',
+            type: EFFECT_TYPES.STAT_CHANGE,
             field: 'atk',
             delta: growth,
             target: unit,
@@ -333,7 +333,7 @@ export function registerWarriorExecute(eventBus) {
         if (target.hp <= target.maxHp * threshold) {
             if (!declarations) return;
             declarations.push({
-                type: 'execute',
+                type: EFFECT_TYPES.EXECUTE,
                 target: target,
                 source: unit,
                 threshold: threshold,
@@ -384,7 +384,7 @@ export function registerFortifyShield(eventBus) {
             const increment = (target._fortifyStacks || 0) - prevStacks;
             if (!data.declarations) data.declarations = [];
             data.declarations.push({
-                type: 'statChange',
+                type: EFFECT_TYPES.STAT_CHANGE,
                 field: 'def',
                 delta: increment,
                 target: target,

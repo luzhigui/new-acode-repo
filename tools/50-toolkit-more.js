@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// tools/50-toolkit-more.js - 光明顶5v5 开发工具箱（函数提取器 / 函数替换器）
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// tools/50-toolkit-more.js - 光明顶5v5 开发工具箱（函数提取器 / 函数替换器）
 // V5.4.1 | ~28773 bytes| 2026-08-06
 
 function escapeHtml(text) {
@@ -41,8 +41,6 @@ function escapeHtml(text) {
         '../tests/56health-monitor.js', '../tests/57health-utils.js',
         '../tools/49-toolkit.js', '../tools/50-toolkit-more.js',
         '../tools/51-shop.html',
-        '../tools/52-version-calibrator.cjs',
-        '../tools/53-dead-code-scanner.cjs', '../tools/54-filelist-checker.cjs',
         '../tools/47auto-battle-utils.js', '../tools/46build-5v5.cjs'
     ];
 

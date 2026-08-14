@@ -1,8 +1,9 @@
 // player/29renderer.js - 光明顶5v5 播放器渲染层
-// V5.4.0 | ~3300 bytes| 2026-08-10 从10player-core提取DOM操作
-export const VER = 'player/29renderer.js V5.4.0';
+// V5.4.1 | ~5600 bytes| 2026-08-14 DOM操作收口，新增 playLogLine/appendHiddenDetail
+export const VER = 'player/29renderer.js V5.4.1';
 
 import { GlobalStore } from '../modules/18global-store.js';
+import { playLineText } from './24player-text.js';
 
 let _ctx = null;
 export function setRenderCtx(c) { _ctx = c; }
@@ -22,6 +23,22 @@ export function appendLogHTML(html) {
 export function appendLogElement(el) {
     getLogDiv().appendChild(el);
     autoScrollLog();
+}
+
+// 创建一行日志并逐字播放，返回创建的元素
+export async function playLogLine(text, forcedSpeed = null) {
+    let div = document.createElement('div');
+    appendLogElement(div);
+    await playLineText(text, div, forcedSpeed);
+    return div;
+}
+
+// 简要模式下隐藏 detail 日志
+export function appendHiddenDetail(text) {
+    const div = document.createElement('div');
+    div.className = 'detail-hidden';
+    div.innerHTML = text + '<br>';
+    appendLogElement(div);
 }
 
 export function autoScrollLog() {

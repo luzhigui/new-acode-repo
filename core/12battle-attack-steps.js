@@ -3,7 +3,7 @@
 export const VER = 'core/12battle-attack-steps.js V5.4.0';
 
 import { CONFIG, DEF_TAUNT, HP_TAUNT, getSkillParams } from './01config-5v5-test.js';
-import { eventBus } from './00-event-bus.js';
+import { eventBus, EFFECT_TYPES } from './00-event-bus.js';
 import { calcDamage, getFangLevel, isMelee, getFronts, isBlocked, getRandomTaunt, getZhangNearTaunt, makeFXSnapshot, hasBuff, getUnitCol, getUnitRow } from './03battle-utils.js';
 import { computeBuffStats, applyBuffEffectsBeforeAttack, applyBuffEffectsAfterAttack } from './04buff-system.js';
 import { emitEvent, applyStatChange, applyMaxHpChange, query, getBattleRng } from './13battle-shared.js';
@@ -210,9 +210,9 @@ export function resolveAttackHit(unit, target, attackerBuffStats, defenderBuffSt
             // ---------- 闪避后效果声明收集 ----------
             const dodgeDeclarations = [];
             // 反击伤害提交声明
-            dodgeDeclarations.push({ type: 'rebound', value: reboundDmg });
+            dodgeDeclarations.push({ type: EFFECT_TYPES.REBOUND, value: reboundDmg });
             // 眩晕提交声明
-            dodgeDeclarations.push({ type: 'stun' });
+            dodgeDeclarations.push({ type: EFFECT_TYPES.STUN });
 
             // 韦一笑吸血等组件通过 onDodge 追加声明
             eventBus.emit('onDodge', { unit, target, reboundDmg, declarations: dodgeDeclarations });
@@ -235,7 +235,7 @@ export function resolveAttackHit(unit, target, attackerBuffStats, defenderBuffSt
                     dodgeText: `<span class="gray">🦅 ${target.name}闪避了攻击！</span>`,
                     reboundText: `<span class="red">🦅 ${target.name}反击 → ${unit.name} 造成 ${reboundDmg} 真实伤害（${unitHpBeforeRebound} → ${Math.floor(unit.hp)}）</span>`,
                     stunText: `<span class="gray">😵 ${unit.name} 被反击眩晕，本回合无法行动！</span>`,
-                    weiHealData: dodgeDeclarations.find(d => d.type === 'weiHeal')?.data || null,
+                    weiHealData: dodgeDeclarations.find(d => d.type === EFFECT_TYPES.WEI_HEAL)?.data || null,
                     _events: flushBattleEvents()
                 }
             };
@@ -273,7 +273,7 @@ export function calcFinalDamage(unit, target, attackerBuffStats, defenderBuffSta
     let dmgMultiplier = 1;
 
     for (const decl of damageDeclarations) {
-        if (decl.type === 'breakDef') {
+        if (decl.type === EFFECT_TYPES.BREAK_DEF) {
             const reduce = Math.min(decl.value || 0, defBase);
             defBase -= reduce;
             applyStatChange(target, 'def', -reduce, unit, '破防');
@@ -282,13 +282,13 @@ export function calcFinalDamage(unit, target, attackerBuffStats, defenderBuffSta
                 unit._pendingDefReduceEntry = {type:'detail', text:`<span class="purple small">🗡️ ${unit.name} 破防：${target.name} 防御 -${reduce}</span>`};
                 emitEvent(target, 'hp-change', { hp: target.hp, maxHp: target.maxHp, alive: target.alive, atk: target.atk, def: defBase, _isDead: target.state._isDead || false });
             }
-        } else if (decl.type === 'ignoreDef') {
+        } else if (decl.type === EFFECT_TYPES.IGNORE_DEF) {
             ignoreDefRatio = Math.max(ignoreDefRatio, decl.value || 0);
-        } else if (decl.type === 'bonusDmg') {
+        } else if (decl.type === EFFECT_TYPES.BONUS_DMG) {
             bonusDmgTotal += decl.value || 0;
-        } else if (decl.type === 'dmgMultiplier') {
+        } else if (decl.type === EFFECT_TYPES.DMG_MULTIPLIER) {
             dmgMultiplier *= decl.value || 1;
-        } else if (decl.type === 'dmgReduction') {
+        } else if (decl.type === EFFECT_TYPES.DMG_REDUCTION) {
             // 乾坤衍生减伤：追加到 bonusDmgTotal（负数）或直接调整 raw
             bonusDmgTotal -= (decl.value || 0);
         }
@@ -418,7 +418,7 @@ export function applyAttackResult(unit, target, dmgCalc, attackerBuffStats, defe
         if (reboundDmg > 0) {
             const hasSister = A && A.some(u => u.isXiaoZhaoSister && u.alive);
             fortifyDeclarations = [{
-                type: 'rebound',
+                type: EFFECT_TYPES.REBOUND,
                 value: reboundDmg,
                 source: target,
                 target: unit,
@@ -487,14 +487,14 @@ export function resolveAfterDamageEffects(declarations, unit, target, group) {
     const executed = []; // 记录已执行的声明，供调用方拼接日志
 
     // 0. 主目标额外伤害
-    for (const decl of declarations.filter(d => d.type === 'bonusDmg')) {
+    for (const decl of declarations.filter(d => d.type === EFFECT_TYPES.BONUS_DMG)) {
         if (!decl.target || !decl.target.alive) continue;
         applyStatChange(decl.target, 'hp', -(decl.value || 0), unit, '额外伤害');
         executed.push(decl);
     }
 
     // 1. 吸血
-    for (const decl of declarations.filter(d => d.type === 'leech')) {
+    for (const decl of declarations.filter(d => d.type === EFFECT_TYPES.LEECH)) {
         if (!decl.source || !decl.source.alive) continue;
         const capped = Math.min(decl.value || 0, decl.source.maxHp - decl.source.hp);
         applyStatChange(decl.source, 'hp', capped, null, '吸血');
@@ -503,7 +503,7 @@ export function resolveAfterDamageEffects(declarations, unit, target, group) {
     }
 
     // 2. 回血
-    for (const decl of declarations.filter(d => d.type === 'heal')) {
+    for (const decl of declarations.filter(d => d.type === EFFECT_TYPES.HEAL)) {
         if (!decl.source || !decl.source.alive) continue;
         const capped = Math.min(decl.value || 0, decl.source.maxHp - decl.source.hp);
         if (capped > 0) {
@@ -514,7 +514,7 @@ export function resolveAfterDamageEffects(declarations, unit, target, group) {
     }
 
     // 3. 溅射
-    for (const decl of declarations.filter(d => d.type === 'splash')) {
+    for (const decl of declarations.filter(d => d.type === EFFECT_TYPES.SPLASH)) {
         if (!decl.targets || decl.targets.length === 0) continue;
         for (const st of decl.targets) {
             if (!st.alive) continue;
@@ -533,7 +533,7 @@ export function resolveAfterDamageEffects(declarations, unit, target, group) {
     }
 
     // 3.5 反弹
-    for (const decl of declarations.filter(d => d.type === 'rebound')) {
+    for (const decl of declarations.filter(d => d.type === EFFECT_TYPES.REBOUND)) {
         if (!decl.target || !decl.target.alive) continue;
         applyStatChange(decl.target, 'hp', -(decl.value || 0), decl.source, '反弹');
         if (decl.source) decl.source.reboundDone = (decl.source.reboundDone || 0) + (decl.value || 0);
@@ -544,7 +544,7 @@ export function resolveAfterDamageEffects(declarations, unit, target, group) {
     }
 
     // 3.5 属性变更（乾坤衍生加攻等）
-    for (const decl of declarations.filter(d => d.type === 'statChange')) {
+    for (const decl of declarations.filter(d => d.type === EFFECT_TYPES.STAT_CHANGE)) {
         if (!decl.target || !decl.target.alive) continue;
         applyStatChange(decl.target, decl.field, decl.delta, null, '乾坤衍生');
         if (decl.field === 'atk' && decl.target._baseAtk !== undefined) {
@@ -554,7 +554,7 @@ export function resolveAfterDamageEffects(declarations, unit, target, group) {
     }
 
     // 3.6 斩杀（战士斩杀等）
-    for (const decl of declarations.filter(d => d.type === 'execute')) {
+    for (const decl of declarations.filter(d => d.type === EFFECT_TYPES.EXECUTE)) {
         if (!decl.target || !decl.target.alive) continue;
         applyStatChange(decl.target, 'hp', -decl.target.hp, decl.source, '斩杀');
         // 斩杀产生的事件（hp-change/_isDead）立即收集，避免被后续攻击组抢占
@@ -563,7 +563,7 @@ export function resolveAfterDamageEffects(declarations, unit, target, group) {
     }
 
     // 4. 其他
-    for (const decl of declarations.filter(d => !['bonusDmg','leech','heal','splash','rebound','statChange','execute'].includes(d.type))) {
+    for (const decl of declarations.filter(d => ![EFFECT_TYPES.BONUS_DMG, EFFECT_TYPES.LEECH, EFFECT_TYPES.HEAL, EFFECT_TYPES.SPLASH, EFFECT_TYPES.REBOUND, EFFECT_TYPES.STAT_CHANGE, EFFECT_TYPES.EXECUTE].includes(d.type))) {
         executed.push(decl);
     }
 
@@ -687,12 +687,12 @@ export function resolveDodgeEffects(declarations, unit, target) {
     if (!declarations || declarations.length === 0) return;
 
     for (const decl of declarations) {
-        if (decl.type === 'rebound') {
+        if (decl.type === EFFECT_TYPES.REBOUND) {
             applyStatChange(unit, 'hp', -decl.value, target, '闪避反击');
-        } else if (decl.type === 'stun') {
+        } else if (decl.type === EFFECT_TYPES.STUN) {
             unit.state._stunned = true;
             emitEvent(unit, 'hp-change', { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: unit.atk, def: unit.def, _stunned: true });
-        } else if (decl.type === 'weiHeal') {
+        } else if (decl.type === EFFECT_TYPES.WEI_HEAL) {
             const { heal, newMaxHp } = decl.data;
             applyMaxHpChange(target, newMaxHp, null, '韦一笑吸血上限提升');
             target._baseMaxHp = Math.max(target._baseMaxHp, newMaxHp);
