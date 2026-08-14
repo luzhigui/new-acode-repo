@@ -24,7 +24,7 @@ function escapeHtml(text) {
         '../fx/42fx-position-swap.js', '../fx/43fx-push-back.js', '../fx/44fx-dodge-bullet.js',
         '../fx/45fx-butterfly-spider.js',
         '../modules/15elite-skills.js', '../modules/16error-capture.js', '../modules/17audio-manager.js',
-        '../modules/18global-store.js', '../modules/19battle-store.js',
+        '../modules/18global-store.js', '../modules/35battle-init.js', '../modules/19battle-store.js',
         '../modules/20elite-imperial.js', '../modules/21elite-sixsects.js', '../modules/22elite-mingjiao.js',
         '../content/64game-data.json',
         '../tests/55test-runner.html',
