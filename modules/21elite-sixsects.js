@@ -153,7 +153,7 @@ export function createZhouZhiruoComponent() {
             else { if (rng.next() > s.procChance) return 0; }
             let totalBonus = 0; let depth = 0;
             const healDeclarations = [];
-            while (target.alive && !target._pendingDeath && depth < 15) {
+            while (target.alive && !target._pendingDeath) {
                 if (depth > 0 && rng.next() > s.chainProcChance) break;
                 const lostHp = target.maxHp - target.hp;
                 const ratio = zhangAlive ? s.jealousLostHpRatio : s.lostHpRatio;

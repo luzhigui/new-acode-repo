@@ -41,7 +41,8 @@ function getBuffStats(unit) {
 
 function getDodgeBreakdown(unit, activeBuffs, allyTeam) {
     const sources = [];
-    let total = 0;
+    const rates = [];
+    let seenFlightBase = false;
 
     // 1. 基础闪避（从闪避规则注册表遍历）
     const _dodgeRules = [];
@@ -53,12 +54,20 @@ function getDodgeBreakdown(unit, activeBuffs, allyTeam) {
         const rate = ruleFn(unit, null) || 0;
         if (rate > 0) {
             let label = '';
-            if (unit.role === '飞行' && rate === 0.15) label = '飞行基础';
-            else if (unit.role !== '飞行' && rate === 0.03) label = '地面基础';
-            else if (unit.isWei) label = '残血幻影';
-            else label = '规则闪避';
+            if (unit.role === '飞行' && rate === 0.15 && !seenFlightBase) {
+                label = '飞行基础';
+                seenFlightBase = true;
+            } else if (unit.role === '飞行' && rate === 0.15 && seenFlightBase) {
+                label = '青翼蝠王';
+            } else if (unit.role !== '飞行' && rate === 0.03) {
+                label = '地面基础';
+            } else if (unit.isWei && rate !== 0.15) {
+                label = '残血幻影';
+            } else {
+                label = '规则闪避';
+            }
             sources.push({ label, value: Math.round(rate * 100) });
-            total += rate;
+            rates.push(rate);
         }
     }
 
@@ -66,10 +75,20 @@ function getDodgeBreakdown(unit, activeBuffs, allyTeam) {
     const buffStats = computeBuffStats(unit, activeBuffs || [], allyTeam || []);
     if (buffStats.dodgeBonus > 0) {
         sources.push({ label: '流云身法', value: Math.round(buffStats.dodgeBonus * 100) });
-        total += buffStats.dodgeBonus;
+        rates.push(buffStats.dodgeBonus);
     }
 
-    return { sources, total: Math.round(total * 100) };
+    // 3. 组合概率：各来源独立判定，P = 1 - ∏(1 - rate_i)
+    let combined = 0;
+    if (rates.length > 0) {
+        let product = 1;
+        for (const r of rates) {
+            product *= (1 - r);
+        }
+        combined = Math.round((1 - product) * 100);
+    }
+
+    return { sources, combined };
 }
 
 export function isUnitBenefitedByBuff(unit, buffKey, allyTeam, doubleStrikeUid, activeBuffs) {
@@ -228,7 +247,7 @@ function updateDetailPopupContent() {
             <span style="color:#888;">角色</span><span>${u.role} M${u.m}</span>
             <span style="color:#888;">站位</span><span>${!u.alive ? '已阵亡' : (u.pos || '?') + '号位'}</span>
             <span style="color:#888;">血量</span><span style="color:${hpColor};font-weight:bold;">${Math.floor(u.hp)} / ${Math.floor(u.maxHp)} (${hpPct}%)</span>
-            <span style="color:#888;">闪避</span><span>${(() => { const db = getDodgeBreakdown(u, activeBuffs, allyTeam); return db.total + '%' + (db.sources.length > 0 ? ' (' + db.sources.map(s => s.label + '+' + s.value + '%').join(' ') + ')' : ''); })()}</span>
+            <span style="color:#888;">闪避</span><span>${(() => { const db = getDodgeBreakdown(u, activeBuffs, allyTeam); return db.combined + '%' + (db.sources.length > 0 ? ' (' + db.sources.map(s => s.label + '+' + s.value + '%').join(' ') + ')' : ''); })()}</span>
             <span style="color:#888;">攻击</span><span>${renderAtkDetail(u, buffStats, ctx)}</span>
             <span style="color:#888;">防御</span><span>${renderDefDetail(u, buffStats)}</span>
             <span style="color:#888;">造成伤害</span><span>${u.dmgDealt || 0}</span>

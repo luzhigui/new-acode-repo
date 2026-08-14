@@ -192,6 +192,11 @@ export function createWeiYixiaoComponent() {
                 const s = getSkillParams('韦一笑', 'bloodDodge') || { maxRatio: 70 };
                 return lostPct * (s.maxRatio / 100);
             });
+            // 韦一笑-双重飞行闪避：第二重飞行基础闪避独立判定
+            registerDodgeRule((unit, attacker) => {
+                if (!unit.isWei || !unit.alive) return 0;
+                return CONFIG.BASE_DODGE_FLY || 0.15;
+            });
         }
     };
 }

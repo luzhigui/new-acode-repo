@@ -266,20 +266,24 @@ export async function* createRoundStepper(state) {
         u._fortifyThisRound = 0;
     });
 
-    // 初始化所有单位的闪避率，供面板实时显示
+    // 初始化所有单位的闪避率，供面板实时显示（各来源独立判定，组合概率）
     const dodgeUnits = [...A, ...B];
     for (const u of dodgeUnits) {
         if (!u.alive) continue;
-        let totalDodge = 0;
+        const rates = [];
         const dodgeRules = window._dodgeRules || [];
         for (const ruleFn of dodgeRules) {
-            totalDodge += ruleFn(u, null) || 0;
+            const r = ruleFn(u, null) || 0;
+            if (r > 0) rates.push(r);
         }
         const allyTeam = u.camp === 'ally' ? A : B;
         const activeBuffs = u.camp === 'ally' ? A._activeBuffs : B._activeBuffs;
         const buffStats = computeBuffStats(u, activeBuffs, allyTeam);
-        totalDodge += buffStats.dodgeBonus || 0;
-        u._dodgeChance = Math.round(totalDodge * 100);
+        if (buffStats.dodgeBonus > 0) rates.push(buffStats.dodgeBonus);
+        // 组合概率：P = 1 - ∏(1 - rate_i)
+        let product = 1;
+        for (const r of rates) { product *= (1 - r); }
+        u._dodgeChance = Math.round((1 - product) * 100);
     }
 
     logBuffSummary(A, log, doubleStrikeUnitUid);
