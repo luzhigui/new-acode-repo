@@ -68,7 +68,7 @@
           "desc": "攻击扣除周芷若{hpDeduct}血，叠快乐层（{healLevels}）",
           "params": {
             "hpDeduct": 1,
-            "healLevels": [16, 10, 6, 3]
+            "healLevels": [0.16, 0.10, 0.06, 0.03]
           }
         },
         "xingFen": {
@@ -96,7 +96,7 @@
         "phantomDisguise": {
           "name": "幻影伪装",
           "desc": "攻击后模仿对方单位；被模仿者攻击时{baseChance}%概率混乱，每损失10%生命+{per10pctLost}%",
-          "params": { "baseChance": 30, "per10pctLost": 6 }
+          "params": { "baseChance": 0.30, "per10pctLost": 0.06 }
         }
       },
       "taunts": {
@@ -111,7 +111,7 @@
         "xuanmingPalm": {
           "name": "玄冥神掌",
           "desc": "中毒每回合损失生命（{dotPercents}），持续{duration}回合",
-          "params": { "dotPercents": [4, 2, 1], "duration": 3 }
+          "params": { "dotPercents": [0.04, 0.02, 0.01], "duration": 3 }
         }
       },
       "taunts": {
