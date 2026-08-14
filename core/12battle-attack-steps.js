@@ -187,12 +187,16 @@ export function resolveAttackHit(unit, target, attackerBuffStats, defenderBuffSt
                 dodgeTriggered = true;
             }
         }
-        // 将最终总闪避率写入单位，供面板显示（含所有规则 + Buff）
-        let totalDodge = (defenderBuffStats.dodgeBonus || 0);
+        // 将最终组合闪避率写入单位，供面板显示（含Buff）
+        const rates = [];
         for (const ruleFn of _dodgeRules) {
-            totalDodge += ruleFn(target, unit) || 0;
+            const r = ruleFn(target, unit) || 0;
+            if (r > 0) rates.push(r);
         }
-        target._dodgeChance = Math.round(totalDodge * 100);
+        if ((defenderBuffStats.dodgeBonus || 0) > 0) rates.push(defenderBuffStats.dodgeBonus);
+        let product = 1;
+        for (const r of rates) { product *= (1 - r); }
+        target._dodgeChance = Math.round((1 - product) * 100);
         if (dodgeTriggered) {
             target.dodgeCount++;
             let reboundDmg = Math.floor((target.atk + target.def) * C.DODGE_REBOUND_RATIO);
