@@ -2,10 +2,11 @@
 // V5.5.0 | ~25700 bytes| 2026-08-14 移除回放导入区块
 export const VER = 'ui/38ui-controls.js V5.5.0';
 
-import { getState, setState, gs } from './33main-state.js';
+import { getState, setState } from './33main-state.js';
 import { updateUI, renderGrid, setRenderStore } from './32ui-render-5v5-test.js';
 import { clearAllEffects } from '../player/26player-core.js';
 import { GlobalStore } from '../modules/18global-store.js';
+import { resetBattleRuntime } from './68reset-runtime.js';
 
 // ==================== 倍速系统 ====================
 let manualSpeedLock = false;
@@ -180,6 +181,7 @@ function updateAutoModeButton() {
 
 // ==================== 更新按钮状态 ====================
 function updateButtons() {
+    const gs = getState.gs();
     const S = { IDLE: 'IDLE', RUNNING: 'RUNNING', PAUSED: 'PAUSED', GAMEOVER: 'GAMEOVER' };
     const currentStage = getState.currentStage();
     updateAutoModeButton();
@@ -252,20 +254,7 @@ export function bindNextButton(setState, updateButtons, enableAllButtons, update
     document.getElementById('btnNext').addEventListener('click', function () {
         if (typeof window.onAnyButtonClick === 'function') window.onAnyButtonClick();
         if (getState.gs() === 'GAMEOVER') {
-            clearAllEffects();
-            GlobalStore.set('fastForwardActive', false);
-            GlobalStore.set('battleStore', null);
-            setRenderStore(null);
-            const reportOverlay = document.getElementById('battleReportOverlay');
-            if (reportOverlay) reportOverlay.remove();
-            const reportFloat = document.getElementById('battleReportFloat');
-            if (reportFloat) reportFloat.remove();
-            const voteFloat = document.getElementById('voteFloat');
-            if (voteFloat) voteFloat.style.display = 'none';
-            const buffFloat = document.getElementById('buffFloatBtn');
-            if (buffFloat) buffFloat.remove();
-            document.querySelectorAll('.danmaku-bubble').forEach(el => el.remove());
-            setState.activeBuffs([]);
+            resetBattleRuntime();
             setState.adjustMode(true);
             setState.selectedAdjustPos(null);
             const snap = getState.snapshot();
@@ -277,16 +266,6 @@ export function bindNextButton(setState, updateButtons, enableAllButtons, update
             }
             setState.snapshot(snap);
             setState.gs('IDLE');
-    [A, B].forEach(team => {
-        for (let i = team.length - 1; i >= 0; i--) {
-            const u = team[i];
-            u.state._resting = false;
-            if (u._restingTimer) { clearTimeout(u._restingTimer); u._restingTimer = null; }
-            // 死马不再删除，保留在数组中供战报统计承伤
-        }
-    });
-            if (typeof window._resetIsBattleStarting === 'function') window._resetIsBattleStarting();
-            restoreSpeedFromScroll();
             updateButtons();
             if (typeof enableAllButtons === 'function') enableAllButtons();
             if (typeof updateSpeedButtons === 'function') updateSpeedButtons();
@@ -352,30 +331,7 @@ export function bindSettleButton(currentStageGetter, isBattleStarting, getState,
         const gs = getState.gs();
         const S = { IDLE: 'IDLE', RUNNING: 'RUNNING', PAUSED: 'PAUSED', GAMEOVER: 'GAMEOVER' };
         if (gs === S.GAMEOVER) {
-            clearAllEffects();
-            GlobalStore.set('fastForwardActive', false);
-            GlobalStore.set('battleStore', null);
-            setRenderStore(null);
-            const reportOverlay = document.getElementById('battleReportOverlay');
-            if (reportOverlay) reportOverlay.remove();
-            const reportFloat = document.getElementById('battleReportFloat');
-            if (reportFloat) reportFloat.remove();
-            const voteFloat = document.getElementById('voteFloat');
-            if (voteFloat) voteFloat.style.display = 'none';
-            const buffFloat = document.getElementById('buffFloatBtn');
-            if (buffFloat) buffFloat.remove();
-            document.querySelectorAll('.danmaku-bubble').forEach(el => el.remove());
-            setState.gs(S.IDLE);
-    [A, B].forEach(team => {
-        for (let i = team.length - 1; i >= 0; i--) {
-            const u = team[i];
-            u.state._resting = false;
-            if (u._restingTimer) { clearTimeout(u._restingTimer); u._restingTimer = null; }
-            // 死马不再删除，保留在数组中供战报统计承伤
-        }
-    });
-            if (typeof window._resetIsBattleStarting === 'function') window._resetIsBattleStarting();
-            restoreSpeedFromScroll();
+            resetBattleRuntime();
             let currentUI = { allyTeam: [], enemyTeam: [], currentResult: null, round: 0, lastSnapshot: null };
             let snap = { ally: [], enemy: [] };
             const stage = typeof currentStageGetter === 'function' ? currentStageGetter() : currentStageGetter;

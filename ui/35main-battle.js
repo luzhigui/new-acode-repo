@@ -11,6 +11,7 @@ import { getBattleRng } from '../core/13battle-shared.js';
 import { GlobalStore } from '../modules/18global-store.js';
 import { initBattleTeams } from '../modules/35battle-init.js';
 import { generateBuffChoices, createBuffObject, tickBuffDurations, getActiveBuffList } from '../modules/18global-store.js';
+import { resetBattleRuntime } from './68reset-runtime.js';
 
 const C = CONFIG;
 
@@ -249,31 +250,20 @@ export function logTeamInfo(label, UI, gs, battleResultForInfo, activeBuffs, has
 }
 
 // ==================== 中止 ====================
-// 战斗-中止：重置所有战斗状态+清理视觉标记
+// 战斗-中止：重置所有战斗状态+清理视觉标记（统一收口至 resetBattleRuntime）
 export function abortAll(abortController, UI, waitingForNextRound, isBattleStarting, adjustMode, selectedAdjustPos, activeBuffs, selectedBuffIndex, currentDoubleStrikeUid, updateBuffSlotsFn) {
     if (abortController) { abortController.abort(); abortController = null; }
-    window._fastForwardActive = false;  // 重置快进标志，防止弹幕被跳过
-    UI.currentResult = null;
-    waitingForNextRound = false;
-    isBattleStarting = false;
-    adjustMode = false;
-    selectedAdjustPos = null;
-    activeBuffs = [];
-    selectedBuffIndex = -1;
-    currentDoubleStrikeUid = null;
-    // 清理所有单位的视觉标记，防止战斗重置后 UI 残留 _flash / _isDead 等状态
-    [UI.allyTeam, UI.enemyTeam].forEach(team => {
-        team.forEach(u => {
-            u._flash = null;
-            u.state._acted = false;
-            u.state._resting = false;
-            u.state._blocked = false;
-            u.state._isDead = false;
-            u.alive = true;
-            u.hp = u.maxHp;
-            u.state._stunned = false;
-        });
-    });
+    if (UI) UI.currentResult = null;
+    resetBattleRuntime();
     updateBuffSlotsFn();
-    return { abortController, waitingForNextRound, isBattleStarting, adjustMode, selectedAdjustPos, activeBuffs, selectedBuffIndex, currentDoubleStrikeUid };
+    return {
+        abortController: null,
+        waitingForNextRound: false,
+        isBattleStarting: false,
+        adjustMode: false,
+        selectedAdjustPos: null,
+        activeBuffs: [],
+        selectedBuffIndex: -1,
+        currentDoubleStrikeUid: null
+    };
 }

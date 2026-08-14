@@ -38,6 +38,19 @@ def port_busy(port):
         return s.connect_ex(('127.0.0.1', port)) == 0
 
 
+def render_progress(pr):
+    """生成单行进度条文本"""
+    stage = pr.get('stage', 0)
+    target = pr.get('target', STAGES)
+    elapsed = pr.get('elapsed', 0)
+    issues = pr.get('issues', '?')
+    pct = min(100, int(elapsed / max(BUDGET, 1) * 100))
+    bar_len = 20
+    filled = int(bar_len * pct / 100)
+    bar = '█' * filled + '░' * (bar_len - filled)
+    return f'[体检中] 第{stage}关/共{target}关 | 耗时{elapsed}s | 异常{issues} | {bar} {pct}%'
+
+
 def main():
     server = None
     if not port_busy(PORT):
@@ -64,7 +77,7 @@ def main():
 
         deadline = time.time() + BUDGET + 20
         result = None
-        last_progress = None
+        last_render = ''
         while time.time() < deadline:
             try:
                 r = page.evaluate("() => window.__healthResult ? window.__healthResult : null")
@@ -72,19 +85,36 @@ def main():
                     result = r
                     break
                 pr = page.evaluate("() => window.__healthProgress ? window.__healthProgress : null")
-                if pr and pr != last_progress:
-                    last_progress = pr
-                    print(f"[进度] 关{pr.get('stage')}/{pr.get('target')} | {pr.get('elapsed')}s | 异常{pr.get('issues', '?')}项 | {pr.get('flag')}", flush=True)
+                if pr:
+                    line = render_progress(pr)
+                    # 单行原地刷新：内容变化才重绘，绝不逐行刷屏
+                    if line != last_render:
+                        print('\r' + line, end='', flush=True)
+                        last_render = line
             except Exception:
                 pass
             page.wait_for_timeout(2000)
 
+        print()  # 结束进度条，换到新行
+        print('══════════ 体检报告 ══════════', flush=True)
         if result:
-            print('===== [AUTO-HEALTH-DONE] =====', flush=True)
-            print(json.dumps(result, ensure_ascii=False, indent=2), flush=True)
-            print('===== [AUTO-HEALTH-END] =====', flush=True)
+            issues = result.get('issues', [])
+            issue_count = result.get('issueCount', 0)
+            if issue_count == 0:
+                print('✅ 全部通过，未发现异常', flush=True)
+            else:
+                print(f'❌ 发现 {issue_count} 项异常：', flush=True)
+                for i, it in enumerate(issues, 1):
+                    print(f'   {i}. [第{it.get("stage", "?")}关 · {it.get("type", "?")}] {it.get("detail", "")}（来源:{it.get("source", "?")}）', flush=True)
+            print(f'⏱ 用时 {result.get("elapsed", 0)} 秒，最远打到 第{result.get("maxStageSeen", 0)}关 / 目标第{STAGES}关', flush=True)
+            print(f'📊 规则检查：{result.get("rulePass", 0)} 条通过 · {result.get("ruleSkip", 0)} 条未触发跳过', flush=True)
+            if result.get('reason') == 'timeout':
+                print('📌 说明：时间预算到点自动停止，想打完目标关请加大预算秒数', flush=True)
+            print('════════════════════════════', flush=True)
+            print('[完整数据·开发者用]', json.dumps(result, ensure_ascii=False), flush=True)
         else:
-            print(f'[超时] 预算 {BUDGET}s 内未生成 __healthResult（可能卡在战斗中）', flush=True)
+            print('❌ 失败：预算内未生成体检结果（可能卡在战斗中）', flush=True)
+            print('════════════════════════════', flush=True)
         browser.close()
 
     if server:

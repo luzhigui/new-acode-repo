@@ -4,15 +4,11 @@ export const VER = 'modules/20elite-imperial.js V5.4.0';
 
 import { registerElite } from '../core/08-elite-registry.js';
 import { CONFIG, getSkillParams } from '../core/01config-5v5-test.js';
-import { getBattleRng } from '../core/13battle-shared.js';
+import { getBattleRng, emitEvent } from '../core/13battle-shared.js';
 import { tickXuanmingPoison } from './15elite-skills.js';
 import { processUnitAttack } from '../core/10battle-attack.js';
 import { EXECUTION_LAYER as L } from '../core/00-event-bus.js';
 const ES = CONFIG.ELITE_SKILLS;
-
-function emitEvent(unit, eventType, payload) {
-    if (typeof window._emitEvent === 'function') window._emitEvent(unit, eventType, payload);
-}
 
 // ==================== 成昆 ====================
 export function createChengKunComponent() {
