@@ -188,7 +188,7 @@ document.addEventListener('DOMContentLoaded', async function() {
 
         // 全自动/手动共用战斗启动流程
         const startBattle = async (choice) => {
-            clearLogExceptFirst(); hasLoggedTeam=false; fadeBGMTo(0.1,2000); logTeamInfo('初始阵容', getState.UI(), gs, battleResultForInfo, getState.activeBuffs(), hasLoggedTeam); hasLoggedTeam = true;
+            clearLogExceptFirst(); hasLoggedTeam=false; fadeBGMTo(0.1,2000); logTeamInfo('初始阵容', getState.UI(), getState.gs(), battleResultForInfo, getState.activeBuffs(), hasLoggedTeam); hasLoggedTeam = true;
             await showCountdown(TRASH_TALK_ALLY, TRASH_TALK_ENEMY, _randLocal, showDanmaku, autoScrollLog);
             let logDiv=document.getElementById('log'); logDiv.innerHTML+='<div class="separator">⚔️ 5v5对决开始 ⚔️</div>';
             autoScrollLog();
@@ -272,7 +272,7 @@ document.addEventListener('DOMContentLoaded', async function() {
                 abortController=null;
             }
             updateButtons();
-            if (getState.autoLevel() === 'full-auto' && gs === 'GAMEOVER') {
+            if (getState.autoLevel() === 'full-auto' && getState.gs() === 'GAMEOVER') {
                 setTimeout(() => {
                     if (currentStage < 6) document.getElementById('btnMain').click();
                 }, 3500);
@@ -385,7 +385,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     window.selectStage = (stage)=>{ if(stage===currentStage)return; forceStopGame(); switchToStageInternal(stage); };
     window.forceStopGame = forceStopGame;
     window.doManualReset = doManualReset;
-    window.getGameState = ()=>({ gs, currentStage, isPaused: getState.isPaused(), isBattleStarting, allyCount: getState.UI().allyTeam.length, enemyCount: getState.UI().enemyTeam.length });
+    window.getGameState = ()=>({ gs: getState.gs(), currentStage, isPaused: getState.isPaused(), isBattleStarting, allyCount: getState.UI().allyTeam.length, enemyCount: getState.UI().enemyTeam.length });
     window._activateScrollSlowdown = activateScrollSlowdown;
     window._restoreSpeedFromScroll = restoreSpeedFromScroll;
     // 38ui-controls.js 的 GAMEOVER 分支（原班再战/随机重开）需要重置局部变量

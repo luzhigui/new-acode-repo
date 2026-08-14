@@ -2,7 +2,7 @@
 // V5.5.0 | ~30900 bytes| 2026-08-14 移除回放系统（modules/23replay.js）
 export const VER = 'player/26player-core.js V5.5.0';
 
-import { showBuffBanner } from '../fx/39fx-common-5v5-test.js';
+import { showBuffBanner } from '../fx/69fx-manager.js';
 import { CONFIG } from '../core/01config-5v5-test.js';
 import { AudioManager } from '../modules/17audio-manager.js';
 import { handleBuffSummon, handleBuffDestroy, handleBuffLeech, showBuffPopup, handleHolyTokenDrop } from './25player-buff-ui.js';
