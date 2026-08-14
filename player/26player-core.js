@@ -9,37 +9,14 @@ import { handleBuffSummon, handleBuffDestroy, handleBuffLeech, showBuffPopup, ha
 import { createRoundStepper } from '../core/11battle-round.js';
 import { SeededRNG } from '../core/07-rng.js';
 import { getBattleRng } from '../core/13battle-shared.js';
-import { getState, getPlayerContext } from '../ui/33main-state.js';
-import { GlobalStore } from '../modules/18global-store.js';
+import { GlobalStore, getState } from '../modules/18global-store.js';
+import { getPlayerContext } from '../ui/33main-state.js';
 import { setRenderStore, updateUI } from '../ui/32ui-render-5v5-test.js';
 import { createStore, battleReducer, GAME_STATE_FIELDS } from '../modules/19battle-store.js';
 import { handleBuffBonus, handleBuffSwap, handleBuffPush, handleBuffReboundFortify, handleAttackGroup, handleInfo, handleRoundStart, handleRoundEnd, shouldStartNewGroup } from './28event-handlers.js';
 import { getLogDiv, appendLogHTML, appendLogElement, autoScrollLog, updateRoundDisplay, renderSeparator, renderRoundStart, renderRoundEnd, renderInfoLine, renderVictoryLine, setBtnDisabled, setBtnText, initRenderer, initLogScrollControls, showScoreFloat } from './29renderer.js';
 
-class AnimationScheduler {
-    constructor() {
-        this.tasks = [];
-        this.now = 0;
-        this.speed = 1;
-        this.paused = false;
-    }
-    schedule(type, delay, callback) {
-        this.tasks.push({ type, startTime: this.now + delay, callback });
-        this.tasks.sort((a, b) => a.startTime - b.startTime);
-    }
-    clear(type) { this.tasks = this.tasks.filter(t => t.type !== type); }
-    tick(deltaMs) {
-        if (this.paused) return;
-        this.now += deltaMs * this.speed;
-        while (this.tasks.length > 0 && this.tasks[0].startTime <= this.now) {
-            const task = this.tasks.shift();
-            try { task.callback(); } catch(e) {}
-        }
-    }
-    pause() { this.paused = true; }
-    resume() { this.paused = false; }
-    setSpeed(s) { this.speed = s; }
-}
+import { AnimationScheduler } from './26-animation-scheduler.js';
 
 function getCtx() {
     return getPlayerContext();

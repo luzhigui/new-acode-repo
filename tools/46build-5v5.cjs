@@ -37,6 +37,7 @@ const MODULES = [
     'player/29renderer.js',
     'player/28event-handlers.js',
     'modules/19battle-store.js',
+    'player/26-animation-scheduler.js',
     'player/26player-core.js',
     'player/27battle-player-5v5-test.js',
     // --- UI 层 ---
@@ -74,6 +75,7 @@ const VER_GLOBAL_MAP = {
     '24player-text.js':               'VER_TEXT',
     '25player-buff-ui.js':            'VER_BUFF_UI',
     '26player-core.js':               'VER_PLAYER_CORE',
+    '26-animation-scheduler.js':      'VER_ANIM_SCHEDULER',
     '27battle-player-5v5-test.js':    'VER_PLAYER',
     '30main-utils.js':                'VER_MAIN_UTILS',
     '32ui-render-5v5-test.js':        'VER_UI',

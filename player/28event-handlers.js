@@ -10,7 +10,7 @@ import { playLineText } from './24player-text.js';
 import { animatePositionSwap } from '../fx/42fx-position-swap.js';
 import { animatePushBack, animatePushSwap } from '../fx/43fx-push-back.js';
 import { AudioManager } from '../modules/17audio-manager.js';
-import { getState } from '../ui/33main-state.js';
+import { getState } from '../modules/18global-store.js';
 import { appendLogHTML, appendLogElement, autoScrollLog, updateRoundDisplay, renderSeparator } from './29renderer.js';
 
 const safeShowDanmaku = (...args) => { try { return showDanmaku(...args); } catch(e) {} };
