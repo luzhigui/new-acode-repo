@@ -13,8 +13,6 @@ import { flushBattleEvents, pushBattleEvent, getBattleState, setBattleState } fr
 // 裁判统一管理所有闪避规则。每个规则是一个函数 (unit, attacker) => dodgeRate (0~1)
 // 通用规则在模块加载时注册，精英规则通过事件总线在回合开始注册
 const _dodgeRules = [];
-// 暴露给UI面板实时计算闪避率
-window._dodgeRules = _dodgeRules;
 
 /**
  * 注册闪避规则（通用或精英均可调用）
@@ -29,6 +27,13 @@ export function registerDodgeRule(fn) {
  */
 export function clearEliteDodgeRules() {
     _dodgeRules.length = 2; // 保留前两条通用规则
+}
+
+/**
+ * 获取当前所有闪避规则（供UI面板实时计算闪避率）
+ */
+export function getDodgeRules() {
+    return _dodgeRules;
 }
 
 // 通用规则：飞行单位基础闪避15%

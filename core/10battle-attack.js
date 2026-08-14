@@ -19,7 +19,7 @@ import {
 import { eventBus } from './00-event-bus.js';
 import { flushBattleEvents } from './09-battle-event-store.js';
 
-import { emitEvent } from './13battle-shared.js';
+import { emitEvent, applyStatChange } from './13battle-shared.js';
 
 const C = CONFIG, DT = DEF_TAUNT, HT = HP_TAUNT;
 

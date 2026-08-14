@@ -79,4 +79,4 @@ export function _triggerFX(fxSnapshot, unitA, unitD, isDead, isDodge, isMiss, is
     }
 }
 
-Object.defineProperty(window, '_triggerFX', { value: _triggerFX, writable: true, configurable: true });
+// window._triggerFX 已移除，改由 player 直接 import _triggerFX

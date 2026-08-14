@@ -86,8 +86,6 @@ function checkZhangSwitch(A, log) {
 function emitCoreEvent(unit, eventType, payload) {
     pushBattleEvent({ unitUid: unit.uid, eventType, payload });
 }
-// 挂载到 window 以兼容非 core 层代码的调用
-window._emitEvent = emitCoreEvent;
 
 /**
  * 状态变更裁定边裁 — 统一入口

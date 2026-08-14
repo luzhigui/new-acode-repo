@@ -7,7 +7,7 @@ import { isMelee, isBlocked, makeFXSnapshot, hasBuff, getUnitCol, getUnitRow, ha
 import { computeBuffStats, logBuffSummary, applyHolyFlameBonus, applyFortifyBonus, applyCarryBonus, registerBloodthirst, registerHotBlood, registerWindAssault, registerMeteorShower, registerMindControl } from './04buff-system.js';
 import { spawnHorse, destroyHorse } from './05battle-horse.js';
 import { Unit } from './02unit.js';
-import { clearEliteDodgeRules } from './12battle-attack-steps.js';
+import { clearEliteDodgeRules, getDodgeRules } from './12battle-attack-steps.js';
 
 import { getEliteFactories } from './08-elite-registry.js';
 import { processUnitAttack } from './10battle-attack.js';
@@ -271,7 +271,7 @@ export async function* createRoundStepper(state) {
     for (const u of dodgeUnits) {
         if (!u.alive) continue;
         const rates = [];
-        const dodgeRules = window._dodgeRules || [];
+        const dodgeRules = getDodgeRules();
         for (const ruleFn of dodgeRules) {
             const r = ruleFn(u, null) || 0;
             if (r > 0) rates.push(r);

@@ -15,7 +15,8 @@ import { playBattle, playLineText, clearAllEffects, handleBuffSummon, handleBuff
 import { showModal, showAlert, updateCoverVersion, copyLogToClipboard, initBugAndXiaoZhaoModes } from './30main-utils.js';
 
 // 拆分模块
-import { getPlayerContext, getState, setState, gs } from '../ui/33main-state.js';
+import { getPlayerContext, getState, setState } from '../ui/33main-state.js';
+import { resetBattleRuntime } from './68reset-runtime.js';
 import { showBattleReport, showMusicPanel, showVoteDialog, showCountdown } from './34main-dialogs.js';
 import {
     doInitBattle, generateBuffChoices, createBuffObject, showBuffSelection,
@@ -279,20 +280,8 @@ document.addEventListener('DOMContentLoaded', async function() {
         };
 
         // ==================== GAMEOVER：下一关 / 重新开始 ====================
-        if(gs===S.GAMEOVER){
-            // 清理旧战斗的 UI 残留
-            const reportOverlay = document.getElementById('battleReportOverlay');
-            if (reportOverlay) reportOverlay.remove();
-            const reportFloat = document.getElementById('battleReportFloat');
-            if (reportFloat) reportFloat.remove();
-            const voteFloat = document.getElementById('voteFloat');
-            if (voteFloat) voteFloat.style.display = 'none';
-            const buffFloat = document.getElementById('buffFloatBtn');
-            if (buffFloat) buffFloat.remove();
-            document.querySelectorAll('.danmaku-bubble').forEach(el => el.remove());
-            GlobalStore.set('fastForwardActive', false);
-            GlobalStore.set('battleStore', null);
-            setRenderStore(null);
+        if(getState.gs()===S.GAMEOVER){
+            resetBattleRuntime();
             clearLogExceptFirst(); clearAllEffects(); hasLoggedTeam=false;
 
             // 关卡推进
@@ -333,7 +322,7 @@ document.addEventListener('DOMContentLoaded', async function() {
             return;
         }
 
-        if(gs===S.IDLE&&!isBattleStarting){
+        if(getState.gs()===S.IDLE&&!isBattleStarting){
             if(!getState.adjustMode()){
                 if(getState.autoLevel() === 'full-auto') {
                     // 全自动：跳过调整，直接进入战斗
@@ -379,16 +368,7 @@ document.addEventListener('DOMContentLoaded', async function() {
         let result = abortAll(abortController, currentUI, getState.waitingForNextRound(), isBattleStarting, getState.adjustMode(), getState.selectedAdjustPos(), getState.activeBuffs(), -1, currentDoubleStrikeUid, () => updateBuffSlots(getState.activeBuffs()));
         abortController = result.abortController; setState.waitingForNextRound(result.waitingForNextRound); isBattleStarting = result.isBattleStarting; setState.adjustMode(result.adjustMode); setState.selectedAdjustPos(result.selectedAdjustPos); setState.activeBuffs(result.activeBuffs); currentDoubleStrikeUid = result.currentDoubleStrikeUid;
         setState.gs(S.IDLE);setState.isPaused(false);setState.waitingForNextRound(false);isBattleStarting=false;
-        // 清除旧的 Store 引用，防止 renderGrid 访问无效 Store
-        GlobalStore.set('battleStore', null);
-        setRenderStore(null);
         try { updateUI(); } catch(e){}
-        // 清理可能残留的战报弹窗和浮动按钮
-        const reportOverlay = document.getElementById('battleReportOverlay');
-        if (reportOverlay) reportOverlay.remove();
-        const reportFloat = document.getElementById('battleReportFloat');
-        if (reportFloat) reportFloat.remove();
-        if (typeof restoreSpeedFromScroll === 'function') restoreSpeedFromScroll();
         updateButtons();enableAllButtons();updateSpeedButtons();updateSpeedButtons();
     }
 

@@ -6,6 +6,7 @@ import { CONFIG, getSkillDesc } from '../core/01config-5v5-test.js';
 import { computeBuffStats } from '../core/04buff-system.js';
 import { getUnitCol, getUnitRow, getAuraBonuses } from '../core/03battle-utils.js';
 import { showDanmaku as _showDanmaku } from '../fx/39fx-common-5v5-test.js';
+import { getDodgeRules } from '../core/12battle-attack-steps.js';
 const showDanmaku = (...args) => { if (typeof _showDanmaku === 'function') return _showDanmaku(...args); };
 
 export function stripTags(html) { let div = document.createElement('div'); div.innerHTML = html; return div.textContent || ''; }
@@ -45,11 +46,7 @@ function getDodgeBreakdown(unit, activeBuffs, allyTeam) {
     let seenFlightBase = false;
 
     // 1. 基础闪避（从闪避规则注册表遍历）
-    const _dodgeRules = [];
-    try {
-        const mod = window._dodgeRules || [];
-        _dodgeRules.push(...mod);
-    } catch (e) {}
+    const _dodgeRules = getDodgeRules();
     for (const ruleFn of _dodgeRules) {
         const rate = ruleFn(unit, null) || 0;
         if (rate > 0) {

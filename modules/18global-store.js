@@ -149,7 +149,6 @@ export const getState = {
 
 export const setState = {
     gs: (v) => {
-        if (typeof window !== 'undefined' && window._syncGs) window._syncGs(v);
         GlobalStore.set('gs', v);
     },
     autoMode: (v) => GlobalStore.set('autoMode', v),

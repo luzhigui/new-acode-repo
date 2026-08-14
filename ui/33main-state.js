@@ -15,7 +15,6 @@ const S = STATE;
 // ==================== 模块级变量降级为 GlobalStore 的初始化入口 ====================
 // 这些 export let 仅为向后兼容（外部可能存在直接引用），实际读写已全部走 GlobalStore
 
-export let gs = S.IDLE;
 export let autoMode = true;
 export let autoLevel = 'auto';
 export let debugMode = false;
@@ -67,8 +66,7 @@ GlobalStore.set('activeBuffs', []);
 GlobalStore.set('snapshot', { ally: [], enemy: [] });
 GlobalStore.set('UI', { allyTeam: [], enemyTeam: [], currentResult: null, round: 0, lastSnapshot: null });
 
-// 外部（如 26player-core.js）直接写 GlobalStore 后，调用此函数同步模块级 gs 变量
-window._syncGs = function(v) { gs = v; };
+// gs 已统一由 GlobalStore 管理，不再需要模块级变量和同步函数
 
 // ==================== 状态读写 — 实现已移至 modules/18global-store.js ====================
 export { getState, setState } from '../modules/18global-store.js';

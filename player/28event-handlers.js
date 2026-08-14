@@ -3,6 +3,7 @@
 export const VER = 'player/28event-handlers.js V5.4.0';
 
 import { isBlocked } from '../core/03battle-utils.js';
+import { _triggerFX } from '../ui/37fx-trigger.js';
 import { showDanmaku, showDamageFloat, showDodgeBubble, showHealFloat, showAtkBuffFloat, applyBrushEffect, showBuffBanner, showCriticalBanner, showHeartEffect, showPinkFlash, showKuLianEffect, showWindClaw } from '../fx/39fx-common-5v5-test.js';
 import { showDodgeBulletTime } from '../fx/44fx-dodge-bullet.js';
 import { showRangedArrow, showSplashArrows, showBoneClaw } from '../fx/40fx-arrows-5v5-test.js';
@@ -149,11 +150,9 @@ export async function handleAttackGroup(c, entry, roundResult, abortSig, isFirst
             await new Promise(r => setTimeout(r, 1200));
         }
         c.store.dispatch({ type: 'SET_FLASH', uid: unitA.uid, flash: flashType });
-        if (typeof window._triggerFX === 'function') {
-            setTimeout(() => {
-                window._triggerFX(entry._fxSnapshot,unitA,unitD,entry.isDead,entry.isDodge,entry.isMiss,entry.isBlock,entry._dmg,entry.waveTaunt,entry.waveUnit,entry.unitRole);
-            }, 0);
-        }
+        setTimeout(() => {
+            _triggerFX(entry._fxSnapshot,unitA,unitD,entry.isDead,entry.isDodge,entry.isMiss,entry.isBlock,entry._dmg,entry.waveTaunt,entry.waveUnit,entry.unitRole);
+        }, 0);
         if (unitD && unitD.role === '防战') {
             let defBuffs = (unitD.camp === 'ally' ? c.UI.allyTeam : c.UI.enemyTeam);
             defBuffs = defBuffs ? (defBuffs._activeBuffs || []) : [];
