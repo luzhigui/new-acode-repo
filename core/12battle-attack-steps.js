@@ -63,9 +63,9 @@ export function selectAttackTarget(unit, enemySide, allySide) {
     let phantomLog = null;
 
     if (declaration.targetResult) {
-        // 组件直接指定目标 → 校验合法性
+        // 组件直接指定目标 → 校验合法性（存活、非不可选中；不限制敌方/友方，支持混乱等跨阵营攻击）
         const declared = declaration.targetResult;
-        if (declared && validTargets.includes(declared)) {
+        if (declared && declared.alive && !declared._untargetable) {
             target = declared;
             phantomLog = declaration.phantomLog || null;
         }
