@@ -192,6 +192,40 @@ export function createBuffObject(key, duration) {
     return buff;
 }
 
+// ==================== Buff 选择 — 供 player/ 和 ui/ 共用 ====================
+// Buff-选择：生成可选Buff列表（过滤已激活+角色需求）
+export function generateBuffChoices(activeBuffs, allyTeam = [], rng = null) {
+    const activeBuffKeys = activeBuffs.map(b => b.key);
+    const allKeys = Object.keys(CONFIG.BUFFS);
+    const available = allKeys.filter(k => {
+        if (activeBuffKeys.includes(k)) return false;
+        if (k === 'fortify' && !activeBuffs.some(b => b.remaining > 0)) return false;
+        const requiredRole = CONFIG.BUFF_ROLE_REQUIREMENTS[k];
+        if (requiredRole && !allyTeam.some(u => u.alive && u.role === requiredRole)) return false;
+        return true;
+    });
+    const shuffled = [...available];
+    const r = rng || getBattleRng();
+    for (let i = shuffled.length - 1; i > 0; i--) {
+        const j = r.nextInt(0, i);
+        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+    return shuffled.slice(0, CONFIG.BUFF_CHOICES);
+}
+
+// Buff-计时：回合结束后递减Buff持续时间
+export function tickBuffDurations(activeBuffs, selectedBuffIndex, updateBuffSlotsFn) {
+    activeBuffs = activeBuffs.map(b => ({...b, remaining: b.remaining - 1})).filter(b => b.remaining > 0);
+    if (selectedBuffIndex >= activeBuffs.length) selectedBuffIndex = -1;
+    updateBuffSlotsFn();
+    return { activeBuffs, selectedBuffIndex };
+}
+
+// Buff-列表：格式化当前激活Buff摘要
+export function getActiveBuffList(activeBuffs) {
+    return activeBuffs.map(b => b.name + '(' + b.remaining + '回)').join('、') || '无';
+}
+
 // ==================== 玩家上下文工具函数（仅依赖 GlobalStore 和 DOM） ====================
 // 等待-暂停恢复：当 isPaused 为 true 时轮询等待
 function waitWhilePaused() {

@@ -42,7 +42,7 @@ function escapeHtml(text) {
         '../fx/45fx-butterfly-spider.js',
         // modules（通用系统 + 精英角色组件）
         '../modules/15elite-skills.js', '../modules/16error-capture.js', '../modules/17audio-manager.js',
-        '../modules/18global-store.js', '../modules/19battle-store.js',
+        '../modules/18global-store.js', '../modules/35battle-init.js', '../modules/19battle-store.js',
         '../modules/20elite-imperial.js', '../modules/21elite-sixsects.js', '../modules/22elite-mingjiao.js',
         // content（游戏内容数据）
         '../content/64game-data.json',
