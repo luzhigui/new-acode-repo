@@ -228,7 +228,7 @@ function updateDetailPopupContent() {
             <span style="color:#888;">角色</span><span>${u.role} M${u.m}</span>
             <span style="color:#888;">站位</span><span>${!u.alive ? '已阵亡' : (u.pos || '?') + '号位'}</span>
             <span style="color:#888;">血量</span><span style="color:${hpColor};font-weight:bold;">${Math.floor(u.hp)} / ${Math.floor(u.maxHp)} (${hpPct}%)</span>
-            <span style="color:#888;">闪避</span><span>${u._dodgeChance !== undefined ? u._dodgeChance + '%' : '0%'}</span>
+            <span style="color:#888;">闪避</span><span>${(() => { const db = getDodgeBreakdown(u, activeBuffs, allyTeam); return db.total + '%' + (db.sources.length > 0 ? ' (' + db.sources.map(s => s.label + '+' + s.value + '%').join(' ') + ')' : ''); })()}</span>
             <span style="color:#888;">攻击</span><span>${renderAtkDetail(u, buffStats, ctx)}</span>
             <span style="color:#888;">防御</span><span>${renderDefDetail(u, buffStats)}</span>
             <span style="color:#888;">造成伤害</span><span>${u.dmgDealt || 0}</span>
