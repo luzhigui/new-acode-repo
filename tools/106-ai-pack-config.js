@@ -75,7 +75,8 @@ export const ALL_PROJECT_FILES = [
     '../tests/121health-monitor.js', '../tests/122health-utils.js',
     // tools（开发工具箱）
     '../tools/102-toolkit.html', '../tools/103-toolkit.js', '../tools/104-toolkit-more.js',
-    '../tools/105-shop.html',
+    '../tools/105-shop.html', '../tools/106-ai-pack-config.js',
+    '../tools/107-battle-log-viewer.html', '../tools/108-hex-dashboard.html',
     // 移除了：52-version-calibrator / 53-dead-code-scanner / 54-filelist-checker（这些工作直接问 AI 更高效）
     '../tools/101auto-battle-utils.js', '../tools/100build-5v5.cjs',
     // assets（音频资源，不参与 fetch 复制）

@@ -106,6 +106,7 @@ async function runBattle(snap, buffs, seed) {
 // 自动批量战斗
 export async function runAutoBattle(rounds, onProgress, stage = 1, preferredBuffs = []) {
     let wins = { ally: 0, enemy: 0, draw: 0 };
+    const hexLog = []; // 新增：每场海克斯 + 胜负记录，供 108 仪表盘读取
     for (let i = 0; i < rounds; i++) {
         const rng = new SeededRNG(Date.now() + i * 7919);
         const snap = generateSnapshot(stage, rng);
@@ -119,7 +120,14 @@ export async function runAutoBattle(rounds, onProgress, stage = 1, preferredBuff
         if (result.winner === '明教') wins.ally++;
         else if (result.winner === '六大派') wins.enemy++;
         else wins.draw++;
+        hexLog.push({ stage, buffs: buffs.map(b => b.key), winner: result.winner }); // 新增
         if (onProgress) onProgress(i + 1, rounds);
     }
+    // 新增：追加保存海克斯归因记录，供 108 仪表盘读取
+    try {
+        const KEY = 'ming_hex_battle_log';
+        const prev = JSON.parse(localStorage.getItem(KEY) || '[]');
+        localStorage.setItem(KEY, JSON.stringify(prev.concat(hexLog)));
+    } catch (e) {}
     return wins;
 }

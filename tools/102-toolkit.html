@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿<!DOCTYPE html>
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿<!DOCTYPE html>
 <!-- V5.4.0 | ~25900 bytes-->
 <html lang="zh-CN">
 <head>
@@ -139,6 +139,9 @@
         .tool-cmd button:hover { background: #66bb6a; }
         .tool-steps { color: #888; font-size: 11px; margin-top: 10px; padding-left: 16px; line-height: 1.6; }
         .tool-steps li { margin-bottom: 4px; }
+        .tool-links { display: flex; gap: 8px; margin-bottom: 12px; }
+        .tool-link-btn { flex: 1; padding: 10px 8px; border: none; background: #2a2a4e; color: #ffd700; cursor: pointer; font-size: 12px; font-weight: bold; border-radius: 6px; font-family: monospace; transition: 0.2s; }
+        .tool-link-btn:hover { background: #3a3a6e; }
     </style>
 </head>
 <body>
@@ -150,6 +153,10 @@
         <button class="tab-btn" data-tab="tab-fang-calc">🛡️ 防战计算器</button>
         <button class="tab-btn" data-tab="tab-auto-battle">⚔️ 自动批量战斗</button>
         <button class="tab-btn" data-tab="tab-node-tools">🛠️ Node 工具脚本</button>
+    </div>
+    <div class="tool-links">
+        <button class="tool-link-btn" id="btnOpenLogViewer">🕹️ 日志复盘</button>
+        <button class="tool-link-btn" id="btnOpenHexDashboard">📊 海克斯仪表盘</button>
     </div>
 
     <div class="tab-content active" id="tab-file-copier">
@@ -323,6 +330,13 @@
                 alert('读取脚本失败：' + e.message);
             }
         }
+
+        document.getElementById('btnOpenLogViewer').addEventListener('click', () => {
+            window.open('107-battle-log-viewer.html', '_blank');
+        });
+        document.getElementById('btnOpenHexDashboard').addEventListener('click', () => {
+            window.open('108-hex-dashboard.html', '_blank');
+        });
     </script>
 
     <script type="module" src="./103-toolkit.js"></script>
