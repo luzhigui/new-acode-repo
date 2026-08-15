@@ -11,7 +11,8 @@ import { SeededRNG } from '../core/07-rng.js';
 import { getBattleRng } from '../core/13battle-shared.js';
 import { GlobalStore, getState, getPlayerContext } from '../modules/18global-store.js';
 import { createStore, battleReducer, GAME_STATE_FIELDS } from '../modules/19battle-store.js';
-import { handleBuffBonus, handleBuffSwap, handleBuffPush, handleBuffReboundFortify, handleAttackGroup, handleInfo, handleRoundStart, handleRoundEnd, shouldStartNewGroup } from './28event-handlers.js';
+import { handleBuffBonus, handleBuffSwap, handleBuffPush, handleBuffReboundFortify, handleInfo, handleRoundStart, handleRoundEnd, shouldStartNewGroup } from './28event-handlers.js';
+import { handleAttackGroup } from './28a-attack-group.js';
 import { getLogDiv, appendLogHTML, appendLogElement, autoScrollLog, updateRoundDisplay, renderSeparator, renderRoundStart, renderRoundEnd, renderInfoLine, renderVictoryLine, setBtnDisabled, setBtnText, initRenderer, initLogScrollControls, showScoreFloat } from './29renderer.js';
 
 import { AnimationScheduler } from './26-animation-scheduler.js';
