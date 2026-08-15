@@ -25,6 +25,7 @@ export function tickXuanmingPoison(unit) {
 // ==================== 乾坤大挪移升级版减伤 ====================
 
 // 张无忌-乾坤大挪移：减伤+反弹+自伤（基础版/升级版）
+// 乾坤分基础/升级两版：升级版需小昭在场且目标在偶数列(2/4/6/8)，基础版需小昭不在场且无忌在4/6列；条件差异决定减伤反弹数值
 export function applyDamageModifiers(unit, target, dmg, allySide, enemySide, log) {
     let modifiedDmg = dmg;
     const entries = [];

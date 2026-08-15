@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// fx/41fx-crash-5v5-test.js - 光明顶5v5 飞撞与格挡特效
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// fx/41fx-crash-5v5-test.js - 光明顶5v5 飞撞与格挡特效
 // V5.2.1 | 2026-07-12 修复飞走模式原地残留蓝色格子（清除_flash标记）
 export const VER = 'fx/41fx-crash-5v5-test.js V5.4.0';
 
@@ -105,6 +105,7 @@ export function showMeleeCrash(unitA, unitD, speed, getPausedFn, onCrash) {
     let isClose = (aPos === 1 && dPos === 1) || (aPos === 2 && dPos === 2) || (aPos === 3 && dPos === 3) ||
                   (aPos === 1 && dPos === 2) || (aPos === 2 && dPos === 1) || (aPos === 2 && dPos === 3) || (aPos === 3 && dPos === 2);
     
+    // 近距离走简化表现、远距离才做完整飞行碰撞：近距离飞行距离太短，完整飞行动画无意义
     if (isClose) {
         showCloseRangeFX(unitA, unitD, unitA.role, getPausedFn);
         if (onCrash) onCrash();

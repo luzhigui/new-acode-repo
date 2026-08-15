@@ -273,7 +273,7 @@ async function prepareRoundStart(A, B, log, state, round, rng) {
     }
 
     const roundStartEvents = GlobalStore.flushBattleEvents();
-    return { doubleStrikeUnitUid, roundStartEvents };
+    return { doubleStrikeUnitUid, roundStartEvents, sisterComp, brotherComp };
 }
 
 export async function* createRoundStepper(state) {
@@ -303,7 +303,7 @@ export async function* createRoundStepper(state) {
     let log = [];
     let round = state.round;
 
-    const { doubleStrikeUnitUid, roundStartEvents } = await prepareRoundStart(A, B, log, state, round, rng);
+    const { doubleStrikeUnitUid, roundStartEvents, sisterComp, brotherComp } = await prepareRoundStart(A, B, log, state, round, rng);
 
     yield { log: [...log], events: roundStartEvents, ally: A, enemy: B, winner: null, done: false, doubleStrikeUid: doubleStrikeUnitUid };
     log = [];

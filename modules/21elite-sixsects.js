@@ -142,6 +142,7 @@ export function createZhouZhiruoComponent() {
                 tickKuaiLeHeal(A.concat(B), log);
             });
         },
+        // 白骨爪：首击必触发，后续连锁由 chainProcChance 控制深度；目标血量降到斩杀阈值后触发斩杀，防止无限连锁
         onAfterDamageCalc(unit, target, dmg, log, allySide, enemySide) {
             if (unit.name !== '周芷若' || !target || !target.alive) return 0;
             const rng = getBattleRng();

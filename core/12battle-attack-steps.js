@@ -177,6 +177,7 @@ export function resolveAttackHit(unit, target, attackerBuffStats, defenderBuffSt
     if (target.state._stunned) return { skipped: false, retry: false, lockedTargetUid: null };
     const hasCloudBody = hasBuff(allyBuffs, 'cloudBody') || ((target.isXiaoZhaoSister || target.isXiaoZhaoBrother) && target._permanentBuffs && target._permanentBuffs.some(b => b.key === 'cloudBody'));
     if (target.alive && (target.isWei || hasCloudBody || !target.state._acted)) {
+        // 闪避按来源独立判定、乘法叠加：各来源互不覆盖，比简单相加更符合"多段独立判定"，且组合概率恒≤1
         // 各闪避来源独立判定（乘法叠加），任一触发即闪避
         let dodgeTriggered = false;
         for (const ruleFn of _dodgeRules) {
@@ -258,6 +259,7 @@ export function resolveAttackHit(unit, target, attackerBuffStats, defenderBuffSt
  * @param {Array} log - 日志数组
  * @returns {{ atkBase: number, defBase: number, dmg: number, ... }} 伤害计算完整数据包
  */
+// 三步顺序固定不可颠倒：先收集声明→再裁判应用（破防/无视/加伤/倍率）→最后基础公式；乱序会导致声明被跳过或重复结算
 // 攻击-步骤3：伤害计算（声明→裁定→公式）
 export function calcFinalDamage(unit, target, attackerBuffStats, defenderBuffStats, allySide, enemySide, log) {
     // ---------- 第一步：伤害声明收集 ----------
@@ -481,6 +483,7 @@ export function resolveDamageImmune(declarations) {
  * @returns {Array} 已执行的声明列表，供调用方拼接日志
  */
 // 攻击后-边裁：统一执行附加效果（吸血/溅射/反弹/斩杀）
+// 结算顺序固定：额外伤害→吸血→回血→溅射→反弹→属性→斩杀→其他；先受伤后回复，斩杀放属性之后，避免顺序错乱影响结果
 export function resolveAfterDamageEffects(declarations, unit, target, group) {
     if (!declarations || declarations.length === 0) return [];
 

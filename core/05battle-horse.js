@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// core/05battle-horse.js - 光明顶5v5 拒马逻辑
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// core/05battle-horse.js - 光明顶5v5 拒马逻辑
 // V5.4.0 | ~2900 bytes| 2026-07-05
 export const VER = 'core/05battle-horse.js V5.4.0';
 
@@ -49,6 +49,7 @@ export function destroyHorse(allyTeam, log) {
     let horses = allyTeam.filter(u => u.isHorse && u.alive).sort((a, b) => b.pos - a.pos);
     if (horses.length === 0) return;
 
+    // 连续销毁概率递减：第一匹50%，每成功一匹概率减半，失败重置回50%；避免多匹拒马被一轮清空
     let currentProb = 50;
     const rng = getBattleRng();
     for (const horse of horses) {

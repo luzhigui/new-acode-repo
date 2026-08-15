@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// fx/44fx-dodge-bullet.js - 光明顶5v5 闪避反击特效
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// fx/44fx-dodge-bullet.js - 光明顶5v5 闪避反击特效
 // V5.2.1 | 2026-07-12 修复格子缩小与残留：完整保存/恢复原始格子状态
 export const VER = 'fx/44fx-dodge-bullet.js V5.4.0';
 
@@ -240,6 +240,7 @@ export async function showDodgeBulletTime(attacker, defender, reboundDmg) {
         document.body.appendChild(skipBtn);
         cleanupElements.push(skipBtn);
 
+        // 阶段1：闪电劈开画面，进入子弹时间
         // 闪电
         const lightning = createZigzagLightning(); cleanupElements.push(lightning);
         await wait(400);
@@ -372,6 +373,7 @@ export async function showDodgeBulletTime(attacker, defender, reboundDmg) {
 
         glow.remove(); lightning.remove(); storm.remove();
 
+        // 阶段2：攻击者带着火焰和风压高速冲刺接近
         // 飞行阶段
         const attackAngle = Math.atan2(pos.dy - pos.ay, pos.dx - pos.ax);
         const flameOffsetX = -25, flameOffsetY = -2;
@@ -440,6 +442,7 @@ export async function showDodgeBulletTime(attacker, defender, reboundDmg) {
         await wait(220);
         if (isSkipped) { cleanup(); return; }
 
+        // 阶段3：双方碰撞，产生冲击波和伤害数字
         // 碰撞
         const colX = (parseFloat(cloneA.style.left) + parseFloat(cloneD.style.left)) / 2;
         const colY = (parseFloat(cloneA.style.top) + parseFloat(cloneD.style.top)) / 2;
@@ -456,6 +459,7 @@ export async function showDodgeBulletTime(attacker, defender, reboundDmg) {
         setTimeout(() => dmg.remove(), 800);
         triggerShake();
 
+        // 阶段4：攻击者被反震击飞，防御者归位，闪避反击结束
         // 攻击者震退
         const retX = parseFloat(cloneA.style.left), retY = parseFloat(cloneA.style.top);
         const retreatTotal = 300 + 800 + 800;
