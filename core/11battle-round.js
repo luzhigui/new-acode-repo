@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// core/11battle-round.js - 光明顶5v5 回合循环与生成器
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// core/11battle-round.js - 光明顶5v5 回合循环与生成器
 // V5.4.0 | ~31000 bytes| 2026-08-06 小昭姐妹状态转换纳入声明→裁定模式
 export const VER = 'core/11battle-round.js V5.4.0';
 
@@ -28,33 +28,7 @@ const C = CONFIG;
  *   每步产生日志、事件、当前双方状态，winner 非空表示战斗结束
  */
 // 回合-生成器：逐yield行动步骤供播放器消费
-export async function* createRoundStepper(state) {
-    // 确定性 RNG：同一种子 → 同一次战斗结果（回放/复现基础）
-    const rng = state._rng || new SeededRNG(Date.now());
-    state._rng = rng;
-    setBattleRng(rng);
-    if (!state.allAllies) {
-        state.allAllies = state.ally.map(u => u.clone());
-    } else {
-        const allyById = new Map(state.ally.map(u => [u.uid, u]));
-        state.allAllies.forEach(full => {
-            const cur = allyById.get(full.uid);
-            if (cur) {
-                full.hp = cur.hp; full.maxHp = cur.maxHp; full.alive = cur.alive;
-                full.atk = cur.atk; full.def = cur.def;
-                if (cur.state._isDead !== undefined) full.state._isDead = cur.state._isDead;
-            } else {
-                full.alive = false; full.state._isDead = true;
-            }
-        });
-    }
-    let A = state.ally.map(u => u.clone());
-    let B = state.enemy.map(u => u.clone());
-    // 保留数组自定义属性（_flyDirection 等）
-    if (state.ally._flyDirection) A._flyDirection = state.ally._flyDirection;
-    let log = [];
-    let round = state.round;
-
+async function prepareRoundStart(A, B, log, state, round, rng) {
     A._activeBuffs = state.activeBuffs.filter(b => b.target === 'ally' || !b.target);
     B._activeBuffs = state.activeBuffs.filter(b => b.target === 'enemy');
 
@@ -298,10 +272,40 @@ export async function* createRoundStepper(state) {
     }
 
     const roundStartEvents = GlobalStore.flushBattleEvents();
+    return { doubleStrikeUnitUid, roundStartEvents };
+}
+
+export async function* createRoundStepper(state) {
+    // 确定性 RNG：同一种子 → 同一次战斗结果（回放/复现基础）
+    const rng = state._rng || new SeededRNG(Date.now());
+    state._rng = rng;
+    setBattleRng(rng);
+    if (!state.allAllies) {
+        state.allAllies = state.ally.map(u => u.clone());
+    } else {
+        const allyById = new Map(state.ally.map(u => [u.uid, u]));
+        state.allAllies.forEach(full => {
+            const cur = allyById.get(full.uid);
+            if (cur) {
+                full.hp = cur.hp; full.maxHp = cur.maxHp; full.alive = cur.alive;
+                full.atk = cur.atk; full.def = cur.def;
+                if (cur.state._isDead !== undefined) full.state._isDead = cur.state._isDead;
+            } else {
+                full.alive = false; full.state._isDead = true;
+            }
+        });
+    }
+    let A = state.ally.map(u => u.clone());
+    let B = state.enemy.map(u => u.clone());
+    // 保留数组自定义属性（_flyDirection 等）
+    if (state.ally._flyDirection) A._flyDirection = state.ally._flyDirection;
+    let log = [];
+    let round = state.round;
+
+    const { doubleStrikeUnitUid, roundStartEvents } = await prepareRoundStart(A, B, log, state, round, rng);
+
     yield { log: [...log], events: roundStartEvents, ally: A, enemy: B, winner: null, done: false, doubleStrikeUid: doubleStrikeUnitUid };
     log = [];
-
-
 
     /**
      * 行动调度边裁 — 裁定本轮行动者
@@ -580,6 +584,11 @@ export async function* createRoundStepper(state) {
         }
     }
 
+    const { winner, done, endEvents } = finalizeRoundEnd(A, B, log, round);
+    yield { log: [...log], events: endEvents, ally: A, enemy: B, winner, done };
+}
+
+function finalizeRoundEnd(A, B, log, round) {
     [A, B].forEach(team => {
         for (let i = team.length - 1; i >= 0; i--) {
             const u = team[i];
@@ -617,7 +626,7 @@ export async function* createRoundStepper(state) {
     const endEvents = GlobalStore.flushBattleEvents();
     finalizeDeaths(A);
     finalizeDeaths(B);
-    yield { log: [...log], events: endEvents, ally: A, enemy: B, winner, done };
+    return { winner, done, endEvents };
 }
 
 // 回合-同步执行：创建stepper并逐步骤推进
