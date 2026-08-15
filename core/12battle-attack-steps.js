@@ -574,6 +574,23 @@ export function resolveAfterDamageEffects(declarations, unit, target, group) {
         executed.push(decl);
     }
 
+    // 3.65 九阴白骨爪链式命中（追击/连锁/斩杀统一结算）
+    for (const decl of declarations.filter(d => d.type === EFFECT_TYPES.CLAW_CHAIN)) {
+        if (!decl.target || !decl.target.alive) continue;
+        let chainTarget = decl.target;
+        let chainSource = decl.source;
+        for (const hit of decl.hits) {
+            if (!chainTarget.alive || chainTarget._pendingDeath) break;
+            applyStatChange(chainTarget, 'hp', -hit.dmg, chainSource, '九阴白骨爪');
+            hit._events = flushBattleEvents();
+        }
+        if (decl.execute && chainTarget.alive && !chainTarget._pendingDeath && chainTarget.hp > 0) {
+            applyStatChange(chainTarget, 'hp', -chainTarget.hp, chainSource, '白骨爪斩杀');
+            decl.execute._events = flushBattleEvents();
+        }
+        executed.push(decl);
+    }
+
     // 4. 其他
     for (const decl of declarations.filter(d => ![EFFECT_TYPES.BONUS_DMG, EFFECT_TYPES.LEECH, EFFECT_TYPES.HEAL, EFFECT_TYPES.SPLASH, EFFECT_TYPES.REBOUND, EFFECT_TYPES.STAT_CHANGE, EFFECT_TYPES.EXECUTE].includes(d.type))) {
         executed.push(decl);

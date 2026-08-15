@@ -134,7 +134,7 @@ export function createZhouZhiruoComponent() {
             // 周芷若-九阴白骨爪：攻击后触发白骨爪追击/斩杀/宋青书联动回血
             eventBus.on('afterAttack', L.AFTER_ATTACK.ZHOU_CLAW, (data) => {
                 if (data.unit.name !== '周芷若') return;
-                onAfterDamageCalc(data.unit, data.target, data.dmg, data.log, B, A);
+                onAfterDamageCalc(data.unit, data.target, data.dmg, data.log, B, A, data);
             });
             // 周芷若-快乐回血：回合开始结算快乐层数回血
             eventBus.on('onRoundStart', L.ROUND_START.XINGFEN_GRANT, (data) => {
@@ -142,8 +142,8 @@ export function createZhouZhiruoComponent() {
                 tickKuaiLeHeal(A.concat(B), log);
             });
         },
-        // 白骨爪：首击必触发，后续连锁由 chainProcChance 控制深度；目标血量降到斩杀阈值后触发斩杀，防止无限连锁
-        onAfterDamageCalc(unit, target, dmg, log, allySide, enemySide) {
+        // 白骨爪：纯计算，构造 CLAW_CHAIN 声明提交裁判，不再直改血量；每段回血汇总为 HEAL 声明
+        onAfterDamageCalc(unit, target, dmg, log, allySide, enemySide, data) {
             if (unit.name !== '周芷若' || !target || !target.alive) return 0;
             const rng = getBattleRng();
             const battleState = window.GlobalStore?.get('currentBattleState');
@@ -152,57 +152,62 @@ export function createZhouZhiruoComponent() {
             const baseHit = zhangAlive ? (s.jealousBaseDmg||5) : (s.baseDmg||3);
             if (!unit._nineYinFirstDone) { unit._nineYinFirstDone = true; }
             else { if (rng.next() > s.procChance) return 0; }
-            let totalBonus = 0; let depth = 0;
-            const healDeclarations = [];
-            while (target.alive && !target._pendingDeath) {
+
+            const hits = [];
+            let executeInfo = null;
+            let totalHeal = 0;
+            const song = allySide.find(u => u.name === '宋青书' && u.alive);
+            let simulatedTargetHp = target.hp;
+            let simulatedSongHp = song ? song.hp : 0;
+            let depth = 0;
+
+            while (simulatedTargetHp > 0 && !target._pendingDeath && depth < 100) {
                 if (depth > 0 && rng.next() > s.chainProcChance) break;
-                const lostHp = target.maxHp - target.hp;
+                const lostHp = target.maxHp - simulatedTargetHp;
                 const ratio = zhangAlive ? s.jealousLostHpRatio : s.lostHpRatio;
                 const ratioDmg = Math.floor(lostHp*ratio + target.maxHp*(zhangAlive?(s.jealousMaxHpRatio||0.02):(s.maxHpRatio||0.01)));
-                let bonusDmg = baseHit + Math.max(0, ratioDmg);
-                applyStatChange(target, 'hp', -bonusDmg, unit, '九阴白骨爪');
-                totalBonus += bonusDmg;
-                // 目标已死亡，立即停止追击/连锁
-                if (!target.alive || target._pendingDeath) break;
-                const hpPctAfter = target.hp/target.maxHp;
+                const bonusDmg = baseHit + Math.max(0, ratioDmg);
+                simulatedTargetHp -= bonusDmg;
+                const isDeadByHit = simulatedTargetHp <= 0;
+                const hpPctAfter = simulatedTargetHp / target.maxHp;
                 const execThreshold = zhangAlive ? (s.jealousExecuteThreshold||0.15) : (s.executeThreshold||0.12);
-                let isExecute = false;
-                if (hpPctAfter <= execThreshold && target.hp > 0) {
-                    isExecute = true;
-                    applyStatChange(target, 'hp', -target.hp, unit, '白骨爪斩杀');
+                const isExecute = !isDeadByHit && hpPctAfter <= execThreshold && simulatedTargetHp > 0;
+                const hitLogText = `<span style="color:#222">🐾 九阴白骨爪${depth>0?'连锁':'追击'}！${unit.name} 对 ${target.name} 造成 ${bonusDmg} 点伤害${isExecute?'（斩杀）':(zhangAlive?'【嫉妒】':'')}</span>`;
+                hits.push({ dmg: bonusDmg, logText: hitLogText });
+                if (song && song.alive) {
+                    const healAmount = Math.min(bonusDmg, song.maxHp - simulatedSongHp);
+                    totalHeal += healAmount;
+                    simulatedSongHp += healAmount;
                 }
-                const clawEvents = GlobalStore.flushBattleEvents();
-                log.push({ type:'info', text:`<span style="color:#222">🐾 九阴白骨爪${depth>0?'连锁':'追击'}！${unit.name} 对 ${target.name} 造成 ${bonusDmg} 点伤害${isExecute?'（斩杀）':(zhangAlive?'【嫉妒】':'')}</span>`, buffType:'elite_bonus', isClawHit:true, clawAttackerUid:unit.uid, clawTargetUid:target.uid, clawTargetHpAfter:target.hp, clawTargetAlive:target.alive, clawTargetIsDead:target.state._isDead, isExecute:isExecute, uidD:target.uid, isDead:!target.alive, _events:clawEvents });
-                // 从 allySide 实时查找，不用 currentBattleState 快照
-                const song = allySide.find(u => u.name === '宋青书' && u.alive);
-                if (song) {
-                    const healAmount = Math.min(bonusDmg, song.maxHp - song.hp);
-                    if (healAmount > 0) {
-                        healDeclarations.push({ type: EFFECT_TYPES.HEAL, value: healAmount, source: song });
-                    }
+                if (isDeadByHit) break;
+                if (isExecute) {
+                    executeInfo = { logText: `<span style="color:#222">🐾 九阴白骨爪斩杀！${unit.name} 对 ${target.name} 造成致命一击</span>` };
+                    break;
                 }
-                depth++; if (isExecute || !target.alive || target._pendingDeath) break;
+                depth++;
             }
-            let songForSummary = allySide.find(u => u.name === '宋青书' && u.alive);
-            if (totalBonus > 0) {
-                if (!songForSummary) songForSummary = allySide.find(u => u.name === '宋青书' && u.alive);
-                if (songForSummary) {
-                    const totalHeal = Math.min(totalBonus, songForSummary.maxHp - songForSummary.hp);
-                    if (totalHeal > 0) {
-                        healDeclarations.push({ type: EFFECT_TYPES.HEAL, value: totalHeal, source: songForSummary });
-                        log.push({ type:'info', text:`<span class="green">💚 宋青书因九阴白骨爪共回复${totalHeal}点生命</span>`, isHealEntry:true, healAmount:totalHeal, healUnitUid:songForSummary.uid });
-                    } else {
-                        log.push({ type:'info', text:`<span class="gray">💚 宋青书已满血，白骨爪未能回复生命</span>` });
-                    }
-                }
+
+            if (hits.length > 0 && data && data.declarations) {
+                data.declarations.push({
+                    type: EFFECT_TYPES.CLAW_CHAIN,
+                    source: unit,
+                    target: target,
+                    hits: hits,
+                    execute: executeInfo
+                });
             }
-            // 统一执行回血
-            for (const decl of healDeclarations) {
-                if (decl.source && decl.source.alive) {
-                    applyStatChange(decl.source, 'hp', decl.value, unit, '九阴白骨爪联动');
-                }
+            if (totalHeal > 0 && song && song.alive && data && data.declarations) {
+                data.declarations.push({
+                    type: EFFECT_TYPES.HEAL,
+                    value: totalHeal,
+                    source: song,
+                    logText: `<span class="green">💚 宋青书因九阴白骨爪共回复${totalHeal}点生命</span>`
+                });
+            } else if (song && song.alive) {
+                log.push({ type:'info', text:`<span class="gray">💚 宋青书已满血，白骨爪未能回复生命</span>` });
             }
-            return totalBonus;
+
+            return hits.reduce((sum, h) => sum + h.dmg, 0);
         }
     };
 }

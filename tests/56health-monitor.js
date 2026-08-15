@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// tests/56health-monitor.js - 光明顶5v5 实时体检监控器
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// tests/56health-monitor.js - 光明顶5v5 实时体检监控器
 // V5.5.0 | 新增 ?auto=1 无头后台模式：后台自动跑完整关卡，结束时在 window.__healthResult 输出完整报告
 export const VER = 'tests/56health-monitor.js V5.5.0';
 
@@ -12,6 +12,7 @@ import { rule76 } from './58health-rules/64-spider-fly-count.js';
 import { rule77 } from './58health-rules/65-fortify-overflow.js';
 import { rule78 } from './58health-rules/66-separator-duplicate.js';
 import { rule79 } from './58health-rules/67-claw-damage.js';
+import { rule80 } from './58health-rules/70-death-effect.js';
 import {
     getCellElement, checkUnitHpValidity,
     checkHpBarSync, checkHpBarColor, checkFxOrphans,
@@ -364,7 +365,7 @@ function runFullChecks(ctx, doc) {
     }
 
     ctx._doc = doc;
-    const rules = [rule70, rule71, rule72, rule73, rule74, rule75, rule76, rule77, rule78, rule79];
+    const rules = [rule70, rule71, rule72, rule73, rule74, rule75, rule76, rule77, rule78, rule79, rule80];
     const beforeAllies = allyTeam.map(u => ({ ...u }));
     const beforeEnemies = enemyTeam.map(u => ({ ...u }));
     for (const rule of rules) {

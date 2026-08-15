@@ -97,6 +97,7 @@ export function initBattleTeams(currentStage, _rng) {
             if (c.isXiaoZhaoBrother) {
                 if (_rng.next() < 0.5) { unit.isXiaoZhaoSister = true; }
                 else { unit.isXiaoZhaoBrother = true; }
+                unit.name = unit.isXiaoZhaoSister ? '小昭·姊' : '小昭·妹';
                 unit.initXiaoZhao(); unit.applyBonus();
                 unit._baseMaxHp = unit.maxHp; unit._baseAtk = unit.atk; unit._baseDef = unit.def;
             } else {
@@ -145,6 +146,7 @@ export function initBattleTeams(currentStage, _rng) {
         if (existingXz) {
             existingXz.isXiaoZhaoSister = (forceXzMode === 'sister');
             existingXz.isXiaoZhaoBrother = (forceXzMode === 'brother');
+            existingXz.name = existingXz.isXiaoZhaoSister ? '小昭·姊' : '小昭·妹';
         } else {
             const swappable = allyTeam.find(u => !u.isZhang && !u.isWei);
             if (swappable) {
@@ -154,6 +156,7 @@ export function initBattleTeams(currentStage, _rng) {
             let xzUnit = new Unit('小昭', 107, C.ROLES[_rand(0, 3)], 'ally');
             xzUnit.isXiaoZhaoSister = (forceXzMode === 'sister');
             xzUnit.isXiaoZhaoBrother = (forceXzMode === 'brother');
+            xzUnit.name = xzUnit.isXiaoZhaoSister ? '小昭·姊' : '小昭·妹';
             xzUnit.initXiaoZhao(); xzUnit.applyBonus();
             xzUnit._baseMaxHp = xzUnit.maxHp; xzUnit._baseAtk = xzUnit.atk; xzUnit._baseDef = xzUnit.def;
             xzUnit.pos = swappable ? swappable.pos : null;
