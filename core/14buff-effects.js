@@ -6,7 +6,7 @@ export const VER = 'core/14buff-effects.js V5.4.0';
 import { CONFIG } from './01config-5v5-test.js';
 import { getUnitRow, getUnitCol } from './03battle-utils.js';
 import { eventBus } from './00-event-bus.js';
-import { getBattleRng } from './13battle-shared.js';
+import { getBattleRng, swapUnitPositions } from './13battle-shared.js';
 const C = CONFIG;
 
 // ==================== 严阵以待防御加成 ====================
@@ -88,7 +88,7 @@ function applyMindControlCore(unit, allySide, enemySide, log, swapChanceEnemy, s
             let a = enemies[rng.nextInt(0, enemies.length-1)];
             let b; do { b = enemies[rng.nextInt(0, enemies.length-1)]; } while (b.uid === a.uid);
             let posA = a.pos, posB = b.pos;
-            a.pos = posB; b.pos = posA;
+            swapUnitPositions(a, b);
             log.push({type:'buff-swap', uidA: a.uid, uidB: b.uid, oldPosA: posA, oldPosB: posB, buffType:'swap', text:`<span class="gold">🌀 惑人心智：${posA}号位${a.name}与${posB}号位${b.name}互换位置！</span>`});
         } else {
             log.push({type:'info', text:`<span class="gray">🌀 惑人心智敌方换位失败（可用单位不足）</span>`});
@@ -102,7 +102,7 @@ function applyMindControlCore(unit, allySide, enemySide, log, swapChanceEnemy, s
             let a = allies[rng.nextInt(0, allies.length-1)];
             let b; do { b = allies[rng.nextInt(0, allies.length-1)]; } while (b.uid === a.uid);
             let posA = a.pos, posB = b.pos;
-            a.pos = posB; b.pos = posA;
+            swapUnitPositions(a, b);
             log.push({type:'buff-swap', uidA: a.uid, uidB: b.uid, oldPosA: posA, oldPosB: posB, buffType:'swap', text:`<span class="gold">🌀 惑人心智：己方${posA}号位${a.name}与${posB}号位${b.name}互换位置！</span>`});
         } else {
             log.push({type:'info', text:`<span class="gray">🌀 惑人心智己方换位失败（可用单位不足）</span>`});

@@ -23,7 +23,7 @@ function getStore() {
 export function setRenderStore(store) {
     _store = store;
     _subscribed = false;
-    if (store === null) window._battleStore = null;
+    if (store === null) GlobalStore.set('battleStore', null);
 }
 
 // ==================== 辅助函数 ====================

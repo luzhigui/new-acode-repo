@@ -6,7 +6,8 @@ import { CONFIG } from '../core/01config-5v5-test.js';
 import { Unit } from '../core/02unit.js';
 import { showDamageFloat, showHealFloat, showBuffBanner } from '../fx/69fx-manager.js';
 import { addPermanentBuff } from '../modules/15elite-skills.js';
-import { GlobalStore, createBuffObject } from '../modules/18global-store.js';
+import { GlobalStore } from '../modules/18global-store.js';
+import { createBuffObject } from '../modules/23buff-tools.js';
 import { getBattleRng } from '../core/13battle-shared.js';
 
 

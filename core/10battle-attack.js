@@ -201,6 +201,10 @@ export async function processUnitAttack(unit, allySide, enemySide, log, A, B, st
     if (dmgResult.fortifyDeclarations && dmgResult.fortifyDeclarations.length > 0) {
         afterDamageDeclarations.push(...dmgResult.fortifyDeclarations);
     }
+    // 拒马反伤声明并入攻击后效果
+    if (dmgResult.horseReboundDeclarations && dmgResult.horseReboundDeclarations.length > 0) {
+        afterDamageDeclarations.push(...dmgResult.horseReboundDeclarations);
+    }
     // 攻击后效果结算 — 裁判执行，播放器拼日志
     const executedDecls = resolveAfterDamageEffects(afterDamageDeclarations, unit, target, group);
     for (const decl of executedDecls) {

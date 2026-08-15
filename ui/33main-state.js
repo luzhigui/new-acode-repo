@@ -13,35 +13,6 @@ import { AudioManager } from '../modules/17audio-manager.js';
 const S = STATE;
 
 // ==================== 模块级变量降级为 GlobalStore 的初始化入口 ====================
-// 这些 export let 仅为向后兼容（外部可能存在直接引用），实际读写已全部走 GlobalStore
-
-export let autoMode = true;
-export let autoLevel = 'auto';
-export let debugMode = false;
-export let isPaused = false;
-export let speed = 500;
-export let userScrolled = false;
-export let abortController = null;
-export let waitingForNextRound = false;
-export let logLevel = 'detailed';
-export let battleResultForInfo = null;
-export let resettleCount = 0;
-export let gameStarted = false;
-export let hasLoggedTeam = false;
-
-export let isBattleStarting = false;
-export let adjustMode = false;
-export let selectedAdjustPos = null;
-export let currentStage = 1;
-export let dodgeEffectEnabled = true;
-export let selectedBuffIndex = -1;
-export let currentDoubleStrikeUid = null;
-export let runtimeMonitorActive = false;
-export let runtimeMonitorInterval = null;
-export let activeBuffs = [];
-export let snapshot = { ally: [], enemy: [] };
-export let UI = { allyTeam: [], enemyTeam: [], currentResult: null, round: 0, lastSnapshot: null };
-
 // 初始化时同步模块级变量到 GlobalStore
 GlobalStore.set('gs', S.IDLE);
 GlobalStore.set('autoMode', true);
@@ -76,15 +47,15 @@ export { getPlayerContext } from '../modules/18global-store.js';
 
 // ==================== window 桥接注册 — 在 ui 层加载时注册 ui 方法到 window ====================
 // 这些方法被 modules/18global-store.js 的 getPlayerContext 通过 window 引用，实现 player→ui 间接调用
-window._updateUI = updateUI;
-window._setRenderStore = setRenderStore;
-window._spawnVictoryEffects = spawnVictoryEffects;
-window._updateBuffSlotsFn = (buffs, idx) => updateBuffSlots(buffs, idx);
-window._tickBuffDurations = () => {
+GlobalStore.setUIHandler('updateUI', updateUI);
+GlobalStore.setUIHandler('setRenderStore', setRenderStore);
+GlobalStore.setUIHandler('spawnVictoryEffects', spawnVictoryEffects);
+GlobalStore.setUIHandler('updateBuffSlots', (buffs, idx) => updateBuffSlots(buffs, idx));
+GlobalStore.setUIHandler('tickBuffDurations', () => {
     const activeBuffs = GlobalStore.get('activeBuffs') || [];
     const result = _tickBuffDurations(activeBuffs, GlobalStore.get('selectedBuffIndex'), () => updateBuffSlots(GlobalStore.get('activeBuffs')));
     GlobalStore.set('activeBuffs', result.activeBuffs);
     GlobalStore.set('selectedBuffIndex', result.selectedBuffIndex);
-    if (typeof window.updateBuffSlots === 'function') window.updateBuffSlots();
-};
-window._fadeBGMTo = (targetVol, durationMs) => { AudioManager.fadeTo(targetVol, durationMs); };
+    if (typeof GlobalStore.getUIHandler('updateBuffSlots') === 'function') GlobalStore.getUIHandler('updateBuffSlots')();
+});
+GlobalStore.setUIHandler('fadeBGMTo', (targetVol, durationMs) => { AudioManager.fadeTo(targetVol, durationMs); });

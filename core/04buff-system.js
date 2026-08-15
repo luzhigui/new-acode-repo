@@ -10,7 +10,7 @@ import {
 } from './14buff-effects.js';
 import { CONFIG } from './01config-5v5-test.js';
 import { hasBuff, getUnitRow, getUnitCol, getAdjacentPositions } from './03battle-utils.js';
-import { emitEvent, applyStatChange, applyMaxHpChange, query, getBattleRng } from './13battle-shared.js';
+import { emitEvent, applyStatChange, applyMaxHpChange, query, getBattleRng, swapUnitPositions, moveUnitPosition } from './13battle-shared.js';
 import { EXECUTION_LAYER as L, EFFECT_TYPES } from './00-event-bus.js';
 import { processUnitAttack } from './10battle-attack.js';
 const C = CONFIG;
@@ -418,11 +418,10 @@ export function registerWindAssault(eventBus) {
                 const oldPos = target.pos;
                 if (behindUnit) {
                     const behindOldPos = behindUnit.pos;
-                    target.pos = behindPos;
-                    behindUnit.pos = oldPos;
+                    swapUnitPositions(target, behindUnit);
                     log.push({type:'buff-push', pushTargetUid: target.uid, behindUid: behindUnit.uid, oldPos, newPos: behindPos, behindOldPos, buffType:'push', text:`<span class="gold" style="font-size:1.1em;">${label}击退！${target.name}从${oldPos}号位击退至${behindPos}号位，${behindUnit.name}被迫从${behindOldPos}号位移至${oldPos}号位</span>`});
                 } else {
-                    target.pos = behindPos;
+                    moveUnitPosition(target, behindPos);
                     log.push({type:'buff-push', pushTargetUid: target.uid, behindUid: null, oldPos, newPos: behindPos, buffType:'push', text:`<span class="gold" style="font-size:1.1em;">${label}击退！${target.name}从${oldPos}号位被击退至${behindPos}号位</span>`});
                 }
             }
@@ -450,9 +449,17 @@ export function registerMeteorShower(eventBus) {
 
         const label = brotherActive ? '🦋 蝶星' : '☄️ 流星赶月';
 
-        // 主箭额外增伤 — 改为提交 bonusDmg 声明
+        // 主箭额外增伤 — 提交 bonusDmg 声明；降防改为提交 STAT_CHANGE 声明
         const bonusDmg = Math.floor(dmg * C.BUFFS.meteorShower.bonusRatio);
-        applyStatChange(target, 'def', -(C.BUFFS.meteorShower.mainDefReduce || 2), unit, '流星赶月');
+        if (!data.declarations) data.declarations = [];
+        data.declarations.push({
+            type: EFFECT_TYPES.STAT_CHANGE,
+            field: 'def',
+            delta: -(C.BUFFS.meteorShower.mainDefReduce || 2),
+            target: target,
+            reason: '流星赶月',
+            logText: null
+        });
         const decl = {
             type: EFFECT_TYPES.BONUS_DMG,
             value: bonusDmg,
@@ -460,7 +467,6 @@ export function registerMeteorShower(eventBus) {
             buffType: 'meteor_bonus',
             logText: `<span class="gold">${label}伤害加深：${target.name} 额外-${bonusDmg}，防御-${C.BUFFS.meteorShower.mainDefReduce || 2}</span>`
         };
-        if (!data.declarations) data.declarations = [];
         data.declarations.push(decl);
 
         // 溅射 — 提交 splash 声明
@@ -484,7 +490,14 @@ export function registerMeteorShower(eventBus) {
             if (!data.declarations) data.declarations = [];
             data.declarations.push(decl);
             for (const st of splashTargets) {
-                applyStatChange(st, 'def', -(C.BUFFS.meteorShower.splashDefReduce || 1), unit, '流星溅射');
+                data.declarations.push({
+                    type: EFFECT_TYPES.STAT_CHANGE,
+                    field: 'def',
+                    delta: -(C.BUFFS.meteorShower.splashDefReduce || 1),
+                    target: st,
+                    reason: '流星溅射',
+                    logText: null
+                });
             }
         }
     });

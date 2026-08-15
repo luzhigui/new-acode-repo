@@ -32,7 +32,7 @@
                 eventBus.clearAll();
                 // 重置全局状态
                 GlobalStore.set('currentBattleState', null);
-                GlobalStore.flushBattleEvents();
+                flushBattleEvents();
 
                 // 1. 生成阵容
                 let UI = { allyTeam: [], enemyTeam: [], currentResult: null, round: 0, lastSnapshot: null };

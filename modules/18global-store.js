@@ -1,10 +1,8 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// modules/18global-store.js - 光明顶5v5 全局状态管理
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// modules/18global-store.js - 光明顶5v5 全局状态管理
 // V5.4.0 | ~3700 bytes| 2026-08-12 战斗事件/状态桥接至 core/09-battle-event-store.js
 export const VER = 'modules/18global-store.js V5.4.0';
 
 import { pushBattleEvent, flushBattleEvents, onBattleEvents, getBattleState, setBattleState, isBattleStateKey } from '../core/09-battle-event-store.js';
-import { CONFIG } from '../core/01config-5v5-test.js';
-import { getBattleRng } from '../core/13battle-shared.js';
 
 const _state = {
     fastForwardActive: false,
@@ -22,6 +20,7 @@ const _state = {
 const _listeners = [];
 const _listenersByKey = {};
 const _effects = {};
+const _uiHandlers = {};
 
 export const GlobalStore = {
     getState() {
@@ -112,6 +111,13 @@ export const GlobalStore = {
     // 引擎专用：更新当前战场快照
     updateBattleState(state) {
         _state.currentBattleState = state;
+    },
+    // UI 处理器注册表（逐步取代 window._xxx 桥接）
+    setUIHandler(name, fn) {
+        _uiHandlers[name] = fn;
+    },
+    getUIHandler(name) {
+        return _uiHandlers[name];
     }
 };
 
@@ -173,57 +179,6 @@ export const setState = {
     snapshot: (v) => GlobalStore.set('snapshot', v),
     UI: (v) => GlobalStore.set('UI', v)
 };
-
-// ==================== Buff 工厂 — 供 player/ 和 ui/ 共用 ====================
-export function createBuffObject(key, duration) {
-    const buff = { key, target: 'ally', remaining: duration, name: CONFIG.BUFFS[key]?.name || key };
-    if (key === 'holyFlame') {
-        const cols = [];
-        const rng = getBattleRng();
-        while (cols.length < 2) { const c = rng.nextInt(1, 3); if (!cols.includes(c)) cols.push(c); }
-        cols.sort((a, b) => a - b);
-        const rows = [];
-        while (rows.length < 2) { const r = rng.nextInt(1, 3); if (!rows.includes(r)) rows.push(r); }
-        rows.sort((a, b) => a - b);
-        buff.cols = cols;
-        buff.rows = rows;
-    }
-    return buff;
-}
-
-// ==================== Buff 选择 — 供 player/ 和 ui/ 共用 ====================
-// Buff-选择：生成可选Buff列表（过滤已激活+角色需求）
-export function generateBuffChoices(activeBuffs, allyTeam = [], rng = null) {
-    const activeBuffKeys = activeBuffs.map(b => b.key);
-    const allKeys = Object.keys(CONFIG.BUFFS);
-    const available = allKeys.filter(k => {
-        if (activeBuffKeys.includes(k)) return false;
-        if (k === 'fortify' && !activeBuffs.some(b => b.remaining > 0)) return false;
-        const requiredRole = CONFIG.BUFF_ROLE_REQUIREMENTS[k];
-        if (requiredRole && !allyTeam.some(u => u.alive && u.role === requiredRole)) return false;
-        return true;
-    });
-    const shuffled = [...available];
-    const r = rng || getBattleRng();
-    for (let i = shuffled.length - 1; i > 0; i--) {
-        const j = r.nextInt(0, i);
-        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-    }
-    return shuffled.slice(0, CONFIG.BUFF_CHOICES);
-}
-
-// Buff-计时：回合结束后递减Buff持续时间
-export function tickBuffDurations(activeBuffs, selectedBuffIndex, updateBuffSlotsFn) {
-    activeBuffs = activeBuffs.map(b => ({...b, remaining: b.remaining - 1})).filter(b => b.remaining > 0);
-    if (selectedBuffIndex >= activeBuffs.length) selectedBuffIndex = -1;
-    updateBuffSlotsFn();
-    return { activeBuffs, selectedBuffIndex };
-}
-
-// Buff-列表：格式化当前激活Buff摘要
-export function getActiveBuffList(activeBuffs) {
-    return activeBuffs.map(b => b.name + '(' + b.remaining + '回)').join('、') || '无';
-}
 
 // ==================== 玩家上下文工具函数（仅依赖 GlobalStore 和 DOM） ====================
 // 等待-暂停恢复：当 isPaused 为 true 时轮询等待
@@ -305,7 +260,8 @@ export function getPlayerContext() {
         updateBuffSlots: () => {
             const buffs = GlobalStore.get('activeBuffs');
             if (!Array.isArray(buffs)) return;
-            if (typeof window._updateBuffSlotsFn === 'function') window._updateBuffSlotsFn(buffs, GlobalStore.get('selectedBuffIndex'));
+            const fn = GlobalStore.getUIHandler('updateBuffSlots');
+            if (fn) fn(buffs, GlobalStore.get('selectedBuffIndex'));
         },
         get selectedBuffIndex() { return GlobalStore.get('selectedBuffIndex'); },
         set selectedBuffIndex(v) { GlobalStore.set('selectedBuffIndex', v); },
@@ -313,12 +269,12 @@ export function getPlayerContext() {
         set currentDoubleStrikeUid(v) { GlobalStore.set('currentDoubleStrikeUid', v); },
         get dodgeEffectEnabled() { return GlobalStore.get('dodgeEffectEnabled'); },
         set dodgeEffectEnabled(v) { GlobalStore.set('dodgeEffectEnabled', v); },
-        get store() { return window._battleStore; },
-        set store(v) { window._battleStore = v; },
+        get store() { return GlobalStore.get('battleStore'); },
+        set store(v) { GlobalStore.set('battleStore', v); },
 
         // ui 方法 — 通过 window 桥接，由 ui/33main-state.js 在加载时注册
-        updateUI: () => { if (window._updateUI) window._updateUI(); },
-        spawnVictoryEffects: (...args) => { if (window._spawnVictoryEffects) window._spawnVictoryEffects(...args); },
+        updateUI: () => { const fn = GlobalStore.getUIHandler('updateUI'); if (fn) fn(); },
+        spawnVictoryEffects: (...args) => { const fn = GlobalStore.getUIHandler('spawnVictoryEffects'); if (fn) fn(...args); },
         updateButtons: window.updateButtons,
         enableAllButtons: window.enableAllButtons,
         updateSpeedButtons: window.updateSpeedButtons,
@@ -326,8 +282,8 @@ export function getPlayerContext() {
         autoScrollLog,
         onLogUserScroll,
         updateScoreBadge,
-        tickBuffDurations: () => { if (window._tickBuffDurations) window._tickBuffDurations(); },
-        fadeBGMTo: (targetVol, durationMs) => { if (window._fadeBGMTo) window._fadeBGMTo(targetVol, durationMs); },
+        tickBuffDurations: () => { const fn = GlobalStore.getUIHandler('tickBuffDurations'); if (fn) fn(); },
+        fadeBGMTo: (targetVol, durationMs) => { const fn = GlobalStore.getUIHandler('fadeBGMTo'); if (fn) fn(targetVol, durationMs); },
         _scheduler: null,
         _battleEnded: false,
         _originalSpeed: null,

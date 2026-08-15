@@ -51,6 +51,20 @@ function getNextAvailableUnit(team) {
     return team.filter(c => c.alive && !c.state._acted).sort((a, b) => a.pos - b.pos)[0] || null;
 }
 
+// 战斗-位置变更：交换两个单位站位
+function swapUnitPositions(unitA, unitB) {
+    if (!unitA || !unitB) return;
+    const posA = unitA.pos;
+    unitA.pos = unitB.pos;
+    unitB.pos = posA;
+}
+
+// 战斗-位置变更：移动单位到新站位
+function moveUnitPosition(unit, newPos) {
+    if (!unit || newPos == null) return;
+    unit.pos = newPos;
+}
+
 function checkZhangSwitch(A, log) {
     let zhang = A.find(c => c.isZhang && c.alive && !c._zhangSwitched);
     if (!zhang) return;
@@ -169,6 +183,8 @@ export {
     emitFullUnitState,
     finalizeDeaths,
     getNextAvailableUnit,
+    swapUnitPositions,
+    moveUnitPosition,
     checkZhangSwitch,
     applyStatChange,
     applyMaxHpChange

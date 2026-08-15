@@ -34,7 +34,7 @@ export function onBattleEvents(fn) {
 const _battleState = {};
 
 // 这些key由core层拥有，GlobalStore的get/set会对这些key做桥接
-const _battleStateKeys = new Set(['currentStage', 'holyToken', 'chestCount']);
+const _battleStateKeys = new Set(['currentStage', 'holyToken', 'chestCount', 'currentBattleState']);
 
 export function getBattleState(key) {
     return _battleState[key];

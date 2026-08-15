@@ -234,7 +234,8 @@ export async function playBattle() {
     ];
     c.store = createStore({ units: initialUnits, round: 1 }, battleReducer);
     GlobalStore.set('battleStore', c.store);
-    window._setRenderStore(c.store);
+    const setRenderStoreFn = GlobalStore.getUIHandler('setRenderStore');
+    if (setRenderStoreFn) setRenderStoreFn(c.store);
     c.updateUI();
 
     c.store.subscribe((state) => {
@@ -297,7 +298,17 @@ export async function playBattle() {
         ally: c.snapshot.ally.map(u => u.clone()),
         enemy: c.snapshot.enemy.map(u => u.clone())
     };
-    let battleState = { ally: c.snapshot.ally.map(u => u.clone()), enemy: c.snapshot.enemy.map(u => u.clone()), round: 1, activeBuffs: c.activeBuffs ? c.activeBuffs.map(b => ({...b})) : [], allAllies: c.snapshot.ally.map(u => u.clone()) };
+    let battleState = {
+        ally: c.snapshot.ally.map(u => u.clone()),
+        enemy: c.snapshot.enemy.map(u => u.clone()),
+        round: 1,
+        activeBuffs: c.activeBuffs ? c.activeBuffs.map(b => ({...b})) : [],
+        allAllies: c.snapshot.ally.map(u => u.clone()),
+        requestFlyDirection: async () => {
+            const { showFlyDirectionPopup } = await import('../ui/35main-battle.js');
+            return await new Promise(resolve => { showFlyDirectionPopup(resolve); });
+        }
+    };
     // 确定性 RNG：从 snapshot 恢复，延续 doInitBattle 的随机序列
     if (c.snapshot._rngSeed !== undefined) {
         battleState._rng = new SeededRNG(c.snapshot._rngSeed);
