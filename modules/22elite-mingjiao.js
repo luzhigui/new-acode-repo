@@ -534,7 +534,7 @@ export function createXiaoZhaoBrotherComponent() {
                     const fakeTarget = data.allySide.find(u => u.alive && !u.isHorse && u.uid !== data.unit.uid);
                     if (fakeTarget) {
                         data.declaration.targetResult = fakeTarget;
-                        data.declaration.phantomLog = `🦋 蝶舞迷心！${data.unit.name}被小昭迷惑，误攻队友${fakeTarget.name}！`;
+                        data.declaration.phantomLog = `🕷️ 蝶舞迷心！${data.unit.name}被小昭·妹迷惑，误攻队友${fakeTarget.name}！`;
                     }
                 }
             });
@@ -562,14 +562,14 @@ export function createXiaoZhaoBrotherComponent() {
                 if (!teamHasHorse && hasPermanent) {
                     const xzHorse = spawnHorse(A, log, B, true);
                     if (xzHorse) {
-                        log.push({type:'buff-summon', text:`<span class="gold">🐴 小昭的拒马在${xzHorse.pos}号位出现！</span>`, buffType:'summon', horsePos: xzHorse.pos, horseUid: xzHorse.uid, horseTaunt: '嗷——！'});
+                        log.push({type:'buff-summon', text:`<span class="gold">🐴 小昭·妹的拒马在${xzHorse.pos}号位出现！</span>`, buffType:'summon', horsePos: xzHorse.pos, horseUid: xzHorse.uid, horseTaunt: '嗷——！'});
                     }
                 }
                 const hasTeamCarry = hasBuff(A._activeBuffs, 'carry');
                 if (!hasTeamCarry && bro._permanentBuffs?.some(b => b.key === 'carry') && bro._baseMaxHp !== undefined) {
-                    applyStatChange(bro, 'atk', 3, null, '小昭永久carry');
-                    applyStatChange(bro, 'def', 4, null, '小昭永久carry');
-                    applyMaxHpChange(bro, bro.maxHp + 20, null, '小昭永久carry');
+                    applyStatChange(bro, 'atk', 3, null, '小昭·妹永久carry');
+                    applyStatChange(bro, 'def', 4, null, '小昭·妹永久carry');
+                    applyMaxHpChange(bro, bro.maxHp + 20, null, '小昭·妹永久carry');
                     bro._baseMaxHp = bro.maxHp;
                 }
             });
@@ -584,7 +584,7 @@ export function createXiaoZhaoBrotherComponent() {
                 if (getBattleRng().nextInt(1, 100) <= chance) {
                     unit._xiaoZhaoDoubleStriked = true;
                     unit.state._acted = false;
-                    log.push({type:'info', text:`<span class="gold">🦋 蝶击：小昭永久概率连击触发！</span>`, isDoubleStrikeBanner:true});
+                    log.push({type:'info', text:`<span class="gold">🕷️ 蝶击：小昭·妹永久概率连击触发！</span>`, isDoubleStrikeBanner:true});
                     data.retry = true;
                     data.retryTargetUid = (target && target.alive) ? target.uid : null;
                 }
