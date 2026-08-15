@@ -1,5 +1,5 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// ui/62ui-render-5v5-test.js - 光明顶5v5 UI渲染模块（响应式版）
-// V5.5.0 | ~35200 bytes| 2026-08-04 技能描述接入 game-data
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// ui/62ui-render-5v5-test.js - 光明顶5v5 UI渲染模块（响应式版）
+// V5.5.0 | ~35220 bytes| 2026-08-15 拒马血条：同站位优先取活单位，避免死马顶掉活马
 export const VER = 'ui/62ui-render-5v5-test.js V5.5.0';
 
 import { CONFIG, getSkillDesc } from '../core/01config-5v5-test.js';
@@ -362,7 +362,7 @@ export function renderGrid(id, camp) {
     let doubleStrikeUid = ctx ? ctx.currentDoubleStrikeUid : null;
 
     for (let i = 0; i < displayOrder.length; i++) {
-        let pos = displayOrder[i], unit = team.find(c => c.pos === pos);
+        let pos = displayOrder[i], unit = team.find(c => c.pos === pos && c.alive) || team.find(c => c.pos === pos);
         // 确保每个单位都有 state 字典
         if (unit && !unit.state) unit.state = {};
         if (unit && !unit.isHorse) {
