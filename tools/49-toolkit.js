@@ -1,5 +1,8 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// tools/49-toolkit.js - 光明顶5v5 开发工具箱（文件复制器 / 拆分自原 49-toolkit.js）
-// V5.4.1 | ~34776 bytes| 2026-08-06
+﻿﻿// tools/49-toolkit.js - 光明顶5v5 开发工具箱（文件复制器）
+// V5.4.2 | ~16500 bytes| 2026-08-15 静态数据拆至 71-ai-pack-config.js，新增 AI 精简模式
+export const VER = 'tools/49-toolkit.js V5.4.2';
+
+import { AI_EXCLUDE, ALL_PROJECT_FILES, FILE_GROUPS, GROUP_PROMPTS, AI_INTERFACE_NOTE } from './71-ai-pack-config.js';
 
 /* ========== 标签页切换 ========== */
 document.querySelectorAll('.tab-btn').forEach(btn => {
@@ -19,117 +22,8 @@ function escapeHtml(text) {
 
 /* ========== 文件复制器 ========== */
 (function() {
-    // 项目全部文件列表（用于路径清单）
-    const ALL_PROJECT_FILES = [
-        // core（核心战斗引擎）
-        '../core/00-event-bus.js',
-        '../core/01config-5v5-test.js', '../core/02unit.js',
-        '../core/03battle-utils.js', '../core/04buff-system.js', '../core/05battle-horse.js',
-        '../core/06-fsm.js', '../core/07-rng.js',
-        '../core/08-elite-registry.js', '../core/09-battle-event-store.js',
-        '../core/10battle-attack.js', '../core/11battle-round.js', '../core/12battle-attack-steps.js',
-        '../core/13battle-shared.js', '../core/14buff-effects.js',
-        // player（播放器）
-        '../player/24player-text.js', '../player/25player-buff-ui.js', '../player/26-animation-scheduler.js', '../player/26player-core.js',
-        '../player/27battle-player-5v5-test.js', '../player/28event-handlers.js', '../player/28a-attack-group.js', '../player/29renderer.js',
-        // ui（UI 主控）
-        '../ui/30main-utils.js', '../ui/31main-5v5-test.js', '../ui/32ui-render-5v5-test.js',
-        '../ui/33main-state.js', '../ui/34main-dialogs.js', '../ui/35main-battle.js',
-        '../ui/36audio-control.js', '../ui/37fx-trigger.js', '../ui/38ui-controls.js',
-        '../ui/68reset-runtime.js',
-        // fx（特效）
-        '../fx/39fx-common-5v5-test.js', '../fx/40fx-arrows-5v5-test.js', '../fx/41fx-crash-5v5-test.js',
-        '../fx/42fx-position-swap.js', '../fx/43fx-push-back.js', '../fx/44fx-dodge-bullet.js',
-        '../fx/45fx-butterfly-spider.js', '../fx/69fx-manager.js',
-        // modules（通用系统 + 精英角色组件）
-        '../modules/15elite-skills.js', '../modules/16error-capture.js', '../modules/17audio-manager.js',
-        '../modules/18global-store.js', '../modules/35battle-init.js', '../modules/19battle-store.js',
-        '../modules/20elite-imperial.js', '../modules/21elite-sixsects.js', '../modules/22elite-mingjiao.js',
-        '../modules/23buff-tools.js',
-        // content（游戏内容数据）
-        '../content/64game-data.json',
-        // tests（体检规则与自动测试）
-        '../tests/55test-runner.html',
-        '../tests/58health-rules/58-claw-heal-spam.js',
-        '../tests/58health-rules/59-aftermiss.js',
-        '../tests/58health-rules/60-fortify-timing.js',
-        '../tests/58health-rules/61-xuanming-link.js',
-        '../tests/58health-rules/62-butterfly-stack.js',
-        '../tests/58health-rules/63-butterfly-return.js',
-        '../tests/58health-rules/64-spider-fly-count.js',
-        '../tests/58health-rules/65-fortify-overflow.js',
-        '../tests/58health-rules/66-separator-duplicate.js',
-        '../tests/58health-rules/67-claw-damage.js',
-        '../tests/56health-monitor.js', '../tests/57health-utils.js',
-        // tools（开发工具箱）
-        '../tools/48-toolkit.html', '../tools/49-toolkit.js', '../tools/50-toolkit-more.js',
-        '../tools/51-shop.html',
-        // 移除了：52-version-calibrator / 53-dead-code-scanner / 54-filelist-checker（这些工作直接问 AI 更高效）
-        '../tools/47auto-battle-utils.js', '../tools/46build-5v5.cjs',
-        // assets（音频资源，不参与 fetch 复制）
-        '../assets/sfx_arrow.mp3', '../assets/sfx_fly.mp3',
-        '../assets/sfx_melee.mp3', '../assets/sfx_xinai.mp3',
-        // 根目录（入口与设计文档）
-        // 注意：中文文件名（记录-更改履历.md、待办-bug待修.md）在手机上 fetch 会卡住，已从清单剔除
-        '../index.html', '../mode-5v5-test.html',
-        '../README.md'
-        // 备注：其余 MD 文档已归档到 文件汇总20260730/，不参与自动复制
-    ];
-
-    // 用户可勾选的文件列表（不含 assets/ 和 .md 等不可 fetch 的文件，排除文件名带空格的）
-    const FILES = ALL_PROJECT_FILES.filter(f => (f.endsWith('.js') || f.endsWith('.html') || f.endsWith('.cjs') || f.endsWith('.md') || f.endsWith('.json')) && !f.includes(' '));
-
-    const FILE_GROUPS = [
-        { name: 'core', displayName: '战斗引擎核心', prefix: '../core/' },
-        { name: 'player', displayName: '播放器', prefix: '../player/' },
-        { name: 'ui', displayName: 'UI 主控', prefix: '../ui/' },
-        { name: 'fx', displayName: '特效', prefix: '../fx/' },
-        { name: 'modules', displayName: '模块', prefix: '../modules/' },
-        { name: 'content', displayName: '游戏内容数据', prefix: '../content/' },
-        { name: 'tests', displayName: '测试与体检', prefix: '../tests/' },
-        { name: 'tools', displayName: '工具箱自身', prefix: '../tools/' },
-        { name: 'root', displayName: '根目录页面', prefix: null }
-    ];
-
-    // 主题分析提示词（移到外部，供序列发送使用）
-    const GROUP_PROMPTS = {
-        '战斗引擎核心': {
-            before: '请深入分析核心战斗引擎代码（伤害计算、Buff系统、闪避机制、事件总线、特殊角色、拒马海克斯）。无需输出详细分析，收到全部代码后直接开始协助开发。',
-            after: '核心引擎代码发送完毕。'
-        },
-        '播放器': {
-            before: '请深入分析播放器代码（事件→动画转换、状态同步、动画调度、文字播放、暂停恢复加速）。无需输出详细分析，收到全部代码后直接开始协助开发。',
-            after: '播放器代码发送完毕。'
-        },
-        'UI 主控': {
-            before: '请深入分析UI渲染代码（血条渲染、攻防显示、战斗状态UI、弹窗对话框）。无需输出详细分析，收到全部代码后直接开始协助开发。',
-            after: 'UI渲染代码发送完毕。'
-        },
-        '特效': {
-            before: '请深入分析特效代码（飘字弹幕、飞箭冲撞、换位击退、子弹时间）。无需输出详细分析，收到全部代码后直接开始协助开发。',
-            after: '特效代码发送完毕。'
-        },
-        '模块': {
-            before: '请深入分析模块代码（精英技能、错误捕获、音频管理）。无需输出详细分析，收到全部代码后直接开始协助开发。',
-            after: '模块代码发送完毕。'
-        },
-        '游戏内容数据': {
-            before: '请深入分析游戏内容数据（角色、技能、Buff、台词等配置）。无需输出详细分析，收到全部代码后直接开始协助开发。',
-            after: '游戏内容数据发送完毕。'
-        },
-        '测试与体检': {
-            before: '请深入分析测试与体检代码（健康检查、单元测试、运行时采样）。无需输出详细分析，收到全部代码后直接开始协助开发。',
-            after: '测试代码发送完毕。'
-        },
-        '工具箱自身': {
-            before: '请深入分析工具箱代码（自动战斗、构建脚本、工具箱UI）。无需输出详细分析，收到全部代码后直接开始协助开发。',
-            after: '工具箱代码发送完毕。'
-        },
-        '根目录页面': {
-            before: '请深入分析入口页面和文档（index、mode-5v5、README、CHANGELOG、开发准则、游戏设计）。无需输出详细分析，收到全部代码后直接开始协助开发。',
-            after: '入口页面和文档发送完毕。'
-        }
-    };
+    // 用户可勾选的文件列表（不含 assets/ 和 .md 等不可 fetch 的文件，排除文件名带空格的；精简模式跳过 AI_EXCLUDE）
+    const FILES = ALL_PROJECT_FILES.filter(f => (f.endsWith('.js') || f.endsWith('.html') || f.endsWith('.cjs') || f.endsWith('.md') || f.endsWith('.json')) && !f.includes(' ') && !AI_EXCLUDE.has(f));
 
     // 分组整理
     FILE_GROUPS.forEach(g => g.files = []);
@@ -395,8 +289,6 @@ function escapeHtml(text) {
             mergedBatches.push(batch);
         }
 
-
-
         // 生成路径清单（全项目文件 + 规则提示）
         const ruleHint = [
             '// ============================================================',
@@ -485,7 +377,7 @@ function escapeHtml(text) {
             const groupLabel = gn && gn !== '读取失败' ? `【${gn}】` : '';
             const manifest = `📦 ${groupLabel} 包 ${groupBatchIndex}/${groupBatchTotal}${partLabel}${failLabel}（共 ${batch.files.length} 个文件，合计 ${batch.totalChars} 字符）\n${manifestLines.join('\n')}`;
 
-            const fullCode = batch.files.map(f => {
+            let fullCode = batch.files.map(f => {
                 const fn = f.fileName || '';
                 if (f.error) return `// ===== ${fn} [读取失败: ${f.error}] =====`;
                 if (f.partTotal && f.partTotal > 1) {
@@ -493,6 +385,11 @@ function escapeHtml(text) {
                 }
                 return `// ===== ${fn} =====\n${f.content}`;
             }).join('\n\n');
+
+            // 第一包开头注入 AI 上下文契约
+            if (index === 0) {
+                fullCode = AI_INTERFACE_NOTE + '\n\n' + fullCode;
+            }
 
             const totalBytes = new Blob([fullCode]).size;
             const prompts = GROUP_PROMPTS[gn] || { before: '', after: '' };

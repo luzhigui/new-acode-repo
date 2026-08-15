@@ -1,15 +1,21 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// tools/47auto-battle-utils.js - 光明顶5v5 自动批量战斗工具
-// V5.4.0 | ~13100 bytes| 2026-07-05
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// tools/47auto-battle-utils.js - 光明顶5v5 自动批量战斗工具
+// V5.4.0 | ~14800 bytes| 2026-08-15 补齐 headless runBattle + 修 init 缺 rng
 export const VER = 'tools/47auto-battle-utils.js V5.4.0';
 
 import { CONFIG, ENEMY_M } from '../core/01config-5v5-test.js';
 import { Unit } from '../core/02unit.js';
-const _randLocal = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
+import { SeededRNG } from '../core/07-rng.js';
+import { createRoundStepper } from '../core/11battle-round.js';
+import '../modules/18global-store.js';
+import '../modules/20elite-imperial.js';
+import '../modules/21elite-sixsects.js';
+import '../modules/22elite-mingjiao.js';
 import { addPermanentBuff } from '../modules/15elite-skills.js';
+const _randLocal = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
 const C = CONFIG;
 
 // 纯数据快照生成器
-export function generateSnapshot(currentStage = 1) {
+export function generateSnapshot(currentStage = 1, rng = new SeededRNG(Date.now())) {
     const PARTY_SIZE = 5;
     let allyTeam = [], enemyTeam = [];
     const mingSquad = C.MING_SQUADS && C.MING_SQUADS[currentStage] ? C.MING_SQUADS[currentStage] : null;
@@ -32,7 +38,7 @@ export function generateSnapshot(currentStage = 1) {
             let name, mVal;
             if (typeof item === 'string') {
                 name = item;
-                mVal = C.MING_M[name] || 95;
+                mVal = name === '小昭' ? 107 : (C.MING_M[name] || 95);
             } else {
                 mVal = item;
                 // 明教弟子统一用带编号的格式
@@ -53,12 +59,19 @@ export function generateSnapshot(currentStage = 1) {
             }
             if (!name) name = '明教弟子' + (allyTeam.length + 1);
             if (!mVal) mVal = 95;
-            let role = name === '张无忌' ? '远程' : (name === '韦一笑' ? '飞行' : C.ROLES[_randLocal(0, 3)]);
+            let role = (name === '张无忌' || name === '小昭') ? '远程' : (name === '韦一笑' ? '飞行' : C.ROLES[_randLocal(0, 3)]);
             let unit = new Unit(name, mVal, role, 'ally');
             if (name === '张无忌') unit.isZhang = true;
             if (name === '韦一笑') unit.isWei = true;
+            if (name === '小昭') {
+                if (rng.next() < 0.5) { unit.isXiaoZhaoSister = true; }
+                else { unit.isXiaoZhaoBrother = true; }
+                unit.name = unit.isXiaoZhaoSister ? '小昭·姊' : '小昭·妹';
+                unit.initXiaoZhao(); unit.applyBonus();
+            } else {
+                unit.init(rng); unit.applyBonus();
+            }
             unit.pos = null;
-            unit.init(); unit.applyBonus();
             allyTeam.push(unit);
         }
         let zhang = allyTeam.find(u => u.isZhang);
@@ -80,7 +93,7 @@ export function generateSnapshot(currentStage = 1) {
         for (let item of enemySquad) {
             if (typeof item === 'object' && item.name) {
                 let unit = new Unit(item.name, item.m, item.role, 'enemy');
-                unit.init(); unit.applyBonus();
+                unit.init(rng); unit.applyBonus();
                 enemyUnits.push(unit);
             } else {
                 let mVal = item;
@@ -115,7 +128,7 @@ export function generateSnapshot(currentStage = 1) {
                 }
                 let role = C.ROLES[_randLocal(0, 3)];
                 let unit = new Unit(name, mVal, role, 'enemy');
-                unit.init(); unit.applyBonus();
+                unit.init(rng); unit.applyBonus();
                 enemyUnits.push(unit);
             }
         }
@@ -249,18 +262,79 @@ function generateBuffChoices() {
     return shuffled.slice(0, C.BUFF_CHOICES);
 }
 
+// 无界面自动补 Buff（每3回合）：复用主游戏筛选规则，优先不重复且满足角色要求
+function autoPickBuffForBattle(state, currentBuffs) {
+    const allKeys = Object.keys(C.BUFFS);
+    const existing = (currentBuffs || []).map(b => b.key);
+    const allyTeam = state.ally || [];
+    const available = allKeys.filter(k => {
+        if (existing.includes(k)) return false;
+        const requiredRole = C.BUFF_ROLE_REQUIREMENTS?.[k];
+        if (requiredRole && !allyTeam.some(u => u.alive && u.role === requiredRole)) return false;
+        return true;
+    });
+    if (available.length === 0) return null;
+    const rng = state._rng || new SeededRNG(Date.now());
+    const pick = available[rng.nextInt(0, available.length - 1)];
+    const duration = C.BUFFS[pick].duration || C.BUFF_DURATION || 4;
+    const newBuff = { key: pick, target: 'ally', remaining: duration, name: C.BUFFS[pick].name };
+    if (pick === 'holyFlame') {
+        newBuff.col = rng.nextInt(1, 3);
+        newBuff.row = rng.nextInt(1, 3);
+    }
+    return newBuff;
+}
+
+// 无界面完整战斗：复用 createRoundStepper 循环到分出胜负（headless，无 UI/动画）
+async function runBattle(snap, buffs, seed) {
+    const rng = seed instanceof SeededRNG ? seed : new SeededRNG(seed ?? Date.now());
+    let battleState = {
+        ally: snap.ally.map(u => u.clone()),
+        enemy: snap.enemy.map(u => u.clone()),
+        round: 1,
+        activeBuffs: (buffs || []).map(b => ({ ...b })),
+        allAllies: snap.ally.map(u => u.clone()),
+        _rng: rng
+    };
+    let lastStep = null;
+    const maxRound = C.MAX_ROUND || 35;
+    while (battleState.round <= maxRound) {
+        const stepper = createRoundStepper(battleState);
+        for await (const step of stepper) {
+            lastStep = step;
+            if (step.winner) return { winner: step.winner };
+        }
+        // 回合结束：Buff 递减 + 每3回合自动补一个 Buff
+        let nextBuffs = (battleState.activeBuffs || []).map(b => ({ ...b, remaining: b.remaining - 1 })).filter(b => b.remaining > 0);
+        if (battleState.round % 3 === 0) {
+            const nb = autoPickBuffForBattle(battleState, nextBuffs);
+            if (nb) nextBuffs.push(nb);
+        }
+        battleState = {
+            ally: (lastStep ? lastStep.ally : battleState.ally).map(u => u.clone()),
+            enemy: (lastStep ? lastStep.enemy : battleState.enemy).map(u => u.clone()),
+            round: battleState.round + 1,
+            activeBuffs: nextBuffs,
+            allAllies: battleState.allAllies,
+            _rng: battleState._rng
+        };
+    }
+    return { winner: '平局' };
+}
+
 // 自动批量战斗
 export async function runAutoBattle(rounds, onProgress, stage = 1, preferredBuffs = []) {
     let wins = { ally: 0, enemy: 0, draw: 0 };
     for (let i = 0; i < rounds; i++) {
-        const snap = generateSnapshot(stage);
+        const rng = new SeededRNG(Date.now() + i * 7919);
+        const snap = generateSnapshot(stage, rng);
         let buffs = [];
         for (let j = 0; j < 4; j++) {
             const choices = generateBuffChoices();
             const picked = autoPickBuff(choices, preferredBuffs);
             if (picked) buffs.push({ key: picked, target: 'ally', remaining: C.BUFFS[picked].duration || C.BUFF_DURATION });
         }
-        const result = runBattle(snap, buffs);
+        const result = await runBattle(snap, buffs, rng);
         if (result.winner === '明教') wins.ally++;
         else if (result.winner === '六大派') wins.enemy++;
         else wins.draw++;

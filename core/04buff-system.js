@@ -231,7 +231,7 @@ export function logBuffSummary(allyTeam, log, doubleStrikeUid) {
                         let rowUnits = allyTeam.filter(u => u.alive && u.camp === 'ally' && xzRows.includes(getUnitRow(u.pos)));
                         let atkNames = colUnits.map(u=>u.name).join('、') || '无';
                         let defNames = rowUnits.map(u=>u.name).join('、') || '无';
-                        let xiaoZhaoLabel = '🦋 圣火令（小昭）';
+                        let xiaoZhaoLabel = '🦋 圣火令（小昭·姊）';
                         const hasOverlap = colUnits.some(u => teamHolyBuffs.some(tb => {
                             const tcols = tb.cols || (tb.col != null ? [tb.col] : []);
                             return tcols.includes(getUnitCol(u.pos));
@@ -308,7 +308,7 @@ export function registerBloodthirst(eventBus) {
                 type: EFFECT_TYPES.LEECH,
                 value: leechVal,
                 source: unit,
-                logText: `<span class="green">🦋 蝶血：小昭嗜血狂刀吸血+${leechVal}</span>`
+                logText: `<span class="green">🕷️ 蝶血：${unit.name} 嗜血狂刀吸血+${leechVal}</span>`
             };
             if (!data.declarations) data.declarations = [];
             data.declarations.push(decl);
@@ -353,13 +353,13 @@ export function registerHotBlood(eventBus) {
             if (unit.hp < unit.maxHp) {
                 let ratio = (unit._hotBloodCount % 2 === 0) ? 0.40 : 0.20;
                 const leech = Math.min(Math.floor((unit.maxHp - unit.hp) * ratio), unit.maxHp - unit.hp);
-                const tag = (unit._hotBloodCount % 2 === 0) ? '🦋 热血(翻倍)' : '🦋 热血';
+                const tag = (unit._hotBloodCount % 2 === 0) ? '🕷️ 热血(翻倍)' : '🕷️ 热血';
                 if (leech > 0) {
                     const decl = {
                         type: EFFECT_TYPES.HEAL,
                         value: leech,
                         source: unit,
-                        logText: `<span class="green">${tag}：小昭回复+${leech}</span>`
+                        logText: `<span class="green">${tag}：${unit.name} 回复+${leech}</span>`
                     };
                     if (!data.declarations) data.declarations = [];
                     data.declarations.push(decl);
