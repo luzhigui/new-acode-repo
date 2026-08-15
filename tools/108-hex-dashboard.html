@@ -1,0 +1,124 @@
+<!-- tools/108-hex-dashboard.html - 光明顶5v5 海克斯平衡性仪表盘 -->
+<!-- V5.5.0 | ~7500 bytes| 2026-08-15 读取101自动战斗记录，统计海克斯强度 -->
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>海克斯平衡性仪表盘</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#1a1a2e;color:#eee;font-family:monospace;padding:16px;max-width:900px;margin:0 auto}
+h1{color:#ffd700;font-size:20px;margin-bottom:8px}
+.tip{color:#888;font-size:12px;margin-bottom:12px;line-height:1.5}
+button{padding:10px 20px;border:none;border-radius:8px;font-weight:bold;cursor:pointer;font-family:monospace;font-size:13px}
+#loadBtn{background:#ffd700;color:#1a1a2e}
+#clearBtn{background:#f44336;color:#fff;margin-left:8px}
+#stats{margin-top:16px}
+table{width:100%;border-collapse:collapse;margin-top:12px;font-size:12px}
+th{background:#2a2a4e;color:#ffd700;padding:8px;text-align:left}
+td{padding:6px 8px;border-bottom:1px solid #333;color:#ccc}
+.bar-wrap{background:#111;border-radius:4px;height:14px;overflow:hidden}
+.bar{height:100%;background:linear-gradient(90deg,#ffd700,#ff9800)}
+.op{color:#f44336;font-weight:bold}
+.weak{color:#888}
+</style>
+</head>
+<body>
+<h1>📊 海克斯平衡性仪表盘</h1>
+<p class="tip">
+先到工具箱的「自动批量战斗」跑若干场（数据会自动保存），再回来点「加载数据」。
+统计每个海克斯的：出场次数、胜率、以及与「没有该海克斯」场次的胜率对比。
+</p>
+<button id="loadBtn">加载数据</button>
+<button id="clearBtn">清空数据</button>
+<div id="summary"></div>
+<div id="stats"></div>
+<script>
+(function(){
+const KEY = 'ming_hex_battle_log';
+let logs = [];
+
+document.getElementById('loadBtn').addEventListener('click', () => {
+  try {
+    logs = JSON.parse(localStorage.getItem(KEY) || '[]');
+  } catch(e) {
+    logs = [];
+  }
+  render();
+});
+
+document.getElementById('clearBtn').addEventListener('click', () => {
+  if (!confirm('确认清空所有海克斯战斗记录？')) return;
+  localStorage.removeItem(KEY);
+  logs = [];
+  render();
+});
+
+function render() {
+  const summary = document.getElementById('summary');
+  const stats = document.getElementById('stats');
+  if (logs.length === 0) {
+    summary.innerHTML = '';
+    stats.innerHTML = '<p style="color:#888;margin-top:16px">暂无数据。请先在自动批量战斗里跑几场。</p>';
+    return;
+  }
+
+  const total = logs.length;
+  const allyWins = logs.filter(l => l.winner === '明教').length;
+  const enemyWins = logs.filter(l => l.winner === '六大派').length;
+  const draws = total - allyWins - enemyWins;
+
+  summary.innerHTML = `<p style="margin-top:12px;color:#ccc">共 <b style="color:#ffd700">${total}</b> 场：明教胜 ${allyWins}，六大派胜 ${enemyWins}，平局 ${draws}</p>`;
+
+  // 统计每个海克斯
+  const hexKeys = new Set();
+  logs.forEach(l => (l.buffs || []).forEach(b => hexKeys.add(b)));
+
+  const rows = [];
+  for (const key of hexKeys) {
+    const withHex = logs.filter(l => (l.buffs || []).includes(key));
+    const withoutHex = logs.filter(l => !(l.buffs || []).includes(key));
+    const winRate = (withHex.filter(l => l.winner === '明教').length / withHex.length) * 100;
+    const baseRate = withoutHex.length > 0
+      ? (withoutHex.filter(l => l.winner === '明教').length / withoutHex.length) * 100
+      : null;
+    const diff = baseRate !== null ? winRate - baseRate : null;
+
+    // 异常标记：样本≥10 且胜率提升超 8 点算 OP，低于 -8 点算弱
+    let tag = '';
+    if (withHex.length >= 10 && diff !== null) {
+      if (diff > 8) tag = '<span class="op">OP</span>';
+      else if (diff < -8) tag = '<span class="weak">WEAK</span>';
+    }
+
+    const barPct = Math.max(0, Math.min(100, winRate));
+    const baseText = baseRate !== null ? `${baseRate.toFixed(1)}%` : '无样本';
+    const diffText = diff !== null ? (diff > 0 ? `+${diff.toFixed(1)}%` : diff.toFixed(1) + '%') : '-';
+
+    rows.push({
+      key, count: withHex.length, winRate, baseRate, diff, diffText, baseText, barPct, tag
+    });
+  }
+
+  rows.sort((a, b) => b.count - a.count);
+
+  let html = '<table><tr><th>海克斯</th><th>出场</th><th>胜率</th><th>无此海克斯</th><th>差值</th><th>判定</th><th>胜率可视化</th></tr>';
+  for (const r of rows) {
+    html += `<tr>
+      <td>${r.key}</td>
+      <td>${r.count}</td>
+      <td>${r.winRate.toFixed(1)}%</td>
+      <td>${r.baseText}</td>
+      <td>${r.diffText}</td>
+      <td>${r.tag || '-'}</td>
+      <td><div class="bar-wrap"><div class="bar" style="width:${r.barPct}%"></div></div></td>
+    </tr>`;
+  }
+  html += '</table>';
+  stats.innerHTML = html;
+}
+})();
+</script>
+</body>
+</html>

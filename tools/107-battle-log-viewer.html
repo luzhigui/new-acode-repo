@@ -1,0 +1,141 @@
+<!-- tools/107-battle-log-viewer.html - 光明顶5v5 战斗日志复盘工具 -->
+<!-- V5.5.0 | ~8500 bytes| 2026-08-15 纯前端日志文本解析复盘 -->
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>战斗日志复盘</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#1a1a2e;color:#eee;font-family:monospace;padding:16px;max-width:900px;margin:0 auto}
+h1{color:#ffd700;font-size:20px;margin-bottom:8px}
+.tip{color:#888;font-size:12px;margin-bottom:12px;line-height:1.5}
+textarea{width:100%;height:180px;background:#111;color:#ccc;border:2px solid #444;border-radius:8px;padding:10px;font-size:12px;font-family:monospace;resize:vertical}
+button{padding:10px 24px;border:none;border-radius:8px;font-weight:bold;cursor:pointer;font-family:monospace;font-size:14px}
+#parseBtn{background:#ffd700;color:#1a1a2e;margin-top:10px}
+#parseBtn:hover{background:#ffed4a}
+#clearBtn{background:#444;color:#ccc;margin-top:10px;margin-left:8px}
+.summary{display:flex;gap:12px;flex-wrap:wrap;margin:16px 0}
+.stat-card{flex:1;min-width:100px;background:#0f0f1a;border:1px solid #333;border-radius:10px;padding:12px;text-align:center}
+.stat-card .value{font-size:22px;font-weight:bold;color:#ffd700}
+.stat-card .label{font-size:11px;color:#888;margin-top:4px}
+table{width:100%;border-collapse:collapse;margin-top:12px;font-size:12px}
+th{background:#2a2a4e;color:#ffd700;padding:8px;text-align:left;position:sticky;top:0}
+td{padding:6px 8px;border-bottom:1px solid #333;color:#ccc}
+tr:hover td{background:#1a1a3a}
+.kill{color:#f44336;font-weight:bold}
+.dodge{color:#4fc3f7}
+.miss{color:#888}
+</style>
+</head>
+<body>
+<h1>🕹️ 战斗日志复盘</h1>
+<p class="tip">
+把游戏日志（详细模式）的文本复制到这里，点「解析日志」。
+解析基于当前日志文案格式，粗粒度复盘：回合、谁打谁、伤害、血线、击杀/闪避/未命中。
+</p>
+<textarea id="logInput" placeholder="把日志文本粘贴到这里..."></textarea>
+<div>
+<button id="parseBtn">解析日志</button>
+<button id="clearBtn">清空</button>
+</div>
+<div class="summary" id="summary" style="display:none"></div>
+<div id="result"></div>
+<script>
+(function(){
+const input = document.getElementById('logInput');
+const summary = document.getElementById('summary');
+const result = document.getElementById('result');
+
+document.getElementById('parseBtn').addEventListener('click', () => {
+  const text = input.value.trim();
+  if (!text) { alert('请先粘贴日志文本'); return; }
+  const events = parseLog(text);
+  render(events);
+});
+
+document.getElementById('clearBtn').addEventListener('click', () => {
+  input.value = '';
+  summary.style.display = 'none';
+  result.innerHTML = '';
+});
+
+function parseLog(text) {
+  const lines = text.split('\n').map(s => s.trim()).filter(Boolean);
+  const events = [];
+  let round = 0;
+  let pending = null;
+  const pushPending = () => { if (pending) { events.push(pending); pending = null; } };
+
+  for (const line of lines) {
+    let m;
+    if ((m = line.match(/第(\d+)回合开始/))) {
+      round = parseInt(m[1], 10);
+    } else if ((m = line.match(/^(.+?)\(攻\s*\d+\s*血\s*\d+\)\s*→\s*(.+?)\(防\s*\d+\s*血\s*\d+\)$/))) {
+      pushPending();
+      pending = { round, attacker: m[1].trim(), target: m[2].trim(), dmg: null, hpBefore: null, hpAfter: null, type: 'attack' };
+    } else if (pending && (m = line.match(/造成\s*(\d+)\s*伤害/))) {
+      pending.dmg = parseInt(m[1], 10);
+      const hpM = line.match(/(\d+)\s*→\s*(\d+)/);
+      if (hpM) { pending.hpBefore = parseInt(hpM[1], 10); pending.hpAfter = parseInt(hpM[2], 10); }
+      if (line.includes('阵亡')) pending.type = 'kill';
+      pushPending();
+    } else if (line.includes('闪避了攻击')) {
+      pushPending();
+      pending = { round, attacker: '?', target: line.split('闪避了攻击')[0].trim(), dmg: null, hpBefore: null, hpAfter: null, type: 'dodge' };
+      pushPending();
+    } else if (line.includes('未命中')) {
+      pushPending();
+      pending = { round, attacker: '?', target: '?', dmg: null, hpBefore: null, hpAfter: null, type: 'miss' };
+      pushPending();
+    }
+  }
+  pushPending();
+  return events;
+}
+
+function render(events) {
+  // 概要统计
+  const rounds = new Set(events.map(e => e.round)).size;
+  const attacks = events.filter(e => e.type === 'attack' || e.type === 'kill').length;
+  const kills = events.filter(e => e.type === 'kill').length;
+  const dodges = events.filter(e => e.type === 'dodge').length;
+  const misses = events.filter(e => e.type === 'miss').length;
+  const totalDmg = events.filter(e => e.dmg !== null).reduce((s, e) => s + e.dmg, 0);
+
+  summary.style.display = 'flex';
+  summary.innerHTML = [
+    card(rounds, '回合数'),
+    card(attacks, '攻击次数'),
+    card(totalDmg, '总伤害'),
+    card(kills, '击杀'),
+    card(dodges, '闪避'),
+    card(misses, '未命中')
+  ].join('');
+
+  // 事件表格
+  if (events.length === 0) {
+    result.innerHTML = '<p style="color:#888;margin-top:16px">没有解析到事件，请检查日志格式。</p>';
+    return;
+  }
+  let html = '<table><tr><th>回合</th><th>攻击者</th><th>目标</th><th>伤害</th><th>血线</th><th>结果</th></tr>';
+  for (const e of events) {
+    const hpText = e.hpBefore !== null ? `${e.hpBefore} → ${e.hpAfter ?? '?'}` : '-';
+    const typeText = e.type === 'kill' ? '<span class="kill">💀击杀</span>'
+      : e.type === 'dodge' ? '<span class="dodge">🦅闪避</span>'
+      : e.type === 'miss' ? '<span class="miss">未命中</span>'
+      : e.type === 'attack' ? '命中' : e.type;
+    html += `<tr><td>${e.round}</td><td>${e.attacker}</td><td>${e.target}</td><td>${e.dmg ?? '-'}</td><td>${hpText}</td><td>${typeText}</td></tr>`;
+  }
+  html += '</table>';
+  result.innerHTML = html;
+}
+
+function card(value, label) {
+  return `<div class="stat-card"><div class="value">${value}</div><div class="label">${label}</div></div>`;
+}
+})();
+</script>
+</body>
+</html>
