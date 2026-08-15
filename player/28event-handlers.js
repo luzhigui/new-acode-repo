@@ -38,7 +38,6 @@ export async function handleBuffSwap(c, entry) {
                 { eventType: 'pos-change', uid: unitA.uid, pos: oldPosB || unitB.pos },
                 { eventType: 'pos-change', uid: unitB.uid, pos: oldPosA || unitA.pos }
             ]});
-            c.updateUI();
         }
     }
     GlobalStore.set('bulletTimeActive', false);
@@ -62,7 +61,6 @@ export async function handleBuffPush(c, entry) {
         }
         if (events.length > 0) {
             c.store.dispatch({ type: 'APPLY_EVENTS', events });
-            c.updateUI();
         }
     }
     await showBuffBanner('🦅 乘风突袭！');
@@ -114,7 +112,6 @@ export async function handleAttackGroup(c, entry, roundResult, abortSig, isFirst
                     const host = hostUid ? c.UI.allyTeam.find(u => u.uid === hostUid) : null;
                     if (host) showButterflyFlyOut(sister, host);
                     c.store.dispatch({ type: 'APPLY_EVENTS', events: [ev] });
-                    c.updateUI(c.UI);
                 }
             } else if (ev.payload && ev.payload._flyMode === 'spider') {
                 const brother = c.UI.allyTeam.find(u => u.uid === ev.unitUid);
@@ -122,7 +119,6 @@ export async function handleAttackGroup(c, entry, roundResult, abortSig, isFirst
                     const { showSpiderAscend } = await import('../fx/45fx-butterfly-spider.js');
                     showSpiderAscend(brother);
                     c.store.dispatch({ type: 'APPLY_EVENTS', events: [ev] });
-                    c.updateUI(c.UI);
                 }
             } else if (ev.eventType === 'hp-change' || ev.type === 'hp-change') {
                 entry._pendingHpEvents.push(ev);
@@ -489,7 +485,6 @@ export async function handleRoundStart(c, entry, isFirstAttackRef) {
     appendLogHTML(entry.text + '<br>');
     updateRoundDisplay(`📜 日志（第${c.UI.round}回合）`);
     await new Promise(r=>setTimeout(r, GlobalStore.get('fastForwardActive') ? 1 : c.speed/3));
-    c.updateUI(c.UI);
 }
 
 export async function handleRoundEnd(c, entry, log, i) {
