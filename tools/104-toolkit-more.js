@@ -369,17 +369,24 @@ import { CONFIG } from '../core/01config-5v5-test.js';
         if (!template) { previewDiv.textContent = '无模板'; return; }
 
         const grid = Array(9).fill('·');
-        // 先画精英（按 ELITE_POOL.pos），与 generateSnapshot 实际站位一致
-        for (const elite of eliteList) {
-            const rc = elite.role === '防战' ? '防' : (elite.role === '战士' ? '战' : (elite.role === '远程' ? '远' : '飞'));
-            const p = elite.pos;
-            if (p && p >= 1 && p <= 9 && grid[p - 1] === '·') grid[p - 1] = rc + '*';
-        }
-        // 再画模板（按 role），已被精英占的位置跳过
-        for (const [role, poses] of Object.entries(template)) {
-            if (role === 'random') continue;
-            const rc = role === '防战' ? '防' : (role === '战士' ? '战' : (role === '远程' ? '远' : '飞'));
-            for (const p of poses) { if (p >= 1 && p <= 9 && grid[p - 1] === '·') grid[p - 1] = rc; }
+        // 精英名单（用于标注*），站位以 generateSnapshot 实际为准（config.pos 已过时，主代码不用）
+        const eliteNames = new Set(eliteList.map(e => e.name));
+        let snap = null;
+        try { snap = generateSnapshot(stage); } catch (e) { /* 快照失败时降级用模板画格 */ }
+        const enemies = snap ? snap.enemy : [];
+        if (enemies.length > 0) {
+            for (const u of enemies) {
+                if (!u.pos || u.pos < 1 || u.pos > 9) continue;
+                const rc = u.role === '防战' ? '防' : (u.role === '战士' ? '战' : (u.role === '远程' ? '远' : '飞'));
+                grid[u.pos - 1] = rc + (eliteNames.has(u.name) ? '*' : '');
+            }
+        } else {
+            // 降级：按模板画格（config 声明）
+            for (const [role, poses] of Object.entries(template)) {
+                if (role === 'random') continue;
+                const rc = role === '防战' ? '防' : (role === '战士' ? '战' : (role === '远程' ? '远' : '飞'));
+                for (const p of poses) { if (p >= 1 && p <= 9 && grid[p - 1] === '·') grid[p - 1] = rc; }
+            }
         }
 
         const roleColor = (r) => {
@@ -426,7 +433,9 @@ import { CONFIG } from '../core/01config-5v5-test.js';
 
         previewDiv.innerHTML = infoHtml + tableHtml;
 
-        // 一致性检测：跑一次 generateSnapshot，对比精英实际站位与 config 定义
+        // 一致性检测：以主代码实际站位为准（generateSnapshot 复用 initBattleTeams，即主代码本体）
+        // CONFIG.ELITE_POOL[].pos 为过时声明，主代码 29battle-init.js 只借 ELITE_POOL 识别精英、不读 .pos，
+        // 因此不再拿 config.pos 判红叉，只展示多次采样的实际站位
         const compareDiv = document.getElementById('abPosCompare');
         if (compareDiv) {
             const elitePool = CONFIG.ELITE_POOL?.[stage] || [];
@@ -434,24 +443,31 @@ import { CONFIG } from '../core/01config-5v5-test.js';
                 compareDiv.innerHTML = '<span style="color:#888;">本关无精英，无需比对</span>';
             } else {
                 try {
-                    const snap = generateSnapshot(stage);
-                    const actualEnemies = snap.enemy;
-                    let html = '';
-                    let allMatch = true;
-                    for (const elite of elitePool) {
-                        const actual = actualEnemies.find(u => u.name === elite.name);
-                        const actualPos = actual ? actual.pos : null;
-                        const configPos = elite.pos;
-                        if (actualPos === configPos) {
-                            html += `<div style="color:#4caf50;">✅ ${elite.name}：config=${configPos}，实际=${actualPos}</div>`;
-                        } else {
-                            allMatch = false;
-                            html += `<div style="color:#ef5350;">❌ ${elite.name}：config=${configPos}，实际=${actualPos}</div>`;
+                    // 精英出场率随机（80%一/15%二/5%三），单次快照未必包含全部精英，故多次采样
+                    const SAMPLE_N = 8;
+                    const posMap = {};      // 姓名 -> 出现的站位集合
+                    const appearCount = {}; // 姓名 -> 出现次数
+                    for (let i = 0; i < SAMPLE_N; i++) {
+                        const snap = generateSnapshot(stage);
+                        for (const u of snap.enemy) {
+                            if (!elitePool.some(e => e.name === u.name)) continue;
+                            if (!posMap[u.name]) { posMap[u.name] = new Set(); appearCount[u.name] = 0; }
+                            posMap[u.name].add(u.pos);
+                            appearCount[u.name]++;
                         }
                     }
-                    const header = allMatch
-                        ? `<div style="color:#4caf50;font-weight:bold;margin-bottom:4px;">✅ 与主代码一致</div>`
-                        : `<div style="color:#ef5350;font-weight:bold;margin-bottom:4px;">❌ 与主代码不一致</div>`;
+                    let html = '';
+                    for (const elite of elitePool) {
+                        const posSet = posMap[elite.name] || new Set();
+                        const cnt = appearCount[elite.name] || 0;
+                        const actualPos = posSet.size ? [...posSet].sort((a, b) => a - b).join('/') : '未出现';
+                        if (posSet.size > 0) {
+                            html += `<div style="color:#4caf50;">✅ ${elite.name}：${SAMPLE_N}次采样实际站位=${actualPos}（config.pos=${elite.pos} 为过时声明，主代码不读）</div>`;
+                        } else {
+                            html += `<div style="color:#ff9800;">⚠️ ${elite.name}：${SAMPLE_N}次采样未出现（config.pos=${elite.pos}）</div>`;
+                        }
+                    }
+                    const header = `<div style="color:#4caf50;font-weight:bold;margin-bottom:4px;">✅ 站位以主代码实际生成为准</div>`;
                     compareDiv.innerHTML = header + html;
                 } catch (e) {
                     compareDiv.innerHTML = `<span style="color:#ef5350;">检测失败：${e.message}</span>`;

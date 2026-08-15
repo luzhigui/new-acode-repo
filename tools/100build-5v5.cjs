@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// tools/100build-5v5.cjs - 光明顶5v5 构建脚本
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// tools/100build-5v5.cjs - 光明顶5v5 构建脚本
 // V5.5.0 | 更新：2026-07-21 合并新模块
 
 const fs = require('fs');
@@ -46,10 +46,10 @@ const MODULES = [
     'modules/21error-capture.js',
     'modules/22audio-manager.js',
     'modules/23global-store.js',
+    'modules/29battle-init.js',
     'tools/101auto-battle-utils.js',
     'ui/63main-state.js',
     'ui/64main-dialogs.js',
-    'modules/29battle-init.js',
     'ui/65main-battle.js',
     'ui/66audio-control.js',
     'ui/67fx-trigger.js',
