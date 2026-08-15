@@ -17,8 +17,9 @@ class EventBus {
         if (!this._listeners[signal]) {
             this._listeners[signal] = [];
         }
-        // 去重：同一个回调函数不重复注册
-        if (this._listeners[signal].some(l => l.callback === callback)) return;
+        // 去重：同一个回调函数不重复注册；同 priority 下用函数指纹去重
+        const cbKey = callback.toString();
+        if (this._listeners[signal].some(l => l.priority === priority && l.callback.toString() === cbKey)) return;
         this._listeners[signal].push({ priority, callback });
         this._listeners[signal].sort((a, b) => a.priority - b.priority);
     }
@@ -110,7 +111,8 @@ export const EXECUTION_LAYER = {
         ZHOU_CLAW: 40,      // 周芷若白骨爪
         XUANMING_LINK: 10,  // 玄冥联动
         DOUBLE_STRIKE: 40,  // 概率连击
-        XIAOZHAO_DOUBLE: 40 // 小昭永久连击
+        XIAOZHAO_DOUBLE: 40, // 小昭永久连击
+        MIND_CONTROL: 40    // 惑人心智
     },
     AFTER_MISS: {
         SONG_XINGFEN_RETRY: 50, // 宋青书性奋重试
@@ -147,5 +149,6 @@ export const EFFECT_TYPES = {
     BREAK_DEF: 'breakDef',
     IGNORE_DEF: 'ignoreDef',
     DMG_MULTIPLIER: 'dmgMultiplier',
-    DMG_REDUCTION: 'dmgReduction'
+    DMG_REDUCTION: 'dmgReduction',
+    CLAW_CHAIN: 'clawChain'
 };

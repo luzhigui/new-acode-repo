@@ -126,9 +126,6 @@ async function prepareRoundStart(A, B, log, state, round, rng) {
 
     // 注册精英组件钩子，并保存小昭姐妹组件引用供裁判调用
     const factories = getEliteFactories();
-    // 玄冥二老联动：从注册表获取（玄冥联动注册的是直接函数，非组件工厂）
-    const xuanmingLinkFn = factories.get('玄冥联动');
-    if (xuanmingLinkFn) xuanmingLinkFn(eventBus);
     let sisterComp = null;
     let brotherComp = null;
     const allUnits = [...A, ...B];

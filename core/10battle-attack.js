@@ -251,8 +251,28 @@ export async function processUnitAttack(unit, allySide, enemySide, log, A, B, st
     group._events = (group._events || []).concat(flushBattleEvents());
 
     // 攻击结束信号（玄冥二老联动、白骨爪追击等）
-    const afterAttackData = { unit, target, dmg: dmgCalc.dmg, group, allySide, enemySide, log, A, B, state, retry: false, retryTargetUid: null };
+    const afterAttackData = { unit, target, dmg: dmgCalc.dmg, group, allySide, enemySide, log, A, B, state, retry: false, retryTargetUid: null, declarations: [] };
     await eventBus.emit('afterAttack', afterAttackData);
+    // 九阴白骨爪等 afterAttack 阶段提交的链式/附加效果，由裁判在此统一结算
+    if (afterAttackData.declarations.length > 0) {
+        const clawExecuted = resolveAfterDamageEffects(afterAttackData.declarations, unit, target, group);
+        for (const decl of clawExecuted) {
+            if (decl._events && decl._events.length > 0) {
+                if (!group._events) group._events = [];
+                group._events.push(...decl._events);
+            }
+            if (decl.type === EFFECT_TYPES.CLAW_CHAIN) {
+                if (decl.hits) {
+                    for (const hit of decl.hits) {
+                        if (hit.logText && group && group.entries) group.entries.push({ type: 'info', text: hit.logText });
+                    }
+                }
+                if (decl.execute && decl.execute.logText && group && group.entries) group.entries.push({ type: 'info', text: decl.execute.logText });
+            } else if (decl.logText && group && group.entries) {
+                group.entries.push({ type: 'info', text: decl.logText });
+            }
+        }
+    }
     if (afterAttackData.retry && unit.alive) {
         const retryTargetUid = afterAttackData.retryTargetUid || (target && target.alive ? target.uid : null);
         unit.state._acted = false;
