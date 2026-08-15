@@ -148,7 +148,6 @@ export async function playLogEntries(c, log, roundResult, isFirstAttackRef) {
                     if (roundResult && roundResult.doubleStrikeUid) {
                         c.currentDoubleStrikeUid = roundResult.doubleStrikeUid;
                     }
-                    c.updateUI(c.UI);
                     lastEntryType = entry.type;
                     break;
                 case 'attack-group': {
@@ -319,7 +318,6 @@ export async function playBattle() {
 
             if (step.events && step.events.length > 0) {
                 c.store.dispatch({ type: 'APPLY_EVENTS', events: step.events });
-                c.updateUI(c.UI);
             }
             c.store.dispatch({ type: 'SYNC_BATTLE_STATS', ally: step.ally, enemy: step.enemy });
 
