@@ -8,7 +8,7 @@
 
 功能：
     1. 自动起本地静态服务器（若 8000 端口未占用）
-    2. 用无头 Chromium 打开 tests/55test-runner.html?auto=1&budget=&stages=&speed=
+    2. 用无头 Chromium 打开 tests/120test-runner.html?auto=1&budget=&stages=&speed=
     3. 后台自动跑完目标关卡，轮询 window.__healthResult 并打印完整 JSON
 """
 import json
@@ -26,7 +26,7 @@ except ImportError:
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PORT = 8000
-URL = f'http://localhost:{PORT}/tests/55test-runner.html'
+URL = f'http://localhost:{PORT}/tests/120test-runner.html'
 
 BUDGET = int(sys.argv[1]) if len(sys.argv) > 1 else 180   # 脚本最多等多久(秒)
 STAGES = int(sys.argv[2]) if len(sys.argv) > 2 else 6      # 目标关
