@@ -1,5 +1,5 @@
 ﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// core/01config-5v5-test.js - 光明顶5v5 全量配置
-// V5.4.0 | ~16700 bytes| 2026-07-05 → V5.3.2 | 接入 content/64game-data.json
+// V5.4.0 | ~16700 bytes| 2026-07-05 → V5.3.2 | 接入 content/200game-data.json
 export const VER = 'core/01config-5v5-test.js V5.4.0';
 
 // ==================== 游戏数据加载 ====================
@@ -8,7 +8,7 @@ let gameData = null;
 async function loadGameData() {
     if (gameData) return gameData;
     try {
-        const resp = await fetch('./content/64game-data.json');
+        const resp = await fetch('./content/200game-data.json');
         gameData = await resp.json();
         return gameData;
     } catch (e) {
@@ -169,7 +169,7 @@ const CONFIG = {
             { name: '成昆', role: '防战', m: 112, skill: 'phantomThunder', pos: 1 }
         ]
     },
-    // 精英怪技能参数 — 宋青书/周芷若已迁移至 content/64game-data.json，
+    // 精英怪技能参数 — 宋青书/周芷若已迁移至 content/200game-data.json，
     // 此处保留的键名仍用于代码引用，但数值由 gameData 覆盖
     ELITE_SKILLS: {
         weiBloodDodge: { name: '残血幻影', maxRatio: 0.70 },

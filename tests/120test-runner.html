@@ -1,0 +1,94 @@
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿<!-- tests/120test-runner.html - 光明顶5v5 测试与体检中心 V5.2.0 -->
+<!-- V5.4.0 | ~6000 bytes-->
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>光明顶 5v5 体检中心 V5.2.0</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { background: #1a1a2e; color: #eee; font-family: monospace; font-size: 12px; height: 100dvh; display: flex; flex-direction: column; overflow: hidden; }
+        #gameArea { flex: 1; min-height: 0; position: relative; display: none; }
+        #gameArea.active { display: block; }
+        #gameFrame { width: 100%; height: 100%; border: none; }
+        #reportArea { flex: 1; min-height: 0; overflow-y: auto; padding: 12px; display: none; }
+        #reportArea.active { display: block; }
+        #controlBar { flex-shrink: 0; padding: 6px 8px; background: #16213e; border-top: 2px solid #2a2a4e; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; justify-content: center; }
+        #controlBar button { padding: 6px 10px; border-radius: 4px; border: 1px solid #555; background: #2a2a4e; color: #eee; font-size: 11px; cursor: pointer; white-space: nowrap; }
+        #controlBar button:active { filter: brightness(1.3); }
+        #controlBar button.primary { background: #4caf50; border-color: #4caf50; }
+        #controlBar button.danger { background: #f44336; border-color: #f44336; }
+        #controlBar button.active { background: #ff9800; border-color: #ff9800; font-weight: bold; }
+        #freqGroup { display: flex; gap: 4px; align-items: center; }
+        #freqGroup span { font-size: 10px; color: #aaa; margin-right: 4px; }
+        #freqGroup button { font-size: 10px; padding: 4px 8px; }
+        #statusLine { width: 100%; text-align: center; font-size: 10px; color: #aaa; margin-top: 2px; }
+        .report-line { margin: 2px 0; font-size: 11px; line-height: 1.5; }
+        .report-group { color: #ff9800; font-weight: bold; margin-top: 10px; font-size: 13px; }
+        .report-fail { color: #f44336; }
+        .report-detail { color: #ff9800; font-size: 10px; margin-left: 14px; }
+        .report-pass { color: #4caf50; }
+        .copy-btn { margin-top: 10px; padding: 8px 16px; background: #3a3a6e; border: 1px solid #555; border-radius: 6px; color: #ccc; font-size: 11px; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <div id="gameArea" class="active">
+        <iframe id="gameFrame" sandbox="allow-scripts allow-same-origin allow-popups allow-forms"></iframe>
+    </div>
+    <div id="reportArea">
+        <div class="report-group" style="color:#888;">点击“开始体检”加载游戏并启动监控</div>
+    </div>
+    <div id="controlBar">
+        <button class="primary" id="btnAutoRun">🚀 一键自动体检</button>
+        <button id="btnStartMonitor">▶ 开始体检</button>
+        <button id="btnStopMonitor" disabled>⏹️ 停止</button>
+        <button id="btnViewReport">📋 报告</button>
+        <button id="btnClearReport">🗑️ 清空</button>
+        <div id="freqGroup">
+            <span>扫描频率:</span>
+            <button data-freq="100">100ms</button>
+            <button data-freq="200" class="active">200ms</button>
+            <button data-freq="500">500ms</button>
+            <button data-freq="1000">1s</button>
+            <button data-freq="0">手动</button>
+        </div>
+        <div id="statusLine">等待启动...</div>
+    </div>
+    <script type="module">
+        import { initMonitor } from './121health-monitor.js';
+        initMonitor();
+
+        // 🚀 一键自动体检：傻瓜式，点一下即进入自动后台模式（带快进+目标关+报告），无需任何终端命令
+        document.getElementById('btnAutoRun').addEventListener('click', () => {
+            const url = new URL(window.location.href);
+            url.searchParams.set('auto', '1');
+            if (!url.searchParams.get('stages')) url.searchParams.set('stages', '6');
+            if (!url.searchParams.get('budget')) url.searchParams.set('budget', '240');
+            if (!url.searchParams.get('speed')) url.searchParams.set('speed', '100');
+            window.location.href = url.href;
+        });
+    </script>
+<!-- 手动记录弹窗 -->
+<div id="healthManualOverlay" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);display:none;justify-content:center;align-items:center;z-index:99999;">
+    <div style="background:#1a1a2e;border:2px solid #ff9800;border-radius:12px;padding:20px;text-align:center;color:#eee;min-width:280px;">
+        <div style="font-size:14px;color:#ff9800;margin-bottom:12px;">📝 手动记录异常</div>
+        <textarea id="healthManualText" style="width:100%;height:80px;background:#16213e;color:#eee;border:1px solid #555;border-radius:6px;padding:8px;font-size:12px;resize:vertical;" placeholder="输入你观察到的问题..."></textarea>
+        <button id="healthManualOk" style="padding:8px 20px;margin:10px 5px 0;background:#4caf50;border:none;border-radius:6px;color:#fff;cursor:pointer;">添加</button>
+        <button id="healthManualCancel" style="padding:8px 20px;margin:10px 5px 0;background:#666;border:none;border-radius:6px;color:#fff;cursor:pointer;">取消</button>
+    </div>
+</div>
+
+<!-- 清空确认弹窗 -->
+<div id="healthConfirmOverlay" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.6);display:none;justify-content:center;align-items:center;z-index:99999;">
+    <div style="background:#1a1a2e;border:2px solid #f44336;border-radius:12px;padding:20px;text-align:center;color:#eee;min-width:200px;">
+        <div style="margin-bottom:16px;" id="healthConfirmText">确定清空所有异常记录吗？</div>
+        <button id="healthConfirmOk" style="padding:8px 20px;margin-right:10px;background:#f44336;border:none;border-radius:6px;color:#fff;cursor:pointer;">确定</button>
+        <button id="healthConfirmCancel" style="padding:8px 20px;background:#666;border:none;border-radius:6px;color:#fff;cursor:pointer;">取消</button>
+    </div>
+</div>
+
+<!-- 返回游戏按钮（插入报告区） -->
+<button id="btnBackToGame" style="display:none;padding:6px 10px;border-radius:4px;border:1px solid #555;background:#2a2a4e;color:#eee;font-size:11px;cursor:pointer;margin-top:6px;">↩️ 返回游戏</button>
+</body>
+</html>
