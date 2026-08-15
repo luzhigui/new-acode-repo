@@ -28,6 +28,7 @@ const C = CONFIG;
  *   每步产生日志、事件、当前双方状态，winner 非空表示战斗结束
  */
 // 回合-生成器：逐yield行动步骤供播放器消费
+// 回合-开始：召唤拒马、随机圣火令、注册监听器与精英钩子、重置双方单位状态
 async function prepareRoundStart(A, B, log, state, round, rng) {
     A._activeBuffs = state.activeBuffs.filter(b => b.target === 'ally' || !b.target);
     B._activeBuffs = state.activeBuffs.filter(b => b.target === 'enemy');
@@ -588,6 +589,7 @@ export async function* createRoundStepper(state) {
     yield { log: [...log], events: endEvents, ally: A, enemy: B, winner, done };
 }
 
+// 回合-结束：销毁拒马、递减Buff、判定胜负、发送回合结束信号并结算死亡
 function finalizeRoundEnd(A, B, log, round) {
     [A, B].forEach(team => {
         for (let i = team.length - 1; i >= 0; i--) {
