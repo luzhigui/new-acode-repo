@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// core/13battle-shared.js - 光明顶5v5 战斗共享工具
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// core/13battle-shared.js - 光明顶5v5 战斗共享工具
 // V5.2.1 | 提取06和48的公共依赖，解开循环引用
 export const VER = 'core/13battle-shared.js V5.4.0';
 
@@ -134,6 +134,7 @@ function applyStatChange(target, field, delta, source, reason) {
  * @param {string} reason - 变更原因
  */
 // 战斗-血量上限变更：增减等比缩放当前血量
+// 上限增加直接加当前血、上限减少按比例缩当前血：加血补足新上限差值，减血等比缩放，避免血量突变或超出新上限
 function applyMaxHpChange(target, newMaxHp, source, reason) {
     if (!target || !target.alive) return;
     const oldMaxHp = target.maxHp;

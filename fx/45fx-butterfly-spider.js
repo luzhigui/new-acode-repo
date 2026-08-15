@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// fx/45fx-butterfly-spider.js - 光明顶5v5 蝶蛛双生特效
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// fx/45fx-butterfly-spider.js - 光明顶5v5 蝶蛛双生特效
 // V5.2.1 | 从实验室移植，蝴蝶飞走/飞回 + 蜘蛛升天/降下
 export const VER = 'fx/45fx-butterfly-spider.js V5.4.0';
 
@@ -136,6 +136,7 @@ export async function showButterflyFlyBack(hostUnit, toUnit) {
 /**
  * 🕷️ 蜘蛛升天 — 妹妹飞天
  */
+// 飞天先克隆原格残影(ghost)占位再让蜘蛛升空：原格瞬间变空，残影保持视觉位置，蜘蛛实体上浮到画面上方
 export async function showSpiderAscend(fromUnit) {
     const fromCell = getCellElement(fromUnit);
     if (!fromCell) return;
@@ -222,6 +223,7 @@ export async function showSpiderAscend(fromUnit) {
 /**
  * 🕷️ 蜘蛛降下 — 回合结束妹妹落下
  */
+// 降落：蜘蛛从空中落回原格并放大，丝线随之下垂，完成后移除残影并闪烁原格，闭合飞天-落地
 export async function showSpiderDescend(toUnit) {
     const toCell = getCellElement(toUnit);
     if (!toCell) return;

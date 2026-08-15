@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// fx/40fx-arrows-5v5-test.js - 光明顶5v5 飞箭+白骨爪特效
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// fx/40fx-arrows-5v5-test.js - 光明顶5v5 飞箭+白骨爪特效
 // V5.4.0 | ~21100 bytes| 2026-07-06 新增 showBoneClaw、接入通用受击反馈
 export const VER = 'fx/40fx-arrows-5v5-test.js V5.4.0';
 
@@ -228,6 +228,7 @@ export function showBoneClaw(unitA, unitD, speed, getPausedFn, onHit, opts) {
             }
         }
     }
+    // 飞行时间保底：baseMin 默认700ms 保证近距离也不一闪而过；小昭衍生技交替触发时临时降到450ms 提速配合节奏
     let flyDuration = Math.max(baseMin, dist * 1.5) * (speed / 1000);
     let pauseAfterHit = 500 * (speed / 1000);
 

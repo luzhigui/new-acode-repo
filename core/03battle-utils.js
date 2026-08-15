@@ -8,8 +8,10 @@ import { EXECUTION_LAYER as L, EFFECT_TYPES } from './00-event-bus.js';
 const C = CONFIG, TL = TAUNT_LIB, DT = DEF_TAUNT, HT = HP_TAUNT, ZT = ZHANG_NEAR_TAUNT;
 
 
+// 设 atk*0.1 保底：防御极高时 atk²/(atk+def) 会趋近0，保底保证任何攻击都有最低伤害，避免高防单位几乎无伤
 // 工具-伤害公式：基础伤害 = atk²/(atk+def)
 export function calcDamage(atk, def) { if (def <= 0) return atk; let d = atk * (atk / (atk + def)); return Math.max(d, atk * 0.1); }
+// 从末尾往前找：FANG_LEVELS 升序排列，从最高档往下比对返回第一个满足的档位，保证取到满足条件的最高档
 // 工具-防战等级：根据防御/兵力比查表
 export function getFangLevel(def, m) { let ratio = def / m; for (let i = C.FANG_LEVELS.length - 1; i >= 0; i--) { if (ratio >= C.FANG_LEVELS[i]) return i; } return 0; }
 // 工具-近战判断：战士/防战/飞行为近战
@@ -114,6 +116,7 @@ export function selectFlyTarget(unit, enemySide) {
     const emptySlots = [1,2,3].filter(p => !occupiedFront.has(p));
     if (emptySlots.length === 0) return null; // 第一排全满，无法入场
 
+    // 飞行单位优先打后排，再中排，最后前排；还要检查是否有一条无障碍路径能接近目标
     // 按优先级找目标
     for (const pos of priorityOrder) {
         const target = alive.find(u => u.pos === pos);
@@ -147,6 +150,8 @@ export function selectFlyTarget(unit, enemySide) {
 /**
  * 判断从空位 slot 到目标位置 targetPos 是否有直线无障碍路径
  */
+// 为什么分两条路：同一行或同一列直接走直线；不同行列必须拐弯，
+// 而拐弯有"先横后竖"和"先竖后横"两种可能，要都试一遍，任一条通就行。
 function canReach(slot, targetPos, enemies) {
     const slotCol = (slot - 1) % 3 + 1;
     const slotRow = Math.ceil(slot / 3);
@@ -250,6 +255,7 @@ export function getBloodAuraBonus(allUnits) {
  * 不依赖任何字段存储，每次调用返回最新值
  */
 // 工具-光环：飞行单位空列+残血光环加成
+// 空列每列5点攻为固定设计值；残血光环由 getBloodAuraBonus 单独计算，二者均非可配置项
 export function getAuraBonuses(unit, allySide, enemySide) {
     if (unit.role !== '飞行' || unit.isHorse) return { emptyCol: 0, bloodAura: 0 };
     const isAlly = unit.camp === 'ally';

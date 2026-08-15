@@ -302,6 +302,7 @@ export function createXiaoZhaoSisterComponent() {
                 data.declarations.push({ type: 'butterflyReturn', sister: sis, A, log: data.log });
             });
         },
+        // 附身方向决定属性转移：右飞攻转移1/2、防0；左飞攻0、防1/2；血量固定转移1/2，实现左右飞附身属性差异
         _executeAttach(sister, A, log) {
             if (sister.state._butterflyHost) return null;
             const flyDirection = A._flyDirection || 'right';
@@ -336,6 +337,7 @@ export function createXiaoZhaoSisterComponent() {
             log.push({ type:'info', text:`<span class="gold">🦋 蝶变：${sister.name} 化为蝴蝶附身于 ${host.name}！方向：${flyDirection === 'left' ? '←左' : '右→'} 攻+${atkTransfer} 防+${defTransfer} 血上限+${hpTransfer}</span>`, needsSeparator: true });
             return sister;
         },
+        // 返回：重置妹妹到基础攻防、按队友总血占比回血；宿主存活正常回收，宿主阵亡则强制回归并重置属性
         _executeReturn(sister, A, log) {
             if (!sister.alive || !sister.state._butterflyHost) return;
             const host = A.find(u => u.uid === sister.state._butterflyHost && u.alive);

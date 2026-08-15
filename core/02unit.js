@@ -102,9 +102,11 @@ export class Unit {
     init(rng){
         if (!rng) throw new Error('Unit.init() requires a SeededRNG instance');
         let hp=rng.nextInt(Math.ceil(this.m*0.4),Math.floor(this.m*0.6)),rem=this.m-hp,a,d;
+        // 攻防差约束：防战要求 d-a≤20、非防战要求 a-d∈[3,13]，把两类角色的攻防差锁定在合理区间，避免出现极端攻防失衡
         if(this.role==='防战'){
             d=rng.nextInt(Math.ceil(rem*0.5),rem-1);a=rem-d;
             while(d-a>20){d=rng.nextInt(Math.ceil(rem*0.5),rem-1);a=rem-d;}
+            // 按初始血量占比分档：占比越高（越接近满血）档位越高、血量系数越大，对应单次伤害越多
             // 根据初始血量占比锁定血量系数（之后不变）
             const hpPct = hp / this.m;
             if (hpPct >= 0.60) this._hpDmgRatio = 0.06;
