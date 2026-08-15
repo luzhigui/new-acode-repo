@@ -397,13 +397,18 @@ export function applyAttackResult(unit, target, dmgCalc, attackerBuffStats, defe
         }
     }
 
-    // 拒马反伤
-    let horseReboundEntry = null;
+    // 拒马反伤 — 提交声明，由攻击后效果边裁统一执行
+    let horseReboundDeclarations = [];
     const xiaoHEnhance = query('xiaoHexEnhance', A, A._activeBuffs, 'horseFormation');
     if (target.isHorse && dmg > 0 && xiaoHEnhance && hasBuff(A._activeBuffs, 'horseFormation')) {
         const rebound = xiaoHEnhance.reboundDmg;
-        applyStatChange(unit, 'hp', -rebound, target, '巨马反伤');
-        horseReboundEntry = {type:'info', text:`<span class="red">🐴 巨马反伤：${unit.name} 受到 ${rebound} 点反伤</span>`};
+        horseReboundDeclarations.push({
+            type: EFFECT_TYPES.REBOUND,
+            value: rebound,
+            source: target,
+            target: unit,
+            logText: `<span class="red">🐴 巨马反伤：${unit.name} 受到 ${rebound} 点反伤</span>`
+        });
     }
 
     // 防战坚盾已迁移至事件总线监听器
@@ -432,7 +437,7 @@ export function applyAttackResult(unit, target, dmgCalc, attackerBuffStats, defe
         }
     }
 
-    return { dmg, dead, horseReboundEntry, reboundEntry, bonusEntries, hpBefore, defReduction, waveTaunt, waveUnit, rawFormula, thunderBonus, hornDmgMultiplier, trueDmg, atkAct, defAct, hpBonus, fortifyDeclarations };
+    return { dmg, dead, horseReboundDeclarations, reboundEntry, bonusEntries, hpBefore, defReduction, waveTaunt, waveUnit, rawFormula, thunderBonus, hornDmgMultiplier, trueDmg, atkAct, defAct, hpBonus, fortifyDeclarations };
 }
 
 // ==================== 死亡结算边裁 ====================
@@ -499,6 +504,10 @@ export function resolveAfterDamageEffects(declarations, unit, target, group) {
     // 1. 吸血
     for (const decl of declarations.filter(d => d.type === EFFECT_TYPES.LEECH)) {
         if (!decl.source || !decl.source.alive) continue;
+        if (decl.maxHp) {
+            decl.source._baseMaxHp = Math.max(decl.source._baseMaxHp, decl.maxHp);
+            applyMaxHpChange(decl.source, decl.maxHp, null, '吸血上限提升');
+        }
         const capped = Math.min(decl.value || 0, decl.source.maxHp - decl.source.hp);
         applyStatChange(decl.source, 'hp', capped, null, '吸血');
         decl.source.leechDone = (decl.source.leechDone || 0) + capped;
@@ -546,10 +555,10 @@ export function resolveAfterDamageEffects(declarations, unit, target, group) {
         executed.push(decl);
     }
 
-    // 3.5 属性变更（乾坤衍生加攻等）
+    // 3.5 属性变更（乾坤衍生加攻、流星降防等）
     for (const decl of declarations.filter(d => d.type === EFFECT_TYPES.STAT_CHANGE)) {
         if (!decl.target || !decl.target.alive) continue;
-        applyStatChange(decl.target, decl.field, decl.delta, null, '乾坤衍生');
+        applyStatChange(decl.target, decl.field, decl.delta, null, decl.reason || '属性变更');
         if (decl.field === 'atk' && decl.target._baseAtk !== undefined) {
             decl.target._baseAtk += decl.delta;
         }
@@ -589,7 +598,7 @@ export function resolveAfterDamageEffects(declarations, unit, target, group) {
 // 攻击-步骤5：构建攻击组日志+触发攻击后效果
 export async function buildAttackGroup(unit, target, dmgCalc, dmgResult, attackerBuffStats, defenderBuffStats, allySide, enemySide, log, A, B, state, doubleStrikeUnitUid, phantomLog) {
     let { atkBase, defBase, atkAct, defAct, hpBonus, hpBefore, waveTaunt, waveUnit, raw, rawFormula, thunderBonus, hornDmgMultiplier, hornDefIgnore, trueDmg, defReduction, bonusDmgTotal, dmgMultiplier, hpRatio } = dmgCalc;
-    let { dmg, dead, horseReboundEntry, reboundEntry, bonusEntries } = dmgResult;
+    let { dmg, dead, reboundEntry, bonusEntries } = dmgResult;
 
     let hpPctBefore = Math.floor((hpBefore / target.maxHp) * 100), hpPctAfter = Math.floor((target.hp / target.maxHp) * 100);
     let campA = unit.camp === 'ally' ? '明教' : '六大派', campD = target.camp === 'ally' ? '明教' : '六大派';
@@ -607,7 +616,7 @@ export async function buildAttackGroup(unit, target, dmgCalc, dmgResult, attacke
     if (phantomLog) {
         group.entries.push({type:'info', text:`<span class="gold">${phantomLog}</span>`});
     }
-    if (horseReboundEntry) group.entries.push(horseReboundEntry);
+
     group.entries.push({type:'detail', text:`<span class="gray small">波动：攻${atkBase}→${atkAct} 防${defBase}→${defAct} 血${hpBonus >= 0 ? '+' + hpBonus : hpBonus}</span>`});
     if (thunderBonus > 0) group.entries.push({type:'detail', text:`<span class="red small">💥 混元霹雳劲+${thunderBonus}真实伤害</span>`});
     if (hornDefIgnore > 0 && hornDmgMultiplier > 1) {

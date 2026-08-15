@@ -13,6 +13,7 @@ import { getEliteFactories } from './08-elite-registry.js';
 import { processUnitAttack } from './10battle-attack.js';
 import { eventBus, EXECUTION_LAYER as L } from './00-event-bus.js';
 import { getNextAvailableUnit, finalizeDeaths, emitFullUnitState, checkZhangSwitch, emitEvent, applyStatChange, setBattleRng } from './13battle-shared.js';
+import { flushBattleEvents, setBattleState } from './09-battle-event-store.js';
 import { SeededRNG } from './07-rng.js';
 import { resolveDeaths } from './12battle-attack-steps.js';
 
@@ -35,8 +36,8 @@ async function prepareRoundStart(A, B, log, state, round, rng) {
 
     const xiaoZhao = A.find(u => (u.isXiaoZhaoSister || u.isXiaoZhaoBrother) && u.alive);
 
-    GlobalStore.set('currentBattleState', null);
-    GlobalStore.flushBattleEvents();
+    setBattleState('currentBattleState', null);
+    flushBattleEvents();
 
     log.push({ type:'round-start', text:`<div class="separator">———— 第${round}回合开始 ————</div>` });
 
@@ -59,7 +60,7 @@ async function prepareRoundStart(A, B, log, state, round, rng) {
         }
     }
 
-    GlobalStore.set('currentBattleState', { ally: state.allAllies, enemy: state.enemy });
+    setBattleState('currentBattleState', { ally: state.allAllies, enemy: state.enemy });
 
     if (doubleStrikeUnitUid) {
         const dsUnit = A.find(u => u.uid === doubleStrikeUnitUid);
@@ -263,16 +264,15 @@ async function prepareRoundStart(A, B, log, state, round, rng) {
 
     logBuffSummary(A, log, doubleStrikeUnitUid);
 
-    // 第一回合开始前弹出姐姐附身方向选择（后续回合在 playBattle 的 Buff 弹窗后处理）
+    // 第一回合姐姐附身方向：通过 state.requestFlyDirection 注入的决策函数获取；
+    // core 不再依赖 UI 弹窗，未注入或函数返回空时默认 'right'
     if (round === 1 && A.some(u => u.isXiaoZhaoSister && u.alive)) {
-        const { showFlyDirectionPopup } = await import('../ui/35main-battle.js');
-        const direction = await new Promise(resolve => {
-            showFlyDirectionPopup(resolve);
-        });
+        const requestDirection = typeof state.requestFlyDirection === 'function' ? state.requestFlyDirection : null;
+        const direction = requestDirection ? await requestDirection() : (A._flyDirection || 'right');
         A._flyDirection = direction || 'right';
     }
 
-    const roundStartEvents = GlobalStore.flushBattleEvents();
+    const roundStartEvents = flushBattleEvents();
     return { doubleStrikeUnitUid, roundStartEvents, sisterComp, brotherComp };
 }
 
@@ -433,7 +433,7 @@ export async function* createRoundStepper(state) {
             if (sisterForAttach) {
                 sisterComp.executeAttach(A, log);
                 // 附身完后 yield 一次，让事件出队刷新 UI
-                const attachEvents = GlobalStore.flushBattleEvents();
+                const attachEvents = flushBattleEvents();
                 yield { log: [...log], events: attachEvents, ally: A, enemy: B, winner: null, done: false, doubleStrikeUid: doubleStrikeUnitUid };
                 log = [];
                 // 重新拉取候选人列表（附身可能改变 _acted 状态）
@@ -543,7 +543,7 @@ export async function* createRoundStepper(state) {
         }
         // 兜底：回合结束阶段产生的死亡标记
         resolveDeaths(A, B, log);
-        const stepEvents = GlobalStore.flushBattleEvents();
+        const stepEvents = flushBattleEvents();
         const allyAlive = A.some(u => u.alive);
         const enemyAlive = B.some(u => u.alive);
         let winner = null;
@@ -625,7 +625,9 @@ function finalizeRoundEnd(A, B, log, round) {
 
     log.push({type:'round-end', text:`<div class="separator">———— 第${round}回合结束 ————</div>`});
 
-    const endEvents = GlobalStore.flushBattleEvents();
+    const endEvents = flushBattleEvents();
+
+
     finalizeDeaths(A);
     finalizeDeaths(B);
     return { winner, done, endEvents };

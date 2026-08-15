@@ -10,7 +10,7 @@ import { showModal } from './30main-utils.js';
 import { getBattleRng } from '../core/13battle-shared.js';
 import { GlobalStore } from '../modules/18global-store.js';
 import { initBattleTeams } from '../modules/35battle-init.js';
-import { generateBuffChoices, createBuffObject, tickBuffDurations, getActiveBuffList } from '../modules/18global-store.js';
+import { generateBuffChoices, createBuffObject, tickBuffDurations, getActiveBuffList } from '../modules/23buff-tools.js';
 import { resetBattleRuntime } from './68reset-runtime.js';
 
 const C = CONFIG;
@@ -105,11 +105,11 @@ export function showFlyDirectionPopup(callback) {
     btnRight.onclick = () => { document.body.removeChild(overlay); wrappedCallback('right'); };
 }
 
-// Buff-创建：构建Buff对象（含圣火令随机行列）—— 实现已移至 modules/18global-store.js
-export { createBuffObject } from '../modules/18global-store.js';
+// Buff-创建：构建Buff对象（含圣火令随机行列）—— 实现已移至 modules/23buff-tools.js
+export { createBuffObject } from '../modules/23buff-tools.js';
 
-// Buff-选择：生成可选Buff列表（过滤已激活+角色需求）—— 实现已移至 modules/18global-store.js
-export { generateBuffChoices } from '../modules/18global-store.js';
+// Buff-选择：生成可选Buff列表（过滤已激活+角色需求）—— 实现已移至 modules/23buff-tools.js
+export { generateBuffChoices } from '../modules/23buff-tools.js';
 
 // Buff-弹窗：显示Buff选择界面（普通模式）
 export function showBuffSelection(callback, activeBuffs, selectedBuffIndex, updateBuffSlotsFn, updateUIFn, autoScrollLogFn, allyTeam) {
@@ -192,11 +192,11 @@ export function showBugModeBuffSelection(callback, activeBuffs, selectedBuffInde
 
 // ==================== Buff 槽 ====================
 
-// Buff-计时：回合结束后递减Buff持续时间 —— 实现已移至 modules/18global-store.js
-export { tickBuffDurations } from '../modules/18global-store.js';
+// Buff-计时：回合结束后递减Buff持续时间 —— 实现已移至 modules/23buff-tools.js
+export { tickBuffDurations } from '../modules/23buff-tools.js';
 
-// Buff-列表：格式化当前激活Buff摘要 —— 实现已移至 modules/18global-store.js
-export { getActiveBuffList } from '../modules/18global-store.js';
+// Buff-列表：格式化当前激活Buff摘要 —— 实现已移至 modules/23buff-tools.js
+export { getActiveBuffList } from '../modules/23buff-tools.js';
 
 // ==================== 战斗日志 ====================
 // 日志-阵容：输出双方阵容详情到日志区

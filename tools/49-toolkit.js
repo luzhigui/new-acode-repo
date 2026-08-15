@@ -31,19 +31,21 @@ function escapeHtml(text) {
         '../core/13battle-shared.js', '../core/14buff-effects.js',
         // player（播放器）
         '../player/24player-text.js', '../player/25player-buff-ui.js', '../player/26-animation-scheduler.js', '../player/26player-core.js',
-        '../player/27battle-player-5v5-test.js', '../player/28event-handlers.js', '../player/29renderer.js',
+        '../player/27battle-player-5v5-test.js', '../player/28event-handlers.js', '../player/28a-attack-group.js', '../player/29renderer.js',
         // ui（UI 主控）
         '../ui/30main-utils.js', '../ui/31main-5v5-test.js', '../ui/32ui-render-5v5-test.js',
         '../ui/33main-state.js', '../ui/34main-dialogs.js', '../ui/35main-battle.js',
         '../ui/36audio-control.js', '../ui/37fx-trigger.js', '../ui/38ui-controls.js',
+        '../ui/68reset-runtime.js',
         // fx（特效）
         '../fx/39fx-common-5v5-test.js', '../fx/40fx-arrows-5v5-test.js', '../fx/41fx-crash-5v5-test.js',
         '../fx/42fx-position-swap.js', '../fx/43fx-push-back.js', '../fx/44fx-dodge-bullet.js',
-        '../fx/45fx-butterfly-spider.js',
+        '../fx/45fx-butterfly-spider.js', '../fx/69fx-manager.js',
         // modules（通用系统 + 精英角色组件）
         '../modules/15elite-skills.js', '../modules/16error-capture.js', '../modules/17audio-manager.js',
         '../modules/18global-store.js', '../modules/35battle-init.js', '../modules/19battle-store.js',
         '../modules/20elite-imperial.js', '../modules/21elite-sixsects.js', '../modules/22elite-mingjiao.js',
+        '../modules/23buff-tools.js',
         // content（游戏内容数据）
         '../content/64game-data.json',
         // tests（体检规则与自动测试）

@@ -161,12 +161,11 @@ export function createWeiYixiaoComponent() {
                     type: EFFECT_TYPES.LEECH,
                     value: healWei,
                     source: wei,
+                    maxHp: newMaxHpWei,
                     logText: `<span class="green">🦇 青翼蝠王·吸血+${healWei}，上限→${Math.floor(newMaxHpWei)}</span>`
                 };
                 if (!data.declarations) data.declarations = [];
                 data.declarations.push(decl);
-                wei._baseMaxHp = Math.max(wei._baseMaxHp, newMaxHpWei);
-                applyMaxHpChange(wei, newMaxHpWei, null, '韦一笑吸血上限提升');
             });
 
             // 韦一笑-闪避反击吸血：闪避时按吸血比例回血+提升上限
