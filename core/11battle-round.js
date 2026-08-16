@@ -236,6 +236,10 @@ async function prepareRoundStart(A, B, log, state, round, rng) {
         u._xiaoZhaoDoubleStriked = false;
         u._bloodthirstStriked = false;
         u._linkTriggered = false;
+        const auraBonuses = getAuraBonuses(u, B, A);
+        const targetAtk = (u._baseAtk || u.atk) + auraBonuses.emptyCol + auraBonuses.bloodAura;
+        applyStatChange(u, 'atk', targetAtk - u.atk, null, '光环加成');
+        emitEvent(u, 'hp-change', { hp: u.hp, maxHp: u.maxHp, alive: u.alive, atk: u.atk, def: u.def });
         u._fortifyThisRound = 0;
     });
 
@@ -419,7 +423,7 @@ export async function* createRoundStepper(state) {
         return { actingUnit: head.unit, passEntry: null, isPriorityAction: head.priority > 0 };
     }
 
-    let currentSide = 'enemy';
+    let currentSide = state._firstSide || 'enemy';
 
     while (A.some(u => u.alive && !u.state._acted) || B.some(u => u.alive && !u.state._acted)) {
         const currentTeam = currentSide === 'ally' ? A : B;

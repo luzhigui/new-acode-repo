@@ -263,6 +263,10 @@ export function bindNextButton(setState, updateButtons, enableAllButtons, update
             if (ctx && ctx._originalSnapshot) {
                 snap.ally = ctx._originalSnapshot.ally.map(u => u.clone());
                 snap.enemy = ctx._originalSnapshot.enemy.map(u => u.clone());
+                const currentUI = getState.UI();
+                currentUI.allyTeam = ctx._originalSnapshot.ally.map(u => u.clone());
+                currentUI.enemyTeam = ctx._originalSnapshot.enemy.map(u => u.clone());
+                setState.UI(currentUI);
             }
             setState.snapshot(snap);
             setState.gs('IDLE');

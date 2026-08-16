@@ -155,7 +155,7 @@ export async function handleAttackGroup(c, entry, roundResult, abortSig, isFirst
                         c.isPaused = true; GlobalStore.set('bulletTimeActive', true);
                         await showBuffBanner('☄️ 流星赶月！');
                         showSplashArrows(attacker, primary, splashU, c.speed, () => c.isPaused);
-                        splashU.forEach((st, i) => { setTimeout(() => { AudioManager.playSfx(attacker); }, i * 120); });
+                        splashU.forEach((st, i) => { setTimeout(() => { AudioManager.playSfx(attacker.role || '远程'); }, i * 120); });
                         GlobalStore.set('bulletTimeActive', false); c.isPaused = false;
                     }
                 }
@@ -192,13 +192,13 @@ export async function handleAttackGroup(c, entry, roundResult, abortSig, isFirst
     if (entry._pendingHpEvents && entry._pendingHpEvents.length > 0) {
         c.store.dispatch({ type: 'APPLY_EVENTS', events: entry._pendingHpEvents.splice(0) });
     }
-    if (entry.isDead && lastDiv && !entry.isBlock && !entry.isMiss && !entry.isDodge) { applyBrushEffect(lastDiv); }
+    if (entry.isDead && lastDiv && !entry.isBlock && !entry.isMiss) { applyBrushEffect(lastDiv); }
     if(entry.isDodge&&unitA)showDodgeBubble(unitA,'闪避！'); if(entry.isMiss&&unitA)showDodgeBubble(unitA,'未命中');
     if(unitD&&entry.hpPctAfter!==undefined&&entry.hpPctBefore!==undefined){ if(entry.hpPctBefore>40&&entry.hpPctAfter<=40&&entry.hpPctAfter>20){let t=(unitD.camp==='ally'?'不好，必须反击了！':'小儿安敢伤我！');safeShowDanmaku(unitD,t);} else if(entry.hpPctBefore>20&&entry.hpPctAfter<=20){let t=(unitD.camp==='ally'?'撑住！':'已是强弩之末！');safeShowDanmaku(unitD,t);} }
     await new Promise(r=>setTimeout(r,offset)); await c.waitWhilePaused();
     if(defTimer)clearTimeout(defTimer);
     if(unitA && !unitA.state._isDead){c.store.dispatch({ type: 'CLEAR_UNIT_FLASH', uid: unitA.uid }); }
-    if (entry.isDead && unitD && !entry.isBlock && !entry.isMiss && !entry.isDodge) {
+    if (entry.isDead && unitD && !entry.isBlock && !entry.isMiss) {
         c.store.dispatch({ type: 'SET_FLASH', uid: unitD.uid, flash: 'dead' });
         c.store.dispatch({ type: 'SET_VISUAL', uid: unitD.uid, _isDead: true });
     }

@@ -157,6 +157,7 @@
     <div class="tool-links">
         <button class="tool-link-btn" id="btnOpenLogViewer">🕹️ 日志复盘</button>
         <button class="tool-link-btn" id="btnOpenHexDashboard">📊 海克斯仪表盘</button>
+        <button class="tool-link-btn" id="btnOpenRoleBalance">⚖️ 职业平衡分析</button>
     </div>
 
     <div class="tab-content active" id="tab-file-copier">
@@ -337,10 +338,14 @@
         document.getElementById('btnOpenHexDashboard').addEventListener('click', () => {
             window.openHexDashboard();
         });
+        document.getElementById('btnOpenRoleBalance').addEventListener('click', () => {
+            window.openRoleBalance();
+        });
     </script>
 
     <script src="./107-battle-log-viewer.js"></script>
     <script src="./108-hex-dashboard.js"></script>
+    <script type="module" src="./109-role-balance.js"></script>
     <script type="module" src="./103-toolkit.js"></script>
     <script type="module" src="./104-toolkit-more.js"></script>
 </body>

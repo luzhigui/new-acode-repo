@@ -324,16 +324,7 @@ export function calcFinalDamage(unit, target, attackerBuffStats, defenderBuffSta
         let displayDef = Math.floor(unit.def);
         let lv = getFangLevel(displayDef, unit.m), k = C.FANG_K[lv] !== undefined ? C.FANG_K[lv] : C.FANG_K[C.FANG_K.length - 1];
         let penPart = calcDamage(atkAct, defAct);
-        const maxHpRatio = unit.maxHp / unit.m;
-        if (maxHpRatio >= 1.85) hpRatio = 0.060;
-        else if (maxHpRatio >= 1.775) hpRatio = 0.050;
-        else if (maxHpRatio >= 1.725) hpRatio = 0.039;
-        else if (maxHpRatio >= 1.675) hpRatio = 0.033;
-        else if (maxHpRatio >= 1.60) hpRatio = 0.028;
-        else if (maxHpRatio >= 1.55) hpRatio = 0.022;
-        else if (maxHpRatio >= 1.475) hpRatio = 0.017;
-        else if (maxHpRatio >= 1.425) hpRatio = 0.013;
-        else hpRatio = 0.01;
+        hpRatio = unit._hpDmgRatio !== undefined ? unit._hpDmgRatio : 0.01;
         raw = penPart + displayDef * k + unit.maxHp * hpRatio;
     } else {
         raw = calcDamage(atkAct, defAct);

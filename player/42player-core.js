@@ -107,7 +107,7 @@ export async function playLogEntries(c, log, roundResult, isFirstAttackRef) {
                                 // 分裂箭音效：每发小箭间隔播放，营造万箭齐发感
                                 splashTargets.forEach((st, i) => {
                                     setTimeout(() => {
-                                        AudioManager.playSfx(attacker);
+                                        AudioManager.playSfx(attacker.role || '远程');
                                     }, i * 120);
                                 });
                             }

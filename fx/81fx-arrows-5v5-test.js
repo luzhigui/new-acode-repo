@@ -143,15 +143,15 @@ export async function showSplashArrows(attacker, primaryTarget, splashTargets, s
         container.style.zIndex = '10003'; container.style.pointerEvents = 'none';
         
         let line = document.createElement('div');
-        line.style.position = 'absolute'; line.style.height = '1.5px'; line.style.background = '#FF8C00';
-        line.style.width = arrowLen + 'px'; line.style.left = '0px'; line.style.top = '-0.5px';
+        line.style.position = 'absolute'; line.style.height = '2.5px'; line.style.background = '#FF8C00';
+        line.style.width = arrowLen + 'px'; line.style.left = '0px'; line.style.top = '-1.25px';
         container.appendChild(line);
         
         let head = document.createElement('div');
         head.style.position = 'absolute'; head.style.width = '0'; head.style.height = '0';
-        head.style.borderLeft = '6px solid #FF8C00';
-        head.style.borderTop = '3px solid transparent'; head.style.borderBottom = '3px solid transparent';
-        head.style.left = (arrowLen - 3) + 'px'; head.style.top = '-3px';
+        head.style.borderLeft = '8px solid #FF8C00';
+        head.style.borderTop = '4px solid transparent'; head.style.borderBottom = '4px solid transparent';
+        head.style.left = (arrowLen - 4) + 'px'; head.style.top = '-4px';
         container.appendChild(head);
         
         document.body.appendChild(container);
