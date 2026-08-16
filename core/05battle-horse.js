@@ -24,9 +24,10 @@ export function spawnHorse(allyTeam, log, enemyTeam, force = false) {
         [available[i], available[j]] = [available[j], available[i]];
     }
     let horsePos = available[0];
-    let horse = new Unit('拒马', 20, '防战', allyTeam[0].camp);
+    let horse = new Unit('拒马', 15, '防战', allyTeam[0].camp);
     const xiaoHEnhance = query('xiaoHexEnhance', allyTeam, allyTeam._activeBuffs || [], 'horseFormation');
     horse.atk = 0;
+    horse._hpDmgRatio = 0.06;
     if (xiaoHEnhance) {
         applyStatChange(horse, 'def', xiaoHEnhance.horseDef, null, '拒马初始化');
         applyStatChange(horse, 'maxHp', xiaoHEnhance.horseHp, null, '拒马初始化');
@@ -44,8 +45,6 @@ export function spawnHorse(allyTeam, log, enemyTeam, force = false) {
 
 // 拒马-销毁：回合结束概率消散拒马
 export function destroyHorse(allyTeam, log) {
-    let buffs = allyTeam._activeBuffs || [];
-    if (!hasBuff(buffs, 'horseFormation')) return;
     let horses = allyTeam.filter(u => u.isHorse && u.alive).sort((a, b) => b.pos - a.pos);
     if (horses.length === 0) return;
 

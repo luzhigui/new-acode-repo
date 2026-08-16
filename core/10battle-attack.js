@@ -231,7 +231,7 @@ export async function processUnitAttack(unit, allySide, enemySide, log, A, B, st
         }
     }
     // 斩杀后更新攻击组：补上死亡特效和红色底（execute 发生在 buildAttackGroup 之后）
-    if (!target.alive && !dmgResult.dead) {
+    if ((target._pendingDeath || target.hp <= 0) && !dmgResult.dead) {
         const hasExecute = executedDecls.some(d => d.type === EFFECT_TYPES.EXECUTE && d.target === target);
         if (hasExecute) {
             group.isDead = true;

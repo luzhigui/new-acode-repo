@@ -1,0 +1,286 @@
+<!-- tools/110-role-balance-random.html - 光明顶5v5 职业平衡分析（全随机站位） -->
+<!-- V5.5.0 | ~22000 bytes | 2026-08-16 5v5/6v6 全随机职业+站位，固定六大派先手，无海克斯 -->
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>职业平衡分析 · 全随机站位</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#1a1a2e;color:#eee;font-family:monospace;padding:16px;max-width:1000px;margin:0 auto}
+h1{color:#ffd700;font-size:20px;margin-bottom:8px}
+.tip{color:#888;font-size:12px;margin-bottom:12px;line-height:1.6}
+.config{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:16px}
+.config label{color:#ffd700;font-weight:bold}
+.config input{width:90px;padding:8px;border-radius:6px;border:1px solid #555;background:#111;color:#eee;font-size:14px;text-align:center}
+button{padding:10px 20px;border:none;border-radius:8px;font-weight:bold;cursor:pointer;font-family:monospace;font-size:13px}
+.run5{background:#ffd700;color:#1a1a2e}
+.run6{background:#ff9800;color:#1a1a2e}
+button:disabled{opacity:0.4;cursor:not-allowed}
+.progress{color:#4fc3f7;font-size:12px;min-height:20px;margin-bottom:8px}
+.section{margin-bottom:24px;background:#16213e;border:1px solid #333;border-radius:12px;padding:16px}
+.section h2{color:#ffd700;font-size:16px;margin-bottom:12px}
+table{width:100%;border-collapse:collapse;margin-top:12px;font-size:12px}
+th{background:#2a2a4e;color:#ffd700;padding:8px;text-align:center}
+td{padding:6px 8px;border-bottom:1px solid #333;color:#ccc;text-align:center}
+.strong{color:#f44336;font-weight:bold}
+.weak{color:#4fc3f7}
+.empty{color:#888;text-align:center;margin-top:12px}
+</style>
+</head>
+<body>
+<h1>⚖️ 职业平衡分析 · 全随机站位</h1>
+<p class="tip">
+双方全随机职业 + 全随机站位，固定六大派先手，无海克斯，全员 M=100。<br>
+统计口径：某方拥有该职业 0/1/2/3+ 个时该方胜率。5v5 与 6v6 独立跑，结果对比。
+</p>
+<div class="config">
+<label>每组场次：</label>
+<input type="number" id="roundsInput" value="200" min="50" max="1000" step="50">
+<button class="run5" id="run5Btn">▶ 跑 5v5</button>
+<button class="run6" id="run6Btn">▶ 跑 6v6</button>
+</div>
+<div class="progress" id="progress"></div>
+
+<div class="section" id="section5">
+<h2>5v5 结果</h2>
+<div id="result5"><div class="empty">尚未运行</div></div>
+</div>
+
+<div class="section" id="section6">
+<h2>6v6 结果</h2>
+<div id="result6"><div class="empty">尚未运行</div></div>
+</div>
+
+<script type="module">
+import { Unit } from '../core/02unit.js';
+import { SeededRNG } from '../core/07-rng.js';
+import { createRoundStepper } from '../core/11battle-round.js';
+import '../modules/23global-store.js';
+import '../modules/25elite-imperial.js';
+import '../modules/26elite-sixsects.js';
+import '../modules/27elite-mingjiao.js';
+
+const ROLES = ['防战', '战士', '飞行', '远程'];
+const ROLE_ICONS = { '防战': '🛡️', '战士': '⚔️', '飞行': '🦅', '远程': '🏹' };
+
+function createUnit(role, camp, rng) {
+    const label = camp === 'ally' ? '明教' : '六大派';
+    const u = new Unit(`${label}·${role}`, 100, role, camp);
+    u.init(rng);
+    u.applyBonus();
+    return u;
+}
+
+function buildRandomTeam(size, camp, rng) {
+    const team = [];
+    const positions = [1, 2, 3, 4, 5, 6, 7, 8, 9];
+    for (let i = positions.length - 1; i > 0; i--) {
+        const j = rng.nextInt(0, i);
+        [positions[i], positions[j]] = [positions[j], positions[i]];
+    }
+    for (let i = 0; i < size; i++) {
+        const role = ROLES[rng.nextInt(0, 3)];
+        const u = createUnit(role, camp, rng);
+        u.pos = positions[i];
+        u._originalPos = positions[i];
+        team.push(u);
+    }
+    return team;
+}
+
+async function runNakedBattle(allyUnits, enemyUnits, seed) {
+    const rng = new SeededRNG(seed);
+    let battleState = {
+        ally: allyUnits.map(u => u.clone()),
+        enemy: enemyUnits.map(u => u.clone()),
+        round: 1,
+        activeBuffs: [],
+        allAllies: allyUnits.map(u => u.clone()),
+        _rng: rng,
+        _firstSide: 'enemy'
+    };
+    let lastStep = null;
+    const maxRound = 35;
+    while (battleState.round <= maxRound) {
+        const stepper = createRoundStepper(battleState);
+        for await (const step of stepper) {
+            lastStep = step;
+            if (step.winner) return step.winner;
+        }
+        battleState = {
+            ally: (lastStep ? lastStep.ally : battleState.ally).map(u => u.clone()),
+            enemy: (lastStep ? lastStep.enemy : battleState.enemy).map(u => u.clone()),
+            round: battleState.round + 1,
+            activeBuffs: [],
+            allAllies: battleState.allAllies,
+            _rng: battleState._rng,
+            _firstSide: 'enemy'
+        };
+    }
+    return '平局';
+}
+
+function countRoles(team) {
+    const counts = {};
+    for (const u of team) {
+        counts[u.role] = (counts[u.role] || 0) + 1;
+    }
+    return counts;
+}
+
+function initStats() {
+    const stats = { allyCounts: {}, enemyCounts: {} };
+    for (const role of ROLES) {
+        stats.allyCounts[role] = {};
+        stats.enemyCounts[role] = {};
+    }
+    return stats;
+}
+
+function record(stats, role, side, count, winner) {
+    const bucket = side === 'ally' ? stats.allyCounts[role] : stats.enemyCounts[role];
+    if (!bucket[count]) bucket[count] = { total: 0, wins: 0 };
+    bucket[count].total++;
+    if (winner === '明教') bucket[count].wins++;
+}
+
+async function runAnalysis(size, rounds, progressEl, onProgress) {
+    const stats = initStats();
+    const masterSeed = Date.now();
+    for (let i = 0; i < rounds; i++) {
+        const seed = masterSeed + i * 7919;
+        const allyTeam = buildRandomTeam(size, 'ally', new SeededRNG(seed));
+        const enemyTeam = buildRandomTeam(size, 'enemy', new SeededRNG(seed + 1));
+        const winner = await runNakedBattle(allyTeam, enemyTeam, seed);
+        const allyCounts = countRoles(allyTeam);
+        const enemyCounts = countRoles(enemyTeam);
+        for (const role of ROLES) {
+            const ac = allyCounts[role] || 0;
+            const ec = enemyCounts[role] || 0;
+            record(stats, role, 'ally', ac, winner);
+            record(stats, role, 'enemy', ec, winner);
+        }
+        if (i % 10 === 0) {
+            progressEl.textContent = `${size}v${size} 进度：${i}/${rounds}`;
+            await new Promise(res => setTimeout(res, 0));
+        }
+    }
+    progressEl.textContent = `✅ ${size}v${size} 完成：${rounds} 场`;
+    return stats;
+}
+
+function renderStats(container, stats, size) {
+    const maxCount = size;
+    const counts = [0, 1, 2, 3];
+
+    let html = '<h3 style="color:#ffd700;margin:12px 0 8px;">明教方拥有该职业数量 vs 明教胜率</h3>';
+    html += '<table><tr><th>职业</th>';
+    for (const c of counts) html += `<th>${c}个</th>`;
+    html += '</tr>';
+    const allyNet = {};
+    for (const role of ROLES) {
+        html += `<tr><td>${ROLE_ICONS[role]}${role}</td>`;
+        let win0 = null, winAny = null;
+        for (const c of counts) {
+            const d = stats.allyCounts[role][c];
+            if (d && d.total > 0) {
+                const pct = (d.wins / d.total * 100).toFixed(1);
+                html += `<td>${d.total}场 ${pct}%</td>`;
+                if (c === 0) win0 = d.wins / d.total;
+                else winAny = (winAny === null) ? d.wins / d.total : winAny;
+            } else {
+                html += '<td>-</td>';
+            }
+        }
+        html += '</tr>';
+        allyNet[role] = (winAny !== null && win0 !== null) ? winAny - win0 : null;
+    }
+    html += '</table>';
+
+    html += '<h3 style="color:#ffd700;margin:12px 0 8px;">六大派方拥有该职业数量 vs 明教胜率（越低=敌方越强）</h3>';
+    html += '<table><tr><th>职业</th>';
+    for (const c of counts) html += `<th>${c}个</th>`;
+    html += '</tr>';
+    const enemyNet = {};
+    for (const role of ROLES) {
+        html += `<tr><td>${ROLE_ICONS[role]}${role}</td>`;
+        let win0 = null, winAny = null;
+        for (const c of counts) {
+            const d = stats.enemyCounts[role][c];
+            if (d && d.total > 0) {
+                const pct = (d.wins / d.total * 100).toFixed(1);
+                html += `<td>${d.total}场 ${pct}%</td>`;
+                if (c === 0) win0 = d.wins / d.total;
+                else winAny = (winAny === null) ? d.wins / d.total : winAny;
+            } else {
+                html += '<td>-</td>';
+            }
+        }
+        html += '</tr>';
+        enemyNet[role] = (winAny !== null && win0 !== null) ? winAny - win0 : null;
+    }
+    html += '</table>';
+
+    html += '<h3 style="color:#ffd700;margin:12px 0 8px;">职业净收益排行（我方多一个的收益 − 敌方多一个的威胁）</h3>';
+    html += '<table><tr><th>职业</th><th>我方收益</th><th>敌方威胁</th><th>净收益</th></tr>';
+    const netRows = ROLES.map(role => {
+        const a = allyNet[role];
+        const e = enemyNet[role];
+        const aStr = a !== null ? (a > 0 ? '+' : '') + (a * 100).toFixed(1) + '%' : '-';
+        const eStr = e !== null ? (e > 0 ? '+' : '') + (e * 100).toFixed(1) + '%' : '-';
+        const net = (a !== null && e !== null) ? a - e : null;
+        const netStr = net !== null ? (net > 0 ? '+' : '') + (net * 100).toFixed(1) + '%' : '-';
+        return { role, net, aStr, eStr, netStr };
+    }).sort((a, b) => (b.net ?? -Infinity) - (a.net ?? -Infinity));
+    for (const r of netRows) {
+        const cls = r.net !== null && r.net > 0.03 ? 'strong' : (r.net !== null && r.net < -0.03 ? 'weak' : '');
+        html += `<tr class="${cls}"><td>${ROLE_ICONS[r.role]}${r.role}</td><td>${r.aStr}</td><td>${r.eStr}</td><td>${r.netStr}</td></tr>`;
+    }
+    html += '</table>';
+
+    container.innerHTML = html;
+}
+
+const roundsInput = document.getElementById('roundsInput');
+const progressEl = document.getElementById('progress');
+const run5Btn = document.getElementById('run5Btn');
+const run6Btn = document.getElementById('run6Btn');
+const result5 = document.getElementById('result5');
+const result6 = document.getElementById('result6');
+
+run5Btn.addEventListener('click', async () => {
+    const rounds = parseInt(roundsInput.value) || 200;
+    run5Btn.disabled = true;
+    run6Btn.disabled = true;
+    result5.innerHTML = '<div class="empty">运行中...</div>';
+    try {
+        const stats = await runAnalysis(5, rounds, progressEl);
+        renderStats(result5, stats, 5);
+    } catch (e) {
+        result5.innerHTML = `<div class="empty">出错：${e.message}</div>`;
+    } finally {
+        run5Btn.disabled = false;
+        run6Btn.disabled = false;
+    }
+});
+
+run6Btn.addEventListener('click', async () => {
+    const rounds = parseInt(roundsInput.value) || 200;
+    run5Btn.disabled = true;
+    run6Btn.disabled = true;
+    result6.innerHTML = '<div class="empty">运行中...</div>';
+    try {
+        const stats = await runAnalysis(6, rounds, progressEl);
+        renderStats(result6, stats, 6);
+    } catch (e) {
+        result6.innerHTML = `<div class="empty">出错：${e.message}</div>`;
+    } finally {
+        run5Btn.disabled = false;
+        run6Btn.disabled = false;
+    }
+});
+</script>
+</body>
+</html>

@@ -178,6 +178,7 @@ export function spiderTransform(unit, log) {
 
     const newStats = ROLE_BONUS[newRole] || { atk: 0, def: 0, maxHp: 0 };
     unit.role = newRole;
+    if (newRole === '防战') unit._hpDmgRatio = 0.03;
     applyStatChange(unit, 'atk', newStats.atk, null, '蛛变');
     applyStatChange(unit, 'def', newStats.def, null, '蛛变');
     unit._baseAtk = (unit._baseAtk || unit.atk) + newStats.atk;

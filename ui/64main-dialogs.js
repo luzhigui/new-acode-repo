@@ -86,12 +86,12 @@ export function showBattleReport(UI, battleResultForInfo) {
             row.style.borderBottom = '1px solid #333';
             row.innerHTML = `
                 <td style="font-size:11px;">${u.camp==='ally'?'🔵':''}${u.name}${u.isZhang?'·无忌':''}${u.isWei?'·蝠王':''} <span style="color:#888;">${u.role}</span></td>
-                <td>${u.dmgDealt||0}</td>
-                <td>${u.dmgTaken||0}</td>
-                <td>${u.healDone||0}</td>
-                <td>${u.dodgeCount||0}</td>
-                <td>${u.critCount||0}</td>
-                <td>${u.survivedRounds||0}</td>
+                <td>${Math.round(u.dmgDealt||0)}</td>
+                <td>${Math.round(u.dmgTaken||0)}</td>
+                <td>${Math.round(u.healDone||0)}</td>
+                <td>${Math.round(u.dodgeCount||0)}</td>
+                <td>${Math.round(u.critCount||0)}</td>
+                <td>${Math.round(u.survivedRounds||0)}</td>
                 <td>${u.alive?'✅存活':'💀阵亡'}</td>`;
             table.appendChild(row);
         });
@@ -109,11 +109,11 @@ export function showBattleReport(UI, battleResultForInfo) {
         let text = '战斗结果：' + winner + '获胜\n\n';
         text += '--- 明教 ---\n';
         ally.forEach(u => {
-            text += `${u.name}(${u.role}) 输出${u.dmgDealt||0} 承伤${u.dmgTaken||0} 治疗${u.healDone||0} 闪避${u.dodgeCount||0} 暴击${u.critCount||0} ${u.alive?'存活':'阵亡'}\n`;
+            text += `${u.name}(${u.role}) 输出${Math.round(u.dmgDealt||0)} 承伤${Math.round(u.dmgTaken||0)} 治疗${Math.round(u.healDone||0)} 闪避${Math.round(u.dodgeCount||0)} 暴击${Math.round(u.critCount||0)} ${u.alive?'存活':'阵亡'}\n`;
         });
         text += '\n--- 六大派 ---\n';
         enemy.forEach(u => {
-            text += `${u.name}(${u.role}) 输出${u.dmgDealt||0} 承伤${u.dmgTaken||0} 治疗${u.healDone||0} 闪避${u.dodgeCount||0} 暴击${u.critCount||0} ${u.alive?'存活':'阵亡'}\n`;
+            text += `${u.name}(${u.role}) 输出${Math.round(u.dmgDealt||0)} 承伤${Math.round(u.dmgTaken||0)} 治疗${Math.round(u.healDone||0)} 闪避${Math.round(u.dodgeCount||0)} 暴击${Math.round(u.critCount||0)} ${u.alive?'存活':'阵亡'}\n`;
         });
         navigator.clipboard.writeText(text).then(() => showAlert('战报已复制'));
     };
@@ -126,10 +126,10 @@ export function showBattleReport(UI, battleResultForInfo) {
         const header = '阵营,名称,角色,输出,承伤,治疗,闪避,暴击,存活回合,状态';
         const rows = [];
         ally.forEach(u => {
-            rows.push(`明教,${u.name},${u.role},${u.dmgDealt||0},${u.dmgTaken||0},${u.healDone||0},${u.dodgeCount||0},${u.critCount||0},${u.survivedRounds||0},${u.alive?'存活':'阵亡'}`);
+            rows.push(`明教,${u.name},${u.role},${Math.round(u.dmgDealt||0)},${Math.round(u.dmgTaken||0)},${Math.round(u.healDone||0)},${Math.round(u.dodgeCount||0)},${Math.round(u.critCount||0)},${Math.round(u.survivedRounds||0)},${u.alive?'存活':'阵亡'}`);
         });
         enemy.forEach(u => {
-            rows.push(`六大派,${u.name},${u.role},${u.dmgDealt||0},${u.dmgTaken||0},${u.healDone||0},${u.dodgeCount||0},${u.critCount||0},${u.survivedRounds||0},${u.alive?'存活':'阵亡'}`);
+            rows.push(`六大派,${u.name},${u.role},${Math.round(u.dmgDealt||0)},${Math.round(u.dmgTaken||0)},${Math.round(u.healDone||0)},${Math.round(u.dodgeCount||0)},${Math.round(u.critCount||0)},${Math.round(u.survivedRounds||0)},${u.alive?'存活':'阵亡'}`);
         });
         const csv = header + '\n' + rows.join('\n');
         const name = 'battle_report_' + Date.now() + '.csv';
