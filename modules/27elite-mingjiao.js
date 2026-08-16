@@ -177,10 +177,11 @@ export function createWeiYixiaoComponent() {
                 const leechRate = (s.leechMin + (s.leechMax - s.leechMin) * lostPct) / 100;
                 const heal = Math.floor(reboundDmg * leechRate);
                 const wasFullHp = (target.hp >= target.maxHp);
+                const oldMaxHp = target.maxHp;
                 const newMaxHp = Math.min(target.maxHp + heal, target._baseMaxHp * 2);
                 declarations.push({
                     type: EFFECT_TYPES.WEI_HEAL,
-                    data: { heal, newMaxHp, wasFullHp }
+                    data: { heal, newMaxHp, oldMaxHp, wasFullHp }
                 });
             });
 
@@ -465,7 +466,7 @@ export function createXiaoZhaoBrotherComponent() {
                         brother.state._flyMode = 'spider';
                         brother.state._acted = true;
                         emitEvent(brother, 'hp-change', { hp:brother.hp, maxHp:brother.maxHp, alive:brother.alive, atk:brother.atk, def:brother.def, _flyMode:'spider', _spiderFlying:true });
-                        currentLog.push({ type:'info', text:`<span class="gold">🕷️ 飞天：${brother.name} ${reason}，免疫本次攻击的 ${incomingDmg||0} 点伤害，化为蜘蛛遁走！剩余次数：${brother._spiderRemaining}</span>`, needsSeparator: true });
+                        brother._flyLogText = `<span class="gold">🕷️ 飞天：${brother.name} ${reason}，免疫本次攻击的 ${incomingDmg||0} 点伤害，化为蜘蛛遁走！剩余次数：${brother._spiderRemaining}</span>`;
                     },
                     onExit() {
                         brother.state._spiderFlying = false;
@@ -474,8 +475,8 @@ export function createXiaoZhaoBrotherComponent() {
                     }
                 },
                 descending: {
-                    onEnter() {
-                        spiderReturn(brother, A, B, log);
+                    onEnter(data) {
+                        spiderReturn(brother, A, B, (data && data.log) ? data.log : log);
                     },
                     onExit() {}
                 },
@@ -514,8 +515,8 @@ export function createXiaoZhaoBrotherComponent() {
                 }
                 if (shouldFly) {
                     if (!data.declarations) data.declarations = [];
-                    data.declarations.push({ immune: true, reason: '🕷️ 飞天：免疫本次伤害' });
                     fsm.transition('flying', { reason, incomingDmg: data.dmg, log: data.log || log });
+                    data.declarations.push({ immune: true, reason: brother._flyLogText || '🕷️ 飞天：免疫本次伤害' });
                 }
             });
             // 小昭·妹-飞天跳过：飞天/死亡状态下跳过自身行动
@@ -606,12 +607,15 @@ export function createXiaoZhaoBrotherComponent() {
             }
             if (!reason) return false;
             fsm.transition('flying', { reason, incomingDmg, log });
+            if (unit._flyLogText && log) {
+                log.push({ type:'info', text: unit._flyLogText });
+            }
             return true;
         },
         executeDescend(unit, A, B, log) {
             const fsm = unit._fsm;
             if (fsm && fsm.is('flying')) {
-                fsm.transition('descending');
+                fsm.transition('descending', { log });
                 if (fsm.is('descending')) fsm.transition('normal');
             }
         },

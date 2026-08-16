@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// ui/62ui-render-5v5-test.js - 光明顶5v5 UI渲染模块（响应式版）
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// ui/62ui-render-5v5-test.js - 光明顶5v5 UI渲染模块（响应式版）
 // V5.5.0 | ~35220 bytes| 2026-08-15 拒马血条：同站位优先取活单位，避免死马顶掉活马
 export const VER = 'ui/62ui-render-5v5-test.js V5.5.0';
 

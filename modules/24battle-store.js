@@ -127,9 +127,11 @@ export function battleReducer(state, action) {
                 } else if (ev.eventType === 'unit-remove') {
                     next = next.filter(u => u.uid !== ev.payload.uid);
                 } else if (ev.eventType === 'pos-change') {
-                    const idx = next.findIndex(u => u.uid === ev.uid);
-                    if (idx >= 0) {
-                        next[idx].pos = ev.pos;
+                    const uid = ev.uid || ev.unitUid;
+                    const pos = ev.pos !== undefined ? ev.pos : (ev.payload && ev.payload.pos);
+                    const idx = next.findIndex(u => u.uid === uid);
+                    if (idx >= 0 && pos !== undefined) {
+                        next[idx].pos = pos;
                     }
                 }
             }

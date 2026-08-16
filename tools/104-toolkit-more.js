@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// tools/104-toolkit-more.js - 光明顶5v5 开发工具箱（函数提取器 / 函数替换器）
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// tools/104-toolkit-more.js - 光明顶5v5 开发工具箱（函数提取器 / 函数替换器）
 // V5.5.0 | ~28773 bytes| 2026-08-06
 
 function escapeHtml(text) {
@@ -43,9 +43,10 @@ function escapeHtml(text) {
         '../tests/121health-monitor.js', '../tests/122health-utils.js',
         '../tools/103-toolkit.js', '../tools/104-toolkit-more.js',
         '../tools/105-shop.html', '../tools/106-ai-pack-config.js',
-        '../tools/107-battle-log-viewer.html', '../tools/108-hex-dashboard.html',
+        '../tools/107-battle-log-viewer.js', '../tools/108-hex-dashboard.js',
         // 移除了：52-version-calibrator / 53-dead-code-scanner / 54-filelist-checker（这些工作直接问 AI 更高效）
-        '../tools/101auto-battle-utils.js', '../tools/100build-5v5.cjs'
+        // 移除了：100build-5v5.cjs（构建脚本已废弃为 .TXT，不再复制）
+        '../tools/101auto-battle-utils.js'
     ];
 
     const mapContainer = document.getElementById('fncMapContainer');
@@ -463,9 +464,9 @@ import { CONFIG } from '../core/01config-5v5-test.js';
                         const cnt = appearCount[elite.name] || 0;
                         const actualPos = posSet.size ? [...posSet].sort((a, b) => a - b).join('/') : '未出现';
                         if (posSet.size > 0) {
-                            html += `<div style="color:#4caf50;">✅ ${elite.name}：${SAMPLE_N}次采样实际站位=${actualPos}（config.pos=${elite.pos} 为过时声明，主代码不读）</div>`;
+                            html += `<div style="color:#4caf50;">✅ ${elite.name}：站位 ${actualPos}</div>`;
                         } else {
-                            html += `<div style="color:#ff9800;">⚠️ ${elite.name}：${SAMPLE_N}次采样未出现（config.pos=${elite.pos}）</div>`;
+                            html += `<div style="color:#ff9800;">⚠️ ${elite.name}：采样未出现</div>`;
                         }
                     }
                     const header = `<div style="color:#4caf50;font-weight:bold;margin-bottom:4px;">✅ 站位以主代码实际生成为准</div>`;
