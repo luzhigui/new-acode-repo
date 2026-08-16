@@ -271,22 +271,28 @@ function escapeHtml(text) {
             }
         }
 
-        // 合并组内孤立小块（只合并同组、大小相近的）
+        // 合并孤立小包：跨组就近并入前面的包，主题用 + 拼成混合标题
+        // 强化：从最近的前包往前扫描，找第一个放得下的并入；25531 这类装不进的尾包仍独立成包
         const mergedBatches = [];
         for (const batch of batches) {
             if (batch.hasFailures) {
                 mergedBatches.push(batch);
                 continue;
             }
-            if (batch.totalChars < 8000 && mergedBatches.length > 0) {
-                const prev = mergedBatches[mergedBatches.length - 1];
-                if (!prev.hasFailures && prev.groupName === batch.groupName && prev.totalChars + batch.totalChars <= HARD_LIMIT) {
-                    prev.files.push(...batch.files);
-                    prev.totalChars += batch.totalChars;
-                    continue;
+            let didMerge = false;
+            for (let i = mergedBatches.length - 1; i >= 0; i--) {
+                const target = mergedBatches[i];
+                if (target.hasFailures || target.isFileList) continue;
+                if (target.totalChars + batch.totalChars <= HARD_LIMIT) {
+                    const mergedGroups = new Set([target.groupName, batch.groupName].filter(g => g && g !== '其他' && g !== '读取失败'));
+                    target.groupName = mergedGroups.size > 0 ? [...mergedGroups].join('+') : (target.groupName || '其他');
+                    target.files.push(...batch.files);
+                    target.totalChars += batch.totalChars;
+                    didMerge = true;
+                    break;
                 }
             }
-            mergedBatches.push(batch);
+            if (!didMerge) mergedBatches.push(batch);
         }
 
         // 生成路径清单（全项目文件 + 规则提示）

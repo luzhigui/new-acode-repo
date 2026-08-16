@@ -114,20 +114,22 @@ export async function processUnitAttack(unit, allySide, enemySide, log, A, B, st
         if (hitResult.dodgeGroup) {
             // 闪避 — 调用方拼日志
             const dg = hitResult.dodgeGroup;
+            dg.entries.push({type:'combat-text', text: dg.combatText});
+            dg.entries.push({type:'damage-text', deadFlag: dg.isDead, text: dg.reboundText});
             if (dg.weiHealData) {
-                dg.entries.push({type:'info', text:`<span class="green">🦇 青翼蝠王·闪避反击吸血+${dg.weiHealData.heal}，上限→${dg.weiHealData.newMaxHp}</span>`, isHealEntry:true, healAmount:dg.weiHealData.heal, healUnitUid:target.uid});
+                const healText = dg.weiHealData.oldMaxHp !== undefined
+                    ? `<span class="green">🦇 青翼蝠王·闪避反击吸血+${dg.weiHealData.heal}，上限${dg.weiHealData.oldMaxHp}→${dg.weiHealData.newMaxHp}</span>`
+                    : `<span class="green">🦇 青翼蝠王·闪避反击吸血+${dg.weiHealData.heal}，上限→${dg.weiHealData.newMaxHp}</span>`;
+                dg.entries.push({type:'info', text:healText, isHealEntry:true, healAmount:dg.weiHealData.heal, healUnitUid:target.uid});
                 delete dg.weiHealData;
             }
-            dg.entries.push({type:'combat-text', text: dg.combatText});
-            dg.entries.push({type:'info', text: dg.dodgeText});
-            dg.entries.push({type:'damage-text', deadFlag: dg.isDead, text: dg.reboundText});
             if (dg.isDead) {
                 unit.alive = false; unit._pendingDeath = true;
                 dg.hpAfter = 0;
                 dg.entries.push({type:'info', text:`${unit.name}被反击击杀！`});
             }
             dg.entries.push({type:'info', text: dg.stunText});
-            delete dg.combatText; delete dg.dodgeText; delete dg.reboundText; delete dg.stunText;
+            delete dg.combatText; delete dg.reboundText; delete dg.stunText;
             log.push(dg);
         }
         if (hitResult.retry) {

@@ -40,7 +40,7 @@ export function createSongQingshuComponent() {
                 if (data.unit.name !== '宋青书' || !data.target || !data.target.alive || !data.declarations) return;
                 const trueDmg = Math.floor(data.target.hp * (CONFIG.ELITE_SKILLS.rebelStrike.currentHpRatio || 0.10));
                 if (trueDmg > 0) {
-                    data.declarations.push({ type: EFFECT_TYPES.BONUS_DMG, value: trueDmg, source: data.unit });
+                    data.declarations.push({ type: EFFECT_TYPES.BONUS_DMG, value: trueDmg, source: data.unit, label: '叛逆突袭' });
                 }
             });
             eventBus.on('afterAttack', L.AFTER_ATTACK.SONG_XINGFEN_EXTRA, async (data) => {

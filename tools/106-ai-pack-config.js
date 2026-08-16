@@ -76,17 +76,17 @@ export const ALL_PROJECT_FILES = [
     // tools（开发工具箱）
     '../tools/102-toolkit.html', '../tools/103-toolkit.js', '../tools/104-toolkit-more.js',
     '../tools/105-shop.html', '../tools/106-ai-pack-config.js',
-    '../tools/107-battle-log-viewer.html', '../tools/108-hex-dashboard.html',
+    '../tools/107-battle-log-viewer.js', '../tools/108-hex-dashboard.js',
     // 移除了：52-version-calibrator / 53-dead-code-scanner / 54-filelist-checker（这些工作直接问 AI 更高效）
-    '../tools/101auto-battle-utils.js', '../tools/100build-5v5.cjs',
+    // 移除了：100build-5v5.cjs（构建脚本已废弃为 .TXT，不再随包复制）
+    '../tools/101auto-battle-utils.js',
     // assets（音频资源，不参与 fetch 复制）
     '../assets/sfx_arrow.mp3', '../assets/sfx_fly.mp3',
     '../assets/sfx_melee.mp3', '../assets/sfx_xinai.mp3',
     // 根目录（入口与设计文档）
     // 注意：中文文件名（记录-更改履历.md、待办-bug待修.md）在手机上 fetch 会卡住，已从清单剔除
-    '../index.html', '../mode-5v5-test.html',
-    '../README.md'
-    // 备注：其余 MD 文档已归档到 文件汇总20260730/，不参与自动复制
+    '../index.html', '../mode-5v5-test.html'
+    // 备注：README.md 已不再复制（网页端粘贴不需要它）；其余 MD 文档已归档到 文件汇总20260730/，不参与自动复制
 ];
 
 // ==================== 主题分组 ====================

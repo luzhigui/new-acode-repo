@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿<!DOCTYPE html>
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿<!DOCTYPE html>
 <!-- V5.4.0 | ~25900 bytes-->
 <html lang="zh-CN">
 <head>
@@ -332,13 +332,15 @@
         }
 
         document.getElementById('btnOpenLogViewer').addEventListener('click', () => {
-            window.open('107-battle-log-viewer.html', '_blank');
+            window.openLogViewer();
         });
         document.getElementById('btnOpenHexDashboard').addEventListener('click', () => {
-            window.open('108-hex-dashboard.html', '_blank');
+            window.openHexDashboard();
         });
     </script>
 
+    <script src="./107-battle-log-viewer.js"></script>
+    <script src="./108-hex-dashboard.js"></script>
     <script type="module" src="./103-toolkit.js"></script>
     <script type="module" src="./104-toolkit-more.js"></script>
 </body>

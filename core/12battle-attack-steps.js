@@ -233,8 +233,7 @@ export function resolveAttackHit(unit, target, attackerBuffStats, defenderBuffSt
                     buffEffects:[], _atkBonus:0, _defBonus:0, needsSeparator: true,
                     isDead: unit.hp <= 0,
                     combatText: `<span class="${unit.camp==='ally'?'blue':'orange'}">${unit.camp==='ally'?'明教':'六大派'} ${unit.name}</span>(攻${Math.floor(unit.atk)} 血${unitHpBeforeRebound}) → <span class="${target.camp==='ally'?'blue':'orange'}">${target.camp==='ally'?'明教':'六大派'} ${target.name}</span>(防${Math.floor(target.def)} 血${Math.floor(target.hp)})`,
-                    dodgeText: `<span class="gray">🦅 ${target.name}闪避了攻击！</span>`,
-                    reboundText: `<span class="red">🦅 ${target.name}反击 → ${unit.name} 造成 ${reboundDmg} 真实伤害（${unitHpBeforeRebound} → ${Math.floor(unit.hp)}）</span>`,
+                    reboundText: `<span class="red">🦅 ${target.name}闪避并反击 → ${unit.name} 造成 ${reboundDmg} 真实伤害（${unitHpBeforeRebound} → ${Math.floor(unit.hp)}）</span>`,
                     stunText: `<span class="gray">😵 ${unit.name} 被反击眩晕，本回合无法行动！</span>`,
                     weiHealData: dodgeDeclarations.find(d => d.type === EFFECT_TYPES.WEI_HEAL)?.data || null,
                     _events: flushBattleEvents()
@@ -273,6 +272,8 @@ export function calcFinalDamage(unit, target, attackerBuffStats, defenderBuffSta
     let ignoreDefRatio = 0;
     let bonusDmgTotal = 0;
     let dmgMultiplier = 1;
+    const bonusDmgEntries = [];
+    const dmgMultiplierEntries = [];
 
     for (const decl of damageDeclarations) {
         if (decl.type === EFFECT_TYPES.BREAK_DEF) {
@@ -287,9 +288,13 @@ export function calcFinalDamage(unit, target, attackerBuffStats, defenderBuffSta
         } else if (decl.type === EFFECT_TYPES.IGNORE_DEF) {
             ignoreDefRatio = Math.max(ignoreDefRatio, decl.value || 0);
         } else if (decl.type === EFFECT_TYPES.BONUS_DMG) {
-            bonusDmgTotal += decl.value || 0;
+            const val = decl.value || 0;
+            bonusDmgTotal += val;
+            bonusDmgEntries.push({ label: decl.label || '额外伤害', value: val });
         } else if (decl.type === EFFECT_TYPES.DMG_MULTIPLIER) {
-            dmgMultiplier *= decl.value || 1;
+            const val = decl.value || 1;
+            dmgMultiplier *= val;
+            dmgMultiplierEntries.push({ label: decl.label || '额外加成', value: val });
         } else if (decl.type === EFFECT_TYPES.DMG_REDUCTION) {
             // 乾坤衍生减伤：追加到 bonusDmgTotal（负数）或直接调整 raw
             bonusDmgTotal -= (decl.value || 0);
@@ -344,7 +349,7 @@ export function calcFinalDamage(unit, target, attackerBuffStats, defenderBuffSta
     dmg = modifierResult.modifiedDmg;
     bonusEntries = modifierResult.entries || [];
 
-    return { atkBase, defBase, atkAct, defAct, hpBonus, hpBefore, waveTaunt, waveUnit, raw, rawFormula: null, thunderBonus: 0, hornDmgMultiplier: 1, hornDefIgnore: 0, trueDmg: 0, dmg, bonusEntries, defReduced, defReduction: null, bonusDmgTotal, dmgMultiplier, hpRatio: unit.role === '防战' ? hpRatio : 0 };
+    return { atkBase, defBase, atkAct, defAct, hpBonus, hpBefore, waveTaunt, waveUnit, raw, rawFormula: null, thunderBonus: 0, hornDmgMultiplier: 1, hornDefIgnore: 0, trueDmg: 0, dmg, bonusEntries, defReduced, defReduction: null, bonusDmgTotal, bonusDmgEntries, dmgMultiplier, dmgMultiplierEntries, hpRatio: unit.role === '防战' ? hpRatio : 0 };
 }
 
 // ==================== 步骤4：应用伤害结果 ====================
@@ -614,7 +619,7 @@ export function resolveAfterDamageEffects(declarations, unit, target, group) {
  */
 // 攻击-步骤5：构建攻击组日志+触发攻击后效果
 export async function buildAttackGroup(unit, target, dmgCalc, dmgResult, attackerBuffStats, defenderBuffStats, allySide, enemySide, log, A, B, state, doubleStrikeUnitUid, phantomLog) {
-    let { atkBase, defBase, atkAct, defAct, hpBonus, hpBefore, waveTaunt, waveUnit, raw, rawFormula, thunderBonus, hornDmgMultiplier, hornDefIgnore, trueDmg, defReduction, bonusDmgTotal, dmgMultiplier, hpRatio } = dmgCalc;
+    let { atkBase, defBase, atkAct, defAct, hpBonus, hpBefore, waveTaunt, waveUnit, raw, rawFormula, thunderBonus, hornDmgMultiplier, hornDefIgnore, trueDmg, defReduction, bonusDmgTotal, bonusDmgEntries, dmgMultiplier, dmgMultiplierEntries, hpRatio } = dmgCalc;
     let { dmg, dead, reboundEntry, bonusEntries } = dmgResult;
 
     let hpPctBefore = Math.floor((hpBefore / target.maxHp) * 100), hpPctAfter = Math.floor((target.hp / target.maxHp) * 100);
@@ -623,7 +628,7 @@ export async function buildAttackGroup(unit, target, dmgCalc, dmgResult, attacke
     let displayAtk = Math.floor(unit.atk + unit.atk * attackerBuffStats.atkBonus);
     let displayDef = Math.floor(target.def + target.def * defenderBuffStats.defBonus);
     let unitHpBefore = Math.floor(unit.hp);
-    let group = { type:'attack-group', uidA:unit.uid, uidD:target.uid, entries:[], hpAfter:target.hp, alive:target.alive, isDead:dead, waveTaunt, waveUnit, unitRole:unit.role, _fxSnapshot:makeFXSnapshot(unit,target), _dmg:dmg, _isZhangNear:unit.isZhang && !unit.rangedForm, _nearAtkCount:unit.nearAtkCount, hpPctBefore, hpPctAfter, isMiss:false, isDodge:false, buffEffects:[], needsSeparator: true, _atkBonus:Math.floor(unit.atk * attackerBuffStats.atkBonus), _defBonus:Math.floor(target.def * defenderBuffStats.defBonus), isKuLianAttack: !!(unit.name === '宋青书' && unit._kuLianActive) };
+    let group = { type:'attack-group', uidA:unit.uid, uidD:target.uid, entries:[], hpAfter:target.hp, alive:target.alive, isDead:dead, waveTaunt, waveUnit, unitRole:unit.role, _fxSnapshot:makeFXSnapshot(unit,target), _dmg:dmg, _isZhangNear:unit.isZhang && !unit.rangedForm, _nearAtkCount:unit.nearAtkCount, hpPctBefore, hpPctAfter, isMiss:false, isDodge:false, buffEffects:[], needsSeparator: true, _atkBonus:Math.floor(unit.atk * attackerBuffStats.atkBonus), _defBonus:Math.floor(target.def * defenderBuffStats.defBonus), isKuLianAttack: !!(unit.name === '宋青书' && unit._kuLianActive), isLinkAttack: !!unit._isLinkAttack };
 
     if (unit._pendingDefReduceEntry) {
         group.entries.push(unit._pendingDefReduceEntry);
@@ -642,6 +647,8 @@ export async function buildAttackGroup(unit, target, dmgCalc, dmgResult, attacke
     if (trueDmg > 0) group.entries.push({type:'detail', text:`<span class="red small">⚔️ 叛逆真伤+${trueDmg}（目标当前生命${Math.round((C.ELITE_SKILLS?.rebelStrike?.currentHpRatio || 0.12) * 100)}%）</span>`});
     // 拼接伤害公式
     let formulaText = '';
+    const fmtBonusEntries = (bonusDmgEntries || []).filter(e => e.value > 0);
+    const fmtMultiplierEntries = (dmgMultiplierEntries || []).filter(e => e.value > 1);
     if (unit.role === '防战') {
         const penPart = calcDamage(atkAct, defAct);
         const lv = getFangLevel(Math.floor(unit.def), unit.m);
@@ -649,15 +656,20 @@ export async function buildAttackGroup(unit, target, dmgCalc, dmgResult, attacke
         const z = hpRatio !== undefined ? hpRatio : C.HP_DMG_RATIO;
         const baseRaw = Math.floor(raw - bonusDmgTotal);
         formulaText = `${Math.floor(penPart)} + ${Math.floor(unit.def)}×${k} + ${Math.floor(unit.maxHp)}×${z} = ${baseRaw}`;
-        if (bonusDmgTotal > 0) formulaText += ` + 额外伤害${bonusDmgTotal} = ${Math.floor(raw)}`;
-        if (dmgMultiplier !== 1) formulaText += `×${dmgMultiplier} = ${Math.floor(raw)}`;
     } else {
         const baseRaw = Math.floor(raw - bonusDmgTotal);
         formulaText = `${atkAct}×(${atkAct}/(${atkAct}+${defAct})) = ${baseRaw}`;
-        if (bonusDmgTotal > 0) formulaText += ` + 额外伤害${bonusDmgTotal} = ${Math.floor(raw)}`;
-        if (dmgMultiplier !== 1) formulaText += `×${dmgMultiplier} = ${Math.floor(raw)}`;
     }
-    if (bonusDmgTotal === 0 && dmgMultiplier !== 1) formulaText += `×${dmgMultiplier}`;
+    if (fmtBonusEntries.length > 0) {
+        for (const e of fmtBonusEntries) {
+            formulaText += ` + ${e.label}${e.value} = ${Math.floor(raw)}`;
+        }
+    }
+    if (fmtMultiplierEntries.length > 0) {
+        for (const e of fmtMultiplierEntries) {
+            formulaText += ` ×${e.label}${e.value} = ${Math.floor(raw)}`;
+        }
+    }
     // 如果最终伤害与公式原始值不同，追加减伤说明
     if (dmg !== Math.floor(raw)) {
         const reduction = Math.floor(raw) - dmg;

@@ -29,25 +29,24 @@ export function createChengKunComponent() {
                 const chengkun = data.enemySide.find(u => u.name === '成昆' && u.alive && u.state._phantomTarget);
                 if (!chengkun) return;
 
-                // 被模仿者：100% 强制攻击成昆
+                // 被模仿者：100% 识破成昆伪装，直接攻击成昆
                 const isPhantomTarget = (chengkun.state._phantomTarget === data.unit.uid);
                 if (isPhantomTarget) {
                     data.declaration.targetResult = chengkun;
-                    data.declaration.phantomLog = `🎭 幻影伪装！${data.unit.name}被成昆迷惑，强制攻击成昆！`;
+                    data.declaration.phantomLog = `🎭 ${data.unit.name}识破成昆伪装，锁定真正的成昆！`;
                     return;
                 }
 
-                // 其他明教单位：概率混乱误攻队友（基于成昆已损失血量）
+                // 其他明教单位：概率被迷惑，误把成昆伪装的对象当作敌人（基于成昆已损失血量）
                 const params = getSkillParams('成昆', 'phantomDisguise') || ES.phantomDisguise;
                 const lostHpPct = (chengkun.maxHp - chengkun.hp) / chengkun.maxHp;
                 const confuseChance = (params.baseChance || 0.30) + (params.per10pctLost || 0.06) * (lostHpPct * 10);
                 if (getBattleRng().next() >= confuseChance) return;
 
-                const fakeList = data.allySide.filter(u => u.alive && !u.isHorse && !u._untargetable && u.uid !== data.unit.uid);
-                if (fakeList.length > 0) {
-                    const fakeTarget = fakeList[getBattleRng().nextInt(0, fakeList.length - 1)];
-                    data.declaration.targetResult = fakeTarget;
-                    data.declaration.phantomLog = `🎭 幻影伪装！${data.unit.name}被祸乱心智，误攻队友${fakeTarget.name}！`;
+                const phantomTarget = data.allySide.find(u => u.alive && !u.isHorse && !u._untargetable && u.uid === chengkun.state._phantomTarget && u.uid !== data.unit.uid);
+                if (phantomTarget) {
+                    data.declaration.targetResult = phantomTarget;
+                    data.declaration.phantomLog = `🎭 幻影伪装！${data.unit.name}被成昆迷惑，误攻队友${phantomTarget.name}！`;
                 }
             });
             // 成昆-幻影伪装：攻击后随机选择敌方伪装目标+按损失生命回血
@@ -62,7 +61,7 @@ export function createChengKunComponent() {
                 const params = getSkillParams('成昆', 'phantomThunder') || ES.phantomThunder;
                 const bonus = Math.floor(lostHp * (params.lostHpRatio / 100));
                 if (bonus > 0) {
-                    data.declarations.push({ type: EFFECT_TYPES.BONUS_DMG, value: bonus, source: data.unit });
+                    data.declarations.push({ type: EFFECT_TYPES.BONUS_DMG, value: bonus, source: data.unit, label: '混元霹雳劲' });
                 }
             });
         },
@@ -139,7 +138,7 @@ export function createHeBiWengComponent() {
                 const poisoned = data.target._xuanmingPoison && data.target._xuanmingPoison.remaining > 0;
                 data.declarations.push({ type: EFFECT_TYPES.IGNORE_DEF, value: s.defIgnore / 100, source: data.unit });
                 if (poisoned) {
-                    data.declarations.push({ type: EFFECT_TYPES.DMG_MULTIPLIER, value: 1 + s.poisonedBonus / 100, source: data.unit });
+                    data.declarations.push({ type: EFFECT_TYPES.DMG_MULTIPLIER, value: 1 + s.poisonedBonus / 100, source: data.unit, label: '鹿角杖法' });
                 }
             });
         },
