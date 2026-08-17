@@ -1,6 +1,6 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// core/11battle-round.js - 光明顶5v5 回合循环与生成器
-// V5.4.0 | ~31000 bytes| 2026-08-06 小昭姐妹状态转换纳入声明→裁定模式
-export const VER = 'core/11battle-round.js V5.4.0';
+﻿﻿// core/11battle-round.js - 光明顶5v5 回合循环与生成器
+// V5.5.2 | ~23500 bytes| 2026-08-17 事实化重构：全部日志走render/30
+export const VER = 'core/11battle-round.js V5.5.2';
 
 import { CONFIG } from './01config-5v5-test.js';
 import { isMelee, isBlocked, makeFXSnapshot, hasBuff, getUnitCol, getUnitRow, hasAnyEnemyEmptyCol, countEnemyEmptyCols, getBloodAuraBonus, getAuraBonuses, registerWarriorBreakDefense, registerRangedGrowth, registerFortifyShield, registerWarriorExecute, selectFlyTarget, registerEmptyColBonus, registerDoubleStrike } from './03battle-utils.js';
@@ -16,20 +16,15 @@ import { getNextAvailableUnit, finalizeDeaths, emitFullUnitState, checkZhangSwit
 import { flushBattleEvents, setBattleState } from './09-battle-event-store.js';
 import { SeededRNG } from './07-rng.js';
 import { resolveDeaths } from './12battle-attack-steps.js';
+import {
+    renderHorseSummonFact,
+    renderKuLianFact,
+    renderDoubleStrikeFact,
+    renderPassFact
+} from '../render/30-fact-renderer.js';
 
 const C = CONFIG;
 
-// ==================== 回合生成器 ====================
-
-/**
- * 回合推进生成器 — 逐步 yield 每个行动步骤，供播放器逐帧消费
- * 每回合流程：回合开始（Buff结算/拒马召唤/精英注册）→ 行动调度（按站位轮流攻击）→ 回合结束（Buff过期/拒马销毁/胜负判定）
- * @param {object} state - 战斗状态 { ally, enemy, round, activeBuffs, allAllies }
- * @yields {{ log: Array, events: Array, ally: Array, enemy: Array, winner: string|null, done: boolean }}
- *   每步产生日志、事件、当前双方状态，winner 非空表示战斗结束
- */
-// 回合-生成器：逐yield行动步骤供播放器消费
-// 回合-开始：召唤拒马、随机圣火令、注册监听器与精英钩子、重置双方单位状态
 async function prepareRoundStart(A, B, log, state, round, rng) {
     A._activeBuffs = state.activeBuffs.filter(b => b.target === 'ally' || !b.target);
     B._activeBuffs = state.activeBuffs.filter(b => b.target === 'enemy');
@@ -41,14 +36,13 @@ async function prepareRoundStart(A, B, log, state, round, rng) {
 
     log.push({ type:'round-start', text:`<div class="separator">———— 第${round}回合开始 ————</div>` });
 
-    // 死马不再删除，保留在数组中供战报统计承伤
     const teamHorseA = spawnHorse(A, log, B);
     if (teamHorseA) {
-        log.push({type:'buff-summon', text:`<span class="gold">🐴 拒马阵：拒马出现在${teamHorseA.pos}号位！</span>`, buffType:'summon', horsePos: teamHorseA.pos, horseUid: teamHorseA.uid, horseTaunt: '嘶——！'});
+        log.push(renderHorseSummonFact({ pos: teamHorseA.pos, horseUid: teamHorseA.uid, horseTaunt: '嘶——！' }));
     }
     const teamHorseB = spawnHorse(B, log, A);
     if (teamHorseB) {
-        log.push({type:'buff-summon', text:`<span class="gold">🐴 拒马阵：拒马出现在${teamHorseB.pos}号位！</span>`, buffType:'summon', horsePos: teamHorseB.pos, horseUid: teamHorseB.uid, horseTaunt: '嘶——！'});
+        log.push(renderHorseSummonFact({ pos: teamHorseB.pos, horseUid: teamHorseB.uid, horseTaunt: '嘶——！' }));
     }
 
     let doubleStrikeUnitUid = null;
@@ -75,7 +69,6 @@ async function prepareRoundStart(A, B, log, state, round, rng) {
         }
     });
 
-    // 圣火令每回合重新随机行列（2行×1列）
     A._activeBuffs.forEach(b => {
         if (b.key === 'holyFlame') {
             const cols = [];
@@ -88,7 +81,6 @@ async function prepareRoundStart(A, B, log, state, round, rng) {
             b.rows = rows;
         }
     });
-    // 提前生成圣火令行列，确保 UI 渲染时 cols/rows 已存在
     A.forEach(u => {
         if (u.alive && u.camp === 'ally') {
             applyHolyFlameBonus(u, A._activeBuffs || []);
@@ -97,10 +89,8 @@ async function prepareRoundStart(A, B, log, state, round, rng) {
 
     eventBus.clearAll();
 
-    // 清除上回合精英注册的动态闪避规则，保留两条通用规则
     clearEliteDodgeRules();
 
-    // 注册所有监听器
     registerWarriorBreakDefense(eventBus);
     registerRangedGrowth(eventBus);
     registerFortifyShield(eventBus);
@@ -110,12 +100,10 @@ async function prepareRoundStart(A, B, log, state, round, rng) {
     registerWindAssault(eventBus);
     registerMeteorShower(eventBus);
     registerMindControl(eventBus);
-    // 苦练优先行动（通用注册，不依赖 onRoundStart 后的精英注册）
     eventBus.on('beforeActionSelect', L.BEFORE_ACTION.KULIAN_PRIORITY, (data) => {
         if (data.unit.name !== '宋青书' || !data.unit.alive || !data.unit._kuLianActive) return;
         data.declaration.priority = 1;
     });
-    // 飞行突进目标选择（⚠️ 预留给未来飞行精英角色使用，当前普通飞行单位不触发此逻辑）
     eventBus.on('beforeSelectTarget', L.BEFORE_SELECT_TARGET.FLY_TARGET, (data) => {
         if (data.unit.role !== '飞行' || data.unit.isWei) return;
         const flyTarget = selectFlyTarget(data.unit, data.enemySide);
@@ -124,19 +112,16 @@ async function prepareRoundStart(A, B, log, state, round, rng) {
     registerDoubleStrike(eventBus, doubleStrikeUnitUid, A, A._activeBuffs);
     registerEmptyColBonus(eventBus);
 
-    // 注册精英组件钩子，并保存小昭姐妹组件引用供裁判调用
     const factories = getEliteFactories();
     let sisterComp = null;
     let brotherComp = null;
     const allUnits = [...A, ...B];
     for (const u of allUnits) {
         if (!u.alive) continue;
-        // 成昆特殊处理
         if (u.name === '成昆' && u.camp === 'enemy') {
             u._fortifyIncrement = CONFIG.FORTIFY_INCREMENT * 2;
             u._fortifyCap = CONFIG.FORTIFY_CAP * 2;
         }
-        // 小昭姐妹特殊处理：单例引用
         if (u.isXiaoZhaoSister && u.camp === 'ally') {
             const Factory = factories.get('小昭·姊');
             if (Factory && !sisterComp) sisterComp = Factory();
@@ -150,11 +135,9 @@ async function prepareRoundStart(A, B, log, state, round, rng) {
             if (Factory) Factory().register(eventBus, A, B, log);
         }
     }
-    // 注册玄冥联动（独立于精英工厂）
     const xuanmingFactory = factories.get('玄冥联动');
     if (xuanmingFactory) xuanmingFactory(eventBus);
 
-    // 建立精英联动引用（替代硬搜名字）
     const song = B.find(u => u.name === '宋青书' && u.alive);
     const zhou = B.find(u => u.name === '周芷若' && u.alive);
     if (song && zhou) { song._linkedPartnerUid = zhou.uid; zhou._linkedPartnerUid = song.uid; }
@@ -162,7 +145,6 @@ async function prepareRoundStart(A, B, log, state, round, rng) {
     const he = B.find(u => u.name === '鹤笔翁' && u.alive);
     if (lu && he) { lu._linkedPartnerUid = he.uid; he._linkedPartnerUid = lu.uid; }
 
-    // 发射回合开始信号（在所有监听器注册完成后）
     eventBus.emit('onRoundStart', { A, B, log });
 
     A._butterflyTriggered = false;
@@ -203,7 +185,6 @@ async function prepareRoundStart(A, B, log, state, round, rng) {
         applyStatChange(u, 'atk', targetAtk - u.atk, null, '光环加成');
         applyStatChange(u, 'def', targetDef - u.def, null, '光环加成');
 
-        // 圣火令等加成生效后，立即推送最终攻防到 Store 刷新格子显示
         emitEvent(u, 'hp-change', { hp: u.hp, maxHp: u.maxHp, alive: u.alive, atk: u.atk, def: u.def });
 
         u.state._acted = false;
@@ -243,7 +224,6 @@ async function prepareRoundStart(A, B, log, state, round, rng) {
         u._fortifyThisRound = 0;
     });
 
-    // 初始化所有单位的闪避率，供面板实时显示（各来源独立判定，组合概率）
     const dodgeUnits = [...A, ...B];
     for (const u of dodgeUnits) {
         if (!u.alive) continue;
@@ -257,7 +237,6 @@ async function prepareRoundStart(A, B, log, state, round, rng) {
         const activeBuffs = u.camp === 'ally' ? A._activeBuffs : B._activeBuffs;
         const buffStats = computeBuffStats(u, activeBuffs, allyTeam);
         if (buffStats.dodgeBonus > 0) rates.push(buffStats.dodgeBonus);
-        // 组合概率：P = 1 - ∏(1 - rate_i)
         let product = 1;
         for (const r of rates) { product *= (1 - r); }
         u._dodgeChance = Math.round((1 - product) * 100);
@@ -265,8 +244,6 @@ async function prepareRoundStart(A, B, log, state, round, rng) {
 
     logBuffSummary(A, log, doubleStrikeUnitUid);
 
-    // 第一回合姐姐附身方向：通过 state.requestFlyDirection 注入的决策函数获取；
-    // core 不再依赖 UI 弹窗，未注入或函数返回空时默认 'right'
     if (round === 1 && A.some(u => u.isXiaoZhaoSister && u.alive)) {
         const requestDirection = typeof state.requestFlyDirection === 'function' ? state.requestFlyDirection : null;
         const direction = requestDirection ? await requestDirection() : (A._flyDirection || 'right');
@@ -278,7 +255,6 @@ async function prepareRoundStart(A, B, log, state, round, rng) {
 }
 
 export async function* createRoundStepper(state) {
-    // 确定性 RNG：同一种子 → 同一次战斗结果（回放/复现基础）
     const rng = state._rng || new SeededRNG(Date.now());
     state._rng = rng;
     setBattleRng(rng);
@@ -299,7 +275,6 @@ export async function* createRoundStepper(state) {
     }
     let A = state.ally.map(u => u.clone());
     let B = state.enemy.map(u => u.clone());
-    // 保留数组自定义属性（_flyDirection 等）
     if (state.ally._flyDirection) A._flyDirection = state.ally._flyDirection;
     let log = [];
     let round = state.round;
@@ -309,16 +284,6 @@ export async function* createRoundStepper(state) {
     yield { log: [...log], events: roundStartEvents, ally: A, enemy: B, winner: null, done: false, doubleStrikeUid: doubleStrikeUnitUid };
     log = [];
 
-    /**
-     * 行动调度边裁 — 裁定本轮行动者
-     * 三步：裁判感知 → 声明收集 → 冲突裁决
-     * 输入候选单位列表，输出 { actingUnit, isPriorityAction, passUnits }
-     * 裁决标准：priority 高优先，同 priority 按 pos 排
-     */
-    /**
-     * 状态转换边裁 — 收集声明并裁定执行
-     */
-    // 回合-状态转换边裁：收集声明并裁定执行
     function resolveStateTransitions() {
         const stateTransitions = [];
         if (A._pendingStateTransitions) {
@@ -335,29 +300,21 @@ export async function* createRoundStepper(state) {
             if (decl.type === 'butterflyAttach') {
                 sisterComp.executeAttach(A, log);
             } else if (decl.type === 'butterflyReturn') {
-                // 飞回只在回合结束时处理，跳过并暂存
                 delayedDecls.push(decl);
                 continue;
             } else if (decl.type === 'spiderFly') {
                 brotherComp.executeFly(decl.unit, decl.incomingDmg, A, log);
             } else if (decl.type === 'spiderDescend') {
-                // 蛛落也只在回合结束时处理，跳过并暂存
                 delayedDecls.push(decl);
                 continue;
             }
         }
-        // 将跳过的延迟声明放回队列，供回合结束时消费
         if (delayedDecls.length > 0) {
             if (!A._pendingStateTransitions) A._pendingStateTransitions = [];
             A._pendingStateTransitions.push(...delayedDecls);
         }
     }
 
-    /**
-     * 行动调度边裁 — 裁定本轮行动者
-     * 两步：裁判感知 → 声明收集与冲突裁决
-     */
-    // 回合-行动调度：裁定本轮行动者（priority+pos排序）
     function resolveActionOrder(candidates, log) {
         resolveStateTransitions();
         const sortedByPos = [...candidates].filter(u => u.alive && !u.state._isDead).sort((a, b) => a.pos - b.pos);
@@ -392,8 +349,6 @@ export async function* createRoundStepper(state) {
             priorityDeclarations.push({ unit: u, priority: decl.priority });
         }
 
-        // 将 pass 单位也放入排序队列，按站位插入
-        // 构造一个统一的排队序列：priority > 0 优先排在前面，同 priority 按 pos 排
         const queue = [];
         for (const d of priorityDeclarations) {
             queue.push({ unit: d.unit, isPass: false, priority: d.priority, reason: null });
@@ -401,24 +356,21 @@ export async function* createRoundStepper(state) {
         for (const p of passUnits) {
             queue.push({ unit: p.unit, isPass: true, priority: 0, reason: p.reason });
         }
-        // 排序：priority 高优先，同 priority 按 pos
         queue.sort((a, b) => {
             if (a.priority !== b.priority) return b.priority - a.priority;
             return a.unit.pos - b.unit.pos;
         });
 
-        // 取出排在最前面的
         if (queue.length === 0) return { actingUnit: null, passEntry: null, isPriorityAction: false };
         const head = queue[0];
         if (head.isPass) {
             if (head.unit._kuLianActive) {
-                log.push({ type:'info', text:`<span class="gold">🏋️ 苦练：${head.unit.name} 每回合最先行动！（不占用本队行动轮次）</span>` });
+                log.push(renderKuLianFact({ unitName: head.unit.name, atkBonus: 0, defBonus: 0, hpBonus: 0, priority: true }));
             }
             return { actingUnit: null, passEntry: { unit: head.unit, reason: head.reason }, isPriorityAction: false };
         }
-        // 普通或优先行动单位
         if (head.priority > 0 && head.unit._kuLianActive) {
-            log.push({ type:'info', text:`<span class="gold">🏋️ 苦练：${head.unit.name} 每回合最先行动！（不占用本队行动轮次）</span>` });
+            log.push(renderKuLianFact({ unitName: head.unit.name, atkBonus: 0, defBonus: 0, hpBonus: 0, priority: true }));
         }
         return { actingUnit: head.unit, passEntry: null, isPriorityAction: head.priority > 0 };
     }
@@ -427,17 +379,14 @@ export async function* createRoundStepper(state) {
 
     while (A.some(u => u.alive && !u.state._acted) || B.some(u => u.alive && !u.state._acted)) {
         const currentTeam = currentSide === 'ally' ? A : B;
-        // 姐姐附身：明教第一次被调度时触发，先于任何明教单位行动
         if (currentSide === 'ally' && !A._butterflyTriggered) {
             A._butterflyTriggered = true;
             const sisterForAttach = A.find(u => u.isXiaoZhaoSister && u.alive && !u.state._stunned && !u.state._butterflyHost);
             if (sisterForAttach) {
                 sisterComp.executeAttach(A, log);
-                // 附身完后 yield 一次，让事件出队刷新 UI
                 const attachEvents = flushBattleEvents();
                 yield { log: [...log], events: attachEvents, ally: A, enemy: B, winner: null, done: false, doubleStrikeUid: doubleStrikeUnitUid };
                 log = [];
-                // 重新拉取候选人列表（附身可能改变 _acted 状态）
             }
         }
         const candidates = currentTeam.filter(u => u.alive && !u.state._acted).sort((a, b) => a.pos - b.pos);
@@ -447,53 +396,13 @@ export async function* createRoundStepper(state) {
         }
         const orderResult = resolveActionOrder(candidates, log);
 
-        // 被跳过单位（遮挡/眩晕/拒马）：轮到它时才执行休息回血和日志
         if (orderResult.passEntry) {
             const { unit, reason } = orderResult.passEntry;
             unit.state._acted = true;
             unit.state._blocked = isBlocked(unit, currentTeam);
-            if (reason === '被遮挡') {
-                let hpBefore = Math.floor(unit.hp);
-                applyStatChange(unit, 'hp', 15, null, '休息回复');
-                let hpAfter = Math.floor(unit.hp);
-                unit.state._resting = true;
-                if (unit.state._restingTimer) clearTimeout(unit.state._restingTimer);
-                unit.state._restingTimer = setTimeout(() => {
-                    unit.state._resting = false;
-                    emitEvent(unit, 'hp-change', { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: unit.atk, def: unit.def, _resting: false });
-                }, 3000);
-                let bg = {type:'attack-group', uidA:unit.uid, uidD:null, entries:[], isBlock:true, _fxSnapshot:makeFXSnapshot(unit,null), waveTaunt:null, waveUnit:null, buffEffects:[], needsSeparator: true, healAmount: 15, healUnitUid: unit.uid};
-                bg.entries.push({type:'combat-text', text:`<span class="${unit.camp==='ally'?'blue':'orange'}">${unit.camp==='ally'?'明教':'六大派'} ${unit.name}</span> 被遮挡`});
-                bg.entries.push({type:'info', text:`<span class="green">休息回复15点生命（${hpBefore} → ${hpAfter}）</span>`});
-                bg._events = GlobalStore.flushBattleEvents();
-                log.push(bg);
-            } else if (reason === '眩晕') {
-                let bg = {type:'attack-group', uidA:unit.uid, uidD:null, entries:[], isBlock:true, _fxSnapshot:makeFXSnapshot(unit,null), waveTaunt:null, waveUnit:null, buffEffects:[], needsSeparator: true};
-                bg.entries.push({type:'info', text:`<span class="gray">💫 ${unit.name} 被眩晕，无法行动</span>`});
-                bg._events = GlobalStore.flushBattleEvents();
-                log.push(bg);
-            } else if (reason === '拒马休息') {
-                let hpBefore = Math.floor(unit.hp);
-                applyStatChange(unit, 'hp', 15, null, '拒马休息回复');
-                let hpAfter = Math.floor(unit.hp);
-                unit.state._resting = true;
-                if (unit.state._restingTimer) clearTimeout(unit.state._restingTimer);
-                unit.state._restingTimer = setTimeout(() => {
-                    unit.state._resting = false;
-                    emitEvent(unit, 'hp-change', { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: unit.atk, def: unit.def, _resting: false });
-                }, 3000);
-                let bg = {type:'attack-group', uidA:unit.uid, uidD:null, entries:[], isBlock:true, _fxSnapshot:makeFXSnapshot(unit,null), waveTaunt:null, waveUnit:null, buffEffects:[], needsSeparator: true, healAmount: 15, healUnitUid: unit.uid};
-                bg.entries.push({type:'combat-text', text:`<span class="${unit.camp==='ally'?'blue':'orange'}">${unit.camp==='ally'?'明教':'六大派'} ${unit.name}</span> 无法攻击`});
-                bg.entries.push({type:'info', text:`<span class="green">🐴 拒马休息回复15点生命（${hpBefore} → ${hpAfter}）</span>`});
-                bg._events = GlobalStore.flushBattleEvents();
-                log.push(bg);
-            } else {
-                let bg = {type:'attack-group', uidA:unit.uid, uidD:null, entries:[], isBlock:true, _fxSnapshot:makeFXSnapshot(unit,null), waveTaunt:null, waveUnit:null, buffEffects:[], needsSeparator: true};
-                bg.entries.push({type:'info', text:`<span class="gray">${unit.name} 无法行动</span>`});
-                bg._events = GlobalStore.flushBattleEvents();
-                log.push(bg);
-            }
-            // pass 单位不切换阵营，当前阵营继续出下一个
+            const passFact = { unit, reason, events: [] };
+            passFact.events = flushBattleEvents();
+            log.push(renderPassFact(passFact));
             continue;
         }
 
@@ -512,27 +421,22 @@ export async function* createRoundStepper(state) {
         unit.state._blocked = isBlocked(unit, allySide);
         unit.survivedRounds++;
 
-        // 姐姐附身不占明教攻击轮次
         if (unit.camp === 'ally' && unit.isXiaoZhaoSister && !(unit._fsm && unit._fsm.is('attached')) && !A._butterflyTriggered) {
             isPriorityAction = true;
         }
 
         await processUnitAttack(unit, allySide, enemySide, log, A, B, state, doubleStrikeUnitUid);
 
-        // 死亡结算：覆盖所有路径（连击、白骨爪、乾坤反弹等）
         resolveDeaths(A, B, log);
 
-        // 普通行动结束后切换行动方；高优先级抢动的单位（苦练等）跳过切换，让本队继续出人
         if (!isPriorityAction) {
             currentSide = currentSide === 'ally' ? 'enemy' : 'ally';
         }
 
         finalizeDeaths(A);
         finalizeDeaths(B);
-        // 发射回合结束信号，收集状态转换声明，由裁判统一裁定执行
         const endStateTransitions = [];
         eventBus.emit('onRoundEnd', { A, B, log, forced: false, declarations: endStateTransitions });
-        // 飞回和蛛落只在真正回合结束时执行，攻击循环内暂存
         for (const decl of endStateTransitions) {
             if (decl.type === 'butterflyReturn') {
                 if (!A._pendingStateTransitions) A._pendingStateTransitions = [];
@@ -542,7 +446,6 @@ export async function* createRoundStepper(state) {
                 A._pendingStateTransitions.push(decl);
             }
         }
-        // 兜底：回合结束阶段产生的死亡标记
         resolveDeaths(A, B, log);
         const stepEvents = flushBattleEvents();
         const allyAlive = A.some(u => u.alive);
@@ -552,10 +455,8 @@ export async function* createRoundStepper(state) {
         if (!allyAlive) { winner = '六大派'; done = true; }
         else if (!enemyAlive) { winner = '明教'; done = true; }
 
-        // 胜利时先执行飞回/蛛落，让姐姐归队后再展示胜利画面
         if (winner) {
             eventBus.emit('onRoundEnd', { A, B, log, forced: true });
-            // 消费本次 onRoundEnd 产生的飞回/蛛落声明
             const winPendingDecls = [];
             if (A._pendingStateTransitions) { winPendingDecls.push(...A._pendingStateTransitions); A._pendingStateTransitions = []; }
             if (B._pendingStateTransitions) { winPendingDecls.push(...B._pendingStateTransitions); B._pendingStateTransitions = []; }
@@ -574,7 +475,6 @@ export async function* createRoundStepper(state) {
         if (done) return;
     }
 
-    // 回合真正结束时，执行暂存的飞回和蛛落声明
     const allPendingDecls = [];
     if (A._pendingStateTransitions) { allPendingDecls.push(...A._pendingStateTransitions); A._pendingStateTransitions = []; }
     if (B._pendingStateTransitions) { allPendingDecls.push(...B._pendingStateTransitions); B._pendingStateTransitions = []; }
@@ -590,14 +490,12 @@ export async function* createRoundStepper(state) {
     yield { log: [...log], events: endEvents, ally: A, enemy: B, winner, done };
 }
 
-// 回合-结束：销毁拒马、递减Buff、判定胜负、发送回合结束信号并结算死亡
 function finalizeRoundEnd(A, B, log, round) {
     [A, B].forEach(team => {
         for (let i = team.length - 1; i >= 0; i--) {
             const u = team[i];
             u.state._resting = false;
             if (u.state._restingTimer) { clearTimeout(u.state._restingTimer); u.state._restingTimer = null; }
-            // 死马不再删除，保留在数组中供战报统计承伤
         }
     });
 
@@ -611,7 +509,6 @@ function finalizeRoundEnd(A, B, log, round) {
     else if (A.every(c => !c.alive)) { winner = '六大派'; done = true; }
     if (round >= C.MAX_ROUND && !done) { winner = '平局'; done = true; }
 
-    // 战斗结束，发射回合结束信号（forced），组件自行处理飞回/蛛落
     eventBus.emit('onRoundEnd', { A, B, log, forced: true });
 
     if (winner) {
@@ -628,13 +525,11 @@ function finalizeRoundEnd(A, B, log, round) {
 
     const endEvents = flushBattleEvents();
 
-
     finalizeDeaths(A);
     finalizeDeaths(B);
     return { winner, done, endEvents };
 }
 
-// 回合-同步执行：创建stepper并逐步骤推进
 export function runBattleRound(state) {
     const stepper = createRoundStepper(state);
     let finalResult = null;

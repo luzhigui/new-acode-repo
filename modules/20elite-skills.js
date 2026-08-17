@@ -1,16 +1,20 @@
 // modules/20elite-skills.js - 光明顶5v5 精英技能系统
-// V5.5.0 | ~13400 bytes| 2026-08-04 白骨爪/叛逆突袭接入 game-data
-export const VER = 'modules/20elite-skills.js V5.5.0';
+// V5.5.1 | ~12500 bytes| 2026-08-17 事实化重构：日志HTML走render/30
+export const VER = 'modules/20elite-skills.js V5.5.1';
 
 import { CONFIG, getSkillParams } from '../core/01config-5v5-test.js';
 import { ROLE_BONUS } from '../core/02unit.js';
 import { hasBuff } from '../core/03battle-utils.js';
 import { emitEvent, applyStatChange, applyMaxHpChange, registerQuery, getBattleRng } from '../core/13battle-shared.js';
+import {
+    renderQianKunUpgradedFact, renderQianKunBasicFact,
+    renderKuaiLeHealFact, renderSpiderTransformFact,
+    renderSpiderReturnFact, renderSpiderStrikeFact
+} from '../render/30-fact-renderer.js';
 const ES = CONFIG.ELITE_SKILLS;
 
 // ==================== 玄冥二老 — 中毒/鹿角 ====================
 
-// 玄冥二老-寒毒发作：逐回合衰减dot伤害结算
 export function tickXuanmingPoison(unit) {
     if (!unit._xuanmingPoison || unit._xuanmingPoison.remaining <= 0) return 0;
     unit._xuanmingPoison.remaining--;
@@ -24,19 +28,14 @@ export function tickXuanmingPoison(unit) {
 
 // ==================== 乾坤大挪移升级版减伤 ====================
 
-// 张无忌-乾坤大挪移：减伤+反弹+自伤（基础版/升级版）
-// 乾坤分基础/升级两版：升级版需小昭在场且目标在偶数列(2/4/6/8)，基础版需小昭不在场且无忌在4/6列；条件差异决定减伤反弹数值
 export function applyDamageModifiers(unit, target, dmg, allySide, enemySide, log) {
     let modifiedDmg = dmg;
     const entries = [];
-    const ES = CONFIG.ELITE_SKILLS;
-
     const xiaoZhao = allySide.find(u => (u.isXiaoZhaoSister || u.isXiaoZhaoBrother) && u.alive);
     const zhang = allySide.find(c => c.isZhang && c.alive && c.rangedForm && !c.state._stunned);
     if (target.camp !== 'ally' || !zhang) return { modifiedDmg, entries };
 
     if (xiaoZhao && [2, 4, 6, 8].includes(target.pos)) {
-        // 升级版：减伤30%，反弹20%，自伤原始伤害10%
         const s = getSkillParams('小昭', 'qianKunUpgraded') || ES.xiaoZhao;
         const reducePct = s.reducePct || 30;
         const reboundPct = s.reboundPct || 20;
@@ -49,18 +48,16 @@ export function applyDamageModifiers(unit, target, dmg, allySide, enemySide, log
         applyStatChange(unit, 'hp', -rebound, zhang, '乾坤反弹');
         applyStatChange(zhang, 'hp', -selfDmg, unit, '乾坤自伤');
 
-        entries.push({
-            type: 'info',
-            text: `<span class="gold">🦋 乾坤大挪移（升级版）：减伤${reducePct}%，反弹${rebound}给${unit.name}（无忌自伤${selfDmg}）</span>`,
-            reboundDmg: rebound,
-            reboundTargetUid: unit.uid,
-            selfDmg: selfDmg,
-            selfDmgUid: zhang.uid
-        });
+        entries.push(renderQianKunUpgradedFact({
+            attackerName: unit.name,
+            zhangName: zhang.name,
+            reducePct,
+            rebound,
+            selfDmg
+        }));
 
         modifiedDmg = reducedDmg;
     } else if (!xiaoZhao && (target.pos === 4 || target.pos === 6)) {
-        // 基础版：减伤10%，反弹10%，自伤原始伤害10%
         const s = getSkillParams('张无忌', 'qianKun') || { reducePct: 10, reboundPct: 10, selfDmgPct: 10 };
         const reducePct = s.reducePct || 10;
         const reboundPct = s.reboundPct || 10;
@@ -73,14 +70,13 @@ export function applyDamageModifiers(unit, target, dmg, allySide, enemySide, log
         applyStatChange(unit, 'hp', -rebound, zhang, '乾坤反弹');
         applyStatChange(zhang, 'hp', -selfDmg, unit, '乾坤自伤');
 
-        entries.push({
-            type: 'info',
-            text: `<span class="gold">✨ 乾坤大挪移：减伤${reducePct}%，反弹${rebound}给${unit.name}（无忌自伤${selfDmg}）</span>`,
-            reboundDmg: rebound,
-            reboundTargetUid: unit.uid,
-            selfDmg: selfDmg,
-            selfDmgUid: zhang.uid
-        });
+        entries.push(renderQianKunBasicFact({
+            attackerName: unit.name,
+            zhangName: zhang.name,
+            reducePct,
+            rebound,
+            selfDmg
+        }));
 
         modifiedDmg = reducedDmg;
     }
@@ -90,7 +86,6 @@ export function applyDamageModifiers(unit, target, dmg, allySide, enemySide, log
 
 // ==================== 宋青书/周芷若联动 — 回合级 ====================
 
-// 宋青书-苦练检测：周芷若阵亡时宋青书苦练激活
 export function checkKuLian(allyTeam) {
     const song = allyTeam.find(u => u.name === '宋青书' && u.alive);
     if (!song) return null;
@@ -99,7 +94,6 @@ export function checkKuLian(allyTeam) {
     return song;
 }
 
-// 宋青书-性奋授予：周芷若存活时宋青书获得性奋buff
 export function applyXingFenGrant(allyTeam, log) {
     const zhou = allyTeam.find(u => u.name === '周芷若' && u.alive);
     const song = allyTeam.find(u => u.name === '宋青书' && u.alive);
@@ -112,7 +106,6 @@ export function applyXingFenGrant(allyTeam, log) {
     });
 }
 
-// 周芷若-快乐回血：回合开始逐层衰退快乐回血结算
 export function tickKuaiLeHeal(allUnits, log) {
     allUnits.forEach(unit => {
         if (!unit._kuaiLeStack || unit._kuaiLeStack.length === 0) return;
@@ -131,13 +124,13 @@ export function tickKuaiLeHeal(allUnits, log) {
         if (totalHeal > 0) {
             const hpBefore = Math.floor(unit.hp);
             applyStatChange(unit, 'hp', totalHeal, null, '快乐回血');
-            log.push({
-                type: 'info',
-                text: `<span class="green">💚 快乐回血：${unit.name} 回复${totalHeal}点生命（${unit._kuaiLeStack.length}层触发），血量 ${hpBefore} → ${Math.floor(unit.hp)}</span>`,
-                buffType: 'elite_kuaile_heal',
-                zhouUid: unit.uid,
-                zhouHpAfter: unit.hp
-            });
+            log.push(renderKuaiLeHealFact({
+                unitName: unit.name,
+                heal: totalHeal,
+                hpBefore,
+                hpAfter: Math.floor(unit.hp),
+                layers: unit._kuaiLeStack.length
+            }));
         }
         unit._kuaiLeStack = newStack;
     });
@@ -156,12 +149,6 @@ export function consumeXingFen(attacker) {
 
 // ==================== 小昭·妹 — 蛛变/飞天/蛛落 ====================
 
-/**
- * 小昭妹妹每回合随机变换职业（不重复），记录精通职业，叠加对应属性加成
- * @param {Unit} unit - 小昭妹妹单位
- * @param {Array} log - 日志数组
- */
-// 小昭·妹-蛛变：随机变换职业叠加精通加成
 export function spiderTransform(unit, log) {
     if (!unit.isXiaoZhaoBrother || !unit.alive) return;
     const rng = getBattleRng();
@@ -190,17 +177,9 @@ export function spiderTransform(unit, log) {
     applyMaxHpChange(unit, unit.maxHp + hpDelta, null, '蛛变');
 
     emitEvent(unit, 'hp-change', { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: unit.atk, def: unit.def, role: newRole });
-    log.push({ type:'info', text:`<span class="gold">🕷️ 蛛变：${unit.name} 变换为<span class="gold">${newRole}</span>（已精通${unit._masteredRoles.length}/4）</span>` });
+    log.push(renderSpiderTransformFact({ unitName: unit.name, newRole, mastered: unit._masteredRoles.length }));
 }
 
-/**
- * 小昭妹妹回合结束蛛落：解除飞天状态 → 找空位落地 → 随机攻击一个敌人（穿透 + 精通加成）
- * @param {Unit} unit - 小昭妹妹单位
- * @param {Array} allyTeam - 己方单位数组
- * @param {Array} enemySide - 敌方单位数组
- * @param {Array} log - 日志数组
- */
-// 小昭·妹-蛛落：解除飞天+找空位落地+穿透攻击+精通加成
 export function spiderReturn(unit, allyTeam, enemySide, log) {
     if (!unit.isXiaoZhaoBrother) return;
     const rng = getBattleRng();
@@ -218,7 +197,7 @@ export function spiderReturn(unit, allyTeam, enemySide, log) {
     emitEvent(unit, 'hp-change', { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: unit.atk, def: unit.def, _flyMode: null, _spiderFlying: false });
     emitEvent(unit, 'pos-change', { pos: unit.pos });
 
-    log.push({ type:'info', text:`<span class="gold">🕷️ 蛛落：${unit.name} 从天而降，落在${unit.pos}号位！</span>` });
+    log.push(renderSpiderReturnFact({ unitName: unit.name, pos: unit.pos }));
 
     const aliveEnemies = enemySide.filter(u => u.alive);
     if (aliveEnemies.length > 0) {
@@ -231,18 +210,21 @@ export function spiderReturn(unit, allyTeam, enemySide, log) {
         const extraDmg = extraDmgMap[Math.min(masteryCount, 4)] || 0;
         const totalDmg = penetrationDmg + extraDmg;
         applyStatChange(target, 'hp', -totalDmg, unit, '蛛袭');
-        log.push({ type:'info', text:`<span class="gold">🕷️ 蛛袭：${unit.name} 落地攻击 ${target.name}，穿透${penetrationDmg} + 精通${extraDmg} = ${totalDmg} 伤害！</span>`, uidA: unit.uid, uidD: target.uid, isDead: !target.alive, isSpiderStrike: true, needsSeparator: true });
+        log.push(renderSpiderStrikeFact({
+            unitName: unit.name,
+            targetName: target.name,
+            penetrationDmg,
+            extraDmg,
+            totalDmg,
+            isDead: !target.alive,
+            unitUid: unit.uid,
+            targetUid: target.uid
+        }));
     }
 }
 
 // ==================== 小昭共通 — 精通 + 永久海克斯 ====================
 
-/**
- * 计算小昭妹妹的精通加成（攻/防/血），精通 4 个职业后额外 +2 层
- * @param {Unit} unit - 小昭妹妹单位
- * @returns {{ atk: number, def: number, hp: number }} 精通加成的绝对值
- */
-// 小昭·妹-精通加成：计算精通职业数×层数累加攻防血
 export function computeButterflyMastery(unit) {
     if (!unit.isXiaoZhaoBrother || !unit._masteredRoles) return { atk: 0, def: 0, hp: 0 };
     const count = unit._masteredRoles.length;
@@ -256,7 +238,6 @@ export function computeButterflyMastery(unit) {
     };
 }
 
-// 小昭·妹-永久海克斯：添加永久buff到小昭_buff列表
 export function addPermanentBuff(xiaoZhao, buffKey, buffName, extraFields = {}) {
     if (!xiaoZhao || !xiaoZhao.isXiaoZhaoBrother) return;
     if (!xiaoZhao._permanentBuffs) xiaoZhao._permanentBuffs = [];
@@ -269,14 +250,12 @@ export function addPermanentBuff(xiaoZhao, buffKey, buffName, extraFields = {}) 
     });
 }
 
-// 小昭·妹-永久海克斯检查：判断永久buff是否激活且未被团队覆盖
 export function isXiaoZhaoPermanentActive(unit, activeBuffs, buffKey) {
     if (!unit || !unit.isXiaoZhaoBrother || !unit._permanentBuffs) return false;
     if (activeBuffs && hasBuff(activeBuffs, buffKey)) return false;
     return unit._permanentBuffs.some(b => b.key === buffKey);
 }
 
-// 小昭·姊-海克斯增强：获取海克斯buff的增强参数
 export function getXiaoZhaoHexEnhance(allyTeam, activeBuffs, hexKey) {
     const xiaoZhao = allyTeam.find(u => u.isXiaoZhaoSister && u.alive);
     if (!xiaoZhao) return null;
@@ -287,7 +266,6 @@ export function getXiaoZhaoHexEnhance(allyTeam, activeBuffs, hexKey) {
 }
 
 // ==================== 查询注册 ====================
-// 注册到 core 的查询注册表，让 core 层通过 query() 调用，不直接 import 本文件
 registerQuery('xiaoHexEnhance', getXiaoZhaoHexEnhance);
 registerQuery('xiaoPermanentActive', isXiaoZhaoPermanentActive);
 registerQuery('butterflyMastery', computeButterflyMastery);

@@ -1,6 +1,6 @@
 // player/45event-handlers.js - 光明顶5v5 事件处理器函数族
-// V5.5.0 | ~28600 bytes| 2026-08-14 DOM操作收口至47renderer
-export const VER = 'player/45event-handlers.js V5.5.0';
+// V5.5.1 | ~28500 bytes| 2026-08-17 适配render层，保持日志对象结构
+export const VER = 'player/45event-handlers.js V5.5.1';
 
 import { isBlocked } from '../core/03battle-utils.js';
 import { _triggerFX } from '../ui/67fx-trigger.js';

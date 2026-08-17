@@ -1,11 +1,12 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// core/05battle-horse.js - 光明顶5v5 拒马逻辑
-// V5.4.0 | ~2900 bytes| 2026-07-05
-export const VER = 'core/05battle-horse.js V5.4.0';
+﻿﻿// core/05battle-horse.js - 光明顶5v5 拒马逻辑
+// V5.5.0 | ~2900 bytes| 2026-08-17 事实化重构：拒马日志移至渲染器
+export const VER = 'core/05battle-horse.js V5.5.0';
 
 import { CONFIG } from './01config-5v5-test.js';
 import { hasBuff } from './03battle-utils.js';
 import { query, getBattleRng, applyStatChange } from './13battle-shared.js';
 import { Unit } from './02unit.js';
+import { renderHorseDestroyFact } from '../render/30-fact-renderer.js';
 const C = CONFIG;
 
 // 拒马-生成：创建拒马单位并随机站位
@@ -58,10 +59,10 @@ export function destroyHorse(allyTeam, log) {
             applyStatChange(horse, 'hp', -horse.hp, null, '拒马消散');
             horse.alive = false;
             horse.state._isDead = true;
-            log.push({type:'buff-destroy', text:`<span class="gray">🐴 拒马阵：${horse.pos}号位拒马消散（成功率${currentProb}%，${roll}）</span>`, buffType:'destroy', horseUid: horse.uid, needsSeparator: true});
+            log.push(renderHorseDestroyFact({ pos: horse.pos, success: true, prob: currentProb, roll, horseUid: horse.uid }));
             currentProb = Math.floor(currentProb / 2);
         } else {
-            log.push({type:'info', text:`<span class="gray">🐴 拒马阵：${horse.pos}号位拒马未消散（成功率${currentProb}%，${roll}）</span>`});
+            log.push(renderHorseDestroyFact({ pos: horse.pos, success: false, prob: currentProb, roll, horseUid: horse.uid }));
             currentProb = 50;
         }
     }
