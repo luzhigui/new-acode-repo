@@ -13,7 +13,7 @@ import '../modules/27elite-mingjiao.js';
 
 const ROLES = ['防战', '战士', '飞行', '远程'];
 const ROLE_ICONS = { '防战': '🛡️', '战士': '⚔️', '飞行': '🦅', '远程': '🏹' };
-const BASE_TEMPLATE = { 1: '防战', 6: '战士', 8: '飞行', 7: '远程', 9: '远程' };
+const BASE_TEMPLATE = { 1: '防战', 2: '战士', 5: '飞行', 7: '远程', 9: '远程' };
 
 // ========== 样式 ==========
 if (!document.getElementById('roleBalStyle')) {
@@ -63,7 +63,7 @@ function buildTeam(extraRole, camp, rng) {
         u._originalPos = u.pos;
         team.push(u);
     }
-    const availableExtraPositions = [2, 3, 4, 5];
+    const availableExtraPositions = [3, 4, 6, 8];
     const extraPos = availableExtraPositions[rng.nextInt(0, availableExtraPositions.length - 1)];
     const extra = createUnit(extraRole, camp, rng);
     extra.pos = extraPos;
