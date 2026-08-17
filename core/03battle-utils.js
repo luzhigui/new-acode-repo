@@ -1,11 +1,11 @@
 // core/03battle-utils.js - 光明顶5v5 战斗工具函数
-// V5.5.1 | ~16000 bytes| 2026-08-17 事实化重构：全部渲染走render/30
-export const VER = 'core/03battle-utils.js V5.5.1';
+// V5.5.2 | ~16000 bytes| 2026-08-17 事实化重构：全部渲染走render/30
+export const VER = 'core/03battle-utils.js V5.5.2';
 
 import { CONFIG, TAUNT_LIB, DEF_TAUNT, HP_TAUNT, ZHANG_NEAR_TAUNT } from './01config-5v5-test.js';
 import { emitEvent, applyStatChange, query, getBattleRng } from './13battle-shared.js';
-import { EXECUTION_LAYER as L, EFFECT_TYPES } from './00-event-bus.js';
-import { renderRangedGrowthFact, renderFortifyShieldFact, renderDoubleStrikeFact } from '../render/30-fact-renderer.js';
+import { EXECUTION_LAYER as L, EFFECT_TYPES } from '../infra/50-event-bus.js';
+import { renderRangedGrowthFact, renderFortifyShieldFact, renderDoubleStrikeFact, renderWarriorExecuteFact } from '../render/30-fact-renderer.js';
 const C = CONFIG, TL = TAUNT_LIB, DT = DEF_TAUNT, HT = HP_TAUNT, ZT = ZHANG_NEAR_TAUNT;
 
 export function calcDamage(atk, def) { if (def <= 0) return atk; let d = atk * (atk / (atk + def)); return Math.max(d, atk * 0.1); }
@@ -262,7 +262,7 @@ export function registerWarriorExecute(eventBus) {
                 target: target,
                 source: unit,
                 threshold: threshold,
-                logText: `<span class="red">⚔️ 战士斩杀！${unit.name} 直接击杀 ${target.name}！</span>`
+                logText: renderWarriorExecuteFact({ unitName: unit.name, targetName: target.name }).text
             });
         }
     });

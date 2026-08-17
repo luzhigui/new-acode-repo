@@ -1,6 +1,6 @@
 // core/10battle-attack.js - 光明顶5v5 攻击流程模块
-// V5.5.0 | ~11000 bytes| 2026-08-17 事实化重构：日志HTML移至渲染器
-export const VER = 'core/10battle-attack.js V5.5.0';
+// V5.5.1 | ~11000 bytes| 2026-08-17 事实化重构：日志HTML移至渲染器
+export const VER = 'core/10battle-attack.js V5.5.1';
 
 import { CONFIG, DEF_TAUNT, HP_TAUNT } from './01config-5v5-test.js';
 import { hasBuff, makeFXSnapshot } from './03battle-utils.js';
@@ -16,9 +16,9 @@ import {
     resolveAfterDamageEffects,
     resolveDeaths
 } from './12battle-attack-steps.js';
-import { eventBus, EFFECT_TYPES } from './00-event-bus.js';
-import { flushBattleEvents } from './09-battle-event-store.js';
-import { renderMissFact, renderDodgeFact, renderEmptyTargetFact, renderImmuneFact } from '../render/30-fact-renderer.js';
+import { eventBus, EFFECT_TYPES } from '../infra/50-event-bus.js';
+import { flushBattleEvents } from '../infra/53-battle-event-store.js';
+import { renderMissFact, renderDodgeFact, renderEmptyTargetFact, renderImmuneFact, renderStunSkipFact, renderFlySkipFact, renderKillLineFact } from '../render/30-fact-renderer.js';
 
 import { emitEvent, applyStatChange } from './13battle-shared.js';
 
@@ -26,12 +26,12 @@ const C = CONFIG, DT = DEF_TAUNT, HT = HP_TAUNT;
 
 export async function processUnitAttack(unit, allySide, enemySide, log, A, B, state, doubleStrikeUnitUid, lockedTargetUid) {
     if (unit.state._stunned) {
-        log.push({ type:'info', text:`<span class="gray">💫 ${unit.name} 被眩晕，无法响应攻击指令</span>` });
+        log.push(renderStunSkipFact({ unitName: unit.name }));
         unit.state._acted = true;
         return false;
     }
     if (unit.state._spiderFlying || unit.state._flyMode === 'spider' || (unit._fsm && unit._fsm.is('flying'))) {
-        log.push({ type:'info', text:`<span class="gray">🕷️ ${unit.name} 正在飞天，无法行动</span>` });
+        log.push(renderFlySkipFact({ unitName: unit.name }));
         unit.state._acted = true;
         return false;
     }
@@ -188,11 +188,17 @@ export async function processUnitAttack(unit, allySide, enemySide, log, A, B, st
             const dmgEntry = group.entries.find(e => e.type === 'damage-text');
             if (dmgEntry) {
                 dmgEntry.deadFlag = true;
-                const ac = unit.camp === 'ally' ? 'blue' : 'orange';
-                const dc = target.camp === 'ally' ? 'blue' : 'orange';
-                const campA = unit.camp === 'ally' ? '明教' : '六大派';
-                const campD = target.camp === 'ally' ? '明教' : '六大派';
-                dmgEntry.text = `<span class="damage-line brush-red ${ac}">💀击杀💀 ${campA} ${unit.name}</span> 造成 <span class="red">${dmgCalc.dmg}</span> 伤害，<span class="${dc}">${campD} ${target.name}</span> ${dmgResult.hpBefore} → ${Math.floor(target.hp)} 💀阵亡`;
+                dmgEntry.text = renderKillLineFact({
+                    ac: unit.camp === 'ally' ? 'blue' : 'orange',
+                    dc: target.camp === 'ally' ? 'blue' : 'orange',
+                    campA: unit.camp === 'ally' ? '明教' : '六大派',
+                    campD: target.camp === 'ally' ? '明教' : '六大派',
+                    unitName: unit.name,
+                    dmg: dmgCalc.dmg,
+                    targetName: target.name,
+                    hpBefore: dmgResult.hpBefore,
+                    hpNow: Math.floor(target.hp)
+                }).text;
             }
         }
     }

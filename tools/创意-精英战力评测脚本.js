@@ -4,7 +4,7 @@
 (async function() {
     const { createRoundStepper } = await import('./core/11battle-round.js');
     const { doInitBattle } = await import('./ui/65main-battle.js');
-    const { eventBus } = await import('./core/00-event-bus.js');
+    const { eventBus } = await import('./infra/50-event-bus.js');
 
     const configs = [
         { name: '张无忌', flag: 'isZhang', role: '远程', m: 115 },

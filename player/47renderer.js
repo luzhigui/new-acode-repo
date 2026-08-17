@@ -2,7 +2,7 @@
 // V5.5.0 | ~5600 bytes| 2026-08-14 DOM操作收口，新增 playLogLine/appendHiddenDetail
 export const VER = 'player/47renderer.js V5.5.0';
 
-import { GlobalStore } from '../modules/23global-store.js';
+import { GlobalStore } from '../infra/54-global-store.js';
 import { playLineText } from './40player-text.js';
 
 let _ctx = null;

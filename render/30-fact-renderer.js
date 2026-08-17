@@ -1,8 +1,8 @@
 // render/30-fact-renderer.js - 光明顶5v5 事实渲染器
-// V5.6.1 | ~24000 bytes| 2026-08-17 全部事实渲染函数统一入口
+// V5.6.3 | ~34000 bytes| 2026-08-17 全部事实渲染函数统一入口
 import { CONFIG } from '../core/01config-5v5-test.js';
 import { calcDamage, getFangLevel, makeFXSnapshot } from '../core/03battle-utils.js';
-export const VER = 'render/30-fact-renderer.js V5.6.1';
+export const VER = 'render/30-fact-renderer.js V5.6.3';
 
 // ==================== 攻击流程 ====================
 export function renderMissFact(fact) {
@@ -268,6 +268,43 @@ export function renderBuffSummaryFact(buff, allyTeam, doubleStrikeUid) {
     return null;
 }
 
+// ==================== Buff 衍生效果（嗜血/热血/乘风/流星） ====================
+export function renderBloodthirstLeechFact(fact) {
+    if (fact.isBrother) {
+        return { text:`<span class="green">🕷️ 蝶血：${fact.unitName} 嗜血狂刀吸血+${fact.leechVal}</span>` };
+    }
+    return { text:`<span class="green">🗡️ ${fact.unitName} 的嗜血狂刀吸血+${fact.leechVal}</span>` };
+}
+
+export function renderHotBloodHealFact(fact) {
+    return { text:`<span class="green">${fact.tag}：${fact.unitName} 回复+${fact.leech}</span>` };
+}
+
+export function renderWindAssaultSplashFact(fact) {
+    const details = fact.targets.map(t => t.name).join('、');
+    return { text:`<span class="orange">${fact.label}波及${details}，各 -${fact.splashDmg}</span>` };
+}
+
+export function renderWindAssaultPushFact(fact) {
+    if (fact.behindUnit) {
+        return {type:'buff-push', pushTargetUid: fact.target.uid, behindUid: fact.behindUnit.uid, oldPos: fact.oldPos, newPos: fact.behindPos, behindOldPos: fact.behindOldPos, buffType:'push', text:`<span class="gold" style="font-size:1.1em;">${fact.label}击退！${fact.target.name}从${fact.oldPos}号位击退至${fact.behindPos}号位，${fact.behindUnit.name}被迫从${fact.behindOldPos}号位移至${fact.oldPos}号位</span>`};
+    }
+    return {type:'buff-push', pushTargetUid: fact.target.uid, behindUid: null, oldPos: fact.oldPos, newPos: fact.behindPos, buffType:'push', text:`<span class="gold" style="font-size:1.1em;">${fact.label}击退！${fact.target.name}从${fact.oldPos}号位被击退至${fact.behindPos}号位</span>`};
+}
+
+export function renderWindAssaultFailFact(fact) {
+    return {type:'info', text:`<span class="gray">${fact.label}${fact.reason}</span>`};
+}
+
+export function renderMeteorShowerMainFact(fact) {
+    return { text:`<span class="gold">${fact.label}伤害加深：${fact.targetName} 额外-${fact.bonusDmg}，防御-${fact.defReduce}</span>` };
+}
+
+export function renderMeteorShowerSplashFact(fact) {
+    const details = fact.targets.map(t => t.name).join('、');
+    return { text:`<span class="orange">${fact.label}溅射：${details}，各-${fact.splashDmg}，防御-${fact.defReduce}</span>` };
+}
+
 // ==================== Carry 应用 ====================
 export function renderCarryApplyFact(fact) {
     return { type:'info', text:`<span class="gold">👑 carry：${fact.unitName} 获得队友属性加成 攻+${fact.atk} 防+${fact.def} 血上限+${fact.hp}</span>` };
@@ -453,6 +490,51 @@ export function renderXiaoZhaoHorseFact(fact) {
 }
 export function renderSpiderDoubleStrikeFact(fact) {
     return {type:'info', text:`<span class="gold">🕷️ 蝶击：小昭·妹永久概率连击触发！</span>`, isDoubleStrikeBanner:true};
+}
+
+// ==================== 行动跳过（眩晕/飞天） ====================
+export function renderStunSkipFact(fact) {
+    return { type:'info', text:`<span class="gray">💫 ${fact.unitName} 被眩晕，无法响应攻击指令</span>` };
+}
+export function renderFlySkipFact(fact) {
+    return { type:'info', text:`<span class="gray">🕷️ ${fact.unitName} 正在飞天，无法行动</span>` };
+}
+
+// ==================== 战士斩杀 ====================
+export function renderWarriorExecuteFact(fact) {
+    return { text:`<span class="red">⚔️ 战士斩杀！${fact.unitName} 直接击杀 ${fact.targetName}！</span>` };
+}
+
+// ==================== 击杀行 ====================
+export function renderKillLineFact(fact) {
+    return { text:`<span class="damage-line brush-red ${fact.ac}">💀击杀💀 ${fact.campA} ${fact.unitName}</span> 造成 <span class="red">${fact.dmg}</span> 伤害，<span class="${fact.dc}">${fact.campD} ${fact.targetName}</span> ${fact.hpBefore} → ${fact.hpNow} 💀阵亡` };
+}
+
+// ==================== 巨马反伤 / 严阵以待反弹 ====================
+export function renderHorseReboundFact(fact) {
+    return { text:`<span class="red">🐴 巨马反伤：${fact.unitName} 受到 ${fact.rebound} 点反伤</span>` };
+}
+export function renderFortifyReboundFact(fact) {
+    if (fact.hasSister) {
+        return { text:`<span class="gold">🛡️ 严阵以待反弹${fact.reboundDmg}给${fact.unitName}（姐姐强化：回复${fact.reboundDmg}）</span>` };
+    }
+    return { text:`<span class="gold">🛡️ 严阵以待反弹${fact.reboundDmg}给${fact.unitName}</span>` };
+}
+
+// ==================== 流星溅射成长 ====================
+export function renderMeteorSplashGrowthFact(fact) {
+    return { text:`<span class="gold">⚡ ${fact.unitName} 攻击+${fact.growth}</span>` };
+}
+
+// ==================== 回合分隔线 / 概率连击摘要 ====================
+export function renderRoundStartFact(fact) {
+    return { type:'round-start', text:`<div class="separator">———— 第${fact.round}回合开始 ————</div>` };
+}
+export function renderRoundEndFact(fact) {
+    return { type:'round-end', text:`<div class="separator">———— 第${fact.round}回合结束 ————</div>` };
+}
+export function renderDoubleStrikeSummaryFact(fact) {
+    return { type:'buff-summary', text:`<span class="gold">⚡ 概率连击：${fact.unitName} 80%概率额外攻击一次</span>`, buffType:'buff_stat' };
 }
 
 // ==================== 通用渲染入口 ====================

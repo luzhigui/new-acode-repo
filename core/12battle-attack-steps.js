@@ -1,14 +1,14 @@
 // core/12battle-attack-steps.js - 光明顶5v5 攻击步骤拆分模块
-// V5.5.0 | ~28000 bytes| 2026-08-17 事实化重构：日志HTML移至渲染器
-export const VER = 'core/12battle-attack-steps.js V5.5.0';
+// V5.5.1 | ~28000 bytes| 2026-08-17 事实化重构：日志HTML移至渲染器
+export const VER = 'core/12battle-attack-steps.js V5.5.1';
 
 import { CONFIG, DEF_TAUNT, HP_TAUNT, getSkillParams } from './01config-5v5-test.js';
-import { eventBus, EFFECT_TYPES } from './00-event-bus.js';
+import { eventBus, EFFECT_TYPES } from '../infra/50-event-bus.js';
 import { calcDamage, getFangLevel, isMelee, getFronts, isBlocked, getRandomTaunt, getZhangNearTaunt, makeFXSnapshot, hasBuff, getUnitCol, getUnitRow } from './03battle-utils.js';
 import { computeBuffStats, applyBuffEffectsBeforeAttack, applyBuffEffectsAfterAttack } from './04buff-system.js';
 import { emitEvent, applyStatChange, applyMaxHpChange, query, getBattleRng } from './13battle-shared.js';
-import { flushBattleEvents, pushBattleEvent, getBattleState, setBattleState } from './09-battle-event-store.js';
-import { renderMissFact, renderDodgeFact, renderAttackFact, renderDropFact, renderBreakDefFact } from '../render/30-fact-renderer.js';
+import { flushBattleEvents, pushBattleEvent, getBattleState, setBattleState } from '../infra/53-battle-event-store.js';
+import { renderMissFact, renderDodgeFact, renderAttackFact, renderDropFact, renderBreakDefFact, renderHorseReboundFact, renderFortifyReboundFact, renderMeteorSplashGrowthFact } from '../render/30-fact-renderer.js';
 
 // ==================== 闪避规则注册表 ====================
 const _dodgeRules = [];
@@ -321,7 +321,7 @@ export function applyAttackResult(unit, target, dmgCalc, attackerBuffStats, defe
             value: rebound,
             source: target,
             target: unit,
-            logText: `<span class="red">🐴 巨马反伤：${unit.name} 受到 ${rebound} 点反伤</span>`
+            logText: renderHorseReboundFact({ unitName: unit.name, rebound }).text
         });
     }
 
@@ -340,9 +340,7 @@ export function applyAttackResult(unit, target, dmgCalc, attackerBuffStats, defe
                 source: target,
                 target: unit,
                 hasSister,
-                logText: hasSister
-                    ? `<span class="gold">🛡️ 严阵以待反弹${reboundDmg}给${unit.name}（姐姐强化：回复${reboundDmg}）</span>`
-                    : `<span class="gold">🛡️ 严阵以待反弹${reboundDmg}给${unit.name}</span>`
+                logText: renderFortifyReboundFact({ reboundDmg, unitName: unit.name, hasSister }).text
             }];
         }
     }
@@ -424,7 +422,7 @@ export function resolveAfterDamageEffects(declarations, unit, target, group) {
             if (hitCount > 0) {
                 applyStatChange(unit, 'atk', hitCount * 2, null, '流星溅射成长');
                 if (unit._baseAtk !== undefined) unit._baseAtk += hitCount * 2;
-                decl.logText += ` <span class="gold">⚡ ${unit.name} 攻击+${hitCount * 2}</span>`;
+                decl.logText += ' ' + renderMeteorSplashGrowthFact({ unitName: unit.name, growth: hitCount * 2 }).text;
             }
         }
         executed.push(decl);

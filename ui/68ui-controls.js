@@ -1,11 +1,11 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// ui/68ui-controls.js - 光明顶5v5 UI控制（倍速系统+按钮状态+事件绑定）
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// ui/68ui-controls.js - 光明顶5v5 UI控制（倍速系统+按钮状态+事件绑定）
 // V5.5.0 | ~25700 bytes| 2026-08-14 移除回放导入区块
 export const VER = 'ui/68ui-controls.js V5.5.0';
 
 import { getState, setState } from './63main-state.js';
 import { updateUI, renderGrid, setRenderStore } from './62ui-render-5v5-test.js';
 import { clearAllEffects } from '../player/42player-core.js';
-import { GlobalStore } from '../modules/23global-store.js';
+import { GlobalStore } from '../infra/54-global-store.js';
 import { resetBattleRuntime } from './69reset-runtime.js';
 
 // ==================== 倍速系统 ====================

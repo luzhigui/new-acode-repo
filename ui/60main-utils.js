@@ -1,8 +1,8 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// ui/60main-utils.js - 光明顶5v5 主控工具函数
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// ui/60main-utils.js - 光明顶5v5 主控工具函数
 // V5.5.0 | ~7400 bytes| 2026-07-05
 export const VER = 'ui/60main-utils.js V5.5.0';
 
-import { GlobalStore } from '../modules/23global-store.js';
+import { GlobalStore } from '../infra/54-global-store.js';
 
 export function showModal(text, buttons, onChoice, canMinimize, showCloseBtn) {
     let overlay = document.createElement('div'); overlay.className = 'modal-overlay'; overlay.id = 'voteModalOverlay';
@@ -141,7 +141,7 @@ export function updateCoverVersion() {
         '✅ ui/62ui-render-5v5-test.js V5.5.0',
         '✅ fx/80fx-common-5v5-test.js V5.5.0',
         '✅ modules/20elite-skills.js V5.5.0',
-        '✅ modules/23global-store.js V5.5.0'
+        '✅ infra/54-global-store.js V5.5.0'
     ].join('<br>');
 }
 

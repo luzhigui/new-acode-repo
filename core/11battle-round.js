@@ -1,6 +1,6 @@
-﻿﻿// core/11battle-round.js - 光明顶5v5 回合循环与生成器
-// V5.5.2 | ~23500 bytes| 2026-08-17 事实化重构：全部日志走render/30
-export const VER = 'core/11battle-round.js V5.5.2';
+﻿// core/11battle-round.js - 光明顶5v5 回合循环与生成器
+// V5.5.3 | ~23500 bytes| 2026-08-17 事实化重构：全部日志走render/30
+export const VER = 'core/11battle-round.js V5.5.3';
 
 import { CONFIG } from './01config-5v5-test.js';
 import { isMelee, isBlocked, makeFXSnapshot, hasBuff, getUnitCol, getUnitRow, hasAnyEnemyEmptyCol, countEnemyEmptyCols, getBloodAuraBonus, getAuraBonuses, registerWarriorBreakDefense, registerRangedGrowth, registerFortifyShield, registerWarriorExecute, selectFlyTarget, registerEmptyColBonus, registerDoubleStrike } from './03battle-utils.js';
@@ -11,16 +11,19 @@ import { clearEliteDodgeRules, getDodgeRules } from './12battle-attack-steps.js'
 
 import { getEliteFactories } from './08-elite-registry.js';
 import { processUnitAttack } from './10battle-attack.js';
-import { eventBus, EXECUTION_LAYER as L } from './00-event-bus.js';
+import { eventBus, EXECUTION_LAYER as L } from '../infra/50-event-bus.js';
 import { getNextAvailableUnit, finalizeDeaths, emitFullUnitState, checkZhangSwitch, emitEvent, applyStatChange, setBattleRng } from './13battle-shared.js';
-import { flushBattleEvents, setBattleState } from './09-battle-event-store.js';
-import { SeededRNG } from './07-rng.js';
+import { flushBattleEvents, setBattleState } from '../infra/53-battle-event-store.js';
+import { SeededRNG } from '../infra/52-rng.js';
 import { resolveDeaths } from './12battle-attack-steps.js';
 import {
     renderHorseSummonFact,
     renderKuLianFact,
     renderDoubleStrikeFact,
-    renderPassFact
+    renderPassFact,
+    renderRoundStartFact,
+    renderRoundEndFact,
+    renderDoubleStrikeSummaryFact
 } from '../render/30-fact-renderer.js';
 
 const C = CONFIG;
@@ -34,7 +37,7 @@ async function prepareRoundStart(A, B, log, state, round, rng) {
     setBattleState('currentBattleState', null);
     flushBattleEvents();
 
-    log.push({ type:'round-start', text:`<div class="separator">———— 第${round}回合开始 ————</div>` });
+    log.push(renderRoundStartFact({ round }));
 
     const teamHorseA = spawnHorse(A, log, B);
     if (teamHorseA) {
@@ -58,7 +61,7 @@ async function prepareRoundStart(A, B, log, state, round, rng) {
 
     if (doubleStrikeUnitUid) {
         const dsUnit = A.find(u => u.uid === doubleStrikeUnitUid);
-        if (dsUnit) log.push({type:'buff-summary', text:`<span class="gold">⚡ 概率连击：${dsUnit.name} 80%概率额外攻击一次</span>`, buffType:'buff_stat'});
+        if (dsUnit) log.push(renderDoubleStrikeSummaryFact({ unitName: dsUnit.name }));
     }
 
     log.filter(l => l.type === 'buff-summon').forEach(hl => {
@@ -521,7 +524,7 @@ function finalizeRoundEnd(A, B, log, round) {
         });
     }
 
-    log.push({type:'round-end', text:`<div class="separator">———— 第${round}回合结束 ————</div>`});
+    log.push(renderRoundEndFact({ round }));
 
     const endEvents = flushBattleEvents();
 

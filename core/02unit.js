@@ -4,7 +4,7 @@ export const VER = 'core/02unit.js V5.4.0';
 
 import { CONFIG } from './01config-5v5-test.js';
 
-import { StateMachine } from './06-fsm.js';
+import { StateMachine } from '../infra/51-fsm.js';
 
 let _uidCounter = 0;
 

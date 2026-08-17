@@ -4,7 +4,7 @@ export const VER = 'modules/29battle-init.js V5.5.0';
 
 import { CONFIG, ENEMY_M } from '../core/01config-5v5-test.js';
 import { Unit } from '../core/02unit.js';
-import { GlobalStore } from '../modules/23global-store.js';
+import { GlobalStore } from '../infra/54-global-store.js';
 
 const C = CONFIG;
 

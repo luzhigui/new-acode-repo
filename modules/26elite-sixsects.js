@@ -2,9 +2,9 @@
 // V5.5.0 | ~12000 bytes| 2026-08-17 事实化重构：简单日志走render/30
 export const VER = 'modules/26elite-sixsects.js V5.5.0';
 import { registerElite } from '../core/08-elite-registry.js';
-import { GlobalStore } from './23global-store.js';
+import { GlobalStore } from '../infra/54-global-store.js';
 import { CONFIG, getSkillParams } from '../core/01config-5v5-test.js';
-import { eventBus, EXECUTION_LAYER as L, EFFECT_TYPES } from '../core/00-event-bus.js';
+import { eventBus, EXECUTION_LAYER as L, EFFECT_TYPES } from '../infra/50-event-bus.js';
 import { canXingFenTrigger, consumeXingFen, applyXingFenGrant, tickKuaiLeHeal, checkKuLian } from './20elite-skills.js';
 import { emitEvent, applyStatChange, applyMaxHpChange, getBattleRng } from '../core/13battle-shared.js';
 import {
