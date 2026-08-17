@@ -34,11 +34,11 @@ export const AI_INTERFACE_NOTE = `// ===========================================
 // ==================== 项目全部文件清单 ====================
 export const ALL_PROJECT_FILES = [
     // core（核心战斗引擎）
-    '../core/00-event-bus.js',
+    '../infra/50-event-bus.js',
     '../core/01config-5v5-test.js', '../core/02unit.js',
     '../core/03battle-utils.js', '../core/04buff-system.js', '../core/05battle-horse.js',
-    '../core/06-fsm.js', '../core/07-rng.js',
-    '../core/08-elite-registry.js', '../core/09-battle-event-store.js',
+    '../infra/51-fsm.js', '../infra/52-rng.js',
+    '../core/08-elite-registry.js', '../infra/53-battle-event-store.js',
     '../core/10battle-attack.js', '../core/11battle-round.js', '../core/12battle-attack-steps.js',
     '../core/13battle-shared.js', '../core/14buff-effects.js',
     // player（播放器）
@@ -55,7 +55,7 @@ export const ALL_PROJECT_FILES = [
     '../fx/86fx-butterfly-spider.js', '../fx/87fx-manager.js',
     // modules（通用系统 + 精英角色组件）
     '../modules/20elite-skills.js', '../modules/21error-capture.js', '../modules/22audio-manager.js',
-    '../modules/23global-store.js', '../modules/29battle-init.js', '../modules/24battle-store.js',
+    '../infra/54-global-store.js', '../modules/29battle-init.js', '../modules/24battle-store.js',
     '../modules/25elite-imperial.js', '../modules/26elite-sixsects.js', '../modules/27elite-mingjiao.js',
     '../modules/28buff-tools.js',
     // content（游戏内容数据）
@@ -91,6 +91,7 @@ export const ALL_PROJECT_FILES = [
 
 // ==================== 主题分组 ====================
 export const FILE_GROUPS = [
+    { name: 'infra', displayName: '基础设施', prefix: '../infra/' },
     { name: 'core', displayName: '战斗引擎核心', prefix: '../core/' },
     { name: 'player', displayName: '播放器', prefix: '../player/' },
     { name: 'ui', displayName: 'UI 主控', prefix: '../ui/' },
@@ -104,6 +105,10 @@ export const FILE_GROUPS = [
 
 // ==================== 主题分析提示词 ====================
 export const GROUP_PROMPTS = {
+    '基础设施': {
+        before: '请深入分析基础设施代码（事件总线、状态机、确定性随机数、战斗事件存储、全局状态管理）。无需输出详细分析，收到全部代码后直接开始协助开发。',
+        after: '基础设施代码发送完毕。'
+    },
     '战斗引擎核心': {
         before: '请深入分析核心战斗引擎代码（伤害计算、Buff系统、闪避机制、事件总线、特殊角色、拒马海克斯）。无需输出详细分析，收到全部代码后直接开始协助开发。',
         after: '核心引擎代码发送完毕。'

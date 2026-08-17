@@ -2,10 +2,10 @@
 // V5.5.0 | ~2200 bytes| 2026-08-14 统一 resetBattleRuntime，收口各重置路径
 export const VER = 'ui/69reset-runtime.js V5.5.0';
 
-import { GlobalStore } from '../modules/23global-store.js';
+import { GlobalStore } from '../infra/54-global-store.js';
 import { setRenderStore } from './62ui-render-5v5-test.js';
 import { clearEliteDodgeRules } from '../core/12battle-attack-steps.js';
-import { flushBattleEvents } from '../core/09-battle-event-store.js';
+import { flushBattleEvents } from '../infra/53-battle-event-store.js';
 
 function removeIfExists(id) {
     const el = document.getElementById(id);

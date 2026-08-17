@@ -4,7 +4,7 @@ export const VER = 'core/14buff-effects.js V5.5.0';
 
 import { CONFIG } from './01config-5v5-test.js';
 import { getUnitRow, getUnitCol } from './03battle-utils.js';
-import { eventBus } from './00-event-bus.js';
+import { eventBus } from '../infra/50-event-bus.js';
 import { getBattleRng, swapUnitPositions } from './13battle-shared.js';
 import { renderMindControlSwapFact, renderMindControlFailFact } from '../render/30-fact-renderer.js';
 const C = CONFIG;

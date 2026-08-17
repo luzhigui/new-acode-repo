@@ -63,9 +63,9 @@ td{padding:6px 8px;border-bottom:1px solid #333;color:#ccc;text-align:center}
 <script type="module">
 import { createRoundStepper } from '../core/11battle-round.js';
 import { doInitBattle } from '../ui/65main-battle.js';
-import { eventBus } from '../core/00-event-bus.js';
-import { SeededRNG } from '../core/07-rng.js';
-import { GlobalStore } from '../modules/23global-store.js';
+import { eventBus } from '../infra/50-event-bus.js';
+import { SeededRNG } from '../infra/52-rng.js';
+import { GlobalStore } from '../infra/54-global-store.js';
 import '../modules/25elite-imperial.js';
 import '../modules/26elite-sixsects.js';
 import '../modules/27elite-mingjiao.js';

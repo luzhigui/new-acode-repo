@@ -1,9 +1,9 @@
 // ui/63main-state.js - 光明顶5v5 状态管理
-// V5.5.0 | ~4500 bytes| 2026-08-14 getPlayerContext 下沉至 modules/23global-store.js，消除 player→ui 循环依赖
+// V5.5.0 | ~4500 bytes| 2026-08-14 getPlayerContext 下沉至 infra/54-global-store.js，消除 player→ui 循环依赖
 export const VER = 'ui/63main-state.js V5.5.0';
 
 import { STATE } from '../core/01config-5v5-test.js';
-import { GlobalStore } from '../modules/23global-store.js';
+import { GlobalStore } from '../infra/54-global-store.js';
 
 import { updateUI, spawnVictoryEffects, setRenderStore } from './62ui-render-5v5-test.js';
 import { tickBuffDurations as _tickBuffDurations } from './65main-battle.js';
@@ -39,14 +39,14 @@ GlobalStore.set('UI', { allyTeam: [], enemyTeam: [], currentResult: null, round:
 
 // gs 已统一由 GlobalStore 管理，不再需要模块级变量和同步函数
 
-// ==================== 状态读写 — 实现已移至 modules/23global-store.js ====================
-export { getState, setState } from '../modules/23global-store.js';
+// ==================== 状态读写 — 实现已移至 infra/54-global-store.js ====================
+export { getState, setState } from '../infra/54-global-store.js';
 
-// ==================== 玩家上下文 — 实现已移至 modules/23global-store.js ====================
-export { getPlayerContext } from '../modules/23global-store.js';
+// ==================== 玩家上下文 — 实现已移至 infra/54-global-store.js ====================
+export { getPlayerContext } from '../infra/54-global-store.js';
 
 // ==================== window 桥接注册 — 在 ui 层加载时注册 ui 方法到 window ====================
-// 这些方法被 modules/23global-store.js 的 getPlayerContext 通过 window 引用，实现 player→ui 间接调用
+// 这些方法被 infra/54-global-store.js 的 getPlayerContext 通过 window 引用，实现 player→ui 间接调用
 GlobalStore.setUIHandler('updateUI', updateUI);
 GlobalStore.setUIHandler('setRenderStore', setRenderStore);
 GlobalStore.setUIHandler('spawnVictoryEffects', spawnVictoryEffects);

@@ -4,9 +4,9 @@ export const VER = 'tools/109-role-balance.js V5.5.0';
 
 import { CONFIG } from '../core/01config-5v5-test.js';
 import { Unit } from '../core/02unit.js';
-import { SeededRNG } from '../core/07-rng.js';
+import { SeededRNG } from '../infra/52-rng.js';
 import { createRoundStepper } from '../core/11battle-round.js';
-import '../modules/23global-store.js';
+import '../infra/54-global-store.js';
 import '../modules/25elite-imperial.js';
 import '../modules/26elite-sixsects.js';
 import '../modules/27elite-mingjiao.js';

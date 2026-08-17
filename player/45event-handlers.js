@@ -6,7 +6,7 @@ import { isBlocked } from '../core/03battle-utils.js';
 import { _triggerFX } from '../ui/67fx-trigger.js';
 import { showDanmaku, showDamageFloat, showDodgeBubble, showHealFloat, showAtkBuffFloat, applyBrushEffect, showBuffBanner, showCriticalBanner, showHeartEffect, showPinkFlash, showKuLianEffect, showWindClaw, showDodgeBulletTime, showRangedArrow, showSplashArrows, showBoneClaw, animatePositionSwap, animatePushBack, animatePushSwap, showButterflyFlyOut, showButterflyFlyBack, showSpiderAscend, showSpiderDescend, showSpiderStrike } from '../fx/87fx-manager.js';
 import { AudioManager } from '../modules/22audio-manager.js';
-import { getState } from '../modules/23global-store.js';
+import { getState } from '../infra/54-global-store.js';
 import { appendLogHTML, appendLogElement, autoScrollLog, updateRoundDisplay, renderSeparator, playLogLine, appendHiddenDetail } from './47renderer.js';
 
 const safeShowDanmaku = (...args) => { try { return showDanmaku(...args); } catch(e) {} };

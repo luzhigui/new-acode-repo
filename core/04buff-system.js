@@ -11,7 +11,7 @@ import {
 import { CONFIG } from './01config-5v5-test.js';
 import { hasBuff, getUnitRow, getUnitCol, getAdjacentPositions } from './03battle-utils.js';
 import { emitEvent, applyStatChange, applyMaxHpChange, query, getBattleRng, swapUnitPositions, moveUnitPosition } from './13battle-shared.js';
-import { EXECUTION_LAYER as L, EFFECT_TYPES } from './00-event-bus.js';
+import { EXECUTION_LAYER as L, EFFECT_TYPES } from '../infra/50-event-bus.js';
 import { processUnitAttack } from './10battle-attack.js';
 import {
     renderBuffSummaryFact,

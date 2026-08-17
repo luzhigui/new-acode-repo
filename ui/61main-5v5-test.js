@@ -2,7 +2,7 @@
 // V5.5.0 | ~24200 bytes| 2026-07-07 拆分音频到42、特效到43、倍速+按钮到44
 export const VER = 'ui/61main-5v5-test.js V5.5.0';
 
-import '../modules/23global-store.js';
+import '../infra/54-global-store.js';
 import '../modules/21error-capture.js';
 import { CONFIG, STATE, KILL_TAUNT, ENEMY_M, loadGameData, VER as CFG_VER } from '../core/01config-5v5-test.js';
 import { Unit, VER as VER_UNIT } from '../core/02unit.js';
@@ -30,7 +30,7 @@ import { updateSpeedButtons, activateScrollSlowdown, restoreSpeedFromScroll, upd
 import { VER as VER_BUFF } from '../core/04buff-system.js';
 import { VER as VER_HORSE } from '../core/05battle-horse.js';
 import { VER as VER_CORE } from '../core/11battle-round.js';
-import { SeededRNG } from '../core/07-rng.js';
+import { SeededRNG } from '../infra/52-rng.js';
 import { setBattleRng } from '../core/13battle-shared.js';
 import { VER as VER_PLAYER_CORE } from '../player/42player-core.js';
 import { VER as VER_TEXT } from '../player/40player-text.js';

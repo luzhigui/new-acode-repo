@@ -9,9 +9,9 @@ import { hasBuff } from '../core/03battle-utils.js';
 import { spawnHorse } from '../core/05battle-horse.js';
 import { spiderTransform, spiderReturn } from '../modules/20elite-skills.js';
 import { checkZhangSwitch, emitEvent, applyStatChange, applyMaxHpChange, getBattleRng } from '../core/13battle-shared.js';
-import { EXECUTION_LAYER as L, EFFECT_TYPES } from '../core/00-event-bus.js';
+import { EXECUTION_LAYER as L, EFFECT_TYPES } from '../infra/50-event-bus.js';
 import { registerDodgeRule } from '../core/12battle-attack-steps.js';
-import { StateMachine } from '../core/06-fsm.js';
+import { StateMachine } from '../infra/51-fsm.js';
 import {
     renderNineYangHealFact,
     renderRongHuiBonusFact,

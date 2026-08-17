@@ -1,12 +1,12 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// tools/101auto-battle-utils.js - 光明顶5v5 自动批量战斗工具
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// tools/101auto-battle-utils.js - 光明顶5v5 自动批量战斗工具
 // V5.5.0 | ~14800 bytes| 2026-08-15 补齐 headless runBattle + 修 init 缺 rng
 export const VER = 'tools/101auto-battle-utils.js V5.5.0';
 
 import { CONFIG } from '../core/01config-5v5-test.js';
-import { SeededRNG } from '../core/07-rng.js';
+import { SeededRNG } from '../infra/52-rng.js';
 import { createRoundStepper } from '../core/11battle-round.js';
 import { initBattleTeams } from '../modules/29battle-init.js';
-import '../modules/23global-store.js';
+import '../infra/54-global-store.js';
 import '../modules/25elite-imperial.js';
 import '../modules/26elite-sixsects.js';
 import '../modules/27elite-mingjiao.js';

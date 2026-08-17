@@ -7,7 +7,7 @@ import { CONFIG, getSkillParams } from '../core/01config-5v5-test.js';
 import { getBattleRng, emitEvent } from '../core/13battle-shared.js';
 import { tickXuanmingPoison } from './20elite-skills.js';
 import { processUnitAttack } from '../core/10battle-attack.js';
-import { EXECUTION_LAYER as L, EFFECT_TYPES } from '../core/00-event-bus.js';
+import { EXECUTION_LAYER as L, EFFECT_TYPES } from '../infra/50-event-bus.js';
 import {
     renderXuanmingDotFact,
     renderXuanmingPoisonedFact,

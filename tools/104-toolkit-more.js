@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// tools/104-toolkit-more.js - 光明顶5v5 开发工具箱（函数提取器 / 函数替换器）
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// tools/104-toolkit-more.js - 光明顶5v5 开发工具箱（函数提取器 / 函数替换器）
 // V5.5.0 | ~28773 bytes| 2026-08-06
 
 function escapeHtml(text) {
@@ -8,11 +8,11 @@ function escapeHtml(text) {
 /* ========== 2. 函数替换器 ========== */
 (function() {
     const TARGET_FILES = [
-        '../core/00-event-bus.js',
+        '../infra/50-event-bus.js',
         '../core/01config-5v5-test.js', '../core/02unit.js', '../core/03battle-utils.js',
         '../core/04buff-system.js', '../core/05battle-horse.js',
-        '../core/06-fsm.js', '../core/07-rng.js',
-        '../core/08-elite-registry.js', '../core/09-battle-event-store.js',
+        '../infra/51-fsm.js', '../infra/52-rng.js',
+        '../core/08-elite-registry.js', '../infra/53-battle-event-store.js',
         '../core/10battle-attack.js', '../core/11battle-round.js', '../core/12battle-attack-steps.js',
         '../core/13battle-shared.js', '../core/14buff-effects.js',
         '../player/40player-text.js', '../player/41player-buff-ui.js', '../player/43animation-scheduler.js', '../player/42player-core.js',
@@ -25,7 +25,7 @@ function escapeHtml(text) {
         '../fx/83fx-position-swap.js', '../fx/84fx-push-back.js', '../fx/85fx-dodge-bullet.js',
         '../fx/86fx-butterfly-spider.js', '../fx/87fx-manager.js',
         '../modules/20elite-skills.js', '../modules/21error-capture.js', '../modules/22audio-manager.js',
-        '../modules/23global-store.js', '../modules/29battle-init.js', '../modules/24battle-store.js',
+        '../infra/54-global-store.js', '../modules/29battle-init.js', '../modules/24battle-store.js',
         '../modules/25elite-imperial.js', '../modules/26elite-sixsects.js', '../modules/27elite-mingjiao.js',
         '../modules/28buff-tools.js',
         '../content/200game-data.json',

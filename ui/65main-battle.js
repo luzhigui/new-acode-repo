@@ -1,14 +1,14 @@
 // ui/65main-battle.js - 光明顶5v5 战斗初始化
-// V5.5.0 | 2026-08-14 业务逻辑下沉至 modules/29battle-init.js + modules/23global-store.js
+// V5.5.0 | 2026-08-14 业务逻辑下沉至 modules/29battle-init.js + infra/54-global-store.js
 export const VER = 'ui/65main-battle.js V5.5.0';
 
 import { CONFIG } from '../core/01config-5v5-test.js';
-import { SeededRNG } from '../core/07-rng.js';
+import { SeededRNG } from '../infra/52-rng.js';
 import { addPermanentBuff } from '../modules/20elite-skills.js';
 import { updateUI } from './62ui-render-5v5-test.js';
 import { showModal } from './60main-utils.js';
 import { getBattleRng } from '../core/13battle-shared.js';
-import { GlobalStore } from '../modules/23global-store.js';
+import { GlobalStore } from '../infra/54-global-store.js';
 import { initBattleTeams } from '../modules/29battle-init.js';
 import { generateBuffChoices, createBuffObject, tickBuffDurations, getActiveBuffList } from '../modules/28buff-tools.js';
 import { resetBattleRuntime } from './69reset-runtime.js';
