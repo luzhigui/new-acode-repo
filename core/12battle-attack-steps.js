@@ -458,19 +458,22 @@ export function resolveAfterDamageEffects(declarations, unit, target, group) {
         if (!decl.target || !decl.target.alive) continue;
         let chainTarget = decl.target;
         let chainSource = decl.source;
+        decl._events = decl._events || [];
         for (const hit of decl.hits) {
             if (!chainTarget.alive || chainTarget._pendingDeath) break;
             applyStatChange(chainTarget, 'hp', -hit.dmg, chainSource, '九阴白骨爪');
             hit._events = flushBattleEvents();
+            if (hit._events && hit._events.length) decl._events.push(...hit._events);
         }
         if (decl.execute && chainTarget.alive && !chainTarget._pendingDeath && chainTarget.hp > 0) {
             applyStatChange(chainTarget, 'hp', -chainTarget.hp, chainSource, '白骨爪斩杀');
             decl.execute._events = flushBattleEvents();
+            if (decl.execute._events && decl.execute._events.length) decl._events.push(...decl.execute._events);
         }
         executed.push(decl);
     }
 
-    for (const decl of declarations.filter(d => ![EFFECT_TYPES.BONUS_DMG, EFFECT_TYPES.LEECH, EFFECT_TYPES.HEAL, EFFECT_TYPES.SPLASH, EFFECT_TYPES.REBOUND, EFFECT_TYPES.STAT_CHANGE, EFFECT_TYPES.EXECUTE].includes(d.type))) {
+    for (const decl of declarations.filter(d => ![EFFECT_TYPES.BONUS_DMG, EFFECT_TYPES.LEECH, EFFECT_TYPES.HEAL, EFFECT_TYPES.SPLASH, EFFECT_TYPES.REBOUND, EFFECT_TYPES.STAT_CHANGE, EFFECT_TYPES.EXECUTE, EFFECT_TYPES.CLAW_CHAIN].includes(d.type))) {
         executed.push(decl);
     }
 

@@ -217,15 +217,23 @@ export async function processUnitAttack(unit, allySide, enemySide, log, A, B, st
                 group._events.push(...decl._events);
             }
             if (decl.type === EFFECT_TYPES.CLAW_CHAIN) {
-                if (decl.hits) {
-                    for (const hit of decl.hits) {
-                        if (hit.logText && group && group.entries) group.entries.push({ type: 'info', text: hit.logText });
+            if (decl.hits) {
+                for (const hit of decl.hits) {
+                    if (hit.logText && group && group.entries) {
+                        const e = { type: 'info', text: hit.logText };
+                        if (hit.isClawHit) { e.isClawHit = true; e.clawAttackerUid = hit.clawAttackerUid; e.clawTargetUid = hit.clawTargetUid; e.isExecute = hit.isExecute; }
+                        group.entries.push(e);
                     }
                 }
-                if (decl.execute && decl.execute.logText && group && group.entries) group.entries.push({ type: 'info', text: decl.execute.logText });
-            } else if (decl.logText && group && group.entries) {
-                group.entries.push({ type: 'info', text: decl.logText });
             }
+            if (decl.execute && decl.execute.logText && group && group.entries) {
+                const e = { type: 'info', text: decl.execute.logText };
+                if (decl.execute.isClawHit) { e.isClawHit = true; e.clawAttackerUid = decl.execute.clawAttackerUid; e.clawTargetUid = decl.execute.clawTargetUid; e.isExecute = true; }
+                group.entries.push(e);
+            }
+        } else if (decl.logText && group && group.entries) {
+            group.entries.push({ type: 'info', text: decl.logText });
+        }
         }
     }
     if (afterAttackData.retry && unit.alive) {

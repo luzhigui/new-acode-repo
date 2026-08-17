@@ -139,12 +139,11 @@ export function initLogScrollControls(c) {
             c.userScrolled = true;
             btn.style.display = 'flex';
             GlobalStore.set('scrollSlowdown', true);
-            c.speed = 1800;
+            if (window._activateScrollSlowdown) window._activateScrollSlowdown();
         } else {
             c.userScrolled = false;
             btn.style.display = 'none';
             if (window._restoreSpeedFromScroll) window._restoreSpeedFromScroll();
-            c.speed = GlobalStore.get('speed');
         }
     });
 }
