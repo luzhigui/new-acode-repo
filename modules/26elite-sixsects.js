@@ -1,5 +1,5 @@
 // modules/26elite-sixsects.js - 六大派精英组件合集
-// V5.5.0 | ~12900 bytes| 2026-08-04 宋青书苦练/新婚接入 game-data
+// V5.5.0 | ~12000 bytes| 2026-08-17 事实化重构：简单日志走render/30
 export const VER = 'modules/26elite-sixsects.js V5.5.0';
 import { registerElite } from '../core/08-elite-registry.js';
 import { GlobalStore } from './23global-store.js';
@@ -7,6 +7,12 @@ import { CONFIG, getSkillParams } from '../core/01config-5v5-test.js';
 import { eventBus, EXECUTION_LAYER as L, EFFECT_TYPES } from '../core/00-event-bus.js';
 import { canXingFenTrigger, consumeXingFen, applyXingFenGrant, tickKuaiLeHeal, checkKuLian } from './20elite-skills.js';
 import { emitEvent, applyStatChange, applyMaxHpChange, getBattleRng } from '../core/13battle-shared.js';
+import {
+    renderXingFenRetryFact,
+    renderXinHunFact,
+    renderXingFenCostFact,
+    renderKuLianFact
+} from '../render/30-fact-renderer.js';
 const ES = CONFIG.ELITE_SKILLS;
 
 // ==================== 宋青书 ====================
@@ -19,24 +25,21 @@ export function createSongQingshuComponent() {
             const onAfterApplyDamage = this.onAfterApplyDamage;
             const onAfterAttack = this.onAfterAttack;
             eventBus.on('afterMiss', L.AFTER_MISS.SONG_XINGFEN_RETRY, (data) => {
-                // 宋青书-性奋：miss后获得额外攻击机会
                 const { unit, log } = data;
                 if (unit.name !== '宋青书' || !unit.alive) return;
                 if (!B || !B.some(u => u.alive)) return;
                 if (canXingFenTrigger(unit)) {
                     consumeXingFen(unit);
-                    log.push({type:'info', text:`<span class="gold">💗 性奋：${unit.name} 获得额外攻击机会！</span>`});
+                    log.push(renderXingFenRetryFact({ unitName: unit.name }));
                     data.retry = true;
                     data.retryTargetUid = null;
                 }
             });
             eventBus.on('afterDamageApplied', L.AFTER_DAMAGE_APPLIED.SONG_XINGFEN, (data) => {
-                // 宋青书-性奋：攻击后扣血+降最大生命上限（周芷若存活时触发）
                 if (data.unit.name !== '宋青书') return;
                 onAfterApplyDamage(data.unit, data.target, { dmg: data.dmg }, data.group, B, data.log);
             });
             eventBus.on('beforeDamageCalc', L.BEFORE_DAMAGE_CALC.SONG_TRUE_DMG, (data) => {
-                // 宋青书-叛逆突袭：目标当前生命值10%作为额外真伤（bonusDmg声明）
                 if (data.unit.name !== '宋青书' || !data.target || !data.target.alive || !data.declarations) return;
                 const trueDmg = Math.floor(data.target.hp * (CONFIG.ELITE_SKILLS.rebelStrike.currentHpRatio || 0.10));
                 if (trueDmg > 0) {
@@ -80,7 +83,7 @@ export function createSongQingshuComponent() {
                         u._baseDef = (u._baseDef || u.def) + s.defBonus * mult;
                         u._baseMaxHp = Math.max(u._baseMaxHp || u.maxHp, u.maxHp);
                     });
-                    log.push({ type:'info', text:`<span class="gold">🏋️ 苦练：${kuLianSong.name} 激励全体队友+${s.atkBonus}攻+${s.defBonus}防+${s.hpBonus}血上限（自身翻倍）！</span>` });
+                    log.push(renderKuLianFact({ unitName: kuLianSong.name, atkBonus: s.atkBonus, defBonus: s.defBonus, hpBonus: s.hpBonus }));
                 }
             });
         },
@@ -95,7 +98,16 @@ export function createSongQingshuComponent() {
                 zhou.dmgTaken += hpDeduct;
                 zhou._kuaiLeStack.push({ healPct: healLevels[0] });
                 if (zhou.hp <= 0) { if (!zhou._deathTime) zhou._deathTime = Date.now(); }
-                log.push({ type:'info', text:`<span class="gold">💒 新婚：${unit.name}攻击，${zhou.name}被扣除${hpDeduct}点血量，叠加一层快乐(${Math.round(healLevels[0]*100)}%)！当前快乐层数：${zhou._kuaiLeStack.length}</span>`, buffType:'elite_xinhun', zhouUid:zhou.uid, zhouHpAfter:zhou.hp });
+                log.push(renderXinHunFact({
+                    attackerName: unit.name,
+                    targetName: zhou.name,
+                    hpDeduct,
+                    healPct: healLevels[0],
+                    stackCount: zhou._kuaiLeStack.length,
+                    zhouUid: zhou.uid,
+                    zhouHpAfter: zhou.hp,
+                    isDead: !!zhou._pendingDeath
+                }));
                 if (zhou._pendingDeath) { log.push({ type:'info', text:`<span class="red">💀 ${zhou.name} 因新婚扣血而阵亡！</span>`, uidD:zhou.uid, isDead:true }); }
             }
             if (zhou) {
@@ -106,7 +118,7 @@ export function createSongQingshuComponent() {
                     const oldMaxHp = unit.maxHp;
                     applyMaxHpChange(unit, Math.max(1, unit.maxHp - penalty), null, '性奋代价');
                     if (unit.hp <= 0) { if (!unit._deathTime) unit._deathTime = Date.now(); }
-                    log.push({ type:'info', text:`<span class="red">💗 性奋代价：${unit.name} 血量上限 ${oldMaxHp} → ${unit.maxHp}（-${penalty}）</span>` });
+                    log.push(renderXingFenCostFact({ unitName: unit.name, oldMaxHp, newMaxHp: unit.maxHp, penalty }));
                 }
             }
         },
@@ -131,18 +143,15 @@ export function createZhouZhiruoComponent() {
             const zhou = B.find(u => u.name === '周芷若' && u.alive);
             if (!zhou) return;
             const onAfterDamageCalc = this.onAfterDamageCalc;
-            // 周芷若-九阴白骨爪：攻击后触发白骨爪追击/斩杀/宋青书联动回血
             eventBus.on('afterAttack', L.AFTER_ATTACK.ZHOU_CLAW, (data) => {
                 if (data.unit.name !== '周芷若') return;
                 onAfterDamageCalc(data.unit, data.target, data.dmg, data.log, B, A, data);
             });
-            // 周芷若-快乐回血：回合开始结算快乐层数回血
             eventBus.on('onRoundStart', L.ROUND_START.XINGFEN_GRANT, (data) => {
                 const { A, B, log } = data;
                 tickKuaiLeHeal(A.concat(B), log);
             });
         },
-        // 白骨爪：纯计算，构造 CLAW_CHAIN 声明提交裁判，不再直改血量；每段回血汇总为 HEAL 声明
         onAfterDamageCalc(unit, target, dmg, log, allySide, enemySide, data) {
             if (unit.name !== '周芷若' || !target || !target.alive) return 0;
             const rng = getBattleRng();

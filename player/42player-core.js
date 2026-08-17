@@ -1,6 +1,6 @@
 // player/42player-core.js - 光明顶5v5 战斗播放器核心
-// V5.5.0 | ~30900 bytes| 2026-08-14 移除回放系统（modules/23replay.js）
-export const VER = 'player/42player-core.js V5.5.0';
+// V5.5.1 | ~29500 bytes| 2026-08-17 格子渲染下沉至render/32
+export const VER = 'player/42player-core.js V5.5.1';
 
 import { showBuffBanner } from '../fx/87fx-manager.js';
 import { CONFIG } from '../core/01config-5v5-test.js';
@@ -14,25 +14,16 @@ import { createStore, battleReducer, GAME_STATE_FIELDS } from '../modules/24batt
 import { handleBuffBonus, handleBuffSwap, handleBuffPush, handleBuffReboundFortify, handleInfo, handleRoundStart, handleRoundEnd, shouldStartNewGroup } from './45event-handlers.js';
 import { handleAttackGroup } from './46attack-group.js';
 import { getLogDiv, appendLogHTML, appendLogElement, autoScrollLog, updateRoundDisplay, renderSeparator, renderRoundStart, renderRoundEnd, renderInfoLine, renderVictoryLine, setBtnDisabled, setBtnText, initRenderer, initLogScrollControls, showScoreFloat } from './47renderer.js';
-
+import { updateGridUI, setGridStore } from '../render/32-grid-render.js';
+import { setGridRenderCtx } from '../render/32-grid-render.js';
 import { AnimationScheduler } from './43animation-scheduler.js';
 
 function getCtx() {
     return getPlayerContext();
 }
 
-// clearAllEffects 已迁移至 54renderer（渲染层），此处 re-export 保持既有导入路径
 export { clearAllEffects } from './47renderer.js';
 
-/**
- * 逐条消费日志条目，根据 type 分发到对应的 handler（info/attack-group/buff-summon 等）
- * 负责：暂停等待 → 分隔符判断 → 条目分发 → 更新 lastLogType
- * @param {object} c - 播放器上下文
- * @param {Array} log - 日志条目数组
- * @param {object} roundResult - 回合结果快照 { events, doubleStrikeUid }
- * @param {{ value: boolean }} isFirstAttackRef - 是否首次攻击引用
- * @returns {Promise<{ isBattleOver: boolean }>}
- */
 export async function playLogEntries(c, log, roundResult, isFirstAttackRef) {
     let abortSig = c.abortController ? c.abortController.signal : null;
     let lastEntryType = c._lastLogType || null;
@@ -43,7 +34,6 @@ export async function playLogEntries(c, log, roundResult, isFirstAttackRef) {
             await c.waitWhilePaused();
             let entry = log[i];
 
-            // 统一分隔符判断：在任何 entry 处理之前检查
             if (shouldStartNewGroup(entry, lastEntryType)) {
                 renderSeparator();
             }
@@ -104,7 +94,6 @@ export async function playLogEntries(c, log, roundResult, isFirstAttackRef) {
                             if (attacker && primary && splashTargets.length > 0) {
                                 const { showSplashArrows } = await import('../fx/81fx-arrows-5v5-test.js');
                                 showSplashArrows(attacker, primary, splashTargets, c.speed, () => c.isPaused);
-                                // 分裂箭音效：每发小箭间隔播放，营造万箭齐发感
                                 splashTargets.forEach((st, i) => {
                                     setTimeout(() => {
                                         AudioManager.playSfx(attacker.role || '远程');
@@ -178,11 +167,6 @@ export async function playLogEntries(c, log, roundResult, isFirstAttackRef) {
     return { isBattleOver: false };
 }
 
-/**
- * 战斗播放主循环 — 创建回合推进器，逐帧消费日志并调度动画
- * 负责：Store 创建与订阅 → AnimationScheduler 帧循环 → 快进/暂停响应 → 倍速/滚动交互 → 战斗结束处理
- * @returns {Promise<void>}
- */
 export async function playBattle() {
     const c = getCtx();
     if (!c || !c.snapshot || !c.snapshot.ally || !c.snapshot.ally.length) return;
@@ -222,7 +206,6 @@ export async function playBattle() {
     let abortSig = c.abortController ? c.abortController.signal : null;
     c._battleEnded = false;
 
-    // 从 localStorage 读用户偏好音量，默认 0.5
     const preferredVolume = parseFloat(localStorage.getItem('ming_bgm_volume') || '0.5');
     if (typeof AudioManager !== 'undefined' && AudioManager.setVolume) {
         AudioManager.fadeTo(preferredVolume, 1500);
@@ -236,6 +219,8 @@ export async function playBattle() {
     GlobalStore.set('battleStore', c.store);
     const setRenderStoreFn = GlobalStore.getUIHandler('setRenderStore');
     if (setRenderStoreFn) setRenderStoreFn(c.store);
+    setGridStore(c.store);
+    setGridRenderCtx(c);
     c.updateUI();
 
     c.store.subscribe((state) => {
@@ -293,7 +278,6 @@ export async function playBattle() {
 
     initLogScrollControls(c);
 
-    // 保存初始阵容快照，供"原班再战"使用
     c._originalSnapshot = {
         ally: c.snapshot.ally.map(u => u.clone()),
         enemy: c.snapshot.enemy.map(u => u.clone())
@@ -309,7 +293,6 @@ export async function playBattle() {
             return await new Promise(resolve => { showFlyDirectionPopup(resolve); });
         }
     };
-    // 确定性 RNG：从 snapshot 恢复，延续 doInitBattle 的随机序列
     if (c.snapshot._rngSeed !== undefined) {
         battleState._rng = new SeededRNG(c.snapshot._rngSeed);
     }
@@ -394,7 +377,6 @@ export async function playBattle() {
             c.isPaused = false;
         }
 
-        // 姐姐附身方向选择（第1/4/7/10…回合，姐姐存活时，非快进）
         const nextRound = battleState.round + 1;
         if (!GlobalStore.get('fastForwardActive') && nextRound % 3 === 1 && lastStep) {
             const hasSister = lastStep.ally && lastStep.ally.some(u => u.isXiaoZhaoSister && u.alive);
@@ -429,11 +411,9 @@ export async function playBattle() {
     if (!finalWinner) finalWinner = '平局';
     c.gs = 'GAMEOVER'; c.isPaused = false; c.waitingForNextRound = false; c.isBattleStarting = false;
     GlobalStore.set('fastForwardActive', false);
-    // 同步更新 63main-state.js 的模块级 gs 变量，否则 updateButtons 里 import 的 gs 仍是旧值
     if (window._syncGs) window._syncGs('GAMEOVER');
     GlobalStore.set('gs', 'GAMEOVER');
     
-    // 强制刷新按钮状态，确保 GAMEOVER 状态下的按钮布局正确生效
     GlobalStore.set('restoreSpeed', true);
     c.enableAllButtons();
 
@@ -460,7 +440,6 @@ export async function playBattle() {
         }
     }
     if (winner === '明教' || winner === '六大派') {
-        // 从 snapshot（初始完整名单）合并最终状态，确保阵亡单位也包含在内
         const finalAllyState = finalStep ? finalStep.ally : [];
         const finalEnemyState = finalStep ? finalStep.enemy : [];
         const allyMap = new Map(finalAllyState.map(u => [u.uid, u]));
@@ -492,7 +471,6 @@ export async function playBattle() {
         if (c.gs === 'GAMEOVER') renderVictoryLine(`<span class="gold">🎉🏆 <span class="${winColor}">${winner}</span>获得最终胜利！ 🏆🎉</span><br>`);
         autoScrollLog();
         await new Promise(r => setTimeout(r, GlobalStore.get('fastForwardActive') ? 500 : 6000));
-        // 胜利弹幕播完，弹出战报
         if (c.battleResultForInfo && typeof showBattleReport === 'function') {
             showBattleReport(c.UI, c.battleResultForInfo);
         }

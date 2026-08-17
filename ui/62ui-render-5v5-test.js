@@ -1,32 +1,29 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// ui/62ui-render-5v5-test.js - 光明顶5v5 UI渲染模块（响应式版）
-// V5.5.0 | ~35220 bytes| 2026-08-15 拒马血条：同站位优先取活单位，避免死马顶掉活马
-export const VER = 'ui/62ui-render-5v5-test.js V5.5.0';
+﻿﻿// ui/62ui-render-5v5-test.js - 光明顶5v5 UI渲染模块（薄壳）
+// V5.5.1 | ~12500 bytes| 2026-08-17 格子渲染下沉至render/32，UI保留弹窗/胜利/日志
+export const VER = 'ui/62ui-render-5v5-test.js V5.5.1';
 
 import { CONFIG, getSkillDesc } from '../core/01config-5v5-test.js';
 import { computeBuffStats } from '../core/04buff-system.js';
 import { getUnitCol, getUnitRow, getAuraBonuses } from '../core/03battle-utils.js';
-import { showDanmaku as _showDanmaku } from '../fx/80fx-common-5v5-test.js';
 import { getDodgeRules } from '../core/12battle-attack-steps.js';
+import {
+    renderGrid,
+    updateGridUI,
+    setGridStore,
+    setGridRenderCtx
+} from '../render/32-grid-render.js';
+import { showDanmaku as _showDanmaku } from '../fx/80fx-common-5v5-test.js';
 const showDanmaku = (...args) => { if (typeof _showDanmaku === 'function') return _showDanmaku(...args); };
 
 export function stripTags(html) { let div = document.createElement('div'); div.innerHTML = html; return div.textContent || ''; }
 
-// ==================== 响应式 Store 引用 ====================
-let _store = null;
-let _subscribed = false;
-function getStore() {
-    if (!_store) {
-        if (GlobalStore.get('battleStore')) _store = GlobalStore.get('battleStore');
-    }
-    return _store;
-}
+// 兼容旧调用
+export { renderGrid, updateGridUI as updateUI };
 export function setRenderStore(store) {
-    _store = store;
-    _subscribed = false;
+    setGridStore(store);
     if (store === null) GlobalStore.set('battleStore', null);
 }
 
-// ==================== 辅助函数 ====================
 function getCtx() {
     return window._getPlayerContext ? window._getPlayerContext() : null;
 }
@@ -44,16 +41,13 @@ function getDodgeBreakdown(unit, activeBuffs, allyTeam) {
     const sources = [];
     const rates = [];
     let seenFlightBase = false;
-
-    // 1. 基础闪避（从闪避规则注册表遍历）
     const _dodgeRules = getDodgeRules();
     for (const ruleFn of _dodgeRules) {
         const rate = ruleFn(unit, null) || 0;
         if (rate > 0) {
             let label = '';
             if (unit.role === '飞行' && rate === 0.15 && !seenFlightBase) {
-                label = '飞行基础';
-                seenFlightBase = true;
+                label = '飞行基础'; seenFlightBase = true;
             } else if (unit.role === '飞行' && rate === 0.15 && seenFlightBase) {
                 label = '青翼蝠王';
             } else if (unit.role !== '飞行' && rate === 0.03) {
@@ -67,24 +61,17 @@ function getDodgeBreakdown(unit, activeBuffs, allyTeam) {
             rates.push(rate);
         }
     }
-
-    // 2. Buff 闪避加成
     const buffStats = computeBuffStats(unit, activeBuffs || [], allyTeam || []);
     if (buffStats.dodgeBonus > 0) {
         sources.push({ label: '流云身法', value: Math.round(buffStats.dodgeBonus * 100) });
         rates.push(buffStats.dodgeBonus);
     }
-
-    // 3. 组合概率：各来源独立判定，P = 1 - ∏(1 - rate_i)
     let combined = 0;
     if (rates.length > 0) {
         let product = 1;
-        for (const r of rates) {
-            product *= (1 - r);
-        }
+        for (const r of rates) product *= (1 - r);
         combined = Math.round((1 - product) * 100);
     }
-
     return { sources, combined };
 }
 
@@ -140,6 +127,7 @@ function openDetailPopup(unit) {
         if (detailPopup && detailPopupUnit) updateDetailPopupContent();
     }, 1000);
 }
+window.openDetailPopup = openDetailPopup;
 
 function renderAtkDetail(u, buffStats, ctx) {
     let initAtk = u._initAtk !== undefined ? u._initAtk : u.atk;
@@ -329,248 +317,6 @@ function closeDetailPopup() {
 }
 
 function closeDetailPopupOnClick(e) { if (detailPopup && !detailPopup.contains(e.target)) closeDetailPopup(); }
-
-function createHorseSpawnAnim(cell) {
-    cell.style.transition = 'transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275)';
-    cell.style.transform = 'scale(1.3)';
-    cell.style.boxShadow = '0 0 20px rgba(255,215,0,0.8)';
-    setTimeout(() => { cell.style.transform = 'scale(1)'; cell.style.boxShadow = ''; }, 400);
-}
-
-// ==================== 核心渲染函数 ====================
-
-export function renderGrid(id, camp) {
-    let grid = document.getElementById(id);
-    if (!grid) return;
-    grid.innerHTML = '';
-
-    const store = getStore();
-    const ctx = getCtx();
-    let team = [];
-    if (store) {
-        const state = store.getState();
-        team = state.units.filter(u => u.camp === camp);
-    } else if (ctx && ctx.UI) {
-        team = camp === 'ally' ? (ctx.UI.allyTeam || []) : (ctx.UI.enemyTeam || []);
-    }
-
-    let displayOrder = camp === 'enemy' ? [7,8,9,4,5,6,1,2,3] : [1,2,3,4,5,6,7,8,9];
-    let isAdjustMode = ctx ? ctx.adjustMode : false;
-    let selectedPos = ctx ? ctx.selectedAdjustPos : null;
-    let activeBuffs = ctx ? (ctx.activeBuffs || []) : [];
-    let allyTeam = ctx ? (ctx.UI.allyTeam || []) : [];
-    let doubleStrikeUid = ctx ? ctx.currentDoubleStrikeUid : null;
-
-    for (let i = 0; i < displayOrder.length; i++) {
-        let pos = displayOrder[i], unit = team.find(c => c.pos === pos && c.alive) || team.find(c => c.pos === pos);
-        // 确保每个单位都有 state 字典
-        if (unit && !unit.state) unit.state = {};
-        if (unit && !unit.isHorse) {
-            if ((unit.state && unit.state._flyMode) || (unit._fsm && (unit._fsm.is('attached') || unit._fsm.is('flying')))) {
-                let div = document.createElement('div');
-                div.className = 'cell occupied';
-                div.dataset.pos = pos;
-                div.dataset.uid = unit.uid;
-                if (unit.state._flyMode === 'fly') {
-                    div.style.background = 'transparent';
-                    div.style.border = '2px solid transparent';
-                    div.style.boxShadow = 'none';
-                } else if (unit.state._flyMode === 'ghost') {
-                    let roleIcon = unit.role==='战士'?'⚔️':(unit.role==='防战'?'🛡️':(unit.role==='远程'?'🏹':'🦅'));
-                    div.innerHTML = `<span class="cell-icon">${roleIcon}</span><div class="cell-info"><span class="cell-name">${unit.name}</span><span class="cell-stats">攻${Math.floor(unit.atk)} 防${Math.floor(unit.def)} 血${Math.floor(unit.hp)}</span></div>`;
-                    div.style.opacity = '0.5';
-                    div.style.background = 'rgba(30,100,255,0.28)';
-                    div.style.border = '2px solid rgba(100,150,255,0.6)';
-                    div.style.boxShadow = '0 0 12px rgba(100,150,255,0.5)';
-                } else if (unit.state._flyMode === 'butterfly' || (unit._fsm && unit._fsm.is('attached'))) {
-                    const crashMode = window.GlobalStore?.get('crashMode') || 'ghost';
-                    if (crashMode === 'fly') {
-                        div.innerHTML = '<span class="cell-icon">🦋</span>';
-                        div.style.background = 'transparent';
-                        div.style.border = '2px solid transparent';
-                    } else {
-                        div.innerHTML = '<span class="cell-icon">🦋</span><div class="cell-info"><span class="cell-name">蝴蝶</span></div>';
-                        div.style.opacity = '0.4';
-                        div.style.background = 'rgba(255, 192, 203, 0.15)';
-                        div.style.border = '2px solid rgba(255, 105, 180, 0.4)';
-                    }
-                } else if (unit.state._flyMode === 'spider' || (unit._fsm && unit._fsm.is('flying'))) {
-                    const crashMode = window.GlobalStore?.get('crashMode') || 'ghost';
-                    if (crashMode === 'fly') {
-                        div.innerHTML = '<span class="cell-icon">🕷️</span>';
-                        div.style.background = 'transparent';
-                        div.style.border = '2px solid transparent';
-                    } else {
-                        div.innerHTML = '<span class="cell-icon">🕷️</span><div class="cell-info"><span class="cell-name">蜘蛛</span></div>';
-                        div.style.opacity = '0.4';
-                        div.style.background = 'rgba(128, 0, 128, 0.1)';
-                        div.style.border = '2px solid rgba(128, 0, 128, 0.4)';
-                    }
-                }
-                grid.appendChild(div);
-                continue;
-            }
-            if (unit.state && unit.state._isDead) {
-                unit = { ...unit, _flash: 'dead', _resting: false, _acted: false, _blocked: false };
-            }
-        }
-        if (!unit) {
-            let div = document.createElement('div');
-            div.className = 'cell';
-            div.innerHTML = '<span style="color:#999;">空</span>';
-            div.dataset.pos = pos;
-            if (camp === 'ally' && isAdjustMode) div.classList.add('adjustable');
-            if (camp === 'ally' && isAdjustMode && selectedPos === pos) div.classList.add('adjust-selected');
-            grid.appendChild(div); continue;
-        }
-        let hasFlash = !!unit._flash;
-        let isDead = (unit._flash==='dead' || !unit.alive || unit.state._isDead);
-        let isBlocked = (unit.state && unit.state._blocked) || false;
-        let isResting = (unit.state && unit.state._resting) || false;
-        let isStunned = (unit.state && unit.state._stunned) || false;
-
-        let roleIcon;
-        if (isStunned && !isDead) {
-            roleIcon = '😵';
-        } else if (unit.isZhang && !unit.rangedForm) {
-            roleIcon = '⚔️';
-        } else if (unit.isHorse) {
-            roleIcon = '🐴';
-        } else {
-            roleIcon = unit.role==='战士'?'⚔️':(unit.role==='防战'?'🛡️':(unit.role==='远程'?'🏹':'🦅'));
-        }
-        let displayName = unit.name;
-        let displayIsZhang = unit.isZhang || false;
-        if (unit.isXiaoZhaoSister) displayName += '·姊';
-        if (unit.isXiaoZhaoBrother) displayName += '·妹';
-        if (unit.name === '成昆' && unit.state && unit.state._phantomTarget) {
-            const allUnits = (ctx.UI.allyTeam || []).concat(ctx.UI.enemyTeam || []);
-            const mimicTarget = allUnits.find(u => u.uid === unit.state._phantomTarget);
-            if (mimicTarget) {
-                displayName = mimicTarget.name;
-                displayIsZhang = mimicTarget.isZhang || false;
-                roleIcon = mimicTarget.role==='战士'?'⚔️':(mimicTarget.role==='防战'?'🛡️':(mimicTarget.role==='远程'?'🏹':'🦅'));
-            }
-        }
-        let latestUnit = unit;
-        if (store) {
-            const state = store.getState();
-            const freshUnit = state.units.find(u => u.uid === unit.uid);
-            if (freshUnit) {
-                latestUnit = freshUnit;
-            }
-        }
-
-        let buffStats = computeBuffStats(latestUnit, activeBuffs, allyTeam);
-        let atkBonusVal = Math.floor(latestUnit.atk * buffStats.atkBonus);
-        let defBonusVal = Math.floor((latestUnit._baseDef || latestUnit.def) * buffStats.defBonus);
-        let hpBonusVal = Math.floor(latestUnit.maxHp * buffStats.hpBonus);
-        let displayAtk = Math.round(latestUnit.atk + (latestUnit._carryAtkBonus || 0) + atkBonusVal);
-        let initAtk = latestUnit._initAtk !== undefined ? latestUnit._initAtk : latestUnit.atk;
-        let totalChange = displayAtk - initAtk;
-        let atkDisplayHtml = `${displayAtk}`;
-        if (totalChange > 0) {
-            atkDisplayHtml = `<span style="color:#daa520;font-weight:bold;">${displayAtk}</span>`;
-        } else if (totalChange < 0) {
-            atkDisplayHtml = `<span style="color:#c0392b;font-weight:bold;">${displayAtk}</span>`;
-        }
-        let displayDef = Math.round(latestUnit.def + defBonusVal);
-        let initDef = latestUnit._initDef !== undefined ? Math.round(latestUnit._initDef) : Math.round(latestUnit.def);
-        let totalDefChange = displayDef - initDef;
-        let defDisplayHtml = `${displayDef}`;
-        if (totalDefChange > 0) {
-            defDisplayHtml = `<span style="color:#daa520;font-weight:bold;">${displayDef}</span>`;
-        } else if (totalDefChange < 0) {
-            defDisplayHtml = `<span style="color:#c0392b;font-weight:bold;">${displayDef}</span>`;
-        }
-        let hpPct = unit.alive ? Math.floor((unit.hp / unit.maxHp) * 100) : 0;
-        let hpColorClass = hpPct>70?'hp-text-green':(hpPct>40?'hp-text-orange':'hp-text-red');
-        let barColor = hpPct>70?'#4caf50':(hpPct>40?'#ff9800':'#f44336');
-        let hpDisplayHtml = `${Math.floor(unit.hp)}`;
-        const hasButterflyHpBonus = (latestUnit._butterflyHpBonus || 0) > 0;
-        if (hpBonusVal > 0 || (latestUnit._baseMaxHp !== undefined && latestUnit.maxHp > latestUnit._baseMaxHp) || hasButterflyHpBonus) {
-            hpDisplayHtml = `<span style="color:#daa520;font-weight:bold;">${Math.floor(unit.hp)}</span>`;
-        }
-        let readyClass = (!hasFlash && !(unit.state && unit.state._acted) && unit.alive && !isDead) ? 'ready' : '';
-        let actedClass = (!hasFlash && (unit.state && unit.state._acted) && unit.alive && !isDead) ? 'acted' : '';
-        let cheerClass = (hasFlash && unit._flash==='cheer' && !isDead) ? 'cell-cheer' : '';
-        let restingClass = (isBlocked && unit.alive && isResting && !(unit.isZhang && unit.rangedForm) && !isDead) ? 'resting' : '';
-        let div = document.createElement('div');
-        div.className = `cell occupied ${readyClass} ${actedClass} ${cheerClass} ${restingClass}`;
-        if (isDead) { div.setAttribute('data-flash', 'dead'); div.style.transition = 'none'; }
-        else if (unit._flash) { div.setAttribute('data-flash', unit._flash); div.style.transition = 'none'; }
-        div.dataset.pos = pos;
-        div.dataset.uid = unit.uid;
-        if (camp === 'ally' && isAdjustMode) {
-            if (unit.fixed) { div.classList.add('fixed-unit'); }
-            else { div.classList.add('swappable'); if (selectedPos === pos) div.classList.add('adjust-selected'); }
-        }
-        if (unit._phantomFlash) {
-            div.style.animation = 'phantomFlash 0.4s ease-in-out 2';
-            setTimeout(() => {
-                div.style.animation = '';
-                delete unit._phantomFlash;
-            }, 800);
-        }
-        if (unit.isHorse && unit.alive && !(unit.state && unit.state._isDead) && !unit._horseSpawned) {
-            unit._horseSpawned = true;
-            requestAnimationFrame(() => createHorseSpawnAnim(div));
-        }
-        let buffIcons = '';
-        if (ctx && camp === 'ally') {
-            let iconMap = {};
-            activeBuffs.forEach(b => {
-                let info = CONFIG.BUFFS ? CONFIG.BUFFS[b.key] : null;
-                if (info && info.icon && isUnitBenefitedByBuff(unit, b.key, allyTeam, doubleStrikeUid, activeBuffs)) {
-                    iconMap[info.icon] = (iconMap[info.icon] || 0) + 1;
-                }
-            });
-            buffIcons = Object.entries(iconMap).map(([icon, count]) => {
-                return icon + (count > 1 ? 'x' + count : '');
-            }).join('');
-        }
-        let atkStyle = atkBonusVal > 0 ? 'color:#daa520;font-weight:bold;' : '';
-        let defStyle = (defBonusVal > 0 || (latestUnit._fortifyStacks || 0) > 0) ? 'color:#daa520;font-weight:bold;' : '';
-        let hpStyle = hpBonusVal > 0 ? 'color:#daa520;font-weight:bold;' : '';
-        let eliteSkillIcon = (unit.name === '周芷若' && unit._hasKuaiLe) ? ' 💖' : (unit.name === '宋青书' && unit._hasXingFen) ? ' 💗' : (unit.isXiaoZhaoSister ? ' 🦋' : (unit.isXiaoZhaoBrother ? ' 🕷️' : (unit.isXiaoZhao ? ' 🦋' : '')));
-        if (!eliteSkillIcon) {
-            const sisterHost = allyTeam.find(a => a.isXiaoZhaoSister && a.alive && a.state && a.state._butterflyHost === unit.uid);
-            if (sisterHost) eliteSkillIcon = ' 🦋';
-        }
-        if (unit.name === '成昆' && unit.state && unit.state._phantomTarget) eliteSkillIcon += ' 🎭';
-        if (unit._xuanmingPoison && unit._xuanmingPoison.remaining > 0) eliteSkillIcon += ' ❄️';
-        div.innerHTML = `<span class="cell-icon">${isBlocked && unit.alive && isResting && !(unit.isZhang && unit.rangedForm) && !isDead ? '😴' : roleIcon}</span><div class="cell-info"><span class="cell-name ${displayIsZhang?'gold':''}">${displayName}${eliteSkillIcon}${buffIcons ? ' ' + buffIcons : ''}</span><span class="cell-stats">攻<span style="${atkStyle}">${atkDisplayHtml}</span> 防<span style="${defStyle}">${defDisplayHtml}</span> <span class="${hpColorClass}" style="${hpStyle}">血${hpDisplayHtml}</span></span></div><div class="hp-bar-wrap"><div class="hp-bar-inner" id="hpbar-${unit.uid}" style="height:${hpPct}%;background:${barColor};transition:height 0.4s ease, background 0.4s ease;"></div></div>`;
-        if (isDead) {
-            let deadMark = document.createElement('span'); deadMark.className = 'dead-mark'; deadMark.textContent = '✕'; div.appendChild(deadMark);
-            div.style.transform = 'scale(0.8)'; div.style.opacity = '0.9';
-        }
-        if (isBlocked && unit.alive && isResting && !(unit.isZhang && unit.rangedForm) && !isDead) {
-            let zzz = document.createElement('div'); zzz.className = 'zzz-mark'; zzz.innerHTML = '<span>z</span><span>Z</span><span>Z</span>'; div.appendChild(zzz);
-        }
-        div.style.cursor = 'pointer';
-        div.addEventListener('click', (e) => {
-            if (isAdjustMode) return;
-            if (unit) openDetailPopup(unit);
-        });
-        grid.appendChild(div);
-    }
-}
-
-export function updateUI() {
-    renderGrid('enemyGrid', 'enemy');
-    renderGrid('allyGrid', 'ally');
-
-    if (!_subscribed) {
-        const store = getStore();
-        if (store) {
-            store.subscribe(() => {
-                renderGrid('enemyGrid', 'enemy');
-                renderGrid('allyGrid', 'ally');
-            });
-            _subscribed = true;
-        }
-    }
-}
 
 // ==================== 胜利特效 ====================
 export function spawnVictoryEffects(winnerCamp, aliveUnitsOverride) {

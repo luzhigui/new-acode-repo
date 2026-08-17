@@ -1,15 +1,12 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// core/13battle-shared.js - 光明顶5v5 战斗共享工具
-// V5.2.1 | 提取06和48的公共依赖，解开循环引用
-export const VER = 'core/13battle-shared.js V5.4.0';
+﻿﻿// core/13battle-shared.js - 光明顶5v5 战斗共享工具
+// V5.5.1 | ~6500 bytes| 2026-08-17 事实化重构：import合并至render/30
+export const VER = 'core/13battle-shared.js V5.5.1';
 
 import { CONFIG } from './01config-5v5-test.js';
 import { ROLE_BONUS } from './02unit.js';
 import { pushBattleEvent } from './09-battle-event-store.js';
+import { renderZhangSwitchFact } from '../render/30-fact-renderer.js';
 const C = CONFIG;
-
-// ==================== 事件系统 ====================
-// 原始 emitEvent 函数已在文件末尾通过 emitCoreEvent 统一处理，此处删除重复定义
-// window._emitEvent 挂载已在文件末尾 emitCoreEvent 函数中完成
 
 function emitFullUnitState(unit, eventType) {
     emitCoreEvent(unit, eventType, {
@@ -28,9 +25,6 @@ function emitFullUnitState(unit, eventType) {
     });
 }
 
-// ==================== 辅助函数 ====================
-
-// 确定性 RNG：createRoundStepper 创建并注入，核心引擎各处通过 getBattleRng 获取
 let _battleRng = null;
 export function setBattleRng(rng) { _battleRng = rng; }
 export function getBattleRng() { return _battleRng; }
@@ -42,7 +36,6 @@ function finalizeDeaths(team) {
             u.alive = false;
             u.state._isDead = true;
             if (!u._deathTime) u._deathTime = Date.now();
-            // 不再发射 unit-remove，死亡单位保留在数组中供战报读取
         }
     }
 }
@@ -51,7 +44,6 @@ function getNextAvailableUnit(team) {
     return team.filter(c => c.alive && !c.state._acted).sort((a, b) => a.pos - b.pos)[0] || null;
 }
 
-// 战斗-位置变更：交换两个单位站位
 function swapUnitPositions(unitA, unitB) {
     if (!unitA || !unitB) return;
     const posA = unitA.pos;
@@ -59,7 +51,6 @@ function swapUnitPositions(unitA, unitB) {
     unitB.pos = posA;
 }
 
-// 战斗-位置变更：移动单位到新站位
 function moveUnitPosition(unit, newPos) {
     if (!unit || newPos == null) return;
     unit.pos = newPos;
@@ -90,34 +81,25 @@ function checkZhangSwitch(A, log) {
             role: zhang.role,
             rangedForm: false
         });
-        log.push({ type:'info', text:`<span class="gold">⚔️ 张无忌切换近战形态！攻+${warriorBonus.atk * 3}、防+${warriorBonus.def * 3}、生命上限+${warriorBonus.maxHp * 3}</span>`, isZhangSwitch:true, unit: zhang });
-        log.push({ type:'info', text:`<span class="gold">🗣️ 张无忌：不好，要顶上去了！</span>`, isZhangTaunt:true });
+        const entries = renderZhangSwitchFact({
+            zhang,
+            atkGain: warriorBonus.atk * 3,
+            defGain: warriorBonus.def * 3,
+            maxHpGain: warriorBonus.maxHp * 3
+        });
+        entries.forEach(entry => log.push(entry));
     }
 }
 
-// ==================== 统一事件发送 ====================
-// 战斗-事件：发送单位事件到缓冲区
 function emitCoreEvent(unit, eventType, payload) {
     pushBattleEvent({ unitUid: unit.uid, eventType, payload });
 }
 
-/**
- * 状态变更裁定边裁 — 统一入口
- * 所有直接修改 hp/atk/def/maxHp 的操作必须走此函数。
- * @param {Unit} target - 目标单位
- * @param {string} field - 'hp'|'atk'|'def'|'maxHp'
- * @param {number} delta - 变更量（正为增加，负为减少）
- * @param {Unit|null} source - 变更来源（可为 null）
- * @param {string} reason - 变更原因（用于日志追踪）
- * @returns {boolean} 是否触发死亡标记
- */
-// 战斗-状态变更：统一hp/atk/def/maxHp增减入口
 function applyStatChange(target, field, delta, source, reason) {
     if (delta === 0 || !target || !target.alive) return false;
     const oldVal = target[field];
     target[field] = field === 'hp' ? Math.min(target.maxHp, Math.max(0, target[field] + delta)) : target[field] + delta;
     if (field === 'hp' || field === 'maxHp') target[field] = Math.max(0, target[field]);
-    // 血量相关统计
     if (field === 'hp') {
         if (delta < 0) {
             target.dmgTaken += Math.abs(delta);
@@ -126,7 +108,6 @@ function applyStatChange(target, field, delta, source, reason) {
             target.healDone += delta;
         }
     }
-    // 死亡标记
     if (field === 'hp' && target.hp <= 0) {
         target._pendingDeath = true;
         if (!target._deathTime) target._deathTime = Date.now();
@@ -138,17 +119,6 @@ function applyStatChange(target, field, delta, source, reason) {
     return target._pendingDeath || false;
 }
 
-/**
- * 最大生命值变更边裁
- * - 上限增加：当前生命直接增加等额差值
- * - 上限减少：当前生命等比缩放
- * @param {Unit} target - 目标单位
- * @param {number} newMaxHp - 新的最大生命值
- * @param {Unit|null} source - 变更来源
- * @param {string} reason - 变更原因
- */
-// 战斗-血量上限变更：增减等比缩放当前血量
-// 上限增加直接加当前血、上限减少按比例缩当前血：加血补足新上限差值，减血等比缩放，避免血量突变或超出新上限
 function applyMaxHpChange(target, newMaxHp, source, reason) {
     if (!target || !target.alive) return;
     const oldMaxHp = target.maxHp;
@@ -170,12 +140,8 @@ function applyMaxHpChange(target, newMaxHp, source, reason) {
     }
 }
 
-// ==================== 查询注册表 ====================
-// modules 层通过 registerQuery 注册查询处理器，core 层通过 query 调用，切断 core→modules 的反向依赖
 const _queries = {};
-// 战斗-查询注册：core层通过注册表解耦模块依赖
 export function registerQuery(name, fn) { _queries[name] = fn; }
-// 战斗-查询调用：根据名称调用已注册的查询处理器
 export function query(name, ...args) { return _queries[name] ? _queries[name](...args) : undefined; }
 
 export {

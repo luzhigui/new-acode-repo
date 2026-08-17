@@ -1,6 +1,6 @@
 // core/04buff-system.js - 光明顶5v5 Buff系统
-// V5.4.0 | ~28700 bytes| 2026-07-28 海克斯效果迁移至事件总线
-export const VER = 'core/04buff-system.js V5.4.0';
+// V5.5.2 | ~28000 bytes| 2026-08-17 彻底去HTML：所有日志由渲染器生成
+export const VER = 'core/04buff-system.js V5.5.2';
 import {
     applyFortifyDef_Normal, applyFortifyDef_Sister, applyFortifyDef_Brother,
     applyCloudBodyDodge_Normal, applyCloudBodyDodge_Sister, applyCloudBodyDodge_Brother,
@@ -13,12 +13,22 @@ import { hasBuff, getUnitRow, getUnitCol, getAdjacentPositions } from './03battl
 import { emitEvent, applyStatChange, applyMaxHpChange, query, getBattleRng, swapUnitPositions, moveUnitPosition } from './13battle-shared.js';
 import { EXECUTION_LAYER as L, EFFECT_TYPES } from './00-event-bus.js';
 import { processUnitAttack } from './10battle-attack.js';
+import {
+    renderBuffSummaryFact,
+    renderCarryApplyFact,
+    renderBloodthirstLeechFact,
+    renderHotBloodHealFact,
+    renderWindAssaultSplashFact,
+    renderWindAssaultPushFact,
+    renderWindAssaultFailFact,
+    renderMeteorShowerMainFact,
+    renderMeteorShowerSplashFact
+} from '../render/30-fact-renderer.js';
 const C = CONFIG;
 
 /**
  * 圣火令绝对值加成（独立于Carry）
  */
-// Buff-圣火令：绝对值攻防加成（按行列）
 export function applyHolyFlameBonus(unit, activeBuffs) {
     unit._holyAtkBonus = 0;
     unit._holyDefBonus = 0;
@@ -36,7 +46,6 @@ export function applyHolyFlameBonus(unit, activeBuffs) {
 /**
  * 严阵以待绝对值加成（独立于Carry）
  */
-// Buff-严阵以待：防战绝对值防御加成
 export function applyFortifyBonus(unit, activeBuffs) {
     unit._fortifyDefBonus = 0;
     if (unit.role !== '防战' || unit.camp !== 'ally') return;
@@ -48,13 +57,7 @@ export function applyFortifyBonus(unit, activeBuffs) {
 
 /**
  * 应用 carry 加成（绝对值），含激活和清除逻辑
- * @param {Unit} unit - 当前单位
- * @param {Unit[]} A - 己方存活单位
- * @param {object} state - 战斗状态，需包含 allAllies
- * @param {string[]} log - 日志数组
- * @param {object} stats - computeBuffStats 的返回值
  */
-// Buff-Carry：单位获得队友属性加成（含激活/清除）
 export function applyCarryBonus(unit, A, state, log, stats) {
     if (unit.camp !== 'ally') return;
     const activeBuffs = A._activeBuffs || [];
@@ -85,7 +88,12 @@ export function applyCarryBonus(unit, A, state, log, stats) {
         }
 
         if (stats.carryAtkAbs || stats.carryDefAbs || stats.carryHpAbs) {
-            log.push({ type:'info', text:`<span class="gold">👑 carry：${unit.name} 获得队友属性加成 攻+${stats.carryAtkAbs} 防+${stats.carryDefAbs} 血上限+${stats.carryHpAbs}</span>` });
+            log.push(renderCarryApplyFact({
+                unitName: unit.name,
+                atk: stats.carryAtkAbs,
+                def: stats.carryDefAbs,
+                hp: stats.carryHpAbs
+            }));
         }
     } else if (!unit.isHorse && !hasCarryActive && !unit.isXiaoZhaoSister && !unit.isXiaoZhaoBrother) {
         // carry 消失：清除加成，恢复基值
@@ -102,12 +110,10 @@ export function applyCarryBonus(unit, A, state, log, stats) {
     }
 }
 
-// Buff-计算：汇总所有Buff的攻防闪避加成
 export function computeBuffStats(unit, activeBuffs, allyTeam) {
     let atkBonus = 0, defBonus = 0, dodgeBonus = 0, hpBonus = 0;
     if (!activeBuffs) return { atkBonus, defBonus, dodgeBonus, hpBonus };
 
-    // carry 加成是绝对值，单独返回
     let carryAtkAbs = 0, carryDefAbs = 0, carryHpAbs = 0;
     const hasCarry = hasBuff(activeBuffs, 'carry');
     if (hasCarry && unit.alive && allyTeam) {
@@ -121,7 +127,7 @@ export function computeBuffStats(unit, activeBuffs, allyTeam) {
         }
     }
 
-    // ---- 严阵以待防御（比率） ----
+    // 严阵以待防御（比率）
     if (hasBuff(activeBuffs, 'fortify') && unit.role === '防战' && unit.camp === 'ally') {
         if (allyTeam && allyTeam.some(u => u.isXiaoZhaoSister && u.alive)) applyFortifyDef_Sister(unit, { defBonus });
         else applyFortifyDef_Normal(unit, { defBonus });
@@ -129,7 +135,7 @@ export function computeBuffStats(unit, activeBuffs, allyTeam) {
         applyFortifyDef_Brother(unit, { defBonus });
     }
 
-    // ---- 流云身法闪避 ----
+    // 流云身法闪避
     if (hasBuff(activeBuffs, 'cloudBody') && unit.camp === 'ally') {
         if (allyTeam && allyTeam.some(u => u.isXiaoZhaoSister && u.alive)) applyCloudBodyDodge_Sister(unit, { dodgeBonus });
         else applyCloudBodyDodge_Normal(unit, { dodgeBonus });
@@ -137,14 +143,14 @@ export function computeBuffStats(unit, activeBuffs, allyTeam) {
         applyCloudBodyDodge_Brother(unit, { dodgeBonus });
     }
 
-    // ---- 小昭变身精通加成 ----
+    // 小昭变身精通加成
     let masteryAtkAbs = 0, masteryDefAbs = 0, masteryHpAbs = 0;
     if (unit.isXiaoZhaoBrother) {
         const mastery = query('butterflyMastery', unit);
         masteryAtkAbs = mastery.atk; masteryDefAbs = mastery.def; masteryHpAbs = mastery.hp;
     }
 
-    // ---- 圣火令（比率） ----
+    // 圣火令（比率）
     const holyFlameTeam = hasBuff(activeBuffs, 'holyFlame');
     if (holyFlameTeam) {
         if (allyTeam && allyTeam.some(u => u.isXiaoZhaoSister && u.alive)) applyHolyFlame_Sister(unit, allyTeam, activeBuffs, { atkBonus, defBonus });
@@ -156,122 +162,24 @@ export function computeBuffStats(unit, activeBuffs, allyTeam) {
     return { atkBonus, defBonus, dodgeBonus, hpBonus, carryAtkAbs, carryDefAbs, carryHpAbs, masteryAtkAbs, masteryDefAbs, masteryHpAbs };
 }
 
-// Buff-攻击前：已迁移至事件总线（空壳保留）
+// 攻击前已迁移至事件总线（空壳保留）
 export function applyBuffEffectsBeforeAttack(unit, target, allyTeam, enemyTeam, log) {
-    // 惑人心智已迁移至事件总线监听器 registerMindControl
 }
 
-// Buff-攻击后：已迁移至事件总线（保留入口）
+// 攻击后已迁移至事件总线（保留入口）
 export function applyBuffEffectsAfterAttack(unit, target, dmg, allySide, enemySide, log) {
-    let unitBuffs = (unit.camp === 'ally' ? allySide._activeBuffs : enemySide._activeBuffs) || [];
-    const hasSister = allySide.some(u => u.isXiaoZhaoSister && u.alive);
-    const isBrother = unit.isXiaoZhaoBrother;
-
-    // ---- 嗜血狂刀已迁移至事件总线 ----
-    // ---- 热血奋战已迁移至事件总线 ----
-    // ---- 乘风突袭已迁移至事件总线 ----
-    // ---- 流星赶月已迁移至事件总线 ----
-
-    // 严阵以待反弹已在 applyAttackResult（步骤4）中处理，此处不再重复
 }
 
-// Buff-日志：汇总输出当前Buff摘要信息
 export function logBuffSummary(allyTeam, log, doubleStrikeUid) {
     let buffs = allyTeam._activeBuffs || [];
-    const rng = getBattleRng();
     buffs.forEach(b => {
-        switch (b.key) {
-            case 'bloodthirst':
-                let btUnits = allyTeam.filter(u => u.alive && u.role === '战士');
-                if (btUnits.length > 0) log.push({type:'buff-summary', text:`<span class="gold">🗡️ 嗜血狂刀：${btUnits.map(u=>u.name).join('、')} 攻击吸血${Math.round(C.BUFFS.bloodthirst.leechRatio*100)}%</span>`, buffType:'buff_stat'});
-                break;
-            case 'hotBlood':
-                let hbUnits = allyTeam.filter(u => u.alive);
-                if (hbUnits.length > 0) log.push({type:'buff-summary', text:`<span class="gold">❤️ 热血奋战：${hbUnits.map(u=>u.name).join('、')} 攻击回血${Math.round(C.BUFFS.hotBlood.leechRatio*100)}%（每3次翻倍）</span>`, buffType:'buff_stat'});
-                break;
-            case 'fortify':
-                let ftUnits = allyTeam.filter(u => u.alive && u.role === '防战');
-                if (ftUnits.length > 0) log.push({type:'buff-summary', text:`<span class="gold">🛡️ 严阵以待：${ftUnits.map(u=>u.name).join('、')} 防御+${Math.round(C.BUFFS.fortify.defBonus*100)}% 反弹50%</span>`, buffType:'buff_stat'});
-                break;
-            case 'cloudBody':
-                let cbUnits = allyTeam.filter(u => u.alive);
-                if (cbUnits.length > 0) log.push({type:'buff-summary', text:`<span class="gold">💨 流云身法：${cbUnits.map(u=>u.name).join('、')} 闪避+${Math.round(C.BUFFS.cloudBody.dodgeBonus*100)}%</span>`, buffType:'buff_stat'});
-                break;
-            case 'windAssault':
-                let waUnits = allyTeam.filter(u => u.alive && u.role === '飞行');
-                if (waUnits.length > 0) log.push({type:'buff-summary', text:`<span class="gold">🦅 乘风突袭：${waUnits.map(u=>u.name).join('、')} 80%波及同行 60%击退（持续3回合）</span>`, buffType:'buff_stat'});
-                break;
-            case 'meteorShower':
-                let msUnits = allyTeam.filter(u => u.alive && u.role === '远程');
-                if (msUnits.length > 0) log.push({type:'buff-summary', text:`<span class="gold">☄️ 流星赶月：${msUnits.map(u=>u.name).join('、')} 伤害加深${Math.round(C.BUFFS.meteorShower.bonusRatio*100)}% 溅射${Math.round(C.BUFFS.meteorShower.splashRatio*100)}%（主箭降2防，小箭降1防）</span>`, buffType:'buff_stat'});
-                break;
-            case 'holyFlame': {
-                const teamHolyBuffs = buffs.filter(b => b.key === 'holyFlame' && !b._xiaoZhao);
-                const xiaoZhaoHolyBuffs = buffs.filter(b => b.key === 'holyFlame' && b._xiaoZhao);
-                
-                if (teamHolyBuffs.length > 0) {
-                    for (const hb of teamHolyBuffs) {
-                        const cols = hb.cols || (hb.col != null ? [hb.col] : [rng.nextInt(1, 3)]);
-                        const rows = hb.rows || (hb.row != null ? [hb.row] : [rng.nextInt(1, 3), rng.nextInt(1, 3)]);
-                        let colUnits = allyTeam.filter(u => u.alive && cols.includes(getUnitCol(u.pos)));
-                        let rowUnits = allyTeam.filter(u => u.alive && u.camp === 'ally' && rows.includes(getUnitRow(u.pos)));
-                        let atkNames = colUnits.map(u=>u.name).join('、') || '无';
-                        let defNames = rowUnits.map(u=>u.name).join('、') || '无';
-                        const colList = cols.join('、');
-                        const rowList = rows.join('、');
-                        log.push({type:'buff-summary', text:`<span class="gold">🔥 圣火令（团队）：第${colList}列(${atkNames})攻击+${Math.round(C.BUFFS.holyFlame.atkBonus*100)}%，第${rowList}行(${defNames})防御+${Math.round(C.BUFFS.holyFlame.defBonus*100)}%</span>`, buffType:'buff_stat'});
-                    }
-                }
-                
-                if (xiaoZhaoHolyBuffs.length > 0) {
-                    for (const hb of xiaoZhaoHolyBuffs) {
-                        const xzCols = hb.cols || (hb.col != null ? [hb.col] : [rng.nextInt(1, 3)]);
-                        const xzRows = hb.rows || (hb.row != null ? [hb.row] : [rng.nextInt(1, 3), rng.nextInt(1, 3)]);
-                        let colUnits = allyTeam.filter(u => u.alive && xzCols.includes(getUnitCol(u.pos)));
-                        let rowUnits = allyTeam.filter(u => u.alive && u.camp === 'ally' && xzRows.includes(getUnitRow(u.pos)));
-                        let atkNames = colUnits.map(u=>u.name).join('、') || '无';
-                        let defNames = rowUnits.map(u=>u.name).join('、') || '无';
-                        let xiaoZhaoLabel = '🦋 圣火令（小昭·姊）';
-                        const hasOverlap = colUnits.some(u => teamHolyBuffs.some(tb => {
-                            const tcols = tb.cols || (tb.col != null ? [tb.col] : []);
-                            return tcols.includes(getUnitCol(u.pos));
-                        })) || rowUnits.some(u => teamHolyBuffs.some(tb => {
-                            const trows = tb.rows || (tb.row != null ? [tb.row] : []);
-                            return trows.includes(getUnitRow(u.pos));
-                        }));
-                        const suffix = hasOverlap ? '（部分单位受双重影响 → 圣火令×2）' : '';
-                        const xzColList = xzCols.join('、');
-                        const xzRowList = xzRows.join('、');
-                        log.push({type:'buff-summary', text:`<span class="gold">${xiaoZhaoLabel}：第${xzColList}列(${atkNames})攻击+${Math.round(C.BUFFS.holyFlame.atkBonus*100)}%，第${xzRowList}行(${defNames})防御+${Math.round(C.BUFFS.holyFlame.defBonus*100)}%${suffix}</span>`, buffType:'buff_stat'});
-                    }
-                }
-                break;
-            }
-            case 'doubleStrike':
-                break;
-            case 'mindControl':
-                log.push({type:'buff-summary', text:`<span class="gold">🌀 惑人心智：最前排80%扰乱敌方换位，40%扰乱己方换位</span>`, buffType:'buff_stat'});
-                break;
-            case 'carry':
-                let carryUnit = allyTeam.find(u => u.pos === 5 && u.alive);
-                if (carryUnit) {
-                    let fullAllies = GlobalStore.get('currentBattleState')?.ally || allyTeam;
-                    let allAllies = fullAllies.filter(u => u.uid !== carryUnit.uid && !u.isHorse);
-                    let aliveCount = allAllies.filter(a => a.alive).length;
-                    let deadCount = allAllies.length - aliveCount;
-                    let desc = `👑 你就是carry：${carryUnit.name} 获得队友属性加成（${aliveCount}人存活`;
-if (deadCount > 0) desc += `，${deadCount}人阵亡大幅提升`;
-desc += `）`;
-                    log.push({type:'buff-summary', text:`<span class="gold">${desc}</span>`, buffType:'buff_stat'});
-                }
-                break;
-        }
+        const entry = renderBuffSummaryFact(b, allyTeam, doubleStrikeUid);
+        if (entry) log.push(entry);
     });
 }
 
 // Buff-事件注册：嗜血狂刀吸血+姐姐强化额外攻击
 export function registerBloodthirst(eventBus) {
-    // 统一消费额外攻击请求（嗜血狂刀姐姐强化、宋青书性奋等）
     eventBus.on('requestExtraAttack', L.REQUEST_EXTRA_ATTACK.DEFAULT, async (data) => {
         const { unit, target, allySide, enemySide, log, A, B, state } = data;
         if (unit.alive && target?.alive && typeof processUnitAttack === 'function') {
@@ -287,14 +195,14 @@ export function registerBloodthirst(eventBus) {
         const unitBuffs = allySide._activeBuffs || [];
         const hasSister = allySide.some(u => u.isXiaoZhaoSister && u.alive);
         const isBrother = unit.isXiaoZhaoBrother;
-        
+
         if (hasBuff(unitBuffs, 'bloodthirst') && unit.role === '战士' && dmg > 0) {
             const leechVal = Math.floor(dmg * C.BUFFS.bloodthirst.leechRatio);
             const decl = {
                 type: EFFECT_TYPES.LEECH,
                 value: leechVal,
                 source: unit,
-                logText: `<span class="green">🗡️ ${unit.name} 的嗜血狂刀吸血+${leechVal}</span>`
+                logText: renderBloodthirstLeechFact({ unitName: unit.name, leechVal, isBrother: false }).text
             };
             if (!data.declarations) data.declarations = [];
             data.declarations.push(decl);
@@ -308,7 +216,7 @@ export function registerBloodthirst(eventBus) {
                 type: EFFECT_TYPES.LEECH,
                 value: leechVal,
                 source: unit,
-                logText: `<span class="green">🕷️ 蝶血：${unit.name} 嗜血狂刀吸血+${leechVal}</span>`
+                logText: renderBloodthirstLeechFact({ unitName: unit.name, leechVal, isBrother: true }).text
             };
             if (!data.declarations) data.declarations = [];
             data.declarations.push(decl);
@@ -342,7 +250,7 @@ export function registerHotBlood(eventBus) {
                     type: EFFECT_TYPES.HEAL,
                     value: leech,
                     source: unit,
-                    logText: `<span class="green">${tag}：${unit.name} 回复+${leech}</span>`
+                    logText: renderHotBloodHealFact({ unitName: unit.name, leech, tag, isBrother: false }).text
                 };
                 if (!data.declarations) data.declarations = [];
                 data.declarations.push(decl);
@@ -359,7 +267,7 @@ export function registerHotBlood(eventBus) {
                         type: EFFECT_TYPES.HEAL,
                         value: leech,
                         source: unit,
-                        logText: `<span class="green">${tag}：${unit.name} 回复+${leech}</span>`
+                        logText: renderHotBloodHealFact({ unitName: unit.name, leech, tag, isBrother: true }).text
                     };
                     if (!data.declarations) data.declarations = [];
                     data.declarations.push(decl);
@@ -392,24 +300,22 @@ export function registerWindAssault(eventBus) {
             const rowTargets = enemySide.filter(u => u.alive && getUnitRow(u.pos) === row && u.uid !== target.uid && !(u.state._flyMode === 'butterfly') && !(u.state._flyMode === 'spider') && !u.state._spiderFlying);
             if (rowTargets.length > 0) {
                 const splashDmg = Math.floor(dmg);
-                const details = rowTargets.map(rt => `${rt.name}`).join('、');
                 const decl = {
                     type: EFFECT_TYPES.SPLASH,
                     value: splashDmg,
                     targets: rowTargets,
                     buffType: 'wind_assault',
-                    logText: `<span class="orange">${label}波及${details}，各 -${splashDmg}</span>`
+                    logText: renderWindAssaultSplashFact({ label, targets: rowTargets, splashDmg }).text
                 };
                 if (!data.declarations) data.declarations = [];
                 data.declarations.push(decl);
             } else {
-                log.push({type:'info', text:`<span class="gray">${label}波及触发失败</span>`});
+                log.push(renderWindAssaultFailFact({ label, reason: '波及触发失败' }));
             }
         } else {
-            log.push({type:'info', text:`<span class="gray">${label}波及触发失败</span>`});
+            log.push(renderWindAssaultFailFact({ label, reason: '波及触发失败' }));
         }
 
-        // 击退逻辑保留在组件（改位置不冲突其他效果）
         if (rng.nextInt(1, 100) <= pushProb) {
             const behindPos = target.pos + 3;
             if (behindPos <= 9) {
@@ -419,17 +325,20 @@ export function registerWindAssault(eventBus) {
                 if (behindUnit) {
                     const behindOldPos = behindUnit.pos;
                     swapUnitPositions(target, behindUnit);
-                    log.push({type:'buff-push', pushTargetUid: target.uid, behindUid: behindUnit.uid, oldPos, newPos: behindPos, behindOldPos, buffType:'push', text:`<span class="gold" style="font-size:1.1em;">${label}击退！${target.name}从${oldPos}号位击退至${behindPos}号位，${behindUnit.name}被迫从${behindOldPos}号位移至${oldPos}号位</span>`});
+                    log.push(renderWindAssaultPushFact({
+                        label, target, behindUnit, oldPos, behindPos, behindOldPos
+                    }));
                 } else {
                     moveUnitPosition(target, behindPos);
-                    log.push({type:'buff-push', pushTargetUid: target.uid, behindUid: null, oldPos, newPos: behindPos, buffType:'push', text:`<span class="gold" style="font-size:1.1em;">${label}击退！${target.name}从${oldPos}号位被击退至${behindPos}号位</span>`});
+                    log.push(renderWindAssaultPushFact({
+                        label, target, behindUnit: null, oldPos, behindPos
+                    }));
                 }
             }
         } else {
-            log.push({type:'info', text:`<span class="gray">${label}击退触发失败</span>`});
+            log.push(renderWindAssaultFailFact({ label, reason: '击退触发失败' }));
         }
 
-        // 击退/换位完成后广播（被动技能监听，如张无忌前排检测）
         eventBus.emit('onPositionSwap', { allySide, enemySide, log });
     });
 }
@@ -449,7 +358,6 @@ export function registerMeteorShower(eventBus) {
 
         const label = brotherActive ? '🦋 蝶星' : '☄️ 流星赶月';
 
-        // 主箭额外增伤 — 提交 bonusDmg 声明；降防改为提交 STAT_CHANGE 声明
         const bonusDmg = Math.floor(dmg * C.BUFFS.meteorShower.bonusRatio);
         if (!data.declarations) data.declarations = [];
         data.declarations.push({
@@ -460,22 +368,19 @@ export function registerMeteorShower(eventBus) {
             reason: '流星赶月',
             logText: null
         });
-        const decl = {
+        data.declarations.push({
             type: EFFECT_TYPES.BONUS_DMG,
             value: bonusDmg,
             target: target,
             buffType: 'meteor_bonus',
-            logText: `<span class="gold">${label}伤害加深：${target.name} 额外-${bonusDmg}，防御-${C.BUFFS.meteorShower.mainDefReduce || 2}</span>`
-        };
-        data.declarations.push(decl);
+            logText: renderMeteorShowerMainFact({ label, targetName: target.name, bonusDmg, defReduce: C.BUFFS.meteorShower.mainDefReduce || 2 }).text
+        });
 
-        // 溅射 — 提交 splash 声明
         const splashDmg = Math.floor(dmg * C.BUFFS.meteorShower.splashRatio);
         const adjPositions = getAdjacentPositions(target.pos);
         const splashSide = target.camp === unit.camp ? allySide : enemySide;
         const splashTargets = splashSide.filter(u => u.alive && adjPositions.includes(u.pos) && !(u.state._flyMode === 'butterfly') && !(u.state._flyMode === 'spider') && !u.state._spiderFlying);
         if (splashTargets.length > 0) {
-            const details = splashTargets.map(st => `${st.name}`).join('、');
             const decl = {
                 type: EFFECT_TYPES.SPLASH,
                 value: splashDmg,
@@ -485,9 +390,8 @@ export function registerMeteorShower(eventBus) {
                 primaryUid: target.uid,
                 splashUids: splashTargets.map(st => st.uid),
                 splashDmg: splashDmg,
-                logText: `<span class="orange">${label}溅射：${details}，各-${splashDmg}，防御-${C.BUFFS.meteorShower.splashDefReduce || 1}</span>`
+                logText: renderMeteorShowerSplashFact({ label, targets: splashTargets, splashDmg, defReduce: C.BUFFS.meteorShower.splashDefReduce || 1 }).text
             };
-            if (!data.declarations) data.declarations = [];
             data.declarations.push(decl);
             for (const st of splashTargets) {
                 data.declarations.push({
