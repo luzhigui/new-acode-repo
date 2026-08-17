@@ -182,7 +182,7 @@ export function createZhouZhiruoComponent() {
                 const execThreshold = zhangAlive ? (s.jealousExecuteThreshold||0.15) : (s.executeThreshold||0.12);
                 const isExecute = !isDeadByHit && hpPctAfter <= execThreshold && simulatedTargetHp > 0;
                 const hitLogText = `<span style="color:#222">🐾 九阴白骨爪${depth>0?'连锁':'追击'}！${unit.name} 对 ${target.name} 造成 ${bonusDmg} 点伤害${isExecute?'（斩杀）':(zhangAlive?'【嫉妒】':'')}</span>`;
-                hits.push({ dmg: bonusDmg, logText: hitLogText });
+                hits.push({ dmg: bonusDmg, logText: hitLogText, isClawHit: true, clawAttackerUid: unit.uid, clawTargetUid: target.uid, isExecute });
                 if (song && song.alive) {
                     const healAmount = Math.min(bonusDmg, song.maxHp - simulatedSongHp);
                     totalHeal += healAmount;
@@ -190,7 +190,7 @@ export function createZhouZhiruoComponent() {
                 }
                 if (isDeadByHit) break;
                 if (isExecute) {
-                    executeInfo = { logText: `<span style="color:#222">🐾 九阴白骨爪斩杀！${unit.name} 对 ${target.name} 造成致命一击</span>` };
+                    executeInfo = { logText: `<span style="color:#222">🐾 九阴白骨爪斩杀！${unit.name} 对 ${target.name} 造成致命一击</span>`, isClawHit: true, clawAttackerUid: unit.uid, clawTargetUid: target.uid, isExecute: true };
                     break;
                 }
                 depth++;
