@@ -213,6 +213,7 @@ export function calcFinalDamage(unit, target, attackerBuffStats, defenderBuffSta
             const reduce = Math.min(decl.value || 0, defBase);
             defBase -= reduce;
             applyStatChange(target, 'def', -reduce, unit, '破防');
+            if (target._baseDef !== undefined) target._baseDef -= reduce;
             defReduced = reduce;
             if (reduce > 0) {
                 unit._pendingDefReduceFact = { type:'breakDef', attackerName: unit.name, targetName: target.name, reduce };
@@ -443,6 +444,9 @@ export function resolveAfterDamageEffects(declarations, unit, target, group) {
         applyStatChange(decl.target, decl.field, decl.delta, null, decl.reason || '属性变更');
         if (decl.field === 'atk' && decl.target._baseAtk !== undefined) {
             decl.target._baseAtk += decl.delta;
+        }
+        if (decl.field === 'def' && decl.target._baseDef !== undefined) {
+            decl.target._baseDef += decl.delta;
         }
         executed.push(decl);
     }
