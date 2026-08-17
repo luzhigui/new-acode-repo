@@ -15,6 +15,10 @@ const ROLES = ['防战', '战士', '飞行', '远程'];
 const ROLE_ICONS = { '防战': '🛡️', '战士': '⚔️', '飞行': '🦅', '远程': '🏹' };
 const BASE_TEMPLATE = { 1: '防战', 2: '战士', 5: '飞行', 7: '远程', 9: '远程' };
 
+// 第六人站位规则：默认所有职业 [3,4,6,8]，开启近战限位后防战/战士仅 [3,6]
+let extraPosConfig = { '防战': [3, 6], '战士': [3, 6], '飞行': [3, 4, 6, 8], '远程': [3, 4, 6, 8] };
+let extraPosDefault = [3, 4, 6, 8];
+
 // ========== 样式 ==========
 if (!document.getElementById('roleBalStyle')) {
     const style = document.createElement('style');
@@ -42,6 +46,15 @@ if (!document.getElementById('roleBalStyle')) {
 .role-bal-matrix td{font-weight:bold}
 .role-bal-strong{color:#f44336}
 .role-bal-weak{color:#4fc3f7}
+.role-bal-pos-config{display:flex;align-items:center;gap:6px;margin-bottom:10px;flex-wrap:wrap}
+.role-bal-pos-config label{color:#aaa;font-size:12px}
+.role-bal-pos-config input[type="text"]{width:130px;padding:5px 8px;border-radius:6px;border:1px solid #555;background:#111;color:#eee;font-size:12px}
+.role-bal-toggle{display:flex;align-items:center;gap:6px;cursor:pointer;user-select:none}
+.role-bal-toggle input{display:none}
+.role-bal-toggle .switch{width:36px;height:20px;background:#555;border-radius:10px;position:relative;transition:background .2s}
+.role-bal-toggle .switch::after{content:'';position:absolute;top:2px;left:2px;width:16px;height:16px;background:#fff;border-radius:50%;transition:transform .2s}
+.role-bal-toggle input:checked+.switch{background:#ffd700}
+.role-bal-toggle input:checked+.switch::after{transform:translateX(16px)}
 `;
     document.head.appendChild(style);
 }
@@ -63,8 +76,8 @@ function buildTeam(extraRole, camp, rng) {
         u._originalPos = u.pos;
         team.push(u);
     }
-    const availableExtraPositions = [3, 4, 6, 8];
-    const extraPos = availableExtraPositions[rng.nextInt(0, availableExtraPositions.length - 1)];
+    const positions = extraPosConfig[extraRole] || extraPosDefault;
+    const extraPos = positions[rng.nextInt(0, positions.length - 1)];
     const extra = createUnit(extraRole, camp, rng);
     extra.pos = extraPos;
     extra._originalPos = extraPos;
@@ -114,7 +127,15 @@ window.openRoleBalance = function() {
                 <button class="role-bal-close">关闭</button>
             </div>
             <div class="role-bal-body">
-                <p class="role-bal-tip">6V6 标准模板循环赛：双方基础模板（1防战、2战士、6飞行、8远程、9远程）各加一名额外职业。无海克斯，M=100。统计明教视角胜率。</p>
+                <p class="role-bal-tip">6V6 标准模板循环赛：双方基础模板（1防战、2战士、5飞行、7远程、9远程）各加一名额外职业。无海克斯，M=100。统计明教视角胜率。</p>
+                <div class="role-bal-pos-config">
+                    <label class="role-bal-toggle" id="roleBalToggleLabel">
+                        <input type="checkbox" id="roleBalMeleeLimit" checked>
+                        <span class="switch"></span> 防战/战士限定 [3,6]
+                    </label>
+                    <label>站位池：</label>
+                    <input type="text" id="roleBalPosPool" value="3,4,6,8" title="逗号分隔，所有职业默认站位池">
+                </div>
                 <div class="role-bal-config">
                     <label>每组场次：</label>
                     <input type="number" id="roleBalRounds" value="100" min="10" max="1000" step="10">
@@ -133,6 +154,30 @@ window.openRoleBalance = function() {
     const roundsInput = mask.querySelector('#roleBalRounds');
     const progress = mask.querySelector('#roleBalProgress');
     const result = mask.querySelector('#roleBalResult');
+    const meleeLimitCb = mask.querySelector('#roleBalMeleeLimit');
+    const posPoolInput = mask.querySelector('#roleBalPosPool');
+
+    function updatePosConfig() {
+        const raw = posPoolInput.value.replace(/\s/g, '');
+        const pool = raw.split(',').map(Number).filter(n => n >= 1 && n <= 9);
+        if (pool.length === 0) return;
+        extraPosDefault = pool;
+        if (meleeLimitCb.checked) {
+            extraPosConfig = {
+                '防战': [3, 6],
+                '战士': [3, 6],
+                '飞行': pool,
+                '远程': pool
+            };
+        } else {
+            extraPosConfig = {
+                '防战': pool, '战士': pool, '飞行': pool, '远程': pool
+            };
+        }
+    }
+
+    meleeLimitCb.addEventListener('change', updatePosConfig);
+    posPoolInput.addEventListener('input', updatePosConfig);
 
     mask.querySelector('#roleBalClear').addEventListener('click', () => {
         result.innerHTML = '';
