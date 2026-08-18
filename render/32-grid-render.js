@@ -209,8 +209,6 @@ export function renderGrid(id, camp) {
         }
         let displayName = unit.name;
         let displayIsZhang = unit.isZhang || false;
-        if (unit.isXiaoZhaoSister) displayName += '·姊';
-        if (unit.isXiaoZhaoBrother) displayName += '·妹';
         if (unit.name === '成昆' && unit.state && unit.state._phantomTarget) {
             const allUnits = (ctx.UI.allyTeam || []).concat(ctx.UI.enemyTeam || []);
             const mimicTarget = allUnits.find(u => u.uid === unit.state._phantomTarget);
