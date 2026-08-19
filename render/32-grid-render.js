@@ -280,7 +280,7 @@ export function renderGrid(id, camp) {
                     iconMap[info.icon] = (iconMap[info.icon] || 0) + 1;
                 }
             });
-            buffIcons = Object.entries(iconMap).map(([icon, count]) => icon + (count > 1 ? 'x' + count : '')).join('');
+            buffIcons = Object.entries(iconMap).map(([icon, count]) => icon + (count > 1 ? 'x' + count : '')).join(' '); // join(' ') 空格分隔，便于后续 logo 拆分
         }
         let atkStyle = atkBonusVal > 0 ? 'color:#daa520;font-weight:bold;' : '';
         let defStyle = (defBonusVal > 0 || (latestUnit._fortifyStacks || 0) > 0) ? 'color:#daa520;font-weight:bold;' : '';
@@ -297,10 +297,18 @@ export function renderGrid(id, camp) {
         // 规则（2026-08-19 达达+用户确认）：
         // 1. logo 按加入顺序排列，最新的最靠近名字
         // 2. 名字≥5字时压缩名字宽度（letter-spacing:-0.5px），logo 大小不变
-        // 3. logo 数量>2 时：如果格子宽度放不下3个，只显示最新的2个（隐藏最早的）
+        // 3. logo 数量>2 且格子放不下时，只显示最新的2个（隐藏最早的）
         // 4. 短名字（≤4字）+ ≤2 logo：正常空格分隔，不压缩
         // 5. 小昭·姊/妹 的·保留，其他角色名已去掉·
         //
+        // logo 总数计算：eliteSkillIcon 中的图标数 + buffIcons 中的图标数
+        // eliteSkillIcon 用空格分隔（如 ' 🦋 🎭'），可按空格拆分
+        // buffIcons 用空格分隔（如 '🔥 ❄️'），可按空格拆分
+        // 注意：emoji 可能含 variation selector（如 ❄️ = ❄+️），不能单独用 Array.from 拆分
+
+        // 把 buffIcons 的 join 改成空格分隔，便于后续拆分
+        // （原代码第283行 .join('') 已改为 .join(' ')）
+
         // 组装 logo 列表：eliteSkillIcon 在前（先加），buffIcons 在后（后加）
         // 数组顺序 = 加入顺序，末尾 = 最新
         let logoList = [];
@@ -308,9 +316,7 @@ export function renderGrid(id, camp) {
             eliteSkillIcon.trim().split(/\s+/).forEach(ic => { if (ic) logoList.push(ic); });
         }
         if (buffIcons) {
-            // buffIcons 是连续的 emoji 串（如 "🔥❄️"），需要逐个拆分
-            // emoji 可能是多字节，用 Array.from 拆分
-            Array.from(buffIcons).forEach(ch => { if (ch.trim()) logoList.push(ch); });
+            buffIcons.split(/\s+/).forEach(ic => { if (ic) logoList.push(ic); });
         }
 
         // 分级处理
@@ -318,14 +324,14 @@ export function renderGrid(id, camp) {
         let displayLogos = logoList.slice();
 
         if (displayName.length >= 5) {
-            // 5字名字：压缩
+            // 5字名字：压缩名字宽度
             compressName = true;
-            // 5字名字压缩后放2个logo没问题，3个放不下 → 隐藏最早的
+            // 压缩后放2个logo没问题，3个放不下 → 隐藏最早的
             if (displayLogos.length > 2) {
                 displayLogos = displayLogos.slice(-2); // 保留最新2个
             }
         } else if (displayName.length === 4 && displayLogos.length > 2) {
-            // 4字名字+3 logo：不压缩，隐藏最早的
+            // 4字名字+3 logo以上：不压缩，隐藏最早的
             displayLogos = displayLogos.slice(-2);
         }
         // 其他情况：≤4字 + ≤2 logo 或 2~3字 + 任意 logo → 不动
@@ -333,14 +339,16 @@ export function renderGrid(id, camp) {
         // 生成名字 HTML
         let nameHtml;
         if (compressName) {
-            // 压缩模式：logo 紧贴名字（无空格），最新的最靠近名字
+            // 压缩模式：logo 紧贴名字（cell-logo 包裹），最新的最靠近名字
             // displayLogos 末尾 = 最新，反转后最新的排前面紧贴名字
             let logoHtml = displayLogos.slice().reverse().join(' ');
             nameHtml = `<span class="cell-name ${displayIsZhang?'gold':''} cell-name-long">${displayName}${logoHtml ? '<span class="cell-logo">' + logoHtml + '</span>' : ''}</span>`;
+        } else if (displayLogos.length < logoList.length) {
+            // 非压缩但隐藏了部分 logo：用空格分隔显示
+            nameHtml = `<span class="cell-name ${displayIsZhang?'gold':''}">${displayName}${displayLogos.length ? ' ' + displayLogos.join(' ') : ''}</span>`;
         } else {
-            // 正常模式：空格分隔
-            let logoStr = displayLogos.join(' ');
-            nameHtml = `<span class="cell-name ${displayIsZhang?'gold':''}">${displayName}${logoStr ? ' ' + logoStr : ''}</span>`;
+            // 正常模式：完全保持原来的显示格式（eliteSkillIcon 带前导空格 + buffIcons 空格分隔）
+            nameHtml = `<span class="cell-name ${displayIsZhang?'gold':''}">${displayName}${eliteSkillIcon}${buffIcons ? ' ' + buffIcons : ''}</span>`;
         }
         div.innerHTML = `<span class="cell-icon">${isBlocked && unit.alive && isResting && !(unit.isZhang && unit.rangedForm) && !isDead ? '😴' : roleIcon}</span><div class="cell-info">${nameHtml}<span class="cell-stats">攻<span style="${atkStyle}">${atkDisplayHtml}</span> 防<span style="${defStyle}">${defDisplayHtml}</span> <span class="${hpColorClass}" style="${hpStyle}">血${hpDisplayHtml}</span></span></div><div class="hp-bar-wrap"><div class="hp-bar-inner" id="hpbar-${unit.uid}" style="height:${hpPct}%;background:${barColor};transition:height 0.4s ease, background 0.4s ease;"></div></div>`;
         if (isDead) {
