@@ -159,7 +159,7 @@ export async function playLogEntries(c, log, roundResult, isFirstAttackRef) {
             if (abortSig && abortSig.aborted) return { isBattleOver: false };
         }
     } catch (e) {
-        GlobalStore.set('bulletTimeActive', true);
+        GlobalStore.set('bulletTimeActive', false);
         console.error('playLogEntries 错误:', e);
         return { isBattleOver: false };
     }

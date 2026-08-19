@@ -234,7 +234,7 @@ export async function showDodgeBulletTime(attacker, defender, reboundDmg) {
             isSkipped = true;
             cleanup();
             resolved = true;
-            GlobalStore.set('bulletTimeActive', true);
+            GlobalStore.set('bulletTimeActive', false);
             if (ctx) ctx.isPaused = false;
         });
         document.body.appendChild(skipBtn);
