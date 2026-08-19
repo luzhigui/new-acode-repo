@@ -80,8 +80,9 @@
         .cell-icon { font-size: 13px; width: 14px; text-align: center; flex-shrink: 0; }
         .cell-info { flex: 1; display: flex; flex-direction: column; justify-content: center; overflow: hidden; }
         .cell-name { font-weight: bold; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 9px; }
+        /* 5字名字压缩：letter-spacing 收紧，logo 大小不变 */
         .cell-name-long { letter-spacing: -0.5px; }
-        .cell-name .cell-logo { font-size: 8px; margin-left: 1px; letter-spacing: -1px; }
+        .cell-name .cell-logo { margin-left: 1px; }
         .cell-stats { font-size: 7px; color: #555; display: flex; gap: 2px; }
         .hp-bar-wrap { width: 8px; height: 100%; background: #ccc; border-radius: 3px; flex-shrink: 0; align-self: stretch; position: relative; }
         .hp-bar-inner { position: absolute; bottom: 0; width: 100%; border-radius: 3px; transition: height 0.6s ease, background 0.6s ease; }

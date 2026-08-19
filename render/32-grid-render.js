@@ -292,11 +292,56 @@ export function renderGrid(id, camp) {
         }
         if (unit.name === '成昆' && unit.state && unit.state._phantomTarget) eliteSkillIcon += ' 🎭';
         if (unit._xuanmingPoison && unit._xuanmingPoison.remaining > 0) eliteSkillIcon += ' ❄️';
-        let isLongName = displayName.length >= 5;
-        let logoContent = eliteSkillIcon.trim() + (buffIcons ? buffIcons : '');
-        let nameHtml = isLongName
-            ? `<span class="cell-name ${displayIsZhang?'gold':''} cell-name-long">${displayName}${logoContent ? '<span class="cell-logo">'+logoContent+'</span>' : ''}</span>`
-            : `<span class="cell-name ${displayIsZhang?'gold':''}">${displayName}${eliteSkillIcon}${buffIcons ? ' ' + buffIcons : ''}</span>`;
+
+        // ====== 格子名字+logo 分级显示逻辑 ======
+        // 规则（2026-08-19 达达+用户确认）：
+        // 1. logo 按加入顺序排列，最新的最靠近名字
+        // 2. 名字≥5字时压缩名字宽度（letter-spacing:-0.5px），logo 大小不变
+        // 3. logo 数量>2 时：如果格子宽度放不下3个，只显示最新的2个（隐藏最早的）
+        // 4. 短名字（≤4字）+ ≤2 logo：正常空格分隔，不压缩
+        // 5. 小昭·姊/妹 的·保留，其他角色名已去掉·
+        //
+        // 组装 logo 列表：eliteSkillIcon 在前（先加），buffIcons 在后（后加）
+        // 数组顺序 = 加入顺序，末尾 = 最新
+        let logoList = [];
+        if (eliteSkillIcon) {
+            eliteSkillIcon.trim().split(/\s+/).forEach(ic => { if (ic) logoList.push(ic); });
+        }
+        if (buffIcons) {
+            // buffIcons 是连续的 emoji 串（如 "🔥❄️"），需要逐个拆分
+            // emoji 可能是多字节，用 Array.from 拆分
+            Array.from(buffIcons).forEach(ch => { if (ch.trim()) logoList.push(ch); });
+        }
+
+        // 分级处理
+        let compressName = false;
+        let displayLogos = logoList.slice();
+
+        if (displayName.length >= 5) {
+            // 5字名字：压缩
+            compressName = true;
+            // 5字名字压缩后放2个logo没问题，3个放不下 → 隐藏最早的
+            if (displayLogos.length > 2) {
+                displayLogos = displayLogos.slice(-2); // 保留最新2个
+            }
+        } else if (displayName.length === 4 && displayLogos.length > 2) {
+            // 4字名字+3 logo：不压缩，隐藏最早的
+            displayLogos = displayLogos.slice(-2);
+        }
+        // 其他情况：≤4字 + ≤2 logo 或 2~3字 + 任意 logo → 不动
+
+        // 生成名字 HTML
+        let nameHtml;
+        if (compressName) {
+            // 压缩模式：logo 紧贴名字（无空格），最新的最靠近名字
+            // displayLogos 末尾 = 最新，反转后最新的排前面紧贴名字
+            let logoHtml = displayLogos.slice().reverse().join(' ');
+            nameHtml = `<span class="cell-name ${displayIsZhang?'gold':''} cell-name-long">${displayName}${logoHtml ? '<span class="cell-logo">' + logoHtml + '</span>' : ''}</span>`;
+        } else {
+            // 正常模式：空格分隔
+            let logoStr = displayLogos.join(' ');
+            nameHtml = `<span class="cell-name ${displayIsZhang?'gold':''}">${displayName}${logoStr ? ' ' + logoStr : ''}</span>`;
+        }
         div.innerHTML = `<span class="cell-icon">${isBlocked && unit.alive && isResting && !(unit.isZhang && unit.rangedForm) && !isDead ? '😴' : roleIcon}</span><div class="cell-info">${nameHtml}<span class="cell-stats">攻<span style="${atkStyle}">${atkDisplayHtml}</span> 防<span style="${defStyle}">${defDisplayHtml}</span> <span class="${hpColorClass}" style="${hpStyle}">血${hpDisplayHtml}</span></span></div><div class="hp-bar-wrap"><div class="hp-bar-inner" id="hpbar-${unit.uid}" style="height:${hpPct}%;background:${barColor};transition:height 0.4s ease, background 0.4s ease;"></div></div>`;
         if (isDead) {
             let deadMark = document.createElement('span'); deadMark.className = 'dead-mark'; deadMark.textContent = '✕'; div.appendChild(deadMark);
