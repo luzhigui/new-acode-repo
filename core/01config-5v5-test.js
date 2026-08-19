@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// core/01config-5v5-test.js - 光明顶5v5 全量配置
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// core/01config-5v5-test.js - 光明顶5v5 全量配置
 // V5.4.0 | ~16700 bytes| 2026-07-05 → V5.3.2 | 接入 content/200game-data.json
 export const VER = 'core/01config-5v5-test.js V5.4.0';
 
