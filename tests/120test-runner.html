@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿<!-- tests/120test-runner.html - 光明顶5v5 测试与体检中心 V5.2.0 -->
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿<!-- tests/120test-runner.html - 光明顶5v5 测试与体检中心 V5.2.0 -->
 <!-- V5.4.0 | ~6000 bytes-->
 <!DOCTYPE html>
 <html lang="zh-CN">
@@ -63,6 +63,7 @@
         document.getElementById('btnAutoRun').addEventListener('click', () => {
             const url = new URL(window.location.href);
             url.searchParams.set('auto', '1');
+            if (!url.searchParams.get('start')) url.searchParams.set('start', '3');
             if (!url.searchParams.get('stages')) url.searchParams.set('stages', '6');
             if (!url.searchParams.get('budget')) url.searchParams.set('budget', '240');
             if (!url.searchParams.get('speed')) url.searchParams.set('speed', '100');

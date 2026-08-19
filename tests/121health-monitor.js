@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// tests/121health-monitor.js - 光明顶5v5 实时体检监控器
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// tests/121health-monitor.js - 光明顶5v5 实时体检监控器
 // V5.5.0 | 新增 ?auto=1 无头后台模式：后台自动跑完整关卡，结束时在 window.__healthResult 输出完整报告
 export const VER = 'tests/121health-monitor.js V5.5.0';
 
@@ -32,10 +32,12 @@ let gameFrame, gameArea, reportArea, statusLine;
 const UI_CONFIRM_TIMES = 3;
 let pendingIssueCounts = {};
 
-// ==================== 自动/无头后台模式参数 (?auto=1&budget=秒&stages=目标关&speed=速度值) ====================
+// ==================== 自动/无头后台模式参数 (?auto=1&budget=秒&stages=目标关&speed=速度值&start=起始关) ====================
 // 与手动自检模式（120test-runner.html 交互）并行：auto=1 时无人值守自动跑完整关卡，
 // 结束（跑完目标关或超时）后在 window.__healthResult 暴露完整报告，供自动化工具快速读取
+// start=起始关：第3关起才有精英（宋青书等），默认从第3关开始，跳过无精英的前两关
 let autoMode = false, autoBudgetMs = 240000, autoStageTarget = 6, autoSpeedVal = 300;
+let autoStartStage = 3;
 let autoStartedAt = 0, autoTargetReached = false, autoDone = false, maxStageSeen = 0, autoTargetDoneAt = 0;
 try {
     const _p = new URLSearchParams(window.location.search);
@@ -45,6 +47,8 @@ try {
         autoStageTarget = parseInt(_p.get('stages'), 10) || 6;
         autoSpeedVal = parseInt(_p.get('speed'), 10) || 300; // 游戏 speed 值：100=8x, 300=4x, 500=默认
     }
+    // 起始关：手动体检与一键自动体检统一生效；默认第3关（首个有精英的关卡），可用 start=1/2 覆盖
+    autoStartStage = Math.min(6, Math.max(1, parseInt(_p.get('start'), 10) || 3));
 } catch (e) {}
 
 // 工具函数 (模块顶层，可在任何地方使用)
@@ -174,7 +178,7 @@ export function initMonitor() {
             if (ctx && ctx.UI && ctx.UI.allyTeam && ctx.UI.allyTeam.length >= 1) {
                 clearInterval(waitReady); gameLoaded = true;
                 const w = getWin();
-                if (w && typeof w.selectStage === 'function') w.selectStage(4);
+                if (w && typeof w.selectStage === 'function') w.selectStage(autoStartStage);
                 // 开启全自动模式：自动选Buff、自动开战、自动推进关卡，实现无人值守实时体检
                 try { if (w && w.GlobalStore) w.GlobalStore.set('autoLevel', 'full-auto'); } catch (e) {}
                 // 同步模式按钮显示：体检直接改 GlobalStore 的 autoLevel，调用游戏自带的 updateAutoModeButton
@@ -294,7 +298,7 @@ function periodicScan() {
         const targetBattleDone = autoTargetReached && stage >= autoStageTarget && ctx.gs === 'GAMEOVER';
         if (targetBattleDone && !autoTargetDoneAt) autoTargetDoneAt = Date.now();
         const settleDone = autoTargetDoneAt > 0 && (Date.now() - autoTargetDoneAt > 3000); // 留3s让最终检查跑完
-        const loopDone = autoTargetReached && stage <= 1; // 兼容旧逻辑：跑完目标关卡后回到第1关 = 一圈完成
+        const loopDone = autoTargetReached && stage <= autoStartStage; // 兼容旧逻辑：跑完目标关卡后回到起始关 = 一圈完成
         if (overBudget || loopDone || settleDone) {
             finalizeAutoReport(ctx, doc, overBudget ? 'timeout' : (autoTargetDoneAt ? 'target-reached' : 'loop-complete'));
         } else {
