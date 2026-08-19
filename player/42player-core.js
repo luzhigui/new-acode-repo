@@ -2,7 +2,7 @@
 // V5.5.1 | ~29500 bytes| 2026-08-17 格子渲染下沉至render/32
 export const VER = 'player/42player-core.js V5.5.1';
 
-import { showBuffBanner } from '../fx/87fx-manager.js';
+import { showBuffBanner, showHealFloat, showWindClaw, showSplashArrows, showDamageFloat } from '../fx/87fx-manager.js';
 import { CONFIG } from '../core/01config-5v5-test.js';
 import { AudioManager } from '../modules/22audio-manager.js';
 import { handleBuffSummon, handleBuffDestroy, handleBuffLeech, showBuffPopup, handleHolyTokenDrop } from './41player-buff-ui.js';
@@ -40,7 +40,7 @@ export async function playLogEntries(c, log, roundResult, isFirstAttackRef) {
 
             switch (entry.type) {
                 case 'info':
-                    if (entry.text && entry.text.includes('🔥 圣火令掉落')) {
+                    if (entry.dropKind === 'token') {
                         await handleHolyTokenDrop(c, entry);
                         lastEntryType = entry.type;
                         break;
@@ -61,11 +61,10 @@ export async function playLogEntries(c, log, roundResult, isFirstAttackRef) {
                         appendLogHTML(entry.text + '<br>');
                         let healUnit = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.uid === entry.healUnitUid);
                         if (healUnit && entry.healAmount) {
-                            const { showHealFloat } = await import('../fx/80fx-common-5v5-test.js');
                             showHealFloat(healUnit, entry.healAmount);
                         }
                         c.isPaused = true; GlobalStore.set('bulletTimeActive', true);
-                        let bannerText = entry.text.includes('翻倍') ? '❤️‍🔥 热血奋战(翻倍)！' : '❤️ 热血奋战！';
+                        let bannerText = entry.isDouble ? '❤️‍🔥 热血奋战(翻倍)！' : '❤️ 热血奋战！';
                         await showBuffBanner(bannerText);
                         GlobalStore.set('bulletTimeActive', false); c.isPaused = false;
                     } else {
@@ -78,7 +77,6 @@ export async function playLogEntries(c, log, roundResult, isFirstAttackRef) {
                     if (entry.buffType === 'wind_assault') {
                         await showBuffBanner('🦅 乘风突袭！');
                         if (entry.splashUids) {
-                            const { showWindClaw } = await import('../fx/80fx-common-5v5-test.js');
                             entry.splashUids.forEach(uid => {
                                 const targetUnit = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.uid === uid);
                                 if (targetUnit) showWindClaw(targetUnit);
@@ -92,7 +90,6 @@ export async function playLogEntries(c, log, roundResult, isFirstAttackRef) {
                             let primary = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.uid === entry.primaryUid);
                             let splashTargets = entry.splashUids.map(uid => c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.uid === uid)).filter(u => u);
                             if (attacker && primary && splashTargets.length > 0) {
-                                const { showSplashArrows } = await import('../fx/81fx-arrows-5v5-test.js');
                                 showSplashArrows(attacker, primary, splashTargets, c.speed, () => c.isPaused);
                                 splashTargets.forEach((st, i) => {
                                     setTimeout(() => {
@@ -106,7 +103,6 @@ export async function playLogEntries(c, log, roundResult, isFirstAttackRef) {
                     GlobalStore.set('bulletTimeActive', false);
                     appendLogHTML(entry.text + '<br>');
                     if (entry.splashUids && entry.splashDmg) {
-                        const { showDamageFloat } = await import('../fx/80fx-common-5v5-test.js');
                         entry.splashUids.forEach(uid => {
                             let targetUnit = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.uid === uid);
                             if (targetUnit) {
@@ -471,8 +467,9 @@ export async function playBattle() {
         if (c.gs === 'GAMEOVER') renderVictoryLine(`<span class="gold">🎉🏆 <span class="${winColor}">${winner}</span>获得最终胜利！ 🏆🎉</span><br>`);
         autoScrollLog();
         await new Promise(r => setTimeout(r, GlobalStore.get('fastForwardActive') ? 500 : 6000));
-        if (c.battleResultForInfo && typeof showBattleReport === 'function') {
-            showBattleReport(c.UI, c.battleResultForInfo);
+        const showBattleReportFn = GlobalStore.getUIHandler('showBattleReport');
+        if (showBattleReportFn && c.battleResultForInfo) {
+            showBattleReportFn(c.UI, c.battleResultForInfo);
         }
     } else {
         renderVictoryLine('<span class="gray">🤝 平局！积分不变</span><br>');

@@ -6,7 +6,6 @@ import { registerElite } from '../core/08-elite-registry.js';
 import { CONFIG, getSkillParams } from '../core/01config-5v5-test.js';
 import { getBattleRng, emitEvent } from '../core/13battle-shared.js';
 import { tickXuanmingPoison } from './20elite-skills.js';
-import { processUnitAttack } from '../core/10battle-attack.js';
 import { EXECUTION_LAYER as L, EFFECT_TYPES } from '../infra/50-event-bus.js';
 import {
     renderXuanmingDotFact,
@@ -142,23 +141,24 @@ export function createHeBiWengComponent() {
 
 export function registerXuanmingLink(eventBus) {
     eventBus.on('afterAttack', L.AFTER_ATTACK.XUANMING_LINK, async (data) => {
-        const { unit, target, dmg, allySide, enemySide, log, A, B, state } = data;
+        const { unit, target, dmg, allySide, log } = data;
         if (!unit || unit._isLinkAttack || dmg <= 0 || !target || !target.alive) return;
         const isLuOrHe = (unit.name === '鹿杖客' || unit.name === '鹤笔翁');
         if (!isLuOrHe) return;
         const partnerName = unit.name === '鹿杖客' ? '鹤笔翁' : '鹿杖客';
         const partner = allySide.find(u => u.name === partnerName && u.alive && !u._linkTriggered);
         if (!partner) return;
-        const wasActed = partner.state._acted;
-        partner._isLinkAttack = true;
         partner._linkTriggered = true;
-        partner.state._acted = false;
         log.push({type:'info', text:`<span class="gold">🔗 ${partner.name} 跟随 ${unit.name} 发动联动攻击！</span>`});
-        if (typeof processUnitAttack === 'function') {
-            await processUnitAttack(partner, allySide, enemySide, log, A, B, state, null, target.uid);
-        }
-        partner._isLinkAttack = false;
-        partner.state._acted = wasActed;
+        if (!data.extraRequests) data.extraRequests = [];
+        data.extraRequests.push({
+            unit: partner,
+            targetUid: target.uid,
+            reason: 'xuanmingLink',
+            actedMode: 'restore',
+            actedSnapshot: partner.state._acted,
+            priority: 40
+        });
     });
 }
 

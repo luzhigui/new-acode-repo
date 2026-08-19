@@ -285,7 +285,7 @@ export async function handleBuffLeech(c, entry) {
     }
     let bannerText = '🗡️ 嗜血狂刀！';
     if (entry.buffType === 'hotBlood') {
-        bannerText = entry.text.includes('翻倍') ? '❤️‍🔥 热血奋战(翻倍)！' : '❤️ 热血奋战！';
+        bannerText = entry.isDouble ? '❤️‍🔥 热血奋战(翻倍)！' : '❤️ 热血奋战！';
     }
     c.isPaused = true;
     await showBuffBanner(bannerText);

@@ -324,8 +324,15 @@ export function registerDoubleStrike(eventBus, doubleStrikeUnitUid, allyTeam, ac
         const missChainChance = xiaoDoubleEnhance ? 1.0 : 0.8;
         if (getBattleRng().next() < missChainChance) {
             log.push(renderDoubleStrikeFact({ success: true }));
-            unit._doubleStriked = true; unit.state._acted = false;
-            data.retry = true; data.retryTargetUid = (target && target.alive) ? target.uid : null;
+            unit._doubleStriked = true;
+            if (!data.extraRequests) data.extraRequests = [];
+            data.extraRequests.push({
+                unit,
+                targetUid: (target && target.alive) ? target.uid : null,
+                reason: 'doubleStrike',
+                actedMode: 'allow',
+                priority: 10
+            });
         } else {
             log.push(renderDoubleStrikeFact({ success: false, unitName: unit.name }));
         }

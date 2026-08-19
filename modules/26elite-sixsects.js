@@ -31,8 +31,14 @@ export function createSongQingshuComponent() {
                 if (canXingFenTrigger(unit)) {
                     consumeXingFen(unit);
                     log.push(renderXingFenRetryFact({ unitName: unit.name }));
-                    data.retry = true;
-                    data.retryTargetUid = null;
+                    if (!data.extraRequests) data.extraRequests = [];
+                    data.extraRequests.push({
+                        unit,
+                        targetUid: null,
+                        reason: 'xingFenMiss',
+                        actedMode: 'allow',
+                        priority: 30
+                    });
                 }
             });
             eventBus.on('afterDamageApplied', L.AFTER_DAMAGE_APPLIED.SONG_XINGFEN, (data) => {
