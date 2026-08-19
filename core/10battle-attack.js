@@ -221,8 +221,8 @@ export async function processUnitAttack(unit, allySide, enemySide, log, A, B, st
             if (!req.unit.alive) continue;
             executedUids.add(req.unit.uid);
             if (req.actedMode === 'allow') req.unit.state._acted = false;
-            const retryTargetUid = req.targetUid || (target && target.alive ? target.uid : null);
-            await processUnitAttack(req.unit, allySide, enemySide, log, A, B, state, null, retryTargetUid);
+            const extraTargetUid = req.targetUid || (target && target.alive ? target.uid : null);
+            await processUnitAttack(req.unit, allySide, enemySide, log, A, B, state, null, extraTargetUid);
         }
     }
 
@@ -268,8 +268,8 @@ export async function processUnitAttack(unit, allySide, enemySide, log, A, B, st
             if (!req.unit.alive) continue;
             executedUids.add(req.unit.uid);
             req.unit.state._acted = false;
-            const retryTargetUid = req.targetUid || (target && target.alive ? target.uid : null);
-            await processUnitAttack(req.unit, allySide, enemySide, log, A, B, state, null, retryTargetUid);
+            const extraTargetUid = req.targetUid || (target && target.alive ? target.uid : null);
+            await processUnitAttack(req.unit, allySide, enemySide, log, A, B, state, null, extraTargetUid);
             if (req.actedMode === 'restore') {
                 req.unit.state._acted = req.actedSnapshot;
             }

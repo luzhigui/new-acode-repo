@@ -90,11 +90,6 @@ export function showBuffPopup(c) {
                     const xiaoZhao = ctx.UI.allyTeam.find(u => u.isXiaoZhaoBrother);
                     if (xiaoZhao) {
                         addPermanentBuff(xiaoZhao, b.value, newBuff.name, {});
-                        // 同步回 snapshot，确保引擎 clone 时拿到最新 _permanentBuffs
-                        if (ctx.snapshot && ctx.snapshot.ally) {
-                            const snapXz = ctx.snapshot.ally.find(u => u.isXiaoZhao);
-                            if (snapXz) snapXz._permanentBuffs = xiaoZhao._permanentBuffs.map(b => ({...b}));
-                        }
                     }
                 }
                 resolve(newBuff);

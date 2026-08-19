@@ -291,13 +291,6 @@ function updateDetailPopupContent() {
                     `♾️ ${getSkillDesc('小昭', 'permanentHex')}`,
                     `🏆 ${getSkillDesc('小昭', 'mastery')}`
                 ];
-                else if (u.isXiaoZhao) skills = [
-                    `🦋 ${getSkillDesc('小昭', 'butterflyAttach')}`,
-                    `✨ ${getSkillDesc('小昭', 'qianKunDerived')}`,
-                    `🛡️ ${getSkillDesc('小昭', 'qianKunUpgraded')}`,
-                    `♾️ ${getSkillDesc('小昭', 'permanentHex')}`,
-                    `🏆 ${getSkillDesc('小昭', 'mastery')}`
-                ];
                 if (skills.length > 0) {
                     return `<span style="color:#888;">技能</span><span style="color:#b8860b;">${skills.join('<br>')}</span>`;
                 }

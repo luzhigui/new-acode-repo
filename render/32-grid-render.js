@@ -285,7 +285,7 @@ export function renderGrid(id, camp) {
         let atkStyle = atkBonusVal > 0 ? 'color:#daa520;font-weight:bold;' : '';
         let defStyle = (defBonusVal > 0 || (latestUnit._fortifyStacks || 0) > 0) ? 'color:#daa520;font-weight:bold;' : '';
         let hpStyle = hpBonusVal > 0 ? 'color:#daa520;font-weight:bold;' : '';
-        let eliteSkillIcon = (unit.name === '周芷若' && unit._hasKuaiLe) ? ' 💖' : (unit.name === '宋青书' && unit._hasXingFen) ? ' 💗' : (unit.isXiaoZhaoSister ? ' 🦋' : (unit.isXiaoZhaoBrother ? ' 🕷️' : (unit.isXiaoZhao ? ' 🦋' : '')));
+        let eliteSkillIcon = (unit.name === '周芷若' && unit._hasKuaiLe) ? ' 💖' : (unit.name === '宋青书' && unit._hasXingFen) ? ' 💗' : (unit.isXiaoZhaoSister ? ' 🦋' : (unit.isXiaoZhaoBrother ? ' 🕷️' : ''));
         if (!eliteSkillIcon) {
             const sisterHost = allyTeam.find(a => a.isXiaoZhaoSister && a.alive && a.state && a.state._butterflyHost === unit.uid);
             if (sisterHost) eliteSkillIcon = ' 🦋';

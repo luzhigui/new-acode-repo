@@ -388,6 +388,14 @@ export async function playBattle() {
             }
         }
 
+        // 同步小昭·妹永久海克斯到下一回合引擎单位，保证本场后续回合生效
+        const uiXiaoZhao = c.UI && c.UI.allyTeam ? c.UI.allyTeam.find(u => u.isXiaoZhaoBrother) : null;
+        if (uiXiaoZhao && uiXiaoZhao._permanentBuffs && lastStep && lastStep.ally) {
+            const engineXiaoZhao = lastStep.ally.find(u => u.isXiaoZhaoBrother);
+            if (engineXiaoZhao) {
+                engineXiaoZhao._permanentBuffs = uiXiaoZhao._permanentBuffs.map(b => ({ ...b }));
+            }
+        }
         battleState = { ally: lastStep.ally, enemy: lastStep.enemy, round: battleState.round + 1, activeBuffs: nextActiveBuffs, allAllies: battleState.allAllies };
 
         if (c.autoMode || GlobalStore.get('fastForwardActive')) {
