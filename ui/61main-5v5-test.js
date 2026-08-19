@@ -214,7 +214,7 @@ document.addEventListener('DOMContentLoaded', async function() {
                     buffs.push(createBuffObject(pick, duration));
                     // 小昭永久海克斯备份
                     const allyTeam = getState.UI().allyTeam;
-                    const xz = allyTeam.find(u => u.isXiaoZhao);
+                    const xz = allyTeam.find(u => u.isXiaoZhaoSister);
                     if (xz) {
                         const extra = pick === 'holyFlame' ? { col: _randLocal(1, 3), row: _randLocal(1, 3) } : {};
                         addPermanentBuff(xz, pick, C.BUFFS[pick].name, extra);

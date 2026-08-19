@@ -140,7 +140,7 @@ export function showBuffSelection(callback, activeBuffs, selectedBuffIndex, upda
         activeBuffs.push(createBuffObject(key, duration));
         // 小昭永久海克斯存储
         if (allyTeam) {
-            const xiaoZhao = allyTeam.find(u => u.isXiaoZhao);
+            const xiaoZhao = allyTeam.find(u => u.isXiaoZhaoBrother);
             if (xiaoZhao) {
                 addPermanentBuff(xiaoZhao, key, C.BUFFS[key].name, {});
             }
@@ -176,7 +176,7 @@ export function showBugModeBuffSelection(callback, activeBuffs, selectedBuffInde
         }
         activeBuffs.push(createBuffObject(key, duration));
         if (allyTeam) {
-            const xiaoZhao = allyTeam.find(u => u.isXiaoZhao);
+            const xiaoZhao = allyTeam.find(u => u.isXiaoZhaoBrother);
             if (xiaoZhao) {
                 addPermanentBuff(xiaoZhao, key, C.BUFFS[key].name, {});
             }

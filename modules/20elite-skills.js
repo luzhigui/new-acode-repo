@@ -241,6 +241,7 @@ export function computeButterflyMastery(unit) {
 export function addPermanentBuff(xiaoZhao, buffKey, buffName, extraFields = {}) {
     if (!xiaoZhao || !xiaoZhao.isXiaoZhaoBrother) return;
     if (!xiaoZhao._permanentBuffs) xiaoZhao._permanentBuffs = [];
+    if (xiaoZhao._permanentBuffs.some(b => b.key === buffKey)) return;
     xiaoZhao._permanentBuffs.push({
         key: buffKey,
         target: 'ally',

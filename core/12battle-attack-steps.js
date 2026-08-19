@@ -106,7 +106,7 @@ export function resolveAttackHit(unit, target, attackerBuffStats, defenderBuffSt
 
     if (missChance > 0 && rng.nextInt(1,100) <= missChance) {
         const missData = {
-            skipped: true, retry: false, lockedTargetUid: null,
+            skipped: true,
             missFact: {
                 type: 'miss',
                 attacker: { uid: unit.uid, name: unit.name, camp: unit.camp },
@@ -130,7 +130,7 @@ export function resolveAttackHit(unit, target, attackerBuffStats, defenderBuffSt
     }
 
     const allyBuffs = (target.camp === 'ally' && A ? A._activeBuffs : (target.camp === 'enemy' && B ? B._activeBuffs : []));
-    if (target.state._stunned) return { skipped: false, retry: false, lockedTargetUid: null };
+    if (target.state._stunned) return { skipped: false };
     const hasCloudBody = hasBuff(allyBuffs, 'cloudBody') || ((target.isXiaoZhaoSister || target.isXiaoZhaoBrother) && target._permanentBuffs && target._permanentBuffs.some(b => b.key === 'cloudBody'));
     if (target.alive && (target.isWei || hasCloudBody || !target.state._acted)) {
         let dodgeTriggered = false;
@@ -173,7 +173,7 @@ export function resolveAttackHit(unit, target, attackerBuffStats, defenderBuffSt
             emitEvent(unit, 'hp-change', { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: unit.atk, def: unit.def, _stunned: true });
 
             const dodgeData = {
-                skipped: true, retry: false, lockedTargetUid: null,
+                skipped: true,
                 dodgeFact: {
                     type: 'dodge',
                     attacker: { uid: unit.uid, name: unit.name, camp: unit.camp },
@@ -193,7 +193,7 @@ export function resolveAttackHit(unit, target, attackerBuffStats, defenderBuffSt
             return dodgeData;
         }
     }
-    return { skipped: false, retry: false, lockedTargetUid: null };
+    return { skipped: false };
 }
 
 // ==================== 步骤3：伤害计算 ====================
