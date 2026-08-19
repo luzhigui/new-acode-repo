@@ -213,7 +213,7 @@ export async function handleInfo(c, entry) {
                     c.store.dispatch({ type: 'SET_VISUAL', uid: strikeTarget.uid, _isDead: true });
                 }
                 await new Promise(r => setTimeout(r, 1800));
-                GlobalStore.set('bulletTimeActive', true);
+                GlobalStore.set('bulletTimeActive', false);
                 c.isPaused = false;
             }
         }

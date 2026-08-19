@@ -214,7 +214,7 @@ export async function handleHolyTokenDrop(c, entry) {
 
     icon.remove();
     c.updateScoreBadge();
-    GlobalStore.set('bulletTimeActive', true);
+    GlobalStore.set('bulletTimeActive', false);
     c.isPaused = false;
 }
 
