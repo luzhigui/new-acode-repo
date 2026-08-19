@@ -5,7 +5,7 @@ export const VER = 'core/10battle-attack.js V5.5.1';
 import { CONFIG, DEF_TAUNT, HP_TAUNT } from './01config-5v5-test.js';
 import { hasBuff, makeFXSnapshot } from './03battle-utils.js';
 
-import { computeBuffStats, applyBuffEffectsBeforeAttack, applyBuffEffectsAfterAttack } from './04buff-system.js';
+import { computeBuffStats } from './04buff-system.js';
 import {
     selectAttackTarget,
     resolveAttackHit,
@@ -94,9 +94,17 @@ export async function processUnitAttack(unit, allySide, enemySide, log, A, B, st
             }
             log.push(dg);
         }
-        if (hitResult.retry) {
-            const retryUid = hitResult.lockedTargetUid || null;
-            await processUnitAttack(unit, allySide, enemySide, log, A, B, state, doubleStrikeUnitUid, retryUid);
+        if (hitResult.extraRequests && hitResult.extraRequests.length > 0) {
+            hitResult.extraRequests.sort((a, b) => (a.priority || 0) - (b.priority || 0));
+            const executedUids = new Set();
+            for (const req of hitResult.extraRequests) {
+                if (executedUids.has(req.unit.uid)) continue;
+                if (!req.unit.alive) continue;
+                executedUids.add(req.unit.uid);
+                if (req.actedMode === 'allow') req.unit.state._acted = false;
+                const retryUid = req.targetUid || null;
+                await processUnitAttack(req.unit, allySide, enemySide, log, A, B, state, doubleStrikeUnitUid, retryUid);
+            }
         }
         return true;
     }
@@ -151,8 +159,9 @@ export async function processUnitAttack(unit, allySide, enemySide, log, A, B, st
         delete unit._pendingDerivedEntries;
     }
 
+    const afterDamageExtraRequests = [];
     const afterDamageDeclarations = [];
-    eventBus.emit('afterDamageApplied', { unit, target, dmg: dmgCalc.dmg, group, allySide, enemySide, log, A, B, declarations: afterDamageDeclarations });
+    eventBus.emit('afterDamageApplied', { unit, target, dmg: dmgCalc.dmg, group, allySide, enemySide, log, A, B, declarations: afterDamageDeclarations, extraRequests: afterDamageExtraRequests });
 
     if (dmgResult.fortifyDeclarations && dmgResult.fortifyDeclarations.length > 0) {
         afterDamageDeclarations.push(...dmgResult.fortifyDeclarations);
@@ -174,6 +183,7 @@ export async function processUnitAttack(unit, allySide, enemySide, log, A, B, st
                 entry.healUnitUid = decl.source ? decl.source.uid : null;
             }
             if (decl.buffType) entry.buffType = decl.buffType;
+            if (decl.isDouble) entry.isDouble = decl.isDouble;
             if (decl.attackerUid) entry.attackerUid = decl.attackerUid;
             if (decl.primaryUid) entry.primaryUid = decl.primaryUid;
             if (decl.splashUids) entry.splashUids = decl.splashUids;
@@ -203,11 +213,25 @@ export async function processUnitAttack(unit, allySide, enemySide, log, A, B, st
         }
     }
 
+    if (afterDamageExtraRequests.length > 0) {
+        afterDamageExtraRequests.sort((a, b) => (a.priority || 0) - (b.priority || 0));
+        const executedUids = new Set();
+        for (const req of afterDamageExtraRequests) {
+            if (executedUids.has(req.unit.uid)) continue;
+            if (!req.unit.alive) continue;
+            executedUids.add(req.unit.uid);
+            if (req.actedMode === 'allow') req.unit.state._acted = false;
+            const retryTargetUid = req.targetUid || (target && target.alive ? target.uid : null);
+            await processUnitAttack(req.unit, allySide, enemySide, log, A, B, state, null, retryTargetUid);
+        }
+    }
+
     if (!unit._isLinkAttack) unit.state._acted = true;
 
     group._events = (group._events || []).concat(flushBattleEvents());
 
-    const afterAttackData = { unit, target, dmg: dmgCalc.dmg, group, allySide, enemySide, log, A, B, state, retry: false, retryTargetUid: null, declarations: [] };
+    const extraRequests = [];
+    const afterAttackData = { unit, target, dmg: dmgCalc.dmg, group, allySide, enemySide, log, A, B, state, declarations: [], extraRequests };
     await eventBus.emit('afterAttack', afterAttackData);
     if (afterAttackData.declarations.length > 0) {
         const clawExecuted = resolveAfterDamageEffects(afterAttackData.declarations, unit, target, group);
@@ -236,10 +260,20 @@ export async function processUnitAttack(unit, allySide, enemySide, log, A, B, st
         }
         }
     }
-    if (afterAttackData.retry && unit.alive) {
-        const retryTargetUid = afterAttackData.retryTargetUid || (target && target.alive ? target.uid : null);
-        unit.state._acted = false;
-        await processUnitAttack(unit, allySide, enemySide, log, A, B, state, null, retryTargetUid);
+    if (extraRequests.length > 0) {
+        extraRequests.sort((a, b) => (a.priority || 0) - (b.priority || 0));
+        const executedUids = new Set();
+        for (const req of extraRequests) {
+            if (executedUids.has(req.unit.uid)) continue;
+            if (!req.unit.alive) continue;
+            executedUids.add(req.unit.uid);
+            req.unit.state._acted = false;
+            const retryTargetUid = req.targetUid || (target && target.alive ? target.uid : null);
+            await processUnitAttack(req.unit, allySide, enemySide, log, A, B, state, null, retryTargetUid);
+            if (req.actedMode === 'restore') {
+                req.unit.state._acted = req.actedSnapshot;
+            }
+        }
     }
 
     if (target.camp === 'ally') {

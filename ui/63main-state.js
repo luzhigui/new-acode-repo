@@ -8,6 +8,7 @@ import { GlobalStore } from '../infra/54-global-store.js';
 import { updateUI, spawnVictoryEffects, setRenderStore } from './62ui-render-5v5-test.js';
 import { tickBuffDurations as _tickBuffDurations } from './65main-battle.js';
 import { updateBuffSlots } from './68ui-controls.js';
+import { showBattleReport } from './64main-dialogs.js';
 import { AudioManager } from '../modules/22audio-manager.js';
 
 const S = STATE;
@@ -59,3 +60,4 @@ GlobalStore.setUIHandler('tickBuffDurations', () => {
     if (typeof GlobalStore.getUIHandler('updateBuffSlots') === 'function') GlobalStore.getUIHandler('updateBuffSlots')();
 });
 GlobalStore.setUIHandler('fadeBGMTo', (targetVol, durationMs) => { AudioManager.fadeTo(targetVol, durationMs); });
+GlobalStore.setUIHandler('showBattleReport', showBattleReport);

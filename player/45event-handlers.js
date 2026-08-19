@@ -110,36 +110,33 @@ export async function handleInfo(c, entry) {
         const mod = await import('../fx/86fx-butterfly-spider.js');
         return mod[name];
     }
-    if (entry.text) {
-        if (entry.text.includes('🦋 蝶变') && entry.text.includes('化为蝴蝶附身于')) {
-            const sister = c.UI.allyTeam?.find(u => u.isXiaoZhaoSister && u.alive);
-            const hostName = entry.text.match(/附身于 (.+)！/)?.[1];
-            const host = hostName ? c.UI.allyTeam?.find(u => u.name === hostName) : null;
-            if (sister && host) {
-                const showButterflyFlyOut = await getButterflyFx('showButterflyFlyOut');
-                showButterflyFlyOut(sister, host);
-            }
-        } else if (entry.text.includes('🦋 蝶变') && entry.text.includes('飞回')) {
-            const sister = c.UI.allyTeam?.find(u => u.isXiaoZhaoSister && u.alive);
-            if (sister) {
-                const showButterflyFlyBack = await getButterflyFx('showButterflyFlyBack');
-                const hostUid = (sister.state && sister.state._butterflyHost) || sister._butterflyHost;
-                const host = hostUid ? c.UI.allyTeam?.find(u => u.uid === hostUid) : null;
-                if (host) showButterflyFlyBack(host, sister);
-            }
-        } else if (entry.text.includes('🕷️ 飞天')) {
-            const brother = c.UI.allyTeam?.find(u => u.isXiaoZhaoBrother && u.alive);
-            if (brother) {
-                const showSpiderAscend = await getButterflyFx('showSpiderAscend');
-                showSpiderAscend(brother);
-            }
-        } else if (entry.text.includes('🕷️ 蛛落')) {
-            const brother = c.UI.allyTeam?.find(u => u.isXiaoZhaoBrother && u.alive);
-            if (brother) {
-                c.store.dispatch({ type: 'SET_VISUAL', uid: brother.uid, _flyMode: null, _acted: false });
-                const showSpiderDescend = await getButterflyFx('showSpiderDescend');
-                showSpiderDescend(brother);
-            }
+    if (entry.butterflyAction === 'attach' && entry.sisterUid && entry.hostUid) {
+        const sister = c.UI.allyTeam?.find(u => u.uid === entry.sisterUid && u.alive);
+        const host = c.UI.allyTeam?.find(u => u.uid === entry.hostUid);
+        if (sister && host) {
+            const showButterflyFlyOut = await getButterflyFx('showButterflyFlyOut');
+            showButterflyFlyOut(sister, host);
+        }
+    } else if (entry.butterflyAction === 'return' && entry.sisterUid) {
+        const sister = c.UI.allyTeam?.find(u => u.uid === entry.sisterUid && u.alive);
+        if (sister) {
+            const showButterflyFlyBack = await getButterflyFx('showButterflyFlyBack');
+            const hostUid = (sister.state && sister.state._butterflyHost) || sister._butterflyHost;
+            const host = hostUid ? c.UI.allyTeam?.find(u => u.uid === hostUid) : null;
+            if (host) showButterflyFlyBack(host, sister);
+        }
+    } else if (entry.spiderAction === 'fly' && entry.spiderUid) {
+        const brother = c.UI.allyTeam?.find(u => u.uid === entry.spiderUid && u.alive);
+        if (brother) {
+            const showSpiderAscend = await getButterflyFx('showSpiderAscend');
+            showSpiderAscend(brother);
+        }
+    } else if (entry.spiderAction === 'return' && entry.spiderUid) {
+        const brother = c.UI.allyTeam?.find(u => u.uid === entry.spiderUid && u.alive);
+        if (brother) {
+            c.store.dispatch({ type: 'SET_VISUAL', uid: brother.uid, _flyMode: null, _acted: false });
+            const showSpiderDescend = await getButterflyFx('showSpiderDescend');
+            showSpiderDescend(brother);
         }
     }
 
@@ -160,9 +157,8 @@ export async function handleInfo(c, entry) {
                 if (zhou) showHeartEffect(zhou);
                 if (zhou && zhou.alive) showPinkFlash(zhou);
             });
-            if (zhou) {
-                let match = entry.text.match(/被扣除(\d+)点血量/);
-                if (match) showDamageFloat(zhou, parseInt(match[1]));
+            if (zhou && entry.hpDeduct) {
+                showDamageFloat(zhou, entry.hpDeduct);
             }
         }
         if (entry.buffType === 'elite_kuaile_heal' && entry.zhouUid) {
@@ -170,36 +166,15 @@ export async function handleInfo(c, entry) {
             let match = entry.text.match(/回复(\d+)/);
             if (match && unit) showHealFloat(unit, parseInt(match[1]));
         }
-        if (entry.buffType !== 'elite_kuaile_heal' && entry.text && entry.text.includes('🦋 乾坤衍生') && entry.text.includes('攻击+')) {
-            const atkMatch = entry.text.match(/攻击\+(\d+)/);
-            if (atkMatch) {
-                const atkGain = parseInt(atkMatch[1]);
-                const nameMatch = entry.text.match(/(\S+)攻击\+/);
-                let atkTarget = null;
-                if (nameMatch) {
-                    atkTarget = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.name === nameMatch[1]);
-                }
-                if (atkTarget) {
-                    setTimeout(() => showAtkBuffFloat(atkTarget, atkGain), 180);
-                }
-            }
-        }
-        if (entry.text && entry.text.includes('🦋 乾坤衍生') && entry.text.includes('攻击+')) {
-            const atkMatch = entry.text.match(/攻击\+(\d+)/);
-            if (atkMatch) {
-                const atkGain = parseInt(atkMatch[1]);
-                const nameMatch = entry.text.match(/(\S+)攻击\+/);
-                let atkTarget = null;
-                if (nameMatch) {
-                    atkTarget = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.name === nameMatch[1]);
-                }
-                if (atkTarget) {
-                    setTimeout(() => showAtkBuffFloat(atkTarget, atkGain), 180);
-                }
+        if (entry.buffType === 'qiankun_atk' && entry.atkTargetUid && entry.atkGain) {
+            const atkTarget = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.uid === entry.atkTargetUid);
+            if (atkTarget) {
+                setTimeout(() => showAtkBuffFloat(atkTarget, entry.atkGain), 180);
             }
         }
 
-        if (entry.uidA && entry.uidD && entry.text && entry.text.includes('🕷️ 蛛袭')) {
+
+        if (entry.isSpiderStrike && entry.uidA && entry.uidD) {
             const spiderUnit = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.uid === entry.uidA);
             const strikeTarget = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.uid === entry.uidD);
             if (spiderUnit && strikeTarget) {
@@ -236,20 +211,7 @@ export async function handleInfo(c, entry) {
             let healUnit = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.uid === entry.healUnitUid);
             if (healUnit) showHealFloat(healUnit, entry.healAmount);
         }
-        if (entry.text && entry.text.includes('攻击+')) {
-            const atkMatch = entry.text.match(/攻击\+(\d+(?:\.\d+)?)/);
-            if (atkMatch) {
-                const atkGain = parseFloat(atkMatch[1]);
-                const nameMatch = entry.text.match(/(\S+)攻击\+/);
-                let atkTarget = null;
-                if (nameMatch) {
-                    atkTarget = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.name === nameMatch[1]);
-                }
-                if (atkTarget && atkGain > 0) {
-                    setTimeout(() => showAtkBuffFloat(atkTarget, atkGain), 180);
-                }
-            }
-        }
+
         if (entry.reboundDmg && entry.attackerUid) {
             let attacker = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.uid === entry.attackerUid);
             if (attacker) showDamageFloat(attacker, entry.reboundDmg);

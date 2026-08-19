@@ -1,66 +1,5 @@
-<!-- tools/111-elite-power-eval.html - 光明顶5v5 明教精英战力评测 -->
-<!-- V5.5.0 | ~12000 bytes | 2026-08-16 独立页面跑张无忌/韦一笑/小昭姊/小昭妹 6关×N场 -->
-<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>精英战力评测</title>
-<style>
-*{box-sizing:border-box;margin:0;padding:0}
-body{background:#1a1a2e;color:#eee;font-family:monospace;padding:16px;max-width:1000px;margin:0 auto}
-h1{color:#ffd700;font-size:20px;margin-bottom:8px}
-.tip{color:#888;font-size:12px;margin-bottom:12px;line-height:1.6}
-.config{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:16px}
-.config label{color:#ffd700;font-weight:bold}
-.config input{width:90px;padding:8px;border-radius:6px;border:1px solid #555;background:#111;color:#eee;font-size:14px;text-align:center}
-.config .stage-group{display:flex;gap:6px;align-items:center}
-.config .stage-group label{color:#aaa;font-weight:normal;font-size:12px}
-button{padding:10px 20px;border:none;border-radius:8px;font-weight:bold;cursor:pointer;font-family:monospace;font-size:13px}
-#startBtn{background:#ffd700;color:#1a1a2e}
-button:disabled{opacity:0.4;cursor:not-allowed}
-.progress{color:#4fc3f7;font-size:12px;min-height:20px;margin-bottom:8px}
-.section{margin-bottom:24px;background:#16213e;border:1px solid #333;border-radius:12px;padding:16px}
-.section h2{color:#ffd700;font-size:16px;margin-bottom:12px}
-table{width:100%;border-collapse:collapse;margin-top:12px;font-size:12px}
-th{background:#2a2a4e;color:#ffd700;padding:8px;text-align:center}
-td{padding:6px 8px;border-bottom:1px solid #333;color:#ccc;text-align:center}
-.strong{color:#f44336;font-weight:bold}
-.weak{color:#4fc3f7}
-.empty{color:#888;text-align:center;margin-top:12px}
-        #labelAlly, #labelEnemy { display: none; }
-        .v-th{writing-mode:vertical-rl;text-orientation:upright;height:70px;white-space:nowrap;vertical-align:bottom}
-</style>
-</head>
-<body>
-<h1>⚔️ 精英战力评测</h1>
-<p class="tip">
-自动跑 6 关 × N 场模拟战斗，输出各明教精英（张无忌 / 韦一笑 / 小昭·姊 / 小昭·妹）带队胜率、场均输出、场均承伤、存活率。<br>
-采用主代码 doInitBattle 生成阵容，若无该精英则替换一名普通单位。固定六大派先手，无海克斯。
-</p>
-<div class="config">
-<label>每关每精英场次：</label>
-<input type="number" id="runsInput" value="20" min="5" max="100" step="5">
-<div class="stage-group">
-<label>关卡：</label>
-<label><input type="checkbox" class="stage-check" value="1" checked>1</label>
-<label><input type="checkbox" class="stage-check" value="2" checked>2</label>
-<label><input type="checkbox" class="stage-check" value="3" checked>3</label>
-<label><input type="checkbox" class="stage-check" value="4" checked>4</label>
-<label><input type="checkbox" class="stage-check" value="5" checked>5</label>
-<label><input type="checkbox" class="stage-check" value="6" checked>6</label>
-</div>
-<button id="startBtn">▶ 开始评测</button>
-</div>
-<div class="progress" id="progress"></div>
-<div class="section">
-<h2>📊 结果</h2>
-<div id="result"><div class="empty">尚未运行</div></div>
-</div>
-<div id="labelEnemy"></div>
-<div id="labelAlly"></div>
-
-<script type="module">
+// tools/112-elite-eval.js - 光明顶5v5 明教精英战力评测（融合进 102 工具箱 tab）
+// 由 tools/111-elite-power-eval.html 改造 | 跑张无忌/韦一笑/小昭姊/小昭妹 6关×N场
 import { createRoundStepper } from '../core/11battle-round.js';
 import { doInitBattle } from '../ui/65main-battle.js';
 import { eventBus } from '../infra/50-event-bus.js';
@@ -77,19 +16,19 @@ const configs = [
     { name: '小昭·妹', flag: 'isXiaoZhaoBrother', role: '远程', m: 107 }
 ];
 
-const startBtn = document.getElementById('startBtn');
-const runsInput = document.getElementById('runsInput');
-const progressEl = document.getElementById('progress');
-const resultEl = document.getElementById('result');
+const startBtn = document.getElementById('eliteStartBtn');
+const runsInput = document.getElementById('eliteRunsInput');
+const progressEl = document.getElementById('eliteProgress');
+const resultEl = document.getElementById('eliteResult');
 
 startBtn.addEventListener('click', async () => {
-    const stages = Array.from(document.querySelectorAll('.stage-check:checked')).map(cb => parseInt(cb.value));
+    const stages = Array.from(document.querySelectorAll('.elite-stage-check:checked')).map(cb => parseInt(cb.value));
     const RUNS = parseInt(runsInput.value) || 20;
     if (stages.length === 0) { alert('请至少选择一个关卡'); return; }
 
     startBtn.disabled = true;
     progressEl.textContent = '开始评测...';
-    resultEl.innerHTML = '<div class="empty">运行中...</div>';
+    resultEl.innerHTML = '<div class="elite-empty">运行中...</div>';
 
     const results = {};
     const totalCombos = configs.length * stages.length * RUNS;
@@ -215,7 +154,7 @@ startBtn.addEventListener('click', async () => {
         renderResults(results, stages, RUNS);
         progressEl.textContent = '✅ 全部完成';
     } catch (e) {
-        resultEl.innerHTML = `<div class="empty">出错：${e.message}</div>`;
+        resultEl.innerHTML = `<div class="elite-empty">出错：${e.message}</div>`;
         progressEl.textContent = '❌ 评测异常';
     } finally {
         startBtn.disabled = false;
@@ -223,9 +162,9 @@ startBtn.addEventListener('click', async () => {
 });
 
 function renderResults(results, stages, runs) {
-    let html = '<table><tr><th>精英</th>';
+    let html = '<table class="elite-table"><tr><th>精英</th>';
     for (const st of stages) {
-        html += `<th class="v-th">第${st}关</th>`;
+        html += `<th class="elite-v-th">第${st}关</th>`;
     }
     html += '<th>总胜率</th><th>场均输出</th><th>场均承伤</th><th>存活率</th></tr>';
 
@@ -255,6 +194,3 @@ function renderResults(results, stages, runs) {
     html += '</table>';
     resultEl.innerHTML = html;
 }
-</script>
-</body>
-</html>

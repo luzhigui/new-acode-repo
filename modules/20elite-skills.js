@@ -197,7 +197,7 @@ export function spiderReturn(unit, allyTeam, enemySide, log) {
     emitEvent(unit, 'hp-change', { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: unit.atk, def: unit.def, _flyMode: null, _spiderFlying: false });
     emitEvent(unit, 'pos-change', { pos: unit.pos });
 
-    log.push(renderSpiderReturnFact({ unitName: unit.name, pos: unit.pos }));
+    log.push(renderSpiderReturnFact({ unitName: unit.name, spiderUid: unit.uid, pos: unit.pos }));
 
     const aliveEnemies = enemySide.filter(u => u.alive);
     if (aliveEnemies.length > 0) {

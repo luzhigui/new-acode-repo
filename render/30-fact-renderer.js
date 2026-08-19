@@ -117,7 +117,7 @@ export function renderAttackFact(fact) {
         const reduction = Math.floor(dmgCalc.raw) - dmgResult.dmg;
         formulaText += ` → 减伤${reduction} = ${dmgResult.dmg}`;
     }
-    group.entries.push({type:'detail', text:`<span class="gray small">计算：${formulaText}</span>`});
+    group.entries.push({type:'detail', isDamageCalc:true, text:`<span class="gray small">计算：${formulaText}</span>`});
     group.entries.push({type:'damage-text', deadFlag:dmgResult.dead, text:`<span class="damage-line ${dmgResult.dead?'brush-red':''} ${ac}">${dmgResult.dead?'💀击杀💀 ':''}${campA} ${unit.name}</span> 造成 <span class="red">${dmgResult.dmg}</span> 伤害，<span class="${dc}">${campD} ${target.name}</span> ${dmgResult.hpBefore} → ${Math.floor(target.hp)} ${dmgResult.dead?'💀阵亡':''}`});
     for (const entry of dmgResult.bonusEntries) group.entries.push(entry);
     if (fact.entries) for (const e of fact.entries) group.entries.push(e);
@@ -187,10 +187,10 @@ export function renderImmuneFact(fact) {
 export function renderDropFact(fact) {
     if (!fact) return null;
     if (fact.kind === 'token') {
-        return { type:'info', text:`<span class="gold">🔥 圣火令掉落！${fact.killerName} 击杀 ${fact.victimName}，获得1枚圣火令！当前总数：${fact.total}</span>`, fastEntry: true, unitUid: fact.unitUid };
+        return { type:'info', text:`<span class="gold">🔥 圣火令掉落！${fact.killerName} 击杀 ${fact.victimName}，获得1枚圣火令！当前总数：${fact.total}</span>`, fastEntry: true, unitUid: fact.unitUid, dropKind: 'token' };
     }
     if (fact.kind === 'chest') {
-        return { type:'info', text:`<span class="gold">🎁 宝箱掉落！${fact.killerName} 击杀 ${fact.victimName}，获得1个宝箱！当前总数：${fact.total}</span>`, fastEntry: true, unitUid: fact.unitUid };
+        return { type:'info', text:`<span class="gold">🎁 宝箱掉落！${fact.killerName} 击杀 ${fact.victimName}，获得1个宝箱！当前总数：${fact.total}</span>`, fastEntry: true, unitUid: fact.unitUid, dropKind: 'chest' };
     }
     return null;
 }
@@ -406,7 +406,7 @@ export function renderSpiderTransformFact(fact) {
     return { type:'info', text:`<span class="gold">🕷️ 蛛变：${fact.unitName} 变换为<span class="gold">${fact.newRole}</span>（已精通${fact.mastered}/4）</span>` };
 }
 export function renderSpiderReturnFact(fact) {
-    return { type:'info', text:`<span class="gold">🕷️ 蛛落：${fact.unitName} 从天而降，落在${fact.pos}号位！</span>` };
+    return { type:'info', spiderAction:'return', spiderUid: fact.spiderUid, text:`<span class="gold">🕷️ 蛛落：${fact.unitName} 从天而降，落在${fact.pos}号位！</span>` };
 }
 export function renderSpiderStrikeFact(fact) {
     return { type:'info', text:`<span class="gold">🕷️ 蛛袭：${fact.unitName} 落地攻击 ${fact.targetName}，穿透${fact.penetrationDmg} + 精通${fact.extraDmg} = ${fact.totalDmg} 伤害！</span>`, uidA: fact.unitUid, uidD: fact.targetUid, isDead: fact.isDead, isSpiderStrike: true, needsSeparator: true };
@@ -435,7 +435,8 @@ export function renderXinHunFact(fact) {
         text:`<span class="gold">💒 新婚：${fact.attackerName}攻击，${fact.targetName}被扣除${fact.hpDeduct}点血量，叠加一层快乐(${Math.round(fact.healPct*100)}%)！当前快乐层数：${fact.stackCount}</span>`,
         buffType:'elite_xinhun',
         zhouUid: fact.zhouUid,
-        zhouHpAfter: fact.zhouHpAfter
+        zhouHpAfter: fact.zhouHpAfter,
+        hpDeduct: fact.hpDeduct
     };
 }
 export function renderXingFenCostFact(fact) {
@@ -469,13 +470,13 @@ export function renderQianKunDerivedFact(fact) {
     };
 }
 export function renderButterflyAttachFact(fact) {
-    return { type:'info', text:`<span class="gold">🦋 蝶变：${fact.sisterName} 化为蝴蝶附身于 ${fact.hostName}！方向：${fact.flyDirection === 'left' ? '←左' : '右→'} 攻+${fact.atkTransfer} 防+${fact.defTransfer} 血上限+${fact.hpTransfer}</span>`, needsSeparator: true };
+    return { type:'info', butterflyAction:'attach', sisterUid: fact.sisterUid, hostUid: fact.hostUid, text:`<span class="gold">🦋 蝶变：${fact.sisterName} 化为蝴蝶附身于 ${fact.hostName}！方向：${fact.flyDirection === 'left' ? '←左' : '右→'} 攻+${fact.atkTransfer} 防+${fact.defTransfer} 血上限+${fact.hpTransfer}</span>`, needsSeparator: true };
 }
 export function renderButterflyNoHostFact(fact) {
-    return { type:'info', text:`<span class="red">🦋 蝶变：${fact.unitName} 无队友可附身，香消玉殒！</span>` };
+    return { type:'info', butterflyAction:'noHost', sisterUid: fact.sisterUid, text:`<span class="red">🦋 蝶变：${fact.unitName} 无队友可附身，香消玉殒！</span>` };
 }
 export function renderButterflyReturnFact(fact) {
-    return { type:'info', text:`<span class="gold">🦋 蝶变：${fact.sisterName} 从 ${fact.hostName} 飞回，恢复原形！攻 ${fact.sisterAtk} 防 ${fact.sisterDef} 血 ${fact.sisterHp}</span>`, needsSeparator: true };
+    return { type:'info', butterflyAction:'return', sisterUid: fact.sisterUid, hostUid: fact.hostUid, text:`<span class="gold">🦋 蝶变：${fact.sisterName} 从 ${fact.hostName} 飞回，恢复原形！攻 ${fact.sisterAtk} 防 ${fact.sisterDef} 血 ${fact.sisterHp}</span>`, needsSeparator: true };
 }
 export function renderButterflyHostDeadFact(fact) {
     return { type:'info', text:`<span class="gold">🦋 蝶变：宿主已阵亡，${fact.sisterName} 被迫返回！</span>`, uidD: fact.sisterUid, isDead: fact.isDead };
@@ -483,7 +484,7 @@ export function renderButterflyHostDeadFact(fact) {
 
 // ==================== 小昭·妹 飞天 / 拒马 / 连击 ====================
 export function renderSpiderFlyFact(fact) {
-    return { type:'info', text:`<span class="gold">🕷️ 飞天：${fact.unitName} ${fact.reason}，免疫本次攻击的 ${fact.incomingDmg||0} 点伤害，化为蜘蛛遁走！剩余次数：${fact.remaining}</span>` };
+    return { type:'info', spiderAction:'fly', spiderUid: fact.spiderUid, text:`<span class="gold">🕷️ 飞天：${fact.unitName} ${fact.reason}，免疫本次攻击的 ${fact.incomingDmg||0} 点伤害，化为蜘蛛遁走！剩余次数：${fact.remaining}</span>` };
 }
 export function renderXiaoZhaoHorseFact(fact) {
     return {type:'buff-summon', text:`<span class="gold">🐴 小昭·妹的拒马在${fact.pos}号位出现！</span>`, buffType:'summon', horsePos: fact.pos, horseUid: fact.horseUid, horseTaunt: '嗷——！'};

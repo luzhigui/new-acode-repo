@@ -338,7 +338,9 @@ export function createXiaoZhaoSisterComponent() {
             emitEvent(sister, 'hp-change', { hp:sister.hp, maxHp:sister.maxHp, alive:sister.alive, atk:sister.atk, def:sister.def, _flyMode:'butterfly', _butterflyHost:sister.state._butterflyHost });
             log.push(renderButterflyAttachFact({
                 sisterName: sister.name,
+                sisterUid: sister.uid,
                 hostName: host.name,
+                hostUid: host.uid,
                 flyDirection,
                 atkTransfer,
                 defTransfer,
@@ -410,7 +412,9 @@ export function createXiaoZhaoSisterComponent() {
             });
             log.push(renderButterflyReturnFact({
                 sisterName: sister.name,
+                sisterUid: sister.uid,
                 hostName: host ? host.name : '宿主',
+                hostUid: host ? host.uid : null,
                 sisterAtk: sister.atk,
                 sisterDef: sister.def,
                 sisterHp: sister.hp
@@ -470,7 +474,7 @@ export function createXiaoZhaoBrotherComponent() {
                         brother.state._flyMode = 'spider';
                         brother.state._acted = true;
                         emitEvent(brother, 'hp-change', { hp:brother.hp, maxHp:brother.maxHp, alive:brother.alive, atk:brother.atk, def:brother.def, _flyMode:'spider', _spiderFlying:true });
-                        brother._flyLogText = renderSpiderFlyFact({ unitName: brother.name, reason, incomingDmg, remaining: brother._spiderRemaining }).text;
+                        brother._flyLogText = renderSpiderFlyFact({ unitName: brother.name, spiderUid: brother.uid, reason, incomingDmg, remaining: brother._spiderRemaining }).text;
                     },
                     onExit() {
                         brother.state._spiderFlying = false;
@@ -582,10 +586,15 @@ export function createXiaoZhaoBrotherComponent() {
                 const chance = (s.xiaoZhaoDoubleStrikeChance || 80);
                 if (getBattleRng().nextInt(1, 100) <= chance) {
                     unit._xiaoZhaoDoubleStriked = true;
-                    unit.state._acted = false;
                     log.push(renderSpiderDoubleStrikeFact({}));
-                    data.retry = true;
-                    data.retryTargetUid = (target && target.alive) ? target.uid : null;
+                    if (!data.extraRequests) data.extraRequests = [];
+                    data.extraRequests.push({
+                        unit,
+                        targetUid: (target && target.alive) ? target.uid : null,
+                        reason: 'xiaoZhaoDoubleMiss',
+                        actedMode: 'allow',
+                        priority: 30
+                    });
                 }
             });
         },

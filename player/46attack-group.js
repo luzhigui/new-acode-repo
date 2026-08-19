@@ -130,28 +130,13 @@ export async function handleAttackGroup(c, entry, roundResult, abortSig, isFirst
                 let selfTarget = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.uid === entry2.selfDmgUid);
                 if (selfTarget) showDamageFloat(selfTarget, entry2.selfDmg);
             }
-            if (entry2.text && entry2.text.includes('🦋 乾坤衍生') && entry2.text.includes('攻击+')) {
-                if (entry2.atkTargetUid && entry2.atkGain) {
-                    const atkTarget = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.uid === entry2.atkTargetUid);
-                    if (atkTarget) {
-                        setTimeout(() => showAtkBuffFloat(atkTarget, entry2.atkGain), 180);
-                    }
-                } else {
-                    const atkMatch = entry2.text.match(/攻击\+(\d+)/);
-                    if (atkMatch) {
-                        const atkGain = parseInt(atkMatch[1]);
-                        const nameMatch = entry2.text.match(/(\S+)攻击\+/);
-                        let atkTarget = null;
-                        if (nameMatch) {
-                            atkTarget = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.name === nameMatch[1]);
-                        }
-                        if (atkTarget) {
-                            setTimeout(() => showAtkBuffFloat(atkTarget, atkGain), 180);
-                        }
-                    }
+            if (entry2.buffType === 'qiankun_atk' && entry2.atkTargetUid && entry2.atkGain) {
+                const atkTarget = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.uid === entry2.atkTargetUid);
+                if (atkTarget) {
+                    setTimeout(() => showAtkBuffFloat(atkTarget, entry2.atkGain), 180);
                 }
             }
-            if(entry.isBlock&&entry2.text&&entry2.text.includes('休息回复20点生命')&&unitA){c.store.dispatch({ type: 'SET_VISUAL', uid: unitA.uid, _resting: true });blockDelay = true; showHealFloat(unitA, entry.healAmount || 10);}
+
             if (entry2.type === 'buff-splash') {
                 if (entry2.buffType === 'meteor_splash' && entry2.attackerUid && entry2.primaryUid && entry2.splashUids && entry2.splashUids.length > 0) {
                     let attacker = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.uid === entry2.attackerUid);
@@ -186,7 +171,7 @@ export async function handleAttackGroup(c, entry, roundResult, abortSig, isFirst
             if (entry2.type === 'detail' || entry2.type === 'info' || entry2.type === 'buff-bonus' || entry2.type === 'buff-splash') {
                 await new Promise(r => setTimeout(r, 120));
             }
-            if (entry2.type === 'detail' && entry2.text && entry2.text.includes('计算：') && !entry._dmgFloatShown) {
+            if (entry2.isDamageCalc && !entry._dmgFloatShown) {
                 entry._dmgFloatShown = true;
                 if (unitD && entry._dmg !== undefined && !entry.isBlock && !entry.isMiss && !entry.isDodge) {
                     showDamageFloat(unitD, entry._dmg);

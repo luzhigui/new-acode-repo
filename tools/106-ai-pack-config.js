@@ -58,6 +58,8 @@ export const ALL_PROJECT_FILES = [
     '../infra/54-global-store.js', '../modules/29battle-init.js', '../modules/24battle-store.js',
     '../modules/25elite-imperial.js', '../modules/26elite-sixsects.js', '../modules/27elite-mingjiao.js',
     '../modules/28buff-tools.js',
+    // render（渲染层）
+    '../render/30-fact-renderer.js', '../render/32-grid-render.js',
     // content（游戏内容数据）
     '../content/200game-data.json',
     // tests（体检规则与自动测试）
@@ -77,6 +79,8 @@ export const ALL_PROJECT_FILES = [
     '../tools/102-toolkit.html', '../tools/103-toolkit.js', '../tools/104-toolkit-more.js',
     '../tools/105-shop.html', '../tools/106-ai-pack-config.js',
     '../tools/107-battle-log-viewer.js', '../tools/108-hex-dashboard.js',
+    '../tools/109-role-balance.js', '../tools/110-role-balance-random.html',
+    '../tools/112-elite-eval.js', '../tools/创意-精英战力评测脚本.js',
     // 移除了：52-version-calibrator / 53-dead-code-scanner / 54-filelist-checker（这些工作直接问 AI 更高效）
     // 移除了：100build-5v5.cjs（构建脚本已废弃为 .TXT，不再随包复制）
     '../tools/101auto-battle-utils.js',
@@ -97,6 +101,7 @@ export const FILE_GROUPS = [
     { name: 'ui', displayName: 'UI 主控', prefix: '../ui/' },
     { name: 'fx', displayName: '特效', prefix: '../fx/' },
     { name: 'modules', displayName: '模块', prefix: '../modules/' },
+    { name: 'render', displayName: '渲染层', prefix: '../render/' },
     { name: 'content', displayName: '游戏内容数据', prefix: '../content/' },
     { name: 'tests', displayName: '测试与体检', prefix: '../tests/' },
     { name: 'tools', displayName: '工具箱自身', prefix: '../tools/' },
@@ -128,6 +133,10 @@ export const GROUP_PROMPTS = {
     '模块': {
         before: '请深入分析模块代码（精英技能、错误捕获、音频管理）。无需输出详细分析，收到全部代码后直接开始协助开发。',
         after: '模块代码发送完毕。'
+    },
+    '渲染层': {
+        before: '请深入分析渲染层代码（事实渲染器、网格渲染）。无需输出详细分析，收到全部代码后直接开始协助开发。',
+        after: '渲染层代码发送完毕。'
     },
     '游戏内容数据': {
         before: '请深入分析游戏内容数据（角色、技能、Buff、台词等配置）。无需输出详细分析，收到全部代码后直接开始协助开发。',

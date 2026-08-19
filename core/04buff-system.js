@@ -12,7 +12,6 @@ import { CONFIG } from './01config-5v5-test.js';
 import { hasBuff, getUnitRow, getUnitCol, getAdjacentPositions } from './03battle-utils.js';
 import { emitEvent, applyStatChange, applyMaxHpChange, query, getBattleRng, swapUnitPositions, moveUnitPosition } from './13battle-shared.js';
 import { EXECUTION_LAYER as L, EFFECT_TYPES } from '../infra/50-event-bus.js';
-import { processUnitAttack } from './10battle-attack.js';
 import {
     renderBuffSummaryFact,
     renderCarryApplyFact,
@@ -180,15 +179,6 @@ export function logBuffSummary(allyTeam, log, doubleStrikeUid) {
 
 // Buff-事件注册：嗜血狂刀吸血+姐姐强化额外攻击
 export function registerBloodthirst(eventBus) {
-    eventBus.on('requestExtraAttack', L.REQUEST_EXTRA_ATTACK.DEFAULT, async (data) => {
-        const { unit, target, allySide, enemySide, log, A, B, state } = data;
-        if (unit.alive && target?.alive && typeof processUnitAttack === 'function') {
-            await processUnitAttack(unit, allySide, enemySide, log, A || allySide, B || enemySide, state || null, null, target.uid);
-        } else if (unit.alive && typeof processUnitAttack === 'function') {
-            await processUnitAttack(unit, allySide, enemySide, log, A || allySide, B || enemySide, state || null, null);
-        }
-    });
-
     eventBus.on('afterDamageApplied', L.AFTER_DAMAGE_APPLIED.BLOODTHIRST, async (data) => {
         const { unit, target, dmg, allySide, enemySide, log } = data;
         if (!unit.alive || unit.camp !== 'ally') return;
@@ -208,7 +198,14 @@ export function registerBloodthirst(eventBus) {
             data.declarations.push(decl);
             if (hasSister && unit.alive && target.alive && !unit._bloodthirstStriked) {
                 unit._bloodthirstStriked = true;
-                eventBus.emit('requestExtraAttack', { unit, target, allySide, enemySide, log });
+                if (!data.extraRequests) data.extraRequests = [];
+                data.extraRequests.push({
+                    unit,
+                    targetUid: target.uid,
+                    reason: 'bloodthirst',
+                    actedMode: 'allow',
+                    priority: 20
+                });
             }
         } else if (isBrother && query('xiaoPermanentActive', unit, unitBuffs, 'bloodthirst') && unit.role === '战士') {
             const leechVal = Math.floor(dmg * 0.8);
@@ -250,6 +247,7 @@ export function registerHotBlood(eventBus) {
                     type: EFFECT_TYPES.HEAL,
                     value: leech,
                     source: unit,
+                    isDouble: tag.includes('翻倍'),
                     logText: renderHotBloodHealFact({ unitName: unit.name, leech, tag, isBrother: false }).text
                 };
                 if (!data.declarations) data.declarations = [];
@@ -267,6 +265,7 @@ export function registerHotBlood(eventBus) {
                         type: EFFECT_TYPES.HEAL,
                         value: leech,
                         source: unit,
+                        isDouble: tag.includes('翻倍'),
                         logText: renderHotBloodHealFact({ unitName: unit.name, leech, tag, isBrother: true }).text
                     };
                     if (!data.declarations) data.declarations = [];

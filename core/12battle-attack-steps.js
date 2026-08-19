@@ -118,10 +118,11 @@ export function resolveAttackHit(unit, target, attackerBuffStats, defenderBuffSt
         missData.missFact.events = flushBattleEvents();
 
         if (eventBus) {
-            let afterMissData = { unit, target, log, retry: false, retryTargetUid: null };
+            let afterMissExtraRequests = [];
+            let afterMissData = { unit, target, log, extraRequests: afterMissExtraRequests };
             eventBus.emit('afterMiss', afterMissData);
-            if (afterMissData.retry) {
-                return { skipped: true, retry: true, lockedTargetUid: afterMissData.retryTargetUid };
+            if (afterMissExtraRequests.length > 0) {
+                missData.extraRequests = afterMissExtraRequests;
             }
         }
 
