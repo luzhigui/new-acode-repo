@@ -52,6 +52,10 @@ export async function handleAttackGroup(c, entry, roundResult, abortSig, isFirst
     if(!entry.isBlock&&!entry.isMiss&&!entry.isDodge&&(!unitA||!unitD)){
         appendLogHTML(`<span class="gray">${entry.uidA || '未知'} 攻击 ${entry.uidD || '未知'}，但目标已不存在</span><br>`);
     }
+    if (unitA && entry.isRest) {
+        c.store.dispatch({ type: 'SET_VISUAL', uid: unitA.uid, _resting: true });
+    }
+
     if(unitA&&!entry.isBlock){
         const flashType = entry.isDodge ? 'defend' : 'attack';
         if (entry.isKuLianAttack && unitA) {

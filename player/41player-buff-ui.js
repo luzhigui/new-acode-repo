@@ -214,32 +214,7 @@ export async function handleHolyTokenDrop(c, entry) {
 }
 
 export async function handleBuffSummon(c, entry, prevEntry) {
-    // 构建拒马单位数据（纯对象，非 Unit 实例，供 Store 使用）
-    const horseData = {
-        uid: entry.horseUid,
-        name: '拒马',
-        role: '防战',
-        camp: 'ally',
-        pos: entry.horsePos,
-        alive: true,
-        hp: 20,
-        maxHp: 20,
-        atk: 0,
-        def: 5,
-        isHorse: true,
-        _originalPos: entry.horsePos,
-        _baseMaxHp: 20,
-        _isDead: false,
-        _flash: null,
-        _acted: false,
-        _resting: false,
-        _blocked: false,
-        dmgDealt: 0, dmgTaken: 0, healDone: 0, reboundDone: 0, leechDone: 0,
-        dodgeCount: 0, critCount: 0, survivedRounds: 0,
-        buffAtkBonus: 0, buffDefBonus: 0, buffDodgeBonus: 0, buffHpBonus: 0
-    };
-    // 通过 Store dispatch 添加单位，subscribe 会自动同步到 c.UI.allyTeam
-    c.store.dispatch({ type: 'ADD_UNIT', unit: horseData });
+    // 拒马单位已由 unit-add 事件添加，此函数只负责横幅与日志文本
     // 保留 lastSnapshot 快照，后续可改为从 Store 计算，暂时保留直接赋值
     c.UI.lastSnapshot = { ally: c.UI.allyTeam.map(u => ({...u})), enemy: c.UI.enemyTeam.map(u => ({...u})) };
     if (entry.horseTaunt) {

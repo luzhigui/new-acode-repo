@@ -105,13 +105,13 @@
 5. **文件头规范**：每个文件头需有描述、预估字节数、版本号、`export const VER`，缺一不可；改动后预估字节数重新估算。
 6. **MD 文档**：一律放 `文件汇总20260730/` 目录，不自建新文件夹、不放代码目录。
 7. **Git**：push 直接进 main，不开新分支；push 失败不反复尝试。
-8. **改动验证清单**：涉及 `core/47`、`core/48`、`core/49`、`modules/46`、`player/10`、`core/00-event-bus` 的改动，完成后执行核心链路回归验证（第 1 关基本攻击/闪避/回血/死亡、第 4 关宋青书联动、第 5 关玄冥二老联动、随机一局有小昭）。
+8. **改动验证清单**：涉及 `core/10`、`core/11`、`core/12`、`infra/54`、`player/42`、`infra/50-event-bus` 的改动，完成后执行核心链路回归验证（第 1 关基本攻击/闪避/回血/死亡、第 4 关宋青书联动、第 5 关玄冥二老联动、随机一局有小昭）。
 
 ---
 
 ## 六、项目约定速查
 
 - 战斗引擎采用「声明→裁定」模式：各模块提交效果声明对象，裁判统一执行。
-- 效果声明 `type` 字段必须使用 `EFFECT_TYPES` 常量（`core/00-event-bus.js`），禁止裸字符串。
+- 效果声明 `type` 字段必须使用 `EFFECT_TYPES` 常量（`infra/50-event-bus.js`），禁止裸字符串。
 - 战士/防战仅攻击敌方前排；飞行单位优先攻击血量 <40% 残血，无残血打前排，被遮挡仍可攻击。
-- 精英角色模块编号 20-22（20elite-imperial 朝廷、21elite-sixsects 六大派、22elite-mingjiao 明教），必须经 `core/08-elite-registry.js` 的 `registerElite` 注册。
+- 精英角色模块编号 25-27（25elite-imperial 朝廷、26elite-sixsects 六大派、27elite-mingjiao 明教），必须经 `core/08-elite-registry.js` 的 `registerElite` 注册。

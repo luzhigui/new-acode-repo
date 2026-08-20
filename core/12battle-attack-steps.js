@@ -420,11 +420,14 @@ export function resolveAfterDamageEffects(declarations, unit, target, group) {
             applyStatChange(st, 'hp', -(decl.value || 0), unit, '溅射');
         }
         if (unit && unit.role === '远程' && decl.buffType === 'meteor_splash') {
+            const enhance = query('xiaoHexEnhance', allySide, unitBuffs, 'meteorShower');
+            const perSplash = enhance ? (enhance.atkPerSplash || 0) : 0;
             const hitCount = decl.targets.filter(t => t.alive).length;
-            if (hitCount > 0) {
-                applyStatChange(unit, 'atk', hitCount * 2, null, '流星溅射成长');
-                if (unit._baseAtk !== undefined) unit._baseAtk += hitCount * 2;
-                decl.logText += ' ' + renderMeteorSplashGrowthFact({ unitName: unit.name, growth: hitCount * 2 }).text;
+            if (hitCount > 0 && perSplash > 0) {
+                const growth = hitCount * perSplash;
+                applyStatChange(unit, 'atk', growth, null, '流星溅射成长');
+                if (unit._baseAtk !== undefined) unit._baseAtk += growth;
+                decl.logText += ' ' + renderMeteorSplashGrowthFact({ unitName: unit.name, growth }).text;
             }
         }
         executed.push(decl);

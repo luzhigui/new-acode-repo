@@ -51,8 +51,11 @@ function getSkillDesc(characterName, skillKey, jealous) {
     return template.replace(/\{(\w+)\}/g, (_, key) => {
         let val = params[key];
         if (val === undefined || val === null) return `{${key}}`;
-        if (Array.isArray(val)) return val.map(v => v + '%').join('→');
-        if (key.toLowerCase().includes('ratio') || key === 'currentHpRatio') return val + '%';
+        if (Array.isArray(val)) return val.map(v => (typeof v === 'number' && v < 1 ? Math.round(v * 1000) / 10 : v) + '%').join('→');
+        if (key.toLowerCase().includes('ratio') || key === 'currentHpRatio' || key === 'executeThreshold') {
+            if (typeof val === 'number' && val < 1) return String(Math.round(val * 1000) / 10);
+            return val;
+        }
         return val;
     });
 }
@@ -109,7 +112,7 @@ const CONFIG = {
         doubleStrike: { name: '概率连击', desc: '己方随机一人80%概率额外攻击一次（持续4回合）', prob: 0.8, icon: '⚡' },
         carry: { name: '你就是carry', desc: '5号位获得队友基础加成，死亡队友加成双倍（持续4回合）', atkBonus: 0.08, defBonus: 0.08, hpBonus: 0.1, deathMultiplier: 2, duration: 4, icon: '👑' },
         cloudBody: { name: '流云身法', desc: '己方全体闪避概率+25%（持续4回合）', dodgeBonus: 0.25, icon: '💨' },
-        horseFormation: { name: '巨马阵', desc: '每回合开始生成巨马(25血/0攻/5防)，回合结束50%概率销毁（持续4回合）', horseHp: 20, horseAtk: 0, horseDef: 5, spawnProb: 1.0, destroyProb: 0.5, icon: '🐴' },
+        horseFormation: { name: '巨马阵', desc: '每回合开始生成巨马(25血/0攻/5防)，回合结束50%概率销毁（持续4回合）', horseHp: 25, horseAtk: 0, horseDef: 5, spawnProb: 1.0, destroyProb: 0.5, icon: '🐴' },
         meteorShower: { name: '流星赶月', desc: '己方远程对目标造成40%额外伤害，对周围溅射30%，主箭降2防，小箭降1防（持续4回合）', bonusRatio: 0.4, splashRatio: 0.3, mainDefReduce: 2, splashDefReduce: 1, icon: '☄️' },
         bloodthirst: { name: '嗜血狂刀', desc: '己方战士攻击吸血80%伤害值（持续4回合）', leechRatio: 0.8, icon: '🗡️' },
         fortify: { name: '严阵以待', desc: '己方防战防御+50%，反弹50%伤害差值（持续4回合）', defBonus: 0.5, reboundRatio: 0.5, icon: '🛡️' },
@@ -229,6 +232,7 @@ const CONFIG = {
                 hotBlood: { leechPct: 0.20, critInterval: 2 },
                 windAssault: { hitProb: 1.0, pushProb: 0.80 },
                 meteorShower: { atkPerSplash: 2 },
+                mindControl: { enemySwapProb: 0.95, allySwapProb: 0.50 },
                 fortify: { healOnRebound: true },
                 horseFormation: { horseAtk: 0, horseDef: 30, horseHp: 30, reboundDmg: 5 },
                 carry: { multiTarget: true, targetPositions: [4, 5, 6] },

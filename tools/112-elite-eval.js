@@ -1,7 +1,7 @@
 // tools/112-elite-eval.js - 光明顶5v5 明教精英战力评测（融合进 102 工具箱 tab）
 // 由 tools/111-elite-power-eval.html 改造 | 跑张无忌/韦一笑/小昭姊/小昭妹 6关×N场
 import { createRoundStepper } from '../core/11battle-round.js';
-import { doInitBattle } from '../ui/65main-battle.js';
+import { initBattleTeams } from '../modules/29battle-init.js';
 import { eventBus } from '../infra/50-event-bus.js';
 import { SeededRNG } from '../infra/52-rng.js';
 import { GlobalStore } from '../infra/54-global-store.js';
@@ -50,7 +50,18 @@ startBtn.addEventListener('click', async () => {
 
                     let UI = { allyTeam: [], enemyTeam: [], currentResult: null, round: 0, lastSnapshot: null };
                     let snapshot = { ally: [], enemy: [] };
-                    doInitBattle(stage, UI, snapshot, [], -1, null);
+                    // 无 DOM 初始化（doInitBattle 会写 labelEnemy/labelAlly，工具箱页无此节点）
+                    const initRng = new SeededRNG(Date.now());
+                    const { allyTeam, enemyTeam } = initBattleTeams(stage, initRng);
+                    snapshot.ally = allyTeam.map(u => Object.freeze(u.clone()));
+                    snapshot.enemy = enemyTeam.map(u => Object.freeze(u.clone()));
+                    UI.allyTeam = allyTeam.map(u => u.clone());
+                    UI.enemyTeam = enemyTeam.map(u => u.clone());
+                    UI.currentResult = null;
+                    UI.round = 0;
+                    GlobalStore.set('battleHasZhang', allyTeam.some(u => u.isZhang));
+                    window._lastBattleSeed = Date.now();
+                    snapshot._rngSeed = initRng.getState();
                     let ally = UI.allyTeam;
 
                     let eu = ally.find(u => u[cfg.flag]);

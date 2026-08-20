@@ -25,15 +25,15 @@
             "maxChain": "∞",
             "unavoidable": true,
             "baseDmg": 1.5,
-            "lostHpRatio": 1.5,
-            "maxHpRatio": 1,
-            "executeThreshold": 15
+            "lostHpRatio": 0.015,
+            "maxHpRatio": 0.01,
+            "executeThreshold": 0.15
           },
           "paramsJealous": {
             "baseDmg": 2,
-            "lostHpRatio": 1.5,
-            "maxHpRatio": 1.5,
-            "executeThreshold": 18
+            "lostHpRatio": 0.015,
+            "maxHpRatio": 0.015,
+            "executeThreshold": 0.18
           }
         }
       },

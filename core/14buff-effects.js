@@ -11,11 +11,11 @@ const C = CONFIG;
 
 export function applyFortifyDef_Normal(unit, stats) { stats.defBonus += CONFIG.BUFFS.fortify.defBonus; }
 export function applyFortifyDef_Sister(unit, stats) { stats.defBonus += CONFIG.BUFFS.fortify.defBonus; }
-export function applyFortifyDef_Brother(unit, stats) { stats.defBonus += 0.5; }
+export function applyFortifyDef_Brother(unit, stats) { stats.defBonus += CONFIG.BUFFS.fortify.defBonus; }
 
 export function applyCloudBodyDodge_Normal(unit, stats) { stats.dodgeBonus = CONFIG.BUFFS.cloudBody.dodgeBonus; }
 export function applyCloudBodyDodge_Sister(unit, stats) { stats.dodgeBonus = CONFIG.BUFFS.cloudBody.dodgeBonus; }
-export function applyCloudBodyDodge_Brother(unit, stats) { stats.dodgeBonus = 0.25; }
+export function applyCloudBodyDodge_Brother(unit, stats) { stats.dodgeBonus = CONFIG.BUFFS.cloudBody.dodgeBonus; }
 
 export function applyHolyFlame_Normal(unit, allyTeam, activeBuffs, stats) {
     const holyFlameBuff = activeBuffs.find(b => b.key === 'holyFlame');
@@ -99,9 +99,10 @@ function applyMindControlCore(unit, allySide, enemySide, log, swapChanceEnemy, s
 }
 
 export function applyMindControl_Normal(unit, allySide, enemySide, log) {
-    applyMindControlCore(unit, allySide, enemySide, log, 80, 40);
+    applyMindControlCore(unit, allySide, enemySide, log, CONFIG.BUFFS.mindControl.enemySwapProb * 100, CONFIG.BUFFS.mindControl.allySwapProb * 100);
 }
 
 export function applyMindControl_Sister(unit, allySide, enemySide, log) {
-    applyMindControlCore(unit, allySide, enemySide, log, 95, 50);
+    const s = CONFIG.ELITE_SKILLS.xiaoZhao.hexEnhance.mindControl;
+    applyMindControlCore(unit, allySide, enemySide, log, s.enemySwapProb * 100, s.allySwapProb * 100);
 }

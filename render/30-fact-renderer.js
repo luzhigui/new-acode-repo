@@ -318,9 +318,11 @@ export function renderHorseSummonFact(fact) {
 // ==================== 行动跳过 ====================
 export function renderPassFact(fact) {
     const { unit, reason } = fact;
-    if (reason === '被遮挡') {
+    if (reason === '被遮挡' || reason === '拒马休息') {
         return {
-            type:'attack-group', uidA:unit.uid, uidD:null, entries:[], isBlock:true,
+            type:'attack-group', uidA:unit.uid, uidD:null,
+            entries:[{type:'info', text:`<span class="green">😴 休息回复15点生命</span>`, isHealEntry:true, healAmount:15, healUnitUid:unit.uid}],
+            isBlock:true, isRest:true,
             _fxSnapshot: makeFXSnapshot(unit,null), waveTaunt:null, waveUnit:null,
             buffEffects:[], needsSeparator: true, healAmount: 15, healUnitUid: unit.uid,
             _events: fact.events || []

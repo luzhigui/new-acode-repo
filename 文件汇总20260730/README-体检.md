@@ -10,12 +10,12 @@
 
 你只负责 `tests/` 目录下的内容，其余代码一律不碰：
 
-1. **体检规则**：`tests/58health-rules/` 下的 rule70-79：
+1. **体检规则**：`tests/health-rules/` 下的 rule70-79：
    - rule70 爪击回血刷屏、rule71 闪避后误判、rule72 坚盾时序、rule73 玄冥联动、rule74 蝴蝶叠层、rule75 蝴蝶归位、rule76 蜘蛛飞天次数（≤3）、rule77 坚盾上限（6 层）、rule78 回合分隔符不重复、rule79 九阴白骨爪伤害/斩杀/连锁
 2. **监控器与工具**：
-   - `tests/56health-monitor.js`（实时体检监控器，支持 `?auto=1` 无头模式）
-   - `tests/57health-utils.js`（体检工具函数）
-3. **测试页面**：`tests/55test-runner.html`（手动自检入口）
+   - `tests/121health-monitor.js`（实时体检监控器，支持 `?auto=1` 无头模式）
+   - `tests/122health-utils.js`（体检工具函数）
+3. **测试页面**：`tests/120test-runner.html`（手动自检入口）
 
 ## 二、强制规则
 
@@ -39,7 +39,7 @@
 ## 四、验证环境速查
 
 - 游戏入口：`mode-5v5-test.html`（原生 ES Module，需本地服务器）
-- 体检页面：`tests/55test-runner.html`
-- 监控器：`tests/56health-monitor.js`
-- 规则目录：`tests/58health-rules/`
+- 体检页面：`tests/120test-runner.html`
+- 监控器：`tests/121health-monitor.js`
+- 规则目录：`tests/health-rules/`
 - 硬刷新：Ctrl+Shift+R / Ctrl+F5
