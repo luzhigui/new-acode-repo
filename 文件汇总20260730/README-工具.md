@@ -10,21 +10,21 @@
 
 你只负责 `tools/` 目录下的开发工具，其余代码一律不碰：
 
-1. **文件复制器**：`tools/49-toolkit.js`
+1. **文件复制器**：`tools/103-toolkit.js`
    - 维护 `ALL_PROJECT_FILES` 全项目文件清单
    - 项目新增/删除运行文件时，同步更新清单
    - 排除文件名带空格的文件（fetch 会失败）
-2. **函数提取器 / 函数替换器**：`tools/50-toolkit-more.js`
+2. **函数提取器 / 函数替换器**：`tools/104-toolkit-more.js`
    - 维护 `TARGET_FILES` 目标文件清单
    - 新增运行文件时同步注册路径，确保能被扫描到
-3. **工具箱页面**：`tools/48-toolkit.html`
+3. **工具箱页面**：`tools/102-toolkit.html`
    - 文件复制器 / 函数提取器 / 函数替换器的 UI 载体
-4. **构建脚本**：`tools/46build-5v5.cjs`
+4. **构建脚本**：`tools/100build-5v5.TXT`
    - 按 `MODULES` 顺序合并 ES 模块为单文件
    - 新增模块时同步更新 `MODULES` 列表
-5. **自动批量战斗工具**：`tools/47auto-battle-utils.js`
+5. **自动批量战斗工具**：`tools/101auto-battle-utils.js`
    - 纯数据快照生成、批量胜率评测
-6. **商店页面**：`tools/51-shop.html`
+6. **商店页面**：`tools/105-shop.html`
 7. **其余脚本**：
    - `tools/health_auto_check.py`（体检自动化，与体检版协作）
    - `tools/创意-精英战力评测脚本.js`（精英战力评测）
@@ -38,7 +38,7 @@
 ## 二、强制规则
 
 1. **只碰 tools/ 目录**：不修改 `core/`、`player/`、`ui/`、`fx/`、`modules/`、`tests/` 下的任何代码文件。
-2. **清单同步**：业务代码新增/删除文件时，文件复制器（49）和函数替换器（50）的清单必须同步更新，否则工具扫描不到。
+2. **清单同步**：业务代码新增/删除文件时，文件复制器（103）和函数替换器（104）的清单必须同步更新，否则工具扫描不到。
 3. **排除带空格文件名**：文件名带空格会导致复制器 fetch 失败，必须从清单剔除。
 4. **新工具不撞号**：新增工具脚本时参照现有编号，避免序号冲突；不在 `tools/` 外散落工具脚本。
 5. **不碰主代码**：工具报错时，若根因在业务代码，报告给万能版或用户，不擅自改业务代码。
@@ -54,11 +54,17 @@
 
 | 工具 | 文件 | 作用 |
 |------|------|------|
-| 文件复制器 | 49-toolkit.js | 维护 `ALL_PROJECT_FILES` 全项目清单 |
-| 函数提取/替换器 | 50-toolkit-more.js | 维护 `TARGET_FILES` 目标清单 |
-| 工具箱页面 | 48-toolkit.html | 上述工具的 UI 载体 |
-| 构建脚本 | 46build-5v5.cjs | 按 `MODULES` 顺序合并模块 |
-| 自动战斗 | 47auto-battle-utils.js | 批量胜率评测 |
-| 商店 | 51-shop.html | 商店页面 |
+| 文件复制器 | 103-toolkit.js | 维护 `ALL_PROJECT_FILES` 全项目清单 |
+| 函数提取/替换器 | 104-toolkit-more.js | 维护 `TARGET_FILES` 目标清单 |
+| 工具箱页面 | 102-toolkit.html | 上述工具的 UI 载体 |
+| 构建脚本 | 100build-5v5.TXT | 按 `MODULES` 顺序合并模块 |
+| 自动战斗 | 101auto-battle-utils.js | 批量胜率评测 |
+| 商店 | 105-shop.html | 商店页面 |
+| AI 复制包配置 | 106-ai-pack-config.js | AI 复制包清单/分组/提示词/精简踢除 |
+| 战斗日志复盘 | 107-battle-log-viewer.js | 战斗日志复盘（单文件界面） |
+| 海克斯仪表盘 | 108-hex-dashboard.js | 海克斯平衡性仪表盘 |
+| 职业平衡分析 | 109-role-balance.js | 职业平衡分析（标准模板循环赛） |
+| 职业平衡·随机 | 110-role-balance-random.html | 职业平衡分析（全随机站位） |
+| 明教精英评测 | 112-elite-eval.js | 明教精英战力评测（融入工具箱 tab） |
 | 体检自动化 | health_auto_check.py | Python + Playwright 体检 |
 | 精英战力评测 | 创意-精英战力评测脚本.js | 精英战力评测 |
