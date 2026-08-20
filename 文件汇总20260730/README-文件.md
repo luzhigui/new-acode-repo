@@ -51,4 +51,4 @@
 - 记录-错误与经验库
 - 游戏-玩家指南 / 游戏-杂谈进阶
 - 实验-实验报告 / 优化-想法和优化 / 待办-事项待办
-- README-IDE.md / README-文件.md / README-体检.md
+- README-IDE.md / README-文件.md / README-工具.md / README-体检.md
