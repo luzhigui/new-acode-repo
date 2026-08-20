@@ -230,7 +230,7 @@ export function renderGrid(id, camp) {
         let defBonusVal = Math.floor((latestUnit._baseDef || latestUnit.def) * buffStats.defBonus);
         let hpBonusVal = Math.floor(latestUnit.maxHp * buffStats.hpBonus);
         let displayAtk = Math.round(latestUnit.atk + (latestUnit._carryAtkBonus || 0) + atkBonusVal);
-        let initAtk = latestUnit._initAtk !== undefined ? latestUnit._initAtk : latestUnit.atk;
+        let initAtk = latestUnit._initAtk !== undefined ? Math.round(latestUnit._initAtk) : Math.round(latestUnit.atk);
         let totalChange = displayAtk - initAtk;
         let atkDisplayHtml = `${displayAtk}`;
         if (totalChange > 0) atkDisplayHtml = `<span style="color:#daa520;font-weight:bold;">${displayAtk}</span>`;

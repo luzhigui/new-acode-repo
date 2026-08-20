@@ -95,14 +95,14 @@ export function selectAttackTarget(unit, enemySide, allySide) {
 export function resolveAttackHit(unit, target, attackerBuffStats, defenderBuffStats, log, A, B, doubleStrikeUnitUid, eventBus) {
     const rng = getBattleRng();
     let missChance = 0;
-    if (unit.role === '远程') { missChance = 3; }
+    if (unit.role === '远程') { missChance = C.RANGED_MISS_CHANCE; }
     else if (unit.role === '飞行') {
-        missChance = 6;
+        missChance = C.FLY_MISS_CHANCE;
         const allUnits = [...(A || []), ...(B || [])];
         const lowHpCount = allUnits.filter(u => u.alive && u.hp / u.maxHp < 0.4).length;
-        missChance += lowHpCount * 3;
+        missChance += lowHpCount * C.FLY_MISS_LOWHP_BONUS;
     }
-    else { missChance = 1; }
+    else { missChance = C.GROUND_MISS_CHANCE; }
 
     if (missChance > 0 && rng.nextInt(1,100) <= missChance) {
         const missData = {
@@ -266,7 +266,7 @@ export function calcFinalDamage(unit, target, attackerBuffStats, defenderBuffSta
     raw += bonusDmgTotal;
     raw *= dmgMultiplier;
 
-    let dmg = Math.floor(raw);
+    let dmg = Math.floor(raw * 10) / 10;
     let bonusEntries = [];
     const modifierResult = query('damageModifiers', unit, target, dmg, enemySide, allySide, log);
     dmg = modifierResult.modifiedDmg;

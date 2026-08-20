@@ -28,7 +28,7 @@ const C = CONFIG;
 /**
  * 圣火令绝对值加成（独立于Carry）
  */
-export function applyHolyFlameBonus(unit, activeBuffs) {
+export function applyHolyFlameBonus(unit, activeBuffs, hasSister) {
     unit._holyAtkBonus = 0;
     unit._holyDefBonus = 0;
     if (!activeBuffs || unit.camp !== 'ally') return;
@@ -40,6 +40,10 @@ export function applyHolyFlameBonus(unit, activeBuffs) {
     const baseDef = unit._baseDef || unit.def;
     if (cols.includes(getUnitCol(unit.pos))) unit._holyAtkBonus = Math.floor(baseAtk * C.BUFFS.holyFlame.atkBonus);
     if (rows.includes(getUnitRow(unit.pos))) unit._holyDefBonus = Math.floor(baseDef * C.BUFFS.holyFlame.defBonus);
+    if (hasSister && (unit.isXiaoZhaoSister || unit.isXiaoZhaoBrother)) {
+        unit._holyAtkBonus += Math.floor(baseAtk * C.BUFFS.holyFlame.atkBonus);
+        unit._holyDefBonus += Math.floor(baseDef * C.BUFFS.holyFlame.defBonus);
+    }
 }
 
 /**

@@ -57,7 +57,7 @@ export function createChengKunComponent() {
                 if (data.unit.name !== '成昆' || !data.declarations) return;
                 const lostHp = data.unit.maxHp - data.unit.hp;
                 const params = getSkillParams('成昆', 'phantomThunder') || ES.phantomThunder;
-                const bonus = Math.floor(lostHp * (params.lostHpRatio / 100));
+                const bonus = Math.floor(lostHp * params.lostHpRatio);
                 if (bonus > 0) {
                     data.declarations.push({ type: EFFECT_TYPES.BONUS_DMG, value: bonus, source: data.unit, label: '混元霹雳劲' });
                 }
@@ -71,7 +71,7 @@ export function createChengKunComponent() {
                 const lostHp = unit.maxHp - unit.hp;
                 if (lostHp > 0) {
                     const aliveCount = enemySide.filter(u => u.alive).length;
-                    const heal = Math.floor(lostHp * 0.06 * aliveCount);
+                    const heal = Math.floor(lostHp * (ES.phantomDisguise.healRatio || 0.06) * aliveCount);
                     if (!data.declarations) data.declarations = [];
                     data.declarations.push({
                         type: EFFECT_TYPES.HEAL,
@@ -130,9 +130,9 @@ export function createHeBiWengComponent() {
                 if (data.unit.name !== '鹤笔翁' || !data.declarations) return;
                 const s = getSkillParams('鹤笔翁', 'hornStrike') || ES.hornStrike;
                 const poisoned = data.target._xuanmingPoison && data.target._xuanmingPoison.remaining > 0;
-                data.declarations.push({ type: EFFECT_TYPES.IGNORE_DEF, value: s.defIgnore / 100, source: data.unit });
+                data.declarations.push({ type: EFFECT_TYPES.IGNORE_DEF, value: s.defIgnore, source: data.unit });
                 if (poisoned) {
-                    data.declarations.push({ type: EFFECT_TYPES.DMG_MULTIPLIER, value: 1 + s.poisonedBonus / 100, source: data.unit, label: '鹿角杖法' });
+                    data.declarations.push({ type: EFFECT_TYPES.DMG_MULTIPLIER, value: 1 + s.poisonedBonus, source: data.unit, label: '鹿角杖法' });
                 }
             });
         },

@@ -51,7 +51,7 @@
           "desc": "优先攻击血量最高目标，附加目标当前生命{currentHpRatio}%真实伤害",
           "params": {
             "dmgBonus": 0,
-            "currentHpRatio": 8
+            "currentHpRatio": 0.10
           }
         },
         "kuLian": {
@@ -91,7 +91,7 @@
         "phantomThunder": {
           "name": "混元霹雳劲",
           "desc": "附加已损失生命{lostHpRatio}%的真实伤害",
-          "params": { "lostHpRatio": 20 }
+          "params": { "lostHpRatio": 0.20 }
         },
         "phantomDisguise": {
           "name": "幻影伪装",
@@ -126,7 +126,7 @@
         "hornStrike": {
           "name": "鹿角杖法",
           "desc": "忽略{defIgnore}%防御，中毒目标伤害+{poisonedBonus}%",
-          "params": { "defIgnore": 30, "poisonedBonus": 30 }
+          "params": { "defIgnore": 0.30, "poisonedBonus": 0.30 }
         }
       },
       "taunts": {

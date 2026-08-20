@@ -72,13 +72,17 @@ async function prepareRoundStart(A, B, log, state, round, rng) {
         }
     });
 
+    const hasSisterForHolyFlame = A.some(u => u.isXiaoZhaoSister && u.alive);
+    const holyFlameEnhance = hasSisterForHolyFlame ? C.ELITE_SKILLS.xiaoZhao.hexEnhance.holyFlame : null;
+    const holyColCount = holyFlameEnhance ? holyFlameEnhance.atkCols : 1;
+    const holyRowCount = holyFlameEnhance ? holyFlameEnhance.defRows : 2;
     A._activeBuffs.forEach(b => {
         if (b.key === 'holyFlame') {
             const cols = [];
-            while (cols.length < 1) { const c = rng.nextInt(1, 3); if (!cols.includes(c)) cols.push(c); }
+            while (cols.length < holyColCount) { const c = rng.nextInt(1, 3); if (!cols.includes(c)) cols.push(c); }
             cols.sort((a, b) => a - b);
             const rows = [];
-            while (rows.length < 2) { const r = rng.nextInt(1, 3); if (!rows.includes(r)) rows.push(r); }
+            while (rows.length < holyRowCount) { const r = rng.nextInt(1, 3); if (!rows.includes(r)) rows.push(r); }
             rows.sort((a, b) => a - b);
             b.cols = cols;
             b.rows = rows;
@@ -86,7 +90,7 @@ async function prepareRoundStart(A, B, log, state, round, rng) {
     });
     A.forEach(u => {
         if (u.alive && u.camp === 'ally') {
-            applyHolyFlameBonus(u, A._activeBuffs || []);
+            applyHolyFlameBonus(u, A._activeBuffs || [], hasSisterForHolyFlame);
         }
     });
 

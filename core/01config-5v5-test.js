@@ -86,6 +86,10 @@ const CONFIG = {
     },
     ROLES: ['战士', '防战', '远程', '飞行'],
     ATK_VAR: 6, DEF_VAR: 4, HP_BONUS_MIN: 0, HP_BONUS_MAX: 5,
+    RANGED_MISS_CHANCE: 3,
+    FLY_MISS_CHANCE: 6,
+    GROUND_MISS_CHANCE: 1,
+    FLY_MISS_LOWHP_BONUS: 3,
     FANG_LEVELS: [0.150, 0.200, 0.240, 0.270, 0.290, 0.310, 0.330, 0.350, 0.370, 0.390, 0.410, 0.430, 0.460, 0.490, 0.530, 0.570, 0.620, 0.670, 0.730, 0.800],
     FANG_K: [0.04, 0.05, 0.06, 0.07, 0.08, 0.09, 0.11, 0.12, 0.14, 0.16, 0.19, 0.22, 0.26, 0.30, 0.35, 0.46, 0.66, 0.88, 1.16, 6.66],
     MAX_ROUND: 35,
@@ -198,7 +202,7 @@ const CONFIG = {
             currentHpRatio: 0.10
         },
         phantomThunder: { name: '混元霹雳劲', lostHpRatio: 0.2 },
-        phantomDisguise: { name: '幻影伪装', baseChance: 0.30, per10pctLost: 0.06 },
+        phantomDisguise: { name: '幻影伪装', baseChance: 0.30, per10pctLost: 0.06, healRatio: 0.06 },
         xuanmingPalm: { name: '玄冥神掌', dotPercents: [0.04, 0.02, 0.01], duration: 3 },
         hornStrike: { name: '鹿角杖法', defIgnore: 0.3, poisonedBonus: 0.3 },
         kuLian: {

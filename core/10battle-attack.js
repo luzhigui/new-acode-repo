@@ -3,7 +3,7 @@
 export const VER = 'core/10battle-attack.js V5.5.1';
 
 import { CONFIG, DEF_TAUNT, HP_TAUNT } from './01config-5v5-test.js';
-import { hasBuff, makeFXSnapshot } from './03battle-utils.js';
+import { hasBuff, makeFXSnapshot, isBlocked } from './03battle-utils.js';
 
 import { computeBuffStats } from './04buff-system.js';
 import {
@@ -266,6 +266,7 @@ export async function processUnitAttack(unit, allySide, enemySide, log, A, B, st
         for (const req of extraRequests) {
             if (executedUids.has(req.unit.uid)) continue;
             if (!req.unit.alive) continue;
+            if (req.reason === 'doubleStrike' && !req.ignoreBlock && isBlocked(req.unit, allySide)) continue;
             executedUids.add(req.unit.uid);
             req.unit.state._acted = false;
             const extraTargetUid = req.targetUid || (target && target.alive ? target.uid : null);

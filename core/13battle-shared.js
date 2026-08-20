@@ -98,7 +98,8 @@ function emitCoreEvent(unit, eventType, payload) {
 function applyStatChange(target, field, delta, source, reason) {
     if (delta === 0 || !target || !target.alive) return false;
     const oldVal = target[field];
-    target[field] = field === 'hp' ? Math.min(target.maxHp, Math.max(0, target[field] + delta)) : target[field] + delta;
+    const stepped = Math.floor((target[field] + delta) * 10) / 10;
+    target[field] = field === 'hp' ? Math.min(target.maxHp, Math.max(0, stepped)) : stepped;
     if (field === 'hp' || field === 'maxHp') target[field] = Math.max(0, target[field]);
     if (field === 'hp') {
         if (delta < 0) {
