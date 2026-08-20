@@ -104,8 +104,11 @@ export class Unit {
         let hp=rng.nextInt(Math.ceil(this.m*0.4),Math.floor(this.m*0.6)),rem=this.m-hp,a,d;
         // 攻防差约束：防战要求 d-a≤20、非防战要求 a-d∈[3,13]，把两类角色的攻防差锁定在合理区间，避免出现极端攻防失衡
         if(this.role==='防战'){
-            d=rng.nextInt(Math.ceil(rem*0.5),rem-1);a=rem-d;
-            while(d-a>20){d=rng.nextInt(Math.ceil(rem*0.5),rem-1);a=rem-d;}
+            const dMin=Math.ceil(rem*0.5);
+            const dMax=rem-1;
+            const dMinTenth=dMin*10, dMaxTenth=dMax*10;
+            d=rng.nextInt(dMinTenth,dMaxTenth)/10;a=rem-d;
+            while(d-a>20){d=rng.nextInt(dMinTenth,dMaxTenth)/10;a=rem-d;}
             // 按初始血量占比分档：占比越高（越接近满血）档位越高、血量系数越大，对应单次伤害越多
             // 根据初始血量占比锁定血量系数（之后不变）
             const hpPct = hp / this.m;
@@ -118,8 +121,10 @@ export class Unit {
             else if (hpPct >= 0.43) this._hpDmgRatio = 0.015;
             else this._hpDmgRatio = 0.01;
         } else {
-            d=rng.nextInt(Math.ceil(rem*0.3),Math.floor(rem*0.5));a=rem-d;
-            while(a-d<3||a-d>13){d=rng.nextInt(Math.ceil(rem*0.3),Math.floor(rem*0.5));a=rem-d;}
+            const dMin=Math.ceil(rem*0.3), dMax=Math.floor(rem*0.5);
+            const dMinTenth=dMin*10, dMaxTenth=dMax*10;
+            d=rng.nextInt(dMinTenth,dMaxTenth)/10;a=rem-d;
+            while(a-d<3||a-d>13){d=rng.nextInt(dMinTenth,dMaxTenth)/10;a=rem-d;}
         }
         this.atk=a;this.def=d;this.maxHp=hp*2.5;this.hp=this.maxHp;
     }

@@ -128,8 +128,8 @@ export function createZhangWujiComponent() {
                 if (unit.nearAtkCount === 0 && !unit._zhangTauntDone) { const firstTaunt = getZhangNearTaunt(1); if (firstTaunt) { group.entries.push({ type:'info', text:`<span class="gold">🗣️ ${unit.name}：${firstTaunt}</span>` }); unit._zhangTauntDone = true; } }
                 unit.nearAtkCount++;
                 if (unit.nearAtkCount === 2) { const secondTaunt = getZhangNearTaunt(2); if (secondTaunt) group.entries.push({ type:'info', text:`<span class="gold">🗣️ ${unit.name}：${secondTaunt}</span>` }); }
-                if (unit.nearAtkCount >= 3 && !fsm.is('ronghui')) {
-                    fsm.transition('ronghui');
+                if (unit.nearAtkCount >= 3) {
+                    if (!fsm.is('ronghui')) fsm.transition('ronghui');
                     const extra = Math.floor(Math.abs(target.atk - target.def) * 0.5);
                     if (data && data.declarations) {
                         data.declarations.push({
@@ -469,7 +469,7 @@ export function createXiaoZhaoBrotherComponent() {
                             reason = reason || '即将阵亡';
                         }
                         brother.state._spiderTriggeredThisRound = true;
-                        brother._spiderRemaining = (brother._spiderRemaining || 3) - 1;
+                        brother._spiderRemaining = Math.max(0, (brother._spiderRemaining ?? 3) - 1);
                         brother.state._spiderFlying = true;
                         brother.state._flyMode = 'spider';
                         brother.state._acted = true;

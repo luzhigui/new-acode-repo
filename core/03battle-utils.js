@@ -331,7 +331,8 @@ export function registerDoubleStrike(eventBus, doubleStrikeUnitUid, allyTeam, ac
                 targetUid: (target && target.alive) ? target.uid : null,
                 reason: 'doubleStrike',
                 actedMode: 'allow',
-                priority: 10
+                priority: 10,
+                ignoreBlock: !!xiaoDoubleEnhance
             });
         } else {
             log.push(renderDoubleStrikeFact({ success: false, unitName: unit.name }));

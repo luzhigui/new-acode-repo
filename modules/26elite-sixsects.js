@@ -47,7 +47,8 @@ export function createSongQingshuComponent() {
             });
             eventBus.on('beforeDamageCalc', L.BEFORE_DAMAGE_CALC.SONG_TRUE_DMG, (data) => {
                 if (data.unit.name !== '宋青书' || !data.target || !data.target.alive || !data.declarations) return;
-                const trueDmg = Math.floor(data.target.hp * (CONFIG.ELITE_SKILLS.rebelStrike.currentHpRatio || 0.10));
+                const rebelParams = getSkillParams('宋青书', 'rebelStrike') || {};
+                const trueDmg = Math.floor(data.target.hp * (rebelParams.currentHpRatio ?? 0.10));
                 if (trueDmg > 0) {
                     data.declarations.push({ type: EFFECT_TYPES.BONUS_DMG, value: trueDmg, source: data.unit, label: '叛逆突袭' });
                 }
@@ -117,9 +118,8 @@ export function createSongQingshuComponent() {
                 if (zhou._pendingDeath) { log.push({ type:'info', text:`<span class="red">💀 ${zhou.name} 因新婚扣血而阵亡！</span>`, uidD:zhou.uid, isDead:true }); }
             }
             if (zhou) {
-                if (!unit._xingFenPenaltyCount) unit._xingFenPenaltyCount = 0;
-                unit._xingFenPenaltyCount = (unit._xingFenPenaltyCount||0)+1;
-                const penalty = unit._xingFenPenaltyCount;
+                unit._xingFenPenaltyCount = (unit._xingFenPenaltyCount || 0) + 1;
+                const penalty = unit._xingFenPenaltyCount + 1;
                 if (penalty > 0 && unit.maxHp > 1) {
                     const oldMaxHp = unit.maxHp;
                     applyMaxHpChange(unit, Math.max(1, unit.maxHp - penalty), null, '性奋代价');
@@ -182,8 +182,8 @@ export function createZhouZhiruoComponent() {
                 if (depth > 0 && rng.next() > s.chainProcChance) break;
                 const lostHp = target.maxHp - simulatedTargetHp;
                 const ratio = s.lostHpRatio;
-                const ratioDmg = Math.floor(lostHp*ratio + target.maxHp*(s.maxHpRatio||0.01));
-                const bonusDmg = baseHit + Math.max(0, ratioDmg);
+                const ratioDmg = Math.floor((lostHp*ratio + target.maxHp*(s.maxHpRatio||0.01)) * 10) / 10;
+                const bonusDmg = Math.floor((baseHit + Math.max(0, ratioDmg)) * 10) / 10;
                 simulatedTargetHp -= bonusDmg;
                 const isDeadByHit = simulatedTargetHp <= 0;
                 const hpPctAfter = simulatedTargetHp / target.maxHp;
