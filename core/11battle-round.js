@@ -403,6 +403,9 @@ export async function* createRoundStepper(state) {
             const { unit, reason } = orderResult.passEntry;
             unit.state._acted = true;
             unit.state._blocked = isBlocked(unit, currentTeam);
+            if (unit.alive && (reason === '被遮挡' || reason === '拒马休息')) {
+                applyStatChange(unit, 'hp', 15, null, '休息回复');
+            }
             const passFact = { unit, reason, events: [] };
             passFact.events = flushBattleEvents();
             log.push(renderPassFact(passFact));

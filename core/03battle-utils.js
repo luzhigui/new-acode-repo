@@ -321,7 +321,7 @@ export function registerDoubleStrike(eventBus, doubleStrikeUnitUid, allyTeam, ac
         const { unit, target, log } = data;
         if (unit.uid !== doubleStrikeUnitUid || !unit.alive || unit.camp !== 'ally' || unit._doubleStriked) return;
         const xiaoDoubleEnhance = query('xiaoHexEnhance', allyTeam, activeBuffs, 'doubleStrike');
-        const missChainChance = xiaoDoubleEnhance ? 1.0 : 0.8;
+        const missChainChance = xiaoDoubleEnhance ? 1.0 : (C.BUFFS.doubleStrike.prob || 0.8);
         if (getBattleRng().next() < missChainChance) {
             log.push(renderDoubleStrikeFact({ success: true }));
             unit._doubleStriked = true;

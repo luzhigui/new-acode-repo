@@ -208,7 +208,7 @@ export function registerBloodthirst(eventBus) {
                 });
             }
         } else if (isBrother && query('xiaoPermanentActive', unit, unitBuffs, 'bloodthirst') && unit.role === '战士') {
-            const leechVal = Math.floor(dmg * 0.8);
+            const leechVal = Math.floor(dmg * C.BUFFS.bloodthirst.leechRatio);
             const decl = {
                 type: EFFECT_TYPES.LEECH,
                 value: leechVal,
@@ -235,8 +235,11 @@ export function registerHotBlood(eventBus) {
             unit._hotBloodCount++;
             let ratio, tag;
             if (hasSister) {
-                ratio = (unit._hotBloodCount % 2 === 0) ? 0.40 : 0.20;
-                tag = (unit._hotBloodCount % 2 === 0) ? '❤️‍🔥 热血奋战(翻倍)' : '❤️ 热血奋战';
+                const hotEnhance = query('xiaoHexEnhance', allySide, unitBuffs, 'hotBlood');
+                const leechPct = hotEnhance ? hotEnhance.leechPct : C.BUFFS.hotBlood.leechRatio;
+                const critInterval = hotEnhance ? hotEnhance.critInterval : C.BUFFS.hotBlood.critInterval;
+                ratio = (unit._hotBloodCount % critInterval === 0) ? leechPct * 2 : leechPct;
+                tag = (unit._hotBloodCount % critInterval === 0) ? '❤️‍🔥 热血奋战(翻倍)' : '❤️ 热血奋战';
             } else {
                 ratio = (unit._hotBloodCount % 3 === 0) ? C.BUFFS.hotBlood.critRatio : C.BUFFS.hotBlood.leechRatio;
                 tag = (unit._hotBloodCount % 3 === 0) ? '❤️‍🔥 热血奋战(翻倍)' : '❤️ 热血奋战';
@@ -257,7 +260,10 @@ export function registerHotBlood(eventBus) {
             if (!unit._hotBloodCount) unit._hotBloodCount = 0;
             unit._hotBloodCount++;
             if (unit.hp < unit.maxHp) {
-                let ratio = (unit._hotBloodCount % 2 === 0) ? 0.40 : 0.20;
+                const hotEnhance = query('xiaoHexEnhance', allySide, unitBuffs, 'hotBlood');
+                const leechPct = hotEnhance ? hotEnhance.leechPct : C.BUFFS.hotBlood.leechRatio;
+                const critInterval = hotEnhance ? hotEnhance.critInterval : C.BUFFS.hotBlood.critInterval;
+                let ratio = (unit._hotBloodCount % critInterval === 0) ? leechPct * 2 : leechPct;
                 const leech = Math.min(Math.floor((unit.maxHp - unit.hp) * ratio), unit.maxHp - unit.hp);
                 const tag = (unit._hotBloodCount % 2 === 0) ? '🕷️ 热血(翻倍)' : '🕷️ 热血';
                 if (leech > 0) {
@@ -283,15 +289,15 @@ export function registerWindAssault(eventBus) {
         const rng = getBattleRng();
         if (!unit.alive || unit.camp !== 'ally' || !target || !target.alive) return;
         const unitBuffs = allySide._activeBuffs || [];
-        const hasSister = allySide.some(u => u.isXiaoZhaoSister && u.alive);
         const isBrother = unit.isXiaoZhaoBrother;
 
         const active = hasBuff(unitBuffs, 'windAssault') && unit.role === '飞行';
         const brotherActive = isBrother && unit.role === '飞行' && query('xiaoPermanentActive', unit, unitBuffs, 'windAssault');
         if (!active && !brotherActive) return;
 
-        const hitProb = hasSister ? 100 : 80;
-        const pushProb = hasSister ? 80 : 60;
+        const enhance = query('xiaoHexEnhance', allySide, unitBuffs, 'windAssault');
+        const hitProb = enhance ? Math.floor(enhance.hitProb * 100) : Math.floor(C.BUFFS.windAssault.hitProb * 100);
+        const pushProb = enhance ? Math.floor(enhance.pushProb * 100) : Math.floor(C.BUFFS.windAssault.pushProb * 100);
         const label = brotherActive ? '🦋 蝶翼' : '🦅 乘风突袭';
 
         if (rng.nextInt(1, 100) <= hitProb) {

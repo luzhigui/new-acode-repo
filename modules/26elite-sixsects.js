@@ -3,7 +3,7 @@
 export const VER = 'modules/26elite-sixsects.js V5.5.0';
 import { registerElite } from '../core/08-elite-registry.js';
 import { GlobalStore } from '../infra/54-global-store.js';
-import { CONFIG, getSkillParams } from '../core/01config-5v5-test.js';
+import { CONFIG, getSkillParams, getSkillParamsJealous } from '../core/01config-5v5-test.js';
 import { eventBus, EXECUTION_LAYER as L, EFFECT_TYPES } from '../infra/50-event-bus.js';
 import { canXingFenTrigger, consumeXingFen, applyXingFenGrant, tickKuaiLeHeal, checkKuLian } from './20elite-skills.js';
 import { emitEvent, applyStatChange, applyMaxHpChange, getBattleRng } from '../core/13battle-shared.js';
@@ -163,8 +163,10 @@ export function createZhouZhiruoComponent() {
             const rng = getBattleRng();
             const battleState = window.GlobalStore?.get('currentBattleState');
             const zhangAlive = battleState && battleState.ally && battleState.ally.some(u => u.isZhang && u.alive);
-            const s = ES.nineYinClaw;
-            const baseHit = zhangAlive ? (s.jealousBaseDmg||5) : (s.baseDmg||3);
+            const sNormal = getSkillParams('周芷若', 'nineYinClaw') || ES.nineYinClaw;
+            const sJealous = getSkillParamsJealous('周芷若', 'nineYinClaw') || ES.nineYinClaw;
+            const s = zhangAlive ? sJealous : sNormal;
+            const baseHit = zhangAlive ? (s.baseDmg||5) : (s.baseDmg||3);
             if (!unit._nineYinFirstDone) { unit._nineYinFirstDone = true; }
             else { if (rng.next() > s.procChance) return 0; }
 
@@ -179,13 +181,13 @@ export function createZhouZhiruoComponent() {
             while (simulatedTargetHp > 0 && !target._pendingDeath && depth < 100) {
                 if (depth > 0 && rng.next() > s.chainProcChance) break;
                 const lostHp = target.maxHp - simulatedTargetHp;
-                const ratio = zhangAlive ? s.jealousLostHpRatio : s.lostHpRatio;
-                const ratioDmg = Math.floor(lostHp*ratio + target.maxHp*(zhangAlive?(s.jealousMaxHpRatio||0.02):(s.maxHpRatio||0.01)));
+                const ratio = s.lostHpRatio;
+                const ratioDmg = Math.floor(lostHp*ratio + target.maxHp*(s.maxHpRatio||0.01));
                 const bonusDmg = baseHit + Math.max(0, ratioDmg);
                 simulatedTargetHp -= bonusDmg;
                 const isDeadByHit = simulatedTargetHp <= 0;
                 const hpPctAfter = simulatedTargetHp / target.maxHp;
-                const execThreshold = zhangAlive ? (s.jealousExecuteThreshold||0.15) : (s.executeThreshold||0.12);
+                const execThreshold = s.executeThreshold || 0.15;
                 const isExecute = !isDeadByHit && hpPctAfter <= execThreshold && simulatedTargetHp > 0;
                 const hitLogText = `<span style="color:#222">🐾 九阴白骨爪${depth>0?'连锁':'追击'}！${unit.name} 对 ${target.name} 造成 ${bonusDmg} 点伤害${isExecute?'（斩杀）':(zhangAlive?'【嫉妒】':'')}</span>`;
                 hits.push({ dmg: bonusDmg, logText: hitLogText, isClawHit: true, clawAttackerUid: unit.uid, clawTargetUid: target.uid, isExecute });

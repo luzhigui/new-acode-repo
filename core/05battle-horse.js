@@ -33,8 +33,8 @@ export function spawnHorse(allyTeam, log, enemyTeam, force = false) {
         applyStatChange(horse, 'def', xiaoHEnhance.horseDef, null, '拒马初始化');
         applyStatChange(horse, 'maxHp', xiaoHEnhance.horseHp, null, '拒马初始化');
     } else {
-        applyStatChange(horse, 'def', 5, null, '拒马初始化');
-        applyStatChange(horse, 'maxHp', 25, null, '拒马初始化');
+        applyStatChange(horse, 'def', C.BUFFS.horseFormation.horseDef, null, '拒马初始化');
+        applyStatChange(horse, 'maxHp', C.BUFFS.horseFormation.horseHp, null, '拒马初始化');
     }
     applyStatChange(horse, 'hp', horse.maxHp, null, '拒马初始化');
     horse._baseMaxHp = horse.maxHp;  // 防止 carry 误判 _baseMaxHp=0 把马打成 maxHp=0
