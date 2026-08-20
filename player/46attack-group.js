@@ -178,7 +178,7 @@ export async function handleAttackGroup(c, entry, roundResult, abortSig, isFirst
             if (entry2.isDamageCalc && !entry._dmgFloatShown) {
                 entry._dmgFloatShown = true;
                 if (unitD && entry._dmg !== undefined && !entry.isBlock && !entry.isMiss && !entry.isDodge) {
-                    showDamageFloat(unitD, entry._dmg);
+                    showDamageFloat(unitD, Math.round(entry._dmg));
                 }
             }
         }

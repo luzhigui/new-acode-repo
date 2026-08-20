@@ -113,12 +113,8 @@ export function renderAttackFact(fact) {
     }
     for (const e of fmtBonusEntries) formulaText += ` + ${e.label}${e.value} = ${Math.floor(dmgCalc.raw)}`;
     for (const e of fmtMultiplierEntries) formulaText += ` ×${e.label}${e.value} = ${Math.floor(dmgCalc.raw)}`;
-    if (dmgResult.dmg !== Math.floor(dmgCalc.raw)) {
-        const reduction = Math.floor(dmgCalc.raw) - dmgResult.dmg;
-        formulaText += ` → 减伤${reduction} = ${dmgResult.dmg}`;
-    }
     group.entries.push({type:'detail', isDamageCalc:true, text:`<span class="gray small">计算：${formulaText}</span>`});
-    group.entries.push({type:'damage-text', deadFlag:dmgResult.dead, text:`<span class="damage-line ${dmgResult.dead?'brush-red':''} ${ac}">${dmgResult.dead?'💀击杀💀 ':''}${campA} ${unit.name}</span> 造成 <span class="red">${dmgResult.dmg}</span> 伤害，<span class="${dc}">${campD} ${target.name}</span> ${dmgResult.hpBefore} → ${Math.floor(target.hp)} ${dmgResult.dead?'💀阵亡':''}`});
+    group.entries.push({type:'damage-text', deadFlag:dmgResult.dead, text:`<span class="damage-line ${dmgResult.dead?'brush-red':''} ${ac}">${dmgResult.dead?'💀击杀💀 ':''}${campA} ${unit.name}</span> 造成 <span class="red">${Math.round(dmgResult.dmg)}</span> 伤害，<span class="${dc}">${campD} ${target.name}</span> ${dmgResult.hpBefore} → ${Math.floor(target.hp)} ${dmgResult.dead?'💀阵亡':''}`});
     for (const entry of dmgResult.bonusEntries) group.entries.push(entry);
     if (fact.entries) for (const e of fact.entries) group.entries.push(e);
     return group;
