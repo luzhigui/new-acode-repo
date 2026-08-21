@@ -1,6 +1,6 @@
 // modules/20elite-skills.js - 光明顶5v5 精英技能系统
-// V5.5.1 | ~12500 bytes| 2026-08-17 事实化重构：日志HTML走render/30
-export const VER = 'modules/20elite-skills.js V5.5.1';
+// V5.5.2 | ~12504 bytes| 2026-08-21 战报记账修正：乾坤自伤改非记账
+export const VER = 'modules/20elite-skills.js V5.5.2';
 
 import { CONFIG, getSkillParams } from '../core/01config-5v5-test.js';
 import { ROLE_BONUS } from '../core/02unit.js';
@@ -41,7 +41,7 @@ export function applyDamageModifiers(unit, target, dmg, allySide, enemySide, log
 
         zhang.reboundDone += rebound;
         applyStatChange(unit, 'hp', -rebound, zhang, '乾坤反弹');
-        applyStatChange(zhang, 'hp', -selfDmg, unit, '乾坤自伤');
+        applyStatChange(zhang, 'hp', -selfDmg, unit, '乾坤自伤', false);
 
         entries.push({
             factType: 'qianKunUpgraded',
@@ -66,7 +66,7 @@ export function applyDamageModifiers(unit, target, dmg, allySide, enemySide, log
 
         zhang.reboundDone += rebound;
         applyStatChange(unit, 'hp', -rebound, zhang, '乾坤反弹');
-        applyStatChange(zhang, 'hp', -selfDmg, unit, '乾坤自伤');
+        applyStatChange(zhang, 'hp', -selfDmg, unit, '乾坤自伤', false);
 
         entries.push({
             factType: 'qianKunBasic',

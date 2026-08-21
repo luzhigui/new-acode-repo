@@ -1,6 +1,6 @@
 // core/12battle-attack-steps.js - 光明顶5v5 攻击步骤拆分模块
-// V5.5.2 | ~27996 bytes| 2026-08-19 import 路径合并至 infra/51-core-utils
-export const VER = 'core/12battle-attack-steps.js V5.5.2';
+// V5.5.3 | ~27948 bytes| 2026-08-21 战报记账修正：删除攻击伤害双记，死亡结算改非记账
+export const VER = 'core/12battle-attack-steps.js V5.5.3';
 
 import { CONFIG, DEF_TAUNT, HP_TAUNT, getSkillParams } from './01config-5v5-test.js';
 import { eventBus, EFFECT_TYPES } from '../infra/50-event-bus.js';
@@ -28,19 +28,19 @@ const C = CONFIG, DT = DEF_TAUNT, HT = HP_TAUNT;
 export function selectAttackTarget(unit, enemySide, allySide) {
     const rng = getBattleRng();
     const validTargets = enemySide.filter(c => c.alive && !c._untargetable);
-    if (validTargets.length === 0) return { target: null, phantomLog: null };
+    if (validTargets.length === 0) return { target: null, phantomFact: null };
 
     const declaration = { targetResult: null };
     eventBus.emit('beforeSelectTarget', { unit, enemySide, allySide, validTargets, declaration });
 
     let target = null;
-    let phantomLog = null;
+    let phantomFact = null;
 
     if (declaration.targetResult) {
         const declared = declaration.targetResult;
         if (declared && declared.alive && !declared._untargetable) {
             target = declared;
-            phantomLog = declaration.phantomLog || null;
+            phantomFact = declaration.phantomFact || null;
         }
     }
 
@@ -59,7 +59,7 @@ export function selectAttackTarget(unit, enemySide, allySide) {
             }
         } else if (isMelee(unit.role) || unit.isHorse) {
             const fronts = getFronts(validTargets);
-            if (fronts.length === 0) return { target: null, phantomLog: null };
+            if (fronts.length === 0) return { target: null, phantomFact: null };
             target = fronts[rng.nextInt(0, fronts.length - 1)];
         } else {
             target = validTargets[rng.nextInt(0, validTargets.length - 1)];
@@ -68,11 +68,11 @@ export function selectAttackTarget(unit, enemySide, allySide) {
 
     if (!target || !target.alive || target._untargetable) {
         const fallback = validTargets.filter(c => c.alive && !c._untargetable);
-        if (fallback.length === 0) return { target: null, phantomLog: null };
+        if (fallback.length === 0) return { target: null, phantomFact: null };
         target = fallback[rng.nextInt(0, fallback.length - 1)];
     }
 
-    return { target, phantomLog };
+    return { target, phantomFact };
 }
 
 // ==================== 步骤2：未命中+闪避判定 ====================
@@ -273,7 +273,6 @@ export function applyAttackResult(unit, target, dmgCalc, attackerBuffStats, defe
         if (!target._deathTime) target._deathTime = Date.now();
     }
 
-    unit.dmgDealt += dmg; target.dmgTaken += dmg;
     if (dead && target.camp === 'enemy' && unit.camp === 'ally' && !target._tokenDropped) {
         const stage = getBattleState('currentStage') || 1;
         const dropRate = (C.TOKEN_DROP_RATES[stage] || 0) / 100;
@@ -345,7 +344,7 @@ export function resolveDeaths(allySide, enemySide, log) {
     eventBus.emit('onBeforeDeath', { units: pending, allySide, enemySide, log });
 
     for (const u of pending) {
-        applyStatChange(u, 'hp', -u.hp, null, '死亡结算');
+        applyStatChange(u, 'hp', -u.hp, null, '死亡结算', false);
         u.alive = false;
         u.state._isDead = true;
         u._pendingDeath = false;
@@ -475,7 +474,7 @@ export function resolveAfterDamageEffects(declarations, unit, target, group, all
 }
 
 // ==================== 步骤5：构建攻击事实（不渲染，由 player 投影）+ 攻击后效果 ====================
-export async function buildAttackGroup(unit, target, dmgCalc, dmgResult, attackerBuffStats, defenderBuffStats, allySide, enemySide, log, A, B, state, doubleStrikeUnitUid, phantomLog) {
+export async function buildAttackGroup(unit, target, dmgCalc, dmgResult, attackerBuffStats, defenderBuffStats, allySide, enemySide, log, A, B, state, doubleStrikeUnitUid, phantomFact) {
     let { atkBase, defBase, atkAct, defAct, hpBonus, hpBefore, waveTaunt, waveUnit, raw, rawFormula, thunderBonus, hornDmgMultiplier, hornDefIgnore, trueDmg, defReduction, bonusDmgTotal, bonusDmgEntries, dmgMultiplier, dmgMultiplierEntries, hpRatio } = dmgCalc;
     let { dmg, dead, reboundEntry, bonusEntries } = dmgResult;
 
@@ -502,7 +501,7 @@ export async function buildAttackGroup(unit, target, dmgCalc, dmgResult, attacke
             defenderBuffStats,
             hpPctBefore,
             hpPctAfter,
-            phantomLog,
+            phantomFact,
             entries: pendingEntries
         },
         _events: []

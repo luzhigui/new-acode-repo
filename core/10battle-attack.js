@@ -1,6 +1,6 @@
 // core/10battle-attack.js - 光明顶5v5 攻击流程模块
-// V5.5.2 | ~10996 bytes| 2026-08-19 import 路径合并至 infra/51-core-utils
-export const VER = 'core/10battle-attack.js V5.5.2';
+// V5.5.3 | ~11001 bytes| 2026-08-21 战报记账修正：免疫回退改非记账
+export const VER = 'core/10battle-attack.js V5.5.3';
 
 import { CONFIG, DEF_TAUNT, HP_TAUNT } from './01config-5v5-test.js';
 import { hasBuff, makeFXSnapshot, isBlocked } from './03battle-utils.js';
@@ -36,10 +36,10 @@ export async function processUnitAttack(unit, allySide, enemySide, log, A, B, st
         return false;
     }
 
-    let target, phantomLog;
+    let target, phantomFact;
     if (lockedTargetUid) {
         target = enemySide.find(u => u.uid === lockedTargetUid && u.alive) || null;
-        phantomLog = null;
+        phantomFact = null;
         if (!target) {
             const emptyFact = {
                 type: 'emptyTarget',
@@ -55,7 +55,7 @@ export async function processUnitAttack(unit, allySide, enemySide, log, A, B, st
     } else {
         let targetResult = selectAttackTarget(unit, enemySide, allySide);
         target = targetResult.target;
-        phantomLog = targetResult.phantomLog;
+        phantomFact = targetResult.phantomFact;
     }
 
     if (!target) {
@@ -123,7 +123,7 @@ export async function processUnitAttack(unit, allySide, enemySide, log, A, B, st
     let dmgResult = applyAttackResult(unit, target, dmgCalc, attackerBuffStats, defenderBuffStats, allySide, enemySide, log, A, B, state, doubleStrikeUnitUid);
     const immuneResult = resolveDamageImmune(immuneDeclarations);
     if (immuneResult) {
-        applyStatChange(target, 'hp', dmgCalc.dmg, null, '免疫回退');
+        applyStatChange(target, 'hp', dmgCalc.dmg, null, '免疫回退', false);
         unit.dmgDealt -= dmgCalc.dmg;
         target.dmgTaken -= dmgCalc.dmg;
         emitEvent(target, 'hp-change', { hp: target.hp, maxHp: target.maxHp, alive: target.alive, atk: target.atk, def: target.def });
@@ -151,7 +151,7 @@ export async function processUnitAttack(unit, allySide, enemySide, log, A, B, st
         return true;
     }
 
-    const group = await buildAttackGroup(unit, target, dmgCalc, dmgResult, attackerBuffStats, defenderBuffStats, allySide, enemySide, log, A, B, state, doubleStrikeUnitUid, phantomLog);
+    const group = await buildAttackGroup(unit, target, dmgCalc, dmgResult, attackerBuffStats, defenderBuffStats, allySide, enemySide, log, A, B, state, doubleStrikeUnitUid, phantomFact);
 
     log.push(group);
 

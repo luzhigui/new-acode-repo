@@ -1,6 +1,6 @@
 // core/11battle-round.js - 光明顶5v5 回合循环与生成器
-// V5.5.4 | ~23505 bytes| 2026-08-19 import 路径合并至 infra/51-core-utils
-export const VER = 'core/11battle-round.js V5.5.4';
+// V5.5.5 | ~23512 bytes| 2026-08-21 战报记账修正：战斗结束归零血量改非记账
+export const VER = 'core/11battle-round.js V5.5.5';
 
 import { CONFIG } from './01config-5v5-test.js';
 import { isMelee, isBlocked, makeFXSnapshot, hasBuff, getUnitCol, getUnitRow, hasAnyEnemyEmptyCol, countEnemyEmptyCols, getBloodAuraBonus, getAuraBonuses, registerWarriorBreakDefense, registerRangedGrowth, registerFortifyShield, registerWarriorExecute, selectFlyTarget, registerEmptyColBonus, registerDoubleStrike } from './03battle-utils.js';
@@ -518,7 +518,7 @@ function finalizeRoundEnd(A, B, log, round) {
     if (winner) {
         let losers = winner === '明教' ? B : A;
         losers.forEach(u => {
-            applyStatChange(u, 'hp', -u.hp, null, '战斗结束');
+            applyStatChange(u, 'hp', -u.hp, null, '战斗结束', false);
             u.alive = false;
             u.state._isDead = true;
             emitEvent(u, 'hp-change', { hp: 0, maxHp: u.maxHp, alive: false, atk: u.atk, def: u.def, _isDead: true });

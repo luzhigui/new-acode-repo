@@ -104,7 +104,7 @@ export function renderAttackFact(fact) {
         isLinkAttack: !!unit._isLinkAttack
     };
     group.entries.push({type:'combat-text', text:`<span class="${ac}">${campA} ${unit.name}</span>(攻${displayAtk} 血${unitHpBefore}) → <span class="${dc}">${campD} ${target.name}</span>(防${displayDef} 血${dmgResult.hpBefore})`});
-    if (fact.phantomLog) group.entries.push({type:'info', text:`<span class="gold">${fact.phantomLog}</span>`});
+    if (fact.phantomFact) group.entries.push(renderLog(fact.phantomFact.factType, fact.phantomFact.data));
     group.entries.push({type:'detail', text:`<span class="gray small">波动：攻${dmgCalc.atkBase}→${dmgCalc.atkAct} 防${dmgCalc.defBase}→${dmgCalc.defAct} 血${dmgCalc.hpBonus >= 0 ? '+' + dmgCalc.hpBonus : dmgCalc.hpBonus}</span>`});
     if (dmgCalc.thunderBonus > 0) group.entries.push({type:'detail', text:`<span class="red small">💥 混元霹雳劲+${dmgCalc.thunderBonus}真实伤害</span>`});
     if (dmgCalc.hornDefIgnore > 0 && dmgCalc.hornDmgMultiplier > 1) group.entries.push({type:'info', text:`<span class="gold">🦌 目标已中毒（玄冥神掌），鹤笔翁 鹿角杖法伤害+50%！</span>`});
@@ -606,6 +606,13 @@ export function renderClawExecuteFact(fact) {
 export function renderClawHealFact(fact) {
     return { type:'info', text:`<span class="green">💚 宋青书因九阴白骨爪共回复${fact.totalHeal}点生命</span>` };
 }
+export function renderPhantomRevealFact(fact) {
+    return { type:'info', text:`<span class="gold">🎭 ${fact.unitName}识破${fact.deceiver}伪装，锁定真正的${fact.deceiver}！</span>` };
+}
+export function renderPhantomConfuseFact(fact) {
+    const isButterfly = fact.deceiver === '小昭·妹';
+    return { type:'info', text:`<span class="gold">${isButterfly ? '🕷️ 蝶舞迷心！' : '🎭 幻影伪装！'}${fact.unitName}被${fact.deceiver}迷惑，误攻队友${fact.targetName}！</span>` };
+}
 
 // ==================== 通用渲染入口 ====================
 export function renderLog(type, data) {
@@ -675,6 +682,8 @@ export function renderLog(type, data) {
         case 'clawHit': return renderClawHitFact(data);
         case 'clawExecute': return renderClawExecuteFact(data);
         case 'clawHeal': return renderClawHealFact(data);
+        case 'phantomReveal': return renderPhantomRevealFact(data);
+        case 'phantomConfuse': return renderPhantomConfuseFact(data);
         case 'xuanmingLinkAttack': return renderXuanmingLinkAttackFact(data);
         case 'spiderDeadTarget': return renderSpiderDeadTargetFact(data);
         case 'xingFenGrant': return renderXingFenGrantFact(data);

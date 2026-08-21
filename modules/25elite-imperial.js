@@ -34,7 +34,7 @@ export function createChengKunComponent() {
                 const isPhantomTarget = (chengkun.state._phantomTarget === data.unit.uid);
                 if (isPhantomTarget) {
                     data.declaration.targetResult = chengkun;
-                    data.declaration.phantomLog = `🎭 ${data.unit.name}识破成昆伪装，锁定真正的成昆！`;
+                    data.declaration.phantomFact = { factType: 'phantomReveal', data: { unitName: data.unit.name, deceiver: '成昆' } };
                     return;
                 }
 
@@ -46,7 +46,7 @@ export function createChengKunComponent() {
                 const phantomTarget = data.allySide.find(u => u.alive && !u.isHorse && !u._untargetable && u.uid === chengkun.state._phantomTarget && u.uid !== data.unit.uid);
                 if (phantomTarget) {
                     data.declaration.targetResult = phantomTarget;
-                    data.declaration.phantomLog = `🎭 幻影伪装！${data.unit.name}被成昆迷惑，误攻队友${phantomTarget.name}！`;
+                    data.declaration.phantomFact = { factType: 'phantomConfuse', data: { unitName: data.unit.name, deceiver: '成昆', targetName: phantomTarget.name } };
                 }
             });
             eventBus.on('afterDamageApplied', L.AFTER_DAMAGE_APPLIED.CHENGKUN_DISGUISE, (data) => {

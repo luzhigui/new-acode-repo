@@ -1,6 +1,6 @@
 // core/13battle-shared.js - 光明顶5v5 战斗共享工具
-// V5.5.2 | ~6496 bytes| 2026-08-21 infra合并：事件存储改从51-core-utils导入
-export const VER = 'core/13battle-shared.js V5.5.2';
+// V5.5.3 | ~6712 bytes| 2026-08-21 战报记账修正：applyStatChange加record开关+clamp记账，applyMaxHpChange不记账
+export const VER = 'core/13battle-shared.js V5.5.3';
 
 import { CONFIG } from './01config-5v5-test.js';
 import { ROLE_BONUS } from './02unit.js';
@@ -31,7 +31,7 @@ export function getBattleRng() { return _battleRng; }
 function finalizeDeaths(team) {
     for (const u of team) {
         if (u.hp <= 0 && u.alive) {
-            applyStatChange(u, 'hp', -u.hp, null, '死亡结算');
+            applyStatChange(u, 'hp', -u.hp, null, '死亡结算', false);
             u.alive = false;
             u.state._isDead = true;
             if (!u._deathTime) u._deathTime = Date.now();
@@ -96,18 +96,20 @@ function emitCoreEvent(unit, eventType, payload) {
     pushBattleEvent({ unitUid: unit.uid, eventType, payload });
 }
 
-function applyStatChange(target, field, delta, source, reason) {
+function applyStatChange(target, field, delta, source, reason, record = true) {
     if (delta === 0 || !target || !target.alive) return false;
     const oldVal = target[field];
     const stepped = Math.floor((target[field] + delta) * 10) / 10;
     target[field] = field === 'hp' ? Math.min(target.maxHp, Math.max(0, stepped)) : stepped;
     if (field === 'hp' || field === 'maxHp') target[field] = Math.max(0, target[field]);
-    if (field === 'hp') {
-        if (delta < 0) {
-            target.dmgTaken += Math.abs(delta);
-            if (source) source.dmgDealt = (source.dmgDealt || 0) + Math.abs(delta);
-        } else {
-            target.healDone += delta;
+    if (field === 'hp' && record) {
+        // 按 clamp 后的实际变化量记账，避免溢出伤害/治疗虚高
+        const actualDelta = target.hp - oldVal;
+        if (actualDelta < 0) {
+            target.dmgTaken += Math.abs(actualDelta);
+            if (source) source.dmgDealt = (source.dmgDealt || 0) + Math.abs(actualDelta);
+        } else if (actualDelta > 0) {
+            target.healDone += actualDelta;
         }
     }
     if (field === 'hp' && target.hp <= 0) {
@@ -136,9 +138,9 @@ function applyMaxHpChange(target, newMaxHp, source, reason) {
     newHp = Math.min(newHp, target.maxHp);
     const delta = newHp - oldHp;
     if (newHp <= 0) {
-        applyStatChange(target, 'hp', -target.hp, null, 'maxHp变更致死');
+        applyStatChange(target, 'hp', -target.hp, null, 'maxHp变更致死', false);
     } else if (delta !== 0) {
-        applyStatChange(target, 'hp', delta, source, reason);
+        applyStatChange(target, 'hp', delta, source, reason, false);
     }
 }
 

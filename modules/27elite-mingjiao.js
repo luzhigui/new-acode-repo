@@ -1,6 +1,6 @@
 // modules/27elite-mingjiao.js - 明教精英组件合集
-// V5.6.0 | ~32008 bytes| 2026-08-21 fact化完成：不再import render/30
-export const VER = 'modules/27elite-mingjiao.js V5.6.0';
+// V5.6.1 | ~32038 bytes| 2026-08-21 战报记账修正：小昭姊重分配血量改非记账
+export const VER = 'modules/27elite-mingjiao.js V5.6.1';
 
 import { registerElite } from '../core/08-elite-registry.js';
 import { CONFIG, getSkillParams } from '../core/01config-5v5-test.js';
@@ -269,7 +269,7 @@ export function createXiaoZhaoSisterComponent() {
             let host = null;
             for (const p of order) { const u = A.find(a => a.pos === p && a.alive && !a.isHorse && a.uid !== sister.uid); if (u) { host = u; break; } }
             if (!host) {
-                applyStatChange(sister, 'hp', -sister.hp, null, '蝶变无宿主');
+                applyStatChange(sister, 'hp', -sister.hp, null, '蝶变无宿主', false);
                 log.push({ factType: 'butterflyNoHost', data: { unitName: sister.name } });
                 return null;
             }
@@ -292,7 +292,7 @@ export function createXiaoZhaoSisterComponent() {
             if (totalMaxHp > 0) {
                 const newHp = Math.floor(sister.maxHp * (totalHp/totalMaxHp));
                 const delta = newHp - sister.hp;
-                applyStatChange(sister, 'hp', delta, null, '蝶变附身血量');
+                applyStatChange(sister, 'hp', delta, null, '蝶变附身血量', false);
             }
             sister.state._butterflyHost = host.uid;
             sister._fsm.transition('attached');
@@ -322,9 +322,9 @@ export function createXiaoZhaoSisterComponent() {
                 if (totalMaxHp > 0) {
                     const newHp = Math.floor(sister.maxHp * (totalHp / totalMaxHp));
                     const delta = newHp - sister.hp;
-                    applyStatChange(sister, 'hp', delta, null, '蝶变飞回血量');
+                    applyStatChange(sister, 'hp', delta, null, '蝶变飞回血量', false);
                 } else {
-                    applyStatChange(sister, 'hp', -sister.hp, null, '蝶变飞回无队友');
+                    applyStatChange(sister, 'hp', -sister.hp, null, '蝶变飞回无队友', false);
                 }
                 sister.state._flyMode = null; sister._untargetable = false;
                 sister.state._butterflyHost = null;
@@ -342,9 +342,9 @@ export function createXiaoZhaoSisterComponent() {
             if (totalMaxHp > 0) {
                 const newHp = Math.floor(sister.maxHp * (totalHp / totalMaxHp));
                 const delta = newHp - sister.hp;
-                applyStatChange(sister, 'hp', delta, null, '蝶变飞回血量');
+                applyStatChange(sister, 'hp', delta, null, '蝶变飞回血量', false);
             } else {
-                applyStatChange(sister, 'hp', -sister.hp, null, '蝶变飞回无队友');
+                applyStatChange(sister, 'hp', -sister.hp, null, '蝶变飞回无队友', false);
             }
             applyStatChange(sister, 'atk', sister._baseAtk - sister.atk, null, '蝶变飞回重置攻');
             applyStatChange(sister, 'def', sister._baseDef - sister.def, null, '蝶变飞回重置防');
@@ -507,7 +507,7 @@ export function createXiaoZhaoBrotherComponent() {
                     const fakeTarget = data.allySide.find(u => u.alive && !u.isHorse && u.uid !== data.unit.uid);
                     if (fakeTarget) {
                         data.declaration.targetResult = fakeTarget;
-                        data.declaration.phantomLog = `🕷️ 蝶舞迷心！${data.unit.name}被小昭·妹迷惑，误攻队友${fakeTarget.name}！`;
+                        data.declaration.phantomFact = { factType: 'phantomConfuse', data: { unitName: data.unit.name, deceiver: '小昭·妹', targetName: fakeTarget.name } };
                     }
                 }
             });

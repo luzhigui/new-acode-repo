@@ -1,6 +1,6 @@
 // modules/26elite-sixsects.js - 六大派精英组件合集
-// V5.6.0 | ~12000 bytes| 2026-08-21 fact化完成：不再import render/30
-export const VER = 'modules/26elite-sixsects.js V5.6.0';
+// V5.6.1 | ~11992 bytes| 2026-08-21 战报记账修正：新婚扣血改非记账并删手动双记
+export const VER = 'modules/26elite-sixsects.js V5.6.1';
 import { registerElite } from '../core/08-elite-registry.js';
 import { GlobalStore } from '../infra/54-global-store.js';
 import { CONFIG, getSkillParams, getSkillParamsJealous } from '../core/01config-5v5-test.js';
@@ -84,8 +84,7 @@ export function createSongQingshuComponent() {
             const hpDeduct = xinHunParams.hpDeduct || 1;
             const healLevels = xinHunParams.healLevels || [0.16, 0.10, 0.06, 0.03];
             if (zhou) {
-                applyStatChange(zhou, 'hp', -hpDeduct, unit, '新婚扣血');
-                zhou.dmgTaken += hpDeduct;
+                applyStatChange(zhou, 'hp', -hpDeduct, unit, '新婚扣血', false);
                 zhou._kuaiLeStack.push({ healPct: healLevels[0] });
                 if (zhou.hp <= 0) { if (!zhou._deathTime) zhou._deathTime = Date.now(); }
                 log.push({
