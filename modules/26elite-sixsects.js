@@ -19,6 +19,11 @@ const ES = CONFIG.ELITE_SKILLS;
 export function createSongQingshuComponent() {
     return {
         name: '宋青书',
+        declarations: [{
+            name: '宋青书',
+            targetRule: 'highestHpPct',
+            beforeDamageEffects: [{ type: 'bonusTargetCurrentHp', ratio: 0.10, label: '叛逆突袭' }]
+        }],
         register(eventBus, A, B, log) {
             const song = B.find(u => u.name === '宋青书' && u.alive);
             if (!song) { return; }
@@ -45,28 +50,12 @@ export function createSongQingshuComponent() {
                 if (data.unit.name !== '宋青书') return;
                 onAfterApplyDamage(data.unit, data.target, { dmg: data.dmg }, data.group, B, data.log);
             });
-            eventBus.on('beforeDamageCalc', L.BEFORE_DAMAGE_CALC.SONG_TRUE_DMG, (data) => {
-                if (data.unit.name !== '宋青书' || !data.target || !data.target.alive || !data.declarations) return;
-                const rebelParams = getSkillParams('宋青书', 'rebelStrike') || {};
-                const trueDmg = Math.floor(data.target.hp * (rebelParams.currentHpRatio ?? 0.10));
-                if (trueDmg > 0) {
-                    data.declarations.push({ type: EFFECT_TYPES.BONUS_DMG, value: trueDmg, source: data.unit, label: '叛逆突袭' });
-                }
-            });
             eventBus.on('afterAttack', L.AFTER_ATTACK.SONG_XINGFEN_EXTRA, async (data) => {
                 if (data.unit.name !== '宋青书') { return; }
                 if (data.unit._xingFenExtraAttacking) { return; }
                 await onAfterAttack(data.unit, data.target, B, A, data.log, B, A, data.state);
             });
-            
-            eventBus.on('beforeSelectTarget', L.BEFORE_SELECT_TARGET.SONG_REBEL, (data) => {
-                if (data.unit.name !== '宋青书' || !data.unit.alive || !data.validTargets || data.validTargets.length === 0) return;
-                const rebelTarget = data.validTargets.reduce((a, b) => (a.hp / a.maxHp) > (b.hp / b.maxHp) ? a : b);
-                if (rebelTarget) {
-                    data.declaration.targetResult = rebelTarget;
-                    data.declaration.phantomLog = null;
-                }
-            });
+
             eventBus.on('onRoundStart', L.ROUND_START.XINGFEN_GRANT, (data) => {
                 const { A, B, log } = data;
                 applyXingFenGrant(B, log);

@@ -5,25 +5,13 @@ export const VER = 'core/12battle-attack-steps.js V5.5.2';
 import { CONFIG, DEF_TAUNT, HP_TAUNT, getSkillParams } from './01config-5v5-test.js';
 import { eventBus, EFFECT_TYPES } from '../infra/50-event-bus.js';
 import { calcDamage, getFangLevel, isMelee, getFronts, isBlocked, getRandomTaunt, getZhangNearTaunt, makeFXSnapshot, hasBuff, getUnitCol, getUnitRow } from './03battle-utils.js';
-import { computeBuffStats, applyBuffEffectsBeforeAttack, applyBuffEffectsAfterAttack } from './04buff-system.js';
+import { applyBuffEffectsBeforeAttack, applyBuffEffectsAfterAttack } from './04buff-system.js';
 import { emitEvent, applyStatChange, applyMaxHpChange, query, getBattleRng } from './13battle-shared.js';
-import { flushBattleEvents, pushBattleEvent, getBattleState, setBattleState } from '../infra/51-core-utils.js';
+import { flushBattleEvents, pushBattleEvent, getBattleState, setBattleState, registerDodgeRule, clearEliteDodgeRules, getDodgeRules } from '../infra/51-core-utils.js';
 import { renderMissFact, renderDodgeFact, renderAttackFact, renderDropFact, renderBreakDefFact, renderHorseReboundFact, renderFortifyReboundFact, renderMeteorSplashGrowthFact } from '../render/30-fact-renderer.js';
 
-// ==================== 闪避规则注册表 ====================
-const _dodgeRules = [];
-
-export function registerDodgeRule(fn) {
-    _dodgeRules.push(fn);
-}
-
-export function clearEliteDodgeRules() {
-    _dodgeRules.length = 2;
-}
-
-export function getDodgeRules() {
-    return _dodgeRules;
-}
+// ==================== 闪避规则注册表（已下沉 infra/51，此处转发） ====================
+export { registerDodgeRule, clearEliteDodgeRules, getDodgeRules };
 
 registerDodgeRule((unit, attacker) => {
     if (unit.role === '飞行') return CONFIG.BASE_DODGE_FLY || 0.15;
@@ -58,10 +46,7 @@ export function selectAttackTarget(unit, enemySide, allySide) {
     }
 
     if (!target) {
-        if (unit.isWei) {
-            const sorted = [...validTargets].sort((a, b) => a.hp - b.hp);
-            target = sorted[0];
-        } else if (unit.role === '飞行') {
+        if (unit.role === '飞行') {
             const lowHpTargets = validTargets.filter(u => u.hp / u.maxHp < 0.4);
             if (lowHpTargets.length > 0) {
                 target = lowHpTargets[rng.nextInt(0, lowHpTargets.length - 1)];
@@ -134,7 +119,7 @@ export function resolveAttackHit(unit, target, attackerBuffStats, defenderBuffSt
     const hasCloudBody = hasBuff(allyBuffs, 'cloudBody') || ((target.isXiaoZhaoSister || target.isXiaoZhaoBrother) && target._permanentBuffs && target._permanentBuffs.some(b => b.key === 'cloudBody'));
     if (target.alive && (target.isWei || hasCloudBody || !target.state._acted)) {
         let dodgeTriggered = false;
-        for (const ruleFn of _dodgeRules) {
+        for (const ruleFn of getDodgeRules()) {
             const rate = ruleFn(target, unit) || 0;
             if (rate > 0 && rng.nextInt(1, 100) <= rate * 100) {
                 dodgeTriggered = true;
@@ -148,7 +133,7 @@ export function resolveAttackHit(unit, target, attackerBuffStats, defenderBuffSt
             }
         }
         const rates = [];
-        for (const ruleFn of _dodgeRules) {
+        for (const ruleFn of getDodgeRules()) {
             const r = ruleFn(target, unit) || 0;
             if (r > 0) rates.push(r);
         }

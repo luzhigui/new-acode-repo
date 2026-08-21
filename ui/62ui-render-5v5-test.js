@@ -1,11 +1,10 @@
-﻿﻿// ui/62ui-render-5v5-test.js - 光明顶5v5 UI渲染模块（薄壳）
+﻿// ui/62ui-render-5v5-test.js - 光明顶5v5 UI渲染模块（薄壳）
 // V5.5.1 | ~12500 bytes| 2026-08-17 格子渲染下沉至render/32，UI保留弹窗/胜利/日志
 export const VER = 'ui/62ui-render-5v5-test.js V5.5.1';
 
 import { CONFIG, getSkillDesc } from '../core/01config-5v5-test.js';
-import { computeBuffStats } from '../core/04buff-system.js';
 import { getUnitCol, getUnitRow, getAuraBonuses } from '../core/03battle-utils.js';
-import { getDodgeRules } from '../core/12battle-attack-steps.js';
+import { getDodgeRules } from '../infra/51-core-utils.js';
 import {
     renderGrid,
     updateGridUI,
@@ -61,10 +60,9 @@ function getDodgeBreakdown(unit, activeBuffs, allyTeam) {
             rates.push(rate);
         }
     }
-    const buffStats = computeBuffStats(unit, activeBuffs || [], allyTeam || []);
-    if (buffStats.dodgeBonus > 0) {
-        sources.push({ label: '流云身法', value: Math.round(buffStats.dodgeBonus * 100) });
-        rates.push(buffStats.dodgeBonus);
+    if (unit.buffDodgeBonus > 0) {
+        sources.push({ label: '流云身法', value: Math.round(unit.buffDodgeBonus * 100) });
+        rates.push(unit.buffDodgeBonus);
     }
     let combined = 0;
     if (rates.length > 0) {
@@ -208,10 +206,9 @@ function updateDetailPopupContent() {
     } else if (unitBuffs.length > 0) {
         buffText = unitBuffs.map(b => `${b.name}(${b.remaining}回)`).join('、');
     }
-    let buffStats = computeBuffStats(u, activeBuffs, allyTeam);
-    let atkBonusVal = Math.floor(u.atk * buffStats.atkBonus);
-    let defBonusVal = Math.floor(u.def * buffStats.defBonus);
-    let hpBonusVal = Math.floor(u.maxHp * buffStats.hpBonus);
+    let atkBonusVal = Math.floor(u.atk * u.buffAtkBonus);
+    let defBonusVal = Math.floor(u.def * u.buffDefBonus);
+    let hpBonusVal = Math.floor(u.maxHp * u.buffHpBonus);
     let butterflyHpBonus = u._butterflyHpBonus || 0;
     if (butterflyHpBonus > 0) {
         hpStyle = 'color:#daa520;font-weight:bold;';

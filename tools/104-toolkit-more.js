@@ -57,9 +57,12 @@ function escapeHtml(text) {
     const searchInput = document.getElementById('fncSearchInput');
     const fuzzyInput = document.getElementById('fncFuzzyInput');
     const fuzzyBtn = document.getElementById('fncFuzzyBtn');
+    const fncBtnScan = document.getElementById('fncBtnScan');
+    // 工具箱已移除函数替换器 tab，DOM 不存在时跳过绑定（代码保留待后续清理）
+    if (!mapContainer || !statusDiv || !fncBtnScan) return;
     const fileContents = {};
 
-    document.getElementById('fncBtnScan').addEventListener('click', async () => {
+    fncBtnScan.addEventListener('click', async () => {
         mapContainer.innerHTML = '';
         statusDiv.textContent = '正在扫描...';
         let totalFunctions = 0;
@@ -309,6 +312,8 @@ function escapeHtml(text) {
     const btnCopy = document.getElementById('fangBtnCopyResult');
     const statusDiv = document.getElementById('fangStatus');
     const resultBox = document.getElementById('fangResultBox');
+    // 工具箱已移除防战计算器 tab，DOM 不存在时跳过绑定（代码保留待后续清理）
+    if (!btnRun || !btnCopy || !statusDiv || !resultBox) return;
 
     btnRun.addEventListener('click', async () => {
         const selectedM = Array.from(document.querySelectorAll('#tab-fang-calc .fang-m-check:checked'))
