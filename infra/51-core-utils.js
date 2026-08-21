@@ -176,3 +176,18 @@ export function getAuraBonuses(unit, allySide, enemySide) {
     const bloodBonus = getBloodAuraBonus(allUnits);
     return { emptyCol: emptyCols * 5, bloodAura: bloodBonus };
 }
+
+// ==================== 闪避规则注册表（原 core/12 迁移） ====================
+const _dodgeRules = [];
+
+export function registerDodgeRule(fn) {
+    _dodgeRules.push(fn);
+}
+
+export function clearEliteDodgeRules() {
+    _dodgeRules.length = 2;
+}
+
+export function getDodgeRules() {
+    return _dodgeRules;
+}

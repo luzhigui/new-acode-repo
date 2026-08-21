@@ -1,5 +1,5 @@
 // tools/107-battle-log-viewer.js - 光明顶5v5 战斗日志复盘（单文件，界面动态生成）
-// V5.6.0 | ~7500 bytes| 2026-08-19 新增溢出伤害识别（统计按有效伤害）+ 严阵以待高伤深层归因
+// V5.7.1 | ~8400 bytes| 2026-08-21 增强：新增阵营对决卡片、回合伤害双色柱（明教/六大派）、排行榜伤害占比条；V5.7.1 修回合柱基准改为典型量级×3，超高回合封顶
 (function(){
 // ========== 样式（一次性注入，带 hex-log- 前缀避免污染宿主页） ==========
 if (!document.getElementById('hexLogStyle')) {
@@ -36,7 +36,7 @@ if (!document.getElementById('hexLogStyle')) {
 .hex-log-rank-card .row{display:flex;justify-content:space-between;padding:3px 4px;border-bottom:1px dashed #222;font-size:12px;color:#ccc}
 .hex-log-rank-card .row:last-child{border-bottom:none}
 .hex-log-rank-card .row .pct{color:#888;font-size:11px}
-.hex-log-chart{display:flex;align-items:flex-end;gap:4px;height:120px;margin-top:10px}
+.hex-log-chart{display:flex;align-items:stretch;gap:4px;height:120px;margin-top:10px}
 .hex-log-bar-col{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px}
 .hex-log-bar{width:100%;background:linear-gradient(180deg,#ffd700,#ff9800);border-radius:3px 3px 0 0;min-height:2px}
 .hex-log-bar-label{color:#888;font-size:10px}
@@ -50,6 +50,30 @@ if (!document.getElementById('hexLogStyle')) {
 .hex-log-tag-a{color:#ffd700;font-weight:bold}
 .hex-log-tag-e{color:#4fc3f7;font-weight:bold}
 .hex-log-verdict{background:#16213e;border-left:4px solid #ffd700;padding:10px 14px;border-radius:8px;margin-top:8px;font-size:12px;line-height:1.8;color:#eee}
+.hex-log-camp{display:flex;gap:10px;flex-wrap:wrap;margin-top:10px}
+.hex-log-camp-card{flex:1;min-width:200px;background:#0f0f1a;border:1px solid #333;border-radius:10px;padding:10px}
+.hex-log-camp-card.a{border-color:#b8860b}
+.hex-log-camp-card.e{border-color:#1e88e5}
+.hex-log-camp-card h3{font-size:12px;margin:0 0 8px}
+.hex-log-camp-card.a h3{color:#ffd700}
+.hex-log-camp-card.e h3{color:#4fc3f7}
+.hex-log-camp-card .crow{display:flex;justify-content:space-between;padding:3px 4px;font-size:12px;color:#ccc;border-bottom:1px dashed #222}
+.hex-log-camp-card .crow:last-child{border-bottom:none}
+.camp-bar{height:8px;background:#111;border-radius:4px;margin-top:6px;overflow:hidden}
+.camp-bar i{display:block;height:100%;border-radius:4px}
+.camp-bar.a i{background:linear-gradient(90deg,#ffd700,#ff9800)}
+.camp-bar.e i{background:linear-gradient(90deg,#4fc3f7,#1e88e5)}
+.hex-log-bar-col-a{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;height:100%;min-width:0}
+.hex-log-double{display:flex;gap:2px;width:100%;align-items:flex-end;justify-content:center;flex:1}
+.hex-log-double .ba{width:42%;background:linear-gradient(180deg,#ffd700,#ff9800);border-radius:3px 3px 0 0;min-height:2px}
+.hex-log-double .be{width:42%;background:linear-gradient(180deg,#4fc3f7,#1e88e5);border-radius:3px 3px 0 0;min-height:2px}
+.mini-bar{height:5px;background:#111;border-radius:3px;overflow:hidden;margin-top:3px}
+.mini-bar i{display:block;height:100%;background:linear-gradient(90deg,#ffd700,#ff9800)}
+.hex-log-legend{display:flex;gap:14px;margin-top:8px;font-size:11px;color:#888}
+.hex-log-legend span{display:flex;align-items:center;gap:5px}
+.hex-log-legend i{width:12px;height:12px;border-radius:3px;display:inline-block}
+.hex-log-legend .la{background:#ffd700}
+.hex-log-legend .le{background:#4fc3f7}
 `;
   document.head.appendChild(style);
 }
@@ -199,10 +223,22 @@ function render(events, summary, result) {
   }
   const rankHtml = renderRanks({ dmgBy, killsBy, takenBy, totalDmg });
 
-  // === 区块2：回合伤害柱状图 ===
-  const dmgByRound = {};
-  for (const e of attacksOnly) dmgByRound[e.round] = (dmgByRound[e.round] || 0) + eff(e);
-  const chartHtml = renderChart(dmgByRound);
+  // === 区块1.5：阵营对决（明教 vs 六大派 输出/承伤/击杀） ===
+  const camp = { [TEAM_MING]: { dmg: 0, kills: 0 }, [TEAM_SIX]: { dmg: 0, kills: 0 } };
+  const campByRound = {}; // round -> {明教:n, 六大派:n}
+  for (const e of attacksOnly) {
+    const t = teamOf(e.attacker);
+    if (t) {
+      camp[t].dmg += eff(e);
+      campByRound[e.round] = campByRound[e.round] || { [TEAM_MING]: 0, [TEAM_SIX]: 0 };
+      campByRound[e.round][t] += eff(e);
+      if (e.type === 'kill') camp[t].kills++;
+    }
+  }
+  const campHtml = renderCampCards(camp);
+
+  // === 区块2：回合伤害柱状图（双阵营） ===
+  const chartHtml = renderChart(campByRound);
 
   // === 区块3：回合摘要表 ===
   const roundInfo = {};
@@ -219,6 +255,7 @@ function render(events, summary, result) {
   try {
     result.innerHTML =
       `<div class="hex-log-h2">📝 战局讲解</div>${buildNarration(events)}` +
+      `<div class="hex-log-h2">⚔️ 阵营对决</div>${campHtml}` +
       `<div class="hex-log-h2">🏆 单位排行榜</div>${rankHtml}` +
       `<div class="hex-log-h2">📈 回合伤害走势</div>${chartHtml}` +
       `<div class="hex-log-h2">📋 回合摘要</div>${roundHtml}` +
@@ -403,8 +440,9 @@ function explainBigHit(bigEv, ctx) {
 function renderRanks({ dmgBy, killsBy, takenBy, totalDmg }) {
   const top = (map, n = 6) => Object.entries(map).sort((a, b) => b[1] - a[1]).slice(0, n);
   const dmgRows = top(dmgBy).map(([k, v]) => {
-    const pct = totalDmg > 0 ? (v / totalDmg * 100).toFixed(1) + '%' : '';
-    return `<div class="row"><span>${k}</span><span class="pct">${v} <i>${pct}</i></span></div>`;
+    const pct = totalDmg > 0 ? (v / totalDmg * 100) : 0;
+    return `<div class="row"><span>${k}</span><span class="pct">${v} <i>${pct.toFixed(1)}%</i></span></div>
+      <div class="mini-bar"><i style="width:${pct}%"></i></div>`;
   }).join('');
   const killRows = top(killsBy).map(([k, v]) =>
     `<div class="row"><span>${k}</span><span>${v} 杀</span></div>`).join('');
@@ -418,15 +456,51 @@ function renderRanks({ dmgBy, killsBy, takenBy, totalDmg }) {
   </div>`;
 }
 
-// 回合伤害柱状图（CSS 柱状）
-function renderChart(dmgByRound) {
-  const rounds = Object.keys(dmgByRound).sort((a, b) => a - b);
-  const max = Math.max(1, ...Object.values(dmgByRound));
+// 回合伤害柱状图（每回合 明教/六大派 双色柱）
+function renderChart(campByRound) {
+  const rounds = Object.keys(campByRound).sort((a, b) => a - b);
+  // 基准不用全局最高回合（后期单回合爆发会把基准顶得过高，普通回合全贴地），
+  // 改用「中位数 ×3」——中位数对爆发回合鲁棒，均值会被极端值拉高，故以中位数为准（无中位数时用均值兜底）。
+  const totals = rounds.map(r => (campByRound[r][TEAM_MING] || 0) + (campByRound[r][TEAM_SIX] || 0));
+  const sorted = totals.slice().sort((a, b) => a - b);
+  const median = sorted[Math.floor(sorted.length / 2)] || 0;
+  const mean = totals.reduce((s, v) => s + v, 0) / (totals.length || 1);
+  const base = Math.max(1, (median > 0 ? median : mean) * 3);
+  const pct = v => Math.min(100, (v / base * 100).toFixed(1));
   const cols = rounds.map(r => {
-    const h = (dmgByRound[r] / max * 100);
-    return `<div class="hex-log-bar-col"><div class="hex-log-bar" style="height:${h}%"></div><div class="hex-log-bar-val">${dmgByRound[r]}</div><div class="hex-log-bar-label">R${r}</div></div>`;
+    const dA = campByRound[r][TEAM_MING] || 0;
+    const dE = campByRound[r][TEAM_SIX] || 0;
+    const hA = pct(dA);
+    const hE = pct(dE);
+    const overA = dA / base * 100 > 100 ? ' ⬆' : '';
+    const overE = dE / base * 100 > 100 ? ' ⬆' : '';
+    return `<div class="hex-log-bar-col-a">
+      <div class="hex-log-double">
+        <div class="ba" style="height:${hA}%" title="明教 ${dA}${overA}"></div>
+        <div class="be" style="height:${hE}%" title="六大派 ${dE}${overE}"></div>
+      </div>
+      <div class="hex-log-bar-val">${dA + dE}</div>
+      <div class="hex-log-bar-label">R${r}</div>
+    </div>`;
   }).join('');
-  return `<div class="hex-log-chart">${cols || '<div class="hex-log-bar-col"><div class="hex-log-bar-label">无数据</div></div>'}</div>`;
+  return `<div class="hex-log-chart">${cols || '<div class="hex-log-bar-col-a"><div class="hex-log-bar-label">无数据</div></div>'}</div>
+    <div class="hex-log-legend"><span><i class="la"></i>明教</span><span><i class="le"></i>六大派</span><span>基准(中位数×3)=${Math.round(base)}，⬆=封顶超基准</span></div>`;
+}
+
+// 阵营对决卡片：输出 / 承伤 / 击杀，附占比条
+function renderCampCards(camp) {
+  const A = camp[TEAM_MING], E = camp[TEAM_SIX];
+  const totalDmg = A.dmg + E.dmg;
+  const pctA = totalDmg > 0 ? (A.dmg / totalDmg * 100).toFixed(1) : '0.0';
+  const pctE = totalDmg > 0 ? (E.dmg / totalDmg * 100).toFixed(1) : '0.0';
+  const card = (t, c, other) => `<div class="hex-log-camp-card ${t === TEAM_MING ? 'a' : 'e'}">
+    <h3>${t === TEAM_MING ? '🟡 明教' : '🔵 六大派'}</h3>
+    <div class="crow"><span>总伤害</span><span>${c.dmg}（${t === TEAM_MING ? pctA : pctE}%）</span></div>
+    <div class="crow"><span>击杀</span><span>${c.kills}</span></div>
+    <div class="crow"><span>承伤（=对方输出）</span><span>${other.dmg}</span></div>
+    <div class="camp-bar ${t === TEAM_MING ? 'a' : 'e'}"><i style="width:${t === TEAM_MING ? pctA : pctE}%"></i></div>
+  </div>`;
+  return `<div class="hex-log-camp">${card(TEAM_MING, A, E)}${card(TEAM_SIX, E, A)}</div>`;
 }
 
 // 回合摘要表

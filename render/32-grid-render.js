@@ -2,9 +2,7 @@
 // V5.5.2 | ~9003 bytes| 2026-08-19 import 路径合并至 infra/51-core-utils
 export const VER = 'render/32-grid-render.js V5.5.2';
 
-import { computeBuffStats } from '../core/04buff-system.js';
-import { getUnitCol, getUnitRow, getAuraBonuses } from '../infra/51-core-utils.js';
-import { getDodgeRules } from '../core/12battle-attack-steps.js';
+import { getUnitCol, getUnitRow, getAuraBonuses, getDodgeRules } from '../infra/51-core-utils.js';
 import { CONFIG, getSkillDesc } from '../core/01config-5v5-test.js';
 import { GlobalStore, getPlayerContext } from '../infra/54-global-store.js';
 
@@ -56,10 +54,9 @@ function getDodgeBreakdown(unit, activeBuffs, allyTeam) {
         }
     }
 
-    const buffStats = computeBuffStats(unit, activeBuffs || [], allyTeam || []);
-    if (buffStats.dodgeBonus > 0) {
-        sources.push({ label: '流云身法', value: Math.round(buffStats.dodgeBonus * 100) });
-        rates.push(buffStats.dodgeBonus);
+    if (unit.buffDodgeBonus > 0) {
+        sources.push({ label: '流云身法', value: Math.round(unit.buffDodgeBonus * 100) });
+        rates.push(unit.buffDodgeBonus);
     }
 
     let combined = 0;
@@ -225,10 +222,9 @@ export function renderGrid(id, camp) {
             if (freshUnit) latestUnit = freshUnit;
         }
 
-        let buffStats = computeBuffStats(latestUnit, activeBuffs, allyTeam);
-        let atkBonusVal = Math.floor(latestUnit.atk * buffStats.atkBonus);
-        let defBonusVal = Math.floor((latestUnit._baseDef || latestUnit.def) * buffStats.defBonus);
-        let hpBonusVal = Math.floor(latestUnit.maxHp * buffStats.hpBonus);
+        let atkBonusVal = Math.floor(latestUnit.atk * latestUnit.buffAtkBonus);
+        let defBonusVal = Math.floor((latestUnit._baseDef || latestUnit.def) * latestUnit.buffDefBonus);
+        let hpBonusVal = Math.floor(latestUnit.maxHp * latestUnit.buffHpBonus);
         let displayAtk = Math.round(latestUnit.atk + (latestUnit._carryAtkBonus || 0) + atkBonusVal);
         let initAtk = latestUnit._initAtk !== undefined ? Math.round(latestUnit._initAtk) : Math.round(latestUnit.atk);
         let totalChange = displayAtk - initAtk;

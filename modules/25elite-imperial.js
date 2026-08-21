@@ -9,7 +9,6 @@ import { tickXuanmingPoison } from './20elite-skills.js';
 import { EXECUTION_LAYER as L, EFFECT_TYPES } from '../infra/50-event-bus.js';
 import {
     renderXuanmingDotFact,
-    renderXuanmingPoisonedFact,
     renderPhantomDisguiseHealFact
 } from '../render/30-fact-renderer.js';
 const ES = CONFIG.ELITE_SKILLS;
@@ -18,11 +17,16 @@ const ES = CONFIG.ELITE_SKILLS;
 export function createChengKunComponent() {
     return {
         name: '成昆',
+        declarations: [{
+            name: '成昆',
+            camp: 'enemy',
+            beforeDamageEffects: [{ type: 'bonusLostHp', ratio: 0.20, label: '混元霹雳劲' }],
+            attributeMods: [{ type: 'fortifyIncrementMul', mult: 2 }]
+        }],
         register(eventBus, A, B, log) {
             const cheng = B.find(u => u.name === '成昆' && u.alive);
             if (!cheng) return;
             const onAfterApplyDamage = this.onAfterApplyDamage;
-            const onDamageCalc = this.onDamageCalc;
             eventBus.on('beforeSelectTarget', L.BEFORE_SELECT_TARGET.CHENGKUN_DISGUISE, (data) => {
                 if (data.unit.name === '成昆' && data.unit.state._phantomTarget) {
                     delete data.unit.state._phantomTarget;
@@ -53,15 +57,6 @@ export function createChengKunComponent() {
                 if (data.unit.name !== '成昆') return;
                 onAfterApplyDamage(data.unit, data.target, { dmg: data.dmg }, data.group, A, data.log, data);
             });
-            eventBus.on('beforeDamageCalc', L.BEFORE_DAMAGE_CALC.CHENGKUN_THUNDER, (data) => {
-                if (data.unit.name !== '成昆' || !data.declarations) return;
-                const lostHp = data.unit.maxHp - data.unit.hp;
-                const params = getSkillParams('成昆', 'phantomThunder') || ES.phantomThunder;
-                const bonus = Math.floor(lostHp * params.lostHpRatio);
-                if (bonus > 0) {
-                    data.declarations.push({ type: EFFECT_TYPES.BONUS_DMG, value: bonus, source: data.unit, label: '混元霹雳劲' });
-                }
-            });
         },
         onAfterApplyDamage(unit, target, dmgCalc, group, enemySide, log, data) {
             if (unit.name !== '成昆' || dmgCalc.dmg <= 0) return;
@@ -90,14 +85,13 @@ export function createChengKunComponent() {
 export function createLuZhangKeComponent() {
     return {
         name: '鹿杖客',
+        declarations: [{
+            name: '鹿杖客',
+            onHitEffects: [{ type: 'poison', duration: 3, dotPercents: [0.04, 0.02, 0.01] }]
+        }],
         register(eventBus, A, B, log) {
             const lu = B.find(u => u.name === '鹿杖客' && u.alive);
             if (!lu) return;
-            const onAfterApplyDamage = this.onAfterApplyDamage;
-            eventBus.on('afterDamageApplied', L.AFTER_DAMAGE_APPLIED.LU_XUANMING, (data) => {
-                if (data.unit.name !== '鹿杖客') return;
-                onAfterApplyDamage(data.unit, data.target, { dmg: data.dmg }, data.group, B, data.log);
-            });
             eventBus.on('onRoundStart', L.ROUND_START.XUANMING_POISON, (data) => {
                 const { A, B, log } = data;
                 A.concat(B).forEach(u => {
@@ -108,12 +102,6 @@ export function createLuZhangKeComponent() {
                     }
                 });
             });
-        },
-        onAfterApplyDamage(unit, target, dmgCalc, group, allySide, log) {
-            if (unit.name !== '鹿杖客') return;
-            const s = getSkillParams('鹿杖客', 'xuanmingPalm') || ES.xuanmingPalm;
-            target._xuanmingPoison = { remaining:s.duration, dotPercents:[...s.dotPercents] };
-            log.push(renderXuanmingPoisonedFact({ attackerName: unit.name, targetName: target.name, dotPercents: s.dotPercents }));
         }
     };
 }
@@ -122,19 +110,16 @@ export function createLuZhangKeComponent() {
 export function createHeBiWengComponent() {
     return {
         name: '鹤笔翁',
+        declarations: [{
+            name: '鹤笔翁',
+            beforeDamageEffects: [
+                { type: 'ignoreDef', ratio: 0.30 },
+                { type: 'damageMultiplierIfPoisoned', bonus: 0.30 }
+            ]
+        }],
         register(eventBus, A, B, log) {
             const he = B.find(u => u.name === '鹤笔翁' && u.alive);
             if (!he) return;
-            const onDamageCalc = this.onDamageCalc;
-            eventBus.on('beforeDamageCalc', L.BEFORE_DAMAGE_CALC.HE_HORN, (data) => {
-                if (data.unit.name !== '鹤笔翁' || !data.declarations) return;
-                const s = getSkillParams('鹤笔翁', 'hornStrike') || ES.hornStrike;
-                const poisoned = data.target._xuanmingPoison && data.target._xuanmingPoison.remaining > 0;
-                data.declarations.push({ type: EFFECT_TYPES.IGNORE_DEF, value: s.defIgnore, source: data.unit });
-                if (poisoned) {
-                    data.declarations.push({ type: EFFECT_TYPES.DMG_MULTIPLIER, value: 1 + s.poisonedBonus, source: data.unit, label: '鹿角杖法' });
-                }
-            });
         },
     };
 }

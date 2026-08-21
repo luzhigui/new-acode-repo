@@ -8,6 +8,7 @@ import { computeBuffStats, logBuffSummary, applyHolyFlameBonus, applyFortifyBonu
 import { spawnHorse, destroyHorse } from './05battle-horse.js';
 import { Unit } from './02unit.js';
 import { clearEliteDodgeRules, getDodgeRules } from './12battle-attack-steps.js';
+import { installDeclaredSkills } from './15-skill-mechanisms.js';
 
 import { getEliteFactories } from './08-elite-registry.js';
 import { processUnitAttack } from './10battle-attack.js';
@@ -96,6 +97,8 @@ async function prepareRoundStart(A, B, log, state, round, rng) {
 
     eventBus.clearAll();
 
+    const declaredSkills = [];
+
     clearEliteDodgeRules();
 
     registerWarriorBreakDefense(eventBus);
@@ -125,10 +128,6 @@ async function prepareRoundStart(A, B, log, state, round, rng) {
     const allUnits = [...A, ...B];
     for (const u of allUnits) {
         if (!u.alive) continue;
-        if (u.name === '成昆' && u.camp === 'enemy') {
-            u._fortifyIncrement = CONFIG.FORTIFY_INCREMENT * 2;
-            u._fortifyCap = CONFIG.FORTIFY_CAP * 2;
-        }
         if (u.isXiaoZhaoSister && u.camp === 'ally') {
             const Factory = factories.get('小昭·姊');
             if (Factory && !sisterComp) sisterComp = Factory();
@@ -139,9 +138,14 @@ async function prepareRoundStart(A, B, log, state, round, rng) {
             if (brotherComp) brotherComp.register(eventBus, A, B, log);
         } else {
             const Factory = factories.get(u.name);
-            if (Factory) Factory().register(eventBus, A, B, log);
+            if (Factory) {
+                const comp = Factory();
+                if (comp.declarations) declaredSkills.push(...comp.declarations);
+                comp.register(eventBus, A, B, log);
+            }
         }
     }
+    installDeclaredSkills(eventBus, A, B, log, declaredSkills);
     const xuanmingFactory = factories.get('玄冥联动');
     if (xuanmingFactory) xuanmingFactory(eventBus);
 

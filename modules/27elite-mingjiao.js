@@ -13,9 +13,7 @@ import { EXECUTION_LAYER as L, EFFECT_TYPES } from '../infra/50-event-bus.js';
 import { registerDodgeRule } from '../core/12battle-attack-steps.js';
 import { StateMachine } from '../infra/51-core-utils.js';
 import {
-    renderNineYangHealFact,
     renderRongHuiBonusFact,
-    renderWeiLeechFact,
     renderQianKunDerivedFact,
     renderButterflyAttachFact,
     renderButterflyNoHostFact,
@@ -36,6 +34,10 @@ function getZhangNearTaunt(nearAtkCount) {
 export function createZhangWujiComponent() {
     return {
         name: '张无忌',
+        declarations: [{
+            name: '张无忌',
+            onHitEffects: [{ type: 'healMaxHpPct', pct: 0.08 }]
+        }],
         _buildFsm(zhang, A, log) {
             let fsm;
             const col = (zhang.pos - 1) % 3;
@@ -109,21 +111,6 @@ export function createZhangWujiComponent() {
         onAfterApplyDamage(unit, target, dmgCalc, group, A, log, data) {
             if (unit.camp !== 'ally' || !unit.isZhang || !unit.alive) return;
             const fsm = unit._fsm;
-            const hpBeforeZhang = Math.floor(unit.hp);
-            const s = getSkillParams('张无忌', 'nineYang') || { healPct: 8 };
-            const heal = Math.min(Math.floor(unit.maxHp * (s.healPct / 100)), unit.maxHp - unit.hp);
-            if (heal > 0) {
-                if (data && data.declarations) {
-                    data.declarations.push({
-                        type: EFFECT_TYPES.HEAL,
-                        value: heal,
-                        source: unit,
-                        logText: renderNineYangHealFact({ unitName: unit.name, heal, hpBefore: hpBeforeZhang, hpAfter: Math.floor(unit.hp + heal) }).text
-                    });
-                } else {
-                    applyStatChange(unit, 'hp', heal, null, '九阳神功');
-                }
-            }
             if (fsm && fsm.is('near')) {
                 if (unit.nearAtkCount === 0 && !unit._zhangTauntDone) { const firstTaunt = getZhangNearTaunt(1); if (firstTaunt) { group.entries.push({ type:'info', text:`<span class="gold">🗣️ ${unit.name}：${firstTaunt}</span>` }); unit._zhangTauntDone = true; } }
                 unit.nearAtkCount++;
@@ -152,26 +139,15 @@ export function createZhangWujiComponent() {
 export function createWeiYixiaoComponent() {
     return {
         name: '韦一笑',
+        declarations: [{
+            name: '韦一笑',
+            targetRule: 'lowestHp',
+            onHitEffects: [{ type: 'leech', minRatio: 0.15, maxRatio: 0.45 }],
+            dodgeRules: [{ type: 'lostHpPercent', max: 0.70 }]
+        }],
         register(eventBus, A, B, log) {
             const wei = A.find(u => u.isWei && u.alive);
             if (!wei) return;
-            eventBus.on('afterDamageApplied', L.AFTER_DAMAGE_APPLIED.WEI_LEECH, (data) => {
-                if (data.unit.uid !== wei.uid || !wei.alive || data.dmg <= 0) return;
-                const s = getSkillParams('韦一笑', 'coldPalm') || CONFIG.ELITE_SKILLS.coldPalm;
-                const lostPct = (wei.maxHp - wei.hp) / wei.maxHp;
-                const leechRate = (s.leechMin + (s.leechMax - s.leechMin) * lostPct) / 100;
-                const healWei = Math.floor(data.dmg * leechRate);
-                const newMaxHpWei = Math.min(wei.maxHp + healWei, wei._baseMaxHp * 2);
-                const decl = {
-                    type: EFFECT_TYPES.LEECH,
-                    value: healWei,
-                    source: wei,
-                    maxHp: newMaxHpWei,
-                    logText: renderWeiLeechFact({ unitName: wei.name, heal: healWei, newMaxHp: Math.floor(newMaxHpWei) }).text
-                };
-                if (!data.declarations) data.declarations = [];
-                data.declarations.push(decl);
-            });
 
             eventBus.on('onDodge', L.AFTER_DAMAGE_APPLIED.WEI_LEECH, (data) => {
                 const { unit, target, reboundDmg, declarations } = data;
@@ -189,12 +165,6 @@ export function createWeiYixiaoComponent() {
                 });
             });
 
-            registerDodgeRule((unit, attacker) => {
-                if (!unit.isWei || !unit.alive) return 0;
-                const lostPct = (unit.maxHp - unit.hp) / unit.maxHp;
-                const s = getSkillParams('韦一笑', 'bloodDodge') || { maxRatio: 70 };
-                return lostPct * (s.maxRatio / 100);
-            });
             registerDodgeRule((unit, attacker) => {
                 if (!unit.isWei || !unit.alive) return 0;
                 return CONFIG.BASE_DODGE_FLY || 0.15;

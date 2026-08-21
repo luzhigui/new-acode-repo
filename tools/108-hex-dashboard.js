@@ -1,5 +1,6 @@
 // tools/108-hex-dashboard.js - 光明顶5v5 海克斯平衡性仪表盘（单文件，界面动态生成）
-// V5.5.0 | ~6500 bytes| 2026-08-15 由 108-hex-dashboard.html 改造：逻辑+界面全 js，102 按钮弹出浮层
+// V5.6.0 | ~9500 bytes| 2026-08-21 新增：点击海克斯名称弹出详情（普通/姐姐强化/妹妹永久版参数实时读 CONFIG + 强弱判断）
+import { CONFIG } from '../core/01config-5v5-test.js';
 (function(){
 const KEY = 'ming_hex_battle_log';
 let logs = [];
@@ -28,8 +29,121 @@ if (!document.getElementById('hexDashStyle')) {
 .hex-hex-op{color:#f44336;font-weight:bold}
 .hex-hex-weak{color:#888}
 .hex-hex-body{overflow:auto;flex:1}
+.hex-hex-link{color:#ffd700;cursor:pointer;text-decoration:underline;font-weight:bold}
+.hex-hex-detail-mask{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:10001;display:flex;align-items:center;justify-content:center}
+.hex-hex-detail-box{background:#1a1a2e;color:#eee;font-family:monospace;border:1px solid #444;border-radius:12px;width:min(560px,92vw);max-height:86vh;display:flex;flex-direction:column;padding:16px}
+.hex-hex-detail-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
+.hex-hex-hero{display:flex;align-items:center;gap:12px}
+.hex-hex-hero .icon{font-size:40px}
+.hex-hex-hero h2{color:#ffd700;font-size:20px;margin:0}
+.hex-hex-hero .sub{color:#aaa;font-size:12px;margin-top:4px;line-height:1.5}
+.hex-hex-detail-body{overflow:auto;margin-top:12px}
+.hex-hex-ver{background:#0f0f1a;border:1px solid #333;border-left:3px solid #666;border-radius:8px;padding:10px 12px;margin-top:10px}
+.hex-hex-ver-a{border-left-color:#ffd700}
+.hex-hex-ver-b{border-left-color:#ff6ec7}
+.hex-hex-ver-c{border-left-color:#4fc3f7}
+.hex-hex-ver h3{color:#eee;font-size:13px;margin:0 0 6px}
+.hex-hex-ver h3 .tag{color:#888;font-size:11px;font-weight:normal}
+.hex-hex-ver ul{margin:0;padding-left:18px}
+.hex-hex-ver li{font-size:12px;color:#ccc;line-height:1.8}
+.hex-hex-hint{background:rgba(255,215,0,.08);border:1px dashed #ffd700;border-radius:8px;padding:10px 12px;margin-top:12px;font-size:12px;color:#ddd;line-height:1.7}
 `;
   document.head.appendChild(style);
+}
+
+// ========== 海克斯详情数据（参数实时读 CONFIG，此处只写判断文案） ==========
+const PARAM_LABELS = {
+  prob: '触发概率', hitProb: '命中概率', pushProb: '击退概率',
+  enemySwapProb: '扰乱敌方概率', allySwapProb: '扰乱己方概率',
+  spawnProb: '生成概率', destroyProb: '销毁概率',
+  bonusRatio: '额外伤害', splashRatio: '溅射伤害', leechRatio: '吸血比例',
+  atkBonus: '攻击加成', defBonus: '防御加成', hpBonus: '生命加成',
+  critRatio: '暴击回血', critInterval: '翻倍间隔', dodgeBonus: '闪避加成',
+  reboundRatio: '反弹伤害', mainDefReduce: '主箭降防', splashDefReduce: '小箭降防',
+  duration: '持续', horseHp: '巨马生命', horseAtk: '巨马攻击', horseDef: '巨马防御',
+  deathMultiplier: '死亡队友加成倍率', multiTarget: '多目标', targetPositions: '目标位置',
+  atkCols: '攻击列数', defRows: '防御行数', extraStrike: '额外追击', healOnRebound: '反弹回血', reboundDmg: '反弹伤害'
+};
+
+const HEX_HINTS = {
+  doubleStrike: '适合阵容里有持续高输出的主 C（张无忌/韦一笑），触发一次就多一轮爆发；收益随机、不稳定，对位前排密集时触发收益更高。',
+  carry: '5 号位（张无忌常驻位）越强收益越高，队友阵亡越多加成越猛——偏保核打法，张无忌在场且被集火时收益最高。',
+  cloudBody: '对高频率多段攻击（普攻/连击多）的阵容克制明显；但对抗必中技能（如九阴白骨爪）无效。',
+  horseFormation: '多一条带反弹的前排承伤，缓解防线压力并反伤近战；对面战士/防战突脸多时收益最大。',
+  meteorShower: '己方远程越多收益越高，溅射可顺带压低多目标血线；对面后排站位密集时效果拔群。',
+  bloodthirst: '战士越多收益越高，提供续航；适合需要顶住多回合拉锯的阵容。',
+  fortify: '防战是承伤核心时收益最高，反弹反制高攻脆皮输出；若己方无防战则几乎无用。',
+  windAssault: '己方飞行单位越多越强，击退可拆散敌方阵型、打乱换位；无飞行单位时无收益。',
+  holyFlame: '攻防兼备的万金油，覆盖到关键单位（张无忌/小昭）时收益最大；覆盖差时收益一般。',
+  hotBlood: '站得住才赚，适合高血量或被集火的单位；每第 3/6/9 次攻击回血翻倍，爆发可观。',
+  mindControl: '打乱敌方站位收益高，克制依赖站位集火的阵容；己方换位干扰是副作用，站位紧密时慎选。'
+};
+
+function fmtVal(k, v) {
+  if (typeof v === 'boolean') return v ? '开启' : '关闭';
+  if (Array.isArray(v)) return 'P' + v.join('/P');
+  if (typeof v === 'number') {
+    if (/prob|ratio|bonus|pct/i.test(k) && v <= 1) return Math.round(v * 100) + '%';
+    if (k === 'duration') return v + ' 回合';
+    return v;
+  }
+  return v;
+}
+
+// 版本卡片：kind 0=普通版(列基础参数) / 1=姐姐强化版(旧值→新值) / 2=妹妹永久版(基础参数+永久)
+function renderVersion(title, base, enhance, kind, cls) {
+  const tag = kind === 0 ? '选海克斯后生效' : kind === 1 ? '自带强化' : '永久生效 ∞';
+  let lines = '';
+  if (kind !== 1) {
+    const params = [];
+    for (const k in base) {
+      if (k === 'name' || k === 'desc' || k === 'icon' || k === 'duration') continue;
+      params.push(`<li><b>${PARAM_LABELS[k] || k}</b>：${fmtVal(k, base[k])}</li>`);
+    }
+    lines = params.join('');
+    lines += kind === 0
+      ? `<li><b>持续</b>：${(base.duration || CONFIG.BUFF_DURATION)} 回合</li>`
+      : '<li><b>持续</b>：永久（无回合限制）</li>';
+  } else if (!enhance) {
+    lines = '<li style="color:#888">该海克斯无额外强化，效果同普通版</li>';
+  } else {
+    for (const k in enhance) {
+      if (k.startsWith('xiaoZhao')) continue; // 小昭内部字段不展示
+      const v = enhance[k];
+      if (base[k] !== undefined) {
+        lines += `<li><b>${PARAM_LABELS[k] || k}</b>：<s style="color:#888">${fmtVal(k, base[k])}</s> → <b style="color:#ffd700">${fmtVal(k, v)}</b></li>`;
+      } else {
+        lines += `<li><b>${PARAM_LABELS[k] || k}</b>（新增）：<b style="color:#ff6ec7">${fmtVal(k, v)}</b></li>`;
+      }
+    }
+  }
+  return `<div class="hex-hex-ver hex-hex-ver-${cls}"><h3>${title} <span class="tag">${tag}</span></h3><ul>${lines || '<li style="color:#888">无参数</li>'}</ul></div>`;
+}
+
+function openHexDetail(key) {
+  const b = CONFIG.BUFFS[key];
+  if (!b) return;
+  const enhance = CONFIG.ELITE_SKILLS.xiaoZhao.hexEnhance[key] || null;
+  const mask = document.createElement('div');
+  mask.className = 'hex-hex-detail-mask';
+  mask.innerHTML = `
+    <div class="hex-hex-detail-box">
+      <div class="hex-hex-detail-head">
+        <div class="hex-hex-hero"><span class="icon">${b.icon || '🎯'}</span>
+          <div><h2>${b.name}</h2><div class="sub">${b.desc}</div></div>
+        </div>
+        <button class="hex-hex-close">关闭</button>
+      </div>
+      <div class="hex-hex-detail-body">
+        ${renderVersion('普通版', b, null, 0, 'a')}
+        ${renderVersion('姐姐强化版（小昭·姊）', b, enhance, 1, 'b')}
+        ${renderVersion('妹妹永久版（小昭·妹）', b, null, 2, 'c')}
+        ${HEX_HINTS[key] ? `<div class="hex-hex-hint">💡 判断：${HEX_HINTS[key]}</div>` : ''}
+      </div>
+    </div>`;
+  document.body.appendChild(mask);
+  mask.querySelector('.hex-hex-close').addEventListener('click', () => mask.remove());
+  mask.addEventListener('click', e => { if (e.target === mask) mask.remove(); });
 }
 
 // ========== 界面 ==========
@@ -133,7 +247,7 @@ function render(summary, stats) {
   let html = '<table><tr><th>海克斯</th><th>出场</th><th>胜率</th><th>无此海克斯</th><th>差值</th><th>判定</th><th>差值可视化</th></tr>';
   for (const r of rows) {
     html += `<tr>
-      <td>${r.name}</td>
+      <td class="hex-hex-link" data-key="${r.key}" title="点击查看详情">${r.name}</td>
       <td>${r.count}</td>
       <td>${r.winRate.toFixed(1)}%</td>
       <td>${r.baseText}</td>
@@ -144,6 +258,7 @@ function render(summary, stats) {
   }
   html += '</table>';
   stats.innerHTML = html;
+  stats.querySelectorAll('.hex-hex-link').forEach(td => td.addEventListener('click', () => openHexDetail(td.dataset.key)));
 }
 
 window.openHexDashboard = openHexDashboard;
