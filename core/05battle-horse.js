@@ -1,6 +1,6 @@
-﻿// core/05battle-horse.js - 光明顶5v5 拒马逻辑
-// V5.5.0 | ~2900 bytes| 2026-08-17 事实化重构：拒马日志移至渲染器
-export const VER = 'core/05battle-horse.js V5.5.0';
+// core/05battle-horse.js - 光明顶5v5 拒马逻辑
+// V5.5.1 | ~2906 bytes| 2026-08-21 战报记账修正：拒马初始化/消散改非记账
+export const VER = 'core/05battle-horse.js V5.5.1';
 
 import { CONFIG } from './01config-5v5-test.js';
 import { hasBuff } from './03battle-utils.js';
@@ -35,7 +35,7 @@ export function spawnHorse(allyTeam, log, enemyTeam, force = false) {
         applyStatChange(horse, 'def', C.BUFFS.horseFormation.horseDef, null, '拒马初始化');
         applyStatChange(horse, 'maxHp', C.BUFFS.horseFormation.horseHp, null, '拒马初始化');
     }
-    applyStatChange(horse, 'hp', horse.maxHp, null, '拒马初始化');
+    applyStatChange(horse, 'hp', horse.maxHp, null, '拒马初始化', false);
     horse._baseMaxHp = horse.maxHp;  // 防止 carry 误判 _baseMaxHp=0 把马打成 maxHp=0
     horse.pos = horsePos; horse.isHorse = true; horse._originalPos = horsePos;
     allyTeam.push(horse);
@@ -55,7 +55,7 @@ export function destroyHorse(allyTeam, log) {
         const roll = rng.nextInt(1, 100);
         const success = roll <= currentProb;
         if (success) {
-            applyStatChange(horse, 'hp', -horse.hp, null, '拒马消散');
+            applyStatChange(horse, 'hp', -horse.hp, null, '拒马消散', false);
             horse.alive = false;
             horse.state._isDead = true;
             log.push({ factType: 'horseDestroy', data: { pos: horse.pos, success: true, prob: currentProb, roll, horseUid: horse.uid } });
