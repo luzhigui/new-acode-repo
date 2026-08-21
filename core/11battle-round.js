@@ -1,6 +1,6 @@
-﻿// core/11battle-round.js - 光明顶5v5 回合循环与生成器
-// V5.5.3 | ~23500 bytes| 2026-08-17 事实化重构：全部日志走render/30
-export const VER = 'core/11battle-round.js V5.5.3';
+// core/11battle-round.js - 光明顶5v5 回合循环与生成器
+// V5.5.4 | ~23505 bytes| 2026-08-19 import 路径合并至 infra/51-core-utils
+export const VER = 'core/11battle-round.js V5.5.4';
 
 import { CONFIG } from './01config-5v5-test.js';
 import { isMelee, isBlocked, makeFXSnapshot, hasBuff, getUnitCol, getUnitRow, hasAnyEnemyEmptyCol, countEnemyEmptyCols, getBloodAuraBonus, getAuraBonuses, registerWarriorBreakDefense, registerRangedGrowth, registerFortifyShield, registerWarriorExecute, selectFlyTarget, registerEmptyColBonus, registerDoubleStrike } from './03battle-utils.js';
@@ -13,8 +13,8 @@ import { getEliteFactories } from './08-elite-registry.js';
 import { processUnitAttack } from './10battle-attack.js';
 import { eventBus, EXECUTION_LAYER as L } from '../infra/50-event-bus.js';
 import { getNextAvailableUnit, finalizeDeaths, emitFullUnitState, checkZhangSwitch, emitEvent, applyStatChange, setBattleRng } from './13battle-shared.js';
-import { flushBattleEvents, setBattleState } from '../infra/53-battle-event-store.js';
-import { SeededRNG } from '../infra/52-rng.js';
+import { flushBattleEvents, setBattleState } from '../infra/51-core-utils.js';
+import { SeededRNG } from '../infra/51-core-utils.js';
 import { resolveDeaths } from './12battle-attack-steps.js';
 import {
     renderHorseSummonFact,
@@ -167,7 +167,7 @@ async function prepareRoundStart(A, B, log, state, round, rng) {
         }
         let stats = computeBuffStats(u, A._activeBuffs || [], allyTeamWithDead);
 
-        applyHolyFlameBonus(u, A._activeBuffs || []);
+        applyHolyFlameBonus(u, A._activeBuffs || [], hasSisterForHolyFlame);
         applyFortifyBonus(u, A._activeBuffs || []);
 
         emitEvent(u, 'stat-bonus-change', {

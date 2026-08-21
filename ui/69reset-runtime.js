@@ -1,11 +1,11 @@
 // ui/69reset-runtime.js - 光明顶5v5 战斗重置清理统一入口
-// V5.5.0 | ~2200 bytes| 2026-08-14 统一 resetBattleRuntime，收口各重置路径
-export const VER = 'ui/69reset-runtime.js V5.5.0';
+// V5.5.1 | ~2196 bytes| 2026-08-19 import 路径合并至 infra/51-core-utils
+export const VER = 'ui/69reset-runtime.js V5.5.1';
 
 import { GlobalStore } from '../infra/54-global-store.js';
 import { setRenderStore } from './62ui-render-5v5-test.js';
 import { clearEliteDodgeRules } from '../core/12battle-attack-steps.js';
-import { flushBattleEvents } from '../infra/53-battle-event-store.js';
+import { flushBattleEvents } from '../infra/51-core-utils.js';
 
 function removeIfExists(id) {
     const el = document.getElementById(id);
@@ -27,7 +27,6 @@ export function resetBattleRuntime({ restoreSpeed = true } = {}) {
 
     // 3. 清全局标记
     GlobalStore.set('fastForwardActive', false);
-    window._fastForwardActive = false;
     GlobalStore.set('bulletTimeActive', false);
     GlobalStore.set('scrollSlowdown', false);
     GlobalStore.set('skipBuffPopup', false);
@@ -68,9 +67,9 @@ export function resetBattleRuntime({ restoreSpeed = true } = {}) {
     }
 
     // 6. 恢复倍速
-    if (restoreSpeed && typeof window._restoreSpeedFromScroll === 'function') {
-        window._restoreSpeedFromScroll();
+    if (restoreSpeed) {
+        const fn = GlobalStore.getUIHandler('restoreSpeedFromScroll'); if (fn) fn();
     }
     // 重置 isBattleStarting 局部变量
-    if (typeof window._resetIsBattleStarting === 'function') window._resetIsBattleStarting();
+    const fnReset = GlobalStore.getUIHandler('resetIsBattleStarting'); if (fnReset) fnReset();
 }

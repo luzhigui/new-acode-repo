@@ -1,8 +1,8 @@
 // infra/54-global-store.js - 光明顶5v5 全局状态管理
-// V5.5.0 | ~3700 bytes| 2026-08-17 从modules/23迁移至infra
-export const VER = 'infra/54-global-store.js V5.5.0';
+// V5.5.1 | ~3700 bytes| 2026-08-21 import 路径合并至 infra/51-core-utils
+export const VER = 'infra/54-global-store.js V5.5.1';
 
-import { pushBattleEvent, flushBattleEvents, onBattleEvents, getBattleState, setBattleState, isBattleStateKey } from './53-battle-event-store.js';
+import { pushBattleEvent, flushBattleEvents, onBattleEvents, getBattleState, setBattleState, isBattleStateKey } from './51-core-utils.js';
 
 const _state = {
     fastForwardActive: false,
@@ -148,7 +148,7 @@ export const setState = {
     autoMode: (v) => GlobalStore.set('autoMode', v),
     debugMode: (v) => GlobalStore.set('debugMode', v),
     isPaused: (v) => GlobalStore.set('isPaused', v),
-    speed: (v) => { GlobalStore.set('speed', v); if (typeof window !== 'undefined' && window.updateSpeedButtons) window.updateSpeedButtons(); },
+    speed: (v) => { GlobalStore.set('speed', v); const fn = GlobalStore.getUIHandler('updateSpeedButtons'); if (fn) fn(); },
     userScrolled: (v) => GlobalStore.set('userScrolled', v),
     abortController: (v) => GlobalStore.set('abortController', v),
     waitingForNextRound: (v) => GlobalStore.set('waitingForNextRound', v),
@@ -256,9 +256,9 @@ export function getPlayerContext() {
 
         updateUI: () => { const fn = GlobalStore.getUIHandler('updateUI'); if (fn) fn(); },
         spawnVictoryEffects: (...args) => { const fn = GlobalStore.getUIHandler('spawnVictoryEffects'); if (fn) fn(...args); },
-        updateButtons: window.updateButtons,
-        enableAllButtons: window.enableAllButtons,
-        updateSpeedButtons: window.updateSpeedButtons,
+        updateButtons: () => { const fn = GlobalStore.getUIHandler('updateButtons'); if (fn) fn(); },
+        enableAllButtons: () => { const fn = GlobalStore.getUIHandler('enableAllButtons'); if (fn) fn(); },
+        updateSpeedButtons: () => { const fn = GlobalStore.getUIHandler('updateSpeedButtons'); if (fn) fn(); },
         waitWhilePaused,
         autoScrollLog,
         onLogUserScroll,
@@ -268,8 +268,7 @@ export function getPlayerContext() {
         _scheduler: null,
         _battleEnded: false,
         _originalSpeed: null,
-        swapAllyPositions: window._swapAllyPositions,
-        _triggerFX: (...args) => { if (window._triggerFX) window._triggerFX(...args); }
+        swapAllyPositions: (...args) => { const fn = GlobalStore.getUIHandler('swapAllyPositions'); if (fn) fn(...args); }
     };
     GlobalStore.set('playerContext', _playerCtx);
     return _playerCtx;

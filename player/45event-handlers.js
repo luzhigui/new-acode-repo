@@ -3,7 +3,7 @@
 export const VER = 'player/45event-handlers.js V5.5.1';
 
 import { isBlocked } from '../core/03battle-utils.js';
-import { _triggerFX } from '../ui/67fx-trigger.js';
+import { _triggerFX } from '../fx/88fx-trigger.js';
 import { showDanmaku, showDamageFloat, showDodgeBubble, showHealFloat, showAtkBuffFloat, applyBrushEffect, showBuffBanner, showCriticalBanner, showHeartEffect, showPinkFlash, showKuLianEffect, showWindClaw, showDodgeBulletTime, showRangedArrow, showSplashArrows, showBoneClaw, animatePositionSwap, animatePushBack, animatePushSwap, showButterflyFlyOut, showButterflyFlyBack, showSpiderAscend, showSpiderDescend, showSpiderStrike } from '../fx/87fx-manager.js';
 import { AudioManager } from '../modules/22audio-manager.js';
 import { getState } from '../infra/54-global-store.js';

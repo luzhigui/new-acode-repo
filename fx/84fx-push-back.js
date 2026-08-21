@@ -1,6 +1,8 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// fx/84fx-push-back.js - 光明顶5v5 击退特效
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// fx/84fx-push-back.js - 光明顶5v5 击退特效
 // V5.5.0 | ~5600 bytes| 2026-07-11 支持 skipDataChange 参数
 export const VER = 'fx/84fx-push-back.js V5.5.0';
+
+import { GlobalStore } from '../infra/54-global-store.js';
 
 function getCellElement(unit) {
     if (!unit || unit.pos == null) return null;
@@ -10,7 +12,7 @@ function getCellElement(unit) {
     const idx = order.indexOf(unit.pos);
     return idx >= 0 ? grid.children[idx] : null;
 }
-function wait(ms) { return new Promise(r => setTimeout(r, window._fastForwardActive ? 1 : ms)); }
+function wait(ms) { return new Promise(r => setTimeout(r, GlobalStore.get('fastForwardActive') ? 1 : ms)); }
 
 export async function animatePushBack(unit, c, targetPos, options = {}) {
     const { skipDataChange } = options;

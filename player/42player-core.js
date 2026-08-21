@@ -1,13 +1,13 @@
 // player/42player-core.js - 光明顶5v5 战斗播放器核心
-// V5.5.1 | ~29500 bytes| 2026-08-17 格子渲染下沉至render/32
-export const VER = 'player/42player-core.js V5.5.1';
+// V5.5.2 | ~29509 bytes| 2026-08-19 import 路径合并至 infra/51-core-utils
+export const VER = 'player/42player-core.js V5.5.2';
 
 import { showBuffBanner, showHealFloat, showWindClaw, showSplashArrows, showDamageFloat } from '../fx/87fx-manager.js';
 import { CONFIG } from '../core/01config-5v5-test.js';
 import { AudioManager } from '../modules/22audio-manager.js';
 import { handleBuffSummon, handleBuffDestroy, handleBuffLeech, showBuffPopup, handleHolyTokenDrop } from './41player-buff-ui.js';
 import { createRoundStepper } from '../core/11battle-round.js';
-import { SeededRNG } from '../infra/52-rng.js';
+import { SeededRNG } from '../infra/51-core-utils.js';
 import { getBattleRng } from '../core/13battle-shared.js';
 import { GlobalStore, getState, getPlayerContext } from '../infra/54-global-store.js';
 import { createStore, battleReducer, GAME_STATE_FIELDS } from '../modules/24battle-store.js';
@@ -415,7 +415,6 @@ export async function playBattle() {
     if (!finalWinner) finalWinner = '平局';
     c.gs = 'GAMEOVER'; c.isPaused = false; c.waitingForNextRound = false; c.isBattleStarting = false;
     GlobalStore.set('fastForwardActive', false);
-    if (window._syncGs) window._syncGs('GAMEOVER');
     GlobalStore.set('gs', 'GAMEOVER');
     
     GlobalStore.set('restoreSpeed', true);

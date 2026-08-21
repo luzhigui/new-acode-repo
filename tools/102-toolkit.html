@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿<!DOCTYPE html>
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿<!DOCTYPE html>
 <!-- V5.4.0 | ~25900 bytes-->
 <html lang="zh-CN">
 <head>
@@ -156,6 +156,11 @@
         table.elite-table { width: 100%; border-collapse: collapse; font-size: 12px; background: #16213e; border: 1px solid #333; border-radius: 10px; overflow: hidden; }
         .elite-table th { background: #2a2a4e; color: #ffd700; padding: 8px; text-align: center; }
         .elite-table td { padding: 6px 8px; border-bottom: 1px solid #333; color: #ccc; text-align: center; }
+        .elite-th { white-space: nowrap; }
+        .elite-stage { color: #ffd700; font-weight: bold; white-space: nowrap; }
+        .elite-cell { padding: 6px 10px; text-align: center; line-height: 1.65; }
+        .cell-rate { font-weight: bold; }
+        .cell-sub { color: #aaa; font-size: 11px; }
         .elite-v-th { writing-mode: vertical-rl; text-orientation: upright; height: 70px; white-space: nowrap; vertical-align: bottom; }
     </style>
 </head>
@@ -292,7 +297,7 @@
         </p>
         <div class="elite-config">
             <label>每关每精英场次：</label>
-            <input type="number" id="eliteRunsInput" value="20" min="5" max="100" step="5">
+            <input type="number" id="eliteRunsInput" value="40" min="5" max="100" step="5">
             <div class="elite-stage-group">
                 <label>关卡：</label>
                 <label><input type="checkbox" class="elite-stage-check" value="1" checked>1</label>
@@ -306,15 +311,6 @@
         </div>
         <div class="elite-progress" id="eliteProgress"></div>
         <div id="eliteResult"><div class="elite-empty">尚未运行</div></div>
-
-        <div class="tool-card" style="margin-top:20px;">
-            <h3>🎯 精英战力评测脚本（控制台专用）</h3>
-            <p>功能同上，但以动态 <code>import()</code> 依赖游戏页面模块，在工具箱里跑不了，只能粘贴到游戏页面的浏览器控制台执行。</p>
-            <div class="tool-cmd">
-                <code>tools/创意-精英战力评测脚本.js</code>
-                <button id="btn-copy-script" onclick="copyScriptFile()">📋 复制完整脚本</button>
-            </div>
-        </div>
     </div>
 
     <script>
@@ -335,21 +331,6 @@
                 document.execCommand('copy');
                 window.getSelection().removeAllRanges();
             });
-        }
-
-        async function copyScriptFile() {
-            try {
-                const res = await fetch(encodeURI('创意-精英战力评测脚本.js'));
-                if (!res.ok) throw new Error('HTTP ' + res.status);
-                const text = await res.text();
-                await navigator.clipboard.writeText(text);
-                const btn = document.getElementById('btn-copy-script');
-                const old = btn.innerText;
-                btn.innerText = '✅ 已复制';
-                setTimeout(() => btn.innerText = old, 1200);
-            } catch (e) {
-                alert('读取脚本失败：' + e.message);
-            }
         }
 
         document.getElementById('btnOpenLogViewer').addEventListener('click', () => {

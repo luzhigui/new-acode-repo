@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// tools/104-toolkit-more.js - 光明顶5v5 开发工具箱（函数提取器 / 函数替换器）
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// tools/104-toolkit-more.js - 光明顶5v5 开发工具箱（函数提取器 / 函数替换器）
 // V5.5.0 | ~28773 bytes| 2026-08-06
 
 function escapeHtml(text) {
@@ -11,8 +11,8 @@ function escapeHtml(text) {
         '../infra/50-event-bus.js',
         '../core/01config-5v5-test.js', '../core/02unit.js', '../core/03battle-utils.js',
         '../core/04buff-system.js', '../core/05battle-horse.js',
-        '../infra/51-fsm.js', '../infra/52-rng.js',
-        '../core/08-elite-registry.js', '../infra/53-battle-event-store.js',
+        '../infra/51-core-utils.js',
+        '../core/08-elite-registry.js',
         '../core/10battle-attack.js', '../core/11battle-round.js', '../core/12battle-attack-steps.js',
         '../core/13battle-shared.js', '../core/14buff-effects.js',
         '../player/40player-text.js', '../player/41player-buff-ui.js', '../player/43animation-scheduler.js', '../player/42player-core.js',
@@ -46,7 +46,7 @@ function escapeHtml(text) {
         '../tools/105-shop.html', '../tools/106-ai-pack-config.js',
         '../tools/107-battle-log-viewer.js', '../tools/108-hex-dashboard.js',
         '../tools/109-role-balance.js', '../tools/110-role-balance-random.html',
-        '../tools/112-elite-eval.js', '../tools/创意-精英战力评测脚本.js',
+        '../tools/112-elite-eval.js',
         // 移除了：52-version-calibrator / 53-dead-code-scanner / 54-filelist-checker（这些工作直接问 AI 更高效）
         // 移除了：100build-5v5.cjs（构建脚本已废弃为 .TXT，不再复制）
         '../tools/101auto-battle-utils.js'

@@ -1,6 +1,6 @@
 // core/10battle-attack.js - 光明顶5v5 攻击流程模块
-// V5.5.1 | ~11000 bytes| 2026-08-17 事实化重构：日志HTML移至渲染器
-export const VER = 'core/10battle-attack.js V5.5.1';
+// V5.5.2 | ~10996 bytes| 2026-08-19 import 路径合并至 infra/51-core-utils
+export const VER = 'core/10battle-attack.js V5.5.2';
 
 import { CONFIG, DEF_TAUNT, HP_TAUNT } from './01config-5v5-test.js';
 import { hasBuff, makeFXSnapshot, isBlocked } from './03battle-utils.js';
@@ -17,7 +17,7 @@ import {
     resolveDeaths
 } from './12battle-attack-steps.js';
 import { eventBus, EFFECT_TYPES } from '../infra/50-event-bus.js';
-import { flushBattleEvents } from '../infra/53-battle-event-store.js';
+import { flushBattleEvents } from '../infra/51-core-utils.js';
 import { renderMissFact, renderDodgeFact, renderEmptyTargetFact, renderImmuneFact, renderStunSkipFact, renderFlySkipFact, renderKillLineFact } from '../render/30-fact-renderer.js';
 
 import { emitEvent, applyStatChange } from './13battle-shared.js';
@@ -169,7 +169,7 @@ export async function processUnitAttack(unit, allySide, enemySide, log, A, B, st
     if (dmgResult.horseReboundDeclarations && dmgResult.horseReboundDeclarations.length > 0) {
         afterDamageDeclarations.push(...dmgResult.horseReboundDeclarations);
     }
-    const executedDecls = resolveAfterDamageEffects(afterDamageDeclarations, unit, target, group);
+    const executedDecls = resolveAfterDamageEffects(afterDamageDeclarations, unit, target, group, allySide, unitActiveBuffs);
     for (const decl of executedDecls) {
         if (decl._events && decl._events.length > 0) {
             if (!group._events) group._events = [];
@@ -204,7 +204,7 @@ export async function processUnitAttack(unit, allySide, enemySide, log, A, B, st
                     campA: unit.camp === 'ally' ? '明教' : '六大派',
                     campD: target.camp === 'ally' ? '明教' : '六大派',
                     unitName: unit.name,
-                    dmg: dmgCalc.dmg,
+                    dmg: Math.round(dmgCalc.dmg),
                     targetName: target.name,
                     hpBefore: dmgResult.hpBefore,
                     hpNow: Math.floor(target.hp)
@@ -234,7 +234,7 @@ export async function processUnitAttack(unit, allySide, enemySide, log, A, B, st
     const afterAttackData = { unit, target, dmg: dmgCalc.dmg, group, allySide, enemySide, log, A, B, state, declarations: [], extraRequests };
     await eventBus.emit('afterAttack', afterAttackData);
     if (afterAttackData.declarations.length > 0) {
-        const clawExecuted = resolveAfterDamageEffects(afterAttackData.declarations, unit, target, group);
+        const clawExecuted = resolveAfterDamageEffects(afterAttackData.declarations, unit, target, group, allySide, unitActiveBuffs);
         for (const decl of clawExecuted) {
             if (decl._events && decl._events.length > 0) {
                 if (!group._events) group._events = [];

@@ -127,7 +127,7 @@ export function initLogScrollControls(c) {
         logDiv.scrollTop = logDiv.scrollHeight;
         c.userScrolled = false;
         btn.style.display = 'none';
-        if (window._restoreSpeedFromScroll) window._restoreSpeedFromScroll();
+        const fn = GlobalStore.getUIHandler('restoreSpeedFromScroll'); if (fn) fn();
         const mainCtx = ctx();
         if (mainCtx && mainCtx.speed) c.speed = mainCtx.speed;
         else c.speed = 500;
@@ -139,11 +139,11 @@ export function initLogScrollControls(c) {
             c.userScrolled = true;
             btn.style.display = 'flex';
             GlobalStore.set('scrollSlowdown', true);
-            if (window._activateScrollSlowdown) window._activateScrollSlowdown();
+            const fn = GlobalStore.getUIHandler('activateScrollSlowdown'); if (fn) fn();
         } else {
             c.userScrolled = false;
             btn.style.display = 'none';
-            if (window._restoreSpeedFromScroll) window._restoreSpeedFromScroll();
+            const fn = GlobalStore.getUIHandler('restoreSpeedFromScroll'); if (fn) fn();
         }
     });
 }

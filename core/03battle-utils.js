@@ -1,15 +1,31 @@
 // core/03battle-utils.js - 光明顶5v5 战斗工具函数
-// V5.5.2 | ~16000 bytes| 2026-08-17 事实化重构：全部渲染走render/30
-export const VER = 'core/03battle-utils.js V5.5.2';
+// V5.6.1 | ~15203 bytes| 2026-08-19 import 路径合并至 infra/51-core-utils
+export const VER = 'core/03battle-utils.js V5.6.1';
 
 import { CONFIG, TAUNT_LIB, DEF_TAUNT, HP_TAUNT, ZHANG_NEAR_TAUNT } from './01config-5v5-test.js';
 import { emitEvent, applyStatChange, query, getBattleRng } from './13battle-shared.js';
 import { EXECUTION_LAYER as L, EFFECT_TYPES } from '../infra/50-event-bus.js';
 import { renderRangedGrowthFact, renderFortifyShieldFact, renderDoubleStrikeFact, renderWarriorExecuteFact } from '../render/30-fact-renderer.js';
+import {
+    calcDamage,
+    getFangLevelPure,
+    makeFXSnapshot,
+    getUnitRow,
+    getUnitCol,
+    getAdjacentPositions,
+    countEnemyEmptyCols,
+    getBloodAuraBonus,
+    getAuraBonuses
+} from '../infra/51-core-utils.js';
+
 const C = CONFIG, TL = TAUNT_LIB, DT = DEF_TAUNT, HT = HP_TAUNT, ZT = ZHANG_NEAR_TAUNT;
 
-export function calcDamage(atk, def) { if (def <= 0) return atk; let d = atk * (atk / (atk + def)); return Math.max(d, atk * 0.1); }
-export function getFangLevel(def, m) { let ratio = def / m; for (let i = C.FANG_LEVELS.length - 1; i >= 0; i--) { if (ratio >= C.FANG_LEVELS[i]) return i; } return 0; }
+export { calcDamage, makeFXSnapshot, getUnitRow, getUnitCol, getAdjacentPositions, countEnemyEmptyCols, getBloodAuraBonus, getAuraBonuses };
+
+export function getFangLevel(def, m) {
+    return getFangLevelPure(def, m, C.FANG_LEVELS);
+}
+
 export function isMelee(role) { return role === '战士' || role === '防战' || role === '飞行'; }
 
 export function getFronts(units) {
@@ -49,39 +65,16 @@ export function getFlyDodgeRate(unit, attacker) {
 export function getRandomTaunt(unit) { const rng = getBattleRng(); if (unit.isZhang) return TL['张无忌'][rng.nextInt(0,TL['张无忌'].length-1)]; if (unit.isWei) return TL['韦一笑'][rng.nextInt(0,TL['韦一笑'].length-1)]; let pool=TL[unit.role]; if(pool) return pool[rng.nextInt(0,pool.length-1)]; return '看招！'; }
 export function getKillTaunt(unit, KT) { const rng = getBattleRng(); if (unit.isZhang) return KT['张无忌'][rng.nextInt(0,KT['张无忌'].length-1)]; if (unit.isWei) return KT['韦一笑'][rng.nextInt(0,KT['韦一笑'].length-1)]; let pool=KT[unit.role]; if(pool) return pool[rng.nextInt(0,pool.length-1)]; return '受死吧！'; }
 export function getZhangNearTaunt(nearAtkCount) { if (nearAtkCount>=1&&nearAtkCount<=3) return ZT[nearAtkCount-1]; return null; }
-export function makeFXSnapshot(attacker, defender) { return { attackerPos: attacker?attacker.pos:null, defenderPos: defender?defender.pos:null }; }
 
 export function getActiveBuffs(allies, enemy) {
     let ally = allies[0]?.camp === 'ally' ? allies : enemy;
     return ally._activeBuffs || [];
 }
 export function hasBuff(buffs, buffKey) { return buffs.some(b => b.key === buffKey); }
-export function getUnitRow(pos) { return Math.ceil(pos / 3); }
-export function getUnitCol(pos) { return (pos - 1) % 3 + 1; }
-export function getAdjacentPositions(pos) {
-    const row = getUnitRow(pos), col = getUnitCol(pos);
-    let adj = [];
-    for (let r = row-1; r <= row+1; r++) {
-        for (let c = col-1; c <= col+1; c++) {
-            if (r === row && c === col) continue;
-            if (r >= 1 && r <= 3 && c >= 1 && c <= 3) adj.push((r-1)*3 + c);
-        }
-    }
-    return adj;
-}
 
 export function hasAnyEnemyEmptyCol(enemySide) {
     const cols = [[1,4,7], [2,5,8], [3,6,9]];
     return cols.some(poses => !enemySide.some(u => u.alive && poses.includes(u.pos)));
-}
-
-export function countEnemyEmptyCols(enemySide) {
-    const cols = [[1,4,7], [2,5,8], [3,6,9]];
-    let count = 0;
-    for (const poses of cols) {
-        if (!enemySide.some(u => u.alive && poses.includes(u.pos))) count++;
-    }
-    return count;
 }
 
 export function hasEnemyLowHp(enemySide, threshold = 0.4) {
@@ -179,29 +172,6 @@ function canReach(slot, targetPos, enemies) {
     }
     return false;
 }
-
-export function getBloodAuraBonus(allUnits) {
-    let totalBonus = 0;
-    allUnits.forEach(u => {
-        if (!u.alive) return;
-        const pct = u.hp / u.maxHp;
-        if (pct < 0.4) totalBonus += 3;
-    });
-    return totalBonus;
-}
-
-export function getAuraBonuses(unit, allySide, enemySide) {
-    if (unit.role !== '飞行' || unit.isHorse) return { emptyCol: 0, bloodAura: 0 };
-    const isAlly = unit.camp === 'ally';
-    const mySide = isAlly ? allySide : enemySide;
-    const oppSide = isAlly ? enemySide : allySide;
-    const emptyCols = countEnemyEmptyCols(oppSide);
-    const allUnits = mySide.concat(oppSide);
-    const bloodBonus = getBloodAuraBonus(allUnits);
-    return { emptyCol: emptyCols * 5, bloodAura: bloodBonus };
-}
-
-// ==================== 事件总线监听器注册 ====================
 
 export function registerWarriorBreakDefense(eventBus) {
     eventBus.on('beforeDamageCalc', L.BEFORE_DAMAGE_CALC.WARRIOR_BREAK, (data) => {

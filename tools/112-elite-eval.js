@@ -3,7 +3,7 @@
 import { createRoundStepper } from '../core/11battle-round.js';
 import { initBattleTeams } from '../modules/29battle-init.js';
 import { eventBus } from '../infra/50-event-bus.js';
-import { SeededRNG } from '../infra/52-rng.js';
+import { SeededRNG } from '../infra/51-core-utils.js';
 import { GlobalStore } from '../infra/54-global-store.js';
 import '../modules/25elite-imperial.js';
 import '../modules/26elite-sixsects.js';
@@ -45,13 +45,23 @@ startBtn.addEventListener('click', async () => {
 
                 for (let run = 0; run < RUNS; run++) {
                     eventBus.clearAll();
+                    // 清残留的强制精英开关（index.html 按钮只写 localStorage、由游戏页消费删除；评测页同源共享，
+                    // 不清会污染阵容生成，导致某精英局局变替身）
+                    GlobalStore.set('forceZhang', null);
+                    GlobalStore.set('forceWei', null);
+                    GlobalStore.set('forceXiaoZhao', null);
+                    localStorage.removeItem('_forceZhang');
+                    localStorage.removeItem('_forceWei');
+                    localStorage.removeItem('_forceXiaoZhao');
                     GlobalStore.set('currentBattleState', null);
                     GlobalStore.flushBattleEvents();
 
                     let UI = { allyTeam: [], enemyTeam: [], currentResult: null, round: 0, lastSnapshot: null };
                     let snapshot = { ally: [], enemy: [] };
                     // 无 DOM 初始化（doInitBattle 会写 labelEnemy/labelAlly，工具箱页无此节点）
-                    const initRng = new SeededRNG(Date.now());
+                    // 种子必须带 run/stage 偏移：run 循环内无 await、执行极快，裸 Date.now() 会在同毫秒
+                    // 内被多场共享 → 40 场生成同一套阵容，弱阵容时整关胜率塌成 0%（偶发波动主源）
+                    const initRng = new SeededRNG(Date.now() + run * 7919 + stage * 131);
                     const { allyTeam, enemyTeam } = initBattleTeams(stage, initRng);
                     snapshot.ally = allyTeam.map(u => Object.freeze(u.clone()));
                     snapshot.enemy = enemyTeam.map(u => Object.freeze(u.clone()));
@@ -60,16 +70,20 @@ startBtn.addEventListener('click', async () => {
                     UI.currentResult = null;
                     UI.round = 0;
                     GlobalStore.set('battleHasZhang', allyTeam.some(u => u.isZhang));
-                    window._lastBattleSeed = Date.now();
+                    window._lastBattleSeed = initRng.getState();
                     snapshot._rngSeed = initRng.getState();
                     let ally = UI.allyTeam;
 
                     let eu = ally.find(u => u[cfg.flag]);
                     if (!eu) {
-                        const victim = ally.find(u =>
+                        const candidates = ally.filter(u =>
                             !u.isZhang && !u.isWei && !u.isXiaoZhaoSister && !u.isXiaoZhaoBrother
                         );
-                        if (!victim) continue;
+                        if (!candidates.length) continue;
+                        // 精英标准站位（与 modules/29battle-init.js 一致：张无忌5/韦一笑6/小昭4）
+                        const stdPos = cfg.name === '张无忌' ? 5 : cfg.name === '韦一笑' ? 6 : 4;
+                        // 优先替换本就站在标准位上的普通兵（真实顶替）；否则任选普通兵
+                        let victim = candidates.find(u => u.pos === stdPos) || candidates[0];
                         victim.name = cfg.name;
                         victim.role = cfg.role;
                         victim.m = cfg.m;
@@ -77,12 +91,13 @@ startBtn.addEventListener('click', async () => {
                         if (cfg.flag === 'isXiaoZhaoSister' || cfg.flag === 'isXiaoZhaoBrother') {
                             victim.initXiaoZhao();
                         } else {
-                            victim.init(new SeededRNG(Date.now()));
+                            victim.init(new SeededRNG(Date.now() + run * 31 + stage * 7));
                         }
                         victim.applyBonus();
                         victim._baseMaxHp = victim.maxHp;
                         victim._baseAtk = victim.atk;
                         victim._baseDef = victim.def;
+                        victim.pos = stdPos; // 精英站自己的标准位
                         eu = victim;
                     }
 
@@ -173,35 +188,56 @@ startBtn.addEventListener('click', async () => {
 });
 
 function renderResults(results, stages, runs) {
-    let html = '<table class="elite-table"><tr><th>精英</th>';
-    for (const st of stages) {
-        html += `<th class="elite-v-th">第${st}关</th>`;
-    }
-    html += '<th>总胜率</th><th>场均输出</th><th>场均承伤</th><th>存活率</th></tr>';
+    // 转置表：行 = 关卡，列 = 精英；每格堆叠该关 胜率/输出/承伤/存活，胜率按高低着色
+    let html = '<table class="elite-table"><tr><th>关卡</th>';
+    for (const cfg of configs) html += `<th class="elite-th">${cfg.name}</th>`;
+    html += '</tr>';
 
+    for (const st of stages) {
+        html += `<tr><td class="elite-stage">第${st}关</td>`;
+        for (const cfg of configs) {
+            const d = results[cfg.name][st];
+            if (d && d.validRuns > 0) {
+                html += cellHtml(d.rate, d.avgDmg, d.avgTaken, d.survRate);
+            } else {
+                html += '<td class="elite-cell">N/A</td>';
+            }
+        }
+        html += '</tr>';
+    }
+
+    // 底部总评行：各精英跨关卡汇总
+    html += '<tr><td class="elite-stage">总评</td>';
     for (const cfg of configs) {
         const sd = results[cfg.name];
         let tw = 0, tr = 0, totalDmg = 0, totalTaken = 0, totalSurv = 0;
-        html += `<tr><td>${cfg.name}</td>`;
         for (const st of stages) {
             const d = sd[st];
             if (d && d.validRuns > 0) {
-                html += `<td>${d.rate}</td>`;
                 tw += d.wins; tr += d.total;
                 totalDmg += d.avgDmg * d.validRuns;
                 totalTaken += d.avgTaken * d.validRuns;
                 totalSurv += (parseFloat(d.survRate) / 100) * d.validRuns;
-            } else {
-                html += '<td>N/A</td>';
             }
         }
-        const totalRate = tr > 0 ? (tw / tr * 100).toFixed(1) + '%' : 'N/A';
-        const avgDmg = tr > 0 ? Math.floor(totalDmg / tr) : 0;
-        const avgTaken = tr > 0 ? Math.floor(totalTaken / tr) : 0;
-        const survRate = tr > 0 ? (totalSurv / tr * 100).toFixed(1) + '%' : 'N/A';
-        html += `<td>${totalRate}</td><td>${avgDmg}</td><td>${avgTaken}</td><td>${survRate}</td></tr>`;
+        if (tr > 0) {
+            html += cellHtml((tw / tr * 100).toFixed(1) + '%', Math.floor(totalDmg / tr), Math.floor(totalTaken / tr), (totalSurv / tr * 100).toFixed(1) + '%');
+        } else {
+            html += '<td class="elite-cell">N/A</td>';
+        }
     }
-
-    html += '</table>';
+    html += '</tr></table>';
     resultEl.innerHTML = html;
+}
+
+// 单个精英单元格：堆叠 胜率/输出/承伤/存活，胜率按高低着色
+function cellHtml(rate, dmg, taken, surv) {
+    const r = parseFloat(rate);
+    let color = '#888';
+    if (!isNaN(r)) color = r >= 50 ? '#4caf50' : r >= 25 ? '#ffd700' : '#ff5252';
+    return `<td class="elite-cell">
+        <div class="cell-rate" style="color:${color}">胜率 ${rate}</div>
+        <div class="cell-sub">输出 ${dmg}</div>
+        <div class="cell-sub">承伤 ${taken}</div>
+        <div class="cell-sub">存活 ${surv}</div></td>`;
 }

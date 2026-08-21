@@ -1,7 +1,7 @@
 // render/30-fact-renderer.js - 光明顶5v5 事实渲染器
 // V5.6.3 | ~34000 bytes| 2026-08-17 全部事实渲染函数统一入口
 import { CONFIG } from '../core/01config-5v5-test.js';
-import { calcDamage, getFangLevel, makeFXSnapshot } from '../core/03battle-utils.js';
+import { calcDamage, getFangLevelPure, makeFXSnapshot } from '../infra/51-core-utils.js';
 export const VER = 'render/30-fact-renderer.js V5.6.3';
 
 // ==================== 攻击流程 ====================
@@ -102,7 +102,7 @@ export function renderAttackFact(fact) {
     const fmtMultiplierEntries = (dmgCalc.dmgMultiplierEntries || []).filter(e => e.value > 1);
     if (unit.role === '防战') {
         const penPart = calcDamage(dmgCalc.atkAct, dmgCalc.defAct);
-        const lv = getFangLevel(Math.floor(unit.def), unit.m);
+        const lv = getFangLevelPure(Math.floor(unit.def), unit.m, CONFIG.FANG_LEVELS);
         const k = CONFIG.FANG_K[lv] !== undefined ? CONFIG.FANG_K[lv] : CONFIG.FANG_K[CONFIG.FANG_K.length - 1];
         const z = dmgCalc.hpRatio !== undefined ? dmgCalc.hpRatio : CONFIG.HP_DMG_RATIO;
         const baseRaw = Math.floor(dmgCalc.raw - dmgCalc.bonusDmgTotal);
@@ -111,8 +111,8 @@ export function renderAttackFact(fact) {
         const baseRaw = Math.floor(dmgCalc.raw - dmgCalc.bonusDmgTotal);
         formulaText = `${dmgCalc.atkAct}×(${dmgCalc.atkAct}/(${dmgCalc.atkAct}+${dmgCalc.defAct})) = ${baseRaw}`;
     }
-    for (const e of fmtBonusEntries) formulaText += ` + ${e.label}${e.value} = ${Math.floor(dmgCalc.raw)}`;
-    for (const e of fmtMultiplierEntries) formulaText += ` ×${e.label}${e.value} = ${Math.floor(dmgCalc.raw)}`;
+    for (const e of fmtBonusEntries) formulaText += ` + ${e.label}${e.value} = ${Math.round(dmgCalc.raw)}`;
+    for (const e of fmtMultiplierEntries) formulaText += ` ×${e.label}${e.value} = ${Math.round(dmgCalc.raw)}`;
     group.entries.push({type:'detail', isDamageCalc:true, text:`<span class="gray small">计算：${formulaText}</span>`});
     group.entries.push({type:'damage-text', deadFlag:dmgResult.dead, text:`<span class="damage-line ${dmgResult.dead?'brush-red':''} ${ac}">${dmgResult.dead?'💀击杀💀 ':''}${campA} ${unit.name}</span> 造成 <span class="red">${Math.round(dmgResult.dmg)}</span> 伤害，<span class="${dc}">${campD} ${target.name}</span> ${dmgResult.hpBefore} → ${Math.floor(target.hp)} ${dmgResult.dead?'💀阵亡':''}`});
     for (const entry of dmgResult.bonusEntries) group.entries.push(entry);

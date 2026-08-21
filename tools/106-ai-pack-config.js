@@ -1,6 +1,6 @@
 // tools/106-ai-pack-config.js - 光明顶5v5 AI 复制包配置（清单/分组/提示词/精简踢除）
-// V5.5.0 | ~10500 bytes| 2026-08-15 从 103-toolkit.js 拆出静态数据，新增 AI_EXCLUDE
-export const VER = 'tools/106-ai-pack-config.js V5.5.0';
+// V5.5.1 | ~10453 bytes| 2026-08-19 import 路径合并至 infra/51-core-utils
+export const VER = 'tools/106-ai-pack-config.js V5.5.1';
 
 // ==================== AI 精简模式踢除清单（第一批） ====================
 // 这些文件不参与战斗逻辑/状态同步/数值结算，默认不随包发送。
@@ -37,8 +37,8 @@ export const ALL_PROJECT_FILES = [
     '../infra/50-event-bus.js',
     '../core/01config-5v5-test.js', '../core/02unit.js',
     '../core/03battle-utils.js', '../core/04buff-system.js', '../core/05battle-horse.js',
-    '../infra/51-fsm.js', '../infra/52-rng.js',
-    '../core/08-elite-registry.js', '../infra/53-battle-event-store.js',
+    '../infra/51-core-utils.js',
+    '../core/08-elite-registry.js',
     '../core/10battle-attack.js', '../core/11battle-round.js', '../core/12battle-attack-steps.js',
     '../core/13battle-shared.js', '../core/14buff-effects.js',
     // player（播放器）
@@ -80,7 +80,7 @@ export const ALL_PROJECT_FILES = [
     '../tools/105-shop.html', '../tools/106-ai-pack-config.js',
     '../tools/107-battle-log-viewer.js', '../tools/108-hex-dashboard.js',
     '../tools/109-role-balance.js', '../tools/110-role-balance-random.html',
-    '../tools/112-elite-eval.js', '../tools/创意-精英战力评测脚本.js',
+    '../tools/112-elite-eval.js',
     // 移除了：52-version-calibrator / 53-dead-code-scanner / 54-filelist-checker（这些工作直接问 AI 更高效）
     // 移除了：100build-5v5.cjs（构建脚本已废弃为 .TXT，不再随包复制）
     '../tools/101auto-battle-utils.js',

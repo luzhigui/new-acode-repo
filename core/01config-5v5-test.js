@@ -237,6 +237,7 @@ const CONFIG = {
                 windAssault: { hitProb: 1.0, pushProb: 0.80 },
                 meteorShower: { atkPerSplash: 2 },
                 mindControl: { enemySwapProb: 0.95, allySwapProb: 0.50 },
+                cloudBody: { dodgeBonus: 0.30 },
                 fortify: { healOnRebound: true },
                 horseFormation: { horseAtk: 0, horseDef: 30, horseHp: 30, reboundDmg: 5 },
                 carry: { multiTarget: true, targetPositions: [4, 5, 6] },
