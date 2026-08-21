@@ -1,5 +1,5 @@
 // core/12battle-attack-steps.js - 光明顶5v5 攻击步骤拆分模块
-// V5.5.3 | ~27948 bytes| 2026-08-21 战报记账修正：删除攻击伤害双记，死亡结算改非记账
+// V5.5.3 | ~27950 bytes| 2026-08-21 战报记账修正：删攻击伤害双记，死亡结算/伤害波动改非记账
 export const VER = 'core/12battle-attack-steps.js V5.5.3';
 
 import { CONFIG, DEF_TAUNT, HP_TAUNT, getSkillParams } from './01config-5v5-test.js';
@@ -228,7 +228,7 @@ export function calcFinalDamage(unit, target, attackerBuffStats, defenderBuffSta
     let atkVar = rng.nextInt(1, C.ATK_VAR), defVar = rng.nextInt(1, C.DEF_VAR), hpBonus = rng.nextInt(C.HP_BONUS_MIN + 1, C.HP_BONUS_MAX);
     let atkAct = atkBase + atkVar, defAct = defBase + defVar;
     let hpBefore = Math.floor(target.hp);
-    applyStatChange(target, 'hp', hpBonus, unit, '伤害波动回血');
+    applyStatChange(target, 'hp', hpBonus, unit, '伤害波动回血', false);
     let waveTaunt = null, waveUnit = null;
     if (atkVar === C.ATK_VAR) { waveTaunt = getRandomTaunt(unit); waveUnit = unit; unit.critCount++; }
     else if (defVar + hpBonus >= 7) { waveTaunt = DT[rng.nextInt(0, DT.length - 1)]; waveUnit = target; }

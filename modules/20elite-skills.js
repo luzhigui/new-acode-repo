@@ -1,6 +1,6 @@
 // modules/20elite-skills.js - 光明顶5v5 精英技能系统
-// V5.5.2 | ~12504 bytes| 2026-08-21 战报记账修正：乾坤自伤改非记账
-export const VER = 'modules/20elite-skills.js V5.5.2';
+// V5.5.3 | ~12522 bytes| 2026-08-21 战报记账修正：乾坤自伤改非记账，玄冥中毒补鹿杖客输出源
+export const VER = 'modules/20elite-skills.js V5.5.3';
 
 import { CONFIG, getSkillParams } from '../core/01config-5v5-test.js';
 import { ROLE_BONUS } from '../core/02unit.js';
@@ -10,14 +10,14 @@ const ES = CONFIG.ELITE_SKILLS;
 
 // ==================== 玄冥二老 — 中毒/鹿角 ====================
 
-export function tickXuanmingPoison(unit) {
+export function tickXuanmingPoison(unit, source) {
     if (!unit._xuanmingPoison || unit._xuanmingPoison.remaining <= 0) return 0;
     unit._xuanmingPoison.remaining--;
     const s = getSkillParams('鹿杖客', 'xuanmingPalm') || ES.xuanmingPalm;
     const idx = Math.min(unit._xuanmingPoison.dotPercents.length - 1, s.duration - 1 - unit._xuanmingPoison.remaining);
     const pct = unit._xuanmingPoison.dotPercents[idx] || 0;
     const dot = Math.floor(unit.maxHp * pct);
-    applyStatChange(unit, 'hp', -dot, null, '玄冥中毒');
+    applyStatChange(unit, 'hp', -dot, source, '玄冥中毒');
     return dot;
 }
 
