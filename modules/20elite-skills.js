@@ -6,11 +6,6 @@ import { CONFIG, getSkillParams } from '../core/01config-5v5-test.js';
 import { ROLE_BONUS } from '../core/02unit.js';
 import { hasBuff } from '../core/03battle-utils.js';
 import { emitEvent, applyStatChange, applyMaxHpChange, registerQuery, getBattleRng } from '../core/13battle-shared.js';
-import {
-    renderQianKunUpgradedFact, renderQianKunBasicFact,
-    renderKuaiLeHealFact, renderSpiderTransformFact,
-    renderSpiderReturnFact, renderSpiderStrikeFact
-} from '../render/30-fact-renderer.js';
 const ES = CONFIG.ELITE_SKILLS;
 
 // ==================== 玄冥二老 — 中毒/鹿角 ====================
@@ -48,13 +43,16 @@ export function applyDamageModifiers(unit, target, dmg, allySide, enemySide, log
         applyStatChange(unit, 'hp', -rebound, zhang, '乾坤反弹');
         applyStatChange(zhang, 'hp', -selfDmg, unit, '乾坤自伤');
 
-        entries.push(renderQianKunUpgradedFact({
-            attackerName: unit.name,
-            zhangName: zhang.name,
-            reducePct,
-            rebound,
-            selfDmg
-        }));
+        entries.push({
+            factType: 'qianKunUpgraded',
+            data: {
+                attackerName: unit.name,
+                zhangName: zhang.name,
+                reducePct,
+                rebound,
+                selfDmg
+            }
+        });
 
         modifiedDmg = reducedDmg;
     } else if (!xiaoZhao && (target.pos === 4 || target.pos === 6)) {
@@ -70,13 +68,16 @@ export function applyDamageModifiers(unit, target, dmg, allySide, enemySide, log
         applyStatChange(unit, 'hp', -rebound, zhang, '乾坤反弹');
         applyStatChange(zhang, 'hp', -selfDmg, unit, '乾坤自伤');
 
-        entries.push(renderQianKunBasicFact({
-            attackerName: unit.name,
-            zhangName: zhang.name,
-            reducePct,
-            rebound,
-            selfDmg
-        }));
+        entries.push({
+            factType: 'qianKunBasic',
+            data: {
+                attackerName: unit.name,
+                zhangName: zhang.name,
+                reducePct,
+                rebound,
+                selfDmg
+            }
+        });
 
         modifiedDmg = reducedDmg;
     }
@@ -100,9 +101,8 @@ export function applyXingFenGrant(allyTeam, log) {
     if (!zhou || !song) return;
     song._xingFenActive = true;
     log.push({
-        type: 'buff-summary',
-        text: `<span class="gold">💗 性奋：${song.name} 受${zhou.name}激励，本回合每次攻击后可再次攻击！</span>`,
-        buffType: 'elite_xingfen'
+        factType: 'xingFenGrant',
+        data: { zhouName: zhou.name, songName: song.name }
     });
 }
 
@@ -124,13 +124,17 @@ export function tickKuaiLeHeal(allUnits, log) {
         if (totalHeal > 0) {
             const hpBefore = Math.floor(unit.hp);
             applyStatChange(unit, 'hp', totalHeal, null, '快乐回血');
-            log.push(renderKuaiLeHealFact({
-                unitName: unit.name,
-                heal: totalHeal,
-                hpBefore,
-                hpAfter: Math.floor(unit.hp),
-                layers: unit._kuaiLeStack.length
-            }));
+            log.push({
+                factType: 'kuaiLeHeal',
+                data: {
+                    unitName: unit.name,
+                    unitUid: unit.uid,
+                    heal: totalHeal,
+                    hpBefore,
+                    hpAfter: Math.floor(unit.hp),
+                    layers: unit._kuaiLeStack.length
+                }
+            });
         }
         unit._kuaiLeStack = newStack;
     });
@@ -177,7 +181,7 @@ export function spiderTransform(unit, log) {
     applyMaxHpChange(unit, unit.maxHp + hpDelta, null, '蛛变');
 
     emitEvent(unit, 'hp-change', { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: unit.atk, def: unit.def, role: newRole });
-    log.push(renderSpiderTransformFact({ unitName: unit.name, newRole, mastered: unit._masteredRoles.length }));
+    log.push({ factType: 'spiderTransform', data: { unitName: unit.name, newRole, mastered: unit._masteredRoles.length } });
 }
 
 export function spiderReturn(unit, allyTeam, enemySide, log) {
@@ -197,12 +201,12 @@ export function spiderReturn(unit, allyTeam, enemySide, log) {
     emitEvent(unit, 'hp-change', { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: unit.atk, def: unit.def, _flyMode: null, _spiderFlying: false });
     emitEvent(unit, 'pos-change', { pos: unit.pos });
 
-    log.push(renderSpiderReturnFact({ unitName: unit.name, spiderUid: unit.uid, pos: unit.pos }));
+    log.push({ factType: 'spiderReturn', data: { unitName: unit.name, spiderUid: unit.uid, pos: unit.pos } });
 
     const aliveEnemies = enemySide.filter(u => u.alive);
     if (aliveEnemies.length > 0) {
         const target = aliveEnemies[rng.nextInt(0, aliveEnemies.length - 1)];
-        if (!target.alive) { log.push({ type:'info', text:`<span class="gray">🕷️ 蛛袭：目标已死亡，攻击取消</span>` }); return; }
+        if (!target.alive) { log.push({ factType: 'spiderDeadTarget', data: {} }); return; }
         const penetrationDmg = Math.floor(unit.atk * (unit.atk / (unit.atk + target.def)));
         const masteryCount = unit._masteredRoles?.length || 0;
         const params = getSkillParams('小昭', 'spiderStrike') || { extraDmgMap: [0, 5, 10, 15, 30] };
@@ -210,16 +214,19 @@ export function spiderReturn(unit, allyTeam, enemySide, log) {
         const extraDmg = extraDmgMap[Math.min(masteryCount, 4)] || 0;
         const totalDmg = penetrationDmg + extraDmg;
         applyStatChange(target, 'hp', -totalDmg, unit, '蛛袭');
-        log.push(renderSpiderStrikeFact({
-            unitName: unit.name,
-            targetName: target.name,
-            penetrationDmg,
-            extraDmg,
-            totalDmg,
-            isDead: !target.alive,
-            unitUid: unit.uid,
-            targetUid: target.uid
-        }));
+        log.push({
+            factType: 'spiderStrike',
+            data: {
+                unitName: unit.name,
+                targetName: target.name,
+                penetrationDmg,
+                extraDmg,
+                totalDmg,
+                isDead: !target.alive,
+                unitUid: unit.uid,
+                targetUid: target.uid
+            }
+        });
     }
 }
 

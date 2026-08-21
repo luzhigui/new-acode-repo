@@ -18,6 +18,7 @@ import { getLogDiv, appendLogHTML, appendLogElement, autoScrollLog, updateRoundD
 import { updateGridUI, setGridStore } from '../render/32-grid-render.js';
 import { setGridRenderCtx } from '../render/32-grid-render.js';
 import { AnimationScheduler } from './43animation-scheduler.js';
+import { renderLog } from '../render/30-fact-renderer.js';
 
 function getCtx() {
     return getPlayerContext();
@@ -34,6 +35,26 @@ export async function playLogEntries(c, log, roundResult, isFirstAttackRef) {
             if (abortSig && abortSig.aborted) return { isBattleOver: false };
             await c.waitWhilePaused();
             let entry = log[i];
+
+            // ★ fact 投影：结构化事实 → 渲染条目
+            if (entry && entry.factType) {
+                const rendered = renderLog(entry.factType, entry.data);
+                if (Array.isArray(rendered)) {
+                    log.splice(i, 1, ...rendered);
+                    i -= 1;
+                    continue;
+                }
+                if (rendered && typeof rendered === 'object') {
+                    const extra = {};
+                    for (const k in entry) {
+                        if (k !== 'factType' && k !== 'data') extra[k] = entry[k];
+                    }
+                    entry = Object.assign({}, rendered, extra);
+                } else {
+                    entry = rendered;
+                }
+                if (!entry) continue;
+            }
 
             if (shouldStartNewGroup(entry, lastEntryType)) {
                 renderSeparator();

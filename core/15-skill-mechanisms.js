@@ -112,7 +112,8 @@ function installOnHitEffects(eventBus, A, B, declarations) {
                         value: heal,
                         source: unit,
                         maxHp: newMaxHp,
-                        logText: `<span class="green">🦇 ${unit.name}·吸血+${heal}，上限→${Math.floor(newMaxHp)}</span>`
+                        factType: 'weiLeech',
+                        factData: { unitName: unit.name, heal, newMaxHp: Math.floor(newMaxHp), unitUid: unit.uid }
                     });
                 } else if (eff.type === 'healMaxHpPct') {
                     const heal = Math.min(Math.floor(unit.maxHp * eff.pct), unit.maxHp - unit.hp);
@@ -122,15 +123,13 @@ function installOnHitEffects(eventBus, A, B, declarations) {
                             type: EFFECT_TYPES.HEAL,
                             value: heal,
                             source: unit,
-                            logText: `<span class="green">☀️ ${unit.name}回复+${heal}</span>`
+                            factType: 'nineYangHeal',
+                            factData: { unitName: unit.name, heal, hpBefore: Math.floor(unit.hp), hpAfter: Math.floor(unit.hp + heal), unitUid: unit.uid }
                         });
                     }
                 } else if (eff.type === 'poison') {
                     target._xuanmingPoison = { remaining: eff.duration, dotPercents: [...eff.dotPercents] };
-                    if (data.log) data.log.push({
-                        type: 'info',
-                        text: `<span class="purple">❄️ ${unit.name}使${target.name}中毒！(${eff.dotPercents.join('%→')}%→消失)</span>`
-                    });
+                    if (data.log) data.log.push({ factType: 'xuanmingPoisoned', data: { attackerName: unit.name, targetName: target.name, dotPercents: eff.dotPercents } });
                 } else if (eff.type === 'bonusLostHp') {
                     const lostHp = unit.maxHp - unit.hp;
                     const bonus = Math.floor(lostHp * eff.ratio);

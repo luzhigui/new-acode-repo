@@ -12,17 +12,6 @@ import { CONFIG } from './01config-5v5-test.js';
 import { hasBuff, getUnitRow, getUnitCol, getAdjacentPositions } from './03battle-utils.js';
 import { emitEvent, applyStatChange, applyMaxHpChange, query, getBattleRng, swapUnitPositions, moveUnitPosition } from './13battle-shared.js';
 import { EXECUTION_LAYER as L, EFFECT_TYPES } from '../infra/50-event-bus.js';
-import {
-    renderBuffSummaryFact,
-    renderCarryApplyFact,
-    renderBloodthirstLeechFact,
-    renderHotBloodHealFact,
-    renderWindAssaultSplashFact,
-    renderWindAssaultPushFact,
-    renderWindAssaultFailFact,
-    renderMeteorShowerMainFact,
-    renderMeteorShowerSplashFact
-} from '../render/30-fact-renderer.js';
 const C = CONFIG;
 
 /**
@@ -91,12 +80,15 @@ export function applyCarryBonus(unit, A, state, log, stats) {
         }
 
         if (stats.carryAtkAbs || stats.carryDefAbs || stats.carryHpAbs) {
-            log.push(renderCarryApplyFact({
-                unitName: unit.name,
-                atk: stats.carryAtkAbs,
-                def: stats.carryDefAbs,
-                hp: stats.carryHpAbs
-            }));
+            log.push({
+                factType: 'carryApply',
+                data: {
+                    unitName: unit.name,
+                    atk: stats.carryAtkAbs,
+                    def: stats.carryDefAbs,
+                    hp: stats.carryHpAbs
+                }
+            });
         }
     } else if (!unit.isHorse && !hasCarryActive && !unit.isXiaoZhaoSister && !unit.isXiaoZhaoBrother) {
         // carry 消失：清除加成，恢复基值
@@ -176,8 +168,7 @@ export function applyBuffEffectsAfterAttack(unit, target, dmg, allySide, enemySi
 export function logBuffSummary(allyTeam, log, doubleStrikeUid) {
     let buffs = allyTeam._activeBuffs || [];
     buffs.forEach(b => {
-        const entry = renderBuffSummaryFact(b, allyTeam, doubleStrikeUid);
-        if (entry) log.push(entry);
+        log.push({ factType: 'buffSummary', data: { buff: b, allyTeam, doubleStrikeUid } });
     });
 }
 
@@ -196,7 +187,8 @@ export function registerBloodthirst(eventBus) {
                 type: EFFECT_TYPES.LEECH,
                 value: leechVal,
                 source: unit,
-                logText: renderBloodthirstLeechFact({ unitName: unit.name, leechVal, isBrother: false }).text
+                factType: 'bloodthirstLeech',
+                factData: { unitName: unit.name, leechVal, isBrother: false }
             };
             if (!data.declarations) data.declarations = [];
             data.declarations.push(decl);
@@ -217,7 +209,8 @@ export function registerBloodthirst(eventBus) {
                 type: EFFECT_TYPES.LEECH,
                 value: leechVal,
                 source: unit,
-                logText: renderBloodthirstLeechFact({ unitName: unit.name, leechVal, isBrother: true }).text
+                factType: 'bloodthirstLeech',
+                factData: { unitName: unit.name, leechVal, isBrother: true }
             };
             if (!data.declarations) data.declarations = [];
             data.declarations.push(decl);
@@ -255,7 +248,8 @@ export function registerHotBlood(eventBus) {
                     value: leech,
                     source: unit,
                     isDouble: tag.includes('翻倍'),
-                    logText: renderHotBloodHealFact({ unitName: unit.name, leech, tag, isBrother: false }).text
+                    factType: 'hotBloodHeal',
+                    factData: { unitName: unit.name, leech, tag, isBrother: false }
                 };
                 if (!data.declarations) data.declarations = [];
                 data.declarations.push(decl);
@@ -276,7 +270,8 @@ export function registerHotBlood(eventBus) {
                         value: leech,
                         source: unit,
                         isDouble: tag.includes('翻倍'),
-                        logText: renderHotBloodHealFact({ unitName: unit.name, leech, tag, isBrother: true }).text
+                        factType: 'hotBloodHeal',
+                        factData: { unitName: unit.name, leech, tag, isBrother: true }
                     };
                     if (!data.declarations) data.declarations = [];
                     data.declarations.push(decl);
@@ -314,15 +309,16 @@ export function registerWindAssault(eventBus) {
                     value: splashDmg,
                     targets: rowTargets,
                     buffType: 'wind_assault',
-                    logText: renderWindAssaultSplashFact({ label, targets: rowTargets, splashDmg }).text
+                    factType: 'windAssaultSplash',
+                    factData: { label, targets: rowTargets, splashDmg }
                 };
                 if (!data.declarations) data.declarations = [];
                 data.declarations.push(decl);
             } else {
-                log.push(renderWindAssaultFailFact({ label, reason: '波及触发失败' }));
+                log.push({ factType: 'windAssaultFail', data: { label, reason: '波及触发失败' } });
             }
         } else {
-            log.push(renderWindAssaultFailFact({ label, reason: '波及触发失败' }));
+            log.push({ factType: 'windAssaultFail', data: { label, reason: '波及触发失败' } });
         }
 
         if (rng.nextInt(1, 100) <= pushProb) {
@@ -334,18 +330,20 @@ export function registerWindAssault(eventBus) {
                 if (behindUnit) {
                     const behindOldPos = behindUnit.pos;
                     swapUnitPositions(target, behindUnit);
-                    log.push(renderWindAssaultPushFact({
-                        label, target, behindUnit, oldPos, behindPos, behindOldPos
-                    }));
+                    log.push({
+                        factType: 'windAssaultPush',
+                        data: { label, target, behindUnit, oldPos, behindPos, behindOldPos }
+                    });
                 } else {
                     moveUnitPosition(target, behindPos);
-                    log.push(renderWindAssaultPushFact({
-                        label, target, behindUnit: null, oldPos, behindPos
-                    }));
+                    log.push({
+                        factType: 'windAssaultPush',
+                        data: { label, target, behindUnit: null, oldPos, behindPos }
+                    });
                 }
             }
         } else {
-            log.push(renderWindAssaultFailFact({ label, reason: '击退触发失败' }));
+            log.push({ factType: 'windAssaultFail', data: { label, reason: '击退触发失败' } });
         }
 
         eventBus.emit('onPositionSwap', { allySide, enemySide, log });
@@ -382,7 +380,8 @@ export function registerMeteorShower(eventBus) {
             value: bonusDmg,
             target: target,
             buffType: 'meteor_bonus',
-            logText: renderMeteorShowerMainFact({ label, targetName: target.name, bonusDmg, defReduce: C.BUFFS.meteorShower.mainDefReduce || 2 }).text
+            factType: 'meteorShowerMain',
+            factData: { label, targetName: target.name, bonusDmg, defReduce: C.BUFFS.meteorShower.mainDefReduce || 2 }
         });
 
         const splashDmg = Math.floor(dmg * C.BUFFS.meteorShower.splashRatio);
@@ -399,7 +398,8 @@ export function registerMeteorShower(eventBus) {
                 primaryUid: target.uid,
                 splashUids: splashTargets.map(st => st.uid),
                 splashDmg: splashDmg,
-                logText: renderMeteorShowerSplashFact({ label, targets: splashTargets, splashDmg, defReduce: C.BUFFS.meteorShower.splashDefReduce || 1 }).text
+                factType: 'meteorShowerSplash',
+                factData: { label, targets: splashTargets, splashDmg, defReduce: C.BUFFS.meteorShower.splashDefReduce || 1 }
             };
             data.declarations.push(decl);
             for (const st of splashTargets) {

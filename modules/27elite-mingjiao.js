@@ -1,6 +1,6 @@
 // modules/27elite-mingjiao.js - 明教精英组件合集
-// V5.5.1 | ~32008 bytes| 2026-08-19 import 路径合并至 infra/51-core-utils
-export const VER = 'modules/27elite-mingjiao.js V5.5.1';
+// V5.6.0 | ~32008 bytes| 2026-08-21 fact化完成：不再import render/30
+export const VER = 'modules/27elite-mingjiao.js V5.6.0';
 
 import { registerElite } from '../core/08-elite-registry.js';
 import { CONFIG, getSkillParams } from '../core/01config-5v5-test.js';
@@ -12,17 +12,6 @@ import { checkZhangSwitch, emitEvent, applyStatChange, applyMaxHpChange, getBatt
 import { EXECUTION_LAYER as L, EFFECT_TYPES } from '../infra/50-event-bus.js';
 import { registerDodgeRule } from '../core/12battle-attack-steps.js';
 import { StateMachine } from '../infra/51-core-utils.js';
-import {
-    renderRongHuiBonusFact,
-    renderQianKunDerivedFact,
-    renderButterflyAttachFact,
-    renderButterflyNoHostFact,
-    renderButterflyReturnFact,
-    renderButterflyHostDeadFact,
-    renderSpiderFlyFact,
-    renderXiaoZhaoHorseFact,
-    renderSpiderDoubleStrikeFact
-} from '../render/30-fact-renderer.js';
 const ES = CONFIG.ELITE_SKILLS;
 function getZhangNearTaunt(nearAtkCount) {
     const ZHANG_NEAR_TAUNT = ['还好，还记得七七八八。', '糟糕，只记得一两层了。', '不好，全忘光了！'];
@@ -62,7 +51,7 @@ export function createZhangWujiComponent() {
                     onEnter() {
                         zhang.ronghui = true;
                         const zt = getZhangNearTaunt(3);
-                        if (zt) log.push({ type:'info', text:`<span class="gold">🗣️ ${zhang.name}：${zt}</span>` });
+                        if (zt) log.push({ factType: 'zhangTaunt', data: { unitName: zhang.name, taunt: zt } });
                     },
                     onExit() {}
                 }
@@ -112,9 +101,9 @@ export function createZhangWujiComponent() {
             if (unit.camp !== 'ally' || !unit.isZhang || !unit.alive) return;
             const fsm = unit._fsm;
             if (fsm && fsm.is('near')) {
-                if (unit.nearAtkCount === 0 && !unit._zhangTauntDone) { const firstTaunt = getZhangNearTaunt(1); if (firstTaunt) { group.entries.push({ type:'info', text:`<span class="gold">🗣️ ${unit.name}：${firstTaunt}</span>` }); unit._zhangTauntDone = true; } }
+                if (unit.nearAtkCount === 0 && !unit._zhangTauntDone) { const firstTaunt = getZhangNearTaunt(1); if (firstTaunt) { group.data.entries.push({ factType: 'zhangTaunt', data: { unitName: unit.name, taunt: firstTaunt } }); unit._zhangTauntDone = true; } }
                 unit.nearAtkCount++;
-                if (unit.nearAtkCount === 2) { const secondTaunt = getZhangNearTaunt(2); if (secondTaunt) group.entries.push({ type:'info', text:`<span class="gold">🗣️ ${unit.name}：${secondTaunt}</span>` }); }
+                if (unit.nearAtkCount === 2) { const secondTaunt = getZhangNearTaunt(2); if (secondTaunt) group.data.entries.push({ factType: 'zhangTaunt', data: { unitName: unit.name, taunt: secondTaunt } }); }
                 if (unit.nearAtkCount >= 3) {
                     if (!fsm.is('ronghui')) fsm.transition('ronghui');
                     const extra = Math.floor(Math.abs(target.atk - target.def) * 0.5);
@@ -128,7 +117,7 @@ export function createZhangWujiComponent() {
                     } else {
                         applyStatChange(target, 'hp', -extra, unit, '融会贯通');
                     }
-                    group.entries.push(renderRongHuiBonusFact({ unitName: unit.name, extra, targetAtk: Math.floor(target.atk), targetDef: Math.floor(target.def) }));
+                    group.data.entries.push({ factType: 'rongHuiBonus', data: { unitName: unit.name, extra, targetAtk: Math.floor(target.atk), targetDef: Math.floor(target.def) } });
                 }
             }
         }
@@ -244,18 +233,20 @@ export function createXiaoZhaoSisterComponent() {
                     applyStatChange(healTarget, 'hp', heal, xiaoZhao, '乾坤衍生治疗');
                     applyStatChange(atkTarget, 'atk', atkGain, xiaoZhao, '乾坤衍生加攻');
                     if (atkTarget._baseAtk !== undefined) atkTarget._baseAtk += atkGain;
-                    const derivedEntry = renderQianKunDerivedFact({
-                        targetName: target.name,
-                        reduce,
-                        healTargetName: healTarget.name,
-                        heal,
-                        atkTargetName: atkTarget.name,
-                        atkGain,
-                        healTargetUid: healTarget.uid,
-                        atkTargetUid: atkTarget.uid
-                    });
                     if (!data.unit._pendingDerivedEntries) data.unit._pendingDerivedEntries = [];
-                    data.unit._pendingDerivedEntries.push(derivedEntry);
+                    data.unit._pendingDerivedEntries.push({
+                        factType: 'qianKunDerived',
+                        data: {
+                            targetName: target.name,
+                            reduce,
+                            healTargetName: healTarget.name,
+                            heal,
+                            atkTargetName: atkTarget.name,
+                            atkGain,
+                            healTargetUid: healTarget.uid,
+                            atkTargetUid: atkTarget.uid
+                        }
+                    });
                 }
             });
             eventBus.on('beforeActionSelect', L.BEFORE_ACTION.BUTTERFLY_SKIP, (data) => {
@@ -279,7 +270,7 @@ export function createXiaoZhaoSisterComponent() {
             for (const p of order) { const u = A.find(a => a.pos === p && a.alive && !a.isHorse && a.uid !== sister.uid); if (u) { host = u; break; } }
             if (!host) {
                 applyStatChange(sister, 'hp', -sister.hp, null, '蝶变无宿主');
-                log.push(renderButterflyNoHostFact({ unitName: sister.name }));
+                log.push({ factType: 'butterflyNoHost', data: { unitName: sister.name } });
                 return null;
             }
             const s = getSkillParams('小昭', 'butterflyAttach') || {};
@@ -306,16 +297,19 @@ export function createXiaoZhaoSisterComponent() {
             sister.state._butterflyHost = host.uid;
             sister._fsm.transition('attached');
             emitEvent(sister, 'hp-change', { hp:sister.hp, maxHp:sister.maxHp, alive:sister.alive, atk:sister.atk, def:sister.def, _flyMode:'butterfly', _butterflyHost:sister.state._butterflyHost });
-            log.push(renderButterflyAttachFact({
-                sisterName: sister.name,
-                sisterUid: sister.uid,
-                hostName: host.name,
-                hostUid: host.uid,
-                flyDirection,
-                atkTransfer,
-                defTransfer,
-                hpTransfer
-            }));
+            log.push({
+                factType: 'butterflyAttach',
+                data: {
+                    sisterName: sister.name,
+                    sisterUid: sister.uid,
+                    hostName: host.name,
+                    hostUid: host.uid,
+                    flyDirection,
+                    atkTransfer,
+                    defTransfer,
+                    hpTransfer
+                }
+            });
             return sister;
         },
         _executeReturn(sister, A, log) {
@@ -339,7 +333,7 @@ export function createXiaoZhaoSisterComponent() {
                 sister._butterflyHp = 0;
                 sister._butterflyHpTransfer = 0;
                 sister._fsm.transition('normal');
-                log.push(renderButterflyHostDeadFact({ sisterName: sister.name, isDead: !sister.alive, sisterUid: sister.uid }));
+                log.push({ factType: 'butterflyHostDead', data: { sisterName: sister.name, isDead: !sister.alive, sisterUid: sister.uid } });
                 return;
             }
             const allAllies = A.filter(a => !a.isHorse && a.uid !== sister.uid);
@@ -380,15 +374,18 @@ export function createXiaoZhaoSisterComponent() {
                 hp: sister.hp, maxHp: sister.maxHp, alive: sister.alive,
                 atk: sister.atk, def: sister.def, _flyMode: null, _butterflyHost: null
             });
-            log.push(renderButterflyReturnFact({
-                sisterName: sister.name,
-                sisterUid: sister.uid,
-                hostName: host ? host.name : '宿主',
-                hostUid: host ? host.uid : null,
-                sisterAtk: sister.atk,
-                sisterDef: sister.def,
-                sisterHp: sister.hp
-            }));
+            log.push({
+                factType: 'butterflyReturn',
+                data: {
+                    sisterName: sister.name,
+                    sisterUid: sister.uid,
+                    hostName: host ? host.name : '宿主',
+                    hostUid: host ? host.uid : null,
+                    sisterAtk: sister.atk,
+                    sisterDef: sister.def,
+                    sisterHp: sister.hp
+                }
+            });
         },
         executeAttach(A, log) {
             let sister = A.find(u => u.isXiaoZhaoSister && u.alive && u.pos === 4 && !u.state._stunned);
@@ -444,7 +441,7 @@ export function createXiaoZhaoBrotherComponent() {
                         brother.state._flyMode = 'spider';
                         brother.state._acted = true;
                         emitEvent(brother, 'hp-change', { hp:brother.hp, maxHp:brother.maxHp, alive:brother.alive, atk:brother.atk, def:brother.def, _flyMode:'spider', _spiderFlying:true });
-                        brother._flyLogText = renderSpiderFlyFact({ unitName: brother.name, spiderUid: brother.uid, reason, incomingDmg, remaining: brother._spiderRemaining }).text;
+                        brother._flyFactData = { unitName: brother.name, spiderUid: brother.uid, reason, incomingDmg, remaining: brother._spiderRemaining };
                     },
                     onExit() {
                         brother.state._spiderFlying = false;
@@ -493,7 +490,7 @@ export function createXiaoZhaoBrotherComponent() {
                 if (shouldFly) {
                     if (!data.declarations) data.declarations = [];
                     fsm.transition('flying', { reason, incomingDmg: data.dmg, log: data.log || log });
-                    data.declarations.push({ immune: true, reason: brother._flyLogText || '🕷️ 飞天：免疫本次伤害' });
+                    data.declarations.push({ immune: true, flyData: brother._flyFactData || null, reason: brother._flyFactData ? null : '🕷️ 飞天：免疫本次伤害' });
                 }
             });
             eventBus.on('beforeActionSelect', L.BEFORE_ACTION.SPIDER_SKIP, (data) => {
@@ -536,7 +533,7 @@ export function createXiaoZhaoBrotherComponent() {
                 if (!teamHasHorse && hasPermanent) {
                     const xzHorse = spawnHorse(A, log, B, true);
                     if (xzHorse) {
-                        log.push(renderXiaoZhaoHorseFact({ pos: xzHorse.pos, horseUid: xzHorse.uid }));
+                        log.push({ factType: 'xiaoZhaoHorse', data: { pos: xzHorse.pos, horseUid: xzHorse.uid } });
                     }
                 }
                 const hasTeamCarry = hasBuff(A._activeBuffs, 'carry');
@@ -556,7 +553,7 @@ export function createXiaoZhaoBrotherComponent() {
                 const chance = (s.xiaoZhaoDoubleStrikeChance || 80);
                 if (getBattleRng().nextInt(1, 100) <= chance) {
                     unit._xiaoZhaoDoubleStriked = true;
-                    log.push(renderSpiderDoubleStrikeFact({}));
+                    log.push({ factType: 'spiderDoubleStrike', data: {} });
                     if (!data.extraRequests) data.extraRequests = [];
                     data.extraRequests.push({
                         unit,
@@ -584,8 +581,8 @@ export function createXiaoZhaoBrotherComponent() {
             }
             if (!reason) return false;
             fsm.transition('flying', { reason, incomingDmg, log });
-            if (unit._flyLogText && log) {
-                log.push({ type:'info', text: unit._flyLogText });
+            if (unit._flyFactData && log) {
+                log.push({ factType: 'spiderFly', data: unit._flyFactData });
             }
             return true;
         },

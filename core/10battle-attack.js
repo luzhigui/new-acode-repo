@@ -12,13 +12,13 @@ import {
     calcFinalDamage,
     applyAttackResult,
     buildAttackGroup,
+    applyPostAttackEffects,
     resolveDamageImmune,
     resolveAfterDamageEffects,
     resolveDeaths
 } from './12battle-attack-steps.js';
 import { eventBus, EFFECT_TYPES } from '../infra/50-event-bus.js';
 import { flushBattleEvents } from '../infra/51-core-utils.js';
-import { renderMissFact, renderDodgeFact, renderEmptyTargetFact, renderImmuneFact, renderStunSkipFact, renderFlySkipFact, renderKillLineFact } from '../render/30-fact-renderer.js';
 
 import { emitEvent, applyStatChange } from './13battle-shared.js';
 
@@ -26,12 +26,12 @@ const C = CONFIG, DT = DEF_TAUNT, HT = HP_TAUNT;
 
 export async function processUnitAttack(unit, allySide, enemySide, log, A, B, state, doubleStrikeUnitUid, lockedTargetUid) {
     if (unit.state._stunned) {
-        log.push(renderStunSkipFact({ unitName: unit.name }));
+        log.push({ factType: 'stunSkip', data: { unitName: unit.name } });
         unit.state._acted = true;
         return false;
     }
     if (unit.state._spiderFlying || unit.state._flyMode === 'spider' || (unit._fsm && unit._fsm.is('flying'))) {
-        log.push(renderFlySkipFact({ unitName: unit.name }));
+        log.push({ factType: 'flySkip', data: { unitName: unit.name } });
         unit.state._acted = true;
         return false;
     }
@@ -48,7 +48,7 @@ export async function processUnitAttack(unit, allySide, enemySide, log, A, B, st
                 events: []
             };
             emptyFact.events = flushBattleEvents();
-            log.push(renderEmptyTargetFact(emptyFact));
+            log.push({ factType: 'emptyTarget', data: emptyFact });
             unit.state._acted = true;
             return false;
         }
@@ -66,7 +66,7 @@ export async function processUnitAttack(unit, allySide, enemySide, log, A, B, st
             events: []
         };
         emptyFact.events = flushBattleEvents();
-        log.push(renderEmptyTargetFact(emptyFact));
+        log.push({ factType: 'emptyTarget', data: emptyFact });
         unit.state._acted = true;
         return false;
     }
@@ -85,14 +85,14 @@ export async function processUnitAttack(unit, allySide, enemySide, log, A, B, st
     let hitResult = resolveAttackHit(unit, target, attackerBuffStats, defenderBuffStats, log, A, B, doubleStrikeUnitUid, eventBus);
     if (hitResult.skipped) {
         if (hitResult.missFact) {
-            log.push(renderMissFact(hitResult.missFact));
+            log.push({ factType: 'miss', data: hitResult.missFact });
         }
         if (hitResult.dodgeFact) {
-            const dg = renderDodgeFact(hitResult.dodgeFact);
-            if (dg.isDead) {
+            const dodgeFact = hitResult.dodgeFact;
+            if (dodgeFact.attackerHpAfter <= 0) {
                 unit.alive = false; unit._pendingDeath = true;
             }
-            log.push(dg);
+            log.push({ factType: 'dodge', data: dodgeFact });
         }
         if (hitResult.extraRequests && hitResult.extraRequests.length > 0) {
             hitResult.extraRequests.sort((a, b) => (a.priority || 0) - (b.priority || 0));
@@ -135,6 +135,7 @@ export async function processUnitAttack(unit, allySide, enemySide, log, A, B, st
             attacker: { uid: unit.uid, name: unit.name, camp: unit.camp },
             target: { uid: target.uid, name: target.name, camp: target.camp },
             reason: immuneResult.reason || null,
+            flyData: immuneResult.flyData || null,
             attackerAtk: Math.floor(unit.atk),
             attackerHp: Math.floor(unit.hp),
             targetDef: Math.floor(target.def),
@@ -144,17 +145,22 @@ export async function processUnitAttack(unit, allySide, enemySide, log, A, B, st
             events: []
         };
         immuneFact.events = flushBattleEvents();
-        log.push(renderImmuneFact(immuneFact));
+        log.push({ factType: 'immune', data: immuneFact });
 
         if (!unit._isLinkAttack) unit.state._acted = true;
         return true;
     }
 
-    let group = await buildAttackGroup(unit, target, dmgCalc, dmgResult, attackerBuffStats, defenderBuffStats, allySide, enemySide, log, A, B, state, doubleStrikeUnitUid, phantomLog);
+    const group = await buildAttackGroup(unit, target, dmgCalc, dmgResult, attackerBuffStats, defenderBuffStats, allySide, enemySide, log, A, B, state, doubleStrikeUnitUid, phantomLog);
+
+    log.push(group);
+
+    const postReboundEntry = applyPostAttackEffects(unit, target, dmgCalc.dmg, dmgCalc.atkAct, dmgCalc.defAct, dmgResult.reboundEntry, allySide, enemySide, log, A);
+    if (postReboundEntry) { log.push(postReboundEntry); }
 
     if (unit._pendingDerivedEntries) {
         for (const entry of unit._pendingDerivedEntries) {
-            group.entries.push(entry);
+            group.data.entries.push(entry);
         }
         delete unit._pendingDerivedEntries;
     }
@@ -175,8 +181,10 @@ export async function processUnitAttack(unit, allySide, enemySide, log, A, B, st
             if (!group._events) group._events = [];
             group._events.push(...decl._events);
         }
-        if (group && group.entries && decl.logText) {
-            const entry = { type: decl.type === EFFECT_TYPES.SPLASH ? 'buff-splash' : 'info', text: decl.logText };
+        if (group && group.data.entries && (decl.logText || decl.factType)) {
+            const entry = decl.factType
+                ? { factType: decl.factType, data: decl.factData }
+                : { type: decl.type === EFFECT_TYPES.SPLASH ? 'buff-splash' : 'info', text: decl.logText };
             if (decl.type === EFFECT_TYPES.LEECH || decl.type === EFFECT_TYPES.HEAL) {
                 entry.isHealEntry = true;
                 entry.healAmount = decl.value || 0;
@@ -188,28 +196,13 @@ export async function processUnitAttack(unit, allySide, enemySide, log, A, B, st
             if (decl.primaryUid) entry.primaryUid = decl.primaryUid;
             if (decl.splashUids) entry.splashUids = decl.splashUids;
             if (decl.splashDmg !== undefined) entry.splashDmg = decl.splashDmg;
-            group.entries.push(entry);
+            group.data.entries.push(entry);
         }
     }
     if ((target._pendingDeath || target.hp <= 0) && !dmgResult.dead) {
         const hasExecute = executedDecls.some(d => d.type === EFFECT_TYPES.EXECUTE && d.target === target);
         if (hasExecute) {
-            group.isDead = true;
-            const dmgEntry = group.entries.find(e => e.type === 'damage-text');
-            if (dmgEntry) {
-                dmgEntry.deadFlag = true;
-                dmgEntry.text = renderKillLineFact({
-                    ac: unit.camp === 'ally' ? 'blue' : 'orange',
-                    dc: target.camp === 'ally' ? 'blue' : 'orange',
-                    campA: unit.camp === 'ally' ? '明教' : '六大派',
-                    campD: target.camp === 'ally' ? '明教' : '六大派',
-                    unitName: unit.name,
-                    dmg: Math.round(dmgCalc.dmg),
-                    targetName: target.name,
-                    hpBefore: dmgResult.hpBefore,
-                    hpNow: Math.floor(target.hp)
-                }).text;
-            }
+            dmgResult.executeKill = true;
         }
     }
 
@@ -243,20 +236,26 @@ export async function processUnitAttack(unit, allySide, enemySide, log, A, B, st
             if (decl.type === EFFECT_TYPES.CLAW_CHAIN) {
             if (decl.hits) {
                 for (const hit of decl.hits) {
-                    if (hit.logText && group && group.entries) {
-                        const e = { type: 'info', text: hit.logText };
+                    if ((hit.logText || hit.factType) && group && group.data.entries) {
+                        const e = hit.factType
+                            ? { factType: hit.factType, data: hit.data }
+                            : { type: 'info', text: hit.logText };
                         if (hit.isClawHit) { e.isClawHit = true; e.clawAttackerUid = hit.clawAttackerUid; e.clawTargetUid = hit.clawTargetUid; e.isExecute = hit.isExecute; }
-                        group.entries.push(e);
+                        group.data.entries.push(e);
                     }
                 }
             }
-            if (decl.execute && decl.execute.logText && group && group.entries) {
-                const e = { type: 'info', text: decl.execute.logText };
+            if (decl.execute && (decl.execute.logText || decl.execute.factType) && group && group.data.entries) {
+                const e = decl.execute.factType
+                    ? { factType: decl.execute.factType, data: decl.execute.data }
+                    : { type: 'info', text: decl.execute.logText };
                 if (decl.execute.isClawHit) { e.isClawHit = true; e.clawAttackerUid = decl.execute.clawAttackerUid; e.clawTargetUid = decl.execute.clawTargetUid; e.isExecute = true; }
-                group.entries.push(e);
+                group.data.entries.push(e);
             }
-        } else if (decl.logText && group && group.entries) {
-            group.entries.push({ type: 'info', text: decl.logText });
+        } else if ((decl.logText || decl.factType) && group && group.data.entries) {
+            group.data.entries.push(decl.factType
+                ? { factType: decl.factType, data: decl.factData }
+                : { type: 'info', text: decl.logText });
         }
         }
     }

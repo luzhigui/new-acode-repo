@@ -8,7 +8,6 @@ import { calcDamage, getFangLevel, isMelee, getFronts, isBlocked, getRandomTaunt
 import { applyBuffEffectsBeforeAttack, applyBuffEffectsAfterAttack } from './04buff-system.js';
 import { emitEvent, applyStatChange, applyMaxHpChange, query, getBattleRng } from './13battle-shared.js';
 import { flushBattleEvents, pushBattleEvent, getBattleState, setBattleState, registerDodgeRule, clearEliteDodgeRules, getDodgeRules } from '../infra/51-core-utils.js';
-import { renderMissFact, renderDodgeFact, renderAttackFact, renderDropFact, renderBreakDefFact, renderHorseReboundFact, renderFortifyReboundFact, renderMeteorSplashGrowthFact } from '../render/30-fact-renderer.js';
 
 // ==================== 闪避规则注册表（已下沉 infra/51，此处转发） ====================
 export { registerDodgeRule, clearEliteDodgeRules, getDodgeRules };
@@ -284,7 +283,7 @@ export function applyAttackResult(unit, target, dmgCalc, attackerBuffStats, defe
             setBattleState('holyToken', currentToken + 1);
             localStorage.setItem('ming_holy_token_5v5_test', String(currentToken + 1));
             pushBattleEvent({ unitUid: unit.uid, eventType: 'info', payload: { text: `🔥 圣火令掉落！${unit.name} 击杀 ${target.name}，获得1枚圣火令！当前总数：${currentToken + 1}`, fastEntry: true } });
-            log.push(renderDropFact({ kind:'token', killerName: unit.name, victimName: target.name, total: currentToken + 1, unitUid: unit.uid }));
+            log.push({ factType: 'drop', data: { kind:'token', killerName: unit.name, victimName: target.name, total: currentToken + 1, unitUid: unit.uid } });
         }
     }
     if (dead && target.camp === 'enemy' && unit.camp === 'ally' && !target._chestDropped) {
@@ -295,7 +294,7 @@ export function applyAttackResult(unit, target, dmgCalc, attackerBuffStats, defe
             chests++;
             localStorage.setItem('ming_chest_count', String(chests));
             setBattleState('chestCount', chests);
-            log.push(renderDropFact({ kind:'chest', killerName: unit.name, victimName: target.name, total: chests, unitUid: unit.uid }));
+            log.push({ factType: 'drop', data: { kind:'chest', killerName: unit.name, victimName: target.name, total: chests, unitUid: unit.uid } });
         }
     }
 
@@ -308,7 +307,8 @@ export function applyAttackResult(unit, target, dmgCalc, attackerBuffStats, defe
             value: rebound,
             source: target,
             target: unit,
-            logText: renderHorseReboundFact({ unitName: unit.name, rebound }).text
+            factType: 'horseRebound',
+            factData: { unitName: unit.name, rebound }
         });
     }
 
@@ -327,7 +327,8 @@ export function applyAttackResult(unit, target, dmgCalc, attackerBuffStats, defe
                 source: target,
                 target: unit,
                 hasSister,
-                logText: renderFortifyReboundFact({ reboundDmg, unitName: unit.name, hasSister }).text
+                factType: 'fortifyRebound',
+                factData: { reboundDmg, unitName: unit.name, hasSister }
             }];
         }
     }
@@ -412,7 +413,7 @@ export function resolveAfterDamageEffects(declarations, unit, target, group, all
                 const growth = hitCount * perSplash;
                 applyStatChange(unit, 'atk', growth, null, '流星溅射成长');
                 if (unit._baseAtk !== undefined) unit._baseAtk += growth;
-                decl.logText += ' ' + renderMeteorSplashGrowthFact({ unitName: unit.name, growth }).text;
+                if (decl.factData) decl.factData.growth = growth;
             }
         }
         executed.push(decl);
@@ -473,7 +474,7 @@ export function resolveAfterDamageEffects(declarations, unit, target, group, all
     return executed;
 }
 
-// ==================== 步骤5：构建攻击组日志 + 攻击后效果 ====================
+// ==================== 步骤5：构建攻击事实（不渲染，由 player 投影）+ 攻击后效果 ====================
 export async function buildAttackGroup(unit, target, dmgCalc, dmgResult, attackerBuffStats, defenderBuffStats, allySide, enemySide, log, A, B, state, doubleStrikeUnitUid, phantomLog) {
     let { atkBase, defBase, atkAct, defAct, hpBonus, hpBefore, waveTaunt, waveUnit, raw, rawFormula, thunderBonus, hornDmgMultiplier, hornDefIgnore, trueDmg, defReduction, bonusDmgTotal, bonusDmgEntries, dmgMultiplier, dmgMultiplierEntries, hpRatio } = dmgCalc;
     let { dmg, dead, reboundEntry, bonusEntries } = dmgResult;
@@ -482,7 +483,7 @@ export async function buildAttackGroup(unit, target, dmgCalc, dmgResult, attacke
 
     const pendingEntries = [];
     if (unit._pendingDefReduceFact) {
-        pendingEntries.push(renderBreakDefFact(unit._pendingDefReduceFact));
+        pendingEntries.push({ factType: 'breakDef', data: unit._pendingDefReduceFact });
         delete unit._pendingDefReduceFact;
     }
     if (unit._executeLog) {
@@ -490,24 +491,24 @@ export async function buildAttackGroup(unit, target, dmgCalc, dmgResult, attacke
         delete unit._executeLog;
     }
 
-    const group = renderAttackFact({
-        attacker: unit,
-        target,
-        dmgCalc,
-        dmgResult,
-        attackerBuffStats,
-        defenderBuffStats,
-        hpPctBefore,
-        hpPctAfter,
-        phantomLog,
-        entries: pendingEntries
-    });
+    const attackFact = {
+        factType: 'attack',
+        data: {
+            attacker: unit,
+            target,
+            dmgCalc,
+            dmgResult,
+            attackerBuffStats,
+            defenderBuffStats,
+            hpPctBefore,
+            hpPctAfter,
+            phantomLog,
+            entries: pendingEntries
+        },
+        _events: []
+    };
 
-    log.push(group);
-
-    const postReboundEntry = applyPostAttackEffects(unit, target, dmg, atkAct, defAct, reboundEntry, allySide, enemySide, log, A);
-    if (postReboundEntry) { log.push(postReboundEntry); }
-    return group;
+    return attackFact;
 }
 
 // 辅助函数

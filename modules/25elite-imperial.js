@@ -7,10 +7,6 @@ import { CONFIG, getSkillParams } from '../core/01config-5v5-test.js';
 import { getBattleRng, emitEvent } from '../core/13battle-shared.js';
 import { tickXuanmingPoison } from './20elite-skills.js';
 import { EXECUTION_LAYER as L, EFFECT_TYPES } from '../infra/50-event-bus.js';
-import {
-    renderXuanmingDotFact,
-    renderPhantomDisguiseHealFact
-} from '../render/30-fact-renderer.js';
 const ES = CONFIG.ELITE_SKILLS;
 
 // ==================== 成昆 ====================
@@ -72,7 +68,8 @@ export function createChengKunComponent() {
                         type: EFFECT_TYPES.HEAL,
                         value: heal,
                         source: unit,
-                        logText: renderPhantomDisguiseHealFact({ unitName: unit.name, heal }).text
+                        factType: 'phantomDisguiseHeal',
+                        factData: { unitName: unit.name, heal }
                     });
                 }
                 emitEvent(unit, 'hp-change', { hp:unit.hp, maxHp:unit.maxHp, alive:unit.alive, atk:unit.atk, def:unit.def, _phantomTarget:unit.state._phantomTarget });
@@ -98,7 +95,7 @@ export function createLuZhangKeComponent() {
                     if (!u.alive) return;
                     const dot = tickXuanmingPoison(u);
                     if (dot > 0) {
-                        log.push(renderXuanmingDotFact({ unitName: u.name, dot, uidD: u.uid, isDead: !u.alive }));
+                        log.push({ factType: 'xuanmingDot', data: { unitName: u.name, dot, uidD: u.uid, isDead: !u.alive } });
                     }
                 });
             });
@@ -134,7 +131,7 @@ export function registerXuanmingLink(eventBus) {
         const partner = allySide.find(u => u.name === partnerName && u.alive && !u._linkTriggered);
         if (!partner) return;
         partner._linkTriggered = true;
-        log.push({type:'info', text:`<span class="gold">🔗 ${partner.name} 跟随 ${unit.name} 发动联动攻击！</span>`});
+        log.push({ factType: 'xuanmingLinkAttack', data: { partnerName: partner.name, unitName: unit.name } });
         if (!data.extraRequests) data.extraRequests = [];
         data.extraRequests.push({
             unit: partner,

@@ -17,15 +17,6 @@ import { getNextAvailableUnit, finalizeDeaths, emitFullUnitState, checkZhangSwit
 import { flushBattleEvents, setBattleState } from '../infra/51-core-utils.js';
 import { SeededRNG } from '../infra/51-core-utils.js';
 import { resolveDeaths } from './12battle-attack-steps.js';
-import {
-    renderHorseSummonFact,
-    renderKuLianFact,
-    renderDoubleStrikeFact,
-    renderPassFact,
-    renderRoundStartFact,
-    renderRoundEndFact,
-    renderDoubleStrikeSummaryFact
-} from '../render/30-fact-renderer.js';
 
 const C = CONFIG;
 
@@ -38,15 +29,15 @@ async function prepareRoundStart(A, B, log, state, round, rng) {
     setBattleState('currentBattleState', null);
     flushBattleEvents();
 
-    log.push(renderRoundStartFact({ round }));
+    log.push({ factType: 'roundStart', data: { round } });
 
     const teamHorseA = spawnHorse(A, log, B);
     if (teamHorseA) {
-        log.push(renderHorseSummonFact({ pos: teamHorseA.pos, horseUid: teamHorseA.uid, horseTaunt: '嘶——！' }));
+        log.push({ factType: 'horseSummon', data: { pos: teamHorseA.pos, horseUid: teamHorseA.uid, horseTaunt: '嘶——！' } });
     }
     const teamHorseB = spawnHorse(B, log, A);
     if (teamHorseB) {
-        log.push(renderHorseSummonFact({ pos: teamHorseB.pos, horseUid: teamHorseB.uid, horseTaunt: '嘶——！' }));
+        log.push({ factType: 'horseSummon', data: { pos: teamHorseB.pos, horseUid: teamHorseB.uid, horseTaunt: '嘶——！' } });
     }
 
     let doubleStrikeUnitUid = null;
@@ -62,12 +53,11 @@ async function prepareRoundStart(A, B, log, state, round, rng) {
 
     if (doubleStrikeUnitUid) {
         const dsUnit = A.find(u => u.uid === doubleStrikeUnitUid);
-        if (dsUnit) log.push(renderDoubleStrikeSummaryFact({ unitName: dsUnit.name }));
+        if (dsUnit) log.push({ factType: 'doubleStrikeSummary', data: { unitName: dsUnit.name } });
     }
 
-    log.filter(l => l.type === 'buff-summon').forEach(hl => {
-        const team = hl.buffType === 'summon' ? A : B;
-        const horse = team.find(u => u.uid === hl.horseUid);
+    log.filter(l => l.factType === 'horseSummon').forEach(hl => {
+        const horse = A.find(u => u.uid === hl.data.horseUid);
         if (horse) {
             emitFullUnitState(horse, 'unit-add');
         }
@@ -376,12 +366,12 @@ export async function* createRoundStepper(state) {
         const head = queue[0];
         if (head.isPass) {
             if (head.unit._kuLianActive) {
-                log.push(renderKuLianFact({ unitName: head.unit.name, atkBonus: 0, defBonus: 0, hpBonus: 0, priority: true }));
+                log.push({ factType: 'kuLian', data: { unitName: head.unit.name, atkBonus: 0, defBonus: 0, hpBonus: 0, priority: true } });
             }
             return { actingUnit: null, passEntry: { unit: head.unit, reason: head.reason }, isPriorityAction: false };
         }
         if (head.priority > 0 && head.unit._kuLianActive) {
-            log.push(renderKuLianFact({ unitName: head.unit.name, atkBonus: 0, defBonus: 0, hpBonus: 0, priority: true }));
+            log.push({ factType: 'kuLian', data: { unitName: head.unit.name, atkBonus: 0, defBonus: 0, hpBonus: 0, priority: true } });
         }
         return { actingUnit: head.unit, passEntry: null, isPriorityAction: head.priority > 0 };
     }
@@ -416,7 +406,7 @@ export async function* createRoundStepper(state) {
             }
             const passFact = { unit, reason, events: [] };
             passFact.events = flushBattleEvents();
-            log.push(renderPassFact(passFact));
+            log.push({ factType: 'pass', data: passFact });
             continue;
         }
 
@@ -535,7 +525,7 @@ function finalizeRoundEnd(A, B, log, round) {
         });
     }
 
-    log.push(renderRoundEndFact({ round }));
+    log.push({ factType: 'roundEnd', data: { round } });
 
     const endEvents = flushBattleEvents();
 
