@@ -1,9 +1,9 @@
 // ui/65main-battle.js - 光明顶5v5 战斗初始化
-// V5.5.0 | 2026-08-14 业务逻辑下沉至 modules/29battle-init.js + infra/54-global-store.js
-export const VER = 'ui/65main-battle.js V5.5.0';
+// V5.5.1 | 2026-08-19 import 路径合并至 infra/51-core-utils
+export const VER = 'ui/65main-battle.js V5.5.1';
 
 import { CONFIG } from '../core/01config-5v5-test.js';
-import { SeededRNG } from '../infra/52-rng.js';
+import { SeededRNG } from '../infra/51-core-utils.js';
 import { addPermanentBuff } from '../modules/20elite-skills.js';
 import { updateUI } from './62ui-render-5v5-test.js';
 import { showModal } from './60main-utils.js';

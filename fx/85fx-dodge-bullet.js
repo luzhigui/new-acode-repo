@@ -1,10 +1,12 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// fx/85fx-dodge-bullet.js - 光明顶5v5 闪避反击特效
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// fx/85fx-dodge-bullet.js - 光明顶5v5 闪避反击特效
 // V5.5.0 | 2026-07-12 修复格子缩小与残留：完整保存/恢复原始格子状态
 export const VER = 'fx/85fx-dodge-bullet.js V5.5.0';
 
 import { showComicBubble } from './80fx-common-5v5-test.js';
 
-function wait(ms) { return new Promise(r => setTimeout(r, window._fastForwardActive ? 1 : ms)); }
+import { GlobalStore } from '../infra/54-global-store.js';
+
+function wait(ms) { return new Promise(r => setTimeout(r, GlobalStore.get('fastForwardActive') ? 1 : ms)); }
 
 function getCellElement(unit) {
     if (!unit || unit.pos == null) return null;

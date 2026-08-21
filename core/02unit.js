@@ -1,10 +1,10 @@
 // core/02unit.js - 光明顶5v5 战斗单位类
-// V5.4.0 | ~6400 bytes| 2026-08-11 init() 支持 seeded RNG，uid 改用确定性计数器
-export const VER = 'core/02unit.js V5.4.0';
+// V5.4.1 | ~6408 bytes| 2026-08-19 import 路径合并至 infra/51-core-utils
+export const VER = 'core/02unit.js V5.4.1';
 
 import { CONFIG } from './01config-5v5-test.js';
 
-import { StateMachine } from '../infra/51-fsm.js';
+import { StateMachine } from '../infra/51-core-utils.js';
 
 let _uidCounter = 0;
 

@@ -1,6 +1,6 @@
 // modules/27elite-mingjiao.js - 明教精英组件合集
-// V5.5.0 | ~32000 bytes| 2026-08-17 事实化重构：日志HTML走render/30
-export const VER = 'modules/27elite-mingjiao.js V5.5.0';
+// V5.5.1 | ~32008 bytes| 2026-08-19 import 路径合并至 infra/51-core-utils
+export const VER = 'modules/27elite-mingjiao.js V5.5.1';
 
 import { registerElite } from '../core/08-elite-registry.js';
 import { CONFIG, getSkillParams } from '../core/01config-5v5-test.js';
@@ -11,7 +11,7 @@ import { spiderTransform, spiderReturn } from '../modules/20elite-skills.js';
 import { checkZhangSwitch, emitEvent, applyStatChange, applyMaxHpChange, getBattleRng } from '../core/13battle-shared.js';
 import { EXECUTION_LAYER as L, EFFECT_TYPES } from '../infra/50-event-bus.js';
 import { registerDodgeRule } from '../core/12battle-attack-steps.js';
-import { StateMachine } from '../infra/51-fsm.js';
+import { StateMachine } from '../infra/51-core-utils.js';
 import {
     renderNineYangHealFact,
     renderRongHuiBonusFact,

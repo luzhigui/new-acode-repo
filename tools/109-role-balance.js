@@ -1,10 +1,10 @@
 // tools/109-role-balance.js - 光明顶5v5 职业平衡分析工具
-// V5.5.0 | ~15000 bytes | 2026-08-16 6V6 标准模板循环赛（无海克斯）
-export const VER = 'tools/109-role-balance.js V5.5.0';
+// V5.5.1 | ~15009 bytes| 2026-08-19 import 路径合并至 infra/51-core-utils
+export const VER = 'tools/109-role-balance.js V5.5.1';
 
 import { CONFIG } from '../core/01config-5v5-test.js';
 import { Unit } from '../core/02unit.js';
-import { SeededRNG } from '../infra/52-rng.js';
+import { SeededRNG } from '../infra/51-core-utils.js';
 import { createRoundStepper } from '../core/11battle-round.js';
 import '../infra/54-global-store.js';
 import '../modules/25elite-imperial.js';

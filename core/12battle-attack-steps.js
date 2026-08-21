@@ -1,13 +1,13 @@
 // core/12battle-attack-steps.js - 光明顶5v5 攻击步骤拆分模块
-// V5.5.1 | ~28000 bytes| 2026-08-17 事实化重构：日志HTML移至渲染器
-export const VER = 'core/12battle-attack-steps.js V5.5.1';
+// V5.5.2 | ~27996 bytes| 2026-08-19 import 路径合并至 infra/51-core-utils
+export const VER = 'core/12battle-attack-steps.js V5.5.2';
 
 import { CONFIG, DEF_TAUNT, HP_TAUNT, getSkillParams } from './01config-5v5-test.js';
 import { eventBus, EFFECT_TYPES } from '../infra/50-event-bus.js';
 import { calcDamage, getFangLevel, isMelee, getFronts, isBlocked, getRandomTaunt, getZhangNearTaunt, makeFXSnapshot, hasBuff, getUnitCol, getUnitRow } from './03battle-utils.js';
 import { computeBuffStats, applyBuffEffectsBeforeAttack, applyBuffEffectsAfterAttack } from './04buff-system.js';
 import { emitEvent, applyStatChange, applyMaxHpChange, query, getBattleRng } from './13battle-shared.js';
-import { flushBattleEvents, pushBattleEvent, getBattleState, setBattleState } from '../infra/53-battle-event-store.js';
+import { flushBattleEvents, pushBattleEvent, getBattleState, setBattleState } from '../infra/51-core-utils.js';
 import { renderMissFact, renderDodgeFact, renderAttackFact, renderDropFact, renderBreakDefFact, renderHorseReboundFact, renderFortifyReboundFact, renderMeteorSplashGrowthFact } from '../render/30-fact-renderer.js';
 
 // ==================== 闪避规则注册表 ====================
@@ -380,7 +380,7 @@ export function resolveDamageImmune(declarations) {
 }
 
 // ==================== 攻击后效果结算 ====================
-export function resolveAfterDamageEffects(declarations, unit, target, group) {
+export function resolveAfterDamageEffects(declarations, unit, target, group, allySide, unitBuffs) {
     if (!declarations || declarations.length === 0) return [];
 
     const executed = [];

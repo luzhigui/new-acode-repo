@@ -14,7 +14,7 @@ export function applyFortifyDef_Sister(unit, stats) { stats.defBonus += CONFIG.B
 export function applyFortifyDef_Brother(unit, stats) { stats.defBonus += CONFIG.BUFFS.fortify.defBonus; }
 
 export function applyCloudBodyDodge_Normal(unit, stats) { stats.dodgeBonus = CONFIG.BUFFS.cloudBody.dodgeBonus; }
-export function applyCloudBodyDodge_Sister(unit, stats) { stats.dodgeBonus = CONFIG.BUFFS.cloudBody.dodgeBonus; }
+export function applyCloudBodyDodge_Sister(unit, stats) { stats.dodgeBonus = CONFIG.ELITE_SKILLS.xiaoZhao.hexEnhance.cloudBody.dodgeBonus; }
 export function applyCloudBodyDodge_Brother(unit, stats) { stats.dodgeBonus = CONFIG.BUFFS.cloudBody.dodgeBonus; }
 
 export function applyHolyFlame_Normal(unit, allyTeam, activeBuffs, stats) {

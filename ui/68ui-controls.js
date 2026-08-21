@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// ui/68ui-controls.js - 光明顶5v5 UI控制（倍速系统+按钮状态+事件绑定）
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// ui/68ui-controls.js - 光明顶5v5 UI控制（倍速系统+按钮状态+事件绑定）
 // V5.5.0 | ~25700 bytes| 2026-08-14 移除回放导入区块
 export const VER = 'ui/68ui-controls.js V5.5.0';
 
@@ -207,12 +207,11 @@ function updateButtons() {
 function enableAllButtons() { document.querySelectorAll('.controls button').forEach(b => b.disabled = false); updateButtons(); updateSpeedButtons(); }
 function updateDebugUI() { let panel=document.getElementById('debugPanel'); const debugMode = getState.debugMode(); if(debugMode){if(panel)panel.style.display='flex';}else{if(panel)panel.style.display='none';} }
 
-window.updateButtons = updateButtons;
-window.enableAllButtons = enableAllButtons;
-window.updateSpeedButtons = updateSpeedButtons;
-window.updateAutoModeButton = updateAutoModeButton;
-window._activateScrollSlowdown = activateScrollSlowdown;
-window._restoreSpeedFromScroll = restoreSpeedFromScroll;
+GlobalStore.setUIHandler('updateButtons', updateButtons);
+GlobalStore.setUIHandler('enableAllButtons', enableAllButtons);
+GlobalStore.setUIHandler('updateSpeedButtons', updateSpeedButtons);
+GlobalStore.setUIHandler('activateScrollSlowdown', activateScrollSlowdown);
+GlobalStore.setUIHandler('restoreSpeedFromScroll', restoreSpeedFromScroll);
 
 // ==================== 按钮事件绑定（从 13main 迁移） ====================
 
@@ -368,7 +367,7 @@ export function bindSettleButton(currentStageGetter, isBattleStarting, getState,
         }
         if (GlobalStore.get('bulletTimeActive')) GlobalStore.set('bulletTimeActive', false);
         setState.waitingForNextRound(false);
-        if (typeof window._restoreSpeedFromScroll === 'function') window._restoreSpeedFromScroll();
+        restoreSpeedFromScroll();
         updateButtons();
     });
 }

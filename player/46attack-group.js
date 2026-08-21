@@ -3,7 +3,7 @@
 export const VER = 'player/46attack-group.js V5.5.1';
 
 import { isBlocked } from '../core/03battle-utils.js';
-import { _triggerFX } from '../ui/67fx-trigger.js';
+import { _triggerFX } from '../fx/88fx-trigger.js';
 import {
     showDanmaku, showDamageFloat, showDodgeBubble, showHealFloat, showAtkBuffFloat,
     applyBrushEffect, showBuffBanner, showCriticalBanner, showHeartEffect, showPinkFlash,
@@ -18,8 +18,6 @@ import { appendLogHTML, appendLogElement, autoScrollLog, updateRoundDisplay, ren
 const safeShowDanmaku = (...args) => { try { return showDanmaku(...args); } catch(e) {} };
 
 export async function handleAttackGroup(c, entry, roundResult, abortSig, isFirstAttackRef) {
-    if (entry.isCombo) { appendLogHTML('<br>'); c.isPaused = true; GlobalStore.set('bulletTimeActive', true); await new Promise(r => setTimeout(r, 1500)); showBuffBanner('⚡ 连击！'); GlobalStore.set('bulletTimeActive', false); c.isPaused = false; }
-
     if (!entry._pendingHpEvents) entry._pendingHpEvents = [];
     if (entry._events && entry._events.length > 0) {
         for (const ev of entry._events) {

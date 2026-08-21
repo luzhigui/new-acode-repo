@@ -1,8 +1,10 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// fx/86fx-butterfly-spider.js - 光明顶5v5 蝶蛛双生特效
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// fx/86fx-butterfly-spider.js - 光明顶5v5 蝶蛛双生特效
 // V5.5.0 | 从实验室移植，蝴蝶飞走/飞回 + 蜘蛛升天/降下
 export const VER = 'fx/86fx-butterfly-spider.js V5.5.0';
 
-function wait(ms) { return new Promise(r => setTimeout(r, window._fastForwardActive ? 1 : ms)); }
+import { GlobalStore } from '../infra/54-global-store.js';
+
+function wait(ms) { return new Promise(r => setTimeout(r, GlobalStore.get('fastForwardActive') ? 1 : ms)); }
 
 function getCellElement(unit) {
     if (!unit || unit.pos == null) return null;

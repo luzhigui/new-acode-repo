@@ -1,6 +1,6 @@
 // ui/61main-5v5-test.js - 光明顶5v5 主控模块
-// V5.5.0 | ~24200 bytes| 2026-07-07 拆分音频到42、特效到43、倍速+按钮到44
-export const VER = 'ui/61main-5v5-test.js V5.5.0';
+// V5.5.1 | ~24209 bytes| 2026-08-19 import 路径合并至 infra/51-core-utils
+export const VER = 'ui/61main-5v5-test.js V5.5.1';
 
 import '../infra/54-global-store.js';
 import '../modules/21error-capture.js';
@@ -30,7 +30,7 @@ import { updateSpeedButtons, activateScrollSlowdown, restoreSpeedFromScroll, upd
 import { VER as VER_BUFF } from '../core/04buff-system.js';
 import { VER as VER_HORSE } from '../core/05battle-horse.js';
 import { VER as VER_CORE } from '../core/11battle-round.js';
-import { SeededRNG } from '../infra/52-rng.js';
+import { SeededRNG } from '../infra/51-core-utils.js';
 import { setBattleRng } from '../core/13battle-shared.js';
 import { VER as VER_PLAYER_CORE } from '../player/42player-core.js';
 import { VER as VER_TEXT } from '../player/40player-text.js';
@@ -115,7 +115,7 @@ function swapAllyPositions(posA, posB) {
     if (unitB) { unitB.pos = posA; }
     updateUI();
 }
-window._swapAllyPositions = swapAllyPositions;
+GlobalStore.setUIHandler('swapAllyPositions', swapAllyPositions);
 
 
 
@@ -386,10 +386,8 @@ document.addEventListener('DOMContentLoaded', async function() {
     window.forceStopGame = forceStopGame;
     window.doManualReset = doManualReset;
     window.getGameState = ()=>({ gs: getState.gs(), currentStage, isPaused: getState.isPaused(), isBattleStarting, allyCount: getState.UI().allyTeam.length, enemyCount: getState.UI().enemyTeam.length });
-    window._activateScrollSlowdown = activateScrollSlowdown;
-    window._restoreSpeedFromScroll = restoreSpeedFromScroll;
     // 68ui-controls.js 的 GAMEOVER 分支（原班再战/随机重开）需要重置局部变量
-    window._resetIsBattleStarting = () => { isBattleStarting = false; };
+    GlobalStore.setUIHandler('resetIsBattleStarting', () => { isBattleStarting = false; });
 
 
 

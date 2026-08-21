@@ -1,9 +1,9 @@
 // render/32-grid-render.js - 光明顶5v5 战场格子渲染
-// V5.5.1 | ~9000 bytes| 2026-08-17 从ui/62拆出，独立战场视图；修复getCtx未初始化返回undefined
-export const VER = 'render/32-grid-render.js V5.5.1';
+// V5.5.2 | ~9003 bytes| 2026-08-19 import 路径合并至 infra/51-core-utils
+export const VER = 'render/32-grid-render.js V5.5.2';
 
 import { computeBuffStats } from '../core/04buff-system.js';
-import { getUnitCol, getUnitRow, getAuraBonuses } from '../core/03battle-utils.js';
+import { getUnitCol, getUnitRow, getAuraBonuses } from '../infra/51-core-utils.js';
 import { getDodgeRules } from '../core/12battle-attack-steps.js';
 import { CONFIG, getSkillDesc } from '../core/01config-5v5-test.js';
 import { GlobalStore, getPlayerContext } from '../infra/54-global-store.js';

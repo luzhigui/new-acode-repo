@@ -1,10 +1,10 @@
-﻿// core/13battle-shared.js - 光明顶5v5 战斗共享工具
-// V5.5.1 | ~6500 bytes| 2026-08-17 事实化重构：import合并至render/30
-export const VER = 'core/13battle-shared.js V5.5.1';
+// core/13battle-shared.js - 光明顶5v5 战斗共享工具
+// V5.5.2 | ~6496 bytes| 2026-08-21 infra合并：事件存储改从51-core-utils导入
+export const VER = 'core/13battle-shared.js V5.5.2';
 
 import { CONFIG } from './01config-5v5-test.js';
 import { ROLE_BONUS } from './02unit.js';
-import { pushBattleEvent } from '../infra/53-battle-event-store.js';
+import { pushBattleEvent } from '../infra/51-core-utils.js';
 import { renderZhangSwitchFact } from '../render/30-fact-renderer.js';
 const C = CONFIG;
 

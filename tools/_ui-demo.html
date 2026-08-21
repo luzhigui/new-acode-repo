@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>工具箱 UI 精致化 Demo</title>
+<style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: #1a1a2e; color: #eee; font-family: monospace; font-size: 13px; }
+
+    /* ===== 顶栏 ===== */
+    .topbar { background: #16213e; border-bottom: 2px solid #ffd700; padding: 10px 0; text-align: center; }
+    .topbar h1 { color: #ffd700; font-size: 18px; }
+
+    /* ===== Tab 栏：左工具 tab + 右独立工具跳转 ===== */
+    .tab-bar { display: flex; align-items: stretch; background: #111; padding: 4px 6px; margin: 10px auto 0; border-radius: 10px; max-width: 1080px; gap: 2px; }
+    .tab-group { display: flex; gap: 2px; flex: 1; flex-wrap: wrap; }
+    .tab { flex: 1; min-width: 88px; padding: 9px 8px; border: none; background: #2a2a4e; color: #aaa; cursor: pointer; font-size: 12px; font-weight: bold; border-radius: 7px; transition: 0.2s; font-family: monospace; white-space: nowrap; }
+    .tab:hover { background: #3a3a6e; color: #ddd; }
+    .tab.active { background: #ffd700; color: #1a1a2e; }
+
+    .sep { width: 2px; background: #3a3a6e; margin: 6px 6px; border-radius: 1px; flex-shrink: 0; }
+    .jump-group { display: flex; gap: 2px; align-items: center; padding-left: 4px; }
+    .jump { padding: 9px 10px; border: 1px solid #4a4a8e; background: transparent; color: #4fc3f7; cursor: pointer; font-size: 11px; font-weight: bold; border-radius: 20px; transition: 0.2s; font-family: monospace; white-space: nowrap; }
+    .jump:hover { border-color: #4fc3f7; background: #16213e; }
+    .jump .arr { color: #ffd700; margin-left: 4px; }
+
+    /* ===== 内容区：版心 + 卡片 ===== */
+    .content { max-width: 1080px; margin: 14px auto 30px; padding: 0 12px; display: none; }
+    .content.active { display: block; }
+
+    /* 统一页头 */
+    .page-head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 12px; padding: 0 2px; }
+    .page-head h2 { color: #ffd700; font-size: 15px; }
+    .page-head .sub { color: #888; font-size: 11px; }
+    .page-head .state { margin-left: auto; color: #4caf50; font-size: 11px; }
+
+    /* 卡片 */
+    .card { background: #16213e; border: 1px solid #333; border-radius: 10px; padding: 14px; margin-bottom: 12px; }
+    .card-title { color: #ffd700; font-size: 12px; font-weight: bold; margin-bottom: 10px; }
+
+    .cfg-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+    .cfg-row label { color: #aaa; font-size: 12px; }
+    .cfg-row input[type=number] { width: 80px; padding: 6px; border-radius: 6px; border: 1px solid #555; background: #111; color: #eee; text-align: center; font-size: 13px; }
+    .cfg-row .ck { display: flex; gap: 6px; align-items: center; font-size: 12px; color: #aaa; }
+    .btn { background: #ffd700; color: #1a1a2e; border: none; padding: 8px 18px; border-radius: 8px; font-weight: bold; cursor: pointer; font-family: monospace; font-size: 12px; }
+    .btn:hover { background: #ffed4a; }
+
+    .empty { color: #888; text-align: center; padding: 26px 0; font-size: 12px; border: 1px dashed #333; border-radius: 8px; }
+
+    /* 表格：横向滚动容器 */
+    .tbl-wrap { overflow-x: auto; border: 1px solid #333; border-radius: 10px; }
+    table { width: 100%; border-collapse: collapse; font-size: 12px; min-width: 640px; }
+    th { background: #2a2a4e; color: #ffd700; padding: 8px; text-align: center; }
+    td { padding: 6px 8px; border-top: 1px solid #333; color: #ccc; text-align: center; white-space: nowrap; }
+    .hl { color: #ff5252; font-weight: bold; }
+    .good { color: #4caf50; }
+
+    .foot-note { color: #666; font-size: 10px; text-align: center; margin-top: 16px; }
+</style>
+</head>
+<body>
+
+<div class="topbar"><h1>⚔️ 光明顶5v5 · 开发工具箱（精致化 Demo）</h1></div>
+
+<!-- Tab 栏 -->
+<div class="tab-bar">
+    <div class="tab-group">
+        <button class="tab active" data-tab="t1">📋 文件复制器</button>
+        <button class="tab" data-tab="t2">⚡ 函数替换器</button>
+        <button class="tab" data-tab="t3">🛡️ 防战计算器</button>
+        <button class="tab" data-tab="t4">⚔️ 自动批量战斗</button>
+        <button class="tab" data-tab="t5">🏆 精英战力评测</button>
+    </div>
+    <div class="sep"></div>
+    <div class="jump-group">
+        <button class="jump">日志复盘<span class="arr">→</span></button>
+        <button class="jump">海克斯仪表盘<span class="arr">→</span></button>
+        <button class="jump">职业平衡分析<span class="arr">→</span></button>
+    </div>
+</div>
+
+<!-- 精英战力评测（主要示例） -->
+<div class="content active" id="t5">
+    <div class="page-head">
+        <h2>🏆 精英战力评测</h2>
+        <span class="sub">张无忌 / 韦一笑 / 小昭·姊 / 小昭·妹 带队胜率与输出统计</span>
+        <span class="state">● 就绪</span>
+    </div>
+    <div class="card">
+        <div class="card-title">⚙️ 评测参数</div>
+        <div class="cfg-row">
+            <label>每关每精英场次：</label>
+            <input type="number" value="40">
+            <span class="ck"><input type="checkbox" checked>1</span>
+            <span class="ck"><input type="checkbox" checked>2</span>
+            <span class="ck"><input type="checkbox" checked>3</span>
+            <span class="ck"><input type="checkbox" checked>4</span>
+            <span class="ck"><input type="checkbox" checked>5</span>
+            <span class="ck"><input type="checkbox" checked>6</span>
+            <button class="btn">▶ 开始评测</button>
+        </div>
+    </div>
+    <div class="card">
+        <div class="card-title">📊 评测结果</div>
+        <div class="tbl-wrap">
+            <table>
+                <tr><th>精英</th><th>第3关</th><th>第4关</th><th>第5关</th><th>第6关</th><th>总胜率</th><th>场均输出</th><th>场均承伤</th><th>存活率</th></tr>
+                <tr><td>张无忌</td><td>40.0%</td><td>32.5%</td><td class="hl">12.5%</td><td>22.5%</td><td class="good">26.9%</td><td>457</td><td>439</td><td>15.6%</td></tr>
+                <tr><td>韦一笑</td><td>77.5%</td><td>62.5%</td><td>50.0%</td><td>47.5%</td><td class="good">59.4%</td><td>662</td><td>469</td><td>58.8%</td></tr>
+                <tr><td>小昭·姊</td><td>47.5%</td><td>27.5%</td><td>20.0%</td><td>27.5%</td><td>30.6%</td><td>156</td><td>209</td><td>29.4%</td></tr>
+                <tr><td>小昭·妹</td><td>70.0%</td><td>45.0%</td><td>22.5%</td><td>22.5%</td><td class="good">40.0%</td><td>404</td><td>509</td><td>29.4%</td></tr>
+            </table>
+        </div>
+        <div style="color:#666;font-size:10px;margin-top:8px;">表格窄屏自动横向滚动，不再撑破整行 · 胜率配色：绿=优 / 红=低</div>
+    </div>
+</div>
+
+<!-- 其他 tab 简化占位 -->
+<div class="content" id="t1">
+    <div class="page-head"><h2>📋 文件复制器</h2><span class="sub">勾选文件生成复制包</span><span class="state">● 就绪</span></div>
+    <div class="card"><div class="card-title">⚙️ 配置</div><div class="cfg-row"><label>单次复制上限：</label><input type="number" value="40000"><button class="btn">📦 生成复制包</button></div></div>
+    <div class="card"><div class="card-title">🗂️ 文件清单</div><div class="empty">（原文件分组勾选区）</div></div>
+</div>
+<div class="content" id="t2">
+    <div class="page-head"><h2>⚡ 函数替换器</h2><span class="sub">扫描/搜索/复制项目函数</span><span class="state">● 就绪</span></div>
+    <div class="card"><div class="card-title">🔍 搜索</div><div class="empty">（原搜索区）</div></div>
+</div>
+<div class="content" id="t3">
+    <div class="page-head"><h2>🛡️ 防战计算器</h2><span class="sub">M值 × Buff 档位概率模拟</span><span class="state">● 就绪</span></div>
+    <div class="card"><div class="card-title">⚙️ 参数</div><div class="empty">（原参数区）</div></div>
+</div>
+<div class="content" id="t4">
+    <div class="page-head"><h2>⚔️ 自动批量战斗</h2><span class="sub">无界面批量跑战斗 + 海克斯偏好</span><span class="state">● 就绪</span></div>
+    <div class="card"><div class="card-title">⚙️ 配置</div><div class="empty">（原配置区）</div></div>
+</div>
+
+<div class="foot-note">Demo 仅示意：① 右端独立工具按钮为描边胶囊+箭头（点击跳独立页面）；② 内容限宽居中+卡片化；③ 每个 tab 顶部统一页头；④ 表格横向滚动。正式实现时控件内容 1:1 搬回。</div>
+
+<script>
+    document.querySelectorAll('.tab').forEach(t => {
+        t.addEventListener('click', () => {
+            document.querySelectorAll('.tab').forEach(x => x.classList.toggle('active', x === t));
+            document.querySelectorAll('.content').forEach(c => c.classList.toggle('active', c.id === t.dataset.tab));
+        });
+    });
+    document.querySelectorAll('.jump').forEach(j => {
+        j.addEventListener('click', () => alert('（独立页面）将打开对应工具，Demo 中不跳转'));
+    });
+</script>
+</body>
+</html>

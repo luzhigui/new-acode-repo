@@ -1,11 +1,13 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// fx/83fx-position-swap.js - 光明顶5v5 换位闪烁特效
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// fx/83fx-position-swap.js - 光明顶5v5 换位闪烁特效
 // V5.5.0 | ~5200 bytes| 2026-07-05
 export const VER = 'fx/83fx-position-swap.js V5.5.0';
 
 /**
  * 获取单位对应的格子 DOM 元素（本地定义，不依赖外部）
  */
-function wait(ms) { return new Promise(r => setTimeout(r, window._fastForwardActive ? 1 : ms)); }
+import { GlobalStore } from '../infra/54-global-store.js';
+
+function wait(ms) { return new Promise(r => setTimeout(r, GlobalStore.get('fastForwardActive') ? 1 : ms)); }
 
 function getCellElement(unit) {
     if (!unit || unit.pos == null) return null;
