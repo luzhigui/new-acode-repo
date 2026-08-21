@@ -1,6 +1,6 @@
 // modules/25elite-imperial.js - 朝廷精英组件合集
-// V5.5.0 | ~8500 bytes| 2026-08-17 事实化重构：日志HTML走render/30
-export const VER = 'modules/25elite-imperial.js V5.5.0';
+// V5.5.1 | ~8522 bytes| 2026-08-21 战报记账修正：玄冥中毒tick传入鹿杖客作输出源
+export const VER = 'modules/25elite-imperial.js V5.5.1';
 
 import { registerElite } from '../core/08-elite-registry.js';
 import { CONFIG, getSkillParams } from '../core/01config-5v5-test.js';
@@ -93,7 +93,7 @@ export function createLuZhangKeComponent() {
                 const { A, B, log } = data;
                 A.concat(B).forEach(u => {
                     if (!u.alive) return;
-                    const dot = tickXuanmingPoison(u);
+                    const dot = tickXuanmingPoison(u, lu);
                     if (dot > 0) {
                         log.push({ factType: 'xuanmingDot', data: { unitName: u.name, dot, uidD: u.uid, isDead: !u.alive } });
                     }
