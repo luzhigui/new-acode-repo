@@ -1,8 +1,19 @@
 // render/30-fact-renderer.js - 光明顶5v5 事实渲染器
-// V5.6.3 | ~34000 bytes| 2026-08-17 全部事实渲染函数统一入口
+// V5.7.0 | ~36000 bytes| 2026-08-21 core只产fact：新增投影工具、击杀行内联渲染、附录factType
 import { CONFIG } from '../core/01config-5v5-test.js';
 import { calcDamage, getFangLevelPure, makeFXSnapshot } from '../infra/51-core-utils.js';
-export const VER = 'render/30-fact-renderer.js V5.6.3';
+export const VER = 'render/30-fact-renderer.js V5.7.0';
+
+// fact 条目投影为渲染条目，并合并 fact 条目上携带的附加字段（isHealEntry/buffType 等）
+function projectFactEntry(e) {
+    const rendered = renderLog(e.factType, e.data);
+    if (!rendered || typeof rendered !== 'object' || Array.isArray(rendered)) return rendered;
+    const extra = {};
+    for (const k in e) {
+        if (k !== 'factType' && k !== 'data') extra[k] = e[k];
+    }
+    return Object.assign({}, rendered, extra);
+}
 
 // ==================== 攻击流程 ====================
 export function renderMissFact(fact) {
@@ -74,9 +85,10 @@ export function renderAttackFact(fact) {
     const displayAtk = Math.floor(unit.atk + unit.atk * fact.attackerBuffStats.atkBonus);
     const displayDef = Math.floor(target.def + target.def * fact.defenderBuffStats.defBonus);
     const unitHpBefore = Math.floor(unit.hp);
+    const killLine = dmgResult.dead || dmgResult.executeKill;
     const group = {
         type:'attack-group', uidA:unit.uid, uidD:target.uid, entries:[],
-        hpAfter: target.hp, alive: target.alive, isDead: dmgResult.dead,
+        hpAfter: target.hp, alive: target.alive, isDead: killLine,
         waveTaunt: dmgCalc.waveTaunt, waveUnit: dmgCalc.waveUnit,
         unitRole: unit.role,
         _fxSnapshot: makeFXSnapshot(unit, target),
@@ -114,9 +126,30 @@ export function renderAttackFact(fact) {
     for (const e of fmtBonusEntries) formulaText += ` + ${e.label}${e.value} = ${Math.round(dmgCalc.raw)}`;
     for (const e of fmtMultiplierEntries) formulaText += ` ×${e.label}${e.value} = ${Math.round(dmgCalc.raw)}`;
     group.entries.push({type:'detail', isDamageCalc:true, text:`<span class="gray small">计算：${formulaText}</span>`});
-    group.entries.push({type:'damage-text', deadFlag:dmgResult.dead, text:`<span class="damage-line ${dmgResult.dead?'brush-red':''} ${ac}">${dmgResult.dead?'💀击杀💀 ':''}${campA} ${unit.name}</span> 造成 <span class="red">${Math.round(dmgResult.dmg)}</span> 伤害，<span class="${dc}">${campD} ${target.name}</span> ${dmgResult.hpBefore} → ${Math.floor(target.hp)} ${dmgResult.dead?'💀阵亡':''}`});
-    for (const entry of dmgResult.bonusEntries) group.entries.push(entry);
-    if (fact.entries) for (const e of fact.entries) group.entries.push(e);
+    group.entries.push({
+        type:'damage-text',
+        deadFlag: killLine,
+        text: killLine
+            ? renderKillLineFact({
+                ac, dc, campA, campD,
+                unitName: unit.name,
+                dmg: Math.round(dmgResult.dmg),
+                targetName: target.name,
+                hpBefore: dmgResult.hpBefore,
+                hpNow: Math.floor(target.hp)
+            }).text
+            : `<span class="damage-line ${ac}">${campA} ${unit.name}</span> 造成 <span class="red">${Math.round(dmgResult.dmg)}</span> 伤害，<span class="${dc}">${campD} ${target.name}</span> ${dmgResult.hpBefore} → ${Math.floor(target.hp)} ${dmgResult.dead?'💀阵亡':''}`
+    });
+    for (const entry of dmgResult.bonusEntries) {
+        if (entry && entry.factType) group.entries.push(projectFactEntry(entry));
+        else group.entries.push(entry);
+    }
+    if (fact.entries) {
+        for (const e of fact.entries) {
+            if (e && e.factType) group.entries.push(projectFactEntry(e));
+            else group.entries.push(e);
+        }
+    }
     return group;
 }
 
@@ -173,7 +206,9 @@ export function renderImmuneFact(fact) {
         needsSeparator: true,
         _events: fact.events || []
     };
-    if (fact.reason) {
+    if (fact.flyData) {
+        immuneGroup.entries.push(renderSpiderFlyFact(fact.flyData));
+    } else if (fact.reason) {
         immuneGroup.entries.push({type:'info', text:`<span class="gold">${fact.reason}</span>`});
     }
     return immuneGroup;
@@ -267,18 +302,18 @@ export function renderBuffSummaryFact(buff, allyTeam, doubleStrikeUid) {
 // ==================== Buff 衍生效果（嗜血/热血/乘风/流星） ====================
 export function renderBloodthirstLeechFact(fact) {
     if (fact.isBrother) {
-        return { text:`<span class="green">🕷️ 蝶血：${fact.unitName} 嗜血狂刀吸血+${fact.leechVal}</span>` };
+        return { type:'info', text:`<span class="green">🕷️ 蝶血：${fact.unitName} 嗜血狂刀吸血+${fact.leechVal}</span>` };
     }
-    return { text:`<span class="green">🗡️ ${fact.unitName} 的嗜血狂刀吸血+${fact.leechVal}</span>` };
+    return { type:'info', text:`<span class="green">🗡️ ${fact.unitName} 的嗜血狂刀吸血+${fact.leechVal}</span>` };
 }
 
 export function renderHotBloodHealFact(fact) {
-    return { text:`<span class="green">${fact.tag}：${fact.unitName} 回复+${fact.leech}</span>` };
+    return { type:'info', text:`<span class="green">${fact.tag}：${fact.unitName} 回复+${fact.leech}</span>` };
 }
 
 export function renderWindAssaultSplashFact(fact) {
     const details = fact.targets.map(t => t.name).join('、');
-    return { text:`<span class="orange">${fact.label}波及${details}，各 -${fact.splashDmg}</span>` };
+    return { type:'buff-splash', text:`<span class="orange">${fact.label}波及${details}，各 -${fact.splashDmg}</span>` };
 }
 
 export function renderWindAssaultPushFact(fact) {
@@ -293,12 +328,14 @@ export function renderWindAssaultFailFact(fact) {
 }
 
 export function renderMeteorShowerMainFact(fact) {
-    return { text:`<span class="gold">${fact.label}伤害加深：${fact.targetName} 额外-${fact.bonusDmg}，防御-${fact.defReduce}</span>` };
+    return { type:'info', text:`<span class="gold">${fact.label}伤害加深：${fact.targetName} 额外-${fact.bonusDmg}，防御-${fact.defReduce}</span>` };
 }
 
 export function renderMeteorShowerSplashFact(fact) {
     const details = fact.targets.map(t => t.name).join('、');
-    return { text:`<span class="orange">${fact.label}溅射：${details}，各-${fact.splashDmg}，防御-${fact.defReduce}</span>` };
+    let text = `<span class="orange">${fact.label}溅射：${details}，各-${fact.splashDmg}，防御-${fact.defReduce}</span>`;
+    if (fact.growth) text += ` <span class="gold">⚡ ${fact.unitName} 攻击+${fact.growth}</span>`;
+    return { type:'buff-splash', text };
 }
 
 // ==================== Carry 应用 ====================
@@ -501,7 +538,7 @@ export function renderFlySkipFact(fact) {
 
 // ==================== 战士斩杀 ====================
 export function renderWarriorExecuteFact(fact) {
-    return { text:`<span class="red">⚔️ 战士斩杀！${fact.unitName} 直接击杀 ${fact.targetName}！</span>` };
+    return { type:'info', text:`<span class="red">⚔️ 战士斩杀！${fact.unitName} 直接击杀 ${fact.targetName}！</span>` };
 }
 
 // ==================== 击杀行 ====================
@@ -511,18 +548,18 @@ export function renderKillLineFact(fact) {
 
 // ==================== 巨马反伤 / 严阵以待反弹 ====================
 export function renderHorseReboundFact(fact) {
-    return { text:`<span class="red">🐴 巨马反伤：${fact.unitName} 受到 ${fact.rebound} 点反伤</span>` };
+    return { type:'info', text:`<span class="red">🐴 巨马反伤：${fact.unitName} 受到 ${fact.rebound} 点反伤</span>` };
 }
 export function renderFortifyReboundFact(fact) {
     if (fact.hasSister) {
-        return { text:`<span class="gold">🛡️ 严阵以待反弹${fact.reboundDmg}给${fact.unitName}（姐姐强化：回复${fact.reboundDmg}）</span>` };
+        return { type:'info', text:`<span class="gold">🛡️ 严阵以待反弹${fact.reboundDmg}给${fact.unitName}（姐姐强化：回复${fact.reboundDmg}）</span>` };
     }
-    return { text:`<span class="gold">🛡️ 严阵以待反弹${fact.reboundDmg}给${fact.unitName}</span>` };
+    return { type:'info', text:`<span class="gold">🛡️ 严阵以待反弹${fact.reboundDmg}给${fact.unitName}</span>` };
 }
 
 // ==================== 流星溅射成长 ====================
 export function renderMeteorSplashGrowthFact(fact) {
-    return { text:`<span class="gold">⚡ ${fact.unitName} 攻击+${fact.growth}</span>` };
+    return { type:'info', text:`<span class="gold">⚡ ${fact.unitName} 攻击+${fact.growth}</span>` };
 }
 
 // ==================== 回合分隔线 / 概率连击摘要 ====================
@@ -534,6 +571,40 @@ export function renderRoundEndFact(fact) {
 }
 export function renderDoubleStrikeSummaryFact(fact) {
     return { type:'buff-summary', text:`<span class="gold">⚡ 概率连击：${fact.unitName} 80%概率额外攻击一次</span>`, buffType:'buff_stat' };
+}
+
+// ==================== 张无忌台词 ====================
+export function renderZhangTauntFact(fact) {
+    return { type:'info', text:`<span class="gold">🗣️ ${fact.unitName}：${fact.taunt}</span>` };
+}
+
+// ==================== 附录：raw HTML → factType 渲染 ====================
+export function renderXingFenExtraAttackFact(fact) {
+    return { type:'info', text:`<span class="gold">💗 性奋：${fact.unitName} 获得额外攻击机会！</span>` };
+}
+export function renderXinHunDeathFact(fact) {
+    return { type:'info', text:`<span class="red">💀 ${fact.unitName} 因新婚扣血而阵亡！</span>`, uidD: fact.uidD, isDead:true };
+}
+export function renderClawNoHealFact(fact) {
+    return { type:'info', text:`<span class="gray">💚 宋青书已满血，白骨爪未能回复生命</span>` };
+}
+export function renderXuanmingLinkAttackFact(fact) {
+    return { type:'info', text:`<span class="gold">🔗 ${fact.partnerName} 跟随 ${fact.unitName} 发动联动攻击！</span>` };
+}
+export function renderSpiderDeadTargetFact(fact) {
+    return { type:'info', text:`<span class="gray">🕷️ 蛛袭：目标已死亡，攻击取消</span>` };
+}
+export function renderXingFenGrantFact(fact) {
+    return { type:'buff-summary', text:`<span class="gold">💗 性奋：${fact.songName} 受${fact.zhouName}激励，本回合每次攻击后可再次攻击！</span>`, buffType:'elite_xingfen' };
+}
+export function renderClawHitFact(fact) {
+    return { type:'info', text:`<span style="color:#222">🐾 九阴白骨爪${fact.depth>0?'连锁':'追击'}！${fact.unitName} 对 ${fact.targetName} 造成 ${fact.dmg} 点伤害${fact.isExecute?'（斩杀）':(fact.jealous?'【嫉妒】':'')}</span>` };
+}
+export function renderClawExecuteFact(fact) {
+    return { type:'info', text:`<span style="color:#222">🐾 九阴白骨爪斩杀！${fact.unitName} 对 ${fact.targetName} 造成致命一击</span>` };
+}
+export function renderClawHealFact(fact) {
+    return { type:'info', text:`<span class="green">💚 宋青书因九阴白骨爪共回复${fact.totalHeal}点生命</span>` };
 }
 
 // ==================== 通用渲染入口 ====================
@@ -581,6 +652,32 @@ export function renderLog(type, data) {
         case 'spiderFly': return renderSpiderFlyFact(data);
         case 'xiaoZhaoHorse': return renderXiaoZhaoHorseFact(data);
         case 'spiderDoubleStrike': return renderSpiderDoubleStrikeFact(data);
+        case 'stunSkip': return renderStunSkipFact(data);
+        case 'flySkip': return renderFlySkipFact(data);
+        case 'horseRebound': return renderHorseReboundFact(data);
+        case 'fortifyRebound': return renderFortifyReboundFact(data);
+        case 'meteorSplashGrowth': return renderMeteorSplashGrowthFact(data);
+        case 'warriorExecute': return renderWarriorExecuteFact(data);
+        case 'bloodthirstLeech': return renderBloodthirstLeechFact(data);
+        case 'hotBloodHeal': return renderHotBloodHealFact(data);
+        case 'windAssaultSplash': return renderWindAssaultSplashFact(data);
+        case 'windAssaultPush': return renderWindAssaultPushFact(data);
+        case 'windAssaultFail': return renderWindAssaultFailFact(data);
+        case 'meteorShowerMain': return renderMeteorShowerMainFact(data);
+        case 'meteorShowerSplash': return renderMeteorShowerSplashFact(data);
+        case 'roundStart': return renderRoundStartFact(data);
+        case 'roundEnd': return renderRoundEndFact(data);
+        case 'doubleStrikeSummary': return renderDoubleStrikeSummaryFact(data);
+        case 'zhangTaunt': return renderZhangTauntFact(data);
+        case 'xingFenExtraAttack': return renderXingFenExtraAttackFact(data);
+        case 'xinHunDeath': return renderXinHunDeathFact(data);
+        case 'clawNoHeal': return renderClawNoHealFact(data);
+        case 'clawHit': return renderClawHitFact(data);
+        case 'clawExecute': return renderClawExecuteFact(data);
+        case 'clawHeal': return renderClawHealFact(data);
+        case 'xuanmingLinkAttack': return renderXuanmingLinkAttackFact(data);
+        case 'spiderDeadTarget': return renderSpiderDeadTargetFact(data);
+        case 'xingFenGrant': return renderXingFenGrantFact(data);
         default: throw new Error(`未知渲染类型: ${type}`);
     }
 }

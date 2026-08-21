@@ -5,7 +5,6 @@ export const VER = 'core/13battle-shared.js V5.5.2';
 import { CONFIG } from './01config-5v5-test.js';
 import { ROLE_BONUS } from './02unit.js';
 import { pushBattleEvent } from '../infra/51-core-utils.js';
-import { renderZhangSwitchFact } from '../render/30-fact-renderer.js';
 const C = CONFIG;
 
 function emitFullUnitState(unit, eventType) {
@@ -81,13 +80,15 @@ function checkZhangSwitch(A, log) {
             role: zhang.role,
             rangedForm: false
         });
-        const entries = renderZhangSwitchFact({
-            zhang,
-            atkGain: warriorBonus.atk * 3,
-            defGain: warriorBonus.def * 3,
-            maxHpGain: warriorBonus.maxHp * 3
+        log.push({
+            factType: 'zhangSwitch',
+            data: {
+                zhang,
+                atkGain: warriorBonus.atk * 3,
+                defGain: warriorBonus.def * 3,
+                maxHpGain: warriorBonus.maxHp * 3
+            }
         });
-        entries.forEach(entry => log.push(entry));
     }
 }
 

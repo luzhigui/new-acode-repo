@@ -5,7 +5,6 @@ export const VER = 'core/03battle-utils.js V5.6.1';
 import { CONFIG, TAUNT_LIB, DEF_TAUNT, HP_TAUNT, ZHANG_NEAR_TAUNT } from './01config-5v5-test.js';
 import { emitEvent, applyStatChange, query, getBattleRng } from './13battle-shared.js';
 import { EXECUTION_LAYER as L, EFFECT_TYPES } from '../infra/50-event-bus.js';
-import { renderRangedGrowthFact, renderFortifyShieldFact, renderDoubleStrikeFact, renderWarriorExecuteFact } from '../render/30-fact-renderer.js';
 import {
     calcDamage,
     getFangLevelPure,
@@ -211,8 +210,8 @@ export function registerRangedGrowth(eventBus) {
             logText: null
         });
         if (unit._baseAtk !== undefined) unit._baseAtk += growth;
-        if (group && group.entries) {
-            group.entries.push(renderRangedGrowthFact({ unitName: unit.name, growth, newAtk: Math.floor(unit.atk + growth) }));
+        if (group && group.data && group.data.entries) {
+            group.data.entries.push({ factType: 'rangedGrowth', data: { unitName: unit.name, growth, newAtk: Math.floor(unit.atk + growth) } });
         }
     });
 }
@@ -232,7 +231,8 @@ export function registerWarriorExecute(eventBus) {
                 target: target,
                 source: unit,
                 threshold: threshold,
-                logText: renderWarriorExecuteFact({ unitName: unit.name, targetName: target.name }).text
+                factType: 'warriorExecute',
+                factData: { unitName: unit.name, targetName: target.name }
             });
         }
     });
@@ -253,9 +253,9 @@ export function registerFortifyShield(eventBus) {
             applyStatChange(unit, 'def', increment, null, '坚盾');
         }
         if (unit._baseDef !== undefined) unit._baseDef += increment;
-        const entry = renderFortifyShieldFact({ unitName: unit.name, label, increment, current: unit._fortifyThisRound, cap });
-        if (group && group.entries) {
-            group.entries.push(entry);
+        const entry = { factType: 'fortifyShield', data: { unitName: unit.name, label, increment, current: unit._fortifyThisRound, cap } };
+        if (group && group.data && group.data.entries) {
+            group.data.entries.push(entry);
         } else if (log) {
             log.push(entry);
         }
@@ -293,7 +293,7 @@ export function registerDoubleStrike(eventBus, doubleStrikeUnitUid, allyTeam, ac
         const xiaoDoubleEnhance = query('xiaoHexEnhance', allyTeam, activeBuffs, 'doubleStrike');
         const missChainChance = xiaoDoubleEnhance ? 1.0 : (C.BUFFS.doubleStrike.prob || 0.8);
         if (getBattleRng().next() < missChainChance) {
-            log.push(renderDoubleStrikeFact({ success: true }));
+            log.push({ factType: 'doubleStrike', data: { success: true } });
             unit._doubleStriked = true;
             if (!data.extraRequests) data.extraRequests = [];
             data.extraRequests.push({
@@ -305,7 +305,7 @@ export function registerDoubleStrike(eventBus, doubleStrikeUnitUid, allyTeam, ac
                 ignoreBlock: !!xiaoDoubleEnhance
             });
         } else {
-            log.push(renderDoubleStrikeFact({ success: false, unitName: unit.name }));
+            log.push({ factType: 'doubleStrike', data: { success: false, unitName: unit.name } });
         }
     });
 }

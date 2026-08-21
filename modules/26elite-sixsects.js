@@ -1,18 +1,12 @@
 // modules/26elite-sixsects.js - 六大派精英组件合集
-// V5.5.0 | ~12000 bytes| 2026-08-17 事实化重构：简单日志走render/30
-export const VER = 'modules/26elite-sixsects.js V5.5.0';
+// V5.6.0 | ~12000 bytes| 2026-08-21 fact化完成：不再import render/30
+export const VER = 'modules/26elite-sixsects.js V5.6.0';
 import { registerElite } from '../core/08-elite-registry.js';
 import { GlobalStore } from '../infra/54-global-store.js';
 import { CONFIG, getSkillParams, getSkillParamsJealous } from '../core/01config-5v5-test.js';
 import { eventBus, EXECUTION_LAYER as L, EFFECT_TYPES } from '../infra/50-event-bus.js';
 import { canXingFenTrigger, consumeXingFen, applyXingFenGrant, tickKuaiLeHeal, checkKuLian } from './20elite-skills.js';
 import { emitEvent, applyStatChange, applyMaxHpChange, getBattleRng } from '../core/13battle-shared.js';
-import {
-    renderXingFenRetryFact,
-    renderXinHunFact,
-    renderXingFenCostFact,
-    renderKuLianFact
-} from '../render/30-fact-renderer.js';
 const ES = CONFIG.ELITE_SKILLS;
 
 // ==================== 宋青书 ====================
@@ -35,7 +29,7 @@ export function createSongQingshuComponent() {
                 if (!B || !B.some(u => u.alive)) return;
                 if (canXingFenTrigger(unit)) {
                     consumeXingFen(unit);
-                    log.push(renderXingFenRetryFact({ unitName: unit.name }));
+                    log.push({ factType: 'xingFenRetry', data: { unitName: unit.name } });
                     if (!data.extraRequests) data.extraRequests = [];
                     data.extraRequests.push({
                         unit,
@@ -79,7 +73,7 @@ export function createSongQingshuComponent() {
                         u._baseDef = (u._baseDef || u.def) + s.defBonus * mult;
                         u._baseMaxHp = Math.max(u._baseMaxHp || u.maxHp, u.maxHp);
                     });
-                    log.push(renderKuLianFact({ unitName: kuLianSong.name, atkBonus: s.atkBonus, defBonus: s.defBonus, hpBonus: s.hpBonus }));
+                    log.push({ factType: 'kuLian', data: { unitName: kuLianSong.name, atkBonus: s.atkBonus, defBonus: s.defBonus, hpBonus: s.hpBonus } });
                 }
             });
         },
@@ -94,17 +88,20 @@ export function createSongQingshuComponent() {
                 zhou.dmgTaken += hpDeduct;
                 zhou._kuaiLeStack.push({ healPct: healLevels[0] });
                 if (zhou.hp <= 0) { if (!zhou._deathTime) zhou._deathTime = Date.now(); }
-                log.push(renderXinHunFact({
-                    attackerName: unit.name,
-                    targetName: zhou.name,
-                    hpDeduct,
-                    healPct: healLevels[0],
-                    stackCount: zhou._kuaiLeStack.length,
-                    zhouUid: zhou.uid,
-                    zhouHpAfter: zhou.hp,
-                    isDead: !!zhou._pendingDeath
-                }));
-                if (zhou._pendingDeath) { log.push({ type:'info', text:`<span class="red">💀 ${zhou.name} 因新婚扣血而阵亡！</span>`, uidD:zhou.uid, isDead:true }); }
+                log.push({
+                    factType: 'xinHun',
+                    data: {
+                        attackerName: unit.name,
+                        targetName: zhou.name,
+                        hpDeduct,
+                        healPct: healLevels[0],
+                        stackCount: zhou._kuaiLeStack.length,
+                        zhouUid: zhou.uid,
+                        zhouHpAfter: zhou.hp,
+                        isDead: !!zhou._pendingDeath
+                    }
+                });
+                if (zhou._pendingDeath) { log.push({ factType: 'xinHunDeath', data: { unitName: zhou.name, uidD: zhou.uid } }); }
             }
             if (zhou) {
                 unit._xingFenPenaltyCount = (unit._xingFenPenaltyCount || 0) + 1;
@@ -113,7 +110,7 @@ export function createSongQingshuComponent() {
                     const oldMaxHp = unit.maxHp;
                     applyMaxHpChange(unit, Math.max(1, unit.maxHp - penalty), null, '性奋代价');
                     if (unit.hp <= 0) { if (!unit._deathTime) unit._deathTime = Date.now(); }
-                    log.push(renderXingFenCostFact({ unitName: unit.name, oldMaxHp, newMaxHp: unit.maxHp, penalty }));
+                    log.push({ factType: 'xingFenCost', data: { unitName: unit.name, oldMaxHp, newMaxHp: unit.maxHp, penalty } });
                 }
             }
         },
@@ -121,7 +118,7 @@ export function createSongQingshuComponent() {
             if (unit.name !== '宋青书' || !unit.alive || !enemySide.some(u => u.alive)) return;
             if (!unit._xingFenPenaltyCount || unit._xingFenPenaltyCount <= 0) return;
             if (unit._xingFenExtraAttacking) return;
-            log.push({ type:'info', text:`<span class="gold">💗 性奋：${unit.name} 获得额外攻击机会！</span>` });
+            log.push({ factType: 'xingFenExtraAttack', data: { unitName: unit.name } });
             unit._xingFenExtraAttacking = true;
             const { processUnitAttack } = await import('../core/10battle-attack.js');
             await processUnitAttack(unit, allySide, enemySide, log, B, A, state, null, null);
@@ -178,8 +175,7 @@ export function createZhouZhiruoComponent() {
                 const hpPctAfter = simulatedTargetHp / target.maxHp;
                 const execThreshold = s.executeThreshold || 0.15;
                 const isExecute = !isDeadByHit && hpPctAfter <= execThreshold && simulatedTargetHp > 0;
-                const hitLogText = `<span style="color:#222">🐾 九阴白骨爪${depth>0?'连锁':'追击'}！${unit.name} 对 ${target.name} 造成 ${bonusDmg} 点伤害${isExecute?'（斩杀）':(zhangAlive?'【嫉妒】':'')}</span>`;
-                hits.push({ dmg: bonusDmg, logText: hitLogText, isClawHit: true, clawAttackerUid: unit.uid, clawTargetUid: target.uid, isExecute });
+                hits.push({ dmg: bonusDmg, factType: 'clawHit', data: { unitName: unit.name, targetName: target.name, dmg: bonusDmg, isExecute, jealous: zhangAlive, depth }, isClawHit: true, clawAttackerUid: unit.uid, clawTargetUid: target.uid, isExecute });
                 if (song && song.alive) {
                     const healAmount = Math.min(bonusDmg, song.maxHp - simulatedSongHp);
                     totalHeal += healAmount;
@@ -187,7 +183,7 @@ export function createZhouZhiruoComponent() {
                 }
                 if (isDeadByHit) break;
                 if (isExecute) {
-                    executeInfo = { logText: `<span style="color:#222">🐾 九阴白骨爪斩杀！${unit.name} 对 ${target.name} 造成致命一击</span>`, isClawHit: true, clawAttackerUid: unit.uid, clawTargetUid: target.uid, isExecute: true };
+                    executeInfo = { factType: 'clawExecute', data: { unitName: unit.name, targetName: target.name }, isClawHit: true, clawAttackerUid: unit.uid, clawTargetUid: target.uid, isExecute: true };
                     break;
                 }
                 depth++;
@@ -207,10 +203,11 @@ export function createZhouZhiruoComponent() {
                     type: EFFECT_TYPES.HEAL,
                     value: totalHeal,
                     source: song,
-                    logText: `<span class="green">💚 宋青书因九阴白骨爪共回复${totalHeal}点生命</span>`
+                    factType: 'clawHeal',
+                    factData: { totalHeal }
                 });
             } else if (song && song.alive) {
-                log.push({ type:'info', text:`<span class="gray">💚 宋青书已满血，白骨爪未能回复生命</span>` });
+                log.push({ factType: 'clawNoHeal', data: {} });
             }
 
             return hits.reduce((sum, h) => sum + h.dmg, 0);
