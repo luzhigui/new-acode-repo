@@ -352,7 +352,6 @@ export function bindSettleButton(currentStageGetter, isBattleStarting, getState,
         }
         window.GlobalStore?.set('fastForwardActive', true);
         setState.waitingForNextRound(false);
-        window.GlobalStore?.set('skipBuffPopup', true);
         let ffCtx = window._getPlayerContext ? window._getPlayerContext() : null;
         if (ffCtx) {
             if (!ffCtx._originalSpeed) ffCtx._originalSpeed = ffCtx.speed;

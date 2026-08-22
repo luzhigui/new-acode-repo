@@ -24,7 +24,7 @@ import {
     logTeamInfo, abortAll
 } from './65main-battle.js';
 import { initBGM, playBGM, setBGMVolume, fadeBGMTo, toggleBGM, updateBGMBtn, lowerBGM } from './66audio-control.js';
-import { toggleDodgeEffect, _triggerFX } from './67fx-trigger.js';
+import { toggleDodgeEffect } from './67fx-trigger.js';
 import { updateSpeedButtons, activateScrollSlowdown, restoreSpeedFromScroll, updateButtons, updateAutoModeButton, enableAllButtons, updateDebugUI, updateBuffSlots, bindCoverStart, bindPauseButton, bindNextButton, bindDetailButton, bindDebugButton, bindBGButton, bindCrashModeButton, bindDodgeButton, bindAutoButton, bindSettleButton, bindStageSelectButton, bindVoteFloat, bindGridClick, bindCopyLogButton } from './68ui-controls.js';
 
 import { VER as VER_BUFF } from '../core/04buff-system.js';
