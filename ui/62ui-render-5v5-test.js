@@ -2,14 +2,16 @@
 // V5.5.1 | ~12500 bytes| 2026-08-17 格子渲染下沉至render/32，UI保留弹窗/胜利/日志
 export const VER = 'ui/62ui-render-5v5-test.js V5.5.1';
 
-import { CONFIG, getSkillDesc } from '../core/01config-5v5-test.js';
-import { getUnitCol, getUnitRow, getAuraBonuses } from '../core/03battle-utils.js';
-import { getDodgeRules } from '../infra/51-core-utils.js';
+import { getSkillDesc } from '../core/01config-5v5-test.js';
+import { getAuraBonuses } from '../core/03battle-utils.js';
 import {
     renderGrid,
     updateGridUI,
     setGridStore,
-    setGridRenderCtx
+    setGridRenderCtx,
+    getBuffStats,
+    getDodgeBreakdown,
+    isUnitBenefitedByBuff
 } from '../render/32-grid-render.js';
 import { showDanmaku as _showDanmaku } from '../fx/80fx-common-5v5-test.js';
 const showDanmaku = (...args) => { if (typeof _showDanmaku === 'function') return _showDanmaku(...args); };
@@ -27,80 +29,7 @@ function getCtx() {
     return window._getPlayerContext ? window._getPlayerContext() : null;
 }
 
-function getBuffStats(unit) {
-    return {
-        atkBonus: unit.buffAtkBonus || 0,
-        defBonus: unit.buffDefBonus || 0,
-        dodgeBonus: unit.buffDodgeBonus || 0,
-        hpBonus: unit.buffHpBonus || 0
-    };
-}
 
-function getDodgeBreakdown(unit, activeBuffs, allyTeam) {
-    const sources = [];
-    const rates = [];
-    let seenFlightBase = false;
-    const _dodgeRules = getDodgeRules();
-    for (const ruleFn of _dodgeRules) {
-        const rate = ruleFn(unit, null) || 0;
-        if (rate > 0) {
-            let label = '';
-            if (unit.role === '飞行' && rate === 0.15 && !seenFlightBase) {
-                label = '飞行基础'; seenFlightBase = true;
-            } else if (unit.role === '飞行' && rate === 0.15 && seenFlightBase) {
-                label = '青翼蝠王';
-            } else if (unit.role !== '飞行' && rate === 0.03) {
-                label = '地面基础';
-            } else if (unit.isWei && rate !== 0.15) {
-                label = '残血幻影';
-            } else {
-                label = '规则闪避';
-            }
-            sources.push({ label, value: Math.round(rate * 100) });
-            rates.push(rate);
-        }
-    }
-    if (unit.buffDodgeBonus > 0) {
-        sources.push({ label: '流云身法', value: Math.round(unit.buffDodgeBonus * 100) });
-        rates.push(unit.buffDodgeBonus);
-    }
-    let combined = 0;
-    if (rates.length > 0) {
-        let product = 1;
-        for (const r of rates) product *= (1 - r);
-        combined = Math.round((1 - product) * 100);
-    }
-    return { sources, combined };
-}
-
-export function isUnitBenefitedByBuff(unit, buffKey, allyTeam, doubleStrikeUid, activeBuffs) {
-    switch (buffKey) {
-        case 'carry': return unit.pos === 5 && unit.alive;
-        case 'meteorShower': return unit.role === '远程';
-        case 'bloodthirst': return unit.role === '战士';
-        case 'fortify': return unit.role === '防战' && unit.camp === 'ally';
-        case 'windAssault': return unit.role === '飞行';
-        case 'cloudBody': return true;
-        case 'holyFlame': {
-            if (!activeBuffs) return false;
-            const holyBuffs = activeBuffs.filter(b => b.key === 'holyFlame');
-            return holyBuffs.some(b => {
-                const cols = b.cols || (b.col != null ? [b.col] : []);
-                const rows = b.rows || (b.row != null ? [b.row] : []);
-                return cols.includes(getUnitCol(unit.pos)) || rows.includes(getUnitRow(unit.pos));
-            });
-        }
-        case 'hotBlood': return true;
-        case 'doubleStrike': return unit.uid === doubleStrikeUid && doubleStrikeUid != null;
-        case 'horseFormation': return false;
-        case 'mindControl': {
-            if (!allyTeam) return false;
-            let frontUnit = allyTeam.filter(u => u.alive && !u.isHorse).sort((a, b) => a.pos - b.pos)[0];
-            return frontUnit && unit.uid === frontUnit.uid;
-        }
-        default: return false;
-    }
-}
 
 // ==================== 详情弹窗 ====================
 let detailPopup = null;

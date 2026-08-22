@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// tools/101auto-battle-utils.js - 光明顶5v5 自动批量战斗工具
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// tools/101auto-battle-utils.js - 光明顶5v5 自动批量战斗工具
 // V5.5.1 | ~14809 bytes| 2026-08-19 import 路径合并至 infra/51-core-utils
 export const VER = 'tools/101auto-battle-utils.js V5.5.1';
 

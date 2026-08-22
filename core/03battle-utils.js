@@ -2,7 +2,7 @@
 // V5.6.1 | ~15203 bytes| 2026-08-19 import 路径合并至 infra/51-core-utils
 export const VER = 'core/03battle-utils.js V5.6.1';
 
-import { CONFIG, TAUNT_LIB, DEF_TAUNT, HP_TAUNT, ZHANG_NEAR_TAUNT } from './01config-5v5-test.js';
+import { CONFIG, TAUNT_LIB, DEF_TAUNT, HP_TAUNT, ZHANG_NEAR_TAUNT, getGameData } from './01config-5v5-test.js';
 import { emitEvent, applyStatChange, query, getBattleRng } from './13battle-shared.js';
 import { EXECUTION_LAYER as L, EFFECT_TYPES } from '../infra/50-event-bus.js';
 import {
@@ -61,9 +61,34 @@ export function getFlyDodgeRate(unit, attacker) {
     return C.BASE_DODGE_GROUND || 0.03;
 }
 
-export function getRandomTaunt(unit) { const rng = getBattleRng(); if (unit.isZhang) return TL['张无忌'][rng.nextInt(0,TL['张无忌'].length-1)]; if (unit.isWei) return TL['韦一笑'][rng.nextInt(0,TL['韦一笑'].length-1)]; let pool=TL[unit.role]; if(pool) return pool[rng.nextInt(0,pool.length-1)]; return '看招！'; }
-export function getKillTaunt(unit, KT) { const rng = getBattleRng(); if (unit.isZhang) return KT['张无忌'][rng.nextInt(0,KT['张无忌'].length-1)]; if (unit.isWei) return KT['韦一笑'][rng.nextInt(0,KT['韦一笑'].length-1)]; let pool=KT[unit.role]; if(pool) return pool[rng.nextInt(0,pool.length-1)]; return '受死吧！'; }
-export function getZhangNearTaunt(nearAtkCount) { if (nearAtkCount>=1&&nearAtkCount<=3) return ZT[nearAtkCount-1]; return null; }
+export function getRandomTaunt(unit) {
+    const rng = getBattleRng();
+    const gd = getGameData();
+    const taunts = (gd && gd.taunts) ? gd.taunts : null;
+    let pool = null;
+    if (unit.isZhang) pool = taunts ? taunts['张无忌']?.attack : TL['张无忌'];
+    else if (unit.isWei) pool = taunts ? taunts['韦一笑']?.attack : TL['韦一笑'];
+    else pool = taunts ? taunts[unit.role]?.attack : TL[unit.role];
+    if (!pool || pool.length === 0) return '看招！';
+    return pool[rng.nextInt(0, pool.length - 1)];
+}
+export function getKillTaunt(unit, KT) {
+    const rng = getBattleRng();
+    const gd = getGameData();
+    const taunts = (gd && gd.taunts) ? gd.taunts : null;
+    let pool = null;
+    if (unit.isZhang) pool = taunts ? taunts['张无忌']?.kill : KT['张无忌'];
+    else if (unit.isWei) pool = taunts ? taunts['韦一笑']?.kill : KT['韦一笑'];
+    else pool = taunts ? taunts[unit.role]?.kill : KT[unit.role];
+    if (!pool || pool.length === 0) return '受死吧！';
+    return pool[rng.nextInt(0, pool.length - 1)];
+}
+export function getZhangNearTaunt(nearAtkCount) {
+    if (nearAtkCount < 1 || nearAtkCount > 3) return null;
+    const gd = getGameData();
+    const pool = (gd && gd.taunts && gd.taunts.zhangNear) ? gd.taunts.zhangNear : ZT;
+    return pool[nearAtkCount - 1] || null;
+}
 
 export function getActiveBuffs(allies, enemy) {
     let ally = allies[0]?.camp === 'ally' ? allies : enemy;

@@ -1,7 +1,6 @@
-
 {
-  "version": "5.3.2",
-  "updated": "2026-08-04",
+  "version": "5.4.0",
+  "updated": "2026-08-22",
 
   "roles": {
     "战士": { "icon": "⚔️", "label": "战士" },
@@ -13,6 +12,25 @@
   "characters": {
     "周芷若": {
       "tags": ["六大派", "战士", "精英"],
+      "mechanics": [
+        {
+          "camp": "enemy",
+          "type": "chainClaw",
+          "baseDmg": 1.5,
+          "lostHpRatio": 0.015,
+          "maxHpRatio": 0.01,
+          "executeThreshold": 0.15,
+          "procChance": 0.80,
+          "chainProcChance": 0.80,
+          "jealous": {
+            "baseDmg": 2,
+            "lostHpRatio": 0.015,
+            "maxHpRatio": 0.015,
+            "executeThreshold": 0.18
+          },
+          "healTargetName": "宋青书"
+        }
+      ],
       "skills": {
         "nineYinClaw": {
           "name": "九阴白骨爪",
@@ -45,6 +63,32 @@
 
     "宋青书": {
       "tags": ["六大派", "飞行", "精英"],
+      "mechanics": [
+        {
+          "camp": "enemy",
+          "targetRule": "highestHpPct",
+          "beforeDamageEffects": [
+            { "type": "bonusTargetCurrentHp", "ratio": 0.10, "label": "叛逆突袭" }
+          ]
+        },
+        {
+          "camp": "enemy",
+          "type": "kuLian",
+          "atkBonus": 1,
+          "defBonus": 1,
+          "hpBonus": 2.5
+        },
+        {
+          "camp": "enemy",
+          "type": "xinHun",
+          "hpDeduct": 1,
+          "healLevels": [0.16, 0.10, 0.06, 0.03]
+        },
+        {
+          "camp": "enemy",
+          "type": "xingFen"
+        }
+      ],
       "skills": {
         "rebelStrike": {
           "name": "叛逆突袭",
@@ -87,6 +131,24 @@
 
     "成昆": {
       "tags": ["六大派", "防战", "精英"],
+      "mechanics": [
+        {
+          "camp": "enemy",
+          "beforeDamageEffects": [
+            { "type": "bonusLostHp", "ratio": 0.20, "label": "混元霹雳劲" }
+          ],
+          "attributeMods": [
+            { "type": "fortifyIncrementMul", "mult": 2 }
+          ]
+        },
+        {
+          "camp": "enemy",
+          "type": "phantomDisguise",
+          "baseChance": 0.30,
+          "per10pctLost": 0.06,
+          "healRatio": 0.06
+        }
+      ],
       "skills": {
         "phantomThunder": {
           "name": "混元霹雳劲",
@@ -107,6 +169,19 @@
 
     "鹿杖客": {
       "tags": ["六大派", "远程", "精英"],
+      "mechanics": [
+        {
+          "camp": "enemy",
+          "onHitEffects": [
+            { "type": "poison", "duration": 3, "dotPercents": [0.04, 0.02, 0.01] }
+          ]
+        },
+        {
+          "camp": "enemy",
+          "type": "linkAttack",
+          "partnerNames": ["鹤笔翁"]
+        }
+      ],
       "skills": {
         "xuanmingPalm": {
           "name": "玄冥神掌",
@@ -122,6 +197,20 @@
 
     "鹤笔翁": {
       "tags": ["六大派", "飞行", "精英"],
+      "mechanics": [
+        {
+          "camp": "enemy",
+          "beforeDamageEffects": [
+            { "type": "ignoreDef", "ratio": 0.30 },
+            { "type": "damageMultiplierIfPoisoned", "bonus": 0.30 }
+          ]
+        },
+        {
+          "camp": "enemy",
+          "type": "linkAttack",
+          "partnerNames": ["鹿杖客"]
+        }
+      ],
       "skills": {
         "hornStrike": {
           "name": "鹿角杖法",
@@ -137,6 +226,14 @@
 
     "张无忌": {
       "tags": ["明教", "远程", "精英"],
+      "mechanics": [
+        {
+          "camp": "ally",
+          "onHitEffects": [
+            { "type": "healMaxHpPct", "pct": 0.08 }
+          ]
+        }
+      ],
       "skills": {
         "nineYang": {
           "name": "九阳神功",
@@ -162,6 +259,18 @@
 
     "韦一笑": {
       "tags": ["明教", "飞行", "精英"],
+      "mechanics": [
+        {
+          "camp": "ally",
+          "targetRule": "lowestHp",
+          "onHitEffects": [
+            { "type": "leech", "minRatio": 0.15, "maxRatio": 0.45 }
+          ],
+          "dodgeRules": [
+            { "type": "lostHpPercent", "max": 0.70 }
+          ]
+        }
+      ],
       "skills": {
         "coldPalm": {
           "name": "寒冰掌",
@@ -237,17 +346,17 @@
   },
 
   "buffs": {
-    "bloodthirst": { "name": "嗜血狂刀", "desc": "己方战士攻击吸血80%伤害值", "icon": "🗡️" },
-    "hotBlood": { "name": "热血奋战", "desc": "攻击时回复15%已损失生命值，每第3次攻击回血翻倍", "icon": "❤️" },
-    "fortify": { "name": "严阵以待", "desc": "己方防战防御+50%，反弹50%伤害差值", "icon": "🛡️" },
-    "cloudBody": { "name": "流云身法", "desc": "己方全体闪避概率+25%", "icon": "💨" },
-    "windAssault": { "name": "乘风突袭", "desc": "飞行单位80%概率对同行敌人造成100%伤害，60%击退一格", "icon": "🦅" },
-    "meteorShower": { "name": "流星赶月", "desc": "己方远程对目标造成40%额外伤害，对周围溅射30%", "icon": "☄️" },
-    "carry": { "name": "你就是carry", "desc": "5号位获得队友基础加成，死亡队友加成双倍", "icon": "👑" },
-    "holyFlame": { "name": "圣火令", "desc": "随机两列+30%攻击，随机两行+30%防御", "icon": "🔥" },
-    "doubleStrike": { "name": "概率连击", "desc": "己方随机一人80%概率额外攻击一次", "icon": "⚡" },
-    "horseFormation": { "name": "巨马阵", "desc": "每回合开始生成巨马，回合结束50%概率销毁", "icon": "🐴" },
-    "mindControl": { "name": "惑人心智", "desc": "最前排80%扰乱敌方换位，40%扰乱己方换位", "icon": "🌀" }
+    "bloodthirst": { "name": "嗜血狂刀", "desc": "己方战士攻击吸血80%伤害值", "leechRatio": 0.8, "icon": "🗡️", "effects": ["bloodthirstLeech"] },
+    "hotBlood": { "name": "热血奋战", "desc": "攻击时回复15%已损失生命值，每第3次攻击回血翻倍", "leechRatio": 0.15, "critRatio": 0.3, "critInterval": 3, "icon": "❤️", "effects": ["hotBloodHeal"] },
+    "fortify": { "name": "严阵以待", "desc": "己方防战防御+50%，反弹50%伤害差值", "defBonus": 0.5, "reboundRatio": 0.5, "icon": "🛡️" },
+    "cloudBody": { "name": "流云身法", "desc": "己方全体闪避概率+25%", "dodgeBonus": 0.25, "icon": "💨" },
+    "windAssault": { "name": "乘风突袭", "desc": "飞行单位80%概率对同行敌人造成100%伤害，60%击退一格", "hitProb": 0.8, "pushProb": 0.6, "duration": 3, "icon": "🦅", "effects": ["windAssaultSplash"] },
+    "meteorShower": { "name": "流星赶月", "desc": "己方远程对目标造成40%额外伤害，对周围溅射30%", "bonusRatio": 0.4, "splashRatio": 0.3, "mainDefReduce": 2, "splashDefReduce": 1, "icon": "☄️", "effects": ["meteorShowerMain"] },
+    "carry": { "name": "你就是carry", "desc": "5号位获得队友基础加成，死亡队友加成双倍", "atkBonus": 0.08, "defBonus": 0.08, "hpBonus": 0.1, "deathMultiplier": 2, "duration": 4, "icon": "👑" },
+    "holyFlame": { "name": "圣火令", "desc": "随机两列+30%攻击，随机两行+30%防御", "atkBonus": 0.3, "defBonus": 0.3, "icon": "🔥" },
+    "doubleStrike": { "name": "概率连击", "desc": "己方随机一人80%概率额外攻击一次", "prob": 0.8, "icon": "⚡" },
+    "horseFormation": { "name": "巨马阵", "desc": "每回合开始生成巨马，回合结束50%概率销毁", "horseHp": 25, "horseAtk": 0, "horseDef": 5, "spawnProb": 1.0, "destroyProb": 0.5, "icon": "🐴" },
+    "mindControl": { "name": "惑人心智", "desc": "最前排80%扰乱敌方换位，40%扰乱己方换位", "enemySwapProb": 0.8, "allySwapProb": 0.4, "duration": 2, "icon": "🌀", "effects": ["mindControlSwap"] }
   },
 
   "taunts": {

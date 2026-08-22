@@ -1,6 +1,6 @@
 // tools/103-toolkit.js - 光明顶5v5 开发工具箱（文件复制器）
-// V5.5.0 | ~16500 bytes| 2026-08-15 静态数据拆至 106-ai-pack-config.js，新增 AI 精简模式
-export const VER = 'tools/103-toolkit.js V5.5.0';
+// V5.6.0 | ~16500 bytes| 2026-08-22 适配 106 分组合并（prefix → prefixes 数组）
+export const VER = 'tools/103-toolkit.js V5.6.0';
 
 import { AI_EXCLUDE, ALL_PROJECT_FILES, FILE_GROUPS, GROUP_PROMPTS, AI_INTERFACE_NOTE } from './106-ai-pack-config.js';
 
@@ -29,12 +29,12 @@ function escapeHtml(text) {
     FILE_GROUPS.forEach(g => g.files = []);
     FILES.forEach(f => {
         for (const g of FILE_GROUPS) {
-            if (g.prefix && f.startsWith(g.prefix)) {
+            if (g.prefixes && g.prefixes.some(p => f.startsWith(p))) {
                 g.files.push(f);
                 return;
             }
         }
-        FILE_GROUPS.find(g => g.name === 'root').files.push(f);
+        FILE_GROUPS[0].files.push(f); // 兜底：未匹配分组的文件归入第一组（引擎）
     });
 
     const fileGroupsDiv = document.getElementById('fcFileGroups');
@@ -96,7 +96,7 @@ function escapeHtml(text) {
             const existing = document.querySelector(`#tab-file-copier input[value="${CSS.escape(name)}"]`);
             if (!existing) {
                 const toolsGroup = Array.from(fileGroupsDiv.querySelectorAll('.file-group'))
-                    .find(el => el.querySelector('.group-name')?.textContent.includes('工具箱自身'));
+                    .find(el => el.querySelector('.group-name')?.textContent.includes('工具'));
                 if (toolsGroup) {
                     toolsGroup.querySelector('.group-files').appendChild(buildCheckbox(name, true));
                     const countEl = toolsGroup.querySelector('.group-count');
@@ -225,18 +225,18 @@ function escapeHtml(text) {
         for (const f of okFiles) {
             let matched = false;
             for (const g of FILE_GROUPS) {
-                if (g.prefix && f.fileName.startsWith(g.prefix)) {
+                if (g.prefixes && g.prefixes.some(p => f.fileName.startsWith(p))) {
                     filesByGroup[g.name].files.push(f);
                     matched = true;
                     break;
                 }
             }
             if (!matched) {
-                filesByGroup['root'].files.push(f);
+                filesByGroup[FILE_GROUPS[0].name].files.push(f); // 兜底：未匹配分组归入引擎
             }
         }
 
-        // 逐组打包（按 FILE_GROUPS 顺序：core → player → ui → fx → modules → tests → tools → root）
+        // 逐组打包（按 FILE_GROUPS 顺序：引擎 → UI（画面特效等） → 工具 → 体检）
         for (const g of FILE_GROUPS) {
             const group = filesByGroup[g.name];
             if (!group || group.files.length === 0) continue;
@@ -470,7 +470,7 @@ function escapeHtml(text) {
         const headerSpan = card.querySelector('.batch-header span');
         if (!headerSpan) return { gn: '其他', groupBatchIndex: 1, groupBatchTotal: 1 };
         const text = headerSpan.textContent || '';
-        // 格式：📦 【战斗引擎核心】 包 1/3（...
+        // 格式：📦 【引擎】 包 1/3（...
         const match = text.match(/【(.+?)】 包 (\d+)\/(\d+)/);
         if (match) {
             return { gn: match[1], groupBatchIndex: parseInt(match[2]), groupBatchTotal: parseInt(match[3]) };

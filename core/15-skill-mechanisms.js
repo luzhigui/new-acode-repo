@@ -1,10 +1,12 @@
 // core/15-skill-mechanisms.js - 光明顶5v5 技能机制解释器
-// V5.6.0 | ~6200 bytes| 2026-08-21 声明式技能机制，简单技能填表即可
-export const VER = 'core/15-skill-mechanisms.js V5.6.0';
+// V5.7.0 | ~14500 bytes| 2026-08-22 新增白骨爪/苦练/新婚/性奋声明式解释器
+export const VER = 'core/15-skill-mechanisms.js V5.7.0';
 
 import { EXECUTION_LAYER as L, EFFECT_TYPES } from '../infra/50-event-bus.js';
 import { CONFIG } from './01config-5v5-test.js';
 import { registerDodgeRule } from './12battle-attack-steps.js';
+import { emitEvent, applyStatChange, applyMaxHpChange, getBattleRng } from './13battle-shared.js';
+import { checkKuLian, applyXingFenGrant, tickKuaiLeHeal, canXingFenTrigger, consumeXingFen } from './20elite-skills.js';
 
 // 安装声明式技能：把声明表翻译成 eventBus 监听
 export function installDeclaredSkills(eventBus, A, B, log, declarations) {
@@ -16,6 +18,30 @@ export function installDeclaredSkills(eventBus, A, B, log, declarations) {
     }
     installBeforeDamageEffects(eventBus, declarations);
     installOnHitEffects(eventBus, A, B, declarations);
+    installPhantomDisguise(eventBus, declarations);
+    installLinkAttack(eventBus, declarations);
+    installChainClaw(eventBus, A, B, declarations);
+    installKuLian(eventBus, A, B, declarations);
+    installXinHun(eventBus, A, B, declarations);
+    installXingFen(eventBus, A, B, declarations);
+}
+
+// 新增：从 gameData 读取 mechanics 并转换为 declarations 后安装
+// 数据驱动内容管线入口，第三档复杂组件不在 mechanics 中声明，不会经过此路径
+export function installFromGameData(eventBus, A, B, log, gameData) {
+    if (!gameData || !gameData.characters) return;
+    const declarations = [];
+    for (const [name, character] of Object.entries(gameData.characters)) {
+        if (!character.mechanics || !Array.isArray(character.mechanics)) continue;
+        for (const mech of character.mechanics) {
+            if (!mech || typeof mech !== 'object') continue;
+            declarations.push({
+                name,
+                ...mech
+            });
+        }
+    }
+    installDeclaredSkills(eventBus, A, B, log, declarations);
 }
 
 // ==================== 目标选择声明 ====================
@@ -145,6 +171,296 @@ function installOnHitEffects(eventBus, A, B, declarations) {
                     }
                 }
             }
+        }
+    });
+}
+
+// ==================== 幻影伪装声明（阶段2a） ====================
+function installPhantomDisguise(eventBus, declarations) {
+    const decls = declarations.filter(d => d && d.type === 'phantomDisguise');
+    if (decls.length === 0) return;
+
+    // afterDamageApplied：设置伪装目标并回血
+    eventBus.on('afterDamageApplied', L.AFTER_DAMAGE_APPLIED.CHENGKUN_DISGUISE, (data) => {
+        const unit = data.unit;
+        if (!unit || !unit.alive || data.dmg <= 0) return;
+        const decl = decls.find(d => d.name === unit.name);
+        if (!decl) return;
+        const enemyAlive = data.enemySide.filter(u => u.alive && !u.isHorse && !u._untargetable);
+        if (enemyAlive.length > 0) {
+            unit.state._phantomTarget = enemyAlive[getBattleRng().nextInt(0, enemyAlive.length - 1)].uid;
+            const lostHp = unit.maxHp - unit.hp;
+            if (lostHp > 0) {
+                const aliveCount = data.enemySide.filter(u => u.alive).length;
+                const heal = Math.floor(lostHp * (decl.healRatio || 0.06) * aliveCount);
+                if (!data.declarations) data.declarations = [];
+                data.declarations.push({
+                    type: EFFECT_TYPES.HEAL,
+                    value: heal,
+                    source: unit,
+                    factType: 'phantomDisguiseHeal',
+                    factData: { unitName: unit.name, heal }
+                });
+            }
+            emitEvent(unit, 'hp-change', { hp:unit.hp, maxHp:unit.maxHp, alive:unit.alive, atk:unit.atk, def:unit.def, _phantomTarget:unit.state._phantomTarget });
+        }
+    });
+
+    // beforeSelectTarget：被模仿者攻击时概率混乱
+    eventBus.on('beforeSelectTarget', L.BEFORE_SELECT_TARGET.CHENGKUN_DISGUISE, (data) => {
+        if (data.unit.camp !== 'ally') return;
+        const { unit, enemySide, declaration, allySide } = data;
+        let phantomDecl = null;
+        let chengkun = null;
+        for (const d of decls) {
+            const candidate = enemySide.find(u => u.name === d.name && u.alive && u.state._phantomTarget);
+            if (candidate) {
+                phantomDecl = d;
+                chengkun = candidate;
+                break;
+            }
+        }
+        if (!phantomDecl || !chengkun) return;
+
+        const isPhantomTarget = chengkun.state._phantomTarget === unit.uid;
+        if (isPhantomTarget) {
+            declaration.targetResult = chengkun;
+            declaration.phantomFact = { factType: 'phantomReveal', data: { unitName: unit.name, deceiver: chengkun.name } };
+            return;
+        }
+
+        const lostHpPct = (chengkun.maxHp - chengkun.hp) / chengkun.maxHp;
+        const confuseChance = (phantomDecl.baseChance || 0.30) + (phantomDecl.per10pctLost || 0.06) * (lostHpPct * 10);
+        if (getBattleRng().next() >= confuseChance) return;
+
+        const phantomTarget = allySide.find(u => u.alive && !u.isHorse && !u._untargetable && u.uid === chengkun.state._phantomTarget && u.uid !== unit.uid);
+        if (phantomTarget) {
+            declaration.targetResult = phantomTarget;
+            declaration.phantomFact = { factType: 'phantomConfuse', data: { unitName: unit.name, deceiver: chengkun.name, targetName: phantomTarget.name } };
+        }
+    });
+}
+
+// ==================== 玄冥联动声明（阶段2a） ====================
+function installLinkAttack(eventBus, declarations) {
+    const decls = declarations.filter(d => d && d.type === 'linkAttack');
+    if (decls.length === 0) return;
+
+    eventBus.on('afterAttack', L.AFTER_ATTACK.XUANMING_LINK, (data) => {
+        const { unit, target, dmg, allySide, log } = data;
+        if (!unit || unit._isLinkAttack || dmg <= 0 || !target || !target.alive) return;
+        const decl = decls.find(d => d.name === unit.name);
+        if (!decl) return;
+        const partnerNames = decl.partnerNames || [];
+        for (const partnerName of partnerNames) {
+            const partner = allySide.find(u => u.name === partnerName && u.alive && !u._linkTriggered);
+            if (!partner) continue;
+            partner._linkTriggered = true;
+            log.push({ factType: 'xuanmingLinkAttack', data: { partnerName: partner.name, unitName: unit.name } });
+            if (!data.extraRequests) data.extraRequests = [];
+            data.extraRequests.push({
+                unit: partner,
+                targetUid: target.uid,
+                reason: 'xuanmingLink',
+                actedMode: 'restore',
+                actedSnapshot: partner.state._acted,
+                priority: 40
+            });
+            break;
+        }
+    });
+}
+
+// ==================== 九阴白骨爪声明（阶段2b） ====================
+function installChainClaw(eventBus, A, B, declarations) {
+    const decls = declarations.filter(d => d && d.type === 'chainClaw');
+    if (decls.length === 0) return;
+
+    eventBus.on('afterAttack', L.AFTER_ATTACK.ZHOU_CLAW, (data) => {
+        const { unit, target, dmg, log, allySide, enemySide } = data;
+        const decl = decls.find(d => d.name === unit.name);
+        if (!decl || !target || !target.alive) return;
+        const rng = getBattleRng();
+        const battleState = window.GlobalStore?.get('currentBattleState');
+        const zhangAlive = battleState && battleState.ally && battleState.ally.some(u => u.isZhang && u.alive);
+        const baseHit = zhangAlive ? (decl.jealous?.baseDmg ?? decl.baseDmg ?? 2) : (decl.baseDmg ?? 1.5);
+        const s = zhangAlive ? { ...decl, ...(decl.jealous || {}) } : decl;
+
+        if (!unit._nineYinFirstDone) {
+            unit._nineYinFirstDone = true;
+        } else {
+            if (rng.next() > (s.procChance || 0.80)) return;
+        }
+
+        const hits = [];
+        let executeInfo = null;
+        let totalHeal = 0;
+        const song = allySide.find(u => u.name === '宋青书' && u.alive);
+        let simulatedTargetHp = target.hp;
+        let simulatedSongHp = song ? song.hp : 0;
+        let depth = 0;
+
+        while (simulatedTargetHp > 0 && !target._pendingDeath && depth < 100) {
+            if (depth > 0 && rng.next() > (s.chainProcChance || 0.80)) break;
+            const lostHp = target.maxHp - simulatedTargetHp;
+            const ratioDmg = Math.floor((lostHp * (s.lostHpRatio || 0.015) + target.maxHp * (s.maxHpRatio || 0.01)) * 10) / 10;
+            const bonusDmg = Math.floor((baseHit + Math.max(0, ratioDmg)) * 10) / 10;
+            simulatedTargetHp -= bonusDmg;
+            const isDeadByHit = simulatedTargetHp <= 0;
+            const hpPctAfter = simulatedTargetHp / target.maxHp;
+            const execThreshold = s.executeThreshold || 0.15;
+            const isExecute = !isDeadByHit && hpPctAfter <= execThreshold && simulatedTargetHp > 0;
+            hits.push({ dmg: bonusDmg, factType: 'clawHit', data: { unitName: unit.name, targetName: target.name, dmg: bonusDmg, isExecute, jealous: zhangAlive, depth }, isClawHit: true, clawAttackerUid: unit.uid, clawTargetUid: target.uid, isExecute });
+            if (song && song.alive) {
+                const healAmount = Math.min(bonusDmg, song.maxHp - simulatedSongHp);
+                totalHeal += healAmount;
+                simulatedSongHp += healAmount;
+            }
+            if (isDeadByHit) break;
+            if (isExecute) {
+                executeInfo = { factType: 'clawExecute', data: { unitName: unit.name, targetName: target.name }, isClawHit: true, clawAttackerUid: unit.uid, clawTargetUid: target.uid, isExecute: true };
+                break;
+            }
+            depth++;
+        }
+
+        if (hits.length > 0 && data && data.declarations) {
+            data.declarations.push({
+                type: EFFECT_TYPES.CLAW_CHAIN,
+                source: unit,
+                target: target,
+                hits: hits,
+                execute: executeInfo
+            });
+        }
+        if (totalHeal > 0 && song && song.alive && data && data.declarations) {
+            data.declarations.push({
+                type: EFFECT_TYPES.HEAL,
+                value: totalHeal,
+                source: song,
+                factType: 'clawHeal',
+                factData: { totalHeal }
+            });
+        } else if (song && song.alive) {
+            log.push({ factType: 'clawNoHeal', data: {} });
+        }
+    });
+}
+
+// ==================== 苦练声明（阶段2b） ====================
+function installKuLian(eventBus, A, B, declarations) {
+    const decls = declarations.filter(d => d && d.type === 'kuLian');
+    if (decls.length === 0) return;
+
+    eventBus.on('onRoundStart', L.ROUND_START.KULIAN_BUFF, (data) => {
+        const { A, B, log } = data;
+        const decl = decls[0]; // 宋青书声明
+        if (!decl) return;
+        const kuLianSong = checkKuLian(B);
+        if (!kuLianSong) return;
+        kuLianSong._kuLianActive = true;
+        const s = {
+            atkBonus: decl.atkBonus || 1,
+            defBonus: decl.defBonus || 1,
+            hpBonus: decl.hpBonus || 2.5
+        };
+        B.forEach(u => {
+            if (!u.alive || u.isHorse) return;
+            const mult = u.uid === kuLianSong.uid ? 2 : 1;
+            applyStatChange(u, 'atk', s.atkBonus * mult, null, '苦练');
+            applyStatChange(u, 'def', s.defBonus * mult, null, '苦练');
+            applyMaxHpChange(u, u.maxHp + s.hpBonus * mult, null, '苦练血上限');
+            u._baseAtk = (u._baseAtk || u.atk) + s.atkBonus * mult;
+            u._baseDef = (u._baseDef || u.def) + s.defBonus * mult;
+            u._baseMaxHp = Math.max(u._baseMaxHp || u.maxHp, u.maxHp);
+        });
+        log.push({ factType: 'kuLian', data: { unitName: kuLianSong.name, atkBonus: s.atkBonus, defBonus: s.defBonus, hpBonus: s.hpBonus } });
+    });
+}
+
+// ==================== 新婚声明（阶段2b） ====================
+function installXinHun(eventBus, A, B, declarations) {
+    const decls = declarations.filter(d => d && d.type === 'xinHun');
+    if (decls.length === 0) return;
+
+    eventBus.on('afterDamageApplied', L.AFTER_DAMAGE_APPLIED.SONG_XINGFEN, (data) => {
+        const { unit, target, dmg, allySide, log } = data;
+        const decl = decls.find(d => d.name === unit.name);
+        if (!decl || unit.name !== '宋青书' || !unit.alive) return;
+        const zhou = allySide.find(u => u.name === '周芷若' && u.alive);
+        if (!zhou) return;
+        const hpDeduct = decl.hpDeduct || 1;
+        const healLevels = decl.healLevels || [0.16, 0.10, 0.06, 0.03];
+        applyStatChange(zhou, 'hp', -hpDeduct, unit, '新婚扣血', false);
+        zhou._kuaiLeStack.push({ healPct: healLevels[0] });
+        if (zhou.hp <= 0) { if (!zhou._deathTime) zhou._deathTime = Date.now(); }
+        log.push({
+            factType: 'xinHun',
+            data: {
+                attackerName: unit.name,
+                targetName: zhou.name,
+                hpDeduct,
+                healPct: healLevels[0],
+                stackCount: zhou._kuaiLeStack.length,
+                zhouUid: zhou.uid,
+                zhouHpAfter: zhou.hp,
+                isDead: !!zhou._pendingDeath
+            }
+        });
+        if (zhou._pendingDeath) { log.push({ factType: 'xinHunDeath', data: { unitName: zhou.name, uidD: zhou.uid } }); }
+        unit._xingFenPenaltyCount = (unit._xingFenPenaltyCount || 0) + 1;
+        const penalty = unit._xingFenPenaltyCount + 1;
+        if (penalty > 0 && unit.maxHp > 1) {
+            const oldMaxHp = unit.maxHp;
+            applyMaxHpChange(unit, Math.max(1, unit.maxHp - penalty), null, '性奋代价');
+            if (unit.hp <= 0) { if (!unit._deathTime) unit._deathTime = Date.now(); }
+            log.push({ factType: 'xingFenCost', data: { unitName: unit.name, oldMaxHp, newMaxHp: unit.maxHp, penalty } });
+        }
+    });
+}
+
+// ==================== 性奋声明（阶段2b） ====================
+function installXingFen(eventBus, A, B, declarations) {
+    const decls = declarations.filter(d => d && d.type === 'xingFen');
+    if (decls.length === 0) return;
+
+    // 回合开始：周芷若在场时给宋青书性奋状态
+    eventBus.on('onRoundStart', L.ROUND_START.XINGFEN_GRANT, (data) => {
+        const { A, B, log } = data;
+        applyXingFenGrant(B, log);
+        tickKuaiLeHeal(A.concat(B), log);
+    });
+
+    // 攻击后：性奋额外攻击
+    eventBus.on('afterAttack', L.AFTER_ATTACK.SONG_XINGFEN_EXTRA, async (data) => {
+        const { unit, target, allySide, enemySide, log } = data;
+        const decl = decls.find(d => d.name === unit.name);
+        if (!decl || unit.name !== '宋青书' || !unit.alive || unit._xingFenExtraAttacking) return;
+        if (!canXingFenTrigger(unit)) return;
+        consumeXingFen(unit);
+        log.push({ factType: 'xingFenExtraAttack', data: { unitName: unit.name } });
+        unit._xingFenExtraAttacking = true;
+        const { processUnitAttack } = await import('./10battle-attack.js');
+        await processUnitAttack(unit, allySide, enemySide, log, data.B, data.A, data.state, null, null);
+        unit._xingFenExtraAttacking = false;
+    });
+
+    // 未命中后：性奋重试
+    eventBus.on('afterMiss', L.AFTER_MISS.SONG_XINGFEN_RETRY, (data) => {
+        const { unit, target, log } = data;
+        const decl = decls.find(d => d.name === unit.name);
+        if (!decl || unit.name !== '宋青书' || !unit.alive) return;
+        if (canXingFenTrigger(unit)) {
+            consumeXingFen(unit);
+            log.push({ factType: 'xingFenRetry', data: { unitName: unit.name } });
+            if (!data.extraRequests) data.extraRequests = [];
+            data.extraRequests.push({
+                unit,
+                targetUid: null,
+                reason: 'xingFenMiss',
+                actedMode: 'allow',
+                priority: 30
+            });
         }
     });
 }
