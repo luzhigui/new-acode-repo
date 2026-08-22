@@ -6,7 +6,7 @@ import { EXECUTION_LAYER as L, EFFECT_TYPES } from '../infra/50-event-bus.js';
 import { CONFIG } from './01config-5v5-test.js';
 import { registerDodgeRule } from './12battle-attack-steps.js';
 import { emitEvent, applyStatChange, applyMaxHpChange, getBattleRng } from './13battle-shared.js';
-import { checkKuLian, applyXingFenGrant, tickKuaiLeHeal, canXingFenTrigger, consumeXingFen } from './20elite-skills.js';
+import { checkKuLian, applyXingFenGrant, tickKuaiLeHeal, canXingFenTrigger, consumeXingFen } from '../modules/20elite-skills.js';
 
 // 安装声明式技能：把声明表翻译成 eventBus 监听
 export function installDeclaredSkills(eventBus, A, B, log, declarations) {

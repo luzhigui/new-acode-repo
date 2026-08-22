@@ -13,6 +13,8 @@ import {
     getDodgeBreakdown,
     isUnitBenefitedByBuff
 } from '../render/32-grid-render.js';
+
+export { getBuffStats, getDodgeBreakdown, isUnitBenefitedByBuff };
 import { showDanmaku as _showDanmaku } from '../fx/80fx-common-5v5-test.js';
 const showDanmaku = (...args) => { if (typeof _showDanmaku === 'function') return _showDanmaku(...args); };
 
@@ -110,6 +112,7 @@ function updateDetailPopupContent() {
     if (!latestUnit) { closeDetailPopup(); return; }
     detailPopupUnit = latestUnit;
     const u = latestUnit;
+    const buffStats = getBuffStats(u);
     let allyTeam = ctx.UI.allyTeam || [];
     let activeBuffs = ctx.activeBuffs || [];
     let doubleStrikeUid = ctx.currentDoubleStrikeUid;
