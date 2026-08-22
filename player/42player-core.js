@@ -351,10 +351,9 @@ export async function playBattle() {
         if (battleState.round % 3 === 0 && battleState.round > 0) {
             const mainCtx2 = getPlayerContext();
             const isFullAuto = mainCtx2 && mainCtx2.autoLevel === 'full-auto';
-            const isFastForward = GlobalStore.get('fastForwardActive');
             appendLogHTML(`<span class="gold">✨ 请选择新的Buff（持续${CONFIG.BUFF_DURATION || 4}回合）</span><br>`);
             let newBuff = null;
-            if (isFullAuto || isFastForward) {
+            if (isFullAuto) {
                 const allKeys = Object.keys(CONFIG.BUFFS);
                 const existing = (nextActiveBuffs || []).map(b => b.key);
                 const allyTeam = c.UI?.allyTeam || [];
