@@ -464,6 +464,7 @@ export function resolveAfterDamageEffects(declarations, unit, target, group, all
             if (hit._events && hit._events.length) decl._events.push(...hit._events);
         }
         if (decl.execute && chainTarget.alive && !chainTarget._pendingDeath && chainTarget.hp > 0) {
+            if (decl.execute.data) decl.execute.data.dmg = Math.round(chainTarget.hp);
             applyStatChange(chainTarget, 'hp', -chainTarget.hp, chainSource, '白骨爪斩杀');
             decl.execute._events = flushBattleEvents();
             if (decl.execute._events && decl.execute._events.length) decl._events.push(...decl.execute._events);
