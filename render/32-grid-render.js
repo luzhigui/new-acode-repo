@@ -363,6 +363,8 @@ export function renderGrid(id, camp) {
     }
 }
 
+export { getBuffStats, getDodgeBreakdown, isUnitBenefitedByBuff };
+
 export function updateGridUI() {
     renderGrid('enemyGrid', 'enemy');
     renderGrid('allyGrid', 'ally');

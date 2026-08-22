@@ -1,6 +1,6 @@
 // tools/106-ai-pack-config.js - 光明顶5v5 AI 复制包配置（清单/分组/提示词/精简踢除）
-// V5.5.1 | ~10453 bytes| 2026-08-19 import 路径合并至 infra/51-core-utils
-export const VER = 'tools/106-ai-pack-config.js V5.5.1';
+// V5.6.0 | ~10800 bytes| 2026-08-22 分组合并为 引擎/UI（画面特效等）/工具/体检 四类
+export const VER = 'tools/106-ai-pack-config.js V5.6.0';
 
 // ==================== AI 精简模式踢除清单（第一批） ====================
 // 这些文件不参与战斗逻辑/状态同步/数值结算，默认不随包发送。
@@ -40,7 +40,7 @@ export const ALL_PROJECT_FILES = [
     '../infra/51-core-utils.js',
     '../core/08-elite-registry.js',
     '../core/10battle-attack.js', '../core/11battle-round.js', '../core/12battle-attack-steps.js',
-    '../core/13battle-shared.js', '../core/14buff-effects.js',
+    '../core/13battle-shared.js', '../core/14buff-effects.js', '../core/15-skill-mechanisms.js',
     // player（播放器）
     '../player/40player-text.js', '../player/41player-buff-ui.js', '../player/43animation-scheduler.js', '../player/42player-core.js',
     '../player/44battle-player-5v5-test.js', '../player/45event-handlers.js', '../player/46attack-group.js', '../player/47renderer.js',
@@ -48,11 +48,11 @@ export const ALL_PROJECT_FILES = [
     '../ui/60main-utils.js', '../ui/61main-5v5-test.js', '../ui/62ui-render-5v5-test.js',
     '../ui/63main-state.js', '../ui/64main-dialogs.js', '../ui/65main-battle.js',
     '../ui/66audio-control.js', '../ui/67fx-trigger.js', '../ui/68ui-controls.js',
-    '../ui/69reset-runtime.js',
+    '../ui/69reset-runtime.js', '../ui/70buff-dialog.js',
     // fx（特效）
     '../fx/80fx-common-5v5-test.js', '../fx/81fx-arrows-5v5-test.js', '../fx/82fx-crash-5v5-test.js',
     '../fx/83fx-position-swap.js', '../fx/84fx-push-back.js', '../fx/85fx-dodge-bullet.js',
-    '../fx/86fx-butterfly-spider.js', '../fx/87fx-manager.js',
+    '../fx/86fx-butterfly-spider.js', '../fx/87fx-manager.js', '../fx/88fx-trigger.js',
     // modules（通用系统 + 精英角色组件）
     '../modules/20elite-skills.js', '../modules/21error-capture.js', '../modules/22audio-manager.js',
     '../infra/54-global-store.js', '../modules/29battle-init.js', '../modules/24battle-store.js',
@@ -73,14 +73,15 @@ export const ALL_PROJECT_FILES = [
     '../tests/health-rules/129-spider-fly-count.js',
     '../tests/health-rules/130-fortify-overflow.js',
     '../tests/health-rules/131-separator-duplicate.js',
-    '../tests/health-rules/132-claw-damage.js',
+    '../tests/health-rules/132-claw-damage.js', '../tests/health-rules/133-death-effect.js',
     '../tests/121health-monitor.js', '../tests/122health-utils.js',
     // tools（开发工具箱）
     '../tools/102-toolkit.html', '../tools/103-toolkit.js', '../tools/104-toolkit-more.js',
     '../tools/105-shop.html', '../tools/106-ai-pack-config.js',
     '../tools/107-battle-log-viewer.js', '../tools/108-hex-dashboard.js',
     '../tools/109-role-balance.js', '../tools/110-role-balance-random.html',
-    '../tools/112-elite-eval.js',
+    '../tools/112-elite-eval.js', '../tools/113-stats-check.js',
+    '../tools/114-baseline-compare.js', '../tools/115-lineup-search.js',
     // 移除了：52-version-calibrator / 53-dead-code-scanner / 54-filelist-checker（这些工作直接问 AI 更高效）
     // 移除了：100build-5v5.cjs（构建脚本已废弃为 .TXT，不再随包复制）
     '../tools/101auto-battle-utils.js',
@@ -93,65 +94,34 @@ export const ALL_PROJECT_FILES = [
     // 备注：README.md 已不再复制（网页端粘贴不需要它）；其余 MD 文档已归档到 文件汇总20260730/，不参与自动复制
 ];
 
-// ==================== 主题分组 ====================
+// ==================== 主题分组（合并为 4 大类） ====================
+// 引擎：infra/core/player/modules/render/content + 入口页面（index、mode-5v5）
+// UI（画面特效等）：ui + fx
+// 工具：tools
+// 体检：tests
 export const FILE_GROUPS = [
-    { name: 'infra', displayName: '基础设施', prefix: '../infra/' },
-    { name: 'core', displayName: '战斗引擎核心', prefix: '../core/' },
-    { name: 'player', displayName: '播放器', prefix: '../player/' },
-    { name: 'ui', displayName: 'UI 主控', prefix: '../ui/' },
-    { name: 'fx', displayName: '特效', prefix: '../fx/' },
-    { name: 'modules', displayName: '模块', prefix: '../modules/' },
-    { name: 'render', displayName: '渲染层', prefix: '../render/' },
-    { name: 'content', displayName: '游戏内容数据', prefix: '../content/' },
-    { name: 'tests', displayName: '测试与体检', prefix: '../tests/' },
-    { name: 'tools', displayName: '工具箱自身', prefix: '../tools/' },
-    { name: 'root', displayName: '根目录页面', prefix: null }
+    { name: 'engine', displayName: '引擎', prefixes: ['../infra/', '../core/', '../player/', '../modules/', '../render/', '../content/', '../index.html', '../mode-5v5-test.html'] },
+    { name: 'ui', displayName: 'UI（画面特效等）', prefixes: ['../ui/', '../fx/'] },
+    { name: 'tools', displayName: '工具', prefixes: ['../tools/'] },
+    { name: 'tests', displayName: '体检', prefixes: ['../tests/'] }
 ];
 
 // ==================== 主题分析提示词 ====================
 export const GROUP_PROMPTS = {
-    '基础设施': {
-        before: '请深入分析基础设施代码（事件总线、状态机、确定性随机数、战斗事件存储、全局状态管理）。无需输出详细分析，收到全部代码后直接开始协助开发。',
-        after: '基础设施代码发送完毕。'
+    '引擎': {
+        before: '请深入分析战斗引擎代码（基础设施、核心战斗、播放器、通用模块、渲染层、游戏内容数据、入口页面）。无需输出详细分析，收到全部代码后直接开始协助开发。',
+        after: '战斗引擎代码发送完毕。'
     },
-    '战斗引擎核心': {
-        before: '请深入分析核心战斗引擎代码（伤害计算、Buff系统、闪避机制、事件总线、特殊角色、拒马海克斯）。无需输出详细分析，收到全部代码后直接开始协助开发。',
-        after: '核心引擎代码发送完毕。'
+    'UI（画面特效等）': {
+        before: '请深入分析 UI 与特效代码（血条渲染、弹窗对话框、飘字弹幕、飞箭冲撞、换位击退、子弹时间）。无需输出详细分析，收到全部代码后直接开始协助开发。',
+        after: 'UI 与特效代码发送完毕。'
     },
-    '播放器': {
-        before: '请深入分析播放器代码（事件→动画转换、状态同步、动画调度、文字播放、暂停恢复加速）。无需输出详细分析，收到全部代码后直接开始协助开发。',
-        after: '播放器代码发送完毕。'
-    },
-    'UI 主控': {
-        before: '请深入分析UI渲染代码（血条渲染、攻防显示、战斗状态UI、弹窗对话框）。无需输出详细分析，收到全部代码后直接开始协助开发。',
-        after: 'UI渲染代码发送完毕。'
-    },
-    '特效': {
-        before: '请深入分析特效代码（飘字弹幕、飞箭冲撞、换位击退、子弹时间）。无需输出详细分析，收到全部代码后直接开始协助开发。',
-        after: '特效代码发送完毕。'
-    },
-    '模块': {
-        before: '请深入分析模块代码（精英技能、错误捕获、音频管理）。无需输出详细分析，收到全部代码后直接开始协助开发。',
-        after: '模块代码发送完毕。'
-    },
-    '渲染层': {
-        before: '请深入分析渲染层代码（事实渲染器、网格渲染）。无需输出详细分析，收到全部代码后直接开始协助开发。',
-        after: '渲染层代码发送完毕。'
-    },
-    '游戏内容数据': {
-        before: '请深入分析游戏内容数据（角色、技能、Buff、台词等配置）。无需输出详细分析，收到全部代码后直接开始协助开发。',
-        after: '游戏内容数据发送完毕。'
-    },
-    '测试与体检': {
-        before: '请深入分析测试与体检代码（健康检查、单元测试、运行时采样）。无需输出详细分析，收到全部代码后直接开始协助开发。',
-        after: '测试代码发送完毕。'
-    },
-    '工具箱自身': {
-        before: '请深入分析工具箱代码（自动战斗、构建脚本、工具箱UI）。无需输出详细分析，收到全部代码后直接开始协助开发。',
+    '工具': {
+        before: '请深入分析工具箱代码（自动战斗、工具箱UI、日志复盘、海克斯仪表盘、职业平衡分析、精英评测、商店）。无需输出详细分析，收到全部代码后直接开始协助开发。',
         after: '工具箱代码发送完毕。'
     },
-    '根目录页面': {
-        before: '请深入分析入口页面和文档（index、mode-5v5、README、CHANGELOG、开发准则、游戏设计）。无需输出详细分析，收到全部代码后直接开始协助开发。',
-        after: '入口页面和文档发送完毕。'
+    '体检': {
+        before: '请深入分析测试与体检代码（健康检查、单元测试、运行时采样、体检规则）。无需输出详细分析，收到全部代码后直接开始协助开发。',
+        after: '体检代码发送完毕。'
     }
 };

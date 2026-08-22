@@ -65,6 +65,21 @@ export { loadGameData, getGameData, getSkillParams, getSkillParamsJealous, getSk
 
 // ==================== 原配置内容（不变） ====================
 
+// 数据驱动 Buff 默认回退：实际运行时优先 gameData.buffs
+const DEFAULT_BUFFS = {
+    doubleStrike: { name: '概率连击', desc: '己方随机一人80%概率额外攻击一次（持续4回合）', prob: 0.8, icon: '⚡' },
+    carry: { name: '你就是carry', desc: '5号位获得队友基础加成，死亡队友加成双倍（持续4回合）', atkBonus: 0.08, defBonus: 0.08, hpBonus: 0.1, deathMultiplier: 2, duration: 4, icon: '👑' },
+    cloudBody: { name: '流云身法', desc: '己方全体闪避概率+25%（持续4回合）', dodgeBonus: 0.25, icon: '💨' },
+    horseFormation: { name: '巨马阵', desc: '每回合开始生成巨马(25血/0攻/5防)，回合结束50%概率销毁（持续4回合）', horseHp: 25, horseAtk: 0, horseDef: 5, spawnProb: 1.0, destroyProb: 0.5, icon: '🐴' },
+    meteorShower: { name: '流星赶月', desc: '己方远程对目标造成40%额外伤害，对周围溅射30%，主箭降2防，小箭降1防（持续4回合）', bonusRatio: 0.4, splashRatio: 0.3, mainDefReduce: 2, splashDefReduce: 1, icon: '☄️' },
+    bloodthirst: { name: '嗜血狂刀', desc: '己方战士攻击吸血80%伤害值（持续4回合）', leechRatio: 0.8, icon: '🗡️' },
+    fortify: { name: '严阵以待', desc: '己方防战防御+50%，反弹50%伤害差值（持续4回合）', defBonus: 0.5, reboundRatio: 0.5, icon: '🛡️' },
+    windAssault: { name: '乘风突袭', desc: '飞行单位80%概率对同行敌人造成100%伤害，60%击退一格（持续3回合）', hitProb: 0.8, pushProb: 0.6, duration: 3, icon: '🦅' },
+    holyFlame: { name: '圣火令', desc: '随机1列+30%攻击，随机2行+30%防御（持续4回合）', atkBonus: 0.3, defBonus: 0.3, icon: '🔥' },
+    hotBlood: { name: '热血奋战', desc: '攻击时回复15%已损失生命值，每第3次攻击回血翻倍（持续4回合）', leechRatio: 0.15, critRatio: 0.3, critInterval: 3, icon: '❤️' },
+    mindControl: { name: '惑人心智', desc: '最前排单位攻击时：80%扰乱敌方换位，40%扰乱己方换位（持续2回合）', enemySwapProb: 0.8, allySwapProb: 0.4, duration: 2, icon: '🌀' }
+};
+
 const CONFIG = {
     MING_ALL: ['张无忌', '韦一笑', '殷天正', '杨逍', '范遥', '庄铮', '颜垣', '吴劲草', '周颠', '张中', '说不得', '冷谦', '彭莹玉', '明教洪午', '明教岳山', '明教石虎', '明教弟子1', '明教弟子2', '明教弟子3'],
     MING_M: {
@@ -112,18 +127,9 @@ const CONFIG = {
         '战士': 'assets/sfx_melee.mp3',
         '防战': 'hammer'
     },
-    BUFFS: {
-        doubleStrike: { name: '概率连击', desc: '己方随机一人80%概率额外攻击一次（持续4回合）', prob: 0.8, icon: '⚡' },
-        carry: { name: '你就是carry', desc: '5号位获得队友基础加成，死亡队友加成双倍（持续4回合）', atkBonus: 0.08, defBonus: 0.08, hpBonus: 0.1, deathMultiplier: 2, duration: 4, icon: '👑' },
-        cloudBody: { name: '流云身法', desc: '己方全体闪避概率+25%（持续4回合）', dodgeBonus: 0.25, icon: '💨' },
-        horseFormation: { name: '巨马阵', desc: '每回合开始生成巨马(25血/0攻/5防)，回合结束50%概率销毁（持续4回合）', horseHp: 25, horseAtk: 0, horseDef: 5, spawnProb: 1.0, destroyProb: 0.5, icon: '🐴' },
-        meteorShower: { name: '流星赶月', desc: '己方远程对目标造成40%额外伤害，对周围溅射30%，主箭降2防，小箭降1防（持续4回合）', bonusRatio: 0.4, splashRatio: 0.3, mainDefReduce: 2, splashDefReduce: 1, icon: '☄️' },
-        bloodthirst: { name: '嗜血狂刀', desc: '己方战士攻击吸血80%伤害值（持续4回合）', leechRatio: 0.8, icon: '🗡️' },
-        fortify: { name: '严阵以待', desc: '己方防战防御+50%，反弹50%伤害差值（持续4回合）', defBonus: 0.5, reboundRatio: 0.5, icon: '🛡️' },
-        windAssault: { name: '乘风突袭', desc: '飞行单位80%概率对同行敌人造成100%伤害，60%击退一格（持续3回合）', hitProb: 0.8, pushProb: 0.6, duration: 3, icon: '🦅' },
-        holyFlame: { name: '圣火令', desc: '随机1列+30%攻击，随机2行+30%防御（持续4回合）', atkBonus: 0.3, defBonus: 0.3, icon: '🔥' },
-        hotBlood: { name: '热血奋战', desc: '攻击时回复15%已损失生命值，每第3次攻击回血翻倍（持续4回合）', leechRatio: 0.15, critRatio: 0.3, critInterval: 3, icon: '❤️' },
-        mindControl: { name: '惑人心智', desc: '最前排单位攻击时：80%扰乱敌方换位，40%扰乱己方换位（持续2回合）', enemySwapProb: 0.8, allySwapProb: 0.4, duration: 2, icon: '🌀' }
+    get BUFFS() {
+        const gd = getGameData();
+        return (gd && gd.buffs) ? gd.buffs : DEFAULT_BUFFS;
     },
     BUFF_ROLE_REQUIREMENTS: {
         bloodthirst: '战士',

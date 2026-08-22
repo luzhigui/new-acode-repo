@@ -2,13 +2,13 @@
 // V5.5.5 | ~23512 bytes| 2026-08-21 战报记账修正：战斗结束归零血量改非记账
 export const VER = 'core/11battle-round.js V5.5.5';
 
-import { CONFIG } from './01config-5v5-test.js';
+import { CONFIG, getGameData } from './01config-5v5-test.js';
 import { isMelee, isBlocked, makeFXSnapshot, hasBuff, getUnitCol, getUnitRow, hasAnyEnemyEmptyCol, countEnemyEmptyCols, getBloodAuraBonus, getAuraBonuses, registerWarriorBreakDefense, registerRangedGrowth, registerFortifyShield, registerWarriorExecute, selectFlyTarget, registerEmptyColBonus, registerDoubleStrike } from './03battle-utils.js';
-import { computeBuffStats, logBuffSummary, applyHolyFlameBonus, applyFortifyBonus, applyCarryBonus, registerBloodthirst, registerHotBlood, registerWindAssault, registerMeteorShower, registerMindControl } from './04buff-system.js';
+import { computeBuffStats, logBuffSummary, applyHolyFlameBonus, applyFortifyBonus, applyCarryBonus, installBuffMechanics } from './04buff-system.js';
 import { spawnHorse, destroyHorse } from './05battle-horse.js';
 import { Unit } from './02unit.js';
 import { clearEliteDodgeRules, getDodgeRules } from './12battle-attack-steps.js';
-import { installDeclaredSkills } from './15-skill-mechanisms.js';
+import { installDeclaredSkills, installFromGameData } from './15-skill-mechanisms.js';
 
 import { getEliteFactories } from './08-elite-registry.js';
 import { processUnitAttack } from './10battle-attack.js';
@@ -95,11 +95,7 @@ async function prepareRoundStart(A, B, log, state, round, rng) {
     registerRangedGrowth(eventBus);
     registerFortifyShield(eventBus);
     registerWarriorExecute(eventBus);
-    registerBloodthirst(eventBus);
-    registerHotBlood(eventBus);
-    registerWindAssault(eventBus);
-    registerMeteorShower(eventBus);
-    registerMindControl(eventBus);
+    installBuffMechanics(eventBus);
     eventBus.on('beforeActionSelect', L.BEFORE_ACTION.KULIAN_PRIORITY, (data) => {
         if (data.unit.name !== '宋青书' || !data.unit.alive || !data.unit._kuLianActive) return;
         data.declaration.priority = 1;
@@ -136,6 +132,7 @@ async function prepareRoundStart(A, B, log, state, round, rng) {
         }
     }
     installDeclaredSkills(eventBus, A, B, log, declaredSkills);
+    installFromGameData(eventBus, A, B, log, getGameData());
     const xuanmingFactory = factories.get('玄冥联动');
     if (xuanmingFactory) xuanmingFactory(eventBus);
 

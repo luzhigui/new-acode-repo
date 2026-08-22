@@ -1,6 +1,6 @@
 # 光明顶 5v5 协作协议 · 体检版
 
-版本: V1.1.0 | 适用: 体检/回归验证专项 agent（TraeCode IDE）
+版本: V1.1.1 | 适用: 体检/回归验证专项 agent（TraeCode IDE）
 
 本文档是体检专项 agent 的专用协议。你的职责是**管理 `tests/` 目录下的体检与回归验证**，不直接修改业务逻辑代码（发现问题报告给主 agent 或用户）。
 
@@ -10,8 +10,8 @@
 
 你只负责 `tests/` 目录下的内容，其余代码一律不碰：
 
-1. **体检规则**：`tests/health-rules/` 下的 rule70-79：
-   - rule70 爪击回血刷屏、rule71 闪避后误判、rule72 坚盾时序、rule73 玄冥联动、rule74 蝴蝶叠层、rule75 蝴蝶归位、rule76 蜘蛛飞天次数（≤3）、rule77 坚盾上限（6 层）、rule78 回合分隔符不重复、rule79 九阴白骨爪伤害/斩杀/连锁
+1. **体检规则**：`tests/health-rules/` 下的 rule70-80：
+   - rule70 爪击回血刷屏、rule71 闪避后误判、rule72 坚盾时序、rule73 玄冥联动、rule74 蝴蝶叠层、rule75 蝴蝶归位、rule76 蜘蛛飞天次数（≤3）、rule77 坚盾上限（6 层）、rule78 回合分隔符不重复、rule79 九阴白骨爪伤害/斩杀/连锁、rule80 死亡特效缺失回归（斩杀/白骨爪/闪避反击击杀须带 isDead 标记）
 2. **监控器与工具**：
    - `tests/121health-monitor.js`（实时体检监控器，支持 `?auto=1` 无头模式）
    - `tests/122health-utils.js`（体检工具函数）

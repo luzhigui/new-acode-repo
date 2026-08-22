@@ -8,7 +8,7 @@ import {
     calcCarryBonus_Normal, calcCarryBonus_Sister,
     applyMindControl_Normal, applyMindControl_Sister
 } from './14buff-effects.js';
-import { CONFIG } from './01config-5v5-test.js';
+import { CONFIG, getGameData } from './01config-5v5-test.js';
 import { hasBuff, getUnitRow, getUnitCol, getAdjacentPositions } from './03battle-utils.js';
 import { emitEvent, applyStatChange, applyMaxHpChange, query, getBattleRng, swapUnitPositions, moveUnitPosition } from './13battle-shared.js';
 import { EXECUTION_LAYER as L, EFFECT_TYPES } from '../infra/50-event-bus.js';
@@ -430,4 +430,25 @@ export function registerMindControl(eventBus) {
             else applyMindControl_Normal(unit, allySide, enemySide, log);
         }
     });
+}
+
+// Buff 声明化装配器：按 gameData.buffs 中每个 buff 的 effects 声明注册对应处理器
+// 新增 buff 的数值和 effects 只需改 JSON；只有全新逻辑才需要新增处理器函数
+export function installBuffMechanics(eventBus) {
+    const gd = getGameData();
+    if (!gd || !gd.buffs) return;
+    const processors = {
+        bloodthirstLeech: registerBloodthirst,
+        hotBloodHeal: registerHotBlood,
+        windAssaultSplash: registerWindAssault,
+        meteorShowerMain: registerMeteorShower,
+        mindControlSwap: registerMindControl
+    };
+    for (const buff of Object.values(gd.buffs)) {
+        if (!buff.effects || !Array.isArray(buff.effects)) continue;
+        for (const effectName of buff.effects) {
+            const install = processors[effectName];
+            if (install) install(eventBus);
+        }
+    }
 }

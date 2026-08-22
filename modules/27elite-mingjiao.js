@@ -4,7 +4,6 @@ export const VER = 'modules/27elite-mingjiao.js V5.6.1';
 
 import { registerElite } from '../core/08-elite-registry.js';
 import { CONFIG, getSkillParams } from '../core/01config-5v5-test.js';
-import { ROLE_BONUS } from '../core/02unit.js';
 import { hasBuff } from '../core/03battle-utils.js';
 import { spawnHorse } from '../core/05battle-horse.js';
 import { spiderTransform, spiderReturn } from '../modules/20elite-skills.js';
@@ -23,10 +22,6 @@ function getZhangNearTaunt(nearAtkCount) {
 export function createZhangWujiComponent() {
     return {
         name: '张无忌',
-        declarations: [{
-            name: '张无忌',
-            onHitEffects: [{ type: 'healMaxHpPct', pct: 0.08 }]
-        }],
         _buildFsm(zhang, A, log) {
             let fsm;
             const col = (zhang.pos - 1) % 3;
@@ -128,12 +123,6 @@ export function createZhangWujiComponent() {
 export function createWeiYixiaoComponent() {
     return {
         name: '韦一笑',
-        declarations: [{
-            name: '韦一笑',
-            targetRule: 'lowestHp',
-            onHitEffects: [{ type: 'leech', minRatio: 0.15, maxRatio: 0.45 }],
-            dodgeRules: [{ type: 'lostHpPercent', max: 0.70 }]
-        }],
         register(eventBus, A, B, log) {
             const wei = A.find(u => u.isWei && u.alive);
             if (!wei) return;

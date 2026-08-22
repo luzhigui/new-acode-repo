@@ -1,6 +1,6 @@
 # 光明顶 5v5 协作协议 · 工具版
 
-版本: V1.0.0 | 适用: 开发工具维护专项 agent（TraeCode IDE）
+版本: V1.1.0 | 适用: 开发工具维护专项 agent（TraeCode IDE）
 
 本文档是工具维护专项 agent 的专用协议。你的职责是**维护 `tools/` 目录下的开发工具**，不修改任何业务逻辑代码。
 
@@ -27,7 +27,6 @@
 6. **商店页面**：`tools/105-shop.html`
 7. **其余脚本**：
    - `tools/health_auto_check.py`（体检自动化，与体检版协作）
-   - `tools/创意-精英战力评测脚本.js`（精英战力评测）
 
 ### 新增工具的评判标准（动手前先对照）
 
@@ -66,5 +65,7 @@
 | 职业平衡分析 | 109-role-balance.js | 职业平衡分析（标准模板循环赛） |
 | 职业平衡·随机 | 110-role-balance-random.html | 职业平衡分析（全随机站位） |
 | 明教精英评测 | 112-elite-eval.js | 明教精英战力评测（融入工具箱 tab） |
+| 统计一致性体检 | 113-stats-check.js | hp-change 事件流交叉核对 dmgTaken/dmgDealt/healDone 记账（融入工具箱 tab） |
+| 平衡基线对比 | 114-baseline-compare.js | 同种子 A/B 精英配置对照胜率/输出/承伤/存活（融入工具箱 tab） |
+| 阵容搜索器 | 115-lineup-search.js | 批量采样统计精英组合/站位分布（融入工具箱 tab） |
 | 体检自动化 | health_auto_check.py | Python + Playwright 体检 |
-| 精英战力评测 | 创意-精英战力评测脚本.js | 精英战力评测 |

@@ -2,7 +2,7 @@
 // V5.5.3 | ~27950 bytes| 2026-08-21 战报记账修正：删攻击伤害双记，死亡结算/伤害波动改非记账
 export const VER = 'core/12battle-attack-steps.js V5.5.3';
 
-import { CONFIG, DEF_TAUNT, HP_TAUNT, getSkillParams } from './01config-5v5-test.js';
+import { CONFIG, DEF_TAUNT, HP_TAUNT, getSkillParams, getGameData } from './01config-5v5-test.js';
 import { eventBus, EFFECT_TYPES } from '../infra/50-event-bus.js';
 import { calcDamage, getFangLevel, isMelee, getFronts, isBlocked, getRandomTaunt, getZhangNearTaunt, makeFXSnapshot, hasBuff, getUnitCol, getUnitRow } from './03battle-utils.js';
 import { applyBuffEffectsBeforeAttack, applyBuffEffectsAfterAttack } from './04buff-system.js';
@@ -231,7 +231,12 @@ export function calcFinalDamage(unit, target, attackerBuffStats, defenderBuffSta
     applyStatChange(target, 'hp', hpBonus, unit, '伤害波动回血', false);
     let waveTaunt = null, waveUnit = null;
     if (atkVar === C.ATK_VAR) { waveTaunt = getRandomTaunt(unit); waveUnit = unit; unit.critCount++; }
-    else if (defVar + hpBonus >= 7) { waveTaunt = DT[rng.nextInt(0, DT.length - 1)]; waveUnit = target; }
+    else if (defVar + hpBonus >= 7) {
+        const gd = getGameData();
+        const defTaunts = (gd && gd.taunts && gd.taunts.def) ? gd.taunts.def : DT;
+        waveTaunt = defTaunts[rng.nextInt(0, defTaunts.length - 1)];
+        waveUnit = target;
+    }
     if (unit.isZhang && !unit.rangedForm && unit.nearAtkCount < 3) {
         let zt = getZhangNearTaunt(unit.nearAtkCount + 1);
         if (zt && !waveTaunt) { waveTaunt = zt; waveUnit = unit; }
