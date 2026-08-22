@@ -163,6 +163,17 @@ export async function handleAttackGroup(c, entry, roundResult, abortSig, isFirst
                 }
                 if (entry2.buffType === 'meteor_splash') await new Promise(r=>setTimeout(r, GlobalStore.get('fastForwardActive') ? 1 : 600));
             }
+            if (entry2.isClawHit && entry2.clawAttackerUid && entry2.clawTargetUid) {
+                const clawAttacker = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.uid === entry2.clawAttackerUid);
+                const clawTarget = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.uid === entry2.clawTargetUid);
+                if (clawTarget && entry2.text) {
+                    let dmgMatch = entry2.text.match(/造成 (\d+(?:\.\d+)?) 点伤害/);
+                    if (dmgMatch) showDamageFloat(clawTarget, Math.round(parseFloat(dmgMatch[1])));
+                }
+                if (clawAttacker && clawTarget) {
+                    showBoneClaw(clawAttacker, clawTarget, c.speed, () => c.isPaused, null, { isExecute: entry2.isExecute });
+                }
+            }
             const currentSpeed = c.speed || 1000;
             const isImportant = (entry2.type === 'combat-text' || entry2.type === 'damage-text');
             const forcedSpeed = isImportant

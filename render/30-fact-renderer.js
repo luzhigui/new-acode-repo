@@ -601,7 +601,8 @@ export function renderClawHitFact(fact) {
     return { type:'info', text:`<span style="color:#222">🐾 九阴白骨爪${fact.depth>0?'连锁':'追击'}！${fact.unitName} 对 ${fact.targetName} 造成 ${fact.dmg} 点伤害${fact.isExecute?'（斩杀）':(fact.jealous?'【嫉妒】':'')}</span>` };
 }
 export function renderClawExecuteFact(fact) {
-    return { type:'info', text:`<span style="color:#222">🐾 九阴白骨爪斩杀！${fact.unitName} 对 ${fact.targetName} 造成致命一击</span>` };
+    const dmgText = fact.dmg !== undefined ? `造成 <span class="red">${fact.dmg}</span> 点伤害` : '造成致命一击';
+    return { type:'info', text:`<span style="color:#222">🐾 九阴白骨爪斩杀！${fact.unitName} 对 ${fact.targetName} ${dmgText}</span>` };
 }
 export function renderClawHealFact(fact) {
     return { type:'info', text:`<span class="green">💚 宋青书因九阴白骨爪共回复${fact.totalHeal}点生命</span>` };
