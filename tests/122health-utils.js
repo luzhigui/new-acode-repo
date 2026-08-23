@@ -17,6 +17,7 @@ export function getCellElement(unit, doc) {
 
 /**
  * 检查单位血量合法性（负数、溢出、膨胀）
+ * 韦一笑(isWei)豁免膨胀检查：闪避反击吸血涨上限是设计机制(applyMaxHpChange 只涨 maxHp 不涨 _baseMaxHp，无上限)
  */
 export function checkUnitHpValidity(unit) {
     const issues = [];
@@ -24,7 +25,7 @@ export function checkUnitHpValidity(unit) {
     if (unit.maxHp > 0 && unit.hp > unit.maxHp) {
         issues.push(unit.name + '血量溢出：' + Math.floor(unit.hp) + '/' + Math.floor(unit.maxHp));
     }
-    if (unit._baseMaxHp && unit._baseMaxHp > 0 && unit.maxHp > unit._baseMaxHp * 2.5) {
+    if (!unit.isWei && unit._baseMaxHp && unit._baseMaxHp > 0 && unit.maxHp > unit._baseMaxHp * 2.5) {
         issues.push(unit.name + '血量异常膨胀：maxHp=' + Math.floor(unit.maxHp) +
             '，初始=' + Math.floor(unit._baseMaxHp) + '，膨胀' + Math.floor(unit.maxHp / unit._baseMaxHp * 100) + '%');
     }
