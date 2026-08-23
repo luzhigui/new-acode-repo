@@ -343,8 +343,12 @@ function runUIChecks(ctx, doc) {
     const enemyTeam = (ctx.UI && ctx.UI.enemyTeam) || [];
     const allUnits = allyTeam.concat(enemyTeam);
 
-    for (const unit of allUnits) {
-        for (const msg of checkHpBarSync(unit, doc)) recordIssue(ctx, unit.uid, '血条同步', msg, 'UI');
+    // 血条同步：仅非 full-auto 跑。快进下引擎 1ms/步、血条 CSS transition 0.6s，
+    // DOM 必然滞后一拍，采到的是中间值——时序特性非 UI bug，跑必误报
+    if (ctx.autoLevel !== 'full-auto') {
+        for (const unit of allUnits) {
+            for (const msg of checkHpBarSync(unit, doc)) recordIssue(ctx, unit.uid, '血条同步', msg, 'UI');
+        }
     }
 
     for (const msg of checkDeathFxRetention(allUnits, doc)) recordIssue(ctx, null, '死亡特效', msg, 'UI');
