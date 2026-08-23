@@ -119,18 +119,7 @@ export async function playLogEntries(c, log, roundResult, isFirstAttackRef) {
                     else await showBuffBanner('🦅 乘风突袭！');
                     GlobalStore.set('bulletTimeActive', false);
                     appendLogHTML(entry.text + '<br>');
-                    if (entry.splashUids && entry.splashDmg) {
-                        entry.splashUids.forEach(uid => {
-                            let targetUnit = findUnitByUid(c, uid);
-                            if (targetUnit) {
-                                if (entry.buffType === 'meteor_splash') {
-                                    setTimeout(() => showDamageFloat(targetUnit, entry.splashDmg), 150);
-                                } else {
-                                    showDamageFloat(targetUnit, entry.splashDmg);
-                                }
-                            }
-                        });
-                    }
+                    // splash 伤害飘字已由导演 stageAction 'splash' 统一处理
                     if (entry.buffType === 'meteor_splash') await new Promise(r=>setTimeout(r, GlobalStore.get('fastForwardActive') ? 1 : 600));
                     c.isPaused = false;
                     lastEntryType = entry.type;
@@ -245,6 +234,7 @@ async function applyStageActionToFX(c, action) {
     if (!action) return;
     switch (action.kind) {
         case 'spiderStrike': {
+            if (GlobalStore.get('fastForwardActive')) break;
             const spiderUnit = findUnitByUid(c, action.actorUid);
             const strikeTarget = findUnitByUid(c, action.targetUid);
             if (spiderUnit && strikeTarget) {
@@ -259,40 +249,68 @@ async function applyStageActionToFX(c, action) {
         }
         case 'heal': {
             const healUnit = findUnitByUid(c, action.targetUid);
-            if (healUnit && action.amount) {
+            if (healUnit && action.amount && !GlobalStore.get('fastForwardActive')) {
                 showHealFloat(healUnit, action.amount);
             }
             break;
         }
         case 'dodge': {
             const attacker = findUnitByUid(c, action.actorUid);
-            if (attacker && action.reboundDmg) {
+            if (attacker && action.reboundDmg && !GlobalStore.get('fastForwardActive')) {
                 showDamageFloat(attacker, action.reboundDmg);
             }
             break;
         }
         case 'attack': {
             const target = findUnitByUid(c, action.targetUid);
-            if (target && action.dmg) {
+            if (target && action.dmg && !GlobalStore.get('fastForwardActive')) {
                 showDamageFloat(target, action.dmg);
             }
             break;
         }
-        case 'summon': {
-            c.isPaused = true;
-            await showBuffBanner('🐴 拒马阵！');
-            c.isPaused = false;
+        case 'dot': {
+            const target = findUnitByUid(c, action.targetUid);
+            if (target && action.dmg && !GlobalStore.get('fastForwardActive')) {
+                showDamageFloat(target, action.dmg);
+            }
             break;
         }
-        case 'destroy': {
-            c.isPaused = true;
-            await showBuffBanner('🐴 拒马已销毁');
-            c.isPaused = false;
+        case 'execute': {
+            const target = findUnitByUid(c, action.targetUid);
+            if (target && action.dmg && !GlobalStore.get('fastForwardActive')) {
+                showDamageFloat(target, action.dmg);
+            }
             break;
         }
+        case 'splash': {
+            if (action.splashUids && action.splashDmg && !GlobalStore.get('fastForwardActive')) {
+                action.splashUids.forEach(uid => {
+                    const t = findUnitByUid(c, uid);
+                    if (t) showDamageFloat(t, action.splashDmg);
+                });
+            }
+            break;
+        }
+        // flyMode 动画由 handleInfo 负责，导演只处理位置
+        // posSwap 动画由 handleBuffSwap 负责，导演只处理位置
+        // push 动画由 handleBuffPush 负责，导演只处理位置
+        // summon 横幅由 handleBuffSummon 负责，导演只处理位置
+        // destroy 横幅由 handleBuffDestroy 负责，导演只处理位置
         default:
             break;
     }
+}
+
+function rebuildUISnapshotFromStore(c) {
+    if (!c.store) return;
+    const storeUnits = c.store.getState().units;
+    const cloneUnit = (su) => {
+        const copyState = {};
+        ['_acted','_stunned','_isDead','_resting','_blocked','_flyMode','_butterflyHost','_spiderFlying','_spiderTriggeredHit','_spiderTriggered70','_spiderTriggered40','_spiderTriggeredDeath','_spiderTriggeredThisRound','_phantomTarget'].forEach(f => { if (su.state && su.state[f] !== undefined) copyState[f] = su.state[f]; });
+        return { ...su, state: copyState };
+    };
+    c.UI.allyTeam = storeUnits.filter(u => u.camp === 'ally').map(cloneUnit);
+    c.UI.enemyTeam = storeUnits.filter(u => u.camp === 'enemy').map(cloneUnit);
 }
 
 async function playStep(c, step, isFirstAttackRef) {
@@ -369,18 +387,6 @@ export async function playBattle() {
     setGridRenderCtx(c);
     c.updateUI();
 
-    function rebuildUISnapshotFromStore() {
-        if (!c.store) return;
-        const storeUnits = c.store.getState().units;
-        const cloneUnit = (su) => {
-            const copyState = {};
-            ['_acted','_stunned','_isDead','_resting','_blocked','_flyMode','_butterflyHost','_spiderFlying','_spiderTriggeredHit','_spiderTriggered70','_spiderTriggered40','_spiderTriggeredDeath','_spiderTriggeredThisRound','_phantomTarget'].forEach(f => { if (su.state && su.state[f] !== undefined) copyState[f] = su.state[f]; });
-            return { ...su, state: copyState };
-        };
-        c.UI.allyTeam = storeUnits.filter(u => u.camp === 'ally').map(cloneUnit);
-        c.UI.enemyTeam = storeUnits.filter(u => u.camp === 'enemy').map(cloneUnit);
-    }
-
     c.store.subscribe((state) => {
         if (!c.UI || !c.UI.allyTeam || !c.UI.enemyTeam) return;
 
@@ -423,7 +429,7 @@ export async function playBattle() {
         }
     });
 
-    rebuildUISnapshotFromStore();
+    rebuildUISnapshotFromStore(c);
     c._deadUnitsForReport = [];
     initRenderer(c);
     updateRoundDisplay('📜 日志（第1回合）');

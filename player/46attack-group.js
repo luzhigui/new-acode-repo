@@ -137,15 +137,7 @@ export async function handleAttackGroup(c, entry, roundResult, abortSig, isFirst
                     GlobalStore.set('bulletTimeActive', false); c.isPaused = false;
                 }
             }
-            if (entry2.splashUids && entry2.splashDmg) {
-                entry2.splashUids.forEach(uid => {
-                    const t = findUnitByUid(c, uid);
-                    if (t) {
-                        if (entry2.buffType === 'meteor_splash') setTimeout(() => showDamageFloat(t, entry2.splashDmg), 150);
-                        else showDamageFloat(t, entry2.splashDmg);
-                    }
-                });
-            }
+            // splash 伤害飘字已由导演 stageAction 'splash' 统一处理
             if (entry2.buffType === 'meteor_splash') await new Promise(r => setTimeout(r, GlobalStore.get('fastForwardActive') ? 1 : 600));
         }
 

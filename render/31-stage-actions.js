@@ -76,9 +76,17 @@ function translateFact(entry, index) {
             return {
                 kind: 'execute',
                 actorUid: data.unitUid ?? data.unit?.uid ?? null,
-                targetUid: data.uidD ?? data.targetUid ?? data.target?.uid ?? null,
+                targetUid: data.targetUid ?? data.uidD ?? data.target?.uid ?? null,
                 dmg: data.dmg ?? null,
                 dead: data.isDead ?? true,
+                factIndex: index
+            };
+        case 'xinHunDeath':
+            return {
+                kind: 'death',
+                actorUid: data.uidD ?? null,
+                targetUid: data.uidD ?? null,
+                dead: true,
                 factIndex: index
             };
         case 'spiderStrike':
