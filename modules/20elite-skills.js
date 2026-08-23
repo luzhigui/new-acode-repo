@@ -11,6 +11,7 @@ const ES = CONFIG.ELITE_SKILLS;
 // ==================== 玄冥二老 — 中毒/鹿角 ====================
 
 export function tickXuanmingPoison(unit, source) {
+    if (!unit.alive) return 0;
     if (!unit._xuanmingPoison || unit._xuanmingPoison.remaining <= 0) return 0;
     unit._xuanmingPoison.remaining--;
     const s = getSkillParams('鹿杖客', 'xuanmingPalm') || ES.xuanmingPalm;

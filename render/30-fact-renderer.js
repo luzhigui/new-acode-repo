@@ -67,8 +67,9 @@ export function renderDodgeFact(fact) {
     if (dodgeGroup.isDead) {
         dodgeGroup.hpAfter = 0;
         dodgeGroup.entries.push({type:'info', text:`${unit.name}被反击击杀！`});
+    } else {
+        dodgeGroup.entries.push({type:'info', text:`<span class="gray">😵 ${unit.name} 被反击眩晕，本回合无法行动！</span>`});
     }
-    dodgeGroup.entries.push({type:'info', text:`<span class="gray">😵 ${unit.name} 被反击眩晕，本回合无法行动！</span>`});
 
     return dodgeGroup;
 }
@@ -100,7 +101,9 @@ export function renderAttackFact(fact) {
         : makeFXSnapshot(unit, target);
     const killLine = dmgResult.dead || dmgResult.executeKill;
     const group = {
-        type:'attack-group', uidA:unit.uid, uidD:target.uid, entries:[],
+        type:'attack-group', uidA:unit.uid, uidD:target.uid,
+        attackerName:unit.name, targetName:target.name,
+        entries:[],
         hpAfter: targetHpAfter, alive: targetAlive, isDead: killLine,
         waveTaunt: dmgCalc.waveTaunt, waveUnit: dmgCalc.waveUnit,
         unitRole,
@@ -386,8 +389,11 @@ export function renderPassFact(fact) {
 }
 
 // ==================== 苦练 ====================
+export function renderKuLianPriorityFact(fact) {
+    return { type:'info', text:`<span class="gold">⚡ 苦练勤学：${fact.unitName} 率先行动！</span>` };
+}
 export function renderKuLianFact(fact) {
-    return { type:'info', text:`<span class="gold">🏋️ 苦练：${fact.unitName} 激励全体队友+${fact.atkBonus}攻+${fact.defBonus}防+${fact.hpBonus}血上限（自身翻倍）！</span>` };
+    return { type:'info', text:`<span class="gold">🏋️ 苦练强化：${fact.unitName} 激励全体队友+${fact.atkBonus}攻+${fact.defBonus}防+${fact.hpBonus}血上限（自身翻倍）！</span>` };
 }
 
 // ==================== 概率连击 ====================
@@ -460,7 +466,8 @@ export function renderSpiderReturnFact(fact) {
     return { type:'info', spiderAction:'return', spiderUid: fact.spiderUid, text:`<span class="gold">🕷️ 蛛落：${fact.unitName} 从天而降，落在${fact.pos}号位！</span>` };
 }
 export function renderSpiderStrikeFact(fact) {
-    return { type:'info', text:`<span class="gold">🕷️ 蛛袭：${fact.unitName} 落地攻击 ${fact.targetName}，穿透${fact.penetrationDmg} + 精通${fact.extraDmg} = ${fact.totalDmg} 伤害！</span>`, uidA: fact.unitUid, uidD: fact.targetUid, isDead: fact.isDead, isSpiderStrike: true, needsSeparator: true };
+    // 蛛袭不再产生日志文本，由导演 stageAction 直接驱动特效与掉血
+    return null;
 }
 
 // ==================== 玄冥神掌 ====================
@@ -621,7 +628,7 @@ export function renderClawExecuteFact(fact) {
     return { type:'info', text:`<span style="color:#222">🐾 九阴白骨爪斩杀！${fact.unitName} 对 ${fact.targetName} ${dmgText}</span>` };
 }
 export function renderClawHealFact(fact) {
-    return { type:'info', text:`<span class="green">💚 宋青书因九阴白骨爪共回复${fact.totalHeal}点生命</span>` };
+    return { type:'info', text:`<span class="green">💚 宋青书因九阴白骨爪共回复${Math.round(fact.totalHeal)}点生命</span>` };
 }
 export function renderPhantomRevealFact(fact) {
     return { type:'info', text:`<span class="gold">🎭 ${fact.unitName}识破${fact.deceiver}伪装，锁定真正的${fact.deceiver}！</span>` };
@@ -647,6 +654,7 @@ export function renderLog(type, data) {
         case 'carryApply': return renderCarryApplyFact(data);
         case 'horseSummon': return renderHorseSummonFact(data);
         case 'pass': return renderPassFact(data);
+        case 'kuLianPriority': return renderKuLianPriorityFact(data);
         case 'kuLian': return renderKuLianFact(data);
         case 'doubleStrike': return renderDoubleStrikeFact(data);
         case 'rangedGrowth': return renderRangedGrowthFact(data);

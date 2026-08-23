@@ -151,6 +151,32 @@ export function battleReducer(state, action) {
         case 'REMOVE_UNIT': {
             return { ...state, units: state.units.filter(u => u.uid !== action.uid) };
         }
+        case 'SYNC_FULL_UNITS': {
+            const allyMap = new Map(action.ally.map(u => [u.uid, u]));
+            const enemyMap = new Map(action.enemy.map(u => [u.uid, u]));
+            let next = state.units.map(u => {
+                const src = u.camp === 'ally' ? allyMap.get(u.uid) : enemyMap.get(u.uid);
+                if (!src) return u;
+                const copyState = { ...(u.state || {}) };
+                ['_acted','_stunned','_isDead','_resting','_blocked','_flyMode','_butterflyHost','_spiderFlying','_spiderTriggeredHit','_spiderTriggered70','_spiderTriggered40','_spiderTriggeredDeath','_spiderTriggeredThisRound','_phantomTarget'].forEach(f => {
+                    if (src.state && src.state[f] !== undefined) copyState[f] = src.state[f];
+                });
+                return {
+                    ...u,
+                    hp: src.hp, maxHp: src.maxHp, atk: src.atk, def: src.def,
+                    alive: src.alive, pos: src.pos, role: src.role,
+                    rangedForm: src.rangedForm, state: copyState
+                };
+            });
+            const remainingEnemy = action.enemy.filter(src => !next.find(u => u.uid === src.uid));
+            const remainingAlly = action.ally.filter(src => !next.find(u => u.uid === src.uid));
+            for (const src of [...remainingAlly, ...remainingEnemy]) {
+                const copyState = {};
+                ['_acted','_stunned','_isDead','_resting','_blocked','_flyMode','_butterflyHost','_spiderFlying','_spiderTriggeredHit','_spiderTriggered70','_spiderTriggered40','_spiderTriggeredDeath','_spiderTriggeredThisRound','_phantomTarget'].forEach(f => { if (src.state && src.state[f] !== undefined) copyState[f] = src.state[f]; });
+                next.push({ ...src, state: copyState });
+            }
+            return { ...state, units: next };
+        }
         case 'SYNC_BATTLE_STATS': {
             const allyMap = new Map(action.ally.map(u => [u.uid, u]));
             const enemyMap = new Map(action.enemy.map(u => [u.uid, u]));

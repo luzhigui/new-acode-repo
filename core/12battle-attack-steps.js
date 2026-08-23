@@ -312,7 +312,7 @@ export function applyAttackResult(unit, target, dmgCalc, attackerBuffStats, defe
             source: target,
             target: unit,
             factType: 'horseRebound',
-            factData: { unitName: unit.name, rebound }
+            factData: { unitName: unit.name, rebound, attackerUid: unit.uid, unitUid: target.uid }
         });
     }
 
@@ -332,7 +332,7 @@ export function applyAttackResult(unit, target, dmgCalc, attackerBuffStats, defe
                 target: unit,
                 hasSister,
                 factType: 'fortifyRebound',
-                factData: { reboundDmg, unitName: unit.name, hasSister }
+                factData: { reboundDmg, unitName: unit.name, hasSister, attackerUid: unit.uid, unitUid: target.uid }
             }];
         }
     }

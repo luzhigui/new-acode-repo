@@ -1,6 +1,6 @@
 // player/42player-core.js - 光明顶5v5 战斗播放器核心
-// V5.5.2 | ~29509 bytes| 2026-08-19 import 路径合并至 infra/51-core-utils
-export const VER = 'player/42player-core.js V5.5.2';
+// V5.6.0 | ~34000 bytes| 2026-08-23 导演调度：格子/特效/日志三线并行，stageAction驱动
+export const VER = 'player/42player-core.js V5.6.0';
 
 import { showBuffBanner, showHealFloat, showWindClaw, showSplashArrows, showDamageFloat } from '../fx/87fx-manager.js';
 import { CONFIG } from '../core/01config-5v5-test.js';
@@ -11,7 +11,7 @@ import { createRoundStepper } from '../core/11battle-round.js';
 import { SeededRNG } from '../infra/51-core-utils.js';
 import { getBattleRng } from '../core/13battle-shared.js';
 import { GlobalStore, getState, getPlayerContext } from '../infra/54-global-store.js';
-import { createStore, battleReducer, GAME_STATE_FIELDS } from '../modules/24battle-store.js';
+import { createStore, battleReducer } from '../modules/24battle-store.js';
 import { handleBuffBonus, handleBuffSwap, handleBuffPush, handleBuffReboundFortify, handleInfo, handleRoundStart, handleRoundEnd, shouldStartNewGroup } from './45event-handlers.js';
 import { handleAttackGroup } from './46attack-group.js';
 import { getLogDiv, appendLogHTML, appendLogElement, autoScrollLog, updateRoundDisplay, renderSeparator, renderRoundStart, renderRoundEnd, renderInfoLine, renderVictoryLine, setBtnDisabled, setBtnText, initRenderer, initLogScrollControls, showScoreFloat, findUnitByUid } from './47renderer.js';
@@ -36,7 +36,6 @@ export async function playLogEntries(c, log, roundResult, isFirstAttackRef) {
             await c.waitWhilePaused();
             let entry = log[i];
 
-            // ★ fact 投影：结构化事实 → 渲染条目
             if (entry && entry.factType) {
                 const rendered = renderLog(entry.factType, entry.data);
                 if (Array.isArray(rendered)) {
@@ -81,10 +80,6 @@ export async function playLogEntries(c, log, roundResult, isFirstAttackRef) {
                 case 'buff-leech':
                     if (entry.buffType === 'hotBlood') {
                         appendLogHTML(entry.text + '<br>');
-                        let healUnit = findUnitByUid(c, entry.healUnitUid);
-                        if (healUnit && entry.healAmount) {
-                            showHealFloat(healUnit, entry.healAmount);
-                        }
                         c.isPaused = true; GlobalStore.set('bulletTimeActive', true);
                         let bannerText = entry.isDouble ? '❤️‍🔥 热血奋战(翻倍)！' : '❤️ 热血奋战！';
                         await showBuffBanner(bannerText);
@@ -126,7 +121,7 @@ export async function playLogEntries(c, log, roundResult, isFirstAttackRef) {
                     appendLogHTML(entry.text + '<br>');
                     if (entry.splashUids && entry.splashDmg) {
                         entry.splashUids.forEach(uid => {
-                            let targetUnit = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.uid === uid);
+                            let targetUnit = findUnitByUid(c, uid);
                             if (targetUnit) {
                                 if (entry.buffType === 'meteor_splash') {
                                     setTimeout(() => showDamageFloat(targetUnit, entry.splashDmg), 150);
@@ -185,6 +180,139 @@ export async function playLogEntries(c, log, roundResult, isFirstAttackRef) {
     return { isBattleOver: false };
 }
 
+function applyStageActionToStore(c, action) {
+    if (!c.store || !action) return;
+    switch (action.kind) {
+        case 'attack':
+        case 'dot':
+        case 'execute':
+        case 'spiderStrike':
+            if (action.dead && action.targetUid) {
+                c.store.dispatch({ type: 'SET_FLASH', uid: action.targetUid, flash: 'dead' });
+                c.store.dispatch({ type: 'SET_VISUAL', uid: action.targetUid, _isDead: true });
+            }
+            break;
+        case 'dodge':
+            if (action.dead && action.actorUid) {
+                c.store.dispatch({ type: 'SET_FLASH', uid: action.actorUid, flash: 'dead' });
+                c.store.dispatch({ type: 'SET_VISUAL', uid: action.actorUid, _isDead: true });
+            }
+            break;
+        case 'posSwap':
+            if (action.actorUid && action.targetUid) {
+                c.store.dispatch({ type: 'APPLY_EVENTS', events: [
+                    { eventType: 'pos-change', uid: action.actorUid, pos: action.oldPosB },
+                    { eventType: 'pos-change', uid: action.targetUid, pos: action.oldPosA }
+                ]});
+            }
+            break;
+        case 'push':
+            if (action.actorUid && action.targetUid) {
+                c.store.dispatch({ type: 'APPLY_EVENTS', events: [
+                    { eventType: 'pos-change', uid: action.actorUid, pos: action.newPos },
+                    { eventType: 'pos-change', uid: action.targetUid, pos: action.oldPos }
+                ]});
+            } else if (action.actorUid && action.newPos != null) {
+                c.store.dispatch({ type: 'APPLY_EVENTS', events: [
+                    { eventType: 'pos-change', uid: action.actorUid, pos: action.newPos }
+                ]});
+            }
+            break;
+        case 'summon':
+            if (action.actorUid) {
+                const unit = c.store.getState().units.find(u => u.uid === action.actorUid);
+                if (unit) {
+                    c.store.dispatch({ type: 'SET_VISUAL', uid: unit.uid, _acted: false });
+                }
+            }
+            break;
+        case 'destroy':
+            if (action.success && action.actorUid) {
+                c.store.dispatch({ type: 'REMOVE_UNIT', uid: action.actorUid });
+            }
+            break;
+        case 'roundStart':
+            c.store.getState().units.forEach(u => {
+                if (u.alive) c.store.dispatch({ type: 'SET_VISUAL', uid: u.uid, _acted: false });
+            });
+            break;
+        default:
+            break;
+    }
+}
+
+async function applyStageActionToFX(c, action) {
+    if (!action) return;
+    switch (action.kind) {
+        case 'spiderStrike': {
+            const spiderUnit = findUnitByUid(c, action.actorUid);
+            const strikeTarget = findUnitByUid(c, action.targetUid);
+            if (spiderUnit && strikeTarget) {
+                c.isPaused = true;
+                GlobalStore.set('bulletTimeActive', true);
+                const { showSpiderStrike } = await import('../fx/86fx-butterfly-spider.js');
+                await showSpiderStrike(spiderUnit, strikeTarget);
+                GlobalStore.set('bulletTimeActive', false);
+                c.isPaused = false;
+            }
+            break;
+        }
+        case 'heal': {
+            const healUnit = findUnitByUid(c, action.targetUid);
+            if (healUnit && action.amount) {
+                showHealFloat(healUnit, action.amount);
+            }
+            break;
+        }
+        case 'dodge': {
+            const attacker = findUnitByUid(c, action.actorUid);
+            if (attacker && action.reboundDmg) {
+                showDamageFloat(attacker, action.reboundDmg);
+            }
+            break;
+        }
+        case 'attack': {
+            const target = findUnitByUid(c, action.targetUid);
+            if (target && action.dmg) {
+                showDamageFloat(target, action.dmg);
+            }
+            break;
+        }
+        case 'summon': {
+            c.isPaused = true;
+            await showBuffBanner('🐴 拒马阵！');
+            c.isPaused = false;
+            break;
+        }
+        case 'destroy': {
+            c.isPaused = true;
+            await showBuffBanner('🐴 拒马已销毁');
+            c.isPaused = false;
+            break;
+        }
+        default:
+            break;
+    }
+}
+
+async function playStep(c, step, isFirstAttackRef) {
+    if (step.stageActions && step.stageActions.length > 0) {
+        for (const action of step.stageActions) {
+            applyStageActionToStore(c, action);
+            await applyStageActionToFX(c, action);
+        }
+    }
+
+    await playLogEntries(c, step.log, step, isFirstAttackRef);
+
+    if (step.events && step.events.length > 0) {
+        c.store.dispatch({ type: 'APPLY_EVENTS', events: step.events });
+    }
+    c.store.dispatch({ type: 'SYNC_BATTLE_STATS', ally: step.ally, enemy: step.enemy });
+    c.store.dispatch({ type: 'SYNC_FULL_UNITS', ally: step.ally, enemy: step.enemy });
+    rebuildUISnapshotFromStore(c);
+}
+
 export async function playBattle() {
     const c = getCtx();
     if (!c || !c.snapshot || !c.snapshot.ally || !c.snapshot.ally.length) return;
@@ -241,7 +369,6 @@ export async function playBattle() {
     setGridRenderCtx(c);
     c.updateUI();
 
-    // UI 快照整体重建：从 store 克隆单位到 c.UI，保证 c.UI 只读且与 store 一致
     function rebuildUISnapshotFromStore() {
         if (!c.store) return;
         const storeUnits = c.store.getState().units;
@@ -256,8 +383,7 @@ export async function playBattle() {
 
     c.store.subscribe((state) => {
         if (!c.UI || !c.UI.allyTeam || !c.UI.enemyTeam) return;
-        // UI 单源化：不再逐字段同步 c.UI，快照由每步结束后的 rebuildUISnapshotFromStore 整体重建
-        // 新增单位：store 有而 c.UI 快照没有的，补进快照
+
         const mergeNewUnits = (camp) => {
             const dst = camp === 'ally' ? c.UI.allyTeam : c.UI.enemyTeam;
             for (const su of state.units.filter(u => u.camp === camp)) {
@@ -270,7 +396,7 @@ export async function playBattle() {
         };
         mergeNewUnits('ally');
         mergeNewUnits('enemy');
-        // 移除单位：c.UI 快照有而 store 没有的，从快照剔除
+
         const removeStaleUnits = (camp) => {
             const liveUids = new Set(state.units.filter(u => u.camp === camp).map(u => u.uid));
             if (camp === 'ally') c.UI.allyTeam = c.UI.allyTeam.filter(u => liveUids.has(u.uid));
@@ -335,13 +461,7 @@ export async function playBattle() {
             if (abortSig && abortSig.aborted) return;
             await c.waitWhilePaused();
             lastStep = step;
-            await playLogEntries(c, step.log, step, isFirstAttackRef);
-
-            if (step.events && step.events.length > 0) {
-                c.store.dispatch({ type: 'APPLY_EVENTS', events: step.events });
-            }
-            c.store.dispatch({ type: 'SYNC_BATTLE_STATS', ally: step.ally, enemy: step.enemy });
-            rebuildUISnapshotFromStore();
+            await playStep(c, step, isFirstAttackRef);
 
             await new Promise(r => setTimeout(r, GlobalStore.get('fastForwardActive') ? 1 : Math.max(100, c.speed / 2)));
 
@@ -418,7 +538,6 @@ export async function playBattle() {
             }
         }
 
-        // 同步小昭·妹永久海克斯到下一回合引擎单位，保证本场后续回合生效
         const uiXiaoZhao = c.UI && c.UI.allyTeam ? c.UI.allyTeam.find(u => u.isXiaoZhaoBrother) : null;
         if (uiXiaoZhao && uiXiaoZhao._permanentBuffs && lastStep && lastStep.ally) {
             const engineXiaoZhao = lastStep.ally.find(u => u.isXiaoZhaoBrother);

@@ -1,6 +1,6 @@
 // player/45event-handlers.js - 光明顶5v5 事件处理器函数族
-// V5.5.1 | ~28500 bytes| 2026-08-17 适配render层，保持日志对象结构
-export const VER = 'player/45event-handlers.js V5.5.1';
+// V5.6.0 | ~27500 bytes| 2026-08-23 导演调度：格子标记与位置统一走stageAction
+export const VER = 'player/45event-handlers.js V5.6.0';
 
 import { isBlocked } from '../core/03battle-utils.js';
 import { _triggerFX } from '../fx/88fx-trigger.js';
@@ -32,12 +32,7 @@ export async function handleBuffSwap(c, entry) {
             skipDataChange: true,
             oldPositions: (oldPosA != null && oldPosB != null) ? [oldPosA, oldPosB] : null
         });
-        if (c.store) {
-            c.store.dispatch({ type: 'APPLY_EVENTS', events: [
-                { eventType: 'pos-change', uid: unitA.uid, pos: oldPosB || unitB.pos },
-                { eventType: 'pos-change', uid: unitB.uid, pos: oldPosA || unitA.pos }
-            ]});
-        }
+        // 位置交换已由导演 stageAction 'posSwap' 统一处理
     }
     GlobalStore.set('bulletTimeActive', false);
     c.isPaused = false;
@@ -46,22 +41,7 @@ export async function handleBuffSwap(c, entry) {
 export async function handleBuffPush(c, entry) {
     c.isPaused = true;
     GlobalStore.set('bulletTimeActive', true);
-    if (entry.pushTargetUid) {
-        const events = [];
-        const targetUnit = findUnitByUid(c, entry.pushTargetUid);
-        if (entry.behindUid) {
-            const behindUnit = findUnitByUid(c, entry.behindUid);
-            if (targetUnit && behindUnit) {
-                events.push({ eventType: 'pos-change', uid: targetUnit.uid, pos: entry.oldPos || behindUnit.pos });
-                events.push({ eventType: 'pos-change', uid: behindUnit.uid, pos: entry.behindOldPos || targetUnit.pos });
-            }
-        } else if (targetUnit && entry.newPos) {
-            events.push({ eventType: 'pos-change', uid: targetUnit.uid, pos: entry.newPos });
-        }
-        if (events.length > 0) {
-            c.store.dispatch({ type: 'APPLY_EVENTS', events });
-        }
-    }
+    // 击退位置已由导演 stageAction 'push' 统一处理
     await showBuffBanner('🦅 乘风突袭！');
     GlobalStore.set('bulletTimeActive', false);
     c.isPaused = false;
@@ -89,10 +69,7 @@ export async function handleBuffReboundFortify(c, entry) {
         let selfTarget = findUnitByUid(c, entry.selfDmgUid);
         if (selfTarget) showDamageFloat(selfTarget, entry.selfDmg);
     }
-    if (attacker && entry.isDead && c.store) {
-        c.store.dispatch({ type: 'SET_FLASH', uid: attacker.uid, flash: 'dead' });
-        c.store.dispatch({ type: 'SET_VISUAL', uid: attacker.uid, _isDead: true });
-    }
+    // 死亡标记已由导演 stageAction 统一处理
     appendLogHTML(entry.text + '<br>');
     await new Promise(r=>setTimeout(r, GlobalStore.get('fastForwardActive') ? 1 : c.speed/2));
 }
@@ -148,7 +125,7 @@ export async function handleInfo(c, entry) {
         }
 
         if (entry.buffType === 'elite_xinhun') {
-            let song = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.name === '宋青书');
+            let song = c.store ? c.store.getState().units.find(u => u.name === '宋青书') : null;
             let zhou = findUnitByUid(c, entry.zhouUid);
             if (zhou) c.store.dispatch({ type: 'SET_VISUAL', uid: zhou.uid, _hasKuaiLe: true });
             requestAnimationFrame(() => {
@@ -172,25 +149,7 @@ export async function handleInfo(c, entry) {
             }
         }
 
-
-        if (entry.isSpiderStrike && entry.uidA && entry.uidD) {
-            const spiderUnit = findUnitByUid(c, entry.uidA);
-            const strikeTarget = findUnitByUid(c, entry.uidD);
-            if (spiderUnit && strikeTarget) {
-                await playLogLine(entry.text);
-                c.isPaused = true;
-                GlobalStore.set('bulletTimeActive', true);
-                const { showSpiderStrike } = await import('../fx/86fx-butterfly-spider.js');
-                await showSpiderStrike(spiderUnit, strikeTarget);
-                if (entry.text && entry.isDead && strikeTarget && c.store) {
-                    c.store.dispatch({ type: 'SET_FLASH', uid: strikeTarget.uid, flash: 'dead' });
-                    c.store.dispatch({ type: 'SET_VISUAL', uid: strikeTarget.uid, _isDead: true });
-                }
-                await new Promise(r => setTimeout(r, 1800));
-                GlobalStore.set('bulletTimeActive', false);
-                c.isPaused = false;
-            }
-        }
+        // 蛛袭已由导演 stageAction 'spiderStrike' 统一驱动特效与掉血，不再经过日志分支
 
         if (entry.isClawHit && entry.clawAttackerUid && entry.clawTargetUid) {
             let attacker = findUnitByUid(c, entry.clawAttackerUid);
@@ -206,21 +165,11 @@ export async function handleInfo(c, entry) {
                 c.store.dispatch({ type: 'APPLY_EVENTS', events: entry._events });
             }
         }
-        if (entry.isHealEntry && entry.healAmount && entry.healUnitUid) {
-            let healUnit = findUnitByUid(c, entry.healUnitUid);
-            if (healUnit) showHealFloat(healUnit, entry.healAmount);
-        }
+        // 治疗飘字已由导演 stageAction 'heal' 统一处理
 
-        if (entry.reboundDmg && entry.attackerUid) {
-            let attacker = findUnitByUid(c, entry.attackerUid);
-            if (attacker) showDamageFloat(attacker, entry.reboundDmg);
-        }
+        // rebond 飘字已由导演 stageAction 'attack' 统一处理
         if (entry.isDead && entry.uidD) {
             let deadUnit = findUnitByUid(c, entry.uidD);
-            if (deadUnit && c.store) {
-                c.store.dispatch({ type: 'SET_FLASH', uid: deadUnit.uid, flash: 'dead' });
-                c.store.dispatch({ type: 'SET_VISUAL', uid: deadUnit.uid, _isDead: true });
-            }
             const deadDiv = await playLogLine(entry.text);
             applyBrushEffect(deadDiv);
             if (entry.dmg && deadUnit) showDamageFloat(deadUnit, entry.dmg);
