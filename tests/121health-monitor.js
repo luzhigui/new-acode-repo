@@ -33,6 +33,8 @@ let monitorActive = false, gameLoaded = false, scanTimer = null, isPaused = fals
 let detectedIssues = [], issueKeys = new Set(), lastSampledStage = 0;
 let battleEnded = false, battleStartTime = 0, battleGen = 0;
 let rulePassCount = 0, ruleSkipCount = 0;
+// 未覆盖规则（skip）名单：体检不静默——哪些规则因当轮阵容/事件没出现而没跑到，报告里明说
+let ruleSkipNames = new Set();
 let gameFrame, gameArea, reportArea, statusLine;
 
 // UI 类异常去抖：full-auto 快进下状态机切换极快，渲染常有滞后一拍。
@@ -177,6 +179,7 @@ export function initMonitor() {
         btnStopMonitor.disabled = false; btnStopMonitor.textContent = '⏸️ 暂停';
         isPaused = false; monitorActive = true; gameLoaded = false;
         detectedIssues = []; issueKeys.clear(); pendingIssueCounts = {}; lastSampledStage = 0;
+        rulePassCount = 0; ruleSkipCount = 0; ruleSkipNames.clear();
         battleEnded = false; battleStartTime = 0;
         updateReport(); statusLine.textContent = '正在加载游戏...';
         const waitReady = setInterval(() => {
@@ -247,7 +250,7 @@ export function initMonitor() {
 
     btnClearReport.addEventListener('click', () => {
         showConfirm('确定清空所有异常记录吗？', () => {
-            detectedIssues = []; issueKeys.clear(); updateReport(); updateStatusLine();
+            detectedIssues = []; issueKeys.clear(); ruleSkipNames.clear(); updateReport(); updateStatusLine();
         });
     });
 
@@ -386,6 +389,7 @@ function runRuleChecks(ctx, doc) {
                 for (const m of msgs) if (m.trim()) recordIssue(ctx, null, m.substring(0, 30), m.trim(), '规则');
             } else if (result === 'skip') {
                 ruleSkipCount++;
+                ruleSkipNames.add(rule.name);
             } else {
                 rulePassCount++;
             }
@@ -524,6 +528,13 @@ function updateReport() {
         backBtn.style.display = 'inline-block';
         reportArea.appendChild(backBtn);
     }
+    // 未覆盖规则名单：skip 不静默。列在这里提醒本轮阵容/事件没触发对应检查，不代表通过
+    if (ruleSkipNames.size > 0) {
+        const skipDiv = document.createElement('div');
+        skipDiv.style.cssText = 'color:#888;font-size:11px;margin-top:8px;padding:6px 8px;border:1px dashed #555;border-radius:6px;';
+        skipDiv.textContent = '⏭️ 未覆盖规则' + ruleSkipNames.size + '条（当轮阵容/事件未触发，不代表通过）：' + [...ruleSkipNames].join('、');
+        reportArea.appendChild(skipDiv);
+    }
     const copyBtn = document.createElement('button');
     copyBtn.className = 'copy-btn';
     copyBtn.style.cssText = 'margin-top:10px;padding:8px 16px;background:#3a3a6e;border:1px solid #555;border-radius:6px;color:#ccc;font-size:11px;cursor:pointer;';
@@ -568,7 +579,8 @@ function finalizeAutoReport(ctx, doc, reason) {
             issues: finalIssues,
             issueCount: finalIssues.length,
             rulePass: rulePassCount,
-            ruleSkip: ruleSkipCount
+            ruleSkip: ruleSkipCount,
+            ruleSkippedNames: [...ruleSkipNames]
         };
         window.__healthResult = report;
         statusLine.textContent = `自动模式 ✅ | ${Math.round(elapsed)}s | 异常${finalIssues.length}项 | 规则✅${rulePassCount} ⏭️${ruleSkipCount}`;
