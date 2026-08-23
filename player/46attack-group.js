@@ -1,20 +1,12 @@
 // player/46attack-group.js - 光明顶5v5 攻击组事件处理器
-// V5.6.0 | ~12000 bytes| 2026-08-23 只念稿+动效；格子正确性由导演stageAction统一驱动
-export const VER = 'player/46attack-group.js V5.6.0';
+// V5.7.0 | ~12100 bytes| 2026-08-23 fx 直调改事件订阅，player 不再依赖 fx
+export const VER = 'player/46attack-group.js V5.7.0';
 
-import { _triggerFX } from '../fx/88fx-trigger.js';
-import {
-    showDanmaku, showDamageFloat, showDodgeBubble, showHealFloat, showAtkBuffFloat,
-    applyBrushEffect, showBuffBanner, showCriticalBanner, showHeartEffect, showPinkFlash,
-    showKuLianEffect, showWindClaw, showDodgeBulletTime, showRangedArrow, showSplashArrows,
-    showBoneClaw, animatePositionSwap, animatePushBack, animatePushSwap,
-    showButterflyFlyOut, showButterflyFlyBack, showSpiderAscend, showSpiderDescend, showSpiderStrike
-} from '../fx/87fx-manager.js';
+import { eventBus } from '../infra/50-event-bus.js';
+import { FX_SIGNALS } from '../infra/55-fx-signals.js';
 import { AudioManager } from '../modules/22audio-manager.js';
 import { getState } from '../infra/54-global-store.js';
 import { appendLogHTML, autoScrollLog, updateRoundDisplay, playLogLine, appendHiddenDetail, findUnitByUid } from './47renderer.js';
-
-const safeShowDanmaku = (...args) => { try { return showDanmaku(...args); } catch(e) {} };
 
 export async function handleAttackGroup(c, entry, roundResult, abortSig, isFirstAttackRef) {
     let unitA = findUnitByUid(c, entry.uidA);
@@ -32,12 +24,12 @@ export async function handleAttackGroup(c, entry, roundResult, abortSig, isFirst
         const flashType = entry.isDodge ? 'defend' : 'attack';
         if (entry.isKuLianAttack && unitA) {
             const team = unitA.camp === 'ally' ? c.UI.allyTeam : c.UI.enemyTeam;
-            showKuLianEffect(unitA, team);
+            eventBus.emit(FX_SIGNALS.KULIAN, { unit: unitA, team });
             await new Promise(r => setTimeout(r, 1200));
         }
         if (c.store) c.store.dispatch({ type: 'SET_FLASH', uid: unitA.uid, flash: flashType });
         setTimeout(() => {
-            _triggerFX(entry._fxSnapshot, unitA, unitD, entry.isDead, entry.isDodge, entry.isMiss, entry.isBlock, entry._dmg, entry.waveTaunt, entry.waveUnit, entry.unitRole);
+            eventBus.emit(FX_SIGNALS.TRIGGER, { fxSnapshot: entry._fxSnapshot, unitA, unitD, isDead: entry.isDead, isDodge: entry.isDodge, isMiss: entry.isMiss, isBlock: entry.isBlock, dmg: entry._dmg, waveTaunt: entry.waveTaunt, waveUnit: entry.waveUnit, attackerRole: entry.unitRole });
         }, 0);
         // 防战严阵横幅由 handleBuffReboundFortify 负责，导演不重复
         if (!entry.isBlock && !entry.isMiss && !entry.isDodge && unitA) {
@@ -91,12 +83,12 @@ export async function handleAttackGroup(c, entry, roundResult, abortSig, isFirst
         if (c.dodgeEffectEnabled) {
             c.isPaused = true;
             GlobalStore.set('bulletTimeActive', true);
-            await showCriticalBanner('✨闪避反击✨');
-            await showDodgeBulletTime(unitD, unitA, 0);
+            await eventBus.emit(FX_SIGNALS.CRITICAL_BANNER, { text: '✨闪避反击✨' });
+            await eventBus.emit(FX_SIGNALS.DODGE_BULLET_TIME, { unitD, unitA });
             GlobalStore.set('bulletTimeActive', false);
             c.isPaused = false;
         } else {
-            showDodgeBubble(unitA, '闪避！');
+            eventBus.emit(FX_SIGNALS.DODGE_BUBBLE, { unit: unitA, text: '闪避！' });
         }
     }
 
@@ -116,7 +108,7 @@ export async function handleAttackGroup(c, entry, roundResult, abortSig, isFirst
         // rebond/selfDmg 飘字已由导演 stageAction 'attack' 统一处理
         if (entry2.buffType === 'qiankun_atk' && entry2.atkTargetUid && entry2.atkGain) {
             const atkTarget = findUnitByUid(c, entry2.atkTargetUid);
-            if (atkTarget) setTimeout(() => showAtkBuffFloat(atkTarget, entry2.atkGain), 180);
+            if (atkTarget) setTimeout(() => eventBus.emit(FX_SIGNALS.ATK_BUFF_FLOAT, { unit: atkTarget, gain: entry2.atkGain }), 180);
         }
 
         if (entry2.type === 'buff-splash') {
@@ -126,8 +118,8 @@ export async function handleAttackGroup(c, entry, roundResult, abortSig, isFirst
                 const splashU = entry2.splashUids.map(uid => findUnitByUid(c, uid)).filter(u => u);
                 if (attacker && primary && splashU.length > 0) {
                     c.isPaused = true; GlobalStore.set('bulletTimeActive', true);
-                    await showBuffBanner('☄️ 流星赶月！');
-                    showSplashArrows(attacker, primary, splashU, c.speed, () => c.isPaused);
+                    await eventBus.emit(FX_SIGNALS.BANNER, { text: '☄️ 流星赶月！' });
+                    eventBus.emit(FX_SIGNALS.SPLASH_ARROWS, { attacker, primary, targets: splashU, speed: c.speed, isPausedFn: () => c.isPaused });
                     splashU.forEach((st, i) => { setTimeout(() => AudioManager.playSfx(attacker.role || '远程'), i * 120); });
                     GlobalStore.set('bulletTimeActive', false); c.isPaused = false;
                 }
@@ -141,10 +133,10 @@ export async function handleAttackGroup(c, entry, roundResult, abortSig, isFirst
             const clawTarget = findUnitByUid(c, entry2.clawTargetUid);
             if (clawTarget && entry2.text) {
                 const dmgMatch = entry2.text.match(/造成 (\d+(?:\.\d+)?) 点伤害/);
-                if (dmgMatch) showDamageFloat(clawTarget, Math.round(parseFloat(dmgMatch[1])));
+                if (dmgMatch) eventBus.emit(FX_SIGNALS.DAMAGE_FLOAT, { unit: clawTarget, dmg: Math.round(parseFloat(dmgMatch[1])) });
             }
             if (clawAttacker && clawTarget) {
-                showBoneClaw(clawAttacker, clawTarget, c.speed, () => c.isPaused, null, { isExecute: entry2.isExecute });
+                eventBus.emit(FX_SIGNALS.BONE_CLAW, { attacker: clawAttacker, target: clawTarget, speed: c.speed, isPausedFn: () => c.isPaused, opts: { isExecute: entry2.isExecute } });
             }
         }
 
@@ -160,15 +152,15 @@ export async function handleAttackGroup(c, entry, roundResult, abortSig, isFirst
         // 攻击伤害飘字已由导演 stageAction 'attack' 统一处理
     }
 
-    if (entry.isDead && lastDiv && !entry.isBlock && !entry.isMiss) applyBrushEffect(lastDiv);
-    if (entry.isDodge && unitA) showDodgeBubble(unitA, '闪避！');
-    if (entry.isMiss && unitA) showDodgeBubble(unitA, '未命中');
+    if (entry.isDead && lastDiv && !entry.isBlock && !entry.isMiss) eventBus.emit(FX_SIGNALS.BRUSH_EFFECT, { el: lastDiv });
+    if (entry.isDodge && unitA) eventBus.emit(FX_SIGNALS.DODGE_BUBBLE, { unit: unitA, text: '闪避！' });
+    if (entry.isMiss && unitA) eventBus.emit(FX_SIGNALS.DODGE_BUBBLE, { unit: unitA, text: '未命中' });
 
     if (unitD && entry.hpPctAfter !== undefined && entry.hpPctBefore !== undefined) {
         if (entry.hpPctBefore > 40 && entry.hpPctAfter <= 40 && entry.hpPctAfter > 20) {
-            safeShowDanmaku(unitD, unitD.camp === 'ally' ? '不好，必须反击了！' : '小儿安敢伤我！');
+            eventBus.emit(FX_SIGNALS.DANMAKU, { unit: unitD, text: unitD.camp === 'ally' ? '不好，必须反击了！' : '小儿安敢伤我！' });
         } else if (entry.hpPctBefore > 20 && entry.hpPctAfter <= 20) {
-            safeShowDanmaku(unitD, unitD.camp === 'ally' ? '撑住！' : '已是强弩之末！');
+            eventBus.emit(FX_SIGNALS.DANMAKU, { unit: unitD, text: unitD.camp === 'ally' ? '撑住！' : '已是强弩之末！' });
         }
     }
 
