@@ -130,8 +130,6 @@ export async function playLogEntries(c, log, roundResult, isFirstAttackRef) {
                 case 'buff-summary':         { appendLogHTML(entry.text + '<br>'); if(entry.buffType==='elite_xingfen'){let song = c.store ? c.store.getState().units.find(u => u.name === '宋青书') : null; if(song)c.store.dispatch({type:'SET_VISUAL',uid:song.uid,_hasXingFen:true});} lastEntryType = entry.type; } break;
                 case 'buff-rebound-fortify': await handleBuffReboundFortify(c, entry); lastEntryType = entry.type; break;
                 case 'round-start':
-                    c.UI.allyTeam.forEach(u => { if (u.alive) c.store.dispatch({ type: 'SET_VISUAL', uid: u.uid, _acted: false }); });
-                    c.UI.enemyTeam.forEach(u => { if (u.alive) c.store.dispatch({ type: 'SET_VISUAL', uid: u.uid, _acted: false }); });
                     if (roundResult && roundResult.events && roundResult.events.length > 0) {
                         c.store.dispatch({ type: 'APPLY_EVENTS', events: roundResult.events });
                         roundResult.events = [];

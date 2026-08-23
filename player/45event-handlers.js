@@ -102,7 +102,6 @@ export async function handleInfo(c, entry) {
     } else if (entry.spiderAction === 'return' && entry.spiderUid) {
         const brother = findUnitByUid(c, entry.spiderUid);
         if (brother && brother.alive) {
-            c.store.dispatch({ type: 'SET_VISUAL', uid: brother.uid, _flyMode: null, _acted: false });
             const showSpiderDescend = await getButterflyFx('showSpiderDescend');
             showSpiderDescend(brother);
         }
