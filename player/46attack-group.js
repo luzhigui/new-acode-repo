@@ -39,12 +39,7 @@ export async function handleAttackGroup(c, entry, roundResult, abortSig, isFirst
         setTimeout(() => {
             _triggerFX(entry._fxSnapshot, unitA, unitD, entry.isDead, entry.isDodge, entry.isMiss, entry.isBlock, entry._dmg, entry.waveTaunt, entry.waveUnit, entry.unitRole);
         }, 0);
-        if (unitD && unitD.role === '防战') {
-            const defBuffs = (unitD.camp === 'ally' ? c.UI.allyTeam : c.UI.enemyTeam)?._activeBuffs || [];
-            if (defBuffs.some(b => b.key === 'fortify')) {
-                c._scheduler.schedule('banner', Math.min(400, c.speed / 3), () => showBuffBanner('🛡️ 严阵以待！'));
-            }
-        }
+        // 防战严阵横幅由 handleBuffReboundFortify 负责，导演不重复
         if (!entry.isBlock && !entry.isMiss && !entry.isDodge && unitA) {
             AudioManager.playSfx(unitA.role);
         }

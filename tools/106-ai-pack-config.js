@@ -1,6 +1,6 @@
 // tools/106-ai-pack-config.js - 光明顶5v5 AI 复制包配置（清单/分组/提示词/精简踢除）
-// V5.6.0 | ~10800 bytes| 2026-08-22 分组合并为 引擎/UI（画面特效等）/工具/体检 四类
-export const VER = 'tools/106-ai-pack-config.js V5.6.0';
+// V5.7.0 | ~11200 bytes| 2026-08-23 清单补 render/31 和体检规则 134-140
+export const VER = 'tools/106-ai-pack-config.js V5.7.0';
 
 // ==================== AI 精简模式踢除清单（第一批） ====================
 // 这些文件不参与战斗逻辑/状态同步/数值结算，默认不随包发送。
@@ -61,7 +61,7 @@ export const ALL_PROJECT_FILES = [
     '../modules/25elite-imperial.js', '../modules/26elite-sixsects.js', '../modules/27elite-mingjiao.js',
     '../modules/28buff-tools.js',
     // render（渲染层）
-    '../render/30-fact-renderer.js', '../render/32-grid-render.js',
+    '../render/30-fact-renderer.js', '../render/31-stage-actions.js', '../render/32-grid-render.js',
     // content（游戏内容数据）
     '../content/200game-data.json',
     // tests（体检规则与自动测试）
@@ -76,6 +76,10 @@ export const ALL_PROJECT_FILES = [
     '../tests/health-rules/130-fortify-overflow.js',
     '../tests/health-rules/131-separator-duplicate.js',
     '../tests/health-rules/132-claw-damage.js', '../tests/health-rules/133-death-effect.js',
+    '../tests/health-rules/134-zhang-switch.js', '../tests/health-rules/135-break-def-pos.js',
+    '../tests/health-rules/136-meteor-atk.js', '../tests/health-rules/137-kulian-prompt.js',
+    '../tests/health-rules/138-wind-push.js', '../tests/health-rules/139-spider-butterfly-target.js',
+    '../tests/health-rules/140-wei-dodge-cloud.js',
     '../tests/121health-monitor.js', '../tests/122health-utils.js',
     // tools（开发工具箱）
     '../tools/102-toolkit.html', '../tools/103-toolkit.js', '../tools/104-toolkit-more.js',
