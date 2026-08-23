@@ -318,7 +318,7 @@ function installChainClaw(eventBus, A, B, declarations) {
             }
             if (isDeadByHit) break;
             if (isExecute) {
-                executeInfo = { factType: 'clawExecute', data: { unitName: unit.name, targetName: target.name }, isClawHit: true, clawAttackerUid: unit.uid, clawTargetUid: target.uid, isExecute: true };
+                executeInfo = { factType: 'clawExecute', data: { unitName: unit.name, targetName: target.name, unitUid: unit.uid, targetUid: target.uid }, isClawHit: true, clawAttackerUid: unit.uid, clawTargetUid: target.uid, isExecute: true };
                 break;
             }
             depth++;
@@ -374,6 +374,7 @@ function installKuLian(eventBus, A, B, declarations) {
             u._baseDef = (u._baseDef || u.def) + s.defBonus * mult;
             u._baseMaxHp = Math.max(u._baseMaxHp || u.maxHp, u.maxHp);
         });
+        log.push({ factType: 'kuLianPriority', data: { unitName: kuLianSong.name } });
         log.push({ factType: 'kuLian', data: { unitName: kuLianSong.name, atkBonus: s.atkBonus, defBonus: s.defBonus, hpBonus: s.hpBonus } });
     });
 }
@@ -441,7 +442,7 @@ function installXingFen(eventBus, A, B, declarations) {
         log.push({ factType: 'xingFenExtraAttack', data: { unitName: unit.name } });
         unit._xingFenExtraAttacking = true;
         const { processUnitAttack } = await import('./10battle-attack.js');
-        await processUnitAttack(unit, allySide, enemySide, log, data.B, data.A, data.state, null, null);
+        await processUnitAttack(unit, allySide, enemySide, log, data.A, data.B, data.state, null, null);
         unit._xingFenExtraAttacking = false;
     });
 

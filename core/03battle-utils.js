@@ -257,7 +257,7 @@ export function registerWarriorExecute(eventBus) {
                 source: unit,
                 threshold: threshold,
                 factType: 'warriorExecute',
-                factData: { unitName: unit.name, targetName: target.name }
+                factData: { unitName: unit.name, targetName: target.name, unitUid: unit.uid, targetUid: target.uid }
             });
         }
     });
@@ -265,6 +265,7 @@ export function registerWarriorExecute(eventBus) {
 
 export function registerFortifyShield(eventBus) {
     function tryFortify(unit, chance, group, log, label, skipStatChange) {
+        if (!unit.alive) return;
         if (unit.role !== '防战') return;
         if (unit._fortifyThisRound === undefined) unit._fortifyThisRound = 0;
         if (!unit._fortifyStacks) unit._fortifyStacks = 0;

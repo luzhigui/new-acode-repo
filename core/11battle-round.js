@@ -17,6 +17,7 @@ import { getNextAvailableUnit, finalizeDeaths, emitFullUnitState, checkZhangSwit
 import { flushBattleEvents, setBattleState } from '../infra/51-core-utils.js';
 import { SeededRNG } from '../infra/51-core-utils.js';
 import { resolveDeaths } from './12battle-attack-steps.js';
+import { translateFactsToStageActions } from '../render/31-stage-actions.js';
 
 const C = CONFIG;
 
@@ -277,9 +278,20 @@ export async function* createRoundStepper(state) {
     let log = [];
     let round = state.round;
 
+    const makeStep = (logs, evs, winner = null, done = false) => ({
+        log: [...logs],
+        events: evs,
+        ally: A,
+        enemy: B,
+        winner,
+        done,
+        doubleStrikeUid: doubleStrikeUnitUid,
+        stageActions: translateFactsToStageActions(logs)
+    });
+
     const { doubleStrikeUnitUid, roundStartEvents, sisterComp, brotherComp } = await prepareRoundStart(A, B, log, state, round, rng);
 
-    yield { log: [...log], events: roundStartEvents, ally: A, enemy: B, winner: null, done: false, doubleStrikeUid: doubleStrikeUnitUid };
+    yield makeStep(log, roundStartEvents);
     log = [];
 
     function resolveStateTransitions() {
@@ -362,13 +374,7 @@ export async function* createRoundStepper(state) {
         if (queue.length === 0) return { actingUnit: null, passEntry: null, isPriorityAction: false };
         const head = queue[0];
         if (head.isPass) {
-            if (head.unit._kuLianActive) {
-                log.push({ factType: 'kuLian', data: { unitName: head.unit.name, atkBonus: 0, defBonus: 0, hpBonus: 0, priority: true } });
-            }
             return { actingUnit: null, passEntry: { unit: head.unit, reason: head.reason }, isPriorityAction: false };
-        }
-        if (head.priority > 0 && head.unit._kuLianActive) {
-            log.push({ factType: 'kuLian', data: { unitName: head.unit.name, atkBonus: 0, defBonus: 0, hpBonus: 0, priority: true } });
         }
         return { actingUnit: head.unit, passEntry: null, isPriorityAction: head.priority > 0 };
     }
@@ -383,7 +389,7 @@ export async function* createRoundStepper(state) {
             if (sisterForAttach) {
                 sisterComp.executeAttach(A, log);
                 const attachEvents = flushBattleEvents();
-                yield { log: [...log], events: attachEvents, ally: A, enemy: B, winner: null, done: false, doubleStrikeUid: doubleStrikeUnitUid };
+                yield makeStep(log, attachEvents);
                 log = [];
             }
         }
@@ -470,7 +476,7 @@ export async function* createRoundStepper(state) {
             }
         }
 
-        yield { log: [...log], events: stepEvents, ally: A, enemy: B, winner, done };
+        yield makeStep(log, stepEvents, winner, done);
         log = [];
 
         if (done) return;
@@ -488,7 +494,7 @@ export async function* createRoundStepper(state) {
     }
 
     const { winner, done, endEvents } = finalizeRoundEnd(A, B, log, round);
-    yield { log: [...log], events: endEvents, ally: A, enemy: B, winner, done };
+    yield makeStep(log, endEvents, winner, done);
 }
 
 function finalizeRoundEnd(A, B, log, round) {
