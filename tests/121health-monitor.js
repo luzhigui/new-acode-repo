@@ -1,6 +1,6 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// tests/121health-monitor.js - 光明顶5v5 实时体检监控器
-// V5.5.0 | 新增 ?auto=1 无头后台模式：后台自动跑完整关卡，结束时在 window.__healthResult 输出完整报告
-export const VER = 'tests/121health-monitor.js V5.5.0';
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// tests/121health-monitor.js - 光明顶5v5 实时体检监控器
+// V5.6.0 | 接入 rule81-87 回归体检；GAMEOVER 立即跑规则(日志已完整)；新局识别修复多局连打漏检；新增战报黑幕/随机重开/特效池实时检查
+export const VER = 'tests/121health-monitor.js V5.6.0';
 
 import { rule70 } from './health-rules/123-claw-heal-spam.js';
 import { rule71 } from './health-rules/124-aftermiss.js';
@@ -13,17 +13,25 @@ import { rule77 } from './health-rules/130-fortify-overflow.js';
 import { rule78 } from './health-rules/131-separator-duplicate.js';
 import { rule79 } from './health-rules/132-claw-damage.js';
 import { rule80 } from './health-rules/133-death-effect.js';
+import { rule81 } from './health-rules/134-zhang-switch.js';
+import { rule82 } from './health-rules/135-break-def-pos.js';
+import { rule83 } from './health-rules/136-meteor-atk.js';
+import { rule84 } from './health-rules/137-kulian-prompt.js';
+import { rule85 } from './health-rules/138-wind-push.js';
+import { rule86 } from './health-rules/139-spider-butterfly-target.js';
+import { rule87 } from './health-rules/140-wei-dodge-cloud.js';
 import {
     getCellElement, checkUnitHpValidity,
     checkHpBarSync, checkHpBarColor, checkFxOrphans,
     checkDeathFxRetention, checkVictoryDanmaku,
     checkMeleeFxState, checkBuffIcons, locateLogEntry,
-    checkBottomButtonStates, checkModeButtonStates
+    checkBottomButtonStates, checkModeButtonStates,
+    checkBattleReportOverlay, checkRandomRestartState, checkFxDomAccumulation
 } from './122health-utils.js';
 
 let monitorActive = false, gameLoaded = false, scanTimer = null, isPaused = false;
 let detectedIssues = [], issueKeys = new Set(), lastSampledStage = 0;
-let battleEnded = false, battleStartTime = 0;
+let battleEnded = false, battleStartTime = 0, battleGen = 0;
 let rulePassCount = 0, ruleSkipCount = 0;
 let gameFrame, gameArea, reportArea, statusLine;
 
@@ -271,18 +279,32 @@ function periodicScan() {
         for (const msg of checkBottomButtonStates(ctx, doc)) recordIssue(ctx, null, '按钮状态', msg, 'UI');
     }
 
+    // [新增] 战报黑幕/随机重开/特效池实时检查：须覆盖全部状态（GAMEOVER 后的残留与状态错位正是检查窗口）
+    for (const msg of checkBattleReportOverlay(ctx, doc)) recordIssue(ctx, null, '战报弹窗', msg, 'UI');
+    for (const msg of checkRandomRestartState(ctx, doc)) recordIssue(ctx, null, '随机重开', msg, 'UI');
+    for (const msg of checkFxDomAccumulation(ctx, doc)) recordIssue(ctx, null, '特效池', msg, 'UI');
+
     if (ctx.gs === 'RUNNING' || ctx.gs === 'PAUSED') {
-        if (battleStartTime === 0) { battleStartTime = Date.now(); battleEnded = false; }
+        // 新局识别：GAMEOVER 后再次进入 RUNNING 视为新一场战斗（重开/下一关均覆盖）。
+        // 修复多局连打漏检：旧逻辑 battleEnded 置位后永不复位，第2场起规则体检全部跳过
+        if (battleStartTime === 0 || battleEnded) {
+            battleStartTime = Date.now(); battleEnded = false;
+            battleGen++; lastSampledStage = 0;
+        }
         runEngineChecks(ctx);
         runUIChecks(ctx, doc);
     }
     if (ctx.gs === 'GAMEOVER' && battleStartTime > 0 && !battleEnded) {
         battleEnded = true;
+        // 战报生成时日志已完整：立即跑规则体检（快进模式下每场必跑，不等渲染时序）
+        runRuleChecks(ctx, doc);
+        // UI 结算类检查等渲染稳定后跑；带代际+状态守卫：新局已开始或已离开GAMEOVER（重置已清场）则丢弃，避免误报
+        const gen = battleGen;
         setTimeout(() => {
-            if (!monitorActive) return;
+            if (!monitorActive || gen !== battleGen) return;
             const ctx2 = getCtx();
             const doc2 = getDoc();
-            if (ctx2 && doc2) runFullChecks(ctx2, doc2);
+            if (ctx2 && doc2 && ctx2.gs === 'GAMEOVER') runSettleChecks(ctx2, doc2);
         }, 3000);
     }
 
@@ -330,34 +352,13 @@ function runUIChecks(ctx, doc) {
     for (const msg of checkBuffIcons(ctx, doc)) recordIssue(ctx, null, 'Buff图标', msg, 'UI');
 }
 
-function runFullChecks(ctx, doc) {
+// 规则体检：战报日志回归规则（GAMEOVER 时日志已完整，立即执行）
+function runRuleChecks(ctx, doc) {
     const allyTeam = (ctx.UI && ctx.UI.allyTeam) || [];
     const enemyTeam = (ctx.UI && ctx.UI.enemyTeam) || [];
-    const allUnits = allyTeam.concat(enemyTeam);
     const stage = detectStage(doc) || (ctx.currentStage || 0);
     if (stage === lastSampledStage) return;
     lastSampledStage = stage;
-
-    const win = getWin();
-    for (const unit of allUnits) {
-        for (const msg of checkHpBarColor(unit, win, doc)) recordIssue(ctx, unit.uid, '血条颜色', msg, 'UI');
-    }
-
-    for (const msg of checkFxOrphans(doc)) recordIssue(ctx, null, '特效残留', msg, 'UI');
-
-    setTimeout(() => {
-        const doc2 = getDoc();
-        if (doc2) {
-            // 弹幕仅存活 3.5s（acquireFromPool 3500ms），须在存活窗口内检查；5s 时弹幕已消失必然误报
-            for (const msg of checkVictoryDanmaku(doc2, allyTeam, enemyTeam)) recordIssue(ctx, null, '胜利弹幕', msg, 'UI');
-        }
-    }, 2000);
-
-    checkSwapStability(ctx, doc, allyTeam, enemyTeam);
-
-    for (const msg of checkDeathFxRetention(allUnits, doc)) recordIssue(ctx, null, '死亡特效', msg, 'UI');
-    for (const msg of checkMeleeFxState(ctx, doc)) recordIssue(ctx, null, '攻击特效', msg, 'UI');
-    for (const msg of checkBuffIcons(ctx, doc)) recordIssue(ctx, null, 'Buff图标', msg, 'UI');
 
     let battleLog = ctx._enhancedBattleLog || [];
     if (battleLog.length === 0 && ctx.UI && ctx.UI.currentResult && ctx.UI.currentResult.log) {
@@ -369,7 +370,8 @@ function runFullChecks(ctx, doc) {
     }
 
     ctx._doc = doc;
-    const rules = [rule70, rule71, rule72, rule73, rule74, rule75, rule76, rule77, rule78, rule79, rule80];
+    const rules = [rule70, rule71, rule72, rule73, rule74, rule75, rule76, rule77, rule78, rule79, rule80,
+        rule81, rule82, rule83, rule84, rule85, rule86, rule87];
     const beforeAllies = allyTeam.map(u => ({ ...u }));
     const beforeEnemies = enemyTeam.map(u => ({ ...u }));
     for (const rule of rules) {
@@ -387,6 +389,35 @@ function runFullChecks(ctx, doc) {
             recordIssue(ctx, null, '规则异常', rule.name + ': ' + (e.message || '未知错误'), '系统');
         }
     }
+}
+
+// 结算类UI检查：血条颜色/特效残留/胜利弹幕/换位稳定等，等渲染稳定后执行
+function runSettleChecks(ctx, doc) {
+    const allyTeam = (ctx.UI && ctx.UI.allyTeam) || [];
+    const enemyTeam = (ctx.UI && ctx.UI.enemyTeam) || [];
+    const allUnits = allyTeam.concat(enemyTeam);
+
+    const win = getWin();
+    for (const unit of allUnits) {
+        for (const msg of checkHpBarColor(unit, win, doc)) recordIssue(ctx, unit.uid, '血条颜色', msg, 'UI');
+    }
+
+    for (const msg of checkFxOrphans(doc)) recordIssue(ctx, null, '特效残留', msg, 'UI');
+
+    setTimeout(() => {
+        const ctx2 = getCtx();
+        const doc2 = getDoc();
+        // 弹幕仅存活 3.5s（acquireFromPool 3500ms），须在存活窗口内检查；已离开GAMEOVER说明重置已清场，跳过避免误报
+        if (doc2 && ctx2 && ctx2.gs === 'GAMEOVER') {
+            for (const msg of checkVictoryDanmaku(doc2, allyTeam, enemyTeam)) recordIssue(ctx, null, '胜利弹幕', msg, 'UI');
+        }
+    }, 2000);
+
+    checkSwapStability(ctx, doc, allyTeam, enemyTeam);
+
+    for (const msg of checkDeathFxRetention(allUnits, doc)) recordIssue(ctx, null, '死亡特效', msg, 'UI');
+    for (const msg of checkMeleeFxState(ctx, doc)) recordIssue(ctx, null, '攻击特效', msg, 'UI');
+    for (const msg of checkBuffIcons(ctx, doc)) recordIssue(ctx, null, 'Buff图标', msg, 'UI');
 }
 
 function checkSwapStability(ctx, doc, allyTeam, enemyTeam) {
