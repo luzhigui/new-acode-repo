@@ -1,5 +1,5 @@
 // tools/106-ai-pack-config.js - 光明顶5v5 AI 复制包配置（清单/分组/提示词/精简踢除）
-// V5.7.0 | ~11200 bytes| 2026-08-23 清单补 render/31 和体检规则 134-140
+// V5.7.0 | ~11400 bytes| 2026-08-23 清单补 render/31、体检规则 134-140、infra/55、fx/89
 export const VER = 'tools/106-ai-pack-config.js V5.7.0';
 
 // ==================== AI 精简模式踢除清单（第一批） ====================
@@ -54,10 +54,10 @@ export const ALL_PROJECT_FILES = [
     // fx（特效）
     '../fx/80fx-common-5v5-test.js', '../fx/81fx-arrows-5v5-test.js', '../fx/82fx-crash-5v5-test.js',
     '../fx/83fx-position-swap.js', '../fx/84fx-push-back.js', '../fx/85fx-dodge-bullet.js',
-    '../fx/86fx-butterfly-spider.js', '../fx/87fx-manager.js', '../fx/88fx-trigger.js',
+    '../fx/86fx-butterfly-spider.js', '../fx/87fx-manager.js', '../fx/88fx-trigger.js', '../fx/89fx-subscriber.js',
     // modules（通用系统 + 精英角色组件）
     '../modules/20elite-skills.js', '../modules/21error-capture.js', '../modules/22audio-manager.js',
-    '../infra/54-global-store.js', '../modules/29battle-init.js', '../modules/24battle-store.js',
+    '../infra/54-global-store.js', '../infra/55-fx-signals.js', '../modules/29battle-init.js', '../modules/24battle-store.js',
     '../modules/25elite-imperial.js', '../modules/26elite-sixsects.js', '../modules/27elite-mingjiao.js',
     '../modules/28buff-tools.js',
     // render（渲染层）

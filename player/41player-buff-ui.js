@@ -1,9 +1,10 @@
 ﻿﻿// player/41player-buff-ui.js - 光明顶5v5 Buff横幅与handler
-// V5.6.0 | ~5500 bytes| 2026-08-23 弹窗拆至ui/70buff-dialog.js，治疗飘字走导演
-export const VER = 'player/41player-buff-ui.js V5.6.0';
+// V5.7.0 | ~5600 bytes| 2026-08-23 fx 直调改事件订阅，player 不再依赖 fx
+export const VER = 'player/41player-buff-ui.js V5.7.0';
 
 import { Unit } from '../core/02unit.js';
-import { showHealFloat, showBuffBanner } from '../fx/87fx-manager.js';
+import { eventBus } from '../infra/50-event-bus.js';
+import { FX_SIGNALS } from '../infra/55-fx-signals.js';
 import { GlobalStore } from '../infra/54-global-store.js';
 import { findUnitByUid } from './47renderer.js';
 
@@ -75,7 +76,7 @@ export async function handleBuffSummon(c, entry, prevEntry) {
         }
         c.updateUI(c.UI);
         c.isPaused = true;
-        await showBuffBanner('🐴 拒马阵！' + entry.horseTaunt);
+        await eventBus.emit(FX_SIGNALS.BANNER, { text: '🐴 拒马阵！' + entry.horseTaunt });
         c.isPaused = false;
     }
     let div=document.createElement('div');div.innerHTML=entry.text+'<br>';
@@ -87,7 +88,7 @@ export async function handleBuffDestroy(c, entry, prevEntry) {
     c.store.dispatch({ type: 'REMOVE_UNIT', uid: entry.horseUid });
     c.UI.lastSnapshot = { ally: c.UI.allyTeam.map(u => ({...u})), enemy: c.UI.enemyTeam.map(u => ({...u})) };
     c.isPaused = true;
-    await showBuffBanner('🐴 拒马已销毁');
+    await eventBus.emit(FX_SIGNALS.BANNER, { text: '🐴 拒马已销毁' });
     c.isPaused = false;
     let div=document.createElement('div');div.innerHTML=entry.text+'<br>';
     document.getElementById('log').appendChild(div);
@@ -101,7 +102,7 @@ export async function handleBuffLeech(c, entry) {
         bannerText = entry.isDouble ? '❤️‍🔥 热血奋战(翻倍)！' : '❤️ 热血奋战！';
     }
     c.isPaused = true;
-    await showBuffBanner(bannerText);
+    await eventBus.emit(FX_SIGNALS.BANNER, { text: bannerText });
     c.isPaused = false;
     let div=document.createElement('div');div.innerHTML=entry.text+'<br>';
     document.getElementById('log').appendChild(div);

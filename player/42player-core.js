@@ -1,9 +1,10 @@
 // player/42player-core.js - 光明顶5v5 战斗播放器核心
-// V5.6.0 | ~34000 bytes| 2026-08-23 导演调度：格子/特效/日志三线并行，stageAction驱动
-export const VER = 'player/42player-core.js V5.6.0';
+// V5.7.0 | ~34500 bytes| 2026-08-23 fx 直调改事件订阅，player 不再依赖 fx
+export const VER = 'player/42player-core.js V5.7.0';
 
-import { showBuffBanner, showHealFloat, showWindClaw, showSplashArrows, showDamageFloat } from '../fx/87fx-manager.js';
 import { CONFIG } from '../core/01config-5v5-test.js';
+import { eventBus } from '../infra/50-event-bus.js';
+import { FX_SIGNALS } from '../infra/55-fx-signals.js';
 import { AudioManager } from '../modules/22audio-manager.js';
 import { handleBuffSummon, handleBuffDestroy, handleBuffLeech, handleHolyTokenDrop } from './41player-buff-ui.js';
 import { showBuffPopup } from '../ui/70buff-dialog.js';
@@ -82,7 +83,7 @@ export async function playLogEntries(c, log, roundResult, isFirstAttackRef) {
                         appendLogHTML(entry.text + '<br>');
                         c.isPaused = true; GlobalStore.set('bulletTimeActive', true);
                         let bannerText = entry.isDouble ? '❤️‍🔥 热血奋战(翻倍)！' : '❤️ 热血奋战！';
-                        await showBuffBanner(bannerText);
+                        await eventBus.emit(FX_SIGNALS.BANNER, { text: bannerText });
                         GlobalStore.set('bulletTimeActive', false); c.isPaused = false;
                     } else {
                         await handleBuffLeech(c, entry);
@@ -92,22 +93,22 @@ export async function playLogEntries(c, log, roundResult, isFirstAttackRef) {
                 case 'buff-splash':
                     c.isPaused = true; GlobalStore.set('bulletTimeActive', true);
                     if (entry.buffType === 'wind_assault') {
-                        await showBuffBanner('🦅 乘风突袭！');
+                        await eventBus.emit(FX_SIGNALS.BANNER, { text: '🦅 乘风突袭！' });
                         if (entry.splashUids) {
                             entry.splashUids.forEach(uid => {
                                 const targetUnit = findUnitByUid(c, uid);
-                                if (targetUnit) showWindClaw(targetUnit);
+                                if (targetUnit) eventBus.emit(FX_SIGNALS.WIND_CLAW, { unit: targetUnit });
                             });
                         }
                     }
                     else if (entry.buffType === 'meteor_splash') {
-                        await showBuffBanner('☄️ 流星赶月！');
+                        await eventBus.emit(FX_SIGNALS.BANNER, { text: '☄️ 流星赶月！' });
                         if (entry.attackerUid && entry.primaryUid && entry.splashUids && entry.splashUids.length > 0) {
                             let attacker = findUnitByUid(c, entry.attackerUid);
                             let primary = findUnitByUid(c, entry.primaryUid);
                             let splashTargets = entry.splashUids.map(uid => findUnitByUid(c, uid)).filter(u => u);
                             if (attacker && primary && splashTargets.length > 0) {
-                                showSplashArrows(attacker, primary, splashTargets, c.speed, () => c.isPaused);
+                                eventBus.emit(FX_SIGNALS.SPLASH_ARROWS, { attacker, primary, targets: splashTargets, speed: c.speed, isPausedFn: () => c.isPaused });
                                 splashTargets.forEach((st, i) => {
                                     setTimeout(() => {
                                         AudioManager.playSfx(attacker.role || '远程');
@@ -116,7 +117,7 @@ export async function playLogEntries(c, log, roundResult, isFirstAttackRef) {
                             }
                         }
                     }
-                    else await showBuffBanner('🦅 乘风突袭！');
+                    else await eventBus.emit(FX_SIGNALS.BANNER, { text: '🦅 乘风突袭！' });
                     GlobalStore.set('bulletTimeActive', false);
                     appendLogHTML(entry.text + '<br>');
                     // splash 伤害飘字已由导演 stageAction 'splash' 统一处理
@@ -232,14 +233,12 @@ async function applyStageActionToFX(c, action) {
     if (!action) return;
     switch (action.kind) {
         case 'spiderStrike': {
-            if (GlobalStore.get('fastForwardActive')) break;
             const spiderUnit = findUnitByUid(c, action.actorUid);
             const strikeTarget = findUnitByUid(c, action.targetUid);
             if (spiderUnit && strikeTarget) {
                 c.isPaused = true;
                 GlobalStore.set('bulletTimeActive', true);
-                const { showSpiderStrike } = await import('../fx/86fx-butterfly-spider.js');
-                await showSpiderStrike(spiderUnit, strikeTarget);
+                await eventBus.emit(FX_SIGNALS.SPIDER_STRIKE, { spiderUnit, strikeTarget });
                 GlobalStore.set('bulletTimeActive', false);
                 c.isPaused = false;
             }
@@ -247,36 +246,36 @@ async function applyStageActionToFX(c, action) {
         }
         case 'heal': {
             const healUnit = findUnitByUid(c, action.targetUid);
-            if (healUnit && action.amount && !GlobalStore.get('fastForwardActive')) {
-                showHealFloat(healUnit, action.amount);
+            if (healUnit && action.amount) {
+                eventBus.emit(FX_SIGNALS.HEAL_FLOAT, { unit: healUnit, amount: action.amount });
             }
             break;
         }
         case 'dodge': {
             const attacker = findUnitByUid(c, action.actorUid);
             if (attacker && action.reboundDmg && !GlobalStore.get('fastForwardActive')) {
-                showDamageFloat(attacker, action.reboundDmg);
+                eventBus.emit(FX_SIGNALS.DAMAGE_FLOAT, { unit: attacker, dmg: action.reboundDmg });
             }
             break;
         }
         case 'attack': {
             const target = findUnitByUid(c, action.targetUid);
             if (target && action.dmg && !GlobalStore.get('fastForwardActive')) {
-                showDamageFloat(target, action.dmg);
+                eventBus.emit(FX_SIGNALS.DAMAGE_FLOAT, { unit: target, dmg: action.dmg });
             }
             break;
         }
         case 'dot': {
             const target = findUnitByUid(c, action.targetUid);
             if (target && action.dmg && !GlobalStore.get('fastForwardActive')) {
-                showDamageFloat(target, action.dmg);
+                eventBus.emit(FX_SIGNALS.DAMAGE_FLOAT, { unit: target, dmg: action.dmg });
             }
             break;
         }
         case 'execute': {
             const target = findUnitByUid(c, action.targetUid);
             if (target && action.dmg && !GlobalStore.get('fastForwardActive')) {
-                showDamageFloat(target, action.dmg);
+                eventBus.emit(FX_SIGNALS.DAMAGE_FLOAT, { unit: target, dmg: action.dmg });
             }
             break;
         }
@@ -284,7 +283,7 @@ async function applyStageActionToFX(c, action) {
             if (action.splashUids && action.splashDmg && !GlobalStore.get('fastForwardActive')) {
                 action.splashUids.forEach(uid => {
                     const t = findUnitByUid(c, uid);
-                    if (t) showDamageFloat(t, action.splashDmg);
+                    if (t) eventBus.emit(FX_SIGNALS.DAMAGE_FLOAT, { unit: t, dmg: action.splashDmg });
                 });
             }
             break;
