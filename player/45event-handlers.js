@@ -13,10 +13,7 @@ const safeShowDanmaku = (...args) => { try { return showDanmaku(...args); } catc
 
 export async function handleBuffBonus(c, entry) {
     appendLogHTML(entry.text + '<br>');
-    if (entry.targetUid && entry.bonusDmg) {
-        let targetUnit = findUnitByUid(c, entry.targetUid);
-        if (targetUnit) showDamageFloat(targetUnit, entry.bonusDmg);
-    }
+    // 额外伤害飘字已由导演 stageAction 统一处理
 }
 
 export async function handleBuffSwap(c, entry) {
@@ -63,12 +60,7 @@ export async function handleBuffReboundFortify(c, entry) {
     await showBuffBanner('🛡️ 严阵以待！');
     GlobalStore.set('bulletTimeActive', false);
     c.isPaused = false;
-    let attacker = findUnitByUid(c, entry.attackerUid);
-    if (attacker && entry.reboundDmg) showDamageFloat(attacker, entry.reboundDmg);
-    if (entry.selfDmg && entry.selfDmgUid) {
-        let selfTarget = findUnitByUid(c, entry.selfDmgUid);
-        if (selfTarget) showDamageFloat(selfTarget, entry.selfDmg);
-    }
+    // 反伤/自伤飘字已由导演 stageAction 'attack' 统一处理
     // 死亡标记已由导演 stageAction 统一处理
     appendLogHTML(entry.text + '<br>');
     await new Promise(r=>setTimeout(r, GlobalStore.get('fastForwardActive') ? 1 : c.speed/2));
@@ -133,15 +125,11 @@ export async function handleInfo(c, entry) {
                 if (zhou) showHeartEffect(zhou);
                 if (zhou && zhou.alive) showPinkFlash(zhou);
             });
-            if (zhou && entry.hpDeduct) {
+            if (zhou && entry.hpDeduct && !GlobalStore.get('fastForwardActive')) {
                 showDamageFloat(zhou, entry.hpDeduct);
             }
         }
-        if (entry.buffType === 'elite_kuaile_heal' && entry.zhouUid) {
-            let unit = findUnitByUid(c, entry.zhouUid);
-            let match = entry.text.match(/回复(\d+)/);
-            if (match && unit) showHealFloat(unit, parseInt(match[1]));
-        }
+        // 快乐回血飘字已由导演 stageAction 'heal' 统一处理
         if (entry.buffType === 'qiankun_atk' && entry.atkTargetUid && entry.atkGain) {
             const atkTarget = findUnitByUid(c, entry.atkTargetUid);
             if (atkTarget) {

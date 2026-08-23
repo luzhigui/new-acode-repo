@@ -287,6 +287,7 @@ export function registerWindAssault(eventBus) {
         const { unit, target, dmg, allySide, enemySide, log } = data;
         const rng = getBattleRng();
         if (!unit.alive || unit.camp !== 'ally' || !target || !target.alive) return;
+        if (target.camp === unit.camp) return;
         const unitBuffs = allySide._activeBuffs || [];
         const isBrother = unit.isXiaoZhaoBrother;
 
@@ -314,11 +315,7 @@ export function registerWindAssault(eventBus) {
                 };
                 if (!data.declarations) data.declarations = [];
                 data.declarations.push(decl);
-            } else {
-                log.push({ factType: 'windAssaultFail', data: { label, reason: '波及触发失败' } });
             }
-        } else {
-            log.push({ factType: 'windAssaultFail', data: { label, reason: '波及触发失败' } });
         }
 
         if (rng.nextInt(1, 100) <= pushProb) {

@@ -445,13 +445,10 @@ export async function* createRoundStepper(state) {
         const endStateTransitions = [];
         eventBus.emit('onRoundEnd', { A, B, log, forced: false, declarations: endStateTransitions });
         for (const decl of endStateTransitions) {
-            if (decl.type === 'butterflyReturn') {
-                if (!A._pendingStateTransitions) A._pendingStateTransitions = [];
-                A._pendingStateTransitions.push(decl);
-            } else if (decl.type === 'spiderDescend') {
-                if (!A._pendingStateTransitions) A._pendingStateTransitions = [];
-                A._pendingStateTransitions.push(decl);
-            }
+            if (!A._pendingStateTransitions) A._pendingStateTransitions = [];
+            const dedupeKey = decl.type + ':' + (decl.unit?.uid || decl.sister?.uid || '');
+            const exists = A._pendingStateTransitions.some(d => (d.type + ':' + (d.unit?.uid || d.sister?.uid || '')) === dedupeKey);
+            if (!exists) A._pendingStateTransitions.push(decl);
         }
         resolveDeaths(A, B, log);
         const stepEvents = flushBattleEvents();
@@ -467,7 +464,11 @@ export async function* createRoundStepper(state) {
             const winPendingDecls = [];
             if (A._pendingStateTransitions) { winPendingDecls.push(...A._pendingStateTransitions); A._pendingStateTransitions = []; }
             if (B._pendingStateTransitions) { winPendingDecls.push(...B._pendingStateTransitions); B._pendingStateTransitions = []; }
+            const seenKeys = new Set();
             for (const decl of winPendingDecls) {
+                const key = decl.type + ':' + (decl.unit?.uid || decl.sister?.uid || '');
+                if (seenKeys.has(key)) continue;
+                seenKeys.add(key);
                 if (decl.type === 'butterflyReturn') {
                     sisterComp.executeReturn(decl.sister, A, log);
                 } else if (decl.type === 'spiderDescend') {
@@ -485,7 +486,11 @@ export async function* createRoundStepper(state) {
     const allPendingDecls = [];
     if (A._pendingStateTransitions) { allPendingDecls.push(...A._pendingStateTransitions); A._pendingStateTransitions = []; }
     if (B._pendingStateTransitions) { allPendingDecls.push(...B._pendingStateTransitions); B._pendingStateTransitions = []; }
+    const seenKeys2 = new Set();
     for (const decl of allPendingDecls) {
+        const key = decl.type + ':' + (decl.unit?.uid || decl.sister?.uid || '');
+        if (seenKeys2.has(key)) continue;
+        seenKeys2.add(key);
         if (decl.type === 'butterflyReturn') {
             sisterComp.executeReturn(decl.sister, A, log);
         } else if (decl.type === 'spiderDescend') {

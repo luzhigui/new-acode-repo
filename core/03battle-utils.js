@@ -267,6 +267,7 @@ export function registerFortifyShield(eventBus) {
     function tryFortify(unit, chance, group, log, label, skipStatChange) {
         if (!unit.alive) return;
         if (unit.role !== '防战') return;
+        if (!unit.alive) return;
         if (unit._fortifyThisRound === undefined) unit._fortifyThisRound = 0;
         if (!unit._fortifyStacks) unit._fortifyStacks = 0;
         const increment = unit._fortifyIncrement || 1;

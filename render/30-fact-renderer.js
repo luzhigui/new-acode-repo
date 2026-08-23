@@ -126,6 +126,7 @@ export function renderAttackFact(fact) {
     if (dmgCalc.hornDefIgnore > 0 && dmgCalc.hornDmgMultiplier > 1) group.entries.push({type:'info', text:`<span class="gold">🦌 目标已中毒（玄冥神掌），鹤笔翁 鹿角杖法伤害+50%！</span>`});
     if (dmgCalc.trueDmg > 0) group.entries.push({type:'detail', text:`<span class="red small">⚔️ 叛逆真伤+${dmgCalc.trueDmg}（目标当前生命${Math.round((CONFIG.ELITE_SKILLS?.rebelStrike?.currentHpRatio || 0.12) * 100)}%）</span>`});
     let formulaText = '';
+    let baseRaw = 0;
     const fmtBonusEntries = (dmgCalc.bonusDmgEntries || []).filter(e => e.value > 0);
     const fmtMultiplierEntries = (dmgCalc.dmgMultiplierEntries || []).filter(e => e.value > 1);
     if (unitRole === '防战') {
@@ -136,14 +137,21 @@ export function renderAttackFact(fact) {
         const lv = getFangLevelPure(defForFormula, mForFormula, CONFIG.FANG_LEVELS);
         const k = CONFIG.FANG_K[lv] !== undefined ? CONFIG.FANG_K[lv] : CONFIG.FANG_K[CONFIG.FANG_K.length - 1];
         const z = dmgCalc.hpRatio !== undefined ? dmgCalc.hpRatio : CONFIG.HP_DMG_RATIO;
-        const baseRaw = Math.floor(dmgCalc.raw - dmgCalc.bonusDmgTotal);
+        baseRaw = Math.floor((dmgCalc.raw - dmgCalc.bonusDmgTotal) / dmgCalc.dmgMultiplier);
         formulaText = `${Math.floor(penPart)} + ${defForFormula}×${k} + ${maxHpForFormula}×${z} = ${baseRaw}`;
     } else {
-        const baseRaw = Math.floor(dmgCalc.raw - dmgCalc.bonusDmgTotal);
+        baseRaw = Math.floor((dmgCalc.raw - dmgCalc.bonusDmgTotal) / dmgCalc.dmgMultiplier);
         formulaText = `${dmgCalc.atkAct}×(${dmgCalc.atkAct}/(${dmgCalc.atkAct}+${dmgCalc.defAct})) = ${baseRaw}`;
     }
-    for (const e of fmtBonusEntries) formulaText += ` + ${e.label}${e.value} = ${Math.round(dmgCalc.raw)}`;
-    for (const e of fmtMultiplierEntries) formulaText += ` ×${e.label}${e.value} = ${Math.round(dmgCalc.raw)}`;
+    let runningRaw = baseRaw;
+    for (const e of fmtBonusEntries) {
+        runningRaw += e.value;
+        formulaText += ` + ${e.label}${e.value} = ${Math.round(runningRaw)}`;
+    }
+    for (const e of fmtMultiplierEntries) {
+        runningRaw = Math.round(runningRaw * e.value);
+        formulaText += ` ×${e.label}${e.value} = ${runningRaw}`;
+    }
     group.entries.push({type:'detail', isDamageCalc:true, text:`<span class="gray small">计算：${formulaText}</span>`});
     group.entries.push({
         type:'damage-text',
