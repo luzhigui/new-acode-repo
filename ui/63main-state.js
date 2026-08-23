@@ -7,7 +7,7 @@ import { GlobalStore } from '../infra/54-global-store.js';
 
 import { updateUI, spawnVictoryEffects, setRenderStore } from './62ui-render-5v5-test.js';
 import { tickBuffDurations as _tickBuffDurations } from './65main-battle.js';
-import { updateBuffSlots } from './68ui-controls.js';
+import { updateBuffSlots, updateButtons, enableAllButtons, updateSpeedButtons, activateScrollSlowdown, restoreSpeedFromScroll } from './68ui-controls.js';
 import { showBattleReport } from './64main-dialogs.js';
 import { showBuffPopup } from './70buff-dialog.js';
 import { AudioManager } from '../modules/22audio-manager.js';
@@ -63,3 +63,8 @@ GlobalStore.setUIHandler('tickBuffDurations', () => {
 GlobalStore.setUIHandler('fadeBGMTo', (targetVol, durationMs) => { AudioManager.fadeTo(targetVol, durationMs); });
 GlobalStore.setUIHandler('showBattleReport', showBattleReport);
 GlobalStore.setUIHandler('showBuffPopup', showBuffPopup);
+GlobalStore.setUIHandler('updateButtons', updateButtons);
+GlobalStore.setUIHandler('enableAllButtons', enableAllButtons);
+GlobalStore.setUIHandler('updateSpeedButtons', updateSpeedButtons);
+GlobalStore.setUIHandler('activateScrollSlowdown', activateScrollSlowdown);
+GlobalStore.setUIHandler('restoreSpeedFromScroll', restoreSpeedFromScroll);

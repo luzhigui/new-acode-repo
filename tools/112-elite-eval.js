@@ -33,6 +33,7 @@ startBtn.addEventListener('click', async () => {
     const results = {};
     const totalCombos = configs.length * stages.length * RUNS;
     let globalDone = 0;
+    let runCtx = {}; // 诊断：记录当前运行位置，异常时随堆栈输出
 
     try {
         for (const cfg of configs) {
@@ -44,6 +45,7 @@ startBtn.addEventListener('click', async () => {
                 let validRuns = 0;
 
                 for (let run = 0; run < RUNS; run++) {
+                    runCtx = { elite: cfg.name, stage, run: run + 1 };
                     eventBus.clearAll();
                     // 清残留的强制精英开关（index.html 按钮只写 localStorage、由游戏页消费删除；评测页同源共享，
                     // 不清会污染阵容生成，导致某精英局局变替身）
@@ -180,7 +182,8 @@ startBtn.addEventListener('click', async () => {
         renderResults(results, stages, RUNS);
         progressEl.textContent = '✅ 全部完成';
     } catch (e) {
-        resultEl.innerHTML = `<div class="elite-empty">出错：${e.message}</div>`;
+        console.error('[elite-eval] 评测异常 @', JSON.stringify(runCtx), '\n完整堆栈：', e);
+        resultEl.innerHTML = `<div class="elite-empty">出错：${e.message}<br>位置：${runCtx.elite || '?'} 第${runCtx.stage || '?'}关 第${runCtx.run || '?'}场<br>完整堆栈已输出到 F12 控制台</div>`;
         progressEl.textContent = '❌ 评测异常';
     } finally {
         startBtn.disabled = false;

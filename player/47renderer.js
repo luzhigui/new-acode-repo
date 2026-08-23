@@ -9,6 +9,21 @@ let _ctx = null;
 export function setRenderCtx(c) { _ctx = c; }
 function ctx() { return _ctx || GlobalStore.get('playerContext'); }
 
+/**
+ * UI 层单源化第一步：从 battleStore 实时查找单位
+ * store 未就绪时回退到 c.UI 快照，保证迁移期兼容
+ */
+export function findUnitByUid(c, uid) {
+    if (!uid) return null;
+    if (c && c.store) {
+        const su = c.store.getState().units.find(u => u.uid === uid);
+        if (su) return su;
+    }
+    const ui = (c && c.UI) || {};
+    const all = (ui.allyTeam || []).concat(ui.enemyTeam || []);
+    return all.find(u => u.uid === uid) || null;
+}
+
 // ==================== 日志区 DOM 操作 ====================
 
 export function getLogDiv() { return document.getElementById('log'); }

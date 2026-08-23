@@ -207,11 +207,7 @@ function updateButtons() {
 function enableAllButtons() { document.querySelectorAll('.controls button').forEach(b => b.disabled = false); updateButtons(); updateSpeedButtons(); }
 function updateDebugUI() { let panel=document.getElementById('debugPanel'); const debugMode = getState.debugMode(); if(debugMode){if(panel)panel.style.display='flex';}else{if(panel)panel.style.display='none';} }
 
-GlobalStore.setUIHandler('updateButtons', updateButtons);
-GlobalStore.setUIHandler('enableAllButtons', enableAllButtons);
-GlobalStore.setUIHandler('updateSpeedButtons', updateSpeedButtons);
-GlobalStore.setUIHandler('activateScrollSlowdown', activateScrollSlowdown);
-GlobalStore.setUIHandler('restoreSpeedFromScroll', restoreSpeedFromScroll);
+
 
 // ==================== 按钮事件绑定（从 13main 迁移） ====================
 

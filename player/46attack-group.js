@@ -13,7 +13,7 @@ import {
 } from '../fx/87fx-manager.js';
 import { AudioManager } from '../modules/22audio-manager.js';
 import { getState } from '../infra/54-global-store.js';
-import { appendLogHTML, appendLogElement, autoScrollLog, updateRoundDisplay, renderSeparator, playLogLine, appendHiddenDetail } from './47renderer.js';
+import { appendLogHTML, appendLogElement, autoScrollLog, updateRoundDisplay, renderSeparator, playLogLine, appendHiddenDetail, findUnitByUid } from './47renderer.js';
 
 const safeShowDanmaku = (...args) => { try { return showDanmaku(...args); } catch(e) {} };
 
@@ -22,16 +22,16 @@ export async function handleAttackGroup(c, entry, roundResult, abortSig, isFirst
     if (entry._events && entry._events.length > 0) {
         for (const ev of entry._events) {
             if (ev.payload && (ev.payload._flyMode === 'butterfly' || ev.payload._butterflyHost)) {
-                const sister = c.UI.allyTeam.find(u => u.uid === ev.unitUid);
+                const sister = findUnitByUid(c, ev.unitUid);
                 if (sister) {
                     const { showButterflyFlyOut } = await import('../fx/86fx-butterfly-spider.js');
                     const hostUid = ev.payload._butterflyHost;
-                    const host = hostUid ? c.UI.allyTeam.find(u => u.uid === hostUid) : null;
+                    const host = hostUid ? findUnitByUid(c, hostUid) : null;
                     if (host) showButterflyFlyOut(sister, host);
                     c.store.dispatch({ type: 'APPLY_EVENTS', events: [ev] });
                 }
             } else if (ev.payload && ev.payload._flyMode === 'spider') {
-                const brother = c.UI.allyTeam.find(u => u.uid === ev.unitUid);
+                const brother = findUnitByUid(c, ev.unitUid);
                 if (brother) {
                     const { showSpiderAscend } = await import('../fx/86fx-butterfly-spider.js');
                     showSpiderAscend(brother);
@@ -45,8 +45,8 @@ export async function handleAttackGroup(c, entry, roundResult, abortSig, isFirst
         }
     }
 
-    let unitA=c.UI.allyTeam.concat(c.UI.enemyTeam).find(u=>u.uid===entry.uidA);
-    let unitD=entry.uidD?c.UI.allyTeam.concat(c.UI.enemyTeam).find(u=>u.uid===entry.uidD):null;
+    let unitA = findUnitByUid(c, entry.uidA);
+    let unitD = entry.uidD ? findUnitByUid(c, entry.uidD) : null;
     if(!entry.isBlock&&!entry.isMiss&&!entry.isDodge&&(!unitA||!unitD)){
         appendLogHTML(`<span class="gray">${entry.uidA || '未知'} 攻击 ${entry.uidD || '未知'}，但目标已不存在</span><br>`);
     }
@@ -125,15 +125,15 @@ export async function handleAttackGroup(c, entry, roundResult, abortSig, isFirst
                 }
             }
             if (entry2.reboundDmg && entry2.reboundTargetUid) {
-                let reboundTarget = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.uid === entry2.reboundTargetUid);
+                let reboundTarget = findUnitByUid(c, entry2.reboundTargetUid);
                 if (reboundTarget) showDamageFloat(reboundTarget, entry2.reboundDmg);
             }
             if (entry2.selfDmg && entry2.selfDmgUid) {
-                let selfTarget = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.uid === entry2.selfDmgUid);
+                let selfTarget = findUnitByUid(c, entry2.selfDmgUid);
                 if (selfTarget) showDamageFloat(selfTarget, entry2.selfDmg);
             }
             if (entry2.buffType === 'qiankun_atk' && entry2.atkTargetUid && entry2.atkGain) {
-                const atkTarget = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.uid === entry2.atkTargetUid);
+                const atkTarget = findUnitByUid(c, entry2.atkTargetUid);
                 if (atkTarget) {
                     setTimeout(() => showAtkBuffFloat(atkTarget, entry2.atkGain), 180);
                 }
@@ -141,9 +141,9 @@ export async function handleAttackGroup(c, entry, roundResult, abortSig, isFirst
 
             if (entry2.type === 'buff-splash') {
                 if (entry2.buffType === 'meteor_splash' && entry2.attackerUid && entry2.primaryUid && entry2.splashUids && entry2.splashUids.length > 0) {
-                    let attacker = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.uid === entry2.attackerUid);
-                    let primary = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.uid === entry2.primaryUid);
-                    let splashU = entry2.splashUids.map(uid => c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.uid === uid)).filter(u => u);
+                    let attacker = findUnitByUid(c, entry2.attackerUid);
+                    let primary = findUnitByUid(c, entry2.primaryUid);
+                    let splashU = entry2.splashUids.map(uid => findUnitByUid(c, uid)).filter(u => u);
                     if (attacker && primary && splashU.length > 0) {
                         c.isPaused = true; GlobalStore.set('bulletTimeActive', true);
                         await showBuffBanner('☄️ 流星赶月！');
@@ -164,8 +164,8 @@ export async function handleAttackGroup(c, entry, roundResult, abortSig, isFirst
                 if (entry2.buffType === 'meteor_splash') await new Promise(r=>setTimeout(r, GlobalStore.get('fastForwardActive') ? 1 : 600));
             }
             if (entry2.isClawHit && entry2.clawAttackerUid && entry2.clawTargetUid) {
-                const clawAttacker = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.uid === entry2.clawAttackerUid);
-                const clawTarget = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.uid === entry2.clawTargetUid);
+                const clawAttacker = findUnitByUid(c, entry2.clawAttackerUid);
+                const clawTarget = findUnitByUid(c, entry2.clawTargetUid);
                 if (clawTarget && entry2.text) {
                     let dmgMatch = entry2.text.match(/造成 (\d+(?:\.\d+)?) 点伤害/);
                     if (dmgMatch) showDamageFloat(clawTarget, Math.round(parseFloat(dmgMatch[1])));
@@ -215,8 +215,15 @@ export async function handleAttackGroup(c, entry, roundResult, abortSig, isFirst
         }
     }
     if(unitD && !entry.isDodge && !entry.isMiss && !entry.isDead && !unitD.state._isDead) c.store.dispatch({ type: 'CLEAR_UNIT_FLASH', uid: unitD.uid });
-    if (c.UI && c.UI.allyTeam && c.UI.enemyTeam) {
-        c.UI.allyTeam.concat(c.UI.enemyTeam).forEach(u => { if (u.alive) { const su = c.store ? c.store.getState().units.find(s => s.uid === u.uid) : null; if (!su || !su._flyMode) { let blocked = isBlocked(u, u.camp === 'ally' ? c.UI.allyTeam : c.UI.enemyTeam); c.store.dispatch({ type: 'SET_VISUAL', uid: u.uid, _blocked: blocked }); } } });
+    if (c.store) {
+        const storeUnits = c.store.getState().units;
+        storeUnits.forEach(u => {
+            if (u.alive && !u.state._flyMode) {
+                const allies = storeUnits.filter(x => x.camp === u.camp);
+                let blocked = isBlocked(u, allies);
+                c.store.dispatch({ type: 'SET_VISUAL', uid: u.uid, _blocked: blocked });
+            }
+        });
     }
     updateRoundDisplay(`📜 日志（第${c.UI.round}回合）`);
 

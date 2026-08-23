@@ -2,7 +2,7 @@
 // V5.5.0 | ~8000 bytes| 2026-08-14 抽离 doInitBattle 纯逻辑部分，消除 ui→modules 依赖中不该在 ui 层的业务逻辑
 export const VER = 'modules/29battle-init.js V5.5.0';
 
-import { CONFIG, ENEMY_M } from '../core/01config-5v5-test.js';
+import { CONFIG } from '../core/01config-5v5-test.js';
 import { Unit } from '../core/02unit.js';
 import { GlobalStore } from '../infra/54-global-store.js';
 
@@ -10,6 +10,7 @@ const C = CONFIG;
 
 // 战斗-初始化：生成明教+六大派阵容（纯逻辑，无 DOM）
 export function initBattleTeams(currentStage, _rng) {
+    const ENEMY_M = CONFIG.ENEMY_M;
     const _rand = (min, max) => _rng.nextInt(min, max);
     let allyTeam = [], enemyTeam = [];
     const mingSquadTemplate = C.MING_SQUADS && C.MING_SQUADS[currentStage] ? C.MING_SQUADS[currentStage] : null;

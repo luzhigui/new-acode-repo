@@ -8,7 +8,7 @@ let gameData = null;
 async function loadGameData() {
     if (gameData) return gameData;
     try {
-        const resp = await fetch('./content/200game-data.json');
+        const resp = await fetch(new URL('../content/200game-data.json', import.meta.url));
         gameData = await resp.json();
         return gameData;
     } catch (e) {
@@ -81,23 +81,17 @@ const DEFAULT_BUFFS = {
 };
 
 const CONFIG = {
-    MING_ALL: ['张无忌', '韦一笑', '殷天正', '杨逍', '范遥', '庄铮', '颜垣', '吴劲草', '周颠', '张中', '说不得', '冷谦', '彭莹玉', '明教洪午', '明教岳山', '明教石虎', '明教弟子1', '明教弟子2', '明教弟子3'],
-    MING_M: {
-        '张无忌': 115, '韦一笑': 107,
-        '殷天正': 104, '杨逍': 104, '范遥': 104,
-        '庄铮': 100, '颜垣': 100, '吴劲草': 100,
-        '周颠': 100, '张中': 100, '说不得': 100, '冷谦': 100, '彭莹玉': 100,
-        '明教洪午': 97, '明教岳山': 97, '明教石虎': 97,
-        '明教弟子1': 95, '明教弟子2': 95, '明教弟子3': 95
+    get MING_ALL() {
+        return getGameData()?.roster?.mingAll || [];
     },
-    ENEMY_SECTS: ['少林', '武当', '峨眉', '昆仑', '崆峒'],
-    ENEMY_TITLES: {
-        '少林': ['空闻', '空智', '空性', '少林圆真', '少林圆音', '少林圆业', '少林慧轮', '少林慧净', '少林虚竹', '少林虚清', '少林弟子'],
-        '武当': ['清虚', '清风', '明月', '武当凌云', '武当松溪', '武当莲舟', '武当岱岩', '武当声谷', '武当弟子'],
-        '峨眉': ['静玄', '静虚', '静照', '峨眉慧静', '峨眉慧心', '峨眉慧明', '峨眉妙清', '峨眉妙音', '峨眉素问', '峨眉灵枢', '峨眉弟子'],
-        '昆仑': ['何太冲', '班淑娴', '昆仑白鹿子', '昆仑灵宝', '昆仑玉清', '昆仑紫阳', '昆仑弟子'],
-        '崆峒': ['宗维侠', '常敬之', '崆峒唐文亮', '崆峒胡豹', '崆峒简捷', '崆峒赵明', '崆峒弟子'],
-        'default': ['少林弟子', '武当弟子', '峨眉弟子', '昆仑弟子', '崆峒弟子']
+    get MING_M() {
+        return getGameData()?.roster?.mingM || {};
+    },
+    get ENEMY_SECTS() {
+        return getGameData()?.roster?.enemySects || [];
+    },
+    get ENEMY_TITLES() {
+        return getGameData()?.roster?.enemyTitles || {};
     },
     ROLES: ['战士', '防战', '远程', '飞行'],
     ATK_VAR: 6, DEF_VAR: 4, HP_BONUS_MIN: 0, HP_BONUS_MAX: 5,
@@ -138,28 +132,29 @@ const CONFIG = {
         windAssault: '飞行'
     },
     XIAO_ZHAO_PERMANENT_BUFFS: ['fortify', 'bloodthirst', 'meteorShower', 'windAssault', 'cloudBody', 'hotBlood', 'carry', 'doubleStrike', 'mindControl', 'horseFormation', 'holyFlame'],
-    MING_SQUADS: {
-        1: [['张无忌', 100, 97, 97, 95], ['韦一笑', 104, 100, 97, 95], ['小昭', 104, 100, 97, 95], [104, 104, 104, 104, 95]]
+    get MING_SQUADS() {
+        return getGameData()?.encounters?.mingSquads || {};
     },
-    MING_TARGET_POWER: { 2: 500, 3: 520, 4: 540, 5: 560, 6: 580 },
-    ELITE_POWER: { '张无忌': 130, '韦一笑': 120, '小昭': 135 },
-    ELITE_RATE: { '张无忌': 0.40, '韦一笑': 0.30, '小昭': 0.30 },
-    NORMAL_POWER: { 95: 90, 97: 95, 100: 100, 104: 110 },
-    ENEMY_SQUADS: {
-        1: [104,104,100,97,95],
-        2: [104,104,100,100,97],
-        3: [{ name: '宋青书', role: '飞行', m: 107 }, 104, 104, 100, 97],
-        4: [{ name: '宋青书', role: '飞行', m: 107 }, { name: '周芷若', role: '战士', m: 107 }, 104, 104, 100],
-        5: [{ name: '鹿杖客', role: '远程', m: 112, skill: 'xuanmingPalm' }, { name: '鹤笔翁', role: '飞行', m: 112, skill: 'hornStrike' }, 104, 104, 100],
-        6: [{ name: '成昆', role: '防战', m: 112 }, 104, 104, 104, 100]
+    get MING_TARGET_POWER() {
+        return getGameData()?.encounters?.mingTargetPower || {};
     },
-    ENEMY_POS_TEMPLATES: {
-        1: { '防战': [3], '战士': [1, 5], '远程': [8], random: 2 },
-        2: { '防战': [1, 3], '战士': [5], '飞行': [4, 6], '远程': [8, 9], random: 2 },
-        3: { '防战': [1, 3], '战士': [2], '远程': [8], random: 1 },
-        4: { '防战': [1], '远程': [7], random: 3 },
-        5: { '防战': [1], '战士': [2], '远程': [8], random: 3 },
-        6: { '防战': [1], '战士': [2], '远程': [7], '飞行': [8], random: 1 }
+    get ELITE_POWER() {
+        return getGameData()?.roster?.elitePower || {};
+    },
+    get ELITE_RATE() {
+        return getGameData()?.roster?.eliteRate || {};
+    },
+    get NORMAL_POWER() {
+        return getGameData()?.roster?.normalPower || {};
+    },
+    get ENEMY_M() {
+        return getGameData()?.roster?.enemyM || {};
+    },
+    get ENEMY_SQUADS() {
+        return getGameData()?.encounters?.enemySquads || {};
+    },
+    get ENEMY_POS_TEMPLATES() {
+        return getGameData()?.encounters?.enemyPosTemplates || {};
     },
     ELITE_POS_PRIORITY: {
         '战士': [1, 2, 3, 4, 5, 6, 7, 8, 9],
@@ -168,19 +163,8 @@ const CONFIG = {
         '远程': [7, 8, 9, 4, 5, 6, 1, 2, 3]
     },
 
-    ELITE_POOL: {
-        3: [{ name: '宋青书', role: '飞行', m: 107, skill: 'rebelStrike', pos: 5 }],
-        4: [
-            { name: '宋青书', role: '飞行', m: 107, skill: 'rebelStrike', pos: 5 },
-            { name: '周芷若', role: '战士', m: 107, skill: 'nineYinClaw', pos: 2 }
-        ],
-        5: [
-            { name: '鹿杖客', role: '远程', m: 112, skill: 'xuanmingPalm', pos: 7 },
-            { name: '鹤笔翁', role: '飞行', m: 112, skill: 'hornStrike', pos: 4 }
-        ],
-        6: [
-            { name: '成昆', role: '防战', m: 112, skill: 'phantomThunder', pos: 1 }
-        ]
+    get ELITE_POOL() {
+        return getGameData()?.encounters?.elitePool || {};
     },
     // 精英怪技能参数 — 宋青书/周芷若已迁移至 content/200game-data.json，
     // 此处保留的键名仍用于代码引用，但数值由 gameData 覆盖
@@ -263,20 +247,7 @@ const CONFIG = {
     }
 };
 
-const ENEMY_M = {
-    '空闻': 104, '空智': 104, '空性': 104,
-    '清虚': 104, '清风': 104, '明月': 104,
-    '静玄': 104, '静虚': 104, '静照': 104,
-    '何太冲': 104, '班淑娴': 104,
-    '宗维侠': 104, '常敬之': 104,
-    '少林圆真': 97, '少林圆音': 97, '少林圆业': 97, '少林慧轮': 97, '少林慧净': 97, '少林虚竹': 97, '少林虚清': 97,
-    '武当凌云': 97, '武当松溪': 97, '武当莲舟': 97, '武当岱岩': 97, '武当声谷': 97,
-    '峨眉慧静': 97, '峨眉慧心': 97, '峨眉慧明': 97, '峨眉妙清': 97, '峨眉妙音': 97, '峨眉素问': 97, '峨眉灵枢': 97,
-    '昆仑白鹿子': 97, '昆仑灵宝': 97, '昆仑玉清': 97, '昆仑紫阳': 97,
-    '崆峒唐文亮': 97, '崆峒胡豹': 97, '崆峒简捷': 97, '崆峒赵明': 97,
-    '少林弟子': 95, '武当弟子': 95, '峨眉弟子': 95, '昆仑弟子': 95, '崆峒弟子': 95,
-    '宋青书': 107, '周芷若': 107, '成昆': 112, '鹿杖客': 112, '鹤笔翁': 112
-};
+
 
 const STATE = { IDLE: 'IDLE', RUNNING: 'RUNNING', PAUSED: 'PAUSED', GAMEOVER: 'GAMEOVER', STATS: 'STATS', BUFF_SELECT: 'BUFF_SELECT' };
 
@@ -307,4 +278,4 @@ const ZHANG_NEAR_TAUNT = ['还好，还记得七七八八。', '糟糕，只记�
 const DEF_TAUNT = ['就这点攻击力？', '花拳绣腿！', '根本不够看！'];
 const HP_TAUNT = ['撑住，必须撑住！', '这点小伤不算什么！', '还没完呢！'];
 
-export { CONFIG, STATE, TAUNT_LIB, KILL_TAUNT, ZHANG_NEAR_TAUNT, DEF_TAUNT, HP_TAUNT, ENEMY_M };
+export { CONFIG, STATE, TAUNT_LIB, KILL_TAUNT, ZHANG_NEAR_TAUNT, DEF_TAUNT, HP_TAUNT };
