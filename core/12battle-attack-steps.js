@@ -496,6 +496,28 @@ export async function buildAttackGroup(unit, target, dmgCalc, dmgResult, attacke
         delete unit._executeLog;
     }
 
+    // 渲染快照：日志/格子不能读引擎实时对象，否则连击/联动会让前一行剧透后一行血量
+    const snap = {
+        attackerPos: unit.pos,
+        targetPos: target.pos,
+        attackerHp: Math.floor(unit.hp),
+        attackerAtkDisplay: Math.floor(unit.atk + unit.atk * attackerBuffStats.atkBonus),
+        attackerAtkBonusAbs: Math.floor(unit.atk * attackerBuffStats.atkBonus),
+        attackerAtk: Math.floor(unit.atk),
+        attackerDef: Math.floor(unit.def),
+        attackerMaxHp: Math.floor(unit.maxHp),
+        attackerM: unit.m,
+        attackerRole: unit.role,
+        attackerIsZhangNear: !!(unit.isZhang && !unit.rangedForm),
+        attackerNearAtkCount: unit.nearAtkCount,
+        isKuLianAttack: !!(unit.name === '宋青书' && unit._kuLianActive),
+        isLinkAttack: !!unit._isLinkAttack,
+        targetDefDisplay: Math.floor(target.def + target.def * defenderBuffStats.defBonus),
+        targetDefBonusAbs: Math.floor(target.def * defenderBuffStats.defBonus),
+        targetHpAfter: Math.floor(target.hp),
+        targetAlive: target.alive
+    };
+
     const attackFact = {
         factType: 'attack',
         data: {
@@ -508,7 +530,8 @@ export async function buildAttackGroup(unit, target, dmgCalc, dmgResult, attacke
             hpPctBefore,
             hpPctAfter,
             phantomFact,
-            entries: pendingEntries
+            entries: pendingEntries,
+            snap
         },
         _events: []
     };

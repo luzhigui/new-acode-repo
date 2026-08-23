@@ -78,30 +78,43 @@ export function renderAttackFact(fact) {
     const target = fact.target;
     const dmgCalc = fact.dmgCalc;
     const dmgResult = fact.dmgResult;
+    const snap = fact.snap || {};
     const ac = unit.camp === 'ally' ? 'blue' : 'orange';
     const dc = target.camp === 'ally' ? 'blue' : 'orange';
     const campA = unit.camp === 'ally' ? '明教' : '六大派';
     const campD = target.camp === 'ally' ? '明教' : '六大派';
-    const displayAtk = Math.floor(unit.atk + unit.atk * fact.attackerBuffStats.atkBonus);
-    const displayDef = Math.floor(target.def + target.def * fact.defenderBuffStats.defBonus);
-    const unitHpBefore = Math.floor(unit.hp);
+    const displayAtk = snap.attackerAtkDisplay !== undefined ? snap.attackerAtkDisplay : Math.floor(unit.atk + unit.atk * fact.attackerBuffStats.atkBonus);
+    const displayDef = snap.targetDefDisplay !== undefined ? snap.targetDefDisplay : Math.floor(target.def + target.def * fact.defenderBuffStats.defBonus);
+    const unitHpBefore = snap.attackerHp !== undefined ? snap.attackerHp : Math.floor(unit.hp);
+    const targetHpAfter = snap.targetHpAfter !== undefined ? snap.targetHpAfter : Math.floor(target.hp);
+    const targetAlive = snap.targetAlive !== undefined ? snap.targetAlive : target.alive;
+    const unitRole = snap.attackerRole || unit.role;
+    const isZhangNear = snap.attackerIsZhangNear !== undefined ? snap.attackerIsZhangNear : (unit.isZhang && !unit.rangedForm);
+    const nearAtkCount = snap.attackerNearAtkCount !== undefined ? snap.attackerNearAtkCount : unit.nearAtkCount;
+    const atkBonusAbs = snap.attackerAtkBonusAbs !== undefined ? snap.attackerAtkBonusAbs : Math.floor(unit.atk * fact.attackerBuffStats.atkBonus);
+    const defBonusAbs = snap.targetDefBonusAbs !== undefined ? snap.targetDefBonusAbs : Math.floor(target.def * fact.defenderBuffStats.defBonus);
+    const isKuLianAttack = snap.isKuLianAttack !== undefined ? snap.isKuLianAttack : !!(unit.name === '宋青书' && unit._kuLianActive);
+    const isLinkAttack = snap.isLinkAttack !== undefined ? snap.isLinkAttack : !!unit._isLinkAttack;
+    const fxSnapshot = snap.attackerPos !== undefined && snap.targetPos !== undefined
+        ? { attackerPos: snap.attackerPos, defenderPos: snap.targetPos }
+        : makeFXSnapshot(unit, target);
     const killLine = dmgResult.dead || dmgResult.executeKill;
     const group = {
         type:'attack-group', uidA:unit.uid, uidD:target.uid, entries:[],
-        hpAfter: target.hp, alive: target.alive, isDead: killLine,
+        hpAfter: targetHpAfter, alive: targetAlive, isDead: killLine,
         waveTaunt: dmgCalc.waveTaunt, waveUnit: dmgCalc.waveUnit,
-        unitRole: unit.role,
-        _fxSnapshot: makeFXSnapshot(unit, target),
+        unitRole,
+        _fxSnapshot: fxSnapshot,
         _dmg: dmgResult.dmg,
-        _isZhangNear: unit.isZhang && !unit.rangedForm,
-        _nearAtkCount: unit.nearAtkCount,
+        _isZhangNear: isZhangNear,
+        _nearAtkCount: nearAtkCount,
         hpPctBefore: fact.hpPctBefore,
         hpPctAfter: fact.hpPctAfter,
         isMiss:false, isDodge:false, buffEffects:[], needsSeparator: true,
-        _atkBonus: Math.floor(unit.atk * fact.attackerBuffStats.atkBonus),
-        _defBonus: Math.floor(target.def * fact.defenderBuffStats.defBonus),
-        isKuLianAttack: !!(unit.name === '宋青书' && unit._kuLianActive),
-        isLinkAttack: !!unit._isLinkAttack
+        _atkBonus: atkBonusAbs,
+        _defBonus: defBonusAbs,
+        isKuLianAttack,
+        isLinkAttack
     };
     group.entries.push({type:'combat-text', text:`<span class="${ac}">${campA} ${unit.name}</span>(攻${displayAtk} 血${unitHpBefore}) → <span class="${dc}">${campD} ${target.name}</span>(防${displayDef} 血${dmgResult.hpBefore})`});
     if (fact.phantomFact) group.entries.push(renderLog(fact.phantomFact.factType, fact.phantomFact.data));
@@ -112,13 +125,16 @@ export function renderAttackFact(fact) {
     let formulaText = '';
     const fmtBonusEntries = (dmgCalc.bonusDmgEntries || []).filter(e => e.value > 0);
     const fmtMultiplierEntries = (dmgCalc.dmgMultiplierEntries || []).filter(e => e.value > 1);
-    if (unit.role === '防战') {
+    if (unitRole === '防战') {
         const penPart = calcDamage(dmgCalc.atkAct, dmgCalc.defAct);
-        const lv = getFangLevelPure(Math.floor(unit.def), unit.m, CONFIG.FANG_LEVELS);
+        const defForFormula = snap.attackerDef !== undefined ? snap.attackerDef : Math.floor(unit.def);
+        const mForFormula = snap.attackerM !== undefined ? snap.attackerM : unit.m;
+        const maxHpForFormula = snap.attackerMaxHp !== undefined ? snap.attackerMaxHp : Math.floor(unit.maxHp);
+        const lv = getFangLevelPure(defForFormula, mForFormula, CONFIG.FANG_LEVELS);
         const k = CONFIG.FANG_K[lv] !== undefined ? CONFIG.FANG_K[lv] : CONFIG.FANG_K[CONFIG.FANG_K.length - 1];
         const z = dmgCalc.hpRatio !== undefined ? dmgCalc.hpRatio : CONFIG.HP_DMG_RATIO;
         const baseRaw = Math.floor(dmgCalc.raw - dmgCalc.bonusDmgTotal);
-        formulaText = `${Math.floor(penPart)} + ${Math.floor(unit.def)}×${k} + ${Math.floor(unit.maxHp)}×${z} = ${baseRaw}`;
+        formulaText = `${Math.floor(penPart)} + ${defForFormula}×${k} + ${maxHpForFormula}×${z} = ${baseRaw}`;
     } else {
         const baseRaw = Math.floor(dmgCalc.raw - dmgCalc.bonusDmgTotal);
         formulaText = `${dmgCalc.atkAct}×(${dmgCalc.atkAct}/(${dmgCalc.atkAct}+${dmgCalc.defAct})) = ${baseRaw}`;
@@ -136,9 +152,9 @@ export function renderAttackFact(fact) {
                 dmg: Math.round(dmgResult.dmg),
                 targetName: target.name,
                 hpBefore: dmgResult.hpBefore,
-                hpNow: Math.floor(target.hp)
+                hpNow: targetHpAfter
             }).text
-            : `<span class="damage-line ${ac}">${campA} ${unit.name}</span> 造成 <span class="red">${Math.round(dmgResult.dmg)}</span> 伤害，<span class="${dc}">${campD} ${target.name}</span> ${dmgResult.hpBefore} → ${Math.floor(target.hp)} ${dmgResult.dead?'💀阵亡':''}`
+            : `<span class="damage-line ${ac}">${campA} ${unit.name}</span> 造成 <span class="red">${Math.round(dmgResult.dmg)}</span> 伤害，<span class="${dc}">${campD} ${target.name}</span> ${dmgResult.hpBefore} → ${targetHpAfter} ${dmgResult.dead?'💀阵亡':''}`
     });
     for (const entry of dmgResult.bonusEntries) {
         if (entry && entry.factType) group.entries.push(projectFactEntry(entry));
