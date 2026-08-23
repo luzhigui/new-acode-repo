@@ -1,6 +1,6 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// tests/122health-utils.js - 光明顶5v5 体检公共检查函数库
-// V5.5.0 | 新增攻击特效、Buff图标、日志定位；移除 checkDeathMark；增强死亡特效检查
-export const VER = 'tests/122health-utils.js V5.5.0';
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// tests/122health-utils.js - 光明顶5v5 体检公共检查函数库
+// V5.6.0 | 新增战报黑幕/随机重开状态/特效DOM池实时检查（对应已报Bug：战报需关两次/随机重开跳关/弹幕多局卡顿）
+export const VER = 'tests/122health-utils.js V5.6.0';
 
 /**
  * 获取单位对应的格子 DOM 元素
@@ -416,6 +416,89 @@ export function checkModeButtonStates(ctx, doc) {
         const wantText = mode === 'fly' ? '🕊️飞走' : '👻虚影';
         const t = (crashBtn.textContent || '').trim();
         if (t !== wantText) issues.push('虚影按钮文本异常：当前"' + t + '"，预期"' + wantText + '"');
+    }
+    return issues;
+}
+
+/**
+ * [新增] 战报黑幕检查 — 战报"关闭"后黑幕应真正消失
+ * 复发信号：battleReportOverlay 重复创建（getElementById 只取第一个，关闭一次只藏一个→需关两次）/
+ *          已最小化（浮动按钮在）但仍有可见黑幕 / 新局开始后黑幕残留（resetBattleRuntime 未清理）
+ * 对应已报 Bug：战报需要关闭俩次，首次黑幕，第二次真的关掉
+ */
+export function checkBattleReportOverlay(ctx, doc) {
+    const issues = [];
+    if (!doc) return issues;
+    const overlays = doc.querySelectorAll('#battleReportOverlay');
+    if (overlays.length > 1) {
+        issues.push('战报弹窗重复创建' + overlays.length + '个（关闭一次仅隐藏一个→黑幕需关两次）');
+    }
+    const floatBtn = doc.getElementById('battleReportFloat');
+    if (floatBtn) {
+        for (const ov of overlays) {
+            if (ov.style.display !== 'none' && ov.parentNode) {
+                issues.push('战报已关闭（浮动按钮存在）但黑幕仍显示（关闭未真正生效）');
+                break;
+            }
+        }
+    }
+    const gs = ctx ? ctx.gs : '';
+    if (gs === 'RUNNING' || gs === 'PAUSED' || gs === 'IDLE') {
+        for (const ov of overlays) {
+            if (ov.style.display !== 'none' && ov.parentNode) {
+                issues.push('战斗已重新开始但战报黑幕残留（重置未清理战报弹窗）');
+                break;
+            }
+        }
+    }
+    return issues;
+}
+
+/**
+ * [新增] 随机重开状态复位检查 —
+ * 随机重开（btnSettle GAMEOVER 分支）调用 doInitBattle 重新生成阵容，但不复位 gs：
+ * 新局已生成（currentResult=null/round=0/全员存活）时 gs 仍为 GAMEOVER，
+ * 主按钮显示"下一关"，点击将跳关而非开始重开的新局。
+ * 对照：原班再战（btnNext）正确 setState.gs('IDLE')。
+ * 对应已报 Bug：随机重开后点击左边按钮成了下一关
+ */
+export function checkRandomRestartState(ctx, doc) {
+    const issues = [];
+    if (!doc || !ctx || !ctx.UI) return issues;
+    const UI = ctx.UI;
+    const freshBattle = UI.currentResult === null && (!UI.round || UI.round === 0) &&
+        Array.isArray(UI.allyTeam) && UI.allyTeam.length > 0 && UI.allyTeam.every(u => u && u.alive);
+    if (freshBattle && ctx.gs === 'GAMEOVER') {
+        const btnMain = doc.getElementById('btnMain');
+        const t = btnMain ? (btnMain.textContent || '').replace(/\s+/g, '') : '';
+        issues.push('随机重开后状态未复位：新局已生成但gs=GAMEOVER' +
+            (t.indexOf('下一关') !== -1 ? '，主按钮显示"下一关"（点击将跳关）' : ''));
+    }
+    return issues;
+}
+
+/**
+ * [新增] 特效DOM/弹幕池检查 — 对象池容量泄漏与池失效
+ * 池容量（fx/80fx-common-5v5-test.js POOL_SIZES）：danmaku 8 / dmgFloat 6 / dodge 4 / healFloat+atkBuffFloat 8（共用 heal-float 类）
+ * 复发信号：元素数超池容量（泄漏累积→多局后弹幕卡顿）/
+ *          RUNNING 中弹幕DOM为0（ui/69reset-runtime.js 重置时移除弹幕DOM，但对象池仍持有游离引用→弹幕永久失效）
+ * 对应已报 Bug：多打几局，弹幕特别卡
+ */
+export function checkFxDomAccumulation(ctx, doc) {
+    const issues = [];
+    if (!doc) return issues;
+    const danmaku = doc.querySelectorAll('.danmaku-bubble').length;
+    const dmgFloat = doc.querySelectorAll('.dmg-float').length;
+    const dodgeBubble = doc.querySelectorAll('.dodge-bubble').length;
+    const healFloat = doc.querySelectorAll('.heal-float').length;
+    if (danmaku > 8) issues.push('弹幕元素' + danmaku + '个超池容量8（对象池泄漏，多局后卡顿）');
+    if (dmgFloat > 6) issues.push('伤害飘字' + dmgFloat + '个超池容量6（对象池泄漏）');
+    if (dodgeBubble > 4) issues.push('闪避气泡' + dodgeBubble + '个超池容量4（对象池泄漏）');
+    if (healFloat > 8) issues.push('治疗/加攻飘字' + healFloat + '个超池容量8（对象池泄漏）');
+    const total = danmaku + dmgFloat + dodgeBubble + healFloat;
+    if (total > 30) issues.push('特效DOM总量' + total + '个异常累积（弹幕卡顿来源）');
+    if (ctx && ctx.gs === 'RUNNING' && danmaku === 0) {
+        issues.push('战斗进行中弹幕DOM为0（重置摧毁弹幕池：DOM被移除但对象池仍持有游离引用，弹幕已失效）');
     }
     return issues;
 }
