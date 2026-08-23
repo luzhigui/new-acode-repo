@@ -1,5 +1,7 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// tools/104-toolkit-more.js - 光明顶5v5 开发工具箱（函数提取器 / 函数替换器）
-// V5.5.1 | ~29000 bytes| 2026-08-22 TARGET_FILES 清单补录 15/70/88/113/114/115/133
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// tools/104-toolkit-more.js - 光明顶5v5 开发工具箱（函数提取器 / 函数替换器）
+// V5.6.0 | ~27000 bytes| 2026-08-22 TARGET_FILES 改为从 106 的 ALL_PROJECT_FILES 派生（单一数据源，消除双份维护）
+
+import { ALL_PROJECT_FILES } from './106-ai-pack-config.js';
 
 function escapeHtml(text) {
     return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -7,51 +9,15 @@ function escapeHtml(text) {
 
 /* ========== 2. 函数替换器 ========== */
 (function() {
-    const TARGET_FILES = [
-        '../infra/50-event-bus.js',
-        '../core/01config-5v5-test.js', '../core/02unit.js', '../core/03battle-utils.js',
-        '../core/04buff-system.js', '../core/05battle-horse.js',
-        '../infra/51-core-utils.js',
-        '../core/08-elite-registry.js',
-        '../core/10battle-attack.js', '../core/11battle-round.js', '../core/12battle-attack-steps.js',
-        '../core/13battle-shared.js', '../core/14buff-effects.js', '../core/15-skill-mechanisms.js',
-        '../player/40player-text.js', '../player/41player-buff-ui.js', '../player/43animation-scheduler.js', '../player/42player-core.js',
-        '../player/44battle-player-5v5-test.js', '../player/45event-handlers.js', '../player/46attack-group.js', '../player/47renderer.js',
-        '../ui/60main-utils.js', '../ui/61main-5v5-test.js', '../ui/62ui-render-5v5-test.js',
-        '../ui/63main-state.js', '../ui/64main-dialogs.js', '../ui/65main-battle.js',
-        '../ui/66audio-control.js', '../ui/67fx-trigger.js', '../ui/68ui-controls.js',
-        '../ui/69reset-runtime.js', '../ui/70buff-dialog.js',
-        '../fx/80fx-common-5v5-test.js', '../fx/81fx-arrows-5v5-test.js', '../fx/82fx-crash-5v5-test.js',
-        '../fx/83fx-position-swap.js', '../fx/84fx-push-back.js', '../fx/85fx-dodge-bullet.js',
-        '../fx/86fx-butterfly-spider.js', '../fx/87fx-manager.js', '../fx/88fx-trigger.js',
-        '../modules/20elite-skills.js', '../modules/21error-capture.js', '../modules/22audio-manager.js',
-        '../infra/54-global-store.js', '../modules/29battle-init.js', '../modules/24battle-store.js',
-        '../modules/25elite-imperial.js', '../modules/26elite-sixsects.js', '../modules/27elite-mingjiao.js',
-        '../modules/28buff-tools.js',
-        '../render/30-fact-renderer.js', '../render/32-grid-render.js',
-        '../content/200game-data.json',
-        '../tests/120test-runner.html',
-        '../tests/health-rules/123-claw-heal-spam.js',
-        '../tests/health-rules/124-aftermiss.js',
-        '../tests/health-rules/125-fortify-timing.js',
-        '../tests/health-rules/126-xuanming-link.js',
-        '../tests/health-rules/127-butterfly-stack.js',
-        '../tests/health-rules/128-butterfly-return.js',
-        '../tests/health-rules/129-spider-fly-count.js',
-        '../tests/health-rules/130-fortify-overflow.js',
-        '../tests/health-rules/131-separator-duplicate.js',
-        '../tests/health-rules/132-claw-damage.js', '../tests/health-rules/133-death-effect.js',
-        '../tests/121health-monitor.js', '../tests/122health-utils.js',
-        '../tools/103-toolkit.js', '../tools/104-toolkit-more.js',
-        '../tools/105-shop.html', '../tools/106-ai-pack-config.js',
-        '../tools/107-battle-log-viewer.js', '../tools/108-hex-dashboard.js',
-        '../tools/109-role-balance.js', '../tools/110-role-balance-random.html',
-        '../tools/112-elite-eval.js', '../tools/113-stats-check.js',
-        '../tools/114-baseline-compare.js', '../tools/115-lineup-search.js',
-        // 移除了：52-version-calibrator / 53-dead-code-scanner / 54-filelist-checker（这些工作直接问 AI 更高效）
-        // 移除了：100build-5v5.cjs（构建脚本已废弃为 .TXT，不再复制）
-        '../tools/101auto-battle-utils.js'
-    ];
+    // 单一数据源：全项目清单统一维护在 106-ai-pack-config.js 的 ALL_PROJECT_FILES，本清单由其派生。
+    // 仅排除不适合作函数扫描的文件：工具箱自身页面 102、两个入口页（assets 音频由后缀白名单自动排除）。
+    // 新增/删除项目文件时只需改 106 一处，本清单自动同步。
+    const SCAN_EXCLUDE = new Set([
+        '../tools/102-toolkit.html',   // 工具箱自身页面
+        '../index.html',               // 开发入口页
+        '../mode-5v5-test.html'        // 游戏入口页
+    ]);
+    const TARGET_FILES = ALL_PROJECT_FILES.filter(f => /\.(js|html|json|cjs)$/.test(f) && !SCAN_EXCLUDE.has(f));
 
     const mapContainer = document.getElementById('fncMapContainer');
     const statusDiv = document.getElementById('fncStatus');

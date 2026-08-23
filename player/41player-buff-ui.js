@@ -5,6 +5,7 @@ export const VER = 'player/41player-buff-ui.js V5.6.0';
 import { Unit } from '../core/02unit.js';
 import { showHealFloat, showBuffBanner } from '../fx/87fx-manager.js';
 import { GlobalStore } from '../infra/54-global-store.js';
+import { findUnitByUid } from './47renderer.js';
 
 
 let ctx = null;
@@ -19,7 +20,7 @@ export async function handleHolyTokenDrop(c, entry) {
     c.isPaused = true;
     GlobalStore.set('bulletTimeActive', true);
 
-    const unit = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.uid === entry.unitUid);
+    const unit = findUnitByUid(c, entry.unitUid);
     const gridId = unit?.camp === 'ally' ? 'allyGrid' : 'enemyGrid';
     const grid = document.getElementById(gridId);
     const order = unit?.camp === 'enemy' ? [7,8,9,4,5,6,1,2,3] : [1,2,3,4,5,6,7,8,9];
@@ -104,7 +105,7 @@ export async function handleBuffDestroy(c, entry, prevEntry) {
 
 export async function handleBuffLeech(c, entry) {
     // 只负责飘字和横幅，不修改血量（血量已由引擎事件同步到 Store）
-    let healUnit = (c.UI.allyTeam.concat(c.UI.enemyTeam)).find(u => u.uid === entry.healUnitUid);
+    let healUnit = findUnitByUid(c, entry.healUnitUid);
     if (healUnit && entry.healAmount) {
         showHealFloat(healUnit, entry.healAmount);
     }

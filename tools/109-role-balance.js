@@ -1,11 +1,13 @@
 // tools/109-role-balance.js - 光明顶5v5 职业平衡分析工具
-// V5.5.1 | ~15009 bytes| 2026-08-19 import 路径合并至 infra/51-core-utils
-export const VER = 'tools/109-role-balance.js V5.5.1';
+// V5.6.0 | ~16500 bytes| 2026-08-22 新增海克斯开关（复刻全自动选buff流程），近战限位默认关
+export const VER = 'tools/109-role-balance.js V5.6.0';
 
 import { CONFIG } from '../core/01config-5v5-test.js';
 import { Unit } from '../core/02unit.js';
 import { SeededRNG } from '../infra/51-core-utils.js';
 import { createRoundStepper } from '../core/11battle-round.js';
+import { setBattleRng } from '../core/13battle-shared.js';
+import { createBuffObject } from '../modules/28buff-tools.js';
 import '../infra/54-global-store.js';
 import '../modules/25elite-imperial.js';
 import '../modules/26elite-sixsects.js';
@@ -15,8 +17,8 @@ const ROLES = ['防战', '战士', '飞行', '远程'];
 const ROLE_ICONS = { '防战': '🛡️', '战士': '⚔️', '飞行': '🦅', '远程': '🏹' };
 const BASE_TEMPLATE = { 1: '防战', 2: '战士', 5: '飞行', 7: '远程', 9: '远程' };
 
-// 第六人站位规则：默认所有职业 [3,4,6,8]，开启近战限位后防战/战士仅 [3,6]
-let extraPosConfig = { '防战': [3, 6], '战士': [3, 6], '飞行': [3, 4, 6, 8], '远程': [3, 4, 6, 8] };
+// 第六人站位规则：默认所有职业 [3,4,6,8]（近战限位默认关），开启近战限位后防战/战士仅 [3,6]
+let extraPosConfig = { '防战': [3, 4, 6, 8], '战士': [3, 4, 6, 8], '飞行': [3, 4, 6, 8], '远程': [3, 4, 6, 8] };
 let extraPosDefault = [3, 4, 6, 8];
 
 // ========== 样式 ==========
@@ -85,13 +87,37 @@ function buildTeam(extraRole, camp, rng) {
     return team;
 }
 
-async function runNakedBattle(allyUnits, enemyUnits, seed, firstSide = 'enemy') {
+// 海克斯：选一个新 buff（复刻主代码全自动规则）
+// withFortifyRule=开局规则（无激活buff时排除fortify）；every3=每3回合规则（无fortify排除）
+function pickHexBuff(activeBuffs, allyTeam, rng, withFortifyRule) {
+    const existing = activeBuffs.map(b => b.key);
+    const allKeys = Object.keys(CONFIG.BUFFS);
+    const available = allKeys.filter(k => {
+        if (existing.includes(k)) return false;
+        if (withFortifyRule && k === 'fortify' && !activeBuffs.some(b => b.remaining > 0)) return false;
+        const requiredRole = CONFIG.BUFF_ROLE_REQUIREMENTS[k];
+        if (requiredRole && !allyTeam.some(u => u.alive && u.role === requiredRole)) return false;
+        return true;
+    });
+    if (available.length === 0) return null;
+    const pick = available[rng.nextInt(0, available.length - 1)];
+    const duration = CONFIG.BUFFS[pick].duration || CONFIG.BUFF_DURATION || 4;
+    return createBuffObject(pick, duration);
+}
+
+async function runNakedBattle(allyUnits, enemyUnits, seed, firstSide = 'enemy', hexEnabled = false) {
     const rng = new SeededRNG(seed);
+    setBattleRng(rng); // createBuffObject 的 holyFlame 列行随机依赖 battleRng（stepper 每回合也会重设，这里保证开局选择前可用）
+    let masterBuffs = [];
+    if (hexEnabled) {
+        const first = pickHexBuff(masterBuffs, allyUnits, rng, true);
+        if (first) masterBuffs.push(first);
+    }
     let battleState = {
         ally: allyUnits.map(u => u.clone()),
         enemy: enemyUnits.map(u => u.clone()),
         round: 1,
-        activeBuffs: [],
+        activeBuffs: masterBuffs,
         allAllies: allyUnits.map(u => u.clone()),
         _rng: rng,
         _firstSide: firstSide
@@ -104,11 +130,25 @@ async function runNakedBattle(allyUnits, enemyUnits, seed, firstSide = 'enemy') 
             lastStep = step;
             if (step.winner) return { winner: step.winner };
         }
+        // 回合结束：buff 计时 -1（与主代码 42player-core 的主列表同步一致；引擎内部副本自行tick互不影响）
+        masterBuffs = masterBuffs.map(b => ({ ...b, remaining: b.remaining - 1 })).filter(b => b.remaining > 0);
+        // 每3回合选新 buff（round%3===0：刚打完的回合数）
+        if (hexEnabled && battleState.round % 3 === 0 && battleState.round > 0) {
+            const aliveCheckTeam = (lastStep && lastStep.ally) ? lastStep.ally : allyUnits;
+            const nb = pickHexBuff(masterBuffs, aliveCheckTeam, rng, false);
+            if (nb) {
+                if (masterBuffs.length >= 2) {
+                    const shortest = masterBuffs.reduce((a, b) => a.remaining < b.remaining ? a : b);
+                    masterBuffs.splice(masterBuffs.indexOf(shortest), 1);
+                }
+                masterBuffs.push(nb);
+            }
+        }
         battleState = {
             ally: (lastStep ? lastStep.ally : battleState.ally).map(u => u.clone()),
             enemy: (lastStep ? lastStep.enemy : battleState.enemy).map(u => u.clone()),
             round: battleState.round + 1,
-            activeBuffs: [],
+            activeBuffs: masterBuffs.map(b => ({ ...b })),
             allAllies: battleState.allAllies,
             _rng: battleState._rng
         };
@@ -127,10 +167,14 @@ window.openRoleBalance = function() {
                 <button class="role-bal-close">关闭</button>
             </div>
             <div class="role-bal-body">
-                <p class="role-bal-tip">6V6 标准模板循环赛：双方基础模板（1防战、2战士、5飞行、7远程、9远程）各加一名额外职业。无海克斯，M=100。统计明教视角胜率。</p>
+                <p class="role-bal-tip">6V6 标准模板循环赛：双方基础模板（1防战、2战士、5飞行、7远程、9远程）各加一名额外职业。M=100，明教侧按全自动规则选海克斯（开局1个+每3回合1个，仅明教方）。统计明教视角胜率。</p>
                 <div class="role-bal-pos-config">
+                    <label class="role-bal-toggle" id="roleBalHexLabel">
+                        <input type="checkbox" id="roleBalHex" checked>
+                        <span class="switch"></span> 海克斯
+                    </label>
                     <label class="role-bal-toggle" id="roleBalToggleLabel">
-                        <input type="checkbox" id="roleBalMeleeLimit" checked>
+                        <input type="checkbox" id="roleBalMeleeLimit">
                         <span class="switch"></span> 防战/战士限定 [3,6]
                     </label>
                     <label>站位池：</label>
@@ -186,6 +230,7 @@ window.openRoleBalance = function() {
 
     mask.querySelector('#roleBalRun').addEventListener('click', async () => {
         const roundsPerGroup = parseInt(roundsInput.value) || 100;
+        const hexEnabled = mask.querySelector('#roleBalHex').checked;
         const matrix = {};
         const allyStats = {};
         const enemyStats = {};
@@ -207,7 +252,7 @@ window.openRoleBalance = function() {
                     const allyTeam = buildTeam(allyRole, 'ally', rng);
                     const enemyTeam = buildTeam(enemyRole, 'enemy', rng);
                     const firstSide = 'enemy';
-                    const r = await runNakedBattle(allyTeam, enemyTeam, seed, firstSide);
+                    const r = await runNakedBattle(allyTeam, enemyTeam, seed, firstSide, hexEnabled);
                     if (r.winner === '明教') wins++;
                     if (i % 10 === 0) {
                         progress.textContent = `明教额外[${allyRole}] vs 六大派额外[${enemyRole}]：${i}/${roundsPerGroup}`;

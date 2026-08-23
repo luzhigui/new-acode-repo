@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿<!DOCTYPE html>
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿<!DOCTYPE html>
 <!-- V5.4.0 | ~25900 bytes-->
 <html lang="zh-CN">
 <head>
@@ -396,5 +396,12 @@
     <script type="module" src="./113-stats-check.js"></script>
     <script type="module" src="./114-baseline-compare.js"></script>
     <script type="module" src="./115-lineup-search.js"></script>
+    <script type="module">
+        // 数据底座：112/113/114/115/101 的 initBattleTeams 依赖 CONFIG.MING_M 等 getter，
+        // 数据源是 content/200game-data.json，不加载则普通兵候选池为空 → pick undefined 崩溃。
+        // loadGameData 内部幂等（已加载直接返回），页面加载时调一次即可。
+        import { loadGameData } from '../core/01config-5v5-test.js';
+        loadGameData();
+    </script>
 </body>
 </html>

@@ -7,14 +7,14 @@ import { _triggerFX } from '../fx/88fx-trigger.js';
 import { showDanmaku, showDamageFloat, showDodgeBubble, showHealFloat, showAtkBuffFloat, applyBrushEffect, showBuffBanner, showCriticalBanner, showHeartEffect, showPinkFlash, showKuLianEffect, showWindClaw, showDodgeBulletTime, showRangedArrow, showSplashArrows, showBoneClaw, animatePositionSwap, animatePushBack, animatePushSwap, showButterflyFlyOut, showButterflyFlyBack, showSpiderAscend, showSpiderDescend, showSpiderStrike } from '../fx/87fx-manager.js';
 import { AudioManager } from '../modules/22audio-manager.js';
 import { getState } from '../infra/54-global-store.js';
-import { appendLogHTML, appendLogElement, autoScrollLog, updateRoundDisplay, renderSeparator, playLogLine, appendHiddenDetail } from './47renderer.js';
+import { appendLogHTML, appendLogElement, autoScrollLog, updateRoundDisplay, renderSeparator, playLogLine, appendHiddenDetail, findUnitByUid } from './47renderer.js';
 
 const safeShowDanmaku = (...args) => { try { return showDanmaku(...args); } catch(e) {} };
 
 export async function handleBuffBonus(c, entry) {
     appendLogHTML(entry.text + '<br>');
     if (entry.targetUid && entry.bonusDmg) {
-        let targetUnit = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.uid === entry.targetUid);
+        let targetUnit = findUnitByUid(c, entry.targetUid);
         if (targetUnit) showDamageFloat(targetUnit, entry.bonusDmg);
     }
 }
@@ -24,9 +24,8 @@ export async function handleBuffSwap(c, entry) {
     GlobalStore.set('bulletTimeActive', true);
     await showBuffBanner('🌀 惑人心智！');
     appendLogHTML(entry.text + '<br>');
-    let units = c.UI.allyTeam.concat(c.UI.enemyTeam);
-    let unitA = entry.uidA ? units.find(u => u.uid === entry.uidA) : null;
-    let unitB = entry.uidB ? units.find(u => u.uid === entry.uidB) : null;
+    let unitA = entry.uidA ? findUnitByUid(c, entry.uidA) : null;
+    let unitB = entry.uidB ? findUnitByUid(c, entry.uidB) : null;
     if (unitA && unitB) {
         let oldPosA = entry.oldPosA, oldPosB = entry.oldPosB;
         await animatePositionSwap(unitA, unitB, c, {
@@ -49,9 +48,9 @@ export async function handleBuffPush(c, entry) {
     GlobalStore.set('bulletTimeActive', true);
     if (entry.pushTargetUid) {
         const events = [];
-        const targetUnit = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.uid === entry.pushTargetUid);
+        const targetUnit = findUnitByUid(c, entry.pushTargetUid);
         if (entry.behindUid) {
-            const behindUnit = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.uid === entry.behindUid);
+            const behindUnit = findUnitByUid(c, entry.behindUid);
             if (targetUnit && behindUnit) {
                 events.push({ eventType: 'pos-change', uid: targetUnit.uid, pos: entry.oldPos || behindUnit.pos });
                 events.push({ eventType: 'pos-change', uid: behindUnit.uid, pos: entry.behindOldPos || targetUnit.pos });
@@ -67,9 +66,9 @@ export async function handleBuffPush(c, entry) {
     GlobalStore.set('bulletTimeActive', false);
     c.isPaused = false;
     appendLogHTML(entry.text + '<br>');
-    let targetUnit = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.uid === entry.pushTargetUid);
+    let targetUnit = findUnitByUid(c, entry.pushTargetUid);
     if (entry.behindUid) {
-        let behindUnit = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.uid === entry.behindUid);
+        let behindUnit = findUnitByUid(c, entry.behindUid);
         if (targetUnit && behindUnit) {
             await animatePushSwap(targetUnit, behindUnit, c, { skipDataChange: true });
         }
@@ -84,10 +83,10 @@ export async function handleBuffReboundFortify(c, entry) {
     await showBuffBanner('🛡️ 严阵以待！');
     GlobalStore.set('bulletTimeActive', false);
     c.isPaused = false;
-    let attacker = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.uid === entry.attackerUid);
+    let attacker = findUnitByUid(c, entry.attackerUid);
     if (attacker && entry.reboundDmg) showDamageFloat(attacker, entry.reboundDmg);
     if (entry.selfDmg && entry.selfDmgUid) {
-        let selfTarget = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.uid === entry.selfDmgUid);
+        let selfTarget = findUnitByUid(c, entry.selfDmgUid);
         if (selfTarget) showDamageFloat(selfTarget, entry.selfDmg);
     }
     if (attacker && entry.isDead && c.store) {
@@ -111,36 +110,36 @@ export async function handleInfo(c, entry) {
         return mod[name];
     }
     if (entry.butterflyAction === 'attach' && entry.sisterUid && entry.hostUid) {
-        const sister = c.UI.allyTeam?.find(u => u.uid === entry.sisterUid && u.alive);
-        const host = c.UI.allyTeam?.find(u => u.uid === entry.hostUid);
-        if (sister && host) {
+        const sister = findUnitByUid(c, entry.sisterUid);
+        const host = findUnitByUid(c, entry.hostUid);
+        if (sister && sister.alive && host) {
             const showButterflyFlyOut = await getButterflyFx('showButterflyFlyOut');
             showButterflyFlyOut(sister, host);
         }
     } else if (entry.butterflyAction === 'return' && entry.sisterUid) {
-        const sister = c.UI.allyTeam?.find(u => u.uid === entry.sisterUid && u.alive);
-        if (sister) {
+        const sister = findUnitByUid(c, entry.sisterUid);
+        if (sister && sister.alive) {
             const showButterflyFlyBack = await getButterflyFx('showButterflyFlyBack');
             const hostUid = (sister.state && sister.state._butterflyHost) || sister._butterflyHost;
-            const host = hostUid ? c.UI.allyTeam?.find(u => u.uid === hostUid) : null;
+            const host = hostUid ? findUnitByUid(c, hostUid) : null;
             if (host) showButterflyFlyBack(host, sister);
         }
     } else if (entry.spiderAction === 'fly' && entry.spiderUid) {
-        const brother = c.UI.allyTeam?.find(u => u.uid === entry.spiderUid && u.alive);
-        if (brother) {
+        const brother = findUnitByUid(c, entry.spiderUid);
+        if (brother && brother.alive) {
             const showSpiderAscend = await getButterflyFx('showSpiderAscend');
             showSpiderAscend(brother);
         }
     } else if (entry.spiderAction === 'return' && entry.spiderUid) {
-        const brother = c.UI.allyTeam?.find(u => u.uid === entry.spiderUid && u.alive);
-        if (brother) {
+        const brother = findUnitByUid(c, entry.spiderUid);
+        if (brother && brother.alive) {
             c.store.dispatch({ type: 'SET_VISUAL', uid: brother.uid, _flyMode: null, _acted: false });
             const showSpiderDescend = await getButterflyFx('showSpiderDescend');
             showSpiderDescend(brother);
         }
     }
 
-    if(entry.isZhangSwitch&&entry.unit){ let zhangUnit = c.UI.allyTeam.find(u => u.isZhang); renderSeparator(); await playLogLine(entry.text); if(zhangUnit) { c.store.dispatch({ type: 'SET_VISUAL', uid: zhangUnit.uid, _resting: false }); safeShowDanmaku(zhangUnit, '不好，要顶上去了！'); } }
+    if(entry.isZhangSwitch&&entry.unit){ let zhangUnit = c.store ? c.store.getState().units.find(u => u.isZhang) : null; renderSeparator(); await playLogLine(entry.text); if(zhangUnit) { c.store.dispatch({ type: 'SET_VISUAL', uid: zhangUnit.uid, _resting: false }); safeShowDanmaku(zhangUnit, '不好，要顶上去了！'); } }
     else {
         if (entry.isDoubleStrikeBanner) {
             c.isPaused = true;
@@ -150,7 +149,7 @@ export async function handleInfo(c, entry) {
 
         if (entry.buffType === 'elite_xinhun') {
             let song = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.name === '宋青书');
-            let zhou = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.uid === entry.zhouUid);
+            let zhou = findUnitByUid(c, entry.zhouUid);
             if (zhou) c.store.dispatch({ type: 'SET_VISUAL', uid: zhou.uid, _hasKuaiLe: true });
             requestAnimationFrame(() => {
                 if (song) showHeartEffect(song);
@@ -162,12 +161,12 @@ export async function handleInfo(c, entry) {
             }
         }
         if (entry.buffType === 'elite_kuaile_heal' && entry.zhouUid) {
-            let unit = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.uid === entry.zhouUid);
+            let unit = findUnitByUid(c, entry.zhouUid);
             let match = entry.text.match(/回复(\d+)/);
             if (match && unit) showHealFloat(unit, parseInt(match[1]));
         }
         if (entry.buffType === 'qiankun_atk' && entry.atkTargetUid && entry.atkGain) {
-            const atkTarget = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.uid === entry.atkTargetUid);
+            const atkTarget = findUnitByUid(c, entry.atkTargetUid);
             if (atkTarget) {
                 setTimeout(() => showAtkBuffFloat(atkTarget, entry.atkGain), 180);
             }
@@ -175,8 +174,8 @@ export async function handleInfo(c, entry) {
 
 
         if (entry.isSpiderStrike && entry.uidA && entry.uidD) {
-            const spiderUnit = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.uid === entry.uidA);
-            const strikeTarget = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.uid === entry.uidD);
+            const spiderUnit = findUnitByUid(c, entry.uidA);
+            const strikeTarget = findUnitByUid(c, entry.uidD);
             if (spiderUnit && strikeTarget) {
                 await playLogLine(entry.text);
                 c.isPaused = true;
@@ -194,8 +193,8 @@ export async function handleInfo(c, entry) {
         }
 
         if (entry.isClawHit && entry.clawAttackerUid && entry.clawTargetUid) {
-            let attacker = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.uid === entry.clawAttackerUid);
-            let target = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.uid === entry.clawTargetUid);
+            let attacker = findUnitByUid(c, entry.clawAttackerUid);
+            let target = findUnitByUid(c, entry.clawTargetUid);
             if (target && entry.text) {
                 let dmgMatch = entry.text.match(/造成 (\d+) 点伤害/);
                 if (dmgMatch) showDamageFloat(target, parseInt(dmgMatch[1]));
@@ -208,16 +207,16 @@ export async function handleInfo(c, entry) {
             }
         }
         if (entry.isHealEntry && entry.healAmount && entry.healUnitUid) {
-            let healUnit = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.uid === entry.healUnitUid);
+            let healUnit = findUnitByUid(c, entry.healUnitUid);
             if (healUnit) showHealFloat(healUnit, entry.healAmount);
         }
 
         if (entry.reboundDmg && entry.attackerUid) {
-            let attacker = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.uid === entry.attackerUid);
+            let attacker = findUnitByUid(c, entry.attackerUid);
             if (attacker) showDamageFloat(attacker, entry.reboundDmg);
         }
         if (entry.isDead && entry.uidD) {
-            let deadUnit = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.uid === entry.uidD);
+            let deadUnit = findUnitByUid(c, entry.uidD);
             if (deadUnit && c.store) {
                 c.store.dispatch({ type: 'SET_FLASH', uid: deadUnit.uid, flash: 'dead' });
                 c.store.dispatch({ type: 'SET_VISUAL', uid: deadUnit.uid, _isDead: true });

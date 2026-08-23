@@ -4,7 +4,7 @@ export const VER = 'ui/61main-5v5-test.js V5.5.1';
 
 import '../infra/54-global-store.js';
 import '../modules/21error-capture.js';
-import { CONFIG, STATE, KILL_TAUNT, ENEMY_M, loadGameData, VER as CFG_VER } from '../core/01config-5v5-test.js';
+import { CONFIG, STATE, KILL_TAUNT, loadGameData, VER as CFG_VER } from '../core/01config-5v5-test.js';
 import { Unit, VER as VER_UNIT } from '../core/02unit.js';
 import { getRandomTaunt, getKillTaunt, getZhangNearTaunt, makeFXSnapshot, VER as VER_UTILS } from '../core/03battle-utils.js';
 import { stripTags, renderGrid, updateUI, setRenderStore, spawnVictoryEffects, clearLogExceptFirst, isUnitBenefitedByBuff, VER as UI_VER } from './62ui-render-5v5-test.js';

@@ -14,7 +14,7 @@ import { GlobalStore, getState, getPlayerContext } from '../infra/54-global-stor
 import { createStore, battleReducer, GAME_STATE_FIELDS } from '../modules/24battle-store.js';
 import { handleBuffBonus, handleBuffSwap, handleBuffPush, handleBuffReboundFortify, handleInfo, handleRoundStart, handleRoundEnd, shouldStartNewGroup } from './45event-handlers.js';
 import { handleAttackGroup } from './46attack-group.js';
-import { getLogDiv, appendLogHTML, appendLogElement, autoScrollLog, updateRoundDisplay, renderSeparator, renderRoundStart, renderRoundEnd, renderInfoLine, renderVictoryLine, setBtnDisabled, setBtnText, initRenderer, initLogScrollControls, showScoreFloat } from './47renderer.js';
+import { getLogDiv, appendLogHTML, appendLogElement, autoScrollLog, updateRoundDisplay, renderSeparator, renderRoundStart, renderRoundEnd, renderInfoLine, renderVictoryLine, setBtnDisabled, setBtnText, initRenderer, initLogScrollControls, showScoreFloat, findUnitByUid } from './47renderer.js';
 import { updateGridUI, setGridStore } from '../render/32-grid-render.js';
 import { setGridRenderCtx } from '../render/32-grid-render.js';
 import { AnimationScheduler } from './43animation-scheduler.js';
@@ -81,7 +81,7 @@ export async function playLogEntries(c, log, roundResult, isFirstAttackRef) {
                 case 'buff-leech':
                     if (entry.buffType === 'hotBlood') {
                         appendLogHTML(entry.text + '<br>');
-                        let healUnit = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.uid === entry.healUnitUid);
+                        let healUnit = findUnitByUid(c, entry.healUnitUid);
                         if (healUnit && entry.healAmount) {
                             showHealFloat(healUnit, entry.healAmount);
                         }
@@ -100,7 +100,7 @@ export async function playLogEntries(c, log, roundResult, isFirstAttackRef) {
                         await showBuffBanner('🦅 乘风突袭！');
                         if (entry.splashUids) {
                             entry.splashUids.forEach(uid => {
-                                const targetUnit = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.uid === uid);
+                                const targetUnit = findUnitByUid(c, uid);
                                 if (targetUnit) showWindClaw(targetUnit);
                             });
                         }
@@ -108,9 +108,9 @@ export async function playLogEntries(c, log, roundResult, isFirstAttackRef) {
                     else if (entry.buffType === 'meteor_splash') {
                         await showBuffBanner('☄️ 流星赶月！');
                         if (entry.attackerUid && entry.primaryUid && entry.splashUids && entry.splashUids.length > 0) {
-                            let attacker = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.uid === entry.attackerUid);
-                            let primary = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.uid === entry.primaryUid);
-                            let splashTargets = entry.splashUids.map(uid => c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.uid === uid)).filter(u => u);
+                            let attacker = findUnitByUid(c, entry.attackerUid);
+                            let primary = findUnitByUid(c, entry.primaryUid);
+                            let splashTargets = entry.splashUids.map(uid => findUnitByUid(c, uid)).filter(u => u);
                             if (attacker && primary && splashTargets.length > 0) {
                                 showSplashArrows(attacker, primary, splashTargets, c.speed, () => c.isPaused);
                                 splashTargets.forEach((st, i) => {
@@ -143,7 +143,7 @@ export async function playLogEntries(c, log, roundResult, isFirstAttackRef) {
                 case 'buff-bonus':           await handleBuffBonus(c, entry); lastEntryType = entry.type; break;
                 case 'buff-swap':            await handleBuffSwap(c, entry); lastEntryType = entry.type; break;
                 case 'buff-push':            await handleBuffPush(c, entry); lastEntryType = entry.type; break;
-                case 'buff-summary':         { appendLogHTML(entry.text + '<br>'); if(entry.buffType==='elite_xingfen'){let song=c.UI.allyTeam.concat(c.UI.enemyTeam).find(u=>u.name==='宋青书');if(song)c.store.dispatch({type:'SET_VISUAL',uid:song.uid,_hasXingFen:true});} lastEntryType = entry.type; } break;
+                case 'buff-summary':         { appendLogHTML(entry.text + '<br>'); if(entry.buffType==='elite_xingfen'){let song = c.store ? c.store.getState().units.find(u => u.name === '宋青书') : null; if(song)c.store.dispatch({type:'SET_VISUAL',uid:song.uid,_hasXingFen:true});} lastEntryType = entry.type; } break;
                 case 'buff-rebound-fortify': await handleBuffReboundFortify(c, entry); lastEntryType = entry.type; break;
                 case 'round-start':
                     c.UI.allyTeam.forEach(u => { if (u.alive) c.store.dispatch({ type: 'SET_VISUAL', uid: u.uid, _acted: false }); });
@@ -241,34 +241,43 @@ export async function playBattle() {
     setGridRenderCtx(c);
     c.updateUI();
 
-    c.store.subscribe((state) => {
-        if (!c.UI || !c.UI.allyTeam || !c.UI.enemyTeam) return;
-        const syncFields = (uiUnit) => {
-            const su = state.units.find(u => u.uid === uiUnit.uid);
-            if (!su) return;
-            GAME_STATE_FIELDS.forEach(f => { if (su[f] !== undefined) { if (f === '_isDead' || f === '_phantomTarget') uiUnit.state[f] = su[f]; else uiUnit[f] = su[f]; } });
-            if (su._flash !== undefined) uiUnit._flash = su._flash;
-            if (su.state && su.state._acted !== undefined) uiUnit.state._acted = su.state._acted;
-            if (su.state && su.state._resting !== undefined) uiUnit.state._resting = su.state._resting;
-            if (su.state && su.state._blocked !== undefined) uiUnit.state._blocked = su.state._blocked;
-            if (su.state && su.state._flyMode !== undefined) uiUnit.state._flyMode = su.state._flyMode;
-            if (su.state && su.state._butterflyHost !== undefined) uiUnit.state._butterflyHost = su.state._butterflyHost;
-            if (su.state && su.state._phantomTarget !== undefined) uiUnit.state._phantomTarget = su.state._phantomTarget;
-            if (su.state && su.state._isDead && !uiUnit.state._isDead) {
-                uiUnit.state._isDead = true;
-                uiUnit._flash = 'dead';
-            }
-        };
-        c.UI.allyTeam.forEach(syncFields);
-        c.UI.enemyTeam.forEach(syncFields);
-        state.units.forEach(su => {
+    // UI 快照整体重建：从 store 克隆单位到 c.UI，保证 c.UI 只读且与 store 一致
+    function rebuildUISnapshotFromStore() {
+        if (!c.store) return;
+        const storeUnits = c.store.getState().units;
+        const cloneUnit = (su) => {
             const copyState = {};
             ['_acted','_stunned','_isDead','_resting','_blocked','_flyMode','_butterflyHost','_spiderFlying','_spiderTriggeredHit','_spiderTriggered70','_spiderTriggered40','_spiderTriggeredDeath','_spiderTriggeredThisRound','_phantomTarget'].forEach(f => { if (su.state && su.state[f] !== undefined) copyState[f] = su.state[f]; });
-            if (su.camp === 'ally' && !c.UI.allyTeam.find(u => u.uid === su.uid)) c.UI.allyTeam.push({...su, state: copyState});
-            if (su.camp === 'enemy' && !c.UI.enemyTeam.find(u => u.uid === su.uid)) c.UI.enemyTeam.push({...su, state: copyState});
-        });
-        c.UI.allyTeam = c.UI.allyTeam.filter(u => state.units.find(su => su.uid === u.uid));
-        c.UI.enemyTeam = c.UI.enemyTeam.filter(u => state.units.find(su => su.uid === u.uid));
+            return { ...su, state: copyState };
+        };
+        c.UI.allyTeam = storeUnits.filter(u => u.camp === 'ally').map(cloneUnit);
+        c.UI.enemyTeam = storeUnits.filter(u => u.camp === 'enemy').map(cloneUnit);
+    }
+
+    c.store.subscribe((state) => {
+        if (!c.UI || !c.UI.allyTeam || !c.UI.enemyTeam) return;
+        // UI 单源化：不再逐字段同步 c.UI，快照由每步结束后的 rebuildUISnapshotFromStore 整体重建
+        // 新增单位：store 有而 c.UI 快照没有的，补进快照
+        const mergeNewUnits = (camp) => {
+            const dst = camp === 'ally' ? c.UI.allyTeam : c.UI.enemyTeam;
+            for (const su of state.units.filter(u => u.camp === camp)) {
+                if (!dst.find(u => u.uid === su.uid)) {
+                    const copyState = {};
+                    ['_acted','_stunned','_isDead','_resting','_blocked','_flyMode','_butterflyHost','_spiderFlying','_spiderTriggeredHit','_spiderTriggered70','_spiderTriggered40','_spiderTriggeredDeath','_spiderTriggeredThisRound','_phantomTarget'].forEach(f => { if (su.state && su.state[f] !== undefined) copyState[f] = su.state[f]; });
+                    dst.push({...su, state: copyState});
+                }
+            }
+        };
+        mergeNewUnits('ally');
+        mergeNewUnits('enemy');
+        // 移除单位：c.UI 快照有而 store 没有的，从快照剔除
+        const removeStaleUnits = (camp) => {
+            const liveUids = new Set(state.units.filter(u => u.camp === camp).map(u => u.uid));
+            if (camp === 'ally') c.UI.allyTeam = c.UI.allyTeam.filter(u => liveUids.has(u.uid));
+            else c.UI.enemyTeam = c.UI.enemyTeam.filter(u => liveUids.has(u.uid));
+        };
+        removeStaleUnits('ally');
+        removeStaleUnits('enemy');
 
         if (!c._deathTimers) c._deathTimers = {};
         for (const su of state.units) {
@@ -277,7 +286,7 @@ export async function playBattle() {
                 const uid = su.uid;
                 setTimeout(() => {
                     if (!c._deadUnitsForReport) c._deadUnitsForReport = [];
-                    const dead = c.UI.allyTeam.concat(c.UI.enemyTeam).find(u => u.uid === uid);
+                    const dead = findUnitByUid(c, uid);
                     if (dead && !c._deadUnitsForReport.find(u => u.uid === uid)) {
                         c._deadUnitsForReport.push({...dead});
                     }
@@ -288,8 +297,7 @@ export async function playBattle() {
         }
     });
 
-    c.UI.allyTeam = initialUnits.filter(u => u.camp === 'ally').map(u => u.clone());
-    c.UI.enemyTeam = initialUnits.filter(u => u.camp === 'enemy').map(u => u.clone());
+    rebuildUISnapshotFromStore();
     c._deadUnitsForReport = [];
     initRenderer(c);
     updateRoundDisplay('📜 日志（第1回合）');
@@ -333,6 +341,7 @@ export async function playBattle() {
                 c.store.dispatch({ type: 'APPLY_EVENTS', events: step.events });
             }
             c.store.dispatch({ type: 'SYNC_BATTLE_STATS', ally: step.ally, enemy: step.enemy });
+            rebuildUISnapshotFromStore();
 
             await new Promise(r => setTimeout(r, GlobalStore.get('fastForwardActive') ? 1 : Math.max(100, c.speed / 2)));
 
