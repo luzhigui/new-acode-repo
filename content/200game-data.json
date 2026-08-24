@@ -76,7 +76,7 @@
           "type": "kuLian",
           "atkBonus": 1,
           "defBonus": 1,
-          "hpBonus": 2.5
+          "hpBonus": 3
         },
         {
           "camp": "enemy",
@@ -100,11 +100,11 @@
         },
         "kuLian": {
           "name": "苦练",
-          "desc": "场上无周芷若时每回合最先行动；行动前给全体队友+{atkBonus}攻+{defBonus}防+{hpBonus}生命上限，自身翻倍",
+          "desc": "场上无周芷若时每回合最先行动；行动前给全体队友+{atkBonus}攻+{defBonus}防+{hpBonus}生命上限，自身三倍",
           "params": {
             "atkBonus": 1,
             "defBonus": 1,
-            "hpBonus": 2.5
+            "hpBonus": 3
           }
         },
         "xinHun": {
