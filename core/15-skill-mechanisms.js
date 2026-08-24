@@ -1,6 +1,6 @@
 // core/15-skill-mechanisms.js - 光明顶5v5 技能机制解释器
-// V5.7.0 | ~14500 bytes| 2026-08-22 新增白骨爪/苦练/新婚/性奋声明式解释器
-export const VER = 'core/15-skill-mechanisms.js V5.7.0';
+// V5.7.1 | ~14500 bytes| 2026-08-24 苦练血量+3、宋青书自身三倍加成
+export const VER = 'core/15-skill-mechanisms.js V5.7.1';
 
 import { EXECUTION_LAYER as L, EFFECT_TYPES } from '../infra/50-event-bus.js';
 import { CONFIG } from './01config-5v5-test.js';
@@ -362,11 +362,11 @@ function installKuLian(eventBus, A, B, declarations) {
         const s = {
             atkBonus: decl.atkBonus || 1,
             defBonus: decl.defBonus || 1,
-            hpBonus: decl.hpBonus || 2.5
+            hpBonus: decl.hpBonus || 3
         };
         B.forEach(u => {
             if (!u.alive || u.isHorse) return;
-            const mult = u.uid === kuLianSong.uid ? 2 : 1;
+            const mult = u.uid === kuLianSong.uid ? 3 : 1;
             applyStatChange(u, 'atk', s.atkBonus * mult, null, '苦练');
             applyStatChange(u, 'def', s.defBonus * mult, null, '苦练');
             applyMaxHpChange(u, u.maxHp + s.hpBonus * mult, null, '苦练血上限');

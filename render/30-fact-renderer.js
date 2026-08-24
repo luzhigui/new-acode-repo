@@ -1,8 +1,8 @@
 // render/30-fact-renderer.js - 光明顶5v5 事实渲染器
-// V5.7.4 | ~36300 bytes| 2026-08-24 蛛变日志附带精通属性收益
+// V5.7.5 | ~36300 bytes| 2026-08-24 苦练日志文案改为自身三倍
 import { CONFIG, getSkillParams } from '../core/01config-5v5-test.js';
 import { calcDamage, getFangLevelPure, makeFXSnapshot } from '../infra/51-core-utils.js';
-export const VER = 'render/30-fact-renderer.js V5.7.4';
+export const VER = 'render/30-fact-renderer.js V5.7.5';
 
 // fact 条目投影为渲染条目，并合并 fact 条目上携带的附加字段（isHealEntry/buffType 等）
 function projectFactEntry(e) {
@@ -418,7 +418,7 @@ export function renderKuLianPriorityFact(fact) {
     return { type:'info', text:`<span class="gold">⚡ 苦练勤学：${fact.unitName} 率先行动！</span>` };
 }
 export function renderKuLianFact(fact) {
-    return { type:'info', text:`<span class="gold">🏋️ 苦练强化：${fact.unitName} 激励全体队友+${fact.atkBonus}攻+${fact.defBonus}防+${fact.hpBonus}血上限（自身翻倍）！</span>` };
+    return { type:'info', text:`<span class="gold">🏋️ 苦练强化：${fact.unitName} 激励全体队友+${fact.atkBonus}攻+${fact.defBonus}防+${fact.hpBonus}血上限（自身三倍）！</span>` };
 }
 
 // ==================== 概率连击 ====================
