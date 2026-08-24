@@ -1,6 +1,6 @@
 // player/42player-core.js - 光明顶5v5 战斗播放器核心
-// V5.7.0 | ~34500 bytes| 2026-08-23 fx 直调改事件订阅，player 不再依赖 fx
-export const VER = 'player/42player-core.js V5.7.0';
+// V5.7.1 | ~35200 bytes| 2026-08-23 死亡标记延迟到日志播完落地；SYNC 过滤已移除尸体防复活闪烁
+export const VER = 'player/42player-core.js V5.7.1';
 
 import { CONFIG } from '../core/01config-5v5-test.js';
 import { eventBus } from '../infra/50-event-bus.js';
@@ -168,23 +168,19 @@ export async function playLogEntries(c, log, roundResult, isFirstAttackRef) {
     return { isBattleOver: false };
 }
 
-function applyStageActionToStore(c, action) {
+function applyStageActionToStore(c, action, pendingDeaths) {
     if (!c.store || !action) return;
     switch (action.kind) {
         case 'attack':
         case 'dot':
         case 'execute':
         case 'spiderStrike':
-            if (action.dead && action.targetUid) {
-                c.store.dispatch({ type: 'SET_FLASH', uid: action.targetUid, flash: 'dead' });
-                c.store.dispatch({ type: 'SET_VISUAL', uid: action.targetUid, _isDead: true });
-            }
+            // 死亡标记不在 stageAction 阶段落地（会抢在攻击动画前显示死亡格），
+            // 收集后由 playStep 在日志播完统一落地；近战另有 88 飞撞回调在动画结束时兜底
+            if (action.dead && action.targetUid && pendingDeaths) pendingDeaths.push(action.targetUid);
             break;
         case 'dodge':
-            if (action.dead && action.actorUid) {
-                c.store.dispatch({ type: 'SET_FLASH', uid: action.actorUid, flash: 'dead' });
-                c.store.dispatch({ type: 'SET_VISUAL', uid: action.actorUid, _isDead: true });
-            }
+            if (action.dead && action.actorUid && pendingDeaths) pendingDeaths.push(action.actorUid);
             break;
         case 'posSwap':
             if (action.actorUid && action.targetUid) {
@@ -311,20 +307,37 @@ function rebuildUISnapshotFromStore(c) {
 }
 
 async function playStep(c, step, isFirstAttackRef) {
+    const pendingDeaths = [];
     if (step.stageActions && step.stageActions.length > 0) {
         for (const action of step.stageActions) {
-            applyStageActionToStore(c, action);
+            applyStageActionToStore(c, action, pendingDeaths);
             await applyStageActionToFX(c, action);
         }
     }
 
     await playLogEntries(c, step.log, step, isFirstAttackRef);
 
+    // 死亡标记统一在日志播完后落地：时序为 攻击动画/文本 → 死亡特效 → 掉血同步
+    for (const uid of pendingDeaths) {
+        const du = c.store.getState().units.find(u => u.uid === uid);
+        if (du && !(du.state && du.state._isDead)) {
+            c.store.dispatch({ type: 'SET_FLASH', uid: uid, flash: 'dead' });
+            c.store.dispatch({ type: 'SET_VISUAL', uid: uid, _isDead: true });
+        }
+    }
+
     if (step.events && step.events.length > 0) {
         c.store.dispatch({ type: 'APPLY_EVENTS', events: step.events });
     }
     c.store.dispatch({ type: 'SYNC_BATTLE_STATS', ally: step.ally, enemy: step.enemy });
-    c.store.dispatch({ type: 'SYNC_FULL_UNITS', ally: step.ally, enemy: step.enemy });
+    // SYNC 过滤「引擎已死且 store 已移除」的尸体：引擎数组保留阵亡单位（战报要用），
+    // 不过滤会被 SYNC 的补新逻辑重新加回，死亡格在 REMOVE_UNIT 后反复「消失-重现」
+    const inStoreUids = new Set(c.store.getState().units.map(u => u.uid));
+    const syncUnits = (units) => units.filter(u => {
+        const isDead = !u.alive || (u.state && u.state._isDead);
+        return !isDead || inStoreUids.has(u.uid);
+    });
+    c.store.dispatch({ type: 'SYNC_FULL_UNITS', ally: syncUnits(step.ally), enemy: syncUnits(step.enemy) });
     rebuildUISnapshotFromStore(c);
 }
 
