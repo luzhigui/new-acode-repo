@@ -1,6 +1,6 @@
 // core/04buff-system.js - 光明顶5v5 Buff系统
-// V5.5.2 | ~28000 bytes| 2026-08-17 彻底去HTML：所有日志由渲染器生成
-export const VER = 'core/04buff-system.js V5.5.2';
+// V5.6.0 | ~27900 bytes| 2026-08-24 删除断头的精通查询链（精通已在蛛变首次掌握时增量结算）
+export const VER = 'core/04buff-system.js V5.6.0';
 import {
     applyFortifyDef_Normal, applyFortifyDef_Sister, applyFortifyDef_Brother,
     applyCloudBodyDodge_Normal, applyCloudBodyDodge_Sister, applyCloudBodyDodge_Brother,
@@ -138,13 +138,6 @@ export function computeBuffStats(unit, activeBuffs, allyTeam) {
         applyCloudBodyDodge_Brother(unit, { dodgeBonus });
     }
 
-    // 小昭变身精通加成
-    let masteryAtkAbs = 0, masteryDefAbs = 0, masteryHpAbs = 0;
-    if (unit.isXiaoZhaoBrother) {
-        const mastery = query('butterflyMastery', unit);
-        masteryAtkAbs = mastery.atk; masteryDefAbs = mastery.def; masteryHpAbs = mastery.hp;
-    }
-
     // 圣火令（比率）
     const holyFlameTeam = hasBuff(activeBuffs, 'holyFlame');
     if (holyFlameTeam) {
@@ -154,7 +147,7 @@ export function computeBuffStats(unit, activeBuffs, allyTeam) {
         applyHolyFlame_Brother(unit, allyTeam, activeBuffs, { atkBonus, defBonus });
     }
 
-    return { atkBonus, defBonus, dodgeBonus, hpBonus, carryAtkAbs, carryDefAbs, carryHpAbs, masteryAtkAbs, masteryDefAbs, masteryHpAbs };
+    return { atkBonus, defBonus, dodgeBonus, hpBonus, carryAtkAbs, carryDefAbs, carryHpAbs };
 }
 
 // 攻击前已迁移至事件总线（空壳保留）

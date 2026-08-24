@@ -1,8 +1,8 @@
 // render/30-fact-renderer.js - 光明顶5v5 事实渲染器
-// V5.7.3 | ~36200 bytes| 2026-08-24 叛逆真伤比例直读 JSON（宋青书.rebelStrike），去 ELITE_SKILLS 兜底
+// V5.7.4 | ~36300 bytes| 2026-08-24 蛛变日志附带精通属性收益
 import { CONFIG, getSkillParams } from '../core/01config-5v5-test.js';
 import { calcDamage, getFangLevelPure, makeFXSnapshot } from '../infra/51-core-utils.js';
-export const VER = 'render/30-fact-renderer.js V5.7.3';
+export const VER = 'render/30-fact-renderer.js V5.7.4';
 
 // fact 条目投影为渲染条目，并合并 fact 条目上携带的附加字段（isHealEntry/buffType 等）
 function projectFactEntry(e) {
@@ -485,7 +485,8 @@ export function renderKuaiLeHealFact(fact) {
 
 // ==================== 小昭蛛变 ====================
 export function renderSpiderTransformFact(fact) {
-    return { type:'info', text:`<span class="gold">🕷️ 蛛变：${fact.unitName} 变换为<span class="gold">${fact.newRole}</span>（已精通${fact.mastered}/4）</span>` };
+    const gain = fact.masteryGain ? `，精通+${fact.masteryGain.atk}攻+${fact.masteryGain.def}防+${fact.masteryGain.hp}血` : '';
+    return { type:'info', text:`<span class="gold">🕷️ 蛛变：${fact.unitName} 变换为<span class="gold">${fact.newRole}</span>（已精通${fact.mastered}/4${gain}）</span>` };
 }
 export function renderSpiderReturnFact(fact) {
     return { type:'info', spiderAction:'return', spiderUid: fact.spiderUid, text:`<span class="gold">🕷️ 蛛落：${fact.unitName} 从天而降，落在${fact.pos}号位！</span>`, needsSeparator: true };
