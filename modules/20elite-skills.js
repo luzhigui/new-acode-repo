@@ -1,6 +1,6 @@
 // modules/20elite-skills.js - 光明顶5v5 精英技能系统
-// V5.7.0 | ~12200 bytes| 2026-08-24 蛛变改职业加成差值结算（不再额外+血），精通首次掌握时按层数差给属性；删除断头的 computeButterflyMastery 查询链
-export const VER = 'modules/20elite-skills.js V5.7.0';
+// V5.7.1 | ~12200 bytes| 2026-08-24 蛛变职业加成改回永久叠加（仅删固定+5血），精通首次掌握按层数差给属性；删除断头的 computeButterflyMastery 查询链
+export const VER = 'modules/20elite-skills.js V5.7.1';
 
 import { getSkillParams } from '../core/01config-5v5-test.js';
 import { getRoleBonus } from '../core/02unit.js';
@@ -173,20 +173,16 @@ export function spiderTransform(unit, log) {
     const isNewMastery = !unit._masteredRoles.includes(newRole);
     if (isNewMastery) unit._masteredRoles.push(newRole);
 
-    // 蛛变只结算职业加成差值：扣旧职业加成、加新职业加成，本身不额外加属性
-    const oldStats = getRoleBonus(unit.role);
+    // 蛛变：职业加成永久叠加（每变一次吃一份新职业加成，不扣旧的），本身无额外属性
     const newStats = getRoleBonus(newRole);
-    const dAtk = newStats.atk - oldStats.atk;
-    const dDef = newStats.def - oldStats.def;
-    const dMaxHp = newStats.maxHp - oldStats.maxHp;
     unit.role = newRole;
     if (newRole === '防战') unit._hpDmgRatio = 0.03;
-    applyStatChange(unit, 'atk', dAtk, null, '蛛变');
-    applyStatChange(unit, 'def', dDef, null, '蛛变');
-    unit._baseAtk = (unit._baseAtk || unit.atk) + dAtk;
-    unit._baseDef = (unit._baseDef || unit.def) + dDef;
-    unit._baseMaxHp = (unit._baseMaxHp || unit.maxHp) + dMaxHp;
-    applyMaxHpChange(unit, unit.maxHp + dMaxHp, null, '蛛变');
+    applyStatChange(unit, 'atk', newStats.atk, null, '蛛变');
+    applyStatChange(unit, 'def', newStats.def, null, '蛛变');
+    unit._baseAtk = (unit._baseAtk || unit.atk) + newStats.atk;
+    unit._baseDef = (unit._baseDef || unit.def) + newStats.def;
+    unit._baseMaxHp = (unit._baseMaxHp || unit.maxHp) + newStats.maxHp;
+    applyMaxHpChange(unit, unit.maxHp + newStats.maxHp, null, '蛛变');
 
     // 精通加成：首次精通新职业时按层数差结算（全精通时一次性补 2 层）
     let masteryGain = null;
