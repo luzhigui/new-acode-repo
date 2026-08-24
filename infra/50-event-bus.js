@@ -1,6 +1,6 @@
 // infra/50-event-bus.js - 光明顶5v5 事件总线
-// V5.5.0 | ~5200 bytes| 2026-07-28 信号系统基础设施
-export const VER = 'infra/50-event-bus.js V5.5.0';
+// V5.5.1 | ~5500 bytes| 2026-08-23 clearAll 保留 fx: 页面级信号，修复每回合清空误杀特效订阅
+export const VER = 'infra/50-event-bus.js V5.5.1';
 
 class EventBus {
     constructor() {
@@ -45,7 +45,12 @@ class EventBus {
     }
 
     clearAll() {
-        this._listeners = {};
+        // fx: 前缀为页面级特效信号（fx/89 页面加载时一次性注册，随页面存活），
+        // 每回合的战斗监听清空重注册（core/11 prepareRoundStart）不波及它们
+        for (const signal of Object.keys(this._listeners)) {
+            if (signal.startsWith('fx:')) continue;
+            delete this._listeners[signal];
+        }
     }
 }
 
