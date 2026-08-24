@@ -1,6 +1,6 @@
 // core/12battle-attack-steps.js - 光明顶5v5 攻击步骤拆分模块
-// V5.5.3 | ~27950 bytes| 2026-08-21 战报记账修正：删攻击伤害双记，死亡结算/伤害波动改非记账
-export const VER = 'core/12battle-attack-steps.js V5.5.3';
+// V5.5.4 | ~28000 bytes| 2026-08-23 张无忌近战前三击台词优先于暴击/防御随机台词
+export const VER = 'core/12battle-attack-steps.js V5.5.4';
 
 import { CONFIG, DEF_TAUNT, HP_TAUNT, getSkillParams, getGameData } from './01config-5v5-test.js';
 import { eventBus, EFFECT_TYPES } from '../infra/50-event-bus.js';
@@ -238,8 +238,9 @@ export function calcFinalDamage(unit, target, attackerBuffStats, defenderBuffSta
         waveUnit = target;
     }
     if (unit.isZhang && !unit.rangedForm && unit.nearAtkCount < 3) {
+        // 张无忌近战前三击专属台词优先级最高，覆盖暴击/防御随机台词（确保每次都有弹幕）
         let zt = getZhangNearTaunt(unit.nearAtkCount + 1);
-        if (zt && !waveTaunt) { waveTaunt = zt; waveUnit = unit; }
+        if (zt) { waveTaunt = zt; waveUnit = unit; }
     }
     let raw, rawFormula, hpRatio = 0;
     if (unit.role === '防战') {

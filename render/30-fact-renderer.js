@@ -1,8 +1,8 @@
 // render/30-fact-renderer.js - 光明顶5v5 事实渲染器
-// V5.7.1 | ~36000 bytes| 2026-08-23 蛛落needsSeparator、乘风/流星溅射单目标去掉「各」
+// V5.7.2 | ~36200 bytes| 2026-08-23 破防日志前置到攻击组开头
 import { CONFIG } from '../core/01config-5v5-test.js';
 import { calcDamage, getFangLevelPure, makeFXSnapshot } from '../infra/51-core-utils.js';
-export const VER = 'render/30-fact-renderer.js V5.7.1';
+export const VER = 'render/30-fact-renderer.js V5.7.2';
 
 // fact 条目投影为渲染条目，并合并 fact 条目上携带的附加字段（isHealEntry/buffType 等）
 function projectFactEntry(e) {
@@ -120,6 +120,16 @@ export function renderAttackFact(fact) {
         isLinkAttack
     };
     group.entries.push({type:'combat-text', text:`<span class="${ac}">${campA} ${unit.name}</span>(攻${displayAtk} 血${unitHpBefore}) → <span class="${dc}">${campD} ${target.name}</span>(防${displayDef} 血${dmgResult.hpBefore})`});
+    // 破防发生在伤害计算之前，日志前置到攻击组最前（先破防 → 再计算 → 后出伤害）
+    const breakDefEntries = [];
+    if (fact.entries) {
+        for (const e of fact.entries) {
+            if (e && e.factType === 'breakDef') breakDefEntries.push(projectFactEntry(e));
+        }
+    }
+    for (const b of breakDefEntries) {
+        if (b) group.entries.unshift(b);
+    }
     if (fact.phantomFact) group.entries.push(renderLog(fact.phantomFact.factType, fact.phantomFact.data));
     group.entries.push({type:'detail', text:`<span class="gray small">波动：攻${dmgCalc.atkBase}→${dmgCalc.atkAct} 防${dmgCalc.defBase}→${dmgCalc.defAct} 血${dmgCalc.hpBonus >= 0 ? '+' + dmgCalc.hpBonus : dmgCalc.hpBonus}</span>`});
     if (dmgCalc.thunderBonus > 0) group.entries.push({type:'detail', text:`<span class="red small">💥 混元霹雳劲+${dmgCalc.thunderBonus}真实伤害</span>`});
@@ -173,6 +183,7 @@ export function renderAttackFact(fact) {
     }
     if (fact.entries) {
         for (const e of fact.entries) {
+            if (e && e.factType === 'breakDef') continue; // 已前置到攻击组开头
             if (e && e.factType) group.entries.push(projectFactEntry(e));
             else group.entries.push(e);
         }
