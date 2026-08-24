@@ -150,7 +150,7 @@ export function renderAttackFact(fact) {
         const maxHpForFormula = snap.attackerMaxHp !== undefined ? snap.attackerMaxHp : Math.floor(unit.maxHp);
         const lv = getFangLevelPure(defForFormula, mForFormula, CONFIG.FANG_LEVELS);
         const k = CONFIG.FANG_K[lv] !== undefined ? CONFIG.FANG_K[lv] : CONFIG.FANG_K[CONFIG.FANG_K.length - 1];
-        const z = dmgCalc.hpRatio !== undefined ? dmgCalc.hpRatio : CONFIG.HP_DMG_RATIO;
+        const z = dmgCalc.hpRatio;
         baseRaw = Math.floor((dmgCalc.raw - dmgCalc.bonusDmgTotal) / dmgCalc.dmgMultiplier);
         formulaText = `${Math.floor(penPart)} + ${defForFormula}×${k} + ${maxHpForFormula}×${z} = ${baseRaw}`;
     } else {
