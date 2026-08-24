@@ -1,8 +1,8 @@
 // core/11battle-round.js - 光明顶5v5 回合循环与生成器
-// V5.5.5 | ~23512 bytes| 2026-08-21 战报记账修正：战斗结束归零血量改非记账
-export const VER = 'core/11battle-round.js V5.5.5';
+// V5.6.0 | ~23500 bytes| 2026-08-24 圣火强化参数直读 JSON（小昭.hexEnhance），去 ELITE_SKILLS 兜底
+export const VER = 'core/11battle-round.js V5.6.0';
 
-import { CONFIG, getGameData } from './01config-5v5-test.js';
+import { CONFIG, getGameData, getSkillParams } from './01config-5v5-test.js';
 import { isMelee, isBlocked, makeFXSnapshot, hasBuff, getUnitCol, getUnitRow, hasAnyEnemyEmptyCol, countEnemyEmptyCols, getBloodAuraBonus, getAuraBonuses, registerWarriorBreakDefense, registerRangedGrowth, registerFortifyShield, registerWarriorExecute, selectFlyTarget, registerEmptyColBonus, registerDoubleStrike } from './03battle-utils.js';
 import { computeBuffStats, logBuffSummary, applyHolyFlameBonus, applyFortifyBonus, applyCarryBonus, installBuffMechanics } from './04buff-system.js';
 import { spawnHorse, destroyHorse } from './05battle-horse.js';
@@ -65,7 +65,9 @@ async function prepareRoundStart(A, B, log, state, round, rng) {
     });
 
     const hasSisterForHolyFlame = A.some(u => u.isXiaoZhaoSister && u.alive);
-    const holyFlameEnhance = hasSisterForHolyFlame ? C.ELITE_SKILLS.xiaoZhao.hexEnhance.holyFlame : null;
+    const hexEnhanceParams = getSkillParams('小昭', 'hexEnhance');
+    if (!hexEnhanceParams) throw new Error('缺技能参数: 小昭.hexEnhance');
+    const holyFlameEnhance = hasSisterForHolyFlame ? hexEnhanceParams.holyFlame : null;
     const holyColCount = holyFlameEnhance ? holyFlameEnhance.atkCols : 1;
     const holyRowCount = holyFlameEnhance ? holyFlameEnhance.defRows : 2;
     A._activeBuffs.forEach(b => {

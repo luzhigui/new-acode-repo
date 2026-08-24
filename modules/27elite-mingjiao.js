@@ -1,22 +1,16 @@
 // modules/27elite-mingjiao.js - 明教精英组件合集
-// V5.6.2 | ~32300 bytes| 2026-08-23 张无忌：切换 fact 用触发时 log（修复丢失）；融会贯通 ronghui 态持续生效
-export const VER = 'modules/27elite-mingjiao.js V5.6.2';
+// V5.7.0 | ~31800 bytes| 2026-08-24 拆除 ELITE_SKILLS/本地台词硬编码兜底：统一 getSkillParams + gameData.taunts
+export const VER = 'modules/27elite-mingjiao.js V5.7.0';
 
 import { registerElite } from '../core/08-elite-registry.js';
 import { CONFIG, getSkillParams } from '../core/01config-5v5-test.js';
-import { hasBuff } from '../core/03battle-utils.js';
+import { hasBuff, getZhangNearTaunt } from '../core/03battle-utils.js';
 import { spawnHorse } from '../core/05battle-horse.js';
 import { spiderTransform, spiderReturn } from '../modules/20elite-skills.js';
 import { checkZhangSwitch, emitEvent, applyStatChange, applyMaxHpChange, getBattleRng } from '../core/13battle-shared.js';
 import { EXECUTION_LAYER as L, EFFECT_TYPES } from '../infra/50-event-bus.js';
 import { registerDodgeRule } from '../core/12battle-attack-steps.js';
 import { StateMachine } from '../infra/51-core-utils.js';
-const ES = CONFIG.ELITE_SKILLS;
-function getZhangNearTaunt(nearAtkCount) {
-    const ZHANG_NEAR_TAUNT = ['还好，还记得七七八八。', '糟糕，只记得一两层了。', '不好，全忘光了！'];
-    if (nearAtkCount >= 1 && nearAtkCount <= 3) return ZHANG_NEAR_TAUNT[nearAtkCount - 1];
-    return null;
-}
 
 // ==================== 张无忌 ====================
 export function createZhangWujiComponent() {
@@ -133,7 +127,8 @@ export function createWeiYixiaoComponent() {
             eventBus.on('onDodge', L.AFTER_DAMAGE_APPLIED.WEI_LEECH, (data) => {
                 const { unit, target, reboundDmg, declarations } = data;
                 if (!target.isWei || !target.alive) return;
-                const s = getSkillParams('韦一笑', 'coldPalm') || CONFIG.ELITE_SKILLS.coldPalm;
+                const s = getSkillParams('韦一笑', 'coldPalm');
+                if (!s) throw new Error('缺技能参数: 韦一笑.coldPalm');
                 const lostPct = (target.maxHp - target.hp) / target.maxHp;
                 const leechRate = (s.leechMin + (s.leechMax - s.leechMin) * lostPct) / 100;
                 const heal = Math.floor(reboundDmg * leechRate);
@@ -148,7 +143,7 @@ export function createWeiYixiaoComponent() {
 
             registerDodgeRule((unit, attacker) => {
                 if (!unit.isWei || !unit.alive) return 0;
-                return CONFIG.BASE_DODGE_FLY || 0.15;
+                return CONFIG.BASE_DODGE_FLY;
             });
         }
     };
@@ -206,8 +201,9 @@ export function createXiaoZhaoSisterComponent() {
                 const target = data.target;
                 if (!target || target.camp !== 'ally') return;
                 const dmg = data.unit ? data.unit.atk * (data.unit.atk / (data.unit.atk + target.def)) : 0;
-                const s = getSkillParams('小昭', 'qianKunDerived') || ES.xiaoZhao;
-                const reduce = Math.max(1, Math.floor(dmg * target.def / (s.defToReduce || 150)));
+                const s = getSkillParams('小昭', 'qianKunDerived');
+                if (!s) throw new Error('缺技能参数: 小昭.qianKunDerived');
+                const reduce = Math.max(1, Math.floor(dmg * target.def / s.defToReduce));
                 if (!data.declarations) data.declarations = [];
                 data.declarations.push({
                     type: EFFECT_TYPES.DMG_REDUCTION,
@@ -219,9 +215,9 @@ export function createXiaoZhaoSisterComponent() {
                 if (aliveAllies.length > 0) {
                     const rng = getBattleRng();
                     const healTarget = aliveAllies[rng.nextInt(0, aliveAllies.length - 1)];
-                    const heal = Math.max(1, Math.floor(healTarget.def / (s.defToHeal || 8)));
+                    const heal = Math.max(1, Math.floor(healTarget.def / s.defToHeal));
                     const atkTarget = aliveAllies[rng.nextInt(0, aliveAllies.length - 1)];
-                    const atkGain = Math.max(1, Math.floor(atkTarget.def / (s.defToAtk || 16)));
+                    const atkGain = Math.max(1, Math.floor(atkTarget.def / s.defToAtk));
                     applyStatChange(healTarget, 'hp', heal, xiaoZhao, '乾坤衍生治疗');
                     applyStatChange(atkTarget, 'atk', atkGain, xiaoZhao, '乾坤衍生加攻');
                     if (atkTarget._baseAtk !== undefined) atkTarget._baseAtk += atkGain;
@@ -265,7 +261,6 @@ export function createXiaoZhaoSisterComponent() {
                 log.push({ factType: 'butterflyNoHost', data: { unitName: sister.name } });
                 return null;
             }
-            const s = getSkillParams('小昭', 'butterflyAttach') || {};
             const atkRatio = flyDirection === 'left' ? 0 : 1/2;
             const defRatio = flyDirection === 'left' ? 1/2 : 0;
             const hpRatio = 1/2;
@@ -541,8 +536,9 @@ export function createXiaoZhaoBrotherComponent() {
                 if (!unit.isXiaoZhaoBrother || !unit.alive || unit._xiaoZhaoDoubleStriked) return;
                 if (!unit._permanentBuffs || !unit._permanentBuffs.some(b => b.key === 'doubleStrike')) return;
                 if (hasBuff(A._activeBuffs, 'doubleStrike')) return;
-                const s = getSkillParams('小昭', 'spiderFly') || {};
-                const chance = (s.xiaoZhaoDoubleStrikeChance || 80);
+                const s = getSkillParams('小昭', 'spiderFly');
+                if (!s) throw new Error('缺技能参数: 小昭.spiderFly');
+                const chance = s.xiaoZhaoDoubleStrikeChance;
                 if (getBattleRng().nextInt(1, 100) <= chance) {
                     unit._xiaoZhaoDoubleStriked = true;
                     log.push({ factType: 'spiderDoubleStrike', data: {} });

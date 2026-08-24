@@ -1,6 +1,6 @@
 // tools/108-hex-dashboard.js - 光明顶5v5 海克斯平衡性仪表盘（单文件，界面动态生成）
-// V5.6.0 | ~9500 bytes| 2026-08-21 新增：点击海克斯名称弹出详情（普通/姐姐强化/妹妹永久版参数实时读 CONFIG + 强弱判断）
-import { CONFIG } from '../core/01config-5v5-test.js';
+// V5.6.1 | ~9500 bytes| 2026-08-24 姐姐强化参数改读 JSON（小昭.hexEnhance），清理 ELITE_SKILLS 引用
+import { CONFIG, getSkillParams } from '../core/01config-5v5-test.js';
 (function(){
 const KEY = 'ming_hex_battle_log';
 let logs = [];
@@ -123,7 +123,7 @@ function renderVersion(title, base, enhance, kind, cls) {
 function openHexDetail(key) {
   const b = CONFIG.BUFFS[key];
   if (!b) return;
-  const enhance = CONFIG.ELITE_SKILLS.xiaoZhao.hexEnhance[key] || null;
+  const enhance = getSkillParams('小昭', 'hexEnhance')[key] || null;
   const mask = document.createElement('div');
   mask.className = 'hex-hex-detail-mask';
   mask.innerHTML = `

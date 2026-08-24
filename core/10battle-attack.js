@@ -1,8 +1,8 @@
 // core/10battle-attack.js - 光明顶5v5 攻击流程模块
-// V5.5.3 | ~11001 bytes| 2026-08-21 战报记账修正：免疫回退改非记账
-export const VER = 'core/10battle-attack.js V5.5.3';
+// V5.6.0 | ~10800 bytes| 2026-08-24 清理已删除的防御/血量台词兜底常量引用
+export const VER = 'core/10battle-attack.js V5.6.0';
 
-import { CONFIG, DEF_TAUNT, HP_TAUNT } from './01config-5v5-test.js';
+import { CONFIG } from './01config-5v5-test.js';
 import { hasBuff, makeFXSnapshot, isBlocked } from './03battle-utils.js';
 
 import { computeBuffStats } from './04buff-system.js';
@@ -22,7 +22,7 @@ import { flushBattleEvents } from '../infra/51-core-utils.js';
 
 import { emitEvent, applyStatChange } from './13battle-shared.js';
 
-const C = CONFIG, DT = DEF_TAUNT, HT = HP_TAUNT;
+const C = CONFIG;
 
 export async function processUnitAttack(unit, allySide, enemySide, log, A, B, state, doubleStrikeUnitUid, lockedTargetUid) {
     if (unit.state._stunned) {

@@ -320,7 +320,7 @@
         "spiderFly": {
           "name": "飞天",
           "desc": "首次受击/血量<70%/血量<40%触发，化为小蜘蛛免疫伤害，回合结束落下攻击",
-          "params": { "maxTriggers": 3 }
+          "params": { "maxTriggers": 3, "xiaoZhaoDoubleStrikeChance": 80 }
         },
         "spiderStrike": {
           "name": "蛛袭",
@@ -331,6 +331,22 @@
           "name": "永久海克斯",
           "desc": "团队海克斯消失后，小昭单独续上效果",
           "params": {}
+        },
+        "hexEnhance": {
+          "name": "海克斯增强",
+          "desc": "小昭·姊在场时，团队海克斯效果增强",
+          "params": {
+            "bloodthirst": { "extraStrike": true },
+            "hotBlood": { "leechPct": 0.20, "critInterval": 2 },
+            "windAssault": { "hitProb": 1.0, "pushProb": 0.80 },
+            "meteorShower": { "atkPerSplash": 2 },
+            "mindControl": { "enemySwapProb": 0.95, "allySwapProb": 0.50 },
+            "cloudBody": { "dodgeBonus": 0.30 },
+            "fortify": { "healOnRebound": true },
+            "horseFormation": { "horseAtk": 0, "horseDef": 30, "horseHp": 30, "reboundDmg": 5 },
+            "carry": { "multiTarget": true, "targetPositions": [4, 5, 6] },
+            "holyFlame": { "atkCols": 2, "defRows": 2, "atkBonus": 0.3, "defBonus": 0.3, "xiaoZhaoAtkCols": [1, 2], "xiaoZhaoDefRows": [1, 2], "xiaoZhaoPermanentSelf": true }
+          }
         },
         "mastery": {
           "name": "精通",

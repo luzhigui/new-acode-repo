@@ -1,8 +1,8 @@
 // core/14buff-effects.js - 光明顶5v5 海克斯效果函数库
-// V5.5.0 | ~5700 bytes| 2026-08-17 事实化重构：换位日志走render/30
-export const VER = 'core/14buff-effects.js V5.5.0';
+// V5.6.0 | ~5700 bytes| 2026-08-24 姐姐强化参数直读 JSON（小昭.hexEnhance），去 ELITE_SKILLS 兜底
+export const VER = 'core/14buff-effects.js V5.6.0';
 
-import { CONFIG } from './01config-5v5-test.js';
+import { CONFIG, getSkillParams } from './01config-5v5-test.js';
 import { getUnitRow, getUnitCol } from './03battle-utils.js';
 import { eventBus } from '../infra/50-event-bus.js';
 import { getBattleRng, swapUnitPositions } from './13battle-shared.js';
@@ -13,7 +13,7 @@ export function applyFortifyDef_Sister(unit, stats) { stats.defBonus += CONFIG.B
 export function applyFortifyDef_Brother(unit, stats) { stats.defBonus += CONFIG.BUFFS.fortify.defBonus; }
 
 export function applyCloudBodyDodge_Normal(unit, stats) { stats.dodgeBonus = CONFIG.BUFFS.cloudBody.dodgeBonus; }
-export function applyCloudBodyDodge_Sister(unit, stats) { stats.dodgeBonus = CONFIG.ELITE_SKILLS.xiaoZhao.hexEnhance.cloudBody.dodgeBonus; }
+export function applyCloudBodyDodge_Sister(unit, stats) { stats.dodgeBonus = getSkillParams('小昭', 'hexEnhance').cloudBody.dodgeBonus; }
 export function applyCloudBodyDodge_Brother(unit, stats) { stats.dodgeBonus = CONFIG.BUFFS.cloudBody.dodgeBonus; }
 
 export function applyHolyFlame_Normal(unit, allyTeam, activeBuffs, stats) {
@@ -102,6 +102,7 @@ export function applyMindControl_Normal(unit, allySide, enemySide, log) {
 }
 
 export function applyMindControl_Sister(unit, allySide, enemySide, log) {
-    const s = CONFIG.ELITE_SKILLS.xiaoZhao.hexEnhance.mindControl;
+    const s = getSkillParams('小昭', 'hexEnhance').mindControl;
+    if (!s) throw new Error('缺技能参数: 小昭.hexEnhance.mindControl');
     applyMindControlCore(unit, allySide, enemySide, log, s.enemySwapProb * 100, s.allySwapProb * 100);
 }
