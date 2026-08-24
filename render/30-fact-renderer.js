@@ -1,8 +1,8 @@
 // render/30-fact-renderer.js - 光明顶5v5 事实渲染器
-// V5.7.0 | ~36000 bytes| 2026-08-21 core只产fact：新增投影工具、击杀行内联渲染、附录factType
+// V5.7.1 | ~36000 bytes| 2026-08-23 蛛落needsSeparator、乘风/流星溅射单目标去掉「各」
 import { CONFIG } from '../core/01config-5v5-test.js';
 import { calcDamage, getFangLevelPure, makeFXSnapshot } from '../infra/51-core-utils.js';
-export const VER = 'render/30-fact-renderer.js V5.7.0';
+export const VER = 'render/30-fact-renderer.js V5.7.1';
 
 // fact 条目投影为渲染条目，并合并 fact 条目上携带的附加字段（isHealEntry/buffType 等）
 function projectFactEntry(e) {
@@ -340,7 +340,8 @@ export function renderHotBloodHealFact(fact) {
 
 export function renderWindAssaultSplashFact(fact) {
     const details = fact.targets.map(t => t.name).join('、');
-    return { type:'buff-splash', text:`<span class="orange">${fact.label}波及${details}，各 -${fact.splashDmg}</span>` };
+    const word = fact.targets.length > 1 ? '各-' : '-';
+    return { type:'buff-splash', text:`<span class="orange">${fact.label}波及${details}，${word}${fact.splashDmg}</span>` };
 }
 
 export function renderWindAssaultPushFact(fact) {
@@ -360,7 +361,8 @@ export function renderMeteorShowerMainFact(fact) {
 
 export function renderMeteorShowerSplashFact(fact) {
     const details = fact.targets.map(t => t.name).join('、');
-    let text = `<span class="orange">${fact.label}溅射：${details}，各-${fact.splashDmg}，防御-${fact.defReduce}</span>`;
+    const word = fact.targets.length > 1 ? '各-' : '-';
+    let text = `<span class="orange">${fact.label}溅射：${details}，${word}${fact.splashDmg}，防御-${fact.defReduce}</span>`;
     if (fact.growth) text += ` <span class="gold">⚡ ${fact.unitName} 攻击+${fact.growth}</span>`;
     return { type:'buff-splash', text };
 }
@@ -471,7 +473,7 @@ export function renderSpiderTransformFact(fact) {
     return { type:'info', text:`<span class="gold">🕷️ 蛛变：${fact.unitName} 变换为<span class="gold">${fact.newRole}</span>（已精通${fact.mastered}/4）</span>` };
 }
 export function renderSpiderReturnFact(fact) {
-    return { type:'info', spiderAction:'return', spiderUid: fact.spiderUid, text:`<span class="gold">🕷️ 蛛落：${fact.unitName} 从天而降，落在${fact.pos}号位！</span>` };
+    return { type:'info', spiderAction:'return', spiderUid: fact.spiderUid, text:`<span class="gold">🕷️ 蛛落：${fact.unitName} 从天而降，落在${fact.pos}号位！</span>`, needsSeparator: true };
 }
 export function renderSpiderStrikeFact(fact) {
     // 蛛袭不再产生日志文本，由导演 stageAction 直接驱动特效与掉血
