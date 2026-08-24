@@ -1,6 +1,6 @@
 // tools/113-stats-check.js - 光明顶5v5 统计一致性体检（融合进 102 工具箱 tab）
-// V1.0.0 | 通过 hp-change 事件流 + maxHp 是否变化，区分「战斗扣血」与「血量重分配扣血」，
-// 交叉核对主代码 dmgTaken/dmgDealt/healDone 记账是否被附身/飞回/carry/苦练等污染
+// V2.0.0 | 对齐承伤记账新口径：承伤=来袭全额（含防御减免/溢出/免疫吸收/格挡，回血不冲减）、治疗=产出侧记账
+// hp-change 事件流仅用于检测"重分配污染"（附身/飞回/carry/苦练伴随 maxHp 变化），不再把净扣血与记账差额当异常——差额=防御挡刀+吸收+溢出，属预期
 import { createRoundStepper } from '../core/11battle-round.js';
 import { initBattleTeams } from '../modules/29battle-init.js';
 import { eventBus } from '../infra/50-event-bus.js';
@@ -161,46 +161,51 @@ function record(agg, u, t) {
 function avg(v, n) { return n > 0 ? Math.round(v / n) : 0; }
 
 function renderResult(agg, stages, runs) {
-    const rows = Object.entries(agg).sort((a, b) => (b[1].battleDmg + b[1].reallocDmg) - (a[1].battleDmg + a[1].reallocDmg));
+    const rows = Object.entries(agg).sort((a, b) => b[1].dmgTaken - a[1].dmgTaken);
 
-    // 顶层守恒：每笔扣血记账同时写入 target.dmgTaken 与 source.dmgDealt；
-    // sum(dmgTaken) - sum(dmgDealt) > 0 说明存在「无 source 的扣血记账」（血上限变更/死亡结算等）
+    // 顶层守恒：每笔伤害同时记 target.dmgTaken 与 source.dmgDealt；新口径下都按"来袭全额"双边记账，守恒关系仍成立
     let sumTaken = 0, sumDealt = 0;
     for (const [, d] of rows) { sumTaken += d.dmgTaken; sumDealt += d.dmgDealt; }
     const diff = sumTaken - sumDealt;
-    const verdict = Math.abs(diff) <= 1
-        ? `守恒 ✓：全体 dmgTaken(${sumTaken}) = dmgDealt(${sumDealt})，每笔伤害双边记账平衡。`
-        : `守恒 ✗：全体 dmgTaken(${sumTaken}) ≠ dmgDealt(${sumDealt})，差 ${diff} —— 存在无攻击来源的扣血记账（疑似血上限变更/死亡结算误记）。`;
+    const verdict = Math.abs(diff) <= Math.max(1, rows.length)  // 单步舍入合计允差
+        ? `守恒 ✓：全体 dmgTaken(${sumTaken}) ≈ dmgDealt(${sumDealt})，每笔伤害双边记账平衡。`
+        : `守恒 ✗：全体 dmgTaken(${sumTaken}) ≠ dmgDealt(${sumDealt})，差 ${diff}（相对占比 ${(Math.abs(diff)/Math.max(1,sumTaken)*100).toFixed(2)}%）—— 存在漏记/重复记。`;
 
     let html = `<div class="hex-log-verdict">${verdict}</div>
-    <p style="color:#888;font-size:11px;margin:8px 0;">说明：真实承伤=战斗扣血；重分配承伤/治疗=血量重分配（附身/飞回/carry/苦练）引发的记账，若 >0 即统计被污染。数值为场均（共 ${stages.length} 关 × ${runs} 场）。</p>
+    <p style="color:#888;font-size:11px;margin:8px 0;">
+      新口径：记账承伤=来袭全额（含防御挡刀/免疫吸收/溢出，回血不冲减）；记账治疗=产出侧（奶妈记，被治疗方净回血不再对齐）。<br>
+      hp 净扣血/净回血：maxHp 不变时的真实 hp 变化。<b style="color:#ff8a80;">重分配列</b>：血量重分配（附身/飞回/carry/苦练）污染，>0 即异常。<br>
+      差额：承伤侧=记账承伤 − 净扣血 − 重分配承伤（=防御挡刀+吸收+溢出，正常）；治疗侧=记账治疗（产出侧） − 净回血 − 重分配治疗（=满血溢出+直接记产出，正常）。<br>
+      数值为场均（共 ${stages.length} 关 × ${runs} 场）。
+    </p>
     <table class="elite-table"><tr>
         <th>单位</th><th>场次</th>
-        <th>真实承伤</th><th style="background:#5c2a2a;">重分配承伤</th><th>记账承伤</th>
-        <th>真实治疗</th><th style="background:#5c2a2a;">重分配治疗</th><th>记账治疗</th>
+        <th>hp 净扣血</th><th style="background:#5c2a2a;">重分配承伤</th><th>记账承伤</th><th>承伤差额</th>
+        <th>hp 净回血</th><th style="background:#5c2a2a;">重分配治疗</th><th>记账治疗</th><th>治疗差额</th>
         <th>记账输出</th><th>判定</th>
     </tr>`;
 
     for (const [key, d] of rows) {
-        const overDmg = d.dmgTaken - d.battleDmg - d.reallocDmg;   // 溢出伤害/误差
-        const overHeal = d.healDone - d.battleHeal - d.reallocHeal; // 上限溢出治疗/误差
+        const dmgGap = d.dmgTaken - d.battleDmg - d.reallocDmg;   // 新口径：防御挡刀+吸收+溢出，正常
+        const healGap = d.healDone - d.battleHeal - d.reallocHeal; // 新口径：产出侧 vs 接收侧差（满血溢出/直接记产出），正常
         const polluted = d.reallocDmg > 0.5 || d.reallocHeal > 0.5;
-        const zeroFight = d.battleDmg <= 0.5 && d.dmgTaken > 0.5;
-        let verdictTxt = '✓ 一致';
+        let verdictTxt = '✓ 正常';
         if (polluted) verdictTxt = '⚠ 重分配污染';
-        else if (zeroFight) verdictTxt = '⚠ 零战斗承伤却记账';
-        const vColor = polluted || zeroFight ? '#ff5252' : '#4caf50';
+        const vColor = polluted ? '#ff5252' : '#4caf50';
         const reallocDmgBg = d.reallocDmg > 0.5 ? 'background:#5c2a2a;color:#ff8a80;' : '';
         const reallocHealBg = d.reallocHeal > 0.5 ? 'background:#5c2a2a;color:#ff8a80;' : '';
+        const gapColor = '#ffa726';
         html += `<tr>
             <td style="text-align:left;white-space:nowrap;">${key}</td>
             <td>${d.battles}</td>
             <td>${avg(d.battleDmg, d.battles)}</td>
             <td style="${reallocDmgBg}">${avg(d.reallocDmg, d.battles)}</td>
-            <td>${avg(d.dmgTaken, d.battles)}${overDmg > 0.5 ? `<span class="cell-sub">(+${avg(overDmg, d.battles)}溢出)</span>` : ''}</td>
+            <td style="font-weight:bold;">${avg(d.dmgTaken, d.battles)}</td>
+            <td style="color:${gapColor};">+${avg(dmgGap, d.battles)}</td>
             <td>${avg(d.battleHeal, d.battles)}</td>
             <td style="${reallocHealBg}">${avg(d.reallocHeal, d.battles)}</td>
-            <td>${avg(d.healDone, d.battles)}${overHeal > 0.5 ? `<span class="cell-sub">(+${avg(overHeal, d.battles)}溢出)</span>` : ''}</td>
+            <td style="font-weight:bold;">${avg(d.healDone, d.battles)}</td>
+            <td style="color:${gapColor};">${healGap >= 0 ? '+' : ''}${avg(healGap, d.battles)}</td>
             <td>${avg(d.dmgDealt, d.battles)}</td>
             <td style="color:${vColor};font-weight:bold;">${verdictTxt}</td>
         </tr>`;
