@@ -15,6 +15,18 @@ export function getRoleBonus(role) {
     return bonus;
 }
 
+// 防战血量伤害系数（z 值）分档表：按初始血量占比锁档，占比越高档位越高
+// 血量生成区间为 [0.4m, 0.6m]，占比达不到 0.57 以上极少，故最高档门槛为 0.57
+export function getHpDmgRatio(hpPct) {
+    if (hpPct >= 0.57) return 0.06;
+    if (hpPct >= 0.54) return 0.05;
+    if (hpPct >= 0.51) return 0.03;
+    if (hpPct >= 0.48) return 0.025;
+    if (hpPct >= 0.45) return 0.02;
+    if (hpPct >= 0.43) return 0.015;
+    return 0.01;
+}
+
 export class Unit {
     constructor(name,m,role,camp){
         this.name=name;this.m=m;this.role=role;this.camp=camp;this.pos=null;this.alive=true;
@@ -112,14 +124,7 @@ export class Unit {
             // 按初始血量占比分档：占比越高（越接近满血）档位越高、血量系数越大，对应单次伤害越多
             // 根据初始血量占比锁定血量系数（之后不变）
             const hpPct = hp / this.m;
-            if (hpPct >= 0.60) this._hpDmgRatio = 0.06;
-            else if (hpPct >= 0.57) this._hpDmgRatio = 0.05;
-            else if (hpPct >= 0.54) this._hpDmgRatio = 0.04;
-            else if (hpPct >= 0.51) this._hpDmgRatio = 0.03;
-            else if (hpPct >= 0.48) this._hpDmgRatio = 0.025;
-            else if (hpPct >= 0.45) this._hpDmgRatio = 0.02;
-            else if (hpPct >= 0.43) this._hpDmgRatio = 0.015;
-            else this._hpDmgRatio = 0.01;
+            this._hpDmgRatio = getHpDmgRatio(hpPct);
         } else {
             const dMin=Math.ceil(rem*0.3), dMax=Math.floor(rem*0.5);
             const dMinTenth=dMin*10, dMaxTenth=dMax*10;
