@@ -1,6 +1,6 @@
 // modules/27elite-mingjiao.js - 明教精英组件合集
-// V5.6.1 | ~32038 bytes| 2026-08-21 战报记账修正：小昭姊重分配血量改非记账
-export const VER = 'modules/27elite-mingjiao.js V5.6.1';
+// V5.6.2 | ~32300 bytes| 2026-08-23 张无忌：切换 fact 用触发时 log（修复丢失）；融会贯通 ronghui 态持续生效
+export const VER = 'modules/27elite-mingjiao.js V5.6.2';
 
 import { registerElite } from '../core/08-elite-registry.js';
 import { CONFIG, getSkillParams } from '../core/01config-5v5-test.js';
@@ -32,8 +32,10 @@ export function createZhangWujiComponent() {
                     onExit() {}
                 },
                 switching: {
-                    onEnter() {
-                        checkZhangSwitch(A, log);
+                    onEnter(data) {
+                        // 必须用触发时刻的 log（data.log）：闭包 log 是回合开始已消费的旧数组，
+                        // push 进去会随 makeStep 快照丢失（切换行/台词/弹幕全丢）
+                        checkZhangSwitch(A, (data && data.log) || log);
                         if (fsm) fsm.transition('near');
                     },
                     onExit() {}
@@ -81,21 +83,22 @@ export function createZhangWujiComponent() {
                 if (zhang && zhang.alive && !zhang._zhangSwitched && fsm.is('ranged')) {
                     const col = (zhang.pos - 1) % 3;
                     const hasFrontAlly = A.some(c => c.alive && !c.isHorse && c.pos === 1 + col && c.uid !== zhang.uid);
-                    if (!hasFrontAlly) fsm.transition('switching');
+                    if (!hasFrontAlly) fsm.transition('switching', { log: data && data.log });
                 }
             });
             eventBus.on('onPositionSwap', L.ON_POSITION_SWAP.ZHANG_SWITCH, (data) => {
                 if (zhang && zhang.alive && !zhang._zhangSwitched && fsm.is('ranged')) {
                     const col = (zhang.pos - 1) % 3;
                     const hasFrontAlly = A.some(c => c.alive && !c.isHorse && c.pos === 1 + col && c.uid !== zhang.uid);
-                    if (!hasFrontAlly) fsm.transition('switching');
+                    if (!hasFrontAlly) fsm.transition('switching', { log: data && data.log });
                 }
             });
         },
         onAfterApplyDamage(unit, target, dmgCalc, group, A, log, data) {
             if (unit.camp !== 'ally' || !unit.isZhang || !unit.alive) return;
             const fsm = unit._fsm;
-            if (fsm && fsm.is('near')) {
+            // ronghui 是 near 的融会贯通激活态：FSM 转入后仍需继续触发（第3次起每次攻击都有效）
+            if (fsm && (fsm.is('near') || fsm.is('ronghui'))) {
                 if (unit.nearAtkCount === 0 && !unit._zhangTauntDone) { const firstTaunt = getZhangNearTaunt(1); if (firstTaunt) { group.data.entries.push({ factType: 'zhangTaunt', data: { unitName: unit.name, taunt: firstTaunt } }); unit._zhangTauntDone = true; } }
                 unit.nearAtkCount++;
                 if (unit.nearAtkCount === 2) { const secondTaunt = getZhangNearTaunt(2); if (secondTaunt) group.data.entries.push({ factType: 'zhangTaunt', data: { unitName: unit.name, taunt: secondTaunt } }); }
