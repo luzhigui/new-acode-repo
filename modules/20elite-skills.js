@@ -1,9 +1,9 @@
 // modules/20elite-skills.js - 光明顶5v5 精英技能系统
-// V5.7.1 | ~12200 bytes| 2026-08-24 蛛变职业加成改回永久叠加（仅删固定+5血），精通首次掌握按层数差给属性；删除断头的 computeButterflyMastery 查询链
-export const VER = 'modules/20elite-skills.js V5.7.1';
+// V5.7.2 | ~12200 bytes| 2026-08-24 蛛变防战 z 值改查分档表（getHpDmgRatio(0.5)=0.03），删硬编码
+export const VER = 'modules/20elite-skills.js V5.7.2';
 
 import { getSkillParams } from '../core/01config-5v5-test.js';
-import { getRoleBonus } from '../core/02unit.js';
+import { getRoleBonus, getHpDmgRatio } from '../core/02unit.js';
 import { hasBuff } from '../core/03battle-utils.js';
 import { emitEvent, applyStatChange, applyMaxHpChange, registerQuery, getBattleRng } from '../core/13battle-shared.js';
 
@@ -176,7 +176,7 @@ export function spiderTransform(unit, log) {
     // 蛛变：职业加成永久叠加（每变一次吃一份新职业加成，不扣旧的），本身无额外属性
     const newStats = getRoleBonus(newRole);
     unit.role = newRole;
-    if (newRole === '防战') unit._hpDmgRatio = 0.03;
+    if (newRole === '防战') unit._hpDmgRatio = getHpDmgRatio(0.5);
     applyStatChange(unit, 'atk', newStats.atk, null, '蛛变');
     applyStatChange(unit, 'def', newStats.def, null, '蛛变');
     unit._baseAtk = (unit._baseAtk || unit.atk) + newStats.atk;

@@ -1,6 +1,6 @@
 // core/12battle-attack-steps.js - 光明顶5v5 攻击步骤拆分模块
-// V5.6.0 | ~27800 bytes| 2026-08-24 防御台词去兜底：直读 gameData.taunts.def，缺失即抛错
-export const VER = 'core/12battle-attack-steps.js V5.6.0';
+// V5.6.1 | ~27700 bytes| 2026-08-24 防战 z 值直读 _hpDmgRatio（分档表已覆盖所有防战来源），去 0.01 兜底
+export const VER = 'core/12battle-attack-steps.js V5.6.1';
 
 import { CONFIG, getSkillParams, getGameData } from './01config-5v5-test.js';
 import { eventBus, EFFECT_TYPES } from '../infra/50-event-bus.js';
@@ -246,7 +246,7 @@ export function calcFinalDamage(unit, target, attackerBuffStats, defenderBuffSta
         let displayDef = Math.floor(unit.def);
         let lv = getFangLevel(displayDef, unit.m), k = C.FANG_K[lv] !== undefined ? C.FANG_K[lv] : C.FANG_K[C.FANG_K.length - 1];
         let penPart = calcDamage(atkAct, defAct);
-        hpRatio = unit._hpDmgRatio !== undefined ? unit._hpDmgRatio : 0.01;
+        hpRatio = unit._hpDmgRatio;
         raw = penPart + displayDef * k + unit.maxHp * hpRatio;
     } else {
         raw = calcDamage(atkAct, defAct);

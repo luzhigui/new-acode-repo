@@ -1,6 +1,6 @@
 // core/02unit.js - 光明顶5v5 战斗单位类
-// V5.5.0 | ~6400 bytes| 2026-08-24 职业加成迁入 JSON（roles.*.bonus），getRoleBonus 直读，缺失即抛错
-export const VER = 'core/02unit.js V5.5.0';
+// V5.6.0 | ~6500 bytes| 2026-08-24 z值分档表修正（最高档门槛0.60→0.57，等差序列0.06~0.015）并抽公共函数；initXiaoZhao 初始化即锁 z 值
+export const VER = 'core/02unit.js V5.6.0';
 
 import { CONFIG, getGameData } from './01config-5v5-test.js';
 
@@ -20,11 +20,11 @@ export function getRoleBonus(role) {
 export function getHpDmgRatio(hpPct) {
     if (hpPct >= 0.57) return 0.06;
     if (hpPct >= 0.54) return 0.05;
-    if (hpPct >= 0.51) return 0.03;
-    if (hpPct >= 0.48) return 0.025;
-    if (hpPct >= 0.45) return 0.02;
-    if (hpPct >= 0.43) return 0.015;
-    return 0.01;
+    if (hpPct >= 0.51) return 0.04;
+    if (hpPct >= 0.48) return 0.03;
+    if (hpPct >= 0.45) return 0.025;
+    if (hpPct >= 0.43) return 0.02;
+    return 0.015;
 }
 
 export class Unit {
@@ -152,5 +152,7 @@ export class Unit {
         this.def = def;
         this.maxHp = hpBase * 2.5;
         this.hp = this.maxHp;
+        // 血量占比固定 50%，按分档表锁 z 值（蛛变防战时消费）
+        this._hpDmgRatio = getHpDmgRatio(0.5);
     }
 }
