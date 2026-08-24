@@ -1,12 +1,12 @@
 // ui/61main-5v5-test.js - 光明顶5v5 主控模块
-// V5.5.1 | ~24209 bytes| 2026-08-19 import 路径合并至 infra/51-core-utils
-export const VER = 'ui/61main-5v5-test.js V5.5.1';
+// V5.6.0 | ~24100 bytes| 2026-08-24 清理已删除的 KILL_TAUNT 及未使用的台词函数 import
+export const VER = 'ui/61main-5v5-test.js V5.6.0';
 
 import '../infra/54-global-store.js';
 import '../modules/21error-capture.js';
-import { CONFIG, STATE, KILL_TAUNT, loadGameData, VER as CFG_VER } from '../core/01config-5v5-test.js';
+import { CONFIG, STATE, loadGameData, VER as CFG_VER } from '../core/01config-5v5-test.js';
 import { Unit, VER as VER_UNIT } from '../core/02unit.js';
-import { getRandomTaunt, getKillTaunt, getZhangNearTaunt, makeFXSnapshot, VER as VER_UTILS } from '../core/03battle-utils.js';
+import { VER as VER_UTILS } from '../core/03battle-utils.js';
 import { stripTags, renderGrid, updateUI, setRenderStore, spawnVictoryEffects, clearLogExceptFirst, isUnitBenefitedByBuff, VER as UI_VER } from './62ui-render-5v5-test.js';
 import { showDanmaku, showDamageFloat, showDodgeBubble, showHealFloat, VER as FX_VER } from '../fx/80fx-common-5v5-test.js';
 import { showRangedArrow, VER as FA_VER } from '../fx/81fx-arrows-5v5-test.js';
@@ -44,7 +44,7 @@ import { VER as VER_MAIN_UTILS } from './60main-utils.js';
 
 const _randLocal = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
 
-const C = CONFIG, S = STATE, KT = KILL_TAUNT;
+const C = CONFIG, S = STATE;
 
 const LOG_LINE1 = '⚔️ 光明顶5v5对决 · 九宫格混战模式 ⚔️';
 

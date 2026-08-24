@@ -1,8 +1,8 @@
 // core/03battle-utils.js - 光明顶5v5 战斗工具函数
-// V5.6.1 | ~15203 bytes| 2026-08-19 import 路径合并至 infra/51-core-utils
-export const VER = 'core/03battle-utils.js V5.6.1';
+// V5.7.0 | ~14400 bytes| 2026-08-24 台词三兄弟去兜底：直读 gameData.taunts，缺失即抛错
+export const VER = 'core/03battle-utils.js V5.7.0';
 
-import { CONFIG, TAUNT_LIB, DEF_TAUNT, HP_TAUNT, ZHANG_NEAR_TAUNT, getGameData } from './01config-5v5-test.js';
+import { CONFIG, getGameData } from './01config-5v5-test.js';
 import { emitEvent, applyStatChange, query, getBattleRng } from './13battle-shared.js';
 import { EXECUTION_LAYER as L, EFFECT_TYPES } from '../infra/50-event-bus.js';
 import {
@@ -17,7 +17,7 @@ import {
     getAuraBonuses
 } from '../infra/51-core-utils.js';
 
-const C = CONFIG, TL = TAUNT_LIB, DT = DEF_TAUNT, HT = HP_TAUNT, ZT = ZHANG_NEAR_TAUNT;
+const C = CONFIG;
 
 export { calcDamage, makeFXSnapshot, getUnitRow, getUnitCol, getAdjacentPositions, countEnemyEmptyCols, getBloodAuraBonus, getAuraBonuses };
 
@@ -63,30 +63,27 @@ export function getFlyDodgeRate(unit, attacker) {
 
 export function getRandomTaunt(unit) {
     const rng = getBattleRng();
-    const gd = getGameData();
-    const taunts = (gd && gd.taunts) ? gd.taunts : null;
+    const taunts = getGameData().taunts;
     let pool = null;
-    if (unit.isZhang) pool = taunts ? taunts['张无忌']?.attack : TL['张无忌'];
-    else if (unit.isWei) pool = taunts ? taunts['韦一笑']?.attack : TL['韦一笑'];
-    else pool = taunts ? taunts[unit.role]?.attack : TL[unit.role];
-    if (!pool || pool.length === 0) return '看招！';
+    if (unit.isZhang) pool = taunts['张无忌'].attack;
+    else if (unit.isWei) pool = taunts['韦一笑'].attack;
+    else pool = taunts[unit.role].attack;
+    if (!pool || pool.length === 0) throw new Error(`台词池缺失: ${unit.name || unit.role}`);
     return pool[rng.nextInt(0, pool.length - 1)];
 }
-export function getKillTaunt(unit, KT) {
+export function getKillTaunt(unit) {
     const rng = getBattleRng();
-    const gd = getGameData();
-    const taunts = (gd && gd.taunts) ? gd.taunts : null;
+    const taunts = getGameData().taunts;
     let pool = null;
-    if (unit.isZhang) pool = taunts ? taunts['张无忌']?.kill : KT['张无忌'];
-    else if (unit.isWei) pool = taunts ? taunts['韦一笑']?.kill : KT['韦一笑'];
-    else pool = taunts ? taunts[unit.role]?.kill : KT[unit.role];
-    if (!pool || pool.length === 0) return '受死吧！';
+    if (unit.isZhang) pool = taunts['张无忌'].kill;
+    else if (unit.isWei) pool = taunts['韦一笑'].kill;
+    else pool = taunts[unit.role].kill;
+    if (!pool || pool.length === 0) throw new Error(`击杀台词池缺失: ${unit.name || unit.role}`);
     return pool[rng.nextInt(0, pool.length - 1)];
 }
 export function getZhangNearTaunt(nearAtkCount) {
     if (nearAtkCount < 1 || nearAtkCount > 3) return null;
-    const gd = getGameData();
-    const pool = (gd && gd.taunts && gd.taunts.zhangNear) ? gd.taunts.zhangNear : ZT;
+    const pool = getGameData().taunts.zhangNear;
     return pool[nearAtkCount - 1] || null;
 }
 

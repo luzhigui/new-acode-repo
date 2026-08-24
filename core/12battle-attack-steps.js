@@ -1,8 +1,8 @@
 // core/12battle-attack-steps.js - 光明顶5v5 攻击步骤拆分模块
-// V5.5.4 | ~28000 bytes| 2026-08-23 张无忌近战前三击台词优先于暴击/防御随机台词
-export const VER = 'core/12battle-attack-steps.js V5.5.4';
+// V5.6.0 | ~27800 bytes| 2026-08-24 防御台词去兜底：直读 gameData.taunts.def，缺失即抛错
+export const VER = 'core/12battle-attack-steps.js V5.6.0';
 
-import { CONFIG, DEF_TAUNT, HP_TAUNT, getSkillParams, getGameData } from './01config-5v5-test.js';
+import { CONFIG, getSkillParams, getGameData } from './01config-5v5-test.js';
 import { eventBus, EFFECT_TYPES } from '../infra/50-event-bus.js';
 import { calcDamage, getFangLevel, isMelee, getFronts, isBlocked, getRandomTaunt, getZhangNearTaunt, makeFXSnapshot, hasBuff, getUnitCol, getUnitRow } from './03battle-utils.js';
 import { applyBuffEffectsBeforeAttack, applyBuffEffectsAfterAttack } from './04buff-system.js';
@@ -22,7 +22,7 @@ registerDodgeRule((unit, attacker) => {
     return 0;
 });
 
-const C = CONFIG, DT = DEF_TAUNT, HT = HP_TAUNT;
+const C = CONFIG;
 
 // ==================== 步骤1：选择攻击目标 ====================
 export function selectAttackTarget(unit, enemySide, allySide) {
@@ -232,8 +232,7 @@ export function calcFinalDamage(unit, target, attackerBuffStats, defenderBuffSta
     let waveTaunt = null, waveUnit = null;
     if (atkVar === C.ATK_VAR) { waveTaunt = getRandomTaunt(unit); waveUnit = unit; unit.critCount++; }
     else if (defVar + hpBonus >= 7) {
-        const gd = getGameData();
-        const defTaunts = (gd && gd.taunts && gd.taunts.def) ? gd.taunts.def : DT;
+        const defTaunts = getGameData().taunts.def;
         waveTaunt = defTaunts[rng.nextInt(0, defTaunts.length - 1)];
         waveUnit = target;
     }

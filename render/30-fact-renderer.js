@@ -1,8 +1,8 @@
 // render/30-fact-renderer.js - 光明顶5v5 事实渲染器
-// V5.7.2 | ~36200 bytes| 2026-08-23 破防日志前置到攻击组开头
-import { CONFIG } from '../core/01config-5v5-test.js';
+// V5.7.3 | ~36200 bytes| 2026-08-24 叛逆真伤比例直读 JSON（宋青书.rebelStrike），去 ELITE_SKILLS 兜底
+import { CONFIG, getSkillParams } from '../core/01config-5v5-test.js';
 import { calcDamage, getFangLevelPure, makeFXSnapshot } from '../infra/51-core-utils.js';
-export const VER = 'render/30-fact-renderer.js V5.7.2';
+export const VER = 'render/30-fact-renderer.js V5.7.3';
 
 // fact 条目投影为渲染条目，并合并 fact 条目上携带的附加字段（isHealEntry/buffType 等）
 function projectFactEntry(e) {
@@ -134,7 +134,11 @@ export function renderAttackFact(fact) {
     group.entries.push({type:'detail', text:`<span class="gray small">波动：攻${dmgCalc.atkBase}→${dmgCalc.atkAct} 防${dmgCalc.defBase}→${dmgCalc.defAct} 血${dmgCalc.hpBonus >= 0 ? '+' + dmgCalc.hpBonus : dmgCalc.hpBonus}</span>`});
     if (dmgCalc.thunderBonus > 0) group.entries.push({type:'detail', text:`<span class="red small">💥 混元霹雳劲+${dmgCalc.thunderBonus}真实伤害</span>`});
     if (dmgCalc.hornDefIgnore > 0 && dmgCalc.hornDmgMultiplier > 1) group.entries.push({type:'info', text:`<span class="gold">🦌 目标已中毒（玄冥神掌），鹤笔翁 鹿角杖法伤害+50%！</span>`});
-    if (dmgCalc.trueDmg > 0) group.entries.push({type:'detail', text:`<span class="red small">⚔️ 叛逆真伤+${dmgCalc.trueDmg}（目标当前生命${Math.round((CONFIG.ELITE_SKILLS?.rebelStrike?.currentHpRatio || 0.12) * 100)}%）</span>`});
+    if (dmgCalc.trueDmg > 0) {
+        const rebelParams = getSkillParams('宋青书', 'rebelStrike');
+        if (!rebelParams) throw new Error('缺技能参数: 宋青书.rebelStrike');
+        group.entries.push({type:'detail', text:`<span class="red small">⚔️ 叛逆真伤+${dmgCalc.trueDmg}（目标当前生命${Math.round(rebelParams.currentHpRatio * 100)}%）</span>`});
+    }
     let formulaText = '';
     let baseRaw = 0;
     const fmtBonusEntries = (dmgCalc.bonusDmgEntries || []).filter(e => e.value > 0);

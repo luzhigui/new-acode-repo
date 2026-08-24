@@ -1,12 +1,11 @@
 // modules/20elite-skills.js - 光明顶5v5 精英技能系统
-// V5.5.3 | ~12522 bytes| 2026-08-21 战报记账修正：乾坤自伤改非记账，玄冥中毒补鹿杖客输出源
-export const VER = 'modules/20elite-skills.js V5.5.3';
+// V5.6.0 | ~12400 bytes| 2026-08-24 拆除 ELITE_SKILLS 硬编码兜底：技能参数唯一来源 JSON，缺失即抛错
+export const VER = 'modules/20elite-skills.js V5.6.0';
 
 import { CONFIG, getSkillParams } from '../core/01config-5v5-test.js';
 import { ROLE_BONUS } from '../core/02unit.js';
 import { hasBuff } from '../core/03battle-utils.js';
 import { emitEvent, applyStatChange, applyMaxHpChange, registerQuery, getBattleRng } from '../core/13battle-shared.js';
-const ES = CONFIG.ELITE_SKILLS;
 
 // ==================== 玄冥二老 — 中毒/鹿角 ====================
 
@@ -14,7 +13,8 @@ export function tickXuanmingPoison(unit, source) {
     if (!unit.alive) return 0;
     if (!unit._xuanmingPoison || unit._xuanmingPoison.remaining <= 0) return 0;
     unit._xuanmingPoison.remaining--;
-    const s = getSkillParams('鹿杖客', 'xuanmingPalm') || ES.xuanmingPalm;
+    const s = getSkillParams('鹿杖客', 'xuanmingPalm');
+    if (!s) throw new Error('缺技能参数: 鹿杖客.xuanmingPalm');
     const idx = Math.min(unit._xuanmingPoison.dotPercents.length - 1, s.duration - 1 - unit._xuanmingPoison.remaining);
     const pct = unit._xuanmingPoison.dotPercents[idx] || 0;
     const dot = Math.floor(unit.maxHp * pct);
@@ -32,10 +32,11 @@ export function applyDamageModifiers(unit, target, dmg, allySide, enemySide, log
     if (target.camp !== 'ally' || !zhang) return { modifiedDmg, entries };
 
     if (xiaoZhao && [2, 4, 6, 8].includes(target.pos)) {
-        const s = getSkillParams('小昭', 'qianKunUpgraded') || ES.xiaoZhao;
-        const reducePct = s.reducePct || 30;
-        const reboundPct = s.reboundPct || 20;
-        const selfDmgPct = s.selfDmgPct || 10;
+        const s = getSkillParams('小昭', 'qianKunUpgraded');
+        if (!s) throw new Error('缺技能参数: 小昭.qianKunUpgraded');
+        const reducePct = s.reducePct;
+        const reboundPct = s.reboundPct;
+        const selfDmgPct = s.selfDmgPct;
         const reducedDmg = Math.round(dmg * (1 - reducePct / 100));
         const rebound = Math.floor(dmg * (reboundPct / 100));
         const selfDmg = Math.max(1, Math.floor(dmg * (selfDmgPct / 100)));
@@ -57,10 +58,11 @@ export function applyDamageModifiers(unit, target, dmg, allySide, enemySide, log
 
         modifiedDmg = reducedDmg;
     } else if (!xiaoZhao && (target.pos === 4 || target.pos === 6)) {
-        const s = getSkillParams('张无忌', 'qianKun') || { reducePct: 10, reboundPct: 10, selfDmgPct: 10 };
-        const reducePct = s.reducePct || 10;
-        const reboundPct = s.reboundPct || 10;
-        const selfDmgPct = s.selfDmgPct || 10;
+        const s = getSkillParams('张无忌', 'qianKun');
+        if (!s) throw new Error('缺技能参数: 张无忌.qianKun');
+        const reducePct = s.reducePct;
+        const reboundPct = s.reboundPct;
+        const selfDmgPct = s.selfDmgPct;
         const reducedDmg = Math.round(dmg * (1 - reducePct / 100));
         const rebound = Math.floor(dmg * (reboundPct / 100));
         const selfDmg = Math.max(1, Math.floor(dmg * (selfDmgPct / 100)));
@@ -116,7 +118,8 @@ export function tickKuaiLeHeal(allUnits, log) {
         unit._kuaiLeStack.forEach(layer => {
             const healAmount = Math.floor(unit.maxHp * layer.healPct);
             totalHeal += healAmount;
-            const levels = ES.xinHun.healLevels;
+            const levels = getSkillParams('宋青书', 'xinHun').healLevels;
+            if (!levels) throw new Error('缺技能参数: 宋青书.xinHun.healLevels');
             const currentIdx = levels.indexOf(layer.healPct);
             if (currentIdx >= 0 && currentIdx < levels.length - 1) {
                 newStack.push({ healPct: levels[currentIdx + 1] });
@@ -176,8 +179,9 @@ export function spiderTransform(unit, log) {
     unit._baseAtk = (unit._baseAtk || unit.atk) + newStats.atk;
     unit._baseDef = (unit._baseDef || unit.def) + newStats.def;
 
-    const st = getSkillParams('小昭', 'spiderTransform') || { hpBonus: 5 };
-    let hpDelta = newStats.maxHp + (st.hpBonus || 5);
+    const st = getSkillParams('小昭', 'spiderTransform');
+    if (!st) throw new Error('缺技能参数: 小昭.spiderTransform');
+    let hpDelta = newStats.maxHp + st.hpBonus;
     unit._baseMaxHp = (unit._baseMaxHp || unit.maxHp) + hpDelta;
     applyMaxHpChange(unit, unit.maxHp + hpDelta, null, '蛛变');
 
@@ -210,8 +214,9 @@ export function spiderReturn(unit, allyTeam, enemySide, log) {
         if (!target.alive) { log.push({ factType: 'spiderDeadTarget', data: {} }); return; }
         const penetrationDmg = Math.floor(unit.atk * (unit.atk / (unit.atk + target.def)));
         const masteryCount = unit._masteredRoles?.length || 0;
-        const params = getSkillParams('小昭', 'spiderStrike') || { extraDmgMap: [0, 5, 10, 15, 30] };
-        const extraDmgMap = params.extraDmgMap || [0, 5, 10, 15, 30];
+        const params = getSkillParams('小昭', 'spiderStrike');
+        if (!params) throw new Error('缺技能参数: 小昭.spiderStrike');
+        const extraDmgMap = params.extraDmgMap;
         const extraDmg = extraDmgMap[Math.min(masteryCount, 4)] || 0;
         const totalDmg = penetrationDmg + extraDmg;
         applyStatChange(target, 'hp', -totalDmg, unit, '蛛袭');
@@ -238,11 +243,12 @@ export function computeButterflyMastery(unit) {
     const count = unit._masteredRoles.length;
     let layers = count;
     if (count >= 4) layers = count + 2;
-    const m = getSkillParams('小昭', 'mastery') || { atkPer: 2, defPer: 2, hpPer: 5 };
+    const m = getSkillParams('小昭', 'mastery');
+    if (!m) throw new Error('缺技能参数: 小昭.mastery');
     return {
-        atk: layers * (m.atkPer || 2),
-        def: layers * (m.defPer || 2),
-        hp: layers * (m.hpPer || 5)
+        atk: layers * m.atkPer,
+        def: layers * m.defPer,
+        hp: layers * m.hpPer
     };
 }
 
@@ -269,9 +275,9 @@ export function getXiaoZhaoHexEnhance(allyTeam, activeBuffs, hexKey) {
     const xiaoZhao = allyTeam.find(u => u.isXiaoZhaoSister && u.alive);
     if (!xiaoZhao) return null;
     if (!hasBuff(activeBuffs, hexKey)) return null;
-    const s = ES.xiaoZhao;
-    if (!s || !s.hexEnhance || !s.hexEnhance[hexKey]) return null;
-    return s.hexEnhance[hexKey];
+    const s = getSkillParams('小昭', 'hexEnhance');
+    if (!s) throw new Error('缺技能参数: 小昭.hexEnhance');
+    return s[hexKey] || null;
 }
 
 // ==================== 查询注册 ====================
