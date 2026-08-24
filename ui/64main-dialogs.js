@@ -1,6 +1,6 @@
 ﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// ui/64main-dialogs.js - 光明顶5v5 弹窗模块
-// V5.5.0 | ~15700 bytes| 2026-08-14 移除下载回放按钮
-export const VER = 'ui/64main-dialogs.js V5.5.0';
+// V5.5.1 | ~15900 bytes| 2026-08-23 战报防重复：42/61 两处调用叠双层 overlay，点两次才能关
+export const VER = 'ui/64main-dialogs.js V5.5.1';
 
 import { showModal, showAlert } from './60main-utils.js';
 import { AudioManager } from '../modules/22audio-manager.js';
@@ -10,6 +10,9 @@ import { AudioManager } from '../modules/22audio-manager.js';
 export function showBattleReport(UI, battleResultForInfo) {
     // ★ 防残留：如果游戏已不在 GAMEOVER 状态，不创建弹窗
     if (window._getPlayerContext && window._getPlayerContext().gs !== 'GAMEOVER') return;
+    // ★ 防重复：playBattle 结尾（player/42）与返回后（ui/61）各调用一次，
+    // 第二次直接复用已弹出的战报，避免双层 overlay 叠加（点两次才能关）
+    if (document.getElementById('battleReportOverlay')) return;
     // 刷新积分显示
     if (typeof window.updateScoreBadge === 'function') window.updateScoreBadge();
 
