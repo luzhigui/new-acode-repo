@@ -1,19 +1,19 @@
 // core/02unit.js - 光明顶5v5 战斗单位类
-// V5.4.1 | ~6408 bytes| 2026-08-19 import 路径合并至 infra/51-core-utils
-export const VER = 'core/02unit.js V5.4.1';
+// V5.5.0 | ~6400 bytes| 2026-08-24 职业加成迁入 JSON（roles.*.bonus），getRoleBonus 直读，缺失即抛错
+export const VER = 'core/02unit.js V5.5.0';
 
-import { CONFIG } from './01config-5v5-test.js';
+import { CONFIG, getGameData } from './01config-5v5-test.js';
 
 import { StateMachine } from '../infra/51-core-utils.js';
 
 let _uidCounter = 0;
 
-export const ROLE_BONUS = {
-    '战士': { atk: 3, def: 3, maxHp: 30 },
-    '防战': { atk: -8, def: 1, maxHp: 35 },
-    '远程': { atk: 6, def: -2, maxHp: -25 },
-    '飞行': { atk: 2, def: -2, maxHp: -25 }
-};
+// 职业初始加成：唯一来源 content/200game-data.json 的 roles.*.bonus
+export function getRoleBonus(role) {
+    const bonus = getGameData().roles[role]?.bonus;
+    if (!bonus) throw new Error(`缺职业加成: ${role}`);
+    return bonus;
+}
 
 export class Unit {
     constructor(name,m,role,camp){
@@ -129,7 +129,7 @@ export class Unit {
         this.atk=a;this.def=d;this.maxHp=hp*2.5;this.hp=this.maxHp;
     }
     applyBonus(){
-        const bonus = ROLE_BONUS[this.role];
+        const bonus = getRoleBonus(this.role);
         if (bonus) { this.atk += bonus.atk; this.def += bonus.def; this.maxHp += bonus.maxHp; }
         this.hp=this.maxHp;
         this._baseMaxHp = this.maxHp;

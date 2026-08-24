@@ -3,7 +3,7 @@
 export const VER = 'core/13battle-shared.js V5.5.3';
 
 import { CONFIG } from './01config-5v5-test.js';
-import { ROLE_BONUS } from './02unit.js';
+import { getRoleBonus } from './02unit.js';
 import { pushBattleEvent } from '../infra/51-core-utils.js';
 const C = CONFIG;
 
@@ -62,7 +62,7 @@ function checkZhangSwitch(A, log) {
     let hasFrontAlly = A.some(c => c.alive && !c.isHorse && c.pos === 1 + col && c.uid !== zhang.uid);
     if (!hasFrontAlly) {
         zhang.rangedForm = false;
-        const warriorBonus = ROLE_BONUS['战士'];
+        const warriorBonus = getRoleBonus('战士');
         zhang.atk += warriorBonus.atk * 3;
         zhang.def += warriorBonus.def * 3;
         const newMaxHp = Math.min(zhang.maxHp + warriorBonus.maxHp * 3, zhang._baseMaxHp * 3);

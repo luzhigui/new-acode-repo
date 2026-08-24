@@ -3,7 +3,7 @@
 export const VER = 'modules/20elite-skills.js V5.6.0';
 
 import { CONFIG, getSkillParams } from '../core/01config-5v5-test.js';
-import { ROLE_BONUS } from '../core/02unit.js';
+import { getRoleBonus } from '../core/02unit.js';
 import { hasBuff } from '../core/03battle-utils.js';
 import { emitEvent, applyStatChange, applyMaxHpChange, registerQuery, getBattleRng } from '../core/13battle-shared.js';
 
@@ -171,7 +171,7 @@ export function spiderTransform(unit, log) {
         unit._masteredRoles.push(newRole);
     }
 
-    const newStats = ROLE_BONUS[newRole] || { atk: 0, def: 0, maxHp: 0 };
+    const newStats = getRoleBonus(newRole);
     unit.role = newRole;
     if (newRole === '防战') unit._hpDmgRatio = 0.03;
     applyStatChange(unit, 'atk', newStats.atk, null, '蛛变');

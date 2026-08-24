@@ -1,6 +1,6 @@
 // core/03battle-utils.js - 光明顶5v5 战斗工具函数
-// V5.7.1 | ~14350 bytes| 2026-08-24 修复远程成长/坚盾 _base 记账双扣：生产者不再直改基值，统一由裁定执行块记账
-export const VER = 'core/03battle-utils.js V5.7.1';
+// V5.7.2 | ~14500 bytes| 2026-08-24 坚盾触发概率迁入 JSON（roles.防战.fortify：攻盾90/坚盾80）
+export const VER = 'core/03battle-utils.js V5.7.2';
 
 import { CONFIG, getGameData } from './01config-5v5-test.js';
 import { emitEvent, applyStatChange, query, getBattleRng } from './13battle-shared.js';
@@ -287,11 +287,14 @@ export function registerFortifyShield(eventBus) {
         }
     }
 
+    // 坚盾触发概率：唯一来源 JSON roles.防战.fortify（攻盾=attackChance，被击坚盾=defendChance）
+    const fortifyCfg = getGameData().roles['防战'].fortify;
+
     eventBus.on('afterDamageApplied', L.AFTER_DAMAGE_APPLIED.SHIELD_DEFEND, (data) => {
         const { target, dmg, group } = data;
         if (dmg <= 0) return;
         const prevStacks = target._fortifyStacks || 0;
-        tryFortify(target, 60, group, null, '坚盾', true);
+        tryFortify(target, fortifyCfg.defendChance, group, null, '坚盾', true);
         if ((target._fortifyStacks || 0) > prevStacks) {
             const increment = (target._fortifyStacks || 0) - prevStacks;
             if (!data.declarations) data.declarations = [];
@@ -307,7 +310,7 @@ export function registerFortifyShield(eventBus) {
 
     eventBus.on('afterAttack', L.AFTER_ATTACK.SHIELD_ATTACK, (data) => {
         const { unit, group, log } = data;
-        tryFortify(unit, 80, group, log, '攻盾');
+        tryFortify(unit, fortifyCfg.attackChance, group, log, '攻盾');
     });
 }
 
