@@ -1,5 +1,5 @@
 {
-  "version": "5.5.0",
+  "version": "5.6.0",
   "updated": "2026-08-24",
 
   "roles": {
@@ -314,8 +314,7 @@
         },
         "spiderTransform": {
           "name": "蛛变",
-          "desc": "每回合随机变换职业，记录精通，+{hpBonus}血上限",
-          "params": { "hpBonus": 5 }
+          "desc": "每回合随机变换职业（结算职业加成差值），新职业首次变身计入精通"
         },
         "spiderFly": {
           "name": "飞天",
@@ -350,7 +349,7 @@
         },
         "mastery": {
           "name": "精通",
-          "desc": "每精通一个职业+{atkPer}攻+{defPer}防+{hpPer}血上限（最多4职业）",
+          "desc": "每精通一个职业+{atkPer}攻+{defPer}防+{hpPer}血上限，精通全部4门后再加2层",
           "params": { "atkPer": 2, "defPer": 2, "hpPer": 5 }
         }
       },

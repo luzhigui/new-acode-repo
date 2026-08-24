@@ -1,8 +1,8 @@
 // modules/20elite-skills.js - 光明顶5v5 精英技能系统
-// V5.6.0 | ~12400 bytes| 2026-08-24 拆除 ELITE_SKILLS 硬编码兜底：技能参数唯一来源 JSON，缺失即抛错
-export const VER = 'modules/20elite-skills.js V5.6.0';
+// V5.7.0 | ~12200 bytes| 2026-08-24 蛛变改职业加成差值结算（不再额外+血），精通首次掌握时按层数差给属性；删除断头的 computeButterflyMastery 查询链
+export const VER = 'modules/20elite-skills.js V5.7.0';
 
-import { CONFIG, getSkillParams } from '../core/01config-5v5-test.js';
+import { getSkillParams } from '../core/01config-5v5-test.js';
 import { getRoleBonus } from '../core/02unit.js';
 import { hasBuff } from '../core/03battle-utils.js';
 import { emitEvent, applyStatChange, applyMaxHpChange, registerQuery, getBattleRng } from '../core/13battle-shared.js';
@@ -157,6 +157,9 @@ export function consumeXingFen(attacker) {
 
 // ==================== 小昭·妹 — 蛛变/飞天/蛛落 ====================
 
+// 精通层数：每门职业 1 层，全部 4 门精通后额外 +2 层（封顶 6 层）
+function masteryLayers(count) { return count >= 4 ? count + 2 : count; }
+
 export function spiderTransform(unit, log) {
     if (!unit.isXiaoZhaoBrother || !unit.alive) return;
     const rng = getBattleRng();
@@ -167,26 +170,44 @@ export function spiderTransform(unit, log) {
     unit._lastRole = newRole;
 
     if (!unit._masteredRoles) unit._masteredRoles = [];
-    if (!unit._masteredRoles.includes(newRole)) {
-        unit._masteredRoles.push(newRole);
-    }
+    const isNewMastery = !unit._masteredRoles.includes(newRole);
+    if (isNewMastery) unit._masteredRoles.push(newRole);
 
+    // 蛛变只结算职业加成差值：扣旧职业加成、加新职业加成，本身不额外加属性
+    const oldStats = getRoleBonus(unit.role);
     const newStats = getRoleBonus(newRole);
+    const dAtk = newStats.atk - oldStats.atk;
+    const dDef = newStats.def - oldStats.def;
+    const dMaxHp = newStats.maxHp - oldStats.maxHp;
     unit.role = newRole;
     if (newRole === '防战') unit._hpDmgRatio = 0.03;
-    applyStatChange(unit, 'atk', newStats.atk, null, '蛛变');
-    applyStatChange(unit, 'def', newStats.def, null, '蛛变');
-    unit._baseAtk = (unit._baseAtk || unit.atk) + newStats.atk;
-    unit._baseDef = (unit._baseDef || unit.def) + newStats.def;
+    applyStatChange(unit, 'atk', dAtk, null, '蛛变');
+    applyStatChange(unit, 'def', dDef, null, '蛛变');
+    unit._baseAtk = (unit._baseAtk || unit.atk) + dAtk;
+    unit._baseDef = (unit._baseDef || unit.def) + dDef;
+    unit._baseMaxHp = (unit._baseMaxHp || unit.maxHp) + dMaxHp;
+    applyMaxHpChange(unit, unit.maxHp + dMaxHp, null, '蛛变');
 
-    const st = getSkillParams('小昭', 'spiderTransform');
-    if (!st) throw new Error('缺技能参数: 小昭.spiderTransform');
-    let hpDelta = newStats.maxHp + st.hpBonus;
-    unit._baseMaxHp = (unit._baseMaxHp || unit.maxHp) + hpDelta;
-    applyMaxHpChange(unit, unit.maxHp + hpDelta, null, '蛛变');
+    // 精通加成：首次精通新职业时按层数差结算（全精通时一次性补 2 层）
+    let masteryGain = null;
+    if (isNewMastery) {
+        const m = getSkillParams('小昭', 'mastery');
+        if (!m) throw new Error('缺技能参数: 小昭.mastery');
+        const gained = masteryLayers(unit._masteredRoles.length) - masteryLayers(unit._masteredRoles.length - 1);
+        if (gained > 0) {
+            const gAtk = gained * m.atkPer, gDef = gained * m.defPer, gHp = gained * m.hpPer;
+            applyStatChange(unit, 'atk', gAtk, null, '精通');
+            applyStatChange(unit, 'def', gDef, null, '精通');
+            unit._baseAtk += gAtk;
+            unit._baseDef += gDef;
+            unit._baseMaxHp += gHp;
+            applyMaxHpChange(unit, unit.maxHp + gHp, null, '精通');
+            masteryGain = { atk: gAtk, def: gDef, hp: gHp };
+        }
+    }
 
     emitEvent(unit, 'hp-change', { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: unit.atk, def: unit.def, role: newRole });
-    log.push({ factType: 'spiderTransform', data: { unitName: unit.name, newRole, mastered: unit._masteredRoles.length } });
+    log.push({ factType: 'spiderTransform', data: { unitName: unit.name, newRole, mastered: unit._masteredRoles.length, masteryGain } });
 }
 
 export function spiderReturn(unit, allyTeam, enemySide, log) {
@@ -236,21 +257,9 @@ export function spiderReturn(unit, allyTeam, enemySide, log) {
     }
 }
 
-// ==================== 小昭共通 — 精通 + 永久海克斯 ====================
-
-export function computeButterflyMastery(unit) {
-    if (!unit.isXiaoZhaoBrother || !unit._masteredRoles) return { atk: 0, def: 0, hp: 0 };
-    const count = unit._masteredRoles.length;
-    let layers = count;
-    if (count >= 4) layers = count + 2;
-    const m = getSkillParams('小昭', 'mastery');
-    if (!m) throw new Error('缺技能参数: 小昭.mastery');
-    return {
-        atk: layers * m.atkPer,
-        def: layers * m.defPer,
-        hp: layers * m.hpPer
-    };
-}
+// ==================== 小昭共通 — 永久海克斯 ====================
+// 精通加成已在 spiderTransform 首次掌握时增量结算进 _base 属性（见 masteryLayers），
+// 原 computeButterflyMastery → computeBuffStats 断头查询链已删除
 
 export function addPermanentBuff(xiaoZhao, buffKey, buffName, extraFields = {}) {
     if (!xiaoZhao || !xiaoZhao.isXiaoZhaoBrother) return;
@@ -283,5 +292,4 @@ export function getXiaoZhaoHexEnhance(allyTeam, activeBuffs, hexKey) {
 // ==================== 查询注册 ====================
 registerQuery('xiaoHexEnhance', getXiaoZhaoHexEnhance);
 registerQuery('xiaoPermanentActive', isXiaoZhaoPermanentActive);
-registerQuery('butterflyMastery', computeButterflyMastery);
 registerQuery('damageModifiers', applyDamageModifiers);
