@@ -1,6 +1,6 @@
 // core/03battle-utils.js - 光明顶5v5 战斗工具函数
-// V5.7.0 | ~14400 bytes| 2026-08-24 台词三兄弟去兜底：直读 gameData.taunts，缺失即抛错
-export const VER = 'core/03battle-utils.js V5.7.0';
+// V5.7.1 | ~14350 bytes| 2026-08-24 修复远程成长/坚盾 _base 记账双扣：生产者不再直改基值，统一由裁定执行块记账
+export const VER = 'core/03battle-utils.js V5.7.1';
 
 import { CONFIG, getGameData } from './01config-5v5-test.js';
 import { emitEvent, applyStatChange, query, getBattleRng } from './13battle-shared.js';
@@ -231,7 +231,7 @@ export function registerRangedGrowth(eventBus) {
             oldValue: unit.atk,
             logText: null
         });
-        if (unit._baseAtk !== undefined) unit._baseAtk += growth;
+        // _baseAtk 记账由裁定执行块（STAT_CHANGE）统一负责，此处直改会双扣
         if (group && group.data && group.data.entries) {
             group.data.entries.push({ factType: 'rangedGrowth', data: { unitName: unit.name, growth, newAtk: Math.floor(unit.atk + growth) } });
         }
@@ -274,9 +274,11 @@ export function registerFortifyShield(eventBus) {
         unit._fortifyStacks += increment;
         unit._fortifyThisRound += increment;
         if (!skipStatChange) {
+            // 攻盾路径：无声明，直改单次记账
             applyStatChange(unit, 'def', increment, null, '坚盾');
+            if (unit._baseDef !== undefined) unit._baseDef += increment;
         }
-        if (unit._baseDef !== undefined) unit._baseDef += increment;
+        // skipStatChange 路径（被击坚盾）：caller 推 STAT_CHANGE 声明，_baseDef 由裁定执行块记账，此处直改会双扣
         const entry = { factType: 'fortifyShield', data: { unitName: unit.name, label, increment, current: unit._fortifyThisRound, cap } };
         if (group && group.data && group.data.entries) {
             group.data.entries.push(entry);
