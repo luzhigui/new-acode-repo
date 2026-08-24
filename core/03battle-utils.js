@@ -1,6 +1,6 @@
 // core/03battle-utils.js - 光明顶5v5 战斗工具函数
-// V5.7.2 | ~14500 bytes| 2026-08-24 坚盾触发概率迁入 JSON（roles.防战.fortify：攻盾90/坚盾80）
-export const VER = 'core/03battle-utils.js V5.7.2';
+// V5.7.3 | ~14500 bytes| 2026-08-24 坚盾增量/上限兜底改读 CONFIG（配合上限 3→4，去硬编码）
+export const VER = 'core/03battle-utils.js V5.7.3';
 
 import { CONFIG, getGameData } from './01config-5v5-test.js';
 import { emitEvent, applyStatChange, query, getBattleRng } from './13battle-shared.js';
@@ -267,8 +267,8 @@ export function registerFortifyShield(eventBus) {
         if (!unit.alive) return;
         if (unit._fortifyThisRound === undefined) unit._fortifyThisRound = 0;
         if (!unit._fortifyStacks) unit._fortifyStacks = 0;
-        const increment = unit._fortifyIncrement || 1;
-        const cap = unit._fortifyCap || 3;
+        const increment = unit._fortifyIncrement || C.FORTIFY_INCREMENT;
+        const cap = unit._fortifyCap || C.FORTIFY_CAP;
         if (unit._fortifyThisRound + increment > cap) return;
         if (getBattleRng().nextInt(1, 100) > chance) return;
         unit._fortifyStacks += increment;

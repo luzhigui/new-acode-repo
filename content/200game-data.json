@@ -1,10 +1,10 @@
 {
-  "version": "5.6.0",
+  "version": "5.6.1",
   "updated": "2026-08-24",
 
   "roles": {
     "战士": { "icon": "⚔️", "label": "战士", "bonus": { "atk": 3, "def": 3, "maxHp": 30 } },
-    "防战": { "icon": "🛡️", "label": "防战", "bonus": { "atk": -8, "def": 2, "maxHp": 35 }, "fortify": { "attackChance": 90, "defendChance": 80 } },
+    "防战": { "icon": "🛡️", "label": "防战", "bonus": { "atk": -8, "def": 2, "maxHp": 45 }, "fortify": { "attackChance": 90, "defendChance": 80 } },
     "远程": { "icon": "🏹", "label": "远程", "bonus": { "atk": 6, "def": -2, "maxHp": -25 } },
     "飞行": { "icon": "🦅", "label": "飞行", "bonus": { "atk": 2, "def": -2, "maxHp": -25 } }
   },

@@ -1,5 +1,5 @@
 // tools/107-battle-log-viewer.js - 光明顶5v5 战斗日志复盘（单文件，界面动态生成）
-// V5.7.1 | ~8400 bytes| 2026-08-21 增强：新增阵营对决卡片、回合伤害双色柱（明教/六大派）、排行榜伤害占比条；V5.7.1 修回合柱基准改为典型量级×3，超高回合封顶
+// V5.7.2 | ~8400 bytes| 2026-08-21 增强：新增阵营对决卡片、回合伤害双色柱（明教/六大派）、排行榜伤害占比条；V5.7.1 修回合柱基准改为典型量级×3，超高回合封顶；V5.7.2 坚盾已叠正则改为任意上限（配合每回合上限 3→4）
 (function(){
 // ========== 样式（一次性注入，带 hex-log- 前缀避免污染宿主页） ==========
 if (!document.getElementById('hexLogStyle')) {
@@ -165,7 +165,7 @@ function parseLog(text) {
     // ---- 上下文线索（与事件流独立，逐行捕获） ----
     if (line.includes('圣火令')) ctx.holy.push({ round, line });
     if ((m = line.match(/严阵以待：(.+?) 防御\+50%/))) ctx.fortify.push({ round, units: m[1].split(/[、,，]/).map(s => s.trim()) });
-    if ((m = line.match(/^🛡️ (.+?) (攻盾|坚盾)：防御\+(\d+)（已叠(\d+)\/3）/))) {
+    if ((m = line.match(/^🛡️ (.+?) (攻盾|坚盾)：防御\+(\d+)（已叠(\d+)\/(\d+)）/))) {
       ctx.stacks.push({ round, unit: m[1].trim(), kind: m[2], n: parseInt(m[4], 10), def: parseInt(m[3], 10) });
     }
     if ((m = line.match(/^🗡️ (.+?) 破防：(.+?) 防御 -(\d+)/))) {
