@@ -1,6 +1,6 @@
 // core/12battle-attack-steps.js - 光明顶5v5 攻击步骤拆分模块
-// V5.6.1 | ~27700 bytes| 2026-08-24 防战 z 值直读 _hpDmgRatio（分档表已覆盖所有防战来源），去 0.01 兜底
-export const VER = 'core/12battle-attack-steps.js V5.6.1';
+// V5.6.2 | ~28200 bytes| 2026-08-24 记账口径v2：主攻击挡刀值取防御减免前总量，闪避算吸收，删回血冲减承伤
+export const VER = 'core/12battle-attack-steps.js V5.6.2';
 
 import { CONFIG, getSkillParams, getGameData } from './01config-5v5-test.js';
 import { eventBus, EFFECT_TYPES } from '../infra/50-event-bus.js';
@@ -142,6 +142,7 @@ export function resolveAttackHit(unit, target, attackerBuffStats, defenderBuffSt
         target._dodgeChance = Math.round((1 - product) * 100);
         if (dodgeTriggered) {
             target.dodgeCount++;
+            target.dmgTaken += Math.floor(unit.atk); // 闪避也算吸收了本次来袭攻击力（挡刀值口径）
             let reboundDmg = Math.floor((target.atk + target.def) * C.DODGE_REBOUND_RATIO);
             let unitHpBeforeRebound = Math.floor(unit.hp);
 
@@ -242,18 +243,21 @@ export function calcFinalDamage(unit, target, attackerBuffStats, defenderBuffSta
         if (zt) { waveTaunt = zt; waveUnit = unit; }
     }
     let raw, rawFormula, hpRatio = 0;
+    let blockBase = atkAct; // 挡刀值基数：防御减免前的来袭总量（0 防目标应承受的伤害）
     if (unit.role === '防战') {
         let displayDef = Math.floor(unit.def);
         let lv = getFangLevel(displayDef, unit.m), k = C.FANG_K[lv] !== undefined ? C.FANG_K[lv] : C.FANG_K[C.FANG_K.length - 1];
         let penPart = calcDamage(atkAct, defAct);
         hpRatio = unit._hpDmgRatio;
         raw = penPart + displayDef * k + unit.maxHp * hpRatio;
+        blockBase = atkAct + displayDef * k + unit.maxHp * hpRatio;
     } else {
         raw = calcDamage(atkAct, defAct);
     }
 
     raw += bonusDmgTotal;
     raw *= dmgMultiplier;
+    const blockValue = Math.floor((blockBase + bonusDmgTotal) * dmgMultiplier * 10) / 10;
 
     let dmg = Math.floor(raw * 10) / 10;
     let bonusEntries = [];
@@ -261,7 +265,7 @@ export function calcFinalDamage(unit, target, attackerBuffStats, defenderBuffSta
     dmg = modifierResult.modifiedDmg;
     bonusEntries = modifierResult.entries || [];
 
-    return { atkBase, defBase, atkAct, defAct, hpBonus, hpBefore, waveTaunt, waveUnit, raw, rawFormula: null, thunderBonus: 0, hornDmgMultiplier: 1, hornDefIgnore: 0, trueDmg: 0, dmg, bonusEntries, defReduced, defReduction: null, bonusDmgTotal, bonusDmgEntries, dmgMultiplier, dmgMultiplierEntries, hpRatio: unit.role === '防战' ? hpRatio : 0 };
+    return { atkBase, defBase, atkAct, defAct, hpBonus, hpBefore, waveTaunt, waveUnit, raw, rawFormula: null, thunderBonus: 0, hornDmgMultiplier: 1, hornDefIgnore: 0, trueDmg: 0, dmg, bonusEntries, defReduced, defReduction: null, bonusDmgTotal, bonusDmgEntries, dmgMultiplier, dmgMultiplierEntries, hpRatio: unit.role === '防战' ? hpRatio : 0, blockValue };
 }
 
 // ==================== 步骤4：应用伤害结果 ====================
@@ -272,6 +276,8 @@ export function applyAttackResult(unit, target, dmgCalc, attackerBuffStats, defe
     let hpAfter = Math.floor(target.hp) - dmg;
     let dead = hpAfter <= 0;
     applyStatChange(target, 'hp', -dmg, unit, '攻击伤害');
+    // 挡刀值补差：applyStatChange 已按实际伤害记 dmg，此处补上被防御挡掉的部分（承伤=防御减免前总量）
+    if (dmgCalc.blockValue > dmg) target.dmgTaken += dmgCalc.blockValue - dmg;
     if (dead) {
         target.alive = false;
         target._pendingDeath = true;
@@ -398,7 +404,6 @@ export function resolveAfterDamageEffects(declarations, unit, target, group, all
         const capped = Math.min(decl.value || 0, decl.source.maxHp - decl.source.hp);
         if (capped > 0) {
             applyStatChange(decl.source, 'hp', capped, null, '回血');
-            if (decl.source.dmgTaken !== undefined) decl.source.dmgTaken -= capped;
         }
         executed.push(decl);
     }

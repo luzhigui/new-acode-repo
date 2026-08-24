@@ -1,6 +1,6 @@
 // core/13battle-shared.js - 光明顶5v5 战斗共享工具
-// V5.5.3 | ~6712 bytes| 2026-08-21 战报记账修正：applyStatChange加record开关+clamp记账，applyMaxHpChange不记账
-export const VER = 'core/13battle-shared.js V5.5.3';
+// V5.6.0 | ~6900 bytes| 2026-08-24 战报记账口径v2：承伤=挡刀值(来袭全额不折减)，治疗记产出者
+export const VER = 'core/13battle-shared.js V5.6.0';
 
 import { CONFIG } from './01config-5v5-test.js';
 import { getRoleBonus } from './02unit.js';
@@ -103,13 +103,14 @@ function applyStatChange(target, field, delta, source, reason, record = true) {
     target[field] = field === 'hp' ? Math.min(target.maxHp, Math.max(0, stepped)) : stepped;
     if (field === 'hp' || field === 'maxHp') target[field] = Math.max(0, target[field]);
     if (field === 'hp' && record) {
-        // 按 clamp 后的实际变化量记账，避免溢出伤害/治疗虚高
+        // 记账口径v2：承伤=挡刀值（按来袭全额记，防御挡掉的/溢出的都算，回血不冲减）；
+        // 输出=clamp后实际损血不变；治疗记产出者（source 优先，无 source 记自己），溢出治疗不记
         const actualDelta = target.hp - oldVal;
-        if (actualDelta < 0) {
-            target.dmgTaken += Math.abs(actualDelta);
-            if (source) source.dmgDealt = (source.dmgDealt || 0) + Math.abs(actualDelta);
+        if (delta < 0) {
+            target.dmgTaken += Math.abs(delta);
+            if (actualDelta < 0 && source) source.dmgDealt = (source.dmgDealt || 0) + Math.abs(actualDelta);
         } else if (actualDelta > 0) {
-            target.healDone += actualDelta;
+            (source || target).healDone += actualDelta;
         }
     }
     if (field === 'hp' && target.hp <= 0) {
