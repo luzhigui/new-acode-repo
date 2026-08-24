@@ -1,6 +1,6 @@
 // core/10battle-attack.js - 光明顶5v5 攻击流程模块
-// V5.6.0 | ~10800 bytes| 2026-08-24 清理已删除的防御/血量台词兜底常量引用
-export const VER = 'core/10battle-attack.js V5.6.0';
+// V5.6.1 | ~10800 bytes| 2026-08-24 记账口径v2：免疫吸收不回退挡刀值（dmgTaken 保留，仅回退输出）
+export const VER = 'core/10battle-attack.js V5.6.1';
 
 import { CONFIG } from './01config-5v5-test.js';
 import { hasBuff, makeFXSnapshot, isBlocked } from './03battle-utils.js';
@@ -125,7 +125,6 @@ export async function processUnitAttack(unit, allySide, enemySide, log, A, B, st
     if (immuneResult) {
         applyStatChange(target, 'hp', dmgCalc.dmg, null, '免疫回退', false);
         unit.dmgDealt -= dmgCalc.dmg;
-        target.dmgTaken -= dmgCalc.dmg;
         emitEvent(target, 'hp-change', { hp: target.hp, maxHp: target.maxHp, alive: target.alive, atk: target.atk, def: target.def });
 
         const immuneHpPctBefore = Math.floor((Math.min(target.hp + dmgCalc.dmg, target.maxHp) / target.maxHp) * 100);
