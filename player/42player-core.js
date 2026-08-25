@@ -255,9 +255,33 @@ async function applyStageActionToFX(c, action) {
             break;
         }
         case 'attack': {
+            const attacker = findUnitByUid(c, action.actorUid);
             const target = findUnitByUid(c, action.targetUid);
+            // 伤害飘字
             if (target && action.dmg && !GlobalStore.get('fastForwardActive')) {
                 eventBus.emit(FX_SIGNALS.DAMAGE_FLOAT, { unit: target, dmg: action.dmg });
+            }
+            // 苦练蓄力特效
+            if (action.isKuLianAttack && attacker) {
+                const team = attacker.camp === 'ally' ? c.UI.allyTeam : c.UI.enemyTeam;
+                eventBus.emit(FX_SIGNALS.KULIAN, { unit: attacker, team });
+                await new Promise(r => setTimeout(r, 1200));
+            }
+            // 飞撞/箭矢/台词弹幕（统一由 fx/88 的 _triggerFX 消费）
+            if (attacker && target && action.attackerRole) {
+                eventBus.emit(FX_SIGNALS.TRIGGER, {
+                    fxSnapshot: action.fx,
+                    unitA: attacker,
+                    unitD: target,
+                    isDead: action.dead,
+                    isDodge: false,
+                    isMiss: false,
+                    isBlock: false,
+                    dmg: action.dmg,
+                    waveTaunt: action.waveTaunt || null,
+                    waveUnitUid: action.waveUnitUid || null,
+                    attackerRole: action.attackerRole
+                });
             }
             break;
         }
@@ -289,6 +313,34 @@ async function applyStageActionToFX(c, action) {
         // push 动画由 handleBuffPush 负责，导演只处理位置
         // summon 横幅由 handleBuffSummon 负责，导演只处理位置
         // destroy 横幅由 handleBuffDestroy 负责，导演只处理位置
+        case 'buffEffect': {
+            const attacker = findUnitByUid(c, action.attackerUid);
+            const target = findUnitByUid(c, action.targetUid);
+            const primary = findUnitByUid(c, action.primaryUid);
+            if (action.effectType === 'splash' && attacker && primary && action.splashUids && action.splashUids.length > 0) {
+                const splashTargets = action.splashUids.map(uid => findUnitByUid(c, uid)).filter(u => u);
+                if (splashTargets.length > 0) {
+                    c.isPaused = true; GlobalStore.set('bulletTimeActive', true);
+                    await eventBus.emit(FX_SIGNALS.BANNER, { text: '☄️ 流星赶月！' });
+                    eventBus.emit(FX_SIGNALS.SPLASH_ARROWS, { attacker, primary, targets: splashTargets, speed: c.speed, isPausedFn: () => c.isPaused });
+                    splashTargets.forEach((st, i) => { setTimeout(() => AudioManager.playSfx(attacker.role || '远程'), i * 120); });
+                    GlobalStore.set('bulletTimeActive', false); c.isPaused = false;
+                    await new Promise(r => setTimeout(r, GlobalStore.get('fastForwardActive') ? 1 : 600));
+                }
+            } else if (action.effectType === 'boneClaw' && attacker && target) {
+                eventBus.emit(FX_SIGNALS.BONE_CLAW, { attacker, target, speed: c.speed, isPausedFn: () => c.isPaused, opts: { isExecute: action.isExecute } });
+            } else if (action.effectType === 'atkBuff' && target && action.gain) {
+                eventBus.emit(FX_SIGNALS.ATK_BUFF_FLOAT, { unit: target, gain: action.gain });
+            }
+            break;
+        }
+        case 'hpPctDanmaku': {
+            const target = findUnitByUid(c, action.targetUid);
+            if (target && action.text && !GlobalStore.get('fastForwardActive')) {
+                eventBus.emit(FX_SIGNALS.DANMAKU, { unit: target, text: action.text });
+            }
+            break;
+        }
         default:
             break;
     }
@@ -309,13 +361,24 @@ function rebuildUISnapshotFromStore(c) {
 async function playStep(c, step, isFirstAttackRef) {
     const pendingDeaths = [];
     if (step.stageActions && step.stageActions.length > 0) {
+        // 1. beforeText：Store 变更 + 文本前特效（飞撞/箭矢/子弹时间/伤害飘字等）
         for (const action of step.stageActions) {
             applyStageActionToStore(c, action, pendingDeaths);
-            await applyStageActionToFX(c, action);
+            if (action.timing !== 'afterText') {
+                await applyStageActionToFX(c, action);
+            }
         }
     }
 
+    // 2. 只播日志文本（playLogEntries 不再触发特效）
     await playLogEntries(c, step.log, step, isFirstAttackRef);
+
+    // 3. afterText：文本后特效（白骨爪/流星溅射/血量线弹幕/miss气泡等）
+    if (step.stageActions && step.stageActions.length > 0) {
+        for (const action of step.stageActions.filter(a => a.timing === 'afterText')) {
+            await applyStageActionToFX(c, action);
+        }
+    }
 
     // 死亡标记统一在日志播完后落地：时序为 攻击动画/文本 → 死亡特效 → 掉血同步
     for (const uid of pendingDeaths) {
