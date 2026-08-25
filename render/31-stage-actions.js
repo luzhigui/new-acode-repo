@@ -1,6 +1,6 @@
 // render/31-stage-actions.js - 光明顶5v5 舞台动作翻译器
-// V5.7.2 | ~14550 bytes| 2026-08-26 makeAttackAction 附带 waveUnit 对象供承浪箴言弹幕使用
-export const VER = 'render/31-stage-actions.js V5.7.2';
+// V5.7.3 | ~14750 bytes| 2026-08-26 makeAttackAction 派生特效（溅射/白骨爪/乾坤飘字/血量弹幕）补 timing: afterText
+export const VER = 'render/31-stage-actions.js V5.7.3';
 
 import { makeFXSnapshot } from '../infra/51-core-utils.js';
 
@@ -312,7 +312,8 @@ function makeAttackAction(data, index) {
                 splashUids: e.splashUids ?? (e.data?.targets?.map(t => t.uid) ?? []),
                 splashDmg: e.splashDmg ?? null,
                 buffType: e.buffType ?? null,
-                factIndex: index
+                factIndex: index,
+                timing: 'afterText'
             });
         } else if (e.isClawHit || (e.factType && ['clawHit', 'clawExecute'].includes(e.factType))) {
             afterTextEffects.push({
@@ -321,7 +322,8 @@ function makeAttackAction(data, index) {
                 attackerUid: e.clawAttackerUid ?? attacker?.uid ?? null,
                 targetUid: e.clawTargetUid ?? target?.uid ?? null,
                 isExecute: e.isExecute ?? false,
-                factIndex: index
+                factIndex: index,
+                timing: 'afterText'
             });
         } else if (e.buffType === 'qiankun_atk' && e.atkTargetUid && e.atkGain) {
             afterTextEffects.push({
@@ -329,7 +331,8 @@ function makeAttackAction(data, index) {
                 effectType: 'atkBuff',
                 targetUid: e.atkTargetUid,
                 gain: e.atkGain,
-                factIndex: index
+                factIndex: index,
+                timing: 'afterText'
             });
         }
     }
@@ -342,14 +345,16 @@ function makeAttackAction(data, index) {
                 kind: 'hpPctDanmaku',
                 targetUid: target?.uid ?? null,
                 text: target?.camp === 'ally' ? '不好，必须反击了！' : '小儿安敢伤我！',
-                factIndex: index
+                factIndex: index,
+                timing: 'afterText'
             });
         } else if (data.hpPctBefore > 20 && data.hpPctAfter <= 20) {
             hpPctEffects.push({
                 kind: 'hpPctDanmaku',
                 targetUid: target?.uid ?? null,
                 text: target?.camp === 'ally' ? '撑住！' : '已是强弩之末！',
-                factIndex: index
+                factIndex: index,
+                timing: 'afterText'
             });
         }
     }
