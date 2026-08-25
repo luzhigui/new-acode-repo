@@ -1,6 +1,6 @@
 // core/12battle-attack-steps.js - 光明顶5v5 攻击步骤拆分模块
-// V5.6.2 | ~28200 bytes| 2026-08-24 记账口径v2：主攻击挡刀值取防御减免前总量，闪避算吸收，删回血冲减承伤
-export const VER = 'core/12battle-attack-steps.js V5.6.2';
+// V5.6.3 | ~28200 bytes| 2026-08-26 闪避/挡刀补差/韦一笑吸血记账统一走 recordCombatStat
+export const VER = 'core/12battle-attack-steps.js V5.6.3';
 
 import { CONFIG, getSkillParams, getGameData } from './01config-5v5-test.js';
 import { eventBus, EFFECT_TYPES } from '../infra/50-event-bus.js';
@@ -586,8 +586,10 @@ export function resolveDodgeEffects(declarations, unit, target) {
             const { heal, newMaxHp } = decl.data;
             applyMaxHpChange(target, newMaxHp, null, '韦一笑吸血上限提升');
             target._baseMaxHp = Math.max(target._baseMaxHp, newMaxHp);
-            target.healDone += heal;
-            target.leechDone += heal;
+            // 吸血记账：source 与 target 同为韦一笑，healDone/leechDone 都记自身（走统一入口）
+            recordCombatStat(target, target, 'leech', {
+                actualAmount: heal
+            });
         }
     }
 }

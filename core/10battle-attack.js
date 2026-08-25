@@ -1,6 +1,6 @@
 // core/10battle-attack.js - 光明顶5v5 攻击流程模块
-// V5.6.1 | ~10800 bytes| 2026-08-24 记账口径v2：免疫吸收不回退挡刀值（dmgTaken 保留，仅回退输出）
-export const VER = 'core/10battle-attack.js V5.6.1';
+// V5.6.2 | ~10800 bytes| 2026-08-26 免疫回退输出回退走统一记账入口 recordCombatStat
+export const VER = 'core/10battle-attack.js V5.6.2';
 
 import { CONFIG } from './01config-5v5-test.js';
 import { hasBuff, makeFXSnapshot, isBlocked } from './03battle-utils.js';
