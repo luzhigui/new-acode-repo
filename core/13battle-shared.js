@@ -1,11 +1,77 @@
 // core/13battle-shared.js - 光明顶5v5 战斗共享工具
-// V5.6.0 | ~6900 bytes| 2026-08-24 战报记账口径v2：承伤=挡刀值(来袭全额不折减)，治疗记产出者
-export const VER = 'core/13battle-shared.js V5.6.0';
+// V5.6.1 | ~10000 bytes| 2026-08-26 抽战斗统计统一记账入口 recordCombatStat
+export const VER = 'core/13battle-shared.js V5.6.1';
 
 import { CONFIG } from './01config-5v5-test.js';
 import { getRoleBonus } from './02unit.js';
 import { pushBattleEvent } from '../infra/51-core-utils.js';
 const C = CONFIG;
+
+/**
+ * 战斗统计统一记账入口（唯一入口，禁止绕过）
+ * 所有伤害/治疗/反弹/吸血/闪避/免疫回退的统计字段增减，必须通过此函数。
+ * 禁止直接修改 dmgDealt / dmgTaken / healDone / reboundDone / leechDone 字段。
+ *
+ * @param {object|null} source - 伤害/治疗来源单位（可为 null，治疗溢出或被动时记目标自身）
+ * @param {object} target - 承受单位
+ * @param {string} type - 记账类型：'damage' | 'heal' | 'rebound' | 'leech' | 'dodge' | 'immuneRollback'
+ * @param {object} opts - 记账参数
+ *   - rawAmount: 来袭全额（减免前，含溢出），承伤按此记
+ *   - actualAmount: 实际损血量/治疗量（减免后/截断后），输出按此记
+ */
+function recordCombatStat(source, target, type, opts = {}) {
+    if (!target || !target.alive) return;
+    const rawAmount = opts.rawAmount ?? opts.actualAmount ?? 0;
+    const actualAmount = opts.actualAmount ?? 0;
+
+    switch (type) {
+        case 'damage':
+            // 承伤 = 来袭全额（防御减免前总量）；输出 = 实际损血量（clamp 后）
+            target.dmgTaken += Math.abs(rawAmount);
+            if (actualAmount > 0 && source) {
+                source.dmgDealt = (source.dmgDealt || 0) + actualAmount;
+            }
+            break;
+
+        case 'heal':
+            // 治疗记产出者（source 优先，无 source 记自己），溢出治疗不记
+            if (actualAmount > 0) {
+                (source || target).healDone += actualAmount;
+            }
+            break;
+
+        case 'rebound':
+            // 反弹：source 记 reboundDone，target 记承伤
+            if (source) {
+                source.reboundDone = (source.reboundDone || 0) + Math.abs(rawAmount);
+            }
+            target.dmgTaken += Math.abs(rawAmount);
+            break;
+
+        case 'leech':
+            // 吸血：治疗记 source，leechDone 也记 source
+            if (source) {
+                source.healDone += actualAmount;
+                source.leechDone = (source.leechDone || 0) + actualAmount;
+            }
+            break;
+
+        case 'dodge':
+            // 闪避：承伤 = 来袭攻击力（rawAmount），无实际输出
+            target.dmgTaken += Math.abs(rawAmount);
+            break;
+
+        case 'immuneRollback':
+            // 免疫回退：承伤已记，只退输出
+            if (source && actualAmount > 0) {
+                source.dmgDealt = Math.max(0, (source.dmgDealt || 0) - actualAmount);
+            }
+            break;
+
+        default:
+            break;
+    }
+}
 
 function emitFullUnitState(unit, eventType) {
     emitCoreEvent(unit, eventType, {
@@ -103,14 +169,18 @@ function applyStatChange(target, field, delta, source, reason, record = true) {
     target[field] = field === 'hp' ? Math.min(target.maxHp, Math.max(0, stepped)) : stepped;
     if (field === 'hp' || field === 'maxHp') target[field] = Math.max(0, target[field]);
     if (field === 'hp' && record) {
-        // 记账口径v2：承伤=挡刀值（按来袭全额记，防御挡掉的/溢出的都算，回血不冲减）；
-        // 输出=clamp后实际损血不变；治疗记产出者（source 优先，无 source 记自己），溢出治疗不记
+        // 记账统一走 recordCombatStat：承伤=来袭全额（按 delta 记），输出=clamp 后实际损血；
+        // 治疗记产出者（source 优先，无 source 记自己），溢出治疗不记
         const actualDelta = target.hp - oldVal;
         if (delta < 0) {
-            target.dmgTaken += Math.abs(delta);
-            if (actualDelta < 0 && source) source.dmgDealt = (source.dmgDealt || 0) + Math.abs(actualDelta);
+            recordCombatStat(source, target, 'damage', {
+                rawAmount: Math.abs(delta),
+                actualAmount: Math.abs(actualDelta)
+            });
         } else if (actualDelta > 0) {
-            (source || target).healDone += actualDelta;
+            recordCombatStat(source, target, 'heal', {
+                actualAmount: actualDelta
+            });
         }
     }
     if (field === 'hp' && target.hp <= 0) {
@@ -158,5 +228,6 @@ export {
     moveUnitPosition,
     checkZhangSwitch,
     applyStatChange,
-    applyMaxHpChange
+    applyMaxHpChange,
+    recordCombatStat
 };
