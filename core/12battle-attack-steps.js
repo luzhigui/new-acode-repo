@@ -6,7 +6,7 @@ import { CONFIG, getSkillParams, getGameData } from './01config-5v5-test.js';
 import { eventBus, EFFECT_TYPES } from '../infra/50-event-bus.js';
 import { calcDamage, getFangLevel, isMelee, getFronts, isBlocked, getRandomTaunt, getZhangNearTaunt, makeFXSnapshot, hasBuff, getUnitCol, getUnitRow } from './03battle-utils.js';
 import { applyBuffEffectsBeforeAttack, applyBuffEffectsAfterAttack } from './04buff-system.js';
-import { emitEvent, applyStatChange, applyMaxHpChange, query, getBattleRng } from './13battle-shared.js';
+import { emitEvent, applyStatChange, applyMaxHpChange, query, getBattleRng, recordCombatStat } from './13battle-shared.js';
 import { flushBattleEvents, pushBattleEvent, getBattleState, setBattleState, registerDodgeRule, clearEliteDodgeRules, getDodgeRules } from '../infra/51-core-utils.js';
 
 // ==================== 闪避规则注册表（已下沉 infra/51，此处转发） ====================
@@ -142,7 +142,11 @@ export function resolveAttackHit(unit, target, attackerBuffStats, defenderBuffSt
         target._dodgeChance = Math.round((1 - product) * 100);
         if (dodgeTriggered) {
             target.dodgeCount++;
-            target.dmgTaken += Math.floor(unit.atk); // 闪避也算吸收了本次来袭攻击力（挡刀值口径）
+            // 闪避承伤：走统一记账入口（承伤 = 来袭攻击力）
+            recordCombatStat(unit, target, 'dodge', {
+                rawAmount: Math.floor(unit.atk),
+                actualAmount: 0
+            });
             let reboundDmg = Math.floor((target.atk + target.def) * C.DODGE_REBOUND_RATIO);
             let unitHpBeforeRebound = Math.floor(unit.hp);
 
@@ -276,8 +280,14 @@ export function applyAttackResult(unit, target, dmgCalc, attackerBuffStats, defe
     let hpAfter = Math.floor(target.hp) - dmg;
     let dead = hpAfter <= 0;
     applyStatChange(target, 'hp', -dmg, unit, '攻击伤害');
-    // 挡刀值补差：applyStatChange 已按实际伤害记 dmg，此处补上被防御挡掉的部分（承伤=防御减免前总量）
-    if (dmgCalc.blockValue > dmg) target.dmgTaken += dmgCalc.blockValue - dmg;
+    // 挡刀值补差：applyStatChange 已按实际伤害记承伤（delta = dmg），
+    // 此处通过统一入口补上被防御挡掉的部分（承伤 = 防御减免前总量）
+    if (dmgCalc.blockValue > dmg) {
+        recordCombatStat(unit, target, 'damage', {
+            rawAmount: dmgCalc.blockValue - dmg,
+            actualAmount: 0
+        });
+    }
     if (dead) {
         target.alive = false;
         target._pendingDeath = true;

@@ -20,7 +20,7 @@ import {
 import { eventBus, EFFECT_TYPES } from '../infra/50-event-bus.js';
 import { flushBattleEvents } from '../infra/51-core-utils.js';
 
-import { emitEvent, applyStatChange } from './13battle-shared.js';
+import { emitEvent, applyStatChange, recordCombatStat } from './13battle-shared.js';
 
 const C = CONFIG;
 
@@ -124,7 +124,11 @@ export async function processUnitAttack(unit, allySide, enemySide, log, A, B, st
     const immuneResult = resolveDamageImmune(immuneDeclarations);
     if (immuneResult) {
         applyStatChange(target, 'hp', dmgCalc.dmg, null, '免疫回退', false);
-        unit.dmgDealt -= dmgCalc.dmg;
+        // 免疫回退：承伤已记，只退输出（走统一记账入口）
+        recordCombatStat(unit, target, 'immuneRollback', {
+            rawAmount: 0,
+            actualAmount: dmgCalc.dmg
+        });
         emitEvent(target, 'hp-change', { hp: target.hp, maxHp: target.maxHp, alive: target.alive, atk: target.atk, def: target.def });
 
         const immuneHpPctBefore = Math.floor((Math.min(target.hp + dmgCalc.dmg, target.maxHp) / target.maxHp) * 100);
