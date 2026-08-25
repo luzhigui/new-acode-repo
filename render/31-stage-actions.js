@@ -1,6 +1,6 @@
 // render/31-stage-actions.js - 光明顶5v5 舞台动作翻译器
-// V5.7.4 | ~15250 bytes| 2026-08-26 反伤独立 kind: rebound；flyMode 拆分携带 originalFactType/hostUid
-export const VER = 'render/31-stage-actions.js V5.7.4';
+// V5.7.5 | ~15280 bytes| 2026-08-26 STAGE_ACTION_DEFS 补 rebound 条目
+export const VER = 'render/31-stage-actions.js V5.7.5';
 
 import { makeFXSnapshot } from '../infra/51-core-utils.js';
 
@@ -397,6 +397,7 @@ function makeHealAction(data, index) {
 
 export const STAGE_ACTION_DEFS = {
     attack: { grid: 'sync', fx: 'sync', log: 'sync' },
+    rebound: { grid: 'none', fx: 'sync', log: 'sync' },
     heal: { grid: 'sync', fx: 'sync', log: 'sync' },
     death: { grid: 'sync', fx: 'sync', log: 'sync' },
     posSwap: { grid: 'sync', fx: 'sync', log: 'sync' },
