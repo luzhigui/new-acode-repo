@@ -1,6 +1,6 @@
 // core/12battle-attack-steps.js - 光明顶5v5 攻击步骤拆分模块
-// V5.6.3 | ~28200 bytes| 2026-08-26 闪避/挡刀补差/韦一笑吸血记账统一走 recordCombatStat
-export const VER = 'core/12battle-attack-steps.js V5.6.3';
+// V5.7.0 | ~24200 bytes| 2026-08-26 resolveAfterDamageEffects 8机制抽至 16effect-handlers 注册表
+export const VER = 'core/12battle-attack-steps.js V5.7.0';
 
 import { CONFIG, getSkillParams, getGameData } from './01config-5v5-test.js';
 import { eventBus, EFFECT_TYPES } from '../infra/50-event-bus.js';
@@ -8,6 +8,7 @@ import { calcDamage, getFangLevel, isMelee, getFronts, isBlocked, getRandomTaunt
 import { applyBuffEffectsBeforeAttack, applyBuffEffectsAfterAttack } from './04buff-system.js';
 import { emitEvent, applyStatChange, applyMaxHpChange, query, getBattleRng, recordCombatStat } from './13battle-shared.js';
 import { flushBattleEvents, pushBattleEvent, getBattleState, setBattleState, registerDodgeRule, clearEliteDodgeRules, getDodgeRules } from '../infra/51-core-utils.js';
+import { getEffectHandler, hasEffectHandler } from './16effect-handlers.js';
 
 // ==================== 闪避规则注册表（已下沉 infra/51，此处转发） ====================
 export { registerDodgeRule, clearEliteDodgeRules, getDodgeRules };
@@ -390,105 +391,39 @@ export function resolveAfterDamageEffects(declarations, unit, target, group, all
     if (!declarations || declarations.length === 0) return [];
 
     const executed = [];
+    const typeOrder = [
+        EFFECT_TYPES.BONUS_DMG,
+        EFFECT_TYPES.LEECH,
+        EFFECT_TYPES.HEAL,
+        EFFECT_TYPES.SPLASH,
+        EFFECT_TYPES.REBOUND,
+        EFFECT_TYPES.STAT_CHANGE,
+        EFFECT_TYPES.EXECUTE,
+        EFFECT_TYPES.CLAW_CHAIN
+    ];
 
-    for (const decl of declarations.filter(d => d.type === EFFECT_TYPES.BONUS_DMG)) {
-        if (!decl.target || !decl.target.alive) continue;
-        applyStatChange(decl.target, 'hp', -(decl.value || 0), unit, '额外伤害');
-        executed.push(decl);
+    for (const type of typeOrder) {
+        if (!hasEffectHandler(type)) continue;
+        const decls = declarations.filter(d => d.type === type);
+        if (decls.length === 0) continue;
+        const result = getEffectHandler(type)({
+            decls,
+            unit,
+            target,
+            group,
+            allySide,
+            unitBuffs,
+            log: null
+        });
+        if (result && result.executed) executed.push(...result.executed);
     }
 
-    for (const decl of declarations.filter(d => d.type === EFFECT_TYPES.LEECH)) {
-        if (!decl.source || !decl.source.alive) continue;
-        if (decl.maxHp) {
-            decl.source._baseMaxHp = Math.max(decl.source._baseMaxHp, decl.maxHp);
-            applyMaxHpChange(decl.source, decl.maxHp, null, '吸血上限提升');
+    // 原 catch-all：不属于 8 种已知类型的 decl 原样返回
+    const knownTypes = new Set(typeOrder);
+    for (const decl of declarations) {
+        if (!decl || !decl.type || !knownTypes.has(decl.type)) {
+            executed.push(decl);
         }
-        const capped = Math.min(decl.value || 0, decl.source.maxHp - decl.source.hp);
-        applyStatChange(decl.source, 'hp', capped, null, '吸血');
-        decl.source.leechDone = (decl.source.leechDone || 0) + capped;
-        executed.push(decl);
-    }
-
-    for (const decl of declarations.filter(d => d.type === EFFECT_TYPES.HEAL)) {
-        if (!decl.source || !decl.source.alive) continue;
-        const capped = Math.min(decl.value || 0, decl.source.maxHp - decl.source.hp);
-        if (capped > 0) {
-            applyStatChange(decl.source, 'hp', capped, null, '回血');
-        }
-        executed.push(decl);
-    }
-
-    for (const decl of declarations.filter(d => d.type === EFFECT_TYPES.SPLASH)) {
-        if (!decl.targets || decl.targets.length === 0) continue;
-        for (const st of decl.targets) {
-            if (!st.alive) continue;
-            applyStatChange(st, 'hp', -(decl.value || 0), unit, '溅射');
-        }
-        if (unit && unit.role === '远程' && decl.buffType === 'meteor_splash') {
-            const enhance = query('xiaoHexEnhance', allySide, unitBuffs, 'meteorShower');
-            const perSplash = enhance ? (enhance.atkPerSplash || 0) : 0;
-            const hitCount = decl.targets.filter(t => t.alive).length;
-            if (hitCount > 0 && perSplash > 0) {
-                const growth = hitCount * perSplash;
-                applyStatChange(unit, 'atk', growth, null, '流星溅射成长');
-                if (unit._baseAtk !== undefined) unit._baseAtk += growth;
-                if (decl.factData) decl.factData.growth = growth;
-            }
-        }
-        executed.push(decl);
-    }
-
-    for (const decl of declarations.filter(d => d.type === EFFECT_TYPES.REBOUND)) {
-        if (!decl.target || !decl.target.alive) continue;
-        applyStatChange(decl.target, 'hp', -(decl.value || 0), decl.source, '反弹');
-        if (decl.source) decl.source.reboundDone = (decl.source.reboundDone || 0) + (decl.value || 0);
-        if (decl.hasSister && decl.source && decl.source.alive) {
-            applyStatChange(decl.source, 'hp', decl.value || 0, null, '反弹回复');
-        }
-        executed.push(decl);
-    }
-
-    for (const decl of declarations.filter(d => d.type === EFFECT_TYPES.STAT_CHANGE)) {
-        if (!decl.target || !decl.target.alive) continue;
-        applyStatChange(decl.target, decl.field, decl.delta, null, decl.reason || '属性变更');
-        if (decl.field === 'atk' && decl.target._baseAtk !== undefined) {
-            decl.target._baseAtk += decl.delta;
-        }
-        if (decl.field === 'def' && decl.target._baseDef !== undefined) {
-            decl.target._baseDef += decl.delta;
-        }
-        executed.push(decl);
-    }
-
-    for (const decl of declarations.filter(d => d.type === EFFECT_TYPES.EXECUTE)) {
-        if (!decl.target || !decl.target.alive) continue;
-        applyStatChange(decl.target, 'hp', -decl.target.hp, decl.source, '斩杀');
-        decl._events = flushBattleEvents();
-        executed.push(decl);
-    }
-
-    for (const decl of declarations.filter(d => d.type === EFFECT_TYPES.CLAW_CHAIN)) {
-        if (!decl.target || !decl.target.alive) continue;
-        let chainTarget = decl.target;
-        let chainSource = decl.source;
-        decl._events = decl._events || [];
-        for (const hit of decl.hits) {
-            if (!chainTarget.alive || chainTarget._pendingDeath) break;
-            applyStatChange(chainTarget, 'hp', -hit.dmg, chainSource, '九阴白骨爪');
-            hit._events = flushBattleEvents();
-            if (hit._events && hit._events.length) decl._events.push(...hit._events);
-        }
-        if (decl.execute && chainTarget.alive && !chainTarget._pendingDeath && chainTarget.hp > 0) {
-            if (decl.execute.data) decl.execute.data.dmg = Math.round(chainTarget.hp);
-            applyStatChange(chainTarget, 'hp', -chainTarget.hp, chainSource, '白骨爪斩杀');
-            decl.execute._events = flushBattleEvents();
-            if (decl.execute._events && decl.execute._events.length) decl._events.push(...decl.execute._events);
-        }
-        executed.push(decl);
-    }
-
-    for (const decl of declarations.filter(d => ![EFFECT_TYPES.BONUS_DMG, EFFECT_TYPES.LEECH, EFFECT_TYPES.HEAL, EFFECT_TYPES.SPLASH, EFFECT_TYPES.REBOUND, EFFECT_TYPES.STAT_CHANGE, EFFECT_TYPES.EXECUTE, EFFECT_TYPES.CLAW_CHAIN].includes(d.type))) {
-        executed.push(decl);
     }
 
     return executed;
