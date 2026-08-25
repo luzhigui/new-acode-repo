@@ -17,7 +17,7 @@ import { showModal, showAlert, updateCoverVersion, copyLogToClipboard, initBugAn
 // 拆分模块
 import { getPlayerContext, getState, setState } from '../ui/63main-state.js';
 import { resetBattleRuntime } from './69reset-runtime.js';
-import { showBattleReport, showMusicPanel, showVoteDialog, showCountdown } from './64main-dialogs.js';
+import { showMusicPanel, showVoteDialog, showCountdown } from './64main-dialogs.js';
 import {
     doInitBattle, generateBuffChoices, createBuffObject, showBuffSelection,
     tickBuffDurations, getActiveBuffList,
@@ -248,19 +248,6 @@ document.addEventListener('DOMContentLoaded', async function() {
                 currentUI.enemyTeam = enemyList;
                 updateUI();
                 await playBattle();
-
-                let ctx = window._getPlayerContext();
-                if (ctx && ctx.battleResultForInfo) {
-                    showBattleReport(ctx.UI, ctx.battleResultForInfo);
-                    if (getState.autoLevel() === 'full-auto') {
-                        setTimeout(() => {
-                            const overlay = document.getElementById('battleReportOverlay');
-                            if (overlay) overlay.remove();
-                            const float = document.getElementById('battleReportFloat');
-                            if (float) float.remove();
-                        }, 3000);
-                    }
-                }
             } catch (e) {
                 let logDiv=document.getElementById('log'); let errorDiv=document.createElement('div');
                 errorDiv.innerHTML=`<span class="red">❌ 战斗异常中断：${e.message || e}</span><br>`;

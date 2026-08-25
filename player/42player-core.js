@@ -642,6 +642,15 @@ export async function playBattle() {
         const showBattleReportFn = GlobalStore.getUIHandler('showBattleReport');
         if (showBattleReportFn && c.battleResultForInfo) {
             showBattleReportFn(c.UI, c.battleResultForInfo);
+            // 全自动模式：3 秒后自动关闭战报，保证连关流程不受弹窗阻塞
+            if (GlobalStore.get('autoLevel') === 'full-auto') {
+                setTimeout(() => {
+                    const overlay = document.getElementById('battleReportOverlay');
+                    if (overlay) overlay.remove();
+                    const float = document.getElementById('battleReportFloat');
+                    if (float) float.remove();
+                }, 3000);
+            }
         }
     } else {
         renderVictoryLine('<span class="gray">🤝 平局！积分不变</span><br>');

@@ -10,9 +10,11 @@ import { AudioManager } from '../modules/22audio-manager.js';
 export function showBattleReport(UI, battleResultForInfo) {
     // ★ 防残留：如果游戏已不在 GAMEOVER 状态，不创建弹窗
     if (window._getPlayerContext && window._getPlayerContext().gs !== 'GAMEOVER') return;
-    // ★ 防重复：playBattle 结尾（player/42）与返回后（ui/61）各调用一次，
-    // 第二次直接复用已弹出的战报，避免双层 overlay 叠加（点两次才能关）
-    if (document.getElementById('battleReportOverlay')) return;
+    // ★ 清理旧战报残留（如上次战斗最小化后未移除），避免旧 overlay 拦截新战报
+    const oldOverlay = document.getElementById('battleReportOverlay');
+    if (oldOverlay) oldOverlay.remove();
+    const oldFloat = document.getElementById('battleReportFloat');
+    if (oldFloat) oldFloat.remove();
     // 刷新积分显示
     if (typeof window.updateScoreBadge === 'function') window.updateScoreBadge();
 
