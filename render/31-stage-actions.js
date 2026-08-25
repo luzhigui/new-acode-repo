@@ -1,12 +1,13 @@
 // render/31-stage-actions.js - 光明顶5v5 舞台动作翻译器
-// V5.7.0 | ~6800 bytes| 2026-08-23 fact → stageAction，导演调度的唯一依据
-export const VER = 'render/31-stage-actions.js V5.7.0';
+// V5.7.1 | ~14500 bytes| 2026-08-26 stageAction 携带演出字段并增加 timing 字段
+export const VER = 'render/31-stage-actions.js V5.7.1';
 
 import { makeFXSnapshot } from '../infra/51-core-utils.js';
 
 /**
  * 把一步的 fact 列表翻译成舞台动作列表。
  * 导演只读 stageActions，不读 fact；日志线仍读 fact。
+ * 每个动作带 timing 字段：'beforeText'（文本播放前触发）或 'afterText'（文本播放后触发）。
  */
 export function translateFactsToStageActions(log) {
     const actions = [];
@@ -25,15 +26,16 @@ function translateFact(entry, index) {
     switch (factType) {
         // ---------- 回合控制 ----------
         case 'roundStart':
-            return { kind: 'roundStart', round: data.round, factIndex: index };
+            return { kind: 'roundStart', round: data.round, factIndex: index, timing: 'beforeText' };
         case 'roundEnd':
-            return { kind: 'roundEnd', round: data.round, factIndex: index };
+            return { kind: 'roundEnd', round: data.round, factIndex: index, timing: 'afterText' };
         case 'pass':
             return {
                 kind: 'rest',
                 actorUid: data.unit?.uid ?? data.unitUid ?? null,
                 reason: data.reason,
-                factIndex: index
+                factIndex: index,
+                timing: 'beforeText'
             };
 
         // ---------- 攻击流程 ----------
@@ -45,7 +47,8 @@ function translateFact(entry, index) {
                 actorUid: data.attacker?.uid ?? null,
                 targetUid: data.target?.uid ?? null,
                 fx: data.fxSnapshot || null,
-                factIndex: index
+                factIndex: index,
+                timing: 'afterText'
             };
         case 'dodge':
             return {
@@ -55,21 +58,24 @@ function translateFact(entry, index) {
                 reboundDmg: data.reboundDmg,
                 dead: data.attackerHpAfter <= 0,
                 fx: data.fxSnapshot || null,
-                factIndex: index
+                factIndex: index,
+                timing: 'beforeText'
             };
         case 'immune':
             return {
                 kind: 'immune',
                 actorUid: data.attacker?.uid ?? null,
                 targetUid: data.target?.uid ?? null,
-                factIndex: index
+                factIndex: index,
+                timing: 'beforeText'
             };
         case 'emptyTarget':
             return {
                 kind: 'emptyTarget',
                 actorUid: data.attacker?.uid ?? null,
                 reason: data.reason,
-                factIndex: index
+                factIndex: index,
+                timing: 'beforeText'
             };
         case 'warriorExecute':
         case 'clawExecute':
@@ -79,7 +85,8 @@ function translateFact(entry, index) {
                 targetUid: data.targetUid ?? data.uidD ?? data.target?.uid ?? null,
                 dmg: data.dmg ?? null,
                 dead: data.isDead ?? true,
-                factIndex: index
+                factIndex: index,
+                timing: 'afterText'
             };
         case 'xinHunDeath':
             return {
@@ -87,7 +94,8 @@ function translateFact(entry, index) {
                 actorUid: data.uidD ?? null,
                 targetUid: data.uidD ?? null,
                 dead: true,
-                factIndex: index
+                factIndex: index,
+                timing: 'afterText'
             };
         case 'spiderStrike':
             return {
@@ -96,7 +104,8 @@ function translateFact(entry, index) {
                 targetUid: data.targetUid ?? null,
                 dmg: data.totalDmg,
                 dead: data.isDead,
-                factIndex: index
+                factIndex: index,
+                timing: 'beforeText'
             };
         case 'horseRebound':
             return {
@@ -108,7 +117,8 @@ function translateFact(entry, index) {
                 hpAfter: null,
                 dead: false,
                 fx: null,
-                factIndex: index
+                factIndex: index,
+                timing: 'afterText'
             };
         case 'fortifyRebound':
             return {
@@ -120,7 +130,8 @@ function translateFact(entry, index) {
                 hpAfter: null,
                 dead: false,
                 fx: null,
-                factIndex: index
+                factIndex: index,
+                timing: 'afterText'
             };
 
         // ---------- 血量 / 治疗 ----------
@@ -130,7 +141,8 @@ function translateFact(entry, index) {
                 targetUid: data.uidD ?? null,
                 dmg: data.dot,
                 dead: data.isDead,
-                factIndex: index
+                factIndex: index,
+                timing: 'beforeText'
             };
         case 'kuaiLeHeal':
         case 'nineYangHeal':
@@ -149,7 +161,8 @@ function translateFact(entry, index) {
                 targetUid: data.unitB?.uid ?? null,
                 oldPosA: data.posA,
                 oldPosB: data.posB,
-                factIndex: index
+                factIndex: index,
+                timing: 'beforeText'
             };
         case 'windAssaultPush':
             return {
@@ -159,7 +172,8 @@ function translateFact(entry, index) {
                 oldPos: data.oldPos,
                 newPos: data.behindPos,
                 behindOldPos: data.behindOldPos ?? null,
-                factIndex: index
+                factIndex: index,
+                timing: 'beforeText'
             };
 
         // ---------- 属性 / 增益 ----------
@@ -173,7 +187,8 @@ function translateFact(entry, index) {
             return {
                 kind: 'statChange',
                 actorUid: data.unitUid ?? data.unit?.uid ?? null,
-                factIndex: index
+                factIndex: index,
+                timing: 'afterText'
             };
 
         // ---------- 召唤 / 销毁 ----------
@@ -183,14 +198,16 @@ function translateFact(entry, index) {
                 kind: 'summon',
                 actorUid: data.horseUid ?? null,
                 pos: data.pos ?? data.horsePos,
-                factIndex: index
+                factIndex: index,
+                timing: 'beforeText'
             };
         case 'horseDestroy':
             return {
                 kind: 'destroy',
                 actorUid: data.horseUid ?? null,
                 success: data.success,
-                factIndex: index
+                factIndex: index,
+                timing: 'afterText'
             };
 
         // ---------- 变身 / 飞行 ----------
@@ -199,7 +216,8 @@ function translateFact(entry, index) {
             return {
                 kind: 'transform',
                 actorUid: data.unitUid ?? data.zhang?.uid ?? null,
-                factIndex: index
+                factIndex: index,
+                timing: 'beforeText'
             };
         case 'spiderFly':
         case 'spiderReturn':
@@ -211,13 +229,15 @@ function translateFact(entry, index) {
             return {
                 kind: 'flyMode',
                 actorUid: data.unitUid ?? data.spiderUid ?? data.sisterUid ?? data.unit?.uid ?? null,
-                factIndex: index
+                factIndex: index,
+                timing: 'beforeText'
             };
         case 'stunSkip':
             return {
                 kind: 'stun',
                 actorUid: data.unitUid ?? data.unit?.uid ?? null,
-                factIndex: index
+                factIndex: index,
+                timing: 'beforeText'
             };
 
         // ---------- 技能波及 / 附加 ----------
@@ -229,7 +249,8 @@ function translateFact(entry, index) {
                 targetUid: data.primaryUid ?? null,
                 splashUids: data.splashUids ?? data.targets?.map(t => t.uid) ?? [],
                 splashDmg: data.splashDmg ?? null,
-                factIndex: index
+                factIndex: index,
+                timing: 'afterText'
             };
 
         // ---------- 横幅 / 摘要 ----------
@@ -238,7 +259,8 @@ function translateFact(entry, index) {
         case 'doubleStrikeSummary':
             return {
                 kind: 'banner',
-                factIndex: index
+                factIndex: index,
+                timing: 'beforeText'
             };
 
         default:
@@ -256,7 +278,8 @@ function makeAttackAction(data, index) {
         ? data.snap.targetHpAfter
         : Math.floor(target?.hp ?? 0);
     const hpBefore = dmgResult?.hpBefore ?? Math.floor(target?.hp ?? 0);
-    return {
+
+    const baseAction = {
         kind: 'attack',
         actorUid: attacker?.uid ?? null,
         targetUid: target?.uid ?? null,
@@ -265,8 +288,72 @@ function makeAttackAction(data, index) {
         hpAfter,
         dead,
         fx: makeFXSnapshot(attacker, target),
-        factIndex: index
+        factIndex: index,
+        timing: 'beforeText',
+        // 演出字段（从 fact 携带到 stageAction，供 applyStageActionToFX 消费）
+        attackerRole: data.snap?.attackerRole ?? attacker?.role ?? null,
+        waveTaunt: data.dmgCalc?.waveTaunt ?? null,
+        waveUnitUid: data.dmgCalc?.waveUnit?.uid ?? null,
+        isKuLianAttack: data.snap?.isKuLianAttack ?? false
     };
+
+    // 从 attack fact 的 entries 提取文本后特效（buff-splash / 白骨爪 / 乾坤攻击飘字 / 死亡画笔）
+    const afterTextEffects = [];
+    const entries = data.entries || [];
+    for (const e of entries) {
+        if (!e) continue;
+        if (e.type === 'buff-splash' || (e.factType && ['meteorShowerSplash', 'windAssaultSplash'].includes(e.factType))) {
+            afterTextEffects.push({
+                kind: 'buffEffect',
+                effectType: 'splash',
+                attackerUid: e.attackerUid ?? attacker?.uid ?? null,
+                primaryUid: e.primaryUid ?? target?.uid ?? null,
+                splashUids: e.splashUids ?? (e.data?.targets?.map(t => t.uid) ?? []),
+                splashDmg: e.splashDmg ?? null,
+                buffType: e.buffType ?? null,
+                factIndex: index
+            });
+        } else if (e.isClawHit || (e.factType && ['clawHit', 'clawExecute'].includes(e.factType))) {
+            afterTextEffects.push({
+                kind: 'buffEffect',
+                effectType: 'boneClaw',
+                attackerUid: e.clawAttackerUid ?? attacker?.uid ?? null,
+                targetUid: e.clawTargetUid ?? target?.uid ?? null,
+                isExecute: e.isExecute ?? false,
+                factIndex: index
+            });
+        } else if (e.buffType === 'qiankun_atk' && e.atkTargetUid && e.atkGain) {
+            afterTextEffects.push({
+                kind: 'buffEffect',
+                effectType: 'atkBuff',
+                targetUid: e.atkTargetUid,
+                gain: e.atkGain,
+                factIndex: index
+            });
+        }
+    }
+
+    // 血量线弹幕（文本后）
+    const hpPctEffects = [];
+    if (data.hpPctBefore !== undefined && data.hpPctAfter !== undefined) {
+        if (data.hpPctBefore > 40 && data.hpPctAfter <= 40 && data.hpPctAfter > 20) {
+            hpPctEffects.push({
+                kind: 'hpPctDanmaku',
+                targetUid: target?.uid ?? null,
+                text: target?.camp === 'ally' ? '不好，必须反击了！' : '小儿安敢伤我！',
+                factIndex: index
+            });
+        } else if (data.hpPctBefore > 20 && data.hpPctAfter <= 20) {
+            hpPctEffects.push({
+                kind: 'hpPctDanmaku',
+                targetUid: target?.uid ?? null,
+                text: target?.camp === 'ally' ? '撑住！' : '已是强弩之末！',
+                factIndex: index
+            });
+        }
+    }
+
+    return [baseAction, ...afterTextEffects, ...hpPctEffects];
 }
 
 function makeHealAction(data, index) {
@@ -275,7 +362,8 @@ function makeHealAction(data, index) {
         actorUid: data.healUnitUid ?? data.unitUid ?? data.sourceUid ?? null,
         targetUid: data.healUnitUid ?? data.unitUid ?? data.sourceUid ?? null,
         amount: Math.round(data.heal ?? data.leechVal ?? data.leech ?? data.totalHeal ?? 0),
-        factIndex: index
+        factIndex: index,
+        timing: 'beforeText'
     };
 }
 
@@ -300,5 +388,7 @@ export const STAGE_ACTION_DEFS = {
     banner: { grid: 'none', fx: 'sync', log: 'sync' },
     emptyTarget: { grid: 'none', fx: 'none', log: 'sync' },
     stun: { grid: 'sync', fx: 'sync', log: 'sync' },
-    splash: { grid: 'sync', fx: 'sync', log: 'sync' }
+    splash: { grid: 'sync', fx: 'sync', log: 'sync' },
+    buffEffect: { grid: 'none', fx: 'sync', log: 'sync' },
+    hpPctDanmaku: { grid: 'none', fx: 'sync', log: 'sync' }
 };
