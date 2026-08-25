@@ -1,12 +1,12 @@
 // player/42player-core.js - 光明顶5v5 战斗播放器核心
-// V5.7.1 | ~35200 bytes| 2026-08-23 死亡标记延迟到日志播完落地；SYNC 过滤已移除尸体防复活闪烁
-export const VER = 'player/42player-core.js V5.7.1';
+// V5.7.2 | ~36800 bytes| 2026-08-25 补齐 dodge/miss 特效与死亡画笔；waveUnit 对象透传
+export const VER = 'player/42player-core.js V5.7.2';
 
 import { CONFIG } from '../core/01config-5v5-test.js';
 import { eventBus } from '../infra/50-event-bus.js';
 import { FX_SIGNALS } from '../infra/55-fx-signals.js';
 import { AudioManager } from '../modules/22audio-manager.js';
-import { handleBuffSummon, handleBuffDestroy, handleBuffLeech, handleHolyTokenDrop } from './41player-buff-ui.js';
+import { handleBuffSummon, handleBuffDestroy, handleHolyTokenDrop } from './41player-buff-ui.js';
 import { showBuffPopup } from '../ui/70buff-dialog.js';
 import { createRoundStepper } from '../core/11battle-round.js';
 import { SeededRNG } from '../infra/51-core-utils.js';
@@ -79,50 +79,13 @@ export async function playLogEntries(c, log, roundResult, isFirstAttackRef) {
                     lastEntryType = entry.type;
                     break;
                 case 'buff-leech':
-                    if (entry.buffType === 'hotBlood') {
-                        appendLogHTML(entry.text + '<br>');
-                        c.isPaused = true; GlobalStore.set('bulletTimeActive', true);
-                        let bannerText = entry.isDouble ? '❤️‍🔥 热血奋战(翻倍)！' : '❤️ 热血奋战！';
-                        await eventBus.emit(FX_SIGNALS.BANNER, { text: bannerText });
-                        GlobalStore.set('bulletTimeActive', false); c.isPaused = false;
-                    } else {
-                        await handleBuffLeech(c, entry);
-                    }
+                    // 特效已由导演 stageAction（heal）统一触发，此处只播文本
+                    appendLogHTML(entry.text + '<br>');
                     lastEntryType = entry.type;
                     break;
                 case 'buff-splash':
-                    c.isPaused = true; GlobalStore.set('bulletTimeActive', true);
-                    if (entry.buffType === 'wind_assault') {
-                        await eventBus.emit(FX_SIGNALS.BANNER, { text: '🦅 乘风突袭！' });
-                        if (entry.splashUids) {
-                            entry.splashUids.forEach(uid => {
-                                const targetUnit = findUnitByUid(c, uid);
-                                if (targetUnit) eventBus.emit(FX_SIGNALS.WIND_CLAW, { unit: targetUnit });
-                            });
-                        }
-                    }
-                    else if (entry.buffType === 'meteor_splash') {
-                        await eventBus.emit(FX_SIGNALS.BANNER, { text: '☄️ 流星赶月！' });
-                        if (entry.attackerUid && entry.primaryUid && entry.splashUids && entry.splashUids.length > 0) {
-                            let attacker = findUnitByUid(c, entry.attackerUid);
-                            let primary = findUnitByUid(c, entry.primaryUid);
-                            let splashTargets = entry.splashUids.map(uid => findUnitByUid(c, uid)).filter(u => u);
-                            if (attacker && primary && splashTargets.length > 0) {
-                                eventBus.emit(FX_SIGNALS.SPLASH_ARROWS, { attacker, primary, targets: splashTargets, speed: c.speed, isPausedFn: () => c.isPaused });
-                                splashTargets.forEach((st, i) => {
-                                    setTimeout(() => {
-                                        AudioManager.playSfx(attacker.role || '远程');
-                                    }, i * 120);
-                                });
-                            }
-                        }
-                    }
-                    else await eventBus.emit(FX_SIGNALS.BANNER, { text: '🦅 乘风突袭！' });
-                    GlobalStore.set('bulletTimeActive', false);
+                    // 特效已由导演 stageAction（splash）统一触发，此处只播文本
                     appendLogHTML(entry.text + '<br>');
-                    // splash 伤害飘字已由导演 stageAction 'splash' 统一处理
-                    if (entry.buffType === 'meteor_splash') await new Promise(r=>setTimeout(r, GlobalStore.get('fastForwardActive') ? 1 : 600));
-                    c.isPaused = false;
                     lastEntryType = entry.type;
                     break;
                 case 'buff-bonus':           await handleBuffBonus(c, entry); lastEntryType = entry.type; break;
@@ -249,8 +212,25 @@ async function applyStageActionToFX(c, action) {
         }
         case 'dodge': {
             const attacker = findUnitByUid(c, action.actorUid);
+            const dodger = findUnitByUid(c, action.targetUid);
             if (attacker && action.reboundDmg && !GlobalStore.get('fastForwardActive')) {
                 eventBus.emit(FX_SIGNALS.DAMAGE_FLOAT, { unit: attacker, dmg: action.reboundDmg });
+            }
+            // 华丽模式：子弹时间；简单模式：气泡
+            if (c.dodgeEffectEnabled && attacker && dodger) {
+                c.isPaused = true; GlobalStore.set('bulletTimeActive', true);
+                await eventBus.emit(FX_SIGNALS.CRITICAL_BANNER, { text: '✨闪避反击✨' });
+                await eventBus.emit(FX_SIGNALS.DODGE_BULLET_TIME, { unitD: dodger, unitA: attacker });
+                GlobalStore.set('bulletTimeActive', false); c.isPaused = false;
+            } else if (attacker) {
+                eventBus.emit(FX_SIGNALS.DODGE_BUBBLE, { unit: attacker, text: '闪避！' });
+            }
+            break;
+        }
+        case 'miss': {
+            const attacker = findUnitByUid(c, action.actorUid);
+            if (attacker && !GlobalStore.get('fastForwardActive')) {
+                eventBus.emit(FX_SIGNALS.DODGE_BUBBLE, { unit: attacker, text: '未命中' });
             }
             break;
         }
@@ -280,6 +260,7 @@ async function applyStageActionToFX(c, action) {
                     dmg: action.dmg,
                     waveTaunt: action.waveTaunt || null,
                     waveUnitUid: action.waveUnitUid || null,
+                    waveUnit: action.waveUnit || null,
                     attackerRole: action.attackerRole
                 });
             }
@@ -374,9 +355,19 @@ async function playStep(c, step, isFirstAttackRef) {
     await playLogEntries(c, step.log, step, isFirstAttackRef);
 
     // 3. afterText：文本后特效（白骨爪/流星溅射/血量线弹幕/miss气泡等）
+    // 死亡画笔：attack 为 beforeText，此处遍历全部 stageActions 捕获 attack+dead，
+    // 对日志最后一行（被击杀的文本行）做画笔渐隐，时序在日志播完后，与原文案一致
     if (step.stageActions && step.stageActions.length > 0) {
-        for (const action of step.stageActions.filter(a => a.timing === 'afterText')) {
-            await applyStageActionToFX(c, action);
+        for (const action of step.stageActions) {
+            if (action.timing === 'afterText') {
+                await applyStageActionToFX(c, action);
+            }
+            if (action.kind === 'attack' && action.dead) {
+                const logDiv = document.getElementById('log');
+                if (logDiv && logDiv.lastElementChild) {
+                    eventBus.emit(FX_SIGNALS.BRUSH_EFFECT, { el: logDiv.lastElementChild });
+                }
+            }
         }
     }
 
