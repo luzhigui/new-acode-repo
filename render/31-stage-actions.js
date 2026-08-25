@@ -1,6 +1,6 @@
 // render/31-stage-actions.js - 光明顶5v5 舞台动作翻译器
-// V5.7.1 | ~14500 bytes| 2026-08-26 stageAction 携带演出字段并增加 timing 字段
-export const VER = 'render/31-stage-actions.js V5.7.1';
+// V5.7.2 | ~14550 bytes| 2026-08-26 makeAttackAction 附带 waveUnit 对象供承浪箴言弹幕使用
+export const VER = 'render/31-stage-actions.js V5.7.2';
 
 import { makeFXSnapshot } from '../infra/51-core-utils.js';
 
@@ -294,6 +294,7 @@ function makeAttackAction(data, index) {
         attackerRole: data.snap?.attackerRole ?? attacker?.role ?? null,
         waveTaunt: data.dmgCalc?.waveTaunt ?? null,
         waveUnitUid: data.dmgCalc?.waveUnit?.uid ?? null,
+        waveUnit: data.dmgCalc?.waveUnit ?? null,
         isKuLianAttack: data.snap?.isKuLianAttack ?? false
     };
 
