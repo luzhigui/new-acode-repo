@@ -1,6 +1,6 @@
 // render/31-stage-actions.js - 光明顶5v5 舞台动作翻译器
-// V5.7.5 | ~15280 bytes| 2026-08-26 STAGE_ACTION_DEFS 补 rebound 条目
-export const VER = 'render/31-stage-actions.js V5.7.5';
+// V5.7.6 | ~15750 bytes| 2026-08-26 summon 动作携带 horseTaunt 台词
+export const VER = 'render/31-stage-actions.js V5.7.6';
 
 import { makeFXSnapshot } from '../infra/51-core-utils.js';
 
@@ -190,6 +190,7 @@ function translateFact(entry, index) {
                 kind: 'summon',
                 actorUid: data.horseUid ?? null,
                 pos: data.pos ?? data.horsePos,
+                taunt: data.horseTaunt ?? null,
                 factIndex: index,
                 timing: 'beforeText'
             };

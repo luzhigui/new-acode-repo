@@ -1,6 +1,6 @@
 // player/42player-core.js - 光明顶5v5 战斗播放器核心
-// V5.7.4 | ~39800 bytes| 2026-08-25 新增 rebound/push/posSwap/summon/destroy/flyMode 特效 case
-export const VER = 'player/42player-core.js V5.7.4';
+// V5.7.5 | ~42250 bytes| 2026-08-26 posSwap 补惑心横幅；summon 拼 horseTaunt 台词
+export const VER = 'player/42player-core.js V5.7.5';
 
 import { CONFIG } from '../core/01config-5v5-test.js';
 import { eventBus } from '../infra/50-event-bus.js';
@@ -319,6 +319,7 @@ async function applyStageActionToFX(c, action) {
             const unitB = findUnitByUid(c, action.targetUid);
             if (unitA && unitB) {
                 c.isPaused = true; GlobalStore.set('bulletTimeActive', true);
+                await eventBus.emit(FX_SIGNALS.BANNER, { text: '🌀 惑人心智！' });
                 await eventBus.emit(FX_SIGNALS.POSITION_SWAP, {
                     unitA, unitB, c,
                     opts: {
@@ -370,7 +371,7 @@ async function applyStageActionToFX(c, action) {
             const horse = findUnitByUid(c, action.actorUid);
             if (horse) {
                 c.isPaused = true;
-                await eventBus.emit(FX_SIGNALS.BANNER, { text: '🐴 拒马阵！' });
+                await eventBus.emit(FX_SIGNALS.BANNER, { text: '🐴 拒马阵！' + (action.taunt || '') });
                 c.isPaused = false;
             }
             break;
