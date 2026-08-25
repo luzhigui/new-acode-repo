@@ -1,6 +1,6 @@
 // player/45event-handlers.js - 光明顶5v5 事件处理器函数族
-// V5.7.0 | ~27600 bytes| 2026-08-23 fx 直调改事件订阅，player 不再依赖 fx（含 getButterflyFx 动态 import）
-export const VER = 'player/45event-handlers.js V5.7.0';
+// V5.7.1 | ~25800 bytes| 2026-08-25 换位/击退/蝶蛛飞行动画移交导演 stageAction
+export const VER = 'player/45event-handlers.js V5.7.1';
 
 import { isBlocked } from '../core/03battle-utils.js';
 import { eventBus } from '../infra/50-event-bus.js';
@@ -15,44 +15,13 @@ export async function handleBuffBonus(c, entry) {
 }
 
 export async function handleBuffSwap(c, entry) {
-    c.isPaused = true;
-    GlobalStore.set('bulletTimeActive', true);
-    await eventBus.emit(FX_SIGNALS.BANNER, { text: '🌀 惑人心智！' });
+    // 换位特效已由导演 stageAction 'posSwap' 统一触发，此处只播文本
     appendLogHTML(entry.text + '<br>');
-    let unitA = entry.uidA ? findUnitByUid(c, entry.uidA) : null;
-    let unitB = entry.uidB ? findUnitByUid(c, entry.uidB) : null;
-    if (unitA && unitB) {
-        let oldPosA = entry.oldPosA, oldPosB = entry.oldPosB;
-        await eventBus.emit(FX_SIGNALS.POSITION_SWAP, {
-            unitA, unitB, c,
-            opts: {
-                skipDataChange: true,
-                oldPositions: (oldPosA != null && oldPosB != null) ? [oldPosA, oldPosB] : null
-            }
-        });
-        // 位置交换已由导演 stageAction 'posSwap' 统一处理
-    }
-    GlobalStore.set('bulletTimeActive', false);
-    c.isPaused = false;
 }
 
 export async function handleBuffPush(c, entry) {
-    c.isPaused = true;
-    GlobalStore.set('bulletTimeActive', true);
-    // 击退位置已由导演 stageAction 'push' 统一处理
-    await eventBus.emit(FX_SIGNALS.BANNER, { text: '🦅 乘风突袭！' });
-    GlobalStore.set('bulletTimeActive', false);
-    c.isPaused = false;
+    // 击退特效已由导演 stageAction 'push' 统一触发，此处只播文本
     appendLogHTML(entry.text + '<br>');
-    let targetUnit = findUnitByUid(c, entry.pushTargetUid);
-    if (entry.behindUid) {
-        let behindUnit = findUnitByUid(c, entry.behindUid);
-        if (targetUnit && behindUnit) {
-            await eventBus.emit(FX_SIGNALS.PUSH_SWAP, { target: targetUnit, behind: behindUnit, c, opts: { skipDataChange: true } });
-        }
-    } else if (targetUnit) {
-        await eventBus.emit(FX_SIGNALS.PUSH_BACK, { target: targetUnit, c, newPos: entry.newPos, opts: { skipDataChange: true } });
-    }
 }
 
 export async function handleBuffReboundFortify(c, entry) {
@@ -74,30 +43,7 @@ export async function handleInfo(c, entry) {
         return;
     }
 
-    if (entry.butterflyAction === 'attach' && entry.sisterUid && entry.hostUid) {
-        const sister = findUnitByUid(c, entry.sisterUid);
-        const host = findUnitByUid(c, entry.hostUid);
-        if (sister && sister.alive && host) {
-            eventBus.emit(FX_SIGNALS.BUTTERFLY_FLY_OUT, { sister, host });
-        }
-    } else if (entry.butterflyAction === 'return' && entry.sisterUid) {
-        const sister = findUnitByUid(c, entry.sisterUid);
-        if (sister && sister.alive) {
-            const hostUid = (sister.state && sister.state._butterflyHost) || sister._butterflyHost;
-            const host = hostUid ? findUnitByUid(c, hostUid) : null;
-            if (host) eventBus.emit(FX_SIGNALS.BUTTERFLY_FLY_BACK, { host, sister });
-        }
-    } else if (entry.spiderAction === 'fly' && entry.spiderUid) {
-        const brother = findUnitByUid(c, entry.spiderUid);
-        if (brother && brother.alive) {
-            eventBus.emit(FX_SIGNALS.SPIDER_ASCEND, { unit: brother });
-        }
-    } else if (entry.spiderAction === 'return' && entry.spiderUid) {
-        const brother = findUnitByUid(c, entry.spiderUid);
-        if (brother && brother.alive) {
-            eventBus.emit(FX_SIGNALS.SPIDER_DESCEND, { unit: brother });
-        }
-    }
+    // 蝴蝶附身/飞回、蜘蛛升空/降落动画已由导演 stageAction 'flyMode' 统一触发
 
     if(entry.isZhangSwitch&&entry.unit){ let zhangUnit = c.store ? c.store.getState().units.find(u => u.isZhang) : null; renderSeparator(); await playLogLine(entry.text); if(zhangUnit) { c.store.dispatch({ type: 'SET_VISUAL', uid: zhangUnit.uid, _resting: false }); eventBus.emit(FX_SIGNALS.DANMAKU, { unit: zhangUnit, text: '不好，要顶上去了！' }); } }
     else {

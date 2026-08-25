@@ -1,6 +1,6 @@
 // render/31-stage-actions.js - 光明顶5v5 舞台动作翻译器
-// V5.7.3 | ~14750 bytes| 2026-08-26 makeAttackAction 派生特效（溅射/白骨爪/乾坤飘字/血量弹幕）补 timing: afterText
-export const VER = 'render/31-stage-actions.js V5.7.3';
+// V5.7.4 | ~15250 bytes| 2026-08-26 反伤独立 kind: rebound；flyMode 拆分携带 originalFactType/hostUid
+export const VER = 'render/31-stage-actions.js V5.7.4';
 
 import { makeFXSnapshot } from '../infra/51-core-utils.js';
 
@@ -109,27 +109,19 @@ function translateFact(entry, index) {
             };
         case 'horseRebound':
             return {
-                kind: 'attack',
+                kind: 'rebound',
                 actorUid: data.attackerUid ?? null,
                 targetUid: data.unitUid ?? null,
                 dmg: Math.round(data.rebound ?? 0),
-                hpBefore: null,
-                hpAfter: null,
-                dead: false,
-                fx: null,
                 factIndex: index,
                 timing: 'afterText'
             };
         case 'fortifyRebound':
             return {
-                kind: 'attack',
+                kind: 'rebound',
                 actorUid: data.attackerUid ?? null,
                 targetUid: data.unitUid ?? null,
                 dmg: Math.round(data.reboundDmg ?? 0),
-                hpBefore: null,
-                hpAfter: null,
-                dead: false,
-                fx: null,
                 factIndex: index,
                 timing: 'afterText'
             };
@@ -220,9 +212,39 @@ function translateFact(entry, index) {
                 timing: 'beforeText'
             };
         case 'spiderFly':
+            return {
+                kind: 'flyMode',
+                actorUid: data.spiderUid ?? data.unitUid ?? null,
+                originalFactType: 'spiderFly',
+                factIndex: index,
+                timing: 'beforeText'
+            };
         case 'spiderReturn':
+            return {
+                kind: 'flyMode',
+                actorUid: data.spiderUid ?? data.unitUid ?? null,
+                originalFactType: 'spiderReturn',
+                factIndex: index,
+                timing: 'beforeText'
+            };
         case 'butterflyAttach':
+            return {
+                kind: 'flyMode',
+                actorUid: data.sisterUid ?? null,
+                hostUid: data.hostUid ?? null,
+                originalFactType: 'butterflyAttach',
+                factIndex: index,
+                timing: 'beforeText'
+            };
         case 'butterflyReturn':
+            return {
+                kind: 'flyMode',
+                actorUid: data.sisterUid ?? null,
+                hostUid: data.hostUid ?? null,
+                originalFactType: 'butterflyReturn',
+                factIndex: index,
+                timing: 'beforeText'
+            };
         case 'butterflyHostDead':
         case 'butterflyNoHost':
         case 'flySkip':

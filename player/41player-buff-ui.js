@@ -1,6 +1,6 @@
 ﻿﻿// player/41player-buff-ui.js - 光明顶5v5 Buff横幅与handler
-// V5.7.0 | ~5600 bytes| 2026-08-23 fx 直调改事件订阅，player 不再依赖 fx
-export const VER = 'player/41player-buff-ui.js V5.7.0';
+// V5.7.1 | ~5200 bytes| 2026-08-25 拒马召唤/销毁特效移交导演 stageAction，只播文本
+export const VER = 'player/41player-buff-ui.js V5.7.1';
 
 import { Unit } from '../core/02unit.js';
 import { eventBus } from '../infra/50-event-bus.js';
@@ -70,26 +70,15 @@ export async function handleHolyTokenDrop(c, entry) {
 
 export async function handleBuffSummon(c, entry, prevEntry) {
     c.UI.lastSnapshot = { ally: c.UI.allyTeam.map(u => ({...u})), enemy: c.UI.enemyTeam.map(u => ({...u})) };
-    if (entry.horseTaunt) {
-        if (prevEntry && prevEntry.type === 'buff-summon' && prevEntry.horseTaunt) {
-            await new Promise(r => setTimeout(r, 600));
-        }
-        c.updateUI(c.UI);
-        c.isPaused = true;
-        await eventBus.emit(FX_SIGNALS.BANNER, { text: '🐴 拒马阵！' + entry.horseTaunt });
-        c.isPaused = false;
-    }
+    // 特效横幅已由导演 stageAction 'summon' 统一触发，此处只播文本
     let div=document.createElement('div');div.innerHTML=entry.text+'<br>';
     document.getElementById('log').appendChild(div);
     c.autoScrollLog();
 }
 
 export async function handleBuffDestroy(c, entry, prevEntry) {
-    c.store.dispatch({ type: 'REMOVE_UNIT', uid: entry.horseUid });
     c.UI.lastSnapshot = { ally: c.UI.allyTeam.map(u => ({...u})), enemy: c.UI.enemyTeam.map(u => ({...u})) };
-    c.isPaused = true;
-    await eventBus.emit(FX_SIGNALS.BANNER, { text: '🐴 拒马已销毁' });
-    c.isPaused = false;
+    // REMOVE_UNIT / 特效横幅已由导演 stageAction 'destroy' 统一处理，此处只播文本
     let div=document.createElement('div');div.innerHTML=entry.text+'<br>';
     document.getElementById('log').appendChild(div);
     c.autoScrollLog();
