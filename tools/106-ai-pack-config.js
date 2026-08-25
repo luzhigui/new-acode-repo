@@ -35,8 +35,6 @@ export const AI_INTERFACE_NOTE = `// ===========================================
 // 注意：104-toolkit-more.js 的 TARGET_FILES 已改为从本清单派生（自动排除入口页/工具箱页/音频），
 // 新增/删除项目文件时只需改这一处，无需再同步 104。
 export const ALL_PROJECT_FILES = [
-    // 根目录入口暂置首位（手机批量复制时末位请求易被 acode 浏览器断连，先验证位置假设）
-    '../mode-5v5-test.html',
     // core（核心战斗引擎）
     '../infra/50-event-bus.js',
     '../core/01config-5v5-test.js', '../core/02unit.js',

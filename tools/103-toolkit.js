@@ -181,9 +181,9 @@ function escapeHtml(text) {
 
         const fileData = [];
         const FETCH_TIMEOUT = 10000; // 单个文件读取超时（毫秒），避免某个文件卡住导致整批无结果
-        for (let i = 0; i < selectedFiles.length; i++) {
-            const file = selectedFiles[i];
-            statusDiv.textContent = `正在读取文件 (${i + 1}/${selectedFiles.length}) ${file}...`;
+
+        // 读取单个文件（成功返回 {fileName,content,charCount,lineCount}，失败返回 {fileName,error}）
+        async function readFileOnce(file) {
             const controller = new AbortController();
             const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT);
             let res;
@@ -191,20 +191,31 @@ function escapeHtml(text) {
                 res = await fetch(encodeURI(file), { signal: controller.signal });
             } catch (e) {
                 clearTimeout(timer);
-                fileData.push({ fileName: file, content: null, charCount: 0, lineCount: 0, error: (e && e.name === 'AbortError') ? '读取超时(10s)' : (e && e.message) || '读取失败' });
-                continue;
+                return { fileName: file, content: null, charCount: 0, lineCount: 0, error: (e && e.name === 'AbortError') ? '读取超时(10s)' : (e && e.message) || '读取失败' };
             }
             clearTimeout(timer);
             if (res.ok) {
                 const content = await res.text();
-                fileData.push({
-                    fileName: file,
-                    content,
-                    charCount: content.length,
-                    lineCount: content.split('\n').length
-                });
-            } else {
-                fileData.push({ fileName: file, content: null, charCount: 0, lineCount: 0, error: 'HTTP ' + res.status });
+                return { fileName: file, content, charCount: content.length, lineCount: content.split('\n').length };
+            }
+            return { fileName: file, content: null, charCount: 0, lineCount: 0, error: 'HTTP ' + res.status };
+        }
+
+        // 首轮串行读取全部勾选文件
+        for (let i = 0; i < selectedFiles.length; i++) {
+            statusDiv.textContent = `正在读取文件 (${i + 1}/${selectedFiles.length}) ${selectedFiles[i]}...`;
+            fileData.push(await readFileOnce(selectedFiles[i]));
+        }
+
+        // 补读一轮：acode 内置浏览器连续 fetch 到约第 60 个时偶发断连，逐一对失败文件重读一次（每文件仅补 1 次，非死循环）
+        const firstFailures = fileData.filter(f => f.error);
+        if (firstFailures.length > 0) {
+            for (let i = 0; i < firstFailures.length; i++) {
+                const f = firstFailures[i];
+                statusDiv.textContent = `补读失败文件 (${i + 1}/${firstFailures.length}) ${f.fileName}...`;
+                const retry = await readFileOnce(f.fileName);
+                const idx = fileData.indexOf(f);
+                if (idx !== -1) fileData[idx] = retry;
             }
         }
 
