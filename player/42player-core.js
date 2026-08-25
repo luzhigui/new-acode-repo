@@ -1,6 +1,6 @@
 // player/42player-core.js - 光明顶5v5 战斗播放器核心
-// V5.7.3 | ~37050 bytes| 2026-08-25 buffEffect 按 buffType 区分乘风突袭（风爪）与流星赶月（箭雨）
-export const VER = 'player/42player-core.js V5.7.3';
+// V5.7.4 | ~39800 bytes| 2026-08-25 新增 rebound/push/posSwap/summon/destroy/flyMode 特效 case
+export const VER = 'player/42player-core.js V5.7.4';
 
 import { CONFIG } from '../core/01config-5v5-test.js';
 import { eventBus } from '../infra/50-event-bus.js';
@@ -266,6 +266,14 @@ async function applyStageActionToFX(c, action) {
             }
             break;
         }
+        case 'rebound': {
+            // 反伤：只飘字，不触发飞撞/箭矢/音效
+            const target = findUnitByUid(c, action.targetUid);
+            if (target && action.dmg && !GlobalStore.get('fastForwardActive')) {
+                eventBus.emit(FX_SIGNALS.DAMAGE_FLOAT, { unit: target, dmg: action.dmg });
+            }
+            break;
+        }
         case 'dot': {
             const target = findUnitByUid(c, action.targetUid);
             if (target && action.dmg && !GlobalStore.get('fastForwardActive')) {
@@ -289,11 +297,39 @@ async function applyStageActionToFX(c, action) {
             }
             break;
         }
-        // flyMode 动画由 handleInfo 负责，导演只处理位置
-        // posSwap 动画由 handleBuffSwap 负责，导演只处理位置
-        // push 动画由 handleBuffPush 负责，导演只处理位置
-        // summon 横幅由 handleBuffSummon 负责，导演只处理位置
-        // destroy 横幅由 handleBuffDestroy 负责，导演只处理位置
+        // 换位/击退/召唤/销毁/飞行特效已由导演 stageAction 统一触发（下方 case）
+        case 'push': {
+            const target = findUnitByUid(c, action.actorUid);
+            if (!target) break;
+            c.isPaused = true; GlobalStore.set('bulletTimeActive', true);
+            await eventBus.emit(FX_SIGNALS.BANNER, { text: '🦅 乘风突袭！' });
+            if (action.targetUid) {
+                const behind = findUnitByUid(c, action.targetUid);
+                if (behind) {
+                    await eventBus.emit(FX_SIGNALS.PUSH_SWAP, { target, behind, c, opts: { skipDataChange: true } });
+                }
+            } else {
+                await eventBus.emit(FX_SIGNALS.PUSH_BACK, { target, c, newPos: action.newPos, opts: { skipDataChange: true } });
+            }
+            GlobalStore.set('bulletTimeActive', false); c.isPaused = false;
+            break;
+        }
+        case 'posSwap': {
+            const unitA = findUnitByUid(c, action.actorUid);
+            const unitB = findUnitByUid(c, action.targetUid);
+            if (unitA && unitB) {
+                c.isPaused = true; GlobalStore.set('bulletTimeActive', true);
+                await eventBus.emit(FX_SIGNALS.POSITION_SWAP, {
+                    unitA, unitB, c,
+                    opts: {
+                        skipDataChange: true,
+                        oldPositions: (action.oldPosA != null && action.oldPosB != null) ? [action.oldPosA, action.oldPosB] : null
+                    }
+                });
+                GlobalStore.set('bulletTimeActive', false); c.isPaused = false;
+            }
+            break;
+        }
         case 'buffEffect': {
             const attacker = findUnitByUid(c, action.attackerUid);
             const target = findUnitByUid(c, action.targetUid);
@@ -327,6 +363,41 @@ async function applyStageActionToFX(c, action) {
             const target = findUnitByUid(c, action.targetUid);
             if (target && action.text && !GlobalStore.get('fastForwardActive')) {
                 eventBus.emit(FX_SIGNALS.DANMAKU, { unit: target, text: action.text });
+            }
+            break;
+        }
+        case 'summon': {
+            const horse = findUnitByUid(c, action.actorUid);
+            if (horse) {
+                c.isPaused = true;
+                await eventBus.emit(FX_SIGNALS.BANNER, { text: '🐴 拒马阵！' });
+                c.isPaused = false;
+            }
+            break;
+        }
+        case 'destroy': {
+            if (action.success && action.actorUid) {
+                c.isPaused = true;
+                await eventBus.emit(FX_SIGNALS.BANNER, { text: '🐴 拒马已销毁' });
+                c.isPaused = false;
+            }
+            break;
+        }
+        case 'flyMode': {
+            const unit = findUnitByUid(c, action.actorUid);
+            if (!unit) break;
+            // butterflyAttach / butterflyReturn / spiderFly / spiderReturn 等由 31 翻译，
+            // 特效按 originalFactType 区分
+            if (action.originalFactType === 'butterflyAttach') {
+                const host = findUnitByUid(c, action.hostUid);
+                if (host) eventBus.emit(FX_SIGNALS.BUTTERFLY_FLY_OUT, { sister: unit, host });
+            } else if (action.originalFactType === 'butterflyReturn') {
+                const host = findUnitByUid(c, action.hostUid);
+                if (host) eventBus.emit(FX_SIGNALS.BUTTERFLY_FLY_BACK, { host, sister: unit });
+            } else if (action.originalFactType === 'spiderFly') {
+                eventBus.emit(FX_SIGNALS.SPIDER_ASCEND, { unit });
+            } else if (action.originalFactType === 'spiderReturn') {
+                eventBus.emit(FX_SIGNALS.SPIDER_DESCEND, { unit });
             }
             break;
         }
