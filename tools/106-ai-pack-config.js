@@ -35,6 +35,8 @@ export const AI_INTERFACE_NOTE = `// ===========================================
 // 注意：104-toolkit-more.js 的 TARGET_FILES 已改为从本清单派生（自动排除入口页/工具箱页/音频），
 // 新增/删除项目文件时只需改这一处，无需再同步 104。
 export const ALL_PROJECT_FILES = [
+    // 根目录入口暂置首位（手机批量复制时末位请求易被 acode 浏览器断连，先验证位置假设）
+    '../mode-5v5-test.html',
     // core（核心战斗引擎）
     '../infra/50-event-bus.js',
     '../core/01config-5v5-test.js', '../core/02unit.js',
@@ -96,7 +98,7 @@ export const ALL_PROJECT_FILES = [
     '../assets/sfx_melee.mp3', '../assets/sfx_xinai.mp3',
     // 根目录（入口与设计文档）
     // 注意：中文文件名（记录-更改履历.md、待办-bug待修.md）在手机上 fetch 会卡住，已从清单剔除
-    '../index.html', '../mode-5v5-test.html'
+    '../index.html'
     // 备注：README.md 已不再复制（网页端粘贴不需要它）；其余 MD 文档已归档到 文件汇总20260730/，不参与自动复制
 ];
 
