@@ -1,6 +1,6 @@
 // player/42player-core.js - 光明顶5v5 战斗播放器核心
-// V5.7.2 | ~36800 bytes| 2026-08-25 补齐 dodge/miss 特效与死亡画笔；waveUnit 对象透传
-export const VER = 'player/42player-core.js V5.7.2';
+// V5.7.3 | ~37050 bytes| 2026-08-25 buffEffect 按 buffType 区分乘风突袭（风爪）与流星赶月（箭雨）
+export const VER = 'player/42player-core.js V5.7.3';
 
 import { CONFIG } from '../core/01config-5v5-test.js';
 import { eventBus } from '../infra/50-event-bus.js';
@@ -301,12 +301,20 @@ async function applyStageActionToFX(c, action) {
             if (action.effectType === 'splash' && attacker && primary && action.splashUids && action.splashUids.length > 0) {
                 const splashTargets = action.splashUids.map(uid => findUnitByUid(c, uid)).filter(u => u);
                 if (splashTargets.length > 0) {
-                    c.isPaused = true; GlobalStore.set('bulletTimeActive', true);
-                    await eventBus.emit(FX_SIGNALS.BANNER, { text: '☄️ 流星赶月！' });
-                    eventBus.emit(FX_SIGNALS.SPLASH_ARROWS, { attacker, primary, targets: splashTargets, speed: c.speed, isPausedFn: () => c.isPaused });
-                    splashTargets.forEach((st, i) => { setTimeout(() => AudioManager.playSfx(attacker.role || '远程'), i * 120); });
-                    GlobalStore.set('bulletTimeActive', false); c.isPaused = false;
-                    await new Promise(r => setTimeout(r, GlobalStore.get('fastForwardActive') ? 1 : 600));
+                    // 乘风突袭：风爪 + 专属横幅，不放箭、不延时；否则走流星箭雨
+                    if (action.buffType === 'wind_assault') {
+                        c.isPaused = true; GlobalStore.set('bulletTimeActive', true);
+                        await eventBus.emit(FX_SIGNALS.BANNER, { text: '🦅 乘风突袭！' });
+                        splashTargets.forEach(u => eventBus.emit(FX_SIGNALS.WIND_CLAW, { unit: u }));
+                        GlobalStore.set('bulletTimeActive', false); c.isPaused = false;
+                    } else {
+                        c.isPaused = true; GlobalStore.set('bulletTimeActive', true);
+                        await eventBus.emit(FX_SIGNALS.BANNER, { text: '☄️ 流星赶月！' });
+                        eventBus.emit(FX_SIGNALS.SPLASH_ARROWS, { attacker, primary, targets: splashTargets, speed: c.speed, isPausedFn: () => c.isPaused });
+                        splashTargets.forEach((st, i) => { setTimeout(() => AudioManager.playSfx(attacker.role || '远程'), i * 120); });
+                        GlobalStore.set('bulletTimeActive', false); c.isPaused = false;
+                        await new Promise(r => setTimeout(r, GlobalStore.get('fastForwardActive') ? 1 : 600));
+                    }
                 }
             } else if (action.effectType === 'boneClaw' && attacker && target) {
                 eventBus.emit(FX_SIGNALS.BONE_CLAW, { attacker, target, speed: c.speed, isPausedFn: () => c.isPaused, opts: { isExecute: action.isExecute } });
