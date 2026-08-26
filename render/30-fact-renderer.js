@@ -2,7 +2,7 @@
 // V5.7.6 | ~36500 bytes| 2026-08-26 renderLog 入口校验 + factType 枚举化（FACT_TYPES）
 import { CONFIG, getSkillParams } from '../core/01config-5v5-test.js';
 import { calcDamage, getFangLevelPure, makeFXSnapshot } from '../infra/51-core-utils.js';
-import { FACT_TYPES } from '../infra/56-battle-enums.js';
+import { FACT_TYPES, BUFF_TYPES } from '../infra/56-battle-enums.js';
 export const VER = 'render/30-fact-renderer.js V5.7.6';
 
 // fact 条目投影为渲染条目，并合并 fact 条目上携带的附加字段（isHealEntry/buffType 等）
@@ -300,38 +300,38 @@ export function renderZhangSwitchFact(fact) {
 // ==================== Buff 摘要 ====================
 export function renderBuffSummaryFact(buff, allyTeam, doubleStrikeUid) {
     switch (buff.key) {
-        case 'bloodthirst':
+        case BUFF_TYPES.BLOODTHIRST:
             let btUnits = allyTeam.filter(u => u.alive && u.role === '战士');
             if (btUnits.length > 0) return {type:'buff-summary', text:`<span class="gold">🗡️ 嗜血狂刀：${btUnits.map(u=>u.name).join('、')} 攻击吸血${Math.round(CONFIG.BUFFS.bloodthirst.leechRatio*100)}%</span>`, buffType:'buff_stat'};
             break;
-        case 'hotBlood':
+        case BUFF_TYPES.HOT_BLOOD:
             let hbUnits = allyTeam.filter(u => u.alive);
             if (hbUnits.length > 0) return {type:'buff-summary', text:`<span class="gold">❤️ 热血奋战：${hbUnits.map(u=>u.name).join('、')} 攻击回血${Math.round(CONFIG.BUFFS.hotBlood.leechRatio*100)}%（每3次翻倍）</span>`, buffType:'buff_stat'};
             break;
-        case 'fortify':
+        case BUFF_TYPES.FORTIFY:
             let ftUnits = allyTeam.filter(u => u.alive && u.role === '防战');
             if (ftUnits.length > 0) return {type:'buff-summary', text:`<span class="gold">🛡️ 严阵以待：${ftUnits.map(u=>u.name).join('、')} 防御+${Math.round(CONFIG.BUFFS.fortify.defBonus*100)}% 反弹50%</span>`, buffType:'buff_stat'};
             break;
-        case 'cloudBody':
+        case BUFF_TYPES.CLOUD_BODY:
             let cbUnits = allyTeam.filter(u => u.alive);
             if (cbUnits.length > 0) return {type:'buff-summary', text:`<span class="gold">💨 流云身法：${cbUnits.map(u=>u.name).join('、')} 闪避+${Math.round(CONFIG.BUFFS.cloudBody.dodgeBonus*100)}%</span>`, buffType:'buff_stat'};
             break;
-        case 'windAssault':
+        case BUFF_TYPES.WIND_ASSAULT:
             let waUnits = allyTeam.filter(u => u.alive && u.role === '飞行');
             if (waUnits.length > 0) return {type:'buff-summary', text:`<span class="gold">🦅 乘风突袭：${waUnits.map(u=>u.name).join('、')} 80%波及同行 60%击退（持续3回合）</span>`, buffType:'buff_stat'};
             break;
-        case 'meteorShower':
+        case BUFF_TYPES.METEOR_SHOWER:
             let msUnits = allyTeam.filter(u => u.alive && u.role === '远程');
             if (msUnits.length > 0) return {type:'buff-summary', text:`<span class="gold">☄️ 流星赶月：${msUnits.map(u=>u.name).join('、')} 伤害加深${Math.round(CONFIG.BUFFS.meteorShower.bonusRatio*100)}% 溅射${Math.round(CONFIG.BUFFS.meteorShower.splashRatio*100)}%（主箭降2防，小箭降1防）</span>`, buffType:'buff_stat'};
             break;
-        case 'holyFlame':
+        case BUFF_TYPES.HOLY_FLAME:
             // 复杂 holyFlame 摘要逻辑，返回 null 避免报错，后续按需补充
             return null;
-        case 'doubleStrike':
+        case BUFF_TYPES.DOUBLE_STRIKE:
             break;
-        case 'mindControl':
+        case BUFF_TYPES.MIND_CONTROL:
             return {type:'buff-summary', text:`<span class="gold">🌀 惑人心智：最前排80%扰乱敌方换位，40%扰乱己方换位</span>`, buffType:'buff_stat'};
-        case 'carry':
+        case BUFF_TYPES.CARRY:
             let carryUnit = allyTeam.find(u => u.pos === 5 && u.alive);
             if (carryUnit) {
                 let desc = `👑 你就是carry：${carryUnit.name} 获得队友属性加成`;

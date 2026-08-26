@@ -6,6 +6,7 @@ import { getSkillParams } from '../core/01config-5v5-test.js';
 import { getRoleBonus, getHpDmgRatio } from '../core/02unit.js';
 import { hasBuff } from '../core/03battle-utils.js';
 import { emitEvent, applyStatChange, applyMaxHpChange, registerQuery, getBattleRng } from '../core/13battle-shared.js';
+import { FACT_TYPES } from '../infra/56-battle-enums.js';
 
 // ==================== 玄冥二老 — 中毒/鹿角 ====================
 
@@ -46,7 +47,7 @@ export function applyDamageModifiers(unit, target, dmg, allySide, enemySide, log
         applyStatChange(zhang, 'hp', -selfDmg, unit, '乾坤自伤', false);
 
         entries.push({
-            factType: 'qianKunUpgraded',
+            factType: FACT_TYPES.QIAN_KUN_UPGRADED,
             data: {
                 attackerName: unit.name,
                 zhangName: zhang.name,
@@ -72,7 +73,7 @@ export function applyDamageModifiers(unit, target, dmg, allySide, enemySide, log
         applyStatChange(zhang, 'hp', -selfDmg, unit, '乾坤自伤', false);
 
         entries.push({
-            factType: 'qianKunBasic',
+            factType: FACT_TYPES.QIAN_KUN_BASIC,
             data: {
                 attackerName: unit.name,
                 zhangName: zhang.name,
@@ -104,7 +105,7 @@ export function applyXingFenGrant(allyTeam, log) {
     if (!zhou || !song) return;
     song._xingFenActive = true;
     log.push({
-        factType: 'xingFenGrant',
+        factType: FACT_TYPES.XING_FEN_GRANT,
         data: { zhouName: zhou.name, songName: song.name }
     });
 }
@@ -129,7 +130,7 @@ export function tickKuaiLeHeal(allUnits, log) {
             const hpBefore = Math.floor(unit.hp);
             applyStatChange(unit, 'hp', totalHeal, null, '快乐回血');
             log.push({
-                factType: 'kuaiLeHeal',
+                factType: FACT_TYPES.KUAI_LE_HEAL,
                 data: {
                     unitName: unit.name,
                     unitUid: unit.uid,
@@ -203,7 +204,7 @@ export function spiderTransform(unit, log) {
     }
 
     emitEvent(unit, 'hp-change', { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: unit.atk, def: unit.def, role: newRole });
-    log.push({ factType: 'spiderTransform', data: { unitName: unit.name, newRole, mastered: unit._masteredRoles.length, masteryGain } });
+    log.push({ factType: FACT_TYPES.SPIDER_TRANSFORM, data: { unitName: unit.name, newRole, mastered: unit._masteredRoles.length, masteryGain } });
 }
 
 export function spiderReturn(unit, allyTeam, enemySide, log) {
@@ -223,12 +224,12 @@ export function spiderReturn(unit, allyTeam, enemySide, log) {
     emitEvent(unit, 'hp-change', { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: unit.atk, def: unit.def, _flyMode: null, _spiderFlying: false });
     emitEvent(unit, 'pos-change', { pos: unit.pos });
 
-    log.push({ factType: 'spiderReturn', data: { unitName: unit.name, spiderUid: unit.uid, pos: unit.pos } });
+    log.push({ factType: FACT_TYPES.SPIDER_RETURN, data: { unitName: unit.name, spiderUid: unit.uid, pos: unit.pos } });
 
     const aliveEnemies = enemySide.filter(u => u.alive);
     if (aliveEnemies.length > 0) {
         const target = aliveEnemies[rng.nextInt(0, aliveEnemies.length - 1)];
-        if (!target.alive) { log.push({ factType: 'spiderDeadTarget', data: {} }); return; }
+        if (!target.alive) { log.push({ factType: FACT_TYPES.SPIDER_DEAD_TARGET, data: {} }); return; }
         const penetrationDmg = Math.floor(unit.atk * (unit.atk / (unit.atk + target.def)));
         const masteryCount = unit._masteredRoles?.length || 0;
         const params = getSkillParams('小昭', 'spiderStrike');
@@ -238,7 +239,7 @@ export function spiderReturn(unit, allyTeam, enemySide, log) {
         const totalDmg = penetrationDmg + extraDmg;
         applyStatChange(target, 'hp', -totalDmg, unit, '蛛袭');
         log.push({
-            factType: 'spiderStrike',
+            factType: FACT_TYPES.SPIDER_STRIKE,
             data: {
                 unitName: unit.name,
                 targetName: target.name,

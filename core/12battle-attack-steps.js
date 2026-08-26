@@ -9,6 +9,7 @@ import { applyBuffEffectsBeforeAttack, applyBuffEffectsAfterAttack } from './04b
 import { emitEvent, applyStatChange, applyMaxHpChange, query, getBattleRng, recordCombatStat } from './13battle-shared.js';
 import { flushBattleEvents, pushBattleEvent, getBattleState, setBattleState, registerDodgeRule, clearEliteDodgeRules, getDodgeRules } from '../infra/51-core-utils.js';
 import { getEffectHandler, hasEffectHandler } from './16effect-handlers.js';
+import { FACT_TYPES } from '../infra/56-battle-enums.js';
 
 // ==================== 闪避规则注册表（已下沉 infra/51，此处转发） ====================
 export { registerDodgeRule, clearEliteDodgeRules, getDodgeRules };
@@ -304,7 +305,7 @@ export function applyAttackResult(unit, target, dmgCalc, attackerBuffStats, defe
             setBattleState('holyToken', currentToken + 1);
             localStorage.setItem('ming_holy_token_5v5_test', String(currentToken + 1));
             pushBattleEvent({ unitUid: unit.uid, eventType: 'info', payload: { text: `🔥 圣火令掉落！${unit.name} 击杀 ${target.name}，获得1枚圣火令！当前总数：${currentToken + 1}`, fastEntry: true } });
-            log.push({ factType: 'drop', data: { kind:'token', killerName: unit.name, victimName: target.name, total: currentToken + 1, unitUid: unit.uid } });
+            log.push({ factType: FACT_TYPES.DROP, data: { kind:'token', killerName: unit.name, victimName: target.name, total: currentToken + 1, unitUid: unit.uid } });
         }
     }
     if (dead && target.camp === 'enemy' && unit.camp === 'ally' && !target._chestDropped) {
@@ -315,7 +316,7 @@ export function applyAttackResult(unit, target, dmgCalc, attackerBuffStats, defe
             chests++;
             localStorage.setItem('ming_chest_count', String(chests));
             setBattleState('chestCount', chests);
-            log.push({ factType: 'drop', data: { kind:'chest', killerName: unit.name, victimName: target.name, total: chests, unitUid: unit.uid } });
+            log.push({ factType: FACT_TYPES.DROP, data: { kind:'chest', killerName: unit.name, victimName: target.name, total: chests, unitUid: unit.uid } });
         }
     }
 
@@ -328,7 +329,7 @@ export function applyAttackResult(unit, target, dmgCalc, attackerBuffStats, defe
             value: rebound,
             source: target,
             target: unit,
-            factType: 'horseRebound',
+            factType: FACT_TYPES.HORSE_REBOUND,
             factData: { unitName: unit.name, rebound, attackerUid: unit.uid, unitUid: target.uid }
         });
     }
@@ -348,7 +349,7 @@ export function applyAttackResult(unit, target, dmgCalc, attackerBuffStats, defe
                 source: target,
                 target: unit,
                 hasSister,
-                factType: 'fortifyRebound',
+                factType: FACT_TYPES.FORTIFY_REBOUND,
                 factData: { reboundDmg, unitName: unit.name, hasSister, attackerUid: unit.uid, unitUid: target.uid }
             }];
         }
@@ -438,7 +439,7 @@ export async function buildAttackGroup(unit, target, dmgCalc, dmgResult, attacke
 
     const pendingEntries = [];
     if (unit._pendingDefReduceFact) {
-        pendingEntries.push({ factType: 'breakDef', data: unit._pendingDefReduceFact });
+        pendingEntries.push({ factType: FACT_TYPES.BREAK_DEF, data: unit._pendingDefReduceFact });
         delete unit._pendingDefReduceFact;
     }
     if (unit._executeLog) {
@@ -469,7 +470,7 @@ export async function buildAttackGroup(unit, target, dmgCalc, dmgResult, attacke
     };
 
     const attackFact = {
-        factType: 'attack',
+        factType: FACT_TYPES.ATTACK,
         data: {
             attacker: unit,
             target,

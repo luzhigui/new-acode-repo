@@ -1,6 +1,6 @@
 // render/31-stage-actions.js - 光明顶5v5 舞台动作翻译器
-// V5.7.7 | ~15850 bytes| 2026-08-26 factType/kind 枚举化（FACT_TYPES/STAGE_ACTION_TYPES）
-export const VER = 'render/31-stage-actions.js V5.7.7';
+// V5.7.8 | ~16200 bytes| 2026-08-26 特效单轨收尾：xinhun/连击横幅/乾坤加攻/张无忌弹幕/严阵横幅补翻译
+export const VER = 'render/31-stage-actions.js V5.7.8';
 
 import { makeFXSnapshot } from '../infra/51-core-utils.js';
 import { STAGE_ACTION_TYPES, FACT_TYPES } from '../infra/56-battle-enums.js';
@@ -123,6 +123,7 @@ function translateFact(entry, index) {
                 actorUid: data.attackerUid ?? null,
                 targetUid: data.unitUid ?? null,
                 dmg: Math.round(data.reboundDmg ?? 0),
+                bannerText: '🛡️ 严阵以待！',
                 factIndex: index,
                 timing: 'afterText'
             };
@@ -174,7 +175,6 @@ function translateFact(entry, index) {
         case FACT_TYPES.RANGED_GROWTH:
         case FACT_TYPES.FORTIFY_SHIELD:
         case FACT_TYPES.CARRY_APPLY:
-        case FACT_TYPES.QIAN_KUN_DERIVED:
         case FACT_TYPES.METEOR_SHOWER_MAIN:
         case FACT_TYPES.METEOR_SPLASH_GROWTH:
             return {
@@ -183,6 +183,18 @@ function translateFact(entry, index) {
                 factIndex: index,
                 timing: 'afterText'
             };
+        case FACT_TYPES.QIAN_KUN_DERIVED:
+            // 乾坤衍生：治疗走文本行，加攻飘字独立成 afterText 动作
+            return data.atkTargetUid && data.atkGain
+                ? {
+                    kind: STAGE_ACTION_TYPES.BUFF_EFFECT,
+                    effectType: 'atkBuff',
+                    targetUid: data.atkTargetUid,
+                    gain: data.atkGain,
+                    factIndex: index,
+                    timing: 'afterText'
+                }
+                : null;
 
         // ---------- 召唤 / 销毁 ----------
         case FACT_TYPES.HORSE_SUMMON:
@@ -206,6 +218,13 @@ function translateFact(entry, index) {
 
         // ---------- 变身 / 飞行 ----------
         case FACT_TYPES.ZHANG_SWITCH:
+            return {
+                kind: STAGE_ACTION_TYPES.TRANSFORM,
+                actorUid: data.zhang?.uid ?? data.unitUid ?? null,
+                danmaku: '不好，要顶上去了！',
+                factIndex: index,
+                timing: 'beforeText'
+            };
         case FACT_TYPES.SPIDER_TRANSFORM:
             return {
                 kind: STAGE_ACTION_TYPES.TRANSFORM,
@@ -279,10 +298,23 @@ function translateFact(entry, index) {
 
         // ---------- 横幅 / 摘要 ----------
         case FACT_TYPES.DOUBLE_STRIKE:
+            return data.success
+                ? { kind: STAGE_ACTION_TYPES.BANNER, text: '⚡ 概率连击！', factIndex: index, timing: 'beforeText' }
+                : null;
+        case FACT_TYPES.SPIDER_DOUBLE_STRIKE:
+            return { kind: STAGE_ACTION_TYPES.BANNER, text: '⚡ 概率连击！', factIndex: index, timing: 'beforeText' };
         case FACT_TYPES.XING_FEN_GRANT:
         case FACT_TYPES.DOUBLE_STRIKE_SUMMARY:
+            // 摘要正文已由文本线展示，无横幅实体
+            return null;
+
+        // ---------- 新婚快乐（宋青书/周芷若） ----------
+        case FACT_TYPES.XIN_HUN:
             return {
-                kind: STAGE_ACTION_TYPES.BANNER,
+                kind: STAGE_ACTION_TYPES.BUFF_EFFECT,
+                effectType: 'xinHun',
+                targetUid: data.zhouUid ?? null,
+                dmg: data.hpDeduct ?? 0,
                 factIndex: index,
                 timing: 'beforeText'
             };
@@ -345,6 +377,7 @@ function makeAttackAction(data, index) {
                 effectType: 'boneClaw',
                 attackerUid: e.clawAttackerUid ?? attacker?.uid ?? null,
                 targetUid: e.clawTargetUid ?? target?.uid ?? null,
+                dmg: e.data?.dmg ?? null,
                 isExecute: e.isExecute ?? false,
                 factIndex: index,
                 timing: 'afterText'
@@ -397,29 +430,40 @@ function makeHealAction(data, index) {
     };
 }
 
+/**
+ * STAGE_ACTION_DEFS —— 舞台动作的唯一调度表。
+ * 播放器 playStep 只读本表驱动三线（grid 格子线 / fx 特效线 / log 日志线）。
+ * timing：'beforeText'（日志前特效）或 'afterText'（日志后特效）；
+ * 可为函数 (action) => timing，用于同一 kind 按 effectType 分时序（如 buffEffect 的 xinHun）。
+ * 新增 stageAction 只需在此登记 + 在 31 翻译器产出，播放器无需改动。
+ */
 export const STAGE_ACTION_DEFS = {
-    [STAGE_ACTION_TYPES.ATTACK]: { grid: 'sync', fx: 'sync', log: 'sync' },
-    [STAGE_ACTION_TYPES.REBOUND]: { grid: 'none', fx: 'sync', log: 'sync' },
-    [STAGE_ACTION_TYPES.HEAL]: { grid: 'sync', fx: 'sync', log: 'sync' },
-    [STAGE_ACTION_TYPES.DEATH]: { grid: 'sync', fx: 'sync', log: 'sync' },
-    [STAGE_ACTION_TYPES.POS_SWAP]: { grid: 'sync', fx: 'sync', log: 'sync' },
-    [STAGE_ACTION_TYPES.PUSH]: { grid: 'sync', fx: 'sync', log: 'sync' },
-    [STAGE_ACTION_TYPES.SUMMON]: { grid: 'sync', fx: 'sync', log: 'sync' },
-    [STAGE_ACTION_TYPES.DESTROY]: { grid: 'sync', fx: 'sync', log: 'sync' },
-    [STAGE_ACTION_TYPES.TRANSFORM]: { grid: 'sync', fx: 'sync', log: 'sync' },
-    [STAGE_ACTION_TYPES.FLY_MODE]: { grid: 'sync', fx: 'sync', log: 'sync' },
-    [STAGE_ACTION_TYPES.ROUND_START]: { grid: 'sync', fx: 'sync', log: 'sync' },
-    [STAGE_ACTION_TYPES.ROUND_END]: { grid: 'sync', fx: 'sync', log: 'sync' },
-    [STAGE_ACTION_TYPES.REST]: { grid: 'sync', fx: 'sync', log: 'sync' },
-    [STAGE_ACTION_TYPES.DOT]: { grid: 'sync', fx: 'sync', log: 'sync' },
-    [STAGE_ACTION_TYPES.EXECUTE]: { grid: 'sync', fx: 'sync', log: 'sync' },
-    [STAGE_ACTION_TYPES.MISS]: { grid: 'none', fx: 'sync', log: 'sync' },
-    [STAGE_ACTION_TYPES.IMMUNE]: { grid: 'none', fx: 'sync', log: 'sync' },
-    [STAGE_ACTION_TYPES.STAT_CHANGE]: { grid: 'sync', fx: 'sync', log: 'sync' },
-    [STAGE_ACTION_TYPES.BANNER]: { grid: 'none', fx: 'sync', log: 'sync' },
-    [STAGE_ACTION_TYPES.EMPTY_TARGET]: { grid: 'none', fx: 'none', log: 'sync' },
-    [STAGE_ACTION_TYPES.STUN]: { grid: 'sync', fx: 'sync', log: 'sync' },
-    [STAGE_ACTION_TYPES.SPLASH]: { grid: 'sync', fx: 'sync', log: 'sync' },
-    [STAGE_ACTION_TYPES.BUFF_EFFECT]: { grid: 'none', fx: 'sync', log: 'sync' },
-    [STAGE_ACTION_TYPES.HP_PCT_DANMAKU]: { grid: 'none', fx: 'sync', log: 'sync' }
+    [STAGE_ACTION_TYPES.ATTACK]: { grid: 'sync', fx: 'sync', log: 'sync', timing: 'beforeText' },
+    [STAGE_ACTION_TYPES.REBOUND]: { grid: 'none', fx: 'sync', log: 'sync', timing: 'afterText' },
+    [STAGE_ACTION_TYPES.HEAL]: { grid: 'sync', fx: 'sync', log: 'sync', timing: 'beforeText' },
+    [STAGE_ACTION_TYPES.DEATH]: { grid: 'sync', fx: 'sync', log: 'sync', timing: 'afterText' },
+    [STAGE_ACTION_TYPES.POS_SWAP]: { grid: 'sync', fx: 'sync', log: 'sync', timing: 'beforeText' },
+    [STAGE_ACTION_TYPES.PUSH]: { grid: 'sync', fx: 'sync', log: 'sync', timing: 'beforeText' },
+    [STAGE_ACTION_TYPES.SUMMON]: { grid: 'sync', fx: 'sync', log: 'sync', timing: 'beforeText' },
+    [STAGE_ACTION_TYPES.DESTROY]: { grid: 'sync', fx: 'sync', log: 'sync', timing: 'afterText' },
+    [STAGE_ACTION_TYPES.TRANSFORM]: { grid: 'sync', fx: 'sync', log: 'sync', timing: 'beforeText' },
+    [STAGE_ACTION_TYPES.FLY_MODE]: { grid: 'sync', fx: 'sync', log: 'sync', timing: 'beforeText' },
+    [STAGE_ACTION_TYPES.ROUND_START]: { grid: 'sync', fx: 'sync', log: 'sync', timing: 'beforeText' },
+    [STAGE_ACTION_TYPES.ROUND_END]: { grid: 'sync', fx: 'sync', log: 'sync', timing: 'afterText' },
+    [STAGE_ACTION_TYPES.REST]: { grid: 'sync', fx: 'sync', log: 'sync', timing: 'beforeText' },
+    [STAGE_ACTION_TYPES.DOT]: { grid: 'sync', fx: 'sync', log: 'sync', timing: 'beforeText' },
+    [STAGE_ACTION_TYPES.EXECUTE]: { grid: 'sync', fx: 'sync', log: 'sync', timing: 'afterText' },
+    [STAGE_ACTION_TYPES.MISS]: { grid: 'none', fx: 'sync', log: 'sync', timing: 'afterText' },
+    [STAGE_ACTION_TYPES.IMMUNE]: { grid: 'none', fx: 'sync', log: 'sync', timing: 'beforeText' },
+    [STAGE_ACTION_TYPES.STAT_CHANGE]: { grid: 'sync', fx: 'sync', log: 'sync', timing: 'afterText' },
+    [STAGE_ACTION_TYPES.BANNER]: { grid: 'none', fx: 'sync', log: 'sync', timing: 'beforeText' },
+    [STAGE_ACTION_TYPES.EMPTY_TARGET]: { grid: 'none', fx: 'none', log: 'sync', timing: 'beforeText' },
+    [STAGE_ACTION_TYPES.STUN]: { grid: 'sync', fx: 'sync', log: 'sync', timing: 'beforeText' },
+    [STAGE_ACTION_TYPES.SPLASH]: { grid: 'sync', fx: 'sync', log: 'sync', timing: 'afterText' },
+    [STAGE_ACTION_TYPES.SPIDER_STRIKE]: { grid: 'sync', fx: 'sync', log: 'sync', timing: 'beforeText' },
+    [STAGE_ACTION_TYPES.BUFF_EFFECT]: {
+        grid: 'none', fx: 'sync', log: 'sync',
+        timing: (action) => (action && action.effectType === 'xinHun') ? 'beforeText' : 'afterText'
+    },
+    [STAGE_ACTION_TYPES.HP_PCT_DANMAKU]: { grid: 'none', fx: 'sync', log: 'sync', timing: 'afterText' }
 };

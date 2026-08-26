@@ -21,17 +21,18 @@ import { eventBus, EFFECT_TYPES } from '../infra/50-event-bus.js';
 import { flushBattleEvents } from '../infra/51-core-utils.js';
 
 import { emitEvent, applyStatChange, recordCombatStat } from './13battle-shared.js';
+import { FACT_TYPES } from '../infra/56-battle-enums.js';
 
 const C = CONFIG;
 
 export async function processUnitAttack(unit, allySide, enemySide, log, A, B, state, doubleStrikeUnitUid, lockedTargetUid) {
     if (unit.state._stunned) {
-        log.push({ factType: 'stunSkip', data: { unitName: unit.name } });
+        log.push({ factType: FACT_TYPES.STUN_SKIP, data: { unitName: unit.name } });
         unit.state._acted = true;
         return false;
     }
     if (unit.state._spiderFlying || unit.state._flyMode === 'spider' || (unit._fsm && unit._fsm.is('flying'))) {
-        log.push({ factType: 'flySkip', data: { unitName: unit.name } });
+        log.push({ factType: FACT_TYPES.FLY_SKIP, data: { unitName: unit.name } });
         unit.state._acted = true;
         return false;
     }
@@ -48,7 +49,7 @@ export async function processUnitAttack(unit, allySide, enemySide, log, A, B, st
                 events: []
             };
             emptyFact.events = flushBattleEvents();
-            log.push({ factType: 'emptyTarget', data: emptyFact });
+            log.push({ factType: FACT_TYPES.EMPTY_TARGET, data: emptyFact });
             unit.state._acted = true;
             return false;
         }
@@ -66,7 +67,7 @@ export async function processUnitAttack(unit, allySide, enemySide, log, A, B, st
             events: []
         };
         emptyFact.events = flushBattleEvents();
-        log.push({ factType: 'emptyTarget', data: emptyFact });
+        log.push({ factType: FACT_TYPES.EMPTY_TARGET, data: emptyFact });
         unit.state._acted = true;
         return false;
     }
@@ -85,14 +86,14 @@ export async function processUnitAttack(unit, allySide, enemySide, log, A, B, st
     let hitResult = resolveAttackHit(unit, target, attackerBuffStats, defenderBuffStats, log, A, B, doubleStrikeUnitUid, eventBus);
     if (hitResult.skipped) {
         if (hitResult.missFact) {
-            log.push({ factType: 'miss', data: hitResult.missFact });
+            log.push({ factType: FACT_TYPES.MISS, data: hitResult.missFact });
         }
         if (hitResult.dodgeFact) {
             const dodgeFact = hitResult.dodgeFact;
             if (dodgeFact.attackerHpAfter <= 0) {
                 unit.alive = false; unit._pendingDeath = true;
             }
-            log.push({ factType: 'dodge', data: dodgeFact });
+            log.push({ factType: FACT_TYPES.DODGE, data: dodgeFact });
         }
         if (hitResult.extraRequests && hitResult.extraRequests.length > 0) {
             hitResult.extraRequests.sort((a, b) => (a.priority || 0) - (b.priority || 0));
@@ -148,7 +149,7 @@ export async function processUnitAttack(unit, allySide, enemySide, log, A, B, st
             events: []
         };
         immuneFact.events = flushBattleEvents();
-        log.push({ factType: 'immune', data: immuneFact });
+        log.push({ factType: FACT_TYPES.IMMUNE, data: immuneFact });
 
         if (!unit._isLinkAttack) unit.state._acted = true;
         return true;

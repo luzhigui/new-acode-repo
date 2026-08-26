@@ -6,6 +6,7 @@ import { CONFIG } from './01config-5v5-test.js';
 import { hasBuff } from './03battle-utils.js';
 import { query, getBattleRng, applyStatChange } from './13battle-shared.js';
 import { Unit } from './02unit.js';
+import { FACT_TYPES } from '../infra/56-battle-enums.js';
 const C = CONFIG;
 
 // 拒马-生成：创建拒马单位并随机站位
@@ -58,10 +59,10 @@ export function destroyHorse(allyTeam, log) {
             applyStatChange(horse, 'hp', -horse.hp, null, '拒马消散', false);
             horse.alive = false;
             horse.state._isDead = true;
-            log.push({ factType: 'horseDestroy', data: { pos: horse.pos, success: true, prob: currentProb, roll, horseUid: horse.uid } });
+            log.push({ factType: FACT_TYPES.HORSE_DESTROY, data: { pos: horse.pos, success: true, prob: currentProb, roll, horseUid: horse.uid } });
             currentProb = Math.floor(currentProb / 2);
         } else {
-            log.push({ factType: 'horseDestroy', data: { pos: horse.pos, success: false, prob: currentProb, roll, horseUid: horse.uid } });
+            log.push({ factType: FACT_TYPES.HORSE_DESTROY, data: { pos: horse.pos, success: false, prob: currentProb, roll, horseUid: horse.uid } });
             currentProb = 50;
         }
     }

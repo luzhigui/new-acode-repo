@@ -5,6 +5,7 @@ export const VER = 'modules/25elite-imperial.js V5.5.1';
 import { registerElite } from '../core/08-elite-registry.js';
 import { tickXuanmingPoison } from './20elite-skills.js';
 import { EXECUTION_LAYER as L } from '../infra/50-event-bus.js';
+import { FACT_TYPES } from '../infra/56-battle-enums.js';
 
 // ==================== 成昆 ====================
 export function createChengKunComponent() {
@@ -27,7 +28,7 @@ export function createLuZhangKeComponent() {
                     if (!u.alive) return;
                     const dot = tickXuanmingPoison(u, lu);
                     if (dot > 0) {
-                        log.push({ factType: 'xuanmingDot', data: { unitName: u.name, dot, uidD: u.uid, isDead: !u.alive } });
+                        log.push({ factType: FACT_TYPES.XUAN_MING_DOT, data: { unitName: u.name, dot, uidD: u.uid, isDead: !u.alive } });
                     }
                 });
             });
