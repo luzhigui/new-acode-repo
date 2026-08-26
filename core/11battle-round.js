@@ -200,6 +200,7 @@ async function prepareRoundStart(A, B, log, state, round, rng) {
         for (const key of ROUND_FIELD_KEYS) {
             u[key] = false;
         }
+        u._nineYinFirstDone = false;
         u.state._restingTimer && clearTimeout(u.state._restingTimer), u.state._restingTimer = null;
         u._doubleStriked = false;
         u._xingFenExtraAttacking = false;
@@ -226,6 +227,7 @@ async function prepareRoundStart(A, B, log, state, round, rng) {
         for (const key of ROUND_FIELD_KEYS) {
             u[key] = false;
         }
+        u._nineYinFirstDone = false;
         u._doubleStriked = false;
         u._xingFenExtraAttacking = false;
         u._xiaoZhaoDoubleStriked = false;

@@ -20,7 +20,8 @@ export const BATTLE_STATE_KEYS = Object.freeze([
 export const ROUND_FIELD_KEYS = Object.freeze([
     '_xingFenActive', '_isLinkAttack', '_spiderAttacked',
     '_emptyColBonus', '_bloodAuraBonus',
-    '_holyAtkBonus', '_holyDefBonus', '_fortifyDefBonus'
+    '_holyAtkBonus', '_holyDefBonus', '_fortifyDefBonus',
+    '_nineYinFirstDone'
 ]);
 
 /** 顶层整场字段：clone 必须深拷贝（对象/数组）或浅拷贝（基本类型） */
@@ -28,7 +29,7 @@ export const BATTLE_FIELD_KEYS = Object.freeze([
     '_kuaiLeStack', '_xingFenCount', '_xingFenPenaltyCount',
     '_kuLianActive', '_masteredRoles', '_permanentBuffs',
     '_butterflyAtk', '_butterflyDef', '_butterflyHp', '_butterflyHpTransfer',
-    '_spiderRemaining', '_nineYinFirstDone', '_extinctionUsed',
+    '_spiderRemaining', '_extinctionUsed',
     '_fortifyStacks', '_dodgeStack', '_linkedPartnerUid'
 ]);
 
