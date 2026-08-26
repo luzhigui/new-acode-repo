@@ -1,8 +1,9 @@
 // render/31-stage-actions.js - 光明顶5v5 舞台动作翻译器
-// V5.7.6 | ~15750 bytes| 2026-08-26 summon 动作携带 horseTaunt 台词
-export const VER = 'render/31-stage-actions.js V5.7.6';
+// V5.7.7 | ~15850 bytes| 2026-08-26 factType/kind 枚举化（FACT_TYPES/STAGE_ACTION_TYPES）
+export const VER = 'render/31-stage-actions.js V5.7.7';
 
 import { makeFXSnapshot } from '../infra/51-core-utils.js';
+import { STAGE_ACTION_TYPES, FACT_TYPES } from '../infra/56-battle-enums.js';
 
 /**
  * 把一步的 fact 列表翻译成舞台动作列表。
@@ -25,13 +26,13 @@ function translateFact(entry, index) {
     const { factType, data } = entry;
     switch (factType) {
         // ---------- 回合控制 ----------
-        case 'roundStart':
-            return { kind: 'roundStart', round: data.round, factIndex: index, timing: 'beforeText' };
-        case 'roundEnd':
-            return { kind: 'roundEnd', round: data.round, factIndex: index, timing: 'afterText' };
-        case 'pass':
+        case FACT_TYPES.ROUND_START:
+            return { kind: STAGE_ACTION_TYPES.ROUND_START, round: data.round, factIndex: index, timing: 'beforeText' };
+        case FACT_TYPES.ROUND_END:
+            return { kind: STAGE_ACTION_TYPES.ROUND_END, round: data.round, factIndex: index, timing: 'afterText' };
+        case FACT_TYPES.PASS:
             return {
-                kind: 'rest',
+                kind: STAGE_ACTION_TYPES.REST,
                 actorUid: data.unit?.uid ?? data.unitUid ?? null,
                 reason: data.reason,
                 factIndex: index,
@@ -39,20 +40,20 @@ function translateFact(entry, index) {
             };
 
         // ---------- 攻击流程 ----------
-        case 'attack':
+        case FACT_TYPES.ATTACK:
             return makeAttackAction(data, index);
-        case 'miss':
+        case FACT_TYPES.MISS:
             return {
-                kind: 'miss',
+                kind: STAGE_ACTION_TYPES.MISS,
                 actorUid: data.attacker?.uid ?? null,
                 targetUid: data.target?.uid ?? null,
                 fx: data.fxSnapshot || null,
                 factIndex: index,
                 timing: 'afterText'
             };
-        case 'dodge':
+        case FACT_TYPES.DODGE:
             return {
-                kind: 'dodge',
+                kind: STAGE_ACTION_TYPES.DODGE,
                 actorUid: data.attacker?.uid ?? null,
                 targetUid: data.dodger?.uid ?? null,
                 reboundDmg: data.reboundDmg,
@@ -61,26 +62,26 @@ function translateFact(entry, index) {
                 factIndex: index,
                 timing: 'beforeText'
             };
-        case 'immune':
+        case FACT_TYPES.IMMUNE:
             return {
-                kind: 'immune',
+                kind: STAGE_ACTION_TYPES.IMMUNE,
                 actorUid: data.attacker?.uid ?? null,
                 targetUid: data.target?.uid ?? null,
                 factIndex: index,
                 timing: 'beforeText'
             };
-        case 'emptyTarget':
+        case FACT_TYPES.EMPTY_TARGET:
             return {
-                kind: 'emptyTarget',
+                kind: STAGE_ACTION_TYPES.EMPTY_TARGET,
                 actorUid: data.attacker?.uid ?? null,
                 reason: data.reason,
                 factIndex: index,
                 timing: 'beforeText'
             };
-        case 'warriorExecute':
-        case 'clawExecute':
+        case FACT_TYPES.WARRIOR_EXECUTE:
+        case FACT_TYPES.CLAW_EXECUTE:
             return {
-                kind: 'execute',
+                kind: STAGE_ACTION_TYPES.EXECUTE,
                 actorUid: data.unitUid ?? data.unit?.uid ?? null,
                 targetUid: data.targetUid ?? data.uidD ?? data.target?.uid ?? null,
                 dmg: data.dmg ?? null,
@@ -88,18 +89,18 @@ function translateFact(entry, index) {
                 factIndex: index,
                 timing: 'afterText'
             };
-        case 'xinHunDeath':
+        case FACT_TYPES.XIN_HUN_DEATH:
             return {
-                kind: 'death',
+                kind: STAGE_ACTION_TYPES.DEATH,
                 actorUid: data.uidD ?? null,
                 targetUid: data.uidD ?? null,
                 dead: true,
                 factIndex: index,
                 timing: 'afterText'
             };
-        case 'spiderStrike':
+        case FACT_TYPES.SPIDER_STRIKE:
             return {
-                kind: 'spiderStrike',
+                kind: STAGE_ACTION_TYPES.SPIDER_STRIKE,
                 actorUid: data.unitUid ?? null,
                 targetUid: data.targetUid ?? null,
                 dmg: data.totalDmg,
@@ -107,18 +108,18 @@ function translateFact(entry, index) {
                 factIndex: index,
                 timing: 'beforeText'
             };
-        case 'horseRebound':
+        case FACT_TYPES.HORSE_REBOUND:
             return {
-                kind: 'rebound',
+                kind: STAGE_ACTION_TYPES.REBOUND,
                 actorUid: data.attackerUid ?? null,
                 targetUid: data.unitUid ?? null,
                 dmg: Math.round(data.rebound ?? 0),
                 factIndex: index,
                 timing: 'afterText'
             };
-        case 'fortifyRebound':
+        case FACT_TYPES.FORTIFY_REBOUND:
             return {
-                kind: 'rebound',
+                kind: STAGE_ACTION_TYPES.REBOUND,
                 actorUid: data.attackerUid ?? null,
                 targetUid: data.unitUid ?? null,
                 dmg: Math.round(data.reboundDmg ?? 0),
@@ -127,28 +128,28 @@ function translateFact(entry, index) {
             };
 
         // ---------- 血量 / 治疗 ----------
-        case 'xuanmingDot':
+        case FACT_TYPES.XUAN_MING_DOT:
             return {
-                kind: 'dot',
+                kind: STAGE_ACTION_TYPES.DOT,
                 targetUid: data.uidD ?? null,
                 dmg: data.dot,
                 dead: data.isDead,
                 factIndex: index,
                 timing: 'beforeText'
             };
-        case 'kuaiLeHeal':
-        case 'nineYangHeal':
-        case 'weiLeech':
-        case 'phantomDisguiseHeal':
-        case 'clawHeal':
-        case 'hotBloodHeal':
-        case 'bloodthirstLeech':
+        case FACT_TYPES.KUAI_LE_HEAL:
+        case FACT_TYPES.NINE_YANG_HEAL:
+        case FACT_TYPES.WEI_LEECH:
+        case FACT_TYPES.PHANTOM_DISGUISE_HEAL:
+        case FACT_TYPES.CLAW_HEAL:
+        case FACT_TYPES.HOT_BLOOD_HEAL:
+        case FACT_TYPES.BLOOD_THIRST_LEECH:
             return makeHealAction(data, index);
 
         // ---------- 位置 / 换位 / 击退 ----------
-        case 'mindControlSwap':
+        case FACT_TYPES.MIND_CONTROL_SWAP:
             return {
-                kind: 'posSwap',
+                kind: STAGE_ACTION_TYPES.POS_SWAP,
                 actorUid: data.unitA?.uid ?? null,
                 targetUid: data.unitB?.uid ?? null,
                 oldPosA: data.posA,
@@ -156,9 +157,9 @@ function translateFact(entry, index) {
                 factIndex: index,
                 timing: 'beforeText'
             };
-        case 'windAssaultPush':
+        case FACT_TYPES.WIND_ASSAULT_PUSH:
             return {
-                kind: 'push',
+                kind: STAGE_ACTION_TYPES.PUSH,
                 actorUid: data.target?.uid ?? null,
                 targetUid: data.behindUnit?.uid ?? null,
                 oldPos: data.oldPos,
@@ -169,34 +170,34 @@ function translateFact(entry, index) {
             };
 
         // ---------- 属性 / 增益 ----------
-        case 'kuLian':
-        case 'rangedGrowth':
-        case 'fortifyShield':
-        case 'carryApply':
-        case 'qianKunDerived':
-        case 'meteorShowerMain':
-        case 'meteorSplashGrowth':
+        case FACT_TYPES.KU_LIAN:
+        case FACT_TYPES.RANGED_GROWTH:
+        case FACT_TYPES.FORTIFY_SHIELD:
+        case FACT_TYPES.CARRY_APPLY:
+        case FACT_TYPES.QIAN_KUN_DERIVED:
+        case FACT_TYPES.METEOR_SHOWER_MAIN:
+        case FACT_TYPES.METEOR_SPLASH_GROWTH:
             return {
-                kind: 'statChange',
+                kind: STAGE_ACTION_TYPES.STAT_CHANGE,
                 actorUid: data.unitUid ?? data.unit?.uid ?? null,
                 factIndex: index,
                 timing: 'afterText'
             };
 
         // ---------- 召唤 / 销毁 ----------
-        case 'horseSummon':
-        case 'xiaoZhaoHorse':
+        case FACT_TYPES.HORSE_SUMMON:
+        case FACT_TYPES.XIAO_ZHAO_HORSE:
             return {
-                kind: 'summon',
+                kind: STAGE_ACTION_TYPES.SUMMON,
                 actorUid: data.horseUid ?? null,
                 pos: data.pos ?? data.horsePos,
                 taunt: data.horseTaunt ?? null,
                 factIndex: index,
                 timing: 'beforeText'
             };
-        case 'horseDestroy':
+        case FACT_TYPES.HORSE_DESTROY:
             return {
-                kind: 'destroy',
+                kind: STAGE_ACTION_TYPES.DESTROY,
                 actorUid: data.horseUid ?? null,
                 success: data.success,
                 factIndex: index,
@@ -204,70 +205,70 @@ function translateFact(entry, index) {
             };
 
         // ---------- 变身 / 飞行 ----------
-        case 'zhangSwitch':
-        case 'spiderTransform':
+        case FACT_TYPES.ZHANG_SWITCH:
+        case FACT_TYPES.SPIDER_TRANSFORM:
             return {
-                kind: 'transform',
+                kind: STAGE_ACTION_TYPES.TRANSFORM,
                 actorUid: data.unitUid ?? data.zhang?.uid ?? null,
                 factIndex: index,
                 timing: 'beforeText'
             };
-        case 'spiderFly':
+        case FACT_TYPES.SPIDER_FLY:
             return {
-                kind: 'flyMode',
+                kind: STAGE_ACTION_TYPES.FLY_MODE,
                 actorUid: data.spiderUid ?? data.unitUid ?? null,
                 originalFactType: 'spiderFly',
                 factIndex: index,
                 timing: 'beforeText'
             };
-        case 'spiderReturn':
+        case FACT_TYPES.SPIDER_RETURN:
             return {
-                kind: 'flyMode',
+                kind: STAGE_ACTION_TYPES.FLY_MODE,
                 actorUid: data.spiderUid ?? data.unitUid ?? null,
                 originalFactType: 'spiderReturn',
                 factIndex: index,
                 timing: 'beforeText'
             };
-        case 'butterflyAttach':
+        case FACT_TYPES.BUTTERFLY_ATTACH:
             return {
-                kind: 'flyMode',
+                kind: STAGE_ACTION_TYPES.FLY_MODE,
                 actorUid: data.sisterUid ?? null,
                 hostUid: data.hostUid ?? null,
                 originalFactType: 'butterflyAttach',
                 factIndex: index,
                 timing: 'beforeText'
             };
-        case 'butterflyReturn':
+        case FACT_TYPES.BUTTERFLY_RETURN:
             return {
-                kind: 'flyMode',
+                kind: STAGE_ACTION_TYPES.FLY_MODE,
                 actorUid: data.sisterUid ?? null,
                 hostUid: data.hostUid ?? null,
                 originalFactType: 'butterflyReturn',
                 factIndex: index,
                 timing: 'beforeText'
             };
-        case 'butterflyHostDead':
-        case 'butterflyNoHost':
-        case 'flySkip':
+        case FACT_TYPES.BUTTERFLY_HOST_DEAD:
+        case FACT_TYPES.BUTTERFLY_NO_HOST:
+        case FACT_TYPES.FLY_SKIP:
             return {
-                kind: 'flyMode',
+                kind: STAGE_ACTION_TYPES.FLY_MODE,
                 actorUid: data.unitUid ?? data.spiderUid ?? data.sisterUid ?? data.unit?.uid ?? null,
                 factIndex: index,
                 timing: 'beforeText'
             };
-        case 'stunSkip':
+        case FACT_TYPES.STUN_SKIP:
             return {
-                kind: 'stun',
+                kind: STAGE_ACTION_TYPES.STUN,
                 actorUid: data.unitUid ?? data.unit?.uid ?? null,
                 factIndex: index,
                 timing: 'beforeText'
             };
 
         // ---------- 技能波及 / 附加 ----------
-        case 'windAssaultSplash':
-        case 'meteorShowerSplash':
+        case FACT_TYPES.WIND_ASSAULT_SPLASH:
+        case FACT_TYPES.METEOR_SHOWER_SPLASH:
             return {
-                kind: 'splash',
+                kind: STAGE_ACTION_TYPES.SPLASH,
                 actorUid: data.attackerUid ?? data.unitUid ?? null,
                 targetUid: data.primaryUid ?? null,
                 splashUids: data.splashUids ?? data.targets?.map(t => t.uid) ?? [],
@@ -277,11 +278,11 @@ function translateFact(entry, index) {
             };
 
         // ---------- 横幅 / 摘要 ----------
-        case 'doubleStrike':
-        case 'xingFenGrant':
-        case 'doubleStrikeSummary':
+        case FACT_TYPES.DOUBLE_STRIKE:
+        case FACT_TYPES.XING_FEN_GRANT:
+        case FACT_TYPES.DOUBLE_STRIKE_SUMMARY:
             return {
-                kind: 'banner',
+                kind: STAGE_ACTION_TYPES.BANNER,
                 factIndex: index,
                 timing: 'beforeText'
             };
@@ -303,7 +304,7 @@ function makeAttackAction(data, index) {
     const hpBefore = dmgResult?.hpBefore ?? Math.floor(target?.hp ?? 0);
 
     const baseAction = {
-        kind: 'attack',
+        kind: STAGE_ACTION_TYPES.ATTACK,
         actorUid: attacker?.uid ?? null,
         targetUid: target?.uid ?? null,
         dmg,
@@ -326,9 +327,9 @@ function makeAttackAction(data, index) {
     const entries = data.entries || [];
     for (const e of entries) {
         if (!e) continue;
-        if (e.type === 'buff-splash' || (e.factType && ['meteorShowerSplash', 'windAssaultSplash'].includes(e.factType))) {
+        if (e.type === 'buff-splash' || (e.factType && [FACT_TYPES.METEOR_SHOWER_SPLASH, FACT_TYPES.WIND_ASSAULT_SPLASH].includes(e.factType))) {
             afterTextEffects.push({
-                kind: 'buffEffect',
+                kind: STAGE_ACTION_TYPES.BUFF_EFFECT,
                 effectType: 'splash',
                 attackerUid: e.attackerUid ?? attacker?.uid ?? null,
                 primaryUid: e.primaryUid ?? target?.uid ?? null,
@@ -338,9 +339,9 @@ function makeAttackAction(data, index) {
                 factIndex: index,
                 timing: 'afterText'
             });
-        } else if (e.isClawHit || (e.factType && ['clawHit', 'clawExecute'].includes(e.factType))) {
+        } else if (e.isClawHit || (e.factType && [FACT_TYPES.CLAW_HIT, FACT_TYPES.CLAW_EXECUTE].includes(e.factType))) {
             afterTextEffects.push({
-                kind: 'buffEffect',
+                kind: STAGE_ACTION_TYPES.BUFF_EFFECT,
                 effectType: 'boneClaw',
                 attackerUid: e.clawAttackerUid ?? attacker?.uid ?? null,
                 targetUid: e.clawTargetUid ?? target?.uid ?? null,
@@ -350,7 +351,7 @@ function makeAttackAction(data, index) {
             });
         } else if (e.buffType === 'qiankun_atk' && e.atkTargetUid && e.atkGain) {
             afterTextEffects.push({
-                kind: 'buffEffect',
+                kind: STAGE_ACTION_TYPES.BUFF_EFFECT,
                 effectType: 'atkBuff',
                 targetUid: e.atkTargetUid,
                 gain: e.atkGain,
@@ -365,7 +366,7 @@ function makeAttackAction(data, index) {
     if (data.hpPctBefore !== undefined && data.hpPctAfter !== undefined) {
         if (data.hpPctBefore > 40 && data.hpPctAfter <= 40 && data.hpPctAfter > 20) {
             hpPctEffects.push({
-                kind: 'hpPctDanmaku',
+                kind: STAGE_ACTION_TYPES.HP_PCT_DANMAKU,
                 targetUid: target?.uid ?? null,
                 text: target?.camp === 'ally' ? '不好，必须反击了！' : '小儿安敢伤我！',
                 factIndex: index,
@@ -373,7 +374,7 @@ function makeAttackAction(data, index) {
             });
         } else if (data.hpPctBefore > 20 && data.hpPctAfter <= 20) {
             hpPctEffects.push({
-                kind: 'hpPctDanmaku',
+                kind: STAGE_ACTION_TYPES.HP_PCT_DANMAKU,
                 targetUid: target?.uid ?? null,
                 text: target?.camp === 'ally' ? '撑住！' : '已是强弩之末！',
                 factIndex: index,
@@ -387,7 +388,7 @@ function makeAttackAction(data, index) {
 
 function makeHealAction(data, index) {
     return {
-        kind: 'heal',
+        kind: STAGE_ACTION_TYPES.HEAL,
         actorUid: data.healUnitUid ?? data.unitUid ?? data.sourceUid ?? null,
         targetUid: data.healUnitUid ?? data.unitUid ?? data.sourceUid ?? null,
         amount: Math.round(data.heal ?? data.leechVal ?? data.leech ?? data.totalHeal ?? 0),
@@ -397,28 +398,28 @@ function makeHealAction(data, index) {
 }
 
 export const STAGE_ACTION_DEFS = {
-    attack: { grid: 'sync', fx: 'sync', log: 'sync' },
-    rebound: { grid: 'none', fx: 'sync', log: 'sync' },
-    heal: { grid: 'sync', fx: 'sync', log: 'sync' },
-    death: { grid: 'sync', fx: 'sync', log: 'sync' },
-    posSwap: { grid: 'sync', fx: 'sync', log: 'sync' },
-    push: { grid: 'sync', fx: 'sync', log: 'sync' },
-    summon: { grid: 'sync', fx: 'sync', log: 'sync' },
-    destroy: { grid: 'sync', fx: 'sync', log: 'sync' },
-    transform: { grid: 'sync', fx: 'sync', log: 'sync' },
-    flyMode: { grid: 'sync', fx: 'sync', log: 'sync' },
-    roundStart: { grid: 'sync', fx: 'sync', log: 'sync' },
-    roundEnd: { grid: 'sync', fx: 'sync', log: 'sync' },
-    rest: { grid: 'sync', fx: 'sync', log: 'sync' },
-    dot: { grid: 'sync', fx: 'sync', log: 'sync' },
-    execute: { grid: 'sync', fx: 'sync', log: 'sync' },
-    miss: { grid: 'none', fx: 'sync', log: 'sync' },
-    immune: { grid: 'none', fx: 'sync', log: 'sync' },
-    statChange: { grid: 'sync', fx: 'sync', log: 'sync' },
-    banner: { grid: 'none', fx: 'sync', log: 'sync' },
-    emptyTarget: { grid: 'none', fx: 'none', log: 'sync' },
-    stun: { grid: 'sync', fx: 'sync', log: 'sync' },
-    splash: { grid: 'sync', fx: 'sync', log: 'sync' },
-    buffEffect: { grid: 'none', fx: 'sync', log: 'sync' },
-    hpPctDanmaku: { grid: 'none', fx: 'sync', log: 'sync' }
+    [STAGE_ACTION_TYPES.ATTACK]: { grid: 'sync', fx: 'sync', log: 'sync' },
+    [STAGE_ACTION_TYPES.REBOUND]: { grid: 'none', fx: 'sync', log: 'sync' },
+    [STAGE_ACTION_TYPES.HEAL]: { grid: 'sync', fx: 'sync', log: 'sync' },
+    [STAGE_ACTION_TYPES.DEATH]: { grid: 'sync', fx: 'sync', log: 'sync' },
+    [STAGE_ACTION_TYPES.POS_SWAP]: { grid: 'sync', fx: 'sync', log: 'sync' },
+    [STAGE_ACTION_TYPES.PUSH]: { grid: 'sync', fx: 'sync', log: 'sync' },
+    [STAGE_ACTION_TYPES.SUMMON]: { grid: 'sync', fx: 'sync', log: 'sync' },
+    [STAGE_ACTION_TYPES.DESTROY]: { grid: 'sync', fx: 'sync', log: 'sync' },
+    [STAGE_ACTION_TYPES.TRANSFORM]: { grid: 'sync', fx: 'sync', log: 'sync' },
+    [STAGE_ACTION_TYPES.FLY_MODE]: { grid: 'sync', fx: 'sync', log: 'sync' },
+    [STAGE_ACTION_TYPES.ROUND_START]: { grid: 'sync', fx: 'sync', log: 'sync' },
+    [STAGE_ACTION_TYPES.ROUND_END]: { grid: 'sync', fx: 'sync', log: 'sync' },
+    [STAGE_ACTION_TYPES.REST]: { grid: 'sync', fx: 'sync', log: 'sync' },
+    [STAGE_ACTION_TYPES.DOT]: { grid: 'sync', fx: 'sync', log: 'sync' },
+    [STAGE_ACTION_TYPES.EXECUTE]: { grid: 'sync', fx: 'sync', log: 'sync' },
+    [STAGE_ACTION_TYPES.MISS]: { grid: 'none', fx: 'sync', log: 'sync' },
+    [STAGE_ACTION_TYPES.IMMUNE]: { grid: 'none', fx: 'sync', log: 'sync' },
+    [STAGE_ACTION_TYPES.STAT_CHANGE]: { grid: 'sync', fx: 'sync', log: 'sync' },
+    [STAGE_ACTION_TYPES.BANNER]: { grid: 'none', fx: 'sync', log: 'sync' },
+    [STAGE_ACTION_TYPES.EMPTY_TARGET]: { grid: 'none', fx: 'none', log: 'sync' },
+    [STAGE_ACTION_TYPES.STUN]: { grid: 'sync', fx: 'sync', log: 'sync' },
+    [STAGE_ACTION_TYPES.SPLASH]: { grid: 'sync', fx: 'sync', log: 'sync' },
+    [STAGE_ACTION_TYPES.BUFF_EFFECT]: { grid: 'none', fx: 'sync', log: 'sync' },
+    [STAGE_ACTION_TYPES.HP_PCT_DANMAKU]: { grid: 'none', fx: 'sync', log: 'sync' }
 };

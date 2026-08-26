@@ -5,6 +5,7 @@ export const VER = 'fx/88fx-trigger.js V5.7.0';
 import { getKillTaunt } from '../core/03battle-utils.js';
 import { GlobalStore } from '../infra/54-global-store.js';
 import { AudioManager } from '../modules/22audio-manager.js';
+import { STORE_ACTION_TYPES } from '../infra/56-battle-enums.js';
 import { showDanmaku, showDamageFloat } from './80fx-common-5v5-test.js';
 import { showRangedArrow } from './81fx-arrows-5v5-test.js';
 import { showMeleeCrash, showMeleeDodge, showMeleeMiss } from './82fx-crash-5v5-test.js';
@@ -47,8 +48,8 @@ export function _triggerFX(fxSnapshot, unitA, unitD, isDead, isDodge, isMiss, is
                     if (isDead && unitD) {
                         const ctx = GlobalStore.get('playerContext');
                         if (ctx && ctx.store) {
-                            ctx.store.dispatch({ type: 'SET_FLASH', uid: unitD.uid, flash: 'dead' });
-                            ctx.store.dispatch({ type: 'SET_VISUAL', uid: unitD.uid, _isDead: true });
+                            ctx.store.dispatch({ type: STORE_ACTION_TYPES.SET_FLASH, uid: unitD.uid, flash: 'dead' });
+                            ctx.store.dispatch({ type: STORE_ACTION_TYPES.SET_VISUAL, uid: unitD.uid, _isDead: true });
                         } else {
                             unitD._flash = 'dead';
                         }
@@ -56,7 +57,7 @@ export function _triggerFX(fxSnapshot, unitA, unitD, isDead, isDodge, isMiss, is
                 }, () => {
                     const ctx = GlobalStore.get('playerContext');
                     if (ctx && ctx.store) {
-                        ctx.store.dispatch({ type: 'CLEAR_UNIT_FLASH', uid: unitA.uid });
+                        ctx.store.dispatch({ type: STORE_ACTION_TYPES.CLEAR_UNIT_FLASH, uid: unitA.uid });
                     } else {
                         unitA._flash = null;
                     }

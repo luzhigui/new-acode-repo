@@ -6,6 +6,7 @@ export const VER = 'fx/83fx-position-swap.js V5.5.0';
  * 获取单位对应的格子 DOM 元素（本地定义，不依赖外部）
  */
 import { GlobalStore } from '../infra/54-global-store.js';
+import { STORE_ACTION_TYPES } from '../infra/56-battle-enums.js';
 
 function wait(ms) { return new Promise(r => setTimeout(r, GlobalStore.get('fastForwardActive') ? 1 : ms)); }
 
@@ -96,7 +97,7 @@ export async function animatePositionSwap(unit1, unit2, c, options = {}) {
     // 交换数据：不直接修改 unit.pos，全部通过 Store dispatch 完成
     if (!skipDataChange) {
         if (c.store) {
-            c.store.dispatch({ type: 'APPLY_EVENTS', events: [
+            c.store.dispatch({ type: STORE_ACTION_TYPES.APPLY_EVENTS, events: [
                 { eventType: 'pos-change', uid: unit1.uid, pos: pos2 },
                 { eventType: 'pos-change', uid: unit2.uid, pos: pos1 }
             ]});

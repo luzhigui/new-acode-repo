@@ -1,6 +1,8 @@
 // modules/24battle-store.js - 光明顶5v5 战斗Store工厂
-// V5.5.0 | ~11600 bytes| 2026-07-31 从 player/10 提取 Store 创建逻辑
-export const VER = 'modules/24battle-store.js V5.5.0';
+// V5.6.0 | ~11800 bytes| 2026-08-26 battleReducer action.type 枚举化（STORE_ACTION_TYPES）+ 入口校验
+export const VER = 'modules/24battle-store.js V5.6.0';
+
+import { STORE_ACTION_TYPES } from '../infra/56-battle-enums.js';
 
 // ==================== Store 工厂 ====================
 export function createStore(initialState, reducer) {
@@ -29,16 +31,20 @@ export const GAME_STATE_FIELDS = ['hp','alive','maxHp','atk','def','role','range
  * @returns {object} 新状态
  */
 export function battleReducer(state, action) {
+    if (!Object.values(STORE_ACTION_TYPES).includes(action.type)) {
+        console.error(`[battleReducer] 未知 action type: ${action.type}`);
+        return state;
+    }
     switch (action.type) {
-        case 'INIT': return state;
-        case 'SET_FLASH': {
+        case STORE_ACTION_TYPES.INIT: return state;
+        case STORE_ACTION_TYPES.SET_FLASH: {
             let next = state.units.map(u => {
                 if (u.uid !== action.uid) return u;
                 return { ...u, _flash: action.flash };
             });
             return { ...state, units: next };
         }
-        case 'SET_VISUAL': {
+        case STORE_ACTION_TYPES.SET_VISUAL: {
             let next = state.units.map(u => {
                 if (u.uid !== action.uid) return u;
                 const newState = { ...(u.state || {}) };
@@ -54,18 +60,18 @@ export function battleReducer(state, action) {
             });
             return { ...state, units: next };
         }
-        case 'CLEAR_ALL_FLASH': {
+        case STORE_ACTION_TYPES.CLEAR_ALL_FLASH: {
             let next = state.units.map(u => ({ ...u, _flash: null }));
             return { ...state, units: next };
         }
-        case 'CLEAR_UNIT_FLASH': {
+        case STORE_ACTION_TYPES.CLEAR_UNIT_FLASH: {
             let next = state.units.map(u => {
                 if (u.uid !== action.uid) return u;
                 return { ...u, _flash: null };
             });
             return { ...state, units: next };
         }
-        case 'APPLY_EVENTS': {
+        case STORE_ACTION_TYPES.APPLY_EVENTS: {
             const events = action.events;
             if (!events || events.length === 0) return state;
             let next = state.units.map(u => ({ ...u }));
@@ -137,21 +143,21 @@ export function battleReducer(state, action) {
             }
             return { ...state, units: next };
         }
-        case 'SYNC_UNIT': {
+        case STORE_ACTION_TYPES.SYNC_UNIT: {
             let next = state.units.map(u => {
                 if (u.uid !== action.uid) return u;
                 return { ...u, ...action.fields };
             });
             return { ...state, units: next };
         }
-        case 'ADD_UNIT': {
+        case STORE_ACTION_TYPES.ADD_UNIT: {
             if (state.units.find(u => u.uid === action.unit.uid)) return state;
             return { ...state, units: [...state.units, action.unit] };
         }
-        case 'REMOVE_UNIT': {
+        case STORE_ACTION_TYPES.REMOVE_UNIT: {
             return { ...state, units: state.units.filter(u => u.uid !== action.uid) };
         }
-        case 'SYNC_FULL_UNITS': {
+        case STORE_ACTION_TYPES.SYNC_FULL_UNITS: {
             const allyMap = new Map(action.ally.map(u => [u.uid, u]));
             const enemyMap = new Map(action.enemy.map(u => [u.uid, u]));
             let next = state.units.map(u => {
@@ -177,7 +183,7 @@ export function battleReducer(state, action) {
             }
             return { ...state, units: next };
         }
-        case 'SYNC_BATTLE_STATS': {
+        case STORE_ACTION_TYPES.SYNC_BATTLE_STATS: {
             const allyMap = new Map(action.ally.map(u => [u.uid, u]));
             const enemyMap = new Map(action.enemy.map(u => [u.uid, u]));
             let next = state.units.map(u => {
@@ -197,7 +203,7 @@ export function battleReducer(state, action) {
             });
             return { ...state, units: next };
         }
-        case 'hp-change': {
+        case STORE_ACTION_TYPES.HP_CHANGE: {
             const idx = state.units.findIndex(u => u.uid === action.unitUid);
             if (idx < 0) return state;
             let next = state.units.map(u => ({ ...u }));
@@ -218,7 +224,7 @@ export function battleReducer(state, action) {
             if (p.rangedForm !== undefined) next[idx].rangedForm = p.rangedForm;
             return { ...state, units: next };
         }
-        case 'stat-bonus-change': {
+        case STORE_ACTION_TYPES.STAT_BONUS_CHANGE: {
             const idx = state.units.findIndex(u => u.uid === action.unitUid);
             if (idx < 0) return state;
             let next = state.units.map(u => ({ ...u }));

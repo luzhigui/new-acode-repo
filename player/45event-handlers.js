@@ -7,6 +7,7 @@ import { eventBus } from '../infra/50-event-bus.js';
 import { FX_SIGNALS } from '../infra/55-fx-signals.js';
 import { AudioManager } from '../modules/22audio-manager.js';
 import { getState } from '../infra/54-global-store.js';
+import { STORE_ACTION_TYPES } from '../infra/56-battle-enums.js';
 import { appendLogHTML, appendLogElement, autoScrollLog, updateRoundDisplay, renderSeparator, playLogLine, appendHiddenDetail, findUnitByUid } from './47renderer.js';
 
 export async function handleBuffBonus(c, entry) {
@@ -45,7 +46,7 @@ export async function handleInfo(c, entry) {
 
     // 蝴蝶附身/飞回、蜘蛛升空/降落动画已由导演 stageAction 'flyMode' 统一触发
 
-    if(entry.isZhangSwitch&&entry.unit){ let zhangUnit = c.store ? c.store.getState().units.find(u => u.isZhang) : null; renderSeparator(); await playLogLine(entry.text); if(zhangUnit) { c.store.dispatch({ type: 'SET_VISUAL', uid: zhangUnit.uid, _resting: false }); eventBus.emit(FX_SIGNALS.DANMAKU, { unit: zhangUnit, text: '不好，要顶上去了！' }); } }
+    if(entry.isZhangSwitch&&entry.unit){ let zhangUnit = c.store ? c.store.getState().units.find(u => u.isZhang) : null; renderSeparator(); await playLogLine(entry.text); if(zhangUnit) { c.store.dispatch({ type: STORE_ACTION_TYPES.SET_VISUAL, uid: zhangUnit.uid, _resting: false }); eventBus.emit(FX_SIGNALS.DANMAKU, { unit: zhangUnit, text: '不好，要顶上去了！' }); } }
     else {
         if (entry.isDoubleStrikeBanner) {
             c.isPaused = true;
@@ -56,7 +57,7 @@ export async function handleInfo(c, entry) {
         if (entry.buffType === 'elite_xinhun') {
             let song = c.store ? c.store.getState().units.find(u => u.name === '宋青书') : null;
             let zhou = findUnitByUid(c, entry.zhouUid);
-            if (zhou) c.store.dispatch({ type: 'SET_VISUAL', uid: zhou.uid, _hasKuaiLe: true });
+            if (zhou) c.store.dispatch({ type: STORE_ACTION_TYPES.SET_VISUAL, uid: zhou.uid, _hasKuaiLe: true });
             requestAnimationFrame(() => {
                 if (song) eventBus.emit(FX_SIGNALS.HEART_EFFECT, { unit: song });
                 if (zhou) eventBus.emit(FX_SIGNALS.HEART_EFFECT, { unit: zhou });
@@ -87,7 +88,7 @@ export async function handleInfo(c, entry) {
                 eventBus.emit(FX_SIGNALS.BONE_CLAW, { attacker, target, speed: c.speed, isPausedFn: () => c.isPaused, opts: { isExecute: entry.isExecute } });
             }
             if (entry._events && entry._events.length > 0) {
-                c.store.dispatch({ type: 'APPLY_EVENTS', events: entry._events });
+                c.store.dispatch({ type: STORE_ACTION_TYPES.APPLY_EVENTS, events: entry._events });
             }
         }
         // 治疗飘字已由导演 stageAction 'heal' 统一处理

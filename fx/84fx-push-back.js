@@ -3,6 +3,7 @@
 export const VER = 'fx/84fx-push-back.js V5.5.0';
 
 import { GlobalStore } from '../infra/54-global-store.js';
+import { STORE_ACTION_TYPES } from '../infra/56-battle-enums.js';
 
 function getCellElement(unit) {
     if (!unit || unit.pos == null) return null;
@@ -31,7 +32,7 @@ export async function animatePushBack(unit, c, targetPos, options = {}) {
 
     if (!skipDataChange) {
         if (c.store) {
-            c.store.dispatch({ type: 'APPLY_EVENTS', events: [
+            c.store.dispatch({ type: STORE_ACTION_TYPES.APPLY_EVENTS, events: [
                 { eventType: 'pos-change', uid: unit.uid, pos: targetPos }
             ]});
         } else {
@@ -111,7 +112,7 @@ export async function animatePushSwap(frontUnit, rearUnit, c) {
     await wait(200);
 
     if (c.store) {
-        c.store.dispatch({ type: 'APPLY_EVENTS', events: [
+        c.store.dispatch({ type: STORE_ACTION_TYPES.APPLY_EVENTS, events: [
             { eventType: 'pos-change', uid: frontUnit.uid, pos: posR },
             { eventType: 'pos-change', uid: rearUnit.uid, pos: posF }
         ]});

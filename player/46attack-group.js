@@ -3,6 +3,7 @@
 export const VER = 'player/46attack-group.js V5.8.0';
 
 import { getState } from '../infra/54-global-store.js';
+import { STORE_ACTION_TYPES } from '../infra/56-battle-enums.js';
 import { appendLogHTML, autoScrollLog, updateRoundDisplay, playLogLine, appendHiddenDetail, findUnitByUid } from './47renderer.js';
 
 export async function handleAttackGroup(c, entry, roundResult, abortSig, isFirstAttackRef) {
@@ -14,12 +15,12 @@ export async function handleAttackGroup(c, entry, roundResult, abortSig, isFirst
     }
 
     if (unitA && entry.isRest && c.store) {
-        c.store.dispatch({ type: 'SET_VISUAL', uid: unitA.uid, _resting: true });
+        c.store.dispatch({ type: STORE_ACTION_TYPES.SET_VISUAL, uid: unitA.uid, _resting: true });
     }
 
     if (unitA && !entry.isBlock) {
         const flashType = entry.isDodge ? 'defend' : 'attack';
-        if (c.store) c.store.dispatch({ type: 'SET_FLASH', uid: unitA.uid, flash: flashType });
+        if (c.store) c.store.dispatch({ type: STORE_ACTION_TYPES.SET_FLASH, uid: unitA.uid, flash: flashType });
     }
 
     const isFF = GlobalStore.get('fastForwardActive');
@@ -36,9 +37,9 @@ export async function handleAttackGroup(c, entry, roundResult, abortSig, isFirst
         atkTimer = setTimeout(async () => {
             await c.waitWhilePaused();
             if (c.store && unitA) {
-                c.store.dispatch({ type: 'CLEAR_UNIT_FLASH', uid: unitA.uid });
+                c.store.dispatch({ type: STORE_ACTION_TYPES.CLEAR_UNIT_FLASH, uid: unitA.uid });
                 if (!entry.isDodge && !entry.isLinkAttack) {
-                    c.store.dispatch({ type: 'SET_VISUAL', uid: unitA.uid, _acted: true });
+                    c.store.dispatch({ type: STORE_ACTION_TYPES.SET_VISUAL, uid: unitA.uid, _acted: true });
                 }
             }
         }, atkFlashDuration);
@@ -49,14 +50,14 @@ export async function handleAttackGroup(c, entry, roundResult, abortSig, isFirst
     if (abortSig && abortSig.aborted) { if (atkTimer) clearTimeout(atkTimer); return { isBattleOver: false }; }
 
     if (unitD && !entry.isMiss && c.store) {
-        c.store.dispatch({ type: 'SET_FLASH', uid: unitD.uid, flash: entry.isDodge ? 'attack' : 'defend' });
+        c.store.dispatch({ type: STORE_ACTION_TYPES.SET_FLASH, uid: unitD.uid, flash: entry.isDodge ? 'attack' : 'defend' });
     }
     let defTimer = null;
     if (unitD && !entry.isDodge && !entry.isMiss && c.store) {
         defTimer = setTimeout(async () => {
             await c.waitWhilePaused();
             if (c.store && unitD && !entry.isDead) {
-                c.store.dispatch({ type: 'CLEAR_UNIT_FLASH', uid: unitD.uid });
+                c.store.dispatch({ type: STORE_ACTION_TYPES.CLEAR_UNIT_FLASH, uid: unitD.uid });
             }
         }, defFlashDuration);
     }
@@ -87,10 +88,10 @@ export async function handleAttackGroup(c, entry, roundResult, abortSig, isFirst
     await c.waitWhilePaused();
     if (defTimer) clearTimeout(defTimer);
     if (unitA && !unitA.state._isDead && c.store) {
-        c.store.dispatch({ type: 'CLEAR_UNIT_FLASH', uid: unitA.uid });
+        c.store.dispatch({ type: STORE_ACTION_TYPES.CLEAR_UNIT_FLASH, uid: unitA.uid });
     }
     if (unitD && !entry.isDodge && !entry.isMiss && !entry.isDead && !unitD.state._isDead && c.store) {
-        c.store.dispatch({ type: 'CLEAR_UNIT_FLASH', uid: unitD.uid });
+        c.store.dispatch({ type: STORE_ACTION_TYPES.CLEAR_UNIT_FLASH, uid: unitD.uid });
     }
 
     updateRoundDisplay(`📜 日志（第${c.UI.round}回合）`);

@@ -3,6 +3,7 @@
 export const VER = 'fx/82fx-crash-5v5-test.js V5.5.0';
 
 import { applyImpactShrink } from './80fx-common-5v5-test.js';
+import { STORE_ACTION_TYPES } from '../infra/56-battle-enums.js';
 
 function clearCrashStyles(cell) {
     if (!cell) return;
@@ -24,11 +25,11 @@ function finishCrash(clone, cell, unitA, UI) {
     if (ctx && ctx.store) {
         const su = ctx.store.getState().units.find(u => u.uid === unitA.uid);
         const wasFlying = su && su._flyMode;
-        ctx.store.dispatch({ type: 'SET_VISUAL', uid: unitA.uid, _flyMode: null, _acted: true });
+        ctx.store.dispatch({ type: STORE_ACTION_TYPES.SET_VISUAL, uid: unitA.uid, _flyMode: null, _acted: true });
         if (wasFlying) {
-            ctx.store.dispatch({ type: 'SET_FLASH', uid: unitA.uid, flash: 'attack' });
+            ctx.store.dispatch({ type: STORE_ACTION_TYPES.SET_FLASH, uid: unitA.uid, flash: 'attack' });
         } else {
-            ctx.store.dispatch({ type: 'CLEAR_UNIT_FLASH', uid: unitA.uid });
+            ctx.store.dispatch({ type: STORE_ACTION_TYPES.CLEAR_UNIT_FLASH, uid: unitA.uid });
         }
     } else {
         delete unitA.state._flyMode;
@@ -119,7 +120,7 @@ export function showMeleeCrash(unitA, unitD, speed, getPausedFn, onCrash) {
 
     const ctx = GlobalStore.get('playerContext');
     if (ctx && ctx.store) {
-        ctx.store.dispatch({ type: 'SET_VISUAL', uid: unitA.uid, _flyMode: flyMode });
+        ctx.store.dispatch({ type: STORE_ACTION_TYPES.SET_VISUAL, uid: unitA.uid, _flyMode: flyMode });
     }
     let UI = window._getPlayerContext ? window._getPlayerContext().UI : null;
     if (UI) {
@@ -163,16 +164,16 @@ export function showMeleeCrash(unitA, unitD, speed, getPausedFn, onCrash) {
         cellA.setAttribute('data-flash', 'attack');
         const ctxG = window._getPlayerContext ? window._getPlayerContext() : null;
         if (ctxG && ctxG.store) {
-            ctxG.store.dispatch({ type: 'SET_FLASH', uid: unitA.uid, flash: 'attack' });
-            ctxG.store.dispatch({ type: 'SET_VISUAL', uid: unitA.uid, _acted: true });
+            ctxG.store.dispatch({ type: STORE_ACTION_TYPES.SET_FLASH, uid: unitA.uid, flash: 'attack' });
+            ctxG.store.dispatch({ type: STORE_ACTION_TYPES.SET_VISUAL, uid: unitA.uid, _acted: true });
             if (unitA.state) unitA.state._flyMode = flyMode;
         }
     } else {
         unitA._flash = null;
         const ctxF = window._getPlayerContext ? window._getPlayerContext() : null;
         if (ctxF && ctxF.store) {
-            ctxF.store.dispatch({ type: 'CLEAR_UNIT_FLASH', uid: unitA.uid });
-            ctxF.store.dispatch({ type: 'SET_VISUAL', uid: unitA.uid, _acted: true, 'state._flyMode': flyMode });
+            ctxF.store.dispatch({ type: STORE_ACTION_TYPES.CLEAR_UNIT_FLASH, uid: unitA.uid });
+            ctxF.store.dispatch({ type: STORE_ACTION_TYPES.SET_VISUAL, uid: unitA.uid, _acted: true, 'state._flyMode': flyMode });
         }
         cellA.style.opacity = '0';
         cellA.style.transform = 'scale(0.8)';
@@ -335,8 +336,8 @@ export function showMeleeDodge(unitA, unitD, speed, getPausedFn) {
     cellA.removeAttribute('data-flash');
     const ctxD = window._getPlayerContext ? window._getPlayerContext() : null;
     if (ctxD && ctxD.store) {
-        ctxD.store.dispatch({ type: 'CLEAR_UNIT_FLASH', uid: unitA.uid });
-        ctxD.store.dispatch({ type: 'SET_VISUAL', uid: unitA.uid, _acted: true });
+        ctxD.store.dispatch({ type: STORE_ACTION_TYPES.CLEAR_UNIT_FLASH, uid: unitA.uid });
+        ctxD.store.dispatch({ type: STORE_ACTION_TYPES.SET_VISUAL, uid: unitA.uid, _acted: true });
     }
     cellA.classList.remove('ready');
 
@@ -450,8 +451,8 @@ export function showMeleeMiss(unitA, unitD, speed, getPausedFn) {
     cellA.removeAttribute('data-flash');
     const ctxM = window._getPlayerContext ? window._getPlayerContext() : null;
     if (ctxM && ctxM.store) {
-        ctxM.store.dispatch({ type: 'CLEAR_UNIT_FLASH', uid: unitA.uid });
-        ctxM.store.dispatch({ type: 'SET_VISUAL', uid: unitA.uid, _acted: true });
+        ctxM.store.dispatch({ type: STORE_ACTION_TYPES.CLEAR_UNIT_FLASH, uid: unitA.uid });
+        ctxM.store.dispatch({ type: STORE_ACTION_TYPES.SET_VISUAL, uid: unitA.uid, _acted: true });
     } else {
         unitA._flash = null;
     }
