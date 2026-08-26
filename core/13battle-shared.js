@@ -5,6 +5,7 @@ export const VER = 'core/13battle-shared.js V5.6.1';
 import { CONFIG } from './01config-5v5-test.js';
 import { getRoleBonus } from './02unit.js';
 import { pushBattleEvent } from '../infra/51-core-utils.js';
+import { FACT_TYPES } from '../infra/56-battle-enums.js';
 const C = CONFIG;
 
 /**
@@ -147,7 +148,7 @@ function checkZhangSwitch(A, log) {
             rangedForm: false
         });
         log.push({
-            factType: 'zhangSwitch',
+            factType: FACT_TYPES.ZHANG_SWITCH,
             data: {
                 zhang,
                 atkGain: warriorBonus.atk * 3,

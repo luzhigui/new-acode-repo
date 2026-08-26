@@ -176,7 +176,7 @@ export function renderGrid(id, camp) {
                 continue;
             }
             if (unit.state && unit.state._isDead) {
-                unit = { ...unit, _flash: 'dead', _resting: false, _acted: false, _blocked: false };
+                unit = { ...unit, _flash: 'dead', state: { ...(unit.state || {}), _resting: false, _acted: false, _blocked: false } };
             }
         }
         if (!unit) {

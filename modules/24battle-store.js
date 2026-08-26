@@ -214,13 +214,14 @@ export function battleReducer(state, action) {
             if (p.atk !== undefined) next[idx].atk = p.atk;
             if (p.def !== undefined) next[idx].def = p.def;
             if (p.role !== undefined) next[idx].role = p.role;
-            if (p._isDead !== undefined) next[idx]._isDead = p._isDead;
-            if (p._resting !== undefined) next[idx]._resting = p._resting;
-            if (p._blocked !== undefined) next[idx]._blocked = p._blocked;
-            if (p._stunned !== undefined) next[idx]._stunned = p._stunned;
-            if (p._flyMode !== undefined) next[idx]._flyMode = p._flyMode;
-            if (p._butterflyHost !== undefined) next[idx]._butterflyHost = p._butterflyHost;
-            if (p._phantomTarget !== undefined) next[idx]._phantomTarget = p._phantomTarget;
+            if (!next[idx].state) next[idx].state = {};
+            if (p._isDead !== undefined) next[idx].state._isDead = p._isDead;
+            if (p._resting !== undefined) next[idx].state._resting = p._resting;
+            if (p._blocked !== undefined) next[idx].state._blocked = p._blocked;
+            if (p._stunned !== undefined) next[idx].state._stunned = p._stunned;
+            if (p._flyMode !== undefined) next[idx].state._flyMode = p._flyMode;
+            if (p._butterflyHost !== undefined) next[idx].state._butterflyHost = p._butterflyHost;
+            if (p._phantomTarget !== undefined) next[idx].state._phantomTarget = p._phantomTarget;
             if (p.rangedForm !== undefined) next[idx].rangedForm = p.rangedForm;
             return { ...state, units: next };
         }

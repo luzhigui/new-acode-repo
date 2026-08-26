@@ -11,6 +11,7 @@ import { checkZhangSwitch, emitEvent, applyStatChange, applyMaxHpChange, getBatt
 import { EXECUTION_LAYER as L, EFFECT_TYPES } from '../infra/50-event-bus.js';
 import { registerDodgeRule } from '../core/12battle-attack-steps.js';
 import { StateMachine } from '../infra/51-core-utils.js';
+import { FACT_TYPES } from '../infra/56-battle-enums.js';
 
 // ==================== 张无忌 ====================
 export function createZhangWujiComponent() {
@@ -42,7 +43,7 @@ export function createZhangWujiComponent() {
                     onEnter() {
                         zhang.ronghui = true;
                         const zt = getZhangNearTaunt(3);
-                        if (zt) log.push({ factType: 'zhangTaunt', data: { unitName: zhang.name, taunt: zt } });
+                        if (zt) log.push({ factType: FACT_TYPES.ZHANG_TAUNT, data: { unitName: zhang.name, taunt: zt } });
                     },
                     onExit() {}
                 }
@@ -93,9 +94,9 @@ export function createZhangWujiComponent() {
             const fsm = unit._fsm;
             // ronghui 是 near 的融会贯通激活态：FSM 转入后仍需继续触发（第3次起每次攻击都有效）
             if (fsm && (fsm.is('near') || fsm.is('ronghui'))) {
-                if (unit.nearAtkCount === 0 && !unit._zhangTauntDone) { const firstTaunt = getZhangNearTaunt(1); if (firstTaunt) { group.data.entries.push({ factType: 'zhangTaunt', data: { unitName: unit.name, taunt: firstTaunt } }); unit._zhangTauntDone = true; } }
+                if (unit.nearAtkCount === 0 && !unit._zhangTauntDone) { const firstTaunt = getZhangNearTaunt(1); if (firstTaunt) { group.data.entries.push({ factType: FACT_TYPES.ZHANG_TAUNT, data: { unitName: unit.name, taunt: firstTaunt } }); unit._zhangTauntDone = true; } }
                 unit.nearAtkCount++;
-                if (unit.nearAtkCount === 2) { const secondTaunt = getZhangNearTaunt(2); if (secondTaunt) group.data.entries.push({ factType: 'zhangTaunt', data: { unitName: unit.name, taunt: secondTaunt } }); }
+                if (unit.nearAtkCount === 2) { const secondTaunt = getZhangNearTaunt(2); if (secondTaunt) group.data.entries.push({ factType: FACT_TYPES.ZHANG_TAUNT, data: { unitName: unit.name, taunt: secondTaunt } }); }
                 if (unit.nearAtkCount >= 3) {
                     if (!fsm.is('ronghui')) fsm.transition('ronghui');
                     const extra = Math.floor(Math.abs(target.atk - target.def) * 0.5);
@@ -109,7 +110,7 @@ export function createZhangWujiComponent() {
                     } else {
                         applyStatChange(target, 'hp', -extra, unit, '融会贯通');
                     }
-                    group.data.entries.push({ factType: 'rongHuiBonus', data: { unitName: unit.name, extra, targetAtk: Math.floor(target.atk), targetDef: Math.floor(target.def) } });
+                    group.data.entries.push({ factType: FACT_TYPES.RONG_HUI_BONUS, data: { unitName: unit.name, extra, targetAtk: Math.floor(target.atk), targetDef: Math.floor(target.def) } });
                 }
             }
         }
@@ -223,7 +224,7 @@ export function createXiaoZhaoSisterComponent() {
                     if (atkTarget._baseAtk !== undefined) atkTarget._baseAtk += atkGain;
                     if (!data.unit._pendingDerivedEntries) data.unit._pendingDerivedEntries = [];
                     data.unit._pendingDerivedEntries.push({
-                        factType: 'qianKunDerived',
+                        factType: FACT_TYPES.QIAN_KUN_DERIVED,
                         data: {
                             targetName: target.name,
                             reduce,
@@ -258,7 +259,7 @@ export function createXiaoZhaoSisterComponent() {
             for (const p of order) { const u = A.find(a => a.pos === p && a.alive && !a.isHorse && a.uid !== sister.uid); if (u) { host = u; break; } }
             if (!host) {
                 applyStatChange(sister, 'hp', -sister.hp, null, '蝶变无宿主', false);
-                log.push({ factType: 'butterflyNoHost', data: { unitName: sister.name } });
+                log.push({ factType: FACT_TYPES.BUTTERFLY_NO_HOST, data: { unitName: sister.name } });
                 return null;
             }
             const atkRatio = flyDirection === 'left' ? 0 : 1/2;
@@ -285,7 +286,7 @@ export function createXiaoZhaoSisterComponent() {
             sister._fsm.transition('attached');
             emitEvent(sister, 'hp-change', { hp:sister.hp, maxHp:sister.maxHp, alive:sister.alive, atk:sister.atk, def:sister.def, _flyMode:'butterfly', _butterflyHost:sister.state._butterflyHost });
             log.push({
-                factType: 'butterflyAttach',
+                factType: FACT_TYPES.BUTTERFLY_ATTACH,
                 data: {
                     sisterName: sister.name,
                     sisterUid: sister.uid,
@@ -320,7 +321,7 @@ export function createXiaoZhaoSisterComponent() {
                 sister._butterflyHp = 0;
                 sister._butterflyHpTransfer = 0;
                 sister._fsm.transition('normal');
-                log.push({ factType: 'butterflyHostDead', data: { sisterName: sister.name, isDead: !sister.alive, sisterUid: sister.uid } });
+                log.push({ factType: FACT_TYPES.BUTTERFLY_HOST_DEAD, data: { sisterName: sister.name, isDead: !sister.alive, sisterUid: sister.uid } });
                 return;
             }
             const allAllies = A.filter(a => !a.isHorse && a.uid !== sister.uid);
@@ -362,7 +363,7 @@ export function createXiaoZhaoSisterComponent() {
                 atk: sister.atk, def: sister.def, _flyMode: null, _butterflyHost: null
             });
             log.push({
-                factType: 'butterflyReturn',
+                factType: FACT_TYPES.BUTTERFLY_RETURN,
                 data: {
                     sisterName: sister.name,
                     sisterUid: sister.uid,
@@ -494,7 +495,7 @@ export function createXiaoZhaoBrotherComponent() {
                     const fakeTarget = data.allySide.find(u => u.alive && !u.isHorse && u.uid !== data.unit.uid);
                     if (fakeTarget) {
                         data.declaration.targetResult = fakeTarget;
-                        data.declaration.phantomFact = { factType: 'phantomConfuse', data: { unitName: data.unit.name, deceiver: '小昭·妹', targetName: fakeTarget.name } };
+                        data.declaration.phantomFact = { factType: FACT_TYPES.PHANTOM_CONFUSE, data: { unitName: data.unit.name, deceiver: '小昭·妹', targetName: fakeTarget.name } };
                     }
                 }
             });
@@ -520,7 +521,7 @@ export function createXiaoZhaoBrotherComponent() {
                 if (!teamHasHorse && hasPermanent) {
                     const xzHorse = spawnHorse(A, log, B, true);
                     if (xzHorse) {
-                        log.push({ factType: 'xiaoZhaoHorse', data: { pos: xzHorse.pos, horseUid: xzHorse.uid } });
+                        log.push({ factType: FACT_TYPES.XIAO_ZHAO_HORSE, data: { pos: xzHorse.pos, horseUid: xzHorse.uid } });
                     }
                 }
                 const hasTeamCarry = hasBuff(A._activeBuffs, 'carry');
@@ -541,7 +542,7 @@ export function createXiaoZhaoBrotherComponent() {
                 const chance = s.xiaoZhaoDoubleStrikeChance;
                 if (getBattleRng().nextInt(1, 100) <= chance) {
                     unit._xiaoZhaoDoubleStriked = true;
-                    log.push({ factType: 'spiderDoubleStrike', data: {} });
+                    log.push({ factType: FACT_TYPES.SPIDER_DOUBLE_STRIKE, data: {} });
                     if (!data.extraRequests) data.extraRequests = [];
                     data.extraRequests.push({
                         unit,
@@ -570,7 +571,7 @@ export function createXiaoZhaoBrotherComponent() {
             if (!reason) return false;
             fsm.transition('flying', { reason, incomingDmg, log });
             if (unit._flyFactData && log) {
-                log.push({ factType: 'spiderFly', data: unit._flyFactData });
+                log.push({ factType: FACT_TYPES.SPIDER_FLY, data: unit._flyFactData });
             }
             return true;
         },

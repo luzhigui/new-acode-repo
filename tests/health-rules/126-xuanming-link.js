@@ -1,7 +1,7 @@
 // tests/health-rules/126-xuanming-link.js
-// 回归规则：玄冥二老联动吞回合 — 修复后 partner._acted = wasActed 恢复联动前状态
+// 回归规则：玄冥二老联动吞回合 — 修复后 partner.state._acted = wasActed 恢复联动前状态
 // 复发信号：玄冥联动多次发生，但搭档（跟随者）从无自己发起的攻击（被吞回合）
-// 对应已修 Bug：玄冥二老联动吞回合（partner._acted 被无条件设 true）
+// 对应已修 Bug：玄冥二老联动吞回合（partner.state._acted 被无条件设 true）
 export const VER = 'tests/health-rules/126-xuanming-link.js V5.5.0';
 
 export const rule73 = {
@@ -42,7 +42,7 @@ export const rule73 = {
 
         // 复发信号：联动≥2次但搭档无单独攻击（可能被吞回合）
         if (soloAttackCount === 0 && linkPartners.length >= 2) {
-            return { fail: true, msg: '复发：玄冥联动' + linkPartners.length + '次但搭档' + linkPartners[0] + '从无单独攻击，可能 partner._acted 被无条件设 true（吞回合）' };
+            return { fail: true, msg: '复发：玄冥联动' + linkPartners.length + '次但搭档' + linkPartners[0] + '从无单独攻击，可能 partner.state._acted 被无条件设 true（吞回合）' };
         }
         return { fail: false };
     }

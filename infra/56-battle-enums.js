@@ -44,6 +44,16 @@ export const FACT_TYPES = Object.freeze({
     SPIDER_DEAD_TARGET: 'spiderDeadTarget', XING_FEN_GRANT: 'xingFenGrant'
 });
 
+/** Buff 类型：buff.key 唯一来源（与 CONFIG.BUFFS / XIAO_ZHAO_PERMANENT_BUFFS 11 项对应） */
+export const BUFF_TYPES = Object.freeze({
+    FORTIFY: 'fortify', BLOODTHIRST: 'bloodthirst',
+    METEOR_SHOWER: 'meteorShower', WIND_ASSAULT: 'windAssault',
+    CLOUD_BODY: 'cloudBody', HOT_BLOOD: 'hotBlood',
+    CARRY: 'carry', DOUBLE_STRIKE: 'doubleStrike',
+    MIND_CONTROL: 'mindControl', HORSE_FORMATION: 'horseFormation',
+    HOLY_FLAME: 'holyFlame'
+});
+
 /** 舞台动作类型：31 翻译和 42 消费的 kind 唯一来源 */
 export const STAGE_ACTION_TYPES = Object.freeze({
     ROUND_START: 'roundStart', ROUND_END: 'roundEnd', REST: 'rest',

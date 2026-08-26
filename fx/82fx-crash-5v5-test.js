@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// fx/82fx-crash-5v5-test.js - 光明顶5v5 飞撞与格挡特效
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// fx/82fx-crash-5v5-test.js - 光明顶5v5 飞撞与格挡特效
 // V5.5.0 | 2026-07-12 修复飞走模式原地残留蓝色格子（清除_flash标记）
 export const VER = 'fx/82fx-crash-5v5-test.js V5.5.0';
 
@@ -24,7 +24,7 @@ function finishCrash(clone, cell, unitA, UI) {
     const ctx = GlobalStore.get('playerContext');
     if (ctx && ctx.store) {
         const su = ctx.store.getState().units.find(u => u.uid === unitA.uid);
-        const wasFlying = su && su._flyMode;
+        const wasFlying = su && su.state && su.state._flyMode;
         ctx.store.dispatch({ type: STORE_ACTION_TYPES.SET_VISUAL, uid: unitA.uid, _flyMode: null, _acted: true });
         if (wasFlying) {
             ctx.store.dispatch({ type: STORE_ACTION_TYPES.SET_FLASH, uid: unitA.uid, flash: 'attack' });
@@ -173,7 +173,7 @@ export function showMeleeCrash(unitA, unitD, speed, getPausedFn, onCrash) {
         const ctxF = window._getPlayerContext ? window._getPlayerContext() : null;
         if (ctxF && ctxF.store) {
             ctxF.store.dispatch({ type: STORE_ACTION_TYPES.CLEAR_UNIT_FLASH, uid: unitA.uid });
-            ctxF.store.dispatch({ type: STORE_ACTION_TYPES.SET_VISUAL, uid: unitA.uid, _acted: true, 'state._flyMode': flyMode });
+            ctxF.store.dispatch({ type: STORE_ACTION_TYPES.SET_VISUAL, uid: unitA.uid, _acted: true, _flyMode: flyMode });
         }
         cellA.style.opacity = '0';
         cellA.style.transform = 'scale(0.8)';

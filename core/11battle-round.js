@@ -19,6 +19,7 @@ import { flushBattleEvents, setBattleState } from '../infra/51-core-utils.js';
 import { SeededRNG } from '../infra/51-core-utils.js';
 import { resolveDeaths } from './12battle-attack-steps.js';
 import { translateFactsToStageActions } from '../render/31-stage-actions.js';
+import { FACT_TYPES } from '../infra/56-battle-enums.js';
 
 const C = CONFIG;
 
@@ -31,15 +32,15 @@ async function prepareRoundStart(A, B, log, state, round, rng) {
     setBattleState('currentBattleState', null);
     flushBattleEvents();
 
-    log.push({ factType: 'roundStart', data: { round } });
+    log.push({ factType: FACT_TYPES.ROUND_START, data: { round } });
 
     const teamHorseA = spawnHorse(A, log, B);
     if (teamHorseA) {
-        log.push({ factType: 'horseSummon', data: { pos: teamHorseA.pos, horseUid: teamHorseA.uid, horseTaunt: '嘶——！' } });
+        log.push({ factType: FACT_TYPES.HORSE_SUMMON, data: { pos: teamHorseA.pos, horseUid: teamHorseA.uid, horseTaunt: '嘶——！' } });
     }
     const teamHorseB = spawnHorse(B, log, A);
     if (teamHorseB) {
-        log.push({ factType: 'horseSummon', data: { pos: teamHorseB.pos, horseUid: teamHorseB.uid, horseTaunt: '嘶——！' } });
+        log.push({ factType: FACT_TYPES.HORSE_SUMMON, data: { pos: teamHorseB.pos, horseUid: teamHorseB.uid, horseTaunt: '嘶——！' } });
     }
 
     let doubleStrikeUnitUid = null;
@@ -55,7 +56,7 @@ async function prepareRoundStart(A, B, log, state, round, rng) {
 
     if (doubleStrikeUnitUid) {
         const dsUnit = A.find(u => u.uid === doubleStrikeUnitUid);
-        if (dsUnit) log.push({ factType: 'doubleStrikeSummary', data: { unitName: dsUnit.name } });
+        if (dsUnit) log.push({ factType: FACT_TYPES.DOUBLE_STRIKE_SUMMARY, data: { unitName: dsUnit.name } });
     }
 
     log.filter(l => l.factType === 'horseSummon').forEach(hl => {
@@ -261,9 +262,8 @@ async function prepareRoundStart(A, B, log, state, round, rng) {
     logBuffSummary(A, log, doubleStrikeUnitUid);
 
     if (round === 1 && A.some(u => u.isXiaoZhaoSister && u.alive)) {
-        const requestDirection = typeof state.requestFlyDirection === 'function' ? state.requestFlyDirection : null;
-        const direction = requestDirection ? await requestDirection() : (A._flyDirection || 'right');
-        A._flyDirection = direction || 'right';
+        // 方向由播放器层在启动前弹窗获取并写入 state.ally._flyDirection，引擎层只消费
+        A._flyDirection = A._flyDirection || 'right';
     }
 
     const roundStartEvents = flushBattleEvents();
@@ -426,7 +426,7 @@ export async function* createRoundStepper(state) {
             }
             const passFact = { unit, reason, events: [] };
             passFact.events = flushBattleEvents();
-            log.push({ factType: 'pass', data: passFact });
+            log.push({ factType: FACT_TYPES.PASS, data: passFact });
             continue;
         }
 
@@ -550,7 +550,7 @@ function finalizeRoundEnd(A, B, log, round) {
         });
     }
 
-    log.push({ factType: 'roundEnd', data: { round } });
+    log.push({ factType: FACT_TYPES.ROUND_END, data: { round } });
 
     const endEvents = flushBattleEvents();
 

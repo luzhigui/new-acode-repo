@@ -6,6 +6,7 @@ import { CONFIG, getSkillParams } from './01config-5v5-test.js';
 import { getUnitRow, getUnitCol } from './03battle-utils.js';
 import { eventBus } from '../infra/50-event-bus.js';
 import { getBattleRng, swapUnitPositions } from './13battle-shared.js';
+import { FACT_TYPES } from '../infra/56-battle-enums.js';
 const C = CONFIG;
 
 export function applyFortifyDef_Normal(unit, stats) { stats.defBonus += CONFIG.BUFFS.fortify.defBonus; }
@@ -72,12 +73,12 @@ function applyMindControlCore(unit, allySide, enemySide, log, swapChanceEnemy, s
             let b; do { b = enemies[rng.nextInt(0, enemies.length-1)]; } while (b.uid === a.uid);
             let posA = a.pos, posB = b.pos;
             swapUnitPositions(a, b);
-            log.push({ factType: 'mindControlSwap', data: { side: 'enemy', unitA: a, unitB: b, posA, posB } });
+            log.push({ factType: FACT_TYPES.MIND_CONTROL_SWAP, data: { side: 'enemy', unitA: a, unitB: b, posA, posB } });
         } else {
-            log.push({ factType: 'mindControlFail', data: { side: 'enemy', reason: '可用单位不足' } });
+            log.push({ factType: FACT_TYPES.MIND_CONTROL_FAIL, data: { side: 'enemy', reason: '可用单位不足' } });
         }
     } else {
-        log.push({ factType: 'mindControlFail', data: { side: 'enemy', reason: '未触发' } });
+        log.push({ factType: FACT_TYPES.MIND_CONTROL_FAIL, data: { side: 'enemy', reason: '未触发' } });
     }
     if (rng.nextInt(1,100) <= swapChanceAlly) {
         let allies = allySide.filter(u => u.alive && u.state._flyMode !== 'butterfly' && u.state._flyMode !== 'spider' && !u.state._spiderFlying);
@@ -86,12 +87,12 @@ function applyMindControlCore(unit, allySide, enemySide, log, swapChanceEnemy, s
             let b; do { b = allies[rng.nextInt(0, allies.length-1)]; } while (b.uid === a.uid);
             let posA = a.pos, posB = b.pos;
             swapUnitPositions(a, b);
-            log.push({ factType: 'mindControlSwap', data: { side: 'ally', unitA: a, unitB: b, posA, posB } });
+            log.push({ factType: FACT_TYPES.MIND_CONTROL_SWAP, data: { side: 'ally', unitA: a, unitB: b, posA, posB } });
         } else {
-            log.push({ factType: 'mindControlFail', data: { side: 'ally', reason: '可用单位不足' } });
+            log.push({ factType: FACT_TYPES.MIND_CONTROL_FAIL, data: { side: 'ally', reason: '可用单位不足' } });
         }
     } else {
-        log.push({ factType: 'mindControlFail', data: { side: 'ally', reason: '未触发' } });
+        log.push({ factType: FACT_TYPES.MIND_CONTROL_FAIL, data: { side: 'ally', reason: '未触发' } });
     }
 
     eventBus.emit('onPositionSwap', { allySide, enemySide, log });

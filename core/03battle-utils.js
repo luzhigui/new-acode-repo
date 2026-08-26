@@ -5,6 +5,7 @@ export const VER = 'core/03battle-utils.js V5.7.3';
 import { CONFIG, getGameData } from './01config-5v5-test.js';
 import { emitEvent, applyStatChange, query, getBattleRng } from './13battle-shared.js';
 import { EXECUTION_LAYER as L, EFFECT_TYPES } from '../infra/50-event-bus.js';
+import { FACT_TYPES } from '../infra/56-battle-enums.js';
 import {
     calcDamage,
     getFangLevelPure,
@@ -233,7 +234,7 @@ export function registerRangedGrowth(eventBus) {
         });
         // _baseAtk 记账由裁定执行块（STAT_CHANGE）统一负责，此处直改会双扣
         if (group && group.data && group.data.entries) {
-            group.data.entries.push({ factType: 'rangedGrowth', data: { unitName: unit.name, growth, newAtk: Math.floor(unit.atk + growth) } });
+            group.data.entries.push({ factType: FACT_TYPES.RANGED_GROWTH, data: { unitName: unit.name, growth, newAtk: Math.floor(unit.atk + growth) } });
         }
     });
 }
@@ -253,7 +254,7 @@ export function registerWarriorExecute(eventBus) {
                 target: target,
                 source: unit,
                 threshold: threshold,
-                factType: 'warriorExecute',
+                factType: FACT_TYPES.WARRIOR_EXECUTE,
                 factData: { unitName: unit.name, targetName: target.name, unitUid: unit.uid, targetUid: target.uid }
             });
         }
@@ -279,7 +280,7 @@ export function registerFortifyShield(eventBus) {
             if (unit._baseDef !== undefined) unit._baseDef += increment;
         }
         // skipStatChange 路径（被击坚盾）：caller 推 STAT_CHANGE 声明，_baseDef 由裁定执行块记账，此处直改会双扣
-        const entry = { factType: 'fortifyShield', data: { unitName: unit.name, label, increment, current: unit._fortifyThisRound, cap } };
+        const entry = { factType: FACT_TYPES.FORTIFY_SHIELD, data: { unitName: unit.name, label, increment, current: unit._fortifyThisRound, cap } };
         if (group && group.data && group.data.entries) {
             group.data.entries.push(entry);
         } else if (log) {
@@ -322,7 +323,7 @@ export function registerDoubleStrike(eventBus, doubleStrikeUnitUid, allyTeam, ac
         const xiaoDoubleEnhance = query('xiaoHexEnhance', allyTeam, activeBuffs, 'doubleStrike');
         const missChainChance = xiaoDoubleEnhance ? 1.0 : (C.BUFFS.doubleStrike.prob || 0.8);
         if (getBattleRng().next() < missChainChance) {
-            log.push({ factType: 'doubleStrike', data: { success: true } });
+            log.push({ factType: FACT_TYPES.DOUBLE_STRIKE, data: { success: true } });
             unit._doubleStriked = true;
             if (!data.extraRequests) data.extraRequests = [];
             data.extraRequests.push({
@@ -334,7 +335,7 @@ export function registerDoubleStrike(eventBus, doubleStrikeUnitUid, allyTeam, ac
                 ignoreBlock: !!xiaoDoubleEnhance
             });
         } else {
-            log.push({ factType: 'doubleStrike', data: { success: false, unitName: unit.name } });
+            log.push({ factType: FACT_TYPES.DOUBLE_STRIKE, data: { success: false, unitName: unit.name } });
         }
     });
 }

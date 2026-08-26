@@ -12,6 +12,7 @@ import { CONFIG, getGameData } from './01config-5v5-test.js';
 import { hasBuff, getUnitRow, getUnitCol, getAdjacentPositions } from './03battle-utils.js';
 import { emitEvent, applyStatChange, applyMaxHpChange, query, getBattleRng, swapUnitPositions, moveUnitPosition } from './13battle-shared.js';
 import { EXECUTION_LAYER as L, EFFECT_TYPES } from '../infra/50-event-bus.js';
+import { FACT_TYPES } from '../infra/56-battle-enums.js';
 const C = CONFIG;
 
 /**
@@ -81,7 +82,7 @@ export function applyCarryBonus(unit, A, state, log, stats) {
 
         if (stats.carryAtkAbs || stats.carryDefAbs || stats.carryHpAbs) {
             log.push({
-                factType: 'carryApply',
+                factType: FACT_TYPES.CARRY_APPLY,
                 data: {
                     unitName: unit.name,
                     atk: stats.carryAtkAbs,
@@ -161,7 +162,7 @@ export function applyBuffEffectsAfterAttack(unit, target, dmg, allySide, enemySi
 export function logBuffSummary(allyTeam, log, doubleStrikeUid) {
     let buffs = allyTeam._activeBuffs || [];
     buffs.forEach(b => {
-        log.push({ factType: 'buffSummary', data: { buff: b, allyTeam, doubleStrikeUid } });
+        log.push({ factType: FACT_TYPES.BUFF_SUMMARY, data: { buff: b, allyTeam, doubleStrikeUid } });
     });
 }
 
@@ -180,7 +181,7 @@ export function registerBloodthirst(eventBus) {
                 type: EFFECT_TYPES.LEECH,
                 value: leechVal,
                 source: unit,
-                factType: 'bloodthirstLeech',
+                factType: FACT_TYPES.BLOOD_THIRST_LEECH,
                 factData: { unitName: unit.name, leechVal, isBrother: false }
             };
             if (!data.declarations) data.declarations = [];
@@ -202,7 +203,7 @@ export function registerBloodthirst(eventBus) {
                 type: EFFECT_TYPES.LEECH,
                 value: leechVal,
                 source: unit,
-                factType: 'bloodthirstLeech',
+                factType: FACT_TYPES.BLOOD_THIRST_LEECH,
                 factData: { unitName: unit.name, leechVal, isBrother: true }
             };
             if (!data.declarations) data.declarations = [];
@@ -241,7 +242,7 @@ export function registerHotBlood(eventBus) {
                     value: leech,
                     source: unit,
                     isDouble: tag.includes('翻倍'),
-                    factType: 'hotBloodHeal',
+                    factType: FACT_TYPES.HOT_BLOOD_HEAL,
                     factData: { unitName: unit.name, leech, tag, isBrother: false }
                 };
                 if (!data.declarations) data.declarations = [];
@@ -263,7 +264,7 @@ export function registerHotBlood(eventBus) {
                         value: leech,
                         source: unit,
                         isDouble: tag.includes('翻倍'),
-                        factType: 'hotBloodHeal',
+                        factType: FACT_TYPES.HOT_BLOOD_HEAL,
                         factData: { unitName: unit.name, leech, tag, isBrother: true }
                     };
                     if (!data.declarations) data.declarations = [];
@@ -303,7 +304,7 @@ export function registerWindAssault(eventBus) {
                     value: splashDmg,
                     targets: rowTargets,
                     buffType: 'wind_assault',
-                    factType: 'windAssaultSplash',
+                    factType: FACT_TYPES.WIND_ASSAULT_SPLASH,
                     factData: { label, targets: rowTargets, splashDmg }
                 };
                 if (!data.declarations) data.declarations = [];
@@ -321,19 +322,19 @@ export function registerWindAssault(eventBus) {
                     const behindOldPos = behindUnit.pos;
                     swapUnitPositions(target, behindUnit);
                     log.push({
-                        factType: 'windAssaultPush',
+                        factType: FACT_TYPES.WIND_ASSAULT_PUSH,
                         data: { label, target, behindUnit, oldPos, behindPos, behindOldPos }
                     });
                 } else {
                     moveUnitPosition(target, behindPos);
                     log.push({
-                        factType: 'windAssaultPush',
+                        factType: FACT_TYPES.WIND_ASSAULT_PUSH,
                         data: { label, target, behindUnit: null, oldPos, behindPos }
                     });
                 }
             }
         } else {
-            log.push({ factType: 'windAssaultFail', data: { label, reason: '击退触发失败' } });
+            log.push({ factType: FACT_TYPES.WIND_ASSAULT_FAIL, data: { label, reason: '击退触发失败' } });
         }
 
         eventBus.emit('onPositionSwap', { allySide, enemySide, log });
@@ -370,7 +371,7 @@ export function registerMeteorShower(eventBus) {
             value: bonusDmg,
             target: target,
             buffType: 'meteor_bonus',
-            factType: 'meteorShowerMain',
+            factType: FACT_TYPES.METEOR_SHOWER_MAIN,
             factData: { label, targetName: target.name, bonusDmg, defReduce: C.BUFFS.meteorShower.mainDefReduce || 2 }
         });
 
@@ -388,7 +389,7 @@ export function registerMeteorShower(eventBus) {
                 primaryUid: target.uid,
                 splashUids: splashTargets.map(st => st.uid),
                 splashDmg: splashDmg,
-                factType: 'meteorShowerSplash',
+                factType: FACT_TYPES.METEOR_SHOWER_SPLASH,
                 factData: { label, targets: splashTargets, splashDmg, defReduce: C.BUFFS.meteorShower.splashDefReduce || 1 }
             };
             data.declarations.push(decl);
