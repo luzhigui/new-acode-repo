@@ -7,6 +7,7 @@ import { CONFIG, getGameData } from './01config-5v5-test.js';
 import { StateMachine } from '../infra/51-core-utils.js';
 
 import { ROUND_STATE_KEYS, BATTLE_STATE_KEYS, ROUND_FIELD_KEYS, BATTLE_FIELD_KEYS, PERMANENT_FIELD_KEYS } from './17-state-keys.js';
+import { getEliteState, cloneEliteState } from './18-elite-state.js';
 
 let _uidCounter = 0;
 
@@ -91,6 +92,7 @@ export class Unit {
         this._fortifyCap = CONFIG.FORTIFY_CAP;
         this._dodgeStack = 0;
         this._linkedPartnerUid = null;  // 联动搭档 uid（宋青书↔周芷若、鹿杖客↔鹤笔翁）
+        getEliteState(this.uid);
     }
     clone(){
         let c=new Unit(this.name,this.m,this.role,this.camp);
@@ -98,15 +100,11 @@ export class Unit {
         for (const key of PERMANENT_FIELD_KEYS) {
             if (this[key] !== undefined) c[key] = this[key];
         }
-        // 整场数组/对象字段：深拷贝，避免克隆体与原体共享引用
-        c._kuaiLeStack = (this._kuaiLeStack || []).map(layer => ({ ...layer }));
-        c._permanentBuffs = (this._permanentBuffs || []).map(b => ({...b}));
-        c._masteredRoles = [...(this._masteredRoles || [])];
-        c._xuanmingPoison = this._xuanmingPoison ? { ...this._xuanmingPoison } : null;
+        // 精英机制状态由 18-elite-state 管理：cloneEliteState 负责整场字段复制
+        cloneEliteState(this.uid, c.uid);
         // 整场标量字段：浅拷贝（查表式）
         for (const key of BATTLE_FIELD_KEYS) {
             if (this[key] === undefined) continue;
-            if (key === '_kuaiLeStack' || key === '_permanentBuffs' || key === '_masteredRoles') continue; // 已深拷贝
             c[key] = this[key];
         }
         // 其余基础字段完整拷贝（atk/def/hp/pos/alive 等战斗必需字段）；跳过回合级顶层字段、state、fsm

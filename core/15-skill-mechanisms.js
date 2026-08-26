@@ -7,6 +7,7 @@ import { CONFIG } from './01config-5v5-test.js';
 import { registerDodgeRule } from './12battle-attack-steps.js';
 import { emitEvent, applyStatChange, applyMaxHpChange, getBattleRng } from './13battle-shared.js';
 import { checkKuLian, applyXingFenGrant, tickKuaiLeHeal, canXingFenTrigger, consumeXingFen } from '../modules/20elite-skills.js';
+import { getEliteState, setEliteState } from './18-elite-state.js';
 import { FACT_TYPES } from '../infra/56-battle-enums.js';
 
 // 安装声明式技能：把声明表翻译成 eventBus 监听
@@ -78,7 +79,7 @@ function installBeforeDamageEffects(eventBus, declarations) {
                 if (eff.type === 'ignoreDef') {
                     data.declarations.push({ type: EFFECT_TYPES.IGNORE_DEF, value: eff.ratio, source: data.unit });
                 } else if (eff.type === 'damageMultiplierIfPoisoned') {
-                    if (data.target._xuanmingPoison && data.target._xuanmingPoison.remaining > 0) {
+                    if (getEliteState(data.target.uid)._xuanmingPoison && getEliteState(data.target.uid)._xuanmingPoison.remaining > 0) {
                         data.declarations.push({ type: EFFECT_TYPES.DMG_MULTIPLIER, value: 1 + eff.bonus, source: data.unit, label: '鹿角杖法' });
                     }
                 } else if (eff.type === 'bonusLostHp') {
@@ -155,7 +156,7 @@ function installOnHitEffects(eventBus, A, B, declarations) {
                         });
                     }
                 } else if (eff.type === 'poison') {
-                    target._xuanmingPoison = { remaining: eff.duration, dotPercents: [...eff.dotPercents] };
+                    setEliteState(target.uid, { _xuanmingPoison: { remaining: eff.duration, dotPercents: [...eff.dotPercents] } });
                     if (data.log) data.log.push({ factType: FACT_TYPES.XUAN_MING_POISONED, data: { attackerName: unit.name, targetName: target.name, dotPercents: eff.dotPercents } });
                 } else if (eff.type === 'bonusLostHp') {
                     const lostHp = unit.maxHp - unit.hp;
@@ -189,7 +190,7 @@ function installPhantomDisguise(eventBus, declarations) {
         if (!decl) return;
         const enemyAlive = data.enemySide.filter(u => u.alive && !u.isHorse && !u._untargetable);
         if (enemyAlive.length > 0) {
-            unit.state._phantomTarget = enemyAlive[getBattleRng().nextInt(0, enemyAlive.length - 1)].uid;
+            setEliteState(unit.uid, { _phantomTarget: enemyAlive[getBattleRng().nextInt(0, enemyAlive.length - 1)].uid });
             const lostHp = unit.maxHp - unit.hp;
             if (lostHp > 0) {
                 const aliveCount = data.enemySide.filter(u => u.alive).length;
@@ -203,7 +204,7 @@ function installPhantomDisguise(eventBus, declarations) {
                     factData: { unitName: unit.name, heal }
                 });
             }
-            emitEvent(unit, 'hp-change', { hp:unit.hp, maxHp:unit.maxHp, alive:unit.alive, atk:unit.atk, def:unit.def, _phantomTarget:unit.state._phantomTarget });
+            emitEvent(unit, 'hp-change', { hp:unit.hp, maxHp:unit.maxHp, alive:unit.alive, atk:unit.atk, def:unit.def, _phantomTarget:getEliteState(unit.uid)._phantomTarget });
         }
     });
 
@@ -214,7 +215,7 @@ function installPhantomDisguise(eventBus, declarations) {
         let phantomDecl = null;
         let chengkun = null;
         for (const d of decls) {
-            const candidate = enemySide.find(u => u.name === d.name && u.alive && u.state._phantomTarget);
+            const candidate = enemySide.find(u => u.name === d.name && u.alive && getEliteState(u.uid)._phantomTarget);
             if (candidate) {
                 phantomDecl = d;
                 chengkun = candidate;
@@ -223,7 +224,7 @@ function installPhantomDisguise(eventBus, declarations) {
         }
         if (!phantomDecl || !chengkun) return;
 
-        const isPhantomTarget = chengkun.state._phantomTarget === unit.uid;
+        const isPhantomTarget = getEliteState(chengkun.uid)._phantomTarget === unit.uid;
         if (isPhantomTarget) {
             declaration.targetResult = chengkun;
             declaration.phantomFact = { factType: FACT_TYPES.PHANTOM_REVEAL, data: { unitName: unit.name, deceiver: chengkun.name } };
@@ -234,7 +235,7 @@ function installPhantomDisguise(eventBus, declarations) {
         const confuseChance = (phantomDecl.baseChance || 0.30) + (phantomDecl.per10pctLost || 0.06) * (lostHpPct * 10);
         if (getBattleRng().next() >= confuseChance) return;
 
-        const phantomTarget = allySide.find(u => u.alive && !u.isHorse && !u._untargetable && u.uid === chengkun.state._phantomTarget && u.uid !== unit.uid);
+        const phantomTarget = allySide.find(u => u.alive && !u.isHorse && !u._untargetable && u.uid === getEliteState(chengkun.uid)._phantomTarget && u.uid !== unit.uid);
         if (phantomTarget) {
             declaration.targetResult = phantomTarget;
             declaration.phantomFact = { factType: FACT_TYPES.PHANTOM_CONFUSE, data: { unitName: unit.name, deceiver: chengkun.name, targetName: phantomTarget.name } };
@@ -287,8 +288,8 @@ function installChainClaw(eventBus, A, B, declarations) {
         const baseHit = zhangAlive ? (decl.jealous?.baseDmg ?? decl.baseDmg ?? 2) : (decl.baseDmg ?? 1.5);
         const s = zhangAlive ? { ...decl, ...(decl.jealous || {}) } : decl;
 
-        if (!unit._nineYinFirstDone) {
-            unit._nineYinFirstDone = true;
+        if (!getEliteState(unit.uid)._nineYinFirstDone) {
+            setEliteState(unit.uid, { _nineYinFirstDone: true });
         } else {
             if (rng.next() > (s.procChance || 0.80)) return;
         }
@@ -359,7 +360,7 @@ function installKuLian(eventBus, A, B, declarations) {
         if (!decl) return;
         const kuLianSong = checkKuLian(B);
         if (!kuLianSong) return;
-        kuLianSong._kuLianActive = true;
+        setEliteState(kuLianSong.uid, { _kuLianActive: true });
         const s = {
             atkBonus: decl.atkBonus || 1,
             defBonus: decl.defBonus || 1,
@@ -394,7 +395,7 @@ function installXinHun(eventBus, A, B, declarations) {
         const hpDeduct = decl.hpDeduct || 1;
         const healLevels = decl.healLevels || [0.16, 0.10, 0.06, 0.03];
         applyStatChange(zhou, 'hp', -hpDeduct, unit, '新婚扣血', false);
-        zhou._kuaiLeStack.push({ healPct: healLevels[0] });
+        getEliteState(zhou.uid)._kuaiLeStack.push({ healPct: healLevels[0] });
         if (zhou.hp <= 0) { if (!zhou._deathTime) zhou._deathTime = Date.now(); }
         log.push({
             factType: FACT_TYPES.XIN_HUN,
@@ -403,15 +404,15 @@ function installXinHun(eventBus, A, B, declarations) {
                 targetName: zhou.name,
                 hpDeduct,
                 healPct: healLevels[0],
-                stackCount: zhou._kuaiLeStack.length,
+                stackCount: getEliteState(zhou.uid)._kuaiLeStack.length,
                 zhouUid: zhou.uid,
                 zhouHpAfter: zhou.hp,
                 isDead: !!zhou._pendingDeath
             }
         });
         if (zhou._pendingDeath) { log.push({ factType: FACT_TYPES.XIN_HUN_DEATH, data: { unitName: zhou.name, uidD: zhou.uid } }); }
-        unit._xingFenPenaltyCount = (unit._xingFenPenaltyCount || 0) + 1;
-        const penalty = unit._xingFenPenaltyCount + 1;
+        setEliteState(unit.uid, { _xingFenPenaltyCount: (getEliteState(unit.uid)._xingFenPenaltyCount || 0) + 1 });
+        const penalty = getEliteState(unit.uid)._xingFenPenaltyCount + 1;
         if (penalty > 0 && unit.maxHp > 1) {
             const oldMaxHp = unit.maxHp;
             applyMaxHpChange(unit, Math.max(1, unit.maxHp - penalty), null, '性奋代价');

@@ -15,6 +15,7 @@ import { getEliteFactories } from './08-elite-registry.js';
 import { processUnitAttack } from './10battle-attack.js';
 import { eventBus, EXECUTION_LAYER as L } from '../infra/50-event-bus.js';
 import { getNextAvailableUnit, finalizeDeaths, emitFullUnitState, checkZhangSwitch, emitEvent, applyStatChange, setBattleRng } from './13battle-shared.js';
+import { getEliteState, setEliteState, cloneEliteState, resetEliteRoundState } from './18-elite-state.js';
 import { flushBattleEvents, setBattleState } from '../infra/51-core-utils.js';
 import { SeededRNG } from '../infra/51-core-utils.js';
 import { resolveDeaths } from './12battle-attack-steps.js';
@@ -102,7 +103,7 @@ async function prepareRoundStart(A, B, log, state, round, rng) {
     registerWarriorExecute(eventBus);
     installBuffMechanics(eventBus);
     eventBus.on('beforeActionSelect', L.BEFORE_ACTION.KULIAN_PRIORITY, (data) => {
-        if (data.unit.name !== '宋青书' || !data.unit.alive || !data.unit._kuLianActive) return;
+        if (data.unit.name !== '宋青书' || !data.unit.alive || !getEliteState(data.unit.uid)._kuLianActive) return;
         data.declaration.priority = 1;
     });
     eventBus.on('beforeSelectTarget', L.BEFORE_SELECT_TARGET.FLY_TARGET, (data) => {
@@ -143,10 +144,10 @@ async function prepareRoundStart(A, B, log, state, round, rng) {
 
     const song = B.find(u => u.name === '宋青书' && u.alive);
     const zhou = B.find(u => u.name === '周芷若' && u.alive);
-    if (song && zhou) { song._linkedPartnerUid = zhou.uid; zhou._linkedPartnerUid = song.uid; }
+    if (song && zhou) { setEliteState(song.uid, { _linkedPartnerUid: zhou.uid }); setEliteState(zhou.uid, { _linkedPartnerUid: song.uid }); }
     const lu = B.find(u => u.name === '鹿杖客' && u.alive);
     const he = B.find(u => u.name === '鹤笔翁' && u.alive);
-    if (lu && he) { lu._linkedPartnerUid = he.uid; he._linkedPartnerUid = lu.uid; }
+    if (lu && he) { setEliteState(lu.uid, { _linkedPartnerUid: he.uid }); setEliteState(he.uid, { _linkedPartnerUid: lu.uid }); }
 
     eventBus.emit('onRoundStart', { A, B, log });
 
@@ -192,16 +193,16 @@ async function prepareRoundStart(A, B, log, state, round, rng) {
 
         // 回合级状态统一重置（查表式，新增回合级字段由 17-state-keys 驱动，无需改这里）
         for (const key of ROUND_STATE_KEYS) {
+            if (key === '_spiderTriggeredThisRound' || key === '_phantomTarget') continue; // 归 resetEliteRoundState 管
             if (key === '_stunned') u.state[key] = false;
             else if (key === '_acted' || key === '_resting' || key === '_blocked') u.state[key] = false;
             else if (key === '_spiderFlying') u.state[key] = false;
-            else if (key === '_phantomTarget') u.state[key] = null;
             else u.state[key] = false;
         }
         for (const key of ROUND_FIELD_KEYS) {
             u[key] = false;
         }
-        u._nineYinFirstDone = false;
+        resetEliteRoundState(u.uid);
         u.state._restingTimer && clearTimeout(u.state._restingTimer), u.state._restingTimer = null;
         u._doubleStriked = false;
         u._xingFenExtraAttacking = false;
@@ -219,16 +220,16 @@ async function prepareRoundStart(A, B, log, state, round, rng) {
         emitEvent(u, 'hp-change', { hp: u.hp, maxHp: u.maxHp, alive: u.alive, atk: u.atk, def: u.def, _stunned: false });
         // 回合级状态统一重置（查表式，与 A 队一致）
         for (const key of ROUND_STATE_KEYS) {
+            if (key === '_spiderTriggeredThisRound' || key === '_phantomTarget') continue; // 归 resetEliteRoundState 管
             if (key === '_stunned') u.state[key] = false;
             else if (key === '_acted' || key === '_resting' || key === '_blocked') u.state[key] = false;
             else if (key === '_spiderFlying') u.state[key] = false;
-            else if (key === '_phantomTarget') u.state[key] = null;
             else u.state[key] = false;
         }
         for (const key of ROUND_FIELD_KEYS) {
             u[key] = false;
         }
-        u._nineYinFirstDone = false;
+        resetEliteRoundState(u.uid);
         u._doubleStriked = false;
         u._xingFenExtraAttacking = false;
         u._xiaoZhaoDoubleStriked = false;

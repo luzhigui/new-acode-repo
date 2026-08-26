@@ -6,18 +6,20 @@ import { getSkillParams } from '../core/01config-5v5-test.js';
 import { getRoleBonus, getHpDmgRatio } from '../core/02unit.js';
 import { hasBuff } from '../core/03battle-utils.js';
 import { emitEvent, applyStatChange, applyMaxHpChange, registerQuery, getBattleRng } from '../core/13battle-shared.js';
+import { getEliteState, setEliteState } from '../core/18-elite-state.js';
 import { FACT_TYPES } from '../infra/56-battle-enums.js';
 
 // ==================== 玄冥二老 — 中毒/鹿角 ====================
 
 export function tickXuanmingPoison(unit, source) {
     if (!unit.alive) return 0;
-    if (!unit._xuanmingPoison || unit._xuanmingPoison.remaining <= 0) return 0;
-    unit._xuanmingPoison.remaining--;
+    const poison = getEliteState(unit.uid)._xuanmingPoison;
+    if (!poison || poison.remaining <= 0) return 0;
+    poison.remaining--;
     const s = getSkillParams('鹿杖客', 'xuanmingPalm');
     if (!s) throw new Error('缺技能参数: 鹿杖客.xuanmingPalm');
-    const idx = Math.min(unit._xuanmingPoison.dotPercents.length - 1, s.duration - 1 - unit._xuanmingPoison.remaining);
-    const pct = unit._xuanmingPoison.dotPercents[idx] || 0;
+    const idx = Math.min(poison.dotPercents.length - 1, s.duration - 1 - poison.remaining);
+    const pct = poison.dotPercents[idx] || 0;
     const dot = Math.floor(unit.maxHp * pct);
     applyStatChange(unit, 'hp', -dot, source, '玄冥中毒');
     return dot;
@@ -103,7 +105,7 @@ export function applyXingFenGrant(allyTeam, log) {
     const zhou = allyTeam.find(u => u.name === '周芷若' && u.alive);
     const song = allyTeam.find(u => u.name === '宋青书' && u.alive);
     if (!zhou || !song) return;
-    song._xingFenActive = true;
+    setEliteState(song.uid, { _xingFenActive: true });
     log.push({
         factType: FACT_TYPES.XING_FEN_GRANT,
         data: { zhouName: zhou.name, songName: song.name }
@@ -112,11 +114,11 @@ export function applyXingFenGrant(allyTeam, log) {
 
 export function tickKuaiLeHeal(allUnits, log) {
     allUnits.forEach(unit => {
-        if (!unit._kuaiLeStack || unit._kuaiLeStack.length === 0) return;
+        if (!getEliteState(unit.uid)._kuaiLeStack || getEliteState(unit.uid)._kuaiLeStack.length === 0) return;
         if (!unit.alive) return;
         let totalHeal = 0;
         const newStack = [];
-        unit._kuaiLeStack.forEach(layer => {
+        getEliteState(unit.uid)._kuaiLeStack.forEach(layer => {
             const healAmount = Math.floor(unit.maxHp * layer.healPct);
             totalHeal += healAmount;
             const levels = getSkillParams('宋青书', 'xinHun').healLevels;
@@ -137,23 +139,23 @@ export function tickKuaiLeHeal(allUnits, log) {
                     heal: totalHeal,
                     hpBefore,
                     hpAfter: Math.floor(unit.hp),
-                    layers: unit._kuaiLeStack.length
+                    layers: getEliteState(unit.uid)._kuaiLeStack.length
                 }
             });
         }
-        unit._kuaiLeStack = newStack;
+        setEliteState(unit.uid, { _kuaiLeStack: newStack });
     });
 }
 
 export function canXingFenTrigger(attacker) {
     if (attacker.name !== '宋青书') return false;
-    if (!attacker._xingFenActive) return false;
+    if (!getEliteState(attacker.uid)._xingFenActive) return false;
     if (!attacker.alive) return false;
     return true;
 }
 
 export function consumeXingFen(attacker) {
-    attacker._xingFenActive = false;
+    setEliteState(attacker.uid, { _xingFenActive: false });
 }
 
 // ==================== 小昭·妹 — 蛛变/飞天/蛛落 ====================
@@ -170,9 +172,9 @@ export function spiderTransform(unit, log) {
     const newRole = availableRoles[rng.nextInt(0, availableRoles.length - 1)];
     unit._lastRole = newRole;
 
-    if (!unit._masteredRoles) unit._masteredRoles = [];
-    const isNewMastery = !unit._masteredRoles.includes(newRole);
-    if (isNewMastery) unit._masteredRoles.push(newRole);
+    if (!getEliteState(unit.uid)._masteredRoles) setEliteState(unit.uid, { _masteredRoles: [] });
+    const isNewMastery = !getEliteState(unit.uid)._masteredRoles.includes(newRole);
+    if (isNewMastery) getEliteState(unit.uid)._masteredRoles.push(newRole);
 
     // 蛛变：职业加成永久叠加（每变一次吃一份新职业加成，不扣旧的），本身无额外属性
     const newStats = getRoleBonus(newRole);
@@ -190,7 +192,7 @@ export function spiderTransform(unit, log) {
     if (isNewMastery) {
         const m = getSkillParams('小昭', 'mastery');
         if (!m) throw new Error('缺技能参数: 小昭.mastery');
-        const gained = masteryLayers(unit._masteredRoles.length) - masteryLayers(unit._masteredRoles.length - 1);
+        const gained = masteryLayers(getEliteState(unit.uid)._masteredRoles.length) - masteryLayers(getEliteState(unit.uid)._masteredRoles.length - 1);
         if (gained > 0) {
             const gAtk = gained * m.atkPer, gDef = gained * m.defPer, gHp = gained * m.hpPer;
             applyStatChange(unit, 'atk', gAtk, null, '精通');
@@ -204,7 +206,7 @@ export function spiderTransform(unit, log) {
     }
 
     emitEvent(unit, 'hp-change', { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: unit.atk, def: unit.def, role: newRole });
-    log.push({ factType: FACT_TYPES.SPIDER_TRANSFORM, data: { unitName: unit.name, newRole, mastered: unit._masteredRoles.length, masteryGain } });
+    log.push({ factType: FACT_TYPES.SPIDER_TRANSFORM, data: { unitName: unit.name, newRole, mastered: getEliteState(unit.uid)._masteredRoles.length, masteryGain } });
 }
 
 export function spiderReturn(unit, allyTeam, enemySide, log) {
@@ -231,7 +233,7 @@ export function spiderReturn(unit, allyTeam, enemySide, log) {
         const target = aliveEnemies[rng.nextInt(0, aliveEnemies.length - 1)];
         if (!target.alive) { log.push({ factType: FACT_TYPES.SPIDER_DEAD_TARGET, data: {} }); return; }
         const penetrationDmg = Math.floor(unit.atk * (unit.atk / (unit.atk + target.def)));
-        const masteryCount = unit._masteredRoles?.length || 0;
+        const masteryCount = getEliteState(unit.uid)._masteredRoles?.length || 0;
         const params = getSkillParams('小昭', 'spiderStrike');
         if (!params) throw new Error('缺技能参数: 小昭.spiderStrike');
         const extraDmgMap = params.extraDmgMap;
@@ -260,9 +262,9 @@ export function spiderReturn(unit, allyTeam, enemySide, log) {
 
 export function addPermanentBuff(xiaoZhao, buffKey, buffName, extraFields = {}) {
     if (!xiaoZhao || !xiaoZhao.isXiaoZhaoBrother) return;
-    if (!xiaoZhao._permanentBuffs) xiaoZhao._permanentBuffs = [];
-    if (xiaoZhao._permanentBuffs.some(b => b.key === buffKey)) return;
-    xiaoZhao._permanentBuffs.push({
+    if (!getEliteState(xiaoZhao.uid)._permanentBuffs) setEliteState(xiaoZhao.uid, { _permanentBuffs: [] });
+    if (getEliteState(xiaoZhao.uid)._permanentBuffs.some(b => b.key === buffKey)) return;
+    getEliteState(xiaoZhao.uid)._permanentBuffs.push({
         key: buffKey,
         target: 'ally',
         remaining: Infinity,
@@ -272,9 +274,9 @@ export function addPermanentBuff(xiaoZhao, buffKey, buffName, extraFields = {}) 
 }
 
 export function isXiaoZhaoPermanentActive(unit, activeBuffs, buffKey) {
-    if (!unit || !unit.isXiaoZhaoBrother || !unit._permanentBuffs) return false;
+    if (!unit || !unit.isXiaoZhaoBrother || !getEliteState(unit.uid)._permanentBuffs) return false;
     if (activeBuffs && hasBuff(activeBuffs, buffKey)) return false;
-    return unit._permanentBuffs.some(b => b.key === buffKey);
+    return getEliteState(unit.uid)._permanentBuffs.some(b => b.key === buffKey);
 }
 
 export function getXiaoZhaoHexEnhance(allyTeam, activeBuffs, hexKey) {

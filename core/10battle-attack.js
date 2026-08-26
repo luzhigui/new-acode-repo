@@ -19,6 +19,7 @@ import {
 } from './12battle-attack-steps.js';
 import { eventBus, EFFECT_TYPES } from '../infra/50-event-bus.js';
 import { flushBattleEvents } from '../infra/51-core-utils.js';
+import { getEliteState } from './18-elite-state.js';
 
 import { emitEvent, applyStatChange, recordCombatStat } from './13battle-shared.js';
 import { FACT_TYPES } from '../infra/56-battle-enums.js';
@@ -151,7 +152,7 @@ export async function processUnitAttack(unit, allySide, enemySide, log, A, B, st
         immuneFact.events = flushBattleEvents();
         log.push({ factType: FACT_TYPES.IMMUNE, data: immuneFact });
 
-        if (!unit._isLinkAttack) unit.state._acted = true;
+        if (!getEliteState(unit.uid)._isLinkAttack) unit.state._acted = true;
         return true;
     }
 
@@ -223,8 +224,8 @@ export async function processUnitAttack(unit, allySide, enemySide, log, A, B, st
         }
     }
 
-    if (!unit._isLinkAttack) unit.state._acted = true;
-
+    if (!getEliteState(unit.uid)._isLinkAttack) unit.state._acted = true;
+    }
     group._events = (group._events || []).concat(flushBattleEvents());
 
     const extraRequests = [];
