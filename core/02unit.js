@@ -1,10 +1,12 @@
 // core/02unit.js - 光明顶5v5 战斗单位类
-// V5.6.0 | ~6500 bytes| 2026-08-24 z值分档表修正（最高档门槛0.60→0.57，等差序列0.06~0.015）并抽公共函数；initXiaoZhao 初始化即锁 z 值
-export const VER = 'core/02unit.js V5.6.0';
+// V5.6.1 | ~6900 bytes| 2026-08-26 clone 查表化：state 只拷整场键、回合级字段不拷，由 17-state-keys 驱动
+export const VER = 'core/02unit.js V5.6.1';
 
 import { CONFIG, getGameData } from './01config-5v5-test.js';
 
 import { StateMachine } from '../infra/51-core-utils.js';
+
+import { ROUND_STATE_KEYS, BATTLE_STATE_KEYS, ROUND_FIELD_KEYS, BATTLE_FIELD_KEYS, PERMANENT_FIELD_KEYS } from './17-state-keys.js';
 
 let _uidCounter = 0;
 
@@ -92,18 +94,35 @@ export class Unit {
     }
     clone(){
         let c=new Unit(this.name,this.m,this.role,this.camp);
-        // 基础类型自动拷贝（跳过需要深拷贝的数组/对象字段）
-        const deepKeys = ['_kuaiLeStack', '_permanentBuffs', '_masteredRoles', '_xuanmingPoison', 'state', '_fsm'];
-        for (const key of Object.keys(this)) {
-            if (deepKeys.includes(key)) continue;
+        // 永久字段：浅拷贝（查表式，永不重置）
+        for (const key of PERMANENT_FIELD_KEYS) {
+            if (this[key] !== undefined) c[key] = this[key];
+        }
+        // 整场数组/对象字段：深拷贝，避免克隆体与原体共享引用
+        c._kuaiLeStack = (this._kuaiLeStack || []).map(layer => ({ ...layer }));
+        c._permanentBuffs = (this._permanentBuffs || []).map(b => ({...b}));
+        c._masteredRoles = [...(this._masteredRoles || [])];
+        c._xuanmingPoison = this._xuanmingPoison ? { ...this._xuanmingPoison } : null;
+        // 整场标量字段：浅拷贝（查表式）
+        for (const key of BATTLE_FIELD_KEYS) {
+            if (this[key] === undefined) continue;
+            if (key === '_kuaiLeStack' || key === '_permanentBuffs' || key === '_masteredRoles') continue; // 已深拷贝
             c[key] = this[key];
         }
-        // 需要深拷贝的字段
-        c._kuaiLeStack = this._kuaiLeStack.map(layer => ({ ...layer }));
-        c._permanentBuffs = this._permanentBuffs.map(b => ({...b}));
-        c._masteredRoles = [...this._masteredRoles];
-        c._xuanmingPoison = this._xuanmingPoison ? { ...this._xuanmingPoison } : null;
-        c.state = { ...this.state };
+        // 其余基础字段完整拷贝（atk/def/hp/pos/alive 等战斗必需字段）；跳过回合级顶层字段、state、fsm
+        for (const key of Object.keys(this)) {
+            if (key === 'state' || key === '_fsm') continue;
+            if (ROUND_FIELD_KEYS.includes(key)) continue; // 回合级字段不拷，克隆体=回合初态
+            c[key] = this[key];
+        }
+        // state：只拷整场状态（BATTLE_STATE_KEYS）；回合级状态取回合初态（查表式）
+        c.state = {};
+        for (const key of BATTLE_STATE_KEYS) {
+            if (this.state[key] !== undefined) c.state[key] = this.state[key];
+        }
+        for (const key of ROUND_STATE_KEYS) {
+            c.state[key] = key === '_phantomTarget' ? null : false;
+        }
         // FSM：重建新实例，深拷贝 transitions 避免共享引用
         if (this._fsm) {
             const tr = this._fsm.transitions ? JSON.parse(JSON.stringify(this._fsm.transitions)) : null;

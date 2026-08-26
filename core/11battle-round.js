@@ -1,8 +1,9 @@
 // core/11battle-round.js - 光明顶5v5 回合循环与生成器
-// V5.6.0 | ~23500 bytes| 2026-08-24 圣火强化参数直读 JSON（小昭.hexEnhance），去 ELITE_SKILLS 兜底
-export const VER = 'core/11battle-round.js V5.6.0';
+// V5.6.1 | ~23700 bytes| 2026-08-26 回合开始重置查表化（17-state-keys），_spiderFlying 等回合级字段统一复位
+export const VER = 'core/11battle-round.js V5.6.1';
 
 import { CONFIG, getGameData, getSkillParams } from './01config-5v5-test.js';
+import { ROUND_STATE_KEYS, ROUND_FIELD_KEYS } from './17-state-keys.js';
 import { isMelee, isBlocked, makeFXSnapshot, hasBuff, getUnitCol, getUnitRow, hasAnyEnemyEmptyCol, countEnemyEmptyCols, getBloodAuraBonus, getAuraBonuses, registerWarriorBreakDefense, registerRangedGrowth, registerFortifyShield, registerWarriorExecute, selectFlyTarget, registerEmptyColBonus, registerDoubleStrike } from './03battle-utils.js';
 import { computeBuffStats, logBuffSummary, applyHolyFlameBonus, applyFortifyBonus, applyCarryBonus, installBuffMechanics } from './04buff-system.js';
 import { spawnHorse, destroyHorse } from './05battle-horse.js';
@@ -188,13 +189,19 @@ async function prepareRoundStart(A, B, log, state, round, rng) {
 
         emitEvent(u, 'hp-change', { hp: u.hp, maxHp: u.maxHp, alive: u.alive, atk: u.atk, def: u.def });
 
-        u.state._acted = false;
-        u.state._resting = false;
-        if (u.state._restingTimer) { clearTimeout(u.state._restingTimer); u.state._restingTimer = null; }
+        // 回合级状态统一重置（查表式，新增回合级字段由 17-state-keys 驱动，无需改这里）
+        for (const key of ROUND_STATE_KEYS) {
+            if (key === '_stunned') u.state[key] = false;
+            else if (key === '_acted' || key === '_resting' || key === '_blocked') u.state[key] = false;
+            else if (key === '_spiderFlying') u.state[key] = false;
+            else if (key === '_phantomTarget') u.state[key] = null;
+            else u.state[key] = false;
+        }
+        for (const key of ROUND_FIELD_KEYS) {
+            u[key] = false;
+        }
+        u.state._restingTimer && clearTimeout(u.state._restingTimer), u.state._restingTimer = null;
         u._doubleStriked = false;
-        u.state._stunned = false;
-        u._nineYinFirstDone = false;
-        u._xingFenActive = false;
         u._xingFenExtraAttacking = false;
         u._xiaoZhaoDoubleStriked = false;
         u._bloodthirstStriked = false;
@@ -208,12 +215,18 @@ async function prepareRoundStart(A, B, log, state, round, rng) {
     B.forEach(u => {
         if (!u.alive) return;
         emitEvent(u, 'hp-change', { hp: u.hp, maxHp: u.maxHp, alive: u.alive, atk: u.atk, def: u.def, _stunned: false });
-        u.state._acted = false;
-        u.state._resting = false;
+        // 回合级状态统一重置（查表式，与 A 队一致）
+        for (const key of ROUND_STATE_KEYS) {
+            if (key === '_stunned') u.state[key] = false;
+            else if (key === '_acted' || key === '_resting' || key === '_blocked') u.state[key] = false;
+            else if (key === '_spiderFlying') u.state[key] = false;
+            else if (key === '_phantomTarget') u.state[key] = null;
+            else u.state[key] = false;
+        }
+        for (const key of ROUND_FIELD_KEYS) {
+            u[key] = false;
+        }
         u._doubleStriked = false;
-        u.state._stunned = false;
-        u._nineYinFirstDone = false;
-        u._xingFenActive = false;
         u._xingFenExtraAttacking = false;
         u._xiaoZhaoDoubleStriked = false;
         u._bloodthirstStriked = false;
