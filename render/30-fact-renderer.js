@@ -1,6 +1,7 @@
 // render/30-fact-renderer.js - 光明顶5v5 事实渲染器
 // V5.7.6 | ~36500 bytes| 2026-08-26 renderLog 入口校验 + factType 枚举化（FACT_TYPES）
 import { CONFIG, getSkillParams } from '../core/01config-5v5-test.js';
+import { getEliteState } from '../core/18-elite-state.js';
 import { calcDamage, getFangLevelPure, makeFXSnapshot } from '../infra/51-core-utils.js';
 import { FACT_TYPES, BUFF_TYPES } from '../infra/56-battle-enums.js';
 export const VER = 'render/30-fact-renderer.js V5.7.6';
@@ -95,8 +96,8 @@ export function renderAttackFact(fact) {
     const nearAtkCount = snap.attackerNearAtkCount !== undefined ? snap.attackerNearAtkCount : unit.nearAtkCount;
     const atkBonusAbs = snap.attackerAtkBonusAbs !== undefined ? snap.attackerAtkBonusAbs : Math.floor(unit.atk * fact.attackerBuffStats.atkBonus);
     const defBonusAbs = snap.targetDefBonusAbs !== undefined ? snap.targetDefBonusAbs : Math.floor(target.def * fact.defenderBuffStats.defBonus);
-    const isKuLianAttack = snap.isKuLianAttack !== undefined ? snap.isKuLianAttack : !!(unit.name === '宋青书' && unit._kuLianActive);
-    const isLinkAttack = snap.isLinkAttack !== undefined ? snap.isLinkAttack : !!unit._isLinkAttack;
+    const isKuLianAttack = snap.isKuLianAttack !== undefined ? snap.isKuLianAttack : !!(unit.name === '宋青书' && getEliteState(unit.uid)._kuLianActive);
+    const isLinkAttack = snap.isLinkAttack !== undefined ? snap.isLinkAttack : !!getEliteState(unit.uid)._isLinkAttack;
     const fxSnapshot = snap.attackerPos !== undefined && snap.targetPos !== undefined
         ? { attackerPos: snap.attackerPos, defenderPos: snap.targetPos }
         : makeFXSnapshot(unit, target);

@@ -1,9 +1,10 @@
-﻿// ui/62ui-render-5v5-test.js - 光明顶5v5 UI渲染模块（薄壳）
+// ui/62ui-render-5v5-test.js - 光明顶5v5 UI渲染模块（薄壳）
 // V5.5.1 | ~12500 bytes| 2026-08-17 格子渲染下沉至render/32，UI保留弹窗/胜利/日志
 export const VER = 'ui/62ui-render-5v5-test.js V5.5.1';
 
 import { getSkillDesc } from '../core/01config-5v5-test.js';
 import { getAuraBonuses } from '../core/03battle-utils.js';
+import { getEliteState } from '../core/18-elite-state.js';
 import {
     renderGrid,
     updateGridUI,
@@ -131,9 +132,9 @@ function updateDetailPopupContent() {
     let buffText = '无';
     let masteryText = '';
     if (u.isXiaoZhaoSister || u.isXiaoZhaoBrother) {
-        const perms = u._permanentBuffs || [];
+        const perms = getEliteState(u.uid)._permanentBuffs || [];
         buffText = perms.length > 0 ? perms.map(b => b.name).join('、') : '无';
-        const mastered = u._masteredRoles || [];
+        const mastered = getEliteState(u.uid)._masteredRoles || [];
         masteryText = mastered.length > 0 ? `<span style="color:#888;">精通</span><span>${mastered.join('、')}（${mastered.length}/4，+${mastered.length * 2}攻+${mastered.length * 3}防+${(mastered.length * 12.5).toFixed(1)}血）</span>` : '';
     } else if (unitBuffs.length > 0) {
         buffText = unitBuffs.map(b => `${b.name}(${b.remaining}回)`).join('、');

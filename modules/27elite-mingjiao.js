@@ -11,6 +11,7 @@ import { checkZhangSwitch, emitEvent, applyStatChange, applyMaxHpChange, getBatt
 import { EXECUTION_LAYER as L, EFFECT_TYPES } from '../infra/50-event-bus.js';
 import { registerDodgeRule } from '../core/12battle-attack-steps.js';
 import { StateMachine } from '../infra/51-core-utils.js';
+import { getEliteState, setEliteState } from '../core/18-elite-state.js';
 import { FACT_TYPES } from '../infra/56-battle-enums.js';
 
 // ==================== 张无忌 ====================
@@ -268,7 +269,7 @@ export function createXiaoZhaoSisterComponent() {
             const atkTransfer = Math.floor(sister._baseAtk * atkRatio);
             const defTransfer = Math.floor(sister._baseDef * defRatio);
             const hpTransfer = Math.floor(sister.hp * hpRatio);
-            sister._butterflyHpTransfer = hpTransfer;
+            setEliteState(sister.uid, { _butterflyHpTransfer: hpTransfer });
             host._butterflyHpBonus = (host._butterflyHpBonus || 0) + hpTransfer;
             host._butterflyAtkBonus += atkTransfer; host._butterflyDefBonus += defTransfer;
             applyStatChange(host, 'atk', atkTransfer, sister, '蝶变附身');
@@ -316,10 +317,7 @@ export function createXiaoZhaoSisterComponent() {
                 }
                 sister.state._flyMode = null; sister._untargetable = false;
                 sister.state._butterflyHost = null;
-                sister._butterflyAtk = 0;
-                sister._butterflyDef = 0;
-                sister._butterflyHp = 0;
-                sister._butterflyHpTransfer = 0;
+                setEliteState(sister.uid, { _butterflyAtk: 0, _butterflyDef: 0, _butterflyHp: 0, _butterflyHpTransfer: 0 });
                 sister._fsm.transition('normal');
                 log.push({ factType: FACT_TYPES.BUTTERFLY_HOST_DEAD, data: { sisterName: sister.name, isDead: !sister.alive, sisterUid: sister.uid } });
                 return;
@@ -342,7 +340,7 @@ export function createXiaoZhaoSisterComponent() {
                 host._butterflyAtkBonus = 0;
                 host._butterflyDefBonus = 0;
                 host._butterflyHpBonus = 0;
-                const hpTransfer = sister._butterflyHpTransfer || 0;
+                const hpTransfer = getEliteState(sister.uid)._butterflyHpTransfer || 0;
                 applyMaxHpChange(host, Math.max(1, host.maxHp - hpTransfer), sister, '蝶变飞回血上限');
                 emitEvent(host, 'hp-change', {
                     hp: host.hp, maxHp: host.maxHp, alive: host.alive,
@@ -350,10 +348,7 @@ export function createXiaoZhaoSisterComponent() {
                 });
             }
             sister.state._butterflyHost = null;
-            sister._butterflyAtk = 0;
-            sister._butterflyDef = 0;
-            sister._butterflyHp = 0;
-            sister._butterflyHpTransfer = 0;
+            setEliteState(sister.uid, { _butterflyAtk: 0, _butterflyDef: 0, _butterflyHp: 0, _butterflyHpTransfer: 0 });
             if (!A.find(a => a.uid === sister.uid)) {
                 A.push(sister);
             }
@@ -413,23 +408,24 @@ export function createXiaoZhaoBrotherComponent() {
                         const currentLog = (data && data.log) ? data.log : log;
                         let reason = data ? data.reason : '';
                         const incomingDmg = data ? data.incomingDmg : 0;
-                        if (!brother.state._spiderTriggered70 && brother.hp > brother.maxHp * 0.7) {
-                            brother.state._spiderTriggered70 = true;
+                        if (!getEliteState(brother.uid)._spiderTriggered70 && brother.hp > brother.maxHp * 0.7) {
+                            setEliteState(brother.uid, { _spiderTriggered70: true });
                             reason = reason || '血量即将低于70%';
-                        } else if (!brother.state._spiderTriggered40 && brother.hp > brother.maxHp * 0.4) {
-                            brother.state._spiderTriggered40 = true;
+                        } else if (!getEliteState(brother.uid)._spiderTriggered40 && brother.hp > brother.maxHp * 0.4) {
+                            setEliteState(brother.uid, { _spiderTriggered40: true });
                             reason = reason || '血量即将低于40%';
-                        } else if (!brother.state._spiderTriggeredDeath) {
-                            brother.state._spiderTriggeredDeath = true;
+                        } else if (!getEliteState(brother.uid)._spiderTriggeredDeath) {
+                            setEliteState(brother.uid, { _spiderTriggeredDeath: true });
                             reason = reason || '即将阵亡';
                         }
-                        brother.state._spiderTriggeredThisRound = true;
-                        brother._spiderRemaining = Math.max(0, (brother._spiderRemaining ?? 3) - 1);
+                        setEliteState(brother.uid, { _spiderTriggeredThisRound: true });
+                        const esRemaining = getEliteState(brother.uid)._spiderRemaining;
+                        setEliteState(brother.uid, { _spiderRemaining: Math.max(0, (esRemaining ?? 3) - 1) });
                         brother.state._spiderFlying = true;
                         brother.state._flyMode = 'spider';
                         brother.state._acted = true;
                         emitEvent(brother, 'hp-change', { hp:brother.hp, maxHp:brother.maxHp, alive:brother.alive, atk:brother.atk, def:brother.def, _flyMode:'spider', _spiderFlying:true });
-                        brother._flyFactData = { unitName: brother.name, spiderUid: brother.uid, reason, incomingDmg, remaining: brother._spiderRemaining };
+                        brother._flyFactData = { unitName: brother.name, spiderUid: brother.uid, reason, incomingDmg, remaining: getEliteState(brother.uid)._spiderRemaining };
                     },
                     onExit() {
                         brother.state._spiderFlying = false;
@@ -468,11 +464,11 @@ export function createXiaoZhaoBrotherComponent() {
                 const hpAfter = Math.max(0, brother.hp - (data.dmg || 0));
                 let shouldFly = false;
                 let reason = '';
-                if (!brother.state._spiderTriggered70 && brother.hp > maxHp * 0.7 && hpAfter <= maxHp * 0.7) {
+                if (!getEliteState(brother.uid)._spiderTriggered70 && brother.hp > maxHp * 0.7 && hpAfter <= maxHp * 0.7) {
                     shouldFly = true; reason = '血量即将低于70%';
-                } else if (!brother.state._spiderTriggered40 && brother.hp > maxHp * 0.4 && hpAfter <= maxHp * 0.4) {
+                } else if (!getEliteState(brother.uid)._spiderTriggered40 && brother.hp > maxHp * 0.4 && hpAfter <= maxHp * 0.4) {
                     shouldFly = true; reason = '血量即将低于40%';
-                } else if (!brother.state._spiderTriggeredDeath && hpAfter <= 0) {
+                } else if (!getEliteState(brother.uid)._spiderTriggeredDeath && hpAfter <= 0) {
                     shouldFly = true; reason = '即将阵亡';
                 }
                 if (shouldFly) {
@@ -489,7 +485,7 @@ export function createXiaoZhaoBrotherComponent() {
             });
             eventBus.on('beforeSelectTarget', L.BEFORE_SELECT_TARGET.PERMANENT_MIND_CONTROL, (data) => {
                 if (data.unit.camp !== 'enemy') return;
-                if (!brother || !brother.alive || !brother._permanentBuffs || !brother._permanentBuffs.some(b => b.key === 'mindControl')) return;
+                if (!brother || !brother.alive || !getEliteState(brother.uid)._permanentBuffs || !getEliteState(brother.uid)._permanentBuffs.some(b => b.key === 'mindControl')) return;
                 if (hasBuff(data.enemySide._activeBuffs, 'mindControl')) return;
                 if (getBattleRng().next() < 0.15) {
                     const fakeTarget = data.allySide.find(u => u.alive && !u.isHorse && u.uid !== data.unit.uid);
@@ -512,12 +508,12 @@ export function createXiaoZhaoBrotherComponent() {
                 if (!bro) return;
                 if (bro._fsm && bro._fsm.is('normal')) bro._fsm.transition('transforming');
                 if (bro._fsm && bro._fsm.is('transforming')) bro._fsm.transition('normal');
-                if (bro.state._spiderTriggeredHit === undefined) bro.state._spiderTriggeredHit = false;
-                if (bro.state._spiderTriggered70 === undefined) bro.state._spiderTriggered70 = false;
-                if (bro.state._spiderTriggered40 === undefined) bro.state._spiderTriggered40 = false;
-                bro.state._spiderTriggeredThisRound = false;
+                if (getEliteState(bro.uid)._spiderTriggeredHit === undefined) setEliteState(bro.uid, { _spiderTriggeredHit: false });
+                if (getEliteState(bro.uid)._spiderTriggered70 === undefined) setEliteState(bro.uid, { _spiderTriggered70: false });
+                if (getEliteState(bro.uid)._spiderTriggered40 === undefined) setEliteState(bro.uid, { _spiderTriggered40: false });
+                setEliteState(bro.uid, { _spiderTriggeredThisRound: false });
                 const teamHasHorse = hasBuff(A._activeBuffs, 'horseFormation');
-                const hasPermanent = bro._permanentBuffs?.some(b => b.key === 'horseFormation');
+                const hasPermanent = getEliteState(bro.uid)._permanentBuffs?.some(b => b.key === 'horseFormation');
                 if (!teamHasHorse && hasPermanent) {
                     const xzHorse = spawnHorse(A, log, B, true);
                     if (xzHorse) {
@@ -525,7 +521,7 @@ export function createXiaoZhaoBrotherComponent() {
                     }
                 }
                 const hasTeamCarry = hasBuff(A._activeBuffs, 'carry');
-                if (!hasTeamCarry && bro._permanentBuffs?.some(b => b.key === 'carry') && bro._baseMaxHp !== undefined) {
+                if (!hasTeamCarry && getEliteState(bro.uid)._permanentBuffs?.some(b => b.key === 'carry') && bro._baseMaxHp !== undefined) {
                     applyStatChange(bro, 'atk', 3, null, '小昭·妹永久carry');
                     applyStatChange(bro, 'def', 4, null, '小昭·妹永久carry');
                     applyMaxHpChange(bro, bro.maxHp + 20, null, '小昭·妹永久carry');
@@ -535,7 +531,7 @@ export function createXiaoZhaoBrotherComponent() {
             eventBus.on('afterMiss', L.AFTER_MISS.XIAOZHAO_DOUBLE_RETRY, (data) => {
                 const { unit, target, log } = data;
                 if (!unit.isXiaoZhaoBrother || !unit.alive || unit._xiaoZhaoDoubleStriked) return;
-                if (!unit._permanentBuffs || !unit._permanentBuffs.some(b => b.key === 'doubleStrike')) return;
+                if (!getEliteState(unit.uid)._permanentBuffs || !getEliteState(unit.uid)._permanentBuffs.some(b => b.key === 'doubleStrike')) return;
                 if (hasBuff(A._activeBuffs, 'doubleStrike')) return;
                 const s = getSkillParams('小昭', 'spiderFly');
                 if (!s) throw new Error('缺技能参数: 小昭.spiderFly');
@@ -561,11 +557,11 @@ export function createXiaoZhaoBrotherComponent() {
             const maxHp = unit.maxHp;
             const hpAfter = Math.max(0, unit.hp - (incomingDmg || 0));
             let reason = '';
-            if (!unit.state._spiderTriggered70 && unit.hp > maxHp * 0.7 && hpAfter <= maxHp * 0.7) {
+            if (!getEliteState(unit.uid)._spiderTriggered70 && unit.hp > maxHp * 0.7 && hpAfter <= maxHp * 0.7) {
                 reason = '血量即将低于70%';
-            } else if (!unit.state._spiderTriggered40 && unit.hp > maxHp * 0.4 && hpAfter <= maxHp * 0.4) {
+            } else if (!getEliteState(unit.uid)._spiderTriggered40 && unit.hp > maxHp * 0.4 && hpAfter <= maxHp * 0.4) {
                 reason = '血量即将低于40%';
-            } else if (!unit.state._spiderTriggeredDeath && hpAfter <= 0) {
+            } else if (!getEliteState(unit.uid)._spiderTriggeredDeath && hpAfter <= 0) {
                 reason = '即将阵亡';
             }
             if (!reason) return false;

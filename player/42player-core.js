@@ -14,6 +14,7 @@ import { getBattleRng } from '../core/13battle-shared.js';
 import { GlobalStore, getState, getPlayerContext } from '../infra/54-global-store.js';
 import { createStore, battleReducer } from '../modules/24battle-store.js';
 import { STORE_ACTION_TYPES, STAGE_ACTION_TYPES } from '../infra/56-battle-enums.js';
+import { getEliteState, setEliteState } from '../core/18-elite-state.js';
 import { handleBuffBonus, handleBuffSwap, handleBuffPush, handleBuffReboundFortify, handleInfo, handleRoundStart, handleRoundEnd, shouldStartNewGroup } from './45event-handlers.js';
 import { handleAttackGroup } from './46attack-group.js';
 import { getLogDiv, appendLogHTML, appendLogElement, autoScrollLog, updateRoundDisplay, renderSeparator, renderRoundStart, renderRoundEnd, renderInfoLine, renderVictoryLine, setBtnDisabled, setBtnText, initRenderer, initLogScrollControls, showScoreFloat, findUnitByUid } from './47renderer.js';
@@ -447,7 +448,7 @@ function rebuildUISnapshotFromStore(c) {
     const storeUnits = c.store.getState().units;
     const cloneUnit = (su) => {
         const copyState = {};
-        ['_acted','_stunned','_isDead','_resting','_blocked','_flyMode','_butterflyHost','_spiderFlying','_spiderTriggeredHit','_spiderTriggered70','_spiderTriggered40','_spiderTriggeredDeath','_spiderTriggeredThisRound','_phantomTarget'].forEach(f => { if (su.state && su.state[f] !== undefined) copyState[f] = su.state[f]; });
+        ['_acted','_stunned','_isDead','_resting','_blocked','_flyMode','_butterflyHost','_spiderFlying'].forEach(f => { if (su.state && su.state[f] !== undefined) copyState[f] = su.state[f]; });
         return { ...su, state: copyState };
     };
     c.UI.allyTeam = storeUnits.filter(u => u.camp === 'ally').map(cloneUnit);
@@ -589,7 +590,7 @@ export async function playBattle() {
             for (const su of state.units.filter(u => u.camp === camp)) {
                 if (!dst.find(u => u.uid === su.uid)) {
                     const copyState = {};
-                    ['_acted','_stunned','_isDead','_resting','_blocked','_flyMode','_butterflyHost','_spiderFlying','_spiderTriggeredHit','_spiderTriggered70','_spiderTriggered40','_spiderTriggeredDeath','_spiderTriggeredThisRound','_phantomTarget'].forEach(f => { if (su.state && su.state[f] !== undefined) copyState[f] = su.state[f]; });
+                    ['_acted','_stunned','_isDead','_resting','_blocked','_flyMode','_butterflyHost','_spiderFlying'].forEach(f => { if (su.state && su.state[f] !== undefined) copyState[f] = su.state[f]; });
                     dst.push({...su, state: copyState});
                 }
             }
@@ -703,8 +704,8 @@ export async function playBattle() {
                     if (c.UI && c.UI.allyTeam) {
                         const xiaoZhao = c.UI.allyTeam.find(u => u.isXiaoZhaoBrother);
                         if (xiaoZhao) {
-                            if (!xiaoZhao._permanentBuffs) xiaoZhao._permanentBuffs = [];
-                            xiaoZhao._permanentBuffs.push({ ...newBuff, remaining: Infinity });
+                            if (!getEliteState(xiaoZhao.uid)._permanentBuffs) setEliteState(xiaoZhao.uid, { _permanentBuffs: [] });
+                            getEliteState(xiaoZhao.uid)._permanentBuffs.push({ ...newBuff, remaining: Infinity });
                         }
                     }
                     if (pick === 'holyFlame') {
@@ -742,10 +743,10 @@ export async function playBattle() {
         }
 
         const uiXiaoZhao = c.UI && c.UI.allyTeam ? c.UI.allyTeam.find(u => u.isXiaoZhaoBrother) : null;
-        if (uiXiaoZhao && uiXiaoZhao._permanentBuffs && lastStep && lastStep.ally) {
+        if (uiXiaoZhao && getEliteState(uiXiaoZhao.uid)._permanentBuffs && lastStep && lastStep.ally) {
             const engineXiaoZhao = lastStep.ally.find(u => u.isXiaoZhaoBrother);
             if (engineXiaoZhao) {
-                engineXiaoZhao._permanentBuffs = uiXiaoZhao._permanentBuffs.map(b => ({ ...b }));
+                setEliteState(engineXiaoZhao.uid, { _permanentBuffs: getEliteState(uiXiaoZhao.uid)._permanentBuffs.map(b => ({ ...b })) });
             }
         }
         battleState = { ally: lastStep.ally, enemy: lastStep.enemy, round: battleState.round + 1, activeBuffs: nextActiveBuffs, allAllies: battleState.allAllies };

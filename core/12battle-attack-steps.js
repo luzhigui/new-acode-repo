@@ -7,6 +7,7 @@ import { eventBus, EFFECT_TYPES } from '../infra/50-event-bus.js';
 import { calcDamage, getFangLevel, isMelee, getFronts, isBlocked, getRandomTaunt, getZhangNearTaunt, makeFXSnapshot, hasBuff, getUnitCol, getUnitRow } from './03battle-utils.js';
 import { applyBuffEffectsBeforeAttack, applyBuffEffectsAfterAttack } from './04buff-system.js';
 import { emitEvent, applyStatChange, applyMaxHpChange, query, getBattleRng, recordCombatStat } from './13battle-shared.js';
+import { getEliteState } from './18-elite-state.js';
 import { flushBattleEvents, pushBattleEvent, getBattleState, setBattleState, registerDodgeRule, clearEliteDodgeRules, getDodgeRules } from '../infra/51-core-utils.js';
 import { getEffectHandler, hasEffectHandler } from './16effect-handlers.js';
 import { FACT_TYPES } from '../infra/56-battle-enums.js';
@@ -117,7 +118,7 @@ export function resolveAttackHit(unit, target, attackerBuffStats, defenderBuffSt
 
     const allyBuffs = (target.camp === 'ally' && A ? A._activeBuffs : (target.camp === 'enemy' && B ? B._activeBuffs : []));
     if (target.state._stunned) return { skipped: false };
-    const hasCloudBody = hasBuff(allyBuffs, 'cloudBody') || ((target.isXiaoZhaoSister || target.isXiaoZhaoBrother) && target._permanentBuffs && target._permanentBuffs.some(b => b.key === 'cloudBody'));
+    const hasCloudBody = hasBuff(allyBuffs, 'cloudBody') || ((target.isXiaoZhaoSister || target.isXiaoZhaoBrother) && getEliteState(target.uid)._permanentBuffs && getEliteState(target.uid)._permanentBuffs.some(b => b.key === 'cloudBody'));
     if (target.alive && (target.isWei || hasCloudBody || !target.state._acted)) {
         let dodgeTriggered = false;
         for (const ruleFn of getDodgeRules()) {
@@ -461,8 +462,8 @@ export async function buildAttackGroup(unit, target, dmgCalc, dmgResult, attacke
         attackerRole: unit.role,
         attackerIsZhangNear: !!(unit.isZhang && !unit.rangedForm),
         attackerNearAtkCount: unit.nearAtkCount,
-        isKuLianAttack: !!(unit.name === '宋青书' && unit._kuLianActive),
-        isLinkAttack: !!unit._isLinkAttack,
+        isKuLianAttack: !!(unit.name === '宋青书' && getEliteState(unit.uid)._kuLianActive),
+        isLinkAttack: !!getEliteState(unit.uid)._isLinkAttack,
         targetDefDisplay: Math.floor(target.def + target.def * defenderBuffStats.defBonus),
         targetDefBonusAbs: Math.floor(target.def * defenderBuffStats.defBonus),
         targetHpAfter: Math.floor(target.hp),

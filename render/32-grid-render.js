@@ -5,6 +5,7 @@ export const VER = 'render/32-grid-render.js V5.5.2';
 import { getUnitCol, getUnitRow, getAuraBonuses, getDodgeRules } from '../infra/51-core-utils.js';
 import { CONFIG, getSkillDesc } from '../core/01config-5v5-test.js';
 import { GlobalStore, getPlayerContext } from '../infra/54-global-store.js';
+import { getEliteState } from '../core/18-elite-state.js';
 
 let _store = null;
 let _subscribed = false;
@@ -206,9 +207,9 @@ export function renderGrid(id, camp) {
         }
         let displayName = unit.name;
         let displayIsZhang = unit.isZhang || false;
-        if (unit.name === '成昆' && unit.state && unit.state._phantomTarget) {
+        if (unit.name === '成昆' && unit.state && getEliteState(unit.uid)._phantomTarget) {
             const allUnits = (ctx.UI.allyTeam || []).concat(ctx.UI.enemyTeam || []);
-            const mimicTarget = allUnits.find(u => u.uid === unit.state._phantomTarget);
+            const mimicTarget = allUnits.find(u => u.uid === getEliteState(unit.uid)._phantomTarget);
             if (mimicTarget) {
                 displayName = mimicTarget.name;
                 displayIsZhang = mimicTarget.isZhang || false;
@@ -286,8 +287,8 @@ export function renderGrid(id, camp) {
             const sisterHost = allyTeam.find(a => a.isXiaoZhaoSister && a.alive && a.state && a.state._butterflyHost === unit.uid);
             if (sisterHost) eliteSkillIcon = ' 🦋';
         }
-        if (unit.name === '成昆' && unit.state && unit.state._phantomTarget) eliteSkillIcon += ' 🎭';
-        if (unit._xuanmingPoison && unit._xuanmingPoison.remaining > 0) eliteSkillIcon += ' ❄️';
+        if (unit.name === '成昆' && unit.state && getEliteState(unit.uid)._phantomTarget) eliteSkillIcon += ' 🎭';
+        if (getEliteState(unit.uid)._xuanmingPoison && getEliteState(unit.uid)._xuanmingPoison.remaining > 0) eliteSkillIcon += ' ❄️';
 
         // ====== 格子名字+logo 分级显示逻辑 ======
         // 规则（2026-08-19 达达+用户确认）：

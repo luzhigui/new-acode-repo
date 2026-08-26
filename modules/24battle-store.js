@@ -164,7 +164,7 @@ export function battleReducer(state, action) {
                 const src = u.camp === 'ally' ? allyMap.get(u.uid) : enemyMap.get(u.uid);
                 if (!src) return u;
                 const copyState = { ...(u.state || {}) };
-                ['_acted','_stunned','_isDead','_resting','_blocked','_flyMode','_butterflyHost','_spiderFlying','_spiderTriggeredHit','_spiderTriggered70','_spiderTriggered40','_spiderTriggeredDeath','_spiderTriggeredThisRound','_phantomTarget'].forEach(f => {
+                ['_acted','_stunned','_isDead','_resting','_blocked','_flyMode','_butterflyHost','_spiderFlying'].forEach(f => {
                     if (src.state && src.state[f] !== undefined) copyState[f] = src.state[f];
                 });
                 return {
@@ -178,7 +178,7 @@ export function battleReducer(state, action) {
             const remainingAlly = action.ally.filter(src => !next.find(u => u.uid === src.uid));
             for (const src of [...remainingAlly, ...remainingEnemy]) {
                 const copyState = {};
-                ['_acted','_stunned','_isDead','_resting','_blocked','_flyMode','_butterflyHost','_spiderFlying','_spiderTriggeredHit','_spiderTriggered70','_spiderTriggered40','_spiderTriggeredDeath','_spiderTriggeredThisRound','_phantomTarget'].forEach(f => { if (src.state && src.state[f] !== undefined) copyState[f] = src.state[f]; });
+                ['_acted','_stunned','_isDead','_resting','_blocked','_flyMode','_butterflyHost','_spiderFlying'].forEach(f => { if (src.state && src.state[f] !== undefined) copyState[f] = src.state[f]; });
                 next.push({ ...src, state: copyState });
             }
             return { ...state, units: next };
