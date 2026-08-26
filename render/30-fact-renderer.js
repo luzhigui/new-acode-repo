@@ -1,8 +1,9 @@
 // render/30-fact-renderer.js - 光明顶5v5 事实渲染器
-// V5.7.5 | ~36300 bytes| 2026-08-24 苦练日志文案改为自身三倍
+// V5.7.6 | ~36500 bytes| 2026-08-26 renderLog 入口校验 + factType 枚举化（FACT_TYPES）
 import { CONFIG, getSkillParams } from '../core/01config-5v5-test.js';
 import { calcDamage, getFangLevelPure, makeFXSnapshot } from '../infra/51-core-utils.js';
-export const VER = 'render/30-fact-renderer.js V5.7.5';
+import { FACT_TYPES } from '../infra/56-battle-enums.js';
+export const VER = 'render/30-fact-renderer.js V5.7.6';
 
 // fact 条目投影为渲染条目，并合并 fact 条目上携带的附加字段（isHealEntry/buffType 等）
 function projectFactEntry(e) {
@@ -666,78 +667,82 @@ export function renderPhantomConfuseFact(fact) {
 
 // ==================== 通用渲染入口 ====================
 export function renderLog(type, data) {
+    if (!Object.values(FACT_TYPES).includes(type)) {
+        console.error(`[renderLog] 未知 factType: ${type}`);
+        return null;
+    }
     switch(type) {
-        case 'miss': return renderMissFact(data);
-        case 'dodge': return renderDodgeFact(data);
-        case 'attack': return renderAttackFact(data);
-        case 'emptyTarget': return renderEmptyTargetFact(data);
-        case 'immune': return renderImmuneFact(data);
-        case 'drop': return renderDropFact(data);
-        case 'breakDef': return renderBreakDefFact(data);
-        case 'horseDestroy': return renderHorseDestroyFact(data);
-        case 'zhangSwitch': return renderZhangSwitchFact(data);
-        case 'buffSummary': return renderBuffSummaryFact(data.buff, data.allyTeam, data.doubleStrikeUid);
-        case 'carryApply': return renderCarryApplyFact(data);
-        case 'horseSummon': return renderHorseSummonFact(data);
-        case 'pass': return renderPassFact(data);
-        case 'kuLianPriority': return renderKuLianPriorityFact(data);
-        case 'kuLian': return renderKuLianFact(data);
-        case 'doubleStrike': return renderDoubleStrikeFact(data);
-        case 'rangedGrowth': return renderRangedGrowthFact(data);
-        case 'fortifyShield': return renderFortifyShieldFact(data);
-        case 'mindControlSwap': return renderMindControlSwapFact(data);
-        case 'mindControlFail': return renderMindControlFailFact(data);
-        case 'qianKunUpgraded': return renderQianKunUpgradedFact(data);
-        case 'qianKunBasic': return renderQianKunBasicFact(data);
-        case 'kuaiLeHeal': return renderKuaiLeHealFact(data);
-        case 'spiderTransform': return renderSpiderTransformFact(data);
-        case 'spiderReturn': return renderSpiderReturnFact(data);
-        case 'spiderStrike': return renderSpiderStrikeFact(data);
-        case 'xuanmingDot': return renderXuanmingDotFact(data);
-        case 'xuanmingPoisoned': return renderXuanmingPoisonedFact(data);
-        case 'phantomDisguiseHeal': return renderPhantomDisguiseHealFact(data);
-        case 'xingFenRetry': return renderXingFenRetryFact(data);
-        case 'xinHun': return renderXinHunFact(data);
-        case 'xingFenCost': return renderXingFenCostFact(data);
-        case 'nineYangHeal': return renderNineYangHealFact(data);
-        case 'rongHuiBonus': return renderRongHuiBonusFact(data);
-        case 'weiLeech': return renderWeiLeechFact(data);
-        case 'qianKunDerived': return renderQianKunDerivedFact(data);
-        case 'butterflyAttach': return renderButterflyAttachFact(data);
-        case 'butterflyNoHost': return renderButterflyNoHostFact(data);
-        case 'butterflyReturn': return renderButterflyReturnFact(data);
-        case 'butterflyHostDead': return renderButterflyHostDeadFact(data);
-        case 'spiderFly': return renderSpiderFlyFact(data);
-        case 'xiaoZhaoHorse': return renderXiaoZhaoHorseFact(data);
-        case 'spiderDoubleStrike': return renderSpiderDoubleStrikeFact(data);
-        case 'stunSkip': return renderStunSkipFact(data);
-        case 'flySkip': return renderFlySkipFact(data);
-        case 'horseRebound': return renderHorseReboundFact(data);
-        case 'fortifyRebound': return renderFortifyReboundFact(data);
-        case 'meteorSplashGrowth': return renderMeteorSplashGrowthFact(data);
-        case 'warriorExecute': return renderWarriorExecuteFact(data);
-        case 'bloodthirstLeech': return renderBloodthirstLeechFact(data);
-        case 'hotBloodHeal': return renderHotBloodHealFact(data);
-        case 'windAssaultSplash': return renderWindAssaultSplashFact(data);
-        case 'windAssaultPush': return renderWindAssaultPushFact(data);
-        case 'windAssaultFail': return renderWindAssaultFailFact(data);
-        case 'meteorShowerMain': return renderMeteorShowerMainFact(data);
-        case 'meteorShowerSplash': return renderMeteorShowerSplashFact(data);
-        case 'roundStart': return renderRoundStartFact(data);
-        case 'roundEnd': return renderRoundEndFact(data);
-        case 'doubleStrikeSummary': return renderDoubleStrikeSummaryFact(data);
-        case 'zhangTaunt': return renderZhangTauntFact(data);
-        case 'xingFenExtraAttack': return renderXingFenExtraAttackFact(data);
-        case 'xinHunDeath': return renderXinHunDeathFact(data);
-        case 'clawNoHeal': return renderClawNoHealFact(data);
-        case 'clawHit': return renderClawHitFact(data);
-        case 'clawExecute': return renderClawExecuteFact(data);
-        case 'clawHeal': return renderClawHealFact(data);
-        case 'phantomReveal': return renderPhantomRevealFact(data);
-        case 'phantomConfuse': return renderPhantomConfuseFact(data);
-        case 'xuanmingLinkAttack': return renderXuanmingLinkAttackFact(data);
-        case 'spiderDeadTarget': return renderSpiderDeadTargetFact(data);
-        case 'xingFenGrant': return renderXingFenGrantFact(data);
+        case FACT_TYPES.MISS: return renderMissFact(data);
+        case FACT_TYPES.DODGE: return renderDodgeFact(data);
+        case FACT_TYPES.ATTACK: return renderAttackFact(data);
+        case FACT_TYPES.EMPTY_TARGET: return renderEmptyTargetFact(data);
+        case FACT_TYPES.IMMUNE: return renderImmuneFact(data);
+        case FACT_TYPES.DROP: return renderDropFact(data);
+        case FACT_TYPES.BREAK_DEF: return renderBreakDefFact(data);
+        case FACT_TYPES.HORSE_DESTROY: return renderHorseDestroyFact(data);
+        case FACT_TYPES.ZHANG_SWITCH: return renderZhangSwitchFact(data);
+        case FACT_TYPES.BUFF_SUMMARY: return renderBuffSummaryFact(data.buff, data.allyTeam, data.doubleStrikeUid);
+        case FACT_TYPES.CARRY_APPLY: return renderCarryApplyFact(data);
+        case FACT_TYPES.HORSE_SUMMON: return renderHorseSummonFact(data);
+        case FACT_TYPES.PASS: return renderPassFact(data);
+        case FACT_TYPES.KU_LIAN_PRIORITY: return renderKuLianPriorityFact(data);
+        case FACT_TYPES.KU_LIAN: return renderKuLianFact(data);
+        case FACT_TYPES.DOUBLE_STRIKE: return renderDoubleStrikeFact(data);
+        case FACT_TYPES.RANGED_GROWTH: return renderRangedGrowthFact(data);
+        case FACT_TYPES.FORTIFY_SHIELD: return renderFortifyShieldFact(data);
+        case FACT_TYPES.MIND_CONTROL_SWAP: return renderMindControlSwapFact(data);
+        case FACT_TYPES.MIND_CONTROL_FAIL: return renderMindControlFailFact(data);
+        case FACT_TYPES.QIAN_KUN_UPGRADED: return renderQianKunUpgradedFact(data);
+        case FACT_TYPES.QIAN_KUN_BASIC: return renderQianKunBasicFact(data);
+        case FACT_TYPES.KUAI_LE_HEAL: return renderKuaiLeHealFact(data);
+        case FACT_TYPES.SPIDER_TRANSFORM: return renderSpiderTransformFact(data);
+        case FACT_TYPES.SPIDER_RETURN: return renderSpiderReturnFact(data);
+        case FACT_TYPES.SPIDER_STRIKE: return renderSpiderStrikeFact(data);
+        case FACT_TYPES.XUAN_MING_DOT: return renderXuanmingDotFact(data);
+        case FACT_TYPES.XUAN_MING_POISONED: return renderXuanmingPoisonedFact(data);
+        case FACT_TYPES.PHANTOM_DISGUISE_HEAL: return renderPhantomDisguiseHealFact(data);
+        case FACT_TYPES.XING_FEN_RETRY: return renderXingFenRetryFact(data);
+        case FACT_TYPES.XIN_HUN: return renderXinHunFact(data);
+        case FACT_TYPES.XING_FEN_COST: return renderXingFenCostFact(data);
+        case FACT_TYPES.NINE_YANG_HEAL: return renderNineYangHealFact(data);
+        case FACT_TYPES.RONG_HUI_BONUS: return renderRongHuiBonusFact(data);
+        case FACT_TYPES.WEI_LEECH: return renderWeiLeechFact(data);
+        case FACT_TYPES.QIAN_KUN_DERIVED: return renderQianKunDerivedFact(data);
+        case FACT_TYPES.BUTTERFLY_ATTACH: return renderButterflyAttachFact(data);
+        case FACT_TYPES.BUTTERFLY_NO_HOST: return renderButterflyNoHostFact(data);
+        case FACT_TYPES.BUTTERFLY_RETURN: return renderButterflyReturnFact(data);
+        case FACT_TYPES.BUTTERFLY_HOST_DEAD: return renderButterflyHostDeadFact(data);
+        case FACT_TYPES.SPIDER_FLY: return renderSpiderFlyFact(data);
+        case FACT_TYPES.XIAO_ZHAO_HORSE: return renderXiaoZhaoHorseFact(data);
+        case FACT_TYPES.SPIDER_DOUBLE_STRIKE: return renderSpiderDoubleStrikeFact(data);
+        case FACT_TYPES.STUN_SKIP: return renderStunSkipFact(data);
+        case FACT_TYPES.FLY_SKIP: return renderFlySkipFact(data);
+        case FACT_TYPES.HORSE_REBOUND: return renderHorseReboundFact(data);
+        case FACT_TYPES.FORTIFY_REBOUND: return renderFortifyReboundFact(data);
+        case FACT_TYPES.METEOR_SPLASH_GROWTH: return renderMeteorSplashGrowthFact(data);
+        case FACT_TYPES.WARRIOR_EXECUTE: return renderWarriorExecuteFact(data);
+        case FACT_TYPES.BLOOD_THIRST_LEECH: return renderBloodthirstLeechFact(data);
+        case FACT_TYPES.HOT_BLOOD_HEAL: return renderHotBloodHealFact(data);
+        case FACT_TYPES.WIND_ASSAULT_SPLASH: return renderWindAssaultSplashFact(data);
+        case FACT_TYPES.WIND_ASSAULT_PUSH: return renderWindAssaultPushFact(data);
+        case FACT_TYPES.WIND_ASSAULT_FAIL: return renderWindAssaultFailFact(data);
+        case FACT_TYPES.METEOR_SHOWER_MAIN: return renderMeteorShowerMainFact(data);
+        case FACT_TYPES.METEOR_SHOWER_SPLASH: return renderMeteorShowerSplashFact(data);
+        case FACT_TYPES.ROUND_START: return renderRoundStartFact(data);
+        case FACT_TYPES.ROUND_END: return renderRoundEndFact(data);
+        case FACT_TYPES.DOUBLE_STRIKE_SUMMARY: return renderDoubleStrikeSummaryFact(data);
+        case FACT_TYPES.ZHANG_TAUNT: return renderZhangTauntFact(data);
+        case FACT_TYPES.XING_FEN_EXTRA_ATTACK: return renderXingFenExtraAttackFact(data);
+        case FACT_TYPES.XIN_HUN_DEATH: return renderXinHunDeathFact(data);
+        case FACT_TYPES.CLAW_NO_HEAL: return renderClawNoHealFact(data);
+        case FACT_TYPES.CLAW_HIT: return renderClawHitFact(data);
+        case FACT_TYPES.CLAW_EXECUTE: return renderClawExecuteFact(data);
+        case FACT_TYPES.CLAW_HEAL: return renderClawHealFact(data);
+        case FACT_TYPES.PHANTOM_REVEAL: return renderPhantomRevealFact(data);
+        case FACT_TYPES.PHANTOM_CONFUSE: return renderPhantomConfuseFact(data);
+        case FACT_TYPES.XUAN_MING_LINK_ATTACK: return renderXuanmingLinkAttackFact(data);
+        case FACT_TYPES.SPIDER_DEAD_TARGET: return renderSpiderDeadTargetFact(data);
+        case FACT_TYPES.XING_FEN_GRANT: return renderXingFenGrantFact(data);
         default: throw new Error(`未知渲染类型: ${type}`);
     }
 }

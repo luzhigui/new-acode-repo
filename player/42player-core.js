@@ -13,6 +13,7 @@ import { SeededRNG } from '../infra/51-core-utils.js';
 import { getBattleRng } from '../core/13battle-shared.js';
 import { GlobalStore, getState, getPlayerContext } from '../infra/54-global-store.js';
 import { createStore, battleReducer } from '../modules/24battle-store.js';
+import { STORE_ACTION_TYPES } from '../infra/56-battle-enums.js';
 import { handleBuffBonus, handleBuffSwap, handleBuffPush, handleBuffReboundFortify, handleInfo, handleRoundStart, handleRoundEnd, shouldStartNewGroup } from './45event-handlers.js';
 import { handleAttackGroup } from './46attack-group.js';
 import { getLogDiv, appendLogHTML, appendLogElement, autoScrollLog, updateRoundDisplay, renderSeparator, renderRoundStart, renderRoundEnd, renderInfoLine, renderVictoryLine, setBtnDisabled, setBtnText, initRenderer, initLogScrollControls, showScoreFloat, findUnitByUid } from './47renderer.js';
@@ -91,11 +92,11 @@ export async function playLogEntries(c, log, roundResult, isFirstAttackRef) {
                 case 'buff-bonus':           await handleBuffBonus(c, entry); lastEntryType = entry.type; break;
                 case 'buff-swap':            await handleBuffSwap(c, entry); lastEntryType = entry.type; break;
                 case 'buff-push':            await handleBuffPush(c, entry); lastEntryType = entry.type; break;
-                case 'buff-summary':         { appendLogHTML(entry.text + '<br>'); if(entry.buffType==='elite_xingfen'){let song = c.store ? c.store.getState().units.find(u => u.name === '宋青书') : null; if(song)c.store.dispatch({type:'SET_VISUAL',uid:song.uid,_hasXingFen:true});} lastEntryType = entry.type; } break;
+                case 'buff-summary':         { appendLogHTML(entry.text + '<br>'); if(entry.buffType==='elite_xingfen'){let song = c.store ? c.store.getState().units.find(u => u.name === '宋青书') : null; if(song)c.store.dispatch({type: STORE_ACTION_TYPES.SET_VISUAL,uid:song.uid,_hasXingFen:true});} lastEntryType = entry.type; } break;
                 case 'buff-rebound-fortify': await handleBuffReboundFortify(c, entry); lastEntryType = entry.type; break;
                 case 'round-start':
                     if (roundResult && roundResult.events && roundResult.events.length > 0) {
-                        c.store.dispatch({ type: 'APPLY_EVENTS', events: roundResult.events });
+                        c.store.dispatch({ type: STORE_ACTION_TYPES.APPLY_EVENTS, events: roundResult.events });
                         roundResult.events = [];
                     }
                     await handleRoundStart(c, entry, isFirstAttackRef);
@@ -147,7 +148,7 @@ function applyStageActionToStore(c, action, pendingDeaths) {
             break;
         case 'posSwap':
             if (action.actorUid && action.targetUid) {
-                c.store.dispatch({ type: 'APPLY_EVENTS', events: [
+                c.store.dispatch({ type: STORE_ACTION_TYPES.APPLY_EVENTS, events: [
                     { eventType: 'pos-change', uid: action.actorUid, pos: action.oldPosB },
                     { eventType: 'pos-change', uid: action.targetUid, pos: action.oldPosA }
                 ]});
@@ -155,12 +156,12 @@ function applyStageActionToStore(c, action, pendingDeaths) {
             break;
         case 'push':
             if (action.actorUid && action.targetUid) {
-                c.store.dispatch({ type: 'APPLY_EVENTS', events: [
+                c.store.dispatch({ type: STORE_ACTION_TYPES.APPLY_EVENTS, events: [
                     { eventType: 'pos-change', uid: action.actorUid, pos: action.newPos },
                     { eventType: 'pos-change', uid: action.targetUid, pos: action.oldPos }
                 ]});
             } else if (action.actorUid && action.newPos != null) {
-                c.store.dispatch({ type: 'APPLY_EVENTS', events: [
+                c.store.dispatch({ type: STORE_ACTION_TYPES.APPLY_EVENTS, events: [
                     { eventType: 'pos-change', uid: action.actorUid, pos: action.newPos }
                 ]});
             }
@@ -169,18 +170,18 @@ function applyStageActionToStore(c, action, pendingDeaths) {
             if (action.actorUid) {
                 const unit = c.store.getState().units.find(u => u.uid === action.actorUid);
                 if (unit) {
-                    c.store.dispatch({ type: 'SET_VISUAL', uid: unit.uid, _acted: false });
+                    c.store.dispatch({ type: STORE_ACTION_TYPES.SET_VISUAL, uid: unit.uid, _acted: false });
                 }
             }
             break;
         case 'destroy':
             if (action.success && action.actorUid) {
-                c.store.dispatch({ type: 'REMOVE_UNIT', uid: action.actorUid });
+                c.store.dispatch({ type: STORE_ACTION_TYPES.REMOVE_UNIT, uid: action.actorUid });
             }
             break;
         case 'roundStart':
             c.store.getState().units.forEach(u => {
-                if (u.alive) c.store.dispatch({ type: 'SET_VISUAL', uid: u.uid, _acted: false });
+                if (u.alive) c.store.dispatch({ type: STORE_ACTION_TYPES.SET_VISUAL, uid: u.uid, _acted: false });
             });
             break;
         default:
@@ -455,15 +456,15 @@ async function playStep(c, step, isFirstAttackRef) {
     for (const uid of pendingDeaths) {
         const du = c.store.getState().units.find(u => u.uid === uid);
         if (du && !(du.state && du.state._isDead)) {
-            c.store.dispatch({ type: 'SET_FLASH', uid: uid, flash: 'dead' });
-            c.store.dispatch({ type: 'SET_VISUAL', uid: uid, _isDead: true });
+            c.store.dispatch({ type: STORE_ACTION_TYPES.SET_FLASH, uid: uid, flash: 'dead' });
+            c.store.dispatch({ type: STORE_ACTION_TYPES.SET_VISUAL, uid: uid, _isDead: true });
         }
     }
 
     if (step.events && step.events.length > 0) {
-        c.store.dispatch({ type: 'APPLY_EVENTS', events: step.events });
+        c.store.dispatch({ type: STORE_ACTION_TYPES.APPLY_EVENTS, events: step.events });
     }
-    c.store.dispatch({ type: 'SYNC_BATTLE_STATS', ally: step.ally, enemy: step.enemy });
+    c.store.dispatch({ type: STORE_ACTION_TYPES.SYNC_BATTLE_STATS, ally: step.ally, enemy: step.enemy });
     // SYNC 过滤「引擎已死且 store 已移除」的尸体：引擎数组保留阵亡单位（战报要用），
     // 不过滤会被 SYNC 的补新逻辑重新加回，死亡格在 REMOVE_UNIT 后反复「消失-重现」
     const inStoreUids = new Set(c.store.getState().units.map(u => u.uid));
@@ -471,7 +472,7 @@ async function playStep(c, step, isFirstAttackRef) {
         const isDead = !u.alive || (u.state && u.state._isDead);
         return !isDead || inStoreUids.has(u.uid);
     });
-    c.store.dispatch({ type: 'SYNC_FULL_UNITS', ally: syncUnits(step.ally), enemy: syncUnits(step.enemy) });
+    c.store.dispatch({ type: STORE_ACTION_TYPES.SYNC_FULL_UNITS, ally: syncUnits(step.ally), enemy: syncUnits(step.enemy) });
     rebuildUISnapshotFromStore(c);
 }
 
@@ -567,7 +568,7 @@ export async function playBattle() {
                         c._deadUnitsForReport.push({...dead});
                     }
                     delete c._deathTimers[uid];
-                    if (c.store) c.store.dispatch({ type: 'REMOVE_UNIT', uid: uid });
+                    if (c.store) c.store.dispatch({ type: STORE_ACTION_TYPES.REMOVE_UNIT, uid: uid });
                 }, 3000);
             }
         }
@@ -759,13 +760,13 @@ export async function playBattle() {
         const winState = finalStep ? (winner === '明教' ? finalStep.ally : finalStep.enemy) : null;
         if (winState && c.store) {
             for (const su of winState) {
-                c.store.dispatch({ type: 'SYNC_UNIT', uid: su.uid, fields: { hp: su.hp, alive: su.alive, _isDead: !su.alive } });
+                c.store.dispatch({ type: STORE_ACTION_TYPES.SYNC_UNIT, uid: su.uid, fields: { hp: su.hp, alive: su.alive, _isDead: !su.alive } });
             }
         }
 
         let aliveUnits = winState ? winState.filter(u => u.alive) : [];
         if (aliveUnits.length > 0) {
-            aliveUnits.forEach(u => { c.store.dispatch({ type: 'SET_FLASH', uid: u.uid, flash: 'cheer' }); });
+            aliveUnits.forEach(u => { c.store.dispatch({ type: STORE_ACTION_TYPES.SET_FLASH, uid: u.uid, flash: 'cheer' }); });
             await new Promise(r => setTimeout(r, GlobalStore.get('fastForwardActive') ? 100 : 800));
             if (c.spawnVictoryEffects) c.spawnVictoryEffects(winner, aliveUnits);
         }

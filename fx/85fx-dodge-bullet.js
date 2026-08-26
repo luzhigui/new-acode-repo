@@ -5,6 +5,7 @@ export const VER = 'fx/85fx-dodge-bullet.js V5.5.0';
 import { showComicBubble } from './80fx-common-5v5-test.js';
 
 import { GlobalStore } from '../infra/54-global-store.js';
+import { STORE_ACTION_TYPES } from '../infra/56-battle-enums.js';
 
 function wait(ms) { return new Promise(r => setTimeout(r, GlobalStore.get('fastForwardActive') ? 1 : ms)); }
 
@@ -207,8 +208,8 @@ export async function showDodgeBulletTime(attacker, defender, reboundDmg) {
         restoreCellStyles(aCell, aCellSavedStyles);
         // 清除闪光
         if (ctx && ctx.store) {
-            if (attacker) ctx.store.dispatch({ type: 'CLEAR_UNIT_FLASH', uid: attacker.uid });
-            if (defender) ctx.store.dispatch({ type: 'CLEAR_UNIT_FLASH', uid: defender.uid });
+            if (attacker) ctx.store.dispatch({ type: STORE_ACTION_TYPES.CLEAR_UNIT_FLASH, uid: attacker.uid });
+            if (defender) ctx.store.dispatch({ type: STORE_ACTION_TYPES.CLEAR_UNIT_FLASH, uid: defender.uid });
             ctx.updateUI();
         }
     }
