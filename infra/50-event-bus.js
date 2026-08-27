@@ -1,6 +1,6 @@
 // infra/50-event-bus.js - 光明顶5v5 事件总线
-// V5.5.3 | ~5500 bytes| 2026-08-26 EXECUTION_LAYER 键名去角色前缀改能力命名（纯重命名）
-export const VER = 'infra/50-event-bus.js V5.5.3';
+// V5.5.4 | ~5500 bytes| 2026-08-26 清理死键（THUNDER/HORN/XUANMING/DOUBLE/PERMANENT_CARRY/BEFORE_ATTACK.MIND_CONTROL）
+export const VER = 'infra/50-event-bus.js V5.5.4';
 
 class EventBus {
     constructor() {
@@ -57,14 +57,14 @@ class EventBus {
 export const eventBus = new EventBus();
 
 export const EXECUTION_LAYER = {
-    ROUND_START:      { RANGE_CHECK: 5, SPIDER_TRANSFORM: 10, XUANMING_POISON: 10, XINGFEN_GRANT: 10, KULIAN_BUFF: 10, PERMANENT_CARRY: 10 },
+    ROUND_START:      { RANGE_CHECK: 5, SPIDER_TRANSFORM: 10, XUANMING_POISON: 10, XINGFEN_GRANT: 10, KULIAN_BUFF: 10 },
     ROUND_END:        { BUTTERFLY_RETURN: 10, SPIDER_RETURN: 10 },
     BEFORE_ACTION:    { BUTTERFLY_SKIP: 10, SPIDER_SKIP: 10, KULIAN_PRIORITY: 10 },
-    BEFORE_ATTACK:     { MIND_CONTROL: 10 },
+    BEFORE_ATTACK:     {},
     BEFORE_SELECT_TARGET: { DISGUISE: 30, REBEL: 20, FLY_TARGET: 30, PERMANENT_MIND_CONTROL: 40 },
-    BEFORE_DAMAGE_CALC: { WARRIOR_BREAK: 10, THUNDER: 15, HORN: 25, TRUE_DMG: 30 },
+    BEFORE_DAMAGE_CALC: { WARRIOR_BREAK: 10, TRUE_DMG: 30 },
     BEFORE_DAMAGE_APPLY: { SPIDER_IMMUNE: 100 },
-    ON_DODGE:          { LEECH: 10 },
+    ON_DODGE:          {},
     AFTER_DAMAGE_APPLIED: {
         BLOODTHIRST: 20,
         WARRIOR_EXECUTE: 20,
@@ -74,7 +74,6 @@ export const EXECUTION_LAYER = {
         RANGED_GROWTH: 20,
         SHIELD_DEFEND: 30,
         DISGUISE: 40,
-        XUANMING: 40,
         XINGFEN: 40,
         LEECH: 40,
         JIUYANG: 40
@@ -85,18 +84,12 @@ export const EXECUTION_LAYER = {
         CLAW: 40,
         XUANMING_LINK: 10,
         DOUBLE_STRIKE: 40,
-        DOUBLE: 40,
         MIND_CONTROL: 40
     },
     AFTER_MISS: {
         XINGFEN_RETRY: 50,
         DOUBLE_RETRY: 60
     },
-    ALLY_DAMAGED: {
-        QIANKUN_REBOUND: 40,
-        QIANKUN_DERIVED: 50
-    },
-    ON_BEFORE_DEATH: {},
     ON_UNIT_DEATH: { SWITCH: 10 },
     ON_POSITION_SWAP: { SWITCH: 10 }
 };
