@@ -64,25 +64,25 @@ export function createZhangWujiComponent() {
             const fsm = this._buildFsm(zhang, A, log);
             zhang._fsm = fsm;
             const onAfterApplyDamage = this.onAfterApplyDamage;
-            eventBus.on('afterDamageApplied', L.AFTER_DAMAGE_APPLIED.ZHANG_JIUYANG, (data) => {
+            eventBus.on('afterDamageApplied', L.AFTER_DAMAGE_APPLIED.JIUYANG, (data) => {
                 if (data.unit.uid !== zhang.uid) return;
                 onAfterApplyDamage(data.unit, data.target, { dmg: data.dmg }, data.group, A, data.log, data);
             });
-            eventBus.on('onRoundStart', L.ROUND_START.ZHANG_RANGE_CHECK, (data) => {
+            eventBus.on('onRoundStart', L.ROUND_START.RANGE_CHECK, (data) => {
                 if (zhang && zhang.alive && !zhang._zhangSwitched && fsm.is('ranged')) {
                     const col = (zhang.pos - 1) % 3;
                     const hasFrontAlly = A.some(c => c.alive && !c.isHorse && c.pos === 1 + col && c.uid !== zhang.uid);
                     if (!hasFrontAlly) fsm.transition('switching');
                 }
             });
-            eventBus.on('onUnitDeath', L.ON_UNIT_DEATH.ZHANG_SWITCH, (data) => {
+            eventBus.on('onUnitDeath', L.ON_UNIT_DEATH.SWITCH, (data) => {
                 if (zhang && zhang.alive && !zhang._zhangSwitched && fsm.is('ranged')) {
                     const col = (zhang.pos - 1) % 3;
                     const hasFrontAlly = A.some(c => c.alive && !c.isHorse && c.pos === 1 + col && c.uid !== zhang.uid);
                     if (!hasFrontAlly) fsm.transition('switching', { log: data && data.log });
                 }
             });
-            eventBus.on('onPositionSwap', L.ON_POSITION_SWAP.ZHANG_SWITCH, (data) => {
+            eventBus.on('onPositionSwap', L.ON_POSITION_SWAP.SWITCH, (data) => {
                 if (zhang && zhang.alive && !zhang._zhangSwitched && fsm.is('ranged')) {
                     const col = (zhang.pos - 1) % 3;
                     const hasFrontAlly = A.some(c => c.alive && !c.isHorse && c.pos === 1 + col && c.uid !== zhang.uid);
@@ -126,7 +126,7 @@ export function createWeiYixiaoComponent() {
             const wei = A.find(u => u.isWei && u.alive);
             if (!wei) return;
 
-            eventBus.on('onDodge', L.AFTER_DAMAGE_APPLIED.WEI_LEECH, (data) => {
+            eventBus.on('onDodge', L.AFTER_DAMAGE_APPLIED.LEECH, (data) => {
                 const { unit, target, reboundDmg, declarations } = data;
                 if (!target.isWei || !target.alive) return;
                 const s = getSkillParams('韦一笑', 'coldPalm');
@@ -528,7 +528,7 @@ export function createXiaoZhaoBrotherComponent() {
                     bro._baseMaxHp = bro.maxHp;
                 }
             });
-            eventBus.on('afterMiss', L.AFTER_MISS.XIAOZHAO_DOUBLE_RETRY, (data) => {
+            eventBus.on('afterMiss', L.AFTER_MISS.DOUBLE_RETRY, (data) => {
                 const { unit, target, log } = data;
                 if (!unit.isXiaoZhaoBrother || !unit.alive || unit._xiaoZhaoDoubleStriked) return;
                 if (!getEliteState(unit.uid)._permanentBuffs || !getEliteState(unit.uid)._permanentBuffs.some(b => b.key === 'doubleStrike')) return;
