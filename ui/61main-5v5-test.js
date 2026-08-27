@@ -11,7 +11,7 @@ import { stripTags, renderGrid, updateUI, setRenderStore, spawnVictoryEffects, c
 import { showDanmaku, showDamageFloat, showDodgeBubble, showHealFloat, VER as FX_VER } from '../fx/80fx-common-5v5-test.js';
 import { showRangedArrow, VER as FA_VER } from '../fx/81fx-arrows-5v5-test.js';
 import { showMeleeCrash, showMeleeDodge, showMeleeMiss, VER as FC_VER } from '../fx/82fx-crash-5v5-test.js';
-import { playBattle, playLineText, clearAllEffects, handleBuffSummon, handleBuffDestroy, handleBuffLeech, VER as BP_VER } from '../player/44battle-player-5v5-test.js';
+import { playBattle, playLineText, clearAllEffects, handleBuffSummon, handleBuffDestroy, VER as BP_VER } from '../player/44battle-player-5v5-test.js';
 import { showModal, showAlert, updateCoverVersion, copyLogToClipboard, initBugAndXiaoZhaoModes } from './60main-utils.js';
 
 // 拆分模块

@@ -8,7 +8,6 @@ import { playLineText, setPlayerContext as setTextCtx } from './40player-text.js
 import {
     handleBuffSummon,
     handleBuffDestroy,
-    handleBuffLeech,
     setBuffUIContext
 } from './41player-buff-ui.js';
 
@@ -21,8 +20,7 @@ import { VER as VER_BUFF_UI } from './41player-buff-ui.js';
 export { playBattle, clearAllEffects, playLineText };
 export {
     handleBuffSummon,
-    handleBuffDestroy,
-    handleBuffLeech
+    handleBuffDestroy
 };
 
 export const ALL_VERS = {
