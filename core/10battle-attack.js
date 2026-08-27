@@ -225,10 +225,7 @@ export async function processUnitAttack(unit, allySide, enemySide, log, A, B, st
     }
 
     if (!getEliteState(unit.uid)._isLinkAttack) unit.state._acted = true;
-<<<<<<< Updated upstream
-=======
 
->>>>>>> Stashed changes
     group._events = (group._events || []).concat(flushBattleEvents());
 
     const extraRequests = [];
@@ -282,10 +279,6 @@ export async function processUnitAttack(unit, allySide, enemySide, log, A, B, st
                 req.unit.state._acted = req.actedSnapshot;
             }
         }
-    }
-
-    if (target.camp === 'ally') {
-        eventBus.emit('allyDamaged', { attacker: unit, target, dmg: dmgCalc.dmg, allySide: A, enemySide: B, log });
     }
 
     resolveDeaths(allySide, enemySide, log);

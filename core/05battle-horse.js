@@ -6,7 +6,7 @@ import { CONFIG } from './01config-5v5-test.js';
 import { hasBuff } from './03battle-utils.js';
 import { query, getBattleRng, applyStatChange } from './13battle-shared.js';
 import { Unit } from './02unit.js';
-import { FACT_TYPES } from '../infra/56-battle-enums.js';
+import { FACT_TYPES, BUFF_TYPES } from '../infra/56-battle-enums.js';
 const C = CONFIG;
 
 // 拒马-生成：创建拒马单位并随机站位
