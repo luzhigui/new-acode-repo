@@ -1,6 +1,6 @@
 // core/10battle-attack.js - 光明顶5v5 攻击流程模块
-// V5.6.2 | ~10800 bytes| 2026-08-26 免疫回退输出回退走统一记账入口 recordCombatStat
-export const VER = 'core/10battle-attack.js V5.6.2';
+// V5.6.3 | ~10750 bytes| 2026-08-26 修复 processUnitAttack 内孤立多余 }（函数提前闭合导致 ESM 加载失败）
+export const VER = 'core/10battle-attack.js V5.6.3';
 
 import { CONFIG } from './01config-5v5-test.js';
 import { hasBuff, makeFXSnapshot, isBlocked } from './03battle-utils.js';
