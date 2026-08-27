@@ -7,7 +7,7 @@ import { getBattleRng } from '../core/13battle-shared.js';
 
 export function createBuffObject(key, duration) {
     const buff = { key, target: 'ally', remaining: duration, name: CONFIG.BUFFS[key]?.name || key };
-    if (key === 'holyFlame') {
+    if (key === BUFF_TYPES.HOLY_FLAME) {
         const cols = [];
         const rng = getBattleRng();
         while (cols.length < 2) { const c = rng.nextInt(1, 3); if (!cols.includes(c)) cols.push(c); }
@@ -26,7 +26,7 @@ export function generateBuffChoices(activeBuffs, allyTeam = [], rng = null) {
     const allKeys = Object.keys(CONFIG.BUFFS);
     const available = allKeys.filter(k => {
         if (activeBuffKeys.includes(k)) return false;
-        if (k === 'fortify' && !activeBuffs.some(b => b.remaining > 0)) return false;
+        if (k === BUFF_TYPES.FORTIFY && !activeBuffs.some(b => b.remaining > 0)) return false;
         const requiredRole = CONFIG.BUFF_ROLE_REQUIREMENTS[k];
         if (requiredRole && !allyTeam.some(u => u.alive && u.role === requiredRole)) return false;
         return true;

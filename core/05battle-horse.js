@@ -12,7 +12,7 @@ const C = CONFIG;
 // 拒马-生成：创建拒马单位并随机站位
 export function spawnHorse(allyTeam, log, enemyTeam, force = false) {
     let buffs = allyTeam._activeBuffs || [];
-    if (!force && !hasBuff(buffs, 'horseFormation')) return;
+    if (!force && !hasBuff(buffs, BUFF_TYPES.HORSE_FORMATION)) return;
     let occupiedPositions = new Set(
         allyTeam.filter(u => u.alive).map(u => u.pos)
     );
@@ -26,7 +26,7 @@ export function spawnHorse(allyTeam, log, enemyTeam, force = false) {
     }
     let horsePos = available[0];
     let horse = new Unit('拒马', 15, '防战', allyTeam[0].camp);
-    const xiaoHEnhance = query('xiaoHexEnhance', allyTeam, allyTeam._activeBuffs || [], 'horseFormation');
+    const xiaoHEnhance = query('xiaoHexEnhance', allyTeam, allyTeam._activeBuffs || [], BUFF_TYPES.HORSE_FORMATION);
     horse.atk = 0;
     horse._hpDmgRatio = 0.06;
     if (xiaoHEnhance) {

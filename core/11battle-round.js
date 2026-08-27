@@ -1,6 +1,6 @@
 // core/11battle-round.js - 光明顶5v5 回合循环与生成器
-// V5.6.1 | ~23700 bytes| 2026-08-26 回合开始重置查表化（17-state-keys），_spiderFlying 等回合级字段统一复位
-export const VER = 'core/11battle-round.js V5.6.1';
+// V5.6.2 | ~23700 bytes| 2026-08-26 回合重置走 resetEliteRoundState；蝶变方向弹窗移至播放器层
+export const VER = 'core/11battle-round.js V5.6.2';
 
 import { CONFIG, getGameData, getSkillParams } from './01config-5v5-test.js';
 import { ROUND_STATE_KEYS, ROUND_FIELD_KEYS } from './17-state-keys.js';
@@ -16,11 +16,11 @@ import { processUnitAttack } from './10battle-attack.js';
 import { eventBus, EXECUTION_LAYER as L } from '../infra/50-event-bus.js';
 import { getNextAvailableUnit, finalizeDeaths, emitFullUnitState, checkZhangSwitch, emitEvent, applyStatChange, setBattleRng } from './13battle-shared.js';
 import { getEliteState, setEliteState, cloneEliteState, resetEliteRoundState } from './18-elite-state.js';
+import { FACT_TYPES, BUFF_TYPES } from '../infra/56-battle-enums.js';
 import { flushBattleEvents, setBattleState } from '../infra/51-core-utils.js';
 import { SeededRNG } from '../infra/51-core-utils.js';
 import { resolveDeaths } from './12battle-attack-steps.js';
 import { translateFactsToStageActions } from '../render/31-stage-actions.js';
-import { FACT_TYPES } from '../infra/56-battle-enums.js';
 
 const C = CONFIG;
 
@@ -45,7 +45,7 @@ async function prepareRoundStart(A, B, log, state, round, rng) {
     }
 
     let doubleStrikeUnitUid = null;
-    if (hasBuff(A._activeBuffs, 'doubleStrike')) {
+    if (hasBuff(A._activeBuffs, BUFF_TYPES.DOUBLE_STRIKE)) {
         let candidates = A.filter(u => u.alive && !u.isHorse);
         if (candidates.length > 0) {
             let chosen = candidates[rng.nextInt(0, candidates.length - 1)];
@@ -74,7 +74,7 @@ async function prepareRoundStart(A, B, log, state, round, rng) {
     const holyColCount = holyFlameEnhance ? holyFlameEnhance.atkCols : 1;
     const holyRowCount = holyFlameEnhance ? holyFlameEnhance.defRows : 2;
     A._activeBuffs.forEach(b => {
-        if (b.key === 'holyFlame') {
+        if (b.key === BUFF_TYPES.HOLY_FLAME) {
             const cols = [];
             while (cols.length < holyColCount) { const c = rng.nextInt(1, 3); if (!cols.includes(c)) cols.push(c); }
             cols.sort((a, b) => a - b);
@@ -157,7 +157,7 @@ async function prepareRoundStart(A, B, log, state, round, rng) {
         if (!u.alive) return;
         emitEvent(u, 'hp-change', { hp: u.hp, maxHp: u.maxHp, alive: u.alive, atk: u.atk, def: u.def, _stunned: false });
         let allyTeamWithDead = A.slice();
-        let hasCarryActive = hasBuff(A._activeBuffs, 'carry');
+        let hasCarryActive = hasBuff(A._activeBuffs, BUFF_TYPES.CARRY);
         if (hasCarryActive) {
             allyTeamWithDead = allyTeamWithDead.concat((state.allAllies || state.ally).filter(c => !c.alive));
             allyTeamWithDead = allyTeamWithDead.filter((u, i, arr) => arr.findIndex(v => v.uid === u.uid) === i);

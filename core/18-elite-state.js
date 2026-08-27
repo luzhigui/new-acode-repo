@@ -1,6 +1,6 @@
 // core/18-elite-state.js - 光明顶5v5 精英技能状态容器
-// V1.0.0 | ~2500 bytes| 2026-08-26 从 Unit 拆出精英机制状态，Unit 回归纯战斗数据
-export const VER = 'core/18-elite-state.js V1.0.0';
+// V1.1.0 | ~2500 bytes| 2026-08-26 从 Unit 拆出精英机制状态，Unit 回归纯战斗数据
+export const VER = 'core/18-elite-state.js V1.1.0';
 
 const _eliteStates = new Map();
 
@@ -22,6 +22,7 @@ const ROUND_FIELDS = [
 function defaultFor(key) {
     if (['_kuaiLeStack', '_masteredRoles', '_permanentBuffs'].includes(key)) return [];
     if (key === '_xuanmingPoison') return null;
+    if (key === '_spiderRemaining') return 3; // 原 Unit 构造默认 3
     return false;
 }
 

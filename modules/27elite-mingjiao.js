@@ -12,7 +12,7 @@ import { EXECUTION_LAYER as L, EFFECT_TYPES } from '../infra/50-event-bus.js';
 import { registerDodgeRule } from '../core/12battle-attack-steps.js';
 import { StateMachine } from '../infra/51-core-utils.js';
 import { getEliteState, setEliteState } from '../core/18-elite-state.js';
-import { FACT_TYPES } from '../infra/56-battle-enums.js';
+import { FACT_TYPES, BUFF_TYPES } from '../infra/56-battle-enums.js';
 
 // ==================== 张无忌 ====================
 export function createZhangWujiComponent() {
@@ -485,8 +485,8 @@ export function createXiaoZhaoBrotherComponent() {
             });
             eventBus.on('beforeSelectTarget', L.BEFORE_SELECT_TARGET.PERMANENT_MIND_CONTROL, (data) => {
                 if (data.unit.camp !== 'enemy') return;
-                if (!brother || !brother.alive || !getEliteState(brother.uid)._permanentBuffs || !getEliteState(brother.uid)._permanentBuffs.some(b => b.key === 'mindControl')) return;
-                if (hasBuff(data.enemySide._activeBuffs, 'mindControl')) return;
+                if (!brother || !brother.alive || !getEliteState(brother.uid)._permanentBuffs || !getEliteState(brother.uid)._permanentBuffs.some(b => b.key === BUFF_TYPES.MIND_CONTROL)) return;
+                if (hasBuff(data.enemySide._activeBuffs, BUFF_TYPES.MIND_CONTROL)) return;
                 if (getBattleRng().next() < 0.15) {
                     const fakeTarget = data.allySide.find(u => u.alive && !u.isHorse && u.uid !== data.unit.uid);
                     if (fakeTarget) {
@@ -512,16 +512,16 @@ export function createXiaoZhaoBrotherComponent() {
                 if (getEliteState(bro.uid)._spiderTriggered70 === undefined) setEliteState(bro.uid, { _spiderTriggered70: false });
                 if (getEliteState(bro.uid)._spiderTriggered40 === undefined) setEliteState(bro.uid, { _spiderTriggered40: false });
                 setEliteState(bro.uid, { _spiderTriggeredThisRound: false });
-                const teamHasHorse = hasBuff(A._activeBuffs, 'horseFormation');
-                const hasPermanent = getEliteState(bro.uid)._permanentBuffs?.some(b => b.key === 'horseFormation');
+                const teamHasHorse = hasBuff(A._activeBuffs, BUFF_TYPES.HORSE_FORMATION);
+                const hasPermanent = getEliteState(bro.uid)._permanentBuffs?.some(b => b.key === BUFF_TYPES.HORSE_FORMATION);
                 if (!teamHasHorse && hasPermanent) {
                     const xzHorse = spawnHorse(A, log, B, true);
                     if (xzHorse) {
                         log.push({ factType: FACT_TYPES.XIAO_ZHAO_HORSE, data: { pos: xzHorse.pos, horseUid: xzHorse.uid } });
                     }
                 }
-                const hasTeamCarry = hasBuff(A._activeBuffs, 'carry');
-                if (!hasTeamCarry && getEliteState(bro.uid)._permanentBuffs?.some(b => b.key === 'carry') && bro._baseMaxHp !== undefined) {
+                const hasTeamCarry = hasBuff(A._activeBuffs, BUFF_TYPES.CARRY);
+                if (!hasTeamCarry && getEliteState(bro.uid)._permanentBuffs?.some(b => b.key === BUFF_TYPES.CARRY) && bro._baseMaxHp !== undefined) {
                     applyStatChange(bro, 'atk', 3, null, '小昭·妹永久carry');
                     applyStatChange(bro, 'def', 4, null, '小昭·妹永久carry');
                     applyMaxHpChange(bro, bro.maxHp + 20, null, '小昭·妹永久carry');
@@ -531,8 +531,8 @@ export function createXiaoZhaoBrotherComponent() {
             eventBus.on('afterMiss', L.AFTER_MISS.DOUBLE_RETRY, (data) => {
                 const { unit, target, log } = data;
                 if (!unit.isXiaoZhaoBrother || !unit.alive || unit._xiaoZhaoDoubleStriked) return;
-                if (!getEliteState(unit.uid)._permanentBuffs || !getEliteState(unit.uid)._permanentBuffs.some(b => b.key === 'doubleStrike')) return;
-                if (hasBuff(A._activeBuffs, 'doubleStrike')) return;
+                if (!getEliteState(unit.uid)._permanentBuffs || !getEliteState(unit.uid)._permanentBuffs.some(b => b.key === BUFF_TYPES.DOUBLE_STRIKE)) return;
+                if (hasBuff(A._activeBuffs, BUFF_TYPES.DOUBLE_STRIKE)) return;
                 const s = getSkillParams('小昭', 'spiderFly');
                 if (!s) throw new Error('缺技能参数: 小昭.spiderFly');
                 const chance = s.xiaoZhaoDoubleStrikeChance;

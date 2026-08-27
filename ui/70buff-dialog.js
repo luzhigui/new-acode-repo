@@ -21,7 +21,7 @@ export function showBuffPopup(c) {
         const allyTeam = c.UI?.allyTeam || [];
         let available = allKeys.filter(k => {
             if (existingKeys.includes(k)) return false;
-            if (k === 'fortify' && !activeBuffs.some(b => b.remaining > 0)) return false;
+            if (k === BUFF_TYPES.FORTIFY && !activeBuffs.some(b => b.remaining > 0)) return false;
             const requiredRole = CONFIG.BUFF_ROLE_REQUIREMENTS?.[k];
             if (requiredRole && !allyTeam.some(u => u.alive && u.role === requiredRole)) return false;
             return true;

@@ -89,7 +89,7 @@ export async function handleBuffLeech(c, entry) {
     // 特效/文本走导演 stageAction；此处保留旧逻辑不参与枚举收敛
     // 治疗飘字已由导演 stageAction 'heal' 统一处理
     let bannerText = '🗡️ 嗜血狂刀！';
-    if (entry.buffType === 'hotBlood') {
+    if (entry.buffType === BUFF_TYPES.HOT_BLOOD) {
         bannerText = entry.isDouble ? '❤️‍🔥 热血奋战(翻倍)！' : '❤️ 热血奋战！';
     }
     c.isPaused = true;

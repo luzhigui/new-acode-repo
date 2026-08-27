@@ -94,7 +94,7 @@ function pickHexBuff(activeBuffs, allyTeam, rng, withFortifyRule) {
     const allKeys = Object.keys(CONFIG.BUFFS);
     const available = allKeys.filter(k => {
         if (existing.includes(k)) return false;
-        if (withFortifyRule && k === 'fortify' && !activeBuffs.some(b => b.remaining > 0)) return false;
+        if (withFortifyRule && k === BUFF_TYPES.FORTIFY && !activeBuffs.some(b => b.remaining > 0)) return false;
         const requiredRole = CONFIG.BUFF_ROLE_REQUIREMENTS[k];
         if (requiredRole && !allyTeam.some(u => u.alive && u.role === requiredRole)) return false;
         return true;

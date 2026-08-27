@@ -22,7 +22,7 @@ import { flushBattleEvents } from '../infra/51-core-utils.js';
 import { getEliteState } from './18-elite-state.js';
 
 import { emitEvent, applyStatChange, recordCombatStat } from './13battle-shared.js';
-import { FACT_TYPES } from '../infra/56-battle-enums.js';
+import { FACT_TYPES, BUFF_TYPES } from '../infra/56-battle-enums.js';
 
 const C = CONFIG;
 
@@ -75,7 +75,7 @@ export async function processUnitAttack(unit, allySide, enemySide, log, A, B, st
 
     let unitActiveBuffs = unit.camp === 'ally' ? A._activeBuffs : B._activeBuffs;
     let unitAllyTeam = unit.camp === 'ally' ? A : B;
-    if (hasBuff(unitActiveBuffs, 'carry') && unit.camp === 'ally') {
+    if (hasBuff(unitActiveBuffs, BUFF_TYPES.CARRY) && unit.camp === 'ally') {
         unitAllyTeam = unitAllyTeam.concat((state.allAllies || state.ally).filter(c => !c.alive));
         unitAllyTeam = unitAllyTeam.filter((u, i, arr) => arr.findIndex(v => v.uid === u.uid) === i);
     }
@@ -225,6 +225,10 @@ export async function processUnitAttack(unit, allySide, enemySide, log, A, B, st
     }
 
     if (!getEliteState(unit.uid)._isLinkAttack) unit.state._acted = true;
+<<<<<<< Updated upstream
+=======
+
+>>>>>>> Stashed changes
     group._events = (group._events || []).concat(flushBattleEvents());
 
     const extraRequests = [];

@@ -5,6 +5,7 @@ export const VER = 'ui/62ui-render-5v5-test.js V5.5.1';
 import { getSkillDesc } from '../core/01config-5v5-test.js';
 import { getAuraBonuses } from '../core/03battle-utils.js';
 import { getEliteState } from '../core/18-elite-state.js';
+import { BUFF_TYPES } from '../infra/56-battle-enums.js';
 import {
     renderGrid,
     updateGridUI,
@@ -118,16 +119,16 @@ function updateDetailPopupContent() {
     let activeBuffs = ctx.activeBuffs || [];
     let doubleStrikeUid = ctx.currentDoubleStrikeUid;
     let holyFlameBuffs = activeBuffs.filter(b => {
-        if (b.key !== 'holyFlame') return false;
+        if (b.key !== BUFF_TYPES.HOLY_FLAME) return false;
         const cols = b.cols || (b.col != null ? [b.col] : []);
         const rows = b.rows || (b.row != null ? [b.row] : []);
         const unitCol = (u.pos - 1) % 3 + 1;
         const unitRow = Math.ceil(u.pos / 3);
         return cols.includes(unitCol) || rows.includes(unitRow);
     });
-    let unitBuffs = activeBuffs.filter(b => b.key !== 'holyFlame' && isUnitBenefitedByBuff(u, b.key, allyTeam, doubleStrikeUid, activeBuffs));
+    let unitBuffs = activeBuffs.filter(b => b.key !== BUFF_TYPES.HOLY_FLAME && isUnitBenefitedByBuff(u, b.key, allyTeam, doubleStrikeUid, activeBuffs));
     if (holyFlameBuffs.length > 0) {
-        unitBuffs.push({ key: 'holyFlame', name: '圣火令', icon: '🔥', remaining: holyFlameBuffs[0].remaining });
+        unitBuffs.push({ key: BUFF_TYPES.HOLY_FLAME, name: '圣火令', icon: '🔥', remaining: holyFlameBuffs[0].remaining });
     }
     let buffText = '无';
     let masteryText = '';
