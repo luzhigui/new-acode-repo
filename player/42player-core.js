@@ -708,7 +708,7 @@ export async function playBattle() {
                             getEliteState(xiaoZhao.uid)._permanentBuffs.push({ ...newBuff, remaining: Infinity });
                         }
                     }
-                    if (pick === 'holyFlame') {
+                    if (pick === BUFF_TYPES.HOLY_FLAME) {
                         newBuff.col = getBattleRng().nextInt(1, 3);
                         newBuff.row = getBattleRng().nextInt(1, 3);
                     }

@@ -1,6 +1,6 @@
 // core/02unit.js - 光明顶5v5 战斗单位类
-// V5.6.1 | ~6900 bytes| 2026-08-26 clone 查表化：state 只拷整场键、回合级字段不拷，由 17-state-keys 驱动
-export const VER = 'core/02unit.js V5.6.1';
+// V5.6.2 | ~6900 bytes| 2026-08-26 精英机制状态迁出至 18-elite-state，Unit 回归纯战斗数据
+export const VER = 'core/02unit.js V5.6.2';
 
 import { CONFIG, getGameData } from './01config-5v5-test.js';
 
@@ -45,10 +45,7 @@ export class Unit {
         this.state = {
             _acted: false, _stunned: false, _isDead: false, _resting: false,
             _blocked: false, _flyMode: null, _butterflyHost: null,
-            _spiderFlying: false, _spiderTriggeredHit: false,
-            _spiderTriggered70: false, _spiderTriggered40: false,
-            _spiderTriggeredDeath: false, _spiderTriggeredThisRound: false,
-            _phantomTarget: null
+            _spiderFlying: false
         };
         this.buffAtkBonus = 0;
         this.buffDefBonus = 0;
@@ -62,26 +59,8 @@ export class Unit {
         this._butterflyDefBonus = 0;
         this._initAtk = 0;          // 战斗开始时的初始攻击（永不修改）
         this._initDef = 0;          // 战斗开始时的初始防御（永不修改）
-        // V3.1.0 新增：宋青书/周芷若联动技能状态字段
-        this._kuaiLeStack = [];       // 快乐层数数组，每层 { healPct: number }
-        this._xingFenActive = false;
-        this._xingFenCount = 0;  // 性奋已触发次数（影响生命上限扣减）（本回合是否还能触发额外攻击）
-        this._xingFenPenaltyCount = 0; // 性奋惩罚累计次数，跨回合递增
-        this._kuLianActive = false;
-
-        this._isLinkAttack = false;
         this.isXiaoZhaoSister = false; // 🦋 小昭·姊
         this.isXiaoZhaoBrother = false; // 🕷️ 小昭·妹
-        this._masteredRoles = [];
-        this._permanentBuffs = [];
-        this._butterflyAtk = 0;      // 🦋 附身时暂存的攻击
-        this._butterflyDef = 0;      // 🦋 附身时暂存的防御
-        this._butterflyHp = 0;       // 🦋 附身时暂存的血量
-        this._butterflyHpTransfer = 0; // 🦋 附身时转移给宿主的血上限值
-        this._spiderRemaining = 3;
-        this._spiderAttacked = false;
-        this._nineYinFirstDone = false;
-        this._extinctionUsed = false;
         this._emptyColBonus = 0;
         this._bloodAuraBonus = 0;
         this._holyAtkBonus = 0;
@@ -91,7 +70,6 @@ export class Unit {
         this._fortifyIncrement = CONFIG.FORTIFY_INCREMENT;
         this._fortifyCap = CONFIG.FORTIFY_CAP;
         this._dodgeStack = 0;
-        this._linkedPartnerUid = null;  // 联动搭档 uid（宋青书↔周芷若、鹿杖客↔鹤笔翁）
         getEliteState(this.uid);
     }
     clone(){

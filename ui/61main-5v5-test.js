@@ -13,6 +13,7 @@ import { showRangedArrow, VER as FA_VER } from '../fx/81fx-arrows-5v5-test.js';
 import { showMeleeCrash, showMeleeDodge, showMeleeMiss, VER as FC_VER } from '../fx/82fx-crash-5v5-test.js';
 import { playBattle, playLineText, clearAllEffects, handleBuffSummon, handleBuffDestroy, VER as BP_VER } from '../player/44battle-player-5v5-test.js';
 import { showModal, showAlert, updateCoverVersion, copyLogToClipboard, initBugAndXiaoZhaoModes } from './60main-utils.js';
+import { BUFF_TYPES } from '../infra/56-battle-enums.js';
 
 // 拆分模块
 import { getPlayerContext, getState, setState } from '../ui/63main-state.js';
@@ -196,7 +197,7 @@ document.addEventListener('DOMContentLoaded', async function() {
                 const allyTeam = getState.UI().allyTeam || [];
                 const available = allKeys.filter(k => {
                     if (existing.includes(k)) return false;
-                    if (k === 'fortify' && !getState.activeBuffs().some(b => b.remaining > 0)) return false;
+                    if (k === BUFF_TYPES.FORTIFY && !getState.activeBuffs().some(b => b.remaining > 0)) return false;
                     const requiredRole = C.BUFF_ROLE_REQUIREMENTS?.[k];
                     if (requiredRole && !allyTeam.some(u => u.alive && u.role === requiredRole)) return false;
                     return true;
@@ -214,7 +215,7 @@ document.addEventListener('DOMContentLoaded', async function() {
                     const allyTeam = getState.UI().allyTeam;
                     const xz = allyTeam.find(u => u.isXiaoZhaoBrother);
                     if (xz) {
-                        const extra = pick === 'holyFlame' ? { col: _randLocal(1, 3), row: _randLocal(1, 3) } : {};
+                        const extra = pick === BUFF_TYPES.HOLY_FLAME ? { col: _randLocal(1, 3), row: _randLocal(1, 3) } : {};
                         addPermanentBuff(xz, pick, C.BUFFS[pick].name, extra);
                     }
                     updateBuffSlots(getState.activeBuffs());

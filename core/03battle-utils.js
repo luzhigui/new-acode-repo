@@ -5,7 +5,7 @@ export const VER = 'core/03battle-utils.js V5.7.3';
 import { CONFIG, getGameData } from './01config-5v5-test.js';
 import { emitEvent, applyStatChange, query, getBattleRng } from './13battle-shared.js';
 import { EXECUTION_LAYER as L, EFFECT_TYPES } from '../infra/50-event-bus.js';
-import { FACT_TYPES } from '../infra/56-battle-enums.js';
+import { FACT_TYPES, BUFF_TYPES } from '../infra/56-battle-enums.js';
 import {
     calcDamage,
     getFangLevelPure,
@@ -245,7 +245,7 @@ export function registerWarriorExecute(eventBus) {
         if (unit.role !== '战士' || !unit.alive) return;
         if (!target || !target.alive || target.hp <= 0) return;
         const unitBuffs = (allySide && allySide._activeBuffs) || [];
-        const hasBloodthirst = hasBuff(unitBuffs, 'bloodthirst');
+        const hasBloodthirst = hasBuff(unitBuffs, BUFF_TYPES.BLOODTHIRST);
         const threshold = hasBloodthirst ? 0.20 : 0.15;
         if (target.hp <= target.maxHp * threshold) {
             if (!declarations) return;
@@ -320,7 +320,7 @@ export function registerDoubleStrike(eventBus, doubleStrikeUnitUid, allyTeam, ac
     eventBus.on('afterAttack', L.AFTER_ATTACK.DOUBLE_STRIKE, (data) => {
         const { unit, target, log } = data;
         if (unit.uid !== doubleStrikeUnitUid || !unit.alive || unit.camp !== 'ally' || unit._doubleStriked) return;
-        const xiaoDoubleEnhance = query('xiaoHexEnhance', allyTeam, activeBuffs, 'doubleStrike');
+        const xiaoDoubleEnhance = query('xiaoHexEnhance', allyTeam, activeBuffs, BUFF_TYPES.DOUBLE_STRIKE);
         const missChainChance = xiaoDoubleEnhance ? 1.0 : (C.BUFFS.doubleStrike.prob || 0.8);
         if (getBattleRng().next() < missChainChance) {
             log.push({ factType: FACT_TYPES.DOUBLE_STRIKE, data: { success: true } });

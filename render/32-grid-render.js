@@ -72,25 +72,25 @@ function getDodgeBreakdown(unit, activeBuffs, allyTeam) {
 
 function isUnitBenefitedByBuff(unit, buffKey, allyTeam, doubleStrikeUid, activeBuffs) {
     switch (buffKey) {
-        case 'carry': return unit.pos === 5 && unit.alive;
-        case 'meteorShower': return unit.role === '远程';
-        case 'bloodthirst': return unit.role === '战士';
-        case 'fortify': return unit.role === '防战' && unit.camp === 'ally';
-        case 'windAssault': return unit.role === '飞行';
-        case 'cloudBody': return true;
-        case 'holyFlame': {
+        case BUFF_TYPES.CARRY: return unit.pos === 5 && unit.alive;
+        case BUFF_TYPES.METEOR_SHOWER: return unit.role === '远程';
+        case BUFF_TYPES.BLOODTHIRST: return unit.role === '战士';
+        case BUFF_TYPES.FORTIFY: return unit.role === '防战' && unit.camp === 'ally';
+        case BUFF_TYPES.WIND_ASSAULT: return unit.role === '飞行';
+        case BUFF_TYPES.CLOUD_BODY: return true;
+        case BUFF_TYPES.HOLY_FLAME: {
             if (!activeBuffs) return false;
-            const holyBuffs = activeBuffs.filter(b => b.key === 'holyFlame');
+            const holyBuffs = activeBuffs.filter(b => b.key === BUFF_TYPES.HOLY_FLAME);
             return holyBuffs.some(b => {
                 const cols = b.cols || (b.col != null ? [b.col] : []);
                 const rows = b.rows || (b.row != null ? [b.row] : []);
                 return cols.includes(getUnitCol(unit.pos)) || rows.includes(getUnitRow(unit.pos));
             });
         }
-        case 'hotBlood': return true;
-        case 'doubleStrike': return unit.uid === doubleStrikeUid && doubleStrikeUid != null;
-        case 'horseFormation': return false;
-        case 'mindControl': {
+        case BUFF_TYPES.HOT_BLOOD: return true;
+        case BUFF_TYPES.DOUBLE_STRIKE: return unit.uid === doubleStrikeUid && doubleStrikeUid != null;
+        case BUFF_TYPES.HORSE_FORMATION: return false;
+        case BUFF_TYPES.MIND_CONTROL: {
             if (!allyTeam) return false;
             let frontUnit = allyTeam.filter(u => u.alive && !u.isHorse).sort((a, b) => a.pos - b.pos)[0];
             return frontUnit && unit.uid === frontUnit.uid;

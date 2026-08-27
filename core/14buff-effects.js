@@ -18,7 +18,7 @@ export function applyCloudBodyDodge_Sister(unit, stats) { stats.dodgeBonus = get
 export function applyCloudBodyDodge_Brother(unit, stats) { stats.dodgeBonus = CONFIG.BUFFS.cloudBody.dodgeBonus; }
 
 export function applyHolyFlame_Normal(unit, allyTeam, activeBuffs, stats) {
-    const holyFlameBuff = activeBuffs.find(b => b.key === 'holyFlame');
+    const holyFlameBuff = activeBuffs.find(b => b.key === BUFF_TYPES.HOLY_FLAME);
     if (!holyFlameBuff || unit.camp !== 'ally') return;
     const cols = holyFlameBuff.cols || (holyFlameBuff.col != null ? [holyFlameBuff.col] : []);
     const rows = holyFlameBuff.rows || (holyFlameBuff.row != null ? [holyFlameBuff.row] : []);

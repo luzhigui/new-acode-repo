@@ -250,7 +250,7 @@ function installLinkAttack(eventBus, declarations) {
 
     eventBus.on('afterAttack', L.AFTER_ATTACK.XUANMING_LINK, (data) => {
         const { unit, target, dmg, allySide, log } = data;
-        if (!unit || unit._isLinkAttack || dmg <= 0 || !target || !target.alive) return;
+        if (!unit || getEliteState(unit.uid)._isLinkAttack || dmg <= 0 || !target || !target.alive) return;
         const decl = decls.find(d => d.name === unit.name);
         if (!decl) return;
         const partnerNames = decl.partnerNames || [];

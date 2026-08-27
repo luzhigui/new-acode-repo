@@ -5,6 +5,7 @@ export const VER = 'core/16effect-handlers.js V1.0.0';
 import { EFFECT_TYPES } from '../infra/50-event-bus.js';
 import { applyStatChange, applyMaxHpChange, query } from './13battle-shared.js';
 import { flushBattleEvents } from '../infra/51-core-utils.js';
+import { BUFF_TYPES } from '../infra/56-battle-enums.js';
 
 const effectHandlers = new Map();
 
@@ -68,7 +69,7 @@ registerEffectHandler(EFFECT_TYPES.SPLASH, (ctx) => {
             applyStatChange(st, 'hp', -(decl.value || 0), ctx.unit, '溅射');
         }
         if (ctx.unit && ctx.unit.role === '远程' && decl.buffType === 'meteor_splash') {
-            const enhance = query('xiaoHexEnhance', ctx.allySide, ctx.unitBuffs, 'meteorShower');
+            const enhance = query('xiaoHexEnhance', ctx.allySide, ctx.unitBuffs, BUFF_TYPES.METEOR_SHOWER);
             const perSplash = enhance ? (enhance.atkPerSplash || 0) : 0;
             const hitCount = decl.targets.filter(t => t.alive).length;
             if (hitCount > 0 && perSplash > 0) {

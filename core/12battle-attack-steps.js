@@ -10,7 +10,7 @@ import { emitEvent, applyStatChange, applyMaxHpChange, query, getBattleRng, reco
 import { getEliteState } from './18-elite-state.js';
 import { flushBattleEvents, pushBattleEvent, getBattleState, setBattleState, registerDodgeRule, clearEliteDodgeRules, getDodgeRules } from '../infra/51-core-utils.js';
 import { getEffectHandler, hasEffectHandler } from './16effect-handlers.js';
-import { FACT_TYPES } from '../infra/56-battle-enums.js';
+import { FACT_TYPES, BUFF_TYPES } from '../infra/56-battle-enums.js';
 
 // ==================== 闪避规则注册表（已下沉 infra/51，此处转发） ====================
 export { registerDodgeRule, clearEliteDodgeRules, getDodgeRules };
@@ -118,7 +118,7 @@ export function resolveAttackHit(unit, target, attackerBuffStats, defenderBuffSt
 
     const allyBuffs = (target.camp === 'ally' && A ? A._activeBuffs : (target.camp === 'enemy' && B ? B._activeBuffs : []));
     if (target.state._stunned) return { skipped: false };
-    const hasCloudBody = hasBuff(allyBuffs, 'cloudBody') || ((target.isXiaoZhaoSister || target.isXiaoZhaoBrother) && getEliteState(target.uid)._permanentBuffs && getEliteState(target.uid)._permanentBuffs.some(b => b.key === 'cloudBody'));
+    const hasCloudBody = hasBuff(allyBuffs, BUFF_TYPES.CLOUD_BODY) || ((target.isXiaoZhaoSister || target.isXiaoZhaoBrother) && getEliteState(target.uid)._permanentBuffs && getEliteState(target.uid)._permanentBuffs.some(b => b.key === BUFF_TYPES.CLOUD_BODY));
     if (target.alive && (target.isWei || hasCloudBody || !target.state._acted)) {
         let dodgeTriggered = false;
         for (const ruleFn of getDodgeRules()) {
@@ -322,8 +322,8 @@ export function applyAttackResult(unit, target, dmgCalc, attackerBuffStats, defe
     }
 
     let horseReboundDeclarations = [];
-    const xiaoHEnhance = query('xiaoHexEnhance', A, A._activeBuffs, 'horseFormation');
-    if (target.isHorse && dmg > 0 && xiaoHEnhance && hasBuff(A._activeBuffs, 'horseFormation')) {
+    const xiaoHEnhance = query('xiaoHexEnhance', A, A._activeBuffs, BUFF_TYPES.HORSE_FORMATION);
+    if (target.isHorse && dmg > 0 && xiaoHEnhance && hasBuff(A._activeBuffs, BUFF_TYPES.HORSE_FORMATION)) {
         const rebound = xiaoHEnhance.reboundDmg;
         horseReboundDeclarations.push({
             type: EFFECT_TYPES.REBOUND,
@@ -340,7 +340,7 @@ export function applyAttackResult(unit, target, dmgCalc, attackerBuffStats, defe
     let reboundEntry = null;
     let fortifyDeclarations = null;
     let allyBuffs_fortify = (target.camp === 'ally' ? A._activeBuffs : B._activeBuffs) || [];
-    if (hasBuff(allyBuffs_fortify, 'fortify') && target.role === '防战' && dmg > 0) {
+    if (hasBuff(allyBuffs_fortify, BUFF_TYPES.FORTIFY) && target.role === '防战' && dmg > 0) {
         const reboundDmg = Math.floor((atkAct - Math.floor(atkAct * (atkAct / (atkAct + defAct)))) / 2);
         if (reboundDmg > 0) {
             const hasSister = A && A.some(u => u.isXiaoZhaoSister && u.alive);

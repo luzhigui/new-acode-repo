@@ -12,7 +12,7 @@ import { CONFIG, getGameData } from './01config-5v5-test.js';
 import { hasBuff, getUnitRow, getUnitCol, getAdjacentPositions } from './03battle-utils.js';
 import { emitEvent, applyStatChange, applyMaxHpChange, query, getBattleRng, swapUnitPositions, moveUnitPosition } from './13battle-shared.js';
 import { EXECUTION_LAYER as L, EFFECT_TYPES } from '../infra/50-event-bus.js';
-import { FACT_TYPES } from '../infra/56-battle-enums.js';
+import { FACT_TYPES, BUFF_TYPES } from '../infra/56-battle-enums.js';
 const C = CONFIG;
 
 /**
@@ -22,7 +22,7 @@ export function applyHolyFlameBonus(unit, activeBuffs, hasSister) {
     unit._holyAtkBonus = 0;
     unit._holyDefBonus = 0;
     if (!activeBuffs || unit.camp !== 'ally') return;
-    const holyFlameBuff = activeBuffs.find(b => b.key === 'holyFlame');
+    const holyFlameBuff = activeBuffs.find(b => b.key === BUFF_TYPES.HOLY_FLAME);
     if (!holyFlameBuff) return;
     const cols = holyFlameBuff.cols || (holyFlameBuff.col != null ? [holyFlameBuff.col] : []);
     const rows = holyFlameBuff.rows || (holyFlameBuff.row != null ? [holyFlameBuff.row] : []);
@@ -42,7 +42,7 @@ export function applyHolyFlameBonus(unit, activeBuffs, hasSister) {
 export function applyFortifyBonus(unit, activeBuffs) {
     unit._fortifyDefBonus = 0;
     if (unit.role !== '防战' || unit.camp !== 'ally') return;
-    if (activeBuffs && activeBuffs.some(b => b.key === 'fortify')) {
+    if (activeBuffs && activeBuffs.some(b => b.key === BUFF_TYPES.FORTIFY)) {
         const baseDef = unit._baseDef || unit.def;
         unit._fortifyDefBonus = Math.floor(baseDef * C.BUFFS.fortify.defBonus);
     }
@@ -54,7 +54,7 @@ export function applyFortifyBonus(unit, activeBuffs) {
 export function applyCarryBonus(unit, A, state, log, stats) {
     if (unit.camp !== 'ally') return;
     const activeBuffs = A._activeBuffs || [];
-    const hasCarryActive = hasBuff(activeBuffs, 'carry');
+    const hasCarryActive = hasBuff(activeBuffs, BUFF_TYPES.CARRY);
     const sister = A.some(a => a.isXiaoZhaoSister && a.alive);
     const carryPositions = sister ? [4, 5, 6] : [5];
 
@@ -111,7 +111,7 @@ export function computeBuffStats(unit, activeBuffs, allyTeam) {
     if (!activeBuffs) return { atkBonus, defBonus, dodgeBonus, hpBonus };
 
     let carryAtkAbs = 0, carryDefAbs = 0, carryHpAbs = 0;
-    const hasCarry = hasBuff(activeBuffs, 'carry');
+    const hasCarry = hasBuff(activeBuffs, BUFF_TYPES.CARRY);
     if (hasCarry && unit.alive && allyTeam) {
         const hasSister = allyTeam.some(u => u.isXiaoZhaoSister && u.alive);
         if (hasSister) {
@@ -124,27 +124,27 @@ export function computeBuffStats(unit, activeBuffs, allyTeam) {
     }
 
     // 严阵以待防御（比率）
-    if (hasBuff(activeBuffs, 'fortify') && unit.role === '防战' && unit.camp === 'ally') {
+    if (hasBuff(activeBuffs, BUFF_TYPES.FORTIFY) && unit.role === '防战' && unit.camp === 'ally') {
         if (allyTeam && allyTeam.some(u => u.isXiaoZhaoSister && u.alive)) applyFortifyDef_Sister(unit, { defBonus });
         else applyFortifyDef_Normal(unit, { defBonus });
-    } else if (unit.isXiaoZhaoBrother && query('xiaoPermanentActive', unit, activeBuffs, 'fortify') && unit.role === '防战') {
+    } else if (unit.isXiaoZhaoBrother && query('xiaoPermanentActive', unit, activeBuffs, BUFF_TYPES.FORTIFY) && unit.role === '防战') {
         applyFortifyDef_Brother(unit, { defBonus });
     }
 
     // 流云身法闪避
-    if (hasBuff(activeBuffs, 'cloudBody') && unit.camp === 'ally') {
+    if (hasBuff(activeBuffs, BUFF_TYPES.CLOUD_BODY) && unit.camp === 'ally') {
         if (allyTeam && allyTeam.some(u => u.isXiaoZhaoSister && u.alive)) applyCloudBodyDodge_Sister(unit, { dodgeBonus });
         else applyCloudBodyDodge_Normal(unit, { dodgeBonus });
-    } else if (unit.isXiaoZhaoBrother && query('xiaoPermanentActive', unit, activeBuffs, 'cloudBody')) {
+    } else if (unit.isXiaoZhaoBrother && query('xiaoPermanentActive', unit, activeBuffs, BUFF_TYPES.CLOUD_BODY)) {
         applyCloudBodyDodge_Brother(unit, { dodgeBonus });
     }
 
     // 圣火令（比率）
-    const holyFlameTeam = hasBuff(activeBuffs, 'holyFlame');
+    const holyFlameTeam = hasBuff(activeBuffs, BUFF_TYPES.HOLY_FLAME);
     if (holyFlameTeam) {
         if (allyTeam && allyTeam.some(u => u.isXiaoZhaoSister && u.alive)) applyHolyFlame_Sister(unit, allyTeam, activeBuffs, { atkBonus, defBonus });
         else applyHolyFlame_Normal(unit, allyTeam, activeBuffs, { atkBonus, defBonus });
-    } else if (unit.isXiaoZhaoBrother && query('xiaoPermanentActive', unit, activeBuffs, 'holyFlame')) {
+    } else if (unit.isXiaoZhaoBrother && query('xiaoPermanentActive', unit, activeBuffs, BUFF_TYPES.HOLY_FLAME)) {
         applyHolyFlame_Brother(unit, allyTeam, activeBuffs, { atkBonus, defBonus });
     }
 
@@ -175,7 +175,7 @@ export function registerBloodthirst(eventBus) {
         const hasSister = allySide.some(u => u.isXiaoZhaoSister && u.alive);
         const isBrother = unit.isXiaoZhaoBrother;
 
-        if (hasBuff(unitBuffs, 'bloodthirst') && unit.role === '战士' && dmg > 0) {
+        if (hasBuff(unitBuffs, BUFF_TYPES.BLOODTHIRST) && unit.role === '战士' && dmg > 0) {
             const leechVal = Math.floor(dmg * C.BUFFS.bloodthirst.leechRatio);
             const decl = {
                 type: EFFECT_TYPES.LEECH,
@@ -197,7 +197,7 @@ export function registerBloodthirst(eventBus) {
                     priority: 20
                 });
             }
-        } else if (isBrother && query('xiaoPermanentActive', unit, unitBuffs, 'bloodthirst') && unit.role === '战士') {
+        } else if (isBrother && query('xiaoPermanentActive', unit, unitBuffs, BUFF_TYPES.BLOODTHIRST) && unit.role === '战士') {
             const leechVal = Math.floor(dmg * C.BUFFS.bloodthirst.leechRatio);
             const decl = {
                 type: EFFECT_TYPES.LEECH,
@@ -221,12 +221,12 @@ export function registerHotBlood(eventBus) {
         const hasSister = allySide.some(u => u.isXiaoZhaoSister && u.alive);
         const isBrother = unit.isXiaoZhaoBrother;
 
-        if (hasBuff(unitBuffs, 'hotBlood')) {
+        if (hasBuff(unitBuffs, BUFF_TYPES.HOT_BLOOD)) {
             if (!unit._hotBloodCount) unit._hotBloodCount = 0;
             unit._hotBloodCount++;
             let ratio, tag;
             if (hasSister) {
-                const hotEnhance = query('xiaoHexEnhance', allySide, unitBuffs, 'hotBlood');
+                const hotEnhance = query('xiaoHexEnhance', allySide, unitBuffs, BUFF_TYPES.HOT_BLOOD);
                 const leechPct = hotEnhance ? hotEnhance.leechPct : C.BUFFS.hotBlood.leechRatio;
                 const critInterval = hotEnhance ? hotEnhance.critInterval : C.BUFFS.hotBlood.critInterval;
                 ratio = (unit._hotBloodCount % critInterval === 0) ? leechPct * 2 : leechPct;
@@ -248,11 +248,11 @@ export function registerHotBlood(eventBus) {
                 if (!data.declarations) data.declarations = [];
                 data.declarations.push(decl);
             }
-        } else if (isBrother && query('xiaoPermanentActive', unit, unitBuffs, 'hotBlood')) {
+        } else if (isBrother && query('xiaoPermanentActive', unit, unitBuffs, BUFF_TYPES.HOT_BLOOD)) {
             if (!unit._hotBloodCount) unit._hotBloodCount = 0;
             unit._hotBloodCount++;
             if (unit.hp < unit.maxHp) {
-                const hotEnhance = query('xiaoHexEnhance', allySide, unitBuffs, 'hotBlood');
+                const hotEnhance = query('xiaoHexEnhance', allySide, unitBuffs, BUFF_TYPES.HOT_BLOOD);
                 const leechPct = hotEnhance ? hotEnhance.leechPct : C.BUFFS.hotBlood.leechRatio;
                 const critInterval = hotEnhance ? hotEnhance.critInterval : C.BUFFS.hotBlood.critInterval;
                 let ratio = (unit._hotBloodCount % critInterval === 0) ? leechPct * 2 : leechPct;
@@ -285,11 +285,11 @@ export function registerWindAssault(eventBus) {
         const unitBuffs = allySide._activeBuffs || [];
         const isBrother = unit.isXiaoZhaoBrother;
 
-        const active = hasBuff(unitBuffs, 'windAssault') && unit.role === '飞行';
-        const brotherActive = isBrother && unit.role === '飞行' && query('xiaoPermanentActive', unit, unitBuffs, 'windAssault');
+        const active = hasBuff(unitBuffs, BUFF_TYPES.WIND_ASSAULT) && unit.role === '飞行';
+        const brotherActive = isBrother && unit.role === '飞行' && query('xiaoPermanentActive', unit, unitBuffs, BUFF_TYPES.WIND_ASSAULT);
         if (!active && !brotherActive) return;
 
-        const enhance = query('xiaoHexEnhance', allySide, unitBuffs, 'windAssault');
+        const enhance = query('xiaoHexEnhance', allySide, unitBuffs, BUFF_TYPES.WIND_ASSAULT);
         const hitProb = enhance ? Math.floor(enhance.hitProb * 100) : Math.floor(C.BUFFS.windAssault.hitProb * 100);
         const pushProb = enhance ? Math.floor(enhance.pushProb * 100) : Math.floor(C.BUFFS.windAssault.pushProb * 100);
         const label = brotherActive ? '🦋 蝶翼' : '🦅 乘风突袭';
@@ -350,8 +350,8 @@ export function registerMeteorShower(eventBus) {
         const hasSister = allySide.some(u => u.isXiaoZhaoSister && u.alive);
         const isBrother = unit.isXiaoZhaoBrother;
 
-        const active = hasBuff(unitBuffs, 'meteorShower') && unit.role === '远程';
-        const brotherActive = isBrother && unit.role === '远程' && query('xiaoPermanentActive', unit, unitBuffs, 'meteorShower');
+        const active = hasBuff(unitBuffs, BUFF_TYPES.METEOR_SHOWER) && unit.role === '远程';
+        const brotherActive = isBrother && unit.role === '远程' && query('xiaoPermanentActive', unit, unitBuffs, BUFF_TYPES.METEOR_SHOWER);
         if (!active && !brotherActive) return;
 
         const label = brotherActive ? '🦋 蝶星' : '☄️ 流星赶月';
@@ -415,7 +415,7 @@ export function registerMindControl(eventBus) {
         const buffs = allySide._activeBuffs || [];
         const hasSister = allySide.some(u => u.isXiaoZhaoSister && u.alive);
 
-        if (hasBuff(buffs, 'mindControl') && !allySide._mindControlTriggered) {
+        if (hasBuff(buffs, BUFF_TYPES.MIND_CONTROL) && !allySide._mindControlTriggered) {
             allySide._mindControlTriggered = true;
             if (hasSister) applyMindControl_Sister(unit, allySide, enemySide, log);
             else applyMindControl_Normal(unit, allySide, enemySide, log);
