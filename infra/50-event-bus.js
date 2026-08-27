@@ -1,6 +1,6 @@
 // infra/50-event-bus.js - 光明顶5v5 事件总线
-// V5.5.1 | ~5500 bytes| 2026-08-23 clearAll 保留 fx: 页面级信号，修复每回合清空误杀特效订阅
-export const VER = 'infra/50-event-bus.js V5.5.1';
+// V5.5.2 | ~5500 bytes| 2026-08-26 emit 监听器由 Promise.all 并发改为按相位优先级严格串行
+export const VER = 'infra/50-event-bus.js V5.5.2';
 
 class EventBus {
     constructor() {
@@ -29,15 +29,15 @@ class EventBus {
             }
         }
         if (!listeners || listeners.length === 0) return;
-        const promises = [];
         for (const { callback } of listeners) {
             try {
-                promises.push(callback(data));
+                // 按优先级严格串行：每个监听器完全执行完才进下一个。
+                // 同步监听器行为不变；异步监听器的状态写入被相位约束，不再并发逃逸
+                await callback(data);
             } catch (e) {
                 console.error(`[EventBus] 信号 "${signal}" 的监听器执行出错:`, e);
             }
         }
-        if (promises.length > 0) await Promise.all(promises);
     }
 
     clear(signal) {
