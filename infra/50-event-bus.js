@@ -1,6 +1,6 @@
 // infra/50-event-bus.js - 光明顶5v5 事件总线
-// V5.5.2 | ~5500 bytes| 2026-08-26 emit 监听器由 Promise.all 并发改为按相位优先级严格串行
-export const VER = 'infra/50-event-bus.js V5.5.2';
+// V5.5.3 | ~5500 bytes| 2026-08-26 EXECUTION_LAYER 键名去角色前缀改能力命名（纯重命名）
+export const VER = 'infra/50-event-bus.js V5.5.3';
 
 class EventBus {
     constructor() {
@@ -57,14 +57,14 @@ class EventBus {
 export const eventBus = new EventBus();
 
 export const EXECUTION_LAYER = {
-    ROUND_START:      { ZHANG_RANGE_CHECK: 5, SPIDER_TRANSFORM: 10, XUANMING_POISON: 10, XINGFEN_GRANT: 10, KULIAN_BUFF: 10, PERMANENT_CARRY: 10 },
+    ROUND_START:      { RANGE_CHECK: 5, SPIDER_TRANSFORM: 10, XUANMING_POISON: 10, XINGFEN_GRANT: 10, KULIAN_BUFF: 10, PERMANENT_CARRY: 10 },
     ROUND_END:        { BUTTERFLY_RETURN: 10, SPIDER_RETURN: 10 },
     BEFORE_ACTION:    { BUTTERFLY_SKIP: 10, SPIDER_SKIP: 10, KULIAN_PRIORITY: 10 },
     BEFORE_ATTACK:     { MIND_CONTROL: 10 },
-    BEFORE_SELECT_TARGET: { CHENGKUN_DISGUISE: 30, SONG_REBEL: 20, FLY_TARGET: 30, PERMANENT_MIND_CONTROL: 40 },
-    BEFORE_DAMAGE_CALC: { WARRIOR_BREAK: 10, CHENGKUN_THUNDER: 15, HE_HORN: 25, SONG_TRUE_DMG: 30 },
+    BEFORE_SELECT_TARGET: { DISGUISE: 30, REBEL: 20, FLY_TARGET: 30, PERMANENT_MIND_CONTROL: 40 },
+    BEFORE_DAMAGE_CALC: { WARRIOR_BREAK: 10, THUNDER: 15, HORN: 25, TRUE_DMG: 30 },
     BEFORE_DAMAGE_APPLY: { SPIDER_IMMUNE: 100 },
-    ON_DODGE:          { WEI_HEAL: 10 },
+    ON_DODGE:          { LEECH: 10 },
     AFTER_DAMAGE_APPLIED: {
         BLOODTHIRST: 20,
         WARRIOR_EXECUTE: 20,
@@ -73,32 +73,32 @@ export const EXECUTION_LAYER = {
         METEOR_SHOWER: 25,
         RANGED_GROWTH: 20,
         SHIELD_DEFEND: 30,
-        CHENGKUN_DISGUISE: 40,
-        LU_XUANMING: 40,
-        SONG_XINGFEN: 40,
-        WEI_LEECH: 40,
-        ZHANG_JIUYANG: 40
+        DISGUISE: 40,
+        XUANMING: 40,
+        XINGFEN: 40,
+        LEECH: 40,
+        JIUYANG: 40
     },
     AFTER_ATTACK: {
         SHIELD_ATTACK: 30,
-        SONG_XINGFEN_EXTRA: 40,
-        ZHOU_CLAW: 40,
+        XINGFEN_EXTRA: 40,
+        CLAW: 40,
         XUANMING_LINK: 10,
         DOUBLE_STRIKE: 40,
-        XIAOZHAO_DOUBLE: 40,
+        DOUBLE: 40,
         MIND_CONTROL: 40
     },
     AFTER_MISS: {
-        SONG_XINGFEN_RETRY: 50,
-        XIAOZHAO_DOUBLE_RETRY: 60
+        XINGFEN_RETRY: 50,
+        DOUBLE_RETRY: 60
     },
     ALLY_DAMAGED: {
         QIANKUN_REBOUND: 40,
         QIANKUN_DERIVED: 50
     },
     ON_BEFORE_DEATH: {},
-    ON_UNIT_DEATH: { ZHANG_SWITCH: 10 },
-    ON_POSITION_SWAP: { ZHANG_SWITCH: 10 }
+    ON_UNIT_DEATH: { SWITCH: 10 },
+    ON_POSITION_SWAP: { SWITCH: 10 }
 };
 
 export const EFFECT_TYPES = {

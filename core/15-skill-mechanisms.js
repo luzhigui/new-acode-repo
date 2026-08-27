@@ -52,13 +52,13 @@ function installTargetRule(eventBus, A, B, decl) {
     const rule = decl.targetRule;
 
     if (rule === 'lowestHp') {
-        eventBus.on('beforeSelectTarget', L.BEFORE_SELECT_TARGET.SONG_REBEL, (data) => {
+        eventBus.on('beforeSelectTarget', L.BEFORE_SELECT_TARGET.REBEL, (data) => {
             if (data.unit.name !== decl.name) return;
             const sorted = [...data.validTargets].sort((a, b) => a.hp - b.hp);
             if (sorted[0]) data.declaration.targetResult = sorted[0];
         });
     } else if (rule === 'highestHpPct') {
-        eventBus.on('beforeSelectTarget', L.BEFORE_SELECT_TARGET.SONG_REBEL, (data) => {
+        eventBus.on('beforeSelectTarget', L.BEFORE_SELECT_TARGET.REBEL, (data) => {
             if (data.unit.name !== decl.name) return;
             const target = data.validTargets.reduce((a, b) => (a.hp / a.maxHp) > (b.hp / b.maxHp) ? a : b);
             if (target) data.declaration.targetResult = target;
@@ -72,7 +72,7 @@ function installBeforeDamageEffects(eventBus, declarations) {
     const decls = declarations.filter(d => d && d.name && d.beforeDamageEffects && d.beforeDamageEffects.length > 0);
     if (decls.length === 0) return;
 
-    eventBus.on('beforeDamageCalc', L.BEFORE_DAMAGE_CALC.SONG_TRUE_DMG, (data) => {
+    eventBus.on('beforeDamageCalc', L.BEFORE_DAMAGE_CALC.TRUE_DMG, (data) => {
         for (const decl of decls) {
             if (data.unit.name !== decl.name) continue;
             for (const eff of decl.beforeDamageEffects) {
@@ -120,7 +120,7 @@ function installOnHitEffects(eventBus, A, B, declarations) {
     const onHitDecls = declarations.filter(d => d && d.name && d.onHitEffects && d.onHitEffects.length > 0);
     if (onHitDecls.length === 0) return;
 
-    eventBus.on('afterDamageApplied', L.AFTER_DAMAGE_APPLIED.WEI_LEECH, (data) => {
+    eventBus.on('afterDamageApplied', L.AFTER_DAMAGE_APPLIED.LEECH, (data) => {
         const unit = data.unit;
         const target = data.target;
         const dmg = data.dmg;
@@ -183,7 +183,7 @@ function installPhantomDisguise(eventBus, declarations) {
     if (decls.length === 0) return;
 
     // afterDamageApplied：设置伪装目标并回血
-    eventBus.on('afterDamageApplied', L.AFTER_DAMAGE_APPLIED.CHENGKUN_DISGUISE, (data) => {
+    eventBus.on('afterDamageApplied', L.AFTER_DAMAGE_APPLIED.DISGUISE, (data) => {
         const unit = data.unit;
         if (!unit || !unit.alive || data.dmg <= 0) return;
         const decl = decls.find(d => d.name === unit.name);
@@ -209,7 +209,7 @@ function installPhantomDisguise(eventBus, declarations) {
     });
 
     // beforeSelectTarget：被模仿者攻击时概率混乱
-    eventBus.on('beforeSelectTarget', L.BEFORE_SELECT_TARGET.CHENGKUN_DISGUISE, (data) => {
+    eventBus.on('beforeSelectTarget', L.BEFORE_SELECT_TARGET.DISGUISE, (data) => {
         if (data.unit.camp !== 'ally') return;
         const { unit, enemySide, declaration, allySide } = data;
         let phantomDecl = null;
@@ -278,7 +278,7 @@ function installChainClaw(eventBus, A, B, declarations) {
     const decls = declarations.filter(d => d && d.type === 'chainClaw');
     if (decls.length === 0) return;
 
-    eventBus.on('afterAttack', L.AFTER_ATTACK.ZHOU_CLAW, (data) => {
+    eventBus.on('afterAttack', L.AFTER_ATTACK.CLAW, (data) => {
         const { unit, target, dmg, log, allySide, enemySide } = data;
         const decl = decls.find(d => d.name === unit.name);
         if (!decl || !target || !target.alive) return;
@@ -386,7 +386,7 @@ function installXinHun(eventBus, A, B, declarations) {
     const decls = declarations.filter(d => d && d.type === 'xinHun');
     if (decls.length === 0) return;
 
-    eventBus.on('afterDamageApplied', L.AFTER_DAMAGE_APPLIED.SONG_XINGFEN, (data) => {
+    eventBus.on('afterDamageApplied', L.AFTER_DAMAGE_APPLIED.XINGFEN, (data) => {
         const { unit, target, dmg, allySide, log } = data;
         const decl = decls.find(d => d.name === unit.name);
         if (!decl || unit.name !== '宋青书' || !unit.alive) return;
@@ -435,7 +435,7 @@ function installXingFen(eventBus, A, B, declarations) {
     });
 
     // 攻击后：性奋额外攻击
-    eventBus.on('afterAttack', L.AFTER_ATTACK.SONG_XINGFEN_EXTRA, async (data) => {
+    eventBus.on('afterAttack', L.AFTER_ATTACK.XINGFEN_EXTRA, async (data) => {
         const { unit, target, allySide, enemySide, log } = data;
         const decl = decls.find(d => d.name === unit.name);
         if (!decl || unit.name !== '宋青书' || !unit.alive || unit._xingFenExtraAttacking) return;
@@ -449,7 +449,7 @@ function installXingFen(eventBus, A, B, declarations) {
     });
 
     // 未命中后：性奋重试
-    eventBus.on('afterMiss', L.AFTER_MISS.SONG_XINGFEN_RETRY, (data) => {
+    eventBus.on('afterMiss', L.AFTER_MISS.XINGFEN_RETRY, (data) => {
         const { unit, target, log } = data;
         const decl = decls.find(d => d.name === unit.name);
         if (!decl || unit.name !== '宋青书' || !unit.alive) return;
