@@ -94,14 +94,17 @@ async function main() {
         console.log(`seed=${seed} stage=${stage} winner=${r.winner} rounds=${r.rounds} facts=${r.factCount}`);
     }
 
-    const fs = await import('node:fs');
-    const outDir = new URL('./baselines/', import.meta.url);
-    fs.mkdirSync(outDir, { recursive: true });
-    fs.writeFileSync(
-        new URL('baseline-v1.json', outDir),
-        JSON.stringify({ generatedAt: new Date().toISOString(), version: VER, cases: results }, null, 2)
-    );
-    console.log(`基线已写入 tests/baselines/baseline-v1.json（${results.length} 场）`);
+    if (args.length === 0) {
+        // 全量运行才写基线文件；带参数验证（如 1:1 1:3 1:5）只打印，不覆盖基线
+        const fs = await import('node:fs');
+        const outDir = new URL('./baselines/', import.meta.url);
+        fs.mkdirSync(outDir, { recursive: true });
+        fs.writeFileSync(
+            new URL('baseline-v1.json', outDir),
+            JSON.stringify({ generatedAt: new Date().toISOString(), version: VER, cases: results }, null, 2)
+        );
+        console.log(`基线已写入 tests/baselines/baseline-v1.json（${results.length} 场）`);
+    }
 }
 
 main().catch(e => { console.error('[baseline] 失败：', e); process.exit(1); });
