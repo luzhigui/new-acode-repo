@@ -1,6 +1,6 @@
 // ui/61main-5v5-test.js - 光明顶5v5 主控模块
-// V5.6.0 | ~24100 bytes| 2026-08-24 清理已删除的 KILL_TAUNT 及未使用的台词函数 import
-export const VER = 'ui/61main-5v5-test.js V5.6.0';
+// V5.6.1 | ~24090 bytes| 2026-08-26 移除 handleBuffLeech import（接口变更）
+export const VER = 'ui/61main-5v5-test.js V5.6.1';
 
 import '../infra/54-global-store.js';
 import '../modules/21error-capture.js';
