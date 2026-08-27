@@ -1,17 +1,7 @@
 ﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// tests/122health-utils.js - 光明顶5v5 体检公共检查函数库
-// V5.6.1 | 2026-08-26 检查函数内 buff key 裸字符串收敛为本地常量（本文件现为 ES module，仍保留本地常量，待打包器对齐后同步为 56-battle-enums 的 BUFF_TYPES 引用）
-export const VER = 'tests/122health-utils.js V5.6.1';
-
-// 本地 buff key 常量：与 infra/56-battle-enums.js 的 BUFF_TYPES 逐字对齐，
-// 避免检查逻辑与引擎 key 拼写漂移；展示层字典（BUFF_ICONS）不参与此收敛
-const BUFF_TYPES_LOCAL = {
-    FORTIFY: 'fortify', BLOODTHIRST: 'bloodthirst',
-    METEOR_SHOWER: 'meteorShower', WIND_ASSAULT: 'windAssault',
-    CLOUD_BODY: 'cloudBody', HOT_BLOOD: 'hotBlood',
-    CARRY: 'carry', DOUBLE_STRIKE: 'doubleStrike',
-    MIND_CONTROL: 'mindControl', HORSE_FORMATION: 'horseFormation',
-    HOLY_FLAME: 'holyFlame'
-};
+// V5.6.2 | 2026-08-26 buff key 收敛为 infra/56-battle-enums 的 BUFF_TYPES（删除本地第二事实源）
+import { BUFF_TYPES } from '../infra/56-battle-enums.js';
+export const VER = 'tests/122health-utils.js V5.6.2';
 
 /**
  * 获取单位对应的格子 DOM 元素
@@ -217,37 +207,30 @@ export function checkBuffIcons(ctx, doc) {
 
     function isBenefited(unit, buffKey) {
         switch (buffKey) {
-            case BUFF_TYPES_LOCAL.CARRY: {
+            case BUFF_TYPES.CARRY: {
                 // 从格子 DOM 读取实际站位，避免换位后 pos 不一致
                 const cell = getCellElement(unit, doc);
                 const actualPos = cell ? parseInt(cell.dataset.pos) : unit.pos;
                 return actualPos === 5 && unit.alive;
             }
-            case BUFF_TYPES_LOCAL.METEOR_SHOWER: return unit.role === '远程';
-            case BUFF_TYPES_LOCAL.BLOODTHIRST: return unit.role === '战士';
-            case BUFF_TYPES_LOCAL.FORTIFY: return unit.role === '防战';
-            case BUFF_TYPES_LOCAL.WIND_ASSAULT: return unit.role === '飞行';
-            case BUFF_TYPES_LOCAL.CLOUD_BODY: return true;
-        case BUFF_TYPES_LOCAL.HOLY_FLAME: {
+            case BUFF_TYPES.METEOR_SHOWER: return unit.role === '远程';
+            case BUFF_TYPES.BLOODTHIRST: return unit.role === '战士';
+            case BUFF_TYPES.FORTIFY: return unit.role === '防战';
+            case BUFF_TYPES.WIND_ASSAULT: return unit.role === '飞行';
+            case BUFF_TYPES.CLOUD_BODY: return true;
+        case BUFF_TYPES.HOLY_FLAME: {
             if (!activeBuffs) return false;
-            const holyBuffs = activeBuffs.filter(b => b.key === BUFF_TYPES_LOCAL.HOLY_FLAME);
+            const holyBuffs = activeBuffs.filter(b => b.key === BUFF_TYPES.HOLY_FLAME);
             return holyBuffs.some(b => {
                 const cols = b.cols || (b.col != null ? [b.col] : []);
                 const rows = b.rows || (b.row != null ? [b.row] : []);
                 return cols.includes(getUnitCol(unit.pos)) || rows.includes(getUnitRow(unit.pos));
             });
         }
-            case BUFF_TYPES_LOCAL.HOT_BLOOD: return true;
-            case BUFF_TYPES_LOCAL.HOLY_FLAME: {
-                const holyBuff = activeBuffs.find(b => b.key === BUFF_TYPES_LOCAL.HOLY_FLAME);
-                if (!holyBuff || holyBuff.col == null || holyBuff.row == null) return false;
-                const unitCol = (unit.pos - 1) % 3 + 1;
-                const unitRow = Math.ceil(unit.pos / 3);
-                return unitCol === holyBuff.col || unitRow === holyBuff.row;
-            }
-            case BUFF_TYPES_LOCAL.DOUBLE_STRIKE: return unit.uid === doubleStrikeUid;
-            case BUFF_TYPES_LOCAL.HORSE_FORMATION: return false;
-            case BUFF_TYPES_LOCAL.MIND_CONTROL: {
+            case BUFF_TYPES.HOT_BLOOD: return true;
+            case BUFF_TYPES.DOUBLE_STRIKE: return unit.uid === doubleStrikeUid;
+            case BUFF_TYPES.HORSE_FORMATION: return false;
+            case BUFF_TYPES.MIND_CONTROL: {
                 const frontUnit = allyTeam.filter(u => u.alive && !u.isHorse).sort((a, b) => a.pos - b.pos)[0];
                 return frontUnit && unit.uid === frontUnit.uid;
             }
