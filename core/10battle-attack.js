@@ -225,7 +225,6 @@ export async function processUnitAttack(unit, allySide, enemySide, log, A, B, st
     }
 
     if (!getEliteState(unit.uid)._isLinkAttack) unit.state._acted = true;
-    }
     group._events = (group._events || []).concat(flushBattleEvents());
 
     const extraRequests = [];

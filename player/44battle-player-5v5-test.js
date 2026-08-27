@@ -1,6 +1,6 @@
 ﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// player/44battle-player-5v5-test.js - 光明顶5v5 战斗播放器入口
-// V5.5.0 | ~1100 bytes| 2026-07-05
-export const VER = 'player/44battle-player-5v5-test.js V5.5.0';
+// V5.5.1 | ~1080 bytes| 2026-08-26 移除 handleBuffLeech re-export（接口变更）
+export const VER = 'player/44battle-player-5v5-test.js V5.5.1';
 
 // 导入子模块的实际功能函数
 import { playBattle, playLogEntries, clearAllEffects } from './42player-core.js';
