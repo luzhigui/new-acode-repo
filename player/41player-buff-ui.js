@@ -85,6 +85,8 @@ export async function handleBuffDestroy(c, entry, prevEntry) {
 }
 
 export async function handleBuffLeech(c, entry) {
+    // 死代码：当前 playLogEntries 不再调用 handleBuffLeech（42player-core case 'buff-leech' 直接播文本），
+    // 特效/文本走导演 stageAction；此处保留旧逻辑不参与枚举收敛
     // 治疗飘字已由导演 stageAction 'heal' 统一处理
     let bannerText = '🗡️ 嗜血狂刀！';
     if (entry.buffType === 'hotBlood') {
