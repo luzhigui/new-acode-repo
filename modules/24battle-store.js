@@ -1,6 +1,6 @@
 // modules/24battle-store.js - 光明顶5v5 战斗Store工厂
-// V5.6.0 | ~11800 bytes| 2026-08-26 battleReducer action.type 枚举化（STORE_ACTION_TYPES）+ 入口校验
-export const VER = 'modules/24battle-store.js V5.6.0';
+// V5.6.1 | ~11800 bytes| 2026-08-26 GAME_STATE_FIELDS 删 _phantomTarget/_masteredRoles（已迁 18-elite-state）
+export const VER = 'modules/24battle-store.js V5.6.1';
 
 import { STORE_ACTION_TYPES } from '../infra/56-battle-enums.js';
 
@@ -21,7 +21,7 @@ export function createStore(initialState, reducer) {
 }
 
 // ==================== 战斗 Reducer ====================
-export const GAME_STATE_FIELDS = ['hp','alive','maxHp','atk','def','role','rangedForm','_isDead','_baseMaxHp','_baseAtk','_baseDef','dmgDealt','dmgTaken','healDone','reboundDone','leechDone','dodgeCount','critCount','survivedRounds','pos','buffAtkBonus','buffDefBonus','buffDodgeBonus','buffHpBonus','_phantomTarget', '_masteredRoles', '_fortifyStacks', '_baseFangDef', '_butterflyAtkBonus', '_butterflyDefBonus', '_butterflyHpBonus'];
+export const GAME_STATE_FIELDS = ['hp','alive','maxHp','atk','def','role','rangedForm','_isDead','_baseMaxHp','_baseAtk','_baseDef','dmgDealt','dmgTaken','healDone','reboundDone','leechDone','dodgeCount','critCount','survivedRounds','pos','buffAtkBonus','buffDefBonus','buffDodgeBonus','buffHpBonus','_fortifyStacks','_baseFangDef','_butterflyAtkBonus','_butterflyDefBonus','_butterflyHpBonus'];
 
 /**
  * 战斗 Store 的 Reducer — 根据 action 类型处理单位状态变更

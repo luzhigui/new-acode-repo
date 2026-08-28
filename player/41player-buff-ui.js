@@ -1,6 +1,6 @@
-﻿﻿// player/41player-buff-ui.js - 光明顶5v5 Buff横幅与handler
-// V5.7.1 | ~5200 bytes| 2026-08-25 拒马召唤/销毁特效移交导演 stageAction，只播文本
-export const VER = 'player/41player-buff-ui.js V5.7.1';
+﻿// player/41player-buff-ui.js - 光明顶5v5 Buff横幅与handler
+// V5.7.2 | ~5000 bytes| 2026-08-26 删除 handleBuffLeech 死函数（playLogEntries 不再派发 buff-leech）
+export const VER = 'player/41player-buff-ui.js V5.7.2';
 
 import { Unit } from '../core/02unit.js';
 import { eventBus } from '../infra/50-event-bus.js';
@@ -84,18 +84,5 @@ export async function handleBuffDestroy(c, entry, prevEntry) {
     c.autoScrollLog();
 }
 
-export async function handleBuffLeech(c, entry) {
-    // 死代码：当前 playLogEntries 不再调用 handleBuffLeech（42player-core case 'buff-leech' 直接播文本），
-    // 特效/文本走导演 stageAction；此处保留旧逻辑不参与枚举收敛
-    // 治疗飘字已由导演 stageAction 'heal' 统一处理
-    let bannerText = '🗡️ 嗜血狂刀！';
-    if (entry.buffType === BUFF_TYPES.HOT_BLOOD) {
-        bannerText = entry.isDouble ? '❤️‍🔥 热血奋战(翻倍)！' : '❤️ 热血奋战！';
-    }
-    c.isPaused = true;
-    await eventBus.emit(FX_SIGNALS.BANNER, { text: bannerText });
-    c.isPaused = false;
-    let div=document.createElement('div');div.innerHTML=entry.text+'<br>';
-    document.getElementById('log').appendChild(div);
-    c.autoScrollLog();
-}
+// handleBuffLeech 已删除：playLogEntries 不再派发 buff-leech，
+// 原特效/文本由导演 stageAction 统一处理，此函数零调用。

@@ -1,6 +1,17 @@
 // infra/50-event-bus.js - 光明顶5v5 事件总线
-// V5.5.4 | ~5500 bytes| 2026-08-26 清理死键（THUNDER/HORN/XUANMING/DOUBLE/PERMANENT_CARRY/BEFORE_ATTACK.MIND_CONTROL）
-export const VER = 'infra/50-event-bus.js V5.5.4';
+// V5.5.6 | ~5500 bytes| 2026-08-26 清理死键+DOUBLE_RETRY改名PERMANENT_DOUBLE_RETRY+debug写日志抽独立函数
+export const VER = 'infra/50-event-bus.js V5.5.6';
+
+// debug 信号日志（仅 logLevel==='debug' 时向 data.log 追加一行信号记录，非战斗路径）
+function appendDebugSignalLog(signal, data) {
+    if (!data || !data.log || !data.unit) return;
+    const logLevel = GlobalStore.get('playerContext')?.logLevel;
+    if (logLevel !== 'debug') return;
+    const name = data.unit ? data.unit.name : '?';
+    const targetName = data.target ? data.target.name : '';
+    const dmgStr = data.dmg !== undefined ? ` 伤害=${data.dmg}` : '';
+    data.log.push({ type: 'signal', text: `<span class="gray">[信号] ${signal} → ${name}${targetName ? '→' + targetName : ''}${dmgStr}</span>` });
+}
 
 class EventBus {
     constructor() {
@@ -18,16 +29,8 @@ class EventBus {
     }
 
     async emit(signal, data) {
+        appendDebugSignalLog(signal, data);
         const listeners = this._listeners[signal];
-        if (data && data.log && data.unit) {
-            const logLevel = GlobalStore.get('playerContext')?.logLevel;
-            if (logLevel === 'debug') {
-                const name = data.unit ? data.unit.name : '?';
-                const targetName = data.target ? data.target.name : '';
-                const dmgStr = data.dmg !== undefined ? ` 伤害=${data.dmg}` : '';
-                data.log.push({ type: 'signal', text: `<span class="gray">[信号] ${signal} → ${name}${targetName ? '→' + targetName : ''}${dmgStr}</span>` });
-            }
-        }
         if (!listeners || listeners.length === 0) return;
         for (const { callback } of listeners) {
             try {
@@ -88,7 +91,7 @@ export const EXECUTION_LAYER = {
     },
     AFTER_MISS: {
         XINGFEN_RETRY: 50,
-        DOUBLE_RETRY: 60
+        PERMANENT_DOUBLE_RETRY: 60
     },
     ON_UNIT_DEATH: { SWITCH: 10 },
     ON_POSITION_SWAP: { SWITCH: 10 }
