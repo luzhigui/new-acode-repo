@@ -195,69 +195,84 @@ function canReach(slot, targetPos, enemies) {
     return false;
 }
 
+// 战士破防：判定 + BREAK_DEF 声明提交（纯函数，事件监听器薄壳转调）
+function submitWarriorBreakDefenseDeclaration(data) {
+    const { unit, target, declarations } = data;
+    if (!declarations) return;
+    if (unit.role !== '战士' || target.def <= 0) return;
+    let defReduced = C.WARRIOR_BREAK_DEF;
+    let breakChance = target.def * 2.5;
+    if (target.def <= 40) {
+        defReduced = 2;
+    } else if (target.def <= 50) {
+        defReduced = 3;
+        breakChance = 100;
+    } else {
+        defReduced = 4;
+        breakChance = 100;
+    }
+    if (getBattleRng().nextInt(1, 100) > breakChance) return;
+    defReduced = Math.min(defReduced, target.def);
+    declarations.push({ type: EFFECT_TYPES.BREAK_DEF, value: defReduced, source: unit, target: target });
+    unit._pendingDefReduceFact = { attackerName: unit.name, targetName: target.name, reduce: defReduced };
+}
+
 export function registerWarriorBreakDefense(eventBus) {
     eventBus.on('beforeDamageCalc', L.BEFORE_DAMAGE_CALC.WARRIOR_BREAK, (data) => {
-        const { unit, target, declarations } = data;
-        if (!declarations) return;
-        if (unit.role !== '战士' || target.def <= 0) return;
-        let defReduced = C.WARRIOR_BREAK_DEF;
-        let breakChance = target.def * 2.5;
-        if (target.def <= 40) {
-            defReduced = 2;
-        } else if (target.def <= 50) {
-            defReduced = 3;
-            breakChance = 100;
-        } else {
-            defReduced = 4;
-            breakChance = 100;
-        }
-        if (getBattleRng().nextInt(1, 100) > breakChance) return;
-        defReduced = Math.min(defReduced, target.def);
-        declarations.push({ type: EFFECT_TYPES.BREAK_DEF, value: defReduced, source: unit, target: target });
-        unit._pendingDefReduceFact = { attackerName: unit.name, targetName: target.name, reduce: defReduced };
+        submitWarriorBreakDefenseDeclaration(data);
     });
+}
+
+// 远程成长：判定 + STAT_CHANGE 声明提交（纯函数，事件监听器薄壳转调）
+function submitRangedGrowthDeclaration(data) {
+    const { unit, target, dmg, group } = data;
+    if (unit.role !== '远程' || dmg <= 0) return;
+    const growth = C.RANGED_GROWTH_ATK;
+    if (!data.declarations) data.declarations = [];
+    data.declarations.push({
+        type: EFFECT_TYPES.STAT_CHANGE,
+        field: 'atk',
+        delta: growth,
+        target: unit,
+        oldValue: unit.atk,
+        logText: null
+    });
+    // _baseAtk 记账由裁定执行块（STAT_CHANGE）统一负责，此处直改会双扣
+    if (group && group.data && group.data.entries) {
+        group.data.entries.push({ factType: FACT_TYPES.RANGED_GROWTH, data: { unitName: unit.name, growth, newAtk: Math.floor(unit.atk + growth) } });
+    }
 }
 
 export function registerRangedGrowth(eventBus) {
     eventBus.on('afterDamageApplied', L.AFTER_DAMAGE_APPLIED.RANGED_GROWTH, (data) => {
-        const { unit, target, dmg, group } = data;
-        if (unit.role !== '远程' || dmg <= 0) return;
-        const growth = C.RANGED_GROWTH_ATK;
-        if (!data.declarations) data.declarations = [];
-        data.declarations.push({
-            type: EFFECT_TYPES.STAT_CHANGE,
-            field: 'atk',
-            delta: growth,
-            target: unit,
-            oldValue: unit.atk,
-            logText: null
-        });
-        // _baseAtk 记账由裁定执行块（STAT_CHANGE）统一负责，此处直改会双扣
-        if (group && group.data && group.data.entries) {
-            group.data.entries.push({ factType: FACT_TYPES.RANGED_GROWTH, data: { unitName: unit.name, growth, newAtk: Math.floor(unit.atk + growth) } });
-        }
+        submitRangedGrowthDeclaration(data);
     });
+}
+
+// 战士斩杀：判定 + EXECUTE 声明提交（纯函数，事件监听器薄壳转调）
+function submitWarriorExecuteDeclaration(data) {
+    const { unit, target, allySide, declarations } = data;
+    if (unit.role !== '战士' || !unit.alive) return;
+    if (!target || !target.alive || target.hp <= 0) return;
+    const unitBuffs = (allySide && allySide._activeBuffs) || [];
+    const hasBloodthirst = hasBuff(unitBuffs, BUFF_TYPES.BLOODTHIRST);
+    const threshold = hasBloodthirst ? 0.20 : 0.15;
+    if (target.hp <= target.maxHp * threshold) {
+        if (!declarations) return;
+        declarations.push({
+            type: EFFECT_TYPES.EXECUTE,
+            target: target,
+            source: unit,
+            threshold: threshold,
+            factType: FACT_TYPES.WARRIOR_EXECUTE,
+            factData: { unitName: unit.name, targetName: target.name, unitUid: unit.uid, targetUid: target.uid }
+        });
+    }
 }
 
 export function registerWarriorExecute(eventBus) {
     eventBus.on('afterDamageApplied', L.AFTER_DAMAGE_APPLIED.WARRIOR_EXECUTE, (data) => {
-        const { unit, target, allySide, declarations } = data;
-        if (unit.role !== '战士' || !unit.alive) return;
-        if (!target || !target.alive || target.hp <= 0) return;
-        const unitBuffs = (allySide && allySide._activeBuffs) || [];
-        const hasBloodthirst = hasBuff(unitBuffs, BUFF_TYPES.BLOODTHIRST);
-        const threshold = hasBloodthirst ? 0.20 : 0.15;
-        if (target.hp <= target.maxHp * threshold) {
-            if (!declarations) return;
-            declarations.push({
-                type: EFFECT_TYPES.EXECUTE,
-                target: target,
-                source: unit,
-                threshold: threshold,
-                factType: FACT_TYPES.WARRIOR_EXECUTE,
-                factData: { unitName: unit.name, targetName: target.name, unitUid: unit.uid, targetUid: target.uid }
-            });
-        }
+        submitWarriorExecuteDeclaration(data);
     });
 }
 
@@ -291,7 +306,8 @@ export function registerFortifyShield(eventBus) {
     // 坚盾触发概率：唯一来源 JSON roles.防战.fortify（攻盾=attackChance，被击坚盾=defendChance）
     const fortifyCfg = getGameData().roles['防战'].fortify;
 
-    eventBus.on('afterDamageApplied', L.AFTER_DAMAGE_APPLIED.SHIELD_DEFEND, (data) => {
+    // 被击坚盾：判定 + STAT_CHANGE 声明提交（纯函数，事件监听器薄壳转调）
+    function submitFortifyShieldDefend(data) {
         const { target, dmg, group } = data;
         if (dmg <= 0) return;
         const prevStacks = target._fortifyStacks || 0;
@@ -307,17 +323,27 @@ export function registerFortifyShield(eventBus) {
                 logText: null
             });
         }
+    }
+
+    // 攻盾：直改 def（applyStatChange）——防御方被动时机，声明路未覆盖，保留原样
+    function submitFortifyShieldAttack(data) {
+        const { unit, group, log } = data;
+        tryFortify(unit, fortifyCfg.attackChance, group, log, '攻盾');
+    }
+
+    eventBus.on('afterDamageApplied', L.AFTER_DAMAGE_APPLIED.SHIELD_DEFEND, (data) => {
+        submitFortifyShieldDefend(data);
     });
 
     eventBus.on('afterAttack', L.AFTER_ATTACK.SHIELD_ATTACK, (data) => {
-        const { unit, group, log } = data;
-        tryFortify(unit, fortifyCfg.attackChance, group, log, '攻盾');
+        submitFortifyShieldAttack(data);
     });
 }
 
 export function registerDoubleStrike(eventBus, doubleStrikeUnitUid, allyTeam, activeBuffs) {
     if (!doubleStrikeUnitUid) return;
-    eventBus.on('afterAttack', L.AFTER_ATTACK.DOUBLE_STRIKE, (data) => {
+    // 连击判定：_doubleStriked 直写 + extraRequests 驱动"再攻击"链（非状态结算，保留原样）
+    function submitDoubleStrikeDeclaration(data) {
         const { unit, target, log } = data;
         if (unit.uid !== doubleStrikeUnitUid || !unit.alive || unit.camp !== 'ally' || unit._doubleStriked) return;
         const xiaoDoubleEnhance = query('xiaoHexEnhance', allyTeam, activeBuffs, BUFF_TYPES.DOUBLE_STRIKE);
@@ -337,6 +363,9 @@ export function registerDoubleStrike(eventBus, doubleStrikeUnitUid, allyTeam, ac
         } else {
             log.push({ factType: FACT_TYPES.DOUBLE_STRIKE, data: { success: false, unitName: unit.name } });
         }
+    }
+    eventBus.on('afterAttack', L.AFTER_ATTACK.DOUBLE_STRIKE, (data) => {
+        submitDoubleStrikeDeclaration(data);
     });
 }
 

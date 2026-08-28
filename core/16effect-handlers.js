@@ -1,9 +1,9 @@
 // core/16effect-handlers.js - 光明顶5v5 效果处理器注册表
-// V1.0.0 | ~6000 bytes| 2026-08-26 从 resolveAfterDamageEffects 抽出8机制（BONUS_DMG/LEECH/HEAL/SPLASH/REBOUND/STAT_CHANGE/EXECUTE/CLAW_CHAIN）
-export const VER = 'core/16effect-handlers.js V1.0.0';
+// V1.1.0 | ~8000 bytes| 2026-08-26 新增 calcModifier 注册表（calcFinalDamage 五声明类型查表化）
+export const VER = 'core/16effect-handlers.js V1.1.0';
 
 import { EFFECT_TYPES } from '../infra/50-event-bus.js';
-import { applyStatChange, applyMaxHpChange, query } from './13battle-shared.js';
+import { applyStatChange, applyMaxHpChange, query, emitEvent } from './13battle-shared.js';
 import { flushBattleEvents } from '../infra/51-core-utils.js';
 import { BUFF_TYPES } from '../infra/56-battle-enums.js';
 
@@ -20,6 +20,52 @@ export function getEffectHandler(type) {
 export function hasEffectHandler(type) {
     return effectHandlers.has(type);
 }
+
+// ==================== 伤害计算阶段修饰器（calcFinalDamage 中间变量累积） ====================
+// 由 core/12 calcFinalDamage 查表调用；handler 通过 ctx.refs 读写累积变量，
+// 逻辑逐字搬移自原 for 循环体，不改变计算顺序/边界
+const calcModifierHandlers = new Map();
+
+export function registerCalcModifier(type, handler) {
+    calcModifierHandlers.set(type, handler);
+}
+
+export function getCalcModifier(type) {
+    return calcModifierHandlers.get(type);
+}
+
+registerCalcModifier(EFFECT_TYPES.BREAK_DEF, (ctx) => {
+    const { decl, unit, target, refs } = ctx;
+    const reduce = Math.min(decl.value || 0, refs.defBase);
+    refs.defBase -= reduce;
+    applyStatChange(target, 'def', -reduce, unit, '破防');
+    if (target._baseDef !== undefined) target._baseDef -= reduce;
+    refs.defReduced = reduce;
+    if (reduce > 0) {
+        unit._pendingDefReduceFact = { type:'breakDef', attackerName: unit.name, targetName: target.name, reduce };
+        emitEvent(target, 'hp-change', { hp: target.hp, maxHp: target.maxHp, alive: target.alive, atk: target.atk, def: refs.defBase, _isDead: target.state._isDead || false });
+    }
+});
+
+registerCalcModifier(EFFECT_TYPES.IGNORE_DEF, (ctx) => {
+    ctx.refs.ignoreDefRatio = Math.max(ctx.refs.ignoreDefRatio, ctx.decl.value || 0);
+});
+
+registerCalcModifier(EFFECT_TYPES.BONUS_DMG, (ctx) => {
+    const val = ctx.decl.value || 0;
+    ctx.refs.bonusDmgTotal += val;
+    ctx.refs.bonusDmgEntries.push({ label: ctx.decl.label || '额外伤害', value: val });
+});
+
+registerCalcModifier(EFFECT_TYPES.DMG_MULTIPLIER, (ctx) => {
+    const val = ctx.decl.value || 1;
+    ctx.refs.dmgMultiplier *= val;
+    ctx.refs.dmgMultiplierEntries.push({ label: ctx.decl.label || '额外加成', value: val });
+});
+
+registerCalcModifier(EFFECT_TYPES.DMG_REDUCTION, (ctx) => {
+    ctx.refs.bonusDmgTotal -= (ctx.decl.value || 0);
+});
 
 registerEffectHandler(EFFECT_TYPES.BONUS_DMG, (ctx) => {
     const executed = [];

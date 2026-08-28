@@ -1,6 +1,6 @@
 // core/12battle-attack-steps.js - 光明顶5v5 攻击步骤拆分模块
-// V5.7.0 | ~24200 bytes| 2026-08-26 resolveAfterDamageEffects 8机制抽至 16effect-handlers 注册表
-export const VER = 'core/12battle-attack-steps.js V5.7.0';
+// V5.7.1 | ~24200 bytes| 2026-08-26 calcFinalDamage 五声明类型抽 calcModifier 查表（16effect-handlers）
+export const VER = 'core/12battle-attack-steps.js V5.7.1';
 
 import { CONFIG, getSkillParams, getGameData } from './01config-5v5-test.js';
 import { eventBus, EFFECT_TYPES } from '../infra/50-event-bus.js';
@@ -9,7 +9,7 @@ import { applyBuffEffectsBeforeAttack, applyBuffEffectsAfterAttack } from './04b
 import { emitEvent, applyStatChange, applyMaxHpChange, query, getBattleRng, recordCombatStat } from './13battle-shared.js';
 import { getEliteState } from './18-elite-state.js';
 import { flushBattleEvents, pushBattleEvent, getBattleState, setBattleState, registerDodgeRule, clearEliteDodgeRules, getDodgeRules } from '../infra/51-core-utils.js';
-import { getEffectHandler, hasEffectHandler } from './16effect-handlers.js';
+import { getEffectHandler, hasEffectHandler, getCalcModifier } from './16effect-handlers.js';
 import { FACT_TYPES, BUFF_TYPES } from '../infra/56-battle-enums.js';
 
 // ==================== 闪避规则注册表（已下沉 infra/51，此处转发） ====================
@@ -201,31 +201,18 @@ export function calcFinalDamage(unit, target, attackerBuffStats, defenderBuffSta
     const bonusDmgEntries = [];
     const dmgMultiplierEntries = [];
 
+    const refs = { defBase, defReduced, ignoreDefRatio, bonusDmgTotal, dmgMultiplier, bonusDmgEntries, dmgMultiplierEntries };
     for (const decl of damageDeclarations) {
-        if (decl.type === EFFECT_TYPES.BREAK_DEF) {
-            const reduce = Math.min(decl.value || 0, defBase);
-            defBase -= reduce;
-            applyStatChange(target, 'def', -reduce, unit, '破防');
-            if (target._baseDef !== undefined) target._baseDef -= reduce;
-            defReduced = reduce;
-            if (reduce > 0) {
-                unit._pendingDefReduceFact = { type:'breakDef', attackerName: unit.name, targetName: target.name, reduce };
-                emitEvent(target, 'hp-change', { hp: target.hp, maxHp: target.maxHp, alive: target.alive, atk: target.atk, def: defBase, _isDead: target.state._isDead || false });
-            }
-        } else if (decl.type === EFFECT_TYPES.IGNORE_DEF) {
-            ignoreDefRatio = Math.max(ignoreDefRatio, decl.value || 0);
-        } else if (decl.type === EFFECT_TYPES.BONUS_DMG) {
-            const val = decl.value || 0;
-            bonusDmgTotal += val;
-            bonusDmgEntries.push({ label: decl.label || '额外伤害', value: val });
-        } else if (decl.type === EFFECT_TYPES.DMG_MULTIPLIER) {
-            const val = decl.value || 1;
-            dmgMultiplier *= val;
-            dmgMultiplierEntries.push({ label: decl.label || '额外加成', value: val });
-        } else if (decl.type === EFFECT_TYPES.DMG_REDUCTION) {
-            bonusDmgTotal -= (decl.value || 0);
-        }
+        const handler = getCalcModifier(decl.type);
+        if (!handler) continue;
+        handler({ decl, unit, target, refs });
     }
+    // 查表回调通过 refs 累积修改中间变量，同步回局部变量
+    defBase = refs.defBase;
+    defReduced = refs.defReduced;
+    ignoreDefRatio = refs.ignoreDefRatio;
+    bonusDmgTotal = refs.bonusDmgTotal;
+    dmgMultiplier = refs.dmgMultiplier;
 
     if (ignoreDefRatio > 0) {
         defBase = Math.floor(defBase * (1 - ignoreDefRatio));

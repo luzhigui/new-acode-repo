@@ -22,7 +22,8 @@ export function createLuZhangKeComponent() {
         register(eventBus, A, B, log) {
             const lu = B.find(u => u.name === '鹿杖客' && u.alive);
             if (!lu) return;
-            eventBus.on('onRoundStart', L.ROUND_START.XUANMING_POISON, (data) => {
+            // 玄冥毒tick：逐人直改 hp（tickXuanmingPoison 内 applyStatChange）无声明时机，保留事件路；壳转调
+            function submitXuanmingPoisonTick(data, lu) {
                 const { A, B, log } = data;
                 A.concat(B).forEach(u => {
                     if (!u.alive) return;
@@ -31,6 +32,9 @@ export function createLuZhangKeComponent() {
                         log.push({ factType: FACT_TYPES.XUAN_MING_DOT, data: { unitName: u.name, dot, uidD: u.uid, isDead: !u.alive } });
                     }
                 });
+            }
+            eventBus.on('onRoundStart', L.ROUND_START.XUANMING_POISON, (data) => {
+                submitXuanmingPoisonTick(data, lu);
             });
         }
     };
