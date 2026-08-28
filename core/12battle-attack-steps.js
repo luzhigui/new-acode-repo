@@ -144,6 +144,7 @@ export function resolveAttackHit(unit, target, attackerBuffStats, defenderBuffSt
         target._dodgeChance = Math.round((1 - product) * 100);
         if (dodgeTriggered) {
             target.dodgeCount++;
+            emitEvent(target, 'hp-change', { hp: target.hp, maxHp: target.maxHp, alive: target.alive, atk: target.atk, def: target.def, dodgeCount: target.dodgeCount });
             // 闪避承伤：走统一记账入口（承伤 = 来袭攻击力）
             recordCombatStat(unit, target, 'dodge', {
                 rawAmount: Math.floor(unit.atk),
@@ -226,7 +227,7 @@ export function calcFinalDamage(unit, target, attackerBuffStats, defenderBuffSta
     let hpBefore = Math.floor(target.hp);
     applyStatChange(target, 'hp', hpBonus, unit, '伤害波动回血', false);
     let waveTaunt = null, waveUnit = null;
-    if (atkVar === C.ATK_VAR) { waveTaunt = getRandomTaunt(unit); waveUnit = unit; unit.critCount++; }
+    if (atkVar === C.ATK_VAR) { waveTaunt = getRandomTaunt(unit); waveUnit = unit; unit.critCount++; emitEvent(unit, 'hp-change', { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: unit.atk, def: unit.def, critCount: unit.critCount }); }
     else if (defVar + hpBonus >= 7) {
         const defTaunts = getGameData().taunts.def;
         waveTaunt = defTaunts[rng.nextInt(0, defTaunts.length - 1)];

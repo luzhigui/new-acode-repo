@@ -186,6 +186,7 @@ export function spiderTransform(unit, log) {
     unit._baseDef = (unit._baseDef || unit.def) + newStats.def;
     unit._baseMaxHp = (unit._baseMaxHp || unit.maxHp) + newStats.maxHp;
     applyMaxHpChange(unit, unit.maxHp + newStats.maxHp, null, '蛛变');
+    emitEvent(unit, 'hp-change', { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: unit.atk, def: unit.def, _baseAtk: unit._baseAtk, _baseDef: unit._baseDef, _baseMaxHp: unit._baseMaxHp });
 
     // 精通加成：首次精通新职业时按层数差结算（全精通时一次性补 2 层）
     let masteryGain = null;
@@ -201,6 +202,7 @@ export function spiderTransform(unit, log) {
             unit._baseDef += gDef;
             unit._baseMaxHp += gHp;
             applyMaxHpChange(unit, unit.maxHp + gHp, null, '精通');
+            emitEvent(unit, 'hp-change', { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: unit.atk, def: unit.def, _baseAtk: unit._baseAtk, _baseDef: unit._baseDef, _baseMaxHp: unit._baseMaxHp });
             masteryGain = { atk: gAtk, def: gDef, hp: gHp };
         }
     }

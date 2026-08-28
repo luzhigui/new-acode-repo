@@ -18,7 +18,7 @@ export function showBuffPopup(c) {
         let activeBuffs = c.activeBuffs || [];
         let existingKeys = activeBuffs.map(b => b.key);
         let allKeys = Object.keys(CONFIG.BUFFS || {});
-        const allyTeam = c.UI?.allyTeam || [];
+        const allyTeam = c.store ? c.store.getState().units.filter(u => u.camp === 'ally' && u.alive) : [];
         let available = allKeys.filter(k => {
             if (existingKeys.includes(k)) return false;
             if (k === BUFF_TYPES.FORTIFY && !activeBuffs.some(b => b.remaining > 0)) return false;

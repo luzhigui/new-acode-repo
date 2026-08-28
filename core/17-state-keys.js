@@ -27,12 +27,13 @@ export const ROUND_FIELD_KEYS = Object.freeze([
 
 /** 顶层整场字段：clone 必须深拷贝（对象/数组）或浅拷贝（基本类型） */
 export const BATTLE_FIELD_KEYS = Object.freeze([
+    '_originalPos'
 ]);
 
 /** 顶层永久字段：浅拷贝，永不重置 */
 export const PERMANENT_FIELD_KEYS = Object.freeze([
     'isXiaoZhaoSister', 'isXiaoZhaoBrother',
-    '_baseAtk', '_baseDef', '_baseMaxHp', '_initAtk', '_initDef'
+    '_baseAtk', '_baseDef', '_baseMaxHp', '_initAtk', '_initDef', '_hpDmgRatio'
 ]);
 
 /** 拷贝整场状态字段（BATTLE_STATE_KEYS）到目标 state；源可为 null */
