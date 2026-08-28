@@ -11,7 +11,7 @@ import {
 import { CONFIG, getGameData } from './01config-5v5-test.js';
 import { hasBuff, getUnitRow, getUnitCol, getAdjacentPositions } from './03battle-utils.js';
 import { emitEvent, applyStatChange, applyMaxHpChange, query, getBattleRng, swapUnitPositions, moveUnitPosition } from './13battle-shared.js';
-import { EXECUTION_LAYER as L, EFFECT_TYPES } from '../infra/50-event-bus.js';
+import { EXECUTION_LAYER as L, EFFECT_TYPES, registerSettlementHook } from '../infra/50-event-bus.js';
 import { FACT_TYPES, BUFF_TYPES } from '../infra/56-battle-enums.js';
 import { getEliteState, setEliteState } from './18-elite-state.js';
 const C = CONFIG;
@@ -150,14 +150,6 @@ export function computeBuffStats(unit, activeBuffs, allyTeam) {
     return { atkBonus, defBonus, dodgeBonus, hpBonus, carryAtkAbs, carryDefAbs, carryHpAbs };
 }
 
-// 攻击前已迁移至事件总线（空壳保留）
-export function applyBuffEffectsBeforeAttack(unit, target, allyTeam, enemyTeam, log) {
-}
-
-// 攻击后已迁移至事件总线（保留入口）
-export function applyBuffEffectsAfterAttack(unit, target, dmg, allySide, enemySide, log) {
-}
-
 export function logBuffSummary(allyTeam, log, doubleStrikeUid) {
     let buffs = allyTeam._activeBuffs || [];
     buffs.forEach(b => {
@@ -213,8 +205,12 @@ export function submitBloodthirstDeclaration(data) {
 
 // 薄壳注册：只做转调，无判定无写入
 export function registerBloodthirst(eventBus) {
-    eventBus.on('afterDamageApplied', L.AFTER_DAMAGE_APPLIED.BLOODTHIRST, (data) => {
-        submitBloodthirstDeclaration(data);
+    registerSettlementHook(eventBus, {
+        when: 'afterDamageApplied',
+        priority: L.AFTER_DAMAGE_APPLIED.BLOODTHIRST,
+        handler: (data) => {
+            submitBloodthirstDeclaration(data);
+        }
     });
 }
 
@@ -279,8 +275,12 @@ export function submitHotBloodDeclaration(data) {
 
 // 薄壳注册：只做转调，无判定无写入
 export function registerHotBlood(eventBus) {
-    eventBus.on('afterDamageApplied', L.AFTER_DAMAGE_APPLIED.HOT_BLOOD, (data) => {
-        submitHotBloodDeclaration(data);
+    registerSettlementHook(eventBus, {
+        when: 'afterDamageApplied',
+        priority: L.AFTER_DAMAGE_APPLIED.HOT_BLOOD,
+        handler: (data) => {
+            submitHotBloodDeclaration(data);
+        }
     });
 }
 
@@ -350,8 +350,12 @@ export function submitWindAssaultDeclaration(data) {
 
 // 薄壳注册：只做转调，无判定无写入
 export function registerWindAssault(eventBus) {
-    eventBus.on('afterDamageApplied', L.AFTER_DAMAGE_APPLIED.WIND_ASSAULT, (data) => {
-        submitWindAssaultDeclaration(data);
+    registerSettlementHook(eventBus, {
+        when: 'afterDamageApplied',
+        priority: L.AFTER_DAMAGE_APPLIED.WIND_ASSAULT,
+        handler: (data) => {
+            submitWindAssaultDeclaration(data);
+        }
     });
 }
 
@@ -421,23 +425,31 @@ export function submitMeteorShowerDeclaration(data) {
 
 // 薄壳注册：只做转调，无判定无写入
 export function registerMeteorShower(eventBus) {
-    eventBus.on('afterDamageApplied', L.AFTER_DAMAGE_APPLIED.METEOR_SHOWER, (data) => {
-        submitMeteorShowerDeclaration(data);
+    registerSettlementHook(eventBus, {
+        when: 'afterDamageApplied',
+        priority: L.AFTER_DAMAGE_APPLIED.METEOR_SHOWER,
+        handler: (data) => {
+            submitMeteorShowerDeclaration(data);
+        }
     });
 }
 
 // Buff-事件注册：惑人心智最前排换位扰乱
 export function registerMindControl(eventBus) {
-    eventBus.on('afterAttack', L.AFTER_ATTACK.MIND_CONTROL, (data) => {
-        const { unit, allySide, enemySide, log } = data;
-        if (!unit.alive || unit.camp !== 'ally') return;
-        const buffs = allySide._activeBuffs || [];
-        const hasSister = allySide.some(u => u.isXiaoZhaoSister && u.alive);
+    registerSettlementHook(eventBus, {
+        when: 'afterAttack',
+        priority: L.AFTER_ATTACK.MIND_CONTROL,
+        handler: (data) => {
+            const { unit, allySide, enemySide, log } = data;
+            if (!unit.alive || unit.camp !== 'ally') return;
+            const buffs = allySide._activeBuffs || [];
+            const hasSister = allySide.some(u => u.isXiaoZhaoSister && u.alive);
 
-        if (hasBuff(buffs, BUFF_TYPES.MIND_CONTROL) && !allySide._mindControlTriggered) {
-            allySide._mindControlTriggered = true;
-            if (hasSister) applyMindControl_Sister(unit, allySide, enemySide, log);
-            else applyMindControl_Normal(unit, allySide, enemySide, log);
+            if (hasBuff(buffs, BUFF_TYPES.MIND_CONTROL) && !allySide._mindControlTriggered) {
+                allySide._mindControlTriggered = true;
+                if (hasSister) applyMindControl_Sister(unit, allySide, enemySide, log);
+                else applyMindControl_Normal(unit, allySide, enemySide, log);
+            }
         }
     });
 }

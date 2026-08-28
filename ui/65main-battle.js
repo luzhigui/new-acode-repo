@@ -154,42 +154,6 @@ export function showBuffSelection(callback, activeBuffs, selectedBuffIndex, upda
     }, true, false);
 }
 
-// Buff-弹窗：显示Buff选择界面（Bug调试模式）
-export function showBugModeBuffSelection(callback, activeBuffs, selectedBuffIndex, updateBuffSlotsFn, updateUIFn, autoScrollLogFn, allyTeam) {
-    const allKeys = Object.keys(C.BUFFS || {});
-    const existingKeys = activeBuffs.map(b => b.key);
-    const available = allKeys.filter(k => !existingKeys.includes(k));
-    const choices = (GlobalStore.get('bugMode'))
-        ? available
-        : generateBuffChoices(activeBuffs, allyTeam, getBattleRng());
-    const text = '选择 Buff（持续 ' + C.BUFF_DURATION + ' 回合） [Bug模式]';
-    const buttons = choices.map(key => ({
-        text: (C.BUFFS[key]?.icon || '?') + ' ' + (C.BUFFS[key]?.name || key) + '\n' + (C.BUFFS[key]?.desc || ''),
-        value: key,
-        cls: 'buff'
-    }));
-    showModal(text, buttons, (key) => {
-        let duration = C.BUFFS[key].duration || C.BUFF_DURATION;
-        if (activeBuffs.length >= 2) {
-            let shortest = activeBuffs.reduce((a, b) => a.remaining < b.remaining ? a : b);
-            activeBuffs.splice(activeBuffs.indexOf(shortest), 1);
-        }
-        activeBuffs.push(createBuffObject(key, duration));
-        if (allyTeam) {
-            const xiaoZhao = allyTeam.find(u => u.isXiaoZhaoBrother);
-            if (xiaoZhao) {
-                addPermanentBuff(xiaoZhao, key, C.BUFFS[key].name, {});
-            }
-        }
-        updateBuffSlotsFn();
-        let logDiv = document.getElementById('log');
-        if (logDiv) { logDiv.innerHTML += `<span class="gold">✨ 获得Buff：${C.BUFFS[key].name}（持续${duration}回合）</span><br>`; autoScrollLogFn(); }
-        if (window._updateGlowColors) window._updateGlowColors(selectedBuffIndex);
-        updateUIFn();
-        callback();
-    }, true, false);
-}
-
 // ==================== Buff 槽 ====================
 
 // Buff-计时：回合结束后递减Buff持续时间 —— 实现已移至 modules/28buff-tools.js
