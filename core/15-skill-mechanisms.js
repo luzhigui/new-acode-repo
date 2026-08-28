@@ -1,6 +1,6 @@
 // core/15-skill-mechanisms.js - 光明顶5v5 技能机制解释器
-// V5.7.1 | ~14500 bytes| 2026-08-24 苦练血量+3、宋青书自身三倍加成
-export const VER = 'core/15-skill-mechanisms.js V5.7.1';
+// V5.7.2 | ~14500 bytes| 2026-08-28 毒 fact 按攻击组定位插入
+export const VER = 'core/15-skill-mechanisms.js V5.7.2';
 
 import { EXECUTION_LAYER as L, EFFECT_TYPES } from '../infra/50-event-bus.js';
 import { CONFIG } from './01config-5v5-test.js';
@@ -165,7 +165,19 @@ function submitOnHitEffects(data, onHitDecls) {
                 }
             } else if (eff.type === 'poison') {
                 setEliteState(target.uid, { _xuanmingPoison: { remaining: eff.duration, dotPercents: [...eff.dotPercents] } });
-                if (data.log) data.log.push({ factType: FACT_TYPES.XUAN_MING_POISONED, data: { attackerName: unit.name, targetName: target.name, dotPercents: eff.dotPercents } });
+                // 毒记账异步 push（emit 未 await）：按所属 group 定位插入 log，紧跟本攻击组，
+                // 嵌套联动攻击下外层毒先插到自己 group 后、内层毒插到自己 group 后，顺序稳定不错位
+                const poisonFact = { factType: FACT_TYPES.XUAN_MING_POISONED, data: { attackerName: unit.name, targetName: target.name, dotPercents: eff.dotPercents } };
+                if (data.log) {
+                    const group = data.group;
+                    if (group) {
+                        const idx = data.log.indexOf(group);
+                        if (idx >= 0) data.log.splice(idx + 1, 0, poisonFact);
+                        else data.log.push(poisonFact);
+                    } else {
+                        data.log.push(poisonFact);
+                    }
+                }
             } else if (eff.type === 'bonusLostHp') {
                 const lostHp = unit.maxHp - unit.hp;
                 const bonus = Math.floor(lostHp * eff.ratio);
