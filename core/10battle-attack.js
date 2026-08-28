@@ -92,6 +92,7 @@ export async function processUnitAttack(unit, allySide, enemySide, log, A, B, st
             const dodgeFact = hitResult.dodgeFact;
             if (dodgeFact.attackerHpAfter <= 0) {
                 unit.alive = false; unit._pendingDeath = true;
+                emitEvent(unit, 'hp-change', { hp: unit.hp, maxHp: unit.maxHp, alive: false, atk: unit.atk, def: unit.def, _isDead: true });
             }
             log.push({ factType: FACT_TYPES.DODGE, data: dodgeFact });
         }

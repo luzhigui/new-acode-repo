@@ -246,7 +246,7 @@ export function renderGrid(id, camp) {
         let hpColorClass = hpPct>70?'hp-text-green':(hpPct>40?'hp-text-orange':'hp-text-red');
         let barColor = hpPct>70?'#4caf50':(hpPct>40?'#ff9800':'#f44336');
         let hpDisplayHtml = `${Math.floor(unit.hp)}`;
-        const hasButterflyHpBonus = (latestUnit._butterflyHpBonus || 0) > 0;
+        const hasButterflyHpBonus = (getEliteState(latestUnit.uid)._butterflyHpBonus || 0) > 0;
         if (hpBonusVal > 0 || (latestUnit._baseMaxHp !== undefined && latestUnit.maxHp > latestUnit._baseMaxHp) || hasButterflyHpBonus) {
             hpDisplayHtml = `<span style="color:#daa520;font-weight:bold;">${Math.floor(unit.hp)}</span>`;
         }

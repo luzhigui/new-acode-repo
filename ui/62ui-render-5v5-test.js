@@ -143,7 +143,7 @@ function updateDetailPopupContent() {
     let atkBonusVal = Math.floor(u.atk * u.buffAtkBonus);
     let defBonusVal = Math.floor(u.def * u.buffDefBonus);
     let hpBonusVal = Math.floor(u.maxHp * u.buffHpBonus);
-    let butterflyHpBonus = u._butterflyHpBonus || 0;
+    let butterflyHpBonus = getEliteState(u.uid)._butterflyHpBonus || 0;
     if (butterflyHpBonus > 0) {
         hpStyle = 'color:#daa520;font-weight:bold;';
     }

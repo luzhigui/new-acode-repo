@@ -103,6 +103,7 @@ function finalizeDeaths(team) {
             u.alive = false;
             u.state._isDead = true;
             if (!u._deathTime) u._deathTime = Date.now();
+            emitCoreEvent(u, 'hp-change', { hp: u.hp, maxHp: u.maxHp, alive: false, atk: u.atk, def: u.def, _isDead: true });
         }
     }
 }
@@ -114,13 +115,17 @@ function getNextAvailableUnit(team) {
 function swapUnitPositions(unitA, unitB) {
     if (!unitA || !unitB) return;
     const posA = unitA.pos;
-    unitA.pos = unitB.pos;
+    const posB = unitB.pos;
+    unitA.pos = posB;
     unitB.pos = posA;
+    emitEvent(unitA, 'pos-change', { pos: posB });
+    emitEvent(unitB, 'pos-change', { pos: posA });
 }
 
 function moveUnitPosition(unit, newPos) {
     if (!unit || newPos == null) return;
     unit.pos = newPos;
+    emitEvent(unit, 'pos-change', { pos: newPos });
 }
 
 function checkZhangSwitch(A, log) {

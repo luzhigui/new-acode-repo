@@ -360,6 +360,7 @@ export function resolveDeaths(allySide, enemySide, log) {
         u.alive = false;
         u.state._isDead = true;
         u._pendingDeath = false;
+        emitEvent(u, 'hp-change', { hp: u.hp, maxHp: u.maxHp, alive: false, atk: u.atk, def: u.def, _isDead: true });
         emitEvent(u, 'unit-remove', { uid: u.uid });
     }
 
