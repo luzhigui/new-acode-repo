@@ -1,9 +1,10 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// fx/82fx-crash-5v5-test.js - 光明顶5v5 飞撞与格挡特效
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// fx/82fx-crash-5v5-test.js - 光明顶5v5 飞撞与格挡特效
 // V5.5.0 | 2026-07-12 修复飞走模式原地残留蓝色格子（清除_flash标记）
 export const VER = 'fx/82fx-crash-5v5-test.js V5.5.0';
 
 import { applyImpactShrink } from './80fx-common-5v5-test.js';
 import { STORE_ACTION_TYPES } from '../infra/56-battle-enums.js';
+import { getEliteState, setEliteState } from '../core/18-elite-state.js';
 
 function clearCrashStyles(cell) {
     if (!cell) return;
@@ -24,7 +25,8 @@ function finishCrash(clone, cell, unitA, UI) {
     const ctx = GlobalStore.get('playerContext');
     if (ctx && ctx.store) {
         const su = ctx.store.getState().units.find(u => u.uid === unitA.uid);
-        const wasFlying = su && su.state && su.state._flyMode;
+        const es = su ? getEliteState(su.uid) : null;
+        const wasFlying = es && es._flyMode;
         ctx.store.dispatch({ type: STORE_ACTION_TYPES.SET_VISUAL, uid: unitA.uid, _flyMode: null, _acted: true });
         if (wasFlying) {
             ctx.store.dispatch({ type: STORE_ACTION_TYPES.SET_FLASH, uid: unitA.uid, flash: 'attack' });
@@ -32,7 +34,7 @@ function finishCrash(clone, cell, unitA, UI) {
             ctx.store.dispatch({ type: STORE_ACTION_TYPES.CLEAR_UNIT_FLASH, uid: unitA.uid });
         }
     } else {
-        delete unitA.state._flyMode;
+        setEliteState(unitA.uid, { _flyMode: null });
     }
     if (cell) clearCrashStyles(cell);
     if (ctx) ctx.updateUI();
@@ -166,10 +168,9 @@ export function showMeleeCrash(unitA, unitD, speed, getPausedFn, onCrash) {
         if (ctxG && ctxG.store) {
             ctxG.store.dispatch({ type: STORE_ACTION_TYPES.SET_FLASH, uid: unitA.uid, flash: 'attack' });
             ctxG.store.dispatch({ type: STORE_ACTION_TYPES.SET_VISUAL, uid: unitA.uid, _acted: true });
-            if (unitA.state) unitA.state._flyMode = flyMode;
+            setEliteState(unitA.uid, { _flyMode: flyMode });
         }
     } else {
-        unitA._flash = null;
         const ctxF = window._getPlayerContext ? window._getPlayerContext() : null;
         if (ctxF && ctxF.store) {
             ctxF.store.dispatch({ type: STORE_ACTION_TYPES.CLEAR_UNIT_FLASH, uid: unitA.uid });
@@ -453,8 +454,6 @@ export function showMeleeMiss(unitA, unitD, speed, getPausedFn) {
     if (ctxM && ctxM.store) {
         ctxM.store.dispatch({ type: STORE_ACTION_TYPES.CLEAR_UNIT_FLASH, uid: unitA.uid });
         ctxM.store.dispatch({ type: STORE_ACTION_TYPES.SET_VISUAL, uid: unitA.uid, _acted: true });
-    } else {
-        unitA._flash = null;
     }
     cellA.classList.remove('ready');
 

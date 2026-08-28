@@ -213,8 +213,7 @@ export function spiderReturn(unit, allyTeam, enemySide, log) {
     if (!unit.isXiaoZhaoBrother) return;
     const rng = getBattleRng();
 
-    unit.state._spiderFlying = false;
-    unit.state._flyMode = null;
+    setEliteState(unit.uid, { _spiderFlying: false, _flyMode: null });
     unit.state._acted = false;
 
     const order = [4, 5, 6, 7, 8, 9, 1, 2, 3];

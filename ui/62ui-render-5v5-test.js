@@ -63,8 +63,8 @@ window.openDetailPopup = openDetailPopup;
 function renderAtkDetail(u, buffStats, ctx) {
     let initAtk = u._initAtk !== undefined ? u._initAtk : u.atk;
     let holyAtkBonus = Math.floor(initAtk * buffStats.atkBonus);
-    let carryAtk = u._carryAtkBonus || 0;
-    let butterflyAtk = u._butterflyAtkBonus || 0;
+    let carryAtk = getEliteState(u.uid)._carryAtkBonus || 0;
+    let butterflyAtk = getEliteState(u.uid)._butterflyAtkBonus || 0;
     let finalAtk = u.atk;
     let permChange = finalAtk - initAtk - holyAtkBonus - carryAtk - butterflyAtk;
     let parts = [String(initAtk)];
@@ -87,9 +87,9 @@ function renderAtkDetail(u, buffStats, ctx) {
 function renderDefDetail(u, buffStats) {
     let initDef = u._initDef !== undefined ? u._initDef : u.def;
     let holyDefBonus = Math.floor(initDef * buffStats.defBonus);
-    let carryDef = u._carryDefBonus || 0;
-    let butterflyDef = u._butterflyDefBonus || 0;
-    let fortifyStacks = u._fortifyStacks || 0;
+    let carryDef = getEliteState(u.uid)._carryDefBonus || 0;
+    let butterflyDef = getEliteState(u.uid)._butterflyDefBonus || 0;
+    let fortifyStacks = getEliteState(u.uid)._fortifyStacks || 0;
     let fortifyDef = fortifyStacks;
     let finalDef = Math.round(u.def);
     let permChange = finalDef - Math.round(initDef) - holyDefBonus - carryDef - butterflyDef - fortifyDef;

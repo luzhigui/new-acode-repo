@@ -121,8 +121,7 @@ function installAttributeModifiers(A, B, decl) {
     if (!target) return;
     for (const mod of decl.attributeMods) {
         if (mod.type === 'fortifyIncrementMul') {
-            target._fortifyIncrement = CONFIG.FORTIFY_INCREMENT * mod.mult;
-            target._fortifyCap = CONFIG.FORTIFY_CAP * mod.mult;
+            setEliteState(target.uid, { _fortifyIncrement: CONFIG.FORTIFY_INCREMENT * mod.mult, _fortifyCap: CONFIG.FORTIFY_CAP * mod.mult });
         }
     }
 }
@@ -201,7 +200,7 @@ function submitPhantomDisguiseOnHit(data, decls) {
     if (!unit || !unit.alive || data.dmg <= 0) return;
     const decl = decls.find(d => d.name === unit.name);
     if (!decl) return;
-    const enemyAlive = data.enemySide.filter(u => u.alive && !u.isHorse && !u._untargetable);
+    const enemyAlive = data.enemySide.filter(u => u.alive && !u.isHorse && !getEliteState(u.uid)._untargetable);
     if (enemyAlive.length > 0) {
         setEliteState(unit.uid, { _phantomTarget: enemyAlive[getBattleRng().nextInt(0, enemyAlive.length - 1)].uid });
         const lostHp = unit.maxHp - unit.hp;
@@ -247,7 +246,7 @@ function submitPhantomDisguiseTarget(data, decls) {
     const confuseChance = (phantomDecl.baseChance || 0.30) + (phantomDecl.per10pctLost || 0.06) * (lostHpPct * 10);
     if (getBattleRng().next() >= confuseChance) return;
 
-    const phantomTarget = allySide.find(u => u.alive && !u.isHorse && !u._untargetable && u.uid === getEliteState(chengkun.uid)._phantomTarget && u.uid !== unit.uid);
+    const phantomTarget = allySide.find(u => u.alive && !u.isHorse && !getEliteState(u.uid)._untargetable && u.uid === getEliteState(chengkun.uid)._phantomTarget && u.uid !== unit.uid);
     if (phantomTarget) {
         declaration.targetResult = phantomTarget;
         declaration.phantomFact = { factType: FACT_TYPES.PHANTOM_CONFUSE, data: { unitName: unit.name, deceiver: chengkun.name, targetName: phantomTarget.name } };
@@ -278,9 +277,9 @@ function submitLinkAttack(data, decls) {
     if (!decl) return;
     const partnerNames = decl.partnerNames || [];
     for (const partnerName of partnerNames) {
-        const partner = allySide.find(u => u.name === partnerName && u.alive && !u._linkTriggered);
+        const partner = allySide.find(u => u.name === partnerName && u.alive && !getEliteState(u.uid)._linkTriggered);
         if (!partner) continue;
-        partner._linkTriggered = true;
+        setEliteState(partner.uid, { _linkTriggered: true });
         log.push({ factType: FACT_TYPES.XUAN_MING_LINK_ATTACK, data: { partnerName: partner.name, unitName: unit.name } });
         if (!data.extraRequests) data.extraRequests = [];
         data.extraRequests.push({

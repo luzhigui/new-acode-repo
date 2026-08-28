@@ -39,24 +39,16 @@ export class Unit {
         this.dmgDealt=0;this.dmgTaken=0;this.healDone=0;this.reboundDone=0;
         this.leechDone=0;this.dodgeCount=0;this.critCount=0;
         this.survivedRounds=0;this._flash=null;
-        this._untargetable=false;this.fixed=false;this._originalPos=-1;
-        this._hotBloodCount=0;this._doubleStriked=false;
-        this._zhangSwitched = false;
+        this.fixed=false;this._originalPos=-1;
         this.state = {
             _acted: false, _stunned: false, _isDead: false, _resting: false,
-            _blocked: false, _flyMode: null, _butterflyHost: null,
-            _spiderFlying: false
+            _blocked: false
         };
         this.buffAtkBonus = 0;
         this.buffDefBonus = 0;
         this.buffDodgeBonus = 0;
         this.buffHpBonus = 0;
         this._baseMaxHp = 0;
-        this._carryAtkBonus = 0;
-        this._carryDefBonus = 0;
-        this._carryHpBonus = 0;
-        this._butterflyAtkBonus = 0;
-        this._butterflyDefBonus = 0;
         this._initAtk = 0;          // 战斗开始时的初始攻击（永不修改）
         this._initDef = 0;          // 战斗开始时的初始防御（永不修改）
         this.isXiaoZhaoSister = false; // 🦋 小昭·姊
@@ -66,10 +58,6 @@ export class Unit {
         this._holyAtkBonus = 0;
         this._holyDefBonus = 0;
         this._fortifyDefBonus = 0;
-        this._fortifyStacks = 0;
-        this._fortifyIncrement = CONFIG.FORTIFY_INCREMENT;
-        this._fortifyCap = CONFIG.FORTIFY_CAP;
-        this._dodgeStack = 0;
         getEliteState(this.uid);
     }
     clone(){

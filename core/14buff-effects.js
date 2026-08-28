@@ -7,6 +7,7 @@ import { getUnitRow, getUnitCol } from './03battle-utils.js';
 import { eventBus } from '../infra/50-event-bus.js';
 import { getBattleRng, swapUnitPositions } from './13battle-shared.js';
 import { FACT_TYPES } from '../infra/56-battle-enums.js';
+import { getEliteState } from './18-elite-state.js';
 const C = CONFIG;
 
 export function applyFortifyDef_Normal(unit, stats) { stats.defBonus += CONFIG.BUFFS.fortify.defBonus; }
@@ -67,7 +68,7 @@ function applyMindControlCore(unit, allySide, enemySide, log, swapChanceEnemy, s
     if (!frontUnit || frontUnit.uid !== unit.uid) return;
 
     if (rng.nextInt(1,100) <= swapChanceEnemy) {
-        let enemies = enemySide.filter(u => u.alive && u.state._flyMode !== 'butterfly' && u.state._flyMode !== 'spider' && !u.state._spiderFlying);
+        let enemies = enemySide.filter(u => u.alive && getEliteState(u.uid)._flyMode !== 'butterfly' && getEliteState(u.uid)._flyMode !== 'spider' && !getEliteState(u.uid)._spiderFlying);
         if (enemies.length >= 2) {
             let a = enemies[rng.nextInt(0, enemies.length-1)];
             let b; do { b = enemies[rng.nextInt(0, enemies.length-1)]; } while (b.uid === a.uid);
@@ -81,7 +82,7 @@ function applyMindControlCore(unit, allySide, enemySide, log, swapChanceEnemy, s
         log.push({ factType: FACT_TYPES.MIND_CONTROL_FAIL, data: { side: 'enemy', reason: '未触发' } });
     }
     if (rng.nextInt(1,100) <= swapChanceAlly) {
-        let allies = allySide.filter(u => u.alive && u.state._flyMode !== 'butterfly' && u.state._flyMode !== 'spider' && !u.state._spiderFlying);
+        let allies = allySide.filter(u => u.alive && getEliteState(u.uid)._flyMode !== 'butterfly' && getEliteState(u.uid)._flyMode !== 'spider' && !getEliteState(u.uid)._spiderFlying);
         if (allies.length >= 2) {
             let a = allies[rng.nextInt(0, allies.length-1)];
             let b; do { b = allies[rng.nextInt(0, allies.length-1)]; } while (b.uid === a.uid);

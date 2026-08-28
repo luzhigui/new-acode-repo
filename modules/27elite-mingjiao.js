@@ -24,7 +24,7 @@ export function createZhangWujiComponent() {
             const hasFrontAlly = A.some(c => c.alive && !c.isHorse && c.pos === 1 + col && c.uid !== zhang.uid);
             const states = {
                 ranged: {
-                    onEnter() { zhang.rangedForm = true; zhang.role = '远程'; zhang._zhangSwitched = false; },
+                    onEnter() { zhang.rangedForm = true; zhang.role = '远程'; setEliteState(zhang.uid, { _zhangSwitched: false }); },
                     onExit() {}
                 },
                 switching: {
@@ -70,21 +70,21 @@ export function createZhangWujiComponent() {
             });
             // FSM 切换判定保留事件路（状态机迁移非数值结算）
             function submitZhangRangeCheckDeclaration(data) {
-                if (zhang && zhang.alive && !zhang._zhangSwitched && fsm.is('ranged')) {
+                if (zhang && zhang.alive && !getEliteState(zhang.uid)._zhangSwitched && fsm.is('ranged')) {
                     const col = (zhang.pos - 1) % 3;
                     const hasFrontAlly = A.some(c => c.alive && !c.isHorse && c.pos === 1 + col && c.uid !== zhang.uid);
                     if (!hasFrontAlly) fsm.transition('switching');
                 }
             }
             function submitZhangSwitchOnDeathDeclaration(data) {
-                if (zhang && zhang.alive && !zhang._zhangSwitched && fsm.is('ranged')) {
+                if (zhang && zhang.alive && !getEliteState(zhang.uid)._zhangSwitched && fsm.is('ranged')) {
                     const col = (zhang.pos - 1) % 3;
                     const hasFrontAlly = A.some(c => c.alive && !c.isHorse && c.pos === 1 + col && c.uid !== zhang.uid);
                     if (!hasFrontAlly) fsm.transition('switching', { log: data && data.log });
                 }
             }
             function submitZhangSwitchOnSwapDeclaration(data) {
-                if (zhang && zhang.alive && !zhang._zhangSwitched && fsm.is('ranged')) {
+                if (zhang && zhang.alive && !getEliteState(zhang.uid)._zhangSwitched && fsm.is('ranged')) {
                     const col = (zhang.pos - 1) % 3;
                     const hasFrontAlly = A.some(c => c.alive && !c.isHorse && c.pos === 1 + col && c.uid !== zhang.uid);
                     if (!hasFrontAlly) fsm.transition('switching', { log: data && data.log });
@@ -105,7 +105,7 @@ export function createZhangWujiComponent() {
             const fsm = unit._fsm;
             // ronghui 是 near 的融会贯通激活态：FSM 转入后仍需继续触发（第3次起每次攻击都有效）
             if (fsm && (fsm.is('near') || fsm.is('ronghui'))) {
-                if (unit.nearAtkCount === 0 && !unit._zhangTauntDone) { const firstTaunt = getZhangNearTaunt(1); if (firstTaunt) { group.data.entries.push({ factType: FACT_TYPES.ZHANG_TAUNT, data: { unitName: unit.name, taunt: firstTaunt } }); unit._zhangTauntDone = true; } }
+                if (unit.nearAtkCount === 0 && !getEliteState(unit.uid)._zhangTauntDone) { const firstTaunt = getZhangNearTaunt(1); if (firstTaunt) { group.data.entries.push({ factType: FACT_TYPES.ZHANG_TAUNT, data: { unitName: unit.name, taunt: firstTaunt } }); setEliteState(unit.uid, { _zhangTauntDone: true }); } }
                 unit.nearAtkCount++;
                 if (unit.nearAtkCount === 2) { const secondTaunt = getZhangNearTaunt(2); if (secondTaunt) group.data.entries.push({ factType: FACT_TYPES.ZHANG_TAUNT, data: { unitName: unit.name, taunt: secondTaunt } }); }
                 if (unit.nearAtkCount >= 3) {
@@ -185,7 +185,7 @@ export function createXiaoZhaoSisterComponent() {
                 attached: {
                     onEnter() {
                         sister.state._acted = true;
-                        sister._untargetable = true;
+                        setEliteState(sister.uid, { _untargetable: true });
                     },
                     onExit() {}
                 },
@@ -238,8 +238,9 @@ export function createXiaoZhaoSisterComponent() {
                     applyStatChange(healTarget, 'hp', heal, xiaoZhao, '乾坤衍生治疗');
                     applyStatChange(atkTarget, 'atk', atkGain, xiaoZhao, '乾坤衍生加攻');
                     if (atkTarget._baseAtk !== undefined) atkTarget._baseAtk += atkGain;
-                    if (!data.unit._pendingDerivedEntries) data.unit._pendingDerivedEntries = [];
-                    data.unit._pendingDerivedEntries.push({
+                    // 记账随 beforeDamageCalc 事件 data 携带，由 12 calcFinalDamage 收入 dmgCalc 返回，不落 unit
+                    if (!data._derivedEntries) data._derivedEntries = [];
+                    data._derivedEntries.push({
                         factType: FACT_TYPES.QIAN_KUN_DERIVED,
                         data: {
                             targetName: target.name,
@@ -266,7 +267,7 @@ export function createXiaoZhaoSisterComponent() {
             }
             // 蝶变回归：回归声明提交（纯函数，事件监听器薄壳转调）
             function submitButterflyReturnDeclaration(data) {
-                const sis = A.find(u => u.isXiaoZhaoSister && u.alive && u.state._butterflyHost);
+                const sis = A.find(u => u.isXiaoZhaoSister && u.alive && getEliteState(u.uid)._butterflyHost);
                 if (!sis || !fsm.is('attached')) return;
                 if (!data.declarations) data.declarations = [];
                 data.declarations.push({ type: 'butterflyReturn', sister: sis, A, log: data.log });
@@ -279,7 +280,7 @@ export function createXiaoZhaoSisterComponent() {
             });
         },
         _executeAttach(sister, A, log) {
-            if (sister.state._butterflyHost) return null;
+            if (getEliteState(sister.uid)._butterflyHost) return null;
             const flyDirection = A._flyDirection || 'right';
             const order = flyDirection === 'left' ? [3,2,1,9,8,7,6,5] : [5,6,7,8,9,1,2,3];
             let host = null;
@@ -297,7 +298,7 @@ export function createXiaoZhaoSisterComponent() {
             const hpTransfer = Math.floor(sister.hp * hpRatio);
             setEliteState(sister.uid, { _butterflyHpTransfer: hpTransfer });
             host._butterflyHpBonus = (host._butterflyHpBonus || 0) + hpTransfer;
-            host._butterflyAtkBonus += atkTransfer; host._butterflyDefBonus += defTransfer;
+            const hostEs = getEliteState(host.uid); setEliteState(host.uid, { _butterflyAtkBonus: (hostEs._butterflyAtkBonus || 0) + atkTransfer, _butterflyDefBonus: (hostEs._butterflyDefBonus || 0) + defTransfer });
             applyStatChange(host, 'atk', atkTransfer, sister, '蝶变附身');
             applyStatChange(host, 'def', defTransfer, sister, '蝶变附身');
             applyMaxHpChange(host, host.maxHp + hpTransfer, sister, '蝶变附身血上限');
@@ -309,9 +310,9 @@ export function createXiaoZhaoSisterComponent() {
                 const delta = newHp - sister.hp;
                 applyStatChange(sister, 'hp', delta, null, '蝶变附身血量', false);
             }
-            sister.state._butterflyHost = host.uid;
+            setEliteState(sister.uid, { _butterflyHost: host.uid });
             sister._fsm.transition('attached');
-            emitEvent(sister, 'hp-change', { hp:sister.hp, maxHp:sister.maxHp, alive:sister.alive, atk:sister.atk, def:sister.def, _flyMode:'butterfly', _butterflyHost:sister.state._butterflyHost });
+            emitEvent(sister, 'hp-change', { hp:sister.hp, maxHp:sister.maxHp, alive:sister.alive, atk:sister.atk, def:sister.def, _flyMode:'butterfly', _butterflyHost:getEliteState(sister.uid)._butterflyHost });
             log.push({
                 factType: FACT_TYPES.BUTTERFLY_ATTACH,
                 data: {
@@ -328,8 +329,8 @@ export function createXiaoZhaoSisterComponent() {
             return sister;
         },
         _executeReturn(sister, A, log) {
-            if (!sister.alive || !sister.state._butterflyHost) return;
-            const host = A.find(u => u.uid === sister.state._butterflyHost && u.alive);
+            if (!sister.alive || !getEliteState(sister.uid)._butterflyHost) return;
+            const host = A.find(u => u.uid === getEliteState(sister.uid)._butterflyHost && u.alive);
             if (!host || !host.alive) {
                 const allAllies = A.filter(a => !a.isHorse && a.uid !== sister.uid);
                 const totalHp = allAllies.reduce((sum, a) => sum + (a.alive ? a.hp : 0), 0);
@@ -341,8 +342,7 @@ export function createXiaoZhaoSisterComponent() {
                 } else {
                     applyStatChange(sister, 'hp', -sister.hp, null, '蝶变飞回无队友', false);
                 }
-                sister.state._flyMode = null; sister._untargetable = false;
-                sister.state._butterflyHost = null;
+                setEliteState(sister.uid, { _flyMode: null, _untargetable: false, _butterflyHost: null });
                 setEliteState(sister.uid, { _butterflyAtk: 0, _butterflyDef: 0, _butterflyHp: 0, _butterflyHpTransfer: 0 });
                 sister._fsm.transition('normal');
                 log.push({ factType: FACT_TYPES.BUTTERFLY_HOST_DEAD, data: { sisterName: sister.name, isDead: !sister.alive, sisterUid: sister.uid } });
@@ -361,10 +361,9 @@ export function createXiaoZhaoSisterComponent() {
             applyStatChange(sister, 'atk', sister._baseAtk - sister.atk, null, '蝶变飞回重置攻');
             applyStatChange(sister, 'def', sister._baseDef - sister.def, null, '蝶变飞回重置防');
             if (host && host.alive) {
-                applyStatChange(host, 'atk', -(host._butterflyAtkBonus || 0), sister, '蝶变飞回');
-                applyStatChange(host, 'def', -(host._butterflyDefBonus || 0), sister, '蝶变飞回');
-                host._butterflyAtkBonus = 0;
-                host._butterflyDefBonus = 0;
+                applyStatChange(host, 'atk', -(getEliteState(host.uid)._butterflyAtkBonus || 0), sister, '蝶变飞回');
+                applyStatChange(host, 'def', -(getEliteState(host.uid)._butterflyDefBonus || 0), sister, '蝶变飞回');
+                setEliteState(host.uid, { _butterflyAtkBonus: 0, _butterflyDefBonus: 0 });
                 host._butterflyHpBonus = 0;
                 const hpTransfer = getEliteState(sister.uid)._butterflyHpTransfer || 0;
                 applyMaxHpChange(host, Math.max(1, host.maxHp - hpTransfer), sister, '蝶变飞回血上限');
@@ -373,7 +372,7 @@ export function createXiaoZhaoSisterComponent() {
                     atk: host.atk, def: host.def
                 });
             }
-            sister.state._butterflyHost = null;
+            setEliteState(sister.uid, { _butterflyHost: null });
             setEliteState(sister.uid, { _butterflyAtk: 0, _butterflyDef: 0, _butterflyHp: 0, _butterflyHpTransfer: 0 });
             if (!A.find(a => a.uid === sister.uid)) {
                 A.push(sister);
@@ -399,13 +398,13 @@ export function createXiaoZhaoSisterComponent() {
         executeAttach(A, log) {
             let sister = A.find(u => u.isXiaoZhaoSister && u.alive && u.pos === 4 && !u.state._stunned);
             if (!sister) sister = A.find(u => u.isXiaoZhaoSister && u.alive && !u.state._stunned);
-            if (!sister || sister.state._butterflyHost) return null;
+            if (!sister || getEliteState(sister.uid)._butterflyHost) return null;
             const fsm = sister._fsm;
             if (fsm && fsm.is('normal')) fsm.transition('attaching', { log });
             return sister;
         },
         executeReturn(sister, A, log) {
-            if (!sister.alive || !sister.state._butterflyHost) return;
+            if (!sister.alive || !getEliteState(sister.uid)._butterflyHost) return;
             const fsm = sister._fsm;
             if (fsm && fsm.is('attached')) fsm.transition('returning', { log });
         },
@@ -447,15 +446,14 @@ export function createXiaoZhaoBrotherComponent() {
                         setEliteState(brother.uid, { _spiderTriggeredThisRound: true });
                         const esRemaining = getEliteState(brother.uid)._spiderRemaining;
                         setEliteState(brother.uid, { _spiderRemaining: Math.max(0, (esRemaining ?? 3) - 1) });
-                        brother.state._spiderFlying = true;
-                        brother.state._flyMode = 'spider';
+                        setEliteState(brother.uid, { _spiderFlying: true, _flyMode: 'spider' });
                         brother.state._acted = true;
                         emitEvent(brother, 'hp-change', { hp:brother.hp, maxHp:brother.maxHp, alive:brother.alive, atk:brother.atk, def:brother.def, _flyMode:'spider', _spiderFlying:true });
-                        brother._flyFactData = { unitName: brother.name, spiderUid: brother.uid, reason, incomingDmg, remaining: getEliteState(brother.uid)._spiderRemaining };
+                        // 飞天事实随 transition data 携带（不落 unit），由免疫声明/log 消费
+                        data._flyFactData = { unitName: brother.name, spiderUid: brother.uid, reason, incomingDmg, remaining: getEliteState(brother.uid)._spiderRemaining };
                     },
                     onExit() {
-                        brother.state._spiderFlying = false;
-                        brother.state._flyMode = null;
+                        setEliteState(brother.uid, { _spiderFlying: false, _flyMode: null });
                         brother.state._acted = false;
                     }
                 },
@@ -500,8 +498,9 @@ export function createXiaoZhaoBrotherComponent() {
                 }
                 if (shouldFly) {
                     if (!data.declarations) data.declarations = [];
-                    fsm.transition('flying', { reason, incomingDmg: data.dmg, log: data.log || log });
-                    data.declarations.push({ immune: true, flyData: brother._flyFactData || null, reason: brother._flyFactData ? null : '🕷️ 飞天：免疫本次伤害' });
+                    const flyData = { reason, incomingDmg: data.dmg, log: data.log || log };
+                    fsm.transition('flying', flyData);
+                    data.declarations.push({ immune: true, flyData: flyData._flyFactData || null, reason: flyData._flyFactData ? null : '🕷️ 飞天：免疫本次伤害' });
                 }
             }
             eventBus.on('beforeDamageApply', L.BEFORE_DAMAGE_APPLY.SPIDER_IMMUNE, (data) => {
@@ -529,7 +528,7 @@ export function createXiaoZhaoBrotherComponent() {
             }
             // 蛛落：下落声明提交（纯函数，事件监听器薄壳转调）
             function submitSpiderDescendDeclaration(data) {
-                const bro = A.find(u => u.isXiaoZhaoBrother && u.alive && u.state._spiderFlying);
+                const bro = A.find(u => u.isXiaoZhaoBrother && u.alive && getEliteState(u.uid)._spiderFlying);
                 if (bro && bro._fsm && bro._fsm.is('flying')) {
                     if (!data.declarations) data.declarations = [];
                     data.declarations.push({ type: 'spiderDescend', unit: bro, A, B, log: data.log });
@@ -565,14 +564,14 @@ export function createXiaoZhaoBrotherComponent() {
             // 永久双击重试：_xiaoZhaoDoubleStriked 直写 + extraRequests 驱动"再攻击"链（保留原样）
             function submitXiaoZhaoDoubleStrikeDeclaration(data) {
                 const { unit, target, log } = data;
-                if (!unit.isXiaoZhaoBrother || !unit.alive || unit._xiaoZhaoDoubleStriked) return;
+                if (!unit.isXiaoZhaoBrother || !unit.alive || getEliteState(unit.uid)._xiaoZhaoDoubleStriked) return;
                 if (!getEliteState(unit.uid)._permanentBuffs || !getEliteState(unit.uid)._permanentBuffs.some(b => b.key === BUFF_TYPES.DOUBLE_STRIKE)) return;
                 if (hasBuff(A._activeBuffs, BUFF_TYPES.DOUBLE_STRIKE)) return;
                 const s = getSkillParams('小昭', 'spiderFly');
                 if (!s) throw new Error('缺技能参数: 小昭.spiderFly');
                 const chance = s.xiaoZhaoDoubleStrikeChance;
                 if (getBattleRng().nextInt(1, 100) <= chance) {
-                    unit._xiaoZhaoDoubleStriked = true;
+                    setEliteState(unit.uid, { _xiaoZhaoDoubleStriked: true });
                     log.push({ factType: FACT_TYPES.SPIDER_DOUBLE_STRIKE, data: {} });
                     if (!data.extraRequests) data.extraRequests = [];
                     data.extraRequests.push({
@@ -615,9 +614,10 @@ export function createXiaoZhaoBrotherComponent() {
                 reason = '即将阵亡';
             }
             if (!reason) return false;
-            fsm.transition('flying', { reason, incomingDmg, log });
-            if (unit._flyFactData && log) {
-                log.push({ factType: FACT_TYPES.SPIDER_FLY, data: unit._flyFactData });
+            const flyData = { reason, incomingDmg, log };
+            fsm.transition('flying', flyData);
+            if (flyData._flyFactData && log) {
+                log.push({ factType: FACT_TYPES.SPIDER_FLY, data: flyData._flyFactData });
             }
             return true;
         },

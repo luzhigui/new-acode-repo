@@ -1,11 +1,13 @@
 // core/16effect-handlers.js - 光明顶5v5 效果处理器注册表
-// V1.1.0 | ~8000 bytes| 2026-08-26 新增 calcModifier 注册表（calcFinalDamage 五声明类型查表化）
-export const VER = 'core/16effect-handlers.js V1.1.0';
+// V1.3.0 | ~7800 bytes| 2026-08-28 修复 infra→core 反向依赖：57 只留容器，五 handler 注册归位 16
+export const VER = 'core/16effect-handlers.js V1.3.0';
 
 import { EFFECT_TYPES } from '../infra/50-event-bus.js';
 import { applyStatChange, applyMaxHpChange, query, emitEvent } from './13battle-shared.js';
 import { flushBattleEvents } from '../infra/51-core-utils.js';
 import { BUFF_TYPES } from '../infra/56-battle-enums.js';
+import { registerCalcModifier, getCalcModifier } from '../infra/57-calc-modifier-registry.js';
+export { registerCalcModifier, getCalcModifier };
 
 const effectHandlers = new Map();
 
@@ -22,18 +24,8 @@ export function hasEffectHandler(type) {
 }
 
 // ==================== 伤害计算阶段修饰器（calcFinalDamage 中间变量累积） ====================
-// 由 core/12 calcFinalDamage 查表调用；handler 通过 ctx.refs 读写累积变量，
-// 逻辑逐字搬移自原 for 循环体，不改变计算顺序/边界
-const calcModifierHandlers = new Map();
-
-export function registerCalcModifier(type, handler) {
-    calcModifierHandlers.set(type, handler);
-}
-
-export function getCalcModifier(type) {
-    return calcModifierHandlers.get(type);
-}
-
+// 由 core/12 calcFinalDamage 查表调用（getCalcModifier 自 infra/57）；
+// handler 通过 ctx.refs 读写累积变量，逻辑逐字搬移自原 for 循环体，不改变计算顺序/边界
 registerCalcModifier(EFFECT_TYPES.BREAK_DEF, (ctx) => {
     const { decl, unit, target, refs } = ctx;
     const reduce = Math.min(decl.value || 0, refs.defBase);
@@ -41,9 +33,12 @@ registerCalcModifier(EFFECT_TYPES.BREAK_DEF, (ctx) => {
     applyStatChange(target, 'def', -reduce, unit, '破防');
     if (target._baseDef !== undefined) target._baseDef -= reduce;
     refs.defReduced = reduce;
+    // 破防记账随声明通道传递（decl.factData 为 03 侧预填版本；reduce>0 覆盖为执行版本），不落 unit
     if (reduce > 0) {
-        unit._pendingDefReduceFact = { type:'breakDef', attackerName: unit.name, targetName: target.name, reduce };
+        refs.pendingDefReduceFact = { type:'breakDef', attackerName: unit.name, targetName: target.name, reduce };
         emitEvent(target, 'hp-change', { hp: target.hp, maxHp: target.maxHp, alive: target.alive, atk: target.atk, def: refs.defBase, _isDead: target.state._isDead || false });
+    } else {
+        refs.pendingDefReduceFact = decl.factData || null;
     }
 });
 
