@@ -30,8 +30,8 @@ registerCalcModifier(EFFECT_TYPES.BREAK_DEF, (ctx) => {
     const { decl, unit, target, refs } = ctx;
     const reduce = Math.min(decl.value || 0, refs.defBase);
     refs.defBase -= reduce;
-    applyStatChange(target, 'def', -reduce, unit, '破防');
     if (target._baseDef !== undefined) target._baseDef -= reduce;
+    applyStatChange(target, 'def', -reduce, unit, '破防');
     emitEvent(target, 'hp-change', { hp: target.hp, maxHp: target.maxHp, alive: target.alive, atk: target.atk, def: target.def, _isDead: target.state._isDead || false });
     refs.defReduced = reduce;
     // 破防记账随声明通道传递（decl.factData 为 03 侧预填版本；reduce>0 覆盖为执行版本），不落 unit
@@ -144,13 +144,13 @@ registerEffectHandler(EFFECT_TYPES.STAT_CHANGE, (ctx) => {
     const executed = [];
     for (const decl of ctx.decls) {
         if (!decl.target || !decl.target.alive) continue;
-        applyStatChange(decl.target, decl.field, decl.delta, null, decl.reason || '属性变更');
         if (decl.field === 'atk' && decl.target._baseAtk !== undefined) {
             decl.target._baseAtk += decl.delta;
         }
         if (decl.field === 'def' && decl.target._baseDef !== undefined) {
             decl.target._baseDef += decl.delta;
         }
+        applyStatChange(decl.target, decl.field, decl.delta, null, decl.reason || '属性变更');
         executed.push(decl);
     }
     return { executed };

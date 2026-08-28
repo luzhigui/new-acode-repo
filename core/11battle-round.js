@@ -439,6 +439,7 @@ export async function* createRoundStepper(state) {
 
         unit.state._blocked = isBlocked(unit, allySide);
         unit.survivedRounds++;
+        emitEvent(unit, 'hp-change', { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: unit.atk, def: unit.def, survivedRounds: unit.survivedRounds });
 
         if (unit.camp === 'ally' && unit.isXiaoZhaoSister && !(unit._fsm && unit._fsm.is('attached')) && !A._butterflyTriggered) {
             isPriorityAction = true;

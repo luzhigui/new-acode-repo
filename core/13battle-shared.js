@@ -73,6 +73,14 @@ function recordCombatStat(source, target, type, opts = {}) {
         default:
             break;
     }
+    if (source && source.uid !== target.uid && (type === 'damage' || type === 'heal' || type === 'rebound' || type === 'leech')) {
+        emitCoreEvent(source, 'hp-change', {
+            hp: source.hp, maxHp: source.maxHp, alive: source.alive,
+            atk: source.atk, def: source.def, _isDead: source.state?._isDead || false,
+            dmgDealt: source.dmgDealt, healDone: source.healDone,
+            reboundDone: source.reboundDone, leechDone: source.leechDone
+        });
+    }
 }
 
 function emitFullUnitState(unit, eventType) {
@@ -151,7 +159,10 @@ function checkZhangSwitch(A, log) {
             maxHp: zhang.maxHp,
             hp: zhang.hp,
             role: zhang.role,
-            rangedForm: false
+            rangedForm: false,
+            _baseAtk: zhang._baseAtk,
+            _baseDef: zhang._baseDef,
+            _baseMaxHp: zhang._baseMaxHp
         });
         log.push({
             factType: FACT_TYPES.ZHANG_SWITCH,
@@ -196,7 +207,12 @@ function applyStatChange(target, field, delta, source, reason, record = true) {
     }
     emitCoreEvent(target, 'hp-change', {
         hp: target.hp, maxHp: target.maxHp, alive: target.alive,
-        atk: target.atk, def: target.def, _isDead: target.state._isDead || false
+        atk: target.atk, def: target.def, _isDead: target.state._isDead || false,
+        dmgDealt: target.dmgDealt, dmgTaken: target.dmgTaken,
+        healDone: target.healDone, reboundDone: target.reboundDone,
+        leechDone: target.leechDone, dodgeCount: target.dodgeCount,
+        critCount: target.critCount, survivedRounds: target.survivedRounds,
+        _baseAtk: target._baseAtk, _baseDef: target._baseDef, _baseMaxHp: target._baseMaxHp
     });
     return target._pendingDeath || false;
 }

@@ -22,7 +22,6 @@ export function createStore(initialState, reducer) {
 }
 
 // ==================== 战斗 Reducer ====================
-export const GAME_STATE_FIELDS = ['hp','alive','maxHp','atk','def','role','rangedForm','_isDead','_baseMaxHp','_baseAtk','_baseDef','dmgDealt','dmgTaken','healDone','reboundDone','leechDone','dodgeCount','critCount','survivedRounds','pos','buffAtkBonus','buffDefBonus','buffDodgeBonus','buffHpBonus','_fortifyStacks','_baseFangDef','_butterflyAtkBonus','_butterflyDefBonus','_butterflyHpBonus'];
 
 /**
  * 战斗 Store 的 Reducer — 根据 action 类型处理单位状态变更
@@ -99,6 +98,9 @@ export function battleReducer(state, action) {
                         if (p.dodgeCount !== undefined) next[idx].dodgeCount = p.dodgeCount;
                         if (p.critCount !== undefined) next[idx].critCount = p.critCount;
                         if (p.survivedRounds !== undefined) next[idx].survivedRounds = p.survivedRounds;
+                        if (p._baseAtk !== undefined) next[idx]._baseAtk = p._baseAtk;
+                        if (p._baseDef !== undefined) next[idx]._baseDef = p._baseDef;
+                        if (p._baseMaxHp !== undefined) next[idx]._baseMaxHp = p._baseMaxHp;
                         if (!next[idx].state) next[idx].state = {};
                         if (p._isDead !== undefined) next[idx].state._isDead = p._isDead;
                         if (p._resting !== undefined) next[idx].state._resting = p._resting;
@@ -110,7 +112,6 @@ export function battleReducer(state, action) {
                         if (p._masteredRoles !== undefined) next[idx]._masteredRoles = p._masteredRoles;
                         if (ev.eventType === 'zhang-switch') {
                             if (p.rangedForm !== undefined) next[idx].rangedForm = p.rangedForm;
-                            if (p.role) next[idx].role = p.role;
                         }
                     }
                 } else if (ev.eventType === 'unit-add') {
