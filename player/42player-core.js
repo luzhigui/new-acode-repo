@@ -13,7 +13,7 @@ import { SeededRNG } from '../infra/51-core-utils.js';
 import { getBattleRng } from '../core/13battle-shared.js';
 import { GlobalStore, getState, getPlayerContext } from '../infra/54-global-store.js';
 import { createStore, battleReducer } from '../modules/24battle-store.js';
-import { STORE_ACTION_TYPES, STAGE_ACTION_TYPES } from '../infra/56-battle-enums.js';
+import { STORE_ACTION_TYPES, STAGE_ACTION_TYPES, BUFF_SUBTYPES } from '../infra/56-battle-enums.js';
 import { getEliteState, setEliteState } from '../core/18-elite-state.js';
 import { syncStateToUI } from '../core/17-state-keys.js';
 import { handleBuffBonus, handleBuffSwap, handleBuffPush, handleBuffReboundFortify, handleInfo, handleRoundStart, handleRoundEnd, shouldStartNewGroup } from './45event-handlers.js';
@@ -358,7 +358,7 @@ const STAGE_ACTION_FX_HANDLERS = {
             const splashTargets = action.splashUids.map(uid => findUnitByUid(c, uid)).filter(u => u);
             if (splashTargets.length > 0) {
                 // 乘风突袭：风爪 + 专属横幅，不放箭、不延时；否则走流星箭雨
-                if (action.buffType === 'wind_assault') {
+                if (action.buffType === BUFF_SUBTYPES.WIND_ASSAULT) {
                     c.isPaused = true; GlobalStore.set('bulletTimeActive', true);
                     await eventBus.emit(FX_SIGNALS.BANNER, { text: '🦅 乘风突袭！' });
                     splashTargets.forEach(u => eventBus.emit(FX_SIGNALS.WIND_CLAW, { unit: u }));
@@ -515,15 +515,6 @@ async function playStep(c, step, isFirstAttackRef) {
     if (step.events && step.events.length > 0) {
         c.store.dispatch({ type: STORE_ACTION_TYPES.APPLY_EVENTS, events: step.events });
     }
-    c.store.dispatch({ type: STORE_ACTION_TYPES.SYNC_BATTLE_STATS, ally: step.ally, enemy: step.enemy });
-    // SYNC 过滤「引擎已死且 store 已移除」的尸体：引擎数组保留阵亡单位（战报要用），
-    // 不过滤会被 SYNC 的补新逻辑重新加回，死亡格在 REMOVE_UNIT 后反复「消失-重现」
-    const inStoreUids = new Set(c.store.getState().units.map(u => u.uid));
-    const syncUnits = (units) => units.filter(u => {
-        const isDead = !u.alive || (u.state && u.state._isDead);
-        return !isDead || inStoreUids.has(u.uid);
-    });
-    c.store.dispatch({ type: STORE_ACTION_TYPES.SYNC_FULL_UNITS, ally: syncUnits(step.ally), enemy: syncUnits(step.enemy) });
 }
 
 export async function playBattle() {

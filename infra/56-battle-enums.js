@@ -69,6 +69,13 @@ export const STAGE_ACTION_TYPES = Object.freeze({
     HP_PCT_DANMAKU: 'hpPctDanmaku', BANNER: 'banner'
 });
 
+/** Buff 子类型：跨层传递的 buffType 唯一来源（不再用裸字符串） */
+export const BUFF_SUBTYPES = Object.freeze({
+    WIND_ASSAULT: 'wind_assault',
+    METEOR_SPLASH: 'meteor_splash',
+    METEOR_BONUS: 'meteor_bonus'
+});
+
 /** Store 动作类型：battleReducer 消费的 action.type 唯一来源 */
 export const STORE_ACTION_TYPES = Object.freeze({
     INIT: 'INIT',
@@ -80,8 +87,6 @@ export const STORE_ACTION_TYPES = Object.freeze({
     SYNC_UNIT: 'SYNC_UNIT',
     ADD_UNIT: 'ADD_UNIT',
     REMOVE_UNIT: 'REMOVE_UNIT',
-    SYNC_FULL_UNITS: 'SYNC_FULL_UNITS',
-    SYNC_BATTLE_STATS: 'SYNC_BATTLE_STATS',
     HP_CHANGE: 'hp-change',
     STAT_BONUS_CHANGE: 'stat-bonus-change'
 });

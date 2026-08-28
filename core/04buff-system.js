@@ -20,8 +20,8 @@ const C = CONFIG;
  * 圣火令绝对值加成（独立于Carry）
  */
 export function applyHolyFlameBonus(unit, activeBuffs, hasSister) {
-    unit._holyAtkBonus = 0;
-    unit._holyDefBonus = 0;
+    unit.state._holyAtkBonus = 0;
+    unit.state._holyDefBonus = 0;
     if (!activeBuffs || unit.camp !== 'ally') return;
     const holyFlameBuff = activeBuffs.find(b => b.key === BUFF_TYPES.HOLY_FLAME);
     if (!holyFlameBuff) return;
@@ -29,11 +29,11 @@ export function applyHolyFlameBonus(unit, activeBuffs, hasSister) {
     const rows = holyFlameBuff.rows || (holyFlameBuff.row != null ? [holyFlameBuff.row] : []);
     const baseAtk = unit._baseAtk || unit.atk;
     const baseDef = unit._baseDef || unit.def;
-    if (cols.includes(getUnitCol(unit.pos))) unit._holyAtkBonus = Math.floor(baseAtk * C.BUFFS.holyFlame.atkBonus);
-    if (rows.includes(getUnitRow(unit.pos))) unit._holyDefBonus = Math.floor(baseDef * C.BUFFS.holyFlame.defBonus);
+    if (cols.includes(getUnitCol(unit.pos))) unit.state._holyAtkBonus = Math.floor(baseAtk * C.BUFFS.holyFlame.atkBonus);
+    if (rows.includes(getUnitRow(unit.pos))) unit.state._holyDefBonus = Math.floor(baseDef * C.BUFFS.holyFlame.defBonus);
     if (hasSister && (unit.isXiaoZhaoSister || unit.isXiaoZhaoBrother)) {
-        unit._holyAtkBonus += Math.floor(baseAtk * C.BUFFS.holyFlame.atkBonus);
-        unit._holyDefBonus += Math.floor(baseDef * C.BUFFS.holyFlame.defBonus);
+        unit.state._holyAtkBonus += Math.floor(baseAtk * C.BUFFS.holyFlame.atkBonus);
+        unit.state._holyDefBonus += Math.floor(baseDef * C.BUFFS.holyFlame.defBonus);
     }
 }
 
@@ -41,11 +41,11 @@ export function applyHolyFlameBonus(unit, activeBuffs, hasSister) {
  * 严阵以待绝对值加成（独立于Carry）
  */
 export function applyFortifyBonus(unit, activeBuffs) {
-    unit._fortifyDefBonus = 0;
+    unit.state._fortifyDefBonus = 0;
     if (unit.role !== '防战' || unit.camp !== 'ally') return;
     if (activeBuffs && activeBuffs.some(b => b.key === BUFF_TYPES.FORTIFY)) {
         const baseDef = unit._baseDef || unit.def;
-        unit._fortifyDefBonus = Math.floor(baseDef * C.BUFFS.fortify.defBonus);
+        unit.state._fortifyDefBonus = Math.floor(baseDef * C.BUFFS.fortify.defBonus);
     }
 }
 
@@ -311,7 +311,7 @@ export function submitWindAssaultDeclaration(data) {
                 type: EFFECT_TYPES.SPLASH,
                 value: splashDmg,
                 targets: rowTargets,
-                buffType: 'wind_assault',
+                buffType: BUFF_SUBTYPES.WIND_ASSAULT,
                 factType: FACT_TYPES.WIND_ASSAULT_SPLASH,
                 factData: { label, targets: rowTargets, splashDmg }
             };
@@ -387,7 +387,7 @@ export function submitMeteorShowerDeclaration(data) {
         type: EFFECT_TYPES.BONUS_DMG,
         value: bonusDmg,
         target: target,
-        buffType: 'meteor_bonus',
+        buffType: BUFF_SUBTYPES.METEOR_BONUS,
         factType: FACT_TYPES.METEOR_SHOWER_MAIN,
         factData: { label, targetName: target.name, bonusDmg, defReduce: C.BUFFS.meteorShower.mainDefReduce || 2 }
     });
@@ -401,7 +401,7 @@ export function submitMeteorShowerDeclaration(data) {
             type: EFFECT_TYPES.SPLASH,
             value: splashDmg,
             targets: splashTargets,
-            buffType: 'meteor_splash',
+            buffType: BUFF_SUBTYPES.METEOR_SPLASH,
             attackerUid: unit.uid,
             primaryUid: target.uid,
             splashUids: splashTargets.map(st => st.uid),

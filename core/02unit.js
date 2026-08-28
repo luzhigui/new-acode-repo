@@ -1,12 +1,12 @@
 // core/02unit.js - 光明顶5v5 战斗单位类
-// V5.6.2 | ~6900 bytes| 2026-08-26 精英机制状态迁出至 18-elite-state，Unit 回归纯战斗数据
-export const VER = 'core/02unit.js V5.6.2';
+// V5.7.0 | ~6500 bytes| 2026-08-28 顶层回合级光环/加成字段迁入 state，删净顶层 _ 临时字段
+export const VER = 'core/02unit.js V5.7.0';
 
 import { CONFIG, getGameData } from './01config-5v5-test.js';
 
 import { StateMachine } from '../infra/51-core-utils.js';
 
-import { ROUND_STATE_KEYS, BATTLE_STATE_KEYS, ROUND_FIELD_KEYS, BATTLE_FIELD_KEYS, PERMANENT_FIELD_KEYS, copyBattleStateFields, resetStateFields } from './17-state-keys.js';
+import { BATTLE_FIELD_KEYS, PERMANENT_FIELD_KEYS, copyBattleStateFields, resetStateFields } from './17-state-keys.js';
 import { getEliteState, cloneEliteState } from './18-elite-state.js';
 
 let _uidCounter = 0;
@@ -42,7 +42,9 @@ export class Unit {
         this.fixed=false;this._originalPos=-1;
         this.state = {
             _acted: false, _stunned: false, _isDead: false, _resting: false,
-            _blocked: false
+            _blocked: false,
+            _emptyColBonus: 0, _bloodAuraBonus: 0,
+            _holyAtkBonus: 0, _holyDefBonus: 0, _fortifyDefBonus: 0
         };
         this.buffAtkBonus = 0;
         this.buffDefBonus = 0;
@@ -53,11 +55,6 @@ export class Unit {
         this._initDef = 0;          // 战斗开始时的初始防御（永不修改）
         this.isXiaoZhaoSister = false; // 🦋 小昭·姊
         this.isXiaoZhaoBrother = false; // 🕷️ 小昭·妹
-        this._emptyColBonus = 0;
-        this._bloodAuraBonus = 0;
-        this._holyAtkBonus = 0;
-        this._holyDefBonus = 0;
-        this._fortifyDefBonus = 0;
         getEliteState(this.uid);
     }
     clone(){
@@ -73,10 +70,9 @@ export class Unit {
             if (this[key] === undefined) continue;
             c[key] = this[key];
         }
-        // 其余基础字段完整拷贝（atk/def/hp/pos/alive 等战斗必需字段）；跳过回合级顶层字段、state、fsm
+        // 其余基础字段完整拷贝（atk/def/hp/pos/alive 等战斗必需字段）；跳过 state、fsm
         for (const key of Object.keys(this)) {
             if (key === 'state' || key === '_fsm') continue;
-            if (ROUND_FIELD_KEYS.includes(key)) continue; // 回合级字段不拷，克隆体=回合初态
             c[key] = this[key];
         }
         // state：整场字段拷贝 + 回合级字段重置，统一查表（17-state-keys 驱动）
