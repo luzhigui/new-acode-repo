@@ -3,6 +3,7 @@
 export const VER = 'modules/24battle-store.js V5.6.1';
 
 import { STORE_ACTION_TYPES } from '../infra/56-battle-enums.js';
+import { getEliteState } from '../core/18-elite-state.js';
 
 // ==================== Store 工厂 ====================
 export function createStore(initialState, reducer) {
@@ -164,9 +165,13 @@ export function battleReducer(state, action) {
                 const src = u.camp === 'ally' ? allyMap.get(u.uid) : enemyMap.get(u.uid);
                 if (!src) return u;
                 const copyState = { ...(u.state || {}) };
-                ['_acted','_stunned','_isDead','_resting','_blocked','_flyMode','_butterflyHost','_spiderFlying'].forEach(f => {
+                ['_acted','_stunned','_isDead','_resting','_blocked'].forEach(f => {
                     if (src.state && src.state[f] !== undefined) copyState[f] = src.state[f];
                 });
+                const es = getEliteState(src.uid);
+                if (es._flyMode !== undefined) copyState._flyMode = es._flyMode;
+                if (es._butterflyHost !== undefined) copyState._butterflyHost = es._butterflyHost;
+                if (es._spiderFlying !== undefined) copyState._spiderFlying = es._spiderFlying;
                 return {
                     ...u,
                     hp: src.hp, maxHp: src.maxHp, atk: src.atk, def: src.def,
@@ -178,7 +183,11 @@ export function battleReducer(state, action) {
             const remainingAlly = action.ally.filter(src => !next.find(u => u.uid === src.uid));
             for (const src of [...remainingAlly, ...remainingEnemy]) {
                 const copyState = {};
-                ['_acted','_stunned','_isDead','_resting','_blocked','_flyMode','_butterflyHost','_spiderFlying'].forEach(f => { if (src.state && src.state[f] !== undefined) copyState[f] = src.state[f]; });
+                ['_acted','_stunned','_isDead','_resting','_blocked'].forEach(f => { if (src.state && src.state[f] !== undefined) copyState[f] = src.state[f]; });
+                const es2 = getEliteState(src.uid);
+                if (es2._flyMode !== undefined) copyState._flyMode = es2._flyMode;
+                if (es2._butterflyHost !== undefined) copyState._butterflyHost = es2._butterflyHost;
+                if (es2._spiderFlying !== undefined) copyState._spiderFlying = es2._spiderFlying;
                 next.push({ ...src, state: copyState });
             }
             return { ...state, units: next };

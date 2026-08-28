@@ -30,7 +30,7 @@ const C = CONFIG;
 // ==================== 步骤1：选择攻击目标 ====================
 export function selectAttackTarget(unit, enemySide, allySide) {
     const rng = getBattleRng();
-    const validTargets = enemySide.filter(c => c.alive && !c._untargetable);
+    const validTargets = enemySide.filter(c => c.alive && !getEliteState(c.uid)._untargetable);
     if (validTargets.length === 0) return { target: null, phantomFact: null };
 
     const declaration = { targetResult: null };
@@ -41,7 +41,7 @@ export function selectAttackTarget(unit, enemySide, allySide) {
 
     if (declaration.targetResult) {
         const declared = declaration.targetResult;
-        if (declared && declared.alive && !declared._untargetable) {
+        if (declared && declared.alive && !getEliteState(declared.uid)._untargetable) {
             target = declared;
             phantomFact = declaration.phantomFact || null;
         }
@@ -69,8 +69,8 @@ export function selectAttackTarget(unit, enemySide, allySide) {
         }
     }
 
-    if (!target || !target.alive || target._untargetable) {
-        const fallback = validTargets.filter(c => c.alive && !c._untargetable);
+    if (!target || !target.alive || getEliteState(target.uid)._untargetable) {
+        const fallback = validTargets.filter(c => c.alive && !getEliteState(c.uid)._untargetable);
         if (fallback.length === 0) return { target: null, phantomFact: null };
         target = fallback[rng.nextInt(0, fallback.length - 1)];
     }
@@ -191,7 +191,9 @@ export function resolveAttackHit(unit, target, attackerBuffStats, defenderBuffSt
 // ==================== 步骤3：伤害计算 ====================
 export function calcFinalDamage(unit, target, attackerBuffStats, defenderBuffStats, allySide, enemySide, log) {
     const damageDeclarations = [];
-    eventBus.emit('beforeDamageCalc', { unit, target, allySide, enemySide, log, declarations: damageDeclarations });
+    // 事件 data 对象变量化：监听器可挂 _derivedEntries 记账（乾坤衍生），随 dmgCalc 传回攻击流程，不落 unit
+    const damageData = { unit, target, allySide, enemySide, log, declarations: damageDeclarations };
+    eventBus.emit('beforeDamageCalc', damageData);
 
     let defBase = Math.floor(target.def);
     let defReduced = 0;
@@ -259,7 +261,7 @@ export function calcFinalDamage(unit, target, attackerBuffStats, defenderBuffSta
     dmg = modifierResult.modifiedDmg;
     bonusEntries = modifierResult.entries || [];
 
-    return { atkBase, defBase, atkAct, defAct, hpBonus, hpBefore, waveTaunt, waveUnit, raw, rawFormula: null, thunderBonus: 0, hornDmgMultiplier: 1, hornDefIgnore: 0, trueDmg: 0, dmg, bonusEntries, defReduced, defReduction: null, bonusDmgTotal, bonusDmgEntries, dmgMultiplier, dmgMultiplierEntries, hpRatio: unit.role === '防战' ? hpRatio : 0, blockValue };
+    return { atkBase, defBase, atkAct, defAct, hpBonus, hpBefore, waveTaunt, waveUnit, raw, rawFormula: null, thunderBonus: 0, hornDmgMultiplier: 1, hornDefIgnore: 0, trueDmg: 0, dmg, bonusEntries, defReduced, defReduction: null, bonusDmgTotal, bonusDmgEntries, dmgMultiplier, dmgMultiplierEntries, hpRatio: unit.role === '防战' ? hpRatio : 0, blockValue, pendingDefReduceFact: refs.pendingDefReduceFact || null, derivedEntries: damageData._derivedEntries || [] };
 }
 
 // ==================== 步骤4：应用伤害结果 ====================
@@ -426,9 +428,9 @@ export async function buildAttackGroup(unit, target, dmgCalc, dmgResult, attacke
     let hpPctBefore = Math.floor((hpBefore / target.maxHp) * 100), hpPctAfter = Math.floor((target.hp / target.maxHp) * 100);
 
     const pendingEntries = [];
-    if (unit._pendingDefReduceFact) {
-        pendingEntries.push({ factType: FACT_TYPES.BREAK_DEF, data: unit._pendingDefReduceFact });
-        delete unit._pendingDefReduceFact;
+    // 破防/乾坤衍生记账随 dmgCalc 声明通道携带，不再暂存 unit
+    if (dmgCalc.pendingDefReduceFact) {
+        pendingEntries.push({ factType: FACT_TYPES.BREAK_DEF, data: dmgCalc.pendingDefReduceFact });
     }
     if (unit._executeLog) {
         unit._executeLog.forEach(e => pendingEntries.push(e));

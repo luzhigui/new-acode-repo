@@ -13,6 +13,7 @@ import { hasBuff, getUnitRow, getUnitCol, getAdjacentPositions } from './03battl
 import { emitEvent, applyStatChange, applyMaxHpChange, query, getBattleRng, swapUnitPositions, moveUnitPosition } from './13battle-shared.js';
 import { EXECUTION_LAYER as L, EFFECT_TYPES } from '../infra/50-event-bus.js';
 import { FACT_TYPES, BUFF_TYPES } from '../infra/56-battle-enums.js';
+import { getEliteState, setEliteState } from './18-elite-state.js';
 const C = CONFIG;
 
 /**
@@ -61,22 +62,21 @@ export function applyCarryBonus(unit, A, state, log, stats) {
     if (hasCarryActive && carryPositions.includes(unit.pos) && unit._baseMaxHp !== undefined && !unit.isHorse && !unit.isXiaoZhaoSister && !unit.isXiaoZhaoBrother) {
         // carry 生效：先回到基础血上限，再叠加本次 carry 加成
         applyMaxHpChange(unit, unit._baseMaxHp, null, 'carry归位血上限');
-        applyStatChange(unit, 'atk', (unit._baseAtk || unit.atk) + (unit._butterflyAtkBonus || 0) - unit.atk, null, 'carry归位');
-        applyStatChange(unit, 'def', (unit._baseDef || unit.def) + (unit._butterflyDefBonus || 0) - unit.def, null, 'carry归位');
+        applyStatChange(unit, 'atk', (unit._baseAtk || unit.atk) + (getEliteState(unit.uid)._butterflyAtkBonus || 0) - unit.atk, null, 'carry归位');
+        applyStatChange(unit, 'def', (unit._baseDef || unit.def) + (getEliteState(unit.uid)._butterflyDefBonus || 0) - unit.def, null, 'carry归位');
 
-        const oldCarryAtk = unit._carryAtkBonus || 0;
-        const oldCarryDef = unit._carryDefBonus || 0;
-        unit._carryAtkBonus = Math.floor(stats.carryAtkAbs);
-        unit._carryDefBonus = Math.floor(stats.carryDefAbs);
-        unit._carryHpBonus = Math.floor(stats.carryHpAbs);
+        const es = getEliteState(unit.uid);
+        const oldCarryAtk = es._carryAtkBonus || 0;
+        const oldCarryDef = es._carryDefBonus || 0;
+        setEliteState(unit.uid, { _carryAtkBonus: Math.floor(stats.carryAtkAbs), _carryDefBonus: Math.floor(stats.carryDefAbs), _carryHpBonus: Math.floor(stats.carryHpAbs) });
 
-        const atkDelta = unit._carryAtkBonus - oldCarryAtk;
-        const defDelta = unit._carryDefBonus - oldCarryDef;
+        const atkDelta = es._carryAtkBonus - oldCarryAtk;
+        const defDelta = es._carryDefBonus - oldCarryDef;
         if (atkDelta !== 0) applyStatChange(unit, 'atk', atkDelta, null, 'carry激活');
         if (defDelta !== 0) applyStatChange(unit, 'def', defDelta, null, 'carry激活');
 
-        if (unit._carryHpBonus) {
-            let newMaxHp = Math.min(unit._baseMaxHp + unit._carryHpBonus, unit._baseMaxHp * 2);
+        if (es._carryHpBonus) {
+            let newMaxHp = Math.min(unit._baseMaxHp + es._carryHpBonus, unit._baseMaxHp * 2);
             applyMaxHpChange(unit, newMaxHp, null, 'carry血上限提升');
         }
 
@@ -93,13 +93,12 @@ export function applyCarryBonus(unit, A, state, log, stats) {
         }
     } else if (!unit.isHorse && !hasCarryActive && !unit.isXiaoZhaoSister && !unit.isXiaoZhaoBrother) {
         // carry 消失：清除加成，恢复基值
-        if (carryPositions.includes(unit.pos) && (unit._carryAtkBonus || unit._carryDefBonus || unit._carryHpBonus)) {
-            if (unit._carryHpBonus) applyMaxHpChange(unit, unit._baseMaxHp, null, 'carry清除血上限');
-            const clearAtk = unit._carryAtkBonus || 0;
-            const clearDef = unit._carryDefBonus || 0;
-            unit._carryAtkBonus = 0;
-            unit._carryDefBonus = 0;
-            unit._carryHpBonus = 0;
+        if (carryPositions.includes(unit.pos) && (getEliteState(unit.uid)._carryAtkBonus || getEliteState(unit.uid)._carryDefBonus || getEliteState(unit.uid)._carryHpBonus)) {
+            if (getEliteState(unit.uid)._carryHpBonus) applyMaxHpChange(unit, unit._baseMaxHp, null, 'carry清除血上限');
+            const es = getEliteState(unit.uid);
+            const clearAtk = es._carryAtkBonus || 0;
+            const clearDef = es._carryDefBonus || 0;
+            setEliteState(unit.uid, { _carryAtkBonus: 0, _carryDefBonus: 0, _carryHpBonus: 0 });
             applyStatChange(unit, 'atk', -clearAtk, null, 'carry清除');
             applyStatChange(unit, 'def', -clearDef, null, 'carry清除');
         }
@@ -228,18 +227,17 @@ export function submitHotBloodDeclaration(data) {
     const isBrother = unit.isXiaoZhaoBrother;
 
     if (hasBuff(unitBuffs, BUFF_TYPES.HOT_BLOOD)) {
-        if (!unit._hotBloodCount) unit._hotBloodCount = 0;
-        unit._hotBloodCount++;
+        setEliteState(unit.uid, { _hotBloodCount: getEliteState(unit.uid)._hotBloodCount + 1 });
         let ratio, tag;
         if (hasSister) {
             const hotEnhance = query('xiaoHexEnhance', allySide, unitBuffs, BUFF_TYPES.HOT_BLOOD);
             const leechPct = hotEnhance ? hotEnhance.leechPct : C.BUFFS.hotBlood.leechRatio;
             const critInterval = hotEnhance ? hotEnhance.critInterval : C.BUFFS.hotBlood.critInterval;
-            ratio = (unit._hotBloodCount % critInterval === 0) ? leechPct * 2 : leechPct;
-            tag = (unit._hotBloodCount % critInterval === 0) ? '❤️‍🔥 热血奋战(翻倍)' : '❤️ 热血奋战';
+            ratio = (getEliteState(unit.uid)._hotBloodCount % critInterval === 0) ? leechPct * 2 : leechPct;
+            tag = (getEliteState(unit.uid)._hotBloodCount % critInterval === 0) ? '❤️‍🔥 热血奋战(翻倍)' : '❤️ 热血奋战';
         } else {
-            ratio = (unit._hotBloodCount % 3 === 0) ? C.BUFFS.hotBlood.critRatio : C.BUFFS.hotBlood.leechRatio;
-            tag = (unit._hotBloodCount % 3 === 0) ? '❤️‍🔥 热血奋战(翻倍)' : '❤️ 热血奋战';
+            ratio = (getEliteState(unit.uid)._hotBloodCount % 3 === 0) ? C.BUFFS.hotBlood.critRatio : C.BUFFS.hotBlood.leechRatio;
+            tag = (getEliteState(unit.uid)._hotBloodCount % 3 === 0) ? '❤️‍🔥 热血奋战(翻倍)' : '❤️ 热血奋战';
         }
         const leech = Math.min(Math.floor((unit.maxHp - unit.hp) * ratio), unit.maxHp - unit.hp);
         if (leech > 0) {
@@ -255,15 +253,14 @@ export function submitHotBloodDeclaration(data) {
             data.declarations.push(decl);
         }
     } else if (isBrother && query('xiaoPermanentActive', unit, unitBuffs, BUFF_TYPES.HOT_BLOOD)) {
-        if (!unit._hotBloodCount) unit._hotBloodCount = 0;
-        unit._hotBloodCount++;
+        setEliteState(unit.uid, { _hotBloodCount: getEliteState(unit.uid)._hotBloodCount + 1 });
         if (unit.hp < unit.maxHp) {
             const hotEnhance = query('xiaoHexEnhance', allySide, unitBuffs, BUFF_TYPES.HOT_BLOOD);
             const leechPct = hotEnhance ? hotEnhance.leechPct : C.BUFFS.hotBlood.leechRatio;
             const critInterval = hotEnhance ? hotEnhance.critInterval : C.BUFFS.hotBlood.critInterval;
-            let ratio = (unit._hotBloodCount % critInterval === 0) ? leechPct * 2 : leechPct;
+            let ratio = (getEliteState(unit.uid)._hotBloodCount % critInterval === 0) ? leechPct * 2 : leechPct;
             const leech = Math.min(Math.floor((unit.maxHp - unit.hp) * ratio), unit.maxHp - unit.hp);
-            const tag = (unit._hotBloodCount % 2 === 0) ? '🕷️ 热血(翻倍)' : '🕷️ 热血';
+            const tag = (getEliteState(unit.uid)._hotBloodCount % 2 === 0) ? '🕷️ 热血(翻倍)' : '🕷️ 热血';
             if (leech > 0) {
                 const decl = {
                     type: EFFECT_TYPES.HEAL,
@@ -307,7 +304,7 @@ export function submitWindAssaultDeclaration(data) {
 
     if (rng.nextInt(1, 100) <= hitProb) {
         const row = getUnitRow(target.pos);
-        const rowTargets = enemySide.filter(u => u.alive && getUnitRow(u.pos) === row && u.uid !== target.uid && !(u.state._flyMode === 'butterfly') && !(u.state._flyMode === 'spider') && !u.state._spiderFlying);
+        const rowTargets = enemySide.filter(u => u.alive && getUnitRow(u.pos) === row && u.uid !== target.uid && !(getEliteState(u.uid)._flyMode === 'butterfly') && !(getEliteState(u.uid)._flyMode === 'spider') && !getEliteState(u.uid)._spiderFlying);
         if (rowTargets.length > 0) {
             const splashDmg = Math.floor(dmg);
             const decl = {
@@ -394,7 +391,7 @@ export function submitMeteorShowerDeclaration(data) {
     const splashDmg = Math.floor(dmg * C.BUFFS.meteorShower.splashRatio);
     const adjPositions = getAdjacentPositions(target.pos);
     const splashSide = target.camp === unit.camp ? allySide : enemySide;
-    const splashTargets = splashSide.filter(u => u.alive && adjPositions.includes(u.pos) && !(u.state._flyMode === 'butterfly') && !(u.state._flyMode === 'spider') && !u.state._spiderFlying);
+    const splashTargets = splashSide.filter(u => u.alive && adjPositions.includes(u.pos) && !(getEliteState(u.uid)._flyMode === 'butterfly') && !(getEliteState(u.uid)._flyMode === 'spider') && !getEliteState(u.uid)._spiderFlying);
     if (splashTargets.length > 0) {
         const decl = {
             type: EFFECT_TYPES.SPLASH,

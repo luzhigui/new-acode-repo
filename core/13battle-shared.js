@@ -6,6 +6,7 @@ import { CONFIG } from './01config-5v5-test.js';
 import { getRoleBonus } from './02unit.js';
 import { pushBattleEvent } from '../infra/51-core-utils.js';
 import { FACT_TYPES } from '../infra/56-battle-enums.js';
+import { getEliteState, setEliteState } from './18-elite-state.js';
 const C = CONFIG;
 
 /**
@@ -123,7 +124,7 @@ function moveUnitPosition(unit, newPos) {
 }
 
 function checkZhangSwitch(A, log) {
-    let zhang = A.find(c => c.isZhang && c.alive && !c._zhangSwitched);
+    let zhang = A.find(c => c.isZhang && c.alive && !getEliteState(c.uid)._zhangSwitched);
     if (!zhang) return;
     let col = (zhang.pos - 1) % 3;
     let hasFrontAlly = A.some(c => c.alive && !c.isHorse && c.pos === 1 + col && c.uid !== zhang.uid);
@@ -135,7 +136,7 @@ function checkZhangSwitch(A, log) {
         const newMaxHp = Math.min(zhang.maxHp + warriorBonus.maxHp * 3, zhang._baseMaxHp * 3);
         applyMaxHpChange(zhang, newMaxHp, null, '乾坤大挪移变身');
         zhang.role = '战士';
-        zhang.state._resting = false; zhang._zhangSwitched = true;
+        zhang.state._resting = false; setEliteState(zhang.uid, { _zhangSwitched: true });
         zhang._baseMaxHp = zhang.maxHp;
         zhang._baseAtk = zhang.atk;
         zhang._baseDef = zhang.def;

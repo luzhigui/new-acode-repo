@@ -448,7 +448,11 @@ function rebuildUISnapshotFromStore(c) {
     const storeUnits = c.store.getState().units;
     const cloneUnit = (su) => {
         const copyState = {};
-        ['_acted','_stunned','_isDead','_resting','_blocked','_flyMode','_butterflyHost','_spiderFlying'].forEach(f => { if (su.state && su.state[f] !== undefined) copyState[f] = su.state[f]; });
+        ['_acted','_stunned','_isDead','_resting','_blocked'].forEach(f => { if (su.state && su.state[f] !== undefined) copyState[f] = su.state[f]; });
+        const es = getEliteState(su.uid);
+        if (es._flyMode !== undefined) copyState._flyMode = es._flyMode;
+        if (es._butterflyHost !== undefined) copyState._butterflyHost = es._butterflyHost;
+        if (es._spiderFlying !== undefined) copyState._spiderFlying = es._spiderFlying;
         return { ...su, state: copyState };
     };
     c.UI.allyTeam = storeUnits.filter(u => u.camp === 'ally').map(cloneUnit);
@@ -571,8 +575,8 @@ export async function playBattle() {
     }
 
     const initialUnits = [
-        ...c.snapshot.ally.map(u => { let u2 = u.clone(); u2.hp = u2.maxHp; u2.alive = true; u2.state._isDead = false; u2._flash = null; u2.state._acted = false; u2.state._resting = false; u2.state._blocked = false; u2.camp = 'ally'; return u2; }),
-        ...c.snapshot.enemy.map(u => { let u2 = u.clone(); u2.hp = u2.maxHp; u2.alive = true; u2.state._isDead = false; u2._flash = null; u2.state._acted = false; u2.state._resting = false; u2.state._blocked = false; u2.camp = 'enemy'; return u2; })
+        ...c.snapshot.ally.map(u => { let u2 = u.clone(); u2.hp = u2.maxHp; u2.alive = true; u2.state._isDead = false; u2.state._acted = false; u2.state._resting = false; u2.state._blocked = false; u2.camp = 'ally'; return u2; }),
+        ...c.snapshot.enemy.map(u => { let u2 = u.clone(); u2.hp = u2.maxHp; u2.alive = true; u2.state._isDead = false; u2.state._acted = false; u2.state._resting = false; u2.state._blocked = false; u2.camp = 'enemy'; return u2; })
     ];
     c.store = createStore({ units: initialUnits, round: 1 }, battleReducer);
     GlobalStore.set('battleStore', c.store);
@@ -590,7 +594,11 @@ export async function playBattle() {
             for (const su of state.units.filter(u => u.camp === camp)) {
                 if (!dst.find(u => u.uid === su.uid)) {
                     const copyState = {};
-                    ['_acted','_stunned','_isDead','_resting','_blocked','_flyMode','_butterflyHost','_spiderFlying'].forEach(f => { if (su.state && su.state[f] !== undefined) copyState[f] = su.state[f]; });
+                    ['_acted','_stunned','_isDead','_resting','_blocked'].forEach(f => { if (su.state && su.state[f] !== undefined) copyState[f] = su.state[f]; });
+                    const es = getEliteState(su.uid);
+                    if (es._flyMode !== undefined) copyState._flyMode = es._flyMode;
+                    if (es._butterflyHost !== undefined) copyState._butterflyHost = es._butterflyHost;
+                    if (es._spiderFlying !== undefined) copyState._spiderFlying = es._spiderFlying;
                     dst.push({...su, state: copyState});
                 }
             }

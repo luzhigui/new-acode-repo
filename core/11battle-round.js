@@ -173,7 +173,7 @@ async function prepareRoundStart(A, B, log, state, round, rng) {
             buffDodgeBonus: stats.dodgeBonus,
             buffHpBonus: stats.hpBonus
         });
-        emitEvent(u, 'hp-change', { hp: u.hp, maxHp: u.maxHp, alive: u.alive, atk: u.atk, def: u.def, buffAtkBonus: u.buffAtkBonus, buffDefBonus: u.buffDefBonus, _holyAtkBonus: u._holyAtkBonus, _holyDefBonus: u._holyDefBonus, _fortifyDefBonus: u._fortifyDefBonus, _emptyColBonus: u._emptyColBonus, _bloodAuraBonus: u._bloodAuraBonus, _carryAtkBonus: u._carryAtkBonus, _carryDefBonus: u._carryDefBonus });
+        emitEvent(u, 'hp-change', { hp: u.hp, maxHp: u.maxHp, alive: u.alive, atk: u.atk, def: u.def, buffAtkBonus: u.buffAtkBonus, buffDefBonus: u.buffDefBonus, _holyAtkBonus: u._holyAtkBonus, _holyDefBonus: u._holyDefBonus, _fortifyDefBonus: u._fortifyDefBonus, _emptyColBonus: u._emptyColBonus, _bloodAuraBonus: u._bloodAuraBonus, _carryAtkBonus: getEliteState(u.uid)._carryAtkBonus, _carryDefBonus: getEliteState(u.uid)._carryDefBonus });
         emitEvent(u, 'stat-bonus-change', {
             buffAtkBonus: stats.atkBonus,
             buffDefBonus: stats.defBonus,
@@ -184,8 +184,8 @@ async function prepareRoundStart(A, B, log, state, round, rng) {
         applyCarryBonus(u, A, state, log, stats);
 
         const auraBonuses = getAuraBonuses(u, A, B);
-        const targetAtk = (u._baseAtk || u.atk) + (u._carryAtkBonus || 0) + (u._butterflyAtkBonus || 0) + (u._holyAtkBonus || 0) + auraBonuses.emptyCol + auraBonuses.bloodAura;
-        const targetDef = (u._baseDef || u.def) + (u._carryDefBonus || 0) + (u._butterflyDefBonus || 0) + (u._holyDefBonus || 0) + (u._fortifyDefBonus || 0);
+        const targetAtk = (u._baseAtk || u.atk) + (getEliteState(u.uid)._carryAtkBonus || 0) + (getEliteState(u.uid)._butterflyAtkBonus || 0) + (u._holyAtkBonus || 0) + auraBonuses.emptyCol + auraBonuses.bloodAura;
+        const targetDef = (u._baseDef || u.def) + (getEliteState(u.uid)._carryDefBonus || 0) + (getEliteState(u.uid)._butterflyDefBonus || 0) + (u._holyDefBonus || 0) + (u._fortifyDefBonus || 0);
         applyStatChange(u, 'atk', targetAtk - u.atk, null, '光环加成');
         applyStatChange(u, 'def', targetDef - u.def, null, '光环加成');
 
@@ -204,15 +204,10 @@ async function prepareRoundStart(A, B, log, state, round, rng) {
         }
         resetEliteRoundState(u.uid);
         u.state._restingTimer && clearTimeout(u.state._restingTimer), u.state._restingTimer = null;
-        u._doubleStriked = false;
         u._xingFenExtraAttacking = false;
-        u._xiaoZhaoDoubleStriked = false;
         u._bloodthirstStriked = false;
-        u._linkTriggered = false;
-        u._fortifyThisRound = 0;
         u._butterflyHpBonus = 0;
-        u._butterflyAtkBonus = 0;
-        u._butterflyDefBonus = 0;
+        setEliteState(u.uid, { _doubleStriked: false, _butterflyAtkBonus: 0, _butterflyDefBonus: 0 });
     });
 
     B.forEach(u => {
@@ -230,16 +225,13 @@ async function prepareRoundStart(A, B, log, state, round, rng) {
             u[key] = false;
         }
         resetEliteRoundState(u.uid);
-        u._doubleStriked = false;
+        setEliteState(u.uid, { _doubleStriked: false });
         u._xingFenExtraAttacking = false;
-        u._xiaoZhaoDoubleStriked = false;
         u._bloodthirstStriked = false;
-        u._linkTriggered = false;
         const auraBonuses = getAuraBonuses(u, B, A);
         const targetAtk = (u._baseAtk || u.atk) + auraBonuses.emptyCol + auraBonuses.bloodAura;
         applyStatChange(u, 'atk', targetAtk - u.atk, null, '光环加成');
         emitEvent(u, 'hp-change', { hp: u.hp, maxHp: u.maxHp, alive: u.alive, atk: u.atk, def: u.def });
-        u._fortifyThisRound = 0;
     });
 
     const dodgeUnits = [...A, ...B];
@@ -358,7 +350,7 @@ export async function* createRoundStepper(state) {
                 passUnits.push({ unit: u, reason: '拒马休息' });
                 continue;
             }
-            if (u.state._flyMode === 'butterfly' || u.state._flyMode === 'spider' || u.state._spiderFlying || (u._fsm && u._fsm.is('flying'))) {
+            if (getEliteState(u.uid)._flyMode === 'butterfly' || getEliteState(u.uid)._flyMode === 'spider' || getEliteState(u.uid)._spiderFlying || (u._fsm && u._fsm.is('flying'))) {
                 passUnits.push({ unit: u, reason: '飞天/附身' });
                 continue;
             }
@@ -403,7 +395,7 @@ export async function* createRoundStepper(state) {
         const currentTeam = currentSide === 'ally' ? A : B;
         if (currentSide === 'ally' && !A._butterflyTriggered) {
             A._butterflyTriggered = true;
-            const sisterForAttach = A.find(u => u.isXiaoZhaoSister && u.alive && !u.state._stunned && !u.state._butterflyHost);
+            const sisterForAttach = A.find(u => u.isXiaoZhaoSister && u.alive && !u.state._stunned && !getEliteState(u.uid)._butterflyHost);
             if (sisterForAttach) {
                 sisterComp.executeAttach(A, log);
                 const attachEvents = flushBattleEvents();

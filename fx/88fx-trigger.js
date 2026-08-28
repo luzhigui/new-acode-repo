@@ -50,16 +50,12 @@ export function _triggerFX(fxSnapshot, unitA, unitD, isDead, isDodge, isMiss, is
                         if (ctx && ctx.store) {
                             ctx.store.dispatch({ type: STORE_ACTION_TYPES.SET_FLASH, uid: unitD.uid, flash: 'dead' });
                             ctx.store.dispatch({ type: STORE_ACTION_TYPES.SET_VISUAL, uid: unitD.uid, _isDead: true });
-                        } else {
-                            unitD._flash = 'dead';
                         }
                     }
                 }, () => {
                     const ctx = GlobalStore.get('playerContext');
                     if (ctx && ctx.store) {
                         ctx.store.dispatch({ type: STORE_ACTION_TYPES.CLEAR_UNIT_FLASH, uid: unitA.uid });
-                    } else {
-                        unitA._flash = null;
                     }
                 });
             }

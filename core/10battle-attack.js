@@ -32,7 +32,7 @@ export async function processUnitAttack(unit, allySide, enemySide, log, A, B, st
         unit.state._acted = true;
         return false;
     }
-    if (unit.state._spiderFlying || unit.state._flyMode === 'spider' || (unit._fsm && unit._fsm.is('flying'))) {
+    if (getEliteState(unit.uid)._spiderFlying || getEliteState(unit.uid)._flyMode === 'spider' || (unit._fsm && unit._fsm.is('flying'))) {
         log.push({ factType: FACT_TYPES.FLY_SKIP, data: { unitName: unit.name } });
         unit.state._acted = true;
         return false;
@@ -163,11 +163,10 @@ export async function processUnitAttack(unit, allySide, enemySide, log, A, B, st
     const postReboundEntry = applyPostAttackEffects(unit, target, dmgCalc.dmg, dmgCalc.atkAct, dmgCalc.defAct, dmgResult.reboundEntry, allySide, enemySide, log, A);
     if (postReboundEntry) { log.push(postReboundEntry); }
 
-    if (unit._pendingDerivedEntries) {
-        for (const entry of unit._pendingDerivedEntries) {
+    if (dmgCalc.derivedEntries && dmgCalc.derivedEntries.length > 0) {
+        for (const entry of dmgCalc.derivedEntries) {
             group.data.entries.push(entry);
         }
-        delete unit._pendingDerivedEntries;
     }
 
     const afterDamageExtraRequests = [];

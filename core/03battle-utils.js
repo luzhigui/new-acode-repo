@@ -6,6 +6,7 @@ import { CONFIG, getGameData } from './01config-5v5-test.js';
 import { emitEvent, applyStatChange, query, getBattleRng } from './13battle-shared.js';
 import { EXECUTION_LAYER as L, EFFECT_TYPES } from '../infra/50-event-bus.js';
 import { FACT_TYPES, BUFF_TYPES } from '../infra/56-battle-enums.js';
+import { getEliteState, setEliteState } from './18-elite-state.js';
 import {
     calcDamage,
     getFangLevelPure,
@@ -32,7 +33,7 @@ export function getFronts(units) {
     let fronts = [];
     for (let col = 0; col < 3; col++) {
         let poses = [1+col, 4+col, 7+col];
-        let chars = units.filter(c => poses.includes(c.pos) && c.alive && !(c.state._flyMode === 'butterfly') && !(c.state._flyMode === 'spider') && !c.state._spiderFlying && !(c._fsm && (c._fsm.is('attached') || c._fsm.is('flying')))).sort((a, b) => a.pos - b.pos);
+        let chars = units.filter(c => poses.includes(c.pos) && c.alive && !(getEliteState(c.uid)._flyMode === 'butterfly') && !(getEliteState(c.uid)._flyMode === 'spider') && !getEliteState(c.uid)._spiderFlying && !(c._fsm && (c._fsm.is('attached') || c._fsm.is('flying')))).sort((a, b) => a.pos - b.pos);
         if (chars.length > 0) fronts.push(chars[0]);
     }
     if (fronts.length === 0) {
@@ -44,12 +45,12 @@ export function getFronts(units) {
 
 export function isBlocked(unit, allies) {
     if (unit.role === '飞行') return false;
-    if (unit.state._flyMode === 'butterfly') return false;
-    if (unit.state._flyMode === 'spider') return false;
+    if (getEliteState(unit.uid)._flyMode === 'butterfly') return false;
+    if (getEliteState(unit.uid)._flyMode === 'spider') return false;
     if (unit._fsm && (unit._fsm.is('attached') || unit._fsm.is('flying'))) return false;
     let col = (unit.pos - 1) % 3;
     let poses = [1+col, 4+col, 7+col];
-    let front = poses.find(p => allies.some(a => a.pos === p && a.alive && !a.isHorse && !(a.state._flyMode === 'butterfly') && !(a.state._flyMode === 'spider')));
+    let front = poses.find(p => allies.some(a => a.pos === p && a.alive && !a.isHorse && !(getEliteState(a.uid)._flyMode === 'butterfly') && !(getEliteState(a.uid)._flyMode === 'spider')));
     if (!front) return false;
     if (unit.pos === front) return false;
     return unit.pos > front;
@@ -105,7 +106,7 @@ export function hasEnemyLowHp(enemySide, threshold = 0.4) {
 
 export function selectFlyTarget(unit, enemySide) {
     if (unit.role !== '飞行' || unit.isWei) return null;
-    const alive = enemySide.filter(u => u.alive && !(u.state._flyMode === 'butterfly') && !(u.state._flyMode === 'spider') && !u.state._spiderFlying && !(u._fsm && (u._fsm.is('attached') || u._fsm.is('flying'))));
+    const alive = enemySide.filter(u => u.alive && !(getEliteState(u.uid)._flyMode === 'butterfly') && !(getEliteState(u.uid)._flyMode === 'spider') && !getEliteState(u.uid)._spiderFlying && !(u._fsm && (u._fsm.is('attached') || u._fsm.is('flying'))));
     if (alive.length === 0) return null;
     const backRow = [7,8,9], midRow = [4,5,6], frontRow = [1,2,3];
     const priorityOrder = [...backRow, ...midRow, ...frontRow];
@@ -213,8 +214,8 @@ function submitWarriorBreakDefenseDeclaration(data) {
     }
     if (getBattleRng().nextInt(1, 100) > breakChance) return;
     defReduced = Math.min(defReduced, target.def);
-    declarations.push({ type: EFFECT_TYPES.BREAK_DEF, value: defReduced, source: unit, target: target });
-    unit._pendingDefReduceFact = { attackerName: unit.name, targetName: target.name, reduce: defReduced };
+    // 破防记账随声明通道传递（decl.factData），不落 unit
+    declarations.push({ type: EFFECT_TYPES.BREAK_DEF, value: defReduced, source: unit, target: target, factData: { attackerName: unit.name, targetName: target.name, reduce: defReduced } });
 }
 
 export function registerWarriorBreakDefense(eventBus) {
@@ -281,21 +282,19 @@ export function registerFortifyShield(eventBus) {
         if (!unit.alive) return;
         if (unit.role !== '防战') return;
         if (!unit.alive) return;
-        if (unit._fortifyThisRound === undefined) unit._fortifyThisRound = 0;
-        if (!unit._fortifyStacks) unit._fortifyStacks = 0;
-        const increment = unit._fortifyIncrement || C.FORTIFY_INCREMENT;
-        const cap = unit._fortifyCap || C.FORTIFY_CAP;
-        if (unit._fortifyThisRound + increment > cap) return;
+        const fortifyThisRound = getEliteState(unit.uid)._fortifyThisRound || 0;
+        const increment = getEliteState(unit.uid)._fortifyIncrement || C.FORTIFY_INCREMENT;
+        const cap = getEliteState(unit.uid)._fortifyCap || C.FORTIFY_CAP;
+        if (fortifyThisRound + increment > cap) return;
         if (getBattleRng().nextInt(1, 100) > chance) return;
-        unit._fortifyStacks += increment;
-        unit._fortifyThisRound += increment;
+        setEliteState(unit.uid, { _fortifyStacks: getEliteState(unit.uid)._fortifyStacks + increment, _fortifyThisRound: fortifyThisRound + increment });
         if (!skipStatChange) {
             // 攻盾路径：无声明，直改单次记账
             applyStatChange(unit, 'def', increment, null, '坚盾');
             if (unit._baseDef !== undefined) unit._baseDef += increment;
         }
         // skipStatChange 路径（被击坚盾）：caller 推 STAT_CHANGE 声明，_baseDef 由裁定执行块记账，此处直改会双扣
-        const entry = { factType: FACT_TYPES.FORTIFY_SHIELD, data: { unitName: unit.name, label, increment, current: unit._fortifyThisRound, cap } };
+        const entry = { factType: FACT_TYPES.FORTIFY_SHIELD, data: { unitName: unit.name, label, increment, current: fortifyThisRound + increment, cap } };
         if (group && group.data && group.data.entries) {
             group.data.entries.push(entry);
         } else if (log) {
@@ -310,10 +309,10 @@ export function registerFortifyShield(eventBus) {
     function submitFortifyShieldDefend(data) {
         const { target, dmg, group } = data;
         if (dmg <= 0) return;
-        const prevStacks = target._fortifyStacks || 0;
+        const prevStacks = getEliteState(target.uid)._fortifyStacks || 0;
         tryFortify(target, fortifyCfg.defendChance, group, null, '坚盾', true);
-        if ((target._fortifyStacks || 0) > prevStacks) {
-            const increment = (target._fortifyStacks || 0) - prevStacks;
+        if ((getEliteState(target.uid)._fortifyStacks || 0) > prevStacks) {
+            const increment = (getEliteState(target.uid)._fortifyStacks || 0) - prevStacks;
             if (!data.declarations) data.declarations = [];
             data.declarations.push({
                 type: EFFECT_TYPES.STAT_CHANGE,
@@ -345,12 +344,12 @@ export function registerDoubleStrike(eventBus, doubleStrikeUnitUid, allyTeam, ac
     // 连击判定：_doubleStriked 直写 + extraRequests 驱动"再攻击"链（非状态结算，保留原样）
     function submitDoubleStrikeDeclaration(data) {
         const { unit, target, log } = data;
-        if (unit.uid !== doubleStrikeUnitUid || !unit.alive || unit.camp !== 'ally' || unit._doubleStriked) return;
+        if (unit.uid !== doubleStrikeUnitUid || !unit.alive || unit.camp !== 'ally' || getEliteState(unit.uid)._doubleStriked) return;
         const xiaoDoubleEnhance = query('xiaoHexEnhance', allyTeam, activeBuffs, BUFF_TYPES.DOUBLE_STRIKE);
         const missChainChance = xiaoDoubleEnhance ? 1.0 : (C.BUFFS.doubleStrike.prob || 0.8);
         if (getBattleRng().next() < missChainChance) {
             log.push({ factType: FACT_TYPES.DOUBLE_STRIKE, data: { success: true } });
-            unit._doubleStriked = true;
+            setEliteState(unit.uid, { _doubleStriked: true });
             if (!data.extraRequests) data.extraRequests = [];
             data.extraRequests.push({
                 unit,

@@ -11,12 +11,19 @@ const BATTLE_FIELDS = [
     '_butterflyAtk', '_butterflyDef', '_butterflyHp', '_butterflyHpTransfer',
     '_spiderRemaining', '_extinctionUsed', '_linkedPartnerUid',
     '_spiderTriggeredHit', '_spiderTriggered70', '_spiderTriggered40',
-    '_spiderTriggeredDeath'
+    '_spiderTriggeredDeath',
+    '_untargetable', '_hotBloodCount', '_doubleStriked', '_zhangSwitched',
+    '_carryAtkBonus', '_carryDefBonus', '_carryHpBonus',
+    '_butterflyAtkBonus', '_butterflyDefBonus',
+    '_fortifyStacks', '_fortifyIncrement', '_fortifyCap', '_dodgeStack',
+    '_flyMode', '_butterflyHost',
+    '_zhangTauntDone'
 ];
 
 const ROUND_FIELDS = [
     '_xingFenActive', '_isLinkAttack', '_spiderAttacked', '_nineYinFirstDone',
-    '_spiderTriggeredThisRound', '_phantomTarget'
+    '_spiderTriggeredThisRound', '_phantomTarget', '_spiderFlying',
+    '_fortifyThisRound', '_xiaoZhaoDoubleStriked', '_linkTriggered'
 ];
 
 function defaultFor(key) {
