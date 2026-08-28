@@ -18,6 +18,10 @@ export async function handleAttackGroup(c, entry, roundResult, abortSig, isFirst
         c.store.dispatch({ type: STORE_ACTION_TYPES.SET_VISUAL, uid: unitA.uid, _resting: true });
     }
 
+    if (unitA && entry.isBlock && c.store) {
+        c.store.dispatch({ type: STORE_ACTION_TYPES.SET_VISUAL, uid: unitA.uid, _acted: true, _blocked: true });
+    }
+
     if (unitA && !entry.isBlock) {
         const flashType = entry.isDodge ? 'defend' : 'attack';
         if (c.store) c.store.dispatch({ type: STORE_ACTION_TYPES.SET_FLASH, uid: unitA.uid, flash: flashType });

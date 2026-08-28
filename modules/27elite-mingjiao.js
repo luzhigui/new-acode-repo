@@ -297,7 +297,8 @@ export function createXiaoZhaoSisterComponent() {
             const defTransfer = Math.floor(sister._baseDef * defRatio);
             const hpTransfer = Math.floor(sister.hp * hpRatio);
             setEliteState(sister.uid, { _butterflyHpTransfer: hpTransfer });
-            host._butterflyHpBonus = (host._butterflyHpBonus || 0) + hpTransfer;
+            const hostEs = getEliteState(host.uid);
+            setEliteState(host.uid, { _butterflyHpBonus: (hostEs._butterflyHpBonus || 0) + hpTransfer });
             const hostEs = getEliteState(host.uid); setEliteState(host.uid, { _butterflyAtkBonus: (hostEs._butterflyAtkBonus || 0) + atkTransfer, _butterflyDefBonus: (hostEs._butterflyDefBonus || 0) + defTransfer });
             applyStatChange(host, 'atk', atkTransfer, sister, '蝶变附身');
             applyStatChange(host, 'def', defTransfer, sister, '蝶变附身');
@@ -364,7 +365,7 @@ export function createXiaoZhaoSisterComponent() {
                 applyStatChange(host, 'atk', -(getEliteState(host.uid)._butterflyAtkBonus || 0), sister, '蝶变飞回');
                 applyStatChange(host, 'def', -(getEliteState(host.uid)._butterflyDefBonus || 0), sister, '蝶变飞回');
                 setEliteState(host.uid, { _butterflyAtkBonus: 0, _butterflyDefBonus: 0 });
-                host._butterflyHpBonus = 0;
+                setEliteState(host.uid, { _butterflyHpBonus: 0 });
                 const hpTransfer = getEliteState(sister.uid)._butterflyHpTransfer || 0;
                 applyMaxHpChange(host, Math.max(1, host.maxHp - hpTransfer), sister, '蝶变飞回血上限');
                 emitEvent(host, 'hp-change', {

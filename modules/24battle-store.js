@@ -4,7 +4,6 @@ export const VER = 'modules/24battle-store.js V5.6.1';
 
 import { STORE_ACTION_TYPES } from '../infra/56-battle-enums.js';
 import { getEliteState } from '../core/18-elite-state.js';
-import { syncStateToUI } from '../core/17-state-keys.js';
 
 // ==================== Store 工厂 ====================
 export function createStore(initialState, reducer) {
@@ -158,50 +157,6 @@ export function battleReducer(state, action) {
         }
         case STORE_ACTION_TYPES.REMOVE_UNIT: {
             return { ...state, units: state.units.filter(u => u.uid !== action.uid) };
-        }
-        case STORE_ACTION_TYPES.SYNC_FULL_UNITS: {
-            const allyMap = new Map(action.ally.map(u => [u.uid, u]));
-            const enemyMap = new Map(action.enemy.map(u => [u.uid, u]));
-            let next = state.units.map(u => {
-                const src = u.camp === 'ally' ? allyMap.get(u.uid) : enemyMap.get(u.uid);
-                if (!src) return u;
-                const copyState = { ...(u.state || {}) };
-                syncStateToUI(src.state, src.uid, copyState);
-                return {
-                    ...u,
-                    hp: src.hp, maxHp: src.maxHp, atk: src.atk, def: src.def,
-                    alive: src.alive, pos: src.pos, role: src.role,
-                    rangedForm: src.rangedForm, state: copyState
-                };
-            });
-            const remainingEnemy = action.enemy.filter(src => !next.find(u => u.uid === src.uid));
-            const remainingAlly = action.ally.filter(src => !next.find(u => u.uid === src.uid));
-            for (const src of [...remainingAlly, ...remainingEnemy]) {
-                const copyState = {};
-                syncStateToUI(src.state, src.uid, copyState);
-                next.push({ ...src, state: copyState });
-            }
-            return { ...state, units: next };
-        }
-        case STORE_ACTION_TYPES.SYNC_BATTLE_STATS: {
-            const allyMap = new Map(action.ally.map(u => [u.uid, u]));
-            const enemyMap = new Map(action.enemy.map(u => [u.uid, u]));
-            let next = state.units.map(u => {
-                const src = u.camp === 'ally' ? allyMap.get(u.uid) : enemyMap.get(u.uid);
-                if (!src) return u;
-                return {
-                    ...u,
-                    dmgDealt: src.dmgDealt || 0,
-                    dmgTaken: src.dmgTaken || 0,
-                    healDone: src.healDone || 0,
-                    reboundDone: src.reboundDone || 0,
-                    leechDone: src.leechDone || 0,
-                    dodgeCount: src.dodgeCount || 0,
-                    critCount: src.critCount || 0,
-                    survivedRounds: src.survivedRounds || 0
-                };
-            });
-            return { ...state, units: next };
         }
         case STORE_ACTION_TYPES.HP_CHANGE: {
             const idx = state.units.findIndex(u => u.uid === action.unitUid);
