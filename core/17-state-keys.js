@@ -6,7 +6,9 @@ import { getEliteState } from './18-elite-state.js';
 
 /** 回合级状态：clone 不拷贝，回合开始统一重置 */
 export const ROUND_STATE_KEYS = Object.freeze([
-    '_acted', '_stunned', '_resting', '_blocked'
+    '_acted', '_stunned', '_resting', '_blocked',
+    '_emptyColBonus', '_bloodAuraBonus',
+    '_holyAtkBonus', '_holyDefBonus', '_fortifyDefBonus'
 ]);
 
 /** 整场状态：clone 必须拷贝，回合开始不重置 */
@@ -19,10 +21,8 @@ export const ELITE_STATE_PROJECTION_KEYS = Object.freeze([
     '_flyMode', '_butterflyHost', '_spiderFlying'
 ]);
 
-/** 顶层回合级字段：clone 不拷贝，回合开始统一重置 */
+/** 顶层回合级字段：clone 不拷贝，回合开始统一重置（已全部迁入 state，保留空表占位） */
 export const ROUND_FIELD_KEYS = Object.freeze([
-    '_emptyColBonus', '_bloodAuraBonus',
-    '_holyAtkBonus', '_holyDefBonus', '_fortifyDefBonus'
 ]);
 
 /** 顶层整场字段：clone 必须深拷贝（对象/数组）或浅拷贝（基本类型） */
@@ -68,9 +68,13 @@ export function syncStateToUI(srcState, srcUid, dstState) {
 }
 
 /** 回合级状态统一重置（查表驱动）；调用方需保证 state 对象已存在 */
+const NUMERIC_STATE_KEYS = new Set(['_emptyColBonus', '_bloodAuraBonus', '_holyAtkBonus', '_holyDefBonus', '_fortifyDefBonus']);
+
 export function resetStateFields(state) {
     for (const key of ROUND_STATE_KEYS) {
-        state[key] = key === '_phantomTarget' ? null : false;
+        if (key === '_phantomTarget') state[key] = null;
+        else if (NUMERIC_STATE_KEYS.has(key)) state[key] = 0;
+        else state[key] = false;
     }
     return state;
 }

@@ -181,7 +181,7 @@ async function prepareRoundStart(A, B, log, state, round, rng) {
             buffDodgeBonus: stats.dodgeBonus,
             buffHpBonus: stats.hpBonus
         });
-        emitEvent(u, 'hp-change', { hp: u.hp, maxHp: u.maxHp, alive: u.alive, atk: u.atk, def: u.def, buffAtkBonus: u.buffAtkBonus, buffDefBonus: u.buffDefBonus, _holyAtkBonus: u._holyAtkBonus, _holyDefBonus: u._holyDefBonus, _fortifyDefBonus: u._fortifyDefBonus, _emptyColBonus: u._emptyColBonus, _bloodAuraBonus: u._bloodAuraBonus, _carryAtkBonus: getEliteState(u.uid)._carryAtkBonus, _carryDefBonus: getEliteState(u.uid)._carryDefBonus });
+        emitEvent(u, 'hp-change', { hp: u.hp, maxHp: u.maxHp, alive: u.alive, atk: u.atk, def: u.def, buffAtkBonus: u.buffAtkBonus, buffDefBonus: u.buffDefBonus, _holyAtkBonus: u.state._holyAtkBonus, _holyDefBonus: u.state._holyDefBonus, _fortifyDefBonus: u.state._fortifyDefBonus, _emptyColBonus: u.state._emptyColBonus, _bloodAuraBonus: u.state._bloodAuraBonus, _carryAtkBonus: getEliteState(u.uid)._carryAtkBonus, _carryDefBonus: getEliteState(u.uid)._carryDefBonus });
         emitEvent(u, 'stat-bonus-change', {
             buffAtkBonus: stats.atkBonus,
             buffDefBonus: stats.defBonus,
@@ -192,8 +192,8 @@ async function prepareRoundStart(A, B, log, state, round, rng) {
         applyCarryBonus(u, A, state, log, stats);
 
         const auraBonuses = getAuraBonuses(u, A, B);
-        const targetAtk = (u._baseAtk || u.atk) + (getEliteState(u.uid)._carryAtkBonus || 0) + (getEliteState(u.uid)._butterflyAtkBonus || 0) + (u._holyAtkBonus || 0) + auraBonuses.emptyCol + auraBonuses.bloodAura;
-        const targetDef = (u._baseDef || u.def) + (getEliteState(u.uid)._carryDefBonus || 0) + (getEliteState(u.uid)._butterflyDefBonus || 0) + (u._holyDefBonus || 0) + (u._fortifyDefBonus || 0);
+        const targetAtk = (u._baseAtk || u.atk) + (getEliteState(u.uid)._carryAtkBonus || 0) + (getEliteState(u.uid)._butterflyAtkBonus || 0) + (u.state._holyAtkBonus || 0) + auraBonuses.emptyCol + auraBonuses.bloodAura;
+        const targetDef = (u._baseDef || u.def) + (getEliteState(u.uid)._carryDefBonus || 0) + (getEliteState(u.uid)._butterflyDefBonus || 0) + (u.state._holyDefBonus || 0) + (u.state._fortifyDefBonus || 0);
         applyStatChange(u, 'atk', targetAtk - u.atk, null, '光环加成');
         applyStatChange(u, 'def', targetDef - u.def, null, '光环加成');
 
@@ -206,9 +206,6 @@ async function prepareRoundStart(A, B, log, state, round, rng) {
             else if (key === '_acted' || key === '_resting' || key === '_blocked') u.state[key] = false;
             else if (key === '_spiderFlying') u.state[key] = false;
             else u.state[key] = false;
-        }
-        for (const key of ROUND_FIELD_KEYS) {
-            u[key] = false;
         }
         resetEliteRoundState(u.uid);
         u.state._restingTimer && clearTimeout(u.state._restingTimer), u.state._restingTimer = null;
@@ -228,9 +225,6 @@ async function prepareRoundStart(A, B, log, state, round, rng) {
             else if (key === '_acted' || key === '_resting' || key === '_blocked') u.state[key] = false;
             else if (key === '_spiderFlying') u.state[key] = false;
             else u.state[key] = false;
-        }
-        for (const key of ROUND_FIELD_KEYS) {
-            u[key] = false;
         }
         resetEliteRoundState(u.uid);
         setEliteState(u.uid, { _doubleStriked: false });
