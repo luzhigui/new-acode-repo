@@ -13,7 +13,7 @@ import { installDeclaredSkills, installFromGameData } from './15-skill-mechanism
 
 import { getEliteFactories } from './08-elite-registry.js';
 import { processUnitAttack } from './10battle-attack.js';
-import { eventBus, EXECUTION_LAYER as L } from '../infra/50-event-bus.js';
+import { eventBus, EXECUTION_LAYER as L, registerSettlementHook } from '../infra/50-event-bus.js';
 import { getNextAvailableUnit, finalizeDeaths, emitFullUnitState, checkZhangSwitch, emitEvent, applyStatChange, setBattleRng } from './13battle-shared.js';
 import { getEliteState, setEliteState, cloneEliteState, resetEliteRoundState } from './18-elite-state.js';
 import { FACT_TYPES, BUFF_TYPES } from '../infra/56-battle-enums.js';
@@ -73,7 +73,7 @@ async function prepareRoundStart(A, B, log, state, round, rng) {
     const holyFlameEnhance = hasSisterForHolyFlame ? hexEnhanceParams.holyFlame : null;
     const holyColCount = holyFlameEnhance ? holyFlameEnhance.atkCols : 1;
     const holyRowCount = holyFlameEnhance ? holyFlameEnhance.defRows : 2;
-    A._activeBuffs.forEach(b => {
+    A._activeBuffs = A._activeBuffs.map(b => {
         if (b.key === BUFF_TYPES.HOLY_FLAME) {
             const cols = [];
             while (cols.length < holyColCount) { const c = rng.nextInt(1, 3); if (!cols.includes(c)) cols.push(c); }
@@ -81,9 +81,9 @@ async function prepareRoundStart(A, B, log, state, round, rng) {
             const rows = [];
             while (rows.length < holyRowCount) { const r = rng.nextInt(1, 3); if (!rows.includes(r)) rows.push(r); }
             rows.sort((a, b) => a - b);
-            b.cols = cols;
-            b.rows = rows;
+            return { ...b, cols, rows };
         }
+        return b;
     });
     A.forEach(u => {
         if (u.alive && u.camp === 'ally') {
@@ -102,14 +102,22 @@ async function prepareRoundStart(A, B, log, state, round, rng) {
     registerFortifyShield(eventBus);
     registerWarriorExecute(eventBus);
     installBuffMechanics(eventBus);
-    eventBus.on('beforeActionSelect', L.BEFORE_ACTION.KULIAN_PRIORITY, (data) => {
-        if (data.unit.name !== '宋青书' || !data.unit.alive || !getEliteState(data.unit.uid)._kuLianActive) return;
-        data.declaration.priority = 1;
+    registerSettlementHook(eventBus, {
+        when: 'beforeActionSelect',
+        priority: L.BEFORE_ACTION.KULIAN_PRIORITY,
+        handler: (data) => {
+            if (data.unit.name !== '宋青书' || !data.unit.alive || !getEliteState(data.unit.uid)._kuLianActive) return;
+            data.declaration.priority = 1;
+        }
     });
-    eventBus.on('beforeSelectTarget', L.BEFORE_SELECT_TARGET.FLY_TARGET, (data) => {
-        if (data.unit.role !== '飞行' || data.unit.isWei) return;
-        const flyTarget = selectFlyTarget(data.unit, data.enemySide);
-        if (flyTarget) data.targetResult = flyTarget;
+    registerSettlementHook(eventBus, {
+        when: 'beforeSelectTarget',
+        priority: L.BEFORE_SELECT_TARGET.FLY_TARGET,
+        handler: (data) => {
+            if (data.unit.role !== '飞行' || data.unit.isWei) return;
+            const flyTarget = selectFlyTarget(data.unit, data.enemySide);
+            if (flyTarget) data.targetResult = flyTarget;
+        }
     });
     registerDoubleStrike(eventBus, doubleStrikeUnitUid, A, A._activeBuffs);
     registerEmptyColBonus(eventBus);
@@ -522,8 +530,6 @@ function finalizeRoundEnd(A, B, log, round) {
     });
 
     destroyHorse(A, log); destroyHorse(B, log);
-    A._activeBuffs = (A._activeBuffs || []).map(b => ({...b, remaining: b.remaining - 1})).filter(b => b.remaining > 0);
-    B._activeBuffs = (B._activeBuffs || []).map(b => ({...b, remaining: b.remaining - 1})).filter(b => b.remaining > 0);
 
     let winner = null;
     let done = false;
@@ -550,21 +556,4 @@ function finalizeRoundEnd(A, B, log, round) {
     finalizeDeaths(A);
     finalizeDeaths(B);
     return { winner, done, endEvents };
-}
-
-export function runBattleRound(state) {
-    const stepper = createRoundStepper(state);
-    let finalResult = null;
-    for (const step of stepper) {
-        finalResult = step;
-    }
-    return {
-        ally: finalResult.ally,
-        enemy: finalResult.enemy,
-        round: state.round,
-        log: [],
-        winner: finalResult.winner,
-        activeBuffs: finalResult.ally._activeBuffs || [],
-        doubleStrikeUid: null
-    };
 }

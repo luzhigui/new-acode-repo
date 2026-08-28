@@ -6,7 +6,7 @@ import { CONFIG, getGameData } from './01config-5v5-test.js';
 
 import { StateMachine } from '../infra/51-core-utils.js';
 
-import { ROUND_STATE_KEYS, BATTLE_STATE_KEYS, ROUND_FIELD_KEYS, BATTLE_FIELD_KEYS, PERMANENT_FIELD_KEYS } from './17-state-keys.js';
+import { ROUND_STATE_KEYS, BATTLE_STATE_KEYS, ROUND_FIELD_KEYS, BATTLE_FIELD_KEYS, PERMANENT_FIELD_KEYS, copyBattleStateFields, resetStateFields } from './17-state-keys.js';
 import { getEliteState, cloneEliteState } from './18-elite-state.js';
 
 let _uidCounter = 0;
@@ -79,14 +79,10 @@ export class Unit {
             if (ROUND_FIELD_KEYS.includes(key)) continue; // 回合级字段不拷，克隆体=回合初态
             c[key] = this[key];
         }
-        // state：只拷整场状态（BATTLE_STATE_KEYS）；回合级状态取回合初态（查表式）
+        // state：整场字段拷贝 + 回合级字段重置，统一查表（17-state-keys 驱动）
         c.state = {};
-        for (const key of BATTLE_STATE_KEYS) {
-            if (this.state[key] !== undefined) c.state[key] = this.state[key];
-        }
-        for (const key of ROUND_STATE_KEYS) {
-            c.state[key] = key === '_phantomTarget' ? null : false;
-        }
+        copyBattleStateFields(this.state, c.state);
+        resetStateFields(c.state);
         // FSM：重建新实例，深拷贝 transitions 避免共享引用
         if (this._fsm) {
             const tr = this._fsm.transitions ? JSON.parse(JSON.stringify(this._fsm.transitions)) : null;

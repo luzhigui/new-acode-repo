@@ -1,6 +1,6 @@
 // infra/50-event-bus.js - 光明顶5v5 事件总线
-// V5.5.6 | ~5500 bytes| 2026-08-26 清理死键+DOUBLE_RETRY改名PERMANENT_DOUBLE_RETRY+debug写日志抽独立函数
-export const VER = 'infra/50-event-bus.js V5.5.6';
+// V5.5.7 | ~5500 bytes| 2026-08-28 相位栅栏语义显式化（纯注释）
+export const VER = 'infra/50-event-bus.js V5.5.7';
 
 // debug 信号日志（仅 logLevel==='debug' 时向 data.log 追加一行信号记录，非战斗路径）
 function appendDebugSignalLog(signal, data) {
@@ -34,8 +34,8 @@ class EventBus {
         if (!listeners || listeners.length === 0) return;
         for (const { callback } of listeners) {
             try {
-                // 按优先级严格串行：每个监听器完全执行完才进下一个。
-                // 同步监听器行为不变；异步监听器的状态写入被相位约束，不再并发逃逸
+                // 相位栅栏（约定见 EXECUTION_LAYER 注释）：按 priority 升序串行，
+                // await 完前一个才进下一个；监听器状态写入必须在本段内完成
                 await callback(data);
             } catch (e) {
                 console.error(`[EventBus] 信号 "${signal}" 的监听器执行出错:`, e);
@@ -59,6 +59,14 @@ class EventBus {
 
 export const eventBus = new EventBus();
 
+/**
+ * 相位表（执行时序约定）：
+ * - priority 数值越小越先执行（升序）
+ * - 同一 phase 内所有监听器按 priority 升序同步串行，
+ *   前一个（含 await 完成）完成后才执行下一个
+ * - 监听器不得在异步回调里修改战斗状态（会跨相位逃逸），
+ *   状态写入必须在本监听器主流程内完成
+ */
 export const EXECUTION_LAYER = {
     ROUND_START:      { RANGE_CHECK: 5, SPIDER_TRANSFORM: 10, XUANMING_POISON: 10, XINGFEN_GRANT: 10, KULIAN_BUFF: 10 },
     ROUND_END:        { BUTTERFLY_RETURN: 10, SPIDER_RETURN: 10 },
@@ -96,6 +104,14 @@ export const EXECUTION_LAYER = {
     ON_UNIT_DEATH: { SWITCH: 10 },
     ON_POSITION_SWAP: { SWITCH: 10 }
 };
+
+/**
+ * 结算时机注册入口：统一替代手写 eventBus.on(signal, L.X, fn)。
+ * 内部透传 eventBus.on，行为零变化。
+ */
+export function registerSettlementHook(eventBus, { when, priority, handler }) {
+    eventBus.on(when, priority, handler);
+}
 
 export const EFFECT_TYPES = {
     BONUS_DMG: 'bonusDmg',

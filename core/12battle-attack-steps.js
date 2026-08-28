@@ -5,7 +5,6 @@ export const VER = 'core/12battle-attack-steps.js V5.7.1';
 import { CONFIG, getSkillParams, getGameData } from './01config-5v5-test.js';
 import { eventBus, EFFECT_TYPES } from '../infra/50-event-bus.js';
 import { calcDamage, getFangLevel, isMelee, getFronts, isBlocked, getRandomTaunt, getZhangNearTaunt, makeFXSnapshot, hasBuff, getUnitCol, getUnitRow } from './03battle-utils.js';
-import { applyBuffEffectsBeforeAttack, applyBuffEffectsAfterAttack } from './04buff-system.js';
 import { emitEvent, applyStatChange, applyMaxHpChange, query, getBattleRng, recordCombatStat } from './13battle-shared.js';
 import { getEliteState } from './18-elite-state.js';
 import { flushBattleEvents, pushBattleEvent, getBattleState, setBattleState, registerDodgeRule, clearEliteDodgeRules, getDodgeRules } from '../infra/51-core-utils.js';
@@ -478,20 +477,6 @@ export async function buildAttackGroup(unit, target, dmgCalc, dmgResult, attacke
     };
 
     return attackFact;
-}
-
-// 辅助函数
-export function applyPostAttackEffects(unit, target, dmg, atkAct, defAct, reboundEntry, allySide, enemySide, log, A) {
-    if (unit.camp === 'ally') {
-        applyBuffEffectsBeforeAttack(unit, target, allySide, enemySide, log);
-    } else {
-        applyBuffEffectsBeforeAttack(unit, target, enemySide, allySide, log);
-    }
-    if (unit.camp === 'ally') {
-        applyBuffEffectsAfterAttack(unit, target, dmg, allySide, enemySide, log);
-    }
-    let dead = !target.alive;
-    return reboundEntry;
 }
 
 export function isUnitStunned(unit) {

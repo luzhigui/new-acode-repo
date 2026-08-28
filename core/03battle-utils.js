@@ -4,7 +4,7 @@ export const VER = 'core/03battle-utils.js V5.7.3';
 
 import { CONFIG, getGameData } from './01config-5v5-test.js';
 import { emitEvent, applyStatChange, query, getBattleRng } from './13battle-shared.js';
-import { EXECUTION_LAYER as L, EFFECT_TYPES } from '../infra/50-event-bus.js';
+import { EXECUTION_LAYER as L, EFFECT_TYPES, registerSettlementHook } from '../infra/50-event-bus.js';
 import { FACT_TYPES, BUFF_TYPES } from '../infra/56-battle-enums.js';
 import { getEliteState, setEliteState } from './18-elite-state.js';
 import {
@@ -219,8 +219,12 @@ function submitWarriorBreakDefenseDeclaration(data) {
 }
 
 export function registerWarriorBreakDefense(eventBus) {
-    eventBus.on('beforeDamageCalc', L.BEFORE_DAMAGE_CALC.WARRIOR_BREAK, (data) => {
-        submitWarriorBreakDefenseDeclaration(data);
+    registerSettlementHook(eventBus, {
+        when: 'beforeDamageCalc',
+        priority: L.BEFORE_DAMAGE_CALC.WARRIOR_BREAK,
+        handler: (data) => {
+            submitWarriorBreakDefenseDeclaration(data);
+        }
     });
 }
 
@@ -245,8 +249,12 @@ function submitRangedGrowthDeclaration(data) {
 }
 
 export function registerRangedGrowth(eventBus) {
-    eventBus.on('afterDamageApplied', L.AFTER_DAMAGE_APPLIED.RANGED_GROWTH, (data) => {
-        submitRangedGrowthDeclaration(data);
+    registerSettlementHook(eventBus, {
+        when: 'afterDamageApplied',
+        priority: L.AFTER_DAMAGE_APPLIED.RANGED_GROWTH,
+        handler: (data) => {
+            submitRangedGrowthDeclaration(data);
+        }
     });
 }
 
@@ -272,8 +280,12 @@ function submitWarriorExecuteDeclaration(data) {
 }
 
 export function registerWarriorExecute(eventBus) {
-    eventBus.on('afterDamageApplied', L.AFTER_DAMAGE_APPLIED.WARRIOR_EXECUTE, (data) => {
-        submitWarriorExecuteDeclaration(data);
+    registerSettlementHook(eventBus, {
+        when: 'afterDamageApplied',
+        priority: L.AFTER_DAMAGE_APPLIED.WARRIOR_EXECUTE,
+        handler: (data) => {
+            submitWarriorExecuteDeclaration(data);
+        }
     });
 }
 
@@ -330,12 +342,20 @@ export function registerFortifyShield(eventBus) {
         tryFortify(unit, fortifyCfg.attackChance, group, log, '攻盾');
     }
 
-    eventBus.on('afterDamageApplied', L.AFTER_DAMAGE_APPLIED.SHIELD_DEFEND, (data) => {
-        submitFortifyShieldDefend(data);
+    registerSettlementHook(eventBus, {
+        when: 'afterDamageApplied',
+        priority: L.AFTER_DAMAGE_APPLIED.SHIELD_DEFEND,
+        handler: (data) => {
+            submitFortifyShieldDefend(data);
+        }
     });
 
-    eventBus.on('afterAttack', L.AFTER_ATTACK.SHIELD_ATTACK, (data) => {
-        submitFortifyShieldAttack(data);
+    registerSettlementHook(eventBus, {
+        when: 'afterAttack',
+        priority: L.AFTER_ATTACK.SHIELD_ATTACK,
+        handler: (data) => {
+            submitFortifyShieldAttack(data);
+        }
     });
 }
 
@@ -363,8 +383,12 @@ export function registerDoubleStrike(eventBus, doubleStrikeUnitUid, allyTeam, ac
             log.push({ factType: FACT_TYPES.DOUBLE_STRIKE, data: { success: false, unitName: unit.name } });
         }
     }
-    eventBus.on('afterAttack', L.AFTER_ATTACK.DOUBLE_STRIKE, (data) => {
-        submitDoubleStrikeDeclaration(data);
+    registerSettlementHook(eventBus, {
+        when: 'afterAttack',
+        priority: L.AFTER_ATTACK.DOUBLE_STRIKE,
+        handler: (data) => {
+            submitDoubleStrikeDeclaration(data);
+        }
     });
 }
 

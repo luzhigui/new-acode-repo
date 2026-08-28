@@ -96,8 +96,11 @@ export async function handleAttackGroup(c, entry, roundResult, abortSig, isFirst
 
     updateRoundDisplay(`📜 日志（第${c.UI.round}回合）`);
 
-    if (entry.isDead && (c.UI.allyTeam.every(ch => !ch.alive) || c.UI.enemyTeam.every(ch => !ch.alive))) {
-        return { isBattleOver: true };
+    if (entry.isDead && c.store) {
+        const liveUnits = c.store.getState().units;
+        const allyAlive = liveUnits.some(u => u.camp === 'ally' && u.alive);
+        const enemyAlive = liveUnits.some(u => u.camp === 'enemy' && u.alive);
+        if (!allyAlive || !enemyAlive) return { isBattleOver: true };
     }
     return { isBattleOver: false };
 }

@@ -2,7 +2,7 @@
 // V5.7.2 | ~14500 bytes| 2026-08-28 毒 fact 按攻击组定位插入
 export const VER = 'core/15-skill-mechanisms.js V5.7.2';
 
-import { EXECUTION_LAYER as L, EFFECT_TYPES } from '../infra/50-event-bus.js';
+import { EXECUTION_LAYER as L, EFFECT_TYPES, registerSettlementHook } from '../infra/50-event-bus.js';
 import { CONFIG } from './01config-5v5-test.js';
 import { registerDodgeRule } from './12battle-attack-steps.js';
 import { emitEvent, applyStatChange, applyMaxHpChange, getBattleRng } from './13battle-shared.js';
@@ -65,12 +65,20 @@ function installTargetRule(eventBus, A, B, decl) {
     const rule = decl.targetRule;
 
     if (rule === 'lowestHp') {
-        eventBus.on('beforeSelectTarget', L.BEFORE_SELECT_TARGET.REBEL, (data) => {
-            submitLowestHpTarget(data, decl);
+        registerSettlementHook(eventBus, {
+            when: 'beforeSelectTarget',
+            priority: L.BEFORE_SELECT_TARGET.REBEL,
+            handler: (data) => {
+                submitLowestHpTarget(data, decl);
+            }
         });
     } else if (rule === 'highestHpPct') {
-        eventBus.on('beforeSelectTarget', L.BEFORE_SELECT_TARGET.REBEL, (data) => {
-            submitHighestHpPctTarget(data, decl);
+        registerSettlementHook(eventBus, {
+            when: 'beforeSelectTarget',
+            priority: L.BEFORE_SELECT_TARGET.REBEL,
+            handler: (data) => {
+                submitHighestHpPctTarget(data, decl);
+            }
         });
     }
 }
@@ -107,8 +115,12 @@ function installBeforeDamageEffects(eventBus, declarations) {
     const decls = declarations.filter(d => d && d.name && d.beforeDamageEffects && d.beforeDamageEffects.length > 0);
     if (decls.length === 0) return;
 
-    eventBus.on('beforeDamageCalc', L.BEFORE_DAMAGE_CALC.TRUE_DMG, (data) => {
-        submitBeforeDamageEffects(data, decls);
+    registerSettlementHook(eventBus, {
+        when: 'beforeDamageCalc',
+        priority: L.BEFORE_DAMAGE_CALC.TRUE_DMG,
+        handler: (data) => {
+            submitBeforeDamageEffects(data, decls);
+        }
     });
 }
 
@@ -200,8 +212,12 @@ function installOnHitEffects(eventBus, A, B, declarations) {
     const onHitDecls = declarations.filter(d => d && d.name && d.onHitEffects && d.onHitEffects.length > 0);
     if (onHitDecls.length === 0) return;
 
-    eventBus.on('afterDamageApplied', L.AFTER_DAMAGE_APPLIED.LEECH, (data) => {
-        submitOnHitEffects(data, onHitDecls);
+    registerSettlementHook(eventBus, {
+        when: 'afterDamageApplied',
+        priority: L.AFTER_DAMAGE_APPLIED.LEECH,
+        handler: (data) => {
+            submitOnHitEffects(data, onHitDecls);
+        }
     });
 }
 
@@ -270,13 +286,21 @@ function installPhantomDisguise(eventBus, declarations) {
     if (decls.length === 0) return;
 
     // afterDamageApplied：设置伪装目标并回血
-    eventBus.on('afterDamageApplied', L.AFTER_DAMAGE_APPLIED.DISGUISE, (data) => {
-        submitPhantomDisguiseOnHit(data, decls);
+    registerSettlementHook(eventBus, {
+        when: 'afterDamageApplied',
+        priority: L.AFTER_DAMAGE_APPLIED.DISGUISE,
+        handler: (data) => {
+            submitPhantomDisguiseOnHit(data, decls);
+        }
     });
 
     // beforeSelectTarget：被模仿者攻击时概率混乱
-    eventBus.on('beforeSelectTarget', L.BEFORE_SELECT_TARGET.DISGUISE, (data) => {
-        submitPhantomDisguiseTarget(data, decls);
+    registerSettlementHook(eventBus, {
+        when: 'beforeSelectTarget',
+        priority: L.BEFORE_SELECT_TARGET.DISGUISE,
+        handler: (data) => {
+            submitPhantomDisguiseTarget(data, decls);
+        }
     });
 }
 
@@ -310,8 +334,12 @@ function installLinkAttack(eventBus, declarations) {
     const decls = declarations.filter(d => d && d.type === 'linkAttack');
     if (decls.length === 0) return;
 
-    eventBus.on('afterAttack', L.AFTER_ATTACK.XUANMING_LINK, (data) => {
-        submitLinkAttack(data, decls);
+    registerSettlementHook(eventBus, {
+        when: 'afterAttack',
+        priority: L.AFTER_ATTACK.XUANMING_LINK,
+        handler: (data) => {
+            submitLinkAttack(data, decls);
+        }
     });
 }
 
@@ -391,8 +419,12 @@ function installChainClaw(eventBus, A, B, declarations) {
     const decls = declarations.filter(d => d && d.type === 'chainClaw');
     if (decls.length === 0) return;
 
-    eventBus.on('afterAttack', L.AFTER_ATTACK.CLAW, (data) => {
-        submitChainClaw(data, decls);
+    registerSettlementHook(eventBus, {
+        when: 'afterAttack',
+        priority: L.AFTER_ATTACK.CLAW,
+        handler: (data) => {
+            submitChainClaw(data, decls);
+        }
     });
 }
 
@@ -428,8 +460,12 @@ function installKuLian(eventBus, A, B, declarations) {
     const decls = declarations.filter(d => d && d.type === 'kuLian');
     if (decls.length === 0) return;
 
-    eventBus.on('onRoundStart', L.ROUND_START.KULIAN_BUFF, (data) => {
-        submitKuLian(data, decls);
+    registerSettlementHook(eventBus, {
+        when: 'onRoundStart',
+        priority: L.ROUND_START.KULIAN_BUFF,
+        handler: (data) => {
+            submitKuLian(data, decls);
+        }
     });
 }
 
@@ -474,8 +510,12 @@ function installXinHun(eventBus, A, B, declarations) {
     const decls = declarations.filter(d => d && d.type === 'xinHun');
     if (decls.length === 0) return;
 
-    eventBus.on('afterDamageApplied', L.AFTER_DAMAGE_APPLIED.XINGFEN, (data) => {
-        submitXinHun(data, decls);
+    registerSettlementHook(eventBus, {
+        when: 'afterDamageApplied',
+        priority: L.AFTER_DAMAGE_APPLIED.XINGFEN,
+        handler: (data) => {
+            submitXinHun(data, decls);
+        }
     });
 }
 
@@ -523,18 +563,30 @@ function installXingFen(eventBus, A, B, declarations) {
     if (decls.length === 0) return;
 
     // 回合开始：周芷若在场时给宋青书性奋状态
-    eventBus.on('onRoundStart', L.ROUND_START.XINGFEN_GRANT, (data) => {
-        submitXingFenGrant(data);
+    registerSettlementHook(eventBus, {
+        when: 'onRoundStart',
+        priority: L.ROUND_START.XINGFEN_GRANT,
+        handler: (data) => {
+            submitXingFenGrant(data);
+        }
     });
 
     // 攻击后：性奋额外攻击
-    eventBus.on('afterAttack', L.AFTER_ATTACK.XINGFEN_EXTRA, async (data) => {
-        await submitXingFenExtra(data, decls);
+    registerSettlementHook(eventBus, {
+        when: 'afterAttack',
+        priority: L.AFTER_ATTACK.XINGFEN_EXTRA,
+        handler: async (data) => {
+            await submitXingFenExtra(data, decls);
+        }
     });
 
     // 未命中后：性奋重试
-    eventBus.on('afterMiss', L.AFTER_MISS.XINGFEN_RETRY, (data) => {
-        submitXingFenRetry(data, decls);
+    registerSettlementHook(eventBus, {
+        when: 'afterMiss',
+        priority: L.AFTER_MISS.XINGFEN_RETRY,
+        handler: (data) => {
+            submitXingFenRetry(data, decls);
+        }
     });
 }
 

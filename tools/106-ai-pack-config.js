@@ -1,6 +1,6 @@
 // tools/106-ai-pack-config.js - 光明顶5v5 AI 复制包配置（清单/分组/提示词/精简踢除）
-// V5.8.0 | ~11500 bytes| 2026-08-24 清单补 core/16-17、infra/56、mode-5v5-test.html 入口
-export const VER = 'tools/106-ai-pack-config.js V5.8.0';
+// V5.9.0 | ~11600 bytes| 2026-08-28 清单补 core/18、infra/57、tests/140-baseline + baselines
+export const VER = 'tools/106-ai-pack-config.js V5.9.0';
 
 // ==================== AI 精简模式踢除清单（第一批） ====================
 // 这些文件不参与战斗逻辑/状态同步/数值结算，默认不随包发送。
@@ -39,11 +39,11 @@ export const ALL_PROJECT_FILES = [
     '../infra/50-event-bus.js',
     '../core/01config-5v5-test.js', '../core/02unit.js',
     '../core/03battle-utils.js', '../core/04buff-system.js', '../core/05battle-horse.js',
-    '../infra/51-core-utils.js', '../infra/56-battle-enums.js',
+    '../infra/51-core-utils.js', '../infra/56-battle-enums.js', '../infra/57-calc-modifier-registry.js',
     '../core/08-elite-registry.js',
     '../core/10battle-attack.js', '../core/11battle-round.js', '../core/12battle-attack-steps.js',
     '../core/13battle-shared.js', '../core/14buff-effects.js', '../core/15-skill-mechanisms.js',
-    '../core/16effect-handlers.js', '../core/17-state-keys.js',
+    '../core/16effect-handlers.js', '../core/17-state-keys.js', '../core/18-elite-state.js',
     // player（播放器）
     '../player/40player-text.js', '../player/41player-buff-ui.js', '../player/43animation-scheduler.js', '../player/42player-core.js',
     '../player/44battle-player-5v5-test.js', '../player/45event-handlers.js', '../player/46attack-group.js', '../player/47renderer.js',
@@ -82,6 +82,7 @@ export const ALL_PROJECT_FILES = [
     '../tests/health-rules/138-wind-push.js', '../tests/health-rules/139-spider-butterfly-target.js',
     '../tests/health-rules/140-wei-dodge-cloud.js',
     '../tests/121health-monitor.js', '../tests/122health-utils.js',
+    '../tests/140-baseline.js', '../tests/baselines/baseline-v1.json',
     // tools（开发工具箱）
     '../tools/102-toolkit.html', '../tools/103-toolkit.js', '../tools/104-toolkit-more.js',
     '../tools/105-shop.html', '../tools/106-ai-pack-config.js',

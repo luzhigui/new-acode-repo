@@ -12,7 +12,6 @@ import {
     calcFinalDamage,
     applyAttackResult,
     buildAttackGroup,
-    applyPostAttackEffects,
     resolveDamageImmune,
     resolveAfterDamageEffects,
     resolveDeaths
@@ -160,7 +159,7 @@ export async function processUnitAttack(unit, allySide, enemySide, log, A, B, st
 
     log.push(group);
 
-    const postReboundEntry = applyPostAttackEffects(unit, target, dmgCalc.dmg, dmgCalc.atkAct, dmgCalc.defAct, dmgResult.reboundEntry, allySide, enemySide, log, A);
+    const postReboundEntry = dmgResult.reboundEntry;
     if (postReboundEntry) { log.push(postReboundEntry); }
 
     if (dmgCalc.derivedEntries && dmgCalc.derivedEntries.length > 0) {
