@@ -6,7 +6,7 @@ import { getUnitCol, getUnitRow, getAuraBonuses, getDodgeRules } from '../infra/
 import { CONFIG, getSkillDesc } from '../core/01config-5v5-test.js';
 import { GlobalStore, getPlayerContext } from '../infra/54-global-store.js';
 import { getEliteState } from '../core/18-elite-state.js';
-import { FLASH_TYPES, CAMP_TYPES, ROLE_TYPES } from '../infra/56-battle-enums.js';
+import { FLASH_TYPES, CAMP_TYPES, ROLE_TYPES, BUFF_TYPES } from '../infra/56-battle-enums.js';
 
 let _store = null;
 let _subscribed = false;
