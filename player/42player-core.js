@@ -574,7 +574,7 @@ export async function playBattle() {
     c.updateUI();
 
     c.store.subscribe((state) => {
-        if (!c.UI || !c.UI.allyTeam || !c.UI.enemyTeam) return;
+        if (!c.UI) return;
 
         if (!c._deathTimers) c._deathTimers = {};
         for (const su of state.units) {
