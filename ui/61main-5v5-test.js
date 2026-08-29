@@ -4,6 +4,7 @@ export const VER = 'ui/61main-5v5-test.js V5.6.1';
 
 import '../infra/54-global-store.js';
 import '../modules/21error-capture.js';
+import '../modules/30custom-effects.js';
 import { CONFIG, STATE, loadGameData, VER as CFG_VER } from '../core/01config-5v5-test.js';
 import { Unit, VER as VER_UNIT } from '../core/02unit.js';
 import { VER as VER_UTILS } from '../core/03battle-utils.js';

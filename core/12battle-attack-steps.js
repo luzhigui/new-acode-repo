@@ -8,7 +8,7 @@ import { calcDamage, getFangLevel, isMelee, getFronts, isBlocked, getRandomTaunt
 import { emitEvent, applyStatChange, applyMaxHpChange, query, getBattleRng, recordCombatStat } from './13battle-shared.js';
 import { getEliteState } from './18-elite-state.js';
 import { flushBattleEvents, pushBattleEvent, getBattleState, setBattleState, registerDodgeRule, clearEliteDodgeRules, getDodgeRules } from '../infra/51-core-utils.js';
-import { getEffectHandler, hasEffectHandler, getCalcModifier } from './16effect-handlers.js';
+import { getEffectHandler, hasEffectHandler, getCalcModifier, validateDeclarationFields } from './16effect-handlers.js';
 import { FACT_TYPES, BUFF_TYPES, UNIT_EVENT_TYPES, DROP_TYPES, CAMP_TYPES, ROLE_TYPES, SIGNAL_TYPES } from '../infra/56-battle-enums.js';
 
 // ==================== 闪避规则注册表（已下沉 infra/51，此处转发） ====================
@@ -398,6 +398,12 @@ export function resolveAfterDamageEffects(declarations, unit, target, group, all
         if (!hasEffectHandler(type)) continue;
         const decls = declarations.filter(d => d.type === type);
         if (decls.length === 0) continue;
+        for (const decl of decls) {
+            const missing = validateDeclarationFields(type, decl);
+            if (missing && missing.length > 0) {
+                throw new Error(`[12battle-attack-steps] ${type} 声明缺字段: ${missing.join(', ')}`);
+            }
+        }
         const result = getEffectHandler(type)({
             decls,
             unit,

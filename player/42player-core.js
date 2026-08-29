@@ -775,11 +775,6 @@ export async function playBattle() {
         c.battleResultForInfo = { winner, ally: reportAllies, enemy: reportEnemies };
 
         const winState = finalStep ? (winner === '明教' ? finalStep.ally : finalStep.enemy) : null;
-        if (winState && c.store) {
-            for (const su of winState) {
-                c.store.dispatch({ type: STORE_ACTION_TYPES.SYNC_UNIT, uid: su.uid, fields: { hp: su.hp, alive: su.alive, _isDead: !su.alive } });
-            }
-        }
 
         let aliveUnits = winState ? winState.filter(u => u.alive) : [];
         if (aliveUnits.length > 0) {

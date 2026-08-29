@@ -84,6 +84,7 @@ export const EXECUTION_LAYER = {
         METEOR_SHOWER: 25,
         RANGED_GROWTH: 20,
         SHIELD_DEFEND: 30,
+        REBOUND: 35,
         DISGUISE: 40,
         XINGFEN: 40,
         LEECH: 40,

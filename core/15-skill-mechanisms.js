@@ -9,6 +9,8 @@ import { emitEvent, applyStatChange, applyMaxHpChange, getBattleRng } from './13
 import { checkKuLian, applyXingFenGrant, tickKuaiLeHeal, canXingFenTrigger, consumeXingFen } from '../modules/20elite-skills.js';
 import { getEliteState, setEliteState } from './18-elite-state.js';
 import { FACT_TYPES, UNIT_EVENT_TYPES, CAMP_TYPES, SIGNAL_TYPES } from '../infra/56-battle-enums.js';
+// 机制查表化：静态顶层 import 避免动态 import 的异步时序导致 registerSettlementHook 错过注册
+import { installMechanicByType } from '../modules/30custom-effects.js';
 
 // 安装声明式技能：把声明表翻译成 eventBus 监听
 export function installDeclaredSkills(eventBus, A, B, log, declarations) {
@@ -26,6 +28,10 @@ export function installDeclaredSkills(eventBus, A, B, log, declarations) {
     installKuLian(eventBus, A, B, declarations);
     installXinHun(eventBus, A, B, declarations);
     installXingFen(eventBus, A, B, declarations);
+    // 机制查表化：对每条带 type 的声明，交由 modules/30 注册表按 type 安装第三方/数据驱动机制
+    for (const decl of declarations) {
+        if (decl && decl.type) installMechanicByType(eventBus, decl.type, A, B, log);
+    }
 }
 
 // 新增：从 gameData 读取 mechanics 并转换为 declarations 后安装
