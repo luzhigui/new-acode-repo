@@ -3,7 +3,7 @@
 import { CONFIG, getSkillParams } from '../core/01config-5v5-test.js';
 import { getEliteState } from '../core/18-elite-state.js';
 import { calcDamage, getFangLevelPure, makeFXSnapshot } from '../infra/51-core-utils.js';
-import { FACT_TYPES, BUFF_TYPES } from '../infra/56-battle-enums.js';
+import { FACT_TYPES, BUFF_TYPES, BUFF_SUBTYPES, DROP_TYPES, CAMP_TYPES, ROLE_TYPES } from '../infra/56-battle-enums.js';
 export const VER = 'render/30-fact-renderer.js V5.7.6';
 
 // fact 条目投影为渲染条目，并合并 fact 条目上携带的附加字段（isHealEntry/buffType 等）
@@ -19,8 +19,8 @@ function projectFactEntry(e) {
 
 // ==================== 攻击流程 ====================
 export function renderMissFact(fact) {
-    const ac = fact.attacker.camp === 'ally' ? 'blue' : 'orange';
-    const campA = fact.attacker.camp === 'ally' ? '明教' : '六大派';
+    const ac = fact.attacker.camp === CAMP_TYPES.ALLY ? 'blue' : 'orange';
+    const campA = fact.attacker.camp === CAMP_TYPES.ALLY ? '明教' : '六大派';
     return {
         type:'attack-group',
         uidA: fact.attacker.uid,
@@ -42,10 +42,10 @@ export function renderMissFact(fact) {
 export function renderDodgeFact(fact) {
     const unit = fact.attacker;
     const target = fact.dodger;
-    const ac = unit.camp === 'ally' ? 'blue' : 'orange';
-    const dc = target.camp === 'ally' ? 'blue' : 'orange';
-    const campA = unit.camp === 'ally' ? '明教' : '六大派';
-    const campD = target.camp === 'ally' ? '明教' : '六大派';
+    const ac = unit.camp === CAMP_TYPES.ALLY ? 'blue' : 'orange';
+    const dc = target.camp === CAMP_TYPES.ALLY ? 'blue' : 'orange';
+    const campA = unit.camp === CAMP_TYPES.ALLY ? '明教' : '六大派';
+    const campD = target.camp === CAMP_TYPES.ALLY ? '明教' : '六大派';
 
     const dodgeGroup = {
         type:'attack-group', uidA:target.uid, uidD:unit.uid, entries:[], isDodge:true,
@@ -82,10 +82,10 @@ export function renderAttackFact(fact) {
     const dmgCalc = fact.dmgCalc;
     const dmgResult = fact.dmgResult;
     const snap = fact.snap || {};
-    const ac = unit.camp === 'ally' ? 'blue' : 'orange';
-    const dc = target.camp === 'ally' ? 'blue' : 'orange';
-    const campA = unit.camp === 'ally' ? '明教' : '六大派';
-    const campD = target.camp === 'ally' ? '明教' : '六大派';
+    const ac = unit.camp === CAMP_TYPES.ALLY ? 'blue' : 'orange';
+    const dc = target.camp === CAMP_TYPES.ALLY ? 'blue' : 'orange';
+    const campA = unit.camp === CAMP_TYPES.ALLY ? '明教' : '六大派';
+    const campD = target.camp === CAMP_TYPES.ALLY ? '明教' : '六大派';
     const displayAtk = snap.attackerAtkDisplay !== undefined ? snap.attackerAtkDisplay : Math.floor(unit.atk + unit.atk * fact.attackerBuffStats.atkBonus);
     const displayDef = snap.targetDefDisplay !== undefined ? snap.targetDefDisplay : Math.floor(target.def + target.def * fact.defenderBuffStats.defBonus);
     const unitHpBefore = snap.attackerHp !== undefined ? snap.attackerHp : Math.floor(unit.hp);
@@ -145,7 +145,7 @@ export function renderAttackFact(fact) {
     let baseRaw = 0;
     const fmtBonusEntries = (dmgCalc.bonusDmgEntries || []).filter(e => e.value > 0);
     const fmtMultiplierEntries = (dmgCalc.dmgMultiplierEntries || []).filter(e => e.value > 1);
-    if (unitRole === '防战') {
+    if (unitRole === ROLE_TYPES.DEFENDER) {
         const penPart = calcDamage(dmgCalc.atkAct, dmgCalc.defAct);
         const defForFormula = snap.attackerDef !== undefined ? snap.attackerDef : Math.floor(unit.def);
         const mForFormula = snap.attackerM !== undefined ? snap.attackerM : unit.m;
@@ -198,8 +198,8 @@ export function renderAttackFact(fact) {
 }
 
 export function renderEmptyTargetFact(fact) {
-    const ac = fact.attacker.camp === 'ally' ? 'blue' : 'orange';
-    const campA = fact.attacker.camp === 'ally' ? '明教' : '六大派';
+    const ac = fact.attacker.camp === CAMP_TYPES.ALLY ? 'blue' : 'orange';
+    const campA = fact.attacker.camp === CAMP_TYPES.ALLY ? '明教' : '六大派';
     return {
         type:'attack-group',
         uidA: fact.attacker.uid,
@@ -221,10 +221,10 @@ export function renderEmptyTargetFact(fact) {
 export function renderImmuneFact(fact) {
     const unit = fact.attacker;
     const target = fact.target;
-    const ac = unit.camp === 'ally' ? 'blue' : 'orange';
-    const dc = target.camp === 'ally' ? 'blue' : 'orange';
-    const campA = unit.camp === 'ally' ? '明教' : '六大派';
-    const campD = target.camp === 'ally' ? '明教' : '六大派';
+    const ac = unit.camp === CAMP_TYPES.ALLY ? 'blue' : 'orange';
+    const dc = target.camp === CAMP_TYPES.ALLY ? 'blue' : 'orange';
+    const campA = unit.camp === CAMP_TYPES.ALLY ? '明教' : '六大派';
+    const campD = target.camp === CAMP_TYPES.ALLY ? '明教' : '六大派';
     const immuneGroup = {
         type:'attack-group',
         uidA:unit.uid,
@@ -261,11 +261,11 @@ export function renderImmuneFact(fact) {
 // ==================== 掉落 / 破防 ====================
 export function renderDropFact(fact) {
     if (!fact) return null;
-    if (fact.kind === 'token') {
-        return { type:'info', text:`<span class="gold">🔥 圣火令掉落！${fact.killerName} 击杀 ${fact.victimName}，获得1枚圣火令！当前总数：${fact.total}</span>`, fastEntry: true, unitUid: fact.unitUid, dropKind: 'token' };
+    if (fact.kind === DROP_TYPES.TOKEN) {
+        return { type:'info', text:`<span class="gold">🔥 圣火令掉落！${fact.killerName} 击杀 ${fact.victimName}，获得1枚圣火令！当前总数：${fact.total}</span>`, fastEntry: true, unitUid: fact.unitUid, dropKind: DROP_TYPES.TOKEN };
     }
-    if (fact.kind === 'chest') {
-        return { type:'info', text:`<span class="gold">🎁 宝箱掉落！${fact.killerName} 击杀 ${fact.victimName}，获得1个宝箱！当前总数：${fact.total}</span>`, fastEntry: true, unitUid: fact.unitUid, dropKind: 'chest' };
+    if (fact.kind === DROP_TYPES.CHEST) {
+        return { type:'info', text:`<span class="gold">🎁 宝箱掉落！${fact.killerName} 击杀 ${fact.victimName}，获得1个宝箱！当前总数：${fact.total}</span>`, fastEntry: true, unitUid: fact.unitUid, dropKind: DROP_TYPES.CHEST };
     }
     return null;
 }
@@ -280,7 +280,7 @@ export function renderHorseDestroyFact(fact) {
         return {
             type:'buff-destroy',
             text:`<span class="gray">🐴 拒马阵：${fact.pos}号位拒马消散（成功率${fact.prob}%，${fact.roll}）</span>`,
-            buffType:'destroy',
+            buffType: BUFF_SUBTYPES.DESTROY,
             horseUid: fact.horseUid,
             needsSeparator: true
         };
@@ -302,28 +302,28 @@ export function renderZhangSwitchFact(fact) {
 export function renderBuffSummaryFact(buff, allyTeam, doubleStrikeUid) {
     switch (buff.key) {
         case BUFF_TYPES.BLOODTHIRST:
-            let btUnits = allyTeam.filter(u => u.alive && u.role === '战士');
-            if (btUnits.length > 0) return {type:'buff-summary', text:`<span class="gold">🗡️ 嗜血狂刀：${btUnits.map(u=>u.name).join('、')} 攻击吸血${Math.round(CONFIG.BUFFS.bloodthirst.leechRatio*100)}%</span>`, buffType:'buff_stat'};
+            let btUnits = allyTeam.filter(u => u.alive && u.role === ROLE_TYPES.WARRIOR);
+            if (btUnits.length > 0) return {type:'buff-summary', text:`<span class="gold">🗡️ 嗜血狂刀：${btUnits.map(u=>u.name).join('、')} 攻击吸血${Math.round(CONFIG.BUFFS.bloodthirst.leechRatio*100)}%</span>`, buffType: BUFF_SUBTYPES.BUFF_STAT};
             break;
         case BUFF_TYPES.HOT_BLOOD:
             let hbUnits = allyTeam.filter(u => u.alive);
-            if (hbUnits.length > 0) return {type:'buff-summary', text:`<span class="gold">❤️ 热血奋战：${hbUnits.map(u=>u.name).join('、')} 攻击回血${Math.round(CONFIG.BUFFS.hotBlood.leechRatio*100)}%（每3次翻倍）</span>`, buffType:'buff_stat'};
+            if (hbUnits.length > 0) return {type:'buff-summary', text:`<span class="gold">❤️ 热血奋战：${hbUnits.map(u=>u.name).join('、')} 攻击回血${Math.round(CONFIG.BUFFS.hotBlood.leechRatio*100)}%（每3次翻倍）</span>`, buffType: BUFF_SUBTYPES.BUFF_STAT};
             break;
         case BUFF_TYPES.FORTIFY:
-            let ftUnits = allyTeam.filter(u => u.alive && u.role === '防战');
-            if (ftUnits.length > 0) return {type:'buff-summary', text:`<span class="gold">🛡️ 严阵以待：${ftUnits.map(u=>u.name).join('、')} 防御+${Math.round(CONFIG.BUFFS.fortify.defBonus*100)}% 反弹50%</span>`, buffType:'buff_stat'};
+            let ftUnits = allyTeam.filter(u => u.alive && u.role === ROLE_TYPES.DEFENDER);
+            if (ftUnits.length > 0) return {type:'buff-summary', text:`<span class="gold">🛡️ 严阵以待：${ftUnits.map(u=>u.name).join('、')} 防御+${Math.round(CONFIG.BUFFS.fortify.defBonus*100)}% 反弹50%</span>`, buffType: BUFF_SUBTYPES.BUFF_STAT};
             break;
         case BUFF_TYPES.CLOUD_BODY:
             let cbUnits = allyTeam.filter(u => u.alive);
-            if (cbUnits.length > 0) return {type:'buff-summary', text:`<span class="gold">💨 流云身法：${cbUnits.map(u=>u.name).join('、')} 闪避+${Math.round(CONFIG.BUFFS.cloudBody.dodgeBonus*100)}%</span>`, buffType:'buff_stat'};
+            if (cbUnits.length > 0) return {type:'buff-summary', text:`<span class="gold">💨 流云身法：${cbUnits.map(u=>u.name).join('、')} 闪避+${Math.round(CONFIG.BUFFS.cloudBody.dodgeBonus*100)}%</span>`, buffType: BUFF_SUBTYPES.BUFF_STAT};
             break;
         case BUFF_TYPES.WIND_ASSAULT:
-            let waUnits = allyTeam.filter(u => u.alive && u.role === '飞行');
-            if (waUnits.length > 0) return {type:'buff-summary', text:`<span class="gold">🦅 乘风突袭：${waUnits.map(u=>u.name).join('、')} 80%波及同行 60%击退（持续3回合）</span>`, buffType:'buff_stat'};
+            let waUnits = allyTeam.filter(u => u.alive && u.role === ROLE_TYPES.FLYER);
+            if (waUnits.length > 0) return {type:'buff-summary', text:`<span class="gold">🦅 乘风突袭：${waUnits.map(u=>u.name).join('、')} 80%波及同行 60%击退（持续3回合）</span>`, buffType: BUFF_SUBTYPES.BUFF_STAT};
             break;
         case BUFF_TYPES.METEOR_SHOWER:
-            let msUnits = allyTeam.filter(u => u.alive && u.role === '远程');
-            if (msUnits.length > 0) return {type:'buff-summary', text:`<span class="gold">☄️ 流星赶月：${msUnits.map(u=>u.name).join('、')} 伤害加深${Math.round(CONFIG.BUFFS.meteorShower.bonusRatio*100)}% 溅射${Math.round(CONFIG.BUFFS.meteorShower.splashRatio*100)}%（主箭降2防，小箭降1防）</span>`, buffType:'buff_stat'};
+            let msUnits = allyTeam.filter(u => u.alive && u.role === ROLE_TYPES.RANGED);
+            if (msUnits.length > 0) return {type:'buff-summary', text:`<span class="gold">☄️ 流星赶月：${msUnits.map(u=>u.name).join('、')} 伤害加深${Math.round(CONFIG.BUFFS.meteorShower.bonusRatio*100)}% 溅射${Math.round(CONFIG.BUFFS.meteorShower.splashRatio*100)}%（主箭降2防，小箭降1防）</span>`, buffType: BUFF_SUBTYPES.BUFF_STAT};
             break;
         case BUFF_TYPES.HOLY_FLAME:
             // 复杂 holyFlame 摘要逻辑，返回 null 避免报错，后续按需补充
@@ -331,12 +331,12 @@ export function renderBuffSummaryFact(buff, allyTeam, doubleStrikeUid) {
         case BUFF_TYPES.DOUBLE_STRIKE:
             break;
         case BUFF_TYPES.MIND_CONTROL:
-            return {type:'buff-summary', text:`<span class="gold">🌀 惑人心智：最前排80%扰乱敌方换位，40%扰乱己方换位</span>`, buffType:'buff_stat'};
+            return {type:'buff-summary', text:`<span class="gold">🌀 惑人心智：最前排80%扰乱敌方换位，40%扰乱己方换位</span>`, buffType: BUFF_SUBTYPES.BUFF_STAT};
         case BUFF_TYPES.CARRY:
             let carryUnit = allyTeam.find(u => u.pos === 5 && u.alive);
             if (carryUnit) {
                 let desc = `👑 你就是carry：${carryUnit.name} 获得队友属性加成`;
-                return {type:'buff-summary', text:`<span class="gold">${desc}</span>`, buffType:'buff_stat'};
+                return {type:'buff-summary', text:`<span class="gold">${desc}</span>`, buffType: BUFF_SUBTYPES.BUFF_STAT};
             }
             break;
     }
@@ -363,9 +363,9 @@ export function renderWindAssaultSplashFact(fact) {
 
 export function renderWindAssaultPushFact(fact) {
     if (fact.behindUnit) {
-        return {type:'buff-push', pushTargetUid: fact.target.uid, behindUid: fact.behindUnit.uid, oldPos: fact.oldPos, newPos: fact.behindPos, behindOldPos: fact.behindOldPos, buffType:'push', text:`<span class="gold" style="font-size:1.1em;">${fact.label}击退！${fact.target.name}从${fact.oldPos}号位击退至${fact.behindPos}号位，${fact.behindUnit.name}被迫从${fact.behindOldPos}号位移至${fact.oldPos}号位</span>`};
+        return {type:'buff-push', pushTargetUid: fact.target.uid, behindUid: fact.behindUnit.uid, oldPos: fact.oldPos, newPos: fact.behindPos, behindOldPos: fact.behindOldPos, buffType: BUFF_SUBTYPES.PUSH, text:`<span class="gold" style="font-size:1.1em;">${fact.label}击退！${fact.target.name}从${fact.oldPos}号位击退至${fact.behindPos}号位，${fact.behindUnit.name}被迫从${fact.behindOldPos}号位移至${fact.oldPos}号位</span>`};
     }
-    return {type:'buff-push', pushTargetUid: fact.target.uid, behindUid: null, oldPos: fact.oldPos, newPos: fact.behindPos, buffType:'push', text:`<span class="gold" style="font-size:1.1em;">${fact.label}击退！${fact.target.name}从${fact.oldPos}号位被击退至${fact.behindPos}号位</span>`};
+    return {type:'buff-push', pushTargetUid: fact.target.uid, behindUid: null, oldPos: fact.oldPos, newPos: fact.behindPos, buffType: BUFF_SUBTYPES.PUSH, text:`<span class="gold" style="font-size:1.1em;">${fact.label}击退！${fact.target.name}从${fact.oldPos}号位被击退至${fact.behindPos}号位</span>`};
 }
 
 export function renderWindAssaultFailFact(fact) {
@@ -391,7 +391,7 @@ export function renderCarryApplyFact(fact) {
 
 // ==================== Buff 召唤 ====================
 export function renderHorseSummonFact(fact) {
-    return {type:'buff-summon', text:`<span class="gold">🐴 拒马阵：拒马出现在${fact.pos}号位！</span>`, buffType:'summon', horsePos: fact.pos, horseUid: fact.horseUid, horseTaunt: fact.horseTaunt || '嘶——！'};
+    return {type:'buff-summon', text:`<span class="gold">🐴 拒马阵：拒马出现在${fact.pos}号位！</span>`, buffType: BUFF_SUBTYPES.SUMMON, horsePos: fact.pos, horseUid: fact.horseUid, horseTaunt: fact.horseTaunt || '嘶——！'};
 }
 
 // ==================== 行动跳过 ====================
@@ -443,10 +443,10 @@ export function renderFortifyShieldFact(fact) {
 
 // ==================== 惑心换位 ====================
 export function renderMindControlSwapFact(fact) {
-    return {type:'buff-swap', uidA: fact.unitA.uid, uidB: fact.unitB.uid, oldPosA: fact.posA, oldPosB: fact.posB, buffType:'swap', text:`<span class="gold">🌀 惑人心智：${fact.posA}号位${fact.unitA.name}与${fact.posB}号位${fact.unitB.name}互换位置！</span>`};
+    return {type:'buff-swap', uidA: fact.unitA.uid, uidB: fact.unitB.uid, oldPosA: fact.posA, oldPosB: fact.posB, buffType: BUFF_SUBTYPES.SWAP, text:`<span class="gold">🌀 惑人心智：${fact.posA}号位${fact.unitA.name}与${fact.posB}号位${fact.unitB.name}互换位置！</span>`};
 }
 export function renderMindControlFailFact(fact) {
-    return {type:'info', text:`<span class="gray">🌀 惑人心智${fact.side === 'enemy' ? '敌方' : '己方'}换位失败（${fact.reason}）</span>`};
+    return {type:'info', text:`<span class="gray">🌀 惑人心智${fact.side === CAMP_TYPES.ENEMY ? '敌方' : '己方'}换位失败（${fact.reason}）</span>`};
 }
 
 // ==================== 乾坤大挪移 ====================
@@ -476,7 +476,7 @@ export function renderKuaiLeHealFact(fact) {
     return {
         type:'info',
         text:`<span class="green">💚 快乐回血：${fact.unitName} 回复${fact.heal}点生命（${fact.layers}层触发），血量 ${fact.hpBefore} → ${fact.hpAfter}</span>`,
-        buffType: 'elite_kuaile_heal',
+        buffType: BUFF_SUBTYPES.ELITE_KUAILE_HEAL,
         zhouUid: fact.unitUid,
         zhouHpAfter: fact.hpAfter,
         isHealEntry: true,
@@ -519,7 +519,7 @@ export function renderXinHunFact(fact) {
     return {
         type:'info',
         text:`<span class="gold">💒 新婚：${fact.attackerName}攻击，${fact.targetName}被扣除${fact.hpDeduct}点血量，叠加一层快乐(${Math.round(fact.healPct*100)}%)！当前快乐层数：${fact.stackCount}</span>`,
-        buffType:'elite_xinhun',
+        buffType: BUFF_SUBTYPES.ELITE_XINHUN,
         zhouUid: fact.zhouUid,
         zhouHpAfter: fact.zhouHpAfter,
         hpDeduct: fact.hpDeduct
@@ -550,7 +550,7 @@ export function renderQianKunDerivedFact(fact) {
         isHealEntry: true,
         healAmount: fact.heal,
         healUnitUid: fact.healTargetUid,
-        buffType: 'qiankun_atk',
+        buffType: BUFF_SUBTYPES.QIANKUN_ATK,
         atkGain: fact.atkGain,
         atkTargetUid: fact.atkTargetUid
     };
@@ -573,7 +573,7 @@ export function renderSpiderFlyFact(fact) {
     return { type:'info', spiderAction:'fly', spiderUid: fact.spiderUid, text:`<span class="gold">🕷️ 飞天：${fact.unitName} ${fact.reason}，免疫本次攻击的 ${fact.incomingDmg||0} 点伤害，化为蜘蛛遁走！剩余次数：${fact.remaining}</span>` };
 }
 export function renderXiaoZhaoHorseFact(fact) {
-    return {type:'buff-summon', text:`<span class="gold">🐴 小昭·妹的拒马在${fact.pos}号位出现！</span>`, buffType:'summon', horsePos: fact.pos, horseUid: fact.horseUid, horseTaunt: '嗷——！'};
+    return {type:'buff-summon', text:`<span class="gold">🐴 小昭·妹的拒马在${fact.pos}号位出现！</span>`, buffType: BUFF_SUBTYPES.SUMMON, horsePos: fact.pos, horseUid: fact.horseUid, horseTaunt: '嗷——！'};
 }
 export function renderSpiderDoubleStrikeFact(fact) {
     return {type:'info', text:`<span class="gold">🕷️ 蝶击：小昭·妹永久概率连击触发！</span>`, isDoubleStrikeBanner:true};
@@ -621,7 +621,7 @@ export function renderRoundEndFact(fact) {
     return { type:'round-end', text:`<div class="separator">———— 第${fact.round}回合结束 ————</div>` };
 }
 export function renderDoubleStrikeSummaryFact(fact) {
-    return { type:'buff-summary', text:`<span class="gold">⚡ 概率连击：${fact.unitName} 80%概率额外攻击一次</span>`, buffType:'buff_stat' };
+    return { type:'buff-summary', text:`<span class="gold">⚡ 概率连击：${fact.unitName} 80%概率额外攻击一次</span>`, buffType: BUFF_SUBTYPES.BUFF_STAT };
 }
 
 // ==================== 张无忌台词 ====================
@@ -646,7 +646,7 @@ export function renderSpiderDeadTargetFact(fact) {
     return { type:'info', text:`<span class="gray">🕷️ 蛛袭：目标已死亡，攻击取消</span>` };
 }
 export function renderXingFenGrantFact(fact) {
-    return { type:'buff-summary', text:`<span class="gold">💗 性奋：${fact.songName} 受${fact.zhouName}激励，本回合每次攻击后可再次攻击！</span>`, buffType:'elite_xingfen' };
+    return { type:'buff-summary', text:`<span class="gold">💗 性奋：${fact.songName} 受${fact.zhouName}激励，本回合每次攻击后可再次攻击！</span>`, buffType: BUFF_SUBTYPES.ELITE_XINGFEN };
 }
 export function renderClawHitFact(fact) {
     return { type:'info', text:`<span style="color:#222">🐾 九阴白骨爪${fact.depth>0?'连锁':'追击'}！${fact.unitName} 对 ${fact.targetName} 造成 ${fact.dmg} 点伤害${fact.isExecute?'（斩杀）':(fact.jealous?'【嫉妒】':'')}</span>` };

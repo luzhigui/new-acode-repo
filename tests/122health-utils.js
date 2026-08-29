@@ -1,6 +1,6 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// tests/122health-utils.js - 光明顶5v5 体检公共检查函数库
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// tests/122health-utils.js - 光明顶5v5 体检公共检查函数库
 // V5.6.2 | 2026-08-26 buff key 收敛为 infra/56-battle-enums 的 BUFF_TYPES（删除本地第二事实源）
-import { BUFF_TYPES } from '../infra/56-battle-enums.js';
+import { BUFF_TYPES, CAMP_TYPES, ROLE_TYPES } from '../infra/56-battle-enums.js';
 export const VER = 'tests/122health-utils.js V5.6.2';
 
 /**
@@ -8,10 +8,10 @@ export const VER = 'tests/122health-utils.js V5.6.2';
  */
 export function getCellElement(unit, doc) {
     if (!unit || unit.pos == null) return null;
-    const gridId = unit.camp === 'ally' ? 'allyGrid' : 'enemyGrid';
+    const gridId = unit.camp === CAMP_TYPES.ALLY ? 'allyGrid' : 'enemyGrid';
     const grid = doc.getElementById(gridId);
     if (!grid) return null;
-    const order = unit.camp === 'enemy' ? [7,8,9,4,5,6,1,2,3] : [1,2,3,4,5,6,7,8,9];
+    const order = unit.camp === CAMP_TYPES.ENEMY ? [7,8,9,4,5,6,1,2,3] : [1,2,3,4,5,6,7,8,9];
     const idx = order.indexOf(unit.pos);
     return idx >= 0 ? grid.children[idx] : null;
 }
@@ -143,7 +143,7 @@ export function checkMeleeFxState(ctx, doc) {
 
     for (const u of allUnits) {
         if (!u.alive || u.isHorse) continue;
-        if (u.role !== '战士' && u.role !== '防战' && u.role !== '飞行') continue;
+        if (u.role !== ROLE_TYPES.WARRIOR && u.role !== ROLE_TYPES.DEFENDER && u.role !== ROLE_TYPES.FLYER) continue;
 
         const cell = getCellElement(u, doc);
         if (!cell) continue;
@@ -213,10 +213,10 @@ export function checkBuffIcons(ctx, doc) {
                 const actualPos = cell ? parseInt(cell.dataset.pos) : unit.pos;
                 return actualPos === 5 && unit.alive;
             }
-            case BUFF_TYPES.METEOR_SHOWER: return unit.role === '远程';
-            case BUFF_TYPES.BLOODTHIRST: return unit.role === '战士';
-            case BUFF_TYPES.FORTIFY: return unit.role === '防战';
-            case BUFF_TYPES.WIND_ASSAULT: return unit.role === '飞行';
+            case BUFF_TYPES.METEOR_SHOWER: return unit.role === ROLE_TYPES.RANGED;
+            case BUFF_TYPES.BLOODTHIRST: return unit.role === ROLE_TYPES.WARRIOR;
+            case BUFF_TYPES.FORTIFY: return unit.role === ROLE_TYPES.DEFENDER;
+            case BUFF_TYPES.WIND_ASSAULT: return unit.role === ROLE_TYPES.FLYER;
             case BUFF_TYPES.CLOUD_BODY: return true;
         case BUFF_TYPES.HOLY_FLAME: {
             if (!activeBuffs) return false;

@@ -2,6 +2,8 @@
 // V5.6.0 | ~5200 bytes| 2026-08-21 合并原51-fsm/52-rng/53-battle-event-store/55-battle-math
 export const VER = 'infra/51-core-utils.js V5.6.0';
 
+import { CAMP_TYPES, ROLE_TYPES } from './56-battle-enums.js';
+
 // ==================== 状态机（原51-fsm.js） ====================
 export class StateMachine {
     constructor(states, initialState, transitions) {
@@ -167,8 +169,8 @@ export function getBloodAuraBonus(allUnits) {
 }
 
 export function getAuraBonuses(unit, allySide, enemySide) {
-    if (unit.role !== '飞行' || unit.isHorse) return { emptyCol: 0, bloodAura: 0 };
-    const isAlly = unit.camp === 'ally';
+    if (unit.role !== ROLE_TYPES.FLYER || unit.isHorse) return { emptyCol: 0, bloodAura: 0 };
+    const isAlly = unit.camp === CAMP_TYPES.ALLY;
     const mySide = isAlly ? allySide : enemySide;
     const oppSide = isAlly ? enemySide : allySide;
     const emptyCols = countEnemyEmptyCols(oppSide);

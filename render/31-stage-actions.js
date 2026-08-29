@@ -3,7 +3,7 @@
 export const VER = 'render/31-stage-actions.js V5.7.8';
 
 import { makeFXSnapshot } from '../infra/51-core-utils.js';
-import { STAGE_ACTION_TYPES, FACT_TYPES } from '../infra/56-battle-enums.js';
+import { STAGE_ACTION_TYPES, FACT_TYPES, BUFF_EFFECT_TYPES, FLY_MODE_TYPES, CAMP_TYPES } from '../infra/56-battle-enums.js';
 
 /**
  * 把一步的 fact 列表翻译成舞台动作列表。
@@ -188,7 +188,7 @@ function translateFact(entry, index) {
             return data.atkTargetUid && data.atkGain
                 ? {
                     kind: STAGE_ACTION_TYPES.BUFF_EFFECT,
-                    effectType: 'atkBuff',
+                    effectType: BUFF_EFFECT_TYPES.ATK_BUFF,
                     targetUid: data.atkTargetUid,
                     gain: data.atkGain,
                     factIndex: index,
@@ -236,7 +236,7 @@ function translateFact(entry, index) {
             return {
                 kind: STAGE_ACTION_TYPES.FLY_MODE,
                 actorUid: data.spiderUid ?? data.unitUid ?? null,
-                originalFactType: 'spiderFly',
+                originalFactType: FLY_MODE_TYPES.SPIDER_FLY,
                 factIndex: index,
                 timing: 'beforeText'
             };
@@ -244,7 +244,7 @@ function translateFact(entry, index) {
             return {
                 kind: STAGE_ACTION_TYPES.FLY_MODE,
                 actorUid: data.spiderUid ?? data.unitUid ?? null,
-                originalFactType: 'spiderReturn',
+                originalFactType: FLY_MODE_TYPES.SPIDER_RETURN,
                 factIndex: index,
                 timing: 'beforeText'
             };
@@ -253,7 +253,7 @@ function translateFact(entry, index) {
                 kind: STAGE_ACTION_TYPES.FLY_MODE,
                 actorUid: data.sisterUid ?? null,
                 hostUid: data.hostUid ?? null,
-                originalFactType: 'butterflyAttach',
+                originalFactType: FLY_MODE_TYPES.BUTTERFLY_ATTACH,
                 factIndex: index,
                 timing: 'beforeText'
             };
@@ -262,7 +262,7 @@ function translateFact(entry, index) {
                 kind: STAGE_ACTION_TYPES.FLY_MODE,
                 actorUid: data.sisterUid ?? null,
                 hostUid: data.hostUid ?? null,
-                originalFactType: 'butterflyReturn',
+                originalFactType: FLY_MODE_TYPES.BUTTERFLY_RETURN,
                 factIndex: index,
                 timing: 'beforeText'
             };
@@ -312,7 +312,7 @@ function translateFact(entry, index) {
         case FACT_TYPES.XIN_HUN:
             return {
                 kind: STAGE_ACTION_TYPES.BUFF_EFFECT,
-                effectType: 'xinHun',
+                effectType: BUFF_EFFECT_TYPES.XIN_HUN,
                 targetUid: data.zhouUid ?? null,
                 dmg: data.hpDeduct ?? 0,
                 factIndex: index,
@@ -362,7 +362,7 @@ function makeAttackAction(data, index) {
         if (e.type === 'buff-splash' || (e.factType && [FACT_TYPES.METEOR_SHOWER_SPLASH, FACT_TYPES.WIND_ASSAULT_SPLASH].includes(e.factType))) {
             afterTextEffects.push({
                 kind: STAGE_ACTION_TYPES.BUFF_EFFECT,
-                effectType: 'splash',
+                effectType: BUFF_EFFECT_TYPES.SPLASH,
                 attackerUid: e.attackerUid ?? attacker?.uid ?? null,
                 primaryUid: e.primaryUid ?? target?.uid ?? null,
                 splashUids: e.splashUids ?? (e.data?.targets?.map(t => t.uid) ?? []),
@@ -374,7 +374,7 @@ function makeAttackAction(data, index) {
         } else if (e.isClawHit || (e.factType && [FACT_TYPES.CLAW_HIT, FACT_TYPES.CLAW_EXECUTE].includes(e.factType))) {
             afterTextEffects.push({
                 kind: STAGE_ACTION_TYPES.BUFF_EFFECT,
-                effectType: 'boneClaw',
+                effectType: BUFF_EFFECT_TYPES.BONE_CLAW,
                 attackerUid: e.clawAttackerUid ?? attacker?.uid ?? null,
                 targetUid: e.clawTargetUid ?? target?.uid ?? null,
                 dmg: e.data?.dmg ?? null,
@@ -385,7 +385,7 @@ function makeAttackAction(data, index) {
         } else if (e.buffType === 'qiankun_atk' && e.atkTargetUid && e.atkGain) {
             afterTextEffects.push({
                 kind: STAGE_ACTION_TYPES.BUFF_EFFECT,
-                effectType: 'atkBuff',
+                effectType: BUFF_EFFECT_TYPES.ATK_BUFF,
                 targetUid: e.atkTargetUid,
                 gain: e.atkGain,
                 factIndex: index,
@@ -401,7 +401,7 @@ function makeAttackAction(data, index) {
             hpPctEffects.push({
                 kind: STAGE_ACTION_TYPES.HP_PCT_DANMAKU,
                 targetUid: target?.uid ?? null,
-                text: target?.camp === 'ally' ? '不好，必须反击了！' : '小儿安敢伤我！',
+                text: target?.camp === CAMP_TYPES.ALLY ? '不好，必须反击了！' : '小儿安敢伤我！',
                 factIndex: index,
                 timing: 'afterText'
             });
@@ -409,7 +409,7 @@ function makeAttackAction(data, index) {
             hpPctEffects.push({
                 kind: STAGE_ACTION_TYPES.HP_PCT_DANMAKU,
                 targetUid: target?.uid ?? null,
-                text: target?.camp === 'ally' ? '撑住！' : '已是强弩之末！',
+                text: target?.camp === CAMP_TYPES.ALLY ? '撑住！' : '已是强弩之末！',
                 factIndex: index,
                 timing: 'afterText'
             });
@@ -463,7 +463,7 @@ export const STAGE_ACTION_DEFS = {
     [STAGE_ACTION_TYPES.SPIDER_STRIKE]: { grid: 'sync', fx: 'sync', log: 'sync', timing: 'beforeText' },
     [STAGE_ACTION_TYPES.BUFF_EFFECT]: {
         grid: 'none', fx: 'sync', log: 'sync',
-        timing: (action) => (action && action.effectType === 'xinHun') ? 'beforeText' : 'afterText'
+        timing: (action) => (action && action.effectType === BUFF_EFFECT_TYPES.XIN_HUN) ? 'beforeText' : 'afterText'
     },
     [STAGE_ACTION_TYPES.HP_PCT_DANMAKU]: { grid: 'none', fx: 'sync', log: 'sync', timing: 'afterText' }
 };

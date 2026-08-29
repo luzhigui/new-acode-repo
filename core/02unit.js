@@ -9,6 +9,8 @@ import { StateMachine } from '../infra/51-core-utils.js';
 import { BATTLE_FIELD_KEYS, PERMANENT_FIELD_KEYS, copyBattleStateFields, resetStateFields } from './17-state-keys.js';
 import { getEliteState, cloneEliteState } from './18-elite-state.js';
 
+import { ROLE_TYPES } from '../infra/56-battle-enums.js';
+
 let _uidCounter = 0;
 
 // 职业初始加成：唯一来源 content/200game-data.json 的 roles.*.bonus
@@ -90,7 +92,7 @@ export class Unit {
         if (!rng) throw new Error('Unit.init() requires a SeededRNG instance');
         let hp=rng.nextInt(Math.ceil(this.m*0.4),Math.floor(this.m*0.6)),rem=this.m-hp,a,d;
         // 攻防差约束：防战要求 d-a≤20、非防战要求 a-d∈[3,13]，把两类角色的攻防差锁定在合理区间，避免出现极端攻防失衡
-        if(this.role==='防战'){
+        if(this.role===ROLE_TYPES.DEFENDER){
             const dMin=Math.ceil(rem*0.5);
             const dMax=rem-1;
             const dMinTenth=dMin*10, dMaxTenth=dMax*10;

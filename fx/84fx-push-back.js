@@ -1,15 +1,15 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// fx/84fx-push-back.js - 光明顶5v5 击退特效
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// fx/84fx-push-back.js - 光明顶5v5 击退特效
 // V5.5.0 | ~5600 bytes| 2026-07-11 支持 skipDataChange 参数
 export const VER = 'fx/84fx-push-back.js V5.5.0';
 
 import { GlobalStore } from '../infra/54-global-store.js';
-import { STORE_ACTION_TYPES } from '../infra/56-battle-enums.js';
+import { STORE_ACTION_TYPES, UNIT_EVENT_TYPES, CAMP_TYPES } from '../infra/56-battle-enums.js';
 
 function getCellElement(unit) {
     if (!unit || unit.pos == null) return null;
-    const grid = document.getElementById(unit.camp === 'ally' ? 'allyGrid' : 'enemyGrid');
+    const grid = document.getElementById(unit.camp === CAMP_TYPES.ALLY ? 'allyGrid' : 'enemyGrid');
     if (!grid) return null;
-    const order = unit.camp === 'enemy' ? [7,8,9,4,5,6,1,2,3] : [1,2,3,4,5,6,7,8,9];
+    const order = unit.camp === CAMP_TYPES.ENEMY ? [7,8,9,4,5,6,1,2,3] : [1,2,3,4,5,6,7,8,9];
     const idx = order.indexOf(unit.pos);
     return idx >= 0 ? grid.children[idx] : null;
 }
@@ -23,7 +23,7 @@ export async function animatePushBack(unit, c, targetPos, options = {}) {
     const oldPos = unit.pos;
 
     cell.style.transition = 'transform 0.3s ease-out';
-    cell.style.transform = unit.camp === 'ally' ? 'translateY(20px)' : 'translateY(-20px)';
+    cell.style.transform = unit.camp === CAMP_TYPES.ALLY ? 'translateY(20px)' : 'translateY(-20px)';
     await wait(300);
 
     cell.style.transition = 'transform 0.2s ease-in';
@@ -33,7 +33,7 @@ export async function animatePushBack(unit, c, targetPos, options = {}) {
     if (!skipDataChange) {
         if (c.store) {
             c.store.dispatch({ type: STORE_ACTION_TYPES.APPLY_EVENTS, events: [
-                { eventType: 'pos-change', uid: unit.uid, pos: targetPos }
+                { eventType: UNIT_EVENT_TYPES.POS_CHANGE, uid: unit.uid, pos: targetPos }
             ]});
         } else {
             unit.pos = targetPos;
@@ -81,7 +81,7 @@ export async function animatePushSwap(frontUnit, rearUnit, c) {
     cellF.style.transition = 'transform 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94)';
     cellF.style.transform = `translate(${dx}px, ${dy}px)`;
 
-    const rotateDir = (frontUnit.camp === 'ally') ? 1 : -1;
+    const rotateDir = (frontUnit.camp === CAMP_TYPES.ALLY) ? 1 : -1;
     cellR.style.transition = 'transform 0.35s ease-out';
     cellR.style.transform = `translate(${dx * 0.3}px, ${dy * 0.3}px) rotate(${15 * rotateDir}deg)`;
     await wait(350);
@@ -113,8 +113,8 @@ export async function animatePushSwap(frontUnit, rearUnit, c) {
 
     if (c.store) {
         c.store.dispatch({ type: STORE_ACTION_TYPES.APPLY_EVENTS, events: [
-            { eventType: 'pos-change', uid: frontUnit.uid, pos: posR },
-            { eventType: 'pos-change', uid: rearUnit.uid, pos: posF }
+            { eventType: UNIT_EVENT_TYPES.POS_CHANGE, uid: frontUnit.uid, pos: posR },
+            { eventType: UNIT_EVENT_TYPES.POS_CHANGE, uid: rearUnit.uid, pos: posF }
         ]});
     } else {
         frontUnit.pos = posR;

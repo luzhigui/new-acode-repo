@@ -16,7 +16,7 @@ import { processUnitAttack } from './10battle-attack.js';
 import { eventBus, EXECUTION_LAYER as L, registerSettlementHook } from '../infra/50-event-bus.js';
 import { getNextAvailableUnit, finalizeDeaths, emitFullUnitState, checkZhangSwitch, emitEvent, applyStatChange, setBattleRng } from './13battle-shared.js';
 import { getEliteState, setEliteState, cloneEliteState, resetEliteRoundState } from './18-elite-state.js';
-import { FACT_TYPES, BUFF_TYPES } from '../infra/56-battle-enums.js';
+import { FACT_TYPES, BUFF_TYPES, UNIT_EVENT_TYPES, CAMP_TYPES, ROLE_TYPES, SIGNAL_TYPES } from '../infra/56-battle-enums.js';
 import { flushBattleEvents, setBattleState } from '../infra/51-core-utils.js';
 import { SeededRNG } from '../infra/51-core-utils.js';
 import { resolveDeaths } from './12battle-attack-steps.js';
@@ -25,8 +25,8 @@ import { translateFactsToStageActions } from '../render/31-stage-actions.js';
 const C = CONFIG;
 
 async function prepareRoundStart(A, B, log, state, round, rng) {
-    A._activeBuffs = state.activeBuffs.filter(b => b.target === 'ally' || !b.target);
-    B._activeBuffs = state.activeBuffs.filter(b => b.target === 'enemy');
+    A._activeBuffs = state.activeBuffs.filter(b => b.target === CAMP_TYPES.ALLY || !b.target);
+    B._activeBuffs = state.activeBuffs.filter(b => b.target === CAMP_TYPES.ENEMY);
 
     const xiaoZhao = A.find(u => (u.isXiaoZhaoSister || u.isXiaoZhaoBrother) && u.alive);
 
@@ -63,7 +63,7 @@ async function prepareRoundStart(A, B, log, state, round, rng) {
     log.filter(l => l.factType === 'horseSummon').forEach(hl => {
         const horse = A.find(u => u.uid === hl.data.horseUid);
         if (horse) {
-            emitFullUnitState(horse, 'unit-add');
+            emitFullUnitState(horse, UNIT_EVENT_TYPES.UNIT_ADD);
         }
     });
 
@@ -86,7 +86,7 @@ async function prepareRoundStart(A, B, log, state, round, rng) {
         return b;
     });
     A.forEach(u => {
-        if (u.alive && u.camp === 'ally') {
+        if (u.alive && u.camp === CAMP_TYPES.ALLY) {
             applyHolyFlameBonus(u, A._activeBuffs || [], hasSisterForHolyFlame);
         }
     });
@@ -102,19 +102,19 @@ async function prepareRoundStart(A, B, log, state, round, rng) {
     registerFortifyShield(eventBus);
     registerWarriorExecute(eventBus);
     installBuffMechanics(eventBus);
-    registerSettlementHook(eventBus, {
-        when: 'beforeActionSelect',
+    registerSettlementHook({
+        when: SIGNAL_TYPES.BEFORE_ACTION_SELECT,
         priority: L.BEFORE_ACTION.KULIAN_PRIORITY,
         handler: (data) => {
             if (data.unit.name !== '宋青书' || !data.unit.alive || !getEliteState(data.unit.uid)._kuLianActive) return;
             data.declaration.priority = 1;
         }
     });
-    registerSettlementHook(eventBus, {
-        when: 'beforeSelectTarget',
+    registerSettlementHook({
+        when: SIGNAL_TYPES.BEFORE_SELECT_TARGET,
         priority: L.BEFORE_SELECT_TARGET.FLY_TARGET,
         handler: (data) => {
-            if (data.unit.role !== '飞行' || data.unit.isWei) return;
+            if (data.unit.role !== ROLE_TYPES.FLYER || data.unit.isWei) return;
             const flyTarget = selectFlyTarget(data.unit, data.enemySide);
             if (flyTarget) data.targetResult = flyTarget;
         }
@@ -128,11 +128,11 @@ async function prepareRoundStart(A, B, log, state, round, rng) {
     const allUnits = [...A, ...B];
     for (const u of allUnits) {
         if (!u.alive) continue;
-        if (u.isXiaoZhaoSister && u.camp === 'ally') {
+        if (u.isXiaoZhaoSister && u.camp === CAMP_TYPES.ALLY) {
             const Factory = factories.get('小昭·姊');
             if (Factory && !sisterComp) sisterComp = Factory();
             if (sisterComp) sisterComp.register(eventBus, A, B, log);
-        } else if (u.isXiaoZhaoBrother && u.camp === 'ally') {
+        } else if (u.isXiaoZhaoBrother && u.camp === CAMP_TYPES.ALLY) {
             const Factory = factories.get('小昭·妹');
             if (Factory && !brotherComp) brotherComp = Factory();
             if (brotherComp) brotherComp.register(eventBus, A, B, log);
@@ -157,13 +157,13 @@ async function prepareRoundStart(A, B, log, state, round, rng) {
     const he = B.find(u => u.name === '鹤笔翁' && u.alive);
     if (lu && he) { setEliteState(lu.uid, { _linkedPartnerUid: he.uid }); setEliteState(he.uid, { _linkedPartnerUid: lu.uid }); }
 
-    eventBus.emit('onRoundStart', { A, B, log });
+    eventBus.emit(SIGNAL_TYPES.ON_ROUND_START, { A, B, log });
 
     A._butterflyTriggered = false;
             A._mindControlTriggered = false;
     A.forEach(u => {
         if (!u.alive) return;
-        emitEvent(u, 'hp-change', { hp: u.hp, maxHp: u.maxHp, alive: u.alive, atk: u.atk, def: u.def, _stunned: false });
+        emitEvent(u, UNIT_EVENT_TYPES.HP_CHANGE, { hp: u.hp, maxHp: u.maxHp, alive: u.alive, atk: u.atk, def: u.def, _stunned: false });
         let allyTeamWithDead = A.slice();
         let hasCarryActive = hasBuff(A._activeBuffs, BUFF_TYPES.CARRY);
         if (hasCarryActive) {
@@ -175,14 +175,14 @@ async function prepareRoundStart(A, B, log, state, round, rng) {
         applyHolyFlameBonus(u, A._activeBuffs || [], hasSisterForHolyFlame);
         applyFortifyBonus(u, A._activeBuffs || []);
 
-        emitEvent(u, 'stat-bonus-change', {
+        emitEvent(u, UNIT_EVENT_TYPES.STAT_BONUS_CHANGE, {
             buffAtkBonus: stats.atkBonus,
             buffDefBonus: stats.defBonus,
             buffDodgeBonus: stats.dodgeBonus,
             buffHpBonus: stats.hpBonus
         });
-        emitEvent(u, 'hp-change', { hp: u.hp, maxHp: u.maxHp, alive: u.alive, atk: u.atk, def: u.def, buffAtkBonus: u.buffAtkBonus, buffDefBonus: u.buffDefBonus, _holyAtkBonus: u.state._holyAtkBonus, _holyDefBonus: u.state._holyDefBonus, _fortifyDefBonus: u.state._fortifyDefBonus, _emptyColBonus: u.state._emptyColBonus, _bloodAuraBonus: u.state._bloodAuraBonus, _carryAtkBonus: getEliteState(u.uid)._carryAtkBonus, _carryDefBonus: getEliteState(u.uid)._carryDefBonus });
-        emitEvent(u, 'stat-bonus-change', {
+        emitEvent(u, UNIT_EVENT_TYPES.HP_CHANGE, { hp: u.hp, maxHp: u.maxHp, alive: u.alive, atk: u.atk, def: u.def, buffAtkBonus: u.buffAtkBonus, buffDefBonus: u.buffDefBonus, _holyAtkBonus: u.state._holyAtkBonus, _holyDefBonus: u.state._holyDefBonus, _fortifyDefBonus: u.state._fortifyDefBonus, _emptyColBonus: u.state._emptyColBonus, _bloodAuraBonus: u.state._bloodAuraBonus, _carryAtkBonus: getEliteState(u.uid)._carryAtkBonus, _carryDefBonus: getEliteState(u.uid)._carryDefBonus });
+        emitEvent(u, UNIT_EVENT_TYPES.STAT_BONUS_CHANGE, {
             buffAtkBonus: stats.atkBonus,
             buffDefBonus: stats.defBonus,
             buffDodgeBonus: stats.dodgeBonus,
@@ -197,7 +197,7 @@ async function prepareRoundStart(A, B, log, state, round, rng) {
         applyStatChange(u, 'atk', targetAtk - u.atk, null, '光环加成');
         applyStatChange(u, 'def', targetDef - u.def, null, '光环加成');
 
-        emitEvent(u, 'hp-change', { hp: u.hp, maxHp: u.maxHp, alive: u.alive, atk: u.atk, def: u.def });
+        emitEvent(u, UNIT_EVENT_TYPES.HP_CHANGE, { hp: u.hp, maxHp: u.maxHp, alive: u.alive, atk: u.atk, def: u.def });
 
         // 回合级状态统一重置（查表式，新增回合级字段由 17-state-keys 驱动，无需改这里）
         for (const key of ROUND_STATE_KEYS) {
@@ -217,7 +217,7 @@ async function prepareRoundStart(A, B, log, state, round, rng) {
 
     B.forEach(u => {
         if (!u.alive) return;
-        emitEvent(u, 'hp-change', { hp: u.hp, maxHp: u.maxHp, alive: u.alive, atk: u.atk, def: u.def, _stunned: false });
+        emitEvent(u, UNIT_EVENT_TYPES.HP_CHANGE, { hp: u.hp, maxHp: u.maxHp, alive: u.alive, atk: u.atk, def: u.def, _stunned: false });
         // 回合级状态统一重置（查表式，与 A 队一致）
         for (const key of ROUND_STATE_KEYS) {
             if (key === '_spiderTriggeredThisRound' || key === '_phantomTarget') continue; // 归 resetEliteRoundState 管
@@ -233,7 +233,7 @@ async function prepareRoundStart(A, B, log, state, round, rng) {
         const auraBonuses = getAuraBonuses(u, B, A);
         const targetAtk = (u._baseAtk || u.atk) + auraBonuses.emptyCol + auraBonuses.bloodAura;
         applyStatChange(u, 'atk', targetAtk - u.atk, null, '光环加成');
-        emitEvent(u, 'hp-change', { hp: u.hp, maxHp: u.maxHp, alive: u.alive, atk: u.atk, def: u.def });
+        emitEvent(u, UNIT_EVENT_TYPES.HP_CHANGE, { hp: u.hp, maxHp: u.maxHp, alive: u.alive, atk: u.atk, def: u.def });
     });
 
     const dodgeUnits = [...A, ...B];
@@ -245,8 +245,8 @@ async function prepareRoundStart(A, B, log, state, round, rng) {
             const r = ruleFn(u, null) || 0;
             if (r > 0) rates.push(r);
         }
-        const allyTeam = u.camp === 'ally' ? A : B;
-        const activeBuffs = u.camp === 'ally' ? A._activeBuffs : B._activeBuffs;
+        const allyTeam = u.camp === CAMP_TYPES.ALLY ? A : B;
+        const activeBuffs = u.camp === CAMP_TYPES.ALLY ? A._activeBuffs : B._activeBuffs;
         const buffStats = computeBuffStats(u, activeBuffs, allyTeam);
         if (buffStats.dodgeBonus > 0) rates.push(buffStats.dodgeBonus);
         let product = 1;
@@ -316,7 +316,7 @@ export async function* createRoundStepper(state) {
             stateTransitions.push(...B._pendingStateTransitions);
             B._pendingStateTransitions = [];
         }
-        eventBus.emit('beforeStateTransition', { A, B, log, declarations: stateTransitions });
+        eventBus.emit(SIGNAL_TYPES.BEFORE_STATE_TRANSITION, { A, B, log, declarations: stateTransitions });
         const delayedDecls = [];
         for (const decl of stateTransitions) {
             if (decl.type === 'butterflyAttach') {
@@ -356,13 +356,13 @@ export async function* createRoundStepper(state) {
                 passUnits.push({ unit: u, reason: '飞天/附身' });
                 continue;
             }
-            const fullAllySide = u.camp === 'ally' ? A : B;
+            const fullAllySide = u.camp === CAMP_TYPES.ALLY ? A : B;
             if (isBlocked(u, fullAllySide) && isMelee(u.role)) {
                 passUnits.push({ unit: u, reason: '被遮挡' });
                 continue;
             }
             const decl = { priority: 0, skip: false, pass: false };
-            eventBus.emit('beforeActionSelect', { unit: u, declaration: decl });
+            eventBus.emit(SIGNAL_TYPES.BEFORE_ACTION_SELECT, { unit: u, declaration: decl });
             if (decl.skip) continue;
             if (decl.pass) {
                 passUnits.push({ unit: u, reason: '组件声明pass' });
@@ -391,11 +391,11 @@ export async function* createRoundStepper(state) {
         return { actingUnit: head.unit, passEntry: null, isPriorityAction: head.priority > 0 };
     }
 
-    let currentSide = state._firstSide || 'enemy';
+    let currentSide = state._firstSide || CAMP_TYPES.ENEMY;
 
     while (A.some(u => u.alive && !u.state._acted) || B.some(u => u.alive && !u.state._acted)) {
-        const currentTeam = currentSide === 'ally' ? A : B;
-        if (currentSide === 'ally' && !A._butterflyTriggered) {
+        const currentTeam = currentSide === CAMP_TYPES.ALLY ? A : B;
+        if (currentSide === CAMP_TYPES.ALLY && !A._butterflyTriggered) {
             A._butterflyTriggered = true;
             const sisterForAttach = A.find(u => u.isXiaoZhaoSister && u.alive && !u.state._stunned && !getEliteState(u.uid)._butterflyHost);
             if (sisterForAttach) {
@@ -407,7 +407,7 @@ export async function* createRoundStepper(state) {
         }
         const candidates = currentTeam.filter(u => u.alive && !u.state._acted).sort((a, b) => a.pos - b.pos);
         if (candidates.length === 0) {
-            currentSide = currentSide === 'ally' ? 'enemy' : 'ally';
+            currentSide = currentSide === CAMP_TYPES.ALLY ? CAMP_TYPES.ENEMY : CAMP_TYPES.ALLY;
             continue;
         }
         const orderResult = resolveActionOrder(candidates, log);
@@ -426,7 +426,7 @@ export async function* createRoundStepper(state) {
         }
 
         if (!orderResult.actingUnit) {
-            currentSide = currentSide === 'ally' ? 'enemy' : 'ally';
+            currentSide = currentSide === CAMP_TYPES.ALLY ? CAMP_TYPES.ENEMY : CAMP_TYPES.ALLY;
             continue;
         }
 
@@ -434,14 +434,14 @@ export async function* createRoundStepper(state) {
         let isPriorityAction = orderResult.isPriorityAction;
 
         let unit = actingUnit;
-        let allySide = unit.camp === 'ally' ? A : B;
-        let enemySide = unit.camp === 'ally' ? B : A;
+        let allySide = unit.camp === CAMP_TYPES.ALLY ? A : B;
+        let enemySide = unit.camp === CAMP_TYPES.ALLY ? B : A;
 
         unit.state._blocked = isBlocked(unit, allySide);
         unit.survivedRounds++;
-        emitEvent(unit, 'hp-change', { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: unit.atk, def: unit.def, survivedRounds: unit.survivedRounds });
+        emitEvent(unit, UNIT_EVENT_TYPES.HP_CHANGE, { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: unit.atk, def: unit.def, survivedRounds: unit.survivedRounds });
 
-        if (unit.camp === 'ally' && unit.isXiaoZhaoSister && !(unit._fsm && unit._fsm.is('attached')) && !A._butterflyTriggered) {
+        if (unit.camp === CAMP_TYPES.ALLY && unit.isXiaoZhaoSister && !(unit._fsm && unit._fsm.is('attached')) && !A._butterflyTriggered) {
             isPriorityAction = true;
         }
 
@@ -450,13 +450,13 @@ export async function* createRoundStepper(state) {
         resolveDeaths(A, B, log);
 
         if (!isPriorityAction) {
-            currentSide = currentSide === 'ally' ? 'enemy' : 'ally';
+            currentSide = currentSide === CAMP_TYPES.ALLY ? CAMP_TYPES.ENEMY : CAMP_TYPES.ALLY;
         }
 
         finalizeDeaths(A);
         finalizeDeaths(B);
         const endStateTransitions = [];
-        eventBus.emit('onRoundEnd', { A, B, log, forced: false, declarations: endStateTransitions });
+        eventBus.emit(SIGNAL_TYPES.ON_ROUND_END, { A, B, log, forced: false, declarations: endStateTransitions });
         for (const decl of endStateTransitions) {
             if (!A._pendingStateTransitions) A._pendingStateTransitions = [];
             const dedupeKey = decl.type + ':' + (decl.unit?.uid || decl.sister?.uid || '');
@@ -473,7 +473,7 @@ export async function* createRoundStepper(state) {
         else if (!enemyAlive) { winner = '明教'; done = true; }
 
         if (winner) {
-            eventBus.emit('onRoundEnd', { A, B, log, forced: true });
+            eventBus.emit(SIGNAL_TYPES.ON_ROUND_END, { A, B, log, forced: true });
             const winPendingDecls = [];
             if (A._pendingStateTransitions) { winPendingDecls.push(...A._pendingStateTransitions); A._pendingStateTransitions = []; }
             if (B._pendingStateTransitions) { winPendingDecls.push(...B._pendingStateTransitions); B._pendingStateTransitions = []; }
@@ -532,7 +532,7 @@ function finalizeRoundEnd(A, B, log, round) {
     else if (A.every(c => !c.alive)) { winner = '六大派'; done = true; }
     if (round >= C.MAX_ROUND && !done) { winner = '平局'; done = true; }
 
-    eventBus.emit('onRoundEnd', { A, B, log, forced: true });
+    eventBus.emit(SIGNAL_TYPES.ON_ROUND_END, { A, B, log, forced: true });
 
     if (winner) {
         let losers = winner === '明教' ? B : A;
@@ -540,7 +540,7 @@ function finalizeRoundEnd(A, B, log, round) {
             applyStatChange(u, 'hp', -u.hp, null, '战斗结束', false);
             u.alive = false;
             u.state._isDead = true;
-            emitEvent(u, 'hp-change', { hp: 0, maxHp: u.maxHp, alive: false, atk: u.atk, def: u.def, _isDead: true });
+            emitEvent(u, UNIT_EVENT_TYPES.HP_CHANGE, { hp: 0, maxHp: u.maxHp, alive: false, atk: u.atk, def: u.def, _isDead: true });
         });
     }
 

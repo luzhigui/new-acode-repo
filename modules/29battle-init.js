@@ -5,6 +5,7 @@ export const VER = 'modules/29battle-init.js V5.5.0';
 import { CONFIG } from '../core/01config-5v5-test.js';
 import { Unit } from '../core/02unit.js';
 import { GlobalStore } from '../infra/54-global-store.js';
+import { CAMP_TYPES, ROLE_TYPES } from '../infra/56-battle-enums.js';
 
 const C = CONFIG;
 
@@ -21,9 +22,9 @@ export function initBattleTeams(currentStage, _rng) {
 
     // 精英出场率：80%一个、15%两个、5%三个，按 ELITE_RATE 权重选人
     const eliteConfigs = [
-        { name: '张无忌', m: 115, role: '远程', isZhang: true, power: elitePower['张无忌'] || 140 },
-        { name: '韦一笑', m: 107, role: '飞行', isWei: true, power: elitePower['韦一笑'] || 120 },
-        { name: '小昭', m: 107, role: '远程', isXiaoZhaoBrother: true, power: elitePower['小昭'] || 135 }
+        { name: '张无忌', m: 115, role: ROLE_TYPES.RANGED, isZhang: true, power: elitePower['张无忌'] || 140 },
+        { name: '韦一笑', m: 107, role: ROLE_TYPES.FLYER, isWei: true, power: elitePower['韦一笑'] || 120 },
+        { name: '小昭', m: 107, role: ROLE_TYPES.RANGED, isXiaoZhaoBrother: true, power: elitePower['小昭'] || 135 }
     ];
     const eliteRoll = _rng.next();
     let eliteCount;
@@ -47,7 +48,7 @@ export function initBattleTeams(currentStage, _rng) {
         if (forceZhang) {
             const cfg = eliteConfigs.find(c => c.name === '张无忌');
             if (cfg && !allyTeam.some(u => u.name === '张无忌')) {
-                let unit = new Unit(cfg.name, cfg.m, cfg.role, 'ally');
+                let unit = new Unit(cfg.name, cfg.m, cfg.role, CAMP_TYPES.ALLY);
                 unit.isZhang = true;
                 unit.init(_rng); unit.applyBonus();
                 unit.pos = null;
@@ -58,7 +59,7 @@ export function initBattleTeams(currentStage, _rng) {
         if (forceWei) {
             const cfg = eliteConfigs.find(c => c.name === '韦一笑');
             if (cfg && !allyTeam.some(u => u.name === '韦一笑')) {
-                let unit = new Unit(cfg.name, cfg.m, cfg.role, 'ally');
+                let unit = new Unit(cfg.name, cfg.m, cfg.role, CAMP_TYPES.ALLY);
                 unit.isWei = true;
                 unit.init(_rng); unit.applyBonus();
                 unit.pos = null;
@@ -92,7 +93,7 @@ export function initBattleTeams(currentStage, _rng) {
         }
 
         for (const c of picked) {
-            let unit = new Unit(c.name, c.m, c.role, 'ally');
+            let unit = new Unit(c.name, c.m, c.role, CAMP_TYPES.ALLY);
             if (c.isZhang) unit.isZhang = true;
             if (c.isWei) unit.isWei = true;
             if (c.isXiaoZhaoBrother) {
@@ -133,7 +134,7 @@ export function initBattleTeams(currentStage, _rng) {
         const idx = remainingCandidates.findIndex(c => c.name === pick.name);
         if (idx >= 0) remainingCandidates.splice(idx, 1);
         const role = C.ROLES[_rand(0, 3)];
-        const unit = new Unit(pick.name, pick.m, role, 'ally');
+        const unit = new Unit(pick.name, pick.m, role, CAMP_TYPES.ALLY);
         unit.init(_rng); unit.applyBonus();
         unit.pos = null;
         allyTeam.push(unit);
@@ -154,7 +155,7 @@ export function initBattleTeams(currentStage, _rng) {
                 allyTeam.splice(allyTeam.indexOf(swappable), 1);
                 remainingPower += (normalPower[swappable.m] || 90);
             }
-            let xzUnit = new Unit('小昭', 107, C.ROLES[_rand(0, 3)], 'ally');
+            let xzUnit = new Unit('小昭', 107, C.ROLES[_rand(0, 3)], CAMP_TYPES.ALLY);
             xzUnit.isXiaoZhaoSister = (forceXzMode === 'sister');
             xzUnit.isXiaoZhaoBrother = (forceXzMode === 'brother');
             xzUnit.name = xzUnit.isXiaoZhaoSister ? '小昭·姊' : '小昭·妹';
@@ -167,10 +168,10 @@ export function initBattleTeams(currentStage, _rng) {
     }
 
     // 至少一个前排
-    if (!allyTeam.some(u => u.role === '防战' || u.role === '战士')) {
+    if (!allyTeam.some(u => u.role === ROLE_TYPES.DEFENDER || u.role === ROLE_TYPES.WARRIOR)) {
         const nonFixed = allyTeam.filter(u => !u.isZhang && !u.isWei && !u.isXiaoZhaoSister && !u.isXiaoZhaoBrother);
         if (nonFixed.length > 0) {
-            nonFixed[0].role = _rand(0, 1) === 0 ? '防战' : '战士';
+            nonFixed[0].role = _rand(0, 1) === 0 ? ROLE_TYPES.DEFENDER : ROLE_TYPES.WARRIOR;
             nonFixed[0].init(_rng); nonFixed[0].applyBonus();
         }
     }
@@ -208,7 +209,7 @@ export function initBattleTeams(currentStage, _rng) {
         let xuanmingPairCount = 0;
         for (let item of enemySquad) {
             if (typeof item === 'object' && item.name) {
-                let unit = new Unit(item.name, item.m, item.role, 'enemy');
+                let unit = new Unit(item.name, item.m, item.role, CAMP_TYPES.ENEMY);
                 unit.pos = null; unit.init(_rng); unit.applyBonus();
                 enemyUnits.push(unit);
                 usedEnemyNames.push(item.name);
@@ -230,7 +231,7 @@ export function initBattleTeams(currentStage, _rng) {
                     name = fallbackName + (existingCount > 0 ? String(existingCount + 1) : '');
                 }
                 let role = C.ROLES[_rand(0, 3)];
-                let unit = new Unit(name, mVal, role, 'enemy');
+                let unit = new Unit(name, mVal, role, CAMP_TYPES.ENEMY);
                 unit.pos = null; unit.init(_rng); unit.applyBonus();
                 enemyUnits.push(unit);
                 usedEnemyNames.push(name);
@@ -253,7 +254,7 @@ export function initBattleTeams(currentStage, _rng) {
                 name = fallbackName + (existingCount > 0 ? String(existingCount + 1) : '');
             }
             let role = C.ROLES[_rand(0, 3)];
-            let extraUnit = new Unit(name, extraM, role, 'enemy');
+            let extraUnit = new Unit(name, extraM, role, CAMP_TYPES.ENEMY);
             extraUnit.init(_rng); extraUnit.applyBonus();
             enemyUnits.push(extraUnit);
         }
@@ -262,11 +263,11 @@ export function initBattleTeams(currentStage, _rng) {
         let eliteUnits = allUnits.filter(u => C.ELITE_POOL && C.ELITE_POOL[currentStage] && C.ELITE_POOL[currentStage].some(e => e.name === u.name));
         let normalUnits = allUnits.filter(u => !eliteUnits.includes(u));
         if (template) {
-            let roleCounts = { '战士': 0, '防战': 0, '远程': 0, '飞行': 0 };
+            let roleCounts = { [ROLE_TYPES.WARRIOR]: 0, [ROLE_TYPES.DEFENDER]: 0, [ROLE_TYPES.RANGED]: 0, [ROLE_TYPES.FLYER]: 0 };
             normalUnits.forEach(u => { if (roleCounts[u.role] !== undefined) roleCounts[u.role]++; });
             let templateNeeds = {};
             for (let [role, poses] of Object.entries(template)) { if (role === 'random') continue; templateNeeds[role] = poses.length; }
-            for (let role of ['防战', '远程', '飞行', '战士']) {
+            for (let role of [ROLE_TYPES.DEFENDER, ROLE_TYPES.RANGED, ROLE_TYPES.FLYER, ROLE_TYPES.WARRIOR]) {
                 let need = templateNeeds[role] || 0;
                 let current = roleCounts[role] || 0;
                 let shortage = need - current;

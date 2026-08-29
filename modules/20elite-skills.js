@@ -2,12 +2,12 @@
 // V5.7.2 | ~12200 bytes| 2026-08-24 蛛变防战 z 值改查分档表（getHpDmgRatio(0.5)=0.03），删硬编码
 export const VER = 'modules/20elite-skills.js V5.7.2';
 
-import { getSkillParams } from '../core/01config-5v5-test.js';
+import { CONFIG, getSkillParams } from '../core/01config-5v5-test.js';
 import { getRoleBonus, getHpDmgRatio } from '../core/02unit.js';
 import { hasBuff } from '../core/03battle-utils.js';
 import { emitEvent, applyStatChange, applyMaxHpChange, registerQuery, getBattleRng } from '../core/13battle-shared.js';
 import { getEliteState, setEliteState } from '../core/18-elite-state.js';
-import { FACT_TYPES } from '../infra/56-battle-enums.js';
+import { FACT_TYPES, UNIT_EVENT_TYPES, CAMP_TYPES, ROLE_TYPES } from '../infra/56-battle-enums.js';
 
 // ==================== 玄冥二老 — 中毒/鹿角 ====================
 
@@ -32,7 +32,7 @@ export function applyDamageModifiers(unit, target, dmg, allySide, enemySide, log
     const entries = [];
     const xiaoZhao = allySide.find(u => (u.isXiaoZhaoSister || u.isXiaoZhaoBrother) && u.alive);
     const zhang = allySide.find(c => c.isZhang && c.alive && c.rangedForm && !c.state._stunned);
-    if (target.camp !== 'ally' || !zhang) return { modifiedDmg, entries };
+    if (target.camp !== CAMP_TYPES.ALLY || !zhang) return { modifiedDmg, entries };
 
     if (xiaoZhao && [2, 4, 6, 8].includes(target.pos)) {
         const s = getSkillParams('小昭', 'qianKunUpgraded');
@@ -166,7 +166,7 @@ function masteryLayers(count) { return count >= 4 ? count + 2 : count; }
 export function spiderTransform(unit, log) {
     if (!unit.isXiaoZhaoBrother || !unit.alive) return;
     const rng = getBattleRng();
-    const roles = ['战士', '防战', '远程', '飞行'];
+    const roles = [ROLE_TYPES.WARRIOR, ROLE_TYPES.DEFENDER, ROLE_TYPES.RANGED, ROLE_TYPES.FLYER];
     let availableRoles = roles.filter(r => r !== unit.role);
     if (availableRoles.length === 0) availableRoles = roles;
     const newRole = availableRoles[rng.nextInt(0, availableRoles.length - 1)];
@@ -179,14 +179,14 @@ export function spiderTransform(unit, log) {
     // 蛛变：职业加成永久叠加（每变一次吃一份新职业加成，不扣旧的），本身无额外属性
     const newStats = getRoleBonus(newRole);
     unit.role = newRole;
-    if (newRole === '防战') unit._hpDmgRatio = getHpDmgRatio(0.5);
+    if (newRole === ROLE_TYPES.DEFENDER) unit._hpDmgRatio = getHpDmgRatio(0.5);
     applyStatChange(unit, 'atk', newStats.atk, null, '蛛变');
     applyStatChange(unit, 'def', newStats.def, null, '蛛变');
     unit._baseAtk = (unit._baseAtk || unit.atk) + newStats.atk;
     unit._baseDef = (unit._baseDef || unit.def) + newStats.def;
     unit._baseMaxHp = (unit._baseMaxHp || unit.maxHp) + newStats.maxHp;
     applyMaxHpChange(unit, unit.maxHp + newStats.maxHp, null, '蛛变');
-    emitEvent(unit, 'hp-change', { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: unit.atk, def: unit.def, _baseAtk: unit._baseAtk, _baseDef: unit._baseDef, _baseMaxHp: unit._baseMaxHp });
+    emitEvent(unit, UNIT_EVENT_TYPES.HP_CHANGE, { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: unit.atk, def: unit.def, _baseAtk: unit._baseAtk, _baseDef: unit._baseDef, _baseMaxHp: unit._baseMaxHp });
 
     // 精通加成：首次精通新职业时按层数差结算（全精通时一次性补 2 层）
     let masteryGain = null;
@@ -202,12 +202,12 @@ export function spiderTransform(unit, log) {
             unit._baseDef += gDef;
             unit._baseMaxHp += gHp;
             applyMaxHpChange(unit, unit.maxHp + gHp, null, '精通');
-            emitEvent(unit, 'hp-change', { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: unit.atk, def: unit.def, _baseAtk: unit._baseAtk, _baseDef: unit._baseDef, _baseMaxHp: unit._baseMaxHp });
+            emitEvent(unit, UNIT_EVENT_TYPES.HP_CHANGE, { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: unit.atk, def: unit.def, _baseAtk: unit._baseAtk, _baseDef: unit._baseDef, _baseMaxHp: unit._baseMaxHp });
             masteryGain = { atk: gAtk, def: gDef, hp: gHp };
         }
     }
 
-    emitEvent(unit, 'hp-change', { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: unit.atk, def: unit.def, role: newRole });
+    emitEvent(unit, UNIT_EVENT_TYPES.HP_CHANGE, { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: unit.atk, def: unit.def, role: newRole });
     log.push({ factType: FACT_TYPES.SPIDER_TRANSFORM, data: { unitName: unit.name, newRole, mastered: getEliteState(unit.uid)._masteredRoles.length, masteryGain } });
 }
 
@@ -224,8 +224,8 @@ export function spiderReturn(unit, allyTeam, enemySide, log) {
         if (!occupied.has(p)) { unit.pos = p; break; }
     }
 
-    emitEvent(unit, 'hp-change', { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: unit.atk, def: unit.def, _flyMode: null, _spiderFlying: false });
-    emitEvent(unit, 'pos-change', { pos: unit.pos });
+    emitEvent(unit, UNIT_EVENT_TYPES.HP_CHANGE, { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: unit.atk, def: unit.def, _flyMode: null, _spiderFlying: false });
+    emitEvent(unit, UNIT_EVENT_TYPES.POS_CHANGE, { pos: unit.pos });
 
     log.push({ factType: FACT_TYPES.SPIDER_RETURN, data: { unitName: unit.name, spiderUid: unit.uid, pos: unit.pos } });
 
@@ -263,11 +263,12 @@ export function spiderReturn(unit, allyTeam, enemySide, log) {
 
 export function addPermanentBuff(xiaoZhao, buffKey, buffName, extraFields = {}) {
     if (!xiaoZhao || !xiaoZhao.isXiaoZhaoBrother) return;
+    if (!CONFIG.XIAO_ZHAO_PERMANENT_BUFFS.includes(buffKey)) return;
     if (!getEliteState(xiaoZhao.uid)._permanentBuffs) setEliteState(xiaoZhao.uid, { _permanentBuffs: [] });
     if (getEliteState(xiaoZhao.uid)._permanentBuffs.some(b => b.key === buffKey)) return;
     getEliteState(xiaoZhao.uid)._permanentBuffs.push({
         key: buffKey,
-        target: 'ally',
+        target: CAMP_TYPES.ALLY,
         remaining: Infinity,
         name: buffName,
         ...extraFields
@@ -276,6 +277,7 @@ export function addPermanentBuff(xiaoZhao, buffKey, buffName, extraFields = {}) 
 
 export function isXiaoZhaoPermanentActive(unit, activeBuffs, buffKey) {
     if (!unit || !unit.isXiaoZhaoBrother || !getEliteState(unit.uid)._permanentBuffs) return false;
+    if (!CONFIG.XIAO_ZHAO_PERMANENT_BUFFS.includes(buffKey)) return false;
     if (activeBuffs && hasBuff(activeBuffs, buffKey)) return false;
     return getEliteState(unit.uid)._permanentBuffs.some(b => b.key === buffKey);
 }

@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// ui/68ui-controls.js - 光明顶5v5 UI控制（倍速系统+按钮状态+事件绑定）
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// ui/68ui-controls.js - 光明顶5v5 UI控制（倍速系统+按钮状态+事件绑定）
 // V5.5.0 | ~25700 bytes| 2026-08-14 移除回放导入区块
 export const VER = 'ui/68ui-controls.js V5.5.0';
 
@@ -7,6 +7,7 @@ import { updateUI, renderGrid, setRenderStore } from './62ui-render-5v5-test.js'
 import { clearAllEffects } from '../player/42player-core.js';
 import { GlobalStore } from '../infra/54-global-store.js';
 import { resetBattleRuntime } from './69reset-runtime.js';
+import { CAMP_TYPES } from '../infra/56-battle-enums.js';
 
 // ==================== 倍速系统 ====================
 let manualSpeedLock = false;
@@ -269,8 +270,8 @@ export function bindNextButton(setState, updateButtons, enableAllButtons, update
             if (typeof enableAllButtons === 'function') enableAllButtons();
             if (typeof updateSpeedButtons === 'function') updateSpeedButtons();
             updateUI();
-            renderGrid('allyGrid', 'ally');
-            renderGrid('enemyGrid', 'enemy');
+            renderGrid('allyGrid', CAMP_TYPES.ALLY);
+            renderGrid('enemyGrid', CAMP_TYPES.ENEMY);
             return;
         }
         setState.waitingForNextRound(false);
@@ -338,8 +339,8 @@ export function bindSettleButton(currentStageGetter, isBattleStarting, getState,
             setState.UI(currentUI);
             setState.snapshot(snap);
             updateUI();
-            renderGrid('allyGrid', 'ally');
-            renderGrid('enemyGrid', 'enemy');
+            renderGrid('allyGrid', CAMP_TYPES.ALLY);
+            renderGrid('enemyGrid', CAMP_TYPES.ENEMY);
             updateButtons();
             enableAllButtons();
             updateSpeedButtons();
@@ -431,8 +432,8 @@ export function bindStageSelectButton(currentStageGetter, getState, setState, up
             setState.UI(getState.UI());
             setState.snapshot(getState.snapshot());
             updateUI();
-            renderGrid('allyGrid', 'ally');
-            renderGrid('enemyGrid', 'enemy');
+            renderGrid('allyGrid', CAMP_TYPES.ALLY);
+            renderGrid('enemyGrid', CAMP_TYPES.ENEMY);
             setState.gs('IDLE');
             updateButtons();
             enableAllButtons();

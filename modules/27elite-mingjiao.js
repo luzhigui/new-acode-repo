@@ -12,7 +12,7 @@ import { EXECUTION_LAYER as L, EFFECT_TYPES } from '../infra/50-event-bus.js';
 import { registerDodgeRule } from '../core/12battle-attack-steps.js';
 import { StateMachine } from '../infra/51-core-utils.js';
 import { getEliteState, setEliteState } from '../core/18-elite-state.js';
-import { FACT_TYPES, BUFF_TYPES } from '../infra/56-battle-enums.js';
+import { FACT_TYPES, BUFF_TYPES, UNIT_EVENT_TYPES, CAMP_TYPES, ROLE_TYPES, SIGNAL_TYPES } from '../infra/56-battle-enums.js';
 
 // ==================== 张无忌 ====================
 export function createZhangWujiComponent() {
@@ -24,7 +24,7 @@ export function createZhangWujiComponent() {
             const hasFrontAlly = A.some(c => c.alive && !c.isHorse && c.pos === 1 + col && c.uid !== zhang.uid);
             const states = {
                 ranged: {
-                    onEnter() { zhang.rangedForm = true; zhang.role = '远程'; setEliteState(zhang.uid, { _zhangSwitched: false }); },
+                    onEnter() { zhang.rangedForm = true; zhang.role = ROLE_TYPES.RANGED; setEliteState(zhang.uid, { _zhangSwitched: false }); },
                     onExit() {}
                 },
                 switching: {
@@ -64,7 +64,7 @@ export function createZhangWujiComponent() {
             const fsm = this._buildFsm(zhang, A, log);
             zhang._fsm = fsm;
             const submitZhangJiuYangDeclaration = this.submitZhangJiuYangDeclaration;
-            eventBus.on('afterDamageApplied', L.AFTER_DAMAGE_APPLIED.JIUYANG, (data) => {
+            eventBus.on(SIGNAL_TYPES.AFTER_DAMAGE_APPLIED, L.AFTER_DAMAGE_APPLIED.JIUYANG, (data) => {
                 if (data.unit.uid !== zhang.uid) return;
                 submitZhangJiuYangDeclaration(data.unit, data.target, { dmg: data.dmg }, data.group, A, data.log, data);
             });
@@ -90,18 +90,18 @@ export function createZhangWujiComponent() {
                     if (!hasFrontAlly) fsm.transition('switching', { log: data && data.log });
                 }
             }
-            eventBus.on('onRoundStart', L.ROUND_START.RANGE_CHECK, (data) => {
+            eventBus.on(SIGNAL_TYPES.ON_ROUND_START, L.ROUND_START.RANGE_CHECK, (data) => {
                 submitZhangRangeCheckDeclaration(data);
             });
-            eventBus.on('onUnitDeath', L.ON_UNIT_DEATH.SWITCH, (data) => {
+            eventBus.on(SIGNAL_TYPES.ON_UNIT_DEATH, L.ON_UNIT_DEATH.SWITCH, (data) => {
                 submitZhangSwitchOnDeathDeclaration(data);
             });
-            eventBus.on('onPositionSwap', L.ON_POSITION_SWAP.SWITCH, (data) => {
+            eventBus.on(SIGNAL_TYPES.ON_POSITION_SWAP, L.ON_POSITION_SWAP.SWITCH, (data) => {
                 submitZhangSwitchOnSwapDeclaration(data);
             });
         },
         submitZhangJiuYangDeclaration(unit, target, dmgCalc, group, A, log, data) {
-            if (unit.camp !== 'ally' || !unit.isZhang || !unit.alive) return;
+            if (unit.camp !== CAMP_TYPES.ALLY || !unit.isZhang || !unit.alive) return;
             const fsm = unit._fsm;
             // ronghui 是 near 的融会贯通激活态：FSM 转入后仍需继续触发（第3次起每次攻击都有效）
             if (fsm && (fsm.is('near') || fsm.is('ronghui'))) {
@@ -153,7 +153,7 @@ export function createWeiYixiaoComponent() {
                     data: { heal, newMaxHp, oldMaxHp, wasFullHp }
                 });
             }
-            eventBus.on('onDodge', L.AFTER_DAMAGE_APPLIED.LEECH, (data) => {
+            eventBus.on(SIGNAL_TYPES.ON_DODGE, L.AFTER_DAMAGE_APPLIED.LEECH, (data) => {
                 submitWeiLeechDeclaration(data);
             });
 
@@ -216,7 +216,7 @@ export function createXiaoZhaoSisterComponent() {
                 const zhang = A.find(u => u.isZhang && u.alive);
                 if (zhang) return;
                 const target = data.target;
-                if (!target || target.camp !== 'ally') return;
+                if (!target || target.camp !== CAMP_TYPES.ALLY) return;
                 const dmg = data.unit ? data.unit.atk * (data.unit.atk / (data.unit.atk + target.def)) : 0;
                 const s = getSkillParams('小昭', 'qianKunDerived');
                 if (!s) throw new Error('缺技能参数: 小昭.qianKunDerived');
@@ -255,7 +255,7 @@ export function createXiaoZhaoSisterComponent() {
                     });
                 }
             }
-            eventBus.on('beforeDamageCalc', L.BEFORE_DAMAGE_CALC.WARRIOR_BREAK, (data) => {
+            eventBus.on(SIGNAL_TYPES.BEFORE_DAMAGE_CALC, L.BEFORE_DAMAGE_CALC.WARRIOR_BREAK, (data) => {
                 submitXiaoZhaoQianKunDerivedDeclaration(data);
             });
             // 蝶变附身跳过行动：判定 + skip 写入（纯函数，事件监听器薄壳转调）
@@ -272,10 +272,10 @@ export function createXiaoZhaoSisterComponent() {
                 if (!data.declarations) data.declarations = [];
                 data.declarations.push({ type: 'butterflyReturn', sister: sis, A, log: data.log });
             }
-            eventBus.on('beforeActionSelect', L.BEFORE_ACTION.BUTTERFLY_SKIP, (data) => {
+            eventBus.on(SIGNAL_TYPES.BEFORE_ACTION_SELECT, L.BEFORE_ACTION.BUTTERFLY_SKIP, (data) => {
                 submitButterflySkipDeclaration(data);
             });
-            eventBus.on('onRoundEnd', L.ROUND_END.BUTTERFLY_RETURN, (data) => {
+            eventBus.on(SIGNAL_TYPES.ON_ROUND_END, L.ROUND_END.BUTTERFLY_RETURN, (data) => {
                 submitButterflyReturnDeclaration(data);
             });
         },
@@ -299,11 +299,11 @@ export function createXiaoZhaoSisterComponent() {
             setEliteState(sister.uid, { _butterflyHpTransfer: hpTransfer });
             const hostEs = getEliteState(host.uid);
             setEliteState(host.uid, { _butterflyHpBonus: (hostEs._butterflyHpBonus || 0) + hpTransfer });
-            const hostEs = getEliteState(host.uid); setEliteState(host.uid, { _butterflyAtkBonus: (hostEs._butterflyAtkBonus || 0) + atkTransfer, _butterflyDefBonus: (hostEs._butterflyDefBonus || 0) + defTransfer });
+            setEliteState(host.uid, { _butterflyAtkBonus: (hostEs._butterflyAtkBonus || 0) + atkTransfer, _butterflyDefBonus: (hostEs._butterflyDefBonus || 0) + defTransfer });
             applyStatChange(host, 'atk', atkTransfer, sister, '蝶变附身');
             applyStatChange(host, 'def', defTransfer, sister, '蝶变附身');
             applyMaxHpChange(host, host.maxHp + hpTransfer, sister, '蝶变附身血上限');
-            emitEvent(host, 'hp-change', { hp:host.hp, maxHp:host.maxHp, alive:host.alive, atk:host.atk, def:host.def, _phantomTarget:sister.uid });
+            emitEvent(host, UNIT_EVENT_TYPES.HP_CHANGE, { hp:host.hp, maxHp:host.maxHp, alive:host.alive, atk:host.atk, def:host.def, _phantomTarget:sister.uid });
             const aliveAllies = A.filter(a => a.alive && !a.isHorse && a.uid !== sister.uid);
             const totalHp = aliveAllies.reduce((sum,a) => sum + a.hp, 0); const totalMaxHp = aliveAllies.reduce((sum,a) => sum + a.maxHp, 0);
             if (totalMaxHp > 0) {
@@ -313,7 +313,7 @@ export function createXiaoZhaoSisterComponent() {
             }
             setEliteState(sister.uid, { _butterflyHost: host.uid });
             sister._fsm.transition('attached');
-            emitEvent(sister, 'hp-change', { hp:sister.hp, maxHp:sister.maxHp, alive:sister.alive, atk:sister.atk, def:sister.def, _flyMode:'butterfly', _butterflyHost:getEliteState(sister.uid)._butterflyHost });
+            emitEvent(sister, UNIT_EVENT_TYPES.HP_CHANGE, { hp:sister.hp, maxHp:sister.maxHp, alive:sister.alive, atk:sister.atk, def:sister.def, _flyMode:'butterfly', _butterflyHost:getEliteState(sister.uid)._butterflyHost });
             log.push({
                 factType: FACT_TYPES.BUTTERFLY_ATTACH,
                 data: {
@@ -368,7 +368,7 @@ export function createXiaoZhaoSisterComponent() {
                 setEliteState(host.uid, { _butterflyHpBonus: 0 });
                 const hpTransfer = getEliteState(sister.uid)._butterflyHpTransfer || 0;
                 applyMaxHpChange(host, Math.max(1, host.maxHp - hpTransfer), sister, '蝶变飞回血上限');
-                emitEvent(host, 'hp-change', {
+                emitEvent(host, UNIT_EVENT_TYPES.HP_CHANGE, {
                     hp: host.hp, maxHp: host.maxHp, alive: host.alive,
                     atk: host.atk, def: host.def
                 });
@@ -379,7 +379,7 @@ export function createXiaoZhaoSisterComponent() {
                 A.push(sister);
             }
             sister._fsm.transition('normal');
-            emitEvent(sister, 'hp-change', {
+            emitEvent(sister, UNIT_EVENT_TYPES.HP_CHANGE, {
                 hp: sister.hp, maxHp: sister.maxHp, alive: sister.alive,
                 atk: sister.atk, def: sister.def, _flyMode: null, _butterflyHost: null
             });
@@ -449,7 +449,7 @@ export function createXiaoZhaoBrotherComponent() {
                         setEliteState(brother.uid, { _spiderRemaining: Math.max(0, (esRemaining ?? 3) - 1) });
                         setEliteState(brother.uid, { _spiderFlying: true, _flyMode: 'spider' });
                         brother.state._acted = true;
-                        emitEvent(brother, 'hp-change', { hp:brother.hp, maxHp:brother.maxHp, alive:brother.alive, atk:brother.atk, def:brother.def, _flyMode:'spider', _spiderFlying:true });
+                        emitEvent(brother, UNIT_EVENT_TYPES.HP_CHANGE, { hp:brother.hp, maxHp:brother.maxHp, alive:brother.alive, atk:brother.atk, def:brother.def, _flyMode:'spider', _spiderFlying:true });
                         // 飞天事实随 transition data 携带（不落 unit），由免疫声明/log 消费
                         data._flyFactData = { unitName: brother.name, spiderUid: brother.uid, reason, incomingDmg, remaining: getEliteState(brother.uid)._spiderRemaining };
                     },
@@ -504,7 +504,7 @@ export function createXiaoZhaoBrotherComponent() {
                     data.declarations.push({ immune: true, flyData: flyData._flyFactData || null, reason: flyData._flyFactData ? null : '🕷️ 飞天：免疫本次伤害' });
                 }
             }
-            eventBus.on('beforeDamageApply', L.BEFORE_DAMAGE_APPLY.SPIDER_IMMUNE, (data) => {
+            eventBus.on(SIGNAL_TYPES.BEFORE_DAMAGE_APPLY, L.BEFORE_DAMAGE_APPLY.SPIDER_IMMUNE, (data) => {
                 submitSpiderFlyDeclaration(data);
             });
             // 蛛化飞天跳过行动：判定 + skip 写入（纯函数，事件监听器薄壳转调）
@@ -516,7 +516,7 @@ export function createXiaoZhaoBrotherComponent() {
             }
             // 永久惑心混乱：判定 + targetResult/phantomFact 写入（纯函数，事件监听器薄壳转调）
             function submitSpiderMindControlDeclaration(data) {
-                if (data.unit.camp !== 'enemy') return;
+                if (data.unit.camp !== CAMP_TYPES.ENEMY) return;
                 if (!brother || !brother.alive || !getEliteState(brother.uid)._permanentBuffs || !getEliteState(brother.uid)._permanentBuffs.some(b => b.key === BUFF_TYPES.MIND_CONTROL)) return;
                 if (hasBuff(data.enemySide._activeBuffs, BUFF_TYPES.MIND_CONTROL)) return;
                 if (getBattleRng().next() < 0.15) {
@@ -584,19 +584,19 @@ export function createXiaoZhaoBrotherComponent() {
                     });
                 }
             }
-            eventBus.on('beforeActionSelect', L.BEFORE_ACTION.SPIDER_SKIP, (data) => {
+            eventBus.on(SIGNAL_TYPES.BEFORE_ACTION_SELECT, L.BEFORE_ACTION.SPIDER_SKIP, (data) => {
                 submitSpiderSkipDeclaration(data);
             });
-            eventBus.on('beforeSelectTarget', L.BEFORE_SELECT_TARGET.PERMANENT_MIND_CONTROL, (data) => {
+            eventBus.on(SIGNAL_TYPES.BEFORE_SELECT_TARGET, L.BEFORE_SELECT_TARGET.PERMANENT_MIND_CONTROL, (data) => {
                 submitSpiderMindControlDeclaration(data);
             });
-            eventBus.on('onRoundEnd', L.ROUND_END.SPIDER_RETURN, (data) => {
+            eventBus.on(SIGNAL_TYPES.ON_ROUND_END, L.ROUND_END.SPIDER_RETURN, (data) => {
                 submitSpiderDescendDeclaration(data);
             });
-            eventBus.on('onRoundStart', L.ROUND_START.SPIDER_TRANSFORM, (data) => {
+            eventBus.on(SIGNAL_TYPES.ON_ROUND_START, L.ROUND_START.SPIDER_TRANSFORM, (data) => {
                 submitSpiderTransformDeclaration(data);
             });
-            eventBus.on('afterMiss', L.AFTER_MISS.PERMANENT_DOUBLE_RETRY, (data) => {
+            eventBus.on(SIGNAL_TYPES.AFTER_MISS, L.AFTER_MISS.PERMANENT_DOUBLE_RETRY, (data) => {
                 submitXiaoZhaoDoubleStrikeDeclaration(data);
             });
         },

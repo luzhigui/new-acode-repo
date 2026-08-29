@@ -1,9 +1,9 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// fx/82fx-crash-5v5-test.js - 光明顶5v5 飞撞与格挡特效
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// fx/82fx-crash-5v5-test.js - 光明顶5v5 飞撞与格挡特效
 // V5.5.0 | 2026-07-12 修复飞走模式原地残留蓝色格子（清除_flash标记）
 export const VER = 'fx/82fx-crash-5v5-test.js V5.5.0';
 
 import { applyImpactShrink } from './80fx-common-5v5-test.js';
-import { STORE_ACTION_TYPES } from '../infra/56-battle-enums.js';
+import { STORE_ACTION_TYPES, CAMP_TYPES, ROLE_TYPES } from '../infra/56-battle-enums.js';
 import { getEliteState, setEliteState } from '../core/18-elite-state.js';
 
 function clearCrashStyles(cell) {
@@ -41,9 +41,9 @@ function finishCrash(clone, cell, unitA, UI) {
 }
 
 function showCloseRangeFX(unitA, unitD, role, getPausedFn) {
-    let gridAId = unitA.camp==='ally'?'allyGrid':'enemyGrid', gridDId = unitD.camp==='ally'?'allyGrid':'enemyGrid';
+    let gridAId = unitA.camp===CAMP_TYPES.ALLY?'allyGrid':'enemyGrid', gridDId = unitD.camp===CAMP_TYPES.ALLY?'allyGrid':'enemyGrid';
     let gridA = document.getElementById(gridAId), gridD = document.getElementById(gridDId);
-    let orderA = unitA.camp==='enemy'?[7,8,9,4,5,6,1,2,3]:[1,2,3,4,5,6,7,8,9], orderD = unitD.camp==='enemy'?[7,8,9,4,5,6,1,2,3]:[1,2,3,4,5,6,7,8,9];
+    let orderA = unitA.camp===CAMP_TYPES.ENEMY?[7,8,9,4,5,6,1,2,3]:[1,2,3,4,5,6,7,8,9], orderD = unitD.camp===CAMP_TYPES.ENEMY?[7,8,9,4,5,6,1,2,3]:[1,2,3,4,5,6,7,8,9];
     let idxA = orderA.indexOf(unitA.pos), idxD = orderD.indexOf(unitD.pos);
     if(idxA<0||idxD<0||!gridA.children[idxA]||!gridD.children[idxD]) return;
     let cellA = gridA.children[idxA], cellB = gridD.children[idxD];
@@ -52,7 +52,7 @@ function showCloseRangeFX(unitA, unitD, role, getPausedFn) {
     let ndx = bx - ax, ndy = by - ay, ndist = Math.sqrt(ndx*ndx + ndy*ndy);
     let nnx = ndist > 0 ? ndx / ndist : 0, nny = ndist > 0 ? ndy / ndist : 0;
     cellA.style.transition = 'transform 0.6s ease-out'; cellA.style.transform = 'scale(1.2)';
-    setTimeout(() => { cellA.style.transform = 'scale(1)'; let icon = document.createElement('div'); icon.setAttribute('data-fx', 'temporary'); icon.style.position = 'fixed'; icon.style.left = ax+'px'; icon.style.top = ay+'px'; icon.style.fontSize = '36px'; icon.style.zIndex = '99999'; icon.style.pointerEvents = 'none'; icon.style.transform = 'translate(-50%,-50%)'; if (role === '战士') icon.textContent = '⚔️'; else if (role === '防战') icon.textContent = '🛡️'; else if (role === '飞行') icon.textContent = '🦅'; document.body.appendChild(icon);
+    setTimeout(() => { cellA.style.transform = 'scale(1)'; let icon = document.createElement('div'); icon.setAttribute('data-fx', 'temporary'); icon.style.position = 'fixed'; icon.style.left = ax+'px'; icon.style.top = ay+'px'; icon.style.fontSize = '36px'; icon.style.zIndex = '99999'; icon.style.pointerEvents = 'none'; icon.style.transform = 'translate(-50%,-50%)'; if (role === ROLE_TYPES.WARRIOR) icon.textContent = '⚔️'; else if (role === ROLE_TYPES.DEFENDER) icon.textContent = '🛡️'; else if (role === ROLE_TYPES.FLYER) icon.textContent = '🦅'; document.body.appendChild(icon);
         let iconStart = null;
         function flyIcon(ts) {
             if (getPausedFn && getPausedFn()) { requestAnimationFrame(flyIcon); return; }
@@ -69,13 +69,13 @@ function showCloseRangeFX(unitA, unitD, role, getPausedFn) {
 }
 
 export function showMeleeCrash(unitA, unitD, speed, getPausedFn, onCrash) {
-    let gridAId = unitA.camp === 'ally' ? 'allyGrid' : 'enemyGrid';
-    let gridDId = unitD.camp === 'ally' ? 'allyGrid' : 'enemyGrid';
+    let gridAId = unitA.camp === CAMP_TYPES.ALLY ? 'allyGrid' : 'enemyGrid';
+    let gridDId = unitD.camp === CAMP_TYPES.ALLY ? 'allyGrid' : 'enemyGrid';
     let gridA = document.getElementById(gridAId);
     let gridD = document.getElementById(gridDId);
     
-    let orderA = unitA.camp === 'enemy' ? [7,8,9,4,5,6,1,2,3] : [1,2,3,4,5,6,7,8,9];
-    let orderD = unitD.camp === 'enemy' ? [7,8,9,4,5,6,1,2,3] : [1,2,3,4,5,6,7,8,9];
+    let orderA = unitA.camp === CAMP_TYPES.ENEMY ? [7,8,9,4,5,6,1,2,3] : [1,2,3,4,5,6,7,8,9];
+    let orderD = unitD.camp === CAMP_TYPES.ENEMY ? [7,8,9,4,5,6,1,2,3] : [1,2,3,4,5,6,7,8,9];
     
     let idxA = orderA.indexOf(unitA.pos);
     let idxD = orderD.indexOf(unitD.pos);
@@ -272,13 +272,13 @@ export function showMeleeCrash(unitA, unitD, speed, getPausedFn, onCrash) {
 }
 
 export function showMeleeDodge(unitA, unitD, speed, getPausedFn) {
-    let gridAId = unitA.camp === 'ally' ? 'allyGrid' : 'enemyGrid';
-    let gridDId = unitD.camp === 'ally' ? 'allyGrid' : 'enemyGrid';
+    let gridAId = unitA.camp === CAMP_TYPES.ALLY ? 'allyGrid' : 'enemyGrid';
+    let gridDId = unitD.camp === CAMP_TYPES.ALLY ? 'allyGrid' : 'enemyGrid';
     let gridA = document.getElementById(gridAId);
     let gridD = document.getElementById(gridDId);
     
-    let orderA = unitA.camp === 'enemy' ? [7,8,9,4,5,6,1,2,3] : [1,2,3,4,5,6,7,8,9];
-    let orderD = unitD.camp === 'enemy' ? [7,8,9,4,5,6,1,2,3] : [1,2,3,4,5,6,7,8,9];
+    let orderA = unitA.camp === CAMP_TYPES.ENEMY ? [7,8,9,4,5,6,1,2,3] : [1,2,3,4,5,6,7,8,9];
+    let orderD = unitD.camp === CAMP_TYPES.ENEMY ? [7,8,9,4,5,6,1,2,3] : [1,2,3,4,5,6,7,8,9];
     
     let idxA = orderA.indexOf(unitA.pos);
     let idxD = orderD.indexOf(unitD.pos);
@@ -412,9 +412,9 @@ export function showMeleeDodge(unitA, unitD, speed, getPausedFn) {
 }
 
 export function showMeleeMiss(unitA, unitD, speed, getPausedFn) {
-    let gridAId = unitA.camp==='ally'?'allyGrid':'enemyGrid', gridDId = unitD.camp==='ally'?'allyGrid':'enemyGrid';
+    let gridAId = unitA.camp===CAMP_TYPES.ALLY?'allyGrid':'enemyGrid', gridDId = unitD.camp===CAMP_TYPES.ALLY?'allyGrid':'enemyGrid';
     let gridA = document.getElementById(gridAId), gridD = document.getElementById(gridDId);
-    let orderA = unitA.camp==='enemy'?[7,8,9,4,5,6,1,2,3]:[1,2,3,4,5,6,7,8,9], orderD = unitD.camp==='enemy'?[7,8,9,4,5,6,1,2,3]:[1,2,3,4,5,6,7,8,9];
+    let orderA = unitA.camp===CAMP_TYPES.ENEMY?[7,8,9,4,5,6,1,2,3]:[1,2,3,4,5,6,7,8,9], orderD = unitD.camp===CAMP_TYPES.ENEMY?[7,8,9,4,5,6,1,2,3]:[1,2,3,4,5,6,7,8,9];
     let idxA = orderA.indexOf(unitA.pos), idxD = orderD.indexOf(unitD.pos);
     if(idxA<0||idxD<0||!gridA.children[idxA]||!gridD.children[idxD]) return;
     let cellA = gridA.children[idxA], cellB = gridD.children[idxD];

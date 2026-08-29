@@ -21,7 +21,7 @@ import { flushBattleEvents } from '../infra/51-core-utils.js';
 import { getEliteState } from './18-elite-state.js';
 
 import { emitEvent, applyStatChange, recordCombatStat } from './13battle-shared.js';
-import { FACT_TYPES, BUFF_TYPES } from '../infra/56-battle-enums.js';
+import { FACT_TYPES, BUFF_TYPES, UNIT_EVENT_TYPES, CAMP_TYPES, SIGNAL_TYPES } from '../infra/56-battle-enums.js';
 
 const C = CONFIG;
 
@@ -72,15 +72,15 @@ export async function processUnitAttack(unit, allySide, enemySide, log, A, B, st
         return false;
     }
 
-    let unitActiveBuffs = unit.camp === 'ally' ? A._activeBuffs : B._activeBuffs;
-    let unitAllyTeam = unit.camp === 'ally' ? A : B;
-    if (hasBuff(unitActiveBuffs, BUFF_TYPES.CARRY) && unit.camp === 'ally') {
+    let unitActiveBuffs = unit.camp === CAMP_TYPES.ALLY ? A._activeBuffs : B._activeBuffs;
+    let unitAllyTeam = unit.camp === CAMP_TYPES.ALLY ? A : B;
+    if (hasBuff(unitActiveBuffs, BUFF_TYPES.CARRY) && unit.camp === CAMP_TYPES.ALLY) {
         unitAllyTeam = unitAllyTeam.concat((state.allAllies || state.ally).filter(c => !c.alive));
         unitAllyTeam = unitAllyTeam.filter((u, i, arr) => arr.findIndex(v => v.uid === u.uid) === i);
     }
     let attackerBuffStats = computeBuffStats(unit, unitActiveBuffs, unitAllyTeam);
-    let targetActiveBuffs = target.camp === 'ally' ? A._activeBuffs : B._activeBuffs;
-    let targetAllyTeam = target.camp === 'ally' ? A : B;
+    let targetActiveBuffs = target.camp === CAMP_TYPES.ALLY ? A._activeBuffs : B._activeBuffs;
+    let targetAllyTeam = target.camp === CAMP_TYPES.ALLY ? A : B;
     let defenderBuffStats = computeBuffStats(target, targetActiveBuffs, targetAllyTeam);
 
     let hitResult = resolveAttackHit(unit, target, attackerBuffStats, defenderBuffStats, log, A, B, doubleStrikeUnitUid, eventBus);
@@ -92,7 +92,7 @@ export async function processUnitAttack(unit, allySide, enemySide, log, A, B, st
             const dodgeFact = hitResult.dodgeFact;
             if (dodgeFact.attackerHpAfter <= 0) {
                 unit.alive = false; unit._pendingDeath = true;
-                emitEvent(unit, 'hp-change', { hp: unit.hp, maxHp: unit.maxHp, alive: false, atk: unit.atk, def: unit.def, _isDead: true });
+                emitEvent(unit, UNIT_EVENT_TYPES.HP_CHANGE, { hp: unit.hp, maxHp: unit.maxHp, alive: false, atk: unit.atk, def: unit.def, _isDead: true });
             }
             log.push({ factType: FACT_TYPES.DODGE, data: dodgeFact });
         }
@@ -116,11 +116,11 @@ export async function processUnitAttack(unit, allySide, enemySide, log, A, B, st
         return true;
     }
 
-    eventBus.emit('beforeAttack', { unit, allySide, enemySide, log });
+    eventBus.emit(SIGNAL_TYPES.BEFORE_ATTACK, { unit, allySide, enemySide, log });
     let dmgCalc = calcFinalDamage(unit, target, attackerBuffStats, defenderBuffStats, allySide, enemySide, log);
 
     const immuneDeclarations = [];
-    eventBus.emit('beforeDamageApply', { target, dmg: dmgCalc.dmg, hpBefore: target.hp, A, log, declarations: immuneDeclarations });
+    eventBus.emit(SIGNAL_TYPES.BEFORE_DAMAGE_APPLY, { target, dmg: dmgCalc.dmg, hpBefore: target.hp, A, log, declarations: immuneDeclarations });
 
     let dmgResult = applyAttackResult(unit, target, dmgCalc, attackerBuffStats, defenderBuffStats, allySide, enemySide, log, A, B, state, doubleStrikeUnitUid);
     const immuneResult = resolveDamageImmune(immuneDeclarations);
@@ -131,7 +131,7 @@ export async function processUnitAttack(unit, allySide, enemySide, log, A, B, st
             rawAmount: 0,
             actualAmount: dmgCalc.dmg
         });
-        emitEvent(target, 'hp-change', { hp: target.hp, maxHp: target.maxHp, alive: target.alive, atk: target.atk, def: target.def });
+        emitEvent(target, UNIT_EVENT_TYPES.HP_CHANGE, { hp: target.hp, maxHp: target.maxHp, alive: target.alive, atk: target.atk, def: target.def });
 
         const immuneHpPctBefore = Math.floor((Math.min(target.hp + dmgCalc.dmg, target.maxHp) / target.maxHp) * 100);
         const immuneHpPctAfter = Math.floor((target.hp / target.maxHp) * 100);
@@ -171,7 +171,7 @@ export async function processUnitAttack(unit, allySide, enemySide, log, A, B, st
 
     const afterDamageExtraRequests = [];
     const afterDamageDeclarations = [];
-    eventBus.emit('afterDamageApplied', { unit, target, dmg: dmgCalc.dmg, group, allySide, enemySide, log, A, B, declarations: afterDamageDeclarations, extraRequests: afterDamageExtraRequests });
+    eventBus.emit(SIGNAL_TYPES.AFTER_DAMAGE_APPLIED, { unit, target, dmg: dmgCalc.dmg, group, allySide, enemySide, log, A, B, declarations: afterDamageDeclarations, extraRequests: afterDamageExtraRequests });
 
     if (dmgResult.fortifyDeclarations && dmgResult.fortifyDeclarations.length > 0) {
         afterDamageDeclarations.push(...dmgResult.fortifyDeclarations);
@@ -229,7 +229,7 @@ export async function processUnitAttack(unit, allySide, enemySide, log, A, B, st
 
     const extraRequests = [];
     const afterAttackData = { unit, target, dmg: dmgCalc.dmg, group, allySide, enemySide, log, A, B, state, declarations: [], extraRequests };
-    await eventBus.emit('afterAttack', afterAttackData);
+    await eventBus.emit(SIGNAL_TYPES.AFTER_ATTACK, afterAttackData);
     if (afterAttackData.declarations.length > 0) {
         const clawExecuted = resolveAfterDamageEffects(afterAttackData.declarations, unit, target, group, allySide, unitActiveBuffs);
         for (const decl of clawExecuted) {

@@ -1,4 +1,4 @@
-﻿// player/41player-buff-ui.js - 光明顶5v5 Buff横幅与handler
+// player/41player-buff-ui.js - 光明顶5v5 Buff横幅与handler
 // V5.7.2 | ~5000 bytes| 2026-08-26 删除 handleBuffLeech 死函数（playLogEntries 不再派发 buff-leech）
 export const VER = 'player/41player-buff-ui.js V5.7.2';
 
@@ -7,6 +7,7 @@ import { eventBus } from '../infra/50-event-bus.js';
 import { FX_SIGNALS } from '../infra/55-fx-signals.js';
 import { GlobalStore } from '../infra/54-global-store.js';
 import { findUnitByUid } from './47renderer.js';
+import { CAMP_TYPES } from '../infra/56-battle-enums.js';
 
 
 let ctx = null;
@@ -22,9 +23,9 @@ export async function handleHolyTokenDrop(c, entry) {
     GlobalStore.set('bulletTimeActive', true);
 
     const unit = findUnitByUid(c, entry.unitUid);
-    const gridId = unit?.camp === 'ally' ? 'allyGrid' : 'enemyGrid';
+    const gridId = unit?.camp === CAMP_TYPES.ALLY ? 'allyGrid' : 'enemyGrid';
     const grid = document.getElementById(gridId);
-    const order = unit?.camp === 'enemy' ? [7,8,9,4,5,6,1,2,3] : [1,2,3,4,5,6,7,8,9];
+    const order = unit?.camp === CAMP_TYPES.ENEMY ? [7,8,9,4,5,6,1,2,3] : [1,2,3,4,5,6,7,8,9];
     const idx = unit ? order.indexOf(unit.pos) : -1;
     const cell = idx >= 0 && grid ? grid.children[idx] : null;
     const cellRect = cell ? cell.getBoundingClientRect() : null;

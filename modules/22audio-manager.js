@@ -1,8 +1,10 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// modules/22audio-manager.js - 光明顶5v5 音频管理器
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// modules/22audio-manager.js - 光明顶5v5 音频管理器
 // V5.5.0 | ~8000 bytes| 2026-07-05
 export const VER = 'modules/22audio-manager.js V5.5.0';
 
 import { CONFIG } from '../core/01config-5v5-test.js';
+
+import { ROLE_TYPES } from '../infra/56-battle-enums.js';
 
 let audioCtx = null;
 function getAudioCtx() {
@@ -245,7 +247,7 @@ export const AudioManager = {
     playSfx(role) {
         if (!this.enabled) return;
         try {
-            if (role === '防战') role = '战士';
+            if (role === ROLE_TYPES.DEFENDER) role = ROLE_TYPES.WARRIOR;
             const sfxConfig = CONFIG.SFX || {};
             const sfx = sfxConfig[role];
             if (!sfx) return;

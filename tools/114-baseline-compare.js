@@ -5,16 +5,17 @@ import { initBattleTeams } from '../modules/29battle-init.js';
 import { eventBus } from '../infra/50-event-bus.js';
 import { SeededRNG } from '../infra/51-core-utils.js';
 import { GlobalStore } from '../infra/54-global-store.js';
+import { ROLE_TYPES } from '../infra/56-battle-enums.js';
 import '../modules/25elite-imperial.js';
 import '../modules/26elite-sixsects.js';
 import '../modules/27elite-mingjiao.js';
 
 // 角色配置表：flag / 标准位 / 角色
 const ROLE_CFG = {
-    '张无忌': { flag: 'isZhang', role: '远程', stdPos: 5 },
-    '韦一笑': { flag: 'isWei', role: '飞行', stdPos: 6 },
-    '小昭·姊': { flag: 'isXiaoZhaoSister', role: '远程', stdPos: 4 },
-    '小昭·妹': { flag: 'isXiaoZhaoBrother', role: '远程', stdPos: 4 }
+    '张无忌': { flag: 'isZhang', role: ROLE_TYPES.RANGED, stdPos: 5 },
+    '韦一笑': { flag: 'isWei', role: ROLE_TYPES.FLYER, stdPos: 6 },
+    '小昭·姊': { flag: 'isXiaoZhaoSister', role: ROLE_TYPES.RANGED, stdPos: 4 },
+    '小昭·妹': { flag: 'isXiaoZhaoBrother', role: ROLE_TYPES.RANGED, stdPos: 4 }
 };
 
 const startBtn = document.getElementById('bcStartBtn');

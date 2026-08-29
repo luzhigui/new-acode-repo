@@ -12,7 +12,7 @@ import { CONFIG, getGameData } from './01config-5v5-test.js';
 import { hasBuff, getUnitRow, getUnitCol, getAdjacentPositions } from './03battle-utils.js';
 import { emitEvent, applyStatChange, applyMaxHpChange, query, getBattleRng, swapUnitPositions, moveUnitPosition } from './13battle-shared.js';
 import { EXECUTION_LAYER as L, EFFECT_TYPES, registerSettlementHook } from '../infra/50-event-bus.js';
-import { FACT_TYPES, BUFF_TYPES } from '../infra/56-battle-enums.js';
+import { FACT_TYPES, BUFF_TYPES, UNIT_EVENT_TYPES, CAMP_TYPES, ROLE_TYPES, SIGNAL_TYPES } from '../infra/56-battle-enums.js';
 import { getEliteState, setEliteState } from './18-elite-state.js';
 const C = CONFIG;
 
@@ -22,7 +22,7 @@ const C = CONFIG;
 export function applyHolyFlameBonus(unit, activeBuffs, hasSister) {
     unit.state._holyAtkBonus = 0;
     unit.state._holyDefBonus = 0;
-    if (!activeBuffs || unit.camp !== 'ally') return;
+    if (!activeBuffs || unit.camp !== CAMP_TYPES.ALLY) return;
     const holyFlameBuff = activeBuffs.find(b => b.key === BUFF_TYPES.HOLY_FLAME);
     if (!holyFlameBuff) return;
     const cols = holyFlameBuff.cols || (holyFlameBuff.col != null ? [holyFlameBuff.col] : []);
@@ -42,7 +42,7 @@ export function applyHolyFlameBonus(unit, activeBuffs, hasSister) {
  */
 export function applyFortifyBonus(unit, activeBuffs) {
     unit.state._fortifyDefBonus = 0;
-    if (unit.role !== '防战' || unit.camp !== 'ally') return;
+    if (unit.role !== ROLE_TYPES.DEFENDER || unit.camp !== CAMP_TYPES.ALLY) return;
     if (activeBuffs && activeBuffs.some(b => b.key === BUFF_TYPES.FORTIFY)) {
         const baseDef = unit._baseDef || unit.def;
         unit.state._fortifyDefBonus = Math.floor(baseDef * C.BUFFS.fortify.defBonus);
@@ -53,7 +53,7 @@ export function applyFortifyBonus(unit, activeBuffs) {
  * 应用 carry 加成（绝对值），含激活和清除逻辑
  */
 export function applyCarryBonus(unit, A, state, log, stats) {
-    if (unit.camp !== 'ally') return;
+    if (unit.camp !== CAMP_TYPES.ALLY) return;
     const activeBuffs = A._activeBuffs || [];
     const hasCarryActive = hasBuff(activeBuffs, BUFF_TYPES.CARRY);
     const sister = A.some(a => a.isXiaoZhaoSister && a.alive);
@@ -123,15 +123,15 @@ export function computeBuffStats(unit, activeBuffs, allyTeam) {
     }
 
     // 严阵以待防御（比率）
-    if (hasBuff(activeBuffs, BUFF_TYPES.FORTIFY) && unit.role === '防战' && unit.camp === 'ally') {
+    if (hasBuff(activeBuffs, BUFF_TYPES.FORTIFY) && unit.role === ROLE_TYPES.DEFENDER && unit.camp === CAMP_TYPES.ALLY) {
         if (allyTeam && allyTeam.some(u => u.isXiaoZhaoSister && u.alive)) applyFortifyDef_Sister(unit, { defBonus });
         else applyFortifyDef_Normal(unit, { defBonus });
-    } else if (unit.isXiaoZhaoBrother && query('xiaoPermanentActive', unit, activeBuffs, BUFF_TYPES.FORTIFY) && unit.role === '防战') {
+    } else if (unit.isXiaoZhaoBrother && query('xiaoPermanentActive', unit, activeBuffs, BUFF_TYPES.FORTIFY) && unit.role === ROLE_TYPES.DEFENDER) {
         applyFortifyDef_Brother(unit, { defBonus });
     }
 
     // 流云身法闪避
-    if (hasBuff(activeBuffs, BUFF_TYPES.CLOUD_BODY) && unit.camp === 'ally') {
+    if (hasBuff(activeBuffs, BUFF_TYPES.CLOUD_BODY) && unit.camp === CAMP_TYPES.ALLY) {
         if (allyTeam && allyTeam.some(u => u.isXiaoZhaoSister && u.alive)) applyCloudBodyDodge_Sister(unit, { dodgeBonus });
         else applyCloudBodyDodge_Normal(unit, { dodgeBonus });
     } else if (unit.isXiaoZhaoBrother && query('xiaoPermanentActive', unit, activeBuffs, BUFF_TYPES.CLOUD_BODY)) {
@@ -162,12 +162,12 @@ export function logBuffSummary(allyTeam, log, doubleStrikeUid) {
 // 实际改状态由 16effect-handlers 的 LEECH 处理器统一执行
 export function submitBloodthirstDeclaration(data) {
     const { unit, target, dmg, allySide, enemySide, log } = data;
-    if (!unit.alive || unit.camp !== 'ally') return;
+    if (!unit.alive || unit.camp !== CAMP_TYPES.ALLY) return;
     const unitBuffs = allySide._activeBuffs || [];
     const hasSister = allySide.some(u => u.isXiaoZhaoSister && u.alive);
     const isBrother = unit.isXiaoZhaoBrother;
 
-    if (hasBuff(unitBuffs, BUFF_TYPES.BLOODTHIRST) && unit.role === '战士' && dmg > 0) {
+    if (hasBuff(unitBuffs, BUFF_TYPES.BLOODTHIRST) && unit.role === ROLE_TYPES.WARRIOR && dmg > 0) {
         const leechVal = Math.floor(dmg * C.BUFFS.bloodthirst.leechRatio);
         const decl = {
             type: EFFECT_TYPES.LEECH,
@@ -189,7 +189,7 @@ export function submitBloodthirstDeclaration(data) {
                 priority: 20
             });
         }
-    } else if (isBrother && query('xiaoPermanentActive', unit, unitBuffs, BUFF_TYPES.BLOODTHIRST) && unit.role === '战士') {
+    } else if (isBrother && query('xiaoPermanentActive', unit, unitBuffs, BUFF_TYPES.BLOODTHIRST) && unit.role === ROLE_TYPES.WARRIOR) {
         const leechVal = Math.floor(dmg * C.BUFFS.bloodthirst.leechRatio);
         const decl = {
             type: EFFECT_TYPES.LEECH,
@@ -205,8 +205,8 @@ export function submitBloodthirstDeclaration(data) {
 
 // 薄壳注册：只做转调，无判定无写入
 export function registerBloodthirst(eventBus) {
-    registerSettlementHook(eventBus, {
-        when: 'afterDamageApplied',
+    registerSettlementHook({
+        when: SIGNAL_TYPES.AFTER_DAMAGE_APPLIED,
         priority: L.AFTER_DAMAGE_APPLIED.BLOODTHIRST,
         handler: (data) => {
             submitBloodthirstDeclaration(data);
@@ -217,7 +217,7 @@ export function registerBloodthirst(eventBus) {
 // 声明提交（纯函数）：热血奋战攻击回血（每N次翻倍）
 export function submitHotBloodDeclaration(data) {
     const { unit, dmg, allySide, enemySide, log } = data;
-    if (!unit.alive || unit.camp !== 'ally' || unit.hp >= unit.maxHp) return;
+    if (!unit.alive || unit.camp !== CAMP_TYPES.ALLY || unit.hp >= unit.maxHp) return;
     const unitBuffs = allySide._activeBuffs || [];
     const hasSister = allySide.some(u => u.isXiaoZhaoSister && u.alive);
     const isBrother = unit.isXiaoZhaoBrother;
@@ -275,8 +275,8 @@ export function submitHotBloodDeclaration(data) {
 
 // 薄壳注册：只做转调，无判定无写入
 export function registerHotBlood(eventBus) {
-    registerSettlementHook(eventBus, {
-        when: 'afterDamageApplied',
+    registerSettlementHook({
+        when: SIGNAL_TYPES.AFTER_DAMAGE_APPLIED,
         priority: L.AFTER_DAMAGE_APPLIED.HOT_BLOOD,
         handler: (data) => {
             submitHotBloodDeclaration(data);
@@ -288,13 +288,13 @@ export function registerHotBlood(eventBus) {
 export function submitWindAssaultDeclaration(data) {
     const { unit, target, dmg, allySide, enemySide, log } = data;
     const rng = getBattleRng();
-    if (!unit.alive || unit.camp !== 'ally' || !target || !target.alive) return;
+    if (!unit.alive || unit.camp !== CAMP_TYPES.ALLY || !target || !target.alive) return;
     if (target.camp === unit.camp) return;
     const unitBuffs = allySide._activeBuffs || [];
     const isBrother = unit.isXiaoZhaoBrother;
 
-    const active = hasBuff(unitBuffs, BUFF_TYPES.WIND_ASSAULT) && unit.role === '飞行';
-    const brotherActive = isBrother && unit.role === '飞行' && query('xiaoPermanentActive', unit, unitBuffs, BUFF_TYPES.WIND_ASSAULT);
+    const active = hasBuff(unitBuffs, BUFF_TYPES.WIND_ASSAULT) && unit.role === ROLE_TYPES.FLYER;
+    const brotherActive = isBrother && unit.role === ROLE_TYPES.FLYER && query('xiaoPermanentActive', unit, unitBuffs, BUFF_TYPES.WIND_ASSAULT);
     if (!active && !brotherActive) return;
 
     const enhance = query('xiaoHexEnhance', allySide, unitBuffs, BUFF_TYPES.WIND_ASSAULT);
@@ -323,7 +323,7 @@ export function submitWindAssaultDeclaration(data) {
     if (rng.nextInt(1, 100) <= pushProb) {
         const behindPos = target.pos + 3;
         if (behindPos <= 9) {
-            const targetTeam = target.camp === 'ally' ? allySide : enemySide;
+            const targetTeam = target.camp === CAMP_TYPES.ALLY ? allySide : enemySide;
             const behindUnit = targetTeam.find(u => u.pos === behindPos && u.alive);
             const oldPos = target.pos;
             if (behindUnit) {
@@ -345,13 +345,13 @@ export function submitWindAssaultDeclaration(data) {
         log.push({ factType: FACT_TYPES.WIND_ASSAULT_FAIL, data: { label, reason: '击退触发失败' } });
     }
 
-    eventBus.emit('onPositionSwap', { allySide, enemySide, log });
+    eventBus.emit(SIGNAL_TYPES.ON_POSITION_SWAP, { allySide, enemySide, log });
 }
 
 // 薄壳注册：只做转调，无判定无写入
 export function registerWindAssault(eventBus) {
-    registerSettlementHook(eventBus, {
-        when: 'afterDamageApplied',
+    registerSettlementHook({
+        when: SIGNAL_TYPES.AFTER_DAMAGE_APPLIED,
         priority: L.AFTER_DAMAGE_APPLIED.WIND_ASSAULT,
         handler: (data) => {
             submitWindAssaultDeclaration(data);
@@ -362,13 +362,13 @@ export function registerWindAssault(eventBus) {
 // 声明提交（纯函数）：流星赶月远程伤害加深+溅射降防
 export function submitMeteorShowerDeclaration(data) {
     const { unit, target, dmg, allySide, enemySide, log } = data;
-    if (!unit.alive || unit.camp !== 'ally' || !target || !target.alive) return;
+    if (!unit.alive || unit.camp !== CAMP_TYPES.ALLY || !target || !target.alive) return;
     const unitBuffs = allySide._activeBuffs || [];
     const hasSister = allySide.some(u => u.isXiaoZhaoSister && u.alive);
     const isBrother = unit.isXiaoZhaoBrother;
 
-    const active = hasBuff(unitBuffs, BUFF_TYPES.METEOR_SHOWER) && unit.role === '远程';
-    const brotherActive = isBrother && unit.role === '远程' && query('xiaoPermanentActive', unit, unitBuffs, BUFF_TYPES.METEOR_SHOWER);
+    const active = hasBuff(unitBuffs, BUFF_TYPES.METEOR_SHOWER) && unit.role === ROLE_TYPES.RANGED;
+    const brotherActive = isBrother && unit.role === ROLE_TYPES.RANGED && query('xiaoPermanentActive', unit, unitBuffs, BUFF_TYPES.METEOR_SHOWER);
     if (!active && !brotherActive) return;
 
     const label = brotherActive ? '🦋 蝶星' : '☄️ 流星赶月';
@@ -425,8 +425,8 @@ export function submitMeteorShowerDeclaration(data) {
 
 // 薄壳注册：只做转调，无判定无写入
 export function registerMeteorShower(eventBus) {
-    registerSettlementHook(eventBus, {
-        when: 'afterDamageApplied',
+    registerSettlementHook({
+        when: SIGNAL_TYPES.AFTER_DAMAGE_APPLIED,
         priority: L.AFTER_DAMAGE_APPLIED.METEOR_SHOWER,
         handler: (data) => {
             submitMeteorShowerDeclaration(data);
@@ -436,12 +436,12 @@ export function registerMeteorShower(eventBus) {
 
 // Buff-事件注册：惑人心智最前排换位扰乱
 export function registerMindControl(eventBus) {
-    registerSettlementHook(eventBus, {
-        when: 'afterAttack',
+    registerSettlementHook({
+        when: SIGNAL_TYPES.AFTER_ATTACK,
         priority: L.AFTER_ATTACK.MIND_CONTROL,
         handler: (data) => {
             const { unit, allySide, enemySide, log } = data;
-            if (!unit.alive || unit.camp !== 'ally') return;
+            if (!unit.alive || unit.camp !== CAMP_TYPES.ALLY) return;
             const buffs = allySide._activeBuffs || [];
             const hasSister = allySide.some(u => u.isXiaoZhaoSister && u.alive);
 

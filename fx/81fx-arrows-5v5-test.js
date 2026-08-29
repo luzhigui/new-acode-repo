@@ -1,8 +1,9 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// fx/81fx-arrows-5v5-test.js - 光明顶5v5 飞箭+白骨爪特效
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// fx/81fx-arrows-5v5-test.js - 光明顶5v5 飞箭+白骨爪特效
 // V5.5.0 | ~21100 bytes| 2026-07-06 新增 showBoneClaw、接入通用受击反馈
 export const VER = 'fx/81fx-arrows-5v5-test.js V5.5.0';
 
 import { applyImpactShrink } from './80fx-common-5v5-test.js';
+import { CAMP_TYPES } from '../infra/56-battle-enums.js';
 
 function applyWholeShake(elements, durationMs, basePositions, angle, getPausedFn, onComplete) {
     let start = null;
@@ -11,9 +12,9 @@ function applyWholeShake(elements, durationMs, basePositions, angle, getPausedFn
 }
 
 export function showRangedArrow(unitA, unitD, speed, getPausedFn, isMeteor = false) {
-    let gridAId = unitA.camp==='ally'?'allyGrid':'enemyGrid', gridDId = unitD.camp==='ally'?'allyGrid':'enemyGrid';
+    let gridAId = unitA.camp===CAMP_TYPES.ALLY?'allyGrid':'enemyGrid', gridDId = unitD.camp===CAMP_TYPES.ALLY?'allyGrid':'enemyGrid';
     let gridA = document.getElementById(gridAId), gridD = document.getElementById(gridDId);
-    let orderA = unitA.camp==='enemy'?[7,8,9,4,5,6,1,2,3]:[1,2,3,4,5,6,7,8,9], orderD = unitD.camp==='enemy'?[7,8,9,4,5,6,1,2,3]:[1,2,3,4,5,6,7,8,9];
+    let orderA = unitA.camp===CAMP_TYPES.ENEMY?[7,8,9,4,5,6,1,2,3]:[1,2,3,4,5,6,7,8,9], orderD = unitD.camp===CAMP_TYPES.ENEMY?[7,8,9,4,5,6,1,2,3]:[1,2,3,4,5,6,7,8,9];
     let idxA = orderA.indexOf(unitA.pos), idxD = orderD.indexOf(unitD.pos);
     if(idxA<0||idxD<0||!gridA.children[idxA]||!gridD.children[idxD]) return;
     let rA = gridA.children[idxA].getBoundingClientRect(), rD = gridD.children[idxD].getBoundingClientRect();
@@ -90,17 +91,17 @@ export function showRangedArrow(unitA, unitD, speed, getPausedFn, isMeteor = fal
  * 从目标位置向每个被溅射的单位发射小型橙色飞箭
  */
 export async function showSplashArrows(attacker, primaryTarget, splashTargets, speed, getPausedFn) {
-    let gridAId = attacker.camp==='ally'?'allyGrid':'enemyGrid';
+    let gridAId = attacker.camp===CAMP_TYPES.ALLY?'allyGrid':'enemyGrid';
     let gridA = document.getElementById(gridAId);
-    let orderA = attacker.camp==='enemy'?[7,8,9,4,5,6,1,2,3]:[1,2,3,4,5,6,7,8,9];
+    let orderA = attacker.camp===CAMP_TYPES.ENEMY?[7,8,9,4,5,6,1,2,3]:[1,2,3,4,5,6,7,8,9];
     let idxA = orderA.indexOf(attacker.pos);
     if(idxA<0||!gridA.children[idxA]) return;
     let rA = gridA.children[idxA].getBoundingClientRect();
     let ax = rA.left + rA.width/2, ay = rA.top + rA.height/2;
     
-    let primaryGridId = primaryTarget.camp==='ally'?'allyGrid':'enemyGrid';
+    let primaryGridId = primaryTarget.camp===CAMP_TYPES.ALLY?'allyGrid':'enemyGrid';
     let primaryGrid = document.getElementById(primaryGridId);
-    let orderPrimary = primaryTarget.camp==='enemy'?[7,8,9,4,5,6,1,2,3]:[1,2,3,4,5,6,7,8,9];
+    let orderPrimary = primaryTarget.camp===CAMP_TYPES.ENEMY?[7,8,9,4,5,6,1,2,3]:[1,2,3,4,5,6,7,8,9];
     let idxPrimary = orderPrimary.indexOf(primaryTarget.pos);
     if(idxPrimary<0||!primaryGrid.children[idxPrimary]) return;
     let rPrimary = primaryGrid.children[idxPrimary].getBoundingClientRect();
@@ -118,9 +119,9 @@ export async function showSplashArrows(attacker, primaryTarget, splashTargets, s
     await new Promise(r => setTimeout(r, Math.max(100, pauseDuration)));
 
     splashTargets.forEach(st => {
-        let gridDId = st.camp==='ally'?'allyGrid':'enemyGrid';
+        let gridDId = st.camp===CAMP_TYPES.ALLY?'allyGrid':'enemyGrid';
         let gridD = document.getElementById(gridDId);
-        let orderD = st.camp==='enemy'?[7,8,9,4,5,6,1,2,3]:[1,2,3,4,5,6,7,8,9];
+        let orderD = st.camp===CAMP_TYPES.ENEMY?[7,8,9,4,5,6,1,2,3]:[1,2,3,4,5,6,7,8,9];
         let idxD = orderD.indexOf(st.pos);
         if(idxD<0||!gridD.children[idxD]) return;
         let rD = gridD.children[idxD].getBoundingClientRect();
@@ -185,10 +186,10 @@ export async function showSplashArrows(attacker, primaryTarget, splashTargets, s
 export function showBoneClaw(unitA, unitD, speed, getPausedFn, onHit, opts) {
     if (GlobalStore.get('fastForwardActive')) { if (onHit) onHit(); return; }
     opts = opts || {};
-    let gridAId = unitA.camp==='ally'?'allyGrid':'enemyGrid', gridDId = unitD.camp==='ally'?'allyGrid':'enemyGrid';
+    let gridAId = unitA.camp===CAMP_TYPES.ALLY?'allyGrid':'enemyGrid', gridDId = unitD.camp===CAMP_TYPES.ALLY?'allyGrid':'enemyGrid';
     let gridA = document.getElementById(gridAId), gridD = document.getElementById(gridDId);
-    let orderA = unitA.camp==='enemy'?[7,8,9,4,5,6,1,2,3]:[1,2,3,4,5,6,7,8,9];
-    let orderD = unitD.camp==='enemy'?[7,8,9,4,5,6,1,2,3]:[1,2,3,4,5,6,7,8,9];
+    let orderA = unitA.camp===CAMP_TYPES.ENEMY?[7,8,9,4,5,6,1,2,3]:[1,2,3,4,5,6,7,8,9];
+    let orderD = unitD.camp===CAMP_TYPES.ENEMY?[7,8,9,4,5,6,1,2,3]:[1,2,3,4,5,6,7,8,9];
     let idxA = orderA.indexOf(unitA.pos), idxD = orderD.indexOf(unitD.pos);
     if(idxA<0||idxD<0||!gridA||!gridD) { if (onHit) onHit(); return; }
     // 获取格子位置，如果格子不存在或rect为0则用grid整体rect推算

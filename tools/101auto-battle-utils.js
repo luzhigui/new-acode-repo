@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// tools/101auto-battle-utils.js - 光明顶5v5 自动批量战斗工具
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// tools/101auto-battle-utils.js - 光明顶5v5 自动批量战斗工具
 // V5.5.1 | ~14809 bytes| 2026-08-19 import 路径合并至 infra/51-core-utils
 export const VER = 'tools/101auto-battle-utils.js V5.5.1';
 
@@ -6,7 +6,7 @@ import { CONFIG } from '../core/01config-5v5-test.js';
 import { SeededRNG } from '../infra/51-core-utils.js';
 import { createRoundStepper } from '../core/11battle-round.js';
 import { initBattleTeams } from '../modules/29battle-init.js';
-import { BUFF_TYPES } from '../infra/56-battle-enums.js';
+import { BUFF_TYPES, CAMP_TYPES } from '../infra/56-battle-enums.js';
 import '../infra/54-global-store.js';
 import '../modules/25elite-imperial.js';
 import '../modules/26elite-sixsects.js';
@@ -59,7 +59,7 @@ function autoPickBuffForBattle(state, currentBuffs) {
     const rng = state._rng || new SeededRNG(Date.now());
     const pick = available[rng.nextInt(0, available.length - 1)];
     const duration = C.BUFFS[pick].duration || C.BUFF_DURATION || 4;
-    const newBuff = { key: pick, target: 'ally', remaining: duration, name: C.BUFFS[pick].name };
+    const newBuff = { key: pick, target: CAMP_TYPES.ALLY, remaining: duration, name: C.BUFFS[pick].name };
     if (pick === BUFF_TYPES.HOLY_FLAME) {
         newBuff.col = rng.nextInt(1, 3);
         newBuff.row = rng.nextInt(1, 3);
@@ -115,7 +115,7 @@ export async function runAutoBattle(rounds, onProgress, stage = 1, preferredBuff
         for (let j = 0; j < 4; j++) {
             const choices = generateBuffChoices();
             const picked = autoPickBuff(choices, preferredBuffs);
-            if (picked) buffs.push({ key: picked, target: 'ally', remaining: C.BUFFS[picked].duration || C.BUFF_DURATION });
+            if (picked) buffs.push({ key: picked, target: CAMP_TYPES.ALLY, remaining: C.BUFFS[picked].duration || C.BUFF_DURATION });
         }
         const result = await runBattle(snap, buffs, rng);
         if (result.winner === '明教') wins.ally++;
