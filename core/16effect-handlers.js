@@ -59,6 +59,28 @@ export function validateDeclarationFields(type, decl) {
     return contract.requiredFields.filter(f => decl[f] === undefined || decl[f] === null);
 }
 
+/**
+ * calcModifier 字段契约：伤害计算阶段的 5 种修饰器都只需 value。
+ * 与 effectHandler 契约对称，calcFinalDamage 执行前逐 decl 校验。
+ */
+export const CALC_MODIFIER_CONTRACTS = Object.freeze({
+    [EFFECT_TYPES.BREAK_DEF]: { requiredFields: ['value'] },
+    [EFFECT_TYPES.IGNORE_DEF]: { requiredFields: ['value'] },
+    [EFFECT_TYPES.BONUS_DMG]: { requiredFields: ['value'] },
+    [EFFECT_TYPES.DMG_MULTIPLIER]: { requiredFields: ['value'] },
+    [EFFECT_TYPES.DMG_REDUCTION]: { requiredFields: ['value'] },
+});
+
+/**
+ * 校验单个 calcModifier 声明是否满足字段契约。
+ * 返回缺失字段数组；空数组通过；未知类型返回 null（不校验）。
+ */
+export function validateCalcModifierFields(type, decl) {
+    const contract = CALC_MODIFIER_CONTRACTS[type];
+    if (!contract) return null;
+    return contract.requiredFields.filter(f => decl[f] === undefined || decl[f] === null);
+}
+
 export function getEffectHandler(type) {
     if (!effectHandlers.has(type)) {
         console.warn(`[16effect-handlers] 未注册的结算类型: ${type}`);

@@ -8,7 +8,7 @@ import { calcDamage, getFangLevel, isMelee, getFronts, isBlocked, getRandomTaunt
 import { emitEvent, applyStatChange, applyMaxHpChange, query, getBattleRng, recordCombatStat } from './13battle-shared.js';
 import { getEliteState } from './18-elite-state.js';
 import { flushBattleEvents, pushBattleEvent, getBattleState, setBattleState, registerDodgeRule, clearEliteDodgeRules, getDodgeRules } from '../infra/51-core-utils.js';
-import { getEffectHandler, hasEffectHandler, getCalcModifier, validateDeclarationFields } from './16effect-handlers.js';
+import { getEffectHandler, hasEffectHandler, getCalcModifier, validateDeclarationFields, validateCalcModifierFields } from './16effect-handlers.js';
 import { FACT_TYPES, BUFF_TYPES, UNIT_EVENT_TYPES, DROP_TYPES, CAMP_TYPES, ROLE_TYPES, SIGNAL_TYPES } from '../infra/56-battle-enums.js';
 
 // ==================== 闪避规则注册表（已下沉 infra/51，此处转发） ====================
@@ -207,6 +207,10 @@ export async function calcFinalDamage(unit, target, attackerBuffStats, defenderB
     for (const decl of damageDeclarations) {
         const handler = getCalcModifier(decl.type);
         if (!handler) continue;
+        const missing = validateCalcModifierFields(decl.type, decl);
+        if (missing && missing.length > 0) {
+            throw new Error(`[12battle-attack-steps] ${decl.type} 修饰器声明缺字段: ${missing.join(', ')}`);
+        }
         handler({ decl, unit, target, refs });
     }
     // 查表回调通过 refs 累积修改中间变量，同步回局部变量
