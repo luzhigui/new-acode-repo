@@ -1,6 +1,6 @@
 // tools/106-ai-pack-config.js - 光明顶5v5 AI 复制包配置（清单/分组/提示词/精简踢除）
-// V5.9.0 | ~11600 bytes| 2026-08-28 清单补 core/18、infra/57、tests/140-baseline + baselines
-export const VER = 'tools/106-ai-pack-config.js V5.9.0';
+// V5.9.1 | ~11600 bytes| 2026-08-28 清单补 modules/30custom-effects.js
+export const VER = 'tools/106-ai-pack-config.js V5.9.1';
 
 // ==================== AI 精简模式踢除清单（第一批） ====================
 // 这些文件不参与战斗逻辑/状态同步/数值结算，默认不随包发送。
@@ -60,7 +60,7 @@ export const ALL_PROJECT_FILES = [
     '../modules/20elite-skills.js', '../modules/21error-capture.js', '../modules/22audio-manager.js',
     '../infra/54-global-store.js', '../infra/55-fx-signals.js', '../modules/29battle-init.js', '../modules/24battle-store.js',
     '../modules/25elite-imperial.js', '../modules/26elite-sixsects.js', '../modules/27elite-mingjiao.js',
-    '../modules/28buff-tools.js',
+    '../modules/28buff-tools.js', '../modules/30custom-effects.js',
     // render（渲染层）
     '../render/30-fact-renderer.js', '../render/31-stage-actions.js', '../render/32-grid-render.js',
     // content（游戏内容数据）
