@@ -27,13 +27,13 @@ registerDodgeRule((unit, attacker) => {
 const C = CONFIG;
 
 // ==================== 步骤1：选择攻击目标 ====================
-export function selectAttackTarget(unit, enemySide, allySide) {
+export async function selectAttackTarget(unit, enemySide, allySide) {
     const rng = getBattleRng();
     const validTargets = enemySide.filter(c => c.alive && !getEliteState(c.uid)._untargetable);
     if (validTargets.length === 0) return { target: null, phantomFact: null };
 
     const declaration = { targetResult: null };
-    eventBus.emit(SIGNAL_TYPES.BEFORE_SELECT_TARGET, { unit, enemySide, allySide, validTargets, declaration });
+    await eventBus.emit(SIGNAL_TYPES.BEFORE_SELECT_TARGET, { unit, enemySide, allySide, validTargets, declaration });
 
     let target = null;
     let phantomFact = null;
@@ -78,7 +78,7 @@ export function selectAttackTarget(unit, enemySide, allySide) {
 }
 
 // ==================== 步骤2：未命中+闪避判定 ====================
-export function resolveAttackHit(unit, target, attackerBuffStats, defenderBuffStats, log, A, B, doubleStrikeUnitUid, eventBus) {
+export async function resolveAttackHit(unit, target, attackerBuffStats, defenderBuffStats, log, A, B, doubleStrikeUnitUid, eventBus) {
     const rng = getBattleRng();
     let missChance = 0;
     if (unit.role === ROLE_TYPES.RANGED) { missChance = C.RANGED_MISS_CHANCE; }
@@ -106,7 +106,7 @@ export function resolveAttackHit(unit, target, attackerBuffStats, defenderBuffSt
         if (eventBus) {
             let afterMissExtraRequests = [];
             let afterMissData = { unit, target, log, extraRequests: afterMissExtraRequests };
-            eventBus.emit(SIGNAL_TYPES.AFTER_MISS, afterMissData);
+            await eventBus.emit(SIGNAL_TYPES.AFTER_MISS, afterMissData);
             if (afterMissExtraRequests.length > 0) {
                 missData.extraRequests = afterMissExtraRequests;
             }
@@ -157,7 +157,7 @@ export function resolveAttackHit(unit, target, attackerBuffStats, defenderBuffSt
             dodgeDeclarations.push({ type: EFFECT_TYPES.REBOUND, value: reboundDmg });
             dodgeDeclarations.push({ type: EFFECT_TYPES.STUN });
 
-            eventBus.emit(SIGNAL_TYPES.ON_DODGE, { unit, target, reboundDmg, declarations: dodgeDeclarations });
+            await eventBus.emit(SIGNAL_TYPES.ON_DODGE, { unit, target, reboundDmg, declarations: dodgeDeclarations });
 
             resolveDodgeEffects(dodgeDeclarations, unit, target);
 
@@ -189,11 +189,11 @@ export function resolveAttackHit(unit, target, attackerBuffStats, defenderBuffSt
 }
 
 // ==================== 步骤3：伤害计算 ====================
-export function calcFinalDamage(unit, target, attackerBuffStats, defenderBuffStats, allySide, enemySide, log) {
+export async function calcFinalDamage(unit, target, attackerBuffStats, defenderBuffStats, allySide, enemySide, log) {
     const damageDeclarations = [];
     // 事件 data 对象变量化：监听器可挂 _derivedEntries 记账（乾坤衍生），随 dmgCalc 传回攻击流程，不落 unit
     const damageData = { unit, target, allySide, enemySide, log, declarations: damageDeclarations };
-    eventBus.emit(SIGNAL_TYPES.BEFORE_DAMAGE_CALC, damageData);
+    await eventBus.emit(SIGNAL_TYPES.BEFORE_DAMAGE_CALC, damageData);
 
     let defBase = Math.floor(target.def);
     let defReduced = 0;

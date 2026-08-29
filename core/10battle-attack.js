@@ -54,7 +54,7 @@ export async function processUnitAttack(unit, allySide, enemySide, log, A, B, st
             return false;
         }
     } else {
-        let targetResult = selectAttackTarget(unit, enemySide, allySide);
+        let targetResult = await selectAttackTarget(unit, enemySide, allySide);
         target = targetResult.target;
         phantomFact = targetResult.phantomFact;
     }
@@ -83,7 +83,7 @@ export async function processUnitAttack(unit, allySide, enemySide, log, A, B, st
     let targetAllyTeam = target.camp === CAMP_TYPES.ALLY ? A : B;
     let defenderBuffStats = computeBuffStats(target, targetActiveBuffs, targetAllyTeam);
 
-    let hitResult = resolveAttackHit(unit, target, attackerBuffStats, defenderBuffStats, log, A, B, doubleStrikeUnitUid, eventBus);
+    let hitResult = await resolveAttackHit(unit, target, attackerBuffStats, defenderBuffStats, log, A, B, doubleStrikeUnitUid, eventBus);
     if (hitResult.skipped) {
         if (hitResult.missFact) {
             log.push({ factType: FACT_TYPES.MISS, data: hitResult.missFact });
@@ -117,10 +117,10 @@ export async function processUnitAttack(unit, allySide, enemySide, log, A, B, st
     }
 
     eventBus.emit(SIGNAL_TYPES.BEFORE_ATTACK, { unit, allySide, enemySide, log });
-    let dmgCalc = calcFinalDamage(unit, target, attackerBuffStats, defenderBuffStats, allySide, enemySide, log);
+    let dmgCalc = await calcFinalDamage(unit, target, attackerBuffStats, defenderBuffStats, allySide, enemySide, log);
 
     const immuneDeclarations = [];
-    eventBus.emit(SIGNAL_TYPES.BEFORE_DAMAGE_APPLY, { target, dmg: dmgCalc.dmg, hpBefore: target.hp, A, log, declarations: immuneDeclarations });
+    await eventBus.emit(SIGNAL_TYPES.BEFORE_DAMAGE_APPLY, { target, dmg: dmgCalc.dmg, hpBefore: target.hp, A, log, declarations: immuneDeclarations });
 
     let dmgResult = applyAttackResult(unit, target, dmgCalc, attackerBuffStats, defenderBuffStats, allySide, enemySide, log, A, B, state, doubleStrikeUnitUid);
     const immuneResult = resolveDamageImmune(immuneDeclarations);
