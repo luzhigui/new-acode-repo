@@ -7,7 +7,7 @@ import { GlobalStore } from '../infra/54-global-store.js';
 import { addPermanentBuff } from '../modules/20elite-skills.js';
 import { createBuffObject } from '../modules/28buff-tools.js';
 import { getBattleRng } from '../core/13battle-shared.js';
-import { CAMP_TYPES } from '../infra/56-battle-enums.js';
+import { CAMP_TYPES, BUFF_TYPES } from '../infra/56-battle-enums.js';
 
 export function showBuffPopup(c) {
     return new Promise((resolve) => {

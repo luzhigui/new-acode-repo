@@ -4,7 +4,7 @@ export const VER = 'modules/28buff-tools.js V5.5.0';
 
 import { CONFIG } from '../core/01config-5v5-test.js';
 import { getBattleRng } from '../core/13battle-shared.js';
-import { CAMP_TYPES } from '../infra/56-battle-enums.js';
+import { CAMP_TYPES, BUFF_TYPES } from '../infra/56-battle-enums.js';
 
 export function createBuffObject(key, duration) {
     const buff = { key, target: CAMP_TYPES.ALLY, remaining: duration, name: CONFIG.BUFFS[key]?.name || key };
