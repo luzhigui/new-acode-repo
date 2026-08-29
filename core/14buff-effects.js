@@ -6,7 +6,7 @@ import { CONFIG, getSkillParams } from './01config-5v5-test.js';
 import { getUnitRow, getUnitCol } from './03battle-utils.js';
 import { eventBus } from '../infra/50-event-bus.js';
 import { getBattleRng, swapUnitPositions } from './13battle-shared.js';
-import { FACT_TYPES, CAMP_TYPES, SIGNAL_TYPES } from '../infra/56-battle-enums.js';
+import { FACT_TYPES, CAMP_TYPES, SIGNAL_TYPES, BUFF_TYPES } from '../infra/56-battle-enums.js';
 import { getEliteState } from './18-elite-state.js';
 const C = CONFIG;
 
