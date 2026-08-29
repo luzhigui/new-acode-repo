@@ -145,13 +145,6 @@ export function battleReducer(state, action) {
             }
             return { ...state, units: next };
         }
-        case STORE_ACTION_TYPES.SYNC_UNIT: {
-            let next = state.units.map(u => {
-                if (u.uid !== action.uid) return u;
-                return { ...u, ...action.fields };
-            });
-            return { ...state, units: next };
-        }
         case STORE_ACTION_TYPES.ADD_UNIT: {
             if (state.units.find(u => u.uid === action.unit.uid)) return state;
             return { ...state, units: [...state.units, action.unit] };

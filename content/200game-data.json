@@ -368,6 +368,13 @@
           "params": {}
         }
       },
+      "mechanics": [
+        {
+          "camp": "ally",
+          "type": "damageReflect",
+          "reflectRatio": 0.30
+        }
+      ],
       "taunts": {
         "attack": ["看剑！", "接招！"],
         "kill": []

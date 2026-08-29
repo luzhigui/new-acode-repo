@@ -171,7 +171,9 @@ export async function processUnitAttack(unit, allySide, enemySide, log, A, B, st
 
     const afterDamageExtraRequests = [];
     const afterDamageDeclarations = [];
-    eventBus.emit(SIGNAL_TYPES.AFTER_DAMAGE_APPLIED, { unit, target, dmg: dmgCalc.dmg, group, allySide, enemySide, log, A, B, declarations: afterDamageDeclarations, extraRequests: afterDamageExtraRequests });
+    // 必 await：相位栅栏要求同 phase 所有监听器（含较高 priority 的反伤/吸血/回血）在执行完才继续；
+    // 否则异步 emit 只有首个低优先级监听器同步投递，其余在 promise 微任务里晚于下方 resolveAfterDamageEffects 才 push，声明被吞
+    await eventBus.emit(SIGNAL_TYPES.AFTER_DAMAGE_APPLIED, { unit, target, dmg: dmgCalc.dmg, group, allySide, enemySide, log, A, B, declarations: afterDamageDeclarations, extraRequests: afterDamageExtraRequests });
 
     if (dmgResult.fortifyDeclarations && dmgResult.fortifyDeclarations.length > 0) {
         afterDamageDeclarations.push(...dmgResult.fortifyDeclarations);

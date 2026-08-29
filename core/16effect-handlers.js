@@ -12,10 +12,58 @@ export { registerCalcModifier, getCalcModifier };
 const effectHandlers = new Map();
 
 export function registerEffectHandler(type, handler) {
+    const errors = validateEffectHandlerContract(type, handler);
+    if (errors.length > 0) {
+        throw new Error(`[16effect-handlers] 契约校验失败: ${errors.join('; ')}`);
+    }
     effectHandlers.set(type, handler);
 }
 
+/**
+ * 声明契约：每种结算类型的 handler 必须满足字段契约。
+ * 返回错误列表，空数组表示通过。注册时不会校验，调用方按需用。
+ */
+export function validateEffectHandlerContract(type, handler) {
+    const errors = [];
+    if (!type || typeof type !== 'string') {
+        errors.push('type 必须是非空字符串');
+    }
+    if (typeof handler !== 'function') {
+        errors.push('handler 必须是函数');
+    }
+    return errors;
+}
+
+/**
+ * 字段契约表：每种结算类型的 decl 必须携带这些字段。
+ * resolveAfterDamageEffects 执行前逐 decl 校验，缺字段当场抛错。
+ */
+export const EFFECT_HANDLER_CONTRACTS = Object.freeze({
+    [EFFECT_TYPES.BONUS_DMG]: { requiredFields: ['target', 'value'] },
+    [EFFECT_TYPES.LEECH]: { requiredFields: ['source', 'value'] },
+    [EFFECT_TYPES.HEAL]: { requiredFields: ['source', 'value'] },
+    [EFFECT_TYPES.SPLASH]: { requiredFields: ['targets', 'value'] },
+    [EFFECT_TYPES.REBOUND]: { requiredFields: ['target', 'value'] },
+    [EFFECT_TYPES.STAT_CHANGE]: { requiredFields: ['target', 'field', 'delta'] },
+    [EFFECT_TYPES.EXECUTE]: { requiredFields: ['target'] },
+    [EFFECT_TYPES.CLAW_CHAIN]: { requiredFields: ['target', 'hits'] },
+});
+
+/**
+ * 校验单个 decl 是否满足对应结算类型的字段契约。
+ * 返回缺失字段数组；空数组表示通过；未知类型返回 null（走 catch-all 不校验）。
+ */
+export function validateDeclarationFields(type, decl) {
+    const contract = EFFECT_HANDLER_CONTRACTS[type];
+    if (!contract) return null;
+    return contract.requiredFields.filter(f => decl[f] === undefined || decl[f] === null);
+}
+
 export function getEffectHandler(type) {
+    if (!effectHandlers.has(type)) {
+        console.warn(`[16effect-handlers] 未注册的结算类型: ${type}`);
+        return null;
+    }
     return effectHandlers.get(type);
 }
 
