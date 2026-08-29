@@ -2,7 +2,7 @@
 // V5.6.1 | ~11800 bytes| 2026-08-26 GAME_STATE_FIELDS 删 _phantomTarget/_masteredRoles（已迁 18-elite-state）
 export const VER = 'modules/24battle-store.js V5.6.1';
 
-import { STORE_ACTION_TYPES } from '../infra/56-battle-enums.js';
+import { STORE_ACTION_TYPES, UNIT_EVENT_TYPES } from '../infra/56-battle-enums.js';
 import { getEliteState } from '../core/18-elite-state.js';
 
 // ==================== Store 工厂 ====================
@@ -76,7 +76,7 @@ export function battleReducer(state, action) {
             if (!events || events.length === 0) return state;
             let next = state.units.map(u => ({ ...u }));
             for (const ev of events) {
-                if (ev.eventType === 'hp-change' || ev.eventType === 'stat-bonus-change' || ev.eventType === 'zhang-switch') {
+                if (ev.eventType === UNIT_EVENT_TYPES.HP_CHANGE || ev.eventType === UNIT_EVENT_TYPES.STAT_BONUS_CHANGE || ev.eventType === UNIT_EVENT_TYPES.ZHANG_SWITCH) {
                     const idx = next.findIndex(u => u.uid === ev.unitUid);
                     if (idx >= 0) {
                         const p = ev.payload;
@@ -110,11 +110,11 @@ export function battleReducer(state, action) {
                         if (p._flyMode !== undefined) next[idx].state._flyMode = p._flyMode;
                         if (p._butterflyHost !== undefined) next[idx].state._butterflyHost = p._butterflyHost;
                         if (p._masteredRoles !== undefined) next[idx]._masteredRoles = p._masteredRoles;
-                        if (ev.eventType === 'zhang-switch') {
+                        if (ev.eventType === UNIT_EVENT_TYPES.ZHANG_SWITCH) {
                             if (p.rangedForm !== undefined) next[idx].rangedForm = p.rangedForm;
                         }
                     }
-                } else if (ev.eventType === 'unit-add') {
+                } else if (ev.eventType === UNIT_EVENT_TYPES.UNIT_ADD) {
                     const p = ev.payload;
                     if (!next.find(u => u.uid === p.uid)) {
                         next.push({
@@ -132,9 +132,9 @@ export function battleReducer(state, action) {
                             }
                         });
                     }
-                } else if (ev.eventType === 'unit-remove') {
+                } else if (ev.eventType === UNIT_EVENT_TYPES.UNIT_REMOVE) {
                     next = next.filter(u => u.uid !== ev.payload.uid);
-                } else if (ev.eventType === 'pos-change') {
+                } else if (ev.eventType === UNIT_EVENT_TYPES.POS_CHANGE) {
                     const uid = ev.uid || ev.unitUid;
                     const pos = ev.pos !== undefined ? ev.pos : (ev.payload && ev.payload.pos);
                     const idx = next.findIndex(u => u.uid === uid);

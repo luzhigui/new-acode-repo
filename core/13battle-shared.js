@@ -5,7 +5,7 @@ export const VER = 'core/13battle-shared.js V5.6.1';
 import { CONFIG } from './01config-5v5-test.js';
 import { getRoleBonus } from './02unit.js';
 import { pushBattleEvent } from '../infra/51-core-utils.js';
-import { FACT_TYPES } from '../infra/56-battle-enums.js';
+import { FACT_TYPES, UNIT_EVENT_TYPES, ROLE_TYPES } from '../infra/56-battle-enums.js';
 import { getEliteState, setEliteState } from './18-elite-state.js';
 const C = CONFIG;
 
@@ -74,7 +74,7 @@ function recordCombatStat(source, target, type, opts = {}) {
             break;
     }
     if (source && source.uid !== target.uid && (type === 'damage' || type === 'heal' || type === 'rebound' || type === 'leech')) {
-        emitCoreEvent(source, 'hp-change', {
+        emitCoreEvent(source, UNIT_EVENT_TYPES.HP_CHANGE, {
             hp: source.hp, maxHp: source.maxHp, alive: source.alive,
             atk: source.atk, def: source.def, _isDead: source.state?._isDead || false,
             dmgDealt: source.dmgDealt, healDone: source.healDone,
@@ -111,7 +111,7 @@ function finalizeDeaths(team) {
             u.alive = false;
             u.state._isDead = true;
             if (!u._deathTime) u._deathTime = Date.now();
-            emitCoreEvent(u, 'hp-change', { hp: u.hp, maxHp: u.maxHp, alive: false, atk: u.atk, def: u.def, _isDead: true });
+            emitCoreEvent(u, UNIT_EVENT_TYPES.HP_CHANGE, { hp: u.hp, maxHp: u.maxHp, alive: false, atk: u.atk, def: u.def, _isDead: true });
         }
     }
 }
@@ -126,14 +126,14 @@ function swapUnitPositions(unitA, unitB) {
     const posB = unitB.pos;
     unitA.pos = posB;
     unitB.pos = posA;
-    emitEvent(unitA, 'pos-change', { pos: posB });
-    emitEvent(unitB, 'pos-change', { pos: posA });
+    emitEvent(unitA, UNIT_EVENT_TYPES.POS_CHANGE, { pos: posB });
+    emitEvent(unitB, UNIT_EVENT_TYPES.POS_CHANGE, { pos: posA });
 }
 
 function moveUnitPosition(unit, newPos) {
     if (!unit || newPos == null) return;
     unit.pos = newPos;
-    emitEvent(unit, 'pos-change', { pos: newPos });
+    emitEvent(unit, UNIT_EVENT_TYPES.POS_CHANGE, { pos: newPos });
 }
 
 function checkZhangSwitch(A, log) {
@@ -143,17 +143,17 @@ function checkZhangSwitch(A, log) {
     let hasFrontAlly = A.some(c => c.alive && !c.isHorse && c.pos === 1 + col && c.uid !== zhang.uid);
     if (!hasFrontAlly) {
         zhang.rangedForm = false;
-        const warriorBonus = getRoleBonus('战士');
+        const warriorBonus = getRoleBonus(ROLE_TYPES.WARRIOR);
         zhang.atk += warriorBonus.atk * 3;
         zhang.def += warriorBonus.def * 3;
         const newMaxHp = Math.min(zhang.maxHp + warriorBonus.maxHp * 3, zhang._baseMaxHp * 3);
         applyMaxHpChange(zhang, newMaxHp, null, '乾坤大挪移变身');
-        zhang.role = '战士';
+        zhang.role = ROLE_TYPES.WARRIOR;
         zhang.state._resting = false; setEliteState(zhang.uid, { _zhangSwitched: true });
         zhang._baseMaxHp = zhang.maxHp;
         zhang._baseAtk = zhang.atk;
         zhang._baseDef = zhang.def;
-        emitCoreEvent(zhang, 'zhang-switch', {
+        emitCoreEvent(zhang, UNIT_EVENT_TYPES.ZHANG_SWITCH, {
             atk: zhang.atk,
             def: zhang.def,
             maxHp: zhang.maxHp,
@@ -205,7 +205,7 @@ function applyStatChange(target, field, delta, source, reason, record = true) {
         target._pendingDeath = true;
         if (!target._deathTime) target._deathTime = Date.now();
     }
-    emitCoreEvent(target, 'hp-change', {
+    emitCoreEvent(target, UNIT_EVENT_TYPES.HP_CHANGE, {
         hp: target.hp, maxHp: target.maxHp, alive: target.alive,
         atk: target.atk, def: target.def, _isDead: target.state._isDead || false,
         dmgDealt: target.dmgDealt, dmgTaken: target.dmgTaken,

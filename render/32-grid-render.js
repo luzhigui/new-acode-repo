@@ -6,6 +6,7 @@ import { getUnitCol, getUnitRow, getAuraBonuses, getDodgeRules } from '../infra/
 import { CONFIG, getSkillDesc } from '../core/01config-5v5-test.js';
 import { GlobalStore, getPlayerContext } from '../infra/54-global-store.js';
 import { getEliteState } from '../core/18-elite-state.js';
+import { FLASH_TYPES, CAMP_TYPES, ROLE_TYPES } from '../infra/56-battle-enums.js';
 
 let _store = null;
 let _subscribed = false;
@@ -38,12 +39,12 @@ function getDodgeBreakdown(unit, activeBuffs, allyTeam) {
         const rate = ruleFn(unit, null) || 0;
         if (rate > 0) {
             let label = '';
-            if (unit.role === '飞行' && rate === 0.15 && !seenFlightBase) {
+            if (unit.role === ROLE_TYPES.FLYER && rate === 0.15 && !seenFlightBase) {
                 label = '飞行基础';
                 seenFlightBase = true;
-            } else if (unit.role === '飞行' && rate === 0.15 && seenFlightBase) {
+            } else if (unit.role === ROLE_TYPES.FLYER && rate === 0.15 && seenFlightBase) {
                 label = '青翼蝠王';
-            } else if (unit.role !== '飞行' && rate === 0.03) {
+            } else if (unit.role !== ROLE_TYPES.FLYER && rate === 0.03) {
                 label = '地面基础';
             } else if (unit.isWei && rate !== 0.15) {
                 label = '残血幻影';
@@ -73,10 +74,10 @@ function getDodgeBreakdown(unit, activeBuffs, allyTeam) {
 function isUnitBenefitedByBuff(unit, buffKey, allyTeam, doubleStrikeUid, activeBuffs) {
     switch (buffKey) {
         case BUFF_TYPES.CARRY: return unit.pos === 5 && unit.alive;
-        case BUFF_TYPES.METEOR_SHOWER: return unit.role === '远程';
-        case BUFF_TYPES.BLOODTHIRST: return unit.role === '战士';
-        case BUFF_TYPES.FORTIFY: return unit.role === '防战' && unit.camp === 'ally';
-        case BUFF_TYPES.WIND_ASSAULT: return unit.role === '飞行';
+        case BUFF_TYPES.METEOR_SHOWER: return unit.role === ROLE_TYPES.RANGED;
+        case BUFF_TYPES.BLOODTHIRST: return unit.role === ROLE_TYPES.WARRIOR;
+        case BUFF_TYPES.FORTIFY: return unit.role === ROLE_TYPES.DEFENDER && unit.camp === CAMP_TYPES.ALLY;
+        case BUFF_TYPES.WIND_ASSAULT: return unit.role === ROLE_TYPES.FLYER;
         case BUFF_TYPES.CLOUD_BODY: return true;
         case BUFF_TYPES.HOLY_FLAME: {
             if (!activeBuffs) return false;
@@ -118,10 +119,10 @@ export function renderGrid(id, camp) {
         const state = store.getState();
         team = state.units.filter(u => u.camp === camp);
     } else if (ctx && ctx.UI) {
-        team = camp === 'ally' ? (ctx.UI.allyTeam || []) : (ctx.UI.enemyTeam || []);
+        team = camp === CAMP_TYPES.ALLY ? (ctx.UI.allyTeam || []) : (ctx.UI.enemyTeam || []);
     }
 
-    let displayOrder = camp === 'enemy' ? [7,8,9,4,5,6,1,2,3] : [1,2,3,4,5,6,7,8,9];
+    let displayOrder = camp === CAMP_TYPES.ENEMY ? [7,8,9,4,5,6,1,2,3] : [1,2,3,4,5,6,7,8,9];
     let isAdjustMode = ctx ? ctx.adjustMode : false;
     let selectedPos = ctx ? ctx.selectedAdjustPos : null;
     let activeBuffs = ctx ? (ctx.activeBuffs || []) : [];
@@ -142,7 +143,7 @@ export function renderGrid(id, camp) {
                     div.style.border = '2px solid transparent';
                     div.style.boxShadow = 'none';
                 } else if (getEliteState(unit.uid)._flyMode === 'ghost') {
-                    let roleIcon = unit.role==='战士'?'⚔️':(unit.role==='防战'?'🛡️':(unit.role==='远程'?'🏹':'🦅'));
+                    let roleIcon = unit.role===ROLE_TYPES.WARRIOR?'⚔️':(unit.role===ROLE_TYPES.DEFENDER?'🛡️':(unit.role===ROLE_TYPES.RANGED?'🏹':'🦅'));
                     div.innerHTML = `<span class="cell-icon">${roleIcon}</span><div class="cell-info"><span class="cell-name">${unit.name}</span><span class="cell-stats">攻${Math.floor(unit.atk)} 防${Math.floor(unit.def)} 血${Math.floor(unit.hp)}</span></div>`;
                     div.style.opacity = '0.5';
                     div.style.background = 'rgba(30,100,255,0.28)';
@@ -185,8 +186,8 @@ export function renderGrid(id, camp) {
             div.className = 'cell';
             div.innerHTML = '<span style="color:#999;">空</span>';
             div.dataset.pos = pos;
-            if (camp === 'ally' && isAdjustMode) div.classList.add('adjustable');
-            if (camp === 'ally' && isAdjustMode && selectedPos === pos) div.classList.add('adjust-selected');
+            if (camp === CAMP_TYPES.ALLY && isAdjustMode) div.classList.add('adjustable');
+            if (camp === CAMP_TYPES.ALLY && isAdjustMode && selectedPos === pos) div.classList.add('adjust-selected');
             grid.appendChild(div); continue;
         }
         // _flash 为 UI 镜像，权威源在 battleStore（事件流 SET_FLASH/CLEAR_UNIT_FLASH 写入）；此处只读
@@ -194,7 +195,7 @@ export function renderGrid(id, camp) {
         const storeUnit = (_storeForFlash && _storeForFlash.getState) ? _storeForFlash.getState().units.find(u => u.uid === unit.uid) : null;
         const flashVal = (storeUnit && storeUnit._flash) || unit._flash || null;
         let hasFlash = !!flashVal;
-        let isDead = (flashVal==='dead' || !unit.alive || unit.state._isDead);
+        let isDead = (flashVal===FLASH_TYPES.DEAD || !unit.alive || unit.state._isDead);
         let isBlocked = (unit.state && unit.state._blocked) || false;
         let isResting = (unit.state && unit.state._resting) || false;
         let isStunned = (unit.state && unit.state._stunned) || false;
@@ -207,7 +208,7 @@ export function renderGrid(id, camp) {
         } else if (unit.isHorse) {
             roleIcon = '🐴';
         } else {
-            roleIcon = unit.role==='战士'?'⚔️':(unit.role==='防战'?'🛡️':(unit.role==='远程'?'🏹':'🦅'));
+            roleIcon = unit.role===ROLE_TYPES.WARRIOR?'⚔️':(unit.role===ROLE_TYPES.DEFENDER?'🛡️':(unit.role===ROLE_TYPES.RANGED?'🏹':'🦅'));
         }
         let displayName = unit.name;
         let displayIsZhang = unit.isZhang || false;
@@ -217,7 +218,7 @@ export function renderGrid(id, camp) {
             if (mimicTarget) {
                 displayName = mimicTarget.name;
                 displayIsZhang = mimicTarget.isZhang || false;
-                roleIcon = mimicTarget.role==='战士'?'⚔️':(mimicTarget.role==='防战'?'🛡️':(mimicTarget.role==='远程'?'🏹':'🦅'));
+                roleIcon = mimicTarget.role===ROLE_TYPES.WARRIOR?'⚔️':(mimicTarget.role===ROLE_TYPES.DEFENDER?'🛡️':(mimicTarget.role===ROLE_TYPES.RANGED?'🏹':'🦅'));
             }
         }
         let latestUnit = unit;
@@ -252,15 +253,15 @@ export function renderGrid(id, camp) {
         }
         let readyClass = (!hasFlash && !(unit.state && unit.state._acted) && unit.alive && !isDead) ? 'ready' : '';
         let actedClass = (!hasFlash && (unit.state && unit.state._acted) && unit.alive && !isDead) ? 'acted' : '';
-        let cheerClass = (hasFlash && unit._flash==='cheer' && !isDead) ? 'cell-cheer' : '';
+        let cheerClass = (hasFlash && unit._flash===FLASH_TYPES.CHEER && !isDead) ? 'cell-cheer' : '';
         let restingClass = (isBlocked && unit.alive && isResting && !(unit.isZhang && unit.rangedForm) && !isDead) ? 'resting' : '';
         let div = document.createElement('div');
         div.className = `cell occupied ${readyClass} ${actedClass} ${cheerClass} ${restingClass}`;
-        if (isDead) { div.setAttribute('data-flash', 'dead'); div.style.transition = 'none'; }
+        if (isDead) { div.setAttribute('data-flash', FLASH_TYPES.DEAD); div.style.transition = 'none'; }
         else if (unit._flash) { div.setAttribute('data-flash', unit._flash); div.style.transition = 'none'; }
         div.dataset.pos = pos;
         div.dataset.uid = unit.uid;
-        if (camp === 'ally' && isAdjustMode) {
+        if (camp === CAMP_TYPES.ALLY && isAdjustMode) {
             if (unit.fixed) { div.classList.add('fixed-unit'); }
             else { div.classList.add('swappable'); if (selectedPos === pos) div.classList.add('adjust-selected'); }
         }
@@ -273,7 +274,7 @@ export function renderGrid(id, camp) {
             requestAnimationFrame(() => createHorseSpawnAnim(div));
         }
         let buffIcons = '';
-        if (ctx && camp === 'ally') {
+        if (ctx && camp === CAMP_TYPES.ALLY) {
             let iconMap = {};
             activeBuffs.forEach(b => {
                 let info = CONFIG.BUFFS ? CONFIG.BUFFS[b.key] : null;
@@ -371,15 +372,15 @@ export function renderGrid(id, camp) {
 export { getBuffStats, getDodgeBreakdown, isUnitBenefitedByBuff };
 
 export function updateGridUI() {
-    renderGrid('enemyGrid', 'enemy');
-    renderGrid('allyGrid', 'ally');
+    renderGrid('enemyGrid', CAMP_TYPES.ENEMY);
+    renderGrid('allyGrid', CAMP_TYPES.ALLY);
 
     if (!_subscribed) {
         const store = getStore();
         if (store) {
             store.subscribe(() => {
-                renderGrid('enemyGrid', 'enemy');
-                renderGrid('allyGrid', 'ally');
+                renderGrid('enemyGrid', CAMP_TYPES.ENEMY);
+                renderGrid('allyGrid', CAMP_TYPES.ALLY);
             });
             _subscribed = true;
         }

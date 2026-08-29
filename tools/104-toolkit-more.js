@@ -1,7 +1,9 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// tools/104-toolkit-more.js - 光明顶5v5 开发工具箱（函数提取器 / 函数替换器）
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// tools/104-toolkit-more.js - 光明顶5v5 开发工具箱（函数提取器 / 函数替换器）
 // V5.6.0 | ~27000 bytes| 2026-08-22 TARGET_FILES 改为从 106 的 ALL_PROJECT_FILES 派生（单一数据源，消除双份维护）
 
 import { ALL_PROJECT_FILES } from './106-ai-pack-config.js';
+
+import { ROLE_TYPES } from '../infra/56-battle-enums.js';
 
 function escapeHtml(text) {
     return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -354,14 +356,14 @@ import { CONFIG } from '../core/01config-5v5-test.js';
         if (enemies.length > 0) {
             for (const u of enemies) {
                 if (!u.pos || u.pos < 1 || u.pos > 9) continue;
-                const rc = u.role === '防战' ? '防' : (u.role === '战士' ? '战' : (u.role === '远程' ? '远' : '飞'));
+                const rc = u.role === ROLE_TYPES.DEFENDER ? '防' : (u.role === ROLE_TYPES.WARRIOR ? '战' : (u.role === ROLE_TYPES.RANGED ? '远' : '飞'));
                 grid[u.pos - 1] = rc + (eliteNames.has(u.name) ? '*' : '');
             }
         } else {
             // 降级：按模板画格（config 声明）
             for (const [role, poses] of Object.entries(template)) {
                 if (role === 'random') continue;
-                const rc = role === '防战' ? '防' : (role === '战士' ? '战' : (role === '远程' ? '远' : '飞'));
+                const rc = role === ROLE_TYPES.DEFENDER ? '防' : (role === ROLE_TYPES.WARRIOR ? '战' : (role === ROLE_TYPES.RANGED ? '远' : '飞'));
                 for (const p of poses) { if (p >= 1 && p <= 9 && grid[p - 1] === '·') grid[p - 1] = rc; }
             }
         }

@@ -13,7 +13,7 @@ import { showRangedArrow, VER as FA_VER } from '../fx/81fx-arrows-5v5-test.js';
 import { showMeleeCrash, showMeleeDodge, showMeleeMiss, VER as FC_VER } from '../fx/82fx-crash-5v5-test.js';
 import { playBattle, playLineText, clearAllEffects, handleBuffSummon, handleBuffDestroy, VER as BP_VER } from '../player/44battle-player-5v5-test.js';
 import { showModal, showAlert, updateCoverVersion, copyLogToClipboard, initBugAndXiaoZhaoModes } from './60main-utils.js';
-import { BUFF_TYPES } from '../infra/56-battle-enums.js';
+import { BUFF_TYPES, CAMP_TYPES } from '../infra/56-battle-enums.js';
 
 // 拆分模块
 import { getPlayerContext, getState, setState } from '../ui/63main-state.js';
@@ -289,8 +289,8 @@ document.addEventListener('DOMContentLoaded', async function() {
             setState.snapshot(currentSnapshot);
             updateUI();
             updateScoreBadge();
-            renderGrid('allyGrid', 'ally');
-            renderGrid('enemyGrid', 'enemy');
+            renderGrid('allyGrid', CAMP_TYPES.ALLY);
+            renderGrid('enemyGrid', CAMP_TYPES.ENEMY);
             // 全自动模式直接进入调整状态，让接下来的自动点击能直接开始战斗
             setState.adjustMode(getState.autoLevel() === 'full-auto');
             setState.gs(S.IDLE);

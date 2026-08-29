@@ -57,16 +57,17 @@ td{padding:6px 8px;border-bottom:1px solid #333;color:#ccc;text-align:center}
 import { Unit } from '../core/02unit.js';
 import { SeededRNG } from '../infra/51-core-utils.js';
 import { createRoundStepper } from '../core/11battle-round.js';
+import { CAMP_TYPES, ROLE_TYPES } from '../infra/56-battle-enums.js';
 import '../infra/54-global-store.js';
 import '../modules/25elite-imperial.js';
 import '../modules/26elite-sixsects.js';
 import '../modules/27elite-mingjiao.js';
 
-const ROLES = ['防战', '战士', '飞行', '远程'];
-const ROLE_ICONS = { '防战': '🛡️', '战士': '⚔️', '飞行': '🦅', '远程': '🏹' };
+const ROLES = [ROLE_TYPES.DEFENDER, ROLE_TYPES.WARRIOR, ROLE_TYPES.FLYER, ROLE_TYPES.RANGED];
+const ROLE_ICONS = { [ROLE_TYPES.DEFENDER]: '🛡️', [ROLE_TYPES.WARRIOR]: '⚔️', [ROLE_TYPES.FLYER]: '🦅', [ROLE_TYPES.RANGED]: '🏹' };
 
 function createUnit(role, camp, rng) {
-    const label = camp === 'ally' ? '明教' : '六大派';
+    const label = camp === CAMP_TYPES.ALLY ? '明教' : '六大派';
     const u = new Unit(`${label}·${role}`, 100, role, camp);
     u.init(rng);
     u.applyBonus();
@@ -99,7 +100,7 @@ async function runNakedBattle(allyUnits, enemyUnits, seed) {
         activeBuffs: [],
         allAllies: allyUnits.map(u => u.clone()),
         _rng: rng,
-        _firstSide: 'enemy'
+        _firstSide: CAMP_TYPES.ENEMY
     };
     let lastStep = null;
     const maxRound = 35;
@@ -116,7 +117,7 @@ async function runNakedBattle(allyUnits, enemyUnits, seed) {
             activeBuffs: [],
             allAllies: battleState.allAllies,
             _rng: battleState._rng,
-            _firstSide: 'enemy'
+            _firstSide: CAMP_TYPES.ENEMY
         };
     }
     return '平局';
@@ -140,7 +141,7 @@ function initStats() {
 }
 
 function record(stats, role, side, count, winner) {
-    const bucket = side === 'ally' ? stats.allyCounts[role] : stats.enemyCounts[role];
+    const bucket = side === CAMP_TYPES.ALLY ? stats.allyCounts[role] : stats.enemyCounts[role];
     if (!bucket[count]) bucket[count] = { total: 0, wins: 0 };
     bucket[count].total++;
     if (winner === '明教') bucket[count].wins++;
@@ -151,16 +152,16 @@ async function runAnalysis(size, rounds, progressEl, onProgress) {
     const masterSeed = Date.now();
     for (let i = 0; i < rounds; i++) {
         const seed = masterSeed + i * 7919;
-        const allyTeam = buildRandomTeam(size, 'ally', new SeededRNG(seed));
-        const enemyTeam = buildRandomTeam(size, 'enemy', new SeededRNG(seed + 1));
+        const allyTeam = buildRandomTeam(size, CAMP_TYPES.ALLY, new SeededRNG(seed));
+        const enemyTeam = buildRandomTeam(size, CAMP_TYPES.ENEMY, new SeededRNG(seed + 1));
         const winner = await runNakedBattle(allyTeam, enemyTeam, seed);
         const allyCounts = countRoles(allyTeam);
         const enemyCounts = countRoles(enemyTeam);
         for (const role of ROLES) {
             const ac = allyCounts[role] || 0;
             const ec = enemyCounts[role] || 0;
-            record(stats, role, 'ally', ac, winner);
-            record(stats, role, 'enemy', ec, winner);
+            record(stats, role, CAMP_TYPES.ALLY, ac, winner);
+            record(stats, role, CAMP_TYPES.ENEMY, ec, winner);
         }
         if (i % 10 === 0) {
             progressEl.textContent = `${size}v${size} 进度：${i}/${rounds}`;

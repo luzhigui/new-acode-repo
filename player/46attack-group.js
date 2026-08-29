@@ -3,7 +3,7 @@
 export const VER = 'player/46attack-group.js V5.8.0';
 
 import { getState } from '../infra/54-global-store.js';
-import { STORE_ACTION_TYPES } from '../infra/56-battle-enums.js';
+import { STORE_ACTION_TYPES, FLASH_TYPES, CAMP_TYPES } from '../infra/56-battle-enums.js';
 import { appendLogHTML, autoScrollLog, updateRoundDisplay, playLogLine, appendHiddenDetail, findUnitByUid } from './47renderer.js';
 
 export async function handleAttackGroup(c, entry, roundResult, abortSig, isFirstAttackRef) {
@@ -23,7 +23,7 @@ export async function handleAttackGroup(c, entry, roundResult, abortSig, isFirst
     }
 
     if (unitA && !entry.isBlock) {
-        const flashType = entry.isDodge ? 'defend' : 'attack';
+        const flashType = entry.isDodge ? FLASH_TYPES.DEFEND : FLASH_TYPES.ATTACK;
         if (c.store) c.store.dispatch({ type: STORE_ACTION_TYPES.SET_FLASH, uid: unitA.uid, flash: flashType });
     }
 
@@ -54,7 +54,7 @@ export async function handleAttackGroup(c, entry, roundResult, abortSig, isFirst
     if (abortSig && abortSig.aborted) { if (atkTimer) clearTimeout(atkTimer); return { isBattleOver: false }; }
 
     if (unitD && !entry.isMiss && c.store) {
-        c.store.dispatch({ type: STORE_ACTION_TYPES.SET_FLASH, uid: unitD.uid, flash: entry.isDodge ? 'attack' : 'defend' });
+        c.store.dispatch({ type: STORE_ACTION_TYPES.SET_FLASH, uid: unitD.uid, flash: entry.isDodge ? FLASH_TYPES.ATTACK : FLASH_TYPES.DEFEND });
     }
     let defTimer = null;
     if (unitD && !entry.isDodge && !entry.isMiss && c.store) {
@@ -102,8 +102,8 @@ export async function handleAttackGroup(c, entry, roundResult, abortSig, isFirst
 
     if (entry.isDead && c.store) {
         const liveUnits = c.store.getState().units;
-        const allyAlive = liveUnits.some(u => u.camp === 'ally' && u.alive);
-        const enemyAlive = liveUnits.some(u => u.camp === 'enemy' && u.alive);
+        const allyAlive = liveUnits.some(u => u.camp === CAMP_TYPES.ALLY && u.alive);
+        const enemyAlive = liveUnits.some(u => u.camp === CAMP_TYPES.ENEMY && u.alive);
         if (!allyAlive || !enemyAlive) return { isBattleOver: true };
     }
     return { isBattleOver: false };

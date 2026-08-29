@@ -2,6 +2,8 @@
 // V5.5.2 | ~9450 bytes| 2026-08-24 坚盾每回合上限 3→4（成昆倍率联动变 8）
 export const VER = 'core/01config-5v5-test.js V5.5.2';
 
+import { ROLE_TYPES } from '../infra/56-battle-enums.js';
+
 // ==================== 游戏数据加载 ====================
 // 游戏数据唯一来源：content/200game-data.json。加载失败直接抛错，不静默回退。
 let gameData = null;
@@ -76,7 +78,7 @@ const CONFIG = {
     get ENEMY_TITLES() {
         return getGameData().roster.enemyTitles;
     },
-    ROLES: ['战士', '防战', '远程', '飞行'],
+    ROLES: [ROLE_TYPES.WARRIOR, ROLE_TYPES.DEFENDER, ROLE_TYPES.RANGED, ROLE_TYPES.FLYER],
     ATK_VAR: 6, DEF_VAR: 4, HP_BONUS_MIN: 0, HP_BONUS_MAX: 5,
     RANGED_MISS_CHANCE: 3,
     FLY_MISS_CHANCE: 6,
@@ -98,21 +100,23 @@ const CONFIG = {
     BUFF_CHOICES: 3,
     BGM_LOCAL: 'assets/sfx_xinai.mp3',
     SFX: {
-        '远程': 'assets/sfx_arrow.mp3',
-        '飞行': 'assets/sfx_fly.mp3',
-        '战士': 'assets/sfx_melee.mp3',
-        '防战': 'hammer'
+        [ROLE_TYPES.RANGED]: 'assets/sfx_arrow.mp3',
+        [ROLE_TYPES.FLYER]: 'assets/sfx_fly.mp3',
+        [ROLE_TYPES.WARRIOR]: 'assets/sfx_melee.mp3',
+        [ROLE_TYPES.DEFENDER]: 'hammer'
     },
     get BUFFS() {
         return getGameData().buffs;
     },
     BUFF_ROLE_REQUIREMENTS: {
-        bloodthirst: '战士',
-        fortify: '防战',
-        meteorShower: '远程',
-        windAssault: '飞行'
+        bloodthirst: ROLE_TYPES.WARRIOR,
+        fortify: ROLE_TYPES.DEFENDER,
+        meteorShower: ROLE_TYPES.RANGED,
+        windAssault: ROLE_TYPES.FLYER
     },
-    XIAO_ZHAO_PERMANENT_BUFFS: ['fortify', 'bloodthirst', 'meteorShower', 'windAssault', 'cloudBody', 'hotBlood', 'carry', 'doubleStrike', 'mindControl', 'horseFormation', 'holyFlame'],
+    get XIAO_ZHAO_PERMANENT_BUFFS() {
+        return getGameData().hexes?.permanentBuffKeys || [];
+    },
     get MING_SQUADS() {
         return getGameData().encounters.mingSquads;
     },
@@ -138,10 +142,10 @@ const CONFIG = {
         return getGameData().encounters.enemyPosTemplates;
     },
     ELITE_POS_PRIORITY: {
-        '战士': [1, 2, 3, 4, 5, 6, 7, 8, 9],
-        '防战': [1, 2, 3, 4, 5, 6, 7, 8, 9],
-        '飞行': [1, 2, 3, 4, 5, 6, 7, 8, 9],
-        '远程': [7, 8, 9, 4, 5, 6, 1, 2, 3]
+        [ROLE_TYPES.WARRIOR]: [1, 2, 3, 4, 5, 6, 7, 8, 9],
+        [ROLE_TYPES.DEFENDER]: [1, 2, 3, 4, 5, 6, 7, 8, 9],
+        [ROLE_TYPES.FLYER]: [1, 2, 3, 4, 5, 6, 7, 8, 9],
+        [ROLE_TYPES.RANGED]: [7, 8, 9, 4, 5, 6, 1, 2, 3]
     },
 
     get ELITE_POOL() {

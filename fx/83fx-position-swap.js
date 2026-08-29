@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// fx/83fx-position-swap.js - 光明顶5v5 换位闪烁特效
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// fx/83fx-position-swap.js - 光明顶5v5 换位闪烁特效
 // V5.5.0 | ~5200 bytes| 2026-07-05
 export const VER = 'fx/83fx-position-swap.js V5.5.0';
 
@@ -6,23 +6,23 @@ export const VER = 'fx/83fx-position-swap.js V5.5.0';
  * 获取单位对应的格子 DOM 元素（本地定义，不依赖外部）
  */
 import { GlobalStore } from '../infra/54-global-store.js';
-import { STORE_ACTION_TYPES } from '../infra/56-battle-enums.js';
+import { STORE_ACTION_TYPES, UNIT_EVENT_TYPES, CAMP_TYPES } from '../infra/56-battle-enums.js';
 
 function wait(ms) { return new Promise(r => setTimeout(r, GlobalStore.get('fastForwardActive') ? 1 : ms)); }
 
 function getCellElement(unit) {
     if (!unit || unit.pos == null) return null;
-    const grid = document.getElementById(unit.camp === 'ally' ? 'allyGrid' : 'enemyGrid');
+    const grid = document.getElementById(unit.camp === CAMP_TYPES.ALLY ? 'allyGrid' : 'enemyGrid');
     if (!grid) return null;
-    const order = unit.camp === 'enemy' ? [7,8,9,4,5,6,1,2,3] : [1,2,3,4,5,6,7,8,9];
+    const order = unit.camp === CAMP_TYPES.ENEMY ? [7,8,9,4,5,6,1,2,3] : [1,2,3,4,5,6,7,8,9];
     const idx = order.indexOf(unit.pos);
     return idx >= 0 ? grid.children[idx] : null;
 }
 
 function getCellByPos(camp, pos) {
-    const grid = document.getElementById(camp === 'ally' ? 'allyGrid' : 'enemyGrid');
+    const grid = document.getElementById(camp === CAMP_TYPES.ALLY ? 'allyGrid' : 'enemyGrid');
     if (!grid) return null;
-    const order = camp === 'enemy' ? [7,8,9,4,5,6,1,2,3] : [1,2,3,4,5,6,7,8,9];
+    const order = camp === CAMP_TYPES.ENEMY ? [7,8,9,4,5,6,1,2,3] : [1,2,3,4,5,6,7,8,9];
     const idx = order.indexOf(pos);
     return idx >= 0 ? grid.children[idx] : null;
 }
@@ -98,8 +98,8 @@ export async function animatePositionSwap(unit1, unit2, c, options = {}) {
     if (!skipDataChange) {
         if (c.store) {
             c.store.dispatch({ type: STORE_ACTION_TYPES.APPLY_EVENTS, events: [
-                { eventType: 'pos-change', uid: unit1.uid, pos: pos2 },
-                { eventType: 'pos-change', uid: unit2.uid, pos: pos1 }
+                { eventType: UNIT_EVENT_TYPES.POS_CHANGE, uid: unit1.uid, pos: pos2 },
+                { eventType: UNIT_EVENT_TYPES.POS_CHANGE, uid: unit2.uid, pos: pos1 }
             ]});
         } else {
             // 兜底：没有 Store 时保留直接赋值

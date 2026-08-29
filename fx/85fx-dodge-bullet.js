@@ -1,19 +1,19 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// fx/85fx-dodge-bullet.js - 光明顶5v5 闪避反击特效
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// fx/85fx-dodge-bullet.js - 光明顶5v5 闪避反击特效
 // V5.5.0 | 2026-07-12 修复格子缩小与残留：完整保存/恢复原始格子状态
 export const VER = 'fx/85fx-dodge-bullet.js V5.5.0';
 
 import { showComicBubble } from './80fx-common-5v5-test.js';
 
 import { GlobalStore } from '../infra/54-global-store.js';
-import { STORE_ACTION_TYPES } from '../infra/56-battle-enums.js';
+import { STORE_ACTION_TYPES, CAMP_TYPES } from '../infra/56-battle-enums.js';
 
 function wait(ms) { return new Promise(r => setTimeout(r, GlobalStore.get('fastForwardActive') ? 1 : ms)); }
 
 function getCellElement(unit) {
     if (!unit || unit.pos == null) return null;
-    const grid = document.getElementById(unit.camp === 'ally' ? 'allyGrid' : 'enemyGrid');
+    const grid = document.getElementById(unit.camp === CAMP_TYPES.ALLY ? 'allyGrid' : 'enemyGrid');
     if (!grid) return null;
-    const order = unit.camp === 'enemy' ? [7,8,9,4,5,6,1,2,3] : [1,2,3,4,5,6,7,8,9];
+    const order = unit.camp === CAMP_TYPES.ENEMY ? [7,8,9,4,5,6,1,2,3] : [1,2,3,4,5,6,7,8,9];
     const idx = order.indexOf(unit.pos);
     return idx >= 0 ? grid.children[idx] : null;
 }

@@ -1,9 +1,10 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// ui/64main-dialogs.js - 光明顶5v5 弹窗模块
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// ui/64main-dialogs.js - 光明顶5v5 弹窗模块
 // V5.5.1 | ~15900 bytes| 2026-08-23 战报防重复：42/61 两处调用叠双层 overlay，点两次才能关
 export const VER = 'ui/64main-dialogs.js V5.5.1';
 
 import { showModal, showAlert } from './60main-utils.js';
 import { AudioManager } from '../modules/22audio-manager.js';
+import { CAMP_TYPES } from '../infra/56-battle-enums.js';
 
 // ==================== 战报弹窗 ====================
 // 弹窗-战报：战斗结束统计数据展示+导出
@@ -90,7 +91,7 @@ export function showBattleReport(UI, battleResultForInfo) {
             let row = document.createElement('tr');
             row.style.borderBottom = '1px solid #333';
             row.innerHTML = `
-                <td style="font-size:11px;">${u.camp==='ally'?'🔵':''}${u.name}${u.isZhang?'·无忌':''}${u.isWei?'·蝠王':''} <span style="color:#888;">${u.role}</span></td>
+                <td style="font-size:11px;">${u.camp===CAMP_TYPES.ALLY?'🔵':''}${u.name}${u.isZhang?'·无忌':''}${u.isWei?'·蝠王':''} <span style="color:#888;">${u.role}</span></td>
                 <td>${Math.round(u.dmgDealt||0)}</td>
                 <td>${Math.round(u.dmgTaken||0)}</td>
                 <td>${Math.round(u.healDone||0)}</td>
@@ -366,7 +367,7 @@ export async function showCountdown(trashTalkAlly, trashTalkEnemy, randFn, showD
         if (div.parentNode) div.parentNode.removeChild(div);
         if (i === 0) {
             let t = trashTalkAlly[randFn(0, trashTalkAlly.length - 1)];
-            showDanmakuFn({camp:'ally', pos:5}, t);
+            showDanmakuFn({camp:CAMP_TYPES.ALLY, pos:5}, t);
             let l = document.getElementById('log');
             let d = document.createElement('div');
             d.innerHTML = `<span class="blue">🗯️ 明教：${t}</span><br>`;
@@ -375,7 +376,7 @@ export async function showCountdown(trashTalkAlly, trashTalkEnemy, randFn, showD
         }
         if (i === 1) {
             let t = trashTalkEnemy[randFn(0, trashTalkEnemy.length - 1)];
-            showDanmakuFn({camp:'enemy', pos:5}, t);
+            showDanmakuFn({camp:CAMP_TYPES.ENEMY, pos:5}, t);
             let l = document.getElementById('log');
             let d = document.createElement('div');
             d.innerHTML = `<span class="orange">🗯️ 六大派：${t}</span><br>`;

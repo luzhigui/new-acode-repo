@@ -12,13 +12,14 @@ import '../infra/54-global-store.js';
 import '../modules/25elite-imperial.js';
 import '../modules/26elite-sixsects.js';
 import '../modules/27elite-mingjiao.js';
+import { CAMP_TYPES, ROLE_TYPES } from '../infra/56-battle-enums.js';
 
-const ROLES = ['防战', '战士', '飞行', '远程'];
-const ROLE_ICONS = { '防战': '🛡️', '战士': '⚔️', '飞行': '🦅', '远程': '🏹' };
-const BASE_TEMPLATE = { 1: '防战', 2: '战士', 5: '飞行', 7: '远程', 9: '远程' };
+const ROLES = [ROLE_TYPES.DEFENDER, ROLE_TYPES.WARRIOR, ROLE_TYPES.FLYER, ROLE_TYPES.RANGED];
+const ROLE_ICONS = { [ROLE_TYPES.DEFENDER]: '🛡️', [ROLE_TYPES.WARRIOR]: '⚔️', [ROLE_TYPES.FLYER]: '🦅', [ROLE_TYPES.RANGED]: '🏹' };
+const BASE_TEMPLATE = { 1: ROLE_TYPES.DEFENDER, 2: ROLE_TYPES.WARRIOR, 5: ROLE_TYPES.FLYER, 7: ROLE_TYPES.RANGED, 9: ROLE_TYPES.RANGED };
 
 // 第六人站位规则：默认所有职业 [3,4,6,8]（近战限位默认关），开启近战限位后防战/战士仅 [3,6]
-let extraPosConfig = { '防战': [3, 4, 6, 8], '战士': [3, 4, 6, 8], '飞行': [3, 4, 6, 8], '远程': [3, 4, 6, 8] };
+let extraPosConfig = { [ROLE_TYPES.DEFENDER]: [3, 4, 6, 8], [ROLE_TYPES.WARRIOR]: [3, 4, 6, 8], [ROLE_TYPES.FLYER]: [3, 4, 6, 8], [ROLE_TYPES.RANGED]: [3, 4, 6, 8] };
 let extraPosDefault = [3, 4, 6, 8];
 
 // ========== 样式 ==========
@@ -63,7 +64,7 @@ if (!document.getElementById('roleBalStyle')) {
 
 // ========== 工具函数 ==========
 function createUnit(role, camp, rng) {
-    const campLabel = camp === 'ally' ? '明教' : '六大派';
+    const campLabel = camp === CAMP_TYPES.ALLY ? '明教' : '六大派';
     const u = new Unit(`${campLabel}·${role}`, 100, role, camp);
     u.init(rng);
     u.applyBonus();
@@ -105,7 +106,7 @@ function pickHexBuff(activeBuffs, allyTeam, rng, withFortifyRule) {
     return createBuffObject(pick, duration);
 }
 
-async function runNakedBattle(allyUnits, enemyUnits, seed, firstSide = 'enemy', hexEnabled = false) {
+async function runNakedBattle(allyUnits, enemyUnits, seed, firstSide = CAMP_TYPES.ENEMY, hexEnabled = false) {
     const rng = new SeededRNG(seed);
     setBattleRng(rng); // createBuffObject 的 holyFlame 列行随机依赖 battleRng（stepper 每回合也会重设，这里保证开局选择前可用）
     let masterBuffs = [];
@@ -208,14 +209,14 @@ window.openRoleBalance = function() {
         extraPosDefault = pool;
         if (meleeLimitCb.checked) {
             extraPosConfig = {
-                '防战': [3, 6],
-                '战士': [3, 6],
-                '飞行': pool,
-                '远程': pool
+                [ROLE_TYPES.DEFENDER]: [3, 6],
+                [ROLE_TYPES.WARRIOR]: [3, 6],
+                [ROLE_TYPES.FLYER]: pool,
+                [ROLE_TYPES.RANGED]: pool
             };
         } else {
             extraPosConfig = {
-                '防战': pool, '战士': pool, '飞行': pool, '远程': pool
+                [ROLE_TYPES.DEFENDER]: pool, [ROLE_TYPES.WARRIOR]: pool, [ROLE_TYPES.FLYER]: pool, [ROLE_TYPES.RANGED]: pool
             };
         }
     }
@@ -249,9 +250,9 @@ window.openRoleBalance = function() {
                 for (let i = 0; i < roundsPerGroup; i++) {
                     const seed = masterSeed + ai * 100000 + ei * 10000 + i * 7919;
                     const rng = new SeededRNG(seed);
-                    const allyTeam = buildTeam(allyRole, 'ally', rng);
-                    const enemyTeam = buildTeam(enemyRole, 'enemy', rng);
-                    const firstSide = 'enemy';
+                    const allyTeam = buildTeam(allyRole, CAMP_TYPES.ALLY, rng);
+                    const enemyTeam = buildTeam(enemyRole, CAMP_TYPES.ENEMY, rng);
+                    const firstSide = CAMP_TYPES.ENEMY;
                     const r = await runNakedBattle(allyTeam, enemyTeam, seed, firstSide, hexEnabled);
                     if (r.winner === '明教') wins++;
                     if (i % 10 === 0) {

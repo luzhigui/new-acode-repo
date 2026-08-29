@@ -8,7 +8,7 @@ import { registerDodgeRule } from './12battle-attack-steps.js';
 import { emitEvent, applyStatChange, applyMaxHpChange, getBattleRng } from './13battle-shared.js';
 import { checkKuLian, applyXingFenGrant, tickKuaiLeHeal, canXingFenTrigger, consumeXingFen } from '../modules/20elite-skills.js';
 import { getEliteState, setEliteState } from './18-elite-state.js';
-import { FACT_TYPES } from '../infra/56-battle-enums.js';
+import { FACT_TYPES, UNIT_EVENT_TYPES, CAMP_TYPES, SIGNAL_TYPES } from '../infra/56-battle-enums.js';
 
 // 安装声明式技能：把声明表翻译成 eventBus 监听
 export function installDeclaredSkills(eventBus, A, B, log, declarations) {
@@ -65,16 +65,16 @@ function installTargetRule(eventBus, A, B, decl) {
     const rule = decl.targetRule;
 
     if (rule === 'lowestHp') {
-        registerSettlementHook(eventBus, {
-            when: 'beforeSelectTarget',
+        registerSettlementHook({
+            when: SIGNAL_TYPES.BEFORE_SELECT_TARGET,
             priority: L.BEFORE_SELECT_TARGET.REBEL,
             handler: (data) => {
                 submitLowestHpTarget(data, decl);
             }
         });
     } else if (rule === 'highestHpPct') {
-        registerSettlementHook(eventBus, {
-            when: 'beforeSelectTarget',
+        registerSettlementHook({
+            when: SIGNAL_TYPES.BEFORE_SELECT_TARGET,
             priority: L.BEFORE_SELECT_TARGET.REBEL,
             handler: (data) => {
                 submitHighestHpPctTarget(data, decl);
@@ -115,8 +115,8 @@ function installBeforeDamageEffects(eventBus, declarations) {
     const decls = declarations.filter(d => d && d.name && d.beforeDamageEffects && d.beforeDamageEffects.length > 0);
     if (decls.length === 0) return;
 
-    registerSettlementHook(eventBus, {
-        when: 'beforeDamageCalc',
+    registerSettlementHook({
+        when: SIGNAL_TYPES.BEFORE_DAMAGE_CALC,
         priority: L.BEFORE_DAMAGE_CALC.TRUE_DMG,
         handler: (data) => {
             submitBeforeDamageEffects(data, decls);
@@ -127,7 +127,7 @@ function installBeforeDamageEffects(eventBus, declarations) {
 // ==================== 属性修正声明 ====================
 function installAttributeModifiers(A, B, decl) {
     if (!decl.attributeMods || decl.attributeMods.length === 0) return;
-    const target = decl.camp === 'enemy'
+    const target = decl.camp === CAMP_TYPES.ENEMY
         ? B.find(u => u.name === decl.name && u.alive)
         : A.find(u => u.name === decl.name && u.alive);
     if (!target) return;
@@ -212,8 +212,8 @@ function installOnHitEffects(eventBus, A, B, declarations) {
     const onHitDecls = declarations.filter(d => d && d.name && d.onHitEffects && d.onHitEffects.length > 0);
     if (onHitDecls.length === 0) return;
 
-    registerSettlementHook(eventBus, {
-        when: 'afterDamageApplied',
+    registerSettlementHook({
+        when: SIGNAL_TYPES.AFTER_DAMAGE_APPLIED,
         priority: L.AFTER_DAMAGE_APPLIED.LEECH,
         handler: (data) => {
             submitOnHitEffects(data, onHitDecls);
@@ -244,12 +244,12 @@ function submitPhantomDisguiseOnHit(data, decls) {
                 factData: { unitName: unit.name, heal }
             });
         }
-        emitEvent(unit, 'hp-change', { hp:unit.hp, maxHp:unit.maxHp, alive:unit.alive, atk:unit.atk, def:unit.def, _phantomTarget:getEliteState(unit.uid)._phantomTarget });
+        emitEvent(unit, UNIT_EVENT_TYPES.HP_CHANGE, { hp:unit.hp, maxHp:unit.maxHp, alive:unit.alive, atk:unit.atk, def:unit.def, _phantomTarget:getEliteState(unit.uid)._phantomTarget });
     }
 }
 
 function submitPhantomDisguiseTarget(data, decls) {
-    if (data.unit.camp !== 'ally') return;
+    if (data.unit.camp !== CAMP_TYPES.ALLY) return;
     const { unit, enemySide, declaration, allySide } = data;
     let phantomDecl = null;
     let chengkun = null;
@@ -286,8 +286,8 @@ function installPhantomDisguise(eventBus, declarations) {
     if (decls.length === 0) return;
 
     // afterDamageApplied：设置伪装目标并回血
-    registerSettlementHook(eventBus, {
-        when: 'afterDamageApplied',
+    registerSettlementHook({
+        when: SIGNAL_TYPES.AFTER_DAMAGE_APPLIED,
         priority: L.AFTER_DAMAGE_APPLIED.DISGUISE,
         handler: (data) => {
             submitPhantomDisguiseOnHit(data, decls);
@@ -295,8 +295,8 @@ function installPhantomDisguise(eventBus, declarations) {
     });
 
     // beforeSelectTarget：被模仿者攻击时概率混乱
-    registerSettlementHook(eventBus, {
-        when: 'beforeSelectTarget',
+    registerSettlementHook({
+        when: SIGNAL_TYPES.BEFORE_SELECT_TARGET,
         priority: L.BEFORE_SELECT_TARGET.DISGUISE,
         handler: (data) => {
             submitPhantomDisguiseTarget(data, decls);
@@ -334,8 +334,8 @@ function installLinkAttack(eventBus, declarations) {
     const decls = declarations.filter(d => d && d.type === 'linkAttack');
     if (decls.length === 0) return;
 
-    registerSettlementHook(eventBus, {
-        when: 'afterAttack',
+    registerSettlementHook({
+        when: SIGNAL_TYPES.AFTER_ATTACK,
         priority: L.AFTER_ATTACK.XUANMING_LINK,
         handler: (data) => {
             submitLinkAttack(data, decls);
@@ -419,8 +419,8 @@ function installChainClaw(eventBus, A, B, declarations) {
     const decls = declarations.filter(d => d && d.type === 'chainClaw');
     if (decls.length === 0) return;
 
-    registerSettlementHook(eventBus, {
-        when: 'afterAttack',
+    registerSettlementHook({
+        when: SIGNAL_TYPES.AFTER_ATTACK,
         priority: L.AFTER_ATTACK.CLAW,
         handler: (data) => {
             submitChainClaw(data, decls);
@@ -460,8 +460,8 @@ function installKuLian(eventBus, A, B, declarations) {
     const decls = declarations.filter(d => d && d.type === 'kuLian');
     if (decls.length === 0) return;
 
-    registerSettlementHook(eventBus, {
-        when: 'onRoundStart',
+    registerSettlementHook({
+        when: SIGNAL_TYPES.ON_ROUND_START,
         priority: L.ROUND_START.KULIAN_BUFF,
         handler: (data) => {
             submitKuLian(data, decls);
@@ -510,8 +510,8 @@ function installXinHun(eventBus, A, B, declarations) {
     const decls = declarations.filter(d => d && d.type === 'xinHun');
     if (decls.length === 0) return;
 
-    registerSettlementHook(eventBus, {
-        when: 'afterDamageApplied',
+    registerSettlementHook({
+        when: SIGNAL_TYPES.AFTER_DAMAGE_APPLIED,
         priority: L.AFTER_DAMAGE_APPLIED.XINGFEN,
         handler: (data) => {
             submitXinHun(data, decls);
@@ -563,8 +563,8 @@ function installXingFen(eventBus, A, B, declarations) {
     if (decls.length === 0) return;
 
     // 回合开始：周芷若在场时给宋青书性奋状态
-    registerSettlementHook(eventBus, {
-        when: 'onRoundStart',
+    registerSettlementHook({
+        when: SIGNAL_TYPES.ON_ROUND_START,
         priority: L.ROUND_START.XINGFEN_GRANT,
         handler: (data) => {
             submitXingFenGrant(data);
@@ -572,8 +572,8 @@ function installXingFen(eventBus, A, B, declarations) {
     });
 
     // 攻击后：性奋额外攻击
-    registerSettlementHook(eventBus, {
-        when: 'afterAttack',
+    registerSettlementHook({
+        when: SIGNAL_TYPES.AFTER_ATTACK,
         priority: L.AFTER_ATTACK.XINGFEN_EXTRA,
         handler: async (data) => {
             await submitXingFenExtra(data, decls);
@@ -581,8 +581,8 @@ function installXingFen(eventBus, A, B, declarations) {
     });
 
     // 未命中后：性奋重试
-    registerSettlementHook(eventBus, {
-        when: 'afterMiss',
+    registerSettlementHook({
+        when: SIGNAL_TYPES.AFTER_MISS,
         priority: L.AFTER_MISS.XINGFEN_RETRY,
         handler: (data) => {
             submitXingFenRetry(data, decls);

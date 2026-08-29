@@ -13,7 +13,7 @@ import { SeededRNG } from '../infra/51-core-utils.js';
 import { getBattleRng } from '../core/13battle-shared.js';
 import { GlobalStore, getState, getPlayerContext } from '../infra/54-global-store.js';
 import { createStore, battleReducer } from '../modules/24battle-store.js';
-import { STORE_ACTION_TYPES, STAGE_ACTION_TYPES, BUFF_SUBTYPES } from '../infra/56-battle-enums.js';
+import { STORE_ACTION_TYPES, STAGE_ACTION_TYPES, BUFF_SUBTYPES, BUFF_EFFECT_TYPES, FLY_MODE_TYPES, UNIT_EVENT_TYPES, DROP_TYPES, FLASH_TYPES, CAMP_TYPES, ROLE_TYPES } from '../infra/56-battle-enums.js';
 import { getEliteState, setEliteState } from '../core/18-elite-state.js';
 import { syncStateToUI } from '../core/17-state-keys.js';
 import { handleBuffBonus, handleBuffSwap, handleBuffPush, handleBuffReboundFortify, handleInfo, handleRoundStart, handleRoundEnd, shouldStartNewGroup } from './45event-handlers.js';
@@ -66,7 +66,7 @@ export async function playLogEntries(c, log, roundResult, isFirstAttackRef) {
 
             switch (entry.type) {
                 case 'info':
-                    if (entry.dropKind === 'token') {
+                    if (entry.dropKind === DROP_TYPES.TOKEN) {
                         await handleHolyTokenDrop(c, entry);
                         lastEntryType = entry.type;
                         break;
@@ -157,8 +157,8 @@ const STAGE_ACTION_STORE_HANDLERS = {
     [STAGE_ACTION_TYPES.POS_SWAP]: (c, action, pendingDeaths) => {
         if (action.actorUid && action.targetUid) {
             c.store.dispatch({ type: STORE_ACTION_TYPES.APPLY_EVENTS, events: [
-                { eventType: 'pos-change', uid: action.actorUid, pos: action.oldPosB },
-                { eventType: 'pos-change', uid: action.targetUid, pos: action.oldPosA }
+                { eventType: UNIT_EVENT_TYPES.POS_CHANGE, uid: action.actorUid, pos: action.oldPosB },
+                { eventType: UNIT_EVENT_TYPES.POS_CHANGE, uid: action.targetUid, pos: action.oldPosA }
             ]});
         }
     },
@@ -171,12 +171,12 @@ const STAGE_ACTION_STORE_HANDLERS = {
     [STAGE_ACTION_TYPES.PUSH]: (c, action, pendingDeaths) => {
         if (action.actorUid && action.targetUid) {
             c.store.dispatch({ type: STORE_ACTION_TYPES.APPLY_EVENTS, events: [
-                { eventType: 'pos-change', uid: action.actorUid, pos: action.newPos },
-                { eventType: 'pos-change', uid: action.targetUid, pos: action.oldPos }
+                { eventType: UNIT_EVENT_TYPES.POS_CHANGE, uid: action.actorUid, pos: action.newPos },
+                { eventType: UNIT_EVENT_TYPES.POS_CHANGE, uid: action.targetUid, pos: action.oldPos }
             ]});
         } else if (action.actorUid && action.newPos != null) {
             c.store.dispatch({ type: STORE_ACTION_TYPES.APPLY_EVENTS, events: [
-                { eventType: 'pos-change', uid: action.actorUid, pos: action.newPos }
+                { eventType: UNIT_EVENT_TYPES.POS_CHANGE, uid: action.actorUid, pos: action.newPos }
             ]});
         }
     },
@@ -354,7 +354,7 @@ const STAGE_ACTION_FX_HANDLERS = {
         const attacker = findUnitByUid(c, action.attackerUid);
         const target = findUnitByUid(c, action.targetUid);
         const primary = findUnitByUid(c, action.primaryUid);
-        if (action.effectType === 'splash' && attacker && primary && action.splashUids && action.splashUids.length > 0) {
+        if (action.effectType === BUFF_EFFECT_TYPES.SPLASH && attacker && primary && action.splashUids && action.splashUids.length > 0) {
             const splashTargets = action.splashUids.map(uid => findUnitByUid(c, uid)).filter(u => u);
             if (splashTargets.length > 0) {
                 // 乘风突袭：风爪 + 专属横幅，不放箭、不延时；否则走流星箭雨
@@ -367,19 +367,19 @@ const STAGE_ACTION_FX_HANDLERS = {
                     c.isPaused = true; GlobalStore.set('bulletTimeActive', true);
                     await eventBus.emit(FX_SIGNALS.BANNER, { text: '☄️ 流星赶月！' });
                     eventBus.emit(FX_SIGNALS.SPLASH_ARROWS, { attacker, primary, targets: splashTargets, speed: c.speed, isPausedFn: () => c.isPaused });
-                    splashTargets.forEach((st, i) => { setTimeout(() => AudioManager.playSfx(attacker.role || '远程'), i * 120); });
+                    splashTargets.forEach((st, i) => { setTimeout(() => AudioManager.playSfx(attacker.role || ROLE_TYPES.RANGED), i * 120); });
                     GlobalStore.set('bulletTimeActive', false); c.isPaused = false;
                     await new Promise(r => setTimeout(r, GlobalStore.get('fastForwardActive') ? 1 : 600));
                 }
             }
-        } else if (action.effectType === 'boneClaw' && attacker && target) {
+        } else if (action.effectType === BUFF_EFFECT_TYPES.BONE_CLAW && attacker && target) {
             if (action.dmg && !GlobalStore.get('fastForwardActive')) {
                 eventBus.emit(FX_SIGNALS.DAMAGE_FLOAT, { unit: target, dmg: action.dmg });
             }
             eventBus.emit(FX_SIGNALS.BONE_CLAW, { attacker, target, speed: c.speed, isPausedFn: () => c.isPaused, opts: { isExecute: action.isExecute } });
-        } else if (action.effectType === 'atkBuff' && target && action.gain) {
+        } else if (action.effectType === BUFF_EFFECT_TYPES.ATK_BUFF && target && action.gain) {
             eventBus.emit(FX_SIGNALS.ATK_BUFF_FLOAT, { unit: target, gain: action.gain });
-        } else if (action.effectType === 'xinHun') {
+        } else if (action.effectType === BUFF_EFFECT_TYPES.XIN_HUN) {
             // 新婚快乐：宋青书/周芷若爱心 + 扣血飘字
             const song = c.store ? c.store.getState().units.find(u => u.name === '宋青书') : null;
             const zhou = findUnitByUid(c, action.targetUid);
@@ -424,15 +424,15 @@ const STAGE_ACTION_FX_HANDLERS = {
         if (!unit) return;
         // butterflyAttach / butterflyReturn / spiderFly / spiderReturn 等由 31 翻译，
         // 特效按 originalFactType 区分
-        if (action.originalFactType === 'butterflyAttach') {
+        if (action.originalFactType === FLY_MODE_TYPES.BUTTERFLY_ATTACH) {
             const host = findUnitByUid(c, action.hostUid);
             if (host) eventBus.emit(FX_SIGNALS.BUTTERFLY_FLY_OUT, { sister: unit, host });
-        } else if (action.originalFactType === 'butterflyReturn') {
+        } else if (action.originalFactType === FLY_MODE_TYPES.BUTTERFLY_RETURN) {
             const host = findUnitByUid(c, action.hostUid);
             if (host) eventBus.emit(FX_SIGNALS.BUTTERFLY_FLY_BACK, { host, sister: unit });
-        } else if (action.originalFactType === 'spiderFly') {
+        } else if (action.originalFactType === FLY_MODE_TYPES.SPIDER_FLY) {
             eventBus.emit(FX_SIGNALS.SPIDER_ASCEND, { unit });
-        } else if (action.originalFactType === 'spiderReturn') {
+        } else if (action.originalFactType === FLY_MODE_TYPES.SPIDER_RETURN) {
             eventBus.emit(FX_SIGNALS.SPIDER_DESCEND, { unit });
         }
     },
@@ -452,8 +452,8 @@ function rebuildUISnapshotFromStore(c) {
         syncStateToUI(su.state, su.uid, copyState);
         return { ...su, state: copyState };
     };
-    c.UI.allyTeam = storeUnits.filter(u => u.camp === 'ally').map(cloneUnit);
-    c.UI.enemyTeam = storeUnits.filter(u => u.camp === 'enemy').map(cloneUnit);
+    c.UI.allyTeam = storeUnits.filter(u => u.camp === CAMP_TYPES.ALLY).map(cloneUnit);
+    c.UI.enemyTeam = storeUnits.filter(u => u.camp === CAMP_TYPES.ENEMY).map(cloneUnit);
 }
 
 // 调度表读取器：timing 只从 STAGE_ACTION_DEFS 取，播放器不手写 switch
@@ -507,7 +507,7 @@ async function playStep(c, step, isFirstAttackRef) {
     for (const uid of pendingDeaths) {
         const du = c.store.getState().units.find(u => u.uid === uid);
         if (du && !(du.state && du.state._isDead)) {
-            c.store.dispatch({ type: STORE_ACTION_TYPES.SET_FLASH, uid: uid, flash: 'dead' });
+            c.store.dispatch({ type: STORE_ACTION_TYPES.SET_FLASH, uid: uid, flash: FLASH_TYPES.DEAD });
             c.store.dispatch({ type: STORE_ACTION_TYPES.SET_VISUAL, uid: uid, _isDead: true });
         }
     }
@@ -562,8 +562,8 @@ export async function playBattle() {
     }
 
     const initialUnits = [
-        ...c.snapshot.ally.map(u => { let u2 = u.clone(); u2.hp = u2.maxHp; u2.alive = true; u2.state._isDead = false; u2.state._acted = false; u2.state._resting = false; u2.state._blocked = false; u2.camp = 'ally'; return u2; }),
-        ...c.snapshot.enemy.map(u => { let u2 = u.clone(); u2.hp = u2.maxHp; u2.alive = true; u2.state._isDead = false; u2.state._acted = false; u2.state._resting = false; u2.state._blocked = false; u2.camp = 'enemy'; return u2; })
+        ...c.snapshot.ally.map(u => { let u2 = u.clone(); u2.hp = u2.maxHp; u2.alive = true; u2.state._isDead = false; u2.state._acted = false; u2.state._resting = false; u2.state._blocked = false; u2.camp = CAMP_TYPES.ALLY; return u2; }),
+        ...c.snapshot.enemy.map(u => { let u2 = u.clone(); u2.hp = u2.maxHp; u2.alive = true; u2.state._isDead = false; u2.state._acted = false; u2.state._resting = false; u2.state._blocked = false; u2.camp = CAMP_TYPES.ENEMY; return u2; })
     ];
     c.store = createStore({ units: initialUnits, round: 1 }, battleReducer);
     GlobalStore.set('battleStore', c.store);
@@ -653,7 +653,7 @@ export async function playBattle() {
             if (isFullAuto) {
                 const allKeys = Object.keys(CONFIG.BUFFS);
                 const existing = (nextActiveBuffs || []).map(b => b.key);
-                const allyTeam = c.store.getState().units.filter(u => u.camp === 'ally' && u.alive);
+                const allyTeam = c.store.getState().units.filter(u => u.camp === CAMP_TYPES.ALLY && u.alive);
                 let available = allKeys.filter(k => {
                     if (existing.includes(k)) return false;
                     const requiredRole = CONFIG.BUFF_ROLE_REQUIREMENTS?.[k];
@@ -664,7 +664,7 @@ export async function playBattle() {
                     const rng = getBattleRng();
                     const pick = available[rng.nextInt(0, available.length - 1)];
                     const duration = CONFIG.BUFFS[pick].duration || CONFIG.BUFF_DURATION || 4;
-                    newBuff = { key: pick, target: 'ally', remaining: duration, name: CONFIG.BUFFS[pick].name };
+                    newBuff = { key: pick, target: CAMP_TYPES.ALLY, remaining: duration, name: CONFIG.BUFFS[pick].name };
                     if (c.store) {
                         const xiaoZhao = c.store.getState().units.find(u => u.isXiaoZhaoBrother && u.alive);
                         if (xiaoZhao) {
@@ -783,7 +783,7 @@ export async function playBattle() {
 
         let aliveUnits = winState ? winState.filter(u => u.alive) : [];
         if (aliveUnits.length > 0) {
-            aliveUnits.forEach(u => { c.store.dispatch({ type: STORE_ACTION_TYPES.SET_FLASH, uid: u.uid, flash: 'cheer' }); });
+            aliveUnits.forEach(u => { c.store.dispatch({ type: STORE_ACTION_TYPES.SET_FLASH, uid: u.uid, flash: FLASH_TYPES.CHEER }); });
             await new Promise(r => setTimeout(r, GlobalStore.get('fastForwardActive') ? 100 : 800));
             if (c.spawnVictoryEffects) c.spawnVictoryEffects(winner, aliveUnits);
         }

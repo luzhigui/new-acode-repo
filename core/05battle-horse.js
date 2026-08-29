@@ -6,7 +6,7 @@ import { CONFIG } from './01config-5v5-test.js';
 import { hasBuff } from './03battle-utils.js';
 import { query, getBattleRng, applyStatChange, emitEvent } from './13battle-shared.js';
 import { Unit } from './02unit.js';
-import { FACT_TYPES, BUFF_TYPES } from '../infra/56-battle-enums.js';
+import { FACT_TYPES, BUFF_TYPES, UNIT_EVENT_TYPES, ROLE_TYPES } from '../infra/56-battle-enums.js';
 const C = CONFIG;
 
 // 拒马-生成：创建拒马单位并随机站位
@@ -25,7 +25,7 @@ export function spawnHorse(allyTeam, log, enemyTeam, force = false) {
         [available[i], available[j]] = [available[j], available[i]];
     }
     let horsePos = available[0];
-    let horse = new Unit('拒马', 15, '防战', allyTeam[0].camp);
+    let horse = new Unit('拒马', 15, ROLE_TYPES.DEFENDER, allyTeam[0].camp);
     const xiaoHEnhance = query('xiaoHexEnhance', allyTeam, allyTeam._activeBuffs || [], BUFF_TYPES.HORSE_FORMATION);
     horse.atk = 0;
     horse._hpDmgRatio = 0.06;
@@ -59,7 +59,7 @@ export function destroyHorse(allyTeam, log) {
             applyStatChange(horse, 'hp', -horse.hp, null, '拒马消散', false);
             horse.alive = false;
             horse.state._isDead = true;
-            emitEvent(horse, 'hp-change', { hp: horse.hp, maxHp: horse.maxHp, alive: false, atk: horse.atk, def: horse.def, _isDead: true });
+            emitEvent(horse, UNIT_EVENT_TYPES.HP_CHANGE, { hp: horse.hp, maxHp: horse.maxHp, alive: false, atk: horse.atk, def: horse.def, _isDead: true });
             log.push({ factType: FACT_TYPES.HORSE_DESTROY, data: { pos: horse.pos, success: true, prob: currentProb, roll, horseUid: horse.uid } });
             currentProb = Math.floor(currentProb / 2);
         } else {

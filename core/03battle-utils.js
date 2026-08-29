@@ -5,7 +5,7 @@ export const VER = 'core/03battle-utils.js V5.7.3';
 import { CONFIG, getGameData } from './01config-5v5-test.js';
 import { emitEvent, applyStatChange, query, getBattleRng } from './13battle-shared.js';
 import { EXECUTION_LAYER as L, EFFECT_TYPES, registerSettlementHook } from '../infra/50-event-bus.js';
-import { FACT_TYPES, BUFF_TYPES } from '../infra/56-battle-enums.js';
+import { FACT_TYPES, BUFF_TYPES, UNIT_EVENT_TYPES, CAMP_TYPES, ROLE_TYPES, SIGNAL_TYPES } from '../infra/56-battle-enums.js';
 import { getEliteState, setEliteState } from './18-elite-state.js';
 import {
     calcDamage,
@@ -27,7 +27,7 @@ export function getFangLevel(def, m) {
     return getFangLevelPure(def, m, C.FANG_LEVELS);
 }
 
-export function isMelee(role) { return role === '战士' || role === '防战' || role === '飞行'; }
+export function isMelee(role) { return role === ROLE_TYPES.WARRIOR || role === ROLE_TYPES.DEFENDER || role === ROLE_TYPES.FLYER; }
 
 export function getFronts(units) {
     let fronts = [];
@@ -44,7 +44,7 @@ export function getFronts(units) {
 }
 
 export function isBlocked(unit, allies) {
-    if (unit.role === '飞行') return false;
+    if (unit.role === ROLE_TYPES.FLYER) return false;
     if (getEliteState(unit.uid)._flyMode === 'butterfly') return false;
     if (getEliteState(unit.uid)._flyMode === 'spider') return false;
     if (unit._fsm && (unit._fsm.is('attached') || unit._fsm.is('flying'))) return false;
@@ -59,7 +59,7 @@ export function isBlocked(unit, allies) {
 export function getFlyDodgeRate(unit, attacker) {
     const FLY_BASE_DODGE = C.BASE_DODGE_FLY || 0.15;
     if (unit.isWei) return FLY_BASE_DODGE;
-    if (unit.role === '飞行') return FLY_BASE_DODGE;
+    if (unit.role === ROLE_TYPES.FLYER) return FLY_BASE_DODGE;
     return C.BASE_DODGE_GROUND || 0.03;
 }
 
@@ -90,7 +90,7 @@ export function getZhangNearTaunt(nearAtkCount) {
 }
 
 export function getActiveBuffs(allies, enemy) {
-    let ally = allies[0]?.camp === 'ally' ? allies : enemy;
+    let ally = allies[0]?.camp === CAMP_TYPES.ALLY ? allies : enemy;
     return ally._activeBuffs || [];
 }
 export function hasBuff(buffs, buffKey) { return buffs.some(b => b.key === buffKey); }
@@ -105,7 +105,7 @@ export function hasEnemyLowHp(enemySide, threshold = 0.4) {
 }
 
 export function selectFlyTarget(unit, enemySide) {
-    if (unit.role !== '飞行' || unit.isWei) return null;
+    if (unit.role !== ROLE_TYPES.FLYER || unit.isWei) return null;
     const alive = enemySide.filter(u => u.alive && !(getEliteState(u.uid)._flyMode === 'butterfly') && !(getEliteState(u.uid)._flyMode === 'spider') && !getEliteState(u.uid)._spiderFlying && !(u._fsm && (u._fsm.is('attached') || u._fsm.is('flying'))));
     if (alive.length === 0) return null;
     const backRow = [7,8,9], midRow = [4,5,6], frontRow = [1,2,3];
@@ -200,7 +200,7 @@ function canReach(slot, targetPos, enemies) {
 function submitWarriorBreakDefenseDeclaration(data) {
     const { unit, target, declarations } = data;
     if (!declarations) return;
-    if (unit.role !== '战士' || target.def <= 0) return;
+    if (unit.role !== ROLE_TYPES.WARRIOR || target.def <= 0) return;
     let defReduced = C.WARRIOR_BREAK_DEF;
     let breakChance = target.def * 2.5;
     if (target.def <= 40) {
@@ -219,8 +219,8 @@ function submitWarriorBreakDefenseDeclaration(data) {
 }
 
 export function registerWarriorBreakDefense(eventBus) {
-    registerSettlementHook(eventBus, {
-        when: 'beforeDamageCalc',
+    registerSettlementHook({
+        when: SIGNAL_TYPES.BEFORE_DAMAGE_CALC,
         priority: L.BEFORE_DAMAGE_CALC.WARRIOR_BREAK,
         handler: (data) => {
             submitWarriorBreakDefenseDeclaration(data);
@@ -231,7 +231,7 @@ export function registerWarriorBreakDefense(eventBus) {
 // 远程成长：判定 + STAT_CHANGE 声明提交（纯函数，事件监听器薄壳转调）
 function submitRangedGrowthDeclaration(data) {
     const { unit, target, dmg, group } = data;
-    if (unit.role !== '远程' || dmg <= 0) return;
+    if (unit.role !== ROLE_TYPES.RANGED || dmg <= 0) return;
     const growth = C.RANGED_GROWTH_ATK;
     if (!data.declarations) data.declarations = [];
     data.declarations.push({
@@ -249,8 +249,8 @@ function submitRangedGrowthDeclaration(data) {
 }
 
 export function registerRangedGrowth(eventBus) {
-    registerSettlementHook(eventBus, {
-        when: 'afterDamageApplied',
+    registerSettlementHook({
+        when: SIGNAL_TYPES.AFTER_DAMAGE_APPLIED,
         priority: L.AFTER_DAMAGE_APPLIED.RANGED_GROWTH,
         handler: (data) => {
             submitRangedGrowthDeclaration(data);
@@ -261,7 +261,7 @@ export function registerRangedGrowth(eventBus) {
 // 战士斩杀：判定 + EXECUTE 声明提交（纯函数，事件监听器薄壳转调）
 function submitWarriorExecuteDeclaration(data) {
     const { unit, target, allySide, declarations } = data;
-    if (unit.role !== '战士' || !unit.alive) return;
+    if (unit.role !== ROLE_TYPES.WARRIOR || !unit.alive) return;
     if (!target || !target.alive || target.hp <= 0) return;
     const unitBuffs = (allySide && allySide._activeBuffs) || [];
     const hasBloodthirst = hasBuff(unitBuffs, BUFF_TYPES.BLOODTHIRST);
@@ -280,8 +280,8 @@ function submitWarriorExecuteDeclaration(data) {
 }
 
 export function registerWarriorExecute(eventBus) {
-    registerSettlementHook(eventBus, {
-        when: 'afterDamageApplied',
+    registerSettlementHook({
+        when: SIGNAL_TYPES.AFTER_DAMAGE_APPLIED,
         priority: L.AFTER_DAMAGE_APPLIED.WARRIOR_EXECUTE,
         handler: (data) => {
             submitWarriorExecuteDeclaration(data);
@@ -292,7 +292,7 @@ export function registerWarriorExecute(eventBus) {
 export function registerFortifyShield(eventBus) {
     function tryFortify(unit, chance, group, log, label, skipStatChange) {
         if (!unit.alive) return;
-        if (unit.role !== '防战') return;
+        if (unit.role !== ROLE_TYPES.DEFENDER) return;
         if (!unit.alive) return;
         const fortifyThisRound = getEliteState(unit.uid)._fortifyThisRound || 0;
         const increment = getEliteState(unit.uid)._fortifyIncrement || C.FORTIFY_INCREMENT;
@@ -315,7 +315,7 @@ export function registerFortifyShield(eventBus) {
     }
 
     // 坚盾触发概率：唯一来源 JSON roles.防战.fortify（攻盾=attackChance，被击坚盾=defendChance）
-    const fortifyCfg = getGameData().roles['防战'].fortify;
+    const fortifyCfg = getGameData().roles[ROLE_TYPES.DEFENDER].fortify;
 
     // 被击坚盾：判定 + STAT_CHANGE 声明提交（纯函数，事件监听器薄壳转调）
     function submitFortifyShieldDefend(data) {
@@ -342,16 +342,16 @@ export function registerFortifyShield(eventBus) {
         tryFortify(unit, fortifyCfg.attackChance, group, log, '攻盾');
     }
 
-    registerSettlementHook(eventBus, {
-        when: 'afterDamageApplied',
+    registerSettlementHook({
+        when: SIGNAL_TYPES.AFTER_DAMAGE_APPLIED,
         priority: L.AFTER_DAMAGE_APPLIED.SHIELD_DEFEND,
         handler: (data) => {
             submitFortifyShieldDefend(data);
         }
     });
 
-    registerSettlementHook(eventBus, {
-        when: 'afterAttack',
+    registerSettlementHook({
+        when: SIGNAL_TYPES.AFTER_ATTACK,
         priority: L.AFTER_ATTACK.SHIELD_ATTACK,
         handler: (data) => {
             submitFortifyShieldAttack(data);
@@ -364,7 +364,7 @@ export function registerDoubleStrike(eventBus, doubleStrikeUnitUid, allyTeam, ac
     // 连击判定：_doubleStriked 直写 + extraRequests 驱动"再攻击"链（非状态结算，保留原样）
     function submitDoubleStrikeDeclaration(data) {
         const { unit, target, log } = data;
-        if (unit.uid !== doubleStrikeUnitUid || !unit.alive || unit.camp !== 'ally' || getEliteState(unit.uid)._doubleStriked) return;
+        if (unit.uid !== doubleStrikeUnitUid || !unit.alive || unit.camp !== CAMP_TYPES.ALLY || getEliteState(unit.uid)._doubleStriked) return;
         const xiaoDoubleEnhance = query('xiaoHexEnhance', allyTeam, activeBuffs, BUFF_TYPES.DOUBLE_STRIKE);
         const missChainChance = xiaoDoubleEnhance ? 1.0 : (C.BUFFS.doubleStrike.prob || 0.8);
         if (getBattleRng().next() < missChainChance) {
@@ -383,8 +383,8 @@ export function registerDoubleStrike(eventBus, doubleStrikeUnitUid, allyTeam, ac
             log.push({ factType: FACT_TYPES.DOUBLE_STRIKE, data: { success: false, unitName: unit.name } });
         }
     }
-    registerSettlementHook(eventBus, {
-        when: 'afterAttack',
+    registerSettlementHook({
+        when: SIGNAL_TYPES.AFTER_ATTACK,
         priority: L.AFTER_ATTACK.DOUBLE_STRIKE,
         handler: (data) => {
             submitDoubleStrikeDeclaration(data);

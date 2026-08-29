@@ -5,7 +5,7 @@ export const VER = 'core/16effect-handlers.js V1.3.0';
 import { EFFECT_TYPES } from '../infra/50-event-bus.js';
 import { applyStatChange, applyMaxHpChange, query, emitEvent } from './13battle-shared.js';
 import { flushBattleEvents } from '../infra/51-core-utils.js';
-import { BUFF_TYPES, BUFF_SUBTYPES } from '../infra/56-battle-enums.js';
+import { BUFF_TYPES, BUFF_SUBTYPES, UNIT_EVENT_TYPES, ROLE_TYPES } from '../infra/56-battle-enums.js';
 import { registerCalcModifier, getCalcModifier } from '../infra/57-calc-modifier-registry.js';
 export { registerCalcModifier, getCalcModifier };
 
@@ -32,12 +32,12 @@ registerCalcModifier(EFFECT_TYPES.BREAK_DEF, (ctx) => {
     refs.defBase -= reduce;
     if (target._baseDef !== undefined) target._baseDef -= reduce;
     applyStatChange(target, 'def', -reduce, unit, '破防');
-    emitEvent(target, 'hp-change', { hp: target.hp, maxHp: target.maxHp, alive: target.alive, atk: target.atk, def: target.def, _isDead: target.state._isDead || false });
+    emitEvent(target, UNIT_EVENT_TYPES.HP_CHANGE, { hp: target.hp, maxHp: target.maxHp, alive: target.alive, atk: target.atk, def: target.def, _isDead: target.state._isDead || false });
     refs.defReduced = reduce;
     // 破防记账随声明通道传递（decl.factData 为 03 侧预填版本；reduce>0 覆盖为执行版本），不落 unit
     if (reduce > 0) {
         refs.pendingDefReduceFact = { type:'breakDef', attackerName: unit.name, targetName: target.name, reduce };
-        emitEvent(target, 'hp-change', { hp: target.hp, maxHp: target.maxHp, alive: target.alive, atk: target.atk, def: refs.defBase, _isDead: target.state._isDead || false });
+        emitEvent(target, UNIT_EVENT_TYPES.HP_CHANGE, { hp: target.hp, maxHp: target.maxHp, alive: target.alive, atk: target.atk, def: refs.defBase, _isDead: target.state._isDead || false });
     } else {
         refs.pendingDefReduceFact = decl.factData || null;
     }
@@ -110,7 +110,7 @@ registerEffectHandler(EFFECT_TYPES.SPLASH, (ctx) => {
             if (!st.alive) continue;
             applyStatChange(st, 'hp', -(decl.value || 0), ctx.unit, '溅射');
         }
-        if (ctx.unit && ctx.unit.role === '远程' && decl.buffType === BUFF_SUBTYPES.METEOR_SPLASH) {
+        if (ctx.unit && ctx.unit.role === ROLE_TYPES.RANGED && decl.buffType === BUFF_SUBTYPES.METEOR_SPLASH) {
             const enhance = query('xiaoHexEnhance', ctx.allySide, ctx.unitBuffs, BUFF_TYPES.METEOR_SHOWER);
             const perSplash = enhance ? (enhance.atkPerSplash || 0) : 0;
             const hitCount = decl.targets.filter(t => t.alive).length;

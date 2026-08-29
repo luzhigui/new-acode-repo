@@ -6,6 +6,7 @@ import { initBattleTeams } from '../modules/29battle-init.js';
 import { eventBus } from '../infra/50-event-bus.js';
 import { SeededRNG, onBattleEvents, flushBattleEvents } from '../infra/51-core-utils.js';
 import { GlobalStore } from '../infra/54-global-store.js';
+import { UNIT_EVENT_TYPES, CAMP_TYPES } from '../infra/56-battle-enums.js';
 import '../modules/25elite-imperial.js';
 import '../modules/26elite-sixsects.js';
 import '../modules/27elite-mingjiao.js';
@@ -46,7 +47,7 @@ startBtn.addEventListener('click', async () => {
                 const tracker = {};
                 const off = onBattleEvents(events => {
                     for (const ev of events) {
-                        if (ev.eventType !== 'hp-change') continue;
+                        if (ev.eventType !== UNIT_EVENT_TYPES.HP_CHANGE) continue;
                         const uid = ev.unitUid;
                         const p = ev.payload || {};
                         if (p.hp === undefined || p.maxHp === undefined) continue;
@@ -143,7 +144,7 @@ startBtn.addEventListener('click', async () => {
 
 function record(agg, u, t) {
     if (!u) return;
-    const camp = u.camp === 'ally' ? '明教' : '六大派';
+    const camp = u.camp === CAMP_TYPES.ALLY ? '明教' : '六大派';
     const key = `${camp}·${u.name}`;
     const d = agg[key] || (agg[key] = { battles: 0, dmgTaken: 0, battleDmg: 0, reallocDmg: 0, healDone: 0, battleHeal: 0, reallocHeal: 0, dmgDealt: 0 });
     d.battles++;

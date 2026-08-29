@@ -7,6 +7,7 @@ import { GlobalStore } from '../infra/54-global-store.js';
 import { addPermanentBuff } from '../modules/20elite-skills.js';
 import { createBuffObject } from '../modules/28buff-tools.js';
 import { getBattleRng } from '../core/13battle-shared.js';
+import { CAMP_TYPES } from '../infra/56-battle-enums.js';
 
 export function showBuffPopup(c) {
     return new Promise((resolve) => {
@@ -18,7 +19,7 @@ export function showBuffPopup(c) {
         let activeBuffs = c.activeBuffs || [];
         let existingKeys = activeBuffs.map(b => b.key);
         let allKeys = Object.keys(CONFIG.BUFFS || {});
-        const allyTeam = c.store ? c.store.getState().units.filter(u => u.camp === 'ally' && u.alive) : [];
+        const allyTeam = c.store ? c.store.getState().units.filter(u => u.camp === CAMP_TYPES.ALLY && u.alive) : [];
         let available = allKeys.filter(k => {
             if (existingKeys.includes(k)) return false;
             if (k === BUFF_TYPES.FORTIFY && !activeBuffs.some(b => b.remaining > 0)) return false;

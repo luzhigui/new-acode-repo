@@ -109,7 +109,7 @@ export const EXECUTION_LAYER = {
  * 结算时机注册入口：统一替代手写 eventBus.on(signal, L.X, fn)。
  * 内部透传 eventBus.on，行为零变化。
  */
-export function registerSettlementHook(eventBus, { when, priority, handler }) {
+export function registerSettlementHook({ when, priority, handler }) {
     eventBus.on(when, priority, handler);
 }
 

@@ -5,7 +5,7 @@ export const VER = 'ui/62ui-render-5v5-test.js V5.5.1';
 import { getSkillDesc } from '../core/01config-5v5-test.js';
 import { getAuraBonuses } from '../core/03battle-utils.js';
 import { getEliteState } from '../core/18-elite-state.js';
-import { BUFF_TYPES } from '../infra/56-battle-enums.js';
+import { BUFF_TYPES, CAMP_TYPES } from '../infra/56-battle-enums.js';
 import {
     renderGrid,
     updateGridUI,
@@ -75,8 +75,8 @@ function renderAtkDetail(u, buffStats, ctx) {
     if (carryAtk > 0) parts.push(`<span style="color:#ff8c00;">+${carryAtk}临</span>`);
     const enemyTeamForAura = ctx.UI.enemyTeam || [];
     const allyTeamForAura = ctx.UI.allyTeam || [];
-    const auraSideA = u.camp === 'ally' ? allyTeamForAura : enemyTeamForAura;
-    const auraSideB = u.camp === 'ally' ? enemyTeamForAura : allyTeamForAura;
+    const auraSideA = u.camp === CAMP_TYPES.ALLY ? allyTeamForAura : enemyTeamForAura;
+    const auraSideB = u.camp === CAMP_TYPES.ALLY ? enemyTeamForAura : allyTeamForAura;
     const aura = getAuraBonuses(u, auraSideA, auraSideB);
     if (aura.emptyCol > 0) parts.push(`<span style="color:#ff8c00;">+${aura.emptyCol}光环</span>`);
     if (aura.bloodAura > 0) parts.push(`<span style="color:#ff8c00;">+${aura.bloodAura}光环</span>`);
