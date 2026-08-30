@@ -132,7 +132,14 @@ export function initMonitor() {
             statusLine.textContent = '静态体检失败';
         }
     });
-    if (btnModeCancel) btnModeCancel.addEventListener('click', hideModeOverlay);
+    if (btnModeCancel) btnModeCancel.addEventListener('click', () => {
+        hideModeOverlay();
+        if (!monitorActive && !gameLoaded) {
+            reportArea.classList.add('active'); gameArea.classList.remove('active');
+            backBtn.style.display = 'inline-block';
+            statusLine.textContent = '未选择体检模式（可点「🏥 体检入口」重新选择）';
+        }
+    });
 
     // ==================== 手动记录弹窗 ====================
     function showManualInput() {
@@ -291,9 +298,15 @@ export function initMonitor() {
     });
 
     btnStartMonitor.disabled = false; btnStopMonitor.disabled = true;
-    statusLine.textContent = '正在启动自动体检...';
-    // 自动启动体检，无需手动点击
-    btnStartMonitor.click();
+    if (autoMode) {
+        // 无头自动模式（?auto=1）：无人值守，打开即自动启动实时体检
+        statusLine.textContent = '自动模式：正在启动体检...';
+        btnStartMonitor.click();
+    } else {
+        // 手动打开：直接弹出体检模式菜单，等用户选择（实时跟跑 / 快速静态体检 / 快速跑完）
+        statusLine.textContent = '请选择体检模式：实时跟跑 / 快速静态体检 / 快速跑完';
+        if (modeOverlay) modeOverlay.style.display = 'flex';
+    }
 }
 
 // ==================== 定时扫描 ====================
