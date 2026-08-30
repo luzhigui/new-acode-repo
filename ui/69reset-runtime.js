@@ -6,6 +6,8 @@ import { GlobalStore } from '../infra/54-global-store.js';
 import { setRenderStore } from './62ui-render-5v5-test.js';
 import { clearEliteDodgeRules } from '../core/12battle-attack-steps.js';
 import { flushBattleEvents } from '../infra/51-core-utils.js';
+// ★ 弹幕池重置函数：与删除 DOM 配合，防止对象池持有游离元素
+import { resetDanmakuPool } from '../fx/80fx-common-5v5-test.js';
 
 function removeIfExists(id) {
     const el = document.getElementById(id);
@@ -42,7 +44,9 @@ export function resetBattleRuntime({ restoreSpeed = true } = {}) {
     ['battleReportOverlay', 'battleReportFloat', 'buffFloatBtn', 'voteModalOverlay'].forEach(removeIfExists);
     const voteFloat = document.getElementById('voteFloat');
     if (voteFloat) voteFloat.style.display = 'none';
-    document.querySelectorAll('.danmaku-bubble').forEach(el => { if (el.parentNode) el.parentNode.removeChild(el); });
+    // ★ 弹幕重置：调用池重置函数（内部会移除 DOM 并重建池），
+    //   不能只删 DOM——对象池仍持引用会导致后续弹幕全部失效
+    resetDanmakuPool();
     document.querySelectorAll('[data-fx="temporary"]').forEach(el => { if (el.parentNode) el.parentNode.removeChild(el); });
     document.querySelectorAll('.cell-cheer').forEach(cell => cell.classList.remove('cell-cheer'));
     document.querySelectorAll('.grid.victory-border').forEach(grid => grid.classList.remove('victory-border'));

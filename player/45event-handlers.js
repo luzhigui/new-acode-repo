@@ -4,7 +4,7 @@ export const VER = 'player/45event-handlers.js V5.7.2';
 
 import { isBlocked } from '../core/03battle-utils.js';
 import { AudioManager } from '../modules/22audio-manager.js';
-import { getState } from '../infra/54-global-store.js';
+import { GlobalStore, getState } from '../infra/54-global-store.js';
 import { appendLogHTML, appendLogElement, autoScrollLog, updateRoundDisplay, renderSeparator, playLogLine, appendHiddenDetail } from './47renderer.js';
 
 export async function handleBuffBonus(c, entry) {

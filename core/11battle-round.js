@@ -266,7 +266,8 @@ function prepareRoundStart(A, B, log, state, round, rng) {
 }
 
 // ★ 同步化：改为普通 generator，工具侧可同步消费；游戏侧由 player/42player-core.js 的 async 循环包装
-export function* createRoundStepper(state) {
+// ★ ui 开关：ui=false 时跳过 stageActions 翻译（工具场景不需要画面产物，省热路径开销），引擎判定/RNG/事件/日志不变
+export function* createRoundStepper(state, { ui = true } = {}) {
     const rng = state._rng || new SeededRNG(Date.now());
     state._rng = rng;
     setBattleRng(rng);
@@ -299,7 +300,7 @@ export function* createRoundStepper(state) {
         winner,
         done,
         doubleStrikeUid: doubleStrikeUnitUid,
-        stageActions: translateFactsToStageActions(logs)
+        stageActions: ui ? translateFactsToStageActions(logs) : []
     });
 
     const { doubleStrikeUnitUid, roundStartEvents, sisterComp, brotherComp } = prepareRoundStart(A, B, log, state, round, rng);
@@ -417,10 +418,16 @@ export function* createRoundStepper(state) {
             const { unit, reason } = orderResult.passEntry;
             unit.state._acted = true;
             unit.state._blocked = isBlocked(unit, currentTeam);
+            // ★ 记录休息回复前后的真实血量与增量，供日志渲染显示"谁休息、从多少恢复到多少"
+            const hpBefore = Math.floor(unit.hp);
+            let hpAfter = hpBefore;
+            let actualHeal = 0;
             if (unit.alive && (reason === '被遮挡' || reason === '拒马休息')) {
                 applyStatChange(unit, 'hp', 15, null, '休息回复');
+                hpAfter = Math.floor(unit.hp);
+                actualHeal = hpAfter - hpBefore;
             }
-            const passFact = { unit, reason, events: [] };
+            const passFact = { unit, reason, hpBefore, hpAfter, actualHeal, events: [] };
             passFact.events = flushBattleEvents();
             log.push({ factType: FACT_TYPES.PASS, data: passFact });
             continue;

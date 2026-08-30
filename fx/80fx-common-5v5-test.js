@@ -35,6 +35,23 @@ function releaseToPool(type, el) { if (!POOL[type]) return; let pool = POOL[type
 
 function createDanmakuEl() { let b = document.createElement('div'); b.className = 'danmaku-bubble'; return b; }
 initPool('danmaku', createDanmakuEl);
+// ★ 弹幕池重置：战斗重置时必须调用，清空池内引用并重建 DOM，
+//   否则 69reset-runtime 直接 removeChild 会导致对象池持有游离元素，弹幕永久失效
+export function resetDanmakuPool() {
+    const pool = POOL['danmaku'];
+    if (!pool) return;
+    [...pool.available, ...pool.active].forEach(el => {
+        if (el._timeoutId) clearTimeout(el._timeoutId);
+        if (el.parentNode) el.parentNode.removeChild(el);
+    });
+    POOL['danmaku'] = { available: [], active: [] };
+    for (let i = 0; i < POOL_SIZES.danmaku; i++) {
+        let el = createDanmakuEl();
+        el.style.display = 'none';
+        document.body.appendChild(el);
+        POOL['danmaku'].available.push(el);
+    }
+}
 export function showDanmaku(unit, text) { let gridId = unit.camp === CAMP_TYPES.ALLY ? 'allyGrid' : 'enemyGrid', grid = document.getElementById(gridId), cells = grid.children; let displayOrder = unit.camp === CAMP_TYPES.ENEMY ? [7,8,9,4,5,6,1,2,3] : [1,2,3,4,5,6,7,8,9], idx = displayOrder.indexOf(unit.pos); if (idx >= 0 && cells[idx]) { let rect = cells[idx].getBoundingClientRect(); acquireFromPool('danmaku', (bubble) => { bubble.textContent = text; bubble.className = 'danmaku-bubble'; bubble.classList.add(unit.camp===CAMP_TYPES.ALLY?'ally':'enemy'); bubble.style.left=(rect.left-4)+'px'; bubble.style.top=(rect.top+rect.height*0.35)+'px'; bubble.style.transform='translate(-100%, -50%)'; }, 3500); } }
 
 function createDmgFloatEl() { let d = document.createElement('div'); d.className = 'dmg-float'; return d; }
@@ -141,13 +158,21 @@ export function showKuLianEffect(unit, team) {
         let muscle = document.createElement('div');
         muscle.setAttribute('data-fx', 'temporary');
         muscle.innerHTML = '💪';
-        muscle.style.cssText = 'position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:20px;z-index:10005;pointer-events:none;opacity:0;transition:opacity 0.3s, transform 0.3s;';
+        muscle.style.cssText = 'position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:20px;z-index:10005;pointer-events:none;opacity:0;';
         grid.style.position = 'relative';
         grid.appendChild(muscle);
 
-        requestAnimationFrame(() => {
-            muscle.style.opacity = '1';
-            muscle.style.transform = 'translate(-50%, -120%)';
+        // ★ 用 Web Animations API 强制播放向上上升动画，不再依赖 CSS transition 初始状态，
+        //   避免元素刚插入时 transition 不触发导致只原地出现、不向上。
+        muscle.animate([
+            { opacity: 0, transform: 'translate(-50%, -50%)' },
+            { opacity: 1, transform: 'translate(-50%, -120%)', offset: 0.3 },
+            { opacity: 1, transform: 'translate(-50%, -130%)', offset: 0.8 },
+            { opacity: 0, transform: 'translate(-50%, -160%)' }
+        ], {
+            duration: 1500,
+            easing: 'ease-out',
+            fill: 'forwards'
         });
 
         const blinks = member.uid === unit.uid ? 3 : 2;
@@ -163,7 +188,6 @@ export function showKuLianEffect(unit, team) {
             }
         }, 400);
 
-        setTimeout(() => { muscle.style.opacity = '0'; }, 1500);
         setTimeout(() => { if (muscle.parentNode) muscle.remove(); }, 2000);
     });
 }

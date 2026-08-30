@@ -8,7 +8,7 @@ import { hasBuff, getZhangNearTaunt } from '../core/03battle-utils.js';
 import { spawnHorse } from '../core/05battle-horse.js';
 import { spiderTransform, spiderReturn } from '../modules/20elite-skills.js';
 import { checkZhangSwitch, emitEvent, applyStatChange, applyMaxHpChange, getBattleRng } from '../core/13battle-shared.js';
-import { EXECUTION_LAYER as L, EFFECT_TYPES } from '../infra/50-event-bus.js';
+import { eventBus, EXECUTION_LAYER as L, EFFECT_TYPES } from '../infra/50-event-bus.js';
 import { registerDodgeRule } from '../core/12battle-attack-steps.js';
 import { StateMachine } from '../infra/51-core-utils.js';
 import { getEliteState, setEliteState } from '../core/18-elite-state.js';
@@ -311,7 +311,9 @@ export function createXiaoZhaoSisterComponent() {
                 const delta = newHp - sister.hp;
                 applyStatChange(sister, 'hp', delta, null, '蝶变附身血量', false);
             }
-            setEliteState(sister.uid, { _butterflyHost: host.uid });
+            // ★ 必须同时写 elite state 的 _flyMode，renderGrid 只读 getEliteState()._flyMode，
+            //   否则原地格子不消失，仍显示完整单位（和飞撞残留蓝色格子同根因）。
+            setEliteState(sister.uid, { _butterflyHost: host.uid, _flyMode: 'butterfly' });
             sister._fsm.transition('attached');
             emitEvent(sister, UNIT_EVENT_TYPES.HP_CHANGE, { hp:sister.hp, maxHp:sister.maxHp, alive:sister.alive, atk:sister.atk, def:sister.def, _flyMode:'butterfly', _butterflyHost:getEliteState(sister.uid)._butterflyHost });
             log.push({
