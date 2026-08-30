@@ -564,7 +564,8 @@ function renderStaticReport(result, title) {
             });
         }
     }
-    if (backBtn) backBtn.style.display = 'inline-block';
+    const staticBackBtn = document.getElementById('btnBackToGame');
+    if (staticBackBtn) staticBackBtn.style.display = 'inline-block';
     reportArea.scrollTop = 0;
 }
 
