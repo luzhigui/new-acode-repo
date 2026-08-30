@@ -57,7 +57,7 @@ async function main() {
         while (battleState.round <= MAX_ROUND) {
             const stepper = createRoundStepper(battleState);
             let lastStep = null;
-            for await (const step of stepper) {
+            for (const step of stepper) {
                 lastStep = step;
                 // 只存 factType 字符串，不存 HTML
                 for (const e of step.log || []) {
