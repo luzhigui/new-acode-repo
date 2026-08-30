@@ -111,6 +111,8 @@ export const GlobalStore = {
     }
 };
 
+// 环境兼容挂载：主线程为 window，Worker 无 window，先补全局 window 再挂 GlobalStore（worker 工具链 109/116 需要）
+if (typeof window === 'undefined') globalThis.window = globalThis;
 window.GlobalStore = GlobalStore;
 
 export const getState = {

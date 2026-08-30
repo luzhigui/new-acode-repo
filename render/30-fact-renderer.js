@@ -402,9 +402,13 @@ export function renderPassFact(fact) {
         const hpBefore = fact.hpBefore !== undefined ? fact.hpBefore : Math.floor(unit.hp);
         const hpAfter = fact.hpAfter !== undefined ? fact.hpAfter : Math.floor(unit.hp);
         const actualHeal = fact.actualHeal !== undefined ? fact.actualHeal : 15;
+        const campName = unit.camp === CAMP_TYPES.ALLY ? '明教' : '六大派';
         return {
             type:'attack-group', uidA:unit.uid, uidD:null,
-            entries:[{type:'info', text:`<span class="green">😴 ${unit.name} 因${reason}休息，回复 ${actualHeal} 点生命（${hpBefore} → ${hpAfter}）</span>`, isHealEntry:true, healAmount:actualHeal, healUnitUid:unit.uid}],
+            entries:[
+                {type:'info', text:`<span class="gray">${campName} ${unit.name} ${reason}</span>`},
+                {type:'info', text:`<span class="green">😴 休息回复 ${actualHeal} 点生命（${hpBefore} → ${hpAfter}）</span>`, isHealEntry:true, healAmount:actualHeal, healUnitUid:unit.uid}
+            ],
             isBlock:true, isRest:true,
             _fxSnapshot: makeFXSnapshot(unit,null), waveTaunt:null, waveUnit:null,
             buffEffects:[], needsSeparator: true, healAmount: actualHeal, healUnitUid: unit.uid,

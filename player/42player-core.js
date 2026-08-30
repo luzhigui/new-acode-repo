@@ -241,10 +241,14 @@ const STAGE_ACTION_FX_HANDLERS = {
         }
         // 华丽模式：子弹时间；简单模式：气泡
         if (c.dodgeEffectEnabled && attacker && dodger) {
-            c.isPaused = true; GlobalStore.set('bulletTimeActive', true);
+            c.isPaused = true; GlobalStore.set('isPaused', true); GlobalStore.set('bulletTimeActive', true);
             await eventBus.emit(FX_SIGNALS.CRITICAL_BANNER, { text: '✨闪避反击✨' });
-            await eventBus.emit(FX_SIGNALS.DODGE_BULLET_TIME, { unitD: dodger, unitA: attacker });
-            GlobalStore.set('bulletTimeActive', false); c.isPaused = false;
+            // ★ 子弹时间必须走直接 await，不能走 eventBus 异步通道：
+            //   emit 是同步调用（infra/50-event-bus.js），不等待监听器返回的 Promise，
+            //   否则动画后台并行播放、战斗继续推进。主循环 await 阻塞，动画播完才恢复。
+            const { showDodgeBulletTime } = await import('../fx/85fx-dodge-bullet.js');
+            await showDodgeBulletTime(attacker, dodger, action.reboundDmg || 0);
+            GlobalStore.set('bulletTimeActive', false); GlobalStore.set('isPaused', false); c.isPaused = false;
         } else if (attacker) {
             eventBus.emit(FX_SIGNALS.DODGE_BUBBLE, { unit: attacker, text: '闪避！' });
             // ★ 简单模式闪避反击：近战攻击者需补发 TRIGGER 信号，触发飞撞击退动画。
@@ -279,10 +283,6 @@ const STAGE_ACTION_FX_HANDLERS = {
     [STAGE_ACTION_TYPES.ATTACK]: async (c, action) => {
         const attacker = findUnitByUid(c, action.actorUid);
         const target = findUnitByUid(c, action.targetUid);
-        // 伤害飘字
-        if (target && action.dmg && !GlobalStore.get('fastForwardActive')) {
-            eventBus.emit(FX_SIGNALS.DAMAGE_FLOAT, { unit: target, dmg: action.dmg });
-        }
         // 苦练蓄力特效
         if (action.isKuLianAttack && attacker) {
             const team = c.store.getState().units.filter(u => u.camp === attacker.camp);

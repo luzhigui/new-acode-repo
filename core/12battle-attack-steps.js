@@ -80,6 +80,8 @@ export function selectAttackTarget(unit, enemySide, allySide) {
 
 // ==================== 步骤2：未命中+闪避判定 ====================
 export function resolveAttackHit(unit, target, attackerBuffStats, defenderBuffStats, log, A, B, doubleStrikeUnitUid, eventBus) {
+    // 通用标记：携带 _neverMiss 的单位跳过未命中与闪避判定（由精英组件自声明）
+    if (unit._neverMiss) return { skipped: false };
     const rng = getBattleRng();
     let missChance = 0;
     if (unit.role === ROLE_TYPES.RANGED) { missChance = C.RANGED_MISS_CHANCE; }

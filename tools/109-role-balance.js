@@ -1,23 +1,11 @@
 // tools/109-role-balance.js - 光明顶5v5 职业平衡分析工具
-// V5.6.2 | ~16700 bytes| 2026-08-24 每场结束 flush 事件 + 清空 _eliteStates Map，修复高场次 OOM（_eliteStates uid 永不复用无限膨胀）
-export const VER = 'tools/109-role-balance.js V5.6.2';
+// V5.7.0 | ~15500 bytes| 2026-08-24 Worker 并行化：批量战斗移至 116-role-balance-worker.js，主文件只负责派发/聚合/渲染
+export const VER = 'tools/109-role-balance.js V5.7.0';
 
-import { CONFIG } from '../core/01config-5v5-test.js';
-import { Unit } from '../core/02unit.js';
-import { SeededRNG, flushBattleEvents } from '../infra/51-core-utils.js';
-import { clearAllEliteStates } from '../core/18-elite-state.js';
-import { createRoundStepper } from '../core/11battle-round.js';
-import { setBattleRng } from '../core/13battle-shared.js';
-import { createBuffObject } from '../modules/28buff-tools.js';
-import '../infra/54-global-store.js';
-import '../modules/25elite-imperial.js';
-import '../modules/26elite-sixsects.js';
-import '../modules/27elite-mingjiao.js';
-import { CAMP_TYPES, ROLE_TYPES, BUFF_TYPES } from '../infra/56-battle-enums.js';
+import { ROLE_TYPES } from '../infra/56-battle-enums.js';
 
 const ROLES = [ROLE_TYPES.DEFENDER, ROLE_TYPES.WARRIOR, ROLE_TYPES.FLYER, ROLE_TYPES.RANGED];
 const ROLE_ICONS = { [ROLE_TYPES.DEFENDER]: '🛡️', [ROLE_TYPES.WARRIOR]: '⚔️', [ROLE_TYPES.FLYER]: '🦅', [ROLE_TYPES.RANGED]: '🏹' };
-const BASE_TEMPLATE = { 1: ROLE_TYPES.DEFENDER, 2: ROLE_TYPES.WARRIOR, 5: ROLE_TYPES.FLYER, 7: ROLE_TYPES.RANGED, 9: ROLE_TYPES.RANGED };
 
 // 第六人站位规则：默认所有职业 [3,4,6,8]（近战限位默认关），开启近战限位后防战/战士仅 [3,6]
 let extraPosConfig = { [ROLE_TYPES.DEFENDER]: [3, 4, 6, 8], [ROLE_TYPES.WARRIOR]: [3, 4, 6, 8], [ROLE_TYPES.FLYER]: [3, 4, 6, 8], [ROLE_TYPES.RANGED]: [3, 4, 6, 8] };
@@ -61,101 +49,6 @@ if (!document.getElementById('roleBalStyle')) {
 .role-bal-toggle input:checked+.switch::after{transform:translateX(16px)}
 `;
     document.head.appendChild(style);
-}
-
-// ========== 工具函数 ==========
-function createUnit(role, camp, rng) {
-    const campLabel = camp === CAMP_TYPES.ALLY ? '明教' : '六大派';
-    const u = new Unit(`${campLabel}·${role}`, 100, role, camp);
-    u.init(rng);
-    u.applyBonus();
-    return u;
-}
-
-function buildTeam(extraRole, camp, rng) {
-    const team = [];
-    for (const [posStr, role] of Object.entries(BASE_TEMPLATE)) {
-        const u = createUnit(role, camp, rng);
-        u.pos = parseInt(posStr, 10);
-        u._originalPos = u.pos;
-        team.push(u);
-    }
-    const positions = extraPosConfig[extraRole] || extraPosDefault;
-    const extraPos = positions[rng.nextInt(0, positions.length - 1)];
-    const extra = createUnit(extraRole, camp, rng);
-    extra.pos = extraPos;
-    extra._originalPos = extraPos;
-    team.push(extra);
-    return team;
-}
-
-// 海克斯：选一个新 buff（复刻主代码全自动规则）
-// withFortifyRule=开局规则（无激活buff时排除fortify）；every3=每3回合规则（无fortify排除）
-function pickHexBuff(activeBuffs, allyTeam, rng, withFortifyRule) {
-    const existing = activeBuffs.map(b => b.key);
-    const allKeys = Object.keys(CONFIG.BUFFS);
-    const available = allKeys.filter(k => {
-        if (existing.includes(k)) return false;
-        if (withFortifyRule && k === BUFF_TYPES.FORTIFY && !activeBuffs.some(b => b.remaining > 0)) return false;
-        const requiredRole = CONFIG.BUFF_ROLE_REQUIREMENTS[k];
-        if (requiredRole && !allyTeam.some(u => u.alive && u.role === requiredRole)) return false;
-        return true;
-    });
-    if (available.length === 0) return null;
-    const pick = available[rng.nextInt(0, available.length - 1)];
-    const duration = CONFIG.BUFFS[pick].duration || CONFIG.BUFF_DURATION || 4;
-    return createBuffObject(pick, duration);
-}
-
-async function runNakedBattle(allyUnits, enemyUnits, seed, firstSide = CAMP_TYPES.ENEMY, hexEnabled = false) {
-    const rng = new SeededRNG(seed);
-    setBattleRng(rng); // createBuffObject 的 holyFlame 列行随机依赖 battleRng（stepper 每回合也会重设，这里保证开局选择前可用）
-    let masterBuffs = [];
-    if (hexEnabled) {
-        const first = pickHexBuff(masterBuffs, allyUnits, rng, true);
-        if (first) masterBuffs.push(first);
-    }
-    let battleState = {
-        ally: allyUnits.map(u => u.clone()),
-        enemy: enemyUnits.map(u => u.clone()),
-        round: 1,
-        activeBuffs: masterBuffs,
-        allAllies: allyUnits.map(u => u.clone()),
-        _rng: rng,
-        _firstSide: firstSide
-    };
-    let lastStep = null;
-    const maxRound = CONFIG.MAX_ROUND || 35;
-    while (battleState.round <= maxRound) {
-        const stepper = createRoundStepper(battleState, { ui: false }); // 工具场景跳过 stageActions 翻译
-        for (const step of stepper) { // 引擎已同步化（function*），for...of 直取
-            lastStep = step;
-            if (step.winner) return { winner: step.winner };
-        }
-        // 回合结束：buff 计时 -1（与主代码 42player-core 的主列表同步一致；引擎内部副本自行tick互不影响）
-        masterBuffs = masterBuffs.map(b => ({ ...b, remaining: b.remaining - 1 })).filter(b => b.remaining > 0);
-        // 每3回合选新 buff（round%3===0：刚打完的回合数）
-        if (hexEnabled && battleState.round % 3 === 0 && battleState.round > 0) {
-            const aliveCheckTeam = (lastStep && lastStep.ally) ? lastStep.ally : allyUnits;
-            const nb = pickHexBuff(masterBuffs, aliveCheckTeam, rng, false);
-            if (nb) {
-                if (masterBuffs.length >= 2) {
-                    const shortest = masterBuffs.reduce((a, b) => a.remaining < b.remaining ? a : b);
-                    masterBuffs.splice(masterBuffs.indexOf(shortest), 1);
-                }
-                masterBuffs.push(nb);
-            }
-        }
-        battleState = {
-            ally: (lastStep ? lastStep.ally : battleState.ally).map(u => u.clone()),
-            enemy: (lastStep ? lastStep.enemy : battleState.enemy).map(u => u.clone()),
-            round: battleState.round + 1,
-            activeBuffs: masterBuffs.map(b => ({ ...b })),
-            allAllies: battleState.allAllies,
-            _rng: battleState._rng
-        };
-    }
-    return { winner: '平局' };
 }
 
 // ========== 主界面 ==========
@@ -233,11 +126,16 @@ window.openRoleBalance = function() {
     mask.querySelector('#roleBalRun').addEventListener('click', async () => {
         const roundsPerGroup = parseInt(roundsInput.value) || 100;
         const hexEnabled = mask.querySelector('#roleBalHex').checked;
+        const startT = performance.now();
         const matrix = {};
         const allyStats = {};
         const enemyStats = {};
         const masterSeed = Date.now();
+        const positions = JSON.parse(JSON.stringify({ ...extraPosConfig })); // 快照，worker 间共享只读
 
+        // Worker 池并行：每核 1 worker，16 组 job 按可用 worker 并发派发
+        const poolSize = Math.max(1, (navigator.hardwareConcurrency || 4) - 1); // 留 1 核给主线程 UI
+        const jobs = [];
         for (let ai = 0; ai < ROLES.length; ai++) {
             for (let ei = 0; ei < ROLES.length; ei++) {
                 const allyRole = ROLES[ai];
@@ -246,37 +144,122 @@ window.openRoleBalance = function() {
                 matrix[key] = { wins: 0, total: roundsPerGroup };
                 allyStats[allyRole] = allyStats[allyRole] || { wins: 0, total: 0 };
                 enemyStats[enemyRole] = enemyStats[enemyRole] || { wins: 0, total: 0 };
-
-                let wins = 0;
-                for (let i = 0; i < roundsPerGroup; i++) {
-                    const seed = masterSeed + ai * 100000 + ei * 10000 + i * 7919;
-                    const rng = new SeededRNG(seed);
-                    const allyTeam = buildTeam(allyRole, CAMP_TYPES.ALLY, rng);
-                    const enemyTeam = buildTeam(enemyRole, CAMP_TYPES.ENEMY, rng);
-                    const firstSide = CAMP_TYPES.ENEMY;
-                    const r = await runNakedBattle(allyTeam, enemyTeam, seed, firstSide, hexEnabled);
-                    // 每场结束清理全局累积：_eventBuffer（已 flush）+ _eliteStates Map（uid 永不复用，会无限膨胀导致 OOM）
-                    flushBattleEvents();
-                    clearAllEliteStates();
-                    if (r.winner === '明教') wins++;
-                    if (i % 10 === 0) {
-                        progress.textContent = `明教额外[${allyRole}] vs 六大派额外[${enemyRole}]：${i}/${roundsPerGroup}`;
-                        await new Promise(res => setTimeout(res, 0));
-                    }
-                }
-                matrix[key].wins = wins;
-                allyStats[allyRole].wins += wins;
-                allyStats[allyRole].total += roundsPerGroup;
-                enemyStats[enemyRole].wins += wins;
-                enemyStats[enemyRole].total += roundsPerGroup;
-                progress.textContent = `✅ 明教额外[${allyRole}] vs 六大派额外[${enemyRole}] 完成：明教胜 ${wins}/${roundsPerGroup}`;
-                renderResult(result, matrix, allyStats, enemyStats);
-                await new Promise(res => setTimeout(res, 20));
+                jobs.push({ ai, ei, allyRole, enemyRole, key });
             }
         }
-        progress.textContent = '✅ 全部 16 组完成';
+
+        progress.textContent = `⏳ 启动 ${poolSize} 个并行 Worker，共 ${jobs.length} 组 × ${roundsPerGroup} 场…`;
+        renderResult(result, matrix, allyStats, enemyStats);
+
+        try {
+            const results = await runJobsParallel(jobs, roundsPerGroup, positions, hexEnabled, masterSeed, poolSize, (msg) => {
+            const st = startT;
+            const sec = ((performance.now() - st) / 1000).toFixed(1);
+            if (msg.done) {
+                progress.textContent = `✅ 全部 ${msg.total} 组完成，总耗时 ${sec}s`;
+            } else {
+                progress.textContent = `${msg.text}（已用 ${sec}s）`;
+            }
+        });
+            for (const { jobId, ai, ei, key, wins } of results) {
+                matrix[key].wins = wins;
+                allyStats[ROLES[ai]].wins += wins;
+                allyStats[ROLES[ai]].total += roundsPerGroup;
+                enemyStats[ROLES[ei]].wins += wins;
+                enemyStats[ROLES[ei]].total += roundsPerGroup;
+            }
+            progress.textContent = `✅ 全部 ${jobs.length} 组完成，总耗时 ${((performance.now() - startT) / 1000).toFixed(1)}s`;
+            renderResult(result, matrix, allyStats, enemyStats);
+        } catch (err) {
+            progress.textContent = `❌ 并行评测异常：${err.message || err}（已用 ${((performance.now() - startT) / 1000).toFixed(1)}s）`;
+        }
     });
 };
+
+// Worker 池：并发派发 jobs，逐组回报进度，聚合结果
+function runJobsParallel(jobs, rounds, positions, hexEnabled, masterSeed, poolSize, progress) {
+    return new Promise((resolve, reject) => {
+        const workers = [];
+        const doneResults = [];
+        let nextJob = 0;
+        let finished = 0;
+        const total = jobs.length;
+        const t0 = performance.now();
+        let lastMsLogged = 0;
+        let readyCount = 0;
+        let dispatchStarted = false;
+
+        const tryStartDispatch = () => {
+            if (dispatchStarted || readyCount < workers.length) return;
+            dispatchStarted = true;
+            console.log(`[109-parallel] 全部 worker ready，开始派发 ${total} 组`);
+            for (let i = 0; i < workers.length; i++) dispatch(i);
+        };
+
+        const spawn = (workerIdx) => {
+            const w = new Worker(new URL('./116-role-balance-worker.js', import.meta.url), { type: 'module' });
+            console.log(`[109-parallel] spawn worker#${workerIdx}, poolSize=${poolSize}`);
+            w.onmessage = (e) => {
+                const msg = e.data;
+                if (msg && msg.kind === 'worker-ready') {
+                    readyCount++;
+                    if (!msg.ok) {
+                        console.error(`[109-parallel] worker#${workerIdx} 数据加载失败:`, msg.error);
+                        workers.forEach(x => x.terminate());
+                        reject(new Error(`worker#${workerIdx} 数据加载失败: ${msg.error}`));
+                        return;
+                    }
+                    console.log(`[109-parallel] worker#${workerIdx} ready (${readyCount}/${workers.length})`);
+                    tryStartDispatch();
+                    return;
+                }
+                const job = jobs.find(j => j.ai === msg.jobId.ai && j.ei === msg.jobId.ei);
+                if (!job || msg.jobId.kind !== 'run') return;
+                if (msg.ok === false) {
+                    console.error(`[109-parallel] worker#${workerIdx} job[${job.allyRole} vs ${job.enemyRole}] FAILED:`, msg.error);
+                    workers.forEach(x => x.terminate());
+                    reject(new Error(`worker#${workerIdx} 组[${job.allyRole} vs ${job.enemyRole}] 异常: ${msg.error}`));
+                    return;
+                }
+                doneResults.push({ jobId: msg.jobId, ai: job.ai, ei: job.ei, key: job.key, wins: msg.wins });
+                finished++;
+                const now = performance.now();
+                console.log(`[109-parallel] finished ${finished}/${total} [${job.allyRole} vs ${job.enemyRole}] wins=${msg.wins} +${(now-lastMsLogged).toFixed(0)}ms`);
+                lastMsLogged = now;
+                progress({ done: false, text: `⏳ 完成 ${finished}/${total} 组 [${job.allyRole} vs ${job.enemyRole}]（并行中）` });
+                if (finished === total) {
+                    const dt = (performance.now() - t0) / 1000;
+                    console.log(`[109-parallel] ALL DONE ${total} 组 × ${rounds} 场 总耗时 ${dt.toFixed(1)}s`);
+                    progress({ done: true, total });
+                    workers.forEach(x => x.terminate());
+                    resolve(doneResults);
+                    return;
+                }
+                dispatch(workerIdx);
+            };
+            w.onerror = (err) => {
+                console.error(`[109-parallel] worker#${workerIdx} ERROR`, err && err.message, err && err.filename, err && err.lineno);
+                workers.forEach(x => x.terminate());
+                reject(new Error((err && err.message) || 'worker 异常' + (err && err.filename ? ` @${err.filename}:${err.lineno}` : '')));
+            };
+            workers.push(w);
+        };
+
+        const dispatch = (workerIdx) => {
+            if (nextJob >= total) return;
+            const job = jobs[nextJob];
+            nextJob++;
+            workers[workerIdx].postMessage({
+                jobId: { ai: job.ai, ei: job.ei, allyRole: job.allyRole, enemyRole: job.enemyRole, kind: 'run' },
+                ai: job.ai, ei: job.ei, allyRole: job.allyRole, enemyRole: job.enemyRole,
+                rounds, positions, hexEnabled, masterSeed
+            });
+        };
+
+        for (let i = 0; i < poolSize; i++) spawn(i);
+        // 派发由 tryStartDispatch 在全部 worker ready 后统一启动（避免数据未加载先派发）
+    });
+}
 
 function renderResult(container, matrix, allyStats, enemyStats) {
     let html = '';

@@ -11,7 +11,7 @@ function applyWholeShake(elements, durationMs, basePositions, angle, getPausedFn
     requestAnimationFrame(shake);
 }
 
-export function showRangedArrow(unitA, unitD, speed, getPausedFn, isMeteor = false) {
+export function showRangedArrow(unitA, unitD, speed, getPausedFn, isMeteor = false, onHit = null) {
     let gridAId = unitA.camp===CAMP_TYPES.ALLY?'allyGrid':'enemyGrid', gridDId = unitD.camp===CAMP_TYPES.ALLY?'allyGrid':'enemyGrid';
     let gridA = document.getElementById(gridAId), gridD = document.getElementById(gridDId);
     let orderA = unitA.camp===CAMP_TYPES.ENEMY?[7,8,9,4,5,6,1,2,3]:[1,2,3,4,5,6,7,8,9], orderD = unitD.camp===CAMP_TYPES.ENEMY?[7,8,9,4,5,6,1,2,3]:[1,2,3,4,5,6,7,8,9];
@@ -70,6 +70,7 @@ export function showRangedArrow(unitA, unitD, speed, getPausedFn, isMeteor = fal
             if (p < 1) { requestAnimationFrame(flyStep); } else {
                 container.style.left = finalStartX + 'px'; container.style.top = finalStartY + 'px';
                 let defCell = gridD.children[idxD]; if (defCell) { applyImpactShrink(defCell, 300, getPausedFn); }
+                if (onHit) onHit();
 
                 // 流星赶月：命中后显示蓄力光圈
                 if (isMeteor) {
