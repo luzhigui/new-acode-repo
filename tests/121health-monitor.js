@@ -1,7 +1,8 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// tests/121health-monitor.js - 光明顶5v5 实时体检监控器
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// tests/121health-monitor.js - 光明顶5v5 实时体检监控器
 // V5.6.0 | 接入 rule81-87 回归体检；GAMEOVER 立即跑规则(日志已完整)；新局识别修复多局连打漏检；新增战报黑幕/随机重开/特效池实时检查
-export const VER = 'tests/121health-monitor.js V5.6.0';
+export const VER = 'tests/121health-monitor.js V5.7.0';
 
+import { runStaticScan } from './123static-scan.js';
 import { rule70 } from './health-rules/123-claw-heal-spam.js';
 import { rule71 } from './health-rules/124-aftermiss.js';
 import { rule72 } from './health-rules/125-fortify-timing.js';
@@ -91,12 +92,47 @@ export function initMonitor() {
     const confirmOk = document.getElementById('healthConfirmOk');
     const confirmCancel = document.getElementById('healthConfirmCancel');
     const backBtn = document.getElementById('btnBackToGame');
+    const modeOverlay = document.getElementById('healthModeOverlay');
+    const btnModeLive = document.getElementById('btnModeLive');
+    const btnModeStatic = document.getElementById('btnModeStatic');
+    const btnModeCancel = document.getElementById('btnModeCancel');
     statusLine = document.getElementById('statusLine');
 
     let scanInterval = 200;
 
     const startScanTimer = () => { if (scanTimer) clearInterval(scanTimer); scanTimer = setInterval(periodicScan, scanInterval); };
     const stopScanTimer = () => { if (scanTimer) { clearInterval(scanTimer); scanTimer = null; } };
+
+    // ==================== 体检模式 2 级菜单 ====================
+    function hideModeOverlay() { if (modeOverlay) modeOverlay.style.display = 'none'; }
+    // 🔄 实时跟跑：已有监控则切回游戏视图；未启动则启动实时监控
+    if (btnModeLive) btnModeLive.addEventListener('click', () => {
+        hideModeOverlay();
+        if (monitorActive) {
+            gameArea.classList.add('active'); reportArea.classList.remove('active');
+        } else {
+            btnStartMonitor.click();
+        }
+    });
+    // ⚡ 快速静态体检：不跑游戏，fetch 核心文件做结构性扫描，结果渲染进报告区
+    if (btnModeStatic) btnModeStatic.addEventListener('click', async () => {
+        hideModeOverlay();
+        const STATIC_TITLE = '⚡ 快速静态体检（不跑游戏）';
+        reportArea.classList.add('active'); gameArea.classList.remove('active');
+        backBtn.style.display = 'inline-block';
+        reportArea.innerHTML = '<div class="report-group" style="color:#2196f3;">' + STATIC_TITLE + ' 扫描中…</div>';
+        reportArea.scrollTop = 0;
+        statusLine.textContent = '静态体检扫描中…（fetch 核心文件）';
+        try {
+            const result = await runStaticScan();
+            renderStaticReport(result, STATIC_TITLE);
+            statusLine.textContent = '静态体检完成 ✅ ' + result.files + '个文件 ' + result.elapsedMs + 'ms';
+        } catch (e) {
+            reportArea.innerHTML = '<div class="report-group report-fail">静态体检异常：' + (e.message || e) + '</div>';
+            statusLine.textContent = '静态体检失败';
+        }
+    });
+    if (btnModeCancel) btnModeCancel.addEventListener('click', hideModeOverlay);
 
     // ==================== 手动记录弹窗 ====================
     function showManualInput() {
@@ -480,6 +516,43 @@ function recordIssue(ctx, unitUid, type, detail, source) {
     detectedIssues.push({ stage, type, detail, source, timestamp: new Date().toLocaleTimeString() });
     updateReport();
     updateStatusLine();
+}
+
+// ==================== 静态体检报告渲染 ====================
+// 渲染 runStaticScan() 的结构化结果到报告区（不跑游戏，直接展示结构问题）
+function renderStaticReport(result, title) {
+    if (reportArea) reportArea.innerHTML = '';
+    const head = document.createElement('div');
+    head.className = 'report-group';
+    head.style.color = '#2196f3';
+    head.textContent = title + ' — ' + result.files + '个文件 ' + result.elapsedMs + 'ms';
+    reportArea.appendChild(head);
+
+    const slots = result.slots ? [result.slots.enumImport, result.slots.importRef] : [];
+    let totalIssues = 0;
+    for (const slot of slots) {
+        const issues = (slot && slot.issues) || [];
+        totalIssues += issues.length;
+        const g = document.createElement('div');
+        g.className = 'report-group';
+        g.textContent = '▪ ' + slot.name + '（' + issues.length + '）';
+        reportArea.appendChild(g);
+        if (issues.length === 0) {
+            const pass = document.createElement('div');
+            pass.className = 'report-line report-pass';
+            pass.textContent = '✅ 通过';
+            reportArea.appendChild(pass);
+        } else {
+            issues.forEach(msg => {
+                const line = document.createElement('div');
+                line.className = 'report-line report-fail';
+                line.textContent = '❌ ' + msg;
+                reportArea.appendChild(line);
+            });
+        }
+    }
+    if (backBtn) backBtn.style.display = 'inline-block';
+    reportArea.scrollTop = 0;
 }
 
 function updateStatusLine() {

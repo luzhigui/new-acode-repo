@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿<!-- tests/120test-runner.html - 光明顶5v5 测试与体检中心 V5.2.0 -->
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿<!-- tests/120test-runner.html - 光明顶5v5 测试与体检中心 V5.2.0 -->
 <!-- V5.4.0 | ~6000 bytes-->
 <!DOCTYPE html>
 <html lang="zh-CN">
@@ -40,8 +40,8 @@
         <div class="report-group" style="color:#888;">点击“开始体检”加载游戏并启动监控</div>
     </div>
     <div id="controlBar">
-        <button class="primary" id="btnAutoRun">🚀 一键自动体检</button>
-        <button id="btnStartMonitor">▶ 开始体检</button>
+        <button class="primary" id="btnAutoRun">🏥 体检入口</button>
+        <button id="btnStartMonitor">▶ 实时跟跑</button>
         <button id="btnStopMonitor" disabled>⏹️ 停止</button>
         <button id="btnViewReport">📋 报告</button>
         <button id="btnClearReport">🗑️ 清空</button>
@@ -59,8 +59,12 @@
         import { initMonitor } from './121health-monitor.js';
         initMonitor();
 
-        // 🚀 一键自动体检：傻瓜式，点一下即进入自动后台模式（带快进+目标关+报告），无需任何终端命令
+        // 🏥 体检入口：打开体检模式 2 级菜单（实时跟跑 / 快速静态体检 / 快速跑完）
         document.getElementById('btnAutoRun').addEventListener('click', () => {
+            document.getElementById('healthModeOverlay').style.display = 'flex';
+        });
+        // 🚀 快速跑完：一键进入自动后台模式（快进+目标关+报告），无需任何终端命令
+        document.getElementById('btnModeAuto').addEventListener('click', () => {
             const url = new URL(window.location.href);
             url.searchParams.set('auto', '1');
             if (!url.searchParams.get('start')) url.searchParams.set('start', '3');
@@ -91,5 +95,17 @@
 
 <!-- 返回游戏按钮（插入报告区） -->
 <button id="btnBackToGame" style="display:none;padding:6px 10px;border-radius:4px;border:1px solid #555;background:#2a2a4e;color:#eee;font-size:11px;cursor:pointer;margin-top:6px;">↩️ 返回游戏</button>
+
+<!-- 体检模式 2 级菜单 -->
+<div id="healthModeOverlay" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.75);justify-content:center;align-items:center;z-index:99999;">
+    <div style="background:#1a1a2e;border:2px solid #ff9800;border-radius:12px;padding:22px;text-align:center;color:#eee;min-width:320px;max-width:94%;">
+        <div style="font-size:15px;color:#ff9800;margin-bottom:4px;">🏥 选择体检模式</div>
+        <div style="font-size:10px;color:#888;margin-bottom:14px;">实时跟跑要跑完整场；静态快检不跑游戏、秒出结构问题</div>
+        <button id="btnModeLive" style="display:block;width:100%;padding:10px;margin:6px 0;background:#2a2a4e;border:1px solid #4caf50;border-radius:8px;color:#4caf50;font-size:12px;cursor:pointer;">🔄 实时跟跑（游戏内逐场检测）</button>
+        <button id="btnModeStatic" style="display:block;width:100%;padding:10px;margin:6px 0;background:#2a2a4e;border:1px solid #2196f3;border-radius:8px;color:#2196f3;font-size:12px;cursor:pointer;">⚡ 快速静态体检（扫描核心文件，不跑游戏）</button>
+        <button id="btnModeAuto" style="display:block;width:100%;padding:10px;margin:6px 0;background:#2a2a4e;border:1px solid #ff9800;border-radius:8px;color:#ff9800;font-size:12px;cursor:pointer;">🚀 快速跑完（全自动快进，跑完出报告）</button>
+        <button id="btnModeCancel" style="display:block;width:100%;padding:8px;margin:12px 0 0;background:#555;border:1px solid #555;border-radius:8px;color:#ddd;font-size:11px;cursor:pointer;">取消</button>
+    </div>
+</div>
 </body>
 </html>
