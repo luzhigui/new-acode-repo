@@ -1,6 +1,6 @@
 // render/31-stage-actions.js - 光明顶5v5 舞台动作翻译器
 // V5.7.8 | ~16200 bytes| 2026-08-26 特效单轨收尾：xinhun/连击横幅/乾坤加攻/张无忌弹幕/严阵横幅补翻译
-export const VER = 'render/31-stage-actions.js V5.7.8';
+export const VER = 'render/31-stage-actions.js V5.7.9';
 
 import { makeFXSnapshot } from '../infra/51-core-utils.js';
 import { STAGE_ACTION_TYPES, FACT_TYPES, BUFF_EFFECT_TYPES, FLY_MODE_TYPES, CAMP_TYPES } from '../infra/56-battle-enums.js';
@@ -148,6 +148,14 @@ function translateFact(entry, index) {
             return makeHealAction(data, index);
 
         // ---------- 位置 / 换位 / 击退 ----------
+        case FACT_TYPES.MIND_CONTROL_BANNER:
+            // 惑人心智判定横幅：六大派（敌方）/ 明教（己方）各一条，成功后由紧随的 POS_SWAP 出换位特效
+            return {
+                kind: STAGE_ACTION_TYPES.BANNER,
+                text: data.side === CAMP_TYPES.ENEMY ? '🌀 惑人心智：敌方判定！' : '🌀 惑人心智：己方判定！',
+                factIndex: index,
+                timing: 'beforeText'
+            };
         case FACT_TYPES.MIND_CONTROL_SWAP:
             return {
                 kind: STAGE_ACTION_TYPES.POS_SWAP,

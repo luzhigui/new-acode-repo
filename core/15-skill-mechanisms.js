@@ -549,20 +549,13 @@ function submitXingFenExtra(data, decls) {
 }
 
 function submitXingFenRetry(data, decls) {
-    const { unit, target, log } = data;
+    const { unit, target, log, allySide, enemySide } = data;
     const decl = decls.find(d => d.name === unit.name);
     if (!decl || unit.name !== '宋青书' || !unit.alive) return;
     if (canXingFenTrigger(unit)) {
         consumeXingFen(unit);
         log.push({ factType: FACT_TYPES.XING_FEN_RETRY, data: { unitName: unit.name } });
-        if (!data.extraRequests) data.extraRequests = [];
-        data.extraRequests.push({
-            unit,
-            targetUid: null,
-            reason: 'xingFenMiss',
-            actedMode: 'allow',
-            priority: 30
-        });
+        processUnitAttack(unit, allySide, enemySide, log, data.A, data.B, data.state, null, null);
     }
 }
 

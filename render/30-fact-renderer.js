@@ -4,7 +4,7 @@ import { CONFIG, getSkillParams } from '../core/01config-5v5-test.js';
 import { getEliteState } from '../core/18-elite-state.js';
 import { calcDamage, getFangLevelPure, makeFXSnapshot } from '../infra/51-core-utils.js';
 import { FACT_TYPES, BUFF_TYPES, BUFF_SUBTYPES, DROP_TYPES, CAMP_TYPES, ROLE_TYPES } from '../infra/56-battle-enums.js';
-export const VER = 'render/30-fact-renderer.js V5.7.6';
+export const VER = 'render/30-fact-renderer.js V5.7.7';
 
 // fact 条目投影为渲染条目，并合并 fact 条目上携带的附加字段（isHealEntry/buffType 等）
 function projectFactEntry(e) {
@@ -456,6 +456,9 @@ export function renderMindControlSwapFact(fact) {
 export function renderMindControlFailFact(fact) {
     return {type:'info', text:`<span class="gray">🌀 惑人心智${fact.side === CAMP_TYPES.ENEMY ? '敌方' : '己方'}换位失败（${fact.reason}）</span>`};
 }
+export function renderMindControlBannerFact(fact) {
+    return {type:'info', text:`<span class="gold">🌀 惑人心智（${fact.side === CAMP_TYPES.ENEMY ? '敌方' : '己方'}）判定：</span>`};
+}
 
 // ==================== 乾坤大挪移 ====================
 export function renderQianKunUpgradedFact(fact) {
@@ -701,6 +704,7 @@ export function renderLog(type, data) {
         case FACT_TYPES.FORTIFY_SHIELD: return renderFortifyShieldFact(data);
         case FACT_TYPES.MIND_CONTROL_SWAP: return renderMindControlSwapFact(data);
         case FACT_TYPES.MIND_CONTROL_FAIL: return renderMindControlFailFact(data);
+        case FACT_TYPES.MIND_CONTROL_BANNER: return renderMindControlBannerFact(data);
         case FACT_TYPES.QIAN_KUN_UPGRADED: return renderQianKunUpgradedFact(data);
         case FACT_TYPES.QIAN_KUN_BASIC: return renderQianKunBasicFact(data);
         case FACT_TYPES.KUAI_LE_HEAL: return renderKuaiLeHealFact(data);

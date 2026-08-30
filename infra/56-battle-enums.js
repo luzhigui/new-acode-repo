@@ -1,6 +1,6 @@
 // infra/56-battle-enums.js - 光明顶5v5 战斗类型枚举（单一事实源）
 // V1.0.0 | ~3000 bytes| 2026-08-26 从裸字符串收敛
-export const VER = 'infra/56-battle-enums.js V1.0.0';
+export const VER = 'infra/56-battle-enums.js V1.0.1';
 
 /** 事实类型：所有 factType 字符串的唯一来源 */
 export const FACT_TYPES = Object.freeze({
@@ -12,7 +12,7 @@ export const FACT_TYPES = Object.freeze({
     KU_LIAN_PRIORITY: 'kuLianPriority', KU_LIAN: 'kuLian',
     DOUBLE_STRIKE: 'doubleStrike', RANGED_GROWTH: 'rangedGrowth',
     FORTIFY_SHIELD: 'fortifyShield', MIND_CONTROL_SWAP: 'mindControlSwap',
-    MIND_CONTROL_FAIL: 'mindControlFail',
+    MIND_CONTROL_FAIL: 'mindControlFail', MIND_CONTROL_BANNER: 'mindControlBanner',
     QIAN_KUN_UPGRADED: 'qianKunUpgraded', QIAN_KUN_BASIC: 'qianKunBasic',
     KUAI_LE_HEAL: 'kuaiLeHeal', SPIDER_TRANSFORM: 'spiderTransform',
     SPIDER_RETURN: 'spiderReturn', SPIDER_STRIKE: 'spiderStrike',
