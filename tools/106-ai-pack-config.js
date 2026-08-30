@@ -1,6 +1,6 @@
 // tools/106-ai-pack-config.js - 光明顶5v5 AI 复制包配置（清单/分组/提示词/精简踢除）
-// V5.9.1 | ~11600 bytes| 2026-08-28 清单补 modules/30custom-effects.js
-export const VER = 'tools/106-ai-pack-config.js V5.9.1';
+// V5.9.2 | ~11700 bytes| 2026-08-24 Worker 独立编号：109 战斗端 → 116-role-balance-worker.js
+export const VER = 'tools/106-ai-pack-config.js V5.9.2';
 
 // ==================== AI 精简模式踢除清单（第一批） ====================
 // 这些文件不参与战斗逻辑/状态同步/数值结算，默认不随包发送。
@@ -87,7 +87,7 @@ export const ALL_PROJECT_FILES = [
     '../tools/102-toolkit.html', '../tools/103-toolkit.js', '../tools/104-toolkit-more.js',
     '../tools/105-shop.html', '../tools/106-ai-pack-config.js',
     '../tools/107-battle-log-viewer.js', '../tools/108-hex-dashboard.js',
-    '../tools/109-role-balance.js', '../tools/110-role-balance-random.html',
+    '../tools/109-role-balance.js', '../tools/116-role-balance-worker.js', '../tools/117-shared-worker-runner.js', '../tools/110-role-balance-random.html',
     '../tools/112-elite-eval.js', '../tools/113-stats-check.js',
     '../tools/114-baseline-compare.js', '../tools/115-lineup-search.js',
     // 移除了：52-version-calibrator / 53-dead-code-scanner / 54-filelist-checker（这些工作直接问 AI 更高效）

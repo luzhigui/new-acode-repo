@@ -223,6 +223,12 @@ export async function showDodgeBulletTime(attacker, defender, reboundDmg) {
         aCellSavedStyles = saveCellStyles(aCell);
         dCellSavedStyles = saveCellStyles(dCell);
 
+        // ★ 必须在任何 await 之前读取 rect：
+        // await 期间 store 订阅会触发 renderGrid 重建 grid，旧 cell 变成游离元素，
+        // 游离元素的 getBoundingClientRect() 返回接近 0 的矩形，导致克隆体极小。
+        const aRect = aCell.getBoundingClientRect();
+        const dRect = dCell.getBoundingClientRect();
+
         const pos = { ax: innerWidth * 0.09, ay: innerHeight * 0.16, dx: innerWidth * 0.64, dy: innerHeight * 0.68 };
 
         // 跳过按钮
@@ -249,6 +255,9 @@ export async function showDodgeBulletTime(attacker, defender, reboundDmg) {
         await wait(400);
         if (isSkipped) { cleanup(); return; }
 
+        // 获取位置信息（必须在隐藏格子前读取，否则异步等待后 grid 重绘会使 cell 引用失效，rect 全零导致克隆体极小）
+        // ★ 已上移到任何 await 之前（见函数开头），此处不再重复读取
+
         // 隐藏原始格子（不修改样式，只隐藏，让克隆体表演）
         aCell.style.opacity = '0';
         dCell.style.opacity = '0';
@@ -260,10 +269,6 @@ export async function showDodgeBulletTime(attacker, defender, reboundDmg) {
         document.body.appendChild(mask); cleanupElements.push(mask);
         await wait(200);
         if (isSkipped) { cleanup(); return; }
-
-        // 获取位置信息
-        const aRect = aCell.getBoundingClientRect();
-        const dRect = dCell.getBoundingClientRect();
 
         // 反击者克隆体（从右侧飞入）
         const cloneD = dCell.cloneNode(true);

@@ -42,7 +42,7 @@ eventBus.on(FX_SIGNALS.SPIDER_STRIKE, P, (d) => { if (inFastForward()) return; r
 
 eventBus.on(FX_SIGNALS.ATK_BUFF_FLOAT, P, (d) => showAtkBuffFloat(d.unit, d.gain));
 eventBus.on(FX_SIGNALS.DODGE_BUBBLE, P, (d) => showDodgeBubble(d.unit, d.text));
-eventBus.on(FX_SIGNALS.DODGE_BULLET_TIME, P, (d) => showDodgeBulletTime(d.unitD, d.unitA, 0));
+eventBus.on(FX_SIGNALS.DODGE_BULLET_TIME, P, (d) => showDodgeBulletTime(d.unitA, d.unitD, 0));
 eventBus.on(FX_SIGNALS.BRUSH_EFFECT, P, (d) => applyBrushEffect(d.el));
 eventBus.on(FX_SIGNALS.HEART_EFFECT, P, (d) => showHeartEffect(d.unit));
 eventBus.on(FX_SIGNALS.PINK_FLASH, P, (d) => showPinkFlash(d.unit));

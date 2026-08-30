@@ -11,6 +11,10 @@ import { FLASH_TYPES, CAMP_TYPES, ROLE_TYPES, BUFF_TYPES } from '../infra/56-bat
 let _store = null;
 let _subscribed = false;
 let _ctx = null;
+// 血条渐变：JS 动画循环驱动，显示值持久记录，DOM 重建不打断过渡
+const _hpTargetPct = new Map();
+const _hpDisplayPct = new Map();
+let _hpAnimRunning = false;
 
 export function setGridRenderCtx(ctx) { _ctx = ctx; }
 function getCtx() { return _ctx || getPlayerContext(); }
@@ -105,6 +109,31 @@ function createHorseSpawnAnim(cell) {
     cell.style.transform = 'scale(1.3)';
     cell.style.boxShadow = '0 0 20px rgba(255,215,0,0.8)';
     setTimeout(() => { cell.style.transform = 'scale(1)'; cell.style.boxShadow = ''; }, 400);
+}
+
+// 血条 JS 动画循环：每帧向目标百分比逼近，直接更新 DOM 高度
+function tickHpAnim() {
+    _hpAnimRunning = false;
+    let any = false;
+    for (const [uid, target] of _hpTargetPct) {
+        const cur = _hpDisplayPct.get(uid);
+        if (cur === undefined) continue;
+        const diff = target - cur;
+        if (Math.abs(diff) < 0.1) {
+            _hpDisplayPct.set(uid, target);
+            continue;
+        }
+        const step = Math.abs(diff) < 2 ? diff : diff * 0.15;
+        const next = cur + step;
+        _hpDisplayPct.set(uid, next);
+        const bar = document.getElementById('hpbar-' + uid);
+        if (bar) bar.style.height = next + '%';
+        any = true;
+    }
+    if (any) {
+        _hpAnimRunning = true;
+        requestAnimationFrame(tickHpAnim);
+    }
 }
 
 export function renderGrid(id, camp) {
@@ -251,6 +280,16 @@ export function renderGrid(id, camp) {
         if (hpBonusVal > 0 || (latestUnit._baseMaxHp !== undefined && latestUnit.maxHp > latestUnit._baseMaxHp) || hasButterflyHpBonus) {
             hpDisplayHtml = `<span style="color:#daa520;font-weight:bold;">${Math.floor(unit.hp)}</span>`;
         }
+        // 血条渐变：目标值写入 Map，显示值由 JS 动画循环驱动
+        _hpTargetPct.set(unit.uid, hpPct);
+        if (!_hpDisplayPct.has(unit.uid) || GlobalStore.get('fastForwardActive')) {
+            _hpDisplayPct.set(unit.uid, hpPct);
+        }
+        const displayPct = _hpDisplayPct.get(unit.uid) ?? hpPct;
+        if (Math.abs(displayPct - hpPct) > 0.1 && !_hpAnimRunning) {
+            _hpAnimRunning = true;
+            requestAnimationFrame(tickHpAnim);
+        }
         let readyClass = (!hasFlash && !(unit.state && unit.state._acted) && unit.alive && !isDead) ? 'ready' : '';
         let actedClass = (!hasFlash && (unit.state && unit.state._acted) && unit.alive && !isDead) ? 'acted' : '';
         let cheerClass = (hasFlash && unit._flash===FLASH_TYPES.CHEER && !isDead) ? 'cell-cheer' : '';
@@ -352,7 +391,7 @@ export function renderGrid(id, camp) {
             // 正常模式：完全保持原来的显示格式（eliteSkillIcon 带前导空格 + buffIcons 空格分隔）
             nameHtml = `<span class="cell-name ${displayIsZhang?'gold':''}">${displayName}${eliteSkillIcon}${buffIcons ? ' ' + buffIcons : ''}</span>`;
         }
-        div.innerHTML = `<span class="cell-icon">${isBlocked && unit.alive && isResting && !(unit.isZhang && unit.rangedForm) && !isDead ? '😴' : roleIcon}</span><div class="cell-info">${nameHtml}<span class="cell-stats">攻<span style="${atkStyle}">${atkDisplayHtml}</span> 防<span style="${defStyle}">${defDisplayHtml}</span> <span class="${hpColorClass}" style="${hpStyle}">血${hpDisplayHtml}</span></span></div><div class="hp-bar-wrap"><div class="hp-bar-inner" id="hpbar-${unit.uid}" style="height:${hpPct}%;background:${barColor};transition:height 0.4s ease, background 0.4s ease;"></div></div>`;
+        div.innerHTML = `<span class="cell-icon">${isBlocked && unit.alive && isResting && !(unit.isZhang && unit.rangedForm) && !isDead ? '😴' : roleIcon}</span><div class="cell-info">${nameHtml}<span class="cell-stats">攻<span style="${atkStyle}">${atkDisplayHtml}</span> 防<span style="${defStyle}">${defDisplayHtml}</span> <span class="${hpColorClass}" style="${hpStyle}">血${hpDisplayHtml}</span></span></div><div class="hp-bar-wrap"><div class="hp-bar-inner" id="hpbar-${unit.uid}" style="height:${displayPct}%;background:${barColor};"></div></div>`;
         if (isDead) {
             let deadMark = document.createElement('span'); deadMark.className = 'dead-mark'; deadMark.textContent = '✕'; div.appendChild(deadMark);
             div.style.transform = 'scale(0.8)'; div.style.opacity = '0.9';

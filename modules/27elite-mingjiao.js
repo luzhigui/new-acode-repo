@@ -135,6 +135,7 @@ export function createWeiYixiaoComponent() {
         register(eventBus, A, B, log) {
             const wei = A.find(u => u.isWei && u.alive);
             if (!wei) return;
+            wei._neverMiss = true;
 
             // 韦一笑吸星：判定 + WEI_HEAL 声明提交（纯函数，事件监听器薄壳转调）
             function submitWeiLeechDeclaration(data) {

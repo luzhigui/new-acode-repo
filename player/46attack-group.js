@@ -16,6 +16,14 @@ export async function handleAttackGroup(c, entry, roundResult, abortSig, isFirst
 
     if (unitA && entry.isRest && c.store) {
         c.store.dispatch({ type: STORE_ACTION_TYPES.SET_VISUAL, uid: unitA.uid, _resting: true });
+        // 休息特效 3 秒后自动清除，避免 😴 / zzz 标记残留到下一回合
+        setTimeout(() => {
+            if (!c.store) return;
+            const cur = c.store.getState().units.find(u => u.uid === unitA.uid);
+            if (cur && cur.state && cur.state._resting) {
+                c.store.dispatch({ type: STORE_ACTION_TYPES.SET_VISUAL, uid: unitA.uid, _resting: false });
+            }
+        }, 3000);
     }
 
     if (unitA && entry.isBlock && c.store) {

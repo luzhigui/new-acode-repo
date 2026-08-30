@@ -1,16 +1,7 @@
 // tools/113-stats-check.js - 光明顶5v5 统计一致性体检（融合进 102 工具箱 tab）
-// V2.0.0 | 对齐承伤记账新口径：承伤=来袭全额（含防御减免/溢出/免疫吸收/格挡，回血不冲减）、治疗=产出侧记账
-// hp-change 事件流仅用于检测"重分配污染"（附身/飞回/carry/苦练伴随 maxHp 变化），不再把净扣血与记账差额当异常——差额=防御挡刀+吸收+溢出，属预期
-import { createRoundStepper } from '../core/11battle-round.js';
-import { initBattleTeams } from '../modules/29battle-init.js';
-import { eventBus } from '../infra/50-event-bus.js';
-import { SeededRNG, onBattleEvents, flushBattleEvents } from '../infra/51-core-utils.js';
-import { clearAllEliteStates } from '../core/18-elite-state.js';
-import { GlobalStore } from '../infra/54-global-store.js';
-import { UNIT_EVENT_TYPES, CAMP_TYPES } from '../infra/56-battle-enums.js';
-import '../modules/25elite-imperial.js';
-import '../modules/26elite-sixsects.js';
-import '../modules/27elite-mingjiao.js';
+// V2.1.0 | 战斗逻辑全迁 116 通用 Worker 并行执行（kind='stats'），117 派发器逐关回报，完成显示总耗时
+// 口径不变：承伤=来袭全额（含防御减免/溢出/免疫吸收/格挡，回血不冲减）、治疗=产出侧记账
+import { runParallel } from './117-shared-worker-runner.js';
 
 const startBtn = document.getElementById('scStartBtn');
 const runsInput = document.getElementById('scRunsInput');
@@ -28,138 +19,44 @@ startBtn.addEventListener('click', async () => {
 
     // 汇总：key = camp-name，跨场累加，渲染时取均值
     const agg = {};
-    let globalDone = 0;
-    const totalRuns = stages.length * RUNS;
+    const startT = performance.now();
+
+    // 每关一个 job，worker 内已完成本关 RUNS 场自聚合（种子公式与原主线程一致：Date.now() + run*7919 + stage*131）
+    const masterSeed = Date.now();
+    const jobs = stages.map(stage => ({ stage, seed: masterSeed + stage * 131, runs: RUNS, label: `第${stage}关` }));
 
     try {
-        for (const stage of stages) {
-            for (let run = 0; run < RUNS; run++) {
-                eventBus.clearAll();
-                GlobalStore.set('forceZhang', null);
-                GlobalStore.set('forceWei', null);
-                GlobalStore.set('forceXiaoZhao', null);
-                localStorage.removeItem('_forceZhang');
-                localStorage.removeItem('_forceWei');
-                localStorage.removeItem('_forceXiaoZhao');
-                GlobalStore.set('currentBattleState', null);
-                flushBattleEvents();
-                clearAllEliteStates(); // uid 永不复用、_eliteStates Map 会无限膨胀，每场清理防 OOM
-
-                // 订阅 hp-change 事件流：以 maxHp 是否变化区分「战斗扣血」与「重分配扣血」
-                const tracker = {};
-                const off = onBattleEvents(events => {
-                    for (const ev of events) {
-                        if (ev.eventType !== UNIT_EVENT_TYPES.HP_CHANGE) continue;
-                        const uid = ev.unitUid;
-                        const p = ev.payload || {};
-                        if (p.hp === undefined || p.maxHp === undefined) continue;
-                        const st = tracker[uid] || (tracker[uid] = { hp: p.hp, maxHp: p.maxHp, battleDmg: 0, battleHeal: 0, reallocDmg: 0, reallocHeal: 0 });
-                        const dHp = p.hp - st.hp;
-                        if (dHp !== 0) {
-                            const maxHpChanged = p.maxHp !== st.maxHp;
-                            if (dHp < 0) {
-                                if (maxHpChanged) st.reallocDmg += -dHp; else st.battleDmg += -dHp;
-                            } else {
-                                if (maxHpChanged) st.reallocHeal += dHp; else st.battleHeal += dHp;
-                            }
-                        }
-                        st.hp = p.hp;
-                        st.maxHp = p.maxHp;
-                    }
-                });
-
-                // 阵容与战斗（无 DOM 初始化，种子带 run/stage 偏移防同毫秒撞车）
-                const initRng = new SeededRNG(Date.now() + run * 7919 + stage * 131);
-                const { allyTeam, enemyTeam } = initBattleTeams(stage, initRng);
-                let ally = allyTeam.map(u => u.clone());
-                let enemy = enemyTeam.map(u => u.clone());
-                GlobalStore.set('battleHasZhang', ally.some(u => u.isZhang));
-
-                let state = {
-                    ally: ally.map(u => u.clone()),
-                    enemy: enemy.map(u => u.clone()),
-                    round: 1,
-                    activeBuffs: [],
-                    allAllies: ally.map(u => u.clone()),
-                    _rng: new SeededRNG(Date.now() + run * 7919 + stage * 131)
-                };
-
-                let finalWinner = null, finalAlly = null, finalEnemy = null;
-                for (let r = 1; r <= 35; r++) {
-                    const stepper = createRoundStepper(state, { ui: false }); // 工具场景跳过 stageActions 翻译
-                    let lastStep = null;
-                    for (const step of stepper) { // 引擎已同步化（function*），for...of 直取
-                        lastStep = step;
-                        if (step.winner) break;
-                    }
-                    if (!lastStep) break;
-                    if (lastStep.winner) {
-                        finalWinner = lastStep.winner;
-                        finalAlly = lastStep.ally;
-                        finalEnemy = lastStep.enemy;
-                        break;
-                    }
-                    state.ally = lastStep.ally;
-                    state.enemy = lastStep.enemy;
-                    if (lastStep.ally._allAllies || state.allAllies) {
-                        const baseAllies = lastStep.ally._allAllies || state.allAllies;
-                        state.allAllies = baseAllies.map(full => {
-                            const cur = lastStep.ally.find(a => a.uid === full.uid);
-                            if (cur) {
-                                full.hp = cur.hp; full.maxHp = cur.maxHp; full.alive = cur.alive;
-                                full.atk = cur.atk; full.def = cur.def;
-                                if (cur.state._isDead !== undefined) full.state._isDead = cur.state._isDead;
-                            }
-                            return full;
-                        });
-                    }
-                    state.activeBuffs = (lastStep.ally._activeBuffs || state.activeBuffs || [])
-                        .filter(b => b && b.remaining > 0)
-                        .map(b => ({ ...b, remaining: b.remaining - 1 }))
-                        .filter(b => b.remaining > 0);
-                    state.round = r + 1;
+        await runParallel({
+            jobs,
+            kind: 'stats',
+            nextJobMsg: (job, id) => ({ jobId: id, kind: 'stats', stage: job.stage, seed: job.seed, runs: job.runs }),
+            onJobDone: (finished, total, job, part) => {
+                for (const [key, d] of Object.entries(part)) {
+                    const t = agg[key] || (agg[key] = { battles: 0, dmgTaken: 0, battleDmg: 0, reallocDmg: 0, healDone: 0, battleHeal: 0, reallocHeal: 0, dmgDealt: 0 });
+                    t.battles += d.battles;
+                    t.dmgTaken += d.dmgTaken;
+                    t.battleDmg += d.battleDmg;
+                    t.reallocDmg += d.reallocDmg;
+                    t.healDone += d.healDone;
+                    t.battleHeal += d.battleHeal;
+                    t.reallocHeal += d.reallocHeal;
+                    t.dmgDealt += d.dmgDealt;
                 }
-                off();
-
-                if (finalWinner) {
-                    for (const u of (finalAlly || [])) record(agg, u, tracker[u.uid]);
-                    for (const u of (finalEnemy || [])) record(agg, u, tracker[u.uid]);
-                }
-
-                globalDone++;
-                if (globalDone % Math.max(1, Math.floor(totalRuns / 10)) === 0 || globalDone === totalRuns) {
-                    progressEl.textContent = `体检中 ${globalDone}/${totalRuns}`;
-                    await new Promise(res => setTimeout(res, 10));
-                }
+                progressEl.textContent = `体检中 ${finished}/${total}（已用 ${((performance.now() - startT) / 1000).toFixed(1)}s）`;
+            },
+            onAllDone: () => {
+                renderResult(agg, stages, RUNS);
+                progressEl.textContent = `✅ 体检完成，总耗时 ${((performance.now() - startT) / 1000).toFixed(1)}s`;
             }
-        }
-
-        renderResult(agg, stages, RUNS);
-        progressEl.textContent = '✅ 体检完成';
+        });
     } catch (e) {
-        resultEl.innerHTML = `<div class="elite-empty">出错：${e.message}</div>`;
+        console.error('[stats-check] 体检异常（并行）:', e);
+        resultEl.innerHTML = `<div class="elite-empty">出错：${e.message}<br>完整堆栈已输出到 F12 控制台</div>`;
         progressEl.textContent = '❌ 体检异常';
     } finally {
         startBtn.disabled = false;
     }
 });
-
-function record(agg, u, t) {
-    if (!u) return;
-    const camp = u.camp === CAMP_TYPES.ALLY ? '明教' : '六大派';
-    const key = `${camp}·${u.name}`;
-    const d = agg[key] || (agg[key] = { battles: 0, dmgTaken: 0, battleDmg: 0, reallocDmg: 0, healDone: 0, battleHeal: 0, reallocHeal: 0, dmgDealt: 0 });
-    d.battles++;
-    d.dmgTaken += u.dmgTaken || 0;
-    d.healDone += u.healDone || 0;
-    d.dmgDealt += u.dmgDealt || 0;
-    if (t) {
-        d.battleDmg += t.battleDmg || 0;
-        d.reallocDmg += t.reallocDmg || 0;
-        d.battleHeal += t.battleHeal || 0;
-        d.reallocHeal += t.reallocHeal || 0;
-    }
-}
 
 function avg(v, n) { return n > 0 ? Math.round(v / n) : 0; }
 
