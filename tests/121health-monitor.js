@@ -541,7 +541,7 @@ function renderStaticReport(result, title) {
     head.textContent = title + ' — ' + result.files + '个文件 ' + result.elapsedMs + 'ms';
     reportArea.appendChild(head);
 
-    const slots = result.slots ? [result.slots.enumImport, result.slots.importRef] : [];
+    const slots = result.slots ? Object.values(result.slots) : [];
     let totalIssues = 0;
     for (const slot of slots) {
         const issues = (slot && slot.issues) || [];
