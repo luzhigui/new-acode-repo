@@ -1,10 +1,11 @@
 // tools/109-role-balance.js - 光明顶5v5 职业平衡分析工具
-// V5.6.0 | ~16500 bytes| 2026-08-22 新增海克斯开关（复刻全自动选buff流程），近战限位默认关
-export const VER = 'tools/109-role-balance.js V5.6.0';
+// V5.6.2 | ~16700 bytes| 2026-08-24 每场结束 flush 事件 + 清空 _eliteStates Map，修复高场次 OOM（_eliteStates uid 永不复用无限膨胀）
+export const VER = 'tools/109-role-balance.js V5.6.2';
 
 import { CONFIG } from '../core/01config-5v5-test.js';
 import { Unit } from '../core/02unit.js';
-import { SeededRNG } from '../infra/51-core-utils.js';
+import { SeededRNG, flushBattleEvents } from '../infra/51-core-utils.js';
+import { clearAllEliteStates } from '../core/18-elite-state.js';
 import { createRoundStepper } from '../core/11battle-round.js';
 import { setBattleRng } from '../core/13battle-shared.js';
 import { createBuffObject } from '../modules/28buff-tools.js';
@@ -254,6 +255,9 @@ window.openRoleBalance = function() {
                     const enemyTeam = buildTeam(enemyRole, CAMP_TYPES.ENEMY, rng);
                     const firstSide = CAMP_TYPES.ENEMY;
                     const r = await runNakedBattle(allyTeam, enemyTeam, seed, firstSide, hexEnabled);
+                    // 每场结束清理全局累积：_eventBuffer（已 flush）+ _eliteStates Map（uid 永不复用，会无限膨胀导致 OOM）
+                    flushBattleEvents();
+                    clearAllEliteStates();
                     if (r.winner === '明教') wins++;
                     if (i % 10 === 0) {
                         progress.textContent = `明教额外[${allyRole}] vs 六大派额外[${enemyRole}]：${i}/${roundsPerGroup}`;

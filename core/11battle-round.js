@@ -24,7 +24,7 @@ import { translateFactsToStageActions } from '../render/31-stage-actions.js';
 
 const C = CONFIG;
 
-async function prepareRoundStart(A, B, log, state, round, rng) {
+function prepareRoundStart(A, B, log, state, round, rng) {
     A._activeBuffs = state.activeBuffs.filter(b => b.target === CAMP_TYPES.ALLY || !b.target);
     B._activeBuffs = state.activeBuffs.filter(b => b.target === CAMP_TYPES.ENEMY);
 
@@ -265,7 +265,8 @@ async function prepareRoundStart(A, B, log, state, round, rng) {
     return { doubleStrikeUnitUid, roundStartEvents, sisterComp, brotherComp };
 }
 
-export async function* createRoundStepper(state) {
+// ★ 同步化：改为普通 generator，工具侧可同步消费；游戏侧由 player/42player-core.js 的 async 循环包装
+export function* createRoundStepper(state) {
     const rng = state._rng || new SeededRNG(Date.now());
     state._rng = rng;
     setBattleRng(rng);
@@ -301,7 +302,7 @@ export async function* createRoundStepper(state) {
         stageActions: translateFactsToStageActions(logs)
     });
 
-    const { doubleStrikeUnitUid, roundStartEvents, sisterComp, brotherComp } = await prepareRoundStart(A, B, log, state, round, rng);
+    const { doubleStrikeUnitUid, roundStartEvents, sisterComp, brotherComp } = prepareRoundStart(A, B, log, state, round, rng);
 
     yield makeStep(log, roundStartEvents);
     log = [];
@@ -445,7 +446,8 @@ export async function* createRoundStepper(state) {
             isPriorityAction = true;
         }
 
-        await processUnitAttack(unit, allySide, enemySide, log, A, B, state, doubleStrikeUnitUid);
+        // ★ 同步化：processUnitAttack 已改为同步函数，去掉 await
+        processUnitAttack(unit, allySide, enemySide, log, A, B, state, doubleStrikeUnitUid);
 
         resolveDeaths(A, B, log);
 

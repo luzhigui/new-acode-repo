@@ -4,6 +4,7 @@ import { createRoundStepper } from '../core/11battle-round.js';
 import { initBattleTeams } from '../modules/29battle-init.js';
 import { eventBus } from '../infra/50-event-bus.js';
 import { SeededRNG } from '../infra/51-core-utils.js';
+import { clearAllEliteStates } from '../core/18-elite-state.js';
 import { GlobalStore } from '../infra/54-global-store.js';
 import { ROLE_TYPES } from '../infra/56-battle-enums.js';
 import '../modules/25elite-imperial.js';
@@ -58,6 +59,7 @@ startBtn.addEventListener('click', async () => {
                     localStorage.removeItem('_forceXiaoZhao');
                     GlobalStore.set('currentBattleState', null);
                     GlobalStore.flushBattleEvents();
+                    clearAllEliteStates(); // uid 永不复用、_eliteStates Map 会无限膨胀，每场清理防 OOM
 
                     let UI = { allyTeam: [], enemyTeam: [], currentResult: null, round: 0, lastSnapshot: null };
                     let snapshot = { ally: [], enemy: [] };

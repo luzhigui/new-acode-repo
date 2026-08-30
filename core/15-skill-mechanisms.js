@@ -11,6 +11,8 @@ import { getEliteState, setEliteState } from './18-elite-state.js';
 import { FACT_TYPES, UNIT_EVENT_TYPES, CAMP_TYPES, SIGNAL_TYPES } from '../infra/56-battle-enums.js';
 // 机制查表化：静态顶层 import 避免动态 import 的异步时序导致 registerSettlementHook 错过注册
 import { installMechanicByType } from '../modules/30custom-effects.js';
+// ★ 同步化：性奋额外攻击改为静态导入，避免动态 import 引入异步，使 processUnitAttack 可同步递归
+import { processUnitAttack } from './10battle-attack.js';
 
 // 安装声明式技能：把声明表翻译成 eventBus 监听
 export function installDeclaredSkills(eventBus, A, B, log, declarations) {
@@ -533,7 +535,7 @@ function submitXingFenGrant(data) {
     tickKuaiLeHeal(A.concat(B), log);
 }
 
-async function submitXingFenExtra(data, decls) {
+function submitXingFenExtra(data, decls) {
     const { unit, target, allySide, enemySide, log } = data;
     const decl = decls.find(d => d.name === unit.name);
     if (!decl || unit.name !== '宋青书' || !unit.alive || unit._xingFenExtraAttacking) return;
@@ -541,8 +543,8 @@ async function submitXingFenExtra(data, decls) {
     consumeXingFen(unit);
     log.push({ factType: FACT_TYPES.XING_FEN_EXTRA_ATTACK, data: { unitName: unit.name } });
     unit._xingFenExtraAttacking = true;
-    const { processUnitAttack } = await import('./10battle-attack.js');
-    await processUnitAttack(unit, allySide, enemySide, log, data.A, data.B, data.state, null, null);
+    // ★ 同步递归攻击，不再 await；processUnitAttack 内部已同步化
+    processUnitAttack(unit, allySide, enemySide, log, data.A, data.B, data.state, null, null);
     unit._xingFenExtraAttacking = false;
 }
 

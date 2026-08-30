@@ -332,10 +332,18 @@ function escapeHtml(text) {
 
 /* ========== 4. 自动批量战斗 ========== */
 import { runAutoBattle, generateSnapshot } from './101auto-battle-utils.js';
-import { CONFIG } from '../core/01config-5v5-test.js';
+// CONFIG.BUFFS 是 getter（读 content/200game-data.json，gameData 未加载时返回 undefined），
+// 自动批量战斗在加载时就要渲染海克斯复选框，故这里必须 await loadGameData 再读。
+import { CONFIG, loadGameData } from '../core/01config-5v5-test.js';
 
-(function() {
+(async function() {
     const buffCheckboxesDiv = document.getElementById('abBuffCheckboxes');
+    try {
+        await loadGameData();
+    } catch (e) {
+        buffCheckboxesDiv.innerHTML = '❌ 数据加载失败：' + e.message;
+        return;
+    }
     const allBuffs = Object.entries(CONFIG.BUFFS);
     buffCheckboxesDiv.innerHTML = allBuffs.map(([key, buff]) =>
         `<label><input type="checkbox" value="${key}"> ${buff.icon} ${buff.name}</label>`

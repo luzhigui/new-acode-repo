@@ -152,6 +152,13 @@ const STAGE_ACTION_STORE_HANDLERS = {
         if (action.dead && action.targetUid && pendingDeaths) pendingDeaths.push(action.targetUid);
     },
     [STAGE_ACTION_TYPES.DODGE]: (c, action, pendingDeaths) => {
+        // ★ 闪避反击后攻击者必须进入眩晕态，并在 store 里同步，否则渲染层读不到 _stunned，
+        //   职业图标不会切换成 😵（renderGrid 里 isStunned 判断依赖 state._stunned）。
+        //   同时清除攻击者 flash，避免闪避前残留的 attack/defend 蓝色或黄色特效。
+        if (action.actorUid) {
+            c.store.dispatch({ type: STORE_ACTION_TYPES.SET_VISUAL, uid: action.actorUid, _stunned: true, _acted: true });
+            c.store.dispatch({ type: STORE_ACTION_TYPES.CLEAR_UNIT_FLASH, uid: action.actorUid });
+        }
         if (action.dead && action.actorUid && pendingDeaths) pendingDeaths.push(action.actorUid);
     },
     [STAGE_ACTION_TYPES.POS_SWAP]: (c, action, pendingDeaths) => {
@@ -239,7 +246,28 @@ const STAGE_ACTION_FX_HANDLERS = {
             GlobalStore.set('bulletTimeActive', false); c.isPaused = false;
         } else if (attacker) {
             eventBus.emit(FX_SIGNALS.DODGE_BUBBLE, { unit: attacker, text: '闪避！' });
+            // ★ 简单模式闪避反击：近战攻击者需补发 TRIGGER 信号，触发飞撞击退动画。
+            //    _triggerFX 里 isDodge=true 且 dodgeEffectEnabled=false 时，会调用 showMeleeDodge(闪避者, 攻击者)，
+            //    实现"飞撞过去 → 被击退回来"的完整动画。远程攻击者不走飞撞，只保持气泡提示。
+            if (attacker.role !== ROLE_TYPES.RANGED && dodger) {
+                eventBus.emit(FX_SIGNALS.TRIGGER, {
+                    fxSnapshot: action.fx || null,
+                    unitA: attacker,
+                    unitD: dodger,
+                    isDead: false,
+                    isDodge: true,
+                    isMiss: false,
+                    isBlock: false,
+                    dmg: action.reboundDmg || 0,
+                    waveTaunt: null,
+                    waveUnitUid: null,
+                    waveUnit: null,
+                    attackerRole: attacker.role
+                });
+            }
         }
+        // ★ 闪避反击结束后，攻击者格子应进入眩晕显示（😵 图标），这里只是确保特效期间不残留样式；
+        //   实际状态同步已由 store handler 完成，此处不重复写，避免与 store 双写冲突。
     },
     [STAGE_ACTION_TYPES.MISS]: (c, action) => {
         const attacker = findUnitByUid(c, action.actorUid);
@@ -625,7 +653,9 @@ export async function playBattle() {
         const stepper = createRoundStepper(battleState);
         let lastStep = null;
 
-        for await (const step of stepper) {
+        // ★ 同步化后 createRoundStepper 返回普通 generator，用 for...of 同步迭代；
+        //   每步内的等待与播放仍保留异步，保证游戏逐格动画不变。
+        for (const step of stepper) {
             if (abortSig && abortSig.aborted) return;
             await c.waitWhilePaused();
             lastStep = step;

@@ -61,8 +61,6 @@ export function _triggerFX(fxSnapshot, unitA, unitD, isDead, isDodge, isMiss, is
             }
         }
     }
-    if (isDodge && unitD && unitA) {
-        let reboundDmg = Math.floor((unitD.atk + unitD.def) * 0.5);
-        showDamageFloat(unitA, reboundDmg);
-    }
+    // ★ isDodge 分支的伤害飘字已由 DODGE stage action 的 FX handler 统一发出，
+    //   此处不重复发，避免飞撞击退动画期间飘两个伤害数字。
 }

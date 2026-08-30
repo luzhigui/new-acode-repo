@@ -1,9 +1,10 @@
 ﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// tools/101auto-battle-utils.js - 光明顶5v5 自动批量战斗工具
-// V5.5.1 | ~14809 bytes| 2026-08-19 import 路径合并至 infra/51-core-utils
-export const VER = 'tools/101auto-battle-utils.js V5.5.1';
+// V5.5.3 | ~15000 bytes| 2026-08-24 每场结束 flush 事件 + 清空 _eliteStates Map，修复高场次 OOM（uid 永不复用无限膨胀）
+export const VER = 'tools/101auto-battle-utils.js V5.5.3';
 
 import { CONFIG } from '../core/01config-5v5-test.js';
-import { SeededRNG } from '../infra/51-core-utils.js';
+import { SeededRNG, flushBattleEvents } from '../infra/51-core-utils.js';
+import { clearAllEliteStates } from '../core/18-elite-state.js';
 import { createRoundStepper } from '../core/11battle-round.js';
 import { initBattleTeams } from '../modules/29battle-init.js';
 import { BUFF_TYPES, CAMP_TYPES } from '../infra/56-battle-enums.js';
@@ -118,6 +119,9 @@ export async function runAutoBattle(rounds, onProgress, stage = 1, preferredBuff
             if (picked) buffs.push({ key: picked, target: CAMP_TYPES.ALLY, remaining: C.BUFFS[picked].duration || C.BUFF_DURATION });
         }
         const result = await runBattle(snap, buffs, rng);
+        // 每场结束清理全局累积：_eventBuffer（已 flush）+ _eliteStates Map（uid 永不复用，会无限膨胀导致 OOM）
+        flushBattleEvents();
+        clearAllEliteStates();
         if (result.winner === '明教') wins.ally++;
         else if (result.winner === '六大派') wins.enemy++;
         else wins.draw++;

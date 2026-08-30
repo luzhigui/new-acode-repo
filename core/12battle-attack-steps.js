@@ -27,13 +27,14 @@ registerDodgeRule((unit, attacker) => {
 const C = CONFIG;
 
 // ==================== 步骤1：选择攻击目标 ====================
-export async function selectAttackTarget(unit, enemySide, allySide) {
+export function selectAttackTarget(unit, enemySide, allySide) {
     const rng = getBattleRng();
     const validTargets = enemySide.filter(c => c.alive && !getEliteState(c.uid)._untargetable);
     if (validTargets.length === 0) return { target: null, phantomFact: null };
 
     const declaration = { targetResult: null };
-    await eventBus.emit(SIGNAL_TYPES.BEFORE_SELECT_TARGET, { unit, enemySide, allySide, validTargets, declaration });
+    // ★ 同步化：eventBus.emit 已改为同步串行，此处不用 await
+    eventBus.emit(SIGNAL_TYPES.BEFORE_SELECT_TARGET, { unit, enemySide, allySide, validTargets, declaration });
 
     let target = null;
     let phantomFact = null;
@@ -78,7 +79,7 @@ export async function selectAttackTarget(unit, enemySide, allySide) {
 }
 
 // ==================== 步骤2：未命中+闪避判定 ====================
-export async function resolveAttackHit(unit, target, attackerBuffStats, defenderBuffStats, log, A, B, doubleStrikeUnitUid, eventBus) {
+export function resolveAttackHit(unit, target, attackerBuffStats, defenderBuffStats, log, A, B, doubleStrikeUnitUid, eventBus) {
     const rng = getBattleRng();
     let missChance = 0;
     if (unit.role === ROLE_TYPES.RANGED) { missChance = C.RANGED_MISS_CHANCE; }
@@ -106,7 +107,8 @@ export async function resolveAttackHit(unit, target, attackerBuffStats, defender
         if (eventBus) {
             let afterMissExtraRequests = [];
             let afterMissData = { unit, target, log, extraRequests: afterMissExtraRequests };
-            await eventBus.emit(SIGNAL_TYPES.AFTER_MISS, afterMissData);
+            // ★ 同步化：eventBus.emit 改为同步串行，去掉 await
+            eventBus.emit(SIGNAL_TYPES.AFTER_MISS, afterMissData);
             if (afterMissExtraRequests.length > 0) {
                 missData.extraRequests = afterMissExtraRequests;
             }
@@ -157,7 +159,8 @@ export async function resolveAttackHit(unit, target, attackerBuffStats, defender
             dodgeDeclarations.push({ type: EFFECT_TYPES.REBOUND, value: reboundDmg });
             dodgeDeclarations.push({ type: EFFECT_TYPES.STUN });
 
-            await eventBus.emit(SIGNAL_TYPES.ON_DODGE, { unit, target, reboundDmg, declarations: dodgeDeclarations });
+            // ★ 同步化：去掉 await
+            eventBus.emit(SIGNAL_TYPES.ON_DODGE, { unit, target, reboundDmg, declarations: dodgeDeclarations });
 
             resolveDodgeEffects(dodgeDeclarations, unit, target);
 
@@ -189,11 +192,12 @@ export async function resolveAttackHit(unit, target, attackerBuffStats, defender
 }
 
 // ==================== 步骤3：伤害计算 ====================
-export async function calcFinalDamage(unit, target, attackerBuffStats, defenderBuffStats, allySide, enemySide, log) {
+export function calcFinalDamage(unit, target, attackerBuffStats, defenderBuffStats, allySide, enemySide, log) {
     const damageDeclarations = [];
     // 事件 data 对象变量化：监听器可挂 _derivedEntries 记账（乾坤衍生），随 dmgCalc 传回攻击流程，不落 unit
     const damageData = { unit, target, allySide, enemySide, log, declarations: damageDeclarations };
-    await eventBus.emit(SIGNAL_TYPES.BEFORE_DAMAGE_CALC, damageData);
+    // ★ 同步化：eventBus.emit 已改为同步串行，去掉 await
+    eventBus.emit(SIGNAL_TYPES.BEFORE_DAMAGE_CALC, damageData);
 
     let defBase = Math.floor(target.def);
     let defReduced = 0;
@@ -432,7 +436,8 @@ export function resolveAfterDamageEffects(declarations, unit, target, group, all
 }
 
 // ==================== 步骤5：构建攻击事实（不渲染，由 player 投影）+ 攻击后效果 ====================
-export async function buildAttackGroup(unit, target, dmgCalc, dmgResult, attackerBuffStats, defenderBuffStats, allySide, enemySide, log, A, B, state, doubleStrikeUnitUid, phantomFact) {
+// ★ 同步化：移除 async，函数内无 await，本身是同步函数，保留 async 只会增加微任务开销
+export function buildAttackGroup(unit, target, dmgCalc, dmgResult, attackerBuffStats, defenderBuffStats, allySide, enemySide, log, A, B, state, doubleStrikeUnitUid, phantomFact) {
     let { atkBase, defBase, atkAct, defAct, hpBonus, hpBefore, waveTaunt, waveUnit, raw, rawFormula, thunderBonus, hornDmgMultiplier, hornDefIgnore, trueDmg, defReduction, bonusDmgTotal, bonusDmgEntries, dmgMultiplier, dmgMultiplierEntries, hpRatio } = dmgCalc;
     let { dmg, dead, reboundEntry, bonusEntries } = dmgResult;
 

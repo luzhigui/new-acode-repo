@@ -1,6 +1,6 @@
 // core/10battle-attack.js - 光明顶5v5 攻击流程模块
-// V5.6.3 | ~10750 bytes| 2026-08-26 修复 processUnitAttack 内孤立多余 }（函数提前闭合导致 ESM 加载失败）
-export const VER = 'core/10battle-attack.js V5.6.3';
+// V5.7.0 | ~11000 bytes| 2026-08-30 同步化：移除 async/await，配合工具批量模拟，游戏表现不变
+export const VER = 'core/10battle-attack.js V5.7.0';
 
 import { CONFIG } from './01config-5v5-test.js';
 import { hasBuff, makeFXSnapshot, isBlocked } from './03battle-utils.js';
@@ -25,7 +25,9 @@ import { FACT_TYPES, BUFF_TYPES, UNIT_EVENT_TYPES, CAMP_TYPES, SIGNAL_TYPES } fr
 
 const C = CONFIG;
 
-export async function processUnitAttack(unit, allySide, enemySide, log, A, B, state, doubleStrikeUnitUid, lockedTargetUid) {
+// 同步化后的攻击流程：所有事件派发与子函数调用均为同步，移除全部 async/await。
+// 游戏侧表现由 ui/61main-5v5-test.js 中的 async 包装器保持逐步渲染，逻辑不变。
+export function processUnitAttack(unit, allySide, enemySide, log, A, B, state, doubleStrikeUnitUid, lockedTargetUid) {
     if (unit.state._stunned) {
         log.push({ factType: FACT_TYPES.STUN_SKIP, data: { unitName: unit.name } });
         unit.state._acted = true;
@@ -54,7 +56,7 @@ export async function processUnitAttack(unit, allySide, enemySide, log, A, B, st
             return false;
         }
     } else {
-        let targetResult = await selectAttackTarget(unit, enemySide, allySide);
+        let targetResult = selectAttackTarget(unit, enemySide, allySide);
         target = targetResult.target;
         phantomFact = targetResult.phantomFact;
     }
@@ -83,7 +85,7 @@ export async function processUnitAttack(unit, allySide, enemySide, log, A, B, st
     let targetAllyTeam = target.camp === CAMP_TYPES.ALLY ? A : B;
     let defenderBuffStats = computeBuffStats(target, targetActiveBuffs, targetAllyTeam);
 
-    let hitResult = await resolveAttackHit(unit, target, attackerBuffStats, defenderBuffStats, log, A, B, doubleStrikeUnitUid, eventBus);
+    let hitResult = resolveAttackHit(unit, target, attackerBuffStats, defenderBuffStats, log, A, B, doubleStrikeUnitUid, eventBus);
     if (hitResult.skipped) {
         if (hitResult.missFact) {
             log.push({ factType: FACT_TYPES.MISS, data: hitResult.missFact });
@@ -105,7 +107,7 @@ export async function processUnitAttack(unit, allySide, enemySide, log, A, B, st
                 executedUids.add(req.unit.uid);
                 if (req.actedMode === 'allow') req.unit.state._acted = false;
                 const retryUid = req.targetUid || null;
-                await processUnitAttack(req.unit, allySide, enemySide, log, A, B, state, doubleStrikeUnitUid, retryUid);
+                processUnitAttack(req.unit, allySide, enemySide, log, A, B, state, doubleStrikeUnitUid, retryUid);
             }
         }
         return true;
@@ -117,10 +119,10 @@ export async function processUnitAttack(unit, allySide, enemySide, log, A, B, st
     }
 
     eventBus.emit(SIGNAL_TYPES.BEFORE_ATTACK, { unit, allySide, enemySide, log });
-    let dmgCalc = await calcFinalDamage(unit, target, attackerBuffStats, defenderBuffStats, allySide, enemySide, log);
+    let dmgCalc = calcFinalDamage(unit, target, attackerBuffStats, defenderBuffStats, allySide, enemySide, log);
 
     const immuneDeclarations = [];
-    await eventBus.emit(SIGNAL_TYPES.BEFORE_DAMAGE_APPLY, { target, dmg: dmgCalc.dmg, hpBefore: target.hp, A, log, declarations: immuneDeclarations });
+    eventBus.emit(SIGNAL_TYPES.BEFORE_DAMAGE_APPLY, { target, dmg: dmgCalc.dmg, hpBefore: target.hp, A, log, declarations: immuneDeclarations });
 
     let dmgResult = applyAttackResult(unit, target, dmgCalc, attackerBuffStats, defenderBuffStats, allySide, enemySide, log, A, B, state, doubleStrikeUnitUid);
     const immuneResult = resolveDamageImmune(immuneDeclarations);
@@ -156,7 +158,7 @@ export async function processUnitAttack(unit, allySide, enemySide, log, A, B, st
         return true;
     }
 
-    const group = await buildAttackGroup(unit, target, dmgCalc, dmgResult, attackerBuffStats, defenderBuffStats, allySide, enemySide, log, A, B, state, doubleStrikeUnitUid, phantomFact);
+    const group = buildAttackGroup(unit, target, dmgCalc, dmgResult, attackerBuffStats, defenderBuffStats, allySide, enemySide, log, A, B, state, doubleStrikeUnitUid, phantomFact);
 
     log.push(group);
 
@@ -171,9 +173,8 @@ export async function processUnitAttack(unit, allySide, enemySide, log, A, B, st
 
     const afterDamageExtraRequests = [];
     const afterDamageDeclarations = [];
-    // 必 await：相位栅栏要求同 phase 所有监听器（含较高 priority 的反伤/吸血/回血）在执行完才继续；
-    // 否则异步 emit 只有首个低优先级监听器同步投递，其余在 promise 微任务里晚于下方 resolveAfterDamageEffects 才 push，声明被吞
-    await eventBus.emit(SIGNAL_TYPES.AFTER_DAMAGE_APPLIED, { unit, target, dmg: dmgCalc.dmg, group, allySide, enemySide, log, A, B, declarations: afterDamageDeclarations, extraRequests: afterDamageExtraRequests });
+    // 同步 eventBus.emit，所有监听器同步执行，无需 await
+    eventBus.emit(SIGNAL_TYPES.AFTER_DAMAGE_APPLIED, { unit, target, dmg: dmgCalc.dmg, group, allySide, enemySide, log, A, B, declarations: afterDamageDeclarations, extraRequests: afterDamageExtraRequests });
 
     if (dmgResult.fortifyDeclarations && dmgResult.fortifyDeclarations.length > 0) {
         afterDamageDeclarations.push(...dmgResult.fortifyDeclarations);
@@ -221,7 +222,7 @@ export async function processUnitAttack(unit, allySide, enemySide, log, A, B, st
             executedUids.add(req.unit.uid);
             if (req.actedMode === 'allow') req.unit.state._acted = false;
             const extraTargetUid = req.targetUid || (target && target.alive ? target.uid : null);
-            await processUnitAttack(req.unit, allySide, enemySide, log, A, B, state, null, extraTargetUid);
+            processUnitAttack(req.unit, allySide, enemySide, log, A, B, state, null, extraTargetUid);
         }
     }
 
@@ -231,7 +232,7 @@ export async function processUnitAttack(unit, allySide, enemySide, log, A, B, st
 
     const extraRequests = [];
     const afterAttackData = { unit, target, dmg: dmgCalc.dmg, group, allySide, enemySide, log, A, B, state, declarations: [], extraRequests };
-    await eventBus.emit(SIGNAL_TYPES.AFTER_ATTACK, afterAttackData);
+    eventBus.emit(SIGNAL_TYPES.AFTER_ATTACK, afterAttackData);
     if (afterAttackData.declarations.length > 0) {
         const clawExecuted = resolveAfterDamageEffects(afterAttackData.declarations, unit, target, group, allySide, unitActiveBuffs);
         for (const decl of clawExecuted) {
@@ -275,7 +276,7 @@ export async function processUnitAttack(unit, allySide, enemySide, log, A, B, st
             executedUids.add(req.unit.uid);
             req.unit.state._acted = false;
             const extraTargetUid = req.targetUid || (target && target.alive ? target.uid : null);
-            await processUnitAttack(req.unit, allySide, enemySide, log, A, B, state, null, extraTargetUid);
+            processUnitAttack(req.unit, allySide, enemySide, log, A, B, state, null, extraTargetUid);
             if (req.actedMode === 'restore') {
                 req.unit.state._acted = req.actedSnapshot;
             }
