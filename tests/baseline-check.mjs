@@ -42,7 +42,7 @@ async function runBaselineCase(seed, stage) {
     while (battleState.round <= MAX_ROUND) {
         const stepper = createRoundStepper(battleState);
         let lastStep = null;
-        for await (const step of stepper) {
+        for (const step of stepper) {
             lastStep = step;
             for (const e of step.log || []) {
                 if (e && e.factType) facts.push(e.factType);

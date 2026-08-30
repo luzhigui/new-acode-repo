@@ -41,7 +41,7 @@ async function runCase(seed, stage) {
     while (battleState.round <= MAX_ROUND) {
         const stepper = createRoundStepper(battleState);
         let lastStep = null;
-        for await (const step of stepper) {
+        for (const step of stepper) {
             lastStep = step;
             for (const e of step.log || []) logEntries.push(e);
             if (step.winner) winner = step.winner;
