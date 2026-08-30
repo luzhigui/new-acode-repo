@@ -398,12 +398,16 @@ export function renderHorseSummonFact(fact) {
 export function renderPassFact(fact) {
     const { unit, reason } = fact;
     if (reason === '被遮挡' || reason === '拒马休息') {
+        // ★ 休息回复日志补全：单位名 + 休息原因 + 回复前 → 回复后 + 实际回复量
+        const hpBefore = fact.hpBefore !== undefined ? fact.hpBefore : Math.floor(unit.hp);
+        const hpAfter = fact.hpAfter !== undefined ? fact.hpAfter : Math.floor(unit.hp);
+        const actualHeal = fact.actualHeal !== undefined ? fact.actualHeal : 15;
         return {
             type:'attack-group', uidA:unit.uid, uidD:null,
-            entries:[{type:'info', text:`<span class="green">😴 休息回复15点生命</span>`, isHealEntry:true, healAmount:15, healUnitUid:unit.uid}],
+            entries:[{type:'info', text:`<span class="green">😴 ${unit.name} 因${reason}休息，回复 ${actualHeal} 点生命（${hpBefore} → ${hpAfter}）</span>`, isHealEntry:true, healAmount:actualHeal, healUnitUid:unit.uid}],
             isBlock:true, isRest:true,
             _fxSnapshot: makeFXSnapshot(unit,null), waveTaunt:null, waveUnit:null,
-            buffEffects:[], needsSeparator: true, healAmount: 15, healUnitUid: unit.uid,
+            buffEffects:[], needsSeparator: true, healAmount: actualHeal, healUnitUid: unit.uid,
             _events: fact.events || []
         };
     }

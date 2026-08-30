@@ -4,6 +4,7 @@ export const VER = 'ui/64main-dialogs.js V5.5.1';
 
 import { showModal, showAlert } from './60main-utils.js';
 import { AudioManager } from '../modules/22audio-manager.js';
+import { GlobalStore } from '../infra/54-global-store.js';
 import { CAMP_TYPES } from '../infra/56-battle-enums.js';
 
 // ==================== 战报弹窗 ====================

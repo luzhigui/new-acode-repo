@@ -118,9 +118,9 @@ startBtn.addEventListener('click', async () => {
                     let finalWinner = null;
                     let finalAlly = null;
                     for (let r = 1; r <= 35; r++) {
-                        const stepper = createRoundStepper(state);
+                        const stepper = createRoundStepper(state, { ui: false }); // 工具场景跳过 stageActions 翻译
                         let lastStep = null;
-                        for await (const step of stepper) {
+                        for (const step of stepper) { // 引擎已同步化（function*），for...of 直取
                             lastStep = step;
                             if (step.winner) break;
                         }

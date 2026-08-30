@@ -4,7 +4,7 @@ export const VER = 'modules/25elite-imperial.js V5.5.1';
 
 import { registerElite } from '../core/08-elite-registry.js';
 import { tickXuanmingPoison } from './20elite-skills.js';
-import { EXECUTION_LAYER as L } from '../infra/50-event-bus.js';
+import { eventBus, EXECUTION_LAYER as L } from '../infra/50-event-bus.js';
 import { FACT_TYPES, SIGNAL_TYPES } from '../infra/56-battle-enums.js';
 
 // ==================== 成昆 ====================

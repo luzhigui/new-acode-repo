@@ -110,6 +110,7 @@ export async function playLogEntries(c, log, roundResult, isFirstAttackRef) {
                     break;
                 case 'attack-group': {
                     let result = await handleAttackGroup(c, entry, roundResult, abortSig, isFirstAttackRef);
+                    // 血量事件已移至 handleAttackGroup 末尾延迟应用，此处不再重复
                     lastEntryType = entry.type;
                     if (result && result.isBattleOver) return result;
                     break;

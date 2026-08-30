@@ -82,8 +82,8 @@ async function runBattle(snap, buffs, seed) {
     let lastStep = null;
     const maxRound = C.MAX_ROUND || 35;
     while (battleState.round <= maxRound) {
-        const stepper = createRoundStepper(battleState);
-        for await (const step of stepper) {
+        const stepper = createRoundStepper(battleState, { ui: false }); // 工具场景跳过 stageActions 翻译
+        for (const step of stepper) { // 引擎已同步化（function*），for...of 直取
             lastStep = step;
             if (step.winner) return { winner: step.winner };
         }

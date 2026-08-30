@@ -2,7 +2,7 @@
 // V5.8.0 | ~8000 bytes| 2026-08-26 特效全部移交 stageActions，本文件只负责文本与格子闪示
 export const VER = 'player/46attack-group.js V5.8.0';
 
-import { getState } from '../infra/54-global-store.js';
+import { GlobalStore, getState } from '../infra/54-global-store.js';
 import { STORE_ACTION_TYPES, FLASH_TYPES, CAMP_TYPES } from '../infra/56-battle-enums.js';
 import { appendLogHTML, autoScrollLog, updateRoundDisplay, playLogLine, appendHiddenDetail, findUnitByUid } from './47renderer.js';
 
@@ -100,6 +100,12 @@ export async function handleAttackGroup(c, entry, roundResult, abortSig, isFirst
     }
 
     updateRoundDisplay(`📜 日志（第${c.UI.round}回合）`);
+
+    // ★ 攻击组血量事件延迟到特效即将结束（对方快飞回）时应用：
+    //   掉血飘字在命中瞬间先出，血条和数字等飞撞/箭矢返回阶段再刷新，避免与受击特效冲突。
+    if (entry._events && entry._events.length > 0) {
+        c.store.dispatch({ type: STORE_ACTION_TYPES.APPLY_EVENTS, events: entry._events });
+    }
 
     if (entry.isDead && c.store) {
         const liveUnits = c.store.getState().units;
