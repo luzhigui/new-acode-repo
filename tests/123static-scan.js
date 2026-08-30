@@ -13,6 +13,10 @@ export const ENUM_NAMES = [
     'SIGNAL_TYPES', 'STORE_ACTION_TYPES'
 ];
 
+// 跨文件共享符号清单（非枚举、由特定文件导出、被大量模块消费的全局引用）。
+// 来源：主代码侧诊断确认的两类高频缺 import 符号；新增共享容器时在此追加。
+export const SHARED_SYMBOLS = ['eventBus', 'GlobalStore'];
+
 // 核心文件清单（相对 tests/ 页面路径；不含 tests/ tools/ 自身）
 export const SCAN_FILES = [
     '../core/01config-5v5-test.js', '../core/02unit.js', '../core/03battle-utils.js',
@@ -74,6 +78,47 @@ export function scanEnumImport(code) {
     return { missing, imported, fromPaths };
 }
 
+// 检查 1.5：共享符号 used-but-not-imported（eventBus/GlobalStore 等跨文件符号）
+// 排除规则：a) 已 import；b) 本文件自导出/自定义；c) window.xxx 全局挂载引用
+// 挂载缓存：window.X = 形式的全局挂载检测（当前仅 54-global-store 挂 GlobalStore）
+let _mountsCache = null;
+export async function detectWindowMounts() {
+    if (_mountsCache) return _mountsCache;
+    _mountsCache = {};
+    const baseUrl = new URL('./', window.location.href).href;
+    for (const rel of ['../infra/54-global-store.js', '../infra/50-event-bus.js']) {
+        try {
+            const resp = await fetch(new URL(rel, baseUrl).href + '?t=' + Date.now());
+            if (!resp.ok) continue;
+            const code = await resp.text();
+            const re = /window\.(\w[\w$]*)\s*=/g;
+            let m;
+            while ((m = re.exec(code)) !== null) _mountsCache[m[1]] = true;
+        } catch (e) { /* 网络失败按无挂载处理 */ }
+    }
+    return _mountsCache;
+}
+
+export function scanSharedSymbolImport(code, mounts) {
+    const { imported } = collectImports(code);
+    const missing = [];
+    for (const sym of SHARED_SYMBOLS) {
+        if (imported.has(sym)) continue;
+        // 本文件自定义/自导出该符号 → 不算缺失
+        const defs = [
+            '(?:^|\\n)\\s*export\\s+const\\s+' + sym + '\\b',
+            '(?:^|\\n)\\s*(?:export\\s+)?function\\s+' + sym + '\\b',
+            '(?:^|\\n)\\s*(?:export\\s+)?class\\s+' + sym + '\\b',
+            '(?:^|\\n)\\s*(?:export\\s+)?(?:const|let|var)\\s+' + sym + '\\s*='
+        ];
+        if (defs.some(re => new RegExp(re, 'm').test(code))) continue;
+        // 使用形式：符号后跟 . ( [ { 或 ,。lookbehind 排除属主链（foo.sym / window.sym）
+        const usageRe = new RegExp('(?<![\\w$.])\\b' + sym + '\\s*[\\.\\(\\[\\{,]');
+        if (usageRe.test(code)) missing.push({ sym, viaWindow: !!(mounts && mounts[sym]) });
+    }
+    return missing;
+}
+
 // 检查 2：import 相对路径存在性（resolve 到目标文件所在目录后 fetch）
 export async function scanImportRefs(code, fileUrl) {
     const { fromPaths } = collectImports(code);
@@ -96,10 +141,15 @@ export async function runStaticScan() {
     const t0 = Date.now();
     const result = {
         files: 0,
-        slots: { enumImport: { name: '枚举 import 缺失', issues: [] }, importRef: { name: 'import 引用断裂', issues: [] } },
+        slots: {
+            enumImport: { name: '枚举 import 缺失', issues: [] },
+            sharedImport: { name: '共享符号 import 缺失', issues: [] },
+            importRef: { name: 'import 引用断裂', issues: [] }
+        },
         elapsedMs: 0
     };
     const baseUrl = new URL('./', window.location.href).href; // tests/ 目录
+    const mounts = await detectWindowMounts();
     for (const rel of SCAN_FILES) {
         const fileUrl = new URL(rel, baseUrl).href;
         let code;
@@ -122,6 +172,10 @@ export async function runStaticScan() {
             const selfDefRe = new RegExp('export\\s+const\\s+' + en + '\\b');
             if (selfDefRe.test(code)) continue;
             result.slots.enumImport.issues.push(rel + '：使用 ' + en + ' 但未 import');
+        }
+        // 检查 1.5：共享符号 import 缺失（含 window 挂载的隐患级区分）
+        for (const it of scanSharedSymbolImport(code, mounts)) {
+            result.slots.sharedImport.issues.push(rel + '：使用 ' + it.sym + ' 但未 import ' + (it.viaWindow ? '(走 window 挂载，隐患级)' : '(将运行时报错)'));
         }
         // 检查 2：import 引用断裂
         const broken = await scanImportRefs(code, fileUrl);
