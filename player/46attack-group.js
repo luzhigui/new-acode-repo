@@ -22,9 +22,10 @@ export async function handleAttackGroup(c, entry, roundResult, abortSig, isFirst
         c.store.dispatch({ type: STORE_ACTION_TYPES.SET_VISUAL, uid: unitA.uid, _acted: true, _blocked: true });
     }
 
-    if (unitA && !entry.isBlock) {
-        const flashType = entry.isDodge ? FLASH_TYPES.DEFEND : FLASH_TYPES.ATTACK;
-        if (c.store) c.store.dispatch({ type: STORE_ACTION_TYPES.SET_FLASH, uid: unitA.uid, flash: flashType });
+    if (unitA && !entry.isBlock && !entry.isDodge) {
+        // ★ 闪避反击时攻击者不应该有 ATTACK/DEFEND flash，只显示眩晕态。
+        //   眩晕态由 DODGE stage action 的 store handler 设置，这里只处理普通攻击的闪示。
+        if (c.store) c.store.dispatch({ type: STORE_ACTION_TYPES.SET_FLASH, uid: unitA.uid, flash: FLASH_TYPES.ATTACK });
     }
 
     const isFF = GlobalStore.get('fastForwardActive');

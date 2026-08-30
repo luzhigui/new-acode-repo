@@ -24,15 +24,10 @@ function finishCrash(clone, cell, unitA, UI) {
     if (clone && clone.parentNode) clone.remove();
     const ctx = GlobalStore.get('playerContext');
     if (ctx && ctx.store) {
-        const su = ctx.store.getState().units.find(u => u.uid === unitA.uid);
-        const es = su ? getEliteState(su.uid) : null;
-        const wasFlying = es && es._flyMode;
+        // ★ 飞回结束后，必须彻底清除飞走状态和蓝色 flash，避免再次出现原地蓝色格子
         ctx.store.dispatch({ type: STORE_ACTION_TYPES.SET_VISUAL, uid: unitA.uid, _flyMode: null, _acted: true });
-        if (wasFlying) {
-            ctx.store.dispatch({ type: STORE_ACTION_TYPES.SET_FLASH, uid: unitA.uid, flash: 'attack' });
-        } else {
-            ctx.store.dispatch({ type: STORE_ACTION_TYPES.CLEAR_UNIT_FLASH, uid: unitA.uid });
-        }
+        ctx.store.dispatch({ type: STORE_ACTION_TYPES.CLEAR_UNIT_FLASH, uid: unitA.uid });
+        setEliteState(unitA.uid, { _flyMode: null });
     } else {
         setEliteState(unitA.uid, { _flyMode: null });
     }
@@ -125,6 +120,26 @@ export function showMeleeCrash(unitA, unitD, speed, getPausedFn, onCrash) {
         ctx.store.dispatch({ type: STORE_ACTION_TYPES.SET_VISUAL, uid: unitA.uid, _flyMode: flyMode });
     }
     let UI = window._getPlayerContext ? window._getPlayerContext().UI : null;
+
+    // ★ 飞走模式关键修复：必须在 updateUI 触发重绘之前完成三件事：
+    // 1) 清除攻击闪示（CLEAR_UNIT_FLASH），避免渲染出蓝色格子；
+    // 2) 同步 eliteState 的 _flyMode，因为 renderGrid 只读 getEliteState()._flyMode，不读 store state；
+    // 3) 写入 store 的 _flyMode 和 _acted，供后续 finishCrash 恢复时使用。
+    // ghost 模式要保留蓝色虚影，所以不清 flash，但同样需要同步 eliteState，否则 renderGrid 不认虚影。
+    const ctxPre = window._getPlayerContext ? window._getPlayerContext() : null;
+    if (ctxPre && ctxPre.store) {
+        if (flyMode === 'fly') {
+            ctxPre.store.dispatch({ type: STORE_ACTION_TYPES.CLEAR_UNIT_FLASH, uid: unitA.uid });
+            setEliteState(unitA.uid, { _flyMode: flyMode });
+            ctxPre.store.dispatch({ type: STORE_ACTION_TYPES.SET_VISUAL, uid: unitA.uid, _acted: true, _flyMode: flyMode });
+        } else if (flyMode === 'ghost') {
+            // ghost 保持 attack flash，同时同步 eliteState，让 renderGrid 进入 ghost 分支（半透明虚影）
+            setEliteState(unitA.uid, { _flyMode: flyMode });
+            ctxPre.store.dispatch({ type: STORE_ACTION_TYPES.SET_VISUAL, uid: unitA.uid, _acted: true });
+        }
+    }
+
+    // 现在才触发重绘，此时 store 与 eliteState 均已就绪，渲染结果正确
     if (UI) {
         let uiUnitA = UI.allyTeam.concat(UI.enemyTeam).find(u => u.uid === unitA.uid);
         if (uiUnitA) uiUnitA.state._acted = true;
@@ -158,26 +173,16 @@ export function showMeleeCrash(unitA, unitD, speed, getPausedFn, onCrash) {
     document.body.appendChild(clone);
 
     if (flyMode === 'ghost') {
+        // ghost 模式原格子保留虚影样式，flash 已在上面通过 store 设置，这里只做 DOM 额外美化
         cellA.classList.remove('ready', 'acted');
         cellA.style.opacity = '0.5';
         cellA.style.background = 'rgba(30,100,255,0.28)';
         cellA.style.border = '2px solid rgba(100,150,255,0.6)';
         cellA.style.boxShadow = '0 0 12px rgba(100,150,255,0.5)';
-        cellA.setAttribute('data-flash', 'attack');
-        const ctxG = window._getPlayerContext ? window._getPlayerContext() : null;
-        if (ctxG && ctxG.store) {
-            ctxG.store.dispatch({ type: STORE_ACTION_TYPES.SET_FLASH, uid: unitA.uid, flash: 'attack' });
-            ctxG.store.dispatch({ type: STORE_ACTION_TYPES.SET_VISUAL, uid: unitA.uid, _acted: true });
-            setEliteState(unitA.uid, { _flyMode: flyMode });
-        }
+        // 不再重复 dispatch，避免覆盖已同步的状态
     } else {
-        const ctxF = window._getPlayerContext ? window._getPlayerContext() : null;
-        if (ctxF && ctxF.store) {
-            ctxF.store.dispatch({ type: STORE_ACTION_TYPES.CLEAR_UNIT_FLASH, uid: unitA.uid });
-            ctxF.store.dispatch({ type: STORE_ACTION_TYPES.SET_VISUAL, uid: unitA.uid, _acted: true, _flyMode: flyMode });
-        }
-        cellA.style.opacity = '0';
-        cellA.style.transform = 'scale(0.8)';
+        // fly 模式：原格子已在重绘后进入透明/隐藏分支，无需再操作旧 cellA（旧引用已被重建丢弃）
+        // 删除原 cellA.style.opacity = '0' 等无用代码
     }
 
     let chargeDur = 800 * (speed / 1000);

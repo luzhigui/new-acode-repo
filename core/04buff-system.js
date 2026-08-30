@@ -12,7 +12,7 @@ import { CONFIG, getGameData } from './01config-5v5-test.js';
 import { hasBuff, getUnitRow, getUnitCol, getAdjacentPositions } from './03battle-utils.js';
 import { emitEvent, applyStatChange, applyMaxHpChange, query, getBattleRng, swapUnitPositions, moveUnitPosition } from './13battle-shared.js';
 import { EXECUTION_LAYER as L, EFFECT_TYPES, registerSettlementHook } from '../infra/50-event-bus.js';
-import { FACT_TYPES, BUFF_TYPES, UNIT_EVENT_TYPES, CAMP_TYPES, ROLE_TYPES, SIGNAL_TYPES } from '../infra/56-battle-enums.js';
+import { FACT_TYPES, BUFF_TYPES, BUFF_SUBTYPES, UNIT_EVENT_TYPES, CAMP_TYPES, ROLE_TYPES, SIGNAL_TYPES } from '../infra/56-battle-enums.js';
 import { getEliteState, setEliteState } from './18-elite-state.js';
 const C = CONFIG;
 

@@ -28,15 +28,16 @@ class EventBus {
         this._listeners[signal].sort((a, b) => a.priority - b.priority);
     }
 
-    async emit(signal, data) {
+    emit(signal, data) {
         appendDebugSignalLog(signal, data);
         const listeners = this._listeners[signal];
         if (!listeners || listeners.length === 0) return;
         for (const { callback } of listeners) {
             try {
-                // 相位栅栏（约定见 EXECUTION_LAYER 注释）：按 priority 升序串行，
-                // await 完前一个才进下一个；监听器状态写入必须在本段内完成
-                await callback(data);
+                // ★ 同步化：相位栅栏语义不变，仍按 priority 升序串行执行，
+                //   但现在直接同步调用，不再产生 await 微任务切换。
+                //   监听器必须是同步函数；若有异步监听器，请单独走异步通道。
+                callback(data);
             } catch (e) {
                 console.error(`[EventBus] 信号 "${signal}" 的监听器执行出错:`, e);
             }

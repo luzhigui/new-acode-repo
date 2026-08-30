@@ -126,14 +126,16 @@ function swapUnitPositions(unitA, unitB) {
     const posB = unitB.pos;
     unitA.pos = posB;
     unitB.pos = posA;
-    emitEvent(unitA, UNIT_EVENT_TYPES.POS_CHANGE, { pos: posB });
-    emitEvent(unitB, UNIT_EVENT_TYPES.POS_CHANGE, { pos: posA });
+    // ★ emitEvent 只是导出别名，模块内部必须用真实函数名 emitCoreEvent
+    emitCoreEvent(unitA, UNIT_EVENT_TYPES.POS_CHANGE, { pos: posB });
+    emitCoreEvent(unitB, UNIT_EVENT_TYPES.POS_CHANGE, { pos: posA });
 }
 
 function moveUnitPosition(unit, newPos) {
     if (!unit || newPos == null) return;
     unit.pos = newPos;
-    emitEvent(unit, UNIT_EVENT_TYPES.POS_CHANGE, { pos: newPos });
+    // ★ 同上：模块内部用 emitCoreEvent，不用导出别名 emitEvent
+    emitCoreEvent(unit, UNIT_EVENT_TYPES.POS_CHANGE, { pos: newPos });
 }
 
 function checkZhangSwitch(A, log) {
