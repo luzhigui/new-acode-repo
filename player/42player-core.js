@@ -1,6 +1,6 @@
 // player/42player-core.js - 光明顶5v5 战斗播放器核心
 // V5.7.5 | ~42250 bytes| 2026-08-26 posSwap 补惑心横幅；summon 拼 horseTaunt 台词
-export const VER = 'player/42player-core.js V5.7.5';
+export const VER = 'player/42player-core.js V5.7.6';
 
 import { CONFIG } from '../core/01config-5v5-test.js';
 import { eventBus } from '../infra/50-event-bus.js';
@@ -333,9 +333,12 @@ const STAGE_ACTION_FX_HANDLERS = {
     },
     [STAGE_ACTION_TYPES.BANNER]: async (c, action) => {
         // 通用横幅（概率连击等）
+        // ★ 必须直接 await showBuffBanner：eventBus.emit 为同步派发（infra/50，监听器 Promise 被丢弃），
+        //   走 emit 则 isPaused 立即复位、横幅后台空转，视觉上"刷一下就过去"；直接 await 才能真正阻塞主循环
         if (action.text && !GlobalStore.get('fastForwardActive')) {
             c.isPaused = true; GlobalStore.set('bulletTimeActive', true);
-            await eventBus.emit(FX_SIGNALS.BANNER, { text: action.text });
+            const { showBuffBanner } = await import('../fx/87fx-manager.js');
+            await showBuffBanner(action.text);
             GlobalStore.set('bulletTimeActive', false); c.isPaused = false;
         }
     },
@@ -368,13 +371,13 @@ const STAGE_ACTION_FX_HANDLERS = {
         const unitB = findUnitByUid(c, action.targetUid);
         if (unitA && unitB) {
             c.isPaused = true; GlobalStore.set('bulletTimeActive', true);
-            await eventBus.emit(FX_SIGNALS.BANNER, { text: '🌀 惑人心智！' });
-            await eventBus.emit(FX_SIGNALS.POSITION_SWAP, {
-                unitA, unitB, c,
-                opts: {
-                    skipDataChange: true,
-                    oldPositions: (action.oldPosA != null && action.oldPosB != null) ? [action.oldPosA, action.oldPosB] : null
-                }
+            // ★ 换位动画同样直接 await：原 eventBus.emit(POSITION_SWAP) 同步派发不等待动画完成。
+            //   惑心判定横幅已由 MIND_CONTROL_BANNER → BANNER 动作独立播放（两条判定各一条），
+            //   此处只负责换位特效，成功判定时紧跟在判定横幅之后
+            const { animatePositionSwap } = await import('../fx/87fx-manager.js');
+            await animatePositionSwap(unitA, unitB, c, {
+                skipDataChange: true,
+                oldPositions: (action.oldPosA != null && action.oldPosB != null) ? [action.oldPosA, action.oldPosB] : null
             });
             GlobalStore.set('bulletTimeActive', false); c.isPaused = false;
         }

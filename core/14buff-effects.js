@@ -1,6 +1,6 @@
 // core/14buff-effects.js - 光明顶5v5 海克斯效果函数库
 // V5.6.0 | ~5700 bytes| 2026-08-24 姐姐强化参数直读 JSON（小昭.hexEnhance），去 ELITE_SKILLS 兜底
-export const VER = 'core/14buff-effects.js V5.6.0';
+export const VER = 'core/14buff-effects.js V5.6.1';
 
 import { CONFIG, getSkillParams } from './01config-5v5-test.js';
 import { getUnitRow, getUnitCol } from './03battle-utils.js';
@@ -67,6 +67,9 @@ function applyMindControlCore(unit, allySide, enemySide, log, swapChanceEnemy, s
     let frontUnit = allySide.filter(u => u.alive && !u.isHorse).sort((a,b) => a.pos - b.pos)[0];
     if (!frontUnit || frontUnit.uid !== unit.uid) return;
 
+    // ★ 判定横幅先于判定入 log：切换成 stageAction 后成为独立 BANNER（beforeText），
+    //   六大派判定、明教判定各一条，成功后紧跟各自的换位特效
+    log.push({ factType: FACT_TYPES.MIND_CONTROL_BANNER, data: { side: CAMP_TYPES.ENEMY } });
     if (rng.nextInt(1,100) <= swapChanceEnemy) {
         let enemies = enemySide.filter(u => u.alive && getEliteState(u.uid)._flyMode !== 'butterfly' && getEliteState(u.uid)._flyMode !== 'spider' && !getEliteState(u.uid)._spiderFlying);
         if (enemies.length >= 2) {
@@ -81,6 +84,7 @@ function applyMindControlCore(unit, allySide, enemySide, log, swapChanceEnemy, s
     } else {
         log.push({ factType: FACT_TYPES.MIND_CONTROL_FAIL, data: { side: CAMP_TYPES.ENEMY, reason: '未触发' } });
     }
+    log.push({ factType: FACT_TYPES.MIND_CONTROL_BANNER, data: { side: CAMP_TYPES.ALLY } });
     if (rng.nextInt(1,100) <= swapChanceAlly) {
         let allies = allySide.filter(u => u.alive && getEliteState(u.uid)._flyMode !== 'butterfly' && getEliteState(u.uid)._flyMode !== 'spider' && !getEliteState(u.uid)._spiderFlying);
         if (allies.length >= 2) {
