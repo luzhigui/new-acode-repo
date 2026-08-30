@@ -112,8 +112,9 @@ export function scanSharedSymbolImport(code, mounts) {
             '(?:^|\\n)\\s*(?:export\\s+)?(?:const|let|var)\\s+' + sym + '\\s*='
         ];
         if (defs.some(re => new RegExp(re, 'm').test(code))) continue;
-        // 使用形式：符号后跟 . ( [ { 或 ,。lookbehind 排除属主链（foo.sym / window.sym）
-        const usageRe = new RegExp('(?<![\\w$.])\\b' + sym + '\\s*[\\.\\(\\[\\{,]');
+        // 使用形式：仅成员访问(.)或调用(( )才算"需要import"；参数位/解构(后跟 , } )不算——
+        // 引擎普遍 register(eventBus,...)/install({ eventBus }) 由调用方注入，无 import 也正确。
+        const usageRe = new RegExp('(?<![\\w$.])\\b' + sym + '\\s*[\\.\\(]');
         if (usageRe.test(code)) missing.push({ sym, viaWindow: !!(mounts && mounts[sym]) });
     }
     return missing;
