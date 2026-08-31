@@ -157,6 +157,12 @@ function prepareRoundStart(A, B, log, state, round, rng) {
     const he = B.find(u => u.name === '鹤笔翁' && u.alive);
     if (lu && he) { setEliteState(lu.uid, { _linkedPartnerUid: he.uid }); setEliteState(he.uid, { _linkedPartnerUid: lu.uid }); }
 
+    // ★ 精英回合状态必须在授权事件之前统一重置：
+    //   原顺序为 emit(授权) → forEach 内 resetEliteRoundState(清零)，
+    //   导致性奋/苦练授权后立即被清，攻击时刻读到 false 静默失效。
+    A.forEach(u => { if (u.alive) resetEliteRoundState(u.uid); });
+    B.forEach(u => { if (u.alive) resetEliteRoundState(u.uid); });
+
     eventBus.emit(SIGNAL_TYPES.ON_ROUND_START, { A, B, log });
 
     A._butterflyTriggered = false;
@@ -207,7 +213,6 @@ function prepareRoundStart(A, B, log, state, round, rng) {
             else if (key === '_spiderFlying') u.state[key] = false;
             else u.state[key] = false;
         }
-        resetEliteRoundState(u.uid);
         u.state._restingTimer && clearTimeout(u.state._restingTimer), u.state._restingTimer = null;
         u._xingFenExtraAttacking = false;
         u._bloodthirstStriked = false;
@@ -226,7 +231,6 @@ function prepareRoundStart(A, B, log, state, round, rng) {
             else if (key === '_spiderFlying') u.state[key] = false;
             else u.state[key] = false;
         }
-        resetEliteRoundState(u.uid);
         setEliteState(u.uid, { _doubleStriked: false });
         u._xingFenExtraAttacking = false;
         u._bloodthirstStriked = false;

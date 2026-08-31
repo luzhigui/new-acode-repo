@@ -50,7 +50,6 @@ export async function handleAttackGroup(c, entry, roundResult, abortSig, isFirst
         atkTimer = setTimeout(async () => {
             await c.waitWhilePaused();
             if (c.store && unitA) {
-                c.store.dispatch({ type: STORE_ACTION_TYPES.CLEAR_UNIT_FLASH, uid: unitA.uid });
                 if (!entry.isDodge && !entry.isLinkAttack) {
                     c.store.dispatch({ type: STORE_ACTION_TYPES.SET_VISUAL, uid: unitA.uid, _acted: true });
                 }

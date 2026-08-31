@@ -37,6 +37,10 @@ export function _triggerFX(fxSnapshot, unitA, unitD, isDead, isDodge, isMiss, is
         if (attackerRole === ROLE_TYPES.RANGED && !isBlock && !isMiss && !isDodge) {
             showRangedArrow(unitA, unitD, speed, getPausedState, false, () => {
                 if (!GlobalStore.get('fastForwardActive')) showDamageFloat(unitD, dmg);
+                const ctx = GlobalStore.get('playerContext');
+                if (ctx && ctx.store) {
+                    ctx.store.dispatch({ type: STORE_ACTION_TYPES.CLEAR_UNIT_FLASH, uid: unitA.uid });
+                }
             });
         } else if (!isBlock) {
             if (isDodge) {
@@ -55,7 +59,6 @@ export function _triggerFX(fxSnapshot, unitA, unitD, isDead, isDodge, isMiss, is
                             ctx.store.dispatch({ type: STORE_ACTION_TYPES.SET_VISUAL, uid: unitD.uid, _isDead: true });
                         }
                     }
-                }, () => {
                     const ctx = GlobalStore.get('playerContext');
                     if (ctx && ctx.store) {
                         ctx.store.dispatch({ type: STORE_ACTION_TYPES.CLEAR_UNIT_FLASH, uid: unitA.uid });

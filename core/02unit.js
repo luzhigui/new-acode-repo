@@ -55,6 +55,7 @@ export class Unit {
         this._baseMaxHp = 0;
         this._initAtk = 0;          // 战斗开始时的初始攻击（永不修改）
         this._initDef = 0;          // 战斗开始时的初始防御（永不修改）
+        this._initMaxHp = 0;        // 战斗开始时的初始血量上限（永不修改）
         this.isXiaoZhaoSister = false; // 🦋 小昭·姊
         this.isXiaoZhaoBrother = false; // 🕷️ 小昭·妹
         getEliteState(this.uid);
@@ -119,6 +120,7 @@ export class Unit {
         this._baseDef = this.def;
         this._initAtk = this.atk;
         this._initDef = this.def;
+        this._initMaxHp = this.maxHp;
     }
     initXiaoZhao(){
         let hpBase = Math.floor(this.m / 2);

@@ -30,14 +30,26 @@ function translateFact(entry, index) {
             return { kind: STAGE_ACTION_TYPES.ROUND_START, round: data.round, factIndex: index, timing: 'beforeText' };
         case FACT_TYPES.ROUND_END:
             return { kind: STAGE_ACTION_TYPES.ROUND_END, round: data.round, factIndex: index, timing: 'afterText' };
-        case FACT_TYPES.PASS:
-            return {
+        case FACT_TYPES.PASS: {
+            const actions = [{
                 kind: STAGE_ACTION_TYPES.REST,
                 actorUid: data.unit?.uid ?? data.unitUid ?? null,
                 reason: data.reason,
                 factIndex: index,
                 timing: 'beforeText'
-            };
+            }];
+            if (data.actualHeal > 0) {
+                actions.push({
+                    kind: STAGE_ACTION_TYPES.HEAL,
+                    actorUid: data.unit?.uid ?? data.unitUid ?? null,
+                    targetUid: data.unit?.uid ?? data.unitUid ?? null,
+                    amount: data.actualHeal,
+                    factIndex: index,
+                    timing: 'beforeText'
+                });
+            }
+            return actions;
+        }
 
         // ---------- 攻击流程 ----------
         case FACT_TYPES.ATTACK:
