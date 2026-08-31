@@ -108,7 +108,10 @@ export function resolveAttackHit(unit, target, attackerBuffStats, defenderBuffSt
 
         if (eventBus) {
             let afterMissExtraRequests = [];
-            let afterMissData = { unit, target, log, extraRequests: afterMissExtraRequests };
+            // 补齐监听器所需字段（submitXingFenRetry 等解构 allySide/enemySide/A/B/state）
+            const allySide = unit.camp === CAMP_TYPES.ALLY ? A : B;
+            const enemySide = unit.camp === CAMP_TYPES.ALLY ? B : A;
+            let afterMissData = { unit, target, log, extraRequests: afterMissExtraRequests, allySide, enemySide, A, B, state };
             // ★ 同步化：eventBus.emit 改为同步串行，去掉 await
             eventBus.emit(SIGNAL_TYPES.AFTER_MISS, afterMissData);
             if (afterMissExtraRequests.length > 0) {
