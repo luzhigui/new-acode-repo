@@ -44,6 +44,7 @@ export function getFronts(units) {
 }
 
 export function isBlocked(unit, allies) {
+    if (!isMelee(unit.role)) return false;
     if (unit.role === ROLE_TYPES.FLYER) return false;
     if (getEliteState(unit.uid)._flyMode === 'butterfly') return false;
     if (getEliteState(unit.uid)._flyMode === 'spider') return false;
@@ -386,6 +387,15 @@ export function registerDoubleStrike(eventBus, doubleStrikeUnitUid, allyTeam, ac
     registerSettlementHook({
         when: SIGNAL_TYPES.AFTER_ATTACK,
         priority: L.AFTER_ATTACK.DOUBLE_STRIKE,
+        handler: (data) => {
+            submitDoubleStrikeDeclaration(data);
+        }
+    });
+
+    // 未命中路径同样触发概率连击判定，保证 miss 后也有第二次攻击机会
+    registerSettlementHook({
+        when: SIGNAL_TYPES.AFTER_MISS,
+        priority: L.AFTER_MISS.PERMANENT_DOUBLE_RETRY,
         handler: (data) => {
             submitDoubleStrikeDeclaration(data);
         }

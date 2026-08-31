@@ -85,7 +85,7 @@ export function processUnitAttack(unit, allySide, enemySide, log, A, B, state, d
     let targetAllyTeam = target.camp === CAMP_TYPES.ALLY ? A : B;
     let defenderBuffStats = computeBuffStats(target, targetActiveBuffs, targetAllyTeam);
 
-    let hitResult = resolveAttackHit(unit, target, attackerBuffStats, defenderBuffStats, log, A, B, doubleStrikeUnitUid, eventBus);
+    let hitResult = resolveAttackHit(unit, target, attackerBuffStats, defenderBuffStats, log, A, B, doubleStrikeUnitUid, eventBus, state);
     if (hitResult.skipped) {
         if (hitResult.missFact) {
             log.push({ factType: FACT_TYPES.MISS, data: hitResult.missFact });
@@ -235,12 +235,13 @@ export function processUnitAttack(unit, allySide, enemySide, log, A, B, state, d
     eventBus.emit(SIGNAL_TYPES.AFTER_ATTACK, afterAttackData);
     if (afterAttackData.declarations.length > 0) {
         const clawExecuted = resolveAfterDamageEffects(afterAttackData.declarations, unit, target, group, allySide, unitActiveBuffs);
+        // 先处理爪击链日志，确保宋青书回血日志最后出现
         for (const decl of clawExecuted) {
             if (decl._events && decl._events.length > 0) {
                 if (!group._events) group._events = [];
                 group._events.push(...decl._events);
             }
-            if (decl.type === EFFECT_TYPES.CLAW_CHAIN) {
+            if (decl.type !== EFFECT_TYPES.CLAW_CHAIN) continue;
             if (decl.hits) {
                 for (const hit of decl.hits) {
                     if ((hit.logText || hit.factType) && group && group.data.entries) {
@@ -259,11 +260,15 @@ export function processUnitAttack(unit, allySide, enemySide, log, A, B, state, d
                 if (decl.execute.isClawHit) { e.isClawHit = true; e.clawAttackerUid = decl.execute.clawAttackerUid; e.clawTargetUid = decl.execute.clawTargetUid; e.isExecute = true; }
                 group.data.entries.push(e);
             }
-        } else if ((decl.logText || decl.factType) && group && group.data.entries) {
-            group.data.entries.push(decl.factType
-                ? { factType: decl.factType, data: decl.factData }
-                : { type: 'info', text: decl.logText });
         }
+        // 再处理其他声明（HEAL 回血日志放最后）
+        for (const decl of clawExecuted) {
+            if (decl.type === EFFECT_TYPES.CLAW_CHAIN) continue;
+            if ((decl.logText || decl.factType) && group && group.data.entries) {
+                group.data.entries.push(decl.factType
+                    ? { factType: decl.factType, data: decl.factData }
+                    : { type: 'info', text: decl.logText });
+            }
         }
     }
     if (extraRequests.length > 0) {

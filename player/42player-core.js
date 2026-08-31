@@ -276,8 +276,26 @@ const STAGE_ACTION_FX_HANDLERS = {
     },
     [STAGE_ACTION_TYPES.MISS]: (c, action) => {
         const attacker = findUnitByUid(c, action.actorUid);
+        const target = findUnitByUid(c, action.targetUid);
         if (attacker && !GlobalStore.get('fastForwardActive')) {
             eventBus.emit(FX_SIGNALS.DODGE_BUBBLE, { unit: attacker, text: '未命中' });
+            // 近战/飞行未命中补发飞撞击打动画（远程保持气泡即可）
+            if (attacker.role !== ROLE_TYPES.RANGED && target) {
+                eventBus.emit(FX_SIGNALS.TRIGGER, {
+                    fxSnapshot: action.fx || null,
+                    unitA: attacker,
+                    unitD: target,
+                    isDead: false,
+                    isDodge: false,
+                    isMiss: true,
+                    isBlock: false,
+                    dmg: 0,
+                    waveTaunt: null,
+                    waveUnitUid: null,
+                    waveUnit: null,
+                    attackerRole: attacker.role
+                });
+            }
         }
     },
     [STAGE_ACTION_TYPES.ATTACK]: async (c, action) => {
@@ -409,6 +427,10 @@ const STAGE_ACTION_FX_HANDLERS = {
                 eventBus.emit(FX_SIGNALS.DAMAGE_FLOAT, { unit: target, dmg: action.dmg });
             }
             eventBus.emit(FX_SIGNALS.BONE_CLAW, { attacker, target, speed: c.speed, isPausedFn: () => c.isPaused, opts: { isExecute: action.isExecute } });
+            // 每个爪击依次播放，避免多爪动画同时启动重叠
+            if (!GlobalStore.get('fastForwardActive')) {
+                await new Promise(r => setTimeout(r, Math.max(600, c.speed * 1.2)));
+            }
         } else if (action.effectType === BUFF_EFFECT_TYPES.ATK_BUFF && target && action.gain) {
             eventBus.emit(FX_SIGNALS.ATK_BUFF_FLOAT, { unit: target, gain: action.gain });
         } else if (action.effectType === BUFF_EFFECT_TYPES.XIN_HUN) {

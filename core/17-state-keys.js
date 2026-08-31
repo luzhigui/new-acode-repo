@@ -33,7 +33,7 @@ export const BATTLE_FIELD_KEYS = Object.freeze([
 /** 顶层永久字段：浅拷贝，永不重置 */
 export const PERMANENT_FIELD_KEYS = Object.freeze([
     'isXiaoZhaoSister', 'isXiaoZhaoBrother',
-    '_baseAtk', '_baseDef', '_baseMaxHp', '_initAtk', '_initDef', '_hpDmgRatio'
+    '_baseAtk', '_baseDef', '_baseMaxHp', '_initAtk', '_initDef', '_initMaxHp', '_hpDmgRatio'
 ]);
 
 /** 拷贝整场状态字段（BATTLE_STATE_KEYS）到目标 state；源可为 null */
