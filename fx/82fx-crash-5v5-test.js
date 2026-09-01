@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// fx/82fx-crash-5v5-test.js - 光明顶5v5 飞撞与格挡特效
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// fx/82fx-crash-5v5-test.js - 光明顶5v5 飞撞与格挡特效
 // V5.5.0 | 2026-07-12 修复飞走模式原地残留蓝色格子（清除_flash标记）
 export const VER = 'fx/82fx-crash-5v5-test.js V5.5.0';
 
@@ -424,36 +424,14 @@ export function showMeleeMiss(unitA, unitD, speed, getPausedFn) {
     if(idxA<0||idxD<0||!gridA.children[idxA]||!gridD.children[idxD]) return;
     let cellA = gridA.children[idxA], cellB = gridD.children[idxD];
     let rA = cellA.getBoundingClientRect(), rB = cellB.getBoundingClientRect();
-    let savedLeft = rA.left, savedTop = rA.top, savedWidth = rA.width, savedHeight = rA.height;
+    let savedLeft = rA.left, savedTop = rA.top;
     let dx = rB.left+rB.width/2 - (savedLeft+rA.width/2);
     let dy = rB.top+rB.height/2 - (savedTop+rA.height/2);
     let dist = Math.sqrt(dx*dx+dy*dy); if(dist<1) return;
     let nx=dx/dist, ny=dy/dist;
 
-    let clone = cellA.cloneNode(true);
-    clone.setAttribute('data-fx', 'temporary');
-    clone.classList.remove('ready', 'acted');
-    clone.style.cssText = `
-        position: fixed;
-        left: ${savedLeft}px;
-        top: ${savedTop}px;
-        width: ${savedWidth}px;
-        height: ${savedHeight}px;
-        z-index: 99999;
-        margin: 0;
-        transition: none;
-        opacity: 1;
-        visibility: visible;
-        display: flex;
-        transform: none;
-        border: 2px solid #bbb;
-        border-radius: 5px;
-        box-sizing: border-box;
-    `;
-    clone.classList.add('crash-clone');
-    document.body.appendChild(clone);
-
-    cellA.style.display = 'none';
+    // ★ 扑空动画：不再 cloneNode 空壳 + display:none 藏原格（那是"白框飞过去 + 原地白框"的根——克隆的是脱节/空壳格子），
+    //   改为原格向前突进逼近目标后快速收回，配"未命中"气泡表达扑空感
     cellA.removeAttribute('data-flash');
     const ctxM = window._getPlayerContext ? window._getPlayerContext() : null;
     if (ctxM && ctxM.store) {
@@ -462,11 +440,25 @@ export function showMeleeMiss(unitA, unitD, speed, getPausedFn) {
     }
     cellA.classList.remove('ready');
 
-    let flyDur = 800 * (speed/1000); let start1 = null;
-    function phaseFly(ts) { if (getPausedFn && getPausedFn()) { requestAnimationFrame(phaseFly); return; } if (!start1) start1 = ts; let p = Math.min(1, (ts - start1) / flyDur); let ease = 1 - Math.pow(1-p, 3); let flown = (dist - rB.width * 0.2) * ease; clone.style.left = (savedLeft + nx * flown) + 'px'; clone.style.top = (savedTop + ny * flown) + 'px'; if (p < 1) { requestAnimationFrame(phaseFly); } else {
-        let returnDur = 600 * (speed/1000); let start2 = null;
-        function phaseReturn(ts2) { if (getPausedFn && getPausedFn()) { requestAnimationFrame(phaseReturn); return; } if (!start2) start2 = ts2; let p2 = Math.min(1, (ts2 - start2) / returnDur); let ease2 = 1 - Math.pow(1 - p2, 2); clone.style.left = (savedLeft + nx * (dist - rB.width * 0.2) * (1 - ease2)) + 'px'; clone.style.top = (savedTop + ny * (dist - rB.width * 0.2) * (1 - ease2)) + 'px'; if (p2 < 1) { requestAnimationFrame(phaseReturn); } else { finishCrash(clone, cellA, unitA, null); } }
-        requestAnimationFrame(phaseReturn);
-    } }
-    requestAnimationFrame(phaseFly);
+    const approach = dist - rB.width * 0.3;
+    const savedTransition = cellA.style.transition || '';
+    const savedTransform = cellA.style.transform || '';
+    const savedPosition = cellA.style.position || '';
+    const savedZIndex = cellA.style.zIndex || '';
+    cellA.style.position = 'relative';
+    cellA.style.zIndex = '100000';
+    cellA.style.transition = 'transform 0.2s ease-out';
+    cellA.style.transform = `translate(${nx * approach}px, ${ny * approach}px)`;
+
+    setTimeout(() => {
+        if (getPausedFn && getPausedFn()) return;
+        cellA.style.transition = 'transform 0.15s ease-in';
+        cellA.style.transform = 'translate(0,0)';
+    }, 200);
+    setTimeout(() => {
+        cellA.style.transform = savedTransform;
+        cellA.style.transition = savedTransition;
+        cellA.style.position = savedPosition;
+        cellA.style.zIndex = savedZIndex;
+    }, 380);
 }
