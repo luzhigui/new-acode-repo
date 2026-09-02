@@ -1,10 +1,9 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// fx/82fx-crash-5v5-test.js - 光明顶5v5 飞撞与格挡特效
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// fx/82fx-crash-5v5-test.js - 光明顶5v5 飞撞与格挡特效
 // V5.5.0 | 2026-07-12 修复飞走模式原地残留蓝色格子（清除_flash标记）
 export const VER = 'fx/82fx-crash-5v5-test.js V5.5.0';
 
 import { applyImpactShrink } from './80fx-common-5v5-test.js';
 import { STORE_ACTION_TYPES, CAMP_TYPES, ROLE_TYPES } from '../infra/56-battle-enums.js';
-import { getEliteState, setEliteState } from '../core/18-elite-state.js';
 
 function clearCrashStyles(cell) {
     if (!cell) return;
@@ -27,9 +26,9 @@ function finishCrash(clone, cell, unitA, UI) {
         // ★ 飞回结束后，必须彻底清除飞走状态和蓝色 flash，避免再次出现原地蓝色格子
         ctx.store.dispatch({ type: STORE_ACTION_TYPES.SET_VISUAL, uid: unitA.uid, _flyMode: null, _acted: true });
         ctx.store.dispatch({ type: STORE_ACTION_TYPES.CLEAR_UNIT_FLASH, uid: unitA.uid });
-        setEliteState(unitA.uid, { _flyMode: null });
+        Object.assign(unitA.state, { _flyMode: null });
     } else {
-        setEliteState(unitA.uid, { _flyMode: null });
+        Object.assign(unitA.state, { _flyMode: null });
     }
     if (cell) clearCrashStyles(cell);
     if (ctx) ctx.updateUI();
@@ -123,23 +122,23 @@ export function showMeleeCrash(unitA, unitD, speed, getPausedFn, onCrash) {
 
     // ★ 飞走模式关键修复：必须在 updateUI 触发重绘之前完成三件事：
     // 1) 清除攻击闪示（CLEAR_UNIT_FLASH），避免渲染出蓝色格子；
-    // 2) 同步 eliteState 的 _flyMode，因为 renderGrid 只读 getEliteState()._flyMode，不读 store state；
+    // 2) 同步 unit.state 的 _flyMode，因为 renderGrid 只读 unit.state._flyMode，不读 store state；
     // 3) 写入 store 的 _flyMode 和 _acted，供后续 finishCrash 恢复时使用。
-    // ghost 模式要保留蓝色虚影，所以不清 flash，但同样需要同步 eliteState，否则 renderGrid 不认虚影。
+    // ghost 模式要保留蓝色虚影，所以不清 flash，但同样需要同步 unit.state，否则 renderGrid 不认虚影。
     const ctxPre = window._getPlayerContext ? window._getPlayerContext() : null;
     if (ctxPre && ctxPre.store) {
         if (flyMode === 'fly') {
             ctxPre.store.dispatch({ type: STORE_ACTION_TYPES.CLEAR_UNIT_FLASH, uid: unitA.uid });
-            setEliteState(unitA.uid, { _flyMode: flyMode });
+            Object.assign(unitA.state, { _flyMode: flyMode });
             ctxPre.store.dispatch({ type: STORE_ACTION_TYPES.SET_VISUAL, uid: unitA.uid, _acted: true, _flyMode: flyMode });
         } else if (flyMode === 'ghost') {
-            // ghost 保持 attack flash，同时同步 eliteState，让 renderGrid 进入 ghost 分支（半透明虚影）
-            setEliteState(unitA.uid, { _flyMode: flyMode });
+            // ghost 保持 attack flash，同时同步 unit.state，让 renderGrid 进入 ghost 分支（半透明虚影）
+            Object.assign(unitA.state, { _flyMode: flyMode });
             ctxPre.store.dispatch({ type: STORE_ACTION_TYPES.SET_VISUAL, uid: unitA.uid, _acted: true });
         }
     }
 
-    // 现在才触发重绘，此时 store 与 eliteState 均已就绪，渲染结果正确
+    // 现在才触发重绘，此时 store 与 unit.state 均已就绪，渲染结果正确
     if (UI) {
         let uiUnitA = UI.allyTeam.concat(UI.enemyTeam).find(u => u.uid === unitA.uid);
         if (uiUnitA) uiUnitA.state._acted = true;

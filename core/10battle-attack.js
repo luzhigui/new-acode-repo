@@ -18,7 +18,6 @@ import {
 } from './12battle-attack-steps.js';
 import { eventBus, EFFECT_TYPES } from '../infra/50-event-bus.js';
 import { flushBattleEvents } from '../infra/51-core-utils.js';
-import { getEliteState } from './18-elite-state.js';
 
 import { emitEvent, applyStatChange, recordCombatStat } from './13battle-shared.js';
 import { FACT_TYPES, BUFF_TYPES, UNIT_EVENT_TYPES, CAMP_TYPES, SIGNAL_TYPES } from '../infra/56-battle-enums.js';
@@ -33,7 +32,7 @@ export function processUnitAttack(unit, allySide, enemySide, log, A, B, state, d
         unit.state._acted = true;
         return false;
     }
-    if (getEliteState(unit.uid)._spiderFlying || getEliteState(unit.uid)._flyMode === 'spider' || (unit._fsm && unit._fsm.is('flying'))) {
+    if (unit.state._spiderFlying || unit.state._flyMode === 'spider' || (unit._fsm && unit._fsm.is('flying'))) {
         log.push({ factType: FACT_TYPES.FLY_SKIP, data: { unitName: unit.name } });
         unit.state._acted = true;
         return false;
@@ -154,7 +153,7 @@ export function processUnitAttack(unit, allySide, enemySide, log, A, B, state, d
         immuneFact.events = flushBattleEvents();
         log.push({ factType: FACT_TYPES.IMMUNE, data: immuneFact });
 
-        if (!getEliteState(unit.uid)._isLinkAttack) unit.state._acted = true;
+        if (!unit.state._isLinkAttack) unit.state._acted = true;
         return true;
     }
 
@@ -226,7 +225,7 @@ export function processUnitAttack(unit, allySide, enemySide, log, A, B, state, d
         }
     }
 
-    if (!getEliteState(unit.uid)._isLinkAttack) unit.state._acted = true;
+    if (!unit.state._isLinkAttack) unit.state._acted = true;
 
     group._events = (group._events || []).concat(flushBattleEvents());
 

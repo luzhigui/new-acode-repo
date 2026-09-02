@@ -14,7 +14,6 @@ import { getBattleRng } from '../core/13battle-shared.js';
 import { GlobalStore, getState, getPlayerContext } from '../infra/54-global-store.js';
 import { createStore, battleReducer } from '../modules/24battle-store.js';
 import { STORE_ACTION_TYPES, STAGE_ACTION_TYPES, BUFF_SUBTYPES, BUFF_EFFECT_TYPES, FLY_MODE_TYPES, UNIT_EVENT_TYPES, DROP_TYPES, FLASH_TYPES, CAMP_TYPES, ROLE_TYPES, BUFF_TYPES } from '../infra/56-battle-enums.js';
-import { getEliteState, setEliteState } from '../core/18-elite-state.js';
 import { syncStateToUI } from '../core/17-state-keys.js';
 import { handleBuffBonus, handleBuffSwap, handleBuffPush, handleBuffReboundFortify, handleInfo, handleRoundStart, handleRoundEnd, shouldStartNewGroup } from './45event-handlers.js';
 import { handleAttackGroup } from './46attack-group.js';
@@ -750,8 +749,8 @@ export async function playBattle() {
                     if (c.store) {
                         const xiaoZhao = c.store.getState().units.find(u => u.isXiaoZhaoBrother && u.alive);
                         if (xiaoZhao) {
-                            if (!getEliteState(xiaoZhao.uid)._permanentBuffs) setEliteState(xiaoZhao.uid, { _permanentBuffs: [] });
-                            getEliteState(xiaoZhao.uid)._permanentBuffs.push({ ...newBuff, remaining: Infinity });
+                            if (!xiaoZhao.state._permanentBuffs) Object.assign(xiaoZhao.state, { _permanentBuffs: [] });
+                            xiaoZhao.state._permanentBuffs.push({ ...newBuff, remaining: Infinity });
                         }
                     }
                     if (pick === BUFF_TYPES.HOLY_FLAME) {
@@ -789,10 +788,10 @@ export async function playBattle() {
         }
 
         const uiXiaoZhao = c.store ? c.store.getState().units.find(u => u.isXiaoZhaoBrother) : null;
-        if (uiXiaoZhao && getEliteState(uiXiaoZhao.uid)._permanentBuffs && lastStep && lastStep.ally) {
+        if (uiXiaoZhao && uiXiaoZhao.state._permanentBuffs && lastStep && lastStep.ally) {
             const engineXiaoZhao = lastStep.ally.find(u => u.isXiaoZhaoBrother);
             if (engineXiaoZhao) {
-                setEliteState(engineXiaoZhao.uid, { _permanentBuffs: getEliteState(uiXiaoZhao.uid)._permanentBuffs.map(b => ({ ...b })) });
+                Object.assign(engineXiaoZhao.state, { _permanentBuffs: uiXiaoZhao.state._permanentBuffs.map(b => ({ ...b })) });
             }
         }
         battleState = { ally: lastStep.ally, enemy: lastStep.enemy, round: battleState.round + 1, activeBuffs: nextActiveBuffs, allAllies: battleState.allAllies };

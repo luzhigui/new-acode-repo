@@ -5,7 +5,6 @@ export const VER = 'render/32-grid-render.js V5.5.2';
 import { getUnitCol, getUnitRow, getAuraBonuses, getDodgeRules } from '../infra/51-core-utils.js';
 import { CONFIG, getSkillDesc } from '../core/01config-5v5-test.js';
 import { GlobalStore, getPlayerContext } from '../infra/54-global-store.js';
-import { getEliteState } from '../core/18-elite-state.js';
 import { FLASH_TYPES, CAMP_TYPES, ROLE_TYPES, BUFF_TYPES } from '../infra/56-battle-enums.js';
 
 let _store = null;
@@ -162,23 +161,23 @@ export function renderGrid(id, camp) {
         let pos = displayOrder[i], unit = team.find(c => c.pos === pos && c.alive) || team.find(c => c.pos === pos);
         if (unit && !unit.state) unit.state = {};
         if (unit && !unit.isHorse) {
-            if ((unit.state && getEliteState(unit.uid)._flyMode) || (unit._fsm && (unit._fsm.is('attached') || unit._fsm.is('flying')))) {
+            if ((unit.state && unit.state._flyMode) || (unit._fsm && (unit._fsm.is('attached') || unit._fsm.is('flying')))) {
                 let div = document.createElement('div');
                 div.className = 'cell occupied';
                 div.dataset.pos = pos;
                 div.dataset.uid = unit.uid;
-                if (getEliteState(unit.uid)._flyMode === 'fly') {
+                if (unit.state._flyMode === 'fly') {
                     div.style.background = 'transparent';
                     div.style.border = '2px solid transparent';
                     div.style.boxShadow = 'none';
-                } else if (getEliteState(unit.uid)._flyMode === 'ghost') {
+                } else if (unit.state._flyMode === 'ghost') {
                     let roleIcon = unit.role===ROLE_TYPES.WARRIOR?'⚔️':(unit.role===ROLE_TYPES.DEFENDER?'🛡️':(unit.role===ROLE_TYPES.RANGED?'🏹':'🦅'));
                     div.innerHTML = `<span class="cell-icon">${roleIcon}</span><div class="cell-info"><span class="cell-name">${unit.name}</span><span class="cell-stats">攻${Math.floor(unit.atk)} 防${Math.floor(unit.def)} 血${Math.floor(unit.hp)}</span></div>`;
                     div.style.opacity = '0.5';
                     div.style.background = 'rgba(30,100,255,0.28)';
                     div.style.border = '2px solid rgba(100,150,255,0.6)';
                     div.style.boxShadow = '0 0 12px rgba(100,150,255,0.5)';
-                } else if (getEliteState(unit.uid)._flyMode === 'butterfly' || (unit._fsm && unit._fsm.is('attached'))) {
+                } else if (unit.state._flyMode === 'butterfly' || (unit._fsm && unit._fsm.is('attached'))) {
                     const crashMode = window.GlobalStore?.get('crashMode') || 'ghost';
                     if (crashMode === 'fly') {
                         div.innerHTML = '<span class="cell-icon">🦋</span>';
@@ -190,7 +189,7 @@ export function renderGrid(id, camp) {
                         div.style.background = 'rgba(255, 192, 203, 0.15)';
                         div.style.border = '2px solid rgba(255, 105, 180, 0.4)';
                     }
-                } else if (getEliteState(unit.uid)._flyMode === 'spider' || (unit._fsm && unit._fsm.is('flying'))) {
+                } else if (unit.state._flyMode === 'spider' || (unit._fsm && unit._fsm.is('flying'))) {
                     const crashMode = window.GlobalStore?.get('crashMode') || 'ghost';
                     if (crashMode === 'fly') {
                         div.innerHTML = '<span class="cell-icon">🕷️</span>';
@@ -241,9 +240,9 @@ export function renderGrid(id, camp) {
         }
         let displayName = unit.name;
         let displayIsZhang = unit.isZhang || false;
-        if (unit.name === '成昆' && unit.state && getEliteState(unit.uid)._phantomTarget) {
+        if (unit.name === '成昆' && unit.state && unit.state._phantomTarget) {
             const allUnits = (ctx.UI.allyTeam || []).concat(ctx.UI.enemyTeam || []);
-            const mimicTarget = allUnits.find(u => u.uid === getEliteState(unit.uid)._phantomTarget);
+            const mimicTarget = allUnits.find(u => u.uid === unit.state._phantomTarget);
             if (mimicTarget) {
                 displayName = mimicTarget.name;
                 displayIsZhang = mimicTarget.isZhang || false;
@@ -260,7 +259,7 @@ export function renderGrid(id, camp) {
         let atkBonusVal = Math.floor(latestUnit.atk * latestUnit.buffAtkBonus);
         let defBonusVal = Math.floor((latestUnit._baseDef || latestUnit.def) * latestUnit.buffDefBonus);
         let hpBonusVal = Math.floor(latestUnit.maxHp * latestUnit.buffHpBonus);
-        let displayAtk = Math.round(latestUnit.atk + (getEliteState(latestUnit.uid)._carryAtkBonus || 0) + atkBonusVal);
+        let displayAtk = Math.round(latestUnit.atk + (latestUnit.state._carryAtkBonus || 0) + atkBonusVal);
         let initAtk = latestUnit._initAtk !== undefined ? Math.round(latestUnit._initAtk) : Math.round(latestUnit.atk);
         let totalChange = displayAtk - initAtk;
         let atkDisplayHtml = `${displayAtk}`;
@@ -276,7 +275,7 @@ export function renderGrid(id, camp) {
         let hpColorClass = hpPct>70?'hp-text-green':(hpPct>40?'hp-text-orange':'hp-text-red');
         let barColor = hpPct>70?'#4caf50':(hpPct>40?'#ff9800':'#f44336');
         let hpDisplayHtml = `${Math.floor(unit.hp)}`;
-        const hasButterflyHpBonus = (getEliteState(latestUnit.uid)._butterflyHpBonus || 0) > 0;
+        const hasButterflyHpBonus = (latestUnit.state._butterflyHpBonus || 0) > 0;
         if (hpBonusVal > 0 || (latestUnit._initMaxHp !== undefined && latestUnit._initMaxHp > 0 && latestUnit.maxHp > latestUnit._initMaxHp) || hasButterflyHpBonus) {
             hpDisplayHtml = `<span style="color:#daa520;font-weight:bold;">${Math.floor(unit.hp)}</span>`;
         }
@@ -324,15 +323,15 @@ export function renderGrid(id, camp) {
             buffIcons = Object.entries(iconMap).map(([icon, count]) => icon + (count > 1 ? 'x' + count : '')).join(' '); // join(' ') 空格分隔，便于后续 logo 拆分
         }
         let atkStyle = atkBonusVal > 0 ? 'color:#daa520;font-weight:bold;' : '';
-        let defStyle = (defBonusVal > 0 || (getEliteState(latestUnit.uid)._fortifyStacks || 0) > 0) ? 'color:#daa520;font-weight:bold;' : '';
+        let defStyle = (defBonusVal > 0 || (latestUnit.state._fortifyStacks || 0) > 0) ? 'color:#daa520;font-weight:bold;' : '';
         let hpStyle = hpBonusVal > 0 ? 'color:#daa520;font-weight:bold;' : '';
         let eliteSkillIcon = (unit.name === '周芷若' && unit._hasKuaiLe) ? ' 💖' : (unit.name === '宋青书' && unit._hasXingFen) ? ' 💗' : (unit.isXiaoZhaoSister ? ' 🦋' : (unit.isXiaoZhaoBrother ? ' 🕷️' : ''));
         if (!eliteSkillIcon) {
-            const sisterHost = allyTeam.find(a => a.isXiaoZhaoSister && a.alive && getEliteState(a.uid)._butterflyHost === unit.uid);
+            const sisterHost = allyTeam.find(a => a.isXiaoZhaoSister && a.alive && a.state._butterflyHost === unit.uid);
             if (sisterHost) eliteSkillIcon = ' 🦋';
         }
-        if (unit.name === '成昆' && unit.state && getEliteState(unit.uid)._phantomTarget) eliteSkillIcon += ' 🎭';
-        if (getEliteState(unit.uid)._xuanmingPoison && getEliteState(unit.uid)._xuanmingPoison.remaining > 0) eliteSkillIcon += ' ❄️';
+        if (unit.name === '成昆' && unit.state && unit.state._phantomTarget) eliteSkillIcon += ' 🎭';
+        if (unit.state._xuanmingPoison && unit.state._xuanmingPoison.remaining > 0) eliteSkillIcon += ' ❄️';
 
         // ====== 格子名字+logo 分级显示逻辑 ======
         // 规则（2026-08-19 达达+用户确认）：

@@ -6,7 +6,6 @@ import { CONFIG, getSkillParams, getGameData } from './01config-5v5-test.js';
 import { eventBus, EFFECT_TYPES } from '../infra/50-event-bus.js';
 import { calcDamage, getFangLevel, isMelee, getFronts, isBlocked, getRandomTaunt, getZhangNearTaunt, makeFXSnapshot, hasBuff, getUnitCol, getUnitRow } from './03battle-utils.js';
 import { emitEvent, applyStatChange, applyMaxHpChange, query, getBattleRng, recordCombatStat } from './13battle-shared.js';
-import { getEliteState } from './18-elite-state.js';
 import { flushBattleEvents, pushBattleEvent, getBattleState, setBattleState, registerDodgeRule, clearEliteDodgeRules, getDodgeRules } from '../infra/51-core-utils.js';
 import { getEffectHandler, hasEffectHandler, getCalcModifier, validateDeclarationFields, validateCalcModifierFields } from './16effect-handlers.js';
 import { FACT_TYPES, BUFF_TYPES, UNIT_EVENT_TYPES, DROP_TYPES, CAMP_TYPES, ROLE_TYPES, SIGNAL_TYPES } from '../infra/56-battle-enums.js';
@@ -29,7 +28,7 @@ const C = CONFIG;
 // ==================== 步骤1：选择攻击目标 ====================
 export function selectAttackTarget(unit, enemySide, allySide) {
     const rng = getBattleRng();
-    const validTargets = enemySide.filter(c => c.alive && !getEliteState(c.uid)._untargetable);
+    const validTargets = enemySide.filter(c => c.alive && !c.state._untargetable);
     if (validTargets.length === 0) return { target: null, phantomFact: null };
 
     const declaration = { targetResult: null };
@@ -41,7 +40,7 @@ export function selectAttackTarget(unit, enemySide, allySide) {
 
     if (declaration.targetResult) {
         const declared = declaration.targetResult;
-        if (declared && declared.alive && !getEliteState(declared.uid)._untargetable) {
+        if (declared && declared.alive && !declared.state._untargetable) {
             target = declared;
             phantomFact = declaration.phantomFact || null;
         }
@@ -69,8 +68,8 @@ export function selectAttackTarget(unit, enemySide, allySide) {
         }
     }
 
-    if (!target || !target.alive || getEliteState(target.uid)._untargetable) {
-        const fallback = validTargets.filter(c => c.alive && !getEliteState(c.uid)._untargetable);
+    if (!target || !target.alive || target.state._untargetable) {
+        const fallback = validTargets.filter(c => c.alive && !c.state._untargetable);
         if (fallback.length === 0) return { target: null, phantomFact: null };
         target = fallback[rng.nextInt(0, fallback.length - 1)];
     }
@@ -124,7 +123,7 @@ export function resolveAttackHit(unit, target, attackerBuffStats, defenderBuffSt
 
     const allyBuffs = (target.camp === CAMP_TYPES.ALLY && A ? A._activeBuffs : (target.camp === CAMP_TYPES.ENEMY && B ? B._activeBuffs : []));
     if (target.state._stunned) return { skipped: false };
-    const hasCloudBody = hasBuff(allyBuffs, BUFF_TYPES.CLOUD_BODY) || ((target.isXiaoZhaoSister || target.isXiaoZhaoBrother) && getEliteState(target.uid)._permanentBuffs && getEliteState(target.uid)._permanentBuffs.some(b => b.key === BUFF_TYPES.CLOUD_BODY));
+    const hasCloudBody = hasBuff(allyBuffs, BUFF_TYPES.CLOUD_BODY) || ((target.isXiaoZhaoSister || target.isXiaoZhaoBrother) && target.state._permanentBuffs && target.state._permanentBuffs.some(b => b.key === BUFF_TYPES.CLOUD_BODY));
     if (target.alive && (target.isWei || hasCloudBody || !target.state._acted)) {
         let dodgeTriggered = false;
         for (const ruleFn of getDodgeRules()) {
@@ -472,8 +471,8 @@ export function buildAttackGroup(unit, target, dmgCalc, dmgResult, attackerBuffS
         attackerRole: unit.role,
         attackerIsZhangNear: !!(unit.isZhang && !unit.rangedForm),
         attackerNearAtkCount: unit.nearAtkCount,
-        isKuLianAttack: !!(unit.name === '宋青书' && getEliteState(unit.uid)._kuLianActive),
-        isLinkAttack: !!getEliteState(unit.uid)._isLinkAttack,
+        isKuLianAttack: !!(unit.name === '宋青书' && unit.state._kuLianActive),
+        isLinkAttack: !!unit.state._isLinkAttack,
         targetDefDisplay: Math.floor(target.def + target.def * defenderBuffStats.defBonus),
         targetDefBonusAbs: Math.floor(target.def * defenderBuffStats.defBonus),
         targetHpAfter: Math.floor(target.hp),

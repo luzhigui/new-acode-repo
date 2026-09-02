@@ -6,8 +6,7 @@ import { CONFIG, getGameData } from './01config-5v5-test.js';
 
 import { StateMachine } from '../infra/51-core-utils.js';
 
-import { BATTLE_FIELD_KEYS, PERMANENT_FIELD_KEYS, copyBattleStateFields, resetStateFields } from './17-state-keys.js';
-import { getEliteState, cloneEliteState } from './18-elite-state.js';
+import { BATTLE_FIELD_KEYS, PERMANENT_FIELD_KEYS, BATTLE_STATE_KEYS, copyAllStateFields, resetStateFields } from './17-state-keys.js';
 
 import { ROLE_TYPES } from '../infra/56-battle-enums.js';
 
@@ -42,12 +41,17 @@ export class Unit {
         this.leechDone=0;this.dodgeCount=0;this.critCount=0;
         this.survivedRounds=0;this._flash=null;
         this.fixed=false;this._originalPos=-1;
-        this.state = {
-            _acted: false, _stunned: false, _isDead: false, _resting: false,
-            _blocked: false,
-            _emptyColBonus: 0, _bloodAuraBonus: 0,
-            _holyAtkBonus: 0, _holyDefBonus: 0, _fortifyDefBonus: 0
-        };
+        this.state = {};
+        resetStateFields(this.state);
+        for (const key of BATTLE_STATE_KEYS) {
+            if (key === '_spiderRemaining') this.state[key] = 3;
+            else if (key === '_isDead') this.state[key] = false;
+            else if (key === '_xuanmingPoison') this.state[key] = null;
+            else if (['_kuaiLeStack', '_masteredRoles', '_permanentBuffs'].includes(key)) this.state[key] = [];
+            else if (['_fortifyStacks', '_fortifyIncrement', '_fortifyCap', '_dodgeStack', '_extinctionUsed', '_spiderTriggeredHit', '_spiderTriggered70', '_spiderTriggered40', '_spiderTriggeredDeath', '_hotBloodCount', '_doubleStriked', '_zhangSwitched', '_carryAtkBonus', '_carryDefBonus', '_carryHpBonus', '_butterflyAtkBonus', '_butterflyDefBonus', '_xingFenCount', '_xingFenPenaltyCount', '_kuLianActive', '_butterflyAtk', '_butterflyDef', '_butterflyHp', '_butterflyHpTransfer', '_untargetable', '_zhangTauntDone'].includes(key)) this.state[key] = false;
+            else this.state[key] = false;
+        }
+        for (const key of ['_linkedPartnerUid']) this.state[key] = null;
         this.buffAtkBonus = 0;
         this.buffDefBonus = 0;
         this.buffDodgeBonus = 0;
@@ -58,7 +62,6 @@ export class Unit {
         this._initMaxHp = 0;        // 战斗开始时的初始血量上限（永不修改）
         this.isXiaoZhaoSister = false; // 🦋 小昭·姊
         this.isXiaoZhaoBrother = false; // 🕷️ 小昭·妹
-        getEliteState(this.uid);
     }
     clone(){
         let c=new Unit(this.name,this.m,this.role,this.camp);
@@ -66,8 +69,6 @@ export class Unit {
         for (const key of PERMANENT_FIELD_KEYS) {
             if (this[key] !== undefined) c[key] = this[key];
         }
-        // 精英机制状态由 18-elite-state 管理：cloneEliteState 负责整场字段复制
-        cloneEliteState(this.uid, c.uid);
         // 整场标量字段：浅拷贝（查表式）
         for (const key of BATTLE_FIELD_KEYS) {
             if (this[key] === undefined) continue;
@@ -78,11 +79,14 @@ export class Unit {
             if (key === 'state' || key === '_fsm') continue;
             c[key] = this[key];
         }
-        // state：整场字段拷贝 + 回合级字段重置，统一查表（17-state-keys 驱动）
+        // state：全量字段统一拷贝（17-state-keys 驱动），数组深拷贝、对象浅拷贝
         c.state = {};
-        copyBattleStateFields(this.state, c.state);
-        resetStateFields(c.state);
+        copyAllStateFields(this.state, c.state);
         // FSM：重建新实例，深拷贝 transitions 避免共享引用
+        // ★ 2026-09-02 定案：FSM 不做骨架声明化。有 FSM 的角色仅 3 个（张无忌/小昭·姊/小昭·妹），
+        //   声明化只能挪骨架、动作仍须写 JS，收益不抵成本。若后续状态收口把 elite-state 并入
+        //   Unit.state，transitions 随 state 统一 clone/reset，此处 JSON 深拷贝的脆弱点顺带解决，
+        //   不再单独做声明化。此决定不再反复讨论。
         if (this._fsm) {
             const tr = this._fsm.transitions ? JSON.parse(JSON.stringify(this._fsm.transitions)) : null;
             c._fsm = new StateMachine(this._fsm.states, this._fsm.current, tr);

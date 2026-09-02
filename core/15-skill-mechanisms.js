@@ -7,7 +7,6 @@ import { CONFIG } from './01config-5v5-test.js';
 import { registerDodgeRule } from './12battle-attack-steps.js';
 import { emitEvent, applyStatChange, applyMaxHpChange, getBattleRng } from './13battle-shared.js';
 import { checkKuLian, applyXingFenGrant, tickKuaiLeHeal, canXingFenTrigger, consumeXingFen } from '../modules/20elite-skills.js';
-import { getEliteState, setEliteState } from './18-elite-state.js';
 import { FACT_TYPES, UNIT_EVENT_TYPES, CAMP_TYPES, SIGNAL_TYPES } from '../infra/56-battle-enums.js';
 // 机制查表化：静态顶层 import 避免动态 import 的异步时序导致 registerSettlementHook 错过注册
 import { installMechanicByType } from '../modules/30custom-effects.js';
@@ -100,7 +99,7 @@ function submitBeforeDamageEffects(data, decls) {
             if (eff.type === 'ignoreDef') {
                 data.declarations.push({ type: EFFECT_TYPES.IGNORE_DEF, value: eff.ratio, source: data.unit });
             } else if (eff.type === 'damageMultiplierIfPoisoned') {
-                if (getEliteState(data.target.uid)._xuanmingPoison && getEliteState(data.target.uid)._xuanmingPoison.remaining > 0) {
+                if (data.target.state._xuanmingPoison && data.target.state._xuanmingPoison.remaining > 0) {
                     data.declarations.push({ type: EFFECT_TYPES.DMG_MULTIPLIER, value: 1 + eff.bonus, source: data.unit, label: '鹿角杖法' });
                 }
             } else if (eff.type === 'bonusLostHp') {
@@ -141,7 +140,7 @@ function installAttributeModifiers(A, B, decl) {
     if (!target) return;
     for (const mod of decl.attributeMods) {
         if (mod.type === 'fortifyIncrementMul') {
-            setEliteState(target.uid, { _fortifyIncrement: CONFIG.FORTIFY_INCREMENT * mod.mult, _fortifyCap: CONFIG.FORTIFY_CAP * mod.mult });
+            Object.assign(target.state, { _fortifyIncrement: CONFIG.FORTIFY_INCREMENT * mod.mult, _fortifyCap: CONFIG.FORTIFY_CAP * mod.mult });
         }
     }
 }
@@ -184,7 +183,7 @@ function submitOnHitEffects(data, onHitDecls) {
                     });
                 }
             } else if (eff.type === 'poison') {
-                setEliteState(target.uid, { _xuanmingPoison: { remaining: eff.duration, dotPercents: [...eff.dotPercents] } });
+                Object.assign(target.state, { _xuanmingPoison: { remaining: eff.duration, dotPercents: [...eff.dotPercents] } });
                 // 毒记账异步 push（emit 未 await）：按所属 group 定位插入 log，紧跟本攻击组，
                 // 嵌套联动攻击下外层毒先插到自己 group 后、内层毒插到自己 group 后，顺序稳定不错位
                 const poisonFact = { factType: FACT_TYPES.XUAN_MING_POISONED, data: { attackerName: unit.name, targetName: target.name, dotPercents: eff.dotPercents } };
@@ -236,9 +235,9 @@ function submitPhantomDisguiseOnHit(data, decls) {
     if (!unit || !unit.alive || data.dmg <= 0) return;
     const decl = decls.find(d => d.name === unit.name);
     if (!decl) return;
-    const enemyAlive = data.enemySide.filter(u => u.alive && !u.isHorse && !getEliteState(u.uid)._untargetable);
+    const enemyAlive = data.enemySide.filter(u => u.alive && !u.isHorse && !u.state._untargetable);
     if (enemyAlive.length > 0) {
-        setEliteState(unit.uid, { _phantomTarget: enemyAlive[getBattleRng().nextInt(0, enemyAlive.length - 1)].uid });
+        Object.assign(unit.state, { _phantomTarget: enemyAlive[getBattleRng().nextInt(0, enemyAlive.length - 1)].uid });
         const lostHp = unit.maxHp - unit.hp;
         if (lostHp > 0) {
             const aliveCount = data.enemySide.filter(u => u.alive).length;
@@ -252,7 +251,7 @@ function submitPhantomDisguiseOnHit(data, decls) {
                 factData: { unitName: unit.name, heal }
             });
         }
-        emitEvent(unit, UNIT_EVENT_TYPES.HP_CHANGE, { hp:unit.hp, maxHp:unit.maxHp, alive:unit.alive, atk:unit.atk, def:unit.def, _phantomTarget:getEliteState(unit.uid)._phantomTarget });
+        emitEvent(unit, UNIT_EVENT_TYPES.HP_CHANGE, { hp:unit.hp, maxHp:unit.maxHp, alive:unit.alive, atk:unit.atk, def:unit.def, _phantomTarget:unit.state._phantomTarget });
     }
 }
 
@@ -262,7 +261,7 @@ function submitPhantomDisguiseTarget(data, decls) {
     let phantomDecl = null;
     let chengkun = null;
     for (const d of decls) {
-        const candidate = enemySide.find(u => u.name === d.name && u.alive && getEliteState(u.uid)._phantomTarget);
+        const candidate = enemySide.find(u => u.name === d.name && u.alive && u.state._phantomTarget);
         if (candidate) {
             phantomDecl = d;
             chengkun = candidate;
@@ -271,7 +270,7 @@ function submitPhantomDisguiseTarget(data, decls) {
     }
     if (!phantomDecl || !chengkun) return;
 
-    const isPhantomTarget = getEliteState(chengkun.uid)._phantomTarget === unit.uid;
+    const isPhantomTarget = chengkun.state._phantomTarget === unit.uid;
     if (isPhantomTarget) {
         declaration.targetResult = chengkun;
         declaration.phantomFact = { factType: FACT_TYPES.PHANTOM_REVEAL, data: { unitName: unit.name, deceiver: chengkun.name } };
@@ -282,7 +281,7 @@ function submitPhantomDisguiseTarget(data, decls) {
     const confuseChance = (phantomDecl.baseChance || 0.30) + (phantomDecl.per10pctLost || 0.06) * (lostHpPct * 10);
     if (getBattleRng().next() >= confuseChance) return;
 
-    const phantomTarget = allySide.find(u => u.alive && !u.isHorse && !getEliteState(u.uid)._untargetable && u.uid === getEliteState(chengkun.uid)._phantomTarget && u.uid !== unit.uid);
+    const phantomTarget = allySide.find(u => u.alive && !u.isHorse && !u.state._untargetable && u.uid === chengkun.state._phantomTarget && u.uid !== unit.uid);
     if (phantomTarget) {
         declaration.targetResult = phantomTarget;
         declaration.phantomFact = { factType: FACT_TYPES.PHANTOM_CONFUSE, data: { unitName: unit.name, deceiver: chengkun.name, targetName: phantomTarget.name } };
@@ -316,14 +315,14 @@ function installPhantomDisguise(eventBus, declarations) {
 // 玄冥联动监听器薄壳化：判定 + extraRequests 驱动"再攻击"链（_linkTriggered 直写保留原样）
 function submitLinkAttack(data, decls) {
     const { unit, target, dmg, allySide, log } = data;
-    if (!unit || getEliteState(unit.uid)._isLinkAttack || dmg <= 0 || !target || !target.alive) return;
+    if (!unit || unit.state._isLinkAttack || dmg <= 0 || !target || !target.alive) return;
     const decl = decls.find(d => d.name === unit.name);
     if (!decl) return;
     const partnerNames = decl.partnerNames || [];
     for (const partnerName of partnerNames) {
-        const partner = allySide.find(u => u.name === partnerName && u.alive && !getEliteState(u.uid)._linkTriggered);
+        const partner = allySide.find(u => u.name === partnerName && u.alive && !u.state._linkTriggered);
         if (!partner) continue;
-        setEliteState(partner.uid, { _linkTriggered: true });
+        Object.assign(partner.state, { _linkTriggered: true });
         log.push({ factType: FACT_TYPES.XUAN_MING_LINK_ATTACK, data: { partnerName: partner.name, unitName: unit.name } });
         if (!data.extraRequests) data.extraRequests = [];
         data.extraRequests.push({
@@ -363,8 +362,8 @@ function submitChainClaw(data, decls) {
     const baseHit = zhangAlive ? (decl.jealous?.baseDmg ?? decl.baseDmg ?? 2) : (decl.baseDmg ?? 1.5);
     const s = zhangAlive ? { ...decl, ...(decl.jealous || {}) } : decl;
 
-    if (!getEliteState(unit.uid)._nineYinFirstDone) {
-        setEliteState(unit.uid, { _nineYinFirstDone: true });
+    if (!unit.state._nineYinFirstDone) {
+        Object.assign(unit.state, { _nineYinFirstDone: true });
     } else {
         if (rng.next() > (s.procChance || 0.80)) return;
     }
@@ -444,7 +443,7 @@ function submitKuLian(data, decls) {
     if (!decl) return;
     const kuLianSong = checkKuLian(B);
     if (!kuLianSong) return;
-    setEliteState(kuLianSong.uid, { _kuLianActive: true });
+    Object.assign(kuLianSong.state, { _kuLianActive: true });
     const s = {
         atkBonus: decl.atkBonus || 1,
         defBonus: decl.defBonus || 1,
@@ -488,7 +487,7 @@ function submitXinHun(data, decls) {
     const hpDeduct = decl.hpDeduct || 1;
     const healLevels = decl.healLevels || [0.16, 0.10, 0.06, 0.03];
     applyStatChange(zhou, 'hp', -hpDeduct, unit, '新婚扣血', false);
-    getEliteState(zhou.uid)._kuaiLeStack.push({ healPct: healLevels[0] });
+    zhou.state._kuaiLeStack.push({ healPct: healLevels[0] });
     if (zhou.hp <= 0) { if (!zhou._deathTime) zhou._deathTime = Date.now(); }
     log.push({
         factType: FACT_TYPES.XIN_HUN,
@@ -497,15 +496,15 @@ function submitXinHun(data, decls) {
             targetName: zhou.name,
             hpDeduct,
             healPct: healLevels[0],
-            stackCount: getEliteState(zhou.uid)._kuaiLeStack.length,
+            stackCount: zhou.state._kuaiLeStack.length,
             zhouUid: zhou.uid,
             zhouHpAfter: zhou.hp,
             isDead: !!zhou._pendingDeath
         }
     });
     if (zhou._pendingDeath) { log.push({ factType: FACT_TYPES.XIN_HUN_DEATH, data: { unitName: zhou.name, uidD: zhou.uid } }); }
-    setEliteState(unit.uid, { _xingFenPenaltyCount: (getEliteState(unit.uid)._xingFenPenaltyCount || 0) + 1 });
-    const penalty = getEliteState(unit.uid)._xingFenPenaltyCount + 1;
+    Object.assign(unit.state, { _xingFenPenaltyCount: (unit.state._xingFenPenaltyCount || 0) + 1 });
+    const penalty = unit.state._xingFenPenaltyCount + 1;
     if (penalty > 0 && unit.maxHp > 1) {
         const oldMaxHp = unit.maxHp;
         applyMaxHpChange(unit, Math.max(1, unit.maxHp - penalty), null, '性奋代价');
