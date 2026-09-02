@@ -4,6 +4,7 @@ export const VER = 'ui/65main-battle.js V5.5.1';
 
 import { CONFIG } from '../core/01config-5v5-test.js';
 import { SeededRNG } from '../infra/51-core-utils.js';
+import { GlobalStore } from '../infra/54-global-store.js';
 import { addPermanentBuff } from '../modules/20elite-skills.js';
 import { updateUI } from './62ui-render-5v5-test.js';
 import { showModal } from './60main-utils.js';
@@ -28,6 +29,7 @@ export function doInitBattle(currentStage, UI, snapshot, activeBuffs, selectedBu
     UI.enemyTeam = enemyTeam.map(u => u.clone());
     UI.currentResult = null;
     UI.round = 0;
+    GlobalStore.set('battleLog', []); // ★ V5.7.8 战报累积日志随新局重置（体检规则数据源）
     GlobalStore.set('battleHasZhang', allyTeam.some(u => u.isZhang));
     window._lastBattleSeed = Date.now();
     snapshot._rngSeed = _rng.getState();
@@ -218,6 +220,7 @@ export function logTeamInfo(label, UI, gs, battleResultForInfo, activeBuffs, has
 export function abortAll(abortController, UI, waitingForNextRound, isBattleStarting, adjustMode, selectedAdjustPos, activeBuffs, selectedBuffIndex, currentDoubleStrikeUid, updateBuffSlotsFn) {
     if (abortController) { abortController.abort(); abortController = null; }
     if (UI) UI.currentResult = null;
+    GlobalStore.set('battleLog', []); // ★ V5.7.8 中止清场：战报累积一并作废
     resetBattleRuntime();
     updateBuffSlotsFn();
     return {
