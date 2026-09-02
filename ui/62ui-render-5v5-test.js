@@ -4,7 +4,6 @@ export const VER = 'ui/62ui-render-5v5-test.js V5.5.1';
 
 import { getSkillDesc } from '../core/01config-5v5-test.js';
 import { getAuraBonuses } from '../core/03battle-utils.js';
-import { getEliteState } from '../core/18-elite-state.js';
 import { GlobalStore } from '../infra/54-global-store.js';
 import { BUFF_TYPES, CAMP_TYPES } from '../infra/56-battle-enums.js';
 import {
@@ -64,8 +63,8 @@ window.openDetailPopup = openDetailPopup;
 function renderAtkDetail(u, buffStats, ctx) {
     let initAtk = u._initAtk !== undefined ? u._initAtk : u.atk;
     let holyAtkBonus = Math.floor(initAtk * buffStats.atkBonus);
-    let carryAtk = getEliteState(u.uid)._carryAtkBonus || 0;
-    let butterflyAtk = getEliteState(u.uid)._butterflyAtkBonus || 0;
+    let carryAtk = u.state._carryAtkBonus || 0;
+    let butterflyAtk = u.state._butterflyAtkBonus || 0;
     let finalAtk = u.atk;
     let permChange = finalAtk - initAtk - holyAtkBonus - carryAtk - butterflyAtk;
     let parts = [String(initAtk)];
@@ -88,9 +87,9 @@ function renderAtkDetail(u, buffStats, ctx) {
 function renderDefDetail(u, buffStats) {
     let initDef = u._initDef !== undefined ? u._initDef : u.def;
     let holyDefBonus = Math.floor(initDef * buffStats.defBonus);
-    let carryDef = getEliteState(u.uid)._carryDefBonus || 0;
-    let butterflyDef = getEliteState(u.uid)._butterflyDefBonus || 0;
-    let fortifyStacks = getEliteState(u.uid)._fortifyStacks || 0;
+    let carryDef = u.state._carryDefBonus || 0;
+    let butterflyDef = u.state._butterflyDefBonus || 0;
+    let fortifyStacks = u.state._fortifyStacks || 0;
     let fortifyDef = fortifyStacks;
     let finalDef = Math.round(u.def);
     let permChange = finalDef - Math.round(initDef) - holyDefBonus - carryDef - butterflyDef - fortifyDef;
@@ -134,9 +133,9 @@ function updateDetailPopupContent() {
     let buffText = '无';
     let masteryText = '';
     if (u.isXiaoZhaoSister || u.isXiaoZhaoBrother) {
-        const perms = getEliteState(u.uid)._permanentBuffs || [];
+        const perms = u.state._permanentBuffs || [];
         buffText = perms.length > 0 ? perms.map(b => b.name).join('、') : '无';
-        const mastered = getEliteState(u.uid)._masteredRoles || [];
+        const mastered = u.state._masteredRoles || [];
         masteryText = mastered.length > 0 ? `<span style="color:#888;">精通</span><span>${mastered.join('、')}（${mastered.length}/4，+${mastered.length * 2}攻+${mastered.length * 3}防+${(mastered.length * 12.5).toFixed(1)}血）</span>` : '';
     } else if (unitBuffs.length > 0) {
         buffText = unitBuffs.map(b => `${b.name}(${b.remaining}回)`).join('、');
@@ -144,7 +143,7 @@ function updateDetailPopupContent() {
     let atkBonusVal = Math.floor(u.atk * u.buffAtkBonus);
     let defBonusVal = Math.floor(u.def * u.buffDefBonus);
     let hpBonusVal = Math.floor(u.maxHp * u.buffHpBonus);
-    let butterflyHpBonus = getEliteState(u.uid)._butterflyHpBonus || 0;
+    let butterflyHpBonus = u.state._butterflyHpBonus || 0;
     if (butterflyHpBonus > 0) {
         hpStyle = 'color:#daa520;font-weight:bold;';
     }

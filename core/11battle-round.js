@@ -1,9 +1,9 @@
 // core/11battle-round.js - 光明顶5v5 回合循环与生成器
-// V5.6.2 | ~23700 bytes| 2026-08-26 回合重置走 resetEliteRoundState；蝶变方向弹窗移至播放器层
+// V5.6.2 | ~23700 bytes| 2026-08-26 回合重置走 resetStateFields；蝶变方向弹窗移至播放器层
 export const VER = 'core/11battle-round.js V5.6.2';
 
 import { CONFIG, getGameData, getSkillParams } from './01config-5v5-test.js';
-import { ROUND_STATE_KEYS, ROUND_FIELD_KEYS } from './17-state-keys.js';
+import { ROUND_STATE_KEYS, ROUND_FIELD_KEYS, resetStateFields } from './17-state-keys.js';
 import { isMelee, isBlocked, makeFXSnapshot, hasBuff, getUnitCol, getUnitRow, hasAnyEnemyEmptyCol, countEnemyEmptyCols, getBloodAuraBonus, getAuraBonuses, registerWarriorBreakDefense, registerRangedGrowth, registerFortifyShield, registerWarriorExecute, selectFlyTarget, registerEmptyColBonus, registerDoubleStrike } from './03battle-utils.js';
 import { computeBuffStats, logBuffSummary, applyHolyFlameBonus, applyFortifyBonus, applyCarryBonus, installBuffMechanics } from './04buff-system.js';
 import { spawnHorse, destroyHorse } from './05battle-horse.js';
@@ -15,7 +15,6 @@ import { getEliteFactories } from './08-elite-registry.js';
 import { processUnitAttack } from './10battle-attack.js';
 import { eventBus, EXECUTION_LAYER as L, registerSettlementHook } from '../infra/50-event-bus.js';
 import { getNextAvailableUnit, finalizeDeaths, emitFullUnitState, checkZhangSwitch, emitEvent, applyStatChange, setBattleRng } from './13battle-shared.js';
-import { getEliteState, setEliteState, cloneEliteState, resetEliteRoundState } from './18-elite-state.js';
 import { FACT_TYPES, BUFF_TYPES, UNIT_EVENT_TYPES, CAMP_TYPES, ROLE_TYPES, SIGNAL_TYPES } from '../infra/56-battle-enums.js';
 import { flushBattleEvents, setBattleState } from '../infra/51-core-utils.js';
 import { SeededRNG } from '../infra/51-core-utils.js';
@@ -106,7 +105,7 @@ function prepareRoundStart(A, B, log, state, round, rng) {
         when: SIGNAL_TYPES.BEFORE_ACTION_SELECT,
         priority: L.BEFORE_ACTION.KULIAN_PRIORITY,
         handler: (data) => {
-            if (data.unit.name !== '宋青书' || !data.unit.alive || !getEliteState(data.unit.uid)._kuLianActive) return;
+            if (data.unit.name !== '宋青书' || !data.unit.alive || !data.unit.state._kuLianActive) return;
             data.declaration.priority = 1;
         }
     });
@@ -152,16 +151,16 @@ function prepareRoundStart(A, B, log, state, round, rng) {
 
     const song = B.find(u => u.name === '宋青书' && u.alive);
     const zhou = B.find(u => u.name === '周芷若' && u.alive);
-    if (song && zhou) { setEliteState(song.uid, { _linkedPartnerUid: zhou.uid }); setEliteState(zhou.uid, { _linkedPartnerUid: song.uid }); }
+    if (song && zhou) { Object.assign(song.state, { _linkedPartnerUid: zhou.uid }); Object.assign(zhou.state, { _linkedPartnerUid: song.uid }); }
     const lu = B.find(u => u.name === '鹿杖客' && u.alive);
     const he = B.find(u => u.name === '鹤笔翁' && u.alive);
-    if (lu && he) { setEliteState(lu.uid, { _linkedPartnerUid: he.uid }); setEliteState(he.uid, { _linkedPartnerUid: lu.uid }); }
+    if (lu && he) { Object.assign(lu.state, { _linkedPartnerUid: he.uid }); Object.assign(he.state, { _linkedPartnerUid: lu.uid }); }
 
     // ★ 精英回合状态必须在授权事件之前统一重置：
-    //   原顺序为 emit(授权) → forEach 内 resetEliteRoundState(清零)，
+    //   原顺序为 emit(授权) → forEach 内 resetStateFields(清零)，
     //   导致性奋/苦练授权后立即被清，攻击时刻读到 false 静默失效。
-    A.forEach(u => { if (u.alive) resetEliteRoundState(u.uid); });
-    B.forEach(u => { if (u.alive) resetEliteRoundState(u.uid); });
+    A.forEach(u => { if (u.alive) resetStateFields(u.state); });
+    B.forEach(u => { if (u.alive) resetStateFields(u.state); });
 
     eventBus.emit(SIGNAL_TYPES.ON_ROUND_START, { A, B, log });
 
@@ -187,7 +186,7 @@ function prepareRoundStart(A, B, log, state, round, rng) {
             buffDodgeBonus: stats.dodgeBonus,
             buffHpBonus: stats.hpBonus
         });
-        emitEvent(u, UNIT_EVENT_TYPES.HP_CHANGE, { hp: u.hp, maxHp: u.maxHp, alive: u.alive, atk: u.atk, def: u.def, buffAtkBonus: u.buffAtkBonus, buffDefBonus: u.buffDefBonus, _holyAtkBonus: u.state._holyAtkBonus, _holyDefBonus: u.state._holyDefBonus, _fortifyDefBonus: u.state._fortifyDefBonus, _emptyColBonus: u.state._emptyColBonus, _bloodAuraBonus: u.state._bloodAuraBonus, _carryAtkBonus: getEliteState(u.uid)._carryAtkBonus, _carryDefBonus: getEliteState(u.uid)._carryDefBonus });
+        emitEvent(u, UNIT_EVENT_TYPES.HP_CHANGE, { hp: u.hp, maxHp: u.maxHp, alive: u.alive, atk: u.atk, def: u.def, buffAtkBonus: u.buffAtkBonus, buffDefBonus: u.buffDefBonus, _holyAtkBonus: u.state._holyAtkBonus, _holyDefBonus: u.state._holyDefBonus, _fortifyDefBonus: u.state._fortifyDefBonus, _emptyColBonus: u.state._emptyColBonus, _bloodAuraBonus: u.state._bloodAuraBonus, _carryAtkBonus: u.state._carryAtkBonus, _carryDefBonus: u.state._carryDefBonus });
         emitEvent(u, UNIT_EVENT_TYPES.STAT_BONUS_CHANGE, {
             buffAtkBonus: stats.atkBonus,
             buffDefBonus: stats.defBonus,
@@ -198,8 +197,8 @@ function prepareRoundStart(A, B, log, state, round, rng) {
         applyCarryBonus(u, A, state, log, stats);
 
         const auraBonuses = getAuraBonuses(u, A, B);
-        const targetAtk = (u._baseAtk || u.atk) + (getEliteState(u.uid)._carryAtkBonus || 0) + (getEliteState(u.uid)._butterflyAtkBonus || 0) + (u.state._holyAtkBonus || 0) + auraBonuses.emptyCol + auraBonuses.bloodAura;
-        const targetDef = (u._baseDef || u.def) + (getEliteState(u.uid)._carryDefBonus || 0) + (getEliteState(u.uid)._butterflyDefBonus || 0) + (u.state._holyDefBonus || 0) + (u.state._fortifyDefBonus || 0);
+        const targetAtk = (u._baseAtk || u.atk) + (u.state._carryAtkBonus || 0) + (u.state._butterflyAtkBonus || 0) + (u.state._holyAtkBonus || 0) + auraBonuses.emptyCol + auraBonuses.bloodAura;
+        const targetDef = (u._baseDef || u.def) + (u.state._carryDefBonus || 0) + (u.state._butterflyDefBonus || 0) + (u.state._holyDefBonus || 0) + (u.state._fortifyDefBonus || 0);
         applyStatChange(u, 'atk', targetAtk - u.atk, null, '光环加成');
         applyStatChange(u, 'def', targetDef - u.def, null, '光环加成');
 
@@ -207,7 +206,7 @@ function prepareRoundStart(A, B, log, state, round, rng) {
 
         // 回合级状态统一重置（查表式，新增回合级字段由 17-state-keys 驱动，无需改这里）
         for (const key of ROUND_STATE_KEYS) {
-            if (key === '_spiderTriggeredThisRound' || key === '_phantomTarget') continue; // 归 resetEliteRoundState 管
+            if (key === '_spiderTriggeredThisRound' || key === '_phantomTarget') continue; // 归 resetStateFields 管
             if (key === '_stunned') u.state[key] = false;
             else if (key === '_acted' || key === '_resting' || key === '_blocked') u.state[key] = false;
             else if (key === '_spiderFlying') u.state[key] = false;
@@ -217,7 +216,7 @@ function prepareRoundStart(A, B, log, state, round, rng) {
         u._xingFenExtraAttacking = false;
         u._bloodthirstStriked = false;
         u._butterflyHpBonus = 0;
-        setEliteState(u.uid, { _doubleStriked: false, _butterflyAtkBonus: 0, _butterflyDefBonus: 0 });
+        Object.assign(u.state, { _doubleStriked: false, _butterflyAtkBonus: 0, _butterflyDefBonus: 0 });
     });
 
     B.forEach(u => {
@@ -225,13 +224,13 @@ function prepareRoundStart(A, B, log, state, round, rng) {
         emitEvent(u, UNIT_EVENT_TYPES.HP_CHANGE, { hp: u.hp, maxHp: u.maxHp, alive: u.alive, atk: u.atk, def: u.def, _stunned: false });
         // 回合级状态统一重置（查表式，与 A 队一致）
         for (const key of ROUND_STATE_KEYS) {
-            if (key === '_spiderTriggeredThisRound' || key === '_phantomTarget') continue; // 归 resetEliteRoundState 管
+            if (key === '_spiderTriggeredThisRound' || key === '_phantomTarget') continue; // 归 resetStateFields 管
             if (key === '_stunned') u.state[key] = false;
             else if (key === '_acted' || key === '_resting' || key === '_blocked') u.state[key] = false;
             else if (key === '_spiderFlying') u.state[key] = false;
             else u.state[key] = false;
         }
-        setEliteState(u.uid, { _doubleStriked: false });
+        Object.assign(u.state, { _doubleStriked: false });
         u._xingFenExtraAttacking = false;
         u._bloodthirstStriked = false;
         const auraBonuses = getAuraBonuses(u, B, A);
@@ -358,7 +357,7 @@ export function* createRoundStepper(state, { ui = true } = {}) {
                 passUnits.push({ unit: u, reason: '拒马休息' });
                 continue;
             }
-            if (getEliteState(u.uid)._flyMode === 'butterfly' || getEliteState(u.uid)._flyMode === 'spider' || getEliteState(u.uid)._spiderFlying || (u._fsm && u._fsm.is('flying'))) {
+            if (u.state._flyMode === 'butterfly' || u.state._flyMode === 'spider' || u.state._spiderFlying || (u._fsm && u._fsm.is('flying'))) {
                 passUnits.push({ unit: u, reason: '飞天/附身' });
                 continue;
             }
@@ -403,7 +402,7 @@ export function* createRoundStepper(state, { ui = true } = {}) {
         const currentTeam = currentSide === CAMP_TYPES.ALLY ? A : B;
         if (currentSide === CAMP_TYPES.ALLY && !A._butterflyTriggered) {
             A._butterflyTriggered = true;
-            const sisterForAttach = A.find(u => u.isXiaoZhaoSister && u.alive && !u.state._stunned && !getEliteState(u.uid)._butterflyHost);
+            const sisterForAttach = A.find(u => u.isXiaoZhaoSister && u.alive && !u.state._stunned && !u.state._butterflyHost);
             if (sisterForAttach) {
                 sisterComp.executeAttach(A, log);
                 const attachEvents = flushBattleEvents();

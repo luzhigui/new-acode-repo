@@ -3,7 +3,6 @@
 export const VER = 'modules/24battle-store.js V5.6.1';
 
 import { STORE_ACTION_TYPES, UNIT_EVENT_TYPES } from '../infra/56-battle-enums.js';
-import { getEliteState } from '../core/18-elite-state.js';
 
 // ==================== Store 工厂 ====================
 export function createStore(initialState, reducer) {
