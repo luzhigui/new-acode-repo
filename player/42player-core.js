@@ -526,10 +526,29 @@ async function playStep(c, step, isFirstAttackRef) {
     const pendingDeaths = [];
     if (step.stageActions && step.stageActions.length > 0) {
         // 1. DEFS 驱动调度：grid（Store 变更)+ beforeText 特效（飞撞/箭矢/子弹时间/伤害飘字等）
-        for (const action of step.stageActions) {
+        for (let i = 0; i < step.stageActions.length; i++) {
+            const action = step.stageActions[i];
             applyStageActionToStore(c, action, pendingDeaths);
-            if (getActionFx(action) !== 'none' && getActionTiming(action) !== 'afterText') {
+            const isBeforeText = getActionFx(action) !== 'none' && getActionTiming(action) !== 'afterText';
+            if (isBeforeText) {
                 await applyStageActionToFX(c, action);
+            }
+            // ★ 连击第一击：本攻击后（跳过其自身 afterText 特效）紧跟"概率连击"横幅时，等飞撞/飞箭播完再放行，
+            //   否则横幅 isPaused 会冻结还在半空的飞撞（第二击也没了特效）
+            if (isBeforeText && action.kind === STAGE_ACTION_TYPES.ATTACK && !GlobalStore.get('fastForwardActive')) {
+                let nextBeforeText = null;
+                for (let j = i + 1; j < step.stageActions.length; j++) {
+                    const na = step.stageActions[j];
+                    if (getActionFx(na) !== 'none' && getActionTiming(na) !== 'afterText') {
+                        nextBeforeText = na;
+                        break;
+                    }
+                }
+                if (nextBeforeText && nextBeforeText.kind === STAGE_ACTION_TYPES.BANNER) {
+                    const speed = GlobalStore.get('speed') || 1000;
+                    const durMs = action.attackerRole === ROLE_TYPES.RANGED ? 1700 : 2500;
+                    await new Promise(r => setTimeout(r, durMs * (speed / 1000)));
+                }
             }
         }
     }
