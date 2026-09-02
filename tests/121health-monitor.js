@@ -317,9 +317,10 @@ function periodicScan() {
     const ctx = getCtx();
     if (!ctx || !doc) return;
 
-    if (ctx.UI && ctx.UI.currentResult && ctx.UI.currentResult.log && ctx.UI.currentResult.log.length > 0) {
-        ctx._enhancedBattleLog = ctx.UI.currentResult.log;
-    }
+    // ★ V5.7.8 数据源切换：currentResult 无人赋值（player 快照化移除），改读 GlobalStore 战报累积日志
+    //   无条件重指向：每局 doInitBattle 换新数组，旧引用不清会跨局串日志
+    const gsLog = win && win.GlobalStore ? win.GlobalStore.get('battleLog') : null;
+    if (Array.isArray(gsLog)) ctx._enhancedBattleLog = gsLog;
 
     // 实时按钮状态检查
     // - checkModeButtonStates(模式按钮)：静态真值检查"按钮是否如实反映模式"，任何模式都必须跑。
@@ -417,8 +418,15 @@ function runRuleChecks(ctx, doc) {
     lastSampledStage = stage;
 
     let battleLog = ctx._enhancedBattleLog || [];
-    if (battleLog.length === 0 && ctx.UI && ctx.UI.currentResult && ctx.UI.currentResult.log) {
-        battleLog = ctx.UI.currentResult.log;
+    if (battleLog.length === 0) {
+        const wgs = getWin();
+        const gsLog2 = wgs && wgs.GlobalStore ? wgs.GlobalStore.get('battleLog') : null;
+        if (Array.isArray(gsLog2)) battleLog = gsLog2;
+    }
+    // ★ 空日志防线：规则靠日志才有意义，GAMEOVER 时仍为空 = 数据链断，显式报红防假绿
+    if (battleLog.length === 0) {
+        if (ctx.gs === 'GAMEOVER') recordIssue(ctx, null, '规则数据源', '战报日志为空，18条规则未执行（空转防假绿红线）', '系统');
+        return;
     }
 
     for (const entry of battleLog) {
@@ -478,8 +486,9 @@ function runSettleChecks(ctx, doc) {
 }
 
 function checkSwapStability(ctx, doc, allyTeam, enemyTeam) {
-    if (!ctx.UI || !ctx.UI.currentResult || !ctx.UI.currentResult.log) return;
-    const battleLog = ctx.UI.currentResult.log;
+    const wS = getWin();
+    const battleLog = wS && wS.GlobalStore ? wS.GlobalStore.get('battleLog') : null;
+    if (!Array.isArray(battleLog) || battleLog.length === 0) return;
     const allUnits = allyTeam.concat(enemyTeam);
     const swapEvents = battleLog.filter(e => e.type === 'buff-swap' || e.type === 'buff-push');
     for (const swapEvent of swapEvents) {

@@ -60,6 +60,13 @@ export async function playLogEntries(c, log, roundResult, isFirstAttackRef) {
                 if (!entry) continue;
             }
 
+            // ★ 战报累积（V5.7.8）：投影后的最终条目送入 GlobalStore 战报日志，
+            //   供体检规则消费——原 currentResult 数据源已随 player 快照化移除，此处重建累积链
+            {
+                const _battleLog = GlobalStore.get('battleLog');
+                if (Array.isArray(_battleLog)) _battleLog.push(entry);
+            }
+
             if (shouldStartNewGroup(entry, lastEntryType)) {
                 renderSeparator();
             }
