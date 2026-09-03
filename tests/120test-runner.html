@@ -127,6 +127,7 @@
     </div>
 </div>
 <script type="module" id="recipeScript">
+    import { getRuleGroups } from './124rule-recipes.js';
     // 规则配方面板渲染与提交（依赖 124rule-recipes.js 的分组数据）
     // 🎯 按规则体检：从主模式菜单进入（与本模块同作用域，可调用 renderRecipePanel）
     document.getElementById('btnModeRecipe').addEventListener('click', () => {
