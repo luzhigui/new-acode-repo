@@ -39,10 +39,14 @@ export const rule74 = {
         }
         if (!sister || sister._baseAtk === undefined) return 'skip';
 
-        var expected = Math.floor(sister._baseAtk / 3);
-        // 复发信号：转移值 != 基础值/3（包含 Buff 加成）
+        // 引擎口径（27elite-mingjiao _executeAttach）：飞行方向决定转移项——
+        // 右向：攻转移 floor(_baseAtk/2)、防 0；左向：攻 0、防转移 floor(_baseDef/2)。
+        // 方向已渲染进附身文本（"←左" / "右→"），从文本自解析。
+        var dirLeft = possessText.indexOf('←左') !== -1;
+        var expected = dirLeft ? 0 : Math.floor(sister._baseAtk / 2);
+        // 复发信号：转移值 != 方向对应的基础值份额（包含 Buff 加成即回退到直接操作 atk）
         if (atkTransfer !== expected) {
-            return { fail: true, msg: '复发：附身攻转移值' + atkTransfer + ' != floor(_baseAtk/3)=' + expected + '，可能直接操作 atk 导致 Buff 重复计算' };
+            return { fail: true, msg: '复发：附身攻转移值' + atkTransfer + ' != floor(_baseAtk/2)=' + expected + '（' + (dirLeft ? '左向应为0' : '右向') + '），可能直接操作 atk 导致 Buff 重复计算' };
         }
         return { fail: false };
     }
