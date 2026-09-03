@@ -40,29 +40,16 @@ export async function handleAttackGroup(c, entry, roundResult, abortSig, isFirst
     const textEntries = entry.entries || [];
     const lineCount = textEntries.length;
     const speedFactor = isFF ? 0.001 : Math.max(c.speed, 600) / 1000;
-    const textDuration = isFF ? 1 : (c.speed * lineCount);
     const offset = isFF ? 1 : (200 * speedFactor);
-    const atkFlashDuration = textDuration + 300 * speedFactor;
+    const atkFlashDuration = (isFF ? 1 : (c.speed * lineCount)) + 300 * speedFactor;
     const defFlashDuration = atkFlashDuration;
-    let atkTimer = null;
-
-    if (unitA && !entry.isBlock && c.store) {
-        atkTimer = setTimeout(async () => {
-            await c.waitWhilePaused();
-            if (c.store && unitA) {
-                if (!entry.isDodge && !entry.isLinkAttack) {
-                    c.store.dispatch({ type: STORE_ACTION_TYPES.SET_VISUAL, uid: unitA.uid, _acted: true });
-                }
-            }
-        }, atkFlashDuration);
-    }
 
     await new Promise(r => setTimeout(r, offset));
     await c.waitWhilePaused();
-    if (abortSig && abortSig.aborted) { if (atkTimer) clearTimeout(atkTimer); return { isBattleOver: false }; }
+    if (abortSig && abortSig.aborted) return { isBattleOver: false };
 
-    if (unitD && !entry.isMiss && c.store) {
-        c.store.dispatch({ type: STORE_ACTION_TYPES.SET_FLASH, uid: unitD.uid, flash: entry.isDodge ? FLASH_TYPES.ATTACK : FLASH_TYPES.DEFEND });
+    if (unitD && !entry.isMiss && !entry.isDodge && c.store) {
+        c.store.dispatch({ type: STORE_ACTION_TYPES.SET_FLASH, uid: unitD.uid, flash: FLASH_TYPES.DEFEND });
     }
     let defTimer = null;
     if (unitD && !entry.isDodge && !entry.isMiss && c.store) {
@@ -76,7 +63,7 @@ export async function handleAttackGroup(c, entry, roundResult, abortSig, isFirst
 
     let lastDiv = null;
     for (const entry2 of textEntries) {
-        if (abortSig && abortSig.aborted) { if (atkTimer) clearTimeout(atkTimer); if (defTimer) clearTimeout(defTimer); return { isBattleOver: false }; }
+        if (abortSig && abortSig.aborted) { if (defTimer) clearTimeout(defTimer); return { isBattleOver: false }; }
         const logLevel = getState.logLevel();
         if (logLevel === 'brief' && entry2.type === 'detail') { appendHiddenDetail(entry2.text); continue; }
 
@@ -101,8 +88,11 @@ export async function handleAttackGroup(c, entry, roundResult, abortSig, isFirst
     if (defTimer) clearTimeout(defTimer);
     if (unitA && !unitA.state._isDead && c.store) {
         c.store.dispatch({ type: STORE_ACTION_TYPES.CLEAR_UNIT_FLASH, uid: unitA.uid });
+        if (!entry.isBlock && !entry.isDodge && !entry.isLinkAttack) {
+            c.store.dispatch({ type: STORE_ACTION_TYPES.SET_VISUAL, uid: unitA.uid, _acted: true });
+        }
     }
-    if (unitD && !entry.isDodge && !entry.isMiss && !entry.isDead && !unitD.state._isDead && c.store) {
+    if (unitD && !entry.isMiss && !entry.isDead && !unitD.state._isDead && c.store) {
         c.store.dispatch({ type: STORE_ACTION_TYPES.CLEAR_UNIT_FLASH, uid: unitD.uid });
     }
 

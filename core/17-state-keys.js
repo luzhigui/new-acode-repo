@@ -66,7 +66,7 @@ export const PERMANENT_FIELD_KEYS = Object.freeze([
 export function copyBattleStateFields(srcState, dstState) {
     for (const key of BATTLE_STATE_KEYS) {
         if (ARRAY_BATTLE_STATE_KEYS.includes(key)) {
-            dstState[key] = (srcState && srcState[key]) ? srcState[key].map(x => ({ ...x })) : [];
+            dstState[key] = (srcState && srcState[key]) ? srcState[key].map(x => (typeof x === 'object' && x !== null ? { ...x } : x)) : [];
         } else if (OBJECT_BATTLE_STATE_KEYS.includes(key)) {
             dstState[key] = (srcState && srcState[key]) ? { ...srcState[key] } : null;
         } else if (srcState && srcState[key] !== undefined) {

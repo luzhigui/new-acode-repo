@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// fx/80fx-common-5v5-test.js - 光明顶5v5 基础特效池
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// fx/80fx-common-5v5-test.js - 光明顶5v5 基础特效池
 // V5.5.0 | ~17300 bytes| 2026-07-05
 export const VER = 'fx/80fx-common-5v5-test.js V5.5.0';
 
@@ -77,43 +77,6 @@ export function applyBrushEffect(div) { _executeBrush(div); }
 export function applyBrushEffectOnHeal(div, nextDiv) { _executeBrush(div); if (nextDiv) _executeBrush(nextDiv); }
 
 // ==================== 通用受击反馈：缩小+颤动+短闪 ====================
-// 飞箭/溅射/白骨爪/飞撞/近身通用
-export function applyImpactShrink(cell, durationMs, getPausedFn, opts) {
-    if (GlobalStore.get('fastForwardActive') || !cell) return;
-    opts = opts || {};
-    let bgColor = opts.bgColor || '#ffd700';
-    let bgDuration = opts.bgDuration || Math.min(200, durationMs);
-    let originalTransform = cell.style.transform || '';
-    let originalTransition = cell.style.transition || '';
-    let originalBg = cell.style.background || '';
-    cell.style.transition = 'background 0.1s ease';
-    cell.style.background = bgColor;
-    let bgCleared = false;
-    let start = null;
-    function shake(ts) {
-        if (getPausedFn && getPausedFn()) { requestAnimationFrame(shake); return; }
-        if (!start) start = ts;
-        let elapsed = ts - start;
-        if (elapsed >= durationMs) {
-            cell.style.transform = originalTransform;
-            cell.style.transition = originalTransition;
-            if (!bgCleared) { cell.style.background = originalBg; bgCleared = true; }
-            return;
-        }
-        let progress = elapsed / durationMs;
-        let decay = 1 - progress;
-        let scale = 0.88 + 0.12 * progress;
-        let offsetX = (Math.random() - 0.5) * 4 * decay;
-        let offsetY = (Math.random() - 0.5) * 4 * decay;
-        cell.style.transform = `translate(${offsetX}px, ${offsetY}px) scale(${scale})`;
-        if (!bgCleared && elapsed > bgDuration) {
-            cell.style.background = originalBg;
-            bgCleared = true;
-        }
-        requestAnimationFrame(shake);
-    }
-    requestAnimationFrame(shake);
-}
 
 /**
  * 乘风突袭波及爪痕特效
