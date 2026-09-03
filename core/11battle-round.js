@@ -204,14 +204,8 @@ function prepareRoundStart(A, B, log, state, round, rng) {
 
         emitEvent(u, UNIT_EVENT_TYPES.HP_CHANGE, { hp: u.hp, maxHp: u.maxHp, alive: u.alive, atk: u.atk, def: u.def });
 
-        // 回合级状态统一重置（查表式，新增回合级字段由 17-state-keys 驱动，无需改这里）
-        for (const key of ROUND_STATE_KEYS) {
-            if (key === '_spiderTriggeredThisRound' || key === '_phantomTarget') continue; // 归 resetStateFields 管
-            if (key === '_stunned') u.state[key] = false;
-            else if (key === '_acted' || key === '_resting' || key === '_blocked') u.state[key] = false;
-            else if (key === '_spiderFlying') u.state[key] = false;
-            else u.state[key] = false;
-        }
+        // 回合级状态重置已统一前移到 emit(授权) 之前的 resetStateFields（162-163 行）。
+        // 此处不得再清：合并 elite 字段进 ROUND_STATE_KEYS 后，这里逐键清会把刚授权的 _xingFenActive 等打回 false（2026-09-03 回归，性奋额外攻击全灭的根因）。
         u.state._restingTimer && clearTimeout(u.state._restingTimer), u.state._restingTimer = null;
         u._xingFenExtraAttacking = false;
         u._bloodthirstStriked = false;
@@ -222,14 +216,7 @@ function prepareRoundStart(A, B, log, state, round, rng) {
     B.forEach(u => {
         if (!u.alive) return;
         emitEvent(u, UNIT_EVENT_TYPES.HP_CHANGE, { hp: u.hp, maxHp: u.maxHp, alive: u.alive, atk: u.atk, def: u.def, _stunned: false });
-        // 回合级状态统一重置（查表式，与 A 队一致）
-        for (const key of ROUND_STATE_KEYS) {
-            if (key === '_spiderTriggeredThisRound' || key === '_phantomTarget') continue; // 归 resetStateFields 管
-            if (key === '_stunned') u.state[key] = false;
-            else if (key === '_acted' || key === '_resting' || key === '_blocked') u.state[key] = false;
-            else if (key === '_spiderFlying') u.state[key] = false;
-            else u.state[key] = false;
-        }
+        // 回合级状态重置统一由 emit 前的 resetStateFields 负责，此处不清（同 A 队，见上方注释）
         Object.assign(u.state, { _doubleStriked: false });
         u._xingFenExtraAttacking = false;
         u._bloodthirstStriked = false;
