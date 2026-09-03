@@ -15,7 +15,7 @@ import { GlobalStore, getState, getPlayerContext } from '../infra/54-global-stor
 import { createStore, battleReducer } from '../modules/24battle-store.js';
 import { STORE_ACTION_TYPES, STAGE_ACTION_TYPES, BUFF_SUBTYPES, BUFF_EFFECT_TYPES, FLY_MODE_TYPES, UNIT_EVENT_TYPES, DROP_TYPES, FLASH_TYPES, CAMP_TYPES, ROLE_TYPES, BUFF_TYPES } from '../infra/56-battle-enums.js';
 import { syncStateToUI } from '../core/17-state-keys.js';
-import { handleBuffBonus, handleBuffSwap, handleBuffPush, handleBuffReboundFortify, handleInfo, handleRoundStart, handleRoundEnd, shouldStartNewGroup } from './45event-handlers.js';
+import { handleBuffText, handleInfo, handleRoundStart, handleRoundEnd, shouldStartNewGroup } from './45event-handlers.js';
 import { handleAttackGroup } from './46attack-group.js';
 import { getLogDiv, appendLogHTML, appendLogElement, autoScrollLog, updateRoundDisplay, renderSeparator, renderRoundStart, renderRoundEnd, renderInfoLine, renderVictoryLine, setBtnDisabled, setBtnText, initRenderer, initLogScrollControls, showScoreFloat, findUnitByUid } from './47renderer.js';
 import { updateGridUI, setGridStore } from '../render/32-grid-render.js';
@@ -98,11 +98,11 @@ export async function playLogEntries(c, log, roundResult, isFirstAttackRef) {
                     appendLogHTML(entry.text + '<br>');
                     lastEntryType = entry.type;
                     break;
-                case 'buff-bonus':           await handleBuffBonus(c, entry); lastEntryType = entry.type; break;
-                case 'buff-swap':            await handleBuffSwap(c, entry); lastEntryType = entry.type; break;
-                case 'buff-push':            await handleBuffPush(c, entry); lastEntryType = entry.type; break;
+                case 'buff-bonus':           await handleBuffText(c, entry); lastEntryType = entry.type; break;
+                case 'buff-swap':            await handleBuffText(c, entry); lastEntryType = entry.type; break;
+                case 'buff-push':            await handleBuffText(c, entry); lastEntryType = entry.type; break;
                 case 'buff-summary':         { appendLogHTML(entry.text + '<br>'); if(entry.buffType==='elite_xingfen'){let song = c.store ? c.store.getState().units.find(u => u.name === '宋青书') : null; if(song)c.store.dispatch({type: STORE_ACTION_TYPES.SET_VISUAL,uid:song.uid,_hasXingFen:true});} lastEntryType = entry.type; } break;
-                case 'buff-rebound-fortify': await handleBuffReboundFortify(c, entry); lastEntryType = entry.type; break;
+                case 'buff-rebound-fortify': await handleBuffText(c, entry, c.speed/2); lastEntryType = entry.type; break;
                 case 'round-start':
                     if (roundResult && roundResult.events && roundResult.events.length > 0) {
                         c.store.dispatch({ type: STORE_ACTION_TYPES.APPLY_EVENTS, events: roundResult.events });

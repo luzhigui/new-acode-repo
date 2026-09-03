@@ -102,8 +102,8 @@ export function showFlyDirectionPopup(callback) {
     });
     // 包装 callback，确保清理监听
     const wrappedCallback = (dir) => { unsub(); callback(dir); };
-    btnLeft.onclick = () => { document.body.removeChild(overlay); wrappedCallback('left'); };
-    btnRight.onclick = () => { document.body.removeChild(overlay); wrappedCallback('right'); };
+    btnLeft.onclick = () => { if (overlay.parentNode) overlay.remove(); wrappedCallback('left'); };
+    btnRight.onclick = () => { if (overlay.parentNode) overlay.remove(); wrappedCallback('right'); };
 }
 
 // Buff-创建：构建Buff对象（含圣火令随机行列）—— 实现已移至 modules/28buff-tools.js

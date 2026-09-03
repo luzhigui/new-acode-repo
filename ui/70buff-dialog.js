@@ -59,7 +59,7 @@ export function showBuffPopup(c) {
             btn.textContent = b.text;
             btn.addEventListener('click', () => {
                 if (unsubSkip) unsubSkip();
-                document.body.removeChild(overlay);
+                if (overlay.parentNode) overlay.remove();
                 let floatBtn = document.getElementById('buffFloatBtn');
                 if (floatBtn) floatBtn.remove();
                 let duration = CONFIG.BUFFS[b.value]?.duration || CONFIG.BUFF_DURATION || 4;
