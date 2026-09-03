@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿<!-- tests/120test-runner.html - 光明顶5v5 测试与体检中心 V5.2.0 -->
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿<!-- tests/120test-runner.html - 光明顶5v5 测试与体检中心 V5.2.0 -->
 <!-- V5.4.0 | ~6000 bytes-->
 <!DOCTYPE html>
 <html lang="zh-CN">
@@ -59,7 +59,7 @@
         import { initMonitor } from './121health-monitor.js';
         initMonitor();
 
-        // 🏥 体检入口：打开体检模式 2 级菜单（实时跟跑 / 快速静态体检 / 快速跑完）
+        // 🏥 体检入口：打开体检模式 2 级菜单（实时跟跑 / 快速静态体检 / 快速跑完 / 按规则体检）
         document.getElementById('btnAutoRun').addEventListener('click', () => {
             document.getElementById('healthModeOverlay').style.display = 'flex';
         });
@@ -73,7 +73,7 @@
             if (!url.searchParams.get('speed')) url.searchParams.set('speed', '100');
             window.location.href = url.href;
         });
-    </script>
+        </script>
 <!-- 手动记录弹窗 -->
 <div id="healthManualOverlay" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);display:none;justify-content:center;align-items:center;z-index:99999;">
     <div style="background:#1a1a2e;border:2px solid #ff9800;border-radius:12px;padding:20px;text-align:center;color:#eee;min-width:280px;">
@@ -104,8 +104,90 @@
         <button id="btnModeLive" style="display:block;width:100%;padding:10px;margin:6px 0;background:#2a2a4e;border:1px solid #4caf50;border-radius:8px;color:#4caf50;font-size:12px;cursor:pointer;">🔄 实时跟跑（游戏内逐场检测）</button>
         <button id="btnModeStatic" style="display:block;width:100%;padding:10px;margin:6px 0;background:#2a2a4e;border:1px solid #2196f3;border-radius:8px;color:#2196f3;font-size:12px;cursor:pointer;">⚡ 快速静态体检（扫描核心文件，不跑游戏）</button>
         <button id="btnModeAuto" style="display:block;width:100%;padding:10px;margin:6px 0;background:#2a2a4e;border:1px solid #ff9800;border-radius:8px;color:#ff9800;font-size:12px;cursor:pointer;">🚀 快速跑完（全自动快进，跑完出报告）</button>
+        <button id="btnModeRecipe" style="display:block;width:100%;padding:10px;margin:6px 0;background:#2a2a4e;border:1px solid #9c27b0;border-radius:8px;color:#ce93d8;font-size:12px;cursor:pointer;">🎯 按规则体检（勾选目标规则，对应精英自动强制上场）</button>
         <button id="btnModeCancel" style="display:block;width:100%;padding:8px;margin:12px 0 0;background:#555;border:1px solid #555;border-radius:8px;color:#ddd;font-size:11px;cursor:pointer;">取消</button>
     </div>
 </div>
+
+<!-- 🎯 规则配方面板 -->
+<div id="healthRecipeOverlay" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.8);justify-content:center;align-items:center;z-index:99998;">
+    <div style="background:#1a1a2e;border:2px solid #9c27b0;border-radius:12px;padding:16px;color:#eee;min-width:340px;max-width:94%;max-height:86%;display:flex;flex-direction:column;">
+        <div style="font-size:14px;color:#ce93d8;margin-bottom:2px;">🎯 按规则体检</div>
+        <div style="font-size:10px;color:#888;margin-bottom:8px;">只跑勾选的规则，其余不参与统计。hero:张无忌/韦一笑 会自动强制上场；随机精英/敌方需连打多局碰出。</div>
+        <div style="margin-bottom:6px;font-size:11px;">
+            <button id="recipeSelectAll" style="padding:3px 8px;background:#2a2a4e;border:1px solid #555;border-radius:4px;color:#eee;font-size:10px;cursor:pointer;">全选</button>
+            <button id="recipeClearAll" style="padding:3px 8px;background:#2a2a4e;border:1px solid #555;border-radius:4px;color:#eee;font-size:10px;cursor:pointer;">清空</button>
+            <span id="recipeCount" style="color:#9ccc65;margin-left:6px;font-size:10px;">已选 0 条</span>
+        </div>
+        <div id="recipeList" style="overflow-y:auto;flex:1;font-size:11px;"></div>
+        <div style="margin-top:8px;text-align:center;">
+            <button id="recipeStart" style="padding:8px 18px;background:#9c27b0;border:none;border-radius:6px;color:#fff;font-size:12px;cursor:pointer;">▶ 用所选规则体检</button>
+            <button id="recipeCancel" style="padding:8px 18px;margin-left:8px;background:#555;border:none;border-radius:6px;color:#ddd;font-size:12px;cursor:pointer;">取消</button>
+        </div>
+    </div>
+</div>
+<script type="module" id="recipeScript">
+    // 规则配方面板渲染与提交（依赖 124rule-recipes.js 的分组数据）
+    // 🎯 按规则体检：从主模式菜单进入（与本模块同作用域，可调用 renderRecipePanel）
+    document.getElementById('btnModeRecipe').addEventListener('click', () => {
+        document.getElementById('healthModeOverlay').style.display = 'none';
+        renderRecipePanel();
+        document.getElementById('healthRecipeOverlay').style.display = 'flex';
+    });
+    let recipeChecked = new Set();
+    function renderRecipePanel() {
+        const list = document.getElementById('recipeList');
+        list.innerHTML = '';
+        recipeChecked = new Set();
+        const groups = getRuleGroups();
+        const total = groups.reduce((s, g) => s + g.rows.length, 0);
+        for (const g of groups) {
+            if (g.rows.length === 0) continue;
+            const gTitle = document.createElement('div');
+            gTitle.style.cssText = 'color:#ce93d8;font-weight:bold;margin:6px 0 2px;font-size:12px;';
+            gTitle.textContent = '▸ ' + g.label + '（' + g.rows.length + '）';
+            list.appendChild(gTitle);
+            for (const row of g.rows) {
+                const label = document.createElement('label');
+                label.style.cssText = 'display:flex;align-items:center;gap:4px;padding:1px 0;cursor:pointer;';
+                const cb = document.createElement('input');
+                cb.type = 'checkbox';
+                cb.checked = false;
+                cb.addEventListener('change', () => {
+                    if (cb.checked) recipeChecked.add(row.tag); else recipeChecked.delete(row.tag);
+                    document.getElementById('recipeCount').textContent = '已选 ' + recipeChecked.size + ' 条';
+                });
+                const txt = document.createElement('span');
+                txt.textContent = row.name + (row.note ? '（' + row.note + '）' : '');
+                txt.style.cssText = 'font-size:10px;color:#ccc;';
+                label.appendChild(cb); label.appendChild(txt);
+                list.appendChild(label);
+            }
+        }
+        document.getElementById('recipeCount').textContent = '已选 ' + recipeChecked.size + ' 条';
+    }
+    document.getElementById('recipeSelectAll').addEventListener('click', () => {
+        document.querySelectorAll('#recipeList input[type=checkbox]').forEach(cb => { cb.checked = true; cb.dispatchEvent(new Event('change')); });
+    });
+    document.getElementById('recipeClearAll').addEventListener('click', () => {
+        document.querySelectorAll('#recipeList input[type=checkbox]').forEach(cb => { cb.checked = false; recipeChecked.clear(); });
+        document.getElementById('recipeCount').textContent = '已选 0 条';
+    });
+    document.getElementById('recipeStart').addEventListener('click', () => {
+        if (recipeChecked.size === 0) { alert('请至少勾选一条规则'); return; }
+        const url = new URL(window.location.href);
+        url.searchParams.set('auto', '1');
+        url.searchParams.set('rules', [...recipeChecked].join(','));
+        if (!url.searchParams.get('start')) url.searchParams.set('start', '3');
+        if (!url.searchParams.get('stages')) url.searchParams.set('stages', '6');
+        if (!url.searchParams.get('budget')) url.searchParams.set('budget', '240');
+        if (!url.searchParams.get('speed')) url.searchParams.set('speed', '100');
+        window.location.href = url.href;
+    });
+    document.getElementById('recipeCancel').addEventListener('click', () => {
+        document.getElementById('healthRecipeOverlay').style.display = 'none';
+        document.getElementById('healthModeOverlay').style.display = 'flex';
+    });
+</script>
 </body>
 </html>

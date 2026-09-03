@@ -1,8 +1,9 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// tests/121health-monitor.js - 光明顶5v5 实时体检监控器
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// tests/121health-monitor.js - 光明顶5v5 实时体检监控器
 // V5.6.0 | 接入 rule81-87 回归体检；GAMEOVER 立即跑规则(日志已完整)；新局识别修复多局连打漏检；新增战报黑幕/随机重开/特效池实时检查
 export const VER = 'tests/121health-monitor.js V5.7.0';
 
 import { runStaticScan } from './123static-scan.js';
+import { filterRulesByTags, parseRecipeTags, collectForceFlags } from './124rule-recipes.js';
 import { rule70 } from './health-rules/123-claw-heal-spam.js';
 import { rule71 } from './health-rules/124-aftermiss.js';
 import { rule72 } from './health-rules/125-fortify-timing.js';
@@ -33,6 +34,10 @@ import {
 let monitorActive = false, gameLoaded = false, scanTimer = null, isPaused = false;
 let detectedIssues = [], issueKeys = new Set(), lastSampledStage = 0;
 let battleEnded = false, battleStartTime = 0, battleGen = 0;
+// 规则配方（?rules=hero:张无忌,mechanic:破防&...）：只跑目标规则，其余不参与统计；hero:张无忌/韦一笑 自动强制上场
+const RECIPE_TAGS = parseRecipeTags(window.location.search);
+const RECIPE_FORCE = collectForceFlags(RECIPE_TAGS);
+let recipeNote = RECIPE_TAGS && RECIPE_TAGS.size > 0 ? ('配方规则 ' + RECIPE_TAGS.size + ' 个场景' + (Object.keys(RECIPE_FORCE).length ? '（强制' + Object.keys(RECIPE_FORCE).map(k => k.replace('force', '')) + '）' : '')) : '';
 let rulePassCount = 0, ruleSkipCount = 0;
 // 未覆盖规则（skip）名单：体检不静默——哪些规则因当轮阵容/事件没出现而没跑到，报告里明说
 let ruleSkipNames = new Set();
@@ -233,6 +238,12 @@ export function initMonitor() {
                 clearInterval(waitReady); gameLoaded = true;
                 const w = getWin();
                 if (w && typeof w.selectStage === 'function') w.selectStage(autoStartStage);
+                // 规则配方：强制精英上场（借游戏侧 forceZhang/forceWei hook，下局 initBattleTeams 生效）
+                try {
+                    if (w && w.GlobalStore && RECIPE_FORCE) {
+                        for (const k of Object.keys(RECIPE_FORCE)) w.GlobalStore.set(k, true);
+                    }
+                } catch (e) {}
                 // 开启全自动模式：自动选Buff、自动开战、自动推进关卡，实现无人值守实时体检
                 try { if (w && w.GlobalStore) w.GlobalStore.set('autoLevel', 'full-auto'); } catch (e) {}
                 // 同步模式按钮显示：体检直接改 GlobalStore 的 autoLevel，调用游戏自带的 updateAutoModeButton
@@ -423,9 +434,14 @@ function runRuleChecks(ctx, doc) {
         const gsLog2 = wgs && wgs.GlobalStore ? wgs.GlobalStore.get('battleLog') : null;
         if (Array.isArray(gsLog2)) battleLog = gsLog2;
     }
+    const allRules = [rule70, rule71, rule72, rule73, rule74, rule75, rule76, rule77, rule78, rule79, rule80,
+        rule81, rule82, rule83, rule84, rule85, rule86, rule87];
+    // 规则配方裁剪：只跑目标规则（其余不参与计数/不占skip名单）；null=全部
+    const rules = filterRulesByTags(allRules, RECIPE_TAGS);
+
     // ★ 空日志防线：规则靠日志才有意义，GAMEOVER 时仍为空 = 数据链断，显式报红防假绿
     if (battleLog.length === 0) {
-        if (ctx.gs === 'GAMEOVER') recordIssue(ctx, null, '规则数据源', '战报日志为空，18条规则未执行（空转防假绿红线）', '系统');
+        if (ctx.gs === 'GAMEOVER') recordIssue(ctx, null, '规则数据源', '战报日志为空，' + rules.length + '条规则未执行（空转防假绿红线）', '系统');
         return;
     }
 
@@ -434,8 +450,6 @@ function runRuleChecks(ctx, doc) {
     }
 
     ctx._doc = doc;
-    const rules = [rule70, rule71, rule72, rule73, rule74, rule75, rule76, rule77, rule78, rule79, rule80,
-        rule81, rule82, rule83, rule84, rule85, rule86, rule87];
     const beforeAllies = allyTeam.map(u => ({ ...u }));
     const beforeEnemies = enemyTeam.map(u => ({ ...u }));
     for (const rule of rules) {
@@ -630,6 +644,13 @@ function updateReport() {
         skipDiv.style.cssText = 'color:#888;font-size:11px;margin-top:8px;padding:6px 8px;border:1px dashed #555;border-radius:6px;';
         skipDiv.textContent = '⏭️ 未覆盖规则' + ruleSkipNames.size + '条（当轮阵容/事件未触发，不代表通过）：' + [...ruleSkipNames].join('、');
         reportArea.appendChild(skipDiv);
+    }
+    // 规则配方说明：本次只跑的目标规则场景（消除"哪些规则没跑"的困惑）
+    if (recipeNote) {
+        const recipeDiv = document.createElement('div');
+        recipeDiv.style.cssText = 'color:#4caf50;font-size:11px;margin-top:8px;padding:6px 8px;border:1px dashed #4caf50;border-radius:6px;';
+        recipeDiv.textContent = '🎯 ' + recipeNote;
+        reportArea.appendChild(recipeDiv);
     }
     const copyBtn = document.createElement('button');
     copyBtn.className = 'copy-btn';
