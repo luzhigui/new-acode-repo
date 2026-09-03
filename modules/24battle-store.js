@@ -7,6 +7,16 @@ import { ROUND_STATE_KEYS, BATTLE_STATE_KEYS } from '../core/17-state-keys.js';
 
 const ALL_STATE_KEYS = [...ROUND_STATE_KEYS, ...BATTLE_STATE_KEYS];
 
+/** 单位顶层字段（非 state）：store 同步时按此清单查表，加新顶层字段只需补这里 */
+const UNIT_TOP_FIELDS = [
+    'hp', 'maxHp', 'alive', 'atk', 'def', 'role',
+    'buffAtkBonus', 'buffDefBonus', 'buffDodgeBonus', 'buffHpBonus',
+    'dmgDealt', 'dmgTaken', 'healDone', 'reboundDone', 'leechDone',
+    'dodgeCount', 'critCount', 'survivedRounds',
+    '_baseAtk', '_baseDef', '_baseMaxHp',
+    'rangedForm'
+];
+
 // ==================== Store 工厂 ====================
 export function createStore(initialState, reducer) {
     let state = initialState;
@@ -50,11 +60,9 @@ export function battleReducer(state, action) {
             let next = state.units.map(u => {
                 if (u.uid !== action.uid) return u;
                 const newState = { ...(u.state || {}) };
-                if (action._acted !== undefined) newState._acted = action._acted;
-                if (action._resting !== undefined) newState._resting = action._resting;
-                if (action._blocked !== undefined) newState._blocked = action._blocked;
-                if (action._isDead !== undefined) newState._isDead = action._isDead;
-                if (action._flyMode !== undefined) newState._flyMode = action._flyMode;
+                for (const key of ALL_STATE_KEYS) {
+                    if (action[key] !== undefined) newState[key] = action[key];
+                }
                 const updated = { ...u, state: newState };
                 if (action._hasKuaiLe !== undefined) updated._hasKuaiLe = action._hasKuaiLe;
                 if (action._hasXingFen !== undefined) updated._hasXingFen = action._hasXingFen;
@@ -82,33 +90,12 @@ export function battleReducer(state, action) {
                     const idx = next.findIndex(u => u.uid === ev.unitUid);
                     if (idx >= 0) {
                         const p = ev.payload;
-                        if (p.hp !== undefined) next[idx].hp = p.hp;
-                        if (p.maxHp !== undefined) next[idx].maxHp = p.maxHp;
-                        if (p.alive !== undefined) next[idx].alive = p.alive;
-                        if (p.atk !== undefined) next[idx].atk = p.atk;
-                        if (p.def !== undefined) next[idx].def = p.def;
-                        if (p.role !== undefined) next[idx].role = p.role;
-                        if (p.buffAtkBonus !== undefined) next[idx].buffAtkBonus = p.buffAtkBonus;
-                        if (p.buffDefBonus !== undefined) next[idx].buffDefBonus = p.buffDefBonus;
-                        if (p.buffDodgeBonus !== undefined) next[idx].buffDodgeBonus = p.buffDodgeBonus;
-                        if (p.buffHpBonus !== undefined) next[idx].buffHpBonus = p.buffHpBonus;
-                        if (p.dmgDealt !== undefined) next[idx].dmgDealt = p.dmgDealt;
-                        if (p.dmgTaken !== undefined) next[idx].dmgTaken = p.dmgTaken;
-                        if (p.healDone !== undefined) next[idx].healDone = p.healDone;
-                        if (p.reboundDone !== undefined) next[idx].reboundDone = p.reboundDone;
-                        if (p.leechDone !== undefined) next[idx].leechDone = p.leechDone;
-                        if (p.dodgeCount !== undefined) next[idx].dodgeCount = p.dodgeCount;
-                        if (p.critCount !== undefined) next[idx].critCount = p.critCount;
-                        if (p.survivedRounds !== undefined) next[idx].survivedRounds = p.survivedRounds;
-                        if (p._baseAtk !== undefined) next[idx]._baseAtk = p._baseAtk;
-                        if (p._baseDef !== undefined) next[idx]._baseDef = p._baseDef;
-                        if (p._baseMaxHp !== undefined) next[idx]._baseMaxHp = p._baseMaxHp;
+                        for (const key of UNIT_TOP_FIELDS) {
+                            if (p[key] !== undefined) next[idx][key] = p[key];
+                        }
                         if (!next[idx].state) next[idx].state = {};
                         for (const key of ALL_STATE_KEYS) {
                             if (p[key] !== undefined) next[idx].state[key] = p[key];
-                        }
-                        if (ev.eventType === UNIT_EVENT_TYPES.ZHANG_SWITCH) {
-                            if (p.rangedForm !== undefined) next[idx].rangedForm = p.rangedForm;
                         }
                     }
                 } else if (ev.eventType === UNIT_EVENT_TYPES.UNIT_ADD) {
@@ -154,17 +141,13 @@ export function battleReducer(state, action) {
             if (idx < 0) return state;
             let next = state.units.map(u => ({ ...u }));
             const p = action.payload;
-            if (p.hp !== undefined) next[idx].hp = p.hp;
-            if (p.maxHp !== undefined) next[idx].maxHp = p.maxHp;
-            if (p.alive !== undefined) next[idx].alive = p.alive;
-            if (p.atk !== undefined) next[idx].atk = p.atk;
-            if (p.def !== undefined) next[idx].def = p.def;
-            if (p.role !== undefined) next[idx].role = p.role;
+            for (const key of UNIT_TOP_FIELDS) {
+                if (p[key] !== undefined) next[idx][key] = p[key];
+            }
             if (!next[idx].state) next[idx].state = {};
             for (const key of ALL_STATE_KEYS) {
                 if (p[key] !== undefined) next[idx].state[key] = p[key];
             }
-            if (p.rangedForm !== undefined) next[idx].rangedForm = p.rangedForm;
             return { ...state, units: next };
         }
         case STORE_ACTION_TYPES.STAT_BONUS_CHANGE: {
@@ -172,10 +155,9 @@ export function battleReducer(state, action) {
             if (idx < 0) return state;
             let next = state.units.map(u => ({ ...u }));
             const p = action.payload;
-            if (p.buffAtkBonus !== undefined) next[idx].buffAtkBonus = p.buffAtkBonus;
-            if (p.buffDefBonus !== undefined) next[idx].buffDefBonus = p.buffDefBonus;
-            if (p.buffDodgeBonus !== undefined) next[idx].buffDodgeBonus = p.buffDodgeBonus;
-            if (p.buffHpBonus !== undefined) next[idx].buffHpBonus = p.buffHpBonus;
+            for (const key of UNIT_TOP_FIELDS) {
+                if (p[key] !== undefined) next[idx][key] = p[key];
+            }
             return { ...state, units: next };
         }
         default: return state;

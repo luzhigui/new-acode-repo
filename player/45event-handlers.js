@@ -7,25 +7,12 @@ import { AudioManager } from '../modules/22audio-manager.js';
 import { GlobalStore, getState } from '../infra/54-global-store.js';
 import { appendLogHTML, appendLogElement, autoScrollLog, updateRoundDisplay, renderSeparator, playLogLine, appendHiddenDetail } from './47renderer.js';
 
-export async function handleBuffBonus(c, entry) {
+export async function handleBuffText(c, entry, delayMs = 0) {
+    // buff-bonus/swap/push/rebound-fortify 四个入口同构：特效已由导演 stageAction 统一触发，此处只播文本
     appendLogHTML(entry.text + '<br>');
-    // 额外伤害飘字已由导演 stageAction 统一处理
-}
-
-export async function handleBuffSwap(c, entry) {
-    // 换位特效已由导演 stageAction 'posSwap' 统一触发，此处只播文本
-    appendLogHTML(entry.text + '<br>');
-}
-
-export async function handleBuffPush(c, entry) {
-    // 击退特效已由导演 stageAction 'push' 统一触发，此处只播文本
-    appendLogHTML(entry.text + '<br>');
-}
-
-export async function handleBuffReboundFortify(c, entry) {
-    // 严阵以待横幅已由导演 stageAction 'rebound'（fortifyRebound）统一触发，反伤/自伤飘字由 'attack' 统一处理
-    appendLogHTML(entry.text + '<br>');
-    await new Promise(r=>setTimeout(r, GlobalStore.get('fastForwardActive') ? 1 : c.speed/2));
+    if (delayMs > 0) {
+        await new Promise(r=>setTimeout(r, GlobalStore.get('fastForwardActive') ? 1 : delayMs));
+    }
 }
 
 export async function handleInfo(c, entry) {

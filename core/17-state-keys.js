@@ -47,6 +47,18 @@ export const ROUND_STATE_DEFAULTS = Object.freeze({
     '_phantomTarget': null
 });
 
+/** 整场状态默认值映射（key → 默认值）；未列出的 key 一律为 false */
+export const BATTLE_STATE_DEFAULTS = Object.freeze({
+    '_xuanmingPoison': null,
+    '_kuaiLeStack': [],
+    '_masteredRoles': [],
+    '_permanentBuffs': [],
+    '_spiderRemaining': 3,
+    '_linkedPartnerUid': null,
+    '_flyMode': null,
+    '_butterflyHost': null
+});
+
 /** 顶层回合级字段：clone 不拷贝，回合开始统一重置（已全部迁入 state，保留空表占位） */
 export const ROUND_FIELD_KEYS = Object.freeze([
 ]);
