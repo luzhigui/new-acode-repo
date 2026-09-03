@@ -39,7 +39,7 @@ export const ALL_PROJECT_FILES = [
     '../infra/50-event-bus.js',
     '../core/01config-5v5-test.js', '../core/02unit.js',
     '../core/03battle-utils.js', '../core/04buff-system.js', '../core/05battle-horse.js',
-    '../infra/51-core-utils.js', '../infra/56-battle-enums.js', '../infra/57-calc-modifier-registry.js',
+    '../infra/51-core-utils.js', '../infra/56-battle-enums.js', '../infra/57-calc-modifier-registry.js', '../infra/58-fact-contract.js',
     '../core/08-elite-registry.js',
     '../core/10battle-attack.js', '../core/11battle-round.js', '../core/12battle-attack-steps.js',
     '../core/13battle-shared.js', '../core/14buff-effects.js', '../core/15-skill-mechanisms.js',
