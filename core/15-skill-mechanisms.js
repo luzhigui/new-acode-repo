@@ -357,8 +357,7 @@ function submitChainClaw(data, decls) {
     const decl = decls.find(d => d.name === unit.name);
     if (!decl || !target || !target.alive) return;
     const rng = getBattleRng();
-    const battleState = window.GlobalStore?.get('currentBattleState');
-    const zhangAlive = battleState && battleState.ally && battleState.ally.some(u => u.isZhang && u.alive);
+    const zhangAlive = enemySide && enemySide.some(u => u.isZhang && u.alive);
     const baseHit = zhangAlive ? (decl.jealous?.baseDmg ?? decl.baseDmg ?? 2) : (decl.baseDmg ?? 1.5);
     const s = zhangAlive ? { ...decl, ...(decl.jealous || {}) } : decl;
 

@@ -3,7 +3,23 @@
 export const VER = 'render/31-stage-actions.js V5.7.10';
 
 import { makeFXSnapshot } from '../infra/51-core-utils.js';
-import { STAGE_ACTION_TYPES, FACT_TYPES, BUFF_EFFECT_TYPES, FLY_MODE_TYPES, CAMP_TYPES } from '../infra/56-battle-enums.js';
+import { eventBus } from '../infra/50-event-bus.js';
+import { FX_SIGNALS } from '../infra/55-fx-signals.js';
+import { GlobalStore } from '../infra/54-global-store.js';
+import { AudioManager } from '../modules/22audio-manager.js';
+import { STAGE_ACTION_TYPES, FACT_TYPES, CAMP_TYPES, STORE_ACTION_TYPES, UNIT_EVENT_TYPES, ROLE_TYPES, BUFF_EFFECT_TYPES, BUFF_SUBTYPES, FLY_MODE_TYPES } from '../infra/56-battle-enums.js';
+
+// 本地查找单位（避免从 47 导入造成循环依赖）：先查 store 权威单位，再回退 UI 快照
+function findUnitByUidLocal(c, uid) {
+    if (!uid) return null;
+    if (c && c.store) {
+        const su = c.store.getState().units.find(u => u.uid === uid);
+        if (su) return su;
+    }
+    const ui = (c && c.UI) || {};
+    const all = (ui.allyTeam || []).concat(ui.enemyTeam || []);
+    return all.find(u => u.uid === uid) || null;
+}
 
 /**
  * 把一步的 fact 列表翻译成舞台动作列表。
@@ -460,32 +476,410 @@ function makeHealAction(data, index) {
  * 新增 stageAction 只需在此登记 + 在 31 翻译器产出，播放器无需改动。
  */
 export const STAGE_ACTION_DEFS = {
-    [STAGE_ACTION_TYPES.ATTACK]: { grid: 'sync', fx: 'sync', log: 'sync', timing: 'beforeText' },
-    [STAGE_ACTION_TYPES.REBOUND]: { grid: 'none', fx: 'sync', log: 'sync', timing: 'afterText' },
-    [STAGE_ACTION_TYPES.HEAL]: { grid: 'sync', fx: 'sync', log: 'sync', timing: 'beforeText' },
-    [STAGE_ACTION_TYPES.DEATH]: { grid: 'sync', fx: 'sync', log: 'sync', timing: 'afterText' },
-    [STAGE_ACTION_TYPES.POS_SWAP]: { grid: 'sync', fx: 'sync', log: 'sync', timing: 'beforeText' },
-    [STAGE_ACTION_TYPES.PUSH]: { grid: 'sync', fx: 'sync', log: 'sync', timing: 'beforeText' },
-    [STAGE_ACTION_TYPES.SUMMON]: { grid: 'sync', fx: 'sync', log: 'sync', timing: 'beforeText' },
-    [STAGE_ACTION_TYPES.DESTROY]: { grid: 'sync', fx: 'sync', log: 'sync', timing: 'afterText' },
-    [STAGE_ACTION_TYPES.TRANSFORM]: { grid: 'sync', fx: 'sync', log: 'sync', timing: 'beforeText' },
-    [STAGE_ACTION_TYPES.FLY_MODE]: { grid: 'sync', fx: 'sync', log: 'sync', timing: 'beforeText' },
-    [STAGE_ACTION_TYPES.ROUND_START]: { grid: 'sync', fx: 'sync', log: 'sync', timing: 'beforeText' },
-    [STAGE_ACTION_TYPES.ROUND_END]: { grid: 'sync', fx: 'sync', log: 'sync', timing: 'afterText' },
-    [STAGE_ACTION_TYPES.REST]: { grid: 'sync', fx: 'sync', log: 'sync', timing: 'beforeText' },
-    [STAGE_ACTION_TYPES.DOT]: { grid: 'sync', fx: 'sync', log: 'sync', timing: 'beforeText' },
-    [STAGE_ACTION_TYPES.EXECUTE]: { grid: 'sync', fx: 'sync', log: 'sync', timing: 'afterText' },
-    [STAGE_ACTION_TYPES.MISS]: { grid: 'none', fx: 'sync', log: 'sync', timing: 'afterText' },
-    [STAGE_ACTION_TYPES.IMMUNE]: { grid: 'none', fx: 'sync', log: 'sync', timing: 'beforeText' },
-    [STAGE_ACTION_TYPES.STAT_CHANGE]: { grid: 'sync', fx: 'sync', log: 'sync', timing: 'afterText' },
-    [STAGE_ACTION_TYPES.BANNER]: { grid: 'none', fx: 'sync', log: 'sync', timing: 'beforeText' },
-    [STAGE_ACTION_TYPES.EMPTY_TARGET]: { grid: 'none', fx: 'none', log: 'sync', timing: 'beforeText' },
-    [STAGE_ACTION_TYPES.STUN]: { grid: 'sync', fx: 'sync', log: 'sync', timing: 'beforeText' },
-    [STAGE_ACTION_TYPES.SPLASH]: { grid: 'sync', fx: 'sync', log: 'sync', timing: 'afterText' },
-    [STAGE_ACTION_TYPES.SPIDER_STRIKE]: { grid: 'sync', fx: 'sync', log: 'sync', timing: 'beforeText' },
-    [STAGE_ACTION_TYPES.BUFF_EFFECT]: {
-        grid: 'none', fx: 'sync', log: 'sync',
-        timing: (action) => (action && action.effectType === BUFF_EFFECT_TYPES.XIN_HUN) ? 'beforeText' : 'afterText'
+    [STAGE_ACTION_TYPES.ATTACK]: {
+        grid: 'sync', log: 'sync', timing: 'beforeText',
+        store: (c, action, pendingDeaths) => {
+            // 死亡标记不在 stageAction 阶段落地（会抢在攻击动画前显示死亡格），
+            // 收集后由 playStep 在日志播完统一落地；近战另有 88 飞撞回调在动画结束时兜底
+            if (action.dead && action.targetUid && pendingDeaths) pendingDeaths.push(action.targetUid);
+        },
+        fx: async (c, action) => {
+            const attacker = findUnitByUidLocal(c, action.actorUid);
+            const target = findUnitByUidLocal(c, action.targetUid);
+            // 苦练蓄力特效
+            if (action.isKuLianAttack && attacker) {
+                const team = c.store.getState().units.filter(u => u.camp === attacker.camp);
+                eventBus.emit(FX_SIGNALS.KULIAN, { unit: attacker, team });
+                await new Promise(r => setTimeout(r, 1200));
+            }
+            // 飞撞/箭矢/台词弹幕（统一由 fx/88 的 _triggerFX 消费）
+            if (attacker && target && action.attackerRole) {
+                eventBus.emit(FX_SIGNALS.TRIGGER, {
+                    fxSnapshot: action.fx,
+                    unitA: attacker,
+                    unitD: target,
+                    isDead: action.dead,
+                    isDodge: false,
+                    isMiss: false,
+                    isBlock: false,
+                    dmg: action.dmg,
+                    waveTaunt: action.waveTaunt || null,
+                    waveUnitUid: action.waveUnitUid || null,
+                    waveUnit: action.waveUnit || null,
+                    attackerRole: action.attackerRole
+                });
+            }
+        }
     },
-    [STAGE_ACTION_TYPES.HP_PCT_DANMAKU]: { grid: 'none', fx: 'sync', log: 'sync', timing: 'afterText' }
+    [STAGE_ACTION_TYPES.REBOUND]: {
+        grid: 'none', log: 'sync', timing: 'afterText',
+        fx: async (c, action) => {
+            // 反伤：只飘字，不触发飞撞/箭矢/音效；严阵以待带横幅（fortifyRebound）
+            if (action.bannerText && !GlobalStore.get('fastForwardActive')) {
+                c.isPaused = true; GlobalStore.set('bulletTimeActive', true);
+                await eventBus.emit(FX_SIGNALS.BANNER, { text: action.bannerText });
+                GlobalStore.set('bulletTimeActive', false); c.isPaused = false;
+            }
+            const target = findUnitByUidLocal(c, action.targetUid);
+            if (target && action.dmg && !GlobalStore.get('fastForwardActive')) {
+                eventBus.emit(FX_SIGNALS.DAMAGE_FLOAT, { unit: target, dmg: action.dmg });
+            }
+        }
+    },
+    [STAGE_ACTION_TYPES.HEAL]: {
+        grid: 'sync', log: 'sync', timing: 'beforeText',
+        fx: (c, action) => {
+            const healUnit = findUnitByUidLocal(c, action.targetUid);
+            if (healUnit && action.amount) {
+                eventBus.emit(FX_SIGNALS.HEAL_FLOAT, { unit: healUnit, amount: action.amount });
+            }
+        }
+    },
+    [STAGE_ACTION_TYPES.DEATH]: { grid: 'sync', log: 'sync', timing: 'afterText' },
+    [STAGE_ACTION_TYPES.DODGE]: {
+        grid: 'sync', log: 'sync', timing: 'beforeText',
+        store: (c, action, pendingDeaths) => {
+            // ★ 闪避反击后攻击者必须进入眩晕态，并在 store 里同步，否则渲染层读不到 _stunned，
+            //   职业图标不会切换成 😵（renderGrid 里 isStunned 判断依赖 state._stunned）。
+            //   同时清除攻击者 flash，避免闪避前残留的 attack/defend 蓝色或黄色特效。
+            if (action.actorUid) {
+                c.store.dispatch({ type: STORE_ACTION_TYPES.SET_VISUAL, uid: action.actorUid, _stunned: true, _acted: true });
+                c.store.dispatch({ type: STORE_ACTION_TYPES.CLEAR_UNIT_FLASH, uid: action.actorUid });
+            }
+            if (action.dead && action.actorUid && pendingDeaths) pendingDeaths.push(action.actorUid);
+        },
+        fx: async (c, action) => {
+            const attacker = findUnitByUidLocal(c, action.actorUid);
+            const dodger = findUnitByUidLocal(c, action.targetUid);
+            if (attacker && action.reboundDmg && !GlobalStore.get('fastForwardActive')) {
+                eventBus.emit(FX_SIGNALS.DAMAGE_FLOAT, { unit: attacker, dmg: action.reboundDmg });
+            }
+            // 华丽模式：子弹时间；简单模式：气泡
+            if (c.dodgeEffectEnabled && attacker && dodger) {
+                c.isPaused = true; GlobalStore.set('isPaused', true); GlobalStore.set('bulletTimeActive', true);
+                await eventBus.emit(FX_SIGNALS.CRITICAL_BANNER, { text: '✨闪避反击✨' });
+                // ★ 子弹时间必须走直接 await，不能走 eventBus 异步通道：
+                //   emit 是同步调用（infra/50-event-bus.js），不等待监听器返回的 Promise，
+                //   否则动画后台并行播放、战斗继续推进。主循环 await 阻塞，动画播完才恢复。
+                const { showDodgeBulletTime } = await import('../fx/85fx-dodge-bullet.js');
+                await showDodgeBulletTime(attacker, dodger, action.reboundDmg || 0);
+                GlobalStore.set('bulletTimeActive', false); GlobalStore.set('isPaused', false); c.isPaused = false;
+            } else if (attacker) {
+                eventBus.emit(FX_SIGNALS.DODGE_BUBBLE, { unit: attacker, text: '闪避！' });
+                // ★ 简单模式闪避反击：近战攻击者需补发 TRIGGER 信号，触发飞撞击退动画。
+                //    _triggerFX 里 isDodge=true 且 dodgeEffectEnabled=false 时，会调用 showMeleeDodge(闪避者, 攻击者)，
+                //    实现"飞撞过去 → 被击退回来"的完整动画。远程攻击者不走飞撞，只保持气泡提示。
+                if (attacker.role !== ROLE_TYPES.RANGED && dodger) {
+                    eventBus.emit(FX_SIGNALS.TRIGGER, {
+                        fxSnapshot: action.fx || null,
+                        unitA: attacker,
+                        unitD: dodger,
+                        isDead: false,
+                        isDodge: true,
+                        isMiss: false,
+                        isBlock: false,
+                        dmg: action.reboundDmg || 0,
+                        waveTaunt: null,
+                        waveUnitUid: null,
+                        waveUnit: null,
+                        attackerRole: attacker.role
+                    });
+                }
+            }
+            // ★ 闪避反击结束后，攻击者格子应进入眩晕显示（😵 图标），这里只是确保特效期间不残留样式；
+            //   实际状态同步已由 store handler 完成，此处不重复写，避免与 store 双写冲突。
+        }
+    },
+    [STAGE_ACTION_TYPES.POS_SWAP]: {
+        grid: 'sync', log: 'sync', timing: 'beforeText',
+        store: (c, action, pendingDeaths) => {
+            if (action.actorUid && action.targetUid) {
+                c.store.dispatch({ type: STORE_ACTION_TYPES.APPLY_EVENTS, events: [
+                    { eventType: UNIT_EVENT_TYPES.POS_CHANGE, uid: action.actorUid, pos: action.oldPosB },
+                    { eventType: UNIT_EVENT_TYPES.POS_CHANGE, uid: action.targetUid, pos: action.oldPosA }
+                ]});
+            }
+        },
+        fx: async (c, action) => {
+            const unitA = findUnitByUidLocal(c, action.actorUid);
+            const unitB = findUnitByUidLocal(c, action.targetUid);
+            if (unitA && unitB) {
+                c.isPaused = true; GlobalStore.set('bulletTimeActive', true);
+                // ★ 换位动画同样直接 await：原 eventBus.emit(POSITION_SWAP) 同步派发不等待动画完成。
+                //   惑心判定横幅已由 MIND_CONTROL_BANNER → BANNER 动作独立播放（两条判定各一条），
+                //   此处只负责换位特效，成功判定时紧跟在判定横幅之后
+                const { animatePositionSwap } = await import('../fx/87fx-manager.js');
+                await animatePositionSwap(unitA, unitB, c, {
+                    skipDataChange: true,
+                    oldPositions: (action.oldPosA != null && action.oldPosB != null) ? [action.oldPosA, action.oldPosB] : null
+                });
+                GlobalStore.set('bulletTimeActive', false); c.isPaused = false;
+            }
+        }
+    },
+    [STAGE_ACTION_TYPES.PUSH]: {
+        grid: 'sync', log: 'sync', timing: 'beforeText',
+        store: (c, action, pendingDeaths) => {
+            if (action.actorUid && action.targetUid) {
+                c.store.dispatch({ type: STORE_ACTION_TYPES.APPLY_EVENTS, events: [
+                    { eventType: UNIT_EVENT_TYPES.POS_CHANGE, uid: action.actorUid, pos: action.newPos },
+                    { eventType: UNIT_EVENT_TYPES.POS_CHANGE, uid: action.targetUid, pos: action.oldPos }
+                ]});
+            } else if (action.actorUid && action.newPos != null) {
+                c.store.dispatch({ type: STORE_ACTION_TYPES.APPLY_EVENTS, events: [
+                    { eventType: UNIT_EVENT_TYPES.POS_CHANGE, uid: action.actorUid, pos: action.newPos }
+                ]});
+            }
+        },
+        fx: async (c, action) => {
+            const target = findUnitByUidLocal(c, action.actorUid);
+            if (!target) return;
+            c.isPaused = true; GlobalStore.set('bulletTimeActive', true);
+            await eventBus.emit(FX_SIGNALS.BANNER, { text: '🦅 乘风突袭！' });
+            if (action.targetUid) {
+                const behind = findUnitByUidLocal(c, action.targetUid);
+                if (behind) {
+                    await eventBus.emit(FX_SIGNALS.PUSH_SWAP, { target, behind, c, opts: { skipDataChange: true } });
+                }
+            } else {
+                await eventBus.emit(FX_SIGNALS.PUSH_BACK, { target, c, newPos: action.newPos, opts: { skipDataChange: true } });
+            }
+            GlobalStore.set('bulletTimeActive', false); c.isPaused = false;
+        }
+    },
+    [STAGE_ACTION_TYPES.SUMMON]: {
+        grid: 'sync', log: 'sync', timing: 'beforeText',
+        store: (c, action, pendingDeaths) => {
+            if (action.actorUid) {
+                const unit = c.store.getState().units.find(u => u.uid === action.actorUid);
+                if (unit) {
+                    c.store.dispatch({ type: STORE_ACTION_TYPES.SET_VISUAL, uid: unit.uid, _acted: false });
+                }
+            }
+        },
+        fx: async (c, action) => {
+            const horse = findUnitByUidLocal(c, action.actorUid);
+            if (horse) {
+                c.isPaused = true;
+                await eventBus.emit(FX_SIGNALS.BANNER, { text: '🐴 拒马阵！' + (action.taunt || '') });
+                c.isPaused = false;
+            }
+        }
+    },
+    [STAGE_ACTION_TYPES.DESTROY]: {
+        grid: 'sync', log: 'sync', timing: 'afterText',
+        store: (c, action, pendingDeaths) => {
+            if (action.success && action.actorUid) {
+                c.store.dispatch({ type: STORE_ACTION_TYPES.REMOVE_UNIT, uid: action.actorUid });
+            }
+        },
+        fx: async (c, action) => {
+            if (action.success && action.actorUid) {
+                c.isPaused = true;
+                await eventBus.emit(FX_SIGNALS.BANNER, { text: '🐴 拒马已销毁' });
+                c.isPaused = false;
+            }
+        }
+    },
+    [STAGE_ACTION_TYPES.TRANSFORM]: {
+        grid: 'sync', log: 'sync', timing: 'beforeText',
+        store: (c, action, pendingDeaths) => {
+            // 张无忌切近战：解除休息态（SPIDER_TRANSFORM 无副作用）
+            if (action.actorUid && action.danmaku) {
+                c.store.dispatch({ type: STORE_ACTION_TYPES.SET_VISUAL, uid: action.actorUid, _resting: false });
+            }
+        },
+        fx: (c, action) => {
+            // 变身/切形态：张无忌弹幕（zhangSwitch），蛛变无特效
+            const unit = findUnitByUidLocal(c, action.actorUid);
+            if (action.danmaku && unit && !GlobalStore.get('fastForwardActive')) {
+                eventBus.emit(FX_SIGNALS.DANMAKU, { unit, text: action.danmaku });
+            }
+        }
+    },
+    [STAGE_ACTION_TYPES.FLY_MODE]: {
+        grid: 'sync', log: 'sync', timing: 'beforeText',
+        fx: (c, action) => {
+            const unit = findUnitByUidLocal(c, action.actorUid);
+            if (!unit) return;
+            // butterflyAttach / butterflyReturn / spiderFly / spiderReturn 等由 31 翻译，
+            // 特效按 originalFactType 区分
+            if (action.originalFactType === FLY_MODE_TYPES.BUTTERFLY_ATTACH) {
+                const host = findUnitByUidLocal(c, action.hostUid);
+                if (host) eventBus.emit(FX_SIGNALS.BUTTERFLY_FLY_OUT, { sister: unit, host });
+            } else if (action.originalFactType === FLY_MODE_TYPES.BUTTERFLY_RETURN) {
+                const host = findUnitByUidLocal(c, action.hostUid);
+                if (host) eventBus.emit(FX_SIGNALS.BUTTERFLY_FLY_BACK, { host, sister: unit });
+            } else if (action.originalFactType === FLY_MODE_TYPES.SPIDER_FLY) {
+                eventBus.emit(FX_SIGNALS.SPIDER_ASCEND, { unit });
+            } else if (action.originalFactType === FLY_MODE_TYPES.SPIDER_RETURN) {
+                eventBus.emit(FX_SIGNALS.SPIDER_DESCEND, { unit });
+            }
+        }
+    },
+    [STAGE_ACTION_TYPES.ROUND_START]: {
+        grid: 'sync', log: 'sync', timing: 'beforeText',
+        store: (c, action, pendingDeaths) => {
+            c.store.getState().units.forEach(u => {
+                if (u.alive) c.store.dispatch({ type: STORE_ACTION_TYPES.SET_VISUAL, uid: u.uid, _acted: false });
+            });
+        }
+    },
+    [STAGE_ACTION_TYPES.ROUND_END]: { grid: 'sync', log: 'sync', timing: 'afterText' },
+    [STAGE_ACTION_TYPES.REST]: { grid: 'sync', log: 'sync', timing: 'beforeText' },
+    [STAGE_ACTION_TYPES.DOT]: {
+        grid: 'sync', log: 'sync', timing: 'beforeText',
+        store: (c, action, pendingDeaths) => {
+            if (action.dead && action.targetUid && pendingDeaths) pendingDeaths.push(action.targetUid);
+        },
+        fx: (c, action) => {
+            const target = findUnitByUidLocal(c, action.targetUid);
+            if (target && action.dmg && !GlobalStore.get('fastForwardActive')) {
+                eventBus.emit(FX_SIGNALS.DAMAGE_FLOAT, { unit: target, dmg: action.dmg });
+            }
+        }
+    },
+    [STAGE_ACTION_TYPES.EXECUTE]: {
+        grid: 'sync', log: 'sync', timing: 'afterText',
+        store: (c, action, pendingDeaths) => {
+            if (action.dead && action.targetUid && pendingDeaths) pendingDeaths.push(action.targetUid);
+        },
+        fx: (c, action) => {
+            const target = findUnitByUidLocal(c, action.targetUid);
+            if (target && action.dmg && !GlobalStore.get('fastForwardActive')) {
+                eventBus.emit(FX_SIGNALS.DAMAGE_FLOAT, { unit: target, dmg: action.dmg });
+            }
+        }
+    },
+    [STAGE_ACTION_TYPES.MISS]: {
+        grid: 'none', log: 'sync', timing: 'afterText',
+        fx: (c, action) => {
+            const attacker = findUnitByUidLocal(c, action.actorUid);
+            const target = findUnitByUidLocal(c, action.targetUid);
+            if (attacker && !GlobalStore.get('fastForwardActive')) {
+                eventBus.emit(FX_SIGNALS.DODGE_BUBBLE, { unit: attacker, text: '未命中' });
+                // 近战/飞行未命中补发飞撞击打动画（远程保持气泡即可）
+                if (attacker.role !== ROLE_TYPES.RANGED && target) {
+                    eventBus.emit(FX_SIGNALS.TRIGGER, {
+                        fxSnapshot: action.fx || null,
+                        unitA: attacker,
+                        unitD: target,
+                        isDead: false,
+                        isDodge: false,
+                        isMiss: true,
+                        isBlock: false,
+                        dmg: 0,
+                        waveTaunt: null,
+                        waveUnitUid: null,
+                        waveUnit: null,
+                        attackerRole: attacker.role
+                    });
+                }
+            }
+        }
+    },
+    [STAGE_ACTION_TYPES.IMMUNE]: { grid: 'none', log: 'sync', timing: 'beforeText' },
+    [STAGE_ACTION_TYPES.STAT_CHANGE]: { grid: 'sync', log: 'sync', timing: 'afterText' },
+    [STAGE_ACTION_TYPES.BANNER]: {
+        grid: 'none', log: 'sync', timing: 'beforeText',
+        fx: async (c, action) => {
+            // 通用横幅（概率连击等）
+            // ★ 必须直接 await showBuffBanner：eventBus.emit 为同步派发（infra/50，监听器 Promise 被丢弃），
+            //   走 emit 则 isPaused 立即复位、横幅后台空转，视觉上"刷一下就过去"；直接 await 才能真正阻塞主循环
+            if (action.text && !GlobalStore.get('fastForwardActive')) {
+                c.isPaused = true; GlobalStore.set('bulletTimeActive', true);
+                const { showBuffBanner } = await import('../fx/87fx-manager.js');
+                await showBuffBanner(action.text);
+                GlobalStore.set('bulletTimeActive', false); c.isPaused = false;
+            }
+        }
+    },
+    [STAGE_ACTION_TYPES.EMPTY_TARGET]: { grid: 'none', log: 'sync', timing: 'beforeText' },
+    [STAGE_ACTION_TYPES.STUN]: { grid: 'sync', log: 'sync', timing: 'beforeText' },
+    [STAGE_ACTION_TYPES.SPLASH]: {
+        grid: 'sync', log: 'sync', timing: 'afterText',
+        fx: (c, action) => {
+            if (action.splashUids && action.splashDmg && !GlobalStore.get('fastForwardActive')) {
+                action.splashUids.forEach(uid => {
+                    const t = findUnitByUidLocal(c, uid);
+                    if (t) eventBus.emit(FX_SIGNALS.DAMAGE_FLOAT, { unit: t, dmg: action.splashDmg });
+                });
+            }
+        }
+    },
+    [STAGE_ACTION_TYPES.SPIDER_STRIKE]: {
+        grid: 'sync', log: 'sync', timing: 'beforeText',
+        store: (c, action, pendingDeaths) => {
+            if (action.dead && action.targetUid && pendingDeaths) pendingDeaths.push(action.targetUid);
+        },
+        fx: async (c, action) => {
+            const spiderUnit = findUnitByUidLocal(c, action.actorUid);
+            const strikeTarget = findUnitByUidLocal(c, action.targetUid);
+            if (spiderUnit && strikeTarget) {
+                c.isPaused = true;
+                GlobalStore.set('bulletTimeActive', true);
+                await eventBus.emit(FX_SIGNALS.SPIDER_STRIKE, { spiderUnit, strikeTarget });
+                GlobalStore.set('bulletTimeActive', false);
+                c.isPaused = false;
+            }
+        }
+    },
+    [STAGE_ACTION_TYPES.BUFF_EFFECT]: {
+        grid: 'none', log: 'sync',
+        timing: (action) => (action && action.effectType === BUFF_EFFECT_TYPES.XIN_HUN) ? 'beforeText' : 'afterText',
+        fx: async (c, action) => {
+            const attacker = findUnitByUidLocal(c, action.attackerUid);
+            const target = findUnitByUidLocal(c, action.targetUid);
+            const primary = findUnitByUidLocal(c, action.primaryUid);
+            if (action.effectType === BUFF_EFFECT_TYPES.SPLASH && attacker && primary && action.splashUids && action.splashUids.length > 0) {
+                const splashTargets = action.splashUids.map(uid => findUnitByUidLocal(c, uid)).filter(u => u);
+                if (splashTargets.length > 0) {
+                    // 乘风突袭：风爪 + 专属横幅，不放箭、不延时；否则走流星箭雨
+                    if (action.buffType === BUFF_SUBTYPES.WIND_ASSAULT) {
+                        c.isPaused = true; GlobalStore.set('bulletTimeActive', true);
+                        await eventBus.emit(FX_SIGNALS.BANNER, { text: '🦅 乘风突袭！' });
+                        splashTargets.forEach(u => eventBus.emit(FX_SIGNALS.WIND_CLAW, { unit: u }));
+                        GlobalStore.set('bulletTimeActive', false); c.isPaused = false;
+                    } else {
+                        c.isPaused = true; GlobalStore.set('bulletTimeActive', true);
+                        await eventBus.emit(FX_SIGNALS.BANNER, { text: '☄️ 流星赶月！' });
+                        eventBus.emit(FX_SIGNALS.SPLASH_ARROWS, { attacker, primary, targets: splashTargets, speed: c.speed, isPausedFn: () => c.isPaused });
+                        splashTargets.forEach((st, i) => { setTimeout(() => AudioManager.playSfx(attacker.role || ROLE_TYPES.RANGED), i * 120); });
+                        GlobalStore.set('bulletTimeActive', false); c.isPaused = false;
+                        await new Promise(r => setTimeout(r, GlobalStore.get('fastForwardActive') ? 1 : 600));
+                    }
+                }
+            } else if (action.effectType === BUFF_EFFECT_TYPES.BONE_CLAW && attacker && target) {
+                if (action.dmg && !GlobalStore.get('fastForwardActive')) {
+                    eventBus.emit(FX_SIGNALS.DAMAGE_FLOAT, { unit: target, dmg: action.dmg });
+                }
+                eventBus.emit(FX_SIGNALS.BONE_CLAW, { attacker, target, speed: c.speed, isPausedFn: () => c.isPaused, opts: { isExecute: action.isExecute } });
+                // 每个爪击依次播放，避免多爪动画同时启动重叠
+                if (!GlobalStore.get('fastForwardActive')) {
+                    await new Promise(r => setTimeout(r, Math.max(600, c.speed * 1.2)));
+                }
+            } else if (action.effectType === BUFF_EFFECT_TYPES.ATK_BUFF && target && action.gain) {
+                eventBus.emit(FX_SIGNALS.ATK_BUFF_FLOAT, { unit: target, gain: action.gain });
+            } else if (action.effectType === BUFF_EFFECT_TYPES.XIN_HUN) {
+                // 新婚快乐：宋青书/周芷若爱心 + 扣血飘字
+                const song = c.store ? c.store.getState().units.find(u => u.name === '宋青书') : null;
+                const zhou = findUnitByUidLocal(c, action.targetUid);
+                if (song) eventBus.emit(FX_SIGNALS.HEART_EFFECT, { unit: song });
+                if (zhou) eventBus.emit(FX_SIGNALS.HEART_EFFECT, { unit: zhou });
+                if (zhou && zhou.alive) eventBus.emit(FX_SIGNALS.PINK_FLASH, { unit: zhou });
+                if (zhou && action.dmg && !GlobalStore.get('fastForwardActive')) {
+                    eventBus.emit(FX_SIGNALS.DAMAGE_FLOAT, { unit: zhou, dmg: action.dmg });
+                }
+            }
+        }
+    },
+    [STAGE_ACTION_TYPES.HP_PCT_DANMAKU]: {
+        grid: 'none', log: 'sync', timing: 'afterText',
+        fx: (c, action) => {
+            const target = findUnitByUidLocal(c, action.targetUid);
+            if (target && action.text && !GlobalStore.get('fastForwardActive')) {
+                eventBus.emit(FX_SIGNALS.DANMAKU, { unit: target, text: action.text });
+            }
+        }
+    }
 };

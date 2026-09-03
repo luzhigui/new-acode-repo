@@ -6,7 +6,7 @@ import { CONFIG, getGameData } from './01config-5v5-test.js';
 
 import { StateMachine } from '../infra/51-core-utils.js';
 
-import { BATTLE_FIELD_KEYS, PERMANENT_FIELD_KEYS, BATTLE_STATE_KEYS, copyAllStateFields, resetStateFields } from './17-state-keys.js';
+import { BATTLE_FIELD_KEYS, PERMANENT_FIELD_KEYS, BATTLE_STATE_KEYS, BATTLE_STATE_DEFAULTS, copyAllStateFields, resetStateFields } from './17-state-keys.js';
 
 import { ROLE_TYPES } from '../infra/56-battle-enums.js';
 
@@ -44,14 +44,13 @@ export class Unit {
         this.state = {};
         resetStateFields(this.state);
         for (const key of BATTLE_STATE_KEYS) {
-            if (key === '_spiderRemaining') this.state[key] = 3;
-            else if (key === '_isDead') this.state[key] = false;
-            else if (key === '_xuanmingPoison') this.state[key] = null;
-            else if (['_kuaiLeStack', '_masteredRoles', '_permanentBuffs'].includes(key)) this.state[key] = [];
-            else if (['_fortifyStacks', '_fortifyIncrement', '_fortifyCap', '_dodgeStack', '_extinctionUsed', '_spiderTriggeredHit', '_spiderTriggered70', '_spiderTriggered40', '_spiderTriggeredDeath', '_hotBloodCount', '_doubleStriked', '_zhangSwitched', '_carryAtkBonus', '_carryDefBonus', '_carryHpBonus', '_butterflyAtkBonus', '_butterflyDefBonus', '_xingFenCount', '_xingFenPenaltyCount', '_kuLianActive', '_butterflyAtk', '_butterflyDef', '_butterflyHp', '_butterflyHpTransfer', '_untargetable', '_zhangTauntDone'].includes(key)) this.state[key] = false;
-            else this.state[key] = false;
+            if (key in BATTLE_STATE_DEFAULTS) {
+                const def = BATTLE_STATE_DEFAULTS[key];
+                this.state[key] = Array.isArray(def) ? [] : def;
+            } else {
+                this.state[key] = false;
+            }
         }
-        for (const key of ['_linkedPartnerUid']) this.state[key] = null;
         this.buffAtkBonus = 0;
         this.buffDefBonus = 0;
         this.buffDodgeBonus = 0;
