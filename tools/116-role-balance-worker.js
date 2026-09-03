@@ -17,7 +17,6 @@ if (typeof localStorage === 'undefined') {
 import { CONFIG, loadGameData } from '../core/01config-5v5-test.js';
 import { Unit } from '../core/02unit.js';
 import { SeededRNG, flushBattleEvents, onBattleEvents } from '../infra/51-core-utils.js';
-import { clearAllEliteStates } from '../core/18-elite-state.js';
 import { createRoundStepper } from '../core/11battle-round.js';
 import { setBattleRng } from '../core/13battle-shared.js';
 import { createBuffObject } from '../modules/28buff-tools.js';
@@ -39,7 +38,7 @@ function clearBattleGlobals() {
     GlobalStore.set('forceXiaoZhao', null);
     GlobalStore.set('currentBattleState', null);
     flushBattleEvents();
-    clearAllEliteStates(); // uid 永不复用、_eliteStates Map 会无限膨胀，每场清理防 OOM
+    // 状态已并入 unit.state，随对局对象 GC，无需清理（18-elite-state 已废弃）
 }
 
 // ==================== 共用：跑 ≤35 回合完整战斗（与各工具原战斗中继逻辑一致） ====================
@@ -369,7 +368,7 @@ self.onmessage = (e) => {
                 const enemyTeam = buildTeam(enemyRole, CAMP_TYPES.ENEMY, positions, rng);
                 const r = runBalanceJob(allyTeam, enemyTeam, seed, hexEnabled);
                 flushBattleEvents();
-                clearAllEliteStates();
+                // 状态已并入 unit.state，随对局对象 GC，无需清理（18-elite-state 已废弃）
                 if (r.winner === '明教') wins++;
             }
             result = { wins };

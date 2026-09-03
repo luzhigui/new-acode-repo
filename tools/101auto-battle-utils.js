@@ -4,7 +4,6 @@ export const VER = 'tools/101auto-battle-utils.js V5.5.3';
 
 import { CONFIG } from '../core/01config-5v5-test.js';
 import { SeededRNG, flushBattleEvents } from '../infra/51-core-utils.js';
-import { clearAllEliteStates } from '../core/18-elite-state.js';
 import { createRoundStepper } from '../core/11battle-round.js';
 import { initBattleTeams } from '../modules/29battle-init.js';
 import { BUFF_TYPES, CAMP_TYPES } from '../infra/56-battle-enums.js';
@@ -121,7 +120,7 @@ export async function runAutoBattle(rounds, onProgress, stage = 1, preferredBuff
         const result = await runBattle(snap, buffs, rng);
         // 每场结束清理全局累积：_eventBuffer（已 flush）+ _eliteStates Map（uid 永不复用，会无限膨胀导致 OOM）
         flushBattleEvents();
-        clearAllEliteStates();
+        // 状态已并入 unit.state，随对局对象 GC，无需清理（18-elite-state 已废弃）
         if (result.winner === '明教') wins.ally++;
         else if (result.winner === '六大派') wins.enemy++;
         else wins.draw++;
