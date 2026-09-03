@@ -443,6 +443,9 @@ function submitKuLian(data, decls) {
     if (!decl) return;
     const kuLianSong = checkKuLian(B);
     if (!kuLianSong) return;
+    // 守卫：每场仅首次触发（周芷若阵亡后的第一个回合）。无守卫时每个回合都重发提示并重复叠加属性
+    // （2026-09-03 体检实锤：苦练提示一场出现13次）。_kuLianActive 属整场字段，clone 会带过来。
+    if (kuLianSong.state._kuLianActive) return;
     Object.assign(kuLianSong.state, { _kuLianActive: true });
     const s = {
         atkBonus: decl.atkBonus || 1,

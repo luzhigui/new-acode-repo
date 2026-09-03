@@ -17,6 +17,17 @@ export const rule87 = {
         }
         if (!hasCloud) return 'skip';
 
+        // 口径修正（2026-09-03）：buffDodgeBonus 是"当前值"镜像，每回合 prepareRoundStart 重算并发射
+        // STAT_BONUS_CHANGE 覆盖写入。流云在战斗中途过期后，末轮重算会合法地把字段清回 0——
+        // 此时终值为 0 不代表链路坏了。只有 GAMEOVER 时流云仍挂在 activeBuffs（末轮生效），
+        // 终值才必须 > 0；已过期的场次跳过，等流云活到末尾的场次再判。
+        var cloudStillOn = false;
+        var ab = ctx.activeBuffs || [];
+        for (var c = 0; c < ab.length; c++) {
+            if (ab[c] && ab[c].key === 'cloudBody') { cloudStillOn = true; break; }
+        }
+        if (!cloudStillOn) return 'skip';
+
         var alive = [];
         for (var j = 0; j < afterA.length; j++) {
             if (afterA[j] && afterA[j].alive) alive.push(afterA[j]);

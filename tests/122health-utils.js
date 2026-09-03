@@ -240,7 +240,10 @@ export function checkBuffIcons(ctx, doc) {
 
     for (const unit of allyTeam) {
         if (!unit.alive) continue;
-        const cell = getCellElement(unit, doc);
+        // ★ 按 uid 定位格子（渲染器在 div.dataset.uid 上写死 uid），不用 pos 反查：
+        //   ctx.UI 是开战快照，战斗中死亡移除/换位（惑人心智本身就是换位buff）会让
+        //   pos→children[idx] 映射偏移，查到别人的格子 → 假"缺图标"（2026-09-03 关5/6 误报根因）
+        const cell = doc.querySelector('#allyGrid .cell[data-uid="' + unit.uid + '"]') || getCellElement(unit, doc);
         if (!cell) continue;
         const nameEl = cell.querySelector('.cell-name');
         if (!nameEl) continue;
