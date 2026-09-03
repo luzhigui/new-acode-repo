@@ -248,7 +248,7 @@ function submitPhantomDisguiseOnHit(data, decls) {
                 value: heal,
                 source: unit,
                 factType: FACT_TYPES.PHANTOM_DISGUISE_HEAL,
-                factData: { unitName: unit.name, heal }
+                factData: { unitName: unit.name, heal, unitUid: unit.uid }
             });
         }
         emitEvent(unit, UNIT_EVENT_TYPES.HP_CHANGE, { hp:unit.hp, maxHp:unit.maxHp, alive:unit.alive, atk:unit.atk, def:unit.def, _phantomTarget:unit.state._phantomTarget });
@@ -415,7 +415,7 @@ function submitChainClaw(data, decls) {
             value: totalHeal,
             source: song,
             factType: FACT_TYPES.CLAW_HEAL,
-            factData: { totalHeal }
+            factData: { totalHeal, unitUid: song.uid }
         });
     } else if (song && song.alive) {
         log.push({ factType: FACT_TYPES.CLAW_NO_HEAL, data: {} });

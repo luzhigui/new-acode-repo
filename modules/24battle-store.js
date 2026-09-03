@@ -3,6 +3,9 @@
 export const VER = 'modules/24battle-store.js V5.6.1';
 
 import { STORE_ACTION_TYPES, UNIT_EVENT_TYPES } from '../infra/56-battle-enums.js';
+import { ROUND_STATE_KEYS, BATTLE_STATE_KEYS } from '../core/17-state-keys.js';
+
+const ALL_STATE_KEYS = [...ROUND_STATE_KEYS, ...BATTLE_STATE_KEYS];
 
 // ==================== Store 工厂 ====================
 export function createStore(initialState, reducer) {
@@ -101,14 +104,9 @@ export function battleReducer(state, action) {
                         if (p._baseDef !== undefined) next[idx]._baseDef = p._baseDef;
                         if (p._baseMaxHp !== undefined) next[idx]._baseMaxHp = p._baseMaxHp;
                         if (!next[idx].state) next[idx].state = {};
-                        if (p._isDead !== undefined) next[idx].state._isDead = p._isDead;
-                        if (p._resting !== undefined) next[idx].state._resting = p._resting;
-                        if (p._blocked !== undefined) next[idx].state._blocked = p._blocked;
-                        if (p._phantomTarget !== undefined) next[idx].state._phantomTarget = p._phantomTarget;
-                        if (p._stunned !== undefined) next[idx].state._stunned = p._stunned;
-                        if (p._flyMode !== undefined) next[idx].state._flyMode = p._flyMode;
-                        if (p._butterflyHost !== undefined) next[idx].state._butterflyHost = p._butterflyHost;
-                        if (p._masteredRoles !== undefined) next[idx]._masteredRoles = p._masteredRoles;
+                        for (const key of ALL_STATE_KEYS) {
+                            if (p[key] !== undefined) next[idx].state[key] = p[key];
+                        }
                         if (ev.eventType === UNIT_EVENT_TYPES.ZHANG_SWITCH) {
                             if (p.rangedForm !== undefined) next[idx].rangedForm = p.rangedForm;
                         }
@@ -163,13 +161,9 @@ export function battleReducer(state, action) {
             if (p.def !== undefined) next[idx].def = p.def;
             if (p.role !== undefined) next[idx].role = p.role;
             if (!next[idx].state) next[idx].state = {};
-            if (p._isDead !== undefined) next[idx].state._isDead = p._isDead;
-            if (p._resting !== undefined) next[idx].state._resting = p._resting;
-            if (p._blocked !== undefined) next[idx].state._blocked = p._blocked;
-            if (p._stunned !== undefined) next[idx].state._stunned = p._stunned;
-            if (p._flyMode !== undefined) next[idx].state._flyMode = p._flyMode;
-            if (p._butterflyHost !== undefined) next[idx].state._butterflyHost = p._butterflyHost;
-            if (p._phantomTarget !== undefined) next[idx].state._phantomTarget = p._phantomTarget;
+            for (const key of ALL_STATE_KEYS) {
+                if (p[key] !== undefined) next[idx].state[key] = p[key];
+            }
             if (p.rangedForm !== undefined) next[idx].rangedForm = p.rangedForm;
             return { ...state, units: next };
         }

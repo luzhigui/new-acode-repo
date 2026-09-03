@@ -173,7 +173,7 @@ export function submitBloodthirstDeclaration(data) {
             value: leechVal,
             source: unit,
             factType: FACT_TYPES.BLOOD_THIRST_LEECH,
-            factData: { unitName: unit.name, leechVal, isBrother: false }
+            factData: { unitName: unit.name, leechVal, isBrother: false, unitUid: unit.uid }
         };
         if (!data.declarations) data.declarations = [];
         data.declarations.push(decl);
@@ -195,7 +195,7 @@ export function submitBloodthirstDeclaration(data) {
             value: leechVal,
             source: unit,
             factType: FACT_TYPES.BLOOD_THIRST_LEECH,
-            factData: { unitName: unit.name, leechVal, isBrother: true }
+            factData: { unitName: unit.name, leechVal, isBrother: true, unitUid: unit.uid }
         };
         if (!data.declarations) data.declarations = [];
         data.declarations.push(decl);
@@ -242,7 +242,7 @@ export function submitHotBloodDeclaration(data) {
                 source: unit,
                 isDouble: tag.includes('翻倍'),
                 factType: FACT_TYPES.HOT_BLOOD_HEAL,
-                factData: { unitName: unit.name, leech, tag, isBrother: false }
+                factData: { unitName: unit.name, leech, tag, isBrother: false, unitUid: unit.uid }
             };
             if (!data.declarations) data.declarations = [];
             data.declarations.push(decl);
@@ -263,7 +263,7 @@ export function submitHotBloodDeclaration(data) {
                     source: unit,
                     isDouble: tag.includes('翻倍'),
                     factType: FACT_TYPES.HOT_BLOOD_HEAL,
-                    factData: { unitName: unit.name, leech, tag, isBrother: true }
+                    factData: { unitName: unit.name, leech, tag, isBrother: true, unitUid: unit.uid }
                 };
                 if (!data.declarations) data.declarations = [];
                 data.declarations.push(decl);

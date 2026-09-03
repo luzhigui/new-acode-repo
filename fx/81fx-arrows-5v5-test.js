@@ -1,8 +1,8 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// fx/81fx-arrows-5v5-test.js - 光明顶5v5 飞箭+白骨爪特效
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// fx/81fx-arrows-5v5-test.js - 光明顶5v5 飞箭+白骨爪特效
 // V5.5.0 | ~21100 bytes| 2026-07-06 新增 showBoneClaw、接入通用受击反馈
 export const VER = 'fx/81fx-arrows-5v5-test.js V5.5.0';
 
-import { applyImpactShrink } from './80fx-common-5v5-test.js';
+import { markGridShake } from '../render/32-grid-render.js';
 import { CAMP_TYPES } from '../infra/56-battle-enums.js';
 
 function applyWholeShake(elements, durationMs, basePositions, angle, getPausedFn, onComplete) {
@@ -69,12 +69,9 @@ export function showRangedArrow(unitA, unitD, speed, getPausedFn, isMeteor = fal
         function flyStep(ts) { if (getPausedFn && getPausedFn()) { requestAnimationFrame(flyStep); return; } if (!startFly) startFly = ts; let p = Math.min(1, (ts - startFly) / flyDuration); let curStartX = sx + (finalStartX - sx) * p, curStartY = sy + (finalStartY - sy) * p; container.style.left = curStartX + 'px'; container.style.top = curStartY + 'px';
             if (p < 1) { requestAnimationFrame(flyStep); } else {
                 container.style.left = finalStartX + 'px'; container.style.top = finalStartY + 'px';
-                // ★ 命中瞬间重查格子：箭飞行期间 renderGrid 可能重建格子，发射瞬间的 gridD/idxD 会退化成脱离 DOM 的死引用，
-                //   颤动若打在死节点上视觉毫无反馈（与 85fx-dodge-bullet 格子变小 bug 同根）
-                let gridDNow = document.getElementById(gridDId);
-                let idxDNow = orderD.indexOf(unitD.pos);
-                let defCell = (gridDNow && gridDNow.children[idxDNow]) || null;
-                if (defCell) { applyImpactShrink(defCell, 300, getPausedFn); }
+                // ★ 命中颤动：交给渲染层 markGridShake——renderGrid 重建也带 .shake（老 CSS 关键帧横移），
+                //   不再直接改格子 DOM/overlay，避免 grid 重建掐掉颤动
+                markGridShake(unitD.uid, 350);
                 if (onHit) onHit();
 
                 // 流星赶月：命中后显示蓄力光圈
@@ -175,8 +172,8 @@ export async function showSplashArrows(attacker, primaryTarget, splashTargets, s
             if (p < 1) {
                 requestAnimationFrame(flyStep);
             } else {
-                let defCell = gridD.children[idxD];
-                if (defCell) { applyImpactShrink(defCell, 250, getPausedFn); }
+                // ★ 命中颤动：交给渲染层 markGridShake（同主箭修复）
+                markGridShake(st.uid, 300);
                 setTimeout(() => { if (container.parentNode) container.remove(); }, 600);
             }
         }
@@ -285,9 +282,7 @@ export function showBoneClaw(unitA, unitD, speed, getPausedFn, onHit, opts) {
         claw.style.top = cy + 'px';
         if (p < 1) { requestAnimationFrame(phaseFly); }
         else {
-            // 命中：受击反馈
-            let defCell = gridD.children[idxD];
-            if (defCell) { applyImpactShrink(defCell, 250, getPausedFn); }
+            // 命中：白骨爪属近战技能，不加受击颤动
             if (onHit) onHit();
             if (opts.isExecute) {
                 // 斩杀特效：飞爪在格子上凝滞放大，对方格子原地大幅颤动后红色碎开消失

@@ -1,9 +1,10 @@
 // render/30-fact-renderer.js - 光明顶5v5 事实渲染器
-// V5.7.6 | ~36500 bytes| 2026-08-26 renderLog 入口校验 + factType 枚举化（FACT_TYPES）
+// V5.7.7 | ~36500 bytes| 2026-08-26 renderLog 入口校验 + factType 枚举化（FACT_TYPES）
 import { CONFIG, getSkillParams } from '../core/01config-5v5-test.js';
 import { calcDamage, getFangLevelPure, makeFXSnapshot } from '../infra/51-core-utils.js';
 import { FACT_TYPES, BUFF_TYPES, BUFF_SUBTYPES, DROP_TYPES, CAMP_TYPES, ROLE_TYPES } from '../infra/56-battle-enums.js';
-export const VER = 'render/30-fact-renderer.js V5.7.7';
+import { validateFactContract } from '../infra/58-fact-contract.js';
+export const VER = 'render/30-fact-renderer.js V5.7.8';
 
 // fact 条目投影为渲染条目，并合并 fact 条目上携带的附加字段（isHealEntry/buffType 等）
 function projectFactEntry(e) {
@@ -325,8 +326,18 @@ export function renderBuffSummaryFact(buff, allyTeam, doubleStrikeUid) {
             if (msUnits.length > 0) return {type:'buff-summary', text:`<span class="gold">☄️ 流星赶月：${msUnits.map(u=>u.name).join('、')} 伤害加深${Math.round(CONFIG.BUFFS.meteorShower.bonusRatio*100)}% 溅射${Math.round(CONFIG.BUFFS.meteorShower.splashRatio*100)}%（主箭降2防，小箭降1防）</span>`, buffType: BUFF_SUBTYPES.BUFF_STAT};
             break;
         case BUFF_TYPES.HOLY_FLAME:
-            // 复杂 holyFlame 摘要逻辑，返回 null 避免报错，后续按需补充
-            return null;
+            {
+                const cols = buff.cols || [];
+                const rows = buff.rows || [];
+                if (cols.length > 0 || rows.length > 0) {
+                    return {
+                        type:'buff-summary',
+                        text:`<span class="gold">🔥 圣火令：攻击列 ${cols.join('、')}，防御行 ${rows.join('、')}</span>`,
+                        buffType: BUFF_SUBTYPES.BUFF_STAT
+                    };
+                }
+            }
+            break;
         case BUFF_TYPES.DOUBLE_STRIKE:
             break;
         case BUFF_TYPES.MIND_CONTROL:
@@ -677,84 +688,89 @@ export function renderPhantomConfuseFact(fact) {
 }
 
 // ==================== 通用渲染入口 ====================
+// 渲染器映射表：一个 factType 对应一个渲染函数，替代原 switch
+const FACT_RENDERERS = {
+    [FACT_TYPES.MISS]: (data) => renderMissFact(data),
+    [FACT_TYPES.DODGE]: (data) => renderDodgeFact(data),
+    [FACT_TYPES.ATTACK]: (data) => renderAttackFact(data),
+    [FACT_TYPES.EMPTY_TARGET]: (data) => renderEmptyTargetFact(data),
+    [FACT_TYPES.IMMUNE]: (data) => renderImmuneFact(data),
+    [FACT_TYPES.DROP]: (data) => renderDropFact(data),
+    [FACT_TYPES.BREAK_DEF]: (data) => renderBreakDefFact(data),
+    [FACT_TYPES.HORSE_DESTROY]: (data) => renderHorseDestroyFact(data),
+    [FACT_TYPES.ZHANG_SWITCH]: (data) => renderZhangSwitchFact(data),
+    [FACT_TYPES.BUFF_SUMMARY]: (data) => renderBuffSummaryFact(data.buff, data.allyTeam, data.doubleStrikeUid),
+    [FACT_TYPES.CARRY_APPLY]: (data) => renderCarryApplyFact(data),
+    [FACT_TYPES.HORSE_SUMMON]: (data) => renderHorseSummonFact(data),
+    [FACT_TYPES.PASS]: (data) => renderPassFact(data),
+    [FACT_TYPES.KU_LIAN_PRIORITY]: (data) => renderKuLianPriorityFact(data),
+    [FACT_TYPES.KU_LIAN]: (data) => renderKuLianFact(data),
+    [FACT_TYPES.DOUBLE_STRIKE]: (data) => renderDoubleStrikeFact(data),
+    [FACT_TYPES.RANGED_GROWTH]: (data) => renderRangedGrowthFact(data),
+    [FACT_TYPES.FORTIFY_SHIELD]: (data) => renderFortifyShieldFact(data),
+    [FACT_TYPES.MIND_CONTROL_SWAP]: (data) => renderMindControlSwapFact(data),
+    [FACT_TYPES.MIND_CONTROL_FAIL]: (data) => renderMindControlFailFact(data),
+    [FACT_TYPES.MIND_CONTROL_BANNER]: (data) => renderMindControlBannerFact(data),
+    [FACT_TYPES.QIAN_KUN_UPGRADED]: (data) => renderQianKunUpgradedFact(data),
+    [FACT_TYPES.QIAN_KUN_BASIC]: (data) => renderQianKunBasicFact(data),
+    [FACT_TYPES.KUAI_LE_HEAL]: (data) => renderKuaiLeHealFact(data),
+    [FACT_TYPES.SPIDER_TRANSFORM]: (data) => renderSpiderTransformFact(data),
+    [FACT_TYPES.SPIDER_RETURN]: (data) => renderSpiderReturnFact(data),
+    [FACT_TYPES.SPIDER_STRIKE]: (data) => renderSpiderStrikeFact(data),
+    [FACT_TYPES.XUAN_MING_DOT]: (data) => renderXuanmingDotFact(data),
+    [FACT_TYPES.XUAN_MING_POISONED]: (data) => renderXuanmingPoisonedFact(data),
+    [FACT_TYPES.PHANTOM_DISGUISE_HEAL]: (data) => renderPhantomDisguiseHealFact(data),
+    [FACT_TYPES.XING_FEN_RETRY]: (data) => renderXingFenRetryFact(data),
+    [FACT_TYPES.XIN_HUN]: (data) => renderXinHunFact(data),
+    [FACT_TYPES.XING_FEN_COST]: (data) => renderXingFenCostFact(data),
+    [FACT_TYPES.NINE_YANG_HEAL]: (data) => renderNineYangHealFact(data),
+    [FACT_TYPES.RONG_HUI_BONUS]: (data) => renderRongHuiBonusFact(data),
+    [FACT_TYPES.WEI_LEECH]: (data) => renderWeiLeechFact(data),
+    [FACT_TYPES.QIAN_KUN_DERIVED]: (data) => renderQianKunDerivedFact(data),
+    [FACT_TYPES.BUTTERFLY_ATTACH]: (data) => renderButterflyAttachFact(data),
+    [FACT_TYPES.BUTTERFLY_NO_HOST]: (data) => renderButterflyNoHostFact(data),
+    [FACT_TYPES.BUTTERFLY_RETURN]: (data) => renderButterflyReturnFact(data),
+    [FACT_TYPES.BUTTERFLY_HOST_DEAD]: (data) => renderButterflyHostDeadFact(data),
+    [FACT_TYPES.SPIDER_FLY]: (data) => renderSpiderFlyFact(data),
+    [FACT_TYPES.XIAO_ZHAO_HORSE]: (data) => renderXiaoZhaoHorseFact(data),
+    [FACT_TYPES.SPIDER_DOUBLE_STRIKE]: (data) => renderSpiderDoubleStrikeFact(data),
+    [FACT_TYPES.STUN_SKIP]: (data) => renderStunSkipFact(data),
+    [FACT_TYPES.FLY_SKIP]: (data) => renderFlySkipFact(data),
+    [FACT_TYPES.HORSE_REBOUND]: (data) => renderHorseReboundFact(data),
+    [FACT_TYPES.FORTIFY_REBOUND]: (data) => renderFortifyReboundFact(data),
+    [FACT_TYPES.METEOR_SPLASH_GROWTH]: (data) => renderMeteorSplashGrowthFact(data),
+    [FACT_TYPES.WARRIOR_EXECUTE]: (data) => renderWarriorExecuteFact(data),
+    [FACT_TYPES.BLOOD_THIRST_LEECH]: (data) => renderBloodthirstLeechFact(data),
+    [FACT_TYPES.HOT_BLOOD_HEAL]: (data) => renderHotBloodHealFact(data),
+    [FACT_TYPES.WIND_ASSAULT_SPLASH]: (data) => renderWindAssaultSplashFact(data),
+    [FACT_TYPES.WIND_ASSAULT_PUSH]: (data) => renderWindAssaultPushFact(data),
+    [FACT_TYPES.WIND_ASSAULT_FAIL]: (data) => renderWindAssaultFailFact(data),
+    [FACT_TYPES.METEOR_SHOWER_MAIN]: (data) => renderMeteorShowerMainFact(data),
+    [FACT_TYPES.METEOR_SHOWER_SPLASH]: (data) => renderMeteorShowerSplashFact(data),
+    [FACT_TYPES.ROUND_START]: (data) => renderRoundStartFact(data),
+    [FACT_TYPES.ROUND_END]: (data) => renderRoundEndFact(data),
+    [FACT_TYPES.DOUBLE_STRIKE_SUMMARY]: (data) => renderDoubleStrikeSummaryFact(data),
+    [FACT_TYPES.ZHANG_TAUNT]: (data) => renderZhangTauntFact(data),
+    [FACT_TYPES.XING_FEN_EXTRA_ATTACK]: (data) => renderXingFenExtraAttackFact(data),
+    [FACT_TYPES.XIN_HUN_DEATH]: (data) => renderXinHunDeathFact(data),
+    [FACT_TYPES.CLAW_NO_HEAL]: (data) => renderClawNoHealFact(data),
+    [FACT_TYPES.CLAW_HIT]: (data) => renderClawHitFact(data),
+    [FACT_TYPES.CLAW_EXECUTE]: (data) => renderClawExecuteFact(data),
+    [FACT_TYPES.CLAW_HEAL]: (data) => renderClawHealFact(data),
+    [FACT_TYPES.PHANTOM_REVEAL]: (data) => renderPhantomRevealFact(data),
+    [FACT_TYPES.PHANTOM_CONFUSE]: (data) => renderPhantomConfuseFact(data),
+    [FACT_TYPES.XUAN_MING_LINK_ATTACK]: (data) => renderXuanmingLinkAttackFact(data),
+    [FACT_TYPES.SPIDER_DEAD_TARGET]: (data) => renderSpiderDeadTargetFact(data),
+    [FACT_TYPES.XING_FEN_GRANT]: (data) => renderXingFenGrantFact(data),
+};
+
 export function renderLog(type, data) {
     if (!Object.values(FACT_TYPES).includes(type)) {
         console.error(`[renderLog] 未知 factType: ${type}`);
         return null;
     }
-    switch(type) {
-        case FACT_TYPES.MISS: return renderMissFact(data);
-        case FACT_TYPES.DODGE: return renderDodgeFact(data);
-        case FACT_TYPES.ATTACK: return renderAttackFact(data);
-        case FACT_TYPES.EMPTY_TARGET: return renderEmptyTargetFact(data);
-        case FACT_TYPES.IMMUNE: return renderImmuneFact(data);
-        case FACT_TYPES.DROP: return renderDropFact(data);
-        case FACT_TYPES.BREAK_DEF: return renderBreakDefFact(data);
-        case FACT_TYPES.HORSE_DESTROY: return renderHorseDestroyFact(data);
-        case FACT_TYPES.ZHANG_SWITCH: return renderZhangSwitchFact(data);
-        case FACT_TYPES.BUFF_SUMMARY: return renderBuffSummaryFact(data.buff, data.allyTeam, data.doubleStrikeUid);
-        case FACT_TYPES.CARRY_APPLY: return renderCarryApplyFact(data);
-        case FACT_TYPES.HORSE_SUMMON: return renderHorseSummonFact(data);
-        case FACT_TYPES.PASS: return renderPassFact(data);
-        case FACT_TYPES.KU_LIAN_PRIORITY: return renderKuLianPriorityFact(data);
-        case FACT_TYPES.KU_LIAN: return renderKuLianFact(data);
-        case FACT_TYPES.DOUBLE_STRIKE: return renderDoubleStrikeFact(data);
-        case FACT_TYPES.RANGED_GROWTH: return renderRangedGrowthFact(data);
-        case FACT_TYPES.FORTIFY_SHIELD: return renderFortifyShieldFact(data);
-        case FACT_TYPES.MIND_CONTROL_SWAP: return renderMindControlSwapFact(data);
-        case FACT_TYPES.MIND_CONTROL_FAIL: return renderMindControlFailFact(data);
-        case FACT_TYPES.MIND_CONTROL_BANNER: return renderMindControlBannerFact(data);
-        case FACT_TYPES.QIAN_KUN_UPGRADED: return renderQianKunUpgradedFact(data);
-        case FACT_TYPES.QIAN_KUN_BASIC: return renderQianKunBasicFact(data);
-        case FACT_TYPES.KUAI_LE_HEAL: return renderKuaiLeHealFact(data);
-        case FACT_TYPES.SPIDER_TRANSFORM: return renderSpiderTransformFact(data);
-        case FACT_TYPES.SPIDER_RETURN: return renderSpiderReturnFact(data);
-        case FACT_TYPES.SPIDER_STRIKE: return renderSpiderStrikeFact(data);
-        case FACT_TYPES.XUAN_MING_DOT: return renderXuanmingDotFact(data);
-        case FACT_TYPES.XUAN_MING_POISONED: return renderXuanmingPoisonedFact(data);
-        case FACT_TYPES.PHANTOM_DISGUISE_HEAL: return renderPhantomDisguiseHealFact(data);
-        case FACT_TYPES.XING_FEN_RETRY: return renderXingFenRetryFact(data);
-        case FACT_TYPES.XIN_HUN: return renderXinHunFact(data);
-        case FACT_TYPES.XING_FEN_COST: return renderXingFenCostFact(data);
-        case FACT_TYPES.NINE_YANG_HEAL: return renderNineYangHealFact(data);
-        case FACT_TYPES.RONG_HUI_BONUS: return renderRongHuiBonusFact(data);
-        case FACT_TYPES.WEI_LEECH: return renderWeiLeechFact(data);
-        case FACT_TYPES.QIAN_KUN_DERIVED: return renderQianKunDerivedFact(data);
-        case FACT_TYPES.BUTTERFLY_ATTACH: return renderButterflyAttachFact(data);
-        case FACT_TYPES.BUTTERFLY_NO_HOST: return renderButterflyNoHostFact(data);
-        case FACT_TYPES.BUTTERFLY_RETURN: return renderButterflyReturnFact(data);
-        case FACT_TYPES.BUTTERFLY_HOST_DEAD: return renderButterflyHostDeadFact(data);
-        case FACT_TYPES.SPIDER_FLY: return renderSpiderFlyFact(data);
-        case FACT_TYPES.XIAO_ZHAO_HORSE: return renderXiaoZhaoHorseFact(data);
-        case FACT_TYPES.SPIDER_DOUBLE_STRIKE: return renderSpiderDoubleStrikeFact(data);
-        case FACT_TYPES.STUN_SKIP: return renderStunSkipFact(data);
-        case FACT_TYPES.FLY_SKIP: return renderFlySkipFact(data);
-        case FACT_TYPES.HORSE_REBOUND: return renderHorseReboundFact(data);
-        case FACT_TYPES.FORTIFY_REBOUND: return renderFortifyReboundFact(data);
-        case FACT_TYPES.METEOR_SPLASH_GROWTH: return renderMeteorSplashGrowthFact(data);
-        case FACT_TYPES.WARRIOR_EXECUTE: return renderWarriorExecuteFact(data);
-        case FACT_TYPES.BLOOD_THIRST_LEECH: return renderBloodthirstLeechFact(data);
-        case FACT_TYPES.HOT_BLOOD_HEAL: return renderHotBloodHealFact(data);
-        case FACT_TYPES.WIND_ASSAULT_SPLASH: return renderWindAssaultSplashFact(data);
-        case FACT_TYPES.WIND_ASSAULT_PUSH: return renderWindAssaultPushFact(data);
-        case FACT_TYPES.WIND_ASSAULT_FAIL: return renderWindAssaultFailFact(data);
-        case FACT_TYPES.METEOR_SHOWER_MAIN: return renderMeteorShowerMainFact(data);
-        case FACT_TYPES.METEOR_SHOWER_SPLASH: return renderMeteorShowerSplashFact(data);
-        case FACT_TYPES.ROUND_START: return renderRoundStartFact(data);
-        case FACT_TYPES.ROUND_END: return renderRoundEndFact(data);
-        case FACT_TYPES.DOUBLE_STRIKE_SUMMARY: return renderDoubleStrikeSummaryFact(data);
-        case FACT_TYPES.ZHANG_TAUNT: return renderZhangTauntFact(data);
-        case FACT_TYPES.XING_FEN_EXTRA_ATTACK: return renderXingFenExtraAttackFact(data);
-        case FACT_TYPES.XIN_HUN_DEATH: return renderXinHunDeathFact(data);
-        case FACT_TYPES.CLAW_NO_HEAL: return renderClawNoHealFact(data);
-        case FACT_TYPES.CLAW_HIT: return renderClawHitFact(data);
-        case FACT_TYPES.CLAW_EXECUTE: return renderClawExecuteFact(data);
-        case FACT_TYPES.CLAW_HEAL: return renderClawHealFact(data);
-        case FACT_TYPES.PHANTOM_REVEAL: return renderPhantomRevealFact(data);
-        case FACT_TYPES.PHANTOM_CONFUSE: return renderPhantomConfuseFact(data);
-        case FACT_TYPES.XUAN_MING_LINK_ATTACK: return renderXuanmingLinkAttackFact(data);
-        case FACT_TYPES.SPIDER_DEAD_TARGET: return renderSpiderDeadTargetFact(data);
-        case FACT_TYPES.XING_FEN_GRANT: return renderXingFenGrantFact(data);
-        default: throw new Error(`未知渲染类型: ${type}`);
-    }
+    validateFactContract(type, data);
+    const renderer = FACT_RENDERERS[type];
+    if (!renderer) throw new Error(`未知渲染类型: ${type}`);
+    return renderer(data);
 }

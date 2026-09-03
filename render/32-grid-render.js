@@ -14,6 +14,44 @@ let _ctx = null;
 const _hpTargetPct = new Map();
 const _hpDisplayPct = new Map();
 let _hpAnimRunning = false;
+// 受击颤动：uid → 颤动到期时间戳。renderGrid 每次重建格子时若未到期就给新格子启动 rAF 颤动动画，
+// 这样 store 驱动重绘打不断颤动（视觉同老 applyImpactShrink：随机抖动+缩放回弹+黄闪）
+const _shakeUntil = new Map();
+
+/** 标记某单位受击颤动：durationMs 毫秒内每次 renderGrid 重建都会重放颤动动画 */
+export function markGridShake(uid, durationMs) {
+    if (uid == null) return;
+    _shakeUntil.set(uid, Date.now() + durationMs);
+}
+
+/** 在格子元素上播放老 applyImpactShrink 同款颤动：逐帧随机偏移+缩放回弹+短暂黄闪 */
+function runGridShake(el, durationMs) {
+    const start = Date.now();
+    const d = Math.min(200, durationMs); // 背景黄闪时长
+    const origTransform = el.style.transform || '';
+    const origBg = el.style.background || '';
+    el.style.transition = 'background 0.1s ease';
+    el.style.background = '#ffd700';
+    let bgCleared = false;
+    function tick() {
+        const elapsed = Date.now() - start;
+        if (elapsed >= durationMs) {
+            el.style.transform = origTransform;
+            el.style.transition = '';
+            if (!bgCleared) { el.style.background = origBg; bgCleared = true; }
+            return;
+        }
+        const progress = elapsed / durationMs;
+        const decay = 1 - progress;
+        const scale = 0.88 + 0.12 * progress;
+        const offsetX = (Math.random() - 0.5) * 4 * decay;
+        const offsetY = (Math.random() - 0.5) * 4 * decay;
+        el.style.transform = `translate(${offsetX}px, ${offsetY}px) scale(${scale})`;
+        if (!bgCleared && elapsed > d) { el.style.background = origBg; bgCleared = true; }
+        requestAnimationFrame(tick);
+    }
+    requestAnimationFrame(tick);
+}
 
 export function setGridRenderCtx(ctx) { _ctx = ctx; }
 function getCtx() { return _ctx || getPlayerContext(); }
@@ -291,10 +329,20 @@ export function renderGrid(id, camp) {
         }
         let readyClass = (!hasFlash && !(unit.state && unit.state._acted) && unit.alive && !isDead) ? 'ready' : '';
         let actedClass = (!hasFlash && (unit.state && unit.state._acted) && unit.alive && !isDead) ? 'acted' : '';
+        let shakeRemain = 0;
+        const shakeDeadline = _shakeUntil.get(unit.uid);
+        if (shakeDeadline) {
+            if (shakeDeadline > Date.now()) {
+                shakeRemain = shakeDeadline - Date.now();
+            } else {
+                _shakeUntil.delete(unit.uid);
+            }
+        }
         let cheerClass = (hasFlash && unit._flash===FLASH_TYPES.CHEER && !isDead) ? 'cell-cheer' : '';
         let restingClass = (isBlocked && unit.alive && isResting && !(unit.isZhang && unit.rangedForm) && !isDead) ? 'resting' : '';
         let div = document.createElement('div');
         div.className = `cell occupied ${readyClass} ${actedClass} ${cheerClass} ${restingClass}`;
+        if (shakeRemain > 0) runGridShake(div, shakeRemain);
         if (isDead) { div.setAttribute('data-flash', FLASH_TYPES.DEAD); div.style.transition = 'none'; }
         else if (unit._flash) { div.setAttribute('data-flash', unit._flash); div.style.transition = 'none'; }
         div.dataset.pos = pos;
