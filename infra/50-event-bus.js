@@ -130,5 +130,6 @@ export const EFFECT_TYPES = {
     IGNORE_DEF: 'ignoreDef',
     DMG_MULTIPLIER: 'dmgMultiplier',
     DMG_REDUCTION: 'dmgReduction',
-    CLAW_CHAIN: 'clawChain'
+    CLAW_CHAIN: 'clawChain',
+    ROUND_STAT_GRANT: 'roundStatGrant'
 };

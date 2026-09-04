@@ -54,7 +54,9 @@ export function applyDamageModifiers(unit, target, dmg, allySide, enemySide, log
                 zhangName: zhang.name,
                 reducePct,
                 rebound,
-                selfDmg
+                selfDmg,
+                attackerUid: unit.uid,
+                zhangUid: zhang.uid
             }
         });
 
@@ -80,7 +82,9 @@ export function applyDamageModifiers(unit, target, dmg, allySide, enemySide, log
                 zhangName: zhang.name,
                 reducePct,
                 rebound,
-                selfDmg
+                selfDmg,
+                attackerUid: unit.uid,
+                zhangUid: zhang.uid
             }
         });
 
@@ -111,7 +115,7 @@ export function applyXingFenGrant(allyTeam, log) {
     });
 }
 
-export function tickKuaiLeHeal(allUnits, log) {
+export function tickKuaiLeHeal(allUnits, log, declarations) {
     allUnits.forEach(unit => {
         if (!unit.state._kuaiLeStack || unit.state._kuaiLeStack.length === 0) return;
         if (!unit.alive) return;
@@ -129,7 +133,18 @@ export function tickKuaiLeHeal(allUnits, log) {
         });
         if (totalHeal > 0) {
             const hpBefore = Math.floor(unit.hp);
-            applyStatChange(unit, 'hp', totalHeal, null, '快乐回血');
+            if (declarations) {
+                declarations.push({
+                    type: EFFECT_TYPES.ROUND_STAT_GRANT,
+                    field: 'hp',
+                    delta: totalHeal,
+                    target: unit,
+                    source: null,
+                    reason: '快乐回血'
+                });
+            } else {
+                applyStatChange(unit, 'hp', totalHeal, null, '快乐回血');
+            }
             log.push({
                 factType: FACT_TYPES.KUAI_LE_HEAL,
                 data: {
@@ -137,7 +152,7 @@ export function tickKuaiLeHeal(allUnits, log) {
                     unitUid: unit.uid,
                     heal: totalHeal,
                     hpBefore,
-                    hpAfter: Math.floor(unit.hp),
+                    hpAfter: Math.floor(unit.hp + totalHeal),
                     layers: unit.state._kuaiLeStack.length
                 }
             });

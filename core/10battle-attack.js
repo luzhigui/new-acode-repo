@@ -18,6 +18,7 @@ import {
 } from './12battle-attack-steps.js';
 import { eventBus, EFFECT_TYPES } from '../infra/50-event-bus.js';
 import { flushBattleEvents } from '../infra/51-core-utils.js';
+import { resolveRoundStatGrants } from './16effect-handlers.js';
 
 import { emitEvent, applyStatChange, recordCombatStat } from './13battle-shared.js';
 import { FACT_TYPES, BUFF_TYPES, UNIT_EVENT_TYPES, CAMP_TYPES, SIGNAL_TYPES } from '../infra/56-battle-enums.js';
@@ -233,6 +234,9 @@ export function processUnitAttack(unit, allySide, enemySide, log, A, B, state, d
     const afterAttackData = { unit, target, dmg: dmgCalc.dmg, group, allySide, enemySide, log, A, B, state, declarations: [], extraRequests };
     eventBus.emit(SIGNAL_TYPES.AFTER_ATTACK, afterAttackData);
     if (afterAttackData.declarations.length > 0) {
+        // 先处理攻盾等回合级状态授予（不参与八类结算）
+        resolveRoundStatGrants(afterAttackData.declarations);
+        // 再处理既有八类结算
         const clawExecuted = resolveAfterDamageEffects(afterAttackData.declarations, unit, target, group, allySide, unitActiveBuffs);
         // 先处理爪击链日志，确保宋青书回血日志最后出现
         for (const decl of clawExecuted) {

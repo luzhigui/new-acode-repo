@@ -24,11 +24,26 @@ export function createLuZhangKeComponent() {
             if (!lu) return;
             // 玄冥毒tick：逐人直改 hp（tickXuanmingPoison 内 applyStatChange）无声明时机，保留事件路；壳转调
             function submitXuanmingPoisonTick(data, lu) {
-                const { A, B, log } = data;
+                const { A, B, log, declarations } = data;
                 A.concat(B).forEach(u => {
                     if (!u.alive) return;
-                    const dot = tickXuanmingPoison(u, lu);
+                    const poison = u.state._xuanmingPoison;
+                    if (!poison || poison.remaining <= 0) return;
+                    poison.remaining--;
+                    const s = getSkillParams('鹿杖客', 'xuanmingPalm');
+                    if (!s) throw new Error('缺技能参数: 鹿杖客.xuanmingPalm');
+                    const idx = Math.min(poison.dotPercents.length - 1, s.duration - 1 - poison.remaining);
+                    const pct = poison.dotPercents[idx] || 0;
+                    const dot = Math.floor(u.maxHp * pct);
                     if (dot > 0) {
+                        declarations.push({
+                            type: EFFECT_TYPES.ROUND_STAT_GRANT,
+                            field: 'hp',
+                            delta: -dot,
+                            target: u,
+                            source: lu,
+                            reason: '玄冥中毒'
+                        });
                         log.push({ factType: FACT_TYPES.XUAN_MING_DOT, data: { unitName: u.name, dot, uidD: u.uid, isDead: !u.alive } });
                     }
                 });

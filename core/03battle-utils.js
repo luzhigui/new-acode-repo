@@ -290,7 +290,7 @@ export function registerWarriorExecute(eventBus) {
 }
 
 export function registerFortifyShield(eventBus) {
-    function tryFortify(unit, chance, group, log, label, skipStatChange) {
+    function tryFortify(unit, chance, group, log, label, skipStatChange, declarations) {
         if (!unit.alive) return;
         if (unit.role !== ROLE_TYPES.DEFENDER) return;
         if (!unit.alive) return;
@@ -301,9 +301,20 @@ export function registerFortifyShield(eventBus) {
         if (getBattleRng().nextInt(1, 100) > chance) return;
         Object.assign(unit.state, { _fortifyStacks: unit.state._fortifyStacks + increment, _fortifyThisRound: fortifyThisRound + increment });
         if (!skipStatChange) {
-            // 攻盾路径：无声明，直改单次记账
-            applyStatChange(unit, 'def', increment, null, '坚盾');
-            if (unit._baseDef !== undefined) unit._baseDef += increment;
+            // 攻盾路径：push ROUND_STAT_GRANT 声明，不直改
+            if (declarations) {
+                declarations.push({
+                    type: EFFECT_TYPES.ROUND_STAT_GRANT,
+                    field: 'def',
+                    delta: increment,
+                    target: unit,
+                    source: null,
+                    reason: '坚盾'
+                });
+            } else {
+                applyStatChange(unit, 'def', increment, null, '坚盾');
+                if (unit._baseDef !== undefined) unit._baseDef += increment;
+            }
         }
         // skipStatChange 路径（被击坚盾）：caller 推 STAT_CHANGE 声明，_baseDef 由裁定执行块记账，此处直改会双扣
         const entry = { factType: FACT_TYPES.FORTIFY_SHIELD, data: { unitName: unit.name, label, increment, current: fortifyThisRound + increment, cap } };
@@ -336,10 +347,10 @@ export function registerFortifyShield(eventBus) {
         }
     }
 
-    // 攻盾：直改 def（applyStatChange）——防御方被动时机，声明路未覆盖，保留原样
+    // 攻盾：push ROUND_STAT_GRANT 声明，由 resolveRoundStatGrants 统一结算
     function submitFortifyShieldAttack(data) {
         const { unit, group, log } = data;
-        tryFortify(unit, fortifyCfg.attackChance, group, log, '攻盾');
+        tryFortify(unit, fortifyCfg.attackChance, group, log, '攻盾', false, data.declarations);
     }
 
     registerSettlementHook({
