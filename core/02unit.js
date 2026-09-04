@@ -6,7 +6,7 @@ import { CONFIG, getGameData } from './01config-5v5-test.js';
 
 import { StateMachine } from '../infra/51-core-utils.js';
 
-import { BATTLE_FIELD_KEYS, PERMANENT_FIELD_KEYS, BATTLE_STATE_KEYS, BATTLE_STATE_DEFAULTS, copyAllStateFields, resetStateFields } from './17-state-keys.js';
+import { BATTLE_FIELD_KEYS, PERMANENT_FIELD_KEYS, copyAllStateFields, createInitialState } from './17-state-keys.js';
 
 import { ROLE_TYPES } from '../infra/56-battle-enums.js';
 
@@ -41,16 +41,7 @@ export class Unit {
         this.leechDone=0;this.dodgeCount=0;this.critCount=0;
         this.survivedRounds=0;this._flash=null;
         this.fixed=false;this._originalPos=-1;
-        this.state = {};
-        resetStateFields(this.state);
-        for (const key of BATTLE_STATE_KEYS) {
-            if (key in BATTLE_STATE_DEFAULTS) {
-                const def = BATTLE_STATE_DEFAULTS[key];
-                this.state[key] = Array.isArray(def) ? [] : def;
-            } else {
-                this.state[key] = false;
-            }
-        }
+        this.state = createInitialState();
         this.buffAtkBonus = 0;
         this.buffDefBonus = 0;
         this.buffDodgeBonus = 0;
