@@ -1,34 +1,16 @@
 // tools/106-ai-pack-config.js - 光明顶5v5 AI 复制包配置（清单/分组/提示词/精简踢除）
-// V5.9.2 | ~11700 bytes| 2026-08-24 Worker 独立编号：109 战斗端 → 116-role-balance-worker.js
-export const VER = 'tools/106-ai-pack-config.js V5.9.2';
+// V5.10.0 | ~11700 bytes| 2026-09-04 取消精简：特效/音效/错误面板/入口页全部随包发送
+export const VER = 'tools/106-ai-pack-config.js V5.10.0';
 
-// ==================== AI 精简模式踢除清单（第一批） ====================
-// 这些文件不参与战斗逻辑/状态同步/数值结算，默认不随包发送。
-// 改动画实现/音效/错误面板/入口页时，需向用户单独索取原文。
-export const AI_EXCLUDE = new Set([
-    // fx 特效实现（统一入口 fx/87fx-manager.js 保留）
-    '../fx/80fx-common-5v5-test.js',
-    '../fx/81fx-arrows-5v5-test.js',
-    '../fx/82fx-crash-5v5-test.js',
-    '../fx/83fx-position-swap.js',
-    '../fx/84fx-push-back.js',
-    '../fx/85fx-dodge-bullet.js',
-    '../fx/86fx-butterfly-spider.js',
-    // 纯工具
-    '../modules/21error-capture.js',
-    '../modules/22audio-manager.js',
-    '../ui/66audio-control.js',
-    // 开发入口页
-    '../index.html'
-]);
+// ==================== AI 精简模式踢除清单（已弃用） ====================
+// 2026-09-04 用户决定不再精简：特效/音效/错误面板/入口页全部随包发送。
+// 保留空 Set 仅为兼容 103-toolkit.js 的 import 引用，不再排除任何文件。
+export const AI_EXCLUDE = new Set([]);
 
 // ==================== AI 上下文契约 ====================
 export const AI_INTERFACE_NOTE = `// ============================================================
-// AI 上下文提示：本包已启用精简模式，省略部分纯实现文件。
-// 被省略：fx 特效实现 7 个、modules/21error-capture.js、
-// modules/22audio-manager.js、ui/66audio-control.js、index.html。
-// 特效统一入口 fx/87fx-manager.js 已包含，接口签名以该文件为准。
-// 改动画/音效/错误面板/入口页实现时，请向用户索取对应文件原文。
+// AI 上下文提示：本项目已全量打包发送，无省略文件。
+// 全部文件（引擎/UI/特效/音效/工具箱/体检/入口页）均已含在包中。
 // ============================================================`;
 
 // ==================== 项目全部文件清单（全项目唯一数据源） ====================

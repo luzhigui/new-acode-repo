@@ -221,7 +221,7 @@ function runJobsParallel(jobs, rounds, positions, hexEnabled, masterSeed, poolSi
                     reject(new Error(`worker#${workerIdx} 组[${job.allyRole} vs ${job.enemyRole}] 异常: ${msg.error}`));
                     return;
                 }
-                doneResults.push({ jobId: msg.jobId, ai: job.ai, ei: job.ei, key: job.key, wins: msg.wins });
+                doneResults.push({ jobId: msg.jobId, ai: job.ai, ei: job.ei, key: job.key, wins: msg.result ? msg.result.wins : undefined });
                 finished++;
                 const now = performance.now();
                 console.log(`[109-parallel] finished ${finished}/${total} [${job.allyRole} vs ${job.enemyRole}] wins=${msg.wins} +${(now-lastMsLogged).toFixed(0)}ms`);
@@ -251,6 +251,7 @@ function runJobsParallel(jobs, rounds, positions, hexEnabled, masterSeed, poolSi
             nextJob++;
             workers[workerIdx].postMessage({
                 jobId: { ai: job.ai, ei: job.ei, allyRole: job.allyRole, enemyRole: job.enemyRole, kind: 'run' },
+                kind: 'balance',
                 ai: job.ai, ei: job.ei, allyRole: job.allyRole, enemyRole: job.enemyRole,
                 rounds, positions, hexEnabled, masterSeed
             });

@@ -162,10 +162,10 @@ function escapeHtml(text) {
     }
 
     document.getElementById('fcBtnGenerate').addEventListener('click', async () => {
-        const charLimit = parseInt(document.getElementById('fcCharLimit').value) || 40000;
+        const charLimit = parseInt(document.getElementById('fcCharLimit').value) || 60000;
         const SOFT_LIMIT = charLimit;
-        const HARD_LIMIT = Math.min(charLimit * 1.5, 80000);
-        const HUGE_THRESHOLD = Math.max(HARD_LIMIT, 80000);
+        const HARD_LIMIT = Math.min(charLimit * 1.5, 90000);
+        const HUGE_THRESHOLD = Math.max(HARD_LIMIT, 90000);
 
         const selectedFiles = Array.from(
             document.querySelectorAll('#tab-file-copier input[type=checkbox]:checked')
