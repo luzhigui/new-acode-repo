@@ -8,6 +8,7 @@ import { FX_SIGNALS } from '../infra/55-fx-signals.js';
 import { GlobalStore } from '../infra/54-global-store.js';
 import { AudioManager } from '../modules/22audio-manager.js';
 import { STAGE_ACTION_TYPES, FACT_TYPES, CAMP_TYPES, STORE_ACTION_TYPES, UNIT_EVENT_TYPES, ROLE_TYPES, BUFF_EFFECT_TYPES, BUFF_SUBTYPES, FLY_MODE_TYPES } from '../infra/56-battle-enums.js';
+import { FACT_SPECS } from '../infra/58-fact-contract.js';
 
 // 本地查找单位（避免从 47 导入造成循环依赖）：先查 store 权威单位，再回退 UI 快照
 function findUnitByUidLocal(c, uid) {
@@ -80,13 +81,26 @@ const FACT_TRANSLATORS = {
         factIndex: index,
         timing: 'beforeText'
     }),
-    [FACT_TYPES.IMMUNE]: (data, index) => ({
-        kind: STAGE_ACTION_TYPES.IMMUNE,
-        actorUid: data.attacker?.uid ?? null,
-        targetUid: data.target?.uid ?? null,
-        factIndex: index,
-        timing: 'beforeText'
-    }),
+    [FACT_TYPES.IMMUNE]: (data, index) => {
+        const actions = [{
+            kind: STAGE_ACTION_TYPES.IMMUNE,
+            actorUid: data.attacker?.uid ?? null,
+            targetUid: data.target?.uid ?? null,
+            factIndex: index,
+            timing: 'beforeText'
+        }];
+        // 免疫附带 flyData（小昭·妹飞天）时，额外生成 FLY_MODE 特效动作
+        if (data.flyData) {
+            actions.push({
+                kind: STAGE_ACTION_TYPES.FLY_MODE,
+                actorUid: data.flyData.spiderUid ?? data.attacker?.uid ?? null,
+                originalFactType: FLY_MODE_TYPES.SPIDER_FLY,
+                factIndex: index,
+                timing: 'beforeText'
+            });
+        }
+        return actions;
+    },
     [FACT_TYPES.EMPTY_TARGET]: (data, index) => ({
         kind: STAGE_ACTION_TYPES.EMPTY_TARGET,
         actorUid: data.attacker?.uid ?? null,
@@ -355,6 +369,15 @@ const FACT_TRANSLATORS = {
         timing: 'beforeText'
     })
 };
+
+// 校验：FACT_SPECS 中声明了 translateFn 的 factType 必须在 FACT_TRANSLATORS 里有对应条目，
+// 漏加会立即报错，不会静默丢特效
+for (const type of Object.keys(FACT_SPECS)) {
+    const spec = FACT_SPECS[type];
+    if (spec.translateFn && !FACT_TRANSLATORS[type]) {
+        console.error(`[31] 缺翻译器: ${type}（${spec.translateFn}）`);
+    }
+}
 
 function translateFact(entry, index) {
     const { factType, data } = entry;
