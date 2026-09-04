@@ -437,30 +437,38 @@ function installChainClaw(eventBus, A, B, declarations) {
 // ==================== 苦练声明（阶段2b） ====================
 // 苦练监听器薄壳化：判定 + 全队属性直改承载（局限定声明路未覆盖，保留原样）
 function submitKuLian(data, decls) {
-    const { A, B, log } = data;
+    const { A, B, log, declarations } = data;
     const decl = decls[0]; // 宋青书声明
     if (!decl) return;
     const kuLianSong = checkKuLian(B);
     if (!kuLianSong) return;
-    // 守卫：每场仅首次触发（周芷若阵亡后的第一个回合）。无守卫时每个回合都重发提示并重复叠加属性
-    // （2026-09-03 体检实锤：苦练提示一场出现13次）。_kuLianActive 属整场字段，clone 会带过来。
-    if (kuLianSong.state._kuLianActive) return;
-    Object.assign(kuLianSong.state, { _kuLianActive: true });
+    // 苦练设计：宋青书单飞（无周芷若）每回合行动前给全队叠加 +攻+防+血上限（自身三倍），可跨回合累积
     const s = {
         atkBonus: decl.atkBonus || 1,
         defBonus: decl.defBonus || 1,
         hpBonus: decl.hpBonus || 3
     };
-    B.forEach(u => {
-        if (!u.alive || u.isHorse) return;
-        const mult = u.uid === kuLianSong.uid ? 3 : 1;
-        applyStatChange(u, 'atk', s.atkBonus * mult, null, '苦练');
-        applyStatChange(u, 'def', s.defBonus * mult, null, '苦练');
-        applyMaxHpChange(u, u.maxHp + s.hpBonus * mult, null, '苦练血上限');
-        u._baseAtk = (u._baseAtk || u.atk) + s.atkBonus * mult;
-        u._baseDef = (u._baseDef || u.def) + s.defBonus * mult;
-        u._baseMaxHp = Math.max(u._baseMaxHp || u.maxHp, u.maxHp);
-    });
+    const targets = B.filter(u => u.alive && !u.isHorse);
+    const atkTargets = targets.map(u => ({ target: u, delta: s.atkBonus * (u.uid === kuLianSong.uid ? 3 : 1) }));
+    const defTargets = targets.map(u => ({ target: u, delta: s.defBonus * (u.uid === kuLianSong.uid ? 3 : 1) }));
+    const hpTargets = targets.map(u => ({ target: u, delta: s.hpBonus * (u.uid === kuLianSong.uid ? 3 : 1) }));
+    if (!declarations) data.declarations = declarations = [];
+    for (const group of [
+        { field: 'atk', list: atkTargets },
+        { field: 'def', list: defTargets },
+        { field: 'maxHp', list: hpTargets }
+    ]) {
+        for (const item of group.list) {
+            declarations.push({
+                type: EFFECT_TYPES.ROUND_STAT_GRANT,
+                field: group.field,
+                delta: item.delta,
+                target: item.target,
+                source: null,
+                reason: '苦练'
+            });
+        }
+    }
     log.push({ factType: FACT_TYPES.KU_LIAN_PRIORITY, data: { unitName: kuLianSong.name } });
     log.push({ factType: FACT_TYPES.KU_LIAN, data: { unitName: kuLianSong.name, atkBonus: s.atkBonus, defBonus: s.defBonus, hpBonus: s.hpBonus } });
 }
@@ -474,6 +482,17 @@ function installKuLian(eventBus, A, B, declarations) {
         priority: L.ROUND_START.KULIAN_BUFF,
         handler: (data) => {
             submitKuLian(data, decls);
+        }
+    });
+
+    // 苦练每回合触发：周芷若不在场时，宋青书行动优先级最高（不占用额外次数）
+    registerSettlementHook({
+        when: SIGNAL_TYPES.BEFORE_ACTION_SELECT,
+        priority: L.BEFORE_ACTION.KULIAN_PRIORITY,
+        handler: (data) => {
+            if (data.unit.name !== '宋青书' || !data.unit.alive) return;
+            const zhou = data.enemySide && data.enemySide.find(u => u.name === '周芷若' && u.alive);
+            if (!zhou) data.declaration.priority = 1;
         }
     });
 }
@@ -531,9 +550,9 @@ function installXinHun(eventBus, A, B, declarations) {
 // ==================== 性奋声明（阶段2b） ====================
 // 性奋监听器薄壳化：回合激活直改 + 额外攻击/重试驱动"再攻击"链（保留原样）
 function submitXingFenGrant(data) {
-    const { A, B, log } = data;
+    const { A, B, log, declarations } = data;
     applyXingFenGrant(B, log);
-    tickKuaiLeHeal(A.concat(B), log);
+    tickKuaiLeHeal(A.concat(B), log, declarations);
 }
 
 function submitXingFenExtra(data, decls) {

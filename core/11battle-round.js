@@ -10,6 +10,7 @@ import { spawnHorse, destroyHorse } from './05battle-horse.js';
 import { Unit } from './02unit.js';
 import { clearEliteDodgeRules, getDodgeRules } from './12battle-attack-steps.js';
 import { installDeclaredSkills, installFromGameData } from './15-skill-mechanisms.js';
+import { resolveRoundStatGrants } from './16effect-handlers.js';
 
 import { getEliteFactories } from './08-elite-registry.js';
 import { processUnitAttack } from './10battle-attack.js';
@@ -105,8 +106,9 @@ function prepareRoundStart(A, B, log, state, round, rng) {
         when: SIGNAL_TYPES.BEFORE_ACTION_SELECT,
         priority: L.BEFORE_ACTION.KULIAN_PRIORITY,
         handler: (data) => {
-            if (data.unit.name !== '宋青书' || !data.unit.alive || !data.unit.state._kuLianActive) return;
-            data.declaration.priority = 1;
+            if (data.unit.name !== '宋青书' || !data.unit.alive) return;
+            const zhou = data.enemySide && data.enemySide.find(u => u.name === '周芷若' && u.alive);
+            if (!zhou) data.declaration.priority = 1;
         }
     });
     registerSettlementHook({
@@ -162,7 +164,9 @@ function prepareRoundStart(A, B, log, state, round, rng) {
     A.forEach(u => { if (u.alive) resetStateFields(u.state); });
     B.forEach(u => { if (u.alive) resetStateFields(u.state); });
 
-    eventBus.emit(SIGNAL_TYPES.ON_ROUND_START, { A, B, log });
+    const roundStatDeclarations = [];
+    eventBus.emit(SIGNAL_TYPES.ON_ROUND_START, { A, B, log, declarations: roundStatDeclarations });
+    resolveRoundStatGrants(roundStatDeclarations);
 
     A._butterflyTriggered = false;
             A._mindControlTriggered = false;

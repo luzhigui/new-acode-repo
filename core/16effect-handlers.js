@@ -260,3 +260,38 @@ registerEffectHandler(EFFECT_TYPES.CLAW_CHAIN, (ctx) => {
     }
     return { executed };
 });
+
+registerEffectHandler(EFFECT_TYPES.ROUND_STAT_GRANT, (ctx) => {
+    const executed = [];
+    for (const decl of ctx.decls) {
+        const targets = decl.targets || (decl.target ? [decl.target] : []);
+        for (const t of targets) {
+            if (!t.alive) continue;
+            if (decl.field === 'maxHp') {
+                applyMaxHpChange(t, t.maxHp + decl.delta, decl.source || null, decl.reason || '回合属性');
+            } else {
+                if (decl.field === 'atk' && t._baseAtk !== undefined) t._baseAtk += decl.delta;
+                if (decl.field === 'def' && t._baseDef !== undefined) t._baseDef += decl.delta;
+                applyStatChange(t, decl.field, decl.delta, decl.source || null, decl.reason || '回合属性');
+            }
+        }
+        executed.push(decl);
+    }
+    return { executed };
+});
+
+export function resolveRoundStatGrants(declarations) {
+    if (!declarations || declarations.length === 0) return [];
+    const decls = declarations.filter(d => d && d.type === EFFECT_TYPES.ROUND_STAT_GRANT);
+    if (decls.length === 0) return [];
+    const result = getEffectHandler(EFFECT_TYPES.ROUND_STAT_GRANT)({
+        decls,
+        unit: null,
+        target: null,
+        group: null,
+        allySide: null,
+        unitBuffs: null,
+        log: null
+    });
+    return result ? result.executed : [];
+}
