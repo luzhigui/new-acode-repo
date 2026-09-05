@@ -2,7 +2,7 @@
 export const VER = 'core/11battle-round.js V5.6.2';
 
 import { CONFIG, getGameData, getSkillParams } from './01config-5v5-test.js';
-import { ROUND_STATE_KEYS, ROUND_FIELD_KEYS, resetStateFields } from './17-state-keys.js';
+import { resetStateFields } from './17-state-keys.js';
 import { isMelee, isBlocked, makeFXSnapshot, hasBuff, getUnitCol, getUnitRow, hasAnyEnemyEmptyCol, countEnemyEmptyCols, getBloodAuraBonus, getAuraBonuses, registerWarriorBreakDefense, registerRangedGrowth, registerFortifyShield, registerWarriorExecute, selectFlyTarget, registerEmptyColBonus, registerDoubleStrike } from './03battle-utils.js';
 import { computeBuffStats, logBuffSummary, applyHolyFlameBonus, applyFortifyBonus, applyCarryBonus, installBuffMechanics } from './04buff-system.js';
 import { spawnHorse, destroyHorse } from './05battle-horse.js';
@@ -19,7 +19,6 @@ import { FACT_TYPES, BUFF_TYPES, UNIT_EVENT_TYPES, CAMP_TYPES, ROLE_TYPES, SIGNA
 import { flushBattleEvents, setBattleState } from '../infra/51-core-utils.js';
 import { SeededRNG } from '../infra/51-core-utils.js';
 import { resolveDeaths } from './12battle-attack-steps.js';
-import { translateFactsToStageActions } from '../render/31-stage-actions.js';
 
 const C = CONFIG;
 
@@ -200,8 +199,8 @@ function prepareRoundStart(A, B, log, state, round, rng) {
         applyCarryBonus(u, A, state, log, stats);
 
         const auraBonuses = getAuraBonuses(u, A, B);
-        const targetAtk = (u._baseAtk || u.atk) + (u.state._carryAtkBonus || 0) + (u.state._butterflyAtkBonus || 0) + (u.state._holyAtkBonus || 0) + auraBonuses.emptyCol + auraBonuses.bloodAura;
-        const targetDef = (u._baseDef || u.def) + (u.state._carryDefBonus || 0) + (u.state._butterflyDefBonus || 0) + (u.state._holyDefBonus || 0) + (u.state._fortifyDefBonus || 0);
+        const targetAtk = (u.state._baseAtk || u.atk) + (u.state._carryAtkBonus || 0) + (u.state._butterflyAtkBonus || 0) + (u.state._holyAtkBonus || 0) + auraBonuses.emptyCol + auraBonuses.bloodAura;
+        const targetDef = (u.state._baseDef || u.def) + (u.state._carryDefBonus || 0) + (u.state._butterflyDefBonus || 0) + (u.state._holyDefBonus || 0) + (u.state._fortifyDefBonus || 0);
         applyStatChange(u, 'atk', targetAtk - u.atk, null, '光环加成');
         applyStatChange(u, 'def', targetDef - u.def, null, '光环加成');
 
@@ -209,10 +208,10 @@ function prepareRoundStart(A, B, log, state, round, rng) {
 
         // 回合级状态重置已统一前移到 emit(授权) 之前的 resetStateFields（162-163 行）。
         // 此处不得再清：合并 elite 字段进 ROUND_STATE_KEYS 后，这里逐键清会把刚授权的 _xingFenActive 等打回 false（2026-09-03 回归，性奋额外攻击全灭的根因）。
-        u.state._restingTimer && clearTimeout(u.state._restingTimer), u.state._restingTimer = null;
-        u._xingFenExtraAttacking = false;
-        u._bloodthirstStriked = false;
-        u._butterflyHpBonus = 0;
+        u._restingTimer && clearTimeout(u._restingTimer), u._restingTimer = null;
+        u.state._xingFenExtraAttacking = false;
+        u.state._bloodthirstStriked = false;
+        u.state._butterflyHpBonus = 0;
         Object.assign(u.state, { _doubleStriked: false, _butterflyAtkBonus: 0, _butterflyDefBonus: 0 });
     });
 
@@ -221,10 +220,10 @@ function prepareRoundStart(A, B, log, state, round, rng) {
         emitEvent(u, UNIT_EVENT_TYPES.HP_CHANGE, { hp: u.hp, maxHp: u.maxHp, alive: u.alive, atk: u.atk, def: u.def, _stunned: false });
         // 回合级状态重置统一由 emit 前的 resetStateFields 负责，此处不清（同 A 队，见上方注释）
         Object.assign(u.state, { _doubleStriked: false });
-        u._xingFenExtraAttacking = false;
-        u._bloodthirstStriked = false;
+        u.state._xingFenExtraAttacking = false;
+        u.state._bloodthirstStriked = false;
         const auraBonuses = getAuraBonuses(u, B, A);
-        const targetAtk = (u._baseAtk || u.atk) + auraBonuses.emptyCol + auraBonuses.bloodAura;
+        const targetAtk = (u.state._baseAtk || u.atk) + auraBonuses.emptyCol + auraBonuses.bloodAura;
         applyStatChange(u, 'atk', targetAtk - u.atk, null, '光环加成');
         emitEvent(u, UNIT_EVENT_TYPES.HP_CHANGE, { hp: u.hp, maxHp: u.maxHp, alive: u.alive, atk: u.atk, def: u.def });
     });
@@ -244,7 +243,7 @@ function prepareRoundStart(A, B, log, state, round, rng) {
         if (buffStats.dodgeBonus > 0) rates.push(buffStats.dodgeBonus);
         let product = 1;
         for (const r of rates) { product *= (1 - r); }
-        u._dodgeChance = Math.round((1 - product) * 100);
+        u.state._dodgeChance = Math.round((1 - product) * 100);
     }
 
     logBuffSummary(A, log, doubleStrikeUnitUid);
@@ -260,7 +259,7 @@ function prepareRoundStart(A, B, log, state, round, rng) {
 
 // 同步 generator：UI 层异步包装，工具侧可直接同步消费
 // ui=false：跳过 stageActions 翻译，工具模拟用
-export function* createRoundStepper(state, { ui = true } = {}) {
+export function* createRoundStepper(state, { ui = true, translateFacts = null } = {}) {
     const rng = state._rng || new SeededRNG(Date.now());
     state._rng = rng;
     setBattleRng(rng);
@@ -293,7 +292,7 @@ export function* createRoundStepper(state, { ui = true } = {}) {
         winner,
         done,
         doubleStrikeUid: doubleStrikeUnitUid,
-        stageActions: ui ? translateFactsToStageActions(logs) : []
+        stageActions: ui && translateFacts ? translateFacts(logs) : []
     });
 
     const { doubleStrikeUnitUid, roundStartEvents, sisterComp, brotherComp } = prepareRoundStart(A, B, log, state, round, rng);
@@ -525,7 +524,7 @@ function finalizeRoundEnd(A, B, log, round) {
         for (let i = team.length - 1; i >= 0; i--) {
             const u = team[i];
             u.state._resting = false;
-            if (u.state._restingTimer) { clearTimeout(u.state._restingTimer); u.state._restingTimer = null; }
+            if (u._restingTimer) { clearTimeout(u._restingTimer); u._restingTimer = null; }
         }
     });
 

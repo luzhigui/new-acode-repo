@@ -98,6 +98,12 @@ const CONFIG = {
     BUFF_DURATION: 4,
     BUFF_CHOICES: 3,
     BGM_LOCAL: 'assets/sfx_xinai.mp3',
+    // BGM 曲目表：默认仅展示前两首；第三首为隐藏曲目（需弹窗标题连点 5 次解锁）
+    BGM_TRACKS: [
+        { id: 'bgm_a', name: '中国风武侠', file: 'assets/bgm-wuxia.mp3' },
+        { id: 'bgm_b', name: 'China Chinese', file: 'assets/bgm-chinese.mp3' },
+        { id: 'bgm_xinai', name: '心爱(隐藏)', file: 'assets/sfx_xinai.mp3' }
+    ],
     SFX: {
         [ROLE_TYPES.RANGED]: 'assets/sfx_arrow.mp3',
         [ROLE_TYPES.FLYER]: 'assets/sfx_fly.mp3',

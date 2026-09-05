@@ -5,7 +5,7 @@ import { CONFIG, getSkillParams, getGameData } from './01config-5v5-test.js';
 import { eventBus, EFFECT_TYPES } from '../infra/50-event-bus.js';
 import { calcDamage, getFangLevel, isMelee, getFronts, isBlocked, getRandomTaunt, getZhangNearTaunt, makeFXSnapshot, hasBuff, getUnitCol, getUnitRow } from './03battle-utils.js';
 import { emitEvent, applyStatChange, applyMaxHpChange, query, getBattleRng, recordCombatStat } from './13battle-shared.js';
-import { flushBattleEvents, pushBattleEvent, getBattleState, setBattleState, registerDodgeRule, clearEliteDodgeRules, getDodgeRules } from '../infra/51-core-utils.js';
+import { flushBattleEvents, pushBattleEvent, getBattleState, setBattleState, registerDodgeRule, clearEliteDodgeRules, getDodgeRules, persistValue, loadPersistedValue } from '../infra/51-core-utils.js';
 import { getEffectHandler, hasEffectHandler, getCalcModifier, validateDeclarationFields, validateCalcModifierFields } from './16effect-handlers.js';
 import { FACT_TYPES, BUFF_TYPES, UNIT_EVENT_TYPES, DROP_TYPES, CAMP_TYPES, ROLE_TYPES, SIGNAL_TYPES } from '../infra/56-battle-enums.js';
 
@@ -79,7 +79,7 @@ export function selectAttackTarget(unit, enemySide, allySide) {
 // 步骤2：未命中+闪避判定
 export function resolveAttackHit(unit, target, attackerBuffStats, defenderBuffStats, log, A, B, doubleStrikeUnitUid, eventBus, state) {
     // 通用标记：携带 _neverMiss 的单位跳过未命中与闪避判定（由精英组件自声明）
-    if (unit._neverMiss) return { skipped: false };
+    if (unit.state._neverMiss) return { skipped: false };
     const rng = getBattleRng();
     let missChance = 0;
     if (unit.role === ROLE_TYPES.RANGED) { missChance = C.RANGED_MISS_CHANCE; }
@@ -147,7 +147,7 @@ export function resolveAttackHit(unit, target, attackerBuffStats, defenderBuffSt
         if ((defenderBuffStats.dodgeBonus || 0) > 0) rates.push(defenderBuffStats.dodgeBonus);
         let product = 1;
         for (const r of rates) { product *= (1 - r); }
-        target._dodgeChance = Math.round((1 - product) * 100);
+        target.state._dodgeChance = Math.round((1 - product) * 100);
         if (dodgeTriggered) {
             target.dodgeCount++;
             emitEvent(target, UNIT_EVENT_TYPES.HP_CHANGE, { hp: target.hp, maxHp: target.maxHp, alive: target.alive, atk: target.atk, def: target.def, dodgeCount: target.dodgeCount });
@@ -294,28 +294,28 @@ export function applyAttackResult(unit, target, dmgCalc, attackerBuffStats, defe
     if (dead) {
         target.alive = false;
         target._pendingDeath = true;
-        if (!target._deathTime) target._deathTime = Date.now();
+        if (!target.state._deathTime) target.state._deathTime = Date.now();
     }
 
-    if (dead && target.camp === CAMP_TYPES.ENEMY && unit.camp === CAMP_TYPES.ALLY && !target._tokenDropped) {
+    if (dead && target.camp === CAMP_TYPES.ENEMY && unit.camp === CAMP_TYPES.ALLY && !target.state._tokenDropped) {
         const stage = getBattleState('currentStage') || 1;
         const dropRate = (C.TOKEN_DROP_RATES[stage] || 0) / 100;
         if (rng.next() < dropRate) {
-            target._tokenDropped = true;
+            target.state._tokenDropped = true;
             const currentToken = getBattleState('holyToken') || 0;
             setBattleState('holyToken', currentToken + 1);
-            localStorage.setItem('ming_holy_token_5v5_test', String(currentToken + 1));
+            persistValue('ming_holy_token_5v5_test', currentToken + 1);
             pushBattleEvent({ unitUid: unit.uid, eventType: 'info', payload: { text: `🔥 圣火令掉落！${unit.name} 击杀 ${target.name}，获得1枚圣火令！当前总数：${currentToken + 1}`, fastEntry: true } });
             log.push({ factType: FACT_TYPES.DROP, data: { kind: DROP_TYPES.TOKEN, killerName: unit.name, victimName: target.name, total: currentToken + 1, unitUid: unit.uid } });
         }
     }
-    if (dead && target.camp === CAMP_TYPES.ENEMY && unit.camp === CAMP_TYPES.ALLY && !target._chestDropped) {
+    if (dead && target.camp === CAMP_TYPES.ENEMY && unit.camp === CAMP_TYPES.ALLY && !target.state._chestDropped) {
         const chestKillRate = C.CHEST_DROP_RATE / 100;
         if (rng.next() < chestKillRate) {
-            target._chestDropped = true;
-            let chests = parseInt(localStorage.getItem('ming_chest_count') || '0');
+            target.state._chestDropped = true;
+            let chests = loadPersistedValue('ming_chest_count', 0);
             chests++;
-            localStorage.setItem('ming_chest_count', String(chests));
+            persistValue('ming_chest_count', chests);
             setBattleState('chestCount', chests);
             log.push({ factType: FACT_TYPES.DROP, data: { kind: DROP_TYPES.CHEST, killerName: unit.name, victimName: target.name, total: chests, unitUid: unit.uid } });
         }
@@ -362,7 +362,7 @@ export function applyAttackResult(unit, target, dmgCalc, attackerBuffStats, defe
 // 死亡结算边裁
 export function resolveDeaths(allySide, enemySide, log) {
     const allUnits = [...allySide, ...enemySide];
-    const pending = allUnits.filter(u => u._pendingDeath && u.alive);
+    const pending = allUnits.filter(u => u.state._pendingDeath && u.alive);
     if (pending.length === 0) return;
 
     eventBus.emit(SIGNAL_TYPES.ON_BEFORE_DEATH, { units: pending, allySide, enemySide, log });

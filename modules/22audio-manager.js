@@ -17,7 +17,8 @@ function getAudioCtx() {
 const sfxBuffers = {};
 
 // BGM 缓存与播放控制
-let bgmBuffer = null;
+const bgmBuffers = {};   // trackId -> AudioBuffer
+let bgmBuffer = null;    // 当前曲目 buffer
 let bgmSource = null;
 let bgmGainNode = null;
 let bgmStartedAt = 0;
@@ -48,16 +49,18 @@ export async function initSfx() {
     await Promise.all(promises);
 }
 
-// 预加载BGM文件到内存
-async function loadBgmBuffer(url) {
+// 预加载BGM文件到内存（多曲目缓存）
+async function loadBgmBuffer(trackId, url) {
     try {
         const ctx = getAudioCtx();
         const response = await fetch(url);
         const arrayBuffer = await response.arrayBuffer();
-        bgmBuffer = await ctx.decodeAudioData(arrayBuffer);
+        const buf = await ctx.decodeAudioData(arrayBuffer);
+        bgmBuffers[trackId] = buf;
+        if (trackId === AudioManager.currentBgmId) bgmBuffer = buf;
     } catch (e) {
         console.warn('BGM加载失败:', url, e);
-        bgmBuffer = null;
+        if (trackId === AudioManager.currentBgmId) bgmBuffer = null;
     }
 }
 
@@ -127,16 +130,52 @@ export const AudioManager = {
     currentSource: 'local',
     sourceBeforeMute: 'network',
     sfxVolume: 0.3,   // 音效独立音量
+    currentBgmId: null,
 
     init() {
         this._bgmFailed = false;
         this.audio = null;
-        loadBgmBuffer(CONFIG.BGM_LOCAL).then(() => {
+        // 恢复上次选中的曲目，默认第一首
+        let trackId = 'bgm_a';
+        try {
+            const saved = localStorage.getItem('ming_bgm_track');
+            if (saved && (CONFIG.BGM_TRACKS || []).some(t => t.id === saved)) trackId = saved;
+        } catch (e) {}
+        this.currentBgmId = trackId;
+        const track = (CONFIG.BGM_TRACKS || []).find(t => t.id === trackId) || {};
+        loadBgmBuffer(trackId, track.file || CONFIG.BGM_LOCAL).then(() => {
             if (bgmBuffer && this.enabled && this.currentSource !== 'mute') {
                 this._playBgm();
             }
         });
         initSfx();
+    },
+    
+    // 切换 BGM 曲目（id 来自 CONFIG.BGM_TRACKS）
+    switchBgm(trackId) {
+        const track = (CONFIG.BGM_TRACKS || []).find(t => t.id === trackId);
+        if (!track) return;
+        const prev = this.currentBgmId;
+        this.currentBgmId = trackId;
+        bgmPausedAt = 0;
+        if (bgmBuffers[trackId]) {
+            bgmBuffer = bgmBuffers[trackId];
+            if (this.enabled && this.currentSource !== 'mute' && prev !== trackId) {
+                this._stopBgm();
+                this._playBgm();
+            }
+        } else {
+            bgmBuffer = null;
+            if (this.enabled && this.currentSource !== 'mute' && prev !== trackId) {
+                this._stopBgm();
+            }
+            loadBgmBuffer(trackId, track.file).then(() => {
+                if (this.currentBgmId === trackId && this.enabled && this.currentSource !== 'mute' && bgmBuffer) {
+                    this._playBgm();
+                }
+            });
+        }
+        try { localStorage.setItem('ming_bgm_track', trackId); } catch (e) {}
     },
     
     play() {
@@ -178,8 +217,9 @@ export const AudioManager = {
             this.enabled = true;
             if (bgmBuffer) {
                 this._playBgm();
-            } else {
-                loadBgmBuffer(CONFIG.BGM_LOCAL).then(() => {
+            } else if (this.currentBgmId) {
+                const track = (CONFIG.BGM_TRACKS || []).find(t => t.id === this.currentBgmId) || {};
+                loadBgmBuffer(this.currentBgmId, track.file || CONFIG.BGM_LOCAL).then(() => {
                     if (bgmBuffer && this.enabled) this._playBgm();
                 });
             }

@@ -63,6 +63,7 @@ export const BATTLE_STATE_SCHEMA = Object.freeze({
     _carryHpBonus:           { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },
     _butterflyAtkBonus:      { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },
     _butterflyDefBonus:      { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },
+    _butterflyHpBonus:       { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },
     _fortifyStacks:          { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },
     _fortifyIncrement:       { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },
     _fortifyCap:             { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },
@@ -80,42 +81,30 @@ export const BATTLE_STATE_SCHEMA = Object.freeze({
     _initMaxHp:              { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },
     _hpDmgRatio:             { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },
     _originalPos:            { type: STATE_FIELD_TYPES.NUMBER,  default: -1 },
+
+    // 机制标记（原顶层临时字段，迁入 state 统一 clone）
+    _deathTime:              { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },
+    _tokenDropped:           { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
+    _chestDropped:           { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
+    _lastRole:               { type: STATE_FIELD_TYPES.STRING,  default: null },
+    _neverMiss:              { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
+    _bloodthirstStriked:     { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
+    _xingFenExtraAttacking:  { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
+    _dodgeChance:            { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },
+    _pendingDeath:           { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
 });
 
 /** 保留旧导出名以兼容现有代码：合并 key 清单 */
 export const ROUND_STATE_KEYS = Object.freeze(Object.keys(ROUND_STATE_SCHEMA));
 export const BATTLE_STATE_KEYS = Object.freeze(Object.keys(BATTLE_STATE_SCHEMA));
 
-/** 旧默认值映射（兼容用，从 schema 派生） */
-export const ROUND_STATE_DEFAULTS = Object.freeze(
-    Object.fromEntries(Object.entries(ROUND_STATE_SCHEMA).map(([k, v]) => [k, v.default]))
-);
-export const BATTLE_STATE_DEFAULTS = Object.freeze(
-    Object.fromEntries(Object.entries(BATTLE_STATE_SCHEMA).map(([k, v]) => [k, v.default]))
-);
+// 旧默认值映射和字段清单已删除。schema 是唯一事实源，
+// 默认值/数组深度拷贝逻辑全部走 STATE_FIELD_TYPES 类型分发，
+// 不再需要单独的 DEFAULTS / ARRAY_BATTLE_STATE_KEYS / OBJECT_BATTLE_STATE_KEYS 导出。
 
-/** 数组字段清单（兼容用，从 schema 派生） */
-export const ARRAY_BATTLE_STATE_KEYS = Object.freeze(
-    Object.entries(BATTLE_STATE_SCHEMA)
-        .filter(([, v]) => v.type === STATE_FIELD_TYPES.ARRAY)
-        .map(([k]) => k)
-);
-/** 对象字段清单（兼容用，从 schema 派生） */
-export const OBJECT_BATTLE_STATE_KEYS = Object.freeze(
-    Object.entries(BATTLE_STATE_SCHEMA)
-        .filter(([, v]) => v.type === STATE_FIELD_TYPES.OBJECT)
-        .map(([k]) => k)
-);
-
-/** 顶层回合级字段（已全部迁入 state，保留空表占位） */
-export const ROUND_FIELD_KEYS = Object.freeze([]);
-/** 顶层整场字段 */
-export const BATTLE_FIELD_KEYS = Object.freeze(['_originalPos']);
-/** 顶层永久字段 */
-export const PERMANENT_FIELD_KEYS = Object.freeze([
-    'isXiaoZhaoSister', 'isXiaoZhaoBrother',
-    '_baseAtk', '_baseDef', '_baseMaxHp', '_initAtk', '_initDef', '_initMaxHp', '_hpDmgRatio'
-]);
+// ROUND_FIELD_KEYS / BATTLE_FIELD_KEYS 已删除，顶层迁移字段清零。
+// PERMANENT_FIELD_KEYS 仍保留 isXiaoZhaoSister / isXiaoZhaoBrother，
+// 因为这两个是角色身份标记，不属于战斗数值，留在顶层合理。
 
 /** 按 schema 初始化一个 state 对象 */
 export function createInitialState() {

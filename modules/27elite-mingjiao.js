@@ -137,7 +137,7 @@ export function createWeiYixiaoComponent() {
         register(eventBus, A, B, log) {
             const wei = A.find(u => u.isWei && u.alive);
             if (!wei) return;
-            wei._neverMiss = true;
+            wei.state._neverMiss = true;
 
             // 韦一笑吸星：判定后推 WEI_HEAL 声明（纯函数）
             function submitWeiLeechDeclaration(data) {
@@ -150,7 +150,7 @@ export function createWeiYixiaoComponent() {
                 const heal = Math.floor(reboundDmg * leechRate);
                 const wasFullHp = (target.hp >= target.maxHp);
                 const oldMaxHp = target.maxHp;
-                const newMaxHp = Math.min(target.maxHp + heal, target._baseMaxHp * 2);
+                const newMaxHp = Math.min(target.maxHp + heal, target.state._baseMaxHp * 2);
                 declarations.push({
                     type: EFFECT_TYPES.WEI_HEAL,
                     data: { heal, newMaxHp, oldMaxHp, wasFullHp }
@@ -240,7 +240,7 @@ export function createXiaoZhaoSisterComponent() {
                     const atkGain = Math.max(1, Math.floor(atkTarget.def / s.defToAtk));
                     applyStatChange(healTarget, 'hp', heal, xiaoZhao, '乾坤衍生治疗');
                     applyStatChange(atkTarget, 'atk', atkGain, xiaoZhao, '乾坤衍生加攻');
-                    if (atkTarget._baseAtk !== undefined) atkTarget._baseAtk += atkGain;
+                    if (atkTarget.state._baseAtk !== undefined) atkTarget.state._baseAtk += atkGain;
                     // 记账随 beforeDamageCalc 事件 data 携带，由 12 calcFinalDamage 收入 dmgCalc 返回，不落 unit
                     if (!data._derivedEntries) data._derivedEntries = [];
                     data._derivedEntries.push({
@@ -296,8 +296,8 @@ export function createXiaoZhaoSisterComponent() {
             const atkRatio = flyDirection === 'left' ? 0 : 1/2;
             const defRatio = flyDirection === 'left' ? 1/2 : 0;
             const hpRatio = 1/2;
-            const atkTransfer = Math.floor(sister._baseAtk * atkRatio);
-            const defTransfer = Math.floor(sister._baseDef * defRatio);
+            const atkTransfer = Math.floor(sister.state._baseAtk * atkRatio);
+            const defTransfer = Math.floor(sister.state._baseDef * defRatio);
             const hpTransfer = Math.floor(sister.hp * hpRatio);
             Object.assign(sister.state, { _butterflyHpTransfer: hpTransfer });
             const hostEs = host.state;
@@ -364,8 +364,8 @@ export function createXiaoZhaoSisterComponent() {
             } else {
                 applyStatChange(sister, 'hp', -sister.hp, null, '蝶变飞回无队友', false);
             }
-            applyStatChange(sister, 'atk', sister._baseAtk - sister.atk, null, '蝶变飞回重置攻');
-            applyStatChange(sister, 'def', sister._baseDef - sister.def, null, '蝶变飞回重置防');
+            applyStatChange(sister, 'atk', sister.state._baseAtk - sister.atk, null, '蝶变飞回重置攻');
+            applyStatChange(sister, 'def', sister.state._baseDef - sister.def, null, '蝶变飞回重置防');
             if (host && host.alive) {
                 applyStatChange(host, 'atk', -(host.state._butterflyAtkBonus || 0), sister, '蝶变飞回');
                 applyStatChange(host, 'def', -(host.state._butterflyDefBonus || 0), sister, '蝶变飞回');
@@ -560,11 +560,11 @@ export function createXiaoZhaoBrotherComponent() {
                     }
                 }
                 const hasTeamCarry = hasBuff(A._activeBuffs, BUFF_TYPES.CARRY);
-                if (!hasTeamCarry && bro.state._permanentBuffs?.some(b => b.key === BUFF_TYPES.CARRY) && bro._baseMaxHp !== undefined) {
+                if (!hasTeamCarry && bro.state._permanentBuffs?.some(b => b.key === BUFF_TYPES.CARRY) && bro.state._baseMaxHp !== undefined) {
                     applyStatChange(bro, 'atk', 3, null, '小昭·妹永久carry');
                     applyStatChange(bro, 'def', 4, null, '小昭·妹永久carry');
                     applyMaxHpChange(bro, bro.maxHp + 20, null, '小昭·妹永久carry');
-                    bro._baseMaxHp = bro.maxHp;
+                    bro.state._baseMaxHp = bro.maxHp;
                 }
             }
             // 永久双击：小昭·妹 80% 概率额外攻击一次

@@ -44,7 +44,7 @@ export function calcCarryBonus_Normal(unit, allyTeam) {
         let mult = a.alive ? 1 : (CONFIG.BUFFS.carry.deathMultiplier || 3);
         carryAtkAbs += Math.floor(a.atk * (CONFIG.BUFFS.carry.atkBonus || 0.08) * mult);
         carryDefAbs += Math.floor(a.def * (CONFIG.BUFFS.carry.defBonus || 0.08) * mult);
-        if (CONFIG.BUFFS.carry.hpBonus) carryHpAbs += Math.floor(a._baseMaxHp ? a._baseMaxHp * CONFIG.BUFFS.carry.hpBonus * mult : 0);
+        if (CONFIG.BUFFS.carry.hpBonus) carryHpAbs += Math.floor(a.state._baseMaxHp ? a.state._baseMaxHp * CONFIG.BUFFS.carry.hpBonus * mult : 0);
     });
     return { atkAbs: carryAtkAbs, defAbs: carryDefAbs, hpAbs: carryHpAbs };
 }
@@ -57,7 +57,7 @@ export function calcCarryBonus_Sister(unit, allyTeam) {
         let mult = a.alive ? 1 : (CONFIG.BUFFS.carry.deathMultiplier || 3);
         carryAtkAbs += Math.floor(a.atk * (CONFIG.BUFFS.carry.atkBonus || 0.08) * mult);
         carryDefAbs += Math.floor(a.def * (CONFIG.BUFFS.carry.defBonus || 0.08) * mult);
-        if (CONFIG.BUFFS.carry.hpBonus) carryHpAbs += Math.floor(a._baseMaxHp ? a._baseMaxHp * CONFIG.BUFFS.carry.hpBonus * mult : 0);
+        if (CONFIG.BUFFS.carry.hpBonus) carryHpAbs += Math.floor(a.state._baseMaxHp ? a.state._baseMaxHp * CONFIG.BUFFS.carry.hpBonus * mult : 0);
     });
     return { atkAbs: carryAtkAbs, defAbs: carryDefAbs, hpAbs: carryHpAbs };
 }
