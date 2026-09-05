@@ -1,5 +1,4 @@
-// infra/56-battle-enums.js - 光明顶5v5 战斗类型枚举（单一事实源）
-// V1.0.0 | ~3000 bytes| 2026-08-26 从裸字符串收敛
+// V1.0.0 | 2026-08-26 从裸字符串收敛
 export const VER = 'infra/56-battle-enums.js V1.0.1';
 
 /** 事实类型：所有 factType 字符串的唯一来源 */

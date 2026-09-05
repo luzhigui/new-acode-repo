@@ -1,4 +1,3 @@
-// tests/health-rules/127-butterfly-stack.js
 // 回归规则：姐姐附身属性叠加 — 修复后基于 _baseAtk/_baseDef 转移，不重复计算 Buff
 // 复发信号：附身转移值 atkTransfer != floor(_baseAtk/3)（转移值包含 Buff 加成，回退到直接操作 atk）
 // 对应已修 Bug：姐姐附身属性叠加（直接操作 atk/def 导致 Buff 重复计算）

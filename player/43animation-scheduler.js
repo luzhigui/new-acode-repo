@@ -1,4 +1,3 @@
-// player/43animation-scheduler.js - 动画调度器（从 42player-core.js 抽离）
 // V5.5.0 | 2026-08-14 抽离自 player/42player-core.js
 export const VER = 'player/43animation-scheduler.js V5.5.0';
 

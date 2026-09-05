@@ -1,5 +1,4 @@
-// tools/109-role-balance.js - 光明顶5v5 职业平衡分析工具
-// V5.7.0 | ~15500 bytes| 2026-08-24 Worker 并行化：批量战斗移至 116-role-balance-worker.js，主文件只负责派发/聚合/渲染
+// V5.7.0 | 2026-08-24 Worker 并行化：批量战斗移至 116-role-balance-worker.js，主文件只负责派发/聚合/渲染
 export const VER = 'tools/109-role-balance.js V5.7.0';
 
 import { ROLE_TYPES } from '../infra/56-battle-enums.js';
@@ -11,7 +10,7 @@ const ROLE_ICONS = { [ROLE_TYPES.DEFENDER]: '🛡️', [ROLE_TYPES.WARRIOR]: '�
 let extraPosConfig = { [ROLE_TYPES.DEFENDER]: [3, 4, 6, 8], [ROLE_TYPES.WARRIOR]: [3, 4, 6, 8], [ROLE_TYPES.FLYER]: [3, 4, 6, 8], [ROLE_TYPES.RANGED]: [3, 4, 6, 8] };
 let extraPosDefault = [3, 4, 6, 8];
 
-// ========== 样式 ==========
+// 样式
 if (!document.getElementById('roleBalStyle')) {
     const style = document.createElement('style');
     style.id = 'roleBalStyle';
@@ -51,7 +50,7 @@ if (!document.getElementById('roleBalStyle')) {
     document.head.appendChild(style);
 }
 
-// ========== 主界面 ==========
+// 主界面
 window.openRoleBalance = function() {
     const mask = document.createElement('div');
     mask.className = 'role-bal-mask';

@@ -1,12 +1,11 @@
-// tests/140-baseline.js - 无 UI 行为基线（种子随机批量模拟）
-// V1.0.0 | ~4300 bytes| 2026-08-26 建立 18 场（6 种子 × 3 关）确定性基线，供"零行为变化"重构做机器 diff
+// V1.0.0 | 2026-08-26 建立 18 场（6 种子 × 3 关）确定性基线，供"零行为变化"重构做机器 diff
 // 运行：node tests/140-baseline.js [seed:stage ...]
 //   不带参数跑全量 18 场；传参如 "1:1 1:3 1:5" 只跑指定场次（先验证用）
 // 注意：引擎文件顶层访问浏览器全局（window/self），必须在任何引擎 import 之前 mock，
 //       故全部引擎 import 改为动态（在 main 内、mock 之后执行）。Node v24 默认 detect-module 自动按 ESM 加载。
 export const VER = 'tests/140-baseline.js V1.0.0';
 
-// ==================== 环境 mock（不改引擎源码，Node 补浏览器能力） ====================
+// 环境 mock（不改引擎源码，Node 补浏览器能力）
 // loadGameData 用 fetch(file://...)，Node fetch 不支持 file 协议 → 换成读文件
 globalThis.fetch = async (url) => {
     const path = new URL(url).pathname;

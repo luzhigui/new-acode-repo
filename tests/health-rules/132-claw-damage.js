@@ -1,4 +1,3 @@
-// tests/health-rules/132-claw-damage.js
 // 回归规则：第四关 BOSS 周芷若·九阴白骨爪 伤害/调血是否符合设计
 // 设计（core/01config-5v5-test.js nineYinClaw）：baseDmg=1.5、lostHpRatio=0.015（按已损失生命）、
 // maxHpRatio=0.01（按最大生命）、executeThreshold=0.15（斩杀线）、连锁 chainProcChance=0.8。

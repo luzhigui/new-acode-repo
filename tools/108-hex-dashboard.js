@@ -1,11 +1,10 @@
-// tools/108-hex-dashboard.js - 光明顶5v5 海克斯平衡性仪表盘（单文件，界面动态生成）
-// V5.6.1 | ~9500 bytes| 2026-08-24 姐姐强化参数改读 JSON（小昭.hexEnhance），清理 ELITE_SKILLS 引用
+// V5.6.1 | 2026-08-24 姐姐强化参数改读 JSON（小昭.hexEnhance），清理 ELITE_SKILLS 引用
 import { CONFIG, getSkillParams } from '../core/01config-5v5-test.js';
 (function(){
 const KEY = 'ming_hex_battle_log';
 let logs = [];
 
-// ========== 样式（一次性注入，带 hex-hex- 前缀避免污染宿主页） ==========
+// 样式（一次性注入，带 hex-hex- 前缀避免污染宿主页）
 if (!document.getElementById('hexDashStyle')) {
   const style = document.createElement('style');
   style.id = 'hexDashStyle';
@@ -51,7 +50,7 @@ if (!document.getElementById('hexDashStyle')) {
   document.head.appendChild(style);
 }
 
-// ========== 海克斯详情数据（参数实时读 CONFIG，此处只写判断文案） ==========
+// 海克斯详情数据（参数实时读 CONFIG，此处只写判断文案）
 const PARAM_LABELS = {
   prob: '触发概率', hitProb: '命中概率', pushProb: '击退概率',
   enemySwapProb: '扰乱敌方概率', allySwapProb: '扰乱己方概率',
@@ -146,7 +145,7 @@ function openHexDetail(key) {
   mask.addEventListener('click', e => { if (e.target === mask) mask.remove(); });
 }
 
-// ========== 界面 ==========
+// 界面
 function openHexDashboard() {
   const mask = document.createElement('div');
   mask.className = 'hex-hex-mask';
@@ -184,7 +183,7 @@ function openHexDashboard() {
   render(mask.querySelector('#hexDashSummary'), mask.querySelector('#hexDashStats'));
 }
 
-// ========== 渲染 ==========
+// 渲染
 function render(summary, stats) {
   if (logs.length === 0) {
     summary.innerHTML = '';

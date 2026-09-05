@@ -1,5 +1,4 @@
-// core/16effect-handlers.js - 光明顶5v5 效果处理器注册表
-// V1.3.0 | ~7800 bytes| 2026-08-28 修复 infra→core 反向依赖：57 只留容器，五 handler 注册归位 16
+// V1.3.0 | 2026-08-28 修复 infra→core 反向依赖：57 只留容器，五 handler 注册归位 16
 export const VER = 'core/16effect-handlers.js V1.3.0';
 
 import { EFFECT_TYPES } from '../infra/50-event-bus.js';
@@ -93,7 +92,7 @@ export function hasEffectHandler(type) {
     return effectHandlers.has(type);
 }
 
-// ==================== 伤害计算阶段修饰器（calcFinalDamage 中间变量累积） ====================
+// 伤害计算阶段修饰器（calcFinalDamage 中间变量累积）
 // 由 core/12 calcFinalDamage 查表调用（getCalcModifier 自 infra/57）；
 // handler 通过 ctx.refs 读写累积变量，逻辑逐字搬移自原 for 循环体，不改变计算顺序/边界
 registerCalcModifier(EFFECT_TYPES.BREAK_DEF, (ctx) => {
@@ -280,7 +279,6 @@ registerEffectHandler(EFFECT_TYPES.ROUND_STAT_GRANT, (ctx) => {
     return { executed };
 });
 
-// 回合级状态授予统一结算入口：由 10/11 的 AFTER_ATTACK 和 ON_ROUND_START 调用
 export function resolveRoundStatGrants(declarations) {
     if (!declarations || declarations.length === 0) return [];
     const decls = declarations.filter(d => d && d.type === EFFECT_TYPES.ROUND_STAT_GRANT);

@@ -1,4 +1,3 @@
-// modules/25elite-imperial.js - 朝廷精英组件合集
 // V5.5.1 | 2026-08-21 战报记账修正：玄冥中毒tick传入鹿杖客作输出源
 export const VER = 'modules/25elite-imperial.js V5.5.1';
 
@@ -7,7 +6,7 @@ import { tickXuanmingPoison } from './20elite-skills.js';
 import { eventBus, EXECUTION_LAYER as L } from '../infra/50-event-bus.js';
 import { FACT_TYPES, SIGNAL_TYPES } from '../infra/56-battle-enums.js';
 
-// ==================== 成昆 ====================
+// 成昆
 export function createChengKunComponent() {
     return {
         name: '成昆',
@@ -15,7 +14,7 @@ export function createChengKunComponent() {
     };
 }
 
-// ==================== 鹿杖客 ====================
+// 鹿杖客
 export function createLuZhangKeComponent() {
     return {
         name: '鹿杖客',
@@ -55,7 +54,7 @@ export function createLuZhangKeComponent() {
     };
 }
 
-// ==================== 鹤笔翁 ====================
+// 鹤笔翁
 export function createHeBiWengComponent() {
     return {
         name: '鹤笔翁',

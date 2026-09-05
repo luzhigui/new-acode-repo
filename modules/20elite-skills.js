@@ -1,5 +1,4 @@
-// modules/20elite-skills.js - 光明顶5v5 精英技能系统
-// V5.7.2 | ~12200 bytes| 2026-08-24 蛛变防战 z 值改查分档表（getHpDmgRatio(0.5)=0.03），删硬编码
+// V5.7.2 | 2026-08-24 蛛变防战 z 值改查分档表（getHpDmgRatio(0.5)=0.03），删硬编码
 export const VER = 'modules/20elite-skills.js V5.7.2';
 
 import { CONFIG, getSkillParams } from '../core/01config-5v5-test.js';
@@ -8,7 +7,7 @@ import { hasBuff } from '../core/03battle-utils.js';
 import { emitEvent, applyStatChange, applyMaxHpChange, registerQuery, getBattleRng } from '../core/13battle-shared.js';
 import { FACT_TYPES, UNIT_EVENT_TYPES, CAMP_TYPES, ROLE_TYPES } from '../infra/56-battle-enums.js';
 
-// ==================== 玄冥二老 — 中毒/鹿角 ====================
+// 玄冥二老 — 中毒/鹿角
 
 export function tickXuanmingPoison(unit, source) {
     if (!unit.alive) return 0;
@@ -24,7 +23,7 @@ export function tickXuanmingPoison(unit, source) {
     return dot;
 }
 
-// ==================== 乾坤大挪移升级版减伤 ====================
+// 乾坤大挪移升级版减伤
 
 export function applyDamageModifiers(unit, target, dmg, allySide, enemySide, log) {
     let modifiedDmg = dmg;
@@ -94,7 +93,7 @@ export function applyDamageModifiers(unit, target, dmg, allySide, enemySide, log
     return { modifiedDmg, entries };
 }
 
-// ==================== 宋青书/周芷若联动 — 回合级 ====================
+// 宋青书/周芷若联动 — 回合级
 
 export function checkKuLian(allyTeam) {
     const song = allyTeam.find(u => u.name === '宋青书' && u.alive);
@@ -172,7 +171,7 @@ export function consumeXingFen(attacker) {
     Object.assign(attacker.state, { _xingFenActive: false });
 }
 
-// ==================== 小昭·妹 — 蛛变/飞天/蛛落 ====================
+// 小昭·妹 — 蛛变/飞天/蛛落
 
 // 精通层数：每职业 1 层，全 4 门后 +2 层（封顶 6）
 function masteryLayers(count) { return count >= 4 ? count + 2 : count; }
@@ -271,7 +270,7 @@ export function spiderReturn(unit, allyTeam, enemySide, log) {
     }
 }
 
-// ==================== 小昭共通 — 永久海克斯 ====================
+// 小昭共通 — 永久海克斯
 // 精通加成已在 spiderTransform 时结算进 _base，无独立查询链
 
 export function addPermanentBuff(xiaoZhao, buffKey, buffName, extraFields = {}) {
@@ -304,7 +303,7 @@ export function getXiaoZhaoHexEnhance(allyTeam, activeBuffs, hexKey) {
     return s[hexKey] || null;
 }
 
-// ==================== 查询注册 ====================
+// 查询注册
 registerQuery('xiaoHexEnhance', getXiaoZhaoHexEnhance);
 registerQuery('xiaoPermanentActive', isXiaoZhaoPermanentActive);
 registerQuery('damageModifiers', applyDamageModifiers);

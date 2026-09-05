@@ -1,4 +1,3 @@
-// modules/29battle-init.js - 光明顶5v5 战斗初始化逻辑（从 ui/65main-battle.js 抽离）
 // V5.5.0 | 2026-08-14 抽离 doInitBattle 纯逻辑部分
 export const VER = 'modules/29battle-init.js V5.5.0';
 
@@ -181,6 +180,7 @@ export function initBattleTeams(currentStage, _rng) {
     let zhang = allyTeam.find(u => u.isZhang);
     let wei = allyTeam.find(u => u.isWei);
     let xz = allyTeam.find(u => u.isXiaoZhaoSister || u.isXiaoZhaoBrother);
+    // 张无忌 5 号、韦一笑 6 号、小昭 4 号是硬编码规则，不能随意动
     if (zhang) { zhang.pos = 5; takenPos.add(5); }
     if (wei) { wei.pos = 6; takenPos.add(6); }
     if (xz) { xz.pos = 4; takenPos.add(4); }

@@ -1,4 +1,3 @@
-// tests/health-rules/126-xuanming-link.js
 // 回归规则：玄冥二老联动吞回合 — 修复后 partner.state._acted = wasActed 恢复联动前状态
 // 复发信号：玄冥联动多次发生，但搭档（跟随者）从无自己发起的攻击（被吞回合）
 // 对应已修 Bug：玄冥二老联动吞回合（partner.state._acted 被无条件设 true）

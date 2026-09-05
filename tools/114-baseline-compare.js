@@ -1,4 +1,3 @@
-// tools/114-baseline-compare.js - 光明顶5v5 平衡基线对比（融合进 102 工具箱 tab）
 // V1.1.0 | 战斗逻辑全迁 116 通用 Worker 并行执行（kind='baseline'），117 派发器逐关回报，完成显示总耗时
 // 口径不变：同种子生成同一套阵容，A/B 两组精英配置各跑一遍；逐关对照 胜率/输出/承伤/存活 差异
 import { ROLE_TYPES } from '../infra/56-battle-enums.js';

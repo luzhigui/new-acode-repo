@@ -1,19 +1,18 @@
-// tools/106-ai-pack-config.js - 光明顶5v5 AI 复制包配置（清单/分组/提示词/精简踢除）
-// V5.10.0 | ~11700 bytes| 2026-09-04 取消精简：特效/音效/错误面板/入口页全部随包发送
+// V5.10.0 | 2026-09-04 取消精简：特效/音效/错误面板/入口页全部随包发送
 export const VER = 'tools/106-ai-pack-config.js V5.10.0';
 
-// ==================== AI 精简模式踢除清单（已弃用） ====================
+// AI 精简模式踢除清单（已弃用）
 // 2026-09-04 用户决定不再精简：特效/音效/错误面板/入口页全部随包发送。
 // 保留空 Set 仅为兼容 103-toolkit.js 的 import 引用，不再排除任何文件。
 export const AI_EXCLUDE = new Set([]);
 
-// ==================== AI 上下文契约 ====================
+// AI 上下文契约
 export const AI_INTERFACE_NOTE = `// ============================================================
 // AI 上下文提示：本项目已全量打包发送，无省略文件。
 // 全部文件（引擎/UI/特效/音效/工具箱/体检/入口页）均已含在包中。
 // ============================================================`;
 
-// ==================== 项目全部文件清单（全项目唯一数据源） ====================
+// 项目全部文件清单（全项目唯一数据源）
 // 注意：104-toolkit-more.js 的 TARGET_FILES 已改为从本清单派生（自动排除入口页/工具箱页/音频），
 // 新增/删除项目文件时只需改这一处，无需再同步 104。
 export const ALL_PROJECT_FILES = [
@@ -25,7 +24,7 @@ export const ALL_PROJECT_FILES = [
     '../core/08-elite-registry.js',
     '../core/10battle-attack.js', '../core/11battle-round.js', '../core/12battle-attack-steps.js',
     '../core/13battle-shared.js', '../core/14buff-effects.js', '../core/15-skill-mechanisms.js',
-    '../core/16effect-handlers.js', '../core/17-state-keys.js', '../core/18-elite-state.js',
+    '../core/16effect-handlers.js', '../core/17-state-keys.js',
     // player（播放器）
     '../player/40player-text.js', '../player/41player-buff-ui.js', '../player/43animation-scheduler.js', '../player/42player-core.js',
     '../player/44battle-player-5v5-test.js', '../player/45event-handlers.js', '../player/46attack-group.js', '../player/47renderer.js',
@@ -84,7 +83,7 @@ export const ALL_PROJECT_FILES = [
     // 备注：README.md 已不再复制（网页端粘贴不需要它）；其余 MD 文档已归档到 文件汇总20260730/，不参与自动复制
 ];
 
-// ==================== 主题分组（合并为 4 大类） ====================
+// 主题分组（合并为 4 大类）
 // 引擎：infra/core/player/modules/render/content + 入口页面（index、mode-5v5）
 // UI（画面特效等）：ui + fx
 // 工具：tools
@@ -96,7 +95,7 @@ export const FILE_GROUPS = [
     { name: 'tests', displayName: '体检', prefixes: ['../tests/'] }
 ];
 
-// ==================== 主题分析提示词 ====================
+// 主题分析提示词
 export const GROUP_PROMPTS = {
     '引擎': {
         before: '请深入分析战斗引擎代码（基础设施、核心战斗、播放器、通用模块、渲染层、游戏内容数据、入口页面）。无需输出详细分析，收到全部代码后直接开始协助开发。',

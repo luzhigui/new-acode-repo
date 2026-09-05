@@ -1,5 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// ui/68ui-controls.js - 光明顶5v5 UI控制（倍速系统+按钮状态+事件绑定）
-// V5.5.0 | ~25700 bytes| 2026-08-14 移除回放导入区块
+// V5.5.0 | 2026-08-14 移除回放导入区块
 export const VER = 'ui/68ui-controls.js V5.5.0';
 
 import { getState, setState } from './63main-state.js';
@@ -9,7 +8,7 @@ import { GlobalStore } from '../infra/54-global-store.js';
 import { resetBattleRuntime } from './69reset-runtime.js';
 import { CAMP_TYPES } from '../infra/56-battle-enums.js';
 
-// ==================== 倍速系统 ====================
+// 倍速系统
 let manualSpeedLock = false;
 let manualSpeedValue = null;
 let slideSpeedActive = true;
@@ -167,7 +166,7 @@ function initSpeedButtons() {
 }
 window._initSpeedButtons = initSpeedButtons;
 
-// ==================== 自动模式按钮同步 ====================
+// 自动模式按钮同步
 // btnAuto 文本/高亮必须实时反映真实 autoLevel。原实现只在玩家点菜单时更新文本，
 // 外部(如体检)直接改 GlobalStore 的 autoLevel 时按钮会显示失真 → 属真 UI 缺陷，此处统一兜底。
 const AUTO_LABELS = { manual: '手动', auto: '自动', 'full-auto': '全自动' };
@@ -180,7 +179,7 @@ function updateAutoModeButton() {
     window._autoMode = lvl !== 'manual';
 }
 
-// ==================== 更新按钮状态 ====================
+// 更新按钮状态
 function updateButtons() {
     const gs = getState.gs();
     const S = { IDLE: 'IDLE', RUNNING: 'RUNNING', PAUSED: 'PAUSED', GAMEOVER: 'GAMEOVER' };
@@ -556,5 +555,5 @@ export function bindCopyLogButton(showModal, copyLogToClipboard) {
     });
 }
 
-// ==================== 导出 ====================
+// 导出
 export { updateSpeedButtons, setSpeed, activateScrollSlowdown, restoreSpeedFromScroll, updateButtons, updateAutoModeButton, enableAllButtons, updateDebugUI };

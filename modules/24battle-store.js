@@ -1,5 +1,4 @@
-// modules/24battle-store.js - 光明顶5v5 战斗Store工厂
-// V5.6.1 | ~11800 bytes| 2026-08-26 GAME_STATE_FIELDS 删 _phantomTarget/_masteredRoles（已迁 18-elite-state）
+// V5.6.1 | 2026-08-26 GAME_STATE_FIELDS 删 _phantomTarget/_masteredRoles（已迁 18-elite-state）
 export const VER = 'modules/24battle-store.js V5.6.1';
 
 import { STORE_ACTION_TYPES, UNIT_EVENT_TYPES } from '../infra/56-battle-enums.js';
@@ -17,7 +16,7 @@ const UNIT_TOP_FIELDS = [
     'rangedForm'
 ];
 
-// ==================== Store 工厂 ====================
+// Store 工厂
 export function createStore(initialState, reducer) {
     let state = initialState;
     const listeners = [];
@@ -33,7 +32,7 @@ export function createStore(initialState, reducer) {
     };
 }
 
-// ==================== 战斗 Reducer ====================
+// 战斗 Reducer
 
 // UI 格子显示通过 dispatch → reducer → store 订阅 → renderGrid 完成
 export function battleReducer(state, action) {

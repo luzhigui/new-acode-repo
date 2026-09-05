@@ -1,5 +1,4 @@
-// core/15-skill-mechanisms.js - 光明顶5v5 技能机制解释器
-// V5.7.2 | ~14500 bytes| 2026-08-28 毒 fact 按攻击组定位插入
+// V5.7.2 | 2026-08-28 毒 fact 按攻击组定位插入
 export const VER = 'core/15-skill-mechanisms.js V5.7.2';
 
 import { EXECUTION_LAYER as L, EFFECT_TYPES, registerSettlementHook } from '../infra/50-event-bus.js';
@@ -10,7 +9,7 @@ import { checkKuLian, applyXingFenGrant, tickKuaiLeHeal, canXingFenTrigger, cons
 import { FACT_TYPES, UNIT_EVENT_TYPES, CAMP_TYPES, SIGNAL_TYPES } from '../infra/56-battle-enums.js';
 // 机制查表化：静态顶层 import 避免动态 import 的异步时序导致 registerSettlementHook 错过注册
 import { installMechanicByType } from '../modules/30custom-effects.js';
-// ★ 同步化：性奋额外攻击改为静态导入，避免动态 import 引入异步，使 processUnitAttack 可同步递归
+// 同步化：性奋额外攻击改为静态导入，避免动态 import 引入异步，使 processUnitAttack 可同步递归
 import { processUnitAttack } from './10battle-attack.js';
 
 // 安装声明式技能：把声明表翻译成 eventBus 监听
@@ -53,8 +52,7 @@ export function installFromGameData(eventBus, A, B, log, gameData) {
     installDeclaredSkills(eventBus, A, B, log, declarations);
 }
 
-// ==================== 目标选择声明 ====================
-// 目标选择监听器薄壳化：判定 + targetResult 写入抽纯函数
+// 目标选择：判定与 targetResult 写入已抽为纯函数
 function submitLowestHpTarget(data, decl) {
     if (data.unit.name !== decl.name) return;
     const sorted = [...data.validTargets].sort((a, b) => a.hp - b.hp);
@@ -90,7 +88,7 @@ function installTargetRule(eventBus, A, B, decl) {
     }
 }
 
-// ==================== 伤害计算前效果声明 ====================
+// 伤害计算前效果声明
 // 所有声明的 beforeDamageEffects 共用一个监听器（同 onHitEffects，避开 EventBus toString 去重）
 function submitBeforeDamageEffects(data, decls) {
     for (const decl of decls) {
@@ -131,7 +129,7 @@ function installBeforeDamageEffects(eventBus, declarations) {
     });
 }
 
-// ==================== 属性修正声明 ====================
+// 属性修正声明
 function installAttributeModifiers(A, B, decl) {
     if (!decl.attributeMods || decl.attributeMods.length === 0) return;
     const target = decl.camp === CAMP_TYPES.ENEMY
@@ -145,7 +143,7 @@ function installAttributeModifiers(A, B, decl) {
     }
 }
 
-// ==================== 命中后效果声明 ====================
+// 命中后效果声明
 // 所有声明的 onHitEffects 共用一个监听器（EventBus 按 toString 去重，同模板多闭包会被误杀）
 function submitOnHitEffects(data, onHitDecls) {
     const unit = data.unit;
@@ -228,8 +226,7 @@ function installOnHitEffects(eventBus, A, B, declarations) {
     });
 }
 
-// ==================== 幻影伪装声明（阶段2a） ====================
-// 幻影伪装监听器薄壳化：判定 + 状态/声明写入抽纯函数
+// 幻影伪装（阶段2a）：判定与状态/声明写入已抽为纯函数
 function submitPhantomDisguiseOnHit(data, decls) {
     const unit = data.unit;
     if (!unit || !unit.alive || data.dmg <= 0) return;
@@ -311,8 +308,7 @@ function installPhantomDisguise(eventBus, declarations) {
     });
 }
 
-// ==================== 玄冥联动声明（阶段2a） ====================
-// 玄冥联动监听器薄壳化：判定 + extraRequests 驱动"再攻击"链（_linkTriggered 直写保留原样）
+// 玄冥联动（阶段2a）：判定推 extraRequests 驱动再攻击链（_linkTriggered 直写不走声明）
 function submitLinkAttack(data, decls) {
     const { unit, target, dmg, allySide, log } = data;
     if (!unit || unit.state._isLinkAttack || dmg <= 0 || !target || !target.alive) return;
@@ -350,8 +346,7 @@ function installLinkAttack(eventBus, declarations) {
     });
 }
 
-// ==================== 九阴白骨爪声明（阶段2b） ====================
-// 白骨爪监听器薄壳化：模拟链结算推 CLAW_CHAIN/HEAL 声明（读 window.GlobalStore 保留原样）
+// 白骨爪（阶段2b）：模拟链结算推 CLAW_CHAIN/HEAL 声明（直接读 window.GlobalStore）
 function submitChainClaw(data, decls) {
     const { unit, target, dmg, log, allySide, enemySide } = data;
     const decl = decls.find(d => d.name === unit.name);
@@ -434,8 +429,7 @@ function installChainClaw(eventBus, A, B, declarations) {
     });
 }
 
-// ==================== 苦练声明（阶段2b） ====================
-// 苦练监听器薄壳化：判定 + 全队属性直改承载（局限定声明路未覆盖，保留原样）
+// 苦练（阶段2b）：全队属性直改承载（声明路覆盖不到）
 function submitKuLian(data, decls) {
     const { A, B, log, declarations } = data;
     const decl = decls[0]; // 宋青书声明
@@ -497,7 +491,7 @@ function installKuLian(eventBus, A, B, declarations) {
     });
 }
 
-// ==================== 新婚声明（阶段2b） ====================
+// 新婚声明（阶段2b）
 // 新婚：宋青书攻击时扣周芷若血、叠快乐层、自身性奋代价递增
 function submitXinHun(data, decls) {
     const { unit, target, dmg, allySide, log } = data;
@@ -547,8 +541,7 @@ function installXinHun(eventBus, A, B, declarations) {
     });
 }
 
-// ==================== 性奋声明（阶段2b） ====================
-// 性奋监听器薄壳化：回合激活直改 + 额外攻击/重试驱动"再攻击"链（保留原样）
+// 性奋（阶段2b）：回合激活直改 + 额外攻击/重试驱动再攻击链
 // 性奋激活 + 快乐回血 tick，均随 roundStart 事件数据携带 declarations
 function submitXingFenGrant(data) {
     const { A, B, log, declarations } = data;
@@ -612,7 +605,7 @@ function installXingFen(eventBus, A, B, declarations) {
     });
 }
 
-// ==================== 闪避规则声明 ====================
+// 闪避规则声明
 function installDodgeRules(decl) {
     if (!decl.dodgeRules || decl.dodgeRules.length === 0) return;
     for (const rule of decl.dodgeRules) {

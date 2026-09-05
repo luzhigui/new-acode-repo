@@ -1,5 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// modules/22audio-manager.js - 光明顶5v5 音频管理器
-// V5.5.0 | ~8000 bytes| 2026-07-05
+// V5.5.0 | 2026-07-05
 export const VER = 'modules/22audio-manager.js V5.5.0';
 
 import { CONFIG } from '../core/01config-5v5-test.js';

@@ -1,5 +1,4 @@
-// core/03battle-utils.js - 光明顶5v5 战斗工具函数
-// V5.7.3 | ~14500 bytes| 2026-08-24 坚盾增量/上限兜底改读 CONFIG（配合上限 3→4，去硬编码）
+// V5.7.3 | 2026-08-24 坚盾增量/上限兜底改读 CONFIG（配合上限 3→4，去硬编码）
 export const VER = 'core/03battle-utils.js V5.7.3';
 
 import { CONFIG, getGameData } from './01config-5v5-test.js';
@@ -196,7 +195,7 @@ function canReach(slot, targetPos, enemies) {
     return false;
 }
 
-// 战士破防：判定 + BREAK_DEF 声明提交（纯函数，事件监听器薄壳转调）
+// 战士破防：判定后推 BREAK_DEF 声明（纯函数）
 function submitWarriorBreakDefenseDeclaration(data) {
     const { unit, target, declarations } = data;
     if (!declarations) return;

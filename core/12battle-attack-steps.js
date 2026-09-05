@@ -1,5 +1,4 @@
-// core/12battle-attack-steps.js - 光明顶5v5 攻击步骤拆分模块
-// V5.7.1 | ~24200 bytes| 2026-08-26 calcFinalDamage 五声明类型抽 calcModifier 查表（16effect-handlers）
+// V5.7.1 | 2026-08-26 calcFinalDamage 五声明类型抽 calcModifier 查表（16effect-handlers）
 export const VER = 'core/12battle-attack-steps.js V5.7.1';
 
 import { CONFIG, getSkillParams, getGameData } from './01config-5v5-test.js';
@@ -10,7 +9,7 @@ import { flushBattleEvents, pushBattleEvent, getBattleState, setBattleState, reg
 import { getEffectHandler, hasEffectHandler, getCalcModifier, validateDeclarationFields, validateCalcModifierFields } from './16effect-handlers.js';
 import { FACT_TYPES, BUFF_TYPES, UNIT_EVENT_TYPES, DROP_TYPES, CAMP_TYPES, ROLE_TYPES, SIGNAL_TYPES } from '../infra/56-battle-enums.js';
 
-// ==================== 闪避规则注册表（已下沉 infra/51，此处转发） ====================
+// 闪避规则注册表（已下沉 infra/51，此处转发）
 export { registerDodgeRule, clearEliteDodgeRules, getDodgeRules };
 
 registerDodgeRule((unit, attacker) => {
@@ -25,7 +24,7 @@ registerDodgeRule((unit, attacker) => {
 
 const C = CONFIG;
 
-// ==================== 步骤1：选择攻击目标 ====================
+// 步骤1：选择攻击目标
 export function selectAttackTarget(unit, enemySide, allySide) {
     const rng = getBattleRng();
     const validTargets = enemySide.filter(c => c.alive && !c.state._untargetable);
@@ -77,7 +76,7 @@ export function selectAttackTarget(unit, enemySide, allySide) {
     return { target, phantomFact };
 }
 
-// ==================== 步骤2：未命中+闪避判定 ====================
+// 步骤2：未命中+闪避判定
 export function resolveAttackHit(unit, target, attackerBuffStats, defenderBuffStats, log, A, B, doubleStrikeUnitUid, eventBus, state) {
     // 通用标记：携带 _neverMiss 的单位跳过未命中与闪避判定（由精英组件自声明）
     if (unit._neverMiss) return { skipped: false };
@@ -125,6 +124,7 @@ export function resolveAttackHit(unit, target, attackerBuffStats, defenderBuffSt
     if (target.state._stunned) return { skipped: false };
     const hasCloudBody = hasBuff(allyBuffs, BUFF_TYPES.CLOUD_BODY) || ((target.isXiaoZhaoSister || target.isXiaoZhaoBrother) && target.state._permanentBuffs && target.state._permanentBuffs.some(b => b.key === BUFF_TYPES.CLOUD_BODY));
     if (target.alive && (target.isWei || hasCloudBody || !target.state._acted)) {
+        // 规则闪避逐条独立判定，任一命中即闪避；_dodgeChance 显示值 = 1-∏(1-r) 乘法叠加
         let dodgeTriggered = false;
         for (const ruleFn of getDodgeRules()) {
             const rate = ruleFn(target, unit) || 0;
@@ -194,7 +194,7 @@ export function resolveAttackHit(unit, target, attackerBuffStats, defenderBuffSt
     return { skipped: false };
 }
 
-// ==================== 步骤3：伤害计算 ====================
+// 步骤3：伤害计算
 export function calcFinalDamage(unit, target, attackerBuffStats, defenderBuffStats, allySide, enemySide, log) {
     const damageDeclarations = [];
     // 事件 data 对象变量化：监听器可挂 _derivedEntries 记账（乾坤衍生），随 dmgCalc 传回攻击流程，不落 unit
@@ -275,7 +275,7 @@ export function calcFinalDamage(unit, target, attackerBuffStats, defenderBuffSta
     return { atkBase, defBase, atkAct, defAct, hpBonus, hpBefore, waveTaunt, waveUnit, raw, rawFormula: null, thunderBonus: 0, hornDmgMultiplier: 1, hornDefIgnore: 0, trueDmg: 0, dmg, bonusEntries, defReduced, defReduction: null, bonusDmgTotal, bonusDmgEntries, dmgMultiplier, dmgMultiplierEntries, hpRatio: unit.role === ROLE_TYPES.DEFENDER ? hpRatio : 0, blockValue, pendingDefReduceFact: refs.pendingDefReduceFact || null, derivedEntries: damageData._derivedEntries || [] };
 }
 
-// ==================== 步骤4：应用伤害结果 ====================
+// 步骤4：应用伤害结果
 export function applyAttackResult(unit, target, dmgCalc, attackerBuffStats, defenderBuffStats, allySide, enemySide, log, A, B, state, doubleStrikeUnitUid) {
     const rng = getBattleRng();
     let { atkBase, defBase, atkAct, defAct, hpBonus, hpBefore, waveTaunt, waveUnit, raw, rawFormula, thunderBonus, hornDmgMultiplier, trueDmg, dmg, bonusEntries, defReduction } = dmgCalc;
@@ -359,7 +359,7 @@ export function applyAttackResult(unit, target, dmgCalc, attackerBuffStats, defe
     return { dmg, dead, horseReboundDeclarations, reboundEntry, bonusEntries, hpBefore, defReduction, waveTaunt, waveUnit, rawFormula, thunderBonus, hornDmgMultiplier, trueDmg, atkAct, defAct, hpBonus, fortifyDeclarations };
 }
 
-// ==================== 死亡结算边裁 ====================
+// 死亡结算边裁
 export function resolveDeaths(allySide, enemySide, log) {
     const allUnits = [...allySide, ...enemySide];
     const pending = allUnits.filter(u => u._pendingDeath && u.alive);
@@ -381,7 +381,7 @@ export function resolveDeaths(allySide, enemySide, log) {
     }
 }
 
-// ==================== 伤害免疫边裁 ====================
+// 伤害免疫边裁
 export function resolveDamageImmune(declarations) {
     if (!declarations || declarations.length === 0) return null;
     const immuneDecls = declarations.filter(d => d.immune);
@@ -389,7 +389,7 @@ export function resolveDamageImmune(declarations) {
     return immuneDecls[0];
 }
 
-// ==================== 攻击后效果结算 ====================
+// 攻击后效果结算
 export function resolveAfterDamageEffects(declarations, unit, target, group, allySide, unitBuffs) {
     if (!declarations || declarations.length === 0) return [];
 
@@ -438,7 +438,7 @@ export function resolveAfterDamageEffects(declarations, unit, target, group, all
     return executed;
 }
 
-// ==================== 步骤5：构建攻击事实（不渲染，由 player 投影）+ 攻击后效果 ====================
+// 步骤5：构建攻击事实（不渲染，由 player 投影）+ 攻击后效果
 // 纯同步，无 await
 export function buildAttackGroup(unit, target, dmgCalc, dmgResult, attackerBuffStats, defenderBuffStats, allySide, enemySide, log, A, B, state, doubleStrikeUnitUid, phantomFact) {
     let { atkBase, defBase, atkAct, defAct, hpBonus, hpBefore, waveTaunt, waveUnit, raw, rawFormula, thunderBonus, hornDmgMultiplier, hornDefIgnore, trueDmg, defReduction, bonusDmgTotal, bonusDmgEntries, dmgMultiplier, dmgMultiplierEntries, hpRatio } = dmgCalc;
@@ -503,7 +503,7 @@ export function isUnitStunned(unit) {
     return !!(unit && unit.state._stunned);
 }
 
-// ==================== 闪避后效果边裁 ====================
+// 闪避后效果边裁
 export function resolveDodgeEffects(declarations, unit, target) {
     if (!declarations || declarations.length === 0) return;
 

@@ -1,4 +1,3 @@
-// tests/health-rules/125-fortify-timing.js
 // 回归规则：坚盾计数"已叠0/N" — 修复后坚盾日志在监听器内生成，_fortifyThisRound 已更新
 // 复发信号：坚盾日志显示"已叠0/N"（_fortifyThisRound 未更新就读取，时序回退，N 为任意上限值）
 // 对应已修 Bug：坚盾计数"已叠0/3"（日志读取早于监听器更新）

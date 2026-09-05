@@ -1,4 +1,3 @@
-// tests/health-rules/139-spider-butterfly-target.js
 // 回归规则：小昭妹/姐不可选期目标保护 —
 //   妹妹(_spiderFlying 飞天窗口)与姐姐(_untargetable 附身窗口)期间不应被选为攻击目标
 // 复发信号：飞天窗口内出现以妹妹为目标的攻击组（SPIDER_IMMUNE 对已飞天目标提前 return 未免疫且未 _untargetable）

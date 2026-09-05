@@ -1,5 +1,4 @@
-// player/42player-core.js - 光明顶5v5 战斗播放器核心
-// V5.7.5 | ~42250 bytes| 2026-08-26 posSwap 补惑心横幅；summon 拼 horseTaunt 台词
+// V5.7.5 | 2026-08-26 posSwap 补惑心横幅；summon 拼 horseTaunt 台词
 export const VER = 'player/42player-core.js V5.7.6';
 
 import { CONFIG } from '../core/01config-5v5-test.js';
@@ -303,6 +302,7 @@ export async function playBattle() {
         if (!c.UI) return;
 
         if (!c._deathTimers) c._deathTimers = {};
+        // 死亡单位 3 秒后才 REMOVE_UNIT，给死亡特效留时间
         for (const su of state.units) {
             if ((su.state && su.state._isDead || su.alive === false) && !c._deathTimers[su.uid]) {
                 c._deathTimers[su.uid] = true;

@@ -1,5 +1,4 @@
-// core/13battle-shared.js - 光明顶5v5 战斗共享工具
-// V5.6.1 | ~10000 bytes| 2026-08-26 抽战斗统计统一记账入口 recordCombatStat
+// V5.6.1 | 2026-08-26 抽战斗统计统一记账入口 recordCombatStat
 export const VER = 'core/13battle-shared.js V5.6.1';
 
 import { CONFIG } from './01config-5v5-test.js';
@@ -115,7 +114,7 @@ function swapUnitPositions(unitA, unitB) {
     const posB = unitB.pos;
     unitA.pos = posB;
     unitB.pos = posA;
-    // ★ emitEvent 只是导出别名，模块内部必须用真实函数名 emitCoreEvent
+    // emitEvent 只是导出别名，模块内部必须用真实函数名 emitCoreEvent
     emitCoreEvent(unitA, UNIT_EVENT_TYPES.POS_CHANGE, { pos: posB });
     emitCoreEvent(unitB, UNIT_EVENT_TYPES.POS_CHANGE, { pos: posA });
 }
@@ -123,7 +122,7 @@ function swapUnitPositions(unitA, unitB) {
 function moveUnitPosition(unit, newPos) {
     if (!unit || newPos == null) return;
     unit.pos = newPos;
-    // ★ 同上：模块内部用 emitCoreEvent，不用导出别名 emitEvent
+    // 同上：模块内部用 emitCoreEvent，不用导出别名 emitEvent
     emitCoreEvent(unit, UNIT_EVENT_TYPES.POS_CHANGE, { pos: newPos });
 }
 

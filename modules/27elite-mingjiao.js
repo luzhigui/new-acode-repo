@@ -1,5 +1,4 @@
-// modules/27elite-mingjiao.js - 明教精英组件合集
-// V5.7.0 | ~31800 bytes| 2026-08-24 拆除 ELITE_SKILLS/本地台词硬编码兜底：统一 getSkillParams + gameData.taunts
+// V5.7.0 | 2026-08-24 拆除 ELITE_SKILLS/本地台词硬编码兜底：统一 getSkillParams + gameData.taunts
 export const VER = 'modules/27elite-mingjiao.js V5.7.0';
 
 import { registerElite } from '../core/08-elite-registry.js';
@@ -13,11 +12,11 @@ import { registerDodgeRule } from '../core/12battle-attack-steps.js';
 import { StateMachine } from '../infra/51-core-utils.js';
 import { FACT_TYPES, BUFF_TYPES, UNIT_EVENT_TYPES, CAMP_TYPES, ROLE_TYPES, SIGNAL_TYPES } from '../infra/56-battle-enums.js';
 
-// ★ 2026-09-02 定案：本文件的 FSM（张无忌/小昭·姊/小昭·妹）不做声明化、不搬表。
+// 2026-09-02 定案：本文件的 FSM（张无忌/小昭·姊/小昭·妹）不做声明化、不搬表。
 //   理由：有状态机的角色仅 3 个，转移规则在组件内一眼可见；声明化只能挪骨架、
 //   动作仍须写 JS，收益不抵成本。保持组件内硬编码，此决定不再反复讨论。
 
-// ==================== 张无忌 ====================
+// 张无忌
 export function createZhangWujiComponent() {
     return {
         name: '张无忌',
@@ -131,7 +130,7 @@ export function createZhangWujiComponent() {
     };
 }
 
-// ==================== 韦一笑 ====================
+// 韦一笑
 export function createWeiYixiaoComponent() {
     return {
         name: '韦一笑',
@@ -140,7 +139,7 @@ export function createWeiYixiaoComponent() {
             if (!wei) return;
             wei._neverMiss = true;
 
-            // 韦一笑吸星：判定 + WEI_HEAL 声明提交（纯函数，事件监听器薄壳转调）
+            // 韦一笑吸星：判定后推 WEI_HEAL 声明（纯函数）
             function submitWeiLeechDeclaration(data) {
                 const { unit, target, reboundDmg, declarations } = data;
                 if (!target.isWei || !target.alive) return;
@@ -169,7 +168,7 @@ export function createWeiYixiaoComponent() {
     };
 }
 
-// ==================== 小昭·姊 ====================
+// 小昭·姊
 export function createXiaoZhaoSisterComponent() {
     return {
         name: '小昭·姊',
@@ -315,7 +314,7 @@ export function createXiaoZhaoSisterComponent() {
                 const delta = newHp - sister.hp;
                 applyStatChange(sister, 'hp', delta, null, '蝶变附身血量', false);
             }
-            // ★ 必须同时写 state 的 _flyMode，renderGrid 只读 unit.state._flyMode，
+            // 必须同时写 state 的 _flyMode，renderGrid 只读 unit.state._flyMode，
             //   否则原地格子不消失，仍显示完整单位（和飞撞残留蓝色格子同根因）。
             Object.assign(sister.state, { _butterflyHost: host.uid, _flyMode: 'butterfly' });
             sister._fsm.transition('attached');
@@ -418,7 +417,7 @@ export function createXiaoZhaoSisterComponent() {
     };
 }
 
-// ==================== 小昭·妹 ====================
+// 小昭·妹
 export function createXiaoZhaoBrotherComponent() {
     return {
         name: '小昭·妹',

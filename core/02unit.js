@@ -1,5 +1,4 @@
-// core/02unit.js - 光明顶5v5 战斗单位类
-// V5.7.0 | ~6500 bytes| 2026-08-28 顶层回合级光环/加成字段迁入 state，删净顶层 _ 临时字段
+// V5.7.0 | 2026-08-28 顶层回合级光环/加成字段迁入 state，删净顶层 _ 临时字段
 export const VER = 'core/02unit.js V5.7.0';
 
 import { CONFIG, getGameData } from './01config-5v5-test.js';
@@ -72,7 +71,7 @@ export class Unit {
         c.state = {};
         copyAllStateFields(this.state, c.state);
         // FSM：重建新实例，深拷贝 transitions 避免共享引用
-        // ★ 2026-09-02 定案：FSM 不做骨架声明化。有 FSM 的角色仅 3 个（张无忌/小昭·姊/小昭·妹），
+        // 2026-09-02 定案：FSM 不做骨架声明化。有 FSM 的角色仅 3 个（张无忌/小昭·姊/小昭·妹），
         //   声明化只能挪骨架、动作仍须写 JS，收益不抵成本。若后续状态收口把 elite-state 并入
         //   Unit.state，transitions 随 state 统一 clone/reset，此处 JSON 深拷贝的脆弱点顺带解决，
         //   不再单独做声明化。此决定不再反复讨论。

@@ -1,5 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// tools/104-toolkit-more.js - 光明顶5v5 开发工具箱（函数提取器 / 函数替换器）
-// V5.6.0 | ~27000 bytes| 2026-08-22 TARGET_FILES 改为从 106 的 ALL_PROJECT_FILES 派生（单一数据源，消除双份维护）
+// V5.6.0 | 2026-08-22 TARGET_FILES 改为从 106 的 ALL_PROJECT_FILES 派生（单一数据源，消除双份维护）
 
 import { ALL_PROJECT_FILES } from './106-ai-pack-config.js';
 
@@ -9,7 +8,7 @@ function escapeHtml(text) {
     return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
-/* ========== 2. 函数替换器 ========== */
+// 2. 函数替换器
 (function() {
     // 单一数据源：全项目清单统一维护在 106-ai-pack-config.js 的 ALL_PROJECT_FILES，本清单由其派生。
     // 仅排除不适合作函数扫描的文件：工具箱自身页面 102、两个入口页（assets 音频由后缀白名单自动排除）。
@@ -227,7 +226,7 @@ function escapeHtml(text) {
     });
 })();
 
-/* ========== 3. 防战计算器 ========== */
+// 3. 防战计算器
 (function() {
     const FANG_LEVELS = [0.244, 0.264, 0.279, 0.292, 0.306, 0.322, 0.342, 0.373, 0.445, 0.520];
     const FANG_K = [0, 0.02, 0.04, 0.07, 0.10, 0.14, 0.19, 0.28, 0.50, 1.00, 2.50];
@@ -330,7 +329,7 @@ function escapeHtml(text) {
     });
 })();
 
-/* ========== 4. 自动批量战斗 ========== */
+// 4. 自动批量战斗
 import { runAutoBattle, generateSnapshot } from './101auto-battle-utils.js';
 // CONFIG.BUFFS 是 getter（读 content/200game-data.json，gameData 未加载时返回 undefined），
 // 自动批量战斗在加载时就要渲染海克斯复选框，故这里必须 await loadGameData 再读。

@@ -1,5 +1,4 @@
-// core/14buff-effects.js - 光明顶5v5 海克斯效果函数库
-// V5.6.0 | ~5700 bytes| 2026-08-24 姐姐强化参数直读 JSON（小昭.hexEnhance），去 ELITE_SKILLS 兜底
+// V5.6.0 | 2026-08-24 姐姐强化参数直读 JSON（小昭.hexEnhance），去 ELITE_SKILLS 兜底
 export const VER = 'core/14buff-effects.js V5.6.1';
 
 import { CONFIG, getSkillParams } from './01config-5v5-test.js';

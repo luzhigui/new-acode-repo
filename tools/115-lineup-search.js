@@ -1,4 +1,3 @@
-// tools/115-lineup-search.js - 光明顶5v5 阵容搜索器（融合进 102 工具箱 tab）
 // V1.0.0 | 按条件批量采样 initBattleTeams，统计精英出场组合/固定站位/普通兵出现频率与站位分布
 import { initBattleTeams } from '../modules/29battle-init.js';
 import { eventBus } from '../infra/50-event-bus.js';

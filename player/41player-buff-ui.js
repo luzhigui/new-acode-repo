@@ -1,4 +1,3 @@
-// player/41player-buff-ui.js - 光明顶5v5 Buff横幅与handler
 // V5.7.2 | 2026-08-26 删除 handleBuffLeech 死函数
 export const VER = 'player/41player-buff-ui.js V5.7.2';
 

@@ -1,5 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// fx/84fx-push-back.js - 光明顶5v5 击退特效
-// V5.5.0 | ~5600 bytes| 2026-07-11 支持 skipDataChange 参数
+// V5.5.0 | 2026-07-11 支持 skipDataChange 参数
 export const VER = 'fx/84fx-push-back.js V5.5.0';
 
 import { GlobalStore } from '../infra/54-global-store.js';

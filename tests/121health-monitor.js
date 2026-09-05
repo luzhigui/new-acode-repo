@@ -1,4 +1,3 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// tests/121health-monitor.js - 光明顶5v5 实时体检监控器
 // V5.6.0 | 接入 rule81-87 回归体检；GAMEOVER 立即跑规则(日志已完整)；新局识别修复多局连打漏检；新增战报黑幕/随机重开/特效池实时检查
 export const VER = 'tests/121health-monitor.js V5.7.0';
 
@@ -48,7 +47,7 @@ let gameFrame, gameArea, reportArea, statusLine;
 const UI_CONFIRM_TIMES = 3;
 let pendingIssueCounts = {};
 
-// ==================== 自动/无头后台模式参数 (?auto=1&budget=秒&stages=目标关&speed=速度值&start=起始关) ====================
+// 自动/无头后台模式参数 (?auto=1&budget=秒&stages=目标关&speed=速度值&start=起始关)
 // 与手动自检模式（120test-runner.html 交互）并行：auto=1 时无人值守自动跑完整关卡，
 // 结束（跑完目标关或超时）后在 window.__healthResult 暴露完整报告，供自动化工具快速读取
 // start=起始关：第3关起才有精英（宋青书等），默认从第3关开始，跳过无精英的前两关
@@ -108,7 +107,7 @@ export function initMonitor() {
     const startScanTimer = () => { if (scanTimer) clearInterval(scanTimer); scanTimer = setInterval(periodicScan, scanInterval); };
     const stopScanTimer = () => { if (scanTimer) { clearInterval(scanTimer); scanTimer = null; } };
 
-    // ==================== 体检模式 2 级菜单 ====================
+    // 体检模式 2 级菜单
     function hideModeOverlay() { if (modeOverlay) modeOverlay.style.display = 'none'; }
     // 🔄 实时跟跑：已有监控则切回游戏视图；未启动则启动实时监控
     if (btnModeLive) btnModeLive.addEventListener('click', () => {
@@ -146,7 +145,7 @@ export function initMonitor() {
         }
     });
 
-    // ==================== 手动记录弹窗 ====================
+    // 手动记录弹窗
     function showManualInput() {
         manualOverlay.style.display = 'flex';
         manualText.value = '';
@@ -178,7 +177,7 @@ export function initMonitor() {
 
     manualCancel.addEventListener('click', hideManualInput);
 
-    // ==================== 清空确认弹窗 ====================
+    // 清空确认弹窗
     let confirmCallback = null;
     function showConfirm(text, onOk) {
         confirmText.textContent = text;
@@ -198,13 +197,13 @@ export function initMonitor() {
 
     confirmCancel.addEventListener('click', hideConfirm);
 
-    // ==================== 返回游戏按钮 ====================
+    // 返回游戏按钮
     backBtn.addEventListener('click', () => {
         reportArea.classList.remove('active');
         gameArea.classList.add('active');
     });
 
-    // ==================== 频率按钮 ====================
+    // 频率按钮
     freqButtons.forEach(btn => btn.addEventListener('click', () => {
         const val = parseInt(btn.dataset.freq);
         if (val === 0) {
@@ -218,7 +217,7 @@ export function initMonitor() {
         updateStatusLine();
     }));
 
-    // ==================== 主要按钮 ====================
+    // 主要按钮
     btnStartMonitor.addEventListener('click', () => {
         if (monitorActive) return;
         gameFrame.src = '../mode-5v5-test.html';
@@ -320,7 +319,7 @@ export function initMonitor() {
     }
 }
 
-// ==================== 定时扫描 ====================
+// 定时扫描
 function periodicScan() {
     if (!monitorActive || !gameLoaded || isPaused) return;
     const win = getWin();
@@ -328,7 +327,7 @@ function periodicScan() {
     const ctx = getCtx();
     if (!ctx || !doc) return;
 
-    // ★ V5.7.8 数据源切换：currentResult 无人赋值（player 快照化移除），改读 GlobalStore 战报累积日志
+    // V5.7.8 数据源切换：currentResult 无人赋值（player 快照化移除），改读 GlobalStore 战报累积日志
     //   无条件重指向：每局 doInitBattle 换新数组，旧引用不清会跨局串日志
     const gsLog = win && win.GlobalStore ? win.GlobalStore.get('battleLog') : null;
     if (Array.isArray(gsLog)) ctx._enhancedBattleLog = gsLog;
@@ -372,7 +371,7 @@ function periodicScan() {
         }, 3000);
     }
 
-    // ============ 自动后台模式：推进关卡 / 超时判定，结束后输出报告 ============
+    // 自动后台模式：推进关卡 / 超时判定，结束后输出报告
     if (autoMode && !autoDone) {
         // 每场战斗结束会把 fastForwardActive 复位为 false，这里持续保持快进，确保后续关卡也快速打完
         try { if (win && win.GlobalStore && !win.GlobalStore.get('fastForwardActive')) win.GlobalStore.set('fastForwardActive', true); } catch (e) {}
@@ -439,7 +438,7 @@ function runRuleChecks(ctx, doc) {
     // 规则配方裁剪：只跑目标规则（其余不参与计数/不占skip名单）；null=全部
     const rules = filterRulesByTags(allRules, RECIPE_TAGS);
 
-    // ★ 空日志防线：规则靠日志才有意义，GAMEOVER 时仍为空 = 数据链断，显式报红防假绿
+    // 空日志防线：规则靠日志才有意义，GAMEOVER 时仍为空 = 数据链断，显式报红防假绿
     if (battleLog.length === 0) {
         if (ctx.gs === 'GAMEOVER') recordIssue(ctx, null, '规则数据源', '战报日志为空，' + rules.length + '条规则未执行（空转防假绿红线）', '系统');
         return;
@@ -554,7 +553,7 @@ function recordIssue(ctx, unitUid, type, detail, source) {
     updateStatusLine();
 }
 
-// ==================== 静态体检报告渲染 ====================
+// 静态体检报告渲染
 // 渲染 runStaticScan() 的结构化结果到报告区（不跑游戏，直接展示结构问题）
 function renderStaticReport(result, title) {
     if (reportArea) reportArea.innerHTML = '';
@@ -670,7 +669,7 @@ function updateReport() {
     reportArea.scrollTop = reportArea.scrollHeight;
 }
 
-// ==================== 自动模式：进度更新 ====================
+// 自动模式：进度更新
 function updateAutoProgress(stage) {
     const elapsed = (Date.now() - autoStartedAt) / 1000;
     try {
@@ -680,7 +679,7 @@ function updateAutoProgress(stage) {
     } catch (e) {}
 }
 
-// ==================== 自动模式：最终报告 ====================
+// 自动模式：最终报告
 function finalizeAutoReport(ctx, doc, reason) {
     if (autoDone) return;
     autoDone = true;
