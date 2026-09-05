@@ -228,7 +228,7 @@ export function registerWarriorBreakDefense(eventBus) {
     });
 }
 
-// 远程成长：判定 + STAT_CHANGE 声明提交（纯函数，事件监听器薄壳转调）
+// 远程成长：每次攻击后攻击 +2
 function submitRangedGrowthDeclaration(data) {
     const { unit, target, dmg, group } = data;
     if (unit.role !== ROLE_TYPES.RANGED || dmg <= 0) return;
@@ -258,7 +258,7 @@ export function registerRangedGrowth(eventBus) {
     });
 }
 
-// 战士斩杀：判定 + EXECUTE 声明提交（纯函数，事件监听器薄壳转调）
+// 战士斩杀：目标血量低于阈值时直接击杀
 function submitWarriorExecuteDeclaration(data) {
     const { unit, target, allySide, declarations } = data;
     if (unit.role !== ROLE_TYPES.WARRIOR || !unit.alive) return;
@@ -328,7 +328,7 @@ export function registerFortifyShield(eventBus) {
     // 坚盾触发概率：唯一来源 JSON roles.防战.fortify（攻盾=attackChance，被击坚盾=defendChance）
     const fortifyCfg = getGameData().roles[ROLE_TYPES.DEFENDER].fortify;
 
-    // 被击坚盾：判定 + STAT_CHANGE 声明提交（纯函数，事件监听器薄壳转调）
+    // 被击坚盾：受击后概率叠防御
     function submitFortifyShieldDefend(data) {
         const { target, dmg, group } = data;
         if (dmg <= 0) return;
@@ -347,7 +347,7 @@ export function registerFortifyShield(eventBus) {
         }
     }
 
-    // 攻盾：push ROUND_STAT_GRANT 声明，由 resolveRoundStatGrants 统一结算
+    // 攻盾：攻击后概率叠防御，走 ROUND_STAT_GRANT
     function submitFortifyShieldAttack(data) {
         const { unit, group, log } = data;
         tryFortify(unit, fortifyCfg.attackChance, group, log, '攻盾', false, data.declarations);
@@ -372,7 +372,7 @@ export function registerFortifyShield(eventBus) {
 
 export function registerDoubleStrike(eventBus, doubleStrikeUnitUid, allyTeam, activeBuffs) {
     if (!doubleStrikeUnitUid) return;
-    // 连击判定：_doubleStriked 直写 + extraRequests 驱动"再攻击"链（非状态结算，保留原样）
+    // 连击判定：每回合触发一次，额外攻击一次
     function submitDoubleStrikeDeclaration(data) {
         const { unit, target, log } = data;
         if (unit.uid !== doubleStrikeUnitUid || !unit.alive || unit.camp !== CAMP_TYPES.ALLY || unit.state._doubleStriked) return;

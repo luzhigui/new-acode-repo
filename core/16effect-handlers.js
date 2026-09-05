@@ -104,7 +104,6 @@ registerCalcModifier(EFFECT_TYPES.BREAK_DEF, (ctx) => {
     applyStatChange(target, 'def', -reduce, unit, '破防');
     emitEvent(target, UNIT_EVENT_TYPES.HP_CHANGE, { hp: target.hp, maxHp: target.maxHp, alive: target.alive, atk: target.atk, def: target.def, _isDead: target.state._isDead || false });
     refs.defReduced = reduce;
-    // 破防记账随声明通道传递（decl.factData 为 03 侧预填版本；reduce>0 覆盖为执行版本），不落 unit
     if (reduce > 0) {
         refs.pendingDefReduceFact = { type:'breakDef', attackerName: unit.name, targetName: target.name, reduce };
         emitEvent(target, UNIT_EVENT_TYPES.HP_CHANGE, { hp: target.hp, maxHp: target.maxHp, alive: target.alive, atk: target.atk, def: refs.defBase, _isDead: target.state._isDead || false });
@@ -211,6 +210,7 @@ registerEffectHandler(EFFECT_TYPES.REBOUND, (ctx) => {
 });
 
 registerEffectHandler(EFFECT_TYPES.STAT_CHANGE, (ctx) => {
+    // atk/def 变更同步 _baseAtk/_baseDef，保证永久成长不丢
     const executed = [];
     for (const decl of ctx.decls) {
         if (!decl.target || !decl.target.alive) continue;
@@ -280,6 +280,7 @@ registerEffectHandler(EFFECT_TYPES.ROUND_STAT_GRANT, (ctx) => {
     return { executed };
 });
 
+// 回合级状态授予统一结算入口：由 10/11 的 AFTER_ATTACK 和 ON_ROUND_START 调用
 export function resolveRoundStatGrants(declarations) {
     if (!declarations || declarations.length === 0) return [];
     const decls = declarations.filter(d => d && d.type === EFFECT_TYPES.ROUND_STAT_GRANT);

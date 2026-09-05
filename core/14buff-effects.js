@@ -17,6 +17,7 @@ export function applyCloudBodyDodge_Normal(unit, stats) { stats.dodgeBonus = CON
 export function applyCloudBodyDodge_Sister(unit, stats) { stats.dodgeBonus = getSkillParams('小昭', 'hexEnhance').cloudBody.dodgeBonus; }
 export function applyCloudBodyDodge_Brother(unit, stats) { stats.dodgeBonus = CONFIG.BUFFS.cloudBody.dodgeBonus; }
 
+// 圣火令：命中列加攻、命中行加防
 export function applyHolyFlame_Normal(unit, allyTeam, activeBuffs, stats) {
     const holyFlameBuff = activeBuffs.find(b => b.key === BUFF_TYPES.HOLY_FLAME);
     if (!holyFlameBuff || unit.camp !== CAMP_TYPES.ALLY) return;
@@ -35,6 +36,7 @@ export function applyHolyFlame_Brother(unit, allyTeam, activeBuffs, stats) {
     stats.defBonus += CONFIG.BUFFS.holyFlame.defBonus;
 }
 
+// carry：5 号位按队友属性百分比加成，死亡队友加成翻倍
 export function calcCarryBonus_Normal(unit, allyTeam) {
     if (unit.pos !== 5 || !unit.alive || unit.isHorse) return { atkAbs: 0, defAbs: 0, hpAbs: 0 };
     let carryAtkAbs = 0, carryDefAbs = 0, carryHpAbs = 0;
@@ -66,8 +68,7 @@ function applyMindControlCore(unit, allySide, enemySide, log, swapChanceEnemy, s
     let frontUnit = allySide.filter(u => u.alive && !u.isHorse).sort((a,b) => a.pos - b.pos)[0];
     if (!frontUnit || frontUnit.uid !== unit.uid) return;
 
-    // ★ 判定横幅先于判定入 log：切换成 stageAction 后成为独立 BANNER（beforeText），
-    //   六大派判定、明教判定各一条，成功后紧跟各自的换位特效
+    // 判定横幅先入 log，成功后才跟换位特效
     log.push({ factType: FACT_TYPES.MIND_CONTROL_BANNER, data: { side: CAMP_TYPES.ENEMY } });
     if (rng.nextInt(1,100) <= swapChanceEnemy) {
         let enemies = enemySide.filter(u => u.alive && u.state._flyMode !== 'butterfly' && u.state._flyMode !== 'spider' && !u.state._spiderFlying);

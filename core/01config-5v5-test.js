@@ -151,7 +151,7 @@ const CONFIG = {
     get ELITE_POOL() {
         return getGameData().encounters.elitePool;
     }
-    // 精英技能参数已全部迁入 content/200game-data.json 的 characters.*.skills.*.params
+    // 精英技能参数已迁入 gameData
     // 与 characters.*.mechanics，读取统一走 getSkillParams（缺失即配置错误，调用方 throw）
 };
 

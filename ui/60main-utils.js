@@ -9,7 +9,7 @@ export function showModal(text, buttons, onChoice, canMinimize, showCloseBtn) {
     let box = document.createElement('div'); box.className = 'modal-box';
     box.style.position = 'relative';
 
-    // 右上角关闭按钮（仅当 showCloseBtn 不为 false 时显示）
+    // 右上角关闭按钮，showCloseBtn=false 时隐藏
     if (showCloseBtn !== false) {
         let closeBtn = document.createElement('span');
         closeBtn.innerHTML = '✕';
@@ -80,9 +80,6 @@ export function initBugAndXiaoZhaoModes() {
     }
 }
 
-/**
- * 复制日志
- */
 export function copyLogToClipboard(choice) {
     let logDiv = document.getElementById('log');
     let lines = [];

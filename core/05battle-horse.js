@@ -1,5 +1,5 @@
 // core/05battle-horse.js - 光明顶5v5 拒马逻辑
-// V5.5.1 | ~2906 bytes| 2026-08-21 战报记账修正：拒马初始化/消散改非记账
+// V5.5.1 | 2026-08-21 战报记账修正：拒马初始化/消散改非记账
 export const VER = 'core/05battle-horse.js V5.5.1';
 
 import { CONFIG } from './01config-5v5-test.js';
@@ -18,7 +18,6 @@ export function spawnHorse(allyTeam, log, enemyTeam, force = false) {
     );
     let available = [1,2,3,4,5,6,7,8,9].filter(p => !occupiedPositions.has(p));
     if (available.length === 0) return;
-    // Fisher–Yates 洗牌，确保真正的随机性
     const rng = getBattleRng();
     for (let i = available.length - 1; i > 0; i--) {
         const j = rng.nextInt(0, i);
@@ -49,7 +48,7 @@ export function destroyHorse(allyTeam, log) {
     let horses = allyTeam.filter(u => u.isHorse && u.alive).sort((a, b) => b.pos - a.pos);
     if (horses.length === 0) return;
 
-    // 连续销毁概率递减：第一匹50%，每成功一匹概率减半，失败重置回50%；避免多匹拒马被一轮清空
+    // 连续销毁概率递减：50% → 25% → 12.5%，失败重置 50%，避免一轮清空
     let currentProb = 50;
     const rng = getBattleRng();
     for (const horse of horses) {

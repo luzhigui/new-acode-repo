@@ -1,5 +1,4 @@
-// ui/70buff-dialog.js - 光明顶5v5 Buff弹窗
-// V5.6.0 | ~8800 bytes| 2026-08-21 从player/41拆出，弹窗归ui
+﻿// V5.6.0 | 2026-08-21 从 player/41 拆出
 export const VER = 'ui/70buff-dialog.js V5.6.0';
 
 import { CONFIG } from '../core/01config-5v5-test.js';

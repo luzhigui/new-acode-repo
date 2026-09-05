@@ -156,7 +156,7 @@ export function logBuffSummary(allyTeam, log, doubleStrikeUid) {
     });
 }
 
-// 声明提交（纯函数）：嗜血狂刀吸血 + 姐姐强化额外攻击
+// 嗜血狂刀：战士攻击吸血，姐姐在场时额外攻击一次
 // 判定与声明分离：本函数只提交 EFFECT_TYPES.LEECH 声明，
 // 实际改状态由 16effect-handlers 的 LEECH 处理器统一执行
 export function submitBloodthirstDeclaration(data) {
@@ -202,7 +202,6 @@ export function submitBloodthirstDeclaration(data) {
     }
 }
 
-// 薄壳注册：只做转调，无判定无写入
 export function registerBloodthirst(eventBus) {
     registerSettlementHook({
         when: SIGNAL_TYPES.AFTER_DAMAGE_APPLIED,
@@ -213,7 +212,7 @@ export function registerBloodthirst(eventBus) {
     });
 }
 
-// 声明提交（纯函数）：热血奋战攻击回血（每N次翻倍）
+// 热血奋战：攻击后回复已损失生命，每第 3 次翻倍
 export function submitHotBloodDeclaration(data) {
     const { unit, dmg, allySide, enemySide, log } = data;
     if (!unit.alive || unit.camp !== CAMP_TYPES.ALLY || unit.hp >= unit.maxHp) return;
@@ -272,7 +271,6 @@ export function submitHotBloodDeclaration(data) {
     }
 }
 
-// 薄壳注册：只做转调，无判定无写入
 export function registerHotBlood(eventBus) {
     registerSettlementHook({
         when: SIGNAL_TYPES.AFTER_DAMAGE_APPLIED,
@@ -283,7 +281,7 @@ export function registerHotBlood(eventBus) {
     });
 }
 
-// 声明提交：乘风突袭飞行波及同行+击退
+// 乘风突袭：飞行单位攻击时波及同行 + 概率击退
 export function submitWindAssaultDeclaration(data) {
     const { unit, target, dmg, allySide, enemySide, log } = data;
     const rng = getBattleRng();
@@ -347,7 +345,6 @@ export function submitWindAssaultDeclaration(data) {
     eventBus.emit(SIGNAL_TYPES.ON_POSITION_SWAP, { allySide, enemySide, log });
 }
 
-// 薄壳注册：只做转调，无判定无写入
 export function registerWindAssault(eventBus) {
     registerSettlementHook({
         when: SIGNAL_TYPES.AFTER_DAMAGE_APPLIED,
@@ -358,7 +355,7 @@ export function registerWindAssault(eventBus) {
     });
 }
 
-// 声明提交（纯函数）：流星赶月远程伤害加深+溅射降防
+// 流星赶月：远程攻击加深 + 溅射 + 降防
 export function submitMeteorShowerDeclaration(data) {
     const { unit, target, dmg, allySide, enemySide, log } = data;
     if (!unit.alive || unit.camp !== CAMP_TYPES.ALLY || !target || !target.alive) return;
@@ -422,7 +419,6 @@ export function submitMeteorShowerDeclaration(data) {
     }
 }
 
-// 薄壳注册：只做转调，无判定无写入
 export function registerMeteorShower(eventBus) {
     registerSettlementHook({
         when: SIGNAL_TYPES.AFTER_DAMAGE_APPLIED,
@@ -433,7 +429,7 @@ export function registerMeteorShower(eventBus) {
     });
 }
 
-// Buff-事件注册：惑人心智最前排换位扰乱
+// 惑人心智：最前排攻击后扰乱双方换位
 export function registerMindControl(eventBus) {
     registerSettlementHook({
         when: SIGNAL_TYPES.AFTER_ATTACK,

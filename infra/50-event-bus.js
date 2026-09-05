@@ -3,7 +3,7 @@
 import { GlobalStore } from './54-global-store.js';
 export const VER = 'infra/50-event-bus.js V5.5.7';
 
-// debug 信号日志（仅 logLevel==='debug' 时向 data.log 追加一行信号记录，非战斗路径）
+// debug 模式在日志追加信号记录，非战斗路径
 function appendDebugSignalLog(signal, data) {
     if (!data || !data.log || !data.unit) return;
     const logLevel = GlobalStore.get('playerContext')?.logLevel;
@@ -35,9 +35,7 @@ class EventBus {
         if (!listeners || listeners.length === 0) return;
         for (const { callback } of listeners) {
             try {
-                // ★ 同步化：相位栅栏语义不变，仍按 priority 升序串行执行，
-                //   但现在直接同步调用，不再产生 await 微任务切换。
-                //   监听器必须是同步函数；若有异步监听器，请单独走异步通道。
+                // 同步串行，按 priority 升序；异步监听器请走单独通道
                 callback(data);
             } catch (e) {
                 console.error(`[EventBus] 信号 "${signal}" 的监听器执行出错:`, e);
@@ -50,8 +48,7 @@ class EventBus {
     }
 
     clearAll() {
-        // fx: 前缀为页面级特效信号（fx/89 页面加载时一次性注册，随页面存活），
-        // 每回合的战斗监听清空重注册（core/11 prepareRoundStart）不波及它们
+        // fx: 前缀为页面级信号，不随回合清空
         for (const signal of Object.keys(this._listeners)) {
             if (signal.startsWith('fx:')) continue;
             delete this._listeners[signal];

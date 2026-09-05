@@ -1,5 +1,5 @@
 // modules/29battle-init.js - 光明顶5v5 战斗初始化逻辑（从 ui/65main-battle.js 抽离）
-// V5.5.0 | ~8000 bytes| 2026-08-14 抽离 doInitBattle 纯逻辑部分，消除 ui→modules 依赖中不该在 ui 层的业务逻辑
+// V5.5.0 | 2026-08-14 抽离 doInitBattle 纯逻辑部分
 export const VER = 'modules/29battle-init.js V5.5.0';
 
 import { CONFIG } from '../core/01config-5v5-test.js';
@@ -40,7 +40,7 @@ export function initBattleTeams(currentStage, _rng) {
 
     let usedPower = 0;
 
-    // 强制精英模式：张无忌/韦一笑独立覆盖
+    // 强制精英：张无忌/韦一笑独立覆盖
     const forceZhang = GlobalStore.get('forceZhang') || localStorage.getItem('_forceZhang') === '1';
     const forceWei = GlobalStore.get('forceWei') || localStorage.getItem('_forceWei') === '1';
     if (forceZhang || forceWei) {
@@ -167,7 +167,7 @@ export function initBattleTeams(currentStage, _rng) {
         }
     }
 
-    // 至少一个前排
+    // 保证至少一个前排单位
     if (!allyTeam.some(u => u.role === ROLE_TYPES.DEFENDER || u.role === ROLE_TYPES.WARRIOR)) {
         const nonFixed = allyTeam.filter(u => !u.isZhang && !u.isWei && !u.isXiaoZhaoSister && !u.isXiaoZhaoBrother);
         if (nonFixed.length > 0) {
@@ -199,7 +199,7 @@ export function initBattleTeams(currentStage, _rng) {
     while (toLock.length < 3) { let pool = allyTeam.filter(u => !toLock.includes(u)); if (pool.length === 0) break; let pick = pool[_rand(0, pool.length - 1)]; toLock.push(pick); }
     toLock.forEach(u => { u.fixed = true; });
 
-    // ==================== 六大派阵容生成 ====================
+    // 六大派阵容生成
     const enemySquad = C.ENEMY_SQUADS && C.ENEMY_SQUADS[currentStage] ? C.ENEMY_SQUADS[currentStage] : null;
     let enemyUnits = [];
     const usedEnemyNames = [];

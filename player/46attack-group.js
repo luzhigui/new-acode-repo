@@ -16,7 +16,7 @@ export async function handleAttackGroup(c, entry, roundResult, abortSig, isFirst
 
     if (unitA && entry.isRest && c.store) {
         c.store.dispatch({ type: STORE_ACTION_TYPES.SET_VISUAL, uid: unitA.uid, _resting: true });
-        // 休息特效 3 秒后自动清除，避免 😴 / zzz 标记残留到下一回合
+        // 休息特效 3 秒后自动清除
         setTimeout(() => {
             if (!c.store) return;
             const cur = c.store.getState().units.find(u => u.uid === unitA.uid);
@@ -31,8 +31,7 @@ export async function handleAttackGroup(c, entry, roundResult, abortSig, isFirst
     }
 
     if (unitA && !entry.isBlock && !entry.isDodge) {
-        // ★ 闪避反击时攻击者不应该有 ATTACK/DEFEND flash，只显示眩晕态。
-        //   眩晕态由 DODGE stage action 的 store handler 设置，这里只处理普通攻击的闪示。
+        // 闪避反击时攻击者只显示眩晕，由 DODGE stage action 处理
         if (c.store) c.store.dispatch({ type: STORE_ACTION_TYPES.SET_FLASH, uid: unitA.uid, flash: FLASH_TYPES.ATTACK });
     }
 
@@ -98,8 +97,7 @@ export async function handleAttackGroup(c, entry, roundResult, abortSig, isFirst
 
     updateRoundDisplay(`📜 日志（第${c.UI.round}回合）`);
 
-    // ★ 攻击组血量事件延迟到特效即将结束（对方快飞回）时应用：
-    //   掉血飘字在命中瞬间先出，血条和数字等飞撞/箭矢返回阶段再刷新，避免与受击特效冲突。
+    // 血量事件延迟到特效快结束才应用，避免与受击特效冲突
     if (entry._events && entry._events.length > 0) {
         c.store.dispatch({ type: STORE_ACTION_TYPES.APPLY_EVENTS, events: entry._events });
     }

@@ -1,5 +1,4 @@
-// render/32-grid-render.js - 光明顶5v5 战场格子渲染
-// V5.5.2 | ~9003 bytes| 2026-08-19 import 路径合并至 infra/51-core-utils
+﻿// V5.5.2 | 2026-08-19 import 路径合并至 infra/51-core-utils
 export const VER = 'render/32-grid-render.js V5.5.2';
 
 import { getUnitCol, getUnitRow, getAuraBonuses, getDodgeRules } from '../infra/51-core-utils.js';
@@ -10,12 +9,11 @@ import { FLASH_TYPES, CAMP_TYPES, ROLE_TYPES, BUFF_TYPES } from '../infra/56-bat
 let _store = null;
 let _subscribed = false;
 let _ctx = null;
-// 血条渐变：JS 动画循环驱动，显示值持久记录，DOM 重建不打断过渡
+// 血条 JS 动画：显示值持久记录，DOM 重建不打断
 const _hpTargetPct = new Map();
 const _hpDisplayPct = new Map();
 let _hpAnimRunning = false;
-// 受击颤动：uid → 颤动到期时间戳。renderGrid 每次重建格子时若未到期就给新格子启动 rAF 颤动动画，
-// 这样 store 驱动重绘打不断颤动（视觉同老 applyImpactShrink：随机抖动+缩放回弹+黄闪）
+// 受击颤动到期时间戳；renderGrid 重建时未到期则重放动画
 const _shakeUntil = new Map();
 
 /** 标记某单位受击颤动：durationMs 毫秒内每次 renderGrid 重建都会重放颤动动画 */
@@ -24,7 +22,7 @@ export function markGridShake(uid, durationMs) {
     _shakeUntil.set(uid, Date.now() + durationMs);
 }
 
-/** 在格子元素上播放老 applyImpactShrink 同款颤动：逐帧随机偏移+缩放回弹+短暂黄闪 */
+// 播放受击颤动：随机偏移 + 缩放回弹 + 短暂黄闪
 function runGridShake(el, durationMs) {
     const start = Date.now();
     const d = Math.min(200, durationMs); // 背景黄闪时长
@@ -256,7 +254,7 @@ export function renderGrid(id, camp) {
             if (camp === CAMP_TYPES.ALLY && isAdjustMode && selectedPos === pos) div.classList.add('adjust-selected');
             grid.appendChild(div); continue;
         }
-        // _flash 为 UI 镜像，权威源在 battleStore（事件流 SET_FLASH/CLEAR_UNIT_FLASH 写入）；此处只读
+        // _flash 权威源在 battleStore，此处只读
         const _storeForFlash = getStore();
         const storeUnit = (_storeForFlash && _storeForFlash.getState) ? _storeForFlash.getState().units.find(u => u.uid === unit.uid) : null;
         const flashVal = (storeUnit && storeUnit._flash) || unit._flash || null;

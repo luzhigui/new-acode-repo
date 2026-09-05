@@ -4,7 +4,8 @@ export const VER = 'infra/51-core-utils.js V5.6.0';
 
 import { CAMP_TYPES, ROLE_TYPES } from './56-battle-enums.js';
 
-// ==================== 状态机（原51-fsm.js） ====================
+// ==================== StateMachine ====================
+// 通用有限状态机，transition 校验目标状态和转换表
 export class StateMachine {
     constructor(states, initialState, transitions) {
         this.states = states;
@@ -52,6 +53,7 @@ export class SeededRNG {
         this._state = seed >>> 0;
     }
 
+    // xorshift32，返回 [0,1)
     next() {
         let t = this._state;
         t ^= t << 13;
@@ -158,6 +160,7 @@ export function countEnemyEmptyCols(enemySide) {
     return count;
 }
 
+// 全员血量低于 40% 时每单位给飞行单位 +3 攻
 export function getBloodAuraBonus(allUnits) {
     let totalBonus = 0;
     allUnits.forEach(u => {

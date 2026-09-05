@@ -1,5 +1,4 @@
-// fx/87fx-manager.js - 光明顶5v5 特效统一管理器
-// V5.5.0 | ~2200 bytes| 2026-08-14 集中特效出口，统一注册/查询/清理
+// V5.5.0 | 2026-08-14 集中特效出口
 export const VER = 'fx/87fx-manager.js V5.5.0';
 
 import {
@@ -41,7 +40,7 @@ import {
     showSpiderStrike
 } from './86fx-butterfly-spider.js';
 
-// 特效注册表：新增特效在这里加一个 key
+// 特效注册表：新增特效在这里加 key
 const registry = {
     damageFloat: showDamageFloat,
     healFloat: showHealFloat,
@@ -56,11 +55,7 @@ const registry = {
     spiderStrike: showSpiderStrike
 };
 
-/**
- * 按名称调用特效
- * @param {string} name - 特效名
- * @param {...any} args - 透传给特效函数
- */
+// 按名称调用特效，args 透传
 export function playEffect(name, ...args) {
     const fn = registry[name];
     if (!fn) {
@@ -70,11 +65,6 @@ export function playEffect(name, ...args) {
     return fn(...args);
 }
 
-/**
- * 注册新特效
- * @param {string} name
- * @param {Function} fn
- */
 export function registerEffect(name, fn) {
     registry[name] = fn;
 }

@@ -1,12 +1,11 @@
-// render/30-fact-renderer.js - 光明顶5v5 事实渲染器
-// V5.7.7 | ~36500 bytes| 2026-08-26 renderLog 入口校验 + factType 枚举化（FACT_TYPES）
+// V5.7.7 | 2026-08-26 factType 枚举化（去字节数）
 import { CONFIG, getSkillParams } from '../core/01config-5v5-test.js';
 import { calcDamage, getFangLevelPure, makeFXSnapshot } from '../infra/51-core-utils.js';
 import { FACT_TYPES, BUFF_TYPES, BUFF_SUBTYPES, DROP_TYPES, CAMP_TYPES, ROLE_TYPES } from '../infra/56-battle-enums.js';
 import { validateFactContract, buildRendererMap } from '../infra/58-fact-contract.js';
 export const VER = 'render/30-fact-renderer.js V5.7.8';
 
-// fact 条目投影为渲染条目，并合并 fact 条目上携带的附加字段（isHealEntry/buffType 等）
+// fact 投影为渲染条目，合并附加字段
 function projectFactEntry(e) {
     const rendered = renderLog(e.factType, e.data);
     if (!rendered || typeof rendered !== 'object' || Array.isArray(rendered)) return rendered;
@@ -122,7 +121,7 @@ export function renderAttackFact(fact) {
         isLinkAttack
     };
     group.entries.push({type:'combat-text', text:`<span class="${ac}">${campA} ${unit.name}</span>(攻${displayAtk} 血${unitHpBefore}) → <span class="${dc}">${campD} ${target.name}</span>(防${displayDef} 血${dmgResult.hpBefore})`});
-    // 破防发生在伤害计算之前，日志前置到攻击组最前（先破防 → 再计算 → 后出伤害）
+    // 破防日志前置到攻击组最前
     const breakDefEntries = [];
     if (fact.entries) {
         for (const e of fact.entries) {
@@ -408,7 +407,6 @@ export function renderHorseSummonFact(fact) {
 export function renderPassFact(fact) {
     const { unit, reason } = fact;
     if (reason === '被遮挡' || reason === '拒马休息') {
-        // ★ 休息回复日志补全：单位名 + 休息原因 + 回复前 → 回复后 + 实际回复量
         const hpBefore = fact.hpBefore !== undefined ? fact.hpBefore : Math.floor(unit.hp);
         const hpAfter = fact.hpAfter !== undefined ? fact.hpAfter : Math.floor(unit.hp);
         const actualHeal = fact.actualHeal !== undefined ? fact.actualHeal : 15;

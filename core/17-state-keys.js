@@ -11,10 +11,7 @@ export const STATE_FIELD_TYPES = Object.freeze({
     OBJECT: 'object',
 });
 
-/**
- * 回合级状态 schema：key → { type, default }
- * 回合开始统一重置为 default，不跨回合
- */
+// 回合级状态：回合开始统一重置为 default
 export const ROUND_STATE_SCHEMA = Object.freeze({
     _acted:                  { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
     _stunned:                { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
@@ -37,10 +34,7 @@ export const ROUND_STATE_SCHEMA = Object.freeze({
     _linkTriggered:          { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
 });
 
-/**
- * 整场状态 schema：key → { type, default }
- * 跨回合持续，不重置
- */
+// 整场状态：跨回合持续，不重置
 export const BATTLE_STATE_SCHEMA = Object.freeze({
     _isDead:                 { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
     _xuanmingPoison:         { type: STATE_FIELD_TYPES.OBJECT,  default: null },
@@ -116,6 +110,7 @@ export const PERMANENT_FIELD_KEYS = Object.freeze([
 
 /** 按 schema 初始化一个 state 对象 */
 export function createInitialState() {
+    // 数组和对象 default 需独立实例，避免多单位共享引用
     const state = {};
     for (const [key, spec] of Object.entries(ROUND_STATE_SCHEMA)) {
         state[key] = spec.default;

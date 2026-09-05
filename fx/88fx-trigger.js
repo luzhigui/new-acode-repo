@@ -1,5 +1,4 @@
-// fx/88fx-trigger.js - 光明顶5v5 特效触发入口
-// V5.7.0 | ~3100 bytes| 2026-08-24 清理已删除的 KILL_TAUNT 兜底引用：击杀台词直读 gameData
+// V5.7.0 | 2026-08-24 击杀台词直读 gameData
 export const VER = 'fx/88fx-trigger.js V5.7.0';
 
 import { getKillTaunt } from '../core/03battle-utils.js';
@@ -15,7 +14,7 @@ function getPausedState() {
     return ctx ? ctx.isPaused : false;
 }
 
-// 特效-触发：统一视觉特效入口（弹幕/箭矢/飞撞/死亡）
+// 统一视觉特效入口：弹幕/箭矢/飞撞/死亡
 export function _triggerFX(fxSnapshot, unitA, unitD, isDead, isDodge, isMiss, isBlock, dmg, waveTaunt, waveUnit, attackerRole) {
     const speed = GlobalStore.get('speed');
     if (GlobalStore.get('fastForwardActive')) return;
@@ -30,7 +29,7 @@ export function _triggerFX(fxSnapshot, unitA, unitD, isDead, isDodge, isMiss, is
         setTimeout(() => showDanmaku(waveUnit, waveTaunt), delay);
     }
     if (unitA && unitD) {
-        // 攻击音效（从 player/46attack-group.js 迁移至此，与飞撞/箭矢同步触发）
+        // 攻击音效与飞撞/箭矢同步触发
         if (!isBlock && !isMiss && !isDodge && unitA) {
             AudioManager.playSfx(unitA.role);
         }
@@ -67,6 +66,5 @@ export function _triggerFX(fxSnapshot, unitA, unitD, isDead, isDodge, isMiss, is
             }
         }
     }
-    // ★ isDodge 分支的伤害飘字已由 DODGE stage action 的 FX handler 统一发出，
-    //   此处不重复发，避免飞撞击退动画期间飘两个伤害数字。
+    // 伤害飘字由 DODGE stage action 发出，此处不重复
 }

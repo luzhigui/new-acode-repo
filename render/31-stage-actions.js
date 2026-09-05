@@ -1,5 +1,4 @@
-// render/31-stage-actions.js - 光明顶5v5 舞台动作翻译器
-// V5.7.8 | ~16200 bytes| 2026-08-26 特效单轨收尾：xinhun/连击横幅/乾坤加攻/张无忌弹幕/严阵横幅补翻译
+// V5.7.10 | 2026-08-26 特效单轨收尾（去字节数，版本号同步）
 export const VER = 'render/31-stage-actions.js V5.7.10';
 
 import { makeFXSnapshot } from '../infra/51-core-utils.js';
@@ -10,7 +9,7 @@ import { AudioManager } from '../modules/22audio-manager.js';
 import { STAGE_ACTION_TYPES, FACT_TYPES, CAMP_TYPES, STORE_ACTION_TYPES, UNIT_EVENT_TYPES, ROLE_TYPES, BUFF_EFFECT_TYPES, BUFF_SUBTYPES, FLY_MODE_TYPES } from '../infra/56-battle-enums.js';
 import { FACT_SPECS } from '../infra/58-fact-contract.js';
 
-// 本地查找单位（避免从 47 导入造成循环依赖）：先查 store 权威单位，再回退 UI 快照
+// 先查 store 权威单位，再回退 UI 快照
 function findUnitByUidLocal(c, uid) {
     if (!uid) return null;
     if (c && c.store) {
@@ -22,11 +21,7 @@ function findUnitByUidLocal(c, uid) {
     return all.find(u => u.uid === uid) || null;
 }
 
-/**
- * 把一步的 fact 列表翻译成舞台动作列表。
- * 导演只读 stageActions，不读 fact；日志线仍读 fact。
- * 每个动作带 timing 字段：'beforeText'（文本播放前触发）或 'afterText'（文本播放后触发）。
- */
+// 把 fact 列表翻译成舞台动作；导演只读 stageActions；timing=beforeText/afterText
 export function translateFactsToStageActions(log) {
     const actions = [];
     for (let i = 0; i < log.length; i++) {
@@ -491,19 +486,12 @@ function makeHealAction(data, index) {
     };
 }
 
-/**
- * STAGE_ACTION_DEFS —— 舞台动作的唯一调度表。
- * 播放器 playStep 只读本表驱动三线（grid 格子线 / fx 特效线 / log 日志线）。
- * timing：'beforeText'（日志前特效）或 'afterText'（日志后特效）；
- * 可为函数 (action) => timing，用于同一 kind 按 effectType 分时序（如 buffEffect 的 xinHun）。
- * 新增 stageAction 只需在此登记 + 在 31 翻译器产出，播放器无需改动。
- */
+// 舞台动作唯一调度表；新增 stageAction 只需在此登记 + 31 翻译器产出
 export const STAGE_ACTION_DEFS = {
     [STAGE_ACTION_TYPES.ATTACK]: {
         grid: 'sync', log: 'sync', timing: 'beforeText',
         store: (c, action, pendingDeaths) => {
-            // 死亡标记不在 stageAction 阶段落地（会抢在攻击动画前显示死亡格），
-            // 收集后由 playStep 在日志播完统一落地；近战另有 88 飞撞回调在动画结束时兜底
+            // 死亡标记收集后由 playStep 在日志播完统一落地
             if (action.dead && action.targetUid && pendingDeaths) pendingDeaths.push(action.targetUid);
         },
         fx: async (c, action) => {
@@ -562,9 +550,7 @@ export const STAGE_ACTION_DEFS = {
     [STAGE_ACTION_TYPES.DODGE]: {
         grid: 'sync', log: 'sync', timing: 'beforeText',
         store: (c, action, pendingDeaths) => {
-            // ★ 闪避反击后攻击者必须进入眩晕态，并在 store 里同步，否则渲染层读不到 _stunned，
-            //   职业图标不会切换成 😵（renderGrid 里 isStunned 判断依赖 state._stunned）。
-            //   同时清除攻击者 flash，避免闪避前残留的 attack/defend 蓝色或黄色特效。
+            // 闪避反击后攻击者进入眩晕态并清除 flash，渲染层读 _stunned 显示 😵
             if (action.actorUid) {
                 c.store.dispatch({ type: STORE_ACTION_TYPES.SET_VISUAL, uid: action.actorUid, _stunned: true, _acted: true });
                 c.store.dispatch({ type: STORE_ACTION_TYPES.CLEAR_UNIT_FLASH, uid: action.actorUid });
@@ -581,9 +567,7 @@ export const STAGE_ACTION_DEFS = {
             if (c.dodgeEffectEnabled && attacker && dodger) {
                 c.isPaused = true; GlobalStore.set('isPaused', true); GlobalStore.set('bulletTimeActive', true);
                 await eventBus.emit(FX_SIGNALS.CRITICAL_BANNER, { text: '✨闪避反击✨' });
-                // ★ 子弹时间必须走直接 await，不能走 eventBus 异步通道：
-                //   emit 是同步调用（infra/50-event-bus.js），不等待监听器返回的 Promise，
-                //   否则动画后台并行播放、战斗继续推进。主循环 await 阻塞，动画播完才恢复。
+                // 必须直接 await，不能走 eventBus（emit 同步不等待 Promise），否则动画并行战斗推进会踩踏
                 const { showDodgeBulletTime } = await import('../fx/85fx-dodge-bullet.js');
                 await showDodgeBulletTime(attacker, dodger, action.reboundDmg || 0);
                 GlobalStore.set('bulletTimeActive', false); GlobalStore.set('isPaused', false); c.isPaused = false;
@@ -628,9 +612,7 @@ export const STAGE_ACTION_DEFS = {
             const unitB = findUnitByUidLocal(c, action.targetUid);
             if (unitA && unitB) {
                 c.isPaused = true; GlobalStore.set('bulletTimeActive', true);
-                // ★ 换位动画同样直接 await：原 eventBus.emit(POSITION_SWAP) 同步派发不等待动画完成。
-                //   惑心判定横幅已由 MIND_CONTROL_BANNER → BANNER 动作独立播放（两条判定各一条），
-                //   此处只负责换位特效，成功判定时紧跟在判定横幅之后
+                // 直接 await 换位动画；判定横幅已由 BANNER 独立播放
                 const { animatePositionSwap } = await import('../fx/87fx-manager.js');
                 await animatePositionSwap(unitA, unitB, c, {
                     skipDataChange: true,
@@ -807,8 +789,7 @@ export const STAGE_ACTION_DEFS = {
         grid: 'none', log: 'sync', timing: 'beforeText',
         fx: async (c, action) => {
             // 通用横幅（概率连击等）
-            // ★ 必须直接 await showBuffBanner：eventBus.emit 为同步派发（infra/50，监听器 Promise 被丢弃），
-            //   走 emit 则 isPaused 立即复位、横幅后台空转，视觉上"刷一下就过去"；直接 await 才能真正阻塞主循环
+            // 必须直接 await showBuffBanner，不能走 eventBus（同步派发丢弃 Promise）
             if (action.text && !GlobalStore.get('fastForwardActive')) {
                 c.isPaused = true; GlobalStore.set('bulletTimeActive', true);
                 const { showBuffBanner } = await import('../fx/87fx-manager.js');
@@ -884,7 +865,7 @@ export const STAGE_ACTION_DEFS = {
             } else if (action.effectType === BUFF_EFFECT_TYPES.ATK_BUFF && target && action.gain) {
                 eventBus.emit(FX_SIGNALS.ATK_BUFF_FLOAT, { unit: target, gain: action.gain });
             } else if (action.effectType === BUFF_EFFECT_TYPES.XIN_HUN) {
-                // 新婚快乐：宋青书/周芷若爱心 + 扣血飘字
+                // 新婚：宋青书/周芷若爱心 + 扣血飘字
                 const song = c.store ? c.store.getState().units.find(u => u.name === '宋青书') : null;
                 const zhou = findUnitByUidLocal(c, action.targetUid);
                 if (song) eventBus.emit(FX_SIGNALS.HEART_EFFECT, { unit: song });

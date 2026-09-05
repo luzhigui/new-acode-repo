@@ -442,7 +442,7 @@ function submitKuLian(data, decls) {
     if (!decl) return;
     const kuLianSong = checkKuLian(B);
     if (!kuLianSong) return;
-    // 苦练设计：宋青书单飞（无周芷若）每回合行动前给全队叠加 +攻+防+血上限（自身三倍），可跨回合累积
+    // 苦练：每回合给全队 +攻+防+血上限，宋青书三倍，可跨回合累积
     const s = {
         atkBonus: decl.atkBonus || 1,
         defBonus: decl.defBonus || 1,
@@ -485,7 +485,7 @@ function installKuLian(eventBus, A, B, declarations) {
         }
     });
 
-    // 苦练每回合触发：周芷若不在场时，宋青书行动优先级最高（不占用额外次数）
+    // 周芷若不在场时，宋青书六大派内最先行动，不占用额外次数
     registerSettlementHook({
         when: SIGNAL_TYPES.BEFORE_ACTION_SELECT,
         priority: L.BEFORE_ACTION.KULIAN_PRIORITY,
@@ -498,7 +498,7 @@ function installKuLian(eventBus, A, B, declarations) {
 }
 
 // ==================== 新婚声明（阶段2b） ====================
-// 新婚监听器薄壳化：判定 + 状态直改承载（新婚扣血/快乐层/性奋代价无对应声明时机，保留原样）
+// 新婚：宋青书攻击时扣周芷若血、叠快乐层、自身性奋代价递增
 function submitXinHun(data, decls) {
     const { unit, target, dmg, allySide, log } = data;
     const decl = decls.find(d => d.name === unit.name);
@@ -549,6 +549,7 @@ function installXinHun(eventBus, A, B, declarations) {
 
 // ==================== 性奋声明（阶段2b） ====================
 // 性奋监听器薄壳化：回合激活直改 + 额外攻击/重试驱动"再攻击"链（保留原样）
+// 性奋激活 + 快乐回血 tick，均随 roundStart 事件数据携带 declarations
 function submitXingFenGrant(data) {
     const { A, B, log, declarations } = data;
     applyXingFenGrant(B, log);
@@ -563,7 +564,7 @@ function submitXingFenExtra(data, decls) {
     consumeXingFen(unit);
     log.push({ factType: FACT_TYPES.XING_FEN_EXTRA_ATTACK, data: { unitName: unit.name } });
     unit._xingFenExtraAttacking = true;
-    // ★ 同步递归攻击，不再 await；processUnitAttack 内部已同步化
+    // 同步递归攻击，processUnitAttack 已同步化
     processUnitAttack(unit, allySide, enemySide, log, data.A, data.B, data.state, null, null);
     unit._xingFenExtraAttacking = false;
 }

@@ -32,7 +32,7 @@ export function selectAttackTarget(unit, enemySide, allySide) {
     if (validTargets.length === 0) return { target: null, phantomFact: null };
 
     const declaration = { targetResult: null };
-    // ★ 同步化：eventBus.emit 已改为同步串行，此处不用 await
+    // eventBus.emit 同步串行，不需要 await
     eventBus.emit(SIGNAL_TYPES.BEFORE_SELECT_TARGET, { unit, enemySide, allySide, validTargets, declaration });
 
     let target = null;
@@ -111,7 +111,7 @@ export function resolveAttackHit(unit, target, attackerBuffStats, defenderBuffSt
             const allySide = unit.camp === CAMP_TYPES.ALLY ? A : B;
             const enemySide = unit.camp === CAMP_TYPES.ALLY ? B : A;
             let afterMissData = { unit, target, log, extraRequests: afterMissExtraRequests, allySide, enemySide, A, B, state };
-            // ★ 同步化：eventBus.emit 改为同步串行，去掉 await
+            // eventBus.emit 同步串行，不需要 await
             eventBus.emit(SIGNAL_TYPES.AFTER_MISS, afterMissData);
             if (afterMissExtraRequests.length > 0) {
                 missData.extraRequests = afterMissExtraRequests;
@@ -163,7 +163,6 @@ export function resolveAttackHit(unit, target, attackerBuffStats, defenderBuffSt
             dodgeDeclarations.push({ type: EFFECT_TYPES.REBOUND, value: reboundDmg });
             dodgeDeclarations.push({ type: EFFECT_TYPES.STUN });
 
-            // ★ 同步化：去掉 await
             eventBus.emit(SIGNAL_TYPES.ON_DODGE, { unit, target, reboundDmg, declarations: dodgeDeclarations });
 
             resolveDodgeEffects(dodgeDeclarations, unit, target);
@@ -200,7 +199,7 @@ export function calcFinalDamage(unit, target, attackerBuffStats, defenderBuffSta
     const damageDeclarations = [];
     // 事件 data 对象变量化：监听器可挂 _derivedEntries 记账（乾坤衍生），随 dmgCalc 传回攻击流程，不落 unit
     const damageData = { unit, target, allySide, enemySide, log, declarations: damageDeclarations };
-    // ★ 同步化：eventBus.emit 已改为同步串行，去掉 await
+    // eventBus.emit 同步串行，不需要 await
     eventBus.emit(SIGNAL_TYPES.BEFORE_DAMAGE_CALC, damageData);
 
     let defBase = Math.floor(target.def);
@@ -440,7 +439,7 @@ export function resolveAfterDamageEffects(declarations, unit, target, group, all
 }
 
 // ==================== 步骤5：构建攻击事实（不渲染，由 player 投影）+ 攻击后效果 ====================
-// ★ 同步化：移除 async，函数内无 await，本身是同步函数，保留 async 只会增加微任务开销
+// 纯同步，无 await
 export function buildAttackGroup(unit, target, dmgCalc, dmgResult, attackerBuffStats, defenderBuffStats, allySide, enemySide, log, A, B, state, doubleStrikeUnitUid, phantomFact) {
     let { atkBase, defBase, atkAct, defAct, hpBonus, hpBefore, waveTaunt, waveUnit, raw, rawFormula, thunderBonus, hornDmgMultiplier, hornDefIgnore, trueDmg, defReduction, bonusDmgTotal, bonusDmgEntries, dmgMultiplier, dmgMultiplierEntries, hpRatio } = dmgCalc;
     let { dmg, dead, reboundEntry, bonusEntries } = dmgResult;

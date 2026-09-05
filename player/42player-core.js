@@ -59,8 +59,7 @@ export async function playLogEntries(c, log, roundResult, isFirstAttackRef) {
                 if (!entry) continue;
             }
 
-            // ★ 战报累积（V5.7.8）：投影后的最终条目送入 GlobalStore 战报日志，
-            //   供体检规则消费——原 currentResult 数据源已随 player 快照化移除，此处重建累积链
+            // 投影后条目送入 battleLog，供体检规则消费
             {
                 const _battleLog = GlobalStore.get('battleLog');
                 if (Array.isArray(_battleLog)) _battleLog.push(entry);
@@ -166,7 +165,7 @@ function rebuildUISnapshotFromStore(c) {
     c.UI.enemyTeam = storeUnits.filter(u => u.camp === CAMP_TYPES.ENEMY).map(cloneUnit);
 }
 
-// 调度表读取器：timing 只从 STAGE_ACTION_DEFS 取，播放器不手写 switch
+// timing 从 STAGE_ACTION_DEFS 读取
 function getActionTiming(action) {
     const def = STAGE_ACTION_DEFS[action && action.kind];
     if (!def) return 'beforeText';
@@ -189,8 +188,7 @@ async function playStep(c, step, isFirstAttackRef) {
             if (isBeforeText) {
                 await applyStageActionToFX(c, action);
             }
-            // ★ 连击第一击：本攻击后（跳过其自身 afterText 特效）紧跟"概率连击"横幅时，等飞撞/飞箭播完再放行，
-            //   否则横幅 isPaused 会冻结还在半空的飞撞（第二击也没了特效）
+            // 连击第一击后紧跟横幅时，等飞撞/飞箭播完，避免横幅冻结半空的飞撞
             if (isBeforeText && action.kind === STAGE_ACTION_TYPES.ATTACK && !GlobalStore.get('fastForwardActive')) {
                 let nextBeforeText = null;
                 for (let j = i + 1; j < step.stageActions.length; j++) {
@@ -213,8 +211,7 @@ async function playStep(c, step, isFirstAttackRef) {
     await playLogEntries(c, step.log, step, isFirstAttackRef);
 
     // 3. afterText：文本后特效（白骨爪/流星溅射/血量线弹幕/miss气泡等）
-    // 死亡画笔：attack 为 beforeText，此处遍历全部 stageActions 捕获 attack+dead，
-    // 对日志最后一行（被击杀的文本行）做画笔渐隐，时序在日志播完后，与原文案一致
+    // 死亡画笔：日志播完后对最后一行做渐隐
     if (step.stageActions && step.stageActions.length > 0) {
         let brushed = false;
         for (const action of step.stageActions) {
@@ -232,7 +229,7 @@ async function playStep(c, step, isFirstAttackRef) {
         }
     }
 
-    // 死亡标记统一在日志播完后落地：时序为 攻击动画/文本 → 死亡特效 → 掉血同步
+    // 死亡标记在日志播完后落地
     for (const uid of pendingDeaths) {
         const du = c.store.getState().units.find(u => u.uid === uid);
         if (du && !(du.state && du.state._isDead)) {
@@ -338,7 +335,7 @@ export async function playBattle() {
     if (c.snapshot._rngSeed !== undefined) {
         battleState._rng = new SeededRNG(c.snapshot._rngSeed);
     }
-    // 启动前获取蝶变方向（引擎层不再弹窗；弹窗属 UI 职责，由播放器层完成）
+    // 蝶变方向由播放器弹窗获取
     const hasSisterAtStart = battleState.ally && battleState.ally.some(u => u.isXiaoZhaoSister && u.alive);
     if (hasSisterAtStart) {
         const { showFlyDirectionPopup } = await import('../ui/65main-battle.js');
@@ -354,8 +351,7 @@ export async function playBattle() {
         const stepper = createRoundStepper(battleState);
         let lastStep = null;
 
-        // ★ 同步化后 createRoundStepper 返回普通 generator，用 for...of 同步迭代；
-        //   每步内的等待与播放仍保留异步，保证游戏逐格动画不变。
+        // createRoundStepper 返回普通 generator，for...of 同步迭代
         for (const step of stepper) {
             if (abortSig && abortSig.aborted) return;
             await c.waitWhilePaused();

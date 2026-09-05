@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// player/40player-text.js - 光明顶5v5 文字播放器
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// player/40player-text.js - 光明顶5v5 文字播放器
 // V5.5.0 | ~2700 bytes| 2026-07-05
 export const VER = 'player/40player-text.js V5.5.0';
 
@@ -12,21 +12,14 @@ function getCtx() {
 
 export function setPlayerContext(c) { ctx = c; }
 
-/**
- * 逐字播放文本动画，支持倍速自适应和快进跳过
- * 分隔符、系统提示（small 类）、快进模式下直接显示完整文本，不走逐字动画
- * @param {string} text - HTML 格式的文本内容
- * @param {HTMLElement} div - 目标 DOM 元素
- * @param {number|null} forcedSpeed - 强制播放速度（ms），null 表示使用全局倍速
- * @returns {Promise<void>}
- */
+// 逐字播放 HTML 文本；分隔符/快进直接显示完整文本
 export async function playLineText(text, div, forcedSpeed = null) {
-    // 分隔符、系统信息、瞬时提示直接显示，不走逐字动画
+    // 分隔符/系统信息直接显示
     if (text.includes('separator') || text.includes('class="purple small"') || text.includes('class="blue small"') || text.includes('class="red small"') || text.includes('class="gray small"') || text.includes('class="gold small"') || text.includes('class="green small"')) {
         div.innerHTML = text + '<br>';
         return;
     }
-    // 快进到底时跳过逐字动画，直接显示完整文本
+    // 快进直接显示全文
     if (GlobalStore.get('fastForwardActive')) {
         div.innerHTML = text + '<br>';
         return;

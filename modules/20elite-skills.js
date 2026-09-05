@@ -174,7 +174,7 @@ export function consumeXingFen(attacker) {
 
 // ==================== 小昭·妹 — 蛛变/飞天/蛛落 ====================
 
-// 精通层数：每门职业 1 层，全部 4 门精通后额外 +2 层（封顶 6 层）
+// 精通层数：每职业 1 层，全 4 门后 +2 层（封顶 6）
 function masteryLayers(count) { return count >= 4 ? count + 2 : count; }
 
 export function spiderTransform(unit, log) {
@@ -190,7 +190,7 @@ export function spiderTransform(unit, log) {
     const isNewMastery = !unit.state._masteredRoles.includes(newRole);
     if (isNewMastery) unit.state._masteredRoles.push(newRole);
 
-    // 蛛变：职业加成永久叠加（每变一次吃一份新职业加成，不扣旧的），本身无额外属性
+    // 蛛变：每次变身叠加新职业加成，不扣旧
     const newStats = getRoleBonus(newRole);
     unit.role = newRole;
     if (newRole === ROLE_TYPES.DEFENDER) unit._hpDmgRatio = getHpDmgRatio(0.5);
@@ -202,7 +202,7 @@ export function spiderTransform(unit, log) {
     applyMaxHpChange(unit, unit.maxHp + newStats.maxHp, null, '蛛变');
     emitEvent(unit, UNIT_EVENT_TYPES.HP_CHANGE, { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: unit.atk, def: unit.def, _baseAtk: unit._baseAtk, _baseDef: unit._baseDef, _baseMaxHp: unit._baseMaxHp });
 
-    // 精通加成：首次精通新职业时按层数差结算（全精通时一次性补 2 层）
+    // 精通加成：首次精通时按层数差结算，全精通补 2 层
     let masteryGain = null;
     if (isNewMastery) {
         const m = getSkillParams('小昭', 'mastery');
@@ -272,8 +272,7 @@ export function spiderReturn(unit, allyTeam, enemySide, log) {
 }
 
 // ==================== 小昭共通 — 永久海克斯 ====================
-// 精通加成已在 spiderTransform 首次掌握时增量结算进 _base 属性（见 masteryLayers），
-// 原 computeButterflyMastery → computeBuffStats 断头查询链已删除
+// 精通加成已在 spiderTransform 时结算进 _base，无独立查询链
 
 export function addPermanentBuff(xiaoZhao, buffKey, buffName, extraFields = {}) {
     if (!xiaoZhao || !xiaoZhao.isXiaoZhaoBrother) return;

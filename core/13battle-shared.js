@@ -8,18 +8,8 @@ import { pushBattleEvent } from '../infra/51-core-utils.js';
 import { FACT_TYPES, UNIT_EVENT_TYPES, ROLE_TYPES } from '../infra/56-battle-enums.js';
 const C = CONFIG;
 
-/**
- * 战斗统计统一记账入口（唯一入口，禁止绕过）
- * 所有伤害/治疗/反弹/吸血/闪避/免疫回退的统计字段增减，必须通过此函数。
- * 禁止直接修改 dmgDealt / dmgTaken / healDone / reboundDone / leechDone 字段。
- *
- * @param {object|null} source - 伤害/治疗来源单位（可为 null，治疗溢出或被动时记目标自身）
- * @param {object} target - 承受单位
- * @param {string} type - 记账类型：'damage' | 'heal' | 'rebound' | 'leech' | 'dodge' | 'immuneRollback'
- * @param {object} opts - 记账参数
- *   - rawAmount: 来袭全额（减免前，含溢出），承伤按此记
- *   - actualAmount: 实际损血量/治疗量（减免后/截断后），输出按此记
- */
+// 战斗统计统一记账入口（唯一入口）。承伤记 rawAmount（减免前全额），
+// 输出记 actualAmount（clamp 后）。禁止绕过此函数直接改统计字段。
 function recordCombatStat(source, target, type, opts = {}) {
     if (!target || !target.alive) return;
     const rawAmount = opts.rawAmount ?? opts.actualAmount ?? 0;
@@ -188,8 +178,7 @@ function applyStatChange(target, field, delta, source, reason, record = true) {
     target[field] = field === 'hp' ? Math.min(target.maxHp, Math.max(0, stepped)) : stepped;
     if (field === 'hp' || field === 'maxHp') target[field] = Math.max(0, target[field]);
     if (field === 'hp' && record) {
-        // 记账统一走 recordCombatStat：承伤=来袭全额（按 delta 记），输出=clamp 后实际损血；
-        // 治疗记产出者（source 优先，无 source 记自己），溢出治疗不记
+        // 承伤记全额，输出记实际值；治疗记产出者，溢出不记
         const actualDelta = target.hp - oldVal;
         if (delta < 0) {
             recordCombatStat(source, target, 'damage', {
@@ -223,6 +212,7 @@ function applyMaxHpChange(target, newMaxHp, source, reason) {
     const oldMaxHp = target.maxHp;
     if (oldMaxHp <= 0 || newMaxHp <= 0) return;
     const oldHp = target.hp;
+    // maxHp 变化时 hp 按比例缩放：上限升则 hp 等量加，上限降则 hp 等比例降
     target.maxHp = newMaxHp;
     let newHp;
     if (newMaxHp > oldMaxHp) {

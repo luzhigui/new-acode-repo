@@ -210,7 +210,7 @@ function updateDebugUI() { let panel=document.getElementById('debugPanel'); cons
 
 
 
-// ==================== 按钮事件绑定（从 13main 迁移） ====================
+// 按钮事件绑定
 
 export function bindCoverStart(gameStarted, updateSpeedButtons) {
     document.getElementById('coverStartBtn').addEventListener('click', function () {

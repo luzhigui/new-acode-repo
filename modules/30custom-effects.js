@@ -4,11 +4,10 @@ export const VER = 'modules/30custom-effects.js V1.0.0';
 
 import { registerSettlementHook, EFFECT_TYPES, EXECUTION_LAYER as L } from '../infra/50-event-bus.js';
 
-// 机制注册表：type -> 处理器（处理器须提供 install({eventBus,A,B,log})）
+// 机制注册表：type → 处理器（须提供 install）
 // 第三方/数据驱动机制在此按 type 注册，core/15 仅在查表后调用 installMechanicByType 安装
 const mechanicHandlers = new Map();
 
-// 注册一个机制处理器
 export function registerMechanicHandler(type, handler) {
     if (!type || typeof type !== 'string') {
         throw new Error(`[30custom-effects] registerMechanicHandler: type 必须是非空字符串`);
@@ -19,12 +18,11 @@ export function registerMechanicHandler(type, handler) {
     mechanicHandlers.set(type, handler);
 }
 
-// 查询某机制是否已注册
 export function hasMechanicHandler(type) {
     return mechanicHandlers.has(type);
 }
 
-// 按 type 安装机制（查表；未注册返回 false，已注册执行 install）
+// 按 type 安装机制，未注册返回 false
 export function installMechanicByType(eventBus, type, A, B, log) {
     const handler = mechanicHandlers.get(type);
     if (!handler) return false;
@@ -36,9 +34,9 @@ export function installMechanicByType(eventBus, type, A, B, log) {
     return true;
 }
 
-// ==================== damageReflect：反伤护盾（纯数据接入）====================
-// 数据源：content/200game-data.json -> characters["反伤弟子"].mechanics [{camp:"ally",type:"damageReflect",reflectRatio:0.30}]
-// 命中结算后，若受害者是存活的反伤弟子且伤害>0，向攻击者反弹 reflectRatio(30%) 伤害
+// damageReflect：反伤护盾，纯数据接入
+// 数据源：gameData.characters["反伤弟子"].mechanics
+// 反伤弟子受击后反弹 30% 给攻击者
 registerMechanicHandler('damageReflect', {
     install({ eventBus }) {
         registerSettlementHook({

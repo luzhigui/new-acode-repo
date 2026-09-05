@@ -4,7 +4,7 @@ export const VER = 'ui/67fx-trigger.js V5.6.0';
 
 import { getState, setState } from './63main-state.js';
 
-// 特效-切换：简单/华丽闪避效果开关
+// 简单/华丽闪避切换
 export function toggleDodgeEffect() {
     setState.dodgeEffectEnabled(!getState.dodgeEffectEnabled());
     let btn = document.getElementById('btnDodgeToggle');
