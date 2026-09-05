@@ -26,7 +26,7 @@ export function spawnHorse(allyTeam, log, enemyTeam, force = false) {
     let horse = new Unit('拒马', 15, ROLE_TYPES.DEFENDER, allyTeam[0].camp);
     const xiaoHEnhance = query('xiaoHexEnhance', allyTeam, allyTeam._activeBuffs || [], BUFF_TYPES.HORSE_FORMATION);
     horse.atk = 0;
-    horse._hpDmgRatio = 0.06;
+    horse.state._hpDmgRatio = 0.06;
     if (xiaoHEnhance) {
         applyStatChange(horse, 'def', xiaoHEnhance.horseDef, null, '拒马初始化');
         applyStatChange(horse, 'maxHp', xiaoHEnhance.horseHp, null, '拒马初始化');
@@ -35,8 +35,8 @@ export function spawnHorse(allyTeam, log, enemyTeam, force = false) {
         applyStatChange(horse, 'maxHp', C.BUFFS.horseFormation.horseHp, null, '拒马初始化');
     }
     applyStatChange(horse, 'hp', horse.maxHp, null, '拒马初始化', false);
-    horse._baseMaxHp = horse.maxHp;  // 防止 carry 误判 _baseMaxHp=0 把马打成 maxHp=0
-    horse.pos = horsePos; horse.isHorse = true; horse._originalPos = horsePos;
+    horse.state._baseMaxHp = horse.maxHp;  // 防止 carry 误判 _baseMaxHp=0 把马打成 maxHp=0
+    horse.pos = horsePos; horse.isHorse = true; horse.state._originalPos = horsePos;
     allyTeam.push(horse);
     // 返回生成的拒马单位，让调用方自己写日志
     return horse;

@@ -5,7 +5,7 @@ import { CONFIG, getGameData } from './01config-5v5-test.js';
 
 import { StateMachine } from '../infra/51-core-utils.js';
 
-import { BATTLE_FIELD_KEYS, PERMANENT_FIELD_KEYS, copyAllStateFields, createInitialState } from './17-state-keys.js';
+import { copyAllStateFields, createInitialState } from './17-state-keys.js';
 
 import { ROLE_TYPES } from '../infra/56-battle-enums.js';
 
@@ -39,32 +39,18 @@ export class Unit {
         this.dmgDealt=0;this.dmgTaken=0;this.healDone=0;this.reboundDone=0;
         this.leechDone=0;this.dodgeCount=0;this.critCount=0;
         this.survivedRounds=0;this._flash=null;
-        this.fixed=false;this._originalPos=-1;
+        this.fixed=false;
         this.state = createInitialState();
-        this.buffAtkBonus = 0;
-        this.buffDefBonus = 0;
-        this.buffDodgeBonus = 0;
-        this.buffHpBonus = 0;
-        this._baseMaxHp = 0;
-        this._initAtk = 0;          // 战斗开始时的初始攻击（永不修改）
-        this._initDef = 0;          // 战斗开始时的初始防御（永不修改）
-        this._initMaxHp = 0;        // 战斗开始时的初始血量上限（永不修改）
         this.isXiaoZhaoSister = false; // 🦋 小昭·姊
         this.isXiaoZhaoBrother = false; // 🕷️ 小昭·妹
     }
     clone(){
         let c=new Unit(this.name,this.m,this.role,this.camp);
-        // 永久字段：克隆时浅拷贝，永不重置
-        for (const key of PERMANENT_FIELD_KEYS) {
-            if (this[key] !== undefined) c[key] = this[key];
-        }
-        for (const key of BATTLE_FIELD_KEYS) {
-            if (this[key] === undefined) continue;
-            c[key] = this[key];
-        }
-        // 其余基础字段完整拷贝（atk/def/hp/pos/alive 等战斗必需字段）；跳过 state、fsm
+        // 永久字段已全部迁入 state，由 copyAllStateFields 统一处理；
+        // 此处只拷贝战斗必需顶层字段（atk/def/hp/pos/alive 等），跳过 state、fsm 及已迁入 state 的旧永久字段
         for (const key of Object.keys(this)) {
             if (key === 'state' || key === '_fsm') continue;
+            if (key.startsWith('_') && !['_flash'].includes(key)) continue; // 跳过所有下划线字段，它们要么迁入 state，要么是临时标记
             c[key] = this[key];
         }
         // state：全量字段统一拷贝（17-state-keys 驱动），数组深拷贝、对象浅拷贝
@@ -93,7 +79,7 @@ export class Unit {
             while(d-a>20){d=rng.nextInt(dMinTenth,dMaxTenth)/10;a=rem-d;}
             // 按初始血量占比分档：占比越高（越接近满血）档位越高、血量系数越大，对应单次伤害越多
             const hpPct = hp / this.m;
-            this._hpDmgRatio = getHpDmgRatio(hpPct);
+            this.state._hpDmgRatio = getHpDmgRatio(hpPct);
         } else {
             const dMin=Math.ceil(rem*0.3), dMax=Math.floor(rem*0.5);
             const dMinTenth=dMin*10, dMaxTenth=dMax*10;
@@ -106,12 +92,12 @@ export class Unit {
         const bonus = getRoleBonus(this.role);
         if (bonus) { this.atk += bonus.atk; this.def += bonus.def; this.maxHp += bonus.maxHp; }
         this.hp=this.maxHp;
-        this._baseMaxHp = this.maxHp;
-        this._baseAtk = this.atk;
-        this._baseDef = this.def;
-        this._initAtk = this.atk;
-        this._initDef = this.def;
-        this._initMaxHp = this.maxHp;
+        this.state._baseMaxHp = this.maxHp;
+        this.state._baseAtk = this.atk;
+        this.state._baseDef = this.def;
+        this.state._initAtk = this.atk;
+        this.state._initDef = this.def;
+        this.state._initMaxHp = this.maxHp;
     }
     initXiaoZhao(){
         let hpBase = Math.floor(this.m / 2);
@@ -123,6 +109,6 @@ export class Unit {
         this.maxHp = hpBase * 2.5;
         this.hp = this.maxHp;
         // 血量占比固定 50%，按分档表锁 z 值（蛛变防战时消费）
-        this._hpDmgRatio = getHpDmgRatio(0.5);
+        this.state._hpDmgRatio = getHpDmgRatio(0.5);
     }
 }
