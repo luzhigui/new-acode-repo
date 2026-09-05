@@ -1,4 +1,4 @@
-// V1.0.0 | 2026-08-29 机制查表化：registerMechanicHandler/installMechanicByType/hasMechanicHandler；demageReflect（反伤护盾）纯数据接入
+// V1.0.0 | ~1800 bytes | 2026-08-29 机制查表化：registerMechanicHandler/installMechanicByType/hasMechanicHandler；demageReflect（反伤护盾）纯数据接入
 export const VER = 'modules/30custom-effects.js V1.0.0';
 
 import { registerSettlementHook, EFFECT_TYPES, EXECUTION_LAYER as L } from '../infra/50-event-bus.js';

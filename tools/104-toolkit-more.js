@@ -1,4 +1,4 @@
-// V5.6.0 | 2026-08-22 TARGET_FILES 改为从 106 的 ALL_PROJECT_FILES 派生（单一数据源，消除双份维护）
+// V5.6.0 | ~27000 bytes | 2026-08-22 TARGET_FILES 改为从 106 的 ALL_PROJECT_FILES 派生（单一数据源，消除双份维护）
 
 import { ALL_PROJECT_FILES } from './106-ai-pack-config.js';
 

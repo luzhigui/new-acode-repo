@@ -1,4 +1,4 @@
-// V5.7.0 | 2026-08-28 顶层回合级光环/加成字段迁入 state，删净顶层 _ 临时字段
+// V5.7.0 | ~6500 bytes | 2026-08-28 顶层回合级光环/加成字段迁入 state，删净顶层 _ 临时字段
 export const VER = 'core/02unit.js V5.7.0';
 
 import { CONFIG, getGameData } from './01config-5v5-test.js';

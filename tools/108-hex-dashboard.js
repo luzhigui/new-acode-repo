@@ -1,4 +1,4 @@
-// V5.6.1 | 2026-08-24 姐姐强化参数改读 JSON（小昭.hexEnhance），清理 ELITE_SKILLS 引用
+// V5.6.1 | ~9500 bytes | 2026-08-24 姐姐强化参数改读 JSON（小昭.hexEnhance），清理 ELITE_SKILLS 引用
 import { CONFIG, getSkillParams } from '../core/01config-5v5-test.js';
 (function(){
 const KEY = 'ming_hex_battle_log';

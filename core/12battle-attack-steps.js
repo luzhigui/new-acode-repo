@@ -1,4 +1,4 @@
-// V5.7.1 | 2026-08-26 calcFinalDamage 五声明类型抽 calcModifier 查表（16effect-handlers）
+// V5.7.1 | ~24200 bytes | 2026-08-26 calcFinalDamage 五声明类型抽 calcModifier 查表（16effect-handlers）
 export const VER = 'core/12battle-attack-steps.js V5.7.1';
 
 import { CONFIG, getSkillParams, getGameData } from './01config-5v5-test.js';

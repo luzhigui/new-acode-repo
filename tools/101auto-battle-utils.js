@@ -1,4 +1,4 @@
-// V5.5.3 | 2026-08-24 每场结束 flush 事件 + 清空 _eliteStates Map，修复高场次 OOM（uid 永不复用无限膨胀）
+// V5.5.3 | ~15000 bytes | 2026-08-24 每场结束 flush 事件 + 清空 _eliteStates Map，修复高场次 OOM（uid 永不复用无限膨胀）
 export const VER = 'tools/101auto-battle-utils.js V5.5.3';
 
 import { CONFIG } from '../core/01config-5v5-test.js';

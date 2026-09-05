@@ -1,4 +1,4 @@
-// V5.6.1 | 2026-08-26 GAME_STATE_FIELDS 删 _phantomTarget/_masteredRoles（已迁 18-elite-state）
+// V5.6.1 | ~11800 bytes | 2026-08-26 GAME_STATE_FIELDS 删 _phantomTarget/_masteredRoles（已迁 18-elite-state）
 export const VER = 'modules/24battle-store.js V5.6.1';
 
 import { STORE_ACTION_TYPES, UNIT_EVENT_TYPES } from '../infra/56-battle-enums.js';

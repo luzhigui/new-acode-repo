@@ -1,4 +1,4 @@
-// V5.7.0 | 2026-08-24 Worker 并行化：批量战斗移至 116-role-balance-worker.js，主文件只负责派发/聚合/渲染
+// V5.7.0 | ~15500 bytes | 2026-08-24 Worker 并行化：批量战斗移至 116-role-balance-worker.js，主文件只负责派发/聚合/渲染
 export const VER = 'tools/109-role-balance.js V5.7.0';
 
 import { ROLE_TYPES } from '../infra/56-battle-enums.js';

@@ -1,4 +1,4 @@
-// V5.8.0 | 2026-08-26 特效全部移交 stageActions，本文件只负责文本与格子闪示
+// V5.8.0 | ~8000 bytes | 2026-08-26 特效全部移交 stageActions，本文件只负责文本与格子闪示
 export const VER = 'player/46attack-group.js V5.8.0';
 
 import { GlobalStore, getState } from '../infra/54-global-store.js';

@@ -1,4 +1,4 @@
-// V5.5.0 | 2026-08-15 从 23global-store 拆出
+// V5.5.0 | ~1200 bytes | 2026-08-15 从 23global-store 拆出
 export const VER = 'modules/28buff-tools.js V5.5.0';
 
 import { CONFIG } from '../core/01config-5v5-test.js';
