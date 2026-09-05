@@ -1,4 +1,4 @@
-// player/47renderer.js - 光明顶5v5 播放器渲染层
+﻿// player/47renderer.js - 光明顶5v5 播放器渲染层
 // V5.5.0 | ~5600 bytes| 2026-08-14 DOM操作收口，新增 playLogLine/appendHiddenDetail
 export const VER = 'player/47renderer.js V5.5.0';
 
@@ -9,10 +9,7 @@ let _ctx = null;
 export function setRenderCtx(c) { _ctx = c; }
 function ctx() { return _ctx || GlobalStore.get('playerContext'); }
 
-/**
- * UI 层单源化第一步：从 battleStore 实时查找单位
- * store 未就绪时回退到 c.UI 快照，保证迁移期兼容
- */
+// 从 battleStore 实时查找，未就绪回退 UI 快照
 export function findUnitByUid(c, uid) {
     if (!uid) return null;
     if (c && c.store) {
@@ -24,7 +21,7 @@ export function findUnitByUid(c, uid) {
     return all.find(u => u.uid === uid) || null;
 }
 
-// ==================== 日志区 DOM 操作 ====================
+// 日志区 DOM 操作
 
 export function getLogDiv() { return document.getElementById('log'); }
 
@@ -40,7 +37,6 @@ export function appendLogElement(el) {
     autoScrollLog();
 }
 
-// 创建一行日志并逐字播放，返回创建的元素
 export async function playLogLine(text, forcedSpeed = null) {
     let div = document.createElement('div');
     appendLogElement(div);
@@ -68,7 +64,6 @@ export function updateRoundDisplay(text) {
     if (el) el.innerText = text;
 }
 
-// ==================== 分隔符 ====================
 
 export function renderSeparator() {
     const div = document.createElement('div');
@@ -77,7 +72,6 @@ export function renderSeparator() {
     autoScrollLog();
 }
 
-// ==================== 回合开始/结束 ====================
 
 export function renderRoundStart(text) {
     appendLogHTML(text + '<br>');
@@ -87,20 +81,17 @@ export function renderRoundEnd(text) {
     appendLogHTML(text + '<br>');
 }
 
-// ==================== 信息行 ====================
 
 export function renderInfoLine(text) {
     appendLogHTML(text + '<br>');
 }
 
-// ==================== 战斗结束 ====================
 
 export function renderVictoryLine(html) {
     getLogDiv().innerHTML += html;
     getLogDiv().scrollTop = getLogDiv().scrollHeight;
 }
 
-// ==================== 按钮状态 ====================
 
 export function setBtnDisabled(id, disabled) {
     const btn = document.getElementById(id);
@@ -115,13 +106,11 @@ export function setBtnText(id, text) {
     }
 }
 
-// ==================== 初始化 ====================
 
 export function initRenderer(c) {
     setRenderCtx(c);
 }
 
-// ==================== 特效清理 ====================
 
 export function clearAllEffects() {
     document.querySelectorAll('[data-fx="temporary"]').forEach(el => { if (el.parentNode) el.parentNode.removeChild(el); });
@@ -129,7 +118,7 @@ export function clearAllEffects() {
     document.querySelectorAll('.grid.victory-border').forEach(grid => grid.classList.remove('victory-border'));
 }
 
-// ==================== 日志滚动控制 ====================
+// 滚动回底按钮 + 用户滚动暂停
 
 export function initLogScrollControls(c) {
     const logDiv = getLogDiv();
@@ -163,7 +152,7 @@ export function initLogScrollControls(c) {
     });
 }
 
-// ==================== 积分浮动 ====================
+// 积分变动浮动提示
 
 export function showScoreFloat(earnPoints) {
     const badge = document.getElementById('scoreBadge');

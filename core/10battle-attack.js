@@ -25,8 +25,7 @@ import { FACT_TYPES, BUFF_TYPES, UNIT_EVENT_TYPES, CAMP_TYPES, SIGNAL_TYPES } fr
 
 const C = CONFIG;
 
-// 同步化后的攻击流程：所有事件派发与子函数调用均为同步，移除全部 async/await。
-// 游戏侧表现由 ui/61main-5v5-test.js 中的 async 包装器保持逐步渲染，逻辑不变。
+// 同步流程：UI 层异步包装保持逐步渲染，这里纯同步
 export function processUnitAttack(unit, allySide, enemySide, log, A, B, state, doubleStrikeUnitUid, lockedTargetUid) {
     if (unit.state._stunned) {
         log.push({ factType: FACT_TYPES.STUN_SKIP, data: { unitName: unit.name } });
@@ -44,6 +43,7 @@ export function processUnitAttack(unit, allySide, enemySide, log, A, B, state, d
         target = enemySide.find(u => u.uid === lockedTargetUid && u.alive) || null;
         phantomFact = null;
         if (!target) {
+            // 锁定目标已阵亡，跳过行动
             const emptyFact = {
                 type: 'emptyTarget',
                 attacker: { uid: unit.uid, name: unit.name, camp: unit.camp },
@@ -99,6 +99,7 @@ export function processUnitAttack(unit, allySide, enemySide, log, A, B, state, d
             log.push({ factType: FACT_TYPES.DODGE, data: dodgeFact });
         }
         if (hitResult.extraRequests && hitResult.extraRequests.length > 0) {
+            // 递归层数由 _acted/_doubleStriked/_linkTriggered 等标记兜底；新机制忘标记会死循环
             hitResult.extraRequests.sort((a, b) => (a.priority || 0) - (b.priority || 0));
             const executedUids = new Set();
             for (const req of hitResult.extraRequests) {

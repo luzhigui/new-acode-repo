@@ -1,5 +1,5 @@
 // player/41player-buff-ui.js - 光明顶5v5 Buff横幅与handler
-// V5.7.2 | ~5000 bytes| 2026-08-26 删除 handleBuffLeech 死函数（playLogEntries 不再派发 buff-leech）
+// V5.7.2 | 2026-08-26 删除 handleBuffLeech 死函数
 export const VER = 'player/41player-buff-ui.js V5.7.2';
 
 import { Unit } from '../core/02unit.js';
@@ -71,7 +71,7 @@ export async function handleHolyTokenDrop(c, entry) {
 
 export async function handleBuffSummon(c, entry, prevEntry) {
     c.UI.lastSnapshot = { ally: c.UI.allyTeam.map(u => ({...u})), enemy: c.UI.enemyTeam.map(u => ({...u})) };
-    // 特效横幅已由导演 stageAction 'summon' 统一触发，此处只播文本
+    // 特效已由 stageAction 触发，此处只播文本
     let div=document.createElement('div');div.innerHTML=entry.text+'<br>';
     document.getElementById('log').appendChild(div);
     c.autoScrollLog();
@@ -84,6 +84,3 @@ export async function handleBuffDestroy(c, entry, prevEntry) {
     document.getElementById('log').appendChild(div);
     c.autoScrollLog();
 }
-
-// handleBuffLeech 已删除：playLogEntries 不再派发 buff-leech，
-// 原特效/文本由导演 stageAction 统一处理，此函数零调用。

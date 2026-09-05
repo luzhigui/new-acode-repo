@@ -111,10 +111,11 @@ export const GlobalStore = {
     }
 };
 
-// 环境兼容挂载：主线程为 window，Worker 无 window，先补全局 window 再挂 GlobalStore（worker 工具链 109/116 需要）
+// Worker 环境无 window，先补再挂，工具链 109/116 依赖
 if (typeof window === 'undefined') globalThis.window = globalThis;
 window.GlobalStore = GlobalStore;
 
+// 提供 get/set 便捷 API，实际存储统一在 GlobalStore
 export const getState = {
     gs: () => GlobalStore.get('gs'),
     autoMode: () => GlobalStore.get('autoMode'),

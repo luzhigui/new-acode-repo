@@ -1,5 +1,5 @@
 // modules/25elite-imperial.js - 朝廷精英组件合集
-// V5.5.1 | ~8522 bytes| 2026-08-21 战报记账修正：玄冥中毒tick传入鹿杖客作输出源
+// V5.5.1 | 2026-08-21 战报记账修正：玄冥中毒tick传入鹿杖客作输出源
 export const VER = 'modules/25elite-imperial.js V5.5.1';
 
 import { registerElite } from '../core/08-elite-registry.js';
@@ -22,7 +22,7 @@ export function createLuZhangKeComponent() {
         register(eventBus, A, B, log) {
             const lu = B.find(u => u.name === '鹿杖客' && u.alive);
             if (!lu) return;
-            // 玄冥毒tick：逐人直改 hp（tickXuanmingPoison 内 applyStatChange）无声明时机，保留事件路；壳转调
+            // 玄冥毒 tick：走 ROUND_STAT_GRANT 声明，由 resolveRoundStatGrants 统一结算
             function submitXuanmingPoisonTick(data, lu) {
                 const { A, B, log, declarations } = data;
                 A.concat(B).forEach(u => {

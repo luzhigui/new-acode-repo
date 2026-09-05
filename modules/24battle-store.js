@@ -7,7 +7,7 @@ import { ROUND_STATE_KEYS, BATTLE_STATE_KEYS } from '../core/17-state-keys.js';
 
 const ALL_STATE_KEYS = [...ROUND_STATE_KEYS, ...BATTLE_STATE_KEYS];
 
-/** 单位顶层字段（非 state）：store 同步时按此清单查表，加新顶层字段只需补这里 */
+// 顶层字段清单：加新顶层字段只补这里
 const UNIT_TOP_FIELDS = [
     'hp', 'maxHp', 'alive', 'atk', 'def', 'role',
     'buffAtkBonus', 'buffDefBonus', 'buffDodgeBonus', 'buffHpBonus',
@@ -35,13 +35,7 @@ export function createStore(initialState, reducer) {
 
 // ==================== 战斗 Reducer ====================
 
-/**
- * 战斗 Store 的 Reducer — 根据 action 类型处理单位状态变更
- * 所有 UI 层的格子显示（闪光/死亡/血条/位置）通过 dispatch action → reducer → Store 订阅 → renderGrid 的链路完成
- * @param {object} state - 当前 Store 状态 { units: Array }
- * @param {object} action - { type: string, uid?: string, flash?: string, events?: Array, unit?: object, ... }
- * @returns {object} 新状态
- */
+// UI 格子显示通过 dispatch → reducer → store 订阅 → renderGrid 完成
 export function battleReducer(state, action) {
     if (!Object.values(STORE_ACTION_TYPES).includes(action.type)) {
         console.error(`[battleReducer] 未知 action type: ${action.type}`);
@@ -98,6 +92,7 @@ export function battleReducer(state, action) {
                             if (p[key] !== undefined) next[idx].state[key] = p[key];
                         }
                     }
+                // 新增单位（拒马）默认战斗统计字段清零
                 } else if (ev.eventType === UNIT_EVENT_TYPES.UNIT_ADD) {
                     const p = ev.payload;
                     if (!next.find(u => u.uid === p.uid)) {

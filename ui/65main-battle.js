@@ -1,5 +1,4 @@
-// ui/65main-battle.js - 光明顶5v5 战斗初始化
-// V5.5.1 | 2026-08-19 import 路径合并至 infra/51-core-utils
+﻿// V5.5.1 | 2026-08-19 import 路径合并至 infra/51
 export const VER = 'ui/65main-battle.js V5.5.1';
 
 import { CONFIG } from '../core/01config-5v5-test.js';
@@ -16,7 +15,7 @@ import { resetBattleRuntime } from './69reset-runtime.js';
 const C = CONFIG;
 
 // ==================== 阵容生成 ====================
-// 战斗-初始化：生成明教+六大派阵容（薄壳，逻辑在 modules/29battle-init.js）
+// 薄壳：阵容逻辑在 modules/29battle-init.js
 export function doInitBattle(currentStage, UI, snapshot, activeBuffs, selectedBuffIndex, currentDoubleStrikeUid) {
     if (!UI || !snapshot) return;
     const _rng = snapshot._rngSeed ? new SeededRNG(snapshot._rngSeed) : new SeededRNG(Date.now());
@@ -45,7 +44,7 @@ export function doInitBattle(currentStage, UI, snapshot, activeBuffs, selectedBu
  */
 // 战斗-弹窗：姐姐附身方向选择（左防御/右攻击）
 export function showFlyDirectionPopup(callback) {
-    // 快进/跳过：直接默认方向，不弹窗
+    // 快进/跳过直接默认
     if (GlobalStore.get('fastForwardActive') || GlobalStore.get('skipBuffPopup')) {
         callback('right');
         return;
@@ -92,7 +91,7 @@ export function showFlyDirectionPopup(callback) {
     box.appendChild(btnDiv);
     overlay.appendChild(box);
     document.body.appendChild(overlay);
-    // 监听快进/跳过：弹窗已显示时如果 fastForwardActive 变为 true，自动关闭
+    // 弹窗已显示时快进则自动关闭
     const unsub = GlobalStore.on('fastForwardActive', (val) => {
         if (val) {
             unsub();
@@ -114,7 +113,7 @@ export { generateBuffChoices } from '../modules/28buff-tools.js';
 
 // Buff-弹窗：显示Buff选择界面（普通模式）
 export function showBuffSelection(callback, activeBuffs, selectedBuffIndex, updateBuffSlotsFn, updateUIFn, autoScrollLogFn, allyTeam) {
-    // 如果传入的 allyTeam 无效，从全局状态重新获取
+    // allyTeam 无效则从全局状态获取
     if (!allyTeam || !allyTeam.length || !allyTeam.some(u => u.alive)) {
         const ctx = window._getPlayerContext?.();
         allyTeam = ctx?.UI?.allyTeam || [];
@@ -163,7 +162,7 @@ export { tickBuffDurations } from '../modules/28buff-tools.js';
 // Buff-列表：格式化当前激活Buff摘要 —— 实现已移至 modules/28buff-tools.js
 export { getActiveBuffList } from '../modules/28buff-tools.js';
 
-// ==================== 战斗日志 ====================
+// 战斗日志
 // 日志-阵容：输出双方阵容详情到日志区
 export function logTeamInfo(label, UI, gs, battleResultForInfo, activeBuffs, hasLoggedTeam) {
     let ally = UI.allyTeam, enemy = UI.enemyTeam;
@@ -215,7 +214,7 @@ export function logTeamInfo(label, UI, gs, battleResultForInfo, activeBuffs, has
 }
 
 // ==================== 中止 ====================
-// 战斗-中止：重置所有战斗状态+清理视觉标记（统一收口至 resetBattleRuntime）
+// 中止战斗：统一收口到 resetBattleRuntime
 export function abortAll(abortController, UI, waitingForNextRound, isBattleStarting, adjustMode, selectedAdjustPos, activeBuffs, selectedBuffIndex, currentDoubleStrikeUid, updateBuffSlotsFn) {
     if (abortController) { abortController.abort(); abortController = null; }
     if (UI) UI.currentResult = null;

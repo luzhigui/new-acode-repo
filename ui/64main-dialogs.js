@@ -10,15 +10,14 @@ import { CAMP_TYPES } from '../infra/56-battle-enums.js';
 // ==================== 战报弹窗 ====================
 // 弹窗-战报：战斗结束统计数据展示+导出
 export function showBattleReport(UI, battleResultForInfo) {
-    // ★ 防残留：如果游戏已不在 GAMEOVER 状态，不创建弹窗
+    // 不在 GAMEOVER 状态不弹窗
     if (window._getPlayerContext && window._getPlayerContext().gs !== 'GAMEOVER') return;
-    // ★ 清理旧战报残留（如上次战斗最小化后未移除），避免旧 overlay 拦截新战报
+    // 清理旧战报残留，避免旧 overlay 拦截
     const oldOverlay = document.getElementById('battleReportOverlay');
     if (oldOverlay) oldOverlay.remove();
     const oldFloat = document.getElementById('battleReportFloat');
     if (oldFloat) oldFloat.remove();
-    // 刷新积分显示
-    if (typeof window.updateScoreBadge === 'function') window.updateScoreBadge();
+        if (typeof window.updateScoreBadge === 'function') window.updateScoreBadge();
 
     // 优先使用 battleResultForInfo（包含已被 3 秒清理机制移除的死单位快照），
     // 否则回退到 UI.allyTeam/enemyTeam
@@ -255,14 +254,14 @@ export function showMusicPanel() {
     bgmSlider.style.width = '100%';
     bgmSlider.oninput = () => {
         const vol = parseInt(bgmSlider.value) / 100;
-        // 优先操作 AudioManager 的节点
+        // 优先操作 AudioManager 节点
         if (window.AudioManager && window.AudioManager.bgmGainNode) {
             const ctx = window.AudioManager.bgmGainNode.context;
             window.AudioManager.bgmGainNode.gain.setValueAtTime(vol, ctx.currentTime);
         } else if (AudioManager.setVolume) {
             AudioManager.setVolume(vol);
         }
-        // 兜底：操作 index.html 独立 BGM 的全局 bgmGainNode 变量
+        // 兜底：操作全局 bgmGainNode
         if (typeof window.bgmGainNode !== 'undefined' && window.bgmGainNode) {
             try {
                 const ctx = window.bgmGainNode.context;
@@ -333,7 +332,7 @@ export function showMusicPanel() {
     });
 }
 
-// ==================== 投票弹窗 ====================
+// 投票弹窗
 // 弹窗-投票：战斗前预测胜负（张无忌双倍）
 export function showVoteDialog(callback, battleHasZhang) {
     let hasZhang = battleHasZhang || false;
@@ -353,7 +352,7 @@ export function showVoteDialog(callback, battleHasZhang) {
     }, true, false);
 }
 
-// ==================== 倒计时 ====================
+// 倒计时
 // 弹窗-倒计时：3-2-1动画+垃圾话弹幕
 export async function showCountdown(trashTalkAlly, trashTalkEnemy, randFn, showDanmakuFn, autoScrollLogFn) {
     let nums = ['3', '2', '1'];

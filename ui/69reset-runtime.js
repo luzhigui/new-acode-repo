@@ -1,5 +1,4 @@
-// ui/69reset-runtime.js - 光明顶5v5 战斗重置清理统一入口
-// V5.5.1 | ~2196 bytes| 2026-08-19 import 路径合并至 infra/51-core-utils
+﻿// V5.5.1 | 2026-08-19 import 路径合并至 infra/51
 export const VER = 'ui/69reset-runtime.js V5.5.1';
 
 import { GlobalStore } from '../infra/54-global-store.js';
@@ -14,10 +13,7 @@ function removeIfExists(id) {
     if (el && el.parentNode) el.parentNode.removeChild(el);
 }
 
-/**
- * 统一战斗重置：清除所有战场运行时状态、DOM 残留、视觉标记
- * 在切关、原班再战、随机重开、强停时调用
- */
+// 统一战斗重置：清理运行时状态、DOM 残留、视觉标记
 export function resetBattleRuntime({ restoreSpeed = true } = {}) {
     // 1. 清 Store 和渲染引用
     GlobalStore.set('battleStore', null);

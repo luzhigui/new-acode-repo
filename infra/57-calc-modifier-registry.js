@@ -1,5 +1,5 @@
 // infra/57-calc-modifier-registry.js - 光明顶5v5 伤害修饰注册表（纯容器）
-// V1.0.0 | ~450 bytes| 2026-08-28 从 core/16effect-handlers.js 拆出；modules 侧只 import 注册函数，不碰 core
+// V1.0.0 | 2026-08-28 从 16effect-handlers 拆出；modules 只 import 注册函数
 export const VER = 'infra/57-calc-modifier-registry.js V1.0.0';
 
 const calcModifierHandlers = new Map();

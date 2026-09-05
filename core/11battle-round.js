@@ -25,6 +25,9 @@ import { translateFactsToStageActions } from '../render/31-stage-actions.js';
 const C = CONFIG;
 
 function prepareRoundStart(A, B, log, state, round, rng) {
+    // ★ 精英回合状态必须在授权事件之前统一重置：
+    //   原顺序为 emit(授权) → forEach 内 resetStateFields(清零)，
+    //   导致性奋/苦练授权后立即被清，攻击时刻读到 false 静默失效。
     A._activeBuffs = state.activeBuffs.filter(b => b.target === CAMP_TYPES.ALLY || !b.target);
     B._activeBuffs = state.activeBuffs.filter(b => b.target === CAMP_TYPES.ENEMY);
 
@@ -158,9 +161,6 @@ function prepareRoundStart(A, B, log, state, round, rng) {
     const he = B.find(u => u.name === '鹤笔翁' && u.alive);
     if (lu && he) { Object.assign(lu.state, { _linkedPartnerUid: he.uid }); Object.assign(he.state, { _linkedPartnerUid: lu.uid }); }
 
-    // ★ 精英回合状态必须在授权事件之前统一重置：
-    //   原顺序为 emit(授权) → forEach 内 resetStateFields(清零)，
-    //   导致性奋/苦练授权后立即被清，攻击时刻读到 false 静默失效。
     A.forEach(u => { if (u.alive) resetStateFields(u.state); });
     B.forEach(u => { if (u.alive) resetStateFields(u.state); });
 
@@ -259,8 +259,8 @@ function prepareRoundStart(A, B, log, state, round, rng) {
     return { doubleStrikeUnitUid, roundStartEvents, sisterComp, brotherComp };
 }
 
-// ★ 同步化：改为普通 generator，工具侧可同步消费；游戏侧由 player/42player-core.js 的 async 循环包装
-// ★ ui 开关：ui=false 时跳过 stageActions 翻译（工具场景不需要画面产物，省热路径开销），引擎判定/RNG/事件/日志不变
+// ★ 同步 generator：UI 层异步包装，工具侧可直接同步消费
+// ★ ui=false：跳过 stageActions 翻译，工具模拟用
 export function* createRoundStepper(state, { ui = true } = {}) {
     const rng = state._rng || new SeededRNG(Date.now());
     state._rng = rng;
@@ -334,6 +334,7 @@ export function* createRoundStepper(state, { ui = true } = {}) {
     }
 
     function resolveActionOrder(candidates, log) {
+        // priority > 0 的优先行动不切换行动方，保证宋青书苦练后六大派第一人接着动
         resolveStateTransitions();
         const sortedByPos = [...candidates].filter(u => u.alive && !u.state._isDead).sort((a, b) => a.pos - b.pos);
         const passUnits = [];

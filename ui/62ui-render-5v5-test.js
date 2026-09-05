@@ -1,5 +1,4 @@
-// ui/62ui-render-5v5-test.js - 光明顶5v5 UI渲染模块（薄壳）
-// V5.5.1 | ~12500 bytes| 2026-08-17 格子渲染下沉至render/32，UI保留弹窗/胜利/日志
+﻿// V5.5.1 | 2026-08-17 格子渲染下沉 render/32
 export const VER = 'ui/62ui-render-5v5-test.js V5.5.1';
 
 import { getSkillDesc } from '../core/01config-5v5-test.js';
@@ -22,7 +21,7 @@ const showDanmaku = (...args) => { if (typeof _showDanmaku === 'function') retur
 
 export function stripTags(html) { let div = document.createElement('div'); div.innerHTML = html; return div.textContent || ''; }
 
-// 兼容旧调用
+// 兼容旧调用（保留）
 export { renderGrid, updateGridUI as updateUI };
 export function setRenderStore(store) {
     setGridStore(store);
@@ -35,7 +34,7 @@ function getCtx() {
 
 
 
-// ==================== 详情弹窗 ====================
+// 详情弹窗
 let detailPopup = null;
 let detailPopupUnit = null;
 let detailPopupInterval = null;
@@ -242,7 +241,7 @@ function closeDetailPopup() {
 
 function closeDetailPopupOnClick(e) { if (detailPopup && !detailPopup.contains(e.target)) closeDetailPopup(); }
 
-// ==================== 胜利特效 ====================
+// 胜利特效
 export function spawnVictoryEffects(winnerCamp, aliveUnitsOverride) {
     let gridId = winnerCamp==='明教'?'allyGrid':'enemyGrid', grid = document.getElementById(gridId);
     if (!grid) return;
@@ -289,5 +288,5 @@ export function spawnVictoryEffects(winnerCamp, aliveUnitsOverride) {
     logDiv.innerHTML+=`<span class="gold">🎉🏆 <span class="${winColor}">${winnerCamp}</span>获得最终胜利！ 🏆🎉</span><br>`;logDiv.scrollTop=logDiv.scrollHeight;
 }
 
-// ==================== 日志清除 ====================
+// 日志清除
 export function clearLogExceptFirst() { let logDiv = document.getElementById('log'), children = logDiv.children; while (children.length > 1) logDiv.removeChild(children[1]); let calibrator = document.createElement('div'); calibrator.style.display = 'block'; calibrator.innerHTML = ''; logDiv.appendChild(calibrator); }

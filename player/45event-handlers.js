@@ -8,7 +8,7 @@ import { GlobalStore, getState } from '../infra/54-global-store.js';
 import { appendLogHTML, appendLogElement, autoScrollLog, updateRoundDisplay, renderSeparator, playLogLine, appendHiddenDetail } from './47renderer.js';
 
 export async function handleBuffText(c, entry, delayMs = 0) {
-    // buff-bonus/swap/push/rebound-fortify 四个入口同构：特效已由导演 stageAction 统一触发，此处只播文本
+    // 特效已由 stageAction 触发，此处只播文本
     appendLogHTML(entry.text + '<br>');
     if (delayMs > 0) {
         await new Promise(r=>setTimeout(r, GlobalStore.get('fastForwardActive') ? 1 : delayMs));
@@ -22,7 +22,7 @@ export async function handleInfo(c, entry) {
         return;
     }
 
-    // 蝴蝶附身/飞回、蜘蛛升空/降落动画已由导演 stageAction 'flyMode' 统一触发
+    // 飞行/附身动画已由 stageAction 触发
     // 连击横幅/新婚爱心/白骨爪/死亡画笔/乾坤加攻飘字/张无忌台词弹幕等特效已全部移交导演 stageAction（见 31/42），此处只播文本
 
     if(entry.isZhangSwitch&&entry.unit){

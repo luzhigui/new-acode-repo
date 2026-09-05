@@ -1,5 +1,4 @@
-// ui/63main-state.js - 光明顶5v5 状态管理
-// V5.5.0 | ~4500 bytes| 2026-08-14 getPlayerContext 下沉至 infra/54-global-store.js，消除 player→ui 循环依赖
+﻿// V5.5.0 | 2026-08-14 getPlayerContext 下沉至 infra/54
 export const VER = 'ui/63main-state.js V5.5.0';
 
 import { STATE } from '../core/01config-5v5-test.js';
@@ -14,8 +13,7 @@ import { AudioManager } from '../modules/22audio-manager.js';
 
 const S = STATE;
 
-// ==================== 模块级变量降级为 GlobalStore 的初始化入口 ====================
-// 初始化时同步模块级变量到 GlobalStore
+// 模块级变量初始化到 GlobalStore
 GlobalStore.set('gs', S.IDLE);
 GlobalStore.set('autoMode', true);
 GlobalStore.set('autoLevel', 'auto');
@@ -41,14 +39,14 @@ GlobalStore.set('UI', { allyTeam: [], enemyTeam: [], currentResult: null, round:
 
 // gs 已统一由 GlobalStore 管理，不再需要模块级变量和同步函数
 
-// ==================== 状态读写 — 实现已移至 infra/54-global-store.js ====================
+// 状态读写已移至 infra/54
 export { getState, setState } from '../infra/54-global-store.js';
 
-// ==================== 玩家上下文 — 实现已移至 infra/54-global-store.js ====================
+// 玩家上下文已移至 infra/54
 export { getPlayerContext } from '../infra/54-global-store.js';
 
-// ==================== window 桥接注册 — 在 ui 层加载时注册 ui 方法到 window ====================
-// 这些方法被 infra/54-global-store.js 的 getPlayerContext 通过 window 引用，实现 player→ui 间接调用
+// window 桥接注册：注册 UI 方法给 player 调用
+// 供 getPlayerContext 通过 window 引用
 GlobalStore.setUIHandler('updateUI', updateUI);
 GlobalStore.setUIHandler('setRenderStore', setRenderStore);
 GlobalStore.setUIHandler('spawnVictoryEffects', spawnVictoryEffects);

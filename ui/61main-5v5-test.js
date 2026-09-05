@@ -1,5 +1,4 @@
-// ui/61main-5v5-test.js - 光明顶5v5 主控模块
-// V5.6.1 | ~24090 bytes| 2026-08-26 移除 handleBuffLeech import（接口变更）
+﻿// V5.6.1 | 2026-08-26 移除 handleBuffLeech import
 export const VER = 'ui/61main-5v5-test.js V5.6.1';
 
 import '../infra/54-global-store.js';
@@ -51,7 +50,7 @@ const C = CONFIG, S = STATE;
 
 const LOG_LINE1 = '⚔️ 光明顶5v5对决 · 九宫格混战模式 ⚔️';
 
-// ==================== 局部状态（仅 UI 控制，不包含 activeBuffs） ====================
+// UI 局部状态（不含 activeBuffs）
 let debugMode = false, speed = 500, userScrolled = false;
 let abortController = null;
 let battleResultForInfo = null, resettleCount = 0;
@@ -120,7 +119,7 @@ GlobalStore.setUIHandler('swapAllyPositions', swapAllyPositions);
 
 
 
-// ==================== 运行时监控 ====================
+// 运行时监控
 
 
 function stopRuntimeMonitor() {
@@ -137,7 +136,7 @@ startApp();
 // ==================== DOM 初始化 ====================
 
 
-// ★ 确保初始化代码总能执行（解决 ES 模块加载时序导致 DOMContentLoaded 漏掉的问题）
+// 确保初始化代码总能执行，解决模块加载时序
 if (document.readyState === 'complete' || document.readyState === 'interactive') {
     initBugAndXiaoZhaoModes();
 } else {

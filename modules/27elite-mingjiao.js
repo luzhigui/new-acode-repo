@@ -213,7 +213,7 @@ export function createXiaoZhaoSisterComponent() {
             const fsm = this._buildFsm(sister, A, log);
             sister._fsm = fsm;
             const comp = this;
-            // 乾坤衍生：DMG_REDUCTION 已推声明；hp/atk 直改 + _baseAtk/_pendingDerivedEntries 记账链保留事件路（无同时机声明路径）
+            // 乾坤衍生：DMG_REDUCTION 走声明，hp/atk 直改并记账
             function submitXiaoZhaoQianKunDerivedDeclaration(data) {
                 const xiaoZhao = A.find(u => u.isXiaoZhaoSister && u.alive && !u.state._stunned);
                 if (!xiaoZhao) return;
@@ -262,14 +262,14 @@ export function createXiaoZhaoSisterComponent() {
             eventBus.on(SIGNAL_TYPES.BEFORE_DAMAGE_CALC, L.BEFORE_DAMAGE_CALC.WARRIOR_BREAK, (data) => {
                 submitXiaoZhaoQianKunDerivedDeclaration(data);
             });
-            // 蝶变附身跳过行动：判定 + skip 写入（纯函数，事件监听器薄壳转调）
+            // 蝶变附身中跳过行动
             function submitButterflySkipDeclaration(data) {
                 if (!data.unit.isXiaoZhaoSister || !data.unit.alive) return;
                 if (fsm.is('attached')) {
                     data.declaration.skip = true;
                 }
             }
-            // 蝶变回归：回归声明提交（纯函数，事件监听器薄壳转调）
+            // 蝶变回归：回合结束飞回
             function submitButterflyReturnDeclaration(data) {
                 const sis = A.find(u => u.isXiaoZhaoSister && u.alive && u.state._butterflyHost);
                 if (!sis || !fsm.is('attached')) return;
@@ -488,7 +488,7 @@ export function createXiaoZhaoBrotherComponent() {
             if (!brother) return;
             const fsm = this._buildFsm(brother, A, B, log);
             brother._fsm = fsm;
-            // 蛛化飞天免疫：FSM 飞天迁移保留事件路（状态机迁移非数值结算），免疫声明已推
+            // 蛛化飞天免疫：血量阈值触发，免疫本次伤害
             function submitSpiderFlyDeclaration(data) {
                 if (data.target.uid !== brother.uid || !data.A) return;
                 if (fsm.is('flying') || fsm.is('dead')) return;
@@ -513,14 +513,14 @@ export function createXiaoZhaoBrotherComponent() {
             eventBus.on(SIGNAL_TYPES.BEFORE_DAMAGE_APPLY, L.BEFORE_DAMAGE_APPLY.SPIDER_IMMUNE, (data) => {
                 submitSpiderFlyDeclaration(data);
             });
-            // 蛛化飞天跳过行动：判定 + skip 写入（纯函数，事件监听器薄壳转调）
+            // 飞天状态跳过行动
             function submitSpiderSkipDeclaration(data) {
                 if (!data.unit.isXiaoZhaoBrother || !data.unit.alive) return;
                 if (fsm.is('flying') || fsm.is('dead')) {
                     data.declaration.skip = true;
                 }
             }
-            // 永久惑心混乱：判定 + targetResult/phantomFact 写入（纯函数，事件监听器薄壳转调）
+            // 永久惑心：小昭·妹在场时敌方攻击 15% 概率误伤
             function submitSpiderMindControlDeclaration(data) {
                 if (data.unit.camp !== CAMP_TYPES.ENEMY) return;
                 if (!brother || !brother.alive || !brother.state._permanentBuffs || !brother.state._permanentBuffs.some(b => b.key === BUFF_TYPES.MIND_CONTROL)) return;
@@ -533,7 +533,7 @@ export function createXiaoZhaoBrotherComponent() {
                     }
                 }
             }
-            // 蛛落：下落声明提交（纯函数，事件监听器薄壳转调）
+            // 蛛落：回合结束从天而降并攻击
             function submitSpiderDescendDeclaration(data) {
                 const bro = A.find(u => u.isXiaoZhaoBrother && u.alive && u.state._spiderFlying);
                 if (bro && bro._fsm && bro._fsm.is('flying')) {
@@ -541,7 +541,7 @@ export function createXiaoZhaoBrotherComponent() {
                     data.declarations.push({ type: 'spiderDescend', unit: bro, A, B, log: data.log });
                 }
             }
-            // 蛛变：FSM 迁移 + state 直改 + spawnHorse + 永久carry 直改保留事件路
+            // 蛛变：每回合随机变职业并结算永久海克斯
             function submitSpiderTransformDeclaration(data) {
                 const { A, B, log } = data;
                 const bro = A.find(u => u.isXiaoZhaoBrother && u.alive);
@@ -568,7 +568,7 @@ export function createXiaoZhaoBrotherComponent() {
                     bro._baseMaxHp = bro.maxHp;
                 }
             }
-            // 永久双击重试：_xiaoZhaoDoubleStriked 直写 + extraRequests 驱动"再攻击"链（保留原样）
+            // 永久双击：小昭·妹 80% 概率额外攻击一次
             function submitXiaoZhaoDoubleStrikeDeclaration(data) {
                 const { unit, target, log } = data;
                 if (!unit.isXiaoZhaoBrother || !unit.alive || unit.state._xiaoZhaoDoubleStriked) return;

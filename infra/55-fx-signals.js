@@ -2,13 +2,9 @@
 // V5.5.0 | ~2200 bytes| 2026-08-23 信号名单一数据源：player emit 与 fx/89 订阅两侧各自 import，方向均为 X→infra
 export const VER = 'infra/55-fx-signals.js V5.5.0';
 
-/**
- * 特效信号清单。player 层只 emit 这些信号携带数据，
- * fx/89fx-subscriber.js 统一订阅并转调具体特效实现。
- * 信号值统一 `fx:` 前缀，与战斗逻辑信号（EXECUTION_LAYER）空间隔离。
- */
+// 特效信号：player 只 emit，fx/89 订阅；fx: 前缀与战斗信号隔离
 export const FX_SIGNALS = {
-    // 通用派发（fx/88fx-trigger.js 的 _triggerFX，内部含快进判断）
+    // 通用派发，内部含快进判断
     TRIGGER: 'fx:trigger',
     // 横幅与飘字
     BANNER: 'fx:banner',                 // Buff 横幅
