@@ -4,7 +4,8 @@ import { cpSync, rmSync, mkdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
-const root = dirname(fileURLToPath(import.meta.url));
+// 脚本在 scripts/ 下，仓库根 = scripts 的上一级
+const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const webDir = join(root, 'web');
 
 // 需要打进 APK 的目录（测试/文档/构建产物不入包）
