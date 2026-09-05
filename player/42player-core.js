@@ -166,7 +166,8 @@ function rebuildUISnapshotFromStore(c) {
 
 function syncStoreFromStep(c, step) {
     if (!c.store || !step) return;
-    c.store.dispatch({ type: STORE_ACTION_TYPES.SET_UNITS, units: [...step.ally, ...step.enemy] });
+    const units = [...step.ally, ...step.enemy].filter(u => !(c._removedUids && c._removedUids.has(u.uid)));
+    c.store.dispatch({ type: STORE_ACTION_TYPES.SET_UNITS, units });
 }
 
 // timing 从 STAGE_ACTION_DEFS 读取
@@ -250,6 +251,7 @@ export async function playBattle() {
     if (!c || !c.snapshot || !c.snapshot.ally || !c.snapshot.ally.length) return;
     const scheduler = new AnimationScheduler();
     c._scheduler = scheduler;
+    c._removedUids = new Set();
 
     GlobalStore.effect('fastForwardActive', (isActive) => {
         if (isActive) {
@@ -312,6 +314,7 @@ export async function playBattle() {
                 const uid = su.uid;
                 setTimeout(() => {
                     delete c._deathTimers[uid];
+                    if (c._removedUids) c._removedUids.add(uid);
                     if (c.store) c.store.dispatch({ type: STORE_ACTION_TYPES.REMOVE_UNIT, uid: uid });
                 }, 3000);
             }

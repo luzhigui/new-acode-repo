@@ -104,8 +104,8 @@ export function applyCarryBonus(unit, A, state, log, stats) {
 }
 
 export function computeBuffStats(unit, activeBuffs, allyTeam) {
-    let atkBonus = 0, defBonus = 0, dodgeBonus = 0, hpBonus = 0;
-    if (!activeBuffs) return { atkBonus, defBonus, dodgeBonus, hpBonus };
+    const stats = { atkBonus: 0, defBonus: 0, dodgeBonus: 0, hpBonus: 0 };
+    if (!activeBuffs) return { ...stats, carryAtkAbs: 0, carryDefAbs: 0, carryHpAbs: 0 };
 
     let carryAtkAbs = 0, carryDefAbs = 0, carryHpAbs = 0;
     const hasCarry = hasBuff(activeBuffs, BUFF_TYPES.CARRY);
@@ -122,30 +122,30 @@ export function computeBuffStats(unit, activeBuffs, allyTeam) {
 
     // 严阵以待防御（比率）
     if (hasBuff(activeBuffs, BUFF_TYPES.FORTIFY) && unit.role === ROLE_TYPES.DEFENDER && unit.camp === CAMP_TYPES.ALLY) {
-        if (allyTeam && allyTeam.some(u => u.isXiaoZhaoSister && u.alive)) applyFortifyDef_Sister(unit, { defBonus });
-        else applyFortifyDef_Normal(unit, { defBonus });
+        if (allyTeam && allyTeam.some(u => u.isXiaoZhaoSister && u.alive)) applyFortifyDef_Sister(unit, stats);
+        else applyFortifyDef_Normal(unit, stats);
     } else if (unit.isXiaoZhaoBrother && query('xiaoPermanentActive', unit, activeBuffs, BUFF_TYPES.FORTIFY) && unit.role === ROLE_TYPES.DEFENDER) {
-        applyFortifyDef_Brother(unit, { defBonus });
+        applyFortifyDef_Brother(unit, stats);
     }
 
     // 流云身法闪避
     if (hasBuff(activeBuffs, BUFF_TYPES.CLOUD_BODY) && unit.camp === CAMP_TYPES.ALLY) {
-        if (allyTeam && allyTeam.some(u => u.isXiaoZhaoSister && u.alive)) applyCloudBodyDodge_Sister(unit, { dodgeBonus });
-        else applyCloudBodyDodge_Normal(unit, { dodgeBonus });
+        if (allyTeam && allyTeam.some(u => u.isXiaoZhaoSister && u.alive)) applyCloudBodyDodge_Sister(unit, stats);
+        else applyCloudBodyDodge_Normal(unit, stats);
     } else if (unit.isXiaoZhaoBrother && query('xiaoPermanentActive', unit, activeBuffs, BUFF_TYPES.CLOUD_BODY)) {
-        applyCloudBodyDodge_Brother(unit, { dodgeBonus });
+        applyCloudBodyDodge_Brother(unit, stats);
     }
 
     // 圣火令（比率）
     const holyFlameTeam = hasBuff(activeBuffs, BUFF_TYPES.HOLY_FLAME);
     if (holyFlameTeam) {
-        if (allyTeam && allyTeam.some(u => u.isXiaoZhaoSister && u.alive)) applyHolyFlame_Sister(unit, allyTeam, activeBuffs, { atkBonus, defBonus });
-        else applyHolyFlame_Normal(unit, allyTeam, activeBuffs, { atkBonus, defBonus });
+        if (allyTeam && allyTeam.some(u => u.isXiaoZhaoSister && u.alive)) applyHolyFlame_Sister(unit, allyTeam, activeBuffs, stats);
+        else applyHolyFlame_Normal(unit, allyTeam, activeBuffs, stats);
     } else if (unit.isXiaoZhaoBrother && query('xiaoPermanentActive', unit, activeBuffs, BUFF_TYPES.HOLY_FLAME)) {
-        applyHolyFlame_Brother(unit, allyTeam, activeBuffs, { atkBonus, defBonus });
+        applyHolyFlame_Brother(unit, allyTeam, activeBuffs, stats);
     }
 
-    return { atkBonus, defBonus, dodgeBonus, hpBonus, carryAtkAbs, carryDefAbs, carryHpAbs };
+    return { atkBonus: stats.atkBonus, defBonus: stats.defBonus, dodgeBonus: stats.dodgeBonus, hpBonus: stats.hpBonus, carryAtkAbs, carryDefAbs, carryHpAbs };
 }
 
 export function logBuffSummary(allyTeam, log, doubleStrikeUid) {
