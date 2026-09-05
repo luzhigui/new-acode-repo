@@ -255,7 +255,7 @@ export function calcFinalDamage(unit, target, attackerBuffStats, defenderBuffSta
         let displayDef = Math.floor(unit.def);
         let lv = getFangLevel(displayDef, unit.m), k = C.FANG_K[lv] !== undefined ? C.FANG_K[lv] : C.FANG_K[C.FANG_K.length - 1];
         let penPart = calcDamage(atkAct, defAct);
-        hpRatio = unit._hpDmgRatio;
+        hpRatio = unit.state._hpDmgRatio;
         raw = penPart + displayDef * k + unit.maxHp * hpRatio;
         blockBase = atkAct + displayDef * k + unit.maxHp * hpRatio;
     } else {
@@ -516,7 +516,7 @@ export function resolveDodgeEffects(declarations, unit, target) {
         } else if (decl.type === EFFECT_TYPES.WEI_HEAL) {
             const { heal, newMaxHp } = decl.data;
             applyMaxHpChange(target, newMaxHp, null, '韦一笑吸血上限提升');
-            target._baseMaxHp = Math.max(target._baseMaxHp, newMaxHp);
+            target.state._baseMaxHp = Math.max(target.state._baseMaxHp, newMaxHp);
             // 吸血记账：source 与 target 同为韦一笑，healDone/leechDone 都记自身（走统一入口）
             recordCombatStat(target, target, 'leech', {
                 actualAmount: heal

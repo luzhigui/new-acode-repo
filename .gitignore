@@ -3,3 +3,9 @@
 
 # 文档（本地可见，不入库不推送）
 /文件汇总20260730/
+
+# APK 打包产物（由 GitHub Actions 生成，不入库）
+web/
+android/
+node_modules/
+package-lock.json

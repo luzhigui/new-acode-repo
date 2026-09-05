@@ -1,0 +1,8 @@
+{
+  "appId": "com.luzhigui.guangmingding5v5",
+  "appName": "光明顶5v5",
+  "webDir": "web",
+  "server": {
+    "androidScheme": "https"
+  }
+}

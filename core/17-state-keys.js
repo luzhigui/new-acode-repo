@@ -70,6 +70,16 @@ export const BATTLE_STATE_SCHEMA = Object.freeze({
     _flyMode:                { type: STATE_FIELD_TYPES.STRING,  default: null },
     _butterflyHost:          { type: STATE_FIELD_TYPES.STRING,  default: null },
     _zhangTauntDone:         { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
+
+    // 原顶层永久字段，迁入 state
+    _baseAtk:                { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },
+    _baseDef:                { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },
+    _baseMaxHp:              { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },
+    _initAtk:                { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },
+    _initDef:                { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },
+    _initMaxHp:              { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },
+    _hpDmgRatio:             { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },
+    _originalPos:            { type: STATE_FIELD_TYPES.NUMBER,  default: -1 },
 });
 
 /** 保留旧导出名以兼容现有代码：合并 key 清单 */

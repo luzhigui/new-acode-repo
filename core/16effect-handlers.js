@@ -213,11 +213,11 @@ registerEffectHandler(EFFECT_TYPES.STAT_CHANGE, (ctx) => {
     const executed = [];
     for (const decl of ctx.decls) {
         if (!decl.target || !decl.target.alive) continue;
-        if (decl.field === 'atk' && decl.target._baseAtk !== undefined) {
-            decl.target._baseAtk += decl.delta;
+        if (decl.field === 'atk' && decl.target.state._baseAtk !== undefined) {
+            decl.target.state._baseAtk += decl.delta;
         }
-        if (decl.field === 'def' && decl.target._baseDef !== undefined) {
-            decl.target._baseDef += decl.delta;
+        if (decl.field === 'def' && decl.target.state._baseDef !== undefined) {
+            decl.target.state._baseDef += decl.delta;
         }
         applyStatChange(decl.target, decl.field, decl.delta, null, decl.reason || '属性变更');
         executed.push(decl);
@@ -269,8 +269,8 @@ registerEffectHandler(EFFECT_TYPES.ROUND_STAT_GRANT, (ctx) => {
             if (decl.field === 'maxHp') {
                 applyMaxHpChange(t, t.maxHp + decl.delta, decl.source || null, decl.reason || '回合属性');
             } else {
-                if (decl.field === 'atk' && t._baseAtk !== undefined) t._baseAtk += decl.delta;
-                if (decl.field === 'def' && t._baseDef !== undefined) t._baseDef += decl.delta;
+                if (decl.field === 'atk' && t.state._baseAtk !== undefined) t.state._baseAtk += decl.delta;
+                if (decl.field === 'def' && t.state._baseDef !== undefined) t.state._baseDef += decl.delta;
                 applyStatChange(t, decl.field, decl.delta, decl.source || null, decl.reason || '回合属性');
             }
         }

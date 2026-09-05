@@ -140,9 +140,9 @@ function checkZhangSwitch(A, log) {
         applyMaxHpChange(zhang, newMaxHp, null, '乾坤大挪移变身');
         zhang.role = ROLE_TYPES.WARRIOR;
         zhang.state._resting = false; Object.assign(zhang.state, { _zhangSwitched: true });
-        zhang._baseMaxHp = zhang.maxHp;
-        zhang._baseAtk = zhang.atk;
-        zhang._baseDef = zhang.def;
+        zhang.state._baseMaxHp = zhang.maxHp;
+        zhang.state._baseAtk = zhang.atk;
+        zhang.state._baseDef = zhang.def;
         emitCoreEvent(zhang, UNIT_EVENT_TYPES.ZHANG_SWITCH, {
             atk: zhang.atk,
             def: zhang.def,
@@ -150,9 +150,9 @@ function checkZhangSwitch(A, log) {
             hp: zhang.hp,
             role: zhang.role,
             rangedForm: false,
-            _baseAtk: zhang._baseAtk,
-            _baseDef: zhang._baseDef,
-            _baseMaxHp: zhang._baseMaxHp
+            _baseAtk: zhang.state._baseAtk,
+            _baseDef: zhang.state._baseDef,
+            _baseMaxHp: zhang.state._baseMaxHp
         });
         log.push({
             factType: FACT_TYPES.ZHANG_SWITCH,
@@ -201,7 +201,7 @@ function applyStatChange(target, field, delta, source, reason, record = true) {
         healDone: target.healDone, reboundDone: target.reboundDone,
         leechDone: target.leechDone, dodgeCount: target.dodgeCount,
         critCount: target.critCount, survivedRounds: target.survivedRounds,
-        _baseAtk: target._baseAtk, _baseDef: target._baseDef, _baseMaxHp: target._baseMaxHp
+        _baseAtk: target.state._baseAtk, _baseDef: target.state._baseDef, _baseMaxHp: target.state._baseMaxHp
     });
     return target._pendingDeath || false;
 }
