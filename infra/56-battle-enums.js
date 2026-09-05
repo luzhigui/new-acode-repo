@@ -168,5 +168,6 @@ export const STORE_ACTION_TYPES = Object.freeze({
     ADD_UNIT: 'ADD_UNIT',
     REMOVE_UNIT: 'REMOVE_UNIT',
     HP_CHANGE: 'hp-change',
-    STAT_BONUS_CHANGE: 'stat-bonus-change'
+    STAT_BONUS_CHANGE: 'stat-bonus-change',
+    SET_UNITS: 'SET_UNITS'
 });

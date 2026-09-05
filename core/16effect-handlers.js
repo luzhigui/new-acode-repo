@@ -99,7 +99,7 @@ registerCalcModifier(EFFECT_TYPES.BREAK_DEF, (ctx) => {
     const { decl, unit, target, refs } = ctx;
     const reduce = Math.min(decl.value || 0, refs.defBase);
     refs.defBase -= reduce;
-    if (target._baseDef !== undefined) target._baseDef -= reduce;
+    if (target.state._baseDef !== undefined) target.state._baseDef -= reduce;
     applyStatChange(target, 'def', -reduce, unit, '破防');
     emitEvent(target, UNIT_EVENT_TYPES.HP_CHANGE, { hp: target.hp, maxHp: target.maxHp, alive: target.alive, atk: target.atk, def: target.def, _isDead: target.state._isDead || false });
     refs.defReduced = reduce;
@@ -146,7 +146,7 @@ registerEffectHandler(EFFECT_TYPES.LEECH, (ctx) => {
     for (const decl of ctx.decls) {
         if (!decl.source || !decl.source.alive) continue;
         if (decl.maxHp) {
-            decl.source._baseMaxHp = Math.max(decl.source._baseMaxHp, decl.maxHp);
+            decl.source.state._baseMaxHp = Math.max(decl.source.state._baseMaxHp, decl.maxHp);
             applyMaxHpChange(decl.source, decl.maxHp, null, '吸血上限提升');
         }
         const capped = Math.min(decl.value || 0, decl.source.maxHp - decl.source.hp);
@@ -185,7 +185,7 @@ registerEffectHandler(EFFECT_TYPES.SPLASH, (ctx) => {
             if (hitCount > 0 && perSplash > 0) {
                 const growth = hitCount * perSplash;
                 applyStatChange(ctx.unit, 'atk', growth, null, '流星溅射成长');
-                if (ctx.unit._baseAtk !== undefined) ctx.unit._baseAtk += growth;
+                if (ctx.unit.state._baseAtk !== undefined) ctx.unit.state._baseAtk += growth;
                 if (decl.factData) decl.factData.growth = growth;
             }
         }

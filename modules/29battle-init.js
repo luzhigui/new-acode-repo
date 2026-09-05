@@ -100,7 +100,7 @@ export function initBattleTeams(currentStage, _rng) {
                 else { unit.isXiaoZhaoBrother = true; }
                 unit.name = unit.isXiaoZhaoSister ? '小昭·姊' : '小昭·妹';
                 unit.initXiaoZhao(); unit.applyBonus();
-                unit._baseMaxHp = unit.maxHp; unit._baseAtk = unit.atk; unit._baseDef = unit.def;
+                unit.state._baseMaxHp = unit.maxHp; unit.state._baseAtk = unit.atk; unit.state._baseDef = unit.def;
             } else {
                 unit.init(_rng); unit.applyBonus();
             }
@@ -159,7 +159,7 @@ export function initBattleTeams(currentStage, _rng) {
             xzUnit.isXiaoZhaoBrother = (forceXzMode === 'brother');
             xzUnit.name = xzUnit.isXiaoZhaoSister ? '小昭·姊' : '小昭·妹';
             xzUnit.initXiaoZhao(); xzUnit.applyBonus();
-            xzUnit._baseMaxHp = xzUnit.maxHp; xzUnit._baseAtk = xzUnit.atk; xzUnit._baseDef = xzUnit.def;
+            xzUnit.state._baseMaxHp = xzUnit.maxHp; xzUnit.state._baseAtk = xzUnit.atk; xzUnit.state._baseDef = xzUnit.def;
             xzUnit.pos = swappable ? swappable.pos : null;
             allyTeam.push(xzUnit);
             remainingPower -= (elitePower['小昭'] || 140);
@@ -283,7 +283,7 @@ export function initBattleTeams(currentStage, _rng) {
                 if (role === 'random') continue;
                 for (let pos of poses) {
                     let unit = normalUnits.find(u => u.role === role && u.pos == null);
-                    if (unit && !enemyPosSet.has(pos)) { unit.pos = pos; unit._originalPos = pos; enemyPosSet.add(pos); }
+                    if (unit && !enemyPosSet.has(pos)) { unit.pos = pos; unit.state._originalPos = pos; enemyPosSet.add(pos); }
                 }
             }
         }
@@ -292,15 +292,15 @@ export function initBattleTeams(currentStage, _rng) {
         if (zhou && zhou.pos == null) {
             const zhouPriority = [2, 3, 4, 5, 6, 7, 8, 9];
             let placed = false;
-            for (const p of zhouPriority) { if (!enemyPosSet.has(p)) { zhou.pos = p; zhou._originalPos = p; enemyPosSet.add(p); placed = true; break; } }
-            if (!placed) { let displaced = normalUnits.find(u => u.pos === 2); if (displaced) { displaced.pos = null; displaced._originalPos = -1; } zhou.pos = 2; zhou._originalPos = 2; enemyPosSet.add(2); }
+            for (const p of zhouPriority) { if (!enemyPosSet.has(p)) { zhou.pos = p; zhou.state._originalPos = p; enemyPosSet.add(p); placed = true; break; } }
+            if (!placed) { let displaced = normalUnits.find(u => u.pos === 2); if (displaced) { displaced.pos = null; displaced.state._originalPos = -1; } zhou.pos = 2; zhou.state._originalPos = 2; enemyPosSet.add(2); }
         }
         if (song && song.pos == null) {
             const zhouPos = zhou ? zhou.pos : 0;
             let placed = false;
-            for (let p = zhouPos + 1; p <= 9; p++) { if (!enemyPosSet.has(p)) { song.pos = p; song._originalPos = p; enemyPosSet.add(p); placed = true; break; } }
-            if (!placed) { for (let p = 1; p <= 9; p++) { if (!enemyPosSet.has(p)) { song.pos = p; song._originalPos = p; enemyPosSet.add(p); placed = true; break; } } }
-            if (!placed) { let backPos = zhouPos + 1; if (backPos <= 9) { let displaced = normalUnits.find(u => u.pos === backPos); if (displaced) { displaced.pos = null; displaced._originalPos = -1; } song.pos = backPos; song._originalPos = backPos; enemyPosSet.add(backPos); } }
+            for (let p = zhouPos + 1; p <= 9; p++) { if (!enemyPosSet.has(p)) { song.pos = p; song.state._originalPos = p; enemyPosSet.add(p); placed = true; break; } }
+            if (!placed) { for (let p = 1; p <= 9; p++) { if (!enemyPosSet.has(p)) { song.pos = p; song.state._originalPos = p; enemyPosSet.add(p); placed = true; break; } } }
+            if (!placed) { let backPos = zhouPos + 1; if (backPos <= 9) { let displaced = normalUnits.find(u => u.pos === backPos); if (displaced) { displaced.pos = null; displaced.state._originalPos = -1; } song.pos = backPos; song.state._originalPos = backPos; enemyPosSet.add(backPos); } }
         }
         const otherElites = eliteUnits.filter(u => u !== zhou && u !== song && u.pos == null);
         for (let u of otherElites) {
@@ -309,12 +309,12 @@ export function initBattleTeams(currentStage, _rng) {
             else if (u.name === '鹿杖客') priority = [7, 8, 9, 4, 5, 6, 1, 2, 3];
             else if (u.name === '鹤笔翁') priority = [3, 4, 5, 6, 7, 8, 9, 1, 2];
             else priority = [1, 2, 3, 4, 5, 6, 7, 8, 9];
-            for (const p of priority) { if (!enemyPosSet.has(p)) { u.pos = p; u._originalPos = p; enemyPosSet.add(p); break; } }
-            if (u.pos == null) { let p = priority[0]; let displaced = normalUnits.find(u2 => u2.pos === p); if (displaced) { displaced.pos = null; displaced._originalPos = -1; } u.pos = p; u._originalPos = p; enemyPosSet.add(p); }
+            for (const p of priority) { if (!enemyPosSet.has(p)) { u.pos = p; u.state._originalPos = p; enemyPosSet.add(p); break; } }
+            if (u.pos == null) { let p = priority[0]; let displaced = normalUnits.find(u2 => u2.pos === p); if (displaced) { displaced.pos = null; displaced.state._originalPos = -1; } u.pos = p; u.state._originalPos = p; enemyPosSet.add(p); }
         }
         let unplacedNormals = normalUnits.filter(u => u.pos == null);
         let emptyEnemySlots = [1, 2, 3, 4, 5, 6, 7, 8, 9].filter(p => !enemyPosSet.has(p));
-        for (let u of unplacedNormals) { if (emptyEnemySlots.length > 0) { let idx = _rand(0, emptyEnemySlots.length - 1); u.pos = emptyEnemySlots[idx]; u._originalPos = u.pos; enemyPosSet.add(emptyEnemySlots[idx]); emptyEnemySlots.splice(idx, 1); } }
+        for (let u of unplacedNormals) { if (emptyEnemySlots.length > 0) { let idx = _rand(0, emptyEnemySlots.length - 1); u.pos = emptyEnemySlots[idx]; u.state._originalPos = u.pos; enemyPosSet.add(emptyEnemySlots[idx]); emptyEnemySlots.splice(idx, 1); } }
         enemyTeam = allUnits;
     }
 

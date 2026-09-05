@@ -60,7 +60,7 @@ function openDetailPopup(unit) {
 window.openDetailPopup = openDetailPopup;
 
 function renderAtkDetail(u, buffStats, ctx) {
-    let initAtk = u._initAtk !== undefined ? u._initAtk : u.atk;
+    let initAtk = u.state._initAtk !== undefined ? u.state._initAtk : u.atk;
     let holyAtkBonus = Math.floor(initAtk * buffStats.atkBonus);
     let carryAtk = u.state._carryAtkBonus || 0;
     let butterflyAtk = u.state._butterflyAtkBonus || 0;
@@ -84,7 +84,7 @@ function renderAtkDetail(u, buffStats, ctx) {
 }
 
 function renderDefDetail(u, buffStats) {
-    let initDef = u._initDef !== undefined ? u._initDef : u.def;
+    let initDef = u.state._initDef !== undefined ? u.state._initDef : u.def;
     let holyDefBonus = Math.floor(initDef * buffStats.defBonus);
     let carryDef = u.state._carryDefBonus || 0;
     let butterflyDef = u.state._butterflyDefBonus || 0;

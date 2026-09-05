@@ -2,13 +2,13 @@
 export const VER = 'core/15-skill-mechanisms.js V5.7.2';
 
 import { EXECUTION_LAYER as L, EFFECT_TYPES, registerSettlementHook } from '../infra/50-event-bus.js';
-import { CONFIG } from './01config-5v5-test.js';
+import { CONFIG, getSkillParams } from './01config-5v5-test.js';
 import { registerDodgeRule } from './12battle-attack-steps.js';
 import { emitEvent, applyStatChange, applyMaxHpChange, getBattleRng } from './13battle-shared.js';
-import { checkKuLian, applyXingFenGrant, tickKuaiLeHeal, canXingFenTrigger, consumeXingFen } from '../modules/20elite-skills.js';
+// 宋青书/周芷若联动函数已迁回 core，消除 core→modules 循环依赖
 import { FACT_TYPES, UNIT_EVENT_TYPES, CAMP_TYPES, SIGNAL_TYPES } from '../infra/56-battle-enums.js';
-// 机制查表化：静态顶层 import 避免动态 import 的异步时序导致 registerSettlementHook 错过注册
-import { installMechanicByType } from '../modules/30custom-effects.js';
+// 机制查表化：注册表已下沉 core/18，core 只查表不依赖 modules
+import { installMechanicByType } from './18mechanic-registry.js';
 // 同步化：性奋额外攻击改为静态导入，避免动态 import 引入异步，使 processUnitAttack 可同步递归
 import { processUnitAttack } from './10battle-attack.js';
 
@@ -158,7 +158,7 @@ function submitOnHitEffects(data, onHitDecls) {
                 const lostPct = (unit.maxHp - unit.hp) / unit.maxHp;
                 const ratio = eff.minRatio + (eff.maxRatio - eff.minRatio) * lostPct;
                 const heal = Math.floor(dmg * ratio);
-                const newMaxHp = Math.min(unit.maxHp + heal, unit._baseMaxHp * 2);
+                const newMaxHp = Math.min(unit.maxHp + heal, unit.state._baseMaxHp * 2);
                 if (!data.declarations) data.declarations = [];
                 data.declarations.push({
                     type: EFFECT_TYPES.LEECH,
@@ -370,7 +370,7 @@ function submitChainClaw(data, decls) {
     let simulatedSongHp = song ? song.hp : 0;
     let depth = 0;
 
-    while (simulatedTargetHp > 0 && !target._pendingDeath && depth < 100) {
+    while (simulatedTargetHp > 0 && !target.state._pendingDeath && depth < 100) {
         if (depth > 0 && rng.next() > (s.chainProcChance || 0.80)) break;
         const lostHp = target.maxHp - simulatedTargetHp;
         const ratioDmg = Math.floor((lostHp * (s.lostHpRatio || 0.015) + target.maxHp * (s.maxHpRatio || 0.01)) * 10) / 10;
@@ -503,7 +503,7 @@ function submitXinHun(data, decls) {
     const healLevels = decl.healLevels || [0.16, 0.10, 0.06, 0.03];
     applyStatChange(zhou, 'hp', -hpDeduct, unit, '新婚扣血', false);
     zhou.state._kuaiLeStack.push({ healPct: healLevels[0] });
-    if (zhou.hp <= 0) { if (!zhou._deathTime) zhou._deathTime = Date.now(); }
+    if (zhou.hp <= 0) { if (!zhou.state._deathTime) zhou.state._deathTime = Date.now(); }
     log.push({
         factType: FACT_TYPES.XIN_HUN,
         data: {
@@ -517,13 +517,13 @@ function submitXinHun(data, decls) {
             isDead: !!zhou._pendingDeath
         }
     });
-    if (zhou._pendingDeath) { log.push({ factType: FACT_TYPES.XIN_HUN_DEATH, data: { unitName: zhou.name, uidD: zhou.uid } }); }
+    if (zhou.state._pendingDeath) { log.push({ factType: FACT_TYPES.XIN_HUN_DEATH, data: { unitName: zhou.name, uidD: zhou.uid } }); }
     Object.assign(unit.state, { _xingFenPenaltyCount: (unit.state._xingFenPenaltyCount || 0) + 1 });
     const penalty = unit.state._xingFenPenaltyCount + 1;
     if (penalty > 0 && unit.maxHp > 1) {
         const oldMaxHp = unit.maxHp;
         applyMaxHpChange(unit, Math.max(1, unit.maxHp - penalty), null, '性奋代价');
-        if (unit.hp <= 0) { if (!unit._deathTime) unit._deathTime = Date.now(); }
+        if (unit.hp <= 0) { if (!unit.state._deathTime) unit.state._deathTime = Date.now(); }
         log.push({ factType: FACT_TYPES.XING_FEN_COST, data: { unitName: unit.name, oldMaxHp, newMaxHp: unit.maxHp, penalty } });
     }
 }
@@ -552,14 +552,14 @@ function submitXingFenGrant(data) {
 function submitXingFenExtra(data, decls) {
     const { unit, target, allySide, enemySide, log } = data;
     const decl = decls.find(d => d.name === unit.name);
-    if (!decl || unit.name !== '宋青书' || !unit.alive || unit._xingFenExtraAttacking) return;
+    if (!decl || unit.name !== '宋青书' || !unit.alive || unit.state._xingFenExtraAttacking) return;
     if (!canXingFenTrigger(unit)) return;
     consumeXingFen(unit);
     log.push({ factType: FACT_TYPES.XING_FEN_EXTRA_ATTACK, data: { unitName: unit.name } });
-    unit._xingFenExtraAttacking = true;
+    unit.state._xingFenExtraAttacking = true;
     // 同步递归攻击，processUnitAttack 已同步化
     processUnitAttack(unit, allySide, enemySide, log, data.A, data.B, data.state, null, null);
-    unit._xingFenExtraAttacking = false;
+    unit.state._xingFenExtraAttacking = false;
 }
 
 function submitXingFenRetry(data, decls) {
@@ -617,4 +617,82 @@ function installDodgeRules(decl) {
             });
         }
     }
+}
+
+// ========== 宋青书/周芷若联动函数（自 modules/20 迁回 core） ==========
+
+export function checkKuLian(allyTeam) {
+    const song = allyTeam.find(u => u.name === '宋青书' && u.alive);
+    if (!song) return null;
+    const zhou = allyTeam.find(u => u.name === '周芷若' && u.alive);
+    if (zhou) return null;
+    return song;
+}
+
+export function applyXingFenGrant(allyTeam, log) {
+    const zhou = allyTeam.find(u => u.name === '周芷若' && u.alive);
+    const song = allyTeam.find(u => u.name === '宋青书' && u.alive);
+    if (!zhou || !song) return;
+    Object.assign(song.state, { _xingFenActive: true });
+    log.push({
+        factType: FACT_TYPES.XING_FEN_GRANT,
+        data: { zhouName: zhou.name, songName: song.name }
+    });
+}
+
+export function tickKuaiLeHeal(allUnits, log, declarations) {
+    allUnits.forEach(unit => {
+        if (!unit.state._kuaiLeStack || unit.state._kuaiLeStack.length === 0) return;
+        if (!unit.alive) return;
+        let totalHeal = 0;
+        const newStack = [];
+        unit.state._kuaiLeStack.forEach(layer => {
+            const healAmount = Math.floor(unit.maxHp * layer.healPct);
+            totalHeal += healAmount;
+            const levels = getSkillParams('宋青书', 'xinHun').healLevels;
+            if (!levels) throw new Error('缺技能参数: 宋青书.xinHun.healLevels');
+            const currentIdx = levels.indexOf(layer.healPct);
+            if (currentIdx >= 0 && currentIdx < levels.length - 1) {
+                newStack.push({ healPct: levels[currentIdx + 1] });
+            }
+        });
+        if (totalHeal > 0) {
+            const hpBefore = Math.floor(unit.hp);
+            if (declarations) {
+                declarations.push({
+                    type: EFFECT_TYPES.ROUND_STAT_GRANT,
+                    field: 'hp',
+                    delta: totalHeal,
+                    target: unit,
+                    source: null,
+                    reason: '快乐回血'
+                });
+            } else {
+                applyStatChange(unit, 'hp', totalHeal, null, '快乐回血');
+            }
+            log.push({
+                factType: FACT_TYPES.KUAI_LE_HEAL,
+                data: {
+                    unitName: unit.name,
+                    unitUid: unit.uid,
+                    heal: totalHeal,
+                    hpBefore,
+                    hpAfter: Math.floor(unit.hp + totalHeal),
+                    layers: unit.state._kuaiLeStack.length
+                }
+            });
+        }
+        Object.assign(unit.state, { _kuaiLeStack: newStack });
+    });
+}
+
+export function canXingFenTrigger(attacker) {
+    if (attacker.name !== '宋青书') return false;
+    if (!attacker.state._xingFenActive) return false;
+    if (!attacker.alive) return false;
+    return true;
+}
+
+export function consumeXingFen(attacker) {
+    Object.assign(attacker.state, { _xingFenActive: false });
 }

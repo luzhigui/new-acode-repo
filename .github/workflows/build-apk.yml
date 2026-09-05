@@ -28,12 +28,22 @@ jobs:
       - name: 复制游戏文件到 web/
         run: node scripts/prepare-web.mjs
 
+      - name: 生成 App 图标
+        run: |
+          npm install sharp
+          node scripts/make-icon.mjs
+
       - name: 安装 Capacitor
         run: |
           npm install
 
       - name: 添加安卓平台
         run: npx cap add android
+
+      - name: 生成各尺寸图标资源
+        run: |
+          npx capacitor-assets generate --android
+
 
       - name: 同步 web 资源
         run: npx cap sync android

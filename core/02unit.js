@@ -46,11 +46,11 @@ export class Unit {
     }
     clone(){
         let c=new Unit(this.name,this.m,this.role,this.camp);
-        // 永久字段已全部迁入 state，由 copyAllStateFields 统一处理；
-        // 此处只拷贝战斗必需顶层字段（atk/def/hp/pos/alive 等），跳过 state、fsm 及已迁入 state 的旧永久字段
+        // 永久字段和整场字段已全部迁入 state，由 copyAllStateFields 统一处理；
+        // 此处只拷贝战斗必需顶层字段（atk/def/hp/pos/alive 等），跳过 state、fsm 及所有下划线临时字段
         for (const key of Object.keys(this)) {
             if (key === 'state' || key === '_fsm') continue;
-            if (key.startsWith('_') && !['_flash'].includes(key)) continue; // 跳过所有下划线字段，它们要么迁入 state，要么是临时标记
+            if (key.startsWith('_') && key !== '_flash') continue;
             c[key] = this[key];
         }
         // state：全量字段统一拷贝（17-state-keys 驱动），数组深拷贝、对象浅拷贝

@@ -115,6 +115,20 @@ export function isBattleStateKey(key) {
     return _battleStateKeys.has(key);
 }
 
+// 持久化接口：core 层经此间接访问 localStorage，避免跨层直读浏览器 API
+export function persistValue(key, value) {
+    try { localStorage.setItem(key, String(value)); } catch (e) { /* Worker 环境或隐私模式无 localStorage，静默失败 */ }
+}
+
+export function loadPersistedValue(key, defaultValue = 0) {
+    try {
+        const v = localStorage.getItem(key);
+        return v !== null ? parseInt(v, 10) : defaultValue;
+    } catch (e) {
+        return defaultValue;
+    }
+}
+
 // 纯战斗数学/几何工具（原55-battle-math.js）
 export function calcDamage(atk, def) {
     if (def <= 0) return atk;

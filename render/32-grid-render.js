@@ -293,16 +293,16 @@ export function renderGrid(id, camp) {
         }
 
         let atkBonusVal = Math.floor(latestUnit.atk * latestUnit.buffAtkBonus);
-        let defBonusVal = Math.floor((latestUnit._baseDef || latestUnit.def) * latestUnit.buffDefBonus);
+        let defBonusVal = Math.floor((latestUnit.state._baseDef || latestUnit.def) * latestUnit.buffDefBonus);
         let hpBonusVal = Math.floor(latestUnit.maxHp * latestUnit.buffHpBonus);
         let displayAtk = Math.round(latestUnit.atk + (latestUnit.state._carryAtkBonus || 0) + atkBonusVal);
-        let initAtk = latestUnit._initAtk !== undefined ? Math.round(latestUnit._initAtk) : Math.round(latestUnit.atk);
+        let initAtk = latestUnit.state._initAtk !== undefined ? Math.round(latestUnit.state._initAtk) : Math.round(latestUnit.atk);
         let totalChange = displayAtk - initAtk;
         let atkDisplayHtml = `${displayAtk}`;
         if (totalChange > 0) atkDisplayHtml = `<span style="color:#daa520;font-weight:bold;">${displayAtk}</span>`;
         else if (totalChange < 0) atkDisplayHtml = `<span style="color:#c0392b;font-weight:bold;">${displayAtk}</span>`;
         let displayDef = Math.round(latestUnit.def + defBonusVal);
-        let initDef = latestUnit._initDef !== undefined ? Math.round(latestUnit._initDef) : Math.round(latestUnit.def);
+        let initDef = latestUnit.state._initDef !== undefined ? Math.round(latestUnit.state._initDef) : Math.round(latestUnit.def);
         let totalDefChange = displayDef - initDef;
         let defDisplayHtml = `${displayDef}`;
         if (totalDefChange > 0) defDisplayHtml = `<span style="color:#daa520;font-weight:bold;">${displayDef}</span>`;
@@ -312,7 +312,7 @@ export function renderGrid(id, camp) {
         let barColor = hpPct>70?'#4caf50':(hpPct>40?'#ff9800':'#f44336');
         let hpDisplayHtml = `${Math.floor(unit.hp)}`;
         const hasButterflyHpBonus = (latestUnit.state._butterflyHpBonus || 0) > 0;
-        if (hpBonusVal > 0 || (latestUnit._initMaxHp !== undefined && latestUnit._initMaxHp > 0 && latestUnit.maxHp > latestUnit._initMaxHp) || hasButterflyHpBonus) {
+        if (hpBonusVal > 0 || (latestUnit.state._initMaxHp !== undefined && latestUnit.state._initMaxHp > 0 && latestUnit.maxHp > latestUnit.state._initMaxHp) || hasButterflyHpBonus) {
             hpDisplayHtml = `<span style="color:#daa520;font-weight:bold;">${Math.floor(unit.hp)}</span>`;
         }
         // 血条渐变：目标值写入 Map，显示值由 JS 动画循环驱动

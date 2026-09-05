@@ -183,7 +183,7 @@ export function logTeamInfo(label, UI, gs, battleResultForInfo, activeBuffs, has
         appendDiv(`<span class="${camp.color}">【${camp.name}】</span>`);
         camp.data.forEach(u => {
             let aliveText = u.alive ? '存活' : '💀阵亡';
-            let displayPos = u.pos === -1 ? (u._originalPos || '?') : u.pos;
+            let displayPos = u.pos === -1 ? (u.state._originalPos || '?') : u.pos;
             let infoParts = [
                 `${u.name}(${u.role} M${u.m})`,
                 u.isHorse ? '[拒马]' : '',

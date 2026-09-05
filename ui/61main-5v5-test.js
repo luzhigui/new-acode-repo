@@ -240,8 +240,8 @@ document.addEventListener('DOMContentLoaded', async function() {
                 let enemyList = snap.enemy.map(u => u.clone());
                 for (let unit of enemyList) {
                     if (unit.pos === -1 || unit.pos == null) {
-                        if (freePositions.length > 0) { unit.pos = freePositions[_randLocal(0, freePositions.length - 1)]; unit._originalPos = unit.pos; freePositions = freePositions.filter(p => p !== unit.pos); }
-                        else { unit.pos = 1 + _randLocal(0, 8); unit._originalPos = unit.pos; }
+                        if (freePositions.length > 0) { unit.pos = freePositions[_randLocal(0, freePositions.length - 1)]; unit.state._originalPos = unit.pos; freePositions = freePositions.filter(p => p !== unit.pos); }
+                        else { unit.pos = 1 + _randLocal(0, 8); unit.state._originalPos = unit.pos; }
                     }
                 }
                 snap.enemy = Object.freeze(enemyList.map(u => Object.freeze(u)));

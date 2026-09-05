@@ -93,83 +93,8 @@ export function applyDamageModifiers(unit, target, dmg, allySide, enemySide, log
     return { modifiedDmg, entries };
 }
 
-// 宋青书/周芷若联动 — 回合级
-
-export function checkKuLian(allyTeam) {
-    const song = allyTeam.find(u => u.name === '宋青书' && u.alive);
-    if (!song) return null;
-    const zhou = allyTeam.find(u => u.name === '周芷若' && u.alive);
-    if (zhou) return null;
-    return song;
-}
-
-export function applyXingFenGrant(allyTeam, log) {
-    const zhou = allyTeam.find(u => u.name === '周芷若' && u.alive);
-    const song = allyTeam.find(u => u.name === '宋青书' && u.alive);
-    if (!zhou || !song) return;
-    Object.assign(song.state, { _xingFenActive: true });
-    log.push({
-        factType: FACT_TYPES.XING_FEN_GRANT,
-        data: { zhouName: zhou.name, songName: song.name }
-    });
-}
-
-export function tickKuaiLeHeal(allUnits, log, declarations) {
-    allUnits.forEach(unit => {
-        if (!unit.state._kuaiLeStack || unit.state._kuaiLeStack.length === 0) return;
-        if (!unit.alive) return;
-        let totalHeal = 0;
-        const newStack = [];
-        unit.state._kuaiLeStack.forEach(layer => {
-            const healAmount = Math.floor(unit.maxHp * layer.healPct);
-            totalHeal += healAmount;
-            const levels = getSkillParams('宋青书', 'xinHun').healLevels;
-            if (!levels) throw new Error('缺技能参数: 宋青书.xinHun.healLevels');
-            const currentIdx = levels.indexOf(layer.healPct);
-            if (currentIdx >= 0 && currentIdx < levels.length - 1) {
-                newStack.push({ healPct: levels[currentIdx + 1] });
-            }
-        });
-        if (totalHeal > 0) {
-            const hpBefore = Math.floor(unit.hp);
-            if (declarations) {
-                declarations.push({
-                    type: EFFECT_TYPES.ROUND_STAT_GRANT,
-                    field: 'hp',
-                    delta: totalHeal,
-                    target: unit,
-                    source: null,
-                    reason: '快乐回血'
-                });
-            } else {
-                applyStatChange(unit, 'hp', totalHeal, null, '快乐回血');
-            }
-            log.push({
-                factType: FACT_TYPES.KUAI_LE_HEAL,
-                data: {
-                    unitName: unit.name,
-                    unitUid: unit.uid,
-                    heal: totalHeal,
-                    hpBefore,
-                    hpAfter: Math.floor(unit.hp + totalHeal),
-                    layers: unit.state._kuaiLeStack.length
-                }
-            });
-        }
-        Object.assign(unit.state, { _kuaiLeStack: newStack });
-    });
-}
-
-export function canXingFenTrigger(attacker) {
-    if (attacker.name !== '宋青书') return false;
-    if (!attacker.state._xingFenActive) return false;
-    if (!attacker.alive) return false;
-    return true;
-}
-
-export function consumeXingFen(attacker) {
-    Object.assign(attacker.state, { _xingFenActive: false });
-}
+// 宋青书/周芷若联动函数已迁入 core/15-skill-mechanisms.js
+// （消除 core→modules 循环依赖）
 
 // 小昭·妹 — 蛛变/飞天/蛛落
 
@@ -183,7 +108,7 @@ export function spiderTransform(unit, log) {
     let availableRoles = roles.filter(r => r !== unit.role);
     if (availableRoles.length === 0) availableRoles = roles;
     const newRole = availableRoles[rng.nextInt(0, availableRoles.length - 1)];
-    unit._lastRole = newRole;
+    unit.state._lastRole = newRole;
 
     if (!unit.state._masteredRoles) Object.assign(unit.state, { _masteredRoles: [] });
     const isNewMastery = !unit.state._masteredRoles.includes(newRole);
@@ -192,14 +117,14 @@ export function spiderTransform(unit, log) {
     // 蛛变：每次变身叠加新职业加成，不扣旧
     const newStats = getRoleBonus(newRole);
     unit.role = newRole;
-    if (newRole === ROLE_TYPES.DEFENDER) unit._hpDmgRatio = getHpDmgRatio(0.5);
+    if (newRole === ROLE_TYPES.DEFENDER) unit.state._hpDmgRatio = getHpDmgRatio(0.5);
     applyStatChange(unit, 'atk', newStats.atk, null, '蛛变');
     applyStatChange(unit, 'def', newStats.def, null, '蛛变');
-    unit._baseAtk = (unit._baseAtk || unit.atk) + newStats.atk;
-    unit._baseDef = (unit._baseDef || unit.def) + newStats.def;
-    unit._baseMaxHp = (unit._baseMaxHp || unit.maxHp) + newStats.maxHp;
+    unit.state._baseAtk = (unit.state._baseAtk || unit.atk) + newStats.atk;
+    unit.state._baseDef = (unit.state._baseDef || unit.def) + newStats.def;
+    unit.state._baseMaxHp = (unit.state._baseMaxHp || unit.maxHp) + newStats.maxHp;
     applyMaxHpChange(unit, unit.maxHp + newStats.maxHp, null, '蛛变');
-    emitEvent(unit, UNIT_EVENT_TYPES.HP_CHANGE, { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: unit.atk, def: unit.def, _baseAtk: unit._baseAtk, _baseDef: unit._baseDef, _baseMaxHp: unit._baseMaxHp });
+    emitEvent(unit, UNIT_EVENT_TYPES.HP_CHANGE, { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: unit.atk, def: unit.def, _baseAtk: unit.state._baseAtk, _baseDef: unit.state._baseDef, _baseMaxHp: unit.state._baseMaxHp });
 
     // 精通加成：首次精通时按层数差结算，全精通补 2 层
     let masteryGain = null;
@@ -211,11 +136,11 @@ export function spiderTransform(unit, log) {
             const gAtk = gained * m.atkPer, gDef = gained * m.defPer, gHp = gained * m.hpPer;
             applyStatChange(unit, 'atk', gAtk, null, '精通');
             applyStatChange(unit, 'def', gDef, null, '精通');
-            unit._baseAtk += gAtk;
-            unit._baseDef += gDef;
-            unit._baseMaxHp += gHp;
+            unit.state._baseAtk += gAtk;
+            unit.state._baseDef += gDef;
+            unit.state._baseMaxHp += gHp;
             applyMaxHpChange(unit, unit.maxHp + gHp, null, '精通');
-            emitEvent(unit, UNIT_EVENT_TYPES.HP_CHANGE, { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: unit.atk, def: unit.def, _baseAtk: unit._baseAtk, _baseDef: unit._baseDef, _baseMaxHp: unit._baseMaxHp });
+            emitEvent(unit, UNIT_EVENT_TYPES.HP_CHANGE, { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: unit.atk, def: unit.def, _baseAtk: unit.state._baseAtk, _baseDef: unit.state._baseDef, _baseMaxHp: unit.state._baseMaxHp });
             masteryGain = { atk: gAtk, def: gDef, hp: gHp };
         }
     }

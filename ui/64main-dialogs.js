@@ -5,6 +5,7 @@ import { showModal, showAlert } from './60main-utils.js';
 import { AudioManager } from '../modules/22audio-manager.js';
 import { GlobalStore } from '../infra/54-global-store.js';
 import { CAMP_TYPES } from '../infra/56-battle-enums.js';
+import { CONFIG } from '../core/01config-5v5-test.js';
 
 // 战报弹窗
 // 弹窗-战报：战斗结束统计数据展示+导出
@@ -219,8 +220,44 @@ export function showMusicPanel() {
 
     const title = document.createElement('div');
     title.textContent = '🎵 音乐设置';
-    title.style.cssText = 'color:#ffd700;font-size:16px;font-weight:bold;margin-bottom:16px;';
+    title.style.cssText = 'color:#ffd700;font-size:16px;font-weight:bold;margin-bottom:16px;cursor:pointer;user-select:none;';
     box.appendChild(title);
+
+    // BGM 曲目选择（默认仅展示前两首；标题连点 5 次解锁隐藏曲目）
+    let trackRow = document.createElement('div');
+    trackRow.style.marginBottom = '12px';
+    let hiddenUnlocked = false;
+    let titleClicks = 0;
+
+    function renderTracks() {
+        const tracks = CONFIG.BGM_TRACKS || [];
+        const shown = hiddenUnlocked ? tracks : tracks.slice(0, 2);
+        trackRow.innerHTML = '<span style="display:block;margin-bottom:6px;">🎶 背景音乐曲目</span>';
+        shown.forEach(t => {
+            const label = document.createElement('label');
+            label.style.display = 'block';
+            label.style.margin = '4px 0';
+            label.style.cursor = 'pointer';
+            const radio = document.createElement('input');
+            radio.type = 'radio'; radio.name = 'musicTrack'; radio.value = t.id;
+            radio.checked = (AudioManager.currentBgmId === t.id);
+            radio.onchange = () => {
+                if (radio.checked) AudioManager.switchBgm(t.id);
+            };
+            label.appendChild(radio);
+            label.appendChild(document.createTextNode(' ' + t.name));
+            trackRow.appendChild(label);
+        });
+    }
+    title.addEventListener('click', () => {
+        titleClicks++;
+        if (titleClicks >= 5 && !hiddenUnlocked) {
+            hiddenUnlocked = true;
+            renderTracks();
+        }
+    });
+    renderTracks();
+    box.appendChild(trackRow);
 
     const muteRow = document.createElement('div');
     muteRow.style.cssText = 'display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;';

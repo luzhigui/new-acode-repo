@@ -12,7 +12,6 @@ const UNIT_TOP_FIELDS = [
     'buffAtkBonus', 'buffDefBonus', 'buffDodgeBonus', 'buffHpBonus',
     'dmgDealt', 'dmgTaken', 'healDone', 'reboundDone', 'leechDone',
     'dodgeCount', 'critCount', 'survivedRounds',
-    '_baseAtk', '_baseDef', '_baseMaxHp',
     'rangedForm'
 ];
 
@@ -42,6 +41,10 @@ export function battleReducer(state, action) {
     }
     switch (action.type) {
         case STORE_ACTION_TYPES.INIT: return state;
+        case STORE_ACTION_TYPES.SET_UNITS: {
+            if (!Array.isArray(action.units)) return state;
+            return { ...state, units: action.units.map(u => ({ ...u, state: { ...u.state } })) };
+        }
         case STORE_ACTION_TYPES.SET_FLASH: {
             let next = state.units.map(u => {
                 if (u.uid !== action.uid) return u;
@@ -106,7 +109,24 @@ export function battleReducer(state, action) {
                             state: {
                                 _acted: false, _resting: false, _blocked: false,
                                 _isDead: p._isDead || false,
-                                _phantomTarget: p._phantomTarget || null
+                                _phantomTarget: p._phantomTarget || null,
+                                _baseAtk: p._baseAtk ?? 0,
+                                _baseDef: p._baseDef ?? 0,
+                                _baseMaxHp: p._baseMaxHp ?? 0,
+                                _initAtk: p._initAtk ?? 0,
+                                _initDef: p._initDef ?? 0,
+                                _initMaxHp: p._initMaxHp ?? 0,
+                                _hpDmgRatio: p._hpDmgRatio ?? 0,
+                                _originalPos: p._originalPos ?? -1,
+                                _deathTime: p._deathTime ?? 0,
+                                _tokenDropped: p._tokenDropped ?? false,
+                                _chestDropped: p._chestDropped ?? false,
+                                _lastRole: p._lastRole ?? null,
+                                _neverMiss: p._neverMiss ?? false,
+                                _bloodthirstStriked: p._bloodthirstStriked ?? false,
+                                _xingFenExtraAttacking: p._xingFenExtraAttacking ?? false,
+                                _dodgeChance: p._dodgeChance ?? 0,
+                                _pendingDeath: p._pendingDeath ?? false
                             }
                         });
                     }

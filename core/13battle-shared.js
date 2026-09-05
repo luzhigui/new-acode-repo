@@ -84,7 +84,15 @@ function emitFullUnitState(unit, eventType) {
         def: unit.def,
         alive: unit.alive,
         isHorse: unit.isHorse || false,
-        _isDead: unit.state._isDead || false
+        _isDead: unit.state._isDead || false,
+        _baseAtk: unit.state._baseAtk,
+        _baseDef: unit.state._baseDef,
+        _baseMaxHp: unit.state._baseMaxHp,
+        _initAtk: unit.state._initAtk,
+        _initDef: unit.state._initDef,
+        _initMaxHp: unit.state._initMaxHp,
+        _hpDmgRatio: unit.state._hpDmgRatio,
+        _originalPos: unit.state._originalPos
     });
 }
 
@@ -98,7 +106,7 @@ function finalizeDeaths(team) {
             applyStatChange(u, 'hp', -u.hp, null, '死亡结算', false);
             u.alive = false;
             u.state._isDead = true;
-            if (!u._deathTime) u._deathTime = Date.now();
+            if (!u.state._deathTime) u.state._deathTime = Date.now();
             emitCoreEvent(u, UNIT_EVENT_TYPES.HP_CHANGE, { hp: u.hp, maxHp: u.maxHp, alive: false, atk: u.atk, def: u.def, _isDead: true });
         }
     }
@@ -136,7 +144,7 @@ function checkZhangSwitch(A, log) {
         const warriorBonus = getRoleBonus(ROLE_TYPES.WARRIOR);
         zhang.atk += warriorBonus.atk * 3;
         zhang.def += warriorBonus.def * 3;
-        const newMaxHp = Math.min(zhang.maxHp + warriorBonus.maxHp * 3, zhang._baseMaxHp * 3);
+        const newMaxHp = Math.min(zhang.maxHp + warriorBonus.maxHp * 3, zhang.state._baseMaxHp * 3);
         applyMaxHpChange(zhang, newMaxHp, null, '乾坤大挪移变身');
         zhang.role = ROLE_TYPES.WARRIOR;
         zhang.state._resting = false; Object.assign(zhang.state, { _zhangSwitched: true });
@@ -191,8 +199,8 @@ function applyStatChange(target, field, delta, source, reason, record = true) {
         }
     }
     if (field === 'hp' && target.hp <= 0) {
-        target._pendingDeath = true;
-        if (!target._deathTime) target._deathTime = Date.now();
+        target.state._pendingDeath = true;
+        if (!target.state._deathTime) target.state._deathTime = Date.now();
     }
     emitCoreEvent(target, UNIT_EVENT_TYPES.HP_CHANGE, {
         hp: target.hp, maxHp: target.maxHp, alive: target.alive,
@@ -203,7 +211,7 @@ function applyStatChange(target, field, delta, source, reason, record = true) {
         critCount: target.critCount, survivedRounds: target.survivedRounds,
         _baseAtk: target.state._baseAtk, _baseDef: target.state._baseDef, _baseMaxHp: target.state._baseMaxHp
     });
-    return target._pendingDeath || false;
+    return target.state._pendingDeath || false;
 }
 
 function applyMaxHpChange(target, newMaxHp, source, reason) {

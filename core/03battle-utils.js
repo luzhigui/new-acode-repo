@@ -312,7 +312,7 @@ export function registerFortifyShield(eventBus) {
                 });
             } else {
                 applyStatChange(unit, 'def', increment, null, '坚盾');
-                if (unit._baseDef !== undefined) unit._baseDef += increment;
+                if (unit.state._baseDef !== undefined) unit.state._baseDef += increment;
             }
         }
         // skipStatChange 路径（被击坚盾）：caller 推 STAT_CHANGE 声明，_baseDef 由裁定执行块记账，此处直改会双扣

@@ -25,8 +25,8 @@ export function applyHolyFlameBonus(unit, activeBuffs, hasSister) {
     if (!holyFlameBuff) return;
     const cols = holyFlameBuff.cols || (holyFlameBuff.col != null ? [holyFlameBuff.col] : []);
     const rows = holyFlameBuff.rows || (holyFlameBuff.row != null ? [holyFlameBuff.row] : []);
-    const baseAtk = unit._baseAtk || unit.atk;
-    const baseDef = unit._baseDef || unit.def;
+    const baseAtk = unit.state._baseAtk || unit.atk;
+    const baseDef = unit.state._baseDef || unit.def;
     if (cols.includes(getUnitCol(unit.pos))) unit.state._holyAtkBonus = Math.floor(baseAtk * C.BUFFS.holyFlame.atkBonus);
     if (rows.includes(getUnitRow(unit.pos))) unit.state._holyDefBonus = Math.floor(baseDef * C.BUFFS.holyFlame.defBonus);
     if (hasSister && (unit.isXiaoZhaoSister || unit.isXiaoZhaoBrother)) {
@@ -42,7 +42,7 @@ export function applyFortifyBonus(unit, activeBuffs) {
     unit.state._fortifyDefBonus = 0;
     if (unit.role !== ROLE_TYPES.DEFENDER || unit.camp !== CAMP_TYPES.ALLY) return;
     if (activeBuffs && activeBuffs.some(b => b.key === BUFF_TYPES.FORTIFY)) {
-        const baseDef = unit._baseDef || unit.def;
+        const baseDef = unit.state._baseDef || unit.def;
         unit.state._fortifyDefBonus = Math.floor(baseDef * C.BUFFS.fortify.defBonus);
     }
 }
@@ -57,11 +57,11 @@ export function applyCarryBonus(unit, A, state, log, stats) {
     const sister = A.some(a => a.isXiaoZhaoSister && a.alive);
     const carryPositions = sister ? [4, 5, 6] : [5];
 
-    if (hasCarryActive && carryPositions.includes(unit.pos) && unit._baseMaxHp !== undefined && !unit.isHorse && !unit.isXiaoZhaoSister && !unit.isXiaoZhaoBrother) {
+    if (hasCarryActive && carryPositions.includes(unit.pos) && unit.state._baseMaxHp !== undefined && !unit.isHorse && !unit.isXiaoZhaoSister && !unit.isXiaoZhaoBrother) {
         // carry 生效：先回到基础血上限，再叠加本次 carry 加成
-        applyMaxHpChange(unit, unit._baseMaxHp, null, 'carry归位血上限');
-        applyStatChange(unit, 'atk', (unit._baseAtk || unit.atk) + (unit.state._butterflyAtkBonus || 0) - unit.atk, null, 'carry归位');
-        applyStatChange(unit, 'def', (unit._baseDef || unit.def) + (unit.state._butterflyDefBonus || 0) - unit.def, null, 'carry归位');
+        applyMaxHpChange(unit, unit.state._baseMaxHp, null, 'carry归位血上限');
+        applyStatChange(unit, 'atk', (unit.state._baseAtk || unit.atk) + (unit.state._butterflyAtkBonus || 0) - unit.atk, null, 'carry归位');
+        applyStatChange(unit, 'def', (unit.state._baseDef || unit.def) + (unit.state._butterflyDefBonus || 0) - unit.def, null, 'carry归位');
 
         const es = unit.state;
         const oldCarryAtk = es._carryAtkBonus || 0;
@@ -74,7 +74,7 @@ export function applyCarryBonus(unit, A, state, log, stats) {
         if (defDelta !== 0) applyStatChange(unit, 'def', defDelta, null, 'carry激活');
 
         if (es._carryHpBonus) {
-            let newMaxHp = Math.min(unit._baseMaxHp + es._carryHpBonus, unit._baseMaxHp * 2);
+            let newMaxHp = Math.min(unit.state._baseMaxHp + es._carryHpBonus, unit.state._baseMaxHp * 2);
             applyMaxHpChange(unit, newMaxHp, null, 'carry血上限提升');
         }
 
@@ -92,7 +92,7 @@ export function applyCarryBonus(unit, A, state, log, stats) {
     } else if (!unit.isHorse && !hasCarryActive && !unit.isXiaoZhaoSister && !unit.isXiaoZhaoBrother) {
         // carry 消失：清除加成，恢复基值
         if (carryPositions.includes(unit.pos) && (unit.state._carryAtkBonus || unit.state._carryDefBonus || unit.state._carryHpBonus)) {
-            if (unit.state._carryHpBonus) applyMaxHpChange(unit, unit._baseMaxHp, null, 'carry清除血上限');
+            if (unit.state._carryHpBonus) applyMaxHpChange(unit, unit.state._baseMaxHp, null, 'carry清除血上限');
             const es = unit.state;
             const clearAtk = es._carryAtkBonus || 0;
             const clearDef = es._carryDefBonus || 0;

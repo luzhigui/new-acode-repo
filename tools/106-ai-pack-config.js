@@ -24,7 +24,7 @@ export const ALL_PROJECT_FILES = [
     '../core/08-elite-registry.js',
     '../core/10battle-attack.js', '../core/11battle-round.js', '../core/12battle-attack-steps.js',
     '../core/13battle-shared.js', '../core/14buff-effects.js', '../core/15-skill-mechanisms.js',
-    '../core/16effect-handlers.js', '../core/17-state-keys.js',
+    '../core/16effect-handlers.js', '../core/17-state-keys.js', '../core/18mechanic-registry.js',
     // player（播放器）
     '../player/40player-text.js', '../player/41player-buff-ui.js', '../player/43animation-scheduler.js', '../player/42player-core.js',
     '../player/44battle-player-5v5-test.js', '../player/45event-handlers.js', '../player/46attack-group.js', '../player/47renderer.js',
@@ -77,6 +77,8 @@ export const ALL_PROJECT_FILES = [
     // assets（音频资源，不参与 fetch 复制）
     '../assets/sfx_arrow.mp3', '../assets/sfx_fly.mp3',
     '../assets/sfx_melee.mp3', '../assets/sfx_xinai.mp3',
+    '../assets/bgm-wuxia.mp3', '../assets/bgm-chinese.mp3',
+    '../assets/icon-source.webp',
     // 根目录（入口与设计文档）
     // 注意：中文文件名（记录-更改履历.md、待办-bug待修.md）在手机上 fetch 会卡住，已从清单剔除
     '../index.html', '../mode-5v5-test.html'

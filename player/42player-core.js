@@ -21,7 +21,7 @@ import { updateGridUI, setGridStore } from '../render/32-grid-render.js';
 import { setGridRenderCtx } from '../render/32-grid-render.js';
 import { AnimationScheduler } from './43animation-scheduler.js';
 import { renderLog } from '../render/30-fact-renderer.js';
-import { STAGE_ACTION_DEFS } from '../render/31-stage-actions.js';
+import { STAGE_ACTION_DEFS, translateFactsToStageActions } from '../render/31-stage-actions.js';
 
 function getCtx() {
     return getPlayerContext();
@@ -164,6 +164,11 @@ function rebuildUISnapshotFromStore(c) {
     c.UI.enemyTeam = storeUnits.filter(u => u.camp === CAMP_TYPES.ENEMY).map(cloneUnit);
 }
 
+function syncStoreFromStep(c, step) {
+    if (!c.store || !step) return;
+    c.store.dispatch({ type: STORE_ACTION_TYPES.SET_UNITS, units: [...step.ally, ...step.enemy] });
+}
+
 // timing 从 STAGE_ACTION_DEFS 读取
 function getActionTiming(action) {
     const def = STAGE_ACTION_DEFS[action && action.kind];
@@ -237,9 +242,7 @@ async function playStep(c, step, isFirstAttackRef) {
         }
     }
 
-    if (step.events && step.events.length > 0) {
-        c.store.dispatch({ type: STORE_ACTION_TYPES.APPLY_EVENTS, events: step.events });
-    }
+    syncStoreFromStep(c, step);
 }
 
 export async function playBattle() {
@@ -348,7 +351,7 @@ export async function playBattle() {
         if (abortSig && abortSig.aborted) return;
 
         const isFirstAttackRef = { value: true };
-        const stepper = createRoundStepper(battleState);
+        const stepper = createRoundStepper(battleState, { ui: true, translateFacts: translateFactsToStageActions });
         let lastStep = null;
 
         // createRoundStepper 返回普通 generator，for...of 同步迭代

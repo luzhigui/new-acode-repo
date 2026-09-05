@@ -1,37 +1,11 @@
-// V1.0.0 | ~1800 bytes | 2026-08-29 机制查表化：registerMechanicHandler/installMechanicByType/hasMechanicHandler；demageReflect（反伤护盾）纯数据接入
-export const VER = 'modules/30custom-effects.js V1.0.0';
+// V1.0.1 | ~1400 bytes | 2026-09-06 注册表下沉 core/18，本文件仅注册 damageReflect
+export const VER = 'modules/30custom-effects.js V1.0.1';
 
 import { registerSettlementHook, EFFECT_TYPES, EXECUTION_LAYER as L } from '../infra/50-event-bus.js';
+import { registerMechanicHandler } from '../core/18mechanic-registry.js';
 
-// 机制注册表：type → 处理器（须提供 install）
-// 第三方/数据驱动机制在此按 type 注册，core/15 仅在查表后调用 installMechanicByType 安装
-const mechanicHandlers = new Map();
-
-export function registerMechanicHandler(type, handler) {
-    if (!type || typeof type !== 'string') {
-        throw new Error(`[30custom-effects] registerMechanicHandler: type 必须是非空字符串`);
-    }
-    if (!handler || typeof handler.install !== 'function') {
-        throw new Error(`[30custom-effects] registerMechanicHandler: 机制 "${type}" 的 handler 必须提供 install() 方法`);
-    }
-    mechanicHandlers.set(type, handler);
-}
-
-export function hasMechanicHandler(type) {
-    return mechanicHandlers.has(type);
-}
-
-// 按 type 安装机制，未注册返回 false
-export function installMechanicByType(eventBus, type, A, B, log) {
-    const handler = mechanicHandlers.get(type);
-    if (!handler) return false;
-    try {
-        handler.install({ eventBus, A, B, log });
-    } catch (e) {
-        console.error(`[30custom-effects] 机制 "${type}" install 执行出错:`, e);
-    }
-    return true;
-}
+// 机制注册表已下沉 core/18，本文件只负责注册具体机制
+export { registerMechanicHandler, hasMechanicHandler, installMechanicByType } from '../core/18mechanic-registry.js';
 
 // damageReflect：反伤护盾，纯数据接入
 // 数据源：gameData.characters["反伤弟子"].mechanics
