@@ -1,4 +1,4 @@
-// V5.5.2 | 2026-08-24 坚盾每回合上限 3→4（成昆倍率联动变 8）
+// V5.5.2 | ~9450 bytes | 2026-08-24 坚盾每回合上限 3→4（成昆倍率联动变 8）
 export const VER = 'core/01config-5v5-test.js V5.5.2';
 
 import { ROLE_TYPES } from '../infra/56-battle-enums.js';

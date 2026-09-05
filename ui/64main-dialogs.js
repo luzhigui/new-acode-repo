@@ -1,4 +1,4 @@
-// V5.5.1 | 2026-08-23 战报防重复：42/61 两处调用叠双层 overlay，点两次才能关
+// V5.5.1 | ~15900 bytes | 2026-08-23 战报防重复：42/61 两处调用叠双层 overlay，点两次才能关
 export const VER = 'ui/64main-dialogs.js V5.5.1';
 
 import { showModal, showAlert } from './60main-utils.js';

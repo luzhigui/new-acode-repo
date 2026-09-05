@@ -1,4 +1,4 @@
-// V5.7.2 | 2026-08-24 蛛变防战 z 值改查分档表（getHpDmgRatio(0.5)=0.03），删硬编码
+// V5.7.2 | ~12200 bytes | 2026-08-24 蛛变防战 z 值改查分档表（getHpDmgRatio(0.5)=0.03），删硬编码
 export const VER = 'modules/20elite-skills.js V5.7.2';
 
 import { CONFIG, getSkillParams } from '../core/01config-5v5-test.js';

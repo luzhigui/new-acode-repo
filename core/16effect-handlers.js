@@ -1,4 +1,4 @@
-// V1.3.0 | 2026-08-28 修复 infra→core 反向依赖：57 只留容器，五 handler 注册归位 16
+// V1.3.0 | ~7800 bytes | 2026-08-28 修复 infra→core 反向依赖：57 只留容器，五 handler 注册归位 16
 export const VER = 'core/16effect-handlers.js V1.3.0';
 
 import { EFFECT_TYPES } from '../infra/50-event-bus.js';

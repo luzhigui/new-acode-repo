@@ -1,4 +1,4 @@
-// V5.6.2 | 2026-08-26 回合重置走 resetStateFields；蝶变方向弹窗移至播放器层
+// V5.6.2 | ~23700 bytes | 2026-08-26 回合重置走 resetStateFields；蝶变方向弹窗移至播放器层
 export const VER = 'core/11battle-round.js V5.6.2';
 
 import { CONFIG, getGameData, getSkillParams } from './01config-5v5-test.js';

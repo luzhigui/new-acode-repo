@@ -1,4 +1,4 @@
-// V5.6.0 | 2026-08-24 删除断头的精通查询链（精通已在蛛变首次掌握时增量结算）
+// V5.6.0 | ~27900 bytes | 2026-08-24 删除断头的精通查询链（精通已在蛛变首次掌握时增量结算）
 export const VER = 'core/04buff-system.js V5.6.0';
 import {
     applyFortifyDef_Normal, applyFortifyDef_Sister, applyFortifyDef_Brother,

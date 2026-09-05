@@ -1,4 +1,4 @@
-// V5.6.0 | 2026-08-21 合并原51-fsm/52-rng/53-battle-event-store/55-battle-math
+// V5.6.0 | ~5200 bytes | 2026-08-21 合并原51-fsm/52-rng/53-battle-event-store/55-battle-math
 export const VER = 'infra/51-core-utils.js V5.6.0';
 
 import { CAMP_TYPES, ROLE_TYPES } from './56-battle-enums.js';

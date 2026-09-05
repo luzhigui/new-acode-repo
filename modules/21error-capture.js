@@ -1,4 +1,4 @@
-// V5.5.0 | 2026-07-05
+// V5.5.0 | ~5900 bytes | 2026-07-05
 export const VER = 'modules/21error-capture.js V5.5.0';
 
 (function initErrorCapture() {

@@ -1,4 +1,4 @@
-// V5.6.0 | 2026-08-22 适配 106 分组合并（prefix → prefixes 数组）
+// V5.6.0 | ~16500 bytes | 2026-08-22 适配 106 分组合并（prefix → prefixes 数组）
 export const VER = 'tools/103-toolkit.js V5.6.0';
 
 import { AI_EXCLUDE, ALL_PROJECT_FILES, FILE_GROUPS, GROUP_PROMPTS, AI_INTERFACE_NOTE } from './106-ai-pack-config.js';

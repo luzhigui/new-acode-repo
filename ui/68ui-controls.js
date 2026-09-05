@@ -1,4 +1,4 @@
-// V5.5.0 | 2026-08-14 移除回放导入区块
+// V5.5.0 | ~25700 bytes | 2026-08-14 移除回放导入区块
 export const VER = 'ui/68ui-controls.js V5.5.0';
 
 import { getState, setState } from './63main-state.js';

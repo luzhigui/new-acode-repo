@@ -1,4 +1,4 @@
-// V5.6.1 | 2026-08-26 抽战斗统计统一记账入口 recordCombatStat
+// V5.6.1 | ~10000 bytes | 2026-08-26 抽战斗统计统一记账入口 recordCombatStat
 export const VER = 'core/13battle-shared.js V5.6.1';
 
 import { CONFIG } from './01config-5v5-test.js';

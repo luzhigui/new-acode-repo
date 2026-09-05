@@ -1,4 +1,4 @@
-// V2.0.0 | 2026-09-04 state schema 化：从 key 清单升级为带类型/默认值/生命周期的 schema
+// V2.0.0 | ~7800 bytes | 2026-09-04 state schema 化：从 key 清单升级为带类型/默认值/生命周期的 schema
 export const VER = 'core/17-state-keys.js V2.0.0';
 
 /** 字段类型：决定 clone 时的拷贝方式 */

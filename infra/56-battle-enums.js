@@ -1,4 +1,4 @@
-// V1.0.0 | 2026-08-26 从裸字符串收敛
+// V1.0.0 | ~3000 bytes | 2026-08-26 从裸字符串收敛
 export const VER = 'infra/56-battle-enums.js V1.0.1';
 
 /** 事实类型：所有 factType 字符串的唯一来源 */

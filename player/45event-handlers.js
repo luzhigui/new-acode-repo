@@ -1,4 +1,4 @@
-// V5.7.2 | 2026-08-26 特效单轨收尾：handleInfo/handleBuffReboundFortify 残留特效全移交导演 stageAction，本文件纯文本
+// V5.7.2 | ~25600 bytes | 2026-08-26 特效单轨收尾：handleInfo/handleBuffReboundFortify 残留特效全移交导演 stageAction，本文件纯文本
 export const VER = 'player/45event-handlers.js V5.7.2';
 
 import { isBlocked } from '../core/03battle-utils.js';

@@ -1,4 +1,4 @@
-// V5.7.2 | 2026-08-28 毒 fact 按攻击组定位插入
+// V5.7.2 | ~14500 bytes | 2026-08-28 毒 fact 按攻击组定位插入
 export const VER = 'core/15-skill-mechanisms.js V5.7.2';
 
 import { EXECUTION_LAYER as L, EFFECT_TYPES, registerSettlementHook } from '../infra/50-event-bus.js';
