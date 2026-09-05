@@ -39,6 +39,7 @@ export class Unit {
         this.dmgDealt=0;this.dmgTaken=0;this.healDone=0;this.reboundDone=0;
         this.leechDone=0;this.dodgeCount=0;this.critCount=0;
         this.survivedRounds=0;this._flash=null;
+        this.buffAtkBonus=0;this.buffDefBonus=0;this.buffDodgeBonus=0;this.buffHpBonus=0;
         this.fixed=false;
         this.state = createInitialState();
         this.isXiaoZhaoSister = false; // 🦋 小昭·姊

@@ -448,6 +448,12 @@ function makeAttackAction(data, index) {
                 factIndex: index,
                 timing: 'afterText'
             });
+        } else if (e.factType && [FACT_TYPES.BLOOD_THIRST_LEECH, FACT_TYPES.HOT_BLOOD_HEAL, FACT_TYPES.NINE_YANG_HEAL, FACT_TYPES.WEI_LEECH, FACT_TYPES.PHANTOM_DISGUISE_HEAL, FACT_TYPES.CLAW_HEAL].includes(e.factType)) {
+            const healAction = makeHealAction(e.data || {}, index);
+            if (healAction && healAction.amount) {
+                healAction.timing = 'afterText';
+                afterTextEffects.push(healAction);
+            }
         }
     }
 
@@ -551,10 +557,14 @@ export const STAGE_ACTION_DEFS = {
     [STAGE_ACTION_TYPES.DODGE]: {
         grid: 'sync', log: 'sync', timing: 'beforeText',
         store: (c, action, pendingDeaths) => {
-            // 闪避反击后攻击者进入眩晕态并清除 flash，渲染层读 _stunned 显示 😵
+            // 闪避反击后攻击者进入眩晕态并清除 flash；华丽模式子弹时间结束后才显示 😵
             if (action.actorUid) {
-                c.store.dispatch({ type: STORE_ACTION_TYPES.SET_VISUAL, uid: action.actorUid, _stunned: true, _acted: true });
+                c.store.dispatch({ type: STORE_ACTION_TYPES.SET_VISUAL, uid: action.actorUid, _acted: true });
                 c.store.dispatch({ type: STORE_ACTION_TYPES.CLEAR_UNIT_FLASH, uid: action.actorUid });
+                // 简单模式无子弹时间，立即显示眩晕
+                if (!c.dodgeEffectEnabled) {
+                    c.store.dispatch({ type: STORE_ACTION_TYPES.SET_VISUAL, uid: action.actorUid, _stunned: true });
+                }
             }
             if (action.dead && action.actorUid && pendingDeaths) pendingDeaths.push(action.actorUid);
         },
@@ -571,6 +581,8 @@ export const STAGE_ACTION_DEFS = {
                 // 必须直接 await，不能走 eventBus（emit 同步不等待 Promise），否则动画并行战斗推进会踩踏
                 const { showDodgeBulletTime } = await import('../fx/85fx-dodge-bullet.js');
                 await showDodgeBulletTime(attacker, dodger, action.reboundDmg || 0);
+                // 子弹时间结束后攻击者被反击眩晕，此时才显示 😵
+                c.store.dispatch({ type: STORE_ACTION_TYPES.SET_VISUAL, uid: action.actorUid, _stunned: true });
                 GlobalStore.set('bulletTimeActive', false); GlobalStore.set('isPaused', false); c.isPaused = false;
             } else if (attacker) {
                 eventBus.emit(FX_SIGNALS.DODGE_BUBBLE, { unit: attacker, text: '闪避！' });
