@@ -1,10 +1,9 @@
-// tools/103-toolkit.js - 光明顶5v5 开发工具箱（文件复制器）
-// V5.6.0 | ~16500 bytes| 2026-08-22 适配 106 分组合并（prefix → prefixes 数组）
+// V5.6.0 | 2026-08-22 适配 106 分组合并（prefix → prefixes 数组）
 export const VER = 'tools/103-toolkit.js V5.6.0';
 
 import { AI_EXCLUDE, ALL_PROJECT_FILES, FILE_GROUPS, GROUP_PROMPTS, AI_INTERFACE_NOTE } from './106-ai-pack-config.js';
 
-/* ========== 标签页切换 ========== */
+// 标签页切换
 document.querySelectorAll('.tab-btn').forEach(btn => {
     btn.addEventListener('click', () => {
         document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
@@ -15,12 +14,12 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
     });
 });
 
-/* ========== 工具函数 ========== */
+// 工具函数
 function escapeHtml(text) {
     return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
-/* ========== 文件复制器 ========== */
+// 文件复制器
 (function() {
     // 用户可勾选的文件列表（不含 assets/ 和 .md 等不可 fetch 的文件，排除文件名带空格的；精简模式跳过 AI_EXCLUDE）
     const FILES = ALL_PROJECT_FILES.filter(f => (f.endsWith('.js') || f.endsWith('.html') || f.endsWith('.cjs') || f.endsWith('.md') || f.endsWith('.json')) && !f.includes(' ') && !AI_EXCLUDE.has(f));
@@ -219,7 +218,7 @@ function escapeHtml(text) {
             }
         }
 
-        // ===== 按主题分组打包 =====
+        // 按主题分组打包
         const batches = [];
         const errors = fileData.filter(f => f.error);
         const okFiles = fileData.filter(f => !f.error);

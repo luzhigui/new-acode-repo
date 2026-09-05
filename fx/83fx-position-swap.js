@@ -1,5 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// fx/83fx-position-swap.js - 光明顶5v5 换位闪烁特效
-// V5.5.0 | ~5200 bytes| 2026-07-05
+// V5.5.0 | 2026-07-05
 export const VER = 'fx/83fx-position-swap.js V5.5.0';
 
 /**

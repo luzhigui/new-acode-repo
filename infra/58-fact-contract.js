@@ -1,5 +1,4 @@
-// infra/58-fact-contract.js - 光明顶5v5 fact 字段契约 + 渲染/翻译单源
-// V1.1.0 | ~9500 bytes | 2026-09-04 fact 单源化：FACT_SPECS 成为唯一事实源，30/31 从本文件生成映射
+// V1.1.0 | 2026-09-04 fact 单源化：FACT_SPECS 成为唯一事实源，30/31 从本文件生成映射
 export const VER = 'infra/58-fact-contract.js V1.1.0';
 
 import { FACT_TYPES } from './56-battle-enums.js';

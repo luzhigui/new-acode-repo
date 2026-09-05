@@ -1,4 +1,3 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// fx/82fx-crash-5v5-test.js - 光明顶5v5 飞撞与格挡特效
 // V5.5.0 | 2026-07-12 修复飞走模式原地残留蓝色格子（清除_flash标记）
 export const VER = 'fx/82fx-crash-5v5-test.js V5.5.0';
 
@@ -22,7 +21,7 @@ function finishCrash(clone, cell, unitA, UI) {
     if (clone && clone.parentNode) clone.remove();
     const ctx = GlobalStore.get('playerContext');
     if (ctx && ctx.store) {
-        // ★ 飞回结束后，必须彻底清除飞走状态和蓝色 flash，避免再次出现原地蓝色格子
+        // 飞回结束后，必须彻底清除飞走状态和蓝色 flash，避免再次出现原地蓝色格子
         ctx.store.dispatch({ type: STORE_ACTION_TYPES.SET_VISUAL, uid: unitA.uid, _flyMode: null, _acted: true });
         ctx.store.dispatch({ type: STORE_ACTION_TYPES.CLEAR_UNIT_FLASH, uid: unitA.uid });
         Object.assign(unitA.state, { _flyMode: null });
@@ -118,7 +117,7 @@ export function showMeleeCrash(unitA, unitD, speed, getPausedFn, onCrash) {
     }
     let UI = window._getPlayerContext ? window._getPlayerContext().UI : null;
 
-    // ★ 飞走模式关键修复：必须在 updateUI 触发重绘之前完成三件事：
+    // 飞走模式关键修复：必须在 updateUI 触发重绘之前完成三件事：
     // 1) 清除攻击闪示（CLEAR_UNIT_FLASH），避免渲染出蓝色格子；
     // 2) 同步 unit.state 的 _flyMode，因为 renderGrid 只读 unit.state._flyMode，不读 store state；
     // 3) 写入 store 的 _flyMode 和 _acted，供后续 finishCrash 恢复时使用。
@@ -425,7 +424,7 @@ export function showMeleeMiss(unitA, unitD, speed, getPausedFn) {
     let dist = Math.sqrt(dx*dx+dy*dy); if(dist<1) return;
     let nx=dx/dist, ny=dy/dist;
 
-    // ★ 扑空动画：不再 cloneNode 空壳 + display:none 藏原格（那是"白框飞过去 + 原地白框"的根——克隆的是脱节/空壳格子），
+    // 扑空动画：不再 cloneNode 空壳 + display:none 藏原格（那是"白框飞过去 + 原地白框"的根——克隆的是脱节/空壳格子），
     //   改为原格向前突进逼近目标后快速收回，配"未命中"气泡表达扑空感
     cellA.removeAttribute('data-flash');
     const ctxM = window._getPlayerContext ? window._getPlayerContext() : null;

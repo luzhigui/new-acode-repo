@@ -1,4 +1,4 @@
-﻿// V5.5.2 | 2026-08-19 import 路径合并至 infra/51-core-utils
+// V5.5.2 | 2026-08-19 import 路径合并至 infra/51-core-utils
 export const VER = 'render/32-grid-render.js V5.5.2';
 
 import { getUnitCol, getUnitRow, getAuraBonuses, getDodgeRules } from '../infra/51-core-utils.js';
@@ -379,7 +379,7 @@ export function renderGrid(id, camp) {
         if (unit.name === '成昆' && unit.state && unit.state._phantomTarget) eliteSkillIcon += ' 🎭';
         if (unit.state._xuanmingPoison && unit.state._xuanmingPoison.remaining > 0) eliteSkillIcon += ' ❄️';
 
-        // ====== 格子名字+logo 分级显示逻辑 ======
+        // 格子名字+logo 分级显示逻辑
         // 规则（2026-08-19 达达+用户确认）：
         // 1. logo 按加入顺序排列，最新的最靠近名字
         // 2. 名字≥5字时压缩名字宽度（letter-spacing:-0.5px），logo 大小不变

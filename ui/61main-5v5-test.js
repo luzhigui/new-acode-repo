@@ -1,4 +1,4 @@
-﻿// V5.6.1 | 2026-08-26 移除 handleBuffLeech import
+// V5.6.1 | 2026-08-26 移除 handleBuffLeech import
 export const VER = 'ui/61main-5v5-test.js V5.6.1';
 
 import '../infra/54-global-store.js';
@@ -133,7 +133,7 @@ function stopRuntimeMonitor() {
 async function startApp() { updateCoverVersion(); }
 startApp();
 
-// ==================== DOM 初始化 ====================
+// DOM 初始化
 
 
 // 确保初始化代码总能执行，解决模块加载时序
@@ -266,7 +266,7 @@ document.addEventListener('DOMContentLoaded', async function() {
             }
         };
 
-        // ==================== GAMEOVER：下一关 / 重新开始 ====================
+        // GAMEOVER：下一关 / 重新开始
         if(getState.gs()===S.GAMEOVER){
             resetBattleRuntime();
             clearLogExceptFirst(); clearAllEffects(); hasLoggedTeam=false;

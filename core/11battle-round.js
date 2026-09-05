@@ -1,5 +1,4 @@
-// core/11battle-round.js - 光明顶5v5 回合循环与生成器
-// V5.6.2 | ~23700 bytes| 2026-08-26 回合重置走 resetStateFields；蝶变方向弹窗移至播放器层
+// V5.6.2 | 2026-08-26 回合重置走 resetStateFields；蝶变方向弹窗移至播放器层
 export const VER = 'core/11battle-round.js V5.6.2';
 
 import { CONFIG, getGameData, getSkillParams } from './01config-5v5-test.js';
@@ -25,7 +24,7 @@ import { translateFactsToStageActions } from '../render/31-stage-actions.js';
 const C = CONFIG;
 
 function prepareRoundStart(A, B, log, state, round, rng) {
-    // ★ 精英回合状态必须在授权事件之前统一重置：
+    // 精英回合状态必须在授权事件之前统一重置：
     //   原顺序为 emit(授权) → forEach 内 resetStateFields(清零)，
     //   导致性奋/苦练授权后立即被清，攻击时刻读到 false 静默失效。
     A._activeBuffs = state.activeBuffs.filter(b => b.target === CAMP_TYPES.ALLY || !b.target);
@@ -259,8 +258,8 @@ function prepareRoundStart(A, B, log, state, round, rng) {
     return { doubleStrikeUnitUid, roundStartEvents, sisterComp, brotherComp };
 }
 
-// ★ 同步 generator：UI 层异步包装，工具侧可直接同步消费
-// ★ ui=false：跳过 stageActions 翻译，工具模拟用
+// 同步 generator：UI 层异步包装，工具侧可直接同步消费
+// ui=false：跳过 stageActions 翻译，工具模拟用
 export function* createRoundStepper(state, { ui = true } = {}) {
     const rng = state._rng || new SeededRNG(Date.now());
     state._rng = rng;
@@ -303,6 +302,7 @@ export function* createRoundStepper(state, { ui = true } = {}) {
     log = [];
 
     function resolveStateTransitions() {
+        // butterflyReturn/spiderDescend 延迟到回合结束，下轮再处理
         const stateTransitions = [];
         if (A._pendingStateTransitions) {
             stateTransitions.push(...A._pendingStateTransitions);
@@ -368,6 +368,7 @@ export function* createRoundStepper(state, { ui = true } = {}) {
             priorityDeclarations.push({ unit: u, priority: decl.priority });
         }
 
+        // 优先级队列排序：priority 高优先，同 priority 按 pos 升序
         const queue = [];
         for (const d of priorityDeclarations) {
             queue.push({ unit: d.unit, isPass: false, priority: d.priority, reason: null });
@@ -413,7 +414,7 @@ export function* createRoundStepper(state, { ui = true } = {}) {
             const { unit, reason } = orderResult.passEntry;
             unit.state._acted = true;
             unit.state._blocked = isBlocked(unit, currentTeam);
-            // ★ 记录休息回复前后的真实血量与增量，供日志渲染显示"谁休息、从多少恢复到多少"
+            // 记录休息回复前后的真实血量与增量，供日志渲染显示"谁休息、从多少恢复到多少"
             const hpBefore = Math.floor(unit.hp);
             let hpAfter = hpBefore;
             let actualHeal = 0;
@@ -448,7 +449,7 @@ export function* createRoundStepper(state, { ui = true } = {}) {
             isPriorityAction = true;
         }
 
-        // ★ 同步化：processUnitAttack 已改为同步函数，去掉 await
+        // 同步化：processUnitAttack 已改为同步函数，去掉 await
         processUnitAttack(unit, allySide, enemySide, log, A, B, state, doubleStrikeUnitUid);
 
         resolveDeaths(A, B, log);

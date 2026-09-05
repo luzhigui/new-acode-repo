@@ -16,7 +16,7 @@ function projectFactEntry(e) {
     return Object.assign({}, rendered, extra);
 }
 
-// ==================== 攻击流程 ====================
+// 攻击流程
 export function renderMissFact(fact) {
     const ac = fact.attacker.camp === CAMP_TYPES.ALLY ? 'blue' : 'orange';
     const campA = fact.attacker.camp === CAMP_TYPES.ALLY ? '明教' : '六大派';
@@ -257,7 +257,7 @@ export function renderImmuneFact(fact) {
     return immuneGroup;
 }
 
-// ==================== 掉落 / 破防 ====================
+// 掉落 / 破防
 export function renderDropFact(fact) {
     if (!fact) return null;
     if (fact.kind === DROP_TYPES.TOKEN) {
@@ -273,7 +273,7 @@ export function renderBreakDefFact(fact) {
     return {type:'detail', text:`<span class="purple small">🗡️ ${fact.attackerName} 破防：${fact.targetName} 防御 -${fact.reduce}</span>`};
 }
 
-// ==================== 拒马 / 张无忌 ====================
+// 拒马 / 张无忌
 export function renderHorseDestroyFact(fact) {
     if (fact.success) {
         return {
@@ -297,7 +297,7 @@ export function renderZhangSwitchFact(fact) {
     ];
 }
 
-// ==================== Buff 摘要 ====================
+// Buff 摘要
 export function renderBuffSummaryFact(buff, allyTeam, doubleStrikeUid) {
     switch (buff.key) {
         case BUFF_TYPES.BLOODTHIRST:
@@ -352,7 +352,7 @@ export function renderBuffSummaryFact(buff, allyTeam, doubleStrikeUid) {
     return null;
 }
 
-// ==================== Buff 衍生效果（嗜血/热血/乘风/流星） ====================
+// Buff 衍生效果（嗜血/热血/乘风/流星）
 export function renderBloodthirstLeechFact(fact) {
     if (fact.isBrother) {
         return { type:'info', text:`<span class="green">🕷️ 蝶血：${fact.unitName} 嗜血狂刀吸血+${fact.leechVal}</span>` };
@@ -393,17 +393,17 @@ export function renderMeteorShowerSplashFact(fact) {
     return { type:'buff-splash', text };
 }
 
-// ==================== Carry 应用 ====================
+// Carry 应用
 export function renderCarryApplyFact(fact) {
     return { type:'info', text:`<span class="gold">👑 carry：${fact.unitName} 获得队友属性加成 攻+${fact.atk} 防+${fact.def} 血上限+${fact.hp}</span>` };
 }
 
-// ==================== Buff 召唤 ====================
+// Buff 召唤
 export function renderHorseSummonFact(fact) {
     return {type:'buff-summon', text:`<span class="gold">🐴 拒马阵：拒马出现在${fact.pos}号位！</span>`, buffType: BUFF_SUBTYPES.SUMMON, horsePos: fact.pos, horseUid: fact.horseUid, horseTaunt: fact.horseTaunt || '嘶——！'};
 }
 
-// ==================== 行动跳过 ====================
+// 行动跳过
 export function renderPassFact(fact) {
     const { unit, reason } = fact;
     if (reason === '被遮挡' || reason === '拒马休息') {
@@ -431,7 +431,7 @@ export function renderPassFact(fact) {
     };
 }
 
-// ==================== 苦练 ====================
+// 苦练
 export function renderKuLianPriorityFact(fact) {
     return { type:'info', text:`<span class="gold">⚡ 苦练勤学：${fact.unitName} 率先行动！</span>` };
 }
@@ -439,7 +439,7 @@ export function renderKuLianFact(fact) {
     return { type:'info', text:`<span class="gold">🏋️ 苦练强化：${fact.unitName} 激励全体队友+${fact.atkBonus}攻+${fact.defBonus}防+${fact.hpBonus}血上限（自身三倍）！</span>` };
 }
 
-// ==================== 概率连击 ====================
+// 概率连击
 export function renderDoubleStrikeFact(fact) {
     if (fact.success) {
         return {type:'info', text:`<span class="gold">⚡ 概率连击触发！</span>`, isDoubleStrikeBanner:true};
@@ -447,17 +447,17 @@ export function renderDoubleStrikeFact(fact) {
     return {type:'info', text:`<span class="gray">⚡ 概率连击触发失败，${fact.unitName} 未能再次攻击</span>`};
 }
 
-// ==================== 远程成长 ====================
+// 远程成长
 export function renderRangedGrowthFact(fact) {
     return {type:'detail', text:`<span class="blue small">🏹 ${fact.unitName} 远程熟练：攻击 +${fact.growth} → ${fact.newAtk}</span>`};
 }
 
-// ==================== 坚盾 ====================
+// 坚盾
 export function renderFortifyShieldFact(fact) {
     return {type:'detail', text:`<span class="blue small">🛡️ ${fact.unitName} ${fact.label}：防御+${fact.increment}（已叠${fact.current}/${fact.cap}）</span>`};
 }
 
-// ==================== 惑心换位 ====================
+// 惑心换位
 export function renderMindControlSwapFact(fact) {
     return {type:'buff-swap', uidA: fact.unitA.uid, uidB: fact.unitB.uid, oldPosA: fact.posA, oldPosB: fact.posB, buffType: BUFF_SUBTYPES.SWAP, text:`<span class="gold">🌀 惑人心智：${fact.posA}号位${fact.unitA.name}与${fact.posB}号位${fact.unitB.name}互换位置！</span>`};
 }
@@ -468,7 +468,7 @@ export function renderMindControlBannerFact(fact) {
     return {type:'info', text:`<span class="gold">🌀 惑人心智（${fact.side === CAMP_TYPES.ENEMY ? '敌方' : '己方'}）判定：</span>`};
 }
 
-// ==================== 乾坤大挪移 ====================
+// 乾坤大挪移
 export function renderQianKunUpgradedFact(fact) {
     return {
         type:'info',
@@ -490,7 +490,7 @@ export function renderQianKunBasicFact(fact) {
     };
 }
 
-// ==================== 快乐回血 ====================
+// 快乐回血
 export function renderKuaiLeHealFact(fact) {
     return {
         type:'info',
@@ -504,7 +504,7 @@ export function renderKuaiLeHealFact(fact) {
     };
 }
 
-// ==================== 小昭蛛变 ====================
+// 小昭蛛变
 export function renderSpiderTransformFact(fact) {
     const gain = fact.masteryGain ? `，精通+${fact.masteryGain.atk}攻+${fact.masteryGain.def}防+${fact.masteryGain.hp}血` : '';
     return { type:'info', text:`<span class="gold">🕷️ 蛛变：${fact.unitName} 变换为<span class="gold">${fact.newRole}</span>（已精通${fact.mastered}/4${gain}）</span>` };
@@ -517,7 +517,7 @@ export function renderSpiderStrikeFact(fact) {
     return null;
 }
 
-// ==================== 玄冥神掌 ====================
+// 玄冥神掌
 export function renderXuanmingDotFact(fact) {
     return { type:'info', text:`<span class="purple">❄️ 玄冥神掌寒毒发作，${fact.unitName} 受到 ${fact.dot} 点伤害</span>`, uidD: fact.uidD, isDead: fact.isDead, dmg: fact.dot };
 }
@@ -525,12 +525,12 @@ export function renderXuanmingPoisonedFact(fact) {
     return { type:'info', text:`<span class="purple">❄️ ${fact.attackerName} 的玄冥神掌使 ${fact.targetName} 中毒！每回合损失生命（${fact.dotPercents.join('%→')}%→消失）</span>` };
 }
 
-// ==================== 成昆幻影伪装 ====================
+// 成昆幻影伪装
 export function renderPhantomDisguiseHealFact(fact) {
     return { type:'info', text:`<span class="green">🎭 幻影伪装：${fact.unitName} 回复 ${fact.heal} 点生命</span>` };
 }
 
-// ==================== 宋青书新婚 / 性奋 ====================
+// 宋青书新婚 / 性奋
 export function renderXingFenRetryFact(fact) {
     return { type:'info', text:`<span class="gold">💗 性奋：${fact.unitName} 获得额外攻击机会！</span>` };
 }
@@ -548,7 +548,7 @@ export function renderXingFenCostFact(fact) {
     return { type:'info', text:`<span class="red">💗 性奋代价：${fact.unitName} 血量上限 ${fact.oldMaxHp} → ${fact.newMaxHp}（-${fact.penalty}）</span>` };
 }
 
-// ==================== 张无忌九阳 / 融会贯通 ====================
+// 张无忌九阳 / 融会贯通
 export function renderNineYangHealFact(fact) {
     return { type:'info', text:`<span class="green">☀️ 九阳神功回复+${fact.heal}，${fact.hpBefore}→${fact.hpAfter}</span>`, isHealEntry:true, healAmount:fact.heal, healUnitUid:fact.unitUid };
 }
@@ -556,12 +556,12 @@ export function renderRongHuiBonusFact(fact) {
     return { type:'info', text:`<span class="red">🔥 融会贯通额外+${fact.extra}（目标攻击${fact.targetAtk} 防御${fact.targetDef}，差值绝对值×50%）</span>` };
 }
 
-// ==================== 韦一笑吸血 ====================
+// 韦一笑吸血
 export function renderWeiLeechFact(fact) {
     return { type:'info', text:`<span class="green">🦇 青翼蝠王·吸血+${fact.heal}，上限→${fact.newMaxHp}</span>`, isHealEntry:true, healAmount:fact.heal, healUnitUid:fact.unitUid };
 }
 
-// ==================== 小昭·姊 乾坤衍生 / 蝶变 ====================
+// 小昭·姊 乾坤衍生 / 蝶变
 export function renderQianKunDerivedFact(fact) {
     return {
         type:'info',
@@ -587,7 +587,7 @@ export function renderButterflyHostDeadFact(fact) {
     return { type:'info', text:`<span class="gold">🦋 蝶变：宿主已阵亡，${fact.sisterName} 被迫返回！</span>`, uidD: fact.sisterUid, isDead: fact.isDead };
 }
 
-// ==================== 小昭·妹 飞天 / 拒马 / 连击 ====================
+// 小昭·妹 飞天 / 拒马 / 连击
 export function renderSpiderFlyFact(fact) {
     return { type:'info', spiderAction:'fly', spiderUid: fact.spiderUid, text:`<span class="gold">🕷️ 飞天：${fact.unitName} ${fact.reason}，免疫本次攻击的 ${fact.incomingDmg||0} 点伤害，化为蜘蛛遁走！剩余次数：${fact.remaining}</span>` };
 }
@@ -598,7 +598,7 @@ export function renderSpiderDoubleStrikeFact(fact) {
     return {type:'info', text:`<span class="gold">🕷️ 蝶击：小昭·妹永久概率连击触发！</span>`, isDoubleStrikeBanner:true};
 }
 
-// ==================== 行动跳过（眩晕/飞天） ====================
+// 行动跳过（眩晕/飞天）
 export function renderStunSkipFact(fact) {
     return { type:'info', text:`<span class="gray">💫 ${fact.unitName} 被眩晕，无法响应攻击指令</span>` };
 }
@@ -606,17 +606,17 @@ export function renderFlySkipFact(fact) {
     return { type:'info', text:`<span class="gray">🕷️ ${fact.unitName} 正在飞天，无法行动</span>` };
 }
 
-// ==================== 战士斩杀 ====================
+// 战士斩杀
 export function renderWarriorExecuteFact(fact) {
     return { type:'info', text:`<span class="red">⚔️ 战士斩杀！${fact.unitName} 直接击杀 ${fact.targetName}！</span>` };
 }
 
-// ==================== 击杀行 ====================
+// 击杀行
 export function renderKillLineFact(fact) {
     return { text:`<span class="damage-line brush-red ${fact.ac}">💀击杀💀 ${fact.campA} ${fact.unitName}</span> 造成 <span class="red">${fact.dmg}</span> 伤害，<span class="${fact.dc}">${fact.campD} ${fact.targetName}</span> ${fact.hpBefore} → ${fact.hpNow} 💀阵亡` };
 }
 
-// ==================== 巨马反伤 / 严阵以待反弹 ====================
+// 巨马反伤 / 严阵以待反弹
 export function renderHorseReboundFact(fact) {
     return { type:'info', text:`<span class="red">🐴 巨马反伤：${fact.unitName} 受到 ${fact.rebound} 点反伤</span>` };
 }
@@ -627,12 +627,12 @@ export function renderFortifyReboundFact(fact) {
     return { type:'info', text:`<span class="gold">🛡️ 严阵以待反弹${fact.reboundDmg}给${fact.unitName}</span>` };
 }
 
-// ==================== 流星溅射成长 ====================
+// 流星溅射成长
 export function renderMeteorSplashGrowthFact(fact) {
     return { type:'info', text:`<span class="gold">⚡ ${fact.unitName} 攻击+${fact.growth}</span>` };
 }
 
-// ==================== 回合分隔线 / 概率连击摘要 ====================
+// 回合分隔线 / 概率连击摘要
 export function renderRoundStartFact(fact) {
     return { type:'round-start', text:`<div class="separator">———— 第${fact.round}回合开始 ————</div>` };
 }
@@ -643,12 +643,12 @@ export function renderDoubleStrikeSummaryFact(fact) {
     return { type:'buff-summary', text:`<span class="gold">⚡ 概率连击：${fact.unitName} 80%概率额外攻击一次</span>`, buffType: BUFF_SUBTYPES.BUFF_STAT };
 }
 
-// ==================== 张无忌台词 ====================
+// 张无忌台词
 export function renderZhangTauntFact(fact) {
     return { type:'info', text:`<span class="gold">🗣️ ${fact.unitName}：${fact.taunt}</span>` };
 }
 
-// ==================== 附录：raw HTML → factType 渲染 ====================
+// 附录：raw HTML → factType 渲染
 export function renderXingFenExtraAttackFact(fact) {
     return { type:'info', text:`<span class="gold">💗 性奋：${fact.unitName} 获得额外攻击机会！</span>` };
 }
@@ -685,7 +685,7 @@ export function renderPhantomConfuseFact(fact) {
     return { type:'info', text:`<span class="gold">${isButterfly ? '🕷️ 蝶舞迷心！' : '🎭 幻影伪装！'}${fact.unitName}被${fact.deceiver}迷惑，误攻队友${fact.targetName}！</span>` };
 }
 
-// ==================== 通用渲染入口 ====================
+// 通用渲染入口
 // 渲染器映射表：从 58 的 FACT_SPECS 自动生成，不再手动同步
 const FACT_RENDERERS = buildRendererMap({
     renderMissFact,

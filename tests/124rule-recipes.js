@@ -1,4 +1,3 @@
-// tests/124rule-recipes.js - 体检规则-阵容配方（单点维护，供监控器过滤与体检中心勾选面板共用）
 // V1.0.0 | 每场体检按"目标规则"裁剪执行集：只跑能触发的规则，其余不参与统计(消除海量skip噪音)
 // tag 语义: hero=我方英雄(部分可强制) / enemy=敌方精英(随机出阵) / mechanic=通用机制(双方都可能) / generic=通用
 export const RULE_META = {

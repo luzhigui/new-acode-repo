@@ -1,5 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// ui/64main-dialogs.js - 光明顶5v5 弹窗模块
-// V5.5.1 | ~15900 bytes| 2026-08-23 战报防重复：42/61 两处调用叠双层 overlay，点两次才能关
+// V5.5.1 | 2026-08-23 战报防重复：42/61 两处调用叠双层 overlay，点两次才能关
 export const VER = 'ui/64main-dialogs.js V5.5.1';
 
 import { showModal, showAlert } from './60main-utils.js';
@@ -7,7 +6,7 @@ import { AudioManager } from '../modules/22audio-manager.js';
 import { GlobalStore } from '../infra/54-global-store.js';
 import { CAMP_TYPES } from '../infra/56-battle-enums.js';
 
-// ==================== 战报弹窗 ====================
+// 战报弹窗
 // 弹窗-战报：战斗结束统计数据展示+导出
 export function showBattleReport(UI, battleResultForInfo) {
     // 不在 GAMEOVER 状态不弹窗
@@ -203,7 +202,7 @@ export function showBattleReport(UI, battleResultForInfo) {
     document.body.appendChild(overlay);
 }
 
-// ==================== 音乐设置弹窗 ====================
+// 音乐设置弹窗
 // 弹窗-音乐：BGM/音效音量+音源选择
 export function showMusicPanel() {
     const existing = document.getElementById('musicPanelOverlay');

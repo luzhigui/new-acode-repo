@@ -1,4 +1,3 @@
-// core/05battle-horse.js - 光明顶5v5 拒马逻辑
 // V5.5.1 | 2026-08-21 战报记账修正：拒马初始化/消散改非记账
 export const VER = 'core/05battle-horse.js V5.5.1';
 

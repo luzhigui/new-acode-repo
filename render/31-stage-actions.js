@@ -278,6 +278,7 @@ const FACT_TRANSLATORS = {
         timing: 'beforeText'
     }),
     [FACT_TYPES.SPIDER_FLY]: (data, index) => ({
+        // 飞行类 fact（蛛化/蝶变）均由本表翻译为 FLY_MODE 动作，特效在 DEFS.FLY_MODE.fx 按 originalFactType 处理
         kind: STAGE_ACTION_TYPES.FLY_MODE,
         actorUid: data.spiderUid ?? data.unitUid ?? null,
         originalFactType: FLY_MODE_TYPES.SPIDER_FLY,
@@ -410,7 +411,7 @@ function makeAttackAction(data, index) {
         isKuLianAttack: data.snap?.isKuLianAttack ?? false
     };
 
-    // 从 attack fact 的 entries 提取文本后特效（buff-splash / 白骨爪 / 乾坤攻击飘字 / 死亡画笔）
+    // 从 attack fact 的 entries 提取 afterText 特效，靠 e.type/e.factType 区分：溅射 / 白骨爪 / 乾坤飘字 / 死亡画笔
     const afterTextEffects = [];
     const entries = data.entries || [];
     for (const e of entries) {
@@ -573,7 +574,7 @@ export const STAGE_ACTION_DEFS = {
                 GlobalStore.set('bulletTimeActive', false); GlobalStore.set('isPaused', false); c.isPaused = false;
             } else if (attacker) {
                 eventBus.emit(FX_SIGNALS.DODGE_BUBBLE, { unit: attacker, text: '闪避！' });
-                // ★ 简单模式闪避反击：近战攻击者需补发 TRIGGER 信号，触发飞撞击退动画。
+                // 简单模式闪避反击：近战攻击者需补发 TRIGGER 信号，触发飞撞击退动画。
                 //    _triggerFX 里 isDodge=true 且 dodgeEffectEnabled=false 时，会调用 showMeleeDodge(闪避者, 攻击者)，
                 //    实现"飞撞过去 → 被击退回来"的完整动画。远程攻击者不走飞撞，只保持气泡提示。
                 if (attacker.role !== ROLE_TYPES.RANGED && dodger) {
@@ -593,7 +594,7 @@ export const STAGE_ACTION_DEFS = {
                     });
                 }
             }
-            // ★ 闪避反击结束后，攻击者格子应进入眩晕显示（😵 图标），这里只是确保特效期间不残留样式；
+            // 闪避反击结束后，攻击者格子应进入眩晕显示（😵 图标），这里只是确保特效期间不残留样式；
             //   实际状态同步已由 store handler 完成，此处不重复写，避免与 store 双写冲突。
         }
     },
@@ -707,7 +708,6 @@ export const STAGE_ACTION_DEFS = {
         fx: (c, action) => {
             const unit = findUnitByUidLocal(c, action.actorUid);
             if (!unit) return;
-            // butterflyAttach / butterflyReturn / spiderFly / spiderReturn 等由 31 翻译，
             // 特效按 originalFactType 区分
             if (action.originalFactType === FLY_MODE_TYPES.BUTTERFLY_ATTACH) {
                 const host = findUnitByUidLocal(c, action.hostUid);

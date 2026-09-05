@@ -1,4 +1,3 @@
-// tools/112-elite-eval.js - 光明顶5v5 明教精英战力评测（融合进 102 工具箱 tab）
 // 由 tools/111-elite-power-eval.html 改造 | 跑张无忌/韦一笑/小昭姊/小昭妹 6关×N场
 // V2.1.0 | 战斗逻辑全迁 116 通用 Worker 并行执行（kind='elite'），117 派发器聚合，完成显示总耗时
 import { ROLE_TYPES } from '../infra/56-battle-enums.js';

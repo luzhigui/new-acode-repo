@@ -1,5 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// fx/81fx-arrows-5v5-test.js - 光明顶5v5 飞箭+白骨爪特效
-// V5.5.0 | ~21100 bytes| 2026-07-06 新增 showBoneClaw、接入通用受击反馈
+// V5.5.0 | 2026-07-06 新增 showBoneClaw、接入通用受击反馈
 export const VER = 'fx/81fx-arrows-5v5-test.js V5.5.0';
 
 import { markGridShake } from '../render/32-grid-render.js';
@@ -69,7 +68,7 @@ export function showRangedArrow(unitA, unitD, speed, getPausedFn, isMeteor = fal
         function flyStep(ts) { if (getPausedFn && getPausedFn()) { requestAnimationFrame(flyStep); return; } if (!startFly) startFly = ts; let p = Math.min(1, (ts - startFly) / flyDuration); let curStartX = sx + (finalStartX - sx) * p, curStartY = sy + (finalStartY - sy) * p; container.style.left = curStartX + 'px'; container.style.top = curStartY + 'px';
             if (p < 1) { requestAnimationFrame(flyStep); } else {
                 container.style.left = finalStartX + 'px'; container.style.top = finalStartY + 'px';
-                // ★ 命中颤动：交给渲染层 markGridShake——renderGrid 重建也带 .shake（老 CSS 关键帧横移），
+                // 命中颤动：交给渲染层 markGridShake——renderGrid 重建也带 .shake（老 CSS 关键帧横移），
                 //   不再直接改格子 DOM/overlay，避免 grid 重建掐掉颤动
                 markGridShake(unitD.uid, 350);
                 if (onHit) onHit();
@@ -89,10 +88,7 @@ export function showRangedArrow(unitA, unitD, speed, getPausedFn, isMeteor = fal
     }
 }
 
-/**
- * 流星赶月分裂飞箭特效
- * 从目标位置向每个被溅射的单位发射小型橙色飞箭
- */
+// 流星赶月分裂飞箭：向被溅射单位发射小型橙色飞箭
 export async function showSplashArrows(attacker, primaryTarget, splashTargets, speed, getPausedFn) {
     let gridAId = attacker.camp===CAMP_TYPES.ALLY?'allyGrid':'enemyGrid';
     let gridA = document.getElementById(gridAId);
@@ -172,7 +168,7 @@ export async function showSplashArrows(attacker, primaryTarget, splashTargets, s
             if (p < 1) {
                 requestAnimationFrame(flyStep);
             } else {
-                // ★ 命中颤动：交给渲染层 markGridShake（同主箭修复）
+                // 命中颤动：交给渲染层 markGridShake（同主箭修复）
                 markGridShake(st.uid, 300);
                 setTimeout(() => { if (container.parentNode) container.remove(); }, 600);
             }
@@ -181,11 +177,7 @@ export async function showSplashArrows(attacker, primaryTarget, splashTargets, s
     });
 }
 
-/**
- * 九阴白骨爪特效
- * 凝结🫳emoji → 朝目标飞行（旋转使指尖朝向敌人，手腕朝向周芷若） → 命中缩小抖动
- * 速度同飞箭，受击用通用 applyImpactShrink（黄色短闪）
- */
+// 九阴白骨爪：🫳凝结 → 飞向目标 → 命中（斩杀走碎开）
 export function showBoneClaw(unitA, unitD, speed, getPausedFn, onHit, opts) {
     if (GlobalStore.get('fastForwardActive')) { if (onHit) onHit(); return; }
     opts = opts || {};

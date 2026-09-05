@@ -1,7 +1,6 @@
-// tools/107-battle-log-viewer.js - 光明顶5v5 战斗日志复盘（单文件，界面动态生成）
-// V5.7.2 | ~8400 bytes| 2026-08-21 增强：新增阵营对决卡片、回合伤害双色柱（明教/六大派）、排行榜伤害占比条；V5.7.1 修回合柱基准改为典型量级×3，超高回合封顶；V5.7.2 坚盾已叠正则改为任意上限（配合每回合上限 3→4）
+// V5.7.2 | 2026-08-21 增强：新增阵营对决卡片、回合伤害双色柱（明教/六大派）、排行榜伤害占比条；V5.7.1 修回合柱基准改为典型量级×3，超高回合封顶；V5.7.2 坚盾已叠正则改为任意上限（配合每回合上限 3→4）
 (function(){
-// ========== 样式（一次性注入，带 hex-log- 前缀避免污染宿主页） ==========
+// 样式（一次性注入，带 hex-log- 前缀避免污染宿主页）
 if (!document.getElementById('hexLogStyle')) {
   const style = document.createElement('style');
   style.id = 'hexLogStyle';
@@ -78,7 +77,7 @@ if (!document.getElementById('hexLogStyle')) {
   document.head.appendChild(style);
 }
 
-// ========== 界面 ==========
+// 界面
 function openLogViewer() {
   const mask = document.createElement('div');
   mask.className = 'hex-log-mask';
@@ -122,7 +121,7 @@ function openLogViewer() {
   });
 }
 
-// ========== 解析 ==========
+// 解析
 function parseLog(text) {
   const lines = text.split('\n').map(s => s.trim()).filter(Boolean);
   const events = [];
@@ -182,7 +181,7 @@ function parseLog(text) {
   return events;
 }
 
-// ========== 顶层公共辅助（供 render/buildNarration/largestHitAt 共用） ==========
+// 顶层公共辅助（供 render/buildNarration/largestHitAt 共用）
 const TEAM_MING = '明教', TEAM_SIX = '六大派';
 const teamOf = u => (u || '').startsWith(TEAM_MING) ? TEAM_MING : (u || '').startsWith(TEAM_SIX) ? TEAM_SIX : null;
 const shortName = u => (u || '').replace(/^(明教|六大派)\s*/, '');
@@ -191,7 +190,7 @@ const isFriendly = u => (u || '').startsWith(TEAM_MING);
 const eff = e => (e && e.effDmg !== undefined && e.effDmg !== null) ? e.effDmg : (e.dmg || 0);
 const over = e => Math.max(0, (e.dmg || 0) - eff(e));
 
-// ========== 渲染 ==========
+// 渲染
 function render(events, summary, result) {
   const rounds = new Set(events.map(e => e.round)).size;
   const attacks = events.filter(e => e.type === 'attack' || e.type === 'kill').length;
@@ -214,7 +213,7 @@ function render(events, summary, result) {
   // 攻击型事件（用于排行与图表）
   const attacksOnly = events.filter(e => ['attack', 'kill'].includes(e.type));
 
-  // === 区块1：单位排行榜 ===
+  // 区块1：单位排行榜
   const dmgBy = {}, killsBy = {}, takenBy = {};
   for (const e of attacksOnly) {
     dmgBy[e.attacker] = (dmgBy[e.attacker] || 0) + eff(e);
@@ -223,7 +222,7 @@ function render(events, summary, result) {
   }
   const rankHtml = renderRanks({ dmgBy, killsBy, takenBy, totalDmg });
 
-  // === 区块1.5：阵营对决（明教 vs 六大派 输出/承伤/击杀） ===
+  // 区块1.5：阵营对决（明教 vs 六大派 输出/承伤/击杀）
   const camp = { [TEAM_MING]: { dmg: 0, kills: 0 }, [TEAM_SIX]: { dmg: 0, kills: 0 } };
   const campByRound = {}; // round -> {明教:n, 六大派:n}
   for (const e of attacksOnly) {
@@ -237,10 +236,10 @@ function render(events, summary, result) {
   }
   const campHtml = renderCampCards(camp);
 
-  // === 区块2：回合伤害柱状图（双阵营） ===
+  // 区块2：回合伤害柱状图（双阵营）
   const chartHtml = renderChart(campByRound);
 
-  // === 区块3：回合摘要表 ===
+  // 区块3：回合摘要表
   const roundInfo = {};
   for (const e of events) {
     roundInfo[e.round] = roundInfo[e.round] || { attacks: 0, dmg: 0, kills: 0, dead: [] };
@@ -270,7 +269,7 @@ function render(events, summary, result) {
   }
 }
 
-// ========== 战局讲解（规则式叙事引擎） ==========
+// 战局讲解（规则式叙事引擎）
 function buildNarration(events) {
   const A = TEAM_MING, E = TEAM_SIX;
   const ctx = events._ctx || { stacks: [], breaks: [], fortify: [], holy: [], poison: [], rebound: [] };

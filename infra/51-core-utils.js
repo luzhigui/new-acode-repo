@@ -1,10 +1,9 @@
-// infra/51-core-utils.js - 光明顶5v5 核心工具合集
-// V5.6.0 | ~5200 bytes| 2026-08-21 合并原51-fsm/52-rng/53-battle-event-store/55-battle-math
+// V5.6.0 | 2026-08-21 合并原51-fsm/52-rng/53-battle-event-store/55-battle-math
 export const VER = 'infra/51-core-utils.js V5.6.0';
 
 import { CAMP_TYPES, ROLE_TYPES } from './56-battle-enums.js';
 
-// ==================== StateMachine ====================
+// StateMachine
 // 通用有限状态机，transition 校验目标状态和转换表
 export class StateMachine {
     constructor(states, initialState, transitions) {
@@ -40,7 +39,7 @@ export class StateMachine {
     }
 }
 
-// ==================== 确定性随机数（原52-rng.js） ====================
+// 确定性随机数（原52-rng.js）
 export class SeededRNG {
     constructor(seed) {
         if (typeof seed === 'string') {
@@ -76,7 +75,7 @@ export class SeededRNG {
     }
 }
 
-// ==================== 战斗事件与状态存储（原53-battle-event-store.js） ====================
+// 战斗事件与状态存储（原53-battle-event-store.js）
 let _eventBuffer = [];
 const _eventSubscribers = [];
 
@@ -116,7 +115,7 @@ export function isBattleStateKey(key) {
     return _battleStateKeys.has(key);
 }
 
-// ==================== 纯战斗数学/几何工具（原55-battle-math.js） ====================
+// 纯战斗数学/几何工具（原55-battle-math.js）
 export function calcDamage(atk, def) {
     if (def <= 0) return atk;
     let d = atk * (atk / (atk + def));
@@ -182,7 +181,7 @@ export function getAuraBonuses(unit, allySide, enemySide) {
     return { emptyCol: emptyCols * 5, bloodAura: bloodBonus };
 }
 
-// ==================== 闪避规则注册表（原 core/12 迁移） ====================
+// 闪避规则注册表（原 core/12 迁移）
 const _dodgeRules = [];
 
 export function registerDodgeRule(fn) {

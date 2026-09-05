@@ -1,4 +1,3 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// tests/122health-utils.js - 光明顶5v5 体检公共检查函数库
 // V5.6.2 | 2026-08-26 buff key 收敛为 infra/56-battle-enums 的 BUFF_TYPES（删除本地第二事实源）
 import { BUFF_TYPES, CAMP_TYPES, ROLE_TYPES } from '../infra/56-battle-enums.js';
 export const VER = 'tests/122health-utils.js V5.6.2';
@@ -240,7 +239,7 @@ export function checkBuffIcons(ctx, doc) {
 
     for (const unit of allyTeam) {
         if (!unit.alive) continue;
-        // ★ 按 uid 定位格子（渲染器在 div.dataset.uid 上写死 uid），不用 pos 反查：
+        // 按 uid 定位格子（渲染器在 div.dataset.uid 上写死 uid），不用 pos 反查：
         //   ctx.UI 是开战快照，战斗中死亡移除/换位（惑人心智本身就是换位buff）会让
         //   pos→children[idx] 映射偏移，查到别人的格子 → 假"缺图标"（2026-09-03 关5/6 误报根因）
         const cell = doc.querySelector('#allyGrid .cell[data-uid="' + unit.uid + '"]') || getCellElement(unit, doc);

@@ -1,5 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// player/40player-text.js - 光明顶5v5 文字播放器
-// V5.5.0 | ~2700 bytes| 2026-07-05
+// V5.5.0 | 2026-07-05
 export const VER = 'player/40player-text.js V5.5.0';
 
 import { GlobalStore } from '../infra/54-global-store.js';

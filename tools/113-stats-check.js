@@ -1,4 +1,3 @@
-// tools/113-stats-check.js - 光明顶5v5 统计一致性体检（融合进 102 工具箱 tab）
 // V2.1.0 | 战斗逻辑全迁 116 通用 Worker 并行执行（kind='stats'），117 派发器逐关回报，完成显示总耗时
 // 口径不变：承伤=来袭全额（含防御减免/溢出/免疫吸收/格挡，回血不冲减）、治疗=产出侧记账
 import { runParallel } from './117-shared-worker-runner.js';

@@ -1,5 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// fx/80fx-common-5v5-test.js - 光明顶5v5 基础特效池
-// V5.5.0 | ~17300 bytes| 2026-07-05
+// V5.5.0 | 2026-07-05
 export const VER = 'fx/80fx-common-5v5-test.js V5.5.0';
 
 import { CAMP_TYPES } from '../infra/56-battle-enums.js';
@@ -35,7 +34,7 @@ function releaseToPool(type, el) { if (!POOL[type]) return; let pool = POOL[type
 
 function createDanmakuEl() { let b = document.createElement('div'); b.className = 'danmaku-bubble'; return b; }
 initPool('danmaku', createDanmakuEl);
-// ★ 弹幕池重置：战斗重置时必须调用，清空池内引用并重建 DOM，
+// 弹幕池重置：战斗重置时必须调用，清空池内引用并重建 DOM，
 //   否则 69reset-runtime 直接 removeChild 会导致对象池持有游离元素，弹幕永久失效
 export function resetDanmakuPool() {
     const pool = POOL['danmaku'];
@@ -76,7 +75,7 @@ function _executeBrush(div) { if (!div) return; let oldOverlay = div.querySelect
 export function applyBrushEffect(div) { _executeBrush(div); }
 export function applyBrushEffectOnHeal(div, nextDiv) { _executeBrush(div); if (nextDiv) _executeBrush(nextDiv); }
 
-// ==================== 通用受击反馈：缩小+颤动+短闪 ====================
+// 通用受击反馈：缩小+颤动+短闪
 
 /**
  * 乘风突袭波及爪痕特效
@@ -125,7 +124,7 @@ export function showKuLianEffect(unit, team) {
         grid.style.position = 'relative';
         grid.appendChild(muscle);
 
-        // ★ 用 Web Animations API 强制播放向上上升动画，不再依赖 CSS transition 初始状态，
+        // 用 Web Animations API 强制播放向上上升动画，不再依赖 CSS transition 初始状态，
         //   避免元素刚插入时 transition 不触发导致只原地出现、不向上。
         muscle.animate([
             { opacity: 0, transform: 'translate(-50%, -50%)' },
@@ -155,7 +154,7 @@ export function showKuLianEffect(unit, team) {
     });
 }
 
-// ==================== 全屏横幅 ====================
+// 全屏横幅
 function createBuffBannerEl() { let d = document.createElement('div'); d.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);font-size:2.5rem;font-weight:bold;color:#ffd700;z-index:10030;pointer-events:none;text-shadow:0 0 20px rgba(255,215,0,0.8);white-space:nowrap;animation:bannerPop 1.5s ease-out forwards;'; return d; }
 initPool('buffBanner', createBuffBannerEl);
 
@@ -197,7 +196,7 @@ export function showCriticalBanner(text) {
     });
 }
 
-// ==================== 通用气泡 ====================
+// 通用气泡
 export function showComicBubble(text, x, y, className) {
     const bubble = document.createElement('div');
     bubble.className = `comic-bubble ${className}`; bubble.textContent = text;

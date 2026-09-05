@@ -1,4 +1,4 @@
-﻿// V5.5.1 | 2026-08-19 import 路径合并至 infra/51
+// V5.5.1 | 2026-08-19 import 路径合并至 infra/51
 export const VER = 'ui/65main-battle.js V5.5.1';
 
 import { CONFIG } from '../core/01config-5v5-test.js';
@@ -14,8 +14,8 @@ import { resetBattleRuntime } from './69reset-runtime.js';
 
 const C = CONFIG;
 
-// ==================== 阵容生成 ====================
-// 薄壳：阵容逻辑在 modules/29battle-init.js
+// 阵容生成
+// 阵容逻辑已抽至 modules/29battle-init.js，本函数仅组织外围流程
 export function doInitBattle(currentStage, UI, snapshot, activeBuffs, selectedBuffIndex, currentDoubleStrikeUid) {
     if (!UI || !snapshot) return;
     const _rng = snapshot._rngSeed ? new SeededRNG(snapshot._rngSeed) : new SeededRNG(Date.now());
@@ -27,7 +27,7 @@ export function doInitBattle(currentStage, UI, snapshot, activeBuffs, selectedBu
     UI.enemyTeam = enemyTeam.map(u => u.clone());
     UI.currentResult = null;
     UI.round = 0;
-    GlobalStore.set('battleLog', []); // ★ V5.7.8 战报累积日志随新局重置（体检规则数据源）
+    GlobalStore.set('battleLog', []); // V5.7.8 战报累积日志随新局重置（体检规则数据源）
     GlobalStore.set('battleHasZhang', allyTeam.some(u => u.isZhang));
     window._lastBattleSeed = Date.now();
     snapshot._rngSeed = _rng.getState();
@@ -37,7 +37,7 @@ export function doInitBattle(currentStage, UI, snapshot, activeBuffs, selectedBu
     updateUI();
 }
 
-// ==================== Buff 选择 ====================
+// Buff 选择
 /**
  * 弹窗选择姐姐附身方向
  * @param {function} callback - 选完后调用，参数 'right' 或 'left'
@@ -154,7 +154,7 @@ export function showBuffSelection(callback, activeBuffs, selectedBuffIndex, upda
     }, true, false);
 }
 
-// ==================== Buff 槽 ====================
+// Buff 槽
 
 // Buff-计时：回合结束后递减Buff持续时间 —— 实现已移至 modules/28buff-tools.js
 export { tickBuffDurations } from '../modules/28buff-tools.js';
@@ -213,12 +213,12 @@ export function logTeamInfo(label, UI, gs, battleResultForInfo, activeBuffs, has
     return true;
 }
 
-// ==================== 中止 ====================
+// 中止
 // 中止战斗：统一收口到 resetBattleRuntime
 export function abortAll(abortController, UI, waitingForNextRound, isBattleStarting, adjustMode, selectedAdjustPos, activeBuffs, selectedBuffIndex, currentDoubleStrikeUid, updateBuffSlotsFn) {
     if (abortController) { abortController.abort(); abortController = null; }
     if (UI) UI.currentResult = null;
-    GlobalStore.set('battleLog', []); // ★ V5.7.8 中止清场：战报累积一并作废
+    GlobalStore.set('battleLog', []); // V5.7.8 中止清场：战报累积一并作废
     resetBattleRuntime();
     updateBuffSlotsFn();
     return {

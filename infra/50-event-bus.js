@@ -1,5 +1,4 @@
-// infra/50-event-bus.js - 光明顶5v5 事件总线
-// V5.5.7 | ~5500 bytes| 2026-08-28 相位栅栏语义显式化（纯注释）
+// V5.5.7 | 2026-08-28 相位栅栏语义显式化（纯注释）
 import { GlobalStore } from './54-global-store.js';
 export const VER = 'infra/50-event-bus.js V5.5.7';
 

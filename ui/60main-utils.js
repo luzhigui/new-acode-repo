@@ -1,5 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// ui/60main-utils.js - 光明顶5v5 主控工具函数
-// V5.5.0 | ~7400 bytes| 2026-07-05
+// V5.5.0 | 2026-07-05
 export const VER = 'ui/60main-utils.js V5.5.0';
 
 import { GlobalStore } from '../infra/54-global-store.js';

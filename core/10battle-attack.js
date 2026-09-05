@@ -1,5 +1,4 @@
-// core/10battle-attack.js - 光明顶5v5 攻击流程模块
-// V5.7.0 | ~11000 bytes| 2026-08-30 同步化：移除 async/await，配合工具批量模拟，游戏表现不变
+// V5.7.0 | 2026-08-30 同步化：移除 async/await，配合工具批量模拟，游戏表现不变
 export const VER = 'core/10battle-attack.js V5.7.0';
 
 import { CONFIG } from './01config-5v5-test.js';

@@ -1,4 +1,3 @@
-// tests/123static-scan.js - 光明顶5v5 静态快速体检器
 // 不跑游戏，直接 fetch 核心文件做结构性检查：
 //   1. 枚举 import 缺失：代码使用了枚举常量（infra/56-battle-enums.js 导出的 13 个）但 import 行缺失
 //   2. import 引用断裂：static import 的相对路径指向不存在的文件
@@ -23,7 +22,7 @@ export const SCAN_FILES = [
     '../core/04buff-system.js', '../core/05battle-horse.js', '../core/08-elite-registry.js',
     '../core/10battle-attack.js', '../core/11battle-round.js', '../core/12battle-attack-steps.js',
     '../core/13battle-shared.js', '../core/14buff-effects.js', '../core/15-skill-mechanisms.js',
-    '../core/16effect-handlers.js', '../core/17-state-keys.js', '../core/18-elite-state.js',
+    '../core/16effect-handlers.js', '../core/17-state-keys.js',
     '../infra/50-event-bus.js', '../infra/54-global-store.js', '../infra/55-fx-signals.js',
     '../infra/57-calc-modifier-registry.js',
     '../modules/20elite-skills.js', '../modules/24battle-store.js', '../modules/25elite-imperial.js',

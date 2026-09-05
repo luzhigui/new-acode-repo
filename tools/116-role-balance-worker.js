@@ -1,4 +1,3 @@
-// tools/116-role-balance-worker.js - 光明顶5v5 通用战斗 Worker（工具并行执行端）
 // 由 109 职业平衡 Worker 扩展为多 kind 分发：'balance' | 'elite' | 'stats' | 'baseline'
 // 每个 job 在 worker 内完成 N 场战斗并回报聚合；独立模块实例，天然隔离 _eliteStates/_eventBuffer
 // Worker 环境兼容 shim：
@@ -29,7 +28,7 @@ import { CAMP_TYPES, ROLE_TYPES, BUFF_TYPES, UNIT_EVENT_TYPES } from '../infra/5
 import { eventBus } from '../infra/50-event-bus.js';
 import { GlobalStore } from '../infra/54-global-store.js';
 
-// ==================== 共用：清场 ====================
+// 共用：清场
 // 每个 job 开始与每场之间调用（与各工具主线程原逻辑一致）
 function clearBattleGlobals() {
     eventBus.clearAll();
@@ -41,7 +40,7 @@ function clearBattleGlobals() {
     // 状态已并入 unit.state，随对局对象 GC，无需清理（18-elite-state 已废弃）
 }
 
-// ==================== 共用：跑 ≤35 回合完整战斗（与各工具原战斗中继逻辑一致） ====================
+// 共用：跑 ≤35 回合完整战斗（与各工具原战斗中继逻辑一致）
 // 返回 { winner, ally, enemy }；winner 为空 = 超回合未分胜负
 function runWholeBattle(initAlly, initEnemy, seed) {
     let state = {
@@ -90,7 +89,7 @@ function runWholeBattle(initAlly, initEnemy, seed) {
     return { winner: finalWinner, ally: finalAlly, enemy: finalEnemy };
 }
 
-// ==================== 109 职业平衡：模板阵容 + 自动海克斯 ====================
+// 109 职业平衡：模板阵容 + 自动海克斯
 const BASE_TEMPLATE = { 1: ROLE_TYPES.DEFENDER, 2: ROLE_TYPES.WARRIOR, 5: ROLE_TYPES.FLYER, 7: ROLE_TYPES.RANGED, 9: ROLE_TYPES.RANGED };
 
 function createUnit(role, camp, rng) {
@@ -178,7 +177,7 @@ function runBalanceJob(buildAlly, buildEnemy, seed, hexEnabled) {
     return { winner: null };
 }
 
-// ==================== 112 精英评测 ====================
+// 112 精英评测
 // 原主线程逻辑：initBattleTeams(stage, seed) → 精英替换 → runWholeBattle → 计数该精英 胜率/输出/承伤/存活
 function runEliteStageJob(cfg, stage, seed, runs) {
     let wins = 0, sumDmg = 0, sumTaken = 0, sumSurv = 0, validRuns = 0;
@@ -224,7 +223,7 @@ function runEliteStageJob(cfg, stage, seed, runs) {
     return { wins, validRuns, sumDmg, sumTaken, sumSurv };
 }
 
-// ==================== 113 统计体检 ====================
+// 113 统计体检
 // 原主线程逻辑：initBattleTeams → hp-tracker 订阅 → runWholeBattle → record 进 agg（主线程聚合）
 function runStatsStageJob(stage, seed, runs) {
     const agg = {}; // worker 内自聚合，返回给主线程直接并入全局 agg
@@ -285,7 +284,7 @@ function record(agg, u, t) {
     }
 }
 
-// ==================== 114 基线对比 ====================
+// 114 基线对比
 // 原主线程逻辑：同一阵容克隆两份套 A/B 配置（applyConfig），各跑一场对比
 function applyConfig(team, cfg, seed) {
     let eu = team.find(u => u[cfg.flag]);
@@ -345,7 +344,7 @@ function runBaselineStageJob(stage, seed, runs, cfgA, cfgB) {
     return { vA, wA, dA, tkA, sA, vB, wB, dB, tkB, sB };
 }
 
-// ==================== 入口 ====================
+// 入口
 // 模块顶层一次性加载游戏数据（幂等，worker 独立全局需自备）
 try {
     await loadGameData();

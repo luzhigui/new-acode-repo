@@ -1,5 +1,4 @@
-// infra/55-fx-signals.js - 光明顶5v5 特效信号常量（player→fx 依赖反转）
-// V5.5.0 | ~2200 bytes| 2026-08-23 信号名单一数据源：player emit 与 fx/89 订阅两侧各自 import，方向均为 X→infra
+// V5.5.0 | 2026-08-23 信号名单一数据源：player emit 与 fx/89 订阅两侧各自 import，方向均为 X→infra
 export const VER = 'infra/55-fx-signals.js V5.5.0';
 
 // 特效信号：player 只 emit，fx/89 订阅；fx: 前缀与战斗信号隔离

@@ -1,4 +1,3 @@
-// tools/117-shared-worker-runner.js - worker 池共用派发器（供 112/113/114 并行执行用）
 // V1.1.0 | 复用 116 通用战斗 Worker；worker 池按核数-1，ready 后派发，逐 job 回报
 // 用法：runParallel({ jobs, kind, nextJobMsg, onJobDone, onAllDone, poolSize, workerUrl })
 export const SHARED_WORKER_URL = new URL('./116-role-balance-worker.js', import.meta.url);

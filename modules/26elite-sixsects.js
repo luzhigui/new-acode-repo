@@ -1,9 +1,8 @@
-// modules/26elite-sixsects.js - 六大派精英组件合集
-// V5.6.1 | ~11992 bytes| 2026-08-21 战报记账修正：新婚扣血改非记账并删手动双记
+// V5.6.1 | 2026-08-21 战报记账修正：新婚扣血改非记账并删手动双记
 export const VER = 'modules/26elite-sixsects.js V5.6.1';
 import { registerElite } from '../core/08-elite-registry.js';
 
-// ==================== 宋青书 ====================
+// 宋青书
 export function createSongQingshuComponent() {
     return {
         name: '宋青书',
@@ -11,7 +10,7 @@ export function createSongQingshuComponent() {
     };
 }
 
-// ==================== 周芷若 ====================
+// 周芷若
 export function createZhouZhiruoComponent() {
     return {
         name: '周芷若',

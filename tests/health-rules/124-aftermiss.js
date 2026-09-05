@@ -1,4 +1,3 @@
-// tests/health-rules/124-aftermiss.js
 // 回归规则：宋青书未命中后不重试 — 修复后 resolveAttackHit 未命中时发射 afterMiss 信号触发重试
 // 判定口径（2026-09-03 v2）：性奋是回合级一次性资源，额外攻击/重试共用一次消耗。
 //   正常不重试的场景（旧规则会误报）：buff 已被消耗后 miss（额外攻击自身未命中）。

@@ -1,4 +1,3 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// fx/85fx-dodge-bullet.js - 光明顶5v5 闪避反击特效
 // V5.5.0 | 2026-07-12 修复格子缩小与残留：完整保存/恢复原始格子状态
 export const VER = 'fx/85fx-dodge-bullet.js V5.5.0';
 
@@ -128,7 +127,7 @@ function triggerShake() {
     setTimeout(() => document.body.classList.remove('shake-screen'), 200);
 }
 
-// ==================== 子弹时间特效 ====================
+// 子弹时间特效
 export async function showDodgeBulletTime(attacker, defender, reboundDmg) {
     const TIMEOUT_MS = 18000;
     let isSkipped = false;
@@ -223,7 +222,7 @@ export async function showDodgeBulletTime(attacker, defender, reboundDmg) {
         aCellSavedStyles = saveCellStyles(aCell);
         dCellSavedStyles = saveCellStyles(dCell);
 
-        // ★ 必须在任何 await 之前读取 rect：
+        // 必须在任何 await 之前读取 rect：
         // await 期间 store 订阅会触发 renderGrid 重建 grid，旧 cell 变成游离元素，
         // 游离元素的 getBoundingClientRect() 返回接近 0 的矩形，导致克隆体极小。
         const aRect = aCell.getBoundingClientRect();
@@ -256,7 +255,7 @@ export async function showDodgeBulletTime(attacker, defender, reboundDmg) {
         if (isSkipped) { cleanup(); return; }
 
         // 获取位置信息（必须在隐藏格子前读取，否则异步等待后 grid 重绘会使 cell 引用失效，rect 全零导致克隆体极小）
-        // ★ 已上移到任何 await 之前（见函数开头），此处不再重复读取
+        // 已上移到任何 await 之前（见函数开头），此处不再重复读取
 
         // 隐藏原始格子（不修改样式，只隐藏，让克隆体表演）
         aCell.style.opacity = '0';
