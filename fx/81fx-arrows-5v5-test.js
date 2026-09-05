@@ -287,22 +287,22 @@ export function showBoneClaw(unitA, unitD, speed, getPausedFn, onHit, opts) {
                     setTimeout(() => { if (claw.parentNode) claw.remove(); }, 300);
                 }, 500);
                 // 格子大幅颤动
-                if (defCell) {
+                if (cellD) {
                     let shakeStart = null;
                     const shakeDur = 600;
-                    const origTransform = defCell.style.transform || '';
+                    const origTransform = cellD.style.transform || '';
                     function shakeFn(ts2) {
                         if (!shakeStart) shakeStart = ts2;
                         let elapsed = ts2 - shakeStart;
                         if (elapsed >= shakeDur) {
-                            defCell.style.transform = origTransform;
+                            cellD.style.transform = origTransform;
                             // 红色碎开消失
-                            triggerExecuteShatter(defCell);
+                            triggerExecuteShatter(cellD);
                             return;
                         }
                         let prog = elapsed / shakeDur;
                         let amp = 8 * (1 - prog);
-                        defCell.style.transform = `translate(${(Math.random()-0.5)*amp*2}px, ${(Math.random()-0.5)*amp*2}px)`;
+                        cellD.style.transform = `translate(${(Math.random()-0.5)*amp*2}px, ${(Math.random()-0.5)*amp*2}px)`;
                         requestAnimationFrame(shakeFn);
                     }
                     requestAnimationFrame(shakeFn);

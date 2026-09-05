@@ -108,15 +108,24 @@ function updateDetailPopupContent() {
     const ctx = getCtx();
     if (!ctx) return;
     let uid = detailPopupUnit.uid;
-    let allUnits = (ctx.UI.allyTeam || []).concat(ctx.UI.enemyTeam || []);
-    let latestUnit = allUnits.find(u => u.uid === uid);
+    const store = ctx.store || GlobalStore.get('battleStore');
+    let latestUnit = null;
+    let allyTeam = [];
+    const activeBuffs = ctx.activeBuffs || [];
+    const doubleStrikeUid = ctx.currentDoubleStrikeUid;
+    if (store) {
+        const allUnits = store.getState().units || [];
+        latestUnit = allUnits.find(u => u.uid === uid);
+        allyTeam = allUnits.filter(u => u.camp === CAMP_TYPES.ALLY);
+    } else {
+        const allUnits = (ctx.UI.allyTeam || []).concat(ctx.UI.enemyTeam || []);
+        latestUnit = allUnits.find(u => u.uid === uid);
+        allyTeam = ctx.UI.allyTeam || [];
+    }
     if (!latestUnit) { closeDetailPopup(); return; }
     detailPopupUnit = latestUnit;
     const u = latestUnit;
     const buffStats = getBuffStats(u);
-    let allyTeam = ctx.UI.allyTeam || [];
-    let activeBuffs = ctx.activeBuffs || [];
-    let doubleStrikeUid = ctx.currentDoubleStrikeUid;
     let holyFlameBuffs = activeBuffs.filter(b => {
         if (b.key !== BUFF_TYPES.HOLY_FLAME) return false;
         const cols = b.cols || (b.col != null ? [b.col] : []);
