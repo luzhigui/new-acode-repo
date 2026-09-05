@@ -353,12 +353,13 @@ export function* createRoundStepper(state, { ui = true, translateFacts = null } 
                 continue;
             }
             const fullAllySide = u.camp === CAMP_TYPES.ALLY ? A : B;
+            const fullEnemySide = u.camp === CAMP_TYPES.ALLY ? B : A;
             if (isBlocked(u, fullAllySide) && isMelee(u.role)) {
                 passUnits.push({ unit: u, reason: '被遮挡' });
                 continue;
             }
             const decl = { priority: 0, skip: false, pass: false };
-            eventBus.emit(SIGNAL_TYPES.BEFORE_ACTION_SELECT, { unit: u, declaration: decl });
+            eventBus.emit(SIGNAL_TYPES.BEFORE_ACTION_SELECT, { unit: u, declaration: decl, allySide: fullAllySide, enemySide: fullEnemySide });
             if (decl.skip) continue;
             if (decl.pass) {
                 passUnits.push({ unit: u, reason: '组件声明pass' });

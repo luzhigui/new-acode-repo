@@ -40,9 +40,18 @@ jobs:
       - name: 添加安卓平台
         run: npx cap add android
 
-      - name: 生成各尺寸图标资源
+      - name: 应用图标到安卓工程
         run: |
-          npx capacitor-assets generate --android
+          set -e
+          RES=android/app/src/main/res
+          for d in mdpi hdpi xhdpi xxhdpi xxxhdpi; do
+            cp "resources/ic_launcher_${d}.png"  "$RES/mipmap-$d/ic_launcher.png"
+            cp "resources/ic_launcher_round_${d}.png" "$RES/mipmap-$d/ic_launcher_round.png"
+          done
+          # 移除 adaptive icon（方形完整显示，不裁切）
+          rm -f "$RES/mipmap-anydpi-v26/ic_launcher.xml"
+          rm -f "$RES/mipmap-anydpi-v26/ic_launcher_round.xml"
+          echo "图标已应用"
 
 
       - name: 同步 web 资源
