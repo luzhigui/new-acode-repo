@@ -258,8 +258,14 @@ export function spawnVictoryEffects(winnerCamp, aliveUnitsOverride) {
     let cells = grid.children;
     let ctx = getCtx();
     if (!ctx) return;
-    let UI = ctx.UI;
-    let winUnits = winnerCamp==='明教'?UI.allyTeam:UI.enemyTeam;
+    let winUnits;
+    if (ctx.store) {
+        const camp = winnerCamp === '明教' ? CAMP_TYPES.ALLY : CAMP_TYPES.ENEMY;
+        winUnits = ctx.store.getState().units.filter(u => u.camp === camp);
+    } else {
+        const UI = ctx.UI;
+        winUnits = winnerCamp==='明教' ? UI.allyTeam : UI.enemyTeam;
+    }
     let aliveUnits = aliveUnitsOverride || winUnits.filter(u => u.alive);
     for (let i=0;i<cells.length;i++) {
         let pos = winnerCamp==='明教'?([1,2,3,4,5,6,7,8,9][i]):([7,8,9,4,5,6,1,2,3][i]);
@@ -272,8 +278,8 @@ export function spawnVictoryEffects(winnerCamp, aliveUnitsOverride) {
     setTimeout(()=>{if(banner.parentNode)banner.parentNode.removeChild(banner);},8000);
     let cx=rect.left+rect.width/2,cy=rect.top+rect.height/2;
     let colors=['#ffd700','#ff6b6b','#51cf66','#45a7ff','#ff9f43','#ff00ff'];
-    for(let i=0;i<60;i++){let particle=document.createElement('div');particle.className='party-particle';let angle=Math.random()*Math.PI*2,dist=40+Math.random()*80;particle.style.setProperty('--dx',Math.cos(angle)*dist+'px');particle.style.setProperty('--dy',Math.sin(angle)*dist+'px');particle.style.left=cx+'px';particle.style.top=cy+'px';particle.style.background=colors[Math.floor(Math.random()*colors.length)];document.body.appendChild(particle);setTimeout(()=>{if(particle.parentNode)particle.parentNode.removeChild(particle);},2800);}
-    for(let i=0;i<15;i++){let star=document.createElement('div');star.className='star-particle';let angle=Math.random()*Math.PI*2,dist=30+Math.random()*50;star.style.setProperty('--dx',Math.cos(angle)*dist+'px');star.style.setProperty('--dy',Math.sin(angle)*dist+'px');star.style.left=cx+'px';star.style.top=cy+'px';star.textContent=['⭐','🌟','✨'][Math.floor(Math.random()*3)];document.body.appendChild(star);setTimeout(()=>{if(star.parentNode)star.parentNode.removeChild(star);},3300);}
+    for(let i=0;i<60;i++){let particle=document.createElement('div');particle.className='party-particle';particle.setAttribute('data-fx','temporary');let angle=Math.random()*Math.PI*2,dist=40+Math.random()*80;particle.style.setProperty('--dx',Math.cos(angle)*dist+'px');particle.style.setProperty('--dy',Math.sin(angle)*dist+'px');particle.style.left=cx+'px';particle.style.top=cy+'px';particle.style.background=colors[Math.floor(Math.random()*colors.length)];document.body.appendChild(particle);setTimeout(()=>{if(particle.parentNode)particle.parentNode.removeChild(particle);},2800);}
+    for(let i=0;i<15;i++){let star=document.createElement('div');star.className='star-particle';star.setAttribute('data-fx','temporary');let angle=Math.random()*Math.PI*2,dist=30+Math.random()*50;star.style.setProperty('--dx',Math.cos(angle)*dist+'px');star.style.setProperty('--dy',Math.sin(angle)*dist+'px');star.style.left=cx+'px';star.style.top=cy+'px';star.textContent=['⭐','🌟','✨'][Math.floor(Math.random()*3)];document.body.appendChild(star);setTimeout(()=>{if(star.parentNode)star.parentNode.removeChild(star);},3300);}
     let logDiv=document.getElementById('log'),winColor=winnerCamp==='明教'?'blue':'orange';
     const WIN_TAUNTS = [
         '赢了！', '哈哈，胜了！', '活下来了！', '敌人全灭了！', '太好了！',
