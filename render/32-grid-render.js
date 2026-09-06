@@ -20,6 +20,8 @@ const _shakeUntil = new Map();
 export function markGridShake(uid, durationMs) {
     if (uid == null) return;
     _shakeUntil.set(uid, Date.now() + durationMs);
+    const cell = document.querySelector(`[data-uid="${uid}"]`);
+    if (cell) runGridShake(cell, durationMs);
 }
 
 // 播放受击颤动：随机偏移 + 缩放回弹 + 短暂黄闪

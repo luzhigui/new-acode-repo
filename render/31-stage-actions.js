@@ -172,7 +172,7 @@ const FACT_TRANSLATORS = {
     [FACT_TYPES.BLOOD_THIRST_LEECH]: (data, index) => makeHealAction(data, index),
     [FACT_TYPES.MIND_CONTROL_BANNER]: (data, index) => ({
         kind: STAGE_ACTION_TYPES.BANNER,
-        text: data.side === CAMP_TYPES.ENEMY ? '🌀 惑人心智：敌方判定！' : '🌀 惑人心智：己方判定！',
+        text: '🌀 惑人心智',
         factIndex: index,
         timing: 'beforeText'
     }),
@@ -231,16 +231,30 @@ const FACT_TRANSLATORS = {
         factIndex: index,
         timing: 'afterText'
     }),
-    [FACT_TYPES.QIAN_KUN_DERIVED]: (data, index) => data.atkTargetUid && data.atkGain
-        ? {
-            kind: STAGE_ACTION_TYPES.BUFF_EFFECT,
-            effectType: BUFF_EFFECT_TYPES.ATK_BUFF,
-            targetUid: data.atkTargetUid,
-            gain: data.atkGain,
-            factIndex: index,
-            timing: 'afterText'
+    [FACT_TYPES.QIAN_KUN_DERIVED]: (data, index) => {
+        const actions = [];
+        if (data.atkTargetUid && data.atkGain) {
+            actions.push({
+                kind: STAGE_ACTION_TYPES.BUFF_EFFECT,
+                effectType: BUFF_EFFECT_TYPES.ATK_BUFF,
+                targetUid: data.atkTargetUid,
+                gain: data.atkGain,
+                factIndex: index,
+                timing: 'afterText'
+            });
         }
-        : null,
+        if (data.healTargetUid && data.heal) {
+            actions.push({
+                kind: STAGE_ACTION_TYPES.HEAL,
+                actorUid: data.healTargetUid,
+                targetUid: data.healTargetUid,
+                amount: Math.round(data.heal),
+                factIndex: index,
+                timing: 'afterText'
+            });
+        }
+        return actions;
+    },
     [FACT_TYPES.HORSE_SUMMON]: (data, index) => ({
         kind: STAGE_ACTION_TYPES.SUMMON,
         actorUid: data.horseUid ?? null,
@@ -625,7 +639,6 @@ export const STAGE_ACTION_DEFS = {
             const unitB = findUnitByUidLocal(c, action.targetUid);
             if (unitA && unitB) {
                 c.isPaused = true; GlobalStore.set('bulletTimeActive', true);
-                // 直接 await 换位动画；判定横幅已由 BANNER 独立播放
                 const { animatePositionSwap } = await import('../fx/87fx-manager.js');
                 await animatePositionSwap(unitA, unitB, c, {
                     skipDataChange: true,
@@ -800,8 +813,7 @@ export const STAGE_ACTION_DEFS = {
     [STAGE_ACTION_TYPES.BANNER]: {
         grid: 'none', log: 'sync', timing: 'beforeText',
         fx: async (c, action) => {
-            // 通用横幅（概率连击等）
-            // 必须直接 await showBuffBanner，不能走 eventBus（同步派发丢弃 Promise）
+            // 阻塞横幅：等待横幅播放完成，日志和动画按序推进
             if (action.text && !GlobalStore.get('fastForwardActive')) {
                 c.isPaused = true; GlobalStore.set('bulletTimeActive', true);
                 const { showBuffBanner } = await import('../fx/87fx-manager.js');
@@ -860,7 +872,7 @@ export const STAGE_ACTION_DEFS = {
                         c.isPaused = true; GlobalStore.set('bulletTimeActive', true);
                         await eventBus.emit(FX_SIGNALS.BANNER, { text: '☄️ 流星赶月！' });
                         eventBus.emit(FX_SIGNALS.SPLASH_ARROWS, { attacker, primary, targets: splashTargets, speed: c.speed, isPausedFn: () => c.isPaused });
-                        splashTargets.forEach((st, i) => { setTimeout(() => AudioManager.playSfx(attacker.role || ROLE_TYPES.RANGED), i * 120); });
+                        splashTargets.forEach((st, i) => { setTimeout(() => AudioManager.playSfx(attacker.role || ROLE_TYPES.RANGED), i * 60); });
                         GlobalStore.set('bulletTimeActive', false); c.isPaused = false;
                         await new Promise(r => setTimeout(r, GlobalStore.get('fastForwardActive') ? 1 : 600));
                     }

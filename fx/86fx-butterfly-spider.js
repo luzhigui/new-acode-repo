@@ -336,6 +336,7 @@ export async function showSpiderStrike(fromUnit, toUnit) {
         const shard = document.createElement('div');
         const angle = (i / 10) * Math.PI * 2;
         const dist = 25 + Math.random() * 35;
+        shard.setAttribute('data-fx', 'temporary');
         shard.style.cssText = `position:fixed;left:${cx}px;top:${cy}px;width:6px;height:6px;background:#ff2020;z-index:10021;pointer-events:none;border-radius:1px;box-shadow:0 0 6px rgba(255,0,0,0.8);transition:transform 0.6s ease-out, opacity 0.6s;`;
         document.body.appendChild(shard);
         requestAnimationFrame(() => {
