@@ -55,6 +55,9 @@ jobs:
       - name: 同步 web 资源
         run: npx cap sync android
 
+      - name: 写入递增版本号
+        run: node scripts/set-version.mjs
+
       - name: 构建 APK
         run: cd android && ./gradlew assembleDebug
 
