@@ -329,9 +329,13 @@ export function renderBuffSummaryFact(buff, allyTeam, doubleStrikeUid) {
                 const cols = buff.cols || [];
                 const rows = buff.rows || [];
                 if (cols.length > 0 || rows.length > 0) {
+                    const colText = cols.length ? `第${cols.join('、')}列` : '无';
+                    const rowText = rows.length ? `第${rows.join('、')}行` : '无';
+                    const atkPct = Math.round(CONFIG.BUFFS.holyFlame.atkBonus * 100);
+                    const defPct = Math.round(CONFIG.BUFFS.holyFlame.defBonus * 100);
                     return {
                         type:'buff-summary',
-                        text:`<span class="gold">🔥 圣火令：攻击列 ${cols.join('、')}，防御行 ${rows.join('、')}</span>`,
+                        text:`<span class="gold">🔥 圣火令：攻击${colText} +${atkPct}%，防御${rowText} +${defPct}%</span>`,
                         buffType: BUFF_SUBTYPES.BUFF_STAT
                     };
                 }
@@ -670,7 +674,7 @@ export function renderXingFenGrantFact(fact) {
     return { type:'buff-summary', text:`<span class="gold">💗 性奋：${fact.songName} 受${fact.zhouName}激励，本回合每次攻击后可再次攻击！</span>`, buffType: BUFF_SUBTYPES.ELITE_XINGFEN };
 }
 export function renderClawHitFact(fact) {
-    return { type:'info', text:`<span style="color:#222">🐾 九阴白骨爪${fact.depth>0?'连锁':'追击'}！${fact.unitName} 对 ${fact.targetName} 造成 ${fact.dmg} 点伤害${fact.isExecute?'（斩杀）':(fact.jealous?'【嫉妒】':'')}</span>` };
+    return { type:'info', hpAfter: fact.hpAfter, clawTargetUid: fact.targetUid, text:`<span style="color:#222">🐾 九阴白骨爪${fact.depth>0?'连锁':'追击'}！${fact.unitName} 对 ${fact.targetName} 造成 ${fact.dmg} 点伤害${fact.jealous?'【嫉妒】':''}</span>` };
 }
 export function renderClawExecuteFact(fact) {
     const dmgText = fact.dmg !== undefined ? `造成 <span class="red">${fact.dmg}</span> 点伤害` : '造成致命一击';

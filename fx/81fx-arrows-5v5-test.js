@@ -10,7 +10,7 @@ function applyWholeShake(elements, durationMs, basePositions, angle, getPausedFn
     requestAnimationFrame(shake);
 }
 
-export function showRangedArrow(unitA, unitD, speed, getPausedFn, isMeteor = false, onHit = null) {
+export function showRangedArrow(unitA, unitD, speed, getPausedFn, isMeteor = false, onHit = null, isMiss = false) {
     let gridAId = unitA.camp===CAMP_TYPES.ALLY?'allyGrid':'enemyGrid', gridDId = unitD.camp===CAMP_TYPES.ALLY?'allyGrid':'enemyGrid';
     let gridA = document.getElementById(gridAId), gridD = document.getElementById(gridDId);
     let orderA = unitA.camp===CAMP_TYPES.ENEMY?[7,8,9,4,5,6,1,2,3]:[1,2,3,4,5,6,7,8,9], orderD = unitD.camp===CAMP_TYPES.ENEMY?[7,8,9,4,5,6,1,2,3]:[1,2,3,4,5,6,7,8,9];
@@ -65,9 +65,19 @@ export function showRangedArrow(unitA, unitD, speed, getPausedFn, isMeteor = fal
 
         document.body.appendChild(container);
         let startFly = null;
-        function flyStep(ts) { if (getPausedFn && getPausedFn()) { requestAnimationFrame(flyStep); return; } if (!startFly) startFly = ts; let p = Math.min(1, (ts - startFly) / flyDuration); let curStartX = sx + (finalStartX - sx) * p, curStartY = sy + (finalStartY - sy) * p; container.style.left = curStartX + 'px'; container.style.top = curStartY + 'px';
+        function flyStep(ts) { if (getPausedFn && getPausedFn()) { requestAnimationFrame(flyStep); return; } if (!startFly) startFly = ts; let p = Math.min(1, (ts - startFly) / flyDuration); let curStartX, curStartY;
+            if (isMiss) {
+                // 未命中：前 50% 直线，后 50% 向右上偏转擦过
+                if (p < 0.5) { curStartX = sx + (finalStartX - sx) * p * 2; curStartY = sy + (finalStartY - sy) * p * 2; }
+                else { const p2 = (p - 0.5) * 2; const baseX = finalStartX; const baseY = finalStartY; curStartX = baseX - (finalStartX - sx) * 0.15 * p2 + (finalStartY - sy) * 0.3 * p2; curStartY = baseY - (finalStartY - sy) * 0.15 * p2 - (finalStartX - sx) * 0.3 * p2; }
+            } else {
+                // 命中：直线飞向目标
+                curStartX = sx + (finalStartX - sx) * p;
+                curStartY = sy + (finalStartY - sy) * p;
+            }
+            container.style.left = curStartX + 'px'; container.style.top = curStartY + 'px';
             if (p < 1) { requestAnimationFrame(flyStep); } else {
-                container.style.left = finalStartX + 'px'; container.style.top = finalStartY + 'px';
+                container.style.left = curStartX + 'px'; container.style.top = curStartY + 'px';
                 // 命中颤动：交给渲染层 markGridShake——renderGrid 重建也带 .shake（老 CSS 关键帧横移），
                 //   不再直接改格子 DOM/overlay，避免 grid 重建掐掉颤动
                 markGridShake(unitD.uid, 350);

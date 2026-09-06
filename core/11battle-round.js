@@ -74,8 +74,9 @@ function prepareRoundStart(A, B, log, state, round, rng) {
     const holyFlameEnhance = hasSisterForHolyFlame ? hexEnhanceParams.holyFlame : null;
     const holyColCount = holyFlameEnhance ? holyFlameEnhance.atkCols : 1;
     const holyRowCount = holyFlameEnhance ? holyFlameEnhance.defRows : 2;
-    A._activeBuffs = A._activeBuffs.map(b => {
-        if (b.key === BUFF_TYPES.HOLY_FLAME) {
+    // 更新引擎侧 state.activeBuffs，再重新过滤给 A/B，保证 UI 侧能拿到 cols/rows
+    state.activeBuffs = state.activeBuffs.map(b => {
+        if (b.key === BUFF_TYPES.HOLY_FLAME && (b.target === CAMP_TYPES.ALLY || !b.target)) {
             const cols = [];
             while (cols.length < holyColCount) { const c = rng.nextInt(1, 3); if (!cols.includes(c)) cols.push(c); }
             cols.sort((a, b) => a - b);
@@ -86,6 +87,8 @@ function prepareRoundStart(A, B, log, state, round, rng) {
         }
         return b;
     });
+    A._activeBuffs = state.activeBuffs.filter(b => b.target === CAMP_TYPES.ALLY || !b.target);
+    B._activeBuffs = state.activeBuffs.filter(b => b.target === CAMP_TYPES.ENEMY);
     A.forEach(u => {
         if (u.alive && u.camp === CAMP_TYPES.ALLY) {
             applyHolyFlameBonus(u, A._activeBuffs || [], hasSisterForHolyFlame);
@@ -103,15 +106,7 @@ function prepareRoundStart(A, B, log, state, round, rng) {
     registerFortifyShield(eventBus);
     registerWarriorExecute(eventBus);
     installBuffMechanics(eventBus);
-    registerSettlementHook({
-        when: SIGNAL_TYPES.BEFORE_ACTION_SELECT,
-        priority: L.BEFORE_ACTION.KULIAN_PRIORITY,
-        handler: (data) => {
-            if (data.unit.name !== '宋青书' || !data.unit.alive) return;
-            const zhou = data.enemySide && data.enemySide.find(u => u.name === '周芷若' && u.alive);
-            if (!zhou) data.declaration.priority = 1;
-        }
-    });
+    // 苦练优先级已由 installKuLian 统一注册，此处不再重复监听
     registerSettlementHook({
         when: SIGNAL_TYPES.BEFORE_SELECT_TARGET,
         priority: L.BEFORE_SELECT_TARGET.FLY_TARGET,

@@ -442,18 +442,7 @@ function makeAttackAction(data, index) {
                 factIndex: index,
                 timing: 'afterText'
             });
-        } else if (e.isClawHit || (e.factType && [FACT_TYPES.CLAW_HIT, FACT_TYPES.CLAW_EXECUTE].includes(e.factType))) {
-            afterTextEffects.push({
-                kind: STAGE_ACTION_TYPES.BUFF_EFFECT,
-                effectType: BUFF_EFFECT_TYPES.BONE_CLAW,
-                attackerUid: e.clawAttackerUid ?? attacker?.uid ?? null,
-                targetUid: e.clawTargetUid ?? target?.uid ?? null,
-                dmg: e.data?.dmg ?? null,
-                isExecute: e.isExecute ?? false,
-                factIndex: index,
-                timing: 'afterText'
-            });
-        } else if (e.buffType === 'qiankun_atk' && e.atkTargetUid && e.atkGain) {
+        // 九阴白骨爪特效已迁移至 handleAttackGroup 逐条日志同步触发，此处不再批量生成 else if (e.buffType === 'qiankun_atk' && e.atkTargetUid && e.atkGain) {
             afterTextEffects.push({
                 kind: STAGE_ACTION_TYPES.BUFF_EFFECT,
                 effectType: BUFF_EFFECT_TYPES.ATK_BUFF,
