@@ -380,7 +380,7 @@ function submitChainClaw(data, decls) {
         const hpPctAfter = simulatedTargetHp / target.maxHp;
         const execThreshold = s.executeThreshold || 0.15;
         const isExecute = !isDeadByHit && hpPctAfter <= execThreshold && simulatedTargetHp > 0;
-        hits.push({ dmg: bonusDmg, factType: FACT_TYPES.CLAW_HIT, data: { unitName: unit.name, targetName: target.name, dmg: bonusDmg, isExecute, jealous: zhangAlive, depth }, isClawHit: true, clawAttackerUid: unit.uid, clawTargetUid: target.uid, isExecute });
+        hits.push({ dmg: bonusDmg, factType: FACT_TYPES.CLAW_HIT, data: { unitName: unit.name, targetName: target.name, dmg: bonusDmg, isExecute, jealous: zhangAlive, depth, hpAfter: simulatedTargetHp, targetUid: target.uid }, isClawHit: true, clawAttackerUid: unit.uid, clawTargetUid: target.uid, isExecute });
         if (song && song.alive) {
             const healAmount = Math.min(bonusDmg, song.maxHp - simulatedSongHp);
             totalHeal += healAmount;
@@ -486,7 +486,7 @@ function installKuLian(eventBus, A, B, declarations) {
         priority: L.BEFORE_ACTION.KULIAN_PRIORITY,
         handler: (data) => {
             if (data.unit.name !== '宋青书' || !data.unit.alive) return;
-            const zhou = data.enemySide && data.enemySide.find(u => u.name === '周芷若' && u.alive);
+            const zhou = data.allySide && data.allySide.find(u => u.name === '周芷若' && u.alive);
             if (!zhou) data.declaration.priority = 1;
         }
     });

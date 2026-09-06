@@ -4,6 +4,7 @@ export const VER = 'player/46attack-group.js V5.8.0';
 import { GlobalStore, getState } from '../infra/54-global-store.js';
 import { STORE_ACTION_TYPES, FLASH_TYPES, CAMP_TYPES } from '../infra/56-battle-enums.js';
 import { appendLogHTML, autoScrollLog, updateRoundDisplay, playLogLine, appendHiddenDetail, findUnitByUid } from './47renderer.js';
+import { showBoneClaw } from '../fx/81fx-arrows-5v5-test.js';
 
 export async function handleAttackGroup(c, entry, roundResult, abortSig, isFirstAttackRef) {
     let unitA = findUnitByUid(c, entry.uidA);
@@ -70,12 +71,36 @@ export async function handleAttackGroup(c, entry, roundResult, abortSig, isFirst
             continue;
         }
 
+        // 九阴白骨爪：每条爪击日志快速触发飞爪动画，不阻塞日志推进
+        if (entry2.isClawHit) {
+            const clawAttacker = findUnitByUid(c, entry2.clawAttackerUid);
+            const clawTarget = findUnitByUid(c, entry2.clawTargetUid);
+            if (clawAttacker && clawTarget) {
+                showBoneClaw(clawAttacker, clawTarget, Math.max(c.speed || 1000, 600), () => c.isPaused, null, { isExecute: entry2.isExecute });
+            }
+        }
+
         const currentSpeed = c.speed || 1000;
         const forcedSpeed = (entry2.type === 'combat-text' || entry2.type === 'damage-text')
             ? Math.max(currentSpeed, 600)
             : Math.floor(currentSpeed * 0.8);
         await playLogLine(entry2.text, forcedSpeed);
         if (!c.userScrolled) autoScrollLog();
+
+        // 逐次更新目标血量：每击后立即同步 store，让血条跟着掉
+        if (entry2.isClawHit && entry2.hpAfter !== undefined && entry2.clawTargetUid && c.store) {
+            c.store.dispatch({
+                type: STORE_ACTION_TYPES.HP_CHANGE,
+                unitUid: entry2.clawTargetUid,
+                payload: { hp: Math.max(0, entry2.hpAfter) }
+            });
+        }
+
+        // 爪击之间极短间隔，形成连续快打节奏
+        if (entry2.isClawHit) {
+            await new Promise(r => setTimeout(r, 120));
+        }
+
         if (entry2.type === 'detail' || entry2.type === 'info' || entry2.type === 'buff-bonus' || entry2.type === 'buff-splash') {
             await new Promise(r => setTimeout(r, 120));
         }

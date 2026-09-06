@@ -424,8 +424,6 @@ export function showMeleeMiss(unitA, unitD, speed, getPausedFn) {
     let dist = Math.sqrt(dx*dx+dy*dy); if(dist<1) return;
     let nx=dx/dist, ny=dy/dist;
 
-    // 扑空动画：不再 cloneNode 空壳 + display:none 藏原格（那是"白框飞过去 + 原地白框"的根——克隆的是脱节/空壳格子），
-    //   改为原格向前突进逼近目标后快速收回，配"未命中"气泡表达扑空感
     cellA.removeAttribute('data-flash');
     const ctxM = window._getPlayerContext ? window._getPlayerContext() : null;
     if (ctxM && ctxM.store) {
@@ -434,25 +432,26 @@ export function showMeleeMiss(unitA, unitD, speed, getPausedFn) {
     }
     cellA.classList.remove('ready');
 
-    const approach = dist - rB.width * 0.3;
+    // 前冲幅度：目标格宽度一半，确保动作可见但不浮夸
+    const approach = dist - rB.width * 0.5;
     const savedTransition = cellA.style.transition || '';
     const savedTransform = cellA.style.transform || '';
     const savedPosition = cellA.style.position || '';
     const savedZIndex = cellA.style.zIndex || '';
     cellA.style.position = 'relative';
     cellA.style.zIndex = '100000';
-    cellA.style.transition = 'transform 0.2s ease-out';
+    cellA.style.transition = 'transform 0.25s ease-out';
     cellA.style.transform = `translate(${nx * approach}px, ${ny * approach}px)`;
 
     setTimeout(() => {
         if (getPausedFn && getPausedFn()) return;
-        cellA.style.transition = 'transform 0.15s ease-in';
+        cellA.style.transition = 'transform 0.2s ease-in';
         cellA.style.transform = 'translate(0,0)';
-    }, 200);
+    }, 250);
     setTimeout(() => {
         cellA.style.transform = savedTransform;
         cellA.style.transition = savedTransition;
         cellA.style.position = savedPosition;
         cellA.style.zIndex = savedZIndex;
-    }, 380);
+    }, 480);
 }

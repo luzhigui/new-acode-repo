@@ -463,6 +463,8 @@ export async function playBattle() {
             if (abortSig && abortSig.aborted) return;
             await c.waitWhilePaused();
             lastStep = step;
+            // 同步引擎侧 activeBuffs（圣火令 cols/rows 已更新），确保 logo 和面板正确
+            if (battleState.activeBuffs) c.activeBuffs = battleState.activeBuffs.map(b => ({ ...b }));
             await playStepInterleaved(c, step, isFirstAttackRef);
 
             await new Promise(r => setTimeout(r, GlobalStore.get('fastForwardActive') ? 1 : Math.max(100, c.speed / 2)));

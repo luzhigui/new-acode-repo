@@ -33,10 +33,14 @@ export function _triggerFX(fxSnapshot, unitA, unitD, isDead, isDodge, isMiss, is
         if (!isBlock && !isMiss && !isDodge && unitA) {
             AudioManager.playSfx(unitA.role);
         }
-        if (attackerRole === ROLE_TYPES.RANGED && !isBlock && !isMiss && !isDodge) {
-            showRangedArrow(unitA, unitD, speed, getPausedState, false, () => {
-                if (!GlobalStore.get('fastForwardActive')) showDamageFloat(unitD, dmg);
-            });
+        if (attackerRole === ROLE_TYPES.RANGED && !isBlock) {
+            if (isMiss) {
+                showRangedArrow(unitA, unitD, speed, getPausedState, false, null, true);
+            } else if (!isDodge) {
+                showRangedArrow(unitA, unitD, speed, getPausedState, false, () => {
+                    if (!GlobalStore.get('fastForwardActive')) showDamageFloat(unitD, dmg);
+                });
+            }
         } else if (!isBlock) {
             if (isDodge) {
                 if (!GlobalStore.get('dodgeEffectEnabled')) {
