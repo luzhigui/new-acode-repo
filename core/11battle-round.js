@@ -178,6 +178,10 @@ function prepareRoundStart(A, B, log, state, round, rng) {
             allyTeamWithDead = allyTeamWithDead.filter((u, i, arr) => arr.findIndex(v => v.uid === u.uid) === i);
         }
         let stats = computeBuffStats(u, A._activeBuffs || [], allyTeamWithDead);
+        u.buffAtkBonus = stats.atkBonus;
+        u.buffDefBonus = stats.defBonus;
+        u.buffDodgeBonus = stats.dodgeBonus;
+        u.buffHpBonus = stats.hpBonus;
 
         applyHolyFlameBonus(u, A._activeBuffs || [], hasSisterForHolyFlame);
         applyFortifyBonus(u, A._activeBuffs || []);

@@ -436,6 +436,7 @@ function submitKuLian(data, decls) {
     if (!decl) return;
     const kuLianSong = checkKuLian(B);
     if (!kuLianSong) return;
+    Object.assign(kuLianSong.state, { _kuLianActive: true });
     // 苦练：每回合给全队 +攻+防+血上限，宋青书三倍，可跨回合累积
     const s = {
         atkBonus: decl.atkBonus || 1,
