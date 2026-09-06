@@ -31,15 +31,18 @@ class EventBus {
     emit(signal, data) {
         appendDebugSignalLog(signal, data);
         const listeners = this._listeners[signal];
-        if (!listeners || listeners.length === 0) return;
+        if (!listeners || listeners.length === 0) return Promise.resolve();
+        const promises = [];
         for (const { callback } of listeners) {
             try {
-                // 同步串行，按 priority 升序；异步监听器请走单独通道
-                callback(data);
+                const result = callback(data);
+                // 异步监听器（返回 Promise）会被收集并等待
+                if (result && typeof result.then === 'function') promises.push(result);
             } catch (e) {
                 console.error(`[EventBus] 信号 "${signal}" 的监听器执行出错:`, e);
             }
         }
+        return Promise.all(promises);
     }
 
     clear(signal) {

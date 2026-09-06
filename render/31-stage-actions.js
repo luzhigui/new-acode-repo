@@ -860,7 +860,7 @@ export const STAGE_ACTION_DEFS = {
                     } else {
                         c.isPaused = true; GlobalStore.set('bulletTimeActive', true);
                         await eventBus.emit(FX_SIGNALS.BANNER, { text: '☄️ 流星赶月！' });
-                        eventBus.emit(FX_SIGNALS.SPLASH_ARROWS, { attacker, primary, targets: splashTargets, speed: c.speed, isPausedFn: () => c.isPaused });
+                        await eventBus.emit(FX_SIGNALS.SPLASH_ARROWS, { attacker, primary, targets: splashTargets, speed: c.speed, isPausedFn: () => c.isPaused });
                         splashTargets.forEach((st, i) => { setTimeout(() => AudioManager.playSfx(attacker.role || ROLE_TYPES.RANGED), i * 60); });
                         GlobalStore.set('bulletTimeActive', false); c.isPaused = false;
                         await new Promise(r => setTimeout(r, GlobalStore.get('fastForwardActive') ? 1 : 600));
