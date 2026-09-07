@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿<!DOCTYPE html>
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿<!DOCTYPE html>
 <!-- V5.4.0 | ~11500 bytes-->
 <html lang="zh-CN">
 <head>
@@ -177,7 +177,10 @@ document.getElementById('btnGameDesign').addEventListener('click', () => {
             try {
                 const ctx = getBgmCtx();
                 if (!ctx) return;
-                const resp = await fetch('assets/sfx_xinai.mp3');
+                // 随机选一首可商用 BGM（不侵权；不用 sfx_xinai）
+                const BGM_LIST = ['assets/bgm-wuxia.mp3', 'assets/bgm-chinese.mp3'];
+                const pick = BGM_LIST[Math.floor(Math.random() * BGM_LIST.length)];
+                const resp = await fetch(pick);
                 const buf = await resp.arrayBuffer();
                 try {
                     bgmBuffer = await ctx.decodeAudioData(buf);
