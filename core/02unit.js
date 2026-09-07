@@ -41,6 +41,7 @@ export class Unit {
         this.survivedRounds=0;this._flash=null;
         this.buffAtkBonus=0;this.buffDefBonus=0;this.buffDodgeBonus=0;this.buffHpBonus=0;
         this.fixed=false;
+        this._mods = { atk: [], def: [], maxHp: [] };
         this.state = createInitialState();
         this.isXiaoZhaoSister = false; // 🦋 小昭·姊
         this.isXiaoZhaoBrother = false; // 🕷️ 小昭·妹
@@ -51,9 +52,15 @@ export class Unit {
         // 此处只拷贝战斗必需顶层字段（atk/def/hp/pos/alive 等），跳过 state、fsm 及所有下划线临时字段
         for (const key of Object.keys(this)) {
             if (key === 'state' || key === '_fsm') continue;
-            if (key.startsWith('_') && key !== '_flash') continue;
+            if (key.startsWith('_') && key !== '_flash' && key !== '_mods') continue;
             c[key] = this[key];
         }
+        // 词条容器深拷贝：数组独立，避免共享引用
+        c._mods = {
+            atk: [...(this._mods?.atk || [])],
+            def: [...(this._mods?.def || [])],
+            maxHp: [...(this._mods?.maxHp || [])]
+        };
         // state：全量字段统一拷贝（17-state-keys 驱动），数组深拷贝、对象浅拷贝
         c.state = {};
         copyAllStateFields(this.state, c.state);

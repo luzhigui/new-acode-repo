@@ -1,6 +1,7 @@
 // player/42player-core.js
 // V5.7.7 | 2026-09-06 播放器调度重构：按 factIndex 交错日志与特效，修复特效/日志错位
-export const VER = 'player/42player-core.js V5.7.7';
+// V5.8.0 | 2026-09-07 属性词条化：syncStoreFromStep 保留 _mods，渲染由 getStat 现算
+export const VER = 'player/42player-core.js V5.8.0';
 
 import { CONFIG } from '../core/01config-5v5-test.js';
 import { eventBus } from '../infra/50-event-bus.js';
@@ -24,25 +25,17 @@ import { AnimationScheduler } from './43animation-scheduler.js';
 import { renderLog } from '../render/30-fact-renderer.js';
 import { STAGE_ACTION_DEFS, translateFactsToStageActions } from '../render/31-stage-actions.js';
 
-function getCtx() {
-    return getPlayerContext();
-}
+function getCtx() { return getPlayerContext(); }
 
 export { clearAllEffects } from './47renderer.js';
 
-// ---- 工具函数 ----
 function prepareLogEntry(entry) {
     if (!entry || !entry.factType) return entry;
     const rendered = renderLog(entry.factType, entry.data);
-    if (Array.isArray(rendered)) {
-        // 展开多条目（如张无忌切换），调用方需要处理
-        return rendered;
-    }
+    if (Array.isArray(rendered)) return rendered;
     if (rendered && typeof rendered === 'object') {
         const extra = {};
-        for (const k in entry) {
-            if (k !== 'factType' && k !== 'data') extra[k] = entry[k];
-        }
+        for (const k in entry) { if (k !== 'factType' && k !== 'data') extra[k] = entry[k]; }
         return Object.assign({}, rendered, extra);
     }
     return rendered;
@@ -77,7 +70,7 @@ function rebuildUISnapshotFromStore(c) {
     const cloneUnit = (su) => {
         const copyState = {};
         syncStateToUI(su.state, su.uid, copyState);
-        return { ...su, state: copyState };
+        return { ...su, state: copyState, _mods: su._mods ? { atk: [...su._mods.atk], def: [...su._mods.def], maxHp: [...su._mods.maxHp] } : { atk: [], def: [], maxHp: [] } };
     };
     c.UI.allyTeam = storeUnits.filter(u => u.camp === CAMP_TYPES.ALLY).map(cloneUnit);
     c.UI.enemyTeam = storeUnits.filter(u => u.camp === CAMP_TYPES.ENEMY).map(cloneUnit);
@@ -94,22 +87,20 @@ function syncStoreFromStep(c, step) {
             const unit = { ...u };
             const oldUnit = oldUnitsMap.get(u.uid);
             if (oldUnit) {
-                for (const field of preservedTopFields) {
-                    if (oldUnit[field] !== undefined) unit[field] = oldUnit[field];
-                }
+                for (const field of preservedTopFields) { if (oldUnit[field] !== undefined) unit[field] = oldUnit[field]; }
             }
+            if (u._mods) unit._mods = { atk: [...u._mods.atk], def: [...u._mods.def], maxHp: [...u._mods.maxHp] };
+            else unit._mods = { atk: [], def: [], maxHp: [] };
             return unit;
         });
     c.store.dispatch({ type: STORE_ACTION_TYPES.SET_UNITS, units });
 }
 
-// ---- 交错播放：日志与特效按 factIndex 同步 ----
 async function playStepInterleaved(c, step, isFirstAttackRef) {
     const pendingDeaths = [];
     const actions = step.stageActions || [];
     const log = step.log || [];
 
-    // 按 factIndex 分组 action，方便查找
     const actionsByFactIndex = new Map();
     for (const action of actions) {
         const idx = action.factIndex;
@@ -119,70 +110,45 @@ async function playStepInterleaved(c, step, isFirstAttackRef) {
     const processedBeforeIndexes = new Set();
     const processedAfterIndexes = new Set();
 
-    // 逐条播放日志，并在正确时机执行 store/fx
     for (let i = 0; i < log.length; i++) {
         const rawEntry = log[i];
-        // 投影 fact 为渲染条目，可能展开数组
         let entries = prepareLogEntry(rawEntry);
         if (entries === null || entries === undefined) {
-            // 渲染为 null 的 fact（如惑心横幅）仍需执行对应 stageAction
             const factIndex = i;
             const beforeActions = (actionsByFactIndex.get(factIndex) || []).filter(a => getActionFx(a) !== 'none' && getActionTiming(a) !== 'afterText');
-            for (const action of beforeActions) {
-                applyStageActionToStore(c, action, pendingDeaths);
-                await applyStageActionToFX(c, action);
-            }
+            for (const action of beforeActions) { applyStageActionToStore(c, action, pendingDeaths); await applyStageActionToFX(c, action); }
             const afterActions = (actionsByFactIndex.get(factIndex) || []).filter(a => getActionFx(a) !== 'none' && getActionTiming(a) === 'afterText');
-            for (const action of afterActions) {
-                applyStageActionToStore(c, action, pendingDeaths);
-                await applyStageActionToFX(c, action);
-            }
+            for (const action of afterActions) { applyStageActionToStore(c, action, pendingDeaths); await applyStageActionToFX(c, action); }
             continue;
         }
         if (!Array.isArray(entries)) entries = [entries];
-        // 投影后条目送入 battleLog，供体检规则消费
         const _battleLog = GlobalStore.get('battleLog');
-        if (Array.isArray(_battleLog)) {
-            for (const entry of entries) {
-                if (entry) _battleLog.push(entry);
-            }
-        }
+        if (Array.isArray(_battleLog)) { for (const entry of entries) { if (entry) _battleLog.push(entry); } }
 
         for (let j = 0; j < entries.length; j++) {
             const entry = entries[j];
-            // 该条目对应的原始 factIndex（数组展开时所有子条目共享父索引）
             const factIndex = i;
 
-            // beforeText actions（同一 factIndex 只触发一次，避免数组展开时重复执行）
             if (!processedBeforeIndexes.has(factIndex)) {
                 processedBeforeIndexes.add(factIndex);
                 const beforeActions = (actionsByFactIndex.get(factIndex) || []).filter(a => getActionFx(a) !== 'none' && getActionTiming(a) !== 'afterText');
                 for (const action of beforeActions) {
                     applyStageActionToStore(c, action, pendingDeaths);
-                    if (action.nonBlocking) {
-                        applyStageActionToFX(c, action);
-                    } else {
-                        await applyStageActionToFX(c, action);
-                    }
+                    if (action.nonBlocking) applyStageActionToFX(c, action);
+                    else await applyStageActionToFX(c, action);
                 }
             }
 
-            // 播放该条日志条目
             await playSingleLogEntry(c, entry, step, isFirstAttackRef, factIndex);
 
-            // afterText actions（同一 factIndex 只触发一次）
             if (!processedAfterIndexes.has(factIndex)) {
                 processedAfterIndexes.add(factIndex);
                 const afterActions = (actionsByFactIndex.get(factIndex) || []).filter(a => getActionFx(a) !== 'none' && getActionTiming(a) === 'afterText');
-                for (const action of afterActions) {
-                    applyStageActionToStore(c, action, pendingDeaths);
-                    await applyStageActionToFX(c, action);
-                }
+                for (const action of afterActions) { applyStageActionToStore(c, action, pendingDeaths); await applyStageActionToFX(c, action); }
             }
         }
     }
 
-    // 处理没有对应日志的 actions（例如 factIndex 为 null 或日志被跳过）
     for (const action of actions) {
         if (action.factIndex == null || !actionsByFactIndex.has(action.factIndex)) {
             applyStageActionToStore(c, action, pendingDeaths);
@@ -190,7 +156,6 @@ async function playStepInterleaved(c, step, isFirstAttackRef) {
         }
     }
 
-    // 死亡标记落地
     for (const uid of pendingDeaths) {
         const du = c.store.getState().units.find(u => u.uid === uid);
         if (du && !(du.state && du.state._isDead)) {
@@ -199,106 +164,63 @@ async function playStepInterleaved(c, step, isFirstAttackRef) {
         }
     }
 
-    // 死亡画笔：如果本 step 有任何致死动作，对最后一行日志做渐隐
     const hasDeathAction = actions.some(a => a.dead && (a.kind === STAGE_ACTION_TYPES.ATTACK || a.kind === STAGE_ACTION_TYPES.DEATH || a.kind === STAGE_ACTION_TYPES.DOT));
     if (hasDeathAction) {
         const logDiv = document.getElementById('log');
-        if (logDiv && logDiv.lastElementChild) {
-            eventBus.emit(FX_SIGNALS.BRUSH_EFFECT, { el: logDiv.lastElementChild });
-        }
+        if (logDiv && logDiv.lastElementChild) eventBus.emit(FX_SIGNALS.BRUSH_EFFECT, { el: logDiv.lastElementChild });
     }
 
     syncStoreFromStep(c, step);
 }
 
-// 播放单条日志条目（复用原有 case 逻辑）
 async function playSingleLogEntry(c, entry, step, isFirstAttackRef, factIndex) {
     let lastEntryType = c._lastLogType || null;
     let abortSig = c.abortController ? c.abortController.signal : null;
 
-    if (shouldStartNewGroup(entry, lastEntryType)) {
-        renderSeparator();
-    }
+    if (shouldStartNewGroup(entry, lastEntryType)) renderSeparator();
 
     switch (entry.type) {
         case 'info':
-            if (entry.dropKind === DROP_TYPES.TOKEN) {
-                await handleHolyTokenDrop(c, entry);
-                lastEntryType = entry.type;
-                break;
-            }
-            await handleInfo(c, entry);
-            lastEntryType = entry.type;
-            break;
-        case 'buff-summon':
-            await handleBuffSummon(c, entry, null);
-            lastEntryType = entry.type;
-            break;
-        case 'buff-destroy':
-            await handleBuffDestroy(c, entry, null);
-            lastEntryType = entry.type;
-            break;
-        case 'buff-leech':
-        case 'buff-splash':
-            appendLogHTML(entry.text + '<br>');
-            lastEntryType = entry.type;
-            break;
-        case 'buff-bonus':
-        case 'buff-swap':
-        case 'buff-push':
-            await handleBuffText(c, entry);
-            lastEntryType = entry.type;
-            break;
+            if (entry.dropKind === DROP_TYPES.TOKEN) { await handleHolyTokenDrop(c, entry); lastEntryType = entry.type; break; }
+            await handleInfo(c, entry); lastEntryType = entry.type; break;
+        case 'buff-summon': await handleBuffSummon(c, entry, null); lastEntryType = entry.type; break;
+        case 'buff-destroy': await handleBuffDestroy(c, entry, null); lastEntryType = entry.type; break;
+        case 'buff-leech': case 'buff-splash': appendLogHTML(entry.text + '<br>'); lastEntryType = entry.type; break;
+        case 'buff-bonus': case 'buff-swap': case 'buff-push': await handleBuffText(c, entry); lastEntryType = entry.type; break;
         case 'buff-summary':
             appendLogHTML(entry.text + '<br>');
             if (entry.buffType === 'elite_xingfen') {
                 let song = c.store ? c.store.getState().units.find(u => u.name === '宋青书') : null;
                 if (song) c.store.dispatch({ type: STORE_ACTION_TYPES.SET_VISUAL, uid: song.uid, _hasXingFen: true });
             }
-            lastEntryType = entry.type;
-            break;
-        case 'buff-rebound-fortify':
-            await handleBuffText(c, entry, c.speed / 2);
-            lastEntryType = entry.type;
-            break;
+            lastEntryType = entry.type; break;
+        case 'buff-rebound-fortify': await handleBuffText(c, entry, c.speed / 2); lastEntryType = entry.type; break;
         case 'round-start':
             if (step.roundResult && step.roundResult.events && step.roundResult.events.length > 0) {
                 c.store.dispatch({ type: STORE_ACTION_TYPES.APPLY_EVENTS, events: step.roundResult.events });
                 step.roundResult.events = [];
             }
             await handleRoundStart(c, entry, isFirstAttackRef);
-            if (step.doubleStrikeUid) {
-                c.currentDoubleStrikeUid = step.doubleStrikeUid;
-            }
-            lastEntryType = entry.type;
-            break;
+            if (step.doubleStrikeUid) c.currentDoubleStrikeUid = step.doubleStrikeUid;
+            lastEntryType = entry.type; break;
         case 'attack-group': {
             let result = await handleAttackGroup(c, entry, step, abortSig, isFirstAttackRef);
             lastEntryType = entry.type;
             if (result && result.isBattleOver) return result;
             break;
         }
-        case 'round-end':
-            await handleRoundEnd(c, entry, step.log || [], 0);
-            lastEntryType = entry.type;
-            break;
+        case 'round-end': await handleRoundEnd(c, entry, step.log || [], 0); lastEntryType = entry.type; break;
         case 'signal':
-            if (getState.logLevel() === 'debug') {
-                appendLogHTML(entry.text + '<br>');
-            }
-            lastEntryType = entry.type;
-            break;
-        default:
-            break;
+            if (getState.logLevel() === 'debug') appendLogHTML(entry.text + '<br>');
+            lastEntryType = entry.type; break;
+        default: break;
     }
 
     c._lastLogType = lastEntryType;
     return { isBattleOver: false };
 }
 
-// 兼容旧接口：playLogEntries 仍可顺序播放，但不再用于 playStep
 export async function playLogEntries(c, log, roundResult, isFirstAttackRef) {
-    // 简单顺序播放，保留原行为
     let abortSig = c.abortController ? c.abortController.signal : null;
     let lastEntryType = c._lastLogType || null;
     try {
@@ -308,33 +230,18 @@ export async function playLogEntries(c, log, roundResult, isFirstAttackRef) {
             let entry = log[i];
             if (entry && entry.factType) {
                 const rendered = renderLog(entry.factType, entry.data);
-                if (Array.isArray(rendered)) {
-                    log.splice(i, 1, ...rendered);
-                    i -= 1;
-                    continue;
-                }
+                if (Array.isArray(rendered)) { log.splice(i, 1, ...rendered); i -= 1; continue; }
                 if (rendered && typeof rendered === 'object') {
                     const extra = {};
-                    for (const k in entry) {
-                        if (k !== 'factType' && k !== 'data') extra[k] = entry[k];
-                    }
+                    for (const k in entry) { if (k !== 'factType' && k !== 'data') extra[k] = entry[k]; }
                     entry = Object.assign({}, rendered, extra);
-                } else {
-                    entry = rendered;
-                }
+                } else { entry = rendered; }
                 if (!entry) continue;
             }
-            {
-                const _battleLog = GlobalStore.get('battleLog');
-                if (Array.isArray(_battleLog)) _battleLog.push(entry);
-            }
+            { const _battleLog = GlobalStore.get('battleLog'); if (Array.isArray(_battleLog)) _battleLog.push(entry); }
             if (shouldStartNewGroup(entry, lastEntryType)) renderSeparator();
             switch (entry.type) {
-                case 'info':
-                    if (entry.dropKind === DROP_TYPES.TOKEN) await handleHolyTokenDrop(c, entry);
-                    else await handleInfo(c, entry);
-                    lastEntryType = entry.type;
-                    break;
+                case 'info': if (entry.dropKind === DROP_TYPES.TOKEN) await handleHolyTokenDrop(c, entry); else await handleInfo(c, entry); lastEntryType = entry.type; break;
                 case 'buff-summon': await handleBuffSummon(c, entry, i > 0 ? log[i - 1] : null); lastEntryType = entry.type; break;
                 case 'buff-destroy': await handleBuffDestroy(c, entry, i > 0 ? log[i - 1] : null); lastEntryType = entry.type; break;
                 case 'buff-leech': case 'buff-splash': appendLogHTML(entry.text + '<br>'); lastEntryType = entry.type; break;
@@ -381,12 +288,7 @@ export async function playBattle() {
     let lastTime = performance.now();
     function frameLoop() {
         const now = performance.now();
-        if (c.isPaused) {
-            GlobalStore.set('bulletTimeActive', true);
-            lastTime = now;
-            if (!c._battleEnded) requestAnimationFrame(frameLoop);
-            return;
-        }
+        if (c.isPaused) { GlobalStore.set('bulletTimeActive', true); lastTime = now; if (!c._battleEnded) requestAnimationFrame(frameLoop); return; }
         scheduler.paused = false;
         scheduler.tick(Math.min(now - lastTime, 100));
         lastTime = now;
@@ -433,10 +335,7 @@ export async function playBattle() {
     updateRoundDisplay('📜 日志（第1回合）');
     initLogScrollControls(c);
 
-    c._originalSnapshot = {
-        ally: c.snapshot.ally.map(u => u.clone()),
-        enemy: c.snapshot.enemy.map(u => u.clone())
-    };
+    c._originalSnapshot = { ally: c.snapshot.ally.map(u => u.clone()), enemy: c.snapshot.enemy.map(u => u.clone()) };
     let battleState = {
         ally: c.snapshot.ally.map(u => u.clone()),
         enemy: c.snapshot.enemy.map(u => u.clone()),
@@ -463,17 +362,10 @@ export async function playBattle() {
             if (abortSig && abortSig.aborted) return;
             await c.waitWhilePaused();
             lastStep = step;
-            // 同步引擎侧 activeBuffs（圣火令 cols/rows 已更新），确保 logo 和面板正确
             if (battleState.activeBuffs) c.activeBuffs = battleState.activeBuffs.map(b => ({ ...b }));
             await playStepInterleaved(c, step, isFirstAttackRef);
-
             await new Promise(r => setTimeout(r, GlobalStore.get('fastForwardActive') ? 1 : Math.max(100, c.speed / 2)));
-
-            if (step.winner) {
-                finalWinner = step.winner;
-                isBattleOver = true;
-                break;
-            }
+            if (step.winner) { finalWinner = step.winner; isBattleOver = true; break; }
         }
 
         if (isBattleOver) { finalStep = lastStep; break; }
@@ -543,9 +435,7 @@ export async function playBattle() {
         const uiXiaoZhao = c.store ? c.store.getState().units.find(u => u.isXiaoZhaoBrother) : null;
         if (uiXiaoZhao && uiXiaoZhao.state._permanentBuffs && lastStep && lastStep.ally) {
             const engineXiaoZhao = lastStep.ally.find(u => u.isXiaoZhaoBrother);
-            if (engineXiaoZhao) {
-                Object.assign(engineXiaoZhao.state, { _permanentBuffs: uiXiaoZhao.state._permanentBuffs.map(b => ({ ...b })) });
-            }
+            if (engineXiaoZhao) Object.assign(engineXiaoZhao.state, { _permanentBuffs: uiXiaoZhao.state._permanentBuffs.map(b => ({ ...b })) });
         }
         battleState = { ally: lastStep.ally, enemy: lastStep.enemy, round: battleState.round + 1, activeBuffs: nextActiveBuffs, allAllies: battleState.allAllies };
 
@@ -567,7 +457,6 @@ export async function playBattle() {
     c.gs = 'GAMEOVER'; c.isPaused = false; c.waitingForNextRound = false; c.isBattleStarting = false;
     GlobalStore.set('fastForwardActive', false);
     GlobalStore.set('gs', 'GAMEOVER');
-    
     GlobalStore.set('restoreSpeed', true);
     c.enableAllButtons();
 
@@ -594,6 +483,7 @@ export async function playBattle() {
         }
     }
     if (winner === '明教' || winner === '六大派') {
+        renderSeparator();
         const finalAllyState = finalStep ? finalStep.ally : [];
         const finalEnemyState = finalStep ? finalStep.enemy : [];
         const allyMap = new Map(finalAllyState.map(u => [u.uid, u]));
@@ -633,6 +523,7 @@ export async function playBattle() {
             }
         }
     } else {
+        renderSeparator();
         renderVictoryLine('<span class="gray">🤝 平局！积分不变</span><br>');
         autoScrollLog();
     }
@@ -644,23 +535,19 @@ export async function playBattle() {
 
     if (GlobalStore.get('voteChoice') && GlobalStore.get('voteChoice') !== 'skip' && winner !== '平局') {
         let correct = (GlobalStore.get('voteChoice') === winner), earnPoints = 0;
-        if (correct) { earnPoints = GlobalStore.get('battleHasZhang') ? 3 : 2; }
-        else { earnPoints = -1; }
+        if (correct) earnPoints = GlobalStore.get('battleHasZhang') ? 3 : 2;
+        else earnPoints = -1;
         GlobalStore.set('voteScore', GlobalStore.get('voteScore') + earnPoints);
         localStorage.setItem('ming_vote_score_5v5_test', String(GlobalStore.get('voteScore')));
         const newScore = GlobalStore.get('voteScore');
         const oldScoreStr = localStorage.getItem('ming_vote_score_5v5_test');
         const oldScore = oldScoreStr ? parseInt(oldScoreStr, 10) : 0;
-        if (oldScore === 0 || newScore >= oldScore) {
-            localStorage.setItem('ming_vote_score_5v5_test', newScore);
-        } else if (oldScore - newScore <= 50) {
-            localStorage.setItem('ming_vote_score_5v5_test', newScore);
-        } else {
-            console.error(`🚨 阻止可疑积分覆盖：${oldScore} → ${newScore}，下降幅度过大，已忽略写入`, '\n调用栈:', new Error().stack);
-        }
+        if (oldScore === 0 || newScore >= oldScore) localStorage.setItem('ming_vote_score_5v5_test', newScore);
+        else if (oldScore - newScore <= 50) localStorage.setItem('ming_vote_score_5v5_test', newScore);
+        else console.error(`🚨 阻止可疑积分覆盖：${oldScore} → ${newScore}，下降幅度过大，已忽略写入`, '\n调用栈:', new Error().stack);
         showScoreFloat(earnPoints);
         let voteMsg = correct ? `<span class="green">📊 你猜了${GlobalStore.get('voteChoice')}，正确！+${earnPoints}分！ 当前积分：${GlobalStore.get('voteScore')}</span>` : `<span class="red">📊 你猜了${GlobalStore.get('voteChoice')}，错误！-1分！当前积分：${GlobalStore.get('voteScore')}</span>`;
-        if (c.gs === 'GAMEOVER') { renderVictoryLine(voteMsg + '<br>'); }
+        if (c.gs === 'GAMEOVER') renderVictoryLine(voteMsg + '<br>');
     } else if (winner === '平局') {
         renderVictoryLine('<span class="gray">📊 平局，积分不变，当前积分：' + GlobalStore.get('voteScore') + '</span><br>');
     }

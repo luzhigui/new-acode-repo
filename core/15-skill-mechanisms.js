@@ -1,18 +1,15 @@
 // V5.7.2 | ~14500 bytes | 2026-08-28 毒 fact 按攻击组定位插入
-export const VER = 'core/15-skill-mechanisms.js V5.7.2';
+// V5.8.0 | 2026-09-07 属性词条化：乾坤衍生/苦练/性奋代价改 addMod
+export const VER = 'core/15-skill-mechanisms.js V5.8.0';
 
 import { EXECUTION_LAYER as L, EFFECT_TYPES, registerSettlementHook } from '../infra/50-event-bus.js';
 import { CONFIG, getSkillParams } from './01config-5v5-test.js';
 import { registerDodgeRule } from './12battle-attack-steps.js';
-import { emitEvent, applyStatChange, applyMaxHpChange, getBattleRng } from './13battle-shared.js';
-// 宋青书/周芷若联动函数已迁回 core，消除 core→modules 循环依赖
+import { emitEvent, applyStatChange, applyMaxHpChange, getBattleRng, addMod } from './13battle-shared.js';
 import { FACT_TYPES, UNIT_EVENT_TYPES, CAMP_TYPES, SIGNAL_TYPES } from '../infra/56-battle-enums.js';
-// 机制查表化：注册表已下沉 core/18，core 只查表不依赖 modules
 import { installMechanicByType } from './18mechanic-registry.js';
-// 同步化：性奋额外攻击改为静态导入，避免动态 import 引入异步，使 processUnitAttack 可同步递归
 import { processUnitAttack } from './10battle-attack.js';
 
-// 安装声明式技能：把声明表翻译成 eventBus 监听
 export function installDeclaredSkills(eventBus, A, B, log, declarations) {
     for (const decl of declarations) {
         if (!decl || !decl.name) continue;
@@ -28,14 +25,11 @@ export function installDeclaredSkills(eventBus, A, B, log, declarations) {
     installKuLian(eventBus, A, B, declarations);
     installXinHun(eventBus, A, B, declarations);
     installXingFen(eventBus, A, B, declarations);
-    // 机制查表化：对每条带 type 的声明，交由 modules/30 注册表按 type 安装第三方/数据驱动机制
     for (const decl of declarations) {
         if (decl && decl.type) installMechanicByType(eventBus, decl.type, A, B, log);
     }
 }
 
-// 新增：从 gameData 读取 mechanics 并转换为 declarations 后安装
-// 数据驱动内容管线入口，第三档复杂组件不在 mechanics 中声明，不会经过此路径
 export function installFromGameData(eventBus, A, B, log, gameData) {
     if (!gameData || !gameData.characters) return;
     const declarations = [];
@@ -43,16 +37,12 @@ export function installFromGameData(eventBus, A, B, log, gameData) {
         if (!character.mechanics || !Array.isArray(character.mechanics)) continue;
         for (const mech of character.mechanics) {
             if (!mech || typeof mech !== 'object') continue;
-            declarations.push({
-                name,
-                ...mech
-            });
+            declarations.push({ name, ...mech });
         }
     }
     installDeclaredSkills(eventBus, A, B, log, declarations);
 }
 
-// 目标选择：判定与 targetResult 写入已抽为纯函数
 function submitLowestHpTarget(data, decl) {
     if (data.unit.name !== decl.name) return;
     const sorted = [...data.validTargets].sort((a, b) => a.hp - b.hp);
@@ -68,28 +58,21 @@ function submitHighestHpPctTarget(data, decl) {
 function installTargetRule(eventBus, A, B, decl) {
     if (!decl.targetRule) return;
     const rule = decl.targetRule;
-
     if (rule === 'lowestHp') {
         registerSettlementHook({
             when: SIGNAL_TYPES.BEFORE_SELECT_TARGET,
             priority: L.BEFORE_SELECT_TARGET.REBEL,
-            handler: (data) => {
-                submitLowestHpTarget(data, decl);
-            }
+            handler: (data) => { submitLowestHpTarget(data, decl); }
         });
     } else if (rule === 'highestHpPct') {
         registerSettlementHook({
             when: SIGNAL_TYPES.BEFORE_SELECT_TARGET,
             priority: L.BEFORE_SELECT_TARGET.REBEL,
-            handler: (data) => {
-                submitHighestHpPctTarget(data, decl);
-            }
+            handler: (data) => { submitHighestHpPctTarget(data, decl); }
         });
     }
 }
 
-// 伤害计算前效果声明
-// 所有声明的 beforeDamageEffects 共用一个监听器（同 onHitEffects，避开 EventBus toString 去重）
 function submitBeforeDamageEffects(data, decls) {
     for (const decl of decls) {
         if (data.unit.name !== decl.name) continue;
@@ -103,14 +86,10 @@ function submitBeforeDamageEffects(data, decls) {
             } else if (eff.type === 'bonusLostHp') {
                 const lostHp = data.unit.maxHp - data.unit.hp;
                 const bonus = Math.floor(lostHp * eff.ratio);
-                if (bonus > 0) {
-                    data.declarations.push({ type: EFFECT_TYPES.BONUS_DMG, value: bonus, source: data.unit, label: eff.label || '额外伤害' });
-                }
+                if (bonus > 0) data.declarations.push({ type: EFFECT_TYPES.BONUS_DMG, value: bonus, source: data.unit, label: eff.label || '额外伤害' });
             } else if (eff.type === 'bonusTargetCurrentHp') {
                 const trueDmg = Math.floor(data.target.hp * eff.ratio);
-                if (trueDmg > 0) {
-                    data.declarations.push({ type: EFFECT_TYPES.BONUS_DMG, value: trueDmg, source: data.unit, label: eff.label || '额外伤害' });
-                }
+                if (trueDmg > 0) data.declarations.push({ type: EFFECT_TYPES.BONUS_DMG, value: trueDmg, source: data.unit, label: eff.label || '额外伤害' });
             }
         }
     }
@@ -119,17 +98,13 @@ function submitBeforeDamageEffects(data, decls) {
 function installBeforeDamageEffects(eventBus, declarations) {
     const decls = declarations.filter(d => d && d.name && d.beforeDamageEffects && d.beforeDamageEffects.length > 0);
     if (decls.length === 0) return;
-
     registerSettlementHook({
         when: SIGNAL_TYPES.BEFORE_DAMAGE_CALC,
         priority: L.BEFORE_DAMAGE_CALC.TRUE_DMG,
-        handler: (data) => {
-            submitBeforeDamageEffects(data, decls);
-        }
+        handler: (data) => { submitBeforeDamageEffects(data, decls); }
     });
 }
 
-// 属性修正声明
 function installAttributeModifiers(A, B, decl) {
     if (!decl.attributeMods || decl.attributeMods.length === 0) return;
     const target = decl.camp === CAMP_TYPES.ENEMY
@@ -143,8 +118,6 @@ function installAttributeModifiers(A, B, decl) {
     }
 }
 
-// 命中后效果声明
-// 所有声明的 onHitEffects 共用一个监听器（EventBus 按 toString 去重，同模板多闭包会被误杀）
 function submitOnHitEffects(data, onHitDecls) {
     const unit = data.unit;
     const target = data.target;
@@ -160,30 +133,15 @@ function submitOnHitEffects(data, onHitDecls) {
                 const heal = Math.floor(dmg * ratio);
                 const newMaxHp = Math.min(unit.maxHp + heal, unit.state._baseMaxHp * 2);
                 if (!data.declarations) data.declarations = [];
-                data.declarations.push({
-                    type: EFFECT_TYPES.LEECH,
-                    value: heal,
-                    source: unit,
-                    maxHp: newMaxHp,
-                    factType: FACT_TYPES.WEI_LEECH,
-                    factData: { unitName: unit.name, heal, newMaxHp: Math.floor(newMaxHp), unitUid: unit.uid }
-                });
+                data.declarations.push({ type: EFFECT_TYPES.LEECH, value: heal, source: unit, maxHp: newMaxHp, factType: FACT_TYPES.WEI_LEECH, factData: { unitName: unit.name, heal, newMaxHp: Math.floor(newMaxHp), unitUid: unit.uid } });
             } else if (eff.type === 'healMaxHpPct') {
                 const heal = Math.min(Math.floor(unit.maxHp * eff.pct), unit.maxHp - unit.hp);
                 if (heal > 0) {
                     if (!data.declarations) data.declarations = [];
-                    data.declarations.push({
-                        type: EFFECT_TYPES.HEAL,
-                        value: heal,
-                        source: unit,
-                        factType: FACT_TYPES.NINE_YANG_HEAL,
-                        factData: { unitName: unit.name, heal, hpBefore: Math.floor(unit.hp), hpAfter: Math.floor(unit.hp + heal), unitUid: unit.uid }
-                    });
+                    data.declarations.push({ type: EFFECT_TYPES.HEAL, value: heal, source: unit, factType: FACT_TYPES.NINE_YANG_HEAL, factData: { unitName: unit.name, heal, hpBefore: Math.floor(unit.hp), hpAfter: Math.floor(unit.hp + heal), unitUid: unit.uid } });
                 }
             } else if (eff.type === 'poison') {
                 Object.assign(target.state, { _xuanmingPoison: { remaining: eff.duration, dotPercents: [...eff.dotPercents] } });
-                // 毒记账异步 push（emit 未 await）：按所属 group 定位插入 log，紧跟本攻击组，
-                // 嵌套联动攻击下外层毒先插到自己 group 后、内层毒插到自己 group 后，顺序稳定不错位
                 const poisonFact = { factType: FACT_TYPES.XUAN_MING_POISONED, data: { attackerName: unit.name, targetName: target.name, dotPercents: eff.dotPercents } };
                 if (data.log) {
                     const group = data.group;
@@ -200,13 +158,7 @@ function submitOnHitEffects(data, onHitDecls) {
                 const bonus = Math.floor(lostHp * eff.ratio);
                 if (bonus > 0) {
                     if (!data.declarations) data.declarations = [];
-                    data.declarations.push({
-                        type: EFFECT_TYPES.BONUS_DMG,
-                        value: bonus,
-                        source: unit,
-                        label: eff.label || '额外伤害',
-                        logText: null
-                    });
+                    data.declarations.push({ type: EFFECT_TYPES.BONUS_DMG, value: bonus, source: unit, label: eff.label || '额外伤害', logText: null });
                 }
             }
         }
@@ -216,17 +168,13 @@ function submitOnHitEffects(data, onHitDecls) {
 function installOnHitEffects(eventBus, A, B, declarations) {
     const onHitDecls = declarations.filter(d => d && d.name && d.onHitEffects && d.onHitEffects.length > 0);
     if (onHitDecls.length === 0) return;
-
     registerSettlementHook({
         when: SIGNAL_TYPES.AFTER_DAMAGE_APPLIED,
         priority: L.AFTER_DAMAGE_APPLIED.LEECH,
-        handler: (data) => {
-            submitOnHitEffects(data, onHitDecls);
-        }
+        handler: (data) => { submitOnHitEffects(data, onHitDecls); }
     });
 }
 
-// 幻影伪装（阶段2a）：判定与状态/声明写入已抽为纯函数
 function submitPhantomDisguiseOnHit(data, decls) {
     const unit = data.unit;
     if (!unit || !unit.alive || data.dmg <= 0) return;
@@ -240,15 +188,9 @@ function submitPhantomDisguiseOnHit(data, decls) {
             const aliveCount = data.enemySide.filter(u => u.alive).length;
             const heal = Math.floor(lostHp * (decl.healRatio || 0.06) * aliveCount);
             if (!data.declarations) data.declarations = [];
-            data.declarations.push({
-                type: EFFECT_TYPES.HEAL,
-                value: heal,
-                source: unit,
-                factType: FACT_TYPES.PHANTOM_DISGUISE_HEAL,
-                factData: { unitName: unit.name, heal, unitUid: unit.uid }
-            });
+            data.declarations.push({ type: EFFECT_TYPES.HEAL, value: heal, source: unit, factType: FACT_TYPES.PHANTOM_DISGUISE_HEAL, factData: { unitName: unit.name, heal, unitUid: unit.uid } });
         }
-        emitEvent(unit, UNIT_EVENT_TYPES.HP_CHANGE, { hp:unit.hp, maxHp:unit.maxHp, alive:unit.alive, atk:unit.atk, def:unit.def, _phantomTarget:unit.state._phantomTarget });
+        emitEvent(unit, UNIT_EVENT_TYPES.HP_CHANGE, { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: unit.atk, def: unit.def, _phantomTarget: unit.state._phantomTarget });
     }
 }
 
@@ -259,25 +201,18 @@ function submitPhantomDisguiseTarget(data, decls) {
     let chengkun = null;
     for (const d of decls) {
         const candidate = enemySide.find(u => u.name === d.name && u.alive && u.state._phantomTarget);
-        if (candidate) {
-            phantomDecl = d;
-            chengkun = candidate;
-            break;
-        }
+        if (candidate) { phantomDecl = d; chengkun = candidate; break; }
     }
     if (!phantomDecl || !chengkun) return;
-
     const isPhantomTarget = chengkun.state._phantomTarget === unit.uid;
     if (isPhantomTarget) {
         declaration.targetResult = chengkun;
         declaration.phantomFact = { factType: FACT_TYPES.PHANTOM_REVEAL, data: { unitName: unit.name, deceiver: chengkun.name } };
         return;
     }
-
     const lostHpPct = (chengkun.maxHp - chengkun.hp) / chengkun.maxHp;
     const confuseChance = (phantomDecl.baseChance || 0.30) + (phantomDecl.per10pctLost || 0.06) * (lostHpPct * 10);
     if (getBattleRng().next() >= confuseChance) return;
-
     const phantomTarget = allySide.find(u => u.alive && !u.isHorse && !u.state._untargetable && u.uid === chengkun.state._phantomTarget && u.uid !== unit.uid);
     if (phantomTarget) {
         declaration.targetResult = phantomTarget;
@@ -288,27 +223,18 @@ function submitPhantomDisguiseTarget(data, decls) {
 function installPhantomDisguise(eventBus, declarations) {
     const decls = declarations.filter(d => d && d.type === 'phantomDisguise');
     if (decls.length === 0) return;
-
-    // afterDamageApplied：设置伪装目标并回血
     registerSettlementHook({
         when: SIGNAL_TYPES.AFTER_DAMAGE_APPLIED,
         priority: L.AFTER_DAMAGE_APPLIED.DISGUISE,
-        handler: (data) => {
-            submitPhantomDisguiseOnHit(data, decls);
-        }
+        handler: (data) => { submitPhantomDisguiseOnHit(data, decls); }
     });
-
-    // beforeSelectTarget：被模仿者攻击时概率混乱
     registerSettlementHook({
         when: SIGNAL_TYPES.BEFORE_SELECT_TARGET,
         priority: L.BEFORE_SELECT_TARGET.DISGUISE,
-        handler: (data) => {
-            submitPhantomDisguiseTarget(data, decls);
-        }
+        handler: (data) => { submitPhantomDisguiseTarget(data, decls); }
     });
 }
 
-// 玄冥联动（阶段2a）：判定推 extraRequests 驱动再攻击链（_linkTriggered 直写不走声明）
 function submitLinkAttack(data, decls) {
     const { unit, target, dmg, allySide, log } = data;
     if (!unit || unit.state._isLinkAttack || dmg <= 0 || !target || !target.alive) return;
@@ -321,14 +247,7 @@ function submitLinkAttack(data, decls) {
         Object.assign(partner.state, { _linkTriggered: true });
         log.push({ factType: FACT_TYPES.XUAN_MING_LINK_ATTACK, data: { partnerName: partner.name, unitName: unit.name } });
         if (!data.extraRequests) data.extraRequests = [];
-        data.extraRequests.push({
-            unit: partner,
-            targetUid: target.uid,
-            reason: 'xuanmingLink',
-            actedMode: 'restore',
-            actedSnapshot: partner.state._acted,
-            priority: 40
-        });
+        data.extraRequests.push({ unit: partner, targetUid: target.uid, reason: 'xuanmingLink', actedMode: 'restore', actedSnapshot: partner.state._acted, priority: 40 });
         break;
     }
 }
@@ -336,17 +255,13 @@ function submitLinkAttack(data, decls) {
 function installLinkAttack(eventBus, declarations) {
     const decls = declarations.filter(d => d && d.type === 'linkAttack');
     if (decls.length === 0) return;
-
     registerSettlementHook({
         when: SIGNAL_TYPES.AFTER_ATTACK,
         priority: L.AFTER_ATTACK.XUANMING_LINK,
-        handler: (data) => {
-            submitLinkAttack(data, decls);
-        }
+        handler: (data) => { submitLinkAttack(data, decls); }
     });
 }
 
-// 白骨爪（阶段2b）：模拟链结算推 CLAW_CHAIN/HEAL 声明（直接读 window.GlobalStore）
 function submitChainClaw(data, decls) {
     const { unit, target, dmg, log, allySide, enemySide } = data;
     const decl = decls.find(d => d.name === unit.name);
@@ -355,12 +270,8 @@ function submitChainClaw(data, decls) {
     const zhangAlive = enemySide && enemySide.some(u => u.isZhang && u.alive);
     const baseHit = zhangAlive ? (decl.jealous?.baseDmg ?? decl.baseDmg ?? 2) : (decl.baseDmg ?? 1.5);
     const s = zhangAlive ? { ...decl, ...(decl.jealous || {}) } : decl;
-
-    if (!unit.state._nineYinFirstDone) {
-        Object.assign(unit.state, { _nineYinFirstDone: true });
-    } else {
-        if (rng.next() > (s.procChance || 0.80)) return;
-    }
+    if (!unit.state._nineYinFirstDone) Object.assign(unit.state, { _nineYinFirstDone: true });
+    else if (rng.next() > (s.procChance || 0.80)) return;
 
     const hits = [];
     let executeInfo = null;
@@ -395,22 +306,10 @@ function submitChainClaw(data, decls) {
     }
 
     if (hits.length > 0 && data && data.declarations) {
-        data.declarations.push({
-            type: EFFECT_TYPES.CLAW_CHAIN,
-            source: unit,
-            target: target,
-            hits: hits,
-            execute: executeInfo
-        });
+        data.declarations.push({ type: EFFECT_TYPES.CLAW_CHAIN, source: unit, target, hits, execute: executeInfo });
     }
     if (totalHeal > 0 && song && song.alive && data && data.declarations) {
-        data.declarations.push({
-            type: EFFECT_TYPES.HEAL,
-            value: totalHeal,
-            source: song,
-            factType: FACT_TYPES.CLAW_HEAL,
-            factData: { totalHeal, unitUid: song.uid }
-        });
+        data.declarations.push({ type: EFFECT_TYPES.HEAL, value: totalHeal, source: song, factType: FACT_TYPES.CLAW_HEAL, factData: { totalHeal, unitUid: song.uid } });
     } else if (song && song.alive) {
         log.push({ factType: FACT_TYPES.CLAW_NO_HEAL, data: {} });
     }
@@ -419,50 +318,28 @@ function submitChainClaw(data, decls) {
 function installChainClaw(eventBus, A, B, declarations) {
     const decls = declarations.filter(d => d && d.type === 'chainClaw');
     if (decls.length === 0) return;
-
     registerSettlementHook({
         when: SIGNAL_TYPES.AFTER_ATTACK,
         priority: L.AFTER_ATTACK.CLAW,
-        handler: (data) => {
-            submitChainClaw(data, decls);
-        }
+        handler: (data) => { submitChainClaw(data, decls); }
     });
 }
 
-// 苦练（阶段2b）：全队属性直改承载（声明路覆盖不到）
+// 苦练：全队属性加成为永久词条
 function submitKuLian(data, decls) {
     const { A, B, log, declarations } = data;
-    const decl = decls[0]; // 宋青书声明
+    const decl = decls[0];
     if (!decl) return;
     const kuLianSong = checkKuLian(B);
     if (!kuLianSong) return;
     Object.assign(kuLianSong.state, { _kuLianActive: true });
-    // 苦练：每回合给全队 +攻+防+血上限，宋青书三倍，可跨回合累积
-    const s = {
-        atkBonus: decl.atkBonus || 1,
-        defBonus: decl.defBonus || 1,
-        hpBonus: decl.hpBonus || 3
-    };
+    const s = { atkBonus: decl.atkBonus || 1, defBonus: decl.defBonus || 1, hpBonus: decl.hpBonus || 3 };
     const targets = B.filter(u => u.alive && !u.isHorse);
-    const atkTargets = targets.map(u => ({ target: u, delta: s.atkBonus * (u.uid === kuLianSong.uid ? 3 : 1) }));
-    const defTargets = targets.map(u => ({ target: u, delta: s.defBonus * (u.uid === kuLianSong.uid ? 3 : 1) }));
-    const hpTargets = targets.map(u => ({ target: u, delta: s.hpBonus * (u.uid === kuLianSong.uid ? 3 : 1) }));
-    if (!declarations) data.declarations = declarations = [];
-    for (const group of [
-        { field: 'atk', list: atkTargets },
-        { field: 'def', list: defTargets },
-        { field: 'maxHp', list: hpTargets }
-    ]) {
-        for (const item of group.list) {
-            declarations.push({
-                type: EFFECT_TYPES.ROUND_STAT_GRANT,
-                field: group.field,
-                delta: item.delta,
-                target: item.target,
-                source: null,
-                reason: '苦练'
-            });
-        }
+    for (const u of targets) {
+        const mult = u.uid === kuLianSong.uid ? 3 : 1;
+        addMod(u, 'atk', { source: '苦练', value: s.atkBonus * mult, ttl: 'permanent', group: 'kuLian', op: 'add' });
+        addMod(u, 'def', { source: '苦练', value: s.defBonus * mult, ttl: 'permanent', group: 'kuLian', op: 'add' });
+        addMod(u, 'maxHp', { source: '苦练', value: s.hpBonus * mult, ttl: 'permanent', group: 'kuLian', op: 'add' });
     }
     log.push({ factType: FACT_TYPES.KU_LIAN_PRIORITY, data: { unitName: kuLianSong.name } });
     log.push({ factType: FACT_TYPES.KU_LIAN, data: { unitName: kuLianSong.name, atkBonus: s.atkBonus, defBonus: s.defBonus, hpBonus: s.hpBonus } });
@@ -471,16 +348,11 @@ function submitKuLian(data, decls) {
 function installKuLian(eventBus, A, B, declarations) {
     const decls = declarations.filter(d => d && d.type === 'kuLian');
     if (decls.length === 0) return;
-
     registerSettlementHook({
         when: SIGNAL_TYPES.ON_ROUND_START,
         priority: L.ROUND_START.KULIAN_BUFF,
-        handler: (data) => {
-            submitKuLian(data, decls);
-        }
+        handler: (data) => { submitKuLian(data, decls); }
     });
-
-    // 周芷若不在场时，宋青书六大派内最先行动，不占用额外次数
     registerSettlementHook({
         when: SIGNAL_TYPES.BEFORE_ACTION_SELECT,
         priority: L.BEFORE_ACTION.KULIAN_PRIORITY,
@@ -492,8 +364,7 @@ function installKuLian(eventBus, A, B, declarations) {
     });
 }
 
-// 新婚声明（阶段2b）
-// 新婚：宋青书攻击时扣周芷若血、叠快乐层、自身性奋代价递增
+// 新婚：扣周芷若血、叠快乐层、性奋代价
 function submitXinHun(data, decls) {
     const { unit, target, dmg, allySide, log } = data;
     const decl = decls.find(d => d.name === unit.name);
@@ -505,45 +376,27 @@ function submitXinHun(data, decls) {
     applyStatChange(zhou, 'hp', -hpDeduct, unit, '新婚扣血', false);
     zhou.state._kuaiLeStack.push({ healPct: healLevels[0] });
     if (zhou.hp <= 0) { if (!zhou.state._deathTime) zhou.state._deathTime = Date.now(); }
-    log.push({
-        factType: FACT_TYPES.XIN_HUN,
-        data: {
-            attackerName: unit.name,
-            targetName: zhou.name,
-            hpDeduct,
-            healPct: healLevels[0],
-            stackCount: zhou.state._kuaiLeStack.length,
-            zhouUid: zhou.uid,
-            zhouHpAfter: zhou.hp,
-            isDead: !!zhou._pendingDeath
-        }
-    });
-    if (zhou.state._pendingDeath) { log.push({ factType: FACT_TYPES.XIN_HUN_DEATH, data: { unitName: zhou.name, uidD: zhou.uid } }); }
+    log.push({ factType: FACT_TYPES.XIN_HUN, data: { attackerName: unit.name, targetName: zhou.name, hpDeduct, healPct: healLevels[0], stackCount: zhou.state._kuaiLeStack.length, zhouUid: zhou.uid, zhouHpAfter: zhou.hp, isDead: !!zhou._pendingDeath } });
+    if (zhou.state._pendingDeath) log.push({ factType: FACT_TYPES.XIN_HUN_DEATH, data: { unitName: zhou.name, uidD: zhou.uid } });
     Object.assign(unit.state, { _xingFenPenaltyCount: (unit.state._xingFenPenaltyCount || 0) + 1 });
     const penalty = unit.state._xingFenPenaltyCount + 1;
     if (penalty > 0 && unit.maxHp > 1) {
         const oldMaxHp = unit.maxHp;
-        applyMaxHpChange(unit, Math.max(1, unit.maxHp - penalty), null, '性奋代价');
-        if (unit.hp <= 0) { if (!unit.state._deathTime) unit.state._deathTime = Date.now(); }
-        log.push({ factType: FACT_TYPES.XING_FEN_COST, data: { unitName: unit.name, oldMaxHp, newMaxHp: unit.maxHp, penalty } });
+        addMod(unit, 'maxHp', { source: '性奋代价', value: -penalty, ttl: 'permanent', group: 'xingFenCost', op: 'add' });
+        log.push({ factType: FACT_TYPES.XING_FEN_COST, data: { unitName: unit.name, oldMaxHp, newMaxHp: Math.max(1, unit.maxHp - penalty), penalty } });
     }
 }
 
 function installXinHun(eventBus, A, B, declarations) {
     const decls = declarations.filter(d => d && d.type === 'xinHun');
     if (decls.length === 0) return;
-
     registerSettlementHook({
         when: SIGNAL_TYPES.AFTER_DAMAGE_APPLIED,
         priority: L.AFTER_DAMAGE_APPLIED.XINGFEN,
-        handler: (data) => {
-            submitXinHun(data, decls);
-        }
+        handler: (data) => { submitXinHun(data, decls); }
     });
 }
 
-// 性奋（阶段2b）：回合激活直改 + 额外攻击/重试驱动再攻击链
-// 性奋激活 + 快乐回血 tick，均随 roundStart 事件数据携带 declarations
 function submitXingFenGrant(data) {
     const { A, B, log, declarations } = data;
     applyXingFenGrant(B, log);
@@ -558,7 +411,6 @@ function submitXingFenExtra(data, decls) {
     consumeXingFen(unit);
     log.push({ factType: FACT_TYPES.XING_FEN_EXTRA_ATTACK, data: { unitName: unit.name } });
     unit.state._xingFenExtraAttacking = true;
-    // 同步递归攻击，processUnitAttack 已同步化
     processUnitAttack(unit, allySide, enemySide, log, data.A, data.B, data.state, null, null);
     unit.state._xingFenExtraAttacking = false;
 }
@@ -577,36 +429,23 @@ function submitXingFenRetry(data, decls) {
 function installXingFen(eventBus, A, B, declarations) {
     const decls = declarations.filter(d => d && d.type === 'xingFen');
     if (decls.length === 0) return;
-
-    // 回合开始：周芷若在场时给宋青书性奋状态
     registerSettlementHook({
         when: SIGNAL_TYPES.ON_ROUND_START,
         priority: L.ROUND_START.XINGFEN_GRANT,
-        handler: (data) => {
-            submitXingFenGrant(data);
-        }
+        handler: (data) => { submitXingFenGrant(data); }
     });
-
-    // 攻击后：性奋额外攻击
     registerSettlementHook({
         when: SIGNAL_TYPES.AFTER_ATTACK,
         priority: L.AFTER_ATTACK.XINGFEN_EXTRA,
-        handler: async (data) => {
-            await submitXingFenExtra(data, decls);
-        }
+        handler: (data) => { submitXingFenExtra(data, decls); }
     });
-
-    // 未命中后：性奋重试
     registerSettlementHook({
         when: SIGNAL_TYPES.AFTER_MISS,
         priority: L.AFTER_MISS.XINGFEN_RETRY,
-        handler: (data) => {
-            submitXingFenRetry(data, decls);
-        }
+        handler: (data) => { submitXingFenRetry(data, decls); }
     });
 }
 
-// 闪避规则声明
 function installDodgeRules(decl) {
     if (!decl.dodgeRules || decl.dodgeRules.length === 0) return;
     for (const rule of decl.dodgeRules) {
@@ -619,8 +458,6 @@ function installDodgeRules(decl) {
         }
     }
 }
-
-// ========== 宋青书/周芷若联动函数（自 modules/20 迁回 core） ==========
 
 export function checkKuLian(allyTeam) {
     const song = allyTeam.find(u => u.name === '宋青书' && u.alive);
@@ -635,10 +472,7 @@ export function applyXingFenGrant(allyTeam, log) {
     const song = allyTeam.find(u => u.name === '宋青书' && u.alive);
     if (!zhou || !song) return;
     Object.assign(song.state, { _xingFenActive: true });
-    log.push({
-        factType: FACT_TYPES.XING_FEN_GRANT,
-        data: { zhouName: zhou.name, songName: song.name }
-    });
+    log.push({ factType: FACT_TYPES.XING_FEN_GRANT, data: { zhouName: zhou.name, songName: song.name } });
 }
 
 export function tickKuaiLeHeal(allUnits, log, declarations) {
@@ -653,35 +487,16 @@ export function tickKuaiLeHeal(allUnits, log, declarations) {
             const levels = getSkillParams('宋青书', 'xinHun').healLevels;
             if (!levels) throw new Error('缺技能参数: 宋青书.xinHun.healLevels');
             const currentIdx = levels.indexOf(layer.healPct);
-            if (currentIdx >= 0 && currentIdx < levels.length - 1) {
-                newStack.push({ healPct: levels[currentIdx + 1] });
-            }
+            if (currentIdx >= 0 && currentIdx < levels.length - 1) newStack.push({ healPct: levels[currentIdx + 1] });
         });
         if (totalHeal > 0) {
             const hpBefore = Math.floor(unit.hp);
             if (declarations) {
-                declarations.push({
-                    type: EFFECT_TYPES.ROUND_STAT_GRANT,
-                    field: 'hp',
-                    delta: totalHeal,
-                    target: unit,
-                    source: null,
-                    reason: '快乐回血'
-                });
+                declarations.push({ type: EFFECT_TYPES.ROUND_STAT_GRANT, field: 'hp', delta: totalHeal, target: unit, source: null, reason: '快乐回血' });
             } else {
                 applyStatChange(unit, 'hp', totalHeal, null, '快乐回血');
             }
-            log.push({
-                factType: FACT_TYPES.KUAI_LE_HEAL,
-                data: {
-                    unitName: unit.name,
-                    unitUid: unit.uid,
-                    heal: totalHeal,
-                    hpBefore,
-                    hpAfter: Math.floor(unit.hp + totalHeal),
-                    layers: unit.state._kuaiLeStack.length
-                }
-            });
+            log.push({ factType: FACT_TYPES.KUAI_LE_HEAL, data: { unitName: unit.name, unitUid: unit.uid, heal: totalHeal, hpBefore, hpAfter: Math.floor(unit.hp + totalHeal), layers: unit.state._kuaiLeStack.length } });
         }
         Object.assign(unit.state, { _kuaiLeStack: newStack });
     });

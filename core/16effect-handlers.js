@@ -1,8 +1,8 @@
-// V1.3.0 | ~7800 bytes | 2026-08-28 修复 infra→core 反向依赖：57 只留容器，五 handler 注册归位 16
-export const VER = 'core/16effect-handlers.js V1.3.0';
+// V5.8.0 | 2026-09-07 属性词条化：BREAK_DEF/SPLASH成长/STAT_CHANGE/ROUND_STAT_GRANT 改 addMod，不再直改 _base
+export const VER = 'core/16effect-handlers.js V5.8.0';
 
 import { EFFECT_TYPES } from '../infra/50-event-bus.js';
-import { applyStatChange, applyMaxHpChange, query, emitEvent } from './13battle-shared.js';
+import { applyStatChange, applyMaxHpChange, query, emitEvent, addMod, getStat } from './13battle-shared.js';
 import { flushBattleEvents } from '../infra/51-core-utils.js';
 import { BUFF_TYPES, BUFF_SUBTYPES, UNIT_EVENT_TYPES, ROLE_TYPES } from '../infra/56-battle-enums.js';
 import { registerCalcModifier, getCalcModifier } from '../infra/57-calc-modifier-registry.js';
@@ -18,10 +18,6 @@ export function registerEffectHandler(type, handler) {
     effectHandlers.set(type, handler);
 }
 
-/**
- * 声明契约：每种结算类型的 handler 必须满足字段契约。
- * 返回错误列表，空数组表示通过。注册时不会校验，调用方按需用。
- */
 export function validateEffectHandlerContract(type, handler) {
     const errors = [];
     if (!type || typeof type !== 'string') {
@@ -33,10 +29,6 @@ export function validateEffectHandlerContract(type, handler) {
     return errors;
 }
 
-/**
- * 字段契约表：每种结算类型的 decl 必须携带这些字段。
- * resolveAfterDamageEffects 执行前逐 decl 校验，缺字段当场抛错。
- */
 export const EFFECT_HANDLER_CONTRACTS = Object.freeze({
     [EFFECT_TYPES.BONUS_DMG]: { requiredFields: ['target', 'value'] },
     [EFFECT_TYPES.LEECH]: { requiredFields: ['source', 'value'] },
@@ -48,20 +40,12 @@ export const EFFECT_HANDLER_CONTRACTS = Object.freeze({
     [EFFECT_TYPES.CLAW_CHAIN]: { requiredFields: ['target', 'hits'] },
 });
 
-/**
- * 校验单个 decl 是否满足对应结算类型的字段契约。
- * 返回缺失字段数组；空数组表示通过；未知类型返回 null（走 catch-all 不校验）。
- */
 export function validateDeclarationFields(type, decl) {
     const contract = EFFECT_HANDLER_CONTRACTS[type];
     if (!contract) return null;
     return contract.requiredFields.filter(f => decl[f] === undefined || decl[f] === null);
 }
 
-/**
- * calcModifier 字段契约：伤害计算阶段的 5 种修饰器都只需 value。
- * 与 effectHandler 契约对称，calcFinalDamage 执行前逐 decl 校验。
- */
 export const CALC_MODIFIER_CONTRACTS = Object.freeze({
     [EFFECT_TYPES.BREAK_DEF]: { requiredFields: ['value'] },
     [EFFECT_TYPES.IGNORE_DEF]: { requiredFields: ['value'] },
@@ -70,10 +54,6 @@ export const CALC_MODIFIER_CONTRACTS = Object.freeze({
     [EFFECT_TYPES.DMG_REDUCTION]: { requiredFields: ['value'] },
 });
 
-/**
- * 校验单个 calcModifier 声明是否满足字段契约。
- * 返回缺失字段数组；空数组通过；未知类型返回 null（不校验）。
- */
 export function validateCalcModifierFields(type, decl) {
     const contract = CALC_MODIFIER_CONTRACTS[type];
     if (!contract) return null;
@@ -92,20 +72,15 @@ export function hasEffectHandler(type) {
     return effectHandlers.has(type);
 }
 
-// 伤害计算阶段修饰器（calcFinalDamage 中间变量累积）
-// 由 core/12 calcFinalDamage 查表调用（getCalcModifier 自 infra/57）；
-// handler 通过 ctx.refs 读写累积变量，逻辑逐字搬移自原 for 循环体，不改变计算顺序/边界
+// 破防：永久负词条，不再直改 _baseDef
 registerCalcModifier(EFFECT_TYPES.BREAK_DEF, (ctx) => {
     const { decl, unit, target, refs } = ctx;
     const reduce = Math.min(decl.value || 0, refs.defBase);
     refs.defBase -= reduce;
-    if (target.state._baseDef !== undefined) target.state._baseDef -= reduce;
-    applyStatChange(target, 'def', -reduce, unit, '破防');
-    emitEvent(target, UNIT_EVENT_TYPES.HP_CHANGE, { hp: target.hp, maxHp: target.maxHp, alive: target.alive, atk: target.atk, def: target.def, _isDead: target.state._isDead || false });
+    addMod(target, 'def', { source: '破防', value: -reduce, ttl: 'permanent', group: 'breakDef', op: 'add' });
     refs.defReduced = reduce;
     if (reduce > 0) {
         refs.pendingDefReduceFact = { type:'breakDef', attackerName: unit.name, targetName: target.name, reduce };
-        emitEvent(target, UNIT_EVENT_TYPES.HP_CHANGE, { hp: target.hp, maxHp: target.maxHp, alive: target.alive, atk: target.atk, def: refs.defBase, _isDead: target.state._isDead || false });
     } else {
         refs.pendingDefReduceFact = decl.factData || null;
     }
@@ -146,7 +121,7 @@ registerEffectHandler(EFFECT_TYPES.LEECH, (ctx) => {
     for (const decl of ctx.decls) {
         if (!decl.source || !decl.source.alive) continue;
         if (decl.maxHp) {
-            decl.source.state._baseMaxHp = Math.max(decl.source.state._baseMaxHp, decl.maxHp);
+            addMod(decl.source, 'maxHp', { source: '吸血上限提升', value: Math.max(0, decl.maxHp - decl.source.state._baseMaxHp), ttl: 'permanent', group: 'leechMaxHp', op: 'add' });
             applyMaxHpChange(decl.source, decl.maxHp, null, '吸血上限提升');
         }
         const capped = Math.min(decl.value || 0, decl.source.maxHp - decl.source.hp);
@@ -184,8 +159,7 @@ registerEffectHandler(EFFECT_TYPES.SPLASH, (ctx) => {
             const hitCount = decl.targets.filter(t => t.alive).length;
             if (hitCount > 0 && perSplash > 0) {
                 const growth = hitCount * perSplash;
-                applyStatChange(ctx.unit, 'atk', growth, null, '流星溅射成长');
-                if (ctx.unit.state._baseAtk !== undefined) ctx.unit.state._baseAtk += growth;
+                addMod(ctx.unit, 'atk', { source: '流星溅射成长', value: growth, ttl: 'permanent', group: 'meteorSplashGrowth', op: 'add' });
                 if (decl.factData) decl.factData.growth = growth;
             }
         }
@@ -209,17 +183,16 @@ registerEffectHandler(EFFECT_TYPES.REBOUND, (ctx) => {
 });
 
 registerEffectHandler(EFFECT_TYPES.STAT_CHANGE, (ctx) => {
-    // atk/def 变更同步 _baseAtk/_baseDef，保证永久成长不丢
     const executed = [];
     for (const decl of ctx.decls) {
         if (!decl.target || !decl.target.alive) continue;
-        if (decl.field === 'atk' && decl.target.state._baseAtk !== undefined) {
-            decl.target.state._baseAtk += decl.delta;
+        if (decl.field === 'atk') {
+            addMod(decl.target, 'atk', { source: decl.reason || '属性变更', value: decl.delta, ttl: 'permanent', group: 'statChange', op: 'add' });
+        } else if (decl.field === 'def') {
+            addMod(decl.target, 'def', { source: decl.reason || '属性变更', value: decl.delta, ttl: 'permanent', group: 'statChange', op: 'add' });
+        } else {
+            applyStatChange(decl.target, decl.field, decl.delta, null, decl.reason || '属性变更');
         }
-        if (decl.field === 'def' && decl.target.state._baseDef !== undefined) {
-            decl.target.state._baseDef += decl.delta;
-        }
-        applyStatChange(decl.target, decl.field, decl.delta, null, decl.reason || '属性变更');
         executed.push(decl);
     }
     return { executed };
@@ -268,9 +241,11 @@ registerEffectHandler(EFFECT_TYPES.ROUND_STAT_GRANT, (ctx) => {
             if (!t.alive) continue;
             if (decl.field === 'maxHp') {
                 applyMaxHpChange(t, t.maxHp + decl.delta, decl.source || null, decl.reason || '回合属性');
+            } else if (decl.field === 'atk') {
+                addMod(t, 'atk', { source: decl.reason || '回合属性', value: decl.delta, ttl: 'permanent', group: 'roundStatGrant', op: 'add' });
+            } else if (decl.field === 'def') {
+                addMod(t, 'def', { source: decl.reason || '回合属性', value: decl.delta, ttl: 'permanent', group: 'roundStatGrant', op: 'add' });
             } else {
-                if (decl.field === 'atk' && t.state._baseAtk !== undefined) t.state._baseAtk += decl.delta;
-                if (decl.field === 'def' && t.state._baseDef !== undefined) t.state._baseDef += decl.delta;
                 applyStatChange(t, decl.field, decl.delta, decl.source || null, decl.reason || '回合属性');
             }
         }

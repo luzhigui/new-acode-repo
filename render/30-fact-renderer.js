@@ -1,6 +1,7 @@
 // V5.7.7 | 2026-08-26 factType 枚举化（去字节数）
 import { CONFIG, getSkillParams } from '../core/01config-5v5-test.js';
 import { calcDamage, getFangLevelPure, makeFXSnapshot } from '../infra/51-core-utils.js';
+import { getStat } from '../core/13battle-shared.js';
 import { FACT_TYPES, BUFF_TYPES, BUFF_SUBTYPES, DROP_TYPES, CAMP_TYPES, ROLE_TYPES } from '../infra/56-battle-enums.js';
 import { validateFactContract, buildRendererMap } from '../infra/58-fact-contract.js';
 export const VER = 'render/30-fact-renderer.js V5.7.8';
@@ -85,16 +86,16 @@ export function renderAttackFact(fact) {
     const dc = target.camp === CAMP_TYPES.ALLY ? 'blue' : 'orange';
     const campA = unit.camp === CAMP_TYPES.ALLY ? '明教' : '六大派';
     const campD = target.camp === CAMP_TYPES.ALLY ? '明教' : '六大派';
-    const displayAtk = snap.attackerAtkDisplay !== undefined ? snap.attackerAtkDisplay : Math.floor(unit.atk + unit.atk * fact.attackerBuffStats.atkBonus);
-    const displayDef = snap.targetDefDisplay !== undefined ? snap.targetDefDisplay : Math.floor(target.def + target.def * fact.defenderBuffStats.defBonus);
+    const displayAtk = snap.attackerAtkDisplay !== undefined ? snap.attackerAtkDisplay : Math.floor(getStat(unit, 'atk'));
+    const displayDef = snap.targetDefDisplay !== undefined ? snap.targetDefDisplay : Math.floor(getStat(target, 'def'));
     const unitHpBefore = snap.attackerHp !== undefined ? snap.attackerHp : Math.floor(unit.hp);
     const targetHpAfter = snap.targetHpAfter !== undefined ? snap.targetHpAfter : Math.floor(target.hp);
     const targetAlive = snap.targetAlive !== undefined ? snap.targetAlive : target.alive;
     const unitRole = snap.attackerRole || unit.role;
     const isZhangNear = snap.attackerIsZhangNear !== undefined ? snap.attackerIsZhangNear : (unit.isZhang && !unit.rangedForm);
     const nearAtkCount = snap.attackerNearAtkCount !== undefined ? snap.attackerNearAtkCount : unit.nearAtkCount;
-    const atkBonusAbs = snap.attackerAtkBonusAbs !== undefined ? snap.attackerAtkBonusAbs : Math.floor(unit.atk * fact.attackerBuffStats.atkBonus);
-    const defBonusAbs = snap.targetDefBonusAbs !== undefined ? snap.targetDefBonusAbs : Math.floor(target.def * fact.defenderBuffStats.defBonus);
+    const atkBonusAbs = snap.attackerAtkBonusAbs !== undefined ? snap.attackerAtkBonusAbs : 0;
+    const defBonusAbs = snap.targetDefBonusAbs !== undefined ? snap.targetDefBonusAbs : 0;
     const isKuLianAttack = snap.isKuLianAttack !== undefined ? snap.isKuLianAttack : !!(unit.name === '宋青书' && unit.state._kuLianActive);
     const isLinkAttack = snap.isLinkAttack !== undefined ? snap.isLinkAttack : !!unit.state._isLinkAttack;
     const fxSnapshot = snap.attackerPos !== undefined && snap.targetPos !== undefined

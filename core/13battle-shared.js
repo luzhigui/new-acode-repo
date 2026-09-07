@@ -142,19 +142,16 @@ function checkZhangSwitch(A, log) {
     if (!hasFrontAlly) {
         zhang.rangedForm = false;
         const warriorBonus = getRoleBonus(ROLE_TYPES.WARRIOR);
-        zhang.atk += warriorBonus.atk * 3;
-        zhang.def += warriorBonus.def * 3;
-        const newMaxHp = Math.min(zhang.maxHp + warriorBonus.maxHp * 3, zhang.state._baseMaxHp * 3);
-        applyMaxHpChange(zhang, newMaxHp, null, '乾坤大挪移变身');
+        addMod(zhang, 'atk', { source: '近战切换', value: warriorBonus.atk * 3, ttl: 'permanent', group: 'zhangSwitch', op: 'add' });
+        addMod(zhang, 'def', { source: '近战切换', value: warriorBonus.def * 3, ttl: 'permanent', group: 'zhangSwitch', op: 'add' });
+        addMod(zhang, 'maxHp', { source: '近战切换', value: warriorBonus.maxHp * 3, ttl: 'permanent', group: 'zhangSwitch', op: 'add' });
+        applyMaxHpChange(zhang, getStat(zhang, 'maxHp'), null, '乾坤大挪移变身');
         zhang.role = ROLE_TYPES.WARRIOR;
         zhang.state._resting = false; Object.assign(zhang.state, { _zhangSwitched: true });
-        zhang.state._baseMaxHp = zhang.maxHp;
-        zhang.state._baseAtk = zhang.atk;
-        zhang.state._baseDef = zhang.def;
         emitCoreEvent(zhang, UNIT_EVENT_TYPES.ZHANG_SWITCH, {
-            atk: zhang.atk,
-            def: zhang.def,
-            maxHp: zhang.maxHp,
+            atk: getStat(zhang, 'atk'),
+            def: getStat(zhang, 'def'),
+            maxHp: getStat(zhang, 'maxHp'),
             hp: zhang.hp,
             role: zhang.role,
             rangedForm: false,
@@ -239,6 +236,48 @@ function applyMaxHpChange(target, newMaxHp, source, reason) {
 const _queries = {};
 export function registerQuery(name, fn) { _queries[name] = fn; }
 export function query(name, ...args) { return _queries[name] ? _queries[name](...args) : undefined; }
+
+// ========== 属性词条系统 ==========
+// 属性只算不存：所有加成登记为词条，getStat 现算。
+// 词条结构：{ source, value, ttl, group, op }
+//   ttl: 'permanent' | 'round' | 'attached'
+//   op:  'add'（默认）| 'mul'（百分比，存 0.3 表示 +30%）
+// 计算规则：所有 add 求和，所有 mul 求和后统一乘：(base + addSum) × (1 + mulSum)
+export function addMod(unit, stat, mod) {
+    if (!unit) return;
+    if (!unit._mods) unit._mods = { atk: [], def: [], maxHp: [] };
+    if (!unit._mods[stat]) unit._mods[stat] = [];
+    unit._mods[stat].push(mod);
+}
+
+export function removeModsByTTL(unit, ttl) {
+    if (!unit || !unit._mods) return;
+    for (const stat of Object.keys(unit._mods)) {
+        unit._mods[stat] = unit._mods[stat].filter(m => m.ttl !== ttl);
+    }
+}
+
+export function removeModsByGroup(unit, group) {
+    if (!unit || !unit._mods) return;
+    for (const stat of Object.keys(unit._mods)) {
+        unit._mods[stat] = unit._mods[stat].filter(m => m.group !== group);
+    }
+}
+
+export function getStat(unit, stat) {
+    if (!unit) return 0;
+    const baseKey = '_base' + stat.charAt(0).toUpperCase() + stat.slice(1);
+    const base = unit.state?.[baseKey] ?? unit[stat] ?? 0;
+    const mods = (unit._mods && unit._mods[stat]) || [];
+    let addSum = 0;
+    let mulSum = 0;
+    for (const m of mods) {
+        if (m.op === 'mul') mulSum += m.value;
+        else addSum += m.value;
+    }
+    const result = (base + addSum) * (1 + mulSum);
+    return Math.max(0, Math.floor(result * 10) / 10);
+}
 
 export {
     emitCoreEvent as emitEvent,

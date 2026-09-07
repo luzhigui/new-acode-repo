@@ -1,5 +1,6 @@
 // V5.6.2 | ~23700 bytes | 2026-08-26 回合重置走 resetStateFields；蝶变方向弹窗移至播放器层
-export const VER = 'core/11battle-round.js V5.6.2';
+// V5.8.0 | 2026-09-07 属性词条化：删除归位重算，光环改 round 词条，回合开始清理上回合词条
+export const VER = 'core/11battle-round.js V5.8.0';
 
 import { CONFIG, getGameData, getSkillParams } from './01config-5v5-test.js';
 import { resetStateFields } from './17-state-keys.js';
@@ -14,7 +15,7 @@ import { resolveRoundStatGrants } from './16effect-handlers.js';
 import { getEliteFactories } from './08-elite-registry.js';
 import { processUnitAttack } from './10battle-attack.js';
 import { eventBus, EXECUTION_LAYER as L, registerSettlementHook } from '../infra/50-event-bus.js';
-import { getNextAvailableUnit, finalizeDeaths, emitFullUnitState, checkZhangSwitch, emitEvent, applyStatChange, setBattleRng } from './13battle-shared.js';
+import { getNextAvailableUnit, finalizeDeaths, emitFullUnitState, checkZhangSwitch, emitEvent, applyStatChange, setBattleRng, addMod, removeModsByTTL, getStat } from './13battle-shared.js';
 import { FACT_TYPES, BUFF_TYPES, UNIT_EVENT_TYPES, CAMP_TYPES, ROLE_TYPES, SIGNAL_TYPES } from '../infra/56-battle-enums.js';
 import { flushBattleEvents, setBattleState } from '../infra/51-core-utils.js';
 import { SeededRNG } from '../infra/51-core-utils.js';
@@ -23,11 +24,13 @@ import { resolveDeaths } from './12battle-attack-steps.js';
 const C = CONFIG;
 
 function prepareRoundStart(A, B, log, state, round, rng) {
-    // 精英回合状态必须在授权事件之前统一重置：
-    //   原顺序为 emit(授权) → forEach 内 resetStateFields(清零)，
-    //   导致性奋/苦练授权后立即被清，攻击时刻读到 false 静默失效。
     A._activeBuffs = state.activeBuffs.filter(b => b.target === CAMP_TYPES.ALLY || !b.target);
     B._activeBuffs = state.activeBuffs.filter(b => b.target === CAMP_TYPES.ENEMY);
+
+    // 词条化：回合开始时清理上回合的 round 词条（永久/附身词条保留）
+    for (const u of [...A, ...B]) {
+        if (u.alive) removeModsByTTL(u, 'round');
+    }
 
     const xiaoZhao = A.find(u => (u.isXiaoZhaoSister || u.isXiaoZhaoBrother) && u.alive);
 
@@ -74,7 +77,6 @@ function prepareRoundStart(A, B, log, state, round, rng) {
     const holyFlameEnhance = hasSisterForHolyFlame ? hexEnhanceParams.holyFlame : null;
     const holyColCount = holyFlameEnhance ? holyFlameEnhance.atkCols : 1;
     const holyRowCount = holyFlameEnhance ? holyFlameEnhance.defRows : 2;
-    // 更新引擎侧 state.activeBuffs，再重新过滤给 A/B，保证 UI 侧能拿到 cols/rows
     state.activeBuffs = state.activeBuffs.map(b => {
         if (b.key === BUFF_TYPES.HOLY_FLAME && (b.target === CAMP_TYPES.ALLY || !b.target)) {
             const cols = [];
@@ -106,7 +108,6 @@ function prepareRoundStart(A, B, log, state, round, rng) {
     registerFortifyShield(eventBus);
     registerWarriorExecute(eventBus);
     installBuffMechanics(eventBus);
-    // 苦练优先级已由 installKuLian 统一注册，此处不再重复监听
     registerSettlementHook({
         when: SIGNAL_TYPES.BEFORE_SELECT_TARGET,
         priority: L.BEFORE_SELECT_TARGET.FLY_TARGET,
@@ -162,10 +163,10 @@ function prepareRoundStart(A, B, log, state, round, rng) {
     resolveRoundStatGrants(roundStatDeclarations);
 
     A._butterflyTriggered = false;
-            A._mindControlTriggered = false;
+    A._mindControlTriggered = false;
     A.forEach(u => {
         if (!u.alive) return;
-        emitEvent(u, UNIT_EVENT_TYPES.HP_CHANGE, { hp: u.hp, maxHp: u.maxHp, alive: u.alive, atk: u.atk, def: u.def, _stunned: false });
+        emitEvent(u, UNIT_EVENT_TYPES.HP_CHANGE, { hp: u.hp, maxHp: u.maxHp, alive: u.alive, atk: getStat(u, 'atk'), def: getStat(u, 'def'), _stunned: false });
         let allyTeamWithDead = A.slice();
         let hasCarryActive = hasBuff(A._activeBuffs, BUFF_TYPES.CARRY);
         if (hasCarryActive) {
@@ -180,33 +181,20 @@ function prepareRoundStart(A, B, log, state, round, rng) {
 
         applyHolyFlameBonus(u, A._activeBuffs || [], hasSisterForHolyFlame);
         applyFortifyBonus(u, A._activeBuffs || []);
-
-        emitEvent(u, UNIT_EVENT_TYPES.STAT_BONUS_CHANGE, {
-            buffAtkBonus: stats.atkBonus,
-            buffDefBonus: stats.defBonus,
-            buffDodgeBonus: stats.dodgeBonus,
-            buffHpBonus: stats.hpBonus
-        });
-        emitEvent(u, UNIT_EVENT_TYPES.HP_CHANGE, { hp: u.hp, maxHp: u.maxHp, alive: u.alive, atk: u.atk, def: u.def, buffAtkBonus: u.buffAtkBonus, buffDefBonus: u.buffDefBonus, _holyAtkBonus: u.state._holyAtkBonus, _holyDefBonus: u.state._holyDefBonus, _fortifyDefBonus: u.state._fortifyDefBonus, _emptyColBonus: u.state._emptyColBonus, _bloodAuraBonus: u.state._bloodAuraBonus, _carryAtkBonus: u.state._carryAtkBonus, _carryDefBonus: u.state._carryDefBonus });
-        emitEvent(u, UNIT_EVENT_TYPES.STAT_BONUS_CHANGE, {
-            buffAtkBonus: stats.atkBonus,
-            buffDefBonus: stats.defBonus,
-            buffDodgeBonus: stats.dodgeBonus,
-            buffHpBonus: stats.hpBonus
-        });
-
-        applyCarryBonus(u, A, state, log, stats);
+        applyCarryBonus(u, A, state, log);
 
         const auraBonuses = getAuraBonuses(u, A, B);
-        const targetAtk = (u.state._baseAtk || u.atk) + (u.state._carryAtkBonus || 0) + (u.state._butterflyAtkBonus || 0) + (u.state._holyAtkBonus || 0) + auraBonuses.emptyCol + auraBonuses.bloodAura;
-        const targetDef = (u.state._baseDef || u.def) + (u.state._carryDefBonus || 0) + (u.state._butterflyDefBonus || 0) + (u.state._holyDefBonus || 0) + (u.state._fortifyDefBonus || 0);
-        applyStatChange(u, 'atk', targetAtk - u.atk, null, '光环加成');
-        applyStatChange(u, 'def', targetDef - u.def, null, '光环加成');
+        if (auraBonuses.emptyCol > 0) addMod(u, 'atk', { source: '空列光环', value: auraBonuses.emptyCol, ttl: 'round', group: 'aura', op: 'add' });
+        if (auraBonuses.bloodAura > 0) addMod(u, 'atk', { source: '残血光环', value: auraBonuses.bloodAura, ttl: 'round', group: 'aura', op: 'add' });
 
-        emitEvent(u, UNIT_EVENT_TYPES.HP_CHANGE, { hp: u.hp, maxHp: u.maxHp, alive: u.alive, atk: u.atk, def: u.def });
+        emitEvent(u, UNIT_EVENT_TYPES.STAT_BONUS_CHANGE, {
+            buffAtkBonus: stats.atkBonus,
+            buffDefBonus: stats.defBonus,
+            buffDodgeBonus: stats.dodgeBonus,
+            buffHpBonus: stats.hpBonus
+        });
+        emitEvent(u, UNIT_EVENT_TYPES.HP_CHANGE, { hp: u.hp, maxHp: u.maxHp, alive: u.alive, atk: getStat(u, 'atk'), def: getStat(u, 'def') });
 
-        // 回合级状态重置已统一前移到 emit(授权) 之前的 resetStateFields（162-163 行）。
-        // 此处不得再清：合并 elite 字段进 ROUND_STATE_KEYS 后，这里逐键清会把刚授权的 _xingFenActive 等打回 false（2026-09-03 回归，性奋额外攻击全灭的根因）。
         u._restingTimer && clearTimeout(u._restingTimer), u._restingTimer = null;
         u.state._xingFenExtraAttacking = false;
         u.state._bloodthirstStriked = false;
@@ -216,15 +204,14 @@ function prepareRoundStart(A, B, log, state, round, rng) {
 
     B.forEach(u => {
         if (!u.alive) return;
-        emitEvent(u, UNIT_EVENT_TYPES.HP_CHANGE, { hp: u.hp, maxHp: u.maxHp, alive: u.alive, atk: u.atk, def: u.def, _stunned: false });
-        // 回合级状态重置统一由 emit 前的 resetStateFields 负责，此处不清（同 A 队，见上方注释）
+        emitEvent(u, UNIT_EVENT_TYPES.HP_CHANGE, { hp: u.hp, maxHp: u.maxHp, alive: u.alive, atk: getStat(u, 'atk'), def: getStat(u, 'def'), _stunned: false });
         Object.assign(u.state, { _doubleStriked: false });
         u.state._xingFenExtraAttacking = false;
         u.state._bloodthirstStriked = false;
         const auraBonuses = getAuraBonuses(u, B, A);
-        const targetAtk = (u.state._baseAtk || u.atk) + auraBonuses.emptyCol + auraBonuses.bloodAura;
-        applyStatChange(u, 'atk', targetAtk - u.atk, null, '光环加成');
-        emitEvent(u, UNIT_EVENT_TYPES.HP_CHANGE, { hp: u.hp, maxHp: u.maxHp, alive: u.alive, atk: u.atk, def: u.def });
+        if (auraBonuses.emptyCol > 0) addMod(u, 'atk', { source: '空列光环', value: auraBonuses.emptyCol, ttl: 'round', group: 'aura', op: 'add' });
+        if (auraBonuses.bloodAura > 0) addMod(u, 'atk', { source: '残血光环', value: auraBonuses.bloodAura, ttl: 'round', group: 'aura', op: 'add' });
+        emitEvent(u, UNIT_EVENT_TYPES.HP_CHANGE, { hp: u.hp, maxHp: u.maxHp, alive: u.alive, atk: getStat(u, 'atk'), def: getStat(u, 'def') });
     });
 
     const dodgeUnits = [...A, ...B];
@@ -248,7 +235,6 @@ function prepareRoundStart(A, B, log, state, round, rng) {
     logBuffSummary(A, log, doubleStrikeUnitUid);
 
     if (round === 1 && A.some(u => u.isXiaoZhaoSister && u.alive)) {
-        // 方向由播放器层在启动前弹窗获取并写入 state.ally._flyDirection，引擎层只消费
         A._flyDirection = A._flyDirection || 'right';
     }
 
@@ -256,8 +242,6 @@ function prepareRoundStart(A, B, log, state, round, rng) {
     return { doubleStrikeUnitUid, roundStartEvents, sisterComp, brotherComp };
 }
 
-// 同步 generator：UI 层异步包装，工具侧可直接同步消费
-// ui=false：跳过 stageActions 翻译，工具模拟用
 export function* createRoundStepper(state, { ui = true, translateFacts = null } = {}) {
     const rng = state._rng || new SeededRNG(Date.now());
     state._rng = rng;
@@ -300,7 +284,6 @@ export function* createRoundStepper(state, { ui = true, translateFacts = null } 
     log = [];
 
     function resolveStateTransitions() {
-        // butterflyReturn/spiderDescend 延迟到回合结束，下轮再处理
         const stateTransitions = [];
         if (A._pendingStateTransitions) {
             stateTransitions.push(...A._pendingStateTransitions);
@@ -332,49 +315,28 @@ export function* createRoundStepper(state, { ui = true, translateFacts = null } 
     }
 
     function resolveActionOrder(candidates, log) {
-        // priority > 0 的优先行动不切换行动方，保证宋青书苦练后六大派第一人接着动
         resolveStateTransitions();
         const sortedByPos = [...candidates].filter(u => u.alive && !u.state._isDead).sort((a, b) => a.pos - b.pos);
         const passUnits = [];
         const priorityDeclarations = [];
 
         for (const u of sortedByPos) {
-            if (u.state._stunned) {
-                passUnits.push({ unit: u, reason: '眩晕' });
-                continue;
-            }
-            if (u.isHorse) {
-                passUnits.push({ unit: u, reason: '拒马休息' });
-                continue;
-            }
-            if (u.state._flyMode === 'butterfly' || u.state._flyMode === 'spider' || u.state._spiderFlying || (u._fsm && u._fsm.is('flying'))) {
-                passUnits.push({ unit: u, reason: '飞天/附身' });
-                continue;
-            }
+            if (u.state._stunned) { passUnits.push({ unit: u, reason: '眩晕' }); continue; }
+            if (u.isHorse) { passUnits.push({ unit: u, reason: '拒马休息' }); continue; }
+            if (u.state._flyMode === 'butterfly' || u.state._flyMode === 'spider' || u.state._spiderFlying || (u._fsm && u._fsm.is('flying'))) { passUnits.push({ unit: u, reason: '飞天/附身' }); continue; }
             const fullAllySide = u.camp === CAMP_TYPES.ALLY ? A : B;
             const fullEnemySide = u.camp === CAMP_TYPES.ALLY ? B : A;
-            if (isBlocked(u, fullAllySide) && isMelee(u.role)) {
-                passUnits.push({ unit: u, reason: '被遮挡' });
-                continue;
-            }
+            if (isBlocked(u, fullAllySide) && isMelee(u.role)) { passUnits.push({ unit: u, reason: '被遮挡' }); continue; }
             const decl = { priority: 0, skip: false, pass: false };
             eventBus.emit(SIGNAL_TYPES.BEFORE_ACTION_SELECT, { unit: u, declaration: decl, allySide: fullAllySide, enemySide: fullEnemySide });
             if (decl.skip) continue;
-            if (decl.pass) {
-                passUnits.push({ unit: u, reason: '组件声明pass' });
-                continue;
-            }
+            if (decl.pass) { passUnits.push({ unit: u, reason: '组件声明pass' }); continue; }
             priorityDeclarations.push({ unit: u, priority: decl.priority });
         }
 
-        // 优先级队列排序：priority 高优先，同 priority 按 pos 升序
         const queue = [];
-        for (const d of priorityDeclarations) {
-            queue.push({ unit: d.unit, isPass: false, priority: d.priority, reason: null });
-        }
-        for (const p of passUnits) {
-            queue.push({ unit: p.unit, isPass: true, priority: 0, reason: p.reason });
-        }
+        for (const d of priorityDeclarations) queue.push({ unit: d.unit, isPass: false, priority: d.priority, reason: null });
+        for (const p of passUnits) queue.push({ unit: p.unit, isPass: true, priority: 0, reason: p.reason });
         queue.sort((a, b) => {
             if (a.priority !== b.priority) return b.priority - a.priority;
             return a.unit.pos - b.unit.pos;
@@ -382,9 +344,7 @@ export function* createRoundStepper(state, { ui = true, translateFacts = null } 
 
         if (queue.length === 0) return { actingUnit: null, passEntry: null, isPriorityAction: false };
         const head = queue[0];
-        if (head.isPass) {
-            return { actingUnit: null, passEntry: { unit: head.unit, reason: head.reason }, isPriorityAction: false };
-        }
+        if (head.isPass) return { actingUnit: null, passEntry: { unit: head.unit, reason: head.reason }, isPriorityAction: false };
         return { actingUnit: head.unit, passEntry: null, isPriorityAction: head.priority > 0 };
     }
 
@@ -413,7 +373,6 @@ export function* createRoundStepper(state, { ui = true, translateFacts = null } 
             const { unit, reason } = orderResult.passEntry;
             unit.state._acted = true;
             unit.state._blocked = isBlocked(unit, currentTeam);
-            // 记录休息回复前后的真实血量与增量，供日志渲染显示"谁休息、从多少恢复到多少"
             const hpBefore = Math.floor(unit.hp);
             let hpAfter = hpBefore;
             let actualHeal = 0;
@@ -435,22 +394,15 @@ export function* createRoundStepper(state, { ui = true, translateFacts = null } 
 
         let actingUnit = orderResult.actingUnit;
         let isPriorityAction = orderResult.isPriorityAction;
-
         let unit = actingUnit;
         let allySide = unit.camp === CAMP_TYPES.ALLY ? A : B;
         let enemySide = unit.camp === CAMP_TYPES.ALLY ? B : A;
 
         unit.state._blocked = isBlocked(unit, allySide);
         unit.survivedRounds++;
-        emitEvent(unit, UNIT_EVENT_TYPES.HP_CHANGE, { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: unit.atk, def: unit.def, survivedRounds: unit.survivedRounds });
+        emitEvent(unit, UNIT_EVENT_TYPES.HP_CHANGE, { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: getStat(unit, 'atk'), def: getStat(unit, 'def'), survivedRounds: unit.survivedRounds });
 
-        if (unit.camp === CAMP_TYPES.ALLY && unit.isXiaoZhaoSister && !(unit._fsm && unit._fsm.is('attached')) && !A._butterflyTriggered) {
-            isPriorityAction = true;
-        }
-
-        // 同步化：processUnitAttack 已改为同步函数，去掉 await
         processUnitAttack(unit, allySide, enemySide, log, A, B, state, doubleStrikeUnitUid);
-
         resolveDeaths(A, B, log);
 
         if (!isPriorityAction) {
@@ -486,17 +438,13 @@ export function* createRoundStepper(state, { ui = true, translateFacts = null } 
                 const key = decl.type + ':' + (decl.unit?.uid || decl.sister?.uid || '');
                 if (seenKeys.has(key)) continue;
                 seenKeys.add(key);
-                if (decl.type === 'butterflyReturn') {
-                    sisterComp.executeReturn(decl.sister, A, log);
-                } else if (decl.type === 'spiderDescend') {
-                    brotherComp.executeDescend(decl.unit, A, B, log);
-                }
+                if (decl.type === 'butterflyReturn') sisterComp.executeReturn(decl.sister, A, log);
+                else if (decl.type === 'spiderDescend') brotherComp.executeDescend(decl.unit, A, B, log);
             }
         }
 
         yield makeStep(log, stepEvents, winner, done);
         log = [];
-
         if (done) return;
     }
 
@@ -508,11 +456,8 @@ export function* createRoundStepper(state, { ui = true, translateFacts = null } 
         const key = decl.type + ':' + (decl.unit?.uid || decl.sister?.uid || '');
         if (seenKeys2.has(key)) continue;
         seenKeys2.add(key);
-        if (decl.type === 'butterflyReturn') {
-            sisterComp.executeReturn(decl.sister, A, log);
-        } else if (decl.type === 'spiderDescend') {
-            brotherComp.executeDescend(decl.unit, A, B, log);
-        }
+        if (decl.type === 'butterflyReturn') sisterComp.executeReturn(decl.sister, A, log);
+        else if (decl.type === 'spiderDescend') brotherComp.executeDescend(decl.unit, A, B, log);
     }
 
     const { winner, done, endEvents } = finalizeRoundEnd(A, B, log, round);
@@ -544,7 +489,7 @@ function finalizeRoundEnd(A, B, log, round) {
             applyStatChange(u, 'hp', -u.hp, null, '战斗结束', false);
             u.alive = false;
             u.state._isDead = true;
-            emitEvent(u, UNIT_EVENT_TYPES.HP_CHANGE, { hp: 0, maxHp: u.maxHp, alive: false, atk: u.atk, def: u.def, _isDead: true });
+            emitEvent(u, UNIT_EVENT_TYPES.HP_CHANGE, { hp: 0, maxHp: u.maxHp, alive: false, atk: getStat(u, 'atk'), def: getStat(u, 'def'), _isDead: true });
         });
     }
 
