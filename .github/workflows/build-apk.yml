@@ -38,27 +38,26 @@ jobs:
       - name: 添加安卓平台
         run: npx cap add android
 
-      - name: 固定调试签名（首次自动生成并入库，之后复用同一 keystore）
+      - name: 缓存调试签名 keystore
+        uses: actions/cache@v4
+        with:
+          path: ~/.android/debug.keystore
+          key: android-debug-keystore-v1
+
+      - name: 生成调试签名（仅首次缓存未命中时）
         run: |
           set -e
           # 每次 fresh runner 的 debug keystore 都不同 → 签名不一致 → 无法覆盖安装。
-          # 首次生成固定 keystore 提交入库，之后构建都用它，保证签名一致可覆盖。
-          if [ ! -f scripts/debug.keystore ]; then
-            keytool -genkeypair -v -keystore scripts/debug.keystore -alias androiddebugkey \
+          # 首次生成后由 actions/cache 缓存，之后每次复用同一 keystore，签名一致可覆盖。
+          if [ ! -f "$HOME/.android/debug.keystore" ]; then
+            mkdir -p "$HOME/.android"
+            keytool -genkeypair -v -keystore "$HOME/.android/debug.keystore" -alias androiddebugkey \
               -keyalg RSA -keysize 2048 -validity 10000 -storepass android -keypass android \
               -dname "CN=Android Debug,O=Android,C=US"
-            git config user.name "ci-bot"
-            git config user.email "ci-bot@users.noreply.github.com"
-            git add scripts/debug.keystore
-            git commit -m "ci: 固定 debug keystore"
-            git push
-            echo "已生成并入库固定 keystore"
+            echo "已生成调试 keystore（将自动缓存）"
           else
-            echo "复用已入库 keystore"
+            echo "复用缓存中的 keystore"
           fi
-          mkdir -p "$HOME/.android"
-          cp scripts/debug.keystore "$HOME/.android/debug.keystore"
-          echo "已应用固定签名"
 
       - name: 应用图标到安卓工程
         run: |
