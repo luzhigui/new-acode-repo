@@ -152,6 +152,7 @@ function updateDetailPopupContent() {
     let defBonusVal = Math.floor(u.def * u.buffDefBonus);
     let hpBonusVal = Math.floor(u.maxHp * u.buffHpBonus);
     let butterflyHpBonus = u.state._butterflyHpBonus || 0;
+    let hpStyle = '';
     if (butterflyHpBonus > 0) {
         hpStyle = 'color:#daa520;font-weight:bold;';
     }

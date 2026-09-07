@@ -1,10 +1,11 @@
 // V5.7.2 | ~12200 bytes | 2026-08-24 蛛变防战 z 值改查分档表（getHpDmgRatio(0.5)=0.03），删硬编码
-export const VER = 'modules/20elite-skills.js V5.7.2';
+// V5.8.0 | 2026-09-07 属性词条化：蛛变/精通/永久carry/乾坤减伤改 addMod/getStat
+export const VER = 'modules/20elite-skills.js V5.8.0';
 
 import { CONFIG, getSkillParams } from '../core/01config-5v5-test.js';
 import { getRoleBonus, getHpDmgRatio } from '../core/02unit.js';
 import { hasBuff } from '../core/03battle-utils.js';
-import { emitEvent, applyStatChange, applyMaxHpChange, registerQuery, getBattleRng } from '../core/13battle-shared.js';
+import { emitEvent, applyStatChange, applyMaxHpChange, registerQuery, getBattleRng, addMod, removeModsByGroup, getStat } from '../core/13battle-shared.js';
 import { FACT_TYPES, UNIT_EVENT_TYPES, CAMP_TYPES, ROLE_TYPES } from '../infra/56-battle-enums.js';
 
 // 玄冥二老 — 中毒/鹿角
@@ -93,9 +94,6 @@ export function applyDamageModifiers(unit, target, dmg, allySide, enemySide, log
     return { modifiedDmg, entries };
 }
 
-// 宋青书/周芷若联动函数已迁入 core/15-skill-mechanisms.js
-// （消除 core→modules 循环依赖）
-
 // 小昭·妹 — 蛛变/飞天/蛛落
 
 // 精通层数：每职业 1 层，全 4 门后 +2 层（封顶 6）
@@ -118,13 +116,11 @@ export function spiderTransform(unit, log) {
     const newStats = getRoleBonus(newRole);
     unit.role = newRole;
     if (newRole === ROLE_TYPES.DEFENDER) unit.state._hpDmgRatio = getHpDmgRatio(0.5);
-    applyStatChange(unit, 'atk', newStats.atk, null, '蛛变');
-    applyStatChange(unit, 'def', newStats.def, null, '蛛变');
-    unit.state._baseAtk = (unit.state._baseAtk || unit.atk) + newStats.atk;
-    unit.state._baseDef = (unit.state._baseDef || unit.def) + newStats.def;
-    unit.state._baseMaxHp = (unit.state._baseMaxHp || unit.maxHp) + newStats.maxHp;
+    addMod(unit, 'atk', { source: '蛛变·' + newRole, value: newStats.atk, ttl: 'permanent', group: 'spiderTransform', op: 'add' });
+    addMod(unit, 'def', { source: '蛛变·' + newRole, value: newStats.def, ttl: 'permanent', group: 'spiderTransform', op: 'add' });
+    addMod(unit, 'maxHp', { source: '蛛变·' + newRole, value: newStats.maxHp, ttl: 'permanent', group: 'spiderTransform', op: 'add' });
     applyMaxHpChange(unit, unit.maxHp + newStats.maxHp, null, '蛛变');
-    emitEvent(unit, UNIT_EVENT_TYPES.HP_CHANGE, { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: unit.atk, def: unit.def, _baseAtk: unit.state._baseAtk, _baseDef: unit.state._baseDef, _baseMaxHp: unit.state._baseMaxHp });
+    emitEvent(unit, UNIT_EVENT_TYPES.HP_CHANGE, { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: getStat(unit, 'atk'), def: getStat(unit, 'def') });
 
     // 精通加成：首次精通时按层数差结算，全精通补 2 层
     let masteryGain = null;
@@ -134,18 +130,16 @@ export function spiderTransform(unit, log) {
         const gained = masteryLayers(unit.state._masteredRoles.length) - masteryLayers(unit.state._masteredRoles.length - 1);
         if (gained > 0) {
             const gAtk = gained * m.atkPer, gDef = gained * m.defPer, gHp = gained * m.hpPer;
-            applyStatChange(unit, 'atk', gAtk, null, '精通');
-            applyStatChange(unit, 'def', gDef, null, '精通');
-            unit.state._baseAtk += gAtk;
-            unit.state._baseDef += gDef;
-            unit.state._baseMaxHp += gHp;
+            addMod(unit, 'atk', { source: '精通', value: gAtk, ttl: 'permanent', group: 'spiderMastery', op: 'add' });
+            addMod(unit, 'def', { source: '精通', value: gDef, ttl: 'permanent', group: 'spiderMastery', op: 'add' });
+            addMod(unit, 'maxHp', { source: '精通', value: gHp, ttl: 'permanent', group: 'spiderMastery', op: 'add' });
             applyMaxHpChange(unit, unit.maxHp + gHp, null, '精通');
-            emitEvent(unit, UNIT_EVENT_TYPES.HP_CHANGE, { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: unit.atk, def: unit.def, _baseAtk: unit.state._baseAtk, _baseDef: unit.state._baseDef, _baseMaxHp: unit.state._baseMaxHp });
+            emitEvent(unit, UNIT_EVENT_TYPES.HP_CHANGE, { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: getStat(unit, 'atk'), def: getStat(unit, 'def') });
             masteryGain = { atk: gAtk, def: gDef, hp: gHp };
         }
     }
 
-    emitEvent(unit, UNIT_EVENT_TYPES.HP_CHANGE, { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: unit.atk, def: unit.def, role: newRole });
+    emitEvent(unit, UNIT_EVENT_TYPES.HP_CHANGE, { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: getStat(unit, 'atk'), def: getStat(unit, 'def'), role: newRole });
     log.push({ factType: FACT_TYPES.SPIDER_TRANSFORM, data: { unitName: unit.name, newRole, mastered: unit.state._masteredRoles.length, masteryGain } });
 }
 
@@ -162,7 +156,7 @@ export function spiderReturn(unit, allyTeam, enemySide, log) {
         if (!occupied.has(p)) { unit.pos = p; break; }
     }
 
-    emitEvent(unit, UNIT_EVENT_TYPES.HP_CHANGE, { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: unit.atk, def: unit.def, _flyMode: null, _spiderFlying: false });
+    emitEvent(unit, UNIT_EVENT_TYPES.HP_CHANGE, { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: getStat(unit, 'atk'), def: getStat(unit, 'def'), _flyMode: null, _spiderFlying: false });
     emitEvent(unit, UNIT_EVENT_TYPES.POS_CHANGE, { pos: unit.pos });
 
     log.push({ factType: FACT_TYPES.SPIDER_RETURN, data: { unitName: unit.name, spiderUid: unit.uid, pos: unit.pos } });
@@ -171,7 +165,9 @@ export function spiderReturn(unit, allyTeam, enemySide, log) {
     if (aliveEnemies.length > 0) {
         const target = aliveEnemies[rng.nextInt(0, aliveEnemies.length - 1)];
         if (!target.alive) { log.push({ factType: FACT_TYPES.SPIDER_DEAD_TARGET, data: {} }); return; }
-        const penetrationDmg = Math.floor(unit.atk * (unit.atk / (unit.atk + target.def)));
+        const atk = getStat(unit, 'atk');
+        const def = getStat(target, 'def');
+        const penetrationDmg = Math.floor(atk * (atk / (atk + def)));
         const masteryCount = unit.state._masteredRoles?.length || 0;
         const params = getSkillParams('小昭', 'spiderStrike');
         if (!params) throw new Error('缺技能参数: 小昭.spiderStrike');
@@ -196,7 +192,6 @@ export function spiderReturn(unit, allyTeam, enemySide, log) {
 }
 
 // 小昭共通 — 永久海克斯
-// 精通加成已在 spiderTransform 时结算进 _base，无独立查询链
 
 export function addPermanentBuff(xiaoZhao, buffKey, buffName, extraFields = {}) {
     if (!xiaoZhao || !xiaoZhao.isXiaoZhaoBrother) return;

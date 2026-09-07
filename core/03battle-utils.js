@@ -1,8 +1,9 @@
 // V5.7.3 | ~14500 bytes | 2026-08-24 坚盾增量/上限兜底改读 CONFIG（配合上限 3→4，去硬编码）
-export const VER = 'core/03battle-utils.js V5.7.3';
+// V5.8.0 | 2026-09-07 属性词条化：远程成长/坚盾/破防改 addMod，不再直改 unit/state
+export const VER = 'core/03battle-utils.js V5.8.0';
 
 import { CONFIG, getGameData } from './01config-5v5-test.js';
-import { emitEvent, applyStatChange, query, getBattleRng } from './13battle-shared.js';
+import { emitEvent, applyStatChange, query, getBattleRng, addMod, getStat } from './13battle-shared.js';
 import { EXECUTION_LAYER as L, EFFECT_TYPES, registerSettlementHook } from '../infra/50-event-bus.js';
 import { FACT_TYPES, BUFF_TYPES, UNIT_EVENT_TYPES, CAMP_TYPES, ROLE_TYPES, SIGNAL_TYPES } from '../infra/56-battle-enums.js';
 import {
@@ -195,16 +196,16 @@ function canReach(slot, targetPos, enemies) {
     return false;
 }
 
-// 战士破防：判定后推 BREAK_DEF 声明（纯函数）
+// 战士破防：判定后直接 addMod 永久负词条
 function submitWarriorBreakDefenseDeclaration(data) {
     const { unit, target, declarations } = data;
     if (!declarations) return;
-    if (unit.role !== ROLE_TYPES.WARRIOR || target.def <= 0) return;
+    if (unit.role !== ROLE_TYPES.WARRIOR || getStat(target, 'def') <= 0) return;
     let defReduced = C.WARRIOR_BREAK_DEF;
-    let breakChance = target.def * 2.5;
-    if (target.def <= 40) {
+    let breakChance = getStat(target, 'def') * 2.5;
+    if (getStat(target, 'def') <= 40) {
         defReduced = 2;
-    } else if (target.def <= 50) {
+    } else if (getStat(target, 'def') <= 50) {
         defReduced = 3;
         breakChance = 100;
     } else {
@@ -212,8 +213,8 @@ function submitWarriorBreakDefenseDeclaration(data) {
         breakChance = 100;
     }
     if (getBattleRng().nextInt(1, 100) > breakChance) return;
-    defReduced = Math.min(defReduced, target.def);
-    // 破防记账随声明通道传递（decl.factData），不落 unit
+    defReduced = Math.min(defReduced, getStat(target, 'def'));
+    addMod(target, 'def', { source: '破防', value: -defReduced, ttl: 'permanent', group: 'breakDef', op: 'add' });
     declarations.push({ type: EFFECT_TYPES.BREAK_DEF, value: defReduced, source: unit, target: target, factData: { attackerName: unit.name, targetName: target.name, reduce: defReduced } });
 }
 
@@ -227,23 +228,14 @@ export function registerWarriorBreakDefense(eventBus) {
     });
 }
 
-// 远程成长：每次攻击后攻击 +2
+// 远程成长：每次攻击后攻击 +2，走永久词条
 function submitRangedGrowthDeclaration(data) {
     const { unit, target, dmg, group } = data;
     if (unit.role !== ROLE_TYPES.RANGED || dmg <= 0) return;
     const growth = C.RANGED_GROWTH_ATK;
-    if (!data.declarations) data.declarations = [];
-    data.declarations.push({
-        type: EFFECT_TYPES.STAT_CHANGE,
-        field: 'atk',
-        delta: growth,
-        target: unit,
-        oldValue: unit.atk,
-        logText: null
-    });
-    // _baseAtk 记账由裁定执行块（STAT_CHANGE）统一负责，此处直改会双扣
+    addMod(unit, 'atk', { source: '远程成长', value: growth, ttl: 'permanent', group: 'rangedGrowth', op: 'add' });
     if (group && group.data && group.data.entries) {
-        group.data.entries.push({ factType: FACT_TYPES.RANGED_GROWTH, data: { unitName: unit.name, growth, newAtk: Math.floor(unit.atk + growth) } });
+        group.data.entries.push({ factType: FACT_TYPES.RANGED_GROWTH, data: { unitName: unit.name, growth, newAtk: Math.floor(getStat(unit, 'atk')) } });
     }
 }
 
@@ -257,7 +249,7 @@ export function registerRangedGrowth(eventBus) {
     });
 }
 
-// 战士斩杀：目标血量低于阈值时直接击杀
+// 战士斩杀：目标血量低于阈值时直接击杀（不涉及属性词条）
 function submitWarriorExecuteDeclaration(data) {
     const { unit, target, allySide, declarations } = data;
     if (unit.role !== ROLE_TYPES.WARRIOR || !unit.alive) return;
@@ -289,33 +281,15 @@ export function registerWarriorExecute(eventBus) {
 }
 
 export function registerFortifyShield(eventBus) {
-    function tryFortify(unit, chance, group, log, label, skipStatChange, declarations) {
-        if (!unit.alive) return;
-        if (unit.role !== ROLE_TYPES.DEFENDER) return;
-        if (!unit.alive) return;
+    function tryFortify(unit, chance, group, log, label) {
+        if (!unit.alive || unit.role !== ROLE_TYPES.DEFENDER) return;
         const fortifyThisRound = unit.state._fortifyThisRound || 0;
         const increment = unit.state._fortifyIncrement || C.FORTIFY_INCREMENT;
         const cap = unit.state._fortifyCap || C.FORTIFY_CAP;
         if (fortifyThisRound + increment > cap) return;
         if (getBattleRng().nextInt(1, 100) > chance) return;
         Object.assign(unit.state, { _fortifyStacks: unit.state._fortifyStacks + increment, _fortifyThisRound: fortifyThisRound + increment });
-        if (!skipStatChange) {
-            // 攻盾路径：push ROUND_STAT_GRANT 声明，不直改
-            if (declarations) {
-                declarations.push({
-                    type: EFFECT_TYPES.ROUND_STAT_GRANT,
-                    field: 'def',
-                    delta: increment,
-                    target: unit,
-                    source: null,
-                    reason: '坚盾'
-                });
-            } else {
-                applyStatChange(unit, 'def', increment, null, '坚盾');
-                if (unit.state._baseDef !== undefined) unit.state._baseDef += increment;
-            }
-        }
-        // skipStatChange 路径（被击坚盾）：caller 推 STAT_CHANGE 声明，_baseDef 由裁定执行块记账，此处直改会双扣
+        addMod(unit, 'def', { source: '坚盾', value: increment, ttl: 'permanent', group: 'fortify', op: 'add' });
         const entry = { factType: FACT_TYPES.FORTIFY_SHIELD, data: { unitName: unit.name, label, increment, current: fortifyThisRound + increment, cap } };
         if (group && group.data && group.data.entries) {
             group.data.entries.push(entry);
@@ -324,54 +298,34 @@ export function registerFortifyShield(eventBus) {
         }
     }
 
-    // 坚盾触发概率：唯一来源 JSON roles.防战.fortify（攻盾=attackChance，被击坚盾=defendChance）
     const fortifyCfg = getGameData().roles[ROLE_TYPES.DEFENDER].fortify;
 
-    // 被击坚盾：受击后概率叠防御
     function submitFortifyShieldDefend(data) {
         const { target, dmg, group } = data;
         if (dmg <= 0) return;
-        const prevStacks = target.state._fortifyStacks || 0;
-        tryFortify(target, fortifyCfg.defendChance, group, null, '坚盾', true);
-        if ((target.state._fortifyStacks || 0) > prevStacks) {
-            const increment = (target.state._fortifyStacks || 0) - prevStacks;
-            if (!data.declarations) data.declarations = [];
-            data.declarations.push({
-                type: EFFECT_TYPES.STAT_CHANGE,
-                field: 'def',
-                delta: increment,
-                target: target,
-                logText: null
-            });
-        }
+        tryFortify(target, fortifyCfg.defendChance, group, null, '坚盾');
     }
 
-    // 攻盾：攻击后概率叠防御，走 ROUND_STAT_GRANT
     function submitFortifyShieldAttack(data) {
         const { unit, group, log } = data;
-        tryFortify(unit, fortifyCfg.attackChance, group, log, '攻盾', false, data.declarations);
+        tryFortify(unit, fortifyCfg.attackChance, group, log, '攻盾');
     }
 
     registerSettlementHook({
         when: SIGNAL_TYPES.AFTER_DAMAGE_APPLIED,
         priority: L.AFTER_DAMAGE_APPLIED.SHIELD_DEFEND,
-        handler: (data) => {
-            submitFortifyShieldDefend(data);
-        }
+        handler: (data) => { submitFortifyShieldDefend(data); }
     });
 
     registerSettlementHook({
         when: SIGNAL_TYPES.AFTER_ATTACK,
         priority: L.AFTER_ATTACK.SHIELD_ATTACK,
-        handler: (data) => {
-            submitFortifyShieldAttack(data);
-        }
+        handler: (data) => { submitFortifyShieldAttack(data); }
     });
 }
 
 export function registerDoubleStrike(eventBus, doubleStrikeUnitUid, allyTeam, activeBuffs) {
     if (!doubleStrikeUnitUid) return;
-    // 连击判定：每回合触发一次，额外攻击一次
     function submitDoubleStrikeDeclaration(data) {
         const { unit, target, log } = data;
         if (unit.uid !== doubleStrikeUnitUid || !unit.alive || unit.camp !== CAMP_TYPES.ALLY || unit.state._doubleStriked) return;
@@ -396,18 +350,12 @@ export function registerDoubleStrike(eventBus, doubleStrikeUnitUid, allyTeam, ac
     registerSettlementHook({
         when: SIGNAL_TYPES.AFTER_ATTACK,
         priority: L.AFTER_ATTACK.DOUBLE_STRIKE,
-        handler: (data) => {
-            submitDoubleStrikeDeclaration(data);
-        }
+        handler: (data) => { submitDoubleStrikeDeclaration(data); }
     });
-
-    // 未命中路径同样触发概率连击判定，保证 miss 后也有第二次攻击机会
     registerSettlementHook({
         when: SIGNAL_TYPES.AFTER_MISS,
         priority: L.AFTER_MISS.PERMANENT_DOUBLE_RETRY,
-        handler: (data) => {
-            submitDoubleStrikeDeclaration(data);
-        }
+        handler: (data) => { submitDoubleStrikeDeclaration(data); }
     });
 }
 

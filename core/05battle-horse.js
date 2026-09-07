@@ -1,5 +1,6 @@
 // V5.5.1 | 2026-08-21 战报记账修正：拒马初始化/消散改非记账
-export const VER = 'core/05battle-horse.js V5.5.1';
+// V5.8.0 | 2026-09-07 属性词条化：拒马初始防/血写入 _base，后续百分比词条由 getStat 现算
+export const VER = 'core/05battle-horse.js V5.8.0';
 
 import { CONFIG } from './01config-5v5-test.js';
 import { hasBuff } from './03battle-utils.js';
@@ -28,14 +29,16 @@ export function spawnHorse(allyTeam, log, enemyTeam, force = false) {
     horse.atk = 0;
     horse.state._hpDmgRatio = 0.06;
     if (xiaoHEnhance) {
-        applyStatChange(horse, 'def', xiaoHEnhance.horseDef, null, '拒马初始化');
-        applyStatChange(horse, 'maxHp', xiaoHEnhance.horseHp, null, '拒马初始化');
+        horse.def = xiaoHEnhance.horseDef;
+        horse.maxHp = xiaoHEnhance.horseHp;
     } else {
-        applyStatChange(horse, 'def', C.BUFFS.horseFormation.horseDef, null, '拒马初始化');
-        applyStatChange(horse, 'maxHp', C.BUFFS.horseFormation.horseHp, null, '拒马初始化');
+        horse.def = C.BUFFS.horseFormation.horseDef;
+        horse.maxHp = C.BUFFS.horseFormation.horseHp;
     }
-    applyStatChange(horse, 'hp', horse.maxHp, null, '拒马初始化', false);
-    horse.state._baseMaxHp = horse.maxHp;  // 防止 carry 误判 _baseMaxHp=0 把马打成 maxHp=0
+    // 拒马基础防/血写入 state，供词条系统 getStat 使用；hp 直接满血
+    horse.state._baseDef = horse.def;
+    horse.state._baseMaxHp = horse.maxHp;
+    horse.hp = horse.maxHp;
     horse.pos = horsePos; horse.isHorse = true; horse.state._originalPos = horsePos;
     allyTeam.push(horse);
     // 返回生成的拒马单位，让调用方自己写日志

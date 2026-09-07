@@ -1,38 +1,51 @@
 // V5.6.0 | ~5700 bytes | 2026-08-24 姐姐强化参数直读 JSON（小昭.hexEnhance），去 ELITE_SKILLS 兜底
-export const VER = 'core/14buff-effects.js V5.6.1';
+// V5.8.0 | 2026-09-07 属性词条化：圣火令/严阵以待/carry 改为 addMod 注册词条，不再走 stats 对象
+export const VER = 'core/14buff-effects.js V5.8.0';
 
 import { CONFIG, getSkillParams } from './01config-5v5-test.js';
 import { getUnitRow, getUnitCol } from './03battle-utils.js';
 import { eventBus } from '../infra/50-event-bus.js';
-import { getBattleRng, swapUnitPositions } from './13battle-shared.js';
+import { getBattleRng, swapUnitPositions, addMod, getStat } from './13battle-shared.js';
 import { FACT_TYPES, CAMP_TYPES, SIGNAL_TYPES, BUFF_TYPES } from '../infra/56-battle-enums.js';
 const C = CONFIG;
 
-export function applyFortifyDef_Normal(unit, stats) { stats.defBonus += CONFIG.BUFFS.fortify.defBonus; }
-export function applyFortifyDef_Sister(unit, stats) { stats.defBonus += CONFIG.BUFFS.fortify.defBonus; }
-export function applyFortifyDef_Brother(unit, stats) { stats.defBonus += CONFIG.BUFFS.fortify.defBonus; }
+// 严阵以待：防御 +50%（mul 词条）
+export function applyFortifyDef_Normal(unit) {
+    addMod(unit, 'def', { source: '严阵以待', value: CONFIG.BUFFS.fortify.defBonus, ttl: 'round', op: 'mul', group: 'fortify' });
+}
+export function applyFortifyDef_Sister(unit) {
+    addMod(unit, 'def', { source: '严阵以待', value: CONFIG.BUFFS.fortify.defBonus, ttl: 'round', op: 'mul', group: 'fortify' });
+}
+export function applyFortifyDef_Brother(unit) {
+    addMod(unit, 'def', { source: '严阵以待', value: CONFIG.BUFFS.fortify.defBonus, ttl: 'round', op: 'mul', group: 'fortify' });
+}
 
-export function applyCloudBodyDodge_Normal(unit, stats) { stats.dodgeBonus = CONFIG.BUFFS.cloudBody.dodgeBonus; }
-export function applyCloudBodyDodge_Sister(unit, stats) { stats.dodgeBonus = getSkillParams('小昭', 'hexEnhance').cloudBody.dodgeBonus; }
-export function applyCloudBodyDodge_Brother(unit, stats) { stats.dodgeBonus = CONFIG.BUFFS.cloudBody.dodgeBonus; }
+// 流云身法：闪避 +25%（闪避不走属性词条，返回比率给 computeBuffStats 用）
+export function applyCloudBodyDodge_Normal() { return CONFIG.BUFFS.cloudBody.dodgeBonus; }
+export function applyCloudBodyDodge_Sister() { return getSkillParams('小昭', 'hexEnhance').cloudBody.dodgeBonus; }
+export function applyCloudBodyDodge_Brother() { return CONFIG.BUFFS.cloudBody.dodgeBonus; }
 
-// 圣火令：命中列加攻、命中行加防
-export function applyHolyFlame_Normal(unit, allyTeam, activeBuffs, stats) {
+// 圣火令：命中列 +30% 攻击，命中行 +30% 防御（mul 词条）
+export function applyHolyFlame_Normal(unit, allyTeam, activeBuffs) {
     const holyFlameBuff = activeBuffs.find(b => b.key === BUFF_TYPES.HOLY_FLAME);
     if (!holyFlameBuff || unit.camp !== CAMP_TYPES.ALLY) return;
     const cols = holyFlameBuff.cols || (holyFlameBuff.col != null ? [holyFlameBuff.col] : []);
     const rows = holyFlameBuff.rows || (holyFlameBuff.row != null ? [holyFlameBuff.row] : []);
-    if (cols.includes(getUnitCol(unit.pos))) stats.atkBonus += CONFIG.BUFFS.holyFlame.atkBonus;
-    if (rows.includes(getUnitRow(unit.pos))) stats.defBonus += CONFIG.BUFFS.holyFlame.defBonus;
+    if (cols.includes(getUnitCol(unit.pos))) {
+        addMod(unit, 'atk', { source: '圣火令', value: CONFIG.BUFFS.holyFlame.atkBonus, ttl: 'round', op: 'mul', group: 'holyFlame' });
+    }
+    if (rows.includes(getUnitRow(unit.pos))) {
+        addMod(unit, 'def', { source: '圣火令', value: CONFIG.BUFFS.holyFlame.defBonus, ttl: 'round', op: 'mul', group: 'holyFlame' });
+    }
 }
 
-export function applyHolyFlame_Sister(unit, allyTeam, activeBuffs, stats) {
-    applyHolyFlame_Normal(unit, allyTeam, activeBuffs, stats);
+export function applyHolyFlame_Sister(unit, allyTeam, activeBuffs) {
+    applyHolyFlame_Normal(unit, allyTeam, activeBuffs);
 }
 
-export function applyHolyFlame_Brother(unit, allyTeam, activeBuffs, stats) {
-    stats.atkBonus += CONFIG.BUFFS.holyFlame.atkBonus;
-    stats.defBonus += CONFIG.BUFFS.holyFlame.defBonus;
+export function applyHolyFlame_Brother(unit, allyTeam, activeBuffs) {
+    addMod(unit, 'atk', { source: '圣火令', value: CONFIG.BUFFS.holyFlame.atkBonus, ttl: 'round', op: 'mul', group: 'holyFlame' });
+    addMod(unit, 'def', { source: '圣火令', value: CONFIG.BUFFS.holyFlame.defBonus, ttl: 'round', op: 'mul', group: 'holyFlame' });
 }
 
 // carry：5 号位按队友属性百分比加成，死亡队友加成翻倍
@@ -42,8 +55,8 @@ export function calcCarryBonus_Normal(unit, allyTeam) {
     let allAllies = allyTeam.filter(u => u.uid !== unit.uid && !u.isHorse);
     allAllies.forEach(a => {
         let mult = a.alive ? 1 : (CONFIG.BUFFS.carry.deathMultiplier || 3);
-        carryAtkAbs += Math.floor(a.atk * (CONFIG.BUFFS.carry.atkBonus || 0.08) * mult);
-        carryDefAbs += Math.floor(a.def * (CONFIG.BUFFS.carry.defBonus || 0.08) * mult);
+        carryAtkAbs += Math.floor(getStat(a, 'atk') * (CONFIG.BUFFS.carry.atkBonus || 0.08) * mult);
+        carryDefAbs += Math.floor(getStat(a, 'def') * (CONFIG.BUFFS.carry.defBonus || 0.08) * mult);
         if (CONFIG.BUFFS.carry.hpBonus) carryHpAbs += Math.floor(a.state._baseMaxHp ? a.state._baseMaxHp * CONFIG.BUFFS.carry.hpBonus * mult : 0);
     });
     return { atkAbs: carryAtkAbs, defAbs: carryDefAbs, hpAbs: carryHpAbs };
@@ -55,8 +68,8 @@ export function calcCarryBonus_Sister(unit, allyTeam) {
     let allAllies = allyTeam.filter(u => u.uid !== unit.uid && !u.isHorse);
     allAllies.forEach(a => {
         let mult = a.alive ? 1 : (CONFIG.BUFFS.carry.deathMultiplier || 3);
-        carryAtkAbs += Math.floor(a.atk * (CONFIG.BUFFS.carry.atkBonus || 0.08) * mult);
-        carryDefAbs += Math.floor(a.def * (CONFIG.BUFFS.carry.defBonus || 0.08) * mult);
+        carryAtkAbs += Math.floor(getStat(a, 'atk') * (CONFIG.BUFFS.carry.atkBonus || 0.08) * mult);
+        carryDefAbs += Math.floor(getStat(a, 'def') * (CONFIG.BUFFS.carry.defBonus || 0.08) * mult);
         if (CONFIG.BUFFS.carry.hpBonus) carryHpAbs += Math.floor(a.state._baseMaxHp ? a.state._baseMaxHp * CONFIG.BUFFS.carry.hpBonus * mult : 0);
     });
     return { atkAbs: carryAtkAbs, defAbs: carryDefAbs, hpAbs: carryHpAbs };
@@ -67,7 +80,6 @@ function applyMindControlCore(unit, allySide, enemySide, log, swapChanceEnemy, s
     let frontUnit = allySide.filter(u => u.alive && !u.isHorse).sort((a,b) => a.pos - b.pos)[0];
     if (!frontUnit || frontUnit.uid !== unit.uid) return;
 
-    // 判定横幅先入 log，成功后才跟换位特效
     log.push({ factType: FACT_TYPES.MIND_CONTROL_BANNER, data: { side: CAMP_TYPES.ENEMY } });
     if (rng.nextInt(1,100) <= swapChanceEnemy) {
         let enemies = enemySide.filter(u => u.alive && u.state._flyMode !== 'butterfly' && u.state._flyMode !== 'spider' && !u.state._spiderFlying);

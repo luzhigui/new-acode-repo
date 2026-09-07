@@ -94,9 +94,10 @@ export function copyLogToClipboard(choice) {
         navigator.clipboard.writeText(text).then(() => showAlert('最新15行日志已复制'));
         return;
     }
-    const allDivs = logDiv.querySelectorAll('div');
-    allDivs.forEach(div => {
-        let t = div.textContent || '';
+    const allChildren = Array.from(logDiv.children);
+    allChildren.forEach(child => {
+        if (child.classList.contains('detail-hidden')) return;
+        let t = child.textContent || '';
         t = t.trim();
         if (!t) return;
         if (t.includes('获得Buff') || t.includes('🗯️') || t.includes('🗣️')) {

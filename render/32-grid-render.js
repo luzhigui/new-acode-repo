@@ -1,22 +1,22 @@
 // V5.5.2 | 2026-08-19 import 路径合并至 infra/51-core-utils
-export const VER = 'render/32-grid-render.js V5.5.2';
+// V5.8.0 | 2026-09-07 属性词条化：攻防显示与详情改 getStat，不再读 unit.atk/def 做二次乘法
+export const VER = 'render/32-grid-render.js V5.8.0';
 
 import { getUnitCol, getUnitRow, getAuraBonuses, getDodgeRules } from '../infra/51-core-utils.js';
 import { CONFIG, getSkillDesc } from '../core/01config-5v5-test.js';
 import { GlobalStore, getPlayerContext } from '../infra/54-global-store.js';
 import { FLASH_TYPES, CAMP_TYPES, ROLE_TYPES, BUFF_TYPES } from '../infra/56-battle-enums.js';
+import { getStat } from '../core/13battle-shared.js';
 
 let _store = null;
 let _subscribed = false;
 let _ctx = null;
-// 血条 JS 动画：显示值持久记录，DOM 重建不打断
 const _hpTargetPct = new Map();
 const _hpDisplayPct = new Map();
 let _hpAnimRunning = false;
-// 受击颤动到期时间戳；renderGrid 重建时未到期则重放动画
 const _shakeUntil = new Map();
+const _horseSpawnedUids = new Set();
 
-/** 标记某单位受击颤动：durationMs 毫秒内每次 renderGrid 重建都会重放颤动动画 */
 export function markGridShake(uid, durationMs) {
     if (uid == null) return;
     _shakeUntil.set(uid, Date.now() + durationMs);
@@ -24,10 +24,9 @@ export function markGridShake(uid, durationMs) {
     if (cell) runGridShake(cell, durationMs);
 }
 
-// 播放受击颤动：随机偏移 + 缩放回弹 + 短暂黄闪
 function runGridShake(el, durationMs) {
     const start = Date.now();
-    const d = Math.min(200, durationMs); // 背景黄闪时长
+    const d = Math.min(200, durationMs);
     const origTransform = el.style.transform || '';
     const origBg = el.style.background || '';
     el.style.transition = 'background 0.1s ease';
@@ -59,7 +58,7 @@ function getStore() {
     if (!_store) _store = GlobalStore.get('battleStore');
     return _store;
 }
-export function setGridStore(store) { _store = store; _subscribed = false; }
+export function setGridStore(store) { _store = store; _subscribed = false; _horseSpawnedUids.clear(); }
 
 function getBuffStats(unit) {
     return {
@@ -148,7 +147,6 @@ function createHorseSpawnAnim(cell) {
     setTimeout(() => { cell.style.transform = 'scale(1)'; cell.style.boxShadow = ''; }, 400);
 }
 
-// 血条 JS 动画循环：每帧向目标百分比逼近，直接更新 DOM 高度
 function tickHpAnim() {
     _hpAnimRunning = false;
     let any = false;
@@ -210,7 +208,7 @@ export function renderGrid(id, camp) {
                     div.style.boxShadow = 'none';
                 } else if (unit.state._flyMode === 'ghost') {
                     let roleIcon = unit.role===ROLE_TYPES.WARRIOR?'⚔️':(unit.role===ROLE_TYPES.DEFENDER?'🛡️':(unit.role===ROLE_TYPES.RANGED?'🏹':'🦅'));
-                    div.innerHTML = `<span class="cell-icon">${roleIcon}</span><div class="cell-info"><span class="cell-name">${unit.name}</span><span class="cell-stats">攻${Math.floor(unit.atk)} 防${Math.floor(unit.def)} 血${Math.floor(unit.hp)}</span></div>`;
+                    div.innerHTML = `<span class="cell-icon">${roleIcon}</span><div class="cell-info"><span class="cell-name">${unit.name}</span><span class="cell-stats">攻${Math.floor(getStat(unit,'atk'))} 防${Math.floor(getStat(unit,'def'))} 血${Math.floor(unit.hp)}</span></div>`;
                     div.style.opacity = '0.5';
                     div.style.background = 'rgba(30,100,255,0.28)';
                     div.style.border = '2px solid rgba(100,150,255,0.6)';
@@ -256,7 +254,6 @@ export function renderGrid(id, camp) {
             if (camp === CAMP_TYPES.ALLY && isAdjustMode && selectedPos === pos) div.classList.add('adjust-selected');
             grid.appendChild(div); continue;
         }
-        // _flash 权威源在 battleStore，此处只读
         const _storeForFlash = getStore();
         const storeUnit = (_storeForFlash && _storeForFlash.getState) ? _storeForFlash.getState().units.find(u => u.uid === unit.uid) : null;
         const flashVal = (storeUnit && storeUnit._flash) || unit._flash || null;
@@ -267,15 +264,11 @@ export function renderGrid(id, camp) {
         let isStunned = (unit.state && unit.state._stunned) || false;
 
         let roleIcon;
-        if (isStunned && !isDead) {
-            roleIcon = '😵';
-        } else if (unit.isZhang && !unit.rangedForm) {
-            roleIcon = '⚔️';
-        } else if (unit.isHorse) {
-            roleIcon = '🐴';
-        } else {
-            roleIcon = unit.role===ROLE_TYPES.WARRIOR?'⚔️':(unit.role===ROLE_TYPES.DEFENDER?'🛡️':(unit.role===ROLE_TYPES.RANGED?'🏹':'🦅'));
-        }
+        if (isStunned && !isDead) roleIcon = '😵';
+        else if (unit.isZhang && !unit.rangedForm) roleIcon = '⚔️';
+        else if (unit.isHorse) roleIcon = '🐴';
+        else roleIcon = unit.role===ROLE_TYPES.WARRIOR?'⚔️':(unit.role===ROLE_TYPES.DEFENDER?'🛡️':(unit.role===ROLE_TYPES.RANGED?'🏹':'🦅'));
+
         let displayName = unit.name;
         let displayIsZhang = unit.isZhang || false;
         if (unit.name === '成昆' && unit.state && unit.state._phantomTarget) {
@@ -294,49 +287,43 @@ export function renderGrid(id, camp) {
             if (freshUnit) latestUnit = freshUnit;
         }
 
-        let atkBonusVal = Math.floor(latestUnit.atk * latestUnit.buffAtkBonus);
-        let defBonusVal = Math.floor((latestUnit.state._baseDef || latestUnit.def) * latestUnit.buffDefBonus);
-        let hpBonusVal = Math.floor(latestUnit.maxHp * latestUnit.buffHpBonus);
-        let displayAtk = Math.round(latestUnit.atk + (latestUnit.state._carryAtkBonus || 0) + atkBonusVal);
-        let initAtk = latestUnit.state._initAtk !== undefined ? Math.round(latestUnit.state._initAtk) : Math.round(latestUnit.atk);
-        let totalChange = displayAtk - initAtk;
+        const displayAtk = Math.round(getStat(latestUnit, 'atk'));
+        const initAtk = latestUnit.state._initAtk !== undefined ? Math.round(latestUnit.state._initAtk) : displayAtk;
+        const totalChange = displayAtk - initAtk;
         let atkDisplayHtml = `${displayAtk}`;
         if (totalChange > 0) atkDisplayHtml = `<span style="color:#daa520;font-weight:bold;">${displayAtk}</span>`;
         else if (totalChange < 0) atkDisplayHtml = `<span style="color:#c0392b;font-weight:bold;">${displayAtk}</span>`;
-        let displayDef = Math.round(latestUnit.def + defBonusVal);
-        let initDef = latestUnit.state._initDef !== undefined ? Math.round(latestUnit.state._initDef) : Math.round(latestUnit.def);
-        let totalDefChange = displayDef - initDef;
+
+        const displayDef = Math.round(getStat(latestUnit, 'def'));
+        const initDef = latestUnit.state._initDef !== undefined ? Math.round(latestUnit.state._initDef) : displayDef;
+        const totalDefChange = displayDef - initDef;
         let defDisplayHtml = `${displayDef}`;
         if (totalDefChange > 0) defDisplayHtml = `<span style="color:#daa520;font-weight:bold;">${displayDef}</span>`;
         else if (totalDefChange < 0) defDisplayHtml = `<span style="color:#c0392b;font-weight:bold;">${displayDef}</span>`;
+
         let hpPct = unit.alive ? Math.floor((unit.hp / unit.maxHp) * 100) : 0;
         let hpColorClass = hpPct>70?'hp-text-green':(hpPct>40?'hp-text-orange':'hp-text-red');
         let barColor = hpPct>70?'#4caf50':(hpPct>40?'#ff9800':'#f44336');
         let hpDisplayHtml = `${Math.floor(unit.hp)}`;
-        const hasButterflyHpBonus = (latestUnit.state._butterflyHpBonus || 0) > 0;
-        if (hpBonusVal > 0 || (latestUnit.state._initMaxHp !== undefined && latestUnit.state._initMaxHp > 0 && latestUnit.maxHp > latestUnit.state._initMaxHp) || hasButterflyHpBonus) {
+        if ((latestUnit.state._initMaxHp !== undefined && latestUnit.state._initMaxHp > 0 && latestUnit.maxHp > latestUnit.state._initMaxHp)) {
             hpDisplayHtml = `<span style="color:#daa520;font-weight:bold;">${Math.floor(unit.hp)}</span>`;
         }
-        // 血条渐变：目标值写入 Map，显示值由 JS 动画循环驱动
+
         _hpTargetPct.set(unit.uid, hpPct);
-        if (!_hpDisplayPct.has(unit.uid) || GlobalStore.get('fastForwardActive')) {
-            _hpDisplayPct.set(unit.uid, hpPct);
-        }
+        if (!_hpDisplayPct.has(unit.uid) || GlobalStore.get('fastForwardActive')) _hpDisplayPct.set(unit.uid, hpPct);
         const displayPct = _hpDisplayPct.get(unit.uid) ?? hpPct;
         if (Math.abs(displayPct - hpPct) > 0.1 && !_hpAnimRunning) {
             _hpAnimRunning = true;
             requestAnimationFrame(tickHpAnim);
         }
+
         let readyClass = (!hasFlash && !(unit.state && unit.state._acted) && unit.alive && !isDead) ? 'ready' : '';
         let actedClass = (!hasFlash && (unit.state && unit.state._acted) && unit.alive && !isDead) ? 'acted' : '';
         let shakeRemain = 0;
         const shakeDeadline = _shakeUntil.get(unit.uid);
         if (shakeDeadline) {
-            if (shakeDeadline > Date.now()) {
-                shakeRemain = shakeDeadline - Date.now();
-            } else {
-                _shakeUntil.delete(unit.uid);
-            }
+            if (shakeDeadline > Date.now()) shakeRemain = shakeDeadline - Date.now();
+            else _shakeUntil.delete(unit.uid);
         }
         let cheerClass = (hasFlash && unit._flash===FLASH_TYPES.CHEER && !isDead) ? 'cell-cheer' : '';
         let restingClass = (isBlocked && unit.alive && isResting && !(unit.isZhang && unit.rangedForm) && !isDead) ? 'resting' : '';
@@ -348,15 +335,15 @@ export function renderGrid(id, camp) {
         div.dataset.pos = pos;
         div.dataset.uid = unit.uid;
         if (camp === CAMP_TYPES.ALLY && isAdjustMode) {
-            if (unit.fixed) { div.classList.add('fixed-unit'); }
+            if (unit.fixed) div.classList.add('fixed-unit');
             else { div.classList.add('swappable'); if (selectedPos === pos) div.classList.add('adjust-selected'); }
         }
         if (unit._phantomFlash) {
             div.style.animation = 'phantomFlash 0.4s ease-in-out 2';
             setTimeout(() => { div.style.animation = ''; delete unit._phantomFlash; }, 800);
         }
-        if (unit.isHorse && unit.alive && !(unit.state && unit.state._isDead) && !unit._horseSpawned) {
-            unit._horseSpawned = true;
+        if (unit.isHorse && unit.alive && !(unit.state && unit.state._isDead) && !_horseSpawnedUids.has(unit.uid)) {
+            _horseSpawnedUids.add(unit.uid);
             requestAnimationFrame(() => createHorseSpawnAnim(div));
         }
         let buffIcons = '';
@@ -368,11 +355,11 @@ export function renderGrid(id, camp) {
                     iconMap[info.icon] = (iconMap[info.icon] || 0) + 1;
                 }
             });
-            buffIcons = Object.entries(iconMap).map(([icon, count]) => icon + (count > 1 ? 'x' + count : '')).join(' '); // join(' ') 空格分隔，便于后续 logo 拆分
+            buffIcons = Object.entries(iconMap).map(([icon, count]) => icon + (count > 1 ? 'x' + count : '')).join(' ');
         }
-        let atkStyle = atkBonusVal > 0 ? 'color:#daa520;font-weight:bold;' : '';
-        let defStyle = (defBonusVal > 0 || (latestUnit.state._fortifyStacks || 0) > 0) ? 'color:#daa520;font-weight:bold;' : '';
-        let hpStyle = hpBonusVal > 0 ? 'color:#daa520;font-weight:bold;' : '';
+        let atkStyle = totalChange > 0 ? 'color:#daa520;font-weight:bold;' : '';
+        let defStyle = (totalDefChange > 0 || (latestUnit.state._fortifyStacks || 0) > 0) ? 'color:#daa520;font-weight:bold;' : '';
+        let hpStyle = '';
         let eliteSkillIcon = (unit.name === '周芷若' && unit._hasKuaiLe) ? ' 💖' : (unit.name === '宋青书' && unit._hasXingFen) ? ' 💗' : (unit.isXiaoZhaoSister ? ' 🦋' : (unit.isXiaoZhaoBrother ? ' 🕷️' : ''));
         if (!eliteSkillIcon) {
             const sisterHost = allyTeam.find(a => a.isXiaoZhaoSister && a.alive && a.state._butterflyHost === unit.uid);
@@ -381,61 +368,26 @@ export function renderGrid(id, camp) {
         if (unit.name === '成昆' && unit.state && unit.state._phantomTarget) eliteSkillIcon += ' 🎭';
         if (unit.state._xuanmingPoison && unit.state._xuanmingPoison.remaining > 0) eliteSkillIcon += ' ❄️';
 
-        // 格子名字+logo 分级显示逻辑
-        // 规则（2026-08-19 达达+用户确认）：
-        // 1. logo 按加入顺序排列，最新的最靠近名字
-        // 2. 名字≥5字时压缩名字宽度（letter-spacing:-0.5px），logo 大小不变
-        // 3. logo 数量>2 且格子放不下时，只显示最新的2个（隐藏最早的）
-        // 4. 短名字（≤4字）+ ≤2 logo：正常空格分隔，不压缩
-        // 5. 小昭·姊/妹 的·保留，其他角色名已去掉·
-        //
-        // logo 总数计算：eliteSkillIcon 中的图标数 + buffIcons 中的图标数
-        // eliteSkillIcon 用空格分隔（如 ' 🦋 🎭'），可按空格拆分
-        // buffIcons 用空格分隔（如 '🔥 ❄️'），可按空格拆分
-        // 注意：emoji 可能含 variation selector（如 ❄️ = ❄+️），不能单独用 Array.from 拆分
-
-        // 把 buffIcons 的 join 改成空格分隔，便于后续拆分
-        // （原代码第283行 .join('') 已改为 .join(' ')）
-
-        // 组装 logo 列表：eliteSkillIcon 在前（先加），buffIcons 在后（后加）
-        // 数组顺序 = 加入顺序，末尾 = 最新
         let logoList = [];
-        if (eliteSkillIcon) {
-            eliteSkillIcon.trim().split(/\s+/).forEach(ic => { if (ic) logoList.push(ic); });
-        }
-        if (buffIcons) {
-            buffIcons.split(/\s+/).forEach(ic => { if (ic) logoList.push(ic); });
-        }
+        if (eliteSkillIcon) eliteSkillIcon.trim().split(/\s+/).forEach(ic => { if (ic) logoList.push(ic); });
+        if (buffIcons) buffIcons.split(/\s+/).forEach(ic => { if (ic) logoList.push(ic); });
 
-        // 分级处理
         let compressName = false;
         let displayLogos = logoList.slice();
-
         if (displayName.length >= 5) {
-            // 5字名字：压缩名字宽度
             compressName = true;
-            // 压缩后放2个logo没问题，3个放不下 → 隐藏最早的
-            if (displayLogos.length > 2) {
-                displayLogos = displayLogos.slice(-2); // 保留最新2个
-            }
+            if (displayLogos.length > 2) displayLogos = displayLogos.slice(-2);
         } else if (displayName.length === 4 && displayLogos.length > 2) {
-            // 4字名字+3 logo以上：不压缩，隐藏最早的
             displayLogos = displayLogos.slice(-2);
         }
-        // 其他情况：≤4字 + ≤2 logo 或 2~3字 + 任意 logo → 不动
 
-        // 生成名字 HTML
         let nameHtml;
         if (compressName) {
-            // 压缩模式：logo 紧贴名字（cell-logo 包裹），最新的最靠近名字
-            // displayLogos 末尾 = 最新，反转后最新的排前面紧贴名字
             let logoHtml = displayLogos.slice().reverse().join(' ');
             nameHtml = `<span class="cell-name ${displayIsZhang?'gold':''} cell-name-long">${displayName}${logoHtml ? '<span class="cell-logo">' + logoHtml + '</span>' : ''}</span>`;
         } else if (displayLogos.length < logoList.length) {
-            // 非压缩但隐藏了部分 logo：用空格分隔显示
             nameHtml = `<span class="cell-name ${displayIsZhang?'gold':''}">${displayName}${displayLogos.length ? ' ' + displayLogos.join(' ') : ''}</span>`;
         } else {
-            // 正常模式：完全保持原来的显示格式（eliteSkillIcon 带前导空格 + buffIcons 空格分隔）
             nameHtml = `<span class="cell-name ${displayIsZhang?'gold':''}">${displayName}${eliteSkillIcon}${buffIcons ? ' ' + buffIcons : ''}</span>`;
         }
         div.innerHTML = `<span class="cell-icon">${isBlocked && unit.alive && isResting && !(unit.isZhang && unit.rangedForm) && !isDead ? '😴' : roleIcon}</span><div class="cell-info">${nameHtml}<span class="cell-stats">攻<span style="${atkStyle}">${atkDisplayHtml}</span> 防<span style="${defStyle}">${defDisplayHtml}</span> <span class="${hpColorClass}" style="${hpStyle}">血${hpDisplayHtml}</span></span></div><div class="hp-bar-wrap"><div class="hp-bar-inner" id="hpbar-${unit.uid}" style="height:${displayPct}%;background:${barColor};"></div></div>`;
