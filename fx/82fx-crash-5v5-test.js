@@ -1,5 +1,5 @@
-// V5.5.0 | 2026-07-12 修复飞走模式原地残留蓝色格子（清除_flash标记）
-export const VER = 'fx/82fx-crash-5v5-test.js V5.5.0';
+// V6.0.0 | 2026-07-12 修复飞走模式原地残留蓝色格子（清除_flash标记）
+export const VER = 'fx/82fx-crash-5v5-test.js V6.0.0';
 
 import { STORE_ACTION_TYPES, CAMP_TYPES, ROLE_TYPES } from '../infra/56-battle-enums.js';
 

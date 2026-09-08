@@ -1,5 +1,5 @@
-// V5.6.1 | ~11992 bytes | 2026-08-21 战报记账修正：新婚扣血改非记账并删手动双记
-export const VER = 'modules/26elite-sixsects.js V5.6.1';
+// V6.0.0 | ~11992 bytes | 2026-08-21 战报记账修正：新婚扣血改非记账并删手动双记
+export const VER = 'modules/26elite-sixsects.js V6.0.0';
 import { registerElite } from '../core/08-elite-registry.js';
 
 // 宋青书

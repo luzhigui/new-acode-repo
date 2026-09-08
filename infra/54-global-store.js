@@ -1,5 +1,5 @@
-// V5.5.1 | ~3700 bytes | 2026-08-21 import 路径合并至 infra/51-core-utils
-export const VER = 'infra/54-global-store.js V5.5.1';
+// V6.0.0 | ~3700 bytes | 2026-08-21 import 路径合并至 infra/51-core-utils
+export const VER = 'infra/54-global-store.js V6.0.0';
 
 import { pushBattleEvent, flushBattleEvents, onBattleEvents, getBattleState, setBattleState, isBattleStateKey } from './51-core-utils.js';
 

@@ -1,7 +1,7 @@
-// player/42player-core.js
-// V5.7.7 | 2026-09-06 播放器调度重构：按 factIndex 交错日志与特效，修复特效/日志错位
-// V5.8.0 | 2026-09-07 属性词条化：syncStoreFromStep 保留 _mods，渲染由 getStat 现算
-export const VER = 'player/42player-core.js V5.8.0';
+﻿// player/42player-core.js
+// V6.0.0 | 2026-09-06 播放器调度重构：按 factIndex 交错日志与特效，修复特效/日志错位
+// V6.0.0 | 2026-09-07 属性词条化：syncStoreFromStep 保留 _mods，渲染由 getStat 现算
+export const VER = 'player/42player-core.js V6.0.0';
 
 import { CONFIG } from '../core/01config-5v5-test.js';
 import { eventBus } from '../infra/50-event-bus.js';

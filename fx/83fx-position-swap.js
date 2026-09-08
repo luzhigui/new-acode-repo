@@ -1,5 +1,5 @@
-// V5.5.0 | 2026-07-05
-export const VER = 'fx/83fx-position-swap.js V5.5.0';
+// V6.0.0 | 2026-07-05
+export const VER = 'fx/83fx-position-swap.js V6.0.0';
 
 /**
  * 获取单位对应的格子 DOM 元素（本地定义，不依赖外部）

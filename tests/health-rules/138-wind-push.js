@@ -1,7 +1,7 @@
 // 回归规则：乘风破浪击退换位 — 击退恰一行(+3)、有身后单位时双方换位、位置随后真实生效
 // 复发信号：击退距离≠+3 / 换位描述缺失 / 击退后单位站位与战报宣告不一致（换位未生效或特效错位）
 // 对应已报 Bug：乘风破浪击退换位特效不对
-export const VER = 'tests/health-rules/138-wind-push.js V5.5.0';
+export const VER = 'tests/health-rules/138-wind-push.js V6.0.0';
 
 export const rule85 = {
     group: '技能效果回归',

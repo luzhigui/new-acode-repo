@@ -1,5 +1,5 @@
-// V5.5.0 | 2026-07-12 修复格子缩小与残留：完整保存/恢复原始格子状态
-export const VER = 'fx/85fx-dodge-bullet.js V5.5.0';
+// V6.0.0 | 2026-07-12 修复格子缩小与残留：完整保存/恢复原始格子状态
+export const VER = 'fx/85fx-dodge-bullet.js V6.0.0';
 
 import { showComicBubble } from './80fx-common-5v5-test.js';
 

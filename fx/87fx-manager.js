@@ -1,5 +1,5 @@
-// V5.5.0 | 2026-08-14 集中特效出口
-export const VER = 'fx/87fx-manager.js V5.5.0';
+// V6.0.0 | 2026-08-14 集中特效出口
+export const VER = 'fx/87fx-manager.js V6.0.0';
 
 import {
     showDanmaku,

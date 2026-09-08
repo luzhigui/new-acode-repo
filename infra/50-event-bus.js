@@ -1,6 +1,6 @@
-// V5.5.7 | ~5500 bytes | 2026-08-28 相位栅栏语义显式化（纯注释）
+// V6.0.0 | ~5500 bytes | 2026-08-28 相位栅栏语义显式化（纯注释）
 import { GlobalStore } from './54-global-store.js';
-export const VER = 'infra/50-event-bus.js V5.5.7';
+export const VER = 'infra/50-event-bus.js V6.0.0';
 
 // debug 模式在日志追加信号记录，非战斗路径
 function appendDebugSignalLog(signal, data) {

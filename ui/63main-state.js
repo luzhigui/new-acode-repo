@@ -1,5 +1,5 @@
-﻿// V5.5.0 | 2026-08-14 getPlayerContext 下沉至 infra/54
-export const VER = 'ui/63main-state.js V5.5.0';
+﻿// V6.0.0 | 2026-08-14 getPlayerContext 下沉至 infra/54
+export const VER = 'ui/63main-state.js V6.0.0';
 
 import { STATE } from '../core/01config-5v5-test.js';
 import { GlobalStore } from '../infra/54-global-store.js';

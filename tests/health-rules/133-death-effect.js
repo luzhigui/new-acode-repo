@@ -6,7 +6,7 @@
 //   2. 周芷若白骨爪斩杀：modules/26elite-sixsects.js 日志 `isDead:!target.alive` 在斩杀瞬间 alive 仍为 true → isDead 恒为 false。
 //   3. 闪避反击击杀：player/46attack-group.js 死亡特效渲染条件带 `!entry.isDodge`，而反击组 isDodge+isDead 并存 → 特效被拦截。
 // 对应已修 Bug：战士斩杀/白骨爪斩杀/闪避反击击杀 无死亡特效回归
-export const VER = 'tests/health-rules/133-death-effect.js V5.5.0';
+export const VER = 'tests/health-rules/133-death-effect.js V6.0.0';
 
 export const rule80 = {
     group: '特效回归',

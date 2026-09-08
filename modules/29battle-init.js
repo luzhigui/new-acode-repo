@@ -1,5 +1,5 @@
-// V5.5.0 | 2026-08-14 抽离 doInitBattle 纯逻辑部分
-export const VER = 'modules/29battle-init.js V5.5.0';
+// V6.0.0 | 2026-08-14 抽离 doInitBattle 纯逻辑部分
+export const VER = 'modules/29battle-init.js V6.0.0';
 
 import { CONFIG } from '../core/01config-5v5-test.js';
 import { Unit } from '../core/02unit.js';

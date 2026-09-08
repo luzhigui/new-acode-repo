@@ -1,7 +1,7 @@
 // 回归规则：回合/战斗分隔符不重复 — 同一回合的开始、结束分隔符最多各出现一次
 // 复发信号：同一回合出现两次"第N回合开始"或两次"第N回合结束"（双分隔符）
 // 对应已修 Bug：回合结束 / 战斗结束产生两次分隔符
-export const VER = 'tests/health-rules/131-separator-duplicate.js V5.5.0';
+export const VER = 'tests/health-rules/131-separator-duplicate.js V6.0.0';
 
 export const rule78 = {
     group: '日志回归',

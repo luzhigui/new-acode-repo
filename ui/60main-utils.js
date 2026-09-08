@@ -1,5 +1,5 @@
-// V5.5.0 | ~7400 bytes | 2026-07-05
-export const VER = 'ui/60main-utils.js V5.5.0';
+// V6.0.0 | ~7400 bytes | 2026-07-05
+export const VER = 'ui/60main-utils.js V6.0.0';
 
 import { GlobalStore } from '../infra/54-global-store.js';
 
@@ -131,14 +131,14 @@ export function updateCoverVersion() {
     let el = document.getElementById('coverVersion');
     if (!el) return;
     el.innerHTML = [
-        '✅ core/11battle-round.js V5.5.0',
-        '✅ core/10battle-attack.js V5.5.0',
-        '✅ core/04buff-system.js V5.5.0',
-        '✅ player/42player-core.js V5.5.0',
-        '✅ ui/62ui-render-5v5-test.js V5.5.0',
-        '✅ fx/80fx-common-5v5-test.js V5.5.0',
-        '✅ modules/20elite-skills.js V5.5.0',
-        '✅ infra/54-global-store.js V5.5.0'
+        '✅ core/11battle-round.js V6.0.0',
+        '✅ core/10battle-attack.js V6.0.0',
+        '✅ core/04buff-system.js V6.0.0',
+        '✅ player/42player-core.js V6.0.0',
+        '✅ ui/62ui-render-5v5-test.js V6.0.0',
+        '✅ fx/80fx-common-5v5-test.js V6.0.0',
+        '✅ modules/20elite-skills.js V6.0.0',
+        '✅ infra/54-global-store.js V6.0.0'
     ].join('<br>');
 }
 

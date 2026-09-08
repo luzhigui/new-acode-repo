@@ -1,5 +1,5 @@
-// V5.5.0 | 2026-07-11 支持 skipDataChange 参数
-export const VER = 'fx/84fx-push-back.js V5.5.0';
+// V6.0.0 | 2026-07-11 支持 skipDataChange 参数
+export const VER = 'fx/84fx-push-back.js V6.0.0';
 
 import { GlobalStore } from '../infra/54-global-store.js';
 import { STORE_ACTION_TYPES, UNIT_EVENT_TYPES, CAMP_TYPES } from '../infra/56-battle-enums.js';

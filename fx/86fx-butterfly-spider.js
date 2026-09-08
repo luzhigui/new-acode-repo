@@ -1,5 +1,5 @@
-// V5.5.0 | 从实验室移植，蝴蝶飞走/飞回 + 蜘蛛升天/降下
-export const VER = 'fx/86fx-butterfly-spider.js V5.5.0';
+// V6.0.0 | 从实验室移植，蝴蝶飞走/飞回 + 蜘蛛升天/降下
+export const VER = 'fx/86fx-butterfly-spider.js V6.0.0';
 
 import { GlobalStore } from '../infra/54-global-store.js';
 import { CAMP_TYPES } from '../infra/56-battle-enums.js';

@@ -1,5 +1,5 @@
-// V5.5.0 | ~5900 bytes | 2026-07-05
-export const VER = 'modules/21error-capture.js V5.5.0';
+// V6.0.0 | ~5900 bytes | 2026-07-05
+export const VER = 'modules/21error-capture.js V6.0.0';
 
 (function initErrorCapture() {
     // ---------- 创建面板 ----------
