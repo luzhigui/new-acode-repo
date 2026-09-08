@@ -1,5 +1,5 @@
-// V5.7.0 | 2026-08-24 击杀台词直读 gameData
-export const VER = 'fx/88fx-trigger.js V5.7.0';
+// V6.0.0 | 2026-08-24 击杀台词直读 gameData
+export const VER = 'fx/88fx-trigger.js V6.0.0';
 
 import { getKillTaunt } from '../core/03battle-utils.js';
 import { GlobalStore } from '../infra/54-global-store.js';

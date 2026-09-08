@@ -1,5 +1,5 @@
-// V5.5.1 | 2026-08-19 import 路径合并至 infra/51
-export const VER = 'ui/65main-battle.js V5.5.1';
+// V6.0.0 | 2026-08-19 import 路径合并至 infra/51
+export const VER = 'ui/65main-battle.js V6.0.0';
 
 import { CONFIG } from '../core/01config-5v5-test.js';
 import { SeededRNG } from '../infra/51-core-utils.js';

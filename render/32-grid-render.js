@@ -1,6 +1,6 @@
-// V5.5.2 | 2026-08-19 import 路径合并至 infra/51-core-utils
-// V5.8.0 | 2026-09-07 属性词条化：攻防显示与详情改 getStat，不再读 unit.atk/def 做二次乘法
-export const VER = 'render/32-grid-render.js V5.8.0';
+﻿// V6.0.0 | 2026-08-19 import 路径合并至 infra/51-core-utils
+// V6.0.0 | 2026-09-07 属性词条化：攻防显示与详情改 getStat，不再读 unit.atk/def 做二次乘法
+export const VER = 'render/32-grid-render.js V6.0.0';
 
 import { getUnitCol, getUnitRow, getAuraBonuses, getDodgeRules } from '../infra/51-core-utils.js';
 import { CONFIG, getSkillDesc } from '../core/01config-5v5-test.js';

@@ -1,5 +1,5 @@
-// V5.7.10 | 2026-08-26 特效单轨收尾（去字节数，版本号同步）
-export const VER = 'render/31-stage-actions.js V5.7.10';
+// V6.0.0 | 2026-08-26 特效单轨收尾（去字节数，版本号同步）
+export const VER = 'render/31-stage-actions.js V6.0.0';
 
 import { makeFXSnapshot } from '../infra/51-core-utils.js';
 import { eventBus } from '../infra/50-event-bus.js';

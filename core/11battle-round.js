@@ -1,6 +1,6 @@
-// V5.6.2 | ~23700 bytes | 2026-08-26 回合重置走 resetStateFields；蝶变方向弹窗移至播放器层
-// V5.8.0 | 2026-09-07 属性词条化：删除归位重算，光环改 round 词条，回合开始清理上回合词条
-export const VER = 'core/11battle-round.js V5.8.0';
+﻿// V6.0.0 | ~23700 bytes | 2026-08-26 回合重置走 resetStateFields；蝶变方向弹窗移至播放器层
+// V6.0.0 | 2026-09-07 属性词条化：删除归位重算，光环改 round 词条，回合开始清理上回合词条
+export const VER = 'core/11battle-round.js V6.0.0';
 
 import { CONFIG, getGameData, getSkillParams } from './01config-5v5-test.js';
 import { resetStateFields } from './17-state-keys.js';

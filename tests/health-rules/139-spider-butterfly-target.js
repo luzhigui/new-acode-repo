@@ -4,7 +4,7 @@
 //          附身窗口内出现以姐姐为目标的攻击组
 //          姐姐开局前排却整场零承伤（附身前疑似提前不可选）
 // 对应已报 Bug：妹妹被飞天了还会被打；姐姐附身前不会被打
-export const VER = 'tests/health-rules/139-spider-butterfly-target.js V5.5.0';
+export const VER = 'tests/health-rules/139-spider-butterfly-target.js V6.0.0';
 
 // 标记可能嵌套在攻击组内（飞天 fact 嵌在免疫组 entries 里），需双层扫描
 function findMarker(e, key, val) {

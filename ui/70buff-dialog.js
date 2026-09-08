@@ -1,5 +1,5 @@
-﻿// V5.6.0 | 2026-08-21 从 player/41 拆出
-export const VER = 'ui/70buff-dialog.js V5.6.0';
+﻿// V6.0.0 | 2026-08-21 从 player/41 拆出
+export const VER = 'ui/70buff-dialog.js V6.0.0';
 
 import { CONFIG } from '../core/01config-5v5-test.js';
 import { GlobalStore } from '../infra/54-global-store.js';

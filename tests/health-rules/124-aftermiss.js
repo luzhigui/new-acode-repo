@@ -4,7 +4,7 @@
 //   死链特征：周芷若在场（有授权）+ 宋青书有 miss + 整场零次"获得额外攻击机会"
 //   —— 命中会走 AFTER_DAMAGE 触发额外攻击，miss 走 AFTER_MISS 触发重试，两条路全灭才是信号链断裂。
 // 对应已修 Bug：宋青书未命中后不重试（afterMiss 信号未发射）
-export const VER = 'tests/health-rules/124-aftermiss.js V5.6.0';
+export const VER = 'tests/health-rules/124-aftermiss.js V6.0.0';
 
 export const rule71 = {
     group: '精英技能回归',

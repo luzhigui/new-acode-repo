@@ -1,5 +1,5 @@
-// V5.5.0 | 2026-07-06 新增 showBoneClaw、接入通用受击反馈
-export const VER = 'fx/81fx-arrows-5v5-test.js V5.5.0';
+// V6.0.0 | 2026-07-06 新增 showBoneClaw、接入通用受击反馈
+export const VER = 'fx/81fx-arrows-5v5-test.js V6.0.0';
 
 import { markGridShake } from '../render/32-grid-render.js';
 import { CAMP_TYPES } from '../infra/56-battle-enums.js';

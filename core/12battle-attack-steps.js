@@ -1,6 +1,6 @@
-// V5.7.1 | ~24200 bytes | 2026-08-26 calcFinalDamage 五声明类型抽 calcModifier 查表（16effect-handlers）
-// V5.8.0 | 2026-09-07 属性词条化：所有攻防读取改 getStat，不再直读 unit.atk/def
-export const VER = 'core/12battle-attack-steps.js V5.8.0';
+﻿// V6.0.0 | ~24200 bytes | 2026-08-26 calcFinalDamage 五声明类型抽 calcModifier 查表（16effect-handlers）
+// V6.0.0 | 2026-09-07 属性词条化：所有攻防读取改 getStat，不再直读 unit.atk/def
+export const VER = 'core/12battle-attack-steps.js V6.0.0';
 
 import { CONFIG, getSkillParams, getGameData } from './01config-5v5-test.js';
 import { eventBus, EFFECT_TYPES } from '../infra/50-event-bus.js';

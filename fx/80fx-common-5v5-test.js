@@ -1,5 +1,5 @@
-// V5.5.0 | 2026-07-05
-export const VER = 'fx/80fx-common-5v5-test.js V5.5.0';
+// V6.0.0 | 2026-07-05
+export const VER = 'fx/80fx-common-5v5-test.js V6.0.0';
 
 import { CAMP_TYPES } from '../infra/56-battle-enums.js';
 

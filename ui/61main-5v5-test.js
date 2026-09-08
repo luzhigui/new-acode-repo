@@ -1,5 +1,5 @@
-// V5.6.1 | 2026-08-26 移除 handleBuffLeech import
-export const VER = 'ui/61main-5v5-test.js V5.6.1';
+// V6.0.0 | 2026-08-26 移除 handleBuffLeech import
+export const VER = 'ui/61main-5v5-test.js V6.0.0';
 
 import '../infra/54-global-store.js';
 import { GlobalStore } from '../infra/54-global-store.js';

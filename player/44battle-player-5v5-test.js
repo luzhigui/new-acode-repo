@@ -1,5 +1,5 @@
-// V5.5.1 | 2026-08-26 移除 handleBuffLeech re-export（接口变更）
-export const VER = 'player/44battle-player-5v5-test.js V5.5.1';
+// V6.0.0 | 2026-08-26 移除 handleBuffLeech re-export（接口变更）
+export const VER = 'player/44battle-player-5v5-test.js V6.0.0';
 
 import { playBattle, playLogEntries, clearAllEffects } from './42player-core.js';
 import { playLineText, setPlayerContext as setTextCtx } from './40player-text.js';

@@ -1,5 +1,5 @@
-// V5.8.0 | 2026-09-07 属性词条化：BREAK_DEF/SPLASH成长/STAT_CHANGE/ROUND_STAT_GRANT 改 addMod，不再直改 _base
-export const VER = 'core/16effect-handlers.js V5.8.0';
+// V6.0.0 | 2026-09-07 属性词条化：BREAK_DEF/SPLASH成长/STAT_CHANGE/ROUND_STAT_GRANT 改 addMod，不再直改 _base
+export const VER = 'core/16effect-handlers.js V6.0.0';
 
 import { EFFECT_TYPES } from '../infra/50-event-bus.js';
 import { applyStatChange, applyMaxHpChange, query, emitEvent, addMod, getStat } from './13battle-shared.js';

@@ -1,5 +1,5 @@
-// V5.5.0 | 2026-08-23 player 只 emit 信号，本文件订阅转调
-export const VER = 'fx/89fx-subscriber.js V5.5.0';
+// V6.0.0 | 2026-08-23 player 只 emit 信号，本文件订阅转调
+export const VER = 'fx/89fx-subscriber.js V6.0.0';
 
 import { eventBus } from '../infra/50-event-bus.js';
 import { GlobalStore } from '../infra/54-global-store.js';

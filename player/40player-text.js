@@ -1,5 +1,5 @@
-// V5.5.0 | ~2700 bytes | 2026-07-05
-export const VER = 'player/40player-text.js V5.5.0';
+// V6.0.0 | ~2700 bytes | 2026-07-05
+export const VER = 'player/40player-text.js V6.0.0';
 
 import { GlobalStore } from '../infra/54-global-store.js';
 
