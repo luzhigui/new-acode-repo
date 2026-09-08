@@ -220,7 +220,7 @@ export function initMonitor() {
     // 主要按钮
     btnStartMonitor.addEventListener('click', () => {
         if (monitorActive) return;
-        gameFrame.src = '../mode-5v5-test.html';
+        gameFrame.src = '../index.html';
         gameArea.classList.add('active'); reportArea.classList.remove('active');
         btnStartMonitor.disabled = true; btnStartMonitor.textContent = '体检中...';
         btnStopMonitor.disabled = false; btnStopMonitor.textContent = '⏸️ 暂停';
