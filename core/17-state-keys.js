@@ -36,6 +36,7 @@ export const ROUND_STATE_SCHEMA = Object.freeze({
 // 整场状态：跨回合持续，不重置
 export const BATTLE_STATE_SCHEMA = Object.freeze({
     _isDead:                 { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
+    _phantomTarget:          { type: STATE_FIELD_TYPES.STRING,  default: null },
     _xuanmingPoison:         { type: STATE_FIELD_TYPES.OBJECT,  default: null },
     _kuaiLeStack:            { type: STATE_FIELD_TYPES.ARRAY,   default: [] },
     _xingFenCount:           { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },

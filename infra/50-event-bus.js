@@ -92,6 +92,7 @@ export const EXECUTION_LAYER = {
         JIUYANG: 40
     },
     AFTER_ATTACK: {
+        PHANTOM_REROLL: 20,
         SHIELD_ATTACK: 30,
         XINGFEN_EXTRA: 40,
         CLAW: 40,
@@ -100,6 +101,7 @@ export const EXECUTION_LAYER = {
         MIND_CONTROL: 40
     },
     AFTER_MISS: {
+        PHANTOM_REROLL: 20,
         XINGFEN_RETRY: 50,
         PERMANENT_DOUBLE_RETRY: 60
     },
