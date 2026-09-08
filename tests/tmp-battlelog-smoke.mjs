@@ -1,4 +1,4 @@
-// tests/tmp-battlelog-smoke.mjs — V5.7.8 战报累积链冒烟验证
+﻿// tests/tmp-battlelog-smoke.mjs — V6.0.0 战报累积链冒烟验证
 // 验证：playLogEntries 累积块（此处原样复刻）× renderLog 真投影 × 规则真解析
 import { GlobalStore } from '../infra/54-global-store.js';
 import { renderLog } from '../render/30-fact-renderer.js';

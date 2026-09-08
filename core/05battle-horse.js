@@ -1,6 +1,6 @@
-// V5.5.1 | 2026-08-21 战报记账修正：拒马初始化/消散改非记账
-// V5.8.0 | 2026-09-07 属性词条化：拒马初始防/血写入 _base，后续百分比词条由 getStat 现算
-export const VER = 'core/05battle-horse.js V5.8.0';
+﻿// V6.0.0 | 2026-08-21 战报记账修正：拒马初始化/消散改非记账
+// V6.0.0 | 2026-09-07 属性词条化：拒马初始防/血写入 _base，后续百分比词条由 getStat 现算
+export const VER = 'core/05battle-horse.js V6.0.0';
 
 import { CONFIG } from './01config-5v5-test.js';
 import { hasBuff } from './03battle-utils.js';

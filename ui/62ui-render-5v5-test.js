@@ -1,5 +1,5 @@
-﻿// V5.5.1 | 2026-08-17 格子渲染下沉 render/32
-export const VER = 'ui/62ui-render-5v5-test.js V5.5.1';
+﻿// V6.0.0 | 2026-08-17 格子渲染下沉 render/32
+export const VER = 'ui/62ui-render-5v5-test.js V6.0.0';
 
 import { getSkillDesc } from '../core/01config-5v5-test.js';
 import { getAuraBonuses } from '../core/03battle-utils.js';

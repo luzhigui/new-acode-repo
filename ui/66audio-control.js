@@ -1,5 +1,5 @@
-// V5.5.0 | ~1200 bytes | 2026-07-07
-export const VER = 'ui/66audio-control.js V5.5.0';
+// V6.0.0 | ~1200 bytes | 2026-07-07
+export const VER = 'ui/66audio-control.js V6.0.0';
 
 import { AudioManager } from '../modules/22audio-manager.js';
 

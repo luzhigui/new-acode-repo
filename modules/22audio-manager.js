@@ -1,5 +1,5 @@
-// V5.5.0 | ~8000 bytes | 2026-07-05
-export const VER = 'modules/22audio-manager.js V5.5.0';
+// V6.0.0 | ~8000 bytes | 2026-07-05
+export const VER = 'modules/22audio-manager.js V6.0.0';
 
 import { CONFIG } from '../core/01config-5v5-test.js';
 

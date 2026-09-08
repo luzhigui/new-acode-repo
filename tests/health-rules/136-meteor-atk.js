@@ -1,7 +1,7 @@
 // 回归规则：流星赶月普通溅射加攻 — 溅射命中应附带攻击成长（core/12battle-attack-steps.js atkPerSplash）
 // 复发信号：普通"☄️ 流星赶月溅射"条目均无"攻击+N"（当前仅小昭姐姐增强版蝶星有成长，普通版缺失）
 // 对应已报 Bug：流星赶月普通加攻
-export const VER = 'tests/health-rules/136-meteor-atk.js V5.5.0';
+export const VER = 'tests/health-rules/136-meteor-atk.js V6.0.0';
 
 export const rule83 = {
     group: 'Buff效果回归',

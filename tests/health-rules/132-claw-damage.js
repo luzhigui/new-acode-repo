@@ -6,7 +6,7 @@
 //   2. 连锁(同目标连续爪击)伤害递减 —— 未按"已损失生命比例"递增调血
 //   3. 标记"斩杀"但目标血量未被调为 0（斩杀后 hp 残留）
 // 对应已修 Bug：九阴白骨爪伤害计算/斩杀/连锁相关回归
-export const VER = 'tests/health-rules/132-claw-damage.js V5.5.0';
+export const VER = 'tests/health-rules/132-claw-damage.js V6.0.0';
 
 export const rule79 = {
     group: '数值回归',

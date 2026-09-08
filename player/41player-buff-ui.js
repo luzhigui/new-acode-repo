@@ -1,5 +1,5 @@
-// V5.7.2 | 2026-08-26 删除 handleBuffLeech 死函数
-export const VER = 'player/41player-buff-ui.js V5.7.2';
+// V6.0.0 | 2026-08-26 删除 handleBuffLeech 死函数
+export const VER = 'player/41player-buff-ui.js V6.0.0';
 
 import { Unit } from '../core/02unit.js';
 import { eventBus } from '../infra/50-event-bus.js';

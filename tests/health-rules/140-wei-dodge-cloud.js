@@ -3,7 +3,7 @@
 //          → 闪避面板（含韦一笑详情面板）将不显示流云加成也不计入合计
 // 对应已报 Bug：韦一笑闪避面板没有考虑流云，有了流云也不显示不加
 // 注意：若主代码后续把面板改为实时从 activeBuffs 计算（而非 buffDodgeBonus 字段），本规则需同步调整口径
-export const VER = 'tests/health-rules/140-wei-dodge-cloud.js V5.5.0';
+export const VER = 'tests/health-rules/140-wei-dodge-cloud.js V6.0.0';
 
 export const rule87 = {
     group: '面板数据回归',
