@@ -422,7 +422,8 @@ function makeAttackAction(data, index) {
         waveTaunt: data.dmgCalc?.waveTaunt ?? null,
         waveUnitUid: data.dmgCalc?.waveUnit?.uid ?? null,
         waveUnit: data.dmgCalc?.waveUnit ?? null,
-        isKuLianAttack: data.snap?.isKuLianAttack ?? false
+        isKuLianAttack: data.snap?.isKuLianAttack ?? false,
+        isLinkAttack: data.snap?.isLinkAttack ?? false
     };
 
     // 从 attack fact 的 entries 提取 afterText 特效，靠 e.type/e.factType 区分：溅射 / 白骨爪 / 乾坤飘字 / 死亡画笔
@@ -514,6 +515,10 @@ export const STAGE_ACTION_DEFS = {
                 await new Promise(r => setTimeout(r, 1200));
             }
             // 飞撞/箭矢/台词弹幕（统一由 fx/88 的 _triggerFX 消费）
+            // 联动攻击必须等主攻动画播完再起手（emit 同步不发 Promise，需显式等待）
+            if (action.isLinkAttack && attacker && target && action.attackerRole) {
+                await new Promise(r => setTimeout(r, 1400));
+            }
             if (attacker && target && action.attackerRole) {
                 eventBus.emit(FX_SIGNALS.TRIGGER, {
                     fxSnapshot: action.fx,

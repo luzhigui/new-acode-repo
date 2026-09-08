@@ -180,18 +180,37 @@ function submitPhantomDisguiseOnHit(data, decls) {
     if (!unit || !unit.alive || data.dmg <= 0) return;
     const decl = decls.find(d => d.name === unit.name);
     if (!decl) return;
-    const enemyAlive = data.enemySide.filter(u => u.alive && !u.isHorse && !u.state._untargetable);
+    const lostHp = unit.maxHp - unit.hp;
+    if (lostHp > 0) {
+        const aliveCount = data.enemySide.filter(u => u.alive).length;
+        const heal = Math.floor(lostHp * (decl.healRatio || 0.06) * aliveCount);
+        if (!data.declarations) data.declarations = [];
+        data.declarations.push({ type: EFFECT_TYPES.HEAL, value: heal, source: unit, factType: FACT_TYPES.PHANTOM_DISGUISE_HEAL, factData: { unitName: unit.name, heal, unitUid: unit.uid } });
+    }
+    emitEvent(unit, UNIT_EVENT_TYPES.HP_CHANGE, { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: unit.atk, def: unit.def, _phantomTarget: unit.state._phantomTarget });
+}
+
+// 幻影伪装：攻击后模仿对方单位。受击不重刷（闪避反击时保持暴露），只在成昆自身攻击结算后重刷
+function rollPhantomDisguise(unit, enemySide) {
+    const enemyAlive = enemySide.filter(u => u.alive && !u.isHorse && !u.state._untargetable);
     if (enemyAlive.length > 0) {
         Object.assign(unit.state, { _phantomTarget: enemyAlive[getBattleRng().nextInt(0, enemyAlive.length - 1)].uid });
-        const lostHp = unit.maxHp - unit.hp;
-        if (lostHp > 0) {
-            const aliveCount = data.enemySide.filter(u => u.alive).length;
-            const heal = Math.floor(lostHp * (decl.healRatio || 0.06) * aliveCount);
-            if (!data.declarations) data.declarations = [];
-            data.declarations.push({ type: EFFECT_TYPES.HEAL, value: heal, source: unit, factType: FACT_TYPES.PHANTOM_DISGUISE_HEAL, factData: { unitName: unit.name, heal, unitUid: unit.uid } });
-        }
         emitEvent(unit, UNIT_EVENT_TYPES.HP_CHANGE, { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: unit.atk, def: unit.def, _phantomTarget: unit.state._phantomTarget });
     }
+}
+
+// 成昆开始攻击前卸下伪装（伪装不跨攻击生效）
+function submitPhantomClearBeforeAttack(data, decls) {
+    const decl = decls.find(d => d.name === data.unit.name);
+    if (!decl || !data.unit.alive) return;
+    data.unit.state._phantomTarget = null;
+}
+
+// 成昆攻击结算后重新伪装：命中/未命中都算攻击过；闪避走 ON_DODGE 不在此列
+function submitPhantomRerollAfterAttack(data, decls) {
+    const decl = decls.find(d => d.name === data.unit.name);
+    if (!decl || !data.unit.alive || !data.enemySide) return;
+    rollPhantomDisguise(data.unit, data.enemySide);
 }
 
 function submitPhantomDisguiseTarget(data, decls) {
@@ -232,6 +251,21 @@ function installPhantomDisguise(eventBus, declarations) {
         when: SIGNAL_TYPES.BEFORE_SELECT_TARGET,
         priority: L.BEFORE_SELECT_TARGET.DISGUISE,
         handler: (data) => { submitPhantomDisguiseTarget(data, decls); }
+    });
+    registerSettlementHook({
+        when: SIGNAL_TYPES.BEFORE_SELECT_TARGET,
+        priority: L.BEFORE_SELECT_TARGET.PHANTOM_CLEAR,
+        handler: (data) => { submitPhantomClearBeforeAttack(data, decls); }
+    });
+    registerSettlementHook({
+        when: SIGNAL_TYPES.AFTER_ATTACK,
+        priority: L.AFTER_ATTACK.PHANTOM_REROLL,
+        handler: (data) => { submitPhantomRerollAfterAttack(data, decls); }
+    });
+    registerSettlementHook({
+        when: SIGNAL_TYPES.AFTER_MISS,
+        priority: L.AFTER_MISS.PHANTOM_REROLL,
+        handler: (data) => { submitPhantomRerollAfterAttack(data, decls); }
     });
 }
 

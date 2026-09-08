@@ -283,8 +283,12 @@ export function processUnitAttack(unit, allySide, enemySide, log, A, B, state, d
             if (req.reason === 'doubleStrike' && !req.ignoreBlock && isBlocked(req.unit, allySide)) continue;
             executedUids.add(req.unit.uid);
             req.unit.state._acted = false;
+            // 玄冥联动期间置 _isLinkAttack，避免联动攻击自身再触发联动（乒乓链）
+            const isLinkReq = req.reason === 'xuanmingLink';
+            if (isLinkReq) req.unit.state._isLinkAttack = true;
             const extraTargetUid = req.targetUid || (target && target.alive ? target.uid : null);
             processUnitAttack(req.unit, allySide, enemySide, log, A, B, state, null, extraTargetUid);
+            if (isLinkReq) req.unit.state._isLinkAttack = false;
             if (req.actedMode === 'restore') {
                 req.unit.state._acted = req.actedSnapshot;
             }
