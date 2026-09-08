@@ -6,9 +6,8 @@ import { CONFIG, getSkillParams } from '../core/01config-5v5-test.js';
 import { hasBuff, getZhangNearTaunt } from '../core/03battle-utils.js';
 import { spawnHorse } from '../core/05battle-horse.js';
 import { spiderTransform, spiderReturn } from '../modules/20elite-skills.js';
-import { checkZhangSwitch, emitEvent, applyStatChange, applyMaxHpChange, getBattleRng } from '../core/13battle-shared.js';
+import { checkZhangSwitch, emitEvent, applyStatChange, applyMaxHpChange, getBattleRng, addMod, removeModsByGroup } from '../core/13battle-shared.js';
 import { eventBus, EXECUTION_LAYER as L, EFFECT_TYPES } from '../infra/50-event-bus.js';
-import { registerDodgeRule } from '../core/12battle-attack-steps.js';
 import { StateMachine } from '../infra/51-core-utils.js';
 import { FACT_TYPES, BUFF_TYPES, UNIT_EVENT_TYPES, CAMP_TYPES, ROLE_TYPES, SIGNAL_TYPES } from '../infra/56-battle-enums.js';
 
@@ -159,11 +158,6 @@ export function createWeiYixiaoComponent() {
             eventBus.on(SIGNAL_TYPES.ON_DODGE, L.AFTER_DAMAGE_APPLIED.LEECH, (data) => {
                 submitWeiLeechDeclaration(data);
             });
-
-            registerDodgeRule((unit, attacker) => {
-                if (!unit.isWei || !unit.alive) return 0;
-                return CONFIG.BASE_DODGE_FLY;
-            });
         }
     };
 }
@@ -303,8 +297,8 @@ export function createXiaoZhaoSisterComponent() {
             const hostEs = host.state;
             Object.assign(host.state, { _butterflyHpBonus: (hostEs._butterflyHpBonus || 0) + hpTransfer });
             Object.assign(host.state, { _butterflyAtkBonus: (hostEs._butterflyAtkBonus || 0) + atkTransfer, _butterflyDefBonus: (hostEs._butterflyDefBonus || 0) + defTransfer });
-            applyStatChange(host, 'atk', atkTransfer, sister, '蝶变附身');
-            applyStatChange(host, 'def', defTransfer, sister, '蝶变附身');
+            addMod(host, 'atk', { source: '蝶变附身', value: atkTransfer, ttl: 'attached', group: 'butterfly', op: 'add' });
+            addMod(host, 'def', { source: '蝶变附身', value: defTransfer, ttl: 'attached', group: 'butterfly', op: 'add' });
             applyMaxHpChange(host, host.maxHp + hpTransfer, sister, '蝶变附身血上限');
             emitEvent(host, UNIT_EVENT_TYPES.HP_CHANGE, { hp:host.hp, maxHp:host.maxHp, alive:host.alive, atk:host.atk, def:host.def, _phantomTarget:sister.uid });
             const aliveAllies = A.filter(a => a.alive && !a.isHorse && a.uid !== sister.uid);
@@ -367,10 +361,7 @@ export function createXiaoZhaoSisterComponent() {
             applyStatChange(sister, 'atk', sister.state._baseAtk - sister.atk, null, '蝶变飞回重置攻');
             applyStatChange(sister, 'def', sister.state._baseDef - sister.def, null, '蝶变飞回重置防');
             if (host && host.alive) {
-                applyStatChange(host, 'atk', -(host.state._butterflyAtkBonus || 0), sister, '蝶变飞回');
-                applyStatChange(host, 'def', -(host.state._butterflyDefBonus || 0), sister, '蝶变飞回');
-                Object.assign(host.state, { _butterflyAtkBonus: 0, _butterflyDefBonus: 0 });
-                Object.assign(host.state, { _butterflyHpBonus: 0 });
+                removeModsByGroup(host, 'butterfly');
                 const hpTransfer = sister.state._butterflyHpTransfer || 0;
                 applyMaxHpChange(host, Math.max(1, host.maxHp - hpTransfer), sister, '蝶变飞回血上限');
                 emitEvent(host, UNIT_EVENT_TYPES.HP_CHANGE, {
