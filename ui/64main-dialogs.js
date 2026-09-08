@@ -160,8 +160,8 @@ export function showBattleReport(UI, battleResultForInfo) {
                 dialog.querySelector('#_csvCopyBtn').textContent = '✅ 已复制！';
             });
         };
-        dialog.querySelector('#_csvCloseBtn').onclick = () => document.body.removeChild(overlay);
-        overlay.onclick = (e) => { if (e.target === overlay) document.body.removeChild(overlay); };
+        dialog.querySelector('#_csvCloseBtn').onclick = () => { if (overlay.parentNode) overlay.remove(); };
+        overlay.onclick = (e) => { if (e.target === overlay && overlay.parentNode) overlay.remove(); };
     };
     btnDiv.appendChild(exportBtn);
     
