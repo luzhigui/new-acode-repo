@@ -1,5 +1,5 @@
-// V5.5.1 | 2026-08-21 战报记账修正：玄冥中毒tick传入鹿杖客作输出源
-export const VER = 'modules/25elite-imperial.js V5.5.1';
+// V6.0.0 | 2026-08-21 战报记账修正：玄冥中毒tick传入鹿杖客作输出源
+export const VER = 'modules/25elite-imperial.js V6.0.0';
 
 import { registerElite } from '../core/08-elite-registry.js';
 import { tickXuanmingPoison } from './20elite-skills.js';

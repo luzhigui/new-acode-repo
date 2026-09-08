@@ -1,5 +1,5 @@
-// V5.7.0 | ~31800 bytes | 2026-08-24 拆除 ELITE_SKILLS/本地台词硬编码兜底：统一 getSkillParams + gameData.taunts
-export const VER = 'modules/27elite-mingjiao.js V5.7.0';
+// V6.0.0 | ~31800 bytes | 2026-08-24 拆除 ELITE_SKILLS/本地台词硬编码兜底：统一 getSkillParams + gameData.taunts
+export const VER = 'modules/27elite-mingjiao.js V6.0.0';
 
 import { registerElite } from '../core/08-elite-registry.js';
 import { CONFIG, getSkillParams } from '../core/01config-5v5-test.js';

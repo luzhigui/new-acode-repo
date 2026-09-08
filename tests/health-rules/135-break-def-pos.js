@@ -1,7 +1,7 @@
 // 回归规则：破防显示位置 — 破防发生于 beforeDamageCalc（伤害结算前），应在攻击组最前面（波动行之前）
 // 复发信号：破防行挂在攻击组末尾（当前实现：fact.entries 被压到伤害行之后）/ 攻击者/目标不一致 / 游离在攻击组外
 // 对应已报 Bug：破防的提示应该在当前攻击组最前面，现在相对靠后了
-export const VER = 'tests/health-rules/135-break-def-pos.js V5.6.0';
+export const VER = 'tests/health-rules/135-break-def-pos.js V6.0.0';
 
 export const rule82 = {
     group: '战报渲染回归',

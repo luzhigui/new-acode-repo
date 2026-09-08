@@ -1,4 +1,4 @@
-// V5.6.0 | ~27000 bytes | 2026-08-22 TARGET_FILES 改为从 106 的 ALL_PROJECT_FILES 派生（单一数据源，消除双份维护）
+﻿// V6.0.0 | ~27000 bytes | 2026-08-22 TARGET_FILES 改为从 106 的 ALL_PROJECT_FILES 派生（单一数据源，消除双份维护）
 
 import { ALL_PROJECT_FILES } from './106-ai-pack-config.js';
 
@@ -15,8 +15,8 @@ function escapeHtml(text) {
     // 新增/删除项目文件时只需改 106 一处，本清单自动同步。
     const SCAN_EXCLUDE = new Set([
         '../tools/102-toolkit.html',   // 工具箱自身页面
-        '../index.html',               // 开发入口页
-        '../mode-5v5-test.html'        // 游戏入口页
+        '../dev-index.html',          // 开发入口页
+        '../index.html'               // 游戏入口页
     ]);
     const TARGET_FILES = ALL_PROJECT_FILES.filter(f => /\.(js|html|json|cjs)$/.test(f) && !SCAN_EXCLUDE.has(f));
 

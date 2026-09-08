@@ -1,7 +1,7 @@
 // 回归规则：小昭妹妹飞天免疫次数 — 每场限 3 次（27elite-mingjiao.js _spiderRemaining||3）
 // 复发信号：飞天免疫触发次数超过上限，或"剩余次数"出现负数（飞天误触发 / 次数未正确递减）
 // 对应已修 Bug：小昭妹妹飞天误触发、飞天后仍行动、飞天免疫次数超限
-export const VER = 'tests/health-rules/129-spider-fly-count.js V5.5.0';
+export const VER = 'tests/health-rules/129-spider-fly-count.js V6.0.0';
 
 export const rule76 = {
     group: '精英技能回归',

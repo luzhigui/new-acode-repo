@@ -1,5 +1,5 @@
-// V5.4.0 | ~800 bytes | 2026-08-12 core层定义注册接口，modules层注册
-export const VER = 'core/08-elite-registry.js V5.4.0';
+// V6.0.0 | ~800 bytes | 2026-08-12 core层定义注册接口，modules层注册
+export const VER = 'core/08-elite-registry.js V6.0.0';
 
 const eliteRegistry = new Map();
 

@@ -1,7 +1,7 @@
 // 回归规则：张无忌近身切换时机 — 同列前排无存活队友才切（core/13battle-shared.js checkZhangSwitch）
 // 复发信号：同列前排队友存活却切换（时机过早）/ 前排阵亡后隔≥2回合才切换（时机过晚）/ 一场切换多次
 // 对应已报 Bug：张无忌切换近身时机不对
-export const VER = 'tests/health-rules/134-zhang-switch.js V5.5.0';
+export const VER = 'tests/health-rules/134-zhang-switch.js V6.0.0';
 
 function roundAt(log, idx) {
     for (var i = idx; i >= 0; i--) {

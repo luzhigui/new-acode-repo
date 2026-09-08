@@ -1,7 +1,7 @@
 // 回归规则：坚盾叠加不超过每回合上限 — 日志"已叠X/Y"中 X 不应超过 Y
 // 复发信号：已叠X/Y 里 X > Y（坚盾触发前跳过上限校验导致溢出，如成昆 +2）
 // 对应已修 Bug：成昆坚盾 +2 溢出（跳过上限校验）
-export const VER = 'tests/health-rules/130-fortify-overflow.js V5.5.0';
+export const VER = 'tests/health-rules/130-fortify-overflow.js V6.0.0';
 
 export const rule77 = {
     group: '数值回归',

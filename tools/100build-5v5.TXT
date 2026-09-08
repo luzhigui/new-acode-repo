@@ -1,5 +1,5 @@
 ﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// tools/100build-5v5.cjs - 光明顶5v5 构建脚本
-// V5.5.0 | 更新：2026-07-21 合并新模块
+// V6.0.0 | 更新：2026-07-21 合并新模块
 // 【已废弃 2026-08-22】本脚本暂停使用：MODULES 清单严重过期（引用 5 个已删文件、缺 12 个现存文件），直接跑必失败。
 // 复用前必须按磁盘现状全量重写 MODULES 与 VER_GLOBAL_MAP。此前仅作历史参考保留。
 
@@ -104,7 +104,7 @@ const VER_GLOBAL_MAP = {
     '61main-5v5-test.js':             'VER_MAIN'
 };
 
-const HTML_TEMPLATE = 'mode-5v5-test.html';
+const HTML_TEMPLATE = 'index.html';
 
 function parseImports(code) {
     const imports = [];
@@ -268,7 +268,7 @@ function build() {
         return ''; // 移除后续的 module script 标签
     });
 
-    const outPath = path.join(ROOT, 'mode-5v5-combined.html');
+    const outPath = path.join(ROOT, 'index-combined.html');
     fs.writeFileSync(outPath, html, 'utf-8');
 
     const sizeKB = (fs.statSync(outPath).size / 1024).toFixed(1);

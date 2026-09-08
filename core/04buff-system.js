@@ -1,6 +1,6 @@
-// V5.6.0 | ~27900 bytes | 2026-08-24 删除断头的精通查询链（精通已在蛛变首次掌握时增量结算）
-// V5.8.0 | 2026-09-07 属性词条化：computeBuffStats 不再产生 stats 对象，圣火令/严阵以待/carry 走 addMod
-export const VER = 'core/04buff-system.js V5.8.0';
+﻿// V6.0.0 | ~27900 bytes | 2026-08-24 删除断头的精通查询链（精通已在蛛变首次掌握时增量结算）
+// V6.0.0 | 2026-09-07 属性词条化：computeBuffStats 不再产生 stats 对象，圣火令/严阵以待/carry 走 addMod
+export const VER = 'core/04buff-system.js V6.0.0';
 import {
     applyFortifyDef_Normal, applyFortifyDef_Sister, applyFortifyDef_Brother,
     applyCloudBodyDodge_Normal, applyCloudBodyDodge_Sister, applyCloudBodyDodge_Brother,

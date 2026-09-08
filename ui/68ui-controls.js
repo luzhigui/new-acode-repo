@@ -1,5 +1,5 @@
-// V5.5.0 | ~25700 bytes | 2026-08-14 移除回放导入区块
-export const VER = 'ui/68ui-controls.js V5.5.0';
+﻿// V6.0.0 | ~25700 bytes | 2026-08-14 移除回放导入区块
+export const VER = 'ui/68ui-controls.js V6.0.0';
 
 import { getState, setState } from './63main-state.js';
 import { updateUI, renderGrid, setRenderStore } from './62ui-render-5v5-test.js';
@@ -300,7 +300,7 @@ export function bindDebugButton(setState, updateSpeedButtons, updateDebugUI, upd
         setState.debugMode(!getState.debugMode());
         const dm = getState.debugMode();
         this.classList.toggle('active', dm);
-        this.textContent = 'V5.0';
+        this.textContent = 'V6.0';
         window.GlobalStore?.set('debugMode', dm);
         updateSpeedButtons();
         updateDebugUI();

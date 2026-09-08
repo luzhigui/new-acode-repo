@@ -1,6 +1,6 @@
-// V5.6.0 | ~5700 bytes | 2026-08-24 姐姐强化参数直读 JSON（小昭.hexEnhance），去 ELITE_SKILLS 兜底
-// V5.8.0 | 2026-09-07 属性词条化：圣火令/严阵以待/carry 改为 addMod 注册词条，不再走 stats 对象
-export const VER = 'core/14buff-effects.js V5.8.0';
+﻿// V6.0.0 | ~5700 bytes | 2026-08-24 姐姐强化参数直读 JSON（小昭.hexEnhance），去 ELITE_SKILLS 兜底
+// V6.0.0 | 2026-09-07 属性词条化：圣火令/严阵以待/carry 改为 addMod 注册词条，不再走 stats 对象
+export const VER = 'core/14buff-effects.js V6.0.0';
 
 import { CONFIG, getSkillParams } from './01config-5v5-test.js';
 import { getUnitRow, getUnitCol } from './03battle-utils.js';

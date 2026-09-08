@@ -1,10 +1,10 @@
-// V5.7.7 | 2026-08-26 factType 枚举化（去字节数）
+﻿// V6.0.0 | 2026-08-26 factType 枚举化（去字节数）
 import { CONFIG, getSkillParams } from '../core/01config-5v5-test.js';
 import { calcDamage, getFangLevelPure, makeFXSnapshot } from '../infra/51-core-utils.js';
 import { getStat } from '../core/13battle-shared.js';
 import { FACT_TYPES, BUFF_TYPES, BUFF_SUBTYPES, DROP_TYPES, CAMP_TYPES, ROLE_TYPES } from '../infra/56-battle-enums.js';
 import { validateFactContract, buildRendererMap } from '../infra/58-fact-contract.js';
-export const VER = 'render/30-fact-renderer.js V5.7.8';
+export const VER = 'render/30-fact-renderer.js V6.0.0';
 
 // fact 投影为渲染条目，合并附加字段
 function projectFactEntry(e) {
