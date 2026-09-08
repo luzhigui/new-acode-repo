@@ -15,7 +15,7 @@ export function showModal(text, buttons, onChoice, canMinimize, showCloseBtn) {
         closeBtn.style.cssText = 'position:absolute;top:8px;right:12px;cursor:pointer;font-size:18px;color:#8b7355;font-weight:bold;z-index:10;';
         closeBtn.onclick = (e) => {
             e.stopPropagation();
-            document.body.removeChild(overlay);
+            if (overlay.parentNode) overlay.remove();
             document.getElementById('voteFloat').style.display = 'none';
         };
         box.appendChild(closeBtn);
@@ -32,7 +32,7 @@ export function showModal(text, buttons, onChoice, canMinimize, showCloseBtn) {
         btn.className = 'modal-btn ' + (b.cls || '');
         btn.textContent = b.text;
         btn.addEventListener('click', () => {
-            document.body.removeChild(overlay);
+            if (overlay.parentNode) overlay.remove();
             document.getElementById('voteFloat').style.display = 'none';
             if (onChoice) onChoice(b.value);
         });
@@ -54,7 +54,7 @@ export function showModal(text, buttons, onChoice, canMinimize, showCloseBtn) {
     }
 }
 
-export function showAlert(text, onOk) { let overlay = document.createElement('div'); overlay.className = 'modal-overlay'; let box = document.createElement('div'); box.className = 'modal-box'; box.innerHTML = `<div class="modal-text">${text}</div><div class="modal-buttons"><button class="modal-btn confirm">确定</button></div>`; overlay.appendChild(box); document.body.appendChild(overlay); box.querySelector('.confirm').addEventListener('click', () => { document.body.removeChild(overlay); if (onOk) onOk(); }); }
+export function showAlert(text, onOk) { let overlay = document.createElement('div'); overlay.className = 'modal-overlay'; let box = document.createElement('div'); box.className = 'modal-box'; box.innerHTML = `<div class="modal-text">${text}</div><div class="modal-buttons"><button class="modal-btn confirm">确定</button></div>`; overlay.appendChild(box); document.body.appendChild(overlay); box.querySelector('.confirm').addEventListener('click', () => { if (overlay.parentNode) overlay.remove(); if (onOk) onOk(); }); }
 
 /**
  * 封面页传入的特殊模式初始化

@@ -74,7 +74,7 @@ export function showFlyDirectionPopup(callback) {
     btnLeft.textContent = '🦋 向左飞\n（防+血）';
     btnLeft.style.cssText = 'flex:1;padding:12px;border-radius:8px;border:2px solid #ff69b4;background:#2a2a4e;color:#ff69b4;font-size:13px;cursor:pointer;white-space:pre-line;';
     btnLeft.onclick = () => {
-        document.body.removeChild(overlay);
+        if (overlay.parentNode) overlay.remove();
         callback('left');
     };
 
@@ -82,7 +82,7 @@ export function showFlyDirectionPopup(callback) {
     btnRight.textContent = '🦋 向右飞\n（攻+血）';
     btnRight.style.cssText = 'flex:1;padding:12px;border-radius:8px;border:2px solid #ffd700;background:#2a2a4e;color:#ffd700;font-size:13px;cursor:pointer;white-space:pre-line;';
     btnRight.onclick = () => {
-        document.body.removeChild(overlay);
+        if (overlay.parentNode) overlay.remove();
         callback('right');
     };
 
