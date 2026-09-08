@@ -104,7 +104,7 @@ const VER_GLOBAL_MAP = {
     '61main-5v5-test.js':             'VER_MAIN'
 };
 
-const HTML_TEMPLATE = 'mode-5v5-test.html';
+const HTML_TEMPLATE = 'index.html';
 
 function parseImports(code) {
     const imports = [];
@@ -268,7 +268,7 @@ function build() {
         return ''; // 移除后续的 module script 标签
     });
 
-    const outPath = path.join(ROOT, 'mode-5v5-combined.html');
+    const outPath = path.join(ROOT, 'index-combined.html');
     fs.writeFileSync(outPath, html, 'utf-8');
 
     const sizeKB = (fs.statSync(outPath).size / 1024).toFixed(1);

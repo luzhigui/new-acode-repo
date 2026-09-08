@@ -81,17 +81,17 @@ export const ALL_PROJECT_FILES = [
     '../assets/icon-source.webp',
     // 根目录（入口与设计文档）
     // 注意：中文文件名（记录-更改履历.md、待办-bug待修.md）在手机上 fetch 会卡住，已从清单剔除
-    '../index.html', '../mode-5v5-test.html'
+    '../index.html', '../dev-index.html'
     // 备注：README.md 已不再复制（网页端粘贴不需要它）；其余 MD 文档已归档到 文件汇总20260730/，不参与自动复制
 ];
 
 // 主题分组（合并为 4 大类）
-// 引擎：infra/core/player/modules/render/content + 入口页面（index、mode-5v5）
+// 引擎：infra/core/player/modules/render/content + 入口页面（index、dev-index）
 // UI（画面特效等）：ui + fx
 // 工具：tools
 // 体检：tests
 export const FILE_GROUPS = [
-    { name: 'engine', displayName: '引擎', prefixes: ['../infra/', '../core/', '../player/', '../modules/', '../render/', '../content/', '../index.html', '../mode-5v5-test.html'] },
+    { name: 'engine', displayName: '引擎', prefixes: ['../infra/', '../core/', '../player/', '../modules/', '../render/', '../content/', '../index.html', '../dev-index.html'] },
     { name: 'ui', displayName: 'UI（画面特效等）', prefixes: ['../ui/', '../fx/'] },
     { name: 'tools', displayName: '工具', prefixes: ['../tools/'] },
     { name: 'tests', displayName: '体检', prefixes: ['../tests/'] }
