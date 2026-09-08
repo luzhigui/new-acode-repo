@@ -223,8 +223,7 @@ export function registerMindControl(eventBus) {
             if (!unit.alive || unit.camp !== CAMP_TYPES.ALLY) return;
             const buffs = allySide._activeBuffs || [];
             const hasSister = allySide.some(u => u.isXiaoZhaoSister && u.alive);
-            if (hasBuff(buffs, BUFF_TYPES.MIND_CONTROL) && !allySide._mindControlTriggered) {
-                allySide._mindControlTriggered = true;
+            if (hasBuff(buffs, BUFF_TYPES.MIND_CONTROL)) {
                 if (hasSister) applyMindControl_Sister(unit, allySide, enemySide, log);
                 else applyMindControl_Normal(unit, allySide, enemySide, log);
             }

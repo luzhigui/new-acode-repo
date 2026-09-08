@@ -26,7 +26,6 @@ export const ROUND_STATE_SCHEMA = Object.freeze({
     _spiderAttacked:         { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
     _nineYinFirstDone:       { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
     _spiderTriggeredThisRound: { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
-    _phantomTarget:          { type: STATE_FIELD_TYPES.STRING,  default: null },
     _spiderFlying:           { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
     _fortifyThisRound:       { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },
     _xiaoZhaoDoubleStriked:  { type: STATE_FIELD_TYPES.BOOLEAN, default: false },

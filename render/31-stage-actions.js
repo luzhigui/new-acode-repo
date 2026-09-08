@@ -231,6 +231,54 @@ const FACT_TRANSLATORS = {
         factIndex: index,
         timing: 'afterText'
     }),
+    [FACT_TYPES.QIAN_KUN_UPGRADED]: (data, index) => {
+        const actions = [];
+        if (data.attackerUid && data.rebound) {
+            actions.push({
+                kind: STAGE_ACTION_TYPES.REBOUND,
+                actorUid: data.attackerUid,
+                targetUid: data.attackerUid,
+                dmg: Math.round(data.rebound),
+                factIndex: index,
+                timing: 'afterText'
+            });
+        }
+        if (data.zhangUid && data.selfDmg) {
+            actions.push({
+                kind: STAGE_ACTION_TYPES.REBOUND,
+                actorUid: data.zhangUid,
+                targetUid: data.zhangUid,
+                dmg: Math.round(data.selfDmg),
+                factIndex: index,
+                timing: 'afterText'
+            });
+        }
+        return actions;
+    },
+    [FACT_TYPES.QIAN_KUN_BASIC]: (data, index) => {
+        const actions = [];
+        if (data.attackerUid && data.rebound) {
+            actions.push({
+                kind: STAGE_ACTION_TYPES.REBOUND,
+                actorUid: data.attackerUid,
+                targetUid: data.attackerUid,
+                dmg: Math.round(data.rebound),
+                factIndex: index,
+                timing: 'afterText'
+            });
+        }
+        if (data.zhangUid && data.selfDmg) {
+            actions.push({
+                kind: STAGE_ACTION_TYPES.REBOUND,
+                actorUid: data.zhangUid,
+                targetUid: data.zhangUid,
+                dmg: Math.round(data.selfDmg),
+                factIndex: index,
+                timing: 'afterText'
+            });
+        }
+        return actions;
+    },
     [FACT_TYPES.QIAN_KUN_DERIVED]: (data, index) => {
         const actions = [];
         if (data.atkTargetUid && data.atkGain) {
@@ -443,7 +491,7 @@ function makeAttackAction(data, index) {
                 factIndex: index,
                 timing: 'afterText'
             });
-        // 九阴白骨爪特效已迁移至 handleAttackGroup 逐条日志同步触发，此处不再批量生成 else if (e.buffType === 'qiankun_atk' && e.atkTargetUid && e.atkGain) {
+        } else if (e.buffType === 'qiankun_atk' && e.atkTargetUid && e.atkGain) {
             afterTextEffects.push({
                 kind: STAGE_ACTION_TYPES.BUFF_EFFECT,
                 effectType: BUFF_EFFECT_TYPES.ATK_BUFF,
@@ -457,6 +505,28 @@ function makeAttackAction(data, index) {
             if (healAction && healAction.amount) {
                 healAction.timing = 'afterText';
                 afterTextEffects.push(healAction);
+            }
+        } else if (e.factType === FACT_TYPES.QIAN_KUN_DERIVED) {
+            const derivedData = e.data || {};
+            if (derivedData.healTargetUid && derivedData.heal) {
+                afterTextEffects.push({
+                    kind: STAGE_ACTION_TYPES.HEAL,
+                    actorUid: derivedData.healTargetUid,
+                    targetUid: derivedData.healTargetUid,
+                    amount: Math.round(derivedData.heal),
+                    factIndex: index,
+                    timing: 'afterText'
+                });
+            }
+            if (derivedData.atkTargetUid && derivedData.atkGain) {
+                afterTextEffects.push({
+                    kind: STAGE_ACTION_TYPES.BUFF_EFFECT,
+                    effectType: BUFF_EFFECT_TYPES.ATK_BUFF,
+                    targetUid: derivedData.atkTargetUid,
+                    gain: derivedData.atkGain,
+                    factIndex: index,
+                    timing: 'afterText'
+                });
             }
         }
     }
