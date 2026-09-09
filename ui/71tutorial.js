@@ -128,13 +128,28 @@ export function stepBattleStart() {
     hideGuide();
 }
 
-// ❓ 按钮：重置并从头重播
+// ❓ 按钮：战斗中显示规则总览（不指向站位按钮），战斗外重置并从头重播
 export function initTutorial() {
     const btn = document.getElementById('btnTutorial');
     if (!btn) return;
     btn.addEventListener('click', (e) => {
         e.preventDefault();
         e.stopPropagation();
+        const mainBtn = document.getElementById('btnMain');
+        // 战斗中「调整站位」按钮禁用，重播站位引导会指到点不了的地方，改为纯文字规则总览
+        if (mainBtn && mainBtn.disabled) {
+            setGuide({
+                title: '⚔️ 规则一览',
+                lines: [
+                    '调整站位：战斗开始前，选两个明教绿色格子（或绿格+空格）交换位置。',
+                    '投票：开战前猜哪队赢，猜对有积分，张无忌在场积分双倍。',
+                    '海克斯：战前选择增强明教队的增益，三选一，最多叠加两个。',
+                    '战斗：回合制，可调速(0.5x~8x)、暂停、快进到底。'
+                ],
+                targets: []
+            });
+            return;
+        }
         resetTutorialDone();
         stepAdjustStart();
     });
