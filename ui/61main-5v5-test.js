@@ -28,7 +28,7 @@ import {
 import { initBGM, playBGM, setBGMVolume, fadeBGMTo, toggleBGM, updateBGMBtn, lowerBGM } from './66audio-control.js';
 import { toggleDodgeEffect } from './67fx-trigger.js';
 import { updateSpeedButtons, activateScrollSlowdown, restoreSpeedFromScroll, updateButtons, updateAutoModeButton, enableAllButtons, updateDebugUI, updateBuffSlots, bindCoverStart, bindPauseButton, bindNextButton, bindDetailButton, bindDebugButton, bindBGButton, bindCrashModeButton, bindDodgeButton, bindAutoButton, bindSettleButton, bindStageSelectButton, bindVoteFloat, bindGridClick, bindCopyLogButton } from './68ui-controls.js';
-import { isTutorialDone, showPositionGuide, showVoteGuide, showBuffGuide, initTutorial, showStartGuide, showVoteButtonGuide } from './71tutorial.js';
+import { stepAdjustStart, stepAdjustMove, stepBattleStart, initTutorial } from './71tutorial.js';
 
 import { VER as VER_BUFF } from '../core/04buff-system.js';
 import { VER as VER_HORSE } from '../core/05battle-horse.js';
@@ -170,7 +170,7 @@ document.addEventListener('DOMContentLoaded', async function() {
 
     // 按钮事件绑定 → 68ui-controls.js
     bindCoverStart({ val: gameStarted }, updateSpeedButtons, () => {
-        if (!isTutorialDone()) showStartGuide();
+        stepAdjustStart();
     });
     bindPauseButton(getState, setState, updateButtons);
     bindNextButton(setState, updateButtons, enableAllButtons, updateSpeedButtons);
@@ -231,10 +231,7 @@ document.addEventListener('DOMContentLoaded', async function() {
                 // 选 Buff 前注入战斗 RNG：showBuffSelection 的洗牌需要确定性 RNG（与 doInitBattle 同源）
                 const _snap = getState.snapshot();
                 setBattleRng(new SeededRNG(_snap?._rngSeed || Date.now()));
-                await new Promise(resolve => {
-                    const open = () => showBuffSelection(resolve, getState.activeBuffs(), -1, () => updateBuffSlots(getState.activeBuffs()), () => {}, autoScrollLog, getState.UI().allyTeam);
-                    if (!isTutorialDone()) showBuffGuide(open); else open();
-                });
+                await new Promise(resolve => { showBuffSelection(resolve, getState.activeBuffs(), -1, () => updateBuffSlots(getState.activeBuffs()), () => {}, autoScrollLog, getState.UI().allyTeam); });
             }
             await new Promise(r=>setTimeout(r,600));
             try {
@@ -256,6 +253,7 @@ document.addEventListener('DOMContentLoaded', async function() {
                 const currentUI = getState.UI();
                 currentUI.enemyTeam = enemyList;
                 updateUI();
+                stepBattleStart();
                 await playBattle();
             } catch (e) {
                 let logDiv=document.getElementById('log'); let errorDiv=document.createElement('div');
@@ -325,14 +323,13 @@ document.addEventListener('DOMContentLoaded', async function() {
                     return;
                 }
                 setState.adjustMode(true); setState.selectedAdjustPos(null); updateButtons(); updateUI(); if(window._refreshGlowCells)window._refreshGlowCells();
-                if(!isTutorialDone()) showPositionGuide(() => showVoteButtonGuide());
+                stepAdjustMove();
             } else {
                 setState.adjustMode(false); setState.selectedAdjustPos(null); isBattleStarting=true; updateButtons(); updateUI();
                 if (getState.autoLevel() === 'full-auto') {
                     startBattle('明教');
                 } else {
-                    if (!isTutorialDone()) showVoteGuide(() => showVoteDialog(startBattle, window._battleHasZhang));
-                    else showVoteDialog(startBattle, window._battleHasZhang);
+                    showVoteDialog(startBattle, window._battleHasZhang);
                 }
             }
         }
