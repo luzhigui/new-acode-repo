@@ -224,8 +224,9 @@
    #tutorialPanel .tut-title { color: #b8860b; font-size: 13px; }
    .tutorial-arrow { position: fixed; z-index: 100010; color: #28a745; font-size: 40px; pointer-events: none; text-shadow: 0 0 12px rgba(40,167,69,0.9); animation: tutorialArrowBob 0.7s ease-in-out infinite; }
    @keyframes tutorialArrowBob { 0%,100%{ transform: translateY(0); opacity: 1; } 50%{ transform: translateY(12px); opacity: 0.45; } }
-   #allyGrid { border: 3px solid #1e6bb8; box-shadow: 0 0 8px rgba(30,110,184,0.5); }
-   #enemyGrid { border: 3px solid #d2691e; box-shadow: 0 0 8px rgba(210,105,30,0.5); }
+   /* 队伍边框：仅新手引导时显示（body.tut-active），平时战场保持原样 */
+  body.tut-active #allyGrid { border: 3px solid #1e6bb8; box-shadow: 0 0 8px rgba(30,110,184,0.5); }
+  body.tut-active #enemyGrid { border: 3px solid #d2691e; box-shadow: 0 0 8px rgba(210,105,30,0.5); }
    </style>
 </head>
 <body>
