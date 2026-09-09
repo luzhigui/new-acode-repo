@@ -4,7 +4,17 @@ import { calcDamage, getFangLevelPure, makeFXSnapshot } from '../infra/51-core-u
 import { getStat } from '../core/13battle-shared.js';
 import { FACT_TYPES, BUFF_TYPES, BUFF_SUBTYPES, DROP_TYPES, CAMP_TYPES, ROLE_TYPES } from '../infra/56-battle-enums.js';
 import { validateFactContract, buildRendererMap } from '../infra/58-fact-contract.js';
+import { GlobalStore } from '../infra/54-global-store.js';
 export const VER = 'render/30-fact-renderer.js V6.0.0';
+
+// 从 battleStore 按 uid 查找单位（渲染端不持有活体引用，按需查询）
+function findUnitSnapshotByUid(uid) {
+    if (!uid) return null;
+    const store = GlobalStore.get('battleStore');
+    if (!store) return null;
+    const units = store.getState().units || [];
+    return units.find(u => u.uid === uid) || null;
+}
 
 // fact 投影为渲染条目，合并附加字段
 function projectFactEntry(e) {
@@ -293,13 +303,14 @@ export function renderHorseDestroyFact(fact) {
 
 export function renderZhangSwitchFact(fact) {
     return [
-        { type:'info', text:`<span class="gold">⚔️ 张无忌切换近战形态！攻+${fact.atkGain}、防+${fact.defGain}、生命上限+${fact.maxHpGain}</span>`, isZhangSwitch:true, unit: fact.zhang },
+        { type:'info', text:`<span class="gold">⚔️ 张无忌切换近战形态！攻+${fact.atkGain}、防+${fact.defGain}、生命上限+${fact.maxHpGain}</span>`, isZhangSwitch:true, unitUid: fact.zhang.uid },
         { type:'info', text:`<span class="gold">🗣️ 张无忌：不好，要顶上去了！</span>`, isZhangTaunt:true }
     ];
 }
 
 // Buff 摘要
-export function renderBuffSummaryFact(buff, allyTeam, doubleStrikeUid) {
+export function renderBuffSummaryFact(buff, allyTeamUids, doubleStrikeUid) {
+    const allyTeam = (allyTeamUids || []).map(uid => findUnitSnapshotByUid(uid)).filter(u => u);
     switch (buff.key) {
         case BUFF_TYPES.BLOODTHIRST:
             let btUnits = allyTeam.filter(u => u.alive && u.role === ROLE_TYPES.WARRIOR);
@@ -704,7 +715,7 @@ const FACT_RENDERERS = buildRendererMap({
     renderBreakDefFact,
     renderHorseDestroyFact,
     renderZhangSwitchFact,
-    renderBuffSummaryFact: (data) => renderBuffSummaryFact(data.buff, data.allyTeam, data.doubleStrikeUid),
+    renderBuffSummaryFact: (data) => renderBuffSummaryFact(data.buff, data.allyTeamUids, data.doubleStrikeUid),
     renderCarryApplyFact,
     renderHorseSummonFact,
     renderPassFact,

@@ -381,7 +381,7 @@ export function* createRoundStepper(state, { ui = true, translateFacts = null } 
                 hpAfter = Math.floor(unit.hp);
                 actualHeal = hpAfter - hpBefore;
             }
-            const passFact = { unit, reason, hpBefore, hpAfter, actualHeal, events: [] };
+            const passFact = { unit: { uid: unit.uid, name: unit.name, camp: unit.camp, pos: unit.pos, hp: unit.hp }, reason, hpBefore, hpAfter, actualHeal, events: [] };
             passFact.events = flushBattleEvents();
             log.push({ factType: FACT_TYPES.PASS, data: passFact });
             continue;

@@ -24,7 +24,7 @@ export async function handleInfo(c, entry) {
     // 飞行/附身动画已由 stageAction 触发
     // 连击横幅/新婚爱心/白骨爪/死亡画笔/乾坤加攻飘字/张无忌台词弹幕等特效已全部移交导演 stageAction（见 31/42），此处只播文本
 
-    if(entry.isZhangSwitch&&entry.unit){
+    if(entry.isZhangSwitch&&entry.unitUid){
         renderSeparator();
         await playLogLine(entry.text);
     }

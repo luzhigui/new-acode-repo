@@ -3,14 +3,10 @@ export const VER = 'fx/84fx-push-back.js V6.0.0';
 
 import { GlobalStore } from '../infra/54-global-store.js';
 import { STORE_ACTION_TYPES, UNIT_EVENT_TYPES, CAMP_TYPES } from '../infra/56-battle-enums.js';
+import { getUnitCell } from './90fx-ref-manager.js';
 
 function getCellElement(unit) {
-    if (!unit || unit.pos == null) return null;
-    const grid = document.getElementById(unit.camp === CAMP_TYPES.ALLY ? 'allyGrid' : 'enemyGrid');
-    if (!grid) return null;
-    const order = unit.camp === CAMP_TYPES.ENEMY ? [7,8,9,4,5,6,1,2,3] : [1,2,3,4,5,6,7,8,9];
-    const idx = order.indexOf(unit.pos);
-    return idx >= 0 ? grid.children[idx] : null;
+    return getUnitCell(unit);
 }
 function wait(ms) { return new Promise(r => setTimeout(r, GlobalStore.get('fastForwardActive') ? 1 : ms)); }
 

@@ -3,18 +3,15 @@
 // V6.0.0 | 2026-09-07 属性词条化：syncStoreFromStep 保留 _mods，渲染由 getStat 现算
 export const VER = 'player/42player-core.js V6.0.0';
 
-import { CONFIG } from '../core/01config-5v5-test.js';
 import { eventBus } from '../infra/50-event-bus.js';
 import { FX_SIGNALS } from '../infra/55-fx-signals.js';
 import { AudioManager } from '../modules/22audio-manager.js';
 import { handleBuffSummon, handleBuffDestroy, handleHolyTokenDrop } from './41player-buff-ui.js';
-import { showBuffPopup } from '../ui/70buff-dialog.js';
 import { createRoundStepper } from '../core/11battle-round.js';
 import { SeededRNG } from '../infra/51-core-utils.js';
-import { getBattleRng } from '../core/13battle-shared.js';
 import { GlobalStore, getState, getPlayerContext } from '../infra/54-global-store.js';
 import { createStore, battleReducer } from '../modules/24battle-store.js';
-import { STORE_ACTION_TYPES, STAGE_ACTION_TYPES, BUFF_SUBTYPES, BUFF_EFFECT_TYPES, FLY_MODE_TYPES, UNIT_EVENT_TYPES, DROP_TYPES, FLASH_TYPES, CAMP_TYPES, ROLE_TYPES, BUFF_TYPES } from '../infra/56-battle-enums.js';
+import { STORE_ACTION_TYPES, STAGE_ACTION_TYPES, BUFF_SUBTYPES, BUFF_EFFECT_TYPES, FLY_MODE_TYPES, UNIT_EVENT_TYPES, DROP_TYPES, FLASH_TYPES, CAMP_TYPES, ROLE_TYPES } from '../infra/56-battle-enums.js';
 import { syncStateToUI } from '../core/17-state-keys.js';
 import { handleBuffText, handleInfo, handleRoundStart, handleRoundEnd, shouldStartNewGroup } from './45event-handlers.js';
 import { handleAttackGroup } from './46attack-group.js';
@@ -24,6 +21,8 @@ import { setGridRenderCtx } from '../render/32-grid-render.js';
 import { AnimationScheduler } from './43animation-scheduler.js';
 import { renderLog } from '../render/30-fact-renderer.js';
 import { STAGE_ACTION_DEFS, translateFactsToStageActions } from '../render/31-stage-actions.js';
+import { buildBattleReportData, computeVoteResult, grantClearRewards } from './48battle-report.js';
+import { handleBuffSelection, handleFlyDirection } from './49battle-flow.js';
 
 function getCtx() { return getPlayerContext(); }
 
@@ -374,63 +373,10 @@ export async function playBattle() {
         c.activeBuffs = nextActiveBuffs;
         if (c.updateBuffSlots) c.updateBuffSlots();
         if (battleState.round % 3 === 0 && battleState.round > 0) {
-            const mainCtx2 = getPlayerContext();
-            const isFullAuto = mainCtx2 && mainCtx2.autoLevel === 'full-auto';
-            appendLogHTML(`<span class="gold">✨ 请选择新的Buff（持续${CONFIG.BUFF_DURATION || 4}回合）</span><br>`);
-            let newBuff = null;
-            if (isFullAuto) {
-                const allKeys = Object.keys(CONFIG.BUFFS);
-                const existing = (nextActiveBuffs || []).map(b => b.key);
-                const allyTeam = c.store.getState().units.filter(u => u.camp === CAMP_TYPES.ALLY && u.alive);
-                let available = allKeys.filter(k => {
-                    if (existing.includes(k)) return false;
-                    const requiredRole = CONFIG.BUFF_ROLE_REQUIREMENTS?.[k];
-                    if (requiredRole && !allyTeam.some(u => u.alive && u.role === requiredRole)) return false;
-                    return true;
-                });
-                if (available.length > 0) {
-                    const rng = getBattleRng();
-                    const pick = available[rng.nextInt(0, available.length - 1)];
-                    const duration = CONFIG.BUFFS[pick].duration || CONFIG.BUFF_DURATION || 4;
-                    newBuff = { key: pick, target: CAMP_TYPES.ALLY, remaining: duration, name: CONFIG.BUFFS[pick].name };
-                    if (c.store) {
-                        const xiaoZhao = c.store.getState().units.find(u => u.isXiaoZhaoBrother && u.alive);
-                        if (xiaoZhao) {
-                            if (!xiaoZhao.state._permanentBuffs) Object.assign(xiaoZhao.state, { _permanentBuffs: [] });
-                            xiaoZhao.state._permanentBuffs.push({ ...newBuff, remaining: Infinity });
-                        }
-                    }
-                    if (pick === BUFF_TYPES.HOLY_FLAME) {
-                        newBuff.col = getBattleRng().nextInt(1, 3);
-                        newBuff.row = getBattleRng().nextInt(1, 3);
-                    }
-                }
-                appendLogHTML(`<span class="gold">🤖 自动选择Buff：${newBuff ? newBuff.name : '无'}</span><br>`);
-            } else {
-                c.isPaused = true;
-                newBuff = await showBuffPopup(c);
-            }
-            if (newBuff) {
-                nextActiveBuffs = [...(nextActiveBuffs || []), newBuff];
-                appendLogHTML(`<span class="gold">✨ 获得Buff：${newBuff.name}（持续${newBuff.remaining}回合）</span><br>`);
-                let mainCtx = getPlayerContext();
-                if (mainCtx) { mainCtx.activeBuffs = nextActiveBuffs; if (mainCtx.updateBuffSlots) mainCtx.updateBuffSlots(); }
-            }
-            c.isPaused = false;
+            nextActiveBuffs = await handleBuffSelection(c, nextActiveBuffs);
         }
 
-        const nextRound = battleState.round + 1;
-        if (!GlobalStore.get('fastForwardActive') && nextRound % 3 === 1 && lastStep) {
-            const hasSister = lastStep.ally && lastStep.ally.some(u => u.isXiaoZhaoSister && u.alive);
-            if (hasSister) {
-                c.isPaused = true;
-                const { showFlyDirectionPopup } = await import('../ui/65main-battle.js');
-                const direction = await new Promise(resolve => { showFlyDirectionPopup(resolve); });
-                if (!lastStep.ally._flyDirection) lastStep.ally._flyDirection = 'right';
-                lastStep.ally._flyDirection = direction;
-                c.isPaused = false;
-            }
-        }
+        await handleFlyDirection(c, lastStep, battleState.round);
 
         const uiXiaoZhao = c.store ? c.store.getState().units.find(u => u.isXiaoZhaoBrother) : null;
         if (uiXiaoZhao && uiXiaoZhao.state._permanentBuffs && lastStep && lastStep.ally) {
@@ -461,42 +407,10 @@ export async function playBattle() {
     c.enableAllButtons();
 
     let winner = finalWinner;
-    if (winner === '明教' && c.currentStage) {
-        const stage = c.currentStage;
-        const killRate = [0, 1.5, 2, 2.5, 4, 5.5, 6][stage] / 100;
-        const clearRate = stage === 5 ? killRate * 6 : killRate * 5;
-        if (getBattleRng().next() < clearRate) {
-            const currentToken = GlobalStore.get('holyToken') || 0;
-            GlobalStore.set('holyToken', currentToken + 1);
-            localStorage.setItem('ming_holy_token_5v5_test', String(currentToken + 1));
-            renderVictoryLine(`<span class="gold">🔥 通关奖励：获得1枚圣火令！当前总数：${currentToken + 1}</span><br>`);
-        }
-    }
-    if (winner === '明教' && c.currentStage) {
-        const chestClearRate = 1 / 100;
-        if (getBattleRng().next() < chestClearRate) {
-            let chests = parseInt(localStorage.getItem('ming_chest_count') || '0');
-            chests++;
-            localStorage.setItem('ming_chest_count', String(chests));
-            GlobalStore.set('chestCount', chests);
-            renderVictoryLine(`<span class="gold">🎁 通关宝箱：获得1个宝箱！当前总数：${chests}</span><br>`);
-        }
-    }
+    grantClearRewards(winner, c.currentStage);
     if (winner === '明教' || winner === '六大派') {
         renderSeparator();
-        const finalAllyState = finalStep ? finalStep.ally : [];
-        const finalEnemyState = finalStep ? finalStep.enemy : [];
-        const allyMap = new Map(finalAllyState.map(u => [u.uid, u]));
-        const enemyMap = new Map(finalEnemyState.map(u => [u.uid, u]));
-        const reportAllies = (c.snapshot.ally || []).map(u => {
-            const final = allyMap.get(u.uid);
-            return final ? { ...u, hp: final.hp, maxHp: final.maxHp, alive: final.alive, atk: final.atk, def: final.def, pos: final.pos, dmgDealt: final.dmgDealt, dmgTaken: final.dmgTaken, healDone: final.healDone, reboundDone: final.reboundDone, leechDone: final.leechDone, dodgeCount: final.dodgeCount, critCount: final.critCount, survivedRounds: final.survivedRounds, _isDead: final.state._isDead } : { ...u, alive: false, _isDead: true };
-        });
-        const reportEnemies = (c.snapshot.enemy || []).map(u => {
-            const final = enemyMap.get(u.uid);
-            return final ? { ...u, hp: final.hp, maxHp: final.maxHp, alive: final.alive, atk: final.atk, def: final.def, pos: final.pos, dmgDealt: final.dmgDealt, dmgTaken: final.dmgTaken, healDone: final.healDone, reboundDone: final.reboundDone, leechDone: final.leechDone, dodgeCount: final.dodgeCount, critCount: final.critCount, survivedRounds: final.survivedRounds, _isDead: final.state._isDead } : { ...u, alive: false, _isDead: true };
-        });
-        c.battleResultForInfo = { winner, ally: reportAllies, enemy: reportEnemies };
+        c.battleResultForInfo = buildBattleReportData(finalStep, c.snapshot, winner);
 
         const winState = finalStep ? (winner === '明教' ? finalStep.ally : finalStep.enemy) : null;
         let aliveUnits = winState ? winState.filter(u => u.alive) : [];
@@ -533,24 +447,14 @@ export async function playBattle() {
     if (mainCtx && mainCtx.updateBuffSlots) mainCtx.updateBuffSlots();
     GlobalStore.set('glowColors', -1);
 
-    if (GlobalStore.get('voteChoice') && GlobalStore.get('voteChoice') !== 'skip' && winner !== '平局') {
-        let correct = (GlobalStore.get('voteChoice') === winner), earnPoints = 0;
-        if (correct) earnPoints = GlobalStore.get('battleHasZhang') ? 3 : 2;
-        else earnPoints = -1;
-        GlobalStore.set('voteScore', GlobalStore.get('voteScore') + earnPoints);
-        localStorage.setItem('ming_vote_score_5v5_test', String(GlobalStore.get('voteScore')));
-        const newScore = GlobalStore.get('voteScore');
-        const oldScoreStr = localStorage.getItem('ming_vote_score_5v5_test');
-        const oldScore = oldScoreStr ? parseInt(oldScoreStr, 10) : 0;
-        if (oldScore === 0 || newScore >= oldScore) localStorage.setItem('ming_vote_score_5v5_test', newScore);
-        else if (oldScore - newScore <= 50) localStorage.setItem('ming_vote_score_5v5_test', newScore);
-        else console.error(`🚨 阻止可疑积分覆盖：${oldScore} → ${newScore}，下降幅度过大，已忽略写入`, '\n调用栈:', new Error().stack);
-        showScoreFloat(earnPoints);
-        let voteMsg = correct ? `<span class="green">📊 你猜了${GlobalStore.get('voteChoice')}，正确！+${earnPoints}分！ 当前积分：${GlobalStore.get('voteScore')}</span>` : `<span class="red">📊 你猜了${GlobalStore.get('voteChoice')}，错误！-1分！当前积分：${GlobalStore.get('voteScore')}</span>`;
-        if (c.gs === 'GAMEOVER') renderVictoryLine(voteMsg + '<br>');
-    } else if (winner === '平局') {
-        renderVictoryLine('<span class="gray">📊 平局，积分不变，当前积分：' + GlobalStore.get('voteScore') + '</span><br>');
+    const voteChoice = GlobalStore.get('voteChoice');
+    const result = computeVoteResult(winner, voteChoice, GlobalStore.get('battleHasZhang'), GlobalStore.get('voteScore'));
+    if (result.voteMsg) {
+        if (c.gs === 'GAMEOVER') renderVictoryLine(result.voteMsg + '<br>');
     }
+    GlobalStore.set('voteScore', result.newScore);
+    if (result.earnPoints !== 0) showScoreFloat(result.earnPoints);
+    localStorage.setItem('ming_vote_score_5v5_test', String(result.newScore));
     GlobalStore.set('voteChoice', null);
     c._battleEnded = true;
     c.abortController = null;

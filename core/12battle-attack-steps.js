@@ -1,6 +1,5 @@
-﻿// V6.0.0 | ~24200 bytes | 2026-08-26 calcFinalDamage 五声明类型抽 calcModifier 查表（16effect-handlers）
-// V6.0.0 | 2026-09-07 属性词条化：所有攻防读取改 getStat，不再直读 unit.atk/def
-export const VER = 'core/12battle-attack-steps.js V6.0.0';
+﻿// V6.1.0 | ~23200 bytes | 2026-09-09 fact 纯数据化：buildAttackGroup 的 attacker/target 改为快照对象，不再引用活体 Unit
+export const VER = 'core/12battle-attack-steps.js V6.1.0';
 
 import { CONFIG, getSkillParams, getGameData } from './01config-5v5-test.js';
 import { eventBus, EFFECT_TYPES } from '../infra/50-event-bus.js';
@@ -24,6 +23,40 @@ registerDodgeRule((unit, attacker) => {
 });
 
 const C = CONFIG;
+
+// fact 快照：把 Unit 转换为纯数据对象，供渲染/翻译读取，不保留引用
+function snapshotUnitForFact(unit) {
+    if (!unit) return null;
+    return {
+        uid: unit.uid,
+        name: unit.name,
+        camp: unit.camp,
+        pos: unit.pos,
+        role: unit.role,
+        atk: getStat(unit, 'atk'),
+        def: getStat(unit, 'def'),
+        hp: unit.hp,
+        maxHp: unit.maxHp,
+        alive: unit.alive,
+        isZhang: unit.isZhang || false,
+        isWei: unit.isWei || false,
+        isHorse: unit.isHorse || false,
+        rangedForm: unit.rangedForm !== false,
+        nearAtkCount: unit.nearAtkCount || 0,
+        state: {
+            _isDead: unit.state?._isDead || false,
+            _stunned: unit.state?._stunned || false,
+            _acted: unit.state?._acted || false,
+            _resting: unit.state?._resting || false,
+            _blocked: unit.state?._blocked || false,
+            _kuLianActive: unit.state?._kuLianActive || false,
+            _isLinkAttack: unit.state?._isLinkAttack || false,
+            _flyMode: unit.state?._flyMode || null,
+            _spiderFlying: unit.state?._spiderFlying || false,
+            _butterflyHost: unit.state?._butterflyHost || null
+        }
+    };
+}
 
 // 步骤1：选择攻击目标
 export function selectAttackTarget(unit, enemySide, allySide) {
@@ -95,8 +128,8 @@ export function resolveAttackHit(unit, target, attackerBuffStats, defenderBuffSt
             skipped: true,
             missFact: {
                 type: 'miss',
-                attacker: { uid: unit.uid, name: unit.name, camp: unit.camp },
-                target: { uid: target.uid, name: target.name, camp: target.camp },
+                attacker: snapshotUnitForFact(unit),
+                target: snapshotUnitForFact(target),
                 fxSnapshot: makeFXSnapshot(unit, target)
             }
         };
@@ -169,8 +202,8 @@ export function resolveAttackHit(unit, target, attackerBuffStats, defenderBuffSt
                 skipped: true,
                 dodgeFact: {
                     type: 'dodge',
-                    attacker: { uid: unit.uid, name: unit.name, camp: unit.camp },
-                    dodger: { uid: target.uid, name: target.name, camp: target.camp },
+                    attacker: snapshotUnitForFact(unit),
+                    dodger: snapshotUnitForFact(target),
                     reboundDmg,
                     attackerHpBefore: unitHpBeforeRebound,
                     attackerHpAfter: Math.floor(unit.hp),
@@ -463,11 +496,12 @@ export function buildAttackGroup(unit, target, dmgCalc, dmgResult, attackerBuffS
         targetAlive: target.alive
     };
 
+    // 关键：attacker 和 target 改为快照对象，不再引用活体 Unit
     const attackFact = {
         factType: FACT_TYPES.ATTACK,
         data: {
-            attacker: unit,
-            target,
+            attacker: snapshotUnitForFact(unit),
+            target: snapshotUnitForFact(target),
             dmgCalc,
             dmgResult,
             attackerBuffStats,

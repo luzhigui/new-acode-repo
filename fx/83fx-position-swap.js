@@ -1,29 +1,14 @@
 // V6.0.0 | 2026-07-05
 export const VER = 'fx/83fx-position-swap.js V6.0.0';
 
-/**
- * 获取单位对应的格子 DOM 元素（本地定义，不依赖外部）
- */
 import { GlobalStore } from '../infra/54-global-store.js';
 import { STORE_ACTION_TYPES, UNIT_EVENT_TYPES, CAMP_TYPES } from '../infra/56-battle-enums.js';
+import { getUnitCell, getCellByPos } from './90fx-ref-manager.js';
 
 function wait(ms) { return new Promise(r => setTimeout(r, GlobalStore.get('fastForwardActive') ? 1 : ms)); }
 
 function getCellElement(unit) {
-    if (!unit || unit.pos == null) return null;
-    const grid = document.getElementById(unit.camp === CAMP_TYPES.ALLY ? 'allyGrid' : 'enemyGrid');
-    if (!grid) return null;
-    const order = unit.camp === CAMP_TYPES.ENEMY ? [7,8,9,4,5,6,1,2,3] : [1,2,3,4,5,6,7,8,9];
-    const idx = order.indexOf(unit.pos);
-    return idx >= 0 ? grid.children[idx] : null;
-}
-
-function getCellByPos(camp, pos) {
-    const grid = document.getElementById(camp === CAMP_TYPES.ALLY ? 'allyGrid' : 'enemyGrid');
-    if (!grid) return null;
-    const order = camp === CAMP_TYPES.ENEMY ? [7,8,9,4,5,6,1,2,3] : [1,2,3,4,5,6,7,8,9];
-    const idx = order.indexOf(pos);
-    return idx >= 0 ? grid.children[idx] : null;
+    return getUnitCell(unit);
 }
 
 /**

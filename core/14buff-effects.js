@@ -88,7 +88,7 @@ function applyMindControlCore(unit, allySide, enemySide, log, swapChanceEnemy, s
             let b; do { b = enemies[rng.nextInt(0, enemies.length-1)]; } while (b.uid === a.uid);
             let posA = a.pos, posB = b.pos;
             swapUnitPositions(a, b);
-            log.push({ factType: FACT_TYPES.MIND_CONTROL_SWAP, data: { side: CAMP_TYPES.ENEMY, unitA: a, unitB: b, posA, posB } });
+            log.push({ factType: FACT_TYPES.MIND_CONTROL_SWAP, data: { side: CAMP_TYPES.ENEMY, unitA: { uid: a.uid, name: a.name }, unitB: { uid: b.uid, name: b.name }, posA, posB } });
         } else {
             log.push({ factType: FACT_TYPES.MIND_CONTROL_FAIL, data: { side: CAMP_TYPES.ENEMY, reason: '可用单位不足' } });
         }
@@ -103,7 +103,7 @@ function applyMindControlCore(unit, allySide, enemySide, log, swapChanceEnemy, s
             let b; do { b = allies[rng.nextInt(0, allies.length-1)]; } while (b.uid === a.uid);
             let posA = a.pos, posB = b.pos;
             swapUnitPositions(a, b);
-            log.push({ factType: FACT_TYPES.MIND_CONTROL_SWAP, data: { side: CAMP_TYPES.ALLY, unitA: a, unitB: b, posA, posB } });
+            log.push({ factType: FACT_TYPES.MIND_CONTROL_SWAP, data: { side: CAMP_TYPES.ALLY, unitA: { uid: a.uid, name: a.name }, unitB: { uid: b.uid, name: b.name }, posA, posB } });
         } else {
             log.push({ factType: FACT_TYPES.MIND_CONTROL_FAIL, data: { side: CAMP_TYPES.ALLY, reason: '可用单位不足' } });
         }
