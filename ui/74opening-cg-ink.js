@@ -1,11 +1,11 @@
-// ui/72opening-cg-ink.js - 开场CG·水墨长卷（开卷三幕，首次进游戏播放）
-// V6.0.0 | 2026-09-09 由 code20260909.html demo 升级为正式模块，替代 72opening-cg.js 黑屏文字版
+// ui/74opening-cg-ink.js - 开场CG·水墨长卷（独立版，未接入游戏，供对比选用）
+// V6.0.0 | 2026-09-09 由 code20260909.html demo 提炼为正式 ESM 模块，与 72/73 并存
 // 预估字节数：≈ 33 KB
 // 集成点：61main-5v5-test.js bindCoverStart 的 onStart 里，showStartGuide() 之前
 // 适配：字号/元素锚 vmin（视口短边），360 宽长屏手机 ~ 电脑横屏同一构图
 // 交互：全屏点击=快进文字/下一幕；右上角「跳过」随时结束；播完或跳过均记 localStorage
 // 特性：宣纸开卷 / SVG 湍流滤镜毛边山水 / 毛笔"写出"文字 / 六派军旗 / 五虎名签 / 朱砂钤印 / 火星粒子
-export const VER = 'ui/72opening-cg-ink.js V6.0.0';
+export const VER = 'ui/74opening-cg-ink.js V6.0.0';
 
 const DONE_KEY = 'ming_opening_cg_done_5v5_test';
 
