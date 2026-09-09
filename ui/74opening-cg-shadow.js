@@ -116,7 +116,7 @@ const STYLE_CSS = `
 .puppet{position:absolute;z-index:7;width:5vmin;height:13.5vmin;
   filter:drop-shadow(0 .5vmin .4vmin rgba(50,25,5,.28));
   animation:puppetJiggle .85s ease-in-out infinite;}
-@keyframes puppetJiggle{0%,100%{transform:translateY(0) rotate(-.7deg);}50%{transform:translateY(-.9vmin) rotate(.7deg);}}
+@keyframes puppetJiggle{0%,100%{transform:translateY(0) rotate(-.7deg);}22%{transform:translateY(-1.25vmin) rotate(.6deg);}32%{transform:translateY(-.4vmin) rotate(.4deg);}55%{transform:translateY(-1.35vmin) rotate(.7deg);}68%{transform:translateY(-.3vmin) rotate(-.3deg);}}
 .puppet *{position:absolute;background:#241709;}
 
 /* 发髻/头冠 */
@@ -125,20 +125,27 @@ const STYLE_CSS = `
   width:.7vmin;height:.7vmin;border-radius:50%;background:#1c1006;}
 
 /* 侧脸（朝右）：额头→鼻→唇→下巴 */
-.puppet .head{left:1.05vmin;top:.5vmin;width:3.1vmin;height:3.5vmin;
-  clip-path:polygon(44% 0,70% 4%,86% 20%,100% 32%,92% 46%,100% 58%,84% 70%,78% 86%,58% 100%,32% 98%,26% 74%,18% 56%,22% 36%,12% 22%,30% 10%);
+.puppet .head{left:.9vmin;top:.4vmin;width:3.4vmin;height:3.8vmin;
+  clip-path:polygon(40% 0,74% 2%,90% 8%,100% 26%,94% 38%,100% 52%,92% 66%,84% 74%,82% 88%,58% 100%,34% 98%,24% 84%,16% 66%,20% 44%,10% 26%,24% 12%);
   background:#241709;}
 
 /* 镂空眼：亮幕色挖洞 */
-.puppet .eye{left:1.95vmin;top:1.5vmin;width:.85vmin;height:.55vmin;border-radius:50%;
-  background:#e6c07a;box-shadow:0 0 .5vmin #e6c07a;}
+.puppet .eye{left:1.85vmin;top:1.45vmin;width:1.1vmin;height:.75vmin;border-radius:50%;
+  background:#fff6d8;box-shadow:0 0 .7vmin #ffe9a8,0 0 1.4vmin rgba(255,240,170,.85);}
 
 /* 躯干：袍子 + 甲片镂空 */
 .puppet .torso{left:.35vmin;top:3.9vmin;width:4.3vmin;height:5.6vmin;
-  clip-path:polygon(0 0,100% 0,92% 100%,50% 88%,8% 100%);background:#241709;}
+  clip-path:polygon(0 0,100% 0,92% 100%,50% 88%,8% 100%);
+  background:
+    radial-gradient(circle at 28% 32%,#ffedb0 0 9%,transparent 10%),
+    radial-gradient(circle at 72% 32%,#ffedb0 0 9%,transparent 10%),
+    radial-gradient(circle at 28% 50%,#ffedb0 0 7%,transparent 8%),
+    radial-gradient(circle at 72% 50%,#ffedb0 0 7%,transparent 8%),
+    radial-gradient(circle at 50% 68%,#ffedb0 0 6%,transparent 7%),
+    #241709;}
 .puppet .belt{left:.35vmin;top:6.4vmin;width:4.3vmin;height:1vmin;background:#1c1006;}
-.puppet .slot{left:50%;transform:translateX(-50%);width:.9vmin;height:1.1vmin;border-radius:1px;
-  background:#d9b06a;opacity:.9;}
+.puppet .slot{left:50%;transform:translateX(-50%);width:1.15vmin;height:1.25vmin;border-radius:1px;
+  background:#ffe9a8;opacity:1;box-shadow:0 0 .5vmin rgba(255,238,170,.8);}
 .puppet .slot.s1{top:5vmin;}
 .puppet .slot.s2{top:7vmin;}
 .puppet .slot.s3{top:8.4vmin;width:1.4vmin;height:.5vmin;}
@@ -147,14 +154,14 @@ const STYLE_CSS = `
 .puppet .arm{top:4.5vmin;width:3.2vmin;height:.85vmin;border-radius:2px;background:#1c1006;}
 .puppet .arm.l{left:-2.7vmin;transform-origin:right center;animation:armL 1s ease-in-out infinite;}
 .puppet .arm.r{right:-2.7vmin;transform-origin:left center;animation:armR 1s ease-in-out infinite;}
-@keyframes armL{0%,100%{transform:rotate(14deg);}50%{transform:rotate(46deg);}}
-@keyframes armR{0%,100%{transform:rotate(-14deg);}50%{transform:rotate(-46deg);}}
+@keyframes armL{0%,100%{transform:rotate(14deg);}35%{transform:rotate(54deg);}45%{transform:rotate(40deg);}80%{transform:rotate(50deg);}}
+@keyframes armR{0%,100%{transform:rotate(-14deg);}35%{transform:rotate(-54deg);}45%{transform:rotate(-40deg);}80%{transform:rotate(-50deg);}}
 .puppet .leg{top:9.2vmin;width:1.4vmin;height:4vmin;border-radius:2px;background:#1c1006;
   transform-origin:top center;}
-.puppet .leg.l{left:1vmin;animation:legL .48s ease-in-out infinite alternate;}
-.puppet .leg.r{right:1vmin;animation:legR .48s ease-in-out infinite alternate;}
-@keyframes legL{from{transform:rotate(20deg);}to{transform:rotate(-14deg);}}
-@keyframes legR{from{transform:rotate(-20deg);}to{transform:rotate(14deg);}}
+.puppet .leg.l{left:1vmin;animation:legL .6s ease-in-out infinite;}
+.puppet .leg.r{right:1vmin;animation:legR .6s ease-in-out infinite;}
+@keyframes legL{0%{transform:rotate(22deg);}42%{transform:rotate(-15deg);}55%{transform:rotate(-7deg);}100%{transform:rotate(21deg);}}
+@keyframes legR{0%{transform:rotate(-22deg);}42%{transform:rotate(15deg);}55%{transform:rotate(7deg);}100%{transform:rotate(-21deg);}}
 
 /* 操纵杆：细签从人物背后挑着（皮影标志） */
 .puppet .rod{left:50%;bottom:6.5vmin;width:.5vmin;height:11vmin;background:#241709;opacity:.85;
@@ -266,15 +273,16 @@ const STYLE_CSS = `
 .sacred-fire{position:absolute;left:50%;bottom:36%;transform:translateX(-50%);z-index:5;
   width:13vmin;height:19vmin;pointer-events:none;}
 .sacred-fire .halo{position:absolute;left:50%;top:58%;transform:translate(-50%,-50%);
-  width:30vmin;height:21vmin;border-radius:50%;
-  background:radial-gradient(ellipse,rgba(255,150,50,.6),transparent 68%);filter:blur(9px);
+  width:36vmin;height:25vmin;border-radius:50%;
+  background:radial-gradient(ellipse,rgba(255,120,30,.9),rgba(255,80,16,.45) 52%,transparent 72%);filter:blur(7px);
   animation:fireHalo 1.6s ease-in-out infinite;}
 @keyframes fireHalo{0%,100%{opacity:.75;}50%{opacity:1;}}
 .sacred-fire .core{position:absolute;left:50%;bottom:0;transform:translateX(-50%);
-  width:8.6vmin;height:14vmin;
-  background:radial-gradient(circle at 50% 76%,#ffe9b0,#ff9c3f 52%,rgba(255,120,30,0) 78%);
+  width:9.5vmin;height:16vmin;
+  background:radial-gradient(circle at 50% 76%,#fff7d8,#ff8a24 40%,#e5400e 66%,rgba(230,64,14,0) 82%);
   clip-path:polygon(50% 0,62% 22%,78% 14%,72% 38%,100% 34%,78% 58%,96% 72%,66% 72%,72% 100%,34% 88%,42% 64%,8% 74%,26% 50%,0 42%,28% 34%,14% 14%,42% 22%);
-  filter:blur(1px);animation:fireDance 1.1s ease-in-out infinite;}
+  filter:blur(1px) drop-shadow(0 0 2.4vmin rgba(255,110,20,.95));
+  animation:fireDance 1.1s ease-in-out infinite;}
 @keyframes fireDance{0%,100%{transform:translateX(-50%) scaleY(1) rotate(-2deg);}
   50%{transform:translateX(-50%) scaleY(1.12) rotate(2deg);}}
 .sacred-fire.dying{opacity:.62;transform:translateX(-50%) scale(.55);
@@ -363,7 +371,10 @@ export function showOpeningCg(onDone) {
             <div class="scene" id="shadowScene0"></div>
             <div class="scene" id="shadowScene1"></div>
             <div class="scene" id="shadowScene2"></div>
-            <div class="sacred-fire" id="shadowFire"></div>
+            <div class="sacred-fire" id="shadowFire">
+                <div class="halo"></div>
+                <div class="core"></div>
+            </div>
             <p id="shadowWords"></p>
             <p id="shadowBig"></p>
             <div id="shadowSeal">明</div>
@@ -508,25 +519,25 @@ export function showOpeningCg(onDone) {
 
     /* --- 第三幕：冲锋 + 箭矢 --- */
     function buildScene2(sec) {
-        [0, 1, 2].forEach(function (i) {
+        [0, 1, 2, 3, 4].forEach(function (i) {
             const cL = el('div', 'chargeL');
             const cR = el('div', 'chargeR');
-            cL.style.setProperty('--dl', (i * 0.7).toFixed(1) + 's');
-            cR.style.setProperty('--dl', (i * 0.7 + 0.3).toFixed(1) + 's');
+            cL.style.setProperty('--dl', (i * 0.5 + Math.random() * 0.3).toFixed(2) + 's');
+            cR.style.setProperty('--dl', (i * 0.5 + 0.25 + Math.random() * 0.3).toFixed(2) + 's');
             cL.appendChild(buildPuppet());
             cR.appendChild(buildPuppet());
             sec.appendChild(cL);
             sec.appendChild(cR);
         });
-        for (let i = 0; i < 5; i++) {
+        for (let i = 0; i < 12; i++) {
             const a = el('div', 'arrow');
-            a.style.left = (6 + Math.random() * 20) + '%';
-            a.style.top = (14 + Math.random() * 34) + '%';
-            a.style.setProperty('--ang', (-8 - Math.random() * 12).toFixed(1) + 'deg');
-            a.style.setProperty('--dx', '46vw');
-            a.style.setProperty('--dy', (2 + Math.random() * 6).toFixed(1) + 'vmin');
-            a.style.setProperty('--w', (0.9 + Math.random() * 0.6).toFixed(2) + 's');
-            a.style.setProperty('--dl', (Math.random() * 1.2).toFixed(2) + 's');
+            a.style.left = (4 + Math.random() * 30) + '%';
+            a.style.top = (10 + Math.random() * 42) + '%';
+            a.style.setProperty('--ang', (-6 - Math.random() * 14).toFixed(1) + 'deg');
+            a.style.setProperty('--dx', '50vw');
+            a.style.setProperty('--dy', (2 + Math.random() * 8).toFixed(1) + 'vmin');
+            a.style.setProperty('--w', (0.8 + Math.random() * 0.5).toFixed(2) + 's');
+            a.style.setProperty('--dl', (Math.random() * 1.1).toFixed(2) + 's');
             sec.appendChild(a);
         }
     }
@@ -573,7 +584,7 @@ export function showOpeningCg(onDone) {
             });
         });
 
-        big.textContent = BIG_WORDS[idx];
+        big.textContent = BIG_WORDS[a.mood];
         if (big.textContent) {
             big.style.setProperty('--d', (1.2 + a.lines.length * 0.1).toFixed(2) + 's');
             big.style.animation = 'none';
