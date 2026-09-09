@@ -28,7 +28,7 @@ import {
 import { initBGM, playBGM, setBGMVolume, fadeBGMTo, toggleBGM, updateBGMBtn, lowerBGM } from './66audio-control.js';
 import { toggleDodgeEffect } from './67fx-trigger.js';
 import { updateSpeedButtons, activateScrollSlowdown, restoreSpeedFromScroll, updateButtons, updateAutoModeButton, enableAllButtons, updateDebugUI, updateBuffSlots, bindCoverStart, bindPauseButton, bindNextButton, bindDetailButton, bindDebugButton, bindBGButton, bindCrashModeButton, bindDodgeButton, bindAutoButton, bindSettleButton, bindStageSelectButton, bindVoteFloat, bindGridClick, bindCopyLogButton } from './68ui-controls.js';
-import { isTutorialDone, showPositionGuide, showVoteGuide, showBuffGuide, initTutorial, showStartGuide } from './71tutorial.js';
+import { isTutorialDone, showPositionGuide, showVoteGuide, showBuffGuide, initTutorial, showStartGuide, showVoteButtonGuide } from './71tutorial.js';
 
 import { VER as VER_BUFF } from '../core/04buff-system.js';
 import { VER as VER_HORSE } from '../core/05battle-horse.js';
@@ -325,7 +325,7 @@ document.addEventListener('DOMContentLoaded', async function() {
                     return;
                 }
                 setState.adjustMode(true); setState.selectedAdjustPos(null); updateButtons(); updateUI(); if(window._refreshGlowCells)window._refreshGlowCells();
-                if(!isTutorialDone()) showPositionGuide();
+                if(!isTutorialDone()) showPositionGuide(() => showVoteButtonGuide());
             } else {
                 setState.adjustMode(false); setState.selectedAdjustPos(null); isBattleStarting=true; updateButtons(); updateUI();
                 if (getState.autoLevel() === 'full-auto') {
