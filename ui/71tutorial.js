@@ -54,6 +54,7 @@ function ensurePanel() {
 function setGuide({ title, lines, targets }) {
     const p = ensurePanel();
     clearArrows();
+    document.body.classList.add('tut-active'); // 引导期间显示队伍边框（明教蓝/六大派橙）
     if (p) {
         p.innerHTML = (title ? `<b class="tut-title">${title}</b><br>` : '') +
             (lines || []).map(l => `<span>${l}</span>`).join('<br>');
@@ -113,7 +114,7 @@ export function stepBuff() {
     });
 }
 
-// (6) 战斗开始：收尾提示并标记完成
+// (6) 战斗开始：收尾提示并标记完成（移除队伍边框，战场恢复原样）
 export function stepBattleStart() {
     if (isTutorialDone()) return;
     setGuide({
@@ -121,6 +122,7 @@ export function stepBattleStart() {
         lines: ['明教能否守住光明顶？六大派能否踏破？下面见分晓！'],
         targets: []
     });
+    document.body.classList.remove('tut-active'); // 引导结束，去掉队伍边框
     markTutorialDone();
 }
 
