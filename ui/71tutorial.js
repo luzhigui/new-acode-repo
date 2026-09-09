@@ -12,6 +12,10 @@ export function markTutorialDone() {
     try { localStorage.setItem(DONE_KEY, '1'); } catch {}
 }
 
+export function resetTutorialDone() {
+    try { localStorage.removeItem(DONE_KEY); } catch {}
+}
+
 let _cleanup = null;
 
 function clearGuide() {
@@ -170,13 +174,14 @@ export function showTutorialOverview() {
     _cleanup = close;
 }
 
-// 初始化："?"入口按钮绑定
+// 初始化："?"入口按钮绑定：重新演示引导（重置完成标记 + 重播）
 export function initTutorial() {
     const btn = document.getElementById('btnTutorial');
     if (!btn) return;
     btn.addEventListener('click', (e) => {
         e.preventDefault();
         e.stopPropagation();
-        showTutorialOverview();
+        resetTutorialDone();
+        showStartGuide();
     });
 }
