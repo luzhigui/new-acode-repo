@@ -1,4 +1,4 @@
-﻿// V6.0.0 | ~25700 bytes | 2026-08-14 移除回放导入区块
+// V6.0.0 | ~25700 bytes | 2026-08-14 移除回放导入区块
 export const VER = 'ui/68ui-controls.js V6.0.0';
 
 import { getState, setState } from './63main-state.js';
@@ -211,7 +211,7 @@ function updateDebugUI() { let panel=document.getElementById('debugPanel'); cons
 
 // 按钮事件绑定
 
-export function bindCoverStart(gameStarted, updateSpeedButtons) {
+export function bindCoverStart(gameStarted, updateSpeedButtons, onStart) {
     document.getElementById('coverStartBtn').addEventListener('click', function () {
         document.getElementById('coverOverlay').style.display = 'none';
         gameStarted.val = true;
@@ -220,6 +220,7 @@ export function bindCoverStart(gameStarted, updateSpeedButtons) {
         if (typeof window.AudioManager?.play === 'function') window.AudioManager.play();
         if (typeof window.AudioManager?.setVolume === 'function') window.AudioManager.setVolume(0.5);
         updateSpeedButtons();
+        if (typeof onStart === 'function') onStart();
     });
 }
 
