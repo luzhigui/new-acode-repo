@@ -85,6 +85,35 @@ export function showPositionGuide(onDone) {
     };
 }
 
+// 开战引导：封面关闭后，箭头指向"调整站位"按钮
+export function showStartGuide() {
+    clearGuide();
+    const target = document.getElementById('btnMain');
+    if (!target) return;
+    const { arrow, place } = makeArrow(target);
+    const { bubble, btn } = makeBubble({
+        title: '⚔️ 开始前先布阵',
+        lines: ['先点下面的「调整站位」按钮，', '交换我方格子安排阵型，再开战。'],
+        confirmText: '知道了'
+    });
+    const r = target.getBoundingClientRect();
+    bubble.style.left = (r.left + r.width / 2) + 'px';
+    bubble.style.top = (r.top - 180) + 'px';
+    bubble.style.transform = 'translateX(-50%)';
+
+    const close = () => {
+        arrow.remove();
+        bubble.remove();
+        window.removeEventListener('resize', place);
+    };
+    btn.addEventListener('click', close);
+    _cleanup = () => {
+        arrow.remove();
+        bubble.remove();
+        window.removeEventListener('resize', place);
+    };
+}
+
 // 投票引导：前置说明，点"去投票"后弹真实投票窗
 export function showVoteGuide(onConfirm) {
     clearGuide();

@@ -28,7 +28,7 @@ import {
 import { initBGM, playBGM, setBGMVolume, fadeBGMTo, toggleBGM, updateBGMBtn, lowerBGM } from './66audio-control.js';
 import { toggleDodgeEffect } from './67fx-trigger.js';
 import { updateSpeedButtons, activateScrollSlowdown, restoreSpeedFromScroll, updateButtons, updateAutoModeButton, enableAllButtons, updateDebugUI, updateBuffSlots, bindCoverStart, bindPauseButton, bindNextButton, bindDetailButton, bindDebugButton, bindBGButton, bindCrashModeButton, bindDodgeButton, bindAutoButton, bindSettleButton, bindStageSelectButton, bindVoteFloat, bindGridClick, bindCopyLogButton } from './68ui-controls.js';
-import { isTutorialDone, showPositionGuide, showVoteGuide, showBuffGuide, initTutorial } from './71tutorial.js';
+import { isTutorialDone, showPositionGuide, showVoteGuide, showBuffGuide, initTutorial, showStartGuide } from './71tutorial.js';
 
 import { VER as VER_BUFF } from '../core/04buff-system.js';
 import { VER as VER_HORSE } from '../core/05battle-horse.js';
@@ -169,7 +169,9 @@ document.addEventListener('DOMContentLoaded', async function() {
     if (typeof window._initSpeedButtons === 'function') window._initSpeedButtons();
 
     // 按钮事件绑定 → 68ui-controls.js
-    bindCoverStart({ val: gameStarted }, updateSpeedButtons);
+    bindCoverStart({ val: gameStarted }, updateSpeedButtons, () => {
+        if (!isTutorialDone()) showStartGuide();
+    });
     bindPauseButton(getState, setState, updateButtons);
     bindNextButton(setState, updateButtons, enableAllButtons, updateSpeedButtons);
     bindDetailButton(getState, setState, showModal);
