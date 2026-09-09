@@ -28,6 +28,7 @@ import {
 import { initBGM, playBGM, setBGMVolume, fadeBGMTo, toggleBGM, updateBGMBtn, lowerBGM } from './66audio-control.js';
 import { toggleDodgeEffect } from './67fx-trigger.js';
 import { updateSpeedButtons, activateScrollSlowdown, restoreSpeedFromScroll, updateButtons, updateAutoModeButton, enableAllButtons, updateDebugUI, updateBuffSlots, bindCoverStart, bindPauseButton, bindNextButton, bindDetailButton, bindDebugButton, bindBGButton, bindCrashModeButton, bindDodgeButton, bindAutoButton, bindSettleButton, bindStageSelectButton, bindVoteFloat, bindGridClick, bindCopyLogButton } from './68ui-controls.js';
+import { isTutorialDone, showPositionGuide, showVoteGuide, showBuffGuide, initTutorial } from './71tutorial.js';
 
 import { VER as VER_BUFF } from '../core/04buff-system.js';
 import { VER as VER_HORSE } from '../core/05battle-horse.js';
@@ -182,6 +183,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     bindVoteFloat();
     bindGridClick(getState, setState, updateUI);
     bindCopyLogButton(showModal, copyLogToClipboard);
+    initTutorial();
 
     document.getElementById('btnMain').addEventListener('click', async function(){
         onAnyButtonClick();
@@ -227,7 +229,10 @@ document.addEventListener('DOMContentLoaded', async function() {
                 // 选 Buff 前注入战斗 RNG：showBuffSelection 的洗牌需要确定性 RNG（与 doInitBattle 同源）
                 const _snap = getState.snapshot();
                 setBattleRng(new SeededRNG(_snap?._rngSeed || Date.now()));
-                await new Promise(resolve => { showBuffSelection(resolve, getState.activeBuffs(), -1, () => updateBuffSlots(getState.activeBuffs()), () => {}, autoScrollLog, getState.UI().allyTeam); });
+                await new Promise(resolve => {
+                    const open = () => showBuffSelection(resolve, getState.activeBuffs(), -1, () => updateBuffSlots(getState.activeBuffs()), () => {}, autoScrollLog, getState.UI().allyTeam);
+                    if (!isTutorialDone()) showBuffGuide(open); else open();
+                });
             }
             await new Promise(r=>setTimeout(r,600));
             try {
@@ -318,12 +323,14 @@ document.addEventListener('DOMContentLoaded', async function() {
                     return;
                 }
                 setState.adjustMode(true); setState.selectedAdjustPos(null); updateButtons(); updateUI(); if(window._refreshGlowCells)window._refreshGlowCells();
+                if(!isTutorialDone()) showPositionGuide();
             } else {
                 setState.adjustMode(false); setState.selectedAdjustPos(null); isBattleStarting=true; updateButtons(); updateUI();
                 if (getState.autoLevel() === 'full-auto') {
                     startBattle('明教');
                 } else {
-                    showVoteDialog(startBattle, window._battleHasZhang);
+                    if (!isTutorialDone()) showVoteGuide(() => showVoteDialog(startBattle, window._battleHasZhang));
+                    else showVoteDialog(startBattle, window._battleHasZhang);
                 }
             }
         }
