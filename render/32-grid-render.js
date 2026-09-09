@@ -190,7 +190,7 @@ export function renderGrid(id, camp) {
     let isAdjustMode = ctx ? ctx.adjustMode : false;
     let selectedPos = ctx ? ctx.selectedAdjustPos : null;
     let activeBuffs = ctx ? (ctx.activeBuffs || []) : [];
-    let allyTeam = ctx ? (ctx.UI.allyTeam || []) : [];
+    let allyTeam = (store && store.getState) ? store.getState().units.filter(u => u.camp === CAMP_TYPES.ALLY) : (ctx ? (ctx.UI.allyTeam || []) : []);
     let doubleStrikeUid = ctx ? ctx.currentDoubleStrikeUid : null;
 
     for (let i = 0; i < displayOrder.length; i++) {

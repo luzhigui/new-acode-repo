@@ -100,17 +100,19 @@ export function showMeleeCrash(unitA, unitD, speed, getPausedFn, onCrash) {
         visibility: visible;
         display: flex;
         transform: none;
-        border: 2px solid #bbb;
+        background: #1e6bb8;
+        border: 3px solid #0d47a1;
         border-radius: 5px;
         box-sizing: border-box;
         pointer-events: none;
     `;
+    clone.querySelectorAll('*').forEach(el => { el.style.color = '#ffffff'; });
     document.body.appendChild(clone);
 
     // 设置 _flyMode，renderGrid 自动处理原格子（fly=透明，ghost=虚影）
     if (ctx && ctx.store) {
         Object.assign(unitA.state, { _flyMode: flyMode });
-        ctx.store.dispatch({ type: STORE_ACTION_TYPES.CLEAR_UNIT_FLASH, uid: unitA.uid });
+        // 不再清除攻击者 flash，避免蓝色闪示过早消失；由 finishCrash/handleAttackGroup 统一清理
         ctx.store.dispatch({ type: STORE_ACTION_TYPES.SET_VISUAL, uid: unitA.uid, _acted: true, _flyMode: flyMode });
     }
 
@@ -208,16 +210,18 @@ export function showMeleeDodge(unitA, unitD, speed, getPausedFn) {
         visibility: visible;
         display: flex;
         transform: none;
-        border: 2px solid #bbb;
+        background: #1e6bb8;
+        border: 3px solid #0d47a1;
         border-radius: 5px;
         box-sizing: border-box;
         pointer-events: none;
     `;
+    clone.querySelectorAll('*').forEach(el => { el.style.color = '#ffffff'; });
     document.body.appendChild(clone);
 
     const ctx = GlobalStore.get('playerContext');
     if (ctx && ctx.store) {
-        ctx.store.dispatch({ type: STORE_ACTION_TYPES.CLEAR_UNIT_FLASH, uid: unitA.uid });
+        // 不在特效内清除 flash，保持蓝色闪示直到攻击组结束
         ctx.store.dispatch({ type: STORE_ACTION_TYPES.SET_VISUAL, uid: unitA.uid, _acted: true });
     }
 
@@ -315,7 +319,7 @@ export function showMeleeMiss(unitA, unitD, speed, getPausedFn) {
 
     const ctx = GlobalStore.get('playerContext');
     if (ctx && ctx.store) {
-        ctx.store.dispatch({ type: STORE_ACTION_TYPES.CLEAR_UNIT_FLASH, uid: unitA.uid });
+        // 不在特效内清除 flash，保持蓝色闪示直到攻击组结束
         ctx.store.dispatch({ type: STORE_ACTION_TYPES.SET_VISUAL, uid: unitA.uid, _acted: true });
     }
 
