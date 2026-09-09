@@ -114,16 +114,18 @@ export function stepBuff() {
     });
 }
 
-// (6) 战斗开始：收尾提示并标记完成（移除队伍边框，战场恢复原样）
+// 隐藏引导：移除面板、箭头与队伍边框
+function hideGuide() {
+    clearArrows();
+    const p = document.getElementById('tutorialPanel');
+    if (p) p.remove();
+    document.body.classList.remove('tut-active');
+}
+
+// (6) 战斗开始：清除全部引导（面板/箭头/队伍边框），日志恢复原样
 export function stepBattleStart() {
-    if (isTutorialDone()) return;
-    setGuide({
-        title: '⚔️ 战斗开始',
-        lines: ['明教能否守住光明顶？六大派能否踏破？下面见分晓！'],
-        targets: []
-    });
-    document.body.classList.remove('tut-active'); // 引导结束，去掉队伍边框
     markTutorialDone();
+    hideGuide();
 }
 
 // ❓ 按钮：重置并从头重播
