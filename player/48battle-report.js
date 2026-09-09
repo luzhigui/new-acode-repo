@@ -26,15 +26,29 @@ export function buildBattleReportData(finalStep, snapshot, winner) {
 // 积分结算（纯函数）
 export function computeVoteResult(winner, voteChoice, battleHasZhang, currentScore) {
     if (!voteChoice || voteChoice === 'skip' || winner === '平局') {
-        return { earnPoints: 0, newScore: currentScore, voteMsg: null, isCorrect: false };
+        return { earnPoints: 0, newScore: currentScore, voteMsg: null, isCorrect: false, shouldPersist: false };
     }
     const isCorrect = voteChoice === winner;
     const earnPoints = isCorrect ? (battleHasZhang ? 3 : 2) : -1;
     const newScore = currentScore + earnPoints;
+    
+    // localStorage 保护：写入前读取旧值，异常下降超过 50 分拒绝写入
+    let shouldPersist = true;
+    try {
+        const oldScoreStr = localStorage.getItem('ming_vote_score_5v5_test');
+        const oldScore = oldScoreStr ? parseInt(oldScoreStr, 10) : 0;
+        if (oldScore !== 0 && newScore < oldScore && (oldScore - newScore) > 50) {
+            shouldPersist = false;
+            console.error(`🚨 阻止可疑积分覆盖：${oldScore} → ${newScore}，下降幅度过大，已忽略写入`, '\n调用栈:', new Error().stack);
+        }
+    } catch (e) {
+        shouldPersist = true;
+    }
+    
     const voteMsg = isCorrect
         ? `<span class="green">📊 你猜了${voteChoice}，正确！+${earnPoints}分！ 当前积分：${newScore}</span>`
         : `<span class="red">📊 你猜了${voteChoice}，错误！-1分！当前积分：${newScore}</span>`;
-    return { earnPoints, newScore, voteMsg, isCorrect };
+    return { earnPoints, newScore, voteMsg, isCorrect, shouldPersist };
 }
 
 // 通关奖励（圣火令/宝箱）

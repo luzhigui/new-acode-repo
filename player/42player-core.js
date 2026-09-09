@@ -454,7 +454,9 @@ export async function playBattle() {
     }
     GlobalStore.set('voteScore', result.newScore);
     if (result.earnPoints !== 0) showScoreFloat(result.earnPoints);
-    localStorage.setItem('ming_vote_score_5v5_test', String(result.newScore));
+    if (result.shouldPersist) {
+        localStorage.setItem('ming_vote_score_5v5_test', String(result.newScore));
+    }
     GlobalStore.set('voteChoice', null);
     c._battleEnded = true;
     c.abortController = null;
