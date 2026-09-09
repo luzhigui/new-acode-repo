@@ -59,27 +59,68 @@ function makeBubble({ title, lines, confirmText, dim }) {
     return { bubble, btn };
 }
 
-// 站位引导：非阻断，箭头指向明教格子 + 气泡说明
-export function showPositionGuide(onDone) {
+// 气泡定位：水平居中于锚点，clamp 到屏幕内；above=true 放锚点上方，否则下方
+function placeBubble(bubble, anchor, dy, { above = false } = {}) {
+    const r = anchor.getBoundingClientRect();
+    const bw = bubble.offsetWidth || 320;
+    const vw = window.innerWidth;
+    let cx = r.left + r.width / 2;
+    cx = Math.min(Math.max(cx, bw / 2 + 8), vw - bw / 2 - 8);
+    bubble.style.left = cx + 'px';
+    bubble.style.top = (above ? r.top - dy : r.bottom + dy) + 'px';
+    bubble.style.transform = 'translateX(-50%)';
+}
+
+// 找第一个可交换的绿色格子（空格子.adjustable 或占位格.swappable），找不到回退到整个网格
+function findAdjustCell() {
+    return document.querySelector('#allyGrid .cell.adjustable, #allyGrid .cell.swappable')
+        || document.getElementById('allyGrid');
+}
+
+// 站位引导：箭头指向绿色格子，说明点空格或绿格交换；"下一步"转指投票按钮
+export function showPositionGuide(onNext) {
     clearGuide();
-    const grid = document.getElementById('allyGrid');
-    if (!grid) { if (onDone) onDone(); return; }
-    const { arrow, place } = makeArrow(grid);
+    const target = findAdjustCell();
+    if (!target) { if (onNext) onNext(); return; }
+    const { arrow, place } = makeArrow(target);
     const { bubble, btn } = makeBubble({
         title: '🔄 调整站位',
-        lines: ['这是你的明教九宫格阵地。', '点击任意两个我方格子即可交换站位，安排好后点"开始投票"。'],
-        confirmText: '知道了'
+        lines: ['点击任意空格或绿色格子，', '可交换两个我方单位的站位。'],
+        confirmText: '下一步'
     });
-    const r = grid.getBoundingClientRect();
-    bubble.style.left = (r.left + r.width / 2) + 'px';
-    bubble.style.top = (r.bottom + 8) + 'px';
-    bubble.style.transform = 'translateX(-50%)';
+    placeBubble(bubble, target, 8);
 
     const close = () => {
         arrow.remove();
         bubble.remove();
         window.removeEventListener('resize', place);
-        if (onDone) onDone();
+        if (onNext) onNext();
+    };
+    btn.addEventListener('click', close);
+    _cleanup = () => {
+        arrow.remove();
+        bubble.remove();
+        window.removeEventListener('resize', place);
+    };
+}
+
+// 投票按钮引导：箭头指向"开始投票"按钮
+export function showVoteButtonGuide() {
+    clearGuide();
+    const target = document.getElementById('btnMain');
+    if (!target) return;
+    const { arrow, place } = makeArrow(target);
+    const { bubble, btn } = makeBubble({
+        title: '🗳️ 开始投票',
+        lines: ['位置调整好后，点这个「开始投票」按钮。'],
+        confirmText: '知道了'
+    });
+    placeBubble(bubble, target, 46, { above: true });
+
+    const close = () => {
+        arrow.remove();
+        bubble.remove();
+        window.removeEventListener('resize', place);
     };
     btn.addEventListener('click', close);
     _cleanup = () => {
@@ -100,10 +141,7 @@ export function showStartGuide() {
         lines: ['先点下面的「调整站位」按钮，', '交换我方格子安排阵型，再开战。'],
         confirmText: '知道了'
     });
-    const r = target.getBoundingClientRect();
-    bubble.style.left = (r.left + r.width / 2) + 'px';
-    bubble.style.top = (r.top - 180) + 'px';
-    bubble.style.transform = 'translateX(-50%)';
+    placeBubble(bubble, target, 46, { above: true });
 
     const close = () => {
         arrow.remove();
