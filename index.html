@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿<!-- index.html - 光明顶5v5 V6.0.0（原 mode-5v5-test.html，改名为主入口） -->
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿<!-- index.html - 光明顶5v5 V6.0.0（原 mode-5v5-test.html，改名为主入口） -->
 <!-- V6.0.0 | ~31300 bytes | 苦练等优先行动经 beforeActionSelect 声明，行动后不切换行动方 -->
 <!DOCTYPE html>
 <html lang="zh-CN">
@@ -220,6 +220,12 @@
    body.paused-animations *::after {
        animation-play-state: paused !important;
    }
+   .tutorial-scrim { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.55); z-index: 100000; }
+   .tutorial-bubble { position: fixed; z-index: 100001; background: #fdf5e6; border: 3px solid #ffd700; border-radius: 12px; padding: 14px 18px; max-width: 320px; box-shadow: 0 6px 24px rgba(0,0,0,0.5); text-align: center; }
+   .tutorial-text { font-size: 14px; color: #5c4033; margin-bottom: 12px; line-height: 1.6; }
+   .tutorial-btn { background: linear-gradient(135deg, #ffd700, #ffaa00); border: 2px solid #b8860b; border-radius: 8px; padding: 6px 20px; font-weight: bold; color: #5c4033; cursor: pointer; font-size: 13px; }
+   .tutorial-arrow { position: fixed; z-index: 100002; color: #28a745; font-size: 40px; pointer-events: none; text-shadow: 0 0 12px rgba(40,167,69,0.9); animation: tutorialArrowBob 0.7s ease-in-out infinite; }
+   @keyframes tutorialArrowBob { 0%,100%{ transform: translateY(0); opacity: 1; } 50%{ transform: translateY(12px); opacity: 0.45; } }
    </style>
 </head>
 <body>
@@ -229,7 +235,7 @@
     <button class="cover-start-btn" id="coverStartBtn">⚔️ 开始游戏</button>
     <div id="coverVersion"></div>
 </div>
-<div class="header"><h2>⚔️ 光明顶对战 5v5 <span class="score-badge" id="scoreBadge">🏆 10分</span></h2><button id="debugToggle" class="debug-toggle-btn">V6.0</button></div>
+<div class="header"><h2>⚔️ 光明顶对战 5v5 <span class="score-badge" id="scoreBadge">🏆 10分</span></h2><button id="btnTutorial" class="debug-toggle-btn" title="新手引导">❓</button><button id="debugToggle" class="debug-toggle-btn">V6.0</button></div>
 <div class="upper-area">
     <div class="battlefield" id="battlefield">
         <div class="team-row"><span class="team-label orange" id="labelEnemy">六大派</span><div class="grid" id="enemyGrid"></div></div>
