@@ -1,5 +1,5 @@
-// ui/71tutorial.js - 新手引导（站位/投票/海克斯三环节轻量提示）
-// V6.0.0 | 2026-09-09 新增新手引导
+// ui/71tutorial.js - 新手引导（日志区固定提示面板 + 浮动箭头，不遮挡操作）
+// V6.0.0 | 2026-09-09 改为日志区固定面板持续提示
 export const VER = 'ui/71tutorial.js V6.0.0';
 
 const DONE_KEY = 'ming_tutorial_done_5v5_test';
@@ -7,212 +7,124 @@ const DONE_KEY = 'ming_tutorial_done_5v5_test';
 export function isTutorialDone() {
     try { return localStorage.getItem(DONE_KEY) === '1'; } catch { return true; }
 }
-
 export function markTutorialDone() {
     try { localStorage.setItem(DONE_KEY, '1'); } catch {}
 }
-
 export function resetTutorialDone() {
     try { localStorage.removeItem(DONE_KEY); } catch {}
 }
 
-let _cleanup = null;
+// 浮动箭头管理
+let _arrows = [];
 
-function clearGuide() {
-    if (_cleanup) { const f = _cleanup; _cleanup = null; f(); }
+function clearArrows() {
+    _arrows.forEach(a => { a.el.remove(); window.removeEventListener('resize', a.onResize); });
+    _arrows = [];
 }
 
-// 绿色闪烁箭头，指向目标元素（仅站位引导用，无遮罩）
-function makeArrow(target) {
-    const arrow = document.createElement('div');
-    arrow.className = 'tutorial-arrow';
-    arrow.textContent = '▼';
-    document.body.appendChild(arrow);
+function arrowTo(target) {
+    if (!target) return;
+    const el = document.createElement('div');
+    el.className = 'tutorial-arrow';
+    el.textContent = '▼';
+    document.body.appendChild(el);
     const place = () => {
         const r = target.getBoundingClientRect();
-        arrow.style.left = (r.left + r.width / 2 - 20) + 'px';
-        arrow.style.top = (r.top - 46) + 'px';
+        el.style.left = (r.left + r.width / 2 - 20) + 'px';
+        el.style.top = (r.top - 42) + 'px';
     };
     place();
-    window.addEventListener('resize', place);
-    return { arrow, place };
+    const onResize = place;
+    window.addEventListener('resize', onResize);
+    _arrows.push({ el, onResize });
 }
 
-// 引导气泡：遮罩(可选) + 文案 + 确认按钮
-function makeBubble({ title, lines, confirmText, dim }) {
-    if (dim) {
-        const scrim = document.createElement('div');
-        scrim.className = 'tutorial-scrim';
-        document.body.appendChild(scrim);
+// 固定提示面板：absolute 定位在日志区顶部，pointer-events:none 完全不遮挡
+function ensurePanel() {
+    let p = document.getElementById('tutorialPanel');
+    if (p) return p;
+    const c = document.querySelector('.log-container');
+    if (!c) return null;
+    p = document.createElement('div');
+    p.id = 'tutorialPanel';
+    c.appendChild(p);
+    return p;
+}
+
+function setGuide({ title, lines, targets }) {
+    const p = ensurePanel();
+    clearArrows();
+    if (p) {
+        p.innerHTML = (title ? `<b class="tut-title">${title}</b><br>` : '') +
+            (lines || []).map(l => `<span>${l}</span>`).join('<br>');
     }
-    const bubble = document.createElement('div');
-    bubble.className = 'tutorial-bubble';
-    bubble.innerHTML =
-        `<div class="tutorial-text"><b>${title}</b><br>` +
-        lines.map(l => `<span>${l}</span>`).join('<br>') +
-        `</div>`;
-    const btn = document.createElement('button');
-    btn.className = 'tutorial-btn';
-    btn.textContent = confirmText;
-    bubble.appendChild(btn);
-    document.body.appendChild(bubble);
-    return { bubble, btn };
+    (targets || []).forEach(t => arrowTo(t));
 }
 
-// 气泡定位：水平居中于锚点，clamp 到屏幕内；above=true 放锚点上方，否则下方
-function placeBubble(bubble, anchor, dy, { above = false } = {}) {
-    const r = anchor.getBoundingClientRect();
-    const bw = bubble.offsetWidth || 320;
-    const vw = window.innerWidth;
-    let cx = r.left + r.width / 2;
-    cx = Math.min(Math.max(cx, bw / 2 + 8), vw - bw / 2 - 8);
-    bubble.style.left = cx + 'px';
-    bubble.style.top = (above ? r.top - dy : r.bottom + dy) + 'px';
-    bubble.style.transform = 'translateX(-50%)';
-}
-
-// 找第一个可交换的绿色格子（空格子.adjustable 或占位格.swappable），找不到回退到整个网格
-function findAdjustCell() {
-    return document.querySelector('#allyGrid .cell.adjustable, #allyGrid .cell.swappable')
-        || document.getElementById('allyGrid');
-}
-
-// 站位引导：箭头指向绿色格子，说明点空格或绿格交换；"下一步"转指投票按钮
-export function showPositionGuide(onNext) {
-    clearGuide();
-    const target = findAdjustCell();
-    if (!target) { if (onNext) onNext(); return; }
-    const { arrow, place } = makeArrow(target);
-    const { bubble, btn } = makeBubble({
-        title: '🔄 调整站位',
-        lines: ['点击任意空格或绿色格子，', '可交换两个我方单位的站位。'],
-        confirmText: '下一步'
+// (1) 封面关闭：指「调整站位」按钮
+export function stepAdjustStart() {
+    if (isTutorialDone()) return;
+    setGuide({
+        title: '🔧 调整站位',
+        lines: ['点击下方「调整站位」按钮，可调整明教队站位。'],
+        targets: [document.getElementById('btnMain')]
     });
-    placeBubble(bubble, target, 8);
-
-    const close = () => {
-        arrow.remove();
-        bubble.remove();
-        window.removeEventListener('resize', place);
-        if (onNext) onNext();
-    };
-    btn.addEventListener('click', close);
-    _cleanup = () => {
-        arrow.remove();
-        bubble.remove();
-        window.removeEventListener('resize', place);
-    };
 }
 
-// 投票按钮引导：箭头指向"开始投票"按钮
-export function showVoteButtonGuide() {
-    clearGuide();
-    const target = document.getElementById('btnMain');
-    if (!target) return;
-    const { arrow, place } = makeArrow(target);
-    const { bubble, btn } = makeBubble({
-        title: '🗳️ 开始投票',
-        lines: ['位置调整好后，点这个「开始投票」按钮。'],
-        confirmText: '知道了'
+// (2) 进入站位模式：指绿色格子，说明交换规则 + 可跳过
+export function stepAdjustMove() {
+    if (isTutorialDone()) return;
+    const cells = document.querySelectorAll('#allyGrid .cell.adjustable, #allyGrid .cell.swappable');
+    const targets = cells.length ? Array.from(cells).slice(0, 2) : [document.getElementById('allyGrid')];
+    setGuide({
+        title: '🔧 交换站位',
+        lines: ['点击两个绿色格子（或绿格+空格）交换位置，灰色格子不可调。', '也可直接点「开始投票」跳过调整。'],
+        targets
     });
-    placeBubble(bubble, target, 46, { above: true });
-
-    const close = () => {
-        arrow.remove();
-        bubble.remove();
-        window.removeEventListener('resize', place);
-    };
-    btn.addEventListener('click', close);
-    _cleanup = () => {
-        arrow.remove();
-        bubble.remove();
-        window.removeEventListener('resize', place);
-    };
 }
 
-// 开战引导：封面关闭后，箭头指向"调整站位"按钮
-export function showStartGuide() {
-    clearGuide();
-    const target = document.getElementById('btnMain');
-    if (!target) return;
-    const { arrow, place } = makeArrow(target);
-    const { bubble, btn } = makeBubble({
-        title: '⚔️ 开始前先布阵',
-        lines: ['先点下面的「调整站位」按钮，', '交换我方格子安排阵型，再开战。'],
-        confirmText: '知道了'
+// (3) 投票窗口弹出后：说明选队规则
+export function stepVoteOpen() {
+    if (isTutorialDone()) return;
+    setGuide({
+        title: '🗳️ 投票',
+        lines: ['你看好哪个队伍赢？选「六大派」或「明教」为它助威。', '猜对有积分（张无忌在场双倍），也可选「放弃」。'],
+        targets: []
     });
-    placeBubble(bubble, target, 46, { above: true });
-
-    const close = () => {
-        arrow.remove();
-        bubble.remove();
-        window.removeEventListener('resize', place);
-    };
-    btn.addEventListener('click', close);
-    _cleanup = () => {
-        arrow.remove();
-        bubble.remove();
-        window.removeEventListener('resize', place);
-    };
 }
 
-// 投票引导：前置说明，点"去投票"后弹真实投票窗
-export function showVoteGuide(onConfirm) {
-    clearGuide();
-    const { bubble, btn } = makeBubble({
-        title: '🗳️ 开始投票',
-        lines: ['战斗前先预测这场谁赢：', '· 猜对 +积分', '· 猜错不得分', '· 张无忌在场时猜对双倍积分', '选"放弃"则跳过本轮预测。'],
-        confirmText: '去投票',
-        dim: true
+// (4) 倒计时：等待 + 垃圾话
+export function stepCountdown() {
+    if (isTutorialDone()) return;
+    setGuide({
+        title: '⏳ 倒计时',
+        lines: ['请稍候，倒计时结束战斗开始，双方先放几句狠话～'],
+        targets: []
     });
-    btn.addEventListener('click', () => {
-        clearGuide();
-        if (onConfirm) onConfirm();
-    });
-    _cleanup = () => { bubble.remove(); document.querySelector('.tutorial-scrim')?.remove(); };
 }
 
-// 海克斯引导：前置说明，点"去选择"后弹真实三选一
-export function showBuffGuide(onConfirm) {
-    clearGuide();
-    const { bubble, btn } = makeBubble({
+// (5) 海克斯窗口：三选一说明
+export function stepBuff() {
+    if (isTutorialDone()) return;
+    setGuide({
         title: '✨ 选择海克斯',
-        lines: ['从三个增益中选一个，持续若干回合。', '最多同时持有两个，新选的会顶掉最短的一个。'],
-        confirmText: '去选择',
-        dim: true
+        lines: ['三选一增强明教队（只对明教生效），最多叠加两个。'],
+        targets: []
     });
-    btn.addEventListener('click', () => {
-        clearGuide();
-        markTutorialDone();
-        if (onConfirm) onConfirm();
-    });
-    _cleanup = () => { bubble.remove(); document.querySelector('.tutorial-scrim')?.remove(); };
 }
 
-// 新手须知总览（"?"按钮随时重看，不改变完成标记）
-export function showTutorialOverview() {
-    clearGuide();
-    const overlay = document.createElement('div');
-    overlay.className = 'modal-overlay';
-    overlay.style.zIndex = '100010';
-    const box = document.createElement('div');
-    box.className = 'modal-box';
-    box.innerHTML = `<div class="modal-text" style="text-align:left;line-height:1.7;">
-<b>📖 新手须知</b><br>
-<b>① 调整站位</b>：战斗前点击两个我方格子可交换位置。<br>
-<b>② 投票</b>：预测这场谁赢，猜对 +积分（张无忌在场双倍），猜错不得分。<br>
-<b>③ 海克斯</b>：选一个增益持续若干回合，最多叠两个。<br>
-<b>④ 开战</b>：倒计时后双方自动按站位对攻，可调倍速/暂停/结算。
-</div><div class="modal-buttons"><button class="modal-btn">关闭</button></div>`;
-    overlay.appendChild(box);
-    document.body.appendChild(overlay);
-    const close = () => overlay.remove();
-    box.querySelector('.modal-btn').addEventListener('click', close);
-    overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
-    _cleanup = close;
+// (6) 战斗开始：收尾提示并标记完成
+export function stepBattleStart() {
+    if (isTutorialDone()) return;
+    setGuide({
+        title: '⚔️ 战斗开始',
+        lines: ['明教能否守住光明顶？六大派能否踏破？下面见分晓！'],
+        targets: []
+    });
+    markTutorialDone();
 }
 
-// 初始化："?"入口按钮绑定：重新演示引导（重置完成标记 + 重播）
+// ❓ 按钮：重置并从头重播
 export function initTutorial() {
     const btn = document.getElementById('btnTutorial');
     if (!btn) return;
@@ -220,6 +132,6 @@ export function initTutorial() {
         e.preventDefault();
         e.stopPropagation();
         resetTutorialDone();
-        showStartGuide();
+        stepAdjustStart();
     });
 }

@@ -6,6 +6,7 @@ import { AudioManager } from '../modules/22audio-manager.js';
 import { GlobalStore } from '../infra/54-global-store.js';
 import { CAMP_TYPES } from '../infra/56-battle-enums.js';
 import { CONFIG } from '../core/01config-5v5-test.js';
+import { stepVoteOpen, stepCountdown } from './71tutorial.js';
 
 // 战报弹窗
 // 弹窗-战报：战斗结束统计数据展示+导出
@@ -386,11 +387,13 @@ export function showVoteDialog(callback, battleHasZhang) {
         document.getElementById('voteModalOverlay')?.remove();
         if (callback) callback(choice);
     }, true, false);
+    stepVoteOpen();
 }
 
 // 倒计时
 // 弹窗-倒计时：3-2-1动画+垃圾话弹幕
 export async function showCountdown(trashTalkAlly, trashTalkEnemy, randFn, showDanmakuFn, autoScrollLogFn) {
+    stepCountdown();
     let nums = ['3', '2', '1'];
     let mainBtn = document.getElementById('btnMain');
     mainBtn.disabled = true;

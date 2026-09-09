@@ -11,6 +11,7 @@ import { getBattleRng } from '../core/13battle-shared.js';
 import { initBattleTeams } from '../modules/29battle-init.js';
 import { generateBuffChoices, createBuffObject, tickBuffDurations, getActiveBuffList } from '../modules/28buff-tools.js';
 import { resetBattleRuntime } from './69reset-runtime.js';
+import { stepBuff } from './71tutorial.js';
 
 const C = CONFIG;
 
@@ -152,6 +153,7 @@ export function showBuffSelection(callback, activeBuffs, selectedBuffIndex, upda
         updateUIFn();
         callback();
     }, true, false);
+    stepBuff();
 }
 
 // Buff 槽
