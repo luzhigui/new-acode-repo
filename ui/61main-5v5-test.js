@@ -1,5 +1,5 @@
-// V6.0.1 | 2026-09-09 开场CG切换为水墨长卷版（72opening-cg-ink.js）
-export const VER = 'ui/61main-5v5-test.js V6.0.1';
+// V6.0.0 | 2026-08-26 移除 handleBuffLeech import
+export const VER = 'ui/61main-5v5-test.js V6.0.0';
 
 import '../infra/54-global-store.js';
 import { GlobalStore } from '../infra/54-global-store.js';
@@ -29,7 +29,7 @@ import { initBGM, playBGM, setBGMVolume, fadeBGMTo, toggleBGM, updateBGMBtn, low
 import { toggleDodgeEffect } from './67fx-trigger.js';
 import { updateSpeedButtons, activateScrollSlowdown, restoreSpeedFromScroll, updateButtons, updateAutoModeButton, enableAllButtons, updateDebugUI, updateBuffSlots, bindCoverStart, bindPauseButton, bindNextButton, bindDetailButton, bindDebugButton, bindBGButton, bindCrashModeButton, bindDodgeButton, bindAutoButton, bindSettleButton, bindStageSelectButton, bindVoteFloat, bindGridClick, bindCopyLogButton } from './68ui-controls.js';
 import { stepAdjustStart, stepAdjustMove, stepBattleStart, initTutorial } from './71tutorial.js';
-import { isOpeningCgDone, showOpeningCg } from './72opening-cg-ink.js';
+import { isOpeningCgDone, showOpeningCg } from './72opening-cg.js';
 
 import { VER as VER_BUFF } from '../core/04buff-system.js';
 import { VER as VER_HORSE } from '../core/05battle-horse.js';
