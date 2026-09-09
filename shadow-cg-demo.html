@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>开场CG·皮影戏 Demo | 明教5v5</title>
+<style>
+  /* demo 外壳样式，仅本页使用 */
+  html,body{margin:0;height:100%;background:#171310;
+    font-family:'LXGW WenKai','KaiTi','STKaiti','Noto Serif SC',serif;}
+  #demoEnd{position:fixed;inset:0;z-index:100020;display:flex;align-items:center;justify-content:center;
+    background:rgba(12,9,6,.82);-webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px);
+    opacity:0;pointer-events:none;transition:opacity .5s ease;}
+  #demoEnd.show{opacity:1;pointer-events:auto;}
+  .endCard{position:relative;background:linear-gradient(180deg,#f3ecd8,#e6d9b6);color:#2f2a22;
+    width:min(88vw,430px);padding:2.4em 2.4em 1.6em;text-align:center;
+    box-shadow:0 12px 44px rgba(0,0,0,.5),inset 0 0 60px rgba(120,90,40,.14);}
+  .endCard h1{margin:0 0 .3em;font-size:clamp(22px,5vmin,32px);letter-spacing:.5em;text-indent:.5em;font-weight:700;}
+  .endCard .sub{font-size:clamp(12px,2.8vmin,15px);color:rgba(60,48,32,.7);letter-spacing:.12em;margin:0 0 1.4em;}
+  .endBtns{display:flex;gap:.8em;justify-content:center;flex-wrap:wrap;margin-bottom:1.2em;}
+  .endBtn{font-family:inherit;font-size:clamp(13px,3vmin,16px);letter-spacing:.18em;cursor:pointer;
+    padding:.6em 1.4em;border-radius:4px;border:1px solid rgba(70,52,30,.5);
+    background:rgba(255,252,244,.55);color:#3a2f22;transition:.2s;}
+  .endBtn:hover{border-color:#b3352b;color:#8f2a22;}
+  .endBtn.primary{background:#b3352b;border-color:#8f2a22;color:#f6efdd;}
+  .endBtn.primary:hover{background:#c94135;color:#fff;}
+  #demoStatus{font-size:clamp(10px,2.4vmin,12px);color:rgba(60,48,32,.55);
+    font-family:ui-monospace,Consolas,monospace;margin:0 0 .6em;word-break:break-all;}
+  #demoNote{font-size:clamp(10px,2.4vmin,12px);color:rgba(150,50,40,.8);margin:0 0 .8em;letter-spacing:.06em;}
+  .endCard .tip{font-size:clamp(10px,2.4vmin,12px);color:rgba(60,48,32,.45);line-height:1.8;margin:0;}
+  .endSeal{position:absolute;top:-2vmin;right:-2vmin;width:8.4vmin;height:8.4vmin;max-width:64px;max-height:64px;
+    display:flex;align-items:center;justify-content:center;border:.45vmin solid #b3352b;border-radius:4px;
+    color:#b3352b;font-size:5.4vmin;font-weight:700;background:rgba(179,53,43,.06);transform:rotate(-7deg);}
+</style>
+</head>
+<body>
+
+<!-- demo 结束面板 -->
+<div id="demoEnd">
+  <div class="endCard">
+    <div class="endSeal">终</div>
+    <h1>戏 终</h1>
+    <p class="sub">开场CG播放完毕 —— demo 模式，未接入游戏</p>
+    <p id="demoNote"></p>
+    <div class="endBtns">
+      <button class="endBtn primary" id="btnReplay" type="button">重新播放</button>
+      <button class="endBtn" id="btnReset" type="button">清除「已看」记录</button>
+    </div>
+    <p id="demoStatus"></p>
+    <p class="tip">交互：点击 / 空格 / 回车 = 快进·下一幕 · Esc 或右上角 = 跳过</p>
+  </div>
+</div>
+
+<script type="module">
+import { showOpeningCg, isOpeningCgDone, resetOpeningCgDone, VER } from './ui/74opening-cg-shadow.js';
+
+const panel = document.getElementById('demoEnd');
+const status = document.getElementById('demoStatus');
+const note = document.getElementById('demoNote');
+
+function refreshStatus() {
+    let v;
+    try { v = localStorage.getItem('ming_opening_cg_shadow_done_5v5_test'); } catch (e) { v = '(读写异常)'; }
+    status.textContent = 'localStorage["ming_opening_cg_shadow_done_5v5_test"] = ' + (v === null ? 'null' : v);
+}
+function showEnd() { refreshStatus(); panel.classList.add('show'); }
+
+document.getElementById('btnReplay').addEventListener('click', function () {
+    panel.classList.remove('show');
+    showOpeningCg(showEnd);
+});
+document.getElementById('btnReset').addEventListener('click', function () {
+    resetOpeningCgDone();
+    refreshStatus();
+});
+if (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    note.textContent = '※ 检测到系统「减少动态」偏好，CG 已自动降级播放';
+}
+
+console.log('[demo]', VER, '| 已看:', isOpeningCgDone() ? '是' : '否');
+showOpeningCg(showEnd);
+</script>
+</body>
+</html>
