@@ -59,7 +59,7 @@ export function computeBuffStats(unit, activeBuffs, allyTeam) {
 export function logBuffSummary(allyTeam, log, doubleStrikeUid) {
     let buffs = allyTeam._activeBuffs || [];
     buffs.forEach(b => {
-        log.push({ factType: FACT_TYPES.BUFF_SUMMARY, data: { buff: b, allyTeam, doubleStrikeUid } });
+        log.push({ factType: FACT_TYPES.BUFF_SUMMARY, data: { buff: b, allyTeamUids: allyTeam.filter(u => u.alive).map(u => u.uid), doubleStrikeUid } });
     });
 }
 
@@ -147,7 +147,7 @@ export function submitWindAssaultDeclaration(data) {
         if (rowTargets.length > 0) {
             const splashDmg = Math.floor(dmg);
             if (!data.declarations) data.declarations = [];
-            data.declarations.push({ type: EFFECT_TYPES.SPLASH, value: splashDmg, targets: rowTargets, buffType: BUFF_SUBTYPES.WIND_ASSAULT, factType: FACT_TYPES.WIND_ASSAULT_SPLASH, factData: { label, targets: rowTargets, splashDmg } });
+            data.declarations.push({ type: EFFECT_TYPES.SPLASH, value: splashDmg, targets: rowTargets, buffType: BUFF_SUBTYPES.WIND_ASSAULT, factType: FACT_TYPES.WIND_ASSAULT_SPLASH, factData: { label, targets: rowTargets.map(t => ({ uid: t.uid, name: t.name })), splashDmg } });
         }
     }
     if (rng.nextInt(1, 100) <= pushProb) {
@@ -159,10 +159,10 @@ export function submitWindAssaultDeclaration(data) {
             if (behindUnit) {
                 const behindOldPos = behindUnit.pos;
                 swapUnitPositions(target, behindUnit);
-                log.push({ factType: FACT_TYPES.WIND_ASSAULT_PUSH, data: { label, target, behindUnit, oldPos, behindPos, behindOldPos } });
+                log.push({ factType: FACT_TYPES.WIND_ASSAULT_PUSH, data: { label, target: { uid: target.uid, name: target.name }, behindUnit: { uid: behindUnit.uid, name: behindUnit.name }, oldPos, behindPos, behindOldPos } });
             } else {
                 moveUnitPosition(target, behindPos);
-                log.push({ factType: FACT_TYPES.WIND_ASSAULT_PUSH, data: { label, target, behindUnit: null, oldPos, behindPos } });
+                log.push({ factType: FACT_TYPES.WIND_ASSAULT_PUSH, data: { label, target: { uid: target.uid, name: target.name }, behindUnit: null, oldPos, behindPos } });
             }
         }
     } else {
@@ -198,7 +198,7 @@ export function submitMeteorShowerDeclaration(data) {
     const splashSide = target.camp === unit.camp ? allySide : enemySide;
     const splashTargets = splashSide.filter(u => u.alive && adjPositions.includes(u.pos) && !(u.state._flyMode === 'butterfly') && !(u.state._flyMode === 'spider') && !u.state._spiderFlying);
     if (splashTargets.length > 0) {
-        data.declarations.push({ type: EFFECT_TYPES.SPLASH, value: splashDmg, targets: splashTargets, buffType: BUFF_SUBTYPES.METEOR_SPLASH, attackerUid: unit.uid, primaryUid: target.uid, splashUids: splashTargets.map(st => st.uid), splashDmg, factType: FACT_TYPES.METEOR_SHOWER_SPLASH, factData: { label, targets: splashTargets, splashDmg, defReduce: C.BUFFS.meteorShower.splashDefReduce || 1 } });
+        data.declarations.push({ type: EFFECT_TYPES.SPLASH, value: splashDmg, targets: splashTargets, buffType: BUFF_SUBTYPES.METEOR_SPLASH, attackerUid: unit.uid, primaryUid: target.uid, splashUids: splashTargets.map(st => st.uid), splashDmg, factType: FACT_TYPES.METEOR_SHOWER_SPLASH, factData: { label, targets: splashTargets.map(st => ({ uid: st.uid, name: st.name })), splashDmg, defReduce: C.BUFFS.meteorShower.splashDefReduce || 1 } });
         for (const st of splashTargets) {
             data.declarations.push({ type: EFFECT_TYPES.STAT_CHANGE, field: 'def', delta: -(C.BUFFS.meteorShower.splashDefReduce || 1), target: st, reason: '流星溅射', logText: null });
         }

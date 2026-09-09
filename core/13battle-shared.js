@@ -162,7 +162,7 @@ function checkZhangSwitch(A, log) {
         log.push({
             factType: FACT_TYPES.ZHANG_SWITCH,
             data: {
-                zhang,
+                zhang: { uid: zhang.uid, name: zhang.name, pos: zhang.pos },
                 atkGain: warriorBonus.atk * 3,
                 defGain: warriorBonus.def * 3,
                 maxHpGain: warriorBonus.maxHp * 3

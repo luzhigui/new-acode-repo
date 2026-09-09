@@ -1,0 +1,663 @@
+// ui/73opening-cg-epic.js - 开场CG 电影版（三幕·镜头运动·多层视差）
+// V6.0.0 | 2026-09-09 新增 · 与 72opening-cg.js 并存，可替换对比
+// 集成点：同 72，在 61main-5v5-test.js bindCoverStart 的 onStart 里调用 showOpeningCgEpic()
+// 升级点：镜头推拉摇移 / 多层视差山景 / 角色剪影出场 / 光效冲击 / 灰烬粒子 / 火焰转场
+export const VER = 'ui/73opening-cg-epic.js V6.0.0';
+
+const DONE_KEY = 'ming_opening_cg_epic_done_5v5_test';
+
+export function isOpeningCgEpicDone() {
+    try { return localStorage.getItem(DONE_KEY) === '1'; } catch { return true; }
+}
+export function markOpeningCgEpicDone() {
+    try { localStorage.setItem(DONE_KEY, '1'); } catch {}
+}
+export function resetOpeningCgEpicDone() {
+    try { localStorage.removeItem(DONE_KEY); } catch {}
+}
+
+/* ============================================================
+   三幕剧本
+   ============================================================ */
+const ACTS = [
+    {
+        id: 'siege',
+        mood: 'siege',
+        chapter: '第一幕 · 兵临城下',
+        camera: { zoom: 1, endZoom: 1.35, panY: 0, endPanY: '-6%', duration: 9 },
+        lines: [
+            { t: '元室失鹿，天下共逐。', delay: 0.6 },
+            { t: '六大派举兵东来，', delay: 1.2 },
+            { t: '合围光明顶。', delay: 1.2 },
+            { t: '山门之外，火把连天——', delay: 1.5 },
+            { t: '圣火将熄', big: true, delay: 1.8 }
+        ],
+        elements: ['stars', 'farMountains', 'enemyTorches', 'nearMountains', 'gateSilhouette']
+    },
+    {
+        id: 'ascend',
+        mood: 'ascend',
+        chapter: '第二幕 · 教主临危',
+        camera: { zoom: 1.35, endZoom: 1.1, panY: '-6%', endPanY: '0%', duration: 10 },
+        sigil: '明',
+        heroes: ['张无忌', '韦一笑', '殷天正', '杨逍'],
+        lines: [
+            { t: '血战三日，教众十不存三。', delay: 0.6 },
+            { t: '危亡之际——', delay: 1.3 },
+            { t: '你继任第三十四代教主，', delay: 1.6 },
+            { t: '执圣火令，号令群雄。', delay: 1.5 },
+            { t: '光明顶，永不陷落', big: true, fire: true, delay: 2.2 }
+        ],
+        elements: ['stars', 'farMountains', 'fireGlow', 'fireCore', 'nearMountains', 'heroSilhouettes', 'sigilBeam']
+    },
+    {
+        id: 'battle',
+        mood: 'battle',
+        chapter: '第三幕 · 点将开战',
+        camera: { zoom: 1.1, endZoom: 1.5, panY: '0%', endPanY: '4%', duration: 8 },
+        lines: [
+            { t: '战鼓已擂，山门欲裂。', delay: 0.6 },
+            { t: '教主——', delay: 1.2 },
+            { t: '点将布阵，', delay: 1.3 },
+            { t: '让他们见识明教的怒火！', big: true, fire: true, delay: 2 }
+        ],
+        elements: ['stars', 'warGlow', 'farMountains', 'fireGlow', 'fireCore', 'nearMountains', 'emberStorm', 'arrows']
+    }
+];
+
+/* ============================================================
+   样式
+   ============================================================ */
+const STYLE_CSS = `
+#cgEpicOverlay{position:fixed;inset:0;background:#000;z-index:100020;overflow:hidden;cursor:pointer;
+  font-family:'LXGW WenKai','KaiTi','STKaiti','Noto Serif SC',serif;
+  -webkit-user-select:none;user-select:none;}
+#cgEpicOverlay.hide{animation:cgEpicFadeOut 1.1s ease forwards;pointer-events:none;}
+@keyframes cgEpicFadeOut{to{opacity:0;}}
+
+/* ---- 镜头容器：所有场景元素放在这里，通过 transform 模拟推拉摇 ---- */
+#cgEpicCamera{position:absolute;inset:-10%;will-change:transform;transition:transform 1.4s cubic-bezier(.22,.61,.36,1);}
+
+/* ---- 通用层 ---- */
+.cg-layer{position:absolute;left:0;right:0;}
+
+/* 星空 */
+#cgEpicStars i{position:absolute;width:2px;height:2px;border-radius:50%;background:#fff;
+  animation:cgEpicTwinkle 4s ease-in-out infinite;}
+@keyframes cgEpicTwinkle{0%,100%{opacity:var(--tw,.12);}50%{opacity:calc(var(--tw,.12)*2.8);}}
+
+/* 远山（深色剪影） */
+#cgEpicFarMountain{bottom:38%;height:22%;z-index:2;
+  background:linear-gradient(to top,#0a0a0a,transparent);}
+#cgEpicFarMountain::before,#cgEpicFarMountain::after{content:'';position:absolute;bottom:0;left:0;right:0;height:100%;
+  background:#0d0d0d;}
+#cgEpicFarMountain::before{
+  clip-path:polygon(0 100%,0 70%,8% 82%,18% 55%,28% 78%,38% 48%,50% 72%,62% 42%,74% 68%,86% 52%,96% 76%,100% 60%,100% 100%);
+  opacity:.9;}
+#cgEpicFarMountain::after{
+  clip-path:polygon(0 100%,0 85%,12% 90%,22% 78%,34% 88%,46% 72%,58% 86%,70% 76%,82% 90%,92% 80%,100% 88%,100% 100%);
+  background:#080808;opacity:.7;}
+
+/* 敌军火把（远山前点点火光） */
+#cgEpicEnemyTorches{bottom:46%;height:8%;z-index:3;}
+#cgEpicEnemyTorches i{position:absolute;width:3px;height:3px;border-radius:50%;
+  background:#ff6a2a;box-shadow:0 0 6px #ff5a1a,0 0 12px rgba(255,90,26,.6);
+  animation:cgEpicTorchFlicker 1.2s ease-in-out infinite;}
+@keyframes cgEpicTorchFlicker{0%,100%{opacity:.6;transform:scale(1);}50%{opacity:1;transform:scale(1.3);}}
+
+/* 近山（黑色剪影） */
+#cgEpicNearMountain{bottom:0;height:42%;z-index:5;
+  background:#050505;
+  clip-path:polygon(0 100%,0 55%,10% 68%,20% 42%,32% 62%,44% 28%,56% 56%,68% 36%,80% 60%,92% 46%,100% 65%,100% 100%);}
+
+/* 城门剪影（近山前） */
+#cgEpicGate{bottom:0;left:50%;transform:translateX(-50%);width:32vmin;height:28vmin;z-index:6;
+  background:#020202;
+  clip-path:polygon(20% 100%,20% 45%,30% 20%,50% 0,70% 20%,80% 45%,80% 100%,72% 100%,72% 50%,62% 30%,50% 12%,38% 30%,28% 50%,28% 100%);}
+
+/* 火焰光晕 */
+#cgEpicFireGlow{position:absolute;left:50%;bottom:18%;transform:translateX(-50%);z-index:4;
+  width:90vmin;height:50vmin;border-radius:50%;
+  background:radial-gradient(ellipse at center,rgba(255,120,40,.55),rgba(200,50,10,.25) 45%,transparent 72%);
+  filter:blur(28px);opacity:0;transition:opacity 1.2s ease;}
+#cgEpicOverlay[data-mood="ascend"] #cgEpicFireGlow{animation:cgEpicFireAscend 4s ease-in-out infinite;}
+#cgEpicOverlay[data-mood="battle"] #cgEpicFireGlow{animation:cgEpicFireBattle 1.5s ease-in-out infinite;}
+@keyframes cgEpicFireAscend{0%,100%{opacity:.7;transform:translateX(-50%) scale(1);}50%{opacity:1;transform:translateX(-50%) scale(1.06);}}
+@keyframes cgEpicFireBattle{0%,100%{opacity:.85;transform:translateX(-50%) scale(1);}50%{opacity:1;transform:translateX(-50%) scale(1.1);}}
+
+/* 火焰核心 */
+#cgEpicFireCore{position:absolute;left:50%;bottom:24%;transform:translateX(-50%);z-index:7;
+  width:28vmin;height:20vmin;border-radius:50%;
+  background:radial-gradient(ellipse at 50% 65%,rgba(255,240,170,.95),rgba(255,140,50,.8) 40%,transparent 75%);
+  filter:blur(10px);opacity:0;}
+#cgEpicOverlay[data-mood="ascend"] #cgEpicFireCore{animation:cgEpicCoreAscend 1.8s ease-in-out infinite;}
+#cgEpicOverlay[data-mood="battle"] #cgEpicFireCore{animation:cgEpicCoreBattle .7s ease-in-out infinite;}
+@keyframes cgEpicCoreAscend{0%,100%{opacity:.8;}50%{opacity:1;}}
+@keyframes cgEpicCoreBattle{0%,100%{opacity:.9;transform:translateX(-50%) scale(1);}50%{opacity:1;transform:translateX(-50%) scale(1.08);}}
+
+/* 教徽光柱（第二幕） */
+#cgEpicSigilBeam{position:absolute;left:50%;bottom:20%;transform:translateX(-50%);z-index:8;
+  width:60vmin;height:120vmin;pointer-events:none;opacity:0;
+  background:radial-gradient(ellipse at 50% 20%,rgba(255,180,80,.25),transparent 60%);}
+#cgEpicOverlay[data-mood="ascend"] #cgEpicSigilBeam{animation:cgEpicBeamIn 2.5s ease-out 1s forwards;}
+@keyframes cgEpicBeamIn{to{opacity:1;}}
+
+/* 战场红光（第三幕） */
+#cgEpicWarGlow{position:absolute;left:50%;bottom:30%;transform:translateX(-50%);z-index:1;
+  width:160vmin;height:70vmin;border-radius:50%;
+  background:radial-gradient(ellipse at center,rgba(255,40,20,.18),transparent 65%);
+  opacity:0;}
+#cgEpicOverlay[data-mood="battle"] #cgEpicWarGlow{animation:cgEpicWarIn 2s ease forwards;}
+@keyframes cgEpicWarIn{to{opacity:1;}}
+
+/* ---- 粒子：火星上升 ---- */
+#cgEpicSparks{position:absolute;inset:0;z-index:9;pointer-events:none;}
+#cgEpicSparks i{position:absolute;border-radius:50%;
+  box-shadow:0 0 6px rgba(255,150,60,.9);opacity:0;
+  animation:cgEpicSparkRise var(--dur,4s) linear infinite;}
+@keyframes cgEpicSparkRise{
+  0%{opacity:0;transform:translate(0,0) scale(1);}
+  10%{opacity:1;}
+  60%{opacity:.6;}
+  100%{opacity:0;transform:translate(var(--sx,0),var(--sy,-50vh)) scale(.2);}}
+
+/* ---- 粒子：灰烬飘落（第三幕） ---- */
+#cgEpicEmber{position:absolute;inset:0;z-index:10;pointer-events:none;}
+#cgEpicEmber i{position:absolute;width:2px;height:2px;background:rgba(255,200,120,.7);
+  border-radius:50%;opacity:0;
+  animation:cgEpicEmberFall var(--dur,6s) linear infinite;}
+@keyframes cgEpicEmberFall{
+  0%{opacity:0;transform:translate(0,-10vh) rotate(0deg);}
+  15%{opacity:.8;}
+  85%{opacity:.4;}
+  100%{opacity:0;transform:translate(var(--sx,40px),110vh) rotate(360deg);}}
+
+/* ---- 箭矢划过（第三幕） ---- */
+#cgEpicArrows{position:absolute;inset:0;z-index:11;pointer-events:none;}
+#cgEpicArrows i{position:absolute;width:60px;height:2px;
+  background:linear-gradient(to right,transparent,rgba(255,200,100,.9),transparent);
+  opacity:0;animation:cgEpicArrowFly var(--dur,1.2s) linear infinite;
+  box-shadow:0 0 8px rgba(255,180,80,.6);}
+@keyframes cgEpicArrowFly{
+  0%{opacity:0;transform:translate(-10vw,0) rotate(var(--angle,-8deg));}
+  10%{opacity:1;}
+  90%{opacity:.8;}
+  100%{opacity:0;transform:translate(110vw,var(--dy,30px)) rotate(var(--angle,-8deg));}}
+
+/* ---- 角色剪影（第二幕） ---- */
+#cgEpicHeroes{position:absolute;bottom:22%;left:0;right:0;z-index:8;
+  display:flex;justify-content:center;align-items:flex-end;gap:4vmin;pointer-events:none;}
+#cgEpicHeroes .hero{position:relative;opacity:0;
+  animation:cgEpicHeroRise 1.4s cubic-bezier(.22,.8,.36,1) forwards;
+  animation-delay:var(--d,0s);}
+@keyframes cgEpicHeroRise{
+  from{opacity:0;transform:translateY(40px) scale(.8);filter:blur(8px);}
+  to{opacity:1;transform:translateY(0) scale(1);filter:blur(0);}}
+#cgEpicHeroes .hero .body{width:var(--w,10vmin);height:var(--h,28vmin);
+  background:#090909;border-radius:40% 40% 0 0 / 30% 30% 0 0;
+  position:relative;box-shadow:0 0 20px rgba(255,120,40,.3);}
+#cgEpicHeroes .hero .body::before{content:'';position:absolute;top:-6%;left:50%;transform:translateX(-50%);
+  width:40%;height:18%;background:#0a0a0a;border-radius:50%;}
+#cgEpicHeroes .hero.zhang .body{--w:12vmin;--h:34vmin;
+  box-shadow:0 0 30px rgba(255,180,80,.5);}
+#cgEpicHeroes .hero.wei .body{--w:8vmin;--h:24vmin;}
+#cgEpicHeroes .hero.yin .body{--w:11vmin;--h:30vmin;}
+#cgEpicHeroes .hero.yang .body{--w:9vmin;--h:28vmin;}
+#cgEpicHeroes .hero .name{position:absolute;bottom:-2em;left:50%;transform:translateX(-50%);
+  font-size:clamp(10px,2.4vmin,18px);color:#e8c27a;white-space:nowrap;
+  text-shadow:0 0 10px rgba(255,180,80,.5);letter-spacing:.2em;}
+
+/* ---- 教徽"明"字 ---- */
+#cgEpicSigil{position:absolute;top:22%;left:50%;transform:translateX(-50%);z-index:12;
+  font-size:clamp(80px,22vmin,200px);line-height:1;color:#f0c268;
+  text-shadow:0 0 30px rgba(255,170,60,.6),0 0 80px rgba(255,120,30,.4);
+  opacity:0;pointer-events:none;}
+#cgEpicSigil.show{animation:cgEpicSigilIn 2s cubic-bezier(.22,.8,.36,1) forwards,
+  cgEpicSigilBreath 4s ease-in-out 2s infinite;}
+@keyframes cgEpicSigilIn{
+  0%{opacity:0;transform:translateX(-50%) scale(.4);filter:blur(20px);}
+  60%{opacity:1;filter:blur(0);}
+  100%{opacity:1;transform:translateX(-50%) scale(1);filter:blur(0);}}
+@keyframes cgEpicSigilBreath{
+  0%,100%{text-shadow:0 0 30px rgba(255,170,60,.6),0 0 80px rgba(255,120,30,.4);}
+  50%{text-shadow:0 0 50px rgba(255,200,90,.85),0 0 120px rgba(255,140,40,.6);}}
+
+/* ---- 文字区 ---- */
+#cgEpicText{position:absolute;top:14%;left:50%;transform:translateX(-50%);
+  width:min(86vw,880px);text-align:center;z-index:20;transition:opacity .8s ease;}
+#cgEpicText.out{opacity:0;}
+.cg-epic-chapter{font-size:clamp(11px,2.8vmin,24px);letter-spacing:.6em;text-indent:.6em;
+  color:rgba(255,200,140,.45);margin:0 0 1.8em;opacity:0;
+  animation:cgEpicLineIn 1.1s ease-out var(--d,0s) forwards;}
+.cg-epic-line{font-size:clamp(16px,4.8vmin,40px);line-height:2;color:#d8cfc0;margin:0 0 .25em;
+  opacity:0;animation:cgEpicLineIn 1.3s cubic-bezier(.22,.8,.36,1) var(--d,0s) forwards;
+  text-shadow:0 2px 16px rgba(0,0,0,.9),0 0 40px rgba(0,0,0,.5);}
+.cg-epic-line.big{font-size:clamp(30px,10.5vmin,88px);font-weight:700;
+  letter-spacing:.3em;text-indent:.3em;color:#ffc266;margin-top:.5em;
+  text-shadow:0 0 18px rgba(255,150,50,.6),0 0 50px rgba(255,110,30,.4);
+  animation:cgEpicLineIn 2.2s cubic-bezier(.22,.8,.36,1) var(--d,0s) forwards,
+    cgEpicEmber 3.5s ease-in-out var(--emberDelay,2.5s) infinite;}
+.cg-epic-line.big.fire{color:#ff9a4d;
+  text-shadow:0 0 22px rgba(255,120,40,.7),0 0 60px rgba(255,80,20,.5);}
+@keyframes cgEpicLineIn{
+  from{opacity:0;transform:translateY(24px);filter:blur(10px);}
+  to{opacity:1;transform:translateY(0);filter:blur(0);}}
+@keyframes cgEpicEmber{
+  0%,100%{text-shadow:0 0 18px rgba(255,150,50,.6),0 0 50px rgba(255,110,30,.4);}
+  50%{text-shadow:0 0 30px rgba(255,180,70,.9),0 0 70px rgba(255,130,40,.6);}}
+
+/* ---- 底部提示 ---- */
+#cgEpicHint{position:absolute;bottom:6%;left:0;right:0;text-align:center;
+  font-size:clamp(11px,2.8vmin,22px);letter-spacing:.3em;color:rgba(216,207,192,.8);
+  opacity:0;z-index:21;}
+#cgEpicHint.show{animation:cgEpicHintBreath 2.8s ease-in-out infinite;}
+@keyframes cgEpicHintBreath{0%,100%{opacity:.2;}50%{opacity:.7;}}
+
+/* ---- 跳过按钮 ---- */
+#cgEpicSkip{position:absolute;top:calc(10px + env(safe-area-inset-top,0px));
+  right:calc(12px + env(safe-area-inset-right,0px));z-index:22;
+  background:rgba(255,255,255,.05);color:rgba(255,255,255,.5);
+  border:1px solid rgba(255,255,255,.2);border-radius:999px;
+  font-size:clamp(11px,2.6vmin,18px);letter-spacing:.2em;padding:.5em 1.2em .5em 1.4em;
+  font-family:inherit;cursor:pointer;transition:all .3s;}
+#cgEpicSkip:hover{color:#fff;border-color:rgba(255,200,120,.6);background:rgba(255,200,120,.08);}
+
+/* ---- 火焰转场遮罩 ---- */
+#cgEpicFlash{position:absolute;inset:0;z-index:30;pointer-events:none;
+  background:radial-gradient(circle at center,#ff8a30,#ff4a10 40%,#000 80%);
+  opacity:0;}
+#cgEpicFlash.flash{animation:cgEpicFlashBurn 1.2s ease-out forwards;}
+@keyframes cgEpicFlashBurn{
+  0%{opacity:0;transform:scale(.6);}
+  40%{opacity:1;transform:scale(1.3);}
+  100%{opacity:0;transform:scale(2);}}
+
+/* ---- 结尾火焰吞噬 ---- */
+#cgEpicBurnEnd{position:absolute;inset:0;z-index:25;pointer-events:none;
+  background:radial-gradient(ellipse at 50% 70%,rgba(255,120,40,.8),rgba(255,60,10,.6) 30%,#000 75%);
+  opacity:0;}
+#cgEpicBurnEnd.burn{animation:cgEpicBurnEnd 1.4s ease-in forwards;}
+@keyframes cgEpicBurnEnd{to{opacity:1;}}
+
+/* ---- 震屏效果 ---- */
+#cgEpicOverlay.shake #cgEpicCamera{animation:cgEpicShake .5s ease-out;}
+@keyframes cgEpicShake{
+  0%,100%{transform:translate(0,0) scale(var(--cam-scale,1));}
+  20%{transform:translate(-4px,2px) scale(var(--cam-scale,1));}
+  40%{transform:translate(3px,-3px) scale(var(--cam-scale,1));}
+  60%{transform:translate(-2px,3px) scale(var(--cam-scale,1));}
+  80%{transform:translate(2px,-1px) scale(var(--cam-scale,1));}}
+`;
+
+/* ============================================================
+   引擎
+   ============================================================ */
+let _active = null;
+
+export function showOpeningCgEpic(onDone) {
+    if (_active) return;
+
+    // 注入样式
+    if (!document.getElementById('cgEpicStyles')) {
+        const st = document.createElement('style');
+        st.id = 'cgEpicStyles';
+        st.textContent = STYLE_CSS;
+        document.head.appendChild(st);
+    }
+
+    const overlay = document.createElement('div');
+    overlay.id = 'cgEpicOverlay';
+    overlay.dataset.mood = 'siege';
+    overlay.innerHTML = `
+        <div id="cgEpicCamera">
+            <div id="cgEpicStars" class="cg-layer"></div>
+            <div id="cgEpicWarGlow"></div>
+            <div id="cgEpicFarMountain" class="cg-layer"></div>
+            <div id="cgEpicEnemyTorches" class="cg-layer"></div>
+            <div id="cgEpicFireGlow"></div>
+            <div id="cgEpicSigilBeam"></div>
+            <div id="cgEpicNearMountain" class="cg-layer"></div>
+            <div id="cgEpicGate"></div>
+            <div id="cgEpicFireCore"></div>
+            <div id="cgEpicHeroes"></div>
+            <div id="cgEpicSigil"></div>
+            <div id="cgEpicSparks"></div>
+            <div id="cgEpicEmber"></div>
+            <div id="cgEpicArrows"></div>
+        </div>
+        <div id="cgEpicFlash"></div>
+        <div id="cgEpicBurnEnd"></div>
+        <div id="cgEpicText"></div>
+        <button id="cgEpicSkip" type="button">跳过 ›</button>
+        <div id="cgEpicHint"></div>
+    `;
+    document.body.appendChild(overlay);
+
+    const camera = overlay.querySelector('#cgEpicCamera');
+    const text = overlay.querySelector('#cgEpicText');
+    const hint = overlay.querySelector('#cgEpicHint');
+    const sparksBox = overlay.querySelector('#cgEpicSparks');
+    const emberBox = overlay.querySelector('#cgEpicEmber');
+    const arrowsBox = overlay.querySelector('#cgEpicArrows');
+    const heroesBox = overlay.querySelector('#cgEpicHeroes');
+    const sigil = overlay.querySelector('#cgEpicSigil');
+    const flash = overlay.querySelector('#cgEpicFlash');
+    const burnEnd = overlay.querySelector('#cgEpicBurnEnd');
+
+    const ctx = {
+        overlay, camera, text, hint, sparksBox, emberBox, arrowsBox, heroesBox, sigil, flash, burnEnd,
+        act: 0, linesReady: false, switching: false, readyTimer: null, done: false,
+        timers: [], intervals: []
+    };
+    _active = ctx;
+
+    function addTimer(fn, ms) {
+        const t = setTimeout(fn, ms);
+        ctx.timers.push(t);
+        return t;
+    }
+    function addInterval(fn, ms) {
+        const t = setInterval(fn, ms);
+        ctx.intervals.push(t);
+        return t;
+    }
+    function clearAllTimers() {
+        ctx.timers.forEach(t => clearTimeout(t));
+        ctx.intervals.forEach(t => clearInterval(t));
+        ctx.timers = [];
+        ctx.intervals = [];
+    }
+
+    /* ---- 星空（一次性生成） ---- */
+    const starsBox = overlay.querySelector('#cgEpicStars');
+    for (let i = 0; i < 20; i++) {
+        const s = document.createElement('i');
+        s.style.left = (Math.random() * 96 + 2) + '%';
+        s.style.top = (Math.random() * 45 + 2) + '%';
+        const d = 2.5 + Math.random() * 4.5;
+        s.style.setProperty('--tw', (0.05 + Math.random() * 0.2).toFixed(2));
+        s.style.animationDuration = d.toFixed(1) + 's';
+        s.style.animationDelay = (-Math.random() * d).toFixed(1) + 's';
+        s.style.transform = 'scale(' + (0.5 + Math.random() * 1.1).toFixed(2) + ')';
+        starsBox.appendChild(s);
+    }
+
+    /* ---- 敌军火把（第一幕） ---- */
+    const torchesBox = overlay.querySelector('#cgEpicEnemyTorches');
+    function buildTorches() {
+        torchesBox.innerHTML = '';
+        for (let i = 0; i < 28; i++) {
+            const t = document.createElement('i');
+            t.style.left = (Math.random() * 92 + 4) + '%';
+            t.style.top = (Math.random() * 80 + 10) + '%';
+            t.style.animationDelay = (-Math.random() * 1.2).toFixed(2) + 's';
+            const s = 0.5 + Math.random() * 1.2;
+            t.style.transform = 'scale(' + s.toFixed(1) + ')';
+            t.style.opacity = (0.4 + Math.random() * 0.6).toFixed(1);
+            torchesBox.appendChild(t);
+        }
+    }
+    buildTorches();
+
+    /* ---- 火星粒子 ---- */
+    function buildSparks(count, fast) {
+        sparksBox.innerHTML = '';
+        const colors = ['#ffd27d', '#ffb347', '#ff8c42', '#ff6b35', '#ffeb99'];
+        for (let i = 0; i < count; i++) {
+            const sp = document.createElement('i');
+            sp.style.left = 'calc(50% + ' + ((Math.random() * 160 - 80) | 0) + 'px)';
+            sp.style.bottom = (18 + Math.random() * 12) + '%';
+            sp.style.background = colors[i % colors.length];
+            const dur = (fast ? 2 : 3.5) + Math.random() * (fast ? 2.5 : 4);
+            sp.style.setProperty('--sx', ((Math.random() * 160 - 80) | 0) + 'px');
+            sp.style.setProperty('--sy', '-' + (35 + (Math.random() * 35 | 0)) + 'vh');
+            sp.style.setProperty('--dur', dur.toFixed(1) + 's');
+            sp.style.animationDelay = (-Math.random() * dur).toFixed(1) + 's';
+            const sz = (fast ? 2.2 : 1.8) + Math.random() * 2.8;
+            sp.style.width = sz.toFixed(1) + 'px';
+            sp.style.height = sz.toFixed(1) + 'px';
+            sparksBox.appendChild(sp);
+        }
+    }
+
+    /* ---- 灰烬飘落（第三幕） ---- */
+    function buildEmber() {
+        emberBox.innerHTML = '';
+        for (let i = 0; i < 20; i++) {
+            const e = document.createElement('i');
+            e.style.left = (Math.random() * 100) + '%';
+            const dur = 5 + Math.random() * 6;
+            e.style.setProperty('--dur', dur.toFixed(1) + 's');
+            e.style.setProperty('--sx', ((Math.random() * 120 - 60) | 0) + 'px');
+            e.style.animationDelay = (-Math.random() * dur).toFixed(1) + 's';
+            const sz = 1.5 + Math.random() * 2;
+            e.style.width = sz.toFixed(1) + 'px';
+            e.style.height = sz.toFixed(1) + 'px';
+            emberBox.appendChild(e);
+        }
+    }
+
+    /* ---- 箭矢（第三幕） ---- */
+    function buildArrows() {
+        arrowsBox.innerHTML = '';
+        for (let i = 0; i < 6; i++) {
+            const a = document.createElement('i');
+            a.style.top = (15 + Math.random() * 40) + '%';
+            const dur = 1 + Math.random() * 1.5;
+            a.style.setProperty('--dur', dur.toFixed(1) + 's');
+            a.style.setProperty('--dy', ((Math.random() * 60 + 20) | 0) + 'px');
+            a.style.setProperty('--angle', (-5 - Math.random() * 8).toFixed(1) + 'deg');
+            a.style.animationDelay = (Math.random() * 3).toFixed(1) + 's';
+            arrowsBox.appendChild(a);
+        }
+    }
+
+    /* ---- 角色剪影（第二幕） ---- */
+    function buildHeroes(heroNames) {
+        heroesBox.innerHTML = '';
+        const classes = ['zhang', 'wei', 'yin', 'yang'];
+        heroNames.forEach((name, i) => {
+            const h = document.createElement('div');
+            h.className = 'hero ' + (classes[i] || '');
+            h.style.setProperty('--d', (0.8 + i * 0.6) + 's');
+            h.innerHTML = '<div class="body"></div><div class="name">' + name + '</div>';
+            heroesBox.appendChild(h);
+        });
+    }
+
+    /* ---- 镜头控制 ---- */
+    function setCamera(zoom, panY) {
+        camera.style.setProperty('--cam-scale', zoom);
+        camera.style.transform = 'scale(' + zoom + ') translateY(' + panY + ')';
+    }
+
+    /* ---- 提示文字 ---- */
+    function setHint(txt) { hint.textContent = txt; hint.classList.add('show'); }
+    function clearHint() { hint.classList.remove('show'); }
+    function lastHint() { return ctx.act === ACTS.length - 1 ? '— 点击任意处 · 开战 —' : '— 点击任意处继续 —'; }
+
+    /* ---- 震屏 ---- */
+    function shake() {
+        overlay.classList.remove('shake');
+        void overlay.offsetWidth;
+        overlay.classList.add('shake');
+    }
+
+    /* ============================================================
+       渲染一幕
+       ============================================================ */
+    function renderAct(idx) {
+        const a = ACTS[idx];
+        ctx.act = idx;
+        ctx.linesReady = false;
+        ctx.switching = false;
+        clearHint();
+
+        // 切换 mood 驱动 CSS 状态
+        overlay.dataset.mood = a.mood;
+
+        // 镜头起始位置
+        setCamera(a.camera.zoom, a.camera.panY);
+
+        // 元素显隐
+        const showTorches = a.elements.includes('enemyTorches');
+        const showHeroes = a.elements.includes('heroSilhouettes');
+        const showSigil = a.elements.includes('sigilBeam');
+        const showEmber = a.elements.includes('emberStorm');
+        const showArrows = a.elements.includes('arrows');
+        const showGate = a.elements.includes('gateSilhouette');
+
+        overlay.querySelector('#cgEpicEnemyTorches').style.opacity = showTorches ? 1 : 0;
+        overlay.querySelector('#cgEpicGate').style.opacity = showGate ? 1 : 0;
+
+        // 火星
+        const sparkCounts = { siege: 6, ascend: 18, battle: 30 };
+        buildSparks(sparkCounts[a.mood] || 12, a.mood === 'battle');
+
+        // 灰烬
+        if (showEmber) buildEmber(); else emberBox.innerHTML = '';
+
+        // 箭矢
+        if (showArrows) buildArrows(); else arrowsBox.innerHTML = '';
+
+        // 角色
+        if (showHeroes && a.heroes) {
+            buildHeroes(a.heroes);
+        } else {
+            heroesBox.innerHTML = '';
+        }
+
+        // 教徽
+        if (showSigil && a.sigil) {
+            sigil.textContent = a.sigil;
+            addTimer(() => sigil.classList.add('show'), 2200);
+        } else {
+            sigil.classList.remove('show');
+            sigil.textContent = '';
+        }
+
+        // 镜头动画（延迟一点让元素先就位）
+        addTimer(() => {
+            camera.style.transition = 'transform ' + a.camera.duration + 's cubic-bezier(.22,.61,.36,1)';
+            setCamera(a.camera.endZoom, a.camera.endPanY);
+        }, 200);
+
+        // 渲染文字
+        text.classList.remove('out');
+        text.innerHTML = '';
+
+        let t = 0.4;
+        const ch = document.createElement('p');
+        ch.className = 'cg-epic-chapter';
+        ch.textContent = a.chapter;
+        ch.style.setProperty('--d', t + 's');
+        text.appendChild(ch);
+        t += 0.8;
+
+        for (const ln of a.lines) {
+            const p = document.createElement('p');
+            p.className = 'cg-epic-line' + (ln.big ? ' big' : '') + (ln.fire ? ' fire' : '');
+            p.textContent = ln.t;
+            const delay = ln.delay || 0.5;
+            t += delay;
+            p.style.setProperty('--d', t + 's');
+            if (ln.big) {
+                p.style.setProperty('--emberDelay', (t + 2.2) + 's');
+                // 大标题出现时震屏一下
+                addTimer(() => shake(), (t + 0.3) * 1000);
+            }
+            text.appendChild(p);
+        }
+
+        // 计算全部文字出现完的时间
+        const totalTime = t + 1;
+        ctx.readyTimer = addTimer(() => {
+            ctx.linesReady = true;
+            setHint(lastHint());
+        }, totalTime * 1000);
+    }
+
+    /* ============================================================
+       快进
+       ============================================================ */
+    function fastForward() {
+        clearTimeout(ctx.readyTimer);
+        ctx.timers = ctx.timers.filter(t => { clearTimeout(t); return false; });
+        // 文字立即出现
+        text.querySelectorAll('.cg-epic-line,.cg-epic-chapter').forEach(el => {
+            el.style.setProperty('--d', '0s');
+            el.style.setProperty('--emberDelay', '0.5s');
+            el.style.animationDuration = '0.3s';
+        });
+        // 角色立即出现
+        heroesBox.querySelectorAll('.hero').forEach(el => {
+            el.style.animationDelay = '0s';
+            el.style.animationDuration = '0.4s';
+        });
+        // 教徽立即出现
+        if (sigil.textContent) {
+            sigil.classList.add('show');
+            sigil.style.animationDuration = '0.5s';
+        }
+        ctx.linesReady = true;
+        addTimer(() => setHint(lastHint()), 400);
+    }
+
+    /* ============================================================
+       下一幕（带火焰转场）
+       ============================================================ */
+    function nextAct() {
+        ctx.switching = true;
+        clearHint();
+        text.classList.add('out');
+
+        // 火焰闪白转场
+        flash.classList.remove('flash');
+        void flash.offsetWidth;
+        flash.classList.add('flash');
+
+        addTimer(() => {
+            renderAct(ctx.act + 1);
+        }, 500);
+    }
+
+    /* ============================================================
+       结束（火焰吞噬画面）
+       ============================================================ */
+    function finish() {
+        if (ctx.done) return;
+        ctx.done = true;
+        clearAllTimers();
+
+        burnEnd.classList.add('burn');
+        overlay.classList.add('shake');
+
+        setTimeout(() => {
+            overlay.classList.add('hide');
+        }, 800);
+
+        setTimeout(() => {
+            overlay.remove();
+            _active = null;
+            markOpeningCgEpicDone();
+            if (typeof onDone === 'function') onDone();
+        }, 1800);
+    }
+
+    /* ============================================================
+       交互
+       ============================================================ */
+    overlay.addEventListener('click', () => {
+        if (ctx.done || ctx.switching) return;
+        if (!ctx.linesReady) { fastForward(); return; }
+        if (ctx.act < ACTS.length - 1) nextAct();
+        else finish();
+    });
+
+    overlay.querySelector('#cgEpicSkip').addEventListener('click', (e) => {
+        e.stopPropagation();
+        finish();
+    });
+
+    renderAct(0);
+}

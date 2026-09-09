@@ -3,24 +3,16 @@ export const VER = 'fx/86fx-butterfly-spider.js V6.0.0';
 
 import { GlobalStore } from '../infra/54-global-store.js';
 import { CAMP_TYPES } from '../infra/56-battle-enums.js';
+import { snapshotUnitCellRobust, getUnitCell } from './90fx-ref-manager.js';
 
 function wait(ms) { return new Promise(r => setTimeout(r, GlobalStore.get('fastForwardActive') ? 1 : ms)); }
 
 function getCellElement(unit) {
-    if (!unit || unit.pos == null) return null;
-    const grid = document.getElementById(unit.camp === CAMP_TYPES.ALLY ? 'allyGrid' : 'enemyGrid');
-    if (!grid) return null;
-    const order = unit.camp === CAMP_TYPES.ENEMY ? [7,8,9,4,5,6,1,2,3] : [1,2,3,4,5,6,7,8,9];
-    const idx = order.indexOf(unit.pos);
-    return idx >= 0 ? grid.children[idx] : null;
+    return getUnitCell(unit);
 }
 
 function getCellCenter(unit) {
-    if (!unit?.pos) return null;
-    const cell = getCellElement(unit);
-    if (!cell) return null;
-    const rect = cell.getBoundingClientRect();
-    return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2, width: rect.width, height: rect.height };
+    return snapshotUnitCellRobust(unit);
 }
 
 /**

@@ -1,5 +1,6 @@
 // V6.0.0 | ~11700 bytes | 2026-09-04 取消精简：特效/音效/错误面板/入口页全部随包发送
-export const VER = 'tools/106-ai-pack-config.js V6.0.0';
+// V6.0.2 | 2026-09-09 拆出 player/ 为独立「播放器」组（引擎 46→38）
+export const VER = 'tools/106-ai-pack-config.js V6.0.2';
 
 // AI 精简模式踢除清单（已弃用）
 // 2026-09-04 用户决定不再精简：特效/音效/错误面板/入口页全部随包发送。
@@ -85,13 +86,15 @@ export const ALL_PROJECT_FILES = [
     // 备注：README.md 已不再复制（网页端粘贴不需要它）；其余 MD 文档已归档到 文件汇总20260730/，不参与自动复制
 ];
 
-// 主题分组（合并为 4 大类）
-// 引擎：infra/core/player/modules/render/content + 入口页面（index、dev-index）
+// 主题分组（合并为 5 大类）
+// 引擎：infra/core/modules/render/content + 入口页面（index、dev-index）
+// 播放器：player（战斗执行→画面演出的独立子系统）
 // UI（画面特效等）：ui + fx
 // 工具：tools
 // 体检：tests
 export const FILE_GROUPS = [
-    { name: 'engine', displayName: '引擎', prefixes: ['../infra/', '../core/', '../player/', '../modules/', '../render/', '../content/', '../index.html', '../dev-index.html'] },
+    { name: 'engine', displayName: '引擎', prefixes: ['../infra/', '../core/', '../modules/', '../render/', '../content/', '../index.html', '../dev-index.html'] },
+    { name: 'player', displayName: '播放器', prefixes: ['../player/'] },
     { name: 'ui', displayName: 'UI（画面特效等）', prefixes: ['../ui/', '../fx/'] },
     { name: 'tools', displayName: '工具', prefixes: ['../tools/'] },
     { name: 'tests', displayName: '体检', prefixes: ['../tests/'] }
@@ -106,6 +109,10 @@ export const GROUP_PROMPTS = {
     'UI（画面特效等）': {
         before: '请深入分析 UI 与特效代码（血条渲染、弹窗对话框、飘字弹幕、飞箭冲撞、换位击退、子弹时间）。无需输出详细分析，收到全部代码后直接开始协助开发。',
         after: 'UI 与特效代码发送完毕。'
+    },
+    '播放器': {
+        before: '请深入分析战斗播放器层（战斗日志播放、攻击组渲染、事件处理、动画调度、结算渲染）。播放器是战斗引擎与画面演出之间的独立子系统，重点理解事件→事实→渲染的链路。无需输出详细分析，收到全部代码后直接开始协助开发。',
+        after: '播放器层代码发送完毕。'
     },
     '工具': {
         before: '请深入分析工具箱代码（自动战斗、工具箱UI、日志复盘、海克斯仪表盘、职业平衡分析、精英评测、商店）。无需输出详细分析，收到全部代码后直接开始协助开发。',

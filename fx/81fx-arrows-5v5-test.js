@@ -3,6 +3,7 @@ export const VER = 'fx/81fx-arrows-5v5-test.js V6.0.0';
 
 import { markGridShake } from '../render/32-grid-render.js';
 import { CAMP_TYPES } from '../infra/56-battle-enums.js';
+import { snapshotUnitCell, snapshotUnitCellRobust } from './90fx-ref-manager.js';
 
 function applyWholeShake(elements, durationMs, basePositions, angle, getPausedFn, onComplete) {
     let start = null;
@@ -11,15 +12,13 @@ function applyWholeShake(elements, durationMs, basePositions, angle, getPausedFn
 }
 
 export function showRangedArrow(unitA, unitD, speed, getPausedFn, isMeteor = false, onHit = null, isMiss = false) {
-    let gridAId = unitA.camp===CAMP_TYPES.ALLY?'allyGrid':'enemyGrid', gridDId = unitD.camp===CAMP_TYPES.ALLY?'allyGrid':'enemyGrid';
-    let gridA = document.getElementById(gridAId), gridD = document.getElementById(gridDId);
-    let orderA = unitA.camp===CAMP_TYPES.ENEMY?[7,8,9,4,5,6,1,2,3]:[1,2,3,4,5,6,7,8,9], orderD = unitD.camp===CAMP_TYPES.ENEMY?[7,8,9,4,5,6,1,2,3]:[1,2,3,4,5,6,7,8,9];
-    let idxA = orderA.indexOf(unitA.pos), idxD = orderD.indexOf(unitD.pos);
-    if(idxA<0||idxD<0||!gridA.children[idxA]||!gridD.children[idxD]) return;
-    let rA = gridA.children[idxA].getBoundingClientRect(), rD = gridD.children[idxD].getBoundingClientRect();
-    let sx=rA.left+rA.width/2, sy=rA.top+rA.height/2, ex=rD.left+rD.width/2, ey=rD.top+rD.height/2;
-    let dx=ex-sx, dy=ey-sy, dist=Math.sqrt(dx*dx+dy*dy); if(dist<1) return;
-    let angle = Math.atan2(dy, dx);
+    const rectA = snapshotUnitCell(unitA);
+    const rectD = snapshotUnitCell(unitD);
+    if (!rectA || !rectD) return;
+    const sx = rectA.x, sy = rectA.y, ex = rectD.x, ey = rectD.y;
+    const dx = ex - sx, dy = ey - sy, dist = Math.sqrt(dx*dx+dy*dy);
+    if (dist < 1) return;
+    const angle = Math.atan2(dy, dx);
 
     // 流星赶月参数
     let arrowLen = isMeteor ? 45 : 40;
@@ -100,21 +99,11 @@ export function showRangedArrow(unitA, unitD, speed, getPausedFn, isMeteor = fal
 
 // 流星赶月分裂飞箭：向被溅射单位发射小型橙色飞箭
 export async function showSplashArrows(attacker, primaryTarget, splashTargets, speed, getPausedFn) {
-    let gridAId = attacker.camp===CAMP_TYPES.ALLY?'allyGrid':'enemyGrid';
-    let gridA = document.getElementById(gridAId);
-    let orderA = attacker.camp===CAMP_TYPES.ENEMY?[7,8,9,4,5,6,1,2,3]:[1,2,3,4,5,6,7,8,9];
-    let idxA = orderA.indexOf(attacker.pos);
-    if(idxA<0||!gridA.children[idxA]) return;
-    let rA = gridA.children[idxA].getBoundingClientRect();
-    let ax = rA.left + rA.width/2, ay = rA.top + rA.height/2;
-    
-    let primaryGridId = primaryTarget.camp===CAMP_TYPES.ALLY?'allyGrid':'enemyGrid';
-    let primaryGrid = document.getElementById(primaryGridId);
-    let orderPrimary = primaryTarget.camp===CAMP_TYPES.ENEMY?[7,8,9,4,5,6,1,2,3]:[1,2,3,4,5,6,7,8,9];
-    let idxPrimary = orderPrimary.indexOf(primaryTarget.pos);
-    if(idxPrimary<0||!primaryGrid.children[idxPrimary]) return;
-    let rPrimary = primaryGrid.children[idxPrimary].getBoundingClientRect();
-    let px = rPrimary.left + rPrimary.width/2, py = rPrimary.top + rPrimary.height/2;
+    const rectA = snapshotUnitCell(attacker);
+    const rectPrimary = snapshotUnitCell(primaryTarget);
+    if (!rectA || !rectPrimary) return;
+    const ax = rectA.x, ay = rectA.y;
+    const px = rectPrimary.x, py = rectPrimary.y;
     
     // 蓄力停顿：在主目标位置显示金色光圈，模拟流星命中后的能量聚集
     const ring = document.createElement('div');
@@ -128,36 +117,32 @@ export async function showSplashArrows(attacker, primaryTarget, splashTargets, s
     await new Promise(r => setTimeout(r, Math.max(100, pauseDuration)));
 
     splashTargets.forEach(st => {
-        let gridDId = st.camp===CAMP_TYPES.ALLY?'allyGrid':'enemyGrid';
-        let gridD = document.getElementById(gridDId);
-        let orderD = st.camp===CAMP_TYPES.ENEMY?[7,8,9,4,5,6,1,2,3]:[1,2,3,4,5,6,7,8,9];
-        let idxD = orderD.indexOf(st.pos);
-        if(idxD<0||!gridD.children[idxD]) return;
-        let rD = gridD.children[idxD].getBoundingClientRect();
-        let sx = px, sy = py;
-        let ex = rD.left + rD.width/2, ey = rD.top + rD.height/2;
-        let dx = ex - sx, dy = ey - sy, dist = Math.sqrt(dx*dx+dy*dy);
+        const rectD = snapshotUnitCell(st);
+        if (!rectD) return;
+        const sx = px, sy = py;
+        const ex = rectD.x, ey = rectD.y;
+        const dx = ex - sx, dy = ey - sy, dist = Math.sqrt(dx*dx+dy*dy);
         if(dist<1) return;
         
-        let angle = Math.atan2(dy, dx);
-        let arrowLen = 25;
-        let flyDuration = 350 * (speed / 1000);
+        const angle = Math.atan2(dy, dx);
+        const arrowLen = 25;
+        const flyDuration = 350 * (speed / 1000);
         
-        let finalStartX = ex - Math.cos(angle) * arrowLen;
-        let finalStartY = ey - Math.sin(angle) * arrowLen;
+        const finalStartX = ex - Math.cos(angle) * arrowLen;
+        const finalStartY = ey - Math.sin(angle) * arrowLen;
         
-        let container = document.createElement('div');
+        const container = document.createElement('div');
         container.setAttribute('data-fx', 'temporary');
         container.style.position = 'fixed'; container.style.left = sx + 'px'; container.style.top = sy + 'px';
         container.style.transformOrigin = '0 50%'; container.style.transform = `rotate(${angle}rad)`;
         container.style.zIndex = '10003'; container.style.pointerEvents = 'none';
         
-        let line = document.createElement('div');
+        const line = document.createElement('div');
         line.style.position = 'absolute'; line.style.height = '2.5px'; line.style.background = '#FF8C00';
         line.style.width = arrowLen + 'px'; line.style.left = '0px'; line.style.top = '-1.25px';
         container.appendChild(line);
         
-        let head = document.createElement('div');
+        const head = document.createElement('div');
         head.style.position = 'absolute'; head.style.width = '0'; head.style.height = '0';
         head.style.borderLeft = '8px solid #FF8C00';
         head.style.borderTop = '4px solid transparent'; head.style.borderBottom = '4px solid transparent';
@@ -191,34 +176,14 @@ export async function showSplashArrows(attacker, primaryTarget, splashTargets, s
 export function showBoneClaw(unitA, unitD, speed, getPausedFn, onHit, opts) {
     if (GlobalStore.get('fastForwardActive')) { if (onHit) onHit(); return; }
     opts = opts || {};
-    let gridAId = unitA.camp===CAMP_TYPES.ALLY?'allyGrid':'enemyGrid', gridDId = unitD.camp===CAMP_TYPES.ALLY?'allyGrid':'enemyGrid';
-    let gridA = document.getElementById(gridAId), gridD = document.getElementById(gridDId);
-    let orderA = unitA.camp===CAMP_TYPES.ENEMY?[7,8,9,4,5,6,1,2,3]:[1,2,3,4,5,6,7,8,9];
-    let orderD = unitD.camp===CAMP_TYPES.ENEMY?[7,8,9,4,5,6,1,2,3]:[1,2,3,4,5,6,7,8,9];
-    let idxA = orderA.indexOf(unitA.pos), idxD = orderD.indexOf(unitD.pos);
-    if(idxA<0||idxD<0||!gridA||!gridD) { if (onHit) onHit(); return; }
-    // 获取格子位置，如果格子不存在或rect为0则用grid整体rect推算
-    let cellA = gridA.children[idxA], cellD = gridD.children[idxD];
-    let rA = cellA ? cellA.getBoundingClientRect() : null;
-    let rD = cellD ? cellD.getBoundingClientRect() : null;
-    // 如果cell rect为0（手机端可能未渲染），用grid整体rect推算
-    if (!rA || (rA.width === 0 && rA.height === 0)) {
-        let gridRect = gridA.getBoundingClientRect();
-        let cellW = gridRect.width / 3, cellH = gridRect.height / 3;
-        let col = (idxA % 3), row = Math.floor(idxA / 3);
-        rA = { left: gridRect.left + col * cellW, top: gridRect.top + row * cellH, width: cellW, height: cellH };
-    }
-    if (!rD || (rD.width === 0 && rD.height === 0)) {
-        let gridRect = gridD.getBoundingClientRect();
-        let cellW = gridRect.width / 3, cellH = gridRect.height / 3;
-        let col = (idxD % 3), row = Math.floor(idxD / 3);
-        rD = { left: gridRect.left + col * cellW, top: gridRect.top + row * cellH, width: cellW, height: cellH };
-    }
-    let sx=rA.left+rA.width/2, sy=rA.top+rA.height/2, ex=rD.left+rD.width/2, ey=rD.top+rD.height/2;
-    let dx=ex-sx, dy=ey-sy, dist=Math.sqrt(dx*dx+dy*dy);
-    if(dist<1) { if (onHit) onHit(); return; }
-    let angle = Math.atan2(dy, dx);
-    let chargeTime = 500 * (speed / 1000);
+    const rectA = snapshotUnitCellRobust(unitA);
+    const rectD = snapshotUnitCellRobust(unitD);
+    if (!rectA || !rectD) { if (onHit) onHit(); return; }
+    const sx = rectA.x, sy = rectA.y, ex = rectD.x, ey = rectD.y;
+    const dx = ex - sx, dy = ey - sy, dist = Math.sqrt(dx*dx+dy*dy);
+    if (dist < 1) { if (onHit) onHit(); return; }
+    const angle = Math.atan2(dy, dx);
+    const chargeTime = 500 * (speed / 1000);
     // 飞行时间按距离给保底，最少 700ms
     // 但小昭衍生技交替触发时会拖慢节奏，此时临时加速到 450ms
     let baseMin = 700;
@@ -296,27 +261,13 @@ export function showBoneClaw(unitA, unitD, speed, getPausedFn, onHit, opts) {
                     claw.style.opacity = '0';
                     setTimeout(() => { if (claw.parentNode) claw.remove(); }, 300);
                 }, 500);
-                // 格子大幅颤动
-                if (cellD) {
-                    let shakeStart = null;
-                    const shakeDur = 600;
-                    const origTransform = cellD.style.transform || '';
-                    function shakeFn(ts2) {
-                        if (!shakeStart) shakeStart = ts2;
-                        let elapsed = ts2 - shakeStart;
-                        if (elapsed >= shakeDur) {
-                            cellD.style.transform = origTransform;
-                            // 红色碎开消失
-                            triggerExecuteShatter(cellD);
-                            return;
-                        }
-                        let prog = elapsed / shakeDur;
-                        let amp = 8 * (1 - prog);
-                        cellD.style.transform = `translate(${(Math.random()-0.5)*amp*2}px, ${(Math.random()-0.5)*amp*2}px)`;
-                        requestAnimationFrame(shakeFn);
-                    }
-                    requestAnimationFrame(shakeFn);
-                }
+                // 格子大幅颤动（由 markGridShake 处理），然后触发斩杀碎片
+                markGridShake(unitD.uid, 600);
+                // 等待颤动结束后，基于最新 rect 触发碎片
+                setTimeout(() => {
+                    const finalRectD = snapshotUnitCellRobust(unitD);
+                    if (finalRectD) triggerExecuteShatter(finalRectD);
+                }, 600);
             } else {
                 // 短暂停留后移除爪
                 setTimeout(() => { if (claw.parentNode) claw.remove(); }, pauseAfterHit);
@@ -325,17 +276,9 @@ export function showBoneClaw(unitA, unitD, speed, getPausedFn, onHit, opts) {
     }
 }
 
-// 斩杀特效：格子红色闪光后碎开消失
-function triggerExecuteShatter(defCell) {
-    if (!defCell) return;
-    // 强制可见以避免 getBoundingClientRect 返回全零
-    const prevVisibility = defCell.style.visibility;
-    const prevDisplay = defCell.style.display;
-    defCell.style.visibility = 'visible';
-    defCell.style.display = 'flex';
-    let rect = defCell.getBoundingClientRect();
-    defCell.style.visibility = prevVisibility;
-    defCell.style.display = prevDisplay;
+// 斩杀特效：基于 rect 生成红色闪光和碎片（不持有 DOM 引用）
+function triggerExecuteShatter(rect) {
+    if (!rect) return;
     // 红色覆盖层
     let redFlash = document.createElement('div');
     redFlash.setAttribute('data-fx', 'temporary');
