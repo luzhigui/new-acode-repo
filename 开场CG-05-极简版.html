@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>开场CG·极简版 · 光明顶5v5</title>
+<style>
+  html, body { margin:0; height:100%; background:#000; overflow:hidden; color:#fff;
+    font-family:'PingFang SC','Microsoft YaHei','KaiTi','STKaiti','Noto Serif SC',serif;
+    -webkit-user-select:none; user-select:none; }
+  #bar { position:fixed; top:0; left:0; right:0; z-index:9; display:flex; align-items:center;
+    padding:10px 14px; background:rgba(0,0,0,.85); color:#888; font-size:13px; }
+  #bar b { color:#fff; font-weight:400; letter-spacing:.2em; }
+  #bar .sp { flex:1; }
+  #bar button { background:transparent; border:1px solid #555; color:#aaa; border-radius:4px;
+    padding:4px 14px; cursor:pointer; font-size:12px; }
+  #bar button:hover { border-color:#fff; color:#fff; }
+  #stage { position:absolute; inset:0; cursor:pointer; }
+  .line { position:absolute; left:50%; top:46%; transform:translate(-50%,-50%);
+    text-align:center; white-space:nowrap; opacity:0; transition:opacity .7s ease; }
+  .line .main { font-size:min(6.5vw,50px); letter-spacing:.28em; text-indent:.28em; }
+  .line .sub  { font-size:min(3.4vw,24px); letter-spacing:.14em; text-indent:.14em; color:#c9c9c9; margin-top:.6em; }
+  .line.show { opacity:1; }
+  #startBtn { position:absolute; left:50%; top:58%; transform:translate(-50%,-50%);
+    display:none; background:transparent; color:#fff; border:1px solid #fff; border-radius:999px;
+    padding:14px 48px; font-size:min(4vw,26px); letter-spacing:.4em; text-indent:.4em;
+    cursor:pointer; font-family:inherit; transition:all .3s; }
+  #startBtn.show { display:inline-block; }
+  #startBtn:hover { background:#fff; color:#000; }
+  #endTip { position:absolute; left:0; right:0; bottom:8%; text-align:center;
+    color:#666; font-size:13px; letter-spacing:.2em; display:none; }
+  #endTip.show { display:block; }
+  #hint { position:absolute; left:0; right:0; bottom:6%; text-align:center;
+    color:#555; font-size:12px; letter-spacing:.2em; opacity:0; transition:opacity 1s; }
+  #hint.show { opacity:1; animation:hintPulse 2.6s ease-in-out infinite; }
+  @keyframes hintPulse { 0%,100%{opacity:.25;} 50%{opacity:.65;} }
+</style>
+</head>
+<body>
+  <div id="bar"><b>开 场 CG · 极 简 版</b><span class="sp"></span><button id="replay" type="button">重播</button></div>
+  <div id="stage"><div id="startBtn">开始游戏</div><div id="endTip">（正式版将从这里进入游戏）</div><div id="hint">点击任意处继续</div></div>
+
+<script>
+(function(){
+  'use strict';
+  // 极简版：黑底白字，简要世界观 → 引入身份 → 引入游戏 → 开始
+  var LINES = [
+    { main:'元末乱世，群雄并起。' },
+    { main:'六大派合围光明顶，', sub:'明教危在旦夕。' },
+    { main:'你临危受命，继任教主。' },
+    { main:'点将布阵，', sub:'率明教五人对阵五大派。' },
+    { main:'九宫格上，一决生死。' }
+  ];
+
+  var stage  = document.getElementById('stage');
+  var startBtn = document.getElementById('startBtn');
+  var endTip  = document.getElementById('endTip');
+  var hint    = document.getElementById('hint');
+
+  var idx = 0, cur = null, timers = [];
+  function clearT(){ timers.forEach(clearTimeout); timers = []; }
+
+  function showLine(i){
+    if(i >= LINES.length){ showStart(); return; }
+    if(cur) cur.classList.remove('show');
+    var d = document.createElement('div');
+    d.className = 'line';
+    d.innerHTML = '<div class="main">' + LINES[i].main + '</div>' +
+                  (LINES[i].sub ? '<div class="sub">' + LINES[i].sub + '</div>' : '');
+    stage.insertBefore(d, startBtn);
+    cur = d;
+    // 触发过渡
+    void d.offsetWidth;
+    d.classList.add('show');
+    idx = i + 1;
+    hint.classList.add('show');
+  }
+
+  function showStart(){
+    if(cur) cur.classList.remove('show');
+    hint.classList.remove('show');
+    startBtn.classList.add('show');
+    endTip.classList.add('show');
+  }
+
+  function next(){
+    clearT();
+    showLine(idx);
+  }
+
+  function reset(){
+    clearT();
+    idx = 0;
+    // 清空所有 line
+    stage.querySelectorAll('.line').forEach(function(e){ e.remove(); });
+    startBtn.classList.remove('show');
+    endTip.classList.remove('show');
+    hint.classList.remove('show');
+    cur = null;
+    showLine(0);
+  }
+
+  stage.addEventListener('click', function(e){
+    if(e.target === startBtn) return;
+    if(startBtn.classList.contains('show')){
+      // 演示结束动作：重新开始（正式版此处进入游戏）
+      reset();
+    } else {
+      next();
+    }
+  });
+
+  startBtn.addEventListener('click', function(){
+    reset(); // demo 中模拟"重新开始"，正式版将进入游戏
+  });
+
+  document.getElementById('replay').addEventListener('click', reset);
+
+  reset();
+})();
+</script>
+</body>
+</html>
