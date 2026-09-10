@@ -7,7 +7,8 @@
 <style>
   html, body { margin:0; height:100%; background:#000; overflow:hidden; color:#fff;
     font-family:'PingFang SC','Microsoft YaHei','KaiTi','STKaiti','Noto Serif SC',serif;
-    -webkit-user-select:none; user-select:none; }
+    -webkit-user-select:none; user-select:none; -webkit-tap-highlight-color:transparent; }
+  button{-webkit-tap-highlight-color:transparent; }
   #bar { position:fixed; top:0; left:0; right:0; z-index:9; display:flex; align-items:center;
     padding:10px 14px; background:rgba(0,0,0,.85); color:#888; font-size:13px; }
   #bar b { color:#fff; font-weight:400; letter-spacing:.2em; }
@@ -110,11 +111,12 @@
     }
   });
 
-  startBtn.addEventListener('click', function(){
+  startBtn.addEventListener('pointerdown', function(e){
+    e.stopPropagation();
     reset(); // demo 中模拟"重新开始"，正式版将进入游戏
   });
 
-  document.getElementById('replay').addEventListener('click', reset);
+  document.getElementById('replay').addEventListener('pointerdown', reset);
 
   reset();
 })();

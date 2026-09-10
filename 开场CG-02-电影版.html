@@ -673,7 +673,7 @@
             else finish();
         });
 
-        overlay.querySelector('#cgEpicSkip').addEventListener('click', function (e) {
+        overlay.querySelector('#cgEpicSkip').addEventListener('pointerdown', function (e) {
             e.stopPropagation();
             finish();
         });
@@ -686,7 +686,7 @@
 
     document.addEventListener('DOMContentLoaded', function () {
         showOpeningCgEpic();
-        document.getElementById('btnReplay').addEventListener('click', function () {
+        document.getElementById('btnReplay').addEventListener('pointerdown', function () {
             showOpeningCgEpic();
         });
     });

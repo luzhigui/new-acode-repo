@@ -444,7 +444,7 @@ function playCG(container, startAct, onDone) {
         if (ctx.act < ACTS.length - 1) nextAct();
         else finish();
     });
-    el.querySelector('.v2-skip').addEventListener('click', e => {
+    el.querySelector('.v2-skip').addEventListener('pointerdown', e => {
         e.stopPropagation();
         finish();
     });
