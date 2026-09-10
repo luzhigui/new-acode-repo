@@ -56,6 +56,17 @@ export function isBlocked(unit, allies) {
     return unit.pos > front;
 }
 
+// 能否被选中：存活 + 未被标记不可选 + 不处于飞天/附身状态
+// 供成昆模仿有效性、混乱目标校验、锁定目标校验等共用
+export function canBeTargeted(unit) {
+    if (!unit || !unit.alive) return false;
+    if (unit.state && unit.state._untargetable) return false;
+    if (unit.state && (unit.state._flyMode === 'butterfly' || unit.state._flyMode === 'spider')) return false;
+    if (unit.state && unit.state._spiderFlying) return false;
+    if (unit._fsm && (unit._fsm.is('attached') || unit._fsm.is('flying'))) return false;
+    return true;
+}
+
 export function getFlyDodgeRate(unit, attacker) {
     const FLY_BASE_DODGE = C.BASE_DODGE_FLY || 0.15;
     if (unit.isWei) return FLY_BASE_DODGE;

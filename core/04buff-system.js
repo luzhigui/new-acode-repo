@@ -158,10 +158,10 @@ export function submitWindAssaultDeclaration(data) {
             const oldPos = target.pos;
             if (behindUnit) {
                 const behindOldPos = behindUnit.pos;
-                swapUnitPositions(target, behindUnit);
+                swapUnitPositions(target, behindUnit, log);
                 log.push({ factType: FACT_TYPES.WIND_ASSAULT_PUSH, data: { label, target: { uid: target.uid, name: target.name }, behindUnit: { uid: behindUnit.uid, name: behindUnit.name }, oldPos, behindPos, behindOldPos } });
             } else {
-                moveUnitPosition(target, behindPos);
+                moveUnitPosition(target, behindPos, log);
                 log.push({ factType: FACT_TYPES.WIND_ASSAULT_PUSH, data: { label, target: { uid: target.uid, name: target.name }, behindUnit: null, oldPos, behindPos } });
             }
         }

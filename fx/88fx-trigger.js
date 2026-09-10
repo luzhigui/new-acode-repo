@@ -8,6 +8,13 @@ import { STORE_ACTION_TYPES, FLASH_TYPES, ROLE_TYPES } from '../infra/56-battle-
 import { showDanmaku, showDamageFloat } from './80fx-common-5v5-test.js';
 import { showRangedArrow } from './81fx-arrows-5v5-test.js';
 import { showMeleeCrash, showMeleeDodge, showMeleeMiss } from './82fx-crash-5v5-test.js';
+import { markGridShake } from '../render/32-grid-render.js';
+
+// 颤动规则单一入口：目前仅远程飞箭命中触发，未来调整规则只改此处
+export function shakeTarget(uid, durationMs = 350) {
+    if (GlobalStore.get('fastForwardActive')) return;
+    markGridShake(uid, durationMs);
+}
 
 function getPausedState() {
     const ctx = GlobalStore.get('playerContext');
@@ -38,6 +45,7 @@ export function _triggerFX(fxSnapshot, unitA, unitD, isDead, isDodge, isMiss, is
                 showRangedArrow(unitA, unitD, speed, getPausedState, false, null, true);
             } else if (!isDodge) {
                 showRangedArrow(unitA, unitD, speed, getPausedState, false, () => {
+                    shakeTarget(unitD.uid, 350);
                     if (!GlobalStore.get('fastForwardActive')) showDamageFloat(unitD, dmg);
                 });
             }

@@ -77,9 +77,7 @@ export function showRangedArrow(unitA, unitD, speed, getPausedFn, isMeteor = fal
             container.style.left = curStartX + 'px'; container.style.top = curStartY + 'px';
             if (p < 1) { requestAnimationFrame(flyStep); } else {
                 container.style.left = curStartX + 'px'; container.style.top = curStartY + 'px';
-                // 命中颤动：交给渲染层 markGridShake——renderGrid 重建也带 .shake（老 CSS 关键帧横移），
-                //   不再直接改格子 DOM/overlay，避免 grid 重建掐掉颤动
-                markGridShake(unitD.uid, 350);
+                // 命中颤动由 88fx-trigger 统一决策，本函数只负责动画
                 if (onHit) onHit();
 
                 // 流星赶月：命中后显示蓄力光圈
@@ -98,7 +96,7 @@ export function showRangedArrow(unitA, unitD, speed, getPausedFn, isMeteor = fal
 }
 
 // 流星赶月分裂飞箭：向被溅射单位发射小型橙色飞箭
-export async function showSplashArrows(attacker, primaryTarget, splashTargets, speed, getPausedFn) {
+export async function showSplashArrows(attacker, primaryTarget, splashTargets, speed, getPausedFn, onHit) {
     const rectA = snapshotUnitCell(attacker);
     const rectPrimary = snapshotUnitCell(primaryTarget);
     if (!rectA || !rectPrimary) return;
@@ -163,8 +161,8 @@ export async function showSplashArrows(attacker, primaryTarget, splashTargets, s
             if (p < 1) {
                 requestAnimationFrame(flyStep);
             } else {
-                // 命中颤动：交给渲染层 markGridShake（同主箭修复）
-                markGridShake(st.uid, 300);
+                // 命中颤动由调用方统一决策
+                if (onHit) onHit(st);
                 setTimeout(() => { if (container.parentNode) container.remove(); }, 600);
             }
         }
@@ -261,9 +259,7 @@ export function showBoneClaw(unitA, unitD, speed, getPausedFn, onHit, opts) {
                     claw.style.opacity = '0';
                     setTimeout(() => { if (claw.parentNode) claw.remove(); }, 300);
                 }, 500);
-                // 格子大幅颤动（由 markGridShake 处理），然后触发斩杀碎片
-                markGridShake(unitD.uid, 600);
-                // 等待颤动结束后，基于最新 rect 触发碎片
+                // 不颤动，直接触发斩杀碎片
                 setTimeout(() => {
                     const finalRectD = snapshotUnitCellRobust(unitD);
                     if (finalRectD) triggerExecuteShatter(finalRectD);

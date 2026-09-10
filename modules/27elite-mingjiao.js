@@ -9,7 +9,9 @@ import { spiderTransform, spiderReturn } from '../modules/20elite-skills.js';
 import { checkZhangSwitch, emitEvent, applyStatChange, applyMaxHpChange, getBattleRng, addMod, removeModsByGroup } from '../core/13battle-shared.js';
 import { eventBus, EXECUTION_LAYER as L, EFFECT_TYPES } from '../infra/50-event-bus.js';
 import { StateMachine } from '../infra/51-core-utils.js';
-import { FACT_TYPES, BUFF_TYPES, UNIT_EVENT_TYPES, CAMP_TYPES, ROLE_TYPES, SIGNAL_TYPES } from '../infra/56-battle-enums.js';
+import { FACT_TYPES, BUFF_TYPES, UNIT_EVENT_TYPES, CAMP_TYPES, ROLE_TYPES, SIGNAL_TYPES, STATE_CHANGE_TYPES } from '../infra/56-battle-enums.js';
+import { emitStateChange } from '../infra/59-state-change.js';
+import { watchUnit } from '../core/19unit-watch.js';
 
 // 2026-09-02 定案：本文件的 FSM（张无忌/小昭·姊/小昭·妹）不做声明化、不搬表。
 //   理由：有状态机的角色仅 3 个，转移规则在组件内一眼可见；声明化只能挪骨架、
@@ -69,36 +71,18 @@ export function createZhangWujiComponent() {
                 if (data.unit.uid !== zhang.uid) return;
                 submitZhangJiuYangDeclaration(data.unit, data.target, { dmg: data.dmg }, data.group, A, data.log, data);
             });
-            // FSM 切换判定保留事件路（状态机迁移非数值结算）
-            function submitZhangRangeCheckDeclaration(data) {
-                if (zhang && zhang.alive && !zhang.state._zhangSwitched && fsm.is('ranged')) {
-                    const col = (zhang.pos - 1) % 3;
-                    const hasFrontAlly = A.some(c => c.alive && !c.isHorse && c.pos === 1 + col && c.uid !== zhang.uid);
-                    if (!hasFrontAlly) fsm.transition('switching');
+            // 前排切换判定：交给裁判。任何单位状态变化都会触发重判，条件翻转的瞬间切换。
+            // 不再订阅死亡/换位/回合开始三个独立信号——那些漏发就 bug，且回合开始兜底违背实时切换语义。
+            watchUnit(zhang, () => {
+                // 条件：存活 + 尚未切换 + 处于远程形态 + 前排无人
+                if (!zhang.alive || zhang.state._zhangSwitched || !fsm.is('ranged')) return false;
+                const col = (zhang.pos - 1) % 3;
+                const hasFrontAlly = A.some(c => c.alive && !c.isHorse && c.pos === 1 + col && c.uid !== zhang.uid);
+                return !hasFrontAlly;
+            }, (shouldSwitch, trigger) => {
+                if (shouldSwitch && fsm.is('ranged')) {
+                    fsm.transition('switching', { log: trigger && trigger.log });
                 }
-            }
-            function submitZhangSwitchOnDeathDeclaration(data) {
-                if (zhang && zhang.alive && !zhang.state._zhangSwitched && fsm.is('ranged')) {
-                    const col = (zhang.pos - 1) % 3;
-                    const hasFrontAlly = A.some(c => c.alive && !c.isHorse && c.pos === 1 + col && c.uid !== zhang.uid);
-                    if (!hasFrontAlly) fsm.transition('switching', { log: data && data.log });
-                }
-            }
-            function submitZhangSwitchOnSwapDeclaration(data) {
-                if (zhang && zhang.alive && !zhang.state._zhangSwitched && fsm.is('ranged')) {
-                    const col = (zhang.pos - 1) % 3;
-                    const hasFrontAlly = A.some(c => c.alive && !c.isHorse && c.pos === 1 + col && c.uid !== zhang.uid);
-                    if (!hasFrontAlly) fsm.transition('switching', { log: data && data.log });
-                }
-            }
-            eventBus.on(SIGNAL_TYPES.ON_ROUND_START, L.ROUND_START.RANGE_CHECK, (data) => {
-                submitZhangRangeCheckDeclaration(data);
-            });
-            eventBus.on(SIGNAL_TYPES.ON_UNIT_DEATH, L.ON_UNIT_DEATH.SWITCH, (data) => {
-                submitZhangSwitchOnDeathDeclaration(data);
-            });
-            eventBus.on(SIGNAL_TYPES.ON_POSITION_SWAP, L.ON_POSITION_SWAP.SWITCH, (data) => {
-                submitZhangSwitchOnSwapDeclaration(data);
             });
         },
         submitZhangJiuYangDeclaration(unit, target, dmgCalc, group, A, log, data) {
@@ -326,6 +310,7 @@ export function createXiaoZhaoSisterComponent() {
                     hpTransfer
                 }
             });
+            emitStateChange(sister, STATE_CHANGE_TYPES.ATTACHED, { hostUid: host.uid }, log);
             return sister;
         },
         _executeReturn(sister, A, log) {
@@ -345,6 +330,7 @@ export function createXiaoZhaoSisterComponent() {
                 Object.assign(sister.state, { _flyMode: null, _untargetable: false, _butterflyHost: null });
                 Object.assign(sister.state, { _butterflyAtk: 0, _butterflyDef: 0, _butterflyHp: 0, _butterflyHpTransfer: 0 });
                 sister._fsm.transition('normal');
+                emitStateChange(sister, STATE_CHANGE_TYPES.RETURNED, { hostDead: true }, log);
                 log.push({ factType: FACT_TYPES.BUTTERFLY_HOST_DEAD, data: { sisterName: sister.name, isDead: !sister.alive, sisterUid: sister.uid } });
                 return;
             }
@@ -369,7 +355,7 @@ export function createXiaoZhaoSisterComponent() {
                     atk: host.atk, def: host.def
                 });
             }
-            Object.assign(sister.state, { _butterflyHost: null });
+            Object.assign(sister.state, { _flyMode: null, _butterflyHost: null });
             Object.assign(sister.state, { _butterflyAtk: 0, _butterflyDef: 0, _butterflyHp: 0, _butterflyHpTransfer: 0 });
             if (!A.find(a => a.uid === sister.uid)) {
                 A.push(sister);
@@ -391,6 +377,7 @@ export function createXiaoZhaoSisterComponent() {
                     sisterHp: sister.hp
                 }
             });
+            emitStateChange(sister, STATE_CHANGE_TYPES.RETURNED, {}, log);
         },
         executeAttach(A, log) {
             let sister = A.find(u => u.isXiaoZhaoSister && u.alive && u.pos === 4 && !u.state._stunned);
@@ -446,6 +433,7 @@ export function createXiaoZhaoBrotherComponent() {
                         Object.assign(brother.state, { _spiderFlying: true, _flyMode: 'spider' });
                         brother.state._acted = true;
                         emitEvent(brother, UNIT_EVENT_TYPES.HP_CHANGE, { hp:brother.hp, maxHp:brother.maxHp, alive:brother.alive, atk:brother.atk, def:brother.def, _flyMode:'spider', _spiderFlying:true });
+                        emitStateChange(brother, STATE_CHANGE_TYPES.FLYING, { reason, incomingDmg }, currentLog);
                         // 飞天事实随 transition data 携带（不落 unit），由免疫声明/log 消费
                         data._flyFactData = { unitName: brother.name, spiderUid: brother.uid, reason, incomingDmg, remaining: brother.state._spiderRemaining };
                     },

@@ -11,6 +11,7 @@ import { Unit } from './02unit.js';
 import { clearEliteDodgeRules, getDodgeRules } from './12battle-attack-steps.js';
 import { installDeclaredSkills, installFromGameData } from './15-skill-mechanisms.js';
 import { resolveRoundStatGrants } from './16effect-handlers.js';
+import { clearAllWatchers } from './19unit-watch.js';
 
 import { getEliteFactories } from './08-elite-registry.js';
 import { processUnitAttack } from './10battle-attack.js';
@@ -98,6 +99,8 @@ function prepareRoundStart(A, B, log, state, round, rng) {
     });
 
     eventBus.clearAll();
+    // 每回合 A/B 都是新克隆，上一回合的裁判登记（闭包引用旧对象）作废，必须清空重登
+    clearAllWatchers();
 
     const declaredSkills = [];
 

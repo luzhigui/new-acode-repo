@@ -1,5 +1,5 @@
-// V6.0.0 | ~15000 bytes | 2026-08-24 每场结束 flush 事件 + 清空 _eliteStates Map，修复高场次 OOM（uid 永不复用无限膨胀）
-export const VER = 'tools/101auto-battle-utils.js V6.0.0';
+// V6.1.0 | ~6500 bytes | 2026-09-10 对齐正式游戏规则：删开局白送4Buff（改为第3/6/9回合自动补选，同真人局节奏）；接通小昭妹永久继承 addPermanentBuff（此前 import 未调用）；局中所选 Buff 记入 hexLog
+export const VER = 'tools/101auto-battle-utils.js V6.1.0';
 
 import { CONFIG } from '../core/01config-5v5-test.js';
 import { SeededRNG, flushBattleEvents } from '../infra/51-core-utils.js';
@@ -24,27 +24,8 @@ export function generateSnapshot(currentStage = 1, rng = new SeededRNG(Date.now(
     };
 }
 
-// 自动挑选海克斯，支持偏好列表
-export function autoPickBuff(choices, preferredBuffs = []) {
-    if (!choices || choices.length === 0) return null;
-    if (preferredBuffs.length > 0) {
-        const preferredChoices = choices.filter(c => preferredBuffs.includes(c));
-        if (preferredChoices.length > 0) {
-            return preferredChoices[Math.floor(Math.random() * preferredChoices.length)];
-        }
-    }
-    return choices[Math.floor(Math.random() * choices.length)];
-}
-
-// 生成海克斯选项
-function generateBuffChoices() {
-    const ALL_BUFF_KEYS = Object.keys(C.BUFFS);
-    let shuffled = [...ALL_BUFF_KEYS].sort(() => Math.random() - 0.5);
-    return shuffled.slice(0, C.BUFF_CHOICES);
-}
-
 // 无界面自动补 Buff（每3回合）：复用主游戏筛选规则，优先不重复且满足角色要求
-function autoPickBuffForBattle(state, currentBuffs) {
+function autoPickBuffForBattle(state, currentBuffs, preferredBuffs = []) {
     const allKeys = Object.keys(C.BUFFS);
     const existing = (currentBuffs || []).map(b => b.key);
     const allyTeam = state.ally || [];
@@ -56,40 +37,49 @@ function autoPickBuffForBattle(state, currentBuffs) {
     });
     if (available.length === 0) return null;
     const rng = state._rng || new SeededRNG(Date.now());
-    const pick = available[rng.nextInt(0, available.length - 1)];
+    const preferred = available.filter(k => preferredBuffs.includes(k));
+    const pick = preferred.length > 0 ? preferred[rng.nextInt(0, preferred.length - 1)] : available[rng.nextInt(0, available.length - 1)];
     const duration = C.BUFFS[pick].duration || C.BUFF_DURATION || 4;
     const newBuff = { key: pick, target: CAMP_TYPES.ALLY, remaining: duration, name: C.BUFFS[pick].name };
     if (pick === BUFF_TYPES.HOLY_FLAME) {
         newBuff.col = rng.nextInt(1, 3);
         newBuff.row = rng.nextInt(1, 3);
     }
+    // 对齐正式游戏：小昭·妹永久继承所选 Buff（真人局选完即调 addPermanentBuff，工具局此前 import 了却从未调用）
+    const brother = allyTeam.find(u => u.isXiaoZhaoBrother);
+    if (brother) {
+        const extra = pick === BUFF_TYPES.HOLY_FLAME ? { col: newBuff.col, row: newBuff.row } : {};
+        addPermanentBuff(brother, pick, newBuff.name, extra);
+    }
     return newBuff;
 }
 
 // 无界面完整战斗：复用 createRoundStepper 循环到分出胜负（headless，无 UI/动画）
-async function runBattle(snap, buffs, seed) {
+// 对齐正式游戏：开局 0 Buff，第 3/6/9…回合结束自动补选（同真人局"第3回合倍数选Buff"节奏）
+async function runBattle(snap, seed, preferredBuffs = []) {
     const rng = seed instanceof SeededRNG ? seed : new SeededRNG(seed ?? Date.now());
     let battleState = {
         ally: snap.ally.map(u => u.clone()),
         enemy: snap.enemy.map(u => u.clone()),
         round: 1,
-        activeBuffs: (buffs || []).map(b => ({ ...b })),
+        activeBuffs: [],
         allAllies: snap.ally.map(u => u.clone()),
         _rng: rng
     };
     let lastStep = null;
+    const buffsPicked = [];
     const maxRound = C.MAX_ROUND || 35;
     while (battleState.round <= maxRound) {
         const stepper = createRoundStepper(battleState, { ui: false }); // 工具场景跳过 stageActions 翻译
         for (const step of stepper) { // 引擎已同步化（function*），for...of 直取
             lastStep = step;
-            if (step.winner) return { winner: step.winner };
+            if (step.winner) return { winner: step.winner, buffsPicked };
         }
         // 回合结束：Buff 递减 + 每3回合自动补一个 Buff
         let nextBuffs = (battleState.activeBuffs || []).map(b => ({ ...b, remaining: b.remaining - 1 })).filter(b => b.remaining > 0);
         if (battleState.round % 3 === 0) {
-            const nb = autoPickBuffForBattle(battleState, nextBuffs);
-            if (nb) nextBuffs.push(nb);
+            const nb = autoPickBuffForBattle(battleState, nextBuffs, preferredBuffs);
+            if (nb) { nextBuffs.push(nb); buffsPicked.push(nb); }
         }
         battleState = {
             ally: (lastStep ? lastStep.ally : battleState.ally).map(u => u.clone()),
@@ -100,30 +90,24 @@ async function runBattle(snap, buffs, seed) {
             _rng: battleState._rng
         };
     }
-    return { winner: '平局' };
+    return { winner: '平局', buffsPicked };
 }
 
 // 自动批量战斗
 export async function runAutoBattle(rounds, onProgress, stage = 1, preferredBuffs = []) {
     let wins = { ally: 0, enemy: 0, draw: 0 };
-    const hexLog = []; // 新增：每场海克斯 + 胜负记录，供 108 仪表盘读取
+    const hexLog = []; // 每场海克斯 + 胜负记录，供 108 仪表盘读取（记录局中第3/6/9回合自动补选的 Buff）
     for (let i = 0; i < rounds; i++) {
         const rng = new SeededRNG(Date.now() + i * 7919);
         const snap = generateSnapshot(stage, rng);
-        let buffs = [];
-        for (let j = 0; j < 4; j++) {
-            const choices = generateBuffChoices();
-            const picked = autoPickBuff(choices, preferredBuffs);
-            if (picked) buffs.push({ key: picked, target: CAMP_TYPES.ALLY, remaining: C.BUFFS[picked].duration || C.BUFF_DURATION });
-        }
-        const result = await runBattle(snap, buffs, rng);
+        const result = await runBattle(snap, rng, preferredBuffs);
         // 每场结束清理全局累积：_eventBuffer（已 flush）+ _eliteStates Map（uid 永不复用，会无限膨胀导致 OOM）
         flushBattleEvents();
         // 状态已并入 unit.state，随对局对象 GC，无需清理（18-elite-state 已废弃）
         if (result.winner === '明教') wins.ally++;
         else if (result.winner === '六大派') wins.enemy++;
         else wins.draw++;
-        hexLog.push({ stage, buffs: buffs.map(b => b.key), winner: result.winner }); // 新增
+        hexLog.push({ stage, buffs: result.buffsPicked.map(b => b.key), winner: result.winner });
         if (onProgress) onProgress(i + 1, rounds);
     }
     // 新增：追加保存海克斯归因记录，供 108 仪表盘读取

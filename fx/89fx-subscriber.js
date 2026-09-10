@@ -4,7 +4,7 @@ export const VER = 'fx/89fx-subscriber.js V6.0.0';
 import { eventBus } from '../infra/50-event-bus.js';
 import { GlobalStore } from '../infra/54-global-store.js';
 import { FX_SIGNALS } from '../infra/55-fx-signals.js';
-import { _triggerFX } from './88fx-trigger.js';
+import { _triggerFX, shakeTarget } from './88fx-trigger.js';
 import {
     showDanmaku, showDamageFloat, showDodgeBubble, showHealFloat, showAtkBuffFloat,
     applyBrushEffect, showBuffBanner, showCriticalBanner, showHeartEffect, showPinkFlash,
@@ -48,7 +48,7 @@ eventBus.on(FX_SIGNALS.PINK_FLASH, P, (d) => showPinkFlash(d.unit));
 eventBus.on(FX_SIGNALS.KULIAN, P, (d) => showKuLianEffect(d.unit, d.team));
 eventBus.on(FX_SIGNALS.WIND_CLAW, P, (d) => showWindClaw(d.unit));
 eventBus.on(FX_SIGNALS.BONE_CLAW, P, (d) => showBoneClaw(d.attacker, d.target, d.speed, d.isPausedFn, null, d.opts));
-eventBus.on(FX_SIGNALS.SPLASH_ARROWS, P, (d) => showSplashArrows(d.attacker, d.primary, d.targets, d.speed, d.isPausedFn));
+eventBus.on(FX_SIGNALS.SPLASH_ARROWS, P, (d) => showSplashArrows(d.attacker, d.primary, d.targets, d.speed, d.isPausedFn, (st) => shakeTarget(st.uid, 300)));
 eventBus.on(FX_SIGNALS.POSITION_SWAP, P, (d) => animatePositionSwap(d.unitA, d.unitB, d.c, d.opts));
 eventBus.on(FX_SIGNALS.PUSH_SWAP, P, (d) => animatePushSwap(d.target, d.behind, d.c, d.opts));
 eventBus.on(FX_SIGNALS.PUSH_BACK, P, (d) => animatePushBack(d.target, d.c, d.newPos, d.opts));

@@ -281,24 +281,23 @@ const FACT_TRANSLATORS = {
     },
     [FACT_TYPES.QIAN_KUN_DERIVED]: (data, index) => {
         const actions = [];
-        if (data.atkTargetUid && data.atkGain) {
-            actions.push({
-                kind: STAGE_ACTION_TYPES.BUFF_EFFECT,
-                effectType: BUFF_EFFECT_TYPES.ATK_BUFF,
-                targetUid: data.atkTargetUid,
-                gain: data.atkGain,
-                factIndex: index,
-                timing: 'afterText'
-            });
-        }
+        // 先回血后加攻：顺序与日志语义一致
         if (data.healTargetUid && data.heal) {
             actions.push({
                 kind: STAGE_ACTION_TYPES.HEAL,
                 actorUid: data.healTargetUid,
                 targetUid: data.healTargetUid,
                 amount: Math.round(data.heal),
-                factIndex: index,
-                timing: 'afterText'
+                factIndex: index
+            });
+        }
+        if (data.atkTargetUid && data.atkGain) {
+            actions.push({
+                kind: STAGE_ACTION_TYPES.BUFF_EFFECT,
+                effectType: BUFF_EFFECT_TYPES.ATK_BUFF,
+                targetUid: data.atkTargetUid,
+                gain: data.atkGain,
+                factIndex: index
             });
         }
         return actions;
@@ -918,7 +917,13 @@ export const STAGE_ACTION_DEFS = {
     },
     [STAGE_ACTION_TYPES.BUFF_EFFECT]: {
         grid: 'none', log: 'sync',
-        timing: (action) => (action && action.effectType === BUFF_EFFECT_TYPES.XIN_HUN) ? 'beforeText' : 'afterText',
+        timing: (action) => {
+            if (!action) return 'afterText';
+            const t = action.effectType;
+            if (t === BUFF_EFFECT_TYPES.XIN_HUN) return 'beforeText';
+            if (t === BUFF_EFFECT_TYPES.ATK_BUFF) return 'beforeText';
+            return 'afterText';
+        },
         fx: async (c, action) => {
             const attacker = findUnitByUidLocal(c, action.attackerUid);
             const target = findUnitByUidLocal(c, action.targetUid);
@@ -951,6 +956,8 @@ export const STAGE_ACTION_DEFS = {
                     await new Promise(r => setTimeout(r, Math.max(600, c.speed * 1.2)));
                 }
             } else if (action.effectType === BUFF_EFFECT_TYPES.ATK_BUFF && target && action.gain) {
+                // 加攻飘字比回血稍晚 200ms 冒出，形成"先回血、顿一下、再加攻"的层次
+                await new Promise(r => setTimeout(r, GlobalStore.get('fastForwardActive') ? 1 : 200));
                 eventBus.emit(FX_SIGNALS.ATK_BUFF_FLOAT, { unit: target, gain: action.gain });
             } else if (action.effectType === BUFF_EFFECT_TYPES.XIN_HUN) {
                 // 新婚：宋青书/周芷若爱心 + 扣血飘字

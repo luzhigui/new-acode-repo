@@ -138,14 +138,10 @@ export const AudioManager = {
         // 恢复用户手动选择的曲目；无保存时从前两首默认曲目随机，避免每次都听第一首
         let trackId = 'bgm_a';
         try {
-            const saved = localStorage.getItem('ming_bgm_track');
-            if (saved && (CONFIG.BGM_TRACKS || []).some(t => t.id === saved)) {
-                trackId = saved;
-            } else {
-                const defaultTracks = (CONFIG.BGM_TRACKS || []).slice(0, 2);
-                if (defaultTracks.length > 0) {
-                    trackId = defaultTracks[Math.floor(Math.random() * defaultTracks.length)].id;
-                }
+            // 每次启动都从前两首默认曲目随机，不读历史选择
+            const defaultTracks = (CONFIG.BGM_TRACKS || []).slice(0, 2);
+            if (defaultTracks.length > 0) {
+                trackId = defaultTracks[Math.floor(Math.random() * defaultTracks.length)].id;
             }
         } catch (e) {}
         this.currentBgmId = trackId;
