@@ -7,7 +7,8 @@ import { calcDamage, getFangLevel, isMelee, getFronts, isBlocked, getRandomTaunt
 import { emitEvent, applyStatChange, applyMaxHpChange, query, getBattleRng, recordCombatStat, getStat } from './13battle-shared.js';
 import { flushBattleEvents, pushBattleEvent, getBattleState, setBattleState, registerDodgeRule, clearEliteDodgeRules, getDodgeRules, persistValue, loadPersistedValue } from '../infra/51-core-utils.js';
 import { getEffectHandler, hasEffectHandler, getCalcModifier, validateDeclarationFields, validateCalcModifierFields } from './16effect-handlers.js';
-import { FACT_TYPES, BUFF_TYPES, UNIT_EVENT_TYPES, DROP_TYPES, CAMP_TYPES, ROLE_TYPES, SIGNAL_TYPES } from '../infra/56-battle-enums.js';
+import { FACT_TYPES, BUFF_TYPES, UNIT_EVENT_TYPES, DROP_TYPES, CAMP_TYPES, ROLE_TYPES, SIGNAL_TYPES, STATE_CHANGE_TYPES } from '../infra/56-battle-enums.js';
+import { emitStateChange } from '../infra/59-state-change.js';
 
 // 闪避规则注册表（已下沉 infra/51，此处转发）
 export { registerDodgeRule, clearEliteDodgeRules, getDodgeRules };
@@ -193,7 +194,7 @@ export function resolveAttackHit(unit, target, attackerBuffStats, defenderBuffSt
 
             eventBus.emit(SIGNAL_TYPES.ON_DODGE, { unit, target, reboundDmg, declarations: dodgeDeclarations });
 
-            resolveDodgeEffects(dodgeDeclarations, unit, target);
+            resolveDodgeEffects(dodgeDeclarations, unit, target, log);
 
             unit.state._acted = true;
             emitEvent(unit, UNIT_EVENT_TYPES.HP_CHANGE, { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: getStat(unit, 'atk'), def: getStat(unit, 'def'), _stunned: true });
@@ -396,6 +397,7 @@ export function resolveDeaths(allySide, enemySide, log) {
         u._pendingDeath = false;
         emitEvent(u, UNIT_EVENT_TYPES.HP_CHANGE, { hp: u.hp, maxHp: u.maxHp, alive: false, atk: getStat(u, 'atk'), def: getStat(u, 'def'), _isDead: true });
         emitEvent(u, UNIT_EVENT_TYPES.UNIT_REMOVE, { uid: u.uid });
+        emitStateChange(u, STATE_CHANGE_TYPES.DEATH, {}, log);
     }
 
     if (pending.length > 0) {
@@ -523,7 +525,7 @@ export function isUnitStunned(unit) {
 }
 
 // 闪避后效果边裁
-export function resolveDodgeEffects(declarations, unit, target) {
+export function resolveDodgeEffects(declarations, unit, target, log) {
     if (!declarations || declarations.length === 0) return;
 
     for (const decl of declarations) {
@@ -532,6 +534,7 @@ export function resolveDodgeEffects(declarations, unit, target) {
         } else if (decl.type === EFFECT_TYPES.STUN) {
             unit.state._stunned = true;
             emitEvent(unit, UNIT_EVENT_TYPES.HP_CHANGE, { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: getStat(unit, 'atk'), def: getStat(unit, 'def'), _stunned: true });
+            emitStateChange(unit, STATE_CHANGE_TYPES.STUNNED, {}, log);
         } else if (decl.type === EFFECT_TYPES.WEI_HEAL) {
             const { heal, newMaxHp } = decl.data;
             applyMaxHpChange(target, newMaxHp, null, '韦一笑吸血上限提升');

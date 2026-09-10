@@ -14,7 +14,7 @@ html,body{margin:0;height:100%;background:#020208;overflow:hidden;font-family:'L
 </style>
 </head>
 <body>
-<div id="demoBar"><b>开场CG · 山门篇（字下 / 人上）</b><span class="spacer"></span><button id="btnReplay">重播 CG</button></div>
+<div id="demoBar"><b>开场CG · 山门篇（2.5D 特殊角色）</b><span class="spacer"></span><button id="btnReplay">重播 CG</button></div>
 
 <script>
 (function(){
@@ -60,18 +60,18 @@ var ACTS = [
 
 /* ============ 双方阵容 ============ */
 var ORANGE_TEAM = [
-  {name:'空闻', weapon:'crosier'},
-  {name:'空智', weapon:'crosier'},
-  {name:'清虚', weapon:'sword'},
-  {name:'何太冲', weapon:'sword'},
-  {name:'静玄', weapon:'sword'}
+  {name:'空闻', type:'crosier'},
+  {name:'空智', type:'crosier'},
+  {name:'清虚', type:'sword'},
+  {name:'何太冲', type:'sword'},
+  {name:'静玄', type:'sword'}
 ];
 var BLUE_TEAM = [
-  {name:'张无忌', weapon:'sword', star:true},
-  {name:'韦一笑', weapon:'dagger'},
-  {name:'杨逍', weapon:'sword'},
-  {name:'殷天正', weapon:'sword'},
-  {name:'范遥', weapon:'sword'}
+  {name:'张无忌', type:'zhang'},
+  {name:'韦一笑', type:'wei'},
+  {name:'小昭·姊', type:'sister'},
+  {name:'小昭·妹', type:'brother'},
+  {name:'杨逍', type:'sword'}
 ];
 
 /* ============ 音效 ============ */
@@ -162,19 +162,19 @@ var STYLE = `
 #cgGate.hide{animation:cgGateFade 1.2s ease forwards;pointer-events:none}
 @keyframes cgGateFade{to{opacity:0}}
 
-/* --- 背景层：山门（极淡剪影） --- */
+/* 背景层：山门 */
 #cgGateBody{position:absolute;inset:0;z-index:1;pointer-events:none;opacity:.32}
 #cgGateBody .gate-mountain{position:absolute;left:0;right:0;bottom:0;height:80%;background:#06060e;clip-path:polygon(0 100%,0 78%,10% 70%,20% 78%,32% 62%,44% 74%,56% 52%,68% 72%,80% 62%,90% 76%,100% 68%,100% 100%)}
 #cgGateBody .gate-arch{position:absolute;left:50%;bottom:18%;transform:translateX(-50%);width:28vmin;height:38vmin;background:#010106;clip-path:polygon(34% 100%,34% 48%,42% 22%,50% 0%,58% 22%,66% 48%,66% 100%)}
 
-/* --- 背景层：雨幕 --- */
+/* 雨幕 */
 #cgRain{position:absolute;inset:0;z-index:2;pointer-events:none;opacity:0;transition:opacity 2s ease}
 #cgGate[data-mood="siege"] #cgRain{opacity:1}
 #cgGate[data-mood="rise"] #cgRain{opacity:.35}
 #cgGate[data-mood="battle"] #cgRain{opacity:.25}
 #cgRain canvas{position:absolute;inset:0;width:100%;height:100%;-webkit-tap-highlight-color:transparent}
 
-/* --- 背景层：圣火（两军之间偏右） --- */
+/* 圣火 */
 #cgHolyFire{position:absolute;left:70%;top:24%;transform:translate(-50%,-50%);z-index:3;width:min(12vmin,80px);height:min(12vmin,80px);opacity:0;transition:opacity 1.2s ease;pointer-events:none}
 #cgGate[data-mood="siege"] #cgHolyFire{opacity:.35}
 #cgGate[data-mood="rise"] #cgHolyFire{opacity:.85}
@@ -185,7 +185,14 @@ var STYLE = `
 @keyframes cgFireMorph{0%,100%{transform:translateX(-50%) scaleY(1) rotate(-2deg)}50%{transform:translateX(-50%) scaleY(1.08) rotate(2deg)}}
 @keyframes cgFireMorph2{0%,100%{transform:translateX(-50%) scaleY(.96) rotate(1.5deg)}50%{transform:translateX(-50%) scaleY(1.1) rotate(-2deg)}}
 
-/* --- 人物层：上方六大派 / 下方明教 --- */
+/* 阵营标签（对齐主代码 team-label） */
+.team-label{position:absolute;left:1.5%;writing-mode:vertical-lr;font-weight:bold;font-size:clamp(11px,2.4vmin,18px);letter-spacing:.25em;text-align:center;pointer-events:none;z-index:11;opacity:0;transition:opacity 1.4s ease}
+#labelOrange{top:8%;color:#ff8c3a;text-shadow:0 0 10px rgba(255,140,60,.6)}
+#labelBlue{top:34%;color:#5aa0ff;text-shadow:0 0 10px rgba(90,160,255,.6)}
+#cgGate.showOrange #labelOrange{opacity:1}
+#cgGate.showBlue #labelBlue{opacity:1}
+
+/* 人物层 */
 .army{position:absolute;left:0;right:0;display:flex;justify-content:center;align-items:flex-end;gap:clamp(6px,1.6vmin,18px);z-index:10;pointer-events:none;padding:0 8px}
 #cgOrangeArmy{top:4%;height:22vh;opacity:0;transition:opacity 1.4s ease}
 #cgBlueArmy{top:30%;height:22vh;opacity:0;transition:opacity 1.4s ease}
@@ -194,10 +201,10 @@ var STYLE = `
 
 .unit{display:flex;flex-direction:column;align-items:center;gap:.22em;opacity:0;transform:translateY(14px);animation:unitRise .8s cubic-bezier(.22,.8,.36,1) forwards}
 @keyframes unitRise{to{opacity:1;transform:translateY(0)}}
-.unit .silhouette{width:clamp(26px,6vmin,54px);height:clamp(48px,11vmin,100px);display:block;color:currentColor;filter:drop-shadow(0 0 5px currentColor)}
-.unit .silhouette path,.unit .silhouette circle,.unit .silhouette rect,.unit .silhouette line{fill:currentColor;stroke:currentColor}
-.unit.orange .silhouette{color:#ff8c3a}
-.unit.blue .silhouette{color:#5aa0ff}
+.unit .silhouette{width:clamp(30px,6.5vmin,58px);height:clamp(52px,12vmin,110px);display:block;color:currentColor}
+.unit .silhouette path,.unit .silhouette circle,.unit .silhouette rect,.unit .silhouette line,.unit .silhouette ellipse{stroke:currentColor}
+.unit.orange .silhouette{color:#ff8c3a;filter:drop-shadow(0 0 5px currentColor)}
+.unit.blue .silhouette{color:#5aa0ff;filter:drop-shadow(0 0 5px currentColor)}
 .unit .hp-bar{width:clamp(28px,6vmin,56px);height:clamp(3px,.7vmin,5px);background:rgba(0,0,0,.55);border:1px solid rgba(255,255,255,.18);border-radius:2px;overflow:hidden}
 .unit .hp-fill{height:100%}
 .unit.orange .hp-fill{background:linear-gradient(90deg,#ffb060,#e07020);box-shadow:0 0 4px rgba(255,150,60,.5)}
@@ -205,16 +212,18 @@ var STYLE = `
 .unit .unit-name{font-size:clamp(9px,1.9vmin,14px);letter-spacing:.06em;white-space:nowrap;line-height:1}
 .unit.orange .unit-name{color:#ffc080;text-shadow:0 0 6px rgba(255,140,60,.5)}
 .unit.blue .unit-name{color:#a8d0ff;text-shadow:0 0 6px rgba(90,160,255,.5)}
-.unit.star .silhouette{filter:drop-shadow(0 0 10px currentColor) drop-shadow(0 0 20px rgba(90,160,255,.55))}
-.unit.star .unit-name{font-weight:700;color:#e8ecf8}
-/* 六大派名字在下（默认顺序），明教名字在上（列反转） */
+/* 特殊角色：额外呼吸光晕 */
+.unit.special .silhouette{animation:specialGlow 2.6s ease-in-out infinite}
+@keyframes specialGlow{0%,100%{filter:drop-shadow(0 0 6px currentColor)}50%{filter:drop-shadow(0 0 14px currentColor) drop-shadow(0 0 24px currentColor)}}
+.unit.special .unit-name{font-weight:700;color:#e8ecf8;text-shadow:0 0 8px rgba(140,190,255,.7)}
+/* 六大派名字在下，明教名字在上 */
 #cgBlueArmy .unit{flex-direction:column-reverse}
 
-/* --- 明字（文字区背景水印） --- */
+/* 明字水印 */
 #cgSigil{position:absolute;left:50%;top:65%;transform:translate(-50%,-50%);z-index:4;font-size:clamp(120px,32vmin,260px);line-height:1;color:rgba(140,190,255,.14);font-weight:700;pointer-events:none;opacity:0;transition:opacity 2s ease;letter-spacing:.05em}
 #cgGate.sigilOn #cgSigil{opacity:1}
 
-/* --- 文字层（下方） --- */
+/* 文字层 */
 #cgText{position:absolute;left:50%;bottom:6%;transform:translateX(-50%);width:min(88vw,900px);text-align:center;z-index:50;transition:opacity .8s ease}
 #cgText.out{opacity:0}
 .cg-chapter{font-size:clamp(11px,2.6vmin,20px);letter-spacing:.5em;text-indent:.5em;color:rgba(255,200,140,.55);margin:0 0 .7em;opacity:0;animation:cgTextRise 1s ease-out var(--d,0s) forwards}
@@ -224,36 +233,129 @@ var STYLE = `
 @keyframes cgTextRise{from{opacity:0;transform:translateY(20px);filter:blur(8px)}to{opacity:1;transform:translateY(0);filter:blur(0)}}
 @keyframes cgGoldBreath{0%,100%{text-shadow:0 0 16px rgba(255,150,50,.65),0 0 40px rgba(255,110,30,.45)}50%{text-shadow:0 0 28px rgba(255,180,70,.9),0 0 60px rgba(255,130,40,.65)}}
 
-/* --- 提示（最下边缘，极低调） --- */
+/* 提示 */
 #cgHint{position:absolute;left:0;right:0;bottom:1.2%;text-align:center;font-size:clamp(10px,2.2vmin,15px);letter-spacing:.28em;color:rgba(216,207,192,.7);opacity:0;z-index:51;text-shadow:0 1px 3px rgba(0,0,0,.85)}
 #cgHint.show{animation:cgHintB 2.6s ease-in-out infinite}
 @keyframes cgHintB{0%,100%{opacity:.18}50%{opacity:.7}}
 
-/* --- 跳过 --- */
+/* 跳过 */
 #cgSkip{position:absolute;top:calc(52px + env(safe-area-inset-top,0px));right:calc(12px + env(safe-area-inset-right,0px));z-index:52;background:rgba(255,255,255,.04);color:rgba(255,255,255,.5);border:1px solid rgba(255,255,255,.2);border-radius:999px;font-size:clamp(11px,2.5vmin,16px);letter-spacing:.2em;padding:.45em 1.2em;font-family:inherit;cursor:pointer;transition:.3s;-webkit-tap-highlight-color:transparent}
 #cgSkip:hover{color:#fff;border-color:rgba(255,200,120,.6)}
 
-/* --- 震屏 --- */
 #cgGate.shake{animation:cgGateShake .4s ease-out}
 @keyframes cgGateShake{0%,100%{transform:translate(0,0)}20%{transform:translate(-5px,3px)}40%{transform:translate(4px,-2px)}60%{transform:translate(-3px,4px)}80%{transform:translate(2px,-1px)}}
 `;
 
-/* 人物剪影 SVG */
-function makeSilhouette(weapon){
-  var body='<circle cx="20" cy="14" r="9"/>'+
-           '<path d="M 10 22 Q 20 28 30 22 L 33 62 Q 20 70 7 62 Z"/>'+
-           '<rect x="13" y="62" width="5" height="32" rx="1"/>'+
-           '<rect x="22" y="62" width="5" height="32" rx="1"/>';
-  var wp='';
-  if(weapon==='sword'){
-    wp='<line x1="30" y1="38" x2="46" y2="14" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>';
-  }else if(weapon==='dagger'){
-    wp='<line x1="30" y1="40" x2="40" y2="30" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>';
-  }else if(weapon==='crosier'){
-    wp='<line x1="28" y1="10" x2="34" y2="80" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>'+
-       '<circle cx="28" cy="10" r="4" stroke="currentColor" stroke-width="2" fill="none"/>';
-  }
-  return '<svg viewBox="0 0 50 100" class="silhouette">'+body+wp+'</svg>';
+/* ============ SVG：普通剑客 / 持杖僧 / 2.5D 特殊角色 ============ */
+function makeSword(){
+  return '<svg viewBox="0 0 50 100" class="silhouette">'+
+    '<circle cx="20" cy="14" r="9"/>'+
+    '<path d="M 10 22 Q 20 28 30 22 L 33 62 Q 20 70 7 62 Z"/>'+
+    '<rect x="13" y="62" width="5" height="32" rx="1"/>'+
+    '<rect x="22" y="62" width="5" height="32" rx="1"/>'+
+    '<line x1="30" y1="38" x2="46" y2="14" stroke-width="2.5" stroke-linecap="round"/>'+
+  '</svg>';
+}
+function makeCrosier(){
+  return '<svg viewBox="0 0 50 100" class="silhouette">'+
+    '<circle cx="20" cy="14" r="9"/>'+
+    '<path d="M 10 22 Q 20 28 30 22 L 33 62 Q 20 70 7 62 Z"/>'+
+    '<rect x="13" y="62" width="5" height="32" rx="1"/>'+
+    '<rect x="22" y="62" width="5" height="32" rx="1"/>'+
+    '<line x1="28" y1="10" x2="34" y2="80" stroke-width="2.5" stroke-linecap="round"/>'+
+    '<circle cx="28" cy="10" r="4" stroke-width="2" fill="none"/>'+
+  '</svg>';
+}
+
+/* 张无忌：蓝金长袍 + 冠 + 金光头顶 + 长剑 */
+function makeZhangWuji(){
+  return '<svg viewBox="0 0 60 120" class="silhouette">'+
+    '<ellipse cx="30" cy="116" rx="16" ry="2.5" fill="rgba(0,0,0,.6)" stroke="none"/>'+
+    '<path d="M 18 30 Q 30 34 42 30 L 46 110 Q 30 116 14 110 Z" fill="#2e5fa8" stroke="#5a8ad0" stroke-width="1"/>'+
+    '<path d="M 22 30 L 30 22 L 38 30 Z" fill="#1a3868" stroke="#5a8ad0" stroke-width=".8"/>'+
+    '<rect x="17" y="62" width="26" height="3.5" fill="#d4a040" stroke="none"/>'+
+    '<circle cx="30" cy="16" r="9" fill="#e8d0b8" stroke="#8a6a40" stroke-width=".8"/>'+
+    '<path d="M 21 13 Q 30 3 39 13 Q 36 7 30 5 Q 24 7 21 13 Z" fill="#1a1a24" stroke="none"/>'+
+    '<line x1="42" y1="60" x2="56" y2="24" stroke="#c8d8e8" stroke-width="2.2" stroke-linecap="round"/>'+
+    '<line x1="40" y1="58" x2="45" y2="53" stroke="#8a6a30" stroke-width="3" stroke-linecap="round"/>'+
+    '<circle cx="30" cy="6" r="2.8" fill="#ffd700" stroke="none" opacity=".9">'+
+      '<animate attributeName="opacity" values=".5;1;.5" dur="1.6s" repeatCount="indefinite"/>'+
+    '</circle>'+
+    '<circle cx="30" cy="6" r="6" fill="none" stroke="#ffd700" stroke-width=".7" opacity=".5">'+
+      '<animate attributeName="r" values="4;9;4" dur="2.2s" repeatCount="indefinite"/>'+
+      '<animate attributeName="opacity" values=".7;0;.7" dur="2.2s" repeatCount="indefinite"/>'+
+    '</circle>'+
+  '</svg>';
+}
+
+/* 韦一笑：紫青蝠翼 + 瘦削身形 + 短刃 */
+function makeWeiYixiao(){
+  return '<svg viewBox="0 0 60 120" class="silhouette">'+
+    '<ellipse cx="30" cy="116" rx="14" ry="2.5" fill="rgba(0,0,0,.6)" stroke="none"/>'+
+    /* 蝠翼（肩饰） */
+    '<path d="M 20 32 L 6 18 L 10 34 L 4 40 L 18 42 Z" fill="#5a4a9a" stroke="#8a7ac0" stroke-width=".8" opacity=".85"/>'+
+    '<path d="M 40 32 L 54 18 L 50 34 L 56 40 L 42 42 Z" fill="#5a4a9a" stroke="#8a7ac0" stroke-width=".8" opacity=".85"/>'+
+    /* 身体 */
+    '<path d="M 20 32 Q 30 36 40 32 L 43 108 Q 30 114 17 108 Z" fill="#4a3a8a" stroke="#7a6ad0" stroke-width="1"/>'+
+    '<rect x="20" y="60" width="20" height="3" fill="#9a7ad0" stroke="none"/>'+
+    /* 头 */
+    '<circle cx="30" cy="18" r="8.5" fill="#e8d0b8" stroke="#8a6a40" stroke-width=".8"/>'+
+    '<path d="M 22 15 Q 30 5 38 15 Q 36 9 30 7 Q 24 9 22 15 Z" fill="#1a1a24" stroke="none"/>'+
+    /* 短刃 */
+    '<line x1="42" y1="52" x2="52" y2="36" stroke="#c8d8e8" stroke-width="2" stroke-linecap="round"/>'+
+  '</svg>';
+}
+
+/* 小昭·姊：粉紫蝴蝶翅膀 + 羽扇 */
+function makeSister(){
+  return '<svg viewBox="0 0 60 120" class="silhouette">'+
+    '<ellipse cx="30" cy="116" rx="13" ry="2.5" fill="rgba(0,0,0,.6)" stroke="none"/>'+
+    /* 蝶翼 */
+    '<path d="M 21 32 L 6 14 L 4 34 L 2 44 L 10 48 L 20 44 Z" fill="#e8a0e0" stroke="#f0c0f0" stroke-width=".8" opacity=".8"/>'+
+    '<path d="M 39 32 L 54 14 L 56 34 L 58 44 L 50 48 L 40 44 Z" fill="#e8a0e0" stroke="#f0c0f0" stroke-width=".8" opacity=".8"/>'+
+    /* 身体 */
+    '<path d="M 22 32 Q 30 36 38 32 L 42 108 Q 30 114 18 108 Z" fill="#a050c0" stroke="#d090e8" stroke-width="1"/>'+
+    '<rect x="22" y="60" width="16" height="2.5" fill="#e8a0e0" stroke="none"/>'+
+    /* 头 + 长发 */
+    '<circle cx="30" cy="18" r="8" fill="#e8d0b8" stroke="#8a6a40" stroke-width=".8"/>'+
+    '<path d="M 22 16 Q 30 6 38 16 Q 36 10 30 8 Q 24 10 22 16 Z" fill="#4a2a5a" stroke="none"/>'+
+    '<path d="M 20 20 Q 18 30 22 34 Q 20 26 22 20 Z" fill="#4a2a5a" stroke="none"/>'+
+    '<path d="M 40 20 Q 42 30 38 34 Q 40 26 38 20 Z" fill="#4a2a5a" stroke="none"/>'+
+    /* 羽扇 */
+    '<line x1="40" y1="58" x2="52" y2="44" stroke="#f0c0f0" stroke-width="1.5" stroke-linecap="round"/>'+
+  '</svg>';
+}
+
+/* 小昭·妹：红紫 + 蛛腿肩饰 + 蛛丝 */
+function makeBrother(){
+  return '<svg viewBox="0 0 60 120" class="silhouette">'+
+    '<ellipse cx="30" cy="116" rx="13" ry="2.5" fill="rgba(0,0,0,.6)" stroke="none"/>'+
+    /* 蛛腿（背后四条） */
+    '<line x1="18" y1="42" x2="4" y2="26" stroke="#c04060" stroke-width="1.6" stroke-linecap="round"/>'+
+    '<line x1="18" y1="50" x2="2" y2="42" stroke="#c04060" stroke-width="1.6" stroke-linecap="round"/>'+
+    '<line x1="42" y1="42" x2="56" y2="26" stroke="#c04060" stroke-width="1.6" stroke-linecap="round"/>'+
+    '<line x1="42" y1="50" x2="58" y2="42" stroke="#c04060" stroke-width="1.6" stroke-linecap="round"/>'+
+    /* 身体 */
+    '<path d="M 22 32 Q 30 36 38 32 L 42 108 Q 30 114 18 108 Z" fill="#8a2040" stroke="#c06080" stroke-width="1"/>'+
+    '<rect x="22" y="60" width="16" height="2.5" fill="#e06080" stroke="none"/>'+
+    /* 头 */
+    '<circle cx="30" cy="18" r="8" fill="#e8d0b8" stroke="#8a6a40" stroke-width=".8"/>'+
+    '<path d="M 22 16 Q 30 6 38 16 Q 36 10 30 8 Q 24 10 22 16 Z" fill="#3a1020" stroke="none"/>'+
+    '<path d="M 20 20 Q 18 30 22 34 Q 20 26 22 20 Z" fill="#3a1020" stroke="none"/>'+
+    '<path d="M 40 20 Q 42 30 38 34 Q 40 26 38 20 Z" fill="#3a1020" stroke="none"/>'+
+    /* 蛛丝 */
+    '<line x1="42" y1="58" x2="54" y2="44" stroke="#e06080" stroke-width="1.4" stroke-linecap="round"/>'+
+    '<line x1="52" y1="46" x2="56" y2="42" stroke="#e06080" stroke-width=".8" stroke-linecap="round" opacity=".7"/>'+
+  '</svg>';
+}
+
+function makeSilhouette(type){
+  if(type==='zhang') return makeZhangWuji();
+  if(type==='wei') return makeWeiYixiao();
+  if(type==='sister') return makeSister();
+  if(type==='brother') return makeBrother();
+  if(type==='crosier') return makeCrosier();
+  return makeSword();
 }
 
 /* ============ 引擎 ============ */
@@ -275,6 +377,8 @@ function showOpeningCg(){
     '<div id="cgRain"><canvas id="cgRainCanvas"></canvas></div>',
     '<div id="cgHolyFire"><div class="f3"></div><div class="f2"></div><div class="f1"></div></div>',
     '<div id="cgSigil">明</div>',
+    '<span id="labelOrange" class="team-label orange">六大派</span>',
+    '<span id="labelBlue" class="team-label blue">明 教</span>',
     '<div id="cgOrangeArmy" class="army"></div>',
     '<div id="cgBlueArmy" class="army"></div>',
     '<div id="cgText"></div>',
@@ -333,16 +437,20 @@ function showOpeningCg(){
   initRain();
   tickRain();
 
+  /* 特殊角色类型集合 */
+  var SPECIAL_TYPES={zhang:1,wei:1,sister:1,brother:1};
+
   /* 阵容 */
   function buildArmy(box,team,color){
     box.innerHTML='';
     team.forEach(function(u,i){
+      var isSpecial=!!SPECIAL_TYPES[u.type];
       var unit=document.createElement('div');
-      unit.className='unit '+color+(u.star?' star':'');
+      unit.className='unit '+color+(isSpecial?' special':'');
       unit.style.animationDelay=(0.6+i*0.15)+'s';
       var hp=80+Math.floor(Math.random()*20);
       unit.innerHTML=
-        makeSilhouette(u.weapon)+
+        makeSilhouette(u.type)+
         '<div class="hp-bar"><div class="hp-fill" style="width:'+hp+'%"></div></div>'+
         '<div class="unit-name">'+u.name+'</div>';
       box.appendChild(unit);
@@ -371,14 +479,12 @@ function showOpeningCg(){
     overlay.classList.toggle('showBlue',!!a.showBlue);
     overlay.classList.toggle('sigilOn',!!a.sigil);
 
-    /* 第三幕战鼓 */
     if(a.mood==='battle'){
       Snd.drum(.4);
       later(function(){Snd.drum(.3)},800);
       later(function(){Snd.drum(.35)},1600);
     }
 
-    /* 文字（下方） */
     text.classList.remove('out');
     text.innerHTML='';
     var t=0.5;
@@ -432,7 +538,6 @@ function showOpeningCg(){
     setTimeout(function(){overlay.remove();_active=null},1300);
   }
 
-  /* pointerdown 替代 click：无延迟、无点击高亮 */
   overlay.addEventListener('pointerdown',function(e){
     if(e.button && e.button!==0) return;
     if(ctx.done||ctx.switching)return;

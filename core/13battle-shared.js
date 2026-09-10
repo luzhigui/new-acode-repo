@@ -4,7 +4,8 @@ export const VER = 'core/13battle-shared.js V6.0.0';
 import { CONFIG } from './01config-5v5-test.js';
 import { getRoleBonus } from './02unit.js';
 import { pushBattleEvent } from '../infra/51-core-utils.js';
-import { FACT_TYPES, UNIT_EVENT_TYPES, ROLE_TYPES } from '../infra/56-battle-enums.js';
+import { FACT_TYPES, UNIT_EVENT_TYPES, ROLE_TYPES, STATE_CHANGE_TYPES } from '../infra/56-battle-enums.js';
+import { emitStateChange } from '../infra/59-state-change.js';
 const C = CONFIG;
 
 // 战斗统计统一记账入口（唯一入口）。承伤记 rawAmount（减免前全额），
@@ -116,7 +117,7 @@ function getNextAvailableUnit(team) {
     return team.filter(c => c.alive && !c.state._acted).sort((a, b) => a.pos - b.pos)[0] || null;
 }
 
-function swapUnitPositions(unitA, unitB) {
+function swapUnitPositions(unitA, unitB, log) {
     if (!unitA || !unitB) return;
     const posA = unitA.pos;
     const posB = unitB.pos;
@@ -125,13 +126,17 @@ function swapUnitPositions(unitA, unitB) {
     // emitEvent 只是导出别名，模块内部必须用真实函数名 emitCoreEvent
     emitCoreEvent(unitA, UNIT_EVENT_TYPES.POS_CHANGE, { pos: posB });
     emitCoreEvent(unitB, UNIT_EVENT_TYPES.POS_CHANGE, { pos: posA });
+    emitStateChange(unitA, STATE_CHANGE_TYPES.POSITION, { fromPos: posA, toPos: posB }, log);
+    emitStateChange(unitB, STATE_CHANGE_TYPES.POSITION, { fromPos: posB, toPos: posA }, log);
 }
 
-function moveUnitPosition(unit, newPos) {
+function moveUnitPosition(unit, newPos, log) {
     if (!unit || newPos == null) return;
+    const oldPos = unit.pos;
     unit.pos = newPos;
     // 同上：模块内部用 emitCoreEvent，不用导出别名 emitEvent
     emitCoreEvent(unit, UNIT_EVENT_TYPES.POS_CHANGE, { pos: newPos });
+    emitStateChange(unit, STATE_CHANGE_TYPES.POSITION, { fromPos: oldPos, toPos: newPos }, log);
 }
 
 function checkZhangSwitch(A, log) {
@@ -159,6 +164,7 @@ function checkZhangSwitch(A, log) {
             _baseDef: zhang.state._baseDef,
             _baseMaxHp: zhang.state._baseMaxHp
         });
+        emitStateChange(zhang, STATE_CHANGE_TYPES.TRANSFORMED, { newRole: ROLE_TYPES.WARRIOR }, log);
         log.push({
             factType: FACT_TYPES.ZHANG_SWITCH,
             data: {

@@ -9,6 +9,30 @@ import { emitEvent, applyStatChange, applyMaxHpChange, getBattleRng, addMod } fr
 import { FACT_TYPES, UNIT_EVENT_TYPES, CAMP_TYPES, SIGNAL_TYPES } from '../infra/56-battle-enums.js';
 import { installMechanicByType } from './18mechanic-registry.js';
 import { processUnitAttack } from './10battle-attack.js';
+import { canBeTargeted } from './03battle-utils.js';
+import { watchUnit, unwatchUnit } from './19unit-watch.js';
+
+// 成昆模仿观察 token：chengkunUid → watcher token
+const _phantomWatchTokens = new Map();
+
+// 给成昆登记"模仿对象不可选即失效"的观察
+function registerPhantomWatcher(chengkun, target, allySide) {
+    const oldToken = _phantomWatchTokens.get(chengkun.uid);
+    if (oldToken) unwatchUnit(oldToken);
+    const targetUid = target.uid;
+    const token = watchUnit(chengkun,
+        () => {
+            const t = allySide.find(u => u.uid === targetUid);
+            return t ? canBeTargeted(t) : false;
+        },
+        (stillTargetable) => {
+            if (!stillTargetable && chengkun.state._phantomTarget === targetUid) {
+                chengkun.state._phantomTarget = null;
+            }
+        }
+    );
+    _phantomWatchTokens.set(chengkun.uid, token);
+}
 
 export function installDeclaredSkills(eventBus, A, B, log, declarations) {
     for (const decl of declarations) {
@@ -19,7 +43,7 @@ export function installDeclaredSkills(eventBus, A, B, log, declarations) {
     }
     installBeforeDamageEffects(eventBus, declarations);
     installOnHitEffects(eventBus, A, B, declarations);
-    installPhantomDisguise(eventBus, declarations);
+    installPhantomDisguise(eventBus, A, B, declarations);
     installLinkAttack(eventBus, declarations);
     installChainClaw(eventBus, A, B, declarations);
     installKuLian(eventBus, A, B, declarations);
@@ -192,9 +216,12 @@ function submitPhantomDisguiseOnHit(data, decls) {
 
 // 幻影伪装：攻击后模仿对方单位。受击不重刷（闪避反击时保持暴露），只在成昆自身攻击结算后重刷
 function rollPhantomDisguise(unit, enemySide) {
-    const enemyAlive = enemySide.filter(u => u.alive && !u.isHorse && !u.state._untargetable);
+    const enemyAlive = enemySide.filter(u => canBeTargeted(u) && !u.isHorse);
     if (enemyAlive.length > 0) {
-        Object.assign(unit.state, { _phantomTarget: enemyAlive[getBattleRng().nextInt(0, enemyAlive.length - 1)].uid });
+        const target = enemyAlive[getBattleRng().nextInt(0, enemyAlive.length - 1)];
+        Object.assign(unit.state, { _phantomTarget: target.uid });
+        // 登记观察：被模仿者变得不可选（死/飞天/附身）→ 模仿立即失效
+        registerPhantomWatcher(unit, target, enemySide);
         emitEvent(unit, UNIT_EVENT_TYPES.HP_CHANGE, { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: unit.atk, def: unit.def, _phantomTarget: unit.state._phantomTarget });
     }
 }
@@ -239,9 +266,15 @@ function submitPhantomDisguiseTarget(data, decls) {
     }
 }
 
-function installPhantomDisguise(eventBus, declarations) {
+function installPhantomDisguise(eventBus, A, B, declarations) {
     const decls = declarations.filter(d => d && d.type === 'phantomDisguise');
     if (decls.length === 0) return;
+    // 每回合重新登记已有模仿的观察（clearAllWatchers 已在上游清空，且 A/B 每回合是新克隆）
+    const chengkun = B.find(u => u.name === '成昆' && u.alive && u.state._phantomTarget);
+    if (chengkun) {
+        const target = A.find(u => u.uid === chengkun.state._phantomTarget);
+        if (target) registerPhantomWatcher(chengkun, target, A);
+    }
     registerSettlementHook({
         when: SIGNAL_TYPES.AFTER_DAMAGE_APPLIED,
         priority: L.AFTER_DAMAGE_APPLIED.DISGUISE,

@@ -44,7 +44,7 @@ function showCloseRangeFX(unitA, unitD, role, getPausedFn) {
         icon.style.top = y + 'px';
         if (p < 1) { requestAnimationFrame(flyIcon); }
         else {
-            markGridShake(unitD.uid, 500);
+            // 近距离图标攻击不颤动，受击反馈由伤害飘字承担
             setTimeout(() => {
                 icon.style.transition = 'opacity 0.8s ease-out';
                 icon.style.opacity = '0';
@@ -239,7 +239,6 @@ export function showMeleeDodge(unitA, unitD, speed, getPausedFn) {
 
         if (!blocked && p >= 0.85) {
             blocked = true;
-            markGridShake(unitD.uid, 400);
             clone.style.transition = 'transform 0.1s ease';
             clone.style.transform = 'scale(0.9)';
             setTimeout(() => {

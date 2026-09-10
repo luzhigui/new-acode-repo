@@ -6,7 +6,8 @@ import { CONFIG, getSkillParams } from '../core/01config-5v5-test.js';
 import { getRoleBonus, getHpDmgRatio } from '../core/02unit.js';
 import { hasBuff } from '../core/03battle-utils.js';
 import { emitEvent, applyStatChange, applyMaxHpChange, registerQuery, getBattleRng, addMod, removeModsByGroup, getStat } from '../core/13battle-shared.js';
-import { FACT_TYPES, UNIT_EVENT_TYPES, CAMP_TYPES, ROLE_TYPES } from '../infra/56-battle-enums.js';
+import { FACT_TYPES, UNIT_EVENT_TYPES, CAMP_TYPES, ROLE_TYPES, STATE_CHANGE_TYPES } from '../infra/56-battle-enums.js';
+import { emitStateChange } from '../infra/59-state-change.js';
 
 // 玄冥二老 — 中毒/鹿角
 
@@ -140,6 +141,7 @@ export function spiderTransform(unit, log) {
     }
 
     emitEvent(unit, UNIT_EVENT_TYPES.HP_CHANGE, { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: getStat(unit, 'atk'), def: getStat(unit, 'def'), role: newRole });
+    emitStateChange(unit, STATE_CHANGE_TYPES.ROLE_CHANGED, { newRole }, log);
     log.push({ factType: FACT_TYPES.SPIDER_TRANSFORM, data: { unitName: unit.name, newRole, mastered: unit.state._masteredRoles.length, masteryGain } });
 }
 
@@ -158,6 +160,7 @@ export function spiderReturn(unit, allyTeam, enemySide, log) {
 
     emitEvent(unit, UNIT_EVENT_TYPES.HP_CHANGE, { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: getStat(unit, 'atk'), def: getStat(unit, 'def'), _flyMode: null, _spiderFlying: false });
     emitEvent(unit, UNIT_EVENT_TYPES.POS_CHANGE, { pos: unit.pos });
+    emitStateChange(unit, STATE_CHANGE_TYPES.LANDING, { pos: unit.pos }, log);
 
     log.push({ factType: FACT_TYPES.SPIDER_RETURN, data: { unitName: unit.name, spiderUid: unit.uid, pos: unit.pos } });
 

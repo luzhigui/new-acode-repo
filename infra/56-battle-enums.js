@@ -138,7 +138,22 @@ export const SIGNAL_TYPES = Object.freeze({
     ON_UNIT_DEATH: 'onUnitDeath',
     ON_POSITION_SWAP: 'onPositionSwap',
     BEFORE_STATE_TRANSITION: 'beforeStateTransition',
-    ON_BEFORE_DEATH: 'onBeforeDeath'
+    ON_BEFORE_DEATH: 'onBeforeDeath',
+    // 单位状态变化统一广播：所有"单位状态变了"的机制信号都走这个
+    ON_UNIT_STATE_CHANGE: 'onUnitStateChange'
+});
+
+/** 单位状态变化类型：ON_UNIT_STATE_CHANGE 信号的 changeType 唯一来源 */
+export const STATE_CHANGE_TYPES = Object.freeze({
+    DEATH: 'death',              // 单位死亡
+    POSITION: 'position',        // 位置变更（换位/击退/落地）
+    FLYING: 'flying',            // 飞天
+    LANDING: 'landing',          // 落地
+    ATTACHED: 'attached',        // 附身
+    RETURNED: 'returned',        // 飞回
+    STUNNED: 'stunned',          // 眩晕
+    TRANSFORMED: 'transformed',  // 张无忌变身
+    ROLE_CHANGED: 'roleChanged'  // 蛛变换职业
 });
 
 /** Buff 子类型：跨层传递的 buffType 唯一来源（不再用裸字符串） */

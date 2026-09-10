@@ -1,0 +1,1005 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>明教四杰 · 立绘图鉴</title>
+<style>
+html,body{margin:0;height:100%;background:#05070d;overflow:hidden;font-family:'LXGW WenKai','KaiTi','STKaiti',sans-serif;color:#c8d0e0;user-select:none;-webkit-tap-highlight-color:transparent}
+
+/* 背景星空 */
+#bg{position:fixed;inset:0;z-index:0;pointer-events:none;
+  background:radial-gradient(ellipse at 50% 20%,#141e36 0%,#0a0e1c 40%,#05070d 100%)}
+#stars{position:fixed;inset:0;z-index:0;pointer-events:none}
+#stars i{position:absolute;width:2px;height:2px;border-radius:50%;background:#cdd8f0;
+  animation:twinkle var(--t,4s) ease-in-out infinite}
+@keyframes twinkle{0%,100%{opacity:var(--o,.1)}50%{opacity:calc(var(--o,.1) * 2.5)}}
+
+/* 标题 */
+#title{position:fixed;top:calc(14px + env(safe-area-inset-top,0px));left:0;right:0;text-align:center;z-index:10;pointer-events:none}
+#title .main{font-size:clamp(13px,3vmin,17px);letter-spacing:.75em;text-indent:.75em;color:rgba(200,168,100,.55)}
+#title .sub{font-size:clamp(9px,2vmin,11px);letter-spacing:.4em;text-indent:.4em;color:rgba(200,168,100,.28);margin-top:.5em}
+
+/* 舞台：3D圆柱旋转 */
+#stage{position:fixed;top:0;left:0;right:0;height:62vh;
+  perspective:1400px;perspective-origin:50% 45%;
+  z-index:2;cursor:grab;touch-action:pan-y}
+#stage:active{cursor:grabbing}
+#pivot{position:absolute;left:50%;bottom:0;width:0;height:0;
+  transform-style:preserve-3d;
+  transition:transform .15s linear}
+
+/* 每个角色一层，独立旋转 */
+.layer{position:absolute;left:0;bottom:0;transform-style:preserve-3d;
+  transform-origin:50% 100%;
+  transition:opacity .5s ease, transform .6s cubic-bezier(.22,.8,.36,1);
+  opacity:0;pointer-events:none}
+.layer.active{opacity:1;pointer-events:auto}
+
+/* 角色各层景深 */
+.depth-back{transform:translateZ(-60px)}
+.depth-mid{transform:translateZ(0px)}
+.depth-front{transform:translateZ(60px)}
+
+/* 光晕 */
+#halo{position:fixed;left:50%;top:32%;transform:translate(-50%,-50%);
+  width:80vmin;height:80vmin;border-radius:50%;
+  background:radial-gradient(circle,var(--halo-c,rgba(120,180,255,.35)) 0%,transparent 55%);
+  z-index:1;pointer-events:none;filter:blur(20px);
+  animation:haloPulse 5s ease-in-out infinite}
+@keyframes haloPulse{0%,100%{opacity:.55;transform:translate(-50%,-50%) scale(1)}50%{opacity:.9;transform:translate(-50%,-50%) scale(1.08)}}
+
+/* 立绘 SVG */
+.portrait{display:block;filter:drop-shadow(0 20px 40px rgba(0,0,0,.7))}
+
+/* 箭头 */
+.arrow{position:fixed;top:30%;transform:translateY(-50%);z-index:20;
+  width:clamp(42px,8vmin,58px);height:clamp(42px,8vmin,58px);border-radius:50%;
+  background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.18);
+  display:flex;align-items:center;justify-content:center;cursor:pointer;
+  color:rgba(255,255,255,.8);font-size:clamp(20px,4vmin,28px);
+  font-family:inherit;transition:.25s;backdrop-filter:blur(6px)}
+.arrow:hover{background:rgba(255,255,255,.1);border-color:rgba(255,200,120,.6);color:#ffc266}
+.arrow:active{transform:translateY(-50%) scale(.92)}
+#arrowL{left:max(12px,env(safe-area-inset-left,0px))}
+#arrowR{right:max(12px,env(safe-area-inset-right,0px))}
+
+/* 底部信息卡 */
+#info{position:fixed;left:0;right:0;bottom:0;z-index:15;
+  padding:0 12px calc(12px + env(safe-area-inset-bottom,0px));pointer-events:none}
+.card{max-width:560px;margin:0 auto;
+  background:linear-gradient(180deg,rgba(10,14,24,.88),rgba(6,9,16,.96));
+  border:1px solid rgba(200,168,100,.22);border-radius:14px;
+  padding:14px 18px 12px;
+  backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
+  box-shadow:0 -6px 30px rgba(0,0,0,.7);
+  pointer-events:auto;transition:opacity .35s ease, transform .35s ease}
+.card.switching{opacity:0;transform:translateY(14px)}
+
+.name-row{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin-bottom:4px}
+.name{font-size:clamp(18px,4.5vmin,26px);font-weight:700;letter-spacing:.18em;line-height:1;transition:color .3s}
+.name.zw{color:#8cc0ff;text-shadow:0 0 16px rgba(140,192,255,.55)}
+.name.wy{color:#c09aff;text-shadow:0 0 16px rgba(192,154,255,.55)}
+.name.xz{color:#ff9ade;text-shadow:0 0 16px rgba(255,154,222,.55)}
+.name.xm{color:#ff6a8a;text-shadow:0 0 16px rgba(255,106,138,.55)}
+
+.tags{display:flex;gap:6px;flex-wrap:wrap}
+.tag{font-size:clamp(9px,1.8vmin,11px);padding:2px 8px;border-radius:10px;letter-spacing:.14em;border:1px solid}
+.tag.blue{color:#8cc0ff;border-color:rgba(140,192,255,.4);background:rgba(140,192,255,.08)}
+.tag.purple{color:#c09aff;border-color:rgba(192,154,255,.4);background:rgba(192,154,255,.08)}
+.tag.pink{color:#ff9ade;border-color:rgba(255,154,222,.4);background:rgba(255,154,222,.08)}
+.tag.red{color:#ff6a8a;border-color:rgba(255,106,138,.4);background:rgba(255,106,138,.08)}
+.tag.gold{color:#e8c27a;border-color:rgba(232,194,122,.4);background:rgba(232,194,122,.08)}
+
+.quote{font-size:clamp(11px,2.4vmin,13px);color:rgba(216,207,192,.55);letter-spacing:.06em;
+  margin:6px 0 10px;font-style:italic;line-height:1.5;
+  border-left:2px solid rgba(200,168,100,.3);padding-left:10px}
+
+.skills{display:flex;flex-direction:column;gap:6px;max-height:22vh;overflow-y:auto;padding-right:4px}
+.skills::-webkit-scrollbar{width:4px}
+.skills::-webkit-scrollbar-thumb{background:rgba(200,168,100,.3);border-radius:2px}
+.skill{display:flex;gap:10px;align-items:flex-start;font-size:clamp(11px,2.3vmin,13px);line-height:1.5}
+.skill .icon{flex-shrink:0;width:1.6em;text-align:center;font-size:clamp(13px,2.6vmin,16px)}
+.skill .body{flex:1;min-width:0}
+.skill .sname{color:#e8c27a;font-weight:600;letter-spacing:.08em}
+.skill .sdesc{color:rgba(216,207,192,.72);font-size:clamp(10px,2.1vmin,12px);margin-top:1px}
+
+.dots{display:flex;gap:8px;justify-content:center;margin-top:12px}
+.dot{width:6px;height:6px;border-radius:50%;background:rgba(255,255,255,.2);transition:.3s;cursor:pointer;pointer-events:auto}
+.dot.active{background:#ffc266;box-shadow:0 0 8px rgba(255,194,102,.7);transform:scale(1.3)}
+
+#hint{position:fixed;top:58%;left:50%;transform:translateX(-50%);
+  font-size:clamp(10px,1.9vmin,12px);color:rgba(255,255,255,.35);letter-spacing:.3em;
+  z-index:5;pointer-events:none;opacity:0;transition:opacity .5s;text-shadow:0 1px 4px rgba(0,0,0,.8)}
+#hint.show{opacity:1}
+</style>
+</head>
+<body>
+
+<div id="bg"></div>
+<div id="stars"></div>
+<div id="halo"></div>
+
+<div id="title">
+  <div class="main">明 教 四 杰</div>
+  <div class="sub">拖动旋转 · 左右切换</div>
+</div>
+
+<div id="stage">
+  <div id="pivot"></div>
+</div>
+
+<button class="arrow" id="arrowL">‹</button>
+<button class="arrow" id="arrowR">›</button>
+
+<div id="info">
+  <div class="card" id="card">
+    <div class="name-row">
+      <span class="name" id="heroName"></span>
+      <div class="tags" id="heroTags"></div>
+    </div>
+    <div class="quote" id="heroQuote"></div>
+    <div class="skills" id="heroSkills"></div>
+    <div class="dots" id="dots"></div>
+  </div>
+</div>
+
+<div id="hint">← 拖动可旋转 →</div>
+
+<script>
+/* ==================== 角色数据 ==================== */
+const HEROES = [
+  {
+    key: 'zw',
+    name: '张无忌',
+    tags: [{t:'明教', c:'blue'}, {t:'远程', c:'gold'}, {t:'精英', c:'gold'}],
+    quote: '「少林武当，也不过如此。」',
+    halo: 'rgba(120,180,255,.35)',
+    skills: [
+      { icon:'☀️', name:'九阳神功', desc:'每次攻击后回复最大生命 8%' },
+      { icon:'✨', name:'乾坤大挪移', desc:'保护 4/6 号位队友，减伤 10% 并反弹 10% 伤害' },
+      { icon:'⚔️', name:'近战切换', desc:'前排无友军时切换近战形态，攻防血大幅提升' },
+      { icon:'🔥', name:'融会贯通', desc:'近战 3 次后激活，附加目标攻防差 50% 的额外伤害' }
+    ],
+    portrait: portraitZhang
+  },
+  {
+    key: 'wy',
+    name: '韦一笑',
+    tags: [{t:'明教', c:'purple'}, {t:'飞行', c:'gold'}, {t:'精英', c:'gold'}],
+    quote: '「青翼蝠王，来去如风。」',
+    halo: 'rgba(160,120,230,.35)',
+    skills: [
+      { icon:'❄️', name:'寒冰掌', desc:'优先攻击全场血量最低者，伤害后吸血 15%~45%' },
+      { icon:'🦇', name:'残血幻影', desc:'额外闪避率 = 已损失生命比例 × 70%' },
+      { icon:'👻', name:'永不失手', desc:'攻击必命中，不受未命中判定影响' },
+      { icon:'⚡', name:'闪避反击', desc:'闪避成功后对攻击者造成真实伤害并眩晕' }
+    ],
+    portrait: portraitWei
+  },
+  {
+    key: 'xz',
+    name: '小昭·姊',
+    tags: [{t:'明教', c:'pink'}, {t:'辅助', c:'gold'}, {t:'精英', c:'gold'}],
+    quote: '「让这光明顶，再多守一会儿。」',
+    halo: 'rgba(255,140,210,.35)',
+    skills: [
+      { icon:'🦋', name:'蝶变附身', desc:'开局附身到 4 号位后最近队友，转移属性并附加护盾' },
+      { icon:'✨', name:'乾坤衍生', desc:'张无忌不在时，队友受伤触发减伤 + 治疗 + 加攻' },
+      { icon:'🛡️', name:'乾坤大挪移（升级）', desc:'张无忌在场时全队减伤 30%、反弹 20%' },
+      { icon:'♾️', name:'永久海克斯', desc:'团队海克斯消失后，小昭单独续上同效果' }
+    ],
+    portrait: portraitSister
+  },
+  {
+    key: 'xm',
+    name: '小昭·妹',
+    tags: [{t:'明教', c:'red'}, {t:'蛛化', c:'gold'}, {t:'精英', c:'gold'}],
+    quote: '「我化蛛时，无人能伤到你。」',
+    halo: 'rgba(255,90,120,.35)',
+    skills: [
+      { icon:'🕷️', name:'蛛变', desc:'每回合随机变换职业，职业加成永久叠加' },
+      { icon:'🕸️', name:'飞天', desc:'血量 ≤70% / 40% / 濒死时触发，免疫本次伤害' },
+      { icon:'💥', name:'蛛袭', desc:'降落攻击随机敌人，穿透 + 精通附加额外伤害' },
+      { icon:'🏆', name:'精通', desc:'每精通一个职业 +2 攻 +2 防 +5 血上限' }
+    ],
+    portrait: portraitBrother
+  }
+];
+
+/* ==================== 立绘 SVG ==================== */
+
+/* 张无忌：白袍蓝披风，长剑，英气 */
+function portraitZhang(){
+  return `
+<svg class="portrait" viewBox="0 0 400 600" xmlns="http://www.w3.org/2000/svg" width="100%" height="100%">
+  <defs>
+    <linearGradient id="zw-cloak" x1=".5" y1="0" x2=".5" y2="1">
+      <stop offset="0" stop-color="#3a6fc0"/>
+      <stop offset=".5" stop-color="#1e4a90"/>
+      <stop offset="1" stop-color="#0a1e40"/>
+    </linearGradient>
+    <linearGradient id="zw-robe" x1=".5" y1="0" x2=".5" y2="1">
+      <stop offset="0" stop-color="#f0f4fa"/>
+      <stop offset=".5" stop-color="#d8e0ec"/>
+      <stop offset="1" stop-color="#a0b0c8"/>
+    </linearGradient>
+    <linearGradient id="zw-robe-shadow" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#8090a8"/>
+      <stop offset=".4" stop-color="#c8d4e4"/>
+      <stop offset="1" stop-color="#7080a0"/>
+    </linearGradient>
+    <linearGradient id="zw-belt" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffd870"/>
+      <stop offset=".5" stop-color="#d4a040"/>
+      <stop offset="1" stop-color="#8a6018"/>
+    </linearGradient>
+    <linearGradient id="zw-hair" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#2a2a30"/>
+      <stop offset="1" stop-color="#0a0a10"/>
+    </linearGradient>
+    <linearGradient id="zw-skin" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fce4c8"/>
+      <stop offset="1" stop-color="#d8b890"/>
+    </linearGradient>
+    <linearGradient id="zw-blade" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset=".5" stop-color="#c8dce8"/>
+      <stop offset="1" stop-color="#6078a0"/>
+    </linearGradient>
+    <radialGradient id="zw-aura">
+      <stop offset="0" stop-color="#ffd700" stop-opacity=".7"/>
+      <stop offset=".5" stop-color="#ffb040" stop-opacity=".25"/>
+      <stop offset="1" stop-color="#ffd700" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <!-- 披风（后层） -->
+  <path d="M 130 200 Q 60 320 50 500 Q 90 520 140 500 Q 160 400 180 260 Z"
+        fill="url(#zw-cloak)" opacity=".9"/>
+  <path d="M 270 200 Q 340 320 350 500 Q 310 520 260 500 Q 240 400 220 260 Z"
+        fill="url(#zw-cloak)" opacity=".9"/>
+
+  <!-- 白色下摆 -->
+  <path d="M 150 260 Q 130 420 140 560 Q 200 580 260 560 Q 270 420 250 260 Z"
+        fill="url(#zw-robe)"/>
+  <path d="M 150 260 Q 130 420 140 560 Q 200 580 260 560 Q 270 420 250 260 Z"
+        fill="none" stroke="#8090a8" stroke-width="1" opacity=".5"/>
+  <!-- 衣摆褶皱 -->
+  <path d="M 170 320 Q 165 440 175 550" stroke="#8090a8" stroke-width="1.2" fill="none" opacity=".5"/>
+  <path d="M 230 320 Q 235 440 225 550" stroke="#8090a8" stroke-width="1.2" fill="none" opacity=".5"/>
+  <path d="M 200 340 Q 200 460 200 570" stroke="#8090a8" stroke-width="1" fill="none" opacity=".4"/>
+
+  <!-- 上半身内衬 -->
+  <path d="M 160 180 Q 150 260 155 320 L 245 320 Q 250 260 240 180 Z"
+        fill="url(#zw-robe-shadow)"/>
+  <!-- 交领 -->
+  <path d="M 175 175 L 200 240 L 225 175 L 215 170 L 200 225 L 185 170 Z" fill="#2a4a80"/>
+  <path d="M 175 175 L 200 240 L 225 175" fill="none" stroke="#0a1e40" stroke-width="2"/>
+
+  <!-- 腰带 -->
+  <rect x="155" y="315" width="90" height="18" rx="2" fill="url(#zw-belt)"/>
+  <rect x="155" y="315" width="90" height="4" fill="#fff3a0" opacity=".6"/>
+  <circle cx="200" cy="324" r="7" fill="#8a6018"/>
+  <circle cx="200" cy="324" r="4" fill="#ffd870"/>
+
+  <!-- 腰带流苏 -->
+  <path d="M 195 333 L 190 380 L 200 375 L 210 380 L 205 333 Z" fill="#d4a040"/>
+  <path d="M 195 333 L 190 380 L 200 375 L 210 380 L 205 333 Z" fill="none" stroke="#8a6018" stroke-width="1"/>
+
+  <!-- 手臂（左，身后） -->
+  <path d="M 155 185 Q 130 220 120 280 Q 130 300 145 295 Q 155 250 175 200 Z"
+        fill="url(#zw-robe-shadow)"/>
+  <ellipse cx="132" cy="290" rx="14" ry="16" fill="url(#zw-skin)"/>
+
+  <!-- 剑（在右臂后方，从身后伸出） -->
+  <g transform="translate(280, 130) rotate(28)">
+    <path d="M 0 0 L 12 0 L 12 200 L 6 220 L 0 200 Z" fill="url(#zw-blade)"/>
+    <path d="M 6 0 L 6 200 L 6 220" stroke="#fff" stroke-width=".8" opacity=".8"/>
+    <rect x="-8" y="-4" width="28" height="8" fill="#d4a040" rx="2"/>
+    <rect x="-8" y="-4" width="28" height="3" fill="#fff3a0" opacity=".7"/>
+    <rect x="3" y="4" width="6" height="30" fill="#8a2020" rx="3"/>
+    <circle cx="6" cy="40" r="5" fill="#d4a040"/>
+  </g>
+
+  <!-- 手臂（右，持剑） -->
+  <path d="M 245 185 Q 270 220 275 275 Q 265 295 250 288 Q 240 245 225 200 Z"
+        fill="url(#zw-robe)"/>
+  <path d="M 245 185 Q 270 220 275 275" fill="none" stroke="#8090a8" stroke-width="1" opacity=".5"/>
+  <ellipse cx="262" cy="285" rx="15" ry="17" fill="url(#zw-skin)"/>
+
+  <!-- 颈部 -->
+  <rect x="188" y="150" width="24" height="35" fill="url(#zw-skin)"/>
+
+  <!-- 头部 -->
+  <!-- 脸型 -->
+  <ellipse cx="200" cy="115" rx="42" ry="48" fill="url(#zw-skin)"/>
+  <!-- 侧脸阴影 -->
+  <path d="M 200 67 Q 242 67 242 115 Q 242 163 200 163 Q 220 155 226 115 Q 226 75 200 67 Z"
+        fill="#c0a080" opacity=".5"/>
+
+  <!-- 五官 -->
+  <!-- 眉毛（英气） -->
+  <path d="M 175 100 Q 185 92 197 98" stroke="#0a0a10" stroke-width="3" fill="none" stroke-linecap="round"/>
+  <path d="M 225 100 Q 215 92 203 98" stroke="#0a0a10" stroke-width="3" fill="none" stroke-linecap="round"/>
+  <!-- 眼睛 -->
+  <ellipse cx="184" cy="118" rx="5" ry="4" fill="#1a1a24"/>
+  <ellipse cx="216" cy="118" rx="5" ry="4" fill="#1a1a24"/>
+  <circle cx="185" cy="117" r="1.8" fill="#fff" opacity=".9"/>
+  <circle cx="217" cy="117" r="1.8" fill="#fff" opacity=".9"/>
+  <!-- 鼻 -->
+  <path d="M 200 125 L 197 138 L 203 138" stroke="#c0a080" stroke-width="1.5" fill="none" stroke-linejoin="round"/>
+  <!-- 嘴 -->
+  <path d="M 191 148 Q 200 153 209 148" stroke="#a06050" stroke-width="1.8" fill="none" stroke-linecap="round"/>
+
+  <!-- 头发 -->
+  <path d="M 158 118 Q 155 75 200 62 Q 245 75 242 118 Q 240 80 200 72 Q 160 80 158 118 Z"
+        fill="url(#zw-hair)"/>
+  <!-- 鬓发 -->
+  <path d="M 160 118 Q 152 140 158 165 Q 162 145 165 125 Z" fill="url(#zw-hair)"/>
+  <path d="M 240 118 Q 248 140 242 165 Q 238 145 235 125 Z" fill="url(#zw-hair)"/>
+
+  <!-- 发冠 -->
+  <path d="M 175 62 Q 200 40 225 62 L 220 75 Q 200 55 180 75 Z" fill="#d4a040"/>
+  <path d="M 175 62 Q 200 40 225 62 L 224 66 Q 200 46 176 66 Z" fill="#fff3a0"/>
+  <circle cx="200" cy="48" r="5" fill="#ffd700"/>
+  <circle cx="200" cy="48" r="8" fill="url(#zw-aura)"/>
+
+  <!-- 头顶金色光环 -->
+  <ellipse cx="200" cy="30" rx="55" ry="8" fill="none" stroke="#ffd700" stroke-width="2" opacity=".7">
+    <animate attributeName="opacity" values=".4;.9;.4" dur="3s" repeatCount="indefinite"/>
+  </ellipse>
+  <ellipse cx="200" cy="30" rx="70" ry="11" fill="none" stroke="#ffd700" stroke-width="1" opacity=".3">
+    <animate attributeName="rx" values="60;80;60" dur="4s" repeatCount="indefinite"/>
+    <animate attributeName="opacity" values=".2;.5;.2" dur="4s" repeatCount="indefinite"/>
+  </ellipse>
+
+  <!-- 剑上闪光 -->
+  <circle cx="290" cy="120" r="3" fill="#fff">
+    <animate attributeName="opacity" values="0;1;0" dur="3.5s" repeatCount="indefinite"/>
+  </circle>
+</svg>`;
+}
+
+/* 韦一笑：紫黑蝠翼，双刃，邪气 */
+function portraitWei(){
+  return `
+<svg class="portrait" viewBox="0 0 400 600" xmlns="http://www.w3.org/2000/svg" width="100%" height="100%">
+  <defs>
+    <linearGradient id="wy-cloth" x1=".5" y1="0" x2=".5" y2="1">
+      <stop offset="0" stop-color="#5a3a90"/>
+      <stop offset=".5" stop-color="#2a1a50"/>
+      <stop offset="1" stop-color="#0a0518"/>
+    </linearGradient>
+    <linearGradient id="wy-cloth2" x1=".5" y1="0" x2=".5" y2="1">
+      <stop offset="0" stop-color="#3a2a68"/>
+      <stop offset="1" stop-color="#15102a"/>
+    </linearGradient>
+    <linearGradient id="wy-wing" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#7a5ac0" stop-opacity=".9"/>
+      <stop offset=".5" stop-color="#4a3a80" stop-opacity=".8"/>
+      <stop offset="1" stop-color="#1a0a40" stop-opacity=".6"/>
+    </linearGradient>
+    <linearGradient id="wy-wing-line" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#c0a0f0"/>
+      <stop offset="1" stop-color="#6040a0"/>
+    </linearGradient>
+    <linearGradient id="wy-hair" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1a1a24"/>
+      <stop offset="1" stop-color="#05050a"/>
+    </linearGradient>
+    <linearGradient id="wy-skin" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#f0dcc8"/>
+      <stop offset="1" stop-color="#c0a890"/>
+    </linearGradient>
+    <linearGradient id="wy-blade" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#e8f0ff"/>
+      <stop offset="1" stop-color="#506090"/>
+    </linearGradient>
+  </defs>
+
+  <!-- 蝠翼（后层） -->
+  <g opacity=".55">
+    <path d="M 140 200 Q 30 140 10 30 Q 50 90 90 120 Q 70 170 100 200 Q 120 210 140 210 Z"
+          fill="url(#wy-wing)"/>
+    <path d="M 260 200 Q 370 140 390 30 Q 350 90 310 120 Q 330 170 300 200 Q 280 210 260 210 Z"
+          fill="url(#wy-wing)"/>
+  </g>
+
+  <!-- 蝠翼（前层） -->
+  <path d="M 145 205 Q 25 130 5 20 Q 45 85 85 115 Q 60 165 95 200 Q 120 215 148 220 Z"
+        fill="url(#wy-wing)"/>
+  <path d="M 145 205 Q 25 130 5 20 Q 45 85 85 115 Q 60 165 95 200"
+        fill="none" stroke="url(#wy-wing-line)" stroke-width="1.5" opacity=".7"/>
+  <path d="M 145 205 Q 60 200 20 130" stroke="#c0a0f0" stroke-width=".8" fill="none" opacity=".5"/>
+  <path d="M 100 170 Q 60 160 35 110" stroke="#c0a0f0" stroke-width=".8" fill="none" opacity=".5"/>
+  <path d="M 255 205 Q 375 130 395 20 Q 355 85 315 115 Q 340 165 305 200 Q 280 215 252 220 Z"
+        fill="url(#wy-wing)"/>
+  <path d="M 255 205 Q 375 130 395 20 Q 355 85 315 115 Q 340 165 305 200"
+        fill="none" stroke="url(#wy-wing-line)" stroke-width="1.5" opacity=".7"/>
+  <path d="M 255 205 Q 340 200 380 130" stroke="#c0a0f0" stroke-width=".8" fill="none" opacity=".5"/>
+  <path d="M 300 170 Q 340 160 365 110" stroke="#c0a0f0" stroke-width=".8" fill="none" opacity=".5"/>
+
+  <!-- 紧身衣（上） -->
+  <path d="M 160 190 Q 150 260 155 320 L 245 320 Q 250 260 240 190 Z" fill="url(#wy-cloth)"/>
+  <path d="M 175 190 L 200 250 L 225 190 L 210 185 L 200 235 L 190 185 Z" fill="#0a0518"/>
+  <path d="M 175 190 L 200 250 L 225 190" fill="none" stroke="#7a5ac0" stroke-width="1.5" opacity=".8"/>
+
+  <!-- 下摆紧身 -->
+  <path d="M 155 320 Q 145 420 150 560 Q 200 575 250 560 Q 255 420 245 320 Z"
+        fill="url(#wy-cloth2)"/>
+  <path d="M 155 320 Q 145 420 150 560 Q 200 575 250 560 Q 255 420 245 320 Z"
+        fill="none" stroke="#7a5ac0" stroke-width="1" opacity=".4"/>
+  <path d="M 175 340 Q 170 460 180 555" stroke="#7a5ac0" stroke-width=".8" fill="none" opacity=".5"/>
+  <path d="M 225 340 Q 230 460 220 555" stroke="#7a5ac0" stroke-width=".8" fill="none" opacity=".5"/>
+
+  <!-- 腰带（紫金） -->
+  <rect x="150" y="312" width="100" height="14" rx="2" fill="#1a0a30"/>
+  <rect x="150" y="312" width="100" height="4" fill="#9a7ad0" opacity=".7"/>
+  <circle cx="200" cy="319" r="6" fill="#7a5ac0"/>
+  <circle cx="200" cy="319" r="3" fill="#d0b8f0"/>
+
+  <!-- 手臂左（持刃） -->
+  <path d="M 155 195 Q 120 230 100 300 Q 110 315 130 310 Q 145 260 175 210 Z"
+        fill="url(#wy-cloth)"/>
+  <ellipse cx="115" cy="305" rx="13" ry="15" fill="url(#wy-skin)"/>
+  <!-- 左手短刃 -->
+  <g transform="translate(85, 290) rotate(-45)">
+    <path d="M 0 0 L 6 0 L 6 80 L 3 90 L 0 80 Z" fill="url(#wy-blade)"/>
+    <rect x="-4" y="-3" width="14" height="5" fill="#1a0a30"/>
+    <rect x="2" y="3" width="3" height="18" fill="#4a3a80"/>
+  </g>
+
+  <!-- 手臂右（持刃） -->
+  <path d="M 245 195 Q 280 230 300 300 Q 290 315 270 310 Q 255 260 225 210 Z"
+        fill="url(#wy-cloth)"/>
+  <path d="M 245 195 Q 280 230 300 300" fill="none" stroke="#7a5ac0" stroke-width=".8" opacity=".5"/>
+  <ellipse cx="285" cy="305" rx="13" ry="15" fill="url(#wy-skin)"/>
+  <!-- 右手短刃 -->
+  <g transform="translate(305, 290) rotate(45)">
+    <path d="M 0 0 L 6 0 L 6 80 L 3 90 L 0 80 Z" fill="url(#wy-blade)"/>
+    <rect x="-4" y="-3" width="14" height="5" fill="#1a0a30"/>
+    <rect x="2" y="3" width="3" height="18" fill="#4a3a80"/>
+  </g>
+
+  <!-- 颈部（苍白） -->
+  <rect x="188" y="150" width="24" height="35" fill="url(#wy-skin)"/>
+
+  <!-- 头部 -->
+  <ellipse cx="200" cy="115" rx="40" ry="46" fill="url(#wy-skin)"/>
+  <path d="M 200 69 Q 240 69 240 115 Q 240 161 200 161 Q 218 153 224 115 Q 224 77 200 69 Z"
+        fill="#b09878" opacity=".5"/>
+
+  <!-- 眉毛（上扬，邪气） -->
+  <path d="M 172 98 Q 185 88 200 96" stroke="#0a0a10" stroke-width="3.2" fill="none" stroke-linecap="round"/>
+  <path d="M 228 98 Q 215 88 200 96" stroke="#0a0a10" stroke-width="3.2" fill="none" stroke-linecap="round"/>
+  <!-- 眼睛（带红瞳） -->
+  <ellipse cx="184" cy="116" rx="5.5" ry="4.5" fill="#0a0518"/>
+  <ellipse cx="216" cy="116" rx="5.5" ry="4.5" fill="#0a0518"/>
+  <circle cx="184" cy="116" r="2.2" fill="#c02040"/>
+  <circle cx="216" cy="116" r="2.2" fill="#c02040"/>
+  <circle cx="185" cy="115" r=".9" fill="#fff" opacity=".9"/>
+  <circle cx="217" cy="115" r=".9" fill="#fff" opacity=".9"/>
+  <!-- 鼻 -->
+  <path d="M 200 125 L 198 137 L 203 137" stroke="#b09878" stroke-width="1.5" fill="none" stroke-linejoin="round"/>
+  <!-- 嘴（冷笑） -->
+  <path d="M 191 148 Q 200 152 210 146" stroke="#8a3040" stroke-width="1.8" fill="none" stroke-linecap="round"/>
+
+  <!-- 头发（凌乱） -->
+  <path d="M 160 118 Q 155 70 200 58 Q 245 70 240 118 Q 238 78 200 68 Q 162 78 160 118 Z"
+        fill="url(#wy-hair)"/>
+  <path d="M 160 118 Q 150 145 158 175 Q 162 145 165 125 Z" fill="url(#wy-hair)"/>
+  <path d="M 240 118 Q 250 145 242 175 Q 238 145 235 125 Z" fill="url(#wy-hair)"/>
+  <!-- 几缕碎发 -->
+  <path d="M 172 80 Q 178 100 172 118" stroke="#05050a" stroke-width="3" fill="none"/>
+  <path d="M 228 80 Q 222 100 228 118" stroke="#05050a" stroke-width="3" fill="none"/>
+  <path d="M 195 62 Q 200 80 195 90" stroke="#05050a" stroke-width="2.5" fill="none"/>
+
+  <!-- 血纹（脸侧） -->
+  <path d="M 232 105 Q 236 115 233 125" stroke="#8a2040" stroke-width="1.2" fill="none" opacity=".7"/>
+
+  <!-- 紫光 -->
+  <circle cx="200" cy="115" r="140" fill="none" stroke="#7a5ac0" stroke-width=".5" opacity=".2">
+    <animate attributeName="r" values="120;160;120" dur="5s" repeatCount="indefinite"/>
+    <animate attributeName="opacity" values=".1;.3;.1" dur="5s" repeatCount="indefinite"/>
+  </circle>
+</svg>`;
+}
+
+/* 小昭·姊：粉紫蝶翼，长裙，羽扇 */
+function portraitSister(){
+  return `
+<svg class="portrait" viewBox="0 0 400 600" xmlns="http://www.w3.org/2000/svg" width="100%" height="100%">
+  <defs>
+    <linearGradient id="xz-dress" x1=".5" y1="0" x2=".5" y2="1">
+      <stop offset="0" stop-color="#e8a8d8"/>
+      <stop offset=".5" stop-color="#b060a8"/>
+      <stop offset="1" stop-color="#602860"/>
+    </linearGradient>
+    <linearGradient id="xz-dress2" x1=".5" y1="0" x2=".5" y2="1">
+      <stop offset="0" stop-color="#f0c8e8"/>
+      <stop offset="1" stop-color="#a868a8"/>
+    </linearGradient>
+    <linearGradient id="xz-wing-back" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#b070a8" stop-opacity=".65"/>
+      <stop offset="1" stop-color="#502060" stop-opacity=".4"/>
+    </linearGradient>
+    <linearGradient id="xz-wing-front" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ffd0f0" stop-opacity=".95"/>
+      <stop offset=".4" stop-color="#e898d0" stop-opacity=".9"/>
+      <stop offset="1" stop-color="#a05090" stop-opacity=".7"/>
+    </linearGradient>
+    <linearGradient id="xz-hair" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#3a1a3a"/>
+      <stop offset="1" stop-color="#1a0818"/>
+    </linearGradient>
+    <linearGradient id="xz-skin" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fff0e4"/>
+      <stop offset="1" stop-color="#e8c8ac"/>
+    </linearGradient>
+    <linearGradient id="xz-fan" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ffe0f0"/>
+      <stop offset="1" stop-color="#d090c0"/>
+    </linearGradient>
+  </defs>
+
+  <!-- 蝶翼后层 -->
+  <path d="M 155 200 Q 40 120 20 20 Q 60 80 100 110 Q 60 170 100 210 Q 130 215 155 215 Z"
+        fill="url(#xz-wing-back)"/>
+  <path d="M 245 200 Q 360 120 380 20 Q 340 80 300 110 Q 340 170 300 210 Q 270 215 245 215 Z"
+        fill="url(#xz-wing-back)"/>
+
+  <!-- 长裙底 -->
+  <path d="M 140 320 Q 100 460 120 570 Q 200 590 280 570 Q 300 460 260 320 Z"
+        fill="url(#xz-dress)"/>
+  <!-- 裙褶 -->
+  <path d="M 155 350 Q 145 460 155 565" stroke="#5a2058" stroke-width="1" fill="none" opacity=".5"/>
+  <path d="M 200 360 Q 200 470 200 580" stroke="#5a2058" stroke-width="1" fill="none" opacity=".5"/>
+  <path d="M 245 350 Q 255 460 245 565" stroke="#5a2058" stroke-width="1" fill="none" opacity=".5"/>
+  <!-- 裙摆花纹 -->
+  <path d="M 130 520 Q 200 550 270 520" stroke="#ffd0f0" stroke-width="1.5" fill="none" opacity=".7"/>
+  <path d="M 135 545 Q 200 570 265 545" stroke="#ffd0f0" stroke-width="1" fill="none" opacity=".5"/>
+
+  <!-- 蝶翼前层 -->
+  <path d="M 160 205 Q 30 130 10 20 Q 55 85 95 115 Q 55 165 90 205 Q 125 215 160 220 Z"
+        fill="url(#xz-wing-front)"/>
+  <path d="M 160 205 Q 30 130 10 20 Q 55 85 95 115 Q 55 165 90 205"
+        fill="none" stroke="#ffd0f0" stroke-width="1.5" opacity=".8"/>
+  <path d="M 160 205 Q 75 200 25 130" stroke="#ffe8f8" stroke-width=".8" fill="none" opacity=".6"/>
+  <path d="M 110 170 Q 65 160 35 110" stroke="#ffe8f8" stroke-width=".8" fill="none" opacity=".6"/>
+  <!-- 翅膀花纹 -->
+  <circle cx="70" cy="80" r="8" fill="#fff0f8" opacity=".6"/>
+  <circle cx="110" cy="140" r="5" fill="#fff0f8" opacity=".5"/>
+  <path d="M 240 205 Q 370 130 390 20 Q 345 85 305 115 Q 345 165 310 205 Q 275 215 240 220 Z"
+        fill="url(#xz-wing-front)"/>
+  <path d="M 240 205 Q 370 130 390 20 Q 345 85 305 115 Q 345 165 310 205"
+        fill="none" stroke="#ffd0f0" stroke-width="1.5" opacity=".8"/>
+  <path d="M 240 205 Q 325 200 375 130" stroke="#ffe8f8" stroke-width=".8" fill="none" opacity=".6"/>
+  <path d="M 290 170 Q 335 160 365 110" stroke="#ffe8f8" stroke-width=".8" fill="none" opacity=".6"/>
+  <circle cx="330" cy="80" r="8" fill="#fff0f8" opacity=".6"/>
+  <circle cx="290" cy="140" r="5" fill="#fff0f8" opacity=".5"/>
+
+  <!-- 上身 -->
+  <path d="M 165 190 Q 155 260 160 320 L 240 320 Q 245 260 235 190 Z"
+        fill="url(#xz-dress2)"/>
+  <!-- 交领 -->
+  <path d="M 178 185 L 200 250 L 222 185 L 213 182 L 200 235 L 187 182 Z" fill="#a058a0"/>
+  <path d="M 178 185 L 200 250 L 222 185" fill="none" stroke="#602860" stroke-width="1.5"/>
+  <!-- 胸口丝带 -->
+  <path d="M 185 205 Q 200 215 215 205 L 215 218 Q 200 228 185 218 Z" fill="#ffd0f0"/>
+  <circle cx="200" cy="215" r="4" fill="#a058a0"/>
+
+  <!-- 腰带 -->
+  <rect x="158" y="315" width="84" height="10" rx="2" fill="#e8a8d8"/>
+  <rect x="158" y="315" width="84" height="3" fill="#fff0f8" opacity=".7"/>
+
+  <!-- 手臂左（羽毛扇） -->
+  <path d="M 160 195 Q 130 230 120 290 Q 130 305 145 300 Q 155 255 175 210 Z"
+        fill="url(#xz-dress2)"/>
+  <ellipse cx="132" cy="295" rx="12" ry="14" fill="url(#xz-skin)"/>
+  <!-- 羽扇 -->
+  <g transform="translate(120, 295) rotate(-30)">
+    <path d="M 0 0 L 40 0 L 60 -15 L 70 -5 L 55 8 L 60 20 L 40 15 L 0 8 Z"
+          fill="url(#xz-fan)" opacity=".95"/>
+    <line x1="0" y1="4" x2="60" y2="4" stroke="#a058a0" stroke-width="1"/>
+    <line x1="30" y1="2" x2="65" y2="-10" stroke="#a058a0" stroke-width=".8" opacity=".7"/>
+    <line x1="30" y1="6" x2="65" y2="18" stroke="#a058a0" stroke-width=".8" opacity=".7"/>
+    <circle cx="0" cy="4" r="4" fill="#602860"/>
+  </g>
+
+  <!-- 手臂右 -->
+  <path d="M 240 195 Q 270 230 280 290 Q 270 305 255 300 Q 245 255 225 210 Z"
+        fill="url(#xz-dress2)"/>
+  <path d="M 240 195 Q 270 230 280 290" fill="none" stroke="#a058a0" stroke-width=".8" opacity=".5"/>
+  <ellipse cx="268" cy="295" rx="12" ry="14" fill="url(#xz-skin)"/>
+
+  <!-- 颈部 -->
+  <rect x="190" y="152" width="20" height="33" fill="url(#xz-skin)"/>
+
+  <!-- 头部 -->
+  <ellipse cx="200" cy="118" rx="38" ry="44" fill="url(#xz-skin)"/>
+  <path d="M 200 74 Q 238 74 238 118 Q 238 162 200 162 Q 218 154 224 118 Q 224 82 200 74 Z"
+        fill="#d8b090" opacity=".45"/>
+
+  <!-- 长睫毛 + 温柔眼 -->
+  <path d="M 176 106 Q 184 100 196 104" stroke="#1a0818" stroke-width="2.2" fill="none" stroke-linecap="round"/>
+  <path d="M 224 106 Q 216 100 204 104" stroke="#1a0818" stroke-width="2.2" fill="none" stroke-linecap="round"/>
+  <!-- 眼睛（温柔下垂） -->
+  <ellipse cx="184" cy="120" rx="5" ry="4.5" fill="#1a0818"/>
+  <ellipse cx="216" cy="120" rx="5" ry="4.5" fill="#1a0818"/>
+  <circle cx="185" cy="119" r="1.8" fill="#fff" opacity=".9"/>
+  <circle cx="217" cy="119" r="1.8" fill="#fff" opacity=".9"/>
+  <!-- 睫毛 -->
+  <path d="M 180 116 L 178 113" stroke="#1a0818" stroke-width="1.5" stroke-linecap="round"/>
+  <path d="M 220 116 L 222 113" stroke="#1a0818" stroke-width="1.5" stroke-linecap="round"/>
+  <!-- 腮红 -->
+  <ellipse cx="176" cy="136" rx="6" ry="3" fill="#ffa8c8" opacity=".5"/>
+  <ellipse cx="224" cy="136" rx="6" ry="3" fill="#ffa8c8" opacity=".5"/>
+  <!-- 鼻 -->
+  <path d="M 200 128 L 198 138 L 202 138" stroke="#d8b090" stroke-width="1.3" fill="none" stroke-linejoin="round"/>
+  <!-- 嘴（微笑） -->
+  <path d="M 193 148 Q 200 152 207 148" stroke="#c06878" stroke-width="1.6" fill="none" stroke-linecap="round"/>
+
+  <!-- 长发 -->
+  <path d="M 162 118 Q 158 70 200 60 Q 242 70 238 118 Q 236 80 200 70 Q 164 80 162 118 Z"
+        fill="url(#xz-hair)"/>
+  <!-- 两侧长发 -->
+  <path d="M 162 118 Q 152 180 160 260 Q 165 200 168 130 Z" fill="url(#xz-hair)"/>
+  <path d="M 238 118 Q 248 180 240 260 Q 235 200 232 130 Z" fill="url(#xz-hair)"/>
+  <!-- 发丝细节 -->
+  <path d="M 168 140 Q 165 200 172 250" stroke="#5a2a5a" stroke-width="1" fill="none" opacity=".6"/>
+  <path d="M 232 140 Q 235 200 228 250" stroke="#5a2a5a" stroke-width="1" fill="none" opacity=".6"/>
+  <!-- 发髻 -->
+  <ellipse cx="200" cy="62" rx="22" ry="14" fill="#1a0818"/>
+  <ellipse cx="200" cy="60" rx="18" ry="11" fill="#2a1030"/>
+  <!-- 发簪 -->
+  <line x1="178" y1="62" x2="222" y2="58" stroke="#e8a8d8" stroke-width="3" stroke-linecap="round"/>
+  <circle cx="222" cy="58" r="5" fill="#ffd0f0"/>
+  <circle cx="222" cy="58" r="3" fill="#fff0f8"/>
+
+  <!-- 周身粉光 -->
+  <circle cx="200" cy="200" r="180" fill="none" stroke="#ffd0f0" stroke-width=".5" opacity=".15">
+    <animate attributeName="opacity" values=".1;.25;.1" dur="4s" repeatCount="indefinite"/>
+  </circle>
+</svg>`;
+}
+
+/* 小昭·妹：红黑蛛腿，蛛丝，锐利 */
+function portraitBrother(){
+  return `
+<svg class="portrait" viewBox="0 0 400 600" xmlns="http://www.w3.org/2000/svg" width="100%" height="100%">
+  <defs>
+    <linearGradient id="xm-cloth" x1=".5" y1="0" x2=".5" y2="1">
+      <stop offset="0" stop-color="#b83860"/>
+      <stop offset=".5" stop-color="#701840"/>
+      <stop offset="1" stop-color="#2a0818"/>
+    </linearGradient>
+    <linearGradient id="xm-cloth2" x1=".5" y1="0" x2=".5" y2="1">
+      <stop offset="0" stop-color="#5a1830"/>
+      <stop offset="1" stop-color="#1a0408"/>
+    </linearGradient>
+    <linearGradient id="xm-leg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#e04070"/>
+      <stop offset=".5" stop-color="#a02050"/>
+      <stop offset="1" stop-color="#601030"/>
+    </linearGradient>
+    <linearGradient id="xm-leg-back" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#701830"/>
+      <stop offset="1" stop-color="#2a0810"/>
+    </linearGradient>
+    <linearGradient id="xm-hair" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#2a0810"/>
+      <stop offset="1" stop-color="#0a0204"/>
+    </linearGradient>
+    <linearGradient id="xm-skin" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#f8e0d0"/>
+      <stop offset="1" stop-color="#d0a890"/>
+    </linearGradient>
+  </defs>
+
+  <!-- 蛛腿（后层4条） -->
+  <g opacity=".65">
+    <path d="M 155 250 Q 100 210 50 150 L 45 155 Q 95 220 155 260" fill="none" stroke="url(#xm-leg-back)" stroke-width="5" stroke-linecap="round"/>
+    <path d="M 155 280 Q 80 250 30 210 L 28 215 Q 80 258 155 290" fill="none" stroke="url(#xm-leg-back)" stroke-width="5" stroke-linecap="round"/>
+    <path d="M 245 250 Q 300 210 350 150 L 355 155 Q 305 220 245 260" fill="none" stroke="url(#xm-leg-back)" stroke-width="5" stroke-linecap="round"/>
+    <path d="M 245 280 Q 320 250 370 210 L 372 215 Q 320 258 245 290" fill="none" stroke="url(#xm-leg-back)" stroke-width="5" stroke-linecap="round"/>
+  </g>
+
+  <!-- 蛛腿（前层4条，带发光尖） -->
+  <path d="M 158 245 Q 95 195 40 130 L 35 137 Q 90 205 158 258" fill="none" stroke="url(#xm-leg)" stroke-width="6" stroke-linecap="round"/>
+  <circle cx="35" cy="134" r="4" fill="#ff4060">
+    <animate attributeName="opacity" values=".5;1;.5" dur="1.5s" repeatCount="indefinite"/>
+  </circle>
+  <path d="M 158 275 Q 70 240 25 195 L 22 202 Q 70 248 158 288" fill="none" stroke="url(#xm-leg)" stroke-width="6" stroke-linecap="round"/>
+  <circle cx="22" cy="198" r="4" fill="#ff4060">
+    <animate attributeName="opacity" values=".5;1;.5" dur="1.5s" begin=".3s" repeatCount="indefinite"/>
+  </circle>
+  <path d="M 242 245 Q 305 195 360 130 L 365 137 Q 310 205 242 258" fill="none" stroke="url(#xm-leg)" stroke-width="6" stroke-linecap="round"/>
+  <circle cx="365" cy="134" r="4" fill="#ff4060">
+    <animate attributeName="opacity" values=".5;1;.5" dur="1.5s" begin=".6s" repeatCount="indefinite"/>
+  </circle>
+  <path d="M 242 275 Q 330 240 375 195 L 378 202 Q 330 248 242 288" fill="none" stroke="url(#xm-leg)" stroke-width="6" stroke-linecap="round"/>
+  <circle cx="378" cy="198" r="4" fill="#ff4060">
+    <animate attributeName="opacity" values=".5;1;.5" dur="1.5s" begin=".9s" repeatCount="indefinite"/>
+  </circle>
+
+  <!-- 紧身衣 -->
+  <path d="M 160 190 Q 150 260 155 320 L 245 320 Q 250 260 240 190 Z"
+        fill="url(#xm-cloth)"/>
+  <!-- 蜘蛛纹 -->
+  <path d="M 175 190 L 200 250 L 225 190 L 210 185 L 200 235 L 190 185 Z" fill="#0a0208"/>
+  <path d="M 175 190 L 200 250 L 225 190" fill="none" stroke="#e04070" stroke-width="1.2" opacity=".7"/>
+  <!-- 胸口蛛网纹 -->
+  <ellipse cx="200" cy="220" rx="18" ry="12" fill="none" stroke="#e04070" stroke-width=".8" opacity=".5"/>
+  <path d="M 182 220 L 218 220 M 200 208 L 200 232 M 187 212 L 213 228 M 213 212 L 187 228"
+        stroke="#e04070" stroke-width=".6" fill="none" opacity=".4"/>
+
+  <!-- 下摆 -->
+  <path d="M 155 320 Q 145 430 150 560 Q 200 578 250 560 Q 255 430 245 320 Z"
+        fill="url(#xm-cloth2)"/>
+  <path d="M 155 320 Q 145 430 150 560 Q 200 578 250 560 Q 255 430 245 320 Z"
+        fill="none" stroke="#e04070" stroke-width="1" opacity=".4"/>
+  <path d="M 175 340 Q 170 460 180 558" stroke="#e04070" stroke-width=".8" fill="none" opacity=".5"/>
+  <path d="M 225 340 Q 230 460 220 558" stroke="#e04070" stroke-width=".8" fill="none" opacity=".5"/>
+  <!-- 裙摆蛛纹 -->
+  <path d="M 165 520 L 235 520 M 200 500 L 200 545 M 175 510 L 225 535 M 225 510 L 175 535"
+        stroke="#e04070" stroke-width=".8" fill="none" opacity=".5"/>
+
+  <!-- 腰带 -->
+  <rect x="152" y="313" width="96" height="14" rx="2" fill="#1a0408"/>
+  <rect x="152" y="313" width="96" height="3" fill="#e04070" opacity=".7"/>
+  <circle cx="200" cy="320" r="6" fill="#a02040"/>
+  <circle cx="200" cy="320" r="3" fill="#ff4060"/>
+
+  <!-- 手臂左 -->
+  <path d="M 158 195 Q 128 230 118 290 Q 128 305 142 300 Q 152 255 175 210 Z"
+        fill="url(#xm-cloth)"/>
+  <ellipse cx="130" cy="295" rx="12" ry="14" fill="url(#xm-skin)"/>
+
+  <!-- 手臂右（放蛛丝） -->
+  <path d="M 242 195 Q 272 230 282 290 Q 272 305 258 300 Q 248 255 225 210 Z"
+        fill="url(#xm-cloth)"/>
+  <path d="M 242 195 Q 272 230 282 290" fill="none" stroke="#e04070" stroke-width=".8" opacity=".5"/>
+  <ellipse cx="270" cy="295" rx="12" ry="14" fill="url(#xm-skin)"/>
+  <!-- 蛛丝 -->
+  <g transform="translate(275, 290)">
+    <path d="M 0 0 Q 30 -20 60 -10" stroke="#ffa0c0" stroke-width="1.2" fill="none" opacity=".8">
+      <animate attributeName="d" values="M 0 0 Q 30 -20 60 -10;M 0 0 Q 30 -30 60 -15;M 0 0 Q 30 -20 60 -10" dur="2s" repeatCount="indefinite"/>
+    </path>
+    <path d="M 0 0 Q 20 10 40 25" stroke="#ffa0c0" stroke-width=".9" fill="none" opacity=".6">
+      <animate attributeName="d" values="M 0 0 Q 20 10 40 25;M 0 0 Q 25 15 45 30;M 0 0 Q 20 10 40 25" dur="1.8s" repeatCount="indefinite"/>
+    </path>
+    <circle cx="0" cy="0" r="3" fill="#ffa0c0" opacity=".8"/>
+  </g>
+
+  <!-- 颈部 -->
+  <rect x="190" y="152" width="20" height="33" fill="url(#xm-skin)"/>
+
+  <!-- 头部 -->
+  <ellipse cx="200" cy="118" rx="38" ry="44" fill="url(#xm-skin)"/>
+  <path d="M 200 74 Q 238 74 238 118 Q 238 162 200 162 Q 218 154 224 118 Q 224 82 200 74 Z"
+        fill="#b89878" opacity=".45"/>
+
+  <!-- 眉毛（锐利上扬） -->
+  <path d="M 172 104 Q 184 92 198 98" stroke="#1a0408" stroke-width="2.8" fill="none" stroke-linecap="round"/>
+  <path d="M 228 104 Q 216 92 202 98" stroke="#1a0408" stroke-width="2.8" fill="none" stroke-linecap="round"/>
+  <!-- 眼睛（红色锐利） -->
+  <ellipse cx="184" cy="120" rx="5" ry="4.5" fill="#0a0204"/>
+  <ellipse cx="216" cy="120" rx="5" ry="4.5" fill="#0a0204"/>
+  <circle cx="184" cy="120" r="2" fill="#ff3050"/>
+  <circle cx="216" cy="120" r="2" fill="#ff3050"/>
+  <circle cx="185" cy="119" r=".9" fill="#fff" opacity=".9"/>
+  <circle cx="217" cy="119" r=".9" fill="#fff" opacity=".9"/>
+  <!-- 眼线 -->
+  <path d="M 180 116 Q 184 113 188 116" stroke="#ff3050" stroke-width=".8" fill="none" opacity=".6"/>
+  <path d="M 220 116 Q 216 113 212 116" stroke="#ff3050" stroke-width=".8" fill="none" opacity=".6"/>
+  <!-- 鼻 -->
+  <path d="M 200 128 L 198 138 L 202 138" stroke="#b89878" stroke-width="1.3" fill="none" stroke-linejoin="round"/>
+  <!-- 嘴（冷冽） -->
+  <path d="M 194 148 L 206 148" stroke="#a02848" stroke-width="1.6" fill="none" stroke-linecap="round"/>
+
+  <!-- 头发（黑，对称） -->
+  <path d="M 162 118 Q 158 70 200 60 Q 242 70 238 118 Q 236 80 200 70 Q 164 80 162 118 Z"
+        fill="url(#xm-hair)"/>
+  <path d="M 162 118 Q 152 175 160 250 Q 165 195 168 130 Z" fill="url(#xm-hair)"/>
+  <path d="M 238 118 Q 248 175 240 250 Q 235 195 232 130 Z" fill="url(#xm-hair)"/>
+  <!-- 额前尖状刘海 -->
+  <path d="M 175 75 L 185 100 L 195 70 L 205 100 L 215 75 L 225 100" stroke="#0a0204" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+
+  <!-- 红色头饰 -->
+  <path d="M 178 62 L 200 55 L 222 62" stroke="#e04070" stroke-width="3" fill="none" stroke-linecap="round"/>
+  <circle cx="200" cy="58" r="5" fill="#ff3050"/>
+  <circle cx="200" cy="58" r="3" fill="#ffd0d0"/>
+
+  <!-- 周身红光 -->
+  <circle cx="200" cy="200" r="170" fill="none" stroke="#ff4060" stroke-width=".6" opacity=".2">
+    <animate attributeName="r" values="150;190;150" dur="4s" repeatCount="indefinite"/>
+    <animate attributeName="opacity" values=".15;.3;.15" dur="4s" repeatCount="indefinite"/>
+  </circle>
+</svg>`;
+}
+
+/* ==================== 场景初始化 ==================== */
+const pivot = document.getElementById('pivot');
+const stage = document.getElementById('stage');
+const halo = document.getElementById('halo');
+
+/* 生成星空 */
+const starsBox = document.getElementById('stars');
+for (let i = 0; i < 60; i++) {
+  const s = document.createElement('i');
+  s.style.left = Math.random() * 100 + '%';
+  s.style.top = Math.random() * 100 + '%';
+  s.style.setProperty('--o', (0.05 + Math.random() * 0.2).toFixed(2));
+  s.style.setProperty('--t', (2.5 + Math.random() * 4).toFixed(1) + 's');
+  s.style.animationDelay = (-Math.random() * 6).toFixed(1) + 's';
+  s.style.transform = 'scale(' + (0.6 + Math.random() * 1.2).toFixed(2) + ')';
+  starsBox.appendChild(s);
+}
+
+/* 生成每层立绘 */
+HEROES.forEach((h, i) => {
+  const layer = document.createElement('div');
+  layer.className = 'layer' + (i === 0 ? ' active' : '');
+  layer.dataset.key = h.key;
+
+  /* 三层景深包装 */
+  const wrap = document.createElement('div');
+  wrap.style.position = 'absolute';
+  wrap.style.left = '50%';
+  wrap.style.bottom = '0';
+  wrap.style.width = 'min(78vmin, 460px)';
+  wrap.style.height = 'min(78vmin, 460px)';
+  wrap.style.transform = 'translateX(-50%)';
+  wrap.style.transformStyle = 'preserve-3d';
+  wrap.innerHTML = `<div style="width:100%;height:100%;display:flex;align-items:flex-end;justify-content:center">${h.portrait()}</div>`;
+
+  layer.appendChild(wrap);
+  pivot.appendChild(layer);
+  h.el = layer;
+});
+
+/* ==================== 3D 旋转控制 ==================== */
+let rotY = 0;
+let targetRotY = 0;
+let dragging = false;
+let startX = 0;
+let startRot = 0;
+
+function applyRotation() {
+  /* 立绘围绕 Y 轴旋转，范围 ±28 度 */
+  const maxRot = 28;
+  const r = Math.max(-maxRot, Math.min(maxRot, rotY));
+
+  /* 分层视差：中间层旋转少，前后层旋转多 */
+  const layers = document.querySelectorAll('.layer.active');
+  layers.forEach(layer => {
+    const back = layer.querySelector('.depth-back');
+    const mid = layer.querySelector('.depth-mid');
+    const front = layer.querySelector('.depth-front');
+    /* 未使用深度分层，改为整体旋转 + 光晕跟随 */
+    layer.style.transform = `rotateY(${r}deg)`;
+  });
+}
+
+stage.addEventListener('pointerdown', e => {
+  dragging = true;
+  startX = e.clientX;
+  startRot = rotY;
+  stage.setPointerCapture(e.pointerId);
+  document.getElementById('hint').classList.remove('show');
+});
+
+stage.addEventListener('pointermove', e => {
+  if (!dragging) return;
+  const dx = e.clientX - startX;
+  /* 拖动 200px 转 30 度 */
+  targetRotY = startRot + dx * 0.15;
+  targetRotY = Math.max(-28, Math.min(28, targetRotY));
+});
+
+stage.addEventListener('pointerup', () => {
+  dragging = false;
+  /* 松手回到正面（弹回） */
+  setTimeout(() => {
+    if (!dragging) targetRotY = 0;
+  }, 300);
+});
+
+stage.addEventListener('pointercancel', () => {
+  dragging = false;
+});
+
+/* 主循环：平滑旋转 */
+function loop() {
+  rotY += (targetRotY - rotY) * 0.12;
+  applyRotation();
+  requestAnimationFrame(loop);
+}
+loop();
+
+/* ==================== 切换角色 ==================== */
+let currentIndex = 0;
+let switching = false;
+
+const nameEl = document.getElementById('heroName');
+const tagsEl = document.getElementById('heroTags');
+const quoteEl = document.getElementById('heroQuote');
+const skillsEl = document.getElementById('heroSkills');
+const dotsEl = document.getElementById('dots');
+const cardEl = document.getElementById('card');
+
+HEROES.forEach((h, i) => {
+  const d = document.createElement('div');
+  d.className = 'dot' + (i === 0 ? ' active' : '');
+  d.addEventListener('click', () => { if (!switching && i !== currentIndex) switchTo(i); });
+  dotsEl.appendChild(d);
+});
+
+function renderInfo(idx) {
+  const h = HEROES[idx];
+  nameEl.textContent = h.name;
+  nameEl.className = 'name ' + h.key;
+  tagsEl.innerHTML = h.tags.map(t => `<span class="tag ${t.c}">${t.t}</span>`).join('');
+  quoteEl.textContent = h.quote;
+  skillsEl.innerHTML = h.skills.map(s =>
+    `<div class="skill"><span class="icon">${s.icon}</span><div class="body"><div class="sname">${s.name}</div><div class="sdesc">${s.desc}</div></div></div>`
+  ).join('');
+  [...dotsEl.children].forEach((d, i) => d.classList.toggle('active', i === idx));
+
+  /* 光晕颜色跟随 */
+  halo.style.setProperty('--halo-c', h.halo);
+}
+
+function switchTo(idx) {
+  if (switching || idx === currentIndex) return;
+  switching = true;
+  cardEl.classList.add('switching');
+
+  const oldLayer = HEROES[currentIndex].el;
+  const newLayer = HEROES[idx].el;
+
+  /* 旧层淡出 + 缩小 */
+  oldLayer.classList.remove('active');
+
+  /* 新层淡入 + 从下方升起 */
+  newLayer.style.opacity = '0';
+  newLayer.style.transform = 'translateY(40px) rotateY(0deg) scale(.85)';
+  requestAnimationFrame(() => {
+    newLayer.classList.add('active');
+    requestAnimationFrame(() => {
+      newLayer.style.opacity = '1';
+      newLayer.style.transform = 'translateY(0) rotateY(0deg) scale(1)';
+    });
+  });
+
+  targetRotY = 0;
+  rotY = 0;
+
+  setTimeout(() => {
+    currentIndex = idx;
+    renderInfo(idx);
+    cardEl.classList.remove('switching');
+    setTimeout(() => { switching = false; }, 400);
+  }, 420);
+}
+
+document.getElementById('arrowL').addEventListener('click', () => {
+  switchTo((currentIndex - 1 + HEROES.length) % HEROES.length);
+});
+document.getElementById('arrowR').addEventListener('click', () => {
+  switchTo((currentIndex + 1) % HEROES.length);
+});
+
+window.addEventListener('keydown', e => {
+  if (e.key === 'ArrowLeft') document.getElementById('arrowL').click();
+  else if (e.key === 'ArrowRight') document.getElementById('arrowR').click();
+});
+
+/* 初始渲染 */
+renderInfo(0);
+document.getElementById('hint').classList.add('show');
+setTimeout(() => document.getElementById('hint').classList.remove('show'), 3000);
+</script>
+</body>
+</html>
