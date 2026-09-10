@@ -1,0 +1,590 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>明教四杰 · 图鉴（名册 + 三视图）</title>
+<style>
+html,body{margin:0;height:100%;background:#05070d;overflow:hidden;
+  font-family:'LXGW WenKai','KaiTi','STKaiti',sans-serif;color:#c8d0e0;
+  user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:transparent;
+  --hc:#6aa8ff}
+
+#bg{position:fixed;inset:0;z-index:0;pointer-events:none;
+  background:radial-gradient(ellipse at 50% 18%,#16203a 0%,#0a0e1c 45%,#05070d 100%)}
+#stars{position:fixed;inset:0;z-index:0;pointer-events:none}
+#stars i{position:absolute;width:2px;height:2px;border-radius:50%;background:#cdd8f0;
+  animation:twk var(--t,4s) ease-in-out infinite}
+@keyframes twk{0%,100%{opacity:var(--o,.1)}50%{opacity:calc(var(--o,.1)*2.8)}}
+#halo{position:fixed;left:50%;top:30%;transform:translate(-50%,-50%);
+  width:84vmin;height:84vmin;border-radius:50%;z-index:1;pointer-events:none;
+  background:radial-gradient(circle,var(--hc) 0%,transparent 58%);
+  opacity:.28;filter:blur(24px);transition:background .5s;
+  animation:hp 5s ease-in-out infinite}
+@keyframes hp{0%,100%{opacity:.2}50%{opacity:.38}}
+
+#title{position:fixed;top:calc(12px + env(safe-area-inset-top,0px));left:0;right:0;
+  text-align:center;z-index:10;pointer-events:none}
+#title .main{font-size:clamp(13px,3vmin,17px);letter-spacing:.75em;text-indent:.75em;
+  color:rgba(200,168,100,.65);display:flex;align-items:center;justify-content:center;gap:14px}
+#title .main::before,#title .main::after{content:'';height:1px;width:clamp(16px,5vmin,48px);
+  background:linear-gradient(90deg,transparent,rgba(200,168,100,.5));flex:none}
+#title .main::after{background:linear-gradient(90deg,rgba(200,168,100,.5),transparent)}
+#title .sub{font-size:clamp(9px,2vmin,11px);letter-spacing:.4em;text-indent:.4em;
+  color:rgba(200,168,100,.3);margin-top:.5em}
+
+.page{position:fixed;inset:0;z-index:2;transition:opacity .3s ease,transform .3s ease}
+.page.gone{opacity:0;transform:translateY(-14px);pointer-events:none}
+
+/* ===== 名册页 ===== */
+#rosterMedal{position:absolute;left:50%;top:15%;transform:translateX(-50%);
+  width:min(56vmin,300px);height:min(56vmin,300px)}
+#rosterMedal svg{width:100%;height:100%;filter:drop-shadow(0 14px 30px rgba(0,0,0,.7))}
+#rosterMedal.pulse{animation:mp 4.5s ease-in-out infinite}
+@keyframes mp{0%,100%{transform:translateX(-50%) scale(1)}50%{transform:translateX(-50%) scale(1.025)}}
+.rInfo{position:absolute;left:8%;right:8%;top:calc(15% + min(56vmin,300px) + 2vh);text-align:center}
+.rName{font-size:clamp(24px,6vmin,34px);font-weight:700;letter-spacing:.2em;color:var(--hc);
+  text-shadow:0 0 18px var(--hc)}
+.rTags{display:flex;gap:6px;justify-content:center;flex-wrap:wrap;margin-top:8px}
+.tag{font-size:clamp(9px,1.8vmin,11px);padding:2px 8px;border-radius:10px;
+  letter-spacing:.14em;border:1px solid var(--hc);color:var(--hc);
+  background:color-mix(in srgb,var(--hc) 10%,transparent)}
+.rQuote{margin-top:12px;font-size:clamp(11px,2.4vmin,13px);color:rgba(216,207,192,.6);
+  letter-spacing:.06em;font-style:italic}
+#btnEnter{margin-top:18px;font-family:inherit;font-size:clamp(13px,3vmin,16px);
+  letter-spacing:.24em;text-indent:.24em;padding:.7em 1.8em;cursor:pointer;
+  color:var(--hc);background:rgba(255,255,255,.04);
+  border:1px solid var(--hc);border-radius:999px;transition:.25s}
+#btnEnter:hover{background:color-mix(in srgb,var(--hc) 16%,transparent)}
+.rDots{position:absolute;left:0;right:0;bottom:calc(20px + env(safe-area-inset-bottom,0px));
+  display:flex;gap:8px;justify-content:center}
+.dot{width:7px;height:7px;border-radius:50%;background:rgba(255,255,255,.2);
+  transition:.3s;cursor:pointer}
+.dot.on{background:var(--hc);box-shadow:0 0 8px var(--hc);transform:scale(1.35)}
+
+/* ===== 详情页 ===== */
+#detailSwap{position:absolute;inset:0;transition:opacity .26s ease,transform .26s ease}
+#detailSwap.sw{opacity:0;transform:translateY(16px)}
+#btnBack{position:fixed;top:calc(48px + env(safe-area-inset-top,0px));z-index:30;
+  left:max(14px,env(safe-area-inset-left,0px));
+  font-family:inherit;font-size:clamp(11px,2.4vmin,14px);letter-spacing:.15em;
+  color:rgba(255,255,255,.75);background:rgba(255,255,255,.05);
+  border:1px solid rgba(255,255,255,.2);border-radius:999px;
+  padding:.45em 1em;cursor:pointer;transition:.25s}
+#btnBack:hover{color:#ffc266;border-color:rgba(255,200,120,.5)}
+#stage{position:absolute;top:0;left:0;right:0;height:60vh;z-index:2;
+  cursor:grab;touch-action:pan-y}
+#stage:active{cursor:grabbing}
+#rotWrap{position:absolute;left:50%;top:44%;width:0;height:0;
+  perspective:1200px;transform-style:preserve-3d}
+.plane{position:absolute;left:0;top:0;width:min(72vmin,420px);height:min(96vmin,560px);
+  margin-left:calc(min(72vmin,420px)/-2);margin-top:calc(min(96vmin,560px)/-2);
+  transform-style:preserve-3d;backface-visibility:hidden;
+  -webkit-backface-visibility:hidden;will-change:transform,opacity;opacity:0}
+.plane .face{width:100%;height:100%;display:flex;align-items:flex-end;justify-content:center}
+.plane .face img,.plane .face svg{width:100%;height:100%;object-fit:contain;
+  filter:drop-shadow(0 20px 36px rgba(0,0,0,.75))}
+.plane .face.mirror{transform:scaleX(-1)}
+.plane .face.dim{filter:brightness(.8) saturate(.85)}
+#shadowEl{position:absolute;left:50%;top:calc(44% + min(96vmin,560px)/2 - 3vh);
+  width:min(46vmin,280px);height:5vh;transform:translateX(-50%);z-index:1;
+  background:radial-gradient(ellipse 50% 100% at 50% 50%,rgba(0,0,0,.55),transparent 70%);
+  filter:blur(6px)}
+#viewTag{position:absolute;right:max(14px,env(safe-area-inset-right,0px));top:26%;
+  writing-mode:vertical-rl;letter-spacing:.5em;z-index:12;pointer-events:none;
+  font-size:clamp(12px,2.6vmin,16px);color:var(--hc);
+  text-shadow:0 0 12px var(--hc);opacity:0;transition:opacity .16s}
+#noImgTip{position:absolute;left:0;right:0;bottom:2vh;text-align:center;z-index:5;
+  font-size:clamp(9px,2vmin,11px);color:rgba(255,255,255,.28);letter-spacing:.15em;
+  pointer-events:none}
+#stageStatus{position:absolute;inset:0;display:none;align-items:center;justify-content:center;
+  z-index:40;font-size:13px;color:rgba(255,120,110,.85);letter-spacing:.1em;
+  text-align:center;padding:20px;line-height:1.8;background:#05070d}
+
+/* 箭头 */
+.arrow{position:fixed;top:32%;transform:translateY(-50%);z-index:20;
+  width:clamp(42px,8vmin,56px);height:clamp(42px,8vmin,56px);border-radius:50%;
+  background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.18);
+  display:flex;align-items:center;justify-content:center;cursor:pointer;
+  color:rgba(255,255,255,.8);font-size:clamp(20px,4vmin,26px);
+  font-family:inherit;transition:.25s;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
+.arrow:hover{background:rgba(255,255,255,.1);border-color:var(--hc);color:var(--hc)}
+.arrow:active{transform:translateY(-50%) scale(.92)}
+#rosterL{left:max(12px,env(safe-area-inset-left,0px))}
+#rosterR{right:max(12px,env(safe-area-inset-right,0px))}
+#detailL{left:max(12px,env(safe-area-inset-left,0px))}
+#detailR{right:max(12px,env(safe-area-inset-right,0px))}
+
+/* 详情信息卡 */
+#info{position:fixed;left:0;right:0;bottom:0;z-index:15;
+  padding:0 12px calc(12px + env(safe-area-inset-bottom,0px));pointer-events:none}
+.card{max-width:560px;margin:0 auto;
+  background:linear-gradient(180deg,rgba(10,14,24,.88),rgba(6,9,16,.96));
+  border:1px solid color-mix(in srgb,var(--hc) 35%,transparent);border-radius:14px;
+  padding:12px 18px 10px;
+  backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
+  box-shadow:0 -6px 30px rgba(0,0,0,.7);pointer-events:auto}
+.name-row{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin-bottom:2px}
+.name{font-size:clamp(17px,4.2vmin,24px);font-weight:700;letter-spacing:.18em;color:var(--hc);
+  text-shadow:0 0 14px var(--hc)}
+.quote{font-size:clamp(10px,2.2vmin,12px);color:rgba(216,207,192,.55);margin:4px 0 8px;
+  font-style:italic;border-left:2px solid var(--hc);padding-left:10px;letter-spacing:.05em}
+.skills{display:flex;flex-direction:column;gap:5px;max-height:21vh;overflow-y:auto;padding-right:4px}
+.skills::-webkit-scrollbar{width:4px}
+.skills::-webkit-scrollbar-thumb{background:color-mix(in srgb,var(--hc) 45%,transparent);border-radius:2px}
+.skill{display:flex;gap:10px;align-items:flex-start;font-size:clamp(11px,2.2vmin,13px);line-height:1.5}
+.skill .icon{flex-shrink:0;width:1.6em;text-align:center}
+.skill .sname{color:#e8c27a;font-weight:600;letter-spacing:.08em}
+.skill .sdesc{color:rgba(216,207,192,.72);font-size:clamp(10px,2vmin,12px)}
+.dDots{display:flex;gap:8px;justify-content:center;margin-top:10px}
+
+#hint{position:fixed;left:50%;top:63%;transform:translateX(-50%);z-index:5;
+  font-size:clamp(10px,1.9vmin,12px);color:rgba(255,255,255,.35);letter-spacing:.3em;
+  pointer-events:none;opacity:0;transition:opacity .5s;white-space:nowrap}
+#hint.show{opacity:1}
+
+@media (prefers-reduced-motion:reduce){
+  #stars i,#halo,#rosterMedal.pulse{animation:none}
+}
+</style>
+</head>
+<body>
+
+<div id="bg"></div>
+<div id="stars"></div>
+<div id="halo"></div>
+
+<div id="title">
+  <div class="main">明 教 四 杰</div>
+  <div class="sub" id="titleSub">左右切换 · 查看武学</div>
+</div>
+
+<!-- 名册页 -->
+<div class="page" id="rosterView">
+  <div id="rosterMedal" class="pulse"></div>
+  <div class="rInfo">
+    <div class="rName" id="rosterName"></div>
+    <div class="rTags" id="rosterTags"></div>
+    <div class="rQuote" id="rosterQuote"></div>
+    <button id="btnEnter" type="button">进 入 三 视 图 →</button>
+  </div>
+  <button class="arrow" id="rosterL" type="button">‹</button>
+  <button class="arrow" id="rosterR" type="button">›</button>
+  <div class="rDots" id="rosterDots"></div>
+</div>
+
+<!-- 详情页 -->
+<div class="page gone" id="detailView">
+  <button id="btnBack" type="button">‹ 名册</button>
+  <div id="detailSwap">
+    <div id="stage">
+      <div id="shadowEl"></div>
+      <div id="rotWrap"></div>
+      <div id="viewTag"></div>
+      <div id="noImgTip"></div>
+    </div>
+    <div id="info">
+      <div class="card">
+        <div class="name-row"><span class="name" id="detailName"></span>
+          <div class="rTags" id="detailTags" style="margin-top:0"></div></div>
+        <div class="quote" id="detailQuote"></div>
+        <div class="skills" id="detailSkills"></div>
+        <div class="dDots" id="detailDots"></div>
+      </div>
+    </div>
+  </div>
+  <button class="arrow" id="detailL" type="button">‹</button>
+  <button class="arrow" id="detailR" type="button">›</button>
+  <div id="hint">← 按住拖动 · 原地旋转 →</div>
+</div>
+
+<div id="stageStatus"></div>
+
+<script>
+/* ==================================================================
+ * ① 你的 AI 立绘贴这里（唯一需要改的地方）
+ *    每角色 4 槽：roster=名册头像  front/side/back=三视图
+ *    值支持 URL 或 base64：<img> 能吃的都行
+ *    例： front:'zhang_front.png'
+ *         front:'data:image/png;base64,iVBORw0KGgo...'
+ *    null = 用内置占位画。front+side+back 齐了自动启用"真人转身"模式；
+ *    只有部分图也能用，缺的档位自动用相邻图垫（标"占位"）。
+ * ================================================================== */
+const IMG = {
+  zw: { roster:'zw_roster.png', front:'zw_front.png', side:'zw_side.png', back:'zw_back.png' },
+  wy: { roster:'wy_roster.png', front:'wy_front.png', side:'wy_side.png', back:'wy_back.png' },
+  xz: { roster:'xz_roster.png', front:'xz_front.png', side:'xz_side.png', back:'xz_back.png' },
+  xm: { roster:'xm_roster.png', front:'xm_front.png', side:'xm_side.png', back:'xm_back.png' }
+};
+
+/* ==================================================================
+ * ② 角色数据（含占位画配置）
+ * ================================================================== */
+const HEROES = [
+  { key:'zw', name:'张无忌',
+    tags:['明教','远程','精英'],
+    quote:'「少林武当，也不过如此。」',
+    skills:[
+      {icon:'☀️',name:'九阳神功',desc:'每次攻击后回复最大生命 8%'},
+      {icon:'✨',name:'乾坤大挪移',desc:'保护 4/6 号位队友，减伤 10% 并反弹 10% 伤害'},
+      {icon:'⚔️',name:'近战切换',desc:'前排无友军时切换近战形态，攻防血大幅提升'},
+      {icon:'🔥',name:'融会贯通',desc:'近战 3 次后激活，附加目标攻防差 50% 的额外伤害'}],
+    pal:{robe:'#dfe7f2',robeD:'#aebdd2',acc:'#5f8fe0',hair:'#1c1c24',skin:'#f2d8bc',gold:'#d4a040'},
+    weapon:'sword', wings:null, legs:false },
+  { key:'wy', name:'韦一笑',
+    tags:['明教','飞行','精英'],
+    quote:'「青翼蝠王，来去如风。」',
+    skills:[
+      {icon:'❄️',name:'寒冰掌',desc:'优先攻击全场血量最低者，伤害后吸血 15%~45%'},
+      {icon:'🦇',name:'残血幻影',desc:'额外闪避率 = 已损失生命比例 × 70%'},
+      {icon:'👻',name:'永不失手',desc:'攻击必命中，不受未命中判定影响'},
+      {icon:'⚡',name:'闪避反击',desc:'闪避成功后对攻击者造成真实伤害并眩晕'}],
+    pal:{robe:'#3a2a62',robeD:'#221842',acc:'#9a7ad0',hair:'#14141c',skin:'#e0cbb4'},
+    weapon:'blades', wings:'bat', legs:false, tail:true, redEye:true },
+  { key:'xz', name:'小昭·姊',
+    tags:['明教','辅助','精英'],
+    quote:'「让这光明顶，再多守一会儿。」',
+    skills:[
+      {icon:'🦋',name:'蝶变附身',desc:'开局附身到 4 号位后最近队友，转移属性并附加护盾'},
+      {icon:'✨',name:'乾坤衍生',desc:'张无忌不在时，队友受伤触发减伤 + 治疗 + 加攻'},
+      {icon:'🛡️',name:'乾坤大挪移（升级）',desc:'张无忌在场时全队减伤 30%、反弹 20%'},
+      {icon:'♾️',name:'永久海克斯',desc:'团队海克斯消失后，小昭单独续上同效果'}],
+    pal:{robe:'#d88ecb',robeD:'#a863a0',acc:'#ffb8e8',hair:'#2a1230',skin:'#f6e2d0'},
+    weapon:'fan', wings:'butterfly', legs:false, bun:true },
+  { key:'xm', name:'小昭·妹',
+    tags:['明教','蛛化','精英'],
+    quote:'「我化蛛时，无人能伤到你。」',
+    skills:[
+      {icon:'🕷️',name:'蛛变',desc:'每回合随机变换职业，职业加成永久叠加'},
+      {icon:'🕸️',name:'飞天',desc:'血量 ≤70% / 40% / 濒死时触发，免疫本次伤害'},
+      {icon:'💥',name:'蛛袭',desc:'降落攻击随机敌人，穿透 + 精通附加额外伤害'},
+      {icon:'🏆',name:'精通',desc:'每精通一个职业 +2 攻 +2 防 +5 血上限'}],
+    pal:{robe:'#a82850',robeD:'#6d1838',acc:'#ff5078',hair:'#140610',skin:'#f0d4c4'},
+    weapon:null, wings:null, legs:true, redEye:true }
+];
+HEROES.forEach(function(h){ h.images = IMG[h.key] || {}; });
+
+/* ==================================================================
+ * ③ 占位画（参数化生成，贴了真图即被替换）
+ * ================================================================== */
+function figureSVG(h){
+  const c = h.pal;
+  let back = '';
+  if (h.wings === 'bat') back =
+    '<path d="M150 215 Q28 128 6 16 Q54 88 100 120 Q70 170 108 206 Q130 218 156 224 Z" fill="'+c.acc+'" opacity=".42"/>'+
+    '<path d="M250 215 Q372 128 394 16 Q346 88 300 120 Q330 170 292 206 Q270 218 244 224 Z" fill="'+c.acc+'" opacity=".42"/>';
+  if (h.wings === 'butterfly') back =
+    '<path d="M156 210 Q30 130 10 20 Q58 90 102 122 Q62 172 100 210 Q128 220 158 226 Z" fill="'+c.acc+'" opacity=".5"/>'+
+    '<path d="M244 210 Q370 130 390 20 Q342 90 298 122 Q338 172 300 210 Q272 220 242 226 Z" fill="'+c.acc+'" opacity=".5"/>';
+  if (h.legs){
+    for (let k = 0; k < 3; k++){
+      back += '<path d="M158 '+(248+k*15)+' Q'+(88-k*12)+' '+(212-k*10)+' '+(34-k*9)+' '+(142-k*18)+
+        '" stroke="'+c.acc+'" stroke-width="6" fill="none" stroke-linecap="round" opacity=".75"/>'+
+        '<path d="M242 '+(248+k*15)+' Q'+(312+k*12)+' '+(212-k*10)+' '+(366+k*9)+' '+(142-k*18)+
+        '" stroke="'+c.acc+'" stroke-width="6" fill="none" stroke-linecap="round" opacity=".75"/>';
+    }
+  }
+  let weapon = '';
+  if (h.weapon === 'sword') weapon =
+    '<g transform="translate(288,242) rotate(150)">'+
+    '<rect x="-3" y="0" width="6" height="196" rx="2" fill="#dfe9f4"/>'+
+    '<path d="M-3 196 L3 196 L0 212 Z" fill="#dfe9f4"/>'+
+    '<rect x="-14" y="-8" width="28" height="7" rx="2" fill="'+c.gold+'"/>'+
+    '<rect x="-3" y="-30" width="6" height="24" fill="#8a2020"/></g>';
+  if (h.weapon === 'blades') weapon =
+    '<g transform="translate(102,300) rotate(-42)">'+
+    '<rect x="-2.5" y="-72" width="5" height="72" fill="#e8f0ff"/>'+
+    '<rect x="-8" y="0" width="16" height="5" fill="'+c.acc+'"/></g>'+
+    '<g transform="translate(298,300) rotate(42)">'+
+    '<rect x="-2.5" y="-72" width="5" height="72" fill="#e8f0ff"/>'+
+    '<rect x="-8" y="0" width="16" height="5" fill="'+c.acc+'"/></g>';
+  if (h.weapon === 'fan') weapon =
+    '<g transform="translate(112,302) rotate(-24)">'+
+    '<path d="M0 0 L52 0 L78 -20 L88 -6 L70 10 L76 26 L52 20 L0 10 Z" fill="#f8d8f0" stroke="'+c.acc+'" stroke-width="1.5"/>'+
+    '<circle cx="0" cy="5" r="5" fill="'+c.acc+'"/></g>';
+  const hairBack = h.bun ? '<ellipse cx="200" cy="62" rx="24" ry="15" fill="'+c.hair+'"/>'
+    : (h.tail ? '<path d="M200 58 Q220 66 216 118 L196 118 Q192 72 200 58 Z" fill="'+c.hair+'"/>' : '');
+  const pupils = h.redEye
+    ? '<circle cx="185" cy="120" r="2" fill="#e03050"/><circle cx="215" cy="120" r="2" fill="#e03050"/>' : '';
+  return '<svg viewBox="0 0 400 620" xmlns="http://www.w3.org/2000/svg">'+
+    back+
+    /* 腿脚 */ '<rect x="176" y="560" width="16" height="34" rx="6" fill="'+c.robeD+'"/>'+
+    '<rect x="208" y="560" width="16" height="34" rx="6" fill="'+c.robeD+'"/>'+
+    /* 袍身 */ '<path d="M150 268 Q128 430 140 566 Q200 588 260 566 Q272 430 250 268 Z" fill="'+c.robe+'"/>'+
+    '<path d="M172 330 Q166 460 176 556 M228 330 Q234 460 224 556" stroke="'+c.robeD+'" stroke-width="2" fill="none" opacity=".6"/>'+
+    /* 上身 */ '<path d="M160 185 Q150 262 156 322 L244 322 Q250 262 240 185 Z" fill="'+c.robe+'"/>'+
+    '<path d="M176 182 L200 248 L224 182 L214 177 L200 232 L186 177 Z" fill="'+c.robeD+'"/>'+
+    /* 腰带 */ '<rect x="154" y="316" width="92" height="14" rx="3" fill="'+c.robeD+'"/>'+
+    '<rect x="154" y="316" width="92" height="3.5" fill="'+c.acc+'" opacity=".8"/>'+
+    /* 双臂 */ '<path d="M158 190 Q126 226 116 288 Q126 306 144 300 Q156 254 178 206 Z" fill="'+c.robeD+'"/>'+
+    '<path d="M242 190 Q274 226 284 288 Q274 306 256 300 Q244 254 222 206 Z" fill="'+c.robeD+'"/>'+
+    '<ellipse cx="126" cy="296" rx="13" ry="15" fill="'+c.skin+'"/>'+
+    '<ellipse cx="274" cy="296" rx="13" ry="15" fill="'+c.skin+'"/>'+
+    /* 颈+头 */ '<rect x="188" y="152" width="24" height="34" fill="'+c.skin+'"/>'+
+    '<circle cx="200" cy="116" r="44" fill="'+c.skin+'"/>'+
+    '<path d="M158 116 Q158 68 200 62 Q242 68 242 116 Q238 78 200 72 Q162 78 158 116 Z" fill="'+c.hair+'"/>'+
+    hairBack+
+    '<circle cx="185" cy="120" r="4.5" fill="#101018"/><circle cx="215" cy="120" r="4.5" fill="#101018"/>'+
+    pupils+
+    weapon+'</svg>';
+}
+
+function medalSVG(h){
+  const c = h.pal;
+  return '<svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">'+
+    '<defs><radialGradient id="mg'+h.key+'" cx=".5" cy=".35">'+
+    '<stop offset="0" stop-color="'+c.acc+'" stop-opacity=".5"/>'+
+    '<stop offset="1" stop-color="#0a0e1c" stop-opacity="0"/></radialGradient></defs>'+
+    '<circle cx="100" cy="100" r="92" fill="#0d1322"/>'+
+    '<circle cx="100" cy="100" r="92" fill="url(#mg'+h.key+')"/>'+
+    '<circle cx="100" cy="100" r="92" fill="none" stroke="'+c.acc+'" stroke-width="2" opacity=".7"/>'+
+    '<circle cx="100" cy="100" r="84" fill="none" stroke="'+c.acc+'" stroke-width="1" opacity=".3"/>'+
+    '<path d="M55 168 Q60 128 100 124 Q140 128 145 168 Z" fill="'+c.robe+'"/>'+
+    '<path d="M100 130 L88 122 L100 98 L112 122 Z" fill="'+c.acc+'" opacity=".7"/>'+
+    '<circle cx="100" cy="86" r="30" fill="'+c.skin+'"/>'+
+    '<path d="M70 86 Q70 50 100 48 Q130 50 130 86 Q126 58 100 56 Q74 58 70 86 Z" fill="'+c.hair+'"/>'+
+    '<circle cx="90" cy="90" r="3" fill="#101018"/><circle cx="110" cy="90" r="3" fill="#101018"/>'+
+    (h.redEye?'<circle cx="90" cy="90" r="1.5" fill="#e03050"/><circle cx="110" cy="90" r="1.5" fill="#e03050"/>':'')+
+    '</svg>';
+}
+
+/* ==================================================================
+ * ④ 通用工具 & 星空
+ * ================================================================== */
+const $ = function(id){ return document.getElementById(id); };
+function norm180(a){ return ((a % 360) + 540) % 360 - 180; }
+function setStatus(msg){
+  const s = $('stageStatus');
+  if (!msg){ s.style.display = 'none'; return; }
+  s.style.display = 'flex'; s.textContent = msg;
+}
+window.addEventListener('error', function(e){
+  if (e && e.message) setStatus('运行错误：' + e.message);
+});
+(function(){
+  const box = $('stars');
+  for (let i = 0; i < 72; i++){
+    const s = document.createElement('i');
+    s.style.left = (Math.random()*100).toFixed(2)+'%';
+    s.style.top = (Math.random()*100).toFixed(2)+'%';
+    s.style.setProperty('--o', (0.05+Math.random()*0.2).toFixed(2));
+    s.style.setProperty('--t', (2.5+Math.random()*4).toFixed(1)+'s');
+    s.style.animationDelay = (-Math.random()*6).toFixed(1)+'s';
+    box.appendChild(s);
+  }
+})();
+
+/* ==================================================================
+ * ⑤ 名册页
+ * ================================================================== */
+let rIdx = 0;
+function renderRoster(){
+  const h = HEROES[rIdx];
+  document.documentElement.style.setProperty('--hc', h.pal.acc);
+  $('rosterMedal').innerHTML = h.images.roster
+    ? '<img src="'+h.images.roster+'" style="width:100%;height:100%;object-fit:contain">'
+    : medalSVG(h);
+  $('rosterName').textContent = h.name;
+  $('rosterTags').innerHTML = h.tags.map(function(t){ return '<span class="tag">'+t+'</span>'; }).join('');
+  $('rosterQuote').textContent = h.quote;
+  [].forEach.call($('rosterDots').children, function(d,i){ d.classList.toggle('on', i===rIdx); });
+}
+HEROES.forEach(function(h,i){
+  const d = document.createElement('div');
+  d.className = 'dot' + (i===0?' on':'');
+  d.addEventListener('click', function(){ if (i!==rIdx){ rIdx=i; renderRoster(); } });
+  $('rosterDots').appendChild(d);
+});
+function rosterCycle(dir){ rIdx = (rIdx + dir + HEROES.length) % HEROES.length; renderRoster(); }
+$('rosterL').addEventListener('click', function(){ rosterCycle(-1); });
+$('rosterR').addEventListener('click', function(){ rosterCycle(1); });
+
+/* ==================================================================
+ * ⑥ 详情页：三视图牌面旋转引擎
+ * ================================================================== */
+let dIdx = 0, page = 'roster';
+let rotY = 0, rotVel = 0, dragging = false, lastX = 0, lastMove = 0;
+let planes = [], curLabel = '', labelTimer = 0, snapTo = null, lastTap = 0;
+let busy = false;
+
+function buildPlanes(h){
+  const wrap = $('rotWrap');
+  wrap.innerHTML = '';
+  const im = h.images;
+  const list = [];
+  if (im.front) list.push({a:0,   src:'<img src="'+im.front+'">', label:'正面'});
+  if (im.side)  list.push({a:90,  src:'<img src="'+im.side+'">',  label:'左侧'});
+  if (im.back)  list.push({a:180, src:'<img src="'+im.back+'">',  label:'背面'});
+  if (im.side)  list.push({a:270, src:'<img src="'+im.side+'" class="mirror">', label:'右侧'});
+  const hasAny = list.length > 0;
+  if (!hasAny){
+    const svg = figureSVG(h);
+    list.push({a:0,   src:svg, label:'正面 · 示例'});
+    list.push({a:180, src:svg, label:'背面 · 占位', dim:true});
+  } else if (list.length === 1){
+    list.push({a:180, src:list[0].src, label:'背面 · 占位', dim:true, mirror:true});
+  } else {
+    /* 缺档位时用相邻图垫，保证旋转无死角 */
+    const has = function(a){ return list.some(function(v){ return v.a===a; }); };
+    if (!has(90)  && im.front) list.push({a:90,  src:'<img src="'+im.front+'">', label:'左侧 · 占位', dim:true});
+    if (!has(270) && im.front) list.push({a:270, src:'<img src="'+im.front+'" class="mirror">', label:'右侧 · 占位', dim:true});
+    if (!has(180)) list.push({a:180, src:im.back?'<img src="'+im.back+'">':(im.front?'<img src="'+im.front+'">':figureSVG(h)), label:'背面'+(im.back?'':' · 占位'), dim:!im.back});
+  }
+  planes = list.map(function(v){
+    const p = document.createElement('div');
+    p.className = 'plane';
+    const f = document.createElement('div');
+    f.className = 'face' + (v.mirror?' mirror':'') + (v.dim?' dim':'');
+    f.innerHTML = v.src;
+    p.appendChild(f);
+    wrap.appendChild(p);
+    v.el = p;
+    return v;
+  });
+  $('noImgTip').textContent = hasAny ? '' : '占位立绘 —— 把你的 AI 三视图贴进 IMG 配置即可替换';
+}
+
+function setViewTag(txt){
+  if (txt === curLabel) return;
+  curLabel = txt;
+  const tag = $('viewTag');
+  tag.style.opacity = 0;
+  clearTimeout(labelTimer);
+  labelTimer = setTimeout(function(){ tag.textContent = txt; tag.style.opacity = .9; }, 160);
+}
+
+function mountDetail(i){
+  const h = HEROES[i];
+  document.documentElement.style.setProperty('--hc', h.pal.acc);
+  buildPlanes(h);
+  rotY = 0; rotVel = 0; snapTo = null; curLabel = '';
+  $('detailName').textContent = h.name;
+  $('detailTags').innerHTML = h.tags.map(function(t){ return '<span class="tag">'+t+'</span>'; }).join('');
+  $('detailQuote').textContent = h.quote;
+  $('detailSkills').innerHTML = h.skills.map(function(s){
+    return '<div class="skill"><span class="icon">'+s.icon+'</span><div class="body">'+
+      '<div class="sname">'+s.name+'</div><div class="sdesc">'+s.desc+'</div></div></div>';
+  }).join('');
+  [].forEach.call($('detailDots').children, function(d,k){ d.classList.toggle('on', k===i); });
+}
+
+HEROES.forEach(function(h,i){
+  const d = document.createElement('div');
+  d.className = 'dot' + (i===0?' on':'');
+  d.addEventListener('click', function(){ if (i!==dIdx) detailSwitchTo(i); });
+  $('detailDots').appendChild(d);
+});
+
+function detailSwitchTo(i){
+  if (busy) return;
+  busy = true;
+  $('detailSwap').classList.add('sw');
+  setTimeout(function(){
+    dIdx = i;
+    mountDetail(dIdx);
+    $('detailSwap').classList.remove('sw');
+    setTimeout(function(){ busy = false; }, 60);
+  }, 260);
+}
+function detailCycle(dir){ detailSwitchTo((dIdx + dir + HEROES.length) % HEROES.length); }
+$('detailL').addEventListener('click', function(){ detailCycle(-1); });
+$('detailR').addEventListener('click', function(){ detailCycle(1); });
+$('btnBack').addEventListener('click', function(){ showPage('roster'); });
+$('btnEnter').addEventListener('click', function(){ showPage('detail'); });
+
+function showPage(p){
+  page = p;
+  $('rosterView').classList.toggle('gone', p!=='roster');
+  $('detailView').classList.toggle('gone', p!=='detail');
+  $('titleSub').textContent = p==='roster' ? '左右切换 · 查看武学' : '拖动旋转视角 · 双击回正';
+  const hint = $('hint');
+  if (p==='detail'){ hint.classList.add('show'); setTimeout(function(){ hint.classList.remove('show'); }, 3000); }
+  else hint.classList.remove('show');
+}
+
+/* 拖拽：直接写角度；松手惯性；双击回正；闲时缓转 */
+const stage = $('stage');
+stage.addEventListener('pointerdown', function(e){
+  if (e.button && e.button !== 0) return;
+  dragging = true; lastX = e.clientX; rotVel = 0; snapTo = null;
+  try { stage.setPointerCapture(e.pointerId); } catch(err){}
+});
+stage.addEventListener('pointermove', function(e){
+  if (!dragging) return;
+  const dx = e.clientX - lastX; lastX = e.clientX;
+  rotY += dx * .35;
+  rotVel = dx * .35;
+  lastMove = performance.now();
+});
+function endDrag(e){
+  if (!dragging) return;
+  dragging = false;
+  lastMove = performance.now();
+  /* 点按（非拖动）→ 双击回正 */
+  const now = performance.now();
+  if (Math.abs(rotVel) < .5){
+    if (now - lastTap < 320){ snapTo = Math.round(rotY/360)*360; lastTap = 0; }
+    else lastTap = now;
+  }
+}
+stage.addEventListener('pointerup', endDrag);
+stage.addEventListener('pointercancel', function(){ dragging = false; });
+
+window.addEventListener('keydown', function(e){
+  if (page === 'roster'){
+    if (e.key === 'ArrowLeft') rosterCycle(-1);
+    else if (e.key === 'ArrowRight') rosterCycle(1);
+    else if (e.key === 'Enter') showPage('detail');
+  } else {
+    if (e.key === 'ArrowLeft') detailCycle(-1);
+    else if (e.key === 'ArrowRight') detailCycle(1);
+    else if (e.key === 'Escape') showPage('roster');
+  }
+});
+
+/* ==================== 主循环 ==================== */
+let pt = performance.now();
+(function loop(now){
+  requestAnimationFrame(loop);
+  const dt = Math.min((now - pt) / 1000, .05); pt = now;
+  if (page !== 'detail') return;
+
+  if (snapTo !== null){
+    rotY += (snapTo - rotY) * .16;
+    if (Math.abs(snapTo - rotY) < .4){ rotY = snapTo; snapTo = null; }
+  } else if (!dragging){
+    if (now - lastMove > 2200) rotVel += (7*dt - rotVel) * .02;   /* 闲时 7°/s 缓转 */
+    else rotVel *= .94;
+    rotY += rotVel;
+  }
+
+  let best = null, bestAd = 1e9;
+  for (let i = 0; i < planes.length; i++){
+    const v = planes[i];
+    const d = norm180(rotY - v.a);
+    const ad = Math.abs(d);
+    if (ad >= 90){ v.el.style.opacity = 0; continue; }
+    const op = ad < 62 ? 1 : 1 - (ad - 62) / 28;
+    v.el.style.opacity = op.toFixed(3);
+    v.el.style.transform = 'rotateY(' + d.toFixed(2) + 'deg)';
+    if (ad < bestAd){ bestAd = ad; best = v; }
+  }
+  if (best) setViewTag(best.label);
+
+  /* 影子随角度压缩 */
+  const c = Math.abs(Math.cos(rotY * Math.PI / 180));
+  $('shadowEl').style.transform = 'translateX(-50%) scaleX(' + (0.35 + 0.65*c).toFixed(3) + ')';
+})(pt);
+
+/* ==================== 启动 ==================== */
+try {
+  renderRoster();
+  mountDetail(0);
+  showPage('roster');
+  setStatus('');
+} catch (e) {
+  setStatus('初始化失败：' + (e && e.message || e));
+}
+</script>
+</body>
+</html>
