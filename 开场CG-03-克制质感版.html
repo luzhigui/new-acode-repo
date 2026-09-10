@@ -438,7 +438,7 @@ function playCG(container, startAct, onDone) {
         }, 600);
     }
 
-    el.addEventListener('click', () => {
+    el.addEventListener('pointerdown', () => {
         if (ctx.done || ctx.switching) return;
         if (!ctx.ready) { fastForward(); return; }
         if (ctx.act < ACTS.length - 1) nextAct();

@@ -100,7 +100,7 @@
     showLine(0);
   }
 
-  stage.addEventListener('click', function(e){
+  stage.addEventListener('pointerdown', function(e){
     if(e.target === startBtn) return;
     if(startBtn.classList.contains('show')){
       // 演示结束动作：重新开始（正式版此处进入游戏）

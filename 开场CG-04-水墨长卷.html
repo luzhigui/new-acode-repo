@@ -606,7 +606,7 @@ function showOpeningCg(onDone) {
 
     function onKey(e) {
         if (e.key === 'Escape') { finish(); return; }
-        if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); overlay.click(); }
+        if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); overlay.dispatchEvent(new PointerEvent('pointerdown')); }
     }
     window.addEventListener('keydown', onKey);
 
