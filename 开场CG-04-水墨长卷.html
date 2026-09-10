@@ -610,13 +610,13 @@ function showOpeningCg(onDone) {
     }
     window.addEventListener('keydown', onKey);
 
-    overlay.addEventListener('click', function () {
+    overlay.addEventListener('pointerdown', function () {
         if (ctx.done) return;
         if (!ctx.ready) { fastForward(); return; }
         if (ctx.act < ACTS.length - 1) gotoAct(ctx.act + 1);
         else finish();
     });
-    overlay.querySelector('#cgSkip').addEventListener('click', function (e) {
+    overlay.querySelector('#cgSkip').addEventListener('pointerdown', function (e) {
         e.stopPropagation();
         finish();
     });
@@ -651,12 +651,12 @@ function showOpeningCg(onDone) {
 
     function showEnd() { refreshStatus(); panel.classList.add('show'); }
 
-    document.getElementById('btnReplay').addEventListener('click', function () {
+    document.getElementById('btnReplay').addEventListener('pointerdown', function () {
         panel.classList.remove('show');
         showOpeningCg(showEnd);
     });
 
-    document.getElementById('btnReset').addEventListener('click', function () {
+    document.getElementById('btnReset').addEventListener('pointerdown', function () {
         resetOpeningCgDone();
         refreshStatus();
     });

@@ -5,7 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>开场CG Demo v2 · 光明顶5v5（圣火令+配乐+长按）</title>
 <style>
-  html, body { margin:0; padding:0; background:#000; height:100%; overflow:hidden; }
+  html, body { margin:0; padding:0; background:#000; height:100%; overflow:hidden;
+    -webkit-tap-highlight-color:transparent; }
+  button{-webkit-tap-highlight-color:transparent}
   #demoBar { position:fixed; top:0; left:0; right:0; z-index:100200;
     display:flex; align-items:center; gap:10px;
     background:rgba(20,20,20,.92); color:#d8cfc0; padding:8px 12px; font-size:13px; }
@@ -452,7 +454,7 @@
             else finish();
         });
 
-        overlay.querySelector('#cgSkip').addEventListener('click', function (e) {
+        overlay.querySelector('#cgSkip').addEventListener('pointerdown', function (e) {
             e.stopPropagation();
             finish();
         });
@@ -463,10 +465,10 @@
     /* 工具条 */
     document.addEventListener('DOMContentLoaded', function () {
         showOpeningCg();
-        document.getElementById('btnReplay').addEventListener('click', function () {
+        document.getElementById('btnReplay').addEventListener('pointerdown', function () {
             showOpeningCg();
         });
-        document.getElementById('btnMute').addEventListener('click', function () {
+        document.getElementById('btnMute').addEventListener('pointerdown', function () {
             toggleMute();
         });
     });
