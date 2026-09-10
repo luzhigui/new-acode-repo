@@ -7,7 +7,9 @@
 <style>
   /* demo 外壳样式，仅本页使用 */
   html,body{margin:0;height:100%;background:#171310;
-    font-family:'LXGW WenKai','KaiTi','STKaiti','Noto Serif SC',serif;}
+    font-family:'LXGW WenKai','KaiTi','STKaiti','Noto Serif SC',serif;
+    -webkit-tap-highlight-color:transparent;}
+  button{-webkit-tap-highlight-color:transparent}
   #demoEnd{position:fixed;inset:0;z-index:100020;display:flex;align-items:center;justify-content:center;
     background:rgba(12,9,6,.82);-webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px);
     opacity:0;pointer-events:none;transition:opacity .5s ease;}
@@ -65,11 +67,11 @@ function refreshStatus() {
 }
 function showEnd() { refreshStatus(); panel.classList.add('show'); }
 
-document.getElementById('btnReplay').addEventListener('click', function () {
+document.getElementById('btnReplay').addEventListener('pointerdown', function () {
     panel.classList.remove('show');
     showOpeningCg(showEnd);
 });
-document.getElementById('btnReset').addEventListener('click', function () {
+document.getElementById('btnReset').addEventListener('pointerdown', function () {
     resetOpeningCgDone();
     refreshStatus();
 });
