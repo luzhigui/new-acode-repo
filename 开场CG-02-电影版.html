@@ -666,7 +666,7 @@
         /* ============================================================
            交互
            ============================================================ */
-        overlay.addEventListener('click', function () {
+        overlay.addEventListener('pointerdown', function () {
             if (ctx.done || ctx.switching) return;
             if (!ctx.linesReady) { fastForward(); return; }
             if (ctx.act < ACTS.length - 1) nextAct();
