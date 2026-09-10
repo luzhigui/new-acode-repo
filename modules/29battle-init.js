@@ -19,6 +19,15 @@ export function initBattleTeams(currentStage, _rng) {
     const normalPower = C.NORMAL_POWER || {};
     const targetPower = C.MING_TARGET_POWER && C.MING_TARGET_POWER[currentStage] ? C.MING_TARGET_POWER[currentStage] : null;
 
+    // 玩家在图鉴选定的角色 → 提高对应精英出场率（zw/wy 直连；xz/xm → 小昭并偏向姊/妹）
+    let pickKey = null;
+    try { pickKey = localStorage.getItem('ming_elite_pick_5v5'); } catch {}
+    const PICK_TO_ELITE = { zw: '张无忌', wy: '韦一笑', xz: '小昭', xm: '小昭' };
+    const rate = { ...eliteRate };
+    if (pickKey && PICK_TO_ELITE[pickKey]) {
+        rate[PICK_TO_ELITE[pickKey]] = (rate[PICK_TO_ELITE[pickKey]] || 0.3) * 5;
+    }
+
     // 精英出场率：80%一个、15%两个、5%三个，按 ELITE_RATE 权重选人
     const eliteConfigs = [
         { name: '张无忌', m: 115, role: ROLE_TYPES.RANGED, isZhang: true, power: elitePower['张无忌'] || 140 },
@@ -72,10 +81,10 @@ export function initBattleTeams(currentStage, _rng) {
         const picked = [];
         const pool = [...eliteConfigs];
         function weightedPick(arr) {
-            const total = arr.reduce((s, c) => s + (eliteRate[c.name] || 1 / arr.length), 0);
+            const total = arr.reduce((s, c) => s + (rate[c.name] || 1 / arr.length), 0);
             let r = _rng.next() * total;
             for (let i = 0; i < arr.length; i++) {
-                r -= (eliteRate[arr[i].name] || 1 / arr.length);
+                r -= (rate[arr[i].name] || 1 / arr.length);
                 if (r <= 0) return i;
             }
             return arr.length - 1;
@@ -96,7 +105,10 @@ export function initBattleTeams(currentStage, _rng) {
             if (c.isZhang) unit.isZhang = true;
             if (c.isWei) unit.isWei = true;
             if (c.isXiaoZhaoBrother) {
-                if (_rng.next() < 0.5) { unit.isXiaoZhaoSister = true; }
+                let sisterProb = 0.5;
+                if (pickKey === 'xz') sisterProb = 0.85;
+                else if (pickKey === 'xm') sisterProb = 0.15;
+                if (_rng.next() < sisterProb) { unit.isXiaoZhaoSister = true; }
                 else { unit.isXiaoZhaoBrother = true; }
                 unit.name = unit.isXiaoZhaoSister ? '小昭·姊' : '小昭·妹';
                 unit.initXiaoZhao(); unit.applyBonus();

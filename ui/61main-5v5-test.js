@@ -28,8 +28,8 @@ import {
 import { initBGM, playBGM, setBGMVolume, fadeBGMTo, toggleBGM, updateBGMBtn, lowerBGM } from './66audio-control.js';
 import { toggleDodgeEffect } from './67fx-trigger.js';
 import { updateSpeedButtons, activateScrollSlowdown, restoreSpeedFromScroll, updateButtons, updateAutoModeButton, enableAllButtons, updateDebugUI, updateBuffSlots, bindCoverStart, bindPauseButton, bindNextButton, bindDetailButton, bindDebugButton, bindBGButton, bindCrashModeButton, bindDodgeButton, bindAutoButton, bindSettleButton, bindStageSelectButton, bindVoteFloat, bindGridClick, bindCopyLogButton } from './68ui-controls.js';
-import { stepAdjustStart, stepAdjustMove, stepBattleStart, initTutorial } from './71tutorial.js';
-import { isOpeningCgDone, showOpeningCg } from './72opening-cg.js';
+import { stepAdjustStart, stepAdjustMove, stepBattleStart, initTutorial, resetTutorialDone } from './71tutorial.js';
+import { isOpeningCgDone, showOpeningCg, resetOpeningCgDone } from './72opening-cg.js';
 
 import { VER as VER_BUFF } from '../core/04buff-system.js';
 import { VER as VER_HORSE } from '../core/05battle-horse.js';
@@ -51,6 +51,27 @@ const _randLocal = (min, max) => Math.floor(Math.random() * (max - min + 1)) + m
 const C = CONFIG, S = STATE;
 
 const LOG_LINE1 = '⚔️ 光明顶5v5对决 · 九宫格混战模式 ⚔️';
+
+// 精英图鉴选人弹层：CG 之后、新手引导之前弹出，用户选定角色 → 提高该角色出场率（写 localStorage，29battle-init 读取加权）
+function showEliteGallery(onDone) {
+    const frame = document.createElement('iframe');
+    frame.src = './展示与CG/精英展示-04-圣火单卡旋转-GLM5.3.html';
+    frame.id = 'eliteGalleryFrame';
+    frame.style.cssText = 'position:fixed;inset:0;width:100%;height:100%;border:0;z-index:100020;background:#03050a;';
+    document.body.appendChild(frame);
+    let closed = false;
+    function close() {
+        if (closed) return; closed = true;
+        window.removeEventListener('message', onMsg);
+        try { frame.remove(); } catch {}
+        if (typeof onDone === 'function') onDone();
+    }
+    function onMsg(e) {
+        if (e.data && e.data.type === 'ming_elite_picked') close();
+    }
+    window.addEventListener('message', onMsg);
+    frame.addEventListener('load', () => {});
+}
 
 // UI 局部状态（不含 activeBuffs）
 let debugMode = false, speed = 500, userScrolled = false;
@@ -170,10 +191,11 @@ document.addEventListener('DOMContentLoaded', async function() {
     if (typeof window._initSpeedButtons === 'function') window._initSpeedButtons();
 
     // 按钮事件绑定 → 68ui-controls.js
-    // 开场流程：首次未看过 → 开场CG（72）→ 新手分步引导（71）；已看过CG → 直接引导
+    // 开场流程：首次未看过 → 开场CG（72）→ 精英图鉴选人 → 新手分步引导（71）；已看过CG → 图鉴 → 引导
     bindCoverStart({ val: gameStarted }, updateSpeedButtons, () => {
-        if (isOpeningCgDone()) { stepAdjustStart(); return; }
-        showOpeningCg(() => stepAdjustStart());
+        const toGuide = () => showEliteGallery(() => stepAdjustStart());
+        if (isOpeningCgDone()) { toGuide(); return; }
+        showOpeningCg(() => toGuide());
     });
     bindPauseButton(getState, setState, updateButtons);
     bindNextButton(setState, updateButtons, enableAllButtons, updateSpeedButtons);
@@ -188,7 +210,11 @@ document.addEventListener('DOMContentLoaded', async function() {
     bindVoteFloat();
     bindGridClick(getState, setState, updateUI);
     bindCopyLogButton(showModal, copyLogToClipboard);
-    initTutorial();
+    initTutorial(() => {
+        resetOpeningCgDone();
+        resetTutorialDone();
+        showOpeningCg(() => showEliteGallery(() => stepAdjustStart()));
+    });
 
     document.getElementById('btnMain').addEventListener('click', async function(){
         onAnyButtonClick();
