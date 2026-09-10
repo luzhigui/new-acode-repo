@@ -128,8 +128,8 @@ export function stepBattleStart() {
     hideGuide();
 }
 
-// ❓ 按钮：战斗中显示规则总览（不指向站位按钮），战斗外重置并从头重播
-export function initTutorial() {
+// ❓ 按钮：战斗中显示规则总览（不指向站位按钮），战斗外重走完整开场流程
+export function initTutorial(onReplay) {
     const btn = document.getElementById('btnTutorial');
     if (!btn) return;
     btn.addEventListener('click', (e) => {
@@ -150,6 +150,7 @@ export function initTutorial() {
             });
             return;
         }
+        if (typeof onReplay === 'function') { onReplay(); return; }
         resetTutorialDone();
         stepAdjustStart();
     });
