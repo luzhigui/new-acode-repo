@@ -542,11 +542,10 @@ export function resolveDodgeEffects(declarations, unit, target, log) {
             emitStateChange(unit, STATE_CHANGE_TYPES.STUNNED, {}, log);
         } else if (decl.type === EFFECT_TYPES.WEI_HEAL) {
             const { heal, newMaxHp } = decl.data;
-            // 词条化：与 16effect-handlers LEECH handler 同逻辑——按"当前→目标"增量加词条，封顶正确
-            const cur = getStat(target, 'maxHp');
-            const delta = newMaxHp - cur;
+            // 词条化：27 传的 newMaxHp 已是"当前 maxHp+heal，封顶 base×2"的绝对值，这里只算增量
+            const delta = Math.max(0, newMaxHp - Math.floor(getStat(target, 'maxHp')));
             if (delta > 0) {
-                addMod(target, 'maxHp', { source: '韦一笑吸血上限提升', value: delta, ttl: 'permanent', group: 'weiLeechMaxHp', op: 'add' });
+                addMod(target, 'maxHp', { source: '韦一笑吸血', value: delta, ttl: 'permanent', group: 'weiLeech', op: 'add' });
                 refreshMaxHp(target, null, '韦一笑吸血上限提升');
             }
             recordCombatStat(target, target, 'leech', {
