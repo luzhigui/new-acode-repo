@@ -1,8 +1,9 @@
+// V6.0.1 | ~11800 bytes | 2026-09-11 maxHp 词条化批2a：LEECH/ROUND_STAT_GRANT maxHp 分支改 addMod+refreshMaxHp；LEECH 改按"当前→目标"增量（修多次吸血超封顶 bug）
 // V6.0.0 | 2026-09-07 属性词条化：BREAK_DEF/SPLASH成长/STAT_CHANGE/ROUND_STAT_GRANT 改 addMod，不再直改 _base
-export const VER = 'core/16effect-handlers.js V6.0.0';
+export const VER = 'core/16effect-handlers.js V6.0.1';
 
 import { EFFECT_TYPES } from '../infra/50-event-bus.js';
-import { applyStatChange, applyMaxHpChange, query, emitEvent, addMod, getStat } from './13battle-shared.js';
+import { applyStatChange, refreshMaxHp, query, emitEvent, addMod, getStat } from './13battle-shared.js';
 import { flushBattleEvents } from '../infra/51-core-utils.js';
 import { BUFF_TYPES, BUFF_SUBTYPES, UNIT_EVENT_TYPES, ROLE_TYPES } from '../infra/56-battle-enums.js';
 import { registerCalcModifier, getCalcModifier } from '../infra/57-calc-modifier-registry.js';
@@ -121,8 +122,13 @@ registerEffectHandler(EFFECT_TYPES.LEECH, (ctx) => {
     for (const decl of ctx.decls) {
         if (!decl.source || !decl.source.alive) continue;
         if (decl.maxHp) {
-            addMod(decl.source, 'maxHp', { source: '吸血上限提升', value: Math.max(0, decl.maxHp - decl.source.state._baseMaxHp), ttl: 'permanent', group: 'leechMaxHp', op: 'add' });
-            applyMaxHpChange(decl.source, decl.maxHp, null, '吸血上限提升');
+            // 词条化：每次吸血只加"当前上限 → 目标上限"的增量，避免旧实现按 base 差值重复叠加
+            const cur = getStat(decl.source, 'maxHp');
+            const delta = decl.maxHp - cur;
+            if (delta > 0) {
+                addMod(decl.source, 'maxHp', { source: '吸血上限提升', value: delta, ttl: 'permanent', group: 'leechMaxHp', op: 'add' });
+                refreshMaxHp(decl.source, null, '吸血上限提升');
+            }
         }
         const capped = Math.min(decl.value || 0, decl.source.maxHp - decl.source.hp);
         applyStatChange(decl.source, 'hp', capped, null, '吸血');
@@ -240,7 +246,8 @@ registerEffectHandler(EFFECT_TYPES.ROUND_STAT_GRANT, (ctx) => {
         for (const t of targets) {
             if (!t.alive) continue;
             if (decl.field === 'maxHp') {
-                applyMaxHpChange(t, t.maxHp + decl.delta, decl.source || null, decl.reason || '回合属性');
+                addMod(t, 'maxHp', { source: decl.reason || '回合属性', value: decl.delta, ttl: 'permanent', group: 'roundStatGrant', op: 'add' });
+                refreshMaxHp(t, decl.source || null, decl.reason || '回合属性');
             } else if (decl.field === 'atk') {
                 addMod(t, 'atk', { source: decl.reason || '回合属性', value: decl.delta, ttl: 'permanent', group: 'roundStatGrant', op: 'add' });
             } else if (decl.field === 'def') {
