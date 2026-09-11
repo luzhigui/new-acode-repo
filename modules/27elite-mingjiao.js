@@ -282,9 +282,6 @@ export function createXiaoZhaoSisterComponent() {
             const defTransfer = Math.floor(sister.state._baseDef * defRatio);
             const hpTransfer = Math.floor(sister.hp * hpRatio);
             Object.assign(sister.state, { _butterflyHpTransfer: hpTransfer });
-            const hostEs = host.state;
-            Object.assign(host.state, { _butterflyHpBonus: (hostEs._butterflyHpBonus || 0) + hpTransfer });
-            Object.assign(host.state, { _butterflyAtkBonus: (hostEs._butterflyAtkBonus || 0) + atkTransfer, _butterflyDefBonus: (hostEs._butterflyDefBonus || 0) + defTransfer });
             addMod(host, 'atk', { source: '蝶变附身', value: atkTransfer, ttl: 'attached', group: 'butterfly', op: 'add' });
             addMod(host, 'def', { source: '蝶变附身', value: defTransfer, ttl: 'attached', group: 'butterfly', op: 'add' });
             addMod(host, 'maxHp', { source: '蝶变附身', value: hpTransfer, ttl: 'attached', group: 'butterfly', op: 'add' });
@@ -333,7 +330,7 @@ export function createXiaoZhaoSisterComponent() {
                     applyStatChange(sister, 'hp', -sister.hp, null, '蝶变飞回无队友', false);
                 }
                 Object.assign(sister.state, { _flyMode: null, _untargetable: false, _butterflyHost: null });
-                Object.assign(sister.state, { _butterflyAtk: 0, _butterflyDef: 0, _butterflyHp: 0, _butterflyHpTransfer: 0 });
+                Object.assign(sister.state, { _butterflyHpTransfer: 0 });
                 sister._fsm.transition('normal');
                 emitStateChange(sister, STATE_CHANGE_TYPES.RETURNED, { hostDead: true }, log);
                 log.push({ factType: FACT_TYPES.BUTTERFLY_HOST_DEAD, data: { sisterName: sister.name, isDead: !sister.alive, sisterUid: sister.uid } });
@@ -360,7 +357,7 @@ export function createXiaoZhaoSisterComponent() {
                 });
             }
             Object.assign(sister.state, { _flyMode: null, _butterflyHost: null });
-            Object.assign(sister.state, { _butterflyAtk: 0, _butterflyDef: 0, _butterflyHp: 0, _butterflyHpTransfer: 0 });
+            Object.assign(sister.state, { _butterflyHpTransfer: 0 });
             if (!A.find(a => a.uid === sister.uid)) {
                 A.push(sister);
             }

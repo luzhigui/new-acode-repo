@@ -206,8 +206,7 @@ function prepareRoundStart(A, B, log, state, round, rng) {
         u._restingTimer && clearTimeout(u._restingTimer), u._restingTimer = null;
         u.state._xingFenExtraAttacking = false;
         u.state._bloodthirstStriked = false;
-        u.state._butterflyHpBonus = 0;
-        Object.assign(u.state, { _doubleStriked: false, _butterflyAtkBonus: 0, _butterflyDefBonus: 0 });
+        Object.assign(u.state, { _doubleStriked: false });
     });
 
     B.forEach(u => {
