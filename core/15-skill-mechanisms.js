@@ -1,11 +1,12 @@
-﻿// V6.0.0 | ~14500 bytes | 2026-08-28 毒 fact 按攻击组定位插入
+﻿// V6.0.1 | ~28700 bytes | 2026-09-11 maxHp 词条化批2b：苦练/性奋代价 addMod(maxHp) 后补 refreshMaxHp，newMaxHp 改读 refresh 后真值
+// V6.0.0 | ~14500 bytes | 2026-08-28 毒 fact 按攻击组定位插入
 // V6.0.0 | 2026-09-07 属性词条化：乾坤衍生/苦练/性奋代价改 addMod
-export const VER = 'core/15-skill-mechanisms.js V6.0.0';
+export const VER = 'core/15-skill-mechanisms.js V6.0.1';
 
 import { EXECUTION_LAYER as L, EFFECT_TYPES, registerSettlementHook } from '../infra/50-event-bus.js';
 import { CONFIG, getSkillParams } from './01config-5v5-test.js';
 import { registerDodgeRule } from './12battle-attack-steps.js';
-import { emitEvent, applyStatChange, applyMaxHpChange, getBattleRng, addMod } from './13battle-shared.js';
+import { emitEvent, applyStatChange, refreshMaxHp, getBattleRng, addMod } from './13battle-shared.js';
 import { FACT_TYPES, UNIT_EVENT_TYPES, CAMP_TYPES, SIGNAL_TYPES } from '../infra/56-battle-enums.js';
 import { installMechanicByType } from './18mechanic-registry.js';
 import { processUnitAttack } from './10battle-attack.js';
@@ -412,6 +413,7 @@ function submitKuLian(data, decls) {
         addMod(u, 'atk', { source: '苦练', value: s.atkBonus * mult, ttl: 'permanent', group: 'kuLian', op: 'add' });
         addMod(u, 'def', { source: '苦练', value: s.defBonus * mult, ttl: 'permanent', group: 'kuLian', op: 'add' });
         addMod(u, 'maxHp', { source: '苦练', value: s.hpBonus * mult, ttl: 'permanent', group: 'kuLian', op: 'add' });
+        refreshMaxHp(u, null, '苦练');
     }
     log.push({ factType: FACT_TYPES.KU_LIAN_PRIORITY, data: { unitName: kuLianSong.name } });
     log.push({ factType: FACT_TYPES.KU_LIAN, data: { unitName: kuLianSong.name, atkBonus: s.atkBonus, defBonus: s.defBonus, hpBonus: s.hpBonus } });
@@ -455,7 +457,8 @@ function submitXinHun(data, decls) {
     if (penalty > 0 && unit.maxHp > 1) {
         const oldMaxHp = unit.maxHp;
         addMod(unit, 'maxHp', { source: '性奋代价', value: -penalty, ttl: 'permanent', group: 'xingFenCost', op: 'add' });
-        log.push({ factType: FACT_TYPES.XING_FEN_COST, data: { unitName: unit.name, oldMaxHp, newMaxHp: Math.max(1, unit.maxHp - penalty), penalty } });
+        refreshMaxHp(unit, null, '性奋代价');
+        log.push({ factType: FACT_TYPES.XING_FEN_COST, data: { unitName: unit.name, oldMaxHp, newMaxHp: Math.floor(unit.maxHp), penalty } });
     }
 }
 
