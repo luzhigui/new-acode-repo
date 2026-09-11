@@ -104,8 +104,6 @@ export function renderAttackFact(fact) {
     const unitRole = snap.attackerRole || unit.role;
     const isZhangNear = snap.attackerIsZhangNear !== undefined ? snap.attackerIsZhangNear : (unit.isZhang && !unit.rangedForm);
     const nearAtkCount = snap.attackerNearAtkCount !== undefined ? snap.attackerNearAtkCount : unit.nearAtkCount;
-    const atkBonusAbs = snap.attackerAtkBonusAbs !== undefined ? snap.attackerAtkBonusAbs : 0;
-    const defBonusAbs = snap.targetDefBonusAbs !== undefined ? snap.targetDefBonusAbs : 0;
     const isKuLianAttack = snap.isKuLianAttack !== undefined ? snap.isKuLianAttack : !!(unit.name === '宋青书' && unit.state._kuLianActive);
     const isLinkAttack = snap.isLinkAttack !== undefined ? snap.isLinkAttack : !!unit.state._isLinkAttack;
     const fxSnapshot = snap.attackerPos !== undefined && snap.targetPos !== undefined
@@ -126,8 +124,6 @@ export function renderAttackFact(fact) {
         hpPctBefore: fact.hpPctBefore,
         hpPctAfter: fact.hpPctAfter,
         isMiss:false, isDodge:false, buffEffects:[], needsSeparator: true,
-        _atkBonus: atkBonusAbs,
-        _defBonus: defBonusAbs,
         isKuLianAttack,
         isLinkAttack
     };
