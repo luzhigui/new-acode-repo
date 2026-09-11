@@ -1,5 +1,6 @@
+// V6.0.1 | ~12200 bytes | 2026-09-11 maxHp 词条化批1：applyMaxHpChange → refreshMaxHp（派生缓存），导出/样板调用点同步（中间态，其他文件待批2-4替换）
 // V6.0.0 | ~10000 bytes | 2026-08-26 抽战斗统计统一记账入口 recordCombatStat
-export const VER = 'core/13battle-shared.js V6.0.0';
+export const VER = 'core/13battle-shared.js V6.0.1';
 
 import { CONFIG } from './01config-5v5-test.js';
 import { getRoleBonus } from './02unit.js';
@@ -150,7 +151,7 @@ function checkZhangSwitch(A, log) {
         addMod(zhang, 'atk', { source: '近战切换', value: warriorBonus.atk * 3, ttl: 'permanent', group: 'zhangSwitch', op: 'add' });
         addMod(zhang, 'def', { source: '近战切换', value: warriorBonus.def * 3, ttl: 'permanent', group: 'zhangSwitch', op: 'add' });
         addMod(zhang, 'maxHp', { source: '近战切换', value: warriorBonus.maxHp * 3, ttl: 'permanent', group: 'zhangSwitch', op: 'add' });
-        applyMaxHpChange(zhang, getStat(zhang, 'maxHp'), null, '乾坤大挪移变身');
+        refreshMaxHp(zhang, null, '乾坤大挪移变身');
         zhang.role = ROLE_TYPES.WARRIOR;
         zhang.state._resting = false; Object.assign(zhang.state, { _zhangSwitched: true });
         emitCoreEvent(zhang, UNIT_EVENT_TYPES.ZHANG_SWITCH, {
@@ -217,12 +218,15 @@ function applyStatChange(target, field, delta, source, reason, record = true) {
     return target.state._pendingDeath || false;
 }
 
-function applyMaxHpChange(target, newMaxHp, source, reason) {
+// maxHp 词条化：所有 maxHp 变更走 addMod('maxHp')，本函数把 unit.maxHp 从 getStat 同步过来，
+// 并按"升则等量加、降则等比降"缩放 hp。addMod 后 / 移除词条后都应调用本函数。
+function refreshMaxHp(target, source, reason) {
     if (!target || !target.alive) return;
     const oldMaxHp = target.maxHp;
-    if (oldMaxHp <= 0 || newMaxHp <= 0) return;
+    if (oldMaxHp <= 0) return;
+    const newMaxHp = Math.max(1, Math.floor(getStat(target, 'maxHp')));
+    if (newMaxHp === oldMaxHp) return;
     const oldHp = target.hp;
-    // maxHp 变化时 hp 按比例缩放：上限升则 hp 等量加，上限降则 hp 等比例降
     target.maxHp = newMaxHp;
     let newHp;
     if (newMaxHp > oldMaxHp) {
@@ -294,6 +298,6 @@ export {
     moveUnitPosition,
     checkZhangSwitch,
     applyStatChange,
-    applyMaxHpChange,
+    refreshMaxHp,
     recordCombatStat
 };
