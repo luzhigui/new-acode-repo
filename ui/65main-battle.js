@@ -7,7 +7,7 @@ import { GlobalStore } from '../infra/54-global-store.js';
 import { addPermanentBuff } from '../modules/20elite-skills.js';
 import { updateUI } from './62ui-render-5v5-test.js';
 import { showModal } from './60main-utils.js';
-import { getBattleRng } from '../core/13battle-shared.js';
+import { getBattleRng, getStat } from '../core/13battle-shared.js';
 import { initBattleTeams } from '../modules/29battle-init.js';
 import { generateBuffChoices, createBuffObject, tickBuffDurations, getActiveBuffList } from '../modules/28buff-tools.js';
 import { resetBattleRuntime } from './69reset-runtime.js';
@@ -190,7 +190,7 @@ export function logTeamInfo(label, UI, gs, battleResultForInfo, activeBuffs, has
                 `${u.name}(${u.role} M${u.m})`,
                 u.isHorse ? '[拒马]' : '',
                 `站位${displayPos}`,
-                `攻${Math.floor(u.atk)} 防${Math.floor(u.def)}`,
+                `攻${Math.floor(getStat(u, 'atk'))} 防${Math.floor(getStat(u, 'def'))}`,
                 `血${Math.floor(u.hp)}/${Math.floor(u.maxHp)}`,
                 aliveText,
                 u.isZhang ? '[无忌]' : '',

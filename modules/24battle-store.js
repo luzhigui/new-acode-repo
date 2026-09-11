@@ -2,7 +2,7 @@
 export const VER = 'modules/24battle-store.js V6.0.0';
 
 import { STORE_ACTION_TYPES, UNIT_EVENT_TYPES } from '../infra/56-battle-enums.js';
-import { ROUND_STATE_KEYS, BATTLE_STATE_KEYS } from '../core/17-state-keys.js';
+import { ROUND_STATE_KEYS, BATTLE_STATE_KEYS, createInitialState } from '../core/17-state-keys.js';
 
 const ALL_STATE_KEYS = [...ROUND_STATE_KEYS, ...BATTLE_STATE_KEYS];
 
@@ -94,10 +94,14 @@ export function battleReducer(state, action) {
                             if (p[key] !== undefined) next[idx].state[key] = p[key];
                         }
                     }
-                // 新增单位（拒马）默认战斗统计字段清零
+                // 新增单位（拒马）：state 用 schema 初始态，payload 里带的字段覆盖上去
                 } else if (ev.eventType === UNIT_EVENT_TYPES.UNIT_ADD) {
                     const p = ev.payload;
                     if (!next.find(u => u.uid === p.uid)) {
+                        const state = createInitialState();
+                        for (const key of ALL_STATE_KEYS) {
+                            if (p[key] !== undefined) state[key] = p[key];
+                        }
                         next.push({
                             uid: p.uid, name: p.name, role: p.role, camp: p.camp, pos: p.pos,
                             hp: p.hp, maxHp: p.maxHp, atk: p.atk, def: p.def, alive: p.alive,
@@ -106,28 +110,7 @@ export function battleReducer(state, action) {
                             dodgeCount: 0, critCount: 0, survivedRounds: 0,
                             buffAtkBonus: 0, buffDefBonus: 0, buffDodgeBonus: 0, buffHpBonus: 0,
                             _flash: null,
-                            state: {
-                                _acted: false, _resting: false, _blocked: false,
-                                _isDead: p._isDead || false,
-                                _phantomTarget: p._phantomTarget || null,
-                                _baseAtk: p._baseAtk ?? 0,
-                                _baseDef: p._baseDef ?? 0,
-                                _baseMaxHp: p._baseMaxHp ?? 0,
-                                _initAtk: p._initAtk ?? 0,
-                                _initDef: p._initDef ?? 0,
-                                _initMaxHp: p._initMaxHp ?? 0,
-                                _hpDmgRatio: p._hpDmgRatio ?? 0,
-                                _originalPos: p._originalPos ?? -1,
-                                _deathTime: p._deathTime ?? 0,
-                                _tokenDropped: p._tokenDropped ?? false,
-                                _chestDropped: p._chestDropped ?? false,
-                                _lastRole: p._lastRole ?? null,
-                                _neverMiss: p._neverMiss ?? false,
-                                _bloodthirstStriked: p._bloodthirstStriked ?? false,
-                                _xingFenExtraAttacking: p._xingFenExtraAttacking ?? false,
-                                _dodgeChance: p._dodgeChance ?? 0,
-                                _pendingDeath: p._pendingDeath ?? false
-                            }
+                            state
                         });
                     }
                 } else if (ev.eventType === UNIT_EVENT_TYPES.UNIT_REMOVE) {

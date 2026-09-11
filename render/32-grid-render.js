@@ -60,15 +60,6 @@ function getStore() {
 }
 export function setGridStore(store) { _store = store; _subscribed = false; _horseSpawnedUids.clear(); }
 
-function getBuffStats(unit) {
-    return {
-        atkBonus: unit.buffAtkBonus || 0,
-        defBonus: unit.buffDefBonus || 0,
-        dodgeBonus: unit.buffDodgeBonus || 0,
-        hpBonus: unit.buffHpBonus || 0
-    };
-}
-
 function getDodgeBreakdown(unit, activeBuffs, allyTeam) {
     const sources = [];
     const rates = [];
@@ -407,7 +398,7 @@ export function renderGrid(id, camp) {
     }
 }
 
-export { getBuffStats, getDodgeBreakdown, isUnitBenefitedByBuff };
+export { getDodgeBreakdown, isUnitBenefitedByBuff };
 
 export function updateGridUI() {
     renderGrid('enemyGrid', CAMP_TYPES.ENEMY);

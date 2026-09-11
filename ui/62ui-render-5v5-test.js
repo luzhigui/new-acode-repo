@@ -12,12 +12,11 @@ import {
     updateGridUI,
     setGridStore,
     setGridRenderCtx,
-    getBuffStats,
     getDodgeBreakdown,
     isUnitBenefitedByBuff
 } from '../render/32-grid-render.js';
 
-export { getBuffStats, getDodgeBreakdown, isUnitBenefitedByBuff };
+export { getDodgeBreakdown, isUnitBenefitedByBuff };
 import { showDanmaku as _showDanmaku } from '../fx/80fx-common-5v5-test.js';
 const showDanmaku = (...args) => { if (typeof _showDanmaku === 'function') return _showDanmaku(...args); };
 
@@ -132,16 +131,6 @@ function updateDetailPopupContent() {
     } else if (unitBuffs.length > 0) {
         buffText = unitBuffs.map(b => `${b.name}(${b.remaining}回)`).join('、');
     }
-    let atkBonusVal = Math.floor(u.atk * u.buffAtkBonus);
-    let defBonusVal = Math.floor(u.def * u.buffDefBonus);
-    let hpBonusVal = Math.floor(u.maxHp * u.buffHpBonus);
-    let butterflyHpBonus = u.state._butterflyHpBonus || 0;
-    let hpStyle = '';
-    if (butterflyHpBonus > 0) {
-        hpStyle = 'color:#daa520;font-weight:bold;';
-    }
-    let displayAtk = u.atk + atkBonusVal;
-    let displayDef = u.def + defBonusVal;
     let hpPct = u.alive ? Math.floor((u.hp / u.maxHp) * 100) : 0;
     let hpColor = hpPct > 70 ? '#2e7d32' : (hpPct > 40 ? '#d2691e' : '#c0392b');
 
