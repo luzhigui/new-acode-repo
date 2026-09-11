@@ -139,7 +139,7 @@ export function showBuffSelection(callback, activeBuffs, selectedBuffIndex, upda
         }
         // 圣火令仅作为标记，实际行列由回合引擎每回合生成
         activeBuffs.push(createBuffObject(key, duration));
-        // 小昭永久海克斯存储
+        // 小昭·妹永久海克斯存储（仅妹，见 20 addPermanentBuff 守卫）
         if (allyTeam) {
             const xiaoZhao = allyTeam.find(u => u.isXiaoZhaoBrother);
             if (xiaoZhao) {
