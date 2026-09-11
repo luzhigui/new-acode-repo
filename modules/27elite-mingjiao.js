@@ -1,12 +1,13 @@
+// V6.0.1 | ~35400 bytes | 2026-09-11 攻防读值词条化：乾坤衍生/融会贯通 6 处裸 .atk/.def 改 getStat
 // V6.0.0 | ~31800 bytes | 2026-08-24 拆除 ELITE_SKILLS/本地台词硬编码兜底：统一 getSkillParams + gameData.taunts
-export const VER = 'modules/27elite-mingjiao.js V6.0.0';
+export const VER = 'modules/27elite-mingjiao.js V6.0.1';
 
 import { registerElite } from '../core/08-elite-registry.js';
 import { CONFIG, getSkillParams } from '../core/01config-5v5-test.js';
 import { hasBuff, getZhangNearTaunt } from '../core/03battle-utils.js';
 import { spawnHorse } from '../core/05battle-horse.js';
 import { spiderTransform, spiderReturn } from '../modules/20elite-skills.js';
-import { checkZhangSwitch, emitEvent, applyStatChange, applyMaxHpChange, getBattleRng, addMod, removeModsByGroup } from '../core/13battle-shared.js';
+import { checkZhangSwitch, emitEvent, applyStatChange, applyMaxHpChange, getBattleRng, addMod, removeModsByGroup, getStat } from '../core/13battle-shared.js';
 import { eventBus, EXECUTION_LAYER as L, EFFECT_TYPES } from '../infra/50-event-bus.js';
 import { StateMachine } from '../infra/51-core-utils.js';
 import { FACT_TYPES, BUFF_TYPES, UNIT_EVENT_TYPES, CAMP_TYPES, ROLE_TYPES, SIGNAL_TYPES, STATE_CHANGE_TYPES } from '../infra/56-battle-enums.js';
@@ -95,7 +96,7 @@ export function createZhangWujiComponent() {
                 if (unit.nearAtkCount === 2) { const secondTaunt = getZhangNearTaunt(2); if (secondTaunt) group.data.entries.push({ factType: FACT_TYPES.ZHANG_TAUNT, data: { unitName: unit.name, taunt: secondTaunt } }); }
                 if (unit.nearAtkCount >= 3) {
                     if (!fsm.is('ronghui')) fsm.transition('ronghui');
-                    const extra = Math.floor(Math.abs(target.atk - target.def) * 0.5);
+                    const extra = Math.floor(Math.abs(getStat(target, 'atk') - getStat(target, 'def')) * 0.5);
                     if (data && data.declarations) {
                         data.declarations.push({
                             type: EFFECT_TYPES.BONUS_DMG,
@@ -198,10 +199,12 @@ export function createXiaoZhaoSisterComponent() {
                 if (zhang) return;
                 const target = data.target;
                 if (!target || target.camp !== CAMP_TYPES.ALLY) return;
-                const dmg = data.unit ? data.unit.atk * (data.unit.atk / (data.unit.atk + target.def)) : 0;
+                const atkStat = data.unit ? getStat(data.unit, 'atk') : 0;
+                const defStat = getStat(target, 'def');
+                const dmg = data.unit ? atkStat * (atkStat / (atkStat + defStat)) : 0;
                 const s = getSkillParams('小昭', 'qianKunDerived');
                 if (!s) throw new Error('缺技能参数: 小昭.qianKunDerived');
-                const reduce = Math.max(1, Math.floor(dmg * target.def / s.defToReduce));
+                const reduce = Math.max(1, Math.floor(dmg * defStat / s.defToReduce));
                 if (!data.declarations) data.declarations = [];
                 data.declarations.push({
                     type: EFFECT_TYPES.DMG_REDUCTION,
@@ -213,9 +216,9 @@ export function createXiaoZhaoSisterComponent() {
                 if (aliveAllies.length > 0) {
                     const rng = getBattleRng();
                     const healTarget = aliveAllies[rng.nextInt(0, aliveAllies.length - 1)];
-                    const heal = Math.max(1, Math.floor(healTarget.def / s.defToHeal));
+                    const heal = Math.max(1, Math.floor(getStat(healTarget, 'def') / s.defToHeal));
                     const atkTarget = aliveAllies[rng.nextInt(0, aliveAllies.length - 1)];
-                    const atkGain = Math.max(1, Math.floor(atkTarget.def / s.defToAtk));
+                    const atkGain = Math.max(1, Math.floor(getStat(atkTarget, 'def') / s.defToAtk));
                     applyStatChange(healTarget, 'hp', heal, xiaoZhao, '乾坤衍生治疗');
                     applyStatChange(atkTarget, 'atk', atkGain, xiaoZhao, '乾坤衍生加攻');
                     if (atkTarget.state._baseAtk !== undefined) atkTarget.state._baseAtk += atkGain;
