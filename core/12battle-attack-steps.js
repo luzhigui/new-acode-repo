@@ -487,7 +487,6 @@ export function buildAttackGroup(unit, target, dmgCalc, dmgResult, attackerBuffS
         targetPos: target.pos,
         attackerHp: Math.floor(unit.hp),
         attackerAtkDisplay: Math.floor(getStat(unit, 'atk')),
-        attackerAtkBonusAbs: Math.floor(getStat(unit, 'atk') * attackerBuffStats.atkBonus),
         attackerAtk: Math.floor(getStat(unit, 'atk')),
         attackerDef: Math.floor(getStat(unit, 'def')),
         attackerMaxHp: Math.floor(unit.maxHp),
@@ -498,7 +497,6 @@ export function buildAttackGroup(unit, target, dmgCalc, dmgResult, attackerBuffS
         isKuLianAttack: !!(unit.name === '宋青书' && unit.state._kuLianActive),
         isLinkAttack: !!unit.state._isLinkAttack,
         targetDefDisplay: Math.floor(getStat(target, 'def')),
-        targetDefBonusAbs: Math.floor(getStat(target, 'def') * defenderBuffStats.defBonus),
         targetHpAfter: Math.floor(target.hp),
         targetAlive: target.alive
     };
