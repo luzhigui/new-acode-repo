@@ -36,10 +36,10 @@ export function appendLogElement(el) {
     autoScrollLog();
 }
 
-export async function playLogLine(text, forcedSpeed = null) {
+export async function playLogLine(text, forcedSpeed = null, anchorSpecs = null) {
     let div = document.createElement('div');
     appendLogElement(div);
-    await playLineText(text, div, forcedSpeed);
+    await playLineText(text, div, forcedSpeed, anchorSpecs);
     return div;
 }
 

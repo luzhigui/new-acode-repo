@@ -1,6 +1,6 @@
-// V6.0.0 | ~11700 bytes | 2026-09-04 取消精简：特效/音效/错误面板/入口页全部随包发送
+// V6.0.3 | ~9000 bytes | 2026-09-11 补清单漏登9个正式文件：ui/71-74（引导+三套开场CG）、player/48-49、fx/90、tests/123static-scan、tests/124rule-recipes
 // V6.0.2 | 2026-09-09 拆出 player/ 为独立「播放器」组（引擎 46→38）
-export const VER = 'tools/106-ai-pack-config.js V6.0.2';
+export const VER = 'tools/106-ai-pack-config.js V6.0.3';
 
 // AI 精简模式踢除清单（已弃用）
 // 2026-09-04 用户决定不再精简：特效/音效/错误面板/入口页全部随包发送。
@@ -29,15 +29,18 @@ export const ALL_PROJECT_FILES = [
     // player（播放器）
     '../player/40player-text.js', '../player/41player-buff-ui.js', '../player/43animation-scheduler.js', '../player/42player-core.js',
     '../player/44battle-player-5v5-test.js', '../player/45event-handlers.js', '../player/46attack-group.js', '../player/47renderer.js',
+    '../player/48battle-report.js', '../player/49battle-flow.js',
     // ui（UI 主控）
     '../ui/60main-utils.js', '../ui/61main-5v5-test.js', '../ui/62ui-render-5v5-test.js',
     '../ui/63main-state.js', '../ui/64main-dialogs.js', '../ui/65main-battle.js',
     '../ui/66audio-control.js', '../ui/67fx-trigger.js', '../ui/68ui-controls.js',
     '../ui/69reset-runtime.js', '../ui/70buff-dialog.js',
+    '../ui/71tutorial.js', '../ui/72opening-cg.js', '../ui/73opening-cg-epic.js', '../ui/74opening-cg-shadow.js',
     // fx（特效）
     '../fx/80fx-common-5v5-test.js', '../fx/81fx-arrows-5v5-test.js', '../fx/82fx-crash-5v5-test.js',
     '../fx/83fx-position-swap.js', '../fx/84fx-push-back.js', '../fx/85fx-dodge-bullet.js',
     '../fx/86fx-butterfly-spider.js', '../fx/87fx-manager.js', '../fx/88fx-trigger.js', '../fx/89fx-subscriber.js',
+    '../fx/90fx-ref-manager.js',
     // modules（通用系统 + 精英角色组件）
     '../modules/20elite-skills.js', '../modules/21error-capture.js', '../modules/22audio-manager.js',
     '../infra/54-global-store.js', '../infra/55-fx-signals.js', '../modules/29battle-init.js', '../modules/24battle-store.js',
@@ -48,7 +51,8 @@ export const ALL_PROJECT_FILES = [
     // content（游戏内容数据）
     '../content/200game-data.json',
     // tests（体检规则与自动测试）
-    '../tests/120test-runner.html',
+    '../tests/120test-runner.html', '../tests/121health-monitor.js', '../tests/122health-utils.js',
+    '../tests/123static-scan.js', '../tests/124rule-recipes.js',
     '../tests/health-rules/123-claw-heal-spam.js',
     '../tests/health-rules/124-aftermiss.js',
     '../tests/health-rules/125-fortify-timing.js',

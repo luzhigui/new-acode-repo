@@ -281,13 +281,14 @@ const FACT_TRANSLATORS = {
     },
     [FACT_TYPES.QIAN_KUN_DERIVED]: (data, index) => {
         const actions = [];
-        // 先回血后加攻：顺序与日志语义一致
+        // 先回血后加攻：heal 挂锚点0（治疗文本），atk 挂锚点1（攻击文本）
         if (data.healTargetUid && data.heal) {
             actions.push({
                 kind: STAGE_ACTION_TYPES.HEAL,
                 actorUid: data.healTargetUid,
                 targetUid: data.healTargetUid,
                 amount: Math.round(data.heal),
+                anchorIndex: 0,
                 factIndex: index
             });
         }
@@ -297,6 +298,7 @@ const FACT_TRANSLATORS = {
                 effectType: BUFF_EFFECT_TYPES.ATK_BUFF,
                 targetUid: data.atkTargetUid,
                 gain: data.atkGain,
+                anchorIndex: 1,
                 factIndex: index
             });
         }
@@ -527,6 +529,26 @@ function makeAttackAction(data, index) {
                     timing: 'afterText'
                 });
             }
+        } else if (e.factType === FACT_TYPES.FORTIFY_REBOUND) {
+            // 严阵以待反伤：飘在攻击者（受伤者）头上，不传 bannerText 避免插入阻塞横幅
+            afterTextEffects.push({
+                kind: STAGE_ACTION_TYPES.REBOUND,
+                actorUid: e.data?.unitUid ?? null,
+                targetUid: e.data?.attackerUid ?? null,
+                dmg: Math.round(e.data?.reboundDmg ?? 0),
+                factIndex: index,
+                timing: 'afterText'
+            });
+        } else if (e.factType === FACT_TYPES.HORSE_REBOUND) {
+            // 拒马反伤：同上，飘在攻击者头上
+            afterTextEffects.push({
+                kind: STAGE_ACTION_TYPES.REBOUND,
+                actorUid: e.data?.unitUid ?? null,
+                targetUid: e.data?.attackerUid ?? null,
+                dmg: Math.round(e.data?.rebound ?? 0),
+                factIndex: index,
+                timing: 'afterText'
+            });
         }
     }
 
@@ -561,8 +583,8 @@ function makeHealAction(data, index) {
         actorUid: data.healUnitUid ?? data.unitUid ?? data.sourceUid ?? null,
         targetUid: data.healUnitUid ?? data.unitUid ?? data.sourceUid ?? null,
         amount: Math.round(data.heal ?? data.leechVal ?? data.leech ?? data.totalHeal ?? 0),
-        factIndex: index,
-        timing: 'beforeText'
+        anchorIndex: 0,
+        factIndex: index
     };
 }
 
@@ -622,7 +644,8 @@ export const STAGE_ACTION_DEFS = {
         }
     },
     [STAGE_ACTION_TYPES.HEAL]: {
-        grid: 'sync', log: 'sync', timing: 'beforeText',
+        grid: 'sync', log: 'sync',
+        timing: (action) => (action && action.timing === 'afterText') ? 'afterText' : 'anchor',
         fx: (c, action) => {
             const healUnit = findUnitByUidLocal(c, action.targetUid);
             if (healUnit && action.amount) {
@@ -821,7 +844,7 @@ export const STAGE_ACTION_DEFS = {
     [STAGE_ACTION_TYPES.ROUND_END]: { grid: 'sync', log: 'sync', timing: 'afterText' },
     [STAGE_ACTION_TYPES.REST]: { grid: 'sync', log: 'sync', timing: 'beforeText' },
     [STAGE_ACTION_TYPES.DOT]: {
-        grid: 'sync', log: 'sync', timing: 'beforeText',
+        grid: 'sync', log: 'sync', timing: 'anchor',
         store: (c, action, pendingDeaths) => {
             if (action.dead && action.targetUid && pendingDeaths) pendingDeaths.push(action.targetUid);
         },
@@ -919,9 +942,11 @@ export const STAGE_ACTION_DEFS = {
         grid: 'none', log: 'sync',
         timing: (action) => {
             if (!action) return 'afterText';
+            // 子效果显式标记 afterText 时优先（ATTACK 内的衍生效果不能走 anchor）
+            if (action.timing === 'afterText') return 'afterText';
             const t = action.effectType;
             if (t === BUFF_EFFECT_TYPES.XIN_HUN) return 'beforeText';
-            if (t === BUFF_EFFECT_TYPES.ATK_BUFF) return 'beforeText';
+            if (t === BUFF_EFFECT_TYPES.ATK_BUFF) return 'anchor';
             return 'afterText';
         },
         fx: async (c, action) => {

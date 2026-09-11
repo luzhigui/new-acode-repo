@@ -114,7 +114,7 @@ async function playStepInterleaved(c, step, isFirstAttackRef) {
         let entries = prepareLogEntry(rawEntry);
         if (entries === null || entries === undefined) {
             const factIndex = i;
-            const beforeActions = (actionsByFactIndex.get(factIndex) || []).filter(a => getActionFx(a) !== 'none' && getActionTiming(a) !== 'afterText');
+            const beforeActions = (actionsByFactIndex.get(factIndex) || []).filter(a => getActionFx(a) !== 'none' && getActionTiming(a) === 'beforeText');
             for (const action of beforeActions) { applyStageActionToStore(c, action, pendingDeaths); await applyStageActionToFX(c, action); }
             const afterActions = (actionsByFactIndex.get(factIndex) || []).filter(a => getActionFx(a) !== 'none' && getActionTiming(a) === 'afterText');
             for (const action of afterActions) { applyStageActionToStore(c, action, pendingDeaths); await applyStageActionToFX(c, action); }
@@ -130,11 +130,29 @@ async function playStepInterleaved(c, step, isFirstAttackRef) {
 
             if (!processedBeforeIndexes.has(factIndex)) {
                 processedBeforeIndexes.add(factIndex);
-                const beforeActions = (actionsByFactIndex.get(factIndex) || []).filter(a => getActionFx(a) !== 'none' && getActionTiming(a) !== 'afterText');
+                const beforeActions = (actionsByFactIndex.get(factIndex) || []).filter(a => getActionFx(a) !== 'none' && getActionTiming(a) === 'beforeText');
                 for (const action of beforeActions) {
                     applyStageActionToStore(c, action, pendingDeaths);
                     if (action.nonBlocking) applyStageActionToFX(c, action);
                     else await applyStageActionToFX(c, action);
+                }
+            }
+
+            // 锚点动作：打包成 anchorSpecs 挂到 entry，由 playLineText 打到锚点文本时触发
+            if (entry && typeof entry === 'object' && !entry._anchorSpecs && Array.isArray(entry.fxAnchors) && entry.fxAnchors.length > 0) {
+                const anchorActions = (actionsByFactIndex.get(factIndex) || []).filter(a => getActionFx(a) !== 'none' && getActionTiming(a) === 'anchor');
+                if (anchorActions.length > 0) {
+                    entry._anchorSpecs = anchorActions.map(a => {
+                        const idx = a.anchorIndex || 0;
+                        const anchorText = entry.fxAnchors[idx] || '';
+                        return {
+                            text: anchorText,
+                            cb: () => {
+                                applyStageActionToStore(c, a, pendingDeaths);
+                                applyStageActionToFX(c, a);
+                            }
+                        };
+                    }).filter(s => s.text);
                 }
             }
 
