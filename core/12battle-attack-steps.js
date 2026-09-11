@@ -321,7 +321,7 @@ export function applyAttackResult(unit, target, dmgCalc, attackerBuffStats, defe
     }
     if (dead) {
         target.alive = false;
-        target._pendingDeath = true;
+        target.state._pendingDeath = true;
         if (!target.state._deathTime) target.state._deathTime = Date.now();
     }
 

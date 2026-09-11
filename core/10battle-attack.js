@@ -92,7 +92,7 @@ export function processUnitAttack(unit, allySide, enemySide, log, A, B, state, d
         if (hitResult.dodgeFact) {
             const dodgeFact = hitResult.dodgeFact;
             if (dodgeFact.attackerHpAfter <= 0) {
-                unit.alive = false; unit._pendingDeath = true;
+                unit.alive = false; unit.state._pendingDeath = true;
                 emitEvent(unit, UNIT_EVENT_TYPES.HP_CHANGE, { hp: unit.hp, maxHp: unit.maxHp, alive: false, atk: unit.atk, def: unit.def, _isDead: true });
             }
             log.push({ factType: FACT_TYPES.DODGE, data: dodgeFact });
@@ -206,7 +206,7 @@ export function processUnitAttack(unit, allySide, enemySide, log, A, B, state, d
             group.data.entries.push(entry);
         }
     }
-    if ((target._pendingDeath || target.hp <= 0) && !dmgResult.dead) {
+    if ((target.state._pendingDeath || target.hp <= 0) && !dmgResult.dead) {
         const hasExecute = executedDecls.some(d => d.type === EFFECT_TYPES.EXECUTE && d.target === target);
         if (hasExecute) {
             dmgResult.executeKill = true;
