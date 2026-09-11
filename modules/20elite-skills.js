@@ -1,11 +1,12 @@
-﻿// V6.0.0 | ~12200 bytes | 2026-08-24 蛛变防战 z 值改查分档表（getHpDmgRatio(0.5)=0.03），删硬编码
+﻿// V6.0.1 | ~11200 bytes | 2026-09-11 maxHp 词条化批3a：蛛变/精通 applyMaxHpChange → refreshMaxHp
+// V6.0.0 | ~12200 bytes | 2026-08-24 蛛变防战 z 值改查分档表（getHpDmgRatio(0.5)=0.03），删硬编码
 // V6.0.0 | 2026-09-07 属性词条化：蛛变/精通/永久carry/乾坤减伤改 addMod/getStat
-export const VER = 'modules/20elite-skills.js V6.0.0';
+export const VER = 'modules/20elite-skills.js V6.0.1';
 
 import { CONFIG, getSkillParams } from '../core/01config-5v5-test.js';
 import { getRoleBonus, getHpDmgRatio } from '../core/02unit.js';
 import { hasBuff } from '../core/03battle-utils.js';
-import { emitEvent, applyStatChange, applyMaxHpChange, registerQuery, getBattleRng, addMod, removeModsByGroup, getStat } from '../core/13battle-shared.js';
+import { emitEvent, applyStatChange, refreshMaxHp, registerQuery, getBattleRng, addMod, removeModsByGroup, getStat } from '../core/13battle-shared.js';
 import { FACT_TYPES, UNIT_EVENT_TYPES, CAMP_TYPES, ROLE_TYPES, STATE_CHANGE_TYPES } from '../infra/56-battle-enums.js';
 import { emitStateChange } from '../infra/59-state-change.js';
 
@@ -120,7 +121,7 @@ export function spiderTransform(unit, log) {
     addMod(unit, 'atk', { source: '蛛变·' + newRole, value: newStats.atk, ttl: 'permanent', group: 'spiderTransform', op: 'add' });
     addMod(unit, 'def', { source: '蛛变·' + newRole, value: newStats.def, ttl: 'permanent', group: 'spiderTransform', op: 'add' });
     addMod(unit, 'maxHp', { source: '蛛变·' + newRole, value: newStats.maxHp, ttl: 'permanent', group: 'spiderTransform', op: 'add' });
-    applyMaxHpChange(unit, unit.maxHp + newStats.maxHp, null, '蛛变');
+    refreshMaxHp(unit, null, '蛛变');
     emitEvent(unit, UNIT_EVENT_TYPES.HP_CHANGE, { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: getStat(unit, 'atk'), def: getStat(unit, 'def') });
 
     // 精通加成：首次精通时按层数差结算，全精通补 2 层
@@ -134,7 +135,7 @@ export function spiderTransform(unit, log) {
             addMod(unit, 'atk', { source: '精通', value: gAtk, ttl: 'permanent', group: 'spiderMastery', op: 'add' });
             addMod(unit, 'def', { source: '精通', value: gDef, ttl: 'permanent', group: 'spiderMastery', op: 'add' });
             addMod(unit, 'maxHp', { source: '精通', value: gHp, ttl: 'permanent', group: 'spiderMastery', op: 'add' });
-            applyMaxHpChange(unit, unit.maxHp + gHp, null, '精通');
+            refreshMaxHp(unit, null, '精通');
             emitEvent(unit, UNIT_EVENT_TYPES.HP_CHANGE, { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: getStat(unit, 'atk'), def: getStat(unit, 'def') });
             masteryGain = { atk: gAtk, def: gDef, hp: gHp };
         }
