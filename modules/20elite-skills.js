@@ -195,7 +195,7 @@ export function spiderReturn(unit, allyTeam, enemySide, log) {
     }
 }
 
-// 小昭共通 — 永久海克斯
+// 永久海克斯 — 仅小昭·妹可用（isXiaoZhaoBrother）；姊走 hexEnhance 增强路线，不继承永久效果
 
 export function addPermanentBuff(xiaoZhao, buffKey, buffName, extraFields = {}) {
     if (!xiaoZhao || !xiaoZhao.isXiaoZhaoBrother) return;
