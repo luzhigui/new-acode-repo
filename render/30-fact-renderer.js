@@ -136,7 +136,7 @@ export function renderAttackFact(fact) {
     const breakDefEntries = [];
     if (fact.entries) {
         for (const e of fact.entries) {
-            if (e && e.factType === 'breakDef') breakDefEntries.push(projectFactEntry(e));
+            if (e && e.factType === FACT_TYPES.BREAK_DEF) breakDefEntries.push(projectFactEntry(e));
         }
     }
     for (const b of breakDefEntries) {
@@ -199,7 +199,7 @@ export function renderAttackFact(fact) {
     }
     if (fact.entries) {
         for (const e of fact.entries) {
-            if (e && e.factType === 'breakDef') continue; // 已前置到攻击组开头
+            if (e && e.factType === FACT_TYPES.BREAK_DEF) continue; // 已前置到攻击组开头
             if (e && e.factType) group.entries.push(projectFactEntry(e));
             else group.entries.push(e);
         }

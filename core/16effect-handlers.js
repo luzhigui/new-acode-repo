@@ -5,7 +5,7 @@ export const VER = 'core/16effect-handlers.js V6.0.1';
 import { EFFECT_TYPES } from '../infra/50-event-bus.js';
 import { applyStatChange, refreshMaxHp, query, emitEvent, addMod, getStat } from './13battle-shared.js';
 import { flushBattleEvents } from '../infra/51-core-utils.js';
-import { BUFF_TYPES, BUFF_SUBTYPES, UNIT_EVENT_TYPES, ROLE_TYPES } from '../infra/56-battle-enums.js';
+import { BUFF_TYPES, BUFF_SUBTYPES, UNIT_EVENT_TYPES, ROLE_TYPES, FACT_TYPES } from '../infra/56-battle-enums.js';
 import { registerCalcModifier, getCalcModifier } from '../infra/57-calc-modifier-registry.js';
 export { registerCalcModifier, getCalcModifier };
 
@@ -81,7 +81,7 @@ registerCalcModifier(EFFECT_TYPES.BREAK_DEF, (ctx) => {
     addMod(target, 'def', { source: '破防', value: -reduce, ttl: 'permanent', group: 'breakDef', op: 'add' });
     refs.defReduced = reduce;
     if (reduce > 0) {
-        refs.pendingDefReduceFact = { type:'breakDef', attackerName: unit.name, targetName: target.name, reduce };
+        refs.pendingDefReduceFact = { type: FACT_TYPES.BREAK_DEF, attackerName: unit.name, targetName: target.name, reduce };
     } else {
         refs.pendingDefReduceFact = decl.factData || null;
     }
