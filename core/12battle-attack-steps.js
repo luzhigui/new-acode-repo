@@ -1,10 +1,11 @@
-﻿// V6.1.0 | ~23200 bytes | 2026-09-09 fact 纯数据化：buildAttackGroup 的 attacker/target 改为快照对象，不再引用活体 Unit
-export const VER = 'core/12battle-attack-steps.js V6.1.0';
+﻿// V6.1.1 | ~23500 bytes | 2026-09-11 maxHp 词条化收尾：韦一笑吸血上限提升改 addMod+refreshMaxHp，删 _baseMaxHp 回写
+// V6.1.0 | ~23200 bytes | 2026-09-09 fact 纯数据化：buildAttackGroup 的 attacker/target 改为快照对象，不再引用活体 Unit
+export const VER = 'core/12battle-attack-steps.js V6.1.1';
 
 import { CONFIG, getSkillParams, getGameData } from './01config-5v5-test.js';
 import { eventBus, EFFECT_TYPES } from '../infra/50-event-bus.js';
 import { calcDamage, getFangLevel, isMelee, getFronts, isBlocked, getRandomTaunt, getZhangNearTaunt, makeFXSnapshot, hasBuff, getUnitCol, getUnitRow, countEnemyEmptyCols } from './03battle-utils.js';
-import { emitEvent, applyStatChange, applyMaxHpChange, query, getBattleRng, recordCombatStat, getStat } from './13battle-shared.js';
+import { emitEvent, applyStatChange, refreshMaxHp, query, getBattleRng, recordCombatStat, getStat, addMod } from './13battle-shared.js';
 import { flushBattleEvents, pushBattleEvent, getBattleState, setBattleState, registerDodgeRule, clearEliteDodgeRules, getDodgeRules, persistValue, loadPersistedValue } from '../infra/51-core-utils.js';
 import { getEffectHandler, hasEffectHandler, getCalcModifier, validateDeclarationFields, validateCalcModifierFields } from './16effect-handlers.js';
 import { FACT_TYPES, BUFF_TYPES, UNIT_EVENT_TYPES, DROP_TYPES, CAMP_TYPES, ROLE_TYPES, SIGNAL_TYPES, STATE_CHANGE_TYPES } from '../infra/56-battle-enums.js';
@@ -541,8 +542,13 @@ export function resolveDodgeEffects(declarations, unit, target, log) {
             emitStateChange(unit, STATE_CHANGE_TYPES.STUNNED, {}, log);
         } else if (decl.type === EFFECT_TYPES.WEI_HEAL) {
             const { heal, newMaxHp } = decl.data;
-            applyMaxHpChange(target, newMaxHp, null, '韦一笑吸血上限提升');
-            target.state._baseMaxHp = Math.max(target.state._baseMaxHp, newMaxHp);
+            // 词条化：与 16effect-handlers LEECH handler 同逻辑——按"当前→目标"增量加词条，封顶正确
+            const cur = getStat(target, 'maxHp');
+            const delta = newMaxHp - cur;
+            if (delta > 0) {
+                addMod(target, 'maxHp', { source: '韦一笑吸血上限提升', value: delta, ttl: 'permanent', group: 'weiLeechMaxHp', op: 'add' });
+                refreshMaxHp(target, null, '韦一笑吸血上限提升');
+            }
             recordCombatStat(target, target, 'leech', {
                 actualAmount: heal
             });
