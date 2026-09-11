@@ -5,6 +5,7 @@ import { GlobalStore, getState } from '../infra/54-global-store.js';
 import { STORE_ACTION_TYPES, FLASH_TYPES, CAMP_TYPES } from '../infra/56-battle-enums.js';
 import { appendLogHTML, autoScrollLog, updateRoundDisplay, playLogLine, appendHiddenDetail, findUnitByUid } from './47renderer.js';
 import { showBoneClaw } from '../fx/81fx-arrows-5v5-test.js';
+import { showDamageFloat } from '../fx/80fx-common-5v5-test.js';
 
 export async function handleAttackGroup(c, entry, roundResult, abortSig, isFirstAttackRef) {
     let unitA = findUnitByUid(c, entry.uidA);
@@ -77,6 +78,10 @@ export async function handleAttackGroup(c, entry, roundResult, abortSig, isFirst
             const clawTarget = findUnitByUid(c, entry2.clawTargetUid);
             if (clawAttacker && clawTarget) {
                 showBoneClaw(clawAttacker, clawTarget, Math.max(c.speed || 1000, 600), () => c.isPaused, null, { isExecute: entry2.isExecute });
+                // 爪击伤害飘字（快进跳过）
+                if (!GlobalStore.get('fastForwardActive') && entry2.dmg > 0) {
+                    showDamageFloat(clawTarget, entry2.dmg);
+                }
             }
         }
 

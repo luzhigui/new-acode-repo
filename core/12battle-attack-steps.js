@@ -3,7 +3,7 @@ export const VER = 'core/12battle-attack-steps.js V6.1.0';
 
 import { CONFIG, getSkillParams, getGameData } from './01config-5v5-test.js';
 import { eventBus, EFFECT_TYPES } from '../infra/50-event-bus.js';
-import { calcDamage, getFangLevel, isMelee, getFronts, isBlocked, getRandomTaunt, getZhangNearTaunt, makeFXSnapshot, hasBuff, getUnitCol, getUnitRow } from './03battle-utils.js';
+import { calcDamage, getFangLevel, isMelee, getFronts, isBlocked, getRandomTaunt, getZhangNearTaunt, makeFXSnapshot, hasBuff, getUnitCol, getUnitRow, countEnemyEmptyCols } from './03battle-utils.js';
 import { emitEvent, applyStatChange, applyMaxHpChange, query, getBattleRng, recordCombatStat, getStat } from './13battle-shared.js';
 import { flushBattleEvents, pushBattleEvent, getBattleState, setBattleState, registerDodgeRule, clearEliteDodgeRules, getDodgeRules, persistValue, loadPersistedValue } from '../infra/51-core-utils.js';
 import { getEffectHandler, hasEffectHandler, getCalcModifier, validateDeclarationFields, validateCalcModifierFields } from './16effect-handlers.js';
@@ -121,6 +121,10 @@ export function resolveAttackHit(unit, target, attackerBuffStats, defenderBuffSt
         const allUnits = [...(A || []), ...(B || [])];
         const lowHpCount = allUnits.filter(u => u.alive && u.hp / u.maxHp < 0.4).length;
         missChance += lowHpCount * C.FLY_MISS_LOWHP_BONUS;
+        // 空列光环：敌方每空一列，飞行未命中减少 6%
+        const enemySideForMiss = unit.camp === CAMP_TYPES.ALLY ? (B || []) : (A || []);
+        const emptyCols = countEnemyEmptyCols(enemySideForMiss);
+        missChance -= emptyCols * C.FLY_MISS_EMPTYCOL_REDUCE;
     }
     else { missChance = C.GROUND_MISS_CHANCE; }
 

@@ -273,7 +273,12 @@ function installPhantomDisguise(eventBus, A, B, declarations) {
     const chengkun = B.find(u => u.name === '成昆' && u.alive && u.state._phantomTarget);
     if (chengkun) {
         const target = A.find(u => u.uid === chengkun.state._phantomTarget);
-        if (target) registerPhantomWatcher(chengkun, target, A);
+        if (target) {
+            registerPhantomWatcher(chengkun, target, A);
+        } else {
+            // 被模仿者已消失（上回合死亡/被移除），模仿立即作废
+            chengkun.state._phantomTarget = null;
+        }
     }
     registerSettlementHook({
         when: SIGNAL_TYPES.AFTER_DAMAGE_APPLIED,

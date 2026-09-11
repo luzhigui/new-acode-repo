@@ -370,14 +370,15 @@ export function renderBuffSummaryFact(buff, allyTeamUids, doubleStrikeUid) {
 
 // Buff 衍生效果（嗜血/热血/乘风/流星）
 export function renderBloodthirstLeechFact(fact) {
+    const anchors = [`吸血+${fact.leechVal}`];
     if (fact.isBrother) {
-        return { type:'info', text:`<span class="green">🕷️ 蝶血：${fact.unitName} 嗜血狂刀吸血+${fact.leechVal}</span>` };
+        return { type:'info', text:`<span class="green">🕷️ 蝶血：${fact.unitName} 嗜血狂刀吸血+${fact.leechVal}</span>`, fxAnchors: anchors };
     }
-    return { type:'info', text:`<span class="green">🗡️ ${fact.unitName} 的嗜血狂刀吸血+${fact.leechVal}</span>` };
+    return { type:'info', text:`<span class="green">🗡️ ${fact.unitName} 的嗜血狂刀吸血+${fact.leechVal}</span>`, fxAnchors: anchors };
 }
 
 export function renderHotBloodHealFact(fact) {
-    return { type:'info', text:`<span class="green">${fact.tag}：${fact.unitName} 回复+${fact.leech}</span>` };
+    return { type:'info', text:`<span class="green">${fact.tag}：${fact.unitName} 回复+${fact.leech}</span>`, fxAnchors: [`回复+${fact.leech}`] };
 }
 
 export function renderWindAssaultSplashFact(fact) {
@@ -513,6 +514,7 @@ export function renderKuaiLeHealFact(fact) {
     return {
         type:'info',
         text:`<span class="green">💚 快乐回血：${fact.unitName} 回复${fact.heal}点生命（${fact.layers}层触发），血量 ${fact.hpBefore} → ${fact.hpAfter}</span>`,
+        fxAnchors: [`回复${fact.heal}点`],
         buffType: BUFF_SUBTYPES.ELITE_KUAILE_HEAL,
         zhouUid: fact.unitUid,
         zhouHpAfter: fact.hpAfter,
@@ -537,7 +539,7 @@ export function renderSpiderStrikeFact(fact) {
 
 // 玄冥神掌
 export function renderXuanmingDotFact(fact) {
-    return { type:'info', text:`<span class="purple">❄️ 玄冥神掌寒毒发作，${fact.unitName} 受到 ${fact.dot} 点伤害</span>`, uidD: fact.uidD, isDead: fact.isDead, dmg: fact.dot };
+    return { type:'info', text:`<span class="purple">❄️ 玄冥神掌寒毒发作，${fact.unitName} 受到 ${fact.dot} 点伤害</span>`, fxAnchors: [`受到 ${fact.dot} 点`], uidD: fact.uidD, isDead: fact.isDead, dmg: fact.dot };
 }
 export function renderXuanmingPoisonedFact(fact) {
     return { type:'info', text:`<span class="purple">❄️ ${fact.attackerName} 的玄冥神掌使 ${fact.targetName} 中毒！每回合损失生命（${fact.dotPercents.join('%→')}%→消失）</span>` };
@@ -545,7 +547,7 @@ export function renderXuanmingPoisonedFact(fact) {
 
 // 成昆幻影伪装
 export function renderPhantomDisguiseHealFact(fact) {
-    return { type:'info', text:`<span class="green">🎭 幻影伪装：${fact.unitName} 回复 ${fact.heal} 点生命</span>` };
+    return { type:'info', text:`<span class="green">🎭 幻影伪装：${fact.unitName} 回复 ${fact.heal} 点生命</span>`, fxAnchors: [`回复 ${fact.heal} 点`] };
 }
 
 // 宋青书新婚 / 性奋
@@ -568,7 +570,7 @@ export function renderXingFenCostFact(fact) {
 
 // 张无忌九阳 / 融会贯通
 export function renderNineYangHealFact(fact) {
-    return { type:'info', text:`<span class="green">☀️ 九阳神功回复+${fact.heal}，${fact.hpBefore}→${fact.hpAfter}</span>`, isHealEntry:true, healAmount:fact.heal, healUnitUid:fact.unitUid };
+    return { type:'info', text:`<span class="green">☀️ 九阳神功回复+${fact.heal}，${fact.hpBefore}→${fact.hpAfter}</span>`, fxAnchors: [`回复+${fact.heal}`], isHealEntry:true, healAmount:fact.heal, healUnitUid:fact.unitUid };
 }
 export function renderRongHuiBonusFact(fact) {
     return { type:'info', text:`<span class="red">🔥 融会贯通额外+${fact.extra}（目标攻击${fact.targetAtk} 防御${fact.targetDef}，差值绝对值×50%）</span>` };
@@ -576,7 +578,7 @@ export function renderRongHuiBonusFact(fact) {
 
 // 韦一笑吸血
 export function renderWeiLeechFact(fact) {
-    return { type:'info', text:`<span class="green">🦇 青翼蝠王·吸血+${fact.heal}，上限→${fact.newMaxHp}</span>`, isHealEntry:true, healAmount:fact.heal, healUnitUid:fact.unitUid };
+    return { type:'info', text:`<span class="green">🦇 青翼蝠王·吸血+${fact.heal}，上限→${fact.newMaxHp}</span>`, fxAnchors: [`吸血+${fact.heal}`], isHealEntry:true, healAmount:fact.heal, healUnitUid:fact.unitUid };
 }
 
 // 小昭·姊 乾坤衍生 / 蝶变
@@ -584,10 +586,11 @@ export function renderQianKunDerivedFact(fact) {
     return {
         type:'info',
         text:`<span class="gold">🦋 乾坤衍生：${fact.targetName}减伤${fact.reduce}，${fact.healTargetName}治疗+${fact.heal}，${fact.atkTargetName}攻击+${fact.atkGain}</span>`,
+        fxAnchors: [`治疗+${fact.heal}`, `攻击+${fact.atkGain}`],
         isHealEntry: true,
         healAmount: fact.heal,
         healUnitUid: fact.healTargetUid,
-        buffType: BUFF_SUBTYPES.QIANKUN_ATK,
+        buffType: BUFF_SUBTYPES.QIAN_KUN_ATK,
         atkGain: fact.atkGain,
         atkTargetUid: fact.atkTargetUid
     };
@@ -686,14 +689,14 @@ export function renderXingFenGrantFact(fact) {
     return { type:'buff-summary', text:`<span class="gold">💗 性奋：${fact.songName} 受${fact.zhouName}激励，本回合每次攻击后可再次攻击！</span>`, buffType: BUFF_SUBTYPES.ELITE_XINGFEN };
 }
 export function renderClawHitFact(fact) {
-    return { type:'info', hpAfter: fact.hpAfter, clawTargetUid: fact.targetUid, text:`<span style="color:#222">🐾 九阴白骨爪${fact.depth>0?'连锁':'追击'}！${fact.unitName} 对 ${fact.targetName} 造成 ${fact.dmg} 点伤害${fact.jealous?'【嫉妒】':''}</span>` };
+    return { type:'info', hpAfter: fact.hpAfter, clawTargetUid: fact.targetUid, dmg: fact.dmg, text:`<span style="color:#222">🐾 九阴白骨爪${fact.depth>0?'连锁':'追击'}！${fact.unitName} 对 ${fact.targetName} 造成 ${fact.dmg} 点伤害${fact.jealous?'【嫉妒】':''}</span>` };
 }
 export function renderClawExecuteFact(fact) {
     const dmgText = fact.dmg !== undefined ? `造成 <span class="red">${fact.dmg}</span> 点伤害` : '造成致命一击';
     return { type:'info', text:`<span style="color:#222">🐾 九阴白骨爪斩杀！${fact.unitName} 对 ${fact.targetName} ${dmgText}</span>` };
 }
 export function renderClawHealFact(fact) {
-    return { type:'info', text:`<span class="green">💚 宋青书因九阴白骨爪共回复${Math.round(fact.totalHeal)}点生命</span>` };
+    return { type:'info', text:`<span class="green">💚 宋青书因九阴白骨爪共回复${Math.round(fact.totalHeal)}点生命</span>`, fxAnchors: [`共回复${Math.round(fact.totalHeal)}点`] };
 }
 export function renderPhantomRevealFact(fact) {
     return { type:'info', text:`<span class="gold">🎭 ${fact.unitName}识破${fact.deceiver}伪装，锁定真正的${fact.deceiver}！</span>` };

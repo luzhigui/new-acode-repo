@@ -55,7 +55,7 @@ export function watchUnit(unit, checkFn, onChange) {
     if (!unit || !unit.uid) return null;
     ensureSubscribed();
     const token = { uid: unit.uid, id: ++_tokenCounter };
-    // 初始评估：登记时先跑一次，记录初始条件状态（不触发 onChange）
+    // 初始评估：登记时先跑一次
     let initial = false;
     try { initial = !!checkFn(); } catch (e) { initial = false; }
     _watchers.push({
@@ -65,6 +65,16 @@ export function watchUnit(unit, checkFn, onChange) {
         lastResult: initial,
         token
     });
+    // 关键：若登记时条件已成立，立即触发一次 onChange
+    //   否则该条件永远为 true、等不到"翻转"，机制会卡死（该响应不响应）
+    //   正常路径下不会走到这里（张无忌的 fsm 初始态已正确），这是安全网
+    if (initial) {
+        try {
+            onChange(true, { unitUid: unit.uid, changeType: null, log: null, initial: true });
+        } catch (e) {
+            console.error('[19unit-watch] 初始 onChange 执行出错:', e);
+        }
+    }
     return token;
 }
 
