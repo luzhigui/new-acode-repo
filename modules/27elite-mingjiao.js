@@ -1,13 +1,14 @@
+// V6.0.2 | ~35700 bytes | 2026-09-11 maxHp 词条化批3b：蝶变附身/飞回/永久carry 改 addMod+refreshMaxHp；永久carry atk/def/maxHp 统一 addMod，删 _baseMaxHp 回写
 // V6.0.1 | ~35400 bytes | 2026-09-11 攻防读值词条化：乾坤衍生/融会贯通 6 处裸 .atk/.def 改 getStat
 // V6.0.0 | ~31800 bytes | 2026-08-24 拆除 ELITE_SKILLS/本地台词硬编码兜底：统一 getSkillParams + gameData.taunts
-export const VER = 'modules/27elite-mingjiao.js V6.0.1';
+export const VER = 'modules/27elite-mingjiao.js V6.0.2';
 
 import { registerElite } from '../core/08-elite-registry.js';
 import { CONFIG, getSkillParams } from '../core/01config-5v5-test.js';
 import { hasBuff, getZhangNearTaunt } from '../core/03battle-utils.js';
 import { spawnHorse } from '../core/05battle-horse.js';
 import { spiderTransform, spiderReturn } from '../modules/20elite-skills.js';
-import { checkZhangSwitch, emitEvent, applyStatChange, applyMaxHpChange, getBattleRng, addMod, removeModsByGroup, getStat } from '../core/13battle-shared.js';
+import { checkZhangSwitch, emitEvent, applyStatChange, refreshMaxHp, getBattleRng, addMod, removeModsByGroup, getStat } from '../core/13battle-shared.js';
 import { eventBus, EXECUTION_LAYER as L, EFFECT_TYPES } from '../infra/50-event-bus.js';
 import { StateMachine } from '../infra/51-core-utils.js';
 import { FACT_TYPES, BUFF_TYPES, UNIT_EVENT_TYPES, CAMP_TYPES, ROLE_TYPES, SIGNAL_TYPES, STATE_CHANGE_TYPES } from '../infra/56-battle-enums.js';
@@ -286,7 +287,8 @@ export function createXiaoZhaoSisterComponent() {
             Object.assign(host.state, { _butterflyAtkBonus: (hostEs._butterflyAtkBonus || 0) + atkTransfer, _butterflyDefBonus: (hostEs._butterflyDefBonus || 0) + defTransfer });
             addMod(host, 'atk', { source: '蝶变附身', value: atkTransfer, ttl: 'attached', group: 'butterfly', op: 'add' });
             addMod(host, 'def', { source: '蝶变附身', value: defTransfer, ttl: 'attached', group: 'butterfly', op: 'add' });
-            applyMaxHpChange(host, host.maxHp + hpTransfer, sister, '蝶变附身血上限');
+            addMod(host, 'maxHp', { source: '蝶变附身', value: hpTransfer, ttl: 'attached', group: 'butterfly', op: 'add' });
+            refreshMaxHp(host, sister, '蝶变附身血上限');
             emitEvent(host, UNIT_EVENT_TYPES.HP_CHANGE, { hp:host.hp, maxHp:host.maxHp, alive:host.alive, atk:host.atk, def:host.def, _phantomTarget:sister.uid });
             const aliveAllies = A.filter(a => a.alive && !a.isHorse && a.uid !== sister.uid);
             const totalHp = aliveAllies.reduce((sum,a) => sum + a.hp, 0); const totalMaxHp = aliveAllies.reduce((sum,a) => sum + a.maxHp, 0);
@@ -351,8 +353,7 @@ export function createXiaoZhaoSisterComponent() {
             applyStatChange(sister, 'def', sister.state._baseDef - sister.def, null, '蝶变飞回重置防');
             if (host && host.alive) {
                 removeModsByGroup(host, 'butterfly');
-                const hpTransfer = sister.state._butterflyHpTransfer || 0;
-                applyMaxHpChange(host, Math.max(1, host.maxHp - hpTransfer), sister, '蝶变飞回血上限');
+                refreshMaxHp(host, sister, '蝶变飞回血上限');
                 emitEvent(host, UNIT_EVENT_TYPES.HP_CHANGE, {
                     hp: host.hp, maxHp: host.maxHp, alive: host.alive,
                     atk: host.atk, def: host.def
@@ -543,10 +544,10 @@ export function createXiaoZhaoBrotherComponent() {
                 }
                 const hasTeamCarry = hasBuff(A._activeBuffs, BUFF_TYPES.CARRY);
                 if (!hasTeamCarry && bro.state._permanentBuffs?.some(b => b.key === BUFF_TYPES.CARRY) && bro.state._baseMaxHp !== undefined) {
-                    applyStatChange(bro, 'atk', 3, null, '小昭·妹永久carry');
-                    applyStatChange(bro, 'def', 4, null, '小昭·妹永久carry');
-                    applyMaxHpChange(bro, bro.maxHp + 20, null, '小昭·妹永久carry');
-                    bro.state._baseMaxHp = bro.maxHp;
+                    addMod(bro, 'atk', { source: '小昭·妹永久carry', value: 3, ttl: 'permanent', group: 'xiaoZhaoCarry', op: 'add' });
+                    addMod(bro, 'def', { source: '小昭·妹永久carry', value: 4, ttl: 'permanent', group: 'xiaoZhaoCarry', op: 'add' });
+                    addMod(bro, 'maxHp', { source: '小昭·妹永久carry', value: 20, ttl: 'permanent', group: 'xiaoZhaoCarry', op: 'add' });
+                    refreshMaxHp(bro, null, '小昭·妹永久carry');
                 }
             }
             // 永久双击：小昭·妹 80% 概率额外攻击一次
