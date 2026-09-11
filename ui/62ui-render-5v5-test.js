@@ -1,8 +1,10 @@
-﻿// V6.0.0 | 2026-08-17 格子渲染下沉 render/32
-export const VER = 'ui/62ui-render-5v5-test.js V6.0.0';
+﻿// V6.0.1 | ~16900 bytes | 2026-09-11 详情弹窗属性分解改走 _mods 词条表（renderStatDetail），终值用 getStat，根治词条化后分解失配
+// V6.0.0 | 2026-08-17 格子渲染下沉 render/32
+export const VER = 'ui/62ui-render-5v5-test.js V6.0.1';
 
 import { getSkillDesc } from '../core/01config-5v5-test.js';
 import { getAuraBonuses } from '../core/03battle-utils.js';
+import { getStat } from '../core/13battle-shared.js';
 import { GlobalStore } from '../infra/54-global-store.js';
 import { BUFF_TYPES, CAMP_TYPES } from '../infra/56-battle-enums.js';
 import {
@@ -59,48 +61,31 @@ function openDetailPopup(unit) {
 }
 window.openDetailPopup = openDetailPopup;
 
-function renderAtkDetail(u, buffStats, ctx) {
-    let initAtk = u.state._initAtk !== undefined ? u.state._initAtk : u.atk;
-    let holyAtkBonus = Math.floor(initAtk * buffStats.atkBonus);
-    let carryAtk = u.state._carryAtkBonus || 0;
-    let butterflyAtk = u.state._butterflyAtkBonus || 0;
-    let finalAtk = u.atk;
-    let permChange = finalAtk - initAtk - holyAtkBonus - carryAtk - butterflyAtk;
-    let parts = [String(initAtk)];
-    if (permChange > 0) parts.push(`<span style="color:#2e7d32;">+${permChange}永</span>`);
-    else if (permChange < 0) parts.push(`<span style="color:#c0392b;">${permChange}永</span>`);
-    if (butterflyAtk > 0) parts.push(`<span style="color:#daa520;">+${butterflyAtk}附身</span>`);
-    if (holyAtkBonus > 0) parts.push(`<span style="color:#ff8c00;">+${holyAtkBonus}临</span>`);
-    if (carryAtk > 0) parts.push(`<span style="color:#ff8c00;">+${carryAtk}临</span>`);
-    const enemyTeamForAura = ctx.UI.enemyTeam || [];
-    const allyTeamForAura = ctx.UI.allyTeam || [];
-    const auraSideA = u.camp === CAMP_TYPES.ALLY ? allyTeamForAura : enemyTeamForAura;
-    const auraSideB = u.camp === CAMP_TYPES.ALLY ? enemyTeamForAura : allyTeamForAura;
-    const aura = getAuraBonuses(u, auraSideA, auraSideB);
-    if (aura.emptyCol > 0) parts.push(`<span style="color:#ff8c00;">+${aura.emptyCol}光环</span>`);
-    if (aura.bloodAura > 0) parts.push(`<span style="color:#ff8c00;">+${aura.bloodAura}光环</span>`);
-    if (parts.length === 1) return parts[0];
-    return parts.join(' ') + ' = <span style="color:#daa520;font-weight:bold;">' + finalAtk + '</span>';
-}
+// 属性分解统一走 _mods 词条表：base + 按 ttl 分组的词条贡献 = getStat 终值
+// 不论新增什么机制，只要走 addMod，详情弹窗自动同步
+function renderStatDetail(u, stat) {
+    const baseKey = '_base' + stat.charAt(0).toUpperCase() + stat.slice(1);
+    const base = u.state?.[baseKey] ?? u[stat] ?? 0;
+    const mods = (u._mods && u._mods[stat]) || [];
+    const final = getStat(u, stat);
+    if (mods.length === 0) return String(Math.floor(base));
 
-function renderDefDetail(u, buffStats) {
-    let initDef = u.state._initDef !== undefined ? u.state._initDef : u.def;
-    let holyDefBonus = Math.floor(initDef * buffStats.defBonus);
-    let carryDef = u.state._carryDefBonus || 0;
-    let butterflyDef = u.state._butterflyDefBonus || 0;
-    let fortifyStacks = u.state._fortifyStacks || 0;
-    let fortifyDef = fortifyStacks;
-    let finalDef = Math.round(u.def);
-    let permChange = finalDef - Math.round(initDef) - holyDefBonus - carryDef - butterflyDef - fortifyDef;
-    let parts = [String(Math.round(initDef))];
-    if (permChange > 0) parts.push(`<span style="color:#2e7d32;">+${permChange}永</span>`);
-    else if (permChange < 0) parts.push(`<span style="color:#c0392b;">${permChange}永</span>`);
-    if (butterflyDef > 0) parts.push(`<span style="color:#daa520;">+${butterflyDef}附身</span>`);
-    if (holyDefBonus > 0) parts.push(`<span style="color:#ff8c00;">+${holyDefBonus}临</span>`);
-    if (carryDef > 0) parts.push(`<span style="color:#ff8c00;">+${carryDef}临</span>`);
-    if (fortifyDef > 0) parts.push(`<span style="color:#ff8c00;">+${fortifyDef}坚盾(${fortifyStacks}层)</span>`);
-    if (parts.length === 1) return parts[0];
-    return parts.join(' ') + ' = <span style="color:#daa520;font-weight:bold;">' + finalDef + '</span>';
+    const g = { permanent: { add: 0, mul: 0 }, round: { add: 0, mul: 0 }, attached: { add: 0, mul: 0 } };
+    for (const m of mods) {
+        const b = g[m.ttl] || g.permanent;
+        if (m.op === 'mul') b.mul += m.value;
+        else b.add += m.value;
+    }
+    const delta = (b) => b.add + base * b.mul;
+    const parts = [String(Math.floor(base))];
+    const perm = delta(g.permanent);
+    if (Math.abs(perm) >= 0.01) parts.push(`<span style="color:${perm > 0 ? '#2e7d32' : '#c0392b'};">${perm > 0 ? '+' : ''}${Math.floor(perm)}永</span>`);
+    const att = delta(g.attached);
+    if (Math.abs(att) >= 0.01) parts.push(`<span style="color:#daa520;">${att > 0 ? '+' : ''}${Math.floor(att)}附身</span>`);
+    const rnd = delta(g.round);
+    if (Math.abs(rnd) >= 0.01) parts.push(`<span style="color:#ff8c00;">${rnd > 0 ? '+' : ''}${Math.floor(rnd)}临</span>`);
+    if (parts.length === 1) return String(Math.floor(base));
+    return parts.join(' ') + ' = <span style="color:#daa520;font-weight:bold;">' + final + '</span>';
 }
 
 function updateDetailPopupContent() {
@@ -125,7 +110,6 @@ function updateDetailPopupContent() {
     if (!latestUnit) { closeDetailPopup(); return; }
     detailPopupUnit = latestUnit;
     const u = latestUnit;
-    const buffStats = getBuffStats(u);
     let holyFlameBuffs = activeBuffs.filter(b => {
         if (b.key !== BUFF_TYPES.HOLY_FLAME) return false;
         const cols = b.cols || (b.col != null ? [b.col] : []);
@@ -173,8 +157,8 @@ function updateDetailPopupContent() {
             <span style="color:#888;">站位</span><span>${!u.alive ? '已阵亡' : (u.pos || '?') + '号位'}</span>
             <span style="color:#888;">血量</span><span style="color:${hpColor};font-weight:bold;">${Math.floor(u.hp)} / ${Math.floor(u.maxHp)} (${hpPct}%)</span>
             <span style="color:#888;">闪避</span><span>${(() => { const db = getDodgeBreakdown(u, activeBuffs, allyTeam); return db.combined + '%' + (db.sources.length > 0 ? ' (' + db.sources.map(s => s.label + '+' + s.value + '%').join(' ') + ')' : ''); })()}</span>
-            <span style="color:#888;">攻击</span><span>${renderAtkDetail(u, buffStats, ctx)}</span>
-            <span style="color:#888;">防御</span><span>${renderDefDetail(u, buffStats)}</span>
+            <span style="color:#888;">攻击</span><span>${renderStatDetail(u, 'atk')}</span>
+            <span style="color:#888;">防御</span><span>${renderStatDetail(u, 'def')}</span>
             <span style="color:#888;">造成伤害</span><span>${u.dmgDealt || 0}</span>
             <span style="color:#888;">承受伤害</span><span>${u.dmgTaken || 0}</span>
             <span style="color:#888;">治疗</span><span>${u.healDone || 0}</span>
