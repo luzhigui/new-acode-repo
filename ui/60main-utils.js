@@ -1,5 +1,6 @@
+// V6.0.1 | ~6900 bytes | 2026-09-11 删 startApp 死函数；updateCoverVersion 改读 window.ALL_VERS 动态生成版本列表
 // V6.0.0 | ~7400 bytes | 2026-07-05
-export const VER = 'ui/60main-utils.js V6.0.0';
+export const VER = 'ui/60main-utils.js V6.0.1';
 
 import { GlobalStore } from '../infra/54-global-store.js';
 
@@ -127,37 +128,12 @@ export function copyLogToClipboard(choice) {
     navigator.clipboard.writeText(text).then(() => showAlert('日志已复制'));
 }
 
+// 版本列表从 window.ALL_VERS 动态生成（61 启动时写入），避免各处版本号与硬编码列表脱节
 export function updateCoverVersion() {
-    let el = document.getElementById('coverVersion');
+    const el = document.getElementById('coverVersion');
     if (!el) return;
-    el.innerHTML = [
-        '✅ core/11battle-round.js V6.0.0',
-        '✅ core/10battle-attack.js V6.0.0',
-        '✅ core/04buff-system.js V6.0.0',
-        '✅ player/42player-core.js V6.0.0',
-        '✅ ui/62ui-render-5v5-test.js V6.0.0',
-        '✅ fx/80fx-common-5v5-test.js V6.0.0',
-        '✅ modules/20elite-skills.js V6.0.0',
-        '✅ infra/54-global-store.js V6.0.0'
-    ].join('<br>');
-}
-
-export async function startApp(updateCoverVersion) {
-    const loaded = {};
-    const failed = {};
-    const modules = {
-        '01config-5v5-test.js': './01config-5v5-test.js',
-        '02unit.js': './02unit.js',
-        '03battle-utils.js': './03battle-utils.js',
-        '04buff-system.js': './04buff-system.js',
-        '62ui-render-5v5-test.js': './62ui-render-5v5-test.js',
-        '80fx-common-5v5-test.js': './80fx-common-5v5-test.js',
-        '81fx-arrows-5v5-test.js': './81fx-arrows-5v5-test.js',
-        '82fx-crash-5v5-test.js': './82fx-crash-5v5-test.js',
-        '44battle-player-5v5-test.js': './44battle-player-5v5-test.js'
-    };
-    for (const [name, path] of Object.entries(modules)) {
-        try { loaded[name] = await import(path + '?t=' + Date.now()); } catch (e) { failed[name] = true; }
-    }
-    updateCoverVersion(loaded, failed);
+    const vers = (typeof window !== 'undefined' && window.ALL_VERS) || {};
+    const keys = Object.keys(vers);
+    if (keys.length === 0) return;
+    el.innerHTML = keys.map(k => '✅ ' + vers[k]).join('<br>');
 }

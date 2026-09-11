@@ -1,5 +1,6 @@
+// V6.0.1 | 2026-09-11 ALL_VERS 赋值前移到 startApp 之前，保证 updateCoverVersion 动态版本列表在读取前已写入
 // V6.0.0 | 2026-08-26 移除 handleBuffLeech import
-export const VER = 'ui/61main-5v5-test.js V6.0.0';
+export const VER = 'ui/61main-5v5-test.js V6.0.1';
 
 import '../infra/54-global-store.js';
 import { GlobalStore } from '../infra/54-global-store.js';
@@ -153,6 +154,18 @@ function stopRuntimeMonitor() {
     autoScrollLog();
 }
 
+window.ALL_VERS = {
+    config: CFG_VER,
+    unit: VER_UNIT,
+    utils: VER_UTILS,
+    buff: VER_BUFF,
+    horse: VER_HORSE,
+    core: VER_CORE,
+    player_core: VER_PLAYER_CORE,
+    ui: UI_VER,
+    fx_common: FX_VER
+};
+
 async function startApp() { updateCoverVersion(); }
 startApp();
 
@@ -165,18 +178,6 @@ if (document.readyState === 'complete' || document.readyState === 'interactive')
 } else {
     document.addEventListener('DOMContentLoaded', initBugAndXiaoZhaoModes);
 }
-
-window.ALL_VERS = {
-    config: CFG_VER,
-    unit: VER_UNIT,
-    utils: VER_UTILS,
-    buff: VER_BUFF,
-    horse: VER_HORSE,
-    core: VER_CORE,
-    player_core: VER_PLAYER_CORE,
-    ui: UI_VER,
-    fx_common: FX_VER
-};
 
 document.addEventListener('DOMContentLoaded', async function() {
     const controls = document.querySelector('.controls');
