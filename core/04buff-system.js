@@ -1,6 +1,7 @@
-﻿// V6.0.0 | ~27900 bytes | 2026-08-24 删除断头的精通查询链（精通已在蛛变首次掌握时增量结算）
+﻿// V6.0.1 | ~15300 bytes | 2026-09-11 maxHp 词条化批4：carry addMod(maxHp) 后补 refreshMaxHp
+// V6.0.0 | ~27900 bytes | 2026-08-24 删除断头的精通查询链（精通已在蛛变首次掌握时增量结算）
 // V6.0.0 | 2026-09-07 属性词条化：computeBuffStats 不再产生 stats 对象，圣火令/严阵以待/carry 走 addMod
-export const VER = 'core/04buff-system.js V6.0.0';
+export const VER = 'core/04buff-system.js V6.0.1';
 import {
     applyFortifyDef_Normal, applyFortifyDef_Sister, applyFortifyDef_Brother,
     applyCloudBodyDodge_Normal, applyCloudBodyDodge_Sister, applyCloudBodyDodge_Brother,
@@ -10,7 +11,7 @@ import {
 } from './14buff-effects.js';
 import { CONFIG, getGameData } from './01config-5v5-test.js';
 import { hasBuff, getUnitRow, getUnitCol, getAdjacentPositions } from './03battle-utils.js';
-import { emitEvent, applyStatChange, applyMaxHpChange, query, getBattleRng, swapUnitPositions, moveUnitPosition, addMod, getStat } from './13battle-shared.js';
+import { emitEvent, applyStatChange, refreshMaxHp, query, getBattleRng, swapUnitPositions, moveUnitPosition, addMod, getStat } from './13battle-shared.js';
 import { eventBus, EXECUTION_LAYER as L, EFFECT_TYPES, registerSettlementHook } from '../infra/50-event-bus.js';
 import { FACT_TYPES, BUFF_TYPES, BUFF_SUBTYPES, UNIT_EVENT_TYPES, CAMP_TYPES, ROLE_TYPES, SIGNAL_TYPES } from '../infra/56-battle-enums.js';
 const C = CONFIG;
@@ -39,7 +40,7 @@ export function applyCarryBonus(unit, A, state, log) {
         const bonus = sister ? calcCarryBonus_Sister(unit, A) : calcCarryBonus_Normal(unit, A);
         if (bonus.atkAbs) addMod(unit, 'atk', { source: 'carry', value: bonus.atkAbs, ttl: 'round', op: 'add', group: 'carry' });
         if (bonus.defAbs) addMod(unit, 'def', { source: 'carry', value: bonus.defAbs, ttl: 'round', op: 'add', group: 'carry' });
-        if (bonus.hpAbs) addMod(unit, 'maxHp', { source: 'carry', value: bonus.hpAbs, ttl: 'round', op: 'add', group: 'carry' });
+        if (bonus.hpAbs) { addMod(unit, 'maxHp', { source: 'carry', value: bonus.hpAbs, ttl: 'round', op: 'add', group: 'carry' }); refreshMaxHp(unit, null, 'carry'); }
         log.push({ factType: FACT_TYPES.CARRY_APPLY, data: { unitName: unit.name, atk: bonus.atkAbs, def: bonus.defAbs, hp: bonus.hpAbs } });
     }
 }

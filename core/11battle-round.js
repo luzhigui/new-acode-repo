@@ -1,6 +1,7 @@
-﻿// V6.0.0 | ~23700 bytes | 2026-08-26 回合重置走 resetStateFields；蝶变方向弹窗移至播放器层
+﻿// V6.0.1 | ~24900 bytes | 2026-09-11 maxHp 词条化批4：prepareRoundStart removeModsByTTL(round) 后补 refreshMaxHp（闭环上回合 carry 清理）
+// V6.0.0 | ~23700 bytes | 2026-08-26 回合重置走 resetStateFields；蝶变方向弹窗移至播放器层
 // V6.0.0 | 2026-09-07 属性词条化：删除归位重算，光环改 round 词条，回合开始清理上回合词条
-export const VER = 'core/11battle-round.js V6.0.0';
+export const VER = 'core/11battle-round.js V6.0.1';
 
 import { CONFIG, getGameData, getSkillParams } from './01config-5v5-test.js';
 import { resetStateFields } from './17-state-keys.js';
@@ -16,7 +17,7 @@ import { clearAllWatchers } from './19unit-watch.js';
 import { getEliteFactories } from './08-elite-registry.js';
 import { processUnitAttack } from './10battle-attack.js';
 import { eventBus, EXECUTION_LAYER as L, registerSettlementHook } from '../infra/50-event-bus.js';
-import { getNextAvailableUnit, finalizeDeaths, emitFullUnitState, checkZhangSwitch, emitEvent, applyStatChange, setBattleRng, addMod, removeModsByTTL, getStat } from './13battle-shared.js';
+import { getNextAvailableUnit, finalizeDeaths, emitFullUnitState, checkZhangSwitch, emitEvent, applyStatChange, setBattleRng, addMod, removeModsByTTL, getStat, refreshMaxHp } from './13battle-shared.js';
 import { FACT_TYPES, BUFF_TYPES, UNIT_EVENT_TYPES, CAMP_TYPES, ROLE_TYPES, SIGNAL_TYPES } from '../infra/56-battle-enums.js';
 import { flushBattleEvents, setBattleState } from '../infra/51-core-utils.js';
 import { SeededRNG } from '../infra/51-core-utils.js';
@@ -29,8 +30,12 @@ function prepareRoundStart(A, B, log, state, round, rng) {
     B._activeBuffs = state.activeBuffs.filter(b => b.target === CAMP_TYPES.ENEMY);
 
     // 词条化：回合开始时清理上回合的 round 词条（永久/附身词条保留）
+    // 清理后必须 refreshMaxHp，否则上回合 carry 的 maxHp 加成会残留
     for (const u of [...A, ...B]) {
-        if (u.alive) removeModsByTTL(u, 'round');
+        if (u.alive) {
+            removeModsByTTL(u, 'round');
+            refreshMaxHp(u, null, '回合清理');
+        }
     }
 
     const xiaoZhao = A.find(u => (u.isXiaoZhaoSister || u.isXiaoZhaoBrother) && u.alive);
