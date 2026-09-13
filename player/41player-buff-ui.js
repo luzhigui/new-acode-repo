@@ -7,6 +7,7 @@ import { FX_SIGNALS } from '../infra/55-fx-signals.js';
 import { GlobalStore } from '../infra/54-global-store.js';
 import { findUnitByUid } from './47renderer.js';
 import { CAMP_TYPES } from '../infra/56-battle-enums.js';
+import { clock } from '../infra/52-clock.js';
 
 
 let ctx = null;
@@ -50,7 +51,7 @@ export async function handleHolyTokenDrop(c, entry) {
             r();
         });
     });
-    await new Promise(r => setTimeout(r, 400));
+    await clock.wait(400);
 
     const badge = document.getElementById('scoreBadge');
     const badgeRect = badge ? badge.getBoundingClientRect() : null;
@@ -60,7 +61,7 @@ export async function handleHolyTokenDrop(c, entry) {
         icon.style.transform = 'translate(-50%, -50%) scale(0.8)';
         icon.style.opacity = '0.6';
     }
-    await new Promise(r => setTimeout(r, 800));
+    await clock.wait(800);
 
     icon.remove();
     c.updateScoreBadge();
@@ -69,7 +70,8 @@ export async function handleHolyTokenDrop(c, entry) {
 }
 
 export async function handleBuffSummon(c, entry, prevEntry) {
-    c.UI.lastSnapshot = { ally: c.UI.allyTeam.map(u => ({...u})), enemy: c.UI.enemyTeam.map(u => ({...u})) };
+    // 2026-09-14 状态三轨收敛：删除 c.UI.lastSnapshot（只写不读的死拷贝，第 4 份状态）
+    // 结算数据唯一来源为 battleStore，渲染层按 uid 现查
     // 特效已由 stageAction 触发，此处只播文本
     let div=document.createElement('div');div.innerHTML=entry.text+'<br>';
     document.getElementById('log').appendChild(div);
@@ -77,7 +79,7 @@ export async function handleBuffSummon(c, entry, prevEntry) {
 }
 
 export async function handleBuffDestroy(c, entry, prevEntry) {
-    c.UI.lastSnapshot = { ally: c.UI.allyTeam.map(u => ({...u})), enemy: c.UI.enemyTeam.map(u => ({...u})) };
+    // 同上：lastSnapshot 已删
     // REMOVE_UNIT / 特效横幅已由导演 stageAction 'destroy' 统一处理，此处只播文本
     let div=document.createElement('div');div.innerHTML=entry.text+'<br>';
     document.getElementById('log').appendChild(div);

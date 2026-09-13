@@ -3,7 +3,7 @@ export const VER = 'ui/64main-dialogs.js V6.0.0';
 
 import { showModal, showAlert } from './60main-utils.js';
 import { AudioManager } from '../modules/22audio-manager.js';
-import { GlobalStore } from '../infra/54-global-store.js';
+import { GlobalStore, getPlayerContext } from '../infra/54-global-store.js';
 import { CAMP_TYPES } from '../infra/56-battle-enums.js';
 import { CONFIG } from '../core/01config-5v5-test.js';
 import { stepVoteOpen, stepCountdown } from './71tutorial.js';
@@ -12,13 +12,15 @@ import { stepVoteOpen, stepCountdown } from './71tutorial.js';
 // 弹窗-战报：战斗结束统计数据展示+导出
 export function showBattleReport(UI, battleResultForInfo) {
     // 不在 GAMEOVER 状态不弹窗
-    if (window._getPlayerContext && window._getPlayerContext().gs !== 'GAMEOVER') return;
+    if (getPlayerContext().gs !== 'GAMEOVER') return;
     // 清理旧战报残留，避免旧 overlay 拦截
     const oldOverlay = document.getElementById('battleReportOverlay');
     if (oldOverlay) oldOverlay.remove();
     const oldFloat = document.getElementById('battleReportFloat');
     if (oldFloat) oldFloat.remove();
-        if (typeof window.updateScoreBadge === 'function') window.updateScoreBadge();
+    // 2026-09-14 去 window 桥：直接走 playerContext
+    const _pc = getPlayerContext();
+    if (_pc && _pc.updateScoreBadge) _pc.updateScoreBadge();
 
     // 优先使用 battleResultForInfo（包含已被 3 秒清理机制移除的死单位快照），
     // 否则回退到 UI.allyTeam/enemyTeam
@@ -291,10 +293,10 @@ export function showMusicPanel() {
     bgmSlider.style.width = '100%';
     bgmSlider.oninput = () => {
         const vol = parseInt(bgmSlider.value) / 100;
-        // 优先操作 AudioManager 节点
-        if (window.AudioManager && window.AudioManager.bgmGainNode) {
-            const ctx = window.AudioManager.bgmGainNode.context;
-            window.AudioManager.bgmGainNode.gain.setValueAtTime(vol, ctx.currentTime);
+        // 优先操作 AudioManager 节点（2026-09-14 改用直接 import，不再经 window 桥）
+        if (AudioManager && AudioManager.bgmGainNode) {
+            const ctx = AudioManager.bgmGainNode.context;
+            AudioManager.bgmGainNode.gain.setValueAtTime(vol, ctx.currentTime);
         } else if (AudioManager.setVolume) {
             AudioManager.setVolume(vol);
         }

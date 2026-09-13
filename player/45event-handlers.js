@@ -5,19 +5,30 @@ import { isBlocked } from '../core/03battle-utils.js';
 import { AudioManager } from '../modules/22audio-manager.js';
 import { GlobalStore, getState } from '../infra/54-global-store.js';
 import { appendLogHTML, appendLogElement, autoScrollLog, updateRoundDisplay, renderSeparator, playLogLine, appendHiddenDetail } from './47renderer.js';
+import { clock } from '../infra/52-clock.js';
+import { STORE_ACTION_TYPES } from '../infra/56-battle-enums.js';
+
+// 2026-09-14 状态三轨收敛：回合数唯一来源 battleStore（原 c.UI.round）
+function currentRound(c) {
+    if (c && c.store) {
+        const r = c.store.getState().round;
+        if (r) return r;
+    }
+    return (c && c.UI && c.UI.round) || 1;
+}
 
 export async function handleBuffText(c, entry, delayMs = 0) {
     // 特效已由 stageAction 触发，此处只播文本
     appendLogHTML(entry.text + '<br>');
     if (delayMs > 0) {
-        await new Promise(r=>setTimeout(r, GlobalStore.get('fastForwardActive') ? 1 : delayMs));
+        await clock.wait(delayMs);
     }
 }
 
 export async function handleInfo(c, entry) {
     if (entry.fastEntry) {
         appendLogHTML(entry.text + '<br>');
-        updateRoundDisplay(`📜 日志（第${c.UI.round}回合）`);
+        updateRoundDisplay(`📜 日志（第${currentRound(c)}回合）`);
         return;
     }
 
@@ -32,23 +43,26 @@ export async function handleInfo(c, entry) {
     else {
         await playLogLine(entry.text, null, anchorSpecs);
     }
-    updateRoundDisplay(`📜 日志（第${c.UI.round}回合）`);
+    updateRoundDisplay(`📜 日志（第${currentRound(c)}回合）`);
 }
 
 export async function handleRoundStart(c, entry, isFirstAttackRef) {
-    c.UI.round = parseInt(entry.text.match(/\d+/)[0])||1;
+    // 回合数写入唯一账本 battleStore（原 c.UI.round，两份拷贝收敛为一份）
+    const _r = parseInt(entry.text.match(/\d+/)[0]) || 1;
+    if (c.store) c.store.dispatch({ type: STORE_ACTION_TYPES.SET_ROUND, round: _r });
+    c.UI.round = _r;
     if (isFirstAttackRef) isFirstAttackRef.value = true;
     appendLogHTML(entry.text + '<br>');
-    updateRoundDisplay(`📜 日志（第${c.UI.round}回合）`);
-    await new Promise(r=>setTimeout(r, GlobalStore.get('fastForwardActive') ? 1 : c.speed/3));
+    updateRoundDisplay(`📜 日志（第${currentRound(c)}回合）`);
+    await clock.wait(200);
 }
 
 export async function handleRoundEnd(c, entry, log, i) {
     appendLogHTML(entry.text + '<br>');
-    updateRoundDisplay(`📜 日志（第${c.UI.round}回合）`);
+    updateRoundDisplay(`📜 日志（第${currentRound(c)}回合）`);
     if (c.updateBuffSlots) { c.updateBuffSlots(); }
     if (window._refreshGlowCells) window._refreshGlowCells();
-    await new Promise(r=>setTimeout(r,c.speed/3));
+    await clock.wait(200);
 }
 
 export function shouldStartNewGroup(entry, lastType) {

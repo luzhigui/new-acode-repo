@@ -1,4 +1,4 @@
-﻿// V6.0.0 | ~14500 bytes | 2026-08-24 坚盾增量/上限兜底改读 CONFIG（配合上限 3→4，去硬编码）
+// V6.0.0 | ~14500 bytes | 2026-08-24 坚盾增量/上限兜底改读 CONFIG（配合上限 3→4，去硬编码）
 // V6.0.0 | 2026-09-07 属性词条化：远程成长/坚盾/破防改 addMod，不再直改 unit/state
 export const VER = 'core/03battle-utils.js V6.0.0';
 
@@ -212,17 +212,12 @@ function submitWarriorBreakDefenseDeclaration(data) {
     const { unit, target, declarations } = data;
     if (!declarations) return;
     if (unit.role !== ROLE_TYPES.WARRIOR || getStat(target, 'def') <= 0) return;
-    let defReduced = C.WARRIOR_BREAK_DEF;
-    let breakChance = getStat(target, 'def') * 2.5;
-    if (getStat(target, 'def') <= 40) {
-        defReduced = 2;
-    } else if (getStat(target, 'def') <= 50) {
-        defReduced = 3;
-        breakChance = 100;
-    } else {
-        defReduced = 4;
-        breakChance = 100;
-    }
+    // 2026-09-14 参数三源收敛：分档表移入 CONFIG.WARRIOR_BREAK_DEF_TIERS（原先内联魔法数字）
+    const targetDef = getStat(target, 'def');
+    const tier = (C.WARRIOR_BREAK_DEF_TIERS || []).find(t => t.defMax === null || targetDef <= t.defMax)
+        || { reduce: C.WARRIOR_BREAK_DEF, chance: null };
+    let defReduced = tier.reduce;
+    let breakChance = tier.chance === null ? targetDef * (C.WARRIOR_BREAK_CHANCE_PER_DEF ?? 2.5) : tier.chance;
     if (getBattleRng().nextInt(1, 100) > breakChance) return;
     defReduced = Math.min(defReduced, getStat(target, 'def'));
     addMod(target, 'def', { source: '破防', value: -defReduced, ttl: 'permanent', group: 'breakDef', op: 'add' });

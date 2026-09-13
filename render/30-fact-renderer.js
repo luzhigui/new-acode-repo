@@ -1,4 +1,4 @@
-﻿// V6.0.0 | 2026-08-26 factType 枚举化（去字节数）
+// V6.0.0 | 2026-08-26 factType 枚举化（去字节数）
 import { CONFIG, getSkillParams } from '../core/01config-5v5-test.js';
 import { calcDamage, getFangLevelPure, makeFXSnapshot } from '../infra/51-core-utils.js';
 import { getStat } from '../core/13battle-shared.js';
@@ -104,7 +104,7 @@ export function renderAttackFact(fact) {
     const unitRole = snap.attackerRole || unit.role;
     const isZhangNear = snap.attackerIsZhangNear !== undefined ? snap.attackerIsZhangNear : (unit.isZhang && !unit.rangedForm);
     const nearAtkCount = snap.attackerNearAtkCount !== undefined ? snap.attackerNearAtkCount : unit.nearAtkCount;
-    const isKuLianAttack = snap.isKuLianAttack !== undefined ? snap.isKuLianAttack : !!(unit.name === '宋青书' && unit.state._kuLianActive);
+    const isKuLianAttack = snap.isKuLianAttack !== undefined ? snap.isKuLianAttack : !!(unit.isSongQingshu && unit.state._kuLianActive);
     const isLinkAttack = snap.isLinkAttack !== undefined ? snap.isLinkAttack : !!unit.state._isLinkAttack;
     const fxSnapshot = snap.attackerPos !== undefined && snap.targetPos !== undefined
         ? { attackerPos: snap.attackerPos, defenderPos: snap.targetPos }

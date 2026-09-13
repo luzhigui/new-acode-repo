@@ -189,14 +189,17 @@ function onLogUserScroll() {
     GlobalStore.set('userScrolled', distToBottom > 10);
 }
 function updateScoreBadge() {
+    if (typeof document === 'undefined') return;
     const badge = document.getElementById('scoreBadge');
-    const score = GlobalStore.get('voteScore');
-    const token = GlobalStore.get('holyToken');
+    if (!badge) return;
+    const score = _state.voteScore;
+    const token = _state.holyToken;
     const displayScore = (score === null || score === undefined) ? 0 : score;
     const displayToken = (token === null || token === undefined) ? 0 : token;
-    if (badge) badge.innerHTML = `🏆 ${displayScore}分 🔥${displayToken}`;
+    badge.innerHTML = `🏆 ${displayScore}分 🔥${displayToken}`;
 }
-window.updateScoreBadge = updateScoreBadge;
+// 2026-09-14 去 window 桥：delete window.updateScoreBadge / window._getPlayerContext。
+// 页面内消费方一律 import 或走 UIHandler；这两个挂载点全库已无引用。
 
 let _playerCtx = null;
 export function getPlayerContext() {
@@ -271,4 +274,4 @@ export function getPlayerContext() {
     GlobalStore.set('playerContext', _playerCtx);
     return _playerCtx;
 }
-window._getPlayerContext = getPlayerContext;
+// 2026-09-14 原 window._getPlayerContext = getPlayerContext 已删：消费方（62/64/65/68）改为直接 import

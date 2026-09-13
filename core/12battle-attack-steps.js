@@ -1,4 +1,4 @@
-﻿// V6.1.1 | ~23500 bytes | 2026-09-11 maxHp 词条化收尾：韦一笑吸血上限提升改 addMod+refreshMaxHp，删 _baseMaxHp 回写
+// V6.1.1 | ~23500 bytes | 2026-09-11 maxHp 词条化收尾：韦一笑吸血上限提升改 addMod+refreshMaxHp，删 _baseMaxHp 回写
 // V6.1.0 | ~23200 bytes | 2026-09-09 fact 纯数据化：buildAttackGroup 的 attacker/target 改为快照对象，不再引用活体 Unit
 export const VER = 'core/12battle-attack-steps.js V6.1.1';
 
@@ -298,7 +298,13 @@ export function calcFinalDamage(unit, target, attackerBuffStats, defenderBuffSta
 
     let dmg = Math.floor(raw * 10) / 10;
     let bonusEntries = [];
+    // 注意：calcFinalDamage 的形参名 allySide/enemySide 与实参语义相反
+    // （实参传进来的是「攻击方队伍 / 防守方队伍」）。此处与形参名互换的写法互相抵消，
+    // 传给 applyDamageModifiers 的才是真正的 (攻方队伍, 守方队伍)。勿单独"修正"任一侧。
     const modifierResult = query('damageModifiers', unit, target, dmg, enemySide, allySide, log);
+    if (!modifierResult) {
+        throw new Error(`[12] damageModifiers 未注册：modules/20elite-skills.js 未被加载（unit=${unit.name}）`);
+    }
     dmg = modifierResult.modifiedDmg;
     bonusEntries = modifierResult.entries || [];
 
@@ -481,6 +487,11 @@ export function buildAttackGroup(unit, target, dmgCalc, dmgResult, attackerBuffS
         unit._executeLog.forEach(e => pendingEntries.push(e));
         delete unit._executeLog;
     }
+    // 2026-09-14 补漏：伤害修饰器（乾坤大挪移减伤/反弹等）产出的 fact 原先被取出后丢弃，
+    // 导致玩家看不到减伤/反弹提示。此处并入 entries（与 pendingEntries 同结构：{factType,data}）。
+    if (Array.isArray(bonusEntries) && bonusEntries.length > 0) {
+        bonusEntries.forEach(e => pendingEntries.push(e));
+    }
 
     const snap = {
         attackerPos: unit.pos,
@@ -494,7 +505,7 @@ export function buildAttackGroup(unit, target, dmgCalc, dmgResult, attackerBuffS
         attackerRole: unit.role,
         attackerIsZhangNear: !!(unit.isZhang && !unit.rangedForm),
         attackerNearAtkCount: unit.nearAtkCount,
-        isKuLianAttack: !!(unit.name === '宋青书' && unit.state._kuLianActive),
+        isKuLianAttack: !!(unit.isSongQingshu && unit.state._kuLianActive),
         isLinkAttack: !!unit.state._isLinkAttack,
         targetDefDisplay: Math.floor(getStat(target, 'def')),
         targetHpAfter: Math.floor(target.hp),

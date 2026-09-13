@@ -91,6 +91,14 @@ const CONFIG = {
     BASE_DODGE_GROUND: 0.03,
     DODGE_REBOUND_RATIO: 0.5,
     WARRIOR_BREAK_DEF: 2,
+    // 战士破防分档表（2026-09-14 参数三源收敛：原为 03battle-utils 内联魔法数字）
+    // 按目标防御值落档：defMax 为档位上限（null = 兜底档），reduce 破防量，chance 触发率(%)
+    WARRIOR_BREAK_DEF_TIERS: [
+        { defMax: 40,   reduce: 2, chance: null },   // 低防：概率 = 防御 × 2.5
+        { defMax: 50,   reduce: 3, chance: 100 },
+        { defMax: null, reduce: 4, chance: 100 }
+    ],
+    WARRIOR_BREAK_CHANCE_PER_DEF: 2.5,
     RANGED_GROWTH_ATK: 2,
     FORTIFY_INCREMENT: 1,
     FORTIFY_CAP: 4,

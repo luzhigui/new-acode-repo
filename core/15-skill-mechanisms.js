@@ -271,7 +271,7 @@ function installPhantomDisguise(eventBus, A, B, declarations) {
     const decls = declarations.filter(d => d && d.type === 'phantomDisguise');
     if (decls.length === 0) return;
     // 每回合重新登记已有模仿的观察（clearAllWatchers 已在上游清空，且 A/B 每回合是新克隆）
-    const chengkun = B.find(u => u.name === '成昆' && u.alive && u.state._phantomTarget);
+    const chengkun = B.find(u => u.isChengKun && u.alive && u.state._phantomTarget);
     if (chengkun) {
         const target = A.find(u => u.uid === chengkun.state._phantomTarget);
         if (target) {
@@ -349,7 +349,7 @@ function submitChainClaw(data, decls) {
     const hits = [];
     let executeInfo = null;
     let totalHeal = 0;
-    const song = allySide.find(u => u.name === '宋青书' && u.alive);
+    const song = allySide.find(u => u.isSongQingshu && u.alive);
     let simulatedTargetHp = target.hp;
     let simulatedSongHp = song ? song.hp : 0;
     let depth = 0;
@@ -432,8 +432,8 @@ function installKuLian(eventBus, A, B, declarations) {
         when: SIGNAL_TYPES.BEFORE_ACTION_SELECT,
         priority: L.BEFORE_ACTION.KULIAN_PRIORITY,
         handler: (data) => {
-            if (data.unit.name !== '宋青书' || !data.unit.alive) return;
-            const zhou = data.allySide && data.allySide.find(u => u.name === '周芷若' && u.alive);
+            if (!data.unit.isSongQingshu || !data.unit.alive) return;
+            const zhou = data.allySide && data.allySide.find(u => u.isZhouZhiruo && u.alive);
             if (!zhou) data.declaration.priority = 1;
         }
     });
@@ -443,8 +443,8 @@ function installKuLian(eventBus, A, B, declarations) {
 function submitXinHun(data, decls) {
     const { unit, target, dmg, allySide, log } = data;
     const decl = decls.find(d => d.name === unit.name);
-    if (!decl || unit.name !== '宋青书' || !unit.alive) return;
-    const zhou = allySide.find(u => u.name === '周芷若' && u.alive);
+    if (!decl || !unit.isSongQingshu || !unit.alive) return;
+    const zhou = allySide.find(u => u.isZhouZhiruo && u.alive);
     if (!zhou) return;
     const s = getSkillParams('宋青书', 'xinHun');
     const hpDeduct = s.hpDeduct;
@@ -483,7 +483,7 @@ function submitXingFenGrant(data) {
 function submitXingFenExtra(data, decls) {
     const { unit, target, allySide, enemySide, log } = data;
     const decl = decls.find(d => d.name === unit.name);
-    if (!decl || unit.name !== '宋青书' || !unit.alive || unit.state._xingFenExtraAttacking) return;
+    if (!decl || !unit.isSongQingshu || !unit.alive || unit.state._xingFenExtraAttacking) return;
     if (!canXingFenTrigger(unit)) return;
     consumeXingFen(unit);
     log.push({ factType: FACT_TYPES.XING_FEN_EXTRA_ATTACK, data: { unitName: unit.name } });
@@ -495,7 +495,7 @@ function submitXingFenExtra(data, decls) {
 function submitXingFenRetry(data, decls) {
     const { unit, target, log, allySide, enemySide } = data;
     const decl = decls.find(d => d.name === unit.name);
-    if (!decl || unit.name !== '宋青书' || !unit.alive) return;
+    if (!decl || !unit.isSongQingshu || !unit.alive) return;
     if (canXingFenTrigger(unit)) {
         consumeXingFen(unit);
         log.push({ factType: FACT_TYPES.XING_FEN_RETRY, data: { unitName: unit.name } });
@@ -537,16 +537,16 @@ function installDodgeRules(decl) {
 }
 
 export function checkKuLian(allyTeam) {
-    const song = allyTeam.find(u => u.name === '宋青书' && u.alive);
+    const song = allyTeam.find(u => u.isSongQingshu && u.alive);
     if (!song) return null;
-    const zhou = allyTeam.find(u => u.name === '周芷若' && u.alive);
+    const zhou = allyTeam.find(u => u.isZhouZhiruo && u.alive);
     if (zhou) return null;
     return song;
 }
 
 export function applyXingFenGrant(allyTeam, log) {
-    const zhou = allyTeam.find(u => u.name === '周芷若' && u.alive);
-    const song = allyTeam.find(u => u.name === '宋青书' && u.alive);
+    const zhou = allyTeam.find(u => u.isZhouZhiruo && u.alive);
+    const song = allyTeam.find(u => u.isSongQingshu && u.alive);
     if (!zhou || !song) return;
     Object.assign(song.state, { _xingFenActive: true });
     log.push({ factType: FACT_TYPES.XING_FEN_GRANT, data: { zhouName: zhou.name, songName: song.name } });
@@ -580,7 +580,7 @@ export function tickKuaiLeHeal(allUnits, log, declarations) {
 }
 
 export function canXingFenTrigger(attacker) {
-    if (attacker.name !== '宋青书') return false;
+    if (!attacker.isSongQingshu) return false;
     if (!attacker.state._xingFenActive) return false;
     if (!attacker.alive) return false;
     return true;

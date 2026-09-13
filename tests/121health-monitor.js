@@ -1,4 +1,4 @@
-﻿// V6.0.0 | 接入 rule81-87 回归体检；GAMEOVER 立即跑规则(日志已完整)；新局识别修复多局连打漏检；新增战报黑幕/随机重开/特效池实时检查
+// V6.0.0 | 接入 rule81-87 回归体检；GAMEOVER 立即跑规则(日志已完整)；新局识别修复多局连打漏检；新增战报黑幕/随机重开/特效池实时检查
 export const VER = 'tests/121health-monitor.js V6.0.0';
 
 import { runStaticScan } from './123static-scan.js';
@@ -236,7 +236,8 @@ export function initMonitor() {
             if (ctx && ctx.UI && ctx.UI.allyTeam && ctx.UI.allyTeam.length >= 1) {
                 clearInterval(waitReady); gameLoaded = true;
                 const w = getWin();
-                if (w && typeof w.selectStage === 'function') w.selectStage(autoStartStage);
+                const testApi = w && w.__DSH_TEST_API__;
+                if (testApi && typeof testApi.selectStage === 'function') testApi.selectStage(autoStartStage);
                 // 规则配方：强制精英上场（借游戏侧 forceZhang/forceWei hook，下局 initBattleTeams 生效）
                 try {
                     if (w && w.GlobalStore && RECIPE_FORCE) {

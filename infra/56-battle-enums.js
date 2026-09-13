@@ -184,5 +184,7 @@ export const STORE_ACTION_TYPES = Object.freeze({
     REMOVE_UNIT: 'REMOVE_UNIT',
     HP_CHANGE: 'hp-change',
     STAT_BONUS_CHANGE: 'stat-bonus-change',
-    SET_UNITS: 'SET_UNITS'
+    SET_UNITS: 'SET_UNITS',
+    // 2026-09-14 状态三轨收敛：回合数由 battleStore 持有（原先散在 c.UI.round）
+    SET_ROUND: 'SET_ROUND'
 });

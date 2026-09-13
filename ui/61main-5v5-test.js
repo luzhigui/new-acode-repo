@@ -28,7 +28,7 @@ import {
 } from './65main-battle.js';
 import { initBGM, playBGM, setBGMVolume, fadeBGMTo, toggleBGM, updateBGMBtn, lowerBGM } from './66audio-control.js';
 import { toggleDodgeEffect } from './67fx-trigger.js';
-import { updateSpeedButtons, activateScrollSlowdown, restoreSpeedFromScroll, updateButtons, updateAutoModeButton, enableAllButtons, updateDebugUI, updateBuffSlots, bindCoverStart, bindPauseButton, bindNextButton, bindDetailButton, bindDebugButton, bindBGButton, bindCrashModeButton, bindDodgeButton, bindAutoButton, bindSettleButton, bindStageSelectButton, bindVoteFloat, bindGridClick, bindCopyLogButton } from './68ui-controls.js';
+import { updateSpeedButtons, activateScrollSlowdown, restoreSpeedFromScroll, updateButtons, updateAutoModeButton, enableAllButtons, updateDebugUI, updateBuffSlots, bindCoverStart, bindPauseButton, bindNextButton, bindDetailButton, bindDebugButton, bindBGButton, bindCrashModeButton, bindDodgeButton, bindAutoButton, bindSettleButton, bindStageSelectButton, bindVoteFloat, bindGridClick, bindCopyLogButton, initSpeedButtons } from './68ui-controls.js';
 import { stepAdjustStart, stepAdjustMove, stepBattleStart, initTutorial, resetTutorialDone } from './71tutorial.js';
 import { isOpeningCgDone, showOpeningCg, resetOpeningCgDone } from './72opening-cg.js';
 
@@ -46,6 +46,8 @@ import '../modules/25elite-imperial.js';
 import '../modules/26elite-sixsects.js';
 import '../modules/27elite-mingjiao.js';
 import { VER as VER_MAIN_UTILS } from './60main-utils.js';
+// 2026-09-14 去 window 桥：直接 import，不再经 window.AudioManager
+import { AudioManager } from '../modules/22audio-manager.js';
 
 const _randLocal = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
 
@@ -75,9 +77,9 @@ function showEliteGallery(onDone) {
 }
 
 // UI 局部状态（不含 activeBuffs）
-let debugMode = false, speed = 500, userScrolled = false;
+let speed = 500, userScrolled = false;
 let abortController = null;
-let battleResultForInfo = null, resettleCount = 0;
+let battleResultForInfo = null;
 let gameStarted = false;
 let hasLoggedTeam = false;
 let isBattleStarting = false;
@@ -87,8 +89,6 @@ function getStage() { return currentStage; }
 GlobalStore.set('crashMode', 'fly');
 
 let currentDoubleStrikeUid = null;
-let runtimeMonitorActive = false;
-let runtimeMonitorInterval = null;
 
 const savedScore = localStorage.getItem('ming_vote_score_5v5_test');
 if (savedScore !== null) {
@@ -103,20 +103,10 @@ GlobalStore.set('voteChoice', null); GlobalStore.set('battleHasZhang', false); G
 const TRASH_TALK_ALLY = ['明教必胜！六大派受死！','光明顶，我守定了！','六大派也不过如此！','来战！明教弟子，何惧！','今日便让尔等见识魔教之威！'];
 const TRASH_TALK_ENEMY = ['魔教余孽，今日必灭！','少林武当，放马过来！','邪魔歪道，不足为惧！','今日便要踏平光明顶！'];
 
-function debugLog(msg) { if (!debugMode) return; let logDiv = document.getElementById('log'); let wrapper = document.createElement('div'); wrapper.innerHTML = `<span class="debug">[调试] ${msg}</span><br>`; logDiv.appendChild(wrapper); logDiv.scrollTop = logDiv.scrollHeight; }
-
-async function waitWhilePaused() { while (getState.isPaused()) { await new Promise(r => setTimeout(r, 100)); } }
-
-function updateScoreBadge() {
-    const score = GlobalStore.get('voteScore');
-    const token = GlobalStore.get('holyToken');
-    const displayScore = (score === null || score === undefined) ? 0 : score;
-    const displayToken = (token === null || token === undefined) ? 0 : token;
-    document.getElementById('scoreBadge').innerHTML = `🏆 ${displayScore}分 🔥${displayToken}`;
-}
-export function onAnyButtonClick() { if (!gameStarted) return; const AudioManager = window.AudioManager; if (AudioManager && AudioManager.enabled && parseFloat(localStorage.getItem('ming_bgm_volume') || '0.5') > 0.3) lowerBGM(); }
+// 2026-09-14 去重：实现唯一留在 infra/54，此处直接用 playerContext 版本，不再维护第二份
+const updateScoreBadge = () => { const ctx = getPlayerContext(); if (ctx && ctx.updateScoreBadge) ctx.updateScoreBadge(); };
+export function onAnyButtonClick() { if (!gameStarted) return; if (AudioManager && AudioManager.enabled && parseFloat(localStorage.getItem('ming_bgm_volume') || '0.5') > 0.3) lowerBGM(); }
 function autoScrollLog() { if (userScrolled) return; let logDiv = document.getElementById('log'); if (logDiv) logDiv.scrollTop = logDiv.scrollHeight; }
-function onLogUserScroll() { let logDiv = document.getElementById('log'); if (!logDiv) return; let threshold = 10; let distToBottom = logDiv.scrollHeight - logDiv.scrollTop - logDiv.clientHeight; userScrolled = distToBottom > threshold; }
 
 
 
@@ -144,15 +134,6 @@ GlobalStore.setUIHandler('swapAllyPositions', swapAllyPositions);
 
 
 // 运行时监控
-
-
-function stopRuntimeMonitor() {
-    runtimeMonitorActive = false;
-    if (runtimeMonitorInterval) { clearInterval(runtimeMonitorInterval); runtimeMonitorInterval = null; }
-    const logDiv = document.getElementById('log');
-    logDiv.innerHTML += `<span class="gray">[体检] 静默监控已停止</span><br>`;
-    autoScrollLog();
-}
 
 window.ALL_VERS = {
     config: CFG_VER,
@@ -184,12 +165,15 @@ document.addEventListener('DOMContentLoaded', async function() {
     if (controls) controls.style.zIndex = '100';
 
     if (!getState.UI().allyTeam.length) {
-        setState.UI({ allyTeam: [], enemyTeam: [], currentResult: null, round: 0, lastSnapshot: null });
+        setState.UI({ allyTeam: [], enemyTeam: [], currentResult: null, round: 0 });
         setState.snapshot({ ally: [], enemy: [] });
     }
 
-    // 倍速按钮初始化（从 44 延迟加载，解决循环依赖）
-    if (typeof window._initSpeedButtons === 'function') window._initSpeedButtons();
+    // 倍速按钮初始化（2026-09-14 改直接 import；原 window._initSpeedButtons 从未挂载 → 一直没执行）
+    initSpeedButtons();
+
+    // 任意按钮点击钩子注册到 UIHandler 通道（ui/68 的 6 个按钮经此调用）
+    GlobalStore.setUIHandler('onAnyButtonClick', onAnyButtonClick);
 
     // 按钮事件绑定 → 68ui-controls.js
     // 开场流程：首次未看过 → 开场CG（72）→ 精英图鉴选人 → 新手分步引导（71）；已看过CG → 图鉴 → 引导
@@ -406,12 +390,14 @@ document.addEventListener('DOMContentLoaded', async function() {
         setState.gs(S.IDLE);updateButtons();enableAllButtons();
     }
 
-    window.selectStage = (stage)=>{ if(stage===currentStage)return; forceStopGame(); switchToStageInternal(stage); };
-    window.forceStopGame = forceStopGame;
-    window.doManualReset = doManualReset;
-    window.getGameState = ()=>({ gs: getState.gs(), currentStage, isPaused: getState.isPaused(), isBattleStarting, allyCount: getState.UI().allyTeam.length, enemyCount: getState.UI().enemyTeam.length });
     // 68ui-controls.js 的 GAMEOVER 分支（原班再战/随机重开）需要重置局部变量
     GlobalStore.setUIHandler('resetIsBattleStarting', () => { isBattleStarting = false; });
+
+    // window 桥接统一收口：仅保留体检/测试跑器真正调用的一项（原 selectStage / forceStopGame /
+    // doManualReset / getGameState 四个挂载点全库无引用，已删）。生产代码一律走 import 或 UIHandler。
+    window.__DSH_TEST_API__ = {
+        selectStage: (stage) => { if (stage === currentStage) return; forceStopGame(); switchToStageInternal(stage); }
+    };
 
 
 

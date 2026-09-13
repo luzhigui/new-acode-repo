@@ -3,7 +3,7 @@ export const VER = 'ui/65main-battle.js V6.0.0';
 
 import { CONFIG } from '../core/01config-5v5-test.js';
 import { SeededRNG } from '../infra/51-core-utils.js';
-import { GlobalStore } from '../infra/54-global-store.js';
+import { GlobalStore, getPlayerContext } from '../infra/54-global-store.js';
 import { addPermanentBuff } from '../modules/20elite-skills.js';
 import { updateUI } from './62ui-render-5v5-test.js';
 import { showModal } from './60main-utils.js';
@@ -30,7 +30,6 @@ export function doInitBattle(currentStage, UI, snapshot, activeBuffs, selectedBu
     UI.round = 0;
     GlobalStore.set('battleLog', []); // V5.7.8 战报累积日志随新局重置（体检规则数据源）
     GlobalStore.set('battleHasZhang', allyTeam.some(u => u.isZhang));
-    window._lastBattleSeed = Date.now();
     snapshot._rngSeed = _rng.getState();
     let stageText = currentStage === 1 ? '第一关' : `第${currentStage}关`;
     document.getElementById('labelEnemy').textContent = `六大派\n${stageText}`;
@@ -74,18 +73,10 @@ export function showFlyDirectionPopup(callback) {
     const btnLeft = document.createElement('button');
     btnLeft.textContent = '🦋 向左飞\n（防+血）';
     btnLeft.style.cssText = 'flex:1;padding:12px;border-radius:8px;border:2px solid #ff69b4;background:#2a2a4e;color:#ff69b4;font-size:13px;cursor:pointer;white-space:pre-line;';
-    btnLeft.onclick = () => {
-        if (overlay.parentNode) overlay.remove();
-        callback('left');
-    };
 
     const btnRight = document.createElement('button');
     btnRight.textContent = '🦋 向右飞\n（攻+血）';
     btnRight.style.cssText = 'flex:1;padding:12px;border-radius:8px;border:2px solid #ffd700;background:#2a2a4e;color:#ffd700;font-size:13px;cursor:pointer;white-space:pre-line;';
-    btnRight.onclick = () => {
-        if (overlay.parentNode) overlay.remove();
-        callback('right');
-    };
 
     btnDiv.appendChild(btnLeft);
     btnDiv.appendChild(btnRight);
@@ -106,6 +97,9 @@ export function showFlyDirectionPopup(callback) {
     btnRight.onclick = () => { if (overlay.parentNode) overlay.remove(); wrappedCallback('right'); };
 }
 
+// 2026-09-14 注册到 UIHandler 通道，供 player/49 调用（消除 player → ui 反向 import）
+GlobalStore.setUIHandler('showFlyDirectionPopup', showFlyDirectionPopup);
+
 // Buff-创建：构建Buff对象（含圣火令随机行列）—— 实现已移至 modules/28buff-tools.js
 export { createBuffObject } from '../modules/28buff-tools.js';
 
@@ -116,7 +110,7 @@ export { generateBuffChoices } from '../modules/28buff-tools.js';
 export function showBuffSelection(callback, activeBuffs, selectedBuffIndex, updateBuffSlotsFn, updateUIFn, autoScrollLogFn, allyTeam) {
     // allyTeam 无效则从全局状态获取
     if (!allyTeam || !allyTeam.length || !allyTeam.some(u => u.alive)) {
-        const ctx = window._getPlayerContext?.();
+        const ctx = getPlayerContext();
         allyTeam = ctx?.UI?.allyTeam || [];
     }
     const allKeys = Object.keys(C.BUFFS || {});
@@ -149,7 +143,7 @@ export function showBuffSelection(callback, activeBuffs, selectedBuffIndex, upda
         updateBuffSlotsFn();
         let logDiv = document.getElementById('log');
         if (logDiv) { logDiv.innerHTML += `<span class="gold">✨ 获得Buff：${C.BUFFS[key].name}（持续${duration}回合）</span><br>`; autoScrollLogFn(); }
-        if (window._updateGlowColors) window._updateGlowColors(selectedBuffIndex);
+        // 2026-09-14 原 window._updateGlowColors 全库从未定义（静默失效），删除无效调用
         updateUIFn();
         callback();
     }, true, false);
