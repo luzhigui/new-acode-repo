@@ -1,25 +1,18 @@
-// V6.0.0 | 2026-07-05
-export const VER = 'fx/83fx-position-swap.js V6.0.0';
+// fx/83fx-position-swap.js
+// V6.1.0 | 2026-09-13 统一时间层：删本地 wait，换 clock.wait
+export const VER = 'fx/83fx-position-swap.js V6.1.0';
 
 import { GlobalStore } from '../infra/54-global-store.js';
 import { STORE_ACTION_TYPES, UNIT_EVENT_TYPES, CAMP_TYPES } from '../infra/56-battle-enums.js';
 import { getUnitCell, getCellByPos } from './90fx-ref-manager.js';
-
-function wait(ms) { return new Promise(r => setTimeout(r, GlobalStore.get('fastForwardActive') ? 1 : ms)); }
+import { clock } from '../infra/52-clock.js';
 
 function getCellElement(unit) {
     return getUnitCell(unit);
 }
 
-/**
- * 换位闪烁动画（节奏加强版）
- * 阶段一：快速闪烁 3 次
- * 阶段二：中速位移 2 次，间隔渐长
- * 阶段三：最后一击长定格，淡出后在新位置淡入
- */
 export async function animatePositionSwap(unit1, unit2, c, options = {}) {
     const { skipDataChange, oldPositions } = options;
-    // 如果传入了旧位置，用旧位置找格子；否则用当前 unit.pos
     let cell1, cell2;
     if (oldPositions) {
         cell1 = getCellByPos(unit1.camp, oldPositions[0]);
@@ -43,20 +36,20 @@ export async function animatePositionSwap(unit1, unit2, c, options = {}) {
     for (let i = 0; i < 3; i++) {
         cell1.style.visibility = (i % 2 === 0) ? 'visible' : 'hidden';
         cell2.style.visibility = (i % 2 === 0) ? 'hidden' : 'visible';
-        await wait(150);
+        await clock.wait(150);
     }
     cell1.style.visibility = 'visible';
     cell2.style.visibility = 'visible';
 
     // ---- 阶段二：中速位移 2 次，间隔渐长 ----
     for (let i = 0; i < 2; i++) {
-        const delay = 250 + i * 250; // 250ms → 500ms
+        const delay = 250 + i * 250;
         cell1.style.transform = `translate(${dx}px, ${dy}px)`;
         cell2.style.transform = `translate(${-dx}px, ${-dy}px)`;
-        await wait(delay);
+        await clock.wait(delay);
         cell1.style.transform = 'translate(0,0)';
         cell2.style.transform = 'translate(0,0)';
-        await wait(delay);
+        await clock.wait(delay);
     }
 
     // ---- 阶段三：最后一击，长定格 ----
@@ -68,17 +61,15 @@ export async function animatePositionSwap(unit1, unit2, c, options = {}) {
     cell1.classList.add('swap-lock');
     cell2.classList.add('swap-lock');
 
-    await wait(900);
+    await clock.wait(900);
 
     cell1.classList.remove('swap-lock');
     cell2.classList.remove('swap-lock');
 
-    // 同时隐去
     cell1.style.opacity = '0';
     cell2.style.opacity = '0';
-    await wait(350);
+    await clock.wait(350);
 
-    // 交换数据：不直接修改 unit.pos，全部通过 Store dispatch 完成
     if (!skipDataChange) {
         if (c.store) {
             c.store.dispatch({ type: STORE_ACTION_TYPES.APPLY_EVENTS, events: [
@@ -86,20 +77,17 @@ export async function animatePositionSwap(unit1, unit2, c, options = {}) {
                 { eventType: UNIT_EVENT_TYPES.POS_CHANGE, uid: unit2.uid, pos: pos1 }
             ]});
         } else {
-            // 兜底：没有 Store 时保留直接赋值
             unit1.pos = pos2;
             unit2.pos = pos1;
         }
     }
 
-    // 强制清除所有可能残留的样式
     cell1.style.cssText = '';
     cell2.style.cssText = '';
     cell1.classList.remove('swap-flash', 'swap-lock');
     cell2.classList.remove('swap-flash', 'swap-lock');
     c.updateUI(c.UI);
 
-    // 新格子出场动画
     const newCell1 = getCellElement(unit1);
     const newCell2 = getCellElement(unit2);
     if (newCell1) {

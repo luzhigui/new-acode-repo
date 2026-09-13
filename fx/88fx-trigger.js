@@ -1,5 +1,6 @@
-// V6.0.0 | 2026-08-24 击杀台词直读 gameData
-export const VER = 'fx/88fx-trigger.js V6.0.0';
+// fx/88fx-trigger.js
+// V6.1.0 | 2026-09-13 统一时间层：删 getPausedState/speed 传参，setTimeout 换 clock.wait，对齐 81/82 新签名
+export const VER = 'fx/88fx-trigger.js V6.1.0';
 
 import { getKillTaunt } from '../core/03battle-utils.js';
 import { GlobalStore } from '../infra/54-global-store.js';
@@ -9,6 +10,7 @@ import { showDanmaku, showDamageFloat } from './80fx-common-5v5-test.js';
 import { showRangedArrow } from './81fx-arrows-5v5-test.js';
 import { showMeleeCrash, showMeleeDodge, showMeleeMiss } from './82fx-crash-5v5-test.js';
 import { markGridShake } from '../render/32-grid-render.js';
+import { clock } from '../infra/52-clock.js';
 
 // 颤动规则单一入口：目前仅远程飞箭命中触发，未来调整规则只改此处
 export function shakeTarget(uid, durationMs = 350) {
@@ -16,24 +18,18 @@ export function shakeTarget(uid, durationMs = 350) {
     markGridShake(uid, durationMs);
 }
 
-function getPausedState() {
-    const ctx = GlobalStore.get('playerContext');
-    return ctx ? ctx.isPaused : false;
-}
-
 // 统一视觉特效入口：弹幕/箭矢/飞撞/死亡
 export function _triggerFX(fxSnapshot, unitA, unitD, isDead, isDodge, isMiss, isBlock, dmg, waveTaunt, waveUnit, attackerRole) {
-    const speed = GlobalStore.get('speed');
     if (GlobalStore.get('fastForwardActive')) return;
     if (isDead && unitA && !isBlock && !isMiss && !isDodge) {
         let killTaunt = getKillTaunt(unitA);
-        setTimeout(() => showDanmaku(unitA, killTaunt), 0);
+        clock.wait(0).then(() => showDanmaku(unitA, killTaunt));
     } else if (waveTaunt && waveUnit && !isBlock && !isMiss && !isDodge) {
         let delay = 0;
         if (dmg !== undefined && dmg >= 30) delay = 0;
         else if (dmg !== undefined && dmg >= 20) delay = 200;
         else delay = 400;
-        setTimeout(() => showDanmaku(waveUnit, waveTaunt), delay);
+        clock.wait(delay).then(() => showDanmaku(waveUnit, waveTaunt));
     }
     if (unitA && unitD) {
         // 攻击音效与飞撞/箭矢同步触发
@@ -42,9 +38,9 @@ export function _triggerFX(fxSnapshot, unitA, unitD, isDead, isDodge, isMiss, is
         }
         if (attackerRole === ROLE_TYPES.RANGED && !isBlock) {
             if (isMiss) {
-                showRangedArrow(unitA, unitD, speed, getPausedState, false, null, true);
+                showRangedArrow(unitA, unitD, false, null, true);
             } else if (!isDodge) {
-                showRangedArrow(unitA, unitD, speed, getPausedState, false, () => {
+                showRangedArrow(unitA, unitD, false, () => {
                     shakeTarget(unitD.uid, 350);
                     if (!GlobalStore.get('fastForwardActive')) showDamageFloat(unitD, dmg);
                 });
@@ -52,12 +48,12 @@ export function _triggerFX(fxSnapshot, unitA, unitD, isDead, isDodge, isMiss, is
         } else if (!isBlock) {
             if (isDodge) {
                 if (!GlobalStore.get('dodgeEffectEnabled')) {
-                    showMeleeDodge(unitA, unitD, speed * 2, getPausedState);
+                    showMeleeDodge(unitA, unitD);
                 }
             } else if (isMiss) {
-                showMeleeMiss(unitA, unitD, speed * 2, getPausedState);
+                showMeleeMiss(unitA, unitD);
             } else {
-                showMeleeCrash(unitA, unitD, speed, getPausedState, () => {
+                showMeleeCrash(unitA, unitD, () => {
                     if (!GlobalStore.get('fastForwardActive')) showDamageFloat(unitD, dmg);
                     if (isDead && unitD) {
                         const ctx = GlobalStore.get('playerContext');

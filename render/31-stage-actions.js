@@ -1,7 +1,8 @@
-// V6.0.0 | 2026-08-26 特效单轨收尾（去字节数，版本号同步）
-export const VER = 'render/31-stage-actions.js V6.0.0';
+// V6.1.0 | 2026-09-13 统一时间层：删 isPaused/bulletTimeActive 设置，setTimeout 换 clock.wait，BONE_CLAW/SPLASH_ARROWS 信号去掉 speed/isPausedFn
+export const VER = 'render/31-stage-actions.js V6.1.0';
 
 import { makeFXSnapshot } from '../infra/51-core-utils.js';
+import { clock } from '../infra/52-clock.js';
 import { eventBus } from '../infra/50-event-bus.js';
 import { FX_SIGNALS } from '../infra/55-fx-signals.js';
 import { GlobalStore } from '../infra/54-global-store.js';
@@ -603,12 +604,12 @@ export const STAGE_ACTION_DEFS = {
             if (action.isKuLianAttack && attacker) {
                 const team = c.store.getState().units.filter(u => u.camp === attacker.camp);
                 eventBus.emit(FX_SIGNALS.KULIAN, { unit: attacker, team });
-                await new Promise(r => setTimeout(r, 1200));
+                await clock.wait(1200);
             }
             // 飞撞/箭矢/台词弹幕（统一由 fx/88 的 _triggerFX 消费）
             // 联动攻击必须等主攻动画播完再起手（emit 同步不发 Promise，需显式等待）
             if (action.isLinkAttack && attacker && target && action.attackerRole) {
-                await new Promise(r => setTimeout(r, 1400));
+                await clock.wait(1400);
             }
             if (attacker && target && action.attackerRole) {
                 eventBus.emit(FX_SIGNALS.TRIGGER, {
@@ -633,9 +634,7 @@ export const STAGE_ACTION_DEFS = {
         fx: async (c, action) => {
             // 反伤：只飘字，不触发飞撞/箭矢/音效；严阵以待带横幅（fortifyRebound）
             if (action.bannerText && !GlobalStore.get('fastForwardActive')) {
-                c.isPaused = true; GlobalStore.set('bulletTimeActive', true);
                 await eventBus.emit(FX_SIGNALS.BANNER, { text: action.bannerText });
-                GlobalStore.set('bulletTimeActive', false); c.isPaused = false;
             }
             const target = findUnitByUidLocal(c, action.targetUid);
             if (target && action.dmg && !GlobalStore.get('fastForwardActive')) {
@@ -676,14 +675,10 @@ export const STAGE_ACTION_DEFS = {
             }
             // 华丽模式：子弹时间；简单模式：气泡
             if (c.dodgeEffectEnabled && attacker && dodger) {
-                c.isPaused = true; GlobalStore.set('isPaused', true); GlobalStore.set('bulletTimeActive', true);
                 await eventBus.emit(FX_SIGNALS.CRITICAL_BANNER, { text: '✨闪避反击✨' });
                 // 必须直接 await，不能走 eventBus（emit 同步不等待 Promise），否则动画并行战斗推进会踩踏
                 const { showDodgeBulletTime } = await import('../fx/85fx-dodge-bullet.js');
                 await showDodgeBulletTime(attacker, dodger, action.reboundDmg || 0);
-                // 子弹时间结束后攻击者被反击眩晕，此时才显示 😵
-                c.store.dispatch({ type: STORE_ACTION_TYPES.SET_VISUAL, uid: action.actorUid, _stunned: true });
-                GlobalStore.set('bulletTimeActive', false); GlobalStore.set('isPaused', false); c.isPaused = false;
             } else if (attacker) {
                 eventBus.emit(FX_SIGNALS.DODGE_BUBBLE, { unit: attacker, text: '闪避！' });
                 // 简单模式闪避反击：近战攻击者需补发 TRIGGER 信号，触发飞撞击退动画。
@@ -706,8 +701,6 @@ export const STAGE_ACTION_DEFS = {
                     });
                 }
             }
-            // 闪避反击结束后，攻击者格子应进入眩晕显示（😵 图标），这里只是确保特效期间不残留样式；
-            //   实际状态同步已由 store handler 完成，此处不重复写，避免与 store 双写冲突。
         }
     },
     [STAGE_ACTION_TYPES.POS_SWAP]: {
@@ -724,13 +717,11 @@ export const STAGE_ACTION_DEFS = {
             const unitA = findUnitByUidLocal(c, action.actorUid);
             const unitB = findUnitByUidLocal(c, action.targetUid);
             if (unitA && unitB) {
-                c.isPaused = true; GlobalStore.set('bulletTimeActive', true);
                 const { animatePositionSwap } = await import('../fx/87fx-manager.js');
                 await animatePositionSwap(unitA, unitB, c, {
                     skipDataChange: true,
                     oldPositions: (action.oldPosA != null && action.oldPosB != null) ? [action.oldPosA, action.oldPosB] : null
                 });
-                GlobalStore.set('bulletTimeActive', false); c.isPaused = false;
             }
         }
     },
@@ -751,7 +742,6 @@ export const STAGE_ACTION_DEFS = {
         fx: async (c, action) => {
             const target = findUnitByUidLocal(c, action.actorUid);
             if (!target) return;
-            c.isPaused = true; GlobalStore.set('bulletTimeActive', true);
             await eventBus.emit(FX_SIGNALS.BANNER, { text: '🦅 乘风突袭！' });
             if (action.targetUid) {
                 const behind = findUnitByUidLocal(c, action.targetUid);
@@ -761,7 +751,6 @@ export const STAGE_ACTION_DEFS = {
             } else {
                 await eventBus.emit(FX_SIGNALS.PUSH_BACK, { target, c, newPos: action.newPos, opts: { skipDataChange: true } });
             }
-            GlobalStore.set('bulletTimeActive', false); c.isPaused = false;
         }
     },
     [STAGE_ACTION_TYPES.SUMMON]: {
@@ -777,9 +766,7 @@ export const STAGE_ACTION_DEFS = {
         fx: async (c, action) => {
             const horse = findUnitByUidLocal(c, action.actorUid);
             if (horse) {
-                c.isPaused = true;
                 await eventBus.emit(FX_SIGNALS.BANNER, { text: '🐴 拒马阵！' + (action.taunt || '') });
-                c.isPaused = false;
             }
         }
     },
@@ -792,9 +779,7 @@ export const STAGE_ACTION_DEFS = {
         },
         fx: async (c, action) => {
             if (action.success && action.actorUid) {
-                c.isPaused = true;
                 await eventBus.emit(FX_SIGNALS.BANNER, { text: '🐴 拒马已销毁' });
-                c.isPaused = false;
             }
         }
     },
@@ -901,10 +886,8 @@ export const STAGE_ACTION_DEFS = {
         fx: async (c, action) => {
             // 阻塞横幅：等待横幅播放完成，日志和动画按序推进
             if (action.text && !GlobalStore.get('fastForwardActive')) {
-                c.isPaused = true; GlobalStore.set('bulletTimeActive', true);
                 const { showBuffBanner } = await import('../fx/87fx-manager.js');
                 await showBuffBanner(action.text);
-                GlobalStore.set('bulletTimeActive', false); c.isPaused = false;
             }
         }
     },
@@ -930,11 +913,7 @@ export const STAGE_ACTION_DEFS = {
             const spiderUnit = findUnitByUidLocal(c, action.actorUid);
             const strikeTarget = findUnitByUidLocal(c, action.targetUid);
             if (spiderUnit && strikeTarget) {
-                c.isPaused = true;
-                GlobalStore.set('bulletTimeActive', true);
                 await eventBus.emit(FX_SIGNALS.SPIDER_STRIKE, { spiderUnit, strikeTarget });
-                GlobalStore.set('bulletTimeActive', false);
-                c.isPaused = false;
             }
         }
     },
@@ -958,35 +937,29 @@ export const STAGE_ACTION_DEFS = {
                 if (splashTargets.length > 0) {
                     // 乘风突袭：风爪 + 专属横幅，不放箭、不延时；否则走流星箭雨
                     if (action.buffType === BUFF_SUBTYPES.WIND_ASSAULT) {
-                        c.isPaused = true; GlobalStore.set('bulletTimeActive', true);
                         await eventBus.emit(FX_SIGNALS.BANNER, { text: '🦅 乘风突袭！' });
                         splashTargets.forEach(u => eventBus.emit(FX_SIGNALS.WIND_CLAW, { unit: u }));
-                        GlobalStore.set('bulletTimeActive', false); c.isPaused = false;
                     } else {
-                        c.isPaused = true; GlobalStore.set('bulletTimeActive', true);
                         await eventBus.emit(FX_SIGNALS.BANNER, { text: '☄️ 流星赶月！' });
-                        await eventBus.emit(FX_SIGNALS.SPLASH_ARROWS, { attacker, primary, targets: splashTargets, speed: c.speed, isPausedFn: () => c.isPaused });
-                        splashTargets.forEach((st, i) => { setTimeout(() => AudioManager.playSfx(attacker.role || ROLE_TYPES.RANGED), i * 60); });
-                        GlobalStore.set('bulletTimeActive', false); c.isPaused = false;
-                        await new Promise(r => setTimeout(r, GlobalStore.get('fastForwardActive') ? 1 : 600));
+                        await eventBus.emit(FX_SIGNALS.SPLASH_ARROWS, { attacker, primary, targets: splashTargets });
+                        splashTargets.forEach((st, i) => { clock.wait(i * 60).then(() => AudioManager.playSfx(attacker.role || ROLE_TYPES.RANGED)); });
+                        await clock.wait(600);
                     }
                 }
             } else if (action.effectType === BUFF_EFFECT_TYPES.BONE_CLAW && attacker && target) {
                 if (action.dmg && !GlobalStore.get('fastForwardActive')) {
                     eventBus.emit(FX_SIGNALS.DAMAGE_FLOAT, { unit: target, dmg: action.dmg });
                 }
-                eventBus.emit(FX_SIGNALS.BONE_CLAW, { attacker, target, speed: c.speed, isPausedFn: () => c.isPaused, opts: { isExecute: action.isExecute } });
+                eventBus.emit(FX_SIGNALS.BONE_CLAW, { attacker, target, opts: { isExecute: action.isExecute } });
                 // 每个爪击依次播放，避免多爪动画同时启动重叠
-                if (!GlobalStore.get('fastForwardActive')) {
-                    await new Promise(r => setTimeout(r, Math.max(600, c.speed * 1.2)));
-                }
+                await clock.wait(600);
             } else if (action.effectType === BUFF_EFFECT_TYPES.ATK_BUFF && target && action.gain) {
                 // 加攻飘字比回血稍晚 200ms 冒出，形成"先回血、顿一下、再加攻"的层次
-                await new Promise(r => setTimeout(r, GlobalStore.get('fastForwardActive') ? 1 : 200));
+                await clock.wait(200);
                 eventBus.emit(FX_SIGNALS.ATK_BUFF_FLOAT, { unit: target, gain: action.gain });
             } else if (action.effectType === BUFF_EFFECT_TYPES.XIN_HUN) {
                 // 新婚：宋青书/周芷若爱心 + 扣血飘字
-                const song = c.store ? c.store.getState().units.find(u => u.name === '宋青书') : null;
+                const song = c.store ? c.store.getState().units.find(u => u.isSongQingshu) : null;
                 const zhou = findUnitByUidLocal(c, action.targetUid);
                 if (song) eventBus.emit(FX_SIGNALS.HEART_EFFECT, { unit: song });
                 if (zhou) eventBus.emit(FX_SIGNALS.HEART_EFFECT, { unit: zhou });

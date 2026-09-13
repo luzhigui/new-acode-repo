@@ -1,14 +1,15 @@
-// V6.0.0 | 2026-07-11 支持 skipDataChange 参数
-export const VER = 'fx/84fx-push-back.js V6.0.0';
+// fx/84fx-push-back.js
+// V6.1.0 | 2026-09-13 统一时间层：删本地 wait，换 clock.wait
+export const VER = 'fx/84fx-push-back.js V6.1.0';
 
 import { GlobalStore } from '../infra/54-global-store.js';
 import { STORE_ACTION_TYPES, UNIT_EVENT_TYPES, CAMP_TYPES } from '../infra/56-battle-enums.js';
 import { getUnitCell } from './90fx-ref-manager.js';
+import { clock } from '../infra/52-clock.js';
 
 function getCellElement(unit) {
     return getUnitCell(unit);
 }
-function wait(ms) { return new Promise(r => setTimeout(r, GlobalStore.get('fastForwardActive') ? 1 : ms)); }
 
 export async function animatePushBack(unit, c, targetPos, options = {}) {
     const { skipDataChange } = options;
@@ -19,11 +20,11 @@ export async function animatePushBack(unit, c, targetPos, options = {}) {
 
     cell.style.transition = 'transform 0.3s ease-out';
     cell.style.transform = unit.camp === CAMP_TYPES.ALLY ? 'translateY(20px)' : 'translateY(-20px)';
-    await wait(300);
+    await clock.wait(300);
 
     cell.style.transition = 'transform 0.2s ease-in';
     cell.style.transform = 'translate(0,0)';
-    await wait(200);
+    await clock.wait(200);
 
     if (!skipDataChange) {
         if (c.store) {
@@ -43,10 +44,9 @@ export async function animatePushBack(unit, c, targetPos, options = {}) {
         newCell.style.transform = 'scale(0.85)';
         requestAnimationFrame(() => {
             newCell.style.transform = 'scale(1)';
-            // 动画结束后清理，防止残留 transform 导致重叠
-            setTimeout(() => {
+            clock.wait(200).then(() => {
                 if (newCell) newCell.style.transform = '';
-            }, 200);
+            });
         });
     }
 }
@@ -70,8 +70,7 @@ export async function animatePushSwap(frontUnit, rearUnit, c) {
     cellR.style.boxShadow = '0 0 16px 4px rgba(255, 215, 0, 0.9)';
     cellR.style.border = '2px solid #ffd700';
 
-    // 停顿让人看清光圈
-    await wait(400);
+    await clock.wait(400);
 
     cellF.style.transition = 'transform 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94)';
     cellF.style.transform = `translate(${dx}px, ${dy}px)`;
@@ -79,11 +78,11 @@ export async function animatePushSwap(frontUnit, rearUnit, c) {
     const rotateDir = (frontUnit.camp === CAMP_TYPES.ALLY) ? 1 : -1;
     cellR.style.transition = 'transform 0.35s ease-out';
     cellR.style.transform = `translate(${dx * 0.3}px, ${dy * 0.3}px) rotate(${15 * rotateDir}deg)`;
-    await wait(350);
+    await clock.wait(350);
 
     cellR.style.transition = 'transform 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55)';
     cellR.style.transform = `translate(${-dx * 0.8}px, ${-dy * 0.8}px) rotate(${-10 * rotateDir}deg)`;
-    await wait(400);
+    await clock.wait(400);
 
     // 清除光圈
     cellF.style.boxShadow = '';
@@ -96,15 +95,15 @@ export async function animatePushSwap(frontUnit, rearUnit, c) {
     for (let i = 0; i < 2; i++) {
         cellF.style.visibility = 'hidden';
         cellR.style.visibility = 'hidden';
-        await wait(100);
+        await clock.wait(100);
         cellF.style.visibility = 'visible';
         cellR.style.visibility = 'visible';
-        await wait(100);
+        await clock.wait(100);
     }
 
     cellF.style.opacity = '0';
     cellR.style.opacity = '0';
-    await wait(200);
+    await clock.wait(200);
 
     if (c.store) {
         c.store.dispatch({ type: STORE_ACTION_TYPES.APPLY_EVENTS, events: [
@@ -134,7 +133,7 @@ export async function animatePushSwap(frontUnit, rearUnit, c) {
         newCellF.style.transform = 'scale(0.8)';
         requestAnimationFrame(() => {
             newCellF.style.transform = 'scale(1)';
-            setTimeout(() => { if (newCellF) newCellF.style.transform = ''; }, 250);
+            clock.wait(250).then(() => { if (newCellF) newCellF.style.transform = ''; });
         });
     }
     if (newCellR) {
@@ -142,7 +141,7 @@ export async function animatePushSwap(frontUnit, rearUnit, c) {
         newCellR.style.transform = 'scale(0.8)';
         requestAnimationFrame(() => {
             newCellR.style.transform = 'scale(1)';
-            setTimeout(() => { if (newCellR) newCellR.style.transform = ''; }, 250);
+            clock.wait(250).then(() => { if (newCellR) newCellR.style.transform = ''; });
         });
     }
 }

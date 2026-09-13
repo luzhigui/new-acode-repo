@@ -1,11 +1,10 @@
-// V6.0.0 | 从实验室移植，蝴蝶飞走/飞回 + 蜘蛛升天/降下
-export const VER = 'fx/86fx-butterfly-spider.js V6.0.0';
+// V6.1.0 | 2026-09-13 统一时间层：本地 wait 换 clock.wait，5 段手写 rAF 换 clock.animate
+export const VER = 'fx/86fx-butterfly-spider.js V6.1.0';
 
 import { GlobalStore } from '../infra/54-global-store.js';
 import { CAMP_TYPES } from '../infra/56-battle-enums.js';
 import { snapshotUnitCellRobust, getUnitCell } from './90fx-ref-manager.js';
-
-function wait(ms) { return new Promise(r => setTimeout(r, GlobalStore.get('fastForwardActive') ? 1 : ms)); }
+import { clock } from '../infra/52-clock.js';
 
 function getCellElement(unit) {
     return getUnitCell(unit);
@@ -44,31 +43,23 @@ export async function showButterflyFlyOut(fromUnit, toUnit) {
     const dx = endX - startX, dy = endY - startY;
     const dist = Math.sqrt(dx * dx + dy * dy);
     const duration = 600;
-    const startTime = performance.now();
 
-    await new Promise(res => {
-        function step(ts) {
-            const elapsed = ts - startTime;
-            const t = Math.min(1, elapsed / duration);
-            const perpX = -dy / dist, perpY = dx / dist;
-            const waveAmplitude = 12 * Math.sin(t * Math.PI * 4);
-            const curX = startX + dx * t + perpX * waveAmplitude;
-            const curY = startY + dy * t + perpY * waveAmplitude;
-            butterfly.style.left = curX + 'px';
-            butterfly.style.top = curY + 'px';
-            const scale = 1 + 0.15 * Math.sin(elapsed * 0.03);
-            butterfly.style.transform = `translate(-50%, -50%) scale(${scale})`;
-            if (t < 1) requestAnimationFrame(step);
-            else res();
-        }
-        requestAnimationFrame(step);
+    await clock.animate(duration, (t) => {
+        const perpX = -dy / dist, perpY = dx / dist;
+        const waveAmplitude = 12 * Math.sin(t * Math.PI * 4);
+        const curX = startX + dx * t + perpX * waveAmplitude;
+        const curY = startY + dy * t + perpY * waveAmplitude;
+        butterfly.style.left = curX + 'px';
+        butterfly.style.top = curY + 'px';
+        const scale = 1 + 0.15 * Math.sin(t * duration * 0.03);
+        butterfly.style.transform = `translate(-50%, -50%) scale(${scale})`;
     });
 
     butterfly.style.transition = 'transform 0.2s ease, opacity 0.2s';
     butterfly.style.transform = 'translate(-50%, -50%) scale(0.8)';
     butterfly.style.opacity = '0.6';
     toCell.classList.add('pink-flash');
-    await wait(300);
+    await clock.wait(300);
     butterfly.remove();
     toCell.classList.remove('pink-flash');
 
@@ -88,7 +79,7 @@ export async function showButterflyFlyBack(hostUnit, toUnit) {
     if (!hostCenter || !toCenter) return;
 
     hostCell.classList.add('pink-flash');
-    setTimeout(() => hostCell.classList.remove('pink-flash'), 600);
+    clock.wait(600).then(() => hostCell.classList.remove('pink-flash'));
 
     const butterfly = document.createElement('div');
     butterfly.setAttribute('data-fx', 'temporary');
@@ -103,27 +94,19 @@ export async function showButterflyFlyBack(hostUnit, toUnit) {
     const endX = toCenter.x, endY = toCenter.y;
     const dx = endX - startX, dy = endY - startY;
     const duration = 700;
-    const startTime = performance.now();
 
-    await new Promise(res => {
-        function step(ts) {
-            const elapsed = ts - startTime;
-            const t = Math.min(1, elapsed / duration);
-            const curX = startX + dx * t;
-            const curY = startY + dy * t - 8 * Math.sin(t * Math.PI * 3);
-            butterfly.style.left = curX + 'px';
-            butterfly.style.top = curY + 'px';
-            const scale = 1 + 0.1 * Math.sin(elapsed * 0.04);
-            butterfly.style.transform = `translate(-50%, -50%) scale(${scale})`;
-            if (t < 1) requestAnimationFrame(step);
-            else res();
-        }
-        requestAnimationFrame(step);
+    await clock.animate(duration, (t) => {
+        const curX = startX + dx * t;
+        const curY = startY + dy * t - 8 * Math.sin(t * Math.PI * 3);
+        butterfly.style.left = curX + 'px';
+        butterfly.style.top = curY + 'px';
+        const scale = 1 + 0.1 * Math.sin(t * duration * 0.04);
+        butterfly.style.transform = `translate(-50%, -50%) scale(${scale})`;
     });
 
     butterfly.style.transition = 'opacity 0.2s';
     butterfly.style.opacity = '0';
-    await wait(200);
+    await clock.wait(200);
     butterfly.remove();
 }
 
@@ -138,7 +121,7 @@ export async function showSpiderAscend(fromUnit) {
     if (!fromCenter) return;
 
     fromCell.classList.add('purple-flash');
-    setTimeout(() => fromCell.classList.remove('purple-flash'), 600);
+    clock.wait(600).then(() => fromCell.classList.remove('purple-flash'));
 
     fromCell.style.opacity = '0';
     fromCell.style.transform = 'scale(0.8)';
@@ -180,31 +163,23 @@ export async function showSpiderAscend(fromUnit) {
     const startX = fromCenter.x;
     const startY = fromCenter.y;
     const duration = 800;
-    const startTime = performance.now();
 
-    await new Promise(res => {
-        function step(ts) {
-            const elapsed = ts - startTime;
-            const t = Math.min(1, elapsed / duration);
-            const curX = startX + 1 * t;
-            const curY = startY - 20 * t;
-            const scale = 1 - t * 0.9;
-            const opacity = 1 - t * 0.8;
-            spider.style.left = curX + 'px';
-            spider.style.top = curY + 'px';
-            spider.style.transform = `translate(-50%, -50%) scale(${scale})`;
-            spider.style.opacity = opacity;
-            ghost.style.transform = `scale(${scale})`;
-            ghost.style.opacity = opacity * 0.8;
-            silks.forEach(silk => {
-                silk.style.left = (curX - 1) + 'px';
-                silk.style.top = (curY - 150) + 'px';
-                silk.style.height = '150px';
-            });
-            if (t < 1) requestAnimationFrame(step);
-            else res();
-        }
-        requestAnimationFrame(step);
+    await clock.animate(duration, (t) => {
+        const curX = startX + 1 * t;
+        const curY = startY - 20 * t;
+        const scale = 1 - t * 0.9;
+        const opacity = 1 - t * 0.8;
+        spider.style.left = curX + 'px';
+        spider.style.top = curY + 'px';
+        spider.style.transform = `translate(-50%, -50%) scale(${scale})`;
+        spider.style.opacity = opacity;
+        ghost.style.transform = `scale(${scale})`;
+        ghost.style.opacity = opacity * 0.8;
+        silks.forEach(silk => {
+            silk.style.left = (curX - 1) + 'px';
+            silk.style.top = (curY - 150) + 'px';
+            silk.style.height = '150px';
+        });
     });
 
     spider.remove();
@@ -246,31 +221,23 @@ export async function showSpiderDescend(toUnit) {
 
     const endY = toCenter.y;
     const duration = 600;
-    const startTime = performance.now();
 
-    await new Promise(res => {
-        function step(ts) {
-            const elapsed = ts - startTime;
-            const t = Math.min(1, elapsed / duration);
-            const curX = startX + (toCenter.x - startX) * t;
-            const curY = startY + (endY - startY) * t;
-            const scale = 0.25 + t * 0.75;
-            spider.style.left = curX + 'px';
-            spider.style.top = curY + 'px';
-            spider.style.transform = `translate(-50%, -50%) scale(${scale})`;
-            silk.style.left = curX + 'px';
-            silk.style.top = startY + 'px';
-            silk.style.height = (curY - startY) + 'px';
-            if (t < 1) requestAnimationFrame(step);
-            else res();
-        }
-        requestAnimationFrame(step);
+    await clock.animate(duration, (t) => {
+        const curX = startX + (toCenter.x - startX) * t;
+        const curY = startY + (endY - startY) * t;
+        const scale = 0.25 + t * 0.75;
+        spider.style.left = curX + 'px';
+        spider.style.top = curY + 'px';
+        spider.style.transform = `translate(-50%, -50%) scale(${scale})`;
+        silk.style.left = curX + 'px';
+        silk.style.top = startY + 'px';
+        silk.style.height = (curY - startY) + 'px';
     });
 
     spider.remove();
     silk.remove();
     toCell.classList.add('purple-flash');
-    setTimeout(() => toCell.classList.remove('purple-flash'), 600);
+    clock.wait(600).then(() => toCell.classList.remove('purple-flash'));
 }
 
 /**
@@ -296,21 +263,13 @@ export async function showSpiderStrike(fromUnit, toUnit) {
     const startX = fromCenter.x, startY = fromCenter.y;
     const endX = toCenter.x, endY = toCenter.y;
     const duration = 700;
-    const startTime = performance.now();
 
-    await new Promise(res => {
-        function step(ts) {
-            const elapsed = ts - startTime;
-            const t = Math.min(1, elapsed / duration);
-            const curX = startX + (endX - startX) * t;
-            const curY = startY + (endY - startY) * t - 30 * Math.sin(t * Math.PI);
-            spider.style.left = curX + 'px';
-            spider.style.top = curY + 'px';
-            spider.style.transform = `translate(-50%, -50%) scale(${1 + t * 0.3})`;
-            if (t < 1) requestAnimationFrame(step);
-            else res();
-        }
-        requestAnimationFrame(step);
+    await clock.animate(duration, (t) => {
+        const curX = startX + (endX - startX) * t;
+        const curY = startY + (endY - startY) * t - 30 * Math.sin(t * Math.PI);
+        spider.style.left = curX + 'px';
+        spider.style.top = curY + 'px';
+        spider.style.transform = `translate(-50%, -50%) scale(${1 + t * 0.3})`;
     });
 
     // 爆炸：放大变红碎开
@@ -319,7 +278,7 @@ export async function showSpiderStrike(fromUnit, toUnit) {
     spider.style.filter = 'drop-shadow(0 0 15px rgba(255,0,0,1)) brightness(0.4) sepia(1) saturate(3) hue-rotate(-20deg)';
     spider.style.opacity = '0';
     toCell.classList.add('red-flash');
-    setTimeout(() => toCell.classList.remove('red-flash'), 500);
+    clock.wait(500).then(() => toCell.classList.remove('red-flash'));
 
     // 碎片粒子
     const cx = endX, cy = endY;
@@ -338,7 +297,7 @@ export async function showSpiderStrike(fromUnit, toUnit) {
         shards.push(shard);
     }
 
-    await wait(600);
+    await clock.wait(600);
     spider.remove();
     shards.forEach(s => { if (s.parentNode) s.remove(); });
 }
