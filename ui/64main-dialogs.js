@@ -273,7 +273,7 @@ export function showMusicPanel() {
             AudioManager.enabled = false;
         } else {
             AudioManager.enabled = true;
-            if (AudioManager.audio && AudioManager.audio.paused) AudioManager.play();
+            AudioManager.play();
         }
     };
     muteRow.appendChild(muteCheck);

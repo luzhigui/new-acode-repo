@@ -1,4 +1,4 @@
-﻿// V6.0.1 | ~28700 bytes | 2026-09-11 maxHp 词条化批2b：苦练/性奋代价 addMod(maxHp) 后补 refreshMaxHp，newMaxHp 改读 refresh 后真值
+// V6.0.1 | ~28700 bytes | 2026-09-11 maxHp 词条化批2b：苦练/性奋代价 addMod(maxHp) 后补 refreshMaxHp，newMaxHp 改读 refresh 后真值
 // V6.0.0 | ~14500 bytes | 2026-08-28 毒 fact 按攻击组定位插入
 // V6.0.0 | 2026-09-07 属性词条化：乾坤衍生/苦练/性奋代价改 addMod
 export const VER = 'core/15-skill-mechanisms.js V6.0.1';
@@ -406,7 +406,8 @@ function submitKuLian(data, decls) {
     const kuLianSong = checkKuLian(B);
     if (!kuLianSong) return;
     Object.assign(kuLianSong.state, { _kuLianActive: true });
-    const s = { atkBonus: decl.atkBonus || 1, defBonus: decl.defBonus || 1, hpBonus: decl.hpBonus || 3 };
+    const kp = getSkillParams('宋青书', 'kuLian');
+    const s = { atkBonus: kp.atkBonus, defBonus: kp.defBonus, hpBonus: kp.hpBonus };
     const targets = B.filter(u => u.alive && !u.isHorse);
     for (const u of targets) {
         const mult = u.uid === kuLianSong.uid ? 3 : 1;
@@ -445,8 +446,9 @@ function submitXinHun(data, decls) {
     if (!decl || unit.name !== '宋青书' || !unit.alive) return;
     const zhou = allySide.find(u => u.name === '周芷若' && u.alive);
     if (!zhou) return;
-    const hpDeduct = decl.hpDeduct || 1;
-    const healLevels = decl.healLevels || [0.16, 0.10, 0.06, 0.03];
+    const s = getSkillParams('宋青书', 'xinHun');
+    const hpDeduct = s.hpDeduct;
+    const healLevels = s.healLevels;
     applyStatChange(zhou, 'hp', -hpDeduct, unit, '新婚扣血', false);
     zhou.state._kuaiLeStack.push({ healPct: healLevels[0] });
     if (zhou.hp <= 0) { if (!zhou.state._deathTime) zhou.state._deathTime = Date.now(); }
