@@ -72,20 +72,6 @@ export function renderSeparator() {
 }
 
 
-export function renderRoundStart(text) {
-    appendLogHTML(text + '<br>');
-}
-
-export function renderRoundEnd(text) {
-    appendLogHTML(text + '<br>');
-}
-
-
-export function renderInfoLine(text) {
-    appendLogHTML(text + '<br>');
-}
-
-
 export function renderVictoryLine(html) {
     getLogDiv().innerHTML += html;
     getLogDiv().scrollTop = getLogDiv().scrollHeight;

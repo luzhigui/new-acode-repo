@@ -1,4 +1,4 @@
-﻿// V6.0.0 | 2026-08-21 从 player/41 拆出
+// V6.0.0 | 2026-08-21 从 player/41 拆出
 export const VER = 'ui/70buff-dialog.js V6.0.0';
 
 import { CONFIG } from '../core/01config-5v5-test.js';
@@ -64,8 +64,12 @@ export function showBuffPopup(c) {
                 let duration = CONFIG.BUFFS[b.value]?.duration || CONFIG.BUFF_DURATION || 4;
                 const newBuff = createBuffObject(b.value, duration);
                 const ctx = GlobalStore.get('playerContext');
-                if (ctx && ctx.UI && ctx.UI.allyTeam) {
-                    const xiaoZhao = ctx.UI.allyTeam.find(u => u.isXiaoZhaoBrother);
+                // 2026-09-14 状态三轨收敛：战斗期读 battleStore，不再读 c.UI 冗余拷贝
+                const allyUnits = (ctx && ctx.store)
+                    ? (ctx.store.getState().units || []).filter(u => u.camp === CAMP_TYPES.ALLY)
+                    : ((ctx && ctx.UI && ctx.UI.allyTeam) || []);
+                if (allyUnits.length) {
+                    const xiaoZhao = allyUnits.find(u => u.isXiaoZhaoBrother);
                     if (xiaoZhao) {
                         addPermanentBuff(xiaoZhao, b.value, newBuff.name, {});
                     }

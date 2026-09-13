@@ -1,10 +1,10 @@
-﻿// V6.0.1 | ~16900 bytes | 2026-09-11 详情弹窗属性分解改走 _mods 词条表（renderStatDetail），终值用 getStat，根治词条化后分解失配
+// V6.0.1 | ~16900 bytes | 2026-09-11 详情弹窗属性分解改走 _mods 词条表（renderStatDetail），终值用 getStat，根治词条化后分解失配
 // V6.0.0 | 2026-08-17 格子渲染下沉 render/32
 export const VER = 'ui/62ui-render-5v5-test.js V6.0.1';
 
 import { getSkillDesc } from '../core/01config-5v5-test.js';
 import { getStat } from '../core/13battle-shared.js';
-import { GlobalStore } from '../infra/54-global-store.js';
+import { GlobalStore, getPlayerContext } from '../infra/54-global-store.js';
 import { BUFF_TYPES, CAMP_TYPES } from '../infra/56-battle-enums.js';
 import {
     renderGrid,
@@ -29,7 +29,18 @@ export function setRenderStore(store) {
 }
 
 function getCtx() {
-    return window._getPlayerContext ? window._getPlayerContext() : null;
+    return getPlayerContext();
+}
+
+// 2026-09-14 状态三轨收敛：战斗期一律读 battleStore，不再读 c.UI 的冗余拷贝
+function selectOrStore(ctx, key) {
+    const store = ctx && ctx.store;
+    if (store) {
+        const units = store.getState().units || [];
+        if (key === 'allyTeam') return units.filter(u => u.camp === CAMP_TYPES.ALLY);
+        if (key === 'enemyTeam') return units.filter(u => u.camp === CAMP_TYPES.ENEMY);
+    }
+    return (ctx && ctx.UI && ctx.UI[key]) || [];
 }
 
 
@@ -57,7 +68,8 @@ function openDetailPopup(unit) {
         if (detailPopup && detailPopupUnit) updateDetailPopupContent();
     }, 1000);
 }
-window.openDetailPopup = openDetailPopup;
+// 详情弹窗注册到 UIHandler 通道（render/32 点格子时经 getUIHandler 取用），不再挂 window
+GlobalStore.setUIHandler('openDetailPopup', openDetailPopup);
 
 // 属性分解统一走 _mods 词条表：base + 按 ttl 分组的词条贡献 = getStat 终值
 // 不论新增什么机制，只要走 addMod，详情弹窗自动同步
@@ -101,9 +113,9 @@ function updateDetailPopupContent() {
         latestUnit = allUnits.find(u => u.uid === uid);
         allyTeam = allUnits.filter(u => u.camp === CAMP_TYPES.ALLY);
     } else {
-        const allUnits = (ctx.UI.allyTeam || []).concat(ctx.UI.enemyTeam || []);
+        const allUnits = selectOrStore(ctx, 'allyTeam').concat(selectOrStore(ctx, 'enemyTeam'));
         latestUnit = allUnits.find(u => u.uid === uid);
-        allyTeam = ctx.UI.allyTeam || [];
+        allyTeam = selectOrStore(ctx, 'allyTeam');
     }
     if (!latestUnit) { closeDetailPopup(); return; }
     detailPopupUnit = latestUnit;
@@ -156,16 +168,16 @@ function updateDetailPopupContent() {
             ${masteryText}
             ${(() => {
                 let skills = [];
-                if (u.name === '张无忌') skills = [
+                if (u.isZhang) skills = [
                     getSkillDesc('张无忌', 'nineYang'),
                     getSkillDesc('张无忌', 'qianKun'),
                     getSkillDesc('张无忌', 'nearSwitch')
                 ];
-                else if (u.name === '韦一笑') skills = [
+                else if (u.isWei) skills = [
                     getSkillDesc('韦一笑', 'coldPalm'),
                     getSkillDesc('韦一笑', 'bloodDodge')
                 ];
-                else if (u.name === '宋青书') {
+                else if (u.isSongQingshu) {
                     skills = [
                         `💥 ${getSkillDesc('宋青书', 'rebelStrike', false)}`,
                         `💪 ${getSkillDesc('宋青书', 'kuLian', false)}`,
@@ -173,20 +185,20 @@ function updateDetailPopupContent() {
                         `💗 ${getSkillDesc('宋青书', 'xingFen', false)}`
                     ];
                 }
-                else if (u.name === '周芷若') {
+                else if (u.isZhouZhiruo) {
                     const descNormal = getSkillDesc('周芷若', 'nineYinClaw', false);
                     const descJealous = getSkillDesc('周芷若', 'nineYinClaw', true);
                     skills = [`🐾 ${descNormal}（无忌在场：${descJealous}），可连锁`];
                 }
-                else if (u.name === '成昆') skills = [
+                else if (u.isChengKun) skills = [
                     `💥 ${getSkillDesc('成昆', 'phantomThunder')}`,
                     `🌀 ${getSkillDesc('成昆', 'phantomDisguise')}`
                 ];
-                else if (u.name === '鹿杖客') skills = [
+                else if (u.isLuZhangKe) skills = [
                     `❄️ ${getSkillDesc('鹿杖客', 'xuanmingPalm')}`,
                     '🔗 联动鹤笔翁：攻击后鹤笔翁立刻攻击同一目标'
                 ];
-                else if (u.name === '鹤笔翁') skills = [
+                else if (u.isHeBiWeng) skills = [
                     `🦌 ${getSkillDesc('鹤笔翁', 'hornStrike')}`,
                     '🔗 联动鹿杖客：攻击后鹿杖客立刻攻击同一目标'
                 ];

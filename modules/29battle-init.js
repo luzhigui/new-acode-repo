@@ -2,7 +2,7 @@
 export const VER = 'modules/29battle-init.js V6.0.0';
 
 import { CONFIG } from '../core/01config-5v5-test.js';
-import { Unit } from '../core/02unit.js';
+import { Unit, applyHeroFlags, HERO_FLAGS } from '../core/02unit.js';
 import { GlobalStore } from '../infra/54-global-store.js';
 import { CAMP_TYPES, ROLE_TYPES } from '../infra/56-battle-enums.js';
 
@@ -55,7 +55,7 @@ export function initBattleTeams(currentStage, _rng) {
         eliteCount = Math.max(eliteCount, 1);
         if (forceZhang) {
             const cfg = eliteConfigs.find(c => c.name === '张无忌');
-            if (cfg && !allyTeam.some(u => u.name === '张无忌')) {
+            if (cfg && !allyTeam.some(u => u.isZhang)) {
                 let unit = new Unit(cfg.name, cfg.m, cfg.role, CAMP_TYPES.ALLY);
                 unit.isZhang = true;
                 unit.init(_rng); unit.applyBonus();
@@ -66,7 +66,7 @@ export function initBattleTeams(currentStage, _rng) {
         }
         if (forceWei) {
             const cfg = eliteConfigs.find(c => c.name === '韦一笑');
-            if (cfg && !allyTeam.some(u => u.name === '韦一笑')) {
+            if (cfg && !allyTeam.some(u => u.isWei)) {
                 let unit = new Unit(cfg.name, cfg.m, cfg.role, CAMP_TYPES.ALLY);
                 unit.isWei = true;
                 unit.init(_rng); unit.applyBonus();
@@ -111,6 +111,7 @@ export function initBattleTeams(currentStage, _rng) {
                 if (_rng.next() < sisterProb) { unit.isXiaoZhaoSister = true; }
                 else { unit.isXiaoZhaoBrother = true; }
                 unit.name = unit.isXiaoZhaoSister ? '小昭·姊' : '小昭·妹';
+                applyHeroFlags(unit);
                 unit.initXiaoZhao(); unit.applyBonus();
                 unit.state._baseMaxHp = unit.maxHp; unit.state._baseAtk = unit.atk; unit.state._baseDef = unit.def;
             } else {
@@ -125,7 +126,8 @@ export function initBattleTeams(currentStage, _rng) {
     // 普通兵候选池
     const candidatePool = [];
     for (const [name, m] of Object.entries(C.MING_M)) {
-        if (['张无忌','韦一笑','小昭'].includes(name)) continue;
+        // 2026-09-14 去名字字面量：用身份标记判断是否精英（与 eliteConfigs 同源）
+        if (HERO_FLAGS[name]) continue;
         if (m >= 95 && m <= 104) candidatePool.push({ name, m, role: null, power: normalPower[m] || 90 });
     }
     candidatePool.sort((a, b) => a.power - b.power);
@@ -160,6 +162,7 @@ export function initBattleTeams(currentStage, _rng) {
             existingXz.isXiaoZhaoSister = (forceXzMode === 'sister');
             existingXz.isXiaoZhaoBrother = (forceXzMode === 'brother');
             existingXz.name = existingXz.isXiaoZhaoSister ? '小昭·姊' : '小昭·妹';
+            applyHeroFlags(existingXz);
         } else {
             const swappable = allyTeam.find(u => !u.isZhang && !u.isWei);
             if (swappable) {
@@ -170,6 +173,7 @@ export function initBattleTeams(currentStage, _rng) {
             xzUnit.isXiaoZhaoSister = (forceXzMode === 'sister');
             xzUnit.isXiaoZhaoBrother = (forceXzMode === 'brother');
             xzUnit.name = xzUnit.isXiaoZhaoSister ? '小昭·姊' : '小昭·妹';
+            applyHeroFlags(xzUnit);
             xzUnit.initXiaoZhao(); xzUnit.applyBonus();
             xzUnit.state._baseMaxHp = xzUnit.maxHp; xzUnit.state._baseAtk = xzUnit.atk; xzUnit.state._baseDef = xzUnit.def;
             xzUnit.pos = swappable ? swappable.pos : null;
@@ -225,7 +229,7 @@ export function initBattleTeams(currentStage, _rng) {
                 unit.pos = null; unit.init(_rng); unit.applyBonus();
                 enemyUnits.push(unit);
                 usedEnemyNames.push(item.name);
-                if (item.name === '鹿杖客' || item.name === '鹤笔翁') xuanmingPairCount++;
+                if (unit.isLuZhangKe || unit.isHeBiWeng) xuanmingPairCount++;
             } else {
                 let mVal = item;
                 let pool = Object.entries(ENEMY_M).filter(([n, v]) => v === mVal);
@@ -299,8 +303,8 @@ export function initBattleTeams(currentStage, _rng) {
                 }
             }
         }
-        const zhou = eliteUnits.find(u => u.name === '周芷若');
-        const song = eliteUnits.find(u => u.name === '宋青书');
+        const zhou = eliteUnits.find(u => u.isZhouZhiruo);
+        const song = eliteUnits.find(u => u.isSongQingshu);
         if (zhou && zhou.pos == null) {
             const zhouPriority = [2, 3, 4, 5, 6, 7, 8, 9];
             let placed = false;
@@ -317,9 +321,9 @@ export function initBattleTeams(currentStage, _rng) {
         const otherElites = eliteUnits.filter(u => u !== zhou && u !== song && u.pos == null);
         for (let u of otherElites) {
             let priority;
-            if (u.name === '成昆') priority = [1, 2, 3, 4, 5, 6, 7, 8, 9];
-            else if (u.name === '鹿杖客') priority = [7, 8, 9, 4, 5, 6, 1, 2, 3];
-            else if (u.name === '鹤笔翁') priority = [3, 4, 5, 6, 7, 8, 9, 1, 2];
+            if (u.isChengKun) priority = [1, 2, 3, 4, 5, 6, 7, 8, 9];
+            else if (u.isLuZhangKe) priority = [7, 8, 9, 4, 5, 6, 1, 2, 3];
+            else if (u.isHeBiWeng) priority = [3, 4, 5, 6, 7, 8, 9, 1, 2];
             else priority = [1, 2, 3, 4, 5, 6, 7, 8, 9];
             for (const p of priority) { if (!enemyPosSet.has(p)) { u.pos = p; u.state._originalPos = p; enemyPosSet.add(p); break; } }
             if (u.pos == null) { let p = priority[0]; let displaced = normalUnits.find(u2 => u2.pos === p); if (displaced) { displaced.pos = null; displaced.state._originalPos = -1; } u.pos = p; u.state._originalPos = p; enemyPosSet.add(p); }

@@ -11,6 +11,56 @@ import { ROLE_TYPES } from '../infra/56-battle-enums.js';
 
 let _uidCounter = 0;
 
+// ========== 角色身份标记：单一事实源 ==========
+// 2026-09-14 建立。原先全库 79 处靠 `u.name === '张无忌'` 之类的中文字面量做战斗判断，
+// 加一个角色就要在每个判断点补一段字符串匹配。此处把「名字 → 身份标记」收成一张表，
+// 单位构造时按名字自动打标，战斗逻辑一律读标记。
+//
+// 约定：`is<正式名>` 为身份标记字段名；「小昭」的两种形态（姊/妹）保留原有
+// isXiaoZhaoSister / isXiaoZhaoBrother 双标记，并额外给统一的 isXiaoZhao。
+// 名字带后缀（如 '小昭·姊'）时按基础名打标，避免每次改名都要同步。
+export const HERO_FLAGS = Object.freeze({
+    '张无忌': 'isZhang',
+    '韦一笑': 'isWei',
+    '成昆':   'isChengKun',
+    '宋青书': 'isSongQingshu',
+    '周芷若': 'isZhouZhiruo',
+    '鹿杖客': 'isLuZhangKe',
+    '鹤笔翁': 'isHeBiWeng',
+});
+
+/** 取「小昭·姊」→「小昭」这类基础名（去 · 后缀） */
+export function baseHeroName(name) {
+    if (typeof name !== 'string') return name;
+    const i = name.indexOf('·');
+    return i >= 0 ? name.slice(0, i) : name;
+}
+
+/**
+ * 按名字给单位打身份标记。可安全重复调用（幂等）。
+ * 拒马无身份，直接跳过。
+ *
+ * 注意：**不**在此处决定小昭的姊/妹形态——形态由 modules/29battle-init.js 按概率摇出，
+ * 这里只打统一的 isXiaoZhao，避免构造期把形态定死。
+ */
+export function applyHeroFlags(unit) {
+    if (!unit || unit.isHorse) return unit;
+    const name = baseHeroName(unit.name);
+    const flag = HERO_FLAGS[name];
+    if (flag) unit[flag] = true;
+    if (name === '小昭') unit.isXiaoZhao = true;
+    return unit;
+}
+
+/** 判断单位是否为某个身份（传名字，内部查表；小昭姊/妹都算「小昭」） */
+export function hasHeroFlag(unit, name) {
+    if (!unit) return false;
+    const base = baseHeroName(name);
+    if (base === '小昭') return !!(unit.isXiaoZhaoSister || unit.isXiaoZhaoBrother || unit.isXiaoZhao);
+    const flag = HERO_FLAGS[base];
+    return flag ? !!unit[flag] : false;
+}
+
 // 职业初始加成：唯一来源 content/200game-data.json 的 roles.*.bonus
 export function getRoleBonus(role) {
     const bonus = getGameData().roles[role]?.bonus;
@@ -45,6 +95,8 @@ export class Unit {
         this.state = createInitialState();
         this.isXiaoZhaoSister = false; // 🦋 小昭·姊
         this.isXiaoZhaoBrother = false; // 🕷️ 小昭·妹
+        // 身份标记（isChengKun / isSongQingshu / …）按名字自动打标，见 HERO_FLAGS
+        applyHeroFlags(this);
     }
     clone(){
         let c=new Unit(this.name,this.m,this.role,this.camp);

@@ -1,12 +1,20 @@
 // V6.0.0 | ~25700 bytes | 2026-08-14 移除回放导入区块
 export const VER = 'ui/68ui-controls.js V6.0.0';
 
-import { getState, setState } from './63main-state.js';
+// 2026-09-14 打断 63↔68 循环依赖：getState/setState 直接取自 infra/54（63 只做转发）
+import { getState, setState, GlobalStore, getPlayerContext } from '../infra/54-global-store.js';
 import { updateUI, renderGrid, setRenderStore } from './62ui-render-5v5-test.js';
 import { clearAllEffects } from '../player/42player-core.js';
-import { GlobalStore } from '../infra/54-global-store.js';
 import { resetBattleRuntime } from './69reset-runtime.js';
 import { CAMP_TYPES } from '../infra/56-battle-enums.js';
+import { AudioManager } from '../modules/22audio-manager.js';
+
+// 2026-09-14 统一任意按钮点击钩子：原先 6 处直接调 window.onAnyButtonClick，
+// 而该函数从未挂到 window 上（定义在 ui/61 且未导出），属静默失效；改为走 UIHandler 通道。
+function onAnyButtonClick() {
+    const fn = GlobalStore.getUIHandler('onAnyButtonClick');
+    if (typeof fn === 'function') fn();
+}
 
 // 倍速系统
 let manualSpeedLock = false;
@@ -98,7 +106,7 @@ function setSpeed(val, lock) {
 function attachSpeedButton(id, speedVal) {
     let btn = document.getElementById(id); if (!btn) return;
     btn.addEventListener('click', function() {
-        if (typeof window.onAnyButtonClick === 'function') window.onAnyButtonClick();
+        onAnyButtonClick();
         if (btn.classList.contains('active')) {
             setState.speed(1000);
             manualSpeedLock = false;
@@ -107,10 +115,6 @@ function attachSpeedButton(id, speedVal) {
             const ctx = GlobalStore.get('playerContext');
             if (ctx) {
                 ctx.speed = 1000;
-                if (ctx._scheduler) {
-                    ctx._scheduler.paused = false;
-                    ctx._scheduler.setSpeed(1);
-                }
             }
             document.querySelectorAll('.controls button').forEach(b => {
                 b.classList.remove('active', 'semi-active');
@@ -123,7 +127,7 @@ function attachSpeedButton(id, speedVal) {
 }
 
 function activateScrollSlowdown() {
-    if (window.GlobalStore?.get('fastForwardActive')) return;
+    if (GlobalStore.get('fastForwardActive')) return;
     const speed = getState.speed();
     if (speed === 1600) return;
     preManualSpeedLock = manualSpeedLock;
@@ -146,12 +150,10 @@ function restoreSpeedFromScroll() {
         setState.speed(1000);
     }
     updateSpeedButtons();
-    const ctx = GlobalStore.get('playerContext');
-    if (ctx && ctx._scheduler) ctx._scheduler.setSpeed(1);
 }
 
-// 倍速按钮初始化延迟到 DOM 就绪后执行，避免循环依赖
-function initSpeedButtons() {
+// 倍速按钮初始化由 ui/61 在 DOM 就绪后调用（export，不再挂 window）
+export function initSpeedButtons() {
     attachSpeedButton('btnSpeed2', 600);
     attachSpeedButton('btnSpeed8x', 100);
     attachSpeedButton('btnSpeed4x', 300);
@@ -164,7 +166,6 @@ function initSpeedButtons() {
     slideSpeedActive = true;
     updateSpeedButtons();
 }
-window._initSpeedButtons = initSpeedButtons;
 
 // 自动模式按钮同步
 // btnAuto 文本/高亮必须实时反映真实 autoLevel。原实现只在玩家点菜单时更新文本，
@@ -176,7 +177,6 @@ function updateAutoModeButton() {
     const lvl = getState.autoLevel?.() || 'auto';
     btn.textContent = AUTO_LABELS[lvl] || '自动';
     btn.classList.toggle('active', lvl !== 'manual');
-    window._autoMode = lvl !== 'manual';
 }
 
 // 更新按钮状态
@@ -215,10 +215,10 @@ export function bindCoverStart(gameStarted, updateSpeedButtons, onStart) {
     document.getElementById('coverStartBtn').addEventListener('click', function () {
         document.getElementById('coverOverlay').style.display = 'none';
         gameStarted.val = true;
-        if (typeof window.AudioManager?.init === 'function') window.AudioManager.init();
-        if (typeof window.AudioManager?.resumeAudioContext === 'function') window.AudioManager.resumeAudioContext();
-        if (typeof window.AudioManager?.play === 'function') window.AudioManager.play();
-        if (typeof window.AudioManager?.setVolume === 'function') window.AudioManager.setVolume(0.5);
+        if (typeof AudioManager.init === 'function') AudioManager.init();
+        if (typeof AudioManager.resumeAudioContext === 'function') AudioManager.resumeAudioContext();
+        if (typeof AudioManager.play === 'function') AudioManager.play();
+        if (typeof AudioManager.setVolume === 'function') AudioManager.setVolume(0.5);
         updateSpeedButtons();
         if (typeof onStart === 'function') onStart();
     });
@@ -226,20 +226,16 @@ export function bindCoverStart(gameStarted, updateSpeedButtons, onStart) {
 
 export function bindPauseButton(getState, setState, updateButtons) {
     document.getElementById('btnPause').addEventListener('click', function () {
-        if (typeof window.onAnyButtonClick === 'function') window.onAnyButtonClick();
+        onAnyButtonClick();
         if (getState.gs() === 'RUNNING') {
             setState.gs('PAUSED');
             setState.isPaused(true);
             GlobalStore.set('bulletTimeActive', true);
-            const ctx = window._getPlayerContext?.();
-            if (ctx?._scheduler) ctx._scheduler.pause();
             document.body.classList.add('paused-animations');
         } else if (getState.gs() === 'PAUSED') {
             setState.gs('RUNNING');
             setState.isPaused(false);
             GlobalStore.set('bulletTimeActive', false);
-            const ctx = window._getPlayerContext?.();
-            if (ctx?._scheduler) ctx._scheduler.resume();
             document.body.classList.remove('paused-animations');
         }
         updateButtons();
@@ -248,13 +244,13 @@ export function bindPauseButton(getState, setState, updateButtons) {
 
 export function bindNextButton(setState, updateButtons, enableAllButtons, updateSpeedButtons) {
     document.getElementById('btnNext').addEventListener('click', function () {
-        if (typeof window.onAnyButtonClick === 'function') window.onAnyButtonClick();
+        onAnyButtonClick();
         if (getState.gs() === 'GAMEOVER') {
             resetBattleRuntime();
             setState.adjustMode(true);
             setState.selectedAdjustPos(null);
             const snap = getState.snapshot();
-            const ctx = window._getPlayerContext?.();
+            const ctx = getPlayerContext();
             // 原班再战：恢复初始阵容（含全部单位、满血、初始属性），拒马不包含在内
             if (ctx && ctx._originalSnapshot) {
                 snap.ally = ctx._originalSnapshot.ally.map(u => u.clone());
@@ -290,19 +286,19 @@ export function bindDetailButton(getState, setState, showModal) {
         ], (choice) => {
             setState.logLevel(choice);
             this.textContent = choice === 'detailed' ? '详细' : (choice === 'brief' ? '简要' : '调试');
-            if (window._renderAllLogs) window._renderAllLogs();
+            // _renderAllLogs 全库从未定义，删除无效调用
         });
     });
 }
 
 export function bindDebugButton(setState, updateSpeedButtons, updateDebugUI, updateUI) {
     document.getElementById('debugToggle').addEventListener('click', function () {
-        if (typeof window.onAnyButtonClick === 'function') window.onAnyButtonClick();
+        onAnyButtonClick();
         setState.debugMode(!getState.debugMode());
         const dm = getState.debugMode();
         this.classList.toggle('active', dm);
         this.textContent = 'V6.0';
-        window.GlobalStore?.set('debugMode', dm);
+        GlobalStore.set('debugMode', dm);
         updateSpeedButtons();
         updateDebugUI();
         updateUI();
@@ -315,8 +311,8 @@ export function bindBGButton(showMusicPanel) {
 
 export function bindCrashModeButton() {
     document.getElementById('btnCrashMode').addEventListener('click', function () {
-        const newMode = window.GlobalStore?.get('crashMode') === 'fly' ? 'ghost' : 'fly';
-        window.GlobalStore?.set('crashMode', newMode);
+        const newMode = GlobalStore.get('crashMode') === 'fly' ? 'ghost' : 'fly';
+        GlobalStore.set('crashMode', newMode);
         this.textContent = newMode === 'fly' ? '🕊️飞走' : '👻虚影';
     });
 }
@@ -327,12 +323,12 @@ export function bindDodgeButton(toggleDodgeEffect) {
 
 export function bindSettleButton(currentStageGetter, isBattleStarting, getState, setState, updateBuffSlots, updateUI, updateButtons, enableAllButtons, updateSpeedButtons, updateScoreBadge, doInitBattle, abortAll, clearAllEffects, clearLogExceptFirst, setRenderStore, renderGrid) {
     document.getElementById('btnSettle').addEventListener('click', async function () {
-        if (typeof window.onAnyButtonClick === 'function') window.onAnyButtonClick();
+        onAnyButtonClick();
         const gs = getState.gs();
         const S = { IDLE: 'IDLE', RUNNING: 'RUNNING', PAUSED: 'PAUSED', GAMEOVER: 'GAMEOVER' };
         if (gs === S.GAMEOVER) {
             resetBattleRuntime();
-            let currentUI = { allyTeam: [], enemyTeam: [], currentResult: null, round: 0, lastSnapshot: null };
+            let currentUI = { allyTeam: [], enemyTeam: [], currentResult: null, round: 0 };
             let snap = { ally: [], enemy: [] };
             const stage = typeof currentStageGetter === 'function' ? currentStageGetter() : currentStageGetter;
             doInitBattle(stage, currentUI, snap, [], -1, null);
@@ -347,9 +343,9 @@ export function bindSettleButton(currentStageGetter, isBattleStarting, getState,
             updateScoreBadge();
             return;
         }
-        window.GlobalStore?.set('fastForwardActive', true);
+        GlobalStore.set('fastForwardActive', true);
         setState.waitingForNextRound(false);
-        let ffCtx = window._getPlayerContext ? window._getPlayerContext() : null;
+        let ffCtx = getPlayerContext();
         if (ffCtx) {
             if (!ffCtx._originalSpeed) ffCtx._originalSpeed = ffCtx.speed;
             ffCtx.speed = 1;
@@ -400,8 +396,7 @@ export function bindAutoButton(getState, setState) {
                 setState.autoMode(!isManual);
                 btn.textContent = isManual ? '手动' : (isFullAuto ? '全自动' : '自动');
                 btn.classList.toggle('active', !isManual);
-                window._autoMode = !isManual;
-                if (!isManual && getState.waitingForNextRound()) setState.waitingForNextRound(false);
+                            if (!isManual && getState.waitingForNextRound()) setState.waitingForNextRound(false);
                 backdrop.remove();
             });
             menu.appendChild(mb);
@@ -419,7 +414,7 @@ export function bindStageSelectButton(currentStageGetter, getState, setState, up
         for (let i = 1; i <= 6; i++) { buttons.push({ text: i === currentStage ? `第${i}关 ◀` : `第${i}关`, value: i, cls: 'buff' }); }
         showModal('选择关卡', buttons, (stage) => {
             if (stage === currentStage) return;
-            if (typeof window.onAnyButtonClick === 'function') window.onAnyButtonClick();
+            onAnyButtonClick();
             const result = abortAll(null, getState.UI(), getState.waitingForNextRound(), false, getState.adjustMode(), getState.selectedAdjustPos(), getState.activeBuffs(), -1, null, () => updateBuffSlots(getState.activeBuffs()));
             setState.waitingForNextRound(result.waitingForNextRound);
             setState.adjustMode(result.adjustMode);

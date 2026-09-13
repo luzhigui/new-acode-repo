@@ -45,6 +45,11 @@ export function battleReducer(state, action) {
             if (!Array.isArray(action.units)) return state;
             return { ...state, units: action.units.map(u => ({ ...u, state: { ...u.state } })) };
         }
+        case STORE_ACTION_TYPES.SET_ROUND: {
+            // 2026-09-14 状态三轨收敛：回合数唯一存于 store（readRound 现取）
+            if (action.round === undefined || action.round === state.round) return state;
+            return { ...state, round: action.round };
+        }
         case STORE_ACTION_TYPES.SET_FLASH: {
             let next = state.units.map(u => {
                 if (u.uid !== action.uid) return u;
@@ -62,6 +67,7 @@ export function battleReducer(state, action) {
                 const updated = { ...u, state: newState };
                 if (action._hasKuaiLe !== undefined) updated._hasKuaiLe = action._hasKuaiLe;
                 if (action._hasXingFen !== undefined) updated._hasXingFen = action._hasXingFen;
+                if (action._renderFlyMode !== undefined) updated._renderFlyMode = action._renderFlyMode;
                 return updated;
             });
             return { ...state, units: next };

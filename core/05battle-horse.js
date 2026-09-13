@@ -1,11 +1,11 @@
-﻿// V6.0.0 | 2026-08-21 战报记账修正：拒马初始化/消散改非记账
+// V6.0.0 | 2026-08-21 战报记账修正：拒马初始化/消散改非记账
 // V6.0.0 | 2026-09-07 属性词条化：拒马初始防/血写入 _base，后续百分比词条由 getStat 现算
 export const VER = 'core/05battle-horse.js V6.0.0';
 
 import { CONFIG } from './01config-5v5-test.js';
 import { hasBuff } from './03battle-utils.js';
 import { query, getBattleRng, applyStatChange, emitEvent } from './13battle-shared.js';
-import { Unit } from './02unit.js';
+import { Unit, getHpDmgRatio } from './02unit.js';
 import { FACT_TYPES, BUFF_TYPES, UNIT_EVENT_TYPES, ROLE_TYPES } from '../infra/56-battle-enums.js';
 const C = CONFIG;
 
@@ -27,7 +27,8 @@ export function spawnHorse(allyTeam, log, enemyTeam, force = false) {
     let horse = new Unit('拒马', 15, ROLE_TYPES.DEFENDER, allyTeam[0].camp);
     const xiaoHEnhance = query('xiaoHexEnhance', allyTeam, allyTeam._activeBuffs || [], BUFF_TYPES.HORSE_FORMATION);
     horse.atk = 0;
-    horse.state._hpDmgRatio = 0.06;
+    // 拒马血量系数分档：按 50% 血量占位取档，唯一来源 02unit.getHpDmgRatio（原先此处硬编码 0.06）
+    horse.state._hpDmgRatio = getHpDmgRatio(0.5);
     if (xiaoHEnhance) {
         horse.def = xiaoHEnhance.horseDef;
         horse.maxHp = xiaoHEnhance.horseHp;
@@ -50,8 +51,10 @@ export function destroyHorse(allyTeam, log) {
     let horses = allyTeam.filter(u => u.isHorse && u.alive).sort((a, b) => b.pos - a.pos);
     if (horses.length === 0) return;
 
-    // 连续销毁概率递减：50% → 25% → 12.5%，失败重置 50%，避免一轮清空
-    let currentProb = 50;
+    // 连续销毁概率递减，失败重置。基数唯一来源 gameData.buffs.horseFormation.destroyProb
+    // （2026-09-14 参数三源收敛：原先硬编码 50，改数据里 destroyProb 不生效）
+    const baseProb = Math.round((C.BUFFS?.horseFormation?.destroyProb ?? 0.5) * 100);
+    let currentProb = baseProb;
     const rng = getBattleRng();
     for (const horse of horses) {
         const roll = rng.nextInt(1, 100);
@@ -65,7 +68,7 @@ export function destroyHorse(allyTeam, log) {
             currentProb = Math.floor(currentProb / 2);
         } else {
             log.push({ factType: FACT_TYPES.HORSE_DESTROY, data: { pos: horse.pos, success: false, prob: currentProb, roll, horseUid: horse.uid } });
-            currentProb = 50;
+            currentProb = baseProb;
         }
     }
 }

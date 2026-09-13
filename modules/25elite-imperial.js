@@ -20,7 +20,7 @@ export function createLuZhangKeComponent() {
     return {
         name: '鹿杖客',
         register(eventBus, A, B, log) {
-            const lu = B.find(u => u.name === '鹿杖客' && u.alive);
+            const lu = B.find(u => u.isLuZhangKe && u.alive);
             if (!lu) return;
             // 玄冥毒 tick：走 ROUND_STAT_GRANT 声明，由 resolveRoundStatGrants 统一结算
             function submitXuanmingPoisonTick(data, lu) {
@@ -60,7 +60,7 @@ export function createHeBiWengComponent() {
     return {
         name: '鹤笔翁',
         register(eventBus, A, B, log) {
-            const he = B.find(u => u.name === '鹤笔翁' && u.alive);
+            const he = B.find(u => u.isHeBiWeng && u.alive);
             if (!he) return;
         },
     };

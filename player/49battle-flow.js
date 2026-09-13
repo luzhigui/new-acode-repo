@@ -6,7 +6,8 @@ import { GlobalStore, getPlayerContext } from '../infra/54-global-store.js';
 import { getBattleRng } from '../core/13battle-shared.js';
 import { CAMP_TYPES, BUFF_TYPES } from '../infra/56-battle-enums.js';
 import { appendLogHTML } from './47renderer.js';
-import { showBuffPopup } from '../ui/70buff-dialog.js';
+// 2026-09-14 去反向依赖：player 层不再 import ui 层，弹窗经 GlobalStore UIHandler 通道调用
+// （注册方见 ui/63main-state.js；对应 rules 原则 6：依赖方向 ui/fx → player → render/modules → core → infra）
 
 // buff 选择（第3回合倍数时调用），返回更新后的 nextActiveBuffs
 export async function handleBuffSelection(c, nextActiveBuffs) {
@@ -44,7 +45,8 @@ export async function handleBuffSelection(c, nextActiveBuffs) {
         appendLogHTML(`<span class="gold">🤖 自动选择Buff：${newBuff ? newBuff.name : '无'}</span><br>`);
     } else {
         c.isPaused = true;
-        newBuff = await showBuffPopup(c);
+        const showBuffPopup = GlobalStore.getUIHandler('showBuffPopup');
+        newBuff = typeof showBuffPopup === 'function' ? await showBuffPopup(c) : null;
     }
     if (newBuff) {
         nextActiveBuffs = [...(nextActiveBuffs || []), newBuff];
@@ -66,8 +68,10 @@ export async function handleFlyDirection(c, lastStep, currentRound) {
     const hasSister = lastStep.ally && lastStep.ally.some(u => u.isXiaoZhaoSister && u.alive);
     if (!hasSister) return;
     c.isPaused = true;
-    const { showFlyDirectionPopup } = await import('../ui/65main-battle.js');
-    const direction = await new Promise(resolve => { showFlyDirectionPopup(resolve); });
+    const showFlyDirectionPopup = GlobalStore.getUIHandler('showFlyDirectionPopup');
+    const direction = typeof showFlyDirectionPopup === 'function'
+        ? await new Promise(resolve => { showFlyDirectionPopup(resolve); })
+        : 'right';
     if (!lastStep.ally._flyDirection) lastStep.ally._flyDirection = 'right';
     lastStep.ally._flyDirection = direction;
     c.isPaused = false;

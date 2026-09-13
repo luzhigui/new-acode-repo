@@ -1,4 +1,4 @@
-﻿// V6.0.1 | ~24900 bytes | 2026-09-11 maxHp 词条化批4：prepareRoundStart removeModsByTTL(round) 后补 refreshMaxHp（闭环上回合 carry 清理）
+// V6.0.1 | ~24900 bytes | 2026-09-11 maxHp 词条化批4：prepareRoundStart removeModsByTTL(round) 后补 refreshMaxHp（闭环上回合 carry 清理）
 // V6.0.0 | ~23700 bytes | 2026-08-26 回合重置走 resetStateFields；蝶变方向弹窗移至播放器层
 // V6.0.0 | 2026-09-07 属性词条化：删除归位重算，光环改 round 词条，回合开始清理上回合词条
 export const VER = 'core/11battle-round.js V6.0.1';
@@ -156,11 +156,11 @@ function prepareRoundStart(A, B, log, state, round, rng) {
     const xuanmingFactory = factories.get('玄冥联动');
     if (xuanmingFactory) xuanmingFactory(eventBus);
 
-    const song = B.find(u => u.name === '宋青书' && u.alive);
-    const zhou = B.find(u => u.name === '周芷若' && u.alive);
+    const song = B.find(u => u.isSongQingshu && u.alive);
+    const zhou = B.find(u => u.isZhouZhiruo && u.alive);
     if (song && zhou) { Object.assign(song.state, { _linkedPartnerUid: zhou.uid }); Object.assign(zhou.state, { _linkedPartnerUid: song.uid }); }
-    const lu = B.find(u => u.name === '鹿杖客' && u.alive);
-    const he = B.find(u => u.name === '鹤笔翁' && u.alive);
+    const lu = B.find(u => u.isLuZhangKe && u.alive);
+    const he = B.find(u => u.isHeBiWeng && u.alive);
     if (lu && he) { Object.assign(lu.state, { _linkedPartnerUid: he.uid }); Object.assign(he.state, { _linkedPartnerUid: lu.uid }); }
 
     A.forEach(u => { if (u.alive) resetStateFields(u.state); });
