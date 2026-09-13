@@ -36,7 +36,7 @@ import { VER as VER_BUFF } from '../core/04buff-system.js';
 import { VER as VER_HORSE } from '../core/05battle-horse.js';
 import { VER as VER_CORE } from '../core/11battle-round.js';
 import { SeededRNG } from '../infra/51-core-utils.js';
-import { setBattleRng } from '../core/13battle-shared.js';
+import { setBattleRng, getBattleRng } from '../core/13battle-shared.js';
 import { VER as VER_PLAYER_CORE } from '../player/42player-core.js';
 import { VER as VER_TEXT } from '../player/40player-text.js';
 import { VER as VER_BUFF_UI } from '../player/41player-buff-ui.js';
@@ -114,7 +114,7 @@ function updateScoreBadge() {
     const displayToken = (token === null || token === undefined) ? 0 : token;
     document.getElementById('scoreBadge').innerHTML = `🏆 ${displayScore}分 🔥${displayToken}`;
 }
-export function onAnyButtonClick() { if (!gameStarted) return; const AudioManager = window.AudioManager; if (AudioManager && AudioManager.enabled && AudioManager.audio && AudioManager.audio.volume > 0.3) lowerBGM(); }
+export function onAnyButtonClick() { if (!gameStarted) return; const AudioManager = window.AudioManager; if (AudioManager && AudioManager.enabled && parseFloat(localStorage.getItem('ming_bgm_volume') || '0.5') > 0.3) lowerBGM(); }
 function autoScrollLog() { if (userScrolled) return; let logDiv = document.getElementById('log'); if (logDiv) logDiv.scrollTop = logDiv.scrollHeight; }
 function onLogUserScroll() { let logDiv = document.getElementById('log'); if (!logDiv) return; let threshold = 10; let distToBottom = logDiv.scrollHeight - logDiv.scrollTop - logDiv.clientHeight; userScrolled = distToBottom > threshold; }
 
@@ -226,6 +226,9 @@ document.addEventListener('DOMContentLoaded', async function() {
             await showCountdown(TRASH_TALK_ALLY, TRASH_TALK_ENEMY, _randLocal, showDanmaku, autoScrollLog);
             let logDiv=document.getElementById('log'); logDiv.innerHTML+='<div class="separator">⚔️ 5v5对决开始 ⚔️</div>';
             autoScrollLog();
+            // 选 Buff 前注入战斗 RNG：full-auto 与手动同源，保证同种子复现一致
+            const _snap = getState.snapshot();
+            setBattleRng(new SeededRNG(_snap?._rngSeed || Date.now()));
             if (getState.autoLevel() === 'full-auto') {
                 const allKeys = Object.keys(C.BUFFS);
                 const existing = getState.activeBuffs().map(b => b.key);
@@ -238,7 +241,8 @@ document.addEventListener('DOMContentLoaded', async function() {
                     return true;
                 });
                 if (available.length > 0) {
-                    const pick = available[_randLocal(0, available.length - 1)];
+                    const rng = getBattleRng();
+                    const pick = available[rng.nextInt(0, available.length - 1)];
                     const duration = C.BUFFS[pick].duration || C.BUFF_DURATION;
                     const buffs = getState.activeBuffs();
                     if (buffs.length >= 2) {
@@ -247,10 +251,10 @@ document.addEventListener('DOMContentLoaded', async function() {
                     }
                     buffs.push(createBuffObject(pick, duration));
                     // 小昭永久海克斯备份
-                    const allyTeam = getState.UI().allyTeam;
-                    const xz = allyTeam.find(u => u.isXiaoZhaoBrother);
+                    const allyTeam2 = getState.UI().allyTeam;
+                    const xz = allyTeam2.find(u => u.isXiaoZhaoBrother);
                     if (xz) {
-                        const extra = pick === BUFF_TYPES.HOLY_FLAME ? { col: _randLocal(1, 3), row: _randLocal(1, 3) } : {};
+                        const extra = pick === BUFF_TYPES.HOLY_FLAME ? { col: rng.nextInt(1, 3), row: rng.nextInt(1, 3) } : {};
                         addPermanentBuff(xz, pick, C.BUFFS[pick].name, extra);
                     }
                     updateBuffSlots(getState.activeBuffs());
@@ -258,9 +262,6 @@ document.addEventListener('DOMContentLoaded', async function() {
                     autoScrollLog();
                 }
             } else {
-                // 选 Buff 前注入战斗 RNG：showBuffSelection 的洗牌需要确定性 RNG（与 doInitBattle 同源）
-                const _snap = getState.snapshot();
-                setBattleRng(new SeededRNG(_snap?._rngSeed || Date.now()));
                 await new Promise(resolve => { showBuffSelection(resolve, getState.activeBuffs(), -1, () => updateBuffSlots(getState.activeBuffs()), () => {}, autoScrollLog, getState.UI().allyTeam); });
             }
             await new Promise(r=>setTimeout(r,600));
@@ -359,7 +360,7 @@ document.addEventListener('DOMContentLoaded', async function() {
                 if (getState.autoLevel() === 'full-auto') {
                     startBattle('明教');
                 } else {
-                    showVoteDialog(startBattle, window._battleHasZhang);
+                    showVoteDialog(startBattle, GlobalStore.get('battleHasZhang'));
                 }
             }
         }

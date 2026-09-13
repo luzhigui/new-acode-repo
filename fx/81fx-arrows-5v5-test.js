@@ -3,6 +3,7 @@ export const VER = 'fx/81fx-arrows-5v5-test.js V6.0.0';
 
 import { markGridShake } from '../render/32-grid-render.js';
 import { CAMP_TYPES } from '../infra/56-battle-enums.js';
+import { GlobalStore } from '../infra/54-global-store.js';
 import { snapshotUnitCell, snapshotUnitCellRobust } from './90fx-ref-manager.js';
 
 function applyWholeShake(elements, durationMs, basePositions, angle, getPausedFn, onComplete) {

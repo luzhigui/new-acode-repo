@@ -1,4 +1,4 @@
-﻿// player/42player-core.js
+// player/42player-core.js
 // V6.0.0 | 2026-09-06 播放器调度重构：按 factIndex 交错日志与特效，修复特效/日志错位
 // V6.0.0 | 2026-09-07 属性词条化：syncStoreFromStep 保留 _mods，渲染由 getStat 现算
 export const VER = 'player/42player-core.js V6.0.0';
@@ -297,7 +297,7 @@ export async function playBattle() {
             const restored = c._originalSpeed || 600;
             c.speed = restored;
             GlobalStore.set('speed', restored);
-            GlobalStore.set('speedButtonsNeedUpdate', true);
+            const fn = GlobalStore.getUIHandler('updateSpeedButtons'); if (fn) fn();
             if (c._scheduler && c._scheduler.setSpeed) c._scheduler.setSpeed(1);
         }
     });

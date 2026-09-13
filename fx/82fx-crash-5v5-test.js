@@ -2,6 +2,7 @@
 export const VER = 'fx/82fx-crash-5v5-test.js V6.1.0';
 
 import { STORE_ACTION_TYPES, CAMP_TYPES, ROLE_TYPES } from '../infra/56-battle-enums.js';
+import { GlobalStore } from '../infra/54-global-store.js';
 import { markGridShake } from '../render/32-grid-render.js';
 import { snapshotUnitCellRobust, getUnitCell } from './90fx-ref-manager.js';
 
@@ -291,6 +292,7 @@ export function showMeleeMiss(unitA, unitD, speed, getPausedFn) {
     const nx = dx / dist, ny = dy / dist;
     const approach = dist - rectD.width * 0.5;
 
+    // 未命中配色：半透明灰 + 虚线边框，和命中(蓝)/闪避(金)区分，表达"扑空"
     const clone = cellA.cloneNode(true);
     clone.classList.remove('ready', 'acted');
     clone.removeAttribute('data-flash');
@@ -304,23 +306,30 @@ export function showMeleeMiss(unitA, unitD, speed, getPausedFn) {
         height: ${rectA.height}px;
         z-index: 99999;
         margin: 0;
-        transition: transform 0.25s ease-out;
-        opacity: 1;
+        transition: transform 0.7s cubic-bezier(0.33, 0, 0.67, 1);
+        opacity: 0.75;
         visibility: visible;
         display: flex;
         transform: none;
-        border: 2px solid #bbb;
+        background: #cfcfcf;
+        border: 2px dashed #888;
         border-radius: 5px;
         box-sizing: border-box;
         pointer-events: none;
     `;
     document.body.appendChild(clone);
 
+    // 原格进入扑空态：和命中飞撞一样隐藏原格，避免"人变两个"
+    const flyMode = GlobalStore.get('crashMode') || 'fly';
     const ctx = GlobalStore.get('playerContext');
     if (ctx && ctx.store) {
-        // 不在特效内清除 flash，保持蓝色闪示直到攻击组结束
-        ctx.store.dispatch({ type: STORE_ACTION_TYPES.SET_VISUAL, uid: unitA.uid, _acted: true });
+        Object.assign(unitA.state, { _flyMode: flyMode });
+        ctx.store.dispatch({ type: STORE_ACTION_TYPES.SET_VISUAL, uid: unitA.uid, _acted: true, _flyMode: flyMode });
     }
+
+    // 时长随倍速缩放；基础值放大，正常速度下能看清"扑空"全程
+    const flyDur = 700 * (speed / 1000);
+    const returnDur = 500 * (speed / 1000);
 
     // 前冲
     requestAnimationFrame(() => {
@@ -329,11 +338,15 @@ export function showMeleeMiss(unitA, unitD, speed, getPausedFn) {
 
     setTimeout(() => {
         if (getPausedFn && getPausedFn()) { return; }
-        clone.style.transition = 'transform 0.2s ease-in';
+        clone.style.transition = `transform ${returnDur}ms ease-in`;
         clone.style.transform = 'translate(0,0)';
-    }, 250);
+    }, flyDur);
 
     setTimeout(() => {
         if (clone.parentNode) clone.remove();
-    }, 480);
+        if (ctx && ctx.store) {
+            Object.assign(unitA.state, { _flyMode: null });
+            ctx.store.dispatch({ type: STORE_ACTION_TYPES.SET_VISUAL, uid: unitA.uid, _flyMode: null });
+        }
+    }, flyDur + returnDur + 200);
 }
