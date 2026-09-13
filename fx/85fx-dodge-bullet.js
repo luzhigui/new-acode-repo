@@ -1,12 +1,11 @@
-// V6.1.0 | ~26100 bytes | 2026-09-09 特效层解耦：移除原格样式保存/恢复，clone 后即脱离；原格隐藏由 store/renderGrid 驱动
-export const VER = 'fx/85fx-dodge-bullet.js V6.1.0';
+// V6.1.1 | 2026-09-13 统一时间层：本地 wait/rAF/setInterval 换 clock；删 isPaused 操作（改由 await 链阻止推进）
+export const VER = 'fx/85fx-dodge-bullet.js V6.1.1';
 
 import { showComicBubble } from './80fx-common-5v5-test.js';
 import { GlobalStore } from '../infra/54-global-store.js';
 import { STORE_ACTION_TYPES, CAMP_TYPES } from '../infra/56-battle-enums.js';
 import { snapshotUnitCellRobust, getUnitCell } from './90fx-ref-manager.js';
-
-function wait(ms) { return new Promise(r => setTimeout(r, GlobalStore.get('fastForwardActive') ? 1 : ms)); }
+import { clock } from '../infra/52-clock.js';
 
 function createZigzagLightning() {
     const svgNS = "http://www.w3.org/2000/svg";
@@ -129,7 +128,7 @@ function createCounterStorm(x, y) {
 
 function triggerShake() {
     document.body.classList.add('shake-screen');
-    setTimeout(() => document.body.classList.remove('shake-screen'), 200);
+    clock.wait(200).then(() => document.body.classList.remove('shake-screen'));
 }
 
 // 构建克隆体：基于 innerHTML 与固定样式，不继承原格任何状态
@@ -164,9 +163,9 @@ export async function showDodgeBulletTime(attacker, defender, reboundDmg) {
     let isSkipped = false;
     let cleanupElements = [];
     const ctx = GlobalStore.get('playerContext');
-    if (ctx) ctx.isPaused = true;
     let resolved = false;
 
+    // 真实时间兜底：防止任何原因导致 clock 不推进时永久卡住
     const timeoutId = setTimeout(() => {
         if (!resolved) { console.warn('[子弹时间] 超时，强制结束'); isSkipped = true; cleanup(); resolved = true; }
     }, TIMEOUT_MS);
@@ -181,14 +180,12 @@ export async function showDodgeBulletTime(attacker, defender, reboundDmg) {
         if (cloneD) { cloneD.remove(); cloneD = null; }
         if (ctx && ctx.store) {
             if (attacker) {
-                ctx.store.dispatch({ type: STORE_ACTION_TYPES.SET_VISUAL, uid: attacker.uid, _flyMode: null });
+                ctx.store.dispatch({ type: STORE_ACTION_TYPES.SET_VISUAL, uid: attacker.uid, _renderFlyMode: null });
                 ctx.store.dispatch({ type: STORE_ACTION_TYPES.CLEAR_UNIT_FLASH, uid: attacker.uid });
-                Object.assign(attacker.state, { _flyMode: null });
             }
             if (defender) {
-                ctx.store.dispatch({ type: STORE_ACTION_TYPES.SET_VISUAL, uid: defender.uid, _flyMode: null });
+                ctx.store.dispatch({ type: STORE_ACTION_TYPES.SET_VISUAL, uid: defender.uid, _renderFlyMode: null });
                 ctx.store.dispatch({ type: STORE_ACTION_TYPES.CLEAR_UNIT_FLASH, uid: defender.uid });
-                Object.assign(defender.state, { _flyMode: null });
             }
             ctx.updateUI();
         }
@@ -206,15 +203,13 @@ export async function showDodgeBulletTime(attacker, defender, reboundDmg) {
         const htmlA = cellA.innerHTML;
         const htmlD = cellD.innerHTML;
 
-        // 设置 _flyMode，让 renderGrid 重建时隐藏原格（fly 模式透明，ghost 模式虚影）
+        // 设置 _renderFlyMode，让 renderGrid 重建时隐藏原格（fly 模式透明，ghost 模式虚影）
         const flyMode = GlobalStore.get('crashMode') || 'ghost';
         if (ctx && ctx.store) {
-            Object.assign(attacker.state, { _flyMode: flyMode });
-            Object.assign(defender.state, { _flyMode: flyMode });
             ctx.store.dispatch({ type: STORE_ACTION_TYPES.CLEAR_UNIT_FLASH, uid: attacker.uid });
             ctx.store.dispatch({ type: STORE_ACTION_TYPES.CLEAR_UNIT_FLASH, uid: defender.uid });
-            ctx.store.dispatch({ type: STORE_ACTION_TYPES.SET_VISUAL, uid: attacker.uid, _acted: true, _flyMode: flyMode });
-            ctx.store.dispatch({ type: STORE_ACTION_TYPES.SET_VISUAL, uid: defender.uid, _acted: true, _flyMode: flyMode });
+            ctx.store.dispatch({ type: STORE_ACTION_TYPES.SET_VISUAL, uid: attacker.uid, _acted: true, _renderFlyMode: flyMode });
+            ctx.store.dispatch({ type: STORE_ACTION_TYPES.SET_VISUAL, uid: defender.uid, _acted: true, _renderFlyMode: flyMode });
             ctx.updateUI();
         }
 
@@ -233,7 +228,6 @@ export async function showDodgeBulletTime(attacker, defender, reboundDmg) {
             cleanup();
             resolved = true;
             GlobalStore.set('bulletTimeActive', false);
-            if (ctx) ctx.isPaused = false;
         });
         document.body.appendChild(skipBtn);
         cleanupElements.push(skipBtn);
@@ -241,7 +235,7 @@ export async function showDodgeBulletTime(attacker, defender, reboundDmg) {
         // 阶段1：闪电劈开画面，进入子弹时间
         const lightning = createZigzagLightning();
         cleanupElements.push(lightning);
-        await wait(400);
+        await clock.wait(400);
         if (isSkipped) { cleanup(); return; }
 
         // 黑幕
@@ -252,7 +246,7 @@ export async function showDodgeBulletTime(attacker, defender, reboundDmg) {
             + 'background:rgba(0,0,0,0.92);z-index:9999;pointer-events:none;';
         document.body.appendChild(mask);
         cleanupElements.push(mask);
-        await wait(200);
+        await clock.wait(200);
         if (isSkipped) { cleanup(); return; }
 
         // 反击者克隆体（从右侧飞入）
@@ -290,50 +284,36 @@ export async function showDodgeBulletTime(attacker, defender, reboundDmg) {
         const startAX = pos.ax - innerWidth*0.06;
         const startAY = pos.ay - innerHeight*0.06;
 
-        const kanzhao = showComicBubble('看招！', startAX + 40, startAY + 10, '', 2500);
+        const kanzhao = showComicBubble('看招！', startAX + 40, startAY + 10, '');
         if (kanzhao) kanzhao.setAttribute('data-fx', 'temporary');
         cleanupElements.push(kanzhao);
 
         // 攻击者进场
-        await new Promise(res => {
-            const t0 = performance.now();
-            function step(now) {
-                if (isSkipped) { res(); return; }
-                const t = Math.min(1, (now - t0) / 500);
-                cloneA.style.left = (startAX + (pos.ax - startAX) * t) + 'px';
-                cloneA.style.top = (startAY + (pos.ay - startAY) * t) + 'px';
-                cloneA.style.transform = `scale(${0.6 + 0.5 * t})`;
-                if (t < 1) requestAnimationFrame(step);
-                else res();
-            }
-            requestAnimationFrame(step);
+        await clock.animate(500, (t) => {
+            if (isSkipped) return;
+            cloneA.style.left = (startAX + (pos.ax - startAX) * t) + 'px';
+            cloneA.style.top = (startAY + (pos.ay - startAY) * t) + 'px';
+            cloneA.style.transform = `scale(${0.6 + 0.5 * t})`;
         });
         if (isSkipped) { cleanup(); return; }
 
-        await wait(100);
+        await clock.wait(100);
         if (isSkipped) { cleanup(); return; }
 
         const bubbleY = defCenterY - rectD.height/2 - 100;
-        const openBubble = showComicBubble('开打开打！', defCenterX, bubbleY, 'bubble-arrow-up', 3000);
+        const openBubble = showComicBubble('开打开打！', defCenterX, bubbleY, 'bubble-arrow-up');
         if (openBubble) openBubble.setAttribute('data-fx', 'temporary');
         cleanupElements.push(openBubble);
 
         // 防御者进场
-        await new Promise(res => {
-            const t0 = performance.now();
-            function step(now) {
-                if (isSkipped) { res(); return; }
-                const t = Math.min(1, (now - t0) / 500);
-                cloneD.style.left = (innerWidth + (pos.dx - innerWidth) * t) + 'px';
-                cloneD.style.transform = `scale(${0.8 + 0.4 * t})`;
-                if (t < 1) requestAnimationFrame(step);
-                else res();
-            }
-            requestAnimationFrame(step);
+        await clock.animate(500, (t) => {
+            if (isSkipped) return;
+            cloneD.style.left = (innerWidth + (pos.dx - innerWidth) * t) + 'px';
+            cloneD.style.transform = `scale(${0.8 + 0.4 * t})`;
         });
         if (isSkipped) { cleanup(); return; }
 
-        await wait(600);
+        await clock.wait(600);
         if (isSkipped) { cleanup(); return; }
 
         // 屏息凝视
@@ -347,7 +327,7 @@ export async function showDodgeBulletTime(attacker, defender, reboundDmg) {
         storm.setAttribute('data-fx', 'temporary');
         cleanupElements.push(storm);
         document.body.appendChild(storm);
-        await wait(3000);
+        await clock.wait(3000);
         if (isSkipped) { cleanup(); return; }
 
         glow.remove();
@@ -372,13 +352,14 @@ export async function showDodgeBulletTime(attacker, defender, reboundDmg) {
 
         const updateFlame = () => updateFlamePosition(flame, parseFloat(cloneA.style.left), parseFloat(cloneA.style.top), flameOffsetX, flameOffsetY);
 
-        let shakeCount = 0;
-        const shakeTimer = setInterval(() => {
+        // 抖动：900ms 内 scale 0.9→1.2 + 随机位移；冲刺开始时置 shakeStopped 停用
+        let shakeStopped = false;
+        clock.animate(900, (p) => {
+            if (shakeStopped || isSkipped) return;
             const offX = (Math.random()-0.5)*4;
             const offY = (Math.random()-0.5)*4;
-            cloneA.style.transform = `scale(${0.9 + shakeCount/150}) translate(${offX}px, ${offY}px)`;
-            if (++shakeCount > 45) clearInterval(shakeTimer);
-        }, 20);
+            cloneA.style.transform = `scale(${0.9 + p * 0.3}) translate(${offX}px, ${offY}px)`;
+        });
 
         // 快速冲刺
         const startX = parseFloat(cloneA.style.left);
@@ -387,48 +368,34 @@ export async function showDodgeBulletTime(attacker, defender, reboundDmg) {
         const dy = pos.dy - pos.ay;
         const midX = startX + dx * 0.65;
         const midY = startY + dy * 0.65;
-        await new Promise(res => {
-            const dur = 1500, t0 = performance.now();
-            function step(now) {
-                if (isSkipped) { res(); return; }
-                const t = Math.min(1, (now - t0) / dur);
-                const cx = startX + (midX - startX) * t;
-                const cy = startY + (midY - startY) * t;
-                cloneA.style.left = cx+'px';
-                cloneA.style.top = cy+'px';
-                updateFlame();
-                const ccx = cx + cloneA.offsetWidth/2;
-                const ccy = cy + cloneA.offsetHeight/2;
-                updateWindSplit(windLines, ccx, ccy);
-                if (t<1) requestAnimationFrame(step);
-                else res();
-            }
-            requestAnimationFrame(step);
+        await clock.animate(1500, (t) => {
+            if (isSkipped) return;
+            const cx = startX + (midX - startX) * t;
+            const cy = startY + (midY - startY) * t;
+            cloneA.style.left = cx+'px';
+            cloneA.style.top = cy+'px';
+            updateFlame();
+            const ccx = cx + cloneA.offsetWidth/2;
+            const ccy = cy + cloneA.offsetHeight/2;
+            updateWindSplit(windLines, ccx, ccy);
         });
         if (isSkipped) { cleanup(); return; }
 
         // 慢速接近
         const slowX = midX + dx * 0.06;
         const slowY = midY + dy * 0.06;
-        clearInterval(shakeTimer);
+        shakeStopped = true;
         cloneA.style.transform = 'scale(1.1)';
-        await new Promise(res => {
-            const dur = 600, t0 = performance.now();
-            function step(now) {
-                if (isSkipped) { res(); return; }
-                const t = Math.min(1, (now - t0) / dur);
-                const cx = midX + (slowX - midX) * t;
-                const cy = midY + (slowY - midY) * t;
-                cloneA.style.left = cx+'px';
-                cloneA.style.top = cy+'px';
-                updateFlame();
-                const ccx = cx + cloneA.offsetWidth/2;
-                const ccy = cy + cloneA.offsetHeight/2;
-                updateWindSplit(windLines, ccx, ccy);
-                if (t<1) requestAnimationFrame(step);
-                else res();
-            }
-            requestAnimationFrame(step);
+        await clock.animate(600, (t) => {
+            if (isSkipped) return;
+            const cx = midX + (slowX - midX) * t;
+            const cy = midY + (slowY - midY) * t;
+            cloneA.style.left = cx+'px';
+            cloneA.style.top = cy+'px';
+            updateFlame();
+            const ccx = cx + cloneA.offsetWidth/2;
+            const ccy = cy + cloneA.offsetHeight/2;
+            updateWindSplit(windLines, ccx, ccy);
         });
         if (isSkipped) { cleanup(); return; }
 
@@ -440,11 +407,11 @@ export async function showDodgeBulletTime(attacker, defender, reboundDmg) {
         // 防御者前顶
         cloneD.style.transition = 'transform 0.15s ease-out';
         cloneD.style.transform = 'scale(1.15) translate(10px, 10px)';
-        await wait(150);
+        await clock.wait(150);
         if (isSkipped) { cleanup(); return; }
         cloneD.style.transition = 'transform 0.2s ease-in';
         cloneD.style.transform = 'scale(1.25) translate(-40px, -40px)';
-        await wait(220);
+        await clock.wait(220);
         if (isSkipped) { cleanup(); return; }
 
         // 阶段3：双方碰撞
@@ -470,55 +437,49 @@ export async function showDodgeBulletTime(attacker, defender, reboundDmg) {
         dmg.style.animation = 'dmgBounce 0.8s ease-out forwards';
         document.body.appendChild(dmg);
         cleanupElements.push(dmg);
-        setTimeout(() => dmg.remove(), 800);
+        clock.wait(800).then(() => dmg.remove());
         triggerShake();
 
         // 阶段4：攻击者被反震击飞
         const retX = parseFloat(cloneA.style.left);
         const retY = parseFloat(cloneA.style.top);
         const retreatTotal = 300 + 800 + 800;
-        const retreatStart = performance.now();
         const retreatSlow = 300, retreatSlowRatio = 0.06;
         const retreatAccel = 800, retreatAccelRatio = 0.2;
         const retreatFast = 800;
 
-        await new Promise(res => {
-            function step(now) {
-                if (isSkipped) { res(); return; }
-                const elapsed = now - retreatStart;
-                if (elapsed >= retreatTotal) {
-                    cloneA.style.left = (pos.ax + 30) + 'px';
-                    cloneA.style.top = (pos.ay + 20) + 'px';
-                    cloneA.style.transform = 'scale(0.5) rotate(180deg)';
-                    res();
-                    return;
-                }
-                let curX, curY, curTrans;
-                if (elapsed < retreatSlow) {
-                    const t = elapsed / retreatSlow;
-                    curX = retX - dx * retreatSlowRatio * t;
-                    curY = retY - dy * retreatSlowRatio * t;
-                    curTrans = 'scale(1.0) rotate(-2deg)';
-                } else if (elapsed < retreatSlow + retreatAccel) {
-                    const t = (elapsed - retreatSlow) / retreatAccel;
-                    const e = 1 - Math.pow(1 - t, 2);
-                    curX = retX - dx * (retreatSlowRatio + retreatAccelRatio * e);
-                    curY = retY - dy * (retreatSlowRatio + retreatAccelRatio * e);
-                    curTrans = `scale(${1.0 - t*0.3}) rotate(${-2 - t*8}deg)`;
-                } else {
-                    const t = (elapsed - retreatSlow - retreatAccel) / retreatFast;
-                    const baseX = retX - dx * (retreatSlowRatio + retreatAccelRatio);
-                    const baseY = retY - dy * (retreatSlowRatio + retreatAccelRatio);
-                    curX = baseX + (pos.ax + 30 - baseX) * t;
-                    curY = baseY + (pos.ay + 20 - baseY) * t;
-                    curTrans = `scale(${0.7 - t*0.2}) rotate(${t*180}deg)`;
-                }
-                cloneA.style.left = curX + 'px';
-                cloneA.style.top = curY + 'px';
-                cloneA.style.transform = curTrans;
-                requestAnimationFrame(step);
+        await clock.animate(retreatTotal, (p) => {
+            if (isSkipped) return;
+            if (p >= 1) {
+                cloneA.style.left = (pos.ax + 30) + 'px';
+                cloneA.style.top = (pos.ay + 20) + 'px';
+                cloneA.style.transform = 'scale(0.5) rotate(180deg)';
+                return;
             }
-            requestAnimationFrame(step);
+            const elapsed = p * retreatTotal;
+            let curX, curY, curTrans;
+            if (elapsed < retreatSlow) {
+                const t = elapsed / retreatSlow;
+                curX = retX - dx * retreatSlowRatio * t;
+                curY = retY - dy * retreatSlowRatio * t;
+                curTrans = 'scale(1.0) rotate(-2deg)';
+            } else if (elapsed < retreatSlow + retreatAccel) {
+                const t = (elapsed - retreatSlow) / retreatAccel;
+                const e = 1 - Math.pow(1 - t, 2);
+                curX = retX - dx * (retreatSlowRatio + retreatAccelRatio * e);
+                curY = retY - dy * (retreatSlowRatio + retreatAccelRatio * e);
+                curTrans = `scale(${1.0 - t*0.3}) rotate(${-2 - t*8}deg)`;
+            } else {
+                const t = (elapsed - retreatSlow - retreatAccel) / retreatFast;
+                const baseX = retX - dx * (retreatSlowRatio + retreatAccelRatio);
+                const baseY = retY - dy * (retreatSlowRatio + retreatAccelRatio);
+                curX = baseX + (pos.ax + 30 - baseX) * t;
+                curY = baseY + (pos.ay + 20 - baseY) * t;
+                curTrans = `scale(${0.7 - t*0.2}) rotate(${t*180}deg)`;
+            }
+            cloneA.style.left = curX + 'px';
+            cloneA.style.top = curY + 'px';
+            cloneA.style.transform = curTrans;
         });
         if (isSkipped) { cleanup(); return; }
 
@@ -526,27 +487,20 @@ export async function showDodgeBulletTime(attacker, defender, reboundDmg) {
 
         // 防御者返回动画
         const returnDuration = 600;
-        const returnStart = performance.now();
         const currentDLeft = parseFloat(cloneD.style.left);
         const currentDTop = parseFloat(cloneD.style.top);
-        await new Promise(res => {
-            function step(now) {
-                if (isSkipped) { res(); return; }
-                const t = Math.min(1, (now - returnStart) / returnDuration);
-                const curLeft = currentDLeft + (defInitialLeft - currentDLeft) * t;
-                const curTop = currentDTop + (defInitialTop - currentDTop) * t;
-                cloneD.style.left = curLeft + 'px';
-                cloneD.style.top = curTop + 'px';
-                cloneD.style.transform = `scale(${0.9 + 0.1 * t})`;
-                if (t < 1) requestAnimationFrame(step);
-                else res();
-            }
-            requestAnimationFrame(step);
+        await clock.animate(returnDuration, (t) => {
+            if (isSkipped) return;
+            const curLeft = currentDLeft + (defInitialLeft - currentDLeft) * t;
+            const curTop = currentDTop + (defInitialTop - currentDTop) * t;
+            cloneD.style.left = curLeft + 'px';
+            cloneD.style.top = curTop + 'px';
+            cloneD.style.transform = `scale(${0.9 + 0.1 * t})`;
         });
         if (isSkipped) { cleanup(); return; }
 
         const defBubbleY = defInitialTop + rectD.height + 20;
-        const grinBubble = showComicBubble('哼，一个能打的都没有', defCenterX, defBubbleY, 'bubble-arrow-up', 4000);
+        const grinBubble = showComicBubble('哼，一个能打的都没有', defCenterX, defBubbleY, 'bubble-arrow-up');
         cleanupElements.push(grinBubble);
 
         // 攻击者飞走
@@ -554,44 +508,36 @@ export async function showDodgeBulletTime(attacker, defender, reboundDmg) {
         const flyAwayStartY = parseFloat(cloneA.style.top);
         const maxDistX = innerWidth * 0.10;
         const maxDistY = innerHeight * 0.10;
-        await new Promise(res => {
-            const t0 = performance.now();
-            function step(now) {
-                if (isSkipped) { res(); return; }
-                const t = Math.min(1, (now - t0) / 2000);
-                const ease = t * t;
-                cloneA.style.left = (flyAwayStartX - maxDistX * ease) + 'px';
-                cloneA.style.top = (flyAwayStartY - maxDistY * ease) + 'px';
-                const scale = Math.max(0.12, 0.5 * (1 - t * 0.76));
-                cloneA.style.transform = `scale(${scale}) rotate(${t * 17 * 360}deg)`;
-                cloneA.style.opacity = 1 - t * (1 - 0.4);
-                if (t < 1) requestAnimationFrame(step);
-                else res();
-            }
-            requestAnimationFrame(step);
+        await clock.animate(2000, (t) => {
+            if (isSkipped) return;
+            const ease = t * t;
+            cloneA.style.left = (flyAwayStartX - maxDistX * ease) + 'px';
+            cloneA.style.top = (flyAwayStartY - maxDistY * ease) + 'px';
+            const scale = Math.max(0.12, 0.5 * (1 - t * 0.76));
+            cloneA.style.transform = `scale(${scale}) rotate(${t * 17 * 360}deg)`;
+            cloneA.style.opacity = 1 - t * (1 - 0.4);
         });
         if (isSkipped) { cleanup(); return; }
 
         const attBubbleX = pos.ax + 60;
         const attBubbleY = pos.ay + 40;
-        const returnBubble = showComicBubble('啊，我一定会回来的！', attBubbleX, attBubbleY, 'bubble-arrow-down', 5000);
+        const returnBubble = showComicBubble('啊，我一定会回来的！', attBubbleX, attBubbleY, 'bubble-arrow-down');
         cleanupElements.push(returnBubble);
 
-        await wait(3000);
+        await clock.wait(3000);
         if (isSkipped) { cleanup(); return; }
 
         mask.classList.remove('active-full');
         cloneA.style.opacity = '0';
         cloneD.style.opacity = '0';
         shockwave.style.opacity = '0';
-        await wait(200);
+        await clock.wait(200);
 
         cleanup();
     } catch (e) {
         cleanup();
     } finally {
         GlobalStore.set('bulletTimeActive', false);
-        if (ctx) ctx.isPaused = false;
         clearTimeout(timeoutId);
         resolved = true;
     }

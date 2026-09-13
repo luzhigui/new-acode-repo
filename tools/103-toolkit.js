@@ -1,5 +1,7 @@
-// V6.0.0 | ~16500 bytes | 2026-08-22 适配 106 分组合并（prefix → prefixes 数组）
-export const VER = 'tools/103-toolkit.js V6.0.0';
+// V6.2.1 | ~34000 bytes | 2026-09-13 修复：手机 WebView 选目录后误抛 AbortError 被当"取消"导致不下载，改为回退逐个下载
+// V6.2.0 | 2026-09-13 「一键全下」优先 File System Access API 选目录直写（只弹一次），不支持/失败回退逐个下载
+// V6.1.0 | 2026-09-12 新增「一键全下(txt)」：串行触发全部分包下载，自动跳过含读取失败的包
+export const VER = 'tools/103-toolkit.js V6.2.1';
 
 import { AI_EXCLUDE, ALL_PROJECT_FILES, FILE_GROUPS, GROUP_PROMPTS, AI_INTERFACE_NOTE } from './106-ai-pack-config.js';
 
@@ -431,6 +433,7 @@ function escapeHtml(text) {
                 <div class="batch-code">${escapeHtml(fullPayload)}</div>
             `;
 
+            card.dataset.batchCode = fullCode; // 供"选目录直写"复用纯代码内容（与单包下载一致）
             const copyBtn = card.querySelector('.copy-batch-btn');
             copyBtn.addEventListener('click', async () => {
                 if (copyBtn.classList.contains('copied')) return;
@@ -464,6 +467,73 @@ function escapeHtml(text) {
 
         statusDiv.textContent = `✅ 已生成 ${mergedBatches.length} 个复制包（按主题分组）`;
         document.getElementById('fcBtnAutoSend').style.display = 'inline-block';
+        document.getElementById('fcBtnDownloadAll').style.display = 'inline-block';
+    });
+
+    // 一键全下：优先用 File System Access API 选目录直写（只弹一次，无逐包保存框）；浏览器不支持或用户取消目录选择时回退到逐个触发下载
+    const downloadAllBtn = document.getElementById('fcBtnDownloadAll');
+    let downloadingAll = false;
+    const sleep = ms => new Promise(r => setTimeout(r, ms));
+    downloadAllBtn.addEventListener('click', async () => {
+        if (downloadingAll) return;
+        const cards = Array.from(document.querySelectorAll('#fcBatches .batch-card'));
+        const targets = cards.filter(c => !c.classList.contains('read-fail')); // 含读取失败的包无真实内容，跳过
+        if (targets.length === 0) { alert('没有可下载的包'); return; }
+        downloadingAll = true;
+        downloadAllBtn.disabled = true;
+        const originalText = downloadAllBtn.textContent;
+        // file:// 下无 showDirectoryPicker，逐个下载必然弹框且默认下载文件夹。给明确指引而非直接失败。
+        if (window.location && window.location.protocol === 'file:') {
+            statusDiv.textContent = '⚠️ file:// 下无法指定下载位置。请双击 tools/启动工具箱.bat，用 http://localhost 打开后再点此按钮';
+            downloadAllBtn.textContent = originalText;
+            downloadAllBtn.disabled = false;
+            downloadingAll = false;
+            return;
+        }
+        try {
+            // 方案A：选目录直写（Chrome/Edge 桌面支持，手机 Acode 一般不支持）
+            if (window.showDirectoryPicker) {
+                let dir;
+                try {
+                    dir = await window.showDirectoryPicker({ mode: 'readwrite' });
+                } catch (pickerErr) {
+                    // 手机 WebView 的 showDirectoryPicker 即使选中目录也可能误抛 AbortError，
+                    // 不能当"用户取消"直接结束，否则"一键全下"没产物。统一走回退逐个下载。
+                    throw new Error((pickerErr && pickerErr.name === 'AbortError') ? '目录选择未完成，已切换为逐个下载' : ((pickerErr && pickerErr.message) || '目录直写不可用'));
+                }
+                for (let i = 0; i < targets.length; i++) {
+                    const fileName = `batch-${i + 1}.txt`;
+                    const content = targets[i].dataset.batchCode || getBatchText(targets[i]);
+                    downloadAllBtn.textContent = `写入 ${i + 1}/${targets.length}...`;
+                    statusDiv.textContent = `📥 正在写入 ${fileName}`;
+                    const handle = await dir.getFileHandle(fileName, { create: true });
+                    const writable = await handle.createWritable();
+                    await writable.write(content);
+                    await writable.close();
+                }
+                const skipped = cards.length - targets.length;
+                statusDiv.textContent = `✅ 已写入 ${targets.length} 个包到所选目录` + (skipped > 0 ? `（跳过 ${skipped} 个含读取失败的包）` : '');
+                downloadAllBtn.textContent = originalText;
+                downloadAllBtn.disabled = false;
+                downloadingAll = false;
+                return;
+            }
+        } catch (e) {
+            statusDiv.textContent = `目录直写失败（${(e && e.message) || e}），回退为逐个下载`;
+        }
+        // 方案B（回退）：串行触发各分包下载按钮，间隔 500ms 规避浏览器多文件拦截
+        downloadAllBtn.textContent = originalText;
+        for (let i = 0; i < targets.length; i++) {
+            downloadAllBtn.textContent = `下载中 ${i + 1}/${targets.length}...`;
+            statusDiv.textContent = `📥 正在下载包 ${i + 1}/${targets.length}（弹出保存框请确认）`;
+            targets[i].querySelector('.download-batch-btn').click();
+            if (i < targets.length - 1) await sleep(500);
+        }
+        const skipped = cards.length - targets.length;
+        statusDiv.textContent = `✅ 已触发 ${targets.length} 个包下载` + (skipped > 0 ? `（跳过 ${skipped} 个含读取失败的包）` : '');
+        downloadAllBtn.textContent = originalText;
+        downloadAllBtn.disabled = false;
+        downloadingAll = false;
     });
 
     // 序列发送器（使用GROUP_PROMPTS）

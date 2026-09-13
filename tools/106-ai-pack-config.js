@@ -1,6 +1,7 @@
-// V6.0.3 | ~9000 bytes | 2026-09-11 补清单漏登9个正式文件：ui/71-74（引导+三套开场CG）、player/48-49、fx/90、tests/123static-scan、tests/124rule-recipes
+// V6.0.4 | ~9100 bytes | 2026-09-13 登记 tools/106b-server.js（本地静态服务器，供 file:// 下启用目录直写）
+// V6.0.3 | 2026-09-11 补清单漏登9个正式文件：ui/71-74（引导+三套开场CG）、player/48-49、fx/90、tests/123static-scan、tests/124rule-recipes
 // V6.0.2 | 2026-09-09 拆出 player/ 为独立「播放器」组（引擎 46→38）
-export const VER = 'tools/106-ai-pack-config.js V6.0.3';
+export const VER = 'tools/106-ai-pack-config.js V6.0.4';
 
 // AI 精简模式踢除清单（已弃用）
 // 2026-09-04 用户决定不再精简：特效/音效/错误面板/入口页全部随包发送。
@@ -71,7 +72,7 @@ export const ALL_PROJECT_FILES = [
     '../tests/140-baseline.js', '../tests/baselines/baseline-v1.json',
     // tools（开发工具箱）
     '../tools/102-toolkit.html', '../tools/103-toolkit.js', '../tools/104-toolkit-more.js',
-    '../tools/105-shop.html', '../tools/106-ai-pack-config.js',
+    '../tools/105-shop.html', '../tools/106-ai-pack-config.js', '../tools/106b-server.js',
     '../tools/107-battle-log-viewer.js', '../tools/108-hex-dashboard.js',
     '../tools/109-role-balance.js', '../tools/116-role-balance-worker.js', '../tools/117-shared-worker-runner.js', '../tools/110-role-balance-random.html',
     '../tools/112-elite-eval.js', '../tools/113-stats-check.js',

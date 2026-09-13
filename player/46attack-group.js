@@ -1,11 +1,14 @@
-// V6.0.0 | ~8000 bytes | 2026-08-26 特效全部移交 stageActions，本文件只负责文本与格子闪示
-export const VER = 'player/46attack-group.js V6.0.0';
+// player/46attack-group.js
+// V6.1.0 | 2026-09-13 统一时间层：setTimeout/waitWhilePaused 换 clock.wait，forcedSpeed 改 1x 基准时长
+// V6.0.0 | 2026-08-26 特效全部移交 stageActions，本文件只负责文本与格子闪示
+export const VER = 'player/46attack-group.js V6.1.0';
 
 import { GlobalStore, getState } from '../infra/54-global-store.js';
 import { STORE_ACTION_TYPES, FLASH_TYPES, CAMP_TYPES } from '../infra/56-battle-enums.js';
 import { appendLogHTML, autoScrollLog, updateRoundDisplay, playLogLine, appendHiddenDetail, findUnitByUid } from './47renderer.js';
 import { showBoneClaw } from '../fx/81fx-arrows-5v5-test.js';
 import { showDamageFloat } from '../fx/80fx-common-5v5-test.js';
+import { clock } from '../infra/52-clock.js';
 
 export async function handleAttackGroup(c, entry, roundResult, abortSig, isFirstAttackRef) {
     let unitA = findUnitByUid(c, entry.uidA);
@@ -18,13 +21,13 @@ export async function handleAttackGroup(c, entry, roundResult, abortSig, isFirst
     if (unitA && entry.isRest && c.store) {
         c.store.dispatch({ type: STORE_ACTION_TYPES.SET_VISUAL, uid: unitA.uid, _resting: true });
         // 休息特效 3 秒后自动清除
-        setTimeout(() => {
+        clock.wait(3000).then(() => {
             if (!c.store) return;
             const cur = c.store.getState().units.find(u => u.uid === unitA.uid);
             if (cur && cur.state && cur.state._resting) {
                 c.store.dispatch({ type: STORE_ACTION_TYPES.SET_VISUAL, uid: unitA.uid, _resting: false });
             }
-        }, 3000);
+        });
     }
 
     if (unitA && entry.isBlock && c.store) {
@@ -36,39 +39,36 @@ export async function handleAttackGroup(c, entry, roundResult, abortSig, isFirst
         if (c.store) c.store.dispatch({ type: STORE_ACTION_TYPES.SET_FLASH, uid: unitA.uid, flash: FLASH_TYPES.ATTACK });
     }
 
-    const isFF = GlobalStore.get('fastForwardActive');
     const textEntries = entry.entries || [];
     const lineCount = textEntries.length;
-    const speedFactor = isFF ? 0.001 : Math.max(c.speed, 600) / 1000;
-    const offset = isFF ? 1 : (200 * speedFactor);
-    const atkFlashDuration = (isFF ? 1 : (c.speed * lineCount)) + 300 * speedFactor;
-    const defFlashDuration = atkFlashDuration;
+    // flash 持续时长：1x 基准（每行 600ms + 300ms 余量），clock 自动缩放/快进
+    const atkFlashDuration = lineCount * 600 + 300;
 
-    await new Promise(r => setTimeout(r, offset));
-    await c.waitWhilePaused();
+    await clock.wait(200);
     if (abortSig && abortSig.aborted) return { isBattleOver: false };
 
     if (unitD && !entry.isMiss && !entry.isDodge && c.store) {
         c.store.dispatch({ type: STORE_ACTION_TYPES.SET_FLASH, uid: unitD.uid, flash: FLASH_TYPES.DEFEND });
     }
-    let defTimer = null;
+    // 受击方 flash 延迟清除：用 cancel flag 替代 clearTimeout（clock.wait 不可取消）
+    let defTimerCancelled = false;
     if (unitD && !entry.isDodge && !entry.isMiss && c.store) {
-        defTimer = setTimeout(async () => {
-            await c.waitWhilePaused();
+        clock.wait(atkFlashDuration).then(() => {
+            if (defTimerCancelled) return;
             if (c.store && unitD && !entry.isDead) {
                 c.store.dispatch({ type: STORE_ACTION_TYPES.CLEAR_UNIT_FLASH, uid: unitD.uid });
             }
-        }, defFlashDuration);
+        });
     }
 
     let lastDiv = null;
     for (const entry2 of textEntries) {
-        if (abortSig && abortSig.aborted) { if (defTimer) clearTimeout(defTimer); return { isBattleOver: false }; }
+        if (abortSig && abortSig.aborted) { defTimerCancelled = true; return { isBattleOver: false }; }
         const logLevel = getState.logLevel();
         if (logLevel === 'brief' && entry2.type === 'detail') { appendHiddenDetail(entry2.text); continue; }
 
         if (entry2.type === 'damage-text') {
-            lastDiv = await playLogLine(entry2.text, Math.max(c.speed || 1000, 1000));
+            lastDiv = await playLogLine(entry2.text, 1200);
             continue;
         }
 
@@ -85,10 +85,8 @@ export async function handleAttackGroup(c, entry, roundResult, abortSig, isFirst
             }
         }
 
-        const currentSpeed = c.speed || 1000;
-        const forcedSpeed = (entry2.type === 'combat-text' || entry2.type === 'damage-text')
-            ? Math.max(currentSpeed, 600)
-            : Math.floor(currentSpeed * 0.8);
+        // combat-text/damage-text 基准 1200ms，其他 600ms；不再随 speed 变
+        const forcedSpeed = (entry2.type === 'combat-text' || entry2.type === 'damage-text') ? 1200 : 600;
         await playLogLine(entry2.text, forcedSpeed);
         if (!c.userScrolled) autoScrollLog();
 
@@ -103,17 +101,16 @@ export async function handleAttackGroup(c, entry, roundResult, abortSig, isFirst
 
         // 爪击之间极短间隔，形成连续快打节奏
         if (entry2.isClawHit) {
-            await new Promise(r => setTimeout(r, 120));
+            await clock.wait(120);
         }
 
         if (entry2.type === 'detail' || entry2.type === 'info' || entry2.type === 'buff-bonus' || entry2.type === 'buff-splash') {
-            await new Promise(r => setTimeout(r, 120));
+            await clock.wait(120);
         }
     }
 
-    await new Promise(r => setTimeout(r, offset));
-    await c.waitWhilePaused();
-    if (defTimer) clearTimeout(defTimer);
+    await clock.wait(200);
+    defTimerCancelled = true;
     if (unitA && !unitA.state._isDead && c.store) {
         c.store.dispatch({ type: STORE_ACTION_TYPES.CLEAR_UNIT_FLASH, uid: unitA.uid });
         if (!entry.isBlock && !entry.isDodge && !entry.isLinkAttack) {
@@ -124,7 +121,7 @@ export async function handleAttackGroup(c, entry, roundResult, abortSig, isFirst
         c.store.dispatch({ type: STORE_ACTION_TYPES.CLEAR_UNIT_FLASH, uid: unitD.uid });
     }
 
-    updateRoundDisplay(`📜 日志（第${c.UI.round}回合）`);
+    updateRoundDisplay(`📜 日志（第${(c.store ? c.store.getState().round : (c.UI && c.UI.round)) || 1}回合）`);
 
     // 血量事件延迟到特效快结束才应用，避免与受击特效冲突
     if (entry._events && entry._events.length > 0) {

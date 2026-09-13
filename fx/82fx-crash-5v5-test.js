@@ -1,31 +1,29 @@
-// V6.1.0 | ~20100 bytes | 2026-09-09 特效层解耦：全部 cell 引用改为 snapshot + clone，原格子状态由 store/renderGrid 驱动
+// fx/82fx-crash-5v5-test.js
+// V6.1.0 | 2026-09-13 统一时间层：手写 rAF/setTimeout 换 clock，删 speed/getPausedFn 参数
+// V6.1.0 | 2026-09-09 特效层解耦：全部 cell 引用改为 snapshot + clone
 export const VER = 'fx/82fx-crash-5v5-test.js V6.1.0';
 
 import { STORE_ACTION_TYPES, CAMP_TYPES, ROLE_TYPES } from '../infra/56-battle-enums.js';
 import { GlobalStore } from '../infra/54-global-store.js';
 import { markGridShake } from '../render/32-grid-render.js';
 import { snapshotUnitCellRobust, getUnitCell } from './90fx-ref-manager.js';
+import { clock } from '../infra/52-clock.js';
 
 function finishCrash(clone, unitA) {
     if (clone && clone.parentNode) clone.remove();
     const ctx = GlobalStore.get('playerContext');
     if (ctx && ctx.store) {
-        ctx.store.dispatch({ type: STORE_ACTION_TYPES.SET_VISUAL, uid: unitA.uid, _flyMode: null, _acted: true });
+        ctx.store.dispatch({ type: STORE_ACTION_TYPES.SET_VISUAL, uid: unitA.uid, _renderFlyMode: null, _acted: true });
         ctx.store.dispatch({ type: STORE_ACTION_TYPES.CLEAR_UNIT_FLASH, uid: unitA.uid });
-        Object.assign(unitA.state, { _flyMode: null });
-    } else {
-        Object.assign(unitA.state, { _flyMode: null });
     }
     if (ctx) ctx.updateUI();
 }
 
-function showCloseRangeFX(unitA, unitD, role, getPausedFn) {
+function showCloseRangeFX(unitA, unitD, role) {
     const rectA = snapshotUnitCellRobust(unitA);
     const rectD = snapshotUnitCellRobust(unitD);
     if (!rectA || !rectD) return;
     const ax = rectA.x, ay = rectA.y, bx = rectD.x, by = rectD.y;
-    const ndx = bx - ax, ndy = by - ay, ndist = Math.sqrt(ndx*ndx + ndy*ndy);
-    const nnx = ndist > 0 ? ndx / ndist : 0, nny = ndist > 0 ? ndy / ndist : 0;
 
     const icon = document.createElement('div');
     icon.setAttribute('data-fx', 'temporary');
@@ -35,28 +33,20 @@ function showCloseRangeFX(unitA, unitD, role, getPausedFn) {
     else if (role === ROLE_TYPES.FLYER) icon.textContent = '🦅';
     document.body.appendChild(icon);
 
-    let iconStart = null;
-    function flyIcon(ts) {
-        if (getPausedFn && getPausedFn()) { requestAnimationFrame(flyIcon); return; }
-        if (!iconStart) iconStart = ts;
-        let p = Math.min(1, (ts - iconStart) / 800);
-        let x = ax + (bx - ax) * p, y = ay + (by - ay) * p;
-        icon.style.left = x + 'px';
-        icon.style.top = y + 'px';
-        if (p < 1) { requestAnimationFrame(flyIcon); }
-        else {
-            // 近距离图标攻击不颤动，受击反馈由伤害飘字承担
-            setTimeout(() => {
+    clock.animate(800, (p) => {
+        icon.style.left = (ax + (bx - ax) * p) + 'px';
+        icon.style.top = (ay + (by - ay) * p) + 'px';
+        if (p >= 1) {
+            clock.wait(800).then(() => {
                 icon.style.transition = 'opacity 0.8s ease-out';
                 icon.style.opacity = '0';
-                setTimeout(() => { if (icon.parentNode) icon.remove(); }, 800);
-            }, 800);
+                clock.wait(800).then(() => { if (icon.parentNode) icon.remove(); });
+            });
         }
-    }
-    requestAnimationFrame(flyIcon);
+    });
 }
 
-export function showMeleeCrash(unitA, unitD, speed, getPausedFn, onCrash) {
+export function showMeleeCrash(unitA, unitD, onCrash) {
     const rectA = snapshotUnitCellRobust(unitA);
     const rectD = snapshotUnitCellRobust(unitD);
     if (!rectA || !rectD) return;
@@ -72,7 +62,7 @@ export function showMeleeCrash(unitA, unitD, speed, getPausedFn, onCrash) {
     const isClose = (aPos === 1 && dPos === 1) || (aPos === 2 && dPos === 2) || (aPos === 3 && dPos === 3) ||
                   (aPos === 1 && dPos === 2) || (aPos === 2 && dPos === 1) || (aPos === 2 && dPos === 3) || (aPos === 3 && dPos === 2);
     if (isClose) {
-        showCloseRangeFX(unitA, unitD, unitA.role, getPausedFn);
+        showCloseRangeFX(unitA, unitD, unitA.role);
         if (onCrash) onCrash();
         return;
     }
@@ -110,75 +100,51 @@ export function showMeleeCrash(unitA, unitD, speed, getPausedFn, onCrash) {
     clone.querySelectorAll('*').forEach(el => { el.style.color = '#ffffff'; });
     document.body.appendChild(clone);
 
-    // 设置 _flyMode，renderGrid 自动处理原格子（fly=透明，ghost=虚影）
+    // 设置 _renderFlyMode，renderGrid 自动处理原格子（fly=透明，ghost=虚影）
     if (ctx && ctx.store) {
-        Object.assign(unitA.state, { _flyMode: flyMode });
-        // 不再清除攻击者 flash，避免蓝色闪示过早消失；由 finishCrash/handleAttackGroup 统一清理
-        ctx.store.dispatch({ type: STORE_ACTION_TYPES.SET_VISUAL, uid: unitA.uid, _acted: true, _flyMode: flyMode });
+        ctx.store.dispatch({ type: STORE_ACTION_TYPES.SET_VISUAL, uid: unitA.uid, _acted: true, _renderFlyMode: flyMode });
     }
 
-    const chargeDur = 800 * (speed / 1000);
-    const crashDur = 900 * (speed / 1000);
-    const returnDur = 800 * (speed / 1000);
+    const chargeDur = 800;
+    const crashDur = 900;
+    const returnDur = 800;
 
     // ghost 模式蓄力缩放 clone
+    const startFly = () => {
+        clock.animate(crashDur, (p) => {
+            const ease = 1 - Math.pow(1 - p, 3);
+            const flown = flyDist * ease;
+            clone.style.left = (rectA.left + nx * flown) + 'px';
+            clone.style.top = (rectA.top + ny * flown) + 'px';
+            if (p >= 1) {
+                if (onCrash) onCrash();
+                const crashX = rectA.left + nx * flyDist, crashY = rectA.top + ny * flyDist;
+                clock.animate(returnDur, (p2) => {
+                    const ease2 = 1 - Math.pow(1 - p2, 4);
+                    clone.style.left = (crashX + (rectA.left - crashX) * ease2) + 'px';
+                    clone.style.top = (crashY + (rectA.top - crashY) * ease2) + 'px';
+                    if (p2 >= 1) finishCrash(clone, unitA);
+                });
+            }
+        });
+    };
+
     if (flyMode === 'ghost') {
         clone.style.transition = 'transform 0.3s ease-out';
         clone.style.transform = 'scale(1.15)';
-    }
-
-    let startC = null;
-    function phaseCharge(ts) {
-        if (getPausedFn && getPausedFn()) { requestAnimationFrame(phaseCharge); return; }
-        if (!startC) startC = ts;
-        let p = Math.min(1, (ts - startC) / chargeDur);
-        if (p < 1) { requestAnimationFrame(phaseCharge); }
-        else {
-            clone.style.transition = '';
-            clone.style.transform = 'none';
-            phaseFly(0);
-        }
-    }
-
-    function phaseFly(ts) {
-        if (!ts) { requestAnimationFrame(phaseFly); return; }
-        if (getPausedFn && getPausedFn()) { requestAnimationFrame(phaseFly); return; }
-        const start = clone._flyStart || (clone._flyStart = ts);
-        const p = Math.min(1, (ts - start) / crashDur);
-        const ease = 1 - Math.pow(1 - p, 3);
-        const flown = flyDist * ease;
-        clone.style.left = (rectA.left + nx * flown) + 'px';
-        clone.style.top = (rectA.top + ny * flown) + 'px';
-        if (p < 1) { requestAnimationFrame(phaseFly); }
-        else {
-            if (onCrash) onCrash();
-            const crashX = rectA.left + nx * flyDist, crashY = rectA.top + ny * flyDist;
-            phaseReturn(0, crashX, crashY);
-        }
-    }
-
-    function phaseReturn(ts, crashX, crashY) {
-        if (!ts) { requestAnimationFrame(() => phaseReturn(performance.now(), crashX, crashY)); return; }
-        if (getPausedFn && getPausedFn()) { requestAnimationFrame(() => phaseReturn(performance.now(), crashX, crashY)); return; }
-        const start = clone._returnStart || (clone._returnStart = ts);
-        const p = Math.min(1, (ts - start) / returnDur);
-        const ease = 1 - Math.pow(1 - p, 4);
-        clone.style.left = (crashX + (rectA.left - crashX) * ease) + 'px';
-        clone.style.top = (crashY + (rectA.top - crashY) * ease) + 'px';
-        if (p < 1) { requestAnimationFrame(() => phaseReturn(performance.now(), crashX, crashY)); }
-        else {
-            finishCrash(clone, unitA);
-        }
-    }
-
-    if (flyMode === 'ghost') {
-        requestAnimationFrame(phaseCharge);
+        clock.animate(chargeDur, (p) => {
+            if (p >= 1) {
+                clone.style.transition = '';
+                clone.style.transform = 'none';
+                startFly();
+            }
+        });
     } else {
-        phaseFly(0);
+        startFly();
     }
 }
 
-export function showMeleeDodge(unitA, unitD, speed, getPausedFn) {
+export function showMeleeDodge(unitA, unitD) {
     const rectA = snapshotUnitCellRobust(unitA);
     const rectD = snapshotUnitCellRobust(unitD);
     if (!rectA || !rectD) return;
@@ -222,44 +188,27 @@ export function showMeleeDodge(unitA, unitD, speed, getPausedFn) {
 
     const ctx = GlobalStore.get('playerContext');
     if (ctx && ctx.store) {
-        // 不在特效内清除 flash，保持蓝色闪示直到攻击组结束
         ctx.store.dispatch({ type: STORE_ACTION_TYPES.SET_VISUAL, uid: unitA.uid, _acted: true });
     }
 
-    let flyDur = 350 * (speed / 1000);
-    let startFly = null;
+    const flyDur = 350;
+    const returnDur = 500;
     let blocked = false;
 
-    function phaseFly(ts) {
-        if (getPausedFn && getPausedFn()) { requestAnimationFrame(phaseFly); return; }
-        if (!startFly) startFly = ts;
-        const p = Math.min(1, (ts - startFly) / flyDur);
+    clock.animate(flyDur, (p) => {
         const flown = approachDist * (1 - Math.pow(1 - p, 3));
         clone.style.left = (rectA.left + nx * flown) + 'px';
         clone.style.top = (rectA.top + ny * flown) + 'px';
-
         if (!blocked && p >= 0.85) {
             blocked = true;
             clone.style.transition = 'transform 0.1s ease';
             clone.style.transform = 'scale(0.9)';
-            setTimeout(() => {
-                clone.style.transform = 'scale(1)';
-            }, 100);
+            clock.wait(100).then(() => { clone.style.transform = 'scale(1)'; });
         }
-        if (p < 1 && !blocked) requestAnimationFrame(phaseFly);
-        else if (p < 1) {
-            // 继续飞行到终点
-            requestAnimationFrame(phaseFly);
-        } else {
-            // 飞回动画
+        if (p >= 1) {
             const contactX = rectA.left + nx * approachDist;
             const contactY = rectA.top + ny * approachDist;
-            const returnDur = 500 * (speed / 1000);
-            let startReturn = null;
-            function phaseReturn(ts2) {
-                if (getPausedFn && getPausedFn()) { requestAnimationFrame(phaseReturn); return; }
-                if (!startReturn) startReturn = ts2;
-                const p2 = Math.min(1, (ts2 - startReturn) / returnDur);
+            clock.animate(returnDur, (p2) => {
                 const ease2 = 1 - Math.pow(1 - p2, 2);
                 const perpX = -ny, perpY = nx;
                 const offsetMag = Math.sin(p2 * Math.PI) * 35;
@@ -268,18 +217,13 @@ export function showMeleeDodge(unitA, unitD, speed, getPausedFn) {
                 clone.style.top = (contactY - ny * retreatDist + perpY * offsetMag) + 'px';
                 clone.style.transform = `rotate(${8 * (1 - p2)}deg) scale(1.05)`;
                 clone.style.opacity = 0.6 + 0.4 * (1 - p2);
-                if (p2 < 1) requestAnimationFrame(phaseReturn);
-                else {
-                    finishCrash(clone, unitA);
-                }
-            }
-            requestAnimationFrame(phaseReturn);
+                if (p2 >= 1) finishCrash(clone, unitA);
+            });
         }
-    }
-    requestAnimationFrame(phaseFly);
+    });
 }
 
-export function showMeleeMiss(unitA, unitD, speed, getPausedFn) {
+export function showMeleeMiss(unitA, unitD) {
     const rectA = snapshotUnitCellRobust(unitA);
     const rectD = snapshotUnitCellRobust(unitD);
     if (!rectA || !rectD) return;
@@ -287,7 +231,7 @@ export function showMeleeMiss(unitA, unitD, speed, getPausedFn) {
     if (!cellA) return;
 
     const dx = rectD.x - rectA.x, dy = rectD.y - rectA.y;
-    const dist = Math.sqrt(dx*dx + dy*dy);
+    const dist = Math.sqrt(dx * dx + dy * dy);
     if (dist < 1) return;
     const nx = dx / dist, ny = dy / dist;
     const approach = dist - rectD.width * 0.5;
@@ -306,7 +250,7 @@ export function showMeleeMiss(unitA, unitD, speed, getPausedFn) {
         height: ${rectA.height}px;
         z-index: 99999;
         margin: 0;
-        transition: transform 0.7s cubic-bezier(0.33, 0, 0.67, 1);
+        transition: none;
         opacity: 0.75;
         visibility: visible;
         display: flex;
@@ -319,34 +263,29 @@ export function showMeleeMiss(unitA, unitD, speed, getPausedFn) {
     `;
     document.body.appendChild(clone);
 
-    // 原格进入扑空态：和命中飞撞一样隐藏原格，避免"人变两个"
+    // 原格进入扑空态：隐藏原格，避免"人变两个"
     const flyMode = GlobalStore.get('crashMode') || 'fly';
     const ctx = GlobalStore.get('playerContext');
     if (ctx && ctx.store) {
-        Object.assign(unitA.state, { _flyMode: flyMode });
-        ctx.store.dispatch({ type: STORE_ACTION_TYPES.SET_VISUAL, uid: unitA.uid, _acted: true, _flyMode: flyMode });
+        ctx.store.dispatch({ type: STORE_ACTION_TYPES.SET_VISUAL, uid: unitA.uid, _acted: true, _renderFlyMode: flyMode });
     }
 
-    // 时长随倍速缩放；基础值放大，正常速度下能看清"扑空"全程
-    const flyDur = 700 * (speed / 1000);
-    const returnDur = 500 * (speed / 1000);
+    const flyDur = 700;
+    const returnDur = 500;
 
-    // 前冲
-    requestAnimationFrame(() => {
-        clone.style.transform = `translate(${nx * approach}px, ${ny * approach}px)`;
-    });
-
-    setTimeout(() => {
-        if (getPausedFn && getPausedFn()) { return; }
-        clone.style.transition = `transform ${returnDur}ms ease-in`;
-        clone.style.transform = 'translate(0,0)';
-    }, flyDur);
-
-    setTimeout(() => {
-        if (clone.parentNode) clone.remove();
-        if (ctx && ctx.store) {
-            Object.assign(unitA.state, { _flyMode: null });
-            ctx.store.dispatch({ type: STORE_ACTION_TYPES.SET_VISUAL, uid: unitA.uid, _flyMode: null });
+    clock.animate(flyDur, (p) => {
+        const ease = p < 0.5 ? 2 * p * p : 1 - Math.pow(-2 * p + 2, 2) / 2;
+        clone.style.transform = `translate(${nx * approach * ease}px, ${ny * approach * ease}px)`;
+        if (p >= 1) {
+            clock.animate(returnDur, (p2) => {
+                clone.style.transform = `translate(${nx * approach * (1 - p2)}px, ${ny * approach * (1 - p2)}px)`;
+                if (p2 >= 1) {
+                    if (clone.parentNode) clone.remove();
+                    if (ctx && ctx.store) {
+                        ctx.store.dispatch({ type: STORE_ACTION_TYPES.SET_VISUAL, uid: unitA.uid, _renderFlyMode: null });
+                    }
+                }
+            });
         }
-    }, flyDur + returnDur + 200);
+    });
 }

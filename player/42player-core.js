@@ -1,7 +1,8 @@
 // player/42player-core.js
+// V6.1.0 | 2026-09-13 统一时间层：接 infra/52-clock，删 AnimationScheduler / frameLoop / waitWhilePaused
 // V6.0.0 | 2026-09-06 播放器调度重构：按 factIndex 交错日志与特效，修复特效/日志错位
 // V6.0.0 | 2026-09-07 属性词条化：syncStoreFromStep 保留 _mods，渲染由 getStat 现算
-export const VER = 'player/42player-core.js V6.0.0';
+export const VER = 'player/42player-core.js V6.1.0';
 
 import { eventBus } from '../infra/50-event-bus.js';
 import { FX_SIGNALS } from '../infra/55-fx-signals.js';
@@ -15,10 +16,10 @@ import { STORE_ACTION_TYPES, STAGE_ACTION_TYPES, BUFF_SUBTYPES, BUFF_EFFECT_TYPE
 import { syncStateToUI } from '../core/17-state-keys.js';
 import { handleBuffText, handleInfo, handleRoundStart, handleRoundEnd, shouldStartNewGroup } from './45event-handlers.js';
 import { handleAttackGroup } from './46attack-group.js';
-import { getLogDiv, appendLogHTML, appendLogElement, autoScrollLog, updateRoundDisplay, renderSeparator, renderRoundStart, renderRoundEnd, renderInfoLine, renderVictoryLine, setBtnDisabled, setBtnText, initRenderer, initLogScrollControls, showScoreFloat, findUnitByUid } from './47renderer.js';
+import { appendLogHTML, appendLogElement, autoScrollLog, updateRoundDisplay, renderSeparator, renderVictoryLine, setBtnDisabled, setBtnText, initRenderer, initLogScrollControls, showScoreFloat, findUnitByUid } from './47renderer.js';
 import { updateGridUI, setGridStore } from '../render/32-grid-render.js';
 import { setGridRenderCtx } from '../render/32-grid-render.js';
-import { AnimationScheduler } from './43animation-scheduler.js';
+import { clock } from '../infra/52-clock.js';
 import { renderLog } from '../render/30-fact-renderer.js';
 import { STAGE_ACTION_DEFS, translateFactsToStageActions } from '../render/31-stage-actions.js';
 import { buildBattleReportData, computeVoteResult, grantClearRewards } from './48battle-report.js';
@@ -63,6 +64,12 @@ async function applyStageActionToFX(c, action) {
     if (def && def.fx) await def.fx(c, action);
 }
 
+function applyStageActionToStoreAfter(c, action, pendingDeaths) {
+    if (!c.store || !action) return;
+    const def = STAGE_ACTION_DEFS[action.kind];
+    if (def && def.storeAfter) def.storeAfter(c, action, pendingDeaths);
+}
+
 function rebuildUISnapshotFromStore(c) {
     if (!c.store) return;
     const storeUnits = c.store.getState().units;
@@ -75,11 +82,32 @@ function rebuildUISnapshotFromStore(c) {
     c.UI.enemyTeam = storeUnits.filter(u => u.camp === CAMP_TYPES.ENEMY).map(cloneUnit);
 }
 
+/**
+ * UI 只读视图（2026-09-14 状态三轨收敛）。
+ * 播放期间 c.UI.allyTeam/enemyTeam 是 battleStore 的一份冗余拷贝，随时可能落后一步。
+ * 所有战斗期读点改走本函数：store 有位就现取，没有（开局前/战斗结束后清场）才回退 c.UI。
+ * c.UI 仍可写（开局前造队、赛后面板要一份脱离 store 的定稿快照），但不再是读取路径。
+ */
+export function getUIView(c) {
+    const ctx = c || getCtx();
+    const fallback = (ctx && ctx.UI) || { allyTeam: [], enemyTeam: [], round: 0, currentResult: null };
+    const store = ctx && ctx.store;
+    if (!store) return { allyTeam: fallback.allyTeam || [], enemyTeam: fallback.enemyTeam || [], round: fallback.round || 0, currentResult: fallback.currentResult || null, lastSnapshot: fallback.lastSnapshot || null };
+    const units = store.getState().units || [];
+    return {
+        allyTeam: units.filter(u => u.camp === CAMP_TYPES.ALLY),
+        enemyTeam: units.filter(u => u.camp === CAMP_TYPES.ENEMY),
+        round: store.getState().round || fallback.round || 0,
+        currentResult: fallback.currentResult || null,
+        lastSnapshot: fallback.lastSnapshot || null
+    };
+}
+
 function syncStoreFromStep(c, step) {
     if (!c.store || !step) return;
     const oldState = c.store.getState();
     const oldUnitsMap = new Map((oldState.units || []).map(u => [u.uid, u]));
-    const preservedTopFields = ['_hasXingFen', '_hasKuaiLe'];
+    const preservedTopFields = ['_hasXingFen', '_hasKuaiLe', '_renderFlyMode'];
     const units = [...step.ally, ...step.enemy]
         .filter(u => !(c._removedUids && c._removedUids.has(u.uid)))
         .map(u => {
@@ -95,10 +123,29 @@ function syncStoreFromStep(c, step) {
     c.store.dispatch({ type: STORE_ACTION_TYPES.SET_UNITS, units });
 }
 
+function readRound(c) {
+    // 2026-09-14 状态三轨收敛：回合数唯一来源 battleStore；store 未就绪时回退 c.UI.round（开局前）
+    if (c && c.store) {
+        const r = c.store.getState().round;
+        if (r) return r;
+    }
+    return (c && c.UI && c.UI.round) || 1;
+}
+
+function setRound(c, round) {
+    if (!c || !round) return;
+    if (c.store) c.store.dispatch({ type: STORE_ACTION_TYPES.SET_ROUND, round });
+    if (c.UI) c.UI.round = round;
+}
+
 async function playStepInterleaved(c, step, isFirstAttackRef) {
     const pendingDeaths = [];
     const actions = step.stageActions || [];
     const log = step.log || [];
+
+    // 回合数写入唯一账本（battleStore），渲染层经 readRound 现取
+    const roundEntry = log.find(e => e && e.factType === 'roundStart');
+    if (roundEntry && roundEntry.data && roundEntry.data.round) setRound(c, roundEntry.data.round);
 
     const actionsByFactIndex = new Map();
     for (const action of actions) {
@@ -109,15 +156,22 @@ async function playStepInterleaved(c, step, isFirstAttackRef) {
     const processedBeforeIndexes = new Set();
     const processedAfterIndexes = new Set();
 
+    // action 完整生命周期：store(前置) → fx(演出) → storeAfter(收尾)
+    const runAction = async (action) => {
+        applyStageActionToStore(c, action, pendingDeaths);
+        if (getActionFx(action) !== 'none') await applyStageActionToFX(c, action);
+        applyStageActionToStoreAfter(c, action, pendingDeaths);
+    };
+
     for (let i = 0; i < log.length; i++) {
         const rawEntry = log[i];
         let entries = prepareLogEntry(rawEntry);
         if (entries === null || entries === undefined) {
             const factIndex = i;
             const beforeActions = (actionsByFactIndex.get(factIndex) || []).filter(a => getActionFx(a) !== 'none' && getActionTiming(a) === 'beforeText');
-            for (const action of beforeActions) { applyStageActionToStore(c, action, pendingDeaths); await applyStageActionToFX(c, action); }
+            for (const action of beforeActions) await runAction(action);
             const afterActions = (actionsByFactIndex.get(factIndex) || []).filter(a => getActionFx(a) !== 'none' && getActionTiming(a) === 'afterText');
-            for (const action of afterActions) { applyStageActionToStore(c, action, pendingDeaths); await applyStageActionToFX(c, action); }
+            for (const action of afterActions) await runAction(action);
             continue;
         }
         if (!Array.isArray(entries)) entries = [entries];
@@ -135,6 +189,7 @@ async function playStepInterleaved(c, step, isFirstAttackRef) {
                     applyStageActionToStore(c, action, pendingDeaths);
                     if (action.nonBlocking) applyStageActionToFX(c, action);
                     else await applyStageActionToFX(c, action);
+                    applyStageActionToStoreAfter(c, action, pendingDeaths);
                 }
             }
 
@@ -150,6 +205,7 @@ async function playStepInterleaved(c, step, isFirstAttackRef) {
                             cb: () => {
                                 applyStageActionToStore(c, a, pendingDeaths);
                                 applyStageActionToFX(c, a);
+                                applyStageActionToStoreAfter(c, a, pendingDeaths);
                             }
                         };
                     }).filter(s => s.text);
@@ -161,7 +217,7 @@ async function playStepInterleaved(c, step, isFirstAttackRef) {
             if (!processedAfterIndexes.has(factIndex)) {
                 processedAfterIndexes.add(factIndex);
                 const afterActions = (actionsByFactIndex.get(factIndex) || []).filter(a => getActionFx(a) !== 'none' && getActionTiming(a) === 'afterText');
-                for (const action of afterActions) { applyStageActionToStore(c, action, pendingDeaths); await applyStageActionToFX(c, action); }
+                for (const action of afterActions) await runAction(action);
             }
         }
     }
@@ -170,6 +226,7 @@ async function playStepInterleaved(c, step, isFirstAttackRef) {
         if (action.factIndex == null || !actionsByFactIndex.has(action.factIndex)) {
             applyStageActionToStore(c, action, pendingDeaths);
             if (getActionFx(action) !== 'none') await applyStageActionToFX(c, action);
+            applyStageActionToStoreAfter(c, action, pendingDeaths);
         }
     }
 
@@ -207,11 +264,11 @@ async function playSingleLogEntry(c, entry, step, isFirstAttackRef, factIndex) {
         case 'buff-summary':
             appendLogHTML(entry.text + '<br>');
             if (entry.buffType === 'elite_xingfen') {
-                let song = c.store ? c.store.getState().units.find(u => u.name === '宋青书') : null;
+                let song = c.store ? c.store.getState().units.find(u => u.isSongQingshu) : null;
                 if (song) c.store.dispatch({ type: STORE_ACTION_TYPES.SET_VISUAL, uid: song.uid, _hasXingFen: true });
             }
             lastEntryType = entry.type; break;
-        case 'buff-rebound-fortify': await handleBuffText(c, entry, c.speed / 2); lastEntryType = entry.type; break;
+        case 'buff-rebound-fortify': await handleBuffText(c, entry, 200); lastEntryType = entry.type; break;
         case 'round-start':
             if (step.roundResult && step.roundResult.events && step.roundResult.events.length > 0) {
                 c.store.dispatch({ type: STORE_ACTION_TYPES.APPLY_EVENTS, events: step.roundResult.events });
@@ -243,7 +300,6 @@ export async function playLogEntries(c, log, roundResult, isFirstAttackRef) {
     try {
         for (let i = 0; i < log.length; i++) {
             if (abortSig && abortSig.aborted) return { isBattleOver: false };
-            await c.waitWhilePaused();
             let entry = log[i];
             if (entry && entry.factType) {
                 const rendered = renderLog(entry.factType, entry.data);
@@ -264,7 +320,7 @@ export async function playLogEntries(c, log, roundResult, isFirstAttackRef) {
                 case 'buff-leech': case 'buff-splash': appendLogHTML(entry.text + '<br>'); lastEntryType = entry.type; break;
                 case 'buff-bonus': case 'buff-swap': case 'buff-push': await handleBuffText(c, entry); lastEntryType = entry.type; break;
                 case 'buff-summary': appendLogHTML(entry.text + '<br>'); if (entry.buffType === 'elite_xingfen') { const song = c.store ? c.store.getState().units.find(u => u.name === '宋青书') : null; if (song) c.store.dispatch({ type: STORE_ACTION_TYPES.SET_VISUAL, uid: song.uid, _hasXingFen: true }); } lastEntryType = entry.type; break;
-                case 'buff-rebound-fortify': await handleBuffText(c, entry, c.speed / 2); lastEntryType = entry.type; break;
+                case 'buff-rebound-fortify': await handleBuffText(c, entry, 200); lastEntryType = entry.type; break;
                 case 'round-start': if (roundResult && roundResult.events && roundResult.events.length > 0) { c.store.dispatch({ type: STORE_ACTION_TYPES.APPLY_EVENTS, events: roundResult.events }); roundResult.events = []; } await handleRoundStart(c, entry, isFirstAttackRef); if (roundResult && roundResult.doubleStrikeUid) c.currentDoubleStrikeUid = roundResult.doubleStrikeUid; lastEntryType = entry.type; break;
                 case 'attack-group': { const result = await handleAttackGroup(c, entry, roundResult, abortSig, isFirstAttackRef); lastEntryType = entry.type; if (result && result.isBattleOver) return result; break; }
                 case 'round-end': await handleRoundEnd(c, entry, log, i); lastEntryType = entry.type; break;
@@ -284,34 +340,28 @@ export async function playLogEntries(c, log, roundResult, isFirstAttackRef) {
 export async function playBattle() {
     const c = getCtx();
     if (!c || !c.snapshot || !c.snapshot.ally || !c.snapshot.ally.length) return;
-    const scheduler = new AnimationScheduler();
-    c._scheduler = scheduler;
+
     c._removedUids = new Set();
 
+    // 统一时间源：clock 驱动全部 wait/animate；倍速/暂停/快进集中在此同步
+    clock.reset();
+    clock.start();
+    clock.setTimescale(600 / (c.speed || 600));
+    GlobalStore.effect('speed', (v) => clock.setTimescale(600 / (v || 600)));
+    GlobalStore.effect('isPaused', (v) => { if (v) clock.pause(); else clock.resume(); });
+
     GlobalStore.effect('fastForwardActive', (isActive) => {
+        clock.setFastForward(isActive);
         if (isActive) {
             if (!c._originalSpeed) c._originalSpeed = c.speed;
             c.speed = 1;
-            if (c._scheduler && c._scheduler.setSpeed) c._scheduler.setSpeed(50);
         } else {
             const restored = c._originalSpeed || 600;
             c.speed = restored;
             GlobalStore.set('speed', restored);
             const fn = GlobalStore.getUIHandler('updateSpeedButtons'); if (fn) fn();
-            if (c._scheduler && c._scheduler.setSpeed) c._scheduler.setSpeed(1);
         }
     });
-
-    let lastTime = performance.now();
-    function frameLoop() {
-        const now = performance.now();
-        if (c.isPaused) { GlobalStore.set('bulletTimeActive', true); lastTime = now; if (!c._battleEnded) requestAnimationFrame(frameLoop); return; }
-        scheduler.paused = false;
-        scheduler.tick(Math.min(now - lastTime, 100));
-        lastTime = now;
-        if (!c._battleEnded) requestAnimationFrame(frameLoop);
-    }
-    requestAnimationFrame(frameLoop);
 
     let abortSig = c.abortController ? c.abortController.signal : null;
     c._battleEnded = false;
@@ -377,11 +427,10 @@ export async function playBattle() {
 
         for (const step of stepper) {
             if (abortSig && abortSig.aborted) return;
-            await c.waitWhilePaused();
             lastStep = step;
             if (battleState.activeBuffs) c.activeBuffs = battleState.activeBuffs.map(b => ({ ...b }));
             await playStepInterleaved(c, step, isFirstAttackRef);
-            await new Promise(r => setTimeout(r, GlobalStore.get('fastForwardActive') ? 1 : Math.max(100, c.speed / 2)));
+            await clock.wait(300);
             if (step.winner) { finalWinner = step.winner; isBattleOver = true; break; }
         }
 
@@ -404,7 +453,7 @@ export async function playBattle() {
         battleState = { ally: lastStep.ally, enemy: lastStep.enemy, round: battleState.round + 1, activeBuffs: nextActiveBuffs, allAllies: battleState.allAllies };
 
         if (c.autoMode || GlobalStore.get('fastForwardActive')) {
-            await new Promise(r=>setTimeout(r, GlobalStore.get('fastForwardActive') ? 1 : c.speed/2));
+            await clock.wait(300);
         } else {
             setBtnDisabled('btnNext', false);
             c.waitingForNextRound = true;
@@ -434,13 +483,13 @@ export async function playBattle() {
         let aliveUnits = winState ? winState.filter(u => u.alive) : [];
         if (aliveUnits.length > 0) {
             aliveUnits.forEach(u => { c.store.dispatch({ type: STORE_ACTION_TYPES.SET_FLASH, uid: u.uid, flash: FLASH_TYPES.CHEER }); });
-            await new Promise(r => setTimeout(r, GlobalStore.get('fastForwardActive') ? 100 : 800));
+            await clock.wait(800);
             if (c.spawnVictoryEffects) c.spawnVictoryEffects(winner, aliveUnits);
         }
         let winColor = winner === '明教' ? 'blue' : 'orange';
         if (c.gs === 'GAMEOVER') renderVictoryLine(`<span class="gold">🎉🏆 <span class="${winColor}">${winner}</span>获得最终胜利！ 🏆🎉</span><br>`);
         autoScrollLog();
-        await new Promise(r => setTimeout(r, GlobalStore.get('fastForwardActive') ? 500 : 6000));
+        await clock.wait(6000);
         rebuildUISnapshotFromStore(c);
         const showBattleReportFn = GlobalStore.getUIHandler('showBattleReport');
         if (showBattleReportFn && c.battleResultForInfo) {
@@ -479,5 +528,5 @@ export async function playBattle() {
     c._battleEnded = true;
     c.abortController = null;
     c.store = null;
-    if (c._scheduler) { c._scheduler.setSpeed(1); c._scheduler = null; }
+    clock.stop();
 }

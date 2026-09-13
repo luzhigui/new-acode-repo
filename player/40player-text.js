@@ -1,7 +1,10 @@
+// player/40player-text.js
+// V6.1.0 | 2026-09-13 统一时间层：打字等待改 clock.wait，删 waitWhilePaused；baseDuration 改为 1x 基准时长
 // V6.0.0 | ~2700 bytes | 2026-07-05
-export const VER = 'player/40player-text.js V6.0.0';
+export const VER = 'player/40player-text.js V6.1.0';
 
 import { GlobalStore } from '../infra/54-global-store.js';
+import { clock } from '../infra/52-clock.js';
 
 let ctx = null;
 function getCtx() {
@@ -33,13 +36,12 @@ export async function playLineText(text, div, forcedSpeed = null, anchorSpecs = 
         fireAllAnchors(anchorSpecs);
         return;
     }
-    const c = getCtx(); let plain = text.replace(/<[^>]+>/g, ''); let htmlIdx=0,fullHtml='';
-    const effectiveSpeed = forcedSpeed !== null ? forcedSpeed : c.speed;
-    let minCharDelay = 20;
-    if (effectiveSpeed <= 143) minCharDelay = 2;
-    else if (effectiveSpeed <= 250) minCharDelay = 4;
-    else if (effectiveSpeed <= 500) minCharDelay = 8;
-    
+    const c = getCtx();
+    let plain = text.replace(/<[^>]+>/g, '');
+    let htmlIdx = 0, fullHtml = '';
+    // baseDuration 是 1x 基准毫秒：整行打完的总时长；倍速由 clock 统一缩放
+    const baseDuration = forcedSpeed !== null ? forcedSpeed : 600;
+
     // 锚点：在纯文本里定位每个锚点文本的结束位置，打到该位置时触发
     const pending = [];
     if (anchorSpecs && anchorSpecs.length > 0) {
@@ -50,15 +52,21 @@ export async function playLineText(text, div, forcedSpeed = null, anchorSpecs = 
         }
     }
     let playedPlainLen = 0;
-    
-    while(htmlIdx<text.length){
-        if(c.abortController&&c.abortController.signal.aborted)return;
-        await c.waitWhilePaused();
-        let charDelay = effectiveSpeed / plain.length;
-        if (charDelay < minCharDelay) charDelay = minCharDelay;
-        if(text[htmlIdx]==='<'){let tag='';while(text[htmlIdx]!=='>'){tag+=text[htmlIdx];htmlIdx++;}tag+='>';fullHtml+=tag;htmlIdx++;}
-        else{
-            fullHtml+=text[htmlIdx];htmlIdx++;
+
+    while (htmlIdx < text.length) {
+        if (c.abortController && c.abortController.signal.aborted) return;
+        // 每字 1x 基准时长，下限 8ms（1x），避免长文字打得太快看不清
+        let charDelay = baseDuration / Math.max(1, plain.length);
+        if (charDelay < 8) charDelay = 8;
+        if (text[htmlIdx] === '<') {
+            let tag = '';
+            while (text[htmlIdx] !== '>') { tag += text[htmlIdx]; htmlIdx++; }
+            tag += '>';
+            fullHtml += tag;
+            htmlIdx++;
+        } else {
+            fullHtml += text[htmlIdx];
+            htmlIdx++;
             playedPlainLen++;
             for (const p of pending) {
                 if (!p.fired && playedPlainLen >= p.triggerAt) {
@@ -66,10 +74,9 @@ export async function playLineText(text, div, forcedSpeed = null, anchorSpecs = 
                     try { p.cb(); } catch (e) { console.error('[playLineText] 锚点回调出错:', e); }
                 }
             }
-            // 使用 setTimeout 而非 scheduler，避免 isPaused 时 scheduler 不 tick 导致死锁
-            await new Promise(r => setTimeout(r, charDelay));
+            await clock.wait(charDelay);
         }
-        div.innerHTML=fullHtml+'<br>';
+        div.innerHTML = fullHtml + '<br>';
         c.autoScrollLog();
     }
     // 收尾：锚点文本未匹配到（异常）时兜底触发，避免飘字彻底丢失
