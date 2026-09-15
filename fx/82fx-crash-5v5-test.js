@@ -90,7 +90,8 @@ export function showMeleeCrash(unitA, unitD, onCrash) {
         opacity: 1;
         visibility: visible;
         display: flex;
-        transform: none;
+        transform: scale(1.15);
+        transform-origin: center center;
         background: #1e6bb8;
         border: 3px solid #0d47a1;
         border-radius: 5px;
@@ -131,11 +132,11 @@ export function showMeleeCrash(unitA, unitD, onCrash) {
 
     if (flyMode === 'ghost') {
         clone.style.transition = 'transform 0.3s ease-out';
-        clone.style.transform = 'scale(1.15)';
+        clone.style.transform = 'scale(1.35)';
         clock.animate(chargeDur, (p) => {
             if (p >= 1) {
                 clone.style.transition = '';
-                clone.style.transform = 'none';
+                clone.style.transform = 'scale(1.15)';
                 startFly();
             }
         });

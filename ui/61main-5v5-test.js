@@ -56,7 +56,16 @@ const C = CONFIG, S = STATE;
 const LOG_LINE1 = '⚔️ 光明顶5v5对决 · 九宫格混战模式 ⚔️';
 
 // 精英图鉴选人弹层：CG 之后、新手引导之前弹出，用户选定角色 → 提高该角色出场率（写 localStorage，29battle-init 读取加权）
+// 2026-09-15 改为只弹一次：与开场CG同套路，选过就跳过（想重选走 dev-index 入口 或 清 localStorage）
+const ELITE_GALLERY_DONE_KEY = 'ming_elite_gallery_done_5v5_test';
+function isEliteGalleryDone() {
+    try { return localStorage.getItem(ELITE_GALLERY_DONE_KEY) === '1'; } catch { return true; }
+}
+function markEliteGalleryDone() {
+    try { localStorage.setItem(ELITE_GALLERY_DONE_KEY, '1'); } catch {}
+}
 function showEliteGallery(onDone) {
+    if (isEliteGalleryDone()) { if (typeof onDone === 'function') onDone(); return; }
     const frame = document.createElement('iframe');
     frame.src = './展示与CG/精英展示-04-圣火单卡旋转-GLM5.3.html';
     frame.id = 'eliteGalleryFrame';
@@ -65,6 +74,7 @@ function showEliteGallery(onDone) {
     let closed = false;
     function close() {
         if (closed) return; closed = true;
+        markEliteGalleryDone();
         window.removeEventListener('message', onMsg);
         try { frame.remove(); } catch {}
         if (typeof onDone === 'function') onDone();
