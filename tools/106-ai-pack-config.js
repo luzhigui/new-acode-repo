@@ -1,17 +1,22 @@
-// V6.0.4 | ~9100 bytes | 2026-09-13 登记 tools/106b-server.js（本地静态服务器，供 file:// 下启用目录直写）
+// V6.0.5 | ~9700 bytes | 2026-09-15 踢除未接线备选CG：ui/73opening-cg-epic.js、ui/74opening-cg-shadow.js 加入 AI_EXCLUDE（每包省 63KB）
+// V6.0.4 | 2026-09-13 登记 tools/106b-server.js（本地静态服务器，供 file:// 下启用目录直写）
 // V6.0.3 | 2026-09-11 补清单漏登9个正式文件：ui/71-74（引导+三套开场CG）、player/48-49、fx/90、tests/123static-scan、tests/124rule-recipes
 // V6.0.2 | 2026-09-09 拆出 player/ 为独立「播放器」组（引擎 46→38）
-export const VER = 'tools/106-ai-pack-config.js V6.0.4';
+export const VER = 'tools/106-ai-pack-config.js V6.0.5';
 
-// AI 精简模式踢除清单（已弃用）
+// AI 复制包踢除清单（103-toolkit.js 的 FILES 过滤会无条件跳过这里的文件）
 // 2026-09-04 用户决定不再精简：特效/音效/错误面板/入口页全部随包发送。
-// 保留空 Set 仅为兼容 103-toolkit.js 的 import 引用，不再排除任何文件。
-export const AI_EXCLUDE = new Set([]);
+// 2026-09-15 踢除 73/74 两版未接线的备选开场CG（全仓库无任何 import，每包省 63KB）；文件仍留在 ALL_PROJECT_FILES 清单中备查。
+export const AI_EXCLUDE = new Set([
+    '../ui/73opening-cg-epic.js',
+    '../ui/74opening-cg-shadow.js',
+]);
 
 // AI 上下文契约
 export const AI_INTERFACE_NOTE = `// ============================================================
-// AI 上下文提示：本项目已全量打包发送，无省略文件。
-// 全部文件（引擎/UI/特效/音效/工具箱/体检/入口页）均已含在包中。
+// AI 上下文提示：本项目已全量打包发送。
+// 全部运行文件（引擎/播放器/UI/特效/音效/工具箱/体检/入口页）均已含在包中。
+// 例外：ui/73opening-cg-epic.js、ui/74opening-cg-shadow.js 是两版未接线的备选开场CG，未随包发送（不在运行链路上，需要时请单独索取）。
 // ============================================================`;
 
 // 项目全部文件清单（全项目唯一数据源）
