@@ -45,7 +45,9 @@ export function showRangedArrow(unitA, unitD, isMeteor = false, onHit = null, is
     let arrowThick = isMeteor ? 3 : 2;
     let headSize = isMeteor ? 10 : 8;
     let chargeTime = 500;
-    let flyDuration = isMeteor ? 400 : 600;
+    // 2026-09-15 飞行时长按距离匀速：普通 0.6px/ms、流星 1.0px/ms，各带 300~900ms 兜底
+    const flySpeed = isMeteor ? 1.0 : 0.6;
+    let flyDuration = Math.max(300, Math.min(900, dist / flySpeed));
     let pauseAfterHit = isMeteor ? 1200 : 600;
 
     let bowIcon = document.createElement('div'); bowIcon.setAttribute('data-fx', 'temporary'); bowIcon.style.position = 'fixed'; bowIcon.style.left = (sx-12)+'px'; bowIcon.style.top = (sy-20)+'px'; bowIcon.style.fontSize = '22px'; bowIcon.style.zIndex = '10002'; bowIcon.style.pointerEvents = 'none'; bowIcon.textContent = '🏹';

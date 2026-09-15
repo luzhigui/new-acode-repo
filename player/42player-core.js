@@ -13,7 +13,7 @@ import { SeededRNG } from '../infra/51-core-utils.js';
 import { GlobalStore, getState, getPlayerContext } from '../infra/54-global-store.js';
 import { createStore, battleReducer } from '../modules/24battle-store.js';
 import { STORE_ACTION_TYPES, STAGE_ACTION_TYPES, BUFF_SUBTYPES, BUFF_EFFECT_TYPES, FLY_MODE_TYPES, UNIT_EVENT_TYPES, DROP_TYPES, FLASH_TYPES, CAMP_TYPES, ROLE_TYPES } from '../infra/56-battle-enums.js';
-import { syncStateToUI } from '../core/17-state-keys.js';
+
 import { handleBuffText, handleInfo, handleRoundStart, handleRoundEnd, shouldStartNewGroup } from './45event-handlers.js';
 import { handleAttackGroup } from './46attack-group.js';
 import { appendLogHTML, appendLogElement, autoScrollLog, updateRoundDisplay, renderSeparator, renderVictoryLine, setBtnDisabled, setBtnText, initRenderer, initLogScrollControls, showScoreFloat, findUnitByUid } from './47renderer.js';
@@ -70,17 +70,7 @@ function applyStageActionToStoreAfter(c, action, pendingDeaths) {
     if (def && def.storeAfter) def.storeAfter(c, action, pendingDeaths);
 }
 
-function rebuildUISnapshotFromStore(c) {
-    if (!c.store) return;
-    const storeUnits = c.store.getState().units;
-    const cloneUnit = (su) => {
-        const copyState = {};
-        syncStateToUI(su.state, su.uid, copyState);
-        return { ...su, state: copyState, _mods: su._mods ? { atk: [...su._mods.atk], def: [...su._mods.def], maxHp: [...su._mods.maxHp] } : { atk: [], def: [], maxHp: [] } };
-    };
-    c.UI.allyTeam = storeUnits.filter(u => u.camp === CAMP_TYPES.ALLY).map(cloneUnit);
-    c.UI.enemyTeam = storeUnits.filter(u => u.camp === CAMP_TYPES.ENEMY).map(cloneUnit);
-}
+
 
 /**
  * UI 只读视图（2026-09-14 状态三轨收敛）。
@@ -397,7 +387,6 @@ export async function playBattle() {
         }
     });
 
-    rebuildUISnapshotFromStore(c);
     initRenderer(c);
     updateRoundDisplay('📜 日志（第1回合）');
     initLogScrollControls(c);
@@ -490,7 +479,6 @@ export async function playBattle() {
         if (c.gs === 'GAMEOVER') renderVictoryLine(`<span class="gold">🎉🏆 <span class="${winColor}">${winner}</span>获得最终胜利！ 🏆🎉</span><br>`);
         autoScrollLog();
         await clock.wait(6000);
-        rebuildUISnapshotFromStore(c);
         const showBattleReportFn = GlobalStore.getUIHandler('showBattleReport');
         if (showBattleReportFn && c.battleResultForInfo) {
             showBattleReportFn(c.UI, c.battleResultForInfo);
@@ -527,6 +515,5 @@ export async function playBattle() {
     GlobalStore.set('voteChoice', null);
     c._battleEnded = true;
     c.abortController = null;
-    c.store = null;
     clock.stop();
 }

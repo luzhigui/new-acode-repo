@@ -487,11 +487,8 @@ export function buildAttackGroup(unit, target, dmgCalc, dmgResult, attackerBuffS
         unit._executeLog.forEach(e => pendingEntries.push(e));
         delete unit._executeLog;
     }
-    // 2026-09-14 补漏：伤害修饰器（乾坤大挪移减伤/反弹等）产出的 fact 原先被取出后丢弃，
-    // 导致玩家看不到减伤/反弹提示。此处并入 entries（与 pendingEntries 同结构：{factType,data}）。
-    if (Array.isArray(bonusEntries) && bonusEntries.length > 0) {
-        bonusEntries.forEach(e => pendingEntries.push(e));
-    }
+    // 2026-09-15 删：09-14 那句"补漏"是误判。bonusEntries 一直由 renderAttackFact 读 dmgResult.bonusEntries 渲染，
+    // 补进 entries 后同一批数据被两条路径各渲染一遍，导致日志重复。
 
     const snap = {
         attackerPos: unit.pos,

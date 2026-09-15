@@ -197,23 +197,25 @@ export function renderGrid(id, camp) {
         let pos = displayOrder[i], unit = team.find(c => c.pos === pos && c.alive) || team.find(c => c.pos === pos);
         if (unit && !unit.state) unit.state = {};
         if (unit && !unit.isHorse) {
-            if ((unit.state && unit.state._flyMode) || (unit._fsm && (unit._fsm.is('attached') || unit._fsm.is('flying')))) {
+            // _renderFlyMode 是飞撞/子弹时间的纯渲染态（攻击者本身不飞行），优先于 state._flyMode
+            const effectiveFlyMode = unit._renderFlyMode || (unit.state && unit.state._flyMode);
+            if (effectiveFlyMode || (unit._fsm && (unit._fsm.is('attached') || unit._fsm.is('flying')))) {
                 let div = document.createElement('div');
                 div.className = 'cell occupied';
                 div.dataset.pos = pos;
                 div.dataset.uid = unit.uid;
-                if (unit.state._flyMode === 'fly') {
+                if (effectiveFlyMode === 'fly') {
                     div.style.background = 'transparent';
                     div.style.border = '2px solid transparent';
                     div.style.boxShadow = 'none';
-                } else if (unit.state._flyMode === 'ghost') {
+                } else if (effectiveFlyMode === 'ghost') {
                     let roleIcon = unit.role===ROLE_TYPES.WARRIOR?'⚔️':(unit.role===ROLE_TYPES.DEFENDER?'🛡️':(unit.role===ROLE_TYPES.RANGED?'🏹':'🦅'));
                     div.innerHTML = `<span class="cell-icon">${roleIcon}</span><div class="cell-info"><span class="cell-name">${unit.name}</span><span class="cell-stats">攻${Math.floor(getStat(unit,'atk'))} 防${Math.floor(getStat(unit,'def'))} 血${Math.floor(unit.hp)}</span></div>`;
                     div.style.opacity = '0.5';
                     div.style.background = 'rgba(30,100,255,0.28)';
                     div.style.border = '2px solid rgba(100,150,255,0.6)';
                     div.style.boxShadow = '0 0 12px rgba(100,150,255,0.5)';
-                } else if (unit.state._flyMode === 'butterfly' || (unit._fsm && unit._fsm.is('attached'))) {
+                } else if (effectiveFlyMode === 'butterfly' || (unit._fsm && unit._fsm.is('attached'))) {
                     const crashMode = GlobalStore.get('crashMode') || 'ghost';
                     if (crashMode === 'fly') {
                         div.innerHTML = '<span class="cell-icon">🦋</span>';
@@ -225,7 +227,7 @@ export function renderGrid(id, camp) {
                         div.style.background = 'rgba(255, 192, 203, 0.15)';
                         div.style.border = '2px solid rgba(255, 105, 180, 0.4)';
                     }
-                } else if (unit.state._flyMode === 'spider' || (unit._fsm && unit._fsm.is('flying'))) {
+                } else if (effectiveFlyMode === 'spider' || (unit._fsm && unit._fsm.is('flying'))) {
                     const crashMode = GlobalStore.get('crashMode') || 'ghost';
                     if (crashMode === 'fly') {
                         div.innerHTML = '<span class="cell-icon">🕷️</span>';

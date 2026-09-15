@@ -22,10 +22,14 @@ export function showBattleReport(UI, battleResultForInfo) {
     const _pc = getPlayerContext();
     if (_pc && _pc.updateScoreBadge) _pc.updateScoreBadge();
 
-    // 优先使用 battleResultForInfo（包含已被 3 秒清理机制移除的死单位快照），
-    // 否则回退到 UI.allyTeam/enemyTeam
-    let ally = (battleResultForInfo && battleResultForInfo.ally) ? battleResultForInfo.ally : UI.allyTeam;
-    let enemy = (battleResultForInfo && battleResultForInfo.enemy) ? battleResultForInfo.enemy : UI.enemyTeam;
+    // 数据源统一走 battleResultForInfo（含已被 3 秒清理机制移除的死单位快照）
+    // c.UI 是开局前快照，GAMEOVER 时已过时，不再作为 fallback
+    if (!battleResultForInfo || !battleResultForInfo.ally || !battleResultForInfo.enemy) {
+        console.error('[showBattleReport] battleResultForInfo 缺失，无法生成战报');
+        return;
+    }
+    let ally = battleResultForInfo.ally;
+    let enemy = battleResultForInfo.enemy;
     let allUnits = [...ally, ...enemy];
     let winner = battleResultForInfo.winner;
 

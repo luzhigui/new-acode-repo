@@ -42,7 +42,10 @@ export function _triggerFX(fxSnapshot, unitA, unitD, isDead, isDodge, isMiss, is
             } else if (!isDodge) {
                 showRangedArrow(unitA, unitD, false, () => {
                     shakeTarget(unitD.uid, 350);
-                    if (!GlobalStore.get('fastForwardActive')) showDamageFloat(unitD, dmg);
+                    // 2026-09-15 飘字延后 800ms，等日志伤害文本先走一段
+                    clock.wait(800).then(() => {
+                        if (!GlobalStore.get('fastForwardActive')) showDamageFloat(unitD, dmg);
+                    });
                 });
             }
         } else if (!isBlock) {
@@ -54,7 +57,10 @@ export function _triggerFX(fxSnapshot, unitA, unitD, isDead, isDodge, isMiss, is
                 showMeleeMiss(unitA, unitD);
             } else {
                 showMeleeCrash(unitA, unitD, () => {
-                    if (!GlobalStore.get('fastForwardActive')) showDamageFloat(unitD, dmg);
+                    // 2026-09-15 飘字延后 800ms，等日志伤害文本先走一段
+                    clock.wait(800).then(() => {
+                        if (!GlobalStore.get('fastForwardActive')) showDamageFloat(unitD, dmg);
+                    });
                     if (isDead && unitD) {
                         const ctx = GlobalStore.get('playerContext');
                         if (ctx && ctx.store) {
