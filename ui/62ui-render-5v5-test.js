@@ -105,16 +105,18 @@ function updateDetailPopupContent() {
     const store = ctx.store || GlobalStore.get('battleStore');
     let latestUnit = null;
     let allyTeam = [];
+    let enemyTeam = [];
     const activeBuffs = ctx.activeBuffs || [];
     const doubleStrikeUid = ctx.currentDoubleStrikeUid;
     if (store) {
         const allUnits = store.getState().units || [];
         latestUnit = allUnits.find(u => u.uid === uid);
         allyTeam = allUnits.filter(u => u.camp === CAMP_TYPES.ALLY);
+        enemyTeam = allUnits.filter(u => u.camp === CAMP_TYPES.ENEMY);
     } else {
-        const allUnits = selectOrStore(ctx, 'allyTeam').concat(selectOrStore(ctx, 'enemyTeam'));
-        latestUnit = allUnits.find(u => u.uid === uid);
         allyTeam = selectOrStore(ctx, 'allyTeam');
+        enemyTeam = selectOrStore(ctx, 'enemyTeam');
+        latestUnit = allyTeam.concat(enemyTeam).find(u => u.uid === uid);
     }
     if (!latestUnit) { closeDetailPopup(); return; }
     detailPopupUnit = latestUnit;
@@ -156,6 +158,7 @@ function updateDetailPopupContent() {
             <span style="color:#888;">站位</span><span>${!u.alive ? '已阵亡' : (u.pos || '?') + '号位'}</span>
             <span style="color:#888;">血量</span><span style="color:${hpColor};font-weight:bold;">${Math.floor(u.hp)} / ${Math.floor(u.maxHp)} (${hpPct}%)</span>
             <span style="color:#888;">闪避</span><span>${(() => { const db = getDodgeBreakdown(u, activeBuffs, allyTeam); return db.combined + '%' + (db.sources.length > 0 ? ' (' + db.sources.map(s => s.label + '+' + s.value + '%').join(' ') + ')' : ''); })()}</span>
+            <span style="color:#888;">未命中</span><span>${(() => { const mb = getMissBreakdown(u, allyTeam, enemyTeam); return mb.total + '%' + (mb.sources.length > 0 ? ' (' + mb.sources.map(s => s.label + (s.value >= 0 ? '+' : '') + s.value + '%').join(' ') + ')' : ''); })()}</span>
             <span style="color:#888;">攻击</span><span>${renderStatDetail(u, 'atk')}</span>
             <span style="color:#888;">防御</span><span>${renderStatDetail(u, 'def')}</span>
             <span style="color:#888;">造成伤害</span><span>${u.dmgDealt || 0}</span>

@@ -3,7 +3,7 @@ export const VER = 'core/12battle-attack-steps.js V6.1.1';
 
 import { CONFIG, getSkillParams, getGameData } from './01config-5v5-test.js';
 import { eventBus, EFFECT_TYPES } from '../infra/50-event-bus.js';
-import { calcDamage, getFangLevel, isMelee, getFronts, isBlocked, getRandomTaunt, getZhangNearTaunt, makeFXSnapshot, hasBuff, getUnitCol, getUnitRow, countEnemyEmptyCols } from './03battle-utils.js';
+import { calcDamage, getFangLevel, isMelee, getFronts, isBlocked, getRandomTaunt, getZhangNearTaunt, makeFXSnapshot, hasBuff, getUnitCol, getUnitRow, getMissBreakdown } from './03battle-utils.js';
 import { emitEvent, applyStatChange, refreshMaxHp, query, getBattleRng, recordCombatStat, getStat, addMod } from './13battle-shared.js';
 import { flushBattleEvents, pushBattleEvent, getBattleState, setBattleState, registerDodgeRule, clearEliteDodgeRules, getDodgeRules, persistValue, loadPersistedValue } from '../infra/51-core-utils.js';
 import { getEffectHandler, hasEffectHandler, getCalcModifier, validateDeclarationFields, validateCalcModifierFields } from './16effect-handlers.js';
@@ -114,19 +114,10 @@ export function selectAttackTarget(unit, enemySide, allySide) {
 export function resolveAttackHit(unit, target, attackerBuffStats, defenderBuffStats, log, A, B, doubleStrikeUnitUid, eventBus, state) {
     if (unit.state._neverMiss) return { skipped: false };
     const rng = getBattleRng();
-    let missChance = 0;
-    if (unit.role === ROLE_TYPES.RANGED) { missChance = C.RANGED_MISS_CHANCE; }
-    else if (unit.role === ROLE_TYPES.FLYER) {
-        missChance = C.FLY_MISS_CHANCE;
-        const allUnits = [...(A || []), ...(B || [])];
-        const lowHpCount = allUnits.filter(u => u.alive && u.hp / u.maxHp < 0.4).length;
-        missChance += lowHpCount * C.FLY_MISS_LOWHP_BONUS;
-        // 空列光环：敌方每空一列，飞行未命中减少 6%
-        const enemySideForMiss = unit.camp === CAMP_TYPES.ALLY ? (B || []) : (A || []);
-        const emptyCols = countEnemyEmptyCols(enemySideForMiss);
-        missChance -= emptyCols * C.FLY_MISS_EMPTYCOL_REDUCE;
-    }
-    else { missChance = C.GROUND_MISS_CHANCE; }
+    // 2026-09-16 未命中率算法下沉 03.getMissBreakdown（与详情弹窗同源，避免两处漂移）
+    const missAllySide = unit.camp === CAMP_TYPES.ALLY ? (A || []) : (B || []);
+    const missEnemySide = unit.camp === CAMP_TYPES.ALLY ? (B || []) : (A || []);
+    const missChance = getMissBreakdown(unit, missAllySide, missEnemySide).total;
 
     if (missChance > 0 && rng.nextInt(1,100) <= missChance) {
         const missData = {
@@ -233,15 +224,16 @@ export function calcFinalDamage(unit, target, attackerBuffStats, defenderBuffSta
     const damageData = { unit, target, allySide, enemySide, log, declarations: damageDeclarations };
     eventBus.emit(SIGNAL_TYPES.BEFORE_DAMAGE_CALC, damageData);
 
-    let defBase = Math.floor(getStat(target, 'def'));
-    let defReduced = 0;
-    let ignoreDefRatio = 0;
-    let bonusDmgTotal = 0;
-    let dmgMultiplier = 1;
-    const bonusDmgEntries = [];
-    const dmgMultiplierEntries = [];
-
-    const refs = { defBase, defReduced, ignoreDefRatio, bonusDmgTotal, dmgMultiplier, bonusDmgEntries, dmgMultiplierEntries };
+    // refs 直接构造，modifier 链就地读写；不再手动解构-装回
+    const refs = {
+        defBase: Math.floor(getStat(target, 'def')),
+        defReduced: 0,
+        ignoreDefRatio: 0,
+        bonusDmgTotal: 0,
+        dmgMultiplier: 1,
+        bonusDmgEntries: [],
+        dmgMultiplierEntries: []
+    };
     for (const decl of damageDeclarations) {
         const handler = getCalcModifier(decl.type);
         if (!handler) continue;
@@ -251,11 +243,8 @@ export function calcFinalDamage(unit, target, attackerBuffStats, defenderBuffSta
         }
         handler({ decl, unit, target, refs });
     }
-    defBase = refs.defBase;
-    defReduced = refs.defReduced;
-    ignoreDefRatio = refs.ignoreDefRatio;
-    bonusDmgTotal = refs.bonusDmgTotal;
-    dmgMultiplier = refs.dmgMultiplier;
+    // 解构用 let：defBase 下方还会按 ignoreDef 折一次，不能 const
+    let { defBase, defReduced, ignoreDefRatio, bonusDmgTotal, dmgMultiplier, bonusDmgEntries, dmgMultiplierEntries } = refs;
 
     if (ignoreDefRatio > 0) {
         defBase = Math.floor(defBase * (1 - ignoreDefRatio));
@@ -325,7 +314,9 @@ export function applyAttackResult(unit, target, dmgCalc, attackerBuffStats, defe
         });
     }
     if (dead) {
-        target.alive = false;
+        // 2026-09-16 不再直接设 alive=false：留给 resolveDeaths 统一处理。
+        //   否则 resolveDeaths 的 (_pendingDeath && alive) 过滤为空 → DEATH 信号不发
+        //   → watchUnit 收不到重判 → 张无忌不变身
         target.state._pendingDeath = true;
         if (!target.state._deathTime) target.state._deathTime = Date.now();
     }
@@ -486,8 +477,11 @@ export function buildAttackGroup(unit, target, dmgCalc, dmgResult, attackerBuffS
         unit._executeLog.forEach(e => pendingEntries.push(e));
         delete unit._executeLog;
     }
-    // 2026-09-15 删：09-14 那句"补漏"是误判。bonusEntries 一直由 renderAttackFact 读 dmgResult.bonusEntries 渲染，
-    // 补进 entries 后同一批数据被两条路径各渲染一遍，导致日志重复。
+    // 2026-09-16 修正：修饰器 fact（乾坤等）必须进 entries 才能进 log→31 拿 stageAction。
+    // 上轮删这条是删错方向；该删的是 renderAttackFact 直读 dmgResult.bonusEntries 那条（见改动 B）。
+    if (Array.isArray(bonusEntries) && bonusEntries.length > 0) {
+        bonusEntries.forEach(e => pendingEntries.push(e));
+    }
 
     const snap = {
         attackerPos: unit.pos,

@@ -30,13 +30,16 @@ function projectFactEntry(e) {
 // 攻击流程
 export function renderMissFact(fact) {
     const ac = fact.attacker.camp === CAMP_TYPES.ALLY ? 'blue' : 'orange';
+    const dc = fact.target.camp === CAMP_TYPES.ALLY ? 'blue' : 'orange';
     const campA = fact.attacker.camp === CAMP_TYPES.ALLY ? '明教' : '六大派';
+    const campD = fact.target.camp === CAMP_TYPES.ALLY ? '明教' : '六大派';
     return {
         type:'attack-group',
         uidA: fact.attacker.uid,
         uidD: fact.target.uid,
         entries: [
-            {type:'combat-text', text:`<span class="${ac}">${campA} ${fact.attacker.name}</span> 的攻击`},
+            // 2026-09-16 格式对齐命中：带攻/防/血，不再只写"XXX 的攻击"
+            {type:'combat-text', text:`<span class="${ac}">${campA} ${fact.attacker.name}</span>(攻${Math.floor(fact.attacker.atk)} 血${Math.floor(fact.attacker.hp)}) → <span class="${dc}">${campD} ${fact.target.name}</span>(防${Math.floor(fact.target.def)} 血${Math.floor(fact.target.hp)})`},
             {type:'info', text:`<span class="gray">未命中！</span>`}
         ],
         isMiss:true,
@@ -189,10 +192,6 @@ export function renderAttackFact(fact) {
             }).text
             : `<span class="damage-line ${ac}">${campA} ${unit.name}</span> 造成 <span class="red">${Math.round(dmgResult.dmg)}</span> 伤害，<span class="${dc}">${campD} ${target.name}</span> ${dmgResult.hpBefore} → ${targetHpAfter} ${dmgResult.dead?'💀阵亡':''}`
     });
-    for (const entry of dmgResult.bonusEntries) {
-        if (entry && entry.factType) group.entries.push(projectFactEntry(entry));
-        else group.entries.push(entry);
-    }
     if (fact.entries) {
         for (const e of fact.entries) {
             if (e && e.factType === FACT_TYPES.BREAK_DEF) continue; // 已前置到攻击组开头

@@ -190,8 +190,9 @@ export function showMeleeDodge(unitA, unitD) {
         ctx.store.dispatch({ type: STORE_ACTION_TYPES.SET_VISUAL, uid: unitA.uid, _acted: true });
     }
 
-    const flyDur = 350;
-    const returnDur = 500;
+    // 2026-09-16 简单模式闪避反击提速过猛（原 350+500=850ms，仅命中 2500ms 的 1/3）
+    const flyDur = 700;
+    const returnDur = 900;
     let blocked = false;
 
     clock.animate(flyDur, (p) => {
@@ -222,7 +223,7 @@ export function showMeleeDodge(unitA, unitD) {
     });
 }
 
-export function showMeleeMiss(unitA, unitD) {
+export function showMeleeMiss(unitA, unitD, onMiss) {
     const rectA = snapshotUnitCellRobust(unitA);
     const rectD = snapshotUnitCellRobust(unitD);
     if (!rectA || !rectD) return;
@@ -235,7 +236,7 @@ export function showMeleeMiss(unitA, unitD) {
     const nx = dx / dist, ny = dy / dist;
     const approach = dist - rectD.width * 0.5;
 
-    // 未命中配色：半透明灰 + 虚线边框，和命中(蓝)/闪避(金)区分，表达"扑空"
+    // 2026-09-16 配色改与命中一致的蓝色放大版（原灰底虚线"扑空感"太弱且显透明）
     const clone = cellA.cloneNode(true);
     clone.classList.remove('ready', 'acted');
     clone.removeAttribute('data-flash');
@@ -250,16 +251,18 @@ export function showMeleeMiss(unitA, unitD) {
         z-index: 99999;
         margin: 0;
         transition: none;
-        opacity: 0.75;
+        opacity: 1;
         visibility: visible;
         display: flex;
-        transform: none;
-        background: #cfcfcf;
-        border: 2px dashed #888;
+        transform: scale(1.15);
+        transform-origin: center center;
+        background: #1e6bb8;
+        border: 3px solid #0d47a1;
         border-radius: 5px;
         box-sizing: border-box;
         pointer-events: none;
     `;
+    clone.querySelectorAll('*').forEach(el => { el.style.color = '#ffffff'; });
     document.body.appendChild(clone);
 
     // 原格进入扑空态：隐藏原格，避免"人变两个"
@@ -271,20 +274,30 @@ export function showMeleeMiss(unitA, unitD) {
 
     const flyDur = 700;
     const returnDur = 500;
+    let missFired = false;
 
-    clock.animate(flyDur, (p) => {
-        const ease = p < 0.5 ? 2 * p * p : 1 - Math.pow(-2 * p + 2, 2) / 2;
-        clone.style.transform = `translate(${nx * approach * ease}px, ${ny * approach * ease}px)`;
-        if (p >= 1) {
-            clock.animate(returnDur, (p2) => {
-                clone.style.transform = `translate(${nx * approach * (1 - p2)}px, ${ny * approach * (1 - p2)}px)`;
-                if (p2 >= 1) {
-                    if (clone.parentNode) clone.remove();
-                    if (ctx && ctx.store) {
-                        ctx.store.dispatch({ type: STORE_ACTION_TYPES.SET_VISUAL, uid: unitA.uid, _renderFlyMode: null });
+    // 2026-09-16 返回 Promise：调用方可 await 动画播完再推下一组（原先同步返回，日志抢跑）
+    return new Promise(resolve => {
+        clock.animate(flyDur, (p) => {
+            const ease = p < 0.5 ? 2 * p * p : 1 - Math.pow(-2 * p + 2, 2) / 2;
+            clone.style.transform = `translate(${nx * approach * ease}px, ${ny * approach * ease}px) scale(1.15)`;
+            if (p >= 1) {
+                clock.animate(returnDur, (p2) => {
+                    clone.style.transform = `translate(${nx * approach * (1 - p2)}px, ${ny * approach * (1 - p2)}px) scale(1.15)`;
+                    // 气泡在返回中段（撞了一半往回走）才弹，不再飞撞前抢跑
+                    if (!missFired && p2 >= 0.5) {
+                        missFired = true;
+                        if (typeof onMiss === 'function') onMiss();
                     }
-                }
-            });
-        }
+                    if (p2 >= 1) {
+                        if (clone.parentNode) clone.remove();
+                        if (ctx && ctx.store) {
+                            ctx.store.dispatch({ type: STORE_ACTION_TYPES.SET_VISUAL, uid: unitA.uid, _renderFlyMode: null });
+                        }
+                        resolve();
+                    }
+                });
+            }
+        });
     });
 }

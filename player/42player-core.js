@@ -122,7 +122,6 @@ function readRound(c) {
 function setRound(c, round) {
     if (!c || !round) return;
     if (c.store) c.store.dispatch({ type: STORE_ACTION_TYPES.SET_ROUND, round });
-    if (c.UI) c.UI.round = round;
 }
 
 async function playStepInterleaved(c, step, isFirstAttackRef) {
@@ -406,6 +405,8 @@ export async function playBattle() {
     let isBattleOver = false; let finalWinner = null; let finalStep = null;
 
     // 2026-09-16 回合历史快照：每回合末存一份定稿（含 buff），供回放/存档/教学读取
+    // schema 约定：单位为 clone() 快照（state 字段走 core/17 V2 schema）；快照结构体带 version 便于未来演进
+    const SNAPSHOT_VERSION = 1;
     const roundHistory = [];
 
     while (!isBattleOver) {
@@ -441,10 +442,15 @@ export async function playBattle() {
         }
         // 回合定稿：此刻 lastStep 是整回合的最终态，nextActiveBuffs 是下回合将要生效的 buff
         roundHistory.push({
+            version: SNAPSHOT_VERSION,
             round: battleState.round,
             ally: lastStep.ally.map(u => u.clone()),
             enemy: lastStep.enemy.map(u => u.clone()),
-            activeBuffs: nextActiveBuffs.map(b => ({ ...b }))
+            activeBuffs: nextActiveBuffs.map(b => ({
+                ...b,
+                ...(b.cols ? { cols: [...b.cols] } : {}),
+                ...(b.rows ? { rows: [...b.rows] } : {})
+            }))
         });
 
         battleState = { ally: lastStep.ally, enemy: lastStep.enemy, round: battleState.round + 1, activeBuffs: nextActiveBuffs, allAllies: battleState.allAllies };

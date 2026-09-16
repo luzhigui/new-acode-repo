@@ -272,7 +272,9 @@ document.addEventListener('DOMContentLoaded', async function() {
                         else { unit.pos = 1 + _randLocal(0, 8); unit.state._originalPos = unit.pos; }
                     }
                 }
-                snap.enemy = Object.freeze(enemyList.map(u => Object.freeze(u)));
+                // 2026-09-16 冻结副本，不能冻 enemyList 本身：它紧接着要交给 UI，
+                //   冻结后 resetBattleRuntime 写 _flash 会抛 "read only property"
+                snap.enemy = Object.freeze(enemyList.map(u => Object.freeze(u.clone())));
                 setState.snapshot(snap);
                 const currentUI = getState.UI();
                 currentUI.enemyTeam = enemyList;
@@ -280,10 +282,15 @@ document.addEventListener('DOMContentLoaded', async function() {
                 stepBattleStart();
                 await playBattle();
             } catch (e) {
-                let logDiv=document.getElementById('log'); let errorDiv=document.createElement('div');
-                errorDiv.innerHTML=`<span class="red">❌ 战斗异常中断：${e.message || e}</span><br>`;
-                logDiv.appendChild(errorDiv); logDiv.scrollTop=logDiv.scrollHeight;
+                // 2026-09-16 #log 可能已被移除，catch 自身不能再崩（否则真错误被吞）
                 console.error('战斗异常', e);
+                const logDiv = document.getElementById('log');
+                if (logDiv) {
+                    const errorDiv = document.createElement('div');
+                    errorDiv.innerHTML = `<span class="red">❌ 战斗异常中断：${e.message || e}</span><br>`;
+                    logDiv.appendChild(errorDiv);
+                    logDiv.scrollTop = logDiv.scrollHeight;
+                }
             } finally {
                 abortController=null;
             }

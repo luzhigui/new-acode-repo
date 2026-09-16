@@ -26,7 +26,8 @@ const P = 50;
 
 // ES Module 单例 + eventBus.on 幂等去重
 eventBus.on(FX_SIGNALS.TRIGGER, P, (d) => {
-    _triggerFX(d.fxSnapshot, d.unitA, d.unitD, d.isDead, d.isDodge, d.isMiss, d.isBlock, d.dmg, d.waveTaunt, d.waveUnit, d.attackerRole);
+    // 2026-09-16 return：eventBus.emit 会 Promise.all 收集异步监听器，调用方才能 await
+    return _triggerFX(d.fxSnapshot, d.unitA, d.unitD, d.isDead, d.isDodge, d.isMiss, d.isBlock, d.dmg, d.waveTaunt, d.waveUnit, d.attackerRole);
 });
 
 eventBus.on(FX_SIGNALS.BANNER, P, (d) => showBuffBanner(d.text));

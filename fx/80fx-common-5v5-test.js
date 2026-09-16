@@ -95,14 +95,28 @@ export function showDodgeBubble(unit, text) {
 
 function createHealFloatEl() { let d = document.createElement('div'); d.className = 'heal-float'; return d; }
 initPool('healFloat', createHealFloatEl);
+
+// 2026-09-16 同单位回血飘字短时错位：九阳+热血同时回血时两条飘字原先完全重叠
+const _healFloatStack = new Map();
+const HEAL_STACK_WINDOW = 900;   // ms：同单位在此窗口内的第 N 条上移
+const HEAL_STACK_MAX = 3;        // 最多错 3 层，第 4 条回到原位
+const HEAL_STACK_STEP = 20;      // 每层上移像素
+
 export function showHealFloat(unit, heal) {
     const rect = snapshotUnitCell(unit);
     if (!rect) return;
+    const now = Date.now();
+    let rec = _healFloatStack.get(unit.uid);
+    if (!rec || now - rec.lastAt > HEAL_STACK_WINDOW) rec = { count: 0, lastAt: now };
+    rec.count = (rec.count % HEAL_STACK_MAX) + 1;
+    rec.lastAt = now;
+    _healFloatStack.set(unit.uid, rec);
+    const stackOffset = (rec.count - 1) * HEAL_STACK_STEP;
     acquireFromPool('healFloat', (healEl) => {
         healEl.textContent = '+' + heal;
         healEl.style.left = (rect.left + 12) + 'px';
         healEl.style.right = 'auto';
-        healEl.style.top = (rect.top - 4) + 'px';
+        healEl.style.top = (rect.top - 4 - stackOffset) + 'px';
         healEl.style.transform = 'translate(-100%, -100%)';
     }, 1400);
 }
@@ -176,11 +190,11 @@ export function showWindClaw(unit) {
         claw.style.cssText = `
             position:fixed; left:${cx + offsetX}px; top:${cy + offsetY}px;
             width:${len}px; height:${thickness}px;
-            background: linear-gradient(to right, rgba(255,215,0,0.95), rgba(255,180,0,0.3));
+            background: linear-gradient(to right, rgba(45,45,50,0.95), rgba(15,15,20,0.35));
             transform: rotate(${angle}deg);
             z-index:10010; pointer-events:none;
             border-radius: 1px;
-            filter: drop-shadow(0 0 6px rgba(255,215,0,0.9)) drop-shadow(0 0 2px rgba(0,0,0,0.4));
+            filter: drop-shadow(0 0 5px rgba(255,255,255,0.55)) drop-shadow(0 0 2px rgba(0,0,0,0.7));
             animation: clawSlash 0.5s ease-out forwards;
             animation-delay: ${i * 0.08}s;
         `;

@@ -6,6 +6,7 @@ import { CONFIG, getSkillDesc } from '../core/01config-5v5-test.js';
 import { GlobalStore, getPlayerContext } from '../infra/54-global-store.js';
 import { FLASH_TYPES, CAMP_TYPES, ROLE_TYPES, BUFF_TYPES } from '../infra/56-battle-enums.js';
 import { getStat } from '../core/13battle-shared.js';
+import { clock } from '../infra/52-clock.js';
 
 let _store = null;
 let _subscribed = false;
@@ -24,31 +25,27 @@ export function markGridShake(uid, durationMs) {
 }
 
 function runGridShake(el, durationMs) {
-    const start = Date.now();
     const d = Math.min(200, durationMs);
     const origTransform = el.style.transform || '';
     const origBg = el.style.background || '';
     el.style.transition = 'background 0.1s ease';
     el.style.background = '#ffd700';
     let bgCleared = false;
-    function tick() {
-        const elapsed = Date.now() - start;
-        if (elapsed >= durationMs) {
-            el.style.transform = origTransform;
-            el.style.transition = '';
-            if (!bgCleared) { el.style.background = origBg; bgCleared = true; }
-            return;
-        }
-        const progress = elapsed / durationMs;
-        const decay = 1 - progress;
-        const scale = 0.88 + 0.12 * progress;
+    // 2026-09-16 改走 clock：与全场特效同步缩放/暂停（原 rAF+Date.now 是统一时间层漏改）
+    clock.animate(durationMs, (p) => {
+        const decay = 1 - p;
+        // 起振 1.1 回落 1.0：接上受击 defend flash 的 scale(1.1)，不再向下缩成 0.88
+        const scale = 1.0 + 0.1 * decay;
         const offsetX = (Math.random() - 0.5) * 4 * decay;
         const offsetY = (Math.random() - 0.5) * 4 * decay;
         el.style.transform = `translate(${offsetX}px, ${offsetY}px) scale(${scale})`;
-        if (!bgCleared && elapsed > d) { el.style.background = origBg; bgCleared = true; }
-        requestAnimationFrame(tick);
-    }
-    requestAnimationFrame(tick);
+        if (!bgCleared && p * durationMs > d) { el.style.background = origBg; bgCleared = true; }
+        if (p >= 1) {
+            el.style.transform = origTransform;
+            el.style.transition = '';
+            if (!bgCleared) { el.style.background = origBg; bgCleared = true; }
+        }
+    });
 }
 
 export function setGridRenderCtx(ctx) { _ctx = ctx; }

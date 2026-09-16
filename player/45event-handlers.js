@@ -47,10 +47,9 @@ export async function handleInfo(c, entry) {
 }
 
 export async function handleRoundStart(c, entry, isFirstAttackRef) {
-    // 回合数写入唯一账本 battleStore（原 c.UI.round，两份拷贝收敛为一份）
+    // 回合数唯一账本 battleStore（原 c.UI.round 冗余副本已删）
     const _r = parseInt(entry.text.match(/\d+/)[0]) || 1;
     if (c.store) c.store.dispatch({ type: STORE_ACTION_TYPES.SET_ROUND, round: _r });
-    c.UI.round = _r;
     if (isFirstAttackRef) isFirstAttackRef.value = true;
     appendLogHTML(entry.text + '<br>');
     updateRoundDisplay(`📜 日志（第${currentRound(c)}回合）`);

@@ -53,7 +53,8 @@ const FACT_TRANSLATORS = {
                 targetUid: data.unit?.uid ?? data.unitUid ?? null,
                 amount: data.actualHeal,
                 factIndex: index,
-                timing: 'beforeText'
+                // 2026-09-16 必须显式 afterText：HEAL 的 timing 函数只认 afterText，写 beforeText 会被当 anchor 且无 fxAnchors → 静默丢弃
+                timing: 'afterText'
             });
         }
         return actions;
@@ -415,7 +416,7 @@ const FACT_TRANSLATORS = {
         timing: 'afterText'
     }),
     [FACT_TYPES.DOUBLE_STRIKE]: (data, index) => data.success
-        ? { kind: STAGE_ACTION_TYPES.BANNER, text: '⚡ 概率连击！', factIndex: index, timing: 'beforeText' }
+        ? { kind: STAGE_ACTION_TYPES.BANNER, text: '⚡ 概率连击！', factIndex: index, timing: 'beforeText', nonBlocking: true }
         : null,
     [FACT_TYPES.SPIDER_DOUBLE_STRIKE]: (data, index) => ({ kind: STAGE_ACTION_TYPES.BANNER, text: '⚡ 概率连击！', factIndex: index, timing: 'beforeText' }),
     [FACT_TYPES.XING_FEN_GRANT]: () => null,
@@ -508,6 +509,16 @@ function makeAttackAction(data, index) {
                 healAction.timing = 'afterText';
                 afterTextEffects.push(healAction);
             }
+            // 热血奋战：附一条 nonBlocking 横幅，翻倍时文案不同
+            if (e.factType === FACT_TYPES.HOT_BLOOD_HEAL) {
+                afterTextEffects.push({
+                    kind: STAGE_ACTION_TYPES.BANNER,
+                    text: e.data && e.data.isDouble ? '❤️‍🔥 热血奋战（翻倍）' : '❤️ 热血奋战',
+                    factIndex: index,
+                    timing: 'afterText',
+                    nonBlocking: true
+                });
+            }
         } else if (e.factType === FACT_TYPES.QIAN_KUN_DERIVED) {
             const derivedData = e.data || {};
             if (derivedData.healTargetUid && derivedData.heal) {
@@ -531,7 +542,7 @@ function makeAttackAction(data, index) {
                 });
             }
         } else if (e.factType === FACT_TYPES.FORTIFY_REBOUND) {
-            // 严阵以待反伤：飘在攻击者（受伤者）头上，不传 bannerText 避免插入阻塞横幅
+            // 严阵以待反伤：飘在攻击者（受伤者）头上；横幅 nonBlocking，不阻塞主流程
             afterTextEffects.push({
                 kind: STAGE_ACTION_TYPES.REBOUND,
                 actorUid: e.data?.unitUid ?? null,
@@ -540,6 +551,37 @@ function makeAttackAction(data, index) {
                 factIndex: index,
                 timing: 'afterText'
             });
+            afterTextEffects.push({
+                kind: STAGE_ACTION_TYPES.BANNER,
+                text: '🛡️ 严阵以待！',
+                factIndex: index,
+                timing: 'afterText',
+                nonBlocking: true
+            });
+        } else if (e.factType === FACT_TYPES.QIAN_KUN_UPGRADED || e.factType === FACT_TYPES.QIAN_KUN_BASIC) {
+            // 2026-09-16 乾坤大挪移：翻译器永远不会被调用（fact 藏在 attack.data.entries 里，不在 log 顶层），
+            // 飘字只能在这里扫 entries 产出。自伤与反弹各一条。
+            const kd = e.data || {};
+            if (kd.zhangUid && kd.selfDmg > 0) {
+                afterTextEffects.push({
+                    kind: STAGE_ACTION_TYPES.REBOUND,
+                    actorUid: kd.zhangUid,
+                    targetUid: kd.zhangUid,
+                    dmg: Math.round(kd.selfDmg),
+                    factIndex: index,
+                    timing: 'afterText'
+                });
+            }
+            if (kd.attackerUid && kd.rebound > 0) {
+                afterTextEffects.push({
+                    kind: STAGE_ACTION_TYPES.REBOUND,
+                    actorUid: kd.attackerUid,
+                    targetUid: kd.attackerUid,
+                    dmg: Math.round(kd.rebound),
+                    factIndex: index,
+                    timing: 'afterText'
+                });
+            }
         } else if (e.factType === FACT_TYPES.HORSE_REBOUND) {
             // 拒马反伤：同上，飘在攻击者头上
             afterTextEffects.push({
@@ -727,18 +769,7 @@ export const STAGE_ACTION_DEFS = {
     },
     [STAGE_ACTION_TYPES.PUSH]: {
         grid: 'sync', log: 'sync', timing: 'beforeText',
-        store: (c, action, pendingDeaths) => {
-            if (action.actorUid && action.targetUid) {
-                c.store.dispatch({ type: STORE_ACTION_TYPES.APPLY_EVENTS, events: [
-                    { eventType: UNIT_EVENT_TYPES.POS_CHANGE, uid: action.actorUid, pos: action.newPos },
-                    { eventType: UNIT_EVENT_TYPES.POS_CHANGE, uid: action.targetUid, pos: action.oldPos }
-                ]});
-            } else if (action.actorUid && action.newPos != null) {
-                c.store.dispatch({ type: STORE_ACTION_TYPES.APPLY_EVENTS, events: [
-                    { eventType: UNIT_EVENT_TYPES.POS_CHANGE, uid: action.actorUid, pos: action.newPos }
-                ]});
-            }
-        },
+        // 2026-09-16 位置变更交给 fx 内的动画收尾（原先 store 先改位置 → 格子瞬移后才播拱动画）
         fx: async (c, action) => {
             const target = findUnitByUidLocal(c, action.actorUid);
             if (!target) return;
@@ -746,10 +777,10 @@ export const STAGE_ACTION_DEFS = {
             if (action.targetUid) {
                 const behind = findUnitByUidLocal(c, action.targetUid);
                 if (behind) {
-                    await eventBus.emit(FX_SIGNALS.PUSH_SWAP, { target, behind, c, opts: { skipDataChange: true } });
+                    await eventBus.emit(FX_SIGNALS.PUSH_SWAP, { target, behind, c, opts: {} });
                 }
             } else {
-                await eventBus.emit(FX_SIGNALS.PUSH_BACK, { target, c, newPos: action.newPos, opts: { skipDataChange: true } });
+                await eventBus.emit(FX_SIGNALS.PUSH_BACK, { target, c, newPos: action.newPos, opts: {} });
             }
         }
     },
@@ -853,15 +884,15 @@ export const STAGE_ACTION_DEFS = {
         }
     },
     [STAGE_ACTION_TYPES.MISS]: {
-        grid: 'none', log: 'sync', timing: 'afterText',
-        fx: (c, action) => {
+        grid: 'none', log: 'sync', timing: 'beforeText',
+        fx: async (c, action) => {
             const attacker = findUnitByUidLocal(c, action.actorUid);
             const target = findUnitByUidLocal(c, action.targetUid);
             if (attacker && !GlobalStore.get('fastForwardActive')) {
-                eventBus.emit(FX_SIGNALS.DODGE_BUBBLE, { unit: attacker, text: '未命中' });
-                // 近战/飞行未命中补发飞撞击打动画（远程保持气泡即可）
+                // 2026-09-16 近战/飞行的气泡挪进 showMeleeMiss 返回回调（撞到一半才弹）；远程无飞撞，原地即时气泡
                 if (attacker.role !== ROLE_TYPES.RANGED && target) {
-                    eventBus.emit(FX_SIGNALS.TRIGGER, {
+                    // await：飞撞播完再推下一组，避免动画没完、下一组已开始
+                    await eventBus.emit(FX_SIGNALS.TRIGGER, {
                         fxSnapshot: action.fx || null,
                         unitA: attacker,
                         unitD: target,
@@ -875,6 +906,8 @@ export const STAGE_ACTION_DEFS = {
                         waveUnit: null,
                         attackerRole: attacker.role
                     });
+                } else {
+                    eventBus.emit(FX_SIGNALS.DODGE_BUBBLE, { unit: attacker, text: '未命中' });
                 }
             }
         }
@@ -882,7 +915,8 @@ export const STAGE_ACTION_DEFS = {
     [STAGE_ACTION_TYPES.IMMUNE]: { grid: 'none', log: 'sync', timing: 'beforeText' },
     [STAGE_ACTION_TYPES.STAT_CHANGE]: { grid: 'sync', log: 'sync', timing: 'afterText' },
     [STAGE_ACTION_TYPES.BANNER]: {
-        grid: 'none', log: 'sync', timing: 'beforeText',
+        grid: 'none', log: 'sync',
+        timing: (action) => (action && action.timing) || 'beforeText',
         fx: async (c, action) => {
             // 阻塞横幅：等待横幅播放完成，日志和动画按序推进
             if (action.text && !GlobalStore.get('fastForwardActive')) {
@@ -950,9 +984,8 @@ export const STAGE_ACTION_DEFS = {
                 if (action.dmg && !GlobalStore.get('fastForwardActive')) {
                     eventBus.emit(FX_SIGNALS.DAMAGE_FLOAT, { unit: target, dmg: action.dmg });
                 }
+                // 2026-09-16 不再白等 600ms：日志每行 500ms 已与单爪动画同步，此处纯浪费
                 eventBus.emit(FX_SIGNALS.BONE_CLAW, { attacker, target, opts: { isExecute: action.isExecute } });
-                // 每个爪击依次播放，避免多爪动画同时启动重叠
-                await clock.wait(600);
             } else if (action.effectType === BUFF_EFFECT_TYPES.ATK_BUFF && target && action.gain) {
                 // 加攻飘字比回血稍晚 200ms 冒出，形成"先回血、顿一下、再加攻"的层次
                 await clock.wait(200);

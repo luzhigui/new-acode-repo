@@ -182,7 +182,7 @@ export async function showSplashArrows(attacker, primaryTarget, splashTargets, o
 
 // 九阴白骨爪：🫳凝结 → 飞向目标 → 命中（斩杀走碎开）
 export function showBoneClaw(unitA, unitD, onHit, opts) {
-    if (GlobalStore.get('fastForwardActive')) { if (onHit) onHit(); return; }
+    if (GlobalStore.get('fastForwardActive')) { if (typeof onHit === 'function') onHit(); return; }
     opts = opts || {};
     const rectA = snapshotUnitCellRobust(unitA);
     const rectD = snapshotUnitCellRobust(unitD);
@@ -191,9 +191,9 @@ export function showBoneClaw(unitA, unitD, onHit, opts) {
     const dx = ex - sx, dy = ey - sy, dist = Math.sqrt(dx*dx+dy*dy);
     if (dist < 1) { if (onHit) onHit(); return; }
     const angle = Math.atan2(dy, dx);
-    const chargeTime = 500;
-    // 飞行时间按距离给保底，最少 700ms；小昭衍生技交替触发时临时降到 450ms 提速配合节奏
-    let baseMin = 700;
+    // 2026-09-16 再次提速：凝结 250→150、飞行保底 400→250、系数 1.5→0.9、停顿 150→100
+    const chargeTime = 150;
+    let baseMin = 250;
     if (unitD && unitD.hp !== undefined) {
         const battleState = GlobalStore.get('currentBattleState');
         const xiaoZhaoActive = battleState?.ally?.find(u => u.isXiaoZhaoSister && u.alive);
@@ -201,12 +201,12 @@ export function showBoneClaw(unitA, unitD, onHit, opts) {
             const zhang = battleState?.ally?.find(u => u.isZhang && u.alive);
             if (!zhang) {
                 const derivedHeal = Math.floor(unitD.def / 10);
-                if (derivedHeal > 0) baseMin = 450;
+                if (derivedHeal > 0) baseMin = 180;
             }
         }
     }
-    let flyDuration = Math.max(baseMin, dist * 1.5);
-    let pauseAfterHit = 500;
+    let flyDuration = Math.max(baseMin, dist * 0.9);
+    let pauseAfterHit = 100;
 
     let claw = document.createElement('div');
     claw.style.position = 'fixed';
@@ -245,7 +245,7 @@ export function showBoneClaw(unitA, unitD, onHit, opts) {
             claw.style.top = cy + 'px';
             if (p >= 1) {
                 // 命中：白骨爪属近战技能，不加受击颤动
-                if (onHit) onHit();
+                if (typeof onHit === 'function') onHit();
                 if (opts.isExecute) {
                     claw.style.transition = 'transform 0.4s ease-out, opacity 0.4s';
                     claw.style.transform = `translate(-50%,-50%) rotate(${clawRotation}rad) scale(2.2)`;
