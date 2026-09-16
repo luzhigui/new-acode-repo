@@ -1,5 +1,4 @@
 // V6.1.1 | ~23500 bytes | 2026-09-11 maxHp 词条化收尾：韦一笑吸血上限提升改 addMod+refreshMaxHp，删 _baseMaxHp 回写
-// V6.1.0 | ~23200 bytes | 2026-09-09 fact 纯数据化：buildAttackGroup 的 attacker/target 改为快照对象，不再引用活体 Unit
 export const VER = 'core/12battle-attack-steps.js V6.1.1';
 
 import { CONFIG, getSkillParams, getGameData } from './01config-5v5-test.js';

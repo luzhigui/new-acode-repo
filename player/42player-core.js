@@ -1,8 +1,5 @@
-// player/42player-core.js
-// V6.1.0 | 2026-09-13 统一时间层：接 infra/52-clock，删 AnimationScheduler / frameLoop / waitWhilePaused
-// V6.0.0 | 2026-09-06 播放器调度重构：按 factIndex 交错日志与特效，修复特效/日志错位
-// V6.0.0 | 2026-09-07 属性词条化：syncStoreFromStep 保留 _mods，渲染由 getStat 现算
-export const VER = 'player/42player-core.js V6.1.0';
+// V6.1.1 | 2026-09-16 统一时间层接 clock；按 factIndex 交错日志/特效；删 rebuildUISnapshotFromStore；每回合末存 battleHistory 快照
+export const VER = 'player/42player-core.js V6.1.1';
 
 import { eventBus } from '../infra/50-event-bus.js';
 import { FX_SIGNALS } from '../infra/55-fx-signals.js';
@@ -408,6 +405,9 @@ export async function playBattle() {
     }
     let isBattleOver = false; let finalWinner = null; let finalStep = null;
 
+    // 2026-09-16 回合历史快照：每回合末存一份定稿（含 buff），供回放/存档/教学读取
+    const roundHistory = [];
+
     while (!isBattleOver) {
         if (abortSig && abortSig.aborted) return;
         const isFirstAttackRef = { value: true };
@@ -439,6 +439,14 @@ export async function playBattle() {
             const engineXiaoZhao = lastStep.ally.find(u => u.isXiaoZhaoBrother);
             if (engineXiaoZhao) Object.assign(engineXiaoZhao.state, { _permanentBuffs: uiXiaoZhao.state._permanentBuffs.map(b => ({ ...b })) });
         }
+        // 回合定稿：此刻 lastStep 是整回合的最终态，nextActiveBuffs 是下回合将要生效的 buff
+        roundHistory.push({
+            round: battleState.round,
+            ally: lastStep.ally.map(u => u.clone()),
+            enemy: lastStep.enemy.map(u => u.clone()),
+            activeBuffs: nextActiveBuffs.map(b => ({ ...b }))
+        });
+
         battleState = { ally: lastStep.ally, enemy: lastStep.enemy, round: battleState.round + 1, activeBuffs: nextActiveBuffs, allAllies: battleState.allAllies };
 
         if (c.autoMode || GlobalStore.get('fastForwardActive')) {
@@ -513,6 +521,8 @@ export async function playBattle() {
         localStorage.setItem('ming_vote_score_5v5_test', String(result.newScore));
     }
     GlobalStore.set('voteChoice', null);
+    // 2026-09-16 历史落库：唯一入口，resetBattleRuntime 清场时一并清掉
+    GlobalStore.set('battleHistory', roundHistory);
     c._battleEnded = true;
     c.abortController = null;
     clock.stop();

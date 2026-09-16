@@ -1,5 +1,4 @@
 // V6.0.1 | ~16900 bytes | 2026-09-11 详情弹窗属性分解改走 _mods 词条表（renderStatDetail），终值用 getStat，根治词条化后分解失配
-// V6.0.0 | 2026-08-17 格子渲染下沉 render/32
 export const VER = 'ui/62ui-render-5v5-test.js V6.0.1';
 
 import { getSkillDesc } from '../core/01config-5v5-test.js';

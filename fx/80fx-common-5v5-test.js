@@ -1,6 +1,4 @@
-// fx/80fx-common-5v5-test.js
 // V6.1.0 | 2026-09-13 统一时间层：setTimeout/setInterval 全换 clock，对象池回收用 seq token
-// V6.0.0 | 2026-07-05
 export const VER = 'fx/80fx-common-5v5-test.js V6.1.0';
 
 import { CAMP_TYPES } from '../infra/56-battle-enums.js';

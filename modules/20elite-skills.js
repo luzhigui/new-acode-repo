@@ -1,6 +1,4 @@
-﻿// V6.0.1 | ~11200 bytes | 2026-09-11 maxHp 词条化批3a：蛛变/精通 applyMaxHpChange → refreshMaxHp
-// V6.0.0 | ~12200 bytes | 2026-08-24 蛛变防战 z 值改查分档表（getHpDmgRatio(0.5)=0.03），删硬编码
-// V6.0.0 | 2026-09-07 属性词条化：蛛变/精通/永久carry/乾坤减伤改 addMod/getStat
+﻿// V6.0.1 | ~11200 bytes | 2026-09-11 maxHp 词条化批3a：蛛变/精通 改 refreshMaxHp；蛛变防战 z 值查分档表；蛛变/精通/永久carry/乾坤减伤走 addMod/getStat
 export const VER = 'modules/20elite-skills.js V6.0.1';
 
 import { CONFIG, getSkillParams } from '../core/01config-5v5-test.js';

@@ -1,5 +1,4 @@
-// V6.0.1 | ~12200 bytes | 2026-09-11 maxHp 词条化批1：applyMaxHpChange → refreshMaxHp（派生缓存），导出/样板调用点同步（中间态，其他文件待批2-4替换）
-// V6.0.0 | ~10000 bytes | 2026-08-26 抽战斗统计统一记账入口 recordCombatStat
+// V6.0.1 | ~12200 bytes | 2026-09-11 maxHp 词条化批1：applyMaxHpChange → refreshMaxHp（派生缓存），导出/样板调用点同步
 export const VER = 'core/13battle-shared.js V6.0.1';
 
 import { CONFIG } from './01config-5v5-test.js';

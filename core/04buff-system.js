@@ -1,6 +1,4 @@
-﻿// V6.0.1 | ~15300 bytes | 2026-09-11 maxHp 词条化批4：carry addMod(maxHp) 后补 refreshMaxHp
-// V6.0.0 | ~27900 bytes | 2026-08-24 删除断头的精通查询链（精通已在蛛变首次掌握时增量结算）
-// V6.0.0 | 2026-09-07 属性词条化：computeBuffStats 不再产生 stats 对象，圣火令/严阵以待/carry 走 addMod
+﻿// V6.0.1 | ~15300 bytes | 2026-09-11 maxHp 词条化批4：carry addMod(maxHp) 后补 refreshMaxHp；computeBuffStats 不再产生 stats 对象
 export const VER = 'core/04buff-system.js V6.0.1';
 import {
     applyFortifyDef_Normal, applyFortifyDef_Sister, applyFortifyDef_Brother,

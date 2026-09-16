@@ -1,6 +1,4 @@
-// V6.0.2 | ~35700 bytes | 2026-09-11 maxHp 词条化批3b：蝶变附身/飞回/永久carry 改 addMod+refreshMaxHp；永久carry atk/def/maxHp 统一 addMod，删 _baseMaxHp 回写
-// V6.0.1 | ~35400 bytes | 2026-09-11 攻防读值词条化：乾坤衍生/融会贯通 6 处裸 .atk/.def 改 getStat
-// V6.0.0 | ~31800 bytes | 2026-08-24 拆除 ELITE_SKILLS/本地台词硬编码兜底：统一 getSkillParams + gameData.taunts
+// V6.0.2 | ~35700 bytes | 2026-09-11 maxHp 词条化批3b：蝶变附身/飞回/永久carry 改 addMod+refreshMaxHp；攻防读值统一走 getStat
 export const VER = 'modules/27elite-mingjiao.js V6.0.2';
 
 import { registerElite } from '../core/08-elite-registry.js';

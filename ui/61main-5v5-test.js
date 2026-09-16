@@ -1,5 +1,4 @@
 // V6.0.1 | 2026-09-11 ALL_VERS 赋值前移到 startApp 之前，保证 updateCoverVersion 动态版本列表在读取前已写入
-// V6.0.0 | 2026-08-26 移除 handleBuffLeech import
 export const VER = 'ui/61main-5v5-test.js V6.0.1';
 
 import '../infra/54-global-store.js';

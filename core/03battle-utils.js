@@ -1,4 +1,3 @@
-// V6.0.0 | ~14500 bytes | 2026-08-24 坚盾增量/上限兜底改读 CONFIG（配合上限 3→4，去硬编码）
 // V6.0.0 | 2026-09-07 属性词条化：远程成长/坚盾/破防改 addMod，不再直改 unit/state
 export const VER = 'core/03battle-utils.js V6.0.0';
 
