@@ -1,6 +1,4 @@
-// player/40player-text.js
 // V6.1.0 | 2026-09-13 统一时间层：打字等待改 clock.wait，删 waitWhilePaused；baseDuration 改为 1x 基准时长
-// V6.0.0 | ~2700 bytes | 2026-07-05
 export const VER = 'player/40player-text.js V6.1.0';
 
 import { GlobalStore } from '../infra/54-global-store.js';

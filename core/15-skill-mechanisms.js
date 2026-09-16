@@ -1,6 +1,4 @@
 // V6.0.1 | ~28700 bytes | 2026-09-11 maxHp 词条化批2b：苦练/性奋代价 addMod(maxHp) 后补 refreshMaxHp，newMaxHp 改读 refresh 后真值
-// V6.0.0 | ~14500 bytes | 2026-08-28 毒 fact 按攻击组定位插入
-// V6.0.0 | 2026-09-07 属性词条化：乾坤衍生/苦练/性奋代价改 addMod
 export const VER = 'core/15-skill-mechanisms.js V6.0.1';
 
 import { EXECUTION_LAYER as L, EFFECT_TYPES, registerSettlementHook } from '../infra/50-event-bus.js';

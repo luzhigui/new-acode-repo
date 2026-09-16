@@ -1,6 +1,4 @@
-// fx/82fx-crash-5v5-test.js
-// V6.1.0 | 2026-09-13 统一时间层：手写 rAF/setTimeout 换 clock，删 speed/getPausedFn 参数
-// V6.1.0 | 2026-09-09 特效层解耦：全部 cell 引用改为 snapshot + clone
+// V6.1.0 | 2026-09-13 统一时间层换 clock；特效层解耦：cell 引用改为 snapshot + clone
 export const VER = 'fx/82fx-crash-5v5-test.js V6.1.0';
 
 import { STORE_ACTION_TYPES, CAMP_TYPES, ROLE_TYPES } from '../infra/56-battle-enums.js';

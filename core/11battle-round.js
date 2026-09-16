@@ -1,6 +1,4 @@
-// V6.0.1 | ~24900 bytes | 2026-09-11 maxHp 词条化批4：prepareRoundStart removeModsByTTL(round) 后补 refreshMaxHp（闭环上回合 carry 清理）
-// V6.0.0 | ~23700 bytes | 2026-08-26 回合重置走 resetStateFields；蝶变方向弹窗移至播放器层
-// V6.0.0 | 2026-09-07 属性词条化：删除归位重算，光环改 round 词条，回合开始清理上回合词条
+// V6.0.1 | ~24900 bytes | 2026-09-11 属性词条化批4：round 词条清理后补 refreshMaxHp；光环改 round 词条，删归位重算；蝶变方向弹窗移至播放器层
 export const VER = 'core/11battle-round.js V6.0.1';
 
 import { CONFIG, getGameData, getSkillParams } from './01config-5v5-test.js';

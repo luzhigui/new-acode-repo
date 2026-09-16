@@ -1,5 +1,4 @@
-// V6.0.1 | ~11800 bytes | 2026-09-11 maxHp 词条化批2a：LEECH/ROUND_STAT_GRANT maxHp 分支改 addMod+refreshMaxHp；LEECH 改按"当前→目标"增量（修多次吸血超封顶 bug）
-// V6.0.0 | 2026-09-07 属性词条化：BREAK_DEF/SPLASH成长/STAT_CHANGE/ROUND_STAT_GRANT 改 addMod，不再直改 _base
+// V6.0.1 | ~11800 bytes | 2026-09-11 maxHp 词条化批2a：LEECH/ROUND_STAT_GRANT 改 addMod+refreshMaxHp；LEECH 改按增量（修多次吸血超封顶 bug）
 export const VER = 'core/16effect-handlers.js V6.0.1';
 
 import { EFFECT_TYPES } from '../infra/50-event-bus.js';

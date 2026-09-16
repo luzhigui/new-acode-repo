@@ -1,6 +1,4 @@
-// player/46attack-group.js
-// V6.1.0 | 2026-09-13 统一时间层：setTimeout/waitWhilePaused 换 clock.wait，forcedSpeed 改 1x 基准时长
-// V6.0.0 | 2026-08-26 特效全部移交 stageActions，本文件只负责文本与格子闪示
+// V6.1.0 | 2026-09-13 统一时间层：setTimeout/waitWhilePaused 换 clock.wait，forcedSpeed 改 1x 基准时长（特效已全部移交 stageActions，本文件只负责文本与格子闪示）
 export const VER = 'player/46attack-group.js V6.1.0';
 
 import { GlobalStore, getState } from '../infra/54-global-store.js';

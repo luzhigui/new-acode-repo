@@ -1,5 +1,4 @@
 // V6.0.1 | ~6900 bytes | 2026-09-11 删 startApp 死函数；updateCoverVersion 改读 window.ALL_VERS 动态生成版本列表
-// V6.0.0 | ~7400 bytes | 2026-07-05
 export const VER = 'ui/60main-utils.js V6.0.1';
 
 import { GlobalStore } from '../infra/54-global-store.js';
