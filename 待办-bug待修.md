@@ -12,7 +12,8 @@
 | 4 | 待修 | 玄冥二老联动攻击后"动"变灰色 | 与已修的联动吞回合（rule73，126-xuanming-link.js）是两个问题；此为行动状态显示异常，疑为播放器读取 `partner._acted` 时序，建议先控制台诊断定位 |
 | 5 | 待修 | 拒马消失判定 | 待定位，暂无回归规则 |
 | 6 | 已修 | 乾坤大挪移减伤/反弹提示不显示 | 根因（2026-09-14）：`core/12` 的 `buildAttackGroup` 从 `dmgResult` 取出 `bonusEntries` 后从未使用，伤害修饰器（乾坤减伤/反弹）产出的 fact 被静默丢弃 → 玩家看不到提示。已并入 `entries`。注意：`calcFinalDamage` 形参名 `allySide/enemySide` 与实参语义相反，`query('damageModifiers', ...)` 处的互换写法是**有意抵消**，改动时勿单独"修正"。 |
-
+| 7 | 待修 | 资产登记红线失真：player 仍直接 import fx | `player/46attack-group.js:7-8` 导入 `../fx/81fx-arrows-5v5-test.js`（showBoneClaw）、`../fx/80fx-common-5v5-test.js`（showDamageFloat），与登记资产「player→fx 依赖反转：player 禁止 import fx」冲突；该文件头自称"特效已全部移交 stageActions"。处置：清 import 或收回调用，属代码侧裁决。见 `文件汇总20260730/资产-核心资产清单.md`「首次核对发现」 |
+| 8 | 待修 | 死 import：`markGridShake` 两处残留 | `fx/81fx-arrows-5v5-test.js:4`、`fx/82fx-crash-5v5-test.js:6` 均只 import 未调用（颤动实际已由 `fx/88fx-trigger.js` 的 `shakeTarget` 统一发起）；同时资产描述"82 无 markGridShake import"已失真，需一并更正 |
 
 当前已收尾的部分：技能声明化（阶段 1/2a/2b）、buff 声明化、台词数据驱动、62/32 去重。
 
