@@ -6,7 +6,7 @@ import { getKillTaunt } from '../core/03battle-utils.js';
 import { GlobalStore } from '../infra/54-global-store.js';
 import { AudioManager } from '../modules/22audio-manager.js';
 import { STORE_ACTION_TYPES, FLASH_TYPES, ROLE_TYPES } from '../infra/56-battle-enums.js';
-import { showDanmaku, showDamageFloat } from './80fx-common-5v5-test.js';
+import { showDanmaku, showDamageFloat, showDodgeBubble } from './80fx-common-5v5-test.js';
 import { showRangedArrow } from './81fx-arrows-5v5-test.js';
 import { showMeleeCrash, showMeleeDodge, showMeleeMiss } from './82fx-crash-5v5-test.js';
 import { markGridShake } from '../render/32-grid-render.js';
@@ -42,8 +42,8 @@ export function _triggerFX(fxSnapshot, unitA, unitD, isDead, isDodge, isMiss, is
             } else if (!isDodge) {
                 showRangedArrow(unitA, unitD, false, () => {
                     shakeTarget(unitD.uid, 350);
-                    // 2026-09-15 飘字延后 800ms，等日志伤害文本先走一段
-                    clock.wait(800).then(() => {
+                    // 2026-09-15 飘字延后 800ms；09-16 调到 1100ms，再等日志文本一会
+                    clock.wait(1100).then(() => {
                         if (!GlobalStore.get('fastForwardActive')) showDamageFloat(unitD, dmg);
                     });
                 });
@@ -54,11 +54,14 @@ export function _triggerFX(fxSnapshot, unitA, unitD, isDead, isDodge, isMiss, is
                     showMeleeDodge(unitA, unitD);
                 }
             } else if (isMiss) {
-                showMeleeMiss(unitA, unitD);
+                // 2026-09-16 return：把动画 Promise 交给调用方 await
+                return showMeleeMiss(unitA, unitD, () => {
+                    if (!GlobalStore.get('fastForwardActive')) showDodgeBubble(unitA, '未命中');
+                });
             } else {
                 showMeleeCrash(unitA, unitD, () => {
-                    // 2026-09-15 飘字延后 800ms，等日志伤害文本先走一段
-                    clock.wait(800).then(() => {
+                    // 2026-09-15 飘字延后 800ms；09-16 调到 1100ms，再等日志文本一会
+                    clock.wait(1100).then(() => {
                         if (!GlobalStore.get('fastForwardActive')) showDamageFloat(unitD, dmg);
                     });
                     if (isDead && unitD) {

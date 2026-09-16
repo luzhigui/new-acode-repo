@@ -75,7 +75,7 @@ export async function handleAttackGroup(c, entry, roundResult, abortSig, isFirst
             const clawAttacker = findUnitByUid(c, entry2.clawAttackerUid);
             const clawTarget = findUnitByUid(c, entry2.clawTargetUid);
             if (clawAttacker && clawTarget) {
-                showBoneClaw(clawAttacker, clawTarget, Math.max(c.speed || 1000, 600), () => c.isPaused, null, { isExecute: entry2.isExecute });
+                showBoneClaw(clawAttacker, clawTarget, null, { isExecute: entry2.isExecute });
                 // 爪击伤害飘字（快进跳过）
                 if (!GlobalStore.get('fastForwardActive') && entry2.dmg > 0) {
                     showDamageFloat(clawTarget, entry2.dmg);
@@ -83,8 +83,9 @@ export async function handleAttackGroup(c, entry, roundResult, abortSig, isFirst
             }
         }
 
-        // combat-text/damage-text 基准 1200ms，其他 600ms；不再随 speed 变
-        const forcedSpeed = (entry2.type === 'combat-text' || entry2.type === 'damage-text') ? 1200 : 600;
+        // combat-text/damage-text 基准 1200ms；爪击行 500ms（≈单爪动画时长，两者同步不互等）；其他 600ms
+        const forcedSpeed = entry2.isClawHit ? 500
+            : (entry2.type === 'combat-text' || entry2.type === 'damage-text') ? 1200 : 600;
         await playLogLine(entry2.text, forcedSpeed);
         if (!c.userScrolled) autoScrollLog();
 
@@ -99,7 +100,7 @@ export async function handleAttackGroup(c, entry, roundResult, abortSig, isFirst
 
         // 爪击之间极短间隔，形成连续快打节奏
         if (entry2.isClawHit) {
-            await clock.wait(120);
+            await clock.wait(60);
         }
 
         if (entry2.type === 'detail' || entry2.type === 'info' || entry2.type === 'buff-bonus' || entry2.type === 'buff-splash') {

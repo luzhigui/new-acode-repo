@@ -135,7 +135,9 @@ function triggerShake() {
 function buildClone(innerHTML, rect, extraCSS) {
     const clone = document.createElement('div');
     clone.setAttribute('data-fx', 'temporary');
-    clone.classList.add('bullet-clone');
+    // 2026-09-16 补 cell 类：只用 innerHTML 会丢外层布局（align-items/gap/padding 全无），
+    //   图标被 stretch 拉到整格高度 → 贴左上角。加回 cell 后与 82 的 cloneNode 行为一致
+    clone.classList.add('bullet-clone', 'cell');
     clone.innerHTML = innerHTML;
     clone.style.cssText = `
         position: fixed;

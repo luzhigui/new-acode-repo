@@ -4,7 +4,7 @@ export const VER = 'fx/84fx-push-back.js V6.1.0';
 
 import { GlobalStore } from '../infra/54-global-store.js';
 import { STORE_ACTION_TYPES, UNIT_EVENT_TYPES, CAMP_TYPES } from '../infra/56-battle-enums.js';
-import { getUnitCell } from './90fx-ref-manager.js';
+import { getUnitCell, snapshotCellByPos } from './90fx-ref-manager.js';
 import { clock } from '../infra/52-clock.js';
 
 function getCellElement(unit) {
@@ -18,13 +18,20 @@ export async function animatePushBack(unit, c, targetPos, options = {}) {
 
     const oldPos = unit.pos;
 
-    cell.style.transition = 'transform 0.3s ease-out';
-    cell.style.transform = unit.camp === CAMP_TYPES.ALLY ? 'translateY(20px)' : 'translateY(-20px)';
-    await clock.wait(300);
-
-    cell.style.transition = 'transform 0.2s ease-in';
-    cell.style.transform = 'translate(0,0)';
-    await clock.wait(200);
+    // 2026-09-16 改为真位移：格子从旧位拱到新位，动画落定后才写数据
+    const oldRect = snapshotCellByPos(unit.camp, oldPos);
+    const newRect = snapshotCellByPos(unit.camp, targetPos);
+    if (oldRect && newRect) {
+        const dx = newRect.x - oldRect.x;
+        const dy = newRect.y - oldRect.y;
+        cell.style.transition = 'transform 0.45s cubic-bezier(0.25, 0.46, 0.45, 0.94)';
+        cell.style.zIndex = '99999';
+        cell.style.transform = `translate(${dx}px, ${dy}px) scale(1.05)`;
+        await clock.wait(450);
+        cell.style.transition = 'transform 0.15s ease-out';
+        cell.style.transform = `translate(${dx}px, ${dy}px) scale(1)`;
+        await clock.wait(150);
+    }
 
     if (!skipDataChange) {
         if (c.store) {
@@ -35,6 +42,9 @@ export async function animatePushBack(unit, c, targetPos, options = {}) {
             unit.pos = targetPos;
         }
     }
+    cell.style.transition = '';
+    cell.style.transform = '';
+    cell.style.zIndex = '';
     const ctx = GlobalStore.get('playerContext') || c;
     if (ctx) ctx.updateUI();
 
@@ -124,7 +134,7 @@ export async function animatePushSwap(frontUnit, rearUnit, c) {
     cellR.style.opacity = '1';
     cellR.style.visibility = 'visible';
 
-    c.updateUI(c.UI);
+    c.updateUI();
 
     const newCellF = getCellElement(frontUnit);
     const newCellR = getCellElement(rearUnit);

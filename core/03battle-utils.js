@@ -73,6 +73,39 @@ export function getFlyDodgeRate(unit, attacker) {
     return C.BASE_DODGE_GROUND || 0.03;
 }
 
+// 2026-09-16 攻击未命中率：唯一算法源（12battle-attack-steps 与详情弹窗同源调用，改算法只改这里）
+// 返回 { total, sources }，total 为百分点，sources 为 { label, value } 明细
+export function getMissBreakdown(unit, allySide, enemySide) {
+    if (!unit) return { total: 0, sources: [] };
+    if (unit.state && unit.state._neverMiss) return { total: 0, sources: [{ label: '必中', value: 0 }] };
+    const sources = [];
+    let total = 0;
+    if (unit.role === ROLE_TYPES.RANGED) {
+        total = C.RANGED_MISS_CHANCE;
+        sources.push({ label: '远程基础', value: C.RANGED_MISS_CHANCE });
+    } else if (unit.role === ROLE_TYPES.FLYER) {
+        total = C.FLY_MISS_CHANCE;
+        sources.push({ label: '飞行基础', value: C.FLY_MISS_CHANCE });
+        const allUnits = [...(allySide || []), ...(enemySide || [])];
+        const lowHpCount = allUnits.filter(u => u.alive && u.hp / u.maxHp < 0.4).length;
+        if (lowHpCount > 0) {
+            const v = lowHpCount * C.FLY_MISS_LOWHP_BONUS;
+            total += v;
+            sources.push({ label: '残血光环×' + lowHpCount, value: v });
+        }
+        const emptyCols = countEnemyEmptyCols(enemySide || []);
+        if (emptyCols > 0) {
+            const v = -emptyCols * C.FLY_MISS_EMPTYCOL_REDUCE;
+            total += v;
+            sources.push({ label: '空列×' + emptyCols, value: v });
+        }
+    } else {
+        total = C.GROUND_MISS_CHANCE;
+        sources.push({ label: '地面基础', value: C.GROUND_MISS_CHANCE });
+    }
+    return { total: Math.max(0, Math.round(total * 10) / 10), sources };
+}
+
 export function getRandomTaunt(unit) {
     const rng = getBattleRng();
     const taunts = getGameData().taunts;

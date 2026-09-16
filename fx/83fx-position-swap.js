@@ -86,7 +86,7 @@ export async function animatePositionSwap(unit1, unit2, c, options = {}) {
     cell2.style.cssText = '';
     cell1.classList.remove('swap-flash', 'swap-lock');
     cell2.classList.remove('swap-flash', 'swap-lock');
-    c.updateUI(c.UI);
+    c.updateUI();
 
     const newCell1 = getCellElement(unit1);
     const newCell2 = getCellElement(unit2);
