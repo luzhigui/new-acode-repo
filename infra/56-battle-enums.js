@@ -40,7 +40,11 @@ export const FACT_TYPES = Object.freeze({
     CLAW_EXECUTE: 'clawExecute', CLAW_HEAL: 'clawHeal',
     PHANTOM_REVEAL: 'phantomReveal', PHANTOM_CONFUSE: 'phantomConfuse',
     XUAN_MING_LINK_ATTACK: 'xuanmingLinkAttack',
-    SPIDER_DEAD_TARGET: 'spiderDeadTarget', XING_FEN_GRANT: 'xingFenGrant'
+    SPIDER_DEAD_TARGET: 'spiderDeadTarget', XING_FEN_GRANT: 'xingFenGrant',
+    // 张三丰：生生不息（回血 + 加防）
+    ENDLESS_BREATH: 'endlessBreath',
+    // 张三丰：不争（仅剩一人判负）
+    NO_CONTEND: 'noContend'
 });
 
 /** Buff 类型：buff.key 唯一来源（与 CONFIG.BUFFS / XIAO_ZHAO_PERMANENT_BUFFS 11 项对应） */
@@ -140,7 +144,9 @@ export const SIGNAL_TYPES = Object.freeze({
     BEFORE_STATE_TRANSITION: 'beforeStateTransition',
     ON_BEFORE_DEATH: 'onBeforeDeath',
     // 单位状态变化统一广播：所有"单位状态变了"的机制信号都走这个
-    ON_UNIT_STATE_CHANGE: 'onUnitStateChange'
+    ON_UNIT_STATE_CHANGE: 'onUnitStateChange',
+    // 单位行动完成广播：每次该单位走完自己的回合（攻击/休息/被遮挡）后发一次
+    ON_UNIT_ACTED: 'onUnitActed'
 });
 
 /** 单位状态变化类型：ON_UNIT_STATE_CHANGE 信号的 changeType 唯一来源 */

@@ -278,6 +278,13 @@ export function initBattleTeams(currentStage, _rng) {
         let template = C.ENEMY_POS_TEMPLATES && C.ENEMY_POS_TEMPLATES[currentStage] ? C.ENEMY_POS_TEMPLATES[currentStage] : null;
         let eliteUnits = allUnits.filter(u => C.ELITE_POOL && C.ELITE_POOL[currentStage] && C.ELITE_POOL[currentStage].some(e => e.name === u.name));
         let normalUnits = allUnits.filter(u => !eliteUnits.includes(u));
+        // 2026-09-17 张三丰固定1号位：普通兵排位之前先锁，其他单位不许占
+        const zhangSanfeng = eliteUnits.find(u => u.name === '张三丰');
+        if (zhangSanfeng && !enemyPosSet.has(1)) {
+            zhangSanfeng.pos = 1;
+            zhangSanfeng.state._originalPos = 1;
+            enemyPosSet.add(1);
+        }
         if (template) {
             let roleCounts = { [ROLE_TYPES.WARRIOR]: 0, [ROLE_TYPES.DEFENDER]: 0, [ROLE_TYPES.RANGED]: 0, [ROLE_TYPES.FLYER]: 0 };
             normalUnits.forEach(u => { if (roleCounts[u.role] !== undefined) roleCounts[u.role]++; });

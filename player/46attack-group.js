@@ -12,7 +12,8 @@ export async function handleAttackGroup(c, entry, roundResult, abortSig, isFirst
     let unitA = findUnitByUid(c, entry.uidA);
     let unitD = entry.uidD ? findUnitByUid(c, entry.uidD) : null;
 
-    if (!entry.isBlock && !entry.isMiss && !entry.isDodge && (!unitA || !unitD)) {
+    // 2026-09-17 加 !isEndlessBreath：生生不息无目标（uidD=null），不是异常
+    if (!entry.isBlock && !entry.isMiss && !entry.isDodge && !entry.isEndlessBreath && (!unitA || !unitD)) {
         appendLogHTML(`<span class="gray">${entry.attackerName || entry.uidA || '未知'} 攻击 ${entry.targetName || entry.uidD || '未知'}，但目标已不存在</span><br>`);
     }
 
@@ -28,11 +29,21 @@ export async function handleAttackGroup(c, entry, roundResult, abortSig, isFirst
         });
     }
 
+    // 2026-09-17 生生不息：金圈闪 1.2s（区别于拒马 😴），复用 cell-cheer 类
+    if (unitA && entry.isEndlessBreath && c.store) {
+        c.store.dispatch({ type: STORE_ACTION_TYPES.SET_FLASH, uid: unitA.uid, flash: FLASH_TYPES.CHEER });
+        clock.wait(1200).then(() => {
+            if (!c.store) return;
+            c.store.dispatch({ type: STORE_ACTION_TYPES.CLEAR_UNIT_FLASH, uid: unitA.uid });
+        });
+    }
+
     if (unitA && entry.isBlock && c.store) {
         c.store.dispatch({ type: STORE_ACTION_TYPES.SET_VISUAL, uid: unitA.uid, _acted: true, _blocked: true });
     }
 
-    if (unitA && !entry.isBlock && !entry.isDodge) {
+    // 2026-09-17 生生不息不闪蓝（它不是攻击，走自己的金圈）
+    if (unitA && !entry.isBlock && !entry.isDodge && !entry.isEndlessBreath) {
         // 闪避反击时攻击者只显示眩晕，由 DODGE stage action 处理
         if (c.store) c.store.dispatch({ type: STORE_ACTION_TYPES.SET_FLASH, uid: unitA.uid, flash: FLASH_TYPES.ATTACK });
     }

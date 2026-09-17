@@ -66,6 +66,10 @@ export const BATTLE_STATE_SCHEMA = Object.freeze({
     _butterflyHost:          { type: STATE_FIELD_TYPES.STRING,  default: null },
     _zhangTauntDone:         { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
 
+    // 张三丰：第十回合严阵以待
+    _roundCountForFortify:   { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },
+    _tenRoundFired:          { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
+
     // 原顶层永久字段，迁入 state
     _baseAtk:                { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },
     _baseDef:                { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },
