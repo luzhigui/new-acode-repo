@@ -418,6 +418,21 @@ export function renderHorseSummonFact(fact) {
 // 行动跳过
 export function renderPassFact(fact) {
     const { unit, reason } = fact;
+    // 2026-09-17 张三丰：生生不息走独立文案（回血数值由组件层触发，这里只标记行动）
+    if (reason === '生生不息') {
+        const campName = unit.camp === CAMP_TYPES.ALLY ? '明教' : '六大派';
+        return {
+            type:'attack-group', uidA:unit.uid, uidD:null,
+            entries:[
+                {type:'info', text:`<span class="gray">${campName} ${unit.name} 生生不息</span>`}
+            ],
+            // 2026-09-17 不设 isBlock（否则被标"被遮挡"→显示 😴），走专属 isEndlessBreath
+            isEndlessBreath:true,
+            _fxSnapshot: makeFXSnapshot(unit,null), waveTaunt:null, waveUnit:null,
+            buffEffects:[], needsSeparator: true,
+            _events: fact.events || []
+        };
+    }
     if (reason === '被遮挡' || reason === '拒马休息') {
         const hpBefore = fact.hpBefore !== undefined ? fact.hpBefore : Math.floor(unit.hp);
         const hpAfter = fact.hpAfter !== undefined ? fact.hpAfter : Math.floor(unit.hp);
@@ -643,6 +658,16 @@ export function renderFortifyReboundFact(fact) {
     return { type:'info', text:`<span class="gold">🛡️ 严阵以待反弹${fact.reboundDmg}给${fact.unitName}</span>` };
 }
 
+// 张三丰：生生不息
+export function renderEndlessBreathFact(fact) {
+    return { type:'info', text:`<span class="green">☯ 生生不息：${fact.unitName} 回复${fact.heal}点生命，防御+${fact.defGain}</span>` };
+}
+
+// 张三丰：不争（仅剩一人判负）
+export function renderNoContendFact(fact) {
+    return { type:'info', text:`<span class="gold">☯ 不争：六大派仅剩 ${fact.unitName} 一人，明教获胜</span>` };
+}
+
 // 流星溅射成长
 export function renderMeteorSplashGrowthFact(fact) {
     return { type:'info', text:`<span class="gold">⚡ ${fact.unitName} 攻击+${fact.growth}</span>` };
@@ -776,6 +801,8 @@ const FACT_RENDERERS = buildRendererMap({
     renderXuanmingLinkAttackFact,
     renderSpiderDeadTargetFact,
     renderXingFenGrantFact,
+    renderEndlessBreathFact,
+    renderNoContendFact,
 });
 
 export function renderLog(type, data) {

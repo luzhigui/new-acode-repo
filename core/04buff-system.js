@@ -22,6 +22,7 @@ export function applyHolyFlameBonus(unit, activeBuffs, hasSister) {
 }
 
 export function applyFortifyBonus(unit, activeBuffs) {
+    // 2026-09-17 恢复 camp 判断：张三丰的严阵以待走组件自算，不走 _activeBuffs；此函数保持"只对明教"原语义
     if (unit.role !== ROLE_TYPES.DEFENDER || unit.camp !== CAMP_TYPES.ALLY) return;
     if (activeBuffs.some(b => b.key === BUFF_TYPES.FORTIFY)) {
         applyFortifyDef_Normal(unit);

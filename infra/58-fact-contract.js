@@ -131,6 +131,11 @@ export const FACT_SPECS = Object.freeze({
     // 行动跳过
     [FACT_TYPES.STUN_SKIP]: { requiredFields: ['unitName'], renderFn: 'renderStunSkipFact', translateFn: 'translateStunSkip' },
     [FACT_TYPES.FLY_SKIP]: { requiredFields: ['unitName'], renderFn: 'renderFlySkipFact', translateFn: 'translateFlyMode' },
+
+    // 张三丰：生生不息（只做日志渲染，飘字由组件层直发）
+    [FACT_TYPES.ENDLESS_BREATH]: { requiredFields: ['unitName', 'heal'], renderFn: 'renderEndlessBreathFact', translateFn: null },
+    // 张三丰：不争
+    [FACT_TYPES.NO_CONTEND]: { requiredFields: ['unitName'], renderFn: 'renderNoContendFact', translateFn: null },
 });
 
 /**

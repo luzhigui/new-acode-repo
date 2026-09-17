@@ -328,6 +328,8 @@ export function* createRoundStepper(state, { ui = true, translateFacts = null } 
         for (const u of sortedByPos) {
             if (u.state._stunned) { passUnits.push({ unit: u, reason: '眩晕' }); continue; }
             if (u.isHorse) { passUnits.push({ unit: u, reason: '拒马休息' }); continue; }
+            // 2026-09-17 张三丰不攻击：轮到他走"生生不息"休息，走 pass 通道而不是攻击流程
+            if (u.isZhangSanfeng) { passUnits.push({ unit: u, reason: '生生不息' }); continue; }
             if (u.state._flyMode === 'butterfly' || u.state._flyMode === 'spider' || u.state._spiderFlying || (u._fsm && u._fsm.is('flying'))) { passUnits.push({ unit: u, reason: '飞天/附身' }); continue; }
             const fullAllySide = u.camp === CAMP_TYPES.ALLY ? A : B;
             const fullEnemySide = u.camp === CAMP_TYPES.ALLY ? B : A;
@@ -381,6 +383,7 @@ export function* createRoundStepper(state, { ui = true, translateFacts = null } 
             const hpBefore = Math.floor(unit.hp);
             let hpAfter = hpBefore;
             let actualHeal = 0;
+            // 2026-09-17 生生不息移到组件层（监听 ON_UNIT_ACTED），core 不再写角色名
             if (unit.alive && (reason === '被遮挡' || reason === '拒马休息')) {
                 applyStatChange(unit, 'hp', 15, null, '休息回复');
                 hpAfter = Math.floor(unit.hp);
@@ -389,6 +392,8 @@ export function* createRoundStepper(state, { ui = true, translateFacts = null } 
             const passFact = { unit: { uid: unit.uid, name: unit.name, camp: unit.camp, pos: unit.pos, hp: unit.hp }, reason, hpBefore, hpAfter, actualHeal, events: [] };
             passFact.events = flushBattleEvents();
             log.push({ factType: FACT_TYPES.PASS, data: passFact });
+            // 2026-09-17 行动完成广播（休息/遮挡/生生不息都算一次行动）
+            eventBus.emit(SIGNAL_TYPES.ON_UNIT_ACTED, { unit, allySide: currentTeam, enemySide: unit.camp === CAMP_TYPES.ALLY ? B : A, log });
             continue;
         }
 
@@ -409,6 +414,8 @@ export function* createRoundStepper(state, { ui = true, translateFacts = null } 
 
         processUnitAttack(unit, allySide, enemySide, log, A, B, state, doubleStrikeUnitUid);
         resolveDeaths(A, B, log);
+        // 2026-09-17 行动完成广播（攻击成功/未命中/被闪避都算走完一次）
+        eventBus.emit(SIGNAL_TYPES.ON_UNIT_ACTED, { unit, allySide, enemySide, log });
 
         if (!isPriorityAction) {
             currentSide = currentSide === CAMP_TYPES.ALLY ? CAMP_TYPES.ENEMY : CAMP_TYPES.ALLY;
@@ -432,6 +439,14 @@ export function* createRoundStepper(state, { ui = true, translateFacts = null } 
         let done = false;
         if (!allyAlive) { winner = '六大派'; done = true; }
         else if (!enemyAlive) { winner = '明教'; done = true; }
+        // 2026-09-17 张三丰不争：六大派仅剩他一人 → 明教直接获胜（防拖成平局）
+        else {
+            const bAlive = B.filter(u => u.alive);
+            if (bAlive.length === 1 && bAlive[0].isZhangSanfeng) {
+                winner = '明教'; done = true;
+                log.push({ factType: FACT_TYPES.NO_CONTEND, data: { unitName: bAlive[0].name } });
+            }
+        }
 
         if (winner) {
             eventBus.emit(SIGNAL_TYPES.ON_ROUND_END, { A, B, log, forced: true });

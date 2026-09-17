@@ -27,6 +27,7 @@ export const HERO_FLAGS = Object.freeze({
     '周芷若': 'isZhouZhiruo',
     '鹿杖客': 'isLuZhangKe',
     '鹤笔翁': 'isHeBiWeng',
+    '张三丰': 'isZhangSanfeng',
 });
 
 /** 取「小昭·姊」→「小昭」这类基础名（去 · 后缀） */

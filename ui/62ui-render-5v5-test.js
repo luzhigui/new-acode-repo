@@ -3,6 +3,7 @@ export const VER = 'ui/62ui-render-5v5-test.js V6.0.1';
 
 import { getSkillDesc } from '../core/01config-5v5-test.js';
 import { getStat } from '../core/13battle-shared.js';
+import { getMissBreakdown } from '../core/03battle-utils.js';
 import { GlobalStore, getPlayerContext } from '../infra/54-global-store.js';
 import { BUFF_TYPES, CAMP_TYPES } from '../infra/56-battle-enums.js';
 import {
