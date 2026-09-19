@@ -185,6 +185,8 @@ export function renderGrid(id, camp) {
     let displayOrder = camp === CAMP_TYPES.ENEMY ? [7,8,9,4,5,6,1,2,3] : [1,2,3,4,5,6,7,8,9];
     let isAdjustMode = ctx ? ctx.adjustMode : false;
     let selectedPos = ctx ? ctx.selectedAdjustPos : null;
+    // PVP 本地双人对战：六大派网格同样可调（双方同屏排兵）
+    let renderAdjust = isAdjustMode && (camp === CAMP_TYPES.ALLY || !!GlobalStore.get('pvpMode'));
     let activeBuffs = ctx ? (ctx.activeBuffs || []) : [];
     let allyTeam = (store && store.getState) ? store.getState().units.filter(u => u.camp === CAMP_TYPES.ALLY) : selectOrStore(ctx, 'allyTeam');
     let doubleStrikeUid = ctx ? ctx.currentDoubleStrikeUid : null;
@@ -248,8 +250,8 @@ export function renderGrid(id, camp) {
             div.className = 'cell';
             div.innerHTML = '<span style="color:#999;">空</span>';
             div.dataset.pos = pos;
-            if (camp === CAMP_TYPES.ALLY && isAdjustMode) div.classList.add('adjustable');
-            if (camp === CAMP_TYPES.ALLY && isAdjustMode && selectedPos === pos) div.classList.add('adjust-selected');
+            if (renderAdjust) div.classList.add('adjustable');
+            if (renderAdjust && selectedPos === pos) div.classList.add('adjust-selected');
             grid.appendChild(div); continue;
         }
         const _storeForFlash = getStore();
@@ -332,7 +334,7 @@ export function renderGrid(id, camp) {
         else if (unit._flash) { div.setAttribute('data-flash', unit._flash); div.style.transition = 'none'; }
         div.dataset.pos = pos;
         div.dataset.uid = unit.uid;
-        if (camp === CAMP_TYPES.ALLY && isAdjustMode) {
+        if (renderAdjust) {
             if (unit.fixed) div.classList.add('fixed-unit');
             else { div.classList.add('swappable'); if (selectedPos === pos) div.classList.add('adjust-selected'); }
         }
