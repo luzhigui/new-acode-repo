@@ -59,6 +59,8 @@ export function isBlocked(unit, allies) {
 // 供成昆模仿有效性、混乱目标校验、锁定目标校验等共用
 export function canBeTargeted(unit) {
     if (!unit || !unit.alive) return false;
+    // 2026-09-19 加 _pendingDeath：血量归零到正式死亡之间不该再被选为目标
+    if (unit.state && unit.state._pendingDeath) return false;
     if (unit.state && unit.state._untargetable) return false;
     if (unit.state && (unit.state._flyMode === 'butterfly' || unit.state._flyMode === 'spider')) return false;
     if (unit.state && unit.state._spiderFlying) return false;

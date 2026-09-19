@@ -187,10 +187,17 @@ function updateButtons() {
     updateAutoModeButton();
     let mainBtn=document.getElementById('btnMain'),nextBtn=document.getElementById('btnNext'),settleBtn=document.getElementById('btnSettle'),pauseBtn=document.getElementById('btnPause'),randomBtn=document.getElementById('btnRandom'),stageBtn=document.getElementById('btnStageSelect'),infoBtn=document.getElementById('btnInfo'),copyBtn=document.getElementById('copyLog');
     if(gs===S.IDLE){
-        mainBtn.innerHTML=getState.adjustMode()?'▶ 开始<br><span style="font-size:8px;">(投票)</span>':'🔄 调整<br>站位';
+        mainBtn.innerHTML=getState.adjustMode()?(GlobalStore.get('pvpMode')?'▶ 开战':'▶ 开始<br><span style="font-size:8px;">(投票)</span>'):'🔄 调整<br>站位';
         mainBtn.disabled=false;nextBtn.disabled=true;settleBtn.disabled=true;settleBtn.textContent='⏭ 快进到底';
         if(getState.adjustMode()){if(stageBtn)stageBtn.disabled=true;if(randomBtn)randomBtn.disabled=true;if(infoBtn)infoBtn.disabled=true;if(copyBtn)copyBtn.disabled=true;}else{if(stageBtn)stageBtn.disabled=false;if(randomBtn)randomBtn.disabled=false;if(infoBtn)infoBtn.disabled=false;if(copyBtn)copyBtn.disabled=false;}
     }else if(gs===S.GAMEOVER){
+        if(GlobalStore.get('pvpMode')){
+            mainBtn.innerHTML='🏠 返回<br>封面';mainBtn.disabled=false;
+            nextBtn.disabled=true;settleBtn.disabled=true;
+            if(stageBtn)stageBtn.disabled=true;
+            pauseBtn.disabled=true;pauseBtn.classList.remove('active');
+            return;
+        }
         mainBtn.innerHTML=currentStage>=6?'🔄 重新<br>开始':'▶ 下一关';mainBtn.disabled=false;
         nextBtn.innerHTML='🔄 原班再战';nextBtn.disabled=false;
         settleBtn.textContent='🎲 随机重开';settleBtn.disabled=false;
@@ -221,6 +228,20 @@ export function bindCoverStart(gameStarted, updateSpeedButtons, onStart) {
         if (typeof AudioManager.setVolume === 'function') AudioManager.setVolume(0.5);
         updateSpeedButtons();
         if (typeof onStart === 'function') onStart();
+    });
+}
+
+// PVP 本地双人对战入口：只关封面 + 初始化音频，不走开场CG/精英图鉴/新手引导
+export function bindCoverPvp(onStartPvp) {
+    const btn = document.getElementById('coverPvpBtn');
+    if (!btn) return;
+    btn.addEventListener('click', function () {
+        document.getElementById('coverOverlay').style.display = 'none';
+        if (typeof AudioManager.init === 'function') AudioManager.init();
+        if (typeof AudioManager.resumeAudioContext === 'function') AudioManager.resumeAudioContext();
+        if (typeof AudioManager.play === 'function') AudioManager.play();
+        if (typeof AudioManager.setVolume === 'function') AudioManager.setVolume(0.5);
+        if (typeof onStartPvp === 'function') onStartPvp();
     });
 }
 
@@ -444,38 +465,51 @@ export function bindVoteFloat() {
     });
 }
 
+// 站位交换：明教网格始终可调；六大派网格仅在 PVP 本地双人对战下可调
 export function bindGridClick(getState, setState, updateUI) {
-    document.getElementById('allyGrid').addEventListener('click', function (e) {
+    bindGrid(getState, setState, updateUI, 'allyGrid', CAMP_TYPES.ALLY);
+    bindGrid(getState, setState, updateUI, 'enemyGrid', CAMP_TYPES.ENEMY);
+}
+
+function bindGrid(getState, setState, updateUI, gridId, camp) {
+    const grid = document.getElementById(gridId);
+    if (!grid) return;
+    grid.addEventListener('click', function (e) {
         if (!getState.adjustMode()) return;
+        if (camp === CAMP_TYPES.ENEMY && !GlobalStore.get('pvpMode')) return;
         const cell = e.target.closest('.cell');
         if (!cell) return;
         const pos = parseInt(cell.dataset.pos);
         if (isNaN(pos)) return;
         const currentUI = getState.UI();
-        const unit = currentUI.allyTeam.find(u => u.pos === pos);
+        const team = camp === CAMP_TYPES.ENEMY ? currentUI.enemyTeam : currentUI.allyTeam;
+        const unit = team.find(u => u.pos === pos);
         if (unit?.fixed) { cell.classList.add('cell-blocked'); setTimeout(() => cell.classList.remove('cell-blocked'), 500); return; }
         if (getState.selectedAdjustPos() === null) {
             setState.selectedAdjustPos(pos);
         } else {
-            const targetUnit = currentUI.allyTeam.find(u => u.pos === pos);
+            const targetUnit = team.find(u => u.pos === pos);
             if (targetUnit?.fixed) { cell.classList.add('cell-blocked'); setTimeout(() => cell.classList.remove('cell-blocked'), 500); setState.selectedAdjustPos(null); updateUI(); return; }
             const posA = getState.selectedAdjustPos();
             const posB = pos;
-            const unitA = currentUI.allyTeam.find(u => u.pos === posA);
-            const unitB = currentUI.allyTeam.find(u => u.pos === posB);
+            const unitA = team.find(u => u.pos === posA);
+            const unitB = team.find(u => u.pos === posB);
             if (unitA?.fixed || unitB?.fixed) return;
-            const zhang = currentUI.allyTeam.find(u => u.isZhang);
-            if (zhang?.pos === 5) {
-                const tempMap = {};
-                currentUI.allyTeam.forEach(u => { if (u.alive || u.state._isDead) tempMap[u.pos] = u; });
-                if (unitA) tempMap[posB] = unitA;
-                if (unitB) tempMap[posA] = unitB;
-                if (!unitB) delete tempMap[posA];
-                if (!unitA) delete tempMap[posB];
-                if (!tempMap[2]?.alive) {
-                    const zhangCell = document.querySelector('#allyGrid .cell[data-pos="5"]');
-                    if (zhangCell) { zhangCell.classList.add('cell-protected'); setTimeout(() => zhangCell.classList.remove('cell-protected'), 600); }
-                    return;
+            // 张无忌 5 号位保护仅明教适用
+            if (camp === CAMP_TYPES.ALLY) {
+                const zhang = team.find(u => u.isZhang);
+                if (zhang?.pos === 5) {
+                    const tempMap = {};
+                    team.forEach(u => { if (u.alive || u.state._isDead) tempMap[u.pos] = u; });
+                    if (unitA) tempMap[posB] = unitA;
+                    if (unitB) tempMap[posA] = unitB;
+                    if (!unitB) delete tempMap[posA];
+                    if (!unitA) delete tempMap[posB];
+                    if (!tempMap[2]?.alive) {
+                        const zhangCell = document.querySelector('#allyGrid .cell[data-pos="5"]');
+                        if (zhangCell) { zhangCell.classList.add('cell-protected'); setTimeout(() => zhangCell.classList.remove('cell-protected'), 600); }
+                        return;
+                    }
                 }
             }
             if (unitA) unitA.pos = posB;
