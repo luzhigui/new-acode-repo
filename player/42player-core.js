@@ -1,7 +1,5 @@
-// ~32400 bytes | V6.3.0 | 2026-09-19 联网对战阶段3：step 捎带 activeBuffs；回合末海克斯走 handlePvpBuffSelection
-// V6.2.0 | 2026-09-19 联网对战阶段2：房主每步 sendStep、从机走 playBattleGuest 只播演出
-// V6.1.1 | 2026-09-16 统一时间层接 clock；按 factIndex 交错日志/特效；删 rebuildUISnapshotFromStore；每回合末存 battleHistory 快照
-export const VER = 'player/42player-core.js V6.3.0';
+// ~32800 bytes | V6.4.0 | 2026-09-19 从机注入本地战斗RNG（演出层选台词不再崩）；阶段3：step 捎带 activeBuffs、回合末海克斯走 handlePvpBuffSelection
+export const VER = 'player/42player-core.js V6.4.0';
 
 import { eventBus } from '../infra/50-event-bus.js';
 import { FX_SIGNALS } from '../infra/55-fx-signals.js';
