@@ -1,5 +1,5 @@
-// ~33500 bytes | V6.6.0 | 2026-09-19 阵亡清除抽成 setupDeathTimers 并接到从机（从机尸体不再赖场）；方案A：房主 step 捎带倍速、从机跟随；从机注入本地战斗RNG；阶段3：step 捎带 activeBuffs、回合末海克斯走 handlePvpBuffSelection
-export const VER = 'player/42player-core.js V6.6.0';
+// ~34200 bytes | V6.7.0 | 2026-09-19 快进两端同步：房主 step 捎带 ff、从机跟随并把「快进」做成共享状态；从机播完回 guestDone，房主据此解锁下一关
+export const VER = 'player/42player-core.js V6.7.0';
 
 import { eventBus } from '../infra/50-event-bus.js';
 import { FX_SIGNALS } from '../infra/55-fx-signals.js';
@@ -434,8 +434,8 @@ export async function playBattle() {
             if (abortSig && abortSig.aborted) return;
             lastStep = step;
             if (battleState.activeBuffs) c.activeBuffs = battleState.activeBuffs.map(b => ({ ...b }));
-            // 联网对战阶段2：房主跑完一步就发给从机（从机只播，不跑引擎）；阶段3 捎带 activeBuffs
-            if (netLinked) net.sendStep(step, c.activeBuffs, getState.speed());
+            // 联网对战阶段2：房主跑完一步就发给从机（从机只播，不跑引擎）；阶段3 捎带 activeBuffs；快进状态一起捎带
+            if (netLinked) net.sendStep(step, c.activeBuffs, getState.speed(), GlobalStore.get('fastForwardActive'));
             await playStepInterleaved(c, step, isFirstAttackRef);
             await clock.wait(300);
             if (step.winner) { finalWinner = step.winner; isBattleOver = true; break; }
@@ -577,7 +577,23 @@ export async function playBattleGuest() {
     clock.setTimescale(600 / (c.speed || 600));
     GlobalStore.effect('speed', (v) => clock.setTimescale(600 / (v || 600)));
     GlobalStore.effect('isPaused', (v) => { if (v) clock.pause(); else clock.resume(); });
+    // 快进跟随：房主把 ff 捎进 step，从机据此切换 clock.fastForward。不注册这层，从机看到 ff 也只能干瞪眼
+    GlobalStore.effect('fastForwardActive', (isActive) => {
+        if (isActive === clock.fastForward) return; // 值没变就不折腾，避免新一局初始化时把倍速冲成默认值
+        clock.setFastForward(isActive);
+        if (isActive) {
+            if (!c._originalSpeed) c._originalSpeed = c.speed;
+            c.speed = 1;
+        } else {
+            const restored = c._originalSpeed || 600;
+            c.speed = restored;
+            GlobalStore.set('speed', restored);
+            const fn = GlobalStore.getUIHandler('updateSpeedButtons'); if (fn) fn();
+        }
+    });
 
+    // 从机主循环的刹车：房主重发 lineup（换关/开下一局）时由 ui/61 调 abort()，
+    // 否则旧循环会继续播上一局的残留 step，最后还会把 gs 打回 GAMEOVER
     c.abortController = new AbortController();
     const abortSig = c.abortController.signal;
     c._battleEnded = false;
@@ -608,7 +624,9 @@ export async function playBattleGuest() {
     while (!isBattleOver) {
         if (abortSig.aborted) return;
         const step = await net.recvStep();
-        if (!step) break;   // 断线：recvStep 返回 null，避免主循环挂死
+        // 房主换关/开下一局时会 abort + 清队列，recvStep 立刻返回 null——那是「本局作废」，必须直接退出，
+        // 不能再往下走 finishBattle 结算（会把 61 刚设好的 IDLE 又打回 GAMEOVER，下一局开局就乱）
+        if (!step) { if (abortSig.aborted) return; break; }   // 断线：recvStep 返回 null，避免主循环挂死
         if (firstStep) {
             // 房主没单独传 snapshot，战报要用，就从首步（回合开始态）取一份
             firstStep = false;
@@ -623,6 +641,8 @@ export async function playBattleGuest() {
         // 方案A：跟随房主倍速。setState.speed 会经 GlobalStore.effect('speed') 自动改 clock.timescale，
         // 两端节奏一致后 step 不会积压，从机也就不会跑到房主前面
         if (step.speed && step.speed !== getState.speed()) setState.speed(step.speed);
+        // 跟随房主快进：两端都 12x，房主冲到底时从机不会还在慢慢播
+        if (!!step.ff !== !!GlobalStore.get('fastForwardActive')) GlobalStore.set('fastForwardActive', !!step.ff);
         // 与房主一致：每回合重置「是否本回合首次攻击」
         if ((step.log || []).some(e => e && e.factType === 'roundStart')) isFirstAttackRef.value = true;
         await playStepInterleaved(c, step, isFirstAttackRef);
@@ -631,4 +651,8 @@ export async function playBattleGuest() {
     }
 
     await finishBattle(c, finalStep, finalWinner, []);
+
+    // 播完回执：房主的「▶ 下一关」要等这个才解锁，否则会在从机还在演出时把画面切走
+    // 断线时 publish 返回 false，无副作用
+    net.sendGuestDone();
 }

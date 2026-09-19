@@ -1,6 +1,5 @@
-// ~23800 bytes | V6.1.0 | 2026-09-19 联网PVP阶段3：摆位权限按 netRole 分阵营；buff 图标按阵营渲染（严阵以待放开六大派）
-// V6.0.0 | 2026-09-07 属性词条化：攻防显示与详情改 getStat，不再读 unit.atk/def 做二次乘法
-export const VER = 'render/32-grid-render.js V6.1.0';
+// ~24000 bytes | V6.2.0 | 2026-09-19 从机视角行序镜像：靠近两队中间的一行才是前置位(pos1-3)，guest 视角下两阵营的显示行序互换
+export const VER = 'render/32-grid-render.js V6.2.0';
 
 import { getUnitCol, getUnitRow, getAuraBonuses, getDodgeRules } from '../infra/51-core-utils.js';
 import { CONFIG, getSkillDesc } from '../core/01config-5v5-test.js';
@@ -183,11 +182,17 @@ export function renderGrid(id, camp) {
         team = selectOrStore(ctx, camp === CAMP_TYPES.ALLY ? 'allyTeam' : 'enemyTeam');
     }
 
-    let displayOrder = camp === CAMP_TYPES.ENEMY ? [7,8,9,4,5,6,1,2,3] : [1,2,3,4,5,6,7,8,9];
-    let isAdjustMode = ctx ? ctx.adjustMode : false;
-    let selectedPos = ctx ? ctx.selectedAdjustPos : null;
     // 摆位可调权限：单机只明教；本地双人 PVP 两队都可调；联网 PVP 各管一队（房主明教 / 从机六大派）
     const netRole = GlobalStore.get('netRole');
+    // 行序 = 显示顺序。视觉上「靠近两队中间的行」是前置位(pos1-3)：
+    //   房主视角：明教在自己下方、前置行在顶部 → pos由小到大排；六大派在明教上方、前置行在底部 → pos由大到小排
+    //   从机视角(自己执六大派在下方)：两阵营行序互换——明教(上方、前置行在底部)pos由大到小，六大派(下方、前置行在顶部)pos由小到大
+    const mirrored = netRole === 'guest';
+    const allyOrder = mirrored ? [7,8,9,4,5,6,1,2,3] : [1,2,3,4,5,6,7,8,9];
+    const enemyOrder = mirrored ? [1,2,3,4,5,6,7,8,9] : [7,8,9,4,5,6,1,2,3];
+    let displayOrder = camp === CAMP_TYPES.ALLY ? allyOrder : enemyOrder;
+    let isAdjustMode = ctx ? ctx.adjustMode : false;
+    let selectedPos = ctx ? ctx.selectedAdjustPos : null;
     let renderAdjust;
     if (netRole === 'host') renderAdjust = isAdjustMode && camp === CAMP_TYPES.ALLY;
     else if (netRole === 'guest') renderAdjust = isAdjustMode && camp === CAMP_TYPES.ENEMY;
