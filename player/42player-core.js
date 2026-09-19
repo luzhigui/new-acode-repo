@@ -1,5 +1,6 @@
+// ~31800 bytes | V6.2.0 | 2026-09-19 联网对战阶段2：房主每步 sendStep、从机走 playBattleGuest 只播演出
 // V6.1.1 | 2026-09-16 统一时间层接 clock；按 factIndex 交错日志/特效；删 rebuildUISnapshotFromStore；每回合末存 battleHistory 快照
-export const VER = 'player/42player-core.js V6.1.1';
+export const VER = 'player/42player-core.js V6.2.0';
 
 import { eventBus } from '../infra/50-event-bus.js';
 import { FX_SIGNALS } from '../infra/55-fx-signals.js';
@@ -21,6 +22,7 @@ import { renderLog } from '../render/30-fact-renderer.js';
 import { STAGE_ACTION_DEFS, translateFactsToStageActions } from '../render/31-stage-actions.js';
 import { buildBattleReportData, computeVoteResult, grantClearRewards } from './48battle-report.js';
 import { handleBuffSelection, handleFlyDirection } from './49battle-flow.js';
+import * as net from '../infra/60-net-pvp.js';
 
 function getCtx() { return getPlayerContext(); }
 
@@ -367,6 +369,10 @@ export async function playBattle() {
     setGridRenderCtx(c);
     c.updateUI();
 
+    // 联网对战阶段2：房主通知从机进入战斗（未联网时零副作用）
+    const netLinked = net.isNetHost() && net.isConnected();
+    if (netLinked) net.sendStart();
+
     c.store.subscribe((state) => {
         if (!c.UI) return;
         if (!c._deathTimers) c._deathTimers = {};
@@ -419,6 +425,8 @@ export async function playBattle() {
             if (abortSig && abortSig.aborted) return;
             lastStep = step;
             if (battleState.activeBuffs) c.activeBuffs = battleState.activeBuffs.map(b => ({ ...b }));
+            // 联网对战阶段2：房主跑完一步就发给从机（从机只播，不跑引擎）
+            if (netLinked) net.sendStep(step);
             await playStepInterleaved(c, step, isFirstAttackRef);
             await clock.wait(300);
             if (step.winner) { finalWinner = step.winner; isBattleOver = true; break; }
@@ -469,6 +477,11 @@ export async function playBattle() {
         }
     }
 
+    await finishBattle(c, finalStep, finalWinner, roundHistory);
+}
+
+// 收尾（房主/从机共用）：胜负结算 → 胜利特效 → 战报 → 投票积分 → 历史落库
+async function finishBattle(c, finalStep, finalWinner, roundHistory) {
     if (!finalWinner) finalWinner = '平局';
     c.gs = 'GAMEOVER'; c.isPaused = false; c.waitingForNextRound = false; c.isBattleStarting = false;
     GlobalStore.set('fastForwardActive', false);
@@ -532,4 +545,63 @@ export async function playBattle() {
     c._battleEnded = true;
     c.abortController = null;
     clock.stop();
+}
+
+/**
+ * 联网对战·阶段2 从机入口。
+ * 从机不跑引擎，只把房主发来的 step 播出来——数据源从「本地 stepper」换成「网络 step」，
+ * 播放链路（playStepInterleaved）与收尾（finishBattle）与房主完全共用。
+ * 房主侧的回合间操作（选 Buff、小昭飞向）都由房主定，从机只管等下一条 step。
+ */
+export async function playBattleGuest() {
+    const c = getCtx();
+    if (!c) return;
+
+    c._removedUids = new Set();
+
+    // 时间层与房主一致：从机本地控制演出节奏，不影响房主
+    clock.reset();
+    clock.start();
+    clock.setTimescale(600 / (c.speed || 600));
+    GlobalStore.effect('speed', (v) => clock.setTimescale(600 / (v || 600)));
+    GlobalStore.effect('isPaused', (v) => { if (v) clock.pause(); else clock.resume(); });
+
+    c.abortController = new AbortController();
+    const abortSig = c.abortController.signal;
+    c._battleEnded = false;
+
+    // 从机 store 先空着：第一条 step 一到就被房主的整套单位覆盖（syncStoreFromStep 全量替换）
+    c.store = createStore({ units: [], round: 1 }, battleReducer);
+    GlobalStore.set('battleStore', c.store);
+    const setRenderStoreFn = GlobalStore.getUIHandler('setRenderStore');
+    if (setRenderStoreFn) setRenderStoreFn(c.store);
+    setGridStore(c.store);
+    setGridRenderCtx(c);
+    c.updateUI();
+
+    initRenderer(c);
+    updateRoundDisplay('📜 日志（第1回合）');
+    initLogScrollControls(c);
+
+    const isFirstAttackRef = { value: true };
+    let isBattleOver = false, finalWinner = null, finalStep = null, firstStep = true;
+
+    while (!isBattleOver) {
+        if (abortSig.aborted) return;
+        const step = await net.recvStep();
+        if (!step) break;   // 断线：recvStep 返回 null，避免主循环挂死
+        if (firstStep) {
+            // 房主没单独传 snapshot，战报要用，就从首步（回合开始态）取一份
+            firstStep = false;
+            c.snapshot = { ally: step.ally, enemy: step.enemy };
+        }
+        finalStep = step;
+        // 与房主一致：每回合重置「是否本回合首次攻击」
+        if ((step.log || []).some(e => e && e.factType === 'roundStart')) isFirstAttackRef.value = true;
+        await playStepInterleaved(c, step, isFirstAttackRef);
+        await clock.wait(300);
+        if (step.winner) { finalWinner = step.winner; isBattleOver = true; }
+    }
+
+    await finishBattle(c, finalStep, finalWinner, []);
 }
