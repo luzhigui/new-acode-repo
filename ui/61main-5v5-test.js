@@ -1,5 +1,6 @@
+// V6.4.1 | ~34200 bytes | 2026-09-19 修：房主 lineupReady 只写 UI.enemyTeam（snapshot.enemy 是 frozen，写它会抛）
 // V6.4.0 | ~33700 bytes | 2026-09-19 联网对战阶段3：阵容下发/站位回传 + 海克斯双向选择
-export const VER = 'ui/61main-5v5-test.js V6.4.0';
+export const VER = 'ui/61main-5v5-test.js V6.4.1';
 
 import '../infra/54-global-store.js';
 import { GlobalStore } from '../infra/54-global-store.js';
@@ -264,12 +265,12 @@ document.addEventListener('DOMContentLoaded', async function() {
         }
         if (msg.t === 'lineupReady') {
             // 房主：对手已回传六大派站位 → 合并进自己的 UI.enemyTeam，开战按钮解禁
+            // 只改 UI.enemyTeam：snapshot.enemy 是 65 里 Object.freeze 的定稿（严格模式写它会抛，
+            // 且规则本就要求"战斗进行中 snapshot 不反映当前态"），开战时 startBattle 会从 UI 重建 snap.enemy
             const UI = getState.UI();
             const byUid = new Map((msg.positions || []).map(p => [p.uid, p.pos]));
             (UI.enemyTeam || []).forEach(u => { if (byUid.has(u.uid)) u.pos = byUid.get(u.uid); });
-            const snap = getState.snapshot();
-            (snap.enemy || []).forEach(u => { if (byUid.has(u.uid)) u.pos = byUid.get(u.uid); });
-            setState.UI(UI); setState.snapshot(snap);
+            setState.UI(UI);
             GlobalStore.set('netPeerReady', true);
             renderGrid('enemyGrid', CAMP_TYPES.ENEMY);
             updateButtons();

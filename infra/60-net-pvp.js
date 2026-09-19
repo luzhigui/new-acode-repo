@@ -1,6 +1,6 @@
 // infra/60-net-pvp.js - 联网对战·阶段3（WebRTC 连接层 + step 同步 + 阵容/海克斯双向）
-// ~12100 bytes | V6.4.0 | 2026-09-19 阶段3：阵容下发/站位回传、海克斯选项下发/选择回传
-export const VER = 'infra/60-net-pvp.js V6.4.0';
+// ~12300 bytes | V6.4.1 | 2026-09-19 修：_dataCb 异常不再静默吞（房主 lineupReady 报错被吞过）
+export const VER = 'infra/60-net-pvp.js V6.4.1';
 
 // 阶段1 提供连接能力；阶段2 追加 step 同步（房主跑引擎发 step，从机只播演出）；
 // 阶段3 追加阵容/站位/海克斯双向（房主权威，从机回传自己的选择）。
@@ -136,7 +136,10 @@ function setupConn(conn) {
         // 阶段3：房主正在等这类回传 → 直接交给等待者，不再走 _dataCb（避免重复处理）
         const waiter = data && _msgWaiters.get(data.t);
         if (waiter) { _msgWaiters.delete(data.t); waiter(data); return; }
-        if (typeof _dataCb === 'function') { try { _dataCb(data); } catch (e) {} }
+        if (typeof _dataCb === 'function') {
+            // 不能静默吞：2026-09-19 房主 lineupReady 写 frozen snapshot 抛错被吞，查了很久才定位
+            try { _dataCb(data); } catch (e) { console.error('[net] 消息处理异常 t=' + (data && data.t), e); }
+        }
     });
     conn.on('error', (err) => { failPendingStep(); failPendingMsg(); setStatus(STATUS.ERROR, { msg: (err && err.message) || String(err) }); });
     conn.on('close', () => { _conn = null; failPendingStep(); failPendingMsg(); setStatus(STATUS.IDLE, { roomId: _roomId }); });
