@@ -255,8 +255,11 @@ export function spawnVictoryEffects(winnerCamp, aliveUnitsOverride) {
         winUnits = winnerCamp==='明教' ? UI.allyTeam : UI.enemyTeam;
     }
     let aliveUnits = aliveUnitsOverride || winUnits.filter(u => u.alive);
+    // 2026-09-19 联网从机视角修复：金圈直接按格子的 dataset.pos 戳匹配存活单位，
+    // 原先背的固定顺序表在从机视角（行序镜像）下会把庆祝金圈标错格子
     for (let i=0;i<cells.length;i++) {
-        let pos = winnerCamp==='明教'?([1,2,3,4,5,6,7,8,9][i]):([7,8,9,4,5,6,1,2,3][i]);
+        let pos = Number(cells[i].dataset.pos);
+        if (!pos) continue;
         let unit = winUnits.find(c => c.pos === pos);
         if (unit && unit.alive) cells[i].classList.add('cell-cheer');
     }

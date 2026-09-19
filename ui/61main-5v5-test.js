@@ -47,6 +47,8 @@ import '../modules/25elite-imperial.js';
 import '../modules/26elite-sixsects.js';
 import '../modules/27elite-mingjiao.js';
 import { VER as VER_MAIN_UTILS } from './60main-utils.js';
+import { createStore, battleReducer } from '../modules/24battle-store.js';
+import { setGridStore } from '../render/32-grid-render.js';
 // 2026-09-14 去 window 桥：直接 import，不再经 window.AudioManager
 import { AudioManager } from '../modules/22audio-manager.js';
 
@@ -174,6 +176,18 @@ function applyNetLineup(lineup) {
     snap.ally = (lineup.ally || []).map(clonePlainUnit);
     snap.enemy = (lineup.enemy || []).map(clonePlainUnit);
     setState.UI(UI); setState.snapshot(snap);
+
+    // 2026-09-19 修「下一关从机画面不刷新」：renderGrid 取数 store 优先（32 的 getStore），
+    // 上一局 playBattleGuest 留下的旧 battleStore 里还是残局阵容，只换 UI 队伍不换 store，
+    // 格子画出来的永远是上一局 → 从机看着像「没收到数据」，实际数据早到了。
+    // 与 playBattleGuest 同款重建：units 与 UI 队伍同引用，从机摆位改 pos 后渲染即刻生效；
+    // 开战时 playBattleGuest 会再建一次，幂等无害。
+    const seedUnits = [...UI.allyTeam, ...UI.enemyTeam];
+    const newStore = createStore({ units: seedUnits, round: 1 }, battleReducer);
+    GlobalStore.set('battleStore', newStore);
+    setGridStore(newStore);
+    setRenderStore(newStore);
+
     setStage(lineup.stage || 1);
     setGuestStageLabel(lineup.stage);
     GlobalStore.set('pvpMode', true);
