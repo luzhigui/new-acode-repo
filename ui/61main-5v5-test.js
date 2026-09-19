@@ -254,7 +254,7 @@ document.addEventListener('DOMContentLoaded', async function() {
         updateButtons(); updateUI(); updateSpeedButtons();
     });
     bindPauseButton(getState, setState, updateButtons);
-    // 联网对战：封面建房/加入房间（仅点击时才下载 PeerJS，单机玩法全程离线）
+    // 联网对战：封面建房/加入房间（仅点击时才下载 mqtt.js 并连 broker，单机玩法全程离线）
     // 阶段3：连接成功 → 双方进摆位态（房主下发阵容）；收到 lineup / buffAsk / start 各走各的分支
     bindNetPvp(net, (msg) => {
         if (!msg) return;
