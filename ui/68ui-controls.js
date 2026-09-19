@@ -1,5 +1,5 @@
-// V7.0.0 | ~33400 bytes | 2026-09-19 房主标记"房"改为明教标签 ::after（不再被65/64重写冲掉）+ 摆位态允许选关（从机除外）；阶段3：各管一队摆位 + 准备/等待按钮 + buff 槽按阵营
-export const VER = 'ui/68ui-controls.js V7.0.0';
+// V7.1.0 | ~34100 bytes | 2026-09-19 联网GAMEOVER改为主「▶下一关」/副「🏠返回封面」，摆位态允许选关（从机除外），房主标记改明教标签 ::after；阶段3：各管一队摆位 + 准备/等待按钮 + buff 槽按阵营
+export const VER = 'ui/68ui-controls.js V7.1.0';
 
 // 2026-09-14 打断 63↔68 循环依赖：getState/setState 直接取自 infra/54（63 只做转发）
 import { getState, setState, GlobalStore, getPlayerContext } from '../infra/54-global-store.js';
@@ -233,8 +233,15 @@ function updateButtons() {
         if(getState.adjustMode()){if(netRole==='guest'&&stageBtn)stageBtn.disabled=true;if(randomBtn)randomBtn.disabled=true;if(infoBtn)infoBtn.disabled=true;if(copyBtn)copyBtn.disabled=true;}else{if(stageBtn)stageBtn.disabled=false;if(randomBtn)randomBtn.disabled=false;if(infoBtn)infoBtn.disabled=false;if(copyBtn)copyBtn.disabled=false;}
     }else if(gs===S.GAMEOVER){
         if(GlobalStore.get('pvpMode')){
-            mainBtn.innerHTML='🏠 返回<br>封面';mainBtn.disabled=false;
-            nextBtn.disabled=true;settleBtn.disabled=true;
+            // 联网：房主可连续打下一关（阵容由房主重发，从机跟着回摆位态）；返回封面挂到 btnNext
+            if(GlobalStore.get('netRole')==='host'){
+                mainBtn.innerHTML='▶ 下一关';mainBtn.disabled=false;
+                nextBtn.innerHTML='🏠 返回<br>封面';nextBtn.disabled=false;
+            }else{
+                mainBtn.innerHTML='🏠 返回<br>封面';mainBtn.disabled=false;
+                nextBtn.disabled=true;
+            }
+            settleBtn.disabled=true;
             if(stageBtn)stageBtn.disabled=true;
             pauseBtn.disabled=true;pauseBtn.classList.remove('active');
             return;
@@ -350,6 +357,12 @@ export function bindNextButton(setState, updateButtons, enableAllButtons, update
     document.getElementById('btnNext').addEventListener('click', function () {
         onAnyButtonClick();
         if (getState.gs() === 'GAMEOVER') {
+            // 联网 GAMEOVER 下 btnNext 被复用为「返回封面」（原班再战只对单机有意义）
+            if (GlobalStore.get('pvpMode')) {
+                const fnBack = GlobalStore.getUIHandler('goBackToCover');
+                if (typeof fnBack === 'function') fnBack();
+                return;
+            }
             resetBattleRuntime();
             setState.adjustMode(true);
             setState.selectedAdjustPos(null);

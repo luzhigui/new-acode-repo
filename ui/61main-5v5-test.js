@@ -1,5 +1,5 @@
-// V6.5.0 | ~34800 bytes | 2026-09-19 从机进对局即注入本地RNG（开局海克斯 createBuffObject 不再崩）+ 联网下关掉新手引导；阶段3：阵容下发/站位回传 + 海克斯双向
-export const VER = 'ui/61main-5v5-test.js V6.5.0';
+// V6.6.0 | ~36900 bytes | 2026-09-19 联网PVP支持连续打下一关（房主重建阵容并重发lineup，从机跟回摆位态）+ 从机进对局即注入本地RNG + 联网关掉新手引导；阶段3：阵容下发/站位回传 + 海克斯双向
+export const VER = 'ui/61main-5v5-test.js V6.6.0';
 
 import '../infra/54-global-store.js';
 import { GlobalStore } from '../infra/54-global-store.js';
@@ -444,9 +444,48 @@ document.addEventListener('DOMContentLoaded', async function() {
             }
         };
 
-        // GAMEOVER：下一关 / 重新开始；PVP 下改为返回封面
+        // GAMEOVER：下一关 / 重新开始；PVP 下房主可连续打下一关（从机由房主下发的 lineup 带回摆位态）
         if(getState.gs()===S.GAMEOVER){
-            if(GlobalStore.get('pvpMode')){ goBackToCover(); return; }
+            if(GlobalStore.get('pvpMode')){
+                // 从机没有关卡权威：打完只能等房主下发新阵容，或自己退出
+                if(GlobalStore.get('netRole') !== 'host'){ goBackToCover(); return; }
+                resetBattleRuntime();
+                clearLogExceptFirst(); clearAllEffects(); hasLoggedTeam=false;
+
+                // 关卡推进
+                const curStagePvp = GlobalStore.get('currentStage');
+                if(curStagePvp >= 6){
+                    setStage(1);
+                    GlobalStore.set('_hasPlayedFair', false);
+                } else {
+                    setStage(curStagePvp + 1);
+                }
+
+                // 重置状态并生成新阵容
+                currentDoubleStrikeUid = null;
+                const pvpUI = getState.UI();
+                const pvpSnap = getState.snapshot();
+                setState.snapshot({ ally: [], enemy: [] });
+                setState.activeBuffs([]);
+                doInitBattle(currentStage, pvpUI, pvpSnap, getState.activeBuffs(), -1, null);
+                setState.UI(pvpUI);
+                setState.snapshot(pvpSnap);
+                updateUI();
+                updateScoreBadge();
+                renderGrid('allyGrid', CAMP_TYPES.ALLY);
+                renderGrid('enemyGrid', CAMP_TYPES.ENEMY);
+                setState.adjustMode(true);
+                setState.selectedAdjustPos(null);
+                setState.gs(S.IDLE);
+                setState.isPaused(false);
+                isBattleStarting = false;
+                updateButtons();
+                enableAllButtons();
+                updateSpeedButtons();
+                // 重发阵容：从机收到后回到摆位态；房主按钮变「⏳ 等待对手」，等回传后才能开战
+                sendNetLineup();
+                return;
+            }
             resetBattleRuntime();
             clearLogExceptFirst(); clearAllEffects(); hasLoggedTeam=false;
 
@@ -579,6 +618,8 @@ document.addEventListener('DOMContentLoaded', async function() {
 
     // 68ui-controls.js 的 GAMEOVER 分支（原班再战/随机重开）需要重置局部变量
     GlobalStore.setUIHandler('resetIsBattleStarting', () => { isBattleStarting = false; });
+    // 68 的「返回封面」按钮（联网 GAMEOVER 时挂到 btnNext 上）需要回到封面流程
+    GlobalStore.setUIHandler('goBackToCover', goBackToCover);
 
     // window 桥接统一收口：仅保留体检/测试跑器真正调用的一项（原 selectStage / forceStopGame /
     // doManualReset / getGameState 四个挂载点全库无引用，已删）。生产代码一律走 import 或 UIHandler。
