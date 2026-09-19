@@ -1,5 +1,5 @@
-// ~32900 bytes | V6.5.0 | 2026-09-19 方案A：房主 step 捎带倍速、从机跟随；从机注入本地战斗RNG；阶段3：step 捎带 activeBuffs、回合末海克斯走 handlePvpBuffSelection
-export const VER = 'player/42player-core.js V6.5.0';
+// ~33500 bytes | V6.6.0 | 2026-09-19 阵亡清除抽成 setupDeathTimers 并接到从机（从机尸体不再赖场）；方案A：房主 step 捎带倍速、从机跟随；从机注入本地战斗RNG；阶段3：step 捎带 activeBuffs、回合末海克斯走 handlePvpBuffSelection
+export const VER = 'player/42player-core.js V6.6.0';
 
 import { eventBus } from '../infra/50-event-bus.js';
 import { FX_SIGNALS } from '../infra/55-fx-signals.js';
@@ -124,6 +124,29 @@ function readRound(c) {
 function setRound(c, round) {
     if (!c || !round) return;
     if (c.store) c.store.dispatch({ type: STORE_ACTION_TYPES.SET_ROUND, round });
+}
+
+/**
+ * 阵亡清除：单位 _isDead/alive=false 后 3 秒从 store 移除，尸体与死亡特效随之消失。
+ * 房主从机都必须挂——从机不跑引擎，但 syncStoreFromStep 同样会把带 _isDead 的单位灌进 store，
+ * 少了这段，从机格子上的尸体会一直赖着不走（且不会进 _removedUids，下一步又被灌回来）。
+ */
+function setupDeathTimers(c) {
+    c._deathTimers = {};
+    c.store.subscribe((state) => {
+        if (!c.UI) return;
+        for (const su of state.units) {
+            if ((su.state && su.state._isDead || su.alive === false) && !c._deathTimers[su.uid]) {
+                c._deathTimers[su.uid] = true;
+                const uid = su.uid;
+                setTimeout(() => {
+                    delete c._deathTimers[uid];
+                    if (c._removedUids) c._removedUids.add(uid);
+                    if (c.store) c.store.dispatch({ type: STORE_ACTION_TYPES.REMOVE_UNIT, uid: uid });
+                }, 3000);
+            }
+        }
+    });
 }
 
 async function playStepInterleaved(c, step, isFirstAttackRef) {
@@ -373,21 +396,7 @@ export async function playBattle() {
     const netLinked = net.isNetHost() && net.isConnected();
     if (netLinked) net.sendStart();
 
-    c.store.subscribe((state) => {
-        if (!c.UI) return;
-        if (!c._deathTimers) c._deathTimers = {};
-        for (const su of state.units) {
-            if ((su.state && su.state._isDead || su.alive === false) && !c._deathTimers[su.uid]) {
-                c._deathTimers[su.uid] = true;
-                const uid = su.uid;
-                setTimeout(() => {
-                    delete c._deathTimers[uid];
-                    if (c._removedUids) c._removedUids.add(uid);
-                    if (c.store) c.store.dispatch({ type: STORE_ACTION_TYPES.REMOVE_UNIT, uid: uid });
-                }, 3000);
-            }
-        }
-    });
+    setupDeathTimers(c);
 
     initRenderer(c);
     updateRoundDisplay('📜 日志（第1回合）');
@@ -581,6 +590,9 @@ export async function playBattleGuest() {
     setGridStore(c.store);
     setGridRenderCtx(c);
     c.updateUI();
+
+    // 阵亡清除（与房主共用）：从机没有这段，格子上尸体会永远赖着
+    setupDeathTimers(c);
 
     // 从机不跑引擎，但演出层（getAttackTaunt / getKillTaunt 选台词等）仍会取战斗 RNG，
     // 不注入就会 null.nextInt 崩。本地 RNG 仅供演出文案，不影响战斗结果（结果全部来自房主的 step）
