@@ -1,5 +1,7 @@
+// V6.2.0 | ~27500 bytes | 2026-09-19 接入联网对战阶段1（封面创建/加入房间）
+// V6.1.0 | ~27000 bytes | 2026-09-19 本地双人对战入口 bindCoverPvp
 // V6.0.1 | 2026-09-11 ALL_VERS 赋值前移到 startApp 之前，保证 updateCoverVersion 动态版本列表在读取前已写入
-export const VER = 'ui/61main-5v5-test.js V6.0.1';
+export const VER = 'ui/61main-5v5-test.js V6.2.0';
 
 import '../infra/54-global-store.js';
 import { GlobalStore } from '../infra/54-global-store.js';
@@ -27,7 +29,8 @@ import {
 } from './65main-battle.js';
 import { initBGM, playBGM, setBGMVolume, fadeBGMTo, toggleBGM, updateBGMBtn, lowerBGM } from './66audio-control.js';
 import { toggleDodgeEffect } from './67fx-trigger.js';
-import { updateSpeedButtons, activateScrollSlowdown, restoreSpeedFromScroll, updateButtons, updateAutoModeButton, enableAllButtons, updateDebugUI, updateBuffSlots, bindCoverStart, bindPauseButton, bindNextButton, bindDetailButton, bindDebugButton, bindBGButton, bindCrashModeButton, bindDodgeButton, bindAutoButton, bindSettleButton, bindStageSelectButton, bindVoteFloat, bindGridClick, bindCopyLogButton, initSpeedButtons } from './68ui-controls.js';
+import { updateSpeedButtons, activateScrollSlowdown, restoreSpeedFromScroll, updateButtons, updateAutoModeButton, enableAllButtons, updateDebugUI, updateBuffSlots, bindCoverStart, bindCoverPvp, bindNetPvp, bindPauseButton, bindNextButton, bindDetailButton, bindDebugButton, bindBGButton, bindCrashModeButton, bindDodgeButton, bindAutoButton, bindSettleButton, bindStageSelectButton, bindVoteFloat, bindGridClick, bindCopyLogButton, initSpeedButtons } from './68ui-controls.js';
+import * as net from '../infra/60-net-pvp.js';
 import { stepAdjustStart, stepAdjustMove, stepBattleStart, initTutorial, resetTutorialDone } from './71tutorial.js';
 import { isOpeningCgDone, showOpeningCg, resetOpeningCgDone } from './72opening-cg.js';
 
@@ -186,12 +189,26 @@ document.addEventListener('DOMContentLoaded', async function() {
 
     // 按钮事件绑定 → 68ui-controls.js
     // 开场流程：首次未看过 → 开场CG（72）→ 精英图鉴选人 → 新手分步引导（71）；已看过CG → 图鉴 → 引导
-    bindCoverStart({ val: gameStarted }, updateSpeedButtons, () => {
+    const coverRef = { val: gameStarted };
+    bindCoverStart(coverRef, updateSpeedButtons, () => {
         const toGuide = () => showEliteGallery(() => stepAdjustStart());
         if (isOpeningCgDone()) { toGuide(); return; }
         showOpeningCg(() => toGuide());
     });
+    // PVP 本地双人对战：跳过 CG/图鉴/引导，直接进入双方同屏调整站位
+    bindCoverPvp(() => {
+        gameStarted = true; coverRef.val = true;
+        GlobalStore.set('pvpMode', true);
+        setState.autoLevel('auto'); setState.autoMode(true);
+        setState.gs(S.IDLE); setState.isPaused(false);
+        setState.adjustMode(true); setState.selectedAdjustPos(null);
+        setState.activeBuffs([]); currentDoubleStrikeUid = null;
+        isBattleStarting = false; hasLoggedTeam = false;
+        updateButtons(); updateUI(); updateSpeedButtons();
+    });
     bindPauseButton(getState, setState, updateButtons);
+    // 联网对战·阶段1：封面建房/加入房间（仅点击时才下载 PeerJS，单机玩法全程离线）
+    bindNetPvp(net);
     bindNextButton(setState, updateButtons, enableAllButtons, updateSpeedButtons);
     bindDetailButton(getState, setState, showModal);
     bindDebugButton(setState, updateSpeedButtons, updateDebugUI, updateUI);
@@ -222,7 +239,9 @@ document.addEventListener('DOMContentLoaded', async function() {
             // 选 Buff 前注入战斗 RNG：full-auto 与手动同源，保证同种子复现一致
             const _snap = getState.snapshot();
             setBattleRng(new SeededRNG(_snap?._rngSeed || Date.now()));
-            if (getState.autoLevel() === 'full-auto') {
+            if (GlobalStore.get('pvpMode')) {
+                // PVP 本地双人对战：跳过海克斯 Buff 选择，保证双方对等
+            } else if (getState.autoLevel() === 'full-auto') {
                 const allKeys = Object.keys(C.BUFFS);
                 const existing = getState.activeBuffs().map(b => b.key);
                 const allyTeam = getState.UI().allyTeam || [];
@@ -265,7 +284,9 @@ document.addEventListener('DOMContentLoaded', async function() {
                 snap.ally = getState.UI().allyTeam.map(u=>u.clone());
                 let occupiedPositions = new Set(snap.ally.map(u => u.pos));
                 let freePositions = [1,2,3,4,5,6,7,8,9].filter(p => !occupiedPositions.has(p));
-                let enemyList = snap.enemy.map(u => u.clone());
+                // 与明教对称：敌方阵容取自 UI.enemyTeam，PVP 下玩家调整过的站位才能生效
+                // （doInitBattle 里 snapshot.enemy 与 UI.enemyTeam 是两份独立克隆，不能读 snapshot）
+                let enemyList = getState.UI().enemyTeam.map(u => u.clone());
                 for (let unit of enemyList) {
                     if (unit.pos === -1 || unit.pos == null) {
                         if (freePositions.length > 0) { unit.pos = freePositions[_randLocal(0, freePositions.length - 1)]; unit.state._originalPos = unit.pos; freePositions = freePositions.filter(p => p !== unit.pos); }
@@ -295,15 +316,16 @@ document.addEventListener('DOMContentLoaded', async function() {
                 abortController=null;
             }
             updateButtons();
-            if (getState.autoLevel() === 'full-auto' && getState.gs() === 'GAMEOVER') {
+            if (getState.autoLevel() === 'full-auto' && getState.gs() === 'GAMEOVER' && !GlobalStore.get('pvpMode')) {
                 setTimeout(() => {
                     if (currentStage < 6) document.getElementById('btnMain').click();
                 }, 3500);
             }
         };
 
-        // GAMEOVER：下一关 / 重新开始
+        // GAMEOVER：下一关 / 重新开始；PVP 下改为返回封面
         if(getState.gs()===S.GAMEOVER){
+            if(GlobalStore.get('pvpMode')){ goBackToCover(); return; }
             resetBattleRuntime();
             clearLogExceptFirst(); clearAllEffects(); hasLoggedTeam=false;
 
@@ -337,7 +359,7 @@ document.addEventListener('DOMContentLoaded', async function() {
             enableAllButtons();
             updateSpeedButtons();
             // 全自动模式：自动触发第二次点击，从 IDLE 进入战斗
-            if (getState.autoLevel() === 'full-auto') {
+            if (getState.autoLevel() === 'full-auto' && !GlobalStore.get('pvpMode')) {
                 setTimeout(() => {
                     document.getElementById('btnMain').click();
                 }, 800);
@@ -357,7 +379,10 @@ document.addEventListener('DOMContentLoaded', async function() {
                 stepAdjustMove();
             } else {
                 setState.adjustMode(false); setState.selectedAdjustPos(null); isBattleStarting=true; updateButtons(); updateUI();
-                if (getState.autoLevel() === 'full-auto') {
+                if (GlobalStore.get('pvpMode')) {
+                    // PVP 本地双人对战：双方站位已调完，跳过投票直接开战
+                    startBattle('明教');
+                } else if (getState.autoLevel() === 'full-auto') {
                     startBattle('明教');
                 } else {
                     showVoteDialog(startBattle, GlobalStore.get('battleHasZhang'));
@@ -404,6 +429,26 @@ document.addEventListener('DOMContentLoaded', async function() {
         setState.snapshot(getState.snapshot());
         updateUI();
         setState.gs(S.IDLE);updateButtons();enableAllButtons();
+    }
+
+    // PVP 战斗结束：退出 PVP 并回到封面，复位到普通模式初始状态
+    function goBackToCover(){
+        resetBattleRuntime();
+        forceStopGame();
+        GlobalStore.set('pvpMode', false);
+        currentDoubleStrikeUid = null;
+        isBattleStarting = false; hasLoggedTeam = false;
+        setStage(1); GlobalStore.set('_hasPlayedFair', false);
+        doInitBattle(currentStage, getState.UI(), getState.snapshot(), getState.activeBuffs(), -1, null);
+        setState.UI(getState.UI());
+        setState.snapshot(getState.snapshot());
+        updateUI(); renderGrid('allyGrid', CAMP_TYPES.ALLY); renderGrid('enemyGrid', CAMP_TYPES.ENEMY);
+        updateScoreBadge();
+        const logDiv = document.getElementById('log');
+        if (logDiv) logDiv.innerHTML = '<div class="separator">' + LOG_LINE1 + '</div>';
+        gameStarted = false; coverRef.val = false;
+        document.getElementById('coverOverlay').style.display = 'flex';
+        updateButtons(); enableAllButtons(); updateSpeedButtons();
     }
 
     // 68ui-controls.js 的 GAMEOVER 分支（原班再战/随机重开）需要重置局部变量
