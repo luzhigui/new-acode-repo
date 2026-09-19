@@ -1,6 +1,6 @@
-// V6.2.0 | ~29600 bytes | 2026-09-19 新增 bindNetPvp：联网对战封面建房/加入房间入口
+// V6.3.0 | ~30200 bytes | 2026-09-19 联网对战阶段2：bindNetPvp 接 onGuestStart（从机收到开战通知进战斗）
 // V6.1.0 | ~28500 bytes | 2026-09-19 本地双人对战：六大派网格 PVP 下可调
-export const VER = 'ui/68ui-controls.js V6.2.0';
+export const VER = 'ui/68ui-controls.js V6.3.0';
 
 // 2026-09-14 打断 63↔68 循环依赖：getState/setState 直接取自 infra/54（63 只做转发）
 import { getState, setState, GlobalStore, getPlayerContext } from '../infra/54-global-store.js';
@@ -246,8 +246,9 @@ export function bindCoverPvp(onStartPvp) {
     });
 }
 
-// 联网对战·阶段1：封面三个控件（创建房间 / 输入房间号 / 加入）+ 状态行
-export function bindNetPvp(net) {
+// 联网对战：封面三个控件（创建房间 / 输入房间号 / 加入）+ 状态行
+// onGuestStart：从机收到房主的「开战」通知后进入战斗（阶段2 从机只播演出）
+export function bindNetPvp(net, onGuestStart) {
     const createBtn = document.getElementById('netCreateBtn');
     const joinBtn = document.getElementById('netJoinBtn');
     const input = document.getElementById('netRoomInput');
@@ -263,9 +264,18 @@ export function bindNetPvp(net) {
         else if (status === 'error') say('❌ ' + ((meta && meta.msg) || '连接失败'), '#ff6b6b');
         else say('');
     };
-    net.initNetPvp(onState, null, '');
+    const onData = (msg) => {
+        if (msg && msg.t === 'start') {
+            say('房主已开战，正在同步画面…', '#4ade80');
+            if (typeof onGuestStart === 'function') onGuestStart();
+        }
+    };
+    net.initNetPvp(onState, onData);
 
-    createBtn.addEventListener('click', () => { net.createRoom(null, null); });
+    createBtn.addEventListener('click', () => {
+        // 输入框留空 → 自动生成房间号；填了 → 用作自定义房间号
+        net.createRoom(null, null, input ? input.value : '');
+    });
     joinBtn.addEventListener('click', () => {
         const rid = input ? input.value.trim() : '';
         if (!rid) { say('请先填房间号', '#ff6b6b'); return; }

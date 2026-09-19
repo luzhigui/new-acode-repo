@@ -1,7 +1,7 @@
-// V6.2.0 | ~27500 bytes | 2026-09-19 接入联网对战阶段1（封面创建/加入房间）
+// V6.3.0 | ~28700 bytes | 2026-09-19 联网对战阶段2：从机收开战通知 → playBattleGuest 播房主的 step
 // V6.1.0 | ~27000 bytes | 2026-09-19 本地双人对战入口 bindCoverPvp
 // V6.0.1 | 2026-09-11 ALL_VERS 赋值前移到 startApp 之前，保证 updateCoverVersion 动态版本列表在读取前已写入
-export const VER = 'ui/61main-5v5-test.js V6.2.0';
+export const VER = 'ui/61main-5v5-test.js V6.3.0';
 
 import '../infra/54-global-store.js';
 import { GlobalStore } from '../infra/54-global-store.js';
@@ -39,7 +39,7 @@ import { VER as VER_HORSE } from '../core/05battle-horse.js';
 import { VER as VER_CORE } from '../core/11battle-round.js';
 import { SeededRNG } from '../infra/51-core-utils.js';
 import { setBattleRng, getBattleRng } from '../core/13battle-shared.js';
-import { VER as VER_PLAYER_CORE } from '../player/42player-core.js';
+import { VER as VER_PLAYER_CORE, playBattleGuest } from '../player/42player-core.js';
 import { VER as VER_TEXT } from '../player/40player-text.js';
 import { VER as VER_BUFF_UI } from '../player/41player-buff-ui.js';
 import { addPermanentBuff, VER as VER_ELITE } from '../modules/20elite-skills.js';
@@ -207,8 +207,25 @@ document.addEventListener('DOMContentLoaded', async function() {
         updateButtons(); updateUI(); updateSpeedButtons();
     });
     bindPauseButton(getState, setState, updateButtons);
-    // 联网对战·阶段1：封面建房/加入房间（仅点击时才下载 PeerJS，单机玩法全程离线）
-    bindNetPvp(net);
+    // 联网对战：封面建房/加入房间（仅点击时才下载 PeerJS，单机玩法全程离线）
+    // 从机收到房主「开战」通知 → 跳过 CG/图鉴/引导，直接进战斗（只播演出，不跑引擎）
+    bindNetPvp(net, () => {
+        const overlay = document.getElementById('coverOverlay');
+        if (overlay) overlay.style.display = 'none';
+        if (typeof AudioManager.init === 'function') AudioManager.init();
+        if (typeof AudioManager.resumeAudioContext === 'function') AudioManager.resumeAudioContext();
+        if (typeof AudioManager.play === 'function') AudioManager.play();
+        gameStarted = true; coverRef.val = true;
+        GlobalStore.set('pvpMode', true);
+        setState.autoLevel('auto'); setState.autoMode(true);
+        setState.gs(S.RUNNING); setState.isPaused(false);
+        setState.adjustMode(false); setState.selectedAdjustPos(null);
+        setState.activeBuffs([]); currentDoubleStrikeUid = null;
+        isBattleStarting = false; hasLoggedTeam = false;
+        clearLogExceptFirst(); clearAllEffects();
+        updateButtons(); updateUI(); updateSpeedButtons();
+        playBattleGuest().catch(e => console.error('从机战斗异常', e));
+    });
     bindNextButton(setState, updateButtons, enableAllButtons, updateSpeedButtons);
     bindDetailButton(getState, setState, showModal);
     bindDebugButton(setState, updateSpeedButtons, updateDebugUI, updateUI);
