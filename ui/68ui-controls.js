@@ -1,5 +1,5 @@
-// V7.3.0 | ~35200 bytes | 2026-09-19 标题栏房间号角标（对局中也能报房间号）+ 从机掉线自动回封面并预填房间号，点「加入」即可重连；连接状态变化同步刷新按钮
-export const VER = 'ui/68ui-controls.js V7.3.0';
+// V7.4.0 | ~35100 bytes | 2026-09-19 从机视角翻转(guest-view)移交 render/32，与行序镜像同帧；标题栏房间号角标 + 从机掉线自动回封面并预填房间号，点「加入」即可重连
+export const VER = 'ui/68ui-controls.js V7.4.0';
 
 // 2026-09-14 打断 63↔68 循环依赖：getState/setState 直接取自 infra/54（63 只做转发）
 import { getState, setState, GlobalStore, getPlayerContext } from '../infra/54-global-store.js';
@@ -186,8 +186,9 @@ function updateAutoModeButton() {
     btn.classList.toggle('active', lvl !== 'manual');
 }
 
-// 联网身份：房主身份标记 + 从机视角翻转
+// 联网身份：房主身份标记
 // 房主 → 给"明 教"标签打 data-netrole="host"，CSS ::after 缀出".房"（放 DOM 文本里会被 65/64 重写冲掉）
+// 从机视角翻转（guest-view）已挪进 render/32 的 renderGrid：必须与行序镜像同帧，否则上下与前后排会对不上
 function updateNetIdentity() {
     const role = GlobalStore.get('netRole');
     const labelAlly = document.getElementById('labelAlly');
@@ -195,9 +196,6 @@ function updateNetIdentity() {
         if (role === 'host') labelAlly.dataset.netrole = 'host';
         else delete labelAlly.dataset.netrole;
     }
-    // 从机执六大派：战场纵向翻转，自己队伍在下方
-    const bf = document.getElementById('battlefield');
-    if (bf) bf.classList.toggle('guest-view', role === 'guest');
 }
 
 // 更新按钮状态
