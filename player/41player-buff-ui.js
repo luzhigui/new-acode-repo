@@ -8,6 +8,7 @@ import { GlobalStore } from '../infra/54-global-store.js';
 import { findUnitByUid } from './47renderer.js';
 import { CAMP_TYPES } from '../infra/56-battle-enums.js';
 import { clock } from '../infra/52-clock.js';
+import { getCellByPos } from '../fx/90fx-ref-manager.js';
 
 
 let ctx = null;
@@ -23,11 +24,9 @@ export async function handleHolyTokenDrop(c, entry) {
     GlobalStore.set('bulletTimeActive', true);
 
     const unit = findUnitByUid(c, entry.unitUid);
-    const gridId = unit?.camp === CAMP_TYPES.ALLY ? 'allyGrid' : 'enemyGrid';
-    const grid = document.getElementById(gridId);
-    const order = unit?.camp === CAMP_TYPES.ENEMY ? [7,8,9,4,5,6,1,2,3] : [1,2,3,4,5,6,7,8,9];
-    const idx = unit ? order.indexOf(unit.pos) : -1;
-    const cell = idx >= 0 && grid ? grid.children[idx] : null;
+    // 2026-09-19 联网从机视角修复：格子查找走 90 的 dataset.pos 匹配（视角无关），
+    // 原先本地背的固定顺序表在从机视角（行序镜像）下会把圣火令图标扔错格子
+    const cell = unit ? getCellByPos(unit.camp, unit.pos) : null;
     const cellRect = cell ? cell.getBoundingClientRect() : null;
 
     const icon = document.createElement('div');

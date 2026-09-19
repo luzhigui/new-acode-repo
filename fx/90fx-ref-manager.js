@@ -8,19 +8,20 @@ function getGridId(camp) {
     return camp === CAMP_TYPES.ALLY ? 'allyGrid' : 'enemyGrid';
 }
 
-// 营地 → 显示顺序（enemy 从上往下看是倒序）
-function getDisplayOrder(camp) {
-    return camp === CAMP_TYPES.ENEMY ? [7,8,9,4,5,6,1,2,3] : [1,2,3,4,5,6,7,8,9];
-}
-
+// 2026-09-19 联网从机视角修复：查找 cell 改按 dataset.pos 直接匹配，不再背固定顺序表。
+// 原先的 [1..9]/[7,8,9,4,5,6,1,2,3] 对照表只对房主视角成立；从机视角下 32-grid-render 会镜像行序
+// （明教/六大派行序互换），旧表会把 7 号位指到 1 号位的格子上 → 飞箭/飞撞/击退/换位全飞错格子。
+// renderGrid 渲染时已给每个格子盖了 dataset.pos 戳（空位/占用位都有），按戳找天然视角无关。
 // 按营地+位置实时查找 cell DOM（不缓存，grid 重建后重新查找）
 export function getCellByPos(camp, pos) {
     if (pos == null) return null;
     const grid = document.getElementById(getGridId(camp));
     if (!grid) return null;
-    const order = getDisplayOrder(camp);
-    const idx = order.indexOf(pos);
-    return idx >= 0 ? grid.children[idx] : null;
+    const want = String(pos);
+    for (let i = 0; i < grid.children.length; i++) {
+        if (String(grid.children[i].dataset.pos) === want) return grid.children[i];
+    }
+    return null;
 }
 
 // 按 unit 对象实时查找 cell DOM
@@ -80,12 +81,15 @@ export function snapshotUnitCellRobust(unit) {
             bottom: rect.bottom
         };
     }
-    // fallback：用 grid 推算
+    // fallback：用 grid 推算（idx 取该 pos 戳在 DOM 里的真实序号，视角无关）
     const grid = document.getElementById(getGridId(unit.camp));
     if (!grid) return null;
     const gridRect = grid.getBoundingClientRect();
-    const order = getDisplayOrder(unit.camp);
-    const idx = order.indexOf(unit.pos);
+    const want = String(unit.pos);
+    let idx = -1;
+    for (let i = 0; i < grid.children.length; i++) {
+        if (String(grid.children[i].dataset.pos) === want) { idx = i; break; }
+    }
     if (idx < 0) return null;
     const cellW = gridRect.width / 3;
     const cellH = gridRect.height / 3;
