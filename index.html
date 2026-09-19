@@ -49,9 +49,10 @@
         /* 联网从机执六大派：战场纵向翻转，自己队伍显示在下方（column-reverse 只改视觉，不动 DOM 顺序与事件绑定） */
         #battlefield.guest-view { flex-direction: column-reverse; justify-content: flex-end; }
         .team-row { display: flex; align-items: center; gap: 4px; flex: 1; max-width: 500px; margin: 0 auto; width: 100%; }
-        /* 联网身份角标：房主在"明 教"竖排文字后面缀一个"房"（::after 不占 DOM，65/64 重写 textContent 也不会冲掉） */
+        /* 联网身份角标：房主在"明 教"竖排文字后面缀一个"房"（::after 不占 DOM，65/64 重写 textContent 也不会冲掉）
+           颜色不写死、继承标签的蓝——黄字在浅底上看不清 */
         .team-label { writing-mode: vertical-lr; font-weight: bold; font-size: 13px; width: 18px; text-align: center; }
-        .team-label[data-netrole="host"]::after { content: '.房'; color: #ffd700; font-size: 10px; }
+        .team-label[data-netrole="host"]::after { content: '.房'; font-size: 10px; }
         .grid { display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(3, 5.5dvh); gap: 2px; flex: 1; background: #d9d0b5; padding: 3px; border-radius: 6px; }
         .grid.victory-border { border: 3px solid gold !important; box-shadow: 0 0 20px gold; }
         .cell { background: #e8e6e0; border: 2px solid #bbb; border-radius: 5px; padding: 2px 4px; display: flex; align-items: center; gap: 4px; font-size: 9px; height: 5.5dvh; transition: background 0.6s ease, border-color 0.6s ease; position: relative; overflow: visible; }
