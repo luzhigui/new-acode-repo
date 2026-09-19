@@ -39,7 +39,8 @@ export function processUnitAttack(unit, allySide, enemySide, log, A, B, state, d
 
     let target, phantomFact;
     if (lockedTargetUid) {
-        target = enemySide.find(u => u.uid === lockedTargetUid && u.alive) || null;
+        // 2026-09-19 补 pendingDeath：连锁带着已归零的 uid 进来时，不该再打
+        target = enemySide.find(u => u.uid === lockedTargetUid && u.alive && !u.state._pendingDeath) || null;
         phantomFact = null;
         if (!target) {
             // 锁定目标已阵亡，跳过行动
