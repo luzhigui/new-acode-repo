@@ -1,6 +1,7 @@
-// ~31800 bytes | V6.2.0 | 2026-09-19 联网对战阶段2：房主每步 sendStep、从机走 playBattleGuest 只播演出
+// ~32400 bytes | V6.3.0 | 2026-09-19 联网对战阶段3：step 捎带 activeBuffs；回合末海克斯走 handlePvpBuffSelection
+// V6.2.0 | 2026-09-19 联网对战阶段2：房主每步 sendStep、从机走 playBattleGuest 只播演出
 // V6.1.1 | 2026-09-16 统一时间层接 clock；按 factIndex 交错日志/特效；删 rebuildUISnapshotFromStore；每回合末存 battleHistory 快照
-export const VER = 'player/42player-core.js V6.2.0';
+export const VER = 'player/42player-core.js V6.3.0';
 
 import { eventBus } from '../infra/50-event-bus.js';
 import { FX_SIGNALS } from '../infra/55-fx-signals.js';
@@ -21,7 +22,7 @@ import { clock } from '../infra/52-clock.js';
 import { renderLog } from '../render/30-fact-renderer.js';
 import { STAGE_ACTION_DEFS, translateFactsToStageActions } from '../render/31-stage-actions.js';
 import { buildBattleReportData, computeVoteResult, grantClearRewards } from './48battle-report.js';
-import { handleBuffSelection, handleFlyDirection } from './49battle-flow.js';
+import { handleBuffSelection, handlePvpBuffSelection, handleFlyDirection } from './49battle-flow.js';
 import * as net from '../infra/60-net-pvp.js';
 
 function getCtx() { return getPlayerContext(); }
@@ -425,8 +426,8 @@ export async function playBattle() {
             if (abortSig && abortSig.aborted) return;
             lastStep = step;
             if (battleState.activeBuffs) c.activeBuffs = battleState.activeBuffs.map(b => ({ ...b }));
-            // 联网对战阶段2：房主跑完一步就发给从机（从机只播，不跑引擎）
-            if (netLinked) net.sendStep(step);
+            // 联网对战阶段2：房主跑完一步就发给从机（从机只播，不跑引擎）；阶段3 捎带 activeBuffs
+            if (netLinked) net.sendStep(step, c.activeBuffs);
             await playStepInterleaved(c, step, isFirstAttackRef);
             await clock.wait(300);
             if (step.winner) { finalWinner = step.winner; isBattleOver = true; break; }
@@ -438,7 +439,10 @@ export async function playBattle() {
         c.activeBuffs = nextActiveBuffs;
         if (c.updateBuffSlots) c.updateBuffSlots();
         if (battleState.round % 3 === 0 && battleState.round > 0) {
-            nextActiveBuffs = await handleBuffSelection(c, nextActiveBuffs);
+            // 联网 PVP 阶段3：双方各选各的（房主统一发选项，从机回传后合并）
+            nextActiveBuffs = netLinked
+                ? await handlePvpBuffSelection(c, nextActiveBuffs)
+                : await handleBuffSelection(c, nextActiveBuffs);
         }
 
         await handleFlyDirection(c, lastStep, battleState.round);
@@ -596,6 +600,11 @@ export async function playBattleGuest() {
             c.snapshot = { ally: step.ally, enemy: step.enemy };
         }
         finalStep = step;
+        // 阶段3：房主捎带 activeBuffs → 从机 buff 槽显示六大派自己的海克斯
+        if (step.activeBuffs) {
+            c.activeBuffs = step.activeBuffs;
+            if (c.updateBuffSlots) c.updateBuffSlots();
+        }
         // 与房主一致：每回合重置「是否本回合首次攻击」
         if ((step.log || []).some(e => e && e.factType === 'roundStart')) isFirstAttackRef.value = true;
         await playStepInterleaved(c, step, isFirstAttackRef);

@@ -1,5 +1,5 @@
-// V6.0.0 | 2026-09-07 属性词条化：远程成长/坚盾/破防改 addMod，不再直改 unit/state
-export const VER = 'core/03battle-utils.js V6.0.0';
+// V6.1.0 | ~18800 bytes | 2026-09-19 联网PVP：连击去掉"只对明教"守卫，按注册时传入的阵营生效
+export const VER = 'core/03battle-utils.js V6.1.0';
 
 import { CONFIG, getGameData } from './01config-5v5-test.js';
 import { emitEvent, applyStatChange, query, getBattleRng, addMod, getStat } from './13battle-shared.js';
@@ -368,7 +368,7 @@ export function registerDoubleStrike(eventBus, doubleStrikeUnitUid, allyTeam, ac
     if (!doubleStrikeUnitUid) return;
     function submitDoubleStrikeDeclaration(data) {
         const { unit, target, log } = data;
-        if (unit.uid !== doubleStrikeUnitUid || !unit.alive || unit.camp !== CAMP_TYPES.ALLY || unit.state._doubleStriked) return;
+        if (unit.uid !== doubleStrikeUnitUid || !unit.alive || unit.state._doubleStriked) return;
         const xiaoDoubleEnhance = query('xiaoHexEnhance', allyTeam, activeBuffs, BUFF_TYPES.DOUBLE_STRIKE);
         const missChainChance = xiaoDoubleEnhance ? 1.0 : (C.BUFFS.doubleStrike.prob || 0.8);
         if (getBattleRng().next() < missChainChance) {

@@ -1,5 +1,5 @@
-// V6.0.1 | ~24900 bytes | 2026-09-11 属性词条化批4：round 词条清理后补 refreshMaxHp；光环改 round 词条，删归位重算；蝶变方向弹窗移至播放器层
-export const VER = 'core/11battle-round.js V6.0.1';
+// V6.1.0 | ~27200 bytes | 2026-09-19 联网PVP：六大派 buff 生效（回合开始镜像 B 侧）+ 圣火令去掉重复登记 + 连击分阵营
+export const VER = 'core/11battle-round.js V6.1.0';
 
 import { CONFIG, getGameData, getSkillParams } from './01config-5v5-test.js';
 import { resetStateFields } from './17-state-keys.js';
@@ -53,11 +53,19 @@ function prepareRoundStart(A, B, log, state, round, rng) {
     }
 
     let doubleStrikeUnitUid = null;
+    let doubleStrikeUnitUidEnemy = null;
     if (hasBuff(A._activeBuffs, BUFF_TYPES.DOUBLE_STRIKE)) {
         let candidates = A.filter(u => u.alive && !u.isHorse);
         if (candidates.length > 0) {
             let chosen = candidates[rng.nextInt(0, candidates.length - 1)];
             doubleStrikeUnitUid = chosen.uid;
+        }
+    }
+    if (hasBuff(B._activeBuffs, BUFF_TYPES.DOUBLE_STRIKE)) {
+        let candidates = B.filter(u => u.alive && !u.isHorse);
+        if (candidates.length > 0) {
+            let chosen = candidates[rng.nextInt(0, candidates.length - 1)];
+            doubleStrikeUnitUidEnemy = chosen.uid;
         }
     }
 
@@ -95,11 +103,7 @@ function prepareRoundStart(A, B, log, state, round, rng) {
     });
     A._activeBuffs = state.activeBuffs.filter(b => b.target === CAMP_TYPES.ALLY || !b.target);
     B._activeBuffs = state.activeBuffs.filter(b => b.target === CAMP_TYPES.ENEMY);
-    A.forEach(u => {
-        if (u.alive && u.camp === CAMP_TYPES.ALLY) {
-            applyHolyFlameBonus(u, A._activeBuffs || [], hasSisterForHolyFlame);
-        }
-    });
+    // 圣火令统一在下面的回合开始循环里施加，此处不再重复登记词条
 
     eventBus.clearAll();
     // 每回合 A/B 都是新克隆，上一回合的裁判登记（闭包引用旧对象）作废，必须清空重登
@@ -124,6 +128,7 @@ function prepareRoundStart(A, B, log, state, round, rng) {
         }
     });
     registerDoubleStrike(eventBus, doubleStrikeUnitUid, A, A._activeBuffs);
+    registerDoubleStrike(eventBus, doubleStrikeUnitUidEnemy, B, B._activeBuffs);
     registerEmptyColBonus(eventBus);
 
     const factories = getEliteFactories();
@@ -210,6 +215,14 @@ function prepareRoundStart(A, B, log, state, round, rng) {
     B.forEach(u => {
         if (!u.alive) return;
         emitEvent(u, UNIT_EVENT_TYPES.HP_CHANGE, { hp: u.hp, maxHp: u.maxHp, alive: u.alive, atk: getStat(u, 'atk'), def: getStat(u, 'def'), _stunned: false });
+        let bStats = computeBuffStats(u, B._activeBuffs || [], B);
+        u.buffAtkBonus = bStats.atkBonus;
+        u.buffDefBonus = bStats.defBonus;
+        u.buffDodgeBonus = bStats.dodgeBonus;
+        u.buffHpBonus = bStats.hpBonus;
+        applyHolyFlameBonus(u, B._activeBuffs || [], false);
+        applyFortifyBonus(u, B._activeBuffs || []);
+        applyCarryBonus(u, B, state, log);
         Object.assign(u.state, { _doubleStriked: false });
         u.state._xingFenExtraAttacking = false;
         u.state._bloodthirstStriked = false;

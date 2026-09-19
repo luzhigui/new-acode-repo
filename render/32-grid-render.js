@@ -1,5 +1,6 @@
+// ~23800 bytes | V6.1.0 | 2026-09-19 联网PVP阶段3：摆位权限按 netRole 分阵营；buff 图标按阵营渲染（严阵以待放开六大派）
 // V6.0.0 | 2026-09-07 属性词条化：攻防显示与详情改 getStat，不再读 unit.atk/def 做二次乘法
-export const VER = 'render/32-grid-render.js V6.0.0';
+export const VER = 'render/32-grid-render.js V6.1.0';
 
 import { getUnitCol, getUnitRow, getAuraBonuses, getDodgeRules } from '../infra/51-core-utils.js';
 import { CONFIG, getSkillDesc } from '../core/01config-5v5-test.js';
@@ -112,7 +113,7 @@ function isUnitBenefitedByBuff(unit, buffKey, allyTeam, doubleStrikeUid, activeB
         case BUFF_TYPES.CARRY: return unit.pos === 5 && unit.alive;
         case BUFF_TYPES.METEOR_SHOWER: return unit.role === ROLE_TYPES.RANGED;
         case BUFF_TYPES.BLOODTHIRST: return unit.role === ROLE_TYPES.WARRIOR;
-        case BUFF_TYPES.FORTIFY: return unit.role === ROLE_TYPES.DEFENDER && unit.camp === CAMP_TYPES.ALLY;
+        case BUFF_TYPES.FORTIFY: return unit.role === ROLE_TYPES.DEFENDER;
         case BUFF_TYPES.WIND_ASSAULT: return unit.role === ROLE_TYPES.FLYER;
         case BUFF_TYPES.CLOUD_BODY: return true;
         case BUFF_TYPES.HOLY_FLAME: {
@@ -185,8 +186,12 @@ export function renderGrid(id, camp) {
     let displayOrder = camp === CAMP_TYPES.ENEMY ? [7,8,9,4,5,6,1,2,3] : [1,2,3,4,5,6,7,8,9];
     let isAdjustMode = ctx ? ctx.adjustMode : false;
     let selectedPos = ctx ? ctx.selectedAdjustPos : null;
-    // PVP 本地双人对战：六大派网格同样可调（双方同屏排兵）
-    let renderAdjust = isAdjustMode && (camp === CAMP_TYPES.ALLY || !!GlobalStore.get('pvpMode'));
+    // 摆位可调权限：单机只明教；本地双人 PVP 两队都可调；联网 PVP 各管一队（房主明教 / 从机六大派）
+    const netRole = GlobalStore.get('netRole');
+    let renderAdjust;
+    if (netRole === 'host') renderAdjust = isAdjustMode && camp === CAMP_TYPES.ALLY;
+    else if (netRole === 'guest') renderAdjust = isAdjustMode && camp === CAMP_TYPES.ENEMY;
+    else renderAdjust = isAdjustMode && (camp === CAMP_TYPES.ALLY || !!GlobalStore.get('pvpMode'));
     let activeBuffs = ctx ? (ctx.activeBuffs || []) : [];
     let allyTeam = (store && store.getState) ? store.getState().units.filter(u => u.camp === CAMP_TYPES.ALLY) : selectOrStore(ctx, 'allyTeam');
     let doubleStrikeUid = ctx ? ctx.currentDoubleStrikeUid : null;
@@ -347,15 +352,21 @@ export function renderGrid(id, camp) {
             requestAnimationFrame(() => createHorseSpawnAnim(div));
         }
         let buffIcons = '';
-        if (ctx && camp === CAMP_TYPES.ALLY) {
-            let iconMap = {};
-            activeBuffs.forEach(b => {
-                let info = CONFIG.BUFFS ? CONFIG.BUFFS[b.key] : null;
-                if (info && info.icon && isUnitBenefitedByBuff(unit, b.key, allyTeam, doubleStrikeUid, activeBuffs)) {
-                    iconMap[info.icon] = (iconMap[info.icon] || 0) + 1;
-                }
-            });
-            buffIcons = Object.entries(iconMap).map(([icon, count]) => icon + (count > 1 ? 'x' + count : '')).join(' ');
+        if (ctx) {
+            // 各阵营只显示自己的海克斯图标（buff.target 定归属，历史无 target 的归明教）
+            const campBuffs = activeBuffs.filter(b => camp === CAMP_TYPES.ALLY
+                ? (b.target === CAMP_TYPES.ALLY || !b.target)
+                : b.target === camp);
+            if (campBuffs.length) {
+                let iconMap = {};
+                campBuffs.forEach(b => {
+                    let info = CONFIG.BUFFS ? CONFIG.BUFFS[b.key] : null;
+                    if (info && info.icon && isUnitBenefitedByBuff(unit, b.key, team, doubleStrikeUid, campBuffs)) {
+                        iconMap[info.icon] = (iconMap[info.icon] || 0) + 1;
+                    }
+                });
+                buffIcons = Object.entries(iconMap).map(([icon, count]) => icon + (count > 1 ? 'x' + count : '')).join(' ');
+            }
         }
         let atkStyle = totalChange > 0 ? 'color:#daa520;font-weight:bold;' : '';
         let defStyle = (totalDefChange > 0 || (latestUnit.state._fortifyStacks || 0) > 0) ? 'color:#daa520;font-weight:bold;' : '';
