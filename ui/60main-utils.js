@@ -1,5 +1,5 @@
-// V6.0.1 | ~6900 bytes | 2026-09-11 删 startApp 死函数；updateCoverVersion 改读 window.ALL_VERS 动态生成版本列表
-export const VER = 'ui/60main-utils.js V6.0.1';
+// V6.0.2 | ~6800 bytes | 2026-09-19 封面右下角追加页面文件时间戳（刷新即可判断线上是否最新版）
+export const VER = 'ui/60main-utils.js V6.0.2';
 
 import { GlobalStore } from '../infra/54-global-store.js';
 
@@ -128,11 +128,16 @@ export function copyLogToClipboard(choice) {
 }
 
 // 版本列表从 window.ALL_VERS 动态生成（61 启动时写入），避免各处版本号与硬编码列表脱节
+// 2026-09-19 追加页面文件时间：GitHub Pages 上是最后部署时间，刷新一眼即可判断线上是否最新版
 export function updateCoverVersion() {
     const el = document.getElementById('coverVersion');
     if (!el) return;
     const vers = (typeof window !== 'undefined' && window.ALL_VERS) || {};
     const keys = Object.keys(vers);
     if (keys.length === 0) return;
-    el.innerHTML = keys.map(k => '✅ ' + vers[k]).join('<br>');
+    const d = document.lastModified ? new Date(document.lastModified) : null;
+    const stamp = (d && !isNaN(d.getTime()) && d.getFullYear() > 2000)
+        ? '🕒 ' + d.toLocaleString('zh-CN', { hour12: false }) + '<br>'
+        : '';
+    el.innerHTML = stamp + keys.map(k => '✅ ' + vers[k]).join('<br>');
 }

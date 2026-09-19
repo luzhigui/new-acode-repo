@@ -165,6 +165,7 @@
         .net-btn:hover { background:#34495e; }
         .net-room-input { width:180px; padding:8px 10px; border-radius:10px; border:1px solid #5b7a99; background:#1a2530; color:#ecf0f1; font-size:0.95rem; text-align:center; }
         #netStatusLine { margin-top:8px; font-size:0.9rem; color:#b8a88a; min-height:18px; }
+        #netRoleBadge { margin-left:10px; font-size:0.95rem; font-weight:bold; }
         #coverVersion { position: absolute; bottom: 12px; right: 16px; font-size: 10px; color: #888; text-align: right; line-height: 1.4; z-index: 100000; }
         @keyframes breathe { 0%,100%{ box-shadow: 0 4px 15px rgba(255,215,0,0.4); } 50%{ box-shadow: 0 4px 35px rgba(255,215,0,0.8); } }
         .shake-screen { animation: screenShake 0.2s ease-out; }
@@ -274,7 +275,7 @@
     </div>
 </div>
 <div class="log-container">
-    <div class="log-header"><span id="roundDisplay">📜 日志</span>
+    <div class="log-header"><span id="roundDisplay">📜 日志</span><span id="netRoleBadge"></span>
 
         <div class="log-header-right" id="debugPanel">
         <button id="btnStageSelect">🎯 选关</button>
