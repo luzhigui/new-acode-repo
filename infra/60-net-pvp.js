@@ -1,6 +1,6 @@
 // infra/60-net-pvp.js - 联网对战·中继版（公共 MQTT broker 转发 + step 同步 + 阵容/海克斯双向）
-// ~16400 bytes | V7.0.0 | 2026-09-19 传输层从 WebRTC/PeerJS 换成公共 MQTT 中继：跨网打洞必失败、TURN 又注册不了，中继最省事
-export const VER = 'infra/60-net-pvp.js V7.0.0';
+// ~17800 bytes | V7.2.0 | 2026-09-19 支持断线重连：建房/加入前先 teardownTransport 拆干净旧客户端（否则重复订阅收两遍）；新增 guestJoin 通知房主重发阵容
+export const VER = 'infra/60-net-pvp.js V7.2.0';
 
 // 为什么换掉 WebRTC：手机 5G 走运营商 CGNAT，和家用宽带 NAT 类型凑不上，打洞必失败；
 // 兜底要 TURN，而 2026 年流传的公共 TURN 凭据全失效、免费服务商注册页在墙内提交不了（reCAPTCHA）。
@@ -71,7 +71,7 @@ function plainBuffs(buffs) {
     }));
 }
 
-function plainStep(step, activeBuffs, speed) {
+function plainStep(step, activeBuffs, speed, ff) {
     return {
         log: step.log || [],
         events: step.events || [],
@@ -84,7 +84,10 @@ function plainStep(step, activeBuffs, speed) {
         // 阶段3：从机不跑引擎，buff 槽要靠房主捎带才能显示
         activeBuffs: plainBuffs(activeBuffs),
         // 方案A：捎带房主当前倍速，从机跟随，避免从机比房主快导致 step 积压
-        speed: speed || null
+        speed: speed || null,
+        // 快进状态也必须捎带：房主点「快进到底」只改本地时钟，不告诉从机的话
+        // 房主 12x 冲到底、从机还按 1x 慢慢播，房主都开下一局了从机还在打
+        ff: !!ff
     };
 }
 
@@ -122,6 +125,20 @@ function failPendingStep() {
 function failPendingMsg() {
     for (const w of _msgWaiters.values()) { try { w(null); } catch (e) {} }
     _msgWaiters.clear();
+}
+
+// 拆掉旧连接与旧定时器。建房/加入前必须先调：不然重连时旧客户端还订阅着同一个 topic，
+// 同一条消息会被处理两遍（旧客户端的 message 回调也指向同一个 onMessage）。
+function teardownTransport() {
+    stopHeartbeat();
+    if (_joinTimer) { clearTimeout(_joinTimer); _joinTimer = null; }
+    if (_client) {
+        try { _client.removeAllListeners && _client.removeAllListeners(); } catch (e) {}
+        try { _client.end(true); } catch (e) {}
+        _client = null;
+    }
+    failPendingStep();
+    failPendingMsg();
 }
 
 function setStatus(s, meta) {
@@ -191,9 +208,14 @@ function onMessage(topic, payload) {
 // 房主：有对手进了房间
 function onGuestJoin() {
     if (!_isHost) return;
-    if (_status !== STATUS.CONNECTED) setStatus(STATUS.CONNECTED, { roomId: _roomId, isHost: true });
+    const wasConnected = _status === STATUS.CONNECTED;
+    if (!wasConnected) setStatus(STATUS.CONNECTED, { roomId: _roomId, isHost: true });
     publish({ t: 'accept', roomId: _roomId });
     startHeartbeat();
+    // 首次加入靠上面的 setStatus 触发上层；重连时状态本来就是 CONNECTED、不会回调，这里补一次
+    if (wasConnected && typeof _dataCb === 'function') {
+        try { _dataCb({ t: 'guestJoin' }); } catch (e) { console.error('[net] guestJoin 处理异常', e); }
+    }
 }
 
 // 从机：房主已应答
@@ -218,6 +240,7 @@ function normalizeRoomId(raw) {
 
 // 房主建房：onReady(roomId)；customId 为空则自动生成 6 位随机号
 export async function createRoom(onReady, onError, customId) {
+    teardownTransport();
     setStatus(STATUS.CREATING);
     try {
         await ensureMqtt();
@@ -270,9 +293,11 @@ export async function createRoom(onReady, onError, customId) {
 }
 
 // 从机加入：roomId 直接用用户填的内容（与建房同一套字符规则）
+// 断线后可以再调一次重连：teardownTransport 先把旧客户端拆干净，不会重复订阅
 export async function joinRoom(roomId, onReady, onError) {
     const rid = normalizeRoomId(roomId);
     if (!rid) { if (typeof onError === 'function') onError(new Error('房间号只能用字母、数字或短横线')); return; }
+    teardownTransport();
     setStatus(STATUS.JOINING);
     try {
         await ensureMqtt();
@@ -322,13 +347,15 @@ export function netSend(msg) { return publish(msg); }
 // ---- 阶段2 对外 API ----
 // 房主：开战时通知从机进入战斗
 export function sendStart() { return netSend({ t: 'start' }); }
-// 房主：发一步（净化后传输；activeBuffs 捎带，供从机 buff 槽显示）
-export function sendStep(step, activeBuffs, speed) { return netSend({ t: 'step', step: plainStep(step, activeBuffs, speed) }); }
+// 房主：发一步（净化后传输；activeBuffs 捎带，供从机 buff 槽显示；ff 捎带快进状态）
+export function sendStep(step, activeBuffs, speed, ff) { return netSend({ t: 'step', step: plainStep(step, activeBuffs, speed, ff) }); }
 // 从机：取下一步（无则挂起等，断线返回 null）
 export function recvStep() {
     if (_stepQueue.length) return Promise.resolve(_stepQueue.shift());
     return new Promise((resolve) => { _stepWaiter = resolve; });
 }
+// 换关时清掉残留 step：不清的话上一局的 step 会被下一局的从机主循环接着播，画面直接串台
+export function clearSteps() { failPendingStep(); }
 
 // ---- 阶段3 对外 API ----
 // 房主 → 从机：下发双方阵容（从机据此进摆位态，只摆六大派）
@@ -341,6 +368,8 @@ export function sendLineupReady(positions) { return netSend({ t: 'lineupReady', 
 export function sendBuffAsk(choices, duration) { return netSend({ t: 'buffAsk', choices: choices || [], duration: duration || 0 }); }
 // 从机 → 房主：回传自己选中的 buff key（null = 不选）
 export function sendBuffPick(key) { return netSend({ t: 'buffPick', key: key || null }); }
+// 从机 → 房主：本局演出播完了。房主靠它解锁「▶ 下一关」——不等回执就换关会把从机中途打断
+export function sendGuestDone() { return netSend({ t: 'guestDone' }); }
 
 // 房主：等从机回传某类消息（lineupReady / buffPick）。断线或超时返回 null，避免卡死
 export function waitForMsg(type, timeoutMs = 120000) {
@@ -362,11 +391,7 @@ export function currentRoomId() { return _roomId; }
 
 // 断开/销毁
 export function closeNetPvp() {
-    stopHeartbeat();
-    if (_joinTimer) { clearTimeout(_joinTimer); _joinTimer = null; }
-    try { if (_client) _client.end(true); } catch (e) {}
-    _client = null; _rxTopic = null; _txTopic = null;
+    teardownTransport();
+    _rxTopic = null; _txTopic = null;
     _status = STATUS.IDLE; _roomId = null; _isHost = false; _onReady = null;
-    failPendingStep();
-    failPendingMsg();
 }

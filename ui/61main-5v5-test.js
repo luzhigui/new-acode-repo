@@ -1,5 +1,5 @@
-// V6.6.0 | ~36900 bytes | 2026-09-19 联网PVP支持连续打下一关（房主重建阵容并重发lineup，从机跟回摆位态）+ 从机进对局即注入本地RNG + 联网关掉新手引导；阶段3：阵容下发/站位回传 + 海克斯双向
-export const VER = 'ui/61main-5v5-test.js V6.6.0';
+// V6.8.0 | ~39200 bytes | 2026-09-19 断线重连：房主抽 hostEnterAdjust（进摆位态前先掐本地战斗循环，首连/重连同一条路）+ guestJoin 分支；abortController 同步进 ctx（原来引擎拿不到 signal，中途 abort 无效）
+export const VER = 'ui/61main-5v5-test.js V6.8.0';
 
 import '../infra/54-global-store.js';
 import { GlobalStore } from '../infra/54-global-store.js';
@@ -94,9 +94,9 @@ let battleResultForInfo = null;
 let gameStarted = false;
 let hasLoggedTeam = false;
 let isBattleStarting = false;
-let currentStage = 1;
-function setStage(v) { currentStage = v; GlobalStore.set('currentStage', v); }
-function getStage() { return currentStage; }
+// 关卡号唯一源 = GlobalStore.currentStage（68 的选关弹窗直接写它）。
+// 这里原来还有个模块局部变量，68 选关后局部不更新 → 房主下发给从机的还是旧关卡号
+function setStage(v) { setState.currentStage(v); }
 GlobalStore.set('crashMode', 'fly');
 
 let currentDoubleStrikeUid = null;
@@ -148,6 +148,14 @@ function clonePlainUnit(u) { return { ...u, state: { ...(u.state || {}) } }; }
 
 // 把房主下发的阵容铺进 UI/snapshot，并进入摆位态（从机只摆六大派，网格权限见 68 bindGrid）
 function applyNetLineup(lineup) {
+    // 房主换关/开下一局重发阵容时，从机可能还卡在上一局的 playBattleGuest 循环里。
+    // 直接 abort 旧循环 + 清残留 step，否则旧循环会接着播上一局的 step，最后还把 gs 打回 GAMEOVER
+    const curCtx = getPlayerContext();
+    if (curCtx && curCtx.abortController && !curCtx.abortController.signal.aborted) curCtx.abortController.abort();
+    net.clearSteps();
+    GlobalStore.set('fastForwardActive', false);
+    GlobalStore.set('netGuestDone', false);
+
     const UI = getState.UI();
     UI.allyTeam = (lineup.ally || []).map(clonePlainUnit);
     UI.enemyTeam = (lineup.enemy || []).map(clonePlainUnit);
@@ -157,6 +165,10 @@ function applyNetLineup(lineup) {
     snap.enemy = (lineup.enemy || []).map(clonePlainUnit);
     setState.UI(UI); setState.snapshot(snap);
     setStage(lineup.stage || 1);
+    // 从机不跑 doInitBattle，labelEnemy 的关卡文案没有别的地方会写，这里补上（不然从机永远看不到第几关）
+    const curStage = lineup.stage || 1;
+    const labelEnemy = document.getElementById('labelEnemy');
+    if (labelEnemy) labelEnemy.textContent = curStage === 1 ? '六大派\n第一关' : `六大派\n第${curStage}关`;
     GlobalStore.set('pvpMode', true);
     GlobalStore.set('netGuestReady', false);
     setState.autoLevel('auto'); setState.autoMode(true);
@@ -184,11 +196,38 @@ function applyNetLineup(lineup) {
 function sendNetLineup() {
     if (GlobalStore.get('netRole') !== 'host') return;
     GlobalStore.set('netPeerReady', false);
+    // 重发阵容 = 新一局：从机「本局播完」回执随之作废，房主「▶ 下一关」重新锁上
+    GlobalStore.set('netGuestDone', false);
     const UI = getState.UI();
-    net.sendLineup(currentStage, UI.allyTeam, UI.enemyTeam);
+    net.sendLineup(getState.currentStage(), UI.allyTeam, UI.enemyTeam);
     updateButtons();
 }
 GlobalStore.setUIHandler('sendNetLineup', sendNetLineup);
+
+// 房主：(重新)进入摆位态。从机首次加入、掉线重连、以及房主自己还卡在上一局战斗里，都走这里。
+// 必须先掐掉本地战斗循环——不掐的话引擎会继续跑、继续发 step，刚连上的从机会收到一堆过期 step
+function hostEnterAdjust() {
+    const curCtx = getPlayerContext();
+    if (curCtx && curCtx.abortController && !curCtx.abortController.signal.aborted) curCtx.abortController.abort();
+    net.clearSteps();
+    GlobalStore.set('fastForwardActive', false);
+    GlobalStore.set('netPeerReady', false);
+    setState.autoLevel('auto'); setState.autoMode(true);
+    setState.isPaused(false);
+    setState.gs(S.IDLE);
+    setState.adjustMode(true); setState.selectedAdjustPos(null);
+    setState.activeBuffs([]); currentDoubleStrikeUid = null;
+    isBattleStarting = false; hasLoggedTeam = false;
+    const overlay = document.getElementById('coverOverlay');
+    if (overlay) overlay.style.display = 'none';
+    gameStarted = true; coverRef.val = true;
+    if (typeof AudioManager.init === 'function') AudioManager.init();
+    sendNetLineup();
+    updateUI();
+    renderGrid('allyGrid', CAMP_TYPES.ALLY);
+    renderGrid('enemyGrid', CAMP_TYPES.ENEMY);
+    updateButtons(); updateSpeedButtons();
+}
 
 
 
@@ -258,6 +297,13 @@ document.addEventListener('DOMContentLoaded', async function() {
     // 阶段3：连接成功 → 双方进摆位态（房主下发阵容）；收到 lineup / buffAsk / start 各走各的分支
     bindNetPvp(net, (msg) => {
         if (!msg) return;
+        // 房主：从机（重新）加入。走和首次连接同一条路——房主自己可能还卡在上一局的战斗循环里，
+        // hostEnterAdjust 会先把本地战斗掐掉再重发阵容
+        if (msg.t === 'guestJoin') {
+            if (GlobalStore.get('netRole') !== 'host') return;
+            hostEnterAdjust();
+            return;
+        }
         if (msg.t === 'lineup') { applyNetLineup(net.reviveLineup(msg.lineup || {})); return; }
         if (msg.t === 'buffAsk') {
             // 从机：选项由房主下发（本机没有引擎 RNG），选完回传 key
@@ -281,6 +327,12 @@ document.addEventListener('DOMContentLoaded', async function() {
             updateButtons();
             return;
         }
+        if (msg.t === 'guestDone') {
+            // 房主：从机本局演出播完了 → 解锁「▶ 下一关」，避免房主提前换关把从机画面切走
+            GlobalStore.set('netGuestDone', true);
+            updateButtons();
+            return;
+        }
         if (msg.t === 'start') {
             // 从机：房主开战 → 跳过 CG/图鉴/引导，只播演出不跑引擎
             const overlay = document.getElementById('coverOverlay');
@@ -300,23 +352,7 @@ document.addEventListener('DOMContentLoaded', async function() {
         }
     }, (meta) => {
         // 连接成功：双方都进摆位态；房主额外下发阵容，且等对手回传后才能开战
-        if (meta && meta.isHost) {
-            GlobalStore.set('netPeerReady', false);
-            setState.autoLevel('auto'); setState.autoMode(true);
-            setState.gs(S.IDLE); setState.isPaused(false);
-            setState.adjustMode(true); setState.selectedAdjustPos(null);
-            setState.activeBuffs([]); currentDoubleStrikeUid = null;
-            isBattleStarting = false; hasLoggedTeam = false;
-            const overlay = document.getElementById('coverOverlay');
-            if (overlay) overlay.style.display = 'none';
-            gameStarted = true; coverRef.val = true;
-            if (typeof AudioManager.init === 'function') AudioManager.init();
-            sendNetLineup();
-            updateUI();
-            renderGrid('allyGrid', CAMP_TYPES.ALLY);
-            renderGrid('enemyGrid', CAMP_TYPES.ENEMY);
-            updateButtons(); updateSpeedButtons();
-        }
+        if (meta && meta.isHost) hostEnterAdjust();
     });
     bindNextButton(setState, updateButtons, enableAllButtons, updateSpeedButtons);
     bindDetailButton(getState, setState, showModal);
@@ -325,8 +361,8 @@ document.addEventListener('DOMContentLoaded', async function() {
     bindCrashModeButton();
     bindDodgeButton(toggleDodgeEffect);
     bindAutoButton(getState, setState);
-    bindSettleButton(() => currentStage, { val: isBattleStarting }, getState, setState, updateBuffSlots, updateUI, updateButtons, enableAllButtons, updateSpeedButtons, updateScoreBadge, doInitBattle, abortAll, clearAllEffects, clearLogExceptFirst, setRenderStore, renderGrid);
-    bindStageSelectButton(() => currentStage, getState, setState, updateBuffSlots, updateUI, updateButtons, enableAllButtons, updateScoreBadge, abortAll, clearLogExceptFirst, clearAllEffects, doInitBattle, showModal);
+    bindSettleButton(() => getState.currentStage(), { val: isBattleStarting }, getState, setState, updateBuffSlots, updateUI, updateButtons, enableAllButtons, updateSpeedButtons, updateScoreBadge, doInitBattle, abortAll, clearAllEffects, clearLogExceptFirst, setRenderStore, renderGrid);
+    bindStageSelectButton(() => getState.currentStage(), getState, setState, updateBuffSlots, updateUI, updateButtons, enableAllButtons, updateScoreBadge, abortAll, clearLogExceptFirst, clearAllEffects, doInitBattle, showModal);
     bindVoteFloat();
     bindGridClick(getState, setState, updateUI);
     bindCopyLogButton(showModal, copyLogToClipboard);
@@ -401,6 +437,9 @@ document.addEventListener('DOMContentLoaded', async function() {
             try {
                 setState.gs(S.RUNNING); updateButtons(); document.getElementById('btnNext').disabled=true;
                 abortController=new AbortController();
+                // 必须同步进 ctx：playBattle 读的是 c.abortController（第377行），只给局部变量的话
+                // 引擎拿不到 signal，中途 abort 无效（联网断线重连要靠它把房主的战斗掐掉）
+                setState.abortController(abortController);
                 const snap = getState.snapshot();
                 snap.ally = getState.UI().allyTeam.map(u=>u.clone());
                 let occupiedPositions = new Set(snap.ally.map(u => u.pos));
@@ -435,11 +474,12 @@ document.addEventListener('DOMContentLoaded', async function() {
                 }
             } finally {
                 abortController=null;
+                setState.abortController(null);
             }
             updateButtons();
             if (getState.autoLevel() === 'full-auto' && getState.gs() === 'GAMEOVER' && !GlobalStore.get('pvpMode')) {
                 setTimeout(() => {
-                    if (currentStage < 6) document.getElementById('btnMain').click();
+                    if (getState.currentStage() < 6) document.getElementById('btnMain').click();
                 }, 3500);
             }
         };
@@ -467,7 +507,7 @@ document.addEventListener('DOMContentLoaded', async function() {
                 const pvpSnap = getState.snapshot();
                 setState.snapshot({ ally: [], enemy: [] });
                 setState.activeBuffs([]);
-                doInitBattle(currentStage, pvpUI, pvpSnap, getState.activeBuffs(), -1, null);
+                doInitBattle(getState.currentStage(), pvpUI, pvpSnap, getState.activeBuffs(), -1, null);
                 setState.UI(pvpUI);
                 setState.snapshot(pvpSnap);
                 updateUI();
@@ -503,7 +543,7 @@ document.addEventListener('DOMContentLoaded', async function() {
             let currentSnapshot = getState.snapshot();
             setState.snapshot({ ally: [], enemy: [] });
             setState.activeBuffs([]);
-            doInitBattle(currentStage, currentUI, currentSnapshot, getState.activeBuffs(), -1, currentDoubleStrikeUid);
+            doInitBattle(getState.currentStage(), currentUI, currentSnapshot, getState.activeBuffs(), -1, currentDoubleStrikeUid);
             setState.UI(currentUI);
             setState.snapshot(currentSnapshot);
             updateUI();
@@ -558,14 +598,13 @@ document.addEventListener('DOMContentLoaded', async function() {
 
 
     function switchToStageInternal(stage){
-    if (stage === currentStage) { forceStopGame(); setState.gs(S.IDLE); updateButtons(); enableAllButtons(); updateUI(); return; }
+    if (stage === getState.currentStage()) { forceStopGame(); setState.gs(S.IDLE); updateButtons(); enableAllButtons(); updateUI(); return; }
         onAnyButtonClick();
         let result = abortAll(abortController, getState.UI(), getState.waitingForNextRound(), isBattleStarting, getState.adjustMode(), getState.selectedAdjustPos(), getState.activeBuffs(), -1, currentDoubleStrikeUid, () => updateBuffSlots(getState.activeBuffs()));
         abortController = result.abortController; setState.waitingForNextRound(result.waitingForNextRound); isBattleStarting = result.isBattleStarting; setState.adjustMode(result.adjustMode); setState.selectedAdjustPos(result.selectedAdjustPos); setState.activeBuffs(result.activeBuffs); currentDoubleStrikeUid = result.currentDoubleStrikeUid;
         clearLogExceptFirst(); clearAllEffects(); hasLoggedTeam=false;
-        currentStage=stage;
-        GlobalStore.set('currentStage', stage);
-        doInitBattle(currentStage, getState.UI(), getState.snapshot(), getState.activeBuffs(), -1, currentDoubleStrikeUid);
+        setStage(stage);
+        doInitBattle(getState.currentStage(), getState.UI(), getState.snapshot(), getState.activeBuffs(), -1, currentDoubleStrikeUid);
         setState.UI(getState.UI());
         setState.snapshot(getState.snapshot());
         updateUI(); setState.gs(S.IDLE); updateButtons(); enableAllButtons(); updateScoreBadge();
@@ -584,7 +623,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     function doManualReset(){
         setState.activeBuffs([]); setState.snapshot({ally:[],enemy:[]}); currentDoubleStrikeUid=null;
         forceStopGame();
-        doInitBattle(currentStage, getState.UI(), getState.snapshot(), getState.activeBuffs(), -1, currentDoubleStrikeUid);
+        doInitBattle(getState.currentStage(), getState.UI(), getState.snapshot(), getState.activeBuffs(), -1, currentDoubleStrikeUid);
         setState.UI(getState.UI());
         setState.snapshot(getState.snapshot());
         updateUI();
@@ -593,18 +632,24 @@ document.addEventListener('DOMContentLoaded', async function() {
 
     // PVP 战斗结束：退出 PVP 并回到封面，复位到普通模式初始状态
     function goBackToCover(){
+        // 从机主循环必须先掐掉：closeNetPvp 会清 step 队列，挂着的 recvStep 立刻返回 null，
+        // 不 abort 的话旧循环会往下走 finishBattle 结算，在封面上画出胜负
+        const curCtx = getPlayerContext();
+        if (curCtx && curCtx.abortController && !curCtx.abortController.signal.aborted) curCtx.abortController.abort();
         // 联网身份必须一起清：残留 netRole 会让单机网格不可点（render/32 按 netRole 限权）
         net.closeNetPvp();
         GlobalStore.set('netRole', null);
         GlobalStore.set('netGuestReady', false);
         GlobalStore.set('netPeerReady', false);
+        GlobalStore.set('netGuestDone', false);
+        GlobalStore.set('fastForwardActive', false);
         resetBattleRuntime();
         forceStopGame();
         GlobalStore.set('pvpMode', false);
         currentDoubleStrikeUid = null;
         isBattleStarting = false; hasLoggedTeam = false;
         setStage(1); GlobalStore.set('_hasPlayedFair', false);
-        doInitBattle(currentStage, getState.UI(), getState.snapshot(), getState.activeBuffs(), -1, null);
+        doInitBattle(getState.currentStage(), getState.UI(), getState.snapshot(), getState.activeBuffs(), -1, null);
         setState.UI(getState.UI());
         setState.snapshot(getState.snapshot());
         updateUI(); renderGrid('allyGrid', CAMP_TYPES.ALLY); renderGrid('enemyGrid', CAMP_TYPES.ENEMY);
@@ -624,7 +669,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     // window 桥接统一收口：仅保留体检/测试跑器真正调用的一项（原 selectStage / forceStopGame /
     // doManualReset / getGameState 四个挂载点全库无引用，已删）。生产代码一律走 import 或 UIHandler。
     window.__DSH_TEST_API__ = {
-        selectStage: (stage) => { if (stage === currentStage) return; forceStopGame(); switchToStageInternal(stage); }
+        selectStage: (stage) => { if (stage === getState.currentStage()) return; forceStopGame(); switchToStageInternal(stage); }
     };
 
 
@@ -635,7 +680,7 @@ document.addEventListener('DOMContentLoaded', async function() {
         updateButtons(); updateSpeedButtons(); updateDebugUI();
         setTimeout(() => updateCoverVersion(), 500);
         await loadGameData();
-        doInitBattle(currentStage, getState.UI(), getState.snapshot(), getState.activeBuffs(), -1, currentDoubleStrikeUid);
+        doInitBattle(getState.currentStage(), getState.UI(), getState.snapshot(), getState.activeBuffs(), -1, currentDoubleStrikeUid);
         setState.UI(getState.UI());
         setState.snapshot(getState.snapshot());
         updateUI(); updateScoreBadge();

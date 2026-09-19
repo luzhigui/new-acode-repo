@@ -1,5 +1,5 @@
-// V7.1.0 | ~34100 bytes | 2026-09-19 联网GAMEOVER改为主「▶下一关」/副「🏠返回封面」，摆位态允许选关（从机除外），房主标记改明教标签 ::after；阶段3：各管一队摆位 + 准备/等待按钮 + buff 槽按阵营
-export const VER = 'ui/68ui-controls.js V7.1.0';
+// V7.3.0 | ~35200 bytes | 2026-09-19 标题栏房间号角标（对局中也能报房间号）+ 从机掉线自动回封面并预填房间号，点「加入」即可重连；连接状态变化同步刷新按钮
+export const VER = 'ui/68ui-controls.js V7.3.0';
 
 // 2026-09-14 打断 63↔68 循环依赖：getState/setState 直接取自 infra/54（63 只做转发）
 import { getState, setState, GlobalStore, getPlayerContext } from '../infra/54-global-store.js';
@@ -235,7 +235,10 @@ function updateButtons() {
         if(GlobalStore.get('pvpMode')){
             // 联网：房主可连续打下一关（阵容由房主重发，从机跟着回摆位态）；返回封面挂到 btnNext
             if(GlobalStore.get('netRole')==='host'){
-                mainBtn.innerHTML='▶ 下一关';mainBtn.disabled=false;
+                // 必须等从机把本局演出播完（guestDone）才能换关：抢跑会把从机画面中途切走
+                const guestDone = GlobalStore.get('netGuestDone');
+                mainBtn.innerHTML = guestDone ? '▶ 下一关' : '⏳ 等<br>对手';
+                mainBtn.disabled = !guestDone;
                 nextBtn.innerHTML='🏠 返回<br>封面';nextBtn.disabled=false;
             }else{
                 mainBtn.innerHTML='🏠 返回<br>封面';mainBtn.disabled=false;
@@ -254,7 +257,8 @@ function updateButtons() {
         return;
     }else{
         mainBtn.disabled=true;
-        if(gs===S.RUNNING||gs===S.PAUSED){settleBtn.textContent='⏭ 快进到底';settleBtn.disabled=false;}else{settleBtn.disabled=true;}
+        // 从机不能自己快进：节奏权威在房主，本地抢跑只会让两端越差越远（快进状态由房主的 step 捎带下来）
+        if(gs===S.RUNNING||gs===S.PAUSED){settleBtn.textContent='⏭ 快进到底';settleBtn.disabled=GlobalStore.get('netRole')==='guest';}else{settleBtn.disabled=true;}
     }
     if(GlobalStore.get('bulletTimeActive') && gs !== S.GAMEOVER && gs !== S.PAUSED){pauseBtn.textContent='⏸️ 暂停';pauseBtn.disabled=true;pauseBtn.classList.remove('active');nextBtn.disabled=true;if(stageBtn)stageBtn.disabled=true;if(randomBtn)randomBtn.disabled=true;}else if(gs===S.RUNNING){pauseBtn.textContent='⏸️ 暂停';pauseBtn.disabled=false;pauseBtn.classList.remove('active');}else if(gs===S.PAUSED){pauseBtn.textContent='▶ 继续';pauseBtn.disabled=false;pauseBtn.classList.add('active');}else{pauseBtn.disabled=true;pauseBtn.classList.remove('active');}
 }
@@ -305,18 +309,47 @@ export function bindNetPvp(net, onNetMsg, onConnected) {
     if (!createBtn || !joinBtn || !line) return;
 
     const say = (txt, color) => { line.textContent = txt; line.style.color = color || '#b8a88a'; };
+    const badge = document.getElementById('netRoomBadge');
+    // 标题栏房间号角标：对局中封面是盖住的，房间号只能靠这里报给对手 / 掉线后照着重连
+    const setBadge = (rid, warn) => {
+        if (!badge) return;
+        badge.textContent = rid ? (warn ? '⚠️ 掉线 ' : '🚪 ') + rid : '';
+        badge.style.display = rid ? 'inline-block' : 'none';
+        badge.classList.toggle('warn', !!warn);
+    };
+    // 连接状态一变，主按钮的含义就变了（等对手/开战/返回封面），必须跟着刷新
+    const refresh = () => { const fn = GlobalStore.getUIHandler('updateButtons'); if (fn) fn(); };
     const onState = (status, meta) => {
         if (status === 'creating') say('正在建房…');
-        else if (status === 'waiting') { say('房间已建好，把房间号发给对手：' + meta.roomId, '#ffd700'); if (input) input.value = meta.roomId; }
+        else if (status === 'waiting') { say('房间已建好，把房间号发给对手：' + meta.roomId, '#ffd700'); if (input) input.value = meta.roomId; setBadge(meta.roomId); }
         else if (status === 'joining') say('正在连接房主…');
         else if (status === 'connected') {
             // netRole 是全局对局身份：网格可点权限、buff 槽阵营都读它
             GlobalStore.set('netRole', meta && meta.isHost ? 'host' : 'guest');
             say('✅ 已连接对手' + (meta && meta.isHost ? '（你是房主）' : '（你是加入方）'), '#4ade80');
+            setBadge(meta && meta.roomId);
             if (typeof onConnected === 'function') onConnected(meta || {});
         }
         else if (status === 'error') say('❌ ' + ((meta && meta.msg) || '连接失败'), '#ff6b6b');
-        else { GlobalStore.set('netRole', null); say(''); }
+        else {
+            // 掉线（onPeerLost）：房间号必须留着——从机就是靠它回封面重新「加入」重连。
+            // 先取房间号再回封面，因为 goBackToCover 会 closeNetPvp 把房间号清掉。
+            const rid = net.currentRoomId() || (input ? input.value.trim() : '');
+            const wasGuest = GlobalStore.get('netRole') === 'guest';
+            GlobalStore.set('netRole', null);
+            GlobalStore.set('netPeerReady', false);
+            GlobalStore.set('netGuestDone', false);
+            setBadge(rid, true);
+            if (wasGuest) {
+                // 从机：回封面并把房间号预填好，点一下「加入」就能重连。
+                // 房主那边房间还挂着（MQTT 客户端没断），收到 join 会重新下发阵容，从机照旧进摆位态。
+                if (input && rid) input.value = rid;
+                const fnBack = GlobalStore.getUIHandler('goBackToCover');
+                if (typeof fnBack === 'function') fnBack();
+                say('⚠️ 与房主断开，房间号已填好，点「加入」重连', '#ff6b6b');
+            } else say('');
+        }
+        refresh();
     };
     const onData = (msg) => {
         if (msg && msg.t === 'start') say('房主已开战，正在同步画面…', '#4ade80');
