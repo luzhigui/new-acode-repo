@@ -1,63 +1,25 @@
-// infra/60-net-pvp.js - 联网对战·阶段3（WebRTC 连接层 + step 同步 + 阵容/海克斯双向）
-// ~15200 bytes | V6.7.0 | 2026-09-19 TURN 改为运行时从 localStorage 取 Metered 凭据换 iceServers（静态凭据实测已失效），失败回退 STUN-only；方案A：step 捎带房主倍速（从机跟随）；_dataCb 异常不再静默吞
-export const VER = 'infra/60-net-pvp.js V6.7.0';
+// infra/60-net-pvp.js - 联网对战·中继版（公共 MQTT broker 转发 + step 同步 + 阵容/海克斯双向）
+// ~16400 bytes | V7.0.0 | 2026-09-19 传输层从 WebRTC/PeerJS 换成公共 MQTT 中继：跨网打洞必失败、TURN 又注册不了，中继最省事
+export const VER = 'infra/60-net-pvp.js V7.0.0';
 
+// 为什么换掉 WebRTC：手机 5G 走运营商 CGNAT，和家用宽带 NAT 类型凑不上，打洞必失败；
+// 兜底要 TURN，而 2026 年流传的公共 TURN 凭据全失效、免费服务商注册页在墙内提交不了（reCAPTCHA）。
+// 改成两端都主动连公共 broker（出站 wss，不需要入站端口、不需要服务器），消息经 broker 转发。
+// 单机玩法依然全程零网络请求：mqtt.js 与 broker 连接都只在点「创建/加入房间」时才发生。
+//
+// 注意：topic 直接就是房间号，公共 broker 上任何人订阅同一 topic 都能看到消息——房间号别用敏感信息。
 // 阶段1 提供连接能力；阶段2 追加 step 同步（房主跑引擎发 step，从机只播演出）；
 // 阶段3 追加阵容/站位/海克斯双向（房主权威，从机回传自己的选择）。
-// PeerJS 走 CDN 懒加载：只有点「创建/加入房间」才下载，单机玩法全程零网络请求。
 
 import { StateMachine } from './51-core-utils.js';
 
-const PEERJS_CDN = 'https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js';
-
-// ---- ICE 配置 ----
-// PeerJS 默认只带 STUN（打洞用）。手机 5G 走运营商 CGNAT，NAT 类型和家用宽带凑不上，打洞必失败，
-// 必须带 TURN 中继兜底，否则跨网永远连不上（同 WiFi 不打洞所以能用）。
-//
-// 2026-09-19 实测：网上流传的静态凭据（openrelay.metered.ca + openrelayproject）已失效，
-// ICE 只出 host 候选、没有 relay，等于没中继。现在必须注册免费账号调 REST API 换 iceServers。
-//
-// 凭据不写进仓库（仓库 public，写死会被扒走额度）：两端各自在控制台执行一次即可，之后一直生效
-//   localStorage.setItem('turnKey', '<API_KEY>');        // Metered 免费账号的 API_KEY
-//   localStorage.setItem('turnDomain', '<app>.metered.live');  // 注册时建的 App 域名
-// 没配 / 请求失败 → 自动回退 STUN-only（同 WiFi 仍可用，不会崩）。
-const STUN_ONLY = [
-    { urls: 'stun:stun.l.google.com:19302' },
-    { urls: 'stun:stun1.l.google.com:19302' }
-];
-let _iceServers = null;   // 拿到带 TURN 的配置后缓存，成功才缓存
-let _icePromise = null;
-
-function loadIceServers() {
-    if (_iceServers) return Promise.resolve(_iceServers);
-    if (_icePromise) return _icePromise;
-    _icePromise = (async () => {
-        let key = null, domain = null;
-        try {
-            key = localStorage.getItem('turnKey');
-            domain = localStorage.getItem('turnDomain');
-        } catch (e) {}
-        if (key && domain) {
-            try {
-                const res = await fetch('https://' + domain + '/api/v1/turn/credentials?apiKey=' + encodeURIComponent(key));
-                const list = res.ok ? await res.json() : null;
-                if (Array.isArray(list) && list.length) {
-                    _iceServers = list;
-                    console.info('[net] ICE：已启用 TURN 中继（' + list.length + ' 条）');
-                    return _iceServers;
-                }
-                console.warn('[net] TURN 凭据获取失败（HTTP ' + res.status + '），回退 STUN-only');
-            } catch (e) {
-                console.warn('[net] TURN 凭据请求异常，回退 STUN-only', e);
-            }
-        } else {
-            console.warn('[net] 未配置 turnKey/turnDomain，仅 STUN——跨网（5G↔宽带）大概率连不上');
-        }
-        _icePromise = null;   // 失败不缓存，配好 key 后下次点联机即可重试
-        return STUN_ONLY;
-    })();
-    return _icePromise;
-}
+const MQTT_CDN = 'https://cdn.jsdelivr.net/npm/mqtt@5.10.1/dist/mqtt.min.js';
+// EMQX 公共测试 broker（国内访问好、无需注册）。不保证长期可用；挂了可换该服务的其它节点或自建。
+const BROKER_URL = 'wss://broker.emqx.io:8084/mqtt';
+const TOPIC_PREFIX = 'gmd5v5/';
+const HEARTBEAT_MS = 5000;        // 心跳间隔
+const HEARTBEAT_TIMEOUT = 16000;  // 这么久没收到对端任何消息 → 判定掉线（替代 WebRTC 的 conn.on('close')）
+const JOIN_TIMEOUT = 20000;       // 从机发 join 后等 accept 的上限（没人订阅这个房间就永远等不到）
 
 const STATUS = {
     IDLE: 'idle',
@@ -68,17 +30,25 @@ const STATUS = {
     ERROR: 'error'
 };
 
-let _peer = null;           // 本端 Peer 实例
-let _conn = null;           // 与对端的 DataConnection
-let _roomId = null;         // 房主：本端的 id；从机：加入的房间号
+let _client = null;         // 本端 MQTT 客户端
+let _rxTopic = null;        // 本端订阅（收对端消息）
+let _txTopic = null;        // 本端发布（发给对端）
+let _roomId = null;         // 房主：本端房间号；从机：加入的房间号
 let _isHost = false;
 let _status = STATUS.IDLE;
 let _stateCb = null;        // (status, meta) => void
 let _dataCb = null;         // (msg) => void  只收非 step 消息（step 由本模块内部消化）
+let _onReady = null;        // 从机：收到 accept 后回调（连上才算 ready，不是发出 join 就算）
 let _loadPromise = null;
 let _stepQueue = [];        // 从机：已收到待播放的 step
 let _stepWaiter = null;     // 从机：playBattleGuest 正等着下一个 step
 let _msgWaiters = new Map();// 房主：等待从机回传（lineupReady / buffPick），type -> resolve
+let _hbTimer = null;
+let _lastRx = 0;
+let _joinTimer = null;
+
+function hostTopic(room) { return TOPIC_PREFIX + room + '/h2g'; }
+function guestTopic(room) { return TOPIC_PREFIX + room + '/g2h'; }
 
 // ---- step 净化 / 复原 ----
 // step 里的单位是引擎 Unit 实例，直接 JSON 会炸：
@@ -161,39 +131,78 @@ function setStatus(s, meta) {
     }
 }
 
-// 懒加载 PeerJS（只下载一次，之后复用同一 Promise）
-function ensurePeerJs() {
-    if (window.Peer) return Promise.resolve();
+// 懒加载 mqtt.js（只下载一次，之后复用同一 Promise）
+function ensureMqtt() {
+    if (window.mqtt) return Promise.resolve();
     if (_loadPromise) return _loadPromise;
     _loadPromise = new Promise((resolve, reject) => {
         const s = document.createElement('script');
-        s.src = PEERJS_CDN;
-        s.onload = () => (window.Peer ? resolve() : reject(new Error('PeerJS 加载后未挂载')));
-        s.onerror = () => { _loadPromise = null; reject(new Error('PeerJS 下载失败，请检查网络')); };
+        s.src = MQTT_CDN;
+        s.onload = () => (window.mqtt ? resolve() : reject(new Error('mqtt.js 加载后未挂载')));
+        s.onerror = () => { _loadPromise = null; reject(new Error('mqtt.js 下载失败，请检查网络')); };
         document.head.appendChild(s);
     });
     return _loadPromise;
 }
 
-function setupConn(conn) {
-    _conn = conn;
-    conn.on('open', () => {
-        setStatus(STATUS.CONNECTED, { roomId: _roomId, isHost: _isHost });
-        // 握手：把自己身份告知对端
-        try { conn.send({ t: 'hello', from: _isHost ? 'host' : 'guest', roomId: _roomId }); } catch (e) {}
-    });
-    conn.on('data', (data) => {
-        if (data && data.t === 'step') { pushStep(reviveStep(data.step)); return; }
-        // 阶段3：房主正在等这类回传 → 直接交给等待者，不再走 _dataCb（避免重复处理）
-        const waiter = data && _msgWaiters.get(data.t);
-        if (waiter) { _msgWaiters.delete(data.t); waiter(data); return; }
-        if (typeof _dataCb === 'function') {
-            // 不能静默吞：2026-09-19 房主 lineupReady 写 frozen snapshot 抛错被吞，查了很久才定位
-            try { _dataCb(data); } catch (e) { console.error('[net] 消息处理异常 t=' + (data && data.t), e); }
-        }
-    });
-    conn.on('error', (err) => { failPendingStep(); failPendingMsg(); setStatus(STATUS.ERROR, { msg: (err && err.message) || String(err) }); });
-    conn.on('close', () => { _conn = null; failPendingStep(); failPendingMsg(); setStatus(STATUS.IDLE, { roomId: _roomId }); });
+function publish(msg) {
+    if (!_client || !_client.connected) return false;
+    try { _client.publish(_txTopic, JSON.stringify(msg), { qos: 0 }); return true; } catch (e) { return false; }
+}
+
+// 心跳：替代 WebRTC 的 conn.on('close')。broker 断了或对端没了，靠这里在 16 秒内收敛成 IDLE，
+// 否则 recvStep / waitForMsg 会永久挂住，玩家只能刷新页面。
+function startHeartbeat() {
+    stopHeartbeat();
+    _lastRx = Date.now();
+    _hbTimer = setInterval(() => {
+        if (Date.now() - _lastRx > HEARTBEAT_TIMEOUT) { onPeerLost(); return; }
+        if (_client && _client.connected) publish({ t: 'ping' });
+    }, HEARTBEAT_MS);
+}
+
+function stopHeartbeat() { if (_hbTimer) { clearInterval(_hbTimer); _hbTimer = null; } }
+
+function onPeerLost() {
+    stopHeartbeat();
+    failPendingStep();
+    failPendingMsg();
+    setStatus(STATUS.IDLE, { roomId: _roomId });
+}
+
+function onMessage(topic, payload) {
+    _lastRx = Date.now();
+    let data = null;
+    try { data = JSON.parse(payload.toString()); } catch (e) { return; }
+    if (!data || typeof data.t !== 'string') return;
+    if (data.t === 'ping') return;
+    if (data.t === 'join') { onGuestJoin(); return; }
+    if (data.t === 'accept') { onAccepted(); return; }
+    if (data.t === 'step') { pushStep(reviveStep(data.step)); return; }
+    // 阶段3：房主正在等这类回传 → 直接交给等待者，不再走 _dataCb（避免重复处理）
+    const waiter = _msgWaiters.get(data.t);
+    if (waiter) { _msgWaiters.delete(data.t); waiter(data); return; }
+    if (typeof _dataCb === 'function') {
+        // 不能静默吞：2026-09-19 房主 lineupReady 写 frozen snapshot 抛错被吞，查了很久才定位
+        try { _dataCb(data); } catch (e) { console.error('[net] 消息处理异常 t=' + data.t, e); }
+    }
+}
+
+// 房主：有对手进了房间
+function onGuestJoin() {
+    if (!_isHost) return;
+    if (_status !== STATUS.CONNECTED) setStatus(STATUS.CONNECTED, { roomId: _roomId, isHost: true });
+    publish({ t: 'accept', roomId: _roomId });
+    startHeartbeat();
+}
+
+// 从机：房主已应答
+function onAccepted() {
+    if (_isHost) return;
+    if (_joinTimer) { clearTimeout(_joinTimer); _joinTimer = null; }
+    if (_status !== STATUS.CONNECTED) setStatus(STATUS.CONNECTED, { roomId: _roomId, isHost: false });
+    startHeartbeat();
+    if (typeof _onReady === 'function') { const f = _onReady; _onReady = null; f(); }
 }
 
 // 初始化：注册状态回调与数据回调
@@ -202,85 +211,113 @@ export function initNetPvp(onState, onData) {
     _dataCb = onData || null;
 }
 
+// 房间号字符规则：broker topic 只接受安全字符，统一小写去杂
+function normalizeRoomId(raw) {
+    return String(raw == null ? '' : raw).trim().toLowerCase().replace(/[^a-z0-9-]/g, '');
+}
 
 // 房主建房：onReady(roomId)；customId 为空则自动生成 6 位随机号
-// 房间号不做额外前缀，直接用用户填的内容（PeerJS 仅允许小写字母/数字/短横线）
 export async function createRoom(onReady, onError, customId) {
     setStatus(STATUS.CREATING);
     try {
-        await ensurePeerJs();
+        await ensureMqtt();
     } catch (e) {
         setStatus(STATUS.ERROR, { msg: (e && e.message) || String(e) });
         if (typeof onError === 'function') onError(e);
         return;
     }
-    const Peer = window.Peer;
     let id;
     const raw = customId == null ? '' : String(customId).trim();
     if (raw) {
-        const clean = raw.toLowerCase().replace(/[^a-z0-9-]/g, '');
-        if (!clean) {
+        id = normalizeRoomId(raw);
+        if (!id) {
             const e = new Error('房间号只能用字母、数字或短横线');
             setStatus(STATUS.ERROR, { msg: e.message });
             if (typeof onError === 'function') onError(e);
             return;
         }
-        id = clean;
     } else {
         id = Math.random().toString(36).slice(2, 8);
     }
-    let p;
-    try { p = new Peer(id, { config: { iceServers: await loadIceServers() } }); } catch (e) { if (typeof onError === 'function') onError(e); return; }
-    _peer = p; _isHost = true; _roomId = id;
-    p.on('open', () => {
-        setStatus(STATUS.WAITING, { roomId: id, isHost: true });
-        if (typeof onReady === 'function') onReady(id);
+    _isHost = true; _roomId = id;
+    _rxTopic = guestTopic(id); _txTopic = hostTopic(id);
+    const clientId = 'gmd_h_' + id + '_' + Math.random().toString(16).slice(2, 8);
+    let c;
+    try {
+        c = window.mqtt.connect(BROKER_URL, { clientId, clean: true, reconnectPeriod: 3000, connectTimeout: 20000 });
+    } catch (e) {
+        setStatus(STATUS.ERROR, { msg: (e && e.message) || String(e) });
+        if (typeof onError === 'function') onError(e);
+        return;
+    }
+    _client = c;
+    c.on('connect', () => {
+        c.subscribe(_rxTopic, { qos: 0 }, (err) => {
+            if (err) {
+                setStatus(STATUS.ERROR, { msg: '订阅房间频道失败' });
+                if (typeof onError === 'function') onError(err);
+                return;
+            }
+            setStatus(STATUS.WAITING, { roomId: id, isHost: true });
+            if (typeof onReady === 'function') onReady(id);
+        });
     });
-    p.on('connection', (conn) => setupConn(conn));
-    p.on('error', (err) => {
-        const isTaken = err && (err.type === 'unavailable-id' || /taken|unavailable/i.test((err.message || '')));
-        const msg = isTaken ? '该房间号已被占用，换一个试试' : ((err && err.message) || String(err));
-        setStatus(STATUS.ERROR, { msg });
+    c.on('message', onMessage);
+    c.on('error', (err) => {
+        setStatus(STATUS.ERROR, { msg: (err && err.message) || String(err) });
         if (typeof onError === 'function') onError(err);
     });
 }
 
 // 从机加入：roomId 直接用用户填的内容（与建房同一套字符规则）
 export async function joinRoom(roomId, onReady, onError) {
-    const rid = String(roomId).trim().toLowerCase().replace(/[^a-z0-9-]/g, '');
+    const rid = normalizeRoomId(roomId);
     if (!rid) { if (typeof onError === 'function') onError(new Error('房间号只能用字母、数字或短横线')); return; }
     setStatus(STATUS.JOINING);
     try {
-        await ensurePeerJs();
+        await ensureMqtt();
     } catch (e) {
         setStatus(STATUS.ERROR, { msg: (e && e.message) || String(e) });
         if (typeof onError === 'function') onError(e);
         return;
     }
-    const Peer = window.Peer;
-    let p;
-    try { p = new Peer(undefined, { config: { iceServers: await loadIceServers() } }); } catch (e) { if (typeof onError === 'function') onError(e); return; }
-    _peer = p; _isHost = false; _roomId = rid;
-    p.on('open', () => {
-        try {
-            const conn = p.connect(rid, { reliable: true });
-            _conn = conn;
-            setupConn(conn);
-        } catch (e) {
-            setStatus(STATUS.ERROR, { msg: '连接到房主失败' });
-            if (typeof onError === 'function') onError(e);
-        }
+    _isHost = false; _roomId = rid; _onReady = typeof onReady === 'function' ? onReady : null;
+    _rxTopic = hostTopic(rid); _txTopic = guestTopic(rid);
+    const clientId = 'gmd_g_' + Math.random().toString(16).slice(2, 10);
+    let c;
+    try {
+        c = window.mqtt.connect(BROKER_URL, { clientId, clean: true, reconnectPeriod: 3000, connectTimeout: 20000 });
+    } catch (e) {
+        setStatus(STATUS.ERROR, { msg: (e && e.message) || String(e) });
+        if (typeof onError === 'function') onError(e);
+        return;
+    }
+    _client = c;
+    c.on('connect', () => {
+        c.subscribe(_rxTopic, { qos: 0 }, (err) => {
+            if (err) {
+                setStatus(STATUS.ERROR, { msg: '订阅房间频道失败' });
+                if (typeof onError === 'function') onError(err);
+                return;
+            }
+            publish({ t: 'join' });
+        });
     });
-    p.on('error', (err) => { setStatus(STATUS.ERROR, { msg: (err && err.message) || String(err) }); if (typeof onError === 'function') onError(err); });
+    c.on('message', onMessage);
+    c.on('error', (err) => {
+        setStatus(STATUS.ERROR, { msg: (err && err.message) || String(err) });
+        if (typeof onError === 'function') onError(err);
+    });
+    // 公共 broker 上没人订阅这个房间就永远收不到 accept，必须超时兜底
+    _joinTimer = setTimeout(() => {
+        if (_status === STATUS.CONNECTED) return;
+        setStatus(STATUS.ERROR, { msg: '没找到这个房间（房主没建，或房间号不对）' });
+        if (typeof onError === 'function') onError(new Error('没找到这个房间'));
+    }, JOIN_TIMEOUT);
 }
 
 // 出发送：持续连接下可用
-export function netSend(msg) {
-    if (_conn && _conn.open) {
-        try { _conn.send(msg); return true; } catch (e) { return false; }
-    }
-    return false;
-}
+export function netSend(msg) { return publish(msg); }
 
 // ---- 阶段2 对外 API ----
 // 房主：开战时通知从机进入战斗
@@ -317,7 +354,7 @@ export function waitForMsg(type, timeoutMs = 120000) {
 }
 
 // 是否已连上对端
-export function isConnected() { return _status === STATUS.CONNECTED && !!(_conn && _conn.open); }
+export function isConnected() { return _status === STATUS.CONNECTED && !!(_client && _client.connected); }
 
 export function netStatus() { return _status; }
 export function isNetHost() { return _isHost; }
@@ -325,9 +362,11 @@ export function currentRoomId() { return _roomId; }
 
 // 断开/销毁
 export function closeNetPvp() {
-    try { if (_conn) _conn.close(); } catch (e) {}
-    try { if (_peer) _peer.destroy(); } catch (e) {}
-    _peer = null; _conn = null; _status = STATUS.IDLE; _roomId = null; _isHost = false;
+    stopHeartbeat();
+    if (_joinTimer) { clearTimeout(_joinTimer); _joinTimer = null; }
+    try { if (_client) _client.end(true); } catch (e) {}
+    _client = null; _rxTopic = null; _txTopic = null;
+    _status = STATUS.IDLE; _roomId = null; _isHost = false; _onReady = null;
     failPendingStep();
     failPendingMsg();
 }
