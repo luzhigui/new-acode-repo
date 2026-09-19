@@ -1,5 +1,5 @@
-// V7.4.0 | ~35100 bytes | 2026-09-19 从机视角翻转(guest-view)移交 render/32，与行序镜像同帧；标题栏房间号角标 + 从机掉线自动回封面并预填房间号，点「加入」即可重连
-export const VER = 'ui/68ui-controls.js V7.4.0';
+// V7.6.0 | ~37800 bytes | 2026-09-19 摆位实时同步：bindGrid 交换成功后 syncNetPositions 把本阵营站位发给对面；掉线收口对房主也回封面(hostWaitReconnect，保留房间等对手重连)；联网时房间号角标移到标题栏最左顶掉标题(.header.net-mode)
+export const VER = 'ui/68ui-controls.js V7.6.0';
 
 // 2026-09-14 打断 63↔68 循环依赖：getState/setState 直接取自 infra/54（63 只做转发）
 import { getState, setState, GlobalStore, getPlayerContext } from '../infra/54-global-store.js';
@@ -309,7 +309,10 @@ export function bindNetPvp(net, onNetMsg, onConnected) {
     const say = (txt, color) => { line.textContent = txt; line.style.color = color || '#b8a88a'; };
     const badge = document.getElementById('netRoomBadge');
     // 标题栏房间号角标：对局中封面是盖住的，房间号只能靠这里报给对手 / 掉线后照着重连
+    // 联网对局时角标顶掉最左的「光明顶对战 5v5」标题（.header.net-mode），房间号就是左上角唯一标识
     const setBadge = (rid, warn) => {
+        const header = document.querySelector('.header');
+        if (header) header.classList.toggle('net-mode', !!rid);
         if (!badge) return;
         badge.textContent = rid ? (warn ? '⚠️ 掉线 ' : '🚪 ') + rid : '';
         badge.style.display = rid ? 'inline-block' : 'none';
@@ -345,7 +348,14 @@ export function bindNetPvp(net, onNetMsg, onConnected) {
                 const fnBack = GlobalStore.getUIHandler('goBackToCover');
                 if (typeof fnBack === 'function') fnBack();
                 say('⚠️ 与房主断开，房间号已填好，点「加入」重连', '#ff6b6b');
-            } else say('');
+            } else {
+                // 房主：同样回封面收口（否则 netRole 已清空，按钮会按"从机"分支走：
+                // GAMEOVER 主按钮变「返回封面」、摆位态主按钮变「▶ 开战」还能一个人开打）。
+                // 但连接要留着——房间没散，对手重新「加入」时 onGuestJoin 会把房主拉回摆位态
+                const fnHost = GlobalStore.getUIHandler('hostWaitReconnect');
+                if (typeof fnHost === 'function') fnHost();
+                say(rid ? '⚠️ 与对手断开，房间号 ' + rid + ' 保留着，等对手重新加入' : '⚠️ 与对手断开', '#ff6b6b');
+            }
         }
         refresh();
     };
@@ -651,6 +661,10 @@ function bindGrid(getState, setState, updateUI, gridId, camp) {
             if (unitA) unitA.pos = posB;
             if (unitB) unitB.pos = posA;
             setState.selectedAdjustPos(null);
+            // 联网摆位实时同步：交换成功就把本阵营站位发给对面。
+            // 不发的话房主挪明教从机看不到（要等开战第一条 step 才跳正），从机「准备」后再挪人房主手里还是旧站位
+            const fnSync = GlobalStore.getUIHandler('syncNetPositions');
+            if (typeof fnSync === 'function') fnSync(camp);
         }
         updateUI();
     });
