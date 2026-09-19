@@ -1,5 +1,5 @@
-// V6.9.0 | ~33400 bytes | 2026-09-19 房主角标"房"贴在"明 教"竖排标签正下方（只标房主，不受调试面板显隐影响）+ 从机视角翻转（自己队伍在下）；阶段3：各管一队摆位 + 准备/等待按钮 + buff 槽按阵营
-export const VER = 'ui/68ui-controls.js V6.9.0';
+// V7.0.0 | ~33400 bytes | 2026-09-19 房主标记"房"改为明教标签 ::after（不再被65/64重写冲掉）+ 摆位态允许选关（从机除外）；阶段3：各管一队摆位 + 准备/等待按钮 + buff 槽按阵营
+export const VER = 'ui/68ui-controls.js V7.0.0';
 
 // 2026-09-14 打断 63↔68 循环依赖：getState/setState 直接取自 infra/54（63 只做转发）
 import { getState, setState, GlobalStore, getPlayerContext } from '../infra/54-global-store.js';
@@ -186,13 +186,15 @@ function updateAutoModeButton() {
     btn.classList.toggle('active', lvl !== 'manual');
 }
 
-// 联网身份：房主角标 + 从机视角翻转
-// 只标房主（"明 教"竖排标签正下方一个"房"字）；从机不标——执六大派，看视角翻转就知道。
-// 锚在队伍标签上，不在日志标题栏——调试面板 none↔flex 切换会把它挤飞。
+// 联网身份：房主身份标记 + 从机视角翻转
+// 房主 → 给"明 教"标签打 data-netrole="host"，CSS ::after 缀出".房"（放 DOM 文本里会被 65/64 重写冲掉）
 function updateNetIdentity() {
     const role = GlobalStore.get('netRole');
-    const tag = document.getElementById('allyRoleTag');
-    if (tag) tag.textContent = role === 'host' ? '房' : '';
+    const labelAlly = document.getElementById('labelAlly');
+    if (labelAlly) {
+        if (role === 'host') labelAlly.dataset.netrole = 'host';
+        else delete labelAlly.dataset.netrole;
+    }
     // 从机执六大派：战场纵向翻转，自己队伍在下方
     const bf = document.getElementById('battlefield');
     if (bf) bf.classList.toggle('guest-view', role === 'guest');
@@ -227,7 +229,8 @@ function updateButtons() {
             mainBtn.innerHTML='🔄 调整<br>站位';mainBtn.disabled=false;
         }
         nextBtn.disabled=true;settleBtn.disabled=true;settleBtn.textContent='⏭ 快进到底';
-        if(getState.adjustMode()){if((!GlobalStore.get('pvpMode')||netRole==='guest')&&stageBtn)stageBtn.disabled=true;if(randomBtn)randomBtn.disabled=true;if(infoBtn)infoBtn.disabled=true;if(copyBtn)copyBtn.disabled=true;}else{if(stageBtn)stageBtn.disabled=false;if(randomBtn)randomBtn.disabled=false;if(infoBtn)infoBtn.disabled=false;if(copyBtn)copyBtn.disabled=false;}
+        // 摆位态也允许选关（单机/房主自己决定打哪关）；从机不能选——关卡权威在房主
+        if(getState.adjustMode()){if(netRole==='guest'&&stageBtn)stageBtn.disabled=true;if(randomBtn)randomBtn.disabled=true;if(infoBtn)infoBtn.disabled=true;if(copyBtn)copyBtn.disabled=true;}else{if(stageBtn)stageBtn.disabled=false;if(randomBtn)randomBtn.disabled=false;if(infoBtn)infoBtn.disabled=false;if(copyBtn)copyBtn.disabled=false;}
     }else if(gs===S.GAMEOVER){
         if(GlobalStore.get('pvpMode')){
             mainBtn.innerHTML='🏠 返回<br>封面';mainBtn.disabled=false;
