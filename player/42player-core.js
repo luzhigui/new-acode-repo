@@ -9,6 +9,7 @@ import { AudioManager } from '../modules/22audio-manager.js';
 import { handleBuffSummon, handleBuffDestroy, handleHolyTokenDrop } from './41player-buff-ui.js';
 import { createRoundStepper } from '../core/11battle-round.js';
 import { SeededRNG } from '../infra/51-core-utils.js';
+import { setBattleRng } from '../core/13battle-shared.js';
 import { GlobalStore, getState, getPlayerContext } from '../infra/54-global-store.js';
 import { createStore, battleReducer } from '../modules/24battle-store.js';
 import { STORE_ACTION_TYPES, STAGE_ACTION_TYPES, BUFF_SUBTYPES, BUFF_EFFECT_TYPES, FLY_MODE_TYPES, UNIT_EVENT_TYPES, DROP_TYPES, FLASH_TYPES, CAMP_TYPES, ROLE_TYPES } from '../infra/56-battle-enums.js';
@@ -582,6 +583,10 @@ export async function playBattleGuest() {
     setGridStore(c.store);
     setGridRenderCtx(c);
     c.updateUI();
+
+    // 从机不跑引擎，但演出层（getAttackTaunt / getKillTaunt 选台词等）仍会取战斗 RNG，
+    // 不注入就会 null.nextInt 崩。本地 RNG 仅供演出文案，不影响战斗结果（结果全部来自房主的 step）
+    setBattleRng(new SeededRNG(Date.now() % 1000000));
 
     initRenderer(c);
     updateRoundDisplay('📜 日志（第1回合）');
