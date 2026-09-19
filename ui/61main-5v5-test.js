@@ -1,7 +1,5 @@
-// V6.3.0 | ~28700 bytes | 2026-09-19 联网对战阶段2：从机收开战通知 → playBattleGuest 播房主的 step
-// V6.1.0 | ~27000 bytes | 2026-09-19 本地双人对战入口 bindCoverPvp
-// V6.0.1 | 2026-09-11 ALL_VERS 赋值前移到 startApp 之前，保证 updateCoverVersion 动态版本列表在读取前已写入
-export const VER = 'ui/61main-5v5-test.js V6.3.0';
+// V6.4.0 | ~33700 bytes | 2026-09-19 联网对战阶段3：阵容下发/站位回传 + 海克斯双向选择
+export const VER = 'ui/61main-5v5-test.js V6.4.0';
 
 import '../infra/54-global-store.js';
 import { GlobalStore } from '../infra/54-global-store.js';
@@ -40,6 +38,7 @@ import { VER as VER_CORE } from '../core/11battle-round.js';
 import { SeededRNG } from '../infra/51-core-utils.js';
 import { setBattleRng, getBattleRng } from '../core/13battle-shared.js';
 import { VER as VER_PLAYER_CORE, playBattleGuest } from '../player/42player-core.js';
+import { handlePvpBuffSelection } from '../player/49battle-flow.js';
 import { VER as VER_TEXT } from '../player/40player-text.js';
 import { VER as VER_BUFF_UI } from '../player/41player-buff-ui.js';
 import { addPermanentBuff, VER as VER_ELITE } from '../modules/20elite-skills.js';
@@ -143,6 +142,48 @@ function swapAllyPositions(posA, posB) {
 }
 GlobalStore.setUIHandler('swapAllyPositions', swapAllyPositions);
 
+// ---- 联网对战阶段3：阵容 / 站位 / 海克斯双向 ----
+// 从机收到的单位是普通对象（infra/60 reviveUnit 的产物，没有 Unit 方法），浅拷贝 + 单拷 state 即可
+function clonePlainUnit(u) { return { ...u, state: { ...(u.state || {}) } }; }
+
+// 把房主下发的阵容铺进 UI/snapshot，并进入摆位态（从机只摆六大派，网格权限见 68 bindGrid）
+function applyNetLineup(lineup) {
+    const UI = getState.UI();
+    UI.allyTeam = (lineup.ally || []).map(clonePlainUnit);
+    UI.enemyTeam = (lineup.enemy || []).map(clonePlainUnit);
+    UI.currentResult = null; UI.round = 0;
+    const snap = getState.snapshot();
+    snap.ally = (lineup.ally || []).map(clonePlainUnit);
+    snap.enemy = (lineup.enemy || []).map(clonePlainUnit);
+    setState.UI(UI); setState.snapshot(snap);
+    setStage(lineup.stage || 1);
+    GlobalStore.set('pvpMode', true);
+    GlobalStore.set('netGuestReady', false);
+    setState.autoLevel('auto'); setState.autoMode(true);
+    setState.gs(S.IDLE); setState.isPaused(false);
+    setState.adjustMode(true); setState.selectedAdjustPos(null);
+    setState.activeBuffs([]); currentDoubleStrikeUid = null;
+    isBattleStarting = false; hasLoggedTeam = false;
+    const overlay = document.getElementById('coverOverlay');
+    if (overlay) overlay.style.display = 'none';
+    clearLogExceptFirst(); clearAllEffects();
+    updateUI();
+    renderGrid('allyGrid', CAMP_TYPES.ALLY);
+    renderGrid('enemyGrid', CAMP_TYPES.ENEMY);
+    updateButtons(); updateSpeedButtons();
+}
+
+// 房主：下发当前双方阵容（连接成功时、以及房主换关后都要重发）
+// 重发即视为「对端准备失效」：换关后从机要重新摆位，开战按钮需再次等回传
+function sendNetLineup() {
+    if (GlobalStore.get('netRole') !== 'host') return;
+    GlobalStore.set('netPeerReady', false);
+    const UI = getState.UI();
+    net.sendLineup(currentStage, UI.allyTeam, UI.enemyTeam);
+    updateButtons();
+}
+GlobalStore.setUIHandler('sendNetLineup', sendNetLineup);
+
 
 
 // 运行时监控
@@ -208,23 +249,68 @@ document.addEventListener('DOMContentLoaded', async function() {
     });
     bindPauseButton(getState, setState, updateButtons);
     // 联网对战：封面建房/加入房间（仅点击时才下载 PeerJS，单机玩法全程离线）
-    // 从机收到房主「开战」通知 → 跳过 CG/图鉴/引导，直接进战斗（只播演出，不跑引擎）
-    bindNetPvp(net, () => {
-        const overlay = document.getElementById('coverOverlay');
-        if (overlay) overlay.style.display = 'none';
-        if (typeof AudioManager.init === 'function') AudioManager.init();
-        if (typeof AudioManager.resumeAudioContext === 'function') AudioManager.resumeAudioContext();
-        if (typeof AudioManager.play === 'function') AudioManager.play();
-        gameStarted = true; coverRef.val = true;
-        GlobalStore.set('pvpMode', true);
-        setState.autoLevel('auto'); setState.autoMode(true);
-        setState.gs(S.RUNNING); setState.isPaused(false);
-        setState.adjustMode(false); setState.selectedAdjustPos(null);
-        setState.activeBuffs([]); currentDoubleStrikeUid = null;
-        isBattleStarting = false; hasLoggedTeam = false;
-        clearLogExceptFirst(); clearAllEffects();
-        updateButtons(); updateUI(); updateSpeedButtons();
-        playBattleGuest().catch(e => console.error('从机战斗异常', e));
+    // 阶段3：连接成功 → 双方进摆位态（房主下发阵容）；收到 lineup / buffAsk / start 各走各的分支
+    bindNetPvp(net, (msg) => {
+        if (!msg) return;
+        if (msg.t === 'lineup') { applyNetLineup(net.reviveLineup(msg.lineup || {})); return; }
+        if (msg.t === 'buffAsk') {
+            // 从机：选项由房主下发（本机没有引擎 RNG），选完回传 key
+            const showBuffPopup = GlobalStore.getUIHandler('showBuffPopup');
+            const p = (typeof showBuffPopup === 'function')
+                ? showBuffPopup(getPlayerContext(), CAMP_TYPES.ENEMY, msg.choices)
+                : Promise.resolve(null);
+            p.then(buff => net.sendBuffPick(buff ? buff.key : null));
+            return;
+        }
+        if (msg.t === 'lineupReady') {
+            // 房主：对手已回传六大派站位 → 合并进自己的 UI.enemyTeam，开战按钮解禁
+            const UI = getState.UI();
+            const byUid = new Map((msg.positions || []).map(p => [p.uid, p.pos]));
+            (UI.enemyTeam || []).forEach(u => { if (byUid.has(u.uid)) u.pos = byUid.get(u.uid); });
+            const snap = getState.snapshot();
+            (snap.enemy || []).forEach(u => { if (byUid.has(u.uid)) u.pos = byUid.get(u.uid); });
+            setState.UI(UI); setState.snapshot(snap);
+            GlobalStore.set('netPeerReady', true);
+            renderGrid('enemyGrid', CAMP_TYPES.ENEMY);
+            updateButtons();
+            return;
+        }
+        if (msg.t === 'start') {
+            // 从机：房主开战 → 跳过 CG/图鉴/引导，只播演出不跑引擎
+            const overlay = document.getElementById('coverOverlay');
+            if (overlay) overlay.style.display = 'none';
+            if (typeof AudioManager.init === 'function') AudioManager.init();
+            if (typeof AudioManager.resumeAudioContext === 'function') AudioManager.resumeAudioContext();
+            if (typeof AudioManager.play === 'function') AudioManager.play();
+            gameStarted = true; coverRef.val = true;
+            GlobalStore.set('pvpMode', true);
+            setState.autoLevel('auto'); setState.autoMode(true);
+            setState.gs(S.RUNNING); setState.isPaused(false);
+            setState.adjustMode(false); setState.selectedAdjustPos(null);
+            clearLogExceptFirst(); clearAllEffects();
+            updateButtons(); updateUI(); updateSpeedButtons();
+            playBattleGuest().catch(e => console.error('从机战斗异常', e));
+            return;
+        }
+    }, (meta) => {
+        // 连接成功：双方都进摆位态；房主额外下发阵容，且等对手回传后才能开战
+        if (meta && meta.isHost) {
+            GlobalStore.set('netPeerReady', false);
+            setState.autoLevel('auto'); setState.autoMode(true);
+            setState.gs(S.IDLE); setState.isPaused(false);
+            setState.adjustMode(true); setState.selectedAdjustPos(null);
+            setState.activeBuffs([]); currentDoubleStrikeUid = null;
+            isBattleStarting = false; hasLoggedTeam = false;
+            const overlay = document.getElementById('coverOverlay');
+            if (overlay) overlay.style.display = 'none';
+            gameStarted = true; coverRef.val = true;
+            if (typeof AudioManager.init === 'function') AudioManager.init();
+            sendNetLineup();
+            updateUI();
+            renderGrid('allyGrid', CAMP_TYPES.ALLY);
+            renderGrid('enemyGrid', CAMP_TYPES.ENEMY);
+            updateButtons(); updateSpeedButtons();
+        }
     });
     bindNextButton(setState, updateButtons, enableAllButtons, updateSpeedButtons);
     bindDetailButton(getState, setState, showModal);
@@ -247,6 +333,15 @@ document.addEventListener('DOMContentLoaded', async function() {
     document.getElementById('btnMain').addEventListener('click', async function(){
         onAnyButtonClick();
 
+        // 联网从机摆位态：点「准备」→ 回传六大派站位，等房主开战
+        if (GlobalStore.get('netRole') === 'guest' && getState.adjustMode()) {
+            const UI = getState.UI();
+            net.sendLineupReady((UI.enemyTeam || []).map(u => ({ uid: u.uid, pos: u.pos })));
+            GlobalStore.set('netGuestReady', true);
+            updateButtons();
+            return;
+        }
+
         // 全自动/手动共用战斗启动流程
         const startBattle = async (choice) => {
             clearLogExceptFirst(); hasLoggedTeam=false; fadeBGMTo(0.1,2000); logTeamInfo('初始阵容', getState.UI(), getState.gs(), battleResultForInfo, getState.activeBuffs(), hasLoggedTeam); hasLoggedTeam = true;
@@ -256,7 +351,10 @@ document.addEventListener('DOMContentLoaded', async function() {
             // 选 Buff 前注入战斗 RNG：full-auto 与手动同源，保证同种子复现一致
             const _snap = getState.snapshot();
             setBattleRng(new SeededRNG(_snap?._rngSeed || Date.now()));
-            if (GlobalStore.get('pvpMode')) {
+            if (GlobalStore.get('netRole') === 'host') {
+                // 联网 PVP 阶段3：开局海克斯双向——房主统一发六大派选项，双方各选后合并
+                await handlePvpBuffSelection(getPlayerContext(), getState.activeBuffs());
+            } else if (GlobalStore.get('pvpMode')) {
                 // PVP 本地双人对战：跳过海克斯 Buff 选择，保证双方对等
             } else if (getState.autoLevel() === 'full-auto') {
                 const allKeys = Object.keys(C.BUFFS);
@@ -450,6 +548,11 @@ document.addEventListener('DOMContentLoaded', async function() {
 
     // PVP 战斗结束：退出 PVP 并回到封面，复位到普通模式初始状态
     function goBackToCover(){
+        // 联网身份必须一起清：残留 netRole 会让单机网格不可点（render/32 按 netRole 限权）
+        net.closeNetPvp();
+        GlobalStore.set('netRole', null);
+        GlobalStore.set('netGuestReady', false);
+        GlobalStore.set('netPeerReady', false);
         resetBattleRuntime();
         forceStopGame();
         GlobalStore.set('pvpMode', false);

@@ -1,5 +1,5 @@
-﻿// V6.0.1 | ~15300 bytes | 2026-09-11 maxHp 词条化批4：carry addMod(maxHp) 后补 refreshMaxHp；computeBuffStats 不再产生 stats 对象
-export const VER = 'core/04buff-system.js V6.0.1';
+// V6.1.0 | ~15200 bytes | 2026-09-19 联网PVP：buff 按阵营生效（去掉 9 处"只对明教"守卫）
+export const VER = 'core/04buff-system.js V6.1.0';
 import {
     applyFortifyDef_Normal, applyFortifyDef_Sister, applyFortifyDef_Brother,
     applyCloudBodyDodge_Normal, applyCloudBodyDodge_Sister, applyCloudBodyDodge_Brother,
@@ -16,21 +16,20 @@ const C = CONFIG;
 
 export function applyHolyFlameBonus(unit, activeBuffs, hasSister) {
     const holyFlameBuff = activeBuffs.find(b => b.key === BUFF_TYPES.HOLY_FLAME);
-    if (!holyFlameBuff || unit.camp !== CAMP_TYPES.ALLY) return;
+    if (!holyFlameBuff) return;
     if (hasSister) applyHolyFlame_Sister(unit, null, activeBuffs);
     else applyHolyFlame_Normal(unit, null, activeBuffs);
 }
 
 export function applyFortifyBonus(unit, activeBuffs) {
-    // 2026-09-17 恢复 camp 判断：张三丰的严阵以待走组件自算，不走 _activeBuffs；此函数保持"只对明教"原语义
-    if (unit.role !== ROLE_TYPES.DEFENDER || unit.camp !== CAMP_TYPES.ALLY) return;
+    // 2026-09-19 支持分阵营：六大派持有严阵以待时同样生效
+    if (unit.role !== ROLE_TYPES.DEFENDER) return;
     if (activeBuffs.some(b => b.key === BUFF_TYPES.FORTIFY)) {
         applyFortifyDef_Normal(unit);
     }
 }
 
 export function applyCarryBonus(unit, A, state, log) {
-    if (unit.camp !== CAMP_TYPES.ALLY) return;
     const activeBuffs = A._activeBuffs || [];
     const hasCarryActive = hasBuff(activeBuffs, BUFF_TYPES.CARRY);
     const sister = A.some(a => a.isXiaoZhaoSister && a.alive);
@@ -47,7 +46,7 @@ export function applyCarryBonus(unit, A, state, log) {
 export function computeBuffStats(unit, activeBuffs, allyTeam) {
     // 词条系统下，攻防由 getStat 统一计算；此处只保留闪避率计算
     let dodgeBonus = 0;
-    if (hasBuff(activeBuffs, BUFF_TYPES.CLOUD_BODY) && unit.camp === CAMP_TYPES.ALLY) {
+    if (hasBuff(activeBuffs, BUFF_TYPES.CLOUD_BODY)) {
         if (allyTeam && allyTeam.some(u => u.isXiaoZhaoSister && u.alive)) dodgeBonus = applyCloudBodyDodge_Sister();
         else dodgeBonus = applyCloudBodyDodge_Normal();
     } else if (unit.isXiaoZhaoBrother && query('xiaoPermanentActive', unit, activeBuffs, BUFF_TYPES.CLOUD_BODY)) {
@@ -66,7 +65,7 @@ export function logBuffSummary(allyTeam, log, doubleStrikeUid) {
 // 嗜血狂刀：战士攻击吸血
 export function submitBloodthirstDeclaration(data) {
     const { unit, target, dmg, allySide, enemySide, log } = data;
-    if (!unit.alive || unit.camp !== CAMP_TYPES.ALLY) return;
+    if (!unit.alive) return;
     const unitBuffs = allySide._activeBuffs || [];
     const hasSister = allySide.some(u => u.isXiaoZhaoSister && u.alive);
     const isBrother = unit.isXiaoZhaoBrother;
@@ -99,7 +98,7 @@ export function registerBloodthirst(eventBus) {
 // 热血奋战：攻击后回复已损失生命
 export function submitHotBloodDeclaration(data) {
     const { unit, dmg, allySide, enemySide, log } = data;
-    if (!unit.alive || unit.camp !== CAMP_TYPES.ALLY || unit.hp >= unit.maxHp) return;
+    if (!unit.alive || unit.hp >= unit.maxHp) return;
     const unitBuffs = allySide._activeBuffs || [];
     const hasSister = allySide.some(u => u.isXiaoZhaoSister && u.alive);
     const isBrother = unit.isXiaoZhaoBrother;
@@ -131,7 +130,7 @@ export function registerHotBlood(eventBus) {
 export function submitWindAssaultDeclaration(data) {
     const { unit, target, dmg, allySide, enemySide, log } = data;
     const rng = getBattleRng();
-    if (!unit.alive || unit.camp !== CAMP_TYPES.ALLY || !target || !target.alive) return;
+    if (!unit.alive || !target || !target.alive) return;
     if (target.camp === unit.camp) return;
     const unitBuffs = allySide._activeBuffs || [];
     const active = hasBuff(unitBuffs, BUFF_TYPES.WIND_ASSAULT) && unit.role === ROLE_TYPES.FLYER;
@@ -182,7 +181,7 @@ export function registerWindAssault(eventBus) {
 // 流星赶月：远程攻击加深 + 溅射 + 降防
 export function submitMeteorShowerDeclaration(data) {
     const { unit, target, dmg, allySide, enemySide, log } = data;
-    if (!unit.alive || unit.camp !== CAMP_TYPES.ALLY || !target || !target.alive) return;
+    if (!unit.alive || !target || !target.alive) return;
     const unitBuffs = allySide._activeBuffs || [];
     const isBrother = unit.isXiaoZhaoBrother;
     const active = hasBuff(unitBuffs, BUFF_TYPES.METEOR_SHOWER) && unit.role === ROLE_TYPES.RANGED;
@@ -220,7 +219,7 @@ export function registerMindControl(eventBus) {
         priority: L.AFTER_ATTACK.MIND_CONTROL,
         handler: (data) => {
             const { unit, allySide, enemySide, log } = data;
-            if (!unit.alive || unit.camp !== CAMP_TYPES.ALLY) return;
+            if (!unit.alive) return;
             const buffs = allySide._activeBuffs || [];
             const hasSister = allySide.some(u => u.isXiaoZhaoSister && u.alive);
             if (hasBuff(buffs, BUFF_TYPES.MIND_CONTROL)) {

@@ -1,6 +1,6 @@
+// V6.2.0 | ~7900 bytes | 2026-09-19 联网PVP阶段3：showBuffPopup 支持 presetChoices（从机用房主下发的选项）
 // V6.1.0 | ~4600 bytes | 2026-09-19 联网PVP：showBuffPopup 加 camp 参数，六大派可选自己的海克斯
-// V6.0.0 | 2026-08-21 从 player/41 拆出
-export const VER = 'ui/70buff-dialog.js V6.1.0';
+export const VER = 'ui/70buff-dialog.js V6.2.0';
 
 import { CONFIG } from '../core/01config-5v5-test.js';
 import { GlobalStore } from '../infra/54-global-store.js';
@@ -11,38 +11,43 @@ import { CAMP_TYPES, BUFF_TYPES } from '../infra/56-battle-enums.js';
 
 const CAMP_LABEL = { [CAMP_TYPES.ALLY]: '明教', [CAMP_TYPES.ENEMY]: '六大派' };
 
-export function showBuffPopup(c, camp = CAMP_TYPES.ALLY) {
+// presetChoices：联网 PVP 阶段3 从机专用——选项由房主用引擎 RNG 统一下发，本机不再自算
+export function showBuffPopup(c, camp = CAMP_TYPES.ALLY, presetChoices = null) {
     return new Promise((resolve) => {
         if (GlobalStore.get('skipBuffPopup')) {
             GlobalStore.set('skipBuffPopup', false);
             resolve(null);
             return;
         }
-        // 只取本阵营的 buff：各阵营独立去重，明教与六大派互不影响
-        let activeBuffs = buffsOfCamp(c.activeBuffs, camp);
-        let existingKeys = activeBuffs.map(b => b.key);
-        let allKeys = Object.keys(CONFIG.BUFFS || {});
-        const team = c.store ? c.store.getState().units.filter(u => u.camp === camp && u.alive) : [];
-        let available = allKeys.filter(k => {
-            if (existingKeys.includes(k)) return false;
-            if (k === BUFF_TYPES.FORTIFY && !activeBuffs.some(b => b.remaining > 0)) return false;
-            const requiredRole = CONFIG.BUFF_ROLE_REQUIREMENTS?.[k];
-            if (requiredRole && !team.some(u => u.alive && u.role === requiredRole)) return false;
-            return true;
-        });
-        if (available.length === 0) { resolve(null); return; }
-
         let choices;
-        if (GlobalStore.get('bugMode')) {
-            choices = available;
+        if (Array.isArray(presetChoices) && presetChoices.length > 0) {
+            choices = presetChoices.slice();
         } else {
-            const shuffled = [...available];
-            const rng = getBattleRng();
-            for (let i = shuffled.length - 1; i > 0; i--) {
-                const j = rng.nextInt(0, i);
-                [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+            // 只取本阵营的 buff：各阵营独立去重，明教与六大派互不影响
+            let activeBuffs = buffsOfCamp(c.activeBuffs, camp);
+            let existingKeys = activeBuffs.map(b => b.key);
+            let allKeys = Object.keys(CONFIG.BUFFS || {});
+            const team = c.store ? c.store.getState().units.filter(u => u.camp === camp && u.alive) : [];
+            let available = allKeys.filter(k => {
+                if (existingKeys.includes(k)) return false;
+                if (k === BUFF_TYPES.FORTIFY && !activeBuffs.some(b => b.remaining > 0)) return false;
+                const requiredRole = CONFIG.BUFF_ROLE_REQUIREMENTS?.[k];
+                if (requiredRole && !team.some(u => u.alive && u.role === requiredRole)) return false;
+                return true;
+            });
+            if (available.length === 0) { resolve(null); return; }
+
+            if (GlobalStore.get('bugMode')) {
+                choices = available;
+            } else {
+                const shuffled = [...available];
+                const rng = getBattleRng();
+                for (let i = shuffled.length - 1; i > 0; i--) {
+                    const j = rng.nextInt(0, i);
+                    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+                }
+                choices = shuffled.slice(0, CONFIG.BUFF_CHOICES || 3);
             }
-            choices = shuffled.slice(0, CONFIG.BUFF_CHOICES || 3);
         }
         let text = '选择 Buff（' + (CAMP_LABEL[camp] || '') + '方 · 持续 ' + (CONFIG.BUFF_DURATION || 4) + ' 回合）';
         let buttons = choices.map(key => {

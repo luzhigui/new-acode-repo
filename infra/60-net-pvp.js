@@ -1,8 +1,9 @@
-// infra/60-net-pvp.js - 联网对战·阶段2（WebRTC 点对点连接层 + step 同步）
-// ~9000 bytes | V6.3.0 | 2026-09-19 阶段2：step 净化/复原 + 收发队列（房主发一步、从机播一步）
-export const VER = 'infra/60-net-pvp.js V6.3.0';
+// infra/60-net-pvp.js - 联网对战·阶段3（WebRTC 连接层 + step 同步 + 阵容/海克斯双向）
+// ~12100 bytes | V6.4.0 | 2026-09-19 阶段3：阵容下发/站位回传、海克斯选项下发/选择回传
+export const VER = 'infra/60-net-pvp.js V6.4.0';
 
-// 阶段1 提供连接能力；阶段2 追加 step 同步（房主跑引擎发 step，从机只播演出）。
+// 阶段1 提供连接能力；阶段2 追加 step 同步（房主跑引擎发 step，从机只播演出）；
+// 阶段3 追加阵容/站位/海克斯双向（房主权威，从机回传自己的选择）。
 // PeerJS 走 CDN 懒加载：只有点「创建/加入房间」才下载，单机玩法全程零网络请求。
 
 import { StateMachine } from './51-core-utils.js';
@@ -28,6 +29,7 @@ let _dataCb = null;         // (msg) => void  只收非 step 消息（step 由�
 let _loadPromise = null;
 let _stepQueue = [];        // 从机：已收到待播放的 step
 let _stepWaiter = null;     // 从机：playBattleGuest 正等着下一个 step
+let _msgWaiters = new Map();// 房主：等待从机回传（lineupReady / buffPick），type -> resolve
 
 // ---- step 净化 / 复原 ----
 // step 里的单位是引擎 Unit 实例，直接 JSON 会炸：
@@ -41,7 +43,16 @@ function plainUnit(u) {
     return o;
 }
 
-function plainStep(step) {
+// buff 数组净化：cols/rows 是数组，浅拷贝一份避免共享引用
+function plainBuffs(buffs) {
+    return (buffs || []).map(b => ({
+        ...b,
+        ...(b.cols ? { cols: [...b.cols] } : {}),
+        ...(b.rows ? { rows: [...b.rows] } : {})
+    }));
+}
+
+function plainStep(step, activeBuffs) {
     return {
         log: step.log || [],
         events: step.events || [],
@@ -50,17 +61,29 @@ function plainStep(step) {
         winner: step.winner || null,
         done: !!step.done,
         doubleStrikeUid: step.doubleStrikeUid || null,
-        stageActions: step.stageActions || []
+        stageActions: step.stageActions || [],
+        // 阶段3：从机不跑引擎，buff 槽要靠房主捎带才能显示
+        activeBuffs: plainBuffs(activeBuffs)
     };
 }
 
+function reviveUnit(u) {
+    const o = { ...u };
+    if (o._fsm) o._fsm = new StateMachine({}, o._fsm.current, null);
+    return o;
+}
+
 function reviveStep(raw) {
-    const reviveUnit = (u) => {
-        const o = { ...u };
-        if (o._fsm) o._fsm = new StateMachine({}, o._fsm.current, null);
-        return o;
-    };
     return { ...raw, ally: (raw.ally || []).map(reviveUnit), enemy: (raw.enemy || []).map(reviveUnit) };
+}
+
+// 房主下发阵容：两队单位净化后传输，从机复原成普通对象（摆位阶段只读 pos/渲染，不需要方法）
+export function plainLineup(stage, allyTeam, enemyTeam) {
+    return { stage, ally: (allyTeam || []).map(plainUnit), enemy: (enemyTeam || []).map(plainUnit) };
+}
+
+export function reviveLineup(raw) {
+    return { stage: raw.stage || 1, ally: (raw.ally || []).map(reviveUnit), enemy: (raw.enemy || []).map(reviveUnit) };
 }
 
 function pushStep(step) {
@@ -72,6 +95,12 @@ function pushStep(step) {
 function failPendingStep() {
     if (_stepWaiter) { const w = _stepWaiter; _stepWaiter = null; w(null); }
     _stepQueue = [];
+}
+
+// 断线时唤醒全部回传等待者（返回 null），避免房主卡在「等从机准备/选 buff」
+function failPendingMsg() {
+    for (const w of _msgWaiters.values()) { try { w(null); } catch (e) {} }
+    _msgWaiters.clear();
 }
 
 function setStatus(s, meta) {
@@ -104,10 +133,13 @@ function setupConn(conn) {
     });
     conn.on('data', (data) => {
         if (data && data.t === 'step') { pushStep(reviveStep(data.step)); return; }
+        // 阶段3：房主正在等这类回传 → 直接交给等待者，不再走 _dataCb（避免重复处理）
+        const waiter = data && _msgWaiters.get(data.t);
+        if (waiter) { _msgWaiters.delete(data.t); waiter(data); return; }
         if (typeof _dataCb === 'function') { try { _dataCb(data); } catch (e) {} }
     });
-    conn.on('error', (err) => { failPendingStep(); setStatus(STATUS.ERROR, { msg: (err && err.message) || String(err) }); });
-    conn.on('close', () => { _conn = null; failPendingStep(); setStatus(STATUS.IDLE, { roomId: _roomId }); });
+    conn.on('error', (err) => { failPendingStep(); failPendingMsg(); setStatus(STATUS.ERROR, { msg: (err && err.message) || String(err) }); });
+    conn.on('close', () => { _conn = null; failPendingStep(); failPendingMsg(); setStatus(STATUS.IDLE, { roomId: _roomId }); });
 }
 
 // 初始化：注册状态回调与数据回调
@@ -199,13 +231,37 @@ export function netSend(msg) {
 // ---- 阶段2 对外 API ----
 // 房主：开战时通知从机进入战斗
 export function sendStart() { return netSend({ t: 'start' }); }
-// 房主：发一步（净化后传输）
-export function sendStep(step) { return netSend({ t: 'step', step: plainStep(step) }); }
+// 房主：发一步（净化后传输；activeBuffs 捎带，供从机 buff 槽显示）
+export function sendStep(step, activeBuffs) { return netSend({ t: 'step', step: plainStep(step, activeBuffs) }); }
 // 从机：取下一步（无则挂起等，断线返回 null）
 export function recvStep() {
     if (_stepQueue.length) return Promise.resolve(_stepQueue.shift());
     return new Promise((resolve) => { _stepWaiter = resolve; });
 }
+
+// ---- 阶段3 对外 API ----
+// 房主 → 从机：下发双方阵容（从机据此进摆位态，只摆六大派）
+export function sendLineup(stage, allyTeam, enemyTeam) {
+    return netSend({ t: 'lineup', lineup: plainLineup(stage, allyTeam, enemyTeam) });
+}
+// 从机 → 房主：回传六大派站位（[{uid, pos}]），房主据此合并进自己的 UI.enemyTeam
+export function sendLineupReady(positions) { return netSend({ t: 'lineupReady', positions: positions || [] }); }
+// 房主 → 从机：下发六大派海克斯选项（选项由房主用引擎 RNG 统一生成，双方看到同一批）
+export function sendBuffAsk(choices, duration) { return netSend({ t: 'buffAsk', choices: choices || [], duration: duration || 0 }); }
+// 从机 → 房主：回传自己选中的 buff key（null = 不选）
+export function sendBuffPick(key) { return netSend({ t: 'buffPick', key: key || null }); }
+
+// 房主：等从机回传某类消息（lineupReady / buffPick）。断线或超时返回 null，避免卡死
+export function waitForMsg(type, timeoutMs = 120000) {
+    return new Promise((resolve) => {
+        const done = (msg) => { clearTimeout(timer); resolve(msg); };
+        const timer = setTimeout(() => {
+            if (_msgWaiters.get(type) === done) { _msgWaiters.delete(type); resolve(null); }
+        }, timeoutMs);
+        _msgWaiters.set(type, done);
+    });
+}
+
 // 是否已连上对端
 export function isConnected() { return _status === STATUS.CONNECTED && !!(_conn && _conn.open); }
 
@@ -219,4 +275,5 @@ export function closeNetPvp() {
     try { if (_peer) _peer.destroy(); } catch (e) {}
     _peer = null; _conn = null; _status = STATUS.IDLE; _roomId = null; _isHost = false;
     failPendingStep();
+    failPendingMsg();
 }

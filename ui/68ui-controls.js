@@ -1,6 +1,6 @@
-// V6.3.0 | ~30200 bytes | 2026-09-19 联网对战阶段2：bindNetPvp 接 onGuestStart（从机收到开战通知进战斗）
-// V6.1.0 | ~28500 bytes | 2026-09-19 本地双人对战：六大派网格 PVP 下可调
-export const VER = 'ui/68ui-controls.js V6.3.0';
+// V6.5.0 | ~32400 bytes | 2026-09-19 联网PVP阶段3：各管一队摆位（房主明教/从机六大派）+ 准备/等待按钮 + buff 槽按阵营
+// V6.4.0 | ~30100 bytes | 2026-09-19 联网PVP：调整站位阶段开放「关卡选择」按钮（两人可挑 1-6 关）
+export const VER = 'ui/68ui-controls.js V6.5.0';
 
 // 2026-09-14 打断 63↔68 循环依赖：getState/setState 直接取自 infra/54（63 只做转发）
 import { getState, setState, GlobalStore, getPlayerContext } from '../infra/54-global-store.js';
@@ -8,6 +8,7 @@ import { updateUI, renderGrid, setRenderStore } from './62ui-render-5v5-test.js'
 import { clearAllEffects } from '../player/42player-core.js';
 import { resetBattleRuntime } from './69reset-runtime.js';
 import { CAMP_TYPES } from '../infra/56-battle-enums.js';
+import { buffsOfCamp } from '../modules/28buff-tools.js';
 import { AudioManager } from '../modules/22audio-manager.js';
 
 // 2026-09-14 统一任意按钮点击钩子：原先 6 处直接调 window.onAnyButtonClick，
@@ -79,12 +80,18 @@ function updateSpeedButtons() {
     }
 }
 
-export function updateBuffSlots(activeBuffs) {
+// buff 槽：联网从机显示自己（六大派）的海克斯，其余情况显示明教
+// 注意第二参在 infra/54 的旧调用里传的是 selectedBuffIndex（恒为 -1），必须校验合法性再当 camp 用
+export function updateBuffSlots(activeBuffs, camp) {
+    const role = GlobalStore.get('netRole');
+    const isCamp = camp === CAMP_TYPES.ALLY || camp === CAMP_TYPES.ENEMY;
+    const target = isCamp ? camp : (role === 'guest' ? CAMP_TYPES.ENEMY : CAMP_TYPES.ALLY);
+    const list = buffsOfCamp(activeBuffs, target);
     for (let i = 0; i < 2; i++) {
         let slot = document.getElementById('buffSlot' + i);
         if (!slot) continue;
-        if (i < activeBuffs.length) {
-            let buff = activeBuffs[i];
+        if (i < list.length) {
+            let buff = list[i];
             slot.textContent = buff.name + '/' + buff.remaining + '回';
             slot.classList.add('glow');
         } else {
@@ -188,9 +195,27 @@ function updateButtons() {
     updateAutoModeButton();
     let mainBtn=document.getElementById('btnMain'),nextBtn=document.getElementById('btnNext'),settleBtn=document.getElementById('btnSettle'),pauseBtn=document.getElementById('btnPause'),randomBtn=document.getElementById('btnRandom'),stageBtn=document.getElementById('btnStageSelect'),infoBtn=document.getElementById('btnInfo'),copyBtn=document.getElementById('copyLog');
     if(gs===S.IDLE){
-        mainBtn.innerHTML=getState.adjustMode()?(GlobalStore.get('pvpMode')?'▶ 开战':'▶ 开始<br><span style="font-size:8px;">(投票)</span>'):'🔄 调整<br>站位';
-        mainBtn.disabled=false;nextBtn.disabled=true;settleBtn.disabled=true;settleBtn.textContent='⏭ 快进到底';
-        if(getState.adjustMode()){if(stageBtn)stageBtn.disabled=true;if(randomBtn)randomBtn.disabled=true;if(infoBtn)infoBtn.disabled=true;if(copyBtn)copyBtn.disabled=true;}else{if(stageBtn)stageBtn.disabled=false;if(randomBtn)randomBtn.disabled=false;if(infoBtn)infoBtn.disabled=false;if(copyBtn)copyBtn.disabled=false;}
+        const netRole = GlobalStore.get('netRole');
+        if(getState.adjustMode()){
+            if(netRole==='guest'){
+                // 从机：只摆六大派，摆完点「准备」回传站位
+                const ready = GlobalStore.get('netGuestReady');
+                mainBtn.innerHTML = ready ? '⏳ 等待<br>房主' : '✅ 准备';
+                mainBtn.disabled = !!ready;
+            }else if(netRole==='host'){
+                // 房主：等从机回传站位后才能开战
+                const peerReady = GlobalStore.get('netPeerReady');
+                mainBtn.innerHTML = peerReady ? '▶ 开战' : '⏳ 等待<br>对手';
+                mainBtn.disabled = !peerReady;
+            }else{
+                mainBtn.innerHTML = GlobalStore.get('pvpMode')?'▶ 开战':'▶ 开始<br><span style="font-size:8px;">(投票)</span>';
+                mainBtn.disabled = false;
+            }
+        }else{
+            mainBtn.innerHTML='🔄 调整<br>站位';mainBtn.disabled=false;
+        }
+        nextBtn.disabled=true;settleBtn.disabled=true;settleBtn.textContent='⏭ 快进到底';
+        if(getState.adjustMode()){if((!GlobalStore.get('pvpMode')||netRole==='guest')&&stageBtn)stageBtn.disabled=true;if(randomBtn)randomBtn.disabled=true;if(infoBtn)infoBtn.disabled=true;if(copyBtn)copyBtn.disabled=true;}else{if(stageBtn)stageBtn.disabled=false;if(randomBtn)randomBtn.disabled=false;if(infoBtn)infoBtn.disabled=false;if(copyBtn)copyBtn.disabled=false;}
     }else if(gs===S.GAMEOVER){
         if(GlobalStore.get('pvpMode')){
             mainBtn.innerHTML='🏠 返回<br>封面';mainBtn.disabled=false;
@@ -247,8 +272,10 @@ export function bindCoverPvp(onStartPvp) {
 }
 
 // 联网对战：封面三个控件（创建房间 / 输入房间号 / 加入）+ 状态行
-// onGuestStart：从机收到房主的「开战」通知后进入战斗（阶段2 从机只播演出）
-export function bindNetPvp(net, onGuestStart) {
+// 联网对战入口（阶段3：阵容/站位/海克斯双向）
+// onNetMsg(msg)：除 step 外的全部网络消息交给调用方处理（lineup / buffAsk / start）
+// onConnected(meta)：连接成功回调（房主据此下发阵容，双方据此进摆位态）
+export function bindNetPvp(net, onNetMsg, onConnected) {
     const createBtn = document.getElementById('netCreateBtn');
     const joinBtn = document.getElementById('netJoinBtn');
     const input = document.getElementById('netRoomInput');
@@ -260,15 +287,18 @@ export function bindNetPvp(net, onGuestStart) {
         if (status === 'creating') say('正在建房…');
         else if (status === 'waiting') { say('房间已建好，把房间号发给对手：' + meta.roomId, '#ffd700'); if (input) input.value = meta.roomId; }
         else if (status === 'joining') say('正在连接房主…');
-        else if (status === 'connected') say('✅ 已连接对手' + (meta && meta.isHost ? '（你是房主）' : '（你是加入方）'), '#4ade80');
+        else if (status === 'connected') {
+            // netRole 是全局对局身份：网格可点权限、buff 槽阵营都读它
+            GlobalStore.set('netRole', meta && meta.isHost ? 'host' : 'guest');
+            say('✅ 已连接对手' + (meta && meta.isHost ? '（你是房主）' : '（你是加入方）'), '#4ade80');
+            if (typeof onConnected === 'function') onConnected(meta || {});
+        }
         else if (status === 'error') say('❌ ' + ((meta && meta.msg) || '连接失败'), '#ff6b6b');
-        else say('');
+        else { GlobalStore.set('netRole', null); say(''); }
     };
     const onData = (msg) => {
-        if (msg && msg.t === 'start') {
-            say('房主已开战，正在同步画面…', '#4ade80');
-            if (typeof onGuestStart === 'function') onGuestStart();
-        }
+        if (msg && msg.t === 'start') say('房主已开战，正在同步画面…', '#4ade80');
+        if (typeof onNetMsg === 'function') onNetMsg(msg);
     };
     net.initNetPvp(onState, onData);
 
@@ -492,6 +522,9 @@ export function bindStageSelectButton(currentStageGetter, getState, setState, up
             updateButtons();
             enableAllButtons();
             updateScoreBadge();
+            // 联网房主换关 → 重发阵容，从机跟着换关摆位
+            const fnLineup = GlobalStore.getUIHandler('sendNetLineup');
+            if (typeof fnLineup === 'function') fnLineup();
         }, false, false);
     });
 }
@@ -503,7 +536,10 @@ export function bindVoteFloat() {
     });
 }
 
-// 站位交换：明教网格始终可调；六大派网格仅在 PVP 本地双人对战下可调
+// 站位交换权限：
+//   单机           → 只有明教网格可调
+//   本地双人 PVP   → 两队都可调（同屏排兵）
+//   联网 PVP       → 各管一队：房主只明教、从机只六大派
 export function bindGridClick(getState, setState, updateUI) {
     bindGrid(getState, setState, updateUI, 'allyGrid', CAMP_TYPES.ALLY);
     bindGrid(getState, setState, updateUI, 'enemyGrid', CAMP_TYPES.ENEMY);
@@ -514,7 +550,10 @@ function bindGrid(getState, setState, updateUI, gridId, camp) {
     if (!grid) return;
     grid.addEventListener('click', function (e) {
         if (!getState.adjustMode()) return;
-        if (camp === CAMP_TYPES.ENEMY && !GlobalStore.get('pvpMode')) return;
+        const netRole = GlobalStore.get('netRole');
+        if (netRole === 'host' && camp === CAMP_TYPES.ENEMY) return;
+        if (netRole === 'guest' && camp === CAMP_TYPES.ALLY) return;
+        if (!netRole && camp === CAMP_TYPES.ENEMY && !GlobalStore.get('pvpMode')) return;
         const cell = e.target.closest('.cell');
         if (!cell) return;
         const pos = parseInt(cell.dataset.pos);

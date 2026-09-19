@@ -1,5 +1,5 @@
-﻿// V6.0.0 | 2026-09-07 属性词条化：圣火令/严阵以待/carry 改为 addMod 注册词条，不再走 stats 对象
-export const VER = 'core/14buff-effects.js V6.0.0';
+// V6.1.0 | ~7700 bytes | 2026-09-19 联网PVP：圣火令去掉"只对明教"守卫，按传入 buff 阵营生效
+export const VER = 'core/14buff-effects.js V6.1.0';
 
 import { CONFIG, getSkillParams } from './01config-5v5-test.js';
 import { getUnitRow, getUnitCol } from './03battle-utils.js';
@@ -27,7 +27,7 @@ export function applyCloudBodyDodge_Brother() { return CONFIG.BUFFS.cloudBody.do
 // 圣火令：命中列 +30% 攻击，命中行 +30% 防御（mul 词条）
 export function applyHolyFlame_Normal(unit, allyTeam, activeBuffs) {
     const holyFlameBuff = activeBuffs.find(b => b.key === BUFF_TYPES.HOLY_FLAME);
-    if (!holyFlameBuff || unit.camp !== CAMP_TYPES.ALLY) return;
+    if (!holyFlameBuff) return;
     const cols = holyFlameBuff.cols || (holyFlameBuff.col != null ? [holyFlameBuff.col] : []);
     const rows = holyFlameBuff.rows || (holyFlameBuff.row != null ? [holyFlameBuff.row] : []);
     if (cols.includes(getUnitCol(unit.pos))) {
