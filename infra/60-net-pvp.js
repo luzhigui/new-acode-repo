@@ -1,6 +1,6 @@
 // infra/60-net-pvp.js - 联网对战·阶段3（WebRTC 连接层 + step 同步 + 阵容/海克斯双向）
-// ~12300 bytes | V6.4.1 | 2026-09-19 修：_dataCb 异常不再静默吞（房主 lineupReady 报错被吞过）
-export const VER = 'infra/60-net-pvp.js V6.4.1';
+// ~12500 bytes | V6.5.0 | 2026-09-19 方案A：step 捎带房主倍速（从机跟随，避免 step 积压）；_dataCb 异常不再静默吞
+export const VER = 'infra/60-net-pvp.js V6.5.0';
 
 // 阶段1 提供连接能力；阶段2 追加 step 同步（房主跑引擎发 step，从机只播演出）；
 // 阶段3 追加阵容/站位/海克斯双向（房主权威，从机回传自己的选择）。
@@ -52,7 +52,7 @@ function plainBuffs(buffs) {
     }));
 }
 
-function plainStep(step, activeBuffs) {
+function plainStep(step, activeBuffs, speed) {
     return {
         log: step.log || [],
         events: step.events || [],
@@ -63,7 +63,9 @@ function plainStep(step, activeBuffs) {
         doubleStrikeUid: step.doubleStrikeUid || null,
         stageActions: step.stageActions || [],
         // 阶段3：从机不跑引擎，buff 槽要靠房主捎带才能显示
-        activeBuffs: plainBuffs(activeBuffs)
+        activeBuffs: plainBuffs(activeBuffs),
+        // 方案A：捎带房主当前倍速，从机跟随，避免从机比房主快导致 step 积压
+        speed: speed || null
     };
 }
 
@@ -235,7 +237,7 @@ export function netSend(msg) {
 // 房主：开战时通知从机进入战斗
 export function sendStart() { return netSend({ t: 'start' }); }
 // 房主：发一步（净化后传输；activeBuffs 捎带，供从机 buff 槽显示）
-export function sendStep(step, activeBuffs) { return netSend({ t: 'step', step: plainStep(step, activeBuffs) }); }
+export function sendStep(step, activeBuffs, speed) { return netSend({ t: 'step', step: plainStep(step, activeBuffs, speed) }); }
 // 从机：取下一步（无则挂起等，断线返回 null）
 export function recvStep() {
     if (_stepQueue.length) return Promise.resolve(_stepQueue.shift());

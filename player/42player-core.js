@@ -1,5 +1,5 @@
-// ~32800 bytes | V6.4.0 | 2026-09-19 从机注入本地战斗RNG（演出层选台词不再崩）；阶段3：step 捎带 activeBuffs、回合末海克斯走 handlePvpBuffSelection
-export const VER = 'player/42player-core.js V6.4.0';
+// ~32900 bytes | V6.5.0 | 2026-09-19 方案A：房主 step 捎带倍速、从机跟随；从机注入本地战斗RNG；阶段3：step 捎带 activeBuffs、回合末海克斯走 handlePvpBuffSelection
+export const VER = 'player/42player-core.js V6.5.0';
 
 import { eventBus } from '../infra/50-event-bus.js';
 import { FX_SIGNALS } from '../infra/55-fx-signals.js';
@@ -8,7 +8,7 @@ import { handleBuffSummon, handleBuffDestroy, handleHolyTokenDrop } from './41pl
 import { createRoundStepper } from '../core/11battle-round.js';
 import { SeededRNG } from '../infra/51-core-utils.js';
 import { setBattleRng } from '../core/13battle-shared.js';
-import { GlobalStore, getState, getPlayerContext } from '../infra/54-global-store.js';
+import { GlobalStore, getState, setState, getPlayerContext } from '../infra/54-global-store.js';
 import { createStore, battleReducer } from '../modules/24battle-store.js';
 import { STORE_ACTION_TYPES, STAGE_ACTION_TYPES, BUFF_SUBTYPES, BUFF_EFFECT_TYPES, FLY_MODE_TYPES, UNIT_EVENT_TYPES, DROP_TYPES, FLASH_TYPES, CAMP_TYPES, ROLE_TYPES } from '../infra/56-battle-enums.js';
 
@@ -426,7 +426,7 @@ export async function playBattle() {
             lastStep = step;
             if (battleState.activeBuffs) c.activeBuffs = battleState.activeBuffs.map(b => ({ ...b }));
             // 联网对战阶段2：房主跑完一步就发给从机（从机只播，不跑引擎）；阶段3 捎带 activeBuffs
-            if (netLinked) net.sendStep(step, c.activeBuffs);
+            if (netLinked) net.sendStep(step, c.activeBuffs, getState.speed());
             await playStepInterleaved(c, step, isFirstAttackRef);
             await clock.wait(300);
             if (step.winner) { finalWinner = step.winner; isBattleOver = true; break; }
@@ -608,6 +608,9 @@ export async function playBattleGuest() {
             c.activeBuffs = step.activeBuffs;
             if (c.updateBuffSlots) c.updateBuffSlots();
         }
+        // 方案A：跟随房主倍速。setState.speed 会经 GlobalStore.effect('speed') 自动改 clock.timescale，
+        // 两端节奏一致后 step 不会积压，从机也就不会跑到房主前面
+        if (step.speed && step.speed !== getState.speed()) setState.speed(step.speed);
         // 与房主一致：每回合重置「是否本回合首次攻击」
         if ((step.log || []).some(e => e && e.factType === 'roundStart')) isFirstAttackRef.value = true;
         await playStepInterleaved(c, step, isFirstAttackRef);
