@@ -3,7 +3,7 @@ export const VER = 'core/12battle-attack-steps.js V6.1.1';
 
 import { CONFIG, getSkillParams, getGameData } from './01config-5v5-test.js';
 import { eventBus, EFFECT_TYPES } from '../infra/50-event-bus.js';
-import { calcDamage, getFangLevel, isMelee, getFronts, isBlocked, getRandomTaunt, getZhangNearTaunt, makeFXSnapshot, hasBuff, getUnitCol, getUnitRow, getMissBreakdown } from './03battle-utils.js';
+import { calcDamage, getFangLevel, isMelee, getFronts, isBlocked, getRandomTaunt, getZhangNearTaunt, makeFXSnapshot, hasBuff, getUnitCol, getUnitRow, getMissBreakdown, canBeTargeted } from './03battle-utils.js';
 import { emitEvent, applyStatChange, refreshMaxHp, query, getBattleRng, recordCombatStat, getStat, addMod } from './13battle-shared.js';
 import { flushBattleEvents, pushBattleEvent, getBattleState, setBattleState, registerDodgeRule, clearEliteDodgeRules, getDodgeRules, persistValue, loadPersistedValue } from '../infra/51-core-utils.js';
 import { getEffectHandler, hasEffectHandler, getCalcModifier, validateDeclarationFields, validateCalcModifierFields } from './16effect-handlers.js';
@@ -62,7 +62,8 @@ function snapshotUnitForFact(unit) {
 // 步骤1：选择攻击目标
 export function selectAttackTarget(unit, enemySide, allySide) {
     const rng = getBattleRng();
-    const validTargets = enemySide.filter(c => c.alive && !c.state._untargetable);
+    // 2026-09-19 统一走 canBeTargeted：含 pendingDeath / flyMode / 附身 / FSM 飞行
+    const validTargets = enemySide.filter(c => canBeTargeted(c));
     if (validTargets.length === 0) return { target: null, phantomFact: null };
 
     const declaration = { targetResult: null };
@@ -73,7 +74,7 @@ export function selectAttackTarget(unit, enemySide, allySide) {
 
     if (declaration.targetResult) {
         const declared = declaration.targetResult;
-        if (declared && declared.alive && !declared.state._untargetable) {
+        if (declared && canBeTargeted(declared)) {
             target = declared;
             phantomFact = declaration.phantomFact || null;
         }
@@ -101,8 +102,8 @@ export function selectAttackTarget(unit, enemySide, allySide) {
         }
     }
 
-    if (!target || !target.alive || target.state._untargetable) {
-        const fallback = validTargets.filter(c => c.alive && !c.state._untargetable);
+    if (!target || !canBeTargeted(target)) {
+        const fallback = validTargets.filter(c => canBeTargeted(c));
         if (fallback.length === 0) return { target: null, phantomFact: null };
         target = fallback[rng.nextInt(0, fallback.length - 1)];
     }
@@ -395,7 +396,8 @@ export function resolveDeaths(allySide, enemySide, log) {
         applyStatChange(u, 'hp', -u.hp, null, '死亡结算', false);
         u.alive = false;
         u.state._isDead = true;
-        u._pendingDeath = false;
+        // 2026-09-19 修字段 bug：标记时写的是 state._pendingDeath，清理时写成了顶层
+        u.state._pendingDeath = false;
         emitEvent(u, UNIT_EVENT_TYPES.HP_CHANGE, { hp: u.hp, maxHp: u.maxHp, alive: false, atk: getStat(u, 'atk'), def: getStat(u, 'def'), _isDead: true });
         emitEvent(u, UNIT_EVENT_TYPES.UNIT_REMOVE, { uid: u.uid });
         emitStateChange(u, STATE_CHANGE_TYPES.DEATH, {}, log);
