@@ -1,5 +1,5 @@
-// V6.10.0 | ~41600 bytes | 2026-09-19 修 coverRef 越作用域(ReferenceError: coverRef is not defined)：提升到模块级并删闭包内重复声明；从机「返回封面」不再主动断连(等房主下一关 lineup 拉回摆位态)，开单机/本地双人前靠 exitNetIdentity 摘身份
-export const VER = 'ui/61main-5v5-test.js V6.10.0';
+// V6.11.0 | ~44600 bytes | 2026-09-19 摆位实时同步：syncNetPositions/applyPosUpdate(posUpdate 只搬位置不动准备状态)；房主掉线收口 hostWaitReconnect(回封面保留房间)；修 coverRef 越作用域(ReferenceError)；从机「返回封面」不断连等房主下一关；退出联网 clearNetBadge 让回标题
+export const VER = 'ui/61main-5v5-test.js V6.11.0';
 
 import '../infra/54-global-store.js';
 import { GlobalStore } from '../infra/54-global-store.js';
@@ -198,16 +198,53 @@ function applyNetLineup(lineup) {
     updateButtons(); updateSpeedButtons();
 }
 
+// 标题栏房间号角标由 68 的 setBadge 写（联网时它顶掉左侧标题），退出联网要在这里擦掉、把标题让回来
+function clearNetBadge() {
+    const header = document.querySelector('.header');
+    if (header) header.classList.remove('net-mode');
+    const badge = document.getElementById('netRoomBadge');
+    if (badge) { badge.style.display = 'none'; badge.textContent = ''; badge.classList.remove('warn'); }
+}
+
 // 从封面开单机 / 本地双人前必须摘掉联网身份：残留 netRole 会让网格限权、视角翻转错乱（render/32 读 netRole）。
 // 从机「返回封面」是故意保留连接的（等房主发下一关），只有玩家真去开别的模式才在这里断。
+// 无条件 closeNetPvp：房主掉线后回封面时连接是留着的（等对手重连），不拆干净的话对手一「加入」
+// 会把已经开单机的房主又拽回对局里
 function exitNetIdentity() {
-    if (!GlobalStore.get('netRole')) return;
+    clearNetBadge();
     net.closeNetPvp();
     GlobalStore.set('netRole', null);
     GlobalStore.set('netGuestReady', false);
     GlobalStore.set('netPeerReady', false);
     GlobalStore.set('netGuestDone', false);
     GlobalStore.set('fastForwardActive', false);
+}
+
+// 摆位实时同步：本地挪了人立刻把本阵营站位发给对面（未联网零副作用）。
+// 由 68 的 bindGrid 在交换成功后经 UIHandler 调；只发自己管的那一队——房主明教、从机六大派
+function syncNetPositions(camp) {
+    const role = GlobalStore.get('netRole');
+    if (!role) return;
+    const UI = getState.UI();
+    if (role === 'host' && camp === CAMP_TYPES.ALLY) {
+        net.sendPosUpdate(CAMP_TYPES.ALLY, (UI.allyTeam || []).map(u => ({ uid: u.uid, pos: u.pos })));
+    } else if (role === 'guest' && camp === CAMP_TYPES.ENEMY) {
+        net.sendPosUpdate(CAMP_TYPES.ENEMY, (UI.enemyTeam || []).map(u => ({ uid: u.uid, pos: u.pos })));
+    }
+}
+GlobalStore.setUIHandler('syncNetPositions', syncNetPositions);
+
+// 收到对面的摆位同步：只按 uid 搬位置 + 重渲染那一队。
+// 不碰 snapshot（65 里是 Object.freeze 的定稿，写它会抛）、不碰准备状态、不重置摆位态
+function applyPosUpdate(msg) {
+    const byUid = new Map((msg.positions || []).map(p => [p.uid, p.pos]));
+    if (!byUid.size) return;
+    const camp = msg.camp === CAMP_TYPES.ENEMY ? CAMP_TYPES.ENEMY : CAMP_TYPES.ALLY;
+    const UI = getState.UI();
+    const team = camp === CAMP_TYPES.ALLY ? UI.allyTeam : UI.enemyTeam;
+    (team || []).forEach(u => { if (byUid.has(u.uid)) u.pos = byUid.get(u.uid); });
+    setState.UI(UI);
+    renderGrid(camp === CAMP_TYPES.ALLY ? 'allyGrid' : 'enemyGrid', camp);
 }
 
 // 房主：下发当前双方阵容（连接成功时、以及房主换关后都要重发）
@@ -325,6 +362,8 @@ document.addEventListener('DOMContentLoaded', async function() {
             return;
         }
         if (msg.t === 'lineup') { applyNetLineup(net.reviveLineup(msg.lineup || {})); return; }
+        // 摆位实时同步：对面挪了人 → 只搬位置重渲染，不动准备状态（准备握手仍走 lineupReady）
+        if (msg.t === 'posUpdate') { applyPosUpdate(msg); return; }
         if (msg.t === 'buffAsk') {
             // 从机：选项由房主下发（本机没有引擎 RNG），选完回传 key
             const showBuffPopup = GlobalStore.getUIHandler('showBuffPopup');
@@ -653,17 +692,23 @@ document.addEventListener('DOMContentLoaded', async function() {
     }
 
     // PVP 战斗结束：退出 PVP 并回到封面，复位到普通模式初始状态
-    function goBackToCover(){
+    // opts.keepNet：保留 MQTT 连接（只回封面，不拆房间）——掉线收口时用，等对手重新「加入」
+    function goBackToCover(opts){
+        const keepNet = !!(opts && opts.keepNet);
         // 从机主循环必须先掐掉：不 abort 的话旧循环会接着跑完 finishBattle，在封面上画出胜负
         const curCtx = getPlayerContext();
         if (curCtx && curCtx.abortController && !curCtx.abortController.signal.aborted) curCtx.abortController.abort();
         // 联网从机：只回封面、不断连——房主点「下一关」会重发 lineup，从机靠这条被拉回摆位态；
         // 断连的话房主那边等于打单机，下一关永远同步不过来。
-        // 掉线路径不受影响：68 的 onState 已先把 netRole 清成 null 再调这里，照旧走 closeNetPvp
+        // 房主主动退出 / 单机路径：拆掉房间并擦角标，把左侧标题让回来
         const asGuest = GlobalStore.get('netRole') === 'guest';
-        if (!asGuest) {
+        if (!asGuest && !keepNet) {
             // 残留 netRole 会让单机网格不可点（render/32 按 netRole 限权），必须一起清
             net.closeNetPvp();
+            GlobalStore.set('netRole', null);
+            clearNetBadge();
+        } else if (keepNet) {
+            // 连接留着等对手重连，但身份要清：不清的话按钮还会按主/从分支走，语义错乱
             GlobalStore.set('netRole', null);
         }
         GlobalStore.set('netGuestReady', false);
@@ -692,6 +737,8 @@ document.addEventListener('DOMContentLoaded', async function() {
     GlobalStore.setUIHandler('resetIsBattleStarting', () => { isBattleStarting = false; });
     // 68 的「返回封面」按钮（联网 GAMEOVER 时挂到 btnNext 上）需要回到封面流程
     GlobalStore.setUIHandler('goBackToCover', goBackToCover);
+    // 房主掉线收口：回封面但保留房间——对手重新「加入」时 onGuestJoin 会走 hostEnterAdjust 把房主拉回摆位态
+    GlobalStore.setUIHandler('hostWaitReconnect', () => goBackToCover({ keepNet: true }));
 
     // window 桥接统一收口：仅保留体检/测试跑器真正调用的一项（原 selectStage / forceStopGame /
     // doManualReset / getGameState 四个挂载点全库无引用，已删）。生产代码一律走 import 或 UIHandler。

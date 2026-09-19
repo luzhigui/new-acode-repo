@@ -1,6 +1,6 @@
 // infra/60-net-pvp.js - 联网对战·中继版（公共 MQTT broker 转发 + step 同步 + 阵容/海克斯双向）
-// ~17900 bytes | V7.3.0 | 2026-09-19 sendStart 捎带关卡号（从机补正关卡与左侧标签）；断线重连：建房/加入前 teardownTransport 拆干净旧客户端 + guestJoin 通知房主重发阵容
-export const VER = 'infra/60-net-pvp.js V7.3.0';
+// ~18700 bytes | V7.4.0 | 2026-09-19 新增 sendPosUpdate：摆位实时同步（只搬位置，不动准备状态）；sendStart 捎带关卡号（从机补正关卡与左侧标签）；断线重连：建房/加入前 teardownTransport 拆干净旧客户端 + guestJoin 通知房主重发阵容
+export const VER = 'infra/60-net-pvp.js V7.4.0';
 
 // 为什么换掉 WebRTC：手机 5G 走运营商 CGNAT，和家用宽带 NAT 类型凑不上，打洞必失败；
 // 兜底要 TURN，而 2026 年流传的公共 TURN 凭据全失效、免费服务商注册页在墙内提交不了（reCAPTCHA）。
@@ -364,6 +364,12 @@ export function sendLineup(stage, allyTeam, enemyTeam) {
 }
 // 从机 → 房主：回传六大派站位（[{uid, pos}]），房主据此合并进自己的 UI.enemyTeam
 export function sendLineupReady(positions) { return netSend({ t: 'lineupReady', positions: positions || [] }); }
+// 摆位实时同步（与 lineupReady 是两回事，别合并）：
+//   lineupReady = 「我摆完了，你可以开战」的握手，会改 netPeerReady/netGuestReady
+//   posUpdate   = 纯画面同步，只搬位置，不动任何准备状态
+// 房主挪明教 → camp=ALLY 发给从机；从机挪六大派 → camp=ENEMY 发给房主。
+// 不发的话：房主摆位态挪人从机看不到（要等开战第一条 step 才跳正），从机「准备」后再挪人房主拿到的是旧站位
+export function sendPosUpdate(camp, positions) { return netSend({ t: 'posUpdate', camp, positions: positions || [] }); }
 // 房主 → 从机：下发六大派海克斯选项（选项由房主用引擎 RNG 统一生成，双方看到同一批）
 export function sendBuffAsk(choices, duration) { return netSend({ t: 'buffAsk', choices: choices || [], duration: duration || 0 }); }
 // 从机 → 房主：回传自己选中的 buff key（null = 不选）

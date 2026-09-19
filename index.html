@@ -170,9 +170,11 @@
         .net-btn:hover { background:#34495e; }
         .net-room-input { width:180px; padding:8px 10px; border-radius:10px; border:1px solid #5b7a99; background:#1a2530; color:#ecf0f1; font-size:0.95rem; text-align:center; }
         #netStatusLine { margin-top:8px; font-size:0.9rem; color:#b8a88a; min-height:18px; }
-        /* 标题栏房间号角标：对局中封面被盖住，房间号只能靠这里报给对手 / 掉线后照着重连 */
-        .net-room-badge { display:none; margin-left:6px; padding:2px 8px; border-radius:8px; background:#1a2530; border:1px solid #5b7a99; color:#7fd4ff; font-size:11px; font-weight:bold; vertical-align:middle; }
+        /* 标题栏房间号角标：对局中封面被盖住，房间号只能靠这里报给对手 / 掉线后照着重连。
+           联网对局时它顶掉左侧「光明顶对战 5v5」标题，占据最左位置（见 .header.net-mode） */
+        .net-room-badge { display:none; margin:0 6px 0 0; padding:2px 8px; border-radius:8px; background:#1a2530; border:1px solid #5b7a99; color:#7fd4ff; font-size:11px; font-weight:bold; vertical-align:middle; }
         .net-room-badge.warn { border-color:#ff6b6b; color:#ff6b6b; }
+        .header.net-mode #headerTitle { display: none; }
         #coverVersion { position: absolute; bottom: 12px; right: 16px; font-size: 10px; color: #888; text-align: right; line-height: 1.4; z-index: 100000; }
         @keyframes breathe { 0%,100%{ box-shadow: 0 4px 15px rgba(255,215,0,0.4); } 50%{ box-shadow: 0 4px 35px rgba(255,215,0,0.8); } }
         .shake-screen { animation: screenShake 0.2s ease-out; }
@@ -257,7 +259,7 @@
     <div id="netStatusLine"></div>
     <div id="coverVersion"></div>
 </div>
-<div class="header"><h2>⚔️ 光明顶对战 5v5 <span class="score-badge" id="scoreBadge">🏆 10分</span></h2><button id="btnTutorial" class="debug-toggle-btn" title="新手引导">❓</button><button id="debugToggle" class="debug-toggle-btn">V6.0</button><span class="net-room-badge" id="netRoomBadge"></span></div>
+<div class="header"><span class="net-room-badge" id="netRoomBadge"></span><h2><span id="headerTitle">⚔️ 光明顶对战 5v5 </span><span class="score-badge" id="scoreBadge">🏆 10分</span></h2><button id="btnTutorial" class="debug-toggle-btn" title="新手引导">❓</button><button id="debugToggle" class="debug-toggle-btn">V6.0</button></div>
 <div class="upper-area">
     <div class="battlefield" id="battlefield">
         <div class="team-row"><span class="team-label orange" id="labelEnemy">六大派</span><div class="grid" id="enemyGrid"></div></div>
