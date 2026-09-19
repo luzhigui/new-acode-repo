@@ -1,6 +1,6 @@
 // infra/60-net-pvp.js - 联网对战·阶段3（WebRTC 连接层 + step 同步 + 阵容/海克斯双向）
-// ~13500 bytes | V6.6.0 | 2026-09-19 加公共 TURN 中继（跨网/5G 打洞失败也能连）；方案A：step 捎带房主倍速（从机跟随，避免 step 积压）；_dataCb 异常不再静默吞
-export const VER = 'infra/60-net-pvp.js V6.6.0';
+// ~15200 bytes | V6.7.0 | 2026-09-19 TURN 改为运行时从 localStorage 取 Metered 凭据换 iceServers（静态凭据实测已失效），失败回退 STUN-only；方案A：step 捎带房主倍速（从机跟随）；_dataCb 异常不再静默吞
+export const VER = 'infra/60-net-pvp.js V6.7.0';
 
 // 阶段1 提供连接能力；阶段2 追加 step 同步（房主跑引擎发 step，从机只播演出）；
 // 阶段3 追加阵容/站位/海克斯双向（房主权威，从机回传自己的选择）。
@@ -11,20 +11,53 @@ import { StateMachine } from './51-core-utils.js';
 const PEERJS_CDN = 'https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js';
 
 // ---- ICE 配置 ----
-// PeerJS 默认只带 STUN（打洞用）。手机 5G 走运营商 CGNAT，NAT 类型和家用宽带凑不上，
-// 打洞必失败 → 必须带 TURN 中继兜底，否则跨网永远连不上（同 WiFi 不打洞所以能用）。
-// 443/TCP 那条是给屏蔽 UDP 的网络（部分 5G/企业网）留的后路。
-const PEER_OPTS = {
-    config: {
-        iceServers: [
-            { urls: 'stun:stun.l.google.com:19302' },
-            { urls: 'stun:stun1.l.google.com:19302' },
-            { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
-            { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' },
-            { urls: 'turn:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' }
-        ]
-    }
-};
+// PeerJS 默认只带 STUN（打洞用）。手机 5G 走运营商 CGNAT，NAT 类型和家用宽带凑不上，打洞必失败，
+// 必须带 TURN 中继兜底，否则跨网永远连不上（同 WiFi 不打洞所以能用）。
+//
+// 2026-09-19 实测：网上流传的静态凭据（openrelay.metered.ca + openrelayproject）已失效，
+// ICE 只出 host 候选、没有 relay，等于没中继。现在必须注册免费账号调 REST API 换 iceServers。
+//
+// 凭据不写进仓库（仓库 public，写死会被扒走额度）：两端各自在控制台执行一次即可，之后一直生效
+//   localStorage.setItem('turnKey', '<API_KEY>');        // Metered 免费账号的 API_KEY
+//   localStorage.setItem('turnDomain', '<app>.metered.live');  // 注册时建的 App 域名
+// 没配 / 请求失败 → 自动回退 STUN-only（同 WiFi 仍可用，不会崩）。
+const STUN_ONLY = [
+    { urls: 'stun:stun.l.google.com:19302' },
+    { urls: 'stun:stun1.l.google.com:19302' }
+];
+let _iceServers = null;   // 拿到带 TURN 的配置后缓存，成功才缓存
+let _icePromise = null;
+
+function loadIceServers() {
+    if (_iceServers) return Promise.resolve(_iceServers);
+    if (_icePromise) return _icePromise;
+    _icePromise = (async () => {
+        let key = null, domain = null;
+        try {
+            key = localStorage.getItem('turnKey');
+            domain = localStorage.getItem('turnDomain');
+        } catch (e) {}
+        if (key && domain) {
+            try {
+                const res = await fetch('https://' + domain + '/api/v1/turn/credentials?apiKey=' + encodeURIComponent(key));
+                const list = res.ok ? await res.json() : null;
+                if (Array.isArray(list) && list.length) {
+                    _iceServers = list;
+                    console.info('[net] ICE：已启用 TURN 中继（' + list.length + ' 条）');
+                    return _iceServers;
+                }
+                console.warn('[net] TURN 凭据获取失败（HTTP ' + res.status + '），回退 STUN-only');
+            } catch (e) {
+                console.warn('[net] TURN 凭据请求异常，回退 STUN-only', e);
+            }
+        } else {
+            console.warn('[net] 未配置 turnKey/turnDomain，仅 STUN——跨网（5G↔宽带）大概率连不上');
+        }
+        _icePromise = null;   // 失败不缓存，配好 key 后下次点联机即可重试
+        return STUN_ONLY;
+    })();
+    return _icePromise;
+}
 
 const STATUS = {
     IDLE: 'idle',
@@ -197,7 +230,7 @@ export async function createRoom(onReady, onError, customId) {
         id = Math.random().toString(36).slice(2, 8);
     }
     let p;
-    try { p = new Peer(id, PEER_OPTS); } catch (e) { if (typeof onError === 'function') onError(e); return; }
+    try { p = new Peer(id, { config: { iceServers: await loadIceServers() } }); } catch (e) { if (typeof onError === 'function') onError(e); return; }
     _peer = p; _isHost = true; _roomId = id;
     p.on('open', () => {
         setStatus(STATUS.WAITING, { roomId: id, isHost: true });
@@ -226,7 +259,7 @@ export async function joinRoom(roomId, onReady, onError) {
     }
     const Peer = window.Peer;
     let p;
-    try { p = new Peer(PEER_OPTS); } catch (e) { if (typeof onError === 'function') onError(e); return; }
+    try { p = new Peer(undefined, { config: { iceServers: await loadIceServers() } }); } catch (e) { if (typeof onError === 'function') onError(e); return; }
     _peer = p; _isHost = false; _roomId = rid;
     p.on('open', () => {
         try {
