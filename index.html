@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿<!-- index.html - 光明顶5v5 V6.0.0（原 mode-5v5-test.html，改名为主入口） -->
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿<!-- index.html - 光明顶5v5 V6.0.0（原 mode-5v5-test.html，改名为主入口） -->
 <!-- V6.0.0 | ~31300 bytes | 苦练等优先行动经 beforeActionSelect 声明，行动后不切换行动方 -->
 <!DOCTYPE html>
 <html lang="zh-CN">
@@ -159,6 +159,7 @@
         .cover-title { color: #ffd700; font-size: 2rem; font-weight: bold; margin-bottom: 8px; text-shadow: 0 0 20px rgba(255,215,0,0.5); }
         .cover-subtitle { color: #b8a88a; font-size: 1rem; margin-bottom: 40px; }
         .cover-start-btn { background: linear-gradient(135deg, #ffd700, #ffaa00); color: #5c4033; font-weight: bold; font-size: 1.3rem; padding: 14px 48px; border-radius: 14px; border: 3px solid #b8860b; cursor: pointer; box-shadow: 0 4px 20px rgba(255,215,0,0.4); animation: breathe 2s ease-in-out infinite; }
+        .cover-pvp-btn { background: linear-gradient(135deg,#4aa3ff,#1e6bb8); color:#fff; border-color:#0d4f8b; box-shadow:0 4px 20px rgba(30,107,184,0.45); margin-top:14px; animation:none; }
         #coverVersion { position: absolute; bottom: 12px; right: 16px; font-size: 10px; color: #888; text-align: right; line-height: 1.4; z-index: 100000; }
         @keyframes breathe { 0%,100%{ box-shadow: 0 4px 15px rgba(255,215,0,0.4); } 50%{ box-shadow: 0 4px 35px rgba(255,215,0,0.8); } }
         .shake-screen { animation: screenShake 0.2s ease-out; }
@@ -234,6 +235,7 @@
     <div class="cover-title">⚔️ 光明顶对战 5v5 ⚔️</div>
     <div class="cover-subtitle">九宫格混战 · 五人对决</div>
     <button class="cover-start-btn" id="coverStartBtn">⚔️ 开始游戏</button>
+    <button class="cover-start-btn cover-pvp-btn" id="coverPvpBtn">👥 本地双人对战</button>
     <div id="coverVersion"></div>
 </div>
 <div class="header"><h2>⚔️ 光明顶对战 5v5 <span class="score-badge" id="scoreBadge">🏆 10分</span></h2><button id="btnTutorial" class="debug-toggle-btn" title="新手引导">❓</button><button id="debugToggle" class="debug-toggle-btn">V6.0</button></div>
