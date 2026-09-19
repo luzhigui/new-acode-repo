@@ -48,7 +48,9 @@
         .battlefield { flex: 0 0 40dvh; display: flex; flex-direction: column; justify-content: flex-start; gap: 2px; position: relative; }
         /* 联网从机执六大派：战场纵向翻转，自己队伍显示在下方（column-reverse 只改视觉，不动 DOM 顺序与事件绑定） */
         #battlefield.guest-view { flex-direction: column-reverse; justify-content: flex-end; }
-        .team-row { display: flex; align-items: center; gap: 4px; flex: 1; max-width: 500px; margin: 0 auto; width: 100%; }
+        .team-row { display: flex; align-items: center; gap: 4px; flex: 1; max-width: 500px; margin: 0 auto; width: 100%; position: relative; }
+        /* 联网身份角标：贴在自己队伍标签的左下角（不占日志标题栏，调试面板展开也放得下） */
+        .role-tag { position: absolute; left: 1px; bottom: 1px; font-size: 10px; font-weight: bold; line-height: 1; }
         .team-label { writing-mode: vertical-lr; font-weight: bold; font-size: 13px; width: 18px; text-align: center; }
         .grid { display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(3, 5.5dvh); gap: 2px; flex: 1; background: #d9d0b5; padding: 3px; border-radius: 6px; }
         .grid.victory-border { border: 3px solid gold !important; box-shadow: 0 0 20px gold; }
@@ -99,8 +101,6 @@
         .speed-group button.semi-active { background: rgba(0,123,255,0.3); color: #007bff; }
         .log-container { flex: 1; display: flex; flex-direction: column; background: #f5f0e0; border: 2px solid #b8a88a; border-radius: 6px; overflow: hidden; margin-top: 2px; max-height: calc(100dvh - 50dvh); position: relative; }
         .log-header { display: flex; justify-content: space-between; align-items: center; background: #d6c9a8; padding: 4px 8px; font-weight: bold; font-size: 11px; flex-shrink: 0; min-height: 28px; }
-        /* 日志标题左侧成组：角标必须紧贴"📜 日志"，否则 space-between 会随 debugPanel 显隐把它推来推去 */
-        .log-header-left { display: flex; align-items: center; gap: 2px; }
 
         .log-header-right { display: none; gap: 2px; align-items: center; flex-wrap: nowrap; }
         .log-header-right button { padding: 3px 6px; border-radius: 3px; border: 1px solid #8b7355; background: #e8d5b0; font-size: 9px; cursor: pointer; color: #5c4033; white-space: nowrap; }
@@ -169,7 +169,6 @@
         .net-btn:hover { background:#34495e; }
         .net-room-input { width:180px; padding:8px 10px; border-radius:10px; border:1px solid #5b7a99; background:#1a2530; color:#ecf0f1; font-size:0.95rem; text-align:center; }
         #netStatusLine { margin-top:8px; font-size:0.9rem; color:#b8a88a; min-height:18px; }
-        #netRoleBadge { margin-left:10px; font-size:0.95rem; font-weight:bold; }
         #coverVersion { position: absolute; bottom: 12px; right: 16px; font-size: 10px; color: #888; text-align: right; line-height: 1.4; z-index: 100000; }
         @keyframes breathe { 0%,100%{ box-shadow: 0 4px 15px rgba(255,215,0,0.4); } 50%{ box-shadow: 0 4px 35px rgba(255,215,0,0.8); } }
         .shake-screen { animation: screenShake 0.2s ease-out; }
@@ -257,8 +256,8 @@
 <div class="header"><h2>⚔️ 光明顶对战 5v5 <span class="score-badge" id="scoreBadge">🏆 10分</span></h2><button id="btnTutorial" class="debug-toggle-btn" title="新手引导">❓</button><button id="debugToggle" class="debug-toggle-btn">V6.0</button></div>
 <div class="upper-area">
     <div class="battlefield" id="battlefield">
-        <div class="team-row"><span class="team-label orange" id="labelEnemy">六大派</span><div class="grid" id="enemyGrid"></div></div>
-        <div class="team-row"><span class="team-label blue" id="labelAlly">明 教</span><div class="grid" id="allyGrid"></div></div>
+        <div class="team-row"><span class="team-label orange" id="labelEnemy">六大派</span><div class="grid" id="enemyGrid"></div><span class="role-tag" id="enemyRoleTag"></span></div>
+        <div class="team-row"><span class="team-label blue" id="labelAlly">明 教</span><div class="grid" id="allyGrid"></div><span class="role-tag" id="allyRoleTag"></span></div>
         <canvas id="glowCanvas"></canvas>
     </div>
     <div class="controls">
@@ -279,7 +278,7 @@
     </div>
 </div>
 <div class="log-container">
-    <div class="log-header"><span class="log-header-left"><span id="roundDisplay">📜 日志</span><span id="netRoleBadge"></span></span>
+    <div class="log-header"><span id="roundDisplay">📜 日志</span>
 
         <div class="log-header-right" id="debugPanel">
         <button id="btnStageSelect">🎯 选关</button>

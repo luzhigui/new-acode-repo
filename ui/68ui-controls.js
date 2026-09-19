@@ -1,5 +1,5 @@
-// V6.7.0 | ~33400 bytes | 2026-09-19 身份角标紧贴"📜 日志"（不再随调试面板显隐漂移）+ 从机视角翻转（自己队伍在下）；阶段3：各管一队摆位 + 准备/等待按钮 + buff 槽按阵营
-export const VER = 'ui/68ui-controls.js V6.7.0';
+// V6.8.0 | ~33600 bytes | 2026-09-19 身份角标改贴队伍标签左下角（房→明教下、从→六大派下，彻底不受调试面板影响）+ 从机视角翻转（自己队伍在下）；阶段3：各管一队摆位 + 准备/等待按钮 + buff 槽按阵营
+export const VER = 'ui/68ui-controls.js V6.8.0';
 
 // 2026-09-14 打断 63↔68 循环依赖：getState/setState 直接取自 infra/54（63 只做转发）
 import { getState, setState, GlobalStore, getPlayerContext } from '../infra/54-global-store.js';
@@ -186,16 +186,15 @@ function updateAutoModeButton() {
     btn.classList.toggle('active', lvl !== 'manual');
 }
 
-// 联网身份：日志标题栏角标 + 从机视角翻转
-// 角标放标题栏而不塞日志正文——正文里噪音大、复制日志时会被一起带走
+// 联网身份：队伍标签左下角角标 + 从机视角翻转
+// 房主角标贴在自己队伍（明教）标签下→"房"；从机执六大派→贴六大派标签下→"从"。
+// 不放日志标题栏——调试面板 one↔flex 切换会把它挤飞，队伍标签下固定不动。
 function updateNetIdentity() {
     const role = GlobalStore.get('netRole');
-    const el = document.getElementById('netRoleBadge');
-    if (el) {
-        if (role === 'host') { el.textContent = '🌐房主'; el.style.color = '#ffd700'; }
-        else if (role === 'guest') { el.textContent = '🌐加入方'; el.style.color = '#6cb6ff'; }
-        else { el.textContent = ''; }
-    }
+    const allyTag = document.getElementById('allyRoleTag');
+    if (allyTag) { allyTag.textContent = role === 'host' ? '房' : ''; allyTag.style.color = '#ffd700'; }
+    const enemyTag = document.getElementById('enemyRoleTag');
+    if (enemyTag) { enemyTag.textContent = role === 'guest' ? '从' : ''; enemyTag.style.color = '#6cb6ff'; }
     // 从机执六大派：战场纵向翻转，自己队伍在下方
     const bf = document.getElementById('battlefield');
     if (bf) bf.classList.toggle('guest-view', role === 'guest');
