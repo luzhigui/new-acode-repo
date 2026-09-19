@@ -1,5 +1,5 @@
-// V6.8.0 | ~39200 bytes | 2026-09-19 断线重连：房主抽 hostEnterAdjust（进摆位态前先掐本地战斗循环，首连/重连同一条路）+ guestJoin 分支；abortController 同步进 ctx（原来引擎拿不到 signal，中途 abort 无效）
-export const VER = 'ui/61main-5v5-test.js V6.8.0';
+// V6.10.0 | ~41600 bytes | 2026-09-19 修 coverRef 越作用域(ReferenceError: coverRef is not defined)：提升到模块级并删闭包内重复声明；从机「返回封面」不再主动断连(等房主下一关 lineup 拉回摆位态)，开单机/本地双人前靠 exitNetIdentity 摘身份
+export const VER = 'ui/61main-5v5-test.js V6.10.0';
 
 import '../infra/54-global-store.js';
 import { GlobalStore } from '../infra/54-global-store.js';
@@ -94,6 +94,9 @@ let battleResultForInfo = null;
 let gameStarted = false;
 let hasLoggedTeam = false;
 let isBattleStarting = false;
+// 封面开关引用：bindCoverStart 要读它，hostEnterAdjust / start 分支要写它。
+// 原先声明在 DOMContentLoaded 闭包里，而 hostEnterAdjust 在模块作用域 → 从机重连时抛 ReferenceError: coverRef is not defined
+const coverRef = { val: gameStarted };
 // 关卡号唯一源 = GlobalStore.currentStage（68 的选关弹窗直接写它）。
 // 这里原来还有个模块局部变量，68 选关后局部不更新 → 房主下发给从机的还是旧关卡号
 function setStage(v) { setState.currentStage(v); }
@@ -146,6 +149,13 @@ GlobalStore.setUIHandler('swapAllyPositions', swapAllyPositions);
 // 从机收到的单位是普通对象（infra/60 reviveUnit 的产物，没有 Unit 方法），浅拷贝 + 单拷 state 即可
 function clonePlainUnit(u) { return { ...u, state: { ...(u.state || {}) } }; }
 
+// 从机不跑 doInitBattle，labelEnemy 的关卡文案没有别的地方会写（房主侧由 ui/65 写），统一走这里
+function setGuestStageLabel(stage) {
+    const n = stage || 1;
+    const labelEnemy = document.getElementById('labelEnemy');
+    if (labelEnemy) labelEnemy.textContent = n === 1 ? '六大派\n第一关' : `六大派\n第${n}关`;
+}
+
 // 把房主下发的阵容铺进 UI/snapshot，并进入摆位态（从机只摆六大派，网格权限见 68 bindGrid）
 function applyNetLineup(lineup) {
     // 房主换关/开下一局重发阵容时，从机可能还卡在上一局的 playBattleGuest 循环里。
@@ -165,10 +175,7 @@ function applyNetLineup(lineup) {
     snap.enemy = (lineup.enemy || []).map(clonePlainUnit);
     setState.UI(UI); setState.snapshot(snap);
     setStage(lineup.stage || 1);
-    // 从机不跑 doInitBattle，labelEnemy 的关卡文案没有别的地方会写，这里补上（不然从机永远看不到第几关）
-    const curStage = lineup.stage || 1;
-    const labelEnemy = document.getElementById('labelEnemy');
-    if (labelEnemy) labelEnemy.textContent = curStage === 1 ? '六大派\n第一关' : `六大派\n第${curStage}关`;
+    setGuestStageLabel(lineup.stage);
     GlobalStore.set('pvpMode', true);
     GlobalStore.set('netGuestReady', false);
     setState.autoLevel('auto'); setState.autoMode(true);
@@ -189,6 +196,18 @@ function applyNetLineup(lineup) {
     renderGrid('allyGrid', CAMP_TYPES.ALLY);
     renderGrid('enemyGrid', CAMP_TYPES.ENEMY);
     updateButtons(); updateSpeedButtons();
+}
+
+// 从封面开单机 / 本地双人前必须摘掉联网身份：残留 netRole 会让网格限权、视角翻转错乱（render/32 读 netRole）。
+// 从机「返回封面」是故意保留连接的（等房主发下一关），只有玩家真去开别的模式才在这里断。
+function exitNetIdentity() {
+    if (!GlobalStore.get('netRole')) return;
+    net.closeNetPvp();
+    GlobalStore.set('netRole', null);
+    GlobalStore.set('netGuestReady', false);
+    GlobalStore.set('netPeerReady', false);
+    GlobalStore.set('netGuestDone', false);
+    GlobalStore.set('fastForwardActive', false);
 }
 
 // 房主：下发当前双方阵容（连接成功时、以及房主换关后都要重发）
@@ -275,14 +294,15 @@ document.addEventListener('DOMContentLoaded', async function() {
 
     // 按钮事件绑定 → 68ui-controls.js
     // 开场流程：首次未看过 → 开场CG（72）→ 精英图鉴选人 → 新手分步引导（71）；已看过CG → 图鉴 → 引导
-    const coverRef = { val: gameStarted };
     bindCoverStart(coverRef, updateSpeedButtons, () => {
+        exitNetIdentity();
         const toGuide = () => showEliteGallery(() => stepAdjustStart());
         if (isOpeningCgDone()) { toGuide(); return; }
         showOpeningCg(() => toGuide());
     });
     // PVP 本地双人对战：跳过 CG/图鉴/引导，直接进入双方同屏调整站位
     bindCoverPvp(() => {
+        exitNetIdentity();
         gameStarted = true; coverRef.val = true;
         GlobalStore.set('pvpMode', true);
         setState.autoLevel('auto'); setState.autoMode(true);
@@ -341,6 +361,8 @@ document.addEventListener('DOMContentLoaded', async function() {
             if (typeof AudioManager.resumeAudioContext === 'function') AudioManager.resumeAudioContext();
             if (typeof AudioManager.play === 'function') AudioManager.play();
             gameStarted = true; coverRef.val = true;
+            // 关卡兜底：房主选关时已发过 lineup，但 start 是「必定到达」的那条，据此补正关卡与左侧标签
+            if (msg.stage) { setStage(msg.stage); setGuestStageLabel(msg.stage); }
             GlobalStore.set('pvpMode', true);
             setState.autoLevel('auto'); setState.autoMode(true);
             setState.gs(S.RUNNING); setState.isPaused(false);
@@ -632,13 +654,18 @@ document.addEventListener('DOMContentLoaded', async function() {
 
     // PVP 战斗结束：退出 PVP 并回到封面，复位到普通模式初始状态
     function goBackToCover(){
-        // 从机主循环必须先掐掉：closeNetPvp 会清 step 队列，挂着的 recvStep 立刻返回 null，
-        // 不 abort 的话旧循环会往下走 finishBattle 结算，在封面上画出胜负
+        // 从机主循环必须先掐掉：不 abort 的话旧循环会接着跑完 finishBattle，在封面上画出胜负
         const curCtx = getPlayerContext();
         if (curCtx && curCtx.abortController && !curCtx.abortController.signal.aborted) curCtx.abortController.abort();
-        // 联网身份必须一起清：残留 netRole 会让单机网格不可点（render/32 按 netRole 限权）
-        net.closeNetPvp();
-        GlobalStore.set('netRole', null);
+        // 联网从机：只回封面、不断连——房主点「下一关」会重发 lineup，从机靠这条被拉回摆位态；
+        // 断连的话房主那边等于打单机，下一关永远同步不过来。
+        // 掉线路径不受影响：68 的 onState 已先把 netRole 清成 null 再调这里，照旧走 closeNetPvp
+        const asGuest = GlobalStore.get('netRole') === 'guest';
+        if (!asGuest) {
+            // 残留 netRole 会让单机网格不可点（render/32 按 netRole 限权），必须一起清
+            net.closeNetPvp();
+            GlobalStore.set('netRole', null);
+        }
         GlobalStore.set('netGuestReady', false);
         GlobalStore.set('netPeerReady', false);
         GlobalStore.set('netGuestDone', false);

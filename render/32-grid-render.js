@@ -1,5 +1,5 @@
-// ~24000 bytes | V6.2.0 | 2026-09-19 从机视角行序镜像：靠近两队中间的一行才是前置位(pos1-3)，guest 视角下两阵营的显示行序互换
-export const VER = 'render/32-grid-render.js V6.2.0';
+// ~24400 bytes | V6.3.0 | 2026-09-19 从机视角收敛到 renderGrid 单源同帧：战场上下翻转(guest-view)与行序镜像合并，修「角色在7号位却显示在前排」
+export const VER = 'render/32-grid-render.js V6.3.0';
 
 import { getUnitCol, getUnitRow, getAuraBonuses, getDodgeRules } from '../infra/51-core-utils.js';
 import { CONFIG, getSkillDesc } from '../core/01config-5v5-test.js';
@@ -183,11 +183,18 @@ export function renderGrid(id, camp) {
     }
 
     // 摆位可调权限：单机只明教；本地双人 PVP 两队都可调；联网 PVP 各管一队（房主明教 / 从机六大派）
+    // 从机视角必须「同源同帧」做两件事，否则会出现「角色在7号位却显示在前排」：
+    //   ① 战场上下翻转（从机执六大派，自己队伍显示在下方）→ 给 #battlefield 加 guest-view
+    //   ② 每队行序镜像（靠近两队中间的一行才是前置位 pos1-3）
+    // 原先 ① 在 ui/68 的 updateButtons() 里切、② 在这里算，两处时机一旦错开，上下与前后排就会对不上；
+    // 现在合并到本函数，每次渲染网格都保证两者一致。
     const netRole = GlobalStore.get('netRole');
+    const mirrored = netRole === 'guest';
+    const bf = document.getElementById('battlefield');
+    if (bf) bf.classList.toggle('guest-view', mirrored);
     // 行序 = 显示顺序。视觉上「靠近两队中间的行」是前置位(pos1-3)：
     //   房主视角：明教在自己下方、前置行在顶部 → pos由小到大排；六大派在明教上方、前置行在底部 → pos由大到小排
     //   从机视角(自己执六大派在下方)：两阵营行序互换——明教(上方、前置行在底部)pos由大到小，六大派(下方、前置行在顶部)pos由小到大
-    const mirrored = netRole === 'guest';
     const allyOrder = mirrored ? [7,8,9,4,5,6,1,2,3] : [1,2,3,4,5,6,7,8,9];
     const enemyOrder = mirrored ? [1,2,3,4,5,6,7,8,9] : [7,8,9,4,5,6,1,2,3];
     let displayOrder = camp === CAMP_TYPES.ALLY ? allyOrder : enemyOrder;

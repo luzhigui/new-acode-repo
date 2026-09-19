@@ -1,6 +1,6 @@
 // infra/60-net-pvp.js - 联网对战·中继版（公共 MQTT broker 转发 + step 同步 + 阵容/海克斯双向）
-// ~17800 bytes | V7.2.0 | 2026-09-19 支持断线重连：建房/加入前先 teardownTransport 拆干净旧客户端（否则重复订阅收两遍）；新增 guestJoin 通知房主重发阵容
-export const VER = 'infra/60-net-pvp.js V7.2.0';
+// ~17900 bytes | V7.3.0 | 2026-09-19 sendStart 捎带关卡号（从机补正关卡与左侧标签）；断线重连：建房/加入前 teardownTransport 拆干净旧客户端 + guestJoin 通知房主重发阵容
+export const VER = 'infra/60-net-pvp.js V7.3.0';
 
 // 为什么换掉 WebRTC：手机 5G 走运营商 CGNAT，和家用宽带 NAT 类型凑不上，打洞必失败；
 // 兜底要 TURN，而 2026 年流传的公共 TURN 凭据全失效、免费服务商注册页在墙内提交不了（reCAPTCHA）。
@@ -345,8 +345,8 @@ export async function joinRoom(roomId, onReady, onError) {
 export function netSend(msg) { return publish(msg); }
 
 // ---- 阶段2 对外 API ----
-// 房主：开战时通知从机进入战斗
-export function sendStart() { return netSend({ t: 'start' }); }
+// 房主：开战时通知从机进入战斗；捎带当前关卡号（从机不跑 doInitBattle，靠它补正关卡与左侧标签）
+export function sendStart(stage) { return netSend({ t: 'start', stage: stage || null }); }
 // 房主：发一步（净化后传输；activeBuffs 捎带，供从机 buff 槽显示；ff 捎带快进状态）
 export function sendStep(step, activeBuffs, speed, ff) { return netSend({ t: 'step', step: plainStep(step, activeBuffs, speed, ff) }); }
 // 从机：取下一步（无则挂起等，断线返回 null）

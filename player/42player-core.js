@@ -1,5 +1,5 @@
-// ~34200 bytes | V6.7.0 | 2026-09-19 快进两端同步：房主 step 捎带 ff、从机跟随并把「快进」做成共享状态；从机播完回 guestDone，房主据此解锁下一关
-export const VER = 'player/42player-core.js V6.7.0';
+// ~34400 bytes | V6.8.0 | 2026-09-19 从机开战改用摆位阵容垫底（不再先渲染空网格）；房主 start 捎带关卡号供从机补正关卡与标签
+export const VER = 'player/42player-core.js V6.8.0';
 
 import { eventBus } from '../infra/50-event-bus.js';
 import { FX_SIGNALS } from '../infra/55-fx-signals.js';
@@ -393,8 +393,10 @@ export async function playBattle() {
     c.updateUI();
 
     // 联网对战阶段2：房主通知从机进入战斗（未联网时零副作用）
+    // 捎带当前关卡号：房主选关时虽已发过 lineup，但 start 是「必定到达」的那条消息，
+    // 从机据此补正关卡与左侧标签，避免 lineup 丢包后从机一直停在第 1 关
     const netLinked = net.isNetHost() && net.isConnected();
-    if (netLinked) net.sendStart();
+    if (netLinked) net.sendStart(GlobalStore.get('currentStage'));
 
     setupDeathTimers(c);
 
@@ -598,8 +600,11 @@ export async function playBattleGuest() {
     const abortSig = c.abortController.signal;
     c._battleEnded = false;
 
-    // 从机 store 先空着：第一条 step 一到就被房主的整套单位覆盖（syncStoreFromStep 全量替换）
-    c.store = createStore({ units: [], round: 1 }, battleReducer);
+    // 从机 store 用摆位阵容垫底：原来给空数组 + 紧接着 c.updateUI()，会先渲染出一片空格子，
+    // 要等房主跑完海克斯、发出第一条 step 才恢复 —— 这就是「开战瞬间画面突然消失一下」。
+    // 第一条 step 一到仍会被 syncStoreFromStep 整套覆盖。
+    const seedUnits = [...((c.UI && c.UI.allyTeam) || []), ...((c.UI && c.UI.enemyTeam) || [])];
+    c.store = createStore({ units: seedUnits, round: 1 }, battleReducer);
     GlobalStore.set('battleStore', c.store);
     const setRenderStoreFn = GlobalStore.getUIHandler('setRenderStore');
     if (setRenderStoreFn) setRenderStoreFn(c.store);
