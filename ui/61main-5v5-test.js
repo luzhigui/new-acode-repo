@@ -1,5 +1,5 @@
-// V6.4.1 | ~34300 bytes | 2026-09-19 修：房主 lineupReady 只写 UI.enemyTeam（snapshot.enemy 是 frozen，写它会抛）；联网阶段3：阵容下发/站位回传 + 海克斯双向
-export const VER = 'ui/61main-5v5-test.js V6.4.1';
+// V6.5.0 | ~34800 bytes | 2026-09-19 从机进对局即注入本地RNG（开局海克斯 createBuffObject 不再崩）+ 联网下关掉新手引导；阶段3：阵容下发/站位回传 + 海克斯双向
+export const VER = 'ui/61main-5v5-test.js V6.5.0';
 
 import '../infra/54-global-store.js';
 import { GlobalStore } from '../infra/54-global-store.js';
@@ -164,6 +164,12 @@ function applyNetLineup(lineup) {
     setState.adjustMode(true); setState.selectedAdjustPos(null);
     setState.activeBuffs([]); currentDoubleStrikeUid = null;
     isBattleStarting = false; hasLoggedTeam = false;
+    // 联网从机：一进对局就注入本地 RNG。开局海克斯弹窗会调 createBuffObject（圣火令要抽 cols/rows），
+    // 那时还没进 playBattleGuest，不在这里注入就会 null.nextInt 崩。
+    // 本地 RNG 只保证不崩，战斗数据仍以房主下发的 step/activeBuffs 为准。
+    setBattleRng(new SeededRNG(Date.now() % 1000000));
+    // 联网对局不走新手引导（站位规则不同），顺手关掉可能已排队的开场引导，避免它压在海克斯弹窗上
+    stepBattleStart();
     const overlay = document.getElementById('coverOverlay');
     if (overlay) overlay.style.display = 'none';
     clearLogExceptFirst(); clearAllEffects();
