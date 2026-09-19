@@ -1,6 +1,6 @@
 // infra/60-net-pvp.js - 联网对战·阶段3（WebRTC 连接层 + step 同步 + 阵容/海克斯双向）
-// ~12500 bytes | V6.5.0 | 2026-09-19 方案A：step 捎带房主倍速（从机跟随，避免 step 积压）；_dataCb 异常不再静默吞
-export const VER = 'infra/60-net-pvp.js V6.5.0';
+// ~13500 bytes | V6.6.0 | 2026-09-19 加公共 TURN 中继（跨网/5G 打洞失败也能连）；方案A：step 捎带房主倍速（从机跟随，避免 step 积压）；_dataCb 异常不再静默吞
+export const VER = 'infra/60-net-pvp.js V6.6.0';
 
 // 阶段1 提供连接能力；阶段2 追加 step 同步（房主跑引擎发 step，从机只播演出）；
 // 阶段3 追加阵容/站位/海克斯双向（房主权威，从机回传自己的选择）。
@@ -9,6 +9,22 @@ export const VER = 'infra/60-net-pvp.js V6.5.0';
 import { StateMachine } from './51-core-utils.js';
 
 const PEERJS_CDN = 'https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js';
+
+// ---- ICE 配置 ----
+// PeerJS 默认只带 STUN（打洞用）。手机 5G 走运营商 CGNAT，NAT 类型和家用宽带凑不上，
+// 打洞必失败 → 必须带 TURN 中继兜底，否则跨网永远连不上（同 WiFi 不打洞所以能用）。
+// 443/TCP 那条是给屏蔽 UDP 的网络（部分 5G/企业网）留的后路。
+const PEER_OPTS = {
+    config: {
+        iceServers: [
+            { urls: 'stun:stun.l.google.com:19302' },
+            { urls: 'stun:stun1.l.google.com:19302' },
+            { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
+            { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' },
+            { urls: 'turn:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' }
+        ]
+    }
+};
 
 const STATUS = {
     IDLE: 'idle',
@@ -181,7 +197,7 @@ export async function createRoom(onReady, onError, customId) {
         id = Math.random().toString(36).slice(2, 8);
     }
     let p;
-    try { p = new Peer(id); } catch (e) { if (typeof onError === 'function') onError(e); return; }
+    try { p = new Peer(id, PEER_OPTS); } catch (e) { if (typeof onError === 'function') onError(e); return; }
     _peer = p; _isHost = true; _roomId = id;
     p.on('open', () => {
         setStatus(STATUS.WAITING, { roomId: id, isHost: true });
@@ -210,7 +226,7 @@ export async function joinRoom(roomId, onReady, onError) {
     }
     const Peer = window.Peer;
     let p;
-    try { p = new Peer(); } catch (e) { if (typeof onError === 'function') onError(e); return; }
+    try { p = new Peer(PEER_OPTS); } catch (e) { if (typeof onError === 'function') onError(e); return; }
     _peer = p; _isHost = false; _roomId = rid;
     p.on('open', () => {
         try {
