@@ -1,5 +1,4 @@
-// V6.4.1 | ~34200 bytes | 2026-09-19 修：房主 lineupReady 只写 UI.enemyTeam（snapshot.enemy 是 frozen，写它会抛）
-// V6.4.0 | ~33700 bytes | 2026-09-19 联网对战阶段3：阵容下发/站位回传 + 海克斯双向选择
+// V6.4.1 | ~34300 bytes | 2026-09-19 修：房主 lineupReady 只写 UI.enemyTeam（snapshot.enemy 是 frozen，写它会抛）；联网阶段3：阵容下发/站位回传 + 海克斯双向
 export const VER = 'ui/61main-5v5-test.js V6.4.1';
 
 import '../infra/54-global-store.js';

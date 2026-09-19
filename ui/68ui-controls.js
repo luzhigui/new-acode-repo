@@ -1,6 +1,5 @@
-// V6.5.0 | ~32400 bytes | 2026-09-19 联网PVP阶段3：各管一队摆位（房主明教/从机六大派）+ 准备/等待按钮 + buff 槽按阵营
-// V6.4.0 | ~30100 bytes | 2026-09-19 联网PVP：调整站位阶段开放「关卡选择」按钮（两人可挑 1-6 关）
-export const VER = 'ui/68ui-controls.js V6.5.0';
+// V6.6.0 | ~33300 bytes | 2026-09-19 日志标题栏加联网身份角标（房主/加入方）；阶段3：各管一队摆位 + 准备/等待按钮 + buff 槽按阵营
+export const VER = 'ui/68ui-controls.js V6.6.0';
 
 // 2026-09-14 打断 63↔68 循环依赖：getState/setState 直接取自 infra/54（63 只做转发）
 import { getState, setState, GlobalStore, getPlayerContext } from '../infra/54-global-store.js';
@@ -187,8 +186,19 @@ function updateAutoModeButton() {
     btn.classList.toggle('active', lvl !== 'manual');
 }
 
+// 联网身份角标：放日志标题栏，不塞日志正文（正文里噪音大、复制日志时会被一起带走）
+function updateNetRoleBadge() {
+    const el = document.getElementById('netRoleBadge');
+    if (!el) return;
+    const role = GlobalStore.get('netRole');
+    if (role === 'host') { el.textContent = '🌐房主'; el.style.color = '#ffd700'; }
+    else if (role === 'guest') { el.textContent = '🌐加入方'; el.style.color = '#6cb6ff'; }
+    else { el.textContent = ''; }
+}
+
 // 更新按钮状态
 function updateButtons() {
+    updateNetRoleBadge();
     const gs = getState.gs();
     const S = { IDLE: 'IDLE', RUNNING: 'RUNNING', PAUSED: 'PAUSED', GAMEOVER: 'GAMEOVER' };
     const currentStage = getState.currentStage();
