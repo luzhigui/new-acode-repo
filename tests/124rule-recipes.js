@@ -1,6 +1,7 @@
 // V1.0.0 | 每场体检按"目标规则"裁剪执行集：只跑能触发的规则，其余不参与统计(消除海量skip噪音)
 // tag 语义: hero=我方英雄(部分可强制) / enemy=敌方精英(随机出阵) / mechanic=通用机制(双方都可能) / generic=通用
 export const RULE_META = {
+    '张无忌九阳神功回复量(回归)': { tag: 'hero:张无忌', force: 'forceZhang' },
     '张无忌近身切换时机(回归)': { tag: 'hero:张无忌', force: 'forceZhang' },
     '流云身法闪避面板不生效(回归)': { tag: 'hero:韦一笑', force: 'forceWei' },
     '小昭妹飞天免疫次数超限(回归)': { tag: 'hero:小昭', note: '小昭为随机精英，无法强制，需连打多局碰出' },
