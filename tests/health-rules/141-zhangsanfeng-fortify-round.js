@@ -14,7 +14,7 @@
 //     其 BUFF_SUMMARY 事实 buff.name 固定为 '严阵以待'、allyTeamUids 仅含张三丰自身 uid，与六大派 camp 坚盾区分开。
 //   - 严阵以待在第6回合「开始时」即挂（prepareRoundStart 先推 ROUND_START 再跑 ON_ROUND_START），
 //     故只要第6回合已开始且张三丰当时存活，该事实必在日志里；张三丰存活到终局 ⇒ 第6回合必存活。
-export const VER = 'tests/health-rules/141-zhangsanfeng-fortify-round.js V6.1.11';
+export const VER = 'tests/health-rules/141-zhangsanfeng-fortify-round.js V6.1.10';
 
 export const rule88 = {
     group: '精英技能回归',
