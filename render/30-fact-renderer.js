@@ -463,7 +463,7 @@ export function renderKuLianPriorityFact(fact) {
     return { type:'info', text:`<span class="gold">⚡ 苦练勤学：${fact.unitName} 率先行动！</span>` };
 }
 export function renderKuLianFact(fact) {
-    return { type:'info', text:`<span class="gold">🏋️ 苦练强化：${fact.unitName} 激励全体队友+${fact.atkBonus}攻+${fact.defBonus}防+${fact.hpBonus}血上限（自身三倍）！</span>` };
+    return { type:'info', text:`<span class="gold">🏋️ 苦练强化：${fact.unitName} 激励全体队友+${fact.atkBonus}攻+${fact.defBonus}防+${fact.hpBonus}血上限（自身双倍）！</span>` };
 }
 
 // 概率连击
