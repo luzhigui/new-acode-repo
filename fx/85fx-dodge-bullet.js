@@ -7,15 +7,24 @@ import { STORE_ACTION_TYPES, CAMP_TYPES } from '../infra/56-battle-enums.js';
 import { snapshotUnitCellRobust, getUnitCell } from './90fx-ref-manager.js';
 import { clock } from '../infra/52-clock.js';
 
+// 2026-09-20 宽屏留黑适配：舞台=body 那根居中限宽 520px 的"手机柱"。
+// 本文件原先全按 innerWidth（整块屏幕）算分镜位置——宽屏电脑上闪电/克隆体/分镜框会飞进两侧黑边。
+// 统一改按舞台矩形换算；手机上舞台=全屏（left=0, width=innerWidth），行为一个像素不变。
+function stageBox() {
+    const r = document.body.getBoundingClientRect();
+    return { left: r.left, top: r.top, width: r.width, height: r.height, right: r.right, bottom: r.bottom };
+}
+
 function createZigzagLightning() {
     const svgNS = "http://www.w3.org/2000/svg";
     const svg = document.createElementNS(svgNS, "svg");
     svg.setAttribute("class", "lightning-split");
     svg.setAttribute('data-fx', 'temporary');
-    svg.style.position = 'fixed'; svg.style.left = '0'; svg.style.top = '0';
-    svg.style.width = '100%'; svg.style.height = '100%'; svg.style.pointerEvents = 'none';
+    const st = stageBox();
+    svg.style.position = 'fixed'; svg.style.left = st.left + 'px'; svg.style.top = st.top + 'px';
+    svg.style.width = st.width + 'px'; svg.style.height = st.height + 'px'; svg.style.pointerEvents = 'none';
     svg.style.zIndex = '9995';
-    const w = innerWidth, h = innerHeight;
+    const w = st.width, h = st.height;
     const d = `M${w*0.95},${h*0.15} L${w*0.65},${h*0.25} L${w*0.8},${h*0.35} L${w*0.5},${h*0.45} L${w*0.65},${h*0.55} L${w*0.25},${h*0.65} L${w*0.05},${h*0.95}`;
     const path = document.createElementNS(svgNS, "path");
     path.setAttribute("d", d);
@@ -215,13 +224,16 @@ export async function showDodgeBulletTime(attacker, defender, reboundDmg) {
             ctx.updateUI();
         }
 
-        const pos = { ax: innerWidth * 0.09, ay: innerHeight * 0.16, dx: innerWidth * 0.64, dy: innerHeight * 0.68 };
+        const st = stageBox();
+        const pos = { ax: st.left + st.width * 0.09, ay: innerHeight * 0.16, dx: st.left + st.width * 0.64, dy: innerHeight * 0.68 };
 
         // 跳过按钮
         const skipBtn = document.createElement('div');
         skipBtn.className = 'skip-btn';
         skipBtn.textContent = '跳过';
-        skipBtn.style.cssText = 'position:fixed;bottom:12%;right:8%;z-index:99999;'
+        // 跳过按钮：right 按舞台算（屏幕右缘到柱子右缘的距离 + 柱宽的 8%），宽屏上不飘进黑边，手机上与原 8% 等价
+        const skipRight = (window.innerWidth - st.right + st.width * 0.08) + 'px';
+        skipBtn.style.cssText = 'position:fixed;bottom:12%;right:' + skipRight + ';z-index:99999;'
             + 'color:rgba(255,255,255,0.7);font-size:18px;font-weight:bold;'
             + 'cursor:pointer;pointer-events:auto;transform:rotate(-30deg);'
             + 'text-align:center;line-height:1;letter-spacing:2px;';
@@ -253,7 +265,7 @@ export async function showDodgeBulletTime(attacker, defender, reboundDmg) {
 
         // 反击者克隆体（从右侧飞入）
         cloneD = buildClone(htmlD, rectD, `
-            left: ${innerWidth}px;
+            left: ${st.right}px;
             top: ${pos.dy - rectD.height/2}px;
             width: ${rectD.width}px;
             height: ${rectD.height}px;
@@ -272,7 +284,7 @@ export async function showDodgeBulletTime(attacker, defender, reboundDmg) {
 
         // 攻击者克隆体
         cloneA = buildClone(htmlA, rectA, `
-            left: ${pos.ax - innerWidth*0.06}px;
+            left: ${pos.ax - st.width*0.06}px;
             top: ${pos.ay - innerHeight*0.06}px;
             width: ${rectA.width}px;
             height: ${rectA.height}px;
@@ -283,7 +295,7 @@ export async function showDodgeBulletTime(attacker, defender, reboundDmg) {
         cloneA.querySelectorAll('*').forEach(el => { el.style.color = '#ffffff'; });
         cleanupElements.push(cloneA);
 
-        const startAX = pos.ax - innerWidth*0.06;
+        const startAX = pos.ax - st.width*0.06;
         const startAY = pos.ay - innerHeight*0.06;
 
         const kanzhao = showComicBubble('看招！', startAX + 40, startAY + 10, '');
@@ -310,7 +322,7 @@ export async function showDodgeBulletTime(attacker, defender, reboundDmg) {
         // 防御者进场
         await clock.animate(500, (t) => {
             if (isSkipped) return;
-            cloneD.style.left = (innerWidth + (pos.dx - innerWidth) * t) + 'px';
+            cloneD.style.left = (st.right + (pos.dx - st.right) * t) + 'px';
             cloneD.style.transform = `scale(${0.8 + 0.4 * t})`;
         });
         if (isSkipped) { cleanup(); return; }
@@ -508,7 +520,7 @@ export async function showDodgeBulletTime(attacker, defender, reboundDmg) {
         // 攻击者飞走
         const flyAwayStartX = parseFloat(cloneA.style.left);
         const flyAwayStartY = parseFloat(cloneA.style.top);
-        const maxDistX = innerWidth * 0.10;
+        const maxDistX = st.width * 0.10;
         const maxDistY = innerHeight * 0.10;
         await clock.animate(2000, (t) => {
             if (isSkipped) return;
