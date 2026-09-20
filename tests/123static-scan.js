@@ -54,7 +54,8 @@ export const SCAN_FILES = [
     './health-rules/139-spider-butterfly-target.js',     './health-rules/140-wei-dodge-cloud.js',
     './health-rules/141-zhangsanfeng-fortify-round.js',
     './health-rules/142-zhangsanfeng-endless-roundstart.js',
-    './health-rules/143-jiuyang-heal-pct.js'
+    './health-rules/143-jiuyang-heal-pct.js',
+    './health-rules/145-fly-miss-aura.js'
 ];
 
 // 提取文件的 static import 信息（仅静态 import 语句，跳过动态 import()）
