@@ -1,5 +1,5 @@
-// V6.0.0 | ~9450 bytes | 2026-08-24 坚盾每回合上限 3→4（成昆倍率联动变 8）
-export const VER = 'core/01config-5v5-test.js V6.0.0';
+// V6.1.0 | ~9450 bytes | 2026-09-20 飞行未命中光环：残血加成 12→6、空列减免 6→12
+export const VER = 'core/01config-5v5-test.js V6.1.0';
 
 import { ROLE_TYPES } from '../infra/56-battle-enums.js';
 
@@ -82,8 +82,8 @@ const CONFIG = {
     RANGED_MISS_CHANCE: 3,
     FLY_MISS_CHANCE: 6,
     GROUND_MISS_CHANCE: 1,
-    FLY_MISS_LOWHP_BONUS: 12,
-    FLY_MISS_EMPTYCOL_REDUCE: 6,
+    FLY_MISS_LOWHP_BONUS: 6,
+    FLY_MISS_EMPTYCOL_REDUCE: 12,
     FANG_LEVELS: [0.150, 0.200, 0.240, 0.270, 0.290, 0.310, 0.330, 0.350, 0.370, 0.390, 0.410, 0.430, 0.460, 0.490, 0.530, 0.570, 0.620, 0.670, 0.730, 0.800],
     FANG_K: [0.04, 0.05, 0.06, 0.07, 0.08, 0.09, 0.11, 0.12, 0.14, 0.16, 0.19, 0.22, 0.26, 0.30, 0.35, 0.46, 0.66, 0.88, 1.16, 6.66],
     MAX_ROUND: 35,
