@@ -21,6 +21,7 @@ import { rule84 } from './health-rules/137-kulian-prompt.js';
 import { rule85 } from './health-rules/138-wind-push.js';
 import { rule86 } from './health-rules/139-spider-butterfly-target.js';
 import { rule87 } from './health-rules/140-wei-dodge-cloud.js';
+import { rule88 } from './health-rules/141-zhangsanfeng-fortify-round.js';
 import {
     getCellElement, checkUnitHpValidity,
     checkHpBarSync, checkHpBarColor, checkFxOrphans,
@@ -435,7 +436,7 @@ function runRuleChecks(ctx, doc) {
         if (Array.isArray(gsLog2)) battleLog = gsLog2;
     }
     const allRules = [rule70, rule71, rule72, rule73, rule74, rule75, rule76, rule77, rule78, rule79, rule80,
-        rule81, rule82, rule83, rule84, rule85, rule86, rule87];
+        rule81, rule82, rule83, rule84, rule85, rule86, rule87, rule88];
     // 规则配方裁剪：只跑目标规则（其余不参与计数/不占skip名单）；null=全部
     const rules = filterRulesByTags(allRules, RECIPE_TAGS);
 
