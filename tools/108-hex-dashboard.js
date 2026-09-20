@@ -167,6 +167,7 @@ function openHexDashboard() {
         <button class="hex-hex-clear">清空数据</button>
         <button class="hex-hex-load hex-hex-run" style="margin-left:8px">⚡ 自动跑</button>
         <select class="hex-hex-runsel" style="background:#333;color:#eee;border:1px solid #555;border-radius:4px;padding:4px 6px;margin-left:6px">
+          <option value="500">6关×500场</option>
           <option value="1000">6关×1000场</option>
           <option value="2000">6关×2000场</option>
         </select>
@@ -192,31 +193,86 @@ function openHexDashboard() {
     render(mask.querySelector('#hexDashSummary'), mask.querySelector('#hexDashStats'));
   });
 
-  // 2026-09-20 弹窗内自带批量战斗：直接复用 101 的 runAutoBattle（写同一个 localStorage 键），
-  // 不再依赖工具箱的「自动批量战斗」页。默认 6 关各 1000 场（可选 2000），跑完自动加载出表。
+  // 2026-09-20 弹窗内自带批量战斗：走 116 worker 池并行（与 109 职业平衡同款架构），
+  // 主线程不再被战斗计算占死（此前串行版在移动端会弹「网页暂无响应」）。
+  // 池大小 = 核心数-1（留一核给 UI，109 同款策略）：6 关排队上工，工人空了接下一关。
   mask.querySelector('.hex-hex-run').addEventListener('click', async () => {
     const runBtn = mask.querySelector('.hex-hex-run');
     const sel = mask.querySelector('.hex-hex-runsel');
     const status = mask.querySelector('#hexDashRunStatus');
-    const per = parseInt(sel.value, 10) || 1000;
+    const per = parseInt(sel.value, 10) || 500;
+    const total = 6 * per;
     runBtn.disabled = true;
+    sel.disabled = true;
     status.textContent = '加载战斗引擎…';
+    const t0 = performance.now();
+    const fmtSec = ms => (ms / 1000).toFixed(0) + 's';
     try {
-      // 战斗引擎读 CONFIG.BUFFS（游戏数据），仪表盘可能开在没加载数据的页面上——先补载
       const { loadGameData } = await import('../core/01config-5v5-test.js');
       if (!CONFIG.BUFFS) { status.textContent = '加载游戏数据…'; await loadGameData(); }
-      const { runAutoBattle } = await import('./101auto-battle-utils.js');
-      for (let stage = 1; stage <= 6; stage++) {
-        status.textContent = `第 ${stage}/6 关：0/${per} …`;
-        await runAutoBattle(per, (i) => { status.textContent = `第 ${stage}/6 关：${i}/${per} …`; }, stage);
+      const hexLogAll = [];
+      let doneCount = 0;
+      const t0run = performance.now();
+      const masterSeed = Date.now();
+      const runStage = (stage) => new Promise((resolveStage) => {
+        const w = new Worker(new URL('./116-role-balance-worker.js', import.meta.url), { type: 'module' });
+        const jobId = 'hex' + stage;
+        let started = false;
+        w.onmessage = (ev) => {
+          const msg = ev.data || {};
+          if (msg.kind === 'worker-ready') {
+            if (!msg.ok) { status.textContent = '❌ worker 启动失败'; w.terminate(); resolveStage(); return; }
+            w.postMessage({ jobId, kind: 'hex', stage, seed: masterSeed + stage * 131, runs: per });
+            started = true;
+            return;
+          }
+          if (msg.jobId !== jobId) return;
+          w.terminate();
+          doneCount++;
+          if (msg.ok && msg.result && msg.result.hexLog) hexLogAll.push(...msg.result.hexLog);
+          resolveStage();
+        };
+        w.onerror = (err) => {
+          console.error('[108-hex] worker error', err && err.message);
+          if (started) doneCount++;
+          status.textContent = `❌ 第 ${stage} 关 worker 失败：${err && err.message || '未知错误'}`;
+          w.terminate();
+          resolveStage();
+        };
+      });
+      const poolSize = Math.max(1, (navigator.hardwareConcurrency || 4) - 1);
+      const pending = [1, 2, 3, 4, 5, 6];
+      const tick = () => {
+        const el = performance.now() - t0run;
+        const eta = doneCount > 0 && doneCount < 6 ? (el / doneCount) * (6 - doneCount) : 0;
+        status.textContent = `⏳ ${doneCount}/6 关完成（${doneCount * per}/${total} 场｜${poolSize} 线程并行）｜已用 ${fmtSec(el)}${doneCount < 6 && doneCount > 0 ? '｜预计还要 ' + fmtSec(eta) : ''}`;
+      };
+      const timer = setInterval(tick, 500);
+      const runners = [];
+      for (let i = 0; i < poolSize && pending.length > 0; i++) {
+        const stage = pending.shift();
+        runners.push(runStage(stage).then(() => {
+          // 这个工人空了，接下一关（串行复用位置，总并发不超过池大小）
+          const next = pending.shift();
+          if (next) return runStage(next);
+        }));
       }
-      status.textContent = `✅ 完成：6关×${per}场`;
+      await Promise.all(runners);
+      clearInterval(timer);
+      // 结果追加进 localStorage（与 101 同键同格式，加载数据/历史记录无缝衔接）
+      try {
+        const prev = JSON.parse(localStorage.getItem(KEY) || '[]');
+        localStorage.setItem(KEY, JSON.stringify(prev.concat(hexLogAll)));
+      } catch (e) {}
+      const dt = ((performance.now() - t0) / 1000).toFixed(1);
+      status.textContent = `✅ 完成：6关×${per}场 共 ${hexLogAll.length} 条记录，总耗时 ${dt}s（${poolSize} 线程并行）`;
       try { logs = JSON.parse(localStorage.getItem(KEY) || '[]'); } catch(e) { logs = []; }
       render(mask.querySelector('#hexDashSummary'), mask.querySelector('#hexDashStats'));
     } catch (e) {
       status.textContent = '❌ 失败：' + (e && e.message ? e.message : e);
     } finally {
       runBtn.disabled = false;
+      sel.disabled = false;
     }
   });
 
