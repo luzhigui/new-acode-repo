@@ -294,7 +294,10 @@ function triggerExecuteShatter(rect) {
         redFlash.style.opacity = '0';
     });
     clock.wait(1000).then(() => {
-        if (redFlash.parentNode) redFlash.parentNode.remove();
-        shards.forEach(s => { if (s.parentNode) s.parentNode.remove(); });
+        // 2026-09-20 修白骨爪斩杀后白屏：原来写成 redFlash.parentNode.remove()——删的是闪光元素的爹
+        // （document.body），斩杀碎开播完 1 秒整个页面主体被移除 → 白屏。同款错误还有碎片那行。
+        // 应删元素自己：redFlash.remove() / s.remove()。全文件其他特效都是这个正确写法，独这两行漏网。
+        if (redFlash.parentNode) redFlash.remove();
+        shards.forEach(s => { if (s.parentNode) s.remove(); });
     });
 }
