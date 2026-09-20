@@ -223,10 +223,76 @@ function runEliteStageJob(cfg, stage, seed, runs) {
     return { wins, validRuns, sumDmg, sumTaken, sumSurv };
 }
 
+// 108 海克斯仪表盘：整局自动战斗（含第3/6/9回合自动补海克斯），逻辑与 101 runBattle 等价。
+// 搬进 worker 是因为主线程一口气跑几百场会把页面占死（移动端弹「网页暂无响应」）。
+// seed 公式与 101 主线程版一致（Date.now() + i*7919），差异只在于是否并行，统计口径不受影响。
+function runHexStageJob(stage, baseSeed, runs) {
+    const hexLog = []; // [{ stage, buffs: [key], winner }]
+    const C = CONFIG;
+    const maxRound = C.MAX_ROUND || 35;
+    for (let i = 0; i < runs; i++) {
+        clearBattleGlobals();
+        const seed = baseSeed + i * 7919;
+        const initRng = new SeededRNG(seed);
+        const teams = initBattleTeams(stage, initRng);
+        const rng = new SeededRNG(seed);
+        let battleState = {
+            ally: teams.allyTeam.map(u => u.clone()),
+            enemy: teams.enemyTeam.map(u => u.clone()),
+            round: 1,
+            activeBuffs: [],
+            allAllies: teams.allyTeam.map(u => u.clone()),
+            _rng: rng
+        };
+        let lastStep = null;
+        const buffsPicked = [];
+        let winner = '平局';
+        while (battleState.round <= maxRound) {
+            const stepper = createRoundStepper(battleState, { ui: false });
+            for (const step of stepper) {
+                lastStep = step;
+                if (step.winner) { winner = step.winner; break; }
+            }
+            if (winner !== '平局') break;
+            let nextBuffs = (battleState.activeBuffs || []).map(b => ({ ...b, remaining: b.remaining - 1 })).filter(b => b.remaining > 0);
+            if (battleState.round % 3 === 0) {
+                const existing = nextBuffs.map(b => b.key);
+                const allyAlive = battleState.ally.filter(u => u.alive);
+                const available = Object.keys(C.BUFFS).filter(k => {
+                    if (existing.includes(k)) return false;
+                    const req = C.BUFF_ROLE_REQUIREMENTS?.[k];
+                    if (req && !allyAlive.some(u => u.role === req)) return false;
+                    return true;
+                });
+                if (available.length > 0) {
+                    const pick = available[rng.nextInt(0, available.length - 1)];
+                    const duration = C.BUFFS[pick].duration || C.BUFF_DURATION || 4;
+                    const nb = { key: pick, target: CAMP_TYPES.ALLY, remaining: duration, name: C.BUFFS[pick].name };
+                    if (pick === BUFF_TYPES.HOLY_FLAME) {
+                        nb.col = rng.nextInt(1, 3);
+                        nb.row = rng.nextInt(1, 3);
+                    }
+                    nextBuffs.push(nb);
+                    buffsPicked.push(nb);
+                }
+            }
+            battleState = {
+                ally: (lastStep ? lastStep.ally : battleState.ally).map(u => u.clone()),
+                enemy: (lastStep ? lastStep.enemy : battleState.enemy).map(u => u.clone()),
+                round: battleState.round + 1,
+                activeBuffs: nextBuffs,
+                allAllies: battleState.allAllies,
+                _rng: battleState._rng
+            };
+        }
+        hexLog.push({ stage, buffs: buffsPicked.map(b => b.key), winner });
+    }
+    return { hexLog };
+}
+
 // 113 统计体检
 // 原主线程逻辑：initBattleTeams → hp-tracker 订阅 → runWholeBattle → record 进 agg（主线程聚合）
-function runStatsStageJob(stage, seed, runs) {
-    const agg = {}; // worker 内自聚合，返回给主线程直接并入全局 agg
+function runStatsStageJob(stage, seed, runs) {    const agg = {}; // worker 内自聚合，返回给主线程直接并入全局 agg
     for (let i = 0; i < runs; i++) {
         clearBattleGlobals();
         // 订阅 hp-change 事件流：以 maxHp 是否变化区分「战斗扣血」与「重分配扣血」
@@ -377,6 +443,9 @@ self.onmessage = (e) => {
         } else if (kind === 'stats') {
             const { stage, seed, runs } = e.data;
             result = runStatsStageJob(stage, seed, runs);
+        } else if (kind === 'hex') {
+            const { stage, seed, runs } = e.data;
+            result = runHexStageJob(stage, seed, runs);
         } else if (kind === 'baseline') {
             const { stage, seed, runs, cfgA, cfgB } = e.data;
             result = runBaselineStageJob(stage, seed, runs, cfgA, cfgB);
