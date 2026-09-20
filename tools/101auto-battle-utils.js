@@ -109,6 +109,9 @@ export async function runAutoBattle(rounds, onProgress, stage = 1, preferredBuff
         else wins.draw++;
         hexLog.push({ stage, buffs: result.buffsPicked.map(b => b.key), winner: result.winner });
         if (onProgress) onProgress(i + 1, rounds);
+        // 2026-09-20 每 25 场让出主线程一瞬：runBattle 是纯同步计算，一口气跑几百场会把主线程占死
+        // （移动端弹"网页暂无响应"、进度文字永远画不出来）。setTimeout(0) 是宏任务，浏览器借机重绘。
+        if ((i + 1) % 25 === 0 && i + 1 < rounds) await new Promise(r => setTimeout(r, 0));
     }
     // 新增：追加保存海克斯归因记录，供 108 仪表盘读取
     try {
