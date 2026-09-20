@@ -249,15 +249,24 @@ document.getElementById('btnGameDesign').addEventListener('click', () => {
             }
         });
 
-        // 2026-09-20 右下角时间戳：与 index.html #coverVersion 同款——自动读文件最后修改时间，
-        // 部署新版自动变，不再手写死数字（原副标题里的"12:15"就是手写的时间，早过期了）
-        const stamp = document.createElement('div');
-        const d = document.lastModified ? new Date(document.lastModified) : null;
-        stamp.style.cssText = 'position:fixed;bottom:12px;right:16px;font-size:10px;color:#888;text-align:right;line-height:1.4;z-index:100000;pointer-events:none;';
-        stamp.textContent = (d && !isNaN(d.getTime()) && d.getFullYear() > 2000)
-            ? '🕒 ' + d.toLocaleString('zh-CN', { hour12: false })
-            : '';
-        document.body.appendChild(stamp);
+        // 2026-09-20 时间戳改读 GitHub 仓库最新提交时间（真值）：
+        // 之前的 document.lastModified 在 GitHub Pages 上不可靠（读到的不是代码更新时间），
+        // 本地打开时读的是文件拷贝时间，也不对。先垫 lastModified，请求成功后覆盖为最新提交时间。
+        (function () {
+            const stamp = document.createElement('div');
+            stamp.style.cssText = 'position:fixed;bottom:12px;right:16px;font-size:10px;color:#888;text-align:right;line-height:1.4;z-index:100000;pointer-events:none;';
+            const fmt = ms => '🕒 ' + new Date(ms).toLocaleString('zh-CN', { hour12: false });
+            const fb = document.lastModified ? new Date(document.lastModified) : null;
+            if (fb && !isNaN(fb.getTime()) && fb.getFullYear() > 2000) stamp.textContent = fmt(fb.getTime());
+            fetch('https://api.github.com/repos/luzhigui/new-acode-repo/commits?per_page=1')
+                .then(r => r.ok ? r.json() : null)
+                .then(arr => {
+                    const t = arr && arr[0] && arr[0].commit && arr[0].commit.committer && arr[0].commit.committer.date;
+                    if (t) stamp.textContent = fmt(new Date(t).getTime());
+                })
+                .catch(() => {});
+            document.body.appendChild(stamp);
+        })();
 
     </script>
 
