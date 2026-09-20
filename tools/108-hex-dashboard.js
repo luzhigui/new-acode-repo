@@ -218,19 +218,25 @@ function render(summary, stats) {
   const hexKeys = new Set();
   logs.forEach(l => (l.buffs || []).forEach(b => hexKeys.add(b)));
 
-  // 基准 = 所有含海克斯场次的平均胜率（2026-09-20 改）
-  // 原基准为"不含该海克斯场次的胜率"，但同库其他地方（如逐场 buff 数）会一起变动，
-  // 导致每个海克斯的差值一律为正、判定失真，故统一改用全场次海克斯平均胜率作基准。
-  const hexLogs = logs.filter(l => (l.buffs || []).length > 0);
-  const baseRate = hexLogs.length > 0
-    ? (hexLogs.filter(l => l.winner === '明教').length / hexLogs.length) * 100
-    : null;
-
-  const rows = [];
+  // 第一遍：先算出每个海克斯各自的胜率
+  const perKey = [];
   for (const key of hexKeys) {
     const withHex = logs.filter(l => (l.buffs || []).includes(key));
     const winRate = (withHex.filter(l => l.winner === '明教').length / withHex.length) * 100;
-    const diff = baseRate !== null ? winRate - baseRate : null;
+    perKey.push({ key, withHex, winRate });
+  }
+
+  // 2026-09-20 基准 =「所有海克斯各自胜率的平均」（用户拍板，合并时保留此口径）：
+  // buff 数≈这局打了多久，"海克斯多"的局本来就更容易赢 → 任何海克斯的样本都偏向这些局。
+  // 注意：全场次平均胜率（含任意海克斯的场次的胜率）当尺子时人人虚高、差值仍全为正——
+  // 只有拿"参赛者平均水平"当尺子，共同虚高才会在相减时抵消，剩下的才是海克斯之间的相对强弱。
+  const avgRate = perKey.length > 0
+    ? perKey.reduce((s, x) => s + x.winRate, 0) / perKey.length
+    : null;
+
+  const rows = [];
+  for (const { key, withHex, winRate } of perKey) {
+    const diff = avgRate !== null ? winRate - avgRate : null;
 
     let tag = '';
     if (withHex.length >= 10 && diff !== null) {
@@ -238,13 +244,13 @@ function render(summary, stats) {
       else if (diff < -8) tag = '<span class="hex-hex-weak">WEAK</span>';
     }
 
-    const baseText = baseRate !== null ? `${baseRate.toFixed(1)}%` : '无样本';
+    const baseText = avgRate !== null ? `${avgRate.toFixed(1)}%` : '无样本';
     const diffText = diff !== null ? (diff > 0 ? `+${diff.toFixed(1)}%` : diff.toFixed(1) + '%') : '-';
     const diffScale = 6; // 差值刻度：越小条越长（6 → 差 6% 即顶满半幅，视觉更夸张）
     const posPct = diff !== null && diff > 0 ? Math.min(diff / diffScale * 50, 50) : 0;
     const negPct = diff !== null && diff < 0 ? Math.min(Math.abs(diff) / diffScale * 50, 50) : 0;
 
-    rows.push({ key, name: HEX_NAME_MAP[key] || key, count: withHex.length, winRate, baseRate, diff, diffText, baseText, posPct, negPct, tag });
+    rows.push({ key, name: HEX_NAME_MAP[key] || key, count: withHex.length, winRate, baseRate: avgRate, diff, diffText, baseText, posPct, negPct, tag });
   }
 
   rows.sort((a, b) => b.count - a.count);
