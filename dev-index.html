@@ -249,6 +249,16 @@ document.getElementById('btnGameDesign').addEventListener('click', () => {
             }
         });
 
+        // 2026-09-20 右下角时间戳：与 index.html #coverVersion 同款——自动读文件最后修改时间，
+        // 部署新版自动变，不再手写死数字（原副标题里的"12:15"就是手写的时间，早过期了）
+        const stamp = document.createElement('div');
+        const d = document.lastModified ? new Date(document.lastModified) : null;
+        stamp.style.cssText = 'position:fixed;bottom:12px;right:16px;font-size:10px;color:#888;text-align:right;line-height:1.4;z-index:100000;pointer-events:none;';
+        stamp.textContent = (d && !isNaN(d.getTime()) && d.getFullYear() > 2000)
+            ? '🕒 ' + d.toLocaleString('zh-CN', { hour12: false })
+            : '';
+        document.body.appendChild(stamp);
+
     </script>
 
 </body>
