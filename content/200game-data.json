@@ -100,7 +100,7 @@
         },
         "kuLian": {
           "name": "苦练",
-          "desc": "场上无周芷若时每回合最先行动；行动前给全体队友+{atkBonus}攻+{defBonus}防+{hpBonus}生命上限，自身三倍",
+          "desc": "场上无周芷若时每回合最先行动；行动前给全体队友+{atkBonus}攻+{defBonus}防+{hpBonus}生命上限，自身双倍",
           "params": {
             "atkBonus": 1,
             "defBonus": 2,
@@ -257,7 +257,7 @@
         {
           "camp": "ally",
           "onHitEffects": [
-            { "type": "healMaxHpPct", "pct": 0.08 }
+            { "type": "healMaxHpPct", "pct": 0.10 }
           ]
         }
       ],
@@ -265,7 +265,7 @@
         "nineYang": {
           "name": "九阳神功",
           "desc": "每次攻击后回复最大生命{healPct}%",
-          "params": { "healPct": 8 }
+          "params": { "healPct": 10 }
         },
         "qianKun": {
           "name": "乾坤大挪移",

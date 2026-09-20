@@ -408,7 +408,7 @@ function submitKuLian(data, decls) {
     const s = { atkBonus: kp.atkBonus, defBonus: kp.defBonus, hpBonus: kp.hpBonus };
     const targets = B.filter(u => u.alive && !u.isHorse);
     for (const u of targets) {
-        const mult = u.uid === kuLianSong.uid ? 3 : 1;
+        const mult = u.uid === kuLianSong.uid ? 2 : 1;
         addMod(u, 'atk', { source: '苦练', value: s.atkBonus * mult, ttl: 'permanent', group: 'kuLian', op: 'add' });
         addMod(u, 'def', { source: '苦练', value: s.defBonus * mult, ttl: 'permanent', group: 'kuLian', op: 'add' });
         addMod(u, 'maxHp', { source: '苦练', value: s.hpBonus * mult, ttl: 'permanent', group: 'kuLian', op: 'add' });

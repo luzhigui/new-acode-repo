@@ -1,5 +1,5 @@
-// V6.4.0 | ~5300 bytes | 2026-09-20 取消如沐春风（队友行动后回血）；生生不息溢出转嫁补飘字与日志（含队友实际回复量）；溢出治疗记账归张三丰（补传 source）
-export const VER = 'modules/26elite-sixsects.js V6.4.0';
+// V6.5.0 | ~5200 bytes | 2026-09-20 取消回合开始触发（生生不息只剩「轮到自己」与「八卦阵」两处）；取消如沐春风；溢出转嫁补飘字与日志、治疗记账归张三丰
+export const VER = 'modules/26elite-sixsects.js V6.5.0';
 import { registerElite } from '../core/08-elite-registry.js';
 import { CONFIG, getSkillParams } from '../core/01config-5v5-test.js';
 import { SIGNAL_TYPES, FACT_TYPES, BUFF_TYPES } from '../infra/56-battle-enums.js';
@@ -41,7 +41,7 @@ export function createZhangSanfengComponent() {
             const tf = getSkillParams('张三丰', 'tenRoundFortify');
             if (!tf) throw new Error('缺技能参数: 张三丰.tenRoundFortify');
 
-            // 生生不息：只回 healPct 上限（三处触发共用）。加防不在这里——加防属于八卦阵（掉攻的同时加防）
+            // 生生不息：只回 healPct 上限（两处触发共用：轮到自己 / 八卦阵）。加防不在这里——加防属于八卦阵（掉攻的同时加防）
             // 2026-09-20 新增溢出转嫁：自身回不满的那部分（满血时即全部）转给友方 hp/maxHp 最低的存活单位，
             // 拒马也算友方
             function triggerEndlessBreath(unit, log) {
@@ -73,12 +73,12 @@ export function createZhangSanfengComponent() {
                     }
                 }
 
-                // 2026-09-17 飘字：三处触发共用（回合开始 / 轮到自己 / 八卦阵）；2026-09-20 溢出接盘者单独飘一条
+                // 2026-09-17 飘字：两处触发共用（轮到自己 / 八卦阵）；2026-09-20 溢出接盘者单独飘一条
                 if (!GlobalStore.get('fastForwardActive')) {
                     if (healed > 0) eventBus.emit(FX_SIGNALS.HEAL_FLOAT, { unit, amount: healed });
                     if (receiverHealed > 0) eventBus.emit(FX_SIGNALS.HEAL_FLOAT, { unit: receiver, amount: receiverHealed });
                 }
-                // 2026-09-17 日志：走 fact（三处触发都进主 log，随 step 渲染）
+                // 2026-09-17 日志：走 fact（两处触发都进主 log，随 step 渲染）
                 if (log) {
                     log.push({
                         factType: FACT_TYPES.ENDLESS_BREATH,
@@ -93,12 +93,7 @@ export function createZhangSanfengComponent() {
                 }
             }
 
-            // 技能1a：回合开始触发
-            eventBus.on(SIGNAL_TYPES.ON_ROUND_START, 12, (data) => {
-                triggerEndlessBreath(zhang, data && data.log);
-            });
-
-            // 技能1b：轮到自己行动完成时再触发一次生生不息（原「如沐春风」已取消）
+            // 技能1：轮到自己行动完成时触发（原「回合开始触发」2026-09-20 取消、「如沐春风」同日取消）
             eventBus.on(SIGNAL_TYPES.ON_UNIT_ACTED, 50, (data) => {
                 const actor = data.unit;
                 if (!actor || !actor.alive || !actor.isZhangSanfeng) return;
