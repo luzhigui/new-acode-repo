@@ -72,7 +72,28 @@ try {
 // 工具函数 (模块顶层，可在任何地方使用)
 function getWin() { try { return gameFrame.contentWindow; } catch (e) { return null; } }
 function getDoc() { try { return gameFrame.contentDocument || getWin().document; } catch (e) { return null; } }
-function getCtx() { const w = getWin(); if (!w || !w._getPlayerContext) return null; try { return w._getPlayerContext(); } catch (e) { return null; } }
+// 取游戏侧玩家上下文。
+// 历史：原走 window._getPlayerContext()，但引擎 2026-09-14「去 window 桥」重构把该挂载点删了
+// （infra/54-global-store.js 注释明写），此后 getCtx() 恒返回 null —— 实时体检永远卡在
+// "正在加载游戏..."，health-rules/ 下 18 条规则一条都跑不到，体检静默失效。
+// 兜底：infra/54 的 getPlayerContext() 末尾会把 ctx 写进全局 store 的 'playerContext' 键，
+// 而该全局 store 对象本身是引擎保留的公开桥（挂在 iframe 的 window 上，54 第 115 行），
+// 故可从 iframe window 取回同一个 ctx 对象实例，语义与旧桥完全一致（同一引用，UI/snapshot/gs 同源）。
+// 注：本文件是页面脚本，通过 iframe window 访问，不需要也不应 import 该 store。
+function getCtx() {
+    const w = getWin();
+    if (!w) return null;
+    if (typeof w._getPlayerContext === 'function') {
+        try { const c = w._getPlayerContext(); if (c) return c; } catch (e) {}
+    }
+    try {
+        if (w.GlobalStore && typeof w.GlobalStore.get === 'function') {
+            const c = w.GlobalStore.get('playerContext');
+            if (c) return c;
+        }
+    } catch (e) {}
+    return null;
+}
 function detectStage(doc) {
     if (!doc) return 0;
     const l = doc.getElementById('labelEnemy');
