@@ -658,9 +658,17 @@ export function renderFortifyReboundFact(fact) {
     return { type:'info', text:`<span class="gold">🛡️ 严阵以待反弹${fact.reboundDmg}给${fact.unitName}</span>` };
 }
 
-// 张三丰：生生不息
+// 张三丰：生生不息（2026-09-20 纯回血 + 溢出转嫁；加防不在此，归八卦阵）
+// 溢出文案分三种：自己回满了 / 溢出有人接（报队友实际回复量）/ 溢出无人可接（队友全满血）
 export function renderEndlessBreathFact(fact) {
-    return { type:'info', text:`<span class="green">☯ 生生不息：${fact.unitName} 回复${fact.heal}点生命，防御+${fact.defGain}</span>` };
+    const self = fact.heal > 0 ? `回复${fact.heal}点生命` : '生命已满';
+    let tail = '';
+    if (fact.overflow > 0) {
+        tail = fact.overflowToName
+            ? `，溢出${fact.overflow}点转给${fact.overflowToName}（其回复${fact.overflowHealed}点）`
+            : `，溢出${fact.overflow}点（队友均已满血）`;
+    }
+    return { type:'info', text:`<span class="green">☯ 生生不息：${fact.unitName} ${self}${tail}</span>` };
 }
 
 // 张三丰：不争（仅剩一人判负）

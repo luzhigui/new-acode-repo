@@ -1,8 +1,8 @@
-// V6.1.0 | ~4700 bytes | 2026-09-17 新增张三丰组件：生生不息、如沐春风、八卦阵、第十回合严阵以待
-export const VER = 'modules/26elite-sixsects.js V6.1.0';
+// V6.4.0 | ~5300 bytes | 2026-09-20 取消如沐春风（队友行动后回血）；生生不息溢出转嫁补飘字与日志（含队友实际回复量）
+export const VER = 'modules/26elite-sixsects.js V6.4.0';
 import { registerElite } from '../core/08-elite-registry.js';
 import { CONFIG, getSkillParams } from '../core/01config-5v5-test.js';
-import { SIGNAL_TYPES, FACT_TYPES, CAMP_TYPES, BUFF_TYPES } from '../infra/56-battle-enums.js';
+import { SIGNAL_TYPES, FACT_TYPES, BUFF_TYPES } from '../infra/56-battle-enums.js';
 import { applyStatChange, addMod, getStat, getBattleRng } from '../core/13battle-shared.js';
 import { EFFECT_TYPES } from '../infra/50-event-bus.js';
 import { GlobalStore } from '../infra/54-global-store.js';
@@ -25,7 +25,7 @@ export function createZhouZhiruoComponent() {
 }
 
 // 张三丰（六大派·防战）：不攻击的续航核心
-// 技能1 生生不息 / 技能2 如沐春风 / 技能3 八卦阵 / 技能5 第十回合严阵以待
+// 技能1 生生不息 / 技能3 八卦阵 / 技能5 第五回合严阵以待
 // 技能4 不争（仅剩一人判负）在 core/11 的胜负判定里
 export function createZhangSanfengComponent() {
     return {
@@ -36,28 +36,57 @@ export function createZhangSanfengComponent() {
 
             const s = getSkillParams('张三丰', 'endlessBreath');
             if (!s) throw new Error('缺技能参数: 张三丰.endlessBreath');
-            const sb = getSkillParams('张三丰', 'springBreeze');
-            if (!sb) throw new Error('缺技能参数: 张三丰.springBreeze');
             const ba = getSkillParams('张三丰', 'baguaArray');
             if (!ba) throw new Error('缺技能参数: 张三丰.baguaArray');
             const tf = getSkillParams('张三丰', 'tenRoundFortify');
             if (!tf) throw new Error('缺技能参数: 张三丰.tenRoundFortify');
 
-            // 生生不息：回 healPct 上限 + 防御 + defGain（三处触发共用）
+            // 生生不息：只回 healPct 上限（三处触发共用）。加防不在这里——加防属于八卦阵（掉攻的同时加防）
+            // 2026-09-20 新增溢出转嫁：自身回不满的那部分（满血时即全部）转给友方 hp/maxHp 最低的存活单位，
+            // 拒马也算友方
             function triggerEndlessBreath(unit, log) {
                 if (!unit || !unit.alive) return;
                 const heal = Math.floor(unit.maxHp * s.healPct);
+                const hpBefore = unit.hp;
                 applyStatChange(unit, 'hp', heal, null, '生生不息');
-                addMod(unit, 'def', { source: '生生不息', value: s.defGain, ttl: 'permanent', group: 'endlessBreath', op: 'add' });
-                // 2026-09-17 飘字：三处触发共用（回合开始 / 轮到自己 / 八卦阵）
+                const healed = Math.round(Math.max(0, unit.hp - hpBefore));
+                const overflow = Math.max(0, heal - healed);
+
+                // 溢出转嫁：挑 hp/maxHp 最低的存活友方（不含自己）；最低的那个也满血说明全员满血，溢出无处可去
+                let receiver = null;
+                let receiverHealed = 0;
+                if (overflow > 0) {
+                    let best = null;
+                    for (const u of B) {
+                        if (!u.alive || u.uid === unit.uid) continue;
+                        const pct = u.maxHp > 0 ? u.hp / u.maxHp : 1;
+                        if (best === null || pct < best.pct) best = { u, pct };
+                    }
+                    if (best && best.pct < 1) {
+                        const rHpBefore = best.u.hp;
+                        applyStatChange(best.u, 'hp', overflow, null, '生生不息·溢出');
+                        receiver = best.u;
+                        // 队友可能只差一点点血，实际收到的比溢出量少——飘字和日志都报实际值
+                        receiverHealed = Math.round(Math.max(0, receiver.hp - rHpBefore));
+                    }
+                }
+
+                // 2026-09-17 飘字：三处触发共用（回合开始 / 轮到自己 / 八卦阵）；2026-09-20 溢出接盘者单独飘一条
                 if (!GlobalStore.get('fastForwardActive')) {
-                    eventBus.emit(FX_SIGNALS.HEAL_FLOAT, { unit, amount: heal });
+                    if (healed > 0) eventBus.emit(FX_SIGNALS.HEAL_FLOAT, { unit, amount: healed });
+                    if (receiverHealed > 0) eventBus.emit(FX_SIGNALS.HEAL_FLOAT, { unit: receiver, amount: receiverHealed });
                 }
                 // 2026-09-17 日志：走 fact（三处触发都进主 log，随 step 渲染）
                 if (log) {
                     log.push({
                         factType: FACT_TYPES.ENDLESS_BREATH,
-                        data: { unitName: unit.name, unitUid: unit.uid, heal, defGain: s.defGain }
+                        data: {
+                            unitName: unit.name, unitUid: unit.uid,
+                            heal: healed,
+                            overflow,
+                            overflowToName: receiver ? receiver.name : null,
+                            overflowHealed: receiverHealed
+                        }
                     });
                 }
             }
@@ -67,24 +96,14 @@ export function createZhangSanfengComponent() {
                 triggerEndlessBreath(zhang, data && data.log);
             });
 
-            // 技能1b + 技能2：单位行动完成广播
+            // 技能1b：轮到自己行动完成时再触发一次生生不息（原「如沐春风」已取消）
             eventBus.on(SIGNAL_TYPES.ON_UNIT_ACTED, 50, (data) => {
                 const actor = data.unit;
-                if (!actor || !actor.alive) return;
-                if (actor.camp !== CAMP_TYPES.ENEMY) return;
-                if (actor.isZhangSanfeng) {
-                    // 轮到自己：生生不息
-                    triggerEndlessBreath(actor, data.log);
-                    return;
-                }
-                // 如沐春风：六大派队友行动后，该队友回 8% 已损失生命
-                const lost = actor.maxHp - actor.hp;
-                if (lost <= 0) return;
-                const heal = Math.floor(lost * sb.healPct);
-                if (heal > 0) applyStatChange(actor, 'hp', heal, null, '如沐春风');
+                if (!actor || !actor.alive || !actor.isZhangSanfeng) return;
+                triggerEndlessBreath(actor, data.log);
             });
 
-            // 技能3：八卦阵——被攻击时 50% 概率削自身攻 1（攻 > atkFloor 才触发）+ 生生不息
+            // 技能3：八卦阵——被攻击时 50% 概率削自身攻 1（攻 > atkFloor 才触发），掉攻的同时加防，并触发生生不息
             eventBus.on(SIGNAL_TYPES.AFTER_DAMAGE_APPLIED, 45, (data) => {
                 if (data.target !== zhang || !zhang.alive) return;
                 if (!data.dmg || data.dmg <= 0) return;
@@ -92,13 +111,14 @@ export function createZhangSanfengComponent() {
                 const rng = getBattleRng();
                 if (rng.nextInt(1, 100) > ba.procChance * 100) return;
                 addMod(zhang, 'atk', { source: '八卦阵', value: -ba.atkCost, ttl: 'permanent', group: 'baguaArray', op: 'add' });
+                addMod(zhang, 'def', { source: '八卦阵', value: ba.defGain, ttl: 'permanent', group: 'baguaArray', op: 'add' });
                 triggerEndlessBreath(zhang, data.log);
                 if (data.group && data.group.data && data.group.data.entries) {
-                    data.group.data.entries.push({ type: 'info', text: `<span class="gold">☯ 八卦阵：张三丰攻击-${ba.atkCost}，触发生生不息</span>` });
+                    data.group.data.entries.push({ type: 'info', text: `<span class="gold">☯ 八卦阵：张三丰攻击-${ba.atkCost}、防御+${ba.defGain}，触发生生不息</span>` });
                 }
             });
 
-            // 技能5：第 10 回合结束后仍未分胜负 → 张三丰获得严阵以待（仅限自身）
+            // 技能5：第 5 回合结束后仍未分胜负（即第 6 回合开始）→ 张三丰获得严阵以待（仅限自身）
             // 2026-09-17 不走 B._activeBuffs：那条会让六大派全体防战都吃到；改为直接挂词条 + 组件自算反弹
             eventBus.on(SIGNAL_TYPES.ON_ROUND_START, 45, (data) => {
                 if (!zhang.state._tenRoundFired) {

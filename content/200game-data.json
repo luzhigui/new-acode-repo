@@ -1,6 +1,6 @@
 {
-  "version": "5.6.1",
-  "updated": "2026-08-24",
+  "version": "5.6.2",
+  "updated": "2026-09-20",
 
   "roles": {
     "战士": { "icon": "⚔️", "label": "战士", "bonus": { "atk": 3, "def": 3, "maxHp": 30 } },
@@ -75,8 +75,8 @@
           "camp": "enemy",
           "type": "kuLian",
           "atkBonus": 1,
-          "defBonus": 1,
-          "hpBonus": 3
+          "defBonus": 2,
+          "hpBonus": 5
         },
         {
           "camp": "enemy",
@@ -103,8 +103,8 @@
           "desc": "场上无周芷若时每回合最先行动；行动前给全体队友+{atkBonus}攻+{defBonus}防+{hpBonus}生命上限，自身三倍",
           "params": {
             "atkBonus": 1,
-            "defBonus": 1,
-            "hpBonus": 3
+            "defBonus": 2,
+            "hpBonus": 5
           }
         },
         "xinHun": {
@@ -230,27 +230,22 @@
       "skills": {
         "endlessBreath": {
           "name": "生生不息",
-          "desc": "不攻击；每回合开始回复最大生命{healPct}%、防御+{defGain}；轮到自己行动时再触发一次",
-          "params": { "healPct": 0.16, "defGain": 1 }
-        },
-        "springBreeze": {
-          "name": "如沐春风",
-          "desc": "己方队友每次行动后，该队友回复已损失生命{healPct}%",
-          "params": { "healPct": 0.08 }
+          "desc": "不攻击；每回合开始回复最大生命{healPct}%，轮到自己行动时再触发一次；自身回不满的溢出治疗转给友方血量百分比最低的单位",
+          "params": { "healPct": 0.16 }
         },
         "baguaArray": {
           "name": "八卦阵",
-          "desc": "被攻击时{procChance}%概率自身攻击-{atkCost}（自身攻击>{atkFloor}才触发），并立即触发一次生生不息",
-          "params": { "procChance": 0.5, "atkFloor": 2, "atkCost": 1 }
+          "desc": "被攻击时{procChance}%概率自身攻击-{atkCost}（自身攻击>{atkFloor}才触发）、防御+{defGain}，并立即触发一次生生不息",
+          "params": { "procChance": 0.5, "atkFloor": 2, "atkCost": 1, "defGain": 1 }
         },
         "noContend": {
           "name": "不争",
           "desc": "己方仅剩张三丰一人时，对方直接获胜"
         },
         "tenRoundFortify": {
-          "name": "第十回合",
-          "desc": "第{round}回合结束后仍未分胜负，获得严阵以待",
-          "params": { "round": 10 }
+          "name": "第五回合",
+          "desc": "第{round}回合结束后仍未分胜负，获得严阵以待（防御+50%、反弹50%）",
+          "params": { "round": 5 }
         }
       },
       "taunts": { "attack": [], "kill": [] }
