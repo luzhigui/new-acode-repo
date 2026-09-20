@@ -202,6 +202,9 @@ function openHexDashboard() {
     runBtn.disabled = true;
     status.textContent = '加载战斗引擎…';
     try {
+      // 战斗引擎读 CONFIG.BUFFS（游戏数据），仪表盘可能开在没加载数据的页面上——先补载
+      const { loadGameData } = await import('../core/01config-5v5-test.js');
+      if (!CONFIG.BUFFS) { status.textContent = '加载游戏数据…'; await loadGameData(); }
       const { runAutoBattle } = await import('./101auto-battle-utils.js');
       for (let stage = 1; stage <= 6; stage++) {
         status.textContent = `第 ${stage}/6 关：0/${per} …`;
