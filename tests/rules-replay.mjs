@@ -27,7 +27,7 @@ globalThis.self = globalThis;
 const HERE = new URL('.', import.meta.url);
 const [{ CONFIG, loadGameData }, { SeededRNG }, { createRoundStepper }, { initBattleTeams },
     { renderLog }, { createStore, battleReducer }, { createInitialState }, { GlobalStore },
-    { STORE_ACTION_TYPES }] = await Promise.all([
+    { STORE_ACTION_TYPES, CAMP_TYPES, BUFF_TYPES }] = await Promise.all([
         import('../core/01config-5v5-test.js'),
         import('../infra/51-core-utils.js'),
         import('../core/11battle-round.js'),
@@ -60,6 +60,48 @@ const SEEDS = process.env.SEEDS ? process.env.SEEDS.split(',').map(Number)
     : [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20];
 const STAGES = process.env.STAGES ? process.env.STAGES.split(',').map(Number) : [1, 2, 3, 4, 5, 6];
 const KEYWORDS = process.env.KEYWORDS ? process.env.KEYWORDS.split('|') : [];
+// NOBUFFS=1 可关掉 Buff 注入，用于「注入前后」对比同一批战报
+const NOBUFFS = process.env.NOBUFFS === '1';
+
+// --- 团队海克斯 Buff 注入（V6.1.12）---
+// 为什么要有它：回放器此前 activeBuffs 恒为 []，而流星赶月/乘风突袭/流云身法/概率连击/巨马阵
+//   这一整批机制全部由团队 Buff 门控，于是 11 条规则 120 场一次都跑不到（恒 skip 空转）。
+// 口径来源：tools/116-role-balance-worker.js 的跑批写法 + player/49battle-flow.js 的全自动选 Buff
+//   口径（过滤已有 key 与 BUFF_ROLE_REQUIREMENTS 的职业要求，duration 取 buff 自带或 BUFF_DURATION）。
+//   每回合递减 remaining（过期淘汰），每 3 回合为明教/六大派各补选一个（与 player/42 的
+//   `round % 3 === 0` 补选节奏一致），并按「已选轮次」轮转键名，让 11 个 Buff 都能轮到。
+// 注意：这里用 seed/round 确定性轮转，不消耗战斗 RNG —— 否则会改变战斗随机序列，破坏可复现性。
+function tickAndPickBuffs(activeBuffs, ally, enemy, round, seed, pickNew) {
+    var next = (activeBuffs || []).map(function (b) { return { ...b, remaining: b.remaining - 1 }; })
+        .filter(function (b) { return b.remaining > 0; });
+    if (NOBUFFS || !pickNew) return next;
+    var turn = Math.floor(round / 3); // 第几次补选（round=1 预注入时为 0，其后 3/6/9… 递增）
+    var sides = [{ camp: CAMP_TYPES.ALLY, team: ally, off: 0 }, { camp: CAMP_TYPES.ENEMY, team: enemy, off: 1 }];
+    for (var i = 0; i < sides.length; i++) {
+        var s = sides[i];
+        var mine = next.filter(function (b) { return (b.target || CAMP_TYPES.ALLY) === s.camp; });
+        var existing = mine.map(function (b) { return b.key; });
+        var alive = (s.team || []).filter(function (u) { return u && u.alive; });
+        var avail = Object.keys(CONFIG.BUFFS).sort().filter(function (k) {
+            if (existing.indexOf(k) !== -1) return false;
+            var req = CONFIG.BUFF_ROLE_REQUIREMENTS ? CONFIG.BUFF_ROLE_REQUIREMENTS[k] : null;
+            if (req && !alive.some(function (u) { return u.role === req; })) return false;
+            return true;
+        });
+        if (!avail.length) continue;
+        var pick = avail[(seed + turn + s.off) % avail.length];
+        var def = CONFIG.BUFFS[pick] || {};
+        var nb = { key: pick, target: s.camp, remaining: def.duration || CONFIG.BUFF_DURATION || 4, name: def.name || pick };
+        if (pick === BUFF_TYPES.HOLY_FLAME) {
+            // 圣火令需要 cols/rows；核心引擎只给明教重算，敌方快照得自带，否则面板取不到值
+            var c1 = ((seed + round + s.off) % 3) + 1, c2 = ((seed + round * 3 + s.off) % 3) + 1;
+            nb.cols = c1 === c2 ? [c1, (c1 % 3) + 1] : [c1, c2].sort(function (a, b) { return a - b; });
+            nb.rows = [((seed * 2 + round + s.off) % 3) + 1, ((seed * 3 + round + s.off) % 3) + 1].sort(function (a, b) { return a - b; });
+        }
+        next.push(nb);
+    }
+    return next;
+}
 
 function runCase(seed, stage) {
     const rng = new SeededRNG(seed);
@@ -71,7 +113,9 @@ function runCase(seed, stage) {
     let battleState = {
         ally: allyTeam.map(u => u.clone()),
         enemy: enemyTeam.map(u => u.clone()),
-        round: 1, activeBuffs: [], allAllies: allyTeam.map(u => u.clone()), _rng: rng
+        // 第 1 回合预注入一轮：真实流程要等到第 3 回合才选 Buff，体检为覆盖机制提前一拍
+        round: 1, activeBuffs: tickAndPickBuffs([], allyTeam, enemyTeam, 1, seed, true),
+        allAllies: allyTeam.map(u => u.clone()), _rng: rng
     };
     const log = [];
     let winner = null, lastStep = null;
@@ -93,7 +137,8 @@ function runCase(seed, stage) {
             ally: lastStep.ally.map(u => u.clone()),
             enemy: lastStep.enemy.map(u => u.clone()),
             round: battleState.round + 1,
-            activeBuffs: (lastStep.ally._activeBuffs || []).map(b => ({ ...b })),
+            activeBuffs: tickAndPickBuffs(battleState.activeBuffs, lastStep.ally, lastStep.enemy,
+                battleState.round, seed, battleState.round % 3 === 0),
             allAllies: battleState.allAllies,
             _rng: rng
         };
@@ -115,6 +160,16 @@ for (const seed of SEEDS) {
     for (const stage of STAGES) {
         const c = runCase(seed, stage);
         cases++;
+        // DUMP=seed:stage 单场调试：打印该场 buff-push/buff-swap 及相邻的攻击快照位置
+        if (process.env.DUMP && process.env.DUMP === seed + ':' + stage) {
+            console.log('--- DUMP ' + process.env.DUMP + ' 共 ' + c.log.length + ' 条 ---');
+            c.log.forEach(function (e, i) {
+                if (!e) return;
+                if (e.type === 'buff-push') console.log(i + ' [push] ' + (e.text || '').replace(/<[^>]+>/g, '') + ' || pushUid=' + e.pushTargetUid + ' behindUid=' + e.behindUid + ' old=' + e.oldPos + ' new=' + e.newPos + ' behindOld=' + e.behindOldPos);
+                else if (e.type === 'buff-swap') console.log(i + ' [swap] ' + (e.text || '').replace(/<[^>]+>/g, '') + ' || A=' + e.uidA + ' B=' + e.uidB + ' posA=' + e.oldPosA + ' posB=' + e.oldPosB);
+                else if (e.type === 'attack-group' && e._fxSnapshot) console.log(i + ' [atk ] A=' + e.uidA + '@' + e._fxSnapshot.attackerPos + ' D=' + e.uidD + '@' + e._fxSnapshot.defenderPos);
+            });
+        }
         for (const kw of KEYWORDS) {
             for (const e of c.log) {
                 if (e && typeof e.text === 'string' && e.text.indexOf(kw) !== -1) kwHit[kw] = (kwHit[kw] || 0) + 1;

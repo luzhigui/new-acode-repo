@@ -55,7 +55,10 @@ export const SCAN_FILES = [
     './health-rules/141-zhangsanfeng-fortify-round.js',
     './health-rules/142-zhangsanfeng-endless-roundstart.js',
     './health-rules/143-jiuyang-heal-pct.js',
-    './health-rules/145-fly-miss-aura.js'
+    // 2026-09-21 补登 144（第 2 趟新增时漏登）+ 新增 146
+    './health-rules/144-xinhun-kuaile.js',
+    './health-rules/145-fly-miss-aura.js',
+    './health-rules/146-double-strike.js'
 ];
 
 // 提取文件的 static import 信息（仅静态 import 语句，跳过动态 import()）
