@@ -1,4 +1,6 @@
-﻿// V6.0.0 | ~9500 bytes | 2026-08-24 姐姐强化参数改读 JSON（小昭.hexEnhance），清理 ELITE_SKILLS 引用
+// V6.0.2 | ~15500 bytes | 2026-09-20 差值可视化夸张化：刻度 12→6（同样差值条长翻倍）、条高 14→22px、加发光与圆角、渐变更艳
+// V6.0.1 | ~14900 bytes | 2026-09-20 基准改为"所有含海克斯场次的平均胜率"（原"不含该海克斯场次胜率"会让每个海克斯差值一律偏正）；列表头同步改为「海克斯平均」；修正虚标的字节数
+// V6.0.0 | 2026-08-24 姐姐强化参数改读 JSON（小昭.hexEnhance），清理 ELITE_SKILLS 引用
 import { CONFIG, getSkillParams } from '../core/01config-5v5-test.js';
 (function(){
 const KEY = 'ming_hex_battle_log';
@@ -21,10 +23,10 @@ if (!document.getElementById('hexDashStyle')) {
 .hex-hex-box table{width:100%;border-collapse:collapse;margin-top:12px;font-size:12px}
 .hex-hex-box th{background:#2a2a4e;color:#ffd700;padding:8px;text-align:left}
 .hex-hex-box td{padding:6px 8px;border-bottom:1px solid #333;color:#ccc}
-.hex-hex-bar-wrap{background:#111;border-radius:4px;height:14px;overflow:hidden;position:relative}
-.hex-hex-bar-center{position:absolute;left:50%;top:0;width:2px;height:100%;background:#fff;opacity:0.3}
-.hex-hex-bar-pos{position:absolute;left:50%;top:0;height:100%;background:linear-gradient(90deg,#ffd700,#ff9800)}
-.hex-hex-bar-neg{position:absolute;right:50%;top:0;height:100%;background:linear-gradient(270deg,#4fc3f7,#888)}
+.hex-hex-bar-wrap{background:#0a0a14;border-radius:6px;height:22px;overflow:hidden;position:relative;border:1px solid #2a2a4e}
+.hex-hex-bar-center{position:absolute;left:50%;top:0;width:2px;height:100%;background:#fff;opacity:0.45;z-index:2}
+.hex-hex-bar-pos{position:absolute;left:50%;top:0;height:100%;background:linear-gradient(90deg,#ffe600,#ff3d00);box-shadow:0 0 14px rgba(255,140,0,0.95);border-radius:0 5px 5px 0}
+.hex-hex-bar-neg{position:absolute;right:50%;top:0;height:100%;background:linear-gradient(270deg,#29e3ff,#666688);box-shadow:0 0 14px rgba(41,227,255,0.9);border-radius:5px 0 0 5px}
 .hex-hex-op{color:#f44336;font-weight:bold}
 .hex-hex-weak{color:#888}
 .hex-hex-body{overflow:auto;flex:1}
@@ -216,14 +218,18 @@ function render(summary, stats) {
   const hexKeys = new Set();
   logs.forEach(l => (l.buffs || []).forEach(b => hexKeys.add(b)));
 
+  // 基准 = 所有含海克斯场次的平均胜率（2026-09-20 改）
+  // 原基准为"不含该海克斯场次的胜率"，但同库其他地方（如逐场 buff 数）会一起变动，
+  // 导致每个海克斯的差值一律为正、判定失真，故统一改用全场次海克斯平均胜率作基准。
+  const hexLogs = logs.filter(l => (l.buffs || []).length > 0);
+  const baseRate = hexLogs.length > 0
+    ? (hexLogs.filter(l => l.winner === '明教').length / hexLogs.length) * 100
+    : null;
+
   const rows = [];
   for (const key of hexKeys) {
     const withHex = logs.filter(l => (l.buffs || []).includes(key));
-    const withoutHex = logs.filter(l => !(l.buffs || []).includes(key));
     const winRate = (withHex.filter(l => l.winner === '明教').length / withHex.length) * 100;
-    const baseRate = withoutHex.length > 0
-      ? (withoutHex.filter(l => l.winner === '明教').length / withoutHex.length) * 100
-      : null;
     const diff = baseRate !== null ? winRate - baseRate : null;
 
     let tag = '';
@@ -234,7 +240,7 @@ function render(summary, stats) {
 
     const baseText = baseRate !== null ? `${baseRate.toFixed(1)}%` : '无样本';
     const diffText = diff !== null ? (diff > 0 ? `+${diff.toFixed(1)}%` : diff.toFixed(1) + '%') : '-';
-    const diffScale = 12;
+    const diffScale = 6; // 差值刻度：越小条越长（6 → 差 6% 即顶满半幅，视觉更夸张）
     const posPct = diff !== null && diff > 0 ? Math.min(diff / diffScale * 50, 50) : 0;
     const negPct = diff !== null && diff < 0 ? Math.min(Math.abs(diff) / diffScale * 50, 50) : 0;
 
@@ -243,7 +249,7 @@ function render(summary, stats) {
 
   rows.sort((a, b) => b.count - a.count);
 
-  let html = '<table><tr><th>海克斯</th><th>出场</th><th>胜率</th><th>无此海克斯</th><th>差值</th><th>判定</th><th>差值可视化</th></tr>';
+  let html = '<table><tr><th>海克斯</th><th>出场</th><th>胜率</th><th>海克斯平均</th><th>差值</th><th>判定</th><th>差值可视化</th></tr>';
   for (const r of rows) {
     html += `<tr>
       <td class="hex-hex-link" data-key="${r.key}" title="点击查看详情">${r.name}</td>
