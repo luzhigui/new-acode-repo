@@ -1,4 +1,4 @@
-// V6.4.0 | ~5300 bytes | 2026-09-20 取消如沐春风（队友行动后回血）；生生不息溢出转嫁补飘字与日志（含队友实际回复量）
+// V6.4.0 | ~5300 bytes | 2026-09-20 取消如沐春风（队友行动后回血）；生生不息溢出转嫁补飘字与日志（含队友实际回复量）；溢出治疗记账归张三丰（补传 source）
 export const VER = 'modules/26elite-sixsects.js V6.4.0';
 import { registerElite } from '../core/08-elite-registry.js';
 import { CONFIG, getSkillParams } from '../core/01config-5v5-test.js';
@@ -64,7 +64,9 @@ export function createZhangSanfengComponent() {
                     }
                     if (best && best.pct < 1) {
                         const rHpBefore = best.u.hp;
-                        applyStatChange(best.u, 'hp', overflow, null, '生生不息·溢出');
+                        // source 必须传张三丰：统计层按产出者记账（core/13 `(source||target).healDone`），
+                        // 不传 source 会把溢出治疗记到接盘队友头上，张三丰的治疗量看起来少一大截
+                        applyStatChange(best.u, 'hp', overflow, unit, '生生不息·溢出');
                         receiver = best.u;
                         // 队友可能只差一点点血，实际收到的比溢出量少——飘字和日志都报实际值
                         receiverHealed = Math.round(Math.max(0, receiver.hp - rHpBefore));
