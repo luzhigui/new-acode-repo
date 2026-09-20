@@ -427,7 +427,13 @@ document.addEventListener('DOMContentLoaded', async function() {
         }
     }, (meta) => {
         // 连接成功：双方都进摆位态；房主额外下发阵容，且等对手回传后才能开战
-        if (meta && meta.isHost) hostEnterAdjust();
+        if (meta && meta.isHost) { hostEnterAdjust(); return; }
+        // 2026-09-20 从机保险丝：身份（netRole=guest）刚落上就重画一遍，保证 guest-view 翻转即时生效。
+        // 正常时序 accept 比 lineup 先到、applyNetLineup 渲染时身份已在（60 的 onGuestJoin 已调序）；
+        // 这里兜的是消息乱序/重连等边角：哪怕阵容先到、先按房主视角画了，这一笔也会立刻翻正，
+        // 不用等玩家点格子触发下一次 renderGrid 才突然换位。
+        renderGrid('allyGrid', CAMP_TYPES.ALLY);
+        renderGrid('enemyGrid', CAMP_TYPES.ENEMY);
     });
     bindNextButton(setState, updateButtons, enableAllButtons, updateSpeedButtons);
     bindDetailButton(getState, setState, showModal);
