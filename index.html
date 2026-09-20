@@ -36,7 +36,11 @@
     <title>光明顶对战 5v5 test V2.1</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; -webkit-touch-callout: none; }
-        body { background: #f5f0e0; font-family: 'Segoe UI', monospace; display: flex; flex-direction: column; height: 100vh; height: 100dvh; width: 100vw; overflow: hidden; padding: 0 6px 4px 6px; color: #333; user-select: none; }
+        /* 2026-09-20 宽屏留黑：html 涂纯黑当影院底色，body 限宽 520px 居中当"手机柱"——
+           宽屏电脑两侧自动出黑边，手机屏幕本就 ≤520px 撑满全屏，完全无感。
+           520 比 .team-row 的 max-width:500px 略宽，格子两侧各留 2px 呼吸位。 */
+        html { background: #000; }
+        body { background: #f5f0e0; font-family: 'Segoe UI', monospace; display: flex; flex-direction: column; height: 100vh; height: 100dvh; width: 100%; max-width: 520px; margin: 0 auto; overflow: hidden; padding: 0 6px 4px 6px; color: #333; user-select: none; }
         /* 2026-09-20 夸克兼容：dvh 是 2022 年底的新单位，夸克等国产浏览器内核老不认识 → 所有高度声明作废，
            页面塌成"内容挤在顶上、下方全空、日志区压扁"。修法=每处 dvh 前面先垫一行 vh 老单位兜底：
            老浏览器认 vh 不认 dvh（用兜底），新浏览器两行都认（后者覆盖，行为不变）。 */
