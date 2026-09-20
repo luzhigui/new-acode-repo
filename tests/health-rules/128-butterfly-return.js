@@ -1,6 +1,8 @@
 // 回归规则：姐姐飞回血量不合理 — 修复后按所有队友（含阵亡）比例计算
-// 复发信号：飞回血量 = maxHp（满血），可能只算存活队友导致比例偏高
+// 复发信号：飞回血量 = maxHp（满血），只算存活队友导致比例偏高
 // 对应已修 Bug：姐姐飞回血量不合理（只算存活队友，死亡队友不影响比例）
+// 边界修正（对照 modules/27 _executeReturn）：totalHp 含阵亡队友计 0、totalMaxHp 含全部队友，
+//   故只要存在阵亡队友，比例必 <1、飞回血量必 < maxHp——仅当存在阵亡队友才判定，避免全员满血时的误报。
 export const VER = 'tests/health-rules/128-butterfly-return.js V6.0.0';
 
 export const rule75 = {
@@ -39,9 +41,16 @@ export const rule75 = {
         if (!sister || !sister.maxHp) return 'skip';
 
         // 复发信号：飞回满血（只算存活队友导致比例偏高）
-        // 注意：若所有队友都满血存活，飞回也会满血（非复发），此规则有误报风险，msg 标注"可能"
-        if (returnHp >= sister.maxHp) {
-            return { fail: true, msg: '复发可能：姐姐飞回血量' + returnHp + ' = maxHp' + sister.maxHp + '（满血），可能只算存活队友（修复后应按所有队友含阵亡计算，阵亡者拉低比例）' };
+        // 修复口径（modules/27 _executeReturn）：totalHp 含阵亡队友计 0、totalMaxHp 含全部队友，
+        // 故只要存在阵亡队友，比例必 <1、飞回血量必 < maxHp（floor 仍取不到满血）。
+        // 边界修正：若全场无阵亡且全员满血，飞回满血属正常——此前会误报，故仅当存在阵亡队友才判定，避免误报。
+        var hasDeadAlly = false;
+        for (var d = 0; d < afterA.length; d++) {
+            var du = afterA[d];
+            if (du && du.uid !== sister.uid && du.alive === false) { hasDeadAlly = true; break; }
+        }
+        if (hasDeadAlly && returnHp >= sister.maxHp) {
+            return { fail: true, msg: '复发：姐姐飞回血量' + returnHp + ' = maxHp' + sister.maxHp + '（满血），但场上有阵亡队友——修复后应按所有队友含阵亡计算、比例应<1（仍满血=只算存活队友，回归）' };
         }
         return { fail: false };
     }
