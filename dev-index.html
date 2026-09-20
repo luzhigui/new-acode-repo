@@ -53,7 +53,7 @@
 <body>
     <div class="container">
         <h1>⚔️ 光明顶5v5</h1>
-        <div class="subtitle">V6.0.0 开发集成入口 12:15</div>
+        <div class="subtitle">V6.0.0 开发集成入口 <span id="devStamp1"></span></div>
 
         <!-- 主入口 -->
         <div class="section">
@@ -93,7 +93,7 @@
             <button class="big-btn btn-music muted" id="btnBGM">🔇 背景音乐：已暂停</button>
         </div>
 
-        <div class="footer">光明顶5v5 · 开发集成入口 V6.0.0 12:15</div>
+        <div class="footer">光明顶5v5 · 开发集成入口 V6.0.0 <span id="devStamp2"></span></div>
     </div>
 
     <script>
@@ -249,23 +249,21 @@ document.getElementById('btnGameDesign').addEventListener('click', () => {
             }
         });
 
-        // 2026-09-20 时间戳改读 GitHub 仓库最新提交时间（真值）：
-        // 之前的 document.lastModified 在 GitHub Pages 上不可靠（读到的不是代码更新时间），
-        // 本地打开时读的是文件拷贝时间，也不对。先垫 lastModified，请求成功后覆盖为最新提交时间。
+        // 2026-09-20 时间戳：改原来副标题/页脚里写死的"12:15"（共两处）为实时值——
+        // 读 GitHub 仓库最新提交时间（真值，一推代码就变）。加载失败时不显示，不留过期数字。
         (function () {
-            const stamp = document.createElement('div');
-            stamp.style.cssText = 'position:fixed;bottom:12px;right:16px;font-size:10px;color:#888;text-align:right;line-height:1.4;z-index:100000;pointer-events:none;';
-            const fmt = ms => '🕒 ' + new Date(ms).toLocaleString('zh-CN', { hour12: false });
-            const fb = document.lastModified ? new Date(document.lastModified) : null;
-            if (fb && !isNaN(fb.getTime()) && fb.getFullYear() > 2000) stamp.textContent = fmt(fb.getTime());
+            const s1 = document.getElementById('devStamp1');
+            const s2 = document.getElementById('devStamp2');
             fetch('https://api.github.com/repos/luzhigui/new-acode-repo/commits?per_page=1')
                 .then(r => r.ok ? r.json() : null)
                 .then(arr => {
                     const t = arr && arr[0] && arr[0].commit && arr[0].commit.committer && arr[0].commit.committer.date;
-                    if (t) stamp.textContent = fmt(new Date(t).getTime());
+                    if (!t) return;
+                    const txt = new Date(t).toLocaleString('zh-CN', { hour12: false });
+                    if (s1) s1.textContent = txt;
+                    if (s2) s2.textContent = txt;
                 })
                 .catch(() => {});
-            document.body.appendChild(stamp);
         })();
 
     </script>
