@@ -1,3 +1,5 @@
+// V6.0.4 | 2026-09-20 ①弹窗内自带「自动跑」（复用 101 runAutoBattle，默认 6关×1000 可选 2000，跑完自动出表）
+//        ②OP/WEAK 判定线自适应：标准差 σ（底线 2%）——整体平衡时不判，拉开才判，汇总行显示当前判定线
 // V6.0.3 | 2026-09-20 基准=「所有海克斯各自胜率的平均」（用户拍板）。自检标准：差值列加起来必须正好为 0。
 //        （全场次平均胜率当尺子时差值仍全为正——赢的局海克斯多、在海克斯角度下票数多，全场角度只算一局）
 // V6.0.2 | ~15500 bytes | 2026-09-20 差值可视化夸张化：刻度 12→6（同样差值条长翻倍）、条高 14→22px、加发光与圆角、渐变更艳
@@ -160,9 +162,15 @@ function openHexDashboard() {
         <button class="hex-hex-close">关闭</button>
       </div>
       <div class="hex-hex-body">
-        <p class="hex-hex-tip">先到工具箱的「自动批量战斗」跑若干场（数据会自动保存），再点「加载数据」。统计每个海克斯的：出场次数、胜率、以及与「没有该海克斯」场次的胜率对比。</p>
+        <p class="hex-hex-tip">点「自动跑」直接在弹窗里批量战斗（不再依赖工具箱的自动批量战斗），跑完自动出表。也可用别处跑出的数据点「加载数据」。统计每个海克斯的：出场次数、胜率、以及与「所有海克斯的平均胜率」的差值。</p>
         <button class="hex-hex-load">加载数据</button>
         <button class="hex-hex-clear">清空数据</button>
+        <button class="hex-hex-load hex-hex-run" style="margin-left:8px">⚡ 自动跑</button>
+        <select class="hex-hex-runsel" style="background:#333;color:#eee;border:1px solid #555;border-radius:4px;padding:4px 6px;margin-left:6px">
+          <option value="1000">6关×1000场</option>
+          <option value="2000">6关×2000场</option>
+        </select>
+        <span id="hexDashRunStatus" style="margin-left:10px;color:#8bc34a;font-size:12px"></span>
         <div id="hexDashSummary"></div>
         <div id="hexDashStats"></div>
       </div>
@@ -182,6 +190,31 @@ function openHexDashboard() {
     localStorage.removeItem(KEY);
     logs = [];
     render(mask.querySelector('#hexDashSummary'), mask.querySelector('#hexDashStats'));
+  });
+
+  // 2026-09-20 弹窗内自带批量战斗：直接复用 101 的 runAutoBattle（写同一个 localStorage 键），
+  // 不再依赖工具箱的「自动批量战斗」页。默认 6 关各 1000 场（可选 2000），跑完自动加载出表。
+  mask.querySelector('.hex-hex-run').addEventListener('click', async () => {
+    const runBtn = mask.querySelector('.hex-hex-run');
+    const sel = mask.querySelector('.hex-hex-runsel');
+    const status = mask.querySelector('#hexDashRunStatus');
+    const per = parseInt(sel.value, 10) || 1000;
+    runBtn.disabled = true;
+    status.textContent = '加载战斗引擎…';
+    try {
+      const { runAutoBattle } = await import('./101auto-battle-utils.js');
+      for (let stage = 1; stage <= 6; stage++) {
+        status.textContent = `第 ${stage}/6 关：0/${per} …`;
+        await runAutoBattle(per, (i) => { status.textContent = `第 ${stage}/6 关：${i}/${per} …`; }, stage);
+      }
+      status.textContent = `✅ 完成：6关×${per}场`;
+      try { logs = JSON.parse(localStorage.getItem(KEY) || '[]'); } catch(e) { logs = []; }
+      render(mask.querySelector('#hexDashSummary'), mask.querySelector('#hexDashStats'));
+    } catch (e) {
+      status.textContent = '❌ 失败：' + (e && e.message ? e.message : e);
+    } finally {
+      runBtn.disabled = false;
+    }
   });
 
   render(mask.querySelector('#hexDashSummary'), mask.querySelector('#hexDashStats'));
@@ -236,14 +269,26 @@ function render(summary, stats) {
     ? perKey.reduce((s, x) => s + x.winRate, 0) / perKey.length
     : null;
 
+  // 2026-09-20 判定线自适应：不再定死 ±8，而是跟着差值的离散程度（标准差 σ）走——
+  // 大家挤在一起（σ ≤ 2）→ 底线 2% 以内不判 OP/WEAK；排名拉开了 → 超出 σ 才算离群。
+  // 效果：整体平衡时表里干干净净没有标签，真有 outlier 时才浮出来。
+  const allDiffs = perKey.map(x => (avgRate !== null ? x.winRate - avgRate : 0));
+  const sigma = allDiffs.length > 1
+    ? Math.sqrt(allDiffs.reduce((s, d) => s + d * d, 0) / allDiffs.length)
+    : 0;
+  const tagLine = Math.max(2, sigma);
+  if (avgRate !== null) {
+    summary.innerHTML += `<p style="color:#999;font-size:12px;margin-top:2px">海克斯平均基准 ${avgRate.toFixed(1)}%｜判定线 ±${tagLine.toFixed(1)}%（自适应：差距大线就宽，都挤在一起就不判）</p>`;
+  }
+
   const rows = [];
   for (const { key, withHex, winRate } of perKey) {
     const diff = avgRate !== null ? winRate - avgRate : null;
 
     let tag = '';
     if (withHex.length >= 10 && diff !== null) {
-      if (diff > 8) tag = '<span class="hex-hex-op">OP</span>';
-      else if (diff < -8) tag = '<span class="hex-hex-weak">WEAK</span>';
+      if (diff > tagLine) tag = '<span class="hex-hex-op">OP</span>';
+      else if (diff < -tagLine) tag = '<span class="hex-hex-weak">WEAK</span>';
     }
 
     const baseText = avgRate !== null ? `${avgRate.toFixed(1)}%` : '无样本';
