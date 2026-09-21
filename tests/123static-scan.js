@@ -64,7 +64,9 @@ export const SCAN_FILES = [
     // 2026-09-21 补登 144（第 2 趟新增时漏登）+ 新增 146
     './health-rules/144-xinhun-kuaile.js',
     './health-rules/145-fly-miss-aura.js',
-    './health-rules/146-double-strike.js'
+    './health-rules/146-double-strike.js',
+    // 2026-09-21 第 4 趟新增：拒马阵生成/销毁判据（从上到下"本趟新增"逐条登记，别再漏）
+    './health-rules/147-horse-destroy.js'
 ];
 
 // 提取文件的 static import 信息（仅静态 import 语句，跳过动态 import()）
