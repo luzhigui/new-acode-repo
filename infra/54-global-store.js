@@ -193,7 +193,10 @@ function updateScoreBadge() {
     const badge = document.getElementById('scoreBadge');
     if (!badge) return;
     const score = _state.voteScore;
-    const token = _state.holyToken;
+    // holyToken 被登记为战斗态 key（51 的 _battleStateKeys），GlobalStore.set 会把它
+    // 路由进 _battleState，_state.holyToken 恒 undefined → 徽章永远显示 🔥0。
+    // 必须走 GlobalStore.get 才能拿到正确的路由结果。
+    const token = GlobalStore.get('holyToken');
     const displayScore = (score === null || score === undefined) ? 0 : score;
     const displayToken = (token === null || token === undefined) ? 0 : token;
     badge.innerHTML = `🏆 ${displayScore}分 🔥${displayToken}`;

@@ -101,7 +101,10 @@ export function initBattleTeams(currentStage, _rng) {
         }
 
         for (const c of picked) {
-            let unit = new Unit(c.name, c.m, c.role, CAMP_TYPES.ALLY);
+            // 小昭初始职业随机（与 forceXiaoZhao 路径一致，两条路必须同口径）。
+            // initXiaoZhao 只覆盖 血/攻/防 的分配（50% 血、剩余对半分），不改职业，故这里给什么职业都行。
+            const initRole = c.isXiaoZhaoBrother ? C.ROLES[_rng.nextInt(0, 3)] : c.role;
+            let unit = new Unit(c.name, c.m, initRole, CAMP_TYPES.ALLY);
             if (c.isZhang) unit.isZhang = true;
             if (c.isWei) unit.isWei = true;
             if (c.isXiaoZhaoBrother) {
@@ -112,7 +115,7 @@ export function initBattleTeams(currentStage, _rng) {
                 else { unit.isXiaoZhaoBrother = true; }
                 unit.name = unit.isXiaoZhaoSister ? '小昭·姊' : '小昭·妹';
                 applyHeroFlags(unit);
-                unit.initXiaoZhao(); unit.applyBonus();
+                unit.initXiaoZhao(); unit.applyBonus(true);   // true = 不吃职业加成
                 unit.state._baseMaxHp = unit.maxHp; unit.state._baseAtk = unit.atk; unit.state._baseDef = unit.def;
             } else {
                 unit.init(_rng); unit.applyBonus();
@@ -174,7 +177,7 @@ export function initBattleTeams(currentStage, _rng) {
             xzUnit.isXiaoZhaoBrother = (forceXzMode === 'brother');
             xzUnit.name = xzUnit.isXiaoZhaoSister ? '小昭·姊' : '小昭·妹';
             applyHeroFlags(xzUnit);
-            xzUnit.initXiaoZhao(); xzUnit.applyBonus();
+            xzUnit.initXiaoZhao(); xzUnit.applyBonus(true);   // true = 不吃职业加成
             xzUnit.state._baseMaxHp = xzUnit.maxHp; xzUnit.state._baseAtk = xzUnit.atk; xzUnit.state._baseDef = xzUnit.def;
             xzUnit.pos = swappable ? swappable.pos : null;
             allyTeam.push(xzUnit);

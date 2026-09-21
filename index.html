@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿<!-- index.html - 光明顶5v5 V6.0.0（原 mode-5v5-test.html，改名为主入口） -->
+﻿﻿<!-- index.html - 光明顶5v5 V6.0.0（原 mode-5v5-test.html，改名为主入口） -->
 <!-- V6.0.0 | ~31300 bytes | 苦练等优先行动经 beforeActionSelect 声明，行动后不切换行动方 -->
 <!DOCTYPE html>
 <html lang="zh-CN">
@@ -40,19 +40,20 @@
            宽屏电脑两侧自动出黑边，手机屏幕本就 ≤520px 撑满全屏，完全无感。
            520 比 .team-row 的 max-width:500px 略宽，格子两侧各留 2px 呼吸位。 */
         html { background: #000; }
-        body { background: #f5f0e0; font-family: 'Segoe UI', monospace; display: flex; flex-direction: column; height: 100vh; height: 100dvh; width: 100%; max-width: 520px; margin: 0 auto; overflow: hidden; padding: 0 6px 4px 6px; color: #333; user-select: none; }
+        body { background: #f5f0e0; font-family: 'Segoe UI', monospace; display: flex; flex-direction: column; height: 100vh; height: 100dvh; width: 100%; max-width: 520px; margin: 0 auto; overflow: hidden; padding: 0 6px 4px 6px; color: #333; user-select: none; margin-top: calc(-1 * env(safe-area-inset-top, 0px)); }
         /* 2026-09-20 夸克兼容：dvh 是 2022 年底的新单位，夸克等国产浏览器内核老不认识 → 所有高度声明作废，
            页面塌成"内容挤在顶上、下方全空、日志区压扁"。修法=每处 dvh 前面先垫一行 vh 老单位兜底：
            老浏览器认 vh 不认 dvh（用兜底），新浏览器两行都认（后者覆盖，行为不变）。 */
-        .header { display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; height: 5.5vh; height: 5.5dvh; background: linear-gradient(135deg, #f5f0e0 0%, #e8d5b0 100%); border-radius: 6px; padding: 0 4px; margin-top: -6px; }
+        /* 2026-09-21 header 不再用固定 vh：高度由内容（最高的按钮 26px）决定，消除上下留白 */
+        .header { display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; min-height: 36px; background: linear-gradient(135deg, #f5f0e0 0%, #e8d5b0 100%); border-radius: 6px; padding: 0 4px; margin-top: -14px; }
         h2 { color: #b8860b; font-size: 0.85rem; letter-spacing: -0.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin: 0; }
         .score-badge { color: #b8860b; font-weight: bold; font-size: 0.95rem; margin-left: 2px; position: relative; white-space: nowrap; }
         .score-float { position: absolute; left: 100%; top: 50%; transform: translateY(-50%); font-size: 1.3rem; font-weight: bold; color: #ffd700; text-shadow: 0 0 8px rgba(255,215,0,0.8); animation: scoreFlash 3.5s ease-out forwards; pointer-events: none; white-space: nowrap; margin-left: 4px; }
         @keyframes scoreFlash { 0%{ opacity:0; transform:translateY(-50%) translateX(-8px) scale(0.6); } 10%{ opacity:1; transform:translateY(-50%) translateX(0) scale(1.5); } 25%{ transform:translateY(-50%) translateX(0) scale(1); } 65%{ opacity:1; } 100%{ opacity:0; transform:translateY(-50%) translateX(6px) scale(1.1); } }
         .debug-toggle-btn { background: #9b59b6; border: 1px solid #7d3c98; padding: 2px 6px; border-radius: 4px; font-size: 10px; cursor: pointer; color: white; height: 26px; white-space: nowrap; }
         .debug-toggle-btn.active { background: #7d3c98; }
-        .upper-area { flex: 0 0 48vh; flex: 0 0 48dvh; display: flex; flex-direction: column; overflow: hidden; }
-        .battlefield { flex: 0 0 40vh; flex: 0 0 40dvh; display: flex; flex-direction: column; justify-content: flex-start; gap: 2px; position: relative; }
+        .upper-area { flex: 0 0 50.5vh; flex: 0 0 50.5dvh; display: flex; flex-direction: column; overflow: hidden; }
+        .battlefield { flex: 0 0 42.5vh; flex: 0 0 42.5dvh; display: flex; flex-direction: column; justify-content: flex-start; gap: 2px; padding-top: 6px; position: relative; }
         /* 联网从机执六大派：战场纵向翻转，自己队伍显示在下方（column-reverse 只改视觉，不动 DOM 顺序与事件绑定） */
         #battlefield.guest-view { flex-direction: column-reverse; justify-content: flex-end; }
         .team-row { display: flex; align-items: center; gap: 4px; flex: 1; max-width: 500px; margin: 0 auto; width: 100%; }
@@ -60,9 +61,9 @@
            颜色不写死、继承标签的蓝——黄字在浅底上看不清 */
         .team-label { writing-mode: vertical-lr; font-weight: bold; font-size: 13px; width: 18px; text-align: center; }
         .team-label[data-netrole="host"]::after { content: '.房'; font-size: 10px; }
-        .grid { display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(3, 5.5vh); grid-template-rows: repeat(3, 5.5dvh); gap: 2px; flex: 1; background: #d9d0b5; padding: 3px; border-radius: 6px; }
+        .grid { display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(3, 6.2vh); grid-template-rows: repeat(3, 6.2dvh); gap: 2px; flex: 1; background: #d9d0b5; padding: 3px; border-radius: 6px; }
         .grid.victory-border { border: 3px solid gold !important; box-shadow: 0 0 20px gold; }
-        .cell { background: #e8e6e0; border: 2px solid #bbb; border-radius: 5px; padding: 2px 4px; display: flex; align-items: center; gap: 4px; font-size: 9px; height: 5.5vh; height: 5.5dvh; transition: background 0.6s ease, border-color 0.6s ease; position: relative; overflow: visible; }
+        .cell { background: #e8e6e0; border: 2px solid #bbb; border-radius: 5px; padding: 2px 4px; display: flex; align-items: center; gap: 4px; font-size: 9px; height: 6.2vh; height: 6.2dvh; transition: background 0.6s ease, border-color 0.6s ease; position: relative; overflow: visible; }
         .cell.ready { background: #d4edda; border-color: #28a745; }
         .cell.acted { background: #e2e3e5; border-color: #aaa; }
         .cell.resting { background: #5a9e6f !important; border-color: #3d7a4f !important; }

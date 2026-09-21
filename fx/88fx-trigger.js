@@ -39,6 +39,10 @@ export function _triggerFX(fxSnapshot, unitA, unitD, isDead, isDodge, isMiss, is
         if (attackerRole === ROLE_TYPES.RANGED && !isBlock) {
             if (isMiss) {
                 showRangedArrow(unitA, unitD, false, null, true);
+                // 射偏箭飞到中段再弹气泡（对齐近战"撞到一半才弹"的节奏，不在起手就抢跑）
+                clock.wait(500).then(() => {
+                    if (!GlobalStore.get('fastForwardActive')) showDodgeBubble(unitA, '未命中');
+                });
             } else if (!isDodge) {
                 showRangedArrow(unitA, unitD, false, () => {
                     shakeTarget(unitD.uid, 350);
