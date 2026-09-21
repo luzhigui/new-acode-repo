@@ -1,11 +1,11 @@
-// V6.0.0 | 2026-08-26 factType 枚举化（去字节数）
+// V6.1.0 | 2026-09-21 计算行取整口径与伤害行对齐（破防项按真值、总和改 round）；生生不息溢出文案补「其已满血，未生效」分支
 import { CONFIG, getSkillParams } from '../core/01config-5v5-test.js';
 import { calcDamage, getFangLevelPure, makeFXSnapshot } from '../infra/51-core-utils.js';
 import { getStat } from '../core/13battle-shared.js';
 import { FACT_TYPES, BUFF_TYPES, BUFF_SUBTYPES, DROP_TYPES, CAMP_TYPES, ROLE_TYPES } from '../infra/56-battle-enums.js';
 import { validateFactContract, buildRendererMap } from '../infra/58-fact-contract.js';
 import { GlobalStore } from '../infra/54-global-store.js';
-export const VER = 'render/30-fact-renderer.js V6.0.0';
+export const VER = 'render/30-fact-renderer.js V6.1.0';
 
 // 从 battleStore 按 uid 查找单位（渲染端不持有活体引用，按需查询）
 function findUnitSnapshotByUid(uid) {
@@ -162,10 +162,15 @@ export function renderAttackFact(fact) {
         const lv = getFangLevelPure(defForFormula, mForFormula, CONFIG.FANG_LEVELS);
         const k = CONFIG.FANG_K[lv] !== undefined ? CONFIG.FANG_K[lv] : CONFIG.FANG_K[CONFIG.FANG_K.length - 1];
         const z = dmgCalc.hpRatio;
-        baseRaw = Math.floor((dmgCalc.raw - dmgCalc.bonusDmgTotal) / dmgCalc.dmgMultiplier);
-        formulaText = `${Math.floor(penPart)} + ${defForFormula}×${k} + ${maxHpForFormula}×${z} = ${baseRaw}`;
+        // 2026-09-21 取整口径对齐：原先把破防项 floor、总和也 floor，导致「计算 = 13」而「造成 14」对不上
+        // （引擎 core/12 L288 用的是未取整 penPart + `floor(raw*10)/10`，伤害行又是 Math.round）
+        // 现在破防项按真值展示（最多两位小数）、总和取 round，与伤害行的 Math.round 一致
+        baseRaw = Math.round((dmgCalc.raw - dmgCalc.bonusDmgTotal) / dmgCalc.dmgMultiplier);
+        const penPartText = Number.isInteger(penPart) ? penPart : Number(penPart.toFixed(2));
+        formulaText = `${penPartText} + ${defForFormula}×${k} + ${maxHpForFormula}×${z} = ${baseRaw}`;
     } else {
-        baseRaw = Math.floor((dmgCalc.raw - dmgCalc.bonusDmgTotal) / dmgCalc.dmgMultiplier);
+        // 同上：与伤害行 Math.round 对齐，不再 floor
+        baseRaw = Math.round((dmgCalc.raw - dmgCalc.bonusDmgTotal) / dmgCalc.dmgMultiplier);
         formulaText = `${dmgCalc.atkAct}×(${dmgCalc.atkAct}/(${dmgCalc.atkAct}+${dmgCalc.defAct})) = ${baseRaw}`;
     }
     let runningRaw = baseRaw;
@@ -659,14 +664,20 @@ export function renderFortifyReboundFact(fact) {
 }
 
 // 张三丰：生生不息（2026-09-20 纯回血 + 溢出转嫁；加防不在此，归八卦阵）
-// 溢出文案分三种：自己回满了 / 溢出有人接（报队友实际回复量）/ 溢出无人可接（队友全满血）
+// 溢出文案分三种：无人可接（无其他存活队友）/ 接盘者回了血 / 接盘者已满血（本次溢出作废）
 export function renderEndlessBreathFact(fact) {
     const self = fact.heal > 0 ? `回复${fact.heal}点生命` : '生命已满';
     let tail = '';
     if (fact.overflow > 0) {
-        tail = fact.overflowToName
-            ? `，溢出${fact.overflow}点转给${fact.overflowToName}（其回复${fact.overflowHealed}点）`
-            : `，溢出${fact.overflow}点（队友均已满血）`;
+        // 2026-09-21 溢出目标改为随机（满血也可被选中）后，三种情况要分开写：
+        // ① 无人可接（除张三丰外无存活友方）② 接盘者确实回了血 ③ 接盘者已满血，本次溢出作废
+        if (!fact.overflowToName) {
+            tail = `，溢出${fact.overflow}点（无其他存活队友）`;
+        } else if (fact.overflowHealed > 0) {
+            tail = `，溢出${fact.overflow}点转给${fact.overflowToName}（其回复${fact.overflowHealed}点）`;
+        } else {
+            tail = `，溢出${fact.overflow}点转给${fact.overflowToName}（其已满血，未生效）`;
+        }
     }
     return { type:'info', text:`<span class="green">☯ 生生不息：${fact.unitName} ${self}${tail}</span>` };
 }

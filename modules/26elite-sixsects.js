@@ -1,5 +1,5 @@
-// V6.6.0 | ~5400 bytes | 2026-09-20 恢复回合开始触发（第二关张三丰续航偏弱，生生不息回到三处：回合开始 / 轮到自己 / 八卦阵）；溢出转嫁补飘字与日志、治疗记账归张三丰
-export const VER = 'modules/26elite-sixsects.js V6.6.0';
+// V6.8.0 | ~5400 bytes | 2026-09-21 生生不息溢出转嫁目标改为随机存活友方（满血也可被选中，选中满血即作废、不再改选）；随机走战斗 RNG，PVP 双端同源
+export const VER = 'modules/26elite-sixsects.js V6.8.0';
 import { registerElite } from '../core/08-elite-registry.js';
 import { CONFIG, getSkillParams } from '../core/01config-5v5-test.js';
 import { SIGNAL_TYPES, FACT_TYPES, BUFF_TYPES } from '../infra/56-battle-enums.js';
@@ -42,8 +42,8 @@ export function createZhangSanfengComponent() {
             if (!tf) throw new Error('缺技能参数: 张三丰.tenRoundFortify');
 
             // 生生不息：只回 healPct 上限（三处触发共用：回合开始 / 轮到自己 / 八卦阵）。加防不在这里——加防属于八卦阵（掉攻的同时加防）
-            // 2026-09-20 新增溢出转嫁：自身回不满的那部分（满血时即全部）转给友方 hp/maxHp 最低的存活单位，
-            // 拒马也算友方
+            // 2026-09-21 溢出转嫁：自身回不满的那部分（满血时即全部）转给随机一名存活友方，
+            // 拒马也算友方；满血队友也可被选中（选中即作废，不改选）；随机走战斗 RNG（getBattleRng），保证 PVP 双端同源
             function triggerEndlessBreath(unit, log) {
                 if (!unit || !unit.alive) return;
                 const heal = Math.floor(unit.maxHp * s.healPct);
@@ -52,28 +52,24 @@ export function createZhangSanfengComponent() {
                 const healed = Math.round(Math.max(0, unit.hp - hpBefore));
                 const overflow = Math.max(0, heal - healed);
 
-                // 溢出转嫁：挑 hp/maxHp 最低的存活友方（不含自己）；最低的那个也满血说明全员满血，溢出无处可去
+                // 溢出转嫁：从「存活友方」里随机挑一个（不含自己，满血也可被选中）；挑中满血者则该次溢出作废，不再改选
                 let receiver = null;
                 let receiverHealed = 0;
                 if (overflow > 0) {
-                    let best = null;
-                    for (const u of B) {
-                        if (!u.alive || u.uid === unit.uid) continue;
-                        const pct = u.maxHp > 0 ? u.hp / u.maxHp : 1;
-                        if (best === null || pct < best.pct) best = { u, pct };
-                    }
-                    if (best && best.pct < 1) {
-                        const rHpBefore = best.u.hp;
+                    const cands = B.filter(u => u.alive && u.uid !== unit.uid);
+                    if (cands.length > 0) {
+                        const pick = cands[getBattleRng().nextInt(0, cands.length - 1)];
+                        const rHpBefore = pick.hp;
                         // source 必须传张三丰：统计层按产出者记账（core/13 `(source||target).healDone`），
                         // 不传 source 会把溢出治疗记到接盘队友头上，张三丰的治疗量看起来少一大截
-                        applyStatChange(best.u, 'hp', overflow, unit, '生生不息·溢出');
-                        receiver = best.u;
-                        // 队友可能只差一点点血，实际收到的比溢出量少——飘字和日志都报实际值
+                        applyStatChange(pick, 'hp', overflow, unit, '生生不息·溢出');
+                        receiver = pick;
+                        // 队友可能只差一点点血（或本就满血），实际收到的比溢出量少——飘字和日志都报实际值
                         receiverHealed = Math.round(Math.max(0, receiver.hp - rHpBefore));
                     }
                 }
 
-                // 2026-09-17 飘字：两处触发共用（轮到自己 / 八卦阵）；2026-09-20 溢出接盘者单独飘一条
+                // 2026-09-17 飘字：三处触发共用（回合开始 / 轮到自己 / 八卦阵）；2026-09-20 溢出接盘者单独飘一条
                 if (!GlobalStore.get('fastForwardActive')) {
                     if (healed > 0) eventBus.emit(FX_SIGNALS.HEAL_FLOAT, { unit, amount: healed });
                     if (receiverHealed > 0) eventBus.emit(FX_SIGNALS.HEAL_FLOAT, { unit: receiver, amount: receiverHealed });
