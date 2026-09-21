@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿<!DOCTYPE html>
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿<!DOCTYPE html>
 <!-- V6.0.0 | ~25900 bytes-->
 <html lang="zh-CN">
 <head>
@@ -246,7 +246,7 @@
     <div class="tab-content" id="tab-elite-eval">
         <p style="color:#888; font-size:12px; margin:0 0 12px 0; line-height:1.6;">
             自动跑 6 关 × N 场模拟战斗，输出各明教精英（张无忌 / 韦一笑 / 小昭·姊 / 小昭·妹）带队胜率、场均输出、场均承伤、存活率。<br>
-            采用主代码 doInitBattle 生成阵容，若无该精英则替换一名普通单位。固定六大派先手，无海克斯。
+            采用主代码 initBattleTeams 生成阵容（借 force hook 强制精英上场，站位由引擎排）。固定六大派先手，每 3 回合自动选海克斯（对齐正式游戏节奏）。
         </p>
         <div class="elite-config">
             <label>每关每精英场次：</label>

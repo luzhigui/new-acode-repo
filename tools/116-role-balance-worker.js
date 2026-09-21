@@ -42,7 +42,9 @@ function clearBattleGlobals() {
 
 // 共用：跑 ≤35 回合完整战斗（与各工具原战斗中继逻辑一致）
 // 返回 { winner, ally, enemy }；winner 为空 = 超回合未分胜负
-function runWholeBattle(initAlly, initEnemy, seed) {
+// hexEnabled=true 时对齐正式游戏节奏：第 3/6/9 回合末各自动补一个海克斯（明教侧）。
+//   精英评测路（runEliteStageJob）启用；stats / baseline 保持裸机基线不动。
+function runWholeBattle(initAlly, initEnemy, seed, hexEnabled = false) {
     let state = {
         ally: initAlly.map(u => u.clone()),
         enemy: initEnemy.map(u => u.clone()),
@@ -84,6 +86,12 @@ function runWholeBattle(initAlly, initEnemy, seed) {
             .filter(b => b && b.remaining > 0)
             .map(b => ({ ...b, remaining: b.remaining - 1 }))
             .filter(b => b.remaining > 0);
+        // 加海克斯（对齐正式游戏节奏）：第 3/6/9 回合末各补一个。
+        //   用 state._rng 抽取，保证同 seed 时四精英的海克斯序列一致（初始队伍不同→可用性过滤不同，符合正式游戏）。
+        if (hexEnabled && state.round % 3 === 0) {
+            const nb = pickHexBuff(state.activeBuffs, lastStep.ally, state._rng, false);
+            if (nb) state.activeBuffs.push(nb);
+        }
         state.round = r + 1;
     }
     return { winner: finalWinner, ally: finalAlly, enemy: finalEnemy };
@@ -178,38 +186,31 @@ function runBalanceJob(buildAlly, buildEnemy, seed, hexEnabled) {
 }
 
 // 112 精英评测
-// 原主线程逻辑：initBattleTeams(stage, seed) → 精英替换 → runWholeBattle → 计数该精英 胜率/输出/承伤/存活
+// 强制精英上场（借引擎 forceZhang/forceWei/forceXiaoZhao hook）：
+//   原实现是"initBattleTeams 之后手动替换 victim.pos = stdPos"，绕过引擎站位逻辑——
+//   尤其张无忌的 2 号位保护（29battle-init L204 `if (others.length>0 && zhang && !takenPos.has(2))`）会失效：
+//   原阵容没抽中张无忌时 2 号位约 44% 概率空着，checkZhangSwitch 判定同列前排无人 → 开局切近战，
+//   远程优势全废、顶上前排被打（评测数据表现为"输出不差、存活崩"）。
+//   改为 force 标志让精英从一开始就在 initBattleTeams 内部生成，站位 / 2 号位保护 / 5 号位硬编码全部生效。
 function runEliteStageJob(cfg, stage, seed, runs) {
     let wins = 0, sumDmg = 0, sumTaken = 0, sumSurv = 0, validRuns = 0;
+    let forceKey = null, forceVal = null;
+    if (cfg.flag === 'isZhang') { forceKey = 'forceZhang'; forceVal = true; }
+    else if (cfg.flag === 'isWei') { forceKey = 'forceWei'; forceVal = true; }
+    else if (cfg.flag === 'isXiaoZhaoSister') { forceKey = 'forceXiaoZhao'; forceVal = 'sister'; }
+    else if (cfg.flag === 'isXiaoZhaoBrother') { forceKey = 'forceXiaoZhao'; forceVal = 'brother'; }
+
     for (let i = 0; i < runs; i++) {
-        clearBattleGlobals(); // 与原主线程一致，每场清理防 OOM
+        clearBattleGlobals(); // 与原主线程一致，每场清理防 OOM（会清掉 force 标志）
+        if (forceKey) GlobalStore.set(forceKey, forceVal); // clear 之后重设，保证本场强制生效
         const initRng = new SeededRNG(seed + i * 7919); // jobSeed 已含 masterSeed+stage*131，公式与原主线程等价
         const teams2 = initBattleTeams(stage, initRng);
         const ally = teams2.allyTeam.map(u => u.clone());
-        let eu = ally.find(u => u[cfg.flag]);
-        if (!eu) {
-            const candidates = ally.filter(u => !u.isZhang && !u.isWei && !u.isXiaoZhaoSister && !u.isXiaoZhaoBrother);
-            if (!candidates.length) continue;
-            const stdPos = cfg.name === '张无忌' ? 5 : cfg.name === '韦一笑' ? 6 : 4;
-            let victim = candidates.find(u => u.pos === stdPos) || candidates[0];
-            victim.name = cfg.name;
-            victim.role = cfg.role;
-            victim.m = cfg.m;
-            victim[cfg.flag] = true;
-            if (cfg.flag === 'isXiaoZhaoSister' || cfg.flag === 'isXiaoZhaoBrother') {
-                victim.initXiaoZhao();
-            } else {
-                victim.init(new SeededRNG(seed + i * 31 + stage * 7));
-            }
-            victim.applyBonus();
-            victim._baseMaxHp = victim.maxHp;
-            victim._baseAtk = victim.atk;
-            victim._baseDef = victim.def;
-            victim.pos = stdPos;
-            eu = victim;
-        }
+        const eu = ally.find(u => u[cfg.flag]);
+        // force 路径下精英必然在场；若因数据缺失未生成（如内容表无该角色），跳过本场不计入
+        if (!eu) continue;
         GlobalStore.set('battleHasZhang', ally.some(u => u.isZhang));
-        const res = runWholeBattle(ally, teams2.enemyTeam, seed + i * 7919);
+        const res = runWholeBattle(ally, teams2.enemyTeam, seed + i * 7919, true);  // 加海克斯（对齐正式游戏）
         if (!res.winner) continue;
         validRuns++;
         if (res.winner === '明教') wins++;

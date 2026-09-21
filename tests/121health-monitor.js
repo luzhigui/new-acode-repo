@@ -1,5 +1,9 @@
-// V6.0.0 | 接入 rule81-87 回归体检；GAMEOVER 立即跑规则(日志已完整)；新局识别修复多局连打漏检；新增战报黑幕/随机重开/特效池实时检查
-export const VER = 'tests/121health-monitor.js V6.0.0';
+// V6.1.0 | ~42400 bytes | 2026-09-21 随机重开检查从轮询判据(checkRandomRestartState,122)改为事件驱动(hookRandomRestartWatch)：
+//          原判据在任意一局正常 GAMEOVER 都成立(UI.round 全程0/UI.currentResult 全程null/UI.allyTeam 是开战
+//          clone 副本 alive 恒真)，每局必误报，且主代码补 setState.gs('IDLE') 也消不掉。改点 btnSettle 后
+//          120ms 查 gs 是否仍停 GAMEOVER 且已生成新局(全员满血)，只有"真点了随机重开但没复位"才上报。
+// 职责：接入 rule70-93 回归体检；GAMEOVER 立即跑规则(日志已完整)；新局识别修复多局连打漏检；战报黑幕/特效池实时检查
+export const VER = 'tests/121health-monitor.js V6.1.0';
 
 import { runStaticScan } from './123static-scan.js';
 import { filterRulesByTags, parseRecipeTags, collectForceFlags } from './124rule-recipes.js';
@@ -33,7 +37,7 @@ import {
     checkDeathFxRetention, checkVictoryDanmaku,
     checkMeleeFxState, checkBuffIcons, locateLogEntry,
     checkBottomButtonStates, checkModeButtonStates,
-    checkBattleReportOverlay, checkRandomRestartState, checkFxDomAccumulation
+    checkBattleReportOverlay, checkFxDomAccumulation
 } from './122health-utils.js';
 
 let monitorActive = false, gameLoaded = false, scanTimer = null, isPaused = false;
@@ -262,6 +266,8 @@ export function initMonitor() {
             const ctx = getCtx();
             if (ctx && ctx.UI && ctx.UI.allyTeam && ctx.UI.allyTeam.length >= 1) {
                 clearInterval(waitReady); gameLoaded = true;
+                // 随机重开复位检查改为事件驱动：游戏就绪后挂 btnSettle（幂等），点击后 120ms 查 gs
+                hookRandomRestartWatch(doc);
                 const w = getWin();
                 const testApi = w && w.__DSH_TEST_API__;
                 if (testApi && typeof testApi.selectStage === 'function') testApi.selectStage(autoStartStage);
@@ -370,9 +376,10 @@ function periodicScan() {
         for (const msg of checkBottomButtonStates(ctx, doc)) recordIssue(ctx, null, '按钮状态', msg, 'UI');
     }
 
-    // [新增] 战报黑幕/随机重开/特效池实时检查：须覆盖全部状态（GAMEOVER 后的残留与状态错位正是检查窗口）
+    // [新增] 战报黑幕/特效池实时检查：须覆盖全部状态（GAMEOVER 后的残留与状态错位正是检查窗口）
+    // 随机重开复位检查已改为事件驱动（hookRandomRestartWatch 挂 btnSettle），不再轮询——原轮询判据
+    // 在任意一局正常 GAMEOVER 都成立，每局必误报（详见文件头 V6.1.0）
     for (const msg of checkBattleReportOverlay(ctx, doc)) recordIssue(ctx, null, '战报弹窗', msg, 'UI');
-    for (const msg of checkRandomRestartState(ctx, doc)) recordIssue(ctx, null, '随机重开', msg, 'UI');
     for (const msg of checkFxDomAccumulation(ctx, doc)) recordIssue(ctx, null, '特效池', msg, 'UI');
 
     if (ctx.gs === 'RUNNING' || ctx.gs === 'PAUSED') {
@@ -418,6 +425,40 @@ function periodicScan() {
             updateAutoProgress(stage);
         }
     }
+}
+
+// 随机重开状态复位检查（事件驱动）—
+// 挂 btnSettle 点击，120ms 后取上下文：只有玩家真点了随机重开、gs 仍停在 GAMEOVER、
+// 且 UI 已生成新局（currentResult=null/round=0/全员存活）时才上报。
+// 对照：原班再战(btnNext)正确 setState.gs('IDLE')；正常打完一局(没人点按钮)不触发本检查。
+// 为什么不用轮询：UI.round 全程停 0、UI.currentResult 全程 null、UI.allyTeam 是开战 clone 副本 alive 恒真，
+// 这三个量都不随战斗推进，任意一局正常 GAMEOVER 都满足 → 轮询必误报（详见文件头 V6.1.0）。
+function hookRandomRestartWatch(doc) {
+    if (!doc) return;
+    const btn = doc.getElementById('btnSettle');
+    if (!btn) return;
+    if (btn._healthWatched) return; // 幂等：同一按钮只挂一次（标志挂元素上，随 iframe 重载自然失效）
+    btn._healthWatched = true;
+    btn.addEventListener('click', () => {
+        if (!monitorActive || isPaused) return;
+        setTimeout(() => {
+            if (!monitorActive) return;
+            const c = getCtx();
+            if (!c || !c.UI) return;
+            // 正常复位路径：随机重开应离开 GAMEOVER（gs 变 IDLE/RUNNING）；未离开才继续判定
+            if (c.gs !== 'GAMEOVER') return;
+            const UI = c.UI;
+            const freshBattle = UI.currentResult === null && (!UI.round || UI.round === 0) &&
+                Array.isArray(UI.allyTeam) && UI.allyTeam.length > 0 && UI.allyTeam.every(u => u && u.alive);
+            if (!freshBattle) return;
+            const d = getDoc();
+            const btnMain = d && d.getElementById('btnMain');
+            const t = btnMain ? (btnMain.textContent || '').replace(/\s+/g, '') : '';
+            // immediate=true：事件驱动一次性上报，点击本身即确认，跳过去抖连续采样
+            recordIssue(c, null, '随机重开', '随机重开后状态未复位：新局已生成但gs=GAMEOVER' +
+                (t.indexOf('下一关') !== -1 ? '，主按钮显示"下一关"（点击将跳关）' : ''), 'UI', true);
+        }, 120);
+    });
 }
 
 function runEngineChecks(ctx) {
@@ -564,11 +605,12 @@ function checkPositionAfterSwap(ctx, attackEntry, unit, expectedPos) {
     }
 }
 
-function recordIssue(ctx, unitUid, type, detail, source) {
+function recordIssue(ctx, unitUid, type, detail, source, immediate) {
     const key = (unitUid || 'global') + '|' + type + '|' + detail.substring(0, 60);
     if (issueKeys.has(key)) return;
     // UI 类异常先进入待确认状态，需连续采样命中才正式上报，避免渲染时序/状态机切换导致的瞬时误报
-    if (source === 'UI') {
+    // immediate=true：事件驱动的一次性上报（如点击 btnSettle 后确认），事件本身即确认，跳过去抖
+    if (source === 'UI' && !immediate) {
         const n = (pendingIssueCounts[key] || 0) + 1;
         pendingIssueCounts[key] = n;
         if (n < UI_CONFIRM_TIMES) return;
