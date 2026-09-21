@@ -185,43 +185,43 @@ function runBalanceJob(buildAlly, buildEnemy, seed, hexEnabled) {
     return { winner: null };
 }
 
-// 112 精英评测
-// 强制精英上场（借引擎 forceZhang/forceWei/forceXiaoZhao hook）：
-//   原实现是"initBattleTeams 之后手动替换 victim.pos = stdPos"，绕过引擎站位逻辑——
-//   尤其张无忌的 2 号位保护（29battle-init L204 `if (others.length>0 && zhang && !takenPos.has(2))`）会失效：
-//   原阵容没抽中张无忌时 2 号位约 44% 概率空着，checkZhangSwitch 判定同列前排无人 → 开局切近战，
-//   远程优势全废、顶上前排被打（评测数据表现为"输出不差、存活崩"）。
-//   改为 force 标志让精英从一开始就在 initBattleTeams 内部生成，站位 / 2 号位保护 / 5 号位硬编码全部生效。
-function runEliteStageJob(cfg, stage, seed, runs) {
-    let wins = 0, sumDmg = 0, sumTaken = 0, sumSurv = 0, validRuns = 0;
-    let forceKey = null, forceVal = null;
-    if (cfg.flag === 'isZhang') { forceKey = 'forceZhang'; forceVal = true; }
-    else if (cfg.flag === 'isWei') { forceKey = 'forceWei'; forceVal = true; }
-    else if (cfg.flag === 'isXiaoZhaoSister') { forceKey = 'forceXiaoZhao'; forceVal = 'sister'; }
-    else if (cfg.flag === 'isXiaoZhaoBrother') { forceKey = 'forceXiaoZhao'; forceVal = 'brother'; }
-
+// 112 精英评测：跑普通局，按"谁在场"归因
+// 不再 force 上场 —— force 会抑制随机抽取（29battle-init 的 `if (eliteCount > 0 && !forceZhang && !forceWei)`），
+// 导致被 force 的精英按"单精英"评、未 force 的按"多精英"评，四列不同尺子不可比。
+// 现改为：每关跑 runs 局普通对局（出率/站位/海克斯全走引擎原逻辑），
+// 一局结束看谁在场，就把这局的结果记给谁（同场共现是真实环境，不是污染）。
+function runEliteStageJob(stage, seed, runs) {
+    const agg = {
+        '张无忌':  { runs: 0, wins: 0, sumDmg: 0, sumTaken: 0, sumSurv: 0 },
+        '韦一笑':  { runs: 0, wins: 0, sumDmg: 0, sumTaken: 0, sumSurv: 0 },
+        '小昭·姊': { runs: 0, wins: 0, sumDmg: 0, sumTaken: 0, sumSurv: 0 },
+        '小昭·妹': { runs: 0, wins: 0, sumDmg: 0, sumTaken: 0, sumSurv: 0 }
+    };
     for (let i = 0; i < runs; i++) {
-        clearBattleGlobals(); // 与原主线程一致，每场清理防 OOM（会清掉 force 标志）
-        if (forceKey) GlobalStore.set(forceKey, forceVal); // clear 之后重设，保证本场强制生效
-        const initRng = new SeededRNG(seed + i * 7919); // jobSeed 已含 masterSeed+stage*131，公式与原主线程等价
-        const teams2 = initBattleTeams(stage, initRng);
-        const ally = teams2.allyTeam.map(u => u.clone());
-        const eu = ally.find(u => u[cfg.flag]);
-        // force 路径下精英必然在场；若因数据缺失未生成（如内容表无该角色），跳过本场不计入
-        if (!eu) continue;
+        clearBattleGlobals(); // 每场清理防 OOM（同时清掉 force 标志，保证本场是纯普通局）
+        const initRng = new SeededRNG(seed + i * 7919);
+        const teams = initBattleTeams(stage, initRng);
+        const ally = teams.allyTeam.map(u => u.clone());
+        if (!ally.length) continue;
         GlobalStore.set('battleHasZhang', ally.some(u => u.isZhang));
-        const res = runWholeBattle(ally, teams2.enemyTeam, seed + i * 7919, true);  // 加海克斯（对齐正式游戏）
+        const res = runWholeBattle(ally, teams.enemyTeam, seed + i * 7919, true); // 带海克斯，对齐正式游戏节奏
         if (!res.winner) continue;
-        validRuns++;
-        if (res.winner === '明教') wins++;
-        const euFinal = (res.ally || []).find(u => u[cfg.flag]);
-        if (euFinal) {
-            sumDmg += euFinal.dmgDealt || 0;
-            sumTaken += euFinal.dmgTaken || 0;
-            if (euFinal.alive) sumSurv++;
+        for (const u of (res.ally || [])) {
+            let name = null;
+            if (u.isZhang) name = '张无忌';
+            else if (u.isWei) name = '韦一笑';
+            else if (u.isXiaoZhaoSister) name = '小昭·姊';
+            else if (u.isXiaoZhaoBrother) name = '小昭·妹';
+            if (!name) continue;
+            const a = agg[name];
+            a.runs++;
+            if (res.winner === '明教') a.wins++;
+            a.sumDmg += u.dmgDealt || 0;
+            a.sumTaken += u.dmgTaken || 0;
+            if (u.alive) a.sumSurv++;
         }
     }
-    return { wins, validRuns, sumDmg, sumTaken, sumSurv };
+    return agg;
 }
 
 // 108 海克斯仪表盘：整局自动战斗（含第3/6/9回合自动补海克斯），逻辑与 101 runBattle 等价。
@@ -439,8 +439,8 @@ self.onmessage = (e) => {
             }
             result = { wins };
         } else if (kind === 'elite') {
-            const { cfg, stage, seed, runs } = e.data;
-            result = runEliteStageJob(cfg, stage, seed, runs);
+            const { stage, seed, runs } = e.data;
+            result = runEliteStageJob(stage, seed, runs);
         } else if (kind === 'stats') {
             const { stage, seed, runs } = e.data;
             result = runStatsStageJob(stage, seed, runs);
