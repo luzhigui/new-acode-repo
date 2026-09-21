@@ -20,12 +20,18 @@ export const rule87 = {
         // STAT_BONUS_CHANGE 覆盖写入。流云在战斗中途过期后，末轮重算会合法地把字段清回 0——
         // 此时终值为 0 不代表链路坏了。只有 GAMEOVER 时流云仍挂在 activeBuffs（末轮生效），
         // 终值才必须 > 0；已过期的场次跳过，等流云活到末尾的场次再判。
-        var cloudStillOn = false;
+        var cloudBuff = null;
         var ab = ctx.activeBuffs || [];
         for (var c = 0; c < ab.length; c++) {
-            if (ab[c] && ab[c].key === 'cloudBody') { cloudStillOn = true; break; }
+            if (ab[c] && ab[c].key === 'cloudBody') { cloudBuff = ab[c]; break; }
         }
-        if (!cloudStillOn) return 'skip';
+        // 阵营口径修正：引擎按 buff.target 分流（core/11battle-round.js：
+        //   A._activeBuffs = target==='ally' 或无 target；B._activeBuffs = target==='enemy'）。
+        // ctx.activeBuffs 是**双方合计**表，原实现只看"表里有没有流云"就断言我方闪避必 >0；
+        // 若流云挂在敌方(target='enemy')，我方 buffDodgeBonus 本就该是 0 —— 属误报。
+        // 只在流云确属我方（target==='ally' 或无 target）时才继续判，避免把合法 0 报成回归。
+        if (!cloudBuff) return 'skip';
+        if (cloudBuff.target && cloudBuff.target !== 'ally') return 'skip';
 
         var alive = [];
         for (var j = 0; j < afterA.length; j++) {

@@ -21,9 +21,13 @@ export const rule88 = {
     name: '张三丰核心机制回归(严阵以待/如沐春风/生生不息)',
     test: function(ctx, log, beforeA, beforeE, afterA, afterE) {
         // 1. 本场是否有张三丰（六大派精英·防战）
+        //    口径修正：张三丰属六大派（content/200game-data.json 的 enemySquads / elitePool，
+        //    组件在 modules/26elite-sixsects.js），是**敌方**单位；体检入参 afterA = 我方明教、
+        //    afterE = 敌方六大派。原实现扫 afterA 永远扫不到 isZhangSanfeng，本规则恒 skip——
+        //    表面不报错，实际一条断言都没跑（假绿）。改为扫 afterE 才会真正生效。
         var zhang = null;
-        for (var i = 0; i < afterA.length; i++) {
-            if (afterA[i] && afterA[i].isZhangSanfeng) { zhang = afterA[i]; break; }
+        for (var i = 0; i < afterE.length; i++) {
+            if (afterE[i] && afterE[i].isZhangSanfeng) { zhang = afterE[i]; break; }
         }
         if (!zhang) return 'skip'; // 没张三丰这场不触发该机制
 

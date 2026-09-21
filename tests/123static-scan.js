@@ -14,7 +14,10 @@ export const ENUM_NAMES = [
 
 // 跨文件共享符号清单（非枚举、由特定文件导出、被大量模块消费的全局引用）。
 // 来源：主代码侧诊断确认的两类高频缺 import 符号；新增共享容器时在此追加。
-export const SHARED_SYMBOLS = ['eventBus', 'GlobalStore'];
+// 追加 getUnitCol / getUnitRow：二者由 infra/51-core-utils.js 导出、被 core/03/11/12/14、
+// render/32 等广泛消费。2026-09-21 实测 tests/122health-utils.js 用了却没 import，
+// 运行时抛 ReferenceError 让圣火令校验静默失效——属同一类"缺 import"隐患，纳入扫描。
+export const SHARED_SYMBOLS = ['eventBus', 'GlobalStore', 'getUnitCol', 'getUnitRow'];
 
 // 核心文件清单（相对 tests/ 页面路径；不含 tests/ tools/ 自身）
 export const SCAN_FILES = [
@@ -35,7 +38,27 @@ export const SCAN_FILES = [
     '../ui/60main-utils.js', '../ui/61main-5v5-test.js', '../ui/62ui-render-5v5-test.js',
     '../ui/63main-state.js', '../ui/64main-dialogs.js', '../ui/65main-battle.js',
     '../ui/67fx-trigger.js', '../ui/68ui-controls.js', '../ui/69reset-runtime.js', '../ui/70buff-dialog.js',
-    '../fx/87fx-manager.js', '../fx/88fx-trigger.js', '../fx/89fx-subscriber.js'
+    '../fx/87fx-manager.js', '../fx/88fx-trigger.js', '../fx/89fx-subscriber.js',
+    // 2026-09-21 扩到体检代码自身：tests/122health-utils.js 曾漏 import getUnitCol 导致
+    // 圣火令校验运行时抛错却静默"通过"——体检代码同样是 JS，同样会缺 import，必须一并扫。
+    './121health-monitor.js', './122health-utils.js', './123static-scan.js',
+    './124rule-recipes.js', './140-baseline.js',
+    './health-rules/123-claw-heal-spam.js', './health-rules/124-aftermiss.js',
+    './health-rules/125-fortify-timing.js', './health-rules/126-xuanming-link.js',
+    './health-rules/127-butterfly-stack.js', './health-rules/128-butterfly-return.js',
+    './health-rules/129-spider-fly-count.js', './health-rules/130-fortify-overflow.js',
+    './health-rules/131-separator-duplicate.js', './health-rules/132-claw-damage.js',
+    './health-rules/133-death-effect.js', './health-rules/134-zhang-switch.js',
+    './health-rules/135-break-def-pos.js', './health-rules/136-meteor-atk.js',
+    './health-rules/137-kulian-prompt.js', './health-rules/138-wind-push.js',
+    './health-rules/139-spider-butterfly-target.js',     './health-rules/140-wei-dodge-cloud.js',
+    './health-rules/141-zhangsanfeng-fortify-round.js',
+    './health-rules/142-zhangsanfeng-endless-roundstart.js',
+    './health-rules/143-jiuyang-heal-pct.js',
+    // 2026-09-21 补登 144（第 2 趟新增时漏登）+ 新增 146
+    './health-rules/144-xinhun-kuaile.js',
+    './health-rules/145-fly-miss-aura.js',
+    './health-rules/146-double-strike.js'
 ];
 
 // 提取文件的 static import 信息（仅静态 import 语句，跳过动态 import()）

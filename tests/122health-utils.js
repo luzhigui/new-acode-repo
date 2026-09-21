@@ -1,6 +1,10 @@
 // V6.0.0 | 2026-08-26 buff key 收敛为 infra/56-battle-enums 的 BUFF_TYPES（删除本地第二事实源）
+// V6.1.12 | 补 getUnitCol / getUnitRow 的 import：圣火令命中判定(第226行起)用到这两个函数，
+//          但文件从未 import 过它们 —— 运行时抛 ReferenceError: getUnitCol is not defined，
+//          圣火令相关 buff 校验静默失效（体检报"通过"其实是异常被吞）。现从 infra/51 显式引入。
 import { BUFF_TYPES, CAMP_TYPES, ROLE_TYPES } from '../infra/56-battle-enums.js';
-export const VER = 'tests/122health-utils.js V6.0.0';
+import { getUnitCol, getUnitRow } from '../infra/51-core-utils.js';
+export const VER = 'tests/122health-utils.js V6.1.12';
 
 /**
  * 获取单位对应的格子 DOM 元素
