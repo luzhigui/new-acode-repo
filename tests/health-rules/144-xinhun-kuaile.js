@@ -32,6 +32,19 @@ function entryTexts(e) {
     return out;
 }
 
+// 快照里是否存在「血量上限恰等于 hpAfter」的单位 —— 用于识别快乐回血的"回满截断"合法形态。
+// 注意是弱判据（同名/同上限会误认），故只在"精确判据不成立"时兜底放行，不做反向断言。
+function hpIsCap(pools, hpAfter) {
+    if (typeof hpAfter !== 'number') return false;
+    for (var i = 0; i < pools.length; i++) {
+        var arr = pools[i] || [];
+        for (var k = 0; k < arr.length; k++) {
+            if (arr[k] && arr[k].maxHp === hpAfter) return true;
+        }
+    }
+    return false;
+}
+
 export const rule91 = {
     group: '精英技能回归',
     name: '宋青书新婚快乐链路(回归)',
@@ -93,8 +106,21 @@ export const rule91 = {
                 return { fail: true, msg: '复发：快乐回血按' + kl.layers + '层结算，但全场新婚仅叠加' + xinhun.length + '次（叠层被重复计算，回血虚高）' };
             }
             // 回写同步：hpAfter 应等于 hpBefore + heal（fact 与播放器两侧口径一致）
-            if (kl.heal !== null && kl.hpBefore !== null && kl.hpAfter !== null && kl.hpAfter !== kl.hpBefore + kl.heal) {
-                return { fail: true, msg: '复发：快乐回血' + kl.heal + '点，但血量' + kl.hpBefore + '→' + kl.hpAfter + ' 与回写不一致（治疗量与实际血量脱节）' };
+            // V6.1.15 第 7 趟修正（上游 core/15 V6.0.3「快乐回血 fact 的 hpAfter 改预测值」引发）：
+            //   现在 hpBefore = fmtHp(floor(unit.hp))、hpAfter = fmtHp(min(maxHp, unit.hp + totalHeal))，
+            //   于是合法形态有两种 —— ① 精确：hpAfter - hpBefore 等于 heal 或 heal-1（两段各自 floor，
+            //   最多差 1）；② **回满截断**：hpAfter 顶到该单位血量上限（实测 seed=1 170→175 回复 28、
+            //   seed=3 144→175 回复 56，都是被 maxHp 截断，属设计使然）。旧判据只认①，上游一改
+            //   就 120 场误报 18 场。截断判定取「快照里存在 maxHp 恰等于 hpAfter 的单位」，
+            //   拿不到快照时该条退化为只认①（宁可漏报也不硬报）。
+            if (kl.heal !== null && kl.hpBefore !== null && kl.hpAfter !== null) {
+                var diff = kl.hpAfter - kl.hpBefore;
+                var exact = (diff === kl.heal || diff === kl.heal - 1);
+                var pools2 = [afterA || [], afterE || [], beforeA || [], beforeE || []];
+                if (!exact && !hpIsCap(pools2, kl.hpAfter)) {
+                    return { fail: true, msg: '复发：快乐回血' + kl.heal + '点，但血量' + kl.hpBefore + '→'
+                        + kl.hpAfter + ' 既非 +' + kl.heal + ' 也非回满截断（治疗量与实际血量脱节）' };
+                }
             }
         }
 
