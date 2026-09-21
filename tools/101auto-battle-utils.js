@@ -58,39 +58,21 @@ function autoPickBuffForBattle(state, currentBuffs, preferredBuffs = []) {
 // 对齐正式游戏：开局 0 Buff，第 3/6/9…回合结束自动补选（同真人局"第3回合倍数选Buff"节奏）
 async function runBattle(snap, seed, preferredBuffs = []) {
     const rng = seed instanceof SeededRNG ? seed : new SeededRNG(seed ?? Date.now());
-    let battleState = {
-        ally: snap.ally.map(u => u.clone()),
-        enemy: snap.enemy.map(u => u.clone()),
-        round: 1,
-        activeBuffs: [],
-        allAllies: snap.ally.map(u => u.clone()),
-        _rng: rng
-    };
-    let lastStep = null;
     const buffsPicked = [];
-    const maxRound = C.MAX_ROUND || 35;
-    while (battleState.round <= maxRound) {
-        const stepper = createRoundStepper(battleState, { ui: false }); // 工具场景跳过 stageActions 翻译
-        for (const step of stepper) { // 引擎已同步化（function*），for...of 直取
-            lastStep = step;
-            if (step.winner) return { winner: step.winner, buffsPicked };
-        }
-        // 回合结束：Buff 递减 + 每3回合自动补一个 Buff
-        let nextBuffs = (battleState.activeBuffs || []).map(b => ({ ...b, remaining: b.remaining - 1 })).filter(b => b.remaining > 0);
-        if (battleState.round % 3 === 0) {
-            const nb = autoPickBuffForBattle(battleState, nextBuffs, preferredBuffs);
-            if (nb) { nextBuffs.push(nb); buffsPicked.push(nb); }
-        }
-        battleState = {
-            ally: (lastStep ? lastStep.ally : battleState.ally).map(u => u.clone()),
-            enemy: (lastStep ? lastStep.enemy : battleState.enemy).map(u => u.clone()),
-            round: battleState.round + 1,
-            activeBuffs: nextBuffs,
-            allAllies: battleState.allAllies,
-            _rng: battleState._rng
-        };
-    }
-    return { winner: '平局', buffsPicked };
+    // 海克斯抽取回调：沿用 autoPickBuffForBattle（带偏好 + 小昭·妹永久继承 + 记 buffsPicked）。
+    // autoPickBuffForBattle 内部自己起 rng（state._rng），签名要求 state，故这里包一层假 state。
+    const hexPicker = (activeBuffs, allySide, rng2) => {
+        const nb = autoPickBuffForBattle({ ally: allySide, _rng: rng2 }, activeBuffs, preferredBuffs);
+        if (nb) buffsPicked.push(nb);
+        return nb;
+    };
+    const res = runBattleCore({
+        ally: snap.ally,
+        enemy: snap.enemy,
+        seed: rng,
+        hexPicker
+    });
+    return { winner: res.winner || '平局', buffsPicked };
 }
 
 // 自动批量战斗

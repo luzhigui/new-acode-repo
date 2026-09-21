@@ -1,8 +1,12 @@
-// 由 109 职业平衡 Worker 扩展为多 kind 分发：'balance' | 'elite' | 'stats' | 'baseline'
+// 由 109 职业平衡 Worker 扩展为多 kind 分发：'balance' | 'elite' | 'stats' | 'baseline' | 'hex'
 // 每个 job 在 worker 内完成 N 场战斗并回报聚合；独立模块实例，天然隔离 _eliteStates/_eventBuffer
 // Worker 环境兼容 shim：
 //  - 战斗链 15-skill-mechanisms 白骨爪结算读 window.GlobalStore（运行时访问），globalThis 即 window 等价物
 //  - 24（内容18流程）无 localStorage，圣火令/宝箱记账为运行时访问，补内存实现（模拟战斗不需要真持久化）
+//
+// ⚠️ 整局循环已全部收口到 core/06battle-runner（runBattle）。
+//    本文件不再自写 while 回合循环——历史上这里有 3 份（runWholeBattle / runBalanceJob / runHexStageJob），
+//    任何一处改错都不会被别人发现。新增需要"跑一局"的场景，一律调 runBattle，不要再抄循环。
 if (typeof window === 'undefined') globalThis.window = globalThis;
 if (typeof localStorage === 'undefined') {
     const _ls = new Map();
@@ -16,7 +20,7 @@ if (typeof localStorage === 'undefined') {
 import { CONFIG, loadGameData } from '../core/01config-5v5-test.js';
 import { Unit } from '../core/02unit.js';
 import { SeededRNG, flushBattleEvents, onBattleEvents } from '../infra/51-core-utils.js';
-import { createRoundStepper } from '../core/11battle-round.js';
+import { runBattle } from '../core/06battle-runner.js';
 import { setBattleRng } from '../core/13battle-shared.js';
 import { createBuffObject } from '../modules/28buff-tools.js';
 import { initBattleTeams } from '../modules/29battle-init.js';
@@ -40,61 +44,16 @@ function clearBattleGlobals() {
     // 状态已并入 unit.state，随对局对象 GC，无需清理（18-elite-state 已废弃）
 }
 
-// 共用：跑 ≤35 回合完整战斗（与各工具原战斗中继逻辑一致）
-// 返回 { winner, ally, enemy }；winner 为空 = 超回合未分胜负
-// hexEnabled=true 时对齐正式游戏节奏：第 3/6/9 回合末各自动补一个海克斯（明教侧）。
-//   精英评测路（runEliteStageJob）启用；stats / baseline 保持裸机基线不动。
+// 共用：跑完整战斗（薄封装，保持调用点签名不变）。
+// 循环本体在 core/06battle-runner；原实现里的 allAllies 手工同步与 buff 双递减一并删除
+// （createRoundStepper 内部已自行处理，删掉后 18 场基线的 winner/rounds/factCount 逐条不变）。
 function runWholeBattle(initAlly, initEnemy, seed, hexEnabled = false) {
-    let state = {
-        ally: initAlly.map(u => u.clone()),
-        enemy: initEnemy.map(u => u.clone()),
-        round: 1,
-        activeBuffs: [],
-        allAllies: initAlly.map(u => u.clone()),
-        _rng: new SeededRNG(seed)
-    };
-    let finalWinner = null, finalAlly = null, finalEnemy = null;
-    for (let r = 1; r <= 35; r++) {
-        const stepper = createRoundStepper(state, { ui: false }); // 工具场景跳过 stageActions 翻译
-        let lastStep = null;
-        for (const step of stepper) { // 引擎已同步化（function*），for...of 直取
-            lastStep = step;
-            if (step.winner) break;
-        }
-        if (!lastStep) break;
-        if (lastStep.winner) {
-            finalWinner = lastStep.winner;
-            finalAlly = lastStep.ally;
-            finalEnemy = lastStep.enemy;
-            break;
-        }
-        state.ally = lastStep.ally;
-        state.enemy = lastStep.enemy;
-        if (lastStep.ally._allAllies || state.allAllies) {
-            const baseAllies = lastStep.ally._allAllies || state.allAllies;
-            state.allAllies = baseAllies.map(full => {
-                const cur = lastStep.ally.find(a => a.uid === full.uid);
-                if (cur) {
-                    full.hp = cur.hp; full.maxHp = cur.maxHp; full.alive = cur.alive;
-                    full.atk = cur.atk; full.def = cur.def;
-                    if (cur.state._isDead !== undefined) full.state._isDead = cur.state._isDead;
-                }
-                return full;
-            });
-        }
-        state.activeBuffs = (lastStep.ally._activeBuffs || state.activeBuffs || [])
-            .filter(b => b && b.remaining > 0)
-            .map(b => ({ ...b, remaining: b.remaining - 1 }))
-            .filter(b => b.remaining > 0);
-        // 加海克斯（对齐正式游戏节奏）：第 3/6/9 回合末各补一个。
-        //   用 state._rng 抽取，保证同 seed 时四精英的海克斯序列一致（初始队伍不同→可用性过滤不同，符合正式游戏）。
-        if (hexEnabled && state.round % 3 === 0) {
-            const nb = pickHexBuff(state.activeBuffs, lastStep.ally, state._rng, false);
-            if (nb) state.activeBuffs.push(nb);
-        }
-        state.round = r + 1;
-    }
-    return { winner: finalWinner, ally: finalAlly, enemy: finalEnemy };
+    return runBattle({
+        ally: initAlly,
+        enemy: initEnemy,
+        seed,
+        hexPicker: hexEnabled ? pickHexBuff : null
+    });
 }
 
 // 109 职业平衡：模板阵容 + 自动海克斯
@@ -144,45 +103,22 @@ function pickHexBuff(activeBuffs, allyTeam, rng, withFortifyRule) {
 function runBalanceJob(buildAlly, buildEnemy, seed, hexEnabled) {
     const rng = new SeededRNG(seed);
     setBattleRng(rng);
-    let masterBuffs = [];
+    // 开局 buff：原实现是"第 0 回合先补一个"（hexEnabled 时）。runner 用 initialBuffs 承接，
+    // 保证同 seed 同序列——开局补一个 + 每 3 回合补一个，与原来节奏一致。
+    let initialBuffs = [];
     if (hexEnabled) {
-        const first = pickHexBuff(masterBuffs, buildAlly, rng, true);
-        if (first) masterBuffs.push(first);
+        const first = pickHexBuff(initialBuffs, buildAlly, rng, true);
+        if (first) initialBuffs.push(first);
     }
-    let battleState = {
-        ally: buildAlly.map(u => u.clone()),
-        enemy: buildEnemy.map(u => u.clone()),
-        round: 1,
-        activeBuffs: masterBuffs,
-        allAllies: buildAlly.map(u => u.clone()),
-        _rng: rng,
-        _firstSide: CAMP_TYPES.ENEMY
-    };
-    let lastStep = null;
-    const maxRound = CONFIG.MAX_ROUND || 35;
-    while (battleState.round <= maxRound) {
-        const stepper = createRoundStepper(battleState, { ui: false });
-        for (const step of stepper) {
-            lastStep = step;
-            if (step.winner) return { winner: step.winner };
-        }
-        masterBuffs = masterBuffs.map(b => ({ ...b, remaining: b.remaining - 1 })).filter(b => b.remaining > 0);
-        if (hexEnabled && battleState.round % 3 === 0 && battleState.round > 0) {
-            const aliveCheckTeam = (lastStep && lastStep.ally) ? lastStep.ally : buildAlly;
-            const nb = pickHexBuff(masterBuffs, aliveCheckTeam, rng, false);
-            if (nb) masterBuffs.push(nb);
-        }
-        battleState = {
-            ally: (lastStep ? lastStep.ally : battleState.ally).map(u => u.clone()),
-            enemy: (lastStep ? lastStep.enemy : battleState.enemy).map(u => u.clone()),
-            round: battleState.round + 1,
-            activeBuffs: masterBuffs,
-            allAllies: battleState.allAllies,
-            _rng: rng,
-            _firstSide: CAMP_TYPES.ENEMY
-        };
-    }
-    return { winner: null };
+    const res = runBattle({
+        ally: buildAlly,
+        enemy: buildEnemy,
+        seed,
+        initialBuffs,
+        hexPicker: hexEnabled ? pickHexBuff : null,
+        firstSide: CAMP_TYPES.ENEMY
+    });
+    return { winner: res.winner };
 }
 
 // 112 精英评测：跑普通局，按"谁在场"归因
@@ -230,70 +166,49 @@ function runEliteStageJob(stage, seed, runs) {
 function runHexStageJob(stage, baseSeed, runs) {
     const hexLog = []; // [{ stage, buffs: [key], winner }]
     const C = CONFIG;
-    const maxRound = C.MAX_ROUND || 35;
     for (let i = 0; i < runs; i++) {
         clearBattleGlobals();
         const seed = baseSeed + i * 7919;
         const initRng = new SeededRNG(seed);
         const teams = initBattleTeams(stage, initRng);
-        const rng = new SeededRNG(seed);
-        let battleState = {
-            ally: teams.allyTeam.map(u => u.clone()),
-            enemy: teams.enemyTeam.map(u => u.clone()),
-            round: 1,
-            activeBuffs: [],
-            allAllies: teams.allyTeam.map(u => u.clone()),
-            _rng: rng
-        };
-        let lastStep = null;
         const buffsPicked = [];
-        let winner = '平局';
-        while (battleState.round <= maxRound) {
-            const stepper = createRoundStepper(battleState, { ui: false });
-            for (const step of stepper) {
-                lastStep = step;
-                if (step.winner) { winner = step.winner; break; }
+        // 海克斯抽取回调：与 runBalanceJob 同口径（角色需求过滤 + 圣火令抽行列），
+        // 但这里要记录"本局选了哪些"，故用闭包把结果收进 buffsPicked。
+        const hexPicker = (activeBuffs, allySide, rng) => {
+            const existing = activeBuffs.map(b => b.key);
+            const allyAlive = allySide.filter(u => u.alive);
+            const available = Object.keys(C.BUFFS).filter(k => {
+                if (existing.includes(k)) return false;
+                const req = C.BUFF_ROLE_REQUIREMENTS?.[k];
+                if (req && !allyAlive.some(u => u.role === req)) return false;
+                return true;
+            });
+            if (available.length === 0) return null;
+            const pick = available[rng.nextInt(0, available.length - 1)];
+            const duration = C.BUFFS[pick].duration || C.BUFF_DURATION || 4;
+            const nb = { key: pick, target: CAMP_TYPES.ALLY, remaining: duration, name: C.BUFFS[pick].name };
+            if (pick === BUFF_TYPES.HOLY_FLAME) {
+                nb.col = rng.nextInt(1, 3);
+                nb.row = rng.nextInt(1, 3);
             }
-            if (winner !== '平局') break;
-            let nextBuffs = (battleState.activeBuffs || []).map(b => ({ ...b, remaining: b.remaining - 1 })).filter(b => b.remaining > 0);
-            if (battleState.round % 3 === 0) {
-                const existing = nextBuffs.map(b => b.key);
-                const allyAlive = battleState.ally.filter(u => u.alive);
-                const available = Object.keys(C.BUFFS).filter(k => {
-                    if (existing.includes(k)) return false;
-                    const req = C.BUFF_ROLE_REQUIREMENTS?.[k];
-                    if (req && !allyAlive.some(u => u.role === req)) return false;
-                    return true;
-                });
-                if (available.length > 0) {
-                    const pick = available[rng.nextInt(0, available.length - 1)];
-                    const duration = C.BUFFS[pick].duration || C.BUFF_DURATION || 4;
-                    const nb = { key: pick, target: CAMP_TYPES.ALLY, remaining: duration, name: C.BUFFS[pick].name };
-                    if (pick === BUFF_TYPES.HOLY_FLAME) {
-                        nb.col = rng.nextInt(1, 3);
-                        nb.row = rng.nextInt(1, 3);
-                    }
-                    nextBuffs.push(nb);
-                    buffsPicked.push(nb);
-                }
-            }
-            battleState = {
-                ally: (lastStep ? lastStep.ally : battleState.ally).map(u => u.clone()),
-                enemy: (lastStep ? lastStep.enemy : battleState.enemy).map(u => u.clone()),
-                round: battleState.round + 1,
-                activeBuffs: nextBuffs,
-                allAllies: battleState.allAllies,
-                _rng: battleState._rng
-            };
-        }
-        hexLog.push({ stage, buffs: buffsPicked.map(b => b.key), winner });
+            buffsPicked.push(nb);
+            return nb;
+        };
+        const res = runBattle({
+            ally: teams.allyTeam,
+            enemy: teams.enemyTeam,
+            seed,
+            hexPicker
+        });
+        hexLog.push({ stage, buffs: buffsPicked.map(b => b.key), winner: res.winner || '平局' });
     }
     return { hexLog };
 }
 
 // 113 统计体检
 // 原主线程逻辑：initBattleTeams → hp-tracker 订阅 → runWholeBattle → record 进 agg（主线程聚合）
-function runStatsStageJob(stage, seed, runs) {    const agg = {}; // worker 内自聚合，返回给主线程直接并入全局 agg
+function runStatsStageJob(stage, seed, runs) {
+    const agg = {}; // worker 内自聚合，返回给主线程直接并入全局 agg
     for (let i = 0; i < runs; i++) {
         clearBattleGlobals();
         // 订阅 hp-change 事件流：以 maxHp 是否变化区分「战斗扣血」与「重分配扣血」
