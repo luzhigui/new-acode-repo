@@ -1,6 +1,6 @@
 {
-  "version": "5.6.2",
-  "updated": "2026-09-20",
+  "version": "5.6.3",
+  "updated": "2026-09-21",
 
   "roles": {
     "战士": { "icon": "⚔️", "label": "战士", "bonus": { "atk": 3, "def": 3, "maxHp": 30 } },
@@ -257,7 +257,7 @@
         {
           "camp": "ally",
           "onHitEffects": [
-            { "type": "healMaxHpPct", "pct": 0.10 }
+            { "type": "healMaxHpPct", "pct": 0.12 }
           ]
         }
       ],
@@ -265,7 +265,7 @@
         "nineYang": {
           "name": "九阳神功",
           "desc": "每次攻击后回复最大生命{healPct}%",
-          "params": { "healPct": 10 }
+          "params": { "healPct": 12 }
         },
         "qianKun": {
           "name": "乾坤大挪移",
