@@ -1,13 +1,14 @@
-// 回归规则：张无忌·九阳神功回复量 = floor(最大生命 × 10%)（V6.1.8 由 8% → 10%）
+// 回归规则：张无忌·九阳神功回复量 = floor(最大生命 × 12%)（V6.1.12 由 10% → 12%；更早 V6.1.8 由 8% → 10%）
 //   机制本体（core/15 submitOnHitEffects · healMaxHpPct）：
 //       heal = min(floor(unit.maxHp × pct), unit.maxHp - unit.hp)，heal > 0 才推 NINE_YANG_HEAL 事实
-//   pct 实际来自 content/200game-data.json 张无忌 mechanics[0].onHitEffects[0].pct（=0.1），
-//   另有 skills.nineYang.params.healPct（=10）只用于文案插值，两处须同步。
-// 复发信号1（V6.1.8 前值）：未满回复量恰好等于 floor(血上限×8%) 且不等于 floor(血上限×10%)
-//          → pct 被回退到 0.08（续航变弱，第二关容易崩）
-// 复发信号2：未满回复量既不是 10% 也不是 8%（如误改成 15%、或漏了 min 导致溢出）
+//   pct 实际来自 content/200game-data.json 张无忌 mechanics[0].onHitEffects[0].pct（=0.12），
+//   另有 skills.nineYang.params.healPct（=12）只用于文案插值，两处须同步。
+// 复发信号1（历史值回退）：未满回复量恰好等于 floor(血上限×10%)（V6.1.8~V6.1.11 的旧值）
+//          或 floor(血上限×8%)（更早旧值），且不等于 floor(血上限×12%)
+//          → pct 被回退（续航变弱，第二关容易崩）
+// 复发信号2：未满回复量既不是 12%、也不是 10% / 8%（如误改成 15%、或漏了 min 导致溢出）
 // 复发信号3：回复量与血线不同步（hpAfter ≠ hpBefore + heal）→ 回血未真正写入 / fact 数值与结算漂移
-// 对应已报 Bug：V6.1.8 三「张无忌·九阳神功 8%→10%」；此前仅有 132 覆盖九阴白骨爪，九阳一直无体检覆盖
+// 对应已报 Bug：V6.1.12 三「张无忌·九阳神功 10%→12%」、V6.1.8 三「8%→10%」；此前仅有 132 覆盖九阴白骨爪，九阳一直无体检覆盖
 // 口径（已用渲染层确认 render/30 renderNineYangHealFact）：
 //   - 日志文本固定形如：☀️ 九阳神功回复+{heal}，{hpBefore}→{hpAfter}，heal/hp 均为 Math.floor 后的值
 //   - floor(maxHp×pct) 恒为整数；只有被 min(maxHp-hp) 截断（回满）时 heal 才可能是小数且此时 hpAfter === 血上限，
@@ -17,11 +18,13 @@
 //   - 背负(carry：张无忌 +血上限) / 蝶变附身(血上限+，宿主=张无忌) 会临时抬高血上限，
 //     出现即无法从终局值反推当时值 → 本场自动降级为"只查算术一致性"，杜绝误报。
 // 数据来源：单位血上限取 afterA/afterE 中 isZhang 的终局 maxHp；拿不到（如无 ctx 快照）则同样降级。
-export const VER = 'tests/health-rules/143-jiuyang-heal-pct.js V6.1.10';
+export const VER = 'tests/health-rules/143-jiuyang-heal-pct.js V6.1.11';
 
-// V6.1.8 后的现行比例（content/200 张无忌 mechanics healMaxHpPct.pct）
-var NINE_YANG_PCT = 0.10;
-// V6.1.8 之前的旧比例，用于精确识别"被回退"
+// V6.1.12 后的现行比例（content/200 张无忌 mechanics healMaxHpPct.pct）
+var NINE_YANG_PCT = 0.12;
+// V6.1.8~V6.1.11 的上一版比例，用于精确识别"被回退"
+var NINE_YANG_PREV_PCT = 0.10;
+// V6.1.8 之前的更早比例
 var NINE_YANG_OLD_PCT = 0.08;
 
 export const rule90 = {
@@ -87,15 +90,19 @@ export const rule90 = {
             if (h.hpAfter >= maxHp) continue;
 
             var expect = Math.floor(maxHp * NINE_YANG_PCT);
+            var prevExpect = Math.floor(maxHp * NINE_YANG_PREV_PCT);
             var oldExpect = Math.floor(maxHp * NINE_YANG_OLD_PCT);
 
-            // 断言1（V6.1.8 回退）：恰好等于旧版 8%
-            if (h.heal === oldExpect && expect !== oldExpect) {
-                return { fail: true, msg: '复发：九阳神功回复' + h.heal + '=floor(血上限' + maxHp + '×8%)，疑似 V6.1.8 提高的 10% 被回退（应为 ' + expect + '）' };
-            }
-            // 断言2：不等于现行 10%（含文案侧的 params.healPct 与 mechanics.pct 不同步、或被改成别的比例）
+            // 断言1/2（回退检测）：恰好等于历史版本比例 → 现行 12% 被回退
             if (h.heal !== expect) {
-                return { fail: true, msg: '复发：九阳神功回复' + h.heal + '≠floor(血上限' + maxHp + '×10%=' + expect + ')（healMaxHpPct.pct 被改动？）' };
+                if (h.heal === prevExpect && expect !== prevExpect) {
+                    return { fail: true, msg: '复发：九阳神功回复' + h.heal + '=floor(血上限' + maxHp + '×10%)，疑似 V6.1.12 提高的 12% 被回退（应为 ' + expect + '）' };
+                }
+                if (h.heal === oldExpect && expect !== oldExpect) {
+                    return { fail: true, msg: '复发：九阳神功回复' + h.heal + '=floor(血上限' + maxHp + '×8%)，疑似回退到更早版本（应为 ' + expect + '）' };
+                }
+                // 断言3：既不是现行 12%，也不是任何历史值（含文案侧 params.healPct 与 mechanics.pct 不同步、或被改成别的比例）
+                return { fail: true, msg: '复发：九阳神功回复' + h.heal + '≠floor(血上限' + maxHp + '×12%=' + expect + ')（healMaxHpPct.pct 被改动？）' };
             }
         }
         return { fail: false };
