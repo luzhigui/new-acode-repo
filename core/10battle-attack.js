@@ -1,5 +1,5 @@
-// V6.0.1 | ~11000 bytes | 2026-09-22 免疫 fact 的血量显示改走 fmtHp（attackerHp/targetHp）
-export const VER = 'core/10battle-attack.js V6.0.1';
+// V6.0.2 | ~11500 bytes | 2026-09-22 免疫回退补清 _pendingDeath：修小昭·妹飞天保命"血退回来了人还是死了"
+export const VER = 'core/10battle-attack.js V6.0.2';
 
 import { CONFIG } from './01config-5v5-test.js';
 import { hasBuff, makeFXSnapshot, isBlocked } from './03battle-utils.js';
@@ -129,6 +129,12 @@ export function processUnitAttack(unit, allySide, enemySide, log, A, B, state, d
     const immuneResult = resolveDamageImmune(immuneDeclarations);
     if (immuneResult) {
         applyStatChange(target, 'hp', dmgCalc.dmg, null, '免疫回退', false);
+        // 2026-09-22 免疫必须连"致死标记"一起回退：
+        //   applyAttackResult 在血≤0 时已设 target.state._pendingDeath（core/12 L348），
+        //   只退 hp 不退标记 → 下一次 resolveDeaths 仍按"待死"把她 alive=false。
+        //   小昭·妹飞天保命的"即将阵亡"分支就是这么被误判死的：血退回来了，人还是死了
+        //   （血线触发不致死，所以第 8 回合那种看起来正常）。
+        target.state._pendingDeath = false;
         // 免疫回退：承伤已记，只退输出（走统一记账入口）
         recordCombatStat(unit, target, 'immuneRollback', {
             rawAmount: 0,
