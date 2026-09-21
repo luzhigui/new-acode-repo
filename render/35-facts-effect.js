@@ -1,5 +1,5 @@
 // render/35-facts-effect.js — 效果域 fact 渲染器
-// V1.0.0 | ~27500 bytes | 2026-09-22 从 render/30 拆出：除攻击域(34)外的 67 条 fact 渲染实现
+// V1.0.1 | ~33000 bytes | 2026-09-22 蛛袭恢复日志文本（原先 return null，看不出打谁掉多少血）
 //
 // 加新 fact 渲染：在本文件写函数 + 尾部 registerFactRenderer 一行（键=factType）。
 // 跨域取别的渲染器一律走 getFactRenderer(FACT_TYPES.X)(data)，禁止 import 其它域文件（免环）。
@@ -7,7 +7,7 @@ import { CONFIG } from '../core/01config-5v5-test.js';
 import { makeFXSnapshot, fmtHp } from '../infra/51-core-utils.js';
 import { BUFF_TYPES, BUFF_SUBTYPES, CAMP_TYPES, ROLE_TYPES, FACT_TYPES } from '../infra/56-battle-enums.js';
 import { registerFactRenderer, findUnitSnapshotByUid } from './33-fact-registry.js';
-export const VER = 'render/35-facts-effect.js V1.0.0';
+export const VER = 'render/35-facts-effect.js V1.0.1';
 
 // 拒马 / 张无忌
 export function renderHorseDestroyFact(fact) {
@@ -273,8 +273,11 @@ export function renderSpiderReturnFact(fact) {
     return { type:'info', spiderAction:'return', spiderUid: fact.spiderUid, text:`<span class="gold">🕷️ 蛛落：${fact.unitName} 从天而降，落在${fact.pos}号位！</span>`, needsSeparator: true };
 }
 export function renderSpiderStrikeFact(fact) {
-    // 蛛袭不再产生日志文本，由导演 stageAction 直接驱动特效与掉血
-    return null;
+    // 2026-09-22 恢复日志文本：原先只靠 stageAction 演特效，玩家看不出这一下打谁、掉了多少血。
+    // 特效仍由 stageAction 驱动（不重复），这里只补文字行；伤害构成与击杀一并写出。
+    const detail = fact.extraDmg ? `（穿透${fact.penetrationDmg} + 精通${fact.extraDmg}）` : '';
+    const dead = fact.isDead ? ' 💀击杀' : '';
+    return { type:'info', text:`<span class="gold">🕷️ 蛛袭：${fact.unitName} 对 ${fact.targetName} 造成 ${fact.totalDmg} 伤害${detail}${dead}</span>` };
 }
 
 // 玄冥神掌

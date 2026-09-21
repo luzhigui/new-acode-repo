@@ -1,5 +1,5 @@
-// V1.1.0 | ~9500 bytes | 2026-09-04 fact 单源化：FACT_SPECS 成为唯一事实源，30/31 从本文件生成映射
-export const VER = 'infra/58-fact-contract.js V1.1.0';
+// V1.1.1 | ~9500 bytes | 2026-09-22 SPIDER_STRIKE 契约补 requiredFields（蛛袭恢复日志后渲染要读这三个字段）
+export const VER = 'infra/58-fact-contract.js V1.1.1';
 
 import { FACT_TYPES } from './56-battle-enums.js';
 
@@ -61,7 +61,7 @@ export const FACT_SPECS = Object.freeze({
     // 小昭蛛变
     [FACT_TYPES.SPIDER_TRANSFORM]: { requiredFields: ['unitName'], renderFn: 'renderSpiderTransformFact', translateFn: 'translateSpiderTransform' },
     [FACT_TYPES.SPIDER_RETURN]: { requiredFields: ['spiderUid', 'pos'], renderFn: 'renderSpiderReturnFact', translateFn: 'translateFlyMode' },
-    [FACT_TYPES.SPIDER_STRIKE]: { requiredFields: [], renderFn: 'renderSpiderStrikeFact', translateFn: 'translateSpiderStrike' },
+    [FACT_TYPES.SPIDER_STRIKE]: { requiredFields: ['unitName', 'targetName', 'totalDmg'], renderFn: 'renderSpiderStrikeFact', translateFn: 'translateSpiderStrike' },
     [FACT_TYPES.SPIDER_FLY]: { requiredFields: ['spiderUid'], renderFn: 'renderSpiderFlyFact', translateFn: 'translateFlyMode' },
     [FACT_TYPES.SPIDER_DOUBLE_STRIKE]: { requiredFields: [], renderFn: 'renderSpiderDoubleStrikeFact', translateFn: 'translateDoubleStrike' },
     [FACT_TYPES.SPIDER_DEAD_TARGET]: { requiredFields: [], renderFn: 'renderSpiderDeadTargetFact', translateFn: null },
