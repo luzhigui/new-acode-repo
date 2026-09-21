@@ -889,9 +889,12 @@ export const STAGE_ACTION_DEFS = {
             const attacker = findUnitByUidLocal(c, action.actorUid);
             const target = findUnitByUidLocal(c, action.targetUid);
             if (attacker && !GlobalStore.get('fastForwardActive')) {
-                // 2026-09-16 近战/飞行的气泡挪进 showMeleeMiss 返回回调（撞到一半才弹）；远程无飞撞，原地即时气泡
-                if (attacker.role !== ROLE_TYPES.RANGED && target) {
-                    // await：飞撞播完再推下一组，避免动画没完、下一组已开始
+                // 近战/飞行 → 飞撞（撞到一半弹气泡）；远程 → 射偏箭（箭飞到一半偏出去）。
+                // 两者都由 88 的 _triggerFX 按 attackerRole 分派，此处只需把信号发出去。
+                // 2026-09-16 之前远程走的是单独的气泡分支，导致 showRangedArrow 的 isMiss 轨迹无人调用。
+                if (target) {
+                    // await：近战飞撞播完再推下一组，避免动画没完、下一组已开始
+                    // （远程的 showRangedArrow 不返回 Promise，await 对它等于立即通过）
                     await eventBus.emit(FX_SIGNALS.TRIGGER, {
                         fxSnapshot: action.fx || null,
                         unitA: attacker,

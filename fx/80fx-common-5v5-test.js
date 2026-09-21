@@ -243,6 +243,40 @@ export function showKuLianEffect(unit, team) {
     });
 }
 
+// 生生不息：太极印从格子上浮 + 柔和金晕，格子本体不动。
+// 不用 cell-cheer：那是胜利特效的跳动，语义是庆祝；疗愈该"扩散"不该"蹦"。
+export function showMeditateEffect(unit) {
+    const grid = document.querySelector(`[data-uid="${unit.uid}"]`);
+    if (!grid) return;
+    grid.style.position = 'relative';
+
+    // ☯ 用字体原色（黑底白鱼），不染不发光——之前染成暗金 + 金晕，看起来发黄发绿
+    const sigil = document.createElement('div');
+    sigil.setAttribute('data-fx', 'temporary');
+    sigil.textContent = '☯';
+    sigil.style.cssText = 'position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:22px;color:#111;z-index:10005;pointer-events:none;opacity:0;';
+    grid.appendChild(sigil);
+
+    // 上升 + 放大 + 自转一整圈（转起来才像"阵在运转"）
+    clock.animate(1400, (p) => {
+        let op, ty, sc;
+        if (p <= 0.25) { const t = p / 0.25; op = t; ty = -50 - 20 * t; sc = 0.6 + 0.5 * t; }
+        else if (p <= 0.7) { const t = (p - 0.25) / 0.45; op = 1; ty = -70 - 30 * t; sc = 1.1; }
+        else { const t = (p - 0.7) / 0.3; op = 1 - t; ty = -100 - 20 * t; sc = 1.1 - 0.2 * t; }
+        sigil.style.opacity = op;
+        sigil.style.transform = `translate(-50%, ${ty}%) scale(${sc}) rotate(${p * 360}deg)`;
+    });
+
+    // 白光呼吸两下就散：只动 box-shadow，不改 border、不位移
+    clock.animate(1200, (p) => {
+        const g = Math.sin(p * Math.PI * 2) * (1 - p);
+        grid.style.boxShadow = g > 0.05 ? `0 0 14px rgba(255,255,255,${(0.75 * g).toFixed(2)})` : '';
+        if (p >= 1) grid.style.boxShadow = '';
+    });
+
+    clock.wait(1500).then(() => { if (sigil.parentNode) sigil.remove(); });
+}
+
 // 全屏横幅
 function createBuffBannerEl() { let d = document.createElement('div'); d.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);font-size:2.5rem;font-weight:bold;color:#ffd700;z-index:10030;pointer-events:none;text-shadow:0 0 20px rgba(255,215,0,0.8);white-space:nowrap;animation:bannerPop 1.5s ease-out forwards;'; return d; }
 initPool('buffBanner', createBuffBannerEl);

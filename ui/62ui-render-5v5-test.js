@@ -218,6 +218,12 @@ function updateDetailPopupContent() {
                     `♾️ ${getSkillDesc('小昭', 'permanentHex')}`,
                     `🏆 ${getSkillDesc('小昭', 'mastery')}`
                 ];
+                else if (u.isZhangSanfeng) skills = [
+                    `☯ ${getSkillDesc('张三丰', 'endlessBreath')}`,
+                    `🔮 ${getSkillDesc('张三丰', 'baguaArray')}`,
+                    `🚫 ${getSkillDesc('张三丰', 'noContend')}`,
+                    `🛡️ ${getSkillDesc('张三丰', 'tenRoundFortify')}`
+                ];
                 if (skills.length > 0) {
                     return `<span style="color:#888;">技能</span><span style="color:#b8860b;">${skills.join('<br>')}</span>`;
                 }

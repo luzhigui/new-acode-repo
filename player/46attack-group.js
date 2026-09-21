@@ -5,7 +5,7 @@ import { GlobalStore, getState } from '../infra/54-global-store.js';
 import { STORE_ACTION_TYPES, FLASH_TYPES, CAMP_TYPES } from '../infra/56-battle-enums.js';
 import { appendLogHTML, autoScrollLog, updateRoundDisplay, playLogLine, appendHiddenDetail, findUnitByUid } from './47renderer.js';
 import { showBoneClaw } from '../fx/81fx-arrows-5v5-test.js';
-import { showDamageFloat } from '../fx/80fx-common-5v5-test.js';
+import { showDamageFloat, showMeditateEffect } from '../fx/80fx-common-5v5-test.js';
 import { clock } from '../infra/52-clock.js';
 
 export async function handleAttackGroup(c, entry, roundResult, abortSig, isFirstAttackRef) {
@@ -30,12 +30,8 @@ export async function handleAttackGroup(c, entry, roundResult, abortSig, isFirst
     }
 
     // 2026-09-17 生生不息：金圈闪 1.2s（区别于拒马 😴），复用 cell-cheer 类
-    if (unitA && entry.isEndlessBreath && c.store) {
-        c.store.dispatch({ type: STORE_ACTION_TYPES.SET_FLASH, uid: unitA.uid, flash: FLASH_TYPES.CHEER });
-        clock.wait(1200).then(() => {
-            if (!c.store) return;
-            c.store.dispatch({ type: STORE_ACTION_TYPES.CLEAR_UNIT_FLASH, uid: unitA.uid });
-        });
+    if (unitA && entry.isEndlessBreath) {
+        showMeditateEffect(unitA);
     }
 
     if (unitA && entry.isBlock && c.store) {

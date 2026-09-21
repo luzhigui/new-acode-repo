@@ -149,8 +149,11 @@ export class Unit {
         }
         this.atk=a;this.def=d;this.maxHp=hp*2.5;this.hp=this.maxHp;
     }
-    applyBonus(){
-        const bonus = getRoleBonus(this.role);
+    // skipRoleBonus：小昭姊/妹专用。她们的血/攻/防已由 initXiaoZhao 从 m 分配完
+    //（50% 血 + 剩余攻防对半），再吃职业加成会多一层。职业本身仍保留——
+    // 妹妹蛛变要靠它排除上回合职业，buff 门槛（流星=远程等）也靠它筛选。
+    applyBonus(skipRoleBonus = false){
+        const bonus = skipRoleBonus ? null : getRoleBonus(this.role);
         if (bonus) { this.atk += bonus.atk; this.def += bonus.def; this.maxHp += bonus.maxHp; }
         this.hp=this.maxHp;
         this.state._baseMaxHp = this.maxHp;
