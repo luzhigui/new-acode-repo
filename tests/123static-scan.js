@@ -76,7 +76,9 @@ export const SCAN_FILES = [
     // 2026-09-22 第 7 趟新增：热血奋战攻击回血（回血量取整/上限/重复登记 + 百分比与配置一致性）
     './health-rules/150-hot-blood-leech.js',
     // 2026-09-22 第 8 趟新增：嗜血狂刀吸血（吸血量取整/比例上限/重复登记 + 百分比与配置一致性）
-    './health-rules/151-bloodthirst-leech.js'
+    './health-rules/151-bloodthirst-leech.js',
+    // 2026-09-22 第 9 趟新增：宋青书性奋授予/消耗配额（配额守恒/同回合重复/越界人名）
+    './health-rules/152-xingfen-extra-attack.js'
 ];
 
 // 提取文件的 static import 信息（仅静态 import 语句，跳过动态 import()）

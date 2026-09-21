@@ -36,6 +36,7 @@ import { rule95 } from './health-rules/148-carry-bonus.js';
 import { rule96 } from './health-rules/149-holy-flame-cols-rows.js';
 import { rule97 } from './health-rules/150-hot-blood-leech.js';
 import { rule98 } from './health-rules/151-bloodthirst-leech.js';
+import { rule99 } from './health-rules/152-xingfen-extra-attack.js';
 import {
     getCellElement, checkUnitHpValidity,
     checkHpBarSync, checkHpBarColor, checkFxOrphans,
@@ -508,7 +509,7 @@ function runRuleChecks(ctx, doc) {
         if (Array.isArray(gsLog2)) battleLog = gsLog2;
     }
     const allRules = [rule70, rule71, rule72, rule73, rule74, rule75, rule76, rule77, rule78, rule79, rule80,
-        rule81, rule82, rule83, rule84, rule85, rule86, rule87, rule88, rule89, rule90, rule91, rule92, rule93, rule94, rule95, rule96, rule97, rule98];
+        rule81, rule82, rule83, rule84, rule85, rule86, rule87, rule88, rule89, rule90, rule91, rule92, rule93, rule94, rule95, rule96, rule97, rule98, rule99];
     // 规则配方裁剪：只跑目标规则（其余不参与计数/不占skip名单）；null=全部
     const rules = filterRulesByTags(allRules, RECIPE_TAGS);
 
