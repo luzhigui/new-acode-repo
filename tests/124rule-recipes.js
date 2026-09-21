@@ -21,6 +21,7 @@ export const RULE_META = {
     'carry五号位队友加成量(回归)': { tag: 'mechanic:carry', note: '团队 Buff，需本局选到「你就是carry」且 5 号位有人才会应用' },
     '圣火令行列选取(回归)': { tag: 'mechanic:圣火令', note: '团队 Buff，需本局选到「圣火令」才会每回合重掷攻击列/防御行' },
     '热血奋战攻击回血(回归)': { tag: 'mechanic:热血奋战', note: '团队 Buff，需本局选到「热血奋战」且单位掉过血才会回血' },
+    '嗜血狂刀吸血(回归)': { tag: 'mechanic:嗜血狂刀', note: '团队 Buff（或小昭·弟永久海克斯），需本局选到且战士出手才会吸血' },
     '概率连击触发越界/重复(回归)': { tag: 'mechanic:概率连击', note: '团队 Buff，需本局选到「概率连击」才会触发' },
     '苦练提示数值错误/异常高频(回归)': { tag: 'mechanic:苦练' },
     '乘风击退换位异常(回归)': { tag: 'mechanic:乘风破浪' },

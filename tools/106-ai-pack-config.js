@@ -88,6 +88,8 @@ export const ALL_PROJECT_FILES = [
     '../tests/health-rules/149-holy-flame-cols-rows.js',
     // 2026-09-22 补登记 150：夜间体检第 7 趟新增（121health-monitor.js 已 import rule97）
     '../tests/health-rules/150-hot-blood-leech.js',
+    // 2026-09-22 补登记 151：夜间体检第 8 趟新增（121health-monitor.js 已 import rule98）
+    '../tests/health-rules/151-bloodthirst-leech.js',
     '../tests/121health-monitor.js', '../tests/122health-utils.js',
     '../tests/140-baseline.js', '../tests/baselines/baseline-v1.json',
     // tools（开发工具箱）

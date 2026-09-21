@@ -7,7 +7,35 @@
 // 旧版只比"全场合计 > 3"且查"负数"，但负数已被 Math.max(0,..) 兜底永不可见（死代码），
 //   且未校验逐次扣减——计数卡死在 2 的bug会被合计阈值放过。现改为按 spiderUid 逐单位核对。
 // 对应已修 Bug：小昭妹妹飞天误触发、飞天后仍行动、飞天免疫次数超限
-export const VER = 'tests/health-rules/129-spider-fly-count.js V6.1.10';
+//
+// 优化（V6.1.15，第 8 趟）：修「整条规则恒空转」—— 数据源与 132/133 同源同病。
+//   实测（120 场）：战报顶层「🕷️ 飞天」命中 **0**，摊平到 attack-group 的 entries 后命中 **74**（52 场）。
+//   根因：飞天那条不是独立顶层条目，而是由 render/34-facts-attack.js L231-233 在**免疫攻击组**
+//   （renderImmuneFact 的 immuneGroup）里 `entries.push(getFactRenderer(SPIDER_FLY)(fact.flyData))`
+//   挂成子条目的（顶层只有 immuneGroup 自身，而它不带 .text）。旧写法 `if (!e.text) continue`
+//   把所有攻击组直接跳过 → 120 场一次都没真正跑过。
+//   改法：复用 132/133 的 collectNodes（数组元素 → 顶层 → attack-group entries）摊平后再扫，
+//   三条判据（负数 / 回退 / 停留不降 / 每单位上限 3）一字未动 —— 规则此前从未生效过，谈不上"放宽"。
+export const VER = 'tests/health-rules/129-spider-fly-count.js V6.1.15';
+
+// 战报节点收集：数组元素（渲染层少数函数返回数组）→ 顶层条目 → attack-group 的 entries 子条目。
+// 只摊一层：飞天只挂在免疫组的 entries 上，再深会重复计数。顺序保持战报原序，逐次递减判定才有效。
+function collectNodes(log) {
+    var out = [];
+    function walk(node, depth) {
+        if (!node) return;
+        if (Array.isArray(node)) {
+            for (var i = 0; i < node.length; i++) walk(node[i], depth);
+            return;
+        }
+        out.push(node);
+        if (depth === 0 && Array.isArray(node.entries)) {
+            for (var k = 0; k < node.entries.length; k++) walk(node.entries[k], depth + 1);
+        }
+    }
+    for (var j = 0; j < log.length; j++) walk(log[j], 0);
+    return out;
+}
 
 export const rule76 = {
     group: '精英技能回归',
@@ -15,8 +43,9 @@ export const rule76 = {
     test: function(ctx, log, beforeA, beforeE, afterA, afterE) {
         var cap = 3; // 与 27elite-mingjiao.js 的 _spiderRemaining||3 一致（每单位每场限 3 次）
         var perUnit = {}; // uid -> { count, lastRem }
-        for (var j = 0; j < log.length; j++) {
-            var e = log[j];
+        var nodes = collectNodes(log);
+        for (var j = 0; j < nodes.length; j++) {
+            var e = nodes[j];
             if (!e || !e.text) continue;
             if (e.text.indexOf('🕷️ 飞天') === -1) continue;
             var uid = (e.spiderUid != null) ? e.spiderUid : '__unknown__';
