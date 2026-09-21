@@ -40,6 +40,8 @@ export const SCAN_FILES = [
     '../player/45event-handlers.js', '../player/46attack-group.js', '../player/47renderer.js',
     '../player/48battle-report.js', '../player/49battle-flow.js',
     '../render/30-fact-renderer.js', '../render/31-stage-actions.js', '../render/32-grid-render.js',
+    '../render/33-fact-registry.js', '../render/34-facts-attack.js', '../render/35-facts-effect.js',
+    '../render/38-actions-translate.js', '../render/39-actions-defs.js',
     '../ui/60main-utils.js', '../ui/61main-5v5-test.js', '../ui/62ui-render-5v5-test.js',
     '../ui/63main-state.js', '../ui/64main-dialogs.js', '../ui/65main-battle.js',
     '../ui/66audio-control.js', '../ui/67fx-trigger.js', '../ui/68ui-controls.js',

@@ -245,7 +245,15 @@ export function showKuLianEffect(unit, team) {
 
 // 生生不息：太极印从格子上浮 + 柔和金晕，格子本体不动。
 // 不用 cell-cheer：那是胜利特效的跳动，语义是庆祝；疗愈该"扩散"不该"蹦"。
+// 同单位 1.2s 内只播一次：回合开始与「轮到自己」可能紧邻（1 号位），
+// 三处触发共用同一份续航，视觉合并成一次，避免连出两个太极印。
+const _meditateAt = new Map();
+const MEDITATE_DEBOUNCE_MS = 1200;
+
 export function showMeditateEffect(unit) {
+    const now = Date.now();
+    if (now - (_meditateAt.get(unit.uid) || 0) < MEDITATE_DEBOUNCE_MS) return;
+    _meditateAt.set(unit.uid, now);
     const grid = document.querySelector(`[data-uid="${unit.uid}"]`);
     if (!grid) return;
     grid.style.position = 'relative';

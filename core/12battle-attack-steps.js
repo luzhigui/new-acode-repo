@@ -1,11 +1,11 @@
-// V6.1.1 | ~23500 bytes | 2026-09-11 maxHp 词条化收尾：韦一笑吸血上限提升改 addMod+refreshMaxHp，删 _baseMaxHp 回写
-export const VER = 'core/12battle-attack-steps.js V6.1.1';
+// V6.2.1 | ~24200 bytes | 2026-09-22 fact 血量显示统一走 fmtHp（snapshotUnitForFact 与 snap 的 hp/maxHp）
+export const VER = 'core/12battle-attack-steps.js V6.2.1';
 
 import { CONFIG, getSkillParams, getGameData } from './01config-5v5-test.js';
 import { eventBus, EFFECT_TYPES } from '../infra/50-event-bus.js';
 import { calcDamage, getFangLevel, isMelee, getFronts, isBlocked, getRandomTaunt, getZhangNearTaunt, makeFXSnapshot, hasBuff, getUnitCol, getUnitRow, getMissBreakdown, canBeTargeted } from './03battle-utils.js';
 import { emitEvent, applyStatChange, refreshMaxHp, query, getBattleRng, recordCombatStat, getStat, addMod } from './13battle-shared.js';
-import { flushBattleEvents, pushBattleEvent, getBattleState, setBattleState, registerDodgeRule, clearEliteDodgeRules, getDodgeRules, persistValue, loadPersistedValue } from '../infra/51-core-utils.js';
+import { flushBattleEvents, pushBattleEvent, getBattleState, setBattleState, registerDodgeRule, clearEliteDodgeRules, getDodgeRules, persistValue, loadPersistedValue, fmtHp } from '../infra/51-core-utils.js';
 import { getEffectHandler, hasEffectHandler, getCalcModifier, validateDeclarationFields, validateCalcModifierFields } from './16effect-handlers.js';
 import { FACT_TYPES, BUFF_TYPES, UNIT_EVENT_TYPES, DROP_TYPES, CAMP_TYPES, ROLE_TYPES, SIGNAL_TYPES, STATE_CHANGE_TYPES } from '../infra/56-battle-enums.js';
 import { emitStateChange } from '../infra/59-state-change.js';
@@ -36,8 +36,8 @@ function snapshotUnitForFact(unit) {
         role: unit.role,
         atk: getStat(unit, 'atk'),
         def: getStat(unit, 'def'),
-        hp: unit.hp,
-        maxHp: unit.maxHp,
+        hp: fmtHp(unit.hp),
+        maxHp: fmtHp(unit.maxHp),
         alive: unit.alive,
         isZhang: unit.isZhang || false,
         isWei: unit.isWei || false,
@@ -269,6 +269,8 @@ export function calcFinalDamage(unit, target, attackerBuffStats, defenderBuffSta
         if (zt) { waveTaunt = zt; waveUnit = unit; }
     }
     let raw, rawFormula, hpRatio = 0;
+    // formula 明细要用的值，提到外层供末尾构造 formula 使用（只存不改，不影响伤害结果）
+    let displayDefForFormula = 0, kForFormula = 0, penPartForFormula = 0;
     let blockBase = atkAct;
     if (unit.role === ROLE_TYPES.DEFENDER) {
         let displayDef = Math.floor(getStat(unit, 'def'));
@@ -277,6 +279,9 @@ export function calcFinalDamage(unit, target, attackerBuffStats, defenderBuffSta
         hpRatio = unit.state._hpDmgRatio;
         raw = penPart + displayDef * k + unit.maxHp * hpRatio;
         blockBase = atkAct + displayDef * k + unit.maxHp * hpRatio;
+        displayDefForFormula = displayDef;
+        kForFormula = k;
+        penPartForFormula = penPart;
     } else {
         raw = calcDamage(atkAct, defAct);
     }
@@ -297,7 +302,29 @@ export function calcFinalDamage(unit, target, attackerBuffStats, defenderBuffSta
     dmg = modifierResult.modifiedDmg;
     bonusEntries = modifierResult.entries || [];
 
-    return { atkBase, defBase, atkAct, defAct, hpBonus, hpBefore, waveTaunt, waveUnit, raw, rawFormula: null, thunderBonus: 0, hornDmgMultiplier: 1, hornDefIgnore: 0, trueDmg: 0, dmg, bonusEntries, defReduced, defReduction: null, bonusDmgTotal, bonusDmgEntries, dmgMultiplier, dmgMultiplierEntries, hpRatio: unit.role === ROLE_TYPES.DEFENDER ? hpRatio : 0, blockValue, pendingDefReduceFact: refs.pendingDefReduceFact || null, derivedEntries: damageData._derivedEntries || [] };
+    // 计算明细（结构化，不是字符串）：渲染层照着排版，不再自己重算一遍。
+    // 历史问题：render/30 为拼"计算：…"那行，又调了一次 calcDamage + 查了一次 FANG_K，
+    // 而且用的是开局快照的 m/maxHp，引擎用的是实时值 —— 两边会对不上。
+    const baseRaw = Math.round((raw - bonusDmgTotal) / dmgMultiplier * 100) / 100;
+    const formula = unit.role === ROLE_TYPES.DEFENDER
+        ? {
+            kind: 'defender',
+            terms: [
+                { text: String(Math.round(penPartForFormula * 100) / 100), value: penPartForFormula },
+                { text: `${displayDefForFormula}×${kForFormula}`, value: displayDefForFormula * kForFormula },
+                { text: `${Math.floor(unit.maxHp)}×${hpRatio}`, value: unit.maxHp * hpRatio }
+            ],
+            baseRaw
+        }
+        : {
+            kind: 'normal',
+            terms: [
+                { text: `${atkAct}×(${atkAct}/(${atkAct}+${defAct}))`, value: calcDamage(atkAct, defAct) }
+            ],
+            baseRaw
+        };
+
+    return { atkBase, defBase, atkAct, defAct, hpBonus, hpBefore, waveTaunt, waveUnit, raw, rawFormula: null, thunderBonus: 0, hornDmgMultiplier: 1, hornDefIgnore: 0, trueDmg: 0, dmg, bonusEntries, defReduced, defReduction: null, bonusDmgTotal, bonusDmgEntries, dmgMultiplier, dmgMultiplierEntries, hpRatio: unit.role === ROLE_TYPES.DEFENDER ? hpRatio : 0, blockValue, pendingDefReduceFact: refs.pendingDefReduceFact || null, derivedEntries: damageData._derivedEntries || [], formula };
 }
 
 // 步骤4：应用伤害结果
@@ -488,7 +515,7 @@ export function buildAttackGroup(unit, target, dmgCalc, dmgResult, attackerBuffS
     const snap = {
         attackerPos: unit.pos,
         targetPos: target.pos,
-        attackerHp: Math.floor(unit.hp),
+        attackerHp: fmtHp(unit.hp),
         attackerAtkDisplay: Math.floor(getStat(unit, 'atk')),
         attackerAtk: Math.floor(getStat(unit, 'atk')),
         attackerDef: Math.floor(getStat(unit, 'def')),
@@ -500,7 +527,7 @@ export function buildAttackGroup(unit, target, dmgCalc, dmgResult, attackerBuffS
         isKuLianAttack: !!(unit.isSongQingshu && unit.state._kuLianActive),
         isLinkAttack: !!unit.state._isLinkAttack,
         targetDefDisplay: Math.floor(getStat(target, 'def')),
-        targetHpAfter: Math.floor(target.hp),
+        targetHpAfter: fmtHp(target.hp),
         targetAlive: target.alive
     };
 

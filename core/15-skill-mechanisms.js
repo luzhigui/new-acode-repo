@@ -1,10 +1,11 @@
-// V6.0.1 | ~28700 bytes | 2026-09-11 maxHp 词条化批2b：苦练/性奋代价 addMod(maxHp) 后补 refreshMaxHp，newMaxHp 改读 refresh 后真值
-export const VER = 'core/15-skill-mechanisms.js V6.0.1';
+// V6.0.3 | ~29100 bytes | 2026-09-22 快乐回血 fact 的 hpAfter 改「预测值」，修 else 分支双计
+export const VER = 'core/15-skill-mechanisms.js V6.0.3';
 
 import { EXECUTION_LAYER as L, EFFECT_TYPES, registerSettlementHook } from '../infra/50-event-bus.js';
 import { CONFIG, getSkillParams } from './01config-5v5-test.js';
 import { registerDodgeRule } from './12battle-attack-steps.js';
 import { emitEvent, applyStatChange, refreshMaxHp, getBattleRng, addMod } from './13battle-shared.js';
+import { fmtHp } from '../infra/51-core-utils.js';
 import { FACT_TYPES, UNIT_EVENT_TYPES, CAMP_TYPES, SIGNAL_TYPES } from '../infra/56-battle-enums.js';
 import { installMechanicByType } from './18mechanic-registry.js';
 import { processUnitAttack } from './10battle-attack.js';
@@ -161,7 +162,7 @@ function submitOnHitEffects(data, onHitDecls) {
                 const heal = Math.min(Math.floor(unit.maxHp * eff.pct), unit.maxHp - unit.hp);
                 if (heal > 0) {
                     if (!data.declarations) data.declarations = [];
-                    data.declarations.push({ type: EFFECT_TYPES.HEAL, value: heal, source: unit, factType: FACT_TYPES.NINE_YANG_HEAL, factData: { unitName: unit.name, heal, hpBefore: Math.floor(unit.hp), hpAfter: Math.floor(unit.hp + heal), unitUid: unit.uid } });
+                    data.declarations.push({ type: EFFECT_TYPES.HEAL, value: heal, source: unit, factType: FACT_TYPES.NINE_YANG_HEAL, factData: { unitName: unit.name, heal, hpBefore: fmtHp(unit.hp), hpAfter: fmtHp(unit.hp + heal), unitUid: unit.uid } });
                 }
             } else if (eff.type === 'poison') {
                 Object.assign(target.state, { _xuanmingPoison: { remaining: eff.duration, dotPercents: [...eff.dotPercents] } });
@@ -566,12 +567,17 @@ export function tickKuaiLeHeal(allUnits, log, declarations) {
         });
         if (totalHeal > 0) {
             const hpBefore = Math.floor(unit.hp);
+            // 日志的 hpAfter 用「预测值」，不读 unit.hp：
+            //   declarations 分支只声明、unit.hp 未变；else 分支 applyStatChange 已加上 totalHeal。
+            //   原先日志统一写 unit.hp + totalHeal —— else 分支等于加两次（日志血量虚高）。
+            //   预测值 = min(上限, 当前 + 治疗量)，两分支语义一致，且与实际回复量吻合。
+            const hpAfterPredicted = Math.min(unit.maxHp, unit.hp + totalHeal);
             if (declarations) {
                 declarations.push({ type: EFFECT_TYPES.ROUND_STAT_GRANT, field: 'hp', delta: totalHeal, target: unit, source: null, reason: '快乐回血' });
             } else {
                 applyStatChange(unit, 'hp', totalHeal, null, '快乐回血');
             }
-            log.push({ factType: FACT_TYPES.KUAI_LE_HEAL, data: { unitName: unit.name, unitUid: unit.uid, heal: totalHeal, hpBefore, hpAfter: Math.floor(unit.hp + totalHeal), layers: unit.state._kuaiLeStack.length } });
+            log.push({ factType: FACT_TYPES.KUAI_LE_HEAL, data: { unitName: unit.name, unitUid: unit.uid, heal: totalHeal, hpBefore: fmtHp(hpBefore), hpAfter: fmtHp(hpAfterPredicted), layers: unit.state._kuaiLeStack.length } });
         }
         Object.assign(unit.state, { _kuaiLeStack: newStack });
     });

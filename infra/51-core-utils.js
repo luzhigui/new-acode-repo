@@ -1,5 +1,5 @@
-// V6.0.0 | ~5200 bytes | 2026-08-21 合并原51-fsm/52-rng/53-battle-event-store/55-battle-math
-export const VER = 'infra/51-core-utils.js V6.0.0';
+// V6.1.0 | ~5500 bytes | 2026-09-22 新增 fmtHp：血量显示统一入口（0<hp<1 显示 1，不再散写 Math.floor）
+export const VER = 'infra/51-core-utils.js V6.1.0';
 
 import { CAMP_TYPES, ROLE_TYPES } from './56-battle-enums.js';
 
@@ -146,6 +146,13 @@ export function getFangLevelPure(def, m, levels) {
 
 export function makeFXSnapshot(attacker, defender) {
     return { attackerPos: attacker ? attacker.pos : null, defenderPos: defender ? defender.pos : null };
+}
+
+// 渲染层血量显示统一入口：0 < hp < 1 时至少显示 1（0.051 显示成 0 看着像死了）。
+// 已接入：render/30、render/32、ui/62、ui/65，以及引擎 fact 构造处 core/10、core/12、core/15。
+export function fmtHp(v) {
+    if (!(v > 0)) return 0;
+    return Math.max(1, Math.floor(v));
 }
 
 export function getUnitRow(pos) { return Math.ceil(pos / 3); }

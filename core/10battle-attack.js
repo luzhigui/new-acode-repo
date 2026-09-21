@@ -1,5 +1,5 @@
-// V6.0.0 | ~11000 bytes | 2026-08-30 同步化：移除 async/await，配合工具批量模拟，游戏表现不变
-export const VER = 'core/10battle-attack.js V6.0.0';
+// V6.0.1 | ~11000 bytes | 2026-09-22 免疫 fact 的血量显示改走 fmtHp（attackerHp/targetHp）
+export const VER = 'core/10battle-attack.js V6.0.1';
 
 import { CONFIG } from './01config-5v5-test.js';
 import { hasBuff, makeFXSnapshot, isBlocked } from './03battle-utils.js';
@@ -16,7 +16,7 @@ import {
     resolveDeaths
 } from './12battle-attack-steps.js';
 import { eventBus, EFFECT_TYPES } from '../infra/50-event-bus.js';
-import { flushBattleEvents } from '../infra/51-core-utils.js';
+import { flushBattleEvents, fmtHp } from '../infra/51-core-utils.js';
 import { resolveRoundStatGrants } from './16effect-handlers.js';
 
 import { emitEvent, applyStatChange, recordCombatStat } from './13battle-shared.js';
@@ -145,9 +145,9 @@ export function processUnitAttack(unit, allySide, enemySide, log, A, B, state, d
             reason: immuneResult.reason || null,
             flyData: immuneResult.flyData || null,
             attackerAtk: Math.floor(unit.atk),
-            attackerHp: Math.floor(unit.hp),
+            attackerHp: fmtHp(unit.hp),
             targetDef: Math.floor(target.def),
-            targetHp: Math.floor(target.hp),
+            targetHp: fmtHp(target.hp),
             hpPctBefore: immuneHpPctBefore,
             hpPctAfter: immuneHpPctAfter,
             events: []

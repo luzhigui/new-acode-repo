@@ -8,7 +8,7 @@ import { _triggerFX, shakeTarget } from './88fx-trigger.js';
 import {
     showDanmaku, showDamageFloat, showDodgeBubble, showHealFloat, showAtkBuffFloat,
     applyBrushEffect, showBuffBanner, showCriticalBanner, showHeartEffect, showPinkFlash,
-    showKuLianEffect, showWindClaw, showSplashArrows, showBoneClaw,
+    showKuLianEffect, showWindClaw, showSplashArrows, showBoneClaw, showMeditateEffect,
     animatePositionSwap, animatePushBack, animatePushSwap, showDodgeBulletTime
 } from './87fx-manager.js';
 import {
@@ -38,6 +38,7 @@ eventBus.on(FX_SIGNALS.DANMAKU, P, (d) => showDanmaku(d.unit, d.text));
 eventBus.on(FX_SIGNALS.DAMAGE_FLOAT, P, (d) => showDamageFloat(d.unit, d.dmg));
 // 治疗飘字快进判断归位到此处
 eventBus.on(FX_SIGNALS.HEAL_FLOAT, P, (d) => { if (inFastForward()) return; showHealFloat(d.unit, d.amount); });
+eventBus.on(FX_SIGNALS.MEDITATE, P, (d) => { if (inFastForward()) return; showMeditateEffect(d.unit); });
 eventBus.on(FX_SIGNALS.SPIDER_STRIKE, P, (d) => { if (inFastForward()) return; return showSpiderStrike(d.spiderUnit, d.strikeTarget); });
 
 eventBus.on(FX_SIGNALS.ATK_BUFF_FLOAT, P, (d) => showAtkBuffFloat(d.unit, d.gain));

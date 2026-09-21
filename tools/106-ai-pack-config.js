@@ -53,6 +53,8 @@ export const ALL_PROJECT_FILES = [
     '../modules/28buff-tools.js', '../modules/30custom-effects.js',
     // render（渲染层）
     '../render/30-fact-renderer.js', '../render/31-stage-actions.js', '../render/32-grid-render.js',
+    '../render/33-fact-registry.js', '../render/34-facts-attack.js', '../render/35-facts-effect.js',
+    '../render/38-actions-translate.js', '../render/39-actions-defs.js',
     // content（游戏内容数据）
     '../content/200game-data.json',
     // tests（体检规则与自动测试）

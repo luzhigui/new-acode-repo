@@ -1,8 +1,9 @@
-// V6.0.1 | ~16900 bytes | 2026-09-11 详情弹窗属性分解改走 _mods 词条表（renderStatDetail），终值用 getStat，根治词条化后分解失配
-export const VER = 'ui/62ui-render-5v5-test.js V6.0.1';
+// V6.0.2 | ~16900 bytes | 2026-09-22 详情弹窗血量显示统一走 fmtHp（0<hp<1 显示 1，不再散写 Math.floor）
+export const VER = 'ui/62ui-render-5v5-test.js V6.0.2';
 
 import { getSkillDesc } from '../core/01config-5v5-test.js';
 import { getStat } from '../core/13battle-shared.js';
+import { fmtHp } from '../infra/51-core-utils.js';
 import { getMissBreakdown } from '../core/03battle-utils.js';
 import { GlobalStore, getPlayerContext } from '../infra/54-global-store.js';
 import { BUFF_TYPES, CAMP_TYPES } from '../infra/56-battle-enums.js';
@@ -157,7 +158,7 @@ function updateDetailPopupContent() {
         <div style="display:grid;grid-template-columns:auto 1fr;gap:4px 12px;">
             <span style="color:#888;">角色</span><span>${u.role} M${u.m}</span>
             <span style="color:#888;">站位</span><span>${!u.alive ? '已阵亡' : (u.pos || '?') + '号位'}</span>
-            <span style="color:#888;">血量</span><span style="color:${hpColor};font-weight:bold;">${Math.floor(u.hp)} / ${Math.floor(u.maxHp)} (${hpPct}%)</span>
+            <span style="color:#888;">血量</span><span style="color:${hpColor};font-weight:bold;">${fmtHp(u.hp)} / ${Math.floor(u.maxHp)} (${hpPct}%)</span>
             <span style="color:#888;">闪避</span><span>${(() => { const db = getDodgeBreakdown(u, activeBuffs, allyTeam); return db.combined + '%' + (db.sources.length > 0 ? ' (' + db.sources.map(s => s.label + '+' + s.value + '%').join(' ') + ')' : ''); })()}</span>
             <span style="color:#888;">未命中</span><span>${(() => { const mb = getMissBreakdown(u, allyTeam, enemyTeam); return mb.total + '%' + (mb.sources.length > 0 ? ' (' + mb.sources.map(s => s.label + (s.value >= 0 ? '+' : '') + s.value + '%').join(' ') + ')' : ''); })()}</span>
             <span style="color:#888;">攻击</span><span>${renderStatDetail(u, 'atk')}</span>

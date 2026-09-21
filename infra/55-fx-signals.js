@@ -32,5 +32,6 @@ export const FX_SIGNALS = {
     BUTTERFLY_FLY_BACK: 'fx:butterflyFlyBack', // 蝶变飞回
     SPIDER_ASCEND: 'fx:spiderAscend',    // 蛛变升空
     SPIDER_DESCEND: 'fx:spiderDescend',  // 蛛变降落
-    SPIDER_STRIKE: 'fx:spiderStrike'     // 蛛袭扑击（快进跳过）
+    SPIDER_STRIKE: 'fx:spiderStrike',    // 蛛袭扑击（快进跳过）
+    MEDITATE: 'fx:meditate'              // 生生不息太极印（三处触发共用，视觉层去抖）
 };
