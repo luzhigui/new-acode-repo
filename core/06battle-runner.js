@@ -18,6 +18,8 @@
 //      要渲染的 fact 走 createRoundStepper 的 ui / translateFacts 参数，本文件不生成、
 //      也不应该被拿去生成。
 
+export const VER = 'core/06battle-runner.js V1.0.0';
+
 import { createRoundStepper } from './11battle-round.js';
 import { SeededRNG } from '../infra/51-core-utils.js';
 
@@ -87,10 +89,12 @@ export function runBattle(o) {
         state.ally = lastStep.ally;
         state.enemy = lastStep.enemy;
 
-        // buff 递减：以引擎回传的 _activeBuffs 为准（引擎在 finalizeRoundEnd 已递减过一轮）
+        // buff 递减：引擎不递减（core/11 全文无 remaining），递减在消费方——
+        // 真游戏 player/42 每回合 remaining-1，此处必须同口径，否则 buff 永不失效。
         state.activeBuffs = (lastStep.ally._activeBuffs || [])
             .filter(b => b && b.remaining > 0)
-            .map(b => ({ ...b }));
+            .map(b => ({ ...b, remaining: b.remaining - 1 }))
+            .filter(b => b.remaining > 0);
 
         // 补海克斯（可选）：按 hexInterval 间隔，用同一个 rng，保证同 seed 同序列
         let picked = null;

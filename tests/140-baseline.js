@@ -72,7 +72,9 @@ async function main() {
                 ally: lastStep.ally.map(u => u.clone()),
                 enemy: lastStep.enemy.map(u => u.clone()),
                 round: battleState.round + 1,
-                activeBuffs: (lastStep.ally._activeBuffs || []).map(b => ({ ...b })),
+                activeBuffs: (lastStep.ally._activeBuffs || [])
+                    .map(b => ({ ...b, remaining: b.remaining - 1 }))
+                    .filter(b => b.remaining > 0),
                 allAllies: battleState.allAllies,
                 _rng: rng
             };
