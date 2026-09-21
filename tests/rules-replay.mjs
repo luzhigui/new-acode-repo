@@ -128,7 +128,14 @@ function runCase(seed, stage) {
             lastStep = step;
             for (const f of step.log || []) {
                 if (!f || !f.factType) continue;
-                try { const e = renderLog(f.factType, f.data); if (e) log.push(e); } catch (e) { /* 单条渲染失败不阻断 */ }
+                try {
+                    const e = renderLog(f.factType, f.data);
+                    // 渲染函数可能返回「数组」（如 renderZhangSwitchFact 返回 [切换行, 台词行] 两件套）：
+                    // 旧版直接 log.push(e) 会把数组当单条目压入，数组元素自身既无 .text 也无标记位，
+                    // 导致所有"锚点落在数组元素上"的规则恒空转（134/143 同款病）。此处摊平后再压入。
+                    if (Array.isArray(e)) { for (const one of e) { if (one) log.push(one); } }
+                    else if (e) log.push(e);
+                } catch (e) { /* 单条渲染失败不阻断 */ }
             }
             if (step.winner) winner = step.winner;
         }

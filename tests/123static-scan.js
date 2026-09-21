@@ -72,7 +72,9 @@ export const SCAN_FILES = [
     // 2026-09-21 第 5 趟新增：carry 五号位队友加成量
     './health-rules/148-carry-bonus.js',
     // 2026-09-21 第 6 趟新增：圣火令行列选取（cols/rows 重掷 + 百分比与配置一致性）
-    './health-rules/149-holy-flame-cols-rows.js'
+    './health-rules/149-holy-flame-cols-rows.js',
+    // 2026-09-22 第 7 趟新增：热血奋战攻击回血（回血量取整/上限/重复登记 + 百分比与配置一致性）
+    './health-rules/150-hot-blood-leech.js'
 ];
 
 // 提取文件的 static import 信息（仅静态 import 语句，跳过动态 import()）
