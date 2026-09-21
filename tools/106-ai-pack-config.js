@@ -70,6 +70,13 @@ export const ALL_PROJECT_FILES = [
     '../tests/health-rules/136-meteor-atk.js', '../tests/health-rules/137-kulian-prompt.js',
     '../tests/health-rules/138-wind-push.js', '../tests/health-rules/139-spider-butterfly-target.js',
     '../tests/health-rules/140-wei-dodge-cloud.js',
+    // 2026-09-21 补登记 141-146：121health-monitor.js 已 import rule88-93、123static-scan.js 已入 SCAN_FILES、124rule-recipes.js 已列规则名，仅打包清单漏登
+    '../tests/health-rules/141-zhangsanfeng-fortify-round.js',
+    '../tests/health-rules/142-zhangsanfeng-endless-roundstart.js',
+    '../tests/health-rules/143-jiuyang-heal-pct.js',
+    '../tests/health-rules/144-xinhun-kuaile.js',
+    '../tests/health-rules/145-fly-miss-aura.js',
+    '../tests/health-rules/146-double-strike.js',
     '../tests/121health-monitor.js', '../tests/122health-utils.js',
     '../tests/140-baseline.js', '../tests/baselines/baseline-v1.json',
     // tools（开发工具箱）
