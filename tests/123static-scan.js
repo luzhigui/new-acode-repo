@@ -66,7 +66,9 @@ export const SCAN_FILES = [
     './health-rules/145-fly-miss-aura.js',
     './health-rules/146-double-strike.js',
     // 2026-09-21 第 4 趟新增：拒马阵生成/销毁判据（从上到下"本趟新增"逐条登记，别再漏）
-    './health-rules/147-horse-destroy.js'
+    './health-rules/147-horse-destroy.js',
+    // 2026-09-21 第 5 趟新增：carry 五号位队友加成量
+    './health-rules/148-carry-bonus.js'
 ];
 
 // 提取文件的 static import 信息（仅静态 import 语句，跳过动态 import()）
