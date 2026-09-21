@@ -56,7 +56,7 @@ td{padding:6px 8px;border-bottom:1px solid #333;color:#ccc;text-align:center}
 <script type="module">
 import { Unit } from '../core/02unit.js';
 import { SeededRNG } from '../infra/51-core-utils.js';
-import { createRoundStepper } from '../core/11battle-round.js';
+import { runBattle } from '../core/06battle-runner.js';
 import { CAMP_TYPES, ROLE_TYPES } from '../infra/56-battle-enums.js';
 import '../infra/54-global-store.js';
 import '../modules/25elite-imperial.js';
@@ -92,35 +92,14 @@ function buildRandomTeam(size, camp, rng) {
 }
 
 async function runNakedBattle(allyUnits, enemyUnits, seed) {
-    const rng = new SeededRNG(seed);
-    let battleState = {
-        ally: allyUnits.map(u => u.clone()),
-        enemy: enemyUnits.map(u => u.clone()),
-        round: 1,
-        activeBuffs: [],
-        allAllies: allyUnits.map(u => u.clone()),
-        _rng: rng,
-        _firstSide: CAMP_TYPES.ENEMY
-    };
-    let lastStep = null;
-    const maxRound = 35;
-    while (battleState.round <= maxRound) {
-        const stepper = createRoundStepper(battleState);
-        for await (const step of stepper) {
-            lastStep = step;
-            if (step.winner) return step.winner;
-        }
-        battleState = {
-            ally: (lastStep ? lastStep.ally : battleState.ally).map(u => u.clone()),
-            enemy: (lastStep ? lastStep.enemy : battleState.enemy).map(u => u.clone()),
-            round: battleState.round + 1,
-            activeBuffs: [],
-            allAllies: battleState.allAllies,
-            _rng: battleState._rng,
-            _firstSide: CAMP_TYPES.ENEMY
-        };
-    }
-    return '平局';
+    const res = runBattle({
+        ally: allyUnits,
+        enemy: enemyUnits,
+        seed,
+        maxRounds: 35,
+        firstSide: CAMP_TYPES.ENEMY
+    });
+    return res.winner || '平局';
 }
 
 function countRoles(team) {

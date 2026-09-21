@@ -29,6 +29,8 @@ export const ALL_PROJECT_FILES = [
     '../core/10battle-attack.js', '../core/11battle-round.js', '../core/12battle-attack-steps.js',
     '../core/13battle-shared.js', '../core/14buff-effects.js', '../core/15-skill-mechanisms.js',
     '../core/16effect-handlers.js', '../core/17-state-keys.js', '../core/18mechanic-registry.js',
+    '../core/06battle-runner.js',
+    '../core/06battle-runner.js',
     // player（播放器）
     '../player/40player-text.js', '../player/41player-buff-ui.js', '../player/43animation-scheduler.js', '../player/42player-core.js',
     '../player/44battle-player-5v5-test.js', '../player/45event-handlers.js', '../player/46attack-group.js', '../player/47renderer.js',
