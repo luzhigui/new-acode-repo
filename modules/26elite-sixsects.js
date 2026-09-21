@@ -71,6 +71,10 @@ export function createZhangSanfengComponent() {
 
                 // 2026-09-17 飘字：三处触发共用（回合开始 / 轮到自己 / 八卦阵）；2026-09-20 溢出接盘者单独飘一条
                 if (!GlobalStore.get('fastForwardActive')) {
+                    // 太极印：三处触发共用（回合开始 / 轮到自己 / 八卦阵）。
+                    // 1 号位会出现「回合开始 + 立刻轮到自己」两次紧邻——不去抖会连出两个，
+                    // 由 fx/80 showMeditateEffect 内部按 uid 去抖（1.2s），此处只管发。
+                    eventBus.emit(FX_SIGNALS.MEDITATE, { unit });
                     if (healed > 0) eventBus.emit(FX_SIGNALS.HEAL_FLOAT, { unit, amount: healed });
                     if (receiverHealed > 0) eventBus.emit(FX_SIGNALS.HEAL_FLOAT, { unit: receiver, amount: receiverHealed });
                 }

@@ -1,7 +1,7 @@
-// ~24400 bytes | V6.3.0 | 2026-09-19 从机视角收敛到 renderGrid 单源同帧：战场上下翻转(guest-view)与行序镜像合并，修「角色在7号位却显示在前排」
-export const VER = 'render/32-grid-render.js V6.3.0';
+// ~24400 bytes | V6.3.1 | 2026-09-22 血量显示统一走 fmtHp（0<hp<1 显示 1，不再散写 Math.floor）
+export const VER = 'render/32-grid-render.js V6.3.1';
 
-import { getUnitCol, getUnitRow, getAuraBonuses, getDodgeRules } from '../infra/51-core-utils.js';
+import { getUnitCol, getUnitRow, getAuraBonuses, getDodgeRules, fmtHp } from '../infra/51-core-utils.js';
 import { CONFIG, getSkillDesc } from '../core/01config-5v5-test.js';
 import { GlobalStore, getPlayerContext } from '../infra/54-global-store.js';
 import { FLASH_TYPES, CAMP_TYPES, ROLE_TYPES, BUFF_TYPES } from '../infra/56-battle-enums.js';
@@ -225,7 +225,7 @@ export function renderGrid(id, camp) {
                     div.style.boxShadow = 'none';
                 } else if (effectiveFlyMode === 'ghost') {
                     let roleIcon = unit.isXiaoZhaoSister ? '🦋' : (unit.isXiaoZhaoBrother ? '🕷️' : (unit.role===ROLE_TYPES.WARRIOR?'⚔️':(unit.role===ROLE_TYPES.DEFENDER?'🛡️':(unit.role===ROLE_TYPES.RANGED?'🏹':'🦅'))));
-                    div.innerHTML = `<span class="cell-icon">${roleIcon}</span><div class="cell-info"><span class="cell-name">${unit.name}</span><span class="cell-stats">攻${Math.floor(getStat(unit,'atk'))} 防${Math.floor(getStat(unit,'def'))} 血${Math.floor(unit.hp)}</span></div>`;
+                    div.innerHTML = `<span class="cell-icon">${roleIcon}</span><div class="cell-info"><span class="cell-name">${unit.name}</span><span class="cell-stats">攻${Math.floor(getStat(unit,'atk'))} 防${Math.floor(getStat(unit,'def'))} 血${fmtHp(unit.hp)}</span></div>`;
                     div.style.opacity = '0.5';
                     div.style.background = 'rgba(30,100,255,0.28)';
                     div.style.border = '2px solid rgba(100,150,255,0.6)';
@@ -324,9 +324,9 @@ export function renderGrid(id, camp) {
         let hpPct = unit.alive ? Math.floor((unit.hp / unit.maxHp) * 100) : 0;
         let hpColorClass = hpPct>70?'hp-text-green':(hpPct>40?'hp-text-orange':'hp-text-red');
         let barColor = hpPct>70?'#4caf50':(hpPct>40?'#ff9800':'#f44336');
-        let hpDisplayHtml = `${Math.floor(unit.hp)}`;
+        let hpDisplayHtml = `${fmtHp(unit.hp)}`;
         if ((latestUnit.state._initMaxHp !== undefined && latestUnit.state._initMaxHp > 0 && latestUnit.maxHp > latestUnit.state._initMaxHp)) {
-            hpDisplayHtml = `<span style="color:#daa520;font-weight:bold;">${Math.floor(unit.hp)}</span>`;
+            hpDisplayHtml = `<span style="color:#daa520;font-weight:bold;">${fmtHp(unit.hp)}</span>`;
         }
 
         _hpTargetPct.set(unit.uid, hpPct);
@@ -391,7 +391,7 @@ export function renderGrid(id, camp) {
         // activeBuffs 里没有 fortify，格子上原本毫无提示
         let eliteSkillIcon = (unit.name === '周芷若' && unit._hasKuaiLe) ? ' 💖'
             : (unit.name === '宋青书' && unit._hasXingFen) ? ' 💗'
-            : (unit.isZhangSanfeng && unit.alive && unit.state._tenRoundFired) ? ' ☯'
+            : (unit.isZhangSanfeng && unit.alive && unit.state._tenRoundFired) ? ' 🛡️'
             : '';
         if (!eliteSkillIcon) {
             const sisterHost = allyTeam.find(a => a.isXiaoZhaoSister && a.alive && a.state._butterflyHost === unit.uid);

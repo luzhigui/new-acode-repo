@@ -1,8 +1,8 @@
-// V6.0.0 | 2026-08-19 import 路径合并至 infra/51
-export const VER = 'ui/65main-battle.js V6.0.0';
+// V6.0.1 | 2026-09-22 战报血量显示改走 fmtHp
+export const VER = 'ui/65main-battle.js V6.0.1';
 
 import { CONFIG } from '../core/01config-5v5-test.js';
-import { SeededRNG } from '../infra/51-core-utils.js';
+import { SeededRNG, fmtHp } from '../infra/51-core-utils.js';
 import { GlobalStore, getPlayerContext } from '../infra/54-global-store.js';
 import { addPermanentBuff } from '../modules/20elite-skills.js';
 import { updateUI } from './62ui-render-5v5-test.js';
@@ -185,7 +185,7 @@ export function logTeamInfo(label, UI, gs, battleResultForInfo, activeBuffs, has
                 u.isHorse ? '[拒马]' : '',
                 `站位${displayPos}`,
                 `攻${Math.floor(getStat(u, 'atk'))} 防${Math.floor(getStat(u, 'def'))}`,
-                `血${Math.floor(u.hp)}/${Math.floor(u.maxHp)}`,
+                `血${fmtHp(u.hp)}/${fmtHp(u.maxHp)}`,
                 aliveText,
                 u.isZhang ? '[无忌]' : '',
                 u.isWei ? '[韦一笑]' : ''
