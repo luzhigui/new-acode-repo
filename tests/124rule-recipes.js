@@ -17,6 +17,7 @@ export const RULE_META = {
     '坚盾叠加超上限(回归)': { tag: 'mechanic:坚盾' },
     '流星赶月溅射加攻量(回归)': { tag: 'mechanic:流星赶月' },
     '飞行未命中光环数值(回归)': { tag: 'mechanic:飞行未命中' },
+    '拒马阵生成销毁判据(回归)': { tag: 'mechanic:拒马阵', note: '团队 Buff，需本局选到「巨马阵」才会生成拒马' },
     '概率连击触发越界/重复(回归)': { tag: 'mechanic:概率连击', note: '团队 Buff，需本局选到「概率连击」才会触发' },
     '苦练提示数值错误/异常高频(回归)': { tag: 'mechanic:苦练' },
     '乘风击退换位异常(回归)': { tag: 'mechanic:乘风破浪' },
