@@ -1,7 +1,43 @@
 // 回归规则：张无忌近身切换时机 — 同列前排无存活队友才切（core/13battle-shared.js checkZhangSwitch）
 // 复发信号：同列前排队友存活却切换（时机过早）/ 前排阵亡后隔≥2回合才切换（时机过晚）/ 一场切换多次
 // 对应已报 Bug：张无忌切换近身时机不对
-export const VER = 'tests/health-rules/134-zhang-switch.js V6.0.0';
+export const VER = 'tests/health-rules/134-zhang-switch.js V6.1.15';
+
+// 摊平一条战报条目里所有可能携带「切换近战形态」的文本源（顺序保持战报下标升序）：
+//   render/30 renderZhangSwitchFact 返回的是 [切换行, 台词行] 数组，数组自身既无 .text 也无
+//   .isZhangSwitch，旧版只扫顶层 → 120 场恒 skip 空转（同锚点的 143 改双层扫描后 pass120 可佐证）。
+//   另兼容 attack-group 的 entries 子条目（与 130/143/144 同源）。
+function switchTexts(e) {
+    var out = [];
+    if (!e) return out;
+    if (Array.isArray(e)) {
+        for (var a = 0; a < e.length; a++) {
+            var got = switchTexts(e[a]);
+            for (var g = 0; g < got.length; g++) out.push(got[g]);
+        }
+        return out;
+    }
+    if (typeof e.text === 'string' && e.text) out.push(e.text);
+    if (Array.isArray(e.entries)) {
+        for (var i = 0; i < e.entries.length; i++) {
+            var sub = e.entries[i];
+            if (sub && typeof sub.text === 'string' && sub.text) out.push(sub.text);
+        }
+    }
+    return out;
+}
+
+// 判定一条战报条目是否为「切换近战形态」：数组/entries 里任一文本命中即可；
+// 命中即算一次（同一 log 下标只可能来自同一条 fact 的两件套，调用方按下标去重）。
+function isSwitchEntry(e) {
+    if (!e) return false;
+    if (e.isZhangSwitch === true) return true;
+    var texts = switchTexts(e);
+    for (var i = 0; i < texts.length; i++) {
+        if (texts[i].indexOf('张无忌切换近战形态') !== -1) return true;
+    }
+    return false;
+}
 
 function roundAt(log, idx) {
     for (var i = idx; i >= 0; i--) {
@@ -28,7 +64,7 @@ export const rule81 = {
                 var m = (e.text || '').match(/第(\d+)回合/);
                 if (m) curRound = parseInt(m[1], 10);
             }
-            if (e.isZhangSwitch || ((e.text || '').indexOf('张无忌切换近战形态') !== -1)) {
+            if (isSwitchEntry(e)) {
                 switches.push({ idx: i, round: curRound });
             }
         }
