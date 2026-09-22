@@ -1,5 +1,5 @@
-// V2.0.0 | ~7800 bytes | 2026-09-04 state schema 化：从 key 清单升级为带类型/默认值/生命周期的 schema
-export const VER = 'core/17-state-keys.js V2.0.0';
+// V2.1.0 | ~9800 bytes | 2026-09-22 BATTLE_STATE_SCHEMA 增补胖远桥四个标记（_tauntedByPang 需跨回合 clone 存活）
+export const VER = 'core/17-state-keys.js V2.1.0';
 
 /** 字段类型：决定 clone 时的拷贝方式 */
 export const STATE_FIELD_TYPES = Object.freeze({
@@ -69,6 +69,14 @@ export const BATTLE_STATE_SCHEMA = Object.freeze({
     // 张三丰：第十回合严阵以待
     _roundCountForFortify:   { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },
     _tenRoundFired:          { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
+
+    // 胖远桥：莽撞 / 出手没分寸 / 脾气大
+    // _tauntedByPang 挂在被嘲讽者身上、要跨回合活到「他下次攻击」，必须登记才能被 clone 带过去；
+    // 其余三个都是组件内自管的一次性标记，登记在这里只为统一 clone 口径（各自都有明确复位点）
+    _tauntedByPang:          { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
+    _tauntAttackActive:      { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
+    _tauntUsedRound:         { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
+    _clumsyHit:              { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
 
     // 原顶层永久字段，迁入 state
     _baseAtk:                { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },

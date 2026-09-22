@@ -1,5 +1,5 @@
-// V6.0.0 | 2026-08-14 抽离 doInitBattle 纯逻辑部分
-export const VER = 'modules/29battle-init.js V6.0.0';
+// V6.1.0 | ~20000 bytes | 2026-09-22 第三关阵容轮换：encounters.squadVariants[stage] 存在时随机抽一组（宋青书 / 胖远桥二选一）
+export const VER = 'modules/29battle-init.js V6.1.0';
 
 import { CONFIG } from '../core/01config-5v5-test.js';
 import { Unit, applyHeroFlags, HERO_FLAGS } from '../core/02unit.js';
@@ -219,7 +219,10 @@ export function initBattleTeams(currentStage, _rng) {
     toLock.forEach(u => { u.fixed = true; });
 
     // 六大派阵容生成
-    const enemySquad = C.ENEMY_SQUADS && C.ENEMY_SQUADS[currentStage] ? C.ENEMY_SQUADS[currentStage] : null;
+    let enemySquad = C.ENEMY_SQUADS && C.ENEMY_SQUADS[currentStage] ? C.ENEMY_SQUADS[currentStage] : null;
+    // 第三关阵容轮换：encounters.squadVariants[stage] 存在时随机抽一组（走 _rng，PVP 双端同源）
+    const squadVariants = C.ENCOUNTER_VARIANTS[currentStage];
+    if (squadVariants && squadVariants.length > 0) enemySquad = squadVariants[_rng.nextInt(0, squadVariants.length - 1)];
     let enemyUnits = [];
     const usedEnemyNames = [];
 
