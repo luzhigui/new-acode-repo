@@ -2,7 +2,29 @@
 //   1. 枚举 import 缺失：代码使用了枚举常量（infra/56-battle-enums.js 导出的 13 个）但 import 行缺失
 //   2. import 引用断裂：static import 的相对路径指向不存在的文件
 // 对应需求：实时体检靠阵容触发机制，当轮没触发就 skip；静态快检秒出结构问题，两者互补
-export const VER = 'tests/123static-scan.js V1.0.0';
+export const VER = 'tests/123static-scan.js V1.1.0';
+
+// --- 运行环境判定 + node 垫片（V1.1.0）---
+// 为什么要有它：本模块原本只活得了浏览器里（用 window.location.href 定基准目录、用 fetch 读文件），
+//   于是 `node tests/123static-scan.js` 是个"静默成功"——只 import 不执行，零输出、退出码 0，
+//   看上去跑过了、其实一条都没扫，是典型的假绿。体检代码自己在体检代码上的这个洞必须先补。
+// 口径：基准目录一律取"本模块所在目录"（浏览器=页面地址，node=import.meta.url），两侧同为 tests/。
+const IS_NODE = typeof process !== 'undefined' && !!(process.versions && process.versions.node);
+if (IS_NODE) {
+    const { readFile } = await import('node:fs/promises');
+    const { fileURLToPath } = await import('node:url');
+    globalThis.fetch = async (u) => {
+        try {
+            const text = await readFile(fileURLToPath(typeof u === 'string' ? u : u.href), 'utf8');
+            return { ok: true, status: 200, text: async () => text };
+        } catch (e) {
+            return { ok: false, status: 404, text: async () => '' };
+        }
+    };
+}
+function getBaseUrl() {
+    return IS_NODE ? new URL('./', import.meta.url).href : new URL('./', window.location.href).href;
+}
 
 // 枚举常量名列表（来自 infra/56-battle-enums.js 导出的 13 个枚举对象）
 export const ENUM_NAMES = [
@@ -107,7 +129,7 @@ let _mountsCache = null;
 export async function detectWindowMounts() {
     if (_mountsCache) return _mountsCache;
     _mountsCache = {};
-    const baseUrl = new URL('./', window.location.href).href;
+    const baseUrl = getBaseUrl();
     for (const rel of ['../infra/54-global-store.js', '../infra/50-event-bus.js']) {
         try {
             const resp = await fetch(new URL(rel, baseUrl).href + '?t=' + Date.now());
@@ -136,6 +158,12 @@ export function scanSharedSymbolImport(code, mounts) {
         if (defs.some(re => new RegExp(re, 'm').test(code))) continue;
         // 使用形式：仅成员访问(.)或调用(( )才算"需要import"；参数位/解构(后跟 , } )不算——
         // 引擎普遍 register(eventBus,...)/install({ eventBus }) 由调用方注入，无 import 也正确。
+        // V1.1.0 补：上面的"参数位排除"只挡得住参数列表里那一次出现，挡不住函数体内的后续使用，
+        //   于是 modules/26elite-sixsects.js（`register(eventBus, A, B, log)` 里 eventBus.on/emit）
+        //   被判成"将运行时报错"——实际 120 场回放全绿、浏览器也跑得通，是纯误报。
+        //   这里按"文件内是否把它当形参/解构形参接过"整体排除：注入进来的符号，体内再用都合法。
+        const paramRe = new RegExp('[(,{]\\s*' + sym + '\\s*[,)}]');
+        if (paramRe.test(code)) continue;
         const usageRe = new RegExp('(?<![\\w$.])\\b' + sym + '\\s*[\\.\\(]');
         if (usageRe.test(code)) missing.push({ sym, viaWindow: !!(mounts && mounts[sym]) });
     }
@@ -171,7 +199,7 @@ export async function runStaticScan() {
         },
         elapsedMs: 0
     };
-    const baseUrl = new URL('./', window.location.href).href; // tests/ 目录
+    const baseUrl = getBaseUrl(); // tests/ 目录（浏览器/node 同源）
     const mounts = await detectWindowMounts();
     for (const rel of SCAN_FILES) {
         const fileUrl = new URL(rel, baseUrl).href;
@@ -206,4 +234,26 @@ export async function runStaticScan() {
     }
     result.elapsedMs = Date.now() - t0;
     return result;
+}
+
+// --- node CLI 入口（V1.1.0）---
+// 直接 `node tests/123static-scan.js` 时自举跑一遍并打印结论；被 import（浏览器或别的 runner）
+//   时不触发，避免浏览器端体检中心被调用两次。
+// 退出码口径：枚举缺失 / import 断裂 / 共享符号未 import 且不走 window 挂载 → 致命(1)；
+//   走 window 挂载的共享符号属隐患级，只提示不算致命，避免每次都红。
+if (IS_NODE && process.argv[1] && /123static-scan\.js$/.test(process.argv[1].replace(/\\/g, '/'))) {
+    const r = await runStaticScan();
+    console.log(`=== 静态快检：扫了 ${r.files} 个文件 / ${r.elapsedMs}ms ===`);
+    let fatal = 0;
+    for (const k of Object.keys(r.slots)) {
+        const s = r.slots[k];
+        console.log(`[${s.name}] ${s.issues.length} 条`);
+        for (const it of s.issues) {
+            const isFatal = it.indexOf('隐患级') === -1;
+            if (isFatal) fatal++;
+            console.log((isFatal ? '   ✗ ' : '   ⚠ ') + it);
+        }
+    }
+    console.log(`RESULT: ${fatal === 0 ? '无致命结构问题' : fatal + ' 条致命结构问题'}`);
+    process.exit(fatal === 0 ? 0 : 1);
 }
