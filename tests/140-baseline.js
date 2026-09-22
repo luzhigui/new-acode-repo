@@ -1,14 +1,20 @@
-// V1.0.0 | ~4300 bytes | 2026-08-26 建立 18 场（6 种子 × 3 关）确定性基线，供"零行为变化"重构做机器 diff
-// 运行：node tests/140-baseline.js [seed:stage ...]
-//   不带参数跑全量 18 场；传参如 "1:1 1:3 1:5" 只跑指定场次（先验证用）
+// V1.2.0 | ~7600 bytes | 2026-09-22 修复 Windows 下 fetch file:// 路径（new URL(url).pathname → fileURLToPath）；新增 --check 模式（与基线逐场比对 winner/rounds/facts，有差异退出码 1）；吸收并取代临时 runner baseline-check.mjs / baseline-diff.mjs
+// V1.1.0 | 2026-09-上旬 曾短暂带 check 能力后回退（baseline-v1.json 内残留 version 字段为证），功能由临时 runner baseline-check.mjs 承担
+// V1.0.0 | 2026-08-26 建立 18 场（6 种子 × 3 关）确定性基线，供"零行为变化"重构做机器 diff
+// 运行：node tests/140-baseline.js                → 全量 18 场并重录基线文件 baseline-v1.json（业务代码有意变更后使用）
+//       node tests/140-baseline.js --check       → 全量重跑并与基线比对，全部一致退出码 0，任一差异退出码 1（回归红线）
+//       node tests/140-baseline.js 1:1 42:3      → 只跑指定场次打印结果，不写基线（先验证用）
 // 注意：引擎文件顶层访问浏览器全局（window/self），必须在任何引擎 import 之前 mock，
-//       故全部引擎 import 改为动态（在 main 内、mock 之后执行）。Node v24 默认 detect-module 自动按 ESM 加载。
-export const VER = 'tests/140-baseline.js V1.0.0';
+//       故全部引擎 import 改为动态（在 main 内、mock 之后执行）。
+export const VER = 'tests/140-baseline.js V1.2.0';
+
+import { fileURLToPath } from 'node:url';
 
 // 环境 mock（不改引擎源码，Node 补浏览器能力）
-// loadGameData 用 fetch(file://...)，Node fetch 不支持 file 协议 → 换成读文件
+// loadGameData 用 fetch(file://...)，Node fetch 不支持 file 协议 → 换成读文件。
+// Windows 下 new URL(url).pathname 会得到 "/C:/..."，必须走 fileURLToPath
 globalThis.fetch = async (url) => {
-    const path = new URL(url).pathname;
+    const path = fileURLToPath(new URL(url));
     const fs = await import('node:fs');
     const text = fs.readFileSync(path, 'utf8');
     return { ok: true, json: async () => JSON.parse(text) };
@@ -81,9 +87,11 @@ async function main() {
         return { seed, stage, winner: winner || '平局', rounds, factCount: facts.length, facts };
     }
 
-    const args = process.argv.slice(2);
-    const cases = args.length > 0
-        ? args.map(s => { const [sd, st] = s.split(':'); return { seed: Number(sd), stage: Number(st) }; })
+    const rawArgs = process.argv.slice(2);
+    const checkMode = rawArgs.includes('--check');
+    const caseArgs = rawArgs.filter(a => a !== '--check');
+    const cases = caseArgs.length > 0
+        ? caseArgs.map(s => { const [sd, st] = s.split(':'); return { seed: Number(sd), stage: Number(st) }; })
         : SEEDS.flatMap(seed => STAGES.map(stage => ({ seed, stage })));
 
     const results = [];
@@ -93,8 +101,32 @@ async function main() {
         console.log(`seed=${seed} stage=${stage} winner=${r.winner} rounds=${r.rounds} facts=${r.factCount}`);
     }
 
-    if (args.length === 0) {
-        // 全量运行才写基线文件；带参数验证（如 1:1 1:3 1:5）只打印，不覆盖基线
+    if (checkMode) {
+        const fs = await import('node:fs');
+        const base = JSON.parse(fs.readFileSync(fileURLToPath(new URL('./baselines/baseline-v1.json', import.meta.url)), 'utf8'));
+        let diffs = 0;
+        for (const cur of results) {
+            const ref = base.cases.find(c => c.seed === cur.seed && c.stage === cur.stage);
+            if (!ref) { console.log(`DIFF seed=${cur.seed} stage=${cur.stage}: 基线中无此场`); diffs++; continue; }
+            const sameWinner = ref.winner === cur.winner;
+            const sameRounds = ref.rounds === cur.rounds;
+            const sameFacts = JSON.stringify(ref.facts) === JSON.stringify(cur.facts);
+            if (!(sameWinner && sameRounds && sameFacts)) {
+                diffs++;
+                console.log(`DIFF seed=${cur.seed} stage=${cur.stage} winner=${ref.winner}->${cur.winner} rounds=${ref.rounds}->${cur.rounds} factsSame=${sameFacts}`);
+            }
+        }
+        if (diffs === 0) {
+            console.log(`BASELINE-MATCH ${results.length} 场与基线一致`);
+        } else {
+            console.log(`BASELINE-DIFF 共${diffs}场不同 —— 若属业务有意变更，先 node tests/140-baseline.js 重录基线；否则即回归`);
+            process.exit(1);
+        }
+        return;
+    }
+
+    if (caseArgs.length === 0) {
+        // 全量运行才写基线文件；带参数验证（如 1:1 42:3）只打印，不覆盖基线
         const fs = await import('node:fs');
         const outDir = new URL('./baselines/', import.meta.url);
         fs.mkdirSync(outDir, { recursive: true });

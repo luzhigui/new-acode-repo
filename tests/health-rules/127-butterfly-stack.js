@@ -6,7 +6,12 @@
 //     右向：atkRatio=1/2（攻=floor(_baseAtk/2)）、defRatio=0（防=0）
 //     左向：atkRatio=0（攻=0）、defRatio=1/2（防=floor(_baseDef/2)）
 //   任一方向转移值含 Buff 加成（或越基础份额）即判回归，覆盖原右向-only 漏掉的左向 def 路径。
-export const VER = 'tests/health-rules/127-butterfly-stack.js V6.1.11';
+// 修复（V6.1.20）：基础值路径错误导致恒空转。旧代码读 sister._baseAtk/_baseDef，
+//   但业务口径里基础值在 unit.state._baseAtk/_baseDef（core/02unit.js L157、
+//   modules/29battle-init.js L116/L178 初始化），单位根上从无此字段 → 守卫恒真、
+//   120 场 skip=120（同批"化为蝴蝶附身"文本命中 445 次、128 pass=48 佐证数据源在）。
+//   改读 state._baseAtk/_baseDef，本规则自登记以来首次可真实断言。
+export const VER = 'tests/health-rules/127-butterfly-stack.js V6.1.20';
 
 export const rule74 = {
     group: '精英技能回归',
@@ -44,7 +49,9 @@ export const rule74 = {
             }
         }
         if (!sister) return 'skip';
-        if (sister._baseAtk === undefined || sister._baseDef === undefined) return 'skip';
+        // 基础值在 unit.state 上（V6.1.20 修正路径：根上无 _baseAtk，旧代码因此恒 skip）
+        if (sister.state === undefined) return 'skip';
+        if (sister.state._baseAtk === undefined || sister.state._baseDef === undefined) return 'skip';
 
         // 引擎口径（27elite-mingjiao _executeAttach）：飞行方向决定转移项——
         //   右向：攻转移 floor(_baseAtk/2)、防 0；左向：攻 0、防转移 floor(_baseDef/2)。
@@ -52,18 +59,18 @@ export const rule74 = {
         var dirLeft = possessText.indexOf('←左') !== -1;
         if (dirLeft) {
             // 左向：只转防，攻应为 0
-            var expDef = Math.floor(sister._baseDef / 2);
+            var expDef = Math.floor(sister.state._baseDef / 2);
             if (defTransfer !== expDef) {
-                return { fail: true, msg: '复发：左向附身防转移值' + defTransfer + ' != floor(_baseDef/2)=' + expDef + '，可能直接操作 def 导致 Buff 重复计算' };
+                return { fail: true, msg: '复发：左向附身防转移值' + defTransfer + ' != floor(state._baseDef/2)=' + expDef + '，可能直接操作 def 导致 Buff 重复计算' };
             }
             if (atkTransfer !== 0) {
                 return { fail: true, msg: '复发：左向附身攻转移值' + atkTransfer + ' 应为0（左向只转防），疑似含 Buff 加成' };
             }
         } else {
             // 右向：只转攻，防应为 0
-            var expAtk = Math.floor(sister._baseAtk / 2);
+            var expAtk = Math.floor(sister.state._baseAtk / 2);
             if (atkTransfer !== expAtk) {
-                return { fail: true, msg: '复发：右向附身攻转移值' + atkTransfer + ' != floor(_baseAtk/2)=' + expAtk + '，可能直接操作 atk 导致 Buff 重复计算' };
+                return { fail: true, msg: '复发：右向附身攻转移值' + atkTransfer + ' != floor(state._baseAtk/2)=' + expAtk + '，可能直接操作 atk 导致 Buff 重复计算' };
             }
             if (defTransfer !== 0) {
                 return { fail: true, msg: '复发：右向附身防转移值' + defTransfer + ' 应为0（右向只转攻），疑似含 Buff 加成' };

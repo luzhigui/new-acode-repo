@@ -1,7 +1,13 @@
-// V6.1.11 | 规则回放自检（开发用 runner，不参与游戏运行）
+// V6.1.17 | 规则回放自检（开发用 runner，不参与游戏运行）
 // 用法：node tests/rules-replay.mjs           （默认 20 个种子 × 1~6 关 = 120 场）
 //      SEEDS=1,2,3 STAGES=2,4 node tests/rules-replay.mjs
 //      KEYWORDS=新婚|苦练 node tests/rules-replay.mjs   （额外统计战报文本关键字命中数）
+//      DEAD=1 node tests/rules-replay.mjs              （严格模式：有恒 skip 空转规则即非 0 退出）
+//
+// V6.1.17 新增：fact 覆盖归因。恒 skip 规则分两种根因——规则逻辑写死 skip（改规则）vs
+//   业务侧 fact 没写进 step.log（改 core）。此前两者都只显示"恒 skip N 条"，无法区分，
+//   导致排查空转规则时只能逐条肉眼看规则源码。现在按 FACT_SPECS 全量登记项统计批次产出，
+//   输出"零产出 factType"清单，一眼定位到数据源缺失的那几条。
 //
 // 干什么：真跑引擎（core/11 stepper）→ 收集 fact → 走 render/30 渲染成战报条目 → 依次执行
 //         tests/health-rules/ 下的全部规则，统计每条规则 pass / fail / skip。
@@ -27,7 +33,7 @@ globalThis.self = globalThis;
 const HERE = new URL('.', import.meta.url);
 const [{ CONFIG, loadGameData }, { SeededRNG }, { createRoundStepper }, { initBattleTeams },
     { renderLog }, { createStore, battleReducer }, { createInitialState }, { GlobalStore },
-    { STORE_ACTION_TYPES, CAMP_TYPES, BUFF_TYPES }] = await Promise.all([
+    { STORE_ACTION_TYPES, CAMP_TYPES, BUFF_TYPES }, { FACT_SPECS }] = await Promise.all([
         import('../core/01config-5v5-test.js'),
         import('../infra/51-core-utils.js'),
         import('../core/11battle-round.js'),
@@ -36,7 +42,8 @@ const [{ CONFIG, loadGameData }, { SeededRNG }, { createRoundStepper }, { initBa
         import('../modules/24battle-store.js'),
         import('../core/17-state-keys.js'),
         import('../infra/54-global-store.js'),
-        import('../infra/56-battle-enums.js')
+        import('../infra/56-battle-enums.js'),
+        import('../infra/58-fact-contract.js')
     ]);
 // 精英组件需先注册（initBattleTeams 依赖其组件安装）
 await import('../modules/25elite-imperial.js');
@@ -62,6 +69,8 @@ const STAGES = process.env.STAGES ? process.env.STAGES.split(',').map(Number) : 
 const KEYWORDS = process.env.KEYWORDS ? process.env.KEYWORDS.split('|') : [];
 // NOBUFFS=1 可关掉 Buff 注入，用于「注入前后」对比同一批战报
 const NOBUFFS = process.env.NOBUFFS === '1';
+// DEAD=1 严格模式：出现恒 skip(空转)规则即以非 0 退出——空转规则一次都没真断言，属"假绿"（V6.1.16）
+const STRICT_DEAD = process.env.DEAD === '1';
 
 // --- 团队海克斯 Buff 注入（V6.1.12）---
 // 为什么要有它：回放器此前 activeBuffs 恒为 []，而流星赶月/乘风突袭/流云身法/概率连击/巨马阵
@@ -128,6 +137,7 @@ function runCase(seed, stage) {
             lastStep = step;
             for (const f of step.log || []) {
                 if (!f || !f.factType) continue;
+                factHist[f.factType] = (factHist[f.factType] || 0) + 1;
                 try { const e = renderLog(f.factType, f.data); if (e) log.push(e); } catch (e) { /* 单条渲染失败不阻断 */ }
             }
             if (step.winner) winner = step.winner;
@@ -155,6 +165,11 @@ function runCase(seed, stage) {
 }
 
 const agg = {}, kwHit = {};
+// fact 产出直方图：本批次每个 factType 实际进入 step.log 的条数。
+// 用途 —— 恒 skip 规则归因：规则空转有两种完全不同的根因，"规则逻辑写死 skip"（体检侧 bug，要改规则）
+//   和"业务侧压根没把 fact 写进日志"（数据源缺失，改规则没用，得去 core/ 查）。没有这个直方图，
+//   两者都只呈现为一句"恒 skip N 条"，无法定位。
+const factHist = {};
 let cases = 0;
 for (const seed of SEEDS) {
     for (const stage of STAGES) {
@@ -192,10 +207,11 @@ for (const seed of SEEDS) {
 
 console.log(`=== 规则回放自检：${cases} 场 / ${rules.length} 条规则 ===`);
 let fails = 0, dead = 0;
+const deadNames = [];
 for (const name of Object.keys(agg)) {
     const a = agg[name];
     if (a.fail > 0) fails++;
-    else if (a.pass === 0) dead++; // 恒 skip = 空转规则，值得单独盯
+    else if (a.pass === 0) { dead++; deadNames.push(name); } // 恒 skip = 空转规则，值得单独盯
     const tag = a.fail > 0 ? '❌' : (a.pass > 0 ? '✅' : '⏭ ');
     console.log(`${tag} ${name}  pass=${a.pass} fail=${a.fail} skip=${a.skip}`);
     for (const m of a.msgs) console.log(`      ${m}`);
@@ -204,5 +220,31 @@ if (KEYWORDS.length) {
     console.log('=== 关键字命中 ===');
     for (const kw of KEYWORDS) console.log(`  ${kw}: ${kwHit[kw] || 0}`);
 }
+// V6.1.16 恒 skip 名单化：此前只打印"恒 skip N 条"这个数字且退出码恒 0，
+//   空转规则（120 场一次都没真正断言）照样显示"无失败规则"——体检自己假绿。
+//   现在把名单列全，便于逐轮排查"回放覆盖不到"还是"规则逻辑写死 skip"；
+//   DEAD=1 进入严格模式：存在空转规则即以非 0 退出，供 CI/自动化当红线用。
+if (deadNames.length) {
+    console.log('=== 恒 skip(空转)规则名单 ===');
+    for (const n of deadNames) console.log('   ⏭ ' + n);
+}
+// V6.1.17 fact 覆盖归因：把"零产出的 factType"单独列出来。
+//   契约里登记了渲染函数、但本批次一次都没进日志 —— 依赖它的规则必然恒 skip，
+//   且这是业务侧 fact 未写入 step.log 导致的数据源缺失，改规则修不好，应去 core/ 查产出点。
+const registered = Object.keys(FACT_SPECS || {});
+const produced = Object.keys(factHist);
+const zeroFacts = registered.filter(t => !factHist[t]);
+const unknownFacts = produced.filter(t => registered.indexOf(t) === -1);
+console.log(`=== fact 覆盖：本批次产出 ${produced.length} 种 / 契约登记 ${registered.length} 种 ===`);
+if (zeroFacts.length) {
+    console.log(`   零产出 factType（${zeroFacts.length} 种，依赖其的规则必然空转 · 数据源缺失）：`);
+    for (const t of zeroFacts) console.log('      ⚠ ' + t);
+} else {
+    console.log('   全部登记 factType 均有产出');
+}
+if (unknownFacts.length) {
+    console.log(`   契约外 factType（${unknownFacts.length} 种，未登记进 FACT_SPECS）：`);
+    for (const t of unknownFacts) console.log('      ? ' + t + ' ×' + factHist[t]);
+}
 console.log(`RESULT: ${fails === 0 ? '无失败规则' : fails + ' 条规则报失败'}；恒 skip(空转)规则 ${dead} 条`);
-process.exit(fails === 0 ? 0 : 1);
+process.exit(fails === 0 ? (STRICT_DEAD && dead ? 1 : 0) : 1);
