@@ -1,7 +1,8 @@
+// V6.2.2 | ~34500 bytes | 2026-09-22 文件复制器白名单补 .mjs（收录 tools/118-import-export-check.mjs，node 直跑的 ESM 脚本）
 // V6.2.1 | ~34000 bytes | 2026-09-13 修复：手机 WebView 选目录后误抛 AbortError 被当"取消"导致不下载，改为回退逐个下载
 // V6.2.0 | 2026-09-13 「一键全下」优先 File System Access API 选目录直写（只弹一次），不支持/失败回退逐个下载
 // V6.1.0 | 2026-09-12 新增「一键全下(txt)」：串行触发全部分包下载，自动跳过含读取失败的包
-export const VER = 'tools/103-toolkit.js V6.2.1';
+export const VER = 'tools/103-toolkit.js V6.2.2';
 
 import { AI_EXCLUDE, ALL_PROJECT_FILES, FILE_GROUPS, GROUP_PROMPTS, AI_INTERFACE_NOTE } from './106-ai-pack-config.js';
 
@@ -24,7 +25,8 @@ function escapeHtml(text) {
 // 文件复制器
 (function() {
     // 用户可勾选的文件列表（不含 assets/ 和 .md 等不可 fetch 的文件，排除文件名带空格的；精简模式跳过 AI_EXCLUDE）
-    const FILES = ALL_PROJECT_FILES.filter(f => (f.endsWith('.js') || f.endsWith('.html') || f.endsWith('.cjs') || f.endsWith('.md') || f.endsWith('.json')) && !f.includes(' ') && !AI_EXCLUDE.has(f));
+    // .mjs：node 直跑的 ESM 脚本（tools/118），浏览器 fetch 与 .js 无差别
+    const FILES = ALL_PROJECT_FILES.filter(f => (f.endsWith('.js') || f.endsWith('.mjs') || f.endsWith('.html') || f.endsWith('.cjs') || f.endsWith('.md') || f.endsWith('.json')) && !f.includes(' ') && !AI_EXCLUDE.has(f));
 
     // 分组整理
     FILE_GROUPS.forEach(g => g.files = []);
