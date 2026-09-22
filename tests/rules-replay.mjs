@@ -1,8 +1,17 @@
-// V6.1.22 | 规则回放自检（开发用 runner，不参与游戏运行）
+// V6.1.24 | 规则回放自检（开发用 runner，不参与游戏运行）
 // 用法：node tests/rules-replay.mjs           （默认 20 个种子 × 1~6 关 = 120 场）
 //      SEEDS=1,2,3 STAGES=2,4 node tests/rules-replay.mjs
 //      KEYWORDS=新婚|苦练 node tests/rules-replay.mjs   （额外统计战报文本关键字命中数）
 //      DEAD=1 node tests/rules-replay.mjs              （严格模式：有恒 skip 空转规则即非 0 退出）
+//
+// V6.1.24 修复：Buff 注入阵营保真度——旧实现给明教/六大派**双方**各补选一个，但生产单机口径是
+//   只给明教注入（player/49battle-flow.js handleBuffSelection 默认 camp=CAMP_TYPES.ALLY，player/42
+//   L455-456 调用时也不传 camp；双方各选是联网 PVP 专属 handlePvpBuffSelection）。双方注入让回放
+//   出现生产单机不可能出现的场景——六大派拿到 FORTIFY 后，render/30 L325 的 buff-summary 与
+//   张三丰自身组件（modules/26）产出的「🛡️ 严阵以待：张三丰 防御+50% 反弹50%」**完全同形**
+//   （张三丰是六大派唯一防战），141 号规则的"严阵以待"存在性判据因此无法区分来源（假绿风险）。
+//   改为只注入 ALLY 后，该文案唯一产出点 = 张三丰自身组件，141 判据随之可落地。
+//   注意：140-baseline.js 不受影响（其基线重放恒 activeBuffs:[]，不走本函数）。
 //
 // V6.1.22 修复：渲染条目为**数组**的 fact 被整条吞掉（与生产侧口径不一致）。
 //   player/42player-core.js L316-319 对 `renderLog` 返回数组的 factType 用 `log.splice(i,1,...rendered)`
@@ -10,10 +19,20 @@
 //   没有 text、没有 entries。实测 120 场里 zhangSwitch 触发 58 次全部如此丢失，直接导致
 //   134(张无忌近身切换时机) 恒 skip 假绿、143(九阳) 的"变身前条目"失稳判据失效而误报 29 条。
 //
+// V6.1.23 复盘修正：V6.1.17 起把"零产出 factType"一律标注成「数据源缺失 · 改规则没用 · 去 core 查」，
+//   **该归因是错的**，并已连续误导三轮迭代：第 4/5 轮据此把 129/134/141/143 判为业务侧数据源缺失、
+//   写进业务侧待修清单移交，第 6 轮实测推翻——129/143/134 全是规则侧扫错层级 / 回放口径不一致，
+//   业务侧产出一直在。真实成因有四类，必须先取证分开查：
+//     ① 该 fact 走非 step.log 通道（如 nineYangHeal 经 core/15 的 data.declarations）→ 渲染条目其实在日志里；
+//     ② 该 fact 的渲染条目嵌在 group 的 entries 子层级（如 spiderFly / zhangTaunt）→ 只扫顶层就看不见；
+//     ③ 规则扫错层级，或读了渲染时已被剥离的 e.factType / e.data（如 141）→ 规则侧 bug，改规则才对症；
+//     ④ 业务侧真的没把 fact 写进日志 → 唯一真正意义上的"数据源缺失"。
+//   即"零产出"只等于**按原始 factType 统计为 0**，不能推断业务侧没产出。
+//
 // V6.1.17 新增：fact 覆盖归因。恒 skip 规则分两种根因——规则逻辑写死 skip（改规则）vs
 //   业务侧 fact 没写进 step.log（改 core）。此前两者都只显示"恒 skip N 条"，无法区分，
 //   导致排查空转规则时只能逐条肉眼看规则源码。现在按 FACT_SPECS 全量登记项统计批次产出，
-//   输出"零产出 factType"清单，一眼定位到数据源缺失的那几条。
+//   输出"零产出 factType"清单，便于定位（⚠ 归因口径按 V6.1.23 修正，勿直接判成数据源缺失）。
 //
 // 干什么：真跑引擎（core/11 stepper）→ 收集 fact → 走 render/30 渲染成战报条目 → 依次执行
 //         tests/health-rules/ 下的全部规则，统计每条规则 pass / fail / skip。
@@ -81,17 +100,22 @@ const STRICT_DEAD = process.env.DEAD === '1';
 // --- 团队海克斯 Buff 注入（V6.1.12）---
 // 为什么要有它：回放器此前 activeBuffs 恒为 []，而流星赶月/乘风突袭/流云身法/概率连击/巨马阵
 //   这一整批机制全部由团队 Buff 门控，于是 11 条规则 120 场一次都跑不到（恒 skip 空转）。
-// 口径来源：tools/116-role-balance-worker.js 的跑批写法 + player/49battle-flow.js 的全自动选 Buff
-//   口径（过滤已有 key 与 BUFF_ROLE_REQUIREMENTS 的职业要求，duration 取 buff 自带或 BUFF_DURATION）。
-//   每回合递减 remaining（过期淘汰），每 3 回合为明教/六大派各补选一个（与 player/42 的
+// 口径来源：player/49battle-flow.js 的全自动选 Buff 口径（过滤已有 key 与 BUFF_ROLE_REQUIREMENTS
+//   的职业要求，duration 取 buff 自带或 BUFF_DURATION），且**只给明教注入**——handleBuffSelection
+//   默认 camp=CAMP_TYPES.ALLY，player/42 单机调用不传 camp；双方各选是联网 PVP 专属
+//   （handlePvpBuffSelection），回放模拟的是单机口径（V6.1.24 修正，此前误给六大派也注入）。
+//   每回合递减 remaining（过期淘汰），每 3 回合补选一个（与 player/42 的
 //   `round % 3 === 0` 补选节奏一致），并按「已选轮次」轮转键名，让 11 个 Buff 都能轮到。
 // 注意：这里用 seed/round 确定性轮转，不消耗战斗 RNG —— 否则会改变战斗随机序列，破坏可复现性。
-function tickAndPickBuffs(activeBuffs, ally, enemy, round, seed, pickNew) {
+function tickAndPickBuffs(activeBuffs, ally, round, seed, pickNew) {
     var next = (activeBuffs || []).map(function (b) { return { ...b, remaining: b.remaining - 1 }; })
         .filter(function (b) { return b.remaining > 0; });
     if (NOBUFFS || !pickNew) return next;
     var turn = Math.floor(round / 3); // 第几次补选（round=1 预注入时为 0，其后 3/6/9… 递增）
-    var sides = [{ camp: CAMP_TYPES.ALLY, team: ally, off: 0 }, { camp: CAMP_TYPES.ENEMY, team: enemy, off: 1 }];
+    // V6.1.24 阵营保真度：单机生产只给明教注入（player/49 handleBuffSelection 默认 ALLY），
+    //   不再给六大派注入——否则六大派拿 FORTIFY 时其 buff-summary 与张三丰自身组件文案同形，
+    //   141 号"严阵以待"判据无法区分来源（假绿），且整体制造生产单机不存在的战斗场景。
+    var sides = [{ camp: CAMP_TYPES.ALLY, team: ally, off: 0 }];
     for (var i = 0; i < sides.length; i++) {
         var s = sides[i];
         var mine = next.filter(function (b) { return (b.target || CAMP_TYPES.ALLY) === s.camp; });
@@ -129,7 +153,7 @@ function runCase(seed, stage) {
         ally: allyTeam.map(u => u.clone()),
         enemy: enemyTeam.map(u => u.clone()),
         // 第 1 回合预注入一轮：真实流程要等到第 3 回合才选 Buff，体检为覆盖机制提前一拍
-        round: 1, activeBuffs: tickAndPickBuffs([], allyTeam, enemyTeam, 1, seed, true),
+        round: 1, activeBuffs: tickAndPickBuffs([], allyTeam, 1, seed, true),
         allAllies: allyTeam.map(u => u.clone()), _rng: rng
     };
     const log = [];
@@ -161,7 +185,7 @@ function runCase(seed, stage) {
             ally: lastStep.ally.map(u => u.clone()),
             enemy: lastStep.enemy.map(u => u.clone()),
             round: battleState.round + 1,
-            activeBuffs: tickAndPickBuffs(battleState.activeBuffs, lastStep.ally, lastStep.enemy,
+            activeBuffs: tickAndPickBuffs(battleState.activeBuffs, lastStep.ally,
                 battleState.round, seed, battleState.round % 3 === 0),
             allAllies: battleState.allAllies,
             _rng: rng
@@ -242,16 +266,19 @@ if (deadNames.length) {
     console.log('=== 恒 skip(空转)规则名单 ===');
     for (const n of deadNames) console.log('   ⏭ ' + n);
 }
-// V6.1.17 fact 覆盖归因：把"零产出的 factType"单独列出来。
-//   契约里登记了渲染函数、但本批次一次都没进日志 —— 依赖它的规则必然恒 skip，
-//   且这是业务侧 fact 未写入 step.log 导致的数据源缺失，改规则修不好，应去 core/ 查产出点。
+// V6.1.17 fact 覆盖归因（V6.1.23 修正归因口径）：把"按原始 factType 统计为 0"的项单独列出来。
+//   ⚠ 这不是"业务侧数据源缺失"的同义词：本表统计的是渲染前 factType，规则消费的是渲染后条目。
+//   四类成因（①走 data.declarations 通道 / ②嵌在 entries 子层级 / ③规则扫错层级 / ④业务侧真未产出）
+//   必须先取证分开，① ② ③ 都属体检侧或回放侧问题，改规则/改回放就能修，误移交业务侧只会空转。
 const registered = Object.keys(FACT_SPECS || {});
 const produced = Object.keys(factHist);
 const zeroFacts = registered.filter(t => !factHist[t]);
 const unknownFacts = produced.filter(t => registered.indexOf(t) === -1);
 console.log(`=== fact 覆盖：本批次产出 ${produced.length} 种 / 契约登记 ${registered.length} 种 ===`);
 if (zeroFacts.length) {
-    console.log(`   零产出 factType（${zeroFacts.length} 种，依赖其的规则必然空转 · 数据源缺失）：`);
+    console.log(`   零产出 factType（${zeroFacts.length} 种 · 按原始 factType 统计为 0，≠ 业务侧数据源缺失）：`);
+    console.log(`     ↳ 成因四类：① data.declarations 等非 step.log 通道 ② 嵌在 group.entries 子层级 ③ 规则扫错层级 ④ 业务侧真未产出`);
+    console.log(`     ↳ 先用 KEYWORDS=文本 探针排除 ①②③，全排除后才归 ④ 去 core/ 查产出点，勿直接移交业务侧`);
     for (const t of zeroFacts) console.log('      ⚠ ' + t);
 } else {
     console.log('   全部登记 factType 均有产出');
