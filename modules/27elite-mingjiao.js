@@ -1,5 +1,5 @@
-// V6.0.2 | ~35700 bytes | 2026-09-11 maxHp 词条化批3b：蝶变附身/飞回/永久carry 改 addMod+refreshMaxHp；攻防读值统一走 getStat
-export const VER = 'modules/27elite-mingjiao.js V6.0.2';
+// V6.0.3 | ~35800 bytes | 2026-09-22 小昭·妹连击的 targetUid 回退补 _pendingDeath（与 doubleStrike 同口径）
+export const VER = 'modules/27elite-mingjiao.js V6.0.3';
 
 import { registerElite } from '../core/08-elite-registry.js';
 import { CONFIG, getSkillParams } from '../core/01config-5v5-test.js';
@@ -560,7 +560,9 @@ export function createXiaoZhaoBrotherComponent() {
                     if (!data.extraRequests) data.extraRequests = [];
                     data.extraRequests.push({
                         unit,
-                        targetUid: (target && target.alive) ? target.uid : null,
+                        // 2026-09-22 同 doubleStrike：原目标同击致死后 alive 仍 true，须连 _pendingDeath 一起判，
+                        //   否则把待死 uid 锁给第二次攻击 → 白跳
+                        targetUid: (target && target.alive && !target.state._pendingDeath) ? target.uid : null,
                         reason: 'xiaoZhaoDoubleMiss',
                         actedMode: 'allow',
                         priority: 30
