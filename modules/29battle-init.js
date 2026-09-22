@@ -1,5 +1,5 @@
-// V6.2.0 | ~21000 bytes | 2026-09-22 ① 第三关阵容轮换：encounters.squadVariants[stage] 存在时随机抽一组（宋青书 / 胖远桥二选一）② 新增 forceXieXun：金毛狮王谢逊固定 7 号位（demo）③ 灭绝师太精英站位优先 2 号位
-export const VER = 'modules/29battle-init.js V6.2.0';
+// V6.3.0 | ~21400 bytes | 2026-09-22 ① squadVariants 升级为 { squad, posTemplate? }：阵容与站位成套（胖远桥阵容换武当七侠、独立站位）② 胖远桥固定 2 号位
+export const VER = 'modules/29battle-init.js V6.3.0';
 
 import { CONFIG } from '../core/01config-5v5-test.js';
 import { Unit, applyHeroFlags, HERO_FLAGS } from '../core/02unit.js';
@@ -236,8 +236,14 @@ export function initBattleTeams(currentStage, _rng) {
     // 六大派阵容生成
     let enemySquad = C.ENEMY_SQUADS && C.ENEMY_SQUADS[currentStage] ? C.ENEMY_SQUADS[currentStage] : null;
     // 第三关阵容轮换：encounters.squadVariants[stage] 存在时随机抽一组（走 _rng，PVP 双端同源）
+    // 2026-09-22 变体升级为 { squad, posTemplate? }：阵容与站位成套下发；posTemplate 缺省才回落关卡级 ENEMY_POS_TEMPLATES
     const squadVariants = C.ENCOUNTER_VARIANTS[currentStage];
-    if (squadVariants && squadVariants.length > 0) enemySquad = squadVariants[_rng.nextInt(0, squadVariants.length - 1)];
+    let variantPosTemplate = null;
+    if (squadVariants && squadVariants.length > 0) {
+        const variant = squadVariants[_rng.nextInt(0, squadVariants.length - 1)];
+        enemySquad = variant.squad;
+        variantPosTemplate = variant.posTemplate || null;
+    }
     let enemyUnits = [];
     const usedEnemyNames = [];
 
@@ -296,7 +302,7 @@ export function initBattleTeams(currentStage, _rng) {
             enemyUnits.push(extraUnit);
         }
         let allUnits = [...enemyUnits];
-        let template = C.ENEMY_POS_TEMPLATES && C.ENEMY_POS_TEMPLATES[currentStage] ? C.ENEMY_POS_TEMPLATES[currentStage] : null;
+        let template = variantPosTemplate || (C.ENEMY_POS_TEMPLATES && C.ENEMY_POS_TEMPLATES[currentStage] ? C.ENEMY_POS_TEMPLATES[currentStage] : null);
         let eliteUnits = allUnits.filter(u => C.ELITE_POOL && C.ELITE_POOL[currentStage] && C.ELITE_POOL[currentStage].some(e => e.name === u.name));
         let normalUnits = allUnits.filter(u => !eliteUnits.includes(u));
         // 2026-09-17 张三丰固定1号位：普通兵排位之前先锁，其他单位不许占
@@ -352,6 +358,8 @@ export function initBattleTeams(currentStage, _rng) {
             if (u.isChengKun) priority = [1, 2, 3, 4, 5, 6, 7, 8, 9];
             // 2026-09-22 灭绝师太（第七关）：优先 2 号位（与 elitePool 的 pos 元数据一致）
             else if (u.isMieJueShiTai) priority = [2, 1, 3, 4, 5, 6, 7, 8, 9];
+            // 2026-09-22 胖远桥（第三关轮换阵容）：嘲讽坦克，固定 2 号位前排正中（与 elitePool 的 pos 元数据一致）
+            else if (u.isPangYuanQiao) priority = [2, 1, 3, 4, 5, 6, 7, 8, 9];
             else if (u.isLuZhangKe) priority = [7, 8, 9, 4, 5, 6, 1, 2, 3];
             else if (u.isHeBiWeng) priority = [3, 4, 5, 6, 7, 8, 9, 1, 2];
             else priority = [1, 2, 3, 4, 5, 6, 7, 8, 9];
