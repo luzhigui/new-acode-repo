@@ -7,7 +7,36 @@
 // 旧版只比"全场合计 > 3"且查"负数"，但负数已被 Math.max(0,..) 兜底永不可见（死代码），
 //   且未校验逐次扣减——计数卡死在 2 的bug会被合计阈值放过。现改为按 spiderUid 逐单位核对。
 // 对应已修 Bug：小昭妹妹飞天误触发、飞天后仍行动、飞天免疫次数超限
-export const VER = 'tests/health-rules/129-spider-fly-count.js V6.1.10';
+//
+// V6.1.22 修订（体检迭代第 6 轮）：修恒空转真因 —— 扫错条目层级。
+// 【数据契约，2026-09-22 实跑取证，改规则前务必对照】
+//   飞天条目**不是顶层条目**，而是挂在 `attack-group` 的 `entries` 子条目上：
+//     { type:'info', spiderAction:'fly', spiderUid, text:'🕷️ 飞天：{名} {原因}，免疫本次攻击的
+//       {伤害} 点伤害，化为蜘蛛遁走！剩余次数：{N}' }
+//   产出链：modules/27 的 submitSpiderFlyDeclaration 走 `data.declarations` 免疫声明
+//   （携带 _flyFactData={unitName,spiderUid,reason,incomingDmg,remaining}），
+//   由 attack-group 收集后经 render/30 renderSpiderFlyFact（L628）渲染成上述子条目。
+//   顶层 `attack-group` 自身没有 text，只带 isImmune/isDodge 等组级标记 —— 故"只扫顶层 e.text"
+//   在结构上永远命中不了：自登记以来 120 场恒 skip，一次断言都没跑（假绿）。
+//   判据字段以 `spiderAction==='fly'` 为准（render/30 写死的结构化判别位），文本仅作兜底；
+//   注意 render/30 L548 的「蛛落」同为 spiderAction 但值为 'return'，**不是**飞天次数信号。
+export const VER = 'tests/health-rules/129-spider-fly-count.js V6.1.22';
+
+// 收集本场全部飞天条目（顶层 + attack-group 的 entries 子条目，两层都收 = 不漏 placements 变化）
+function collectFlyEntries(log) {
+    var out = [];
+    for (var i = 0; i < log.length; i++) {
+        var e = log[i];
+        if (!e) continue;
+        if (e.spiderAction === 'fly') { out.push(e); continue; }
+        if (!Array.isArray(e.entries)) continue;
+        for (var k = 0; k < e.entries.length; k++) {
+            var s = e.entries[k];
+            if (s && s.spiderAction === 'fly') out.push(s);
+        }
+    }
+    return out;
+}
 
 export const rule76 = {
     group: '精英技能回归',
@@ -15,8 +44,9 @@ export const rule76 = {
     test: function(ctx, log, beforeA, beforeE, afterA, afterE) {
         var cap = 3; // 与 27elite-mingjiao.js 的 _spiderRemaining||3 一致（每单位每场限 3 次）
         var perUnit = {}; // uid -> { count, lastRem }
-        for (var j = 0; j < log.length; j++) {
-            var e = log[j];
+        var flyEntries = collectFlyEntries(log);
+        for (var j = 0; j < flyEntries.length; j++) {
+            var e = flyEntries[j];
             if (!e || !e.text) continue;
             if (e.text.indexOf('🕷️ 飞天') === -1) continue;
             var uid = (e.spiderUid != null) ? e.spiderUid : '__unknown__';

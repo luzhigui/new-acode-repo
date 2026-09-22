@@ -1,8 +1,14 @@
-// V6.1.17 | 规则回放自检（开发用 runner，不参与游戏运行）
+// V6.1.22 | 规则回放自检（开发用 runner，不参与游戏运行）
 // 用法：node tests/rules-replay.mjs           （默认 20 个种子 × 1~6 关 = 120 场）
 //      SEEDS=1,2,3 STAGES=2,4 node tests/rules-replay.mjs
 //      KEYWORDS=新婚|苦练 node tests/rules-replay.mjs   （额外统计战报文本关键字命中数）
 //      DEAD=1 node tests/rules-replay.mjs              （严格模式：有恒 skip 空转规则即非 0 退出）
+//
+// V6.1.22 修复：渲染条目为**数组**的 fact 被整条吞掉（与生产侧口径不一致）。
+//   player/42player-core.js L316-319 对 `renderLog` 返回数组的 factType 用 `log.splice(i,1,...rendered)`
+//   展开成多条；本 runner 旧实现 `if (e) log.push(e)` 只推一个元素，于是该条目是个"数组对象"——
+//   没有 text、没有 entries。实测 120 场里 zhangSwitch 触发 58 次全部如此丢失，直接导致
+//   134(张无忌近身切换时机) 恒 skip 假绿、143(九阳) 的"变身前条目"失稳判据失效而误报 29 条。
 //
 // V6.1.17 新增：fact 覆盖归因。恒 skip 规则分两种根因——规则逻辑写死 skip（改规则）vs
 //   业务侧 fact 没写进 step.log（改 core）。此前两者都只显示"恒 skip N 条"，无法区分，
@@ -138,7 +144,15 @@ function runCase(seed, stage) {
             for (const f of step.log || []) {
                 if (!f || !f.factType) continue;
                 factHist[f.factType] = (factHist[f.factType] || 0) + 1;
-                try { const e = renderLog(f.factType, f.data); if (e) log.push(e); } catch (e) { /* 单条渲染失败不阻断 */ }
+                try {
+                    const e = renderLog(f.factType, f.data);
+                    // 与生产侧 player/42player-core.js L316-319 同口径：renderLog 可返回**条目数组**
+                    // （如 ZHANG_SWITCH 一次返回"切换形态 + 语音"两条），必须展开后逐条入日志。
+                    // 旧实现 `if (e) log.push(e)` 把整条数组当成**一个**条目塞进 log —— 该条目既无
+                    // text 也无 entries，任何按文本/子条目扫描的规则都看不见它（静默丢失、假绿）。
+                    if (Array.isArray(e)) { for (const one of e) { if (one) log.push(one); } }
+                    else if (e) log.push(e);
+                } catch (e) { /* 单条渲染失败不阻断 */ }
             }
             if (step.winner) winner = step.winner;
         }
