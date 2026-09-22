@@ -1,8 +1,17 @@
-// V6.1.24 | 规则回放自检（开发用 runner，不参与游戏运行）
+// V6.1.25 | ~24400 bytes | 2026-09-22 规则回放自检（开发用 runner，不参与游戏运行）
 // 用法：node tests/rules-replay.mjs           （默认 20 个种子 × 1~6 关 = 120 场）
 //      SEEDS=1,2,3 STAGES=2,4 node tests/rules-replay.mjs
 //      KEYWORDS=新婚|苦练 node tests/rules-replay.mjs   （额外统计战报文本关键字命中数）
 //      DEAD=1 node tests/rules-replay.mjs              （严格模式：有恒 skip 空转规则即非 0 退出）
+//
+// V6.1.25 修复：fact 覆盖直方图的**计数口径**——旧实现只数 `step.log` 顶层 fact 的 `f.factType`，
+//   但引擎还把 16 类 fact 作为**子 fact** 嵌进父 fact 的 data 里（`data.entries[]` / `data.phantomFact` /
+//   `data.dmgCalc.bonusEntries[]`），render/30 L200-204 会逐条 `projectFactEntry` 渲染进
+//   attack-group.entries（规则实际消费的就是这些条目）。于是这批子 fact 全部被误报成"零产出"：
+//   实测 fortifyRebound ×21、zhangTaunt ×36、nineYangHeal ×216、clawHit ×98、fortifyShield ×563、
+//   qianKunUpgraded ×1104 …。后果不止是清单不准——`fortifyRebound`、`zhangTaunt` 已被当成
+//   "业务侧真未产出"写进业务侧待修清单（履历 V6.1.20 / V6.1.24、复盘报告第 1~3 轮），
+//   业务侧照单去 core/ 查产出点必然白跑。现改为递归统计（顶层 + 嵌套），并单独列出"仅嵌套出现"的一批。
 //
 // V6.1.24 修复：Buff 注入阵营保真度——旧实现给明教/六大派**双方**各补选一个，但生产单机口径是
 //   只给明教注入（player/49battle-flow.js handleBuffSelection 默认 camp=CAMP_TYPES.ALLY，player/42
@@ -28,6 +37,9 @@
 //     ③ 规则扫错层级，或读了渲染时已被剥离的 e.factType / e.data（如 141）→ 规则侧 bug，改规则才对症；
 //     ④ 业务侧真的没把 fact 写进日志 → 唯一真正意义上的"数据源缺失"。
 //   即"零产出"只等于**按原始 factType 统计为 0**，不能推断业务侧没产出。
+//   ⚠ V6.1.25 后注：上表成因 ②（嵌在 group.entries 子层级）现已由计数口径修正消化——这类 fact
+//     实测就是嵌在 `attack.entries[]` 里（nineYangHeal/clawHit/zhangTaunt/fortifyRebound 等 16 类），
+//     按新口径均计入产出，不再出现在零产出清单。故现存零产出只剩 ①③④ 三类，取证时按三类分查。
 //
 // V6.1.17 新增：fact 覆盖归因。恒 skip 规则分两种根因——规则逻辑写死 skip（改规则）vs
 //   业务侧 fact 没写进 step.log（改 core）。此前两者都只显示"恒 skip N 条"，无法区分，
@@ -167,7 +179,8 @@ function runCase(seed, stage) {
             lastStep = step;
             for (const f of step.log || []) {
                 if (!f || !f.factType) continue;
-                factHist[f.factType] = (factHist[f.factType] || 0) + 1;
+                noteFact(f.factType, false);
+                collectNestedFacts(f.data, 0, new WeakSet());
                 try {
                     const e = renderLog(f.factType, f.data);
                     // 与生产侧 player/42player-core.js L316-319 同口径：renderLog 可返回**条目数组**
@@ -203,11 +216,51 @@ function runCase(seed, stage) {
 }
 
 const agg = {}, kwHit = {};
-// fact 产出直方图：本批次每个 factType 实际进入 step.log 的条数。
+// fact 产出直方图：本批次每个 factType 实际进入日志的条数（顶层 fact + 嵌套子 fact）。
 // 用途 —— 恒 skip 规则归因：规则空转有两种完全不同的根因，"规则逻辑写死 skip"（体检侧 bug，要改规则）
 //   和"业务侧压根没把 fact 写进日志"（数据源缺失，改规则没用，得去 core/ 查）。没有这个直方图，
 //   两者都只呈现为一句"恒 skip N 条"，无法定位。
-const factHist = {};
+// V6.1.25 修正计数口径：引擎除 push 顶层 fact 外，还把大量 fact 作为**子 fact** 嵌进父 fact 的 data 里
+//   （`data.entries[]` / `data.phantomFact` / `data.dmgCalc.bonusEntries[]` 等），render/30 L200-204
+//   对这些子条目逐条 `projectFactEntry` 渲染进 attack-group.entries —— 它们是**真实产出**、规则也真消费
+//   得到。旧实现只数顶层 `f.factType`，把 16 类子 fact 误报成"零产出"，并据此把 `fortifyRebound`
+//   （实产 21 条）、`zhangTaunt`（实产 36 条）当成"业务侧真未产出"写进待修清单移交（履历 V6.1.20 /
+//   V6.1.24、复盘报告第 1~3 轮），业务侧照单去 core/ 查产出点必然白跑。现按"出现即计数"统计。
+const factHist = {};        // factType -> 出现总条数（顶层 + 嵌套）
+const factHistTop = {};     // factType -> 顶层 fact 条数
+const factHistNested = {};  // factType -> 嵌套子 fact 条数
+function noteFact(t, nested) {
+    factHist[t] = (factHist[t] || 0) + 1;
+    if (nested) factHistNested[t] = (factHistNested[t] || 0) + 1;
+    else factHistTop[t] = (factHistTop[t] || 0) + 1;
+}
+// 递归收集父 fact 里内嵌的子 fact。三个守卫，各自必要性已用对照变体实测（第 8 轮探针）：
+//   ① WeakSet 防环 —— **已被证明是必需的**：去掉后 120 场里 qianKunUpgraded 1531→4593、
+//      qianKunBasic 6→18（同一子 fact 从多条路径可达 → 重复计数）。战斗数据里单位对象互相引用，
+//      无此守卫不仅虚增，还可能在密集引用图上爆栈。
+//   ② 跳过 `log` 键 —— 本批次实测**未生效**（去掉后 23 项计数逐条相同），但保留：这是仓库里
+//      真实存在的形状而非猜测——`data.declarations` 会带着声明对象进 fact data（core/04 L194/L200），
+//      而声明对象里直接挂着 step.log 本体的引用（modules/27 L256/L485 `{ …, log: data.log }`）……
+//      一旦跟着它走，整条 step.log 会被当成"子 fact"重复计入。
+//   ③ depth ≤ 8 —— 同样实测未生效（计数逐条相同），作为遍历深度上界保留。
+function collectNestedFacts(node, depth, seen) {
+    if (!node || typeof node !== 'object' || depth > 8) return;
+    if (Array.isArray(node)) {
+        for (const v of node) collectNestedFacts(v, depth + 1, seen);
+        return;
+    }
+    if (seen.has(node)) return;
+    seen.add(node);
+    if (typeof node.factType === 'string') {
+        noteFact(node.factType, true);
+        collectNestedFacts(node.data, depth + 1, seen);
+        return;
+    }
+    for (const k of Object.keys(node)) {
+        if (k === 'log') continue;
+        collectNestedFacts(node[k], depth + 1, seen);
+    }
+}
 let cases = 0;
 for (const seed of SEEDS) {
     for (const stage of STAGES) {
@@ -266,22 +319,31 @@ if (deadNames.length) {
     console.log('=== 恒 skip(空转)规则名单 ===');
     for (const n of deadNames) console.log('   ⏭ ' + n);
 }
-// V6.1.17 fact 覆盖归因（V6.1.23 修正归因口径）：把"按原始 factType 统计为 0"的项单独列出来。
-//   ⚠ 这不是"业务侧数据源缺失"的同义词：本表统计的是渲染前 factType，规则消费的是渲染后条目。
-//   四类成因（①走 data.declarations 通道 / ②嵌在 entries 子层级 / ③规则扫错层级 / ④业务侧真未产出）
-//   必须先取证分开，① ② ③ 都属体检侧或回放侧问题，改规则/改回放就能修，误移交业务侧只会空转。
+// V6.1.17 fact 覆盖归因（V6.1.23 修正归因口径 / V6.1.25 修正计数口径）：把"一次都没出现"的项单独列出来。
+//   ⚠ 这不是"业务侧数据源缺失"的同义词：本表统计的是**渲染前 fact**（含嵌在父 fact 里的子 fact），
+//   而规则消费的是渲染后条目，两者不是同一个数据模型（复盘报告第 3 轮问题 A 的根因）。
+//   剩余三类成因（①只走 data.declarations 等非 step.log 通道 / ③规则扫错层级或读了被剥离的
+//   e.factType、e.data / ④业务侧真未产出）必须先取证分开；① ③ 属体检侧/回放侧问题，改规则/改回放
+//   就能修，误移交业务侧只会空转（第 4/5 轮已因此错判 3 条规则）。
+//   注：V6.1.25 起"嵌在 entries 子层级"（原成因 ②）已计入本表，不再表现为零产出。
 const registered = Object.keys(FACT_SPECS || {});
 const produced = Object.keys(factHist);
+const onlyNested = produced.filter(t => !factHistTop[t]);
 const zeroFacts = registered.filter(t => !factHist[t]);
 const unknownFacts = produced.filter(t => registered.indexOf(t) === -1);
 console.log(`=== fact 覆盖：本批次产出 ${produced.length} 种 / 契约登记 ${registered.length} 种 ===`);
+console.log(`   计数口径：顶层 fact + 嵌在父 fact data 里的子 fact（V6.1.25）；其中仅以嵌套形式出现的 ${onlyNested.length} 种`);
 if (zeroFacts.length) {
-    console.log(`   零产出 factType（${zeroFacts.length} 种 · 按原始 factType 统计为 0，≠ 业务侧数据源缺失）：`);
-    console.log(`     ↳ 成因四类：① data.declarations 等非 step.log 通道 ② 嵌在 group.entries 子层级 ③ 规则扫错层级 ④ 业务侧真未产出`);
-    console.log(`     ↳ 先用 KEYWORDS=文本 探针排除 ①②③，全排除后才归 ④ 去 core/ 查产出点，勿直接移交业务侧`);
+    console.log(`   零产出 factType（${zeroFacts.length} 种 · 顶层与嵌套均未出现，≠ 业务侧数据源缺失）：`);
+    console.log(`     ↳ 剩余成因三类：① 只走 data.declarations 等非 step.log 通道 ③ 规则扫错层级/读了被剥离的 e.factType、e.data ④ 业务侧真未产出`);
+    console.log(`     ↳ 先用 KEYWORDS=文本 探针排除 ①③，全排除后才归 ④ 去 core/ 查产出点，勿直接移交业务侧`);
     for (const t of zeroFacts) console.log('      ⚠ ' + t);
 } else {
     console.log('   全部登记 factType 均有产出');
+}
+if (onlyNested.length) {
+    console.log(`   仅嵌套出现（${onlyNested.length} 种，顶层 0 条 · 曾被旧口径误报为零产出）：`);
+    for (const t of onlyNested) console.log('      ↳ ' + t + ' ×' + factHist[t]);
 }
 if (unknownFacts.length) {
     console.log(`   契约外 factType（${unknownFacts.length} 种，未登记进 FACT_SPECS）：`);
