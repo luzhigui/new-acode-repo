@@ -13,7 +13,9 @@
 //   - 仅当 张三丰 存活到终局才判定（中途阵亡则无法区分"没活到第N回合开始"与"回合开始触发被删"，避免误报）。
 //   - 渲染层已把 factType 抹掉，规则只能靠 type+text 识别（实测：endlessBreath 渲染为 type:'info' 文本以"☯ 生生不息：张三丰"开头；
 //     PASS 标记的 张三丰生生不息是 type:'attack-group' 且文本不带"☯"，二者可区分）。
-export const VER = 'tests/health-rules/142-zhangsanfeng-endless-roundstart.js V6.1.9';
+// V6.1.25 清理：删除两处读 `e.factType` / `e.data` 的死分支（渲染后这两个字段已被 player/42 L316-324
+//   剥离，分支恒不成立）——与 141 V6.1.24 重写、137 V6.1.25 清理同一行规；判据与口径均未改动。
+export const VER = 'tests/health-rules/142-zhangsanfeng-endless-roundstart.js V6.1.25';
 
 export const rule89 = {
     group: '精英技能回归',
@@ -42,7 +44,9 @@ export const rule89 = {
         var curRoundStartIdx = -1, curRoundNo = 0, curIa = -1, curIe = -1;
         var missing = 0, missingRounds = [];
 
-        function isRoundStart(e) { return !!e && (e.type === 'round-start' || e.factType === 'roundStart'); }
+        // 回合分隔条目只按渲染后模型识别：type='round-start'（V6.1.25 清理：原实现还带一个
+        //   `|| e.factType === 'roundStart'` 分支，渲染时 factType 已被 player/42 L316-324 剥离，恒不成立）
+        function isRoundStart(e) { return !!e && e.type === 'round-start'; }
         function isZhangHeal(e) {
             return !!e && e.type === 'info' && typeof e.text === 'string' && e.text.indexOf('☯ 生生不息：张三丰') !== -1;
         }
@@ -62,11 +66,9 @@ export const rule89 = {
             if (isRoundStart(e)) {
                 if (curRoundStartIdx !== -1) settleWindow();
                 curRoundStartIdx = k;
-                if (e.data && typeof e.data.round === 'number') curRoundNo = e.data.round;
-                else {
-                    var m = (typeof e.text === 'string') ? e.text.match(/第(\d+)回合开始/) : null;
-                    curRoundNo = m ? parseInt(m[1], 10) : 0;
-                }
+                // 回合号只从渲染后文本取（V6.1.25 清理：原实现先试 e.data.round，渲染时 data 已被剥离 → 死分支）
+                var m = (typeof e.text === 'string') ? e.text.match(/第(\d+)回合开始/) : null;
+                curRoundNo = m ? parseInt(m[1], 10) : 0;
                 curIa = -1; curIe = -1;
                 continue;
             }
