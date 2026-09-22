@@ -1,6 +1,6 @@
-// V6.0.0 | ~5500 bytes | 2026-08-28 相位栅栏语义显式化（纯注释）
+// V6.1.0 | ~5100 bytes | 2026-09-22 相位表增补胖远桥具名优先级（PANG_*：嘲讽/莽撞/打歪）
 import { GlobalStore } from './54-global-store.js';
-export const VER = 'infra/50-event-bus.js V6.0.0';
+export const VER = 'infra/50-event-bus.js V6.1.0';
 
 // debug 模式在日志追加信号记录，非战斗路径
 function appendDebugSignalLog(signal, data) {
@@ -69,17 +69,18 @@ export const eventBus = new EventBus();
  *   状态写入必须在本监听器主流程内完成
  */
 export const EXECUTION_LAYER = {
-    ROUND_START:      { RANGE_CHECK: 5, SPIDER_TRANSFORM: 10, XUANMING_POISON: 10, XINGFEN_GRANT: 10, KULIAN_BUFF: 10 },
+    ROUND_START:      { RANGE_CHECK: 5, SPIDER_TRANSFORM: 10, XUANMING_POISON: 10, XINGFEN_GRANT: 10, KULIAN_BUFF: 10, PANG_TAUNT_RESET: 12 },
     ROUND_END:        { BUTTERFLY_RETURN: 10, SPIDER_RETURN: 10 },
     BEFORE_ACTION:    { BUTTERFLY_SKIP: 10, SPIDER_SKIP: 10, KULIAN_PRIORITY: 10 },
     BEFORE_ATTACK:     {},
-    BEFORE_SELECT_TARGET: { PHANTOM_CLEAR: 25, DISGUISE: 30, REBEL: 20, FLY_TARGET: 30, PERMANENT_MIND_CONTROL: 40 },
-    BEFORE_DAMAGE_CALC: { WARRIOR_BREAK: 10, TRUE_DMG: 30 },
+    BEFORE_SELECT_TARGET: { PANG_CLUMSY: 15, PANG_TAUNT_FORCE: 18, PHANTOM_CLEAR: 25, DISGUISE: 30, REBEL: 20, FLY_TARGET: 30, PERMANENT_MIND_CONTROL: 40 },
+    BEFORE_DAMAGE_CALC: { WARRIOR_BREAK: 10, PANG_TAUNT_REDUCE: 20, TRUE_DMG: 30 },
     BEFORE_DAMAGE_APPLY: { SPIDER_IMMUNE: 100 },
     ON_DODGE:          {},
     AFTER_DAMAGE_APPLIED: {
         BLOODTHIRST: 20,
         WARRIOR_EXECUTE: 20,
+        PANG_RAGE: 22,
         HOT_BLOOD: 25,
         WIND_ASSAULT: 25,
         METEOR_SHOWER: 25,
@@ -89,11 +90,13 @@ export const EXECUTION_LAYER = {
         DISGUISE: 40,
         XINGFEN: 40,
         LEECH: 40,
-        JIUYANG: 40
+        JIUYANG: 40,
+        PANG_CLUMSY_LOG: 42
     },
     AFTER_ATTACK: {
         PHANTOM_REROLL: 20,
         SHIELD_ATTACK: 30,
+        PANG_TAUNT: 35,
         XINGFEN_EXTRA: 40,
         CLAW: 40,
         XUANMING_LINK: 10,
@@ -102,6 +105,7 @@ export const EXECUTION_LAYER = {
     },
     AFTER_MISS: {
         PHANTOM_REROLL: 20,
+        PANG_CLEAR: 30,
         XINGFEN_RETRY: 50,
         PERMANENT_DOUBLE_RETRY: 60
     },

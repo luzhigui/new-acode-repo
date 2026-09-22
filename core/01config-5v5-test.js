@@ -1,5 +1,5 @@
-// V6.1.0 | ~9450 bytes | 2026-09-20 飞行未命中光环：残血加成 12→6、空列减免 6→12
-export const VER = 'core/01config-5v5-test.js V6.1.0';
+// V6.2.0 | ~7200 bytes | 2026-09-22 新增 ENCOUNTER_VARIANTS getter（关卡阵容变体，供第三关阵容轮换）
+export const VER = 'core/01config-5v5-test.js V6.2.0';
 
 import { ROLE_TYPES } from '../infra/56-battle-enums.js';
 
@@ -154,6 +154,10 @@ const CONFIG = {
     },
     get ENEMY_POS_TEMPLATES() {
         return getGameData().encounters.enemyPosTemplates;
+    },
+    // 关卡阵容变体：encounters.squadVariants[stage] 存在时，29battle-init 每局随机抽一组（第三关：宋青书 / 胖远桥）
+    get ENCOUNTER_VARIANTS() {
+        return getGameData().encounters.squadVariants || {};
     },
     ELITE_POS_PRIORITY: {
         [ROLE_TYPES.WARRIOR]: [1, 2, 3, 4, 5, 6, 7, 8, 9],

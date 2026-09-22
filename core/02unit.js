@@ -1,5 +1,5 @@
-// V6.0.0 | ~6500 bytes | 2026-08-28 顶层回合级光环/加成字段迁入 state，删净顶层 _ 临时字段
-export const VER = 'core/02unit.js V6.0.0';
+// V6.1.0 | ~8800 bytes | 2026-09-22 HERO_FLAGS 增补「胖远桥」（六大派·武当·第三关精英）
+export const VER = 'core/02unit.js V6.1.0';
 
 import { CONFIG, getGameData } from './01config-5v5-test.js';
 
@@ -28,6 +28,7 @@ export const HERO_FLAGS = Object.freeze({
     '鹿杖客': 'isLuZhangKe',
     '鹤笔翁': 'isHeBiWeng',
     '张三丰': 'isZhangSanfeng',
+    '胖远桥': 'isPangYuanQiao',
 });
 
 /** 取「小昭·姊」→「小昭」这类基础名（去 · 后缀） */
