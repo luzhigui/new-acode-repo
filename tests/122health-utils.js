@@ -1,3 +1,14 @@
+// V6.1.15 | ~27700 bytes | 2026-09-22 checkBuffIcons 补阵营过滤：ctx.activeBuffs 是**双方合计**表（core/11 L27-28 证明
+//          state.activeBuffs 未经分流，A._activeBuffs/B._activeBuffs 才是按 b.target 过滤后的产物）。
+//          渲染侧只画本阵营：render/32 L368-371 明教格过滤 target==='ally'||!target。
+//          原实现直接拿合计表断言"明教格子必须有该图标"，敌方 buff(target='enemy') 也被计入 → 误报。
+//          表现为"存活队友全员同时缺同一图标"（阵营级全有或全无，非逐个渲染失败）。
+//          同类问题 140 规则已于 2026-09-03 修过阵营口径（L28-34），本次给 122 补齐同一口径。
+//          注：checkBuffIcons 有两个入口（121 L487 runUIChecks / L567 runSettleChecks），
+//          两者查的都是明教 allyGrid 格子，阵营过滤对两个入口同等适用。
+//          checkFxOrphans 本次**只补注释勘误**：其真实调用点是 runSettleChecks（121 L552，
+//          GAMEOVER 后 3s 执行），文案"战斗结束后"与时机一致 —— 曾误判为 runUIChecks 调用
+//          并据此改文案，已回滚，判据(>5)与文案均保持原样，仅留勘误说明。
 // V6.1.14 | ~25500 bytes | 2026-09-21 删除 checkRandomRestartState（随机重开复位检查）：该判据在任意一局
 //          正常 GAMEOVER 都成立（UI.round 全程0 / UI.currentResult 全程null / UI.allyTeam 是开战 clone 副本
 //          alive 恒真），每局必误报。已改为 121 的事件驱动 hookRandomRestartWatch（点击 btnSettle 后查 gs）。
@@ -10,7 +21,7 @@
 //          圣火令相关 buff 校验静默失效（体检报"通过"其实是异常被吞）。现从 infra/51 显式引入。
 import { BUFF_TYPES, CAMP_TYPES, ROLE_TYPES } from '../infra/56-battle-enums.js';
 import { getUnitCol, getUnitRow } from '../infra/51-core-utils.js';
-export const VER = 'tests/122health-utils.js V6.1.14';
+export const VER = 'tests/122health-utils.js V6.1.15';
 
 /**
  * 获取单位对应的格子 DOM 元素
@@ -83,6 +94,13 @@ export function checkHpBarColor(unit, win, doc) {
 
 /**
  * 检查特效残留元素数量
+ *
+ * 调用时机（V6.1.15 勘误）：本函数由 121 runSettleChecks 调用（121 L552），该函数是
+ *   GAMEOVER 后的**结算类**检查（121 L541-542 注释"等渲染稳定后执行"），故文案中的
+ *   "战斗结束后"与真实时机一致，无需修正。
+ *   早期误判记录：曾误以为它由 runUIChecks 调用（那是 checkBuffIcons/checkMeleeFxState
+ *   的入口，121 L485-487，只在 RUNNING/PAUSED 触发），据此判为"时机错配"，实为查错调用点。
+ * 判据：data-fx="temporary" 元素 > 5 即报。阈值沿用历史值，未调整。
  */
 export function checkFxOrphans(doc) {
     const issues = [];
@@ -197,7 +215,10 @@ const _missingBuffIconSince = {};
 export function checkBuffIcons(ctx, doc) {
     const issues = [];
     const allyTeam = (ctx.UI && ctx.UI.allyTeam) || [];
-    const activeBuffs = ctx.activeBuffs || [];
+    // 阵营过滤（V6.1.15）：ctx.activeBuffs 是双方合计表，只保留归属明教的 buff。
+    // 口径与渲染侧 render/32 L368-371、引擎分流 core/11 L27（A._activeBuffs）完全一致，
+    // 无 target 的历史 buff 归明教（与两边同口径保留）。
+    const activeBuffs = (ctx.activeBuffs || []).filter(b => b.target === CAMP_TYPES.ALLY || !b.target);
     const doubleStrikeUid = ctx.currentDoubleStrikeUid;
 
     const BUFF_ICONS = {
