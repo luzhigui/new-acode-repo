@@ -1,5 +1,5 @@
-// V6.1.0 | ~18800 bytes | 2026-09-19 联网PVP：连击去掉"只对明教"守卫，按注册时传入的阵营生效
-export const VER = 'core/03battle-utils.js V6.1.0';
+// V6.1.1 | ~19000 bytes | 2026-09-22 概率连击的 targetUid 回退补 _pendingDeath：原目标同击致死后改打别人（原先白跳）
+export const VER = 'core/03battle-utils.js V6.1.1';
 
 import { CONFIG, getGameData } from './01config-5v5-test.js';
 import { emitEvent, applyStatChange, query, getBattleRng, addMod, getStat } from './13battle-shared.js';
@@ -377,7 +377,10 @@ export function registerDoubleStrike(eventBus, doubleStrikeUnitUid, allyTeam, ac
             if (!data.extraRequests) data.extraRequests = [];
             data.extraRequests.push({
                 unit,
-                targetUid: (target && target.alive) ? target.uid : null,
+                // 2026-09-22 补 _pendingDeath：原目标同击致死后 alive 仍是 true（死亡结算才清），
+                //   只判 alive 会把"待死"的 uid 锁给第二次攻击 → 消费端按严判据找不到人 → 白跳一次。
+                //   判 null 后走正常选目标流程（概率连击改打别人）。
+                targetUid: (target && target.alive && !target.state._pendingDeath) ? target.uid : null,
                 reason: 'doubleStrike',
                 actedMode: 'allow',
                 priority: 10,

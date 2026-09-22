@@ -1,5 +1,5 @@
-// V6.0.2 | ~11500 bytes | 2026-09-22 免疫回退补清 _pendingDeath：修小昭·妹飞天保命"血退回来了人还是死了"
-export const VER = 'core/10battle-attack.js V6.0.2';
+// V6.0.3 | ~12000 bytes | 2026-09-22 额外攻击回退判据补 _pendingDeath：概率连击在原目标同击致死后改打别人（原先白跳）
+export const VER = 'core/10battle-attack.js V6.0.3';
 
 import { CONFIG } from './01config-5v5-test.js';
 import { hasBuff, makeFXSnapshot, isBlocked } from './03battle-utils.js';
@@ -228,7 +228,10 @@ export function processUnitAttack(unit, allySide, enemySide, log, A, B, state, d
             if (!req.unit.alive) continue;
             executedUids.add(req.unit.uid);
             if (req.actedMode === 'allow') req.unit.state._acted = false;
-            const extraTargetUid = req.targetUid || (target && target.alive ? target.uid : null);
+            // 2026-09-22 回退判据补 _pendingDeath：原目标同击致死后 alive 仍是 true（死亡结算才清），
+            //   只判 alive 会把"待死"的 uid 当活人锁过去，锁定路径用严判据找不到人 → 白跳一次。
+            //   补上后回退为 null，走正常选目标流程（概率连击改打别人）。
+            const extraTargetUid = req.targetUid || (target && target.alive && !target.state._pendingDeath ? target.uid : null);
             processUnitAttack(req.unit, allySide, enemySide, log, A, B, state, null, extraTargetUid);
         }
     }
@@ -293,7 +296,10 @@ export function processUnitAttack(unit, allySide, enemySide, log, A, B, state, d
             // 玄冥联动期间置 _isLinkAttack，避免联动攻击自身再触发联动（乒乓链）
             const isLinkReq = req.reason === 'xuanmingLink';
             if (isLinkReq) req.unit.state._isLinkAttack = true;
-            const extraTargetUid = req.targetUid || (target && target.alive ? target.uid : null);
+            // 2026-09-22 回退判据补 _pendingDeath：原目标同击致死后 alive 仍是 true（死亡结算才清），
+            //   只判 alive 会把"待死"的 uid 当活人锁过去，锁定路径用严判据找不到人 → 白跳一次。
+            //   补上后回退为 null，走正常选目标流程（概率连击改打别人）。
+            const extraTargetUid = req.targetUid || (target && target.alive && !target.state._pendingDeath ? target.uid : null);
             processUnitAttack(req.unit, allySide, enemySide, log, A, B, state, null, extraTargetUid);
             if (isLinkReq) req.unit.state._isLinkAttack = false;
             if (req.actedMode === 'restore') {
