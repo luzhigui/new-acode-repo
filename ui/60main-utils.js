@@ -1,5 +1,5 @@
-// V6.0.2 | ~6800 bytes | 2026-09-19 封面右下角追加页面文件时间戳（刷新即可判断线上是否最新版）
-export const VER = 'ui/60main-utils.js V6.0.2';
+// V6.1.0 | ~7500 bytes | 2026-09-22 新增角色实战 demo 开关：_forceXieXun / _forcePang / _startStage 一并一次性消费
+export const VER = 'ui/60main-utils.js V6.1.0';
 
 import { GlobalStore } from '../infra/54-global-store.js';
 
@@ -76,6 +76,23 @@ export function initBugAndXiaoZhaoModes() {
     if (localStorage.getItem('_forceWei') === '1') {
         GlobalStore.set('forceWei', true);
         localStorage.removeItem('_forceWei');
+    }
+    // 2026-09-22 新角色实战 demo（dev-index 三按钮）：
+    // _forceXieXun 之前只有 29battle-init 直读 localStorage 的路径，不清除会一直生效，这里补上一次性消费
+    if (localStorage.getItem('_forceXieXun') === '1') {
+        GlobalStore.set('forceXieXun', true);
+        localStorage.removeItem('_forceXieXun');
+    }
+    if (localStorage.getItem('_forcePang') === '1') {
+        GlobalStore.set('forcePang', true);
+        localStorage.removeItem('_forcePang');
+    }
+    // _startStage：指定开局关卡（1~7）。本函数在 DOMContentLoaded 时执行，
+    // 晚于 ui/63 模块顶层的 currentStage=1，且早于用户点封面触发的首次 doInitBattle，覆盖有效。
+    const startStage = parseInt(localStorage.getItem('_startStage'), 10);
+    if (startStage >= 1) {
+        GlobalStore.set('currentStage', startStage);
+        localStorage.removeItem('_startStage');
     }
 }
 
