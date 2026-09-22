@@ -1,5 +1,5 @@
-// V1.0.0 | ~3000 bytes | 2026-08-26 从裸字符串收敛
-export const VER = 'infra/56-battle-enums.js V1.0.1';
+// V1.1.0 | ~3200 bytes | 2026-09-22 新增 SUMMON_UNIT / LION_SACRIFICE（谢逊狮子与灭绝召唤）
+export const VER = 'infra/56-battle-enums.js V1.1.0';
 
 /** 事实类型：所有 factType 字符串的唯一来源 */
 export const FACT_TYPES = Object.freeze({
@@ -44,7 +44,11 @@ export const FACT_TYPES = Object.freeze({
     // 张三丰：生生不息（回血 + 加防）
     ENDLESS_BREATH: 'endlessBreath',
     // 张三丰：不争（仅剩一人判负）
-    NO_CONTEND: 'noContend'
+    NO_CONTEND: 'noContend',
+    // 召唤（谢逊狮子 / 灭绝召唤周芷若）
+    SUMMON_UNIT: 'summonUnit',
+    // 谢逊狮子替死
+    LION_SACRIFICE: 'lionSacrifice'
 });
 
 /** Buff 类型：buff.key 唯一来源（与 CONFIG.BUFFS / XIAO_ZHAO_PERMANENT_BUFFS 11 项对应） */

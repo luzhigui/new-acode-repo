@@ -1,5 +1,5 @@
-// V6.0.3 | ~12000 bytes | 2026-09-22 额外攻击回退判据补 _pendingDeath：概率连击在原目标同击致死后改打别人（原先白跳）
-export const VER = 'core/10battle-attack.js V6.0.3';
+// V6.1.0 | ~12600 bytes | 2026-09-22 额外攻击支持跨阵营（灭绝反击换边）+ req.ignoreDodge 不可闪避；followAttack 计入 _isLinkAttack 防乒乓
+export const VER = 'core/10battle-attack.js V6.1.0';
 
 import { CONFIG } from './01config-5v5-test.js';
 import { hasBuff, makeFXSnapshot, isBlocked } from './03battle-utils.js';
@@ -232,7 +232,14 @@ export function processUnitAttack(unit, allySide, enemySide, log, A, B, state, d
             //   只判 alive 会把"待死"的 uid 当活人锁过去，锁定路径用严判据找不到人 → 白跳一次。
             //   补上后回退为 null，走正常选目标流程（概率连击改打别人）。
             const extraTargetUid = req.targetUid || (target && target.alive && !target.state._pendingDeath ? target.uid : null);
-            processUnitAttack(req.unit, allySide, enemySide, log, A, B, state, null, extraTargetUid);
+            // 2026-09-22 跨阵营额外攻击（灭绝师太反击）：allySide/enemySide 是「原行动者视角」，
+            //   反击者在对侧，必须按反击者阵营重算两侧，否则会从自己人里挑目标。
+            //   req.ignoreDodge 同理：不可闪避只在这一次反击内生效，结束即清。
+            const reqAllySide = req.unit.camp === CAMP_TYPES.ALLY ? A : B;
+            const reqEnemySide = req.unit.camp === CAMP_TYPES.ALLY ? B : A;
+            if (req.ignoreDodge) req.unit.state._ignoreDodge = true;
+            processUnitAttack(req.unit, reqAllySide, reqEnemySide, log, A, B, state, null, extraTargetUid);
+            if (req.ignoreDodge) req.unit.state._ignoreDodge = false;
         }
     }
 
@@ -293,8 +300,8 @@ export function processUnitAttack(unit, allySide, enemySide, log, A, B, state, d
             if (req.reason === 'doubleStrike' && !req.ignoreBlock && isBlocked(req.unit, allySide)) continue;
             executedUids.add(req.unit.uid);
             req.unit.state._acted = false;
-            // 玄冥联动期间置 _isLinkAttack，避免联动攻击自身再触发联动（乒乓链）
-            const isLinkReq = req.reason === 'xuanmingLink';
+            // 玄冥联动 / 灭绝跟随攻击期间置 _isLinkAttack，避免这类额外攻击自身再触发一次（乒乓链）
+            const isLinkReq = req.reason === 'xuanmingLink' || req.reason === 'followAttack';
             if (isLinkReq) req.unit.state._isLinkAttack = true;
             // 2026-09-22 回退判据补 _pendingDeath：原目标同击致死后 alive 仍是 true（死亡结算才清），
             //   只判 alive 会把"待死"的 uid 当活人锁过去，锁定路径用严判据找不到人 → 白跳一次。

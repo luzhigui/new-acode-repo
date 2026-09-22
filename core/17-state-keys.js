@@ -1,5 +1,5 @@
-// V2.1.0 | ~9800 bytes | 2026-09-22 BATTLE_STATE_SCHEMA 增补胖远桥四个标记（_tauntedByPang 需跨回合 clone 存活）
-export const VER = 'core/17-state-keys.js V2.1.0';
+// V2.2.0 | ~10200 bytes | 2026-09-22 BATTLE_STATE_SCHEMA 增补灭绝师太（_attackCount/_thirdStrike/_summonedZhou）、谢逊 _focusUsedRound、_ignoreDodge
+export const VER = 'core/17-state-keys.js V2.2.0';
 
 /** 字段类型：决定 clone 时的拷贝方式 */
 export const STATE_FIELD_TYPES = Object.freeze({
@@ -77,6 +77,15 @@ export const BATTLE_STATE_SCHEMA = Object.freeze({
     _tauntAttackActive:      { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
     _tauntUsedRound:         { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
     _clumsyHit:              { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
+
+    // 灭绝师太：反击 / 跟随攻击 / 每第三次攻击 / 召唤周芷若
+    _attackCount:            { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },
+    _thirdStrike:            { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
+    _summonedZhou:           { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
+    // 金毛狮王谢逊：集火（每回合 1 次，组件在 ON_ROUND_START 复位）
+    _focusUsedRound:         { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
+    // 不可闪避：仅一次攻击内有效，由 core/10 额外攻击循环置/清
+    _ignoreDodge:            { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
 
     // 原顶层永久字段，迁入 state
     _baseAtk:                { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },

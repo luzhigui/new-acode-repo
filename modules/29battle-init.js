@@ -1,5 +1,5 @@
-// V6.1.0 | ~20000 bytes | 2026-09-22 第三关阵容轮换：encounters.squadVariants[stage] 存在时随机抽一组（宋青书 / 胖远桥二选一）
-export const VER = 'modules/29battle-init.js V6.1.0';
+// V6.2.0 | ~21000 bytes | 2026-09-22 ① 第三关阵容轮换：encounters.squadVariants[stage] 存在时随机抽一组（宋青书 / 胖远桥二选一）② 新增 forceXieXun：金毛狮王谢逊固定 7 号位（demo）③ 灭绝师太精英站位优先 2 号位
+export const VER = 'modules/29battle-init.js V6.2.0';
 
 import { CONFIG } from '../core/01config-5v5-test.js';
 import { Unit, applyHeroFlags, HERO_FLAGS } from '../core/02unit.js';
@@ -75,6 +75,18 @@ export function initBattleTeams(currentStage, _rng) {
                 usedPower += cfg.power;
             }
         }
+    }
+
+    // 2026-09-22 强制金毛狮王谢逊（demo 用）：明教侧固定加入，站 7 号位。
+    // 与 forceZhang / forceWei 同口径（GlobalStore 优先、localStorage 兜底），但独立成块——
+    // 谢逊是固定位角色，不参与上面的随机精英轮盘（eliteCount / weightedPick）。
+    const forceXieXun = GlobalStore.get('forceXieXun') || localStorage.getItem('_forceXieXun') === '1';
+    if (forceXieXun && !allyTeam.some(u => u.isXieXun)) {
+        const unit = new Unit('金毛狮王谢逊', 115, ROLE_TYPES.WARRIOR, CAMP_TYPES.ALLY);
+        unit.init(_rng); unit.applyBonus();
+        unit.pos = null;
+        allyTeam.push(unit);
+        usedPower += 140;
     }
 
     if (eliteCount > 0 && !forceZhang && !forceWei) {
@@ -203,7 +215,10 @@ export function initBattleTeams(currentStage, _rng) {
     if (zhang) { zhang.pos = 5; takenPos.add(5); }
     if (wei) { wei.pos = 6; takenPos.add(6); }
     if (xz) { xz.pos = 4; takenPos.add(4); }
-    let others = allyTeam.filter(u => !u.isZhang && !u.isWei && !u.isXiaoZhaoSister && !u.isXiaoZhaoBrother);
+    // 2026-09-22 金毛狮王谢逊固定 7 号位（demo 阵容，与张无忌5/韦一笑6/小昭4 同性质）
+    let xie = allyTeam.find(u => u.isXieXun);
+    if (xie) { xie.pos = 7; takenPos.add(7); }
+    let others = allyTeam.filter(u => !u.isZhang && !u.isWei && !u.isXiaoZhaoSister && !u.isXiaoZhaoBrother && !u.isXieXun);
     if (others.length > 0 && zhang && !takenPos.has(2)) { others[0].pos = 2; takenPos.add(2); others.shift(); }
     let emptySlots = [1,2,3,4,5,6,7,8,9].filter(p => !takenPos.has(p));
     for (let i = emptySlots.length - 1; i > 0; i--) {
@@ -335,6 +350,8 @@ export function initBattleTeams(currentStage, _rng) {
         for (let u of otherElites) {
             let priority;
             if (u.isChengKun) priority = [1, 2, 3, 4, 5, 6, 7, 8, 9];
+            // 2026-09-22 灭绝师太（第七关）：优先 2 号位（与 elitePool 的 pos 元数据一致）
+            else if (u.isMieJueShiTai) priority = [2, 1, 3, 4, 5, 6, 7, 8, 9];
             else if (u.isLuZhangKe) priority = [7, 8, 9, 4, 5, 6, 1, 2, 3];
             else if (u.isHeBiWeng) priority = [3, 4, 5, 6, 7, 8, 9, 1, 2];
             else priority = [1, 2, 3, 4, 5, 6, 7, 8, 9];

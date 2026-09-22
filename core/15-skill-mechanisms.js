@@ -1,5 +1,5 @@
-// V6.0.3 | ~29100 bytes | 2026-09-22 快乐回血 fact 的 hpAfter 改「预测值」，修 else 分支双计
-export const VER = 'core/15-skill-mechanisms.js V6.0.3';
+// V6.1.0 | ~30800 bytes | 2026-09-22 新增 followAttack 机制（灭绝师太跟随攻击：任意队友命中后按概率跟随，无每回合上限）
+export const VER = 'core/15-skill-mechanisms.js V6.1.0';
 
 import { EXECUTION_LAYER as L, EFFECT_TYPES, registerSettlementHook } from '../infra/50-event-bus.js';
 import { CONFIG, getSkillParams } from './01config-5v5-test.js';
@@ -45,6 +45,7 @@ export function installDeclaredSkills(eventBus, A, B, log, declarations) {
     installOnHitEffects(eventBus, A, B, declarations);
     installPhantomDisguise(eventBus, A, B, declarations);
     installLinkAttack(eventBus, declarations);
+    installFollowAttack(eventBus, declarations);
     installChainClaw(eventBus, A, B, declarations);
     installKuLian(eventBus, A, B, declarations);
     installXinHun(eventBus, A, B, declarations);
@@ -331,6 +332,43 @@ function installLinkAttack(eventBus, declarations) {
         when: SIGNAL_TYPES.AFTER_ATTACK,
         priority: L.AFTER_ATTACK.XUANMING_LINK,
         handler: (data) => { submitLinkAttack(data, decls); }
+    });
+}
+
+// 跟随攻击（灭绝师太）：任意队友命中后，chance 概率由跟随者打同一目标，无每回合上限。
+// 与玄冥联动的方向相反——联动是「攻击者声明带谁跟随」，队友固定；这里是「跟随者声明跟所有人」，
+// 队友是任意单位、没法逐个登记，所以声明挂在跟随者名下。
+// 防乒乓：跟随攻击自身会走 AFTER_ATTACK，core/10 对 reason:'followAttack' 置 _isLinkAttack，
+// 这里开头同样判 _isLinkAttack，保证一次额外攻击不会再触发一次跟随。
+function submitFollowAttack(data, decls) {
+    const { unit, target, dmg, allySide } = data;
+    if (!unit || unit.state._isLinkAttack || dmg <= 0 || !target || !target.alive) return;
+    for (const decl of decls) {
+        const follower = allySide.find(u => u.name === decl.name && u.alive);
+        if (!follower || follower.uid === unit.uid) continue;
+        if (getBattleRng().next() >= (decl.chance || 0)) continue;
+        if (data.group && data.group.data && data.group.data.entries) {
+            data.group.data.entries.push({ type: 'info', text: `<span class="gold">🐺 ${follower.name} 跟随 ${unit.name} 出手！</span>` });
+        }
+        if (!data.extraRequests) data.extraRequests = [];
+        data.extraRequests.push({
+            unit: follower,
+            targetUid: target.uid,
+            reason: 'followAttack',
+            actedMode: 'restore',
+            actedSnapshot: follower.state._acted,
+            priority: 45
+        });
+    }
+}
+
+function installFollowAttack(eventBus, declarations) {
+    const decls = declarations.filter(d => d && d.type === 'followAttack');
+    if (decls.length === 0) return;
+    registerSettlementHook({
+        when: SIGNAL_TYPES.AFTER_ATTACK,
+        priority: L.AFTER_ATTACK.FOLLOW_ATTACK,
+        handler: (data) => { submitFollowAttack(data, decls); }
     });
 }
 

@@ -1,5 +1,5 @@
-// V1.1.1 | ~9500 bytes | 2026-09-22 SPIDER_STRIKE 契约补 requiredFields（蛛袭恢复日志后渲染要读这三个字段）
-export const VER = 'infra/58-fact-contract.js V1.1.1';
+// V1.2.0 | ~9900 bytes | 2026-09-22 新增 SUMMON_UNIT / LION_SACRIFICE 契约（谢逊狮子与灭绝召唤）
+export const VER = 'infra/58-fact-contract.js V1.2.0';
 
 import { FACT_TYPES } from './56-battle-enums.js';
 
@@ -136,6 +136,10 @@ export const FACT_SPECS = Object.freeze({
     [FACT_TYPES.ENDLESS_BREATH]: { requiredFields: ['unitName', 'heal'], renderFn: 'renderEndlessBreathFact', translateFn: null },
     // 张三丰：不争
     [FACT_TYPES.NO_CONTEND]: { requiredFields: ['unitName'], renderFn: 'renderNoContendFact', translateFn: null },
+
+    // 召唤 / 替死（谢逊狮子、灭绝召唤周芷若）
+    [FACT_TYPES.SUMMON_UNIT]: { requiredFields: ['summonName', 'pos'], renderFn: 'renderSummonUnitFact', translateFn: null },
+    [FACT_TYPES.LION_SACRIFICE]: { requiredFields: ['lionName', 'unitName'], renderFn: 'renderLionSacrificeFact', translateFn: null },
 });
 
 /**
