@@ -1,10 +1,11 @@
+// V6.0.8 | ~10800 bytes | 2026-09-22 补登记漏登 3 个运行必需文件：core/19unit-watch.js、infra/52-clock.js、infra/59-state-change.js（103 复制器与分包脚本均派生自本表，三者长期未随包发出）；顺带删掉 core/06battle-runner.js 重复行
 // V6.0.7 | ~10700 bytes | 2026-09-22 补登记 render/33-35+38-39（渲染层拆分）与 tests/health-rules/147-149（夜间体检新增）
 // V6.0.6 | ~9300 bytes | 2026-09-16 删净 73/74 两版备选CG（无引用，git rm 同步删除）；排除表/契约说明/清单一并清理
 // V6.0.5 | 2026-09-15 踢除未接线备选CG：ui/73opening-cg-epic.js、ui/74opening-cg-shadow.js 加入 AI_EXCLUDE（每包省 63KB）
 // V6.0.4 | 2026-09-13 登记 tools/106b-server.js（本地静态服务器，供 file:// 下启用目录直写）
 // V6.0.3 | 2026-09-11 补清单漏登9个正式文件：ui/71-74（引导+三套开场CG）、player/48-49、fx/90、tests/123static-scan、tests/124rule-recipes
 // V6.0.2 | 2026-09-09 拆出 player/ 为独立「播放器」组（引擎 46→38）
-export const VER = 'tools/106-ai-pack-config.js V6.0.7';
+export const VER = 'tools/106-ai-pack-config.js V6.0.8';
 
 // AI 复制包踢除清单（103-toolkit.js 的 FILES 过滤会无条件跳过这里的文件）
 // 2026-09-04 用户决定不再精简：特效/音效/错误面板/入口页全部随包发送。
@@ -25,12 +26,11 @@ export const ALL_PROJECT_FILES = [
     '../infra/50-event-bus.js',
     '../core/01config-5v5-test.js', '../core/02unit.js',
     '../core/03battle-utils.js', '../core/04buff-system.js', '../core/05battle-horse.js',
-    '../infra/51-core-utils.js', '../infra/56-battle-enums.js', '../infra/57-calc-modifier-registry.js', '../infra/58-fact-contract.js', '../infra/60-net-pvp.js',
+    '../infra/51-core-utils.js', '../infra/52-clock.js', '../infra/56-battle-enums.js', '../infra/57-calc-modifier-registry.js', '../infra/58-fact-contract.js', '../infra/59-state-change.js', '../infra/60-net-pvp.js',
     '../core/08-elite-registry.js',
     '../core/10battle-attack.js', '../core/11battle-round.js', '../core/12battle-attack-steps.js',
     '../core/13battle-shared.js', '../core/14buff-effects.js', '../core/15-skill-mechanisms.js',
-    '../core/16effect-handlers.js', '../core/17-state-keys.js', '../core/18mechanic-registry.js',
-    '../core/06battle-runner.js',
+    '../core/16effect-handlers.js', '../core/17-state-keys.js', '../core/18mechanic-registry.js', '../core/19unit-watch.js',
     '../core/06battle-runner.js',
     // player（播放器）
     '../player/40player-text.js', '../player/41player-buff-ui.js', '../player/43animation-scheduler.js', '../player/42player-core.js',
