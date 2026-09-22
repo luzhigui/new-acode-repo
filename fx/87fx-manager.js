@@ -1,5 +1,5 @@
-// V6.0.0 | 2026-08-14 集中特效出口
-export const VER = 'fx/87fx-manager.js V6.0.0';
+// V6.0.1 | 2026-09-22 集中特效出口 ｜ 预估 2.5 KB
+export const VER = 'fx/87fx-manager.js V6.0.1';
 
 import {
     showDanmaku,
@@ -13,7 +13,8 @@ import {
     showHeartEffect,
     showPinkFlash,
     showKuLianEffect,
-    showWindClaw
+    showWindClaw,
+    showMeditateEffect
 } from './80fx-common-5v5-test.js';
 
 import {
@@ -82,6 +83,7 @@ export {
     showPinkFlash,
     showKuLianEffect,
     showWindClaw,
+    showMeditateEffect,
     showRangedArrow,
     showSplashArrows,
     showBoneClaw,
