@@ -1,8 +1,20 @@
-// V6.1.25 | ~24400 bytes | 2026-09-22 规则回放自检（开发用 runner，不参与游戏运行）
+// V6.1.26 | ~30500 bytes | 2026-09-22 规则回放自检（开发用 runner，不参与游戏运行）
 // 用法：node tests/rules-replay.mjs           （默认 20 个种子 × 1~6 关 = 120 场）
 //      SEEDS=1,2,3 STAGES=2,4 node tests/rules-replay.mjs
 //      KEYWORDS=新婚|苦练 node tests/rules-replay.mjs   （额外统计战报文本关键字命中数）
 //      DEAD=1 node tests/rules-replay.mjs              （严格模式：有恒 skip 空转规则即非 0 退出）
+//      PROBE_ZERO=a,b,c  node tests/rules-replay.mjs   （产出点取证自检：对任意名字跑一遍分类，可传合成名做负向测试）
+//
+// V6.1.26 修复：零产出清单**自动归因**——旧口径把 zeroFacts 一律打成 ⚠ 并附一段"四类成因自查"的文字，
+//   但那四类里偏偏漏了最常见的一类：**本批次回放没跑到该分支**（120 场的阵容/条件没触发）。
+//   实测本批次 10 项零产出中 9 项属于此类（xinHunDeath ← core/15 L454、flySkip ← core/10 L35、
+//   spiderFly ← modules/27 L604、butterflyNoHost ← modules/27 L273 … 都有明确 emit 点），
+//   只有 meteorSplashGrowth 是全仓无 emit 点的孤儿登记。缺了这一类 + 每轮靠人工 KEYWORDS 探针定性，
+//   正是第 4/5 轮把 129/134/141/143 错判成"业务侧数据源缺失"写进待修清单的直接来源。
+//   现改为机检：反查 FACT_TYPES 常量名 → 只认 `factType: FACT_TYPES.KEY` 形态的 emit 赋值
+//   （渲染映射 `[FACT_TYPES.KEY]:` 不算），分成【本批次未触发（附 file:line）】与【孤儿登记】两类输出。
+//   判据已过正对照：64 个有产出的 factType 全部检出 emit 点（0 假阴性）；负向用例（合成名、
+//   仅有渲染映射的 meteorSplashGrowth）均正确落入【孤儿登记】，未出现"一律判有产出点"的一刀切。
 //
 // V6.1.25 修复：fact 覆盖直方图的**计数口径**——旧实现只数 `step.log` 顶层 fact 的 `f.factType`，
 //   但引擎还把 16 类 fact 作为**子 fact** 嵌进父 fact 的 data 里（`data.entries[]` / `data.phantomFact` /
@@ -53,7 +65,7 @@
 //   揪出"恒 skip 的空转规则"（数据源错位、扫不到 entries 子条目这类）。
 // 注意：渲染 buff 阵营摘要依赖 GlobalStore.battleStore，本 runner 已按真实流程建 store 并每回合
 //       SET_UNITS 同步（否则所有 buff-summary 渲染不出来，会让 140/141 之类的规则假红）。
-import { readdir } from 'node:fs/promises';
+import { readdir, readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 
 // --- 环境垫片：引擎零 DOM，但 import 链上会碰浏览器 API ---
@@ -70,7 +82,7 @@ globalThis.self = globalThis;
 const HERE = new URL('.', import.meta.url);
 const [{ CONFIG, loadGameData }, { SeededRNG }, { createRoundStepper }, { initBattleTeams },
     { renderLog }, { createStore, battleReducer }, { createInitialState }, { GlobalStore },
-    { STORE_ACTION_TYPES, CAMP_TYPES, BUFF_TYPES }, { FACT_SPECS }] = await Promise.all([
+    { STORE_ACTION_TYPES, CAMP_TYPES, BUFF_TYPES, FACT_TYPES, FLY_MODE_TYPES }, { FACT_SPECS }] = await Promise.all([
         import('../core/01config-5v5-test.js'),
         import('../infra/51-core-utils.js'),
         import('../core/11battle-round.js'),
@@ -319,25 +331,94 @@ if (deadNames.length) {
     console.log('=== 恒 skip(空转)规则名单 ===');
     for (const n of deadNames) console.log('   ⏭ ' + n);
 }
-// V6.1.17 fact 覆盖归因（V6.1.23 修正归因口径 / V6.1.25 修正计数口径）：把"一次都没出现"的项单独列出来。
+// V6.1.17 fact 覆盖归因（V6.1.23 修正归因口径 / V6.1.25 修正计数口径 / V6.1.26 改为机检归因）：
+//   把"一次都没出现"的项单独列出来，并由 collectEmitSites 自动分成【本批次未触发】与【孤儿登记】两类。
 //   ⚠ 这不是"业务侧数据源缺失"的同义词：本表统计的是**渲染前 fact**（含嵌在父 fact 里的子 fact），
 //   而规则消费的是渲染后条目，两者不是同一个数据模型（复盘报告第 3 轮问题 A 的根因）。
-//   剩余三类成因（①只走 data.declarations 等非 step.log 通道 / ③规则扫错层级或读了被剥离的
-//   e.factType、e.data / ④业务侧真未产出）必须先取证分开；① ③ 属体检侧/回放侧问题，改规则/改回放
-//   就能修，误移交业务侧只会空转（第 4/5 轮已因此错判 3 条规则）。
-//   注：V6.1.25 起"嵌在 entries 子层级"（原成因 ②）已计入本表，不再表现为零产出。
+//   V6.1.26 起归因由机器给出（附 file:line 证据），不再需要人工跑 KEYWORDS 探针逐条定性；
+//   此前那段"四类成因自查"文字反而漏了占比最高的一类（回放没跑到该分支），是第 4/5 轮误判的源头，
+//   已由下面的 V6.1.26 取证步骤取代。
+
+// --- V6.1.26 产出点取证：把"零产出"清单从"待排查疑点"变成"已分好类的结论" ---
+// 为什么必须有它：V6.1.23 已警告"零产出 ≠ 业务侧数据源缺失"并列了四类成因，但那是一段**给人读的文字**，
+//   每轮都要人工重跑 KEYWORDS 探针才能定性，且清单里缺了最常见的一类——**本批次回放没跑到该分支**。
+//   实测本批次 10 项零产出里 9 项属于这一类（如 xinHunDeath ← core/15 L454、flySkip ← core/10 L35、
+//   spiderFly ← modules/27 L604 都有明确 emit 点，只是 120 场的阵容/条件没触发），
+//   只有 meteorSplashGrowth 是全仓检索不到 emit 点的孤儿登记。此前遗漏这一类，正是第 4/5 轮把
+//   129/134/141/143 错判成"业务侧数据源缺失"写进待修清单的直接来源。
+// 判据（已做正对照验证，勿改成更宽的匹配）：
+//   把 factType 值反查成 FACT_TYPES / FLY_MODE_TYPES 的常量名（代码写的是 FACT_TYPES.CLAW_HIT
+//   而不是裸值 'clawHit'——按裸值搜会大面积漏判），再只认 **emit 赋值** `factType: FACT_TYPES.KEY`
+//   （形如 log.push({ factType: … }) / { factType: …, data: … } 多行写法；渲染映射
+//   `[FACT_TYPES.KEY]: (data)=>…` **不算**产出点，否则孤儿登记会被误判成"有产出点"）。
+//   正对照：64 个本批次有产出的 factType 全部检出 emit 点（0 假阴性）。
+// 返回 null = 源码读不到（目录布局不符），上层如实标注"取证跳过"，不猜不归类。
+async function collectEmitSites(names) {
+    const ROOT = fileURLToPath(new URL('../', import.meta.url));
+    const DIRS = ['core', 'modules', 'infra', 'render', 'player', 'ui', 'fx'];
+    // 枚举定义处与契约登记处本身不是产出点，必须排除，否则"孤儿登记"永远查不出来
+    const SKIP = new Set(['infra/56-battle-enums.js', 'infra/58-fact-contract.js']);
+    const texts = [];
+    for (const d of DIRS) {
+        let list = [];
+        try { list = await readdir(ROOT + d + '/'); } catch (e) { return null; }
+        for (const f of list) {
+            if (!f.endsWith('.js')) continue;
+            const rel = d + '/' + f;
+            if (SKIP.has(rel)) continue;
+            try { texts.push([rel, await readFile(ROOT + rel, 'utf8')]); } catch (e) { return null; }
+        }
+    }
+    if (!texts.length) return null;
+    const enums = [FACT_TYPES, FLY_MODE_TYPES];
+    const out = {};
+    for (const t of names) {
+        const keys = [];
+        for (const e of enums) for (const k of Object.keys(e || {})) if (e[k] === t) keys.push(k);
+        const hits = [];
+        for (const k of keys) {
+            const re = new RegExp('factType:\\s*(?:FACT_TYPES|FLY_MODE_TYPES)\\.' + k + '\\b');
+            for (const [rel, txt] of texts) {
+                txt.split('\n').forEach(function (line, i) { if (re.test(line)) hits.push(rel + ':' + (i + 1)); });
+            }
+        }
+        out[t] = hits;
+    }
+    return out;
+}
+
 const registered = Object.keys(FACT_SPECS || {});
 const produced = Object.keys(factHist);
 const onlyNested = produced.filter(t => !factHistTop[t]);
 const zeroFacts = registered.filter(t => !factHist[t]);
+// PROBE_ZERO=a,b,c 取证自检：对任意名字跑一遍产出点分类（允许传合成名/已产出名），验证判据不是"一律有产出点"
+//   约定成 Types 的负值用例：不存在的名字必须落进【孤儿登记】、真实有产出的名字必须落进【本批次未触发】
+const zeroFactsList = process.env.PROBE_ZERO ? process.env.PROBE_ZERO.split(',') : zeroFacts;
 const unknownFacts = produced.filter(t => registered.indexOf(t) === -1);
 console.log(`=== fact 覆盖：本批次产出 ${produced.length} 种 / 契约登记 ${registered.length} 种 ===`);
 console.log(`   计数口径：顶层 fact + 嵌在父 fact data 里的子 fact（V6.1.25）；其中仅以嵌套形式出现的 ${onlyNested.length} 种`);
-if (zeroFacts.length) {
-    console.log(`   零产出 factType（${zeroFacts.length} 种 · 顶层与嵌套均未出现，≠ 业务侧数据源缺失）：`);
-    console.log(`     ↳ 剩余成因三类：① 只走 data.declarations 等非 step.log 通道 ③ 规则扫错层级/读了被剥离的 e.factType、e.data ④ 业务侧真未产出`);
-    console.log(`     ↳ 先用 KEYWORDS=文本 探针排除 ①③，全排除后才归 ④ 去 core/ 查产出点，勿直接移交业务侧`);
-    for (const t of zeroFacts) console.log('      ⚠ ' + t);
+if (zeroFactsList.length) {
+    const probeMode = !!process.env.PROBE_ZERO;
+    console.log(`   零产出 factType（${zeroFactsList.length} 种 · 本批次 fact 树上一次未出现，≠ 业务侧数据源缺失${probeMode ? ' · PROBE_ZERO 取证自检模式' : ''}）：`);
+    const evidence = await collectEmitSites(zeroFactsList);
+    if (evidence === null) {
+        // 源码不可读（非标准目录布局）时不猜，如实说明取证未做
+        console.log('     ↳ 产出点取证跳过：未能读取生产源码目录，本清单不作归因，请勿据此下结论');
+        for (const t of zeroFacts) console.log('      ⚠ ' + t);
+    } else {
+        const uncovered = zeroFactsList.filter(t => (evidence[t] || []).length > 0);
+        const orphan = zeroFactsList.filter(t => !evidence[t] || evidence[t].length === 0);
+        if (uncovered.length) {
+            console.log(`     【本批次未触发】${uncovered.length} 种 —— 全仓有明确 emit 点，120 场只是没跑到该分支：`);
+            console.log('       → 属**回放覆盖不足**（阵容/条件未触发），补救是加 SEEDS/STAGES 或针对该分支构造场景；不是业务侧缺失，勿移交');
+            for (const t of uncovered) console.log('       • ' + t + ' ← ' + evidence[t].slice(0, 2).join(' , '));
+        }
+        if (orphan.length) {
+            console.log(`     【孤儿登记】${orphan.length} 种 —— FACT_SPECS 有登记、全仓检索不到任何 emit 点：`);
+            console.log('       → 属 infra/58 契约登记的数据卫生问题（可能已被别的通道取代），由 infra 侧核对增删，规则侧无从补产');
+            for (const t of orphan) console.log('       ✗ ' + t);
+        }
+    }
 } else {
     console.log('   全部登记 factType 均有产出');
 }
