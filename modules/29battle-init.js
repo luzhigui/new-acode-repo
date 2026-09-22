@@ -1,5 +1,5 @@
-// V6.4.0 | ~21900 bytes | 2026-09-22 新增 forcePang：第三关必定抽含「胖远桥」的阵容变体（demo 用；照抽一次 RNG 保持流一致）
-export const VER = 'modules/29battle-init.js V6.4.0';
+// V6.5.0 | ~22600 bytes | 2026-09-22 ① 谢逊转正进明教随机精英轮盘（eliteConfigs 第 4 人）② 精英池扩容后 eliteCount=3 分支改为按权重抽满 3 个（原 push(...pool) 会出 4 人超编）③ 抽取前过滤已在队精英，避免 forceXieXun 抽出第二个谢逊
+export const VER = 'modules/29battle-init.js V6.5.0';
 
 import { CONFIG } from '../core/01config-5v5-test.js';
 import { Unit, applyHeroFlags, HERO_FLAGS } from '../core/02unit.js';
@@ -32,7 +32,9 @@ export function initBattleTeams(currentStage, _rng) {
     const eliteConfigs = [
         { name: '张无忌', m: 115, role: ROLE_TYPES.RANGED, isZhang: true, power: elitePower['张无忌'] || 140 },
         { name: '韦一笑', m: 107, role: ROLE_TYPES.FLYER, isWei: true, power: elitePower['韦一笑'] || 120 },
-        { name: '小昭', m: 107, role: ROLE_TYPES.RANGED, isXiaoZhaoBrother: true, power: elitePower['小昭'] || 135 }
+        { name: '小昭', m: 107, role: ROLE_TYPES.RANGED, isXiaoZhaoBrother: true, power: elitePower['小昭'] || 135 },
+        // 2026-09-22 金毛狮王谢逊转正：与另外三位同性质，走随机精英轮盘（不再是 demo 开关专享）
+        { name: '金毛狮王谢逊', m: 115, role: ROLE_TYPES.WARRIOR, isXieXun: true, power: elitePower['金毛狮王谢逊'] || 140 }
     ];
     const eliteRoll = _rng.next();
     let eliteCount;
@@ -91,7 +93,15 @@ export function initBattleTeams(currentStage, _rng) {
 
     if (eliteCount > 0 && !forceZhang && !forceWei) {
         const picked = [];
-        const pool = [...eliteConfigs];
+        // 2026-09-22 已在队的精英不再进池：forceXieXun 等强制路径可能已经加过，
+        // 不去重会抽出第二个同名精英（小昭会被改名成「小昭·姊/妹」，所以标记判断不能只看 name）
+        const pool = eliteConfigs.filter(c => !allyTeam.some(u =>
+            u.name === c.name ||
+            (c.isZhang && u.isZhang) ||
+            (c.isWei && u.isWei) ||
+            (c.isXiaoZhaoBrother && (u.isXiaoZhaoSister || u.isXiaoZhaoBrother)) ||
+            (c.isXieXun && u.isXieXun)
+        ));
         function weightedPick(arr) {
             const total = arr.reduce((s, c) => s + (rate[c.name] || 1 / arr.length), 0);
             let r = _rng.next() * total;
@@ -102,7 +112,13 @@ export function initBattleTeams(currentStage, _rng) {
             return arr.length - 1;
         }
         if (eliteCount === 3) {
-            picked.push(...pool);
+            // 2026-09-22 池子从 3 人扩到 4 人后，不能再 push(...pool) 全抽（会出 4 个超编），改为按权重抽满 3 个
+            const rest = [...pool];
+            while (picked.length < 3 && rest.length > 0) {
+                const i = weightedPick(rest);
+                picked.push(rest[i]);
+                rest.splice(i, 1);
+            }
         } else if (eliteCount === 2) {
             const i1 = weightedPick(pool);
             const rest = pool.filter((_, i) => i !== i1);
