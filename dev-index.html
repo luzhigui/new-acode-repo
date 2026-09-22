@@ -1,10 +1,10 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿<!DOCTYPE html>
-<!-- V6.0.0 | ~11500 bytes-->
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿<!DOCTYPE html>
+<!-- V6.1.0 | ~12100 bytes-->
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>⚔️ 光明顶5v5 · 开发集成入口 V6.0.0</title>
+    <title>⚔️ 光明顶5v5 · 开发集成入口 V6.1.0</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; -webkit-touch-callout: none; }
         body {
@@ -48,12 +48,15 @@
         .toggle-section { cursor: pointer; user-select: none; }
         .toggle-section:hover { color: #ffd700; }
         .footer { text-align: center; margin-top: 20px; color: #666; font-size: 0.75rem; }
+        /* 隐藏入口：第三关轮换 / 胖远桥 demo，平时几乎看不见，悬停才亮 */
+        .secret { color: #2b2b45; font-size: 11px; cursor: pointer; user-select: none; }
+        .secret:hover { color: #ffd700; }
     </style>
 </head>
 <body>
     <div class="container">
         <h1>⚔️ 光明顶5v5</h1>
-        <div class="subtitle">V6.0.0 开发集成入口 <span id="devStamp1"></span></div>
+        <div class="subtitle">V6.1.0 开发集成入口 <span id="devStamp1"></span></div>
 
         <!-- 主入口 -->
         <div class="section">
@@ -93,7 +96,12 @@
             <button class="big-btn btn-music muted" id="btnBGM">🔇 背景音乐：已暂停</button>
         </div>
 
-        <div class="footer">光明顶5v5 · 开发集成入口 V6.0.0 <span id="devStamp2"></span></div>
+        <!-- 隐藏入口：demo-stage3.html（第三关阵容轮换 + 胖远桥） -->
+        <div style="text-align: center; margin-top: 10px;">
+            <span class="secret" id="btnDemoStage3" title="第三关轮换 · 胖远桥 demo">·</span>
+        </div>
+
+        <div class="footer">光明顶5v5 · 开发集成入口 V6.1.0 <span id="devStamp2"></span></div>
     </div>
 
     <script>
@@ -135,6 +143,10 @@
         });
         document.getElementById('btnTools').addEventListener('click', () => {
             window.open('tools/102-toolkit.html', '_blank');
+        });
+        // 隐藏入口：第三关阵容轮换 + 胖远桥 demo
+        document.getElementById('btnDemoStage3').addEventListener('click', () => {
+            window.open('demo-stage3.html', '_blank');
         });
         document.getElementById('btnReadme').addEventListener('click', () => {
             location.href = 'README.md';
