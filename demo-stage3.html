@@ -1,0 +1,251 @@
+<!-- demo-stage3.html - 光明顶5v5 第三关阵容轮换 + 胖远桥 演示页（独立文件，不进主游戏流程） -->
+<!-- V1.0.1 | ~11700 bytes | 2026-09-22 修两处：① 自己 await loadGameData()（否则 CONFIG 读 null 直接崩）② 日志改走 runBattle 的 onStep 回调（页面级 eventBus 监听器被 core/11 的 clearAll 清掉，收不到任何事件） -->
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🥷 第三关轮换 · 胖远桥 demo</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#1a1a2e;color:#eee;font-family:monospace;padding:16px;max-width:1000px;margin:0 auto}
+h1{color:#ffd700;font-size:20px;margin-bottom:8px}
+.tip{color:#888;font-size:12px;margin-bottom:14px;line-height:1.7}
+.tip b{color:#ffd700}
+.config{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:14px}
+.config label{color:#ffd700;font-weight:bold;font-size:13px}
+.config input{width:90px;padding:8px;border-radius:6px;border:1px solid #555;background:#111;color:#eee;font-size:14px;text-align:center}
+button{padding:10px 18px;border:none;border-radius:8px;font-weight:bold;cursor:pointer;font-family:monospace;font-size:13px;background:#3a3a6e;color:#fff;border:1px solid #555}
+button:hover{background:#4a4a8e;border-color:#ffd700}
+button.hot{background:linear-gradient(135deg,#ffd700,#ffaa00);color:#1a1a2e;border:none}
+button:disabled{opacity:.4;cursor:not-allowed}
+.progress{color:#4fc3f7;font-size:12px;min-height:20px;margin-bottom:10px}
+.section{margin-bottom:20px;background:#16213e;border:1px solid #333;border-radius:12px;padding:16px}
+.section h2{color:#ffd700;font-size:15px;margin-bottom:10px}
+.empty{color:#888;text-align:center;padding:12px 0;font-size:13px}
+table{width:100%;border-collapse:collapse;font-size:12px}
+th{background:#2a2a4e;color:#ffd700;padding:8px;text-align:left}
+td{padding:6px 8px;border-bottom:1px solid #333;color:#ccc}
+.kv{color:#aaa;font-size:12px;line-height:1.9}
+.kv b{color:#ffd700}
+.hit{color:#4caf50;font-weight:bold}
+.log{background:#0f1626;border:1px solid #2a2a4e;border-radius:8px;padding:10px;margin-top:10px;max-height:320px;overflow:auto}
+.log div{font-size:12px;line-height:1.8;color:#ccc;border-bottom:1px dashed #222}
+.log div:last-child{border-bottom:none}
+</style>
+</head>
+<body>
+<h1>🥷 第三关阵容轮换 · 胖远桥 demo</h1>
+<p class="tip">
+第三关每局在 <b>宋青书阵容</b> 与 <b>胖远桥阵容</b> 之间随机二选一（走战斗 RNG，PVP 双端同源）。<br>
+胖远桥三技能：<b>莽撞</b>（挨打 +2 攻，无上限）、<b>出手没分寸</b>（25% 打歪）、<b>脾气大</b>（每回合 1 次嘲讽，被嘲讽者下次只能打他且伤害 ×0.5）。<br>
+本页是无头模拟，只统计与展示日志，不驱动画面演出。
+</p>
+<div class="config">
+<label>抽样场次：</label>
+<input type="number" id="roundsInput" value="30" min="5" max="300" step="5">
+<button class="hot" id="btnSample">▶ 抽样（看轮换）</button>
+<button id="btnOnePang">▶ 打一局 · 胖远桥</button>
+<button id="btnOneSong">▶ 打一局 · 宋青书</button>
+</div>
+<div class="progress" id="progress"></div>
+
+<div class="section">
+<h2>① 轮换抽样</h2>
+<div id="resultSample" class="empty">尚未运行</div>
+</div>
+
+<div class="section">
+<h2>② 单局详情（阵容 + 胖远桥日志）</h2>
+<div id="resultOne" class="empty">尚未运行</div>
+</div>
+
+<script type="module">
+import { SeededRNG } from '../infra/51-core-utils.js';
+import { runBattle } from '../core/06battle-runner.js';
+import { initBattleTeams } from '../modules/29battle-init.js';
+import { loadGameData } from '../core/01config-5v5-test.js';
+import '../infra/54-global-store.js';
+import '../modules/25elite-imperial.js';
+import '../modules/26elite-sixsects.js';
+import '../modules/27elite-mingjiao.js';
+
+// 必须先把 content/200game-data.json 灌进 CONFIG（否则 getGameData() 为 null，取阵容即崩）
+// 主游戏里这步由 ui/61 启动时完成，本页独立于主流程，自己来
+await loadGameData();
+
+const STAGE = 3;
+const PANG = '胖远桥';
+const SONG = '宋青书';
+const KEYWORDS = ['莽撞', '出手没分寸', '脾气大'];
+
+// ==================== 胖远桥日志收集器 ====================
+// 组件把文案 push 进 group.data.entries，本收集器从 runBattle 的 onStep 回调里读。
+// 【不能】自己 eventBus.on(AFTER_ATTACK)：core/11 每回合开头 eventBus.clearAll()，
+// 页面级监听器活不过第一回合，什么都收不到。
+const collector = (() => {
+    const hits = {};
+    const seen = new Set();
+    const lines = [];
+    const scanned = new WeakSet();   // 同一 group 会出现在多个 step 的 log 里，去重
+    const reset = () => {
+        for (const k of KEYWORDS) hits[k] = 0;
+        seen.clear();
+        lines.length = 0;
+    };
+    const scan = (step) => {
+        const log = step && step.log;
+        if (!Array.isArray(log)) return;
+        for (const item of log) {
+            const entries = item && item.data && item.data.entries;
+            if (!Array.isArray(entries) || scanned.has(item)) continue;
+            scanned.add(item);
+            for (const e of entries) {
+                const text = e && e.text;
+                if (typeof text !== 'string') continue;
+                for (const k of KEYWORDS) {
+                    if (text.indexOf(k) === -1) continue;
+                    hits[k] = (hits[k] || 0) + 1;
+                    if (!seen.has(text)) { seen.add(text); lines.push(text); }
+                }
+            }
+        }
+    };
+    reset();
+    return { hits, lines, reset, scan };
+})();
+
+// ==================== 阵容工具 ====================
+function buildStage3(seed) {
+    const rng = new SeededRNG(seed);
+    const { allyTeam, enemyTeam } = initBattleTeams(STAGE, rng);
+    return { allyTeam, enemyTeam, lineup: enemyTeam.map(u => u.name) };
+}
+
+function lineupLabel(names) {
+    return names.indexOf(PANG) >= 0 ? `${PANG}阵容` : (names.indexOf(SONG) >= 0 ? `${SONG}阵容` : '其他');
+}
+
+function escapeHtml(s) {
+    return String(s).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+}
+
+// ==================== ① 抽样 ====================
+const roundsInput = document.getElementById('roundsInput');
+const progressEl = document.getElementById('progress');
+const resultSample = document.getElementById('resultSample');
+const resultOne = document.getElementById('resultOne');
+const btnSample = document.getElementById('btnSample');
+const btnOnePang = document.getElementById('btnOnePang');
+const btnOneSong = document.getElementById('btnOneSong');
+
+function lockButtons(locked) {
+    for (const b of [btnSample, btnOnePang, btnOneSong]) b.disabled = locked;
+}
+
+async function sample(rounds) {
+    const master = Date.now();
+    const tally = {};
+    let noElite = 0;
+    for (let i = 0; i < rounds; i++) {
+        const seed = master + i * 7919;
+        const { allyTeam, enemyTeam, lineup } = buildStage3(seed);
+        const label = lineupLabel(lineup);
+        if (label === '其他') noElite++;
+        if (!tally[label]) tally[label] = { total: 0, mingWin: 0, samples: [] };
+        const res = runBattle({ ally: allyTeam, enemy: enemyTeam, seed: seed + 1, maxRounds: 35 });
+        tally[label].total++;
+        if (res.winner === '明教') tally[label].mingWin++;
+        if (tally[label].samples.length < 3) tally[label].samples.push(lineup.join(' / '));
+        if (i % 5 === 0) {
+            progressEl.textContent = `抽样中… ${i}/${rounds}`;
+            await new Promise(r => setTimeout(r, 0));
+        }
+    }
+    progressEl.textContent = `✅ 抽样完成：${rounds} 局`;
+
+    let html = '<table><tr><th>阵容</th><th>出现场次</th><th>占比</th><th>明教胜率</th><th>示例</th></tr>';
+    for (const label of Object.keys(tally)) {
+        const d = tally[label];
+        const pct = (d.total / rounds * 100).toFixed(1);
+        const wr = d.total ? (d.mingWin / d.total * 100).toFixed(1) : '-';
+        html += `<tr><td>${label}</td><td>${d.total}</td><td>${pct}%</td><td>${wr}%</td>`
+            + `<td style="color:#888">${d.samples.map(escapeHtml).join('<br>')}</td></tr>`;
+    }
+    html += '</table>';
+    if (noElite > 0) html += `<div class="empty" style="color:#f44336">⚠️ 有 ${noElite} 局两种精英都没出现，配置可能有问题</div>`;
+    resultSample.innerHTML = html;
+}
+
+// ==================== ② 单局 ====================
+async function runOne(wantName) {
+    const master = Date.now();
+    let picked = null;
+    for (let i = 0; i < 60; i++) {
+        const seed = master + i * 104729;
+        const built = buildStage3(seed);
+        if (built.lineup.indexOf(wantName) >= 0) { picked = { seed, ...built }; break; }
+    }
+    if (!picked) {
+        resultOne.innerHTML = `<div class="empty" style="color:#f44336">试了 60 次都没抽到「${wantName}」阵容</div>`;
+        return;
+    }
+    collector.reset();
+    const res = runBattle({ ally: picked.allyTeam, enemy: picked.enemyTeam, seed: picked.seed + 1, maxRounds: 35, collectFacts: true, onStep: collector.scan });
+
+    const factCount = {};
+    for (const f of res.facts) factCount[f] = (factCount[f] || 0) + 1;
+    const aliveEnemy = res.enemy.filter(u => u.alive).map(u => u.name);
+    const aliveAlly = res.ally.filter(u => u.alive).map(u => u.name);
+
+    let html = '<div class="kv">';
+    html += `阵容：<b>${escapeHtml(picked.lineup.join(' / '))}</b><br>`;
+    html += `seed：<b>${picked.seed}</b>　回合数：<b>${res.rounds}</b>　胜方：<b>${res.winner || '平局（到回合上限）'}</b><br>`;
+    html += `明教存活：${escapeHtml(aliveAlly.join('、') || '无')}<br>`;
+    html += `六大派存活：${escapeHtml(aliveEnemy.join('、') || '无')}<br>`;
+    html += '胖远桥技能触发：';
+    for (const k of KEYWORDS) {
+        const n = collector.hits[k] || 0;
+        html += `<span class="${n > 0 ? 'hit' : ''}">${k} ${n} 次</span>　`;
+    }
+    html += `<br>事实类型数：<b>${Object.keys(factCount).length}</b>`;
+    html += '</div>';
+
+    if (collector.lines.length > 0) {
+        html += '<div class="log">' + collector.lines.map(l => `<div>${l}</div>`).join('') + '</div>';
+    } else {
+        html += '<div class="empty">本局未采集到胖远桥技能文案（该阵容里胖远桥可能早早阵亡，或本局没打到他）</div>';
+    }
+    resultOne.innerHTML = html;
+}
+
+// ==================== 绑定 ====================
+btnSample.addEventListener('click', async () => {
+    lockButtons(true);
+    resultSample.innerHTML = '<div class="empty">运行中…</div>';
+    try {
+        await sample(Math.max(5, Math.min(300, parseInt(roundsInput.value) || 30)));
+    } catch (e) {
+        resultSample.innerHTML = `<div class="empty" style="color:#f44336">出错：${escapeHtml(e.message)}</div>`;
+        progressEl.textContent = '';
+    } finally { lockButtons(false); }
+});
+
+btnOnePang.addEventListener('click', async () => {
+    lockButtons(true);
+    resultOne.innerHTML = '<div class="empty">运行中…</div>';
+    try { await runOne(PANG); }
+    catch (e) { resultOne.innerHTML = `<div class="empty" style="color:#f44336">出错：${escapeHtml(e.message)}</div>`; }
+    finally { lockButtons(false); }
+});
+
+btnOneSong.addEventListener('click', async () => {
+    lockButtons(true);
+    resultOne.innerHTML = '<div class="empty">运行中…</div>';
+    try { await runOne(SONG); }
+    catch (e) { resultOne.innerHTML = `<div class="empty" style="color:#f44336">出错：${escapeHtml(e.message)}</div>`; }
+    finally { lockButtons(false); }
+});
+</script>
+</body>
+</html>

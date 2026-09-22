@@ -1,4 +1,5 @@
 // core/06battle-runner.js — 无头整局跑（headless full-battle runner）
+// V1.1.0 | 2026-09-22 新增 onStep 回调（demo-stage3 页需要读每步日志文案；页面级 eventBus 监听器被 core/11 的 clearAll 清掉，读不到）
 // V1.0.0 | 2026-09-21 抽出「跑完一整局」外循环，收口 tools/101、tools/116(×3)、tools/110 四处重复
 //
 // ⚠️⚠️ 三条死守（防止 UI 提前剧透 / 演出错序）——改本文件前先把这三条读完 ⚠️⚠️
@@ -18,7 +19,7 @@
 //      要渲染的 fact 走 createRoundStepper 的 ui / translateFacts 参数，本文件不生成、
 //      也不应该被拿去生成。
 
-export const VER = 'core/06battle-runner.js V1.0.0';
+export const VER = 'core/06battle-runner.js V1.1.0';
 
 import { createRoundStepper } from './11battle-round.js';
 import { SeededRNG } from '../infra/51-core-utils.js';
@@ -37,6 +38,10 @@ import { SeededRNG } from '../infra/51-core-utils.js';
  * @param {number}   [o.hexInterval] 补海克斯的间隔，默认 3
  * @param {string}   [o.firstSide]   先手阵营，默认引擎规则（'ally' | 'enemy'）
  * @param {boolean}  [o.collectFacts] 是否收集 factType 序列，默认 false
+ * @param {Function} [o.onStep]      每步回调：(step) => void。step 见 core/11 makeStep。
+ *                                   给调用方读「本步为止的日志/画面数据」用（如 demo 页扫 group.data.entries 里的文案）。
+ *                                   注意：引擎每回合会 eventBus.clearAll()，页面级 eventBus 监听器活不过第一回合，
+ *                                   所以「读日志」必须走本回调，不能自己在页面里 eventBus.on。
  * @param {Function} [o.onRoundEnd]  回合结束回调：(ctx) => void，ctx 见下。供调用方记账（如收集选了哪些海克斯）
  * @returns {{ winner:string|null, ally:Unit[], enemy:Unit[], rounds:number, facts:string[], meta:any }}
  *          winner 为 null = 到达回合上限仍未分出胜负
@@ -50,6 +55,7 @@ export function runBattle(o) {
         hexInterval = 3,
         firstSide = null,
         collectFacts = false,
+        onStep = null,
         onRoundEnd = null
     } = o || {};
 
@@ -76,6 +82,10 @@ export function runBattle(o) {
         lastStep = null;
         for (const step of stepper) {
             lastStep = step;
+            if (onStep) {
+                try { onStep(step); }
+                catch (e) { console.error('[06battle-runner] onStep 回调出错:', e); }
+            }
             if (collectFacts && step.log) {
                 for (const e of step.log) if (e && e.factType) facts.push(e.factType);
             }
