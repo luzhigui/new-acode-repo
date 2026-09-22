@@ -1,5 +1,5 @@
-// V6.0.0 | 2026-09-07 属性词条化：拒马初始防/血写入 _base，后续百分比词条由 getStat 现算（含 08-21 战报记账修正）
-export const VER = 'core/05battle-horse.js V6.0.0';
+// V6.1.0 | ~6700 bytes | 2026-09-22 新增 spawnUnit / findFreePos：指定格召唤（谢逊狮子、灭绝召唤周芷若用）
+export const VER = 'core/05battle-horse.js V6.1.0';
 
 import { CONFIG } from './01config-5v5-test.js';
 import { hasBuff } from './03battle-utils.js';
@@ -43,6 +43,27 @@ export function spawnHorse(allyTeam, log, enemyTeam, force = false) {
     allyTeam.push(horse);
     // 返回生成的拒马单位，让调用方自己写日志
     return horse;
+}
+
+// 查空：按 positions 顺序取第一个空位（只看存活单位占的格）；全被占返回 null
+export function findFreePos(allyTeam, positions) {
+    const occupied = new Set(allyTeam.filter(u => u.alive).map(u => u.pos));
+    for (const p of positions) { if (p && !occupied.has(p)) return p; }
+    return null;
+}
+
+// 指定格召唤：在 pos 生成一个单位（pos 由调用方用 findFreePos 确认空闲）。
+// 走 Unit.init + applyBonus，与开局单位同口径（含 _base/_init 数值与 _hpDmgRatio 分档）；
+// 打 isSummon 标记便于日志/UI 区分召唤物；拒马不走这里（它有独立的随机格 + 固定数值逻辑）。
+export function spawnUnit(allyTeam, name, m, role, pos) {
+    const unit = new Unit(name, m, role, allyTeam[0].camp);
+    unit.init(getBattleRng());
+    unit.applyBonus();
+    unit.pos = pos;
+    unit.state._originalPos = pos;
+    unit.isSummon = true;
+    allyTeam.push(unit);
+    return unit;
 }
 
 // 拒马-销毁：回合结束概率消散拒马

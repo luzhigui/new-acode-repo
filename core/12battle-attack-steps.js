@@ -1,5 +1,5 @@
-// V6.2.1 | ~24200 bytes | 2026-09-22 fact 血量显示统一走 fmtHp（snapshotUnitForFact 与 snap 的 hp/maxHp）
-export const VER = 'core/12battle-attack-steps.js V6.2.1';
+// V6.3.0 | ~24600 bytes | 2026-09-22 ① resolveDeaths 支持「替死」：逐条复查 _pendingDeath，ON_BEFORE_DEATH 可取消死亡 ② 新增 _ignoreDodge 不可闪避（灭绝反击）
+export const VER = 'core/12battle-attack-steps.js V6.3.0';
 
 import { CONFIG, getSkillParams, getGameData } from './01config-5v5-test.js';
 import { eventBus, EFFECT_TYPES } from '../infra/50-event-bus.js';
@@ -150,7 +150,8 @@ export function resolveAttackHit(unit, target, attackerBuffStats, defenderBuffSt
     const allyBuffs = (target.camp === CAMP_TYPES.ALLY && A ? A._activeBuffs : (target.camp === CAMP_TYPES.ENEMY && B ? B._activeBuffs : []));
     if (target.state._stunned) return { skipped: false };
     const hasCloudBody = hasBuff(allyBuffs, BUFF_TYPES.CLOUD_BODY) || ((target.isXiaoZhaoSister || target.isXiaoZhaoBrother) && target.state._permanentBuffs && target.state._permanentBuffs.some(b => b.key === BUFF_TYPES.CLOUD_BODY));
-    if (target.alive && (target.isWei || hasCloudBody || !target.state._acted)) {
+    // 2026-09-22 不可闪避：攻击方带 _ignoreDodge 时整体跳过闪避判定（灭绝师太反击用，见 core/10 额外攻击循环）
+    if (!unit.state._ignoreDodge && target.alive && (target.isWei || hasCloudBody || !target.state._acted)) {
         let dodgeTriggered = false;
         for (const ruleFn of getDodgeRules()) {
             const rate = ruleFn(target, unit) || 0;
@@ -419,7 +420,11 @@ export function resolveDeaths(allySide, enemySide, log) {
 
     eventBus.emit(SIGNAL_TYPES.ON_BEFORE_DEATH, { units: pending, allySide, enemySide, log });
 
+    // 2026-09-22 支持「替死」：ON_BEFORE_DEATH 监听器可以清掉自己的 _pendingDeath 来取消本次死亡
+    //   （谢逊消耗狮子替死）。pending 是发射前的快照，只清标记是取消不掉循环的，必须逐条复查。
+    const died = [];
     for (const u of pending) {
+        if (!u.state._pendingDeath) continue;
         applyStatChange(u, 'hp', -u.hp, null, '死亡结算', false);
         u.alive = false;
         u.state._isDead = true;
@@ -428,10 +433,11 @@ export function resolveDeaths(allySide, enemySide, log) {
         emitEvent(u, UNIT_EVENT_TYPES.HP_CHANGE, { hp: u.hp, maxHp: u.maxHp, alive: false, atk: getStat(u, 'atk'), def: getStat(u, 'def'), _isDead: true });
         emitEvent(u, UNIT_EVENT_TYPES.UNIT_REMOVE, { uid: u.uid });
         emitStateChange(u, STATE_CHANGE_TYPES.DEATH, {}, log);
+        died.push(u);
     }
 
-    if (pending.length > 0) {
-        eventBus.emit(SIGNAL_TYPES.ON_UNIT_DEATH, { deadUnits: pending, allySide, enemySide, log });
+    if (died.length > 0) {
+        eventBus.emit(SIGNAL_TYPES.ON_UNIT_DEATH, { deadUnits: died, allySide, enemySide, log });
     }
 }
 

@@ -1,11 +1,12 @@
-// V6.9.0 | ~16900 bytes | 2026-09-22 新增胖远桥组件（莽撞：挨打+2攻永久累计 / 出手没分寸：25%打歪 / 脾气大：每回合1次嘲讽，被嘲讽者下次只能打他且伤害×0.5）
-export const VER = 'modules/26elite-sixsects.js V6.9.0';
+// V6.10.0 | ~21000 bytes | 2026-09-22 新增灭绝师太组件（反击 100%·不可闪避 / 每第三次攻击 ×2 吸血 / 召唤周芷若；跟随攻击走 content 的 followAttack 声明）
+export const VER = 'modules/26elite-sixsects.js V6.10.0';
 import { registerElite } from '../core/08-elite-registry.js';
 import { CONFIG, getSkillParams } from '../core/01config-5v5-test.js';
-import { SIGNAL_TYPES, FACT_TYPES, BUFF_TYPES } from '../infra/56-battle-enums.js';
+import { SIGNAL_TYPES, FACT_TYPES, BUFF_TYPES, CAMP_TYPES, ROLE_TYPES } from '../infra/56-battle-enums.js';
 import { applyStatChange, addMod, getStat, getBattleRng } from '../core/13battle-shared.js';
 import { EFFECT_TYPES, EXECUTION_LAYER as L } from '../infra/50-event-bus.js';
 import { canBeTargeted } from '../core/03battle-utils.js';
+import { spawnUnit, findFreePos } from '../core/05battle-horse.js';
 import { GlobalStore } from '../infra/54-global-store.js';
 import { FX_SIGNALS } from '../infra/55-fx-signals.js';
 
@@ -270,7 +271,99 @@ export function createPangYuanQiaoComponent() {
     };
 }
 
+// 灭绝师太（六大派·峨眉掌门·战士·M112）：反击 / 跟随攻击 / 每第三次攻击 / 召唤周芷若
+// 2026-09-22 新增，作为新第七关精英。四技能分工：
+//   反击、每第三次攻击 → 本组件闭环（日志走 group.data.entries 的 { type:'info', text }）
+//   跟随攻击 → 走 content mechanics 的 followAttack 声明（core/15 安装）。
+//     队友是任意普通单位、没法逐个登记，所以声明挂在灭绝自己名下，而不是像玄冥联动那样挂在攻击者名下。
+//   召唤周芷若 → spawnUnit 落 2 号位（被占则 3/1/5），每局 1 次
+export function createMieJueShiTaiComponent() {
+    return {
+        name: '灭绝师太',
+        register(eventBus, A, B, log) {
+            // 不写死阵营：按身份标记在两侧找，灭绝换边也照样生效
+            const miejue = [...A, ...B].find(u => u.isMieJueShiTai && u.alive);
+            if (!miejue) return;
+            const myTeam = miejue.camp === CAMP_TYPES.ALLY ? A : B;
+
+            const counter = getSkillParams('灭绝师太', 'counterAttack');
+            if (!counter) throw new Error('缺技能参数: 灭绝师太.counterAttack');
+            const third = getSkillParams('灭绝师太', 'thirdStrike');
+            if (!third) throw new Error('缺技能参数: 灭绝师太.thirdStrike');
+            const summon = getSkillParams('灭绝师太', 'summonZhou');
+            if (!summon) throw new Error('缺技能参数: 灭绝师太.summonZhou');
+
+            function pushInfo(data, text) {
+                if (data && data.group && data.group.data && data.group.data.entries) {
+                    data.group.data.entries.push({ type: 'info', text });
+                }
+            }
+
+            // 技能1 反击：被攻击后 prob 概率反击攻击者，伤害 ×dmgRatio，不可闪避，无每回合上限。
+            // 走 extraRequests 而不是直接 applyStatChange——反击要过完整伤害管线（防御/格挡/修饰器/记账），
+            // 直接扣血等于绕开引擎。跨阵营换边与不可闪避由 core/10 的额外攻击循环处理。
+            eventBus.on(SIGNAL_TYPES.AFTER_DAMAGE_APPLIED, L.AFTER_DAMAGE_APPLIED.MIEJUE_COUNTER, (data) => {
+                if (data.target !== miejue || !miejue.alive) return;
+                if (!data.dmg || data.dmg <= 0) return;
+                const attacker = data.unit;
+                if (!attacker || !attacker.alive || attacker === miejue) return;
+                if (getBattleRng().next() >= (counter.prob ?? 1)) return;
+                if (!data.extraRequests) data.extraRequests = [];
+                data.extraRequests.push({
+                    unit: miejue,
+                    targetUid: attacker.uid,
+                    reason: 'counterAttack',
+                    ignoreDodge: true,
+                    actedMode: 'restore',
+                    actedSnapshot: miejue.state._acted,
+                    priority: 12
+                });
+                pushInfo(data, `<span class="gold">🗡 灭绝师太反击 ${attacker.name}！（伤害×${counter.dmgRatio}，不可闪避）</span>`);
+            });
+
+            // 技能3 每第三次攻击：伤害 ×dmgMultiplier + 吸血 leechRatio。
+            // 计数口径 =「打中过几次」：只在 AFTER_DAMAGE_APPLIED 累加，未命中/被闪避不计。
+            // 因此 _thirdStrike 每次选目标时按「这次是不是第 3 的倍数」重算，不需要额外的清除点。
+            eventBus.on(SIGNAL_TYPES.BEFORE_SELECT_TARGET, L.BEFORE_SELECT_TARGET.MIEJUE_THIRD_MARK, (data) => {
+                if (data.unit !== miejue || !miejue.alive) return;
+                miejue.state._thirdStrike = (((miejue.state._attackCount || 0) + 1) % 3) === 0;
+            });
+
+            eventBus.on(SIGNAL_TYPES.BEFORE_DAMAGE_CALC, L.BEFORE_DAMAGE_CALC.MIEJUE_THIRD_MULT, (data) => {
+                if (data.unit !== miejue || !miejue.state._thirdStrike) return;
+                data.declarations.push({ type: EFFECT_TYPES.DMG_MULTIPLIER, value: third.dmgMultiplier, source: miejue, label: '灭绝三击' });
+            });
+
+            eventBus.on(SIGNAL_TYPES.AFTER_DAMAGE_APPLIED, L.AFTER_DAMAGE_APPLIED.MIEJUE_THIRD_LEECH, (data) => {
+                if (data.unit !== miejue || !miejue.alive) return;
+                if (!data.dmg || data.dmg <= 0) return;
+                const isThird = !!miejue.state._thirdStrike;
+                miejue.state._thirdStrike = false;
+                miejue.state._attackCount = (miejue.state._attackCount || 0) + 1;
+                if (!isThird) return;
+                if (!data.declarations) data.declarations = [];
+                data.declarations.push({ type: EFFECT_TYPES.LEECH, value: Math.floor(data.dmg * third.leechRatio), source: miejue });
+                pushInfo(data, `<span class="gold">🩸 灭绝师太第 ${miejue.state._attackCount} 次出手：伤害×${third.dmgMultiplier}，吸血 ${Math.round(third.leechRatio * 100)}%</span>`);
+            });
+
+            // 技能4 召唤周芷若：每局 1 次，回合开始落 2 号位（被占则按 posPriority 顺延）
+            eventBus.on(SIGNAL_TYPES.ON_ROUND_START, L.ROUND_START.MIEJUE_SUMMON, (data) => {
+                if (!miejue.alive || miejue.state._summonedZhou) return;
+                if (myTeam.some(u => u.isZhouZhiruo && u.alive)) return;
+                const pos = findFreePos(myTeam, summon.posPriority || [2]);
+                if (pos == null) return;
+                const zhou = spawnUnit(myTeam, '周芷若', summon.m, ROLE_TYPES.WARRIOR, pos);
+                miejue.state._summonedZhou = true;
+                if (data && data.log) {
+                    data.log.push({ factType: FACT_TYPES.SUMMON_UNIT, data: { summonName: zhou.name, summonUid: zhou.uid, pos, byName: miejue.name } });
+                }
+            });
+        }
+    };
+}
+
 registerElite('宋青书', createSongQingshuComponent);
 registerElite('周芷若', createZhouZhiruoComponent);
 registerElite('张三丰', createZhangSanfengComponent);
 registerElite('胖远桥', createPangYuanQiaoComponent);
+registerElite('灭绝师太', createMieJueShiTaiComponent);

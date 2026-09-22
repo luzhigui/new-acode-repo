@@ -1,5 +1,5 @@
 // render/35-facts-effect.js — 效果域 fact 渲染器
-// V1.0.1 | ~33000 bytes | 2026-09-22 蛛袭恢复日志文本（原先 return null，看不出打谁掉多少血）
+// V1.0.2 | ~33900 bytes | 2026-09-22 新增 SUMMON_UNIT / LION_SACRIFICE 渲染（灭绝召唤周芷若、谢逊狮子替死）
 //
 // 加新 fact 渲染：在本文件写函数 + 尾部 registerFactRenderer 一行（键=factType）。
 // 跨域取别的渲染器一律走 getFactRenderer(FACT_TYPES.X)(data)，禁止 import 其它域文件（免环）。
@@ -7,7 +7,7 @@ import { CONFIG } from '../core/01config-5v5-test.js';
 import { makeFXSnapshot, fmtHp } from '../infra/51-core-utils.js';
 import { BUFF_TYPES, BUFF_SUBTYPES, CAMP_TYPES, ROLE_TYPES, FACT_TYPES } from '../infra/56-battle-enums.js';
 import { registerFactRenderer, findUnitSnapshotByUid } from './33-fact-registry.js';
-export const VER = 'render/35-facts-effect.js V1.0.1';
+export const VER = 'render/35-facts-effect.js V1.0.2';
 
 // 拒马 / 张无忌
 export function renderHorseDestroyFact(fact) {
@@ -410,6 +410,17 @@ export function renderNoContendFact(fact) {
     return { type:'info', text:`<span class="gold">☯ 不争：六大派仅剩 ${fact.unitName} 一人，明教获胜</span>` };
 }
 
+// 召唤：谢逊狮子 / 灭绝召唤周芷若
+export function renderSummonUnitFact(fact) {
+    const by = fact.byName ? `（${fact.byName} 召唤）` : '';
+    return { type:'info', text:`<span class="gold">🐾 ${fact.summonName} 出现在 ${fact.pos} 号位${by}</span>` };
+}
+
+// 谢逊狮子替死
+export function renderLionSacrificeFact(fact) {
+    return { type:'info', text:`<span class="gold">🦁 替死：${fact.lionName} 代 ${fact.unitName} 受死，${fact.unitName} 保留 ${fact.hpAfter} 点生命</span>` };
+}
+
 // 流星溅射成长
 export function renderMeteorSplashGrowthFact(fact) {
     return { type:'info', text:`<span class="gold">⚡ ${fact.unitName} 攻击+${fact.growth}</span>` };
@@ -536,3 +547,5 @@ registerFactRenderer(FACT_TYPES.STUN_SKIP, renderStunSkipFact);
 registerFactRenderer(FACT_TYPES.FLY_SKIP, renderFlySkipFact);
 registerFactRenderer(FACT_TYPES.ENDLESS_BREATH, renderEndlessBreathFact);
 registerFactRenderer(FACT_TYPES.NO_CONTEND, renderNoContendFact);
+registerFactRenderer(FACT_TYPES.SUMMON_UNIT, renderSummonUnitFact);
+registerFactRenderer(FACT_TYPES.LION_SACRIFICE, renderLionSacrificeFact);

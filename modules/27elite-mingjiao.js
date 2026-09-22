@@ -1,14 +1,14 @@
-// V6.0.3 | ~35800 bytes | 2026-09-22 小昭·妹连击的 targetUid 回退补 _pendingDeath（与 doubleStrike 同口径）
-export const VER = 'modules/27elite-mingjiao.js V6.0.3';
+// V6.1.0 | ~42000 bytes | 2026-09-22 新增金毛狮王谢逊组件（召唤三狮 / 狮子替死 / 集火 / 母狮狮吼）
+export const VER = 'modules/27elite-mingjiao.js V6.1.0';
 
 import { registerElite } from '../core/08-elite-registry.js';
 import { CONFIG, getSkillParams } from '../core/01config-5v5-test.js';
 import { hasBuff, getZhangNearTaunt } from '../core/03battle-utils.js';
-import { spawnHorse } from '../core/05battle-horse.js';
+import { spawnHorse, spawnUnit, findFreePos } from '../core/05battle-horse.js';
 import { spiderTransform, spiderReturn } from '../modules/20elite-skills.js';
 import { checkZhangSwitch, emitEvent, applyStatChange, refreshMaxHp, getBattleRng, addMod, removeModsByGroup, getStat } from '../core/13battle-shared.js';
 import { eventBus, EXECUTION_LAYER as L, EFFECT_TYPES } from '../infra/50-event-bus.js';
-import { StateMachine } from '../infra/51-core-utils.js';
+import { StateMachine, getUnitCol } from '../infra/51-core-utils.js';
 import { FACT_TYPES, BUFF_TYPES, UNIT_EVENT_TYPES, CAMP_TYPES, ROLE_TYPES, SIGNAL_TYPES, STATE_CHANGE_TYPES } from '../infra/56-battle-enums.js';
 import { emitStateChange } from '../infra/59-state-change.js';
 import { watchUnit } from '../core/19unit-watch.js';
@@ -620,7 +620,127 @@ export function createXiaoZhaoBrotherComponent() {
     };
 }
 
+// 金毛狮王谢逊（明教 · 站 7 号位）：召唤狮子 / 替死 / 集火 / 母狮狮吼
+// 2026-09-22 新增。四技能分工：
+//   召唤狮子 → ON_ROUND_START 每回合 1 只，落点决定形态（1 号位雄狮·防战 / 4 号位幼狮·战士 / 8·9 号位母狮·远程）
+//   替死     → ON_BEFORE_DEATH：谢逊待死时拿 1 只狮子顶命（狮子推入本批待死名单，走标准死亡流程）
+//   集火     → AFTER_ATTACK：谢逊出手后随机 2 名存活友方各追加一次攻击，每回合 1 次
+//   母狮狮吼 → AFTER_DAMAGE_APPLIED：母狮命中后，同列敌人全部恐惧（失去下次攻击机会）
+export function createXieXunComponent() {
+    return {
+        name: '金毛狮王谢逊',
+        register(eventBus, A, B, log) {
+            // 不写死阵营：按身份标记在两侧找，谢逊换边也照样生效
+            const xiexun = [...A, ...B].find(u => u.isXieXun && u.alive);
+            if (!xiexun) return;
+            const myTeam = xiexun.camp === CAMP_TYPES.ALLY ? A : B;
+
+            const summon = getSkillParams('金毛狮王谢逊', 'summonLion');
+            if (!summon) throw new Error('缺技能参数: 金毛狮王谢逊.summonLion');
+            const sacrifice = getSkillParams('金毛狮王谢逊', 'lionSacrifice');
+            if (!sacrifice) throw new Error('缺技能参数: 金毛狮王谢逊.lionSacrifice');
+            const focus = getSkillParams('金毛狮王谢逊', 'focusFire');
+            if (!focus) throw new Error('缺技能参数: 金毛狮王谢逊.focusFire');
+
+            function pushInfo(data, text) {
+                if (data && data.group && data.group.data && data.group.data.entries) {
+                    data.group.data.entries.push({ type: 'info', text });
+                }
+            }
+
+            // 回合开始：① 集火标记复位（每回合 1 次）② 召唤 1 只狮子
+            // 位置与形态绑定（1=雄狮 / 4=幼狮 / 8·9=母狮），所以先按 lions 顺序找空位、再按落点定形态。
+            eventBus.on(SIGNAL_TYPES.ON_ROUND_START, L.ROUND_START.XIE_SUMMON, (data) => {
+                xiexun.state._focusUsedRound = false;
+                if (!xiexun.alive) return;
+                const lions = summon.lions || [];
+                const freePos = findFreePos(myTeam, lions.map(l => l.pos));
+                if (freePos == null) return;
+                const spec = lions.find(l => l.pos === freePos);
+                if (!spec) return;
+                const lion = spawnUnit(myTeam, spec.name, spec.m, spec.role, freePos);
+                if (data && data.log) {
+                    data.log.push({ factType: FACT_TYPES.SUMMON_UNIT, data: { summonName: lion.name, summonUid: lion.uid, pos: freePos, byName: xiexun.name } });
+                }
+            });
+
+            // 替死：谢逊进待死名单时，消耗 1 只存活狮子换命。
+            // 狮子用「打 _pendingDeath + 推入 data.units」交给 resolveDeaths 的既有循环，不在这里手写死亡流程
+            //   ——否则 HP_CHANGE / UNIT_REMOVE / STATE_CHANGE / ON_UNIT_DEATH 四件套要抄一遍，容易漏。
+            // pending 里谢逊必排在狮子之前（谢逊在开局名单，狮子是后来 push 的），所以推入后一定在本批被处理。
+            eventBus.on(SIGNAL_TYPES.ON_BEFORE_DEATH, L.ON_BEFORE_DEATH.XIE_SACRIFICE, (data) => {
+                const pending = data.units || [];
+                if (!pending.includes(xiexun)) return;
+                const lion = myTeam.find(u => u.isXieXunLion && u.alive && !u.state._pendingDeath);
+                if (!lion) return;
+                // 换命：清掉谢逊的待死标记并把血抬到 maxHp×reviveHpPct。
+                // 必须先清标记再回血——applyStatChange 在 hp≤0 时会重新打上 _pendingDeath。
+                xiexun.state._pendingDeath = false;
+                const targetHp = Math.floor(getStat(xiexun, 'maxHp') * sacrifice.reviveHpPct);
+                applyStatChange(xiexun, 'hp', targetHp - xiexun.hp, null, '狮子替死', false);
+                // 祭品：打标记推入本批待死名单
+                lion.state._pendingDeath = true;
+                pending.push(lion);
+                if (data.log) {
+                    data.log.push({ factType: FACT_TYPES.LION_SACRIFICE, data: { lionName: lion.name, unitName: xiexun.name, hpAfter: xiexun.hp } });
+                }
+            });
+
+            // 集火：谢逊出手后，随机 focus.count 名存活友方各追加一次攻击。
+            // 走 extraRequests（reason:'focusFire'）而不是直接调 processUnitAttack：额外攻击的 _acted 置位/回退、
+            //   目标回退判据都已在 core/10 收口，这里只管提交请求。
+            // 排除拒马（atk 0，让它集火等于白打一次）。
+            eventBus.on(SIGNAL_TYPES.AFTER_ATTACK, L.AFTER_ATTACK.XIE_FOCUS, (data) => {
+                if (data.unit !== xiexun || !xiexun.alive) return;
+                if (xiexun.state._focusUsedRound) return;
+                const pool = myTeam.filter(u => u.alive && u.uid !== xiexun.uid && !u.isHorse);
+                if (pool.length === 0) return;
+                const rng = getBattleRng();
+                const picks = [];
+                const n = Math.min(focus.count || 2, pool.length);
+                for (let i = 0; i < n; i++) {
+                    picks.push(pool.splice(rng.nextInt(0, pool.length - 1), 1)[0]);
+                }
+                xiexun.state._focusUsedRound = true;
+                // 原目标已待死/阵亡时传 null，让跟随者自己选目标（锁定死 uid 会白跳一次）
+                const focusTargetUid = (data.target && data.target.alive && !data.target.state._pendingDeath) ? data.target.uid : null;
+                if (!data.extraRequests) data.extraRequests = [];
+                for (const f of picks) {
+                    data.extraRequests.push({
+                        unit: f,
+                        targetUid: focusTargetUid,
+                        reason: 'focusFire',
+                        actedMode: 'restore',
+                        actedSnapshot: f.state._acted,
+                        priority: 40
+                    });
+                }
+                pushInfo(data, `<span class="gold">🔥 谢逊发动集火：${picks.map(f => f.name).join('、')} 同时出手！</span>`);
+            });
+
+            // 母狮·狮吼：母狮命中后，同列敌人全部恐惧。
+            // 恐惧复用既有 _stunned（回合级字段，行动轮询会跳过），与「眩晕」同口径——
+            //   本回合还没行动的列内敌人才会被实际跳过，已行动的已无行动可失。
+            eventBus.on(SIGNAL_TYPES.AFTER_DAMAGE_APPLIED, L.AFTER_DAMAGE_APPLIED.XIE_ROAR, (data) => {
+                const lioness = data.unit;
+                if (!lioness || !lioness.isLioness || !lioness.alive) return;
+                if (!data.dmg || data.dmg <= 0) return;
+                const col = getUnitCol(lioness.pos);
+                const victims = (data.enemySide || []).filter(u => u.alive && !u.state._stunned && u.pos && getUnitCol(u.pos) === col);
+                if (victims.length === 0) return;
+                for (const v of victims) {
+                    v.state._stunned = true;
+                    emitEvent(v, UNIT_EVENT_TYPES.HP_CHANGE, { hp: v.hp, maxHp: v.maxHp, alive: v.alive, atk: getStat(v, 'atk'), def: getStat(v, 'def'), _stunned: true });
+                    emitStateChange(v, STATE_CHANGE_TYPES.STUNNED, {}, data.log);
+                }
+                pushInfo(data, `<span class="gold">🦁 母狮狮吼！第 ${col} 列 ${victims.map(v => v.name).join('、')} 陷入恐惧，失去下次攻击机会</span>`);
+            });
+        }
+    };
+}
+
 registerElite('张无忌', createZhangWujiComponent);
 registerElite('韦一笑', createWeiYixiaoComponent);
 registerElite('小昭·姊', createXiaoZhaoSisterComponent);
 registerElite('小昭·妹', createXiaoZhaoBrotherComponent);
+registerElite('金毛狮王谢逊', createXieXunComponent);

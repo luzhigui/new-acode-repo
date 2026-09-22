@@ -1,11 +1,11 @@
-<!-- demo-stage3.html - 光明顶5v5 第三关阵容轮换 + 胖远桥 演示页（独立文件，不进主游戏流程） -->
-<!-- V1.0.1 | ~11700 bytes | 2026-09-22 修两处：① 自己 await loadGameData()（否则 CONFIG 读 null 直接崩）② 日志改走 runBattle 的 onStep 回调（页面级 eventBus 监听器被 core/11 的 clearAll 清掉，收不到任何事件） -->
+<!-- demo-stage3.html - 光明顶5v5 新角色 demo 页（独立文件，不进主游戏流程） -->
+<!-- V1.1.0 | ~15000 bytes | 2026-09-22 扩到三角色：第三关轮换（胖远桥/宋青书）+ 第七关灭绝师太 + 明教带谢逊；修 import 前缀 ../ → ./（本页与 index.html 同级，不是子目录） -->
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>🥷 第三关轮换 · 胖远桥 demo</title>
+<title>🥷 新角色 demo · 胖远桥 / 灭绝师太 / 谢逊</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{background:#1a1a2e;color:#eee;font-family:monospace;padding:16px;max-width:1000px;margin:0 auto}
@@ -35,51 +35,75 @@ td{padding:6px 8px;border-bottom:1px solid #333;color:#ccc}
 </style>
 </head>
 <body>
-<h1>🥷 第三关阵容轮换 · 胖远桥 demo</h1>
+<h1>🥷 新角色 demo · 胖远桥 / 灭绝师太 / 谢逊</h1>
 <p class="tip">
-第三关每局在 <b>宋青书阵容</b> 与 <b>胖远桥阵容</b> 之间随机二选一（走战斗 RNG，PVP 双端同源）。<br>
-胖远桥三技能：<b>莽撞</b>（挨打 +2 攻，无上限）、<b>出手没分寸</b>（25% 打歪）、<b>脾气大</b>（每回合 1 次嘲讽，被嘲讽者下次只能打他且伤害 ×0.5）。<br>
-本页是无头模拟，只统计与展示日志，不驱动画面演出。
+本页是无头模拟，只统计与展示日志，不驱动画面演出。<br>
+<b>胖远桥</b>（第三关随机二选一）：莽撞（挨打 +2 攻，无上限）、出手没分寸（25% 打歪）、脾气大（每回合 1 次嘲讽，被嘲讽者下次只能打他且伤害 ×0.5）。<br>
+<b>灭绝师太</b>（第七关）：反击 100%（不可闪避）、每第三次出手伤害 ×2 且吸血 200%、开局召唤周芷若、队友命中后 30% 跟随攻击。<br>
+<b>金毛狮王谢逊</b>（明教，demo 强制入队）：每回合召唤三狮（1 雄狮 / 4 幼狮 / 8·9 母狮）、狮子替死、每回合 1 次集火、母狮狮吼（同列敌人失去下次攻击）。
 </p>
 <div class="config">
 <label>抽样场次：</label>
 <input type="number" id="roundsInput" value="30" min="5" max="300" step="5">
-<button class="hot" id="btnSample">▶ 抽样（看轮换）</button>
-<button id="btnOnePang">▶ 打一局 · 胖远桥</button>
-<button id="btnOneSong">▶ 打一局 · 宋青书</button>
+<button class="hot" id="btnSample">▶ 抽样（看第三关轮换）</button>
+<button id="btnOnePang">▶ 胖远桥</button>
+<button id="btnOneSong">▶ 宋青书</button>
+<button id="btnOneMiejue">▶ 灭绝师太（第7关）</button>
+<button id="btnOneXie">▶ 谢逊（明教）</button>
 </div>
 <div class="progress" id="progress"></div>
 
 <div class="section">
-<h2>① 轮换抽样</h2>
+<h2>① 轮换抽样（第三关）</h2>
 <div id="resultSample" class="empty">尚未运行</div>
 </div>
 
 <div class="section">
-<h2>② 单局详情（阵容 + 胖远桥日志）</h2>
+<h2>② 单局详情（阵容 + 技能日志）</h2>
 <div id="resultOne" class="empty">尚未运行</div>
 </div>
 
 <script type="module">
-import { SeededRNG } from '../infra/51-core-utils.js';
-import { runBattle } from '../core/06battle-runner.js';
-import { initBattleTeams } from '../modules/29battle-init.js';
-import { loadGameData } from '../core/01config-5v5-test.js';
-import '../infra/54-global-store.js';
-import '../modules/25elite-imperial.js';
-import '../modules/26elite-sixsects.js';
-import '../modules/27elite-mingjiao.js';
+import { SeededRNG } from './infra/51-core-utils.js';
+import { runBattle } from './core/06battle-runner.js';
+import { initBattleTeams } from './modules/29battle-init.js';
+import { loadGameData } from './core/01config-5v5-test.js';
+import { GlobalStore } from './infra/54-global-store.js';
+import { FACT_TYPES } from './infra/56-battle-enums.js';
+import './modules/25elite-imperial.js';
+import './modules/26elite-sixsects.js';
+import './modules/27elite-mingjiao.js';
 
 // 必须先把 content/200game-data.json 灌进 CONFIG（否则 getGameData() 为 null，取阵容即崩）
 // 主游戏里这步由 ui/61 启动时完成，本页独立于主流程，自己来
 await loadGameData();
 
-const STAGE = 3;
+const STAGE3 = 3;
+const STAGE7 = 7;
 const PANG = '胖远桥';
 const SONG = '宋青书';
-const KEYWORDS = ['莽撞', '出手没分寸', '脾气大'];
+const MIEJUE = '灭绝师太';
+const XIE = '金毛狮王谢逊';
 
-// ==================== 胖远桥日志收集器 ====================
+// 文案关键字：label 用于展示，match 是组件 push 进 group.data.entries 的原文片段
+const KEYWORDS = [
+    { label: '莽撞', match: '莽撞' },
+    { label: '出手没分寸', match: '出手没分寸' },
+    { label: '脾气大', match: '脾气大' },
+    { label: '灭绝反击', match: '灭绝师太反击' },
+    { label: '灭绝三击', match: '次出手：伤害×' },
+    { label: '跟随攻击', match: '跟随' },
+    { label: '集火', match: '发动集火' },
+    { label: '狮吼', match: '狮吼' },
+];
+
+// fact 计数器：这些技能走 fact（渲染在 render/35），不落在 entries 里
+const FACT_KEYS = [
+    { label: '召唤', fact: FACT_TYPES.SUMMON_UNIT },
+    { label: '替死', fact: FACT_TYPES.LION_SACRIFICE },
+];
+
+// ==================== 日志收集器 ====================
 // 组件把文案 push 进 group.data.entries，本收集器从 runBattle 的 onStep 回调里读。
 // 【不能】自己 eventBus.on(AFTER_ATTACK)：core/11 每回合开头 eventBus.clearAll()，
 // 页面级监听器活不过第一回合，什么都收不到。
@@ -89,7 +113,7 @@ const collector = (() => {
     const lines = [];
     const scanned = new WeakSet();   // 同一 group 会出现在多个 step 的 log 里，去重
     const reset = () => {
-        for (const k of KEYWORDS) hits[k] = 0;
+        for (const k of KEYWORDS) hits[k.label] = 0;
         seen.clear();
         lines.length = 0;
     };
@@ -104,8 +128,8 @@ const collector = (() => {
                 const text = e && e.text;
                 if (typeof text !== 'string') continue;
                 for (const k of KEYWORDS) {
-                    if (text.indexOf(k) === -1) continue;
-                    hits[k] = (hits[k] || 0) + 1;
+                    if (text.indexOf(k.match) === -1) continue;
+                    hits[k.label] = (hits[k.label] || 0) + 1;
                     if (!seen.has(text)) { seen.add(text); lines.push(text); }
                 }
             }
@@ -116,10 +140,20 @@ const collector = (() => {
 })();
 
 // ==================== 阵容工具 ====================
-function buildStage3(seed) {
-    const rng = new SeededRNG(seed);
-    const { allyTeam, enemyTeam } = initBattleTeams(STAGE, rng);
-    return { allyTeam, enemyTeam, lineup: enemyTeam.map(u => u.name) };
+function buildStage(stage, seed, forceXie) {
+    const oldForce = GlobalStore.get('forceXieXun');
+    if (forceXie) GlobalStore.set('forceXieXun', true);
+    try {
+        const rng = new SeededRNG(seed);
+        const { allyTeam, enemyTeam } = initBattleTeams(stage, rng);
+        return {
+            allyTeam, enemyTeam,
+            lineup: enemyTeam.map(u => u.name),
+            allyNames: allyTeam.map(u => u.name),
+        };
+    } finally {
+        if (forceXie) GlobalStore.set('forceXieXun', oldForce === true);
+    }
 }
 
 function lineupLabel(names) {
@@ -138,9 +172,11 @@ const resultOne = document.getElementById('resultOne');
 const btnSample = document.getElementById('btnSample');
 const btnOnePang = document.getElementById('btnOnePang');
 const btnOneSong = document.getElementById('btnOneSong');
+const btnOneMiejue = document.getElementById('btnOneMiejue');
+const btnOneXie = document.getElementById('btnOneXie');
 
 function lockButtons(locked) {
-    for (const b of [btnSample, btnOnePang, btnOneSong]) b.disabled = locked;
+    for (const b of [btnSample, btnOnePang, btnOneSong, btnOneMiejue, btnOneXie]) b.disabled = locked;
 }
 
 async function sample(rounds) {
@@ -149,7 +185,7 @@ async function sample(rounds) {
     let noElite = 0;
     for (let i = 0; i < rounds; i++) {
         const seed = master + i * 7919;
-        const { allyTeam, enemyTeam, lineup } = buildStage3(seed);
+        const { allyTeam, enemyTeam, lineup } = buildStage(STAGE3, seed, false);
         const label = lineupLabel(lineup);
         if (label === '其他') noElite++;
         if (!tally[label]) tally[label] = { total: 0, mingWin: 0, samples: [] };
@@ -178,16 +214,20 @@ async function sample(rounds) {
 }
 
 // ==================== ② 单局 ====================
-async function runOne(wantName) {
+// cfg: { stage, wantName, forceXie }
+async function runOne(cfg) {
     const master = Date.now();
     let picked = null;
-    for (let i = 0; i < 60; i++) {
+    for (let i = 0; i < 80; i++) {
         const seed = master + i * 104729;
-        const built = buildStage3(seed);
-        if (built.lineup.indexOf(wantName) >= 0) { picked = { seed, ...built }; break; }
+        const built = buildStage(cfg.stage, seed, cfg.forceXie);
+        if (!cfg.wantName || [...built.lineup, ...built.allyNames].indexOf(cfg.wantName) >= 0) {
+            picked = { seed, ...built };
+            break;
+        }
     }
     if (!picked) {
-        resultOne.innerHTML = `<div class="empty" style="color:#f44336">试了 60 次都没抽到「${wantName}」阵容</div>`;
+        resultOne.innerHTML = `<div class="empty" style="color:#f44336">试了 80 次都没抽到含「${cfg.wantName || '（无要求）'}」的阵容</div>`;
         return;
     }
     collector.reset();
@@ -199,14 +239,19 @@ async function runOne(wantName) {
     const aliveAlly = res.ally.filter(u => u.alive).map(u => u.name);
 
     let html = '<div class="kv">';
-    html += `阵容：<b>${escapeHtml(picked.lineup.join(' / '))}</b><br>`;
+    html += `明教阵容：<b>${escapeHtml(picked.allyNames.join(' / '))}</b><br>`;
+    html += `六大派阵容：<b>${escapeHtml(picked.lineup.join(' / '))}</b><br>`;
     html += `seed：<b>${picked.seed}</b>　回合数：<b>${res.rounds}</b>　胜方：<b>${res.winner || '平局（到回合上限）'}</b><br>`;
     html += `明教存活：${escapeHtml(aliveAlly.join('、') || '无')}<br>`;
     html += `六大派存活：${escapeHtml(aliveEnemy.join('、') || '无')}<br>`;
-    html += '胖远桥技能触发：';
+    html += '技能触发：';
     for (const k of KEYWORDS) {
-        const n = collector.hits[k] || 0;
-        html += `<span class="${n > 0 ? 'hit' : ''}">${k} ${n} 次</span>　`;
+        const n = collector.hits[k.label] || 0;
+        html += `<span class="${n > 0 ? 'hit' : ''}">${k.label} ${n} 次</span>　`;
+    }
+    for (const k of FACT_KEYS) {
+        const n = factCount[k.fact] || 0;
+        html += `<span class="${n > 0 ? 'hit' : ''}">${k.label} ${n} 次</span>　`;
     }
     html += `<br>事实类型数：<b>${Object.keys(factCount).length}</b>`;
     html += '</div>';
@@ -214,9 +259,17 @@ async function runOne(wantName) {
     if (collector.lines.length > 0) {
         html += '<div class="log">' + collector.lines.map(l => `<div>${l}</div>`).join('') + '</div>';
     } else {
-        html += '<div class="empty">本局未采集到胖远桥技能文案（该阵容里胖远桥可能早早阵亡，或本局没打到他）</div>';
+        html += '<div class="empty">本局未采集到技能文案（该角色可能早早阵亡，或本局没触发）</div>';
     }
     resultOne.innerHTML = html;
+}
+
+async function guard(fn) {
+    lockButtons(true);
+    resultOne.innerHTML = '<div class="empty">运行中…</div>';
+    try { await fn(); }
+    catch (e) { resultOne.innerHTML = `<div class="empty" style="color:#f44336">出错：${escapeHtml(e.message)}</div>`; }
+    finally { lockButtons(false); }
 }
 
 // ==================== 绑定 ====================
@@ -231,21 +284,10 @@ btnSample.addEventListener('click', async () => {
     } finally { lockButtons(false); }
 });
 
-btnOnePang.addEventListener('click', async () => {
-    lockButtons(true);
-    resultOne.innerHTML = '<div class="empty">运行中…</div>';
-    try { await runOne(PANG); }
-    catch (e) { resultOne.innerHTML = `<div class="empty" style="color:#f44336">出错：${escapeHtml(e.message)}</div>`; }
-    finally { lockButtons(false); }
-});
-
-btnOneSong.addEventListener('click', async () => {
-    lockButtons(true);
-    resultOne.innerHTML = '<div class="empty">运行中…</div>';
-    try { await runOne(SONG); }
-    catch (e) { resultOne.innerHTML = `<div class="empty" style="color:#f44336">出错：${escapeHtml(e.message)}</div>`; }
-    finally { lockButtons(false); }
-});
+btnOnePang.addEventListener('click', () => guard(() => runOne({ stage: STAGE3, wantName: PANG })));
+btnOneSong.addEventListener('click', () => guard(() => runOne({ stage: STAGE3, wantName: SONG })));
+btnOneMiejue.addEventListener('click', () => guard(() => runOne({ stage: STAGE7, wantName: MIEJUE })));
+btnOneXie.addEventListener('click', () => guard(() => runOne({ stage: STAGE3, wantName: XIE, forceXie: true })));
 </script>
 </body>
 </html>
