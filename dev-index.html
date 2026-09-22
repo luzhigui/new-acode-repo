@@ -1,10 +1,10 @@
 ﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿<!DOCTYPE html>
-<!-- V6.2.0 | ~12200 bytes | 2026-09-22 demo 入口由几乎看不见的「·」改为可辨认的「🥷 demo」（18px） -->
+<!-- V6.3.0 | ~12400 bytes | 2026-09-22 新角色实战 demo：主入口加「胖远桥 / 灭绝师太 / 谢逊」三按钮（进 index.html 真打一局），移除 demo-stage3.html 入口 -->
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>⚔️ 光明顶5v5 · 开发集成入口 V6.1.0</title>
+    <title>⚔️ 光明顶5v5 · 开发集成入口 V6.3.0</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; -webkit-touch-callout: none; }
         body {
@@ -48,9 +48,7 @@
         .toggle-section { cursor: pointer; user-select: none; }
         .toggle-section:hover { color: #ffd700; }
         .footer { text-align: center; margin-top: 20px; color: #666; font-size: 0.75rem; }
-        /* 隐藏入口：第三关轮换 demo。低调但仍可辨认（纯色不刺眼，悬停变金色） */
-        .secret { color: #4a4a70; font-size: 18px; cursor: pointer; user-select: none; }
-        .secret:hover { color: #ffd700; }
+        /* 隐藏入口样式已随 demo-stage3.html 一并移除 */
     </style>
 </head>
 <body>
@@ -70,6 +68,12 @@
                 <div style="display:flex;gap:0;margin-bottom:10px;">
                     <button class="big-btn btn-play" id="btnZhangWuji" style="flex:1;border-radius:10px 0 0 10px;background:linear-gradient(135deg, #ffd700, #ffaa00);">☀️ 张无忌</button>
                     <button class="big-btn btn-play" id="btnWeiYixiao" style="flex:1;border-radius:0 10px 10px 0;background:linear-gradient(135deg, #6a0dad, #4b0082);">🦇 韦一笑</button>
+                </div>
+                <!-- 新角色实战 demo：点按钮 → 设好条件 → 进 index.html 真打一局 -->
+                <div style="display:flex;gap:0;margin-bottom:10px;">
+                    <button class="big-btn btn-play" id="btnPangYuanQiao" style="flex:1;border-radius:10px 0 0 10px;background:linear-gradient(135deg, #a1887f, #4e342e);">🥷 胖远桥</button>
+                    <button class="big-btn btn-play" id="btnMieJue" style="flex:1;background:linear-gradient(135deg, #b0bec5, #546e7a);">🗡️ 灭绝师太</button>
+                    <button class="big-btn btn-play" id="btnXieXun" style="flex:1;border-radius:0 10px 10px 0;background:linear-gradient(135deg, #f9a825, #e65100);">🦁 谢逊</button>
                 </div>
                 <button class="big-btn btn-play" id="btnBugMode" style="background:linear-gradient(135deg, #ff5252, #b71c1c);">🐛 Bug模式</button>
                 <button class="big-btn btn-play" id="btnShop" style="background:linear-gradient(135deg, #ff9800, #f57c00);">🏪 圣火令商店</button>
@@ -96,12 +100,9 @@
             <button class="big-btn btn-music muted" id="btnBGM">🔇 背景音乐：已暂停</button>
         </div>
 
-        <!-- 隐藏入口：demo-stage3.html（新角色 demo：胖远桥 / 灭绝师太 / 谢逊） -->
-        <div style="text-align: center; margin-top: 10px;">
-            <span class="secret" id="btnDemoStage3" title="新角色 demo · 胖远桥 / 灭绝师太 / 谢逊">🥷 demo</span>
-        </div>
+        <!-- 新角色实战 demo：胖远桥（第3关）/ 灭绝师太（第7关）/ 谢逊（明教）——三个按钮已并入主入口 -->
 
-        <div class="footer">光明顶5v5 · 开发集成入口 V6.1.0 <span id="devStamp2"></span></div>
+        <div class="footer">光明顶5v5 · 开发集成入口 V6.3.0 <span id="devStamp2"></span></div>
     </div>
 
     <script>
@@ -144,9 +145,31 @@
         document.getElementById('btnTools').addEventListener('click', () => {
             window.open('tools/102-toolkit.html', '_blank');
         });
-        // 隐藏入口：第三关阵容轮换 + 胖远桥 demo
-        document.getElementById('btnDemoStage3').addEventListener('click', () => {
-            window.open('demo-stage3.html', '_blank');
+        // 新角色实战 demo：清掉其他 demo 开关 → 设自己的 → 进游戏真打一局
+        // 开关由 index.html 的 ui/60main-utils.js 读取（读完即删，一次性）
+        function clearDemoFlags() {
+            localStorage.removeItem('_forcePang');
+            localStorage.removeItem('_forceXieXun');
+            localStorage.removeItem('_startStage');
+        }
+        document.getElementById('btnPangYuanQiao').addEventListener('click', () => {
+            clearDemoFlags();
+            localStorage.setItem('_forcePang', '1');   // 第三关必出胖远桥（否则二选一随机）
+            localStorage.setItem('_startStage', '3');
+            localStorage.removeItem('_bugMode');
+            window.open('index.html', '_blank');
+        });
+        document.getElementById('btnMieJue').addEventListener('click', () => {
+            clearDemoFlags();
+            localStorage.setItem('_startStage', '7');  // 第七关敌方主将就是灭绝师太
+            localStorage.removeItem('_bugMode');
+            window.open('index.html', '_blank');
+        });
+        document.getElementById('btnXieXun').addEventListener('click', () => {
+            clearDemoFlags();
+            localStorage.setItem('_forceXieXun', '1'); // 明教侧固定加入谢逊（站 7 号位）
+            localStorage.removeItem('_bugMode');
+            window.open('index.html', '_blank');
         });
         document.getElementById('btnReadme').addEventListener('click', () => {
             location.href = 'README.md';

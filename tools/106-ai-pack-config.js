@@ -1,3 +1,4 @@
+// V6.0.11 | ~10980 bytes | 2026-09-22 移除已删除的 demo-stage3.html 登记
 // V6.0.10 | ~11000 bytes | 2026-09-22 登记 demo-stage3.html（第三关阵容轮换 + 胖远桥 demo 页，dev-index 隐藏入口）
 // V6.0.9 | ~10900 bytes | 2026-09-22 登记 tools/118-import-export-check.mjs（node 直跑：import/export 具名绑定对账，配合 103 白名单新增 .mjs）
 // V6.0.8 | ~10800 bytes | 2026-09-22 补登记漏登 3 个运行必需文件：core/19unit-watch.js、infra/52-clock.js、infra/59-state-change.js（103 复制器与分包脚本均派生自本表，三者长期未随包发出）；顺带删掉 core/06battle-runner.js 重复行
@@ -7,7 +8,7 @@
 // V6.0.4 | 2026-09-13 登记 tools/106b-server.js（本地静态服务器，供 file:// 下启用目录直写）
 // V6.0.3 | 2026-09-11 补清单漏登9个正式文件：ui/71-74（引导+三套开场CG）、player/48-49、fx/90、tests/123static-scan、tests/124rule-recipes
 // V6.0.2 | 2026-09-09 拆出 player/ 为独立「播放器」组（引擎 46→38）
-export const VER = 'tools/106-ai-pack-config.js V6.0.10';
+export const VER = 'tools/106-ai-pack-config.js V6.0.11';
 
 // AI 复制包踢除清单（103-toolkit.js 的 FILES 过滤会无条件跳过这里的文件）
 // 2026-09-04 用户决定不再精简：特效/音效/错误面板/入口页全部随包发送。
@@ -114,7 +115,7 @@ export const ALL_PROJECT_FILES = [
     '../assets/icon-source.webp',
     // 根目录（入口与设计文档）
     // 注意：中文文件名（记录-更改履历.md、待办-bug待修.md）在手机上 fetch 会卡住，已从清单剔除
-    '../index.html', '../dev-index.html', '../demo-stage3.html'
+    '../index.html', '../dev-index.html'
     // 备注：README.md 已不再复制（网页端粘贴不需要它）；其余 MD 文档已归档到 文件汇总20260730/，不参与自动复制
 ];
 
@@ -125,7 +126,7 @@ export const ALL_PROJECT_FILES = [
 // 工具：tools
 // 体检：tests
 export const FILE_GROUPS = [
-    { name: 'engine', displayName: '引擎', prefixes: ['../infra/', '../core/', '../modules/', '../render/', '../content/', '../index.html', '../dev-index.html', '../demo-stage3.html'] },
+    { name: 'engine', displayName: '引擎', prefixes: ['../infra/', '../core/', '../modules/', '../render/', '../content/', '../index.html', '../dev-index.html'] },
     { name: 'player', displayName: '播放器', prefixes: ['../player/'] },
     { name: 'ui', displayName: 'UI（画面特效等）', prefixes: ['../ui/', '../fx/'] },
     { name: 'tools', displayName: '工具', prefixes: ['../tools/'] },

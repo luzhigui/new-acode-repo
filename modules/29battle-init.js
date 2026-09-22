@@ -1,5 +1,5 @@
-// V6.3.0 | ~21400 bytes | 2026-09-22 ① squadVariants 升级为 { squad, posTemplate? }：阵容与站位成套（胖远桥阵容换武当七侠、独立站位）② 胖远桥固定 2 号位
-export const VER = 'modules/29battle-init.js V6.3.0';
+// V6.4.0 | ~21900 bytes | 2026-09-22 新增 forcePang：第三关必定抽含「胖远桥」的阵容变体（demo 用；照抽一次 RNG 保持流一致）
+export const VER = 'modules/29battle-init.js V6.4.0';
 
 import { CONFIG } from '../core/01config-5v5-test.js';
 import { Unit, applyHeroFlags, HERO_FLAGS } from '../core/02unit.js';
@@ -240,7 +240,15 @@ export function initBattleTeams(currentStage, _rng) {
     const squadVariants = C.ENCOUNTER_VARIANTS[currentStage];
     let variantPosTemplate = null;
     if (squadVariants && squadVariants.length > 0) {
-        const variant = squadVariants[_rng.nextInt(0, squadVariants.length - 1)];
+        // 先抽再判：forcePang 时即使覆盖结果也照抽一次，保证 RNG 流与不强制时一致（PVP 双端同源）
+        const roll = _rng.nextInt(0, squadVariants.length - 1);
+        const forcePang = GlobalStore.get('forcePang') || localStorage.getItem('_forcePang') === '1';
+        let variant = squadVariants[roll];
+        if (forcePang) {
+            const target = squadVariants.find(v => v.squad.some(it => it && it.name === '胖远桥'));
+            if (!target) throw new Error('forcePang 生效，但第三关没有含「胖远桥」的阵容变体');
+            variant = target;
+        }
         enemySquad = variant.squad;
         variantPosTemplate = variant.posTemplate || null;
     }

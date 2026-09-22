@@ -1,5 +1,5 @@
-// V7.6.0 | ~37800 bytes | 2026-09-19 摆位实时同步：bindGrid 交换成功后 syncNetPositions 把本阵营站位发给对面；掉线收口对房主也回封面(hostWaitReconnect，保留房间等对手重连)；联网时房间号角标移到标题栏最左顶掉标题(.header.net-mode)
-export const VER = 'ui/68ui-controls.js V7.6.0';
+// V7.7.0 | ~37900 bytes | 2026-09-22 选关弹窗从 1~6 扩到 1~7（第七关是灭绝师太 demo 关）
+export const VER = 'ui/68ui-controls.js V7.7.0';
 
 // 2026-09-14 打断 63↔68 循环依赖：getState/setState 直接取自 infra/54（63 只做转发）
 import { getState, setState, GlobalStore, getPlayerContext } from '../infra/54-global-store.js';
@@ -569,7 +569,8 @@ export function bindStageSelectButton(currentStageGetter, getState, setState, up
         if (getState.gs() !== 'IDLE') return;
         const currentStage = typeof currentStageGetter === 'function' ? currentStageGetter() : currentStageGetter;
         const buttons = [];
-        for (let i = 1; i <= 6; i++) { buttons.push({ text: i === currentStage ? `第${i}关 ◀` : `第${i}关`, value: i, cls: 'buff' }); }
+        // 2026-09-22 扩到 7：第七关是灭绝师太 demo 关（正常循环仍到第 6 关为止）
+        for (let i = 1; i <= 7; i++) { buttons.push({ text: i === currentStage ? `第${i}关 ◀` : `第${i}关`, value: i, cls: 'buff' }); }
         showModal('选择关卡', buttons, (stage) => {
             if (stage === currentStage) return;
             onAnyButtonClick();
