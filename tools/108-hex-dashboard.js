@@ -1,3 +1,4 @@
+// V6.0.5 | 2026-09-22 关卡范围扩到 7 关（配合主代码新增第 7 关灭绝师太）：allStages 数组 + 进度/ETA 改为按数组长度算，不再写死 6
 // V6.0.4 | 2026-09-20 ①弹窗内自带「自动跑」（复用 101 runAutoBattle，默认 6关×1000 可选 2000，跑完自动出表）
 //        ②OP/WEAK 判定线自适应：标准差 σ（底线 2%）——整体平衡时不判，拉开才判，汇总行显示当前判定线
 // V6.0.3 | 2026-09-20 基准=「所有海克斯各自胜率的平均」（用户拍板）。自检标准：差值列加起来必须正好为 0。
@@ -201,7 +202,7 @@ function openHexDashboard() {
     const sel = mask.querySelector('.hex-hex-runsel');
     const status = mask.querySelector('#hexDashRunStatus');
     const per = parseInt(sel.value, 10) || 500;
-    const total = 6 * per;
+    const total = 7 * per;
     runBtn.disabled = true;
     sel.disabled = true;
     status.textContent = '加载战斗引擎…';
@@ -241,11 +242,12 @@ function openHexDashboard() {
         };
       });
       const poolSize = Math.max(1, (navigator.hardwareConcurrency || 4) - 1);
-      const pending = [1, 2, 3, 4, 5, 6];
+      const allStages = [1, 2, 3, 4, 5, 6, 7];
+      const pending = [...allStages];
       const tick = () => {
         const el = performance.now() - t0run;
-        const eta = doneCount > 0 && doneCount < 6 ? (el / doneCount) * (6 - doneCount) : 0;
-        status.textContent = `⏳ ${doneCount}/6 关完成（${doneCount * per}/${total} 场｜${poolSize} 线程并行）｜已用 ${fmtSec(el)}${doneCount < 6 && doneCount > 0 ? '｜预计还要 ' + fmtSec(eta) : ''}`;
+        const eta = doneCount > 0 && doneCount < allStages.length ? (el / doneCount) * (allStages.length - doneCount) : 0;
+        status.textContent = `⏳ ${doneCount}/${allStages.length} 关完成（${doneCount * per}/${total} 场｜${poolSize} 线程并行）｜已用 ${fmtSec(el)}${doneCount < allStages.length && doneCount > 0 ? '｜预计还要 ' + fmtSec(eta) : ''}`;
       };
       const timer = setInterval(tick, 500);
       const runners = [];

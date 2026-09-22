@@ -29,7 +29,7 @@ PORT = 8000
 URL = f'http://localhost:{PORT}/tests/120test-runner.html'
 
 BUDGET = int(sys.argv[1]) if len(sys.argv) > 1 else 180   # 脚本最多等多久(秒)
-STAGES = int(sys.argv[2]) if len(sys.argv) > 2 else 6      # 目标关
+STAGES = int(sys.argv[2]) if len(sys.argv) > 2 else 7      # 目标关
 SPEED = int(sys.argv[3]) if len(sys.argv) > 3 else 100     # 游戏速度 100=8x
 
 

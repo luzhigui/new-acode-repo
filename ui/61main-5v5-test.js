@@ -1,5 +1,5 @@
-// V6.11.0 | ~44600 bytes | 2026-09-19 摆位实时同步：syncNetPositions/applyPosUpdate(posUpdate 只搬位置不动准备状态)；房主掉线收口 hostWaitReconnect(回封面保留房间)；修 coverRef 越作用域(ReferenceError)；从机「返回封面」不断连等房主下一关；退出联网 clearNetBadge 让回标题
-export const VER = 'ui/61main-5v5-test.js V6.11.0';
+// V6.12.0 | ~44700 bytes | 2026-09-22 关卡循环扩到 7 关（第 7 关灭绝师太）：三处 6 → 7
+export const VER = 'ui/61main-5v5-test.js V6.12.0';
 
 import '../infra/54-global-store.js';
 import { GlobalStore } from '../infra/54-global-store.js';
@@ -560,7 +560,7 @@ document.addEventListener('DOMContentLoaded', async function() {
             updateButtons();
             if (getState.autoLevel() === 'full-auto' && getState.gs() === 'GAMEOVER' && !GlobalStore.get('pvpMode')) {
                 setTimeout(() => {
-                    if (getState.currentStage() < 6) document.getElementById('btnMain').click();
+                    if (getState.currentStage() < 7) document.getElementById('btnMain').click();
                 }, 3500);
             }
         };
@@ -575,7 +575,7 @@ document.addEventListener('DOMContentLoaded', async function() {
 
                 // 关卡推进
                 const curStagePvp = GlobalStore.get('currentStage');
-                if(curStagePvp >= 6){
+                if(curStagePvp >= 7){
                     setStage(1);
                     GlobalStore.set('_hasPlayedFair', false);
                 } else {
@@ -612,7 +612,7 @@ document.addEventListener('DOMContentLoaded', async function() {
 
             // 关卡推进
             const curStage = GlobalStore.get('currentStage');
-            if(curStage >= 6){
+            if(curStage >= 7){
                 setStage(1);
                 GlobalStore.set('_hasPlayedFair', false);
             } else {
