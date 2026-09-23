@@ -1,5 +1,5 @@
-// ~24450 bytes | V6.3.2 | 2026-09-23 谢逊幼狮加 🐱 图标
-export const VER = 'render/32-grid-render.js V6.3.2';
+// ~24600 bytes | V6.3.4 | 2026-09-23 小昭·妹图标随职业；胖远桥国字脸生效期间顶 🐷
+export const VER = 'render/32-grid-render.js V6.3.4';
 
 import { getUnitCol, getUnitRow, getAuraBonuses, getDodgeRules, fmtHp } from '../infra/51-core-utils.js';
 import { CONFIG, getSkillDesc } from '../core/01config-5v5-test.js';
@@ -207,6 +207,9 @@ export function renderGrid(id, camp) {
     let activeBuffs = ctx ? (ctx.activeBuffs || []) : [];
     let allyTeam = (store && store.getState) ? store.getState().units.filter(u => u.camp === CAMP_TYPES.ALLY) : selectOrStore(ctx, 'allyTeam');
     let doubleStrikeUid = ctx ? ctx.currentDoubleStrikeUid : null;
+    // 2026-09-23 胖远桥·正义国字脸生效期间：本回合有敌人被锁定 → 他头顶换 🐷 嘲讽脸（回合级标记，回合开始自清）
+    const pangTauntUnits = (store && store.getState) ? store.getState().units : allyTeam.concat(selectOrStore(ctx, 'enemyTeam'));
+    const pangTaunting = pangTauntUnits.some(u => u && u.alive && u.state && u.state._tauntedByPang);
 
     for (let i = 0; i < displayOrder.length; i++) {
         let pos = displayOrder[i], unit = team.find(c => c.pos === pos && c.alive) || team.find(c => c.pos === pos);
@@ -224,7 +227,7 @@ export function renderGrid(id, camp) {
                     div.style.border = '2px solid transparent';
                     div.style.boxShadow = 'none';
                 } else if (effectiveFlyMode === 'ghost') {
-                    let roleIcon = unit.isXiaoZhaoSister ? '🦋' : (unit.isXiaoZhaoBrother ? '🕷️' : (unit.role===ROLE_TYPES.WARRIOR?'⚔️':(unit.role===ROLE_TYPES.DEFENDER?'🛡️':(unit.role===ROLE_TYPES.RANGED?'🏹':'🦅'))));
+                    let roleIcon = unit.isXiaoZhaoSister ? '🦋' : ((unit.isPangYuanQiao && pangTaunting) ? '🐷' : (unit.role===ROLE_TYPES.WARRIOR?'⚔️':(unit.role===ROLE_TYPES.DEFENDER?'🛡️':(unit.role===ROLE_TYPES.RANGED?'🏹':'🦅'))));
                     div.innerHTML = `<span class="cell-icon">${roleIcon}</span><div class="cell-info"><span class="cell-name">${unit.name}</span><span class="cell-stats">攻${Math.floor(getStat(unit,'atk'))} 防${Math.floor(getStat(unit,'def'))} 血${fmtHp(unit.hp)}</span></div>`;
                     div.style.opacity = '0.5';
                     div.style.background = 'rgba(30,100,255,0.28)';
@@ -284,11 +287,14 @@ export function renderGrid(id, camp) {
         if (isStunned && !isDead) roleIcon = '😵';
         else if (unit.isZhang && !unit.rangedForm) roleIcon = '⚔️';
         else if (unit.isHorse) roleIcon = '🐴';
-        // 小昭姊/妹恒显示身份图标（妹妹每回合蛛变，职业图标会跳来跳去，身份比职业更有辨识度）
+        // 小昭·姊恒显示身份图标（蝴蝶形态唯一，不随职业变化）
         else if (unit.isXiaoZhaoSister) roleIcon = '🦋';
-        else if (unit.isXiaoZhaoBrother) roleIcon = '🕷️';
         // 谢逊幼狮：无攻击能力，用 🐱 与其它单位区分（雄狮/母狮成长后自动回到职业图标）
         else if (unit.isLionCub) roleIcon = '🐱';
+        // 胖远桥·正义国字脸生效期间顶 🐷（嘲讽脸），一眼看出本回合敌人都被锁在他身上
+        else if (unit.isPangYuanQiao && pangTaunting) roleIcon = '🐷';
+        // 2026-09-23 小昭·妹不再固定 🕷️：蛛变后要跟着职业图标走（远程🏹/战士⚔️/防战🛡️/飞行🦅）。
+        //   蛛形只存在于飞天遁走窗口，那段由上方 _flyMode==='spider' 分支渲染，这里不拦。
         else roleIcon = unit.role===ROLE_TYPES.WARRIOR?'⚔️':(unit.role===ROLE_TYPES.DEFENDER?'🛡️':(unit.role===ROLE_TYPES.RANGED?'🏹':'🦅'));
 
         let displayName = unit.name;
