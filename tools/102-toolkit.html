@@ -154,8 +154,13 @@
         .elite-progress { color: #4fc3f7; font-size: 12px; min-height: 20px; margin-bottom: 10px; }
         .elite-empty { color: #888; text-align: center; margin-top: 12px; }
         table.elite-table { width: 100%; border-collapse: collapse; font-size: 12px; background: #16213e; border: 1px solid #333; border-radius: 10px; overflow: hidden; }
-        .elite-table th { background: #2a2a4e; color: #ffd700; padding: 8px; text-align: center; }
-        .elite-table td { padding: 6px 8px; border-bottom: 1px solid #333; color: #ccc; text-align: center; }
+        .elite-table th { background: #2a2a4e; color: #ffd700; padding: 8px 4px; text-align: center; }
+        .elite-table td { padding: 6px 4px; border-bottom: 1px solid #333; color: #ccc; text-align: center; }
+        /* 2026-09-24 手机窄屏适配：仅精英评测表用——锁宽+均分列宽+该折就折，不再横向溢出。
+           113/114/115 的宽表（12列/10列）共用 .elite-table 但不挂 fit 类，保持原有横向滚动行为 */
+        table.elite-table-fit { table-layout: fixed; }
+        .elite-table-fit th, .elite-table-fit td { overflow-wrap: anywhere; }
+        .elite-table-fit .elite-th, .elite-table-fit .elite-stage { white-space: normal; }
         .elite-th { white-space: nowrap; }
         .elite-stage { color: #ffd700; font-weight: bold; white-space: nowrap; }
         .elite-cell { padding: 6px 10px; text-align: center; line-height: 1.65; }

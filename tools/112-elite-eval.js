@@ -87,7 +87,9 @@ startBtn.addEventListener('click', async () => {
 });
 
 function renderResults(byStage, stages) {
-    let html = '<table class="elite-table"><tr><th>关卡</th>';
+    let html = '<table class="elite-table elite-table-fit"><colgroup><col style="width:64px">';
+    for (const cfg of configs) html += '<col>';
+    html += '</colgroup><tr><th>关卡</th>';
     for (const cfg of configs) html += `<th class="elite-th">${cfg.name}</th>`;
     html += '</tr>';
 
