@@ -135,12 +135,12 @@
         "rageOnHit": {
           "name": "莽撞",
           "desc": "每次被攻击后自身攻击力+{atkPerHit}，永久累计、无上限",
-          "params": { "atkPerHit": 3 }
+          "params": { "atkPerHit": 2 }
         },
         "righteousFace": {
           "name": "正义国字脸",
           "desc": "每次攻击前与「年轻气盛」二选一（血量越高越容易发动）：全体敌人本回合后续只能攻击自己，且对其伤害×{dmgMultiplier}",
-          "params": { "dmgMultiplier": 0.5 }
+          "params": { "dmgMultiplier": 0.4 }
         },
         "youngBlood": {
           "name": "年轻气盛",

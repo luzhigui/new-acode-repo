@@ -1,5 +1,5 @@
-// V6.11.0 | ~22000 bytes | 2026-09-23 胖远桥改版：嘲讽/打歪合并为攻击前二选一（正义国字脸全体嘲讽+减半 / 年轻气盛随机×1.5+击退眩晕），莽撞 +3
-export const VER = 'modules/26elite-sixsects.js V6.11.0';
+// V6.11.2 | ~22000 bytes | 2026-09-23 莽撞 +3→+2；正义国字脸减伤 0.5→0.4（计算行标签维持技能名）
+export const VER = 'modules/26elite-sixsects.js V6.11.2';
 import { registerElite } from '../core/08-elite-registry.js';
 import { CONFIG, getSkillParams } from '../core/01config-5v5-test.js';
 import { SIGNAL_TYPES, FACT_TYPES, BUFF_TYPES, CAMP_TYPES, ROLE_TYPES } from '../infra/56-battle-enums.js';

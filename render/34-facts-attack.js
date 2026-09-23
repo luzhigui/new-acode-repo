@@ -1,5 +1,5 @@
 // render/34-facts-attack.js — fact 渲染域：攻击流程
-// V1.0.0 | ~14500 bytes | 2026-09-22 从 render/30 拆出（攻击/未命中/闪避/免疫/空目标/掉落/破防/击杀行）
+// V1.0.1 | ~14600 bytes | 2026-09-23 计算行补乘数 <1 的项（嘲讽减伤），格式改为「×0.4 嘲讽=8」
 //
 // 归属判据：这条 fact 描述「一次攻击的经过与结果」，不含 buff / 精英技能衍生。
 // 加新攻击类 fact：在本文件写函数 + registerFactRenderer 一行，不碰 render/30。
@@ -138,7 +138,8 @@ export function renderAttackFact(fact) {
     // 不再自己调 calcDamage / 查 FANG_K / 反推 baseRaw —— 那会和引擎的实时值打架。
     let formulaText = '';
     const fmtBonusEntries = (dmgCalc.bonusDmgEntries || []).filter(e => e.value > 0);
-    const fmtMultiplierEntries = (dmgCalc.dmgMultiplierEntries || []).filter(e => e.value > 1);
+    // 2026-09-23 乘数不再只显示 >1：嘲讽减伤（×0.4）也必须落在计算行上，否则玩家看不到伤害为何变小
+    const fmtMultiplierEntries = (dmgCalc.dmgMultiplierEntries || []).filter(e => e.value !== 1);
     const fm = dmgCalc.formula;
     let runningRaw = fm ? fm.baseRaw : 0;
     if (fm) formulaText = `${fm.terms.map(t => t.text).join(' + ')} = ${fm.baseRaw}`;
@@ -148,7 +149,7 @@ export function renderAttackFact(fact) {
     }
     for (const e of fmtMultiplierEntries) {
         runningRaw = Math.round(runningRaw * e.value);
-        formulaText += ` ×${e.label}${e.value} = ${runningRaw}`;
+        formulaText += ` ×${e.value} ${e.label}=${runningRaw}`;
     }
     group.entries.push({type:'detail', isDamageCalc:true, text:`<span class="gray small">计算：${formulaText}</span>`});
     group.entries.push({
