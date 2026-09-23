@@ -1,9 +1,24 @@
-// V6.1.26 | ~30500 bytes | 2026-09-22 规则回放自检（开发用 runner，不参与游戏运行）
+// V6.1.27 | ~43300 bytes | 2026-09-22 规则回放自检（开发用 runner，不参与游戏运行）
 // 用法：node tests/rules-replay.mjs           （默认 20 个种子 × 1~6 关 = 120 场）
 //      SEEDS=1,2,3 STAGES=2,4 node tests/rules-replay.mjs
 //      KEYWORDS=新婚|苦练 node tests/rules-replay.mjs   （额外统计战报文本关键字命中数）
 //      DEAD=1 node tests/rules-replay.mjs              （严格模式：有恒 skip 空转规则即非 0 退出）
 //      PROBE_ZERO=a,b,c  node tests/rules-replay.mjs   （产出点取证自检：对任意名字跑一遍分类，可传合成名做负向测试）
+//      PROBE_RENDER=a,b  node tests/rules-replay.mjs   （渲染产出自检：对任意名字按同一判据跑一遍"渲染器给没给条目"）
+//
+// V6.1.27 修复：fact 覆盖直方图补「渲染产出口径」——补齐复盘报告第 3 轮问题 A 的另一半。
+//   V6.1.25/1.26 解决的是「引擎有没有把 fact 写进日志」（fact 树口径），但规则消费的既不是
+//   原始 fact 也不是 fact 树，而是 **render/30 渲染出来的条目**。中间还隔着一道 renderLog：
+//   render/30 L827-836 未知 factType 直接 `console.error` + `return null`、渲染器缺失则 throw、
+//   渲染器也可能返回 null/空数组 —— 这几种情况**引擎明明产出了，规则却一条都看不见**，
+//   表现和"业务侧没产出"完全一样，正是第 4/5 轮把 129/134/141/143 误判成交业务侧的最后一环。
+//   现对每个 fact 节点（顶层 + 嵌套）**逐一调 renderLog 取证**，统计三个口径：
+//   引擎产出(factHist) / 渲染条目数(renderOk) / 渲染返回空(renderNull) / 渲染抛错(renderErr)，
+//   并新增【渲染未产出条目】清单。至此"零产出"只剩"引擎或渲染器真没给"这一类，人工四类自查成为历史。
+//   为什么不给条目打 `_factType` 标签（复盘原建议）：① 嵌套子条目由 render/30 内部
+//   `projectFactEntry` 渲染（L200-204），回放侧拿不到「子条目 ↔ 子 fact」的对应关系，
+//   只能拿父 factType 顶包 → 归因反而更假；② 给条目加字段等于给规则开一个**生产环境不存在**的依赖口子，
+//   规则一旦读了它，浏览器里恒不命中 → 制造新的恒 skip。按 fact 节点逐个探测则两者都避开了。
 //
 // V6.1.26 修复：零产出清单**自动归因**——旧口径把 zeroFacts 一律打成 ⚠ 并附一段"四类成因自查"的文字，
 //   但那四类里偏偏漏了最常见的一类：**本批次回放没跑到该分支**（120 场的阵容/条件没触发）。
@@ -192,9 +207,13 @@ function runCase(seed, stage) {
             for (const f of step.log || []) {
                 if (!f || !f.factType) continue;
                 noteFact(f.factType, false);
-                collectNestedFacts(f.data, 0, new WeakSet());
+                // V6.1.27：顶层 fact 的渲染产出由 probeRender 取证并**复用其返回值**拼日志，
+                //   避免同一 fact 渲染两次（一次取证一次入日志）导致耗时翻倍。
+                //   顺序上有讲究：**先渲顶层再探嵌套**——嵌套子 fact 的探测是"多渲一遍"，
+                //   放在顶层渲染之后，保证拼日志那次渲染看到的 data 与旧实现完全一致
+                //   （万一某个渲染器会改写 data，也不会污染战报本身；诊断不该反过来影响被测对象）。
                 try {
-                    const e = renderLog(f.factType, f.data);
+                    const e = probeRender(f.factType, f.data);
                     // 与生产侧 player/42player-core.js L316-319 同口径：renderLog 可返回**条目数组**
                     // （如 ZHANG_SWITCH 一次返回"切换形态 + 语音"两条），必须展开后逐条入日志。
                     // 旧实现 `if (e) log.push(e)` 把整条数组当成**一个**条目塞进 log —— 该条目既无
@@ -202,6 +221,9 @@ function runCase(seed, stage) {
                     if (Array.isArray(e)) { for (const one of e) { if (one) log.push(one); } }
                     else if (e) log.push(e);
                 } catch (e) { /* 单条渲染失败不阻断 */ }
+                // 嵌套子 fact 只取证、不入日志（它们本就由父 fact 的渲染器经 projectFactEntry
+                // 装进 attack-group.entries，再入一次就重复了）
+                collectNestedFacts(f.data, 0, new WeakSet(), probeRender);
             }
             if (step.winner) winner = step.winner;
         }
@@ -246,6 +268,36 @@ function noteFact(t, nested) {
     if (nested) factHistNested[t] = (factHistNested[t] || 0) + 1;
     else factHistTop[t] = (factHistTop[t] || 0) + 1;
 }
+// --- V6.1.27 渲染产出口径：引擎写了 fact ≠ 规则看得见条目 ---
+// 三个口径分得很清，混在一起就是第 4~6 轮连续误判的根源：
+//   factHist   —— 引擎有没有把 fact 写进 step.log（V6.1.25 起含嵌套子 fact）
+//   renderOk   —— renderLog 真正给出了几条条目（规则能看见的量）
+//   renderNull —— renderLog 返回 null/undefined/空数组（render/30 L828-830 未知类型即此路）
+//   renderErr  —— renderLog 抛错（渲染器缺失 / 契约字段缺失）
+// 注意：嵌套子 fact 会被渲染**两次**（父 fact 的渲染器内部 projectFactEntry 一次、本探测一次）。
+//   这是刻意的——父渲染器对子条目有选择权（如 render/30 L200 单独处理 BREAK_DEF），
+//   本口径问的是"渲染器**能不能**为这个 fact 产出条目"，与父渲染器这次用没用它无关，
+//   所以两边计数不等属于正常，不是 bug；但因此 renderOk 会高于最终日志里的条目数，看绝对值时要记住。
+const renderOk = {};    // factType -> renderLog 给出的条目总数
+const renderNull = {};  // factType -> renderLog 返回空的 fact 次数（引擎产出但规则一条都看不见）
+const renderErr = {};   // factType -> renderLog 抛错次数
+const renderErrMsg = {};// factType -> 首条抛错原文（取证用：只给现象不给原因的清单等于没查，第 8 轮教训）
+// 对单个 fact 节点取证渲染产出，返回 renderLog 原值（顶层 fact 要用它拼日志）。
+// 抛错按"渲染未产出"计入，但不吞掉——顶层 fact 的调用方仍需拿到 null 走原有兜底。
+function probeRender(t, data) {
+    let out;
+    try {
+        out = renderLog(t, data);
+    } catch (e) {
+        renderErr[t] = (renderErr[t] || 0) + 1;
+        if (!renderErrMsg[t]) renderErrMsg[t] = (e && e.message ? e.message : String(e)).slice(0, 160);
+        return null;
+    }
+    const arr = Array.isArray(out) ? out.filter(Boolean) : (out ? [out] : []);
+    if (arr.length) renderOk[t] = (renderOk[t] || 0) + arr.length;
+    else renderNull[t] = (renderNull[t] || 0) + 1;
+    return out;
+}
 // 递归收集父 fact 里内嵌的子 fact。三个守卫，各自必要性已用对照变体实测（第 8 轮探针）：
 //   ① WeakSet 防环 —— **已被证明是必需的**：去掉后 120 场里 qianKunUpgraded 1531→4593、
 //      qianKunBasic 6→18（同一子 fact 从多条路径可达 → 重复计数）。战斗数据里单位对象互相引用，
@@ -255,22 +307,37 @@ function noteFact(t, nested) {
 //      而声明对象里直接挂着 step.log 本体的引用（modules/27 L256/L485 `{ …, log: data.log }`）……
 //      一旦跟着它走，整条 step.log 会被当成"子 fact"重复计入。
 //   ③ depth ≤ 8 —— 同样实测未生效（计数逐条相同），作为遍历深度上界保留。
-function collectNestedFacts(node, depth, seen) {
+function collectNestedFacts(node, depth, seen, onFact) {
     if (!node || typeof node !== 'object' || depth > 8) return;
     if (Array.isArray(node)) {
-        for (const v of node) collectNestedFacts(v, depth + 1, seen);
+        for (const v of node) collectNestedFacts(v, depth + 1, seen, onFact);
         return;
     }
     if (seen.has(node)) return;
     seen.add(node);
     if (typeof node.factType === 'string') {
-        noteFact(node.factType, true);
-        collectNestedFacts(node.data, depth + 1, seen);
+        // V6.1.27 判据修正：**声明（declaration）不是 fact**，旧判据 `typeof node.factType === 'string'`
+        //   把两者混为一谈，导致同一个 rebound 被数两遍。证据（120 场路径探针实测）：
+        //     core/12 L349-380 产出的是扁平声明 `{ type: EFFECT_TYPES.REBOUND, ..., factType, factData }`
+        //     —— 注意字段叫 **factData 不叫 data**；core/10 L194-196 才把它转成真正的 fact
+        //     `{ factType: decl.factType, data: decl.factData }` 并 push 进 group.data.entries。
+        //   于是同一条巨马反伤在 fact 树里同时以"声明"和"fact"两种形态存在：
+        //     horseRebound 144 = 72 声明 + 72 fact、fortifyRebound 190 = 30 声明 + 160 fact。
+        //   而 renderLog / projectFactEntry 消费的永远是 `{factType, data}` 形态
+        //   （render/30 L21、player/42 L316），故以「有没有 data」为界：有 data 才算 fact。
+        //   全批次取证：无 data 的 factType 节点**只有**这两类声明，没有真 fact 被误伤。
+        if (node.data && typeof node.data === 'object') {
+            noteFact(node.factType, true);
+            // 把找到的**每个 fact 节点**交给上层做渲染产出取证（嵌套子 fact 也逐个探测，
+            //   否则"渲染器没给条目"这一类会整类漏报——顶层 fact 只是全部 fact 的一小部分）
+            if (onFact) onFact(node.factType, node.data);
+        }
+        collectNestedFacts(node.data, depth + 1, seen, onFact);
         return;
     }
     for (const k of Object.keys(node)) {
         if (k === 'log') continue;
-        collectNestedFacts(node[k], depth + 1, seen);
+        collectNestedFacts(node[k], depth + 1, seen, onFact);
     }
 }
 let cases = 0;
@@ -395,8 +462,9 @@ const zeroFacts = registered.filter(t => !factHist[t]);
 //   约定成 Types 的负值用例：不存在的名字必须落进【孤儿登记】、真实有产出的名字必须落进【本批次未触发】
 const zeroFactsList = process.env.PROBE_ZERO ? process.env.PROBE_ZERO.split(',') : zeroFacts;
 const unknownFacts = produced.filter(t => registered.indexOf(t) === -1);
-console.log(`=== fact 覆盖：本批次产出 ${produced.length} 种 / 契约登记 ${registered.length} 种 ===`);
-console.log(`   计数口径：顶层 fact + 嵌在父 fact data 里的子 fact（V6.1.25）；其中仅以嵌套形式出现的 ${onlyNested.length} 种`);
+console.log(`=== fact 覆盖：本批次引擎产出 ${produced.length} 种 / 契约登记 ${registered.length} 种 / 渲染出条目 ${Object.keys(renderOk).length} 种 ===`);
+console.log(`   引擎计数口径：顶层 fact + 嵌在父 fact data 里的子 fact（V6.1.25）；其中仅以嵌套形式出现的 ${onlyNested.length} 种`);
+console.log('   渲染计数口径（V6.1.27）：对每个 fact 节点单独调 renderLog 取证，与"引擎有没有产出"分列——两者不等号才说明渲染器吞了');
 if (zeroFactsList.length) {
     const probeMode = !!process.env.PROBE_ZERO;
     console.log(`   零产出 factType（${zeroFactsList.length} 种 · 本批次 fact 树上一次未出现，≠ 业务侧数据源缺失${probeMode ? ' · PROBE_ZERO 取证自检模式' : ''}）：`);
@@ -421,6 +489,93 @@ if (zeroFactsList.length) {
     }
 } else {
     console.log('   全部登记 factType 均有产出');
+}
+// --- V6.1.27【渲染未产出条目】：引擎给了、渲染器没给 —— 规则真正看不见的那一类 ---
+// 与上面的【本批次未触发】/【孤儿登记】是并列的三类，且这一类**优先级最高**：
+//   前两类规则至少还可能在别的批次/别的场景下跑到，这一类无论跑多少场都恒为 0 条。
+//   render/30 L828-830 对未知 factType 直接 `console.error` + `return null`、L834 渲染器缺失 throw、
+//   渲染器自身也可能返回 null/空数组 —— 三种都在这里现形。
+const renderZero = produced.filter(t => (renderNull[t] || 0) + (renderErr[t] || 0) > 0)
+    .sort((a, b) => ((renderNull[b] || 0) + (renderErr[b] || 0)) - ((renderNull[a] || 0) + (renderErr[a] || 0)));
+// 静音原因取证：光报"渲染没给条目"是把皮球踢回人工（第 4~6 轮就是这么栽的），必须由机器给出证据。
+//   反查 FACT_SPECS[t].renderFn → 在 render/ 里定位该函数体 → 看有没有显式 `return null`：
+//   有 = 渲染器**有意静音**（如 mindControlBanner "横幅由 stageAction 显示"、spiderStrike "由导演驱动特效"），
+//   这类不是 bug，但对规则侧是**永久盲区**——谁想基于它写规则都会恒 skip；
+//   没有 = 走 switch/条件分支自然落空（如 buffSummary 某 buff 本轮无适用存活单位），属条件性静音。
+async function collectRenderSilence(types) {
+    const ROOT = fileURLToPath(new URL('../', import.meta.url));
+    let list = [];
+    try { list = await readdir(ROOT + 'render/'); } catch (e) { return null; }
+    const texts = [];
+    for (const f of list) {
+        if (!f.endsWith('.js')) continue;
+        try { texts.push(['render/' + f, await readFile(ROOT + 'render/' + f, 'utf8')]); } catch (e) { return null; }
+    }
+    if (!texts.length) return null;
+    const out = {};
+    for (const t of types) {
+        const fnName = (FACT_SPECS[t] || {}).renderFn;
+        if (!fnName) { out[t] = { fn: null, retNull: null }; continue; }
+        let hit = null;
+        for (const [rel, txt] of texts) {
+            const lines = txt.split('\n');
+            for (let i = 0; i < lines.length; i++) {
+                if (!new RegExp('function\\s+' + fnName + '\\s*\\(').test(lines[i])) continue;
+                for (let j = i + 1; j < lines.length; j++) {
+                    if (/^}/.test(lines[j])) break;                 // 函数体结束（顶格 }）
+                    if (/return\s+null\b/.test(lines[j])) { hit = rel + ':' + (j + 1); break; }
+                }
+                if (hit) break;
+            }
+            if (hit) break;
+        }
+        out[t] = { fn: fnName, retNull: hit };
+    }
+    return out;
+}
+if (renderZero.length) {
+    console.log(`   【渲染未产出条目】${renderZero.length} 种 —— 引擎写进日志了，renderLog 却没给出条目：`);
+    console.log('       → 这是**规则真正看不见**的一类；下面是机器取证出的静音性质，先看清再定性，别再当"业务侧缺失"往外甩');
+    const silence = await collectRenderSilence(renderZero);
+    for (const t of renderZero) {
+        const okN = renderOk[t] || 0, nullN = renderNull[t] || 0, errN = renderErr[t] || 0;
+        const kind = okN === 0 ? '渲染器恒无输出' : `条件性静音（${nullN}/${factHist[t]} = ${Math.round(nullN / factHist[t] * 100)}%）`;
+        console.log(`       ✗ ${t}（引擎 ${factHist[t]} 条 · 渲染出条目 ${okN} · 返回空 ${nullN} · 抛错 ${errN}）→ ${kind}`);
+        if (errN > 0) console.log(`           抛错原文：${renderErrMsg[t] || '（未捕获）'}`);
+        const s = silence && silence[t];
+        const alwaysMuted = okN === 0;
+        if (s && s.fn && s.retNull && alwaysMuted) {
+            console.log(`           取证：${s.fn} 恒 return null（${s.retNull}）+ 本批次 0 条产出 —— **有意不落日志**，对规则是永久盲区，别基于它写规则`);
+        } else if (s && s.fn && s.retNull) {
+            console.log(`           取证：${s.fn} 兜底分支 return null（${s.retNull}）—— 属条件性落空（默认分支/适用单位为空），不是恒盲区`);
+        } else if (s && s.fn) {
+            console.log(`           取证：${s.fn} 无显式 return null —— 条件分支自然落空${alwaysMuted ? '，但本批次 0 条产出，需查渲染器' : '，属正常'}`);
+        } else if (s) {
+            console.log('           取证：FACT_SPECS 未登记 renderFn（infra/58 L162 会填 () => null）');
+        } else {
+            console.log('           取证跳过：未能读取 render/ 源码');
+        }
+    }
+} else {
+    console.log('   【渲染未产出条目】0 种 —— 本批次凡引擎产出的 fact 都渲染出了条目');
+}
+// PROBE_RENDER=a,b 渲染产出自检：对任意名字按**同一判据**跑一遍，验证判据不是"一律算有产出"也不是"一律算没产出"。
+//   约定用例：不存在/伪造的名字必须落进"返回空"；真实有产出的名字必须落进"渲染出条目"。
+if (process.env.PROBE_RENDER) {
+    const probeRenderList = process.env.PROBE_RENDER.split(',');
+    console.log(`   PROBE_RENDER 渲染产出自检（${probeRenderList.length} 项）：`);
+    // 每个名字探两次：`{}` 与 `undefined`。后者是**声明（declaration）形态**——V6.1.27 已把声明排除在
+    //   fact 之外，所以正常跑 renderErr 恒 0；这里用 `undefined` 是为了确认**抛错分支本身是通的**
+    //   （不是被吞掉的死代码）：渲染器拿到空 data 会 throw，必须落进 renderErr 而不是静默当 pass。
+    for (const t of probeRenderList) {
+        for (const [label, arg] of [['data={}', {}], ['data=undefined', undefined]]) {
+            const okBefore = renderOk[t] || 0, nullBefore = renderNull[t] || 0, errBefore = renderErr[t] || 0;
+            probeRender(t, arg);
+            const dOk = (renderOk[t] || 0) - okBefore, dNull = (renderNull[t] || 0) - nullBefore, dErr = (renderErr[t] || 0) - errBefore;
+            const verdict = dOk > 0 ? '渲染出条目' : (dErr > 0 ? '抛错' : '返回空');
+            console.log(`       • ${t} [${label}] → ${verdict}（条目 ${dOk} · 返回空 ${dNull} · 抛错 ${dErr}）`);
+        }
+    }
 }
 if (onlyNested.length) {
     console.log(`   仅嵌套出现（${onlyNested.length} 种，顶层 0 条 · 曾被旧口径误报为零产出）：`);
