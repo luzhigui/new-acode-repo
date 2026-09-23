@@ -128,11 +128,15 @@ function runBalanceJob(buildAlly, buildEnemy, seed, hexEnabled) {
 // 一局结束看谁在场，就把这局的结果记给谁（同场共现是真实环境，不是污染）。
 function runEliteStageJob(stage, seed, runs) {
     const agg = {
+        // 明教精英（己方）：胜 = 明教获胜
         '张无忌':  { runs: 0, wins: 0, sumDmg: 0, sumTaken: 0, sumSurv: 0 },
         '韦一笑':  { runs: 0, wins: 0, sumDmg: 0, sumTaken: 0, sumSurv: 0 },
         '小昭·姊': { runs: 0, wins: 0, sumDmg: 0, sumTaken: 0, sumSurv: 0 },
         '小昭·妹': { runs: 0, wins: 0, sumDmg: 0, sumTaken: 0, sumSurv: 0 },
-        '金毛狮王谢逊': { runs: 0, wins: 0, sumDmg: 0, sumTaken: 0, sumSurv: 0 }
+        '金毛狮王谢逊': { runs: 0, wins: 0, sumDmg: 0, sumTaken: 0, sumSurv: 0 },
+        // 敌方精英：胜 = 六大派获胜（明教败局）；第3关阵容在胖远桥/宋青书间轮换，分开归因才看得出谁更难打
+        '胖远桥':  { runs: 0, wins: 0, sumDmg: 0, sumTaken: 0, sumSurv: 0 },
+        '宋青书':  { runs: 0, wins: 0, sumDmg: 0, sumTaken: 0, sumSurv: 0 }
     };
     for (let i = 0; i < runs; i++) {
         clearBattleGlobals(); // 每场清理防 OOM（同时清掉 force 标志，保证本场是纯普通局）
@@ -154,6 +158,19 @@ function runEliteStageJob(stage, seed, runs) {
             const a = agg[name];
             a.runs++;
             if (res.winner === '明教') a.wins++;
+            a.sumDmg += u.dmgDealt || 0;
+            a.sumTaken += u.dmgTaken || 0;
+            if (u.alive) a.sumSurv++;
+        }
+        // 敌方精英归因（2026-09-24 加）：谁在场记给谁，胜 = 六大派获胜
+        for (const u of (res.enemy || [])) {
+            let name = null;
+            if (u.isPangYuanQiao) name = '胖远桥';
+            else if (u.isSongQingshu) name = '宋青书';
+            if (!name) continue;
+            const a = agg[name];
+            a.runs++;
+            if (res.winner === '六大派') a.wins++;
             a.sumDmg += u.dmgDealt || 0;
             a.sumTaken += u.dmgTaken || 0;
             if (u.alive) a.sumSurv++;
