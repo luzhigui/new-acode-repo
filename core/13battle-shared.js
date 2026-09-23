@@ -1,5 +1,5 @@
-// V6.0.1 | ~12200 bytes | 2026-09-11 maxHp 词条化批1：applyMaxHpChange → refreshMaxHp（派生缓存），导出/样板调用点同步
-export const VER = 'core/13battle-shared.js V6.0.1';
+// V6.1.0 | ~13100 bytes | 2026-09-23 新增 resolvePushOrStun（击退/眩晕统一判定，乘风突袭与胖远桥共用）
+export const VER = 'core/13battle-shared.js V6.1.0';
 
 import { CONFIG } from './01config-5v5-test.js';
 import { getRoleBonus } from './02unit.js';
@@ -137,6 +137,32 @@ function moveUnitPosition(unit, newPos, log) {
     // 同上：模块内部用 emitCoreEvent，不用导出别名 emitEvent
     emitCoreEvent(unit, UNIT_EVENT_TYPES.POS_CHANGE, { pos: newPos });
     emitStateChange(unit, STATE_CHANGE_TYPES.POSITION, { fromPos: oldPos, toPos: newPos }, log);
+}
+
+// 击退 / 眩晕统一判定（乘风突袭、胖远桥·年轻气盛共用）：
+//   目标后方一格（pos+3）可用 → 击退：有人则换位、无人则移动；
+//   越界（7/8/9 号位往后推）→ 退无可退，改为眩晕一回合（_stunned 回合级，回合开始自动清）。
+// team 必须是目标自己那一队（换位/落点判断都在本队内找）。
+function resolvePushOrStun(target, team, log, label) {
+    if (!target || !target.alive) return;
+    const behindPos = target.pos + 3;
+    if (behindPos <= 9) {
+        const behindUnit = team.find(u => u.pos === behindPos && u.alive);
+        const oldPos = target.pos;
+        if (behindUnit) {
+            const behindOldPos = behindUnit.pos;
+            swapUnitPositions(target, behindUnit, log);
+            log.push({ factType: FACT_TYPES.WIND_ASSAULT_PUSH, data: { label, target: { uid: target.uid, name: target.name }, behindUnit: { uid: behindUnit.uid, name: behindUnit.name }, oldPos, behindPos, behindOldPos } });
+        } else {
+            moveUnitPosition(target, behindPos, log);
+            log.push({ factType: FACT_TYPES.WIND_ASSAULT_PUSH, data: { label, target: { uid: target.uid, name: target.name }, behindUnit: null, oldPos, behindPos } });
+        }
+        return;
+    }
+    target.state._stunned = true;
+    emitCoreEvent(target, UNIT_EVENT_TYPES.HP_CHANGE, { hp: target.hp, maxHp: target.maxHp, alive: target.alive, atk: getStat(target, 'atk'), def: getStat(target, 'def'), _stunned: true });
+    emitStateChange(target, STATE_CHANGE_TYPES.STUNNED, {}, log);
+    log.push({ factType: FACT_TYPES.PUSH_STUN, data: { label, target: { uid: target.uid, name: target.name }, pos: target.pos } });
 }
 
 function checkZhangSwitch(A, log) {
@@ -295,6 +321,7 @@ export {
     getNextAvailableUnit,
     swapUnitPositions,
     moveUnitPosition,
+    resolvePushOrStun,
     checkZhangSwitch,
     applyStatChange,
     refreshMaxHp,

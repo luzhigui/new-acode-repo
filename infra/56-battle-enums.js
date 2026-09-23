@@ -1,5 +1,5 @@
-// V1.1.0 | ~3200 bytes | 2026-09-22 新增 SUMMON_UNIT / LION_SACRIFICE（谢逊狮子与灭绝召唤）
-export const VER = 'infra/56-battle-enums.js V1.1.0';
+// V1.2.0 | ~3300 bytes | 2026-09-23 新增 PUSH_STUN（击退退无可退转眩晕）
+export const VER = 'infra/56-battle-enums.js V1.2.0';
 
 /** 事实类型：所有 factType 字符串的唯一来源 */
 export const FACT_TYPES = Object.freeze({
@@ -32,6 +32,8 @@ export const FACT_TYPES = Object.freeze({
     BLOOD_THIRST_LEECH: 'bloodthirstLeech', HOT_BLOOD_HEAL: 'hotBloodHeal',
     WIND_ASSAULT_SPLASH: 'windAssaultSplash', WIND_ASSAULT_PUSH: 'windAssaultPush',
     WIND_ASSAULT_FAIL: 'windAssaultFail',
+    // 击退退无可退 → 眩晕（乘风突袭 / 胖远桥·年轻气盛共用）
+    PUSH_STUN: 'pushStun',
     METEOR_SHOWER_MAIN: 'meteorShowerMain', METEOR_SHOWER_SPLASH: 'meteorShowerSplash',
     ROUND_START: 'roundStart', ROUND_END: 'roundEnd',
     DOUBLE_STRIKE_SUMMARY: 'doubleStrikeSummary', ZHANG_TAUNT: 'zhangTaunt',

@@ -1,12 +1,12 @@
 // render/38-actions-translate.js — fact → stageAction 翻译器（翻译域）
-// V1.0.0 | ~26100 bytes | 2026-09-22 从 render/31 拆出：FACT_TRANSLATORS 全表 + 攻击/治疗装配
+// V1.0.1 | ~26500 bytes | 2026-09-23 新增 PUSH_STUN 翻译 + PUSH 携带 label（击退退无可退转眩晕）
 //
 // 加新 fact 的舞台动作：在本文件 FACT_TRANSLATORS 加一条（键=factType），
 // 并在 infra/58 的 translateFn 登记函数名；漏加会在本文件末尾校验循环里报错。
 import { makeFXSnapshot } from '../infra/51-core-utils.js';
 import { STAGE_ACTION_TYPES, FACT_TYPES, CAMP_TYPES, BUFF_EFFECT_TYPES, FLY_MODE_TYPES } from '../infra/56-battle-enums.js';
 import { FACT_SPECS } from '../infra/58-fact-contract.js';
-export const VER = 'render/38-actions-translate.js V1.0.0';
+export const VER = 'render/38-actions-translate.js V1.0.1';
 
 // 把 fact 列表翻译成舞台动作；导演只读 stageActions；timing=beforeText/afterText
 export function translateFactsToStageActions(log) {
@@ -180,6 +180,15 @@ const FACT_TRANSLATORS = {
         oldPos: data.oldPos,
         newPos: data.behindPos,
         behindOldPos: data.behindOldPos ?? null,
+        label: data.label ?? null,
+        factIndex: index,
+        timing: 'beforeText'
+    }),
+    // 击退退无可退 → 眩晕（乘风突袭 / 胖远桥·年轻气盛共用）
+    [FACT_TYPES.PUSH_STUN]: (data, index) => ({
+        kind: STAGE_ACTION_TYPES.STUN,
+        actorUid: data.target?.uid ?? null,
+        label: data.label ?? null,
         factIndex: index,
         timing: 'beforeText'
     }),

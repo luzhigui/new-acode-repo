@@ -1,5 +1,5 @@
-// V6.1.0 | ~15200 bytes | 2026-09-19 联网PVP：buff 按阵营生效（去掉 9 处"只对明教"守卫）
-export const VER = 'core/04buff-system.js V6.1.0';
+// V6.2.0 | ~15000 bytes | 2026-09-23 乘风突袭击退改走 core/13 resolvePushOrStun（退无可退转眩晕）
+export const VER = 'core/04buff-system.js V6.2.0';
 import {
     applyFortifyDef_Normal, applyFortifyDef_Sister, applyFortifyDef_Brother,
     applyCloudBodyDodge_Normal, applyCloudBodyDodge_Sister, applyCloudBodyDodge_Brother,
@@ -9,7 +9,7 @@ import {
 } from './14buff-effects.js';
 import { CONFIG, getGameData } from './01config-5v5-test.js';
 import { hasBuff, getUnitRow, getUnitCol, getAdjacentPositions } from './03battle-utils.js';
-import { emitEvent, applyStatChange, refreshMaxHp, query, getBattleRng, swapUnitPositions, moveUnitPosition, addMod, getStat } from './13battle-shared.js';
+import { emitEvent, applyStatChange, refreshMaxHp, query, getBattleRng, resolvePushOrStun, addMod, getStat } from './13battle-shared.js';
 import { eventBus, EXECUTION_LAYER as L, EFFECT_TYPES, registerSettlementHook } from '../infra/50-event-bus.js';
 import { FACT_TYPES, BUFF_TYPES, BUFF_SUBTYPES, UNIT_EVENT_TYPES, CAMP_TYPES, ROLE_TYPES, SIGNAL_TYPES } from '../infra/56-battle-enums.js';
 const C = CONFIG;
@@ -150,20 +150,9 @@ export function submitWindAssaultDeclaration(data) {
         }
     }
     if (rng.nextInt(1, 100) <= pushProb) {
-        const behindPos = target.pos + 3;
-        if (behindPos <= 9) {
-            const targetTeam = target.camp === CAMP_TYPES.ALLY ? allySide : enemySide;
-            const behindUnit = targetTeam.find(u => u.pos === behindPos && u.alive);
-            const oldPos = target.pos;
-            if (behindUnit) {
-                const behindOldPos = behindUnit.pos;
-                swapUnitPositions(target, behindUnit, log);
-                log.push({ factType: FACT_TYPES.WIND_ASSAULT_PUSH, data: { label, target: { uid: target.uid, name: target.name }, behindUnit: { uid: behindUnit.uid, name: behindUnit.name }, oldPos, behindPos, behindOldPos } });
-            } else {
-                moveUnitPosition(target, behindPos, log);
-                log.push({ factType: FACT_TYPES.WIND_ASSAULT_PUSH, data: { label, target: { uid: target.uid, name: target.name }, behindUnit: null, oldPos, behindPos } });
-            }
-        }
+        // 击退/眩晕统一判定：7-9 号位退无可退改为眩晕（与胖远桥·年轻气盛共用 core/13）
+        const targetTeam = target.camp === CAMP_TYPES.ALLY ? allySide : enemySide;
+        resolvePushOrStun(target, targetTeam, log, label);
     } else {
         log.push({ factType: FACT_TYPES.WIND_ASSAULT_FAIL, data: { label, reason: '击退触发失败' } });
     }

@@ -1,9 +1,9 @@
-// V6.10.0 | ~21000 bytes | 2026-09-22 新增灭绝师太组件（反击 100%·不可闪避 / 每第三次攻击 ×2 吸血 / 召唤周芷若；跟随攻击走 content 的 followAttack 声明）
-export const VER = 'modules/26elite-sixsects.js V6.10.0';
+// V6.11.0 | ~22000 bytes | 2026-09-23 胖远桥改版：嘲讽/打歪合并为攻击前二选一（正义国字脸全体嘲讽+减半 / 年轻气盛随机×1.5+击退眩晕），莽撞 +3
+export const VER = 'modules/26elite-sixsects.js V6.11.0';
 import { registerElite } from '../core/08-elite-registry.js';
 import { CONFIG, getSkillParams } from '../core/01config-5v5-test.js';
 import { SIGNAL_TYPES, FACT_TYPES, BUFF_TYPES, CAMP_TYPES, ROLE_TYPES } from '../infra/56-battle-enums.js';
-import { applyStatChange, addMod, getStat, getBattleRng } from '../core/13battle-shared.js';
+import { applyStatChange, addMod, getStat, getBattleRng, resolvePushOrStun } from '../core/13battle-shared.js';
 import { EFFECT_TYPES, EXECUTION_LAYER as L } from '../infra/50-event-bus.js';
 import { canBeTargeted } from '../core/03battle-utils.js';
 import { spawnUnit, findFreePos } from '../core/05battle-horse.js';
@@ -168,9 +168,12 @@ export function createZhangSanfengComponent() {
     };
 }
 
-// 胖远桥（六大派·武当·战士）：莽撞 / 出手没分寸 / 脾气大
-// 2026-09-22 新增。第三关与宋青书每局随机二选一（content 的 encounters.squadVariants["3"]）。
-// 三个技能全在本组件闭环，不新增 fact：日志统一走 group.data.entries 的 { type:'info', text }。
+// 胖远桥（六大派·武当·战士）：莽撞 / 正义国字脸 / 年轻气盛
+// 2026-09-22 新增；2026-09-23 改版：嘲讽与打歪合并为「每次攻击前二选一」——
+//   血越高越容易发动正义国字脸（全体敌人本回合后续只能打他，且对其伤害减半），
+//   攻越高越容易发动年轻气盛（随机目标 ×1.5 + 击退，退无可退则眩晕）。
+// 第三关与宋青书每局随机二选一（content 的 encounters.squadVariants["3"]）。
+// 三个技能全在本组件闭环：击退/眩晕复用 core/13 的公共 fact，其余日志走 group.data.entries。
 export function createPangYuanQiaoComponent() {
     return {
         name: '胖远桥',
@@ -182,10 +185,10 @@ export function createPangYuanQiaoComponent() {
 
             const rage = getSkillParams('胖远桥', 'rageOnHit');
             if (!rage) throw new Error('缺技能参数: 胖远桥.rageOnHit');
-            const clumsy = getSkillParams('胖远桥', 'clumsySwing');
-            if (!clumsy) throw new Error('缺技能参数: 胖远桥.clumsySwing');
-            const hot = getSkillParams('胖远桥', 'hotTemper');
-            if (!hot) throw new Error('缺技能参数: 胖远桥.hotTemper');
+            const face = getSkillParams('胖远桥', 'righteousFace');
+            if (!face) throw new Error('缺技能参数: 胖远桥.righteousFace');
+            const young = getSkillParams('胖远桥', 'youngBlood');
+            if (!young) throw new Error('缺技能参数: 胖远桥.youngBlood');
 
             function pushInfo(data, text) {
                 if (data && data.group && data.group.data && data.group.data.entries) {
@@ -201,40 +204,55 @@ export function createPangYuanQiaoComponent() {
                 pushInfo(data, `<span class="gold">💢 莽撞：胖远桥挨了打，攻击+${rage.atkPerHit}（当前 ${Math.floor(getStat(pang, 'atk'))}）</span>`);
             });
 
-            // 技能2 出手没分寸（被动）：攻击时 procChance 概率打歪，改随机命中另一个可选敌人。
-            // _clumsyHit 只在「本次攻击」内有效：选目标时先复位、命中即消费，
-            // 未命中/闪避在 AFTER_MISS 兜底清除，不会跨攻击残留
+            // 技能2/3 二选一（每次攻击前掷一次，必触发其一）：
+            //   T = 0.10 + (atk - 30)/200      —— 打歪阈值，攻击越高 T 越大
+            //   p_打歪 = clamp((1 - 血量比) / (1 - T), 0, 1)，p_嘲讽 = 1 - p_打歪
+            //   满血 → 必嘲讽；血量 ≤ T → 必打歪
             eventBus.on(SIGNAL_TYPES.BEFORE_SELECT_TARGET, L.BEFORE_SELECT_TARGET.PANG_CLUMSY, (data) => {
                 if (data.unit !== pang || !pang.alive) return;
                 pang.state._clumsyHit = false;
+                pang.state._tauntFired = false;
                 const cands = (data.validTargets || []).filter(t => t && t.alive && t !== pang);
                 if (cands.length === 0) return;
                 const rng = getBattleRng();
-                if (rng.next() >= clumsy.procChance) return;
-                data.declaration.targetResult = cands[rng.nextInt(0, cands.length - 1)];
-                pang.state._clumsyHit = true;
+                const hpRatio = pang.maxHp > 0 ? pang.hp / pang.maxHp : 1;
+                const threshold = Math.min(0.95, 0.10 + (getStat(pang, 'atk') - 30) / 200);
+                const clumsyProb = Math.min(1, Math.max(0, (1 - hpRatio) / (1 - threshold)));
+                if (rng.next() < clumsyProb) {
+                    // 年轻气盛（打歪）：随机挑一名敌人，×dmgMultiplier 并附带击退/眩晕
+                    data.declaration.targetResult = cands[rng.nextInt(0, cands.length - 1)];
+                    pang.state._clumsyHit = true;
+                    return;
+                }
+                // 正义国字脸（嘲讽）：全体敌人本回合后续只能打胖远桥（标记回合级，不消耗）
+                for (const foe of cands) foe.state._tauntedByPang = true;
+                pang.state._tauntFired = true;
             });
 
+            // 年轻气盛：该次伤害 ×dmgMultiplier（DMG_MULTIPLIER 修饰器由 core/12 calcFinalDamage 消费）
+            eventBus.on(SIGNAL_TYPES.BEFORE_DAMAGE_CALC, L.BEFORE_DAMAGE_CALC.PANG_YOUNG_MULT, (data) => {
+                if (data.unit !== pang || !pang.state._clumsyHit) return;
+                data.declarations.push({ type: EFFECT_TYPES.DMG_MULTIPLIER, value: young.dmgMultiplier, source: pang, label: '年轻气盛' });
+            });
+
+            // 年轻气盛：命中后击退（退无可退则眩晕）——与乘风突袭共用 core/13 的判定
             eventBus.on(SIGNAL_TYPES.AFTER_DAMAGE_APPLIED, L.AFTER_DAMAGE_APPLIED.PANG_CLUMSY_LOG, (data) => {
                 if (data.unit !== pang || !pang.state._clumsyHit) return;
                 pang.state._clumsyHit = false;
-                pushInfo(data, `<span class="gold">😵 出手没分寸：胖远桥打歪了，一拳招呼到 ${data.target ? data.target.name : '?'} 身上</span>`);
+                const tgt = data.target;
+                if (!tgt || !tgt.alive) return;
+                pushInfo(data, `<span class="gold">😵 年轻气盛：胖远桥一拳打歪，招呼到 ${tgt.name} 身上（伤害×${young.dmgMultiplier}）</span>`);
+                resolvePushOrStun(tgt, tgt.camp === CAMP_TYPES.ALLY ? A : B, data.log, '😤 年轻气盛');
             });
 
-            // 技能3 脾气大（嘲讽）：每回合最多 1 次，自己攻击完后骂阵，挑一名敌人下次只能打自己
+            // 正义国字脸的台词：目标选择阶段没有日志通道，攒到本次攻击收尾（AFTER_ATTACK）再补一条
             eventBus.on(SIGNAL_TYPES.AFTER_ATTACK, L.AFTER_ATTACK.PANG_TAUNT, (data) => {
-                if (data.unit !== pang || !pang.alive || pang.state._tauntUsedRound) return;
-                // 注意：core/10 的 allySide/enemySide 是「行动者视角」（见 core/11 L421-422），
-                // 对胖远桥来说 data.allySide 是他自己那一队，嘲讽对象要从 data.enemySide 里挑
-                const foes = (data.enemySide || []).filter(u => u && u.camp !== pang.camp && canBeTargeted(u));
-                if (foes.length === 0) return;
-                const pick = foes[getBattleRng().nextInt(0, foes.length - 1)];
-                pick.state._tauntedByPang = true;
-                pang.state._tauntUsedRound = true;
-                pushInfo(data, `<span class="gold">😤 脾气大：胖远桥指着 ${pick.name} 骂阵，${pick.name} 下次只能打他（伤害×${hot.dmgMultiplier}）</span>`);
+                if (data.unit !== pang || !pang.alive || !pang.state._tauntFired) return;
+                pang.state._tauntFired = false;
+                pushInfo(data, `<span class="gold">😤 正义国字脸：胖远桥横眉一喝，敌人本回合只能打他（伤害×${face.dmgMultiplier}）</span>`);
             });
 
-            // 嘲讽的强制执行：被嘲讽者选目标时把目标改成胖远桥
+            // 嘲讽的强制执行：被嘲讽者本回合每次选目标都改成胖远桥（标记回合级，回合开始统一清）
             eventBus.on(SIGNAL_TYPES.BEFORE_SELECT_TARGET, L.BEFORE_SELECT_TARGET.PANG_TAUNT_FORCE, (data) => {
                 const u = data.unit;
                 if (!u || !u.state) return;
@@ -242,30 +260,23 @@ export function createPangYuanQiaoComponent() {
                 // 走不到 BEFORE_DAMAGE_CALC 消费，不复位会把减伤带到下一次攻击
                 u.state._tauntAttackActive = false;
                 if (!u.state._tauntedByPang) return;
-                // 一次性：不论成不成功都消耗掉，避免标记跨回合残留
-                u.state._tauntedByPang = false;
                 if (!pang.alive || !canBeTargeted(pang)) return;
                 data.declaration.targetResult = pang;
                 u.state._tauntAttackActive = true;
             });
 
-            // 该次伤害 ×dmgMultiplier（DMG_MULTIPLIER 修饰器由 core/12 calcFinalDamage 消费）
+            // 被嘲讽者的该次伤害 ×dmgMultiplier（DMG_MULTIPLIER 修饰器由 core/12 calcFinalDamage 消费）
             eventBus.on(SIGNAL_TYPES.BEFORE_DAMAGE_CALC, L.BEFORE_DAMAGE_CALC.PANG_TAUNT_REDUCE, (data) => {
                 const u = data.unit;
                 if (!u || !u.state || !u.state._tauntAttackActive) return;
                 u.state._tauntAttackActive = false;
-                data.declarations.push({ type: EFFECT_TYPES.DMG_MULTIPLIER, value: hot.dmgMultiplier, source: pang, label: '脾气大' });
+                data.declarations.push({ type: EFFECT_TYPES.DMG_MULTIPLIER, value: face.dmgMultiplier, source: pang, label: '正义国字脸' });
             });
 
             // 未命中 / 被闪避路径的复位点
             eventBus.on(SIGNAL_TYPES.AFTER_MISS, L.AFTER_MISS.PANG_CLEAR, (data) => {
                 if (data.unit === pang) pang.state._clumsyHit = false;
                 if (data.unit && data.unit.state) data.unit.state._tauntAttackActive = false;
-            });
-
-            // 每回合复位嘲讽次数
-            eventBus.on(SIGNAL_TYPES.ON_ROUND_START, L.ROUND_START.PANG_TAUNT_RESET, () => {
-                pang.state._tauntUsedRound = false;
             });
         }
     };

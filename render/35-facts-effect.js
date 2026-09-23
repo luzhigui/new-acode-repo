@@ -1,5 +1,5 @@
 // render/35-facts-effect.js — 效果域 fact 渲染器
-// V1.0.2 | ~33900 bytes | 2026-09-22 新增 SUMMON_UNIT / LION_SACRIFICE 渲染（灭绝召唤周芷若、谢逊狮子替死）
+// V1.0.3 | ~34300 bytes | 2026-09-23 新增 PUSH_STUN 渲染（击退退无可退转眩晕）
 //
 // 加新 fact 渲染：在本文件写函数 + 尾部 registerFactRenderer 一行（键=factType）。
 // 跨域取别的渲染器一律走 getFactRenderer(FACT_TYPES.X)(data)，禁止 import 其它域文件（免环）。
@@ -7,7 +7,7 @@ import { CONFIG } from '../core/01config-5v5-test.js';
 import { makeFXSnapshot, fmtHp } from '../infra/51-core-utils.js';
 import { BUFF_TYPES, BUFF_SUBTYPES, CAMP_TYPES, ROLE_TYPES, FACT_TYPES } from '../infra/56-battle-enums.js';
 import { registerFactRenderer, findUnitSnapshotByUid } from './33-fact-registry.js';
-export const VER = 'render/35-facts-effect.js V1.0.2';
+export const VER = 'render/35-facts-effect.js V1.0.3';
 
 // 拒马 / 张无忌
 export function renderHorseDestroyFact(fact) {
@@ -121,6 +121,11 @@ export function renderWindAssaultPushFact(fact) {
 
 export function renderWindAssaultFailFact(fact) {
     return {type:'info', text:`<span class="gray">${fact.label}${fact.reason}</span>`};
+}
+
+// 击退退无可退 → 眩晕（乘风突袭 / 胖远桥·年轻气盛共用）
+export function renderPushStunFact(fact) {
+    return {type:'info', text:`<span class="gold" style="font-size:1.1em;">${fact.label}退无可退！${fact.target.name}已在${fact.pos}号位，被震得头晕目眩（本回合无法行动）</span>`};
 }
 
 export function renderMeteorShowerMainFact(fact) {
@@ -530,6 +535,7 @@ registerFactRenderer(FACT_TYPES.FORTIFY_REBOUND, renderFortifyReboundFact);
 registerFactRenderer(FACT_TYPES.WIND_ASSAULT_SPLASH, renderWindAssaultSplashFact);
 registerFactRenderer(FACT_TYPES.WIND_ASSAULT_PUSH, renderWindAssaultPushFact);
 registerFactRenderer(FACT_TYPES.WIND_ASSAULT_FAIL, renderWindAssaultFailFact);
+registerFactRenderer(FACT_TYPES.PUSH_STUN, renderPushStunFact);
 registerFactRenderer(FACT_TYPES.METEOR_SHOWER_MAIN, renderMeteorShowerMainFact);
 registerFactRenderer(FACT_TYPES.METEOR_SHOWER_SPLASH, renderMeteorShowerSplashFact);
 registerFactRenderer(FACT_TYPES.METEOR_SPLASH_GROWTH, renderMeteorSplashGrowthFact);
