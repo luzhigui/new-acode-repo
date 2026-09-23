@@ -254,7 +254,7 @@ function submitPhantomDisguiseTarget(data, decls) {
     const isPhantomTarget = chengkun.state._phantomTarget === unit.uid;
     if (isPhantomTarget) {
         declaration.targetResult = chengkun;
-        declaration.phantomFact = { factType: FACT_TYPES.PHANTOM_REVEAL, data: { unitName: unit.name, deceiver: chengkun.name } };
+        declaration.phantomFact = { factType: FACT_TYPES.PHANTOM_REVEAL, data: { unitName: unit.name, deceiver: chengkun.name, deceiverUid: chengkun.uid } };
         return;
     }
     const lostHpPct = (chengkun.maxHp - chengkun.hp) / chengkun.maxHp;

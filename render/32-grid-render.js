@@ -398,7 +398,7 @@ export function renderGrid(id, camp) {
         // 小昭姊/妹的身份已由左侧 roleIcon（🦋/🕷️）承担，名字后不再重复挂
         // 张三丰：进入严阵以待阶段后挂图标——他的严阵以待是组件自身 addMod（不走团队 buff），
         // activeBuffs 里没有 fortify，格子上原本毫无提示
-        let eliteSkillIcon = (unit.name === '周芷若' && getView(unit.uid, '_hasKuaiLe')) ? ' 💖'
+        let eliteSkillIcon = (unit.name === '周芷若' && unit.state._kuaiLeStack && unit.state._kuaiLeStack.length > 0) ? ' 💖'
             : (unit.name === '宋青书' && getView(unit.uid, '_hasXingFen')) ? ' 💗'
             : (unit.isZhangSanfeng && unit.alive && unit.state._tenRoundFired) ? ' 🛡️'
             : '';
