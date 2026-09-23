@@ -1,10 +1,23 @@
-// V6.1.27 | ~43300 bytes | 2026-09-22 规则回放自检（开发用 runner，不参与游戏运行）
+// V6.1.28 | ~54700 bytes | 2026-09-23 规则回放自检（开发用 runner，不参与游戏运行）
 // 用法：node tests/rules-replay.mjs           （默认 20 个种子 × 1~6 关 = 120 场）
 //      SEEDS=1,2,3 STAGES=2,4 node tests/rules-replay.mjs
 //      KEYWORDS=新婚|苦练 node tests/rules-replay.mjs   （额外统计战报文本关键字命中数）
 //      DEAD=1 node tests/rules-replay.mjs              （严格模式：有恒 skip 空转规则即非 0 退出）
 //      PROBE_ZERO=a,b,c  node tests/rules-replay.mjs   （产出点取证自检：对任意名字跑一遍分类，可传合成名做负向测试）
 //      PROBE_RENDER=a,b  node tests/rules-replay.mjs   （渲染产出自检：对任意名字按同一判据跑一遍"渲染器给没给条目"）
+//
+// V6.1.28 修复：零产出清单补第三级分类【不可达 emit 点】——V6.1.26 的机检把"全仓有
+//   `factType: FACT_TYPES.X` 赋值"直接等同于"有产出点"，进而归入【本批次未触发】并建议
+//   "加 SEEDS/STAGES 或针对该分支构造场景"。但"有赋值"只说明**代码里写了这行**，不说明
+//   **这行还活着**：本批次实测 spiderFly（modules/27:604）、butterflyNoHost（modules/27:273）
+//   两条 emit 点所在的 executeFly / _executeAttach，唯一调用者是 core/11:321 与 core/11:323，
+//   两条都被 `decl.type === 'butterflyAttach'|'spiderFly'` 门控，而全仓**没有任何位置** push
+//   这两个 type —— 无论加多少 SEEDS/STAGES 都永远碰不到，V6.1.26 给出的补救是**不可能完成的**。
+//   这与第 4~6 轮"把体检侧问题甩给业务侧"是同一失效形态，且更隐蔽（建议本身看起来可执行）。
+//   现补静态可达性分析：回溯 emit 点所在函数 → 查全仓调用点 → 调用点为 0 判【无调用者】、
+//   调用点**全部**被 `type === 'X'` 门控且全仓无 `type: 'X'` 产出方判【门控无产出方】。
+//   判据经过负向自检：真实有产出的 clawHit / xinHunDeath 仍落【本批次未触发】，
+//   死通道 spiderFly / butterflyNoHost 落【不可达 emit 点】，未出现"一律判不可达"的一刀切。
 //
 // V6.1.27 修复：fact 覆盖直方图补「渲染产出口径」——补齐复盘报告第 3 轮问题 A 的另一半。
 //   V6.1.25/1.26 解决的是「引擎有没有把 fact 写进日志」（fact 树口径），但规则消费的既不是
@@ -420,23 +433,33 @@ if (deadNames.length) {
 //   `[FACT_TYPES.KEY]: (data)=>…` **不算**产出点，否则孤儿登记会被误判成"有产出点"）。
 //   正对照：64 个本批次有产出的 factType 全部检出 emit 点（0 假阴性）。
 // 返回 null = 源码读不到（目录布局不符），上层如实标注"取证跳过"，不猜不归类。
-async function collectEmitSites(names) {
+const SRC_DIRS = ['core', 'modules', 'infra', 'render', 'player', 'ui', 'fx'];
+// 枚举定义处与契约登记处本身不是产出点，必须排除，否则"孤儿登记"永远查不出来
+const SRC_SKIP = new Set(['infra/56-battle-enums.js', 'infra/58-fact-contract.js']);
+let _srcTexts;
+// 生产源码一次性读入并缓存：V6.1.26 的 emit 点检索与 V6.1.28 的可达性分析共用同一份，
+//   避免同一批 79 个文件被读两遍（实测量级虽小，但两处各读一次容易出现"两处口径不一致"的隐患）
+async function loadSourceTexts() {
+    if (_srcTexts) return _srcTexts;
     const ROOT = fileURLToPath(new URL('../', import.meta.url));
-    const DIRS = ['core', 'modules', 'infra', 'render', 'player', 'ui', 'fx'];
-    // 枚举定义处与契约登记处本身不是产出点，必须排除，否则"孤儿登记"永远查不出来
-    const SKIP = new Set(['infra/56-battle-enums.js', 'infra/58-fact-contract.js']);
     const texts = [];
-    for (const d of DIRS) {
+    for (const d of SRC_DIRS) {
         let list = [];
-        try { list = await readdir(ROOT + d + '/'); } catch (e) { return null; }
+        try { list = await readdir(ROOT + d + '/'); } catch (e) { _srcTexts = null; return null; }
         for (const f of list) {
             if (!f.endsWith('.js')) continue;
             const rel = d + '/' + f;
-            if (SKIP.has(rel)) continue;
-            try { texts.push([rel, await readFile(ROOT + rel, 'utf8')]); } catch (e) { return null; }
+            if (SRC_SKIP.has(rel)) continue;
+            try { texts.push([rel, await readFile(ROOT + rel, 'utf8')]); } catch (e) { _srcTexts = null; return null; }
         }
     }
-    if (!texts.length) return null;
+    _srcTexts = texts.length ? texts : null;
+    return _srcTexts;
+}
+
+async function collectEmitSites(names) {
+    const texts = await loadSourceTexts();
+    if (!texts) return null;
     const enums = [FACT_TYPES, FLY_MODE_TYPES];
     const out = {};
     for (const t of names) {
@@ -454,12 +477,155 @@ async function collectEmitSites(names) {
     return out;
 }
 
+// --- V6.1.28 emit 点可达性分析 ---
+// 判据三级，从严到宽，**任一命中即判不可达**，全部落空才算"有产出点但本批次没跑到"：
+//   ① 无调用者：emit 点所在函数在全仓没有任何调用点（`fn(` 形式，排除自身定义行）；
+//   ② 门控无产出方：调用点存在，但**每一个**调用点都由 `X.type === '字面量'` 门控
+//      （向上取最近的一条 === 字面量 判断），而该字面量在全仓检索不到 `type: '字面量'` 的产出方。
+// 为什么只做这两级而不做完整调用图：完整静态可达性在 JS 上无解（高阶函数、事件总线、
+//   动态派发），硬做会引入大量假阳性、反而制造新的"假红"。这两级的共同点是**证据可打印**——
+//   输出里带函数名 / 调用点 file:line / 门控字面量，人工一眼可复核，不靠猜。
+// 不作为（deliberately 不做）：不因为"某函数没被 import"就判死——ESM 动态 import、
+//   eventBus.on(...) 注册都是合法可达路径，误判代价远高于漏判。
+
+// 回溯 emit 行所在函数名：向上找最近一条函数/方法定义行，最多回溯 80 行（够覆盖仓库里最长的函数）
+function enclosingFnName(lines, idx) {
+    for (let i = idx; i >= 0 && i > idx - 80; i--) {
+        const L = lines[i] || '';
+        let m = L.match(/^\s*(?:export\s+)?(?:async\s+)?function\s*\*?\s*([A-Za-z_$][\w$]*)\s*\(/);
+        if (m) return m[1];
+        // 对象方法简写 `executeFly(unit, A, log) {` —— 排除 if/for/while 等控制结构误匹配
+        m = L.match(/^\s*(?:async\s+)?([A-Za-z_$][\w$]*)\s*\([^)]*\)\s*\{/);
+        if (m && !/^(if|else|for|while|switch|catch|return|typeof|new|do)$/.test(m[1])) return m[1];
+        m = L.match(/([A-Za-z_$][\w$]*)\s*:\s*(?:async\s+)?function\b/);
+        if (m) return m[1];
+        m = L.match(/(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*(?:async\s+)?(?:function\b|\()/);
+        if (m) return m[1];
+    }
+    return null;
+}
+
+// 查某个函数名在全仓的调用点（file:line）。同时试 "带下划线原名" 与 "去下划线名"：
+//   仓库里 `_executeAttach` 定义、`executeAttach` 调用是同一对（core/11:321），只按原名搜会漏。
+function findCallSites(fnName, texts, defRel, defIdx) {
+    const names = [fnName, fnName.replace(/^_+/, '')].filter(Boolean);
+    const out = [];
+    for (const n of names) {
+        const re = new RegExp('(?:^|[^A-Za-z_$])' + n.replace(/\$/g, '\\$') + '\\s*\\(');
+        const declRe = new RegExp('function\\s*\\*?\\s*' + n.replace(/\$/g, '\\$') + '\\s*\\(');
+        for (const [rel, txt] of texts) {
+            const lines = txt.split('\n');
+            lines.forEach(function (L, i) {
+                if (rel === defRel && i === defIdx) return;      // 自身定义行
+                if (declRe.test(L)) return;                       // `function name(` 声明
+                if (re.test(L)) out.push(rel + ':' + (i + 1));
+            });
+        }
+    }
+    return out.filter(function (v, i, a) { return a.indexOf(v) === i; });
+}
+
+// 取调用点**向上最近**的一条 `type === '字面量'` 门控（window 行内）。
+//   只向上、只取最近：core/11:319-323 是 if/else if 链，向下取整条链会同时抓到
+//   'butterflyAttach'（无产出方）与 'butterflyReturn'（有产出方），从而误判为可达。
+function gateLiteralAbove(lines, idx, window) {
+    for (let i = idx; i >= Math.max(0, idx - window); i--) {
+        const m = (lines[i] || '').match(/\.\s*type\s*===\s*['"]([^'"]+)['"]/);
+        if (m) return m[1];
+    }
+    return null;
+}
+
+// 声明 type 的产出方有两种载体，缺一个就会大面积假阳性（第 11 轮实测踩到）：
+//   ① JS 里 `type: 'chainClaw'` / `type: EFFECT_TYPES.X` —— 引擎内部补的声明；
+//   ② **content/*.json 里 `"type": "chainClaw"`** —— 技能声明本来就是配置数据，
+//      core/15 L390/L466 的 `declarations.filter(d => d.type === 'chainClaw'|'xinHun')`
+//      消费的全是这一路。首版只搜 JS，把实产 421 条的 clawHit、20 场 pass 的 xinHunDeath
+//      全误判成"不可达"（假红），加上 JSON 口径后二者正确回落【本批次未触发】。
+let _jsonTexts;
+async function loadJsonTexts() {
+    if (_jsonTexts !== undefined) return _jsonTexts;
+    const ROOT = fileURLToPath(new URL('../', import.meta.url));
+    const out = [];
+    try {
+        const list = await readdir(ROOT + 'content/');
+        for (const f of list) {
+            if (!f.endsWith('.json')) continue;
+            try { out.push(['content/' + f, await readFile(ROOT + 'content/' + f, 'utf8')]); } catch (e) { /* 单文件读不到不阻断 */ }
+        }
+    } catch (e) { /* content 目录不存在时按"无 JSON 产出方"处理，由调用方如实标注 */ }
+    _jsonTexts = out;
+    return out;
+}
+
+function hasTypeProducer(texts, lit) {
+    const esc = lit.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const reJs = new RegExp("type\\s*:\\s*['\"]" + esc + "['\"]");
+    const reJson = new RegExp('"type"\\s*:\\s*"' + esc + '"');
+    for (const [, txt] of texts) if (reJs.test(txt)) return true;
+    for (const [, txt] of (_jsonTexts || [])) if (reJson.test(txt)) return true;
+    return false;
+}
+
+// 对一组 factType 的 emit 点做可达性分析；返回 { t: { fn, sites, callSites, gate, verdict, detail } }
+async function analyzeReachability(evidence) {
+    const texts = await loadSourceTexts();
+    if (!texts) return null;
+    await loadJsonTexts();
+    const byRel = {};
+    for (const [rel, txt] of texts) byRel[rel] = txt.split('\n');
+    const out = {};
+    for (const t of Object.keys(evidence)) {
+        const sites = evidence[t] || [];
+        const res = { fn: null, sites: sites, callSites: [], gate: null, verdict: 'reachable', detail: '' };
+        out[t] = res;
+        if (!sites.length) continue;                       // 无 emit 点 = 孤儿登记，不归本层管
+        const [rel, ln] = sites[0].split(':');
+        const lines = byRel[rel];
+        if (!lines) { res.detail = 'emit 点所在文件不可读'; continue; }
+        const idx = parseInt(ln, 10) - 1;
+        const fn = enclosingFnName(lines, idx);
+        res.fn = fn;
+        if (!fn) { res.detail = '回溯不到所在函数（取证不足，不作判定）'; continue; }
+        const fnIdx = (function () { for (let i = idx; i >= 0; i--) { const L = lines[i] || ''; if (L.indexOf(fn + '(') !== -1 || L.indexOf('function ' + fn) !== -1) return i; } return -1; })();
+        const callSites = findCallSites(fn, texts, rel, fnIdx);
+        res.callSites = callSites;
+        if (!callSites.length) {
+            res.verdict = 'no-caller';
+            res.detail = '所在函数 ' + fn + ' 全仓无调用点';
+            continue;
+        }
+        // 逐个调用点查门控；只要有一个调用点不被"无产出方的门控"挡住，就判可达
+        const gateHits = [];
+        let anyOpen = false;
+        for (const cs of callSites) {
+            const [cRel, cLn] = cs.split(':');
+            const cLines = byRel[cRel];
+            if (!cLines) { anyOpen = true; continue; }
+            const g = gateLiteralAbove(cLines, parseInt(cLn, 10) - 1, 5);
+            if (!g) { anyOpen = true; continue; }
+            gateHits.push(g + '@' + cs);
+            if (hasTypeProducer(texts, g)) { anyOpen = true; }
+        }
+        if (!anyOpen) {
+            res.verdict = 'gate-unreachable';
+            res.gate = gateHits.map(function (h) { return h.split('@')[0]; }).filter(function (v, i, a) { return a.indexOf(v) === i; });
+            res.detail = '所在函数 ' + fn + ' 的 ' + callSites.length + ' 个调用点全部被 '
+                + res.gate.join(' / ') + ' 门控，且全仓检索不到该 type 的产出方';
+        } else {
+            res.detail = '所在函数 ' + fn + ' 有可达调用点 ' + callSites.slice(0, 2).join(' , ');
+        }
+    }
+    return out;
+}
+
 const registered = Object.keys(FACT_SPECS || {});
 const produced = Object.keys(factHist);
 const onlyNested = produced.filter(t => !factHistTop[t]);
 const zeroFacts = registered.filter(t => !factHist[t]);
 // PROBE_ZERO=a,b,c 取证自检：对任意名字跑一遍产出点分类（允许传合成名/已产出名），验证判据不是"一律有产出点"
-//   约定成 Types 的负值用例：不存在的名字必须落进【孤儿登记】、真实有产出的名字必须落进【本批次未触发】
+//   负向用例约定：不存在的名字必须落进【孤儿登记】；真实有产出的名字必须落进【本批次未触发】；
+//   已确认的死通道（spiderFly / butterflyNoHost）必须落进【不可达 emit 点】——三者互换即判据失效
 const zeroFactsList = process.env.PROBE_ZERO ? process.env.PROBE_ZERO.split(',') : zeroFacts;
 const unknownFacts = produced.filter(t => registered.indexOf(t) === -1);
 console.log(`=== fact 覆盖：本批次引擎产出 ${produced.length} 种 / 契约登记 ${registered.length} 种 / 渲染出条目 ${Object.keys(renderOk).length} 种 ===`);
@@ -474,10 +640,30 @@ if (zeroFactsList.length) {
         console.log('     ↳ 产出点取证跳过：未能读取生产源码目录，本清单不作归因，请勿据此下结论');
         for (const t of zeroFacts) console.log('      ⚠ ' + t);
     } else {
-        const uncovered = zeroFactsList.filter(t => (evidence[t] || []).length > 0);
+        const withEmit = zeroFactsList.filter(t => (evidence[t] || []).length > 0);
         const orphan = zeroFactsList.filter(t => !evidence[t] || evidence[t].length === 0);
+        // V6.1.28：有 emit 点 ≠ 这行代码还活着。先过一遍可达性，把死通道从"覆盖不足"里剔出去，
+        //   否则会给出"加 SEEDS/STAGES"这种**永远做不到**的补救（spiderFly / butterflyNoHost 就是）。
+        const reach = await analyzeReachability(withEmit.reduce(function (acc, t) { acc[t] = evidence[t]; return acc; }, {}));
+        const uncovered = [];
+        const unreachable = [];
+        for (const t of withEmit) {
+            const r = reach && reach[t];
+            if (r && (r.verdict === 'no-caller' || r.verdict === 'gate-unreachable')) unreachable.push(t);
+            else uncovered.push(t);
+        }
+        if (unreachable.length) {
+            console.log(`     【不可达 emit 点】${unreachable.length} 种 —— 有 emit 赋值，但该函数在现行调用链上跑不到：`);
+            console.log('       → **不是覆盖不足**，加再多 SEEDS/STAGES 也永远碰不到；报业务侧：补产出方让门控成立，或删死通道及其契约登记');
+            for (const t of unreachable) {
+                const r = reach[t];
+                console.log('       ✗ ' + t + ' ← ' + evidence[t].slice(0, 1).join(''));
+                console.log('           取证：' + r.detail
+                    + (r.callSites.length ? '（调用点 ' + r.callSites.slice(0, 3).join(' , ') + '）' : ''));
+            }
+        }
         if (uncovered.length) {
-            console.log(`     【本批次未触发】${uncovered.length} 种 —— 全仓有明确 emit 点，120 场只是没跑到该分支：`);
+            console.log(`     【本批次未触发】${uncovered.length} 种 —— 全仓有**可达** emit 点，120 场只是没跑到该分支：`);
             console.log('       → 属**回放覆盖不足**（阵容/条件未触发），补救是加 SEEDS/STAGES 或针对该分支构造场景；不是业务侧缺失，勿移交');
             for (const t of uncovered) console.log('       • ' + t + ' ← ' + evidence[t].slice(0, 2).join(' , '));
         }
