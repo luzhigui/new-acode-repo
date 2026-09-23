@@ -1,4 +1,12 @@
-// V6.1.28 | ~54700 bytes | 2026-09-23 规则回放自检（开发用 runner，不参与游戏运行）
+// V6.1.29 | ~65600 bytes | 2026-09-23 规则回放自检（开发用 runner，不参与游戏运行）
+// V6.1.29 修复：零产出清单再补两类【门控恒假】与【门控依赖 UI 层状态】——V6.1.28 的可达性分析
+//   只认 `type === '字面量'` 门控与「无调用者」两级，导致同样**永远碰不到**的 emit 点仍被报成
+//   【本批次未触发】并给出「加 SEEDS/STAGES」这种不可能完成的补救（与 spiderFly 同源的误导）。
+//   实测命中 3 项：spiderDeadTarget（modules/20:164-169 先 filter(u=>u.alive) 再 if(!target.alive)，
+//   恒假）、xiaoZhaoHorse / spiderDoubleStrike（门控读 state._permanentBuffs，其唯一引擎侧写入函数
+//   addPermanentBuff（modules/20:196）的调用点全在 ui/，headless 回放恒为空数组）。
+//   两类的判据与 V6.1.28 同铁律：证据不足就回落到【本批次未触发】，绝不猜。
+
 // 用法：node tests/rules-replay.mjs           （默认 20 个种子 × 1~6 关 = 120 场）
 //      SEEDS=1,2,3 STAGES=2,4 node tests/rules-replay.mjs
 //      KEYWORDS=新婚|苦练 node tests/rules-replay.mjs   （额外统计战报文本关键字命中数）
@@ -567,6 +575,125 @@ function hasTypeProducer(texts, lit) {
     return false;
 }
 
+// --- V6.1.29 新增两类"门控级"不可达（第 12 轮）---
+//   根因：V6.1.28 只认 `type === '字面量'` 门控与"无调用者"两级，下面两类**同样永远碰不到**
+//   的 emit 点仍被归入【本批次未触发】并建议"加 SEEDS/STAGES"——与 spiderFly 同源的误导，
+//   只是门控形态不是 type 字面量，V6.1.28 的 gateLiteralAbove 认不出来。
+//   ④ 恒假条件门控：同函数内先 `.filter(v => v.P)` 把 P 筛成恒真 → 从结果里取 X
+//      → 紧跟 `if (!X.P)` 判假。门控恒假，emit 永不可达。
+//      实例 modules/20elite-skills.js：`aliveEnemies = enemySide.filter(u => u.alive)`(L164)
+//      → `target = aliveEnemies[rng.nextInt(...)]`(L165) → `if (!target.alive)`(L169) 恒假。
+//   ⑤ UI 层状态门控：门控读 `state._X`，而 `_X` 的**全部**写入点都到不了引擎侧 ——
+//      写入点本身在 player/ ui/ fx/，或虽写在 core/modules 但其所在函数的调用点全在非引擎目录。
+//      headless 回放只跑 core/modules/infra/render，这类字段恒为初值 → 门控恒不成立。
+//      实例 `_permanentBuffs`：引擎侧唯一写入函数 `addPermanentBuff`（modules/20:196）的
+//      调用点全在 ui/（70:85 / 65:177 / 61:508），回放里恒为空数组。
+//   两条判据与 V6.1.28 同一条铁律：**只下"不可达"结论且必须带可复核证据**；
+//   证据不足时返回 null → 回落到【本批次未触发】，绝不猜。
+const ENGINE_DIRS = ['core', 'modules', 'infra', 'render'];
+function dirOf(rel) { return rel.split('/')[0]; }
+
+// ④ 恒假条件门控：只取 emit 行向上最近的一条 `if (!X.P)`，且 X 必须能上溯到同函数内
+//   `const ARR = <expr>.filter(v => v.P)` 的结果，否则返回 null（不下结论）。
+//   这样即便仓库里还有别的恒假写法也不会误伤，判据永远"宁可漏判不可误判"。
+function findContradictionGate(lines, fnIdx, idx) {
+    for (let i = idx; i > fnIdx; i--) {
+        const L = lines[i] || '';
+        const m = L.match(/if\s*\(\s*!\s*([A-Za-z_$][\w$]*)\.([A-Za-z_$][\w$]*)\s*\)/);
+        if (!m) continue;
+        const v = m[1], p = m[2];
+        const vEsc = v.replace(/\$/g, '\\$'), pEsc = p.replace(/\$/g, '\\$');
+        for (let j = i - 1; j > fnIdx; j--) {                    // X 的取值行（只取最近一条）
+            const dm = (lines[j] || '').match(new RegExp('(?:const|let|var)\\s+' + vEsc + '\\s*=\\s*([A-Za-z_$][\\w$]*)\\s*(?:\\[|\\.find\\b|\\.at\\b)'));
+            if (!dm) continue;
+            const arr = dm[1].replace(/\$/g, '\\$');
+            for (let k = j - 1; k > fnIdx; k--) {                 // 数组的筛选行（只取最近一条）
+                const fm = (lines[k] || '').match(new RegExp('(?:const|let|var)\\s+' + arr + '\\s*=\\s*[^;]*\\.filter\\s*\\(\\s*([A-Za-z_$][\\w$]*)\\s*=>\\s*\\1\\.' + pEsc + '\\b'));
+                if (!fm) continue;
+                return {
+                    field: p,
+                    gate: L.trim(), gateLine: i + 1,
+                    derive: (lines[j] || '').trim(), deriveLine: j + 1,
+                    filter: (lines[k] || '').trim(), filterLine: k + 1
+                };
+            }
+            break;
+        }
+        return null;
+    }
+    return null;
+}
+
+// ⑤ 收集某 state 字段在全仓的**写入点**。只认三种形态，刻意不认对象字面量里的 `FIELD: {...}`
+//   （core/17-state-keys.js 的字段 schema 声明正是这种，算进去会把"引擎侧有写入"判成有）。
+//   ① `.FIELD.push(`  ② 同一行 `Object.assign(..., { FIELD:`  ③ `FIELD = <非=>` 赋值
+function collectFieldWriters(texts, field) {
+    const esc = field.replace(/\$/g, '\\$');
+    const rePush = new RegExp('\\.' + esc + '\\s*\\.push\\s*\\(');
+    const reAssign = new RegExp('Object\\.assign\\([^;]*\\{\\s*' + esc + '\\s*:');
+    const reEq = new RegExp('\\b' + esc + '\\s*=\\s*[^=]');
+    const out = [];
+    for (const [rel, txt] of texts) {
+        txt.split('\n').forEach(function (L, i) {
+            if (rePush.test(L) || reAssign.test(L) || reEq.test(L)) out.push({ rel: rel, line: i + 1, expr: L.trim() });
+        });
+    }
+    return out;
+}
+
+// ⑤ 判断单个写入点能否被引擎侧触达：非引擎目录 → 直接判到不了；引擎目录里的写入点还要看
+//   所在函数有没有引擎侧调用点（`addPermanentBuff` 就栽在这一级：写在 modules/20，却只有 ui/ 在调）
+function writerEngineReach(texts, byRel, w) {
+    if (ENGINE_DIRS.indexOf(dirOf(w.rel)) === -1) {
+        return { unreach: true, detail: '写入点 ' + w.rel + ':' + w.line + ' 位于非引擎目录 ' + dirOf(w.rel) + '/' };
+    }
+    const lines = byRel[w.rel] || [];
+    const idx = w.line - 1;
+    const fn = enclosingFnName(lines, idx);
+    if (!fn) return { unreach: false, detail: '引擎目录直写 ' + w.rel + ':' + w.line };
+    let fnIdx = -1;
+    for (let i = idx; i >= 0; i--) {
+        const L = lines[i] || '';
+        if (L.indexOf(fn + '(') !== -1 || L.indexOf('function ' + fn) !== -1) { fnIdx = i; break; }
+    }
+    const cs = findCallSites(fn, texts, w.rel, fnIdx);
+    const engineCs = cs.filter(function (c) { return ENGINE_DIRS.indexOf(dirOf(c)) !== -1; });
+    if (cs.length && !engineCs.length) {
+        return {
+            unreach: true,
+            detail: '写入点 ' + w.rel + ':' + w.line + ' 虽在引擎目录，但所在函数 ' + fn
+                + ' 的 ' + cs.length + ' 个调用点全在非引擎目录（' + cs.slice(0, 3).join(' , ') + '）'
+        };
+    }
+    return { unreach: false, detail: '引擎目录直写（' + w.rel + ':' + w.line + '，函数 ' + fn + ' 有引擎侧调用点）' };
+}
+
+// ⑤ 在 emit 点所在函数体内找"被 UI 层状态门控"的字段：返回第一个**全部写入点都到不了引擎侧**的字段
+function findUiStateGate(lines, fnIdx, idx, texts, byRel) {
+    const seen = {};
+    for (let i = fnIdx; i <= idx; i++) {
+        const L = lines[i] || '';
+        const hits = L.match(/state\s*\.\s*(_[A-Za-z_$][\w$]*)/g);
+        if (!hits) continue;
+        for (const h of hits) {
+            const f = h.match(/(_[A-Za-z_$][\w$]*)/)[1];
+            if (seen[f]) continue;
+            seen[f] = true;
+            const writers = collectFieldWriters(texts, f);
+            if (!writers.length) continue;                      // 查不到写入点 = 证据不足，不下结论
+            const detail = [];
+            let allUnreach = true;
+            for (const w of writers) {
+                const r = writerEngineReach(texts, byRel, w);
+                detail.push((r.unreach ? '           ✗ ' : '           ✓ ') + r.detail);
+                if (!r.unreach) allUnreach = false;
+            }
+            if (allUnreach) return { field: f, line: i + 1, expr: L.trim(), writers: writers, writerDetail: detail };
+        }
+    }
+    return null;
+}
+
 // 对一组 factType 的 emit 点做可达性分析；返回 { t: { fn, sites, callSites, gate, verdict, detail } }
 async function analyzeReachability(evidence) {
     const texts = await loadSourceTexts();
@@ -588,6 +715,27 @@ async function analyzeReachability(evidence) {
         res.fn = fn;
         if (!fn) { res.detail = '回溯不到所在函数（取证不足，不作判定）'; continue; }
         const fnIdx = (function () { for (let i = idx; i >= 0; i--) { const L = lines[i] || ''; if (L.indexOf(fn + '(') !== -1 || L.indexOf('function ' + fn) !== -1) return i; } return -1; })();
+        // V6.1.29 ④ 恒假条件门控：证据最强、作用域最局部，优先判定
+        const contra = findContradictionGate(lines, fnIdx, idx);
+        if (contra) {
+            res.verdict = 'contradiction';
+            res.detail = '门控恒假：' + contra.field + ' 已被同函数内 filter 筛成恒真，再判 !' + contra.field + ' 永不成立';
+            res.evid = [
+                '筛选 L' + contra.filterLine + '：' + contra.filter,
+                '取值 L' + contra.deriveLine + '：' + contra.derive,
+                '门控 L' + contra.gateLine + '：' + contra.gate
+            ];
+            continue;
+        }
+        // V6.1.29 ⑤ UI 层状态门控：门控字段的所有写入点都到不了引擎侧 → headless 回放恒为初值
+        const uiGate = findUiStateGate(lines, fnIdx, idx, texts, byRel);
+        if (uiGate) {
+            res.verdict = 'ui-state';
+            res.detail = '门控读 state.' + uiGate.field + '，而该字段 ' + uiGate.writers.length
+                + ' 个写入点全部到不了引擎侧（headless 回放只跑 core/modules/infra/render）';
+            res.evid = ['读取 ' + rel + ':' + uiGate.line + '：' + uiGate.expr].concat(uiGate.writerDetail);
+            continue;
+        }
         const callSites = findCallSites(fn, texts, rel, fnIdx);
         res.callSites = callSites;
         if (!callSites.length) {
@@ -647,10 +795,34 @@ if (zeroFactsList.length) {
         const reach = await analyzeReachability(withEmit.reduce(function (acc, t) { acc[t] = evidence[t]; return acc; }, {}));
         const uncovered = [];
         const unreachable = [];
+        const contrad = [];
+        const uiGated = [];
         for (const t of withEmit) {
             const r = reach && reach[t];
-            if (r && (r.verdict === 'no-caller' || r.verdict === 'gate-unreachable')) unreachable.push(t);
+            if (r && r.verdict === 'contradiction') contrad.push(t);
+            else if (r && r.verdict === 'ui-state') uiGated.push(t);
+            else if (r && (r.verdict === 'no-caller' || r.verdict === 'gate-unreachable')) unreachable.push(t);
             else uncovered.push(t);
+        }
+        if (contrad.length) {
+            console.log(`     【门控恒假】${contrad.length} 种 —— 门控与同函数内 filter 断言自相矛盾，恒不成立：`);
+            console.log('       → 与 spiderFly 同性质的**死代码**：加 SEEDS/STAGES 永远碰不到；报业务侧：删死分支及其契约登记，或修正筛选/判假条件');
+            for (const t of contrad) {
+                const r = reach[t];
+                console.log('       ✗ ' + t + ' ← ' + evidence[t].slice(0, 1).join(''));
+                console.log('           取证：' + r.detail);
+                for (const e of r.evid || []) console.log('           ' + e);
+            }
+        }
+        if (uiGated.length) {
+            console.log(`     【门控依赖 UI 层状态】${uiGated.length} 种 —— 门控读的 state 字段只有 ui/ player/ 会写，引擎侧恒为初值：`);
+            console.log('       → 回放**结构性不可达**（不是阵容没碰上）：要么回放侧按 player/49 口径补注入该字段，要么报业务侧确认"这机制本就只在真人局生效"');
+            for (const t of uiGated) {
+                const r = reach[t];
+                console.log('       ✗ ' + t + ' ← ' + evidence[t].slice(0, 1).join(''));
+                console.log('           取证：' + r.detail);
+                for (const e of r.evid || []) console.log('           ' + e);
+            }
         }
         if (unreachable.length) {
             console.log(`     【不可达 emit 点】${unreachable.length} 种 —— 有 emit 赋值，但该函数在现行调用链上跑不到：`);
@@ -663,8 +835,9 @@ if (zeroFactsList.length) {
             }
         }
         if (uncovered.length) {
-            console.log(`     【本批次未触发】${uncovered.length} 种 —— 全仓有**可达** emit 点，120 场只是没跑到该分支：`);
+            console.log(`     【本批次未触发】${uncovered.length} 种 —— 全仓有**可达** emit 点且门控在引擎侧成立，120 场只是没跑到该分支：`);
             console.log('       → 属**回放覆盖不足**（阵容/条件未触发），补救是加 SEEDS/STAGES 或针对该分支构造场景；不是业务侧缺失，勿移交');
+            console.log('       → V6.1.29 起已剔出门控恒假 / 门控依赖 UI 层状态两类；留在本类的才是"真补得上"的');
             for (const t of uncovered) console.log('       • ' + t + ' ← ' + evidence[t].slice(0, 2).join(' , '));
         }
         if (orphan.length) {
