@@ -33,8 +33,13 @@
 // V6.1.20 修订（同步轮，合入 main 后适配）：判据 2 的斩杀 HP 字段更名 —— 主线夜间体检第 7 趟已发现
 //   `clawTargetHpAfter` 在现行产出侧已不存在。core/15-skill-mechanisms.js L404 实证：爪击子条目
 //   data 现带 `hpAfter: simulatedTargetHp`（斩杀时为 0），组级现带 `clawTargetUid`。本版改为读
-//   `hpAfter`（子条目优先、回退组级），判据 2 从"字段缺失恒跳过"恢复为真校验。判据 1/3 不动。
-export const VER = 'tests/health-rules/132-claw-damage.js V6.1.20';
+//   `hpAfter`（子条目优先、回退组级）。
+//   ⚠ V6.1.20 的前提是错的：core/15 L401-404 实证 isExecute 的语义是"打到斩杀线(≤15%)但未归零"，
+//   hpAfter>0 是合法产出 —— 本次适配照搬了过期前提，实跑炸出 16 条假红，由 V6.1.21 推翻重写。
+//
+// V6.1.21 修订（同步轮）：判据 2 按现行契约重写为「hit 标记 isExecute → 同组必须存在处决条目」，
+//   旧"斩杀→hpAfter=0"判据删除（前提已过期，见 V6.1.20 段）。判据 1（底线 1.5）/ 3（组内连锁递增）不动。
+export const VER = 'tests/health-rules/132-claw-damage.js V6.1.21';
 
 export const rule79 = {
     group: '数值回归',
@@ -46,34 +51,39 @@ export const rule79 = {
             if (!e) continue;
             var entries = Array.isArray(e.entries) ? e.entries : [];
             var prev = null; // { name, dmg } — 组内作用域：连锁递减仅在同一 attack-group 内比较（V6.1.19）
+            var sawExecHit = false;   // 标记斩杀的爪击 hit（带 dmg 的子条目；处决条目无 dmg 字段）
+            var sawExecEntry = false; // 处决条目（renderClawExecuteFact 专属文本「九阴白骨爪斩杀！」）
             for (var k = 0; k < entries.length; k++) {
                 var en = entries[k];
                 if (!en || !en.isClawHit || !en.text) continue;
+                if (en.text.indexOf('九阴白骨爪斩杀！') !== -1) { sawExecEntry = true; continue; }
                 if (en.text.indexOf('九阴白骨爪') === -1) continue;
+                if (en.isExecute && en.dmg !== undefined) sawExecHit = true;
                 // 伤害为小数（如 1.5 / 2.5），必须捕获小数，否则规则会跳过全部真实爪击而漏检
                 var m = en.text.match(/对 (.+?) 造成 (\d+(?:\.\d+)?) 点伤害/);
                 if (!m) continue;
                 saw = true;
                 var name = m[1];
                 var dmg = parseFloat(m[2]);
-                var isExec = !!(en.isExecute) || en.text.indexOf('斩杀') !== -1;
-                var hpAfter = en.hpAfter !== undefined ? en.hpAfter : e.hpAfter;
 
                 // 1. 伤害底线：baseDmg=1.5（张无忌在场为 2），ratioDmg>=0 → 单爪下界恰为 1.5；
                 //    任何 < 1.5 的伤害均为回归（设计底线都没达到）
                 if (dmg < 1.5) {
                     return { fail: true, msg: '复发：九阴白骨爪伤害<1.5 为' + dmg + '（第' + j + '条组内爪击，周芷若伤害计算异常，低于设计底线 baseDmg=1.5）' };
                 }
-                // 2. 斩杀一致性：标记斩杀则目标血量应被调为 0（hpAfter 未下发时无从校验，跳过；
-                //    V6.1.20 起读现行字段 hpAfter，core/15 L404 每次爪击都下发，该判据恢复真校验）
-                if (isExec && hpAfter !== undefined && hpAfter !== null && hpAfter !== 0) {
-                    return { fail: true, msg: '复发：九阴白骨爪斩杀但目标HP剩余' + hpAfter + '（第' + j + '条组内爪击，斩杀未将目标调血为0）' };
-                }
                 // 3. 连锁调血：同一目标连续爪击，伤害应按"已损失生命比例"递增（不可递减）
                 if (prev && prev.name === name && dmg < prev.dmg) {
                     return { fail: true, msg: '复发：九阴白骨爪连锁伤害递减 ' + prev.dmg + '→' + dmg + '（第' + j + '条组内爪击，未按已损失血量递增调血）' };
                 }
                 prev = { name: name, dmg: dmg };
+            }
+            // 2. 斩杀一致性（V6.1.21 按现行契约重写）：core/15 L401-413 现行语义是
+            //    isExecute = 打到斩杀线(≤15%)但未归零，hpAfter>0 为合法产出（旧判据"斩杀→hpAfter
+            //    必须 0"的前提取自更早引擎，V6.1.20 照搬后炸出 16 条假红）；真正的处决由独立的
+            //    execute 条目完成，且 core/15 L407-413 保证 isExecute 触发时 executeInfo 必然入组。
+            //    现行契约校验：hit 标记 isExecute → 同组必须存在处决条目，缺失即 execute 声明被吞/丢失。
+            if (sawExecHit && !sawExecEntry) {
+                return { fail: true, msg: '复发：九阴白骨爪标记斩杀但组内无处决条目（第' + j + '组，execute 声明缺失/被吞）' };
             }
         }
         if (!saw) return 'skip';

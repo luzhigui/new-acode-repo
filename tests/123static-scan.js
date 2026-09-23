@@ -2,7 +2,7 @@
 //   1. 枚举 import 缺失：代码使用了枚举常量（infra/56-battle-enums.js 导出的 13 个）但 import 行缺失
 //   2. import 引用断裂：static import 的相对路径指向不存在的文件
 // 对应需求：实时体检靠阵容触发机制，当轮没触发就 skip；静态快检秒出结构问题，两者互补
-export const VER = 'tests/123static-scan.js V1.1.0';
+export const VER = 'tests/123static-scan.js V1.1.1';
 
 // --- 运行环境判定 + node 垫片（V1.1.0）---
 // 为什么要有它：本模块原本只活得了浏览器里（用 window.location.href 定基准目录、用 fetch 读文件），
@@ -130,14 +130,25 @@ function collectImports(code) {
 }
 
 // 检查 1：枚举 used-but-not-imported
+// V1.1.1：符号检测前剥离整行注释（//、/* */、块注释续行 *）。实证：infra/56 文档注释里
+//   的「eventBus.on」、health-rules/149 头注释里的「BUFF_TYPES.HOLY_FLAME」都被当成真使用，
+//   炸出 3 条纯注释假阳性（2026-09-23 同步轮，合入 main 后首次暴露——分支自身文件从未在注释里提符号）。
+export function stripCommentLines(code) {
+    return code.split('\n').filter(function (line) {
+        var t = line.trim();
+        return !(t.indexOf('//') === 0 || t.indexOf('/*') === 0 || t.indexOf('*') === 0 || t.indexOf('*/') === 0);
+    }).join('\n');
+}
+
 export function scanEnumImport(code) {
     const { imported, fromPaths } = collectImports(code);
+    const codeNoComments = stripCommentLines(code);
     const missing = [];
     for (const en of ENUM_NAMES) {
         if (imported.has(en)) continue;
         // 使用形式：ENUM.xxx / ENUM[xxx] / ENUM}（少见于解构结束时），不含裸提及
         const usageRe = new RegExp('\\b' + en + '\\s*[\\.\\[\\}]');
-        if (usageRe.test(code)) missing.push(en);
+        if (usageRe.test(codeNoComments)) missing.push(en);
     }
     return { missing, imported, fromPaths };
 }
@@ -165,6 +176,7 @@ export async function detectWindowMounts() {
 
 export function scanSharedSymbolImport(code, mounts) {
     const { imported } = collectImports(code);
+    const codeNoComments = stripCommentLines(code);
     const missing = [];
     for (const sym of SHARED_SYMBOLS) {
         if (imported.has(sym)) continue;
@@ -175,7 +187,7 @@ export function scanSharedSymbolImport(code, mounts) {
             '(?:^|\\n)\\s*(?:export\\s+)?class\\s+' + sym + '\\b',
             '(?:^|\\n)\\s*(?:export\\s+)?(?:const|let|var)\\s+' + sym + '\\s*='
         ];
-        if (defs.some(re => new RegExp(re, 'm').test(code))) continue;
+        if (defs.some(re => new RegExp(re, 'm').test(codeNoComments))) continue;
         // 使用形式：仅成员访问(.)或调用(( )才算"需要import"；参数位/解构(后跟 , } )不算——
         // 引擎普遍 register(eventBus,...)/install({ eventBus }) 由调用方注入，无 import 也正确。
         // V1.1.0 补：上面的"参数位排除"只挡得住参数列表里那一次出现，挡不住函数体内的后续使用，
@@ -183,9 +195,9 @@ export function scanSharedSymbolImport(code, mounts) {
         //   被判成"将运行时报错"——实际 120 场回放全绿、浏览器也跑得通，是纯误报。
         //   这里按"文件内是否把它当形参/解构形参接过"整体排除：注入进来的符号，体内再用都合法。
         const paramRe = new RegExp('[(,{]\\s*' + sym + '\\s*[,)}]');
-        if (paramRe.test(code)) continue;
+        if (paramRe.test(codeNoComments)) continue;
         const usageRe = new RegExp('(?<![\\w$.])\\b' + sym + '\\s*[\\.\\(]');
-        if (usageRe.test(code)) missing.push({ sym, viaWindow: !!(mounts && mounts[sym]) });
+        if (usageRe.test(codeNoComments)) missing.push({ sym, viaWindow: !!(mounts && mounts[sym]) });
     }
     return missing;
 }
