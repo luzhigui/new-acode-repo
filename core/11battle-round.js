@@ -1,5 +1,5 @@
-// V6.2.0 | ~27300 bytes | 2026-09-23 幼狮走 pass 休息通道（reason 幼狮休息，回血 15）
-export const VER = 'core/11battle-round.js V6.2.0';
+// V6.3.0 | ~27400 bytes | 2026-09-23 拒马/幼狮改为「攻=0 才休息」，加攻后可正常出手（防战公式）
+export const VER = 'core/11battle-round.js V6.3.0';
 
 import { CONFIG, getGameData, getSkillParams } from './01config-5v5-test.js';
 import { resetStateFields } from './17-state-keys.js';
@@ -340,9 +340,10 @@ export function* createRoundStepper(state, { ui = true, translateFacts = null } 
 
         for (const u of sortedByPos) {
             if (u.state._stunned) { passUnits.push({ unit: u, reason: '眩晕' }); continue; }
-            if (u.isHorse) { passUnits.push({ unit: u, reason: '拒马休息' }); continue; }
-            // 谢逊幼狮：不会攻击，轮到它就走休息通道（与拒马同口径，回血 15）
-            if (u.isLionCub) { passUnits.push({ unit: u, reason: '幼狮休息' }); continue; }
+            // 2026-09-23 拒马 / 谢逊幼狮：「不会攻击」不是身份硬编码，而是攻=0 的自然结果。
+            //   一旦被振奋之类的加攻词条抬到 >0，就放行进正常攻击流程（职业是防战 → core/12 走防战公式）。
+            if (u.isHorse && getStat(u, 'atk') <= 0) { passUnits.push({ unit: u, reason: '拒马休息' }); continue; }
+            if (u.isLionCub && getStat(u, 'atk') <= 0) { passUnits.push({ unit: u, reason: '幼狮休息' }); continue; }
             // 2026-09-17 张三丰不攻击：轮到他走"生生不息"休息，走 pass 通道而不是攻击流程
             if (u.isZhangSanfeng) { passUnits.push({ unit: u, reason: '生生不息' }); continue; }
             if (u.state._flyMode === 'butterfly' || u.state._flyMode === 'spider' || u.state._spiderFlying || (u._fsm && u._fsm.is('flying'))) { passUnits.push({ unit: u, reason: '飞天/附身' }); continue; }
