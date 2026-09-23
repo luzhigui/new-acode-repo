@@ -68,13 +68,10 @@ export function _triggerFX(fxSnapshot, unitA, unitD, isDead, isDodge, isMiss, is
                     clock.wait(1100).then(() => {
                         if (!GlobalStore.get('fastForwardActive')) showDamageFloat(unitD, dmg);
                     });
-                    if (isDead && unitD) {
-                        const ctx = GlobalStore.get('playerContext');
-                        if (ctx && ctx.store) {
-                            ctx.store.dispatch({ type: STORE_ACTION_TYPES.SET_FLASH, uid: unitD.uid, flash: FLASH_TYPES.DEAD });
-                            ctx.store.dispatch({ type: STORE_ACTION_TYPES.SET_VISUAL, uid: unitD.uid, _isDead: true });
-                        }
-                    }
+                    // 2026-09-23 删死亡直写：原先命中落定即写 DEAD flash + _isDead，是死亡剧透的源头——
+                    // 母狮联动/白骨爪等多段攻击组里杀招落在中段时，阵亡标记提前出现、REMOVE_UNIT 3s
+                    // 计时从中途起跑，后续随动全打在消失/空格上。死亡标记统一由步末 pendingDeaths
+                    // 落地（player/42 与 ATTACK 定义注释的设计意图），时点=本步整组播完。
                 });
             }
         }
