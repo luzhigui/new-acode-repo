@@ -98,7 +98,6 @@ export const FLY_MODE_TYPES = Object.freeze({
 export const UNIT_EVENT_TYPES = Object.freeze({
     HP_CHANGE: 'hp-change',
     POS_CHANGE: 'pos-change',
-    STAT_BONUS_CHANGE: 'stat-bonus-change',
     UNIT_ADD: 'unit-add',
     UNIT_REMOVE: 'unit-remove',
     ZHANG_SWITCH: 'zhang-switch'
@@ -195,7 +194,6 @@ export const STORE_ACTION_TYPES = Object.freeze({
     ADD_UNIT: 'ADD_UNIT',
     REMOVE_UNIT: 'REMOVE_UNIT',
     HP_CHANGE: 'hp-change',
-    STAT_BONUS_CHANGE: 'stat-bonus-change',
     SET_UNITS: 'SET_UNITS',
     // 2026-09-14 状态三轨收敛：回合数由 battleStore 持有（原先散在 c.UI.round）
     SET_ROUND: 'SET_ROUND'

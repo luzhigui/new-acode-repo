@@ -56,11 +56,7 @@ function guestTopic(room) { return TOPIC_PREFIX + room + '/g2h'; }
 //   ② 单位上的 _fsm 是 StateMachine 实例，states 里是 onEnter/onExit 函数，序列化不了
 // 但渲染层（render/32-grid-render.js）要读 unit._fsm.is('attached'|'flying')，不能直接丢，
 // 所以只传 current，从机用空 states 重建一个壳，够 is() 用（从机不跑 transition）。
-function plainUnit(u) {
-    const o = { ...u };
-    if (o._fsm) o._fsm = { current: o._fsm.current };
-    return o;
-}
+
 
 // buff 数组净化：cols/rows 是数组，浅拷贝一份避免共享引用
 function plainBuffs(buffs) {
@@ -75,8 +71,8 @@ function plainStep(step, activeBuffs, speed, ff) {
     return {
         log: step.log || [],
         events: step.events || [],
-        ally: (step.ally || []).map(plainUnit),
-        enemy: (step.enemy || []).map(plainUnit),
+        ally: step.ally || [],
+        enemy: step.enemy || [],
         winner: step.winner || null,
         done: !!step.done,
         doubleStrikeUid: step.doubleStrikeUid || null,
@@ -103,7 +99,7 @@ function reviveStep(raw) {
 
 // 房主下发阵容：两队单位净化后传输，从机复原成普通对象（摆位阶段只读 pos/渲染，不需要方法）
 export function plainLineup(stage, allyTeam, enemyTeam) {
-    return { stage, ally: (allyTeam || []).map(plainUnit), enemy: (enemyTeam || []).map(plainUnit) };
+    return { stage, ally: allyTeam || [], enemy: enemyTeam || [] };
 }
 
 export function reviveLineup(raw) {

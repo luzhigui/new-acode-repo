@@ -7,6 +7,7 @@ import { GlobalStore, getPlayerContext } from '../infra/54-global-store.js';
 import { FLASH_TYPES, CAMP_TYPES, ROLE_TYPES, BUFF_TYPES } from '../infra/56-battle-enums.js';
 import { getStat } from '../core/13battle-shared.js';
 import { clock } from '../infra/52-clock.js';
+import { getView, setView } from '../infra/61-view-sheet.js';
 
 let _store = null;
 let _subscribed = false;
@@ -216,7 +217,7 @@ export function renderGrid(id, camp) {
         if (unit && !unit.state) unit.state = {};
         if (unit && !unit.isHorse) {
             // _renderFlyMode 是飞撞/子弹时间的纯渲染态（攻击者本身不飞行），优先于 state._flyMode
-            const effectiveFlyMode = unit._renderFlyMode || (unit.state && unit.state._flyMode);
+            const effectiveFlyMode = getView(unit.uid, '_renderFlyMode') || (unit.state && unit.state._flyMode);
             if (effectiveFlyMode || (unit._fsm && (unit._fsm.is('attached') || unit._fsm.is('flying')))) {
                 let div = document.createElement('div');
                 div.className = 'cell occupied';
@@ -276,7 +277,7 @@ export function renderGrid(id, camp) {
         }
         const _storeForFlash = getStore();
         const storeUnit = (_storeForFlash && _storeForFlash.getState) ? _storeForFlash.getState().units.find(u => u.uid === unit.uid) : null;
-        const flashVal = (storeUnit && storeUnit._flash) || unit._flash || null;
+        const flashVal = getView(unit.uid, '_flash') ?? null;
         let hasFlash = !!flashVal;
         let isDead = (flashVal===FLASH_TYPES.DEAD || !unit.alive || unit.state._isDead);
         let isBlocked = (unit.state && unit.state._blocked) || false;
@@ -353,22 +354,22 @@ export function renderGrid(id, camp) {
             if (shakeDeadline > Date.now()) shakeRemain = shakeDeadline - Date.now();
             else _shakeUntil.delete(unit.uid);
         }
-        let cheerClass = (hasFlash && unit._flash===FLASH_TYPES.CHEER && !isDead) ? 'cell-cheer' : '';
+        let cheerClass = (hasFlash && flashVal === FLASH_TYPES.CHEER && !isDead) ? 'cell-cheer' : '';
         let restingClass = (isBlocked && unit.alive && isResting && !(unit.isZhang && unit.rangedForm) && !isDead) ? 'resting' : '';
         let div = document.createElement('div');
         div.className = `cell occupied ${readyClass} ${actedClass} ${cheerClass} ${restingClass}`;
         if (shakeRemain > 0) runGridShake(div, shakeRemain);
         if (isDead) { div.setAttribute('data-flash', FLASH_TYPES.DEAD); div.style.transition = 'none'; }
-        else if (unit._flash) { div.setAttribute('data-flash', unit._flash); div.style.transition = 'none'; }
+        else if (flashVal) { div.setAttribute('data-flash', flashVal); div.style.transition = 'none'; }
         div.dataset.pos = pos;
         div.dataset.uid = unit.uid;
         if (renderAdjust) {
             if (unit.fixed) div.classList.add('fixed-unit');
             else { div.classList.add('swappable'); if (selectedPos === pos) div.classList.add('adjust-selected'); }
         }
-        if (unit._phantomFlash) {
+        if (getView(unit.uid, '_phantomFlash')) {
             div.style.animation = 'phantomFlash 0.4s ease-in-out 2';
-            setTimeout(() => { div.style.animation = ''; delete unit._phantomFlash; }, 800);
+            setTimeout(() => { div.style.animation = ''; setView(unit.uid, '_phantomFlash', null); }, 800);
         }
         if (unit.isHorse && unit.alive && !(unit.state && unit.state._isDead) && !_horseSpawnedUids.has(unit.uid)) {
             _horseSpawnedUids.add(unit.uid);
@@ -397,8 +398,8 @@ export function renderGrid(id, camp) {
         // 小昭姊/妹的身份已由左侧 roleIcon（🦋/🕷️）承担，名字后不再重复挂
         // 张三丰：进入严阵以待阶段后挂图标——他的严阵以待是组件自身 addMod（不走团队 buff），
         // activeBuffs 里没有 fortify，格子上原本毫无提示
-        let eliteSkillIcon = (unit.name === '周芷若' && unit._hasKuaiLe) ? ' 💖'
-            : (unit.name === '宋青书' && unit._hasXingFen) ? ' 💗'
+        let eliteSkillIcon = (unit.name === '周芷若' && getView(unit.uid, '_hasKuaiLe')) ? ' 💖'
+            : (unit.name === '宋青书' && getView(unit.uid, '_hasXingFen')) ? ' 💗'
             : (unit.isZhangSanfeng && unit.alive && unit.state._tenRoundFired) ? ' 🛡️'
             : '';
         if (!eliteSkillIcon) {

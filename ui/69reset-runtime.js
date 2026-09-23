@@ -7,6 +7,7 @@ import { clearEliteDodgeRules } from '../core/12battle-attack-steps.js';
 import { flushBattleEvents } from '../infra/51-core-utils.js';
 // 弹幕池重置函数：与删除 DOM 配合，防止对象池持有游离元素
 import { resetDanmakuPool } from '../fx/80fx-common-5v5-test.js';
+import { clearAllView } from '../infra/61-view-sheet.js';
 
 function removeIfExists(id) {
     const el = document.getElementById(id);
@@ -44,6 +45,7 @@ export function resetBattleRuntime({ restoreSpeed = true } = {}) {
     // 弹幕重置：调用池重置函数（内部会移除 DOM 并重建池），
     //   不能只删 DOM——对象池仍持引用会导致后续弹幕全部失效
     resetDanmakuPool();
+    clearAllView();
     document.querySelectorAll('[data-fx="temporary"]').forEach(el => { if (el.parentNode) el.parentNode.removeChild(el); });
     document.querySelectorAll('.cell-cheer').forEach(cell => cell.classList.remove('cell-cheer'));
     document.querySelectorAll('.grid.victory-border').forEach(grid => grid.classList.remove('victory-border'));
@@ -52,7 +54,6 @@ export function resetBattleRuntime({ restoreSpeed = true } = {}) {
     const UI = GlobalStore.get('UI');
     if (UI && UI.allyTeam && UI.enemyTeam) {
         [...UI.allyTeam, ...UI.enemyTeam].forEach(u => {
-            u._flash = null;
             u.state._acted = false;
             u.state._resting = false;
             u.state._blocked = false;
@@ -60,10 +61,6 @@ export function resetBattleRuntime({ restoreSpeed = true } = {}) {
             u.alive = true;
             u.hp = u.maxHp;
             u.state._stunned = false;
-            if (u._restingTimer) {
-                clearTimeout(u._restingTimer);
-                u._restingTimer = null;
-            }
         });
     }
 

@@ -94,17 +94,10 @@ export function getUIView(c) {
 
 function syncStoreFromStep(c, step) {
     if (!c.store || !step) return;
-    const oldState = c.store.getState();
-    const oldUnitsMap = new Map((oldState.units || []).map(u => [u.uid, u]));
-    const preservedTopFields = ['_hasXingFen', '_hasKuaiLe', '_renderFlyMode'];
     const units = [...step.ally, ...step.enemy]
         .filter(u => !(c._removedUids && c._removedUids.has(u.uid)))
         .map(u => {
             const unit = { ...u };
-            const oldUnit = oldUnitsMap.get(u.uid);
-            if (oldUnit) {
-                for (const field of preservedTopFields) { if (oldUnit[field] !== undefined) unit[field] = oldUnit[field]; }
-            }
             if (u._mods) unit._mods = { atk: [...u._mods.atk], def: [...u._mods.def], maxHp: [...u._mods.maxHp] };
             else unit._mods = { atk: [], def: [], maxHp: [] };
             return unit;

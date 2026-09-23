@@ -185,10 +185,6 @@ function prepareRoundStart(A, B, log, state, round, rng) {
             allyTeamWithDead = allyTeamWithDead.filter((u, i, arr) => arr.findIndex(v => v.uid === u.uid) === i);
         }
         let stats = computeBuffStats(u, A._activeBuffs || [], allyTeamWithDead);
-        u.buffAtkBonus = stats.atkBonus;
-        u.buffDefBonus = stats.defBonus;
-        u.buffDodgeBonus = stats.dodgeBonus;
-        u.buffHpBonus = stats.hpBonus;
 
         applyHolyFlameBonus(u, A._activeBuffs || [], hasSisterForHolyFlame);
         applyFortifyBonus(u, A._activeBuffs || []);
@@ -198,15 +194,8 @@ function prepareRoundStart(A, B, log, state, round, rng) {
         if (auraBonuses.emptyCol > 0) addMod(u, 'atk', { source: '空列光环', value: auraBonuses.emptyCol, ttl: 'round', group: 'aura', op: 'add' });
         if (auraBonuses.bloodAura > 0) addMod(u, 'atk', { source: '残血光环', value: auraBonuses.bloodAura, ttl: 'round', group: 'aura', op: 'add' });
 
-        emitEvent(u, UNIT_EVENT_TYPES.STAT_BONUS_CHANGE, {
-            buffAtkBonus: stats.atkBonus,
-            buffDefBonus: stats.defBonus,
-            buffDodgeBonus: stats.dodgeBonus,
-            buffHpBonus: stats.hpBonus
-        });
         emitEvent(u, UNIT_EVENT_TYPES.HP_CHANGE, { hp: u.hp, maxHp: u.maxHp, alive: u.alive, atk: getStat(u, 'atk'), def: getStat(u, 'def') });
 
-        u._restingTimer && clearTimeout(u._restingTimer), u._restingTimer = null;
         u.state._xingFenExtraAttacking = false;
         u.state._bloodthirstStriked = false;
         Object.assign(u.state, { _doubleStriked: false });
@@ -216,10 +205,6 @@ function prepareRoundStart(A, B, log, state, round, rng) {
         if (!u.alive) return;
         emitEvent(u, UNIT_EVENT_TYPES.HP_CHANGE, { hp: u.hp, maxHp: u.maxHp, alive: u.alive, atk: getStat(u, 'atk'), def: getStat(u, 'def'), _stunned: false });
         let bStats = computeBuffStats(u, B._activeBuffs || [], B);
-        u.buffAtkBonus = bStats.atkBonus;
-        u.buffDefBonus = bStats.defBonus;
-        u.buffDodgeBonus = bStats.dodgeBonus;
-        u.buffHpBonus = bStats.hpBonus;
         applyHolyFlameBonus(u, B._activeBuffs || [], false);
         applyFortifyBonus(u, B._activeBuffs || []);
         applyCarryBonus(u, B, state, log);
@@ -505,7 +490,6 @@ function finalizeRoundEnd(A, B, log, round) {
         for (let i = team.length - 1; i >= 0; i--) {
             const u = team[i];
             u.state._resting = false;
-            if (u._restingTimer) { clearTimeout(u._restingTimer); u._restingTimer = null; }
         }
     });
 

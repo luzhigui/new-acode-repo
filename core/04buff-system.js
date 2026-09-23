@@ -75,8 +75,8 @@ export function submitBloodthirstDeclaration(data) {
         const decl = { type: EFFECT_TYPES.LEECH, value: leechVal, source: unit, factType: FACT_TYPES.BLOOD_THIRST_LEECH, factData: { unitName: unit.name, leechVal, isBrother: false, unitUid: unit.uid } };
         if (!data.declarations) data.declarations = [];
         data.declarations.push(decl);
-        if (hasSister && unit.alive && target.alive && !unit._bloodthirstStriked) {
-            unit._bloodthirstStriked = true;
+        if (hasSister && unit.alive && target.alive && !unit.state._bloodthirstStriked) {
+            unit.state._bloodthirstStriked = true;
             if (!data.extraRequests) data.extraRequests = [];
             data.extraRequests.push({ unit, targetUid: target.uid, reason: 'bloodthirst', actedMode: 'allow', priority: 20 });
         }

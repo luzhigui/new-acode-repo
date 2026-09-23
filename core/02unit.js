@@ -100,8 +100,7 @@ export class Unit {
         this.rangedForm=true;this.nearAtkCount=0;this.ronghui=false;
         this.dmgDealt=0;this.dmgTaken=0;this.healDone=0;this.reboundDone=0;
         this.leechDone=0;this.dodgeCount=0;this.critCount=0;
-        this.survivedRounds=0;this._flash=null;
-        this.buffAtkBonus=0;this.buffDefBonus=0;this.buffDodgeBonus=0;this.buffHpBonus=0;
+        this.survivedRounds=0;
         this.fixed=false;
         this._mods = { atk: [], def: [], maxHp: [] };
         this.state = createInitialState();
@@ -109,6 +108,13 @@ export class Unit {
         this.isXiaoZhaoBrother = false; // 🕷️ 小昭·妹
         // 身份标记（isChengKun / isSongQingshu / …）按名字自动打标，见 HERO_FLAGS
         applyHeroFlags(this);
+    }
+    toJSON(){
+        // 序列化出口：_fsm 含函数不可序列化，只输出 current 字符串。
+        // 有了本方法，发 step 时 unit 直接 JSON.stringify 即可，不再需要 net/60 的 plainUnit
+        const o = { ...this };
+        if (o._fsm) o._fsm = { current: o._fsm.current };
+        return o;
     }
     clone(){
         let c=new Unit(this.name,this.m,this.role,this.camp);
