@@ -1,5 +1,5 @@
 // V6.0.0 | 2026-08-19 import 路径合并至 infra/51
-export const VER = 'ui/65main-battle.js V6.0.0';
+export const VER = 'ui/65main-battle.js V6.0.1';
 
 import { CONFIG } from '../core/01config-5v5-test.js';
 import { SeededRNG } from '../infra/51-core-utils.js';
@@ -43,10 +43,17 @@ export function doInitBattle(currentStage, UI, snapshot, activeBuffs, selectedBu
  * @param {function} callback - 选完后调用，参数 'right' 或 'left'
  */
 // 战斗-弹窗：姐姐附身方向选择（左防御/右攻击）
+// V6.1.21 全自动档默认向左：autoLevel='full-auto' 时"向左"预高亮 + 3 秒倒计时自动确认。
+//   为什么：全自动是无人值守，弹窗只等人点会把流程卡死；同时保留弹窗让人看得见发生了什么。
+//   手动/自动档行为完全不变（无人预高亮、不倒计时、兜底仍为右）。
+// 时间层说明：弹窗期间调用方已 c.isPaused=true（42/49），GlobalStore.effect 会 clock.pause()，
+//   所以倒计时必须走真实时间 setTimeout——用 clock.wait 会跟着暂停一起冻住。
 export function showFlyDirectionPopup(callback) {
+    const isFullAuto = GlobalStore.get('autoLevel') === 'full-auto';
+    const defaultDir = isFullAuto ? 'left' : 'right';
     // 快进/跳过直接默认
     if (GlobalStore.get('fastForwardActive') || GlobalStore.get('skipBuffPopup')) {
-        callback('right');
+        callback(defaultDir);
         return;
     }
     const overlay = document.createElement('div');
@@ -81,20 +88,50 @@ export function showFlyDirectionPopup(callback) {
     btnDiv.appendChild(btnLeft);
     btnDiv.appendChild(btnRight);
     box.appendChild(btnDiv);
+    // 全自动档：把"向左"做成预选项（描边发光 + 底色提亮），倒计时结束即按它确认
+    let hint = null;
+    if (isFullAuto) {
+        btnLeft.style.boxShadow = '0 0 12px rgba(255,105,180,0.7)';
+        btnLeft.style.background = '#3d2a4e';
+        btnLeft.style.fontWeight = 'bold';
+        hint = document.createElement('div');
+        hint.style.cssText = 'color:#ff69b4;font-size:12px;margin-top:12px;text-align:center;';
+        box.appendChild(hint);
+    }
     overlay.appendChild(box);
     document.body.appendChild(overlay);
+    let settled = false, timer = null;
     // 弹窗已显示时快进则自动关闭
     const unsub = GlobalStore.on('fastForwardActive', (val) => {
         if (val) {
-            unsub();
             if (overlay.parentNode) overlay.remove();
-            callback('right');
+            wrappedCallback(defaultDir);
         }
     });
-    // 包装 callback，确保清理监听
-    const wrappedCallback = (dir) => { unsub(); callback(dir); };
+    // 包装 callback，确保清理监听；并去重（倒计时 / 点击 / 快进只会生效一次）
+    const wrappedCallback = (dir) => {
+        if (settled) return;
+        settled = true;
+        unsub();
+        if (timer) clearInterval(timer);
+        callback(dir);
+    };
     btnLeft.onclick = () => { if (overlay.parentNode) overlay.remove(); wrappedCallback('left'); };
     btnRight.onclick = () => { if (overlay.parentNode) overlay.remove(); wrappedCallback('right'); };
+    // 倒计时：全自动档 3 秒后自动按预选项（向左）继续
+    if (isFullAuto) {
+        let sec = 3;
+        hint.textContent = `（全自动）${sec} 秒后自动向左`;
+        timer = setInterval(() => {
+            sec -= 1;
+            if (sec <= 0) {
+                if (overlay.parentNode) overlay.remove();
+                wrappedCallback('left');
+                return;
+            }
+            hint.textContent = `（全自动）${sec} 秒后自动向左`;
+        }, 1000);
+    }
 }
 
 // 2026-09-14 注册到 UIHandler 通道，供 player/49 调用（消除 player → ui 反向 import）

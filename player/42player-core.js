@@ -1,5 +1,5 @@
 // ~34400 bytes | V6.8.0 | 2026-09-19 从机开战改用摆位阵容垫底（不再先渲染空网格）；房主 start 捎带关卡号供从机补正关卡与标签
-export const VER = 'player/42player-core.js V6.8.0';
+export const VER = 'player/42player-core.js V6.8.1';
 
 import { eventBus } from '../infra/50-event-bus.js';
 import { FX_SIGNALS } from '../infra/55-fx-signals.js';
@@ -417,7 +417,8 @@ export async function playBattle() {
     if (hasSisterAtStart) {
         const { showFlyDirectionPopup } = await import('../ui/65main-battle.js');
         const direction = await new Promise(resolve => { showFlyDirectionPopup(resolve); });
-        battleState.ally._flyDirection = direction || 'right';
+        // V6.8.1 全自动档兜底改为向左（弹窗本身已在 65 里做了预高亮+倒计时，这里是异常路径的保险）
+        battleState.ally._flyDirection = direction || (GlobalStore.get('autoLevel') === 'full-auto' ? 'left' : 'right');
     }
     let isBattleOver = false; let finalWinner = null; let finalStep = null;
 

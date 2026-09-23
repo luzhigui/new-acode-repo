@@ -1,6 +1,6 @@
 // V6.3.0 | ~6700 bytes | 2026-09-19 联网PVP阶段3：handlePvpBuffSelection 房主统一发选项、双方各选后合并
 // V6.2.0 | ~3400 bytes | 2026-09-19 联网PVP：handleBuffSelection 加 camp 参数，按阵营取队伍与已有 buff
-export const VER = 'player/49battle-flow.js V6.3.0';
+export const VER = 'player/49battle-flow.js V6.3.1';
 
 import { CONFIG } from '../core/01config-5v5-test.js';
 import { GlobalStore, getPlayerContext } from '../infra/54-global-store.js';
@@ -115,7 +115,9 @@ export async function handleFlyDirection(c, lastStep, currentRound) {
     const direction = typeof showFlyDirectionPopup === 'function'
         ? await new Promise(resolve => { showFlyDirectionPopup(resolve); })
         : 'right';
-    if (!lastStep.ally._flyDirection) lastStep.ally._flyDirection = 'right';
-    lastStep.ally._flyDirection = direction;
+    // V6.3.1 全自动档兜底改为向左（与 42 开战前那处同口径，避免弹窗异常时又落回右）
+    const fallbackDir = GlobalStore.get('autoLevel') === 'full-auto' ? 'left' : 'right';
+    if (!lastStep.ally._flyDirection) lastStep.ally._flyDirection = fallbackDir;
+    lastStep.ally._flyDirection = direction || lastStep.ally._flyDirection;
     c.isPaused = false;
 }
