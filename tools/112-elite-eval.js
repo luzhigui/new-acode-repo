@@ -8,10 +8,12 @@ const configs = [
     { name: '韦一笑' },
     { name: '小昭·姊' },
     { name: '小昭·妹' },
-    { name: '金毛狮王谢逊' },
-    { name: '胖远桥' },
-    { name: '宋青书' }
+    { name: '金毛狮王谢逊' }
 ];
+
+// 敌方阵容变体（行拆分维度）：第3关在胖远桥/宋青书两套阵容间轮换，按"本局敌方是谁"拆行统计
+// 2026-09-24 定稿：胖远桥/宋青书是行不是列——用户要看的是"遇到谁时的整体胜率"，不是把他俩当出场角色
+const VARIANTS = ['胖远桥', '宋青书', '标准'];
 
 const startBtn = document.getElementById('eliteStartBtn');
 const runsInput = document.getElementById('eliteRunsInput');
@@ -29,10 +31,13 @@ startBtn.addEventListener('click', async () => {
     progressEl.textContent = '开始评测...';
     resultEl.innerHTML = '<div class="elite-empty">运行中...</div>';
 
-    const byStage = {}; // stage -> { 张无忌:{runs,wins,...}, ... }
+    const byStage = {}; // stage -> variant -> { 张无忌:{runs,wins,...}, ... }
     for (const st of stages) {
         byStage[st] = {};
-        for (const cfg of configs) byStage[st][cfg.name] = { runs: 0, wins: 0, sumDmg: 0, sumTaken: 0, sumSurv: 0 };
+        for (const v of VARIANTS) {
+            byStage[st][v] = {};
+            for (const cfg of configs) byStage[st][v][cfg.name] = { runs: 0, wins: 0, sumDmg: 0, sumTaken: 0, sumSurv: 0 };
+        }
     }
     const startT = performance.now();
 
@@ -54,12 +59,16 @@ startBtn.addEventListener('click', async () => {
             kind: 'elite',
             nextJobMsg: (job, id) => ({ jobId: id, kind: 'elite', stage: job.stage, seed: job.seed, runs: job.runs }),
             onJobDone: (finished, total, job, part) => {
-                const slot = byStage[job.stage];
-                for (const [name, d] of Object.entries(part || {})) {
-                    const a = slot[name];
-                    if (!a) continue;
-                    a.runs += d.runs; a.wins += d.wins;
-                    a.sumDmg += d.sumDmg; a.sumTaken += d.sumTaken; a.sumSurv += d.sumSurv;
+                // part = { 变体名: { 角色名: {runs,wins,...} } }
+                for (const [variant, roles] of Object.entries(part || {})) {
+                    const slot = byStage[job.stage] && byStage[job.stage][variant];
+                    if (!slot) continue;
+                    for (const [name, d] of Object.entries(roles || {})) {
+                        const a = slot[name];
+                        if (!a) continue;
+                        a.runs += d.runs; a.wins += d.wins;
+                        a.sumDmg += d.sumDmg; a.sumTaken += d.sumTaken; a.sumSurv += d.sumSurv;
+                    }
                 }
                 progressEl.textContent = `第${job.stage}关 完成 (${finished}/${total}，已用 ${((performance.now() - startT) / 1000).toFixed(1)}s)`;
             },
@@ -83,21 +92,30 @@ function renderResults(byStage, stages) {
     html += '</tr>';
 
     for (const st of stages) {
-        html += `<tr><td class="elite-stage">第${st}关</td>`;
-        for (const cfg of configs) {
-            html += cellHtml(byStage[st] && byStage[st][cfg.name]);
+        // 按变体拆行：有数据的变体各占一行（第3关 → 「·胖远桥」「·宋青书」两行；其余关单行）
+        for (const v of VARIANTS) {
+            const bucket = byStage[st] && byStage[st][v];
+            const hasData = bucket && Object.values(bucket).some(d => d.runs > 0);
+            if (!hasData) continue;
+            const label = v === '标准' ? `第${st}关` : `第${st}关·${v}`;
+            html += `<tr><td class="elite-stage">${label}</td>`;
+            for (const cfg of configs) {
+                html += cellHtml(bucket[cfg.name]);
+            }
+            html += '</tr>';
         }
-        html += '</tr>';
     }
 
-    // 总评行：跨关累加
+    // 总评行：跨关跨变体累加
     html += '<tr><td class="elite-stage">总评</td>';
     for (const cfg of configs) {
         let tw = 0, tr = 0, td = 0, tt = 0, ts = 0;
         for (const st of stages) {
-            const d = byStage[st] && byStage[st][cfg.name];
-            if (!d) continue;
-            tw += d.wins; tr += d.runs; td += d.sumDmg; tt += d.sumTaken; ts += d.sumSurv;
+            for (const v of VARIANTS) {
+                const d = byStage[st] && byStage[st][v] && byStage[st][v][cfg.name];
+                if (!d) continue;
+                tw += d.wins; tr += d.runs; td += d.sumDmg; tt += d.sumTaken; ts += d.sumSurv;
+            }
         }
         html += cellHtml({ runs: tr, wins: tw, sumDmg: td, sumTaken: tt, sumSurv: ts });
     }
