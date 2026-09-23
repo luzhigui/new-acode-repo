@@ -77,6 +77,16 @@ export async function handleAttackGroup(c, entry, roundResult, abortSig, isFirst
             continue;
         }
 
+        // 成昆幻影识破：播到这条 log 时触发成昆闪一下（PHANTOM_REVEAL fact 带过来的 uid）
+        if (entry2.phantomFlashUid && c.store) {
+            c.store.dispatch({ type: STORE_ACTION_TYPES.SET_VISUAL, uid: entry2.phantomFlashUid, _phantomFlash: true });
+        }
+
+        // 成昆幻影识破：播到这条 log 时触发成昆闪一下（PHANTOM_REVEAL fact 带过来的 uid）
+        if (entry2.phantomFlashUid && c.store) {
+            c.store.dispatch({ type: STORE_ACTION_TYPES.SET_VISUAL, uid: entry2.phantomFlashUid, _phantomFlash: true });
+        }
+
         // 九阴白骨爪：每条爪击日志快速触发飞爪动画，不阻塞日志推进
         if (entry2.isClawHit) {
             const clawAttacker = findUnitByUid(c, entry2.clawAttackerUid);

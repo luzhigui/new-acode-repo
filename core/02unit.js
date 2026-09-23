@@ -122,7 +122,7 @@ export class Unit {
         // 此处只拷贝战斗必需顶层字段（atk/def/hp/pos/alive 等），跳过 state、fsm 及所有下划线临时字段
         for (const key of Object.keys(this)) {
             if (key === 'state' || key === '_fsm') continue;
-            if (key.startsWith('_') && key !== '_flash' && key !== '_mods') continue;
+            if (key.startsWith('_') && key !== '_mods') continue;
             c[key] = this[key];
         }
         // 词条容器深拷贝：数组独立，避免共享引用

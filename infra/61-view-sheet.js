@@ -9,8 +9,7 @@ export const VIEW_FIELDS = Object.freeze([
     '_flash',
     '_renderFlyMode',
     '_phantomFlash',
-    '_hasXingFen',
-    '_hasKuaiLe'
+    '_hasXingFen'
 ]);
 
 const _sheet = new Map();
@@ -29,10 +28,6 @@ export function getView(uid, key) {
 
 export function getUnitView(uid) {
     return _sheet.get(uid) || null;
-}
-
-export function clearView(uid) {
-    if (uid) _sheet.delete(uid);
 }
 
 export function clearAllView() {
@@ -56,7 +51,7 @@ export function applyActionToView(action, units) {
             if (Array.isArray(units)) for (const u of units) setView(u.uid, '_flash', null);
             break;
         case STORE_ACTION_TYPES.SET_VISUAL:
-            if (action._hasKuaiLe !== undefined) setView(action.uid, '_hasKuaiLe', action._hasKuaiLe);
+            if (action._phantomFlash !== undefined) setView(action.uid, '_phantomFlash', action._phantomFlash);
             if (action._hasXingFen !== undefined) setView(action.uid, '_hasXingFen', action._hasXingFen);
             if (action._renderFlyMode !== undefined) setView(action.uid, '_renderFlyMode', action._renderFlyMode);
             break;
