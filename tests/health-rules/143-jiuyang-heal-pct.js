@@ -17,44 +17,65 @@
 //     故：变身后条目用终局血上限判定；变身前条目血上限更小，一律跳过百分比比较（只保留算术一致性）。
 //   - 背负(carry：张无忌 +血上限) / 蝶变附身(血上限+，宿主=张无忌) 会临时抬高血上限，
 //     出现即无法从终局值反推当时值 → 本场自动降级为"只查算术一致性"，杜绝误报。
-// 数据来源：单位血上限取 afterA/afterE 中 isZhang 的终局 maxHp；拿不到（如无 ctx 快照）则同样降级。
+// 数据来源：单位血上限取 afterA/afterE 中该回复归属单位（healUnitUid）的终局 maxHp；拿不到则同样降级。
 //
-// 【口径修正（本次优化，关键）】旧版只扫战报顶层条目 e.text，但「☀️ 九阳神功回复+N，a→b」
-//   是 **attack-group 的 entries 子条目**（render/30 renderNineYangHealFact 的结果挂在攻击组里，
-//   与 130/144/139 同源），「张无忌切换近战形态」则是 renderZhangSwitchFact 放回的一条 **数组**
-//   （切换行 + 台词行两件套）—— 二者在顶层都取不到。
-//   实测 120 场:本规则 120/120 恒返回 'skip' —— 整条空转，V6.1.12 刚调过的 12% 这条防线
-//   长期处于失效状态（既抓不到回退，也发现不了按比例算错）。
-//   现改为双层扫描:顶层 text + attack-group entries 子条目 + 数组元素，entries 序号保持原战报下标。
-//   判据本身（12%/10%/8% 三档回退识别 + 回血写回一致性）一字未动，做到只改数据源这一处。
-export const VER = 'tests/health-rules/143-jiuyang-heal-pct.js V6.1.15';
+// V6.1.22 修订（体检迭代第 6 轮）：修恒空转真因 —— 扫错条目层级。
+// 【数据契约，2026-09-22 实跑取证，改规则前务必对照】
+//   九阳回复条目**不是顶层条目**，而是挂在 `attack-group` 的 `entries` 子条目上：
+//     { type:'info', text:'☀️ 九阳神功回复+{heal}，{hpBefore}→{hpAfter}',
+//       isHealEntry:true, healAmount:{heal}, healUnitUid:{unit.uid} }
+//   产出链：core/15 L164 把 {factType:NINE_YANG_HEAL, factData:{unitName,heal,hpBefore,hpAfter,unitUid}}
+//   推入 `data.declarations`（EFFECT_TYPES.HEAL），由 attack-group 收集后经 render/30 L587
+//   renderNineYangHealFact 渲染成上述子条目 —— 因此 NINE_YANG_HEAL **从不进 step.log**，
+//   回放器的"零产出 factType"直方图会把它误列为数据源缺失（本规则此前据此被错误归因）。
+//   旧版只扫顶层 `e.text`，顶层 attack-group 自身没有 text（文本全在子条目）→ 120 场恒 skip，
+//   自登记以来一次断言都没跑（假绿），而实际同批次存在 899 条九阳回复子条目。
+//   ⚠ `isHealEntry` 是**所有回血类子条目共用**的标记（嗜血吸血/热血奋战/韦一笑吸血/幻影伪装/白骨爪
+//     回血都带，render/31 L506），不能单独当九阳判别位；九阳的判别位是文本「九阳神功回复+」
+//     （render/30 L588 写死的固定前缀）。归属单位以 healUnitUid 为准，不再靠"扫 isZhang"猜测。
+export const VER = 'tests/health-rules/143-jiuyang-heal-pct.js V6.1.22';
 
-// V6.1.12 后的现行比例（content/200 张无忌 mechanics healMaxHpPct.pct）
+// V6.1.12 后的现行比例（content/200 张无忌 mechanics healMaxHpPct.pct，2026-09-22 复核 = 0.12）
 var NINE_YANG_PCT = 0.12;
 // V6.1.8~V6.1.11 的上一版比例，用于精确识别"被回退"
 var NINE_YANG_PREV_PCT = 0.10;
 // V6.1.8 之前的更早比例
 var NINE_YANG_OLD_PCT = 0.08;
 
-// 收集一条战报里所有可能命中本规则锚点文本的字符串（顺序保持战报下标升序）：
-// 顶层 text + attack-group 的 entries 子条目 + 渲染函数直接放回的数组元素。
-// 保持"外层优先、子条目紧随"的顺序，使"变身 vs 九阳回血"的前后位置比较依旧有效。
-function nineYangTexts(e) {
+// 收集本场「九阳回复」子条目：顶层 + attack-group 的 entries 两层都收，下标取所属顶层条目序
+function collectNineYangHeals(log) {
     var out = [];
-    if (!e) return out;
-    if (Array.isArray(e)) {
-        // renderZhangSwitchFact 这类"多件套"渲染:递归摊平，子条目也照收
-        for (var a = 0; a < e.length; a++) {
-            var got = nineYangTexts(e[a]);
-            for (var g = 0; g < got.length; g++) out.push(got[g]);
+    for (var i = 0; i < log.length; i++) {
+        var e = log[i];
+        if (!e) continue;
+        if (Array.isArray(e.entries)) {
+            for (var k = 0; k < e.entries.length; k++) {
+                var s = e.entries[k];
+                if (s && s.isHealEntry === true && typeof s.text === 'string' && s.text.indexOf('九阳神功回复+') !== -1) {
+                    out.push({ idx: i, node: s });
+                }
+            }
         }
-        return out;
+        // 顶层兜底：正常链路不会出现，但条目层级若变化不应漏报
+        if (e.isHealEntry === true && typeof e.text === 'string' && e.text.indexOf('九阳神功回复+') !== -1) {
+            out.push({ idx: i, node: e });
+        }
     }
-    if (typeof e.text === 'string' && e.text) out.push(e.text);
-    if (Array.isArray(e.entries)) {
-        for (var i = 0; i < e.entries.length; i++) {
-            var sub = e.entries[i];
-            if (sub && typeof sub.text === 'string' && sub.text) out.push(sub.text);
+    return out;
+}
+
+// 收集本场全部日志文本（顶层 + 子条目），用于"血上限被其它机制临时抬高"的信号识别
+function collectAllTexts(log) {
+    var out = [];
+    for (var i = 0; i < log.length; i++) {
+        var e = log[i];
+        if (!e) continue;
+        if (typeof e.text === 'string') out.push(e.text);
+        if (Array.isArray(e.entries)) {
+            for (var k = 0; k < e.entries.length; k++) {
+                var s = e.entries[k];
+                if (s && typeof s.text === 'string') out.push(s.text);
+            }
         }
     }
     return out;
@@ -68,52 +89,68 @@ export const rule90 = {
         if (n === 0) return 'skip';
 
         // 1. 扫描战报：九阳回血条目 + 会改张无忌血上限的事件（变身/背负/蝶变附身）
-        var heals = [];
+        var healEntries = collectNineYangHeals(log);
+        if (healEntries.length === 0) return 'skip'; // 本场没触发九阳（张无忌未上场/未造成伤害），不触发该机制
+
+        var texts = collectAllTexts(log);
         var switchIdx = -1, switchCount = 0;
         var hasOtherMaxHpGain = false;
         for (var i = 0; i < n; i++) {
-            var texts = nineYangTexts(log[i]);
-            for (var tk = 0; tk < texts.length; tk++) {
-                var t = String(texts[tk]);
-
-                if (t.indexOf('张无忌切换近战形态') !== -1) {
-                    switchCount++;
-                    if (switchIdx === -1) switchIdx = i;
-                    continue;
-                }
-                // 背负 / 蝶变附身都会给张无忌加血上限（前者 ttl=round 临时，后者附身期间），破坏"终局值=当时值"的推断
-                if (t.indexOf('carry：张无忌') !== -1 && t.indexOf('血上限+') !== -1) hasOtherMaxHpGain = true;
-                if (t.indexOf('蝶变') !== -1 && t.indexOf('附身于 张无忌') !== -1 && t.indexOf('血上限+') !== -1) hasOtherMaxHpGain = true;
-
-                var m = t.match(/九阳神功回复\+(\d+(?:\.\d+)?)，(\d+)→(\d+)/);
-                if (!m) continue;
-                heals.push({ idx: i, heal: parseFloat(m[1]), hpBefore: parseInt(m[2], 10), hpAfter: parseInt(m[3], 10) });
+            var e = log[i];
+            if (!e) continue;
+            var t = typeof e.text === 'string' ? e.text : '';
+            if (t.indexOf('张无忌切换近战形态') !== -1) {
+                switchCount++;
+                if (switchIdx === -1) switchIdx = i;
             }
         }
-        if (heals.length === 0) return 'skip'; // 本场没触发九阳（张无忌未上场/未造成伤害），不触发该机制
+        for (var ti = 0; ti < texts.length; ti++) {
+            var tt = texts[ti];
+            // 背负 / 蝶变附身都会给张无忌加血上限（前者 ttl=round 临时，后者附身期间），破坏"终局值=当时值"的推断
+            if (tt.indexOf('carry：张无忌') !== -1 && tt.indexOf('血上限+') !== -1) hasOtherMaxHpGain = true;
+            if (tt.indexOf('蝶变') !== -1 && tt.indexOf('附身于 张无忌') !== -1 && tt.indexOf('血上限+') !== -1) hasOtherMaxHpGain = true;
+        }
 
-        // 2. 张无忌终局血上限（阵容快照可能为空，取不到则降级）
-        var maxHp = 0;
+        // 2. 终局阵容快照（用于按 healUnitUid 取归属单位的终局血上限；取不到则降级）
         var teams = [afterA, afterE];
-        for (var ti = 0; ti < teams.length; ti++) {
-            var arr = teams[ti] || [];
-            for (var k = 0; k < arr.length; k++) {
-                var u = arr[k];
-                if (u && (u.isZhang || (u.name && u.name.indexOf('张无忌') !== -1))) { maxHp = u.maxHp || 0; break; }
-            }
-            if (maxHp > 0) break;
-        }
-        // 严格百分比比较的前提：有终局血上限，且本场没有"变身以外的血上限增益"信号
-        var canCheckPct = maxHp > 0 && !hasOtherMaxHpGain && switchCount <= 1;
+        // 真正断言过的条目数：为 0 说明本场虽有九阳文本、但没有一条落在可判定范围内，
+        // 此时必须返回 skip（"没断言"）而不是 pass（"断言通过"）—— 后者是假绿。
+        var checked = 0;
 
-        for (var j = 0; j < heals.length; j++) {
-            var h = heals[j];
+        for (var j = 0; j < healEntries.length; j++) {
+            var node = healEntries[j].node;
+            var h = { idx: healEntries[j].idx, heal: node.healAmount, healUnitUid: node.healUnitUid };
+            var m = String(node.text).match(/九阳神功回复\+(\d+(?:\.\d+)?)，(\d+)→(\d+)/);
+            if (m) {
+                h.heal = parseFloat(m[1]);
+                h.hpBefore = parseInt(m[2], 10);
+                h.hpAfter = parseInt(m[3], 10);
+            } else {
+                h.hpBefore = null; h.hpAfter = null;
+            }
+            if (typeof h.heal !== 'number' || !isFinite(h.heal)) continue; // 契约 requiredFields:[unitUid,heal]，缺 heal 无法断言
+
+            // 归属单位：以 healUnitUid 定位（契约字段），非张无忌的九阳回复不属本规则口径
+            var owner = null;
+            for (var ci = 0; ci < teams.length && !owner; ci++) {
+                var arr = teams[ci] || [];
+                for (var k = 0; k < arr.length; k++) {
+                    if (arr[k] && h.healUnitUid != null && arr[k].uid === h.healUnitUid) { owner = arr[k]; break; }
+                }
+            }
+            if (!owner) continue; // 归属单位不在终局快照里（理论上不该发生）→ 不猜，跳过该条
+            if (!(owner.isZhang || (owner.name && owner.name.indexOf('张无忌') !== -1))) continue; // 不是九阳持有者
+            checked++;
+            var maxHp = owner.maxHp || 0;
+
+            // 严格百分比比较的前提：有终局血上限、有血线文本、本场没有"变身以外的血上限增益"
+            var canCheckPct = maxHp > 0 && h.hpBefore !== null && h.hpAfter !== null && !hasOtherMaxHpGain && switchCount <= 1;
 
             // 断言3（无条件）：回复量与血线必须同步
             if (!(h.heal > 0)) {
                 return { fail: true, msg: '复发：九阳神功回复量为' + h.heal + '（应 >0，出现非正回复说明 healMaxHpPct 结算异常）' };
             }
-            if (Math.abs(h.hpAfter - (h.hpBefore + h.heal)) > 1) {
+            if (h.hpBefore !== null && Math.abs(h.hpAfter - (h.hpBefore + h.heal)) > 1) {
                 return { fail: true, msg: '复发：九阳神功回复+' + h.heal + ' 与血线 ' + h.hpBefore + '→' + h.hpAfter + ' 不一致（回血没写进血量）' };
             }
 
@@ -139,6 +176,8 @@ export const rule90 = {
                 return { fail: true, msg: '复发：九阳神功回复' + h.heal + '≠floor(血上限' + maxHp + '×12%=' + expect + ')（healMaxHpPct.pct 被改动？）' };
             }
         }
+        // 一条都没断言到 → skip（无覆盖），不能报 pass（那是假绿）
+        if (checked === 0) return 'skip';
         return { fail: false };
     }
 };

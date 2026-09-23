@@ -2,7 +2,7 @@
 // 当前版本数值（对照 记录-更改履历.md）：
 //   V6.1.7 苦练数值：atkBonus=1、defBonus 1→2、hpBonus 3→5 —— 全队（队友）基础值 = +1攻/+2防/+5血上限
 //   V6.1.8 宋青书自身倍率 3→2 —— 宋青书自身 = ×2（即 +2攻/+4防/+10血），文案同步"自身三倍"→"自身双倍"
-//   渲染口径（render/30 第466行）："🏋️ 苦练强化：{名} 激励全体队友+{atkBonus}攻+{defBonus}防+{hpBonus}血上限（自身双倍）"
+//   渲染口径（render/30 L471）："🏋️ 苦练强化：{名} 激励全体队友+{atkBonus}攻+{defBonus}防+{hpBonus}血上限（自身双倍）"
 // 复发信号：
 //   1. 出现"+0攻/+0防"占位提示（占位 fact 未过滤，数值不对）
 //   2. 文案回退为"自身三倍"（render/30 未随 V6.1.8 改"自身双倍"）
@@ -13,7 +13,10 @@
 // 优化（V6.1.x 复核）：原仅用"全场>24 次"粗粒度上限兜底，无法识别"单回合内多次触发"这一
 //   真实刷屏/死循环信号（如每回合每爪击各发一次）。新增逐回合计数——同一回合 ≥2 次即判，
 //   比"全场总数"精确，且仍保留 24 次总上限作为回合标记缺失时的兜底，避免漏检。
-export const VER = 'tests/health-rules/137-kulian-prompt.js V6.1.11';
+// V6.1.25 清理：回合跟踪里原有一个读 `e.factType === 'roundStart' && e.data.round` 的分支，恒不成立——
+//   生产侧 player/42player-core.js L316-324 渲染时显式剥离 factType/data，规则拿不到这两个字段
+//   （142 的文件头早写明该行规，141 已按此行规重写）。该分支属死代码，删除；回合只按渲染后条目识别。
+export const VER = 'tests/health-rules/137-kulian-prompt.js V6.1.25';
 
 export const rule84 = {
     group: '战报渲染回归',
@@ -25,11 +28,10 @@ export const rule84 = {
         for (var i = 0; i < log.length; i++) {
             var e = log[i];
             if (!e) continue;
-            // 跟踪当前回合（兼容 type='round-start' / factType='roundStart'(可无 text) / 文本"第N回合开始"三种落点）
-            //   必须放在 "!e.text" 跳过之前，否则无 text 的 roundStart 事实会被跳过、回合丢失
-            if (e.factType === 'roundStart' && e.data && typeof e.data.round === 'number') {
-                curRound = e.data.round;
-            } else if (e.type === 'round-start') {
+            // 跟踪当前回合：只按**渲染后**条目识别（round-start 条目 / 文本"第N回合开始"）。
+            //   不读 factType、data —— 渲染时已被剥离（见文件头 V6.1.25 清理说明）。
+            //   必须放在 "!e.text" 跳过之前，否则回合分隔条目之后的无 text 条目会丢回合。
+            if (e.type === 'round-start') {
                 var rm = (e.text || '').match(/第(\d+)回合/);
                 if (rm) curRound = parseInt(rm[1], 10);
             } else if ((e.text || '').indexOf('回合开始') !== -1) {
