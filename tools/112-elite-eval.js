@@ -7,7 +7,8 @@ const configs = [
     { name: '张无忌' },
     { name: '韦一笑' },
     { name: '小昭·姊' },
-    { name: '小昭·妹' }
+    { name: '小昭·妹' },
+    { name: '金毛狮王谢逊' }
 ];
 
 const startBtn = document.getElementById('eliteStartBtn');
