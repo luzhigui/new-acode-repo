@@ -1,5 +1,5 @@
-// V1.2.0 | ~9900 bytes | 2026-09-22 新增 SUMMON_UNIT / LION_SACRIFICE 契约（谢逊狮子与灭绝召唤）
-export const VER = 'infra/58-fact-contract.js V1.2.0';
+// V1.3.0 | ~10000 bytes | 2026-09-23 新增 PUSH_STUN 契约（击退退无可退转眩晕）
+export const VER = 'infra/58-fact-contract.js V1.3.0';
 
 import { FACT_TYPES } from './56-battle-enums.js';
 
@@ -106,6 +106,7 @@ export const FACT_SPECS = Object.freeze({
     [FACT_TYPES.WIND_ASSAULT_SPLASH]: { requiredFields: ['targets', 'splashDmg'], renderFn: 'renderWindAssaultSplashFact', translateFn: 'translateSplash' },
     [FACT_TYPES.WIND_ASSAULT_PUSH]: { requiredFields: ['target'], renderFn: 'renderWindAssaultPushFact', translateFn: 'translateWindAssaultPush' },
     [FACT_TYPES.WIND_ASSAULT_FAIL]: { requiredFields: ['reason'], renderFn: 'renderWindAssaultFailFact', translateFn: null },
+    [FACT_TYPES.PUSH_STUN]: { requiredFields: ['target'], renderFn: 'renderPushStunFact', translateFn: 'translatePushStun' },
     [FACT_TYPES.METEOR_SHOWER_MAIN]: { requiredFields: ['targetName', 'defReduce'], renderFn: 'renderMeteorShowerMainFact', translateFn: 'translateStatChange' },
     [FACT_TYPES.METEOR_SHOWER_SPLASH]: { requiredFields: ['targets'], renderFn: 'renderMeteorShowerSplashFact', translateFn: 'translateSplash' },
     [FACT_TYPES.METEOR_SPLASH_GROWTH]: { requiredFields: ['unitName', 'growth'], renderFn: 'renderMeteorSplashGrowthFact', translateFn: 'translateStatChange' },

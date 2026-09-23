@@ -165,7 +165,7 @@ export const STAGE_ACTION_DEFS = {
         fx: async (c, action) => {
             const target = findUnitByUidLocal(c, action.actorUid);
             if (!target) return;
-            await eventBus.emit(FX_SIGNALS.BANNER, { text: '🦅 乘风突袭！' });
+            await eventBus.emit(FX_SIGNALS.BANNER, { text: `${action.label || '🦅 乘风突袭'}！` });
             if (action.targetUid) {
                 const behind = findUnitByUidLocal(c, action.targetUid);
                 if (behind) {

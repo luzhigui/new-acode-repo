@@ -1,5 +1,5 @@
-// V2.2.0 | ~10200 bytes | 2026-09-22 BATTLE_STATE_SCHEMA 增补灭绝师太（_attackCount/_thirdStrike/_summonedZhou）、谢逊 _focusUsedRound、_ignoreDodge
-export const VER = 'core/17-state-keys.js V2.2.0';
+// V2.3.0 | ~10200 bytes | 2026-09-23 胖远桥改版：_tauntedByPang 迁入回合级、删除 _tauntUsedRound
+export const VER = 'core/17-state-keys.js V2.3.0';
 
 /** 字段类型：决定 clone 时的拷贝方式 */
 export const STATE_FIELD_TYPES = Object.freeze({
@@ -30,6 +30,8 @@ export const ROUND_STATE_SCHEMA = Object.freeze({
     _fortifyThisRound:       { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },
     _xiaoZhaoDoubleStriked:  { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
     _linkTriggered:          { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
+    // 胖远桥·正义国字脸：被嘲讽者本回合后续只能打胖远桥（回合级，回合开始自动清）
+    _tauntedByPang:          { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
 });
 
 // 整场状态：跨回合持续，不重置
@@ -70,13 +72,12 @@ export const BATTLE_STATE_SCHEMA = Object.freeze({
     _roundCountForFortify:   { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },
     _tenRoundFired:          { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
 
-    // 胖远桥：莽撞 / 出手没分寸 / 脾气大
-    // _tauntedByPang 挂在被嘲讽者身上、要跨回合活到「他下次攻击」，必须登记才能被 clone 带过去；
-    // 其余三个都是组件内自管的一次性标记，登记在这里只为统一 clone 口径（各自都有明确复位点）
-    _tauntedByPang:          { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
+    // 胖远桥：莽撞 / 正义国字脸 / 年轻气盛
+    // _tauntAttackActive / _clumsyHit / _tauntFired 都是「仅本次攻击内有效」的标记，
+    // 各自有明确复位点，登记在这里只为统一 clone 口径（回合级字段见 ROUND_STATE_SCHEMA）
     _tauntAttackActive:      { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
-    _tauntUsedRound:         { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
     _clumsyHit:              { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
+    _tauntFired:             { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
 
     // 灭绝师太：反击 / 跟随攻击 / 每第三次攻击 / 召唤周芷若
     _attackCount:            { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },
