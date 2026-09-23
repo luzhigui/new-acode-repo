@@ -131,7 +131,8 @@ function runEliteStageJob(stage, seed, runs) {
         '张无忌':  { runs: 0, wins: 0, sumDmg: 0, sumTaken: 0, sumSurv: 0 },
         '韦一笑':  { runs: 0, wins: 0, sumDmg: 0, sumTaken: 0, sumSurv: 0 },
         '小昭·姊': { runs: 0, wins: 0, sumDmg: 0, sumTaken: 0, sumSurv: 0 },
-        '小昭·妹': { runs: 0, wins: 0, sumDmg: 0, sumTaken: 0, sumSurv: 0 }
+        '小昭·妹': { runs: 0, wins: 0, sumDmg: 0, sumTaken: 0, sumSurv: 0 },
+        '金毛狮王谢逊': { runs: 0, wins: 0, sumDmg: 0, sumTaken: 0, sumSurv: 0 }
     };
     for (let i = 0; i < runs; i++) {
         clearBattleGlobals(); // 每场清理防 OOM（同时清掉 force 标志，保证本场是纯普通局）
@@ -148,6 +149,7 @@ function runEliteStageJob(stage, seed, runs) {
             else if (u.isWei) name = '韦一笑';
             else if (u.isXiaoZhaoSister) name = '小昭·姊';
             else if (u.isXiaoZhaoBrother) name = '小昭·妹';
+            else if (u.isXieXun) name = '金毛狮王谢逊';
             if (!name) continue;
             const a = agg[name];
             a.runs++;

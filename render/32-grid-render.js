@@ -299,6 +299,8 @@ export function renderGrid(id, camp) {
         else roleIcon = unit.role===ROLE_TYPES.WARRIOR?'⚔️':(unit.role===ROLE_TYPES.DEFENDER?'🛡️':(unit.role===ROLE_TYPES.RANGED?'🏹':'🦅'));
 
         let displayName = unit.name;
+        // 2026-09-24 格子显示别名：全名太长挤爆格子的角色只影响格子显示，日志/弹窗仍用全名
+        if (displayName === '金毛狮王谢逊') displayName = '金毛狮王';
         let displayIsZhang = unit.isZhang || false;
         if (unit.name === '成昆' && unit.state && unit.state._phantomTarget) {
             const allUnits = selectOrStore(ctx, 'allyTeam').concat(selectOrStore(ctx, 'enemyTeam'));
