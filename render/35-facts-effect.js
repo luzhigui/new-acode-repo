@@ -1,5 +1,5 @@
 // render/35-facts-effect.js — 效果域 fact 渲染器
-// V1.0.3 | ~34300 bytes | 2026-09-23 新增 PUSH_STUN 渲染（击退退无可退转眩晕）
+// V1.0.4 | ~34300 bytes | 2026-09-23 谢逊改版：LION_SACRIFICE 渲染换成 LION_GROW；PASS 支持「幼狮休息」
 //
 // 加新 fact 渲染：在本文件写函数 + 尾部 registerFactRenderer 一行（键=factType）。
 // 跨域取别的渲染器一律走 getFactRenderer(FACT_TYPES.X)(data)，禁止 import 其它域文件（免环）。
@@ -168,15 +168,18 @@ export function renderPassFact(fact) {
             _events: fact.events || []
         };
     }
-    if (reason === '被遮挡' || reason === '拒马休息') {
+    if (reason === '被遮挡' || reason === '拒马休息' || reason === '幼狮休息') {
         const hpBefore = fact.hpBefore !== undefined ? fact.hpBefore : fmtHp(unit.hp);
         const hpAfter = fact.hpAfter !== undefined ? fact.hpAfter : fmtHp(unit.hp);
         const actualHeal = fact.actualHeal !== undefined ? fact.actualHeal : 15;
         const campName = unit.camp === CAMP_TYPES.ALLY ? '明教' : '六大派';
+        const headText = reason === '幼狮休息'
+            ? `🐱 ${campName} ${unit.name} 尚幼，无法攻击`
+            : `${campName} ${unit.name} ${reason}`;
         return {
             type:'attack-group', uidA:unit.uid, uidD:null,
             entries:[
-                {type:'info', text:`<span class="gray">${campName} ${unit.name} ${reason}</span>`},
+                {type:'info', text:`<span class="gray">${headText}</span>`},
                 {type:'info', text:`<span class="green">😴 休息回复 ${actualHeal} 点生命（${hpBefore} → ${hpAfter}）</span>`, isHealEntry:true, healAmount:actualHeal, healUnitUid:unit.uid}
             ],
             isBlock:true, isRest:true,
@@ -421,9 +424,9 @@ export function renderSummonUnitFact(fact) {
     return { type:'info', text:`<span class="gold">🐾 ${fact.summonName} 出现在 ${fact.pos} 号位${by}</span>` };
 }
 
-// 谢逊狮子替死
-export function renderLionSacrificeFact(fact) {
-    return { type:'info', text:`<span class="gold">🦁 替死：${fact.lionName} 代 ${fact.unitName} 受死，${fact.unitName} 保留 ${fact.hpAfter} 点生命</span>` };
+// 谢逊幼狮成长（一回合后按位置成形为雄狮 / 母狮）
+export function renderLionGrowFact(fact) {
+    return { type:'info', text:`<span class="gold">🦁 幼狮成长为${fact.name}（${fact.pos} 号位）：攻 ${fact.atk} / 防 ${fact.def} / 血 ${fact.maxHp}</span>` };
 }
 
 // 流星溅射成长
@@ -554,4 +557,4 @@ registerFactRenderer(FACT_TYPES.FLY_SKIP, renderFlySkipFact);
 registerFactRenderer(FACT_TYPES.ENDLESS_BREATH, renderEndlessBreathFact);
 registerFactRenderer(FACT_TYPES.NO_CONTEND, renderNoContendFact);
 registerFactRenderer(FACT_TYPES.SUMMON_UNIT, renderSummonUnitFact);
-registerFactRenderer(FACT_TYPES.LION_SACRIFICE, renderLionSacrificeFact);
+registerFactRenderer(FACT_TYPES.LION_GROW, renderLionGrowFact);

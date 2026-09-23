@@ -1,6 +1,6 @@
-// V6.3.0 | ~5300 bytes | 2026-09-23 相位表增补 PANG_YOUNG_MULT，移除已无用的 PANG_TAUNT_RESET（嘲讽改回合级）
+// V6.4.0 | ~5300 bytes | 2026-09-23 谢逊相位表改版：加 LION_GROW/LION_INSPIRE/LION_FOLLOW，移除 XIE_ROAR/XIE_FOCUS/XIE_SACRIFICE
 import { GlobalStore } from './54-global-store.js';
-export const VER = 'infra/50-event-bus.js V6.3.0';
+export const VER = 'infra/50-event-bus.js V6.4.0';
 
 // debug 模式在日志追加信号记录，非战斗路径
 function appendDebugSignalLog(signal, data) {
@@ -69,7 +69,7 @@ export const eventBus = new EventBus();
  *   状态写入必须在本监听器主流程内完成
  */
 export const EXECUTION_LAYER = {
-    ROUND_START:      { RANGE_CHECK: 5, SPIDER_TRANSFORM: 10, XUANMING_POISON: 10, XINGFEN_GRANT: 10, KULIAN_BUFF: 10, MIEJUE_SUMMON: 14, XIE_SUMMON: 16 },
+    ROUND_START:      { RANGE_CHECK: 5, SPIDER_TRANSFORM: 10, XUANMING_POISON: 10, XINGFEN_GRANT: 10, KULIAN_BUFF: 10, MIEJUE_SUMMON: 14, LION_GROW: 15, XIE_SUMMON: 16 },
     ROUND_END:        { BUTTERFLY_RETURN: 10, SPIDER_RETURN: 10 },
     BEFORE_ACTION:    { BUTTERFLY_SKIP: 10, SPIDER_SKIP: 10, KULIAN_PRIORITY: 10 },
     BEFORE_ATTACK:     {},
@@ -82,7 +82,8 @@ export const EXECUTION_LAYER = {
         WARRIOR_EXECUTE: 20,
         MIEJUE_COUNTER: 15,
         PANG_RAGE: 22,
-        XIE_ROAR: 24,
+        LION_INSPIRE: 23,
+        LION_FOLLOW: 24,
         MIEJUE_THIRD_LEECH: 26,
         HOT_BLOOD: 25,
         WIND_ASSAULT: 25,
@@ -100,7 +101,6 @@ export const EXECUTION_LAYER = {
         PHANTOM_REROLL: 20,
         SHIELD_ATTACK: 30,
         PANG_TAUNT: 35,
-        XIE_FOCUS: 38,
         XINGFEN_EXTRA: 40,
         CLAW: 40,
         FOLLOW_ATTACK: 45,
@@ -114,7 +114,7 @@ export const EXECUTION_LAYER = {
         XINGFEN_RETRY: 50,
         PERMANENT_DOUBLE_RETRY: 60
     },
-    ON_BEFORE_DEATH: { XIE_SACRIFICE: 10 },
+    ON_BEFORE_DEATH: {},
     ON_UNIT_DEATH: { SWITCH: 10 },
     ON_POSITION_SWAP: { SWITCH: 10 }
 };

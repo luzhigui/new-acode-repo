@@ -1,5 +1,5 @@
-// V6.1.0 | ~12600 bytes | 2026-09-22 额外攻击支持跨阵营（灭绝反击换边）+ req.ignoreDodge 不可闪避；followAttack 计入 _isLinkAttack 防乒乓
-export const VER = 'core/10battle-attack.js V6.1.0';
+// V6.2.0 | ~12700 bytes | 2026-09-23 额外攻击 reason 'lionFollow'（谢逊母狮随动）计入 _isLinkAttack 防乒乓
+export const VER = 'core/10battle-attack.js V6.2.0';
 
 import { CONFIG } from './01config-5v5-test.js';
 import { hasBuff, makeFXSnapshot, isBlocked } from './03battle-utils.js';
@@ -300,8 +300,8 @@ export function processUnitAttack(unit, allySide, enemySide, log, A, B, state, d
             if (req.reason === 'doubleStrike' && !req.ignoreBlock && isBlocked(req.unit, allySide)) continue;
             executedUids.add(req.unit.uid);
             req.unit.state._acted = false;
-            // 玄冥联动 / 灭绝跟随攻击期间置 _isLinkAttack，避免这类额外攻击自身再触发一次（乒乓链）
-            const isLinkReq = req.reason === 'xuanmingLink' || req.reason === 'followAttack';
+            // 玄冥联动 / 灭绝跟随攻击 / 谢逊母狮随动期间置 _isLinkAttack，避免这类额外攻击自身再触发一次（乒乓链）
+            const isLinkReq = req.reason === 'xuanmingLink' || req.reason === 'followAttack' || req.reason === 'lionFollow';
             if (isLinkReq) req.unit.state._isLinkAttack = true;
             // 2026-09-22 回退判据补 _pendingDeath：原目标同击致死后 alive 仍是 true（死亡结算才清），
             //   只判 alive 会把"待死"的 uid 当活人锁过去，锁定路径用严判据找不到人 → 白跳一次。

@@ -1,5 +1,5 @@
-// V6.2.0 | ~9100 bytes | 2026-09-22 HERO_FLAGS 增补灭绝师太 / 金毛狮王谢逊 / 三狮（雄狮·幼狮·母狮，母狮另打 isLioness）
-export const VER = 'core/02unit.js V6.2.0';
+// V6.3.0 | ~9200 bytes | 2026-09-23 applyHeroFlags 增补 isLionMale / isLionCub（三狮形态标记）
+export const VER = 'core/02unit.js V6.3.0';
 
 import { CONFIG, getGameData } from './01config-5v5-test.js';
 
@@ -31,7 +31,7 @@ export const HERO_FLAGS = Object.freeze({
     '胖远桥': 'isPangYuanQiao',
     '灭绝师太': 'isMieJueShiTai',
     '金毛狮王谢逊': 'isXieXun',
-    // 谢逊的三只狮子：统一打 isXieXunLion，便于「替死」挑祭品；母狮另打 isLioness（狮吼触发者）
+    // 谢逊的三只狮子：统一打 isXieXunLion，便于识别同一家族；形态各自另打标记（母狮/雄狮/幼狮）
     '雄狮': 'isXieXunLion',
     '幼狮': 'isXieXunLion',
     '母狮': 'isXieXunLion',
@@ -57,7 +57,10 @@ export function applyHeroFlags(unit) {
     const flag = HERO_FLAGS[name];
     if (flag) unit[flag] = true;
     if (name === '小昭') unit.isXiaoZhao = true;
+    // 三狮形态标记：母狮/雄狮/幼狮互斥，成长时改名后重跑本函数即自动换标记（isLionCub 需调用方显式清）
     if (name === '母狮') unit.isLioness = true;
+    if (name === '雄狮') unit.isLionMale = true;
+    if (name === '幼狮') unit.isLionCub = true;
     return unit;
 }
 

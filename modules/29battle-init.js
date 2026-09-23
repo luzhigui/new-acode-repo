@@ -34,7 +34,7 @@ export function initBattleTeams(currentStage, _rng) {
         { name: '韦一笑', m: 107, role: ROLE_TYPES.FLYER, isWei: true, power: elitePower['韦一笑'] || 120 },
         { name: '小昭', m: 107, role: ROLE_TYPES.RANGED, isXiaoZhaoBrother: true, power: elitePower['小昭'] || 135 },
         // 2026-09-22 金毛狮王谢逊转正：与另外三位同性质，走随机精英轮盘（不再是 demo 开关专享）
-        { name: '金毛狮王谢逊', m: 115, role: ROLE_TYPES.WARRIOR, isXieXun: true, power: elitePower['金毛狮王谢逊'] || 140 }
+        { name: '金毛狮王谢逊', m: 107, role: ROLE_TYPES.WARRIOR, isXieXun: true, power: elitePower['金毛狮王谢逊'] || 140 }
     ];
     const eliteRoll = _rng.next();
     let eliteCount;
@@ -84,7 +84,7 @@ export function initBattleTeams(currentStage, _rng) {
     // 谢逊是固定位角色，不参与上面的随机精英轮盘（eliteCount / weightedPick）。
     const forceXieXun = GlobalStore.get('forceXieXun') || localStorage.getItem('_forceXieXun') === '1';
     if (forceXieXun && !allyTeam.some(u => u.isXieXun)) {
-        const unit = new Unit('金毛狮王谢逊', 115, ROLE_TYPES.WARRIOR, CAMP_TYPES.ALLY);
+        const unit = new Unit('金毛狮王谢逊', 107, ROLE_TYPES.WARRIOR, CAMP_TYPES.ALLY);
         unit.init(_rng); unit.applyBonus();
         unit.pos = null;
         allyTeam.push(unit);

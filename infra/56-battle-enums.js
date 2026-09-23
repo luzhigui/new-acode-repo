@@ -1,5 +1,5 @@
-// V1.2.0 | ~3300 bytes | 2026-09-23 新增 PUSH_STUN（击退退无可退转眩晕）
-export const VER = 'infra/56-battle-enums.js V1.2.0';
+// V1.3.0 | ~3300 bytes | 2026-09-23 LION_SACRIFICE 换成 LION_GROW（谢逊替死改为幼狮成长）
+export const VER = 'infra/56-battle-enums.js V1.3.0';
 
 /** 事实类型：所有 factType 字符串的唯一来源 */
 export const FACT_TYPES = Object.freeze({
@@ -49,8 +49,8 @@ export const FACT_TYPES = Object.freeze({
     NO_CONTEND: 'noContend',
     // 召唤（谢逊狮子 / 灭绝召唤周芷若）
     SUMMON_UNIT: 'summonUnit',
-    // 谢逊狮子替死
-    LION_SACRIFICE: 'lionSacrifice'
+    // 谢逊幼狮成长（一回合后按位置成形为雄狮 / 母狮）
+    LION_GROW: 'lionGrow'
 });
 
 /** Buff 类型：buff.key 唯一来源（与 CONFIG.BUFFS / XIAO_ZHAO_PERMANENT_BUFFS 11 项对应） */
