@@ -1,5 +1,5 @@
-// V6.1.0 | ~6700 bytes | 2026-09-22 新增 spawnUnit / findFreePos：指定格召唤（谢逊狮子、灭绝召唤周芷若用）
-export const VER = 'core/05battle-horse.js V6.1.0';
+// V6.2.0 | ~7300 bytes | 2026-09-23 spawnUnit 支持 stats（固定数值召唤物：谢逊三狮）
+export const VER = 'core/05battle-horse.js V6.2.0';
 
 import { CONFIG } from './01config-5v5-test.js';
 import { hasBuff } from './03battle-utils.js';
@@ -55,10 +55,25 @@ export function findFreePos(allyTeam, positions) {
 // 指定格召唤：在 pos 生成一个单位（pos 由调用方用 findFreePos 确认空闲）。
 // 走 Unit.init + applyBonus，与开局单位同口径（含 _base/_init 数值与 _hpDmgRatio 分档）；
 // 打 isSummon 标记便于日志/UI 区分召唤物；拒马不走这里（它有独立的随机格 + 固定数值逻辑）。
-export function spawnUnit(allyTeam, name, m, role, pos) {
+// stats 可选：{ atk, def, maxHp } —— 传了就写死属性（谢逊三狮这类固定数值召唤物），
+//   不走 M 随机与职业加成；防战形态另按满血占比锁 _hpDmgRatio（攻击公式要用）。
+export function spawnUnit(allyTeam, name, m, role, pos, stats = null) {
     const unit = new Unit(name, m, role, allyTeam[0].camp);
     unit.init(getBattleRng());
     unit.applyBonus();
+    if (stats) {
+        unit.atk = stats.atk;
+        unit.def = stats.def;
+        unit.maxHp = stats.maxHp;
+        unit.hp = stats.maxHp;
+        unit.state._baseAtk = stats.atk;
+        unit.state._baseDef = stats.def;
+        unit.state._baseMaxHp = stats.maxHp;
+        unit.state._initAtk = stats.atk;
+        unit.state._initDef = stats.def;
+        unit.state._initMaxHp = stats.maxHp;
+        if (role === ROLE_TYPES.DEFENDER) unit.state._hpDmgRatio = getHpDmgRatio(1);
+    }
     unit.pos = pos;
     unit.state._originalPos = pos;
     unit.isSummon = true;

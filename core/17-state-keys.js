@@ -1,5 +1,5 @@
-// V2.3.0 | ~10200 bytes | 2026-09-23 胖远桥改版：_tauntedByPang 迁入回合级、删除 _tauntUsedRound
-export const VER = 'core/17-state-keys.js V2.3.0';
+// V2.4.0 | ~10150 bytes | 2026-09-23 谢逊改版：删 _focusUsedRound（集火已移除）
+export const VER = 'core/17-state-keys.js V2.4.0';
 
 /** 字段类型：决定 clone 时的拷贝方式 */
 export const STATE_FIELD_TYPES = Object.freeze({
@@ -83,8 +83,6 @@ export const BATTLE_STATE_SCHEMA = Object.freeze({
     _attackCount:            { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },
     _thirdStrike:            { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
     _summonedZhou:           { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
-    // 金毛狮王谢逊：集火（每回合 1 次，组件在 ON_ROUND_START 复位）
-    _focusUsedRound:         { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
     // 不可闪避：仅一次攻击内有效，由 core/10 额外攻击循环置/清
     _ignoreDodge:            { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
 

@@ -1,14 +1,15 @@
-// V6.1.0 | ~42000 bytes | 2026-09-22 新增金毛狮王谢逊组件（召唤三狮 / 狮子替死 / 集火 / 母狮狮吼）
-export const VER = 'modules/27elite-mingjiao.js V6.1.0';
+// V6.2.0 | ~40500 bytes | 2026-09-23 谢逊改版：删替死/集火/狮吼，改为召唤幼狮→成长→雄狮振奋/母狮随动
+export const VER = 'modules/27elite-mingjiao.js V6.2.0';
 
 import { registerElite } from '../core/08-elite-registry.js';
 import { CONFIG, getSkillParams } from '../core/01config-5v5-test.js';
 import { hasBuff, getZhangNearTaunt } from '../core/03battle-utils.js';
-import { spawnHorse, spawnUnit, findFreePos } from '../core/05battle-horse.js';
+import { spawnHorse, spawnUnit } from '../core/05battle-horse.js';
+import { applyHeroFlags } from '../core/02unit.js';
 import { spiderTransform, spiderReturn } from '../modules/20elite-skills.js';
 import { checkZhangSwitch, emitEvent, applyStatChange, refreshMaxHp, getBattleRng, addMod, removeModsByGroup, getStat } from '../core/13battle-shared.js';
 import { eventBus, EXECUTION_LAYER as L, EFFECT_TYPES } from '../infra/50-event-bus.js';
-import { StateMachine, getUnitCol } from '../infra/51-core-utils.js';
+import { StateMachine } from '../infra/51-core-utils.js';
 import { FACT_TYPES, BUFF_TYPES, UNIT_EVENT_TYPES, CAMP_TYPES, ROLE_TYPES, SIGNAL_TYPES, STATE_CHANGE_TYPES } from '../infra/56-battle-enums.js';
 import { emitStateChange } from '../infra/59-state-change.js';
 import { watchUnit } from '../core/19unit-watch.js';
@@ -620,12 +621,12 @@ export function createXiaoZhaoBrotherComponent() {
     };
 }
 
-// 金毛狮王谢逊（明教 · 站 7 号位）：召唤狮子 / 替死 / 集火 / 母狮狮吼
-// 2026-09-22 新增。四技能分工：
-//   召唤狮子 → ON_ROUND_START 每回合 1 只，落点决定形态（1 号位雄狮·防战 / 4 号位幼狮·战士 / 8·9 号位母狮·远程）
-//   替死     → ON_BEFORE_DEATH：谢逊待死时拿 1 只狮子顶命（狮子推入本批待死名单，走标准死亡流程）
-//   集火     → AFTER_ATTACK：谢逊出手后随机 2 名存活友方各追加一次攻击，每回合 1 次
-//   母狮狮吼 → AFTER_DAMAGE_APPLIED：母狮命中后，同列敌人全部恐惧（失去下次攻击机会）
+// 金毛狮王谢逊（明教 · 站 7 号位）：召唤幼狮 / 幼狮成长 / 雄狮振奋 / 母狮随动
+// 2026-09-22 新增；2026-09-23 改版：删「替死 / 集火 / 狮吼」，狮子改为一条成长链——
+//   召唤幼狮 → ON_ROUND_START 每回合 prob 概率随机空位 1 只（不会攻击，轮到它走休息通道回血）
+//   幼狮成长 → ON_ROUND_START 上一回合留下的幼狮按所在位置成形（1-6 雄狮 / 7-9 母狮）
+//   雄狮振奋 → AFTER_DAMAGE_APPLIED：雄狮命中后，己方全体存活角色永久 +atkPerHit 攻
+//   母狮随动 → AFTER_DAMAGE_APPLIED：母狮命中后，其他雄狮/母狮与谢逊各随动攻击一次（目标同母狮）
 export function createXieXunComponent() {
     return {
         name: '金毛狮王谢逊',
@@ -637,10 +638,9 @@ export function createXieXunComponent() {
 
             const summon = getSkillParams('金毛狮王谢逊', 'summonLion');
             if (!summon) throw new Error('缺技能参数: 金毛狮王谢逊.summonLion');
-            const sacrifice = getSkillParams('金毛狮王谢逊', 'lionSacrifice');
-            if (!sacrifice) throw new Error('缺技能参数: 金毛狮王谢逊.lionSacrifice');
-            const focus = getSkillParams('金毛狮王谢逊', 'focusFire');
-            if (!focus) throw new Error('缺技能参数: 金毛狮王谢逊.focusFire');
+            const inspire = getSkillParams('金毛狮王谢逊', 'lionInspire');
+            if (!inspire) throw new Error('缺技能参数: 金毛狮王谢逊.lionInspire');
+            if (!getSkillParams('金毛狮王谢逊', 'lionFollow')) throw new Error('缺技能参数: 金毛狮王谢逊.lionFollow');
 
             function pushInfo(data, text) {
                 if (data && data.group && data.group.data && data.group.data.entries) {
@@ -648,92 +648,85 @@ export function createXieXunComponent() {
                 }
             }
 
-            // 回合开始：① 集火标记复位（每回合 1 次）② 召唤 1 只狮子
-            // 位置与形态绑定（1=雄狮 / 4=幼狮 / 8·9=母狮），所以先按 lions 顺序找空位、再按落点定形态。
+            // ① 成长：上一回合留下的幼狮，本回合开始按所在位置成形（1-6 雄狮 / 7-9 母狮）。
+            //    必须排在召唤之前（LION_GROW 15 < XIE_SUMMON 16），否则刚召出来的幼狮会在同一次回合开始里立刻长大。
+            eventBus.on(SIGNAL_TYPES.ON_ROUND_START, L.ROUND_START.LION_GROW, (data) => {
+                const cubs = myTeam.filter(u => u.isLionCub && u.alive && u.pos);
+                for (const cub of cubs) {
+                    const spec = cub.pos <= (summon.grow.frontMax || 6) ? summon.grow.front : summon.grow.back;
+                    // 属性只算不存：成长差值登记为永久词条；maxHp 另走 refreshMaxHp 同步（上限升则当前血等量加）
+                    addMod(cub, 'atk', { source: '幼狮成长', value: spec.atk - summon.cub.atk, ttl: 'permanent', group: 'lionGrow', op: 'add' });
+                    addMod(cub, 'def', { source: '幼狮成长', value: spec.def - summon.cub.def, ttl: 'permanent', group: 'lionGrow', op: 'add' });
+                    addMod(cub, 'maxHp', { source: '幼狮成长', value: spec.maxHp - summon.cub.maxHp, ttl: 'permanent', group: 'lionGrow', op: 'add' });
+                    refreshMaxHp(cub, null, '幼狮成长');
+                    cub.name = spec.name;
+                    cub.role = spec.role;
+                    applyHeroFlags(cub);       // 按新名字补 isLionMale / isLioness
+                    cub.isLionCub = false;     // 形态标记互斥，旧形态显式清掉
+                    emitEvent(cub, UNIT_EVENT_TYPES.HP_CHANGE, { hp: cub.hp, maxHp: cub.maxHp, alive: cub.alive, role: cub.role, atk: getStat(cub, 'atk'), def: getStat(cub, 'def') });
+                    if (data && data.log) {
+                        data.log.push({ factType: FACT_TYPES.LION_GROW, data: { name: spec.name, pos: cub.pos, atk: spec.atk, def: spec.def, maxHp: spec.maxHp } });
+                    }
+                }
+            });
+
+            // ② 召唤：每回合开始 prob 概率，在随机空位召唤 1 只幼狮（落点随机 → 成长方向随机；无空位则不召）
             eventBus.on(SIGNAL_TYPES.ON_ROUND_START, L.ROUND_START.XIE_SUMMON, (data) => {
-                xiexun.state._focusUsedRound = false;
                 if (!xiexun.alive) return;
-                const lions = summon.lions || [];
-                const freePos = findFreePos(myTeam, lions.map(l => l.pos));
-                if (freePos == null) return;
-                const spec = lions.find(l => l.pos === freePos);
-                if (!spec) return;
-                const lion = spawnUnit(myTeam, spec.name, spec.m, spec.role, freePos);
-                if (data && data.log) {
-                    data.log.push({ factType: FACT_TYPES.SUMMON_UNIT, data: { summonName: lion.name, summonUid: lion.uid, pos: freePos, byName: xiexun.name } });
-                }
-            });
-
-            // 替死：谢逊进待死名单时，消耗 1 只存活狮子换命。
-            // 狮子用「打 _pendingDeath + 推入 data.units」交给 resolveDeaths 的既有循环，不在这里手写死亡流程
-            //   ——否则 HP_CHANGE / UNIT_REMOVE / STATE_CHANGE / ON_UNIT_DEATH 四件套要抄一遍，容易漏。
-            // pending 里谢逊必排在狮子之前（谢逊在开局名单，狮子是后来 push 的），所以推入后一定在本批被处理。
-            eventBus.on(SIGNAL_TYPES.ON_BEFORE_DEATH, L.ON_BEFORE_DEATH.XIE_SACRIFICE, (data) => {
-                const pending = data.units || [];
-                if (!pending.includes(xiexun)) return;
-                const lion = myTeam.find(u => u.isXieXunLion && u.alive && !u.state._pendingDeath);
-                if (!lion) return;
-                // 换命：清掉谢逊的待死标记并把血抬到 maxHp×reviveHpPct。
-                // 必须先清标记再回血——applyStatChange 在 hp≤0 时会重新打上 _pendingDeath。
-                xiexun.state._pendingDeath = false;
-                const targetHp = Math.floor(getStat(xiexun, 'maxHp') * sacrifice.reviveHpPct);
-                applyStatChange(xiexun, 'hp', targetHp - xiexun.hp, null, '狮子替死', false);
-                // 祭品：打标记推入本批待死名单
-                lion.state._pendingDeath = true;
-                pending.push(lion);
-                if (data.log) {
-                    data.log.push({ factType: FACT_TYPES.LION_SACRIFICE, data: { lionName: lion.name, unitName: xiexun.name, hpAfter: xiexun.hp } });
-                }
-            });
-
-            // 集火：谢逊出手后，随机 focus.count 名存活友方各追加一次攻击。
-            // 走 extraRequests（reason:'focusFire'）而不是直接调 processUnitAttack：额外攻击的 _acted 置位/回退、
-            //   目标回退判据都已在 core/10 收口，这里只管提交请求。
-            // 排除拒马（atk 0，让它集火等于白打一次）。
-            eventBus.on(SIGNAL_TYPES.AFTER_ATTACK, L.AFTER_ATTACK.XIE_FOCUS, (data) => {
-                if (data.unit !== xiexun || !xiexun.alive) return;
-                if (xiexun.state._focusUsedRound) return;
-                const pool = myTeam.filter(u => u.alive && u.uid !== xiexun.uid && !u.isHorse);
-                if (pool.length === 0) return;
                 const rng = getBattleRng();
-                const picks = [];
-                const n = Math.min(focus.count || 2, pool.length);
-                for (let i = 0; i < n; i++) {
-                    picks.push(pool.splice(rng.nextInt(0, pool.length - 1), 1)[0]);
+                if (rng.next() >= (summon.prob ?? 0.8)) return;
+                const occupied = new Set(myTeam.filter(u => u.alive).map(u => u.pos));
+                const free = [1, 2, 3, 4, 5, 6, 7, 8, 9].filter(p => !occupied.has(p));
+                if (free.length === 0) return;
+                const pos = free[rng.nextInt(0, free.length - 1)];
+                const cub = spawnUnit(myTeam, summon.cub.name, summon.cub.m, summon.cub.role, pos,
+                    { atk: summon.cub.atk, def: summon.cub.def, maxHp: summon.cub.maxHp });
+                if (data && data.log) {
+                    data.log.push({ factType: FACT_TYPES.SUMMON_UNIT, data: { summonName: cub.name, summonUid: cub.uid, pos, byName: xiexun.name } });
                 }
-                xiexun.state._focusUsedRound = true;
-                // 原目标已待死/阵亡时传 null，让跟随者自己选目标（锁定死 uid 会白跳一次）
-                const focusTargetUid = (data.target && data.target.alive && !data.target.state._pendingDeath) ? data.target.uid : null;
-                if (!data.extraRequests) data.extraRequests = [];
-                for (const f of picks) {
-                    data.extraRequests.push({
-                        unit: f,
-                        targetUid: focusTargetUid,
-                        reason: 'focusFire',
-                        actedMode: 'restore',
-                        actedSnapshot: f.state._acted,
-                        priority: 40
-                    });
-                }
-                pushInfo(data, `<span class="gold">🔥 谢逊发动集火：${picks.map(f => f.name).join('、')} 同时出手！</span>`);
             });
 
-            // 母狮·狮吼：母狮命中后，同列敌人全部恐惧。
-            // 恐惧复用既有 _stunned（回合级字段，行动轮询会跳过），与「眩晕」同口径——
-            //   本回合还没行动的列内敌人才会被实际跳过，已行动的已无行动可失。
-            eventBus.on(SIGNAL_TYPES.AFTER_DAMAGE_APPLIED, L.AFTER_DAMAGE_APPLIED.XIE_ROAR, (data) => {
+            // ③ 雄狮·振奋：雄狮命中后，己方全体存活角色（含雄狮自己、谢逊、幼狮）永久 +atkPerHit 攻。
+            //    走 addMod 登记永久词条，getStat 现算，不直改 unit.atk。
+            eventBus.on(SIGNAL_TYPES.AFTER_DAMAGE_APPLIED, L.AFTER_DAMAGE_APPLIED.LION_INSPIRE, (data) => {
+                const lion = data.unit;
+                if (!lion || !lion.isLionMale || !lion.alive) return;
+                if (!data.dmg || data.dmg <= 0) return;
+                const gain = inspire.atkPerHit;
+                const targets = myTeam.filter(u => u.alive);
+                if (targets.length === 0) return;
+                for (const t of targets) {
+                    addMod(t, 'atk', { source: '振奋', value: gain, ttl: 'permanent', group: 'lionInspire', op: 'add' });
+                    emitEvent(t, UNIT_EVENT_TYPES.HP_CHANGE, { hp: t.hp, maxHp: t.maxHp, alive: t.alive, atk: getStat(t, 'atk'), def: getStat(t, 'def') });
+                }
+                pushInfo(data, `<span class="gold">🦁 雄狮振奋！己方全体攻击力 +${gain}</span>`);
+            });
+
+            // ④ 母狮·随动：母狮命中后，其他雄狮/母狮与谢逊各随动攻击一次，打母狮同一个目标。
+            //    走 extraRequests（core/10 只在 doubleStrike 判遮挡），因此「无论是否被遮挡」都能出手；
+            //    reason:'lionFollow' 会被 core/10 置 _isLinkAttack，随动自身不会再触发一次随动（防乒乓）。
+            //    目标已阵亡 / 待死 → 整条随动取消。
+            eventBus.on(SIGNAL_TYPES.AFTER_DAMAGE_APPLIED, L.AFTER_DAMAGE_APPLIED.LION_FOLLOW, (data) => {
                 const lioness = data.unit;
                 if (!lioness || !lioness.isLioness || !lioness.alive) return;
+                if (lioness.state._isLinkAttack) return;
                 if (!data.dmg || data.dmg <= 0) return;
-                const col = getUnitCol(lioness.pos);
-                const victims = (data.enemySide || []).filter(u => u.alive && !u.state._stunned && u.pos && getUnitCol(u.pos) === col);
-                if (victims.length === 0) return;
-                for (const v of victims) {
-                    v.state._stunned = true;
-                    emitEvent(v, UNIT_EVENT_TYPES.HP_CHANGE, { hp: v.hp, maxHp: v.maxHp, alive: v.alive, atk: getStat(v, 'atk'), def: getStat(v, 'def'), _stunned: true });
-                    emitStateChange(v, STATE_CHANGE_TYPES.STUNNED, {}, data.log);
+                const target = data.target;
+                if (!target || !target.alive || target.state._pendingDeath) return;
+                const mates = myTeam.filter(u => u.alive && u.uid !== lioness.uid && !u.isLionCub && (u.isLionMale || u.isLioness || u.isXieXun));
+                if (mates.length === 0) return;
+                if (!data.extraRequests) data.extraRequests = [];
+                for (const m of mates) {
+                    data.extraRequests.push({
+                        unit: m,
+                        targetUid: target.uid,
+                        reason: 'lionFollow',
+                        actedMode: 'restore',
+                        actedSnapshot: m.state._acted,
+                        priority: 44
+                    });
                 }
-                pushInfo(data, `<span class="gold">🦁 母狮狮吼！第 ${col} 列 ${victims.map(v => v.name).join('、')} 陷入恐惧，失去下次攻击机会</span>`);
+                pushInfo(data, `<span class="gold">🦁 母狮长啸！${mates.map(m => m.name).join('、')} 随动出击！</span>`);
             });
         }
     };

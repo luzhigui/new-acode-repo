@@ -1,5 +1,5 @@
-// V6.1.0 | ~27200 bytes | 2026-09-19 联网PVP：六大派 buff 生效（回合开始镜像 B 侧）+ 圣火令去掉重复登记 + 连击分阵营
-export const VER = 'core/11battle-round.js V6.1.0';
+// V6.2.0 | ~27300 bytes | 2026-09-23 幼狮走 pass 休息通道（reason 幼狮休息，回血 15）
+export const VER = 'core/11battle-round.js V6.2.0';
 
 import { CONFIG, getGameData, getSkillParams } from './01config-5v5-test.js';
 import { resetStateFields } from './17-state-keys.js';
@@ -341,6 +341,8 @@ export function* createRoundStepper(state, { ui = true, translateFacts = null } 
         for (const u of sortedByPos) {
             if (u.state._stunned) { passUnits.push({ unit: u, reason: '眩晕' }); continue; }
             if (u.isHorse) { passUnits.push({ unit: u, reason: '拒马休息' }); continue; }
+            // 谢逊幼狮：不会攻击，轮到它就走休息通道（与拒马同口径，回血 15）
+            if (u.isLionCub) { passUnits.push({ unit: u, reason: '幼狮休息' }); continue; }
             // 2026-09-17 张三丰不攻击：轮到他走"生生不息"休息，走 pass 通道而不是攻击流程
             if (u.isZhangSanfeng) { passUnits.push({ unit: u, reason: '生生不息' }); continue; }
             if (u.state._flyMode === 'butterfly' || u.state._flyMode === 'spider' || u.state._spiderFlying || (u._fsm && u._fsm.is('flying'))) { passUnits.push({ unit: u, reason: '飞天/附身' }); continue; }
@@ -397,7 +399,7 @@ export function* createRoundStepper(state, { ui = true, translateFacts = null } 
             let hpAfter = hpBefore;
             let actualHeal = 0;
             // 2026-09-17 生生不息移到组件层（监听 ON_UNIT_ACTED），core 不再写角色名
-            if (unit.alive && (reason === '被遮挡' || reason === '拒马休息')) {
+            if (unit.alive && (reason === '被遮挡' || reason === '拒马休息' || reason === '幼狮休息')) {
                 applyStatChange(unit, 'hp', 15, null, '休息回复');
                 hpAfter = Math.floor(unit.hp);
                 actualHeal = hpAfter - hpBefore;

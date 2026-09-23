@@ -1,5 +1,5 @@
-// V1.3.0 | ~10000 bytes | 2026-09-23 新增 PUSH_STUN 契约（击退退无可退转眩晕）
-export const VER = 'infra/58-fact-contract.js V1.3.0';
+// V1.4.0 | ~10000 bytes | 2026-09-23 LION_SACRIFICE 契约换成 LION_GROW（谢逊替死改为幼狮成长）
+export const VER = 'infra/58-fact-contract.js V1.4.0';
 
 import { FACT_TYPES } from './56-battle-enums.js';
 
@@ -138,9 +138,9 @@ export const FACT_SPECS = Object.freeze({
     // 张三丰：不争
     [FACT_TYPES.NO_CONTEND]: { requiredFields: ['unitName'], renderFn: 'renderNoContendFact', translateFn: null },
 
-    // 召唤 / 替死（谢逊狮子、灭绝召唤周芷若）
+    // 召唤 / 幼狮成长（谢逊狮子、灭绝召唤周芷若）
     [FACT_TYPES.SUMMON_UNIT]: { requiredFields: ['summonName', 'pos'], renderFn: 'renderSummonUnitFact', translateFn: null },
-    [FACT_TYPES.LION_SACRIFICE]: { requiredFields: ['lionName', 'unitName'], renderFn: 'renderLionSacrificeFact', translateFn: null },
+    [FACT_TYPES.LION_GROW]: { requiredFields: ['name', 'pos'], renderFn: 'renderLionGrowFact', translateFn: null },
 });
 
 /**

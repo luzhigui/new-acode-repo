@@ -1,5 +1,5 @@
-// ~24400 bytes | V6.3.1 | 2026-09-22 血量显示统一走 fmtHp（0<hp<1 显示 1，不再散写 Math.floor）
-export const VER = 'render/32-grid-render.js V6.3.1';
+// ~24450 bytes | V6.3.2 | 2026-09-23 谢逊幼狮加 🐱 图标
+export const VER = 'render/32-grid-render.js V6.3.2';
 
 import { getUnitCol, getUnitRow, getAuraBonuses, getDodgeRules, fmtHp } from '../infra/51-core-utils.js';
 import { CONFIG, getSkillDesc } from '../core/01config-5v5-test.js';
@@ -287,6 +287,8 @@ export function renderGrid(id, camp) {
         // 小昭姊/妹恒显示身份图标（妹妹每回合蛛变，职业图标会跳来跳去，身份比职业更有辨识度）
         else if (unit.isXiaoZhaoSister) roleIcon = '🦋';
         else if (unit.isXiaoZhaoBrother) roleIcon = '🕷️';
+        // 谢逊幼狮：无攻击能力，用 🐱 与其它单位区分（雄狮/母狮成长后自动回到职业图标）
+        else if (unit.isLionCub) roleIcon = '🐱';
         else roleIcon = unit.role===ROLE_TYPES.WARRIOR?'⚔️':(unit.role===ROLE_TYPES.DEFENDER?'🛡️':(unit.role===ROLE_TYPES.RANGED?'🏹':'🦅'));
 
         let displayName = unit.name;
