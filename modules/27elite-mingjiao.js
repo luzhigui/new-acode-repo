@@ -1,5 +1,5 @@
-// V6.3.0 | ~40300 bytes | 2026-09-24 召唤概率 30%；狮吼不再由引擎发信号，改由 render/39 锚在雄狮出手演出帧
-export const VER = 'modules/27elite-mingjiao.js V6.3.0';
+// V6.3.2 | ~40300 bytes | 2026-09-24 韦一笑吸血：上限不封顶（去掉 _baseMaxHp×2）+ 吸血量最低 1
+export const VER = 'modules/27elite-mingjiao.js V6.3.2';
 
 import { registerElite } from '../core/08-elite-registry.js';
 import { CONFIG, getSkillParams } from '../core/01config-5v5-test.js';
@@ -131,10 +131,10 @@ export function createWeiYixiaoComponent() {
                 if (!s) throw new Error('缺技能参数: 韦一笑.coldPalm');
                 const lostPct = (target.maxHp - target.hp) / target.maxHp;
                 const leechRate = (s.leechMin + (s.leechMax - s.leechMin) * lostPct) / 100;
-                const heal = Math.floor(reboundDmg * leechRate);
+                const heal = Math.max(1, Math.floor(reboundDmg * leechRate));
                 const wasFullHp = (target.hp >= target.maxHp);
                 const oldMaxHp = target.maxHp;
-                const newMaxHp = Math.min(target.maxHp + heal, target.state._baseMaxHp * 2);
+                const newMaxHp = target.maxHp + heal;
                 declarations.push({
                     type: EFFECT_TYPES.WEI_HEAL,
                     data: { heal, newMaxHp, oldMaxHp, wasFullHp }

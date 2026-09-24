@@ -1,5 +1,5 @@
-// V6.1.0 | ~30800 bytes | 2026-09-22 新增 followAttack 机制（灭绝师太跟随攻击：任意队友命中后按概率跟随，无每回合上限）
-export const VER = 'core/15-skill-mechanisms.js V6.1.0';
+// V6.2.1 | ~30800 bytes | 2026-09-24 韦一笑吸血：上限不封顶（去掉 _baseMaxHp×2）+ 吸血量最低 1
+export const VER = 'core/15-skill-mechanisms.js V6.2.1';
 
 import { EXECUTION_LAYER as L, EFFECT_TYPES, registerSettlementHook } from '../infra/50-event-bus.js';
 import { CONFIG, getSkillParams } from './01config-5v5-test.js';
@@ -155,8 +155,8 @@ function submitOnHitEffects(data, onHitDecls) {
             if (eff.type === 'leech') {
                 const lostPct = (unit.maxHp - unit.hp) / unit.maxHp;
                 const ratio = eff.minRatio + (eff.maxRatio - eff.minRatio) * lostPct;
-                const heal = Math.floor(dmg * ratio);
-                const newMaxHp = Math.min(unit.maxHp + heal, unit.state._baseMaxHp * 2);
+                const heal = Math.max(1, Math.floor(dmg * ratio));
+                const newMaxHp = unit.maxHp + heal;
                 if (!data.declarations) data.declarations = [];
                 data.declarations.push({ type: EFFECT_TYPES.LEECH, value: heal, source: unit, maxHp: newMaxHp, factType: FACT_TYPES.WEI_LEECH, factData: { unitName: unit.name, heal, newMaxHp: Math.floor(newMaxHp), unitUid: unit.uid } });
             } else if (eff.type === 'healMaxHpPct') {

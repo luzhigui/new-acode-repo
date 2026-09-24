@@ -1,5 +1,5 @@
 {
-  "version": "5.6.7",
+  "version": "5.6.10",
   "updated": "2026-09-24",
 
   "roles": {
@@ -139,13 +139,13 @@
         },
         "righteousFace": {
           "name": "正义国字脸",
-          "desc": "每次攻击前与「年轻气盛」二选一（血量越高越容易发动）：全体敌人本回合后续只能攻击自己，且对其伤害×{dmgMultiplier}",
-          "params": { "dmgMultiplier": 0.3 }
+          "desc": "每次攻击前与「年轻气盛」二选一（血量越高越容易发动）：全体敌人本回合后续只能攻击自己，且自身防御永久+{defGain}（可无限叠加）",
+          "params": { "defGain": 40 }
         },
         "youngBlood": {
           "name": "年轻气盛",
           "desc": "每次攻击前与「正义国字脸」二选一（攻击越高越容易发动）：随机攻击一名敌人造成×{dmgMultiplier}伤害，并将其击退（退无可退则眩晕）",
-          "params": { "dmgMultiplier": 1.6 }
+          "params": { "dmgMultiplier": 1.5 }
         }
       },
       "taunts": {
@@ -330,9 +330,9 @@
           "desc": "己方仅剩张三丰一人时，对方直接获胜"
         },
         "tenRoundFortify": {
-          "name": "第五回合",
+          "name": "第三回合",
           "desc": "第{round}回合结束后仍未分胜负，获得严阵以待（防御+50%、反弹50%）",
-          "params": { "round": 5 }
+          "params": { "round": 3 }
         }
       },
       "taunts": { "attack": [], "kill": [] }
@@ -378,7 +378,7 @@
           "camp": "ally",
           "targetRule": "lowestHp",
           "onHitEffects": [
-            { "type": "leech", "minRatio": 0.15, "maxRatio": 0.45 }
+            { "type": "leech", "minRatio": 0.05, "maxRatio": 0.50 }
           ],
           "dodgeRules": [
             { "type": "lostHpPercent", "max": 0.70 }
@@ -388,8 +388,8 @@
       "skills": {
         "coldPalm": {
           "name": "寒冰掌",
-          "desc": "优先攻击全场血量最低的敌人。造成伤害后吸血，吸血率 = {leechMin}% + 已损失生命比例×30%（满血15%，濒死45%）。吸血值 = 本次伤害×吸血率，等量提升生命上限和当前血量，上限封顶初始血量的2倍。",
-          "params": { "leechMin": 15, "leechMax": 45 }
+          "desc": "优先攻击全场血量最低的敌人。造成伤害后吸血，吸血率 = {leechMin}% + 已损失生命比例×45%（满血5%，濒死50%）。吸血值 = 本次伤害×吸血率（最低1），等量提升生命上限和当前血量，无上限。",
+          "params": { "leechMin": 5, "leechMax": 50 }
         },
         "bloodDodge": {
           "name": "残血幻影",

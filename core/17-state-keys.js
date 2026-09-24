@@ -1,5 +1,5 @@
-// V2.5.0 | ~10300 bytes | 2026-09-24 灭绝师太：_thirdStrike 删除（三击改按 _attackCount 现算），加 _pendingZhouPos
-export const VER = 'core/17-state-keys.js V2.5.0';
+// V2.6.0 | ~10200 bytes | 2026-09-24 胖远桥嘲讽改叠防：删除 _tauntAttackActive（嘲讽减伤取消）
+export const VER = 'core/17-state-keys.js V2.6.0';
 
 /** 字段类型：决定 clone 时的拷贝方式 */
 export const STATE_FIELD_TYPES = Object.freeze({
@@ -73,9 +73,8 @@ export const BATTLE_STATE_SCHEMA = Object.freeze({
     _tenRoundFired:          { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
 
     // 胖远桥：莽撞 / 正义国字脸 / 年轻气盛
-    // _tauntAttackActive / _clumsyHit / _tauntFired 都是「仅本次攻击内有效」的标记，
+    // _clumsyHit / _tauntFired 都是「仅本次攻击内有效」的标记，
     // 各自有明确复位点，登记在这里只为统一 clone 口径（回合级字段见 ROUND_STATE_SCHEMA）
-    _tauntAttackActive:      { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
     _clumsyHit:              { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
     _tauntFired:             { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
 
