@@ -1,5 +1,5 @@
 // render/35-facts-effect.js — 效果域 fact 渲染器
-// V1.0.4 | ~34300 bytes | 2026-09-23 谢逊改版：LION_SACRIFICE 渲染换成 LION_GROW；PASS 支持「幼狮休息」
+// V1.0.5 | ~34600 bytes | 2026-09-24 两条溅射 fact 行尾追加 rageText（胖远桥莽撞吃溅射 +攻）；谢逊改版：LION_SACRIFICE 渲染换成 LION_GROW；PASS 支持「幼狮休息」
 //
 // 加新 fact 渲染：在本文件写函数 + 尾部 registerFactRenderer 一行（键=factType）。
 // 跨域取别的渲染器一律走 getFactRenderer(FACT_TYPES.X)(data)，禁止 import 其它域文件（免环）。
@@ -7,7 +7,7 @@ import { CONFIG } from '../core/01config-5v5-test.js';
 import { makeFXSnapshot, fmtHp } from '../infra/51-core-utils.js';
 import { BUFF_TYPES, BUFF_SUBTYPES, CAMP_TYPES, ROLE_TYPES, FACT_TYPES } from '../infra/56-battle-enums.js';
 import { registerFactRenderer, findUnitSnapshotByUid } from './33-fact-registry.js';
-export const VER = 'render/35-facts-effect.js V1.0.3';
+export const VER = 'render/35-facts-effect.js V1.0.5';
 
 // 拒马 / 张无忌
 export function renderHorseDestroyFact(fact) {
@@ -109,7 +109,10 @@ export function renderHotBloodHealFact(fact) {
 export function renderWindAssaultSplashFact(fact) {
     const details = fact.targets.map(t => t.name).join('、');
     const word = fact.targets.length > 1 ? '各-' : '-';
-    return { type:'buff-splash', text:`<span class="orange">${fact.label}波及${details}，${word}${fact.splashDmg}</span>` };
+    let text = `<span class="orange">${fact.label}波及${details}，${word}${fact.splashDmg}</span>`;
+    // 2026-09-24 胖远桥莽撞：吃了溅射也 +攻，文本由 modules/26 随 fact 下发
+    if (fact.rageText) text += ' ' + fact.rageText;
+    return { type:'buff-splash', text };
 }
 
 export function renderWindAssaultPushFact(fact) {
@@ -137,6 +140,8 @@ export function renderMeteorShowerSplashFact(fact) {
     const word = fact.targets.length > 1 ? '各-' : '-';
     let text = `<span class="orange">${fact.label}溅射：${details}，${word}${fact.splashDmg}，防御-${fact.defReduce}</span>`;
     if (fact.growth) text += ` <span class="gold">⚡ ${fact.unitName} 攻击+${fact.growth}</span>`;
+    // 2026-09-24 胖远桥莽撞：吃了溅射也 +攻，文本由 modules/26 随 fact 下发
+    if (fact.rageText) text += ' ' + fact.rageText;
     return { type:'buff-splash', text };
 }
 
