@@ -139,8 +139,8 @@ export const STAGE_ACTION_DEFS = {
                 await showDodgeBulletTime(attacker, dodger, action.reboundDmg || 0);
             } else if (attacker) {
                 eventBus.emit(FX_SIGNALS.DODGE_BUBBLE, { unit: attacker, text: '闪避！' });
-                // 简单模式闪避反击：近战攻击者补发 TRIGGER 走飞撞被击退；远程攻击者同样补发，
-                //   由 fx/88 的远程分支给「箭飞出一半偏开」的弧线（原先远程只有气泡，完全没有闪避画面）。
+                // 简单模式闪避反击：补发 TRIGGER 给 fx/88 —— 远程与近战同款「冲过去被挡回」，
+                //   不再按攻击者职业分派（原先远程会演成"箭射偏"，读作未命中，不是闪避）。
                 if (dodger) {
                     eventBus.emit(FX_SIGNALS.TRIGGER, {
                         fxSnapshot: action.fx || null,

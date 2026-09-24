@@ -1,6 +1,6 @@
 // fx/88fx-trigger.js
-// V6.1.2 | 2026-09-24 远程分支补 isDodge 弧线（简单模式远程闪避有画面）；死亡态改由引擎状态驱动，这里不再派发 DEAD flash / _isDead
-export const VER = 'fx/88fx-trigger.js V6.1.2';
+// V6.1.3 | 2026-09-24 被闪避优先于职业分流：远程与近战同款「冲过去被挡回」，不再演成射偏；死亡态改由引擎状态驱动，这里不再派发 DEAD flash / _isDead
+export const VER = 'fx/88fx-trigger.js V6.1.3';
 
 import { getKillTaunt } from '../core/03battle-utils.js';
 import { GlobalStore } from '../infra/54-global-store.js';
@@ -36,17 +36,20 @@ export function _triggerFX(fxSnapshot, unitA, unitD, isDead, isDodge, isMiss, is
         if (!isBlock && !isMiss && !isDodge && unitA) {
             AudioManager.playSfx(unitA.role);
         }
-        if (attackerRole === ROLE_TYPES.RANGED && !isBlock) {
+        // 被闪避优先于「远程/近战」分流：远程被闪避与近战同款——克隆体冲过去被挡回。
+        //   原先远程走 showRangedArrow(isMiss=true) 演成「箭射偏」，读作未命中而非闪避。
+        //   华丽模式的子弹时间在 render/39 的 DODGE stage action 里演，这里只管简单模式。
+        if (!isBlock && isDodge) {
+            if (!GlobalStore.get('dodgeEffectEnabled')) {
+                showMeleeDodge(unitA, unitD);
+            }
+        } else if (attackerRole === ROLE_TYPES.RANGED && !isBlock) {
             if (isMiss) {
                 showRangedArrow(unitA, unitD, false, null, true);
                 // 射偏箭飞到中段再弹气泡（对齐近战"撞到一半才弹"的节奏，不在起手就抢跑）
                 clock.wait(500).then(() => {
                     if (!GlobalStore.get('fastForwardActive')) showDodgeBubble(unitA, '未命中');
                 });
-            } else if (isDodge) {
-                // 2026-09-24 远程被闪避（简单模式）：与射偏同款弧线——箭飞向目标、中途偏开，
-                //   让远程闪避也有画面（原先远程分支对 isDodge 什么都不做，只有气泡）
-                showRangedArrow(unitA, unitD, false, null, true);
             } else {
                 showRangedArrow(unitA, unitD, false, () => {
                     shakeTarget(unitD.uid, 350);
@@ -57,11 +60,7 @@ export function _triggerFX(fxSnapshot, unitA, unitD, isDead, isDodge, isMiss, is
                 });
             }
         } else if (!isBlock) {
-            if (isDodge) {
-                if (!GlobalStore.get('dodgeEffectEnabled')) {
-                    showMeleeDodge(unitA, unitD);
-                }
-            } else if (isMiss) {
+            if (isMiss) {
                 // 2026-09-16 return：把动画 Promise 交给调用方 await
                 return showMeleeMiss(unitA, unitD, () => {
                     if (!GlobalStore.get('fastForwardActive')) showDodgeBubble(unitA, '未命中');
