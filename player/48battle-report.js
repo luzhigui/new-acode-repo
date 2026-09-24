@@ -1,9 +1,19 @@
-// V6.1.0 | ~4200 bytes | 2026-09-09 从 42player-core 拆出：战报数据构建、积分结算、通关奖励（纯数据/纯逻辑，无 DOM）
-export const VER = 'player/48battle-report.js V6.1.0';
+// V6.2.0 | ~4700 bytes | 2026-09-24 战报补召唤单位行（狮子之类不在开局 snapshot，按 uid 补）
+export const VER = 'player/48battle-report.js V6.2.0';
 
 import { GlobalStore } from '../infra/54-global-store.js';
 import { getBattleRng } from '../core/13battle-shared.js';
 import { renderVictoryLine, showScoreFloat } from './47renderer.js';
+
+// 2026-09-24 召唤单位补行：战报名单原先只映射开局 snapshot 两队，谢逊召唤出来的幼狮/雄狮/母狮
+//   压根不在 snapshot 里，输出与承伤全被丢掉。此处把「结束态队伍里 uid 不在 snapshot」的单位
+//   （即召唤物）原样补到队尾，统计字段直接取结束态单位自身的记账。
+function collectSummons(finalState, snapshotList) {
+    const known = new Set((snapshotList || []).map(u => u.uid));
+    return (finalState || [])
+        .filter(u => u && !known.has(u.uid))
+        .map(u => ({ ...u, _isDead: !!(u.state && u.state._isDead) }));
+}
 
 // 构建战报数据（纯函数）
 export function buildBattleReportData(finalStep, snapshot, winner) {
@@ -20,7 +30,7 @@ export function buildBattleReportData(finalStep, snapshot, winner) {
         const final = enemyMap.get(u.uid);
         return final ? { ...u, hp: final.hp, maxHp: final.maxHp, alive: final.alive, pos: final.pos, dmgDealt: final.dmgDealt, dmgTaken: final.dmgTaken, healDone: final.healDone, reboundDone: final.reboundDone, leechDone: final.leechDone, dodgeCount: final.dodgeCount, critCount: final.critCount, survivedRounds: final.survivedRounds, _isDead: final.state._isDead } : { ...u, alive: false, _isDead: true };
     });
-    return { winner, ally: reportAllies, enemy: reportEnemies };
+    return { winner, ally: reportAllies.concat(collectSummons(finalAllyState, snapshot.ally)), enemy: reportEnemies.concat(collectSummons(finalEnemyState, snapshot.enemy)) };
 }
 
 // 积分结算（纯函数）

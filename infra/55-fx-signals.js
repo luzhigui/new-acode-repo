@@ -1,5 +1,5 @@
-// V6.0.0 | ~2200 bytes | 2026-08-23 信号名单一数据源：player emit 与 fx/89 订阅两侧各自 import，方向均为 X→infra
-export const VER = 'infra/55-fx-signals.js V6.1.0';
+// V6.1.1 | ~2400 bytes | 2026-09-24 加 MIEJUE_COUNT（灭绝师太出手计数飘字）；信号名单一数据源：player emit 与 fx/89 订阅两侧各自 import，方向均为 X→infra
+export const VER = 'infra/55-fx-signals.js V6.1.1';
 
 // 特效信号：player 只 emit，fx/89 订阅；fx: 前缀与战斗信号隔离
 export const FX_SIGNALS = {
@@ -34,5 +34,6 @@ export const FX_SIGNALS = {
     SPIDER_DESCEND: 'fx:spiderDescend',  // 蛛变降落
     SPIDER_STRIKE: 'fx:spiderStrike',    // 蛛袭扑击（快进跳过）
     MEDITATE: 'fx:meditate',             // 生生不息太极印（三处触发共用，视觉层去抖）
-    LION_ROAR: 'fx:lionRoar'             // 雄狮振奋咆哮（快进跳过）
+    LION_ROAR: 'fx:lionRoar',            // 雄狮振奋咆哮（快进跳过）
+    MIEJUE_COUNT: 'fx:miejueCount'       // 灭绝师太出手计数飘字（快进跳过）
 };
