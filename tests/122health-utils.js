@@ -1,3 +1,4 @@
+// V6.1.16 | ~27760 bytes | 2026-09-24 版本头 ~bytes 与实际对齐（复盘第 4 轮核对：头记 27700 / 实际 27758）；仅注释与版本号
 // V6.1.15 | ~27700 bytes | 2026-09-22 checkBuffIcons 补阵营过滤：ctx.activeBuffs 是**双方合计**表（core/11 L27-28 证明
 //          state.activeBuffs 未经分流，A._activeBuffs/B._activeBuffs 才是按 b.target 过滤后的产物）。
 //          渲染侧只画本阵营：render/32 L368-371 明教格过滤 target==='ally'||!target。

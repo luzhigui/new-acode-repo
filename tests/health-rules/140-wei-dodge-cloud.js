@@ -2,15 +2,19 @@
 // 复发信号：战报出现"💨 流云身法"摘要（buff 已生效），但全体存活队友 buffDodgeBonus 仍为 0
 //          → 闪避面板（含韦一笑详情面板）将不显示流云加成也不计入合计
 // 对应已报 Bug：韦一笑闪避面板没有考虑流云，有了流云也不显示不加
-// V6.0.1 | 补充"末回合中途授予"成因说明。**未加豁免**：判定误报需先证伪该成因，掩盖真信号即兜底。
-//   已知成因（2026-09-22 取证）：unit.buffDodgeBonus 只在 prepareRoundStart 重算
-//   （core/11 L187-191 computeBuffStats 写入），回合中途新授予的流云无下一次重算机会，
-//   故 GAMEOVER 时终值恒 0，而 buff 本身仍挂在 activeBuffs（未过期）→ 本规则命中。
-//   这是主代码侧真实缺陷（面板读该字段，render/32 getDodgeBreakdown），修法应为
-//   "授予即重算"，而非给本规则加跳过条件。下轮迭代如欲加豁免，须先证明该场流云
-//   确实在末回合 prepareRoundStart 之前已存在。
-// 注意：若主代码后续把面板改为实时从 activeBuffs 计算（而非 buffDodgeBonus 字段），本规则需同步调整口径
-export const VER = 'tests/health-rules/140-wei-dodge-cloud.js V6.0.1';
+// V6.0.2 | 成因**重新取证并升级定性**（2026-09-24 第 13 轮）：V6.0.1 注释的"仅 prepareRoundStart 重算、
+//   末回合中途授予无重算机会"已**过期**。`e266abc`（V6.1.0 妆造字段剥离）把 `u.buffDodgeBonus =
+//   stats.dodgeBonus` 的三处写入（core/11 A 段 / B 段 / 事件载荷）一并删除后，**live 源码已无任何写入点**。
+//   取证：全仓（排除 `web/` 部署副本与 tests/）`buffDodgeBonus` 只剩 render/32:97-99 三处**读**点、0 处写点；
+//   `git log -S buffDodgeBonus -- core/11battle-round.js` 定位删除点正是 e266abc；core/04:46-55 的
+//   computeBuffStats 仍返回 dodgeBonus，而 core/11:187/207 调完后 `stats` / `bStats` 变成
+//   **只赋值不使用的死变量**（全文件 grep 仅此两行出现）→ 佐证写入确已断链、非挪到别处。
+//   结论：本规则命中的不再是"末回合时序问题"，而是**面板数据源被抽干**——结构性恒红，
+//   只要我方流云在场必红，与回合时序无关。修法仍在主代码侧（二选一）：恢复写入
+//   （授予/每回合重算即写回 unit），或把 render/32 getDodgeBreakdown 改成实时从 activeBuffs 计算。
+//   **不得给本规则加豁免**——那等于掩盖真信号，属兜底。
+// 注意：若主代码改为"实时计算"口径，unit.buffDodgeBonus 将不复存在，本规则判据需同步重写（不是放宽）。
+export const VER = 'tests/health-rules/140-wei-dodge-cloud.js V6.0.2';
 
 export const rule87 = {
     group: '面板数据回归',
@@ -57,8 +61,9 @@ export const rule87 = {
             }
             return { fail: true, msg: '复发：流云身法已生效，但' + alive.length + '名存活队友 buffDodgeBonus 全为0' +
                 (wei ? '（含韦一笑，闪避面板将不显示流云加成）' : '（闪避面板将不显示流云加成）') +
-                '。已知成因：该字段仅 prepareRoundStart 重算(core/11 L187-191)，末回合中途授予的流云' +
-                '无下一次重算机会 → 属主代码侧"授予即重算"缺失，非本规则误报' };
+                '。已知成因（2026-09-24 重新取证）：该字段在 live 源码已**无写入点**——e266abc 删掉 ' +
+                'core/11 的 u.buffDodgeBonus 三处写入后，render/32:97-99 仍在读、core/11:187/207 的 ' +
+                'stats/bStats 沦为死变量 → 属主代码侧面板数据源断链（非末回合时序问题），非本规则误报' };
         }
         return { fail: false };
     }
