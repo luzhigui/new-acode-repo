@@ -1,5 +1,5 @@
-// ~25300 bytes | V6.3.6 | 2026-09-24 灭绝师太头顶出手计数气泡（计数含反击/跟随这类被动出手）
-export const VER = 'render/32-grid-render.js V6.3.6';
+// ~25700 bytes | V6.4.0 | 2026-09-24 灭绝师太：名字描金、头顶计数气泡改由 fx 层飘字（壹/貳/參）；同格尸体先渲，清尸后再露新单位
+export const VER = 'render/32-grid-render.js V6.4.0';
 
 import { getUnitCol, getUnitRow, getAuraBonuses, getDodgeRules, fmtHp } from '../infra/51-core-utils.js';
 import { CONFIG, getSkillDesc } from '../core/01config-5v5-test.js';
@@ -17,7 +17,6 @@ const _hpDisplayPct = new Map();
 let _hpAnimRunning = false;
 const _shakeUntil = new Map();
 const _horseSpawnedUids = new Set();
-const _mieCountShown = new Map();
 
 export function markGridShake(uid, durationMs) {
     if (uid == null) return;
@@ -214,7 +213,12 @@ export function renderGrid(id, camp) {
     const pangTaunting = pangTauntUnits.some(u => u && u.alive && u.state && u.state._tauntedByPang);
 
     for (let i = 0; i < displayOrder.length; i++) {
-        let pos = displayOrder[i], unit = team.find(c => c.pos === pos && c.alive) || team.find(c => c.pos === pos);
+        // 2026-09-24 同格「尸体 + 新单位」（周芷若在原位召唤、击退换位）：先让尸体的死亡特效播完。
+        //   UI 3 秒清尸（player/42 REMOVE_UNIT）之前一律优先渲尸体，清尸触发 store 重绘后自然露出新单位；
+        //   否则新单位当帧就顶掉红底 ✕，看起来像死亡特效被吃掉。无存活单位同格时行为与原先一致。
+        let pos = displayOrder[i];
+        const corpseAtPos = team.find(c => c.pos === pos && (c.alive === false || (c.state && c.state._isDead)));
+        let unit = corpseAtPos || team.find(c => c.pos === pos && c.alive) || team.find(c => c.pos === pos);
         if (unit && !unit.state) unit.state = {};
         if (unit && !unit.isHorse) {
             // _renderFlyMode 是飞撞/子弹时间的纯渲染态（攻击者本身不飞行），优先于 state._flyMode
@@ -416,6 +420,8 @@ export function renderGrid(id, camp) {
         if (eliteSkillIcon) eliteSkillIcon.trim().split(/\s+/).forEach(ic => { if (ic) logoList.push(ic); });
         if (buffIcons) buffIcons.split(/\s+/).forEach(ic => { if (ic) logoList.push(ic); });
 
+        // 2026-09-24 灭绝师太名字描金（复用张无忌那套 gold class）
+        const nameGold = displayIsZhang || !!unit.isMieJueShiTai;
         let compressName = false;
         let displayLogos = logoList.slice();
         if (displayName.length >= 5) {
@@ -428,11 +434,11 @@ export function renderGrid(id, camp) {
         let nameHtml;
         if (compressName) {
             let logoHtml = displayLogos.slice().reverse().join(' ');
-            nameHtml = `<span class="cell-name ${displayIsZhang?'gold':''} cell-name-long">${displayName}${logoHtml ? '<span class="cell-logo">' + logoHtml + '</span>' : ''}</span>`;
+            nameHtml = `<span class="cell-name ${nameGold?'gold':''} cell-name-long">${displayName}${logoHtml ? '<span class="cell-logo">' + logoHtml + '</span>' : ''}</span>`;
         } else if (displayLogos.length < logoList.length) {
-            nameHtml = `<span class="cell-name ${displayIsZhang?'gold':''}">${displayName}${displayLogos.length ? ' ' + displayLogos.join(' ') : ''}</span>`;
+            nameHtml = `<span class="cell-name ${nameGold?'gold':''}">${displayName}${displayLogos.length ? ' ' + displayLogos.join(' ') : ''}</span>`;
         } else {
-            nameHtml = `<span class="cell-name ${displayIsZhang?'gold':''}">${displayName}${eliteSkillIcon}${buffIcons ? ' ' + buffIcons : ''}</span>`;
+            nameHtml = `<span class="cell-name ${nameGold?'gold':''}">${displayName}${eliteSkillIcon}${buffIcons ? ' ' + buffIcons : ''}</span>`;
         }
         div.innerHTML = `<span class="cell-icon">${isBlocked && unit.alive && isResting && !(unit.isZhang && unit.rangedForm) && !isDead ? '😴' : roleIcon}</span><div class="cell-info">${nameHtml}<span class="cell-stats">攻<span style="${atkStyle}">${atkDisplayHtml}</span> 防<span style="${defStyle}">${defDisplayHtml}</span> <span class="${hpColorClass}" style="${hpStyle}">血${hpDisplayHtml}</span></span></div><div class="hp-bar-wrap"><div class="hp-bar-inner" id="hpbar-${unit.uid}" style="height:${displayPct}%;background:${barColor};"></div></div>`;
         if (isDead) {
@@ -442,23 +448,8 @@ export function renderGrid(id, camp) {
         if (isBlocked && unit.alive && isResting && !(unit.isZhang && unit.rangedForm) && !isDead) {
             let zzz = document.createElement('div'); zzz.className = 'zzz-mark'; zzz.innerHTML = '<span>z</span><span>Z</span><span>Z</span>'; div.appendChild(zzz);
         }
-        // 2026-09-24 灭绝师太：出手计数气泡（头顶正中）。计数由 modules/26 累加（含反击/跟随这类被动出手），
-        //   数值变化时弹一下，一眼看出离「每第三次（伤害加成 + 吸血）」还差几下。
-        const mieCount = (unit.isMieJueShiTai && unit.alive && !isDead) ? (unit.state._attackCount || 0) : 0;
-        if (mieCount > 0) {
-            const badge = document.createElement('span');
-            badge.className = 'mie-count';
-            badge.textContent = String(mieCount);
-            badge.style.cssText = 'position:absolute;top:-8px;left:50%;transform:translate(-50%,-50%);min-width:15px;padding:0 3px;border-radius:8px;background:rgba(180,0,0,0.9);color:#fff;font-size:10px;font-weight:bold;line-height:15px;text-align:center;pointer-events:none;z-index:1002;box-shadow:0 0 6px rgba(180,0,0,0.6);';
-            const prevCount = _mieCountShown.get(unit.uid);
-            if (prevCount !== undefined && prevCount !== mieCount) {
-                clock.animate(260, (p) => {
-                    badge.style.transform = `translate(-50%,-50%) scale(${1 + 0.7 * (1 - p)})`;
-                });
-            }
-            _mieCountShown.set(unit.uid, mieCount);
-            div.appendChild(badge);
-        }
+        // 2026-09-24 灭绝师太的出手计数不再走格子徽章（顶个红底数字太丑），
+        //   改由 fx 层在她头顶飘出「壹/貳/參」气泡消散（信号 fx:mejueCount，见 fx/89）
         div.style.cursor = 'pointer';
         div.addEventListener('click', (e) => {
             if (isAdjustMode) return;

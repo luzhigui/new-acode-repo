@@ -1,5 +1,5 @@
-// V6.0.1 | 2026-09-22 集中特效出口 ｜ 预估 2.5 KB
-export const VER = 'fx/87fx-manager.js V6.1.0';
+// V6.1.1 | 2026-09-24 转出 showMiejueCountFloat（灭绝计数飘字）｜ 预估 2.6 KB
+export const VER = 'fx/87fx-manager.js V6.1.1';
 
 import {
     showDanmaku,
@@ -14,7 +14,8 @@ import {
     showPinkFlash,
     showKuLianEffect,
     showWindClaw,
-    showMeditateEffect
+    showMeditateEffect,
+    showMiejueCountFloat
 } from './80fx-common-5v5-test.js';
 
 import {
@@ -86,6 +87,7 @@ export {
     showKuLianEffect,
     showWindClaw,
     showMeditateEffect,
+    showMiejueCountFloat,
     showRangedArrow,
     showSplashArrows,
     showBoneClaw,

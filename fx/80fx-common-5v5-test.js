@@ -1,5 +1,5 @@
-// V6.1.0 | 2026-09-13 统一时间层：setTimeout/setInterval 全换 clock，对象池回收用 seq token
-export const VER = 'fx/80fx-common-5v5-test.js V6.1.0';
+// V6.2.0 | 2026-09-24 加 showMiejueCountFloat（灭绝师太出手计数：头顶飘字放大消散）；统一时间层：setTimeout/setInterval 全换 clock，对象池回收用 seq token
+export const VER = 'fx/80fx-common-5v5-test.js V6.2.0';
 
 import { CAMP_TYPES } from '../infra/56-battle-enums.js';
 import { snapshotUnitCell } from './90fx-ref-manager.js';
@@ -135,6 +135,34 @@ export function showAtkBuffFloat(unit, atk) {
         el.style.transform = 'translate(-100%, -100%)';
         el.style.zIndex = '10004';
     }, 1400);
+}
+
+// 2026-09-24 灭绝师太出手计数：头顶正中飘出大写数字（壹/貳/參 轮换），放大后上浮消散。
+//   不走对象池——一次性元素用完即删，与 fx/91 的「吼」字同套路；快进判断由 emit 侧（fx/89）拦。
+export function showMiejueCountFloat(unit, text) {
+    const rect = snapshotUnitCell(unit);
+    if (!rect || !text) return;
+    const el = document.createElement('div');
+    el.setAttribute('data-fx', 'temporary');
+    el.textContent = text;
+    const cx = rect.left + rect.width / 2;
+    el.style.cssText = `
+        position:fixed; left:${cx}px; top:${rect.top + 2}px;
+        transform:translate(-50%,-50%) scale(0.6);
+        font-family:"KaiTi","STKaiti","Songti SC",serif;
+        font-size:22px; font-weight:900; color:#ffe89a;
+        text-shadow:0 0 10px rgba(255,170,0,0.95), 0 0 22px rgba(200,0,0,0.6), 0 2px 3px rgba(0,0,0,0.85);
+        z-index:10012; pointer-events:none; opacity:0;
+    `;
+    document.body.appendChild(el);
+    clock.animate(1000, (p) => {
+        let op, sc, rise;
+        if (p <= 0.18) { const t = p / 0.18; op = t; sc = 0.6 + 0.75 * t; rise = -6 * t; }
+        else if (p <= 0.55) { const t = (p - 0.18) / 0.37; op = 1; sc = 1.35 - 0.1 * t; rise = -6 - 12 * t; }
+        else { const t = (p - 0.55) / 0.45; op = 1 - t; sc = 1.25 + 0.25 * t; rise = -18 - 16 * t; }
+        el.style.opacity = op.toFixed(2);
+        el.style.transform = `translate(-50%, calc(-50% + ${rise.toFixed(1)}px)) scale(${sc.toFixed(2)})`;
+    }).then(() => { if (el.parentNode) el.parentNode.removeChild(el); });
 }
 
 // 死亡画笔：600ms 展开覆盖层，clock 驱动

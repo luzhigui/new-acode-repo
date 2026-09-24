@@ -1,5 +1,5 @@
-// V6.12.0 | ~23300 bytes | 2026-09-24 灭绝师太：反击/跟随一并计入出手次数；召唤周芷若改阵亡触发（原位置，延一步落位）
-export const VER = 'modules/26elite-sixsects.js V6.12.0';
+// V6.13.0 | ~23600 bytes | 2026-09-24 灭绝师太：出手计数改繁体飘字（壹/貳/參）；M112→115；反击/跟随计入出手次数；召唤周芷若阵亡触发
+export const VER = 'modules/26elite-sixsects.js V6.13.0';
 import { registerElite } from '../core/08-elite-registry.js';
 import { CONFIG, getSkillParams } from '../core/01config-5v5-test.js';
 import { SIGNAL_TYPES, FACT_TYPES, BUFF_TYPES, CAMP_TYPES, ROLE_TYPES } from '../infra/56-battle-enums.js';
@@ -282,16 +282,19 @@ export function createPangYuanQiaoComponent() {
     };
 }
 
-// 灭绝师太（六大派·峨眉掌门·战士·M112）：反击 / 跟随攻击 / 每第三次攻击 / 召唤周芷若
+// 灭绝师太（六大派·峨眉掌门·战士·M115）：反击 / 跟随攻击 / 每第三次攻击 / 召唤周芷若
 // 2026-09-22 新增，作为新第七关精英。四技能分工：
 //   反击、每第三次攻击 → 本组件闭环（日志走 group.data.entries 的 { type:'info', text }）
 //   跟随攻击 → 走 content mechanics 的 followAttack 声明（core/15 安装）。
 //     队友是任意普通单位、没法逐个登记，所以声明挂在灭绝自己名下，而不是像玄冥联动那样挂在攻击者名下。
 //   召唤周芷若 → 队友或她本人阵亡时在原位置召唤（全场 1 次），落位时机见下方 flushZhouSummon
 
+// 灭绝师太出手计数的繁体轮换表：第 1/2/3 次依次「壹/貳/參」，第 4 次回到「壹」
+const CN_NUM_TRA = ['壹', '貳', '參'];
+
 // 召唤周芷若的统一落位入口：阵亡当帧只记位置（state._pendingZhouPos），落位延到「下一个行动步」。
-//   不当帧落位的原因：同格「尸体 + 新单位」按 render/32 的「同格优先渲染存活单位」会直接顶掉阵亡者的
-//   死亡特效（红底 ✕ + 撞击），先让死亡特效播完，周芷若再在原位置出场。
+//   落位与死亡特效的配合：同格「尸体 + 周芷若」由 render/32 保证「尸体优先渲、3 秒清尸后才露人」，
+//   所以这里只需避开阵亡当帧，不必等尸体被移除。
 //   待落位标记写灭绝自己的 state（battle 级、跨回合克隆保留），不写队伍数组：
 //   队伍数组每回合都会重新 map 出来（core/11 createRoundStepper），数组级标记过不了回合边界；
 //   她本人在回合最后一手阵亡时下一回合组件不再注册（core/11 只为存活单位注册），
@@ -383,6 +386,8 @@ export function createMieJueShiTaiComponent() {
                 if (!data.dmg || data.dmg <= 0) return;
                 const isThird = isThirdHit();
                 miejue.state._attackCount = (miejue.state._attackCount || 0) + 1;
+                // 2026-09-24 头顶计数飘字：第 1/2/3 次依次「壹/貳/參」，第 4 次回到「壹」（快进在 fx/89 拦）
+                eventBus.emit(FX_SIGNALS.MIEJUE_COUNT, { unit: miejue, text: CN_NUM_TRA[(miejue.state._attackCount - 1) % 3] });
                 if (!isThird) return;
                 if (!data.declarations) data.declarations = [];
                 data.declarations.push({ type: EFFECT_TYPES.LEECH, value: Math.floor(data.dmg * third.leechRatio), source: miejue });

@@ -1,5 +1,6 @@
 // render/39-actions-defs.js — 舞台动作演出定义（演出域）
-// V1.0.0 | ~22200 bytes | 2026-09-22 从 render/31 拆出：STAGE_ACTION_DEFS 全表 + 单位查找
+// V1.1.0 | ~22800 bytes | 2026-09-24 雄狮振奋演出锚在出手帧：ATTACK 演出里发狮吼 + 全体「+2 攻」飘字
+// 2026-09-22 从 render/31 拆出：STAGE_ACTION_DEFS 全表 + 单位查找
 //
 // 加新 stageAction：在本文件 STAGE_ACTION_DEFS 加一条（键=STAGE_ACTION_TYPES.xxx），
 // 并在 infra/56 的 STAGE_ACTION_TYPES 登记。
@@ -7,9 +8,10 @@ import { clock } from '../infra/52-clock.js';
 import { eventBus } from '../infra/50-event-bus.js';
 import { FX_SIGNALS } from '../infra/55-fx-signals.js';
 import { GlobalStore } from '../infra/54-global-store.js';
+import { getSkillParams } from '../core/01config-5v5-test.js';
 import { AudioManager } from '../modules/22audio-manager.js';
 import { STAGE_ACTION_TYPES, STORE_ACTION_TYPES, UNIT_EVENT_TYPES, ROLE_TYPES, BUFF_EFFECT_TYPES, BUFF_SUBTYPES, FLY_MODE_TYPES } from '../infra/56-battle-enums.js';
-export const VER = 'render/39-actions-defs.js V1.0.0';
+export const VER = 'render/39-actions-defs.js V1.1.0';
 
 // 先查 store 权威单位，再回退 UI 快照
 function findUnitByUidLocal(c, uid) {
@@ -60,6 +62,19 @@ export const STAGE_ACTION_DEFS = {
                     waveUnit: action.waveUnit || null,
                     attackerRole: action.attackerRole
                 });
+            }
+            // 2026-09-24 雄狮振奋：狮吼 + 全体「+2 攻」飘字，锚在雄狮真正出手的这一帧。
+            //   原先由 modules/27 在「生成步」时 emit LION_ROAR，但随动出手的演出被 isLinkAttack 延后 1400ms、
+            //   苦练延后 1200ms，吼总是抢在画面前——看起来像「母狮出手反而吼、雄狮自己出手没吼」。
+            //   随动出手同样是雄狮命中（+2 攻照给），此处一并发，锚点正确。
+            if (attacker && attacker.isLionMale && action.dmg > 0 && !GlobalStore.get('fastForwardActive')) {
+                const team = (c.store ? c.store.getState().units : []).filter(u => u.camp === attacker.camp && u.alive);
+                eventBus.emit(FX_SIGNALS.LION_ROAR, { unit: attacker, team });
+                const gain = getSkillParams('金毛狮王谢逊', 'lionInspire')?.atkPerHit ?? 0;
+                if (gain > 0) {
+                    // 逐个错帧冒出「+N」，形成一层自雄狮向外扩散的涟漪
+                    team.forEach((m, i) => clock.wait(i * 90).then(() => eventBus.emit(FX_SIGNALS.ATK_BUFF_FLOAT, { unit: m, gain })));
+                }
             }
         }
     },

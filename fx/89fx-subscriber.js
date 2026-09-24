@@ -9,7 +9,7 @@ import {
     showDanmaku, showDamageFloat, showDodgeBubble, showHealFloat, showAtkBuffFloat,
     applyBrushEffect, showBuffBanner, showCriticalBanner, showHeartEffect, showPinkFlash,
     showKuLianEffect, showWindClaw, showSplashArrows, showBoneClaw, showMeditateEffect,
-    animatePositionSwap, animatePushBack, animatePushSwap, showDodgeBulletTime
+    animatePositionSwap, animatePushBack, animatePushSwap, showDodgeBulletTime, showMiejueCountFloat
 } from './87fx-manager.js';
 import {
     showButterflyFlyOut, showButterflyFlyBack,
@@ -65,4 +65,9 @@ eventBus.on(FX_SIGNALS.LION_ROAR, P, (d) => {
     if (inFastForward()) return;
     AudioManager.playSfxByName('lionRoar');
     return showLionRoar(d.unit, d.team);
+});
+// 2026-09-24 灭绝师太出手计数：头顶飘出「壹/貳/參」气泡消散（快进跳过）
+eventBus.on(FX_SIGNALS.MIEJUE_COUNT, P, (d) => {
+    if (inFastForward()) return;
+    return showMiejueCountFloat(d.unit, d.text);
 });
