@@ -1,5 +1,5 @@
-// V6.1.1 | ~42900 bytes | 2026-09-24 版本头 ~bytes 与实际对齐（复盘第 4 轮核对：头记 42400 / 实际 42903，
-//          差 503 系第 12 轮合流后累积；本次**仅注释与版本号**，判据与逻辑一字未动）
+// V6.1.2 | ~43200 bytes | 2026-09-24 版本头 ~bytes 再对齐：第 13 轮填的 42900 是**写头之前的实测值**，
+//          新头两行本身又占字节 → 写完即失真 249（同 rules-replay：按 CRLF 工作区 stat 值记）
 // V6.1.0 | ~42400 bytes | 2026-09-21 随机重开检查从轮询判据(checkRandomRestartState,122)改为事件驱动(hookRandomRestartWatch)：
 //          原判据在任意一局正常 GAMEOVER 都成立(UI.round 全程0/UI.currentResult 全程null/UI.allyTeam 是开战
 //          clone 副本 alive 恒真)，每局必误报，且主代码补 setState.gs('IDLE') 也消不掉。改点 btnSettle 后
