@@ -129,12 +129,17 @@ function runBalanceJob(buildAlly, buildEnemy, seed, hexEnabled) {
 // 现改为：每关跑 runs 局普通对局（出率/站位/海克斯全走引擎原逻辑），
 // 一局结束看谁在场，就把这局的结果记给谁（同场共现是真实环境，不是污染）。
 function runEliteStageJob(stage, seed, runs) {
-    const agg = {
-        '张无忌':  { runs: 0, wins: 0, sumDmg: 0, sumTaken: 0, sumSurv: 0 },
-        '韦一笑':  { runs: 0, wins: 0, sumDmg: 0, sumTaken: 0, sumSurv: 0 },
-        '小昭·姊': { runs: 0, wins: 0, sumDmg: 0, sumTaken: 0, sumSurv: 0 },
-        '小昭·妹': { runs: 0, wins: 0, sumDmg: 0, sumTaken: 0, sumSurv: 0 }
+    // 2026-09-24 定稿：胖远桥/宋青书是"行"不是"列"——第3关阵容在两人间轮换，
+    // 按"本局敌方是谁"把整局分进对应变体桶（胖远桥/宋青书/标准），112 端每个桶渲染一行。
+    // 列仍是明教五精英：谁在场记给谁，胜 = 明教获胜（同场共现是真实环境，不是污染）。
+    const newAgg = () => {
+        const a = {};
+        for (const n of ['张无忌', '韦一笑', '小昭·姊', '小昭·妹', '金毛狮王谢逊']) {
+            a[n] = { runs: 0, wins: 0, sumDmg: 0, sumTaken: 0, sumSurv: 0 };
+        }
+        return a;
     };
+    const variants = { '胖远桥': newAgg(), '宋青书': newAgg(), '标准': newAgg() };
     for (let i = 0; i < runs; i++) {
         clearBattleGlobals(); // 每场清理防 OOM（同时清掉 force 标志，保证本场是纯普通局）
         const initRng = new SeededRNG(seed + i * 7919);
@@ -144,12 +149,16 @@ function runEliteStageJob(stage, seed, runs) {
         GlobalStore.set('battleHasZhang', ally.some(u => u.isZhang));
         const res = runWholeBattle(ally, teams.enemyTeam, seed + i * 7919, true); // 带海克斯，对齐正式游戏节奏
         if (!res.winner) continue;
+        const enemyHasPang = (res.enemy || []).some(u => u.isPangYuanQiao);
+        const enemyHasSong = (res.enemy || []).some(u => u.isSongQingshu);
+        const agg = enemyHasPang ? variants['胖远桥'] : (enemyHasSong ? variants['宋青书'] : variants['标准']);
         for (const u of (res.ally || [])) {
             let name = null;
             if (u.isZhang) name = '张无忌';
             else if (u.isWei) name = '韦一笑';
             else if (u.isXiaoZhaoSister) name = '小昭·姊';
             else if (u.isXiaoZhaoBrother) name = '小昭·妹';
+            else if (u.isXieXun) name = '金毛狮王谢逊';
             if (!name) continue;
             const a = agg[name];
             a.runs++;
@@ -159,7 +168,12 @@ function runEliteStageJob(stage, seed, runs) {
             if (u.alive) a.sumSurv++;
         }
     }
-    return agg;
+    // 只回传有数据的桶，空桶不占消息体积
+    const out = {};
+    for (const [v, a] of Object.entries(variants)) {
+        if (Object.values(a).some(d => d.runs > 0)) out[v] = a;
+    }
+    return out;
 }
 
 // 108 海克斯仪表盘 / 101 自动批量战斗：整局自动战斗（含第3/6/9回合自动补海克斯）。

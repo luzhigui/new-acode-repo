@@ -2,7 +2,7 @@
 export const VER = 'player/46attack-group.js V6.1.0';
 
 import { GlobalStore, getState } from '../infra/54-global-store.js';
-import { STORE_ACTION_TYPES, FLASH_TYPES, CAMP_TYPES } from '../infra/56-battle-enums.js';
+import { STORE_ACTION_TYPES, FLASH_TYPES, CAMP_TYPES, UNIT_EVENT_TYPES } from '../infra/56-battle-enums.js';
 import { appendLogHTML, autoScrollLog, updateRoundDisplay, playLogLine, appendHiddenDetail, findUnitByUid } from './47renderer.js';
 import { showBoneClaw } from '../fx/81fx-arrows-5v5-test.js';
 import { showDamageFloat, showMeditateEffect } from '../fx/80fx-common-5v5-test.js';
@@ -140,8 +140,12 @@ export async function handleAttackGroup(c, entry, roundResult, abortSig, isFirst
     updateRoundDisplay(`📜 日志（第${(c.store ? c.store.getState().round : (c.UI && c.UI.round)) || 1}回合）`);
 
     // 血量事件延迟到特效快结束才应用，避免与受击特效冲突
+    // 2026-09-23 修击退剧透：POS_CHANGE 不随攻击组提前落账——原先是攻击组末尾就把击退/换位的位置写进
+    // store（格子瞬移），随后的 PUSH/POS_SWAP 特效纯属重播 = 剧透。位置的唯一即时写入点=对应 fx 动画
+    // 收尾（fx/83/84 落定后自 dispatch POS_CHANGE）；无专属动画的路径由步末 syncStoreFromStep 兜底。
     if (entry._events && entry._events.length > 0) {
-        c.store.dispatch({ type: STORE_ACTION_TYPES.APPLY_EVENTS, events: entry._events });
+        const evts = entry._events.filter(ev => ev.eventType !== UNIT_EVENT_TYPES.POS_CHANGE);
+        if (evts.length > 0) c.store.dispatch({ type: STORE_ACTION_TYPES.APPLY_EVENTS, events: evts });
     }
 
     if (entry.isDead && c.store) {

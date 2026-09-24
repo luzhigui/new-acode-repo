@@ -225,6 +225,31 @@ function updateDetailPopupContent() {
                     `🚫 ${getSkillDesc('张三丰', 'noContend')}`,
                     `🛡️ ${getSkillDesc('张三丰', 'tenRoundFortify')}`
                 ];
+                // 2026-09-24 补新角色技能说明：谢逊一家 / 胖远桥 / 灭绝
+                else if (u.isXieXun) skills = [
+                    `🦁 ${getSkillDesc('金毛狮王谢逊', 'summonLion')}`,
+                    `⚔️ ${getSkillDesc('金毛狮王谢逊', 'lionInspire')}`,
+                    `🏹 ${getSkillDesc('金毛狮王谢逊', 'lionFollow')}`
+                ];
+                else if (u.isLionCub) skills = [
+                    `🐱 ${getSkillDesc('金毛狮王谢逊', 'summonLion')}`
+                ];
+                else if (u.isLionMale) skills = [
+                    `⚔️ ${getSkillDesc('金毛狮王谢逊', 'lionInspire')}`
+                ];
+                else if (u.isLioness) skills = [
+                    `🏹 ${getSkillDesc('金毛狮王谢逊', 'lionFollow')}`
+                ];
+                else if (u.isPangYuanQiao) skills = [
+                    `💢 ${getSkillDesc('胖远桥', 'rageOnHit')}`,
+                    `🐷 ${getSkillDesc('胖远桥', 'righteousFace')}`,
+                    `🔥 ${getSkillDesc('胖远桥', 'youngBlood')}`
+                ];
+                else if (u.isMieJueShiTai) skills = [
+                    `⚔️ ${getSkillDesc('灭绝师太', 'counterAttack')}`,
+                    `🗡️ ${getSkillDesc('灭绝师太', 'thirdStrike')}`,
+                    `👭 ${getSkillDesc('灭绝师太', 'summonZhou')}`
+                ];
                 if (skills.length > 0) {
                     return `<span style="color:#888;">技能</span><span style="color:#b8860b;">${skills.join('<br>')}</span>`;
                 }
