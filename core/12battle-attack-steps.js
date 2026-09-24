@@ -1,5 +1,5 @@
-// V6.3.1 | ~24600 bytes | 2026-09-24 死亡不再发 UNIT_REMOVE（格子先空、死亡特效后到的根因），保留 _isDead 由 UI 3 秒清尸
-export const VER = 'core/12battle-attack-steps.js V6.3.1';
+// V6.3.2 | ~24600 bytes | 2026-09-24 韦一笑吸血上限不再封顶（27 传 newMaxHp 为当前 maxHp+heal 绝对值）
+export const VER = 'core/12battle-attack-steps.js V6.3.2';
 
 import { CONFIG, getSkillParams, getGameData } from './01config-5v5-test.js';
 import { eventBus, EFFECT_TYPES } from '../infra/50-event-bus.js';
@@ -577,7 +577,7 @@ export function resolveDodgeEffects(declarations, unit, target, log) {
             emitStateChange(unit, STATE_CHANGE_TYPES.STUNNED, {}, log);
         } else if (decl.type === EFFECT_TYPES.WEI_HEAL) {
             const { heal, newMaxHp } = decl.data;
-            // 词条化：27 传的 newMaxHp 已是"当前 maxHp+heal，封顶 base×2"的绝对值，这里只算增量
+            // 词条化：27 传的 newMaxHp 已是"当前 maxHp+heal"的绝对值（不封顶），这里只算增量
             const delta = Math.max(0, newMaxHp - Math.floor(getStat(target, 'maxHp')));
             if (delta > 0) {
                 addMod(target, 'maxHp', { source: '韦一笑吸血', value: delta, ttl: 'permanent', group: 'weiLeech', op: 'add' });
