@@ -1,5 +1,6 @@
+// V6.5.1 | ~22700 bytes | 2026-09-24 谢逊只占「固定 3 位」中的一个名额（并入 toLock，删掉他单独的 fixed=true）——修掉他在场时明教出现 4 个固定位、且随机补位可能补到无关普通弟子的问题
 // V6.5.0 | ~22600 bytes | 2026-09-22 ① 谢逊转正进明教随机精英轮盘（eliteConfigs 第 4 人）② 精英池扩容后 eliteCount=3 分支改为按权重抽满 3 个（原 push(...pool) 会出 4 人超编）③ 抽取前过滤已在队精英，避免 forceXieXun 抽出第二个谢逊
-export const VER = 'modules/29battle-init.js V6.5.0';
+export const VER = 'modules/29battle-init.js V6.5.1';
 
 import { CONFIG } from '../core/01config-5v5-test.js';
 import { Unit, applyHeroFlags, HERO_FLAGS } from '../core/02unit.js';
@@ -231,10 +232,12 @@ export function initBattleTeams(currentStage, _rng) {
     if (zhang) { zhang.pos = 5; takenPos.add(5); }
     if (wei) { wei.pos = 6; takenPos.add(6); }
     if (xz) { xz.pos = 4; takenPos.add(4); }
-    // 2026-09-22 金毛狮王谢逊固定 7 号位（demo 阵容，与张无忌5/韦一笑6/小昭4 同性质）
-    // 2026-09-24 并锁死不可调位：7 号位是他的站位锚点，玩家摆位不得移动他（与张无忌/韦一笑/小昭同待遇）
+    // 2026-09-22 金毛狮王谢逊站 7 号位（与张无忌5/韦一笑6/小昭4 同性质：只是站位锚点）
+    // 2026-09-24 不在这里单独锁死：他和张/韦/小昭 一样，只占下面「固定 3 位」里的一个名额。
+    //   原先此处直接 xie.fixed = true，会让他不在 toLock 名单里却多锁一个 → 明教出现 4 个固定位，
+    //   且补足到 3 的随机补位可能落到无关的普通弟子身上。
     let xie = allyTeam.find(u => u.isXieXun);
-    if (xie) { xie.pos = 7; takenPos.add(7); xie.fixed = true; }
+    if (xie) { xie.pos = 7; takenPos.add(7); }
     let others = allyTeam.filter(u => !u.isZhang && !u.isWei && !u.isXiaoZhaoSister && !u.isXiaoZhaoBrother && !u.isXieXun);
     if (others.length > 0 && zhang && !takenPos.has(2)) { others[0].pos = 2; takenPos.add(2); others.shift(); }
     let emptySlots = [1,2,3,4,5,6,7,8,9].filter(p => !takenPos.has(p));
@@ -246,7 +249,9 @@ export function initBattleTeams(currentStage, _rng) {
         if (emptySlots.length > 0) { u.pos = emptySlots.shift(); takenPos.add(u.pos); }
         else { u.pos = 5; }
     }
-    let toLock = [zhang, wei, xz].filter(Boolean);
+    // 2026-09-24 谢逊并入名单：明教固定位恒为 3 个（张/韦/小昭/谢逊 中在队的按序占名额，不足 3 随机补足）。
+    //   四人同时在队时（forceXieXun + 满精英）按优先级截断到 3，保证「锁 3 位」恒定，不会又变回 4 位。
+    let toLock = [zhang, wei, xz, xie].filter(Boolean).slice(0, 3);
     while (toLock.length < 3) { let pool = allyTeam.filter(u => !toLock.includes(u)); if (pool.length === 0) break; let pick = pool[_rand(0, pool.length - 1)]; toLock.push(pick); }
     toLock.forEach(u => { u.fixed = true; });
 
