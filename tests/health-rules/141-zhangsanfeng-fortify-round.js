@@ -5,9 +5,14 @@
 // V6.1.24 重写：旧实现三处判据读 battleLog 里**不存在**的 e.factType / e.data（生产侧 player/42
 //   L316-324 渲染后显式剥离这两个字段；142 的文件头早已写明该行规）→ 120 场全 skip、全条空转。
 //   本版改为只认**渲染后条目**（type + text），与 142 同一行规：
-//   复发信号1（严阵以待·存在性+时机）：张三丰存活到终局且打满 ≥6 回合，战报却没有一条
+//   复发信号1（严阵以待·存在性+时机）：张三丰存活到终局且打满 ≥期望回合，战报却没有一条
 //            type='buff-summary' 且文本含「严阵以待：张三丰」的摘要 → tenRoundFortify 机制被撤/回退；
-//            首次出现的回合 ≠ 6 → 触发点被改动（提前=round 被改小，推迟=round 被回退成 10）。
+//            首次出现的回合 ≠ 期望回合 → 触发点被改动（提前=round 被改小，推迟=round 被改大）。
+//            **期望回合取自配置、不硬编码**（V6.1.26）：modules/26:128-133 用
+//            `getSkillParams('张三丰','tenRoundFortify').params.round` 门控
+//            （`_roundCountForFortify > round` 才触发，摘要在 ON_ROUND_START 里 push），
+//            故「首现回合 = round + 1」。89baff6 把 round 由 10 改成 3（首现 6 → 4），
+//            硬编码 6 的旧判据当场假红 20/120 场 —— 判据必须跟配置走，不能跟历史值走。
 //   复发信号2（如沐春风）：战报出现"如沐春风"文本 → V6.1.7 已删的 springBreeze 分支被误加回。
 //   复发信号3（生生不息·溢出转嫁）：文本「☯ 生生不息：张三丰 …生命已满」且**不含**「溢出」
 //            → 满血触发却无溢出转嫁（render/30 renderEndlessBreathFact 的三种溢出文案都带「溢出」
@@ -21,7 +26,9 @@
 //     六大派拿到 FORTIFY 时 render/30 L325 会渲染出同形摘要（张三丰是六大派唯一防战），本规则判据 ① 将失去唯一性。
 //   - prepareRoundStart 先推 ROUND_START 分隔条目再跑 ON_ROUND_START，故摘要在其所属回合的
 //     round-start 条目之后出现，按"当前回合"归因可靠（ally-only 批次实测 19/19 场首现回合全=6）。
-export const VER = 'tests/health-rules/141-zhangsanfeng-fortify-round.js V6.1.24';
+export const VER = 'tests/health-rules/141-zhangsanfeng-fortify-round.js V6.1.26';
+
+import { getSkillParams } from '../../core/01config-5v5-test.js';
 
 export const rule88 = {
     group: '精英技能回归',
@@ -42,7 +49,19 @@ export const rule88 = {
             }
         }
 
-        // 3. 张三丰必须活到终局 —— 才能确定他第6回合开始时仍存活（严阵以待必然已挂）
+        // 2.5 期望触发回合取自配置（见文件头 V6.1.26）：首现回合 = tenRoundFortify.round + 1。
+        //     取不到配置即判定为"无法断言"（modules/26:44 自身也会 throw，属配置缺失，非本规则职责）
+        var expectedRound = null;
+        try {
+            // 注意口径（core/01config-5v5-test.js:24-28）：getSkillParams 返回的**就是** params 对象
+            //   本身（`return skill?.params`），不是 `{name,desc,params}` 外层壳 —— 与 modules/26:43-44
+            //   的 `tf.round` 同款写法，别再套一层 .params（首版就套错，取不到值 → 全场 skip 空转）
+            var tf = getSkillParams('张三丰', 'tenRoundFortify');
+            if (tf && typeof tf.round === 'number') expectedRound = tf.round + 1;
+        } catch (err) { expectedRound = null; }
+        if (expectedRound == null) return 'skip';
+
+        // 3. 张三丰必须活到终局 —— 才能确定他第 expectedRound 回合开始时仍存活（严阵以待必然已挂）
         //    若中途阵亡则跳过：无法区分"没活到第6回合（合法）"与"阈值回退（异常）"，避免误报
         if (!zhang.alive) return 'skip';
 
@@ -64,14 +83,14 @@ export const rule88 = {
                 fortifyFirstRound = curRound;
             }
         }
-        // 第6回合还没开始（战斗在第5回合或更早结束）—— 严阵以待本就还没到触发点，跳过
-        if (maxRound < 6) return 'skip';
+        // 战斗在期望回合之前就结束了 —— 严阵以待本就还没到触发点，跳过
+        if (maxRound < expectedRound) return 'skip';
 
         if (fortifyFirstRound < 0) {
-            return { fail: true, msg: '复发：张三丰存活到第' + maxRound + '回合仍未触发严阵以待（应第6回合开始触发，疑似 tenRoundFortify 机制被撤或 round 回退）' };
+            return { fail: true, msg: '复发：张三丰存活到第' + maxRound + '回合仍未触发严阵以待（配置 tenRoundFortify.round=' + (expectedRound - 1) + '，应第' + expectedRound + '回合开始触发，疑似 tenRoundFortify 机制被撤或 round 回退）' };
         }
-        if (fortifyFirstRound !== 6) {
-            return { fail: true, msg: '复发：严阵以待首次出现在第' + fortifyFirstRound + '回合（应恰为第6回合开始；提前=触发点被改小，推迟=round 被回退成10）' };
+        if (fortifyFirstRound !== expectedRound) {
+            return { fail: true, msg: '复发：严阵以待首次出现在第' + fortifyFirstRound + '回合（配置 tenRoundFortify.round=' + (expectedRound - 1) + '，应恰为第' + expectedRound + '回合开始；提前=触发点被改小，推迟=round 被改大）' };
         }
 
         // 5. 生生不息溢出转嫁回归断言（文本契约，见文件头复发信号3）

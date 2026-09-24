@@ -4,7 +4,14 @@
 //          附身窗口内出现以姐姐为目标的攻击组
 //          姐姐开局前排却整场零承伤（附身前疑似提前不可选）
 // 对应已报 Bug：妹妹被飞天了还会被打；姐姐附身前不会被打
-export const VER = 'tests/health-rules/139-spider-butterfly-target.js V6.0.0';
+// V6.1.26 补「宿主阵亡」退出分支：附身窗口有**两个**关闭点——
+//   ① 正常飞回 `renderButterflyReturnFact`（render/35:360-362，带 butterflyAction:'return'）；
+//   ② 宿主阵亡被迫返回 `renderButterflyHostDeadFact`（render/35:363-365），
+//      该条目**不带 butterflyAction**（只有 uidD=sisterUid + isDead + 固定文本
+//      「🦋 蝶变：宿主已阵亡，X 被迫返回！」）。旧实现只认 ①，于是宿主一死窗口永不关闭，
+//      姐姐此后正常挨的每一次打都被判"附身期间被打"——实锤误报（seed=17 stage=3 第207条）。
+//      语义上 ② 与 ① 等价（姐姐恢复原形、重新可选），故并列为窗口关闭点。
+export const VER = 'tests/health-rules/139-spider-butterfly-target.js V6.1.26';
 
 // 标记可能嵌套在攻击组内（飞天 fact 嵌在免疫组 entries 里），需双层扫描
 function findMarker(e, key, val) {
@@ -16,6 +23,12 @@ function findMarker(e, key, val) {
         }
     }
     return null;
+}
+
+// 宿主阵亡被迫返回：无 butterflyAction 可认，只能按渲染文本识别（文本由 render/35:364 写死）
+function isHostDeadReturn(e) {
+    if (!e || typeof e.text !== 'string') return false;
+    return e.text.indexOf('蝶变') !== -1 && e.text.indexOf('宿主已阵亡') !== -1;
 }
 
 export const rule86 = {
@@ -74,7 +87,8 @@ export const rule86 = {
                 if (attachM.sisterUid != null) sisterUid = attachM.sisterUid;
                 continue;
             }
-            if (findMarker(e, 'butterflyAction', 'return')) {
+            // 附身窗口关闭点：正常飞回 或 宿主阵亡被迫返回（两者都让姐姐恢复原形、重新可选）
+            if (findMarker(e, 'butterflyAction', 'return') || isHostDeadReturn(e)) {
                 if (attachIdx !== -1 && sisterUid != null) checkWindow(attachIdx + 1, i, sisterUid, '姐姐附身');
                 attachIdx = -1;
                 continue;
