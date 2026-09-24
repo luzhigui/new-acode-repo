@@ -1,4 +1,5 @@
 // 由 109 职业平衡 Worker 扩展为多 kind 分发：'balance' | 'elite' | 'stats' | 'baseline' | 'hex'
+// hex 任务现为 101/108 共用：支持 preferredBuffs 偏好 + 小昭·妹永久继承，并回报胜负计数
 // 每个 job 在 worker 内完成 N 场战斗并回报聚合；独立模块实例，天然隔离 _eliteStates/_eventBuffer
 // Worker 环境兼容 shim：
 //  - 战斗链 15-skill-mechanisms 白骨爪结算读 window.GlobalStore（运行时访问），globalThis 即 window 等价物
@@ -23,6 +24,7 @@ import { SeededRNG, flushBattleEvents, onBattleEvents } from '../infra/51-core-u
 import { runBattle } from '../core/06battle-runner.js';
 import { setBattleRng } from '../core/13battle-shared.js';
 import { createBuffObject } from '../modules/28buff-tools.js';
+import { addPermanentBuff } from '../modules/20elite-skills.js';
 import { initBattleTeams } from '../modules/29battle-init.js';
 import '../infra/54-global-store.js';
 import '../modules/25elite-imperial.js';
@@ -160,11 +162,13 @@ function runEliteStageJob(stage, seed, runs) {
     return agg;
 }
 
-// 108 海克斯仪表盘：整局自动战斗（含第3/6/9回合自动补海克斯），逻辑与 101 runBattle 等价。
+// 108 海克斯仪表盘 / 101 自动批量战斗：整局自动战斗（含第3/6/9回合自动补海克斯）。
+// 口径对齐正式游戏：支持海克斯偏好 preferredBuffs；所选 Buff 由小昭·妹永久继承（addPermanentBuff）。
 // 搬进 worker 是因为主线程一口气跑几百场会把页面占死（移动端弹「网页暂无响应」）。
 // seed 公式与 101 主线程版一致（Date.now() + i*7919），差异只在于是否并行，统计口径不受影响。
-function runHexStageJob(stage, baseSeed, runs) {
+function runHexStageJob(stage, baseSeed, runs, preferredBuffs = []) {
     const hexLog = []; // [{ stage, buffs: [key], winner }]
+    const wins = { ally: 0, enemy: 0, draw: 0 };
     const C = CONFIG;
     for (let i = 0; i < runs; i++) {
         clearBattleGlobals();
@@ -173,7 +177,7 @@ function runHexStageJob(stage, baseSeed, runs) {
         const teams = initBattleTeams(stage, initRng);
         const buffsPicked = [];
         // 海克斯抽取回调：与 runBalanceJob 同口径（角色需求过滤 + 圣火令抽行列），
-        // 但这里要记录"本局选了哪些"，故用闭包把结果收进 buffsPicked。
+        // 这里额外支持偏好优先与「小昭·妹永久继承」，并把本局所选取进 buffsPicked。
         const hexPicker = (activeBuffs, allySide, rng) => {
             const existing = activeBuffs.map(b => b.key);
             const allyAlive = allySide.filter(u => u.alive);
@@ -184,12 +188,23 @@ function runHexStageJob(stage, baseSeed, runs) {
                 return true;
             });
             if (available.length === 0) return null;
-            const pick = available[rng.nextInt(0, available.length - 1)];
+            // 偏好海克斯出现时优先选（与 101 主线程版一致；无偏好则全池随机）
+            const preferred = available.filter(k => preferredBuffs.includes(k));
+            const pool = preferred.length > 0 ? preferred : available;
+            const pick = pool[rng.nextInt(0, pool.length - 1)];
             const duration = C.BUFFS[pick].duration || C.BUFF_DURATION || 4;
             const nb = { key: pick, target: CAMP_TYPES.ALLY, remaining: duration, name: C.BUFFS[pick].name };
             if (pick === BUFF_TYPES.HOLY_FLAME) {
                 nb.col = rng.nextInt(1, 3);
                 nb.row = rng.nextInt(1, 3);
+            }
+            // 对齐正式游戏：选完即由小昭·妹永久继承。
+            // 必须从 allySide（战斗内的活体单位）取，不能取 teams.allyTeam——
+            // runBattle 内部会 clone 一份上场，写到克隆体外等于没生效。
+            const brother = allySide.find(u => u.isXiaoZhaoBrother);
+            if (brother) {
+                const extra = pick === BUFF_TYPES.HOLY_FLAME ? { col: nb.col, row: nb.row } : {};
+                addPermanentBuff(brother, pick, nb.name, extra);
             }
             buffsPicked.push(nb);
             return nb;
@@ -200,9 +215,13 @@ function runHexStageJob(stage, baseSeed, runs) {
             seed,
             hexPicker
         });
-        hexLog.push({ stage, buffs: buffsPicked.map(b => b.key), winner: res.winner || '平局' });
+        const w = res.winner || '平局';
+        hexLog.push({ stage, buffs: buffsPicked.map(b => b.key), winner: w });
+        if (w === '明教') wins.ally++;
+        else if (w === '六大派') wins.enemy++;
+        else wins.draw++;
     }
-    return { hexLog };
+    return { hexLog, ally: wins.ally, enemy: wins.enemy, draw: wins.draw };
 }
 
 // 113 统计体检
@@ -360,8 +379,8 @@ self.onmessage = (e) => {
             const { stage, seed, runs } = e.data;
             result = runStatsStageJob(stage, seed, runs);
         } else if (kind === 'hex') {
-            const { stage, seed, runs } = e.data;
-            result = runHexStageJob(stage, seed, runs);
+            const { stage, seed, runs, preferredBuffs } = e.data;
+            result = runHexStageJob(stage, seed, runs, preferredBuffs);
         } else if (kind === 'baseline') {
             const { stage, seed, runs, cfgA, cfgB } = e.data;
             result = runBaselineStageJob(stage, seed, runs, cfgA, cfgB);
