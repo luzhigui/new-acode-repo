@@ -1,3 +1,5 @@
+// V6.1.3 | ~46300 bytes | 2026-09-24 规则入参 afterA/afterE 改从 battleStore 取终局真值（原取 ctx.UI.allyTeam
+//          开战副本）：143/144 在浏览器体检里成片误报，回放器（真终局）却全绿 —— 数据源错位，非数值回归。
 // V6.1.2 | ~43200 bytes | 2026-09-24 版本头 ~bytes 再对齐：第 13 轮填的 42900 是**写头之前的实测值**，
 //          新头两行本身又占字节 → 写完即失真 249（同 rules-replay：按 CRLF 工作区 stat 值记）
 // V6.1.0 | ~42400 bytes | 2026-09-21 随机重开检查从轮询判据(checkRandomRestartState,122)改为事件驱动(hookRandomRestartWatch)：
@@ -5,7 +7,7 @@
 //          clone 副本 alive 恒真)，每局必误报，且主代码补 setState.gs('IDLE') 也消不掉。改点 btnSettle 后
 //          120ms 查 gs 是否仍停 GAMEOVER 且已生成新局(全员满血)，只有"真点了随机重开但没复位"才上报。
 // 职责：接入 rule70-93 回归体检；GAMEOVER 立即跑规则(日志已完整)；新局识别修复多局连打漏检；战报黑幕/特效池实时检查
-export const VER = 'tests/121health-monitor.js V6.1.0';
+export const VER = 'tests/121health-monitor.js V6.1.3';
 
 import { runStaticScan } from './123static-scan.js';
 import { filterRulesByTags, parseRecipeTags, collectForceFlags } from './124rule-recipes.js';
@@ -109,6 +111,41 @@ function getCtx() {
     } catch (e) {}
     return null;
 }
+// 终局单位快照（V6.1.3）——规则侧 afterA/afterE 的唯一正确数据源
+// ① 根因：ctx.UI.allyTeam 是 ui/65main-battle.js:27 在**开战**时 clone 的一份副本，战斗全程不再更新
+//    （本文件头 V6.1.0 注释早已记明「UI.allyTeam 是开战 clone 副本 alive 恒真」）；而 2026-09-14
+//    「状态三轨收敛」后单位真值的唯一账本已迁到 battleStore（ui/62ui-render-5v5-test.js:36：
+//    战斗期一律读 battleStore，不再读 c.UI 的冗余拷贝）。把开战副本当终局喂给规则 = 数据源错位。
+// ② 证据：同一批 180 场战报，用真终局喂 143/144 全绿；改用开战副本冒充 → 143 误报 40 场、
+//    144 误报 25 场，且消息形态与浏览器体检一字不差（「回复N≠floor(血上限112.5×12%=13)」
+//    「快乐回血58点，但血量→182 既非 +58 也非回满截断」）。
+// ③ 影响范围：凡靠终局值反推/兜底的判据全部失真（143 血上限、144 回满截断、140 buff 面板字段）。
+//    取不到 store 时退回 UI 快照（宁可退化也不拦体检，绝不伪造数据）。
+function finalTeamsFromStore(ctx) {
+    var uiAlly = (ctx && ctx.UI && ctx.UI.allyTeam) || [];
+    var uiEnemy = (ctx && ctx.UI && ctx.UI.enemyTeam) || [];
+    try {
+        var w = getWin();
+        var store = (ctx && ctx.store) || (w && w.GlobalStore ? w.GlobalStore.get('battleStore') : null);
+        var st = store && typeof store.getState === 'function' ? store.getState() : null;
+        var units = st && Array.isArray(st.units) ? st.units : null;
+        if (units && units.length) {
+            var ally = [], enemy = [];
+            for (var i = 0; i < units.length; i++) {
+                var u = units[i];
+                if (!u) continue;
+                if (u.camp === 'enemy') enemy.push(u);
+                else if (u.camp === 'ally') ally.push(u);
+                // 无 camp（拒马等新增单位也有 camp，此处只为兜底）：按开战副本的 uid 集合归类
+                else if (uiAlly.some(function (x) { return x && x.uid === u.uid; })) ally.push(u);
+                else enemy.push(u);
+            }
+            if (ally.length || enemy.length) return { ally: ally, enemy: enemy };
+        }
+    } catch (e) { /* 取不到就退回 UI 快照 */ }
+    return { ally: uiAlly, enemy: uiEnemy };
+}
+
 function detectStage(doc) {
     if (!doc) return 0;
     const l = doc.getElementById('labelEnemy');
@@ -526,11 +563,17 @@ function runRuleChecks(ctx, doc) {
     }
 
     ctx._doc = doc;
+    // before = 开战快照：ctx.UI.allyTeam 本就是开战 clone，语义正确，直接用
+    // after  = 终局真值：必须走 battleStore（见 finalTeamsFromStore 根因注释），
+    //          否则 143/144 这类"终局反推"判据会成片误报
     const beforeAllies = allyTeam.map(u => ({ ...u }));
     const beforeEnemies = enemyTeam.map(u => ({ ...u }));
+    const finalTeams = finalTeamsFromStore(ctx);
+    const finalAllies = finalTeams.ally;
+    const finalEnemies = finalTeams.enemy;
     for (const rule of rules) {
         try {
-            const result = rule.test(ctx, battleLog, beforeAllies, beforeEnemies, allyTeam, enemyTeam);
+            const result = rule.test(ctx, battleLog, beforeAllies, beforeEnemies, finalAllies, finalEnemies);
             if (result && result.fail) {
                 const msgs = (result.msg || '').split(' | ');
                 for (const m of msgs) if (m.trim()) recordIssue(ctx, null, m.substring(0, 30), m.trim(), '规则');
