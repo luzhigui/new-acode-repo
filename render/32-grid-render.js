@@ -1,5 +1,5 @@
-// ~24600 bytes | V6.3.4 | 2026-09-23 小昭·妹图标随职业；胖远桥国字脸生效期间顶 🐷
-export const VER = 'render/32-grid-render.js V6.3.4';
+// ~25300 bytes | V6.3.6 | 2026-09-24 灭绝师太头顶出手计数气泡（计数含反击/跟随这类被动出手）
+export const VER = 'render/32-grid-render.js V6.3.6';
 
 import { getUnitCol, getUnitRow, getAuraBonuses, getDodgeRules, fmtHp } from '../infra/51-core-utils.js';
 import { CONFIG, getSkillDesc } from '../core/01config-5v5-test.js';
@@ -17,6 +17,7 @@ const _hpDisplayPct = new Map();
 let _hpAnimRunning = false;
 const _shakeUntil = new Map();
 const _horseSpawnedUids = new Set();
+const _mieCountShown = new Map();
 
 export function markGridShake(uid, durationMs) {
     if (uid == null) return;
@@ -438,6 +439,23 @@ export function renderGrid(id, camp) {
         }
         if (isBlocked && unit.alive && isResting && !(unit.isZhang && unit.rangedForm) && !isDead) {
             let zzz = document.createElement('div'); zzz.className = 'zzz-mark'; zzz.innerHTML = '<span>z</span><span>Z</span><span>Z</span>'; div.appendChild(zzz);
+        }
+        // 2026-09-24 灭绝师太：出手计数气泡（头顶正中）。计数由 modules/26 累加（含反击/跟随这类被动出手），
+        //   数值变化时弹一下，一眼看出离「每第三次（伤害加成 + 吸血）」还差几下。
+        const mieCount = (unit.isMieJueShiTai && unit.alive && !isDead) ? (unit.state._attackCount || 0) : 0;
+        if (mieCount > 0) {
+            const badge = document.createElement('span');
+            badge.className = 'mie-count';
+            badge.textContent = String(mieCount);
+            badge.style.cssText = 'position:absolute;top:-8px;left:50%;transform:translate(-50%,-50%);min-width:15px;padding:0 3px;border-radius:8px;background:rgba(180,0,0,0.9);color:#fff;font-size:10px;font-weight:bold;line-height:15px;text-align:center;pointer-events:none;z-index:1002;box-shadow:0 0 6px rgba(180,0,0,0.6);';
+            const prevCount = _mieCountShown.get(unit.uid);
+            if (prevCount !== undefined && prevCount !== mieCount) {
+                clock.animate(260, (p) => {
+                    badge.style.transform = `translate(-50%,-50%) scale(${1 + 0.7 * (1 - p)})`;
+                });
+            }
+            _mieCountShown.set(unit.uid, mieCount);
+            div.appendChild(badge);
         }
         div.style.cursor = 'pointer';
         div.addEventListener('click', (e) => {

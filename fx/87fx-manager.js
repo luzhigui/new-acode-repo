@@ -1,5 +1,5 @@
 // V6.0.1 | 2026-09-22 集中特效出口 ｜ 预估 2.5 KB
-export const VER = 'fx/87fx-manager.js V6.0.1';
+export const VER = 'fx/87fx-manager.js V6.1.0';
 
 import {
     showDanmaku,
@@ -40,6 +40,8 @@ import {
     showSpiderDescend,
     showSpiderStrike
 } from './86fx-butterfly-spider.js';
+
+import { showLionRoar } from './91fx-lion-roar.js';
 
 // 特效注册表：新增特效在这里加 key
 const registry = {
@@ -98,5 +100,6 @@ export {
     showButterflyFlyOut,
     showButterflyFlyBack,
     showSpiderAscend,
-    showSpiderDescend
+    showSpiderDescend,
+    showLionRoar
 };

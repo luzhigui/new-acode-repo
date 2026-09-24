@@ -1,5 +1,5 @@
 // V6.2.0 | ~40500 bytes | 2026-09-23 谢逊改版：删替死/集火/狮吼，改为召唤幼狮→成长→雄狮振奋/母狮随动
-export const VER = 'modules/27elite-mingjiao.js V6.2.0';
+export const VER = 'modules/27elite-mingjiao.js V6.2.1';
 
 import { registerElite } from '../core/08-elite-registry.js';
 import { CONFIG, getSkillParams } from '../core/01config-5v5-test.js';
@@ -9,6 +9,7 @@ import { applyHeroFlags } from '../core/02unit.js';
 import { spiderTransform, spiderReturn } from '../modules/20elite-skills.js';
 import { checkZhangSwitch, emitEvent, applyStatChange, refreshMaxHp, getBattleRng, addMod, removeModsByGroup, getStat } from '../core/13battle-shared.js';
 import { eventBus, EXECUTION_LAYER as L, EFFECT_TYPES } from '../infra/50-event-bus.js';
+import { FX_SIGNALS } from '../infra/55-fx-signals.js';
 import { StateMachine } from '../infra/51-core-utils.js';
 import { FACT_TYPES, BUFF_TYPES, UNIT_EVENT_TYPES, CAMP_TYPES, ROLE_TYPES, SIGNAL_TYPES, STATE_CHANGE_TYPES } from '../infra/56-battle-enums.js';
 import { emitStateChange } from '../infra/59-state-change.js';
@@ -700,6 +701,8 @@ export function createXieXunComponent() {
                     addMod(t, 'atk', { source: '振奋', value: gain, ttl: 'permanent', group: 'lionInspire', op: 'add' });
                     emitEvent(t, UNIT_EVENT_TYPES.HP_CHANGE, { hp: t.hp, maxHp: t.maxHp, alive: t.alive, atk: getStat(t, 'atk'), def: getStat(t, 'def') });
                 }
+                // 狮吼演出：信号由 fx/89 订阅（快进/静音在表现层自行判断），引擎只管发
+                eventBus.emit(FX_SIGNALS.LION_ROAR, { unit: lion, team: targets });
                 pushInfo(data, `<span class="gold">🦁 雄狮振奋！己方全体攻击力 +${gain}</span>`);
             });
 
