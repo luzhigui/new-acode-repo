@@ -1,5 +1,5 @@
 // render/34-facts-attack.js — fact 渲染域：攻击流程
-// V1.0.1 | ~14600 bytes | 2026-09-23 计算行补乘数 <1 的项（嘲讽减伤），格式改为「×0.4 嘲讽=8」
+// V1.1.0 | ~14800 bytes | 2026-09-24 伤害行末支持 fact.miejueHint（灭绝师太出手计数提示）
 //
 // 归属判据：这条 fact 描述「一次攻击的经过与结果」，不含 buff / 精英技能衍生。
 // 加新攻击类 fact：在本文件写函数 + registerFactRenderer 一行，不碰 render/30。
@@ -9,7 +9,7 @@ import { getStat } from '../core/13battle-shared.js';
 import { getSkillParams } from '../core/01config-5v5-test.js';
 import { FACT_TYPES, CAMP_TYPES, DROP_TYPES } from '../infra/56-battle-enums.js';
 import { registerFactRenderer, getFactRenderer, renderLog, projectFactEntry } from './33-fact-registry.js';
-export const VER = 'render/34-facts-attack.js V1.0.0';
+export const VER = 'render/34-facts-attack.js V1.1.0';
 
 // 攻击流程
 export function renderMissFact(fact) {
@@ -152,19 +152,21 @@ export function renderAttackFact(fact) {
         formulaText += ` ×${e.value} ${e.label}=${runningRaw}`;
     }
     group.entries.push({type:'detail', isDamageCalc:true, text:`<span class="gray small">计算：${formulaText}</span>`});
+    const damageText = killLine
+        ? renderKillLineFact({
+            ac, dc, campA, campD,
+            unitName: unit.name,
+            dmg: Math.round(dmgResult.dmg),
+            targetName: target.name,
+            hpBefore: dmgResult.hpBefore,
+            hpNow: targetHpAfter
+        }).text
+        : `<span class="damage-line ${ac}">${campA} ${unit.name}</span> 造成 <span class="red">${Math.round(dmgResult.dmg)}</span> 伤害，<span class="${dc}">${campD} ${target.name}</span> ${dmgResult.hpBefore} → ${targetHpAfter} ${dmgResult.dead?'💀阵亡':''}`;
+    // 2026-09-24 灭绝师太：出手计数提示挂在伤害行末（hint 文本由 modules/26 随 fact 下发）
     group.entries.push({
         type:'damage-text',
         deadFlag: killLine,
-        text: killLine
-            ? renderKillLineFact({
-                ac, dc, campA, campD,
-                unitName: unit.name,
-                dmg: Math.round(dmgResult.dmg),
-                targetName: target.name,
-                hpBefore: dmgResult.hpBefore,
-                hpNow: targetHpAfter
-            }).text
-            : `<span class="damage-line ${ac}">${campA} ${unit.name}</span> 造成 <span class="red">${Math.round(dmgResult.dmg)}</span> 伤害，<span class="${dc}">${campD} ${target.name}</span> ${dmgResult.hpBefore} → ${targetHpAfter} ${dmgResult.dead?'💀阵亡':''}`
+        text: damageText + (fact.miejueHint || '')
     });
     if (fact.entries) {
         for (const e of fact.entries) {

@@ -1,12 +1,12 @@
 // render/38-actions-translate.js — fact → stageAction 翻译器（翻译域）
-// V1.0.1 | ~26500 bytes | 2026-09-23 新增 PUSH_STUN 翻译 + PUSH 携带 label（击退退无可退转眩晕）
+// V1.1.0 | ~26700 bytes | 2026-09-24 ATTACK 携带灭绝师太出手计数文本与三击吸血量（演出帧消费）
 //
 // 加新 fact 的舞台动作：在本文件 FACT_TRANSLATORS 加一条（键=factType），
 // 并在 infra/58 的 translateFn 登记函数名；漏加会在本文件末尾校验循环里报错。
 import { makeFXSnapshot } from '../infra/51-core-utils.js';
 import { STAGE_ACTION_TYPES, FACT_TYPES, CAMP_TYPES, BUFF_EFFECT_TYPES, FLY_MODE_TYPES } from '../infra/56-battle-enums.js';
 import { FACT_SPECS } from '../infra/58-fact-contract.js';
-export const VER = 'render/38-actions-translate.js V1.0.1';
+export const VER = 'render/38-actions-translate.js V1.1.0';
 
 // 把 fact 列表翻译成舞台动作；导演只读 stageActions；timing=beforeText/afterText
 export function translateFactsToStageActions(log) {
@@ -469,7 +469,10 @@ function makeAttackAction(data, index) {
         waveUnitUid: data.dmgCalc?.waveUnit?.uid ?? null,
         waveUnit: data.dmgCalc?.waveUnit ?? null,
         isKuLianAttack: data.snap?.isKuLianAttack ?? false,
-        isLinkAttack: data.snap?.isLinkAttack ?? false
+        isLinkAttack: data.snap?.isLinkAttack ?? false,
+        // 2026-09-24 灭绝师太：出手计数文本（壹/貳/參）与三击吸血量，由 render/39 在她出手演出帧消费
+        miejueCountText: data.miejueCountText ?? null,
+        miejueLeech: data.miejueLeech ?? 0
     };
 
     // 从 attack fact 的 entries 提取 afterText 特效，靠 e.type/e.factType 区分：溅射 / 白骨爪 / 乾坤飘字 / 死亡画笔

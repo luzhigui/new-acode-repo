@@ -1,5 +1,5 @@
-// V6.13.0 | ~23600 bytes | 2026-09-24 灭绝师太：出手计数改繁体飘字（壹/貳/參）；M112→115；反击/跟随计入出手次数；召唤周芷若阵亡触发
-export const VER = 'modules/26elite-sixsects.js V6.13.0';
+// V6.14.0 | ~24200 bytes | 2026-09-24 胖远桥嘲讽改「自身永久+40防（无上限）」，取消嘲讽减伤；灭绝计数飘字改由 render/39 出手帧发；三击吸血写「X→Y」+ 吸血飘字；张三丰严阵以待第3回合
+export const VER = 'modules/26elite-sixsects.js V6.14.0';
 import { registerElite } from '../core/08-elite-registry.js';
 import { CONFIG, getSkillParams } from '../core/01config-5v5-test.js';
 import { SIGNAL_TYPES, FACT_TYPES, BUFF_TYPES, CAMP_TYPES, ROLE_TYPES } from '../infra/56-battle-enums.js';
@@ -27,7 +27,7 @@ export function createZhouZhiruoComponent() {
 }
 
 // 张三丰（六大派·防战）：不攻击的续航核心
-// 技能1 生生不息 / 技能3 八卦阵 / 技能5 第五回合严阵以待
+// 技能1 生生不息 / 技能3 八卦阵 / 技能5 第三回合严阵以待
 // 技能4 不争（仅剩一人判负）在 core/11 的胜负判定里
 export function createZhangSanfengComponent() {
     return {
@@ -123,7 +123,7 @@ export function createZhangSanfengComponent() {
                 }
             });
 
-            // 技能5：第 5 回合结束后仍未分胜负（即第 6 回合开始）→ 张三丰获得严阵以待（仅限自身）
+            // 技能5：第 3 回合结束后仍未分胜负（即第 4 回合开始）→ 张三丰获得严阵以待（仅限自身）
             // 2026-09-17 不走 B._activeBuffs：那条会让六大派全体防战都吃到；改为直接挂词条 + 组件自算反弹
             eventBus.on(SIGNAL_TYPES.ON_ROUND_START, 45, (data) => {
                 if (!zhang.state._tenRoundFired) {
@@ -170,7 +170,7 @@ export function createZhangSanfengComponent() {
 
 // 胖远桥（六大派·武当·战士）：莽撞 / 正义国字脸 / 年轻气盛
 // 2026-09-22 新增；2026-09-23 改版：嘲讽与打歪合并为「每次攻击前二选一」——
-//   血越高越容易发动正义国字脸（全体敌人本回合后续只能打他，且对其伤害减半），
+//   血越高越容易发动正义国字脸（全体敌人本回合后续只能打他，且自身防御永久+40、无上限叠加），
 //   攻越高越容易发动年轻气盛（随机目标 ×1.5 + 击退，退无可退则眩晕）。
 // 第三关与宋青书每局随机二选一（content 的 encounters.squadVariants["3"]）。
 // 三个技能全在本组件闭环：击退/眩晕复用 core/13 的公共 fact，其余日志走 group.data.entries。
@@ -224,8 +224,10 @@ export function createPangYuanQiaoComponent() {
                     pang.state._clumsyHit = true;
                     return;
                 }
-                // 正义国字脸（嘲讽）：全体敌人本回合后续只能打胖远桥（标记回合级，不消耗）
+                // 正义国字脸（嘲讽）：全体敌人本回合后续只能打胖远桥（标记回合级，不消耗），
+                //   同时自身防御永久 +defGain（2026-09-24 由「被嘲讽者的伤害 ×0.3」改为叠防，无上限叠加）
                 for (const foe of cands) foe.state._tauntedByPang = true;
+                addMod(pang, 'def', { source: '正义国字脸', value: face.defGain, ttl: 'permanent', group: 'righteousFace', op: 'add' });
                 pang.state._tauntFired = true;
             });
 
@@ -249,34 +251,21 @@ export function createPangYuanQiaoComponent() {
             eventBus.on(SIGNAL_TYPES.AFTER_ATTACK, L.AFTER_ATTACK.PANG_TAUNT, (data) => {
                 if (data.unit !== pang || !pang.alive || !pang.state._tauntFired) return;
                 pang.state._tauntFired = false;
-                pushInfo(data, `<span class="gold">😤 正义国字脸：胖远桥横眉一喝，敌人本回合只能打他（伤害×${face.dmgMultiplier}）</span>`);
+                pushInfo(data, `<span class="gold">😤 正义国字脸：胖远桥横眉一喝，敌人本回合只能打他（自身防御+${face.defGain}，当前 ${Math.floor(getStat(pang, 'def'))}）</span>`);
             });
 
             // 嘲讽的强制执行：被嘲讽者本回合每次选目标都改成胖远桥（标记回合级，回合开始统一清）
             eventBus.on(SIGNAL_TYPES.BEFORE_SELECT_TARGET, L.BEFORE_SELECT_TARGET.PANG_TAUNT_FORCE, (data) => {
                 const u = data.unit;
                 if (!u || !u.state) return;
-                // 每次选目标先复位「本次被嘲讽」标记：上一次被嘲讽的攻击若闪避/未命中，
-                // 走不到 BEFORE_DAMAGE_CALC 消费，不复位会把减伤带到下一次攻击
-                u.state._tauntAttackActive = false;
                 if (!u.state._tauntedByPang) return;
                 if (!pang.alive || !canBeTargeted(pang)) return;
                 data.declaration.targetResult = pang;
-                u.state._tauntAttackActive = true;
-            });
-
-            // 被嘲讽者的该次伤害 ×dmgMultiplier（DMG_MULTIPLIER 修饰器由 core/12 calcFinalDamage 消费）
-            eventBus.on(SIGNAL_TYPES.BEFORE_DAMAGE_CALC, L.BEFORE_DAMAGE_CALC.PANG_TAUNT_REDUCE, (data) => {
-                const u = data.unit;
-                if (!u || !u.state || !u.state._tauntAttackActive) return;
-                u.state._tauntAttackActive = false;
-                data.declarations.push({ type: EFFECT_TYPES.DMG_MULTIPLIER, value: face.dmgMultiplier, source: pang, label: '正义国字脸' });
             });
 
             // 未命中 / 被闪避路径的复位点
             eventBus.on(SIGNAL_TYPES.AFTER_MISS, L.AFTER_MISS.PANG_CLEAR, (data) => {
                 if (data.unit === pang) pang.state._clumsyHit = false;
-                if (data.unit && data.unit.state) data.unit.state._tauntAttackActive = false;
             });
         }
     };
@@ -386,12 +375,25 @@ export function createMieJueShiTaiComponent() {
                 if (!data.dmg || data.dmg <= 0) return;
                 const isThird = isThirdHit();
                 miejue.state._attackCount = (miejue.state._attackCount || 0) + 1;
-                // 2026-09-24 头顶计数飘字：第 1/2/3 次依次「壹/貳/參」，第 4 次回到「壹」（快进在 fx/89 拦）
-                eventBus.emit(FX_SIGNALS.MIEJUE_COUNT, { unit: miejue, text: CN_NUM_TRA[(miejue.state._attackCount - 1) % 3] });
+                const count = miejue.state._attackCount;
+                // 2026-09-24 计数飘字（壹/貳/參）与攻击行末尾提示都写进本击的 fact（group.data），
+                //   由表现层在「演出帧」消费：原先在这里 emit 飘字，是动作生成步执行，飘字会抢在画面前跳出来。
+                const hintTail = isThird ? `：伤害×${third.dmgMultiplier}+吸血` : '';
+                if (data.group && data.group.data) {
+                    data.group.data.miejueCountText = CN_NUM_TRA[(count - 1) % 3];
+                    data.group.data.miejueHint = `<span class="gold small">（第 ${count} 次出手${hintTail}）</span>`;
+                }
                 if (!isThird) return;
+                const leechVal = Math.floor(data.dmg * third.leechRatio);
+                // 实际回血量按 core/16 LEECH handler 的同口径现算（封顶当前缺口）：LEECH 结算在本次
+                //   AFTER_DAMAGE_APPLIED 之后立刻执行（core/10 resolveAfterDamageEffects），此处算的就是最终值
+                const capped = Math.max(0, Math.floor(Math.min(leechVal, miejue.maxHp - miejue.hp)));
+                const hpBefore = Math.floor(miejue.hp);
                 if (!data.declarations) data.declarations = [];
-                data.declarations.push({ type: EFFECT_TYPES.LEECH, value: Math.floor(data.dmg * third.leechRatio), source: miejue });
-                pushInfo(data, `<span class="gold">🩸 灭绝师太第 ${miejue.state._attackCount} 次出手：伤害×${third.dmgMultiplier}，吸血 ${Math.round(third.leechRatio * 100)}%</span>`);
+                data.declarations.push({ type: EFFECT_TYPES.LEECH, value: leechVal, source: miejue });
+                // 吸血飘字交给 render/39 的出手演出帧发（同计数飘字，避免抢在画面前）
+                if (data.group && data.group.data) data.group.data.miejueLeech = capped;
+                pushInfo(data, `<span class="gold">🩸 灭绝三击：吸血 ${hpBefore} → ${hpBefore + capped}（+${capped}，吸血率 ${Math.round(third.leechRatio * 100)}%）</span>`);
             });
 
             // 技能4 召唤周芷若：任一队友或她本人阵亡 → 记下阵亡者原位置，全场仅 1 次。

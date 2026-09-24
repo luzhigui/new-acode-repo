@@ -1,5 +1,5 @@
 // render/39-actions-defs.js — 舞台动作演出定义（演出域）
-// V1.1.0 | ~22800 bytes | 2026-09-24 雄狮振奋演出锚在出手帧：ATTACK 演出里发狮吼 + 全体「+2 攻」飘字
+// V1.2.0 | ~23200 bytes | 2026-09-24 灭绝师太计数飘字与三击吸血飘字锚在出手帧（ATTACK 演出里发）
 // 2026-09-22 从 render/31 拆出：STAGE_ACTION_DEFS 全表 + 单位查找
 //
 // 加新 stageAction：在本文件 STAGE_ACTION_DEFS 加一条（键=STAGE_ACTION_TYPES.xxx），
@@ -11,7 +11,7 @@ import { GlobalStore } from '../infra/54-global-store.js';
 import { getSkillParams } from '../core/01config-5v5-test.js';
 import { AudioManager } from '../modules/22audio-manager.js';
 import { STAGE_ACTION_TYPES, STORE_ACTION_TYPES, UNIT_EVENT_TYPES, ROLE_TYPES, BUFF_EFFECT_TYPES, BUFF_SUBTYPES, FLY_MODE_TYPES } from '../infra/56-battle-enums.js';
-export const VER = 'render/39-actions-defs.js V1.1.0';
+export const VER = 'render/39-actions-defs.js V1.2.0';
 
 // 先查 store 权威单位，再回退 UI 快照
 function findUnitByUidLocal(c, uid) {
@@ -47,6 +47,11 @@ export const STAGE_ACTION_DEFS = {
             if (action.isLinkAttack && attacker && target && action.attackerRole) {
                 await clock.wait(1400);
             }
+            // 2026-09-24 灭绝师太出手计数（壹/貳/參）：锚在她真正出手的这一帧之前。
+            //   原先由 modules/26 在「生成步」emit，动作还没播飘字就先跳了；改由本演出帧发。
+            if (attacker && action.miejueCountText) {
+                eventBus.emit(FX_SIGNALS.MIEJUE_COUNT, { unit: attacker, text: action.miejueCountText });
+            }
             if (attacker && target && action.attackerRole) {
                 eventBus.emit(FX_SIGNALS.TRIGGER, {
                     fxSnapshot: action.fx,
@@ -62,6 +67,10 @@ export const STAGE_ACTION_DEFS = {
                     waveUnit: action.waveUnit || null,
                     attackerRole: action.attackerRole
                 });
+            }
+            // 2026-09-24 灭绝师太三击吸血：回血飘字同样锚在出手帧（快进由 fx/89 拦）
+            if (attacker && action.miejueLeech > 0) {
+                eventBus.emit(FX_SIGNALS.HEAL_FLOAT, { unit: attacker, amount: action.miejueLeech });
             }
             // 2026-09-24 雄狮振奋：狮吼 + 全体「+2 攻」飘字，锚在雄狮真正出手的这一帧。
             //   原先由 modules/27 在「生成步」时 emit LION_ROAR，但随动出手的演出被 isLinkAttack 延后 1400ms、
