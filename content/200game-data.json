@@ -160,7 +160,7 @@
         "counterAttack": {
           "name": "反击",
           "desc": "被攻击后{prob}概率反击攻击者，伤害×{dmgRatio}，不可闪避，无每回合上限",
-          "params": { "prob": 1.0, "dmgRatio": 0.6 }
+          "params": { "prob": 0.8, "dmgRatio": 0.6 }
         },
         "thirdStrike": {
           "name": "每第三次攻击",
@@ -325,8 +325,8 @@
       "skills": {
         "endlessBreath": {
           "name": "生生不息",
-          "desc": "不攻击；每回合开始回复最大生命{healPct}%，轮到自己行动时再触发一次；自身回不满的溢出治疗转给友方血量百分比最低的单位",
-          "params": { "healPct": 0.16 }
+          "desc": "不攻击；每回合开始回复最大生命{healPct}%，轮到自己行动时再触发一次；每点实际回复永久+{defPerHeal}点防御；自身回不满的溢出治疗转给友方",
+          "params": { "healPct": 0.16, "defPerHeal": 0.3 }
         },
         "baguaArray": {
           "name": "八卦阵",
