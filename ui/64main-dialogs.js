@@ -10,7 +10,7 @@ import { stepVoteOpen, stepCountdown } from './71tutorial.js';
 
 // 战报弹窗
 // 弹窗-战报：战斗结束统计数据展示+导出
-export function showBattleReport(UI, battleResultForInfo) {
+export function showBattleReport(battleResultForInfo) {
     // 不在 GAMEOVER 状态不弹窗
     if (getPlayerContext().gs !== 'GAMEOVER') return;
     // 清理旧战报残留，避免旧 overlay 拦截

@@ -2,7 +2,8 @@
 //   1. 枚举 import 缺失：代码使用了枚举常量（infra/56-battle-enums.js 导出的 13 个）但 import 行缺失
 //   2. import 引用断裂：static import 的相对路径指向不存在的文件
 // 对应需求：实时体检靠阵容触发机制，当轮没触发就 skip；静态快检秒出结构问题，两者互补
-export const VER = 'tests/123static-scan.js V1.0.0';
+// 2026-09-24 补登 core/07-target-strategies.js（选敌策略抽取新文件，原先漏登导致本扫描不覆盖）
+export const VER = 'tests/123static-scan.js V1.0.1';
 
 // 枚举常量名列表（来自 infra/56-battle-enums.js 导出的 13 个枚举对象）
 export const ENUM_NAMES = [
@@ -23,6 +24,7 @@ export const SHARED_SYMBOLS = ['eventBus', 'GlobalStore', 'getUnitCol', 'getUnit
 export const SCAN_FILES = [
     '../core/01config-5v5-test.js', '../core/02unit.js', '../core/03battle-utils.js',
     '../core/04buff-system.js', '../core/05battle-horse.js', '../core/06battle-runner.js',
+    '../core/07-target-strategies.js',
     '../core/08-elite-registry.js',
     '../core/10battle-attack.js', '../core/11battle-round.js', '../core/12battle-attack-steps.js',
     '../core/13battle-shared.js', '../core/14buff-effects.js', '../core/15-skill-mechanisms.js',

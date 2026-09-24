@@ -1,14 +1,13 @@
-// V6.2.1 | ~30800 bytes | 2026-09-24 韦一笑吸血：上限不封顶（去掉 _baseMaxHp×2）+ 吸血量最低 1
-export const VER = 'core/15-skill-mechanisms.js V6.2.1';
+// V6.3.0 | ~15000 bytes | 2026-09-24 ③批2：宋青书/周芷若机制（chainClaw/kuLian/xinHun/xingFen）全部搬至 modules/26，core 不再认识具体角色
+export const VER = 'core/15-skill-mechanisms.js V6.3.0';
 
 import { EXECUTION_LAYER as L, EFFECT_TYPES, registerSettlementHook } from '../infra/50-event-bus.js';
-import { CONFIG, getSkillParams } from './01config-5v5-test.js';
+import { CONFIG } from './01config-5v5-test.js';
 import { registerDodgeRule } from './12battle-attack-steps.js';
-import { emitEvent, applyStatChange, refreshMaxHp, getBattleRng, addMod } from './13battle-shared.js';
+import { emitEvent, applyStatChange, getBattleRng } from './13battle-shared.js';
 import { fmtHp } from '../infra/51-core-utils.js';
 import { FACT_TYPES, UNIT_EVENT_TYPES, CAMP_TYPES, SIGNAL_TYPES } from '../infra/56-battle-enums.js';
 import { installMechanicByType } from './18mechanic-registry.js';
-import { processUnitAttack } from './10battle-attack.js';
 import { canBeTargeted } from './03battle-utils.js';
 import { watchUnit, unwatchUnit } from './19unit-watch.js';
 
@@ -46,12 +45,10 @@ export function installDeclaredSkills(eventBus, A, B, log, declarations) {
     installPhantomDisguise(eventBus, A, B, declarations);
     installLinkAttack(eventBus, declarations);
     installFollowAttack(eventBus, declarations);
-    installChainClaw(eventBus, A, B, declarations);
-    installKuLian(eventBus, A, B, declarations);
-    installXinHun(eventBus, A, B, declarations);
-    installXingFen(eventBus, A, B, declarations);
+    // 带 type 的声明（chainClaw / kuLian / xinHun / xingFen / phantomDisguise / damageReflect …）
+    // 走机制注册表：具体实现由 modules 侧 registerMechanicHandler 提供，core 只负责转发。
     for (const decl of declarations) {
-        if (decl && decl.type) installMechanicByType(eventBus, decl.type, A, B, log);
+        if (decl && decl.type) installMechanicByType(eventBus, decl.type, A, B, log, decl);
     }
 }
 
@@ -372,194 +369,6 @@ function installFollowAttack(eventBus, declarations) {
     });
 }
 
-function submitChainClaw(data, decls) {
-    const { unit, target, dmg, log, allySide, enemySide } = data;
-    const decl = decls.find(d => d.name === unit.name);
-    if (!decl || !target || !target.alive) return;
-    const rng = getBattleRng();
-    const zhangAlive = enemySide && enemySide.some(u => u.isZhang && u.alive);
-    const baseHit = zhangAlive ? (decl.jealous?.baseDmg ?? decl.baseDmg ?? 2) : (decl.baseDmg ?? 1.5);
-    const s = zhangAlive ? { ...decl, ...(decl.jealous || {}) } : decl;
-    if (!unit.state._nineYinFirstDone) Object.assign(unit.state, { _nineYinFirstDone: true });
-    else if (rng.next() > (s.procChance || 0.80)) return;
-
-    const hits = [];
-    let executeInfo = null;
-    let totalHeal = 0;
-    const song = allySide.find(u => u.isSongQingshu && u.alive);
-    let simulatedTargetHp = target.hp;
-    let simulatedSongHp = song ? song.hp : 0;
-    let depth = 0;
-
-    while (simulatedTargetHp > 0 && !target.state._pendingDeath && depth < 100) {
-        if (depth > 0 && rng.next() > (s.chainProcChance || 0.80)) break;
-        const lostHp = target.maxHp - simulatedTargetHp;
-        const ratioDmg = Math.floor((lostHp * (s.lostHpRatio || 0.015) + target.maxHp * (s.maxHpRatio || 0.01)) * 10) / 10;
-        const bonusDmg = Math.floor((baseHit + Math.max(0, ratioDmg)) * 10) / 10;
-        simulatedTargetHp -= bonusDmg;
-        const isDeadByHit = simulatedTargetHp <= 0;
-        const hpPctAfter = simulatedTargetHp / target.maxHp;
-        const execThreshold = s.executeThreshold || 0.15;
-        const isExecute = !isDeadByHit && hpPctAfter <= execThreshold && simulatedTargetHp > 0;
-        hits.push({ dmg: bonusDmg, factType: FACT_TYPES.CLAW_HIT, data: { unitName: unit.name, targetName: target.name, dmg: bonusDmg, isExecute, jealous: zhangAlive, depth, hpAfter: simulatedTargetHp, targetUid: target.uid }, isClawHit: true, clawAttackerUid: unit.uid, clawTargetUid: target.uid, isExecute });
-        if (song && song.alive) {
-            const healAmount = Math.min(bonusDmg, song.maxHp - simulatedSongHp);
-            totalHeal += healAmount;
-            simulatedSongHp += healAmount;
-        }
-        if (isDeadByHit) break;
-        if (isExecute) {
-            executeInfo = { factType: FACT_TYPES.CLAW_EXECUTE, data: { unitName: unit.name, targetName: target.name, unitUid: unit.uid, targetUid: target.uid }, isClawHit: true, clawAttackerUid: unit.uid, clawTargetUid: target.uid, isExecute: true };
-            break;
-        }
-        depth++;
-    }
-
-    if (hits.length > 0 && data && data.declarations) {
-        data.declarations.push({ type: EFFECT_TYPES.CLAW_CHAIN, source: unit, target, hits, execute: executeInfo });
-    }
-    if (totalHeal > 0 && song && song.alive && data && data.declarations) {
-        data.declarations.push({ type: EFFECT_TYPES.HEAL, value: totalHeal, source: song, factType: FACT_TYPES.CLAW_HEAL, factData: { totalHeal, unitUid: song.uid } });
-    } else if (song && song.alive) {
-        log.push({ factType: FACT_TYPES.CLAW_NO_HEAL, data: {} });
-    }
-}
-
-function installChainClaw(eventBus, A, B, declarations) {
-    const decls = declarations.filter(d => d && d.type === 'chainClaw');
-    if (decls.length === 0) return;
-    registerSettlementHook({
-        when: SIGNAL_TYPES.AFTER_ATTACK,
-        priority: L.AFTER_ATTACK.CLAW,
-        handler: (data) => { submitChainClaw(data, decls); }
-    });
-}
-
-// 苦练：全队属性加成为永久词条
-function submitKuLian(data, decls) {
-    const { A, B, log, declarations } = data;
-    const decl = decls[0];
-    if (!decl) return;
-    const kuLianSong = checkKuLian(B);
-    if (!kuLianSong) return;
-    Object.assign(kuLianSong.state, { _kuLianActive: true });
-    const kp = getSkillParams('宋青书', 'kuLian');
-    const s = { atkBonus: kp.atkBonus, defBonus: kp.defBonus, hpBonus: kp.hpBonus };
-    const targets = B.filter(u => u.alive && !u.isHorse);
-    for (const u of targets) {
-        const mult = u.uid === kuLianSong.uid ? 2 : 1;
-        addMod(u, 'atk', { source: '苦练', value: s.atkBonus * mult, ttl: 'permanent', group: 'kuLian', op: 'add' });
-        addMod(u, 'def', { source: '苦练', value: s.defBonus * mult, ttl: 'permanent', group: 'kuLian', op: 'add' });
-        addMod(u, 'maxHp', { source: '苦练', value: s.hpBonus * mult, ttl: 'permanent', group: 'kuLian', op: 'add' });
-        refreshMaxHp(u, null, '苦练');
-    }
-    log.push({ factType: FACT_TYPES.KU_LIAN_PRIORITY, data: { unitName: kuLianSong.name } });
-    log.push({ factType: FACT_TYPES.KU_LIAN, data: { unitName: kuLianSong.name, atkBonus: s.atkBonus, defBonus: s.defBonus, hpBonus: s.hpBonus } });
-}
-
-function installKuLian(eventBus, A, B, declarations) {
-    const decls = declarations.filter(d => d && d.type === 'kuLian');
-    if (decls.length === 0) return;
-    registerSettlementHook({
-        when: SIGNAL_TYPES.ON_ROUND_START,
-        priority: L.ROUND_START.KULIAN_BUFF,
-        handler: (data) => { submitKuLian(data, decls); }
-    });
-    registerSettlementHook({
-        when: SIGNAL_TYPES.BEFORE_ACTION_SELECT,
-        priority: L.BEFORE_ACTION.KULIAN_PRIORITY,
-        handler: (data) => {
-            if (!data.unit.isSongQingshu || !data.unit.alive) return;
-            const zhou = data.allySide && data.allySide.find(u => u.isZhouZhiruo && u.alive);
-            if (!zhou) data.declaration.priority = 1;
-        }
-    });
-}
-
-// 新婚：扣周芷若血、叠快乐层、性奋代价
-function submitXinHun(data, decls) {
-    const { unit, target, dmg, allySide, log } = data;
-    const decl = decls.find(d => d.name === unit.name);
-    if (!decl || !unit.isSongQingshu || !unit.alive) return;
-    const zhou = allySide.find(u => u.isZhouZhiruo && u.alive);
-    if (!zhou) return;
-    const s = getSkillParams('宋青书', 'xinHun');
-    const hpDeduct = s.hpDeduct;
-    const healLevels = s.healLevels;
-    applyStatChange(zhou, 'hp', -hpDeduct, unit, '新婚扣血', false);
-    zhou.state._kuaiLeStack.push({ healPct: healLevels[0] });
-    if (zhou.hp <= 0) { if (!zhou.state._deathTime) zhou.state._deathTime = Date.now(); }
-    log.push({ factType: FACT_TYPES.XIN_HUN, data: { attackerName: unit.name, targetName: zhou.name, hpDeduct, healPct: healLevels[0], stackCount: zhou.state._kuaiLeStack.length, zhouUid: zhou.uid, zhouHpAfter: zhou.hp, isDead: !!zhou._pendingDeath } });
-    if (zhou.state._pendingDeath) log.push({ factType: FACT_TYPES.XIN_HUN_DEATH, data: { unitName: zhou.name, uidD: zhou.uid } });
-    Object.assign(unit.state, { _xingFenPenaltyCount: (unit.state._xingFenPenaltyCount || 0) + 1 });
-    const penalty = unit.state._xingFenPenaltyCount + 1;
-    if (penalty > 0 && unit.maxHp > 1) {
-        const oldMaxHp = unit.maxHp;
-        addMod(unit, 'maxHp', { source: '性奋代价', value: -penalty, ttl: 'permanent', group: 'xingFenCost', op: 'add' });
-        refreshMaxHp(unit, null, '性奋代价');
-        log.push({ factType: FACT_TYPES.XING_FEN_COST, data: { unitName: unit.name, oldMaxHp, newMaxHp: Math.floor(unit.maxHp), penalty } });
-    }
-}
-
-function installXinHun(eventBus, A, B, declarations) {
-    const decls = declarations.filter(d => d && d.type === 'xinHun');
-    if (decls.length === 0) return;
-    registerSettlementHook({
-        when: SIGNAL_TYPES.AFTER_DAMAGE_APPLIED,
-        priority: L.AFTER_DAMAGE_APPLIED.XINGFEN,
-        handler: (data) => { submitXinHun(data, decls); }
-    });
-}
-
-function submitXingFenGrant(data) {
-    const { A, B, log, declarations } = data;
-    applyXingFenGrant(B, log);
-    tickKuaiLeHeal(A.concat(B), log, declarations);
-}
-
-function submitXingFenExtra(data, decls) {
-    const { unit, target, allySide, enemySide, log } = data;
-    const decl = decls.find(d => d.name === unit.name);
-    if (!decl || !unit.isSongQingshu || !unit.alive || unit.state._xingFenExtraAttacking) return;
-    if (!canXingFenTrigger(unit)) return;
-    consumeXingFen(unit);
-    log.push({ factType: FACT_TYPES.XING_FEN_EXTRA_ATTACK, data: { unitName: unit.name } });
-    unit.state._xingFenExtraAttacking = true;
-    processUnitAttack(unit, allySide, enemySide, log, data.A, data.B, data.state, null, null);
-    unit.state._xingFenExtraAttacking = false;
-}
-
-function submitXingFenRetry(data, decls) {
-    const { unit, target, log, allySide, enemySide } = data;
-    const decl = decls.find(d => d.name === unit.name);
-    if (!decl || !unit.isSongQingshu || !unit.alive) return;
-    if (canXingFenTrigger(unit)) {
-        consumeXingFen(unit);
-        log.push({ factType: FACT_TYPES.XING_FEN_RETRY, data: { unitName: unit.name } });
-        processUnitAttack(unit, allySide, enemySide, log, data.A, data.B, data.state, null, null);
-    }
-}
-
-function installXingFen(eventBus, A, B, declarations) {
-    const decls = declarations.filter(d => d && d.type === 'xingFen');
-    if (decls.length === 0) return;
-    registerSettlementHook({
-        when: SIGNAL_TYPES.ON_ROUND_START,
-        priority: L.ROUND_START.XINGFEN_GRANT,
-        handler: (data) => { submitXingFenGrant(data); }
-    });
-    registerSettlementHook({
-        when: SIGNAL_TYPES.AFTER_ATTACK,
-        priority: L.AFTER_ATTACK.XINGFEN_EXTRA,
-        handler: (data) => { submitXingFenExtra(data, decls); }
-    });
-    registerSettlementHook({
-        when: SIGNAL_TYPES.AFTER_MISS,
-        priority: L.AFTER_MISS.XINGFEN_RETRY,
-        handler: (data) => { submitXingFenRetry(data, decls); }
-    });
-}
-
 function installDodgeRules(decl) {
     if (!decl.dodgeRules || decl.dodgeRules.length === 0) return;
     for (const rule of decl.dodgeRules) {
@@ -571,63 +380,4 @@ function installDodgeRules(decl) {
             });
         }
     }
-}
-
-export function checkKuLian(allyTeam) {
-    const song = allyTeam.find(u => u.isSongQingshu && u.alive);
-    if (!song) return null;
-    const zhou = allyTeam.find(u => u.isZhouZhiruo && u.alive);
-    if (zhou) return null;
-    return song;
-}
-
-export function applyXingFenGrant(allyTeam, log) {
-    const zhou = allyTeam.find(u => u.isZhouZhiruo && u.alive);
-    const song = allyTeam.find(u => u.isSongQingshu && u.alive);
-    if (!zhou || !song) return;
-    Object.assign(song.state, { _xingFenActive: true });
-    log.push({ factType: FACT_TYPES.XING_FEN_GRANT, data: { zhouName: zhou.name, songName: song.name } });
-}
-
-export function tickKuaiLeHeal(allUnits, log, declarations) {
-    allUnits.forEach(unit => {
-        if (!unit.state._kuaiLeStack || unit.state._kuaiLeStack.length === 0) return;
-        if (!unit.alive) return;
-        let totalHeal = 0;
-        const newStack = [];
-        unit.state._kuaiLeStack.forEach(layer => {
-            const healAmount = Math.floor(unit.maxHp * layer.healPct);
-            totalHeal += healAmount;
-            const levels = getSkillParams('宋青书', 'xinHun').healLevels;
-            if (!levels) throw new Error('缺技能参数: 宋青书.xinHun.healLevels');
-            const currentIdx = levels.indexOf(layer.healPct);
-            if (currentIdx >= 0 && currentIdx < levels.length - 1) newStack.push({ healPct: levels[currentIdx + 1] });
-        });
-        if (totalHeal > 0) {
-            const hpBefore = Math.floor(unit.hp);
-            // 日志的 hpAfter 用「预测值」，不读 unit.hp：
-            //   declarations 分支只声明、unit.hp 未变；else 分支 applyStatChange 已加上 totalHeal。
-            //   原先日志统一写 unit.hp + totalHeal —— else 分支等于加两次（日志血量虚高）。
-            //   预测值 = min(上限, 当前 + 治疗量)，两分支语义一致，且与实际回复量吻合。
-            const hpAfterPredicted = Math.min(unit.maxHp, unit.hp + totalHeal);
-            if (declarations) {
-                declarations.push({ type: EFFECT_TYPES.ROUND_STAT_GRANT, field: 'hp', delta: totalHeal, target: unit, source: null, reason: '快乐回血' });
-            } else {
-                applyStatChange(unit, 'hp', totalHeal, null, '快乐回血');
-            }
-            log.push({ factType: FACT_TYPES.KUAI_LE_HEAL, data: { unitName: unit.name, unitUid: unit.uid, heal: totalHeal, hpBefore: fmtHp(hpBefore), hpAfter: fmtHp(hpAfterPredicted), layers: unit.state._kuaiLeStack.length } });
-        }
-        Object.assign(unit.state, { _kuaiLeStack: newStack });
-    });
-}
-
-export function canXingFenTrigger(attacker) {
-    if (!attacker.isSongQingshu) return false;
-    if (!attacker.state._xingFenActive) return false;
-    if (!attacker.alive) return false;
-    return true;
-}
-
-export function consumeXingFen(attacker) {
-    Object.assign(attacker.state, { _xingFenActive: false });
 }

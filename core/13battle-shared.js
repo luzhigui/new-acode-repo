@@ -101,6 +101,13 @@ let _battleRng = null;
 export function setBattleRng(rng) { _battleRng = rng; }
 export function getBattleRng() { return _battleRng; }
 
+// 表现 RNG：只服务台词/击杀台词这类纯表演，与战斗 RNG 独立序列。
+// 由 createRoundStepper 用同一 seed 派生注入，改台词池大小不再污染战斗随机流。
+// 未注入时回退到战斗 RNG，保证老调用路径不崩。
+let _presentationRng = null;
+export function setPresentationRng(rng) { _presentationRng = rng; }
+export function getPresentationRng() { return _presentationRng || _battleRng; }
+
 function finalizeDeaths(team) {
     for (const u of team) {
         if (u.hp <= 0 && u.alive) {

@@ -3,10 +3,11 @@ export const VER = 'core/12battle-attack-steps.js V6.3.2';
 
 import { CONFIG, getSkillParams, getGameData } from './01config-5v5-test.js';
 import { eventBus, EFFECT_TYPES } from '../infra/50-event-bus.js';
-import { calcDamage, getFangLevel, isMelee, getFronts, isBlocked, getRandomTaunt, getZhangNearTaunt, makeFXSnapshot, hasBuff, getUnitCol, getUnitRow, getMissBreakdown, canBeTargeted } from './03battle-utils.js';
+import { calcDamage, getFangLevel, isMelee, isBlocked, getRandomTaunt, getZhangNearTaunt, makeFXSnapshot, hasBuff, getUnitCol, getUnitRow, getMissBreakdown, canBeTargeted } from './03battle-utils.js';
 import { emitEvent, applyStatChange, refreshMaxHp, query, getBattleRng, recordCombatStat, getStat, addMod } from './13battle-shared.js';
 import { flushBattleEvents, pushBattleEvent, getBattleState, setBattleState, registerDodgeRule, clearEliteDodgeRules, getDodgeRules, persistValue, loadPersistedValue, fmtHp } from '../infra/51-core-utils.js';
 import { getEffectHandler, hasEffectHandler, getCalcModifier, validateDeclarationFields, validateCalcModifierFields } from './16effect-handlers.js';
+import { runTargetStrategies } from './07-target-strategies.js';
 import { FACT_TYPES, BUFF_TYPES, UNIT_EVENT_TYPES, DROP_TYPES, CAMP_TYPES, ROLE_TYPES, SIGNAL_TYPES, STATE_CHANGE_TYPES } from '../infra/56-battle-enums.js';
 import { emitStateChange } from '../infra/59-state-change.js';
 
@@ -81,25 +82,14 @@ export function selectAttackTarget(unit, enemySide, allySide) {
     }
 
     if (!target) {
-        if (unit.role === ROLE_TYPES.FLYER) {
-            const lowHpTargets = validTargets.filter(u => u.hp / u.maxHp < 0.4);
-            if (lowHpTargets.length > 0) {
-                target = lowHpTargets[rng.nextInt(0, lowHpTargets.length - 1)];
-            } else {
-                let fronts = getFronts(validTargets);
-                if (fronts.length > 0) {
-                    target = fronts[rng.nextInt(0, fronts.length - 1)];
-                } else {
-                    target = validTargets[rng.nextInt(0, validTargets.length - 1)];
-                }
-            }
-        } else if (isMelee(unit.role) || unit.isHorse) {
-            const fronts = getFronts(validTargets);
-            if (fronts.length === 0) return { target: null, phantomFact: null };
-            target = fronts[rng.nextInt(0, fronts.length - 1)];
-        } else {
-            target = validTargets[rng.nextInt(0, validTargets.length - 1)];
-        }
+        // 默认选敌策略表（core/07）：飞行低血优先 → 近战打前排 → 兜底随机。
+        // abort 表示策略主动放弃本次选敌（近战无前排），不走兜底。
+        const result = runTargetStrategies(unit, validTargets, {
+            rng,
+            isMelee: isMelee(unit.role) || unit.isHorse
+        });
+        if (result && result.abort) return { target: null, phantomFact: null };
+        target = result ? result.target : null;
     }
 
     if (!target || !canBeTargeted(target)) {
@@ -151,7 +141,8 @@ export function resolveAttackHit(unit, target, attackerBuffStats, defenderBuffSt
     if (target.state._stunned) return { skipped: false };
     const hasCloudBody = hasBuff(allyBuffs, BUFF_TYPES.CLOUD_BODY) || ((target.isXiaoZhaoSister || target.isXiaoZhaoBrother) && target.state._permanentBuffs && target.state._permanentBuffs.some(b => b.key === BUFF_TYPES.CLOUD_BODY));
     // 2026-09-22 不可闪避：攻击方带 _ignoreDodge 时整体跳过闪避判定（灭绝师太反击用，见 core/10 额外攻击循环）
-    if (!unit.state._ignoreDodge && target.alive && (target.isWei || hasCloudBody || !target.state._acted)) {
+    // 2026-09-24 _canAlwaysDodge 替代 isWei 硬编码：行动过仍可闪避由组件声明
+    if (!unit.state._ignoreDodge && target.alive && (target.state._canAlwaysDodge || hasCloudBody || !target.state._acted)) {
         let dodgeTriggered = false;
         for (const ruleFn of getDodgeRules()) {
             const rate = ruleFn(target, unit) || 0;
