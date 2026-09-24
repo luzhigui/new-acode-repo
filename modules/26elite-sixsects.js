@@ -1,5 +1,5 @@
-// V6.14.1 | ~24700 bytes | 2026-09-24 莽撞新增「溅射也算挨打」（订阅 SPLASH_DAMAGED）；V6.14.0 胖远桥嘲讽改「自身永久+40防（无上限）」，取消嘲讽减伤；灭绝计数飘字改由 render/39 出手帧发；三击吸血写「X→Y」+ 吸血飘字；张三丰严阵以待第3回合
-export const VER = 'modules/26elite-sixsects.js V6.14.1';
+// V6.14.2 | ~24700 bytes | 2026-09-24 三击信息并入「🩸 灭绝三击」行（第N次出手/伤害·吸血×1.5/吸血量/生命X→Y），攻击行尾不再重复；V6.14.1 莽撞新增「溅射也算挨打」（订阅 SPLASH_DAMAGED）；V6.14.0 胖远桥嘲讽改「自身永久+40防（无上限）」，取消嘲讽减伤；灭绝计数飘字改由 render/39 出手帧发；三击吸血写「X→Y」+ 吸血飘字；张三丰严阵以待第3回合
+export const VER = 'modules/26elite-sixsects.js V6.14.2';
 import { registerElite } from '../core/08-elite-registry.js';
 import { CONFIG, getSkillParams } from '../core/01config-5v5-test.js';
 import { SIGNAL_TYPES, FACT_TYPES, BUFF_TYPES, CAMP_TYPES, ROLE_TYPES } from '../infra/56-battle-enums.js';
@@ -72,6 +72,16 @@ export function createZhangSanfengComponent() {
                         // 队友可能只差一点点血（或本就满血），实际收到的比溢出量少——飘字和日志都报实际值
                         receiverHealed = Math.round(Math.max(0, receiver.hp - rHpBefore));
                     }
+                }
+
+                // 2026-09-24 回血等量转永久防御：实际回血者（张三丰本人 / 溢出接盘队友）各按实际回复量加防。
+                // 系数走 content 的 endlessBreath.defPerHeal（缺省 1 = 等量），便于单独调平衡。
+                // 注意：八卦阵被攻击时也触发生生不息 → 挨打越多防越高，是个正反馈，数值需跑评测盯。
+                if (healed > 0) {
+                    addMod(unit, 'def', { source: '生生不息', value: healed * s.defPerHeal, ttl: 'permanent', group: 'endlessBreath', op: 'add' });
+                }
+                if (receiver && receiverHealed > 0) {
+                    addMod(receiver, 'def', { source: '生生不息', value: receiverHealed * s.defPerHeal, ttl: 'permanent', group: 'endlessBreath', op: 'add' });
                 }
 
                 // 2026-09-17 飘字：三处触发共用（回合开始 / 轮到自己 / 八卦阵）；2026-09-20 溢出接盘者单独飘一条
@@ -393,10 +403,11 @@ export function createMieJueShiTaiComponent() {
                 const count = miejue.state._attackCount;
                 // 2026-09-24 计数飘字（壹/貳/參）与攻击行末尾提示都写进本击的 fact（group.data），
                 //   由表现层在「演出帧」消费：原先在这里 emit 飘字，是动作生成步执行，飘字会抢在画面前跳出来。
-                const hintTail = isThird ? `：伤害×${third.dmgMultiplier}+吸血` : '';
+                //   2026-09-24 三击那一次不再往攻击行尾塞「伤害×1.5+吸血」——同一件事下一行「🩸 灭绝三击」已报，
+                //   两行重复；攻击行只留出手计数。
                 if (data.group && data.group.data) {
                     data.group.data.miejueCountText = CN_NUM_TRA[(count - 1) % 3];
-                    data.group.data.miejueHint = `<span class="gold small">（第 ${count} 次出手${hintTail}）</span>`;
+                    data.group.data.miejueHint = `<span class="gold small">（第 ${count} 次出手）</span>`;
                 }
                 if (!isThird) return;
                 const leechVal = Math.floor(data.dmg * third.leechRatio);
@@ -408,7 +419,7 @@ export function createMieJueShiTaiComponent() {
                 data.declarations.push({ type: EFFECT_TYPES.LEECH, value: leechVal, source: miejue });
                 // 吸血飘字交给 render/39 的出手演出帧发（同计数飘字，避免抢在画面前）
                 if (data.group && data.group.data) data.group.data.miejueLeech = capped;
-                pushInfo(data, `<span class="gold">🩸 灭绝三击：吸血 ${hpBefore} → ${hpBefore + capped}（+${capped}，吸血率 ${Math.round(third.leechRatio * 100)}%）</span>`);
+                pushInfo(data, `<span class="gold">🩸 灭绝三击：第 ${count} 次出手，伤害/吸血×${third.dmgMultiplier}，吸血=${capped}，生命 ${hpBefore} → ${hpBefore + capped}</span>`);
             });
 
             // 技能4 召唤周芷若：任一队友或她本人阵亡 → 记下阵亡者原位置，全场仅 1 次。

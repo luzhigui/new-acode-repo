@@ -232,8 +232,9 @@ export function initBattleTeams(currentStage, _rng) {
     if (wei) { wei.pos = 6; takenPos.add(6); }
     if (xz) { xz.pos = 4; takenPos.add(4); }
     // 2026-09-22 金毛狮王谢逊固定 7 号位（demo 阵容，与张无忌5/韦一笑6/小昭4 同性质）
+    // 2026-09-24 并锁死不可调位：7 号位是他的站位锚点，玩家摆位不得移动他（与张无忌/韦一笑/小昭同待遇）
     let xie = allyTeam.find(u => u.isXieXun);
-    if (xie) { xie.pos = 7; takenPos.add(7); }
+    if (xie) { xie.pos = 7; takenPos.add(7); xie.fixed = true; }
     let others = allyTeam.filter(u => !u.isZhang && !u.isWei && !u.isXiaoZhaoSister && !u.isXiaoZhaoBrother && !u.isXieXun);
     if (others.length > 0 && zhang && !takenPos.has(2)) { others[0].pos = 2; takenPos.add(2); others.shift(); }
     let emptySlots = [1,2,3,4,5,6,7,8,9].filter(p => !takenPos.has(p));
