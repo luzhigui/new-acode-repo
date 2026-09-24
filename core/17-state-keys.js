@@ -104,6 +104,8 @@ export const BATTLE_STATE_SCHEMA = Object.freeze({
     _chestDropped:           { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
     _lastRole:               { type: STATE_FIELD_TYPES.STRING,  default: null },
     _neverMiss:              { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
+    // 行动过仍可闪避（韦一笑特权）：由组件声明，core 不再认 isWei
+    _canAlwaysDodge:         { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
     _bloodthirstStriked:     { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
     _xingFenExtraAttacking:  { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
     _dodgeChance:            { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },

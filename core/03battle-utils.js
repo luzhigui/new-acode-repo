@@ -2,7 +2,7 @@
 export const VER = 'core/03battle-utils.js V6.1.1';
 
 import { CONFIG, getGameData } from './01config-5v5-test.js';
-import { emitEvent, applyStatChange, query, getBattleRng, addMod, getStat } from './13battle-shared.js';
+import { emitEvent, applyStatChange, query, getBattleRng, getPresentationRng, addMod, getStat } from './13battle-shared.js';
 import { EXECUTION_LAYER as L, EFFECT_TYPES, registerSettlementHook } from '../infra/50-event-bus.js';
 import { FACT_TYPES, BUFF_TYPES, UNIT_EVENT_TYPES, CAMP_TYPES, ROLE_TYPES, SIGNAL_TYPES } from '../infra/56-battle-enums.js';
 import {
@@ -70,7 +70,7 @@ export function canBeTargeted(unit) {
 
 export function getFlyDodgeRate(unit, attacker) {
     const FLY_BASE_DODGE = C.BASE_DODGE_FLY || 0.15;
-    if (unit.isWei) return FLY_BASE_DODGE;
+    if (unit.state._canAlwaysDodge) return FLY_BASE_DODGE;
     if (unit.role === ROLE_TYPES.FLYER) return FLY_BASE_DODGE;
     return C.BASE_DODGE_GROUND || 0.03;
 }
@@ -109,22 +109,21 @@ export function getMissBreakdown(unit, allySide, enemySide) {
 }
 
 export function getRandomTaunt(unit) {
-    const rng = getBattleRng();
+    const rng = getPresentationRng();
     const taunts = getGameData().taunts;
-    let pool = null;
-    if (unit.isZhang) pool = taunts['张无忌'].attack;
-    else if (unit.isWei) pool = taunts['韦一笑'].attack;
-    else pool = taunts[unit.role].attack;
+    // 优先按角色名查专用池（如 taunts['张无忌']）；无专用池则回退职业通用池。
+    // 加新角色只要在 content.taunts 里加一个同名 key，不动 core。
+    const byName = taunts[unit.name];
+    const pool = (byName && byName.attack && byName.attack.length > 0) ? byName.attack : (taunts[unit.role] && taunts[unit.role].attack);
     if (!pool || pool.length === 0) throw new Error(`台词池缺失: ${unit.name || unit.role}`);
     return pool[rng.nextInt(0, pool.length - 1)];
 }
 export function getKillTaunt(unit) {
-    const rng = getBattleRng();
+    const rng = getPresentationRng();
     const taunts = getGameData().taunts;
-    let pool = null;
-    if (unit.isZhang) pool = taunts['张无忌'].kill;
-    else if (unit.isWei) pool = taunts['韦一笑'].kill;
-    else pool = taunts[unit.role].kill;
+    // 与 getRandomTaunt 同口径：按角色名查专用池，miss 回退职业通用池
+    const byName = taunts[unit.name];
+    const pool = (byName && byName.kill && byName.kill.length > 0) ? byName.kill : (taunts[unit.role] && taunts[unit.role].kill);
     if (!pool || pool.length === 0) throw new Error(`击杀台词池缺失: ${unit.name || unit.role}`);
     return pool[rng.nextInt(0, pool.length - 1)];
 }
@@ -150,7 +149,7 @@ export function hasEnemyLowHp(enemySide, threshold = 0.4) {
 }
 
 export function selectFlyTarget(unit, enemySide) {
-    if (unit.role !== ROLE_TYPES.FLYER || unit.isWei) return null;
+    if (unit.role !== ROLE_TYPES.FLYER || unit.state._canAlwaysDodge) return null;
     const alive = enemySide.filter(u => u.alive && !(u.state._flyMode === 'butterfly') && !(u.state._flyMode === 'spider') && !u.state._spiderFlying && !(u._fsm && (u._fsm.is('attached') || u._fsm.is('flying'))));
     if (alive.length === 0) return null;
     const backRow = [7,8,9], midRow = [4,5,6], frontRow = [1,2,3];

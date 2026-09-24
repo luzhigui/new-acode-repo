@@ -15,7 +15,7 @@ import { clearAllWatchers } from './19unit-watch.js';
 import { getEliteFactories } from './08-elite-registry.js';
 import { processUnitAttack } from './10battle-attack.js';
 import { eventBus, EXECUTION_LAYER as L, registerSettlementHook } from '../infra/50-event-bus.js';
-import { getNextAvailableUnit, finalizeDeaths, emitFullUnitState, checkZhangSwitch, emitEvent, applyStatChange, setBattleRng, addMod, removeModsByTTL, getStat, refreshMaxHp } from './13battle-shared.js';
+import { getNextAvailableUnit, finalizeDeaths, emitFullUnitState, checkZhangSwitch, emitEvent, applyStatChange, setBattleRng, setPresentationRng, addMod, removeModsByTTL, getStat, refreshMaxHp } from './13battle-shared.js';
 import { FACT_TYPES, BUFF_TYPES, UNIT_EVENT_TYPES, CAMP_TYPES, ROLE_TYPES, SIGNAL_TYPES } from '../infra/56-battle-enums.js';
 import { flushBattleEvents, setBattleState } from '../infra/51-core-utils.js';
 import { SeededRNG } from '../infra/51-core-utils.js';
@@ -122,9 +122,11 @@ function prepareRoundStart(A, B, log, state, round, rng) {
         when: SIGNAL_TYPES.BEFORE_SELECT_TARGET,
         priority: L.BEFORE_SELECT_TARGET.FLY_TARGET,
         handler: (data) => {
-            if (data.unit.role !== ROLE_TYPES.FLYER || data.unit.isWei) return;
+            if (data.unit.role !== ROLE_TYPES.FLYER || data.unit.state._canAlwaysDodge) return;
             const flyTarget = selectFlyTarget(data.unit, data.enemySide);
-            if (flyTarget) data.targetResult = flyTarget;
+            // 2026-09-24 修 bug：原写 data.targetResult，而 selectAttackTarget 读的是 data.declaration.targetResult
+            //   → 飞行跳前排从未生效。改回 declaration 通道。
+            if (flyTarget) data.declaration.targetResult = flyTarget;
         }
     });
     registerDoubleStrike(eventBus, doubleStrikeUnitUid, A, A._activeBuffs);
@@ -249,6 +251,7 @@ export function* createRoundStepper(state, { ui = true, translateFacts = null } 
     const rng = state._rng || new SeededRNG(Date.now());
     state._rng = rng;
     setBattleRng(rng);
+    setPresentationRng(new SeededRNG(rng.getState()));
     if (!state.allAllies) {
         state.allAllies = state.ally.map(u => u.clone());
     } else {

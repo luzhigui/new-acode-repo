@@ -2,10 +2,6 @@
 export const VER = 'modules/25elite-imperial.js V6.0.0';
 
 import { registerElite } from '../core/08-elite-registry.js';
-import { tickXuanmingPoison } from './20elite-skills.js';
-import { eventBus, EXECUTION_LAYER as L, EFFECT_TYPES } from '../infra/50-event-bus.js';
-import { getSkillParams } from '../core/01config-5v5-test.js';
-import { FACT_TYPES, SIGNAL_TYPES } from '../infra/56-battle-enums.js';
 
 // 成昆
 export function createChengKunComponent() {
@@ -15,43 +11,12 @@ export function createChengKunComponent() {
     };
 }
 
-// 鹿杖客
+// 鹿杖客：玄冥毒 tick 已收归数据驱动的 dotTick 原语（modules/30 + content 声明），
+//   本组件不再持有 tick 逻辑——残存 register 空实现以保持注册表结构一致。
 export function createLuZhangKeComponent() {
     return {
         name: '鹿杖客',
-        register(eventBus, A, B, log) {
-            const lu = B.find(u => u.isLuZhangKe && u.alive);
-            if (!lu) return;
-            // 玄冥毒 tick：走 ROUND_STAT_GRANT 声明，由 resolveRoundStatGrants 统一结算
-            function submitXuanmingPoisonTick(data, lu) {
-                const { A, B, log, declarations } = data;
-                A.concat(B).forEach(u => {
-                    if (!u.alive) return;
-                    const poison = u.state._xuanmingPoison;
-                    if (!poison || poison.remaining <= 0) return;
-                    poison.remaining--;
-                    const s = getSkillParams('鹿杖客', 'xuanmingPalm');
-                    if (!s) throw new Error('缺技能参数: 鹿杖客.xuanmingPalm');
-                    const idx = Math.min(poison.dotPercents.length - 1, s.duration - 1 - poison.remaining);
-                    const pct = poison.dotPercents[idx] || 0;
-                    const dot = Math.floor(u.maxHp * pct);
-                    if (dot > 0) {
-                        declarations.push({
-                            type: EFFECT_TYPES.ROUND_STAT_GRANT,
-                            field: 'hp',
-                            delta: -dot,
-                            target: u,
-                            source: lu,
-                            reason: '玄冥中毒'
-                        });
-                        log.push({ factType: FACT_TYPES.XUAN_MING_DOT, data: { unitName: u.name, dot, uidD: u.uid, isDead: !u.alive } });
-                    }
-                });
-            }
-            eventBus.on(SIGNAL_TYPES.ON_ROUND_START, L.ROUND_START.XUANMING_POISON, (data) => {
-                submitXuanmingPoisonTick(data, lu);
-            });
-        }
+        register(eventBus, A, B, log) {}
     };
 }
 

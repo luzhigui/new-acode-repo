@@ -3,12 +3,15 @@ export const VER = 'modules/26elite-sixsects.js V6.14.1';
 import { registerElite } from '../core/08-elite-registry.js';
 import { CONFIG, getSkillParams } from '../core/01config-5v5-test.js';
 import { SIGNAL_TYPES, FACT_TYPES, BUFF_TYPES, CAMP_TYPES, ROLE_TYPES } from '../infra/56-battle-enums.js';
-import { applyStatChange, addMod, getStat, getBattleRng, resolvePushOrStun } from '../core/13battle-shared.js';
+import { applyStatChange, addMod, getStat, getBattleRng, resolvePushOrStun, refreshMaxHp } from '../core/13battle-shared.js';
 import { eventBus, EFFECT_TYPES, EXECUTION_LAYER as L } from '../infra/50-event-bus.js';
 import { canBeTargeted } from '../core/03battle-utils.js';
 import { spawnUnit } from '../core/05battle-horse.js';
 import { GlobalStore } from '../infra/54-global-store.js';
 import { FX_SIGNALS } from '../infra/55-fx-signals.js';
+import { registerMechanicHandler } from '../core/18mechanic-registry.js';
+import { processUnitAttack } from '../core/10battle-attack.js';
+import { fmtHp } from '../infra/51-core-utils.js';
 
 // 宋青书
 export function createSongQingshuComponent() {
@@ -424,6 +427,208 @@ export function createMieJueShiTaiComponent() {
         }
     };
 }
+
+// ========== 宋青书机制（从 core/15 搬出，走 registerMechanicHandler 注册） ==========
+
+// 苦练前置：场上无周芷若时，宋青书成为受益者
+function checkKuLian(allyTeam) {
+    const song = allyTeam.find(u => u.isSongQingshu && u.alive);
+    if (!song) return null;
+    const zhou = allyTeam.find(u => u.isZhouZhiruo && u.alive);
+    if (zhou) return null;
+    return song;
+}
+
+// 快乐回血：每层按 healPct 回一次，层数推进到下一档
+function tickKuaiLeHeal(allUnits, log, declarations) {
+    allUnits.forEach(unit => {
+        if (!unit.state._kuaiLeStack || unit.state._kuaiLeStack.length === 0) return;
+        if (!unit.alive) return;
+        let totalHeal = 0;
+        const newStack = [];
+        unit.state._kuaiLeStack.forEach(layer => {
+            const healAmount = Math.floor(unit.maxHp * layer.healPct);
+            totalHeal += healAmount;
+            const levels = getSkillParams('宋青书', 'xinHun').healLevels;
+            if (!levels) throw new Error('缺技能参数: 宋青书.xinHun.healLevels');
+            const currentIdx = levels.indexOf(layer.healPct);
+            if (currentIdx >= 0 && currentIdx < levels.length - 1) newStack.push({ healPct: levels[currentIdx + 1] });
+        });
+        if (totalHeal > 0) {
+            const hpBefore = Math.floor(unit.hp);
+            const hpAfterPredicted = Math.min(unit.maxHp, unit.hp + totalHeal);
+            if (declarations) {
+                declarations.push({ type: EFFECT_TYPES.ROUND_STAT_GRANT, field: 'hp', delta: totalHeal, target: unit, source: null, reason: '快乐回血' });
+            } else {
+                applyStatChange(unit, 'hp', totalHeal, null, '快乐回血');
+            }
+            log.push({ factType: FACT_TYPES.KUAI_LE_HEAL, data: { unitName: unit.name, unitUid: unit.uid, heal: totalHeal, hpBefore: fmtHp(hpBefore), hpAfter: fmtHp(hpAfterPredicted), layers: unit.state._kuaiLeStack.length } });
+        }
+        Object.assign(unit.state, { _kuaiLeStack: newStack });
+    });
+}
+
+// 性奋状态授予：周芷若存活时，宋青书本回合获得额外攻击机会
+function applyXingFenGrant(allyTeam, log) {
+    const zhou = allyTeam.find(u => u.isZhouZhiruo && u.alive);
+    const song = allyTeam.find(u => u.isSongQingshu && u.alive);
+    if (!zhou || !song) return;
+    Object.assign(song.state, { _xingFenActive: true });
+    log.push({ factType: FACT_TYPES.XING_FEN_GRANT, data: { zhouName: zhou.name, songName: song.name } });
+}
+
+function canXingFenTrigger(attacker) {
+    if (!attacker.isSongQingshu) return false;
+    if (!attacker.state._xingFenActive) return false;
+    if (!attacker.alive) return false;
+    return true;
+}
+
+function consumeXingFen(attacker) {
+    Object.assign(attacker.state, { _xingFenActive: false });
+}
+
+// 机制① 九阴白骨爪连锁
+registerMechanicHandler('chainClaw', {
+    install({ eventBus, decl }) {
+        eventBus.on(SIGNAL_TYPES.AFTER_ATTACK, L.AFTER_ATTACK.CLAW, (data) => {
+            const { unit, target, dmg, log, allySide, enemySide } = data;
+            if (!unit || unit.name !== decl.name) return;
+            if (!target || !target.alive) return;
+            const rng = getBattleRng();
+            const zhangAlive = enemySide && enemySide.some(u => u.isZhang && u.alive);
+            const baseHit = zhangAlive ? (decl.jealous?.baseDmg ?? decl.baseDmg ?? 2) : (decl.baseDmg ?? 1.5);
+            const s = zhangAlive ? { ...decl, ...(decl.jealous || {}) } : decl;
+            if (!unit.state._nineYinFirstDone) Object.assign(unit.state, { _nineYinFirstDone: true });
+            else if (rng.next() > (s.procChance || 0.80)) return;
+
+            const hits = [];
+            let executeInfo = null;
+            let totalHeal = 0;
+            const song = allySide.find(u => u.isSongQingshu && u.alive);
+            let simulatedTargetHp = target.hp;
+            let simulatedSongHp = song ? song.hp : 0;
+            let depth = 0;
+
+            while (simulatedTargetHp > 0 && !target.state._pendingDeath && depth < 100) {
+                if (depth > 0 && rng.next() > (s.chainProcChance || 0.80)) break;
+                const lostHp = target.maxHp - simulatedTargetHp;
+                const ratioDmg = Math.floor((lostHp * (s.lostHpRatio || 0.015) + target.maxHp * (s.maxHpRatio || 0.01)) * 10) / 10;
+                const bonusDmg = Math.floor((baseHit + Math.max(0, ratioDmg)) * 10) / 10;
+                simulatedTargetHp -= bonusDmg;
+                const isDeadByHit = simulatedTargetHp <= 0;
+                const hpPctAfter = simulatedTargetHp / target.maxHp;
+                const execThreshold = s.executeThreshold || 0.15;
+                const isExecute = !isDeadByHit && hpPctAfter <= execThreshold && simulatedTargetHp > 0;
+                hits.push({ dmg: bonusDmg, factType: FACT_TYPES.CLAW_HIT, data: { unitName: unit.name, targetName: target.name, dmg: bonusDmg, isExecute, jealous: zhangAlive, depth, hpAfter: simulatedTargetHp, targetUid: target.uid }, isClawHit: true, clawAttackerUid: unit.uid, clawTargetUid: target.uid, isExecute });
+                if (song && song.alive) {
+                    const healAmount = Math.min(bonusDmg, song.maxHp - simulatedSongHp);
+                    totalHeal += healAmount;
+                    simulatedSongHp += healAmount;
+                }
+                if (isDeadByHit) break;
+                if (isExecute) {
+                    executeInfo = { factType: FACT_TYPES.CLAW_EXECUTE, data: { unitName: unit.name, targetName: target.name, unitUid: unit.uid, targetUid: target.uid }, isClawHit: true, clawAttackerUid: unit.uid, clawTargetUid: target.uid, isExecute: true };
+                    break;
+                }
+                depth++;
+            }
+
+            if (hits.length > 0 && data && data.declarations) {
+                data.declarations.push({ type: EFFECT_TYPES.CLAW_CHAIN, source: unit, target, hits, execute: executeInfo });
+            }
+            if (totalHeal > 0 && song && song.alive && data && data.declarations) {
+                data.declarations.push({ type: EFFECT_TYPES.HEAL, value: totalHeal, source: song, factType: FACT_TYPES.CLAW_HEAL, factData: { totalHeal, unitUid: song.uid } });
+            } else if (song && song.alive) {
+                log.push({ factType: FACT_TYPES.CLAW_NO_HEAL, data: {} });
+            }
+        });
+    }
+});
+
+// 机制② 苦练：全队永久属性加成，宋青书双倍；周芷若缺席时享有优先出手
+registerMechanicHandler('kuLian', {
+    install({ eventBus, decl }) {
+        const s = { atkBonus: decl.atkBonus, defBonus: decl.defBonus, hpBonus: decl.hpBonus };
+        eventBus.on(SIGNAL_TYPES.ON_ROUND_START, L.ROUND_START.KULIAN_BUFF, (data) => {
+            const B = data.B;
+            const kuLianSong = checkKuLian(B);
+            if (!kuLianSong) return;
+            Object.assign(kuLianSong.state, { _kuLianActive: true });
+            const targets = B.filter(u => u.alive && !u.isHorse);
+            for (const u of targets) {
+                const mult = u.uid === kuLianSong.uid ? 2 : 1;
+                addMod(u, 'atk', { source: '苦练', value: s.atkBonus * mult, ttl: 'permanent', group: 'kuLian', op: 'add' });
+                addMod(u, 'def', { source: '苦练', value: s.defBonus * mult, ttl: 'permanent', group: 'kuLian', op: 'add' });
+                addMod(u, 'maxHp', { source: '苦练', value: s.hpBonus * mult, ttl: 'permanent', group: 'kuLian', op: 'add' });
+                refreshMaxHp(u, null, '苦练');
+            }
+            data.log.push({ factType: FACT_TYPES.KU_LIAN_PRIORITY, data: { unitName: kuLianSong.name } });
+            data.log.push({ factType: FACT_TYPES.KU_LIAN, data: { unitName: kuLianSong.name, atkBonus: s.atkBonus, defBonus: s.defBonus, hpBonus: s.hpBonus } });
+        });
+        eventBus.on(SIGNAL_TYPES.BEFORE_ACTION_SELECT, L.BEFORE_ACTION.KULIAN_PRIORITY, (data) => {
+            if (!data.unit.isSongQingshu || !data.unit.alive) return;
+            const zhou = data.allySide && data.allySide.find(u => u.isZhouZhiruo && u.alive);
+            if (!zhou) data.declaration.priority = 1;
+        });
+    }
+});
+
+// 机制③ 新婚：宋青书攻击后扣周芷若血、叠快乐层、自身永久减上限（性奋代价）
+registerMechanicHandler('xinHun', {
+    install({ eventBus, decl }) {
+        eventBus.on(SIGNAL_TYPES.AFTER_DAMAGE_APPLIED, L.AFTER_DAMAGE_APPLIED.XINGFEN, (data) => {
+            const { unit, allySide, log } = data;
+            if (!unit || unit.name !== decl.name || !unit.alive) return;
+            const zhou = allySide.find(u => u.isZhouZhiruo && u.alive);
+            if (!zhou) return;
+            const hpDeduct = decl.hpDeduct;
+            const healLevels = decl.healLevels;
+            applyStatChange(zhou, 'hp', -hpDeduct, unit, '新婚扣血', false);
+            zhou.state._kuaiLeStack.push({ healPct: healLevels[0] });
+            if (zhou.hp <= 0) { if (!zhou.state._deathTime) zhou.state._deathTime = Date.now(); }
+            log.push({ factType: FACT_TYPES.XIN_HUN, data: { attackerName: unit.name, targetName: zhou.name, hpDeduct, healPct: healLevels[0], stackCount: zhou.state._kuaiLeStack.length, zhouUid: zhou.uid, zhouHpAfter: zhou.hp, isDead: !!zhou._pendingDeath } });
+            if (zhou.state._pendingDeath) log.push({ factType: FACT_TYPES.XIN_HUN_DEATH, data: { unitName: zhou.name, uidD: zhou.uid } });
+            Object.assign(unit.state, { _xingFenPenaltyCount: (unit.state._xingFenPenaltyCount || 0) + 1 });
+            const penalty = unit.state._xingFenPenaltyCount + 1;
+            if (penalty > 0 && unit.maxHp > 1) {
+                const oldMaxHp = unit.maxHp;
+                addMod(unit, 'maxHp', { source: '性奋代价', value: -penalty, ttl: 'permanent', group: 'xingFenCost', op: 'add' });
+                refreshMaxHp(unit, null, '性奋代价');
+                log.push({ factType: FACT_TYPES.XING_FEN_COST, data: { unitName: unit.name, oldMaxHp, newMaxHp: Math.floor(unit.maxHp), penalty } });
+            }
+        });
+    }
+});
+
+// 机制④ 性奋：回合开始授予；命中后额外攻击；未命中重试
+registerMechanicHandler('xingFen', {
+    install({ eventBus, decl }) {
+        eventBus.on(SIGNAL_TYPES.ON_ROUND_START, L.ROUND_START.XINGFEN_GRANT, (data) => {
+            applyXingFenGrant(data.B, data.log);
+            tickKuaiLeHeal(data.A.concat(data.B), data.log, data.declarations);
+        });
+        eventBus.on(SIGNAL_TYPES.AFTER_ATTACK, L.AFTER_ATTACK.XINGFEN_EXTRA, (data) => {
+            const { unit, allySide, enemySide, log } = data;
+            if (!unit || unit.name !== decl.name || !unit.isSongQingshu || !unit.alive || unit.state._xingFenExtraAttacking) return;
+            if (!canXingFenTrigger(unit)) return;
+            consumeXingFen(unit);
+            log.push({ factType: FACT_TYPES.XING_FEN_EXTRA_ATTACK, data: { unitName: unit.name } });
+            unit.state._xingFenExtraAttacking = true;
+            processUnitAttack(unit, allySide, enemySide, log, data.A, data.B, data.state, null, null);
+            unit.state._xingFenExtraAttacking = false;
+        });
+        eventBus.on(SIGNAL_TYPES.AFTER_MISS, L.AFTER_MISS.XINGFEN_RETRY, (data) => {
+            const { unit, allySide, enemySide, log } = data;
+            if (!unit || unit.name !== decl.name || !unit.isSongQingshu || !unit.alive) return;
+            if (canXingFenTrigger(unit)) {
+                consumeXingFen(unit);
+                log.push({ factType: FACT_TYPES.XING_FEN_RETRY, data: { unitName: unit.name } });
+                processUnitAttack(unit, allySide, enemySide, log, data.A, data.B, data.state, null, null);
+            }
+        });
+    }
+});
 
 registerElite('宋青书', createSongQingshuComponent);
 registerElite('周芷若', createZhouZhiruoComponent);

@@ -19,12 +19,13 @@ export function hasMechanicHandler(type) {
     return mechanicHandlers.has(type);
 }
 
-// 按 type 安装机制，未注册返回 false
-export function installMechanicByType(eventBus, type, A, B, log) {
+// 按 type 安装机制，未注册返回 false。decl = 触发本次安装的声明对象（可选），
+// 供 handler 读取自己的参数，避免回 gameData 反查。
+export function installMechanicByType(eventBus, type, A, B, log, decl) {
     const handler = mechanicHandlers.get(type);
     if (!handler) return false;
     try {
-        handler.install({ eventBus, A, B, log });
+        handler.install({ eventBus, A, B, log, decl });
     } catch (e) {
         console.error(`[18mechanic-registry] 机制 "${type}" install 执行出错:`, e);
     }

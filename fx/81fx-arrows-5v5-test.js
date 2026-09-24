@@ -1,5 +1,5 @@
-// V6.1.0 | 2026-09-13 统一时间层：手写 rAF/setTimeout 换 clock；含 showBoneClaw 与通用受击反馈
-export const VER = 'fx/81fx-arrows-5v5-test.js V6.1.0';
+// V6.2.0 | 2026-09-24 未命中轨迹重写：前 60% 假装直飞目标 → 后 40% 侧飘越过 → 翻倒下坠淡出，删掉误导性的命中抖动
+export const VER = 'fx/81fx-arrows-5v5-test.js V6.2.0';
 
 import { markGridShake } from '../render/32-grid-render.js';
 import { CAMP_TYPES } from '../infra/56-battle-enums.js';
@@ -88,11 +88,27 @@ export function showRangedArrow(unitA, unitD, isMeteor = false, onHit = null, is
         container.appendChild(head);
 
         document.body.appendChild(container);
+        // 未命中轨迹：前 60% 照直朝目标中心飞（看起来必中），后 40% 侧向飘偏越过目标。
+        // 2026-09-24 重写：原实现前半程终点就是目标中心（真撞上了再滑开）+ 结尾 applyWholeShake
+        // 抖 600ms（命中颤动同款）——观众看到的是"打到人了又滑开"，完全读不出未命中。
+        const nx0 = Math.cos(angle), ny0 = Math.sin(angle);
+        let missEndX = 0, missEndY = 0;
         clock.animate(flyDuration, (p) => {
             let curStartX, curStartY;
             if (isMiss) {
-                if (p < 0.5) { curStartX = sx + (finalStartX - sx) * p * 2; curStartY = sy + (finalStartY - sy) * p * 2; }
-                else { const p2 = (p - 0.5) * 2; const baseX = finalStartX; const baseY = finalStartY; curStartX = baseX - (finalStartX - sx) * 0.15 * p2 + (finalStartY - sy) * 0.3 * p2; curStartY = baseY - (finalStartY - sy) * 0.15 * p2 - (finalStartX - sx) * 0.3 * p2; }
+                const veerAt = 0.6;
+                if (p < veerAt) {
+                    const k = p / veerAt;
+                    curStartX = sx + (finalStartX - sx) * k;
+                    curStartY = sy + (finalStartY - sy) * k;
+                } else {
+                    const k = (p - veerAt) / (1 - veerAt);
+                    // 越过目标继续前进 + 加速侧偏（二次曲线，越到后面飘得越明显）
+                    const fwd = k * dist * 0.55;
+                    const side = k * k * 46;
+                    curStartX = finalStartX + nx0 * fwd - ny0 * side;
+                    curStartY = finalStartY + ny0 * fwd + nx0 * side;
+                }
             } else {
                 curStartX = sx + (finalStartX - sx) * p;
                 curStartY = sy + (finalStartY - sy) * p;
@@ -101,6 +117,18 @@ export function showRangedArrow(unitA, unitD, isMeteor = false, onHit = null, is
             if (p >= 1) {
                 // 命中颤动由 88fx-trigger 统一决策，本函数只负责动画
                 if (onHit) onHit();
+
+                if (isMiss) {
+                    // 未命中收尾：失势翻倒下坠 + 淡出（不抖动——抖动读作命中颤动）
+                    missEndX = curStartX; missEndY = curStartY;
+                    clock.animate(450, (p2) => {
+                        container.style.left = (missEndX + nx0 * 44 * p2) + 'px';
+                        container.style.top = (missEndY + 18 + 66 * p2 * p2) + 'px';
+                        container.style.transform = `rotate(${angle + p2 * 1.4}rad)`;
+                        container.style.opacity = 1 - p2 * 0.85;
+                    }).then(() => { if (container.parentNode) container.remove(); });
+                    return;
+                }
 
                 if (isMeteor) {
                     let ring = document.createElement('div');

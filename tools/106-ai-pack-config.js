@@ -1,3 +1,5 @@
+// V6.0.14 | ~11140 bytes | 2026-09-24 补登记 core/07-target-strategies.js（选敌策略抽取新文件，core/12 已 import，漏登会导致包内引用断裂）
+// V6.0.13 | ~11080 bytes | 2026-09-24 补登记 fx/91fx-lion-roar.js（谢逊狮吼特效，packcheck B 类漏登，未随包发出过）
 // V6.0.12 | ~11030 bytes | 2026-09-23 补登记 infra/61-view-sheet.js（妆造字段剥离新文件，103 复制器与分包脚本均派生自本表）
 // V6.0.11 | ~10980 bytes | 2026-09-22 移除已删除的 demo-stage3.html 登记
 // V6.0.10 | ~11000 bytes | 2026-09-22 登记 demo-stage3.html（第三关阵容轮换 + 胖远桥 demo 页，dev-index 隐藏入口）
@@ -9,7 +11,7 @@
 // V6.0.4 | 2026-09-13 登记 tools/106b-server.js（本地静态服务器，供 file:// 下启用目录直写）
 // V6.0.3 | 2026-09-11 补清单漏登9个正式文件：ui/71-74（引导+三套开场CG）、player/48-49、fx/90、tests/123static-scan、tests/124rule-recipes
 // V6.0.2 | 2026-09-09 拆出 player/ 为独立「播放器」组（引擎 46→38）
-export const VER = 'tools/106-ai-pack-config.js V6.0.12';
+export const VER = 'tools/106-ai-pack-config.js V6.0.14';
 
 // AI 复制包踢除清单（103-toolkit.js 的 FILES 过滤会无条件跳过这里的文件）
 // 2026-09-04 用户决定不再精简：特效/音效/错误面板/入口页全部随包发送。
@@ -36,6 +38,7 @@ export const ALL_PROJECT_FILES = [
     '../core/13battle-shared.js', '../core/14buff-effects.js', '../core/15-skill-mechanisms.js',
     '../core/16effect-handlers.js', '../core/17-state-keys.js', '../core/18mechanic-registry.js', '../core/19unit-watch.js',
     '../core/06battle-runner.js',
+    '../core/07-target-strategies.js',
     // player（播放器）
     '../player/40player-text.js', '../player/41player-buff-ui.js', '../player/43animation-scheduler.js', '../player/42player-core.js',
     '../player/44battle-player-5v5-test.js', '../player/45event-handlers.js', '../player/46attack-group.js', '../player/47renderer.js',
@@ -50,7 +53,7 @@ export const ALL_PROJECT_FILES = [
     '../fx/80fx-common-5v5-test.js', '../fx/81fx-arrows-5v5-test.js', '../fx/82fx-crash-5v5-test.js',
     '../fx/83fx-position-swap.js', '../fx/84fx-push-back.js', '../fx/85fx-dodge-bullet.js',
     '../fx/86fx-butterfly-spider.js', '../fx/87fx-manager.js', '../fx/88fx-trigger.js', '../fx/89fx-subscriber.js',
-    '../fx/90fx-ref-manager.js',
+    '../fx/90fx-ref-manager.js', '../fx/91fx-lion-roar.js',
     // modules（通用系统 + 精英角色组件）
     '../modules/20elite-skills.js', '../modules/21error-capture.js', '../modules/22audio-manager.js',
     '../infra/54-global-store.js', '../infra/55-fx-signals.js', '../modules/29battle-init.js', '../modules/24battle-store.js',

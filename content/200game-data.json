@@ -265,6 +265,14 @@
         },
         {
           "camp": "enemy",
+          "type": "dotTick",
+          "stateKey": "_xuanmingPoison",
+          "factKey": "XUAN_MING_DOT",
+          "reason": "玄冥中毒",
+          "sourceName": "鹿杖客"
+        },
+        {
+          "camp": "enemy",
           "type": "linkAttack",
           "partnerNames": ["鹤笔翁"]
         }

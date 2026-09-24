@@ -122,6 +122,8 @@ export function createWeiYixiaoComponent() {
             const wei = A.find(u => u.isWei && u.alive);
             if (!wei) return;
             wei.state._neverMiss = true;
+            // 行动过仍可闪避 + 不参与飞行跳前排选敌：由组件声明，core 不再认 isWei
+            Object.assign(wei.state, { _canAlwaysDodge: true });
 
             // 韦一笑吸星：判定后推 WEI_HEAL 声明（纯函数）
             function submitWeiLeechDeclaration(data) {

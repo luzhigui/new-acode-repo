@@ -7,7 +7,7 @@ import { AudioManager } from '../modules/22audio-manager.js';
 import { handleBuffSummon, handleBuffDestroy, handleHolyTokenDrop } from './41player-buff-ui.js';
 import { createRoundStepper } from '../core/11battle-round.js';
 import { SeededRNG } from '../infra/51-core-utils.js';
-import { setBattleRng } from '../core/13battle-shared.js';
+import { setBattleRng, setPresentationRng } from '../core/13battle-shared.js';
 import { GlobalStore, getState, setState, getPlayerContext } from '../infra/54-global-store.js';
 import { createStore, battleReducer } from '../modules/24battle-store.js';
 import { STORE_ACTION_TYPES, STAGE_ACTION_TYPES, BUFF_SUBTYPES, BUFF_EFFECT_TYPES, FLY_MODE_TYPES, UNIT_EVENT_TYPES, DROP_TYPES, FLASH_TYPES, CAMP_TYPES, ROLE_TYPES } from '../infra/56-battle-enums.js';
@@ -70,27 +70,6 @@ function applyStageActionToStoreAfter(c, action, pendingDeaths) {
 }
 
 
-
-/**
- * UI 只读视图（2026-09-14 状态三轨收敛）。
- * 播放期间 c.UI.allyTeam/enemyTeam 是 battleStore 的一份冗余拷贝，随时可能落后一步。
- * 所有战斗期读点改走本函数：store 有位就现取，没有（开局前/战斗结束后清场）才回退 c.UI。
- * c.UI 仍可写（开局前造队、赛后面板要一份脱离 store 的定稿快照），但不再是读取路径。
- */
-export function getUIView(c) {
-    const ctx = c || getCtx();
-    const fallback = (ctx && ctx.UI) || { allyTeam: [], enemyTeam: [], round: 0, currentResult: null };
-    const store = ctx && ctx.store;
-    if (!store) return { allyTeam: fallback.allyTeam || [], enemyTeam: fallback.enemyTeam || [], round: fallback.round || 0, currentResult: fallback.currentResult || null, lastSnapshot: fallback.lastSnapshot || null };
-    const units = store.getState().units || [];
-    return {
-        allyTeam: units.filter(u => u.camp === CAMP_TYPES.ALLY),
-        enemyTeam: units.filter(u => u.camp === CAMP_TYPES.ENEMY),
-        round: store.getState().round || fallback.round || 0,
-        currentResult: fallback.currentResult || null,
-        lastSnapshot: fallback.lastSnapshot || null
-    };
-}
 
 function syncStoreFromStep(c, step) {
     if (!c.store || !step) return;
@@ -515,7 +494,7 @@ async function finishBattle(c, finalStep, finalWinner, roundHistory) {
         await clock.wait(6000);
         const showBattleReportFn = GlobalStore.getUIHandler('showBattleReport');
         if (showBattleReportFn && c.battleResultForInfo) {
-            showBattleReportFn(c.UI, c.battleResultForInfo);
+            showBattleReportFn(c.battleResultForInfo);
             if (GlobalStore.get('autoLevel') === 'full-auto') {
                 setTimeout(() => {
                     const overlay = document.getElementById('battleReportOverlay');
@@ -608,9 +587,10 @@ export async function playBattleGuest() {
     // 阵亡清除（与房主共用）：从机没有这段，格子上尸体会永远赖着
     setupDeathTimers(c);
 
-    // 从机不跑引擎，但演出层（getAttackTaunt / getKillTaunt 选台词等）仍会取战斗 RNG，
+    // 从机不跑引擎，但演出层（getAttackTaunt / getKillTaunt 选台词等）仍会取表现 RNG，
     // 不注入就会 null.nextInt 崩。本地 RNG 仅供演出文案，不影响战斗结果（结果全部来自房主的 step）
     setBattleRng(new SeededRNG(Date.now() % 1000000));
+    setPresentationRng(new SeededRNG(Date.now() % 1000000 + 1));
 
     initRenderer(c);
     updateRoundDisplay('📜 日志（第1回合）');
