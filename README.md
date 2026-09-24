@@ -198,7 +198,7 @@
 
 1. **声明→裁定 + 枚举**：各模块提交效果声明对象，裁判统一执行；`type` 必须用 `EFFECT_TYPES` 常量（`infra/50`）；fact 类型 / buff key / 信号名 / store action / 单位事件 / 阵营 / 职业 / 阶段动作 / 特效子类型等一律用 `infra/56-battle-enums.js` 的枚举，禁止裸字符串。
 
-2. **fact 加新类型改 4 处**：`infra/56`（枚举）、`infra/58`（契约）、`render/30`（渲染 + 注册）、`render/31`（翻译）。漏加会在启动时报错（58 有校验循环）。
+2. **fact 加新类型改 3 处**：`infra/56`（枚举）、`infra/58`（契约）、对应域文件（`render/34` 攻击 / `render/35` 效果，写函数 + `registerFactRenderer` 一行；翻译同理 `render/38` + `render/39`）。漏加会在启动时报错（33 有 `validateRegistry` 校验）。
 
 3. **禁直改属性**：`unit.atk` / `unit.def` / `unit.maxHp` 一律先 `addMod`（`core/13`，属性只算不存），再由 `getStat` 现算；maxHp 变更另需 `refreshMaxHp` 同步。
 
