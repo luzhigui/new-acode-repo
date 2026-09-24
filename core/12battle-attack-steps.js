@@ -1,5 +1,5 @@
-// V6.3.0 | ~24600 bytes | 2026-09-22 ① resolveDeaths 支持「替死」：逐条复查 _pendingDeath，ON_BEFORE_DEATH 可取消死亡 ② 新增 _ignoreDodge 不可闪避（灭绝反击）
-export const VER = 'core/12battle-attack-steps.js V6.3.0';
+// V6.3.1 | ~24600 bytes | 2026-09-24 死亡不再发 UNIT_REMOVE（格子先空、死亡特效后到的根因），保留 _isDead 由 UI 3 秒清尸
+export const VER = 'core/12battle-attack-steps.js V6.3.1';
 
 import { CONFIG, getSkillParams, getGameData } from './01config-5v5-test.js';
 import { eventBus, EFFECT_TYPES } from '../infra/50-event-bus.js';
@@ -431,7 +431,8 @@ export function resolveDeaths(allySide, enemySide, log) {
         // 2026-09-19 修字段 bug：标记时写的是 state._pendingDeath，清理时写成了顶层
         u.state._pendingDeath = false;
         emitEvent(u, UNIT_EVENT_TYPES.HP_CHANGE, { hp: u.hp, maxHp: u.maxHp, alive: false, atk: getStat(u, 'atk'), def: getStat(u, 'def'), _isDead: true });
-        emitEvent(u, UNIT_EVENT_TYPES.UNIT_REMOVE, { uid: u.uid });
+        // 2026-09-24 死亡不再发 UNIT_REMOVE：伤口一结算就把格子从 store 摘掉，会出现「格子先空、死亡特效后到」。
+        //   改为只保留 _isDead 状态 → 格子当帧就上死亡态（红底 ✕），尸体交给 player/42 的 3 秒清尸计时统一移除。
         emitStateChange(u, STATE_CHANGE_TYPES.DEATH, {}, log);
         died.push(u);
     }

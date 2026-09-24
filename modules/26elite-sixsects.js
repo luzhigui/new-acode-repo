@@ -1,12 +1,12 @@
-// V6.11.2 | ~22000 bytes | 2026-09-23 莽撞 +3→+2；正义国字脸减伤 0.5→0.4（计算行标签维持技能名）
-export const VER = 'modules/26elite-sixsects.js V6.11.2';
+// V6.12.0 | ~23300 bytes | 2026-09-24 灭绝师太：反击/跟随一并计入出手次数；召唤周芷若改阵亡触发（原位置，延一步落位）
+export const VER = 'modules/26elite-sixsects.js V6.12.0';
 import { registerElite } from '../core/08-elite-registry.js';
 import { CONFIG, getSkillParams } from '../core/01config-5v5-test.js';
 import { SIGNAL_TYPES, FACT_TYPES, BUFF_TYPES, CAMP_TYPES, ROLE_TYPES } from '../infra/56-battle-enums.js';
 import { applyStatChange, addMod, getStat, getBattleRng, resolvePushOrStun } from '../core/13battle-shared.js';
-import { EFFECT_TYPES, EXECUTION_LAYER as L } from '../infra/50-event-bus.js';
+import { eventBus, EFFECT_TYPES, EXECUTION_LAYER as L } from '../infra/50-event-bus.js';
 import { canBeTargeted } from '../core/03battle-utils.js';
-import { spawnUnit, findFreePos } from '../core/05battle-horse.js';
+import { spawnUnit } from '../core/05battle-horse.js';
 import { GlobalStore } from '../infra/54-global-store.js';
 import { FX_SIGNALS } from '../infra/55-fx-signals.js';
 
@@ -287,7 +287,38 @@ export function createPangYuanQiaoComponent() {
 //   反击、每第三次攻击 → 本组件闭环（日志走 group.data.entries 的 { type:'info', text }）
 //   跟随攻击 → 走 content mechanics 的 followAttack 声明（core/15 安装）。
 //     队友是任意普通单位、没法逐个登记，所以声明挂在灭绝自己名下，而不是像玄冥联动那样挂在攻击者名下。
-//   召唤周芷若 → spawnUnit 落 2 号位（被占则 3/1/5），每局 1 次
+//   召唤周芷若 → 队友或她本人阵亡时在原位置召唤（全场 1 次），落位时机见下方 flushZhouSummon
+
+// 召唤周芷若的统一落位入口：阵亡当帧只记位置（state._pendingZhouPos），落位延到「下一个行动步」。
+//   不当帧落位的原因：同格「尸体 + 新单位」按 render/32 的「同格优先渲染存活单位」会直接顶掉阵亡者的
+//   死亡特效（红底 ✕ + 撞击），先让死亡特效播完，周芷若再在原位置出场。
+//   待落位标记写灭绝自己的 state（battle 级、跨回合克隆保留），不写队伍数组：
+//   队伍数组每回合都会重新 map 出来（core/11 createRoundStepper），数组级标记过不了回合边界；
+//   她本人在回合最后一手阵亡时下一回合组件不再注册（core/11 只为存活单位注册），
+//   所以另有一条模块级 ON_ROUND_START 兜底，靠扫描她的 state 把队列清掉。
+function flushZhouSummon(miejue, team, log) {
+    const pos = miejue.state._pendingZhouPos;
+    if (pos == null || pos < 0) return;
+    miejue.state._pendingZhouPos = -1;
+    if (miejue.state._summonedZhou) return;
+    if (team.some(u => u.isZhouZhiruo && u.alive)) return;
+    const summon = getSkillParams('灭绝师太', 'summonZhou');
+    if (!summon) return;
+    const zhou = spawnUnit(team, '周芷若', summon.m, ROLE_TYPES.WARRIOR, pos);
+    miejue.state._summonedZhou = true;
+    if (log) {
+        log.push({ factType: FACT_TYPES.SUMMON_UNIT, data: { summonName: zhou.name, summonUid: zhou.uid, pos, byName: '灭绝师太' } });
+    }
+}
+
+// 跨回合兜底：灭绝本人在回合最后一手阵亡 → 当回合已无「下一个行动步」可挂，队列留到下一回合开始落位
+eventBus.on(SIGNAL_TYPES.ON_ROUND_START, L.ROUND_START.MIEJUE_SUMMON, (data) => {
+    for (const team of [data.A, data.B]) {
+        const miejue = team.find(u => u.isMieJueShiTai);
+        if (miejue) flushZhouSummon(miejue, team, data.log);
+    }
+});
+
 export function createMieJueShiTaiComponent() {
     return {
         name: '灭绝师太',
@@ -301,8 +332,8 @@ export function createMieJueShiTaiComponent() {
             if (!counter) throw new Error('缺技能参数: 灭绝师太.counterAttack');
             const third = getSkillParams('灭绝师太', 'thirdStrike');
             if (!third) throw new Error('缺技能参数: 灭绝师太.thirdStrike');
-            const summon = getSkillParams('灭绝师太', 'summonZhou');
-            if (!summon) throw new Error('缺技能参数: 灭绝师太.summonZhou');
+            // 召唤参数在落位时（flushZhouSummon）现取；这里只做一次启动期存在性校验
+            if (!getSkillParams('灭绝师太', 'summonZhou')) throw new Error('缺技能参数: 灭绝师太.summonZhou');
 
             function pushInfo(data, text) {
                 if (data && data.group && data.group.data && data.group.data.entries) {
@@ -315,6 +346,8 @@ export function createMieJueShiTaiComponent() {
             // 直接扣血等于绕开引擎。跨阵营换边与不可闪避由 core/10 的额外攻击循环处理。
             eventBus.on(SIGNAL_TYPES.AFTER_DAMAGE_APPLIED, L.AFTER_DAMAGE_APPLIED.MIEJUE_COUNTER, (data) => {
                 if (data.target !== miejue || !miejue.alive) return;
+                // 2026-09-24 这一击已经把她打进「待死」就不该再反击（此时 alive 还是 true，死亡结算在 resolveDeaths）
+                if (miejue.state._pendingDeath) return;
                 if (!data.dmg || data.dmg <= 0) return;
                 const attacker = data.unit;
                 if (!attacker || !attacker.alive || attacker === miejue) return;
@@ -332,24 +365,23 @@ export function createMieJueShiTaiComponent() {
                 pushInfo(data, `<span class="gold">🗡 灭绝师太反击 ${attacker.name}！（伤害×${counter.dmgRatio}，不可闪避）</span>`);
             });
 
-            // 技能3 每第三次攻击：伤害 ×dmgMultiplier + 吸血 leechRatio。
-            // 计数口径 =「打中过几次」：只在 AFTER_DAMAGE_APPLIED 累加，未命中/被闪避不计。
-            // 因此 _thirdStrike 每次选目标时按「这次是不是第 3 的倍数」重算，不需要额外的清除点。
-            eventBus.on(SIGNAL_TYPES.BEFORE_SELECT_TARGET, L.BEFORE_SELECT_TARGET.MIEJUE_THIRD_MARK, (data) => {
-                if (data.unit !== miejue || !miejue.alive) return;
-                miejue.state._thirdStrike = (((miejue.state._attackCount || 0) + 1) % 3) === 0;
-            });
+            // 技能3 每第三次攻击：第 3 的倍数那一次命中，伤害 ×dmgMultiplier 并吸血 leechRatio 倍本次伤害。
+            // 计数口径 =「她打中过几次」：反击 / 跟随攻击这类被动出手也算她的一次出手（原设计），
+            //   只有真正打中的才计（未命中/被闪避到不了 AFTER_DAMAGE_APPLIED）。
+            // 三击判定不落标记：两处都按同一个 _attackCount 现算——额外攻击走 lockedTargetUid，
+            //   不发 BEFORE_SELECT_TARGET，落标记的方式在反击那一击上必然失同步。
+            //   「本次结算前计数 +1 能被 3 整除」= 这一击就是第 3 的倍数。
+            const isThirdHit = () => (((miejue.state._attackCount || 0) + 1) % 3) === 0;
 
             eventBus.on(SIGNAL_TYPES.BEFORE_DAMAGE_CALC, L.BEFORE_DAMAGE_CALC.MIEJUE_THIRD_MULT, (data) => {
-                if (data.unit !== miejue || !miejue.state._thirdStrike) return;
+                if (data.unit !== miejue || !miejue.alive || !isThirdHit()) return;
                 data.declarations.push({ type: EFFECT_TYPES.DMG_MULTIPLIER, value: third.dmgMultiplier, source: miejue, label: '灭绝三击' });
             });
 
             eventBus.on(SIGNAL_TYPES.AFTER_DAMAGE_APPLIED, L.AFTER_DAMAGE_APPLIED.MIEJUE_THIRD_LEECH, (data) => {
                 if (data.unit !== miejue || !miejue.alive) return;
                 if (!data.dmg || data.dmg <= 0) return;
-                const isThird = !!miejue.state._thirdStrike;
-                miejue.state._thirdStrike = false;
+                const isThird = isThirdHit();
                 miejue.state._attackCount = (miejue.state._attackCount || 0) + 1;
                 if (!isThird) return;
                 if (!data.declarations) data.declarations = [];
@@ -357,17 +389,18 @@ export function createMieJueShiTaiComponent() {
                 pushInfo(data, `<span class="gold">🩸 灭绝师太第 ${miejue.state._attackCount} 次出手：伤害×${third.dmgMultiplier}，吸血 ${Math.round(third.leechRatio * 100)}%</span>`);
             });
 
-            // 技能4 召唤周芷若：每局 1 次，回合开始落 2 号位（被占则按 posPriority 顺延）
-            eventBus.on(SIGNAL_TYPES.ON_ROUND_START, L.ROUND_START.MIEJUE_SUMMON, (data) => {
-                if (!miejue.alive || miejue.state._summonedZhou) return;
-                if (myTeam.some(u => u.isZhouZhiruo && u.alive)) return;
-                const pos = findFreePos(myTeam, summon.posPriority || [2]);
-                if (pos == null) return;
-                const zhou = spawnUnit(myTeam, '周芷若', summon.m, ROLE_TYPES.WARRIOR, pos);
-                miejue.state._summonedZhou = true;
-                if (data && data.log) {
-                    data.log.push({ factType: FACT_TYPES.SUMMON_UNIT, data: { summonName: zhou.name, summonUid: zhou.uid, pos, byName: miejue.name } });
-                }
+            // 技能4 召唤周芷若：任一队友或她本人阵亡 → 记下阵亡者原位置，全场仅 1 次。
+            //   落位不在当帧（当帧会顶掉死亡特效），交给下一个行动步的 BEFORE_STATE_TRANSITION；
+            //   她本人在回合最后一手阵亡时没有下一步，由模块级 ON_ROUND_START 兜底。
+            eventBus.on(SIGNAL_TYPES.ON_UNIT_DEATH, L.ON_UNIT_DEATH.MIEJUE_RECORD, (data) => {
+                if (miejue.state._summonedZhou || miejue.state._pendingZhouPos >= 0) return;
+                const dead = (data.deadUnits || []).find(u => myTeam.includes(u));
+                if (!dead || dead.pos == null) return;
+                miejue.state._pendingZhouPos = dead.pos;
+            });
+
+            eventBus.on(SIGNAL_TYPES.BEFORE_STATE_TRANSITION, L.BEFORE_STATE_TRANSITION.MIEJUE_SUMMON, (data) => {
+                flushZhouSummon(miejue, myTeam, data.log);
             });
         }
     };

@@ -1,5 +1,5 @@
-// V1.4.0 | ~10000 bytes | 2026-09-23 LION_SACRIFICE 契约换成 LION_GROW（谢逊替死改为幼狮成长）
-export const VER = 'infra/58-fact-contract.js V1.4.0';
+// V1.5.0 | ~10000 bytes | 2026-09-23 PHANTOM_REVEAL 契约加 deceiverUid（成昆被识破闪一下）
+export const VER = 'infra/58-fact-contract.js V1.5.0';
 
 import { FACT_TYPES } from './56-battle-enums.js';
 
@@ -73,7 +73,7 @@ export const FACT_SPECS = Object.freeze({
 
     // 幻影伪装
     [FACT_TYPES.PHANTOM_DISGUISE_HEAL]: { requiredFields: ['unitUid', 'heal'], renderFn: 'renderPhantomDisguiseHealFact', translateFn: 'makeHealAction' },
-    [FACT_TYPES.PHANTOM_REVEAL]: { requiredFields: ['unitName', 'deceiver'], renderFn: 'renderPhantomRevealFact', translateFn: null },
+    [FACT_TYPES.PHANTOM_REVEAL]: { requiredFields: ['unitName', 'deceiver', 'deceiverUid'], renderFn: 'renderPhantomRevealFact', translateFn: null },
     [FACT_TYPES.PHANTOM_CONFUSE]: { requiredFields: ['unitName', 'deceiver'], renderFn: 'renderPhantomConfuseFact', translateFn: null },
 
     // 宋青书新婚 / 性奋

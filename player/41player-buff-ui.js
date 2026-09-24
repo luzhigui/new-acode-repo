@@ -20,7 +20,9 @@ function getCtx() {
 export function setBuffUIContext(c) { ctx = c; }
 
 export async function handleHolyTokenDrop(c, entry) {
-    c.isPaused = true;
+    // 2026-09-23 修复卡死：原代码先 c.isPaused=true 再 clock.wait——isPaused 经 GlobalStore 触发 clock.pause()，
+    // 时钟冻结后 wait 的 dueAt 永远到不了，圣火令一掉落整局死锁。播放循环本就 await 本函数（顺序播放），
+    // 无需额外暂停；只需 bulletTimeActive 禁用按钮防用户在动画期间点暂停/下一步。
     GlobalStore.set('bulletTimeActive', true);
 
     const unit = findUnitByUid(c, entry.unitUid);
@@ -65,7 +67,6 @@ export async function handleHolyTokenDrop(c, entry) {
     icon.remove();
     c.updateScoreBadge();
     GlobalStore.set('bulletTimeActive', false);
-    c.isPaused = false;
 }
 
 export async function handleBuffSummon(c, entry, prevEntry) {

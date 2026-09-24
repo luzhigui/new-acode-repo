@@ -480,7 +480,7 @@ export function renderClawHealFact(fact) {
     return { type:'info', text:`<span class="green">💚 宋青书因九阴白骨爪共回复${Math.round(fact.totalHeal)}点生命</span>`, fxAnchors: [`共回复${Math.round(fact.totalHeal)}点`] };
 }
 export function renderPhantomRevealFact(fact) {
-    return { type:'info', text:`<span class="gold">🎭 ${fact.unitName}识破${fact.deceiver}伪装，锁定真正的${fact.deceiver}！</span>` };
+    return { type:'info', text:`<span class="gold">🎭 ${fact.unitName}识破${fact.deceiver}伪装，锁定真正的${fact.deceiver}！</span>`, phantomFlashUid: fact.deceiverUid };
 }
 export function renderPhantomConfuseFact(fact) {
     const isButterfly = fact.deceiver === '小昭·妹';

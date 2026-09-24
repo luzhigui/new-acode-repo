@@ -139,21 +139,14 @@ export const STAGE_ACTION_DEFS = {
     },
     [STAGE_ACTION_TYPES.POS_SWAP]: {
         grid: 'sync', log: 'sync', timing: 'beforeText',
-        store: (c, action, pendingDeaths) => {
-            if (action.actorUid && action.targetUid) {
-                c.store.dispatch({ type: STORE_ACTION_TYPES.APPLY_EVENTS, events: [
-                    { eventType: UNIT_EVENT_TYPES.POS_CHANGE, uid: action.actorUid, pos: action.oldPosB },
-                    { eventType: UNIT_EVENT_TYPES.POS_CHANGE, uid: action.targetUid, pos: action.oldPosA }
-                ]});
-            }
-        },
+        // 2026-09-23 修换位剧透：原先 store 前置段先把位置换掉（格子瞬移）再播闪烁换位动画，特效纯属重播。
+        // 改为与 PUSH 同款：删 store 段与 skipDataChange，位置由 fx/83 动画落定后自 dispatch POS_CHANGE。
         fx: async (c, action) => {
             const unitA = findUnitByUidLocal(c, action.actorUid);
             const unitB = findUnitByUidLocal(c, action.targetUid);
             if (unitA && unitB) {
                 const { animatePositionSwap } = await import('../fx/87fx-manager.js');
                 await animatePositionSwap(unitA, unitB, c, {
-                    skipDataChange: true,
                     oldPositions: (action.oldPosA != null && action.oldPosB != null) ? [action.oldPosA, action.oldPosB] : null
                 });
             }

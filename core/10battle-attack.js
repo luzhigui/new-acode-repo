@@ -1,5 +1,5 @@
-// V6.2.0 | ~12700 bytes | 2026-09-23 额外攻击 reason 'lionFollow'（谢逊母狮随动）计入 _isLinkAttack 防乒乓
-export const VER = 'core/10battle-attack.js V6.2.0';
+// V6.3.1 | ~13100 bytes | 2026-09-24 反击/母狮随动置 _isLinkAttack + 消费 actedMode 'restore'：额外攻击不吃行动权（不影响灭绝出手计数）
+export const VER = 'core/10battle-attack.js V6.3.1';
 
 import { CONFIG } from './01config-5v5-test.js';
 import { hasBuff, makeFXSnapshot, isBlocked } from './03battle-utils.js';
@@ -228,6 +228,14 @@ export function processUnitAttack(unit, allySide, enemySide, log, A, B, state, d
             if (!req.unit.alive) continue;
             executedUids.add(req.unit.uid);
             if (req.actedMode === 'allow') req.unit.state._acted = false;
+            // 2026-09-24 反击 / 母狮随动这类「被动出手」不吃本回合行动权，与 AFTER_ATTACK 那条循环同口径：
+            //   ① 置 _isLinkAttack：嵌套 processUnitAttack 末尾就不会把 _acted 顶成 true
+            //      （缺这步：灭绝反击完就变灰，被 core/11 的候选过滤整回合跳过；母狮随动同理连累雄狮/谢逊）；
+            //   ② 再按 actedSnapshot 兜底还原，restore 在这条循环里原先无人消费。
+            //   注：被动出手照样计入灭绝师太的「每第三次攻击」次数（modules/26 只认 AFTER_DAMAGE_APPLIED），
+            //   这里置位不再影响她的出手计数。
+            const isLinkReq = req.reason === 'counterAttack' || req.reason === 'lionFollow';
+            if (isLinkReq) req.unit.state._isLinkAttack = true;
             // 2026-09-22 回退判据补 _pendingDeath：原目标同击致死后 alive 仍是 true（死亡结算才清），
             //   只判 alive 会把"待死"的 uid 当活人锁过去，锁定路径用严判据找不到人 → 白跳一次。
             //   补上后回退为 null，走正常选目标流程（概率连击改打别人）。
@@ -240,6 +248,8 @@ export function processUnitAttack(unit, allySide, enemySide, log, A, B, state, d
             if (req.ignoreDodge) req.unit.state._ignoreDodge = true;
             processUnitAttack(req.unit, reqAllySide, reqEnemySide, log, A, B, state, null, extraTargetUid);
             if (req.ignoreDodge) req.unit.state._ignoreDodge = false;
+            if (isLinkReq) req.unit.state._isLinkAttack = false;
+            if (req.actedMode === 'restore') req.unit.state._acted = req.actedSnapshot;
         }
     }
 

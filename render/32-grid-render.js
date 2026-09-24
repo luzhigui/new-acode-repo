@@ -1,5 +1,5 @@
-// ~24600 bytes | V6.3.4 | 2026-09-23 小昭·妹图标随职业；胖远桥国字脸生效期间顶 🐷
-export const VER = 'render/32-grid-render.js V6.3.4';
+// ~25300 bytes | V6.3.6 | 2026-09-24 灭绝师太头顶出手计数气泡（计数含反击/跟随这类被动出手）
+export const VER = 'render/32-grid-render.js V6.3.6';
 
 import { getUnitCol, getUnitRow, getAuraBonuses, getDodgeRules, fmtHp } from '../infra/51-core-utils.js';
 import { CONFIG, getSkillDesc } from '../core/01config-5v5-test.js';
@@ -7,6 +7,7 @@ import { GlobalStore, getPlayerContext } from '../infra/54-global-store.js';
 import { FLASH_TYPES, CAMP_TYPES, ROLE_TYPES, BUFF_TYPES } from '../infra/56-battle-enums.js';
 import { getStat } from '../core/13battle-shared.js';
 import { clock } from '../infra/52-clock.js';
+import { getView, setView } from '../infra/61-view-sheet.js';
 
 let _store = null;
 let _subscribed = false;
@@ -16,6 +17,7 @@ const _hpDisplayPct = new Map();
 let _hpAnimRunning = false;
 const _shakeUntil = new Map();
 const _horseSpawnedUids = new Set();
+const _mieCountShown = new Map();
 
 export function markGridShake(uid, durationMs) {
     if (uid == null) return;
@@ -216,7 +218,7 @@ export function renderGrid(id, camp) {
         if (unit && !unit.state) unit.state = {};
         if (unit && !unit.isHorse) {
             // _renderFlyMode 是飞撞/子弹时间的纯渲染态（攻击者本身不飞行），优先于 state._flyMode
-            const effectiveFlyMode = unit._renderFlyMode || (unit.state && unit.state._flyMode);
+            const effectiveFlyMode = getView(unit.uid, '_renderFlyMode') || (unit.state && unit.state._flyMode);
             if (effectiveFlyMode || (unit._fsm && (unit._fsm.is('attached') || unit._fsm.is('flying')))) {
                 let div = document.createElement('div');
                 div.className = 'cell occupied';
@@ -276,7 +278,7 @@ export function renderGrid(id, camp) {
         }
         const _storeForFlash = getStore();
         const storeUnit = (_storeForFlash && _storeForFlash.getState) ? _storeForFlash.getState().units.find(u => u.uid === unit.uid) : null;
-        const flashVal = (storeUnit && storeUnit._flash) || unit._flash || null;
+        const flashVal = getView(unit.uid, '_flash') ?? null;
         let hasFlash = !!flashVal;
         let isDead = (flashVal===FLASH_TYPES.DEAD || !unit.alive || unit.state._isDead);
         let isBlocked = (unit.state && unit.state._blocked) || false;
@@ -298,6 +300,8 @@ export function renderGrid(id, camp) {
         else roleIcon = unit.role===ROLE_TYPES.WARRIOR?'⚔️':(unit.role===ROLE_TYPES.DEFENDER?'🛡️':(unit.role===ROLE_TYPES.RANGED?'🏹':'🦅'));
 
         let displayName = unit.name;
+        // 2026-09-24 格子显示别名：全名太长挤爆格子的角色只影响格子显示，日志/弹窗仍用全名
+        if (displayName === '金毛狮王谢逊') displayName = '金毛狮王';
         let displayIsZhang = unit.isZhang || false;
         if (unit.name === '成昆' && unit.state && unit.state._phantomTarget) {
             const allUnits = selectOrStore(ctx, 'allyTeam').concat(selectOrStore(ctx, 'enemyTeam'));
@@ -353,22 +357,22 @@ export function renderGrid(id, camp) {
             if (shakeDeadline > Date.now()) shakeRemain = shakeDeadline - Date.now();
             else _shakeUntil.delete(unit.uid);
         }
-        let cheerClass = (hasFlash && unit._flash===FLASH_TYPES.CHEER && !isDead) ? 'cell-cheer' : '';
+        let cheerClass = (hasFlash && flashVal === FLASH_TYPES.CHEER && !isDead) ? 'cell-cheer' : '';
         let restingClass = (isBlocked && unit.alive && isResting && !(unit.isZhang && unit.rangedForm) && !isDead) ? 'resting' : '';
         let div = document.createElement('div');
         div.className = `cell occupied ${readyClass} ${actedClass} ${cheerClass} ${restingClass}`;
         if (shakeRemain > 0) runGridShake(div, shakeRemain);
         if (isDead) { div.setAttribute('data-flash', FLASH_TYPES.DEAD); div.style.transition = 'none'; }
-        else if (unit._flash) { div.setAttribute('data-flash', unit._flash); div.style.transition = 'none'; }
+        else if (flashVal) { div.setAttribute('data-flash', flashVal); div.style.transition = 'none'; }
         div.dataset.pos = pos;
         div.dataset.uid = unit.uid;
         if (renderAdjust) {
             if (unit.fixed) div.classList.add('fixed-unit');
             else { div.classList.add('swappable'); if (selectedPos === pos) div.classList.add('adjust-selected'); }
         }
-        if (unit._phantomFlash) {
+        if (getView(unit.uid, '_phantomFlash')) {
             div.style.animation = 'phantomFlash 0.4s ease-in-out 2';
-            setTimeout(() => { div.style.animation = ''; delete unit._phantomFlash; }, 800);
+            setTimeout(() => { div.style.animation = ''; setView(unit.uid, '_phantomFlash', null); }, 800);
         }
         if (unit.isHorse && unit.alive && !(unit.state && unit.state._isDead) && !_horseSpawnedUids.has(unit.uid)) {
             _horseSpawnedUids.add(unit.uid);
@@ -397,8 +401,8 @@ export function renderGrid(id, camp) {
         // 小昭姊/妹的身份已由左侧 roleIcon（🦋/🕷️）承担，名字后不再重复挂
         // 张三丰：进入严阵以待阶段后挂图标——他的严阵以待是组件自身 addMod（不走团队 buff），
         // activeBuffs 里没有 fortify，格子上原本毫无提示
-        let eliteSkillIcon = (unit.name === '周芷若' && unit._hasKuaiLe) ? ' 💖'
-            : (unit.name === '宋青书' && unit._hasXingFen) ? ' 💗'
+        let eliteSkillIcon = (unit.name === '周芷若' && unit.state._kuaiLeStack && unit.state._kuaiLeStack.length > 0) ? ' 💖'
+            : (unit.name === '宋青书' && getView(unit.uid, '_hasXingFen')) ? ' 💗'
             : (unit.isZhangSanfeng && unit.alive && unit.state._tenRoundFired) ? ' 🛡️'
             : '';
         if (!eliteSkillIcon) {
@@ -437,6 +441,23 @@ export function renderGrid(id, camp) {
         }
         if (isBlocked && unit.alive && isResting && !(unit.isZhang && unit.rangedForm) && !isDead) {
             let zzz = document.createElement('div'); zzz.className = 'zzz-mark'; zzz.innerHTML = '<span>z</span><span>Z</span><span>Z</span>'; div.appendChild(zzz);
+        }
+        // 2026-09-24 灭绝师太：出手计数气泡（头顶正中）。计数由 modules/26 累加（含反击/跟随这类被动出手），
+        //   数值变化时弹一下，一眼看出离「每第三次（伤害加成 + 吸血）」还差几下。
+        const mieCount = (unit.isMieJueShiTai && unit.alive && !isDead) ? (unit.state._attackCount || 0) : 0;
+        if (mieCount > 0) {
+            const badge = document.createElement('span');
+            badge.className = 'mie-count';
+            badge.textContent = String(mieCount);
+            badge.style.cssText = 'position:absolute;top:-8px;left:50%;transform:translate(-50%,-50%);min-width:15px;padding:0 3px;border-radius:8px;background:rgba(180,0,0,0.9);color:#fff;font-size:10px;font-weight:bold;line-height:15px;text-align:center;pointer-events:none;z-index:1002;box-shadow:0 0 6px rgba(180,0,0,0.6);';
+            const prevCount = _mieCountShown.get(unit.uid);
+            if (prevCount !== undefined && prevCount !== mieCount) {
+                clock.animate(260, (p) => {
+                    badge.style.transform = `translate(-50%,-50%) scale(${1 + 0.7 * (1 - p)})`;
+                });
+            }
+            _mieCountShown.set(unit.uid, mieCount);
+            div.appendChild(badge);
         }
         div.style.cursor = 'pointer';
         div.addEventListener('click', (e) => {

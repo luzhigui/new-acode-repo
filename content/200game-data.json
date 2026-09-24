@@ -164,13 +164,13 @@
         },
         "thirdStrike": {
           "name": "每第三次攻击",
-          "desc": "每第3次命中伤害×{dmgMultiplier}，并吸血{leechRatio}倍本次伤害",
-          "params": { "dmgMultiplier": 2, "leechRatio": 2.0 }
+          "desc": "每第3次命中伤害×{dmgMultiplier}，并吸血{leechRatio}倍本次伤害（反击/跟随这类被动出手照样计数）",
+          "params": { "dmgMultiplier": 1.5, "leechRatio": 1.5 }
         },
         "summonZhou": {
           "name": "召唤周芷若",
-          "desc": "每局1次，回合开始召唤周芷若入场（M{m}，优先2号位，被占则顺延）",
-          "params": { "m": 107, "posPriority": [2, 3, 1, 5] }
+          "desc": "每局1次，任一队友或灭绝师太自身阵亡时，在原位置召唤周芷若（M{m}）",
+          "params": { "m": 107 }
         }
       },
       "mechanics": [
@@ -187,11 +187,12 @@
       "skills": {
         "summonLion": {
           "name": "召唤狮子",
-          "desc": "每回合开始80%概率在随机空位召唤一只幼狮（攻0故无法攻击，行动时休息回血；被加攻后可正常出手，按防战公式结算）；幼狮存活一回合后按所在位置成长：1-6号位成雄狮，7-9号位成母狮",
+          "desc": "每回合开始50%概率在随机空位召唤一只幼狮（攻0故无法攻击，行动时休息回血；被加攻后可正常出手，按防战公式结算；不遮挡后排队友）；幼狮存活一回合后80%概率按所在位置成长：1-6号位成雄狮，7-9号位成母狮，未成长则保持幼狮下回合再判定",
           "params": {
-            "prob": 0.8,
+            "prob": 0.5,
             "cub": { "name": "幼狮", "role": "防战", "m": 20, "atk": 0, "def": 4, "maxHp": 40 },
             "grow": {
+              "prob": 0.8,
               "frontMax": 6,
               "front": { "name": "雄狮", "role": "战士", "m": 70, "atk": 24, "def": 18, "maxHp": 90 },
               "back": { "name": "母狮", "role": "远程", "m": 70, "atk": 30, "def": 16, "maxHp": 80 }

@@ -1,5 +1,5 @@
 // V6.2.0 | ~40500 bytes | 2026-09-23 谢逊改版：删替死/集火/狮吼，改为召唤幼狮→成长→雄狮振奋/母狮随动
-export const VER = 'modules/27elite-mingjiao.js V6.2.0';
+export const VER = 'modules/27elite-mingjiao.js V6.2.1';
 
 import { registerElite } from '../core/08-elite-registry.js';
 import { CONFIG, getSkillParams } from '../core/01config-5v5-test.js';
@@ -9,6 +9,7 @@ import { applyHeroFlags } from '../core/02unit.js';
 import { spiderTransform, spiderReturn } from '../modules/20elite-skills.js';
 import { checkZhangSwitch, emitEvent, applyStatChange, refreshMaxHp, getBattleRng, addMod, removeModsByGroup, getStat } from '../core/13battle-shared.js';
 import { eventBus, EXECUTION_LAYER as L, EFFECT_TYPES } from '../infra/50-event-bus.js';
+import { FX_SIGNALS } from '../infra/55-fx-signals.js';
 import { StateMachine } from '../infra/51-core-utils.js';
 import { FACT_TYPES, BUFF_TYPES, UNIT_EVENT_TYPES, CAMP_TYPES, ROLE_TYPES, SIGNAL_TYPES, STATE_CHANGE_TYPES } from '../infra/56-battle-enums.js';
 import { emitStateChange } from '../infra/59-state-change.js';
@@ -651,9 +652,12 @@ export function createXieXunComponent() {
 
             // ① 成长：上一回合留下的幼狮，本回合开始按所在位置成形（1-6 雄狮 / 7-9 母狮）。
             //    必须排在召唤之前（LION_GROW 15 < XIE_SUMMON 16），否则刚召出来的幼狮会在同一次回合开始里立刻长大。
+            //    2026-09-23 成长加概率：每只幼狮独立掷 grow.prob（默认1=必定成长），未中则保持幼狮下回合再判定。
             eventBus.on(SIGNAL_TYPES.ON_ROUND_START, L.ROUND_START.LION_GROW, (data) => {
                 const cubs = myTeam.filter(u => u.isLionCub && u.alive && u.pos);
+                const growRng = getBattleRng();
                 for (const cub of cubs) {
+                    if (growRng.next() >= (summon.grow.prob ?? 1)) continue;
                     const spec = cub.pos <= (summon.grow.frontMax || 6) ? summon.grow.front : summon.grow.back;
                     // 属性只算不存：成长差值登记为永久词条；maxHp 另走 refreshMaxHp 同步（上限升则当前血等量加）
                     addMod(cub, 'atk', { source: '幼狮成长', value: spec.atk - summon.cub.atk, ttl: 'permanent', group: 'lionGrow', op: 'add' });
@@ -675,7 +679,7 @@ export function createXieXunComponent() {
             eventBus.on(SIGNAL_TYPES.ON_ROUND_START, L.ROUND_START.XIE_SUMMON, (data) => {
                 if (!xiexun.alive) return;
                 const rng = getBattleRng();
-                if (rng.next() >= (summon.prob ?? 0.8)) return;
+                if (rng.next() >= (summon.prob ?? 0.5)) return;
                 const occupied = new Set(myTeam.filter(u => u.alive).map(u => u.pos));
                 const free = [1, 2, 3, 4, 5, 6, 7, 8, 9].filter(p => !occupied.has(p));
                 if (free.length === 0) return;
@@ -700,6 +704,8 @@ export function createXieXunComponent() {
                     addMod(t, 'atk', { source: '振奋', value: gain, ttl: 'permanent', group: 'lionInspire', op: 'add' });
                     emitEvent(t, UNIT_EVENT_TYPES.HP_CHANGE, { hp: t.hp, maxHp: t.maxHp, alive: t.alive, atk: getStat(t, 'atk'), def: getStat(t, 'def') });
                 }
+                // 狮吼演出：信号由 fx/89 订阅（快进/静音在表现层自行判断），引擎只管发
+                eventBus.emit(FX_SIGNALS.LION_ROAR, { unit: lion, team: targets });
                 pushInfo(data, `<span class="gold">🦁 雄狮振奋！己方全体攻击力 +${gain}</span>`);
             });
 
