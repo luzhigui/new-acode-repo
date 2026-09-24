@@ -49,7 +49,7 @@ export function isBlocked(unit, allies) {
     if (unit._fsm && (unit._fsm.is('attached') || unit._fsm.is('flying'))) return false;
     let col = (unit.pos - 1) % 3;
     let poses = [1+col, 4+col, 7+col];
-    let front = poses.find(p => allies.some(a => a.pos === p && a.alive && !a.isHorse && !(a.state._flyMode === 'butterfly') && !(a.state._flyMode === 'spider')));
+    let front = poses.find(p => allies.some(a => a.pos === p && a.alive && !a.isHorse && !a.isLionCub && !(a.state._flyMode === 'butterfly') && !(a.state._flyMode === 'spider')));
     if (!front) return false;
     if (unit.pos === front) return false;
     return unit.pos > front;

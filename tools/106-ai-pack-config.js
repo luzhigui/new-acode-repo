@@ -1,3 +1,4 @@
+// V6.0.12 | ~11030 bytes | 2026-09-23 补登记 infra/61-view-sheet.js（妆造字段剥离新文件，103 复制器与分包脚本均派生自本表）
 // V6.0.11 | ~10980 bytes | 2026-09-22 移除已删除的 demo-stage3.html 登记
 // V6.0.10 | ~11000 bytes | 2026-09-22 登记 demo-stage3.html（第三关阵容轮换 + 胖远桥 demo 页，dev-index 隐藏入口）
 // V6.0.9 | ~10900 bytes | 2026-09-22 登记 tools/118-import-export-check.mjs（node 直跑：import/export 具名绑定对账，配合 103 白名单新增 .mjs）
@@ -8,7 +9,7 @@
 // V6.0.4 | 2026-09-13 登记 tools/106b-server.js（本地静态服务器，供 file:// 下启用目录直写）
 // V6.0.3 | 2026-09-11 补清单漏登9个正式文件：ui/71-74（引导+三套开场CG）、player/48-49、fx/90、tests/123static-scan、tests/124rule-recipes
 // V6.0.2 | 2026-09-09 拆出 player/ 为独立「播放器」组（引擎 46→38）
-export const VER = 'tools/106-ai-pack-config.js V6.0.11';
+export const VER = 'tools/106-ai-pack-config.js V6.0.12';
 
 // AI 复制包踢除清单（103-toolkit.js 的 FILES 过滤会无条件跳过这里的文件）
 // 2026-09-04 用户决定不再精简：特效/音效/错误面板/入口页全部随包发送。
@@ -29,7 +30,7 @@ export const ALL_PROJECT_FILES = [
     '../infra/50-event-bus.js',
     '../core/01config-5v5-test.js', '../core/02unit.js',
     '../core/03battle-utils.js', '../core/04buff-system.js', '../core/05battle-horse.js',
-    '../infra/51-core-utils.js', '../infra/52-clock.js', '../infra/56-battle-enums.js', '../infra/57-calc-modifier-registry.js', '../infra/58-fact-contract.js', '../infra/59-state-change.js', '../infra/60-net-pvp.js',
+    '../infra/51-core-utils.js', '../infra/52-clock.js', '../infra/56-battle-enums.js', '../infra/57-calc-modifier-registry.js', '../infra/58-fact-contract.js', '../infra/59-state-change.js', '../infra/60-net-pvp.js', '../infra/61-view-sheet.js',
     '../core/08-elite-registry.js',
     '../core/10battle-attack.js', '../core/11battle-round.js', '../core/12battle-attack-steps.js',
     '../core/13battle-shared.js', '../core/14buff-effects.js', '../core/15-skill-mechanisms.js',

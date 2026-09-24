@@ -652,9 +652,12 @@ export function createXieXunComponent() {
 
             // ① 成长：上一回合留下的幼狮，本回合开始按所在位置成形（1-6 雄狮 / 7-9 母狮）。
             //    必须排在召唤之前（LION_GROW 15 < XIE_SUMMON 16），否则刚召出来的幼狮会在同一次回合开始里立刻长大。
+            //    2026-09-23 成长加概率：每只幼狮独立掷 grow.prob（默认1=必定成长），未中则保持幼狮下回合再判定。
             eventBus.on(SIGNAL_TYPES.ON_ROUND_START, L.ROUND_START.LION_GROW, (data) => {
                 const cubs = myTeam.filter(u => u.isLionCub && u.alive && u.pos);
+                const growRng = getBattleRng();
                 for (const cub of cubs) {
+                    if (growRng.next() >= (summon.grow.prob ?? 1)) continue;
                     const spec = cub.pos <= (summon.grow.frontMax || 6) ? summon.grow.front : summon.grow.back;
                     // 属性只算不存：成长差值登记为永久词条；maxHp 另走 refreshMaxHp 同步（上限升则当前血等量加）
                     addMod(cub, 'atk', { source: '幼狮成长', value: spec.atk - summon.cub.atk, ttl: 'permanent', group: 'lionGrow', op: 'add' });
@@ -676,7 +679,7 @@ export function createXieXunComponent() {
             eventBus.on(SIGNAL_TYPES.ON_ROUND_START, L.ROUND_START.XIE_SUMMON, (data) => {
                 if (!xiexun.alive) return;
                 const rng = getBattleRng();
-                if (rng.next() >= (summon.prob ?? 0.8)) return;
+                if (rng.next() >= (summon.prob ?? 0.5)) return;
                 const occupied = new Set(myTeam.filter(u => u.alive).map(u => u.pos));
                 const free = [1, 2, 3, 4, 5, 6, 7, 8, 9].filter(p => !occupied.has(p));
                 if (free.length === 0) return;
