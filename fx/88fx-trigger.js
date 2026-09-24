@@ -1,6 +1,6 @@
 // fx/88fx-trigger.js
-// V6.1.1 | 2026-09-24 死亡态改由引擎状态驱动，这里不再派发 DEAD flash / _isDead
-export const VER = 'fx/88fx-trigger.js V6.1.1';
+// V6.1.2 | 2026-09-24 远程分支补 isDodge 弧线（简单模式远程闪避有画面）；死亡态改由引擎状态驱动，这里不再派发 DEAD flash / _isDead
+export const VER = 'fx/88fx-trigger.js V6.1.2';
 
 import { getKillTaunt } from '../core/03battle-utils.js';
 import { GlobalStore } from '../infra/54-global-store.js';
@@ -43,7 +43,11 @@ export function _triggerFX(fxSnapshot, unitA, unitD, isDead, isDodge, isMiss, is
                 clock.wait(500).then(() => {
                     if (!GlobalStore.get('fastForwardActive')) showDodgeBubble(unitA, '未命中');
                 });
-            } else if (!isDodge) {
+            } else if (isDodge) {
+                // 2026-09-24 远程被闪避（简单模式）：与射偏同款弧线——箭飞向目标、中途偏开，
+                //   让远程闪避也有画面（原先远程分支对 isDodge 什么都不做，只有气泡）
+                showRangedArrow(unitA, unitD, false, null, true);
+            } else {
                 showRangedArrow(unitA, unitD, false, () => {
                     shakeTarget(unitD.uid, 350);
                     // 2026-09-15 飘字延后 800ms；09-16 调到 1100ms，再等日志文本一会

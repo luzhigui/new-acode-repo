@@ -1,12 +1,12 @@
 // render/38-actions-translate.js — fact → stageAction 翻译器（翻译域）
-// V1.1.0 | ~26700 bytes | 2026-09-24 ATTACK 携带灭绝师太出手计数文本与三击吸血量（演出帧消费）
+// V1.1.1 | ~26750 bytes | 2026-09-24 DODGE 携带 weiHeal（韦一笑闪避吸血飘字）；ATTACK 携带灭绝师太出手计数文本与三击吸血量（演出帧消费）
 //
 // 加新 fact 的舞台动作：在本文件 FACT_TRANSLATORS 加一条（键=factType），
 // 并在 infra/58 的 translateFn 登记函数名；漏加会在本文件末尾校验循环里报错。
 import { makeFXSnapshot } from '../infra/51-core-utils.js';
 import { STAGE_ACTION_TYPES, FACT_TYPES, CAMP_TYPES, BUFF_EFFECT_TYPES, FLY_MODE_TYPES } from '../infra/56-battle-enums.js';
 import { FACT_SPECS } from '../infra/58-fact-contract.js';
-export const VER = 'render/38-actions-translate.js V1.1.0';
+export const VER = 'render/38-actions-translate.js V1.1.1';
 
 // 把 fact 列表翻译成舞台动作；导演只读 stageActions；timing=beforeText/afterText
 export function translateFactsToStageActions(log) {
@@ -60,6 +60,8 @@ const FACT_TRANSLATORS = {
         targetUid: data.dodger?.uid ?? null,
         reboundDmg: data.reboundDmg,
         dead: data.attackerHpAfter <= 0,
+        // 2026-09-24 韦一笑闪避反击吸血带给演出层，用于补吸血飘字（原先只有日志文本）
+        weiHeal: data.weiHeal || null,
         fx: data.fxSnapshot || null,
         factIndex: index,
         timing: 'beforeText'

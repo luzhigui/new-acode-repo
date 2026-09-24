@@ -1,5 +1,5 @@
-// V6.1.0 | 2026-09-13 统一时间层：打字等待改 clock.wait，删 waitWhilePaused；baseDuration 改为 1x 基准时长
-export const VER = 'player/40player-text.js V6.1.0';
+// V6.2.0 | 2026-09-24 无锚点行打字提速 600→250ms（锚点行维持 600 保证特效字位同步）
+export const VER = 'player/40player-text.js V6.2.0';
 
 import { GlobalStore } from '../infra/54-global-store.js';
 import { clock } from '../infra/52-clock.js';
@@ -38,7 +38,9 @@ export async function playLineText(text, div, forcedSpeed = null, anchorSpecs = 
     let plain = text.replace(/<[^>]+>/g, '');
     let htmlIdx = 0, fullHtml = '';
     // baseDuration 是 1x 基准毫秒：整行打完的总时长；倍速由 clock 统一缩放
-    const baseDuration = forcedSpeed !== null ? forcedSpeed : 600;
+    // 2026-09-24 无锚点行快速打出（250ms）：锚点行才需要逐字同步特效（600ms），普通行没有字位要等
+    const hasAnchors = !!(anchorSpecs && anchorSpecs.some(s => s && s.text && s.cb && plain.indexOf(s.text) >= 0));
+    const baseDuration = forcedSpeed !== null ? forcedSpeed : (hasAnchors ? 600 : 250);
 
     // 锚点：在纯文本里定位每个锚点文本的结束位置，打到该位置时触发
     const pending = [];

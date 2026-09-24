@@ -1,10 +1,10 @@
-// V6.0.1 | ~11800 bytes | 2026-09-11 maxHp 词条化批2a：LEECH/ROUND_STAT_GRANT 改 addMod+refreshMaxHp；LEECH 改按增量（修多次吸血超封顶 bug）
-export const VER = 'core/16effect-handlers.js V6.0.1';
+// V6.0.2 | ~12100 bytes | 2026-09-24 SPLASH 逐目标补发 SIGNAL_TYPES.SPLASH_DAMAGED（窄通道，供莽撞类"挨打增益"被动认溅射）
+export const VER = 'core/16effect-handlers.js V6.0.2';
 
-import { EFFECT_TYPES } from '../infra/50-event-bus.js';
+import { eventBus, EFFECT_TYPES } from '../infra/50-event-bus.js';
 import { applyStatChange, refreshMaxHp, query, emitEvent, addMod, getStat } from './13battle-shared.js';
 import { flushBattleEvents } from '../infra/51-core-utils.js';
-import { BUFF_TYPES, BUFF_SUBTYPES, UNIT_EVENT_TYPES, ROLE_TYPES, FACT_TYPES } from '../infra/56-battle-enums.js';
+import { SIGNAL_TYPES, BUFF_TYPES, BUFF_SUBTYPES, UNIT_EVENT_TYPES, ROLE_TYPES, FACT_TYPES } from '../infra/56-battle-enums.js';
 import { registerCalcModifier, getCalcModifier } from '../infra/57-calc-modifier-registry.js';
 export { registerCalcModifier, getCalcModifier };
 
@@ -157,6 +157,12 @@ registerEffectHandler(EFFECT_TYPES.SPLASH, (ctx) => {
         for (const st of decl.targets) {
             if (!st.alive) continue;
             applyStatChange(st, 'hp', -(decl.value || 0), ctx.unit, '溅射');
+            // 2026-09-24 溅射伤害逐目标广播：走窄通道，不重发 AFTER_DAMAGE_APPLIED
+            //   （那条挂着 LEECH/流星/嗜血/九阳等十余条监听，重发等于把一次溅射当成一次完整攻击）
+            eventBus.emit(SIGNAL_TYPES.SPLASH_DAMAGED, {
+                unit: st, target: st, attacker: ctx.unit,
+                dmg: decl.value || 0, factData: decl.factData || null
+            });
         }
         if (ctx.unit && ctx.unit.role === ROLE_TYPES.RANGED && decl.buffType === BUFF_SUBTYPES.METEOR_SPLASH) {
             const enhance = query('xiaoHexEnhance', ctx.allySide, ctx.unitBuffs, BUFF_TYPES.METEOR_SHOWER);

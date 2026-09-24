@@ -1,5 +1,5 @@
 // render/39-actions-defs.js — 舞台动作演出定义（演出域）
-// V1.2.0 | ~23200 bytes | 2026-09-24 灭绝师太计数飘字与三击吸血飘字锚在出手帧（ATTACK 演出里发）
+// V1.2.1 | ~23400 bytes | 2026-09-24 拒马消散走普通死亡管线（删 REMOVE_UNIT 短通道）；DODGE 补韦一笑吸血飘字、远程闪避补弧线
 // 2026-09-22 从 render/31 拆出：STAGE_ACTION_DEFS 全表 + 单位查找
 //
 // 加新 stageAction：在本文件 STAGE_ACTION_DEFS 加一条（键=STAGE_ACTION_TYPES.xxx），
@@ -11,7 +11,7 @@ import { GlobalStore } from '../infra/54-global-store.js';
 import { getSkillParams } from '../core/01config-5v5-test.js';
 import { AudioManager } from '../modules/22audio-manager.js';
 import { STAGE_ACTION_TYPES, STORE_ACTION_TYPES, UNIT_EVENT_TYPES, ROLE_TYPES, BUFF_EFFECT_TYPES, BUFF_SUBTYPES, FLY_MODE_TYPES } from '../infra/56-battle-enums.js';
-export const VER = 'render/39-actions-defs.js V1.2.0';
+export const VER = 'render/39-actions-defs.js V1.2.1';
 
 // 先查 store 权威单位，再回退 UI 快照
 function findUnitByUidLocal(c, uid) {
@@ -139,10 +139,9 @@ export const STAGE_ACTION_DEFS = {
                 await showDodgeBulletTime(attacker, dodger, action.reboundDmg || 0);
             } else if (attacker) {
                 eventBus.emit(FX_SIGNALS.DODGE_BUBBLE, { unit: attacker, text: '闪避！' });
-                // 简单模式闪避反击：近战攻击者需补发 TRIGGER 信号，触发飞撞击退动画。
-                //    _triggerFX 里 isDodge=true 且 dodgeEffectEnabled=false 时，会调用 showMeleeDodge(闪避者, 攻击者)，
-                //    实现"飞撞过去 → 被击退回来"的完整动画。远程攻击者不走飞撞，只保持气泡提示。
-                if (attacker.role !== ROLE_TYPES.RANGED && dodger) {
+                // 简单模式闪避反击：近战攻击者补发 TRIGGER 走飞撞被击退；远程攻击者同样补发，
+                //   由 fx/88 的远程分支给「箭飞出一半偏开」的弧线（原先远程只有气泡，完全没有闪避画面）。
+                if (dodger) {
                     eventBus.emit(FX_SIGNALS.TRIGGER, {
                         fxSnapshot: action.fx || null,
                         unitA: attacker,
@@ -158,6 +157,11 @@ export const STAGE_ACTION_DEFS = {
                         attackerRole: attacker.role
                     });
                 }
+            }
+            // 2026-09-24 韦一笑闪避反击吸血：补吸血弹幕。原先只有日志文本，两种模式都没有飘字
+            //   （华丽模式的子弹时间飘字会被黑幕盖住，所以放在整段演出之后发）
+            if (dodger && action.weiHeal && action.weiHeal.heal > 0) {
+                eventBus.emit(FX_SIGNALS.HEAL_FLOAT, { unit: dodger, amount: action.weiHeal.heal });
             }
         }
     },
@@ -212,11 +216,10 @@ export const STAGE_ACTION_DEFS = {
     },
     [STAGE_ACTION_TYPES.DESTROY]: {
         grid: 'sync', log: 'sync', timing: 'afterText',
-        store: (c, action, pendingDeaths) => {
-            if (action.success && action.actorUid) {
-                c.store.dispatch({ type: STORE_ACTION_TYPES.REMOVE_UNIT, uid: action.actorUid });
-            }
-        },
+        // 2026-09-24 删掉原 store 段的 REMOVE_UNIT：拒马消散发生在回合末生成步里，步末 syncStoreFromStep
+        //   会把带 _isDead 的拒马重新灌回 store（uid 未进 _removedUids），于是「格子先空 → 红 ✕ 尸体后到」，
+        //   看着像先消失再补死亡特效。改为不给特殊通道：跟普通单位同一条死亡管线，
+        //   当帧上死亡态、尸体交 player/42 的 3 秒清尸计时移除。
         fx: async (c, action) => {
             if (action.success && action.actorUid) {
                 await eventBus.emit(FX_SIGNALS.BANNER, { text: '🐴 拒马已销毁' });

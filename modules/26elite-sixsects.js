@@ -1,5 +1,5 @@
-// V6.14.0 | ~24200 bytes | 2026-09-24 胖远桥嘲讽改「自身永久+40防（无上限）」，取消嘲讽减伤；灭绝计数飘字改由 render/39 出手帧发；三击吸血写「X→Y」+ 吸血飘字；张三丰严阵以待第3回合
-export const VER = 'modules/26elite-sixsects.js V6.14.0';
+// V6.14.1 | ~24700 bytes | 2026-09-24 莽撞新增「溅射也算挨打」（订阅 SPLASH_DAMAGED）；V6.14.0 胖远桥嘲讽改「自身永久+40防（无上限）」，取消嘲讽减伤；灭绝计数飘字改由 render/39 出手帧发；三击吸血写「X→Y」+ 吸血飘字；张三丰严阵以待第3回合
+export const VER = 'modules/26elite-sixsects.js V6.14.1';
 import { registerElite } from '../core/08-elite-registry.js';
 import { CONFIG, getSkillParams } from '../core/01config-5v5-test.js';
 import { SIGNAL_TYPES, FACT_TYPES, BUFF_TYPES, CAMP_TYPES, ROLE_TYPES } from '../infra/56-battle-enums.js';
@@ -202,6 +202,18 @@ export function createPangYuanQiaoComponent() {
                 if (!data.dmg || data.dmg <= 0) return;
                 addMod(pang, 'atk', { source: '莽撞', value: rage.atkPerHit, ttl: 'permanent', group: 'rageOnHit', op: 'add' });
                 pushInfo(data, `<span class="gold">💢 莽撞：胖远桥挨了打，攻击+${rage.atkPerHit}（当前 ${Math.floor(getStat(pang, 'atk'))}）</span>`);
+            });
+
+            // 技能1 补充（2026-09-24）：流星赶月/乘风突袭的溅射（二次伤害）同样算「挨打」，与主目标口径一致。
+            //   AFTER_DAMAGE_APPLIED 只发主目标，溅射由 core/16 的 SPLASH handler 走 SPLASH_DAMAGED 窄信号。
+            eventBus.on(SIGNAL_TYPES.SPLASH_DAMAGED, 50, (data) => {
+                if (data.unit !== pang || !pang.alive) return;
+                if (!data.dmg || data.dmg <= 0) return;
+                addMod(pang, 'atk', { source: '莽撞', value: rage.atkPerHit, ttl: 'permanent', group: 'rageOnHit', op: 'add' });
+                // 台词挂在溅射那条 fact 上（render/35 会追加到行尾）
+                if (data.factData) {
+                    data.factData.rageText = `<span class="gold">💢 莽撞：胖远桥吃了溅射，攻击+${rage.atkPerHit}（当前 ${Math.floor(getStat(pang, 'atk'))}）</span>`;
+                }
             });
 
             // 技能2/3 二选一（每次攻击前掷一次，必触发其一）：

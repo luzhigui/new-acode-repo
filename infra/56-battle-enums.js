@@ -1,5 +1,5 @@
-// V1.3.0 | ~3300 bytes | 2026-09-23 LION_SACRIFICE 换成 LION_GROW（谢逊替死改为幼狮成长）
-export const VER = 'infra/56-battle-enums.js V1.3.0';
+// V1.3.1 | ~3700 bytes | 2026-09-24 新增 SIGNAL_TYPES.SPLASH_DAMAGED（溅射逐目标广播，供莽撞类"挨打增益"被动）
+export const VER = 'infra/56-battle-enums.js V1.3.1';
 
 /** 事实类型：所有 factType 字符串的唯一来源 */
 export const FACT_TYPES = Object.freeze({
@@ -151,7 +151,11 @@ export const SIGNAL_TYPES = Object.freeze({
     // 单位状态变化统一广播：所有"单位状态变了"的机制信号都走这个
     ON_UNIT_STATE_CHANGE: 'onUnitStateChange',
     // 单位行动完成广播：每次该单位走完自己的回合（攻击/休息/被遮挡）后发一次
-    ON_UNIT_ACTED: 'onUnitActed'
+    ON_UNIT_ACTED: 'onUnitActed',
+    // 溅射伤害逐目标广播：SPLASH 效果每打完一个目标发一次（乘风波及 / 流星溅射）。
+    //   专供"挨打增益"类被动（胖远桥莽撞）——它们只认 AFTER_DAMAGE_APPLIED，而那条只发主目标；
+    //   若在溅射时重发 AFTER_DAMAGE_APPLIED，LEECH / 流星 / 嗜血等十余条监听会把溅射当一次完整攻击。
+    SPLASH_DAMAGED: 'splashDamaged'
 });
 
 /** 单位状态变化类型：ON_UNIT_STATE_CHANGE 信号的 changeType 唯一来源 */
