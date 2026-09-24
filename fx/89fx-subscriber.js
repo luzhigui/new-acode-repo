@@ -1,5 +1,5 @@
 // V6.0.0 | 2026-08-23 player 只 emit 信号，本文件订阅转调
-export const VER = 'fx/89fx-subscriber.js V6.0.0';
+export const VER = 'fx/89fx-subscriber.js V6.1.0';
 
 import { eventBus } from '../infra/50-event-bus.js';
 import { GlobalStore } from '../infra/54-global-store.js';
@@ -15,6 +15,8 @@ import {
     showButterflyFlyOut, showButterflyFlyBack,
     showSpiderAscend, showSpiderDescend, showSpiderStrike
 } from './86fx-butterfly-spider.js';
+import { showLionRoar } from './91fx-lion-roar.js';
+import { AudioManager } from '../modules/22audio-manager.js';
 
 // 快进判断归位于表现层
 function inFastForward() {
@@ -58,3 +60,9 @@ eventBus.on(FX_SIGNALS.BUTTERFLY_FLY_OUT, P, (d) => showButterflyFlyOut(d.sister
 eventBus.on(FX_SIGNALS.BUTTERFLY_FLY_BACK, P, (d) => showButterflyFlyBack(d.host, d.sister));
 eventBus.on(FX_SIGNALS.SPIDER_ASCEND, P, (d) => showSpiderAscend(d.unit));
 eventBus.on(FX_SIGNALS.SPIDER_DESCEND, P, (d) => showSpiderDescend(d.unit));
+// 雄狮振奋：音效 + 冲击波视觉（快进跳过）
+eventBus.on(FX_SIGNALS.LION_ROAR, P, (d) => {
+    if (inFastForward()) return;
+    AudioManager.playSfxByName('lionRoar');
+    return showLionRoar(d.unit, d.team);
+});

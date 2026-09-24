@@ -164,13 +164,13 @@
         },
         "thirdStrike": {
           "name": "每第三次攻击",
-          "desc": "每第3次命中伤害×{dmgMultiplier}，并吸血{leechRatio}倍本次伤害",
-          "params": { "dmgMultiplier": 2, "leechRatio": 2.0 }
+          "desc": "每第3次命中伤害×{dmgMultiplier}，并吸血{leechRatio}倍本次伤害（反击/跟随这类被动出手照样计数）",
+          "params": { "dmgMultiplier": 1.5, "leechRatio": 1.5 }
         },
         "summonZhou": {
           "name": "召唤周芷若",
-          "desc": "每局1次，回合开始召唤周芷若入场（M{m}，优先2号位，被占则顺延）",
-          "params": { "m": 107, "posPriority": [2, 3, 1, 5] }
+          "desc": "每局1次，任一队友或灭绝师太自身阵亡时，在原位置召唤周芷若（M{m}）",
+          "params": { "m": 107 }
         }
       },
       "mechanics": [

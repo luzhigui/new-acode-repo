@@ -1,5 +1,5 @@
-// V2.4.0 | ~10150 bytes | 2026-09-23 谢逊改版：删 _focusUsedRound（集火已移除）
-export const VER = 'core/17-state-keys.js V2.4.0';
+// V2.5.0 | ~10300 bytes | 2026-09-24 灭绝师太：_thirdStrike 删除（三击改按 _attackCount 现算），加 _pendingZhouPos
+export const VER = 'core/17-state-keys.js V2.5.0';
 
 /** 字段类型：决定 clone 时的拷贝方式 */
 export const STATE_FIELD_TYPES = Object.freeze({
@@ -80,9 +80,12 @@ export const BATTLE_STATE_SCHEMA = Object.freeze({
     _tauntFired:             { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
 
     // 灭绝师太：反击 / 跟随攻击 / 每第三次攻击 / 召唤周芷若
+    // 出手次数含反击/跟随这类被动出手（原设计）；三击不落标记，两处按 _attackCount 现算
     _attackCount:            { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },
-    _thirdStrike:            { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
     _summonedZhou:           { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
+    // 召唤周芷若待落位位置：阵亡当帧只记位置，下一个行动步（或下一回合兜底）才 spawn。
+    //   跨回合兜底要靠它活过回合边界，所以必须是 battle 级字段（队伍数组每回合都重建，挂不住）
+    _pendingZhouPos:         { type: STATE_FIELD_TYPES.NUMBER,  default: -1 },
     // 不可闪避：仅一次攻击内有效，由 core/10 额外攻击循环置/清
     _ignoreDodge:            { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
 

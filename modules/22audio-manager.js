@@ -1,5 +1,5 @@
 // V6.0.0 | ~8000 bytes | 2026-07-05
-export const VER = 'modules/22audio-manager.js V6.0.0';
+export const VER = 'modules/22audio-manager.js V6.1.0';
 
 import { CONFIG } from '../core/01config-5v5-test.js';
 
@@ -149,6 +149,70 @@ function playSlash() {
     noiseGain.connect(ctx.destination);
     noise.start();
     noise.stop(now + noiseDuration);
+}
+
+// 狮吼合成音效：双锯齿低吼滑落 + 颤音 LFO + 气息噪声，低通收尾（无 mp3 素材，与 playSlash 同为合成路线）
+function playLionRoar(volume = 0.3) {
+    const ctx = getAudioCtx();
+    const now = ctx.currentTime;
+    const dur = 1.15;
+
+    const master = ctx.createGain();
+    master.gain.setValueAtTime(0.0001, now);
+    master.gain.exponentialRampToValueAtTime(volume, now + 0.08);
+    master.gain.setValueAtTime(volume, now + 0.5);
+    master.gain.exponentialRampToValueAtTime(0.001, now + dur);
+
+    const lp = ctx.createBiquadFilter();
+    lp.type = 'lowpass';
+    lp.frequency.setValueAtTime(900, now);
+    lp.frequency.exponentialRampToValueAtTime(250, now + dur - 0.1);
+
+    lp.connect(master);
+    master.connect(ctx.destination);
+
+    // 颤音 LFO：吼声的"抖"
+    const lfo = ctx.createOscillator();
+    lfo.frequency.value = 11;
+    const lfoGain = ctx.createGain();
+    lfoGain.gain.value = 12;
+    lfo.connect(lfoGain);
+
+    for (const [f0, g] of [[95, 0.5], [143, 0.25]]) {
+        const osc = ctx.createOscillator();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(f0 * 1.3, now);
+        osc.frequency.exponentialRampToValueAtTime(f0 * 0.62, now + 0.9);
+        lfoGain.connect(osc.frequency);
+        const gain = ctx.createGain();
+        gain.gain.value = g;
+        osc.connect(gain);
+        gain.connect(lp);
+        osc.start(now);
+        osc.stop(now + dur);
+    }
+    lfo.start(now);
+    lfo.stop(now + dur);
+
+    // 气息噪声层：带通摩擦感
+    const bufferSize = ctx.sampleRate * 1.0;
+    const noiseBuffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+    const data = noiseBuffer.getChannelData(0);
+    for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
+    const noise = ctx.createBufferSource();
+    noise.buffer = noiseBuffer;
+    const nf = ctx.createBiquadFilter();
+    nf.type = 'bandpass';
+    nf.frequency.value = 420;
+    nf.Q.value = 0.8;
+    const noiseGain = ctx.createGain();
+    noiseGain.gain.setValueAtTime(0.4, now);
+    noiseGain.gain.exponentialRampToValueAtTime(0.01, now + 0.95);
+    noise.connect(nf);
+    nf.connect(noiseGain);
+    noiseGain.connect(lp);
+    noise.start(now);
+    noise.stop(now + 1.0);
 }
 
 export const AudioManager = {
@@ -346,6 +410,20 @@ export const AudioManager = {
                 ctx.resume();
             }
         } catch (e) {}
+    },
+
+    // 具名合成音效入口（不走角色 role 映射）：'lionRoar' → 合成狮吼
+    playSfxByName(name) {
+        if (!this.enabled) return;
+        try {
+            const ctx = getAudioCtx();
+            if (ctx.state === 'suspended') { ctx.resume(); }
+            if (name === 'lionRoar') {
+                playLionRoar(this.sfxVolume);
+            }
+        } catch (e) {
+            // 音效播放失败不影响游戏
+        }
     },
 
     playSfx(role) {

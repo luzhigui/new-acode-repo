@@ -1,11 +1,11 @@
 // fx/88fx-trigger.js
-// V6.1.0 | 2026-09-13 统一时间层：删 getPausedState/speed 传参，setTimeout 换 clock.wait，对齐 81/82 新签名
-export const VER = 'fx/88fx-trigger.js V6.1.0';
+// V6.1.1 | 2026-09-24 死亡态改由引擎状态驱动，这里不再派发 DEAD flash / _isDead
+export const VER = 'fx/88fx-trigger.js V6.1.1';
 
 import { getKillTaunt } from '../core/03battle-utils.js';
 import { GlobalStore } from '../infra/54-global-store.js';
 import { AudioManager } from '../modules/22audio-manager.js';
-import { STORE_ACTION_TYPES, FLASH_TYPES, ROLE_TYPES } from '../infra/56-battle-enums.js';
+import { ROLE_TYPES } from '../infra/56-battle-enums.js';
 import { showDanmaku, showDamageFloat, showDodgeBubble } from './80fx-common-5v5-test.js';
 import { showRangedArrow } from './81fx-arrows-5v5-test.js';
 import { showMeleeCrash, showMeleeDodge, showMeleeMiss } from './82fx-crash-5v5-test.js';
@@ -68,13 +68,9 @@ export function _triggerFX(fxSnapshot, unitA, unitD, isDead, isDodge, isMiss, is
                     clock.wait(1100).then(() => {
                         if (!GlobalStore.get('fastForwardActive')) showDamageFloat(unitD, dmg);
                     });
-                    if (isDead && unitD) {
-                        const ctx = GlobalStore.get('playerContext');
-                        if (ctx && ctx.store) {
-                            ctx.store.dispatch({ type: STORE_ACTION_TYPES.SET_FLASH, uid: unitD.uid, flash: FLASH_TYPES.DEAD });
-                            ctx.store.dispatch({ type: STORE_ACTION_TYPES.SET_VISUAL, uid: unitD.uid, _isDead: true });
-                        }
-                    }
+                    // 2026-09-24 死亡态不再由这里派发：原先在撞完 1100ms 后才发 DEAD flash（远程分支压根不发），
+                    //   与「死亡特效不能延后」冲突，且替死/免疫回退取消死亡时会把格子错标成尸体。
+                    //   现在死亡态只认引擎状态（resolveDeaths 写 alive/_isDead），UI 当帧就上红底 ✕。
                 });
             }
         }
