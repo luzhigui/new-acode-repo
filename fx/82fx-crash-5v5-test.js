@@ -1,5 +1,5 @@
-// V6.1.0 | 2026-09-13 统一时间层换 clock；特效层解耦：cell 引用改为 snapshot + clone
-export const VER = 'fx/82fx-crash-5v5-test.js V6.1.0';
+// V6.2.0 | 2026-09-24 showMeleeDodge 补 flyMode：原格隐藏，与 Crash/Miss 三兄弟行为一致
+export const VER = 'fx/82fx-crash-5v5-test.js V6.2.0';
 
 import { STORE_ACTION_TYPES, CAMP_TYPES, ROLE_TYPES } from '../infra/56-battle-enums.js';
 import { GlobalStore } from '../infra/54-global-store.js';
@@ -185,9 +185,11 @@ export function showMeleeDodge(unitA, unitD) {
     clone.querySelectorAll('*').forEach(el => { el.style.color = '#ffffff'; });
     document.body.appendChild(clone);
 
+    // 补齐与 Crash/Miss 一致的 flyMode（2026-09-24）：原先漏设，闪避时原格全程可见，出现"人变两个"
+    const flyMode = GlobalStore.get('crashMode') || 'fly';
     const ctx = GlobalStore.get('playerContext');
     if (ctx && ctx.store) {
-        ctx.store.dispatch({ type: STORE_ACTION_TYPES.SET_VISUAL, uid: unitA.uid, _acted: true });
+        ctx.store.dispatch({ type: STORE_ACTION_TYPES.SET_VISUAL, uid: unitA.uid, _acted: true, _renderFlyMode: flyMode });
     }
 
     // 2026-09-16 简单模式闪避反击提速过猛（原 350+500=850ms，仅命中 2500ms 的 1/3）
