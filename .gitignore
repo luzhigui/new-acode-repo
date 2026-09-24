@@ -17,3 +17,6 @@ web/
 android/
 node_modules/
 package-lock.json
+
+# WorkBuddy IDE 工具的临时工作目录（诊断脚本/粘贴缓冲/会话记忆，工具自动再生，不入库）
+/.workbuddy/
