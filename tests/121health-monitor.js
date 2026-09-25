@@ -1,4 +1,4 @@
-// V6.2.0 | ~44200 bytes | 2026-09-25 真值源统一：新增 teamsFromStore()，引擎/UI/规则/结算四组检查
+// V6.2.0 | ~46200 bytes | 2026-09-25 真值源统一：新增 teamsFromStore()，引擎/UI/规则/结算四组检查
 //          一律改取 battleStore 当前真值（原四组全吃 ctx.UI.allyTeam 开战副本＝系统性假绿）。
 //          采样循环中调用即中期真值 —— "中期溢出后被修回"这类漂移终局快照抓不到，改后能抓到。
 // V6.1.0 | ~42400 bytes | 2026-09-21 随机重开检查从轮询判据(checkRandomRestartState,122)改为事件驱动(hookRandomRestartWatch)：
