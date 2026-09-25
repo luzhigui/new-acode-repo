@@ -1,8 +1,8 @@
-// V1.1.1 | ~15300 bytes | 2026-09-25 修「点击没反应」：分享套5秒竞赛(防WebView挂死)→取消显示「已取消」(原0秒复原=观感无反应)→blob+dataURL双下载→结果进console
-//   v1.1: ①文件瘦身（单位增量存储）②系统分享 ③按钮话术分家 ④失败可观测
+// V1.1.2 | ~15400 bytes | 2026-09-26 修「显示已取消」：分享层 AbortError 不再终止（手机网页 canShare 谎报→面板没弹就秒抛取消，=点击没反应的真相），一律降级到下载层
+//   v1.1.1: 分享5秒竞赛防挂死；取消显示「已取消」；blob+dataURL双下载
 //   文件格式：{ format:'ming-battle-replay', version:1, meta.delta:true, steps:[增量step...] }；
 //   v1.0 全量文件兼容（无 delta 标记 = 按 v1.0 全量读）。
-export const VER = 'player/50battle-export.js V1.1.1';
+export const VER = 'player/50battle-export.js V1.1.2';
 
 // ---- 收集（player/42 在开战时 startRecording、每步 feed、收尾 finish）----
 
@@ -183,7 +183,9 @@ export async function exportBattleReport(report) {
     }
 
     // ② 系统分享（手机浏览器）：弹原生面板，可直接「保存到文件」或发微信
-    // 2026-09-25 v1.1.1：套 5 秒竞赛——部分 WebView share 不弹面板也不报错（挂死），超时视为失败继续降级
+    // 2026-09-26 v1.1.2：AbortError 不再终止——部分 WebView canShare 谎报 true，
+    //   share 面板根本没弹就秒抛 AbortError（被误读成「用户取消」＝点击没反应的真相）。
+    //   现在取消/失败一律降级到下载层；只有下载层结果才算数（真取消的用户在系统下载框里再取消一次即可）。
     try {
         const file = new File([text], name, { type: 'application/json' });
         if (navigator.canShare && navigator.canShare({ files: [file] })) {
@@ -192,8 +194,8 @@ export async function exportBattleReport(report) {
             return 'shared';
         }
     } catch (e) {
-        if (e && e.name === 'AbortError') return 'cancel'; // 用户关掉了分享面板
-        console.error('[战报] 系统分享失败/超时，降级:', e);
+        // 不区分 AbortError：真取消还是假取消在浏览器层无法分辨，统一降级（见上注）
+        console.error('[战报] 分享层未成（用户取消或环境谎报支持），降级到下载层:', e && e.message ? e.message : e);
     }
 
     // ③ blob 下载（浏览器标准路；安卓 Chrome 手机版可靠）→ dataURL 下载（老 WebView 兼容）
