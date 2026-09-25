@@ -37,7 +37,8 @@ import { VER as VER_HORSE } from '../core/05battle-horse.js';
 import { VER as VER_CORE } from '../core/11battle-round.js';
 import { SeededRNG } from '../infra/51-core-utils.js';
 import { setBattleRng, getBattleRng } from '../core/13battle-shared.js';
-import { VER as VER_PLAYER_CORE, playBattleGuest } from '../player/42player-core.js';
+import { VER as VER_PLAYER_CORE, playBattleGuest, playBattleReplay } from '../player/42player-core.js';
+import { rehydrateReport } from '../player/50battle-export.js';
 import { handlePvpBuffSelection } from '../player/49battle-flow.js';
 import { VER as VER_TEXT } from '../player/40player-text.js';
 import { VER as VER_BUFF_UI } from '../player/41player-buff-ui.js';
@@ -212,6 +213,77 @@ function applyNetLineup(lineup) {
     updateButtons(); updateSpeedButtons();
 }
 
+// 2026-09-25 回放入口：选战报文件 → 校验 → 进回放（与联机从机同构，数据源是文件里的 steps）
+export async function startReplayFromFile() {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.json,application/json';
+    input.onchange = async () => {
+        const file = input.files && input.files[0];
+        if (!file) return;
+        let report;
+        try {
+            report = JSON.parse(await file.text());
+        } catch (e) {
+            alert('❌ 战报文件读取失败：' + (e && e.message ? e.message : e));
+            return;
+        }
+        if (!report || report.format !== 'ming-battle-replay' || !Array.isArray(report.steps) || report.steps.length === 0) {
+            alert('❌ 不是有效的战报文件（需含 format:"ming-battle-replay" 和 steps）');
+            return;
+        }
+        enterReplay(rehydrateReport(report));   // v1.1 增量文件在此还原成全量（v1.0 全量文件原样通过）
+    };
+    input.click();
+}
+
+function enterReplay(report) {
+    // 打断可能还在跑的旧战斗循环（与 applyNetLineup 同款）
+    const curCtx = getPlayerContext();
+    if (curCtx && curCtx.abortController && !curCtx.abortController.signal.aborted) curCtx.abortController.abort();
+    GlobalStore.set('fastForwardActive', false);
+    GlobalStore.set('pvpMode', false);
+
+    // 首步 = 回合开始态：UI 队伍 / 开局快照 / store 都从这里长出来（与从机 applyNetLineup 同款重建）
+    const first = report.steps[0];
+    const UI = getState.UI();
+    UI.allyTeam = (first.ally || []).map(clonePlainUnit);
+    UI.enemyTeam = (first.enemy || []).map(clonePlainUnit);
+    UI.currentResult = null; UI.round = 0;
+    const snap = getState.snapshot();
+    snap.ally = (first.ally || []).map(clonePlainUnit);
+    snap.enemy = (first.enemy || []).map(clonePlainUnit);
+    setState.UI(UI); setState.snapshot(snap);
+
+    const c = getPlayerContext();
+    if (c) c.snapshot = snap;
+
+    const seedUnits = [...UI.allyTeam, ...UI.enemyTeam];
+    const store = createStore({ units: seedUnits, round: 1 }, battleReducer);
+    GlobalStore.set('battleStore', store);
+    setRenderStore(store);
+
+    setState.autoLevel('auto'); setState.autoMode(true);
+    setState.gs(S.RUNNING); setState.isPaused(false);
+    setState.adjustMode(false); setState.selectedAdjustPos(null);
+    setState.activeBuffs([]);
+    gameStarted = true; coverRef.val = true;
+    isBattleStarting = false; hasLoggedTeam = false;
+    // 回放不跑引擎：本地 RNG 只保证演出层不崩
+    setBattleRng(new SeededRNG(Date.now() % 1000000));
+    stepBattleStart();
+    const overlay = document.getElementById('coverOverlay');
+    if (overlay) overlay.style.display = 'none';
+    clearLogExceptFirst(); clearAllEffects();
+    updateUI();
+    renderGrid('allyGrid', CAMP_TYPES.ALLY);
+    renderGrid('enemyGrid', CAMP_TYPES.ENEMY);
+    updateButtons(); updateSpeedButtons();
+    if (report.meta && report.meta.stage) setGuestStageLabel(report.meta.stage);
+
+    playBattleReplay(report).catch(e => console.error('回放异常', e));
+}
+
 // 标题栏房间号角标由 68 的 setBadge 写（联网时它顶掉左侧标题），退出联网要在这里擦掉、把标题让回来
 function clearNetBadge() {
     const header = document.querySelector('.header');
@@ -331,6 +403,10 @@ if (document.readyState === 'complete' || document.readyState === 'interactive')
 document.addEventListener('DOMContentLoaded', async function() {
     const controls = document.querySelector('.controls');
     if (controls) controls.style.zIndex = '100';
+
+    // 2026-09-25 回放浮动按钮：点它选战报文件进回放（与保存侧对称）
+    const replayFloat = document.getElementById('replayFloat');
+    if (replayFloat) replayFloat.addEventListener('click', () => { startReplayFromFile(); });
 
     if (!getState.UI().allyTeam.length) {
         setState.UI({ allyTeam: [], enemyTeam: [], currentResult: null, round: 0 });

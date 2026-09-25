@@ -23,6 +23,7 @@ import { STAGE_ACTION_DEFS, translateFactsToStageActions } from '../render/31-st
 import { buildBattleReportData, computeVoteResult, grantClearRewards } from './48battle-report.js';
 import { handleBuffSelection, handlePvpBuffSelection, handleFlyDirection } from './49battle-flow.js';
 import * as net from '../infra/60-net-pvp.js';
+import { startBattleRecording, feedBattleStep, finishBattleRecording } from './50battle-export.js';
 
 function getCtx() { return getPlayerContext(); }
 
@@ -398,6 +399,9 @@ export async function playBattle() {
     const SNAPSHOT_VERSION = 1;
     const roundHistory = [];
 
+    // 2026-09-25 战报导出：开一条录制（单机/房主同路；从机在 playBattleGuest 单独喂）
+    startBattleRecording({ stage: GlobalStore.get('currentStage'), mode: netLinked ? 'pvp-host' : 'single', seed: c.snapshot._rngSeed });
+
     while (!isBattleOver) {
         if (abortSig && abortSig.aborted) return;
         const isFirstAttackRef = { value: true };
@@ -410,6 +414,7 @@ export async function playBattle() {
             if (battleState.activeBuffs) c.activeBuffs = battleState.activeBuffs.map(b => ({ ...b }));
             // 联网对战阶段2：房主跑完一步就发给从机（从机只播，不跑引擎）；阶段3 捎带 activeBuffs；快进状态一起捎带
             if (netLinked) net.sendStep(step, c.activeBuffs, getState.speed(), GlobalStore.get('fastForwardActive'));
+            feedBattleStep(step, c.activeBuffs);   // 2026-09-25 战报导出：与联机同源同净化
             await playStepInterleaved(c, step, isFirstAttackRef);
             await clock.wait(300);
             if (step.winner) { finalWinner = step.winner; isBattleOver = true; break; }
@@ -469,6 +474,8 @@ export async function playBattle() {
 // 收尾（房主/从机共用）：胜负结算 → 胜利特效 → 战报 → 投票积分 → 历史落库
 async function finishBattle(c, finalStep, finalWinner, roundHistory) {
     if (!finalWinner) finalWinner = '平局';
+    // 2026-09-25 战报导出：收尾定稿（写死胜负/回合数），战报弹窗的「保存战报」从这里取
+    finishBattleRecording(finalWinner);
     c.gs = 'GAMEOVER'; c.isPaused = false; c.waitingForNextRound = false; c.isBattleStarting = false;
     GlobalStore.set('fastForwardActive', false);
     GlobalStore.set('gs', 'GAMEOVER');
@@ -599,6 +606,9 @@ export async function playBattleGuest() {
     const isFirstAttackRef = { value: true };
     let isBattleOver = false, finalWinner = null, finalStep = null, firstStep = true;
 
+    // 2026-09-25 战报导出：从机也录一份（step 是房主发来的净化数据，喂回去即可）
+    startBattleRecording({ stage: null, mode: 'pvp-guest', seed: null });
+
     while (!isBattleOver) {
         if (abortSig.aborted) return;
         const step = await net.recvStep();
@@ -623,6 +633,7 @@ export async function playBattleGuest() {
         if (!!step.ff !== !!GlobalStore.get('fastForwardActive')) GlobalStore.set('fastForwardActive', !!step.ff);
         // 与房主一致：每回合重置「是否本回合首次攻击」
         if ((step.log || []).some(e => e && e.factType === 'roundStart')) isFirstAttackRef.value = true;
+        feedBattleStep(step, step.activeBuffs || c.activeBuffs);   // 2026-09-25 战报导出：从机喂房主发来的 step
         await playStepInterleaved(c, step, isFirstAttackRef);
         await clock.wait(300);
         if (step.winner) { finalWinner = step.winner; isBattleOver = true; }
@@ -633,4 +644,77 @@ export async function playBattleGuest() {
     // 播完回执：房主的「▶ 下一关」要等这个才解锁，否则会在从机还在演出时把画面切走
     // 断线时 publish 返回 false，无副作用
     net.sendGuestDone();
+}
+
+/**
+ * 回放入口（2026-09-25）：从战报文件播放整场。
+ * 与 playBattleGuest 同构——不跑引擎，数据源从「网络 step」换成「文件 steps」。
+ * 调用方（ui/61 startReplayFromFile）负责：abort 旧循环、UI 队伍/store 重建、关封面、gs=RUNNING。
+ */
+export async function playBattleReplay(report) {
+    const c = getCtx();
+    if (!c) return;
+    if (!report || !Array.isArray(report.steps) || report.steps.length === 0) {
+        console.error('[playBattleReplay] 战报文件无效（无 steps）');
+        return;
+    }
+
+    c._removedUids = new Set();
+
+    // 时间层与从机一致：本地控制演出节奏
+    clock.reset();
+    clock.start();
+    clock.setTimescale(600 / (c.speed || 600));
+    GlobalStore.effect('speed', (v) => clock.setTimescale(600 / (v || 600)));
+    GlobalStore.effect('isPaused', (v) => { if (v) clock.pause(); else clock.resume(); });
+    GlobalStore.effect('fastForwardActive', (isActive) => {
+        if (isActive === clock.fastForward) return;
+        clock.setFastForward(isActive);
+        if (isActive) {
+            if (!c._originalSpeed) c._originalSpeed = c.speed;
+            c.speed = 1;
+        } else {
+            const restored = c._originalSpeed || 600;
+            c.speed = restored;
+            GlobalStore.set('speed', restored);
+            clock.setTimescale(600 / (restored || 600));
+        }
+    });
+
+    // 演出 RNG：与从机同款，只管台词等表现层不崩
+    setBattleRng(new SeededRNG(Date.now() % 1000000));
+    setPresentationRng(new SeededRNG(Date.now() % 1000000 + 1));
+
+    // 阵亡清除：没有这段，格子上尸体会永远赖着（与从机同款）
+    setupDeathTimers(c);
+
+    initRenderer(c);
+    updateRoundDisplay('📜 日志（第1回合·回放）');
+    initLogScrollControls(c);
+
+    const isFirstAttackRef = { value: true };
+    let finalWinner = null, finalStep = null, firstStep = true;
+
+    for (const step of report.steps) {
+        const abortSig = c.abortController ? c.abortController.signal : null;
+        if (abortSig && abortSig.aborted) return;
+        if (firstStep) {
+            // 与从机同款：战报要用的开局快照从首步取（回合开始态）
+            firstStep = false;
+            c.snapshot = { ally: step.ally, enemy: step.enemy };
+        }
+        finalStep = step;
+        if (step.activeBuffs) {
+            c.activeBuffs = step.activeBuffs;
+            if (c.updateBuffSlots) c.updateBuffSlots();
+        }
+        if (step.speed && step.speed !== getState.speed()) setState.speed(step.speed);
+        if (!!step.ff !== !!GlobalStore.get('fastForwardActive')) GlobalStore.set('fastForwardActive', !!step.ff);
+        if ((step.log || []).some(e => e && e.factType === 'roundStart')) isFirstAttackRef.value = true;
+        await playStepInterleaved(c, step, isFirstAttackRef);
+        await clock.wait(300);
+        if (step.winner) { finalWinner = step.winner; break; }
+    }
+
+    await finishBattle(c, finalStep, finalWinner, []);
 }
