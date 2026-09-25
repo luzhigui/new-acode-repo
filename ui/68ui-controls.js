@@ -1,5 +1,5 @@
-// V7.7.0 | ~37900 bytes | 2026-09-22 选关弹窗从 1~6 扩到 1~7（第七关是灭绝师太 demo 关）
-export const VER = 'ui/68ui-controls.js V7.7.0';
+// V7.8.0 | ~38700 bytes | 2026-09-26 复制面板收编战报区（保存本局战报+播放战报文件），撤右下角浮动🎬（挡视野）
+export const VER = 'ui/68ui-controls.js V7.8.0';
 
 // 2026-09-14 打断 63↔68 循环依赖：getState/setState 直接取自 infra/54（63 只做转发）
 import { getState, setState, GlobalStore, getPlayerContext } from '../infra/54-global-store.js';
@@ -9,6 +9,8 @@ import { resetBattleRuntime } from './69reset-runtime.js';
 import { CAMP_TYPES } from '../infra/56-battle-enums.js';
 import { buffsOfCamp } from '../modules/28buff-tools.js';
 import { AudioManager } from '../modules/22audio-manager.js';
+import { attachSaveBattleReportButton, getBattleRecording } from '../player/50battle-export.js';
+import { startReplayFromFile } from './61main-5v5-test.js';
 
 // 2026-09-14 统一任意按钮点击钩子：原先 6 处直接调 window.onAnyButtonClick，
 // 而该函数从未挂到 window 上（定义在 ui/61 且未导出），属静默失效；改为走 UIHandler 通道。
@@ -714,6 +716,29 @@ export function bindCopyLogButton(showModal, copyLogToClipboard) {
             copySection.appendChild(btn);
         });
         box.appendChild(copySection);
+
+        // ── 战报区（2026-09-26 收编右下角浮动🎬：保存本局战报 + 播放战报文件，都在这个面板里） ──
+        const replaySection = document.createElement('div');
+        replaySection.style.cssText = 'margin-bottom:12px;';
+        replaySection.innerHTML = '<div style="color:#aaa;font-size:11px;margin-bottom:6px;">🎬 战报回放</div>';
+
+        const replayBtnRow = document.createElement('div');
+        replayBtnRow.style.cssText = 'display:flex;gap:4px;align-items:stretch;';
+        attachSaveBattleReportButton(replayBtnRow, () => getBattleRecording());
+        // attach 出来的按钮自带大按钮样式，压成面板小号
+        const saveBtn = replayBtnRow.querySelector('button');
+        if (saveBtn) saveBtn.style.cssText = 'flex:1;padding:8px;background:#6a1b9a;color:#fff;border:none;border-radius:6px;font-size:12px;cursor:pointer;font-weight:bold;';
+
+        const playFileBtn = document.createElement('button');
+        playFileBtn.textContent = '📂 播放战报文件';
+        playFileBtn.style.cssText = 'flex:1;padding:8px;background:#2a2a4e;color:#eee;border:1px solid #6a1b9a;border-radius:6px;font-size:12px;cursor:pointer;';
+        playFileBtn.onclick = () => {
+            overlay.remove();
+            startReplayFromFile();
+        };
+        replayBtnRow.appendChild(playFileBtn);
+        replaySection.appendChild(replayBtnRow);
+        box.appendChild(replaySection);
 
         // ── 分隔线 ──
         const divider = document.createElement('div');
