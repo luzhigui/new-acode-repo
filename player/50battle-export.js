@@ -1,8 +1,9 @@
-// V1.1.2 | ~15400 bytes | 2026-09-26 修「显示已取消」：分享层 AbortError 不再终止（手机网页 canShare 谎报→面板没弹就秒抛取消，=点击没反应的真相），一律降级到下载层
+// V1.1.3 | ~15400 bytes | 2026-09-26 plainUnit 剔除 _fsm（妆造剥离收尾：渲染层已改读 state._fsmPhase，战报不再存 FSM 骨架，体积随之下降）
+//   v1.1.2: 修「显示已取消」：分享层 AbortError 不再终止（手机网页 canShare 谎报→面板没弹就秒抛取消，=点击没反应的真相），一律降级到下载层
 //   v1.1.1: 分享5秒竞赛防挂死；取消显示「已取消」；blob+dataURL双下载
 //   文件格式：{ format:'ming-battle-replay', version:1, meta.delta:true, steps:[增量step...] }；
 //   v1.0 全量文件兼容（无 delta 标记 = 按 v1.0 全量读）。
-export const VER = 'player/50battle-export.js V1.1.2';
+export const VER = 'player/50battle-export.js V1.1.3';
 console.log('[战报] 模块已加载:', VER);   // 版本指纹：调试时第一眼认出版本（缓存问题一眼定案）
 
 // ---- 收集（player/42 在开战时 startRecording、每步 feed、收尾 finish）----
@@ -65,11 +66,11 @@ function plainUnit(u) {
     const o = {};
     for (const k of Object.keys(u)) {
         const v = u[k];
-        if (typeof v === 'function') continue;          // 方法不存：reviveUnit 那侧不需要
+        if (typeof v === 'function') continue;          // 方法不存
         if (v instanceof Set) { o[k] = [...v]; continue; } // Set 不进 JSON
+        if (k === '_fsm') continue;                     // 状态机不进战报：渲染层已改读 state._fsmPhase
         o[k] = v;
     }
-    if (u._fsm) o._fsm = { current: u._fsm.current };    // 状态机只留当前态（reviveUnit 同款）
     return o;
 }
 

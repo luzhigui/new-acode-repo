@@ -1,5 +1,5 @@
-// V6.3.0 | ~9200 bytes | 2026-09-23 applyHeroFlags 增补 isLionMale / isLionCub（三狮形态标记）
-export const VER = 'core/02unit.js V6.3.0';
+// V6.3.1 | ~9200 bytes | 2026-09-26 toJSON 剔除 _fsm（妆造剥离收尾：渲染层已改读 state._fsmPhase，_fsm 序列化再无读者）
+export const VER = 'core/02unit.js V6.3.1';
 
 import { CONFIG, getGameData } from './01config-5v5-test.js';
 
@@ -110,10 +110,11 @@ export class Unit {
         applyHeroFlags(this);
     }
     toJSON(){
-        // 序列化出口：_fsm 含函数不可序列化，只输出 current 字符串。
-        // 有了本方法，发 step 时 unit 直接 JSON.stringify 即可，不再需要 net/60 的 plainUnit
+        // 序列化出口：_fsm 是 StateMachine 实例（states 里是函数），且已无读者——
+        //   渲染层改读 state._fsmPhase（2026-09-26 妆造剥离），故整段剔除，
+        //   省掉每 step 载荷里的 FSM 骨架（战报体积随之下降）
         const o = { ...this };
-        if (o._fsm) o._fsm = { current: o._fsm.current };
+        delete o._fsm;
         return o;
     }
     clone(){
