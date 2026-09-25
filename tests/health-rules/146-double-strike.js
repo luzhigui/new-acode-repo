@@ -14,7 +14,12 @@
 //   - 只有本场真的出现连击宣告/触发才校验，否则 skip
 //   - 触发者名字取 banner 之后第一条 attack-group 的攻击者名；解析不到就跳过那条（不猜）
 //   - 本回合没有任何宣告（如 Buff 已过期但残留登记）时不做事后比对，只统计重复触发
-export const VER = 'tests/health-rules/146-double-strike.js V6.1.12';
+//   - **单位会被原地改名**：幼狮成长是同一 unit 对象改 `cub.name`（modules/27elite-mingjiao.js:665），
+//     uid / 位置都不变，而连击登记按 uid（core/11:61 `chosen.uid` → core/03:371 `unit.uid !==
+//     doubleStrikeUnitUid`），所以「回合开始宣告[幼狮] → 成长 → 触发者[雄狮]」是**同一单位**，不是越界。
+//     本规则消费的是渲染后条目（只有 type + text，无 uid），只能按"本回合的『X成长为Y』"条目登记
+//     别名后再比对；不做这层就会把谢逊狮群的正常回合误报成连击越界（2026-09-24 实测 2 条红全是这个形态）。
+export const VER = 'tests/health-rules/146-double-strike.js V6.1.13';
 
 const PROB_PCT = 80; // content buffs.doubleStrike.prob = 0.8，仅用于文案口径核对
 
@@ -51,6 +56,27 @@ function sameName(a, b) {
     return a === b || a.indexOf(b) !== -1 || b.indexOf(a) !== -1;
 }
 
+// 原地改名后的身份延续：renames 形如 { 幼狮: ['雄狮'] }，只认本回合「X成长为Y（N 号位）」条目。
+// 双向都查——宣告名可能被改掉（幼狮→雄狮），出手名也可能是被改过的那个。
+function sameNameAfterRename(a, b, renames) {
+    if (sameName(a, b)) return true;
+    if (!renames) return false;
+    var altA = renames[a] || null;
+    if (altA) { for (var i = 0; i < altA.length; i++) { if (sameName(altA[i], b)) return true; } }
+    var altB = renames[b] || null;
+    if (altB) { for (var j = 0; j < altB.length; j++) { if (sameName(altB[j], a)) return true; } }
+    return false;
+}
+
+// 「🦁 幼狮成长为雄狮（3 号位）：攻 24 / 防 18 / 血 90」→ { old: '幼狮', now: '雄狮' }
+// 名字一律按"不含空白的一段"取：文案带 🦁 前缀，用 (.+?) 会把 emoji 与空格一起吃进名字里，
+// 结果别名键是「🦁 幼狮」、永远对不上宣告名「幼狮」（负向测试第 6/7/9 例逮到的就是这个）。
+function grownNameOf(text) {
+    var m = plain(text).match(/([^\s]+?)成长为([^\s（]+)（\s*(\d+)\s*号位/);
+    if (!m) return null;
+    return { old: String(m[1]).trim(), now: String(m[2]).trim() };
+}
+
 export const rule93 = {
     group: '技能效果回归',
     name: '概率连击触发越界/重复(回归)',
@@ -59,17 +85,24 @@ export const rule93 = {
 
         // 按 round-start 切段：连击登记是「每回合」重新挑人，跨回合重复属正常
         var rounds = [];
-        var cur = { declared: [], fires: [], fails: [] };
+        var cur = { declared: [], fires: [], fails: [], renames: {} };
         var touched = false;
         for (var i = 0; i < log.length; i++) {
             var e = log[i];
             if (!e) continue;
             if (e.type === 'round-start') {
                 if (touched || cur.declared.length || cur.fires.length || cur.fails.length) rounds.push(cur);
-                cur = { declared: [], fires: [], fails: [] };
+                cur = { declared: [], fires: [], fails: [], renames: {} };
                 continue;
             }
             var txt = plain(e.text);
+            // 幼狮成长：同一单位原地改名，本回合内宣告名与出手名会不同，先登记别名
+            var gr = grownNameOf(e.text);
+            if (gr) {
+                if (!cur.renames[gr.old]) cur.renames[gr.old] = [];
+                if (cur.renames[gr.old].indexOf(gr.now) === -1) cur.renames[gr.old].push(gr.now);
+                continue;
+            }
             if (e.type === 'buff-summary' && txt.indexOf('概率连击：') !== -1) {
                 var dn = declaredNameOf(e.text);
                 if (dn) { cur.declared.push(dn); touched = true; }
@@ -106,7 +139,7 @@ export const rule93 = {
             var seen = [];
             for (var k = 0; k < named.length; k++) {
                 var dup = false;
-                for (var s = 0; s < seen.length; s++) { if (sameName(seen[s], named[k])) { dup = true; break; } }
+                for (var s = 0; s < seen.length; s++) { if (sameNameAfterRename(seen[s], named[k], rd.renames)) { dup = true; break; } }
                 if (dup) {
                     problems.push('同回合' + named[k] + '触发连击' + named.length + '次（额外攻击被重复登记，攻击次数膨胀）');
                 } else {
@@ -122,7 +155,7 @@ export const rule93 = {
             // 复发信号2：触发者必须是本回合宣告过的单位
             for (var m2 = 0; m2 < named.length; m2++) {
                 var ok = false;
-                for (var d = 0; d < rd.declared.length; d++) { if (sameName(rd.declared[d], named[m2])) { ok = true; break; } }
+                for (var d = 0; d < rd.declared.length; d++) { if (sameNameAfterRename(rd.declared[d], named[m2], rd.renames)) { ok = true; break; } }
                 if (!ok) {
                     problems.push('连击越界：本回合宣告[' + rd.declared.join('、') + ']，实际触发者为' + named[m2]);
                 }
@@ -132,7 +165,7 @@ export const rule93 = {
                 var fn2 = rd.fails[f];
                 if (!fn2) continue;
                 var ok2 = false;
-                for (var d2 = 0; d2 < rd.declared.length; d2++) { if (sameName(rd.declared[d2], fn2)) { ok2 = true; break; } }
+                for (var d2 = 0; d2 < rd.declared.length; d2++) { if (sameNameAfterRename(rd.declared[d2], fn2, rd.renames)) { ok2 = true; break; } }
                 if (!ok2) {
                     problems.push('连击失败文案越界：本回合宣告[' + rd.declared.join('、') + ']，失败文案却写' + fn2);
                 }
