@@ -1,6 +1,5 @@
-// V6.2.1 | ~15200 bytes | 2026-09-25 修乘风突袭击退「取错队」：敌方飞行单位触发时按全局阵营取队，不再拿攻击方视角的 allySide（原来会把敌方单位换进我方格 / 我方单位换进敌方格，造成同阵营双人同格）
-// V6.2.0 | ~15000 bytes | 2026-09-23 乘风突袭击退改走 core/13 resolvePushOrStun（退无可退转眩晕）
-export const VER = 'core/04buff-system.js V6.2.1';
+// V6.2.2 | ~15500 bytes | 2026-09-25 乘风突袭波及补失败日志：80% 未中 →「波及触发失败」，未中无同行目标 →「波及无同行目标」（此前静默无提示）；承接 V6.2.1 击退取队修正（取队按 unit.camp，不再拿攻击方视角的 allySide）
+export const VER = 'core/04buff-system.js V6.2.2';
 import {
     applyFortifyDef_Normal, applyFortifyDef_Sister, applyFortifyDef_Brother,
     applyCloudBodyDodge_Normal, applyCloudBodyDodge_Sister, applyCloudBodyDodge_Brother,
@@ -148,7 +147,11 @@ export function submitWindAssaultDeclaration(data) {
             const splashDmg = Math.floor(dmg);
             if (!data.declarations) data.declarations = [];
             data.declarations.push({ type: EFFECT_TYPES.SPLASH, value: splashDmg, targets: rowTargets, buffType: BUFF_SUBTYPES.WIND_ASSAULT, factType: FACT_TYPES.WIND_ASSAULT_SPLASH, factData: { label, targets: rowTargets.map(t => ({ uid: t.uid, name: t.name })), splashDmg } });
+        } else {
+            log.push({ factType: FACT_TYPES.WIND_ASSAULT_FAIL, data: { label, reason: '波及无同行目标' } });
         }
+    } else {
+        log.push({ factType: FACT_TYPES.WIND_ASSAULT_FAIL, data: { label, reason: '波及触发失败' } });
     }
     if (rng.nextInt(1, 100) <= pushProb) {
         // 击退/眩晕统一判定：7-9 号位退无可退改为眩晕（与胖远桥·年轻气盛共用 core/13）

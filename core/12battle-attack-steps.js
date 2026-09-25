@@ -1,5 +1,5 @@
-// V6.3.2 | ~24600 bytes | 2026-09-24 韦一笑吸血上限不再封顶（27 传 newMaxHp 为当前 maxHp+heal 绝对值）
-export const VER = 'core/12battle-attack-steps.js V6.3.2';
+// V6.3.3 | ~24700 bytes | 2026-09-25 伤害波动 hpBonus 改作「该次攻击的减伤」（从扣血里抵扣），不再先回血 —— 满血时不再被 maxHp 夹掉；非满血净扣血与旧口径一致，dmg 不动
+export const VER = 'core/12battle-attack-steps.js V6.3.3';
 
 import { CONFIG, getSkillParams, getGameData } from './01config-5v5-test.js';
 import { eventBus, EFFECT_TYPES } from '../infra/50-event-bus.js';
@@ -248,7 +248,9 @@ export function calcFinalDamage(unit, target, attackerBuffStats, defenderBuffSta
     let atkVar = rng.nextInt(1, C.ATK_VAR), defVar = rng.nextInt(1, C.DEF_VAR), hpBonus = rng.nextInt(C.HP_BONUS_MIN + 1, C.HP_BONUS_MAX);
     let atkAct = atkBase + atkVar, defAct = defBase + defVar;
     let hpBefore = Math.floor(target.hp);
-    applyStatChange(target, 'hp', hpBonus, unit, '伤害波动回血', false);
+    // 2026-09-25 波动改口径：旧写法「先回血 +hpBonus 再扣 dmg」，满血时这几点被 maxHp 夹掉＝白给
+    //   （幼狮 40/40 吃 41 伤害即死）。现把 hpBonus 当该次攻击的减伤，在 applyAttackResult 里从扣血中抵扣。
+    //   非满血场景净扣血与旧口径数值完全相同（旧：+b 后 −dmg），故按 dmg 计数的链路（吸血/反伤/破防/统计）不变。
     let waveTaunt = null, waveUnit = null;
     if (atkVar === C.ATK_VAR) { waveTaunt = getRandomTaunt(unit); waveUnit = unit; unit.critCount++; emitEvent(unit, UNIT_EVENT_TYPES.HP_CHANGE, { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: getStat(unit, 'atk'), def: getStat(unit, 'def'), critCount: unit.critCount }); }
     else if (defVar + hpBonus >= 7) {
@@ -324,9 +326,11 @@ export function applyAttackResult(unit, target, dmgCalc, attackerBuffStats, defe
     const rng = getBattleRng();
     let { atkBase, defBase, atkAct, defAct, hpBonus, hpBefore, waveTaunt, waveUnit, raw, rawFormula, thunderBonus, hornDmgMultiplier, trueDmg, dmg, bonusEntries, defReduction } = dmgCalc;
 
-    let hpAfter = Math.floor(target.hp) - dmg;
+    // 2026-09-25 波动减伤：hpBonus 从本次扣血里抵扣（dmg 本身不动，吸血/反伤/破防仍按 dmg 算），下限 0 不倒吸血
+    const hpLoss = Math.max(0, dmg - hpBonus);
+    let hpAfter = Math.floor(target.hp) - hpLoss;
     let dead = hpAfter <= 0;
-    applyStatChange(target, 'hp', -dmg, unit, '攻击伤害');
+    applyStatChange(target, 'hp', -hpLoss, unit, '攻击伤害');
     if (dmgCalc.blockValue > dmg) {
         recordCombatStat(unit, target, 'damage', {
             rawAmount: dmgCalc.blockValue - dmg,
