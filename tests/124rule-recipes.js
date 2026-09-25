@@ -1,5 +1,9 @@
+// V1.1.0 | ~6600 bytes | 2026-09-25 补 export const VER（此前全库唯一无 VER 的体检 js，tools/118 的
+//          VER 对账会漏掉本文件）；删除死常量 TAG_PREFIX 与 getRuleGroups 里未使用的 prefix 变量。
 // V1.0.0 | 每场体检按"目标规则"裁剪执行集：只跑能触发的规则，其余不参与统计(消除海量skip噪音)
 // tag 语义: hero=我方英雄(部分可强制) / enemy=敌方精英(随机出阵) / mechanic=通用机制(双方都可能) / generic=通用
+export const VER = 'tests/124rule-recipes.js V1.1.0';
+
 export const RULE_META = {
     '张无忌九阳神功回复量(回归)': { tag: 'hero:张无忌', force: 'forceZhang' },
     '宋青书新婚快乐链路(回归)': { tag: 'enemy:宋青书', note: '需宋青书+周芷若同场，敌方随机出阵，需连打多局碰出' },
@@ -36,7 +40,7 @@ export const RULE_META = {
 
 // tag 分组（体检中心面板按此渲染；key 顺序即展示顺序）
 const GROUP_KEYS = ['我方英雄', '敌方精英', '通用机制', '通用'];
-const TAG_PREFIX = { '我方英雄': 'hero:', '敌方精英': 'enemy:', '通用机制': 'mechanic:', '通用': 'generic:' };
+// （第 21 轮删除）原 TAG_PREFIX 常量定义后全库零引用，getRuleGroups 用的是下面内联三元，属死常量。
 
 export function getRuleGroups() {
     const groups = GROUP_KEYS.map(k => ({ key: k, label: k, rows: [] }));
@@ -44,7 +48,6 @@ export function getRuleGroups() {
     for (const g of groups) byKey[g.key] = g;
     for (const name of Object.keys(RULE_META)) {
         const meta = RULE_META[name];
-        const prefix = meta.tag.split(':')[0] + ':';
         const g = byKey[meta.tag.split(':')[0] === 'hero' ? '我方英雄'
             : meta.tag.split(':')[0] === 'enemy' ? '敌方精英'
             : meta.tag.split(':')[0] === 'mechanic' ? '通用机制' : '通用'];

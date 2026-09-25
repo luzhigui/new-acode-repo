@@ -57,18 +57,25 @@ export const rule79 = {
             saw = true;
             var name = m[1];
             var dmg = parseFloat(m[2]);
-            var isExec = !!(e.isExecute) || e.text.indexOf('斩杀') !== -1;
-            var hpAfter = e.clawTargetHpAfter;
+            // 字段口径修正（第 21 轮）：原名 clawTargetHpAfter 已随 fact 改名撤除、全库再无写入源，
+            //   故 hpAfter 恒为 undefined —— 不只判据2 是死分支，**判据3 的连锁调血校验也一直是空转**
+            //   （undefined 参与的四则运算得 NaN，等值校验永不成立）。现行 render/35:478 渲染出的是
+            //   hpAfter（同条目另有 clawTargetUid），取值来自 modules/26:534 的 simulatedTargetHp。
+            //   按现行字段重写 —— 这次是让判据3 真正生效，不是放宽。
+            var hpAfter = e.hpAfter;
 
             // 1. 伤害底线：baseDmg=1.5（张无忌在场为 2），ratioDmg>=0 → 单爪下界恰为 1.5；
             //    任何 < 1.5 的伤害均为回归（设计底线都没达到）
             if (dmg < 1.5) {
                 return { fail: true, msg: '复发：九阴白骨爪伤害<1.5 为' + dmg + '（周芷若伤害计算异常，低于设计底线 baseDmg=1.5）' };
             }
-            // 2. 斩杀一致性：标记斩杀则目标血量应被调为 0
-            if (isExec && hpAfter !== undefined && hpAfter !== null && hpAfter !== 0) {
-                return { fail: true, msg: '复发：九阴白骨爪斩杀但目标HP剩余' + hpAfter + '（斩杀未将目标调血为0）' };
-            }
+            // 2.（已删除，第 21 轮）原判据「标记斩杀则目标血量应为 0」是**自相矛盾的伪判据**：
+            //    modules/26elite-sixsects.js:534 的斩杀定义就是
+            //      isExecute = !isDeadByHit && hpPctAfter <= execThreshold && simulatedTargetHp > 0
+            //    —— 即"没被打死、但血量跌破阈值且仍 > 0"才叫斩杀。所以 isExecute 为真时
+            //    hpAfter ≠ 0 是**设计使然**，该判据一复活就必然误报（实测 15/120 场全假红）。
+            //    已删除而非放宽。斩杀真正应保证什么（例如"该连锁序列内最终致死"）属业务语义，
+            //    不猜，记待确认：见体检迭代日志第 21 轮「报业务侧」。
             // 3. 连锁调血：同一目标「同一次连锁序列内」的伤害应按"已损失生命比例"递增（不可递减）。
             //    为什么必须限定在同一次序列内（V6.1.15 第 7 趟修正，旧写法一复活就误报 3/120 场）：
             //    core/15-skill-mechanisms.js L358 的伤害 = baseHit + floor((已损失生命×lostHpRatio

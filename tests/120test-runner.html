@@ -1,5 +1,8 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿<!-- tests/120test-runner.html - 光明顶5v5 测试与体检中心 V6.0.0 -->
-<!-- V6.0.0 | ~6000 bytes-->
+<!-- tests/120test-runner.html - 光明顶5v5 测试与体检中心 V6.0.2 -->
+<!-- V6.0.2 | ~15142 bytes | 2026-09-25 清理文件头 30 个冗余 BOM（第 19 轮已在 test 分支清过，main 未同步）；
+          一键体检默认参数 start 3→2（从第 2 关起）、speed 100→300（4 倍速；档位口径见 ui/68ui-controls.js:166：
+          100=8x / 300=4x / 500=默认）——该默认参数此前只落在 test 分支，main 上仍是 3/100。 -->
+<!-- V6.0.0 | ~6000 bytes | 原版（体积声明严重失真，实际约 14.8KB） -->
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
@@ -67,10 +70,10 @@
         document.getElementById('btnModeAuto').addEventListener('click', () => {
             const url = new URL(window.location.href);
             url.searchParams.set('auto', '1');
-            if (!url.searchParams.get('start')) url.searchParams.set('start', '3');
+            if (!url.searchParams.get('start')) url.searchParams.set('start', '2');
             if (!url.searchParams.get('stages')) url.searchParams.set('stages', '6');
             if (!url.searchParams.get('budget')) url.searchParams.set('budget', '240');
-            if (!url.searchParams.get('speed')) url.searchParams.set('speed', '100');
+            if (!url.searchParams.get('speed')) url.searchParams.set('speed', '300');
             window.location.href = url.href;
         });
         </script>
@@ -179,10 +182,10 @@
         const url = new URL(window.location.href);
         url.searchParams.set('auto', '1');
         url.searchParams.set('rules', [...recipeChecked].join(','));
-        if (!url.searchParams.get('start')) url.searchParams.set('start', '3');
+        if (!url.searchParams.get('start')) url.searchParams.set('start', '2');
         if (!url.searchParams.get('stages')) url.searchParams.set('stages', '6');
         if (!url.searchParams.get('budget')) url.searchParams.set('budget', '240');
-        if (!url.searchParams.get('speed')) url.searchParams.set('speed', '100');
+        if (!url.searchParams.get('speed')) url.searchParams.set('speed', '300');
         window.location.href = url.href;
     });
     document.getElementById('recipeCancel').addEventListener('click', () => {

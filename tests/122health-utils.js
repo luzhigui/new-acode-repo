@@ -1,16 +1,20 @@
+// V6.1.15 | ~26700 bytes | 2026-09-25 不变量单一真值源：checkUnitHpValidity 定为血量类不变量的**唯一**实现，
+//          rules-replay.mjs 的逐步断言改为直接调用它。此前两处各写一份且口径不一致 ——
+//          122 多一条「maxHp > _baseMaxHp×2.5 膨胀」判据（含 isWei 豁免），回放侧没有，
+//          等于同一批单位在浏览器体检和回放里跑出两套结论。（版本头顺序此前也乱了，已按降序重排）
 // V6.1.14 | ~25500 bytes | 2026-09-21 删除 checkRandomRestartState（随机重开复位检查）：该判据在任意一局
 //          正常 GAMEOVER 都成立（UI.round 全程0 / UI.currentResult 全程null / UI.allyTeam 是开战 clone 副本
 //          alive 恒真），每局必误报。已改为 121 的事件驱动 hookRandomRestartWatch（点击 btnSettle 后查 gs）。
-// V6.0.0 | 2026-08-26 buff key 收敛为 infra/56-battle-enums 的 BUFF_TYPES（删除本地第二事实源）
 // V6.1.13 | checkBuffIcons 对齐渲染图标截断（render/32 L398-405）：名字 ≥4 字且候选图标 >2 时
 //          渲染只保留最后 2 个，体检原先朴素 indexOf 会把有意裁掉的图标判为缺失 → 长名单位跳过。
 //          注意条件是"长名 且 图标>2"，长名 + 1~2 个图标不截断，仍照常检查。
 // V6.1.12 | 补 getUnitCol / getUnitRow 的 import：圣火令命中判定(第226行起)用到这两个函数，
 //          但文件从未 import 过它们 —— 运行时抛 ReferenceError: getUnitCol is not defined，
 //          圣火令相关 buff 校验静默失效（体检报"通过"其实是异常被吞）。现从 infra/51 显式引入。
+// V6.0.0 | 2026-08-26 buff key 收敛为 infra/56-battle-enums 的 BUFF_TYPES（删除本地第二事实源）
 import { BUFF_TYPES, CAMP_TYPES, ROLE_TYPES } from '../infra/56-battle-enums.js';
 import { getUnitCol, getUnitRow } from '../infra/51-core-utils.js';
-export const VER = 'tests/122health-utils.js V6.1.14';
+export const VER = 'tests/122health-utils.js V6.1.15';
 
 /**
  * 获取单位对应的格子 DOM 元素
@@ -31,6 +35,16 @@ export function getCellElement(unit, doc) {
  */
 export function checkUnitHpValidity(unit) {
     const issues = [];
+    // 血上限自身必须先合法（第 21 轮补）：maxHp 非数值 / ≤0 会让下面所有钳制判据失去意义，
+    //   且会静默把"上限被写成 0"这类回归放过去。上限都不合法时后续钳制无从判断，直接返回。
+    if (typeof unit.maxHp !== 'number' || Number.isNaN(unit.maxHp) || unit.maxHp <= 0) {
+        issues.push(unit.name + '血上限非法：' + unit.maxHp);
+        return issues;
+    }
+    if (typeof unit.hp !== 'number' || Number.isNaN(unit.hp)) {
+        issues.push(unit.name + '血量非数值：' + unit.hp);
+        return issues;
+    }
     if (unit.hp < 0) issues.push(unit.name + '血量负数：' + Math.floor(unit.hp));
     if (unit.maxHp > 0 && unit.hp > unit.maxHp) {
         issues.push(unit.name + '血量溢出：' + Math.floor(unit.hp) + '/' + Math.floor(unit.maxHp));

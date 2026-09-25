@@ -27,6 +27,9 @@ globalThis.localStorage = { getItem: () => null, setItem: () => {}, removeItem: 
 globalThis.window = globalThis;
 globalThis.self = globalThis;
 
+// 补 VER（第 21 轮）：此前本文件无 export const VER，tools/118 的版本头对账会漏掉它
+export const VER = 'tests/rules-replay.mjs V6.2.1';
+
 const HERE = new URL('.', import.meta.url);
 const [{ CONFIG, loadGameData }, { SeededRNG }, { createRoundStepper }, { initBattleTeams },
     { renderLog }, { createStore, battleReducer }, { createInitialState }, { GlobalStore },
@@ -50,6 +53,10 @@ await loadGameData();
 // 注意别用"本次渲染有没有产出"当映射缺口判据 —— buffSummary/mindControlBanner 都有注册渲染器
 // （render/35:498/511），只是在无 buff / 无条件时合法地渲染为空（首版据此误报 929 条）。
 const { getFactRenderer } = await import('../render/33-fact-registry.js');
+// 不变量单一真值源：血量类不变量的唯一实现在 122 的 checkUnitHpValidity（含「maxHp 相对
+// _baseMaxHp 膨胀」判据与 isWei 豁免）。回放侧直接复用，不再另写一份 —— 两处各写一份等于
+// 同一批单位在浏览器体检和回放里跑出两套结论（第 21 轮统一）。
+const { checkUnitHpValidity } = await import('./122health-utils.js');
 
 // 自动装载 health-rules 下全部规则（文件名序 = 编号序），新增规则无需改本文件
 const ruleDir = fileURLToPath(new URL('./health-rules/', import.meta.url));
@@ -126,25 +133,18 @@ function assertInvariants(units, round, seed, stage) {
     const seenPos = new Map();
     for (const u of units) {
         if (!u) continue;
-        const tag = `[seed=${seed} stage=${stage} round=${round}] ${u.name || u.uid}`;
-        if (typeof u.maxHp !== 'number' || Number.isNaN(u.maxHp) || u.maxHp <= 0) {
-            invIssues.add(tag + ' maxHp 非法: ' + u.maxHp);
-        }
-        if (typeof u.hp !== 'number' || Number.isNaN(u.hp)) {
-            invIssues.add(tag + ' hp 非数值: ' + u.hp);
-            continue;
-        }
-        if (u.hp < 0) invIssues.add(tag + ' hp 越下界(负数): ' + u.hp);
-        if (typeof u.maxHp === 'number' && u.maxHp > 0 && u.hp > u.maxHp) {
-            invIssues.add(tag + ' hp 越上界: ' + u.hp + ' > maxHp ' + u.maxHp);
-        }
+        const tag = `[seed=${seed} stage=${stage} round=${round}] `;
+        // 血量类不变量直接复用 122 的唯一实现（钳制 + 膨胀 + isWei 豁免），此处不再复制一份。
+        // 踩坑备忘（2026-09-25）：**不要**在这里另加"hp 必须为整数" —— 引擎内部 hp/maxHp 本就是
+        //   浮点（maxHp 可 112.5，百分比治疗天然带小数），取整只在显示层 fmtHp。首版加了误报 11901 条。
+        for (const msg of checkUnitHpValidity(u)) invIssues.add(tag + msg);
         // 注意（踩坑 2026-09-25）：**不要**断言 hp 为整数。引擎内部 hp/maxHp 本就是浮点
         //   （maxHp 可为 112.5，百分比治疗天然带小数），取整只发生在显示层 fmtHp 与伤害结算
         //   `hpAfter = Math.floor(target.hp) - dmg`。首版加了这条 → 120 场误报 11901 条，纯假阳性。
         // pos 唯一：同阵营内两个活人不能占同一格
         if (u.pos != null && u.alive !== false) {
             const key = (u.camp || '?') + '#pos' + u.pos;
-            if (seenPos.has(key)) invIssues.add(tag + ' pos 冲突: 格 ' + u.pos + ' 与 ' + seenPos.get(key) + ' 重叠');
+            if (seenPos.has(key)) invIssues.add(tag + (u.name || u.uid) + ' pos 冲突: 格 ' + u.pos + ' 与 ' + seenPos.get(key) + ' 重叠');
             else seenPos.set(key, u.name || u.uid);
         }
     }
@@ -192,6 +192,15 @@ function runCase(seed, stage) {
             }
             // 不变量：每步断言一次（比"每回合末"更细 —— 中期越界后被修回也能抓到）
             assertInvariants([...(step.ally || []), ...(step.enemy || [])], battleState.round, seed, stage);
+            if (process.env.PROBE === seed + ':' + stage) {
+                const ros = (step.ally || []).map(u => `${u.uid}:${u.name}@${u.pos}${u.alive ? '' : '(死)'}${u.isZhang ? '[Z]' : ''}${u.isHorse ? '[马]' : ''}`).join(' | ');
+                console.log(`[R${battleState.round}] ${ros}`);
+                if (process.env.PROBEFACT === '1') {
+                    for (const f of step.log || []) {
+                        if (f && f.factType) console.log('  RAW[' + f.factType + '] ' + JSON.stringify(f.data).slice(0, 220));
+                    }
+                }
+            }
             if (step.winner) winner = step.winner;
         }
         if (winner || !lastStep) break;
@@ -210,6 +219,12 @@ function runCase(seed, stage) {
     const ctx = {
         gs: 'GAMEOVER', currentStage: stage,
         activeBuffs: battleState.activeBuffs || [],
+        // 开局快照：语义务必取自 ui/61main-5v5-test.js:392-393 的注释 ——
+        //   「战斗进行中 snapshot 不反映当前态」、snapshot.enemy 是 Object.freeze 的定稿。
+        //   故这里喂**开战定稿**（beforeA/beforeE），**不是**终局单位 —— 喂终局会伪造口径。
+        //   补充动机：回放原先根本没造 snapshot，导致 134/139 里依赖它的判据全程静默不执行
+        //   （回放侧假绿），覆盖率缺口不可见。补上后这部分判据才真正参与。
+        snapshot: { ally: beforeA, enemy: beforeE },
         UI: { allyTeam: afterA, enemyTeam: afterE },
         _enhancedBattleLog: log
     };
@@ -230,6 +245,10 @@ for (const seed of SEEDS) {
                 if (e.type === 'buff-push') console.log(i + ' [push] ' + (e.text || '').replace(/<[^>]+>/g, '') + ' || pushUid=' + e.pushTargetUid + ' behindUid=' + e.behindUid + ' old=' + e.oldPos + ' new=' + e.newPos + ' behindOld=' + e.behindOldPos);
                 else if (e.type === 'buff-swap') console.log(i + ' [swap] ' + (e.text || '').replace(/<[^>]+>/g, '') + ' || A=' + e.uidA + ' B=' + e.uidB + ' posA=' + e.oldPosA + ' posB=' + e.oldPosB);
                 else if (e.type === 'attack-group' && e._fxSnapshot) console.log(i + ' [atk ] A=' + e.uidA + '@' + e._fxSnapshot.attackerPos + ' D=' + e.uidD + '@' + e._fxSnapshot.defenderPos);
+                if (process.env.DUMPALL === '1') {
+                    console.log(i + ' [' + e.type + '] uidA=' + e.uidA + ' uidD=' + e.uidD + ' isDead=' + e.isDead + ' txt=' + (e.text || '').replace(/<[^>]+>/g, '').slice(0, 120));
+                    if (Array.isArray(e.entries)) e.entries.forEach((sub, si) => console.log('   ' + i + '.' + si + ' [' + (sub && sub.type) + '] uidD=' + (sub && sub.uidD) + ' isDead=' + (sub && sub.isDead) + ' deadFlag=' + (sub && sub.deadFlag) + ' txt=' + ((sub && sub.text) || '').replace(/<[^>]+>/g, '').slice(0, 140)));
+                }
             });
         }
         for (const kw of KEYWORDS) {
