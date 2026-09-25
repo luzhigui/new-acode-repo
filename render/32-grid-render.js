@@ -1,11 +1,13 @@
+// ~25760 bytes | V6.4.1 | 2026-09-25 闪避面板改读 computeBuffStats().dodgeBonus：修掉读已删字段 unit.buffDodgeBonus 导致「流云身法」加成永远不显示的问题
 // ~25700 bytes | V6.4.0 | 2026-09-24 灭绝师太：名字描金、头顶计数气泡改由 fx 层飘字（壹/貳/參）；同格尸体先渲，清尸后再露新单位
-export const VER = 'render/32-grid-render.js V6.4.0';
+export const VER = 'render/32-grid-render.js V6.4.1';
 
 import { getUnitCol, getUnitRow, getAuraBonuses, getDodgeRules, fmtHp } from '../infra/51-core-utils.js';
 import { CONFIG, getSkillDesc } from '../core/01config-5v5-test.js';
 import { GlobalStore, getPlayerContext } from '../infra/54-global-store.js';
 import { FLASH_TYPES, CAMP_TYPES, ROLE_TYPES, BUFF_TYPES } from '../infra/56-battle-enums.js';
 import { getStat } from '../core/13battle-shared.js';
+import { computeBuffStats } from '../core/04buff-system.js';
 import { clock } from '../infra/52-clock.js';
 import { getView, setView } from '../infra/61-view-sheet.js';
 
@@ -93,9 +95,12 @@ function getDodgeBreakdown(unit, activeBuffs, allyTeam) {
         }
     }
 
-    if (unit.buffDodgeBonus > 0) {
-        sources.push({ label: '流云身法', value: Math.round(unit.buffDodgeBonus * 100) });
-        rates.push(unit.buffDodgeBonus);
+    // 2026-09-25 改走 computeBuffStats 现算：buffDodgeBonus 是 V6.1.1 词条化时剥离掉的顶层字段，
+    //   全库已无写入源（原读法让「流云身法」这行永远读不到值）。闪避真值本来就由本函数现算，与 core/10、core/12 同源。
+    const buffStats = computeBuffStats(unit, activeBuffs || [], allyTeam);
+    if (buffStats.dodgeBonus > 0) {
+        sources.push({ label: '流云身法', value: Math.round(buffStats.dodgeBonus * 100) });
+        rates.push(buffStats.dodgeBonus);
     }
 
     let combined = 0;
