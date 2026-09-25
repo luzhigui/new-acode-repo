@@ -19,24 +19,50 @@
 //   遗留（本趟刻意不动，避免一次改两处）：判据2「斩杀后 hp 残留」读的 `clawTargetHpAfter` 字段在
 //   现行 render/30 里已不存在（现字段为 hpAfter / clawTargetUid），该判据恒空转，下一趟可照
 //   133 路径2 的口径改为校验斩杀条目带 isExecute + clawTargetUid。
-export const VER = 'tests/health-rules/132-claw-damage.js V6.1.15';
+//
+// V6.1.16 修订（2026-09-25，主线侧同步轮）：补回**现行契约的斩杀判据**。
+//   第 21 轮删掉的"斩杀→hpAfter=0"是伪判据（斩杀的定义就是 hp>0 且跌破阈值，见下方注释块）；
+//   但"标记斩杀"本身有一条 core 保证的现行契约可校验：core/15 L407-413 中 isExecute 触发时
+//   executeInfo **必然**与 hits 同组产出（declaration = {hits, execute}，renderClawExecuteFact
+//   文本固定含「九阴白骨爪斩杀！」）。故新判据 2：标记斩杀的 hit → 同一 attack-group 内必须存在
+//   处决条目；缺失 = execute 声明被吞/丢失（回放器吞数组的历史 bug 正是这种形态）。
+//   实现：collectNodes 带组号 gi，组级收集两路信号，主循环结束后统一判定（处决条目与 hit
+//   的渲染先后顺序未证，不能在单遍循环里即时判定）。负向测试 6 例全过（含跨组不认的 C 例）。
+//
+// V6.1.17 取证（2026-09-26，验收轮补命中数）：判据 2' 是否真跑得起来、会不会又是恒空转，实测填上。
+//   · 真实战报（stage=4，seed 1~8 共 8 局，探针直接吃 render/30 的渲染产物）：
+//     爪击节点 220、处决条目 12、**带 isExecute+dmg 的爪击 12**，判据 2' 在 6/8 局被触发（12 次），
+//     与处决条目严格 1:1 → 非恒空转，且当前无缺失（fail=0）。
+//   · 全量回放 120 场（node tests/rules-replay.mjs）：本规则 pass=20 fail=0 skip=100
+//     （skip 全落在非第四关，无爪击，符合预期），恒 skip 规则 0 条。
+//   · 字段口径实证（为何判据 2' 读得到 isExecute）：爪击节点 keys =
+//     `type,hpAfter,clawTargetUid,dmg,text,isClawHit,clawAttackerUid,isExecute` —— 爪击是挂在
+//     attack-group 的 entries 子条目上，走 render/33:106 projectFactEntry 把 fact 附加字段并进渲染产物；
+//     顶层 renderLog 不带这些字段（回放器 L198 直接用 renderLog，故必须下钻 entries 才读得到）。
+//   · 判据内 `dmg !== undefined` 是**鉴别项**：处决条目自身也带 isExecute:true，靠 dmg 缺省把两者分开
+//     （处决条目已在文本分支 continue，这里是双保险）。
+//   · 负向测试 7 例全过：同组有处决→pass、缺处决→fail、处决在别组→fail（不跨组误认）、
+//     处决先于 hit 渲染→pass（验"先收集后判定"）、未标斩杀的爪击→pass（不被判据 2 误伤）、
+//     伤害 1.2→fail（判据 1 仍活）、无爪击→skip。
+export const VER = 'tests/health-rules/132-claw-damage.js V6.1.17';
 
 // 战报节点收集：数组元素（render/30 少数渲染函数返回数组）→ 顶层条目 → attack-group 的 entries 子条目。
 // 只摊一层子条目：孙层没有爪击语义，再深会重复计数。顺序保持战报原序，连锁递增判定才有效。
+// V6.1.16：每个节点带上所属顶层组号 gi（数组元素沿用其外层条目的组号），供判据 2 做同组判定。
 function collectNodes(log) {
     var out = [];
-    function walk(node, depth) {
+    function walk(node, depth, gi) {
         if (!node) return;
         if (Array.isArray(node)) {
-            for (var i = 0; i < node.length; i++) walk(node[i], depth);
+            for (var i = 0; i < node.length; i++) walk(node[i], depth, gi);
             return;
         }
-        out.push(node);
+        out.push({ e: node, gi: gi });
         if (depth === 0 && Array.isArray(node.entries)) {
-            for (var k = 0; k < node.entries.length; k++) walk(node.entries[k], depth + 1);
+            for (var k = 0; k < node.entries.length; k++) walk(node.entries[k], depth + 1, gi);
         }
     }
-    for (var j = 0; j < log.length; j++) walk(log[j], 0);
+    for (var j = 0; j < log.length; j++) walk(log[j], 0, j);
     return out;
 }
 
@@ -47,10 +73,17 @@ export const rule79 = {
         var prev = null; // { name, dmg }
         var saw = false;
         var nodes = collectNodes(log);
+        // 判据 2 的组级信号（V6.1.16）：处决条目与标记斩杀的 hit 谁先渲染未证，先收集后判定
+        var execHitGroups = {};   // gi -> 有标记斩杀的 hit（isExecute 且带 dmg 字段）
+        var execEntryGroups = {}; // gi -> 有处决条目（renderClawExecuteFact，文本固定含「九阴白骨爪斩杀！」）
         for (var j = 0; j < nodes.length; j++) {
-            var e = nodes[j];
+            var e = nodes[j].e;
+            var gi = nodes[j].gi;
             if (!e || !e.text) continue;
             if (e.text.indexOf('九阴白骨爪') === -1) continue;
+            // 组级收集要在下面的 continue 之前（处决条目过不了伤害正则，hit 判定也不能依赖正则命中）
+            if (e.text.indexOf('九阴白骨爪斩杀！') !== -1) { execEntryGroups[gi] = true; continue; }
+            if (e.isExecute === true && e.dmg !== undefined) execHitGroups[gi] = true;
             // 伤害为小数（如 1.5 / 2.5），必须捕获小数，否则规则会跳过全部真实爪击而漏检
             var m = e.text.match(/对 (.+?) 造成 (\d+(?:\.\d+)?) 点伤害/);
             if (!m) continue;
@@ -91,6 +124,14 @@ export const rule79 = {
                 return { fail: true, msg: '复发：九阴白骨爪同一次连锁内伤害递减 ' + prev.dmg + '→' + dmg + '（未按已损失血量递增调血）' };
             }
             prev = { name: name, dmg: dmg, hpAfter: e.hpAfter };
+        }
+        // 2.（V6.1.16）斩杀一致性：标记斩杀的 hit → 同一 attack-group 必须存在处决条目。
+        //    依据 core/15 L407-413：isExecute 触发时 executeInfo 必然同组产出（declaration = {hits, execute}）。
+        //    缺失 = execute 声明被吞/丢失（回放器曾有的"吞数组"bug 正是这种形态，第 6 轮修过一次）。
+        for (var g in execHitGroups) {
+            if (!execEntryGroups[g]) {
+                return { fail: true, msg: '复发：九阴白骨爪标记斩杀但同组无处决条目（第' + g + '组，execute 声明缺失/被吞）' };
+            }
         }
         if (!saw) return 'skip';
         return { fail: false };
