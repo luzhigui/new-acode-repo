@@ -42,7 +42,9 @@ export const rule89 = {
         var curRoundStartIdx = -1, curRoundNo = 0, curIa = -1, curIe = -1;
         var missing = 0, missingRounds = [];
 
-        function isRoundStart(e) { return !!e && (e.type === 'round-start' || e.factType === 'roundStart'); }
+        // 渲染后模型契约（第 21 轮清理）：factType / data 已被 renderLog 剥离（141:5-6 明写此约定），
+        //   原 `|| e.factType === 'roundStart'` 是永不命中的死分支，删掉；只认 type + text。
+        function isRoundStart(e) { return !!e && e.type === 'round-start'; }
         function isZhangHeal(e) {
             return !!e && e.type === 'info' && typeof e.text === 'string' && e.text.indexOf('☯ 生生不息：张三丰') !== -1;
         }
@@ -62,11 +64,9 @@ export const rule89 = {
             if (isRoundStart(e)) {
                 if (curRoundStartIdx !== -1) settleWindow();
                 curRoundStartIdx = k;
-                if (e.data && typeof e.data.round === 'number') curRoundNo = e.data.round;
-                else {
-                    var m = (typeof e.text === 'string') ? e.text.match(/第(\d+)回合开始/) : null;
-                    curRoundNo = m ? parseInt(m[1], 10) : 0;
-                }
+                // e.data 同被剥离，回合号只能从文本取（原 e.data.round 分支永不命中，已删）
+                var m = (typeof e.text === 'string') ? e.text.match(/第(\d+)回合开始/) : null;
+                curRoundNo = m ? parseInt(m[1], 10) : 0;
                 curIa = -1; curIe = -1;
                 continue;
             }

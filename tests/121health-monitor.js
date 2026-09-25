@@ -564,7 +564,7 @@ function runRuleChecks(ctx, doc) {
         entry._locate = locateLogEntry(battleLog, entry);
     }
 
-    ctx._doc = doc;
+    // （第 21 轮删除）原 `ctx._doc = doc;` —— 全库无任何规则读 ctx._doc，纯死赋值，已删。
     // before = 开战快照：ctx.UI.allyTeam 本就是开战 clone，语义正确，直接用
     // after  = 真值：必须走 battleStore（见 teamsFromStore 根因注释），否则 143/144 这类
     //          "靠终局值反推"的判据会成片误报

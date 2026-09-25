@@ -1,4 +1,6 @@
 // tests/smoke-headless.mjs — 无头冒烟：真跑引擎，不靠"语法通过"糊弄
+// V1.1.0 | 2026-09-25 补 export const VER（此前无 VER，tools/118 的版本头对账会漏掉本文件）
+export const VER = 'tests/smoke-headless.mjs V1.1.0';
 // 用法: node tests/smoke-headless.mjs [局数]
 // 退出码: 0 = 全部通过; 1 = 有失败
 //
