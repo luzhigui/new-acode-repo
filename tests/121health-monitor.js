@@ -1,9 +1,12 @@
+// V6.2.0 | ~44200 bytes | 2026-09-25 真值源统一：新增 teamsFromStore()，引擎/UI/规则/结算四组检查
+//          一律改取 battleStore 当前真值（原四组全吃 ctx.UI.allyTeam 开战副本＝系统性假绿）。
+//          采样循环中调用即中期真值 —— "中期溢出后被修回"这类漂移终局快照抓不到，改后能抓到。
 // V6.1.0 | ~42400 bytes | 2026-09-21 随机重开检查从轮询判据(checkRandomRestartState,122)改为事件驱动(hookRandomRestartWatch)：
 //          原判据在任意一局正常 GAMEOVER 都成立(UI.round 全程0/UI.currentResult 全程null/UI.allyTeam 是开战
 //          clone 副本 alive 恒真)，每局必误报，且主代码补 setState.gs('IDLE') 也消不掉。改点 btnSettle 后
 //          120ms 查 gs 是否仍停 GAMEOVER 且已生成新局(全员满血)，只有"真点了随机重开但没复位"才上报。
 // 职责：接入 rule70-93 回归体检；GAMEOVER 立即跑规则(日志已完整)；新局识别修复多局连打漏检；战报黑幕/特效池实时检查
-export const VER = 'tests/121health-monitor.js V6.1.0';
+export const VER = 'tests/121health-monitor.js V6.2.0';
 
 import { runStaticScan } from './123static-scan.js';
 import { filterRulesByTags, parseRecipeTags, collectForceFlags } from './124rule-recipes.js';
@@ -467,19 +470,57 @@ function hookRandomRestartWatch(doc) {
     });
 }
 
+// —— 真值源统一（V6.2.0）——
+// ① 根因：ctx.UI.allyTeam 是 ui/65main-battle.js 开战时 clone 的一份副本，战斗全程不再更新；
+//    2026-09-14「状态三轨收敛」后单位真值的唯一账本已迁到 battleStore（ui/62ui-render-5v5-test.js:36
+//    明写「战斗期一律读 battleStore，不再读 c.UI 的冗余拷贝」）。把开战副本当"当前/终局"喂给检查
+//    = 数据源错位，引擎/UI/结算三组至今仍吃该副本，是同根因的系统性假绿。
+// ② 证据：第 19 轮双喂探针——同一批 180 场战报，真值喂 143/144 全绿；改喂开战副本冒充 →
+//    143 误报 40 场、144 误报 25 场，且消息形态与浏览器体检一字不差。
+// ③ 影响范围：血量合法性、血条同步/颜色、换位稳定、特效关联等一切"读单位当前值"的判据。
+//    返回**调用时刻** battleStore 的真值：采样循环中途调用＝中期真值，GAMEOVER 调用＝终局真值，
+//    故"中期溢出后被修回"这类漂移也能被抓到（终局快照做不到）。取不到则退回 UI 快照并报一次降级，
+//    绝不伪造数据、绝不静默。
+let _storeFallbackWarned = false;
+function teamsFromStore(ctx) {
+    const uiAlly = (ctx && ctx.UI && ctx.UI.allyTeam) || [];
+    const uiEnemy = (ctx && ctx.UI && ctx.UI.enemyTeam) || [];
+    try {
+        const w = getWin();
+        const store = (ctx && ctx.store) || (w && w.GlobalStore ? w.GlobalStore.get('battleStore') : null);
+        const st = store && typeof store.getState === 'function' ? store.getState() : null;
+        const units = st && Array.isArray(st.units) ? st.units : null;
+        if (units && units.length) {
+            const ally = [], enemy = [];
+            for (const u of units) {
+                if (!u) continue;
+                if (u.camp === 'enemy') enemy.push(u);
+                else if (u.camp === 'ally') ally.push(u);
+                // 无 camp 的兜底：按开战副本的 uid 集合归类
+                else if (uiAlly.some(x => x && x.uid === u.uid)) ally.push(u);
+                else enemy.push(u);
+            }
+            if (ally.length || enemy.length) return { ally: ally, enemy: enemy };
+        }
+    } catch (e) { /* 取不到就退回 UI 快照 */ }
+    if (!_storeFallbackWarned) {
+        _storeFallbackWarned = true;
+        recordIssue(ctx, null, '真值源降级', 'battleStore 取不到 units，引擎/UI/结算检查退回 ctx.UI 开战副本（结果仅供参，不作数）', '系统');
+    }
+    return { ally: uiAlly, enemy: uiEnemy };
+}
+
 function runEngineChecks(ctx) {
-    const allyTeam = (ctx.UI && ctx.UI.allyTeam) || [];
-    const enemyTeam = (ctx.UI && ctx.UI.enemyTeam) || [];
-    const allUnits = allyTeam.concat(enemyTeam);
+    const teams = teamsFromStore(ctx);
+    const allUnits = teams.ally.concat(teams.enemy);
     for (const u of allUnits) {
         for (const msg of checkUnitHpValidity(u)) recordIssue(ctx, u.uid, '血量异常', msg, '引擎');
     }
 }
 
 function runUIChecks(ctx, doc) {
-    const allyTeam = (ctx.UI && ctx.UI.allyTeam) || [];
-    const enemyTeam = (ctx.UI && ctx.UI.enemyTeam) || [];
-    const allUnits = allyTeam.concat(enemyTeam);
+    const teams = teamsFromStore(ctx);
+    const allUnits = teams.ally.concat(teams.enemy);
 
     // 血条同步：仅非 full-auto 跑。快进下引擎 1ms/步、血条 CSS transition 0.6s，
     // DOM 必然滞后一拍，采到的是中间值——时序特性非 UI bug，跑必误报
@@ -524,11 +565,17 @@ function runRuleChecks(ctx, doc) {
     }
 
     ctx._doc = doc;
+    // before = 开战快照：ctx.UI.allyTeam 本就是开战 clone，语义正确，直接用
+    // after  = 真值：必须走 battleStore（见 teamsFromStore 根因注释），否则 143/144 这类
+    //          "靠终局值反推"的判据会成片误报
     const beforeAllies = allyTeam.map(u => ({ ...u }));
     const beforeEnemies = enemyTeam.map(u => ({ ...u }));
+    const storeTeams = teamsFromStore(ctx);
+    const finalAllies = storeTeams.ally;
+    const finalEnemies = storeTeams.enemy;
     for (const rule of rules) {
         try {
-            const result = rule.test(ctx, battleLog, beforeAllies, beforeEnemies, allyTeam, enemyTeam);
+            const result = rule.test(ctx, battleLog, beforeAllies, beforeEnemies, finalAllies, finalEnemies);
             if (result && result.fail) {
                 const msgs = (result.msg || '').split(' | ');
                 for (const m of msgs) if (m.trim()) recordIssue(ctx, null, m.substring(0, 30), m.trim(), '规则');
@@ -546,8 +593,9 @@ function runRuleChecks(ctx, doc) {
 
 // 结算类UI检查：血条颜色/特效残留/胜利弹幕/换位稳定等，等渲染稳定后执行
 function runSettleChecks(ctx, doc) {
-    const allyTeam = (ctx.UI && ctx.UI.allyTeam) || [];
-    const enemyTeam = (ctx.UI && ctx.UI.enemyTeam) || [];
+    const teams = teamsFromStore(ctx);
+    const allyTeam = teams.ally;
+    const enemyTeam = teams.enemy;
     const allUnits = allyTeam.concat(enemyTeam);
 
     const win = getWin();

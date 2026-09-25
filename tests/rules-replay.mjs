@@ -1,3 +1,6 @@
+// V6.2.0 | 2026-09-25 新增「不变量套件」：hp∈[0,maxHp] / hp 整数 / maxHp>0 / pos 唯一 / facts 映射完整，
+//          逐步断言（非终局快照），与机制规则分开报告并计入退出码。理由：中期越界后被修回的漂移
+//          终局快照抓不到，且不变量本就与具体机制无关、成本极低覆盖面最大。
 // V6.1.11 | 规则回放自检（开发用 runner，不参与游戏运行）
 // 用法：node tests/rules-replay.mjs           （默认 20 个种子 × 1~6 关 = 120 场）
 //      SEEDS=1,2,3 STAGES=2,4 node tests/rules-replay.mjs
@@ -43,6 +46,10 @@ await import('../modules/25elite-imperial.js');
 await import('../modules/26elite-sixsects.js');
 await import('../modules/27elite-mingjiao.js');
 await loadGameData();
+// 不变量用：查询某 factType 是否**注册了**渲染器（render/33:72）。
+// 注意别用"本次渲染有没有产出"当映射缺口判据 —— buffSummary/mindControlBanner 都有注册渲染器
+// （render/35:498/511），只是在无 buff / 无条件时合法地渲染为空（首版据此误报 929 条）。
+const { getFactRenderer } = await import('../render/33-fact-registry.js');
 
 // 自动装载 health-rules 下全部规则（文件名序 = 编号序），新增规则无需改本文件
 const ruleDir = fileURLToPath(new URL('./health-rules/', import.meta.url));
@@ -103,6 +110,46 @@ function tickAndPickBuffs(activeBuffs, ally, enemy, round, seed, pickNew) {
     return next;
 }
 
+// --- 不变量套件（V6.2.0）：与具体机制无关的低成本断言，逐步跑 ---
+// ① 根因：过去体检只做"终局快照"比对 —— 中期越界后被自行修回的漂移，终局快照看不到；
+//    且 hp 钳制/位置唯一这类不变量原先散落在各机制规则里，没有独立、每步都跑的断言。
+// ② 口径/证据：引擎每次血量变动都 emit HP_CHANGE{hp,maxHp}（core/12:171/188/253/382），
+//    回放里每一步都能拿到真实单位数组，故逐步断言几乎零成本、覆盖面最大。
+// ③ 影响范围：不针对任何单一机制 —— 任何机制写坏了血量或占位都会在这里现形。
+//    违规去重后汇总（同一步重复报没有意义），取不到字段时跳过而非伪造。
+const invIssues = new Set();
+const invUnmappedTypes = new Set();
+let invUnmappedCount = 0;
+
+function assertInvariants(units, round, seed, stage) {
+    if (!Array.isArray(units)) return;
+    const seenPos = new Map();
+    for (const u of units) {
+        if (!u) continue;
+        const tag = `[seed=${seed} stage=${stage} round=${round}] ${u.name || u.uid}`;
+        if (typeof u.maxHp !== 'number' || Number.isNaN(u.maxHp) || u.maxHp <= 0) {
+            invIssues.add(tag + ' maxHp 非法: ' + u.maxHp);
+        }
+        if (typeof u.hp !== 'number' || Number.isNaN(u.hp)) {
+            invIssues.add(tag + ' hp 非数值: ' + u.hp);
+            continue;
+        }
+        if (u.hp < 0) invIssues.add(tag + ' hp 越下界(负数): ' + u.hp);
+        if (typeof u.maxHp === 'number' && u.maxHp > 0 && u.hp > u.maxHp) {
+            invIssues.add(tag + ' hp 越上界: ' + u.hp + ' > maxHp ' + u.maxHp);
+        }
+        // 注意（踩坑 2026-09-25）：**不要**断言 hp 为整数。引擎内部 hp/maxHp 本就是浮点
+        //   （maxHp 可为 112.5，百分比治疗天然带小数），取整只发生在显示层 fmtHp 与伤害结算
+        //   `hpAfter = Math.floor(target.hp) - dmg`。首版加了这条 → 120 场误报 11901 条，纯假阳性。
+        // pos 唯一：同阵营内两个活人不能占同一格
+        if (u.pos != null && u.alive !== false) {
+            const key = (u.camp || '?') + '#pos' + u.pos;
+            if (seenPos.has(key)) invIssues.add(tag + ' pos 冲突: 格 ' + u.pos + ' 与 ' + seenPos.get(key) + ' 重叠');
+            else seenPos.set(key, u.name || u.uid);
+        }
+    }
+}
+
 function runCase(seed, stage) {
     const rng = new SeededRNG(seed);
     const store = createStore({ ...createInitialState(), units: [] }, battleReducer);
@@ -130,6 +177,12 @@ function runCase(seed, stage) {
                 if (!f || !f.factType) continue;
                 try {
                     const e = renderLog(f.factType, f.data);
+                    // 不变量：factType 声明并发射了，但压根**没注册渲染器** = facts 映射缺口。
+                    // 只看注册与否，不看本次产出（有注册器但本次渲染为空是合法的条件性产出）。
+                    if (!getFactRenderer(f.factType)) {
+                        invUnmappedCount++;
+                        invUnmappedTypes.add(f.factType);
+                    }
                     // 渲染函数可能返回「数组」（如 renderZhangSwitchFact 返回 [切换行, 台词行] 两件套）：
                     // 旧版直接 log.push(e) 会把数组当单条目压入，数组元素自身既无 .text 也无标记位，
                     // 导致所有"锚点落在数组元素上"的规则恒空转（134/143 同款病）。此处摊平后再压入。
@@ -137,6 +190,8 @@ function runCase(seed, stage) {
                     else if (e) log.push(e);
                 } catch (e) { /* 单条渲染失败不阻断 */ }
             }
+            // 不变量：每步断言一次（比"每回合末"更细 —— 中期越界后被修回也能抓到）
+            assertInvariants([...(step.ally || []), ...(step.enemy || [])], battleState.round, seed, stage);
             if (step.winner) winner = step.winner;
         }
         if (winner || !lastStep) break;
@@ -197,6 +252,19 @@ for (const seed of SEEDS) {
     }
 }
 
+// --- 不变量报告（与机制规则分开报，不混进规则 pass/fail 计数）---
+console.log('=== 不变量（逐步断言）===');
+if (invUnmappedCount) {
+    console.log(`  ❌ facts 映射缺口：${invUnmappedCount} 条声明渲染无产出，涉及类型：${[...invUnmappedTypes].join(', ')}`);
+}
+if (invIssues.size) {
+    const arr = [...invIssues];
+    for (const m of arr.slice(0, 12)) console.log('  ❌ ' + m);
+    if (arr.length > 12) console.log(`  … 另有 ${arr.length - 12} 条同类`);
+} else {
+    console.log('  ✅ hp∈[0,maxHp] / hp 整数 / maxHp>0 / pos 唯一 / facts 映射完整 —— 全部通过');
+}
+
 console.log(`=== 规则回放自检：${cases} 场 / ${rules.length} 条规则 ===`);
 let fails = 0, dead = 0;
 for (const name of Object.keys(agg)) {
@@ -211,5 +279,7 @@ if (KEYWORDS.length) {
     console.log('=== 关键字命中 ===');
     for (const kw of KEYWORDS) console.log(`  ${kw}: ${kwHit[kw] || 0}`);
 }
-console.log(`RESULT: ${fails === 0 ? '无失败规则' : fails + ' 条规则报失败'}；恒 skip(空转)规则 ${dead} 条`);
-process.exit(fails === 0 ? 0 : 1);
+const invFail = invIssues.size + (invUnmappedCount ? 1 : 0);
+console.log(`RESULT: ${fails === 0 ? '无失败规则' : fails + ' 条规则报失败'}；恒 skip(空转)规则 ${dead} 条` +
+    `；不变量违规 ${invIssues.size} 类${invUnmappedCount ? ' / facts 映射缺口 ' + invUnmappedCount + ' 条' : ''}`);
+process.exit((fails === 0 && invFail === 0) ? 0 : 1);
