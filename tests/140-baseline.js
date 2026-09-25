@@ -1,4 +1,4 @@
-// V1.3.0 | ~9000 bytes | 2026-09-25 --check 的 DIFF 改为二分：winner 翻转＝回归（红线，硬失败）；winner 未变
+// V1.3.0 | ~10200 bytes | 2026-09-25 --check 的 DIFF 改为二分：winner 翻转＝回归（红线，硬失败）；winner 未变
 //          且基线后业务侧确有提交可解释＝预期变更（单列提示重录，不硬失败）。旧版任何 DIFF 一律退码 1，
 //          导致每次有意调数值都被红线拦死，红线反而失去意义。
 // V1.2.0 | ~7600 bytes | 2026-09-22 修复 Windows 下 fetch file:// 路径（new URL(url).pathname → fileURLToPath）；新增 --check 模式（与基线逐场比对 winner/rounds/facts，有差异退出码 1）；吸收并取代临时 runner baseline-check.mjs / baseline-diff.mjs
