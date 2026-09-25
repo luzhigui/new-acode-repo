@@ -406,7 +406,15 @@ document.addEventListener('DOMContentLoaded', async function() {
 
     // 2026-09-25 回放浮动按钮：点它选战报文件进回放（与保存侧对称）
     const replayFloat = document.getElementById('replayFloat');
-    if (replayFloat) replayFloat.addEventListener('click', () => { startReplayFromFile(); });
+    if (replayFloat) replayFloat.addEventListener('click', () => {
+        // 点了必须有反馈：选择器没弹出来的环境下，靠这行字确认按钮是活的
+        const hint = document.createElement('div');
+        hint.textContent = '📂 请在弹出的窗口选择战报文件';
+        hint.style.cssText = 'position:fixed;bottom:160px;right:20px;background:rgba(30,30,30,.9);color:#ffd700;padding:8px 12px;border-radius:8px;font-size:12px;z-index:99997;pointer-events:none;';
+        document.body.appendChild(hint);
+        setTimeout(() => hint.remove(), 3000);
+        startReplayFromFile();
+    });
 
     if (!getState.UI().allyTeam.length) {
         setState.UI({ allyTeam: [], enemyTeam: [], currentResult: null, round: 0 });
