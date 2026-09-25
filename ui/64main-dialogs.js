@@ -1,5 +1,5 @@
-// V6.0.0 | ~15900 bytes | 2026-08-23 战报防重复：42/61 两处调用叠双层 overlay，点两次才能关
-export const VER = 'ui/64main-dialogs.js V6.0.0';
+// V6.1.0 | ~21500 bytes | 2026-09-25 战报弹窗新增「🎬 保存战报」按钮（整场回放文件，走 50battle-export 三层下载保险）
+export const VER = 'ui/64main-dialogs.js V6.1.0';
 
 import { showModal, showAlert } from './60main-utils.js';
 import { AudioManager } from '../modules/22audio-manager.js';
@@ -7,6 +7,7 @@ import { GlobalStore, getPlayerContext } from '../infra/54-global-store.js';
 import { CAMP_TYPES } from '../infra/56-battle-enums.js';
 import { CONFIG } from '../core/01config-5v5-test.js';
 import { stepVoteOpen, stepCountdown } from './71tutorial.js';
+import { getBattleRecording, attachSaveBattleReportButton } from '../player/50battle-export.js';
 
 // 战报弹窗
 // 弹窗-战报：战斗结束统计数据展示+导出
@@ -114,7 +115,10 @@ export function showBattleReport(battleResultForInfo) {
     
     let btnDiv = document.createElement('div');
     btnDiv.style.cssText = 'display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;';
-    
+
+    // 2026-09-25 整场回放文件：取本局录制（GAMEOVER 时 finishBattleRecording 已定稿）
+    attachSaveBattleReportButton(btnDiv, () => getBattleRecording());
+
     let copyBtn = document.createElement('button');
     copyBtn.textContent = '📋 复制战报';
     copyBtn.style.cssText = 'background:#4caf50;color:#fff;border:none;padding:8px 16px;border-radius:4px;cursor:pointer;font-weight:bold;';
