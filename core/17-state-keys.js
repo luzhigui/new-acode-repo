@@ -1,5 +1,5 @@
-// V2.6.0 | ~10200 bytes | 2026-09-24 胖远桥嘲讽改叠防：删除 _tauntAttackActive（嘲讽减伤取消）
-export const VER = 'core/17-state-keys.js V2.6.0';
+// V2.6.1 | ~10400 bytes | 2026-09-26 加 _fsmPhase（FSM 相位镜像，渲染层读它判附身/飞天，不再读 unit._fsm）
+export const VER = 'core/17-state-keys.js V2.6.1';
 
 /** 字段类型：决定 clone 时的拷贝方式 */
 export const STATE_FIELD_TYPES = Object.freeze({
@@ -65,6 +65,10 @@ export const BATTLE_STATE_SCHEMA = Object.freeze({
     _fortifyCap:             { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },
     _dodgeStack:             { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },
     _flyMode:                { type: STATE_FIELD_TYPES.STRING,  default: null },
+    // FSM 当前相位镜像（张无忌 ranged/near/ronghui、小昭·姊 attached、小昭·妹 flying）。
+    //   由 infra/51 StateMachine 的 onChange 回调实时写入，随本 schema 走 clone/UI 同步，
+    //   渲染层只读它判「附身/飞天」，不再伸手读引擎的 unit._fsm 实例。
+    _fsmPhase:               { type: STATE_FIELD_TYPES.STRING,  default: null },
     _butterflyHost:          { type: STATE_FIELD_TYPES.STRING,  default: null },
     _zhangTauntDone:         { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
 
