@@ -38,6 +38,7 @@ import { VER as VER_CORE } from '../core/11battle-round.js';
 import { SeededRNG } from '../infra/51-core-utils.js';
 import { setBattleRng, getBattleRng } from '../core/13battle-shared.js';
 import { VER as VER_PLAYER_CORE, playBattleGuest, playBattleReplay } from '../player/42player-core.js';
+import { rehydrateReport } from '../player/50battle-export.js';
 import { handlePvpBuffSelection } from '../player/49battle-flow.js';
 import { VER as VER_TEXT } from '../player/40player-text.js';
 import { VER as VER_BUFF_UI } from '../player/41player-buff-ui.js';
@@ -231,7 +232,7 @@ export async function startReplayFromFile() {
             alert('❌ 不是有效的战报文件（需含 format:"ming-battle-replay" 和 steps）');
             return;
         }
-        enterReplay(report);
+        enterReplay(rehydrateReport(report));   // v1.1 增量文件在此还原成全量（v1.0 全量文件原样通过）
     };
     input.click();
 }
