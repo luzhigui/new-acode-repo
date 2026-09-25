@@ -15,9 +15,12 @@
 //      ── 等号写反/漏写会让存续回合数系统性跑偏
 //   2) roll 越界：不在 1~100 区间（nextInt 边界被改动）
 //   3) prob 既不是基值也不在"逐次减半"序列 {50,25,12,6,3,1} 里 ── 递减链断点 / 被写死成别的常数
-//   4) 同一回合同一号位被判定两次 ── 同一只拒马被清算两遍（拒马数暴涨或瞬间清零）
+//   4) 同一回合同一只拒马被判定两次 ── 拒马被清算两遍（拒马数暴涨或瞬间清零）
+//      去重口径（2026-09-25）：引擎 destroyHorse 投产的 horseUid，render/35 V1.0.6 起「消散 / 未消散」
+//        两分支都带出 horseUid，故**优先按 horseUid 去重** —— 明教 7 号位与六大派 7 号位是两只不同
+//        拒马，同回合各自清算属合法；只有 uid 拿不到时（旧战报快照）才退回按号位去重。
 // 误报规避：本场没有拒马销毁条目直接 skip（拒马只在己方抽到「巨马阵」团队 Buff 时才生成）。
-export const VER = 'tests/health-rules/147-horse-destroy.js V6.1.15';
+export const VER = 'tests/health-rules/147-horse-destroy.js V6.1.16';
 
 import { CONFIG } from '../../core/01config-5v5-test.js';
 
@@ -56,14 +59,16 @@ export const rule94 = {
         var BASE_PROB = baseProb();
         var decaySet = buildDecaySet(BASE_PROB);
         var curRound = 0;
-        var seenThisRound = {};   // 同一回合已判定过的号位 → 复发信号4
+        // 复发信号4 去重表（回合切换时清空）：优先按 horseUid，uid 缺失才退回号位。
+        // 取数来源：HORSE_DESTROY 条目 render/35 V1.0.6 起「消散 / 未消散」两分支**都带 horseUid**。
+        var seenThisRound = {};
         var checked = 0;
 
         for (var i = 0; i < n; i++) {
             var e = log[i];
             if (!e) continue;
 
-            // 回合切换时重置"本回合已判定号位"表
+            // 回合切换时重置"本回合已判定过"表
             if (e.type === 'round-start') {
                 var rm = (e.text || '').match(/第(\d+)回合/);
                 if (rm) { curRound = parseInt(rm[1], 10); seenThisRound = {}; }
@@ -74,6 +79,7 @@ export const rule94 = {
             for (var k = 0; k < list.length; k++) {
                 var it = list[k];
                 if (!it || typeof it.text !== 'string') continue;
+
                 var m = it.text.match(/🐴\s*拒马阵：(\d+)号位拒马(消散|未消散)（成功率(\d+)%，(\d+)）/);
                 if (!m) continue;
 
@@ -98,11 +104,18 @@ export const rule94 = {
                     return { fail: true, msg: '复发：第' + curRound + '回合 ' + pos + '号位拒马销毁概率为' + prob
                         + '%，既非基值 ' + BASE_PROB + '% 也不在递减序列（递减链断点，或被写死成别的常数）' };
                 }
-                // 复发信号4：同一回合同一号位不得被清算两次
-                if (seenThisRound[pos]) {
-                    return { fail: true, msg: '复发：第' + curRound + '回合 ' + pos + '号位拒马被清算两次（同一只拒马重复进入销毁判定）' };
+                // 复发信号4：同一回合同一只拒马不得被清算两次 —— 优先按 horseUid 去重。
+                //   同一格可同时有两只拒马（如 seed=2 stage=6 第9回合 7 号位的 u212/u213），
+                //   明教@7 与六大派@7 更是两只不同拒马，同回合各自清算属合法；只有 uid 缺失
+                //   （旧战报快照）才退回按号位去重。
+                var uid = (it.horseUid != null && it.horseUid !== '') ? String(it.horseUid) : null;
+                var dedupKey = uid != null ? ('uid:' + uid) : ('pos:' + pos);
+                if (seenThisRound[dedupKey]) {
+                    return { fail: true, msg: '复发：第' + curRound + '回合 '
+                        + (uid != null ? ('uid=' + uid + ' 的拒马') : (pos + '号位拒马'))
+                        + '被清算两次（同一只拒马重复进入销毁判定）' };
                 }
-                seenThisRound[pos] = true;
+                seenThisRound[dedupKey] = true;
                 // 位置越界的兜底（拒马只应占 1~9 号位）
                 if (!(pos >= 1 && pos <= 9)) {
                     return { fail: true, msg: '复发：拒马出现在' + pos + '号位（站位越界，可用位应取 1~9 的空位）' };

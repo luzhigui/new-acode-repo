@@ -192,15 +192,6 @@ function runCase(seed, stage) {
             }
             // 不变量：每步断言一次（比"每回合末"更细 —— 中期越界后被修回也能抓到）
             assertInvariants([...(step.ally || []), ...(step.enemy || [])], battleState.round, seed, stage);
-            if (process.env.PROBE === seed + ':' + stage) {
-                const ros = (step.ally || []).map(u => `${u.uid}:${u.name}@${u.pos}${u.alive ? '' : '(死)'}${u.isZhang ? '[Z]' : ''}${u.isHorse ? '[马]' : ''}`).join(' | ');
-                console.log(`[R${battleState.round}] ${ros}`);
-                if (process.env.PROBEFACT === '1') {
-                    for (const f of step.log || []) {
-                        if (f && f.factType) console.log('  RAW[' + f.factType + '] ' + JSON.stringify(f.data).slice(0, 220));
-                    }
-                }
-            }
             if (step.winner) winner = step.winner;
         }
         if (winner || !lastStep) break;
@@ -245,10 +236,6 @@ for (const seed of SEEDS) {
                 if (e.type === 'buff-push') console.log(i + ' [push] ' + (e.text || '').replace(/<[^>]+>/g, '') + ' || pushUid=' + e.pushTargetUid + ' behindUid=' + e.behindUid + ' old=' + e.oldPos + ' new=' + e.newPos + ' behindOld=' + e.behindOldPos);
                 else if (e.type === 'buff-swap') console.log(i + ' [swap] ' + (e.text || '').replace(/<[^>]+>/g, '') + ' || A=' + e.uidA + ' B=' + e.uidB + ' posA=' + e.oldPosA + ' posB=' + e.oldPosB);
                 else if (e.type === 'attack-group' && e._fxSnapshot) console.log(i + ' [atk ] A=' + e.uidA + '@' + e._fxSnapshot.attackerPos + ' D=' + e.uidD + '@' + e._fxSnapshot.defenderPos);
-                if (process.env.DUMPALL === '1') {
-                    console.log(i + ' [' + e.type + '] uidA=' + e.uidA + ' uidD=' + e.uidD + ' isDead=' + e.isDead + ' txt=' + (e.text || '').replace(/<[^>]+>/g, '').slice(0, 120));
-                    if (Array.isArray(e.entries)) e.entries.forEach((sub, si) => console.log('   ' + i + '.' + si + ' [' + (sub && sub.type) + '] uidD=' + (sub && sub.uidD) + ' isDead=' + (sub && sub.isDead) + ' deadFlag=' + (sub && sub.deadFlag) + ' txt=' + ((sub && sub.text) || '').replace(/<[^>]+>/g, '').slice(0, 140)));
-                }
             });
         }
         for (const kw of KEYWORDS) {

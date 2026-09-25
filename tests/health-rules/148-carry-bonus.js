@@ -21,12 +21,14 @@
 //   3) 静默归零：队友属性明显够（按"除自己外最弱队友 × 配置比例"floor ≥ 1）却加成为 0
 //      —— _baseMaxHp 读不到 / bonus 未接上
 //   4) 门控失效：小昭·姊 / 小昭·弟 拿到了 carry（core/04 明确排除这两人）
-//   5) 数值膨胀：加成超过「全队属性之和 × 比例 × 死亡倍率 × 2 倍余量」—— 比例或倍率被写大
+//   5) 数值膨胀：加成超过「Σ 队友 getStat(攻/防/血) × 存活1/死亡deathMultiplier × 比例 × 2 倍余量」
+//      —— 比例或倍率被写大。注意属性必须走 getStat（引擎同源），读 u.atk 基值会把上界算小造成误报。
 // 误报规避：本场没有带数值的 carry 条目直接 skip；拿不到单位池只跳过 3/5 两条量级判据（不猜）；
 //   配置比例读不到时退回版本约定值 0.08/0.08/0.1/2，并在读不到时只跑 1/2/4 三条结构判据。
-export const VER = 'tests/health-rules/148-carry-bonus.js V6.1.15';
+export const VER = 'tests/health-rules/148-carry-bonus.js V6.1.16';
 
 import { CONFIG } from '../../core/01config-5v5-test.js';
+import { getStat } from '../../core/13battle-shared.js';
 
 // 配置现读（CONFIG.BUFFS 是 getter，游戏数据未就绪时会抛，故必须包一层 —— 与 147 同款处理）
 function carryCfg() {
@@ -47,12 +49,19 @@ function plain(s) {
     return String(s || '').replace(/<[^>]+>/g, '');
 }
 
-// 单位属性取值：兼容 state.xxx（词条化后）与顶层 xxx 两种写法
+// 单位属性取值：**必须走引擎同一真值源 getStat（base + 词条现算）**。
+// 根因（2026-09-25 回放复现 seed=18 stage=6 第13回合）：旧版直接读 u.state.atk / u.atk，而词条系统下
+//   这两个字段是「基值」——atk/def 由 getStat 现算、从不回写顶层（只有 maxHp 会被 refreshMaxHp 同步）。
+//   于是队友身上累积的 add 词条（如狮群召唤物 baseAtk=0 却经团队 buff 叠到 atk 60+）全被漏掉，
+//   上界被算小 → 真值 攻+43 被误判超界。引擎 calcCarryBonus_Normal 用的就是 getStat，规则必须同源。
+//   hp 分支另按引擎取 state._baseMaxHp（core/14 L59 就是用它，不是 getStat('maxHp')）。
 function statOf(u, key) {
     if (!u) return null;
-    var v = null;
-    if (u.state && typeof u.state[key] === 'number') v = u.state[key];
-    else if (typeof u[key] === 'number') v = u[key];
+    if (key === 'maxHp') {
+        var b = (u.state && typeof u.state._baseMaxHp === 'number') ? u.state._baseMaxHp : null;
+        if (b != null) return b;
+    }
+    var v = getStat(u, key);
     return (typeof v === 'number' && isFinite(v)) ? v : null;
 }
 
@@ -147,18 +156,22 @@ export const rule95 = {
                     }
                 }
 
-                // 复发信号5：数值膨胀 —— 上界取"全队属性之和 × 比例 × 死亡倍率 × 2 倍余量"
+                // 复发信号5：数值膨胀 —— 上界镜像引擎口径：对每个队友按「存活 ×1 / 死亡 ×deathMultiplier」
+                //   累加 getStat 属性，再乘配置比例，最后留 2 倍余量。旧版把整队和统一乘 deathMultiplier*2
+                //   且读的是基值属性，既算小了真值来源、又给错倍率，属口径错误（见 statOf 注释）。
                 if (mates.length > 0 && cfg.ok) {
                     var sumAtk = 0, sumDef = 0, sumHp = 0;
                     for (var s = 0; s < mates.length; s++) {
-                        var a2 = statOf(mates[s], 'atk'), d2 = statOf(mates[s], 'def'), h2 = statOf(mates[s], 'maxHp');
-                        if (a2 != null) sumAtk += a2;
-                        if (d2 != null) sumDef += d2;
-                        if (h2 != null) sumHp += h2;
+                        var mu = mates[s];
+                        var mult = mu.alive ? 1 : cfg.deathMultiplier;
+                        var a2 = statOf(mu, 'atk'), d2 = statOf(mu, 'def'), h2 = statOf(mu, 'maxHp');
+                        if (a2 != null) sumAtk += a2 * mult;
+                        if (d2 != null) sumDef += d2 * mult;
+                        if (h2 != null) sumHp += h2 * mult;
                     }
-                    var capAtk = sumAtk * cfg.atkBonus * cfg.deathMultiplier * 2;
-                    var capDef = sumDef * cfg.defBonus * cfg.deathMultiplier * 2;
-                    var capHp = sumHp * cfg.hpBonus * cfg.deathMultiplier * 2;
+                    var capAtk = sumAtk * cfg.atkBonus * 2;
+                    var capDef = sumDef * cfg.defBonus * 2;
+                    var capHp = sumHp * cfg.hpBonus * 2;
                     if (atk > capAtk || def > capDef || hp > capHp) {
                         return { fail: true, msg: '复发：第' + curRound + '回合 ' + who + ' 的 carry 加成 攻+' + atk + ' 防+' + def
                             + ' 血上限+' + hp + ' 超出上界（攻≤' + Math.round(capAtk) + ' 防≤' + Math.round(capDef)
