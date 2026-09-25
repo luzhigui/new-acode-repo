@@ -1,5 +1,5 @@
-// V6.3.1 | ~13100 bytes | 2026-09-24 反击/母狮随动置 _isLinkAttack + 消费 actedMode 'restore'：额外攻击不吃行动权（不影响灭绝出手计数）
-export const VER = 'core/10battle-attack.js V6.3.1';
+// V6.3.2 | ~17800 bytes | 2026-09-25 额外攻击三口合一 runExtraAttackRequests：miss/afterDamage/afterAttack 三段抄改循环并一，reason 表集中置防乒乓标记（排掉"新机制忘标记会死循环"的雷），行为逐位对齐零变化
+export const VER = 'core/10battle-attack.js V6.3.2';
 
 import { CONFIG } from './01config-5v5-test.js';
 import { hasBuff, makeFXSnapshot, isBlocked } from './03battle-utils.js';
@@ -23,6 +23,51 @@ import { emitEvent, applyStatChange, recordCombatStat } from './13battle-shared.
 import { FACT_TYPES, BUFF_TYPES, UNIT_EVENT_TYPES, CAMP_TYPES, SIGNAL_TYPES } from '../infra/56-battle-enums.js';
 
 const C = CONFIG;
+
+// —— 额外攻击统一执行器（2026-09-25 三口合一）——
+// 三个信号口收来的 extraRequests 全走这一个函数：
+//   AFTER_MISS（打空/被闪避后的双击补刀）/ AFTER_DAMAGE_APPLIED（灭绝反击、母狮随动）/ AFTER_ATTACK（双击、玄冥联动、跟随攻击）。
+// 原先是三段各自抄改的循环，长歪的方向都不一样；合一后差异只剩三个开关（全部是旧账，逐位保留）：
+//   doubleStrikeUnitUid：miss 口把外层双击 uid 传下去（双击的补刀归并到同一次双击）
+//   checkBlock：afterAttack 口的双击要判遮挡（miss 口补刀不判）
+//   forceUnact：afterAttack 口历史行为——请求者出手前先清行动权（双击靠这个补出手；跟随/联动带 restore 会立刻还原）
+// 新机制挂被动出手看这里（不用再知道三条循环的差别）：
+//   监听上面三个信号，往 data.extraRequests push 一条：
+//     { unit, targetUid, reason, priority, actedMode, actedSnapshot }
+//   reason 进 LINK_REASONS 的（反击/随动/联动类）：执行期间自动置 _isLinkAttack——不吃行动权 + 自身不会再触发同类（防乒乓链），
+//     想让额外出手也不占本回合行动权，配 actedMode:'restore' + actedSnapshot: unit.state._acted；
+//   跨阵营反击（如灭绝打对侧）自动按出手者阵营换边选目标，不会从自己人里挑；
+//   一次性不可闪避带 ignoreDodge: true（只在这一次出手内生效，结束即清）。
+const LINK_REASONS = new Set(['counterAttack', 'lionFollow', 'xuanmingLink', 'followAttack']);
+
+function runExtraAttackRequests(requests, opts) {
+    if (!requests || requests.length === 0) return;
+    const { log, A, B, state, allySide, enemySide, target, doubleStrikeUnitUid = null, checkBlock = false, forceUnact = false } = opts;
+    requests.sort((a, b) => (a.priority || 0) - (b.priority || 0));
+    const executedUids = new Set();
+    for (const req of requests) {
+        if (executedUids.has(req.unit.uid)) continue;
+        if (!req.unit.alive) continue;
+        if (checkBlock && req.reason === 'doubleStrike' && !req.ignoreBlock && isBlocked(req.unit, allySide)) continue;
+        executedUids.add(req.unit.uid);
+        if (forceUnact) req.unit.state._acted = false;
+        if (req.actedMode === 'allow') req.unit.state._acted = false;
+        const isLinkReq = LINK_REASONS.has(req.reason);
+        if (isLinkReq) req.unit.state._isLinkAttack = true;
+        // 回退判据带 _pendingDeath：原目标同击致死后 alive 仍是 true（死亡结算才清），
+        //   只判 alive 会把"待死"的 uid 当活人锁过去，锁定路径用严判据找不到人 → 白跳一次。回退 null 走正常选目标。
+        const extraTargetUid = req.targetUid || (target && target.alive && !target.state._pendingDeath ? target.uid : null);
+        // 跨阵营额外攻击（如灭绝反击）：allySide/enemySide 是「原行动者视角」，反击者在对侧，
+        //   必须按出手者阵营重算两侧，否则会从自己人里挑目标（同阵营出手者重算结果不变，天然兼容）。
+        const reqAllySide = req.unit.camp === CAMP_TYPES.ALLY ? A : B;
+        const reqEnemySide = req.unit.camp === CAMP_TYPES.ALLY ? B : A;
+        if (req.ignoreDodge) req.unit.state._ignoreDodge = true;
+        processUnitAttack(req.unit, reqAllySide, reqEnemySide, log, A, B, state, doubleStrikeUnitUid, extraTargetUid);
+        if (req.ignoreDodge) req.unit.state._ignoreDodge = false;
+        if (isLinkReq) req.unit.state._isLinkAttack = false;
+        if (req.actedMode === 'restore') req.unit.state._acted = req.actedSnapshot;
+    }
+}
 
 // 同步流程：UI 层异步包装保持逐步渲染，这里纯同步
 export function processUnitAttack(unit, allySide, enemySide, log, A, B, state, doubleStrikeUnitUid, lockedTargetUid) {
@@ -98,19 +143,8 @@ export function processUnitAttack(unit, allySide, enemySide, log, A, B, state, d
             }
             log.push({ factType: FACT_TYPES.DODGE, data: dodgeFact });
         }
-        if (hitResult.extraRequests && hitResult.extraRequests.length > 0) {
-            // 递归层数由 _acted/_doubleStriked/_linkTriggered 等标记兜底；新机制忘标记会死循环
-            hitResult.extraRequests.sort((a, b) => (a.priority || 0) - (b.priority || 0));
-            const executedUids = new Set();
-            for (const req of hitResult.extraRequests) {
-                if (executedUids.has(req.unit.uid)) continue;
-                if (!req.unit.alive) continue;
-                executedUids.add(req.unit.uid);
-                if (req.actedMode === 'allow') req.unit.state._acted = false;
-                const retryUid = req.targetUid || null;
-                processUnitAttack(req.unit, allySide, enemySide, log, A, B, state, doubleStrikeUnitUid, retryUid);
-            }
-        }
+        // 打空/被闪避后的补刀请求：双击 uid 传下去归并同一次双击；补刀不判遮挡（旧账）
+        runExtraAttackRequests(hitResult.extraRequests, { log, A, B, state, allySide, enemySide, target, doubleStrikeUnitUid });
         return true;
     }
 
@@ -220,38 +254,9 @@ export function processUnitAttack(unit, allySide, enemySide, log, A, B, state, d
         }
     }
 
-    if (afterDamageExtraRequests.length > 0) {
-        afterDamageExtraRequests.sort((a, b) => (a.priority || 0) - (b.priority || 0));
-        const executedUids = new Set();
-        for (const req of afterDamageExtraRequests) {
-            if (executedUids.has(req.unit.uid)) continue;
-            if (!req.unit.alive) continue;
-            executedUids.add(req.unit.uid);
-            if (req.actedMode === 'allow') req.unit.state._acted = false;
-            // 2026-09-24 反击 / 母狮随动这类「被动出手」不吃本回合行动权，与 AFTER_ATTACK 那条循环同口径：
-            //   ① 置 _isLinkAttack：嵌套 processUnitAttack 末尾就不会把 _acted 顶成 true
-            //      （缺这步：灭绝反击完就变灰，被 core/11 的候选过滤整回合跳过；母狮随动同理连累雄狮/谢逊）；
-            //   ② 再按 actedSnapshot 兜底还原，restore 在这条循环里原先无人消费。
-            //   注：被动出手照样计入灭绝师太的「每第三次攻击」次数（modules/26 只认 AFTER_DAMAGE_APPLIED），
-            //   这里置位不再影响她的出手计数。
-            const isLinkReq = req.reason === 'counterAttack' || req.reason === 'lionFollow';
-            if (isLinkReq) req.unit.state._isLinkAttack = true;
-            // 2026-09-22 回退判据补 _pendingDeath：原目标同击致死后 alive 仍是 true（死亡结算才清），
-            //   只判 alive 会把"待死"的 uid 当活人锁过去，锁定路径用严判据找不到人 → 白跳一次。
-            //   补上后回退为 null，走正常选目标流程（概率连击改打别人）。
-            const extraTargetUid = req.targetUid || (target && target.alive && !target.state._pendingDeath ? target.uid : null);
-            // 2026-09-22 跨阵营额外攻击（灭绝师太反击）：allySide/enemySide 是「原行动者视角」，
-            //   反击者在对侧，必须按反击者阵营重算两侧，否则会从自己人里挑目标。
-            //   req.ignoreDodge 同理：不可闪避只在这一次反击内生效，结束即清。
-            const reqAllySide = req.unit.camp === CAMP_TYPES.ALLY ? A : B;
-            const reqEnemySide = req.unit.camp === CAMP_TYPES.ALLY ? B : A;
-            if (req.ignoreDodge) req.unit.state._ignoreDodge = true;
-            processUnitAttack(req.unit, reqAllySide, reqEnemySide, log, A, B, state, null, extraTargetUid);
-            if (req.ignoreDodge) req.unit.state._ignoreDodge = false;
-            if (isLinkReq) req.unit.state._isLinkAttack = false;
-            if (req.actedMode === 'restore') req.unit.state._acted = req.actedSnapshot;
-        }
-    }
+    // 打中后触发的被动出手（灭绝反击、母狮随动）：reason 表自动置 _isLinkAttack（不吃行动权+防乒乓），
+    //   灭绝跨阵营反击自动换边；被动出手照样计入她的「每第三次攻击」次数（modules/26 只认本信号）。
+    runExtraAttackRequests(afterDamageExtraRequests, { log, A, B, state, allySide, enemySide, target });
 
     if (!unit.state._isLinkAttack) unit.state._acted = true;
 
@@ -301,29 +306,8 @@ export function processUnitAttack(unit, allySide, enemySide, log, A, B, state, d
             }
         }
     }
-    if (extraRequests.length > 0) {
-        extraRequests.sort((a, b) => (a.priority || 0) - (b.priority || 0));
-        const executedUids = new Set();
-        for (const req of extraRequests) {
-            if (executedUids.has(req.unit.uid)) continue;
-            if (!req.unit.alive) continue;
-            if (req.reason === 'doubleStrike' && !req.ignoreBlock && isBlocked(req.unit, allySide)) continue;
-            executedUids.add(req.unit.uid);
-            req.unit.state._acted = false;
-            // 玄冥联动 / 灭绝跟随攻击 / 谢逊母狮随动期间置 _isLinkAttack，避免这类额外攻击自身再触发一次（乒乓链）
-            const isLinkReq = req.reason === 'xuanmingLink' || req.reason === 'followAttack' || req.reason === 'lionFollow';
-            if (isLinkReq) req.unit.state._isLinkAttack = true;
-            // 2026-09-22 回退判据补 _pendingDeath：原目标同击致死后 alive 仍是 true（死亡结算才清），
-            //   只判 alive 会把"待死"的 uid 当活人锁过去，锁定路径用严判据找不到人 → 白跳一次。
-            //   补上后回退为 null，走正常选目标流程（概率连击改打别人）。
-            const extraTargetUid = req.targetUid || (target && target.alive && !target.state._pendingDeath ? target.uid : null);
-            processUnitAttack(req.unit, allySide, enemySide, log, A, B, state, null, extraTargetUid);
-            if (isLinkReq) req.unit.state._isLinkAttack = false;
-            if (req.actedMode === 'restore') {
-                req.unit.state._acted = req.actedSnapshot;
-            }
-        }
-    }
+    // 打完后的连锁（双击、玄冥联动、跟随攻击）：双击判遮挡；forceUnact 保留旧账——请求者出手前先清行动权
+    runExtraAttackRequests(extraRequests, { log, A, B, state, allySide, enemySide, target, checkBlock: true, forceUnact: true });
 
     resolveDeaths(allySide, enemySide, log);
 
