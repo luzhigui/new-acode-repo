@@ -1,9 +1,8 @@
-// V1.1.0 | ~11800 bytes | 2026-09-25 战报导出 v1.1：修手机保存失败——①文件瘦身（单位增量存储，2.2MB→数百KB）
-//   ②新增系统分享（navigator.share 原生面板，可直接存文件/发好友）③按钮结果分话术（取消/空/已保存/已复制/手动复制）
-//   ④每层失败往 console.error 扔具体错误。下载顺序：fs直写(桌面)→系统分享(手机)→dataURL下载→剪贴板→手动复制弹窗。
+// V1.1.1 | ~15300 bytes | 2026-09-25 修「点击没反应」：分享套5秒竞赛(防WebView挂死)→取消显示「已取消」(原0秒复原=观感无反应)→blob+dataURL双下载→结果进console
+//   v1.1: ①文件瘦身（单位增量存储）②系统分享 ③按钮话术分家 ④失败可观测
 //   文件格式：{ format:'ming-battle-replay', version:1, meta.delta:true, steps:[增量step...] }；
 //   v1.0 全量文件兼容（无 delta 标记 = 按 v1.0 全量读）。
-export const VER = 'player/50battle-export.js V1.1.0';
+export const VER = 'player/50battle-export.js V1.1.1';
 
 // ---- 收集（player/42 在开战时 startRecording、每步 feed、收尾 finish）----
 
@@ -184,35 +183,46 @@ export async function exportBattleReport(report) {
     }
 
     // ② 系统分享（手机浏览器）：弹原生面板，可直接「保存到文件」或发微信
+    // 2026-09-25 v1.1.1：套 5 秒竞赛——部分 WebView share 不弹面板也不报错（挂死），超时视为失败继续降级
     try {
         const file = new File([text], name, { type: 'application/json' });
         if (navigator.canShare && navigator.canShare({ files: [file] })) {
-            await navigator.share({ files: [file], title: name });
+            const timeout = new Promise((_, rej) => setTimeout(() => rej(new Error('share-timeout')), 5000));
+            await Promise.race([navigator.share({ files: [file], title: name }), timeout]);
             return 'shared';
         }
     } catch (e) {
         if (e && e.name === 'AbortError') return 'cancel'; // 用户关掉了分享面板
-        console.error('[战报] 系统分享失败，降级:', e);
+        console.error('[战报] 系统分享失败/超时，降级:', e);
     }
 
-    // ③ dataURL + a.download（桌面/部分手机浏览器；安卓大文件可能静默失败，故不作为最终承诺）
-    try {
-        const blob = new Blob([text], { type: 'application/json;charset=utf-8' });
-        const dataUrl = await new Promise((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onload = () => resolve(reader.result);
-            reader.onerror = reject;
-            reader.readAsDataURL(blob);
-        });
-        const a = document.createElement('a');
-        a.href = dataUrl;
-        a.download = name;
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-        return 'download';
-    } catch (e) {
-        console.error('[战报] dataURL 下载失败，降级:', e);
+    // ③ blob 下载（浏览器标准路；安卓 Chrome 手机版可靠）→ dataURL 下载（老 WebView 兼容）
+    for (const mode of ['blob', 'dataURL']) {
+        try {
+            let href;
+            if (mode === 'blob') {
+                href = URL.createObjectURL(new Blob([text], { type: 'application/json;charset=utf-8' }));
+            } else {
+                const blob = new Blob([text], { type: 'application/json;charset=utf-8' });
+                href = await new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onload = () => resolve(reader.result);
+                    reader.onerror = reject;
+                    reader.readAsDataURL(blob);
+                });
+            }
+            const a = document.createElement('a');
+            a.href = href;
+            a.download = name;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            if (mode === 'blob') setTimeout(() => URL.revokeObjectURL(href), 10000);
+            console.log('[战报] 下载已触发(' + mode + ')：' + name + ' ' + (text.length / 1024).toFixed(0) + 'KB——若手机上没出现文件，请看下一条降级');
+            return 'download';
+        } catch (e) {
+            console.error('[战报] ' + mode + ' 下载失败，降级:', e);
+        }
     }
 
     // ④ 剪贴板（APK WebView 里 navigator.clipboard 常不存在，必须先判存在）
@@ -300,7 +310,7 @@ export function attachSaveBattleReportButton(btnDiv, reportProvider) {
             else if (way === 'shared') reset('✅ 已分享/保存', 3000);
             else if (way === 'clipboard') reset('📋 已复制，粘贴给好友', 4000);
             else if (way === 'manual') reset('📋 已弹出手动复制', 4000);
-            else if (way === 'cancel') reset('🎬 保存战报', 0);
+            else if (way === 'cancel') reset('已取消', 1500);   // v1.1.1：取消也要可见，别让用户以为没点上
             else if (way === 'empty') reset('⚠️ 战报是空的', 2500);
             else reset('❌ 保存失败(详情看控制台)', 4000);
         } catch (e) {
