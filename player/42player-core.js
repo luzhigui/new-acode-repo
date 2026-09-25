@@ -645,3 +645,76 @@ export async function playBattleGuest() {
     // 断线时 publish 返回 false，无副作用
     net.sendGuestDone();
 }
+
+/**
+ * 回放入口（2026-09-25）：从战报文件播放整场。
+ * 与 playBattleGuest 同构——不跑引擎，数据源从「网络 step」换成「文件 steps」。
+ * 调用方（ui/61 startReplayFromFile）负责：abort 旧循环、UI 队伍/store 重建、关封面、gs=RUNNING。
+ */
+export async function playBattleReplay(report) {
+    const c = getCtx();
+    if (!c) return;
+    if (!report || !Array.isArray(report.steps) || report.steps.length === 0) {
+        console.error('[playBattleReplay] 战报文件无效（无 steps）');
+        return;
+    }
+
+    c._removedUids = new Set();
+
+    // 时间层与从机一致：本地控制演出节奏
+    clock.reset();
+    clock.start();
+    clock.setTimescale(600 / (c.speed || 600));
+    GlobalStore.effect('speed', (v) => clock.setTimescale(600 / (v || 600)));
+    GlobalStore.effect('isPaused', (v) => { if (v) clock.pause(); else clock.resume(); });
+    GlobalStore.effect('fastForwardActive', (isActive) => {
+        if (isActive === clock.fastForward) return;
+        clock.setFastForward(isActive);
+        if (isActive) {
+            if (!c._originalSpeed) c._originalSpeed = c.speed;
+            c.speed = 1;
+        } else {
+            const restored = c._originalSpeed || 600;
+            c.speed = restored;
+            GlobalStore.set('speed', restored);
+            clock.setTimescale(600 / (restored || 600));
+        }
+    });
+
+    // 演出 RNG：与从机同款，只管台词等表现层不崩
+    setBattleRng(new SeededRNG(Date.now() % 1000000));
+    setPresentationRng(new SeededRNG(Date.now() % 1000000 + 1));
+
+    // 阵亡清除：没有这段，格子上尸体会永远赖着（与从机同款）
+    setupDeathTimers(c);
+
+    initRenderer(c);
+    updateRoundDisplay('📜 日志（第1回合·回放）');
+    initLogScrollControls(c);
+
+    const isFirstAttackRef = { value: true };
+    let finalWinner = null, finalStep = null, firstStep = true;
+
+    for (const step of report.steps) {
+        const abortSig = c.abortController ? c.abortController.signal : null;
+        if (abortSig && abortSig.aborted) return;
+        if (firstStep) {
+            // 与从机同款：战报要用的开局快照从首步取（回合开始态）
+            firstStep = false;
+            c.snapshot = { ally: step.ally, enemy: step.enemy };
+        }
+        finalStep = step;
+        if (step.activeBuffs) {
+            c.activeBuffs = step.activeBuffs;
+            if (c.updateBuffSlots) c.updateBuffSlots();
+        }
+        if (step.speed && step.speed !== getState.speed()) setState.speed(step.speed);
+        if (!!step.ff !== !!GlobalStore.get('fastForwardActive')) GlobalStore.set('fastForwardActive', !!step.ff);
+        if ((step.log || []).some(e => e && e.factType === 'roundStart')) isFirstAttackRef.value = true;
+        await playStepInterleaved(c, step, isFirstAttackRef);
+        await clock.wait(300);
+        if (step.winner) { finalWinner = step.winner; break; }
+    }
+
+    await finishBattle(c, finalStep, finalWinner, []);
+}

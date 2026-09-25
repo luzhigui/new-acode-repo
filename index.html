@@ -1,5 +1,5 @@
 ﻿﻿<!-- index.html - 光明顶5v5 V6.0.0（原 mode-5v5-test.html，改名为主入口） -->
-<!-- V6.0.1 | ~35900 bytes | 2026-09-25 新增整场战报保存：战斗结束弹窗多「🎬 保存战报」按钮，下载回放文件（三层保险：直写/dataURL下载/剪贴板兜底） | 本行更新仅走时间戳 -->
+<!-- V6.0.2 | ~36000 bytes | 2026-09-25 战报保存+回放闭环：弹窗「🎬 保存战报」出文件，右下角「🎬」浮动按钮选文件进回放（复用联机从机播放链） | 本行更新仅走时间戳 -->
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
@@ -316,6 +316,7 @@
     </div>
 </div>
 <div class="vote-float" id="voteFloat" title="恢复投票">🏳️</div>
+<div class="vote-float" id="replayFloat" title="播放战报文件" style="bottom:110px;display:flex;">🎬</div>
 <script type="module" src="./infra/54-global-store.js"></script>
 <script type="module" src="./fx/89fx-subscriber.js"></script>
 <script type="module" src="./ui/61main-5v5-test.js"></script>
