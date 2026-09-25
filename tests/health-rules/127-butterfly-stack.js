@@ -44,7 +44,15 @@ export const rule74 = {
             }
         }
         if (!sister) return 'skip';
-        if (sister._baseAtk === undefined || sister._baseDef === undefined) return 'skip';
+        // 字段路径修正（第 22 轮）：_baseAtk/_baseDef **不在单位顶层**，在 `unit.state` 下 ——
+        //   core/02unit.js:177 `this.state._baseAtk = this.atk`；core/13:89 取用时写的也是 unit.state._baseAtk。
+        //   原写法读顶层 → 恒 undefined → 本规则 120 场**全部**卡在这条 skip（恒 skip 空转）。
+        //   取证（探针）：48/120 场确有「化为蝴蝶附身」文本且存在 isXiaoZhaoSister，
+        //   其中顶层 _baseAtk 有值 **0 场**、state._baseAtk 有值 **48 场** ——
+        //   属「机制在场但 0 命中」的数据源错位，必须改扫描层级，不是合理 skip。
+        var st = sister.state || {};
+        var baseAtk = st._baseAtk, baseDef = st._baseDef;
+        if (baseAtk === undefined || baseDef === undefined) return 'skip';
 
         // 引擎口径（27elite-mingjiao _executeAttach）：飞行方向决定转移项——
         //   右向：攻转移 floor(_baseAtk/2)、防 0；左向：攻 0、防转移 floor(_baseDef/2)。
@@ -52,7 +60,7 @@ export const rule74 = {
         var dirLeft = possessText.indexOf('←左') !== -1;
         if (dirLeft) {
             // 左向：只转防，攻应为 0
-            var expDef = Math.floor(sister._baseDef / 2);
+            var expDef = Math.floor(baseDef / 2);
             if (defTransfer !== expDef) {
                 return { fail: true, msg: '复发：左向附身防转移值' + defTransfer + ' != floor(_baseDef/2)=' + expDef + '，可能直接操作 def 导致 Buff 重复计算' };
             }
@@ -61,7 +69,7 @@ export const rule74 = {
             }
         } else {
             // 右向：只转攻，防应为 0
-            var expAtk = Math.floor(sister._baseAtk / 2);
+            var expAtk = Math.floor(baseAtk / 2);
             if (atkTransfer !== expAtk) {
                 return { fail: true, msg: '复发：右向附身攻转移值' + atkTransfer + ' != floor(_baseAtk/2)=' + expAtk + '，可能直接操作 atk 导致 Buff 重复计算' };
             }

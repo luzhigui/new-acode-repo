@@ -10,12 +10,17 @@ export const rule78 = {
         var startSeen = {};
         var endSeen = {};
         var dup = null;
+        // 防假绿（第 22 轮）：原实现没有任何 skip 出口 —— 一场战报里连一个回合分隔符都没有时，
+        //   循环零命中、直接 return fail=false，被记成 pass，等于"什么都没验证却算通过"。
+        //   本判据的前提是"本场存在回合分隔符"，不存在就应 skip，不能算 pass。
+        var sawSeparator = false;
         for (var j = 0; j < log.length; j++) {
             var e = log[j];
             if (!e || !e.text) continue;
             var t = String(e.text).replace(/<[^>]+>/g, '');
             var m = t.match(/第(\d+)回合(开始|结束)/);
             if (!m) continue;
+            sawSeparator = true;
             var round = parseInt(m[1], 10);
             if (m[2] === '开始') {
                 if (startSeen[round]) { dup = '第' + round + '回合出现两次开始分隔符'; break; }
@@ -25,6 +30,7 @@ export const rule78 = {
                 endSeen[round] = true;
             }
         }
+        if (!sawSeparator) return 'skip';
         if (dup) return { fail: true, msg: '复发：' + dup + '（双分隔符）' };
         return { fail: false };
     }

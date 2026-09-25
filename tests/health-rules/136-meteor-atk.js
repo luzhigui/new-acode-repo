@@ -13,7 +13,11 @@
 //   - 普通版不强制要求加攻（小昭·姊不在场时本就应无成长）
 //   - 小昭·姊只要在本场阵容里出现过就视为"可能有增强来源"，不做信号2判定（她中途阵亡无法从终局阵容反推）
 //   - 本场无流星/蝶星溅射条目直接 skip
-export const VER = 'tests/health-rules/136-meteor-atk.js V6.1.11';
+// V6.1.12 | 2026-09-25 修规则侧误报（非引擎问题）：growth 正则原先裸匹配 `/攻击\+(\d+)/`，
+//   会把同一行尾随的「胖远桥莽撞」rageText（`💢 莽撞：…吃了溅射，攻击+2（当前 67）`，
+//   modules/26elite-sixsects.js 下发、render/35 L144 追加）当成流星成长 → seed=15:3 谎报
+//   "本场无小昭·姊却加攻2"。现锚定 ⚡ 成长段（render/35 L142 独占 `⚡ 单位名 攻击+N`）。
+export const VER = 'tests/health-rules/136-meteor-atk.js V6.1.12';
 
 const ATK_PER_SPLASH = 2; // content 小昭.hexEnhance.params.meteorShower.atkPerSplash
 
@@ -51,7 +55,8 @@ export const rule83 = {
                 var colon = namePart.indexOf('：');
                 var names = colon === -1 ? namePart : namePart.substring(colon + 1);
                 var hits = names ? names.split('、').length : 0;
-                var gm = s.match(/攻击\+(\d+)/);
+                // 只认 ⚡ 成长段（`⚡ 单位名 攻击+N`），别把尾随 rageText 的「攻击+2」吃进来
+                var gm = s.match(/⚡\s*\S+\s*攻击\+(\d+)/);
                 splashes.push({
                     label: isBrother ? '蝶星' : '流星赶月',
                     hits: hits,

@@ -1,7 +1,14 @@
 // 回归规则：张无忌近身切换时机 — 同列前排无存活队友才切（core/13battle-shared.js checkZhangSwitch）
 // 复发信号：同列前排队友存活却切换（时机过早）/ 前排阵亡后隔≥2回合才切换（时机过晚）/ 一场切换多次
 // 对应已报 Bug：张无忌切换近身时机不对
-export const VER = 'tests/health-rules/134-zhang-switch.js V6.1.15';
+// V6.2.0 | 2026-09-25 修两处规则侧误报（非引擎问题，取证见 体检迭代日志）：
+//   ① 死亡判定只认 uidD：isDead 标记的是 uidD 所指单位（攻击组=被攻击方；闪避反击组 uidD=被反击的出手方）。
+//      原写 `f.uidD === frontUid || f.uidA === frontUid`，把"前排队友**击杀**敌人"的 attack-group
+//      （uidA=前排队友、isDead 指敌人）误记成前排队友阵亡 → seed=5:4 谎报"第1回合阵亡"、seed=2:2 谎报"第3回合阵亡"。
+//   ② 张无忌本人被换位（惑人心智换位 / 乘风击退）时放弃时机判定：引擎 checkZhangSwitch 按**当前站位**算列，
+//      而换位 fact 可能晚于切换 fact 落日志（seed=8:6 首个 buff-swap 在切换 fact 之后才入 log，原 posChanged
+//      只扫 sw.idx 之前 → 漏判），开局列不再可信，故整体放弃（不判 ≠ 通过）。
+export const VER = 'tests/health-rules/134-zhang-switch.js V6.2.0';
 
 // 摊平一条战报条目里所有可能携带「切换近战形态」的文本源（顺序保持战报下标升序）：
 //   render/30 renderZhangSwitchFact 返回的是 [切换行, 台词行] 数组，数组自身既无 .text 也无
@@ -76,10 +83,10 @@ export const rule81 = {
 
         // 2. 开局快照：张无忌初始站位 + 同列前排队友（与 checkZhangSwitch 的 front=1+col 口径一致）
         var snap = (ctx && ctx.snapshot && Array.isArray(ctx.snapshot.ally)) ? ctx.snapshot.ally : null;
-        var zhangInitPos = null, frontUid = null;
+        var zhangInitPos = null, zhangUid = null, frontUid = null;
         if (snap) {
             for (var k = 0; k < snap.length; k++) {
-                if (snap[k] && snap[k].isZhang) zhangInitPos = snap[k].pos;
+                if (snap[k] && snap[k].isZhang) { zhangInitPos = snap[k].pos; zhangUid = snap[k].uid; }
             }
             if (zhangInitPos != null) {
                 var frontPos = ((zhangInitPos - 1) % 3) + 1;
@@ -92,12 +99,25 @@ export const rule81 = {
         // 自身在前排（frontPos 即自己）或无快照：按现逻辑开局即切属正常口径，不判
         if (frontUid == null) return { fail: false };
 
+        // 张无忌本人被换位（惑人心智换位 / 乘风击退）：其"同列"随当前站位漂移，而换位 fact 可能
+        //   晚于切换 fact 落日志，开局列不再可信 → 放弃时机判定（引擎侧由 core/13 现算位置，仍受规则 81 覆盖）。
+        if (zhangUid != null) {
+            for (var m = 0; m < log.length; m++) {
+                var er = log[m];
+                if (!er) continue;
+                if (er.type === 'buff-swap' && (er.uidA === zhangUid || er.uidB === zhangUid)) return { fail: false };
+                if (er.type === 'buff-push' && (er.pushTargetUid === zhangUid || er.behindUid === zhangUid)) return { fail: false };
+            }
+        }
+
         // 3. 切换前：前排队友是否阵亡 / 是否发生过换位击退（影响前排占用判断，有则放弃判定避免误报）
         var frontDead = null, posChanged = false;
         for (var j = 0; j < sw.idx; j++) {
             var f = log[j];
             if (!f) continue;
-            if (frontDead === null && f.isDead === true && (f.uidD === frontUid || f.uidA === frontUid)) {
+            // isDead 标记的是 uidD 所指单位（攻击组=被攻击方；闪避反击组 uidD=被反击的出手方）；
+            //   只认 uidD —— `uidA === frontUid` 会把"前排队友击杀敌人"误判为其本人阵亡。
+            if (frontDead === null && f.isDead === true && f.uidD === frontUid) {
                 frontDead = { round: roundAt(log, j), idx: j };
             }
             if (f.type === 'buff-push' || f.type === 'buff-swap') posChanged = true;
