@@ -1,5 +1,5 @@
-// V6.3.3 | ~40700 bytes | 2026-09-25 母狮随动顺序改按站位（pos 升序），不再沿用队伍数组顺序（原顺序＝建队/召唤先后，谢逊永远第一）
-export const VER = 'modules/27elite-mingjiao.js V6.3.3';
+// V6.3.4 | ~40900 bytes | 2026-09-26 FSM 加 onChange 相位回调，镜像到 unit.state._fsmPhase（渲染层改读镜像，不再读 _fsm 实例）
+export const VER = 'modules/27elite-mingjiao.js V6.3.4';
 
 import { registerElite } from '../core/08-elite-registry.js';
 import { CONFIG, getSkillParams } from '../core/01config-5v5-test.js';
@@ -59,7 +59,8 @@ export function createZhangWujiComponent() {
                 switching: ['near'],
                 near: ['ronghui'],
                 ronghui: []
-            });
+            }, (s) => { zhang.state._fsmPhase = s; });
+            zhang.state._fsmPhase = initial;
             return fsm;
         },
         register(eventBus, A, B, log) {
@@ -180,12 +181,14 @@ export function createXiaoZhaoSisterComponent() {
                     onExit() {}
                 }
             };
-            return new StateMachine(states, 'normal', {
+            const fsm = new StateMachine(states, 'normal', {
                 normal: ['attaching'],
                 attaching: ['attached'],
                 attached: ['returning'],
                 returning: ['normal']
-            });
+            }, (s) => { sister.state._fsmPhase = s; });
+            sister.state._fsmPhase = 'normal';
+            return fsm;
         },
         register(eventBus, A, B, log) {
             const sister = A.find(u => u.isXiaoZhaoSister && u.alive && !u.state._stunned);
@@ -455,13 +458,15 @@ export function createXiaoZhaoBrotherComponent() {
                     onExit() {}
                 }
             };
-            return new StateMachine(states, 'normal', {
+            const fsm = new StateMachine(states, 'normal', {
                 normal: ['flying', 'transforming'],
                 transforming: ['normal'],
                 flying: ['descending'],
                 descending: ['normal'],
                 dead: []
-            });
+            }, (s) => { brother.state._fsmPhase = s; });
+            brother.state._fsmPhase = 'normal';
+            return fsm;
         },
         register(eventBus, A, B, log) {
             const brother = A.find(u => u.isXiaoZhaoBrother && u.alive);

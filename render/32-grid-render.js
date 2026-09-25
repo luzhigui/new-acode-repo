@@ -1,6 +1,5 @@
-// ~25760 bytes | V6.4.1 | 2026-09-25 闪避面板改读 computeBuffStats().dodgeBonus：修掉读已删字段 unit.buffDodgeBonus 导致「流云身法」加成永远不显示的问题
-// ~25700 bytes | V6.4.0 | 2026-09-24 灭绝师太：名字描金、头顶计数气泡改由 fx 层飘字（壹/貳/參）；同格尸体先渲，清尸后再露新单位
-export const VER = 'render/32-grid-render.js V6.4.1';
+// V6.4.2 | ~25810 bytes | 2026-09-26 附身/飞天相位改读 state._fsmPhase（妆造剥离：渲染层不再持有 unit._fsm 实例）
+export const VER = 'render/32-grid-render.js V6.4.2';
 
 import { getUnitCol, getUnitRow, getAuraBonuses, getDodgeRules, fmtHp } from '../infra/51-core-utils.js';
 import { CONFIG, getSkillDesc } from '../core/01config-5v5-test.js';
@@ -228,7 +227,7 @@ export function renderGrid(id, camp) {
         if (unit && !unit.isHorse) {
             // _renderFlyMode 是飞撞/子弹时间的纯渲染态（攻击者本身不飞行），优先于 state._flyMode
             const effectiveFlyMode = getView(unit.uid, '_renderFlyMode') || (unit.state && unit.state._flyMode);
-            if (effectiveFlyMode || (unit._fsm && (unit._fsm.is('attached') || unit._fsm.is('flying')))) {
+            if (effectiveFlyMode || (unit.state && (unit.state._fsmPhase === 'attached' || unit.state._fsmPhase === 'flying'))) {
                 let div = document.createElement('div');
                 div.className = 'cell occupied';
                 div.dataset.pos = pos;
@@ -244,7 +243,7 @@ export function renderGrid(id, camp) {
                     div.style.background = 'rgba(30,100,255,0.28)';
                     div.style.border = '2px solid rgba(100,150,255,0.6)';
                     div.style.boxShadow = '0 0 12px rgba(100,150,255,0.5)';
-                } else if (effectiveFlyMode === 'butterfly' || (unit._fsm && unit._fsm.is('attached'))) {
+                } else if (effectiveFlyMode === 'butterfly' || (unit.state && unit.state._fsmPhase === 'attached')) {
                     const crashMode = GlobalStore.get('crashMode') || 'ghost';
                     if (crashMode === 'fly') {
                         div.innerHTML = '<span class="cell-icon">🦋</span>';
@@ -256,7 +255,7 @@ export function renderGrid(id, camp) {
                         div.style.background = 'rgba(255, 192, 203, 0.15)';
                         div.style.border = '2px solid rgba(255, 105, 180, 0.4)';
                     }
-                } else if (effectiveFlyMode === 'spider' || (unit._fsm && unit._fsm.is('flying'))) {
+                } else if (effectiveFlyMode === 'spider' || (unit.state && unit.state._fsmPhase === 'flying')) {
                     const crashMode = GlobalStore.get('crashMode') || 'ghost';
                     if (crashMode === 'fly') {
                         div.innerHTML = '<span class="cell-icon">🕷️</span>';

@@ -1,16 +1,19 @@
-// V6.1.0 | ~5500 bytes | 2026-09-22 新增 fmtHp：血量显示统一入口（0<hp<1 显示 1，不再散写 Math.floor）
-export const VER = 'infra/51-core-utils.js V6.1.0';
+// V6.1.1 | ~5800 bytes | 2026-09-26 StateMachine 加第4参 onChange 相位回调（供 unit.state._fsmPhase 镜像）；含 fmtHp 血量显示统一入口
+export const VER = 'infra/51-core-utils.js V6.1.1';
 
 import { CAMP_TYPES, ROLE_TYPES } from './56-battle-enums.js';
 
 // StateMachine
 // 通用有限状态机，transition 校验目标状态和转换表
 export class StateMachine {
-    constructor(states, initialState, transitions) {
+    constructor(states, initialState, transitions, onChange) {
         this.states = states;
         this.current = initialState;
         this.previous = null;
         this.transitions = transitions || null;
+        // 相位回调：调用方用它把 current 镜像到外部字段（如 unit.state._fsmPhase），
+        // 渲染层只读镜像值，不再直接持有 StateMachine 实例（妆造剥离）
+        this.onChange = onChange || null;
     }
 
     transition(newState, data) {
@@ -30,6 +33,9 @@ export class StateMachine {
         if (old && old.onExit) old.onExit(data);
         this.previous = this.current;
         this.current = newState;
+        // 必须先于 onEnter 回调：onEnter 里可能再 transition（如 张无忌 switching→near），
+        //   后置回调会被外层旧相位覆盖，与 this.current 打架
+        if (this.onChange) this.onChange(newState);
         if (next.onEnter) next.onEnter(data);
         return true;
     }
