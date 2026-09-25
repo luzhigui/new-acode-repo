@@ -1,5 +1,5 @@
 // render/35-facts-effect.js — 效果域 fact 渲染器
-// V1.0.5 | ~34600 bytes | 2026-09-24 两条溅射 fact 行尾追加 rageText（胖远桥莽撞吃溅射 +攻）；谢逊改版：LION_SACRIFICE 渲染换成 LION_GROW；PASS 支持「幼狮休息」
+// V1.0.6 | ~34600 bytes | 2026-09-25 拒马「未消散」条目补 horseUid（此前只有「消散」条目带，体检规则 94 只能按号位去重 → 跨阵营同号位假阳性）；承接 V1.0.5 溅射行尾 rageText
 //
 // 加新 fact 渲染：在本文件写函数 + 尾部 registerFactRenderer 一行（键=factType）。
 // 跨域取别的渲染器一律走 getFactRenderer(FACT_TYPES.X)(data)，禁止 import 其它域文件（免环）。
@@ -7,7 +7,7 @@ import { CONFIG } from '../core/01config-5v5-test.js';
 import { makeFXSnapshot, fmtHp } from '../infra/51-core-utils.js';
 import { BUFF_TYPES, BUFF_SUBTYPES, CAMP_TYPES, ROLE_TYPES, FACT_TYPES } from '../infra/56-battle-enums.js';
 import { registerFactRenderer, findUnitSnapshotByUid } from './33-fact-registry.js';
-export const VER = 'render/35-facts-effect.js V1.0.5';
+export const VER = 'render/35-facts-effect.js V1.0.6';
 
 // 拒马 / 张无忌
 export function renderHorseDestroyFact(fact) {
@@ -22,7 +22,8 @@ export function renderHorseDestroyFact(fact) {
     }
     return {
         type:'info',
-        text:`<span class="gray">🐴 拒马阵：${fact.pos}号位拒马未消散（成功率${fact.prob}%，${fact.roll}）</span>`
+        text:`<span class="gray">🐴 拒马阵：${fact.pos}号位拒马未消散（成功率${fact.prob}%，${fact.roll}）</span>`,
+        horseUid: fact.horseUid
     };
 }
 
