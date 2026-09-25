@@ -1,5 +1,5 @@
 // render/34-facts-attack.js — fact 渲染域：攻击流程
-// V1.1.0 | ~14800 bytes | 2026-09-24 伤害行末支持 fact.miejueHint（灭绝师太出手计数提示）
+// V1.1.1 | ~14800 bytes | 2026-09-25 波动行「血+N」改「减伤N」（core/12 波动改为抵扣扣血，不再回血）
 //
 // 归属判据：这条 fact 描述「一次攻击的经过与结果」，不含 buff / 精英技能衍生。
 // 加新攻击类 fact：在本文件写函数 + registerFactRenderer 一行，不碰 render/30。
@@ -126,7 +126,7 @@ export function renderAttackFact(fact) {
         if (b) group.entries.unshift(b);
     }
     if (fact.phantomFact) group.entries.push(renderLog(fact.phantomFact.factType, fact.phantomFact.data));
-    group.entries.push({type:'detail', text:`<span class="gray small">波动：攻${dmgCalc.atkBase}→${dmgCalc.atkAct} 防${dmgCalc.defBase}→${dmgCalc.defAct} 血${dmgCalc.hpBonus >= 0 ? '+' + dmgCalc.hpBonus : dmgCalc.hpBonus}</span>`});
+    group.entries.push({type:'detail', text:`<span class="gray small">波动：攻${dmgCalc.atkBase}→${dmgCalc.atkAct} 防${dmgCalc.defBase}→${dmgCalc.defAct} 减伤${dmgCalc.hpBonus}</span>`});
     if (dmgCalc.thunderBonus > 0) group.entries.push({type:'detail', text:`<span class="red small">💥 混元霹雳劲+${dmgCalc.thunderBonus}真实伤害</span>`});
     if (dmgCalc.hornDefIgnore > 0 && dmgCalc.hornDmgMultiplier > 1) group.entries.push({type:'info', text:`<span class="gold">🦌 目标已中毒（玄冥神掌），鹤笔翁 鹿角杖法伤害+50%！</span>`});
     if (dmgCalc.trueDmg > 0) {

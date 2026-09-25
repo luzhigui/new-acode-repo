@@ -1,5 +1,5 @@
-// V6.3.2 | ~40300 bytes | 2026-09-24 韦一笑吸血：上限不封顶（去掉 _baseMaxHp×2）+ 吸血量最低 1
-export const VER = 'modules/27elite-mingjiao.js V6.3.2';
+// V6.3.3 | ~40700 bytes | 2026-09-25 母狮随动顺序改按站位（pos 升序），不再沿用队伍数组顺序（原顺序＝建队/召唤先后，谢逊永远第一）
+export const VER = 'modules/27elite-mingjiao.js V6.3.3';
 
 import { registerElite } from '../core/08-elite-registry.js';
 import { CONFIG, getSkillParams } from '../core/01config-5v5-test.js';
@@ -722,7 +722,10 @@ export function createXieXunComponent() {
                 if (!data.dmg || data.dmg <= 0) return;
                 const target = data.target;
                 if (!target || !target.alive || target.state._pendingDeath) return;
-                const mates = myTeam.filter(u => u.alive && u.uid !== lioness.uid && !u.isLionCub && (u.isLionMale || u.isLioness || u.isXieXun));
+                // 2026-09-25 顺序改按站位：原来直接沿用队伍数组顺序（建队/召唤先后），
+                //   谢逊在建队时就入队，于是永远第一个随动、狮子按召出先后排；现改 pos 升序，位置靠前的先出手。
+                const mates = myTeam.filter(u => u.alive && u.uid !== lioness.uid && !u.isLionCub && (u.isLionMale || u.isLioness || u.isXieXun))
+                    .sort((a, b) => a.pos - b.pos);
                 if (mates.length === 0) return;
                 if (!data.extraRequests) data.extraRequests = [];
                 for (const m of mates) {
