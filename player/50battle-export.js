@@ -3,6 +3,7 @@
 //   文件格式：{ format:'ming-battle-replay', version:1, meta.delta:true, steps:[增量step...] }；
 //   v1.0 全量文件兼容（无 delta 标记 = 按 v1.0 全量读）。
 export const VER = 'player/50battle-export.js V1.1.2';
+console.log('[战报] 模块已加载:', VER);   // 版本指纹：调试时第一眼认出版本（缓存问题一眼定案）
 
 // ---- 收集（player/42 在开战时 startRecording、每步 feed、收尾 finish）----
 
