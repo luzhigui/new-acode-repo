@@ -1,6 +1,6 @@
 // infra/60-net-pvp.js - 联网对战·中继版（公共 MQTT broker 转发 + step 同步 + 阵容/海克斯双向）
-// ~18700 bytes | V7.4.0 | 2026-09-19 新增 sendPosUpdate：摆位实时同步（只搬位置，不动准备状态）；sendStart 捎带关卡号（从机补正关卡与左侧标签）；断线重连：建房/加入前 teardownTransport 拆干净旧客户端 + guestJoin 通知房主重发阵容
-export const VER = 'infra/60-net-pvp.js V7.4.0';
+// ~18600 bytes | V7.4.1 | 2026-09-26 删 reviveUnit 的 StateMachine 重建壳（妆造剥离收尾：渲染层已改读 state._fsmPhase，从机不再需要 _fsm.is()）及 StateMachine 导入
+export const VER = 'infra/60-net-pvp.js V7.4.1';
 
 // 为什么换掉 WebRTC：手机 5G 走运营商 CGNAT，和家用宽带 NAT 类型凑不上，打洞必失败；
 // 兜底要 TURN，而 2026 年流传的公共 TURN 凭据全失效、免费服务商注册页在墙内提交不了（reCAPTCHA）。
@@ -10,8 +10,6 @@ export const VER = 'infra/60-net-pvp.js V7.4.0';
 // 注意：topic 直接就是房间号，公共 broker 上任何人订阅同一 topic 都能看到消息——房间号别用敏感信息。
 // 阶段1 提供连接能力；阶段2 追加 step 同步（房主跑引擎发 step，从机只播演出）；
 // 阶段3 追加阵容/站位/海克斯双向（房主权威，从机回传自己的选择）。
-
-import { StateMachine } from './51-core-utils.js';
 
 const MQTT_CDN = 'https://cdn.jsdelivr.net/npm/mqtt@5.10.1/dist/mqtt.min.js';
 // EMQX 公共测试 broker（国内访问好、无需注册）。不保证长期可用；挂了可换该服务的其它节点或自建。
@@ -54,8 +52,8 @@ function guestTopic(room) { return TOPIC_PREFIX + room + '/g2h'; }
 // step 里的单位是引擎 Unit 实例，直接 JSON 会炸：
 //   ① 团队数组 A/B 上挂着 _pendingStateTransitions，其元素持有整队引用 → 循环引用
 //   ② 单位上的 _fsm 是 StateMachine 实例，states 里是 onEnter/onExit 函数，序列化不了
-// 但渲染层（render/32-grid-render.js）要读 unit._fsm.is('attached'|'flying')，不能直接丢，
-// 所以只传 current，从机用空 states 重建一个壳，够 is() 用（从机不跑 transition）。
+// _fsm 侧不再需要复原：渲染层已改读 state._fsmPhase（2026-09-26 妆造剥离），
+// 从机不跑 transition，单位浅拷贝即可。
 
 
 // buff 数组净化：cols/rows 是数组，浅拷贝一份避免共享引用
@@ -87,14 +85,8 @@ function plainStep(step, activeBuffs, speed, ff) {
     };
 }
 
-function reviveUnit(u) {
-    const o = { ...u };
-    if (o._fsm) o._fsm = new StateMachine({}, o._fsm.current, null);
-    return o;
-}
-
 function reviveStep(raw) {
-    return { ...raw, ally: (raw.ally || []).map(reviveUnit), enemy: (raw.enemy || []).map(reviveUnit) };
+    return { ...raw, ally: (raw.ally || []).map(u => ({ ...u })), enemy: (raw.enemy || []).map(u => ({ ...u })) };
 }
 
 // 房主下发阵容：两队单位净化后传输，从机复原成普通对象（摆位阶段只读 pos/渲染，不需要方法）
@@ -103,7 +95,7 @@ export function plainLineup(stage, allyTeam, enemyTeam) {
 }
 
 export function reviveLineup(raw) {
-    return { stage: raw.stage || 1, ally: (raw.ally || []).map(reviveUnit), enemy: (raw.enemy || []).map(reviveUnit) };
+    return { stage: raw.stage || 1, ally: (raw.ally || []).map(u => ({ ...u })), enemy: (raw.enemy || []).map(u => ({ ...u })) };
 }
 
 function pushStep(step) {
