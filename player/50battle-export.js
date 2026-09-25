@@ -1,8 +1,7 @@
-// V1.1.2 | ~15400 bytes | 2026-09-26 修「显示已取消」：分享层 AbortError 不再终止（手机网页 canShare 谎报→面板没弹就秒抛取消，=点击没反应的真相），一律降级到下载层
-//   v1.1.1: 分享5秒竞赛防挂死；取消显示「已取消」；blob+dataURL双下载
+// V1.1.3 | ~15600 bytes | 2026-09-26 「已取消」终修：fs层 AbortError 同样不再终止——安卓 Chrome 其实带 showSaveFilePicker 且部分机型谎报（弹窗不显秒抛取消），v1.1.2 只修了分享层漏了这第一站。整链已无 return 'cancel'，谎报一律降级到下载层
 //   文件格式：{ format:'ming-battle-replay', version:1, meta.delta:true, steps:[增量step...] }；
 //   v1.0 全量文件兼容（无 delta 标记 = 按 v1.0 全量读）。
-export const VER = 'player/50battle-export.js V1.1.2';
+export const VER = 'player/50battle-export.js V1.1.3';
 console.log('[战报] 模块已加载:', VER);   // 版本指纹：调试时第一眼认出版本（缓存问题一眼定案）
 
 // ---- 收集（player/42 在开战时 startRecording、每步 feed、收尾 finish）----
@@ -169,7 +168,10 @@ export async function exportBattleReport(report) {
     }
     const name = makeFileName(report);
 
-    // ① File System Access API（桌面 Chrome / 新 WebView）
+    // ① File System Access API（桌面 Chrome / 安卓新 Chrome）
+    // 2026-09-26 v1.1.3：AbortError 不再终止——安卓 Chrome 也带 showSaveFilePicker（此前误判手机没有），
+    //   且部分机型弹窗不显示秒抛 AbortError（与 canShare 同款谎报）。用户取消和环境谎报浏览器层无法分辨，
+    //   统一降级到下载层；真想取消的用户在系统下载框里再取消一次。这是「已取消」病历的第一站，最后一块病灶。
     if (typeof window !== 'undefined' && window.showSaveFilePicker) {
         try {
             const handle = await window.showSaveFilePicker({ suggestedName: name, types: [{ description: '战报文件', accept: { 'application/json': ['.json'] } }] });
@@ -178,8 +180,7 @@ export async function exportBattleReport(report) {
             await w.close();
             return 'fs';
         } catch (e) {
-            if (e && e.name === 'AbortError') return 'cancel'; // 用户关掉了保存框，不算失败
-            console.error('[战报] 直写失败，降级:', e);
+            console.error('[战报] fs层未成（用户取消或环境谎报），降级:', e && e.message ? e.message : e);
         }
     }
 
