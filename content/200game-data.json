@@ -339,6 +339,11 @@
           "name": "近战切换",
           "desc": "成为所在列最前排（同列前方无存活友军）时切换近战形态，攻/防/血提升为战士职业加成的 {atkMul}/{defMul}/{maxHpMul} 倍，近战3次后融会贯通",
           "params": { "atkMul": 3, "defMul": 3, "maxHpMul": 3 }
+        },
+        "holyTokenLuck": {
+          "name": "圣火令",
+          "desc": "击杀敌人时，圣火令掉落概率为正常的{multiplier}倍",
+          "params": { "multiplier": 4 }
         }
       },
       "taunts": {
