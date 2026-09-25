@@ -1,11 +1,14 @@
-// V1.1.4 | ~15600 bytes | 2026-09-26 plainUnit 剔除 _fsm（妆造剥离收尾：渲染层已改读 state._fsmPhase，战报不再存 FSM 骨架，体积随之下降）
+// V1.1.5 | ~16200 bytes | 2026-09-26 战报全灰修复：plainUnit 的 state 浅引用被引擎原地改（_acted 等），整份战报序列化时全读到终态——回放从头到尾全灰、回合开始步也不绿。改用 copyAllStateFields 按 schema 深拷断引用
+// V1.1.4 | 2026-09-26 plainUnit 剔除 _fsm（妆造剥离收尾：渲染层已改读 state._fsmPhase，战报不再存 FSM 骨架，体积随之下降）
 //   v1.1.3: 「已取消」终修：fs层 AbortError 同样不再终止——安卓 Chrome 其实带 showSaveFilePicker 且部分机型谎报（弹窗不显秒抛取消），v1.1.2 只修了分享层漏了这第一站。整链已无 return 'cancel'，谎报一律降级到下载层
 //   v1.1.2: 修「显示已取消」：分享层 AbortError 不再终止（手机网页 canShare 谎报→面板没弹就秒抛取消，=点击没反应的真相），一律降级到下载层
 //   v1.1.1: 分享5秒竞赛防挂死；取消显示「已取消」；blob+dataURL双下载
 //   文件格式：{ format:'ming-battle-replay', version:1, meta.delta:true, steps:[增量step...] }；
 //   v1.0 全量文件兼容（无 delta 标记 = 按 v1.0 全量读）。
-export const VER = 'player/50battle-export.js V1.1.4';
+export const VER = 'player/50battle-export.js V1.1.5';
 console.log('[战报] 模块已加载:', VER);   // 版本指纹：调试时第一眼认出版本（缓存问题一眼定案）
+
+import { copyAllStateFields } from '../core/17-state-keys.js';
 
 // ---- 收集（player/42 在开战时 startRecording、每步 feed、收尾 finish）----
 
@@ -72,6 +75,11 @@ function plainUnit(u) {
         if (k === '_fsm') continue;                     // 状态机不进战报：渲染层已改读 state._fsmPhase
         o[k] = v;
     }
+    // 2026-09-26 战报全灰修复：state 必须按 schema 深拷断引用。
+    // 引擎行动循环原地改 unit.state（_acted/_resting 等），浅引用会让整份战报
+    // 在 finish 序列化时全部读到"整场终态"——回合开始步也全灰，回放自然全程灰。
+    // copyAllStateFields 覆盖回合级+整场+妆造相位（_fsmPhase）全部字段，数组逐项拷。
+    o.state = copyAllStateFields(u.state || {}, {});
     return o;
 }
 
