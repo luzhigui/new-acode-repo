@@ -1,5 +1,5 @@
-// V6.3.0 | ~27400 bytes | 2026-09-23 拒马/幼狮改为「攻=0 才休息」，加攻后可正常出手（防战公式）
-export const VER = 'core/11battle-round.js V6.3.0';
+// V6.3.1 | ~27600 bytes | 2026-09-25 飞行选敌钩子不再覆盖角色级选敌声明（宋青书 targetRule=highestHpPct 由此真正生效）
+export const VER = 'core/11battle-round.js V6.3.1';
 
 import { CONFIG, getGameData, getSkillParams } from './01config-5v5-test.js';
 import { resetStateFields } from './17-state-keys.js';
@@ -123,9 +123,13 @@ function prepareRoundStart(A, B, log, state, round, rng) {
         priority: L.BEFORE_SELECT_TARGET.FLY_TARGET,
         handler: (data) => {
             if (data.unit.role !== ROLE_TYPES.FLYER || data.unit.state._canAlwaysDodge) return;
-            const flyTarget = selectFlyTarget(data.unit, data.enemySide);
             // 2026-09-24 修 bug：原写 data.targetResult，而 selectAttackTarget 读的是 data.declaration.targetResult
             //   → 飞行跳前排从未生效。改回 declaration 通道。
+            // 2026-09-25 角色级声明优先：宋青书的 targetRule=highestHpPct 走 REBEL(20)，本该先跑，
+            //   却被本条通用飞行选敌 FLY_TARGET(30) 后跑覆盖 →「优先打血量最高」从未生效。
+            //   已有声明就不再覆盖；没有选敌声明的普通飞行单位照旧走 selectFlyTarget。
+            if (data.declaration.targetResult) return;
+            const flyTarget = selectFlyTarget(data.unit, data.enemySide);
             if (flyTarget) data.declaration.targetResult = flyTarget;
         }
     });
