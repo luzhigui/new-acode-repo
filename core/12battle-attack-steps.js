@@ -1,5 +1,5 @@
-// V6.3.3 | ~24700 bytes | 2026-09-25 伤害波动 hpBonus 改作「该次攻击的减伤」（从扣血里抵扣），不再先回血 —— 满血时不再被 maxHp 夹掉；非满血净扣血与旧口径一致，dmg 不动
-export const VER = 'core/12battle-attack-steps.js V6.3.3';
+// V6.3.4 | ~24700 bytes | 2026-09-25 闪避反击的 attackerHpAfter 去掉 Math.floor：0.8 血被 floor 成 0，被 core/10 与 render/34/38 当成致死（假死+展示 0 血）；改存真实血量，<=0 才是真致死。承接 V6.3.3 波动减伤
+export const VER = 'core/12battle-attack-steps.js V6.3.4';
 
 import { CONFIG, getSkillParams, getGameData } from './01config-5v5-test.js';
 import { eventBus, EFFECT_TYPES } from '../infra/50-event-bus.js';
@@ -195,7 +195,7 @@ export function resolveAttackHit(unit, target, attackerBuffStats, defenderBuffSt
                     dodger: snapshotUnitForFact(target),
                     reboundDmg,
                     attackerHpBefore: unitHpBeforeRebound,
-                    attackerHpAfter: Math.floor(unit.hp),
+                    attackerHpAfter: unit.hp,
                     attackerAlive: unit.alive,
                     attackerAtk: Math.floor(getStat(unit, 'atk')),
                     dodgerDef: Math.floor(getStat(target, 'def')),

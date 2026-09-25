@@ -1,6 +1,6 @@
-// V6.4.2 | ~5300 bytes | 2026-09-24 胖远桥嘲讽改叠防：删 BEFORE_DAMAGE_CALC.PANG_TAUNT_REDUCE
+// V6.4.3 | ~5300 bytes | 2026-09-25 删 BEFORE_SELECT_TARGET.FLY_TARGET：飞行选敌钩子已随 core/11 V6.3.2 移除，飞行改回 core/07 策略表；承接 V6.4.2 胖远桥嘲讽改叠防
 import { GlobalStore } from './54-global-store.js';
-export const VER = 'infra/50-event-bus.js V6.4.2';
+export const VER = 'infra/50-event-bus.js V6.4.3';
 
 // debug 模式在日志追加信号记录，非战斗路径
 function appendDebugSignalLog(signal, data) {
@@ -73,7 +73,7 @@ export const EXECUTION_LAYER = {
     ROUND_END:        { BUTTERFLY_RETURN: 10, SPIDER_RETURN: 10 },
     BEFORE_ACTION:    { BUTTERFLY_SKIP: 10, SPIDER_SKIP: 10, KULIAN_PRIORITY: 10 },
     BEFORE_ATTACK:     {},
-    BEFORE_SELECT_TARGET: { PANG_CLUMSY: 15, PANG_TAUNT_FORCE: 18, PHANTOM_CLEAR: 25, DISGUISE: 30, REBEL: 20, FLY_TARGET: 30, PERMANENT_MIND_CONTROL: 40 },
+    BEFORE_SELECT_TARGET: { PANG_CLUMSY: 15, PANG_TAUNT_FORCE: 18, PHANTOM_CLEAR: 25, DISGUISE: 30, REBEL: 20, PERMANENT_MIND_CONTROL: 40 },
     BEFORE_DAMAGE_CALC: { WARRIOR_BREAK: 10, MIEJUE_THIRD_MULT: 15, PANG_YOUNG_MULT: 16, TRUE_DMG: 30 },
     BEFORE_DAMAGE_APPLY: { SPIDER_IMMUNE: 100 },
     ON_DODGE:          {},

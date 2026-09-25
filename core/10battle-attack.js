@@ -1,5 +1,5 @@
-// V6.3.2 | ~17800 bytes | 2026-09-25 额外攻击三口合一 runExtraAttackRequests：miss/afterDamage/afterAttack 三段抄改循环并一，reason 表集中置防乒乓标记（排掉"新机制忘标记会死循环"的雷），行为逐位对齐零变化
-export const VER = 'core/10battle-attack.js V6.3.2';
+// V6.3.3 | ~17900 bytes | 2026-09-25 闪避反击致死不再直接 alive=false：改挂 _pendingDeath 交 resolveDeaths 结算（修「带血尸体」hp 不清零 + DEATH 信号不发），判据从展示值 attackerHpAfter 改真实 unit.hp。承接 V6.3.2 额外攻击三口合一
+export const VER = 'core/10battle-attack.js V6.3.3';
 
 import { CONFIG } from './01config-5v5-test.js';
 import { hasBuff, makeFXSnapshot, isBlocked } from './03battle-utils.js';
@@ -137,9 +137,14 @@ export function processUnitAttack(unit, allySide, enemySide, log, A, B, state, d
         }
         if (hitResult.dodgeFact) {
             const dodgeFact = hitResult.dodgeFact;
-            if (dodgeFact.attackerHpAfter <= 0) {
-                unit.alive = false; unit.state._pendingDeath = true;
-                emitEvent(unit, UNIT_EVENT_TYPES.HP_CHANGE, { hp: unit.hp, maxHp: unit.maxHp, alive: false, atk: unit.atk, def: unit.def, _isDead: true });
+            // 2026-09-25 定案：与 core/12 主伤害路径同口径 —— 只挂 _pendingDeath，交由 resolveDeaths 统一结算
+            //   （core/11:409 紧随 processUnitAttack 调用）。原先直接 alive=false 会绕过结算，造成两个洞：
+            //   ① hp 不清零 →「带血尸体」（alive=false 但 hp>0），且 hp 为 0.8 时被 floor 误判致死；
+            //   ② ON_BEFORE_DEATH/ON_UNIT_DEATH 不发 → watchUnit 判不到死亡、谢逊替死失效。
+            if (unit.hp <= 0) {
+                unit.state._pendingDeath = true;
+                if (!unit.state._deathTime) unit.state._deathTime = Date.now();
+                emitEvent(unit, UNIT_EVENT_TYPES.HP_CHANGE, { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: unit.atk, def: unit.def, _isDead: false });
             }
             log.push({ factType: FACT_TYPES.DODGE, data: dodgeFact });
         }
