@@ -1,5 +1,5 @@
-// V6.1.1 | ~19000 bytes | 2026-09-22 概率连击的 targetUid 回退补 _pendingDeath：原目标同击致死后改打别人（原先白跳）
-export const VER = 'core/03battle-utils.js V6.1.1';
+// V6.1.2 | ~17000 bytes | 2026-09-25 删 selectFlyTarget/canReach（飞行切入选敌，唯一调用方 core/11 的飞行钩子已按定案 B 移除，飞行改回 core/07 策略表）
+export const VER = 'core/03battle-utils.js V6.1.2';
 
 import { CONFIG, getGameData } from './01config-5v5-test.js';
 import { emitEvent, applyStatChange, query, getBattleRng, getPresentationRng, addMod, getStat } from './13battle-shared.js';
@@ -146,98 +146,6 @@ export function hasAnyEnemyEmptyCol(enemySide) {
 
 export function hasEnemyLowHp(enemySide, threshold = 0.4) {
     return enemySide.some(u => u.alive && u.hp / u.maxHp < threshold);
-}
-
-export function selectFlyTarget(unit, enemySide) {
-    if (unit.role !== ROLE_TYPES.FLYER || unit.state._canAlwaysDodge) return null;
-    const alive = enemySide.filter(u => u.alive && !(u.state._flyMode === 'butterfly') && !(u.state._flyMode === 'spider') && !u.state._spiderFlying && !(u._fsm && (u._fsm.is('attached') || u._fsm.is('flying'))));
-    if (alive.length === 0) return null;
-    const backRow = [7,8,9], midRow = [4,5,6], frontRow = [1,2,3];
-    const priorityOrder = [...backRow, ...midRow, ...frontRow];
-    const occupiedFront = new Set(alive.filter(u => [1,2,3].includes(u.pos)).map(u => u.pos));
-    const emptySlots = [1,2,3].filter(p => !occupiedFront.has(p));
-    if (emptySlots.length === 0) return null;
-    for (const pos of priorityOrder) {
-        const target = alive.find(u => u.pos === pos);
-        if (!target) continue;
-        const col = (target.pos - 1) % 3 + 1;
-        const row = Math.ceil(target.pos / 3);
-        const attackPositions = [];
-        if (row > 1) attackPositions.push(target.pos - 3);
-        if (row < 3) attackPositions.push(target.pos + 3);
-        if (col > 1) attackPositions.push(target.pos - 1);
-        if (col < 3) attackPositions.push(target.pos + 1);
-        for (const attackPos of attackPositions) {
-            for (const slot of emptySlots) {
-                if (canReach(slot, attackPos, alive)) return target;
-            }
-        }
-    }
-    return null;
-}
-
-function canReach(slot, targetPos, enemies) {
-    const slotCol = (slot - 1) % 3 + 1;
-    const slotRow = Math.ceil(slot / 3);
-    const targetCol = (targetPos - 1) % 3 + 1;
-    const targetRow = Math.ceil(targetPos / 3);
-    if (slotCol === targetCol) {
-        const minRow = Math.min(slotRow, targetRow);
-        const maxRow = Math.max(slotRow, targetRow);
-        for (let r = minRow; r <= maxRow; r++) {
-            const checkPos = (r - 1) * 3 + slotCol;
-            if (checkPos !== targetPos && enemies.some(e => e.pos === checkPos && e.alive)) return false;
-        }
-        return true;
-    }
-    if (slotRow === targetRow) {
-        const minCol = Math.min(slotCol, targetCol);
-        const maxCol = Math.max(slotCol, targetCol);
-        for (let c = minCol; c <= maxCol; c++) {
-            const checkPos = (slotRow - 1) * 3 + c;
-            if (checkPos !== targetPos && enemies.some(e => e.pos === checkPos && e.alive)) return false;
-        }
-        return true;
-    }
-    const corner1 = (slotRow - 1) * 3 + targetCol;
-    if (!enemies.some(e => e.pos === corner1 && e.alive) || corner1 === targetPos) {
-        const minCol1 = Math.min(slotCol, targetCol);
-        const maxCol1 = Math.max(slotCol, targetCol);
-        let blocked = false;
-        for (let c = minCol1; c <= maxCol1; c++) {
-            const p = (slotRow - 1) * 3 + c;
-            if (p !== slot && p !== corner1 && enemies.some(e => e.pos === p && e.alive)) { blocked = true; break; }
-        }
-        if (!blocked) {
-            const minRow1 = Math.min(slotRow, targetRow);
-            const maxRow1 = Math.max(slotRow, targetRow);
-            for (let r = minRow1; r <= maxRow1; r++) {
-                const p = (r - 1) * 3 + targetCol;
-                if (p !== corner1 && p !== targetPos && enemies.some(e => e.pos === p && e.alive)) { blocked = true; break; }
-            }
-        }
-        if (!blocked) return true;
-    }
-    const corner2 = (targetRow - 1) * 3 + slotCol;
-    if (!enemies.some(e => e.pos === corner2 && e.alive) || corner2 === targetPos) {
-        const minRow2 = Math.min(slotRow, targetRow);
-        const maxRow2 = Math.max(slotRow, targetRow);
-        let blocked = false;
-        for (let r = minRow2; r <= maxRow2; r++) {
-            const p = (r - 1) * 3 + slotCol;
-            if (p !== slot && p !== corner2 && enemies.some(e => e.pos === p && e.alive)) { blocked = true; break; }
-        }
-        if (!blocked) {
-            const minCol2 = Math.min(slotCol, targetCol);
-            const maxCol2 = Math.max(slotCol, targetCol);
-            for (let c = minCol2; c <= maxCol2; c++) {
-                const p = (targetRow - 1) * 3 + c;
-                if (p !== corner2 && p !== targetPos && enemies.some(e => e.pos === p && e.alive)) { blocked = true; break; }
-            }
-        }
-        if (!blocked) return true;
-    }
-    return false;
 }
 
 // 战士破防：判定后直接 addMod 永久负词条

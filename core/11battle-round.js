@@ -1,9 +1,9 @@
-// V6.3.1 | ~27600 bytes | 2026-09-25 飞行选敌钩子不再覆盖角色级选敌声明（宋青书 targetRule=highestHpPct 由此真正生效）
-export const VER = 'core/11battle-round.js V6.3.1';
+// V6.3.2 | ~26600 bytes | 2026-09-25 删除通用飞行选敌钩子，飞行改回 core/07 策略表「残血优先(<40%)→前排→随机」（定案 B）：2a5f68d 把该钩子的写入通道修活后，它压过 07 的飞行策略（声明层先于策略表），飞行变成「敌方前排有空位就切入打后排」，与既有玩法口径不符；连带删除 core/03 的 selectFlyTarget/canReach 与 infra/50 的 FLY_TARGET 优先级
+export const VER = 'core/11battle-round.js V6.3.2';
 
 import { CONFIG, getGameData, getSkillParams } from './01config-5v5-test.js';
 import { resetStateFields } from './17-state-keys.js';
-import { isMelee, isBlocked, makeFXSnapshot, hasBuff, getUnitCol, getUnitRow, hasAnyEnemyEmptyCol, countEnemyEmptyCols, getBloodAuraBonus, getAuraBonuses, registerWarriorBreakDefense, registerRangedGrowth, registerFortifyShield, registerWarriorExecute, selectFlyTarget, registerEmptyColBonus, registerDoubleStrike } from './03battle-utils.js';
+import { isMelee, isBlocked, makeFXSnapshot, hasBuff, getUnitCol, getUnitRow, hasAnyEnemyEmptyCol, countEnemyEmptyCols, getBloodAuraBonus, getAuraBonuses, registerWarriorBreakDefense, registerRangedGrowth, registerFortifyShield, registerWarriorExecute, registerEmptyColBonus, registerDoubleStrike } from './03battle-utils.js';
 import { computeBuffStats, logBuffSummary, applyHolyFlameBonus, applyFortifyBonus, applyCarryBonus, installBuffMechanics } from './04buff-system.js';
 import { spawnHorse, destroyHorse } from './05battle-horse.js';
 import { Unit } from './02unit.js';
@@ -16,7 +16,7 @@ import { getEliteFactories } from './08-elite-registry.js';
 import { processUnitAttack } from './10battle-attack.js';
 import { eventBus, EXECUTION_LAYER as L, registerSettlementHook } from '../infra/50-event-bus.js';
 import { getNextAvailableUnit, finalizeDeaths, emitFullUnitState, checkZhangSwitch, emitEvent, applyStatChange, setBattleRng, setPresentationRng, addMod, removeModsByTTL, getStat, refreshMaxHp } from './13battle-shared.js';
-import { FACT_TYPES, BUFF_TYPES, UNIT_EVENT_TYPES, CAMP_TYPES, ROLE_TYPES, SIGNAL_TYPES } from '../infra/56-battle-enums.js';
+import { FACT_TYPES, BUFF_TYPES, UNIT_EVENT_TYPES, CAMP_TYPES, SIGNAL_TYPES } from '../infra/56-battle-enums.js';
 import { flushBattleEvents, setBattleState } from '../infra/51-core-utils.js';
 import { SeededRNG } from '../infra/51-core-utils.js';
 import { resolveDeaths } from './12battle-attack-steps.js';
@@ -118,21 +118,6 @@ function prepareRoundStart(A, B, log, state, round, rng) {
     registerFortifyShield(eventBus);
     registerWarriorExecute(eventBus);
     installBuffMechanics(eventBus);
-    registerSettlementHook({
-        when: SIGNAL_TYPES.BEFORE_SELECT_TARGET,
-        priority: L.BEFORE_SELECT_TARGET.FLY_TARGET,
-        handler: (data) => {
-            if (data.unit.role !== ROLE_TYPES.FLYER || data.unit.state._canAlwaysDodge) return;
-            // 2026-09-24 修 bug：原写 data.targetResult，而 selectAttackTarget 读的是 data.declaration.targetResult
-            //   → 飞行跳前排从未生效。改回 declaration 通道。
-            // 2026-09-25 角色级声明优先：宋青书的 targetRule=highestHpPct 走 REBEL(20)，本该先跑，
-            //   却被本条通用飞行选敌 FLY_TARGET(30) 后跑覆盖 →「优先打血量最高」从未生效。
-            //   已有声明就不再覆盖；没有选敌声明的普通飞行单位照旧走 selectFlyTarget。
-            if (data.declaration.targetResult) return;
-            const flyTarget = selectFlyTarget(data.unit, data.enemySide);
-            if (flyTarget) data.declaration.targetResult = flyTarget;
-        }
-    });
     registerDoubleStrike(eventBus, doubleStrikeUnitUid, A, A._activeBuffs);
     registerDoubleStrike(eventBus, doubleStrikeUnitUidEnemy, B, B._activeBuffs);
     registerEmptyColBonus(eventBus);
