@@ -1,5 +1,5 @@
-// V6.0.0 | 2026-08-23 player 只 emit 信号，本文件订阅转调
-export const VER = 'fx/89fx-subscriber.js V6.1.0';
+// V6.1.1 | ~4300 bytes | 2026-09-26 加胖远桥两技能转发（PANG_TAUNT / PANG_CLUMSY，快进跳过）
+export const VER = 'fx/89fx-subscriber.js V6.1.1';
 
 import { eventBus } from '../infra/50-event-bus.js';
 import { GlobalStore } from '../infra/54-global-store.js';
@@ -16,6 +16,7 @@ import {
     showSpiderAscend, showSpiderDescend, showSpiderStrike
 } from './86fx-butterfly-spider.js';
 import { showLionRoar } from './91fx-lion-roar.js';
+import { showPangTaunt, showPangClumsy } from './92fx-pang-antics.js';
 import { AudioManager } from '../modules/22audio-manager.js';
 
 // 快进判断归位于表现层
@@ -70,4 +71,13 @@ eventBus.on(FX_SIGNALS.LION_ROAR, P, (d) => {
 eventBus.on(FX_SIGNALS.MIEJUE_COUNT, P, (d) => {
     if (inFastForward()) return;
     return showMiejueCountFloat(d.unit, d.text);
+});
+// 2026-09-26 胖远桥：正义国字脸（扇形金锥 + 台词气泡 + 被嘲讽者红闪）/ 年轻气盛（侧倾甩歪 + 😵）
+eventBus.on(FX_SIGNALS.PANG_TAUNT, P, (d) => {
+    if (inFastForward()) return;
+    return showPangTaunt(d.unit, d.foes);
+});
+eventBus.on(FX_SIGNALS.PANG_CLUMSY, P, (d) => {
+    if (inFastForward()) return;
+    return showPangClumsy(d.unit);
 });

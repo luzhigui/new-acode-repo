@@ -1,5 +1,5 @@
 // render/39-actions-defs.js — 舞台动作演出定义（演出域）
-// V1.2.1 | ~23400 bytes | 2026-09-24 拒马消散走普通死亡管线（删 REMOVE_UNIT 短通道）；DODGE 补韦一笑吸血飘字、远程闪避补弧线
+// V1.2.2 | ~24100 bytes | 2026-09-26 ATTACK 出手帧补胖远桥两技能演出（PANG_TAUNT / PANG_CLUMSY）；拒马消散走普通死亡管线（删 REMOVE_UNIT 短通道）；DODGE 补韦一笑吸血飘字、远程闪避补弧线
 // 2026-09-22 从 render/31 拆出：STAGE_ACTION_DEFS 全表 + 单位查找
 //
 // 加新 stageAction：在本文件 STAGE_ACTION_DEFS 加一条（键=STAGE_ACTION_TYPES.xxx），
@@ -11,7 +11,7 @@ import { GlobalStore } from '../infra/54-global-store.js';
 import { getSkillParams } from '../core/01config-5v5-test.js';
 import { AudioManager } from '../modules/22audio-manager.js';
 import { STAGE_ACTION_TYPES, STORE_ACTION_TYPES, UNIT_EVENT_TYPES, ROLE_TYPES, BUFF_EFFECT_TYPES, BUFF_SUBTYPES, FLY_MODE_TYPES } from '../infra/56-battle-enums.js';
-export const VER = 'render/39-actions-defs.js V1.2.1';
+export const VER = 'render/39-actions-defs.js V1.2.2';
 
 // 先查 store 权威单位，再回退 UI 快照
 function findUnitByUidLocal(c, uid) {
@@ -51,6 +51,17 @@ export const STAGE_ACTION_DEFS = {
             //   原先由 modules/26 在「生成步」emit，动作还没播飘字就先跳了；改由本演出帧发。
             if (attacker && action.miejueCountText) {
                 eventBus.emit(FX_SIGNALS.MIEJUE_COUNT, { unit: attacker, text: action.miejueCountText });
+            }
+            // 2026-09-26 胖远桥·正义国字脸：朝对手张开的扇形金锥 + 「你过来!」气泡 + 全体被嘲讽者红闪😤，
+            //   锚在出手帧（标记由 modules/26 写进本击 fact，生成步不发，否则特效会抢在画面前）
+            if (attacker && action.pangTaunt && !GlobalStore.get('fastForwardActive')) {
+                const foes = (c.store ? c.store.getState().units : [])
+                    .filter(u => u.camp !== attacker.camp && u.alive && !u.isHorse);
+                eventBus.emit(FX_SIGNALS.PANG_TAUNT, { unit: attacker, foes });
+            }
+            // 2026-09-26 胖远桥·年轻气盛（打歪）：出手前上半身侧倾甩歪 + 😵
+            if (attacker && action.pangClumsy && !GlobalStore.get('fastForwardActive')) {
+                eventBus.emit(FX_SIGNALS.PANG_CLUMSY, { unit: attacker });
             }
             if (attacker && target && action.attackerRole) {
                 eventBus.emit(FX_SIGNALS.TRIGGER, {

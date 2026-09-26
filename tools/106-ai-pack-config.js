@@ -1,5 +1,4 @@
-// V6.0.14 | ~11140 bytes | 2026-09-24 补登记 core/07-target-strategies.js（选敌策略抽取新文件，core/12 已 import，漏登会导致包内引用断裂）
-// V6.0.13 | ~11080 bytes | 2026-09-24 补登记 fx/91fx-lion-roar.js（谢逊狮吼特效，packcheck B 类漏登，未随包发出过）
+// V6.0.15 | ~11150 bytes | 2026-09-26 登记 fx/92fx-pang-antics.js（胖远桥两技能特效）；V6.0.14 补登记 core/07-target-strategies.js（选敌策略抽取新文件，core/12 已 import，漏登会导致包内引用断裂）
 // V6.0.12 | ~11030 bytes | 2026-09-23 补登记 infra/61-view-sheet.js（妆造字段剥离新文件，103 复制器与分包脚本均派生自本表）
 // V6.0.11 | ~10980 bytes | 2026-09-22 移除已删除的 demo-stage3.html 登记
 // V6.0.10 | ~11000 bytes | 2026-09-22 登记 demo-stage3.html（第三关阵容轮换 + 胖远桥 demo 页，dev-index 隐藏入口）
@@ -53,7 +52,7 @@ export const ALL_PROJECT_FILES = [
     '../fx/80fx-common-5v5-test.js', '../fx/81fx-arrows-5v5-test.js', '../fx/82fx-crash-5v5-test.js',
     '../fx/83fx-position-swap.js', '../fx/84fx-push-back.js', '../fx/85fx-dodge-bullet.js',
     '../fx/86fx-butterfly-spider.js', '../fx/87fx-manager.js', '../fx/88fx-trigger.js', '../fx/89fx-subscriber.js',
-    '../fx/90fx-ref-manager.js', '../fx/91fx-lion-roar.js',
+    '../fx/90fx-ref-manager.js', '../fx/91fx-lion-roar.js', '../fx/92fx-pang-antics.js',
     // modules（通用系统 + 精英角色组件）
     '../modules/20elite-skills.js', '../modules/21error-capture.js', '../modules/22audio-manager.js',
     '../infra/54-global-store.js', '../infra/55-fx-signals.js', '../modules/29battle-init.js', '../modules/24battle-store.js',
