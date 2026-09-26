@@ -1,5 +1,5 @@
-// V6.14.2 | ~24700 bytes | 2026-09-24 三击信息并入「🩸 灭绝三击」行（第N次出手/伤害·吸血×1.5/吸血量/生命X→Y），攻击行尾不再重复；V6.14.1 莽撞新增「溅射也算挨打」（订阅 SPLASH_DAMAGED）；V6.14.0 胖远桥嘲讽改「自身永久+40防（无上限）」，取消嘲讽减伤；灭绝计数飘字改由 render/39 出手帧发；三击吸血写「X→Y」+ 吸血飘字；张三丰严阵以待第3回合
-export const VER = 'modules/26elite-sixsects.js V6.14.2';
+// V6.14.3 | ~24800 bytes | 2026-09-26 胖远桥两技能的演出标记写进本击 fact（group.data.pangTaunt / pangClumsy）：生成步只记标记，演出帧由 render/39 发信号，避免特效抢在画面前
+export const VER = 'modules/26elite-sixsects.js V6.14.3';
 import { registerElite } from '../core/08-elite-registry.js';
 import { CONFIG, getSkillParams } from '../core/01config-5v5-test.js';
 import { SIGNAL_TYPES, FACT_TYPES, BUFF_TYPES, CAMP_TYPES, ROLE_TYPES } from '../infra/56-battle-enums.js';
@@ -268,6 +268,8 @@ export function createPangYuanQiaoComponent() {
                 pang.state._clumsyHit = false;
                 const tgt = data.target;
                 if (!tgt || !tgt.alive) return;
+                // 打歪的演出标记：本击 fact 带上，render/39 出手帧据此发 PANG_CLUMSY（生成步不发，避免抢画面）
+                if (data.group && data.group.data) data.group.data.pangClumsy = true;
                 pushInfo(data, `<span class="gold">😵 年轻气盛：胖远桥一拳打歪，招呼到 ${tgt.name} 身上（伤害×${young.dmgMultiplier}）</span>`);
                 resolvePushOrStun(tgt, tgt.camp === CAMP_TYPES.ALLY ? A : B, data.log, '😤 年轻气盛');
             });
@@ -276,6 +278,8 @@ export function createPangYuanQiaoComponent() {
             eventBus.on(SIGNAL_TYPES.AFTER_ATTACK, L.AFTER_ATTACK.PANG_TAUNT, (data) => {
                 if (data.unit !== pang || !pang.alive || !pang.state._tauntFired) return;
                 pang.state._tauntFired = false;
+                // 国字脸的演出标记：与台词同帧写进 fact，render/39 出手帧据此发 PANG_TAUNT
+                if (data.group && data.group.data) data.group.data.pangTaunt = true;
                 pushInfo(data, `<span class="gold">😤 正义国字脸：胖远桥横眉一喝，敌人本回合只能打他（自身防御+${face.defGain}，当前 ${Math.floor(getStat(pang, 'def'))}）</span>`);
             });
 

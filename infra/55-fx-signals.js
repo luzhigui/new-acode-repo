@@ -1,5 +1,5 @@
-// V6.1.1 | ~2400 bytes | 2026-09-24 加 MIEJUE_COUNT（灭绝师太出手计数飘字）；信号名单一数据源：player emit 与 fx/89 订阅两侧各自 import，方向均为 X→infra
-export const VER = 'infra/55-fx-signals.js V6.1.1';
+// V6.1.2 | ~2600 bytes | 2026-09-26 加 PANG_TAUNT / PANG_CLUMSY（胖远桥两技能演出，快进跳过）；信号名单一数据源：player emit 与 fx/89 订阅两侧各自 import，方向均为 X→infra
+export const VER = 'infra/55-fx-signals.js V6.1.2';
 
 // 特效信号：player 只 emit，fx/89 订阅；fx: 前缀与战斗信号隔离
 export const FX_SIGNALS = {
@@ -35,5 +35,8 @@ export const FX_SIGNALS = {
     SPIDER_STRIKE: 'fx:spiderStrike',    // 蛛袭扑击（快进跳过）
     MEDITATE: 'fx:meditate',             // 生生不息太极印（三处触发共用，视觉层去抖）
     LION_ROAR: 'fx:lionRoar',            // 雄狮振奋咆哮（快进跳过）
-    MIEJUE_COUNT: 'fx:miejueCount'       // 灭绝师太出手计数飘字（快进跳过）
+    MIEJUE_COUNT: 'fx:miejueCount',      // 灭绝师太出手计数飘字（快进跳过）
+    // 胖远桥（六大派精英）
+    PANG_TAUNT: 'fx:pangTaunt',          // 正义国字脸：扇形金锥 + 台词气泡 + 被嘲讽者红闪（快进跳过）
+    PANG_CLUMSY: 'fx:pangClumsy'         // 年轻气盛：出手前侧倾甩歪 + 😵（快进跳过）
 };
