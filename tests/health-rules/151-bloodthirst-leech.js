@@ -33,6 +33,7 @@
 //   另：判据2 依赖的 `_dmg` 是攻击组的**总伤害**，嗜血条目挂在攻击组 entries 里，实测 158 条全部
 //   拿得到父组 _dmg（noDmg=0），故该判据不会因取不到值而空转。
 export const VER = 'tests/health-rules/151-bloodthirst-leech.js V6.1.15';
+import { collectNodes } from '../122health-utils.js';
 
 import { CONFIG } from '../../core/01config-5v5-test.js';
 
@@ -55,22 +56,7 @@ function plain(s) {
 // 战报节点收集：数组元素 → 顶层条目 → attack-group 的 entries 子条目（与 129/132/133/150 同款）。
 // 实测：摘要「🗡️ 嗜血狂刀：…」是顶层 buff-summary，吸血条目「吸血+N」全部挂在攻击组 entries 里，
 //   只扫顶层会漏掉 158 条里的绝大多数。
-function collectNodes(log) {
-    var out = [];
-    function walk(node, depth) {
-        if (!node) return;
-        if (Array.isArray(node)) {
-            for (var i = 0; i < node.length; i++) walk(node[i], depth);
-            return;
-        }
-        out.push(node);
-        if (depth === 0 && Array.isArray(node.entries)) {
-            for (var k = 0; k < node.entries.length; k++) walk(node.entries[k], depth + 1);
-        }
-    }
-    for (var j = 0; j < log.length; j++) walk(log[j], 0);
-    return out;
-}
+
 
 // 终局快照里查单位最大血量（取不到返回 null，交给调用方跳过判据5）
 function maxHpOf(name, afterA, afterE) {

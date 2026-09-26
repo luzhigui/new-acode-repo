@@ -45,26 +45,13 @@
 //     处决先于 hit 渲染→pass（验"先收集后判定"）、未标斩杀的爪击→pass（不被判据 2 误伤）、
 //     伤害 1.2→fail（判据 1 仍活）、无爪击→skip。
 export const VER = 'tests/health-rules/132-claw-damage.js V6.1.17';
+// 用 as 保留原调用名 collectNodes：调用点（L61 等）不改，避免"改名漏改调用点"这类回归。
+import { collectNodesGrouped as collectNodes } from '../122health-utils.js';
 
 // 战报节点收集：数组元素（render/30 少数渲染函数返回数组）→ 顶层条目 → attack-group 的 entries 子条目。
 // 只摊一层子条目：孙层没有爪击语义，再深会重复计数。顺序保持战报原序，连锁递增判定才有效。
 // V6.1.16：每个节点带上所属顶层组号 gi（数组元素沿用其外层条目的组号），供判据 2 做同组判定。
-function collectNodes(log) {
-    var out = [];
-    function walk(node, depth, gi) {
-        if (!node) return;
-        if (Array.isArray(node)) {
-            for (var i = 0; i < node.length; i++) walk(node[i], depth, gi);
-            return;
-        }
-        out.push({ e: node, gi: gi });
-        if (depth === 0 && Array.isArray(node.entries)) {
-            for (var k = 0; k < node.entries.length; k++) walk(node.entries[k], depth + 1, gi);
-        }
-    }
-    for (var j = 0; j < log.length; j++) walk(log[j], 0, j);
-    return out;
-}
+
 
 export const rule79 = {
     group: '数值回归',

@@ -17,25 +17,11 @@
 //   改法：复用 132/133 的 collectNodes（数组元素 → 顶层 → attack-group entries）摊平后再扫，
 //   三条判据（负数 / 回退 / 停留不降 / 每单位上限 3）一字未动 —— 规则此前从未生效过，谈不上"放宽"。
 export const VER = 'tests/health-rules/129-spider-fly-count.js V6.1.15';
+import { collectNodes } from '../122health-utils.js';
 
 // 战报节点收集：数组元素（渲染层少数函数返回数组）→ 顶层条目 → attack-group 的 entries 子条目。
 // 只摊一层：飞天只挂在免疫组的 entries 上，再深会重复计数。顺序保持战报原序，逐次递减判定才有效。
-function collectNodes(log) {
-    var out = [];
-    function walk(node, depth) {
-        if (!node) return;
-        if (Array.isArray(node)) {
-            for (var i = 0; i < node.length; i++) walk(node[i], depth);
-            return;
-        }
-        out.push(node);
-        if (depth === 0 && Array.isArray(node.entries)) {
-            for (var k = 0; k < node.entries.length; k++) walk(node.entries[k], depth + 1);
-        }
-    }
-    for (var j = 0; j < log.length; j++) walk(log[j], 0);
-    return out;
-}
+
 
 export const rule76 = {
     group: '精英技能回归',
