@@ -1,0 +1,23 @@
+{
+  "extName": {
+    "message": "Trae Work ブラウザ拡張機能"
+  },
+  "extDescription": {
+    "message": "Chrome を Trae Work に接続し、AI 駆動の Browser Use を実現します。"
+  },
+  "popupDescription": {
+    "message": "Chrome を Trae Work で操作します。"
+  },
+  "popupLearnMore": {
+    "message": "詳細を見る"
+  },
+  "statusChecking": {
+    "message": "確認中..."
+  },
+  "statusConnected": {
+    "message": "接続済み"
+  },
+  "statusDisconnected": {
+    "message": "未接続"
+  }
+}

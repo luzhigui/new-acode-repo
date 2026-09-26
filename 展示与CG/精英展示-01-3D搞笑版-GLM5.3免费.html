@@ -1,0 +1,916 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>明教四杰 · 3D图鉴</title>
+<style>
+html,body{margin:0;height:100%;background:#05070d;overflow:hidden;
+  font-family:'LXGW WenKai','KaiTi','STKaiti',sans-serif;color:#c8d0e0;
+  user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:transparent}
+
+#bg{position:fixed;inset:0;z-index:0;pointer-events:none;
+  background:radial-gradient(ellipse at 50% 18%,#16203a 0%,#0a0e1c 45%,#05070d 100%)}
+#nebula{position:fixed;left:-20%;top:-10%;width:140%;height:120%;z-index:0;pointer-events:none;
+  background:radial-gradient(ellipse 60% 30% at 30% 25%,rgba(80,110,190,.10),transparent 70%),
+             radial-gradient(ellipse 50% 26% at 72% 15%,rgba(190,120,200,.08),transparent 70%);
+  animation:nebulaDrift 70s ease-in-out infinite alternate}
+@keyframes nebulaDrift{from{transform:translateX(-3%)}to{transform:translateX(3%)}}
+#stars{position:fixed;inset:0;z-index:0;pointer-events:none}
+#stars i{position:absolute;width:2px;height:2px;border-radius:50%;background:#cdd8f0;
+  animation:twinkle var(--t,4s) ease-in-out infinite}
+#stars i.big{width:3px;height:3px;background:#fff;
+  box-shadow:0 0 6px 1px rgba(205,216,240,.9),0 0 14px 3px rgba(140,170,255,.35)}
+@keyframes twinkle{0%,100%{opacity:var(--o,.1)}50%{opacity:calc(var(--o,.1) * 2.8)}}
+#halo{position:fixed;left:50%;top:31%;transform:translate(-50%,-50%);
+  width:84vmin;height:84vmin;border-radius:50%;
+  background:radial-gradient(circle,var(--halo-c,rgba(120,180,255,.3)) 0%,transparent 55%);
+  z-index:1;pointer-events:none;filter:blur(22px);
+  animation:haloPulse 5s ease-in-out infinite}
+@keyframes haloPulse{0%,100%{opacity:.5}50%{opacity:.85}}
+
+#title{position:fixed;top:calc(14px + env(safe-area-inset-top,0px));left:0;right:0;
+  text-align:center;z-index:10;pointer-events:none}
+#title .main{font-size:clamp(13px,3vmin,17px);letter-spacing:.75em;text-indent:.75em;
+  color:rgba(200,168,100,.65);display:flex;align-items:center;justify-content:center;gap:14px}
+#title .main::before,#title .main::after{content:'';height:1px;width:clamp(18px,6vmin,54px);
+  background:linear-gradient(90deg,transparent,rgba(200,168,100,.5));flex:none}
+#title .main::after{background:linear-gradient(90deg,rgba(200,168,100,.5),transparent)}
+#title .sub{font-size:clamp(9px,2vmin,11px);letter-spacing:.4em;text-indent:.4em;
+  color:rgba(200,168,100,.3);margin-top:.5em}
+
+#stage{position:fixed;top:0;left:0;right:0;height:62vh;z-index:2;cursor:grab;touch-action:pan-y}
+#stage:active{cursor:grabbing}
+#gl{position:absolute;inset:0}
+#gl canvas{display:block;width:100%;height:100%}
+#glStatus{position:absolute;inset:0;display:none;align-items:center;justify-content:center;
+  font-size:13px;color:rgba(200,210,235,.55);letter-spacing:.12em;text-align:center;
+  padding:20px;line-height:1.8}
+
+.arrow{position:fixed;top:30%;transform:translateY(-50%);z-index:20;
+  width:clamp(42px,8vmin,58px);height:clamp(42px,8vmin,58px);border-radius:50%;
+  background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.18);
+  display:flex;align-items:center;justify-content:center;cursor:pointer;
+  color:rgba(255,255,255,.8);font-size:clamp(20px,4vmin,28px);
+  font-family:inherit;transition:.25s;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
+.arrow:hover{background:rgba(255,255,255,.1);border-color:rgba(255,200,120,.6);color:#ffc266}
+.arrow:active{transform:translateY(-50%) scale(.92)}
+#arrowL{left:max(12px,env(safe-area-inset-left,0px))}
+#arrowR{right:max(12px,env(safe-area-inset-right,0px))}
+
+#info{position:fixed;left:0;right:0;bottom:0;z-index:15;
+  padding:0 12px calc(12px + env(safe-area-inset-bottom,0px));pointer-events:none}
+.card{max-width:560px;margin:0 auto;
+  background:linear-gradient(180deg,rgba(10,14,24,.88),rgba(6,9,16,.96));
+  border:1px solid rgba(200,168,100,.22);border-radius:14px;
+  padding:14px 18px 12px;
+  backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
+  box-shadow:0 -6px 30px rgba(0,0,0,.7);
+  pointer-events:auto;transition:opacity .32s ease,transform .32s ease}
+.card.switching{opacity:0;transform:translateY(14px)}
+.name-row{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin-bottom:4px}
+.name{font-size:clamp(18px,4.5vmin,26px);font-weight:700;letter-spacing:.18em;line-height:1}
+.name.zw{color:#8cc0ff;text-shadow:0 0 16px rgba(140,192,255,.55)}
+.name.wy{color:#c09aff;text-shadow:0 0 16px rgba(192,154,255,.55)}
+.name.xz{color:#ff9ade;text-shadow:0 0 16px rgba(255,154,222,.55)}
+.name.xm{color:#ff6a8a;text-shadow:0 0 16px rgba(255,106,138,.55)}
+.tags{display:flex;gap:6px;flex-wrap:wrap}
+.tag{font-size:clamp(9px,1.8vmin,11px);padding:2px 8px;border-radius:10px;letter-spacing:.14em;border:1px solid}
+.tag.blue{color:#8cc0ff;border-color:rgba(140,192,255,.4);background:rgba(140,192,255,.08)}
+.tag.purple{color:#c09aff;border-color:rgba(192,154,255,.4);background:rgba(192,154,255,.08)}
+.tag.pink{color:#ff9ade;border-color:rgba(255,154,222,.4);background:rgba(255,154,222,.08)}
+.tag.red{color:#ff6a8a;border-color:rgba(255,106,138,.4);background:rgba(255,106,138,.08)}
+.tag.gold{color:#e8c27a;border-color:rgba(232,194,122,.4);background:rgba(232,194,122,.08)}
+.quote{font-size:clamp(11px,2.4vmin,13px);color:rgba(216,207,192,.55);letter-spacing:.06em;
+  margin:6px 0 10px;font-style:italic;line-height:1.5;
+  border-left:2px solid rgba(200,168,100,.3);padding-left:10px}
+.skills{display:flex;flex-direction:column;gap:6px;max-height:22vh;overflow-y:auto;padding-right:4px}
+.skills::-webkit-scrollbar{width:4px}
+.skills::-webkit-scrollbar-thumb{background:rgba(200,168,100,.3);border-radius:2px}
+.skill{display:flex;gap:10px;align-items:flex-start;font-size:clamp(11px,2.3vmin,13px);
+  line-height:1.5;padding:3px 6px;margin:0 -6px;border-radius:8px;transition:background .2s}
+.skill:hover{background:rgba(255,255,255,.04)}
+.skill .icon{flex-shrink:0;width:1.6em;text-align:center;font-size:clamp(13px,2.6vmin,16px)}
+.skill .body{flex:1;min-width:0}
+.skill .sname{color:#e8c27a;font-weight:600;letter-spacing:.08em}
+.skill .sdesc{color:rgba(216,207,192,.72);font-size:clamp(10px,2.1vmin,12px);margin-top:1px}
+.dots{display:flex;gap:8px;justify-content:center;margin-top:12px}
+.dot{width:7px;height:7px;border-radius:50%;background:rgba(255,255,255,.2);
+  transition:.3s;cursor:pointer;pointer-events:auto}
+.dot.active{background:#ffc266;box-shadow:0 0 8px rgba(255,194,102,.7);transform:scale(1.35)}
+#hint{position:fixed;top:58%;left:50%;transform:translateX(-50%);
+  font-size:clamp(10px,1.9vmin,12px);color:rgba(255,255,255,.35);letter-spacing:.3em;
+  z-index:5;pointer-events:none;opacity:0;transition:opacity .5s;text-shadow:0 1px 4px rgba(0,0,0,.8)}
+#hint.show{opacity:1}
+@media (prefers-reduced-motion:reduce){#stars i,#halo,#nebula{animation:none}}
+</style>
+</head>
+<body>
+
+<div id="bg"></div>
+<div id="nebula"></div>
+<div id="stars"></div>
+<div id="halo"></div>
+
+<div id="title">
+  <div class="main">明 教 四 杰</div>
+  <div class="sub">拖动旋转 · 左右切换</div>
+</div>
+
+<div id="stage"><div id="gl"><div id="glStatus"></div></div></div>
+
+<button class="arrow" id="arrowL">‹</button>
+<button class="arrow" id="arrowR">›</button>
+
+<div id="info">
+  <div class="card" id="card">
+    <div class="name-row"><span class="name" id="heroName"></span><div class="tags" id="heroTags"></div></div>
+    <div class="quote" id="heroQuote"></div>
+    <div class="skills" id="heroSkills"></div>
+    <div class="dots" id="dots"></div>
+  </div>
+</div>
+
+<div id="hint">← 拖动可 360° 旋转 →</div>
+
+<script>
+/* ==================== 角色数据 ==================== */
+const HEROES = [
+  { key:'zw', name:'张无忌', build:buildZhang,
+    tags:[{t:'明教',c:'blue'},{t:'远程',c:'gold'},{t:'精英',c:'gold'}],
+    quote:'「少林武当，也不过如此。」', halo:'rgba(120,180,255,.3)', light:0x6aa8ff,
+    skills:[
+      {icon:'☀️',name:'九阳神功',desc:'每次攻击后回复最大生命 8%'},
+      {icon:'✨',name:'乾坤大挪移',desc:'保护 4/6 号位队友，减伤 10% 并反弹 10% 伤害'},
+      {icon:'⚔️',name:'近战切换',desc:'前排无友军时切换近战形态，攻防血大幅提升'},
+      {icon:'🔥',name:'融会贯通',desc:'近战 3 次后激活，附加目标攻防差 50% 的额外伤害'}]},
+  { key:'wy', name:'韦一笑', build:buildWei,
+    tags:[{t:'明教',c:'purple'},{t:'飞行',c:'gold'},{t:'精英',c:'gold'}],
+    quote:'「青翼蝠王，来去如风。」', halo:'rgba(160,120,230,.3)', light:0xa078ff,
+    skills:[
+      {icon:'❄️',name:'寒冰掌',desc:'优先攻击全场血量最低者，伤害后吸血 15%~45%'},
+      {icon:'🦇',name:'残血幻影',desc:'额外闪避率 = 已损失生命比例 × 70%'},
+      {icon:'👻',name:'永不失手',desc:'攻击必命中，不受未命中判定影响'},
+      {icon:'⚡',name:'闪避反击',desc:'闪避成功后对攻击者造成真实伤害并眩晕'}]},
+  { key:'xz', name:'小昭·姊', build:buildSister,
+    tags:[{t:'明教',c:'pink'},{t:'辅助',c:'gold'},{t:'精英',c:'gold'}],
+    quote:'「让这光明顶，再多守一会儿。」', halo:'rgba(255,140,210,.3)', light:0xff8ad2,
+    skills:[
+      {icon:'🦋',name:'蝶变附身',desc:'开局附身到 4 号位后最近队友，转移属性并附加护盾'},
+      {icon:'✨',name:'乾坤衍生',desc:'张无忌不在时，队友受伤触发减伤 + 治疗 + 加攻'},
+      {icon:'🛡️',name:'乾坤大挪移（升级）',desc:'张无忌在场时全队减伤 30%、反弹 20%'},
+      {icon:'♾️',name:'永久海克斯',desc:'团队海克斯消失后，小昭单独续上同效果'}]},
+  { key:'xm', name:'小昭·妹', build:buildBrother,
+    tags:[{t:'明教',c:'red'},{t:'蛛化',c:'gold'},{t:'精英',c:'gold'}],
+    quote:'「我化蛛时，无人能伤到你。」', halo:'rgba(255,90,120,.3)', light:0xff5070,
+    skills:[
+      {icon:'🕷️',name:'蛛变',desc:'每回合随机变换职业，职业加成永久叠加'},
+      {icon:'🕸️',name:'飞天',desc:'血量 ≤70% / 40% / 濒死时触发，免疫本次伤害'},
+      {icon:'💥',name:'蛛袭',desc:'降落攻击随机敌人，穿透 + 精通附加额外伤害'},
+      {icon:'🏆',name:'精通',desc:'每精通一个职业 +2 攻 +2 防 +5 血上限'}]}
+];
+
+/* ==================== CSS 星空 ==================== */
+(function(){
+  const box = document.getElementById('stars');
+  for (let i = 0; i < 96; i++) {
+    const s = document.createElement('i');
+    if (i % 18 === 5) s.className = 'big';
+    s.style.left = (Math.random()*100).toFixed(2) + '%';
+    s.style.top  = (Math.random()*100).toFixed(2) + '%';
+    s.style.setProperty('--o', (0.05 + Math.random()*0.2).toFixed(2));
+    s.style.setProperty('--t', (2.5 + Math.random()*4).toFixed(1) + 's');
+    s.style.animationDelay = (-Math.random()*6).toFixed(1) + 's';
+    s.style.transform = 'scale(' + (0.6 + Math.random()*1.2).toFixed(2) + ')';
+    box.appendChild(s);
+  }
+})();
+
+/* ==================== 信息卡（3D 成败都先渲染，永不空白） ==================== */
+const nameEl = document.getElementById('heroName');
+const tagsEl = document.getElementById('heroTags');
+const quoteEl = document.getElementById('heroQuote');
+const skillsEl = document.getElementById('heroSkills');
+const dotsEl = document.getElementById('dots');
+const cardEl = document.getElementById('card');
+const haloEl = document.getElementById('halo');
+const statusEl = document.getElementById('glStatus');
+let _rim = null, _ring = null;   /* 3D 就绪后由 start() 填入 */
+
+function setStatus(msg, isErr){
+  if (!msg) { statusEl.style.display = 'none'; return; }
+  statusEl.style.display = 'flex';
+  statusEl.textContent = msg;
+  statusEl.style.color = isErr ? 'rgba(255,120,110,.85)' : 'rgba(200,210,235,.55)';
+}
+
+function renderInfo(idx){
+  const h = HEROES[idx];
+  nameEl.textContent = h.name;
+  nameEl.className = 'name ' + h.key;
+  tagsEl.innerHTML = h.tags.map(function(t){
+    return '<span class="tag ' + t.c + '">' + t.t + '</span>'; }).join('');
+  quoteEl.textContent = h.quote;
+  skillsEl.innerHTML = h.skills.map(function(s){
+    return '<div class="skill"><span class="icon">' + s.icon + '</span><div class="body"><div class="sname">' + s.name + '</div><div class="sdesc">' + s.desc + '</div></div></div>';
+  }).join('');
+  [].forEach.call(dotsEl.children, function(d, i){ d.classList.toggle('active', i === idx); });
+  haloEl.style.setProperty('--halo-c', h.halo);
+  if (_rim)  _rim.color.setHex(h.light);
+  if (_ring) _ring.material.color.setHex(h.light);
+}
+renderInfo(0);   /* 先静态渲染第一人：无论 3D 成败，卡片有内容 */
+
+/* 任何未捕获运行错误 → 直接显示在舞台上（不再"无声黑屏"） */
+window.addEventListener('error', function(e){
+  if (e && e.message) setStatus('运行错误：' + e.message, true);
+});
+
+/* ==================== 3D 建模（仅 THREE 就绪后调用） ==================== */
+function buildZhang(){
+  const g = new THREE.Group();
+  const white = mat(0xe8eef6, {roughness:.55});
+  const whiteS = mat(0xc8d6e8, {roughness:.6});
+  const gold = mat(0xd4a040, {metalness:.85, roughness:.28});
+  const steel = mat(0xc8dce8, {metalness:.9, roughness:.22});
+
+  /* 身体：交领袍（lathe 上下两段） */
+  const body = new THREE.Group();
+  const ptsU = [new THREE.Vector2(.14,1.62), new THREE.Vector2(.30,1.50),
+                new THREE.Vector2(.28,1.20), new THREE.Vector2(.23,1.02)];
+  const ptsL = [new THREE.Vector2(.23,1.02), new THREE.Vector2(.31,.72),
+                new THREE.Vector2(.40,.35), new THREE.Vector2(.44,.02)];
+  body.add(new THREE.Mesh(new THREE.LatheGeometry(ptsU,26), white));
+  body.add(new THREE.Mesh(new THREE.LatheGeometry(ptsL,26), whiteS));
+  const collarM = mat(0x24448a);
+  [-1,1].forEach(function(sx){
+    const c = new THREE.Mesh(new THREE.BoxGeometry(.06,.34,.05), collarM);
+    c.position.set(.09*sx, 1.46, .27);
+    c.rotation.z = .5*sx;
+    body.add(c);
+  });
+  const belt = cyl(.245, .245, .08, gold, 24);
+  belt.position.y = 1.02;
+  body.add(belt);
+  const jade = cyl(.05, .05, .03, mat(0x8a6018,{metalness:.6,roughness:.35}), 12);
+  jade.rotation.x = Math.PI/2;
+  jade.position.set(0, 1.02, .26);
+  body.add(jade);
+  [-1,1].forEach(function(sx){
+    const f = cyl(.055,.07,.06, mat(0x2a2620), 10);
+    f.position.set(.11*sx, .03, .05);
+    body.add(f);
+  });
+  g.add(body);
+
+  /* 头 + 金冠（冠带置于头顶，非眼高） */
+  const crown = new THREE.Group();
+  const band = cyl(.30,.30,.07, gold, 20);
+  const gem = sphere(.05, new THREE.MeshBasicMaterial({color:0xffd700}), 10, 8);
+  gem.position.set(0, .17, .1);
+  const ringGlow = new THREE.Mesh(
+    new THREE.TorusGeometry(.34, .015, 8, 40),
+    new THREE.MeshBasicMaterial({color:0xffd700, transparent:true, opacity:.6}));
+  ringGlow.rotation.x = Math.PI/2;
+  ringGlow.position.y = .22;
+  crown.add(band, gem, ringGlow);
+  crown.position.y = .2;                 /* 头顶位置 */
+  const hd = head(0xf2d8bc, 0x1c1c24, {crown:crown, y:1.82});
+  g.add(hd);
+
+  /* 双臂：左手按前，右臂抬持剑 */
+  const aL = limb(.5, .06, white);
+  aL.position.set(-.32, 1.50, 0);
+  aL.rotation.z = .38;
+  g.add(aL);
+  const aR = limb(.48, .06, white);
+  aR.position.set(.32, 1.50, 0);
+  aR.rotation.z = -.55;
+  aR.rotation.x = -.55;
+  g.add(aR);
+  const handR = sphere(.07, mat(0xf2d8bc));
+  handR.position.set(.52, 1.32, .22);
+  g.add(handR);
+
+  /* 长剑（斜持过肩） */
+  const sword = new THREE.Group();
+  const blade = new THREE.Mesh(new THREE.BoxGeometry(.05, 1.5, .012), steel);
+  blade.position.y = .95;
+  const tip = new THREE.Mesh(new THREE.ConeGeometry(.036, .14, 4), steel);
+  tip.position.y = 1.74;
+  tip.rotation.y = Math.PI/4;
+  const guard = new THREE.Mesh(new THREE.BoxGeometry(.16,.03,.04), gold);
+  guard.position.y = .18;
+  const grip = cyl(.025,.025,.22, mat(0x8a2020), 10);
+  grip.position.y = .06;
+  sword.add(blade, tip, guard, grip);
+  sword.position.copy(handR.position).add(new THREE.Vector3(.05, -.1, .05));
+  sword.rotation.set(-.35, 0, .5);
+  g.add(sword);
+  const spark = new THREE.Mesh(
+    new THREE.SphereGeometry(.035, 8, 6),
+    new THREE.MeshBasicMaterial({color:0xffffff, transparent:true, opacity:0}));
+  spark.position.set(.62, 2.1, .28);
+  g.add(spark);
+
+  /* 披风：开口圆筒罩（背面开口），随呼吸轻摆 */
+  const cloak = new THREE.Mesh(
+    new THREE.CylinderGeometry(.42, .62, 1.55, 24, 1, true,
+      -Math.PI/2 - 1.15, 2.3),
+    new THREE.MeshStandardMaterial({color:0x2a5296, roughness:.7,
+      side:THREE.DoubleSide, transparent:true, opacity:.96}));
+  cloak.position.y = .95;
+  g.add(cloak);
+
+  return { group: cast(g), tick: function(t){
+    body.scale.y = 1 + Math.sin(t*1.7)*.008;
+    cloak.rotation.x = .04 + Math.sin(t*.9)*.05;
+    hd.rotation.y = Math.sin(t*.6)*.07;
+    ringGlow.material.opacity = .35 + Math.sin(t*1.4)*.3;
+    spark.material.opacity = Math.max(0, Math.sin(t*.9))*.9;
+  }};
+}
+
+function wingShape(kind){
+  const s = new THREE.Shape();
+  if (kind === 'bat'){
+    s.moveTo(0,0);
+    s.bezierCurveTo(.35,.35, 1.15,.75, 1.35,.35);
+    s.bezierCurveTo(1.2,.15, .9,.05, .95,-.1);
+    s.bezierCurveTo(.8,-.08, .75,-.35, .5,-.3);
+    s.bezierCurveTo(.45,-.12, .25,-.08, 0,0);
+  } else {
+    s.moveTo(0,0);
+    s.bezierCurveTo(.25,.45, 1.0,.85, 1.2,.38);
+    s.bezierCurveTo(1.28,.1, .85,-.05, .5,-.12);
+    s.bezierCurveTo(.85,-.42, .7,-.72, .3,-.5);
+    s.bezierCurveTo(.1,-.38, .05,-.18, 0,0);
+  }
+  return s;
+}
+function wings(colorFront, colorBack, kind, y, scale){
+  const g = new THREE.Group();
+  const frontM = new THREE.MeshStandardMaterial({color:colorFront, roughness:.6,
+    side:THREE.DoubleSide, transparent:true, opacity:.88});
+  const backM = new THREE.MeshStandardMaterial({color:colorBack, roughness:.7,
+    side:THREE.DoubleSide, transparent:true, opacity:.5});
+  const wl = [];
+  [-1, 1].forEach(function(sx){
+    const w = new THREE.Group();
+    const f = new THREE.Mesh(new THREE.ShapeGeometry(wingShape(kind), 14), frontM);
+    const b = new THREE.Mesh(new THREE.ShapeGeometry(wingShape(kind), 14), backM);
+    b.scale.set(.82, .82, 1);
+    b.position.z = -.08;
+    w.add(f, b);
+    w.scale.set(scale*sx, scale, 1);
+    w.position.set(.16*sx, y, -.22);
+    g.add(w);
+    wl.push(w);
+  });
+  g.userData.wings = wl;
+  return g;
+}
+
+function buildWei(){
+  const g = new THREE.Group();
+  const cloth = mat(0x39255e, {roughness:.55});
+  const clothD = mat(0x18102e, {roughness:.65});
+
+  const ptsU = [new THREE.Vector2(.13,1.62), new THREE.Vector2(.29,1.50),
+                new THREE.Vector2(.27,1.20), new THREE.Vector2(.22,1.02)];
+  const ptsL = [new THREE.Vector2(.22,1.02), new THREE.Vector2(.26,.55),
+                new THREE.Vector2(.30,.15), new THREE.Vector2(.28,.02)];
+  const body = new THREE.Group();
+  body.add(new THREE.Mesh(new THREE.LatheGeometry(ptsU,26), cloth));
+  body.add(new THREE.Mesh(new THREE.LatheGeometry(ptsL,26), clothD));
+  [-1,1].forEach(function(sx){
+    const c = new THREE.Mesh(new THREE.BoxGeometry(.05,.3,.04), clothD);
+    c.position.set(.08*sx, 1.47, .26);
+    c.rotation.z = .48*sx;
+    body.add(c);
+  });
+  const belt = cyl(.235,.235,.07, mat(0x7a5ac0,{metalness:.5,roughness:.4}), 24);
+  belt.position.y = 1.02;
+  body.add(belt);
+  [-1,1].forEach(function(sx){
+    const f = cyl(.05,.065,.06, mat(0x201a10), 10);
+    f.position.set(.1*sx, .03, .04);
+    body.add(f);
+  });
+  g.add(body);
+
+  const hd = head(0xe0cbb4, 0x14141c, {redEye:true, y:1.82});
+  g.add(hd);
+  const tail = cyl(.09,.02,.5, mat(0x14141c), 10);
+  tail.position.set(0, 1.62, -.3);
+  tail.rotation.x = .55;
+  g.add(tail);
+
+  const blades = [];
+  [-1, 1].forEach(function(sx){
+    const a = limb(.46, .055, cloth);
+    a.position.set(.3*sx, 1.5, 0);
+    a.rotation.z = -.85*sx;
+    a.rotation.x = -.35;
+    g.add(a);
+    const hand = sphere(.065, mat(0xe0cbb4));
+    hand.position.set(.44*sx, 1.28, .16);
+    g.add(hand);
+    const bl = new THREE.Group();
+    const bm = mat(0xdce8f4, {metalness:.9, roughness:.2});
+    const blade = new THREE.Mesh(new THREE.BoxGeometry(.035,.7,.01), bm);
+    blade.position.y = .45;
+    const grip = cyl(.02,.02,.16, mat(0x18102e), 8);
+    bl.add(blade, grip);
+    bl.position.copy(hand.position).add(new THREE.Vector3(.03*sx, -.02, .02));
+    bl.rotation.set(-.5, 0, .35*sx);
+    g.add(bl);
+    blades.push(bl);
+  });
+
+  const w = wings(0x6a4ab8, 0x241448, 'bat', 1.35, 1.15);
+  g.add(w);
+
+  return { group: cast(g), tick: function(t){
+    body.scale.y = 1 + Math.sin(t*2.1)*.01;
+    hd.rotation.y = Math.sin(t*.8)*.09;
+    w.userData.wings.forEach(function(ww, i){
+      const s = i === 0 ? 1 : -1;
+      ww.rotation.z = s*(.12 + Math.sin(t*2.4 + i*1.7)*.12);
+      ww.rotation.y = s*Math.sin(t*1.2)*.1;
+    });
+    blades.forEach(function(b, i){
+      b.rotation.z = (i === 0 ? -.5 : .5) + Math.sin(t*2 + i)*.05;
+    });
+  }};
+}
+
+function buildSister(){
+  const g = new THREE.Group();
+  const pink = mat(0xd68cc8, {roughness:.6});
+  const pinkD = mat(0x8a4a84, {roughness:.65});
+  const skin = 0xf6e2d0;
+  const hairM = mat(0x2a1230, {roughness:.75});
+
+  const ptsU = [new THREE.Vector2(.13,1.60), new THREE.Vector2(.27,1.48),
+                new THREE.Vector2(.25,1.20), new THREE.Vector2(.21,1.02)];
+  const ptsL = [new THREE.Vector2(.21,1.02), new THREE.Vector2(.34,.55),
+                new THREE.Vector2(.52,.12), new THREE.Vector2(.55,.02)];
+  const body = new THREE.Group();
+  body.add(new THREE.Mesh(new THREE.LatheGeometry(ptsU,26), pink));
+  body.add(new THREE.Mesh(new THREE.LatheGeometry(ptsL,30), pinkD));
+  const bow = new THREE.Mesh(new THREE.SphereGeometry(.05,10,8),
+    mat(0xffd0f0,{roughness:.4}));
+  bow.scale.set(1.6,.7,.7);
+  bow.position.set(0, 1.38, .24);
+  body.add(bow);
+  const belt = cyl(.225,.225,.06, mat(0xe8a8d8), 24);
+  belt.position.y = 1.03;
+  body.add(belt);
+  const hem = new THREE.Mesh(
+    new THREE.TorusGeometry(.53, .012, 8, 40),
+    mat(0xffd0f0, {emissive:0x602848, roughness:.5}));
+  hem.rotation.x = Math.PI/2;
+  hem.position.y = .05;
+  body.add(hem);
+  g.add(body);
+
+  /* 发簪：先定位再入头（修复版：不再用 userData） */
+  const pin = new THREE.Group();
+  const stick = cyl(.014,.014,.4, mat(0xe8a8d8,{metalness:.4,roughness:.4}), 8);
+  stick.rotation.z = Math.PI/2;
+  const pearl = sphere(.045, new THREE.MeshBasicMaterial({color:0xffe8f8}), 10, 8);
+  pearl.position.x = .2;
+  pin.add(stick, pearl);
+  pin.position.set(0, .18, 0);
+  const hd = head(skin, 0x2a1230, {hairpin:pin, y:1.82});
+  g.add(hd);
+
+  const bun = sphere(.13, hairM);
+  bun.position.set(0, 2.1, -.05);
+  g.add(bun);
+  [-1,1].forEach(function(sx){
+    const s = cyl(.05,.09,.8, hairM, 10);
+    s.position.set(.26*sx, 1.55, -.12);
+    s.rotation.z = .06*sx;
+    g.add(s);
+  });
+
+  const aL = limb(.46, .05, pink);
+  aL.position.set(-.29, 1.48, 0);
+  aL.rotation.z = .45;
+  aL.rotation.x = -.25;
+  g.add(aL);
+  const aR = limb(.5, .05, pink);
+  aR.position.set(.29, 1.48, 0);
+  aR.rotation.z = -.3;
+  g.add(aR);
+
+  /* 羽扇 */
+  const fan = new THREE.Group();
+  const fanM = new THREE.MeshStandardMaterial({color:0xf8d8f0, roughness:.6,
+    side:THREE.DoubleSide, transparent:true, opacity:.95});
+  [-2,-1,0,1,2].forEach(function(k){
+    const feather = new THREE.Mesh(new THREE.SphereGeometry(.16, 12, 10), fanM);
+    feather.scale.set(.32, 1, .06);
+    feather.position.set(k*.09, .16 + Math.abs(k)*-.03, 0);
+    feather.rotation.z = k*.32;
+    fan.add(feather);
+  });
+  const handle = cyl(.02,.02,.3, mat(0x602860), 8);
+  handle.position.y = -.08;
+  fan.add(handle);
+  fan.position.set(-.5, 1.3, .2);
+  fan.rotation.set(-.4, .3, .5);
+  g.add(fan);
+
+  const w = wings(0xe898d0, 0x9a4a88, 'butterfly', 1.4, 1.1);
+  g.add(w);
+
+  return { group: cast(g), tick: function(t){
+    body.scale.y = 1 + Math.sin(t*1.5)*.008;
+    hd.rotation.y = Math.sin(t*.55)*.08;
+    w.userData.wings.forEach(function(ww, i){
+      const s = i === 0 ? 1 : -1;
+      const flap = Math.sin(t*3.1 + i*.4);
+      ww.rotation.z = s*(.18 + flap*.22);
+      ww.rotation.y = s*Math.sin(t*1.4)*.12;
+    });
+    fan.rotation.z = .5 + Math.sin(t*1.2)*.06;
+    pearl.position.y = Math.sin(t*2)*.01;
+  }};
+}
+
+function buildBrother(){
+  const g = new THREE.Group();
+  const red = mat(0xa82850, {roughness:.55});
+  const redD = mat(0x501028, {roughness:.65});
+  const skin = 0xf0d4c4;
+
+  const ptsU = [new THREE.Vector2(.13,1.60), new THREE.Vector2(.29,1.48),
+                new THREE.Vector2(.27,1.20), new THREE.Vector2(.22,1.02)];
+  const ptsL = [new THREE.Vector2(.22,1.02), new THREE.Vector2(.30,.5),
+                new THREE.Vector2(.34,.14), new THREE.Vector2(.32,.02)];
+  const body = new THREE.Group();
+  body.add(new THREE.Mesh(new THREE.LatheGeometry(ptsU,26), red));
+  body.add(new THREE.Mesh(new THREE.LatheGeometry(ptsL,26), redD));
+  const webM = mat(0xe04070, {emissive:0x501020});
+  for (let k = 0; k < 3; k++){
+    const r = .07 + k*.055;
+    const web = new THREE.Mesh(new THREE.TorusGeometry(r, .008, 6, 24), webM);
+    web.position.set(0, 1.34, .27 - k*.01);
+    body.add(web);
+  }
+  [-1, 0, 1].forEach(function(k){
+    const sp = new THREE.Mesh(new THREE.BoxGeometry(.008,.16,.008), webM);
+    sp.position.set(.06*k, 1.34, .28);
+    sp.rotation.z = .5*k;
+    body.add(sp);
+  });
+  const belt = cyl(.235,.235,.07, mat(0x1a0408), 24);
+  belt.position.y = 1.02;
+  body.add(belt);
+  const gem = sphere(.05, new THREE.MeshBasicMaterial({color:0xff4060}), 10, 8);
+  gem.position.set(0, 1.02, .25);
+  body.add(gem);
+  g.add(body);
+
+  const hd = head(skin, 0x140610, {redEye:true, y:1.82});
+  g.add(hd);
+  const tiara = new THREE.Mesh(new THREE.TorusGeometry(.24, .02, 8, 24, Math.PI),
+    mat(0xe04070, {emissive:0x801028}));
+  tiara.position.set(0, 2.0, 0);
+  tiara.rotation.x = Math.PI/2 + .25;
+  g.add(tiara);
+  [-.14, 0, .14].forEach(function(x){
+    const f = new THREE.Mesh(new THREE.ConeGeometry(.045, .22, 6), mat(0x140610));
+    f.position.set(x, 2.02, .16);
+    f.rotation.x = .5;
+    g.add(f);
+  });
+
+  const aL = limb(.5, .05, red);
+  aL.position.set(-.3, 1.48, 0);
+  aL.rotation.z = .35;
+  g.add(aL);
+  const aR = limb(.46, .05, red);
+  aR.position.set(.3, 1.48, 0);
+  aR.rotation.z = -.7;
+  aR.rotation.x = -.5;
+  g.add(aR);
+
+  /* 蛛丝 */
+  const silk = new THREE.Group();
+  const silkM = new THREE.MeshBasicMaterial({color:0xffa0c0, transparent:true, opacity:.7});
+  for (let k = 0; k < 6; k++){
+    const seg = new THREE.Mesh(new THREE.BoxGeometry(.012,.012,.09), silkM);
+    seg.position.set(k*.085, .02 + Math.sin(k*.8)*.03, .04);
+    seg.rotation.y = .2 + Math.sin(k)*.2;
+    silk.add(seg);
+  }
+  silk.position.set(.52, 1.3, .25);
+  g.add(silk);
+
+  /* 蛛腿 ×8 */
+  const legs = [];
+  const legM = mat(0x8a1a38, {roughness:.5});
+  const tipM = new THREE.MeshBasicMaterial({color:0xff4060});
+  for (let i = 0; i < 8; i++){
+    const side = i < 4 ? -1 : 1;
+    const k = i % 4;
+    const root = new THREE.Group();
+    root.position.set(.18*side, 1.35 - k*.14, -.08);
+    const up = cyl(.028,.02,.6, legM, 8);
+    up.position.set(.3*side, .24, -.1);
+    up.rotation.z = -.9*side*(1 - k*.12);
+    root.add(up);
+    const down = cyl(.02,.014,.55, legM, 8);
+    down.position.set(.62*side, .02 - k*.05, -.3);
+    down.rotation.z = 1.15*side;
+    root.add(down);
+    const tip = sphere(.03, tipM, 8, 6);
+    tip.position.set(.82*side, -.22 - k*.06, -.42);
+    root.add(tip);
+    g.add(root);
+    legs.push({root: root, phase: i*1.3, baseY: 1.35 - k*.14});
+  }
+
+  return { group: cast(g), tick: function(t){
+    body.scale.y = 1 + Math.sin(t*1.9)*.008;
+    hd.rotation.y = Math.sin(t*.9)*.09;
+    legs.forEach(function(L){
+      L.root.rotation.y = Math.sin(t*1.1 + L.phase)*.07;
+      L.root.position.y = L.baseY + Math.sin(t*1.3 + L.phase)*.015;
+    });
+    gem.material.color.setHSL(.98, .9, .45 + Math.sin(t*2.2)*.12);
+    silk.rotation.x = Math.sin(t*1.4)*.2;
+  }};
+}
+
+/* ---------- 3D 小工具（THREE 就绪后才被调用） ---------- */
+function mat(color, opt){ return new THREE.MeshStandardMaterial(Object.assign(
+  {color:color, roughness:.62, metalness:.05}, opt||{})); }
+function sphere(r, m, w, h){ return new THREE.Mesh(new THREE.SphereGeometry(r, w||18, h||14), m); }
+function cyl(rt, rb, h, m, seg){ return new THREE.Mesh(new THREE.CylinderGeometry(rt, rb, h, seg||14), m); }
+function cast(o){ o.traverse(function(x){ if (x.isMesh) x.castShadow = true; }); return o; }
+function head(skinC, hairC, opt){
+  opt = opt || {};
+  const g = new THREE.Group();
+  g.add(sphere(.30, mat(skinC, {roughness:.5}), 20, 16));
+  const hair = new THREE.Mesh(
+    new THREE.SphereGeometry(.325, 20, 14, 0, Math.PI*2, 0, Math.PI*.62),
+    mat(hairC, {roughness:.75}));
+  hair.position.y = .01;
+  g.add(hair);
+  const back = sphere(.14, mat(hairC, {roughness:.75}));
+  back.scale.set(1.25, 2.0, .7);
+  back.position.set(0, -.12, -.16);
+  g.add(back);
+  const em = mat(0x101018, {roughness:.25});
+  [-1, 1].forEach(function(sx){
+    const e = sphere(.035, em, 10, 8);
+    e.position.set(.105*sx, -.01, .265);
+    g.add(e);
+  });
+  if (opt.redEye){
+    const red = new THREE.MeshBasicMaterial({color:0xd02040});
+    [-1, 1].forEach(function(sx){
+      const p = sphere(.018, red, 8, 6);
+      p.position.set(.105*sx, -.01, .29);
+      g.add(p);
+    });
+  }
+  if (opt.crown) g.add(opt.crown);
+  if (opt.hairpin) g.add(opt.hairpin);
+  g.position.y = opt.y !== undefined ? opt.y : 1.78;
+  return g;
+}
+function limb(len, r, m){
+  const g = new THREE.Group();
+  const c = cyl(r, r*.85, len, m, 10);
+  c.position.y = -len/2;
+  g.add(c, sphere(r*1.08, m));
+  return g;
+}
+
+/* ==================== 3D 启动（双 CDN + 全错误可见） ==================== */
+(function boot(){
+  const CDN1 = 'https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js';
+  const CDN2 = 'https://unpkg.com/three@0.128.0/build/three.min.js';
+
+  function start3D(){
+    const glBox = document.getElementById('gl');
+    const renderer = new THREE.WebGLRenderer({antialias:true, alpha:true});
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.outputEncoding = THREE.sRGBEncoding;
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    glBox.appendChild(renderer.domElement);
+
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(34, 1, .1, 50);
+    camera.position.set(0, 1.7, 6.4);
+    camera.lookAt(0, 1.05, 0);
+
+    scene.add(new THREE.AmbientLight(0x2a3450, .6));
+    const key = new THREE.DirectionalLight(0xfff2e0, .95);
+    key.position.set(2.6, 4.2, 3.2);
+    key.castShadow = true;
+    key.shadow.mapSize.set(1024, 1024);
+    key.shadow.camera.left = -3; key.shadow.camera.right = 3;
+    key.shadow.camera.top = 4;   key.shadow.camera.bottom = -1;
+    scene.add(key);
+    const fill = new THREE.DirectionalLight(0x88aaff, .22);
+    fill.position.set(-3, 2, -2);
+    scene.add(fill);
+    const rim = new THREE.PointLight(0x6aa8ff, 1.3, 7);
+    rim.position.set(0, 2.6, -2.6);
+    scene.add(rim);
+    _rim = rim;
+
+    const shadowPlane = new THREE.Mesh(
+      new THREE.PlaneGeometry(8, 8), new THREE.ShadowMaterial({opacity:.35}));
+    shadowPlane.rotation.x = -Math.PI/2;
+    shadowPlane.receiveShadow = true;
+    scene.add(shadowPlane);
+    const ring = new THREE.Mesh(
+      new THREE.RingGeometry(1.05, 1.42, 48),
+      new THREE.MeshBasicMaterial({color:0x6aa8ff, transparent:true, opacity:.4,
+        side:THREE.DoubleSide, blending:THREE.AdditiveBlending, depthWrite:false}));
+    ring.rotation.x = -Math.PI/2;
+    ring.position.y = .01;
+    scene.add(ring);
+    _ring = ring;
+
+    HEROES.forEach(function(h){
+      const b = h.build();
+      b.group.visible = false;
+      scene.add(b.group);
+      h.obj = b;
+    });
+
+    /* ---- 360° 旋转：拖拽 + 惯性 + 闲时自转 ---- */
+    let rotY = 0, rotVel = 0;
+    let dragging = false, lastX = 0, lastMoveT = 0;
+    const stage = document.getElementById('stage');
+
+    stage.addEventListener('pointerdown', function(e){
+      if (e.button && e.button !== 0) return;
+      dragging = true;
+      lastX = e.clientX;
+      lastMoveT = performance.now();
+      try { stage.setPointerCapture(e.pointerId); } catch (err) {}
+      document.getElementById('hint').classList.remove('show');
+    });
+    stage.addEventListener('pointermove', function(e){
+      if (!dragging) return;
+      const dx = e.clientX - lastX;
+      lastX = e.clientX;
+      rotVel = dx * .011;
+      rotY += rotVel;
+      lastMoveT = performance.now();
+    });
+    function endDrag(){ dragging = false; }
+    stage.addEventListener('pointerup', endDrag);
+    stage.addEventListener('pointercancel', endDrag);
+
+    /* ---- 切换 ---- */
+    let current = 0, switching = false;
+    let enterT = 0, exitT = 1, exitHero = null, enterDir = 1;
+
+    HEROES.forEach(function(h, i){
+      const d = document.createElement('div');
+      d.className = 'dot' + (i === 0 ? ' active' : '');
+      d.addEventListener('click', function(){
+        if (!switching && i !== current) switchTo(i, i > current ? 1 : -1);
+      });
+      dotsEl.appendChild(d);
+    });
+
+    function switchTo(idx, dir){
+      if (switching || idx === current) return;
+      switching = true;
+      dir = dir || 1;
+      enterDir = dir;
+      cardEl.classList.add('switching');
+
+      exitHero = HEROES[current].obj;
+      exitHero.group.visible = true;
+      exitT = 0;
+
+      const h = HEROES[idx];
+      h.obj.group.visible = true;
+      h.obj.group.scale.setScalar(.001);
+      h.obj.group.position.y = -.25;
+      rotY -= dir * .8;
+      enterT = 0;
+      current = idx;
+
+      setTimeout(function(){
+        renderInfo(idx);
+        cardEl.classList.remove('switching');
+        setTimeout(function(){ switching = false; }, 360);
+      }, 400);
+    }
+
+    document.getElementById('arrowR').addEventListener('click', function(){
+      switchTo((current + 1) % HEROES.length, 1);
+    });
+    document.getElementById('arrowL').addEventListener('click', function(){
+      switchTo((current - 1 + HEROES.length) % HEROES.length, -1);
+    });
+    window.addEventListener('keydown', function(e){
+      if (e.key === 'ArrowRight') document.getElementById('arrowR').click();
+      else if (e.key === 'ArrowLeft') document.getElementById('arrowL').click();
+    });
+
+    /* ---- 主循环：单一 getDelta 累计时间（修复版） ---- */
+    const clock = new THREE.Clock();
+    let tAcc = 0;
+    function easeOutBack(x){ const c = 1.70158; return 1 + (c+1)*Math.pow(x-1,3) + c*Math.pow(x-1,2); }
+
+    function resize(){
+      const w = glBox.clientWidth, h = glBox.clientHeight;
+      renderer.setSize(w, h);
+      camera.aspect = w / h;
+      camera.updateProjectionMatrix();
+    }
+    window.addEventListener('resize', resize);
+    resize();
+
+    HEROES[0].obj.group.visible = true;
+    renderInfo(0);          /* 让 rim/ring 上第一人的主题色 */
+
+    (function loop(){
+      requestAnimationFrame(loop);
+      const dt = Math.min(clock.getDelta() || .016, .05);
+      tAcc += dt;
+
+      if (!dragging){
+        if (performance.now() - lastMoveT > 2000){
+          rotVel += (0.0038 - rotVel) * .02;    /* 闲时缓缓自转 */
+        } else {
+          rotVel *= .94;                         /* 惯性衰减 */
+        }
+        rotY += rotVel;
+      }
+
+      const hero = HEROES[current].obj;
+
+      if (enterT < 1){
+        enterT = Math.min(1, enterT + dt / .5);
+        const s = easeOutBack(Math.max(0, enterT));
+        hero.group.scale.setScalar(Math.max(.001, s));
+        hero.group.position.y = -.25 * (1 - enterT);
+      } else {
+        hero.group.scale.setScalar(1);
+        hero.group.position.y = 0;
+      }
+      if (exitHero && exitT < 1){
+        exitT = Math.min(1, exitT + dt / .4);
+        exitHero.group.scale.setScalar(Math.max(.001, 1 - exitT));
+        exitHero.group.position.y = -.2 * exitT;
+        if (exitT >= 1){ exitHero.group.visible = false; exitHero = null; }
+      }
+
+      hero.group.rotation.y = rotY;
+      if (exitHero) exitHero.group.rotation.y = rotY + exitT * enterDir * 1.2;
+      hero.tick(tAcc);
+      if (exitHero) exitHero.tick(tAcc);
+
+      ring.material.opacity = .28 + Math.sin(tAcc*1.6)*.12;
+      ring.rotation.z = tAcc * .2;
+
+      renderer.render(scene, camera);
+    })();
+
+    setStatus('');           /* 成功：清掉载入提示 */
+    document.getElementById('hint').classList.add('show');
+    setTimeout(function(){ document.getElementById('hint').classList.remove('show'); }, 3200);
+  }
+
+  function loadFail(){
+    setStatus('3D 库加载失败：两个 CDN 均不可达。请检查网络后刷新。', true);
+    document.getElementById('arrowL').style.display = 'none';
+    document.getElementById('arrowR').style.display = 'none';
+  }
+
+  setStatus('正在载入 3D 引擎……');
+  const s = document.createElement('script');
+  s.src = CDN1;
+  s.onload = function(){
+    try { start3D(); }
+    catch (e) { setStatus('3D 初始化失败：' + (e && e.message || e), true); }
+  };
+  s.onerror = function(){
+    const s2 = document.createElement('script');
+    s2.src = CDN2;
+    s2.onload = s.onload;
+    s2.onerror = loadFail;
+    document.head.appendChild(s2);
+  };
+  document.head.appendChild(s);
+})();
+</script>
+</body>
+</html>

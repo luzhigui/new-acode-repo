@@ -1,0 +1,23 @@
+{
+  "extName": {
+    "message": "Trae Work Browser Extension"
+  },
+  "extDescription": {
+    "message": "Connect Chrome to Trae Work for AI-powered Browser Use."
+  },
+  "popupDescription": {
+    "message": "Control Chrome with Trae Work."
+  },
+  "popupLearnMore": {
+    "message": "Learn more"
+  },
+  "statusChecking": {
+    "message": "Checking..."
+  },
+  "statusConnected": {
+    "message": "Connected"
+  },
+  "statusDisconnected": {
+    "message": "Disconnected"
+  }
+}

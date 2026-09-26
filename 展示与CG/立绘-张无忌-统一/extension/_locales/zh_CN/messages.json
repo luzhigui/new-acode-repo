@@ -1,0 +1,23 @@
+{
+  "extName": {
+    "message": "Trae Work 浏览器插件"
+  },
+  "extDescription": {
+    "message": "将 Chrome 连接到 Trae Work，实现 AI 驱动的 Browser Use。"
+  },
+  "popupDescription": {
+    "message": "将 Chrome 连接到 Trae Work。"
+  },
+  "popupLearnMore": {
+    "message": "了解更多"
+  },
+  "statusChecking": {
+    "message": "检查中..."
+  },
+  "statusConnected": {
+    "message": "已连接"
+  },
+  "statusDisconnected": {
+    "message": "未连接"
+  }
+}

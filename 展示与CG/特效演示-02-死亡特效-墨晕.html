@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>死亡特效 demo（独立页，不碰游戏本体）</title>
+<style>
+    body { font-family: "Microsoft YaHei", sans-serif; background: #f4f1ea; margin: 0; padding: 24px; color: #333; }
+    h1 { font-size: 20px; } h2 { font-size: 15px; margin: 28px 0 6px; border-left: 4px solid #1e6bb8; padding-left: 8px; }
+    p.desc { font-size: 13px; color: #666; margin: 4px 0 12px; line-height: 1.7; }
+    .stage { background: #e9e5db; border: 1px solid #ccc; border-radius: 8px; padding: 34px 24px 26px; position: relative; min-height: 200px; }
+    .row { display: flex; gap: 40px; justify-content: center; }
+    .cell { width: 130px; height: 62px; background: #e8e6e0; border: 2px solid #bbb; border-radius: 5px;
+            display: flex; align-items: center; gap: 6px; font-size: 13px; padding: 2px 8px; box-sizing: border-box;
+            position: relative; overflow: visible; }
+    .cell .emoji { font-size: 22px; }
+    .cell b { display: block; font-size: 13px; }
+    .hpbar { height: 6px; background: #c0392b; border-radius: 3px; margin-top: 3px; width: 70px; }
+    .tag { font-size: 12px; color: #888; text-align: center; margin-top: 8px; }
+    button { padding: 6px 14px; border: 1px solid #999; border-radius: 5px; background: #fff; cursor: pointer; font-size: 13px; margin: 2px 6px 2px 0; }
+    button:hover { background: #eef; }
+
+    /* 现状：红底 ✕ 缩小 */
+    .cell.dead-now { background: #e74c3c !important; border-color: #c0392b !important; transform: scale(0.8); opacity: 0.9; }
+    .cell.dead-now .dead-mark { position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); font-size: 20px; color: rgba(180,0,0,0.9); font-weight: bold; }
+</style>
+</head>
+<body>
+<h1>死亡特效 demo</h1>
+<p class="desc">现状是「红底 + 红 ✕ + 缩小变灰」，一眼能懂但比较硬。下面 5 个方案都基于现有视觉语言（CSS 手绘、无图片素材、金色/墨色系），点按钮在左格播放，右格保持现状对照。</p>
+
+<h2>方案一 墨染黄泉</h2>
+<p class="desc">黑墨从格子中心晕开浸透，格子渐暗缩小，收进一格淡墨痕里——武侠「墨」的意象，安静但有分量。适合大多数死亡。</p>
+<div class="stage"><div class="row">
+    <div><div class="cell" id="c1"><span class="emoji">⚔️</span><span><b>武士</b><span class="hpbar" style="display:block"></span></span></div><div class="tag">方案一</div></div>
+    <div><div class="cell" id="c1b"><span class="emoji">⚔️</span><span><b>现状对照</b><span class="hpbar" style="display:block"></span></span></div><div class="tag">现状</div></div>
+</div></div>
+<button onclick="inkDeath()">▶ 播放方案一</button>
+
+<h2>方案二 魂魄离体</h2>
+<p class="desc">格子先泛白一瞬，一道半透明白影（人形剪影）从格子里缓缓升起、飘散，空格子变灰。「走了」的直观表达。</p>
+<div class="stage"><div class="row">
+    <div><div class="cell" id="c2"><span class="emoji">🗡️</span><span><b>剑客</b><span class="hpbar" style="display:block"></span></span></div><div class="tag">方案二</div></div>
+</div></div>
+<button onclick="soulDeath()">▶ 播放方案二</button>
+
+<h2>方案三 金光羽化</h2>
+<p class="desc">金色光点从格子向上飘散（太极印/爱心的运动语言），格子变灰但带一瞬金边——「修成正果」。适合高人、掌门、正派长老阵亡。</p>
+<div class="stage"><div class="row">
+    <div><div class="cell" id="c3"><span class="emoji">🧘</span><span><b>高僧</b><span class="hpbar" style="display:block"></span></span></div><div class="tag">方案三</div></div>
+</div></div>
+<button onclick="goldDeath()">▶ 播放方案三</button>
+
+<h2>方案四 惨白碎裂</h2>
+<p class="desc">格子白光一闪、震一下，裂成灰白碎片迸散（斩杀碎开的同款骨架，灰白色版）。最惨烈的一个，适合被斩杀/暴击致死。</p>
+<div class="stage"><div class="row">
+    <div><div class="cell" id="c4"><span class="emoji">🦅</span><span><b>飞骑</b><span class="hpbar" style="display:block"></span></span></div><div class="tag">方案四</div></div>
+</div></div>
+<button onclick="shatterDeath()">▶ 播放方案四</button>
+
+<h2>方案五 灯灭青烟</h2>
+<p class="desc">格子像油灯一样暗下去，一缕青烟从格中袅袅升起、摇曳散去。最含蓄，适合中毒/内伤/耗尽而亡。</p>
+<div class="stage"><div class="row">
+    <div><div class="cell" id="c5"><span class="emoji">🤒</span><span><b>伤者</b><span class="hpbar" style="display:block"></span></span></div><div class="tag">方案五</div></div>
+</div></div>
+<button onclick="smokeDeath()">▶ 播放方案五</button>
+
+<script>
+function reset(...ids) {
+    ids.forEach(id => {
+        const el = document.getElementById(id);
+        el.className = 'cell';
+        el.style.cssText = '';
+        // 清掉特效子元素
+        el.querySelectorAll('[data-fx]').forEach(e => e.remove());
+        // 清 body 上游离的特效元素
+        document.querySelectorAll('body > [data-fx]').forEach(e => e.remove());
+    });
+}
+function tween(ms, onFrame, onDone) {
+    const t0 = performance.now();
+    (function step(t) {
+        const p = Math.min(1, (t - t0) / ms);
+        onFrame(p);
+        if (p < 1) requestAnimationFrame(step); else if (onDone) onDone();
+    })(t0);
+}
+function grayOut(cell, dur = 700) {
+    tween(dur, (p) => {
+        cell.style.transition = 'none';
+        cell.style.filter = `grayscale(${p}) brightness(${1 - 0.25 * p})`;
+        cell.style.transform = `scale(${1 - 0.2 * p})`;
+        cell.style.opacity = 1 - 0.1 * p;
+    });
+}
+
+// 方案一 墨染黄泉：墨渍晕开 → 浸透 → 收成墨痕
+function inkDeath() {
+    reset('c1', 'c1b');
+    // 对照组播现状
+    setTimeout(() => document.getElementById('c1b').classList.add('dead-now'), 50);
+    const cell = document.getElementById('c1');
+    const r = cell.getBoundingClientRect();
+    const cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+
+    // 墨渍：多层不规则圆（border-radius 抖动模拟墨的形状）
+    for (let i = 0; i < 3; i++) {
+        const blob = document.createElement('div');
+        blob.setAttribute('data-fx', 'temporary');
+        blob.style.cssText = `position:fixed;left:${cx}px;top:${cy}px;width:8px;height:8px;
+            background:rgba(20,18,22,${0.85 - i * 0.25});z-index:9999;pointer-events:none;
+            border-radius:${43 + Math.random() * 10}% ${57 + Math.random() * 10}% ${45 + Math.random() * 12}% ${55 + Math.random() * 10}%;
+            transform:translate(-50%,-50%);filter:blur(${1 + i * 1.5}px);`;
+        document.body.appendChild(blob);
+        const grow = 60 + i * 55;
+        const delay = i * 130;
+        setTimeout(() => tween(600, (p) => {
+            const size = 8 + grow * (1 - Math.pow(1 - p, 2));
+            blob.style.width = size + 'px'; blob.style.height = size * 0.8 + 'px';
+            blob.style.opacity = 1 - p * (0.3 + i * 0.2);
+        }), delay);
+    }
+    // 格子同步变灰缩暗（墨浸透感）
+    grayOut(cell, 900);
+    // 淡墨痕留在格上
+    setTimeout(() => {
+        const mark = document.createElement('div');
+        mark.setAttribute('data-fx', 'temporary');
+        mark.textContent = '殁';
+        mark.style.cssText = `position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+            font-size:22px;color:rgba(60,55,60,0.75);font-weight:900;pointer-events:none;opacity:0;`;
+        cell.appendChild(mark);
+        tween(400, (p) => mark.style.opacity = p * 0.9);
+    }, 700);
+}
+
+// 方案二 魂魄离体：泛白 → 白影升起飘散
+function soulDeath() {
+    reset('c2');
+    const cell = document.getElementById('c2');
+    const r = cell.getBoundingClientRect();
+    const cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+
+    // 泛白一瞬
+    tween(220, (p) => {
+        const v = Math.sin(p * Math.PI);
+        cell.style.boxShadow = `0 0 ${18 * v}px rgba(255,255,255,${0.9 * v})`;
+        cell.style.filter = `brightness(${1 + 0.5 * v})`;
+    });
+    // 白影升起
+    const soul = document.createElement('div');
+    soul.setAttribute('data-fx', 'temporary');
+    soul.textContent = '👤';
+    soul.style.cssText = `position:fixed;left:${cx}px;top:${cy}px;font-size:26px;
+        filter:grayscale(1) brightness(2.4) blur(1.2px) opacity(0.75);z-index:9999;
+        pointer-events:none;transform:translate(-50%,-50%);`;
+    document.body.appendChild(soul);
+    setTimeout(() => tween(1300, (p) => {
+        const sway = Math.sin(p * Math.PI * 2.2) * 16;
+        soul.style.left = (cx + sway) + 'px';
+        soul.style.top = (cy - 90 * p) + 'px';
+        soul.style.opacity = 0.75 * (1 - p * 0.9);
+        soul.style.filter = `grayscale(1) brightness(2.4) blur(${1.2 + p * 3}px) opacity(${0.75 * (1 - p)})`;
+    }), 180);
+    grayOut(cell, 900);
+}
+
+// 方案三 金光羽化：金点群升起 + 金边一瞬
+function goldDeath() {
+    reset('c3');
+    const cell = document.getElementById('c3');
+    const r = cell.getBoundingClientRect();
+    const cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+
+    // 金边呼吸
+    tween(800, (p) => {
+        const g = Math.sin(p * Math.PI * 1.6) * (1 - p * 0.5);
+        cell.style.boxShadow = g > 0.08 ? `0 0 16px rgba(255,200,60,${(0.8 * g).toFixed(2)})` : '';
+    });
+    // 金点群
+    for (let i = 0; i < 12; i++) {
+        const dot = document.createElement('div');
+        dot.setAttribute('data-fx', 'temporary');
+        const dx = (Math.random() - 0.5) * 100, dy0 = (Math.random() - 0.5) * 24;
+        const size = 3 + Math.random() * 4;
+        dot.style.cssText = `position:fixed;left:${cx + dx}px;top:${cy + dy0}px;width:${size}px;height:${size}px;
+            background:#ffd700;border-radius:50%;box-shadow:0 0 6px rgba(255,180,0,0.9);
+            z-index:9999;pointer-events:none;opacity:0;`;
+        document.body.appendChild(dot);
+        const rise = 70 + Math.random() * 70, delay = i * 70;
+        setTimeout(() => tween(900, (p) => {
+            dot.style.top = (cy + dy0 - rise * p) + 'px';
+            dot.style.opacity = Math.sin(p * Math.PI);
+        }), delay);
+    }
+    grayOut(cell, 1000);
+}
+
+// 方案四 惨白碎裂：白闪 → 震 → 碎片迸散
+function shatterDeath() {
+    reset('c4');
+    const cell = document.getElementById('c4');
+    const r = cell.getBoundingClientRect();
+
+    // 白闪
+    const flash = document.createElement('div');
+    flash.setAttribute('data-fx', 'temporary');
+    flash.style.cssText = `position:fixed;left:${r.left}px;top:${r.top}px;width:${r.width}px;height:${r.height}px;
+        background:radial-gradient(circle, rgba(255,255,255,0.95), rgba(200,195,185,0.5));
+        border-radius:5px;z-index:9998;pointer-events:none;`;
+    document.body.appendChild(flash);
+    tween(300, (p) => flash.style.opacity = 1 - p);
+
+    // 震
+    tween(300, (p) => {
+        const d = (1 - p) * 5;
+        cell.style.transform = `translate(${(Math.random() - 0.5) * d * 2}px, ${(Math.random() - 0.5) * d * 2}px)`;
+    });
+
+    // 碎片
+    const cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+    for (let i = 0; i < 14; i++) {
+        const shard = document.createElement('div');
+        shard.setAttribute('data-fx', 'temporary');
+        const ang = (i / 14) * Math.PI * 2 + Math.random() * 0.4;
+        const dist = 40 + Math.random() * 65;
+        shard.style.cssText = `position:fixed;left:${cx}px;top:${cy}px;width:${5 + Math.random() * 5}px;height:${5 + Math.random() * 5}px;
+            background:rgba(215,210,200,0.95);z-index:9999;pointer-events:none;border-radius:1px;
+            box-shadow:0 0 4px rgba(255,255,255,0.5);`;
+        document.body.appendChild(shard);
+        requestAnimationFrame(() => {
+            shard.style.transition = 'transform 0.7s ease-out, opacity 0.7s';
+            shard.style.transform = `translate(${Math.cos(ang) * dist}px, ${Math.sin(ang) * dist}px) rotate(${Math.random() * 360}deg) scale(0.2)`;
+            shard.style.opacity = '0';
+        });
+    }
+    grayOut(cell, 700);
+    setTimeout(() => { flash.remove(); }, 400);
+}
+
+// 方案五 灯灭青烟：暗下去 → 一缕青烟袅袅升起
+function smokeDeath() {
+    reset('c5');
+    const cell = document.getElementById('c5');
+    const r = cell.getBoundingClientRect();
+    const cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+
+    // 油灯暗下去（带一点最后的爆闪）
+    tween(900, (p) => {
+        let b;
+        if (p < 0.25) b = 1 + 0.35 * Math.sin(p / 0.25 * Math.PI);   // 回光返照
+        else b = 1.35 - (p - 0.25) / 0.75 * 0.55;                    // 渐暗
+        cell.style.filter = `brightness(${b}) saturate(${1 - p * 0.8})`;
+        cell.style.boxShadow = p < 0.5 ? `0 0 ${10 * (1 - p * 2)}px rgba(255,220,150,0.6)` : '';
+    });
+    grayOut(cell, 900);
+
+    // 青烟：三段烟体接力摇曳上升
+    for (let i = 0; i < 3; i++) {
+        const puff = document.createElement('div');
+        puff.setAttribute('data-fx', 'temporary');
+        puff.textContent = ['','･','。','･'][i + 1] || '･';
+        puff.style.cssText = `position:fixed;left:${cx}px;top:${cy}px;font-size:${9 + i * 4}px;
+            color:rgba(130,140,150,0);z-index:9999;pointer-events:none;transform:translate(-50%,-50%);`;
+        document.body.appendChild(puff);
+        const delay = 400 + i * 380;
+        setTimeout(() => tween(1100, (p) => {
+            const sway = Math.sin(p * Math.PI * 2.5 + i) * (8 + i * 5);
+            puff.style.left = (cx + sway) + 'px';
+            puff.style.top = (cy - 20 - 80 * p) + 'px';
+            puff.style.color = `rgba(130,140,150,${(1 - p) * 0.55})`;
+        }), delay);
+    }
+}
+
+// 页面加载时右格自动演示一次现状（红底✕）
+setTimeout(() => document.getElementById('c1b').classList.add('dead-now'), 600);
+</script>
+</body>
+</html>

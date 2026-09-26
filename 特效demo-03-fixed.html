@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#000000">
+<title>特效demo-03 · 胖远桥 · 正义国字脸 & 年轻气盛</title>
+<style>
+/* ===== CSS 从 index.html 原样搬运(2026-09-26 版) · 一次性 throwaway 快照,不与源模块同步 ===== */
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; -webkit-touch-callout: none; }
+html { background: #000; }
+body { background: #f5f0e0; font-family: 'Segoe UI', monospace; display: flex; flex-direction: column; height: 100vh; height: 100dvh; width: 100%; max-width: 520px; margin: 0 auto; overflow: hidden; padding: 0 6px 4px 6px; padding-top: env(safe-area-inset-top, 0px); color: #333; user-select: none; }
+.header { display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; min-height: 36px; background: linear-gradient(135deg, #f5f0e0 0%, #e8d5b0 100%); border-radius: 6px; padding: 0 4px; margin-top: 0; }
+h2 { color: #b8860b; font-size: 0.85rem; letter-spacing: -0.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin: 0; }
+.score-badge { color: #b8860b; font-weight: bold; font-size: 0.95rem; margin-left: 2px; position: relative; white-space: nowrap; }
+.debug-toggle-btn { background: #9b59b6; border: 1px solid #7d3c98; padding: 2px 6px; border-radius: 4px; font-size: 10px; cursor: pointer; color: white; height: 26px; white-space: nowrap; }
+.upper-area { flex: 0 0 52vh; flex: 0 0 52dvh; display: flex; flex-direction: column; overflow: hidden; }
+.battlefield { flex: 0 0 42.5vh; flex: 0 0 42.5dvh; display: flex; flex-direction: column; justify-content: flex-start; gap: 2px; padding-top: 6px; position: relative; }
+.team-row { display: flex; align-items: center; gap: 4px; flex: 1; max-width: 500px; margin: 0 auto; width: 100%; }
+.team-label { writing-mode: vertical-lr; font-weight: bold; font-size: 13px; width: 18px; text-align: center; }
+.grid { display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(3, 6.2vh); grid-template-rows: repeat(3, 6.2dvh); gap: 2px; flex: 1; background: #d9d0b5; padding: 3px; border-radius: 6px; }
+.cell { background: #e8e6e0; border: 2px solid #bbb; border-radius: 5px; padding: 2px 4px; display: flex; align-items: center; gap: 4px; font-size: 9px; height: 6.2vh; height: 6.2dvh; transition: background 0.6s ease, border-color 0.6s ease; position: relative; overflow: visible; }
+.cell.ready { background: #d4edda; border-color: #28a745; }
+.cell[data-flash="attack"] { background: #1e6bb8 !important; border-color: #0d4f8b !important; box-shadow: 0 0 20px #1e6bb8; z-index: 999 !important; }
+.cell[data-flash="attack"] .cell-name, .cell[data-flash="attack"] .cell-stats,
+.cell[data-flash="attack"] .hp-text-green, .cell[data-flash="attack"] .hp-text-orange, .cell[data-flash="attack"] .hp-text-red { color: #fff !important; }
+.cell-icon { font-size: 13px; width: 14px; text-align: center; flex-shrink: 0; }
+.cell-info { flex: 1; display: flex; flex-direction: column; justify-content: center; overflow: hidden; }
+.cell-name { font-weight: bold; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 9px; }
+.cell-name .cell-logo { margin-left: 1px; }
+.cell-stats { font-size: 7px; color: #555; display: flex; gap: 2px; }
+.hp-bar-wrap { width: 8px; height: 100%; background: #ccc; border-radius: 3px; flex-shrink: 0; align-self: stretch; position: relative; }
+.hp-bar-inner { position: absolute; bottom: 0; width: 100%; border-radius: 3px; transition: height 0.6s ease, background 0.6s ease; }
+.controls { display: flex; gap: 3px; justify-content: center; align-items: stretch; flex: 0 0 8vh; flex: 0 0 8dvh; padding: 2px 0; position: relative; z-index: 100; margin-top: 6px; }
+.controls button { flex: 1; padding: 2px 1px; border-radius: 4px; border: 1px solid #aaa; background: #f0f0f0; font-size: 9px; cursor: pointer; white-space: nowrap; display: flex; align-items: center; justify-content: center; min-width: 0; }
+.controls button:disabled { opacity: 0.35; cursor: not-allowed; }
+.log-container { flex: 1; display: flex; flex-direction: column; background: #f5f0e0; border: 2px solid #b8a88a; border-radius: 6px; overflow: hidden; margin-top: 2px; max-height: calc(100vh - 52vh); max-height: calc(100dvh - 52dvh); position: relative; }
+.log-header { display: flex; justify-content: space-between; align-items: center; background: #d6c9a8; padding: 4px 8px; font-weight: bold; font-size: 11px; flex-shrink: 0; min-height: 28px; }
+#log { flex: 1; overflow-y: auto; padding: 4px 6px 8em 6px; font-size: 10px; line-height: 1.3; }
+.log-bottom-bar { position: absolute; bottom: 0; left: 0; right: 0; display: flex; gap: 4px; padding: 4px 8px; z-index: 10; align-items: center; justify-content: flex-end; overflow: visible; }
+.log-bottom-bar button { padding: 6px 12px; border-radius: 4px; border: 1px solid #aaa; background: #f0f0f0; font-size: 11px; cursor: pointer; }
+.log-bottom-bar button:disabled { opacity: 0.5; cursor: wait; }
+.gold { color: #b8860b; font-weight: bold; }
+.demo-note { color: #888; margin-bottom: 3px; }
+</style>
+</head>
+<body>
+
+<div class="header">
+    <h2>⚔️ 光明顶对战 5v5 <span class="score-badge">🏆 10分</span></h2>
+    <button class="debug-toggle-btn">特效demo-03 · 0926</button>
+</div>
+<div class="upper-area">
+    <div class="battlefield">
+        <div class="team-row">
+            <span class="team-label orange" style="color:#d2691e;">六大派</span>
+            <div class="grid" id="enemyGrid"></div>
+        </div>
+        <div class="team-row">
+            <span class="team-label blue" style="color:#1e6bb8;">明 教</span>
+            <div class="grid" id="allyGrid"></div>
+        </div>
+    </div>
+    <div class="controls">
+        <button class="active" title="演示占位:本 demo 仅启用下方两个按钮">▶ 开始<br><span style="font-size:8px;">(投票)</span></button>
+        <button title="演示占位:本 demo 未启用">2x</button>
+        <button disabled title="演示占位:本 demo 未启用">⏭ 下一回合</button>
+        <button disabled title="演示占位:本 demo 未启用">⏭ 结算</button>
+        <button disabled title="演示占位:本 demo 未启用">⏸️ 暂停</button>
+    </div>
+</div>
+
+<div class="log-container">
+    <div class="log-header"><span>📜 战斗日志</span></div>
+    <div id="log"></div>
+    <div class="log-bottom-bar">
+        <button id="btnFace">😤 正义国字脸</button>
+        <button id="btnClumsy">😵 年轻气盛</button>
+        <button id="btnReset">↺ 复位</button>
+    </div>
+</div>
+
+<script>
+/* ================= 摆位照 modules/29battle-init 真实规则(房主视角) =================
+   第三关 squadVariants['3'] 胖远桥组:
+     胖远桥=ELITE pos2(前排正中)  俞莲舟=防战→1  殷梨亭=战士→3  张松溪/俞岱岩=远程→7/8(posTemplate)
+   明教:小昭4 张无忌5 韦一笑6(硬编码固定位)+ 弟子补位(others[0]→pos2,其余随机示意为8)
+   enemy grid 显示行序 [7,8,9,4,5,6,1,2,3],ally [1..9](32-grid-render :198) */
+const ENEMY_ORDER = [7,8,9,4,5,6,1,2,3];
+const ALLY_ORDER  = [1,2,3,4,5,6,7,8,9];
+const ROLE_ICONS = { '战士':'⚔️', '防战':'🛡️', '远程':'🏹', '飞行':'🦅' };
+
+const enemyUnits = [
+    { pos:1, name:'俞莲舟', role:'防战', hp:62, maxHp:62, atk:19, def:18, logos:['🔥'] },
+    { pos:2, name:'胖远桥', role:'战士', hp:66, maxHp:66, atk:24, def:15, logos:['🔥'], elite:true },
+    { pos:3, name:'殷梨亭', role:'战士', hp:58, maxHp:58, atk:22, def:13, logos:['🔥','❄️'] },
+    { pos:7, name:'张松溪', role:'远程', hp:55, maxHp:55, atk:20, def:14, logos:['🔥'] },
+    { pos:8, name:'俞岱岩', role:'远程', hp:54, maxHp:54, atk:18, def:13, logos:['🔥','❄️'] },
+];
+const allyUnits = [
+    { pos:2, name:'明教弟子甲', role:'战士', hp:50, maxHp:55, atk:20, def:14, logos:['🔥'] },
+    { pos:4, name:'小昭·姊',   role:'远程', hp:85, maxHp:90, atk:28, def:16, logos:['🦋'] },
+    { pos:5, name:'张无忌',    role:'远程', hp:90, maxHp:90, atk:30, def:16, logos:['🔥'] },
+    { pos:6, name:'韦一笑',    role:'飞行', hp:60, maxHp:60, atk:22, def:14, logos:[] },
+    { pos:8, name:'明教弟子乙', role:'防战', hp:52, maxHp:58, atk:18, def:16, logos:['🔥'] },
+];
+
+function cellAt(pos) { return document.querySelector(`[data-pos="${pos}"][data-camp]`); }
+
+function renderGrid(gridId, units, order, camp) {
+    const grid = document.getElementById(gridId);
+    grid.innerHTML = '';
+    for (const pos of order) {
+        const u = units.find(x => x.pos === pos);
+        const div = document.createElement('div');
+        div.dataset.pos = pos; div.dataset.camp = camp;
+        if (!u) { div.className = 'cell'; div.innerHTML = '<span style="color:#999;">空</span>'; grid.appendChild(div); continue; }
+        const hpPct = Math.floor(u.hp / u.maxHp * 100);
+        const barColor = hpPct > 70 ? '#4caf50' : (hpPct > 40 ? '#ff9800' : '#f44336');
+        const hpCls = hpPct > 70 ? 'hp-text-green' : (hpPct > 40 ? 'hp-text-orange' : 'hp-text-red');
+        const hpColor = hpPct > 70 ? '#2e7d32' : (hpPct > 40 ? '#d2691e' : '#c0392b');
+        div.className = 'cell' + (hpPct > 70 ? ' ready' : '');
+        div.innerHTML =
+            `<span class="cell-icon">${ROLE_ICONS[u.role] || '⚔️'}</span>` +
+            `<div class="cell-info"><span class="cell-name ${u.elite ? 'gold' : ''}">${u.name}${u.logos.length ? ' ' + u.logos.join(' ') : ''}</span>` +
+            `<span class="cell-stats">攻${u.atk} 防${u.def} <span class="${hpCls}" style="color:${hpColor};">血${u.hp}</span></span></div>` +
+            `<div class="hp-bar-wrap"><div class="hp-bar-inner" style="height:${hpPct}%;background:${barColor};"></div></div>`;
+        grid.appendChild(div);
+    }
+}
+renderGrid('enemyGrid', enemyUnits, ENEMY_ORDER, 'enemy');
+renderGrid('allyGrid',  allyUnits,  ALLY_ORDER,  'ally');
+const PANG = enemyUnits.find(u => u.name === '胖远桥');
+
+/* 清掉上一轮残留的临时特效元素(浮字/金锥/气泡/克隆格),复位时调用 */
+function clearFx() { document.querySelectorAll('[data-fx="temporary"]').forEach(e => e.remove()); }
+
+/* ================= 特效(套路照 fx/91 浮字+脉冲、fx/84 红圈、32-grid 金底抖动) ================= */
+function floatWord(cell, text, color, durationMs = 900, size = 28) {
+    const rect = cell.getBoundingClientRect();
+    const word = document.createElement('div');
+    word.setAttribute('data-fx', 'temporary');
+    word.textContent = text;
+    word.style.cssText = `position:fixed; left:${rect.left + rect.width/2}px; top:${rect.top - rect.height*0.15}px;` +
+        `transform:translate(-50%,-50%); font-size:${size}px; font-weight:900; color:${color};` +
+        `text-shadow:0 0 12px ${color}, 0 2px 4px rgba(0,0,0,0.8); z-index:10011; pointer-events:none; opacity:0; will-change:transform,opacity;`;
+    document.body.appendChild(word);
+    const t0 = performance.now();
+    (function step(now) {
+        const p = Math.min(1, (now - t0) / durationMs);
+        let op, sc, ty;
+        if (p <= 0.25) { const t = p / 0.25; op = t; sc = 0.5 + 0.7 * t; ty = -5 * t; }
+        else if (p <= 0.7) { const t = (p - 0.25) / 0.45; op = 1; sc = 1.2; ty = -5 - 9 * t; }
+        else { const t = (p - 0.7) / 0.3; op = 1 - t; sc = 1.2 - 0.2 * t; ty = -14; }
+        word.style.opacity = op;
+        word.style.transform = `translate(-50%, calc(-50% + ${ty}px)) scale(${sc})`;
+        if (p < 1) requestAnimationFrame(step); else word.remove();
+    })(performance.now());
+}
+
+/* 红边脉冲两下:只动 box-shadow(91 glowPulse 同款,金换红) */
+function redPulse(cell, durationMs = 900, peak = 0.92) {
+    const t0 = performance.now();
+    (function step(now) {
+        const p = Math.min(1, (now - t0) / durationMs);
+        const g = Math.sin(p * Math.PI * 2) * (1 - p);
+        cell.style.boxShadow = g > 0.05 ? `0 0 20px 3px rgba(255,60,60,${(peak * g).toFixed(2)})` : '';
+        if (p < 1) requestAnimationFrame(step); else cell.style.boxShadow = '';
+    })(performance.now());
+}
+
+/* 狮吼式金锥三道:从格下边中点(面向下方敌人)向下张开的扇形声波,递次扩散渐隐。
+   demo 固定房主视角(敌上我下)锥朝下;真实接入按 mirrored 翻方向(91 冲击波环同款思路改方向性) */
+function roarCone(cell) {
+    const rect = cell.getBoundingClientRect();
+    const cx = rect.left + rect.width / 2;
+    for (let i = 0; i < 3; i++) {
+        setTimeout(() => {
+            // 每道 = 纯锥形亮芯(边界清晰)+ 同锥位外晕(柔光),顶点一个闪光点
+            const W = 220, H = 135, deg = 78; // 张角约 78°
+            const halfPx = Math.tan(deg / 2 * Math.PI / 180) * H;        // 真实半底宽 ≈109px
+            const l = (50 + halfPx / W * 100).toFixed(2);               // ≈99.7
+            const r = (50 - halfPx / W * 100).toFixed(2);               // ≈0.3
+            const cone = document.createElement('div');
+            cone.setAttribute('data-fx', 'temporary');
+            cone.style.cssText = `position:fixed; left:${cx - W/2}px; top:${rect.bottom - 6}px; width:${W}px; height:${H}px;` +
+                `clip-path:polygon(50% 0%, ${l}% 100%, ${r}% 100%); pointer-events:none; z-index:10010;` +
+                `background:radial-gradient(ellipse 60% 90% at 50% 0%, rgba(255,214,90,0.85) 0%, rgba(255,180,30,0.38) 52%, rgba(255,170,20,0) 80%);` +
+                `transform-origin:50% 0%; transform:scale(0.25); opacity:0.95; will-change:transform,opacity;`;
+            document.body.appendChild(cone);
+            const t0 = performance.now(), D = 700;
+            (function step(now) {
+                const p = Math.min(1, (now - t0) / D);
+                cone.style.transform = `scale(${(0.25 + 1.05 * p).toFixed(3)})`;
+                cone.style.opacity = (0.95 * (1 - p * p)).toFixed(2);
+                if (p < 1) requestAnimationFrame(step); else cone.remove();
+            })(performance.now());
+            // 锥尖闪光点
+            const tip = document.createElement('div');
+            tip.setAttribute('data-fx', 'temporary');
+            tip.style.cssText = `position:fixed; left:${cx}px; top:${rect.bottom - 4}px; width:14px; height:14px; border-radius:50%;` +
+                `background:radial-gradient(circle, #fff7d6 0%, #ffcf4d 55%, rgba(255,190,0,0) 100%);` +
+                `transform:translate(-50%,-50%); pointer-events:none; z-index:10013; will-change:transform,opacity;`;
+            document.body.appendChild(tip);
+            const t1 = performance.now(), D1 = 380;
+            (function step2(now) {
+                const p = Math.min(1, (now - t1) / D1);
+                tip.style.transform = `translate(-50%,-50%) scale(${(1.6 - 0.9 * p).toFixed(2)})`;
+                tip.style.opacity = (1 - p).toFixed(2);
+                if (p < 1) requestAnimationFrame(step2); else tip.remove();
+            })(performance.now());
+        }, i * 140);
+    }
+}
+
+/* 飞撞(82fx-crash 简化):克隆格冲向目标 → 撞上回调 → 飞回 → 原格恢复 */
+function flyCrash(fromCell, toCell, onCrash, done) {
+    const fa = fromCell.getBoundingClientRect(), ta = toCell.getBoundingClientRect();
+    const clone = fromCell.cloneNode(true);
+    clone.setAttribute('data-fx', 'temporary');
+    clone.removeAttribute('data-flash');
+    clone.style.cssText = `position:fixed; left:${fa.left}px; top:${fa.top}px; width:${fa.width}px; height:${fa.height}px;` +
+        `z-index:99999; margin:0; opacity:1; display:flex; transform:scale(1.15); transform-origin:center center;` +
+        `background:#1e6bb8; border:3px solid #0d47a1; border-radius:5px; box-sizing:border-box; pointer-events:none; will-change:transform;`;
+    clone.querySelectorAll('*').forEach(el => { el.style.color = '#ffffff'; });
+    document.body.appendChild(clone);
+    fromCell.style.visibility = 'hidden'; // 真实 _renderFlyMode=fly 原格透明
+    const sx = fa.left, sy = fa.top, dx = ta.left - sx, dy = ta.top - sy;
+    const charge = 700, back = 700;
+    const t0 = performance.now();
+    (function step(now) {
+        const p = Math.min(1, (now - t0) / charge);
+        const e = 1 - Math.pow(1 - p, 3);
+        clone.style.left = (sx + dx * e) + 'px';
+        clone.style.top = (sy + dy * e) + 'px';
+        if (p < 1) { requestAnimationFrame(step); return; }
+        if (onCrash) onCrash();
+        const cx = sx + dx, cy = sy + dy;
+        const t1 = performance.now();
+        (function step2(now) {
+            const p2 = Math.min(1, (now - t1) / back);
+            const e2 = 1 - Math.pow(1 - p2, 4);
+            clone.style.left = (cx + (sx - cx) * e2) + 'px';
+            clone.style.top = (cy + (sy - cy) * e2) + 'px';
+            if (p2 < 1) { requestAnimationFrame(step2); return; }
+            clone.remove();
+            fromCell.style.visibility = '';
+            if (done) done();
+        })(performance.now());
+    })(performance.now());
+}
+
+/* 头顶台词气泡:「你过来!」弹入 → 停 → 淡出上飘 */
+function speechBubble(cell, text, durationMs = 1150) {
+    const rect = cell.getBoundingClientRect();
+    const wrap = document.createElement('div');
+    wrap.setAttribute('data-fx', 'temporary');
+    wrap.style.cssText = `position:fixed; left:${rect.left + rect.width/2}px; top:${rect.top - 10}px;` +
+        `transform:translate(-50%,-100%); z-index:10012; pointer-events:none; opacity:0; will-change:transform,opacity;`;
+    wrap.innerHTML = `<div style="background:#fff; border:2px solid #5c4033; border-radius:8px; padding:3px 9px; font-size:13px; font-weight:900; color:#c0392b; white-space:nowrap; box-shadow:0 2px 6px rgba(0,0,0,0.25);">${text}</div>` +
+        `<div style="width:0;height:0;margin:0 auto;border-left:6px solid transparent;border-right:6px solid transparent;border-top:7px solid #5c4033;"></div>`;
+    document.body.appendChild(wrap);
+    const t0 = performance.now();
+    (function step(now) {
+        const p = Math.min(1, (now - t0) / durationMs);
+        let op = 1, sc = 1, ty = 0;
+        if (p < 0.12) { const t = p / 0.12; sc = 0.6 + 0.4 * (1 - (1 - t) * (1 - t)); }
+        else if (p > 0.82) { const t = (p - 0.82) / 0.18; op = 1 - t; ty = -6 * t; }
+        wrap.style.opacity = op.toFixed(2);
+        wrap.style.transform = `translate(-50%, calc(-100% + ${ty}px)) scale(${sc.toFixed(3)})`;
+        if (p < 1) requestAnimationFrame(step); else wrap.remove();
+    })(performance.now());
+}
+
+/* 被吼到的微红闪:背景淡红短闪(红晕由 redPulse 负责) */
+function briefRedBg(cell, ms = 180) {
+    const orig = cell.style.background || '';
+    cell.style.background = 'rgba(255,60,60,0.22)';
+    setTimeout(() => { cell.style.background = orig; }, ms);
+}
+
+/* 挥歪的身体语言:快速侧倾 6° 再回弹(transform-origin 底部,像上半身甩歪)。
+   与 attackFlash 的蓝色高亮共存:旋转同时叠加 scale(1.1) 制造"扑空放大"的扑击感 */
+function tiltMisfire(cell, durationMs = 300) {
+    cell.style.transformOrigin = 'bottom center';
+    const t0 = performance.now();
+    (function step(now) {
+        const p = Math.min(1, (now - t0) / durationMs);
+        let ang;
+        if (p < 0.4) ang = 6 * (p / 0.4);
+        else { const t = (p - 0.4) / 0.6; ang = 6 * (1 - t) * (1 - t); }
+        cell.style.transform = `rotate(${ang}deg) scale(1.1)`;
+        if (p < 1) requestAnimationFrame(step); else cell.style.transform = '';
+    })(performance.now());
+}
+
+/* 金底抖动(32-grid markGridShake 简化:金底 200ms + scale1.1 衰减抖动) */
+function hitShake(cell, durationMs = 350) {
+    const origBg = cell.style.background || '';
+    cell.style.transition = 'background 0.1s ease';
+    cell.style.background = '#ffd700';
+    const t0 = performance.now();
+    let bgCleared = false;
+    (function step(now) {
+        const p = Math.min(1, (now - t0) / durationMs);
+        const decay = 1 - p;
+        const scale = 1.0 + 0.1 * decay;
+        const ox = (Math.random() - 0.5) * 4 * decay;
+        const oy = (Math.random() - 0.5) * 4 * decay;
+        cell.style.transform = `translate(${ox}px, ${oy}px) scale(${scale})`;
+        if (!bgCleared && p * durationMs > 200) { cell.style.background = origBg; bgCleared = true; }
+        if (p < 1) requestAnimationFrame(step);
+        else { cell.style.transform = ''; cell.style.transition = ''; cell.style.background = origBg; }
+    })(performance.now());
+}
+
+/* fx/84 被击退者红圈红边 */
+function pushBackRing(cell, durationMs = 700) {
+    cell.style.boxShadow = '0 0 16px 4px rgba(255, 50, 50, 0.9)';
+    cell.style.border = '2px solid #ff3333';
+    setTimeout(() => { cell.style.boxShadow = ''; cell.style.border = ''; }, durationMs);
+}
+
+/* 蓝闪攻击发起(cell[data-flash=attack],500ms)— 仅蓝底+发光+z-index,放大交给 tiltMisfire 叠加 */
+function attackFlash(cell, durationMs = 500) {
+    cell.setAttribute('data-flash', 'attack');
+    setTimeout(() => cell.removeAttribute('data-flash'), durationMs);
+}
+
+/* ================= 日志 ================= */
+const logEl = document.getElementById('log');
+function addLog(html, cls) {
+    const d = document.createElement('div');
+    if (cls) d.className = cls;
+    d.style.marginBottom = '3px';
+    d.innerHTML = html;
+    logEl.appendChild(d);
+    logEl.scrollTop = logEl.scrollHeight;
+}
+addLog('demo 说明:下方悬浮栏两个按钮,反复触发可对比。', 'demo-note');
+addLog('🔴 正义国字脸触发 = 狮吼式金锥三道(朝敌方张开)+ 头顶「你过来!」气泡 → 全体敌人微红闪动 + 头顶冒 😠(按行错开)→ 生效期间图标常驻 🐷(32-grid 既有机制)。', 'demo-note');
+addLog('🔴 年轻气盛触发 = 蓝闪发起 + 侧倾挥歪 + 😵 升起 → 被殃及者红圈红边 + 金底受击抖(衔接 fx/84 击退)。', 'demo-note');
+addLog('❗ 真实对战日志示例(金色 span):', 'demo-note');
+addLog('<span class="gold">⚔️ 第3关·胖远桥组 | 六大派(俞莲舟/胖远桥/殷梨亭/张松溪/俞岱岩) vs 明教(小昭/张无忌/韦一笑/弟子×2)</span>');
+
+let tauntOn = false;
+let busy = false;
+const PANG_POS = 2;
+function pangCell() { return document.querySelector(`[data-pos="${PANG_POS}"][data-camp="enemy"]`); }
+
+function setPangIcon(icon) {
+    const cell = pangCell();
+    if (cell) cell.querySelector('.cell-icon').textContent = icon;
+}
+
+document.getElementById('btnFace').addEventListener('click', () => {
+    if (busy) return; busy = true;
+    const btn = document.getElementById('btnFace');
+    btn.disabled = true;
+    if (tauntOn) { setPangIcon('⚔️'); tauntOn = false; busy = false; btn.disabled = false; addLog('(demo:已复位图标,再点重新看触发瞬间)', 'demo-note'); return; }
+    const cell = pangCell();
+    roarCone(cell);                          // 狮吼式金锥三道,朝下方明教
+    speechBubble(cell, '你过来!');           // 头顶气泡
+    // 敌方受影响者(全体):按行错开——微红闪两下 + 背景淡红 + 头顶冒 😤(从近到远)
+    const waves = [[2], [4, 5, 6], [8]];
+    waves.forEach((poses, ri) => {
+        setTimeout(() => {
+            poses.forEach(pos => {
+                const c = document.querySelector(`[data-pos="${pos}"][data-camp="ally"]`);
+                if (!c) return;
+                redPulse(c, 800, 0.55);
+                briefRedBg(c, 180);
+                floatWord(c, '😤', '#ff5555', 800, 20);
+            });
+        }, 300 + ri * 130);
+    });
+    // 吼完接正常攻击:飞撞一个随机明教(真实时序:国字脸是攻击前触发,吼完该出手)
+    setTimeout(() => {
+        const targets = allyUnits.filter(u => u.pos !== null);
+        const tgt = targets[Math.floor(Math.random() * targets.length)];
+        const tCell = document.querySelector(`[data-pos="${tgt.pos}"][data-camp="ally"]`);
+        flyCrash(cell, tCell, () => {
+            hitShake(tCell, 350);
+            floatWord(tCell, `-${Math.floor(14 + Math.random() * 8)}`, '#ffffff', 800, 16);
+            setPangIcon('🐷'); tauntOn = true;
+            addLog('<span class="gold">😤 正义国字脸:胖远桥横眉一喝,敌人本回合只能打他(自身防御+40,当前 55)</span>');
+        }, () => { busy = false; btn.disabled = false; });
+    }, 800);
+});
+
+document.getElementById('btnClumsy').addEventListener('click', () => {
+    if (busy) return; busy = true;
+    document.getElementById('btnClumsy').disabled = true;
+    const cell = pangCell();
+    // 真实时序:选目标阶段已换成随机人 → 攻击动画(飞撞)→ 命中 → ×1.5 + 击退
+    attackFlash(cell, 500);
+    tiltMisfire(cell, 300);
+    setTimeout(() => floatWord(cell, '😵', '#ffd700'), 450);
+    setTimeout(() => {
+        // 随机目标:明教方存活单位(打歪 = 招呼到别人身上)
+        const targets = allyUnits.filter(u => u.pos !== null);
+        const tgt = targets[Math.floor(Math.random() * targets.length)];
+        const tCell = document.querySelector(`[data-pos="${tgt.pos}"][data-camp="ally"]`);
+        flyCrash(cell, tCell, () => {
+            // 撞上:被殃及者红圈红边(fx/84 击退红)+ 金底受击抖
+            pushBackRing(tCell, 700); hitShake(tCell, 350);
+            addLog(`<span class="gold">😵 年轻气盛:胖远桥一拳打歪,招呼到 ${tgt.name} 身上(伤害×1.5)</span>`);
+        }, () => { busy = false; document.getElementById('btnClumsy').disabled = false; });
+    }, 900);
+});
+
+document.getElementById('btnReset').addEventListener('click', () => {
+    tauntOn = false; setPangIcon('⚔️');
+    clearFx();   // 移除上一轮残留的浮字/金锥/气泡/克隆格
+    renderGrid('enemyGrid', enemyUnits, ENEMY_ORDER, 'enemy');
+    renderGrid('allyGrid',  allyUnits,  ALLY_ORDER,  'ally');
+});
+</script>
+
+</body>
+</html>

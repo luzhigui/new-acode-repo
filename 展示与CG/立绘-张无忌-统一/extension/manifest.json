@@ -1,0 +1,36 @@
+{
+  "manifest_version": 3,
+  "name": "__MSG_extName__",
+  "version": "0.7.0",
+  "default_locale": "en",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAvoc65HvY9pQ/+s5WNRU9DPilfUJwugl4/wRXETJS1mKM+UU8bL/uoI8uvH5xCepd88Sj6G5wPyicHMZvZMBDib+RA3CjZc3GLj+YEpct4zEDzuL3LYVPCguSZfOYIvSi4SLMdFN6A+ORAMvKG3WmJzgq5I+kpGX5fg5LCxiEd94HOqXhrSXvm28hM0OQne+gwSuQef9rqUv3ZZhgFXXIhTC8xyiOPYwKAVhQN1Wnep+DQVsUEu3tnreZAdGHAuc7Gd8Wmu1ZgR7vDrS9F/A8W8w0Z63inhmJJeMOcp/5Q1UXlW7LpCnXBUtwXLxOredKaQXhIEKfOdz0Z+Y8H17onwIDAQAB",
+  "description": "__MSG_extDescription__",
+  "permissions": ["debugger", "nativeMessaging", "tabs", "tabGroups", "alarms", "activeTab", "offscreen"],
+  "sandbox": {
+    "pages": ["sandbox/sandbox.html"]
+  },
+  "action": {
+    "default_popup": "popup/popup.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "32": "icons/icon32.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "background": {
+    "service_worker": "background/background.js"
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "externally_connectable": {
+    "matches": [
+      "https://*.bytedance.net/*",
+      "http://localhost:*/*"
+    ]
+  }
+}

@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>特效demo-01 顿帧打击感（A/B对比）</title>
+<style>
+    /* ===== 以下 .battlefield/.team-row/.grid/.cell 等全部从 index.html 原样搬运（V6.5.x）===== */
+    html { background: #000; }
+    body { background: #f5f0e0; font-family: 'Segoe UI', monospace; display: flex; flex-direction: column; align-items: center; height: 100vh; height: 100dvh; overflow: hidden; padding: 6px 0 4px 0; color: #333; user-select: none; margin: 0; }
+    .battlefield { flex: 0 0 42.5vh; flex: 0 0 42.5dvh; display: flex; flex-direction: column; justify-content: flex-start; gap: 2px; padding-top: 6px; position: relative; }
+    .team-row { display: flex; align-items: center; gap: 4px; flex: 1; max-width: 500px; margin: 0 auto; width: 100%; }
+    .team-label { writing-mode: vertical-lr; font-weight: bold; font-size: 13px; width: 18px; text-align: center; }
+    .team-label.orange { color: #d2691e; }
+    .team-label.blue { color: #1e6bb8; }
+    .grid { display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(3, 6.2vh); grid-template-rows: repeat(3, 6.2dvh); gap: 2px; flex: 1; background: #d9d0b5; padding: 3px; border-radius: 6px; }
+    .cell { background: #e8e6e0; border: 2px solid #bbb; border-radius: 5px; padding: 2px 4px; display: flex; align-items: center; gap: 4px; font-size: 9px; height: 6.2vh; height: 6.2dvh; transition: background 0.6s ease, border-color 0.6s ease; position: relative; overflow: visible; }
+    .cell.ready { background: #d4edda; border-color: #28a745; }
+    .cell.acted { background: #e2e3e5; border-color: #aaa; }
+    .cell.occupied { cursor: pointer; }
+    .cell[data-flash="attack"] { background: #1e6bb8 !important; border-color: #0d4f8b !important; box-shadow: 0 0 20px #1e6bb8; z-index: 999 !important; transform: scale(1.1); }
+    .cell[data-flash="attack"] .cell-name, .cell[data-flash="attack"] .cell-stats,
+    .cell[data-flash="attack"] .hp-text-green, .cell[data-flash="attack"] .hp-text-orange, .cell[data-flash="attack"] .hp-text-red { color: #fff !important; }
+    .cell-icon { font-size: 13px; width: 14px; text-align: center; flex-shrink: 0; }
+    .cell-info { flex: 1; display: flex; flex-direction: column; justify-content: center; overflow: hidden; }
+    .cell-name { font-weight: bold; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 9px; }
+    .cell-name.gold { color: #b8860b; }
+    .cell-stats { font-size: 7px; color: #555; display: flex; gap: 2px; }
+    .hp-text-green { color: #2e7d32; } .hp-text-orange { color: #e65100; } .hp-text-red { color: #c62828; }
+    .hp-bar-wrap { width: 8px; height: 100%; background: #ccc; border-radius: 3px; flex-shrink: 0; align-self: stretch; position: relative; }
+    .hp-bar-inner { position: absolute; bottom: 0; width: 100%; border-radius: 3px; transition: height 0.6s ease, background 0.6s ease; }
+
+    /* ===== demo 专用：控制条 / 两栏 / 飘字 ===== */
+    .demo-bar { width: 1040px; max-width: 98vw; display: flex; align-items: center; gap: 8px; padding: 6px 8px; background: #2b2b2b; border-radius: 6px; color: #eee; font-size: 12px; flex-wrap: wrap; }
+    .demo-bar b { color: #ffd700; }
+    .demo-bar button { padding: 4px 12px; border-radius: 4px; border: 1px solid #777; background: #444; color: #eee; font-size: 12px; cursor: pointer; }
+    .demo-bar button:hover { background: #555; }
+    .demo-bar button.active { background: #007bff; color: #fff; border-color: #007bff; }
+    .demo-bar .hint { color: #9f9; font-size: 11px; }
+    .fields { display: flex; gap: 16px; justify-content: center; align-items: flex-start; }
+    .field-wrap { width: 520px; max-width: 48vw; }
+    .field-title { text-align: center; font-size: 13px; font-weight: bold; margin: 6px 0 0; }
+    .field-title .tag { display: inline-block; padding: 1px 8px; border-radius: 3px; color: #fff; margin-right: 6px; }
+    .field-title.a .tag { background: #888; }
+    .field-title.b .tag { background: #c0392b; }
+    /* B 战场的舞台微缩：顿帧瞬间整块战场 snap 一帧 0.3% 放大再弹回（镜头感），与格子抖动分离 */
+    .field-wrap.b .battlefield { transform-origin: 50% 40%; }
+
+    /* 伤害飘字：游戏 dmgFloat 的武侠风（KaiTi 粗体 + 白晕描边 + 上飘消散） */
+    .dmg-float { position: absolute; left: 50%; top: 0; font-family: KaiTi, 'STKaiti', serif; font-weight: bold; font-size: 16px; color: #c0392b; text-shadow: 0 0 3px #fff, 1px 1px 0 #fff, -1px -1px 0 #fff; pointer-events: none; z-index: 1005; transform: translate(-50%, 0); }
+    /* 受击白闪（一帧）：filter 提亮冲掉格子配色 */
+    .hit-flash { filter: brightness(2.8) saturate(0.2) !important; }
+</style>
+</head>
+<body>
+<div class="demo-bar">
+    <button id="btnOnce">▶ 单次攻击 A/B 同播</button>
+    <button id="btnTriple">▶▶ 连击 ×3 同播</button>
+    <span>| 倍速</span>
+    <button class="spd" data-s="1">1x</button>
+    <button class="spd" data-s="2">2x</button>
+    <button class="spd" data-s="4">4x</button>
+    <span class="hint" id="hint">B 块（红标）：命中瞬间全场冻结 90ms（真实时间，不吃倍速）+ 受击白闪一帧 + 朝受力方向后仰。A 块 = 现状：蓝闪 + 金底抖动。</span>
+</div>
+<div class="fields">
+    <div class="field-wrap a">
+        <div class="field-title a"><span class="tag">A 现状</span>蓝闪 + 金底抖动</div>
+        <div class="battlefield" id="bfA">
+            <div class="team-row"><span class="team-label orange">六大派</span><div class="grid" id="egA"></div></div>
+            <div class="team-row"><span class="team-label blue">明 教</span><div class="grid" id="agA"></div></div>
+        </div>
+    </div>
+    <div class="field-wrap b">
+        <div class="field-title b"><span class="tag">B 提案</span>+ 顿帧90ms / 白闪 / 受击后仰</div>
+        <div class="battlefield" id="bfB">
+            <div class="team-row"><span class="team-label orange">六大派</span><div class="grid" id="egB"></div></div>
+            <div class="team-row"><span class="team-label blue">明 教</span><div class="grid" id="agB"></div></div>
+        </div>
+    </div>
+</div>
+
+<script>
+'use strict';
+/* ============ mini-clock：照搬 infra/52-clock.js 的推进逻辑（timescale/暂停/动画队列）============ */
+class MiniClock {
+    constructor() { this.now = 0; this.timescale = 1; this.paused = false; this._realLast = 0; this._tweens = []; this._running = false; this._loop = this._loop.bind(this); }
+    start() { if (this._running) return; this._running = true; this._realLast = performance.now(); requestAnimationFrame(this._loop); }
+    _loop(ts) {
+        if (!this._running) return;
+        const realDelta = Math.min(ts - this._realLast, 100); this._realLast = ts;
+        if (!this.paused) this.now += realDelta * this.timescale;   // timescale=0 → 全场冻结
+        const remain = [];
+        for (const t of this._tweens) {
+            const p = t.duration <= 0 ? 1 : Math.min(1, (this.now - t.startAt) / t.duration);
+            t.onFrame(p);
+            if (p >= 1) t.resolve(); else remain.push(t);
+        }
+        this._tweens = remain;
+        requestAnimationFrame(this._loop);
+    }
+    wait(ms) { return this.animate(ms, () => {}); }
+    animate(duration, onFrame) {
+        if (duration <= 0) { try { onFrame(1); } catch (e) {} return Promise.resolve(); }
+        return new Promise(resolve => { this._tweens.push({ startAt: this.now, duration, onFrame, resolve }); });
+    }
+    /* hit-stop：真实时间冻结 durationMs（不随 timescale 缩放——打击感在 4x 下依然完整）*/
+    hitStop(durationMs) {
+        const prev = this.timescale;
+        this.timescale = 0;
+        return new Promise(resolve => setTimeout(() => { this.timescale = prev; resolve(); }, durationMs));
+    }
+}
+
+/* ============ 阵容（名字/职业/权重来自 modules/29 与 content/200 roster，数值为 m 换算的合理值）============ */
+const ALLY = [
+    { pos: 1, name: '杨逍',   role: 'W', icon: '⚔️', m: 104, atk: 60, def: 42, hp: 1560 },
+    { pos: 2, name: '韦一笑', role: 'F', icon: '🦅', m: 107, atk: 58, def: 34, hp: 1310 },
+    { pos: 3, name: '张无忌', role: 'R', icon: '🏹', m: 115, atk: 70, def: 30, hp: 1240, gold: true },
+    { pos: 5, name: '殷天正', role: 'D', icon: '🛡️', m: 104, atk: 50, def: 66, hp: 1860 },
+    { pos: 7, name: '范遥',   role: 'R', icon: '🏹', m: 104, atk: 66, def: 28, hp: 1180 },
+];
+const ENEMY = [
+    { pos: 1, name: '空性', role: 'W', icon: '⚔️', m: 104, atk: 62, def: 40, hp: 1500 },
+    { pos: 2, name: '空闻', role: 'D', icon: '🛡️', m: 104, atk: 48, def: 64, hp: 1820 },
+    { pos: 3, name: '空智', role: 'W', icon: '⚔️', m: 104, atk: 60, def: 41, hp: 1520 },
+    { pos: 5, name: '清虚', role: 'R', icon: '🏹', m: 104, atk: 64, def: 26, hp: 1150 },
+    { pos: 7, name: '静玄', role: 'R', icon: '🏹', m: 104, atk: 62, def: 27, hp: 1170 },
+];
+/* 显示行序照搬 renderGrid：ally [1..9]（前置行在顶部），enemy [7,8,9,4,5,6,1,2,3]（前置行在底部，贴近明教） */
+const ALLY_ORDER = [1,2,3,4,5,6,7,8,9];
+const ENEMY_ORDER = [7,8,9,4,5,6,1,2,3];
+
+function hpPct(u) { return Math.max(0, Math.floor(u.hp / u.maxHp * 100)); }
+function hpClass(p) { return p > 70 ? 'hp-text-green' : (p > 40 ? 'hp-text-orange' : 'hp-text-red'); }
+function hpColor(p) { return p > 70 ? '#4caf50' : (p > 40 ? '#ff9800' : '#f44336'); }
+
+/* renderGrid 同款 DOM 结构：cell-icon / cell-info(name+stats) / hp-bar-wrap */
+function buildGrid(gridEl, units, order, camp) {
+    gridEl.innerHTML = '';
+    const byPos = new Map(units.map(u => [u.pos, u]));
+    for (const pos of order) {
+        const u = byPos.get(pos);
+        if (!u) { const d = document.createElement('div'); d.className = 'cell'; d.innerHTML = '<span style="color:#999;">空</span>'; d.dataset.pos = pos; gridEl.appendChild(d); continue; }
+        const p = hpPct(u);
+        const div = document.createElement('div');
+        div.className = 'cell occupied ready';
+        div.dataset.pos = pos; div.dataset.uid = camp + pos;
+        div.innerHTML =
+            `<span class="cell-icon">${u.icon}</span>` +
+            `<div class="cell-info"><span class="cell-name ${u.gold ? 'gold' : ''}">${u.name}</span>` +
+            `<span class="cell-stats">攻<span>${u.atk}</span> 防<span>${u.def}</span> <span class="${hpClass(p)}">血<span class="hpnum" style="color:inherit">${u.hp}</span></span></span></div>` +
+            `<div class="hp-bar-wrap"><div class="hp-bar-inner" style="height:${p}%;background:${hpColor(p)};"></div></div>`;
+        u.el = div; u.hpbar = div.querySelector('.hp-bar-inner'); u.hpnum = div.querySelector('.hpnum');
+        gridEl.appendChild(div);
+    }
+}
+
+function buildField(fieldId) {
+    const allies = ALLY.map(u => ({ ...u, maxHp: u.hp }));
+    const enemies = ENEMY.map(u => ({ ...u, maxHp: u.hp }));
+    buildGrid(document.getElementById('ag' + fieldId), allies, ALLY_ORDER, 'a');
+    buildGrid(document.getElementById('eg' + fieldId), enemies, ENEMY_ORDER, 'e');
+    return { allies, enemies, bf: document.getElementById('bf' + fieldId) };
+}
+const fieldA = buildField('A');
+const fieldB = buildField('B');
+const clockA = new MiniClock(); clockA.start();
+const clockB = new MiniClock(); clockB.start();
+let SPEED = 1;
+function setSpeed(s) { SPEED = s; clockA.timescale = s; clockB.timescale = s; }
+document.querySelectorAll('.spd').forEach(b => b.addEventListener('click', () => {
+    document.querySelectorAll('.spd').forEach(x => x.classList.remove('active'));
+    b.classList.add('active'); setSpeed(+b.dataset.s);
+}));
+document.querySelector('.spd[data-s="1"]').classList.add('active');
+
+/* ============ 表现原语 ============ */
+/* 金底抖动：搬 renderGrid runGridShake（clock.animate 驱动，衰减随机抖 + scale 1.1→1.0 + 金底 100ms） */
+function gridShake(clock, u, durationMs) {
+    const el = u.el; const d = Math.min(100, durationMs);
+    el.style.transition = 'background 0.1s ease';
+    el.style.background = '#ffd700';
+    let bgCleared = false;
+    clock.animate(durationMs, (p) => {
+        const decay = 1 - p;
+        const scale = 1.0 + 0.1 * decay;
+        const ox = (Math.random() - 0.5) * 4 * decay;
+        const oy = (Math.random() - 0.5) * 4 * decay;
+        el.style.transform = `translate(${ox}px, ${oy}px) scale(${scale})`;
+        if (!bgCleared && p * durationMs > d) { el.style.background = ''; el.style.borderColor = ''; bgCleared = true; }
+        if (p >= 1) { el.style.transform = ''; el.style.transition = ''; if (!bgCleared) { el.style.background = ''; bgCleared = true; } }
+    });
+}
+/* 伤害飘字：弹一下 → 上飘消散（dmgFloat 武侠风） */
+function dmgFloat(bf, u, text) {
+    const rect = u.el.getBoundingClientRect(), bfRect = bf.getBoundingClientRect();
+    const f = document.createElement('div');
+    f.className = 'dmg-float';
+    f.textContent = text;
+    f.style.left = (rect.left - bfRect.left + rect.width / 2) + 'px';
+    f.style.top = (rect.top - bfRect.top) + 'px';
+    bf.appendChild(f);
+    bf._clock.animate(700, (p) => {
+        const op = p < 0.5 ? 1 : (1 - (p - 0.5) / 0.5);
+        const ty = -8 - 26 * p;
+        const sc = p < 0.18 ? 0.6 + 3 * p : 1.15 - 0.15 * Math.min(1, (p - 0.18) / 0.2);
+        f.style.opacity = op;
+        f.style.transform = `translate(-50%, ${ty}px) scale(${sc})`;
+        if (p >= 1 && f.parentNode) f.parentNode.removeChild(f);
+    });
+}
+/* 受击后仰：朝受力方向 rotate+位移，弹回（走 clock——顿帧期间姿势凝固） */
+function knockBack(clock, u, dirY, deg) {
+    const el = u.el;
+    clock.animate(180, (p) => {
+        const k = Math.sin(p * Math.PI); // 出去又回来
+        el.style.transform = `translate(0, ${dirY * 4 * k}px) rotate(${deg * k}deg)`;
+        if (p >= 1) el.style.transform = '';
+    });
+}
+/* 白闪一帧：真实时间 ~70ms 提亮（不受 clock——就是要一闪，快放慢放都是一闪） */
+function whiteFlash(u) {
+    u.el.classList.add('hit-flash');
+    setTimeout(() => u.el.classList.remove('hit-flash'), 70);
+}
+/* 扣血 + 血条/数字刷新（血条 0.6s transition 是格子自带的） */
+function applyDamage(u, dmg) {
+    u.hp = Math.max(0, u.hp - dmg);
+    const p = hpPct(u);
+    u.hpbar.style.height = p + '%';
+    u.hpbar.style.background = hpColor(p);
+    u.hpnum.textContent = u.hp;
+    u.hpnum.className = 'hpnum ' + hpClass(p);
+}
+
+/* ============ 攻击演出：A=现状流程，B=+顿帧三件套 ============ */
+function easeInQ(t) { return t * t; }
+function easeOutBack(t) { const c = 1.7; return 1 + (c + 1) * Math.pow(t - 1, 3) + c * Math.pow(t - 1, 2); }
+
+async function performAttack(field, clock, withHitStop, atkName, defName, dmg) {
+    const atk = field.allies.find(u => u.name === atkName);
+    const def = field.enemies.find(u => u.name === defName);
+    if (!atk || !def) return;
+    field.bf._clock = clock;
+
+    /* ① 出手：蓝闪（data-flash=attack 原样） */
+    atk.el.setAttribute('data-flash', 'attack');
+
+    /* ② 近战冲刺：本体位移到目标格（矩形实测差值），ease-in 加速 220ms */
+    const from = atk.el.getBoundingClientRect();
+    const to = def.el.getBoundingClientRect();
+    const dx = (to.left + to.width / 2) - (from.left + from.width / 2);
+    const dy = (to.top + to.height / 2) - (from.top + from.height / 2);
+    atk.el.style.zIndex = 998;
+    await clock.animate(220, (p) => {
+        atk.el.style.transform = `translate(${dx * easeInQ(p)}px, ${dy * easeInQ(p)}px) scale(${1 + 0.15 * p})`;
+    });
+    /* 中途去掉蓝闪背景（定格姿势阶段只留位移）——蓝闪 0.6s transition 由格子自带 */
+    atk.el.removeAttribute('data-flash');
+
+    /* ③ 命中帧 —— 分岔点（dmg 由外层掷一次，A/B 同伤，公平对比） */
+    if (withHitStop) {
+        /* B：全场冻结 90ms 真实时间 → 冲刺姿势、后仰姿势全部凝固，这一下在 4x 下也一样清晰 */
+        const frozen = Promise.all([
+            knockBack(clock, def, 1, 4),          /* 受击后仰：向下+顺时针（被打下来的力向） */
+            clock.hitStop(90)
+        ]);
+        whiteFlash(def);                           /* 白闪一帧与冻结同时发生 */
+        await frozen;
+        /* 镜头感：战场 snap 0.4% 缩放后弹回（区别于格子抖动，body 级） */
+        clock.animate(160, (p) => { field.bf.style.transform = `scale(${1.004 - 0.004 * p})`; });
+    } else {
+        /* A：现状 = 直接抖，无凝固无方向感 */
+    }
+
+    /* ④ 反馈：金底抖动 + 伤害飘字 + 扣血 */
+    gridShake(clock, def, 200);
+    dmgFloat(field.bf, def, '-' + dmg);
+    applyDamage(def, dmg);
+
+    /* ⑤ 攻方回位（easeOutBack 带一点过冲）+ acted 灰态 */
+    const back = clock.animate(240, (p) => {
+        atk.el.style.transform = `translate(${dx * (1 - easeOutBack(p))}px, ${dy * (1 - easeOutBack(p))}px) scale(${1.15 - 0.15 * easeOutBack(p)})`;
+    });
+    await clock.wait(withHitStop ? 60 : 140);
+    atk.el.classList.remove('ready'); atk.el.classList.add('acted');
+    await back;
+    atk.el.style.transform = ''; atk.el.style.zIndex = '';
+}
+
+/* 复位（连击多轮后重新拉满） */
+function resetField(field) {
+    for (const u of [...field.allies, ...field.enemies]) {
+        u.hp = u.maxHp;
+        const p = 100;
+        u.hpbar.style.height = p + '%'; u.hpbar.style.background = hpColor(p);
+        u.hpnum.textContent = u.hp; u.hpnum.className = 'hpnum ' + hpClass(p);
+        u.el.classList.remove('acted'); u.el.classList.add('ready');
+        u.el.style.transform = ''; u.el.style.zIndex = ''; u.el.removeAttribute('data-flash');
+    }
+    field.bf.style.transform = '';
+}
+
+let playing = false;
+async function playSequence(seq) {
+    if (playing) return; playing = true;
+    for (const [atk, def] of seq) {
+        /* A/B 同步同播：同一时刻、同一伤害（掷一次传两边），唯一差异就是命中帧处理 */
+        const a = fieldA.allies.find(u => u.name === atk);
+        const d = fieldA.enemies.find(u => u.name === def);
+        const dmg = Math.max(1, Math.round((a ? a.atk : 50) * (0.9 + Math.random() * 0.3) * (1 - (d ? d.def : 30) / 200)));
+        const pa = performAttack(fieldA, clockA, false, atk, def, dmg);
+        const pb = performAttack(fieldB, clockB, true, atk, def, dmg);
+        await Promise.all([pa, pb]);
+        await Promise.all([clockA.wait(250), clockB.wait(250)]);
+    }
+    playing = false;
+}
+document.getElementById('btnOnce').addEventListener('click', () => playSequence([['杨逍', '空性']]));
+document.getElementById('btnTriple').addEventListener('click', () => playSequence([['杨逍', '空性'], ['韦一笑', '空闻'], ['范遥', '静玄']]));
+/* 回合整备：双击空白处复位血量 */
+document.body.addEventListener('dblclick', () => { resetField(fieldA); resetField(fieldB); });
+</script>
+</body>
+</html>
