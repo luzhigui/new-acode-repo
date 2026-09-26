@@ -235,10 +235,20 @@ function runCase(seed, stage) {
         if (!winner && lastStep) {
             for (const u of [...(lastStep.ally || []), ...(lastStep.enemy || [])]) {
                 if (!u) continue;
-                if (u.alive === true && !(u.hp > 0)) {
-                    invIssues.add(`[seed=${seed} stage=${stage} round=${battleState.round}] `
-                        + (u.name || u.uid) + ' 回合末仍存活但血空（结算未兜底）：hp=' + u.hp
-                        + (u.state && u.state._pendingDeath ? ' [_pendingDeath=true]' : ''));
+                const tag2 = `[seed=${seed} stage=${stage} round=${battleState.round}] `;
+                const pend = !!(u.state && u.state._pendingDeath);
+                // ① **仍存活**却带着待死标记到回合末 —— resolveDeaths 这一轮没把它结算掉。
+                //    最危险的一种：标记留着，下一轮 resolveDeaths 会把**已经救回来的人再杀一次**。
+                //    取证（第 25 轮）：**必须限定 alive===true**——首版不限，120 场误报一大片
+                //    「拒马/少林弟子 alive=false hp=0 仍挂 _pendingDeath」，即**已死单位**上的标记残留。
+                //    已死单位不在 `resolveDeaths` 的 `(pending && alive)` 过滤里，残留无后果，属无害脏数据。
+                if (pend && u.alive === true) {
+                    invIssues.add(tag2 + (u.name || u.uid) + ' 回合末仍存活却挂着 _pendingDeath（结算未跑完）：hp=' + u.hp);
+                }
+                // ② 没有任何待死标记，却血已空且仍存活 —— 致死路径压根没挂标记、也没结算（断链）。
+                //    与 ① 互斥：有标记的一律算 ①，避免同一件事报两遍。
+                else if (u.alive === true && !(u.hp > 0)) {
+                    invIssues.add(tag2 + (u.name || u.uid) + ' 回合末仍存活但血空（死亡结算断链）：hp=' + u.hp);
                 }
             }
         }
