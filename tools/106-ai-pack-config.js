@@ -1,3 +1,8 @@
+// V6.0.16 | ~11350 bytes | 2026-09-27 体检侧补登与去重（经用户一次性授权修改本文件）：
+//          ①补登记三个 node 直跑入口 `tests/rules-replay.mjs`（规则回放主力）、`tests/smoke-headless.mjs`（引擎冒烟）、
+//          `tests/registration-check.mjs`（登记核对器）—— 三者长期漏登，一直没随包发出；
+//          ②删掉 `121health-monitor.js` / `122health-utils.js` 的**重复登记行**（上方 tests 段已各登记过一次）。
+//          依据：tests/registration-check.mjs 的机器核对结果（漏登 2 项、重复 2 项）。
 // V6.0.15 | ~11150 bytes | 2026-09-26 登记 fx/92fx-pang-antics.js（胖远桥两技能特效）；V6.0.14 补登记 core/07-target-strategies.js（选敌策略抽取新文件，core/12 已 import，漏登会导致包内引用断裂）
 // V6.0.12 | ~11030 bytes | 2026-09-23 补登记 infra/61-view-sheet.js（妆造字段剥离新文件，103 复制器与分包脚本均派生自本表）
 // V6.0.11 | ~10980 bytes | 2026-09-22 移除已删除的 demo-stage3.html 登记
@@ -98,8 +103,10 @@ export const ALL_PROJECT_FILES = [
     '../tests/health-rules/151-bloodthirst-leech.js',
     // 2026-09-22 补登记 152：夜间体检第 9 趟新增（121health-monitor.js 已 import rule99）
     '../tests/health-rules/152-xingfen-extra-attack.js',
-    '../tests/121health-monitor.js', '../tests/122health-utils.js',
+    // （上一行的 121/122 为重复登记，已于 V6.0.16 删除 —— 上方 tests 段已各登记过一次）
     '../tests/140-baseline.js', '../tests/baselines/baseline-v1.json',
+    // 2026-09-27 补登记三个 node 直跑入口（V6.0.16：长期漏登，体检的主力命令都靠它们）
+    '../tests/rules-replay.mjs', '../tests/smoke-headless.mjs', '../tests/registration-check.mjs',
     // tools（开发工具箱）
     '../tools/102-toolkit.html', '../tools/103-toolkit.js', '../tools/104-toolkit-more.js',
     '../tools/105-shop.html', '../tools/106-ai-pack-config.js', '../tools/106b-server.js',
