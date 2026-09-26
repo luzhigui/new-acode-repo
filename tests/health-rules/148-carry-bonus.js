@@ -26,6 +26,7 @@
 // 误报规避：本场没有带数值的 carry 条目直接 skip；拿不到单位池只跳过 3/5 两条量级判据（不猜）；
 //   配置比例读不到时退回版本约定值 0.08/0.08/0.1/2，并在读不到时只跑 1/2/4 三条结构判据。
 export const VER = 'tests/health-rules/148-carry-bonus.js V6.1.16';
+import { plain } from '../122health-utils.js';
 
 import { CONFIG } from '../../core/01config-5v5-test.js';
 import { getStat } from '../../core/13battle-shared.js';
@@ -45,9 +46,7 @@ function carryCfg() {
     };
 }
 
-function plain(s) {
-    return String(s || '').replace(/<[^>]+>/g, '');
-}
+
 
 // 单位属性取值：**必须走引擎同一真值源 getStat（base + 词条现算）**。
 // 根因（2026-09-25 回放复现 seed=18 stage=6 第13回合）：旧版直接读 u.state.atk / u.atk，而词条系统下

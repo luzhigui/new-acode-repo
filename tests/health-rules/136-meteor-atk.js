@@ -18,22 +18,12 @@
 //   modules/26elite-sixsects.js 下发、render/35 L144 追加）当成流星成长 → seed=15:3 谎报
 //   "本场无小昭·姊却加攻2"。现锚定 ⚡ 成长段（render/35 L142 独占 `⚡ 单位名 攻击+N`）。
 export const VER = 'tests/health-rules/136-meteor-atk.js V6.1.12';
+import { entryTexts } from '../122health-utils.js';
 
 const ATK_PER_SPLASH = 2; // content 小昭.hexEnhance.params.meteorShower.atkPerSplash
 
 // 一条战报里可能被本规则命中的文本：顶层 text + attack-group 的 entries 子条目
-function entryTexts(e) {
-    var out = [];
-    if (!e) return out;
-    if (typeof e.text === 'string' && e.text) out.push(e.text);
-    if (Array.isArray(e.entries)) {
-        for (var i = 0; i < e.entries.length; i++) {
-            var sub = e.entries[i];
-            if (sub && typeof sub.text === 'string' && sub.text) out.push(sub.text);
-        }
-    }
-    return out;
-}
+
 
 export const rule83 = {
     group: 'Buff效果回归',

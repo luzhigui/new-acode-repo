@@ -13,24 +13,14 @@
 //   - 只按文本解析，不依赖 fact 层字段（渲染层会抹掉 factType/data，见 141 的口径说明）
 //   - 本场无新婚条目直接 skip（宋青书/周芷若为随机精英，常不同场）
 export const VER = 'tests/health-rules/144-xinhun-kuaile.js V6.1.11';
+import { entryTexts } from '../122health-utils.js';
 
 // 当前版本数值（对照 记录-更改履历.md / content/200game-data.json 宋青书.xinHun）
 const XINHUN_DEDUCT = 1;   // hpDeduct
 const XINHUN_PCT = 16;     // healLevels[0] = 0.16
 
 // 一条战报里可能被本规则命中的文本：顶层 text + attack-group 的 entries 子条目
-function entryTexts(e) {
-    var out = [];
-    if (!e) return out;
-    if (typeof e.text === 'string' && e.text) out.push(e.text);
-    if (Array.isArray(e.entries)) {
-        for (var i = 0; i < e.entries.length; i++) {
-            var sub = e.entries[i];
-            if (sub && typeof sub.text === 'string' && sub.text) out.push(sub.text);
-        }
-    }
-    return out;
-}
+
 
 // 快照里是否存在「血量上限恰等于 hpAfter」的单位 —— 用于识别快乐回血的"回满截断"合法形态。
 // 注意是弱判据（同名/同上限会误认），故只在"精确判据不成立"时兜底放行，不做反向断言。
