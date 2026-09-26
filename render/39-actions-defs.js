@@ -52,7 +52,7 @@ export const STAGE_ACTION_DEFS = {
             if (attacker && action.miejueCountText) {
                 eventBus.emit(FX_SIGNALS.MIEJUE_COUNT, { unit: attacker, text: action.miejueCountText });
             }
-            // 2026-09-26 胖远桥·正义国字脸：朝对手张开的扇形金锥 + 「你过来!」气泡 + 全体被嘲讽者红闪😤，
+            // 2026-09-26 胖远桥·正义国字脸：朝对手张开的扇形金锥 + 「你过来啊！～」气泡 + 全体被嘲讽者红闪😤，
             //   锚在出手帧（标记由 modules/26 写进本击 fact，生成步不发，否则特效会抢在画面前）
             if (attacker && action.pangTaunt && !GlobalStore.get('fastForwardActive')) {
                 const foes = (c.store ? c.store.getState().units : [])
