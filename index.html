@@ -1,5 +1,5 @@
 ﻿﻿<!-- index.html - 光明顶5v5 V6.0.0（原 mode-5v5-test.html，改名为主入口） -->
-<!-- V6.0.6 | ~36000 bytes | 2026-09-26 「已取消」终修：安卓Chrome也带showSaveFilePicker且部分机型谎报秒抛取消，fs层同款降级——整链已无「已取消」路径 | 本行更新仅走时间戳 -->
+<!-- V6.0.8 | ~36000 bytes | 2026-09-26 战报全灰修复：录制快照的 state 共享引用被引擎原地改，整份战报序列化时全是终态（回放从头到尾全灰）——改按 schema 深拷断引用，顺带真增量瘦身生效文件变小 | 本行更新仅走时间戳 -->
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
@@ -316,7 +316,6 @@
     </div>
 </div>
 <div class="vote-float" id="voteFloat" title="恢复投票">🏳️</div>
-<div class="vote-float" id="replayFloat" title="播放战报文件" style="bottom:110px;display:flex;">🎬</div>
 <script type="module" src="./infra/54-global-store.js"></script>
 <script type="module" src="./fx/89fx-subscriber.js"></script>
 <script type="module" src="./ui/61main-5v5-test.js"></script>
