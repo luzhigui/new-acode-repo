@@ -3,7 +3,11 @@
 //   2. import 引用断裂：static import 的相对路径指向不存在的文件
 // 对应需求：实时体检靠阵容触发机制，当轮没触发就 skip；静态快检秒出结构问题，两者互补
 // 2026-09-24 补登 core/07-target-strategies.js（选敌策略抽取新文件，原先漏登导致本扫描不覆盖）
-export const VER = 'tests/123static-scan.js V1.0.1';
+// V1.2.0 | 2026-09-26 补回 Node CLI 自举 —— 此前 node 下零输出＝**假绿**：本实例历史停在 V1.0.1
+//         （只有 export，没有任何执行入口），`node tests/123static-scan.js` 不扫描、不打印、退出码恒 0，
+//         等于这段时间"静态快检通过"是句空话。现补 IS_NODE 分支：垫 file:// fetch + window.location，
+//         跑完全量后打印，且**有 issue 必须退出码 1**（不设退出码与不跑同样是假绿）。见文件末自举段。
+export const VER = 'tests/123static-scan.js V1.2.0';
 
 // 枚举常量名列表（来自 infra/56-battle-enums.js 导出的 13 个枚举对象）
 export const ENUM_NAMES = [
@@ -87,6 +91,49 @@ export const SCAN_FILES = [
 ];
 
 // 提取文件的 static import 信息（仅静态 import 语句，跳过动态 import()）
+// 剥注释（第 24 轮补）：逐字符走一遍，跟踪引号状态，剔掉 `//` 行注释与 `/* */` 块注释。
+//   为什么必须做：此前直接在原文上匹配"是否使用了某符号"，注释里提一句 BUFF_TYPES 也会被当成使用
+//   → core/06（4 处全在注释）、infra/56:134、health-rules/149:9 全是注释命中，纯假阳性。
+//   为什么不能用正则一行删 `//`：字符串里的 // （如 URL 'http://x'）不是注释，必须跟踪引号才不误伤。
+function stripComments(code) {
+    let out = '', i = 0, quote = null;
+    while (i < code.length) {
+        const c = code[i], next = code[i + 1];
+        if (quote) {
+            out += c;
+            if (c === '\\') { out += code[i + 1] || ''; i += 2; continue; }
+            if (c === quote) quote = null;
+            i++; continue;
+        }
+        if (c === '"' || c === "'" || c === '`') { quote = c; out += c; i++; continue; }
+        if (c === '/' && next === '/') { while (i < code.length && code[i] !== '\n') i++; continue; }
+        if (c === '/' && next === '*') {
+            i += 2;
+            while (i < code.length && !(code[i] === '*' && code[i + 1] === '/')) i++;
+            i += 2; continue;
+        }
+        out += c; i++;
+    }
+    return out;
+}
+
+// 解构取值也算"已取得该符号"：`{ orig: local }` 记 local、跳 `...rest`、去掉默认值。
+function addDestructuredNames(raw, imported) {
+    String(raw).split(',').forEach(part => {
+        let p = part.trim();
+        if (!p || p.startsWith('...')) return;
+        p = p.split('=')[0].trim();                       // 去掉默认值 `a = 1`
+        const colon = p.indexOf(':');
+        if (colon >= 0) p = p.slice(colon + 1).trim();    // `{ orig: local }` → local
+        if (/^[A-Za-z_$][\w$]*$/.test(p)) imported.add(p);
+    });
+}
+function collectBraceGroups(raw, imported) {
+    const re = /\{([^{}]*)\}/g;
+    let m;
+    while ((m = re.exec(raw)) !== null) addDestructuredNames(m[1], imported);
+}
+
 function collectImports(code) {
     const imported = new Set();
     const fromPaths = [];
@@ -109,6 +156,14 @@ function collectImports(code) {
     // import 'x'（副作用导入）
     re = /import\s*['"]([^'"]+)['"]/g;
     while ((m = re.exec(code)) !== null) fromPaths.push(m[1]);
+    // 解构取值同样算"已取得"（第 24 轮补）：`.mjs` runner 普遍先动态 import 一批模块、再整体解构，
+    //   如 `const [{ renderLog }, { GlobalStore }, { BUFF_TYPES, CAMP_TYPES }] = await Promise.all([...])`
+    //   和 `const { CAMP_TYPES, ROLE_TYPES } = mods.enums;` —— 都不是 `import {} from` 形态，
+    //   旧实现却只认后者 → smoke-headless 3 条、rules-replay 4 条全是这类误报。
+    const objDeclRe = /(?:const|let|var)\s*\{([^{}]*)\}\s*=/g;
+    while ((m = objDeclRe.exec(code)) !== null) addDestructuredNames(m[1], imported);
+    const arrDeclRe = /(?:const|let|var)\s*\[([\s\S]*?)\]\s*=/g;
+    while ((m = arrDeclRe.exec(code)) !== null) collectBraceGroups(m[1], imported);
     return { imported, fromPaths };
 }
 
@@ -213,22 +268,57 @@ export async function runStaticScan() {
             continue;
         }
         result.files++;
+        // 三项检查统一跑在**剥掉注释**的副本上：注释里提一句枚举/符号不算"使用"（见 stripComments 注释）
+        const scanCode = stripComments(code);
         // 检查 1：枚举 import 缺失
-        const enumScan = scanEnumImport(code);
+        const enumScan = scanEnumImport(scanCode);
         for (const en of enumScan.missing) {
             // 排除文件自身定义该常量（definitions 不算 usage）
             const selfDefRe = new RegExp('export\\s+const\\s+' + en + '\\b');
-            if (selfDefRe.test(code)) continue;
+            if (selfDefRe.test(scanCode)) continue;
             result.slots.enumImport.issues.push(rel + '：使用 ' + en + ' 但未 import');
         }
         // 检查 1.5：共享符号 import 缺失（含 window 挂载的隐患级区分）
-        for (const it of scanSharedSymbolImport(code, mounts)) {
+        for (const it of scanSharedSymbolImport(scanCode, mounts)) {
             result.slots.sharedImport.issues.push(rel + '：使用 ' + it.sym + ' 但未 import ' + (it.viaWindow ? '(走 window 挂载，隐患级)' : '(将运行时报错)'));
         }
         // 检查 2：import 引用断裂
-        const broken = await scanImportRefs(code, fileUrl);
+        const broken = await scanImportRefs(scanCode, fileUrl);
         for (const b of broken) result.slots.importRef.issues.push(rel + ' → ' + b);
     }
     result.elapsedMs = Date.now() - t0;
     return result;
+}
+
+// --- Node CLI 自举（V1.2.0 补回）---
+// 根因：本文件以往的 node 自举改动没并进 main（此处停在 V1.0.1，纯 export 无执行入口），
+//   `node tests/123static-scan.js` 什么都不跑却退出码 0 —— 是标准的"静默假绿"，比报红更危险。
+// 修法：node 环境下垫两层浏览器依赖 ①file:// fetch（含去 `?t=` 缓存串）②window.location（指向
+//   本文件所在 tests/ 目录，SCAN_FILES 的相对路径正是相对它解析），再跑全量扫描并打印。
+//   **有 issue 必须退出码 1**，否则 CLI 形同虚设，等于换个姿势继续假绿。
+// 浏览器侧不受影响：整段包在 isNode 分支内，并用 async IIFE 而非顶层 await，模块语义不变。
+const isNode = typeof process !== 'undefined' && !!(process.versions && process.versions.node);
+if (isNode) {
+    (async () => {
+        const nodeFs = await import('node:fs');
+        const { fileURLToPath } = await import('node:url');
+        const toPath = (url) => fileURLToPath(String(url).replace(/\?t=\d+$/, ''));
+        globalThis.window = globalThis;
+        // baseUrl 由 runStaticScan 取 new URL('./', window.location.href)，故必须指向 tests/ 本身
+        globalThis.window.location = { href: import.meta.url };
+        globalThis.fetch = async (url) => {
+            try {
+                const text = nodeFs.readFileSync(toPath(url), 'utf8');
+                return { ok: true, status: 200, text: async () => text, json: async () => JSON.parse(text) };
+            } catch (e) {
+                return { ok: false, status: 404, text: async () => '', json: async () => { throw e; } };
+            }
+        };
+        const r = await runStaticScan();
+        const slots = Object.values(r.slots);
+        for (const s of slots) for (const it of s.issues) console.log('  ✗ [' + s.name + '] ' + it);
+        const total = slots.reduce((n, s) => n + s.issues.length, 0);
+        console.log(`静态快检：${r.files} 文件 / ${r.elapsedMs}ms / 三类 issue 合计 ${total} 条`);
+        if (total > 0) process.exit(1);
+    })();
 }
