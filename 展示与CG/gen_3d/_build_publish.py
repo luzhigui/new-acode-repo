@@ -59,7 +59,8 @@ for label, d, glb, prev in MODELS:
 print("[models] %d 个" % len(model_cards))
 
 # 3) 立绘：等比缩到宽 1000px 存 JPEG，控制手机流量
-imgs = sorted(glob.glob(os.path.join(BASE, "立绘", "*.png")))
+imgs = sorted(glob.glob(os.path.join(BASE, "立绘", "*.png")) +
+              glob.glob(os.path.join(BASE, "立绘", "*.jpg")))
 img_items = []
 for i, src in enumerate(imgs, 1):
     name = os.path.splitext(os.path.basename(src))[0]
