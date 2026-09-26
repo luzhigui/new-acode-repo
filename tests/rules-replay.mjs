@@ -1,3 +1,4 @@
+// V6.2.2 | 2026-09-26 接入行动权不变量（122 checkActionRights）：每回合行动序列走完后核对，_acted=true 的活人必须有正常位记录；逐步断言的「存活 hp<=0」对小昭附身态（state._butterflyHost 有值）精确豁免
 // V6.2.0 | 2026-09-25 新增「不变量套件」：hp∈[0,maxHp] / hp 整数 / maxHp>0 / pos 唯一 / facts 映射完整，
 //          逐步断言（非终局快照），与机制规则分开报告并计入退出码。理由：中期越界后被修回的漂移
 //          终局快照抓不到，且不变量本就与具体机制无关、成本极低覆盖面最大。
@@ -28,7 +29,7 @@ globalThis.window = globalThis;
 globalThis.self = globalThis;
 
 // 补 VER（第 21 轮）：此前本文件无 export const VER，tools/118 的版本头对账会漏掉它
-export const VER = 'tests/rules-replay.mjs V6.2.1';
+export const VER = 'tests/rules-replay.mjs V6.2.2';
 
 const HERE = new URL('.', import.meta.url);
 const [{ CONFIG, loadGameData }, { SeededRNG }, { createRoundStepper }, { initBattleTeams },
@@ -56,7 +57,7 @@ const { getFactRenderer } = await import('../render/33-fact-registry.js');
 // 不变量单一真值源：血量类不变量的唯一实现在 122 的 checkUnitHpValidity（含「maxHp 相对
 // _baseMaxHp 膨胀」判据与 isWei 豁免）。回放侧直接复用，不再另写一份 —— 两处各写一份等于
 // 同一批单位在浏览器体检和回放里跑出两套结论（第 21 轮统一）。
-const { checkUnitHpValidity } = await import('./122health-utils.js');
+const { checkUnitHpValidity, checkActionRights } = await import('./122health-utils.js');
 
 // 自动装载 health-rules 下全部规则（文件名序 = 编号序），新增规则无需改本文件
 const ruleDir = fileURLToPath(new URL('./health-rules/', import.meta.url));
@@ -143,7 +144,10 @@ function assertInvariants(units, round, seed, stage) {
         //   `hpAfter = Math.floor(target.hp) - dmg`。首版加了这条 → 120 场误报 11901 条，纯假阳性。
         // 生死与血量一致（第 23 轮加）：存活者 hp 应 >0、已阵亡者 hp 应 <=0。
         //   "活死人"（alive 但血空）与"带血尸体"（已死却还有血）都是明确的回归信号。
-        if (u.alive === true && !(u.hp > 0)) {
+        // 小昭·姊附身中 hp=0、alive=true 是设计合法态（血按比例转给宿主，modules/27:303）：
+        //   按 state._butterflyHost 精确豁免；其余"活死人"仍报（含 NoHost 路径，见迭代日志第 24 轮）。
+        const isButterflyAttached = !!(u.state && u.state._butterflyHost);
+        if (u.alive === true && !(u.hp > 0) && !isButterflyAttached) {
             invIssues.add(tag + (u.name || u.uid) + ' 存活但 hp<=0：' + u.hp);
         }
         if (u.alive === false && u.hp > 0) {
@@ -190,10 +194,12 @@ function runCase(seed, stage) {
             store.dispatch({ type: STORE_ACTION_TYPES.SET_UNITS, units: [...battleState.ally, ...battleState.enemy].map(u => ({ ...u })) });
             store.dispatch({ type: STORE_ACTION_TYPES.SET_ROUND, round: battleState.round });
         } catch (e) { /* 状态同步失败不影响回放 */ }
+        const roundFacts = [];
         for (const step of createRoundStepper(battleState)) {
             lastStep = step;
             for (const f of step.log || []) {
                 if (!f || !f.factType) continue;
+                roundFacts.push(f);
                 try {
                     const e = renderLog(f.factType, f.data);
                     // 不变量：factType 声明并发射了，但压根**没注册渲染器** = facts 映射缺口。
@@ -212,6 +218,11 @@ function runCase(seed, stage) {
             // 不变量：每步断言一次（比"每回合末"更细 —— 中期越界后被修回也能抓到）
             assertInvariants([...(step.ally || []), ...(step.enemy || [])], battleState.round, seed, stage);
             if (step.winner) winner = step.winner;
+        }
+        // 行动权不变量（回合级）：本回合行动序列走完后核对，抓「吞回合」（122 唯一实现）
+        for (const msg of checkActionRights(roundFacts,
+            [...((lastStep || {}).ally || []), ...((lastStep || {}).enemy || [])])) {
+            invIssues.add(`[seed=${seed} stage=${stage} round=${battleState.round}] ` + msg);
         }
         if (winner || !lastStep) break;
         battleState = {

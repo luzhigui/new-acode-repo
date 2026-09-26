@@ -1,3 +1,4 @@
+// V6.1.16 | ~29000 bytes | 2026-09-26 新增 checkActionRights（行动权不变量·回合级）：_acted=true 的活人本回合必须有正常位行动记录，抓「吞回合」（灭绝反击 bug 通用形态）；121/回放共用此唯一实现
 // V6.1.15 | ~26700 bytes | 2026-09-25 不变量单一真值源：checkUnitHpValidity 定为血量类不变量的**唯一**实现，
 //          rules-replay.mjs 的逐步断言改为直接调用它。此前两处各写一份且口径不一致 ——
 //          122 多一条「maxHp > _baseMaxHp×2.5 膨胀」判据（含 isWei 豁免），回放侧没有，
@@ -12,9 +13,9 @@
 //          但文件从未 import 过它们 —— 运行时抛 ReferenceError: getUnitCol is not defined，
 //          圣火令相关 buff 校验静默失效（体检报"通过"其实是异常被吞）。现从 infra/51 显式引入。
 // V6.0.0 | 2026-08-26 buff key 收敛为 infra/56-battle-enums 的 BUFF_TYPES（删除本地第二事实源）
-import { BUFF_TYPES, CAMP_TYPES, ROLE_TYPES } from '../infra/56-battle-enums.js';
+import { BUFF_TYPES, CAMP_TYPES, ROLE_TYPES, FACT_TYPES } from '../infra/56-battle-enums.js';
 import { getUnitCol, getUnitRow } from '../infra/51-core-utils.js';
-export const VER = 'tests/122health-utils.js V6.1.15';
+export const VER = 'tests/122health-utils.js V6.1.16';
 
 /**
  * 获取单位对应的格子 DOM 元素
@@ -531,4 +532,44 @@ export function locateLogEntry(log, entry) {
         who = '拒马(' + entry.horsePos + '号位)';
     }
     return '(第' + round + '回合, 第' + (idx + 1) + '条日志' + (who ? ', ' + who : '') + ')';
+}
+
+/**
+ * 行动权不变量（回合级，第 24 轮新增）：
+ * 每个 alive 且 state._acted=true 的单位，本回合必须留下过一条「正常位行动」记录。
+ * 抓的 bug 形态：额外攻击（反击/跟随/联动）若没被 LINK_REASONS 识别、又没配 actedMode，
+ *   攻击流程会提前把本人 _acted 置 true（core/10:203/266），主循环 candidates 过滤（core/11:365），
+ *   正常位被吞 —— 表现为「_acted=true 但本回合查无此人出手」（灭绝反击 bug 的通用形态）。
+ * 正常位口径：攻击结算类（attack/miss/dodge/immune/emptyTarget）出手者在 data.attacker；
+ *   pass（休息/遮挡/生生不息）在 data.unit；快照 _isLinkAttack=true 的属额外攻击、不认；
+ *   状态转换即行动（butterflyAttach/Return→data.sisterUid，spiderFly/Return→data.spiderUid）：
+ *   FSM 进入附身/飞天时主动置 _acted=true，这就是本人本回合的行动。
+ * 边界：胜负已分当回合未行动者 _acted=false 不查；死亡者 alive=false 不查；
+ *   召唤物 _acted 默认 false、当回合进正常位有记录。
+ */
+export function checkActionRights(roundFacts, units) {
+    const actedNormal = new Set();
+    for (const f of roundFacts || []) {
+        if (!f || !f.factType) continue;
+        const d = f.data || {};
+        const a = d.attacker;
+        if (a && a.uid != null && !(a.state && a.state._isLinkAttack)) actedNormal.add(a.uid);
+        if (f.factType === FACT_TYPES.PASS && d.unit && d.unit.uid != null) actedNormal.add(d.unit.uid);
+        // 状态转换即行动：FSM 进入 attached/flying 时主动置 _acted=true（modules/27:172/439），
+        //   附身/飞天就是本人这回合的行动，回合末回归同理。主体：butterfly*=data.sisterUid，spider*=data.spiderUid。
+        if ((f.factType === FACT_TYPES.BUTTERFLY_ATTACH || f.factType === FACT_TYPES.BUTTERFLY_RETURN ||
+             f.factType === FACT_TYPES.SPIDER_FLY || f.factType === FACT_TYPES.SPIDER_RETURN) &&
+            (d.sisterUid != null || d.spiderUid != null)) {
+            actedNormal.add(d.sisterUid != null ? d.sisterUid : d.spiderUid);
+        }
+    }
+    const issues = [];
+    for (const u of units || []) {
+        if (!u || u.alive !== true) continue;
+        const acted = u.state ? u.state._acted : u._acted;
+        if (acted === true && !actedNormal.has(u.uid)) {
+            issues.push((u.name || u.uid) + ' _acted=true 但本回合无正常位行动记录（行动权疑似被额外攻击吞掉）');
+        }
+    }
+    return issues;
 }
