@@ -1,6 +1,6 @@
 {
-  "version": "5.6.11",
-  "updated": "2026-09-24",
+  "version": "5.6.12",
+  "updated": "2026-09-26",
 
   "roles": {
     "战士": { "icon": "⚔️", "label": "战士", "bonus": { "atk": 3, "def": 3, "maxHp": 30 } },
@@ -190,19 +190,19 @@
           "desc": "每回合开始50%概率在随机空位召唤一只幼狮（攻0故无法攻击，行动时休息回血；被加攻后可正常出手，按防战公式结算；不遮挡后排队友）；幼狮存活一回合后80%概率按所在位置成长：1-6号位成雄狮，7-9号位成母狮，未成长则保持幼狮下回合再判定",
           "params": {
             "prob": 0.5,
-            "cub": { "name": "幼狮", "role": "防战", "m": 20, "atk": 0, "def": 4, "maxHp": 40 },
+            "cub": { "name": "幼狮", "role": "防战", "m": 20, "atk": 0, "def": 4, "maxHp": 40, "skipRoleBonus": true },
             "grow": {
               "prob": 0.8,
               "frontMax": 6,
-              "front": { "name": "雄狮", "role": "战士", "m": 70, "atk": 24, "def": 18, "maxHp": 90 },
-              "back": { "name": "母狮", "role": "远程", "m": 70, "atk": 30, "def": 16, "maxHp": 80 }
+              "front": { "name": "雄狮", "role": "战士", "m": 50, "atk": 18, "def": 12, "maxHp": 50 },
+              "back": { "name": "母狮", "role": "远程", "m": 70, "atk": 20, "def": 16, "maxHp": 85 }
             }
           }
         },
         "lionInspire": {
           "name": "振奋",
           "desc": "雄狮每次命中后，己方全体角色永久+{atkPerHit}攻击力",
-          "params": { "atkPerHit": 2 }
+          "params": { "atkPerHit": 1 }
         },
         "lionFollow": {
           "name": "随动",
