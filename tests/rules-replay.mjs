@@ -1,3 +1,5 @@
+// V6.4.0 | 2026-09-26 新增 fact 契约警告收集器：劫持 console.error 收 [fact契约] 缺字段警告，
+//          去重后计入不变量违规与退出码（此前这些警告只是控制台噪声，五件套全绿也看不到）。
 // V6.3.0 | 2026-09-26 生死/血量一致性改为按 `_pendingDeath` 对齐设计内中间态（依据见 assertInvariants 注释）：
 //          引擎致死统一挂 _pendingDeath 交 resolveDeaths 结算，「hp<=0 且 alive 仍 true」是**设计内中间态**
 //          而非缺陷，旧判据把该窗口当回归 → 5 条误报；现判据与引擎同源（alive && !state._pendingDeath），
@@ -32,8 +34,26 @@ globalThis.localStorage = { getItem: () => null, setItem: () => {}, removeItem: 
 globalThis.window = globalThis;
 globalThis.self = globalThis;
 
+// --- fact 契约警告收集（V6.4.0）---
+// infra/58-fact-contract.js 的 validateFactContract 在缺字段时打 console.error，
+// 但回放器此前不收集 → 契约违规只是控制台噪声，五件套全绿也看不到。
+// 劫持 console.error 只收 [fact契约] 前缀，按 type|field 去重，计入不变量违规与退出码。
+const factContractWarns = new Map(); // key: "type|field" -> count
+const _origConsoleError = console.error.bind(console);
+console.error = function (...args) {
+    _origConsoleError(...args);
+    try {
+        const first = args[0];
+        if (typeof first === 'string' && first.startsWith('[fact契约] ')) {
+            const m = first.match(/^\[fact契约\]\s+(\S+)\s+缺字段:\s+(\S+)/);
+            const key = m ? (m[1] + '|' + m[2]) : first.slice(0, 80);
+            factContractWarns.set(key, (factContractWarns.get(key) || 0) + 1);
+        }
+    } catch (e) {}
+};
+
 // 补 VER（第 21 轮）：此前本文件无 export const VER，tools/118 的版本头对账会漏掉它
-export const VER = 'tests/rules-replay.mjs V6.3.0';
+export const VER = 'tests/rules-replay.mjs V6.4.0';
 
 const HERE = new URL('.', import.meta.url);
 const [{ CONFIG, loadGameData }, { SeededRNG }, { createRoundStepper }, { initBattleTeams },
@@ -318,6 +338,13 @@ for (const seed of SEEDS) {
 
 // --- 不变量报告（与机制规则分开报，不混进规则 pass/fail 计数）---
 console.log('=== 不变量（逐步断言）===');
+if (factContractWarns.size) {
+    const total = [...factContractWarns.values()].reduce((a, b) => a + b, 0);
+    console.log(`  ❌ fact 契约违规：${factContractWarns.size} 类（去重），共 ${total} 次`);
+    for (const [k, cnt] of [...factContractWarns.entries()].slice(0, 8)) {
+        console.log(`      - ${k}  ×${cnt}`);
+    }
+}
 if (invUnmappedCount) {
     console.log(`  ❌ facts 映射缺口：${invUnmappedCount} 条声明渲染无产出，涉及类型：${[...invUnmappedTypes].join(', ')}`);
 }
@@ -325,8 +352,8 @@ if (invIssues.size) {
     const arr = [...invIssues];
     for (const m of arr.slice(0, 12)) console.log('  ❌ ' + m);
     if (arr.length > 12) console.log(`  … 另有 ${arr.length - 12} 条同类`);
-} else {
-    console.log('  ✅ hp∈[0,maxHp] / hp 整数 / maxHp>0 / pos 唯一 / facts 映射完整 —— 全部通过');
+} else if (!factContractWarns.size && !invUnmappedCount) {
+    console.log('  ✅ hp∈[0,maxHp] / maxHp>0 / pos 唯一 / facts 映射完整 / fact 契约无缺字段 —— 全部通过');
 }
 
 console.log(`=== 规则回放自检：${cases} 场 / ${rules.length} 条规则 ===`);
@@ -343,7 +370,8 @@ if (KEYWORDS.length) {
     console.log('=== 关键字命中 ===');
     for (const kw of KEYWORDS) console.log(`  ${kw}: ${kwHit[kw] || 0}`);
 }
-const invFail = invIssues.size + (invUnmappedCount ? 1 : 0);
+const invFail = invIssues.size + (invUnmappedCount ? 1 : 0) + factContractWarns.size;
 console.log(`RESULT: ${fails === 0 ? '无失败规则' : fails + ' 条规则报失败'}；恒 skip(空转)规则 ${dead} 条` +
-    `；不变量违规 ${invIssues.size} 类${invUnmappedCount ? ' / facts 映射缺口 ' + invUnmappedCount + ' 条' : ''}`);
+    `；不变量违规 ${invIssues.size} 类${invUnmappedCount ? ' / facts 映射缺口 ' + invUnmappedCount + ' 条' : ''}` +
+    `${factContractWarns.size ? ' / fact 契约违规 ' + factContractWarns.size + ' 类' : ''}`);
 process.exit((fails === 0 && invFail === 0) ? 0 : 1);
