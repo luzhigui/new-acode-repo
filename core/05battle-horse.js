@@ -1,5 +1,5 @@
-// V6.2.0 | ~7300 bytes | 2026-09-23 spawnUnit 支持 stats（固定数值召唤物：谢逊三狮）
-export const VER = 'core/05battle-horse.js V6.2.0';
+// V6.3.0 | ~7700 bytes | 2026-09-26 spawnUnit 的 stats 改口径为基础值，随后照常叠职业加成（skipRoleBonus 可豁免）
+export const VER = 'core/05battle-horse.js V6.3.0';
 
 import { CONFIG } from './01config-5v5-test.js';
 import { hasBuff } from './03battle-utils.js';
@@ -55,25 +55,21 @@ export function findFreePos(allyTeam, positions) {
 // 指定格召唤：在 pos 生成一个单位（pos 由调用方用 findFreePos 确认空闲）。
 // 走 Unit.init + applyBonus，与开局单位同口径（含 _base/_init 数值与 _hpDmgRatio 分档）；
 // 打 isSummon 标记便于日志/UI 区分召唤物；拒马不走这里（它有独立的随机格 + 固定数值逻辑）。
-// stats 可选：{ atk, def, maxHp } —— 传了就写死属性（谢逊三狮这类固定数值召唤物），
-//   不走 M 随机与职业加成；防战形态另按满血占比锁 _hpDmgRatio（攻击公式要用）。
+// stats 可选：{ atk, def, maxHp, skipRoleBonus? } —— 传了就把它当【基础值】写死（谢逊三狮这类固定数值召唤物），
+//   随后照常叠职业加成（2026-09-26 口径统一：m 是基础预算，职业加成由引擎加，不写进配置）。
+//   skipRoleBonus:true = 只保留职业、不吃加成（幼狮这类特殊召唤物；与 02unit.applyBonus 同参同名）。
+//   stats 分支不再自己写 _base*/_init*：applyBonus 已按最终值写好，重叠写会把加成抹掉。
 export function spawnUnit(allyTeam, name, m, role, pos, stats = null) {
     const unit = new Unit(name, m, role, allyTeam[0].camp);
     unit.init(getBattleRng());
-    unit.applyBonus();
     if (stats) {
         unit.atk = stats.atk;
         unit.def = stats.def;
         unit.maxHp = stats.maxHp;
-        unit.hp = stats.maxHp;
-        unit.state._baseAtk = stats.atk;
-        unit.state._baseDef = stats.def;
-        unit.state._baseMaxHp = stats.maxHp;
-        unit.state._initAtk = stats.atk;
-        unit.state._initDef = stats.def;
-        unit.state._initMaxHp = stats.maxHp;
-        if (role === ROLE_TYPES.DEFENDER) unit.state._hpDmgRatio = getHpDmgRatio(1);
     }
+    unit.applyBonus(!!(stats && stats.skipRoleBonus));
+    // 防战形态按满血占比锁 z 值（防战伤害公式要用）；applyBonus 之后才定得准
+    if (stats && role === ROLE_TYPES.DEFENDER) unit.state._hpDmgRatio = getHpDmgRatio(1);
     unit.pos = pos;
     unit.state._originalPos = pos;
     unit.isSummon = true;

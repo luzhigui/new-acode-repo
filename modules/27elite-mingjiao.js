@@ -1,11 +1,11 @@
-// V6.3.4 | ~40900 bytes | 2026-09-26 FSM 加 onChange 相位回调，镜像到 unit.state._fsmPhase（渲染层改读镜像，不再读 _fsm 实例）
-export const VER = 'modules/27elite-mingjiao.js V6.3.4';
+// V6.3.5 | ~41700 bytes | 2026-09-26 三狮属性改「基础值 + 职业加成」口径（成长 delta 按最终值算），补 cub.m 同步
+export const VER = 'modules/27elite-mingjiao.js V6.3.5';
 
 import { registerElite } from '../core/08-elite-registry.js';
 import { CONFIG, getSkillParams } from '../core/01config-5v5-test.js';
 import { hasBuff, getZhangNearTaunt } from '../core/03battle-utils.js';
 import { spawnHorse, spawnUnit } from '../core/05battle-horse.js';
-import { applyHeroFlags } from '../core/02unit.js';
+import { applyHeroFlags, getRoleBonus } from '../core/02unit.js';
 import { spiderTransform, spiderReturn } from '../modules/20elite-skills.js';
 import { checkZhangSwitch, emitEvent, applyStatChange, refreshMaxHp, getBattleRng, addMod, removeModsByGroup, getStat } from '../core/13battle-shared.js';
 import { eventBus, EXECUTION_LAYER as L, EFFECT_TYPES } from '../infra/50-event-bus.js';
@@ -665,18 +665,26 @@ export function createXieXunComponent() {
                 for (const cub of cubs) {
                     if (growRng.next() >= (summon.grow.prob ?? 1)) continue;
                     const spec = cub.pos <= (summon.grow.frontMax || 6) ? summon.grow.front : summon.grow.back;
+                    // spec 里写的是【基础值】，目标形态的最终值 = 基础值 + 该职业加成
+                    //   （2026-09-26 口径统一：m 是基础预算，职业加成由引擎加、不写进配置）。
+                    //   基线用 cub 配置值：幼狮自身豁免加成，且幼狮期间吃到的振奋要留在成长值之上。
+                    const bonus = getRoleBonus(spec.role);
+                    const tgtAtk = spec.atk + bonus.atk;
+                    const tgtDef = spec.def + bonus.def;
+                    const tgtMaxHp = spec.maxHp + bonus.maxHp;
                     // 属性只算不存：成长差值登记为永久词条；maxHp 另走 refreshMaxHp 同步（上限升则当前血等量加）
-                    addMod(cub, 'atk', { source: '幼狮成长', value: spec.atk - summon.cub.atk, ttl: 'permanent', group: 'lionGrow', op: 'add' });
-                    addMod(cub, 'def', { source: '幼狮成长', value: spec.def - summon.cub.def, ttl: 'permanent', group: 'lionGrow', op: 'add' });
-                    addMod(cub, 'maxHp', { source: '幼狮成长', value: spec.maxHp - summon.cub.maxHp, ttl: 'permanent', group: 'lionGrow', op: 'add' });
+                    addMod(cub, 'atk', { source: '幼狮成长', value: tgtAtk - summon.cub.atk, ttl: 'permanent', group: 'lionGrow', op: 'add' });
+                    addMod(cub, 'def', { source: '幼狮成长', value: tgtDef - summon.cub.def, ttl: 'permanent', group: 'lionGrow', op: 'add' });
+                    addMod(cub, 'maxHp', { source: '幼狮成长', value: tgtMaxHp - summon.cub.maxHp, ttl: 'permanent', group: 'lionGrow', op: 'add' });
                     refreshMaxHp(cub, null, '幼狮成长');
                     cub.name = spec.name;
                     cub.role = spec.role;
+                    cub.m = spec.m;            // m 同步为目标形态的基础预算（原先缺这行，成形后的狮子一直挂着幼狮的 m=20）
                     applyHeroFlags(cub);       // 按新名字补 isLionMale / isLioness
                     cub.isLionCub = false;     // 形态标记互斥，旧形态显式清掉
                     emitEvent(cub, UNIT_EVENT_TYPES.HP_CHANGE, { hp: cub.hp, maxHp: cub.maxHp, alive: cub.alive, role: cub.role, atk: getStat(cub, 'atk'), def: getStat(cub, 'def') });
                     if (data && data.log) {
-                        data.log.push({ factType: FACT_TYPES.LION_GROW, data: { name: spec.name, pos: cub.pos, atk: spec.atk, def: spec.def, maxHp: spec.maxHp } });
+                        data.log.push({ factType: FACT_TYPES.LION_GROW, data: { name: spec.name, pos: cub.pos, atk: tgtAtk, def: tgtDef, maxHp: tgtMaxHp } });
                     }
                 }
             });
@@ -691,7 +699,7 @@ export function createXieXunComponent() {
                 if (free.length === 0) return;
                 const pos = free[rng.nextInt(0, free.length - 1)];
                 const cub = spawnUnit(myTeam, summon.cub.name, summon.cub.m, summon.cub.role, pos,
-                    { atk: summon.cub.atk, def: summon.cub.def, maxHp: summon.cub.maxHp });
+                    { atk: summon.cub.atk, def: summon.cub.def, maxHp: summon.cub.maxHp, skipRoleBonus: summon.cub.skipRoleBonus });
                 if (data && data.log) {
                     data.log.push({ factType: FACT_TYPES.SUMMON_UNIT, data: { summonName: cub.name, summonUid: cub.uid, pos, byName: xiexun.name } });
                 }
