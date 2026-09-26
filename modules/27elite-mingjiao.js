@@ -1,5 +1,5 @@
-// V6.3.5 | ~41700 bytes | 2026-09-26 三狮属性改「基础值 + 职业加成」口径（成长 delta 按最终值算），补 cub.m 同步
-export const VER = 'modules/27elite-mingjiao.js V6.3.5';
+// V6.3.6 | ~41750 bytes | 2026-09-27 butterflyNoHost 产出点补 sisterUid（契约 infra/58 L97 强制要求，原缺 → render/38 翻译出的 actorUid 落空，演出无锚点）
+export const VER = 'modules/27elite-mingjiao.js V6.3.6';
 
 import { registerElite } from '../core/08-elite-registry.js';
 import { CONFIG, getSkillParams } from '../core/01config-5v5-test.js';
@@ -276,7 +276,7 @@ export function createXiaoZhaoSisterComponent() {
             for (const p of order) { const u = A.find(a => a.pos === p && a.alive && !a.isHorse && a.uid !== sister.uid); if (u) { host = u; break; } }
             if (!host) {
                 applyStatChange(sister, 'hp', -sister.hp, null, '蝶变无宿主', false);
-                log.push({ factType: FACT_TYPES.BUTTERFLY_NO_HOST, data: { unitName: sister.name } });
+                log.push({ factType: FACT_TYPES.BUTTERFLY_NO_HOST, data: { unitName: sister.name, sisterUid: sister.uid } });
                 return null;
             }
             const atkRatio = flyDirection === 'left' ? 0 : 1/2;
