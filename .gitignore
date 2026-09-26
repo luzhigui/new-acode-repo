@@ -10,8 +10,17 @@
 # DSH 技能说明书（2026-09-26 起入库）
 # /.dsh/
 
-# 展示与CG（2026-09-26 起入库；仅排除体积过大的 3D 模型目录，约 1 GB，git 装不下）
-/展示与CG/gen_3d/
+# 展示与CG（2026-09-26 起入库）
+# gen_3d：立绘 PNG / 网页版模型(_web.glb) / 预览图 / 查看器 html 入库，手机端可直接查看；
+# 以下体积过大或含密钥者排除：
+/展示与CG/gen_3d/_backup_20260926/
+/展示与CG/gen_3d/**/*.glb
+!/展示与CG/gen_3d/**/*_web.glb
+/展示与CG/gen_3d/**/*_obj.zip
+/展示与CG/gen_3d/gallery-standalone.html
+/展示与CG/gen_3d/_tok.txt
+# _jobs 内的 json/log 含提交时的访问令牌，禁止入库（会触发 GitHub secret scanning）
+/展示与CG/gen_3d/_jobs/
 # 例外：精英展示-04 被 ui/61 精英图鉴选人弹层 iframe 加载，必须入库
 
 # APK 打包产物（由 GitHub Actions 生成，不入库）
