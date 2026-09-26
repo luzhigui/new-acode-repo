@@ -1,4 +1,9 @@
-// V6.2.0 | 2026-09-25 新增「不变量套件」：hp∈[0,maxHp] / hp 整数 / maxHp>0 / pos 唯一 / facts 映射完整，
+// V6.3.0 | 2026-09-26 生死/血量一致性改为按 `_pendingDeath` 对齐设计内中间态（依据见 assertInvariants 注释）：
+//          引擎致死统一挂 _pendingDeath 交 resolveDeaths 结算，「hp<=0 且 alive 仍 true」是**设计内中间态**
+//          而非缺陷，旧判据把该窗口当回归 → 5 条误报；现判据与引擎同源（alive && !state._pendingDeath），
+//          并新增「回合末仍存活但血空」兜底断言，覆盖"该结算的没结算"一类（不是放宽，覆盖面反而更准）。
+//          另修正头/码矛盾：此前这里写了"hp 整数"，但该断言早已因 11901 条假阳性被删除（自述见下）。
+// V6.2.0 | 2026-09-25 新增「不变量套件」：hp∈[0,maxHp] / maxHp>0 / pos 唯一 / facts 映射完整，
 //          逐步断言（非终局快照），与机制规则分开报告并计入退出码。理由：中期越界后被修回的漂移
 //          终局快照抓不到，且不变量本就与具体机制无关、成本极低覆盖面最大。
 // V6.1.11 | 规则回放自检（开发用 runner，不参与游戏运行）
@@ -28,7 +33,7 @@ globalThis.window = globalThis;
 globalThis.self = globalThis;
 
 // 补 VER（第 21 轮）：此前本文件无 export const VER，tools/118 的版本头对账会漏掉它
-export const VER = 'tests/rules-replay.mjs V6.2.1';
+export const VER = 'tests/rules-replay.mjs V6.3.0';
 
 const HERE = new URL('.', import.meta.url);
 const [{ CONFIG, loadGameData }, { SeededRNG }, { createRoundStepper }, { initBattleTeams },
@@ -143,8 +148,17 @@ function assertInvariants(units, round, seed, stage) {
         //   `hpAfter = Math.floor(target.hp) - dmg`。首版加了这条 → 120 场误报 11901 条，纯假阳性。
         // 生死与血量一致（第 23 轮加）：存活者 hp 应 >0、已阵亡者 hp 应 <=0。
         //   "活死人"（alive 但血空）与"带血尸体"（已死却还有血）都是明确的回归信号。
-        if (u.alive === true && !(u.hp > 0)) {
-            invIssues.add(tag + (u.name || u.uid) + ' 存活但 hp<=0：' + u.hp);
+        // 生死与血量一致（第 23 轮加，第 24 轮按 _pendingDeath 对齐设计内中间态）。
+        //   取证：此前 5 条违规经探针核证 **全部** `state._pendingDeath === true`（探针 _tmp-pending.mjs）。
+        //   成因（业务侧 V7.4.5 / core/10 V6.3.3）：致死不再当场 `alive=false`，统一挂 `_pendingDeath`
+        //   交 core/12 L413 `resolveDeaths` 结算（修「带血尸体」hp 不清零 + DEATH 信号不发两个洞）。
+        //   于是「hp<=0 且 alive 仍 true」是**设计内中间态**——逐步断言恰落在这个窗口里，不是缺陷。
+        //   这是口径对齐、不是放宽：引擎自己判"还能不能被选/被打"就是 `u.alive && !u.state._pendingDeath`
+        //   （core/03 L63/L290、core/10 L59/L88、modules/27 L573/L737），体检沿用同一契约，不另立一套。
+        //   故真正的红线收窄为：**血已空、却既没标记待死也没结算** → 死亡结算链路断了。
+        const isPendingDeath = !!(u.state && u.state._pendingDeath);
+        if (u.alive === true && !(u.hp > 0) && !isPendingDeath) {
+            invIssues.add(tag + (u.name || u.uid) + ' 空血却未标记待死（死亡结算断链）：hp=' + u.hp);
         }
         if (u.alive === false && u.hp > 0) {
             invIssues.add(tag + (u.name || u.uid) + ' 已阵亡但 hp>0：' + u.hp);
@@ -212,6 +226,21 @@ function runCase(seed, stage) {
             // 不变量：每步断言一次（比"每回合末"更细 —— 中期越界后被修回也能抓到）
             assertInvariants([...(step.ally || []), ...(step.enemy || [])], battleState.round, seed, stage);
             if (step.winner) winner = step.winner;
+        }
+        // 回合末兜底断言（第 24 轮）：本回合**正常打完**（无胜者、即将进入下一回合）时，不应再有
+        //   「存活但血空」单位——连仍挂 _pendingDeath 的也不该留下：core/12 有"回合循环内 + 回合结束兜底"
+        //   双路径，待死单位到回合末必被结算。这条补回"标记了却没人结算"那一类，避免上面按 _pendingDeath
+        //   放行后该情形就此失去覆盖。
+        //   有胜者时跳过：胜负已分即战斗终止，最后一击的待死单位本就不再结算，属正常收尾而非缺陷。
+        if (!winner && lastStep) {
+            for (const u of [...(lastStep.ally || []), ...(lastStep.enemy || [])]) {
+                if (!u) continue;
+                if (u.alive === true && !(u.hp > 0)) {
+                    invIssues.add(`[seed=${seed} stage=${stage} round=${battleState.round}] `
+                        + (u.name || u.uid) + ' 回合末仍存活但血空（结算未兜底）：hp=' + u.hp
+                        + (u.state && u.state._pendingDeath ? ' [_pendingDeath=true]' : ''));
+                }
+            }
         }
         if (winner || !lastStep) break;
         battleState = {
