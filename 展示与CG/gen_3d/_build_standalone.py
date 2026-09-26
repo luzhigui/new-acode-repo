@@ -22,6 +22,7 @@ MODELS = [
     ("宋远桥",        "syq",       "syq_web.glb"),
     ("灭绝师太",      "mjs",       "mjs_web.glb"),
     ("张三丰",        "zf",        "zf_web.glb"),
+    ("周芷若 · 湿身纱", "zzrws",     "zzrws_web.glb"),
 ]
 
 cards = []
