@@ -21,6 +21,8 @@
 /展示与CG/gen_3d/_tok.txt
 # _jobs 内的 json/log 含提交时的访问令牌，禁止入库（会触发 GitHub secret scanning）
 /展示与CG/gen_3d/_jobs/
+# _publish 是发布用的生成物（26MB），由 _build_publish.py 重建
+/展示与CG/gen_3d/_publish/
 # 例外：精英展示-04 被 ui/61 精英图鉴选人弹层 iframe 加载，必须入库
 
 # APK 打包产物（由 GitHub Actions 生成，不入库）
