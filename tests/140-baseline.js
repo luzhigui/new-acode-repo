@@ -1,3 +1,6 @@
+// V1.4.0 | ~10800 bytes | 2026-09-25 修分类判据自身的缺陷：「预期变更」的依据提交原取**全部**提交
+//          （连 test(体检)/docs/chore 都算），基线后 266 条使判据恒真 → 分类形同虚设。现只取触达
+//          战斗代码（content/core/modules/render/fx/player/infra）的提交，并单列数值平衡类（content/）。
 // V1.3.0 | ~10200 bytes | 2026-09-25 --check 的 DIFF 改为二分：winner 翻转＝回归（红线，硬失败）；winner 未变
 //          且基线后业务侧确有提交可解释＝预期变更（单列提示重录，不硬失败）。旧版任何 DIFF 一律退码 1，
 //          导致每次有意调数值都被红线拦死，红线反而失去意义。
@@ -9,7 +12,7 @@
 //       node tests/140-baseline.js 1:1 42:3      → 只跑指定场次打印结果，不写基线（先验证用）
 // 注意：引擎文件顶层访问浏览器全局（window/self），必须在任何引擎 import 之前 mock，
 //       故全部引擎 import 改为动态（在 main 内、mock 之后执行）。
-export const VER = 'tests/140-baseline.js V1.3.0';
+export const VER = 'tests/140-baseline.js V1.4.0';
 
 import { fileURLToPath } from 'node:url';
 
@@ -28,15 +31,29 @@ globalThis.localStorage = { getItem: () => null, setItem: () => {}, removeItem: 
 globalThis.window = globalThis;
 globalThis.self = globalThis;
 
-// 取基线生成之后的提交说明，用于把 DIFF 归类为「预期变更」还是「回归」（方向④）。
-// 取不到 git（非仓库环境 / 无权限）时返回空数组 —— 此时非 winner 差异一律归回归，宁严勿松。
+// 只有触达这些目录的提交，才可能解释**战斗结果**的差异
+const BATTLE_PATHS = ['content', 'core', 'modules', 'render', 'fx', 'player', 'infra'];
+// 数值平衡类：动 content/（游戏数据）—— 这正是"胜率 / 回合数漂移"最常见的正当来源
+const BALANCE_PATHS = ['content'];
+
+// 取基线生成之后的「战斗相关」提交说明，用于把 DIFF 归类为「预期变更」还是「回归」（方向④）。
+// 第 23 轮修正（修本工具自己的缺陷）：原实现取**全部**提交 —— 连 `test(体检)` / `docs` / `chore`
+//   都被当成战斗 DIFF 的"预期变更"依据，等于用体检提交给战斗变化发通行证。基线后 266 条提交
+//   使该判据恒真，"预期变更"这栏失去意义。现在只取触达战斗代码的提交，并单列其中的数值平衡类。
+// 取不到 git（非仓库环境 / 无权限）时返回空 —— 此时非 winner 差异一律归回归，宁严勿松。
 async function commitsSince(isoDate) {
+    const out = { battle: [], balance: [] };
     try {
         const cp = await import('node:child_process');
-        const out = cp.execSync(`git log --since="${isoDate}" --pretty=format:%s`,
-            { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
-        return (out || '').split('\n').map(s => s.trim()).filter(Boolean);
-    } catch (e) { return []; }
+        const run = (paths) => {
+            const s = cp.execSync(`git log --since="${isoDate}" --pretty=format:%s -- ${paths.join(' ')}`,
+                { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
+            return (s || '').split('\n').map(x => x.trim()).filter(Boolean);
+        };
+        out.battle = run(BATTLE_PATHS);
+        out.balance = run(BALANCE_PATHS);
+    } catch (e) { /* 取不到就保持空 */ }
+    return out;
 }
 
 const SEEDS = [1, 42, 999, 12345, 777, 88888];
@@ -137,7 +154,7 @@ async function main() {
             const line = `seed=${cur.seed} stage=${cur.stage} winner=${ref.winner}->${cur.winner} `
                 + `rounds=${ref.rounds}->${cur.rounds} factsSame=${sameFacts}`;
             if (!sameWinner) regressions.push(line + '  【winner 翻转＝回归】');
-            else if (since.length) intended.push(line);
+            else if (since.battle.length) intended.push(line);
             else regressions.push(line + '  【基线后无业务提交，无法用有意变更解释】');
         }
 
@@ -148,9 +165,10 @@ async function main() {
         if (intended.length) {
             console.log(`\n[预期变更] ${intended.length} 场（winner 未变，基线后业务侧有提交可解释 —— 人工核对后重录基线）`);
             for (const l of intended) console.log('  · ' + l);
-            console.log('  基线生成于 ' + base.generatedAt + '，之后的提交：');
-            for (const s of since.slice(0, 10)) console.log('    - ' + s);
-            if (since.length > 10) console.log(`    … 另有 ${since.length - 10} 条`);
+            console.log('  基线生成于 ' + base.generatedAt + '；之后触达战斗代码的提交 '
+                + since.battle.length + ' 条（其中数值平衡类 ' + since.balance.length + ' 条）：');
+            for (const s of since.battle.slice(0, 10)) console.log('    - ' + s);
+            if (since.battle.length > 10) console.log(`    … 另有 ${since.battle.length - 10} 条`);
         }
         if (regressions.length) {
             console.log(`\n[回归] ${regressions.length} 场（红线：报红，严禁重录基线）`);

@@ -141,6 +141,25 @@ function assertInvariants(units, round, seed, stage) {
         // 注意（踩坑 2026-09-25）：**不要**断言 hp 为整数。引擎内部 hp/maxHp 本就是浮点
         //   （maxHp 可为 112.5，百分比治疗天然带小数），取整只发生在显示层 fmtHp 与伤害结算
         //   `hpAfter = Math.floor(target.hp) - dmg`。首版加了这条 → 120 场误报 11901 条，纯假阳性。
+        // 生死与血量一致（第 23 轮加）：存活者 hp 应 >0、已阵亡者 hp 应 <=0。
+        //   "活死人"（alive 但血空）与"带血尸体"（已死却还有血）都是明确的回归信号。
+        if (u.alive === true && !(u.hp > 0)) {
+            invIssues.add(tag + (u.name || u.uid) + ' 存活但 hp<=0：' + u.hp);
+        }
+        if (u.alive === false && u.hp > 0) {
+            invIssues.add(tag + (u.name || u.uid) + ' 已阵亡但 hp>0：' + u.hp);
+        }
+        // 累计统计不得为负（第 23 轮）。注意**不能**写成"单调不减"：core/13:55-59 有
+        //   `case 'immuneRollback'`（免疫回退：承伤已记、只退输出），会刻意把 dmgDealt
+        //   `Math.max(0, x - amount)` 减回去 —— 首版按"单调不减"写，120 场误报 **44 条**，已作废。
+        //   作者既已用 Math.max(0,..) 兜底，真正成立的不变量就是"不为负"：
+        //   一旦兜底被撤，统计就会漏出负值，这条能抓住。
+        for (const k of ['dmgDealt', 'dmgTaken', 'healDone']) {
+            if (typeof u[k] === 'number' && u[k] < 0) {
+                invIssues.add(tag + (u.name || u.uid) + ' 累计 ' + k + ' 为负：' + u[k]);
+            }
+        }
+
         // pos 唯一：同阵营内两个活人不能占同一格
         if (u.pos != null && u.alive !== false) {
             const key = (u.camp || '?') + '#pos' + u.pos;
