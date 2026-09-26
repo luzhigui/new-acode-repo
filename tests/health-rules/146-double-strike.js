@@ -20,12 +20,11 @@
 //     本规则消费的是渲染后条目（只有 type + text，无 uid），只能按"本回合的『X成长为Y』"条目登记
 //     别名后再比对；不做这层就会把谢逊狮群的正常回合误报成连击越界（2026-09-24 实测 2 条红全是这个形态）。
 export const VER = 'tests/health-rules/146-double-strike.js V6.1.13';
+import { plain } from '../122health-utils.js';
 
 const PROB_PCT = 80; // content buffs.doubleStrike.prob = 0.8，仅用于文案口径核对
 
-function plain(s) {
-    return String(s || '').replace(/<[^>]+>/g, '');
-}
+
 
 // 从 attack-group 的战斗文本里取攻击方名字：「明教 洪午(攻12 血30) → …」
 function attackerNameOf(entry) {

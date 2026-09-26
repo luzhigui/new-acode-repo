@@ -554,6 +554,44 @@ export function collectNodes(log) {
     return out;
 }
 
+// --- 以下三个小工具同批收口（第 27 轮）：曾在 9 个规则里各有副本，归一化比对确认**各自只有一种实现** ---
+//   plain        ×5（146/148/149/150/151）
+//   entryTexts   ×2（136/144）
+//   maxHpOf      ×2（150/151）
+// 与 collectNodes 同款病：复制即埋雷，改一处漏八处。名字本来就一致，import 时无需 as。
+
+/** 去掉 HTML 标签取纯文本（战报条目带 <span> 等富文本，判据一律比纯文本） */
+export function plain(s) {
+    return String(s || '').replace(/<[^>]+>/g, '');
+}
+
+/** 取一条日志自身文本 + 其 entries 子条目的文本（判据常要"顶层或子条目任一命中"） */
+export function entryTexts(e) {
+    var out = [];
+    if (!e) return out;
+    if (typeof e.text === 'string' && e.text) out.push(e.text);
+    if (Array.isArray(e.entries)) {
+        for (var i = 0; i < e.entries.length; i++) {
+            var sub = e.entries[i];
+            if (sub && typeof sub.text === 'string' && sub.text) out.push(sub.text);
+        }
+    }
+    return out;
+}
+
+/** 按名字在终局两队里查 maxHp（吸血/回血类判据要用"回血量不得超过血上限"） */
+export function maxHpOf(name, afterA, afterE) {
+    var lists = [afterA, afterE];
+    for (var i = 0; i < lists.length; i++) {
+        var arr = lists[i] || [];
+        for (var k = 0; k < arr.length; k++) {
+            var u = arr[k];
+            if (u && u.name === name && typeof u.maxHp === 'number') return u.maxHp;
+        }
+    }
+    return null;
+}
+
 // 带组号版本：`gi` = 该条目所属顶层日志下标（用于"同一攻击组内"的判据），`i` = 摊平后的序号。
 export function collectNodesGrouped(log) {
     var out = [];
