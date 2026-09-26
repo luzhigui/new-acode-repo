@@ -34,6 +34,7 @@
 //   战报序列天然有缺口，数节奏必然误报；若要盯"翻倍永远打不出来"这个静默失效，得先给回放器补
 //   「每回合单位血量快照」通道，届时才能按 ratio 精确重算。
 export const VER = 'tests/health-rules/150-hot-blood-leech.js V6.1.15';
+import { collectNodes } from '../122health-utils.js';
 
 import { CONFIG } from '../../core/01config-5v5-test.js';
 
@@ -54,22 +55,7 @@ function plain(s) {
 
 // 战报节点收集：数组元素（render/30 少数渲染函数返回数组）→ 顶层条目 → attack-group 的 entries 子条目。
 // 与 132/133 同款：热血回血是 info 条目，实测挂在攻击组 entries 里，只扫顶层会恒空转。
-function collectNodes(log) {
-    var out = [];
-    function walk(node, depth) {
-        if (!node) return;
-        if (Array.isArray(node)) {
-            for (var i = 0; i < node.length; i++) walk(node[i], depth);
-            return;
-        }
-        out.push(node);
-        if (depth === 0 && Array.isArray(node.entries)) {
-            for (var k = 0; k < node.entries.length; k++) walk(node.entries[k], depth + 1);
-        }
-    }
-    for (var j = 0; j < log.length; j++) walk(log[j], 0);
-    return out;
-}
+
 
 // 终局快照里查单位最大血量（取不到返回 null，交给调用方跳过判据2）
 function maxHpOf(name, afterA, afterE) {

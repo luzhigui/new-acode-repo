@@ -20,26 +20,13 @@
 //      随便一条回血都会被拉进判据。现改为只认「白骨爪 + 宋青书 + 回复/回血」的条目。
 //   两处收窄都是为了"复活后不误报"，判据语义（回血不许夹在爪击中间、每序列≤1条）一字未动。
 export const VER = 'tests/health-rules/123-claw-heal-spam.js V6.1.15';
+// 用 as 保留原调用名 collectNodes：调用点（L54 等）不改，避免"改名漏改调用点"这类回归。
+import { collectNodesGrouped as collectNodes } from '../122health-utils.js';
 
 // 战报节点收集：顶层条目 → attack-group 的 entries 子条目（爪击/斩杀/白骨爪回血都挂在这一层）。
 // 每个节点带上所属顶层组序号 gi 与摊平序号 i：判据要在**同一组**内比先后顺序，不能跨组比。
 // 顺序保持战报原序，"夹在爪击中间"的位置判据才有效。
-function collectNodes(log) {
-    var out = [];
-    function walk(node, depth, gi) {
-        if (!node) return;
-        if (Array.isArray(node)) {
-            for (var i = 0; i < node.length; i++) walk(node[i], depth, gi);
-            return;
-        }
-        out.push({ e: node, gi: gi, i: out.length });
-        if (depth === 0 && Array.isArray(node.entries)) {
-            for (var k = 0; k < node.entries.length; k++) walk(node.entries[k], depth + 1, gi);
-        }
-    }
-    for (var j = 0; j < log.length; j++) walk(log[j], 0, j);
-    return out;
-}
+
 
 // 白骨爪回血条目识别（收窄版）：必须是「白骨爪 + 宋青书 + 回复/回血」。
 // 文本通道对现行 render/35 renderClawHealFact「💚 宋青书因九阴白骨爪共回复X点生命」；

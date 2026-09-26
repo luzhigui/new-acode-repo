@@ -532,3 +532,39 @@ export function locateLogEntry(log, entry) {
     }
     return '(第' + round + '回合, 第' + (idx + 1) + '条日志' + (who ? ', ' + who : '') + ')';
 }
+
+// --- 战报条目摊平（第 25 轮收口）---
+// 根因：同一段"顶层 → attack-group 的 entries 下钻"逻辑曾在 7 个规则里各复制一份
+//   （123/129/132/133/150/151/152），复制时就地改参数，遂分化成三种形态。
+//   取证（归一化后逐字比对）：129/133/150/151/152 **五份完全相同**（扁平 push 节点）；
+//   132 为 `{e, gi}`；123 为 `{e, gi, i}`，且 123 的判据**真的用 `.i` 做同组内排序**（L85-86），
+//   不是冗余字段 —— 故带组号版本必须保留 `i`。
+// 收敛：在此提供唯一实现，各规则 import；`i` 对 132 是多余字段，无害。
+export function collectNodes(log) {
+    var out = [];
+    function walk(node, depth) {
+        if (!node) return;
+        if (Array.isArray(node)) { for (var i = 0; i < node.length; i++) walk(node[i], depth); return; }
+        out.push(node);
+        if (depth === 0 && Array.isArray(node.entries)) {
+            for (var k = 0; k < node.entries.length; k++) walk(node.entries[k], depth + 1);
+        }
+    }
+    for (var j = 0; j < (log || []).length; j++) walk(log[j], 0);
+    return out;
+}
+
+// 带组号版本：`gi` = 该条目所属顶层日志下标（用于"同一攻击组内"的判据），`i` = 摊平后的序号。
+export function collectNodesGrouped(log) {
+    var out = [];
+    function walk(node, depth, gi) {
+        if (!node) return;
+        if (Array.isArray(node)) { for (var i = 0; i < node.length; i++) walk(node[i], depth, gi); return; }
+        out.push({ e: node, gi: gi, i: out.length });
+        if (depth === 0 && Array.isArray(node.entries)) {
+            for (var k = 0; k < node.entries.length; k++) walk(node.entries[k], depth + 1, gi);
+        }
+    }
+    for (var j = 0; j < (log || []).length; j++) walk(log[j], 0, j);
+    return out;
+}
