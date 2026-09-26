@@ -52,7 +52,8 @@ async function main() {
     // runner / 基线类文件是否被打包清单收进去（同样只报不改）
     const runners = [
         'tests/120test-runner.html', 'tests/140-baseline.js', 'tests/baselines/baseline-v1.json',
-        'tests/rules-replay.mjs', 'tests/smoke-headless.mjs', 'tests/registration-check.mjs'
+        'tests/rules-replay.mjs', 'tests/smoke-headless.mjs', 'tests/registration-check.mjs',
+        'tests/coverage-report.mjs'
     ];
     const missRunner = runners.filter(r => !t106.includes(r));
 

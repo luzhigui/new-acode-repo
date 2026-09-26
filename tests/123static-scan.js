@@ -59,7 +59,7 @@ export const SCAN_FILES = [
     './124rule-recipes.js', './140-baseline.js',
     // 两个活跃 runner 此前漏登（第 23 轮补）：它们同样 import 主代码符号，改名/删除会断裂，
     //   不进清单就扫不到。tools/106 打包清单仍未登记这两个（属工具侧，只报不动）。
-    './rules-replay.mjs', './smoke-headless.mjs', './registration-check.mjs',
+    './rules-replay.mjs', './smoke-headless.mjs', './registration-check.mjs', './coverage-report.mjs',
     './health-rules/123-claw-heal-spam.js', './health-rules/124-aftermiss.js',
     './health-rules/125-fortify-timing.js', './health-rules/126-xuanming-link.js',
     './health-rules/127-butterfly-stack.js', './health-rules/128-butterfly-return.js',
