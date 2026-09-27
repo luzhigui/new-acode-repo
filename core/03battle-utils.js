@@ -1,5 +1,5 @@
-// V6.1.2 | ~17000 bytes | 2026-09-25 删 selectFlyTarget/canReach（飞行切入选敌，唯一调用方 core/11 的飞行钩子已按定案 B 移除，飞行改回 core/07 策略表）
-export const VER = 'core/03battle-utils.js V6.1.2';
+// V6.1.3 | ~17000 bytes | 2026-09-27 战士破防改为「只提交声明」（删除本处直改 addMod）：原先 L164 直改 + L165 声明双路径，裁判侧 core/16 会再扣一次，导致实际防御 -8 而日志写 -4
+export const VER = 'core/03battle-utils.js V6.1.3';
 
 import { CONFIG, getGameData } from './01config-5v5-test.js';
 import { emitEvent, applyStatChange, query, getBattleRng, getPresentationRng, addMod, getStat } from './13battle-shared.js';
@@ -148,7 +148,7 @@ export function hasEnemyLowHp(enemySide, threshold = 0.4) {
     return enemySide.some(u => u.alive && u.hp / u.maxHp < threshold);
 }
 
-// 战士破防：判定后直接 addMod 永久负词条
+// 战士破防：只提交声明，由 core/16 的裁定器统一 addMod（见 V6.1.3：本处原有一次直改，与裁定重复导致双扣）
 function submitWarriorBreakDefenseDeclaration(data) {
     const { unit, target, declarations } = data;
     if (!declarations) return;
@@ -161,7 +161,6 @@ function submitWarriorBreakDefenseDeclaration(data) {
     let breakChance = tier.chance === null ? targetDef * (C.WARRIOR_BREAK_CHANCE_PER_DEF ?? 2.5) : tier.chance;
     if (getBattleRng().nextInt(1, 100) > breakChance) return;
     defReduced = Math.min(defReduced, getStat(target, 'def'));
-    addMod(target, 'def', { source: '破防', value: -defReduced, ttl: 'permanent', group: 'breakDef', op: 'add' });
     declarations.push({ type: EFFECT_TYPES.BREAK_DEF, value: defReduced, source: unit, target: target, factData: { attackerName: unit.name, targetName: target.name, reduce: defReduced } });
 }
 
