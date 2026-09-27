@@ -1,5 +1,5 @@
-// V1.5.2 | ~10000 bytes | 2026-09-27 RONG_HUI_BONUS 契约补 targetUid（render/38 扫 entries 出飘字要用）；承接 V1.5.1 ENDLESS_BREATH 登记 translateFn
-export const VER = 'infra/58-fact-contract.js V1.5.2';
+// V1.5.3 | ~14500 bytes | 2026-09-27 DOUBLE_STRIKE 契约补 requiredFields.unitName（core/03 成功/失败两分支都已带，供体检 146 直接读触发者）；承接 V1.5.2 RONG_HUI_BONUS 补 targetUid
+export const VER = 'infra/58-fact-contract.js V1.5.3';
 
 import { FACT_TYPES } from './56-battle-enums.js';
 
@@ -41,7 +41,7 @@ export const FACT_SPECS = Object.freeze({
     [FACT_TYPES.PASS]: { requiredFields: ['unit'], renderFn: 'renderPassFact', translateFn: 'translatePass' },
     [FACT_TYPES.KU_LIAN_PRIORITY]: { requiredFields: ['unitName'], renderFn: 'renderKuLianPriorityFact', translateFn: null },
     [FACT_TYPES.KU_LIAN]: { requiredFields: ['unitName'], renderFn: 'renderKuLianFact', translateFn: 'translateStatChange' },
-    [FACT_TYPES.DOUBLE_STRIKE]: { requiredFields: ['success'], renderFn: 'renderDoubleStrikeFact', translateFn: 'translateDoubleStrike' },
+    [FACT_TYPES.DOUBLE_STRIKE]: { requiredFields: ['success', 'unitName'], renderFn: 'renderDoubleStrikeFact', translateFn: 'translateDoubleStrike' },
     [FACT_TYPES.RANGED_GROWTH]: { requiredFields: ['unitName'], renderFn: 'renderRangedGrowthFact', translateFn: 'translateStatChange' },
     [FACT_TYPES.FORTIFY_SHIELD]: { requiredFields: ['unitName'], renderFn: 'renderFortifyShieldFact', translateFn: 'translateStatChange' },
     [FACT_TYPES.DOUBLE_STRIKE_SUMMARY]: { requiredFields: ['unitName'], renderFn: 'renderDoubleStrikeSummaryFact', translateFn: null },

@@ -1,5 +1,5 @@
-// V6.1.3 | ~17000 bytes | 2026-09-27 战士破防改为「只提交声明」（删除本处直改 addMod）：原先 L164 直改 + L165 声明双路径，裁判侧 core/16 会再扣一次，导致实际防御 -8 而日志写 -4
-export const VER = 'core/03battle-utils.js V6.1.3';
+// V6.1.4 | ~15800 bytes | 2026-09-27 概率连击成功 fact 补 unitName（与失败分支对称）：banner 此前不带单位，体检 146 只能靠「banner 之后第一条攻击者的名字」反推触发者，母狮随动链/他人回合插在中间即误报；承接 V6.1.3 战士破防改为「只提交声明」
+export const VER = 'core/03battle-utils.js V6.1.4';
 
 import { CONFIG, getGameData } from './01config-5v5-test.js';
 import { emitEvent, applyStatChange, query, getBattleRng, getPresentationRng, addMod, getStat } from './13battle-shared.js';
@@ -278,7 +278,11 @@ export function registerDoubleStrike(eventBus, doubleStrikeUnitUid, allyTeam, ac
         const xiaoDoubleEnhance = query('xiaoHexEnhance', allyTeam, activeBuffs, BUFF_TYPES.DOUBLE_STRIKE);
         const missChainChance = xiaoDoubleEnhance ? 1.0 : (C.BUFFS.doubleStrike.prob || 0.8);
         if (getBattleRng().next() < missChainChance) {
-            log.push({ factType: FACT_TYPES.DOUBLE_STRIKE, data: { success: true } });
+            // 2026-09-27 补 unitName：原成功分支不带单位，而渲染出的 banner 也没有单位字段，
+            //   体检 146 只能靠「banner 之后第一条 attack-group 的攻击者」反推触发者 ——
+            //   母狮随动链、其他单位自己的回合插在 banner 之后时必然误报（seed=10 stage=2 实测）。
+            //   失败分支本就带 unitName，这里补齐对称，判据即可直接读单位、不再推断。
+            log.push({ factType: FACT_TYPES.DOUBLE_STRIKE, data: { success: true, unitName: unit.name } });
             Object.assign(unit.state, { _doubleStriked: true });
             if (!data.extraRequests) data.extraRequests = [];
             data.extraRequests.push({
