@@ -1,5 +1,5 @@
-// V6.3.6 | ~41750 bytes | 2026-09-27 butterflyNoHost 产出点补 sisterUid（契约 infra/58 L97 强制要求，原缺 → render/38 翻译出的 actorUid 落空，演出无锚点）
-export const VER = 'modules/27elite-mingjiao.js V6.3.6';
+// V6.3.7 | ~42150 bytes | 2026-09-27 融会贯通 fact 补 targetUid/targetAlive（render/38 据此在目标头上补额外伤害飘字，此前 BONUS_DMG 单独扣血却零飘字）；承接 V6.3.6 butterflyNoHost 补 sisterUid
+export const VER = 'modules/27elite-mingjiao.js V6.3.7';
 
 import { registerElite } from '../core/08-elite-registry.js';
 import { CONFIG, getSkillParams } from '../core/01config-5v5-test.js';
@@ -108,7 +108,10 @@ export function createZhangWujiComponent() {
                     } else {
                         applyStatChange(target, 'hp', -extra, unit, '融会贯通');
                     }
-                    group.data.entries.push({ factType: FACT_TYPES.RONG_HUI_BONUS, data: { unitName: unit.name, extra, targetAtk: Math.floor(getStat(target, 'atk')), targetDef: Math.floor(getStat(target, 'def')) } });
+                    // 2026-09-27 补 targetUid / targetAlive：render/38 扫 entries 时据此在目标头上补一条额外伤害飘字
+                    // （这笔 BONUS_DMG 在主攻击结算之后单独扣血，不进主攻击 dmg，此前完全没有飘字）；
+                    // targetAlive 与 core/16 裁定器的应用条件（decl.target.alive）一致——已死目标不扣这笔，也就不飘字
+                    group.data.entries.push({ factType: FACT_TYPES.RONG_HUI_BONUS, data: { unitName: unit.name, extra, targetUid: target.uid, targetAlive: target.alive, targetAtk: Math.floor(getStat(target, 'atk')), targetDef: Math.floor(getStat(target, 'def')) } });
                 }
             }
         }
