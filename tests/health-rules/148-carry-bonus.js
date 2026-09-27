@@ -16,7 +16,9 @@
 //   3) 门控里的 isXiaoZhaoSister/isXiaoZhaoBrother 排除项若被漏掉，小昭姐妹会白拿一份属性。
 // 五条复发信号（刻意不做"精确重算"：战报不带当期队友属性快照，硬凑反推只会造误报。
 //   这里只选"用文本自身 + 终局快照量级就能定性"的判据）：
-//   1) 同一回合同一单位被应用 carry ≥2 次 —— 属性被重复叠加（翻倍）
+//   1) 同一回合同一单位出现 ≥2 条 carry 应用声明 —— 声明重复。**不可直接断言"属性翻倍"**：
+//      第 34 轮实测（seed=18 stage=3 r13 雄狮）：同一步 2 条声明，逐步真值实测实际属性增量为 **0**。
+//      属性后果由 tests/stat-decl-vs-actual-check.mjs 判定，本规则只负责"声明重复"这一层。
 //   2) 加成值非法：出现负数或非整数（公式是 floor 累加，结果必为非负整数）
 //   3) 静默归零：队友属性明显够（按"除自己外最弱队友 × 配置比例"floor ≥ 1）却加成为 0
 //      —— _baseMaxHp 读不到 / bonus 未接上
@@ -25,7 +27,7 @@
 //      —— 比例或倍率被写大。注意属性必须走 getStat（引擎同源），读 u.atk 基值会把上界算小造成误报。
 // 误报规避：本场没有带数值的 carry 条目直接 skip；拿不到单位池只跳过 3/5 两条量级判据（不猜）；
 //   配置比例读不到时退回版本约定值 0.08/0.08/0.1/2，并在读不到时只跑 1/2/4 三条结构判据。
-export const VER = 'tests/health-rules/148-carry-bonus.js V6.1.16';
+export const VER = 'tests/health-rules/148-carry-bonus.js V6.1.17';
 import { plain } from '../122health-utils.js';
 
 import { CONFIG } from '../../core/01config-5v5-test.js';
@@ -119,9 +121,11 @@ export const rule95 = {
                 if (who.indexOf('小昭') !== -1) {
                     return { fail: true, msg: '复发：第' + curRound + '回合 ' + who + ' 拿到了 carry 加成（小昭·姊/弟被门控排除，不该受益）' };
                 }
-                // 复发信号1：同一回合同一单位被应用两次 → 属性翻倍
+                // 复发信号1：同一回合同一单位出现 ≥2 条应用声明（每单位每回合应至多 1 条）
+                //   第 34 轮更正：仍判失败（重复执行本身是缺陷），但**不再断言"属性翻倍"** ——
+                //   实测该场景实际属性增量为 0，翻倍未获支持，推断数值后果会误导排查方向。
                 if (seenThisRound[who]) {
-                    return { fail: true, msg: '复发：第' + curRound + '回合 ' + who + ' 被应用 carry 两次（加成重复叠加，属性翻倍）' };
+                    return { fail: true, msg: '复发：第' + curRound + '回合 ' + who + ' 同回合出现 2 条 carry 应用声明（每单位每回合应至多 1 条，重复执行本身是缺陷）；注：实际属性增量需由逐步真值对照器判定，"属性翻倍"未获实测支持' };
                 }
                 seenThisRound[who] = true;
 
