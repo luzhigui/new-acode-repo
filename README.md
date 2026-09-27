@@ -22,6 +22,16 @@
 
 ---
 
+## 〇·四、分支策略（2026-09-27 定稿）
+
+**只准推 main。**
+
+- 历史支线（friend-dev / apk-styde / workbuddy / main-backup）已于 2026-09-27 全部删除，内容归档在同名 `archive/` tag（如 `friend-dev-archive-20260927`、`archive/apk-styde`），需要考古走 tag，不建分支。
+- 任何 AI 助手、任何自动化（含体检机器人）一律直接提交到 main；禁止新建远端分支、禁止 push 到 main 以外的分支。
+- 紧急回退点用 tag（`git tag 快照名`）表达，不用分支表达。
+
+---
+
 ## 〇·五、改动授权（优先级高于一切铁律）
 
 ### 1. 最终效果唯一
