@@ -1,5 +1,5 @@
-// V6.14.4 | ~25100 bytes | 2026-09-27 生生不息回血弹幕改走 fact→stageAction（render/38 翻译、39 HEAL 动作随文本行播出）：原先在引擎层直接 emit(HEAL_FLOAT)，弹幕抢在日志文字前；fact 补 defGain/overflowToUid/overflowDefGain 供日志报加防
-export const VER = 'modules/26elite-sixsects.js V6.14.4';
+// V6.14.5 | ~25200 bytes | 2026-09-27 生生不息回血转防御分两档：自身实际回血 ×defPerHeal(0.25)，溢出接盘者实际回复量 ×overflowDefPerHeal(1 等值)；承接 V6.14.4 回血弹幕改走 fact→stageAction（原先引擎层直发 HEAL_FLOAT，弹幕抢在日志文字前）
+export const VER = 'modules/26elite-sixsects.js V6.14.5';
 import { registerElite } from '../core/08-elite-registry.js';
 import { CONFIG, getSkillParams } from '../core/01config-5v5-test.js';
 import { SIGNAL_TYPES, FACT_TYPES, BUFF_TYPES, CAMP_TYPES, ROLE_TYPES } from '../infra/56-battle-enums.js';
@@ -74,8 +74,8 @@ export function createZhangSanfengComponent() {
                     }
                 }
 
-                // 2026-09-24 回血等量转永久防御：实际回血者（张三丰本人 / 溢出接盘队友）各按实际回复量加防。
-                // 系数走 content 的 endlessBreath.defPerHeal（缺省 1 = 等量），便于单独调平衡。
+                // 2026-09-27 回血转永久防御分两档（总座定案）：自身实际回血 ×defPerHeal（0.25）；
+                // 溢出转给接盘队友的实际回复量 ×overflowDefPerHeal（1 = 等值）。系数走 content 的 endlessBreath.params。
                 // 注意：八卦阵被攻击时也触发生生不息 → 挨打越多防越高，是个正反馈，数值需跑评测盯。
                 let defGain = 0;
                 let overflowDefGain = 0;
@@ -84,7 +84,7 @@ export function createZhangSanfengComponent() {
                     addMod(unit, 'def', { source: '生生不息', value: defGain, ttl: 'permanent', group: 'endlessBreath', op: 'add' });
                 }
                 if (receiver && receiverHealed > 0) {
-                    overflowDefGain = receiverHealed * s.defPerHeal;
+                    overflowDefGain = receiverHealed * s.overflowDefPerHeal;
                     addMod(receiver, 'def', { source: '生生不息', value: overflowDefGain, ttl: 'permanent', group: 'endlessBreath', op: 'add' });
                 }
 

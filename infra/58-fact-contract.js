@@ -1,5 +1,5 @@
-// V1.5.1 | ~10000 bytes | 2026-09-27 ENDLESS_BREATH 契约登记 translateFn（生生不息回血弹幕随文本行播出，此前 null；承接 V1.5.0 PHANTOM_REVEAL 补 deceiverUid）
-export const VER = 'infra/58-fact-contract.js V1.5.1';
+// V1.5.2 | ~10000 bytes | 2026-09-27 RONG_HUI_BONUS 契约补 targetUid（render/38 扫 entries 出飘字要用）；承接 V1.5.1 ENDLESS_BREATH 登记 translateFn
+export const VER = 'infra/58-fact-contract.js V1.5.2';
 
 import { FACT_TYPES } from './56-battle-enums.js';
 
@@ -86,7 +86,7 @@ export const FACT_SPECS = Object.freeze({
 
     // 张无忌九阳 / 融会贯通
     [FACT_TYPES.NINE_YANG_HEAL]: { requiredFields: ['unitUid', 'heal'], renderFn: 'renderNineYangHealFact', translateFn: 'makeHealAction' },
-    [FACT_TYPES.RONG_HUI_BONUS]: { requiredFields: ['extra', 'targetAtk'], renderFn: 'renderRongHuiBonusFact', translateFn: null },
+    [FACT_TYPES.RONG_HUI_BONUS]: { requiredFields: ['extra', 'targetAtk', 'targetUid'], renderFn: 'renderRongHuiBonusFact', translateFn: null },
 
     // 韦一笑吸血
     [FACT_TYPES.WEI_LEECH]: { requiredFields: ['unitUid', 'heal'], renderFn: 'renderWeiLeechFact', translateFn: 'makeHealAction' },

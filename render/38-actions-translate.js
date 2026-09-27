@@ -1,12 +1,12 @@
 // render/38-actions-translate.js — fact → stageAction 翻译器（翻译域）
-// V1.1.3 | ~27300 bytes | 2026-09-27 新增 ENDLESS_BREATH 翻译器：生生不息回血弹幕改由表现层随文本行播出（此前 modules/26 在引擎层直接 emit，弹幕抢在日志前；承接 V1.1.2 胖远桥演出标记），一个 fact 可产 1~2 条 HEAL 动作
+// V1.1.4 | ~28000 bytes | 2026-09-27 entries 扫描补 RONG_HUI_BONUS → REBOUND 飘字（张无忌融会贯通额外伤害此前藏在 attack.data.entries 里、零飘字）；承接 V1.1.3 ENDLESS_BREATH 翻译器（生生不息回血弹幕随文本行播出）
 //
 // 加新 fact 的舞台动作：在本文件 FACT_TRANSLATORS 加一条（键=factType），
 // 并在 infra/58 的 translateFn 登记函数名；漏加会在本文件末尾校验循环里报错。
 import { makeFXSnapshot } from '../infra/51-core-utils.js';
 import { STAGE_ACTION_TYPES, FACT_TYPES, CAMP_TYPES, BUFF_EFFECT_TYPES, FLY_MODE_TYPES } from '../infra/56-battle-enums.js';
 import { FACT_SPECS } from '../infra/58-fact-contract.js';
-export const VER = 'render/38-actions-translate.js V1.1.3';
+export const VER = 'render/38-actions-translate.js V1.1.4';
 
 // 把 fact 列表翻译成舞台动作；导演只读 stageActions；timing=beforeText/afterText
 export function translateFactsToStageActions(log) {
@@ -597,6 +597,21 @@ function makeAttackAction(data, index) {
                 factIndex: index,
                 timing: 'afterText'
             });
+        } else if (e.factType === FACT_TYPES.RONG_HUI_BONUS) {
+            // 2026-09-27 张无忌融会贯通：这笔额外伤害由 BONUS_DMG 声明在主攻击结算之后单独扣血，
+            // 不在主攻击的 dmg 里（主弹幕只有主伤害），此前只有一行文字、一点飘字都没有。
+            // targetAlive=false（已被主攻击打死，裁定器不会再扣这笔）时不飘，免得在尸体格子上跳数字。
+            const rh = e.data || {};
+            if (rh.targetUid && rh.extra > 0 && rh.targetAlive !== false) {
+                afterTextEffects.push({
+                    kind: STAGE_ACTION_TYPES.REBOUND,
+                    actorUid: attacker?.uid ?? null,
+                    targetUid: rh.targetUid,
+                    dmg: Math.round(rh.extra),
+                    factIndex: index,
+                    timing: 'afterText'
+                });
+            }
         }
     }
 
