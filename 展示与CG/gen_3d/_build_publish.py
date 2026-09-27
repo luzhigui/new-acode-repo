@@ -123,7 +123,7 @@ __IMGS__
 <div class="grid">
 __MODELS__
 </div>
-<footer>光明顶 5v5 · 2026-09-26 生成</footer>
+<footer>光明顶 5v5 · 更新于 2026-09-27</footer>
 <script type="module" src="./model-viewer.min.js"></script>
 </body>
 </html>
