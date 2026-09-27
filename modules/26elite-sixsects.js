@@ -1,5 +1,5 @@
-// V6.14.5 | ~25200 bytes | 2026-09-27 生生不息回血转防御分两档：自身实际回血 ×defPerHeal(0.25)，溢出接盘者实际回复量 ×overflowDefPerHeal(1 等值)；承接 V6.14.4 回血弹幕改走 fact→stageAction（原先引擎层直发 HEAL_FLOAT，弹幕抢在日志文字前）
-export const VER = 'modules/26elite-sixsects.js V6.14.5';
+// V6.14.6 | ~26000 bytes | 2026-09-27 生生不息回血转攻防定案：实际回血每 10 点→攻+1、每 6 点→防+1，溢出每 5 点→攻+1、每 3 点→防+1（每档至少+1），加成记在血量落点单位身上（张三丰那笔给自己、转给队友那笔给队友）；承接 V6.14.5 回血转防分两档
+export const VER = 'modules/26elite-sixsects.js V6.14.6';
 import { registerElite } from '../core/08-elite-registry.js';
 import { CONFIG, getSkillParams } from '../core/01config-5v5-test.js';
 import { SIGNAL_TYPES, FACT_TYPES, BUFF_TYPES, CAMP_TYPES, ROLE_TYPES } from '../infra/56-battle-enums.js';
@@ -46,7 +46,7 @@ export function createZhangSanfengComponent() {
             const tf = getSkillParams('张三丰', 'tenRoundFortify');
             if (!tf) throw new Error('缺技能参数: 张三丰.tenRoundFortify');
 
-            // 生生不息：只回 healPct 上限（三处触发共用：回合开始 / 轮到自己 / 八卦阵）。加防不在这里——加防属于八卦阵（掉攻的同时加防）
+            // 生生不息：只回 healPct 上限（三处触发共用：回合开始 / 轮到自己 / 八卦阵）；回血同时转永久攻防，见下
             // 2026-09-21 溢出转嫁：自身回不满的那部分（满血时即全部）转给随机一名存活友方，
             // 拒马也算友方；满血队友也可被选中（选中即作废，不改选）；随机走战斗 RNG（getBattleRng），保证 PVP 双端同源
             function triggerEndlessBreath(unit, log) {
@@ -74,18 +74,27 @@ export function createZhangSanfengComponent() {
                     }
                 }
 
-                // 2026-09-27 回血转永久防御分两档（总座定案）：自身实际回血 ×defPerHeal（0.25）；
-                // 溢出转给接盘队友的实际回复量 ×overflowDefPerHeal（1 = 等值）。系数走 content 的 endlessBreath.params。
-                // 注意：八卦阵被攻击时也触发生生不息 → 挨打越多防越高，是个正反馈，数值需跑评测盯。
-                let defGain = 0;
-                let overflowDefGain = 0;
-                if (healed > 0) {
-                    defGain = healed * s.defPerHeal;
-                    addMod(unit, 'def', { source: '生生不息', value: defGain, ttl: 'permanent', group: 'endlessBreath', op: 'add' });
-                }
-                if (receiver && receiverHealed > 0) {
-                    overflowDefGain = receiverHealed * s.overflowDefPerHeal;
-                    addMod(receiver, 'def', { source: '生生不息', value: overflowDefGain, ttl: 'permanent', group: 'endlessBreath', op: 'add' });
+                // 2026-09-27 定案：回血同时转永久攻防，按「实际回血 / 溢出」两档、按血量落点记账——
+                // 张三丰自己那笔（实疗 healed + 自身溢出 overflow）加给自己；转给队友那笔
+                // （队友实疗 receiverHealed + 队友二次溢出 overflow-receiverHealed）加给队友。
+                // 系数走 content endlessBreath.params（每 N 点血 → 攻/防 +1），每档有 minBonus 地板。
+                // 例：张三丰满血 100/100、队友 90/100、heal=20 → 张三丰 溢出20（攻+4 防+6.67）；
+                //     队友 实疗10（攻+1 防+1.67）+ 二次溢出10（攻+2 防+3.33）。
+                // 注意：八卦阵被攻击时也触发生生不息 → 挨打越多攻防越高，是个正反馈，数值需跑评测盯。
+                const gainOf = (amount, div) => amount > 0 ? Math.max(s.minBonus, amount / div) : 0;
+                const selfAtkGain = gainOf(healed, s.healAtkDiv) + gainOf(overflow, s.overflowAtkDiv);
+                const defGain = gainOf(healed, s.healDefDiv) + gainOf(overflow, s.overflowDefDiv);
+                if (selfAtkGain > 0) addMod(unit, 'atk', { source: '生生不息', value: selfAtkGain, ttl: 'permanent', group: 'endlessBreath', op: 'add' });
+                if (defGain > 0) addMod(unit, 'def', { source: '生生不息', value: defGain, ttl: 'permanent', group: 'endlessBreath', op: 'add' });
+                let receiverAtkGain = 0;
+                let receiverDefGain = 0;
+                if (receiver) {
+                    // 队友二次溢出＝转给它但没变成生命的那部分（含它本就满血时全额作废），仍照溢出档给加成
+                    const receiverOverflow = Math.max(0, overflow - receiverHealed);
+                    receiverAtkGain = gainOf(receiverHealed, s.healAtkDiv) + gainOf(receiverOverflow, s.overflowAtkDiv);
+                    receiverDefGain = gainOf(receiverHealed, s.healDefDiv) + gainOf(receiverOverflow, s.overflowDefDiv);
+                    if (receiverAtkGain > 0) addMod(receiver, 'atk', { source: '生生不息', value: receiverAtkGain, ttl: 'permanent', group: 'endlessBreath', op: 'add' });
+                    if (receiverDefGain > 0) addMod(receiver, 'def', { source: '生生不息', value: receiverDefGain, ttl: 'permanent', group: 'endlessBreath', op: 'add' });
                 }
 
                 // 2026-09-27 回血弹幕不在这里发了：改由下面的 fact → render/38 翻译 → 39 HEAL 动作，
@@ -104,12 +113,14 @@ export function createZhangSanfengComponent() {
                         data: {
                             unitName: unit.name, unitUid: unit.uid,
                             heal: healed,
-                            defGain,
                             overflow,
+                            atkGain: selfAtkGain,
+                            defGain,
                             overflowToName: receiver ? receiver.name : null,
                             overflowToUid: receiver ? receiver.uid : null,
                             overflowHealed: receiverHealed,
-                            overflowDefGain
+                            overflowAtkGain: receiverAtkGain,
+                            overflowDefGain: receiverDefGain
                         }
                     });
                 }

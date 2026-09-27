@@ -325,8 +325,8 @@
       "skills": {
         "endlessBreath": {
           "name": "生生不息",
-          "desc": "不攻击；每回合开始回复最大生命{healPct}%，轮到自己行动时再触发一次；自身实际回复每点永久+{defPerHeal}点防御，溢出接盘队友按每点+{overflowDefPerHeal}点防御结算",
-          "params": { "healPct": 0.16, "defPerHeal": 0.25, "overflowDefPerHeal": 1 }
+          "desc": "不攻击；每回合开始回复最大生命{healPct}%，轮到自己行动时再触发一次。回血同时永久加攻防：实际回血每{healAtkDiv}点→攻+1、每{healDefDiv}点→防+1；溢出每{overflowAtkDiv}点→攻+1、每{overflowDefDiv}点→防+1（每档至少+{minBonus}；加成记在血量落点单位身上）",
+          "params": { "healPct": 0.16, "healAtkDiv": 10, "healDefDiv": 6, "overflowAtkDiv": 5, "overflowDefDiv": 3, "minBonus": 1 }
         },
         "baguaArray": {
           "name": "八卦阵",

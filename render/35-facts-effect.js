@@ -1,5 +1,5 @@
 // render/35-facts-effect.js — 效果域 fact 渲染器
-// V1.0.7 | ~34700 bytes | 2026-09-27 生生不息日志补防御明细（回血同时按 defPerHeal 转永久防御，此前完全看不到；承接 V1.0.6 拒马 horseUid）
+// V1.0.8 | ~34800 bytes | 2026-09-27 生生不息日志改报「攻+ / 防+」两档明细（实际回血与溢出分档转永久攻防，接盘者满血也照报）；承接 V1.0.7 补防御明细
 //
 // 加新 fact 渲染：在本文件写函数 + 尾部 registerFactRenderer 一行（键=factType）。
 // 跨域取别的渲染器一律走 getFactRenderer(FACT_TYPES.X)(data)，禁止 import 其它域文件（免环）。
@@ -7,7 +7,7 @@ import { CONFIG } from '../core/01config-5v5-test.js';
 import { makeFXSnapshot, fmtHp } from '../infra/51-core-utils.js';
 import { BUFF_TYPES, BUFF_SUBTYPES, CAMP_TYPES, ROLE_TYPES, FACT_TYPES } from '../infra/56-battle-enums.js';
 import { registerFactRenderer, findUnitSnapshotByUid } from './33-fact-registry.js';
-export const VER = 'render/35-facts-effect.js V1.0.7';
+export const VER = 'render/35-facts-effect.js V1.0.8';
 
 // 拒马 / 张无忌
 export function renderHorseDestroyFact(fact) {
@@ -400,22 +400,24 @@ export function renderFortifyReboundFact(fact) {
     return { type:'info', text:`<span class="gold">🛡️ 严阵以待反弹${fact.reboundDmg}给${fact.unitName}</span>` };
 }
 
-// 张三丰：生生不息（2026-09-20 纯回血 + 溢出转嫁；加防不在此，归八卦阵）
-// 溢出文案分三种：无人可接（无其他存活队友）/ 接盘者回了血 / 接盘者已满血（本次溢出作废）
+// 张三丰：生生不息（回血 + 溢出转嫁 + 回血转永久攻防）
+// 溢出文案分两种：无人可接（无其他存活队友）/ 有人接（再区分接盘者是否真回了血）
 export function renderEndlessBreathFact(fact) {
-    // 2026-09-27 补防御明细：回血同时按 defPerHeal 转永久防御，此前日志完全看不到这层收益
-    const defTxt = (v) => { const n = Math.round((v || 0) * 10) / 10; return n > 0 ? `（防御+${n}）` : ''; };
-    const self = fact.heal > 0 ? `回复${fact.heal}点生命${defTxt(fact.defGain)}` : '生命已满';
+    // 2026-09-27 补攻防明细：回血同时按「实际回血/溢出」两档转永久攻防，此前日志完全看不到这层收益
+    const num = (v) => Math.round((v || 0) * 10) / 10;
+    const bonus = (atk, def) => (atk > 0 || def > 0) ? `攻+${num(atk)} 防+${num(def)}` : '';
+    const wrap = (t) => t ? `（${t}）` : '';
+    const self = `${fact.heal > 0 ? `回复${fact.heal}点生命` : '生命已满'}${wrap(bonus(fact.atkGain, fact.defGain))}`;
     let tail = '';
     if (fact.overflow > 0) {
         // 2026-09-21 溢出目标改为随机（满血也可被选中）后，三种情况要分开写：
         // ① 无人可接（除张三丰外无存活友方）② 接盘者确实回了血 ③ 接盘者已满血，本次溢出作废
         if (!fact.overflowToName) {
             tail = `，溢出${fact.overflow}点（无其他存活队友）`;
-        } else if (fact.overflowHealed > 0) {
-            tail = `，溢出${fact.overflow}点转给${fact.overflowToName}（其回复${fact.overflowHealed}点${defTxt(fact.overflowDefGain)}）`;
         } else {
-            tail = `，溢出${fact.overflow}点转给${fact.overflowToName}（其已满血，未生效）`;
+            const recv = fact.overflowHealed > 0 ? `回复${fact.overflowHealed}点` : '已满血未回血';
+            const b = bonus(fact.overflowAtkGain, fact.overflowDefGain);
+            tail = `，溢出${fact.overflow}点转给${fact.overflowToName}（${recv}${b ? '，' + b : ''}）`;
         }
     }
     return { type:'info', text:`<span class="green">☯ 生生不息：${fact.unitName} ${self}${tail}</span>` };
