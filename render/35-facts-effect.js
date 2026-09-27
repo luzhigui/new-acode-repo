@@ -1,5 +1,5 @@
 // render/35-facts-effect.js — 效果域 fact 渲染器
-// V1.0.8 | ~34800 bytes | 2026-09-27 生生不息日志改报「攻+ / 防+」两档明细（实际回血与溢出分档转永久攻防，接盘者满血也照报）；承接 V1.0.7 补防御明细
+// V1.0.9 | ~35800 bytes | 2026-09-27 概率连击成功 banner 透传 doubleStrikeName（引擎 core/03 已补 unitName），供体检 146 直接读触发者、不再反推；文案未动（不改 UI）；承接 V1.0.8 生生不息日志改报「攻+ / 防+」两档明细
 //
 // 加新 fact 渲染：在本文件写函数 + 尾部 registerFactRenderer 一行（键=factType）。
 // 跨域取别的渲染器一律走 getFactRenderer(FACT_TYPES.X)(data)，禁止 import 其它域文件（免环）。
@@ -7,7 +7,7 @@ import { CONFIG } from '../core/01config-5v5-test.js';
 import { makeFXSnapshot, fmtHp } from '../infra/51-core-utils.js';
 import { BUFF_TYPES, BUFF_SUBTYPES, CAMP_TYPES, ROLE_TYPES, FACT_TYPES } from '../infra/56-battle-enums.js';
 import { registerFactRenderer, findUnitSnapshotByUid } from './33-fact-registry.js';
-export const VER = 'render/35-facts-effect.js V1.0.8';
+export const VER = 'render/35-facts-effect.js V1.0.9';
 
 // 拒马 / 张无忌
 export function renderHorseDestroyFact(fact) {
@@ -213,7 +213,10 @@ export function renderKuLianFact(fact) {
 // 概率连击
 export function renderDoubleStrikeFact(fact) {
     if (fact.success) {
-        return {type:'info', text:`<span class="gold">⚡ 概率连击触发！</span>`, isDoubleStrikeBanner:true};
+        // 2026-09-27 透传 doubleStrikeName：banner 文案不带单位，判据（tests/health-rules/146）
+        //   此前只能反推「banner 后第一条 attack-group 的攻击者」→ 母狮随动链插入即误报。
+        //   字段名不用 unitName，避免与「文案里可读到的单位名」混淆；文案保持原样不动（不改 UI）。
+        return {type:'info', text:`<span class="gold">⚡ 概率连击触发！</span>`, isDoubleStrikeBanner:true, doubleStrikeName: fact.unitName || null};
     }
     return {type:'info', text:`<span class="gray">⚡ 概率连击触发失败，${fact.unitName} 未能再次攻击</span>`};
 }
