@@ -579,6 +579,28 @@ export function entryTexts(e) {
     return out;
 }
 
+/** entryTexts 的数组递归版本：渲染函数可能返回 [行1,行2] 多件套（如 renderZhangSwitchFact），
+ *  浏览器端 log 未摊平时需要递归下钻。134/143 原各有一份逐字相同的副本（switchTexts/nineYangTexts）。 */
+export function entryTextsDeep(e) {
+    var out = [];
+    if (!e) return out;
+    if (Array.isArray(e)) {
+        for (var a = 0; a < e.length; a++) {
+            var got = entryTextsDeep(e[a]);
+            for (var g = 0; g < got.length; g++) out.push(got[g]);
+        }
+        return out;
+    }
+    if (typeof e.text === 'string' && e.text) out.push(e.text);
+    if (Array.isArray(e.entries)) {
+        for (var i = 0; i < e.entries.length; i++) {
+            var sub = e.entries[i];
+            if (sub && typeof sub.text === 'string' && sub.text) out.push(sub.text);
+        }
+    }
+    return out;
+}
+
 /** 按名字在终局两队里查 maxHp（吸血/回血类判据要用"回血量不得超过血上限"） */
 export function maxHpOf(name, afterA, afterE) {
     var lists = [afterA, afterE];

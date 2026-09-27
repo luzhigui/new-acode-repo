@@ -9,20 +9,7 @@
 //   每条战报只取首个"已叠X/Y"匹配，避免同一攻击组被重复计数。
 //   判据本身不变（X > Y 即复发），保持"优化一处"：只修数据源，不改判定口径。
 export const VER = 'tests/health-rules/130-fortify-overflow.js V6.1.11';
-
-// 收集一条战报里所有可能被坚盾文本命中的字符串：顶层 text + attack-group 的 entries 子条目
-function fortifyTexts(e) {
-    var out = [];
-    if (!e) return out;
-    if (typeof e.text === 'string' && e.text) out.push(e.text);
-    if (Array.isArray(e.entries)) {
-        for (var i = 0; i < e.entries.length; i++) {
-            var sub = e.entries[i];
-            if (sub && typeof sub.text === 'string' && sub.text) out.push(sub.text);
-        }
-    }
-    return out;
-}
+import { entryTexts } from '../122health-utils.js';
 
 export const rule77 = {
     group: '数值回归',
@@ -30,7 +17,7 @@ export const rule77 = {
     test: function(ctx, log, beforeA, beforeE, afterA, afterE) {
         var found = false;
         for (var j = 0; j < log.length; j++) {
-            var texts = fortifyTexts(log[j]);
+            var texts = entryTexts(log[j]);
             for (var t = 0; t < texts.length; t++) {
                 var s = texts[t];
                 if (s.indexOf('🛡️') === -1) continue;

@@ -28,6 +28,7 @@
 //   现改为双层扫描:顶层 text + attack-group entries 子条目 + 数组元素，entries 序号保持原战报下标。
 //   判据本身（12%/10%/8% 三档回退识别 + 回血写回一致性）一字未动，做到只改数据源这一处。
 export const VER = 'tests/health-rules/143-jiuyang-heal-pct.js V6.1.15';
+import { entryTextsDeep } from '../122health-utils.js';
 
 // V6.1.12 后的现行比例（content/200 张无忌 mechanics healMaxHpPct.pct）
 var NINE_YANG_PCT = 0.12;
@@ -35,30 +36,6 @@ var NINE_YANG_PCT = 0.12;
 var NINE_YANG_PREV_PCT = 0.10;
 // V6.1.8 之前的更早比例
 var NINE_YANG_OLD_PCT = 0.08;
-
-// 收集一条战报里所有可能命中本规则锚点文本的字符串（顺序保持战报下标升序）：
-// 顶层 text + attack-group 的 entries 子条目 + 渲染函数直接放回的数组元素。
-// 保持"外层优先、子条目紧随"的顺序，使"变身 vs 九阳回血"的前后位置比较依旧有效。
-function nineYangTexts(e) {
-    var out = [];
-    if (!e) return out;
-    if (Array.isArray(e)) {
-        // renderZhangSwitchFact 这类"多件套"渲染:递归摊平，子条目也照收
-        for (var a = 0; a < e.length; a++) {
-            var got = nineYangTexts(e[a]);
-            for (var g = 0; g < got.length; g++) out.push(got[g]);
-        }
-        return out;
-    }
-    if (typeof e.text === 'string' && e.text) out.push(e.text);
-    if (Array.isArray(e.entries)) {
-        for (var i = 0; i < e.entries.length; i++) {
-            var sub = e.entries[i];
-            if (sub && typeof sub.text === 'string' && sub.text) out.push(sub.text);
-        }
-    }
-    return out;
-}
 
 export const rule90 = {
     group: '数值回归',
@@ -72,7 +49,7 @@ export const rule90 = {
         var switchIdx = -1, switchCount = 0;
         var hasOtherMaxHpGain = false;
         for (var i = 0; i < n; i++) {
-            var texts = nineYangTexts(log[i]);
+            var texts = entryTextsDeep(log[i]);
             for (var tk = 0; tk < texts.length; tk++) {
                 var t = String(texts[tk]);
 
