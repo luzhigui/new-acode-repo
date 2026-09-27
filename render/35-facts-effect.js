@@ -407,8 +407,14 @@ export function renderFortifyReboundFact(fact) {
 // 溢出文案分两种：无人可接（无其他存活队友）/ 有人接（再区分接盘者是否真回了血）
 export function renderEndlessBreathFact(fact) {
     // 2026-09-27 补攻防明细：回血同时按「实际回血/溢出」两档转永久攻防，此前日志完全看不到这层收益
+    // 2026-09-28 二选一改版配套：每次触发攻/防只有一边>0，零的那边不再显示（「攻+2.6 防+0」→「攻+2.6」）
     const num = (v) => Math.round((v || 0) * 10) / 10;
-    const bonus = (atk, def) => (atk > 0 || def > 0) ? `攻+${num(atk)} 防+${num(def)}` : '';
+    const bonus = (atk, def) => {
+        const parts = [];
+        if (atk > 0) parts.push(`攻+${num(atk)}`);
+        if (def > 0) parts.push(`防+${num(def)}`);
+        return parts.length > 0 ? parts.join(' ') : '';
+    };
     const wrap = (t) => t ? `（${t}）` : '';
     const self = `${fact.heal > 0 ? `回复${fact.heal}点生命` : '生命已满'}${wrap(bonus(fact.atkGain, fact.defGain))}`;
     let tail = '';

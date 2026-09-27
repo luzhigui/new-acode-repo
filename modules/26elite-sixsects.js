@@ -1,5 +1,5 @@
-// V6.14.6 | ~26000 bytes | 2026-09-27 生生不息回血转攻防定案：实际回血每 10 点→攻+1、每 6 点→防+1，溢出每 5 点→攻+1、每 3 点→防+1（每档至少+1），加成记在血量落点单位身上（张三丰那笔给自己、转给队友那笔给队友）；承接 V6.14.5 回血转防分两档
-export const VER = 'modules/26elite-sixsects.js V6.14.6';
+// V6.14.7 | ~26000 bytes | 2026-09-28 生生不息攻防改「二选一」：每次触发随机只转攻或只转防（比例不变，走战斗 RNG 双端同源；自己与转给队友那笔同方向）——治防滚雪球（14回合防36→150+）过高 | 2026-09-27 生生不息回血转攻防定案：实际回血每 10 点→攻+1、每 6 点→防+1，溢出每 5 点→攻+1、每 3 点→防+1（每档至少+1），加成记在血量落点单位身上（张三丰那笔给自己、转给队友那笔给队友）；承接 V6.14.5 回血转防分两档
+export const VER = 'modules/26elite-sixsects.js V6.14.7';
 import { registerElite } from '../core/08-elite-registry.js';
 import { CONFIG, getSkillParams } from '../core/01config-5v5-test.js';
 import { SIGNAL_TYPES, FACT_TYPES, BUFF_TYPES, CAMP_TYPES, ROLE_TYPES } from '../infra/56-battle-enums.js';
@@ -78,12 +78,16 @@ export function createZhangSanfengComponent() {
                 // 张三丰自己那笔（实疗 healed + 自身溢出 overflow）加给自己；转给队友那笔
                 // （队友实疗 receiverHealed + 队友二次溢出 overflow-receiverHealed）加给队友。
                 // 系数走 content endlessBreath.params（每 N 点血 → 攻/防 +1），每档有 minBonus 地板。
-                // 例：张三丰满血 100/100、队友 90/100、heal=20 → 张三丰 溢出20（攻+4 防+6.67）；
-                //     队友 实疗10（攻+1 防+1.67）+ 二次溢出10（攻+2 防+3.33）。
+                // 例（二选一后）：张三丰满血 100/100、heal=20 → 溢出20，本次掷到「攻」则 攻+2、不涨防；掷到「防」则 防+4；
+                //     转给队友那笔同方向：实疗10 → 攻+1 或 防+1，二次溢出10 → 再 攻+1 或 防+2。
                 // 注意：八卦阵被攻击时也触发生生不息 → 挨打越多攻防越高，是个正反馈，数值需跑评测盯。
                 const gainOf = (amount, div) => amount > 0 ? Math.max(s.minBonus, amount / div) : 0;
-                const selfAtkGain = gainOf(healed, s.healAtkDiv) + gainOf(overflow, s.overflowAtkDiv);
-                const defGain = gainOf(healed, s.healDefDiv) + gainOf(overflow, s.overflowDefDiv);
+                // 2026-09-28 二选一改版（V6.14.7）：比例不变，每次触发随机「攻」「防」只给一边——
+                // 随机走战斗 RNG（PVP 双端同源，同 getBattleRng 溢出转嫁口径）；一次触发一个方向，
+                // 张三丰自己那笔与转给队友那笔同方向（同一条 fact 内可读）
+                const side = getBattleRng().nextInt(0, 1) === 0 ? 'atk' : 'def';
+                const selfAtkGain = side === 'atk' ? gainOf(healed, s.healAtkDiv) + gainOf(overflow, s.overflowAtkDiv) : 0;
+                const defGain = side === 'def' ? gainOf(healed, s.healDefDiv) + gainOf(overflow, s.overflowDefDiv) : 0;
                 if (selfAtkGain > 0) addMod(unit, 'atk', { source: '生生不息', value: selfAtkGain, ttl: 'permanent', group: 'endlessBreath', op: 'add' });
                 if (defGain > 0) addMod(unit, 'def', { source: '生生不息', value: defGain, ttl: 'permanent', group: 'endlessBreath', op: 'add' });
                 let receiverAtkGain = 0;
@@ -91,8 +95,9 @@ export function createZhangSanfengComponent() {
                 if (receiver) {
                     // 队友二次溢出＝转给它但没变成生命的那部分（含它本就满血时全额作废），仍照溢出档给加成
                     const receiverOverflow = Math.max(0, overflow - receiverHealed);
-                    receiverAtkGain = gainOf(receiverHealed, s.healAtkDiv) + gainOf(receiverOverflow, s.overflowAtkDiv);
-                    receiverDefGain = gainOf(receiverHealed, s.healDefDiv) + gainOf(receiverOverflow, s.overflowDefDiv);
+                    // 二选一：队友那笔跟随本次触发的同一方向（side 在上面已掷）
+                    receiverAtkGain = side === 'atk' ? gainOf(receiverHealed, s.healAtkDiv) + gainOf(receiverOverflow, s.overflowAtkDiv) : 0;
+                    receiverDefGain = side === 'def' ? gainOf(receiverHealed, s.healDefDiv) + gainOf(receiverOverflow, s.overflowDefDiv) : 0;
                     if (receiverAtkGain > 0) addMod(receiver, 'atk', { source: '生生不息', value: receiverAtkGain, ttl: 'permanent', group: 'endlessBreath', op: 'add' });
                     if (receiverDefGain > 0) addMod(receiver, 'def', { source: '生生不息', value: receiverDefGain, ttl: 'permanent', group: 'endlessBreath', op: 'add' });
                 }
