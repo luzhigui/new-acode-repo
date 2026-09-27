@@ -13,15 +13,11 @@
 // 与 144 的边界：144 盯的是**性奋代价**（XING_FEN_COST，扣血上限 -2/-3/-4… 与新婚 1:1 配对）；
 //   本条盯的是**性奋的授予与消耗配额**（XING_FEN_GRANT / EXTRA_ATTACK / RETRY），两者不重叠。
 export const VER = 'tests/health-rules/152-xingfen-extra-attack.js V6.1.15';
-import { collectNodes } from '../122health-utils.js';
+import { collectNodes, plain } from '../122health-utils.js';
 
 // 战报节点收集：顶层条目 → attack-group 的 entries 子条目（与 123/129/132/133 同骨架）。
 // 性奋三类条目当前都在顶层，但攻击组内的子条目一并摊平，避免以后日志挂载位置一变就空转。
 
-
-function stripText(t) {
-    return String(t || '').replace(/<[^>]+>/g, '');
-}
 
 function countByRound(list) {
     var m = {};
@@ -40,7 +36,7 @@ export const rule99 = {
         for (var j = 0; j < nodes.length; j++) {
             var e = nodes[j];
             if (!e) continue;
-            var t = stripText(e.text);
+            var t = plain(e.text);
             if (!t) continue;
             var rm = t.match(/第(\d+)回合开始/);
             if (rm) { round = parseInt(rm[1], 10); continue; }
