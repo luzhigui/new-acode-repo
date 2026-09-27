@@ -159,6 +159,15 @@ async function main() {
         for (const v of m.values()) if (v.name === name) return v;
         return null;
     };
+    // 同名计数：多个单位可能同名（召唤物「雄狮」实测同时 3 只，modules/27 每回合可再召唤）。
+    //   战报/fact 只带显示名、**不带 uid**，故同名 ≠1 时无法把声明归因到具体个体 ——
+    //   首版按名字取首个命中，把不同雄狮当成同一个体比对，得出"实际增量 0"的**假结论**（第 34 轮）。
+    //   → 同名 ≠1 一律跳过，并**计数上报**（静默跳过会变成新的假绿）。
+    const countName = (m, name) => {
+        let n = 0;
+        for (const v of m.values()) if (v.name === name) n++;
+        return n;
+    };
 
     const rawArgs = process.argv.slice(2);
     const verbose = rawArgs.length > 0;
@@ -168,7 +177,7 @@ async function main() {
 
     const hits = [];
     const stat = {}; // contractId -> { declared, dup }
-    for (const c of CONTRACTS) stat[c.id] = { declared: 0, dup: 0 };
+    for (const c of CONTRACTS) stat[c.id] = { declared: 0, dup: 0, ambiguous: 0 };
 
     for (const { seed, stage } of cases) {
         const rng = new SeededRNG(seed);
@@ -205,6 +214,11 @@ async function main() {
                         agg.set(key, cur);
                     }
                     for (const { unit, statName, sum, count, amounts } of agg.values()) {
+                        // 同名歧义守卫：该名字在场个体数 ≠1 时无从归因，跳过并**计数**（不静默）
+                        if (countName(prev, unit) !== 1 || countName(after, unit) !== 1) {
+                            stat[c.id].ambiguous++;
+                            continue;
+                        }
                         const p = byName(prev, unit);
                         const a = byName(after, unit);
                         if (!p || !a) continue;
@@ -259,7 +273,7 @@ async function main() {
     let hardFail = false;
     for (const c of CONTRACTS) {
         const s = stat[c.id];
-        console.log(`${c.id.padEnd(12)} 声明 ${String(s.declared).padStart(4)} 条 · 重复应用命中 ${s.dup}`);
+        console.log(`${c.id.padEnd(12)} 声明 ${String(s.declared).padStart(4)} 条 · 重复应用命中 ${s.dup} · 同名歧义跳过 ${s.ambiguous}`);
         // 防假绿：某个契约一次都没跑到 = 该契约空转，必须报出来而不是默认"通过"
         if (s.declared === 0) {
             console.log(`  ✗ 零触发：${c.id} 在 18 场未产生任何声明，本契约空转（覆盖度缺口）`);
