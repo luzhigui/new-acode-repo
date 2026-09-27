@@ -1,12 +1,12 @@
 // render/38-actions-translate.js — fact → stageAction 翻译器（翻译域）
-// V1.1.2 | ~26900 bytes | 2026-09-26 ATTACK 携带胖远桥两技能演出标记（pangTaunt / pangClumsy，演出帧消费）
+// V1.1.3 | ~27300 bytes | 2026-09-27 新增 ENDLESS_BREATH 翻译器：生生不息回血弹幕改由表现层随文本行播出（此前 modules/26 在引擎层直接 emit，弹幕抢在日志前；承接 V1.1.2 胖远桥演出标记），一个 fact 可产 1~2 条 HEAL 动作
 //
 // 加新 fact 的舞台动作：在本文件 FACT_TRANSLATORS 加一条（键=factType），
 // 并在 infra/58 的 translateFn 登记函数名；漏加会在本文件末尾校验循环里报错。
 import { makeFXSnapshot } from '../infra/51-core-utils.js';
 import { STAGE_ACTION_TYPES, FACT_TYPES, CAMP_TYPES, BUFF_EFFECT_TYPES, FLY_MODE_TYPES } from '../infra/56-battle-enums.js';
 import { FACT_SPECS } from '../infra/58-fact-contract.js';
-export const VER = 'render/38-actions-translate.js V1.1.2';
+export const VER = 'render/38-actions-translate.js V1.1.3';
 
 // 把 fact 列表翻译成舞台动作；导演只读 stageActions；timing=beforeText/afterText
 export function translateFactsToStageActions(log) {
@@ -158,6 +158,8 @@ const FACT_TRANSLATORS = {
     [FACT_TYPES.WEI_LEECH]: (data, index) => makeHealAction(data, index),
     [FACT_TYPES.PHANTOM_DISGUISE_HEAL]: (data, index) => makeHealAction(data, index),
     [FACT_TYPES.CLAW_HEAL]: (data, index) => makeHealAction(data, index),
+    // 2026-09-27 生生不息：一个 fact 可能两口回血（自身 + 溢出接盘者），故单独翻译
+    [FACT_TYPES.ENDLESS_BREATH]: (data, index) => translateEndlessBreath(data, index),
     [FACT_TYPES.HOT_BLOOD_HEAL]: (data, index) => makeHealAction(data, index),
     [FACT_TYPES.BLOOD_THIRST_LEECH]: (data, index) => makeHealAction(data, index),
     [FACT_TYPES.MIND_CONTROL_BANNER]: (data, index) => ({
@@ -632,4 +634,27 @@ function makeHealAction(data, index) {
         anchorIndex: 0,
         factIndex: index
     };
+}
+
+// 张三丰·生生不息：自身与溢出接盘者各一条回血动作，timing 显式 afterText —— 弹幕跟在日志文字之后，
+// 与 PASS 休息回血同款（不写 afterText 会被 HEAL 的 timing 函数当 anchor 处理）。
+function translateEndlessBreath(data, index) {
+    const actions = [];
+    const selfHeal = Math.round(data.heal || 0);
+    if (selfHeal > 0 && data.unitUid) {
+        actions.push({
+            kind: STAGE_ACTION_TYPES.HEAL,
+            actorUid: data.unitUid, targetUid: data.unitUid, amount: selfHeal,
+            anchorIndex: 0, factIndex: index, timing: 'afterText'
+        });
+    }
+    const overflowHeal = Math.round(data.overflowHealed || 0);
+    if (overflowHeal > 0 && data.overflowToUid) {
+        actions.push({
+            kind: STAGE_ACTION_TYPES.HEAL,
+            actorUid: data.overflowToUid, targetUid: data.overflowToUid, amount: overflowHeal,
+            anchorIndex: 0, factIndex: index, timing: 'afterText'
+        });
+    }
+    return actions.length > 0 ? actions : null;
 }

@@ -1,5 +1,5 @@
 // render/35-facts-effect.js — 效果域 fact 渲染器
-// V1.0.6 | ~34600 bytes | 2026-09-25 拒马「未消散」条目补 horseUid（此前只有「消散」条目带，体检规则 94 只能按号位去重 → 跨阵营同号位假阳性）；承接 V1.0.5 溅射行尾 rageText
+// V1.0.7 | ~34700 bytes | 2026-09-27 生生不息日志补防御明细（回血同时按 defPerHeal 转永久防御，此前完全看不到；承接 V1.0.6 拒马 horseUid）
 //
 // 加新 fact 渲染：在本文件写函数 + 尾部 registerFactRenderer 一行（键=factType）。
 // 跨域取别的渲染器一律走 getFactRenderer(FACT_TYPES.X)(data)，禁止 import 其它域文件（免环）。
@@ -7,7 +7,7 @@ import { CONFIG } from '../core/01config-5v5-test.js';
 import { makeFXSnapshot, fmtHp } from '../infra/51-core-utils.js';
 import { BUFF_TYPES, BUFF_SUBTYPES, CAMP_TYPES, ROLE_TYPES, FACT_TYPES } from '../infra/56-battle-enums.js';
 import { registerFactRenderer, findUnitSnapshotByUid } from './33-fact-registry.js';
-export const VER = 'render/35-facts-effect.js V1.0.6';
+export const VER = 'render/35-facts-effect.js V1.0.7';
 
 // 拒马 / 张无忌
 export function renderHorseDestroyFact(fact) {
@@ -403,7 +403,9 @@ export function renderFortifyReboundFact(fact) {
 // 张三丰：生生不息（2026-09-20 纯回血 + 溢出转嫁；加防不在此，归八卦阵）
 // 溢出文案分三种：无人可接（无其他存活队友）/ 接盘者回了血 / 接盘者已满血（本次溢出作废）
 export function renderEndlessBreathFact(fact) {
-    const self = fact.heal > 0 ? `回复${fact.heal}点生命` : '生命已满';
+    // 2026-09-27 补防御明细：回血同时按 defPerHeal 转永久防御，此前日志完全看不到这层收益
+    const defTxt = (v) => { const n = Math.round((v || 0) * 10) / 10; return n > 0 ? `（防御+${n}）` : ''; };
+    const self = fact.heal > 0 ? `回复${fact.heal}点生命${defTxt(fact.defGain)}` : '生命已满';
     let tail = '';
     if (fact.overflow > 0) {
         // 2026-09-21 溢出目标改为随机（满血也可被选中）后，三种情况要分开写：
@@ -411,7 +413,7 @@ export function renderEndlessBreathFact(fact) {
         if (!fact.overflowToName) {
             tail = `，溢出${fact.overflow}点（无其他存活队友）`;
         } else if (fact.overflowHealed > 0) {
-            tail = `，溢出${fact.overflow}点转给${fact.overflowToName}（其回复${fact.overflowHealed}点）`;
+            tail = `，溢出${fact.overflow}点转给${fact.overflowToName}（其回复${fact.overflowHealed}点${defTxt(fact.overflowDefGain)}）`;
         } else {
             tail = `，溢出${fact.overflow}点转给${fact.overflowToName}（其已满血，未生效）`;
         }

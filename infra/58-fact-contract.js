@@ -1,5 +1,5 @@
-// V1.5.0 | ~10000 bytes | 2026-09-23 PHANTOM_REVEAL 契约加 deceiverUid（成昆被识破闪一下）
-export const VER = 'infra/58-fact-contract.js V1.5.0';
+// V1.5.1 | ~10000 bytes | 2026-09-27 ENDLESS_BREATH 契约登记 translateFn（生生不息回血弹幕随文本行播出，此前 null；承接 V1.5.0 PHANTOM_REVEAL 补 deceiverUid）
+export const VER = 'infra/58-fact-contract.js V1.5.1';
 
 import { FACT_TYPES } from './56-battle-enums.js';
 
@@ -133,8 +133,8 @@ export const FACT_SPECS = Object.freeze({
     [FACT_TYPES.STUN_SKIP]: { requiredFields: ['unitName'], renderFn: 'renderStunSkipFact', translateFn: 'translateStunSkip' },
     [FACT_TYPES.FLY_SKIP]: { requiredFields: ['unitName'], renderFn: 'renderFlySkipFact', translateFn: 'translateFlyMode' },
 
-    // 张三丰：生生不息（只做日志渲染，飘字由组件层直发）
-    [FACT_TYPES.ENDLESS_BREATH]: { requiredFields: ['unitName', 'heal'], renderFn: 'renderEndlessBreathFact', translateFn: null },
+    // 张三丰：生生不息（日志渲染 + 回血弹幕随文本行播出，2026-09-27 起不再由组件层直发）
+    [FACT_TYPES.ENDLESS_BREATH]: { requiredFields: ['unitName', 'heal'], renderFn: 'renderEndlessBreathFact', translateFn: 'translateEndlessBreath' },
     // 张三丰：不争
     [FACT_TYPES.NO_CONTEND]: { requiredFields: ['unitName'], renderFn: 'renderNoContendFact', translateFn: null },
 

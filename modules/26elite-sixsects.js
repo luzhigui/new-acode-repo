@@ -1,5 +1,5 @@
-// V6.14.3 | ~24800 bytes | 2026-09-26 胖远桥两技能的演出标记写进本击 fact（group.data.pangTaunt / pangClumsy）：生成步只记标记，演出帧由 render/39 发信号，避免特效抢在画面前
-export const VER = 'modules/26elite-sixsects.js V6.14.3';
+// V6.14.4 | ~25100 bytes | 2026-09-27 生生不息回血弹幕改走 fact→stageAction（render/38 翻译、39 HEAL 动作随文本行播出）：原先在引擎层直接 emit(HEAL_FLOAT)，弹幕抢在日志文字前；fact 补 defGain/overflowToUid/overflowDefGain 供日志报加防
+export const VER = 'modules/26elite-sixsects.js V6.14.4';
 import { registerElite } from '../core/08-elite-registry.js';
 import { CONFIG, getSkillParams } from '../core/01config-5v5-test.js';
 import { SIGNAL_TYPES, FACT_TYPES, BUFF_TYPES, CAMP_TYPES, ROLE_TYPES } from '../infra/56-battle-enums.js';
@@ -77,21 +77,25 @@ export function createZhangSanfengComponent() {
                 // 2026-09-24 回血等量转永久防御：实际回血者（张三丰本人 / 溢出接盘队友）各按实际回复量加防。
                 // 系数走 content 的 endlessBreath.defPerHeal（缺省 1 = 等量），便于单独调平衡。
                 // 注意：八卦阵被攻击时也触发生生不息 → 挨打越多防越高，是个正反馈，数值需跑评测盯。
+                let defGain = 0;
+                let overflowDefGain = 0;
                 if (healed > 0) {
-                    addMod(unit, 'def', { source: '生生不息', value: healed * s.defPerHeal, ttl: 'permanent', group: 'endlessBreath', op: 'add' });
+                    defGain = healed * s.defPerHeal;
+                    addMod(unit, 'def', { source: '生生不息', value: defGain, ttl: 'permanent', group: 'endlessBreath', op: 'add' });
                 }
                 if (receiver && receiverHealed > 0) {
-                    addMod(receiver, 'def', { source: '生生不息', value: receiverHealed * s.defPerHeal, ttl: 'permanent', group: 'endlessBreath', op: 'add' });
+                    overflowDefGain = receiverHealed * s.defPerHeal;
+                    addMod(receiver, 'def', { source: '生生不息', value: overflowDefGain, ttl: 'permanent', group: 'endlessBreath', op: 'add' });
                 }
 
-                // 2026-09-17 飘字：三处触发共用（回合开始 / 轮到自己 / 八卦阵）；2026-09-20 溢出接盘者单独飘一条
+                // 2026-09-27 回血弹幕不在这里发了：改由下面的 fact → render/38 翻译 → 39 HEAL 动作，
+                // 跟其它所有治疗一样「随文本行播出」。原先此处直接 emit(HEAL_FLOAT) 是引擎解算瞬间发信号，
+                // 弹幕会抢在日志文字前面（全项目唯一一处这么干的治疗）。
                 if (!GlobalStore.get('fastForwardActive')) {
                     // 太极印：三处触发共用（回合开始 / 轮到自己 / 八卦阵）。
                     // 1 号位会出现「回合开始 + 立刻轮到自己」两次紧邻——不去抖会连出两个，
                     // 由 fx/80 showMeditateEffect 内部按 uid 去抖（1.2s），此处只管发。
                     eventBus.emit(FX_SIGNALS.MEDITATE, { unit });
-                    if (healed > 0) eventBus.emit(FX_SIGNALS.HEAL_FLOAT, { unit, amount: healed });
-                    if (receiverHealed > 0) eventBus.emit(FX_SIGNALS.HEAL_FLOAT, { unit: receiver, amount: receiverHealed });
                 }
                 // 2026-09-17 日志：走 fact（两处触发都进主 log，随 step 渲染）
                 if (log) {
@@ -100,9 +104,12 @@ export function createZhangSanfengComponent() {
                         data: {
                             unitName: unit.name, unitUid: unit.uid,
                             heal: healed,
+                            defGain,
                             overflow,
                             overflowToName: receiver ? receiver.name : null,
-                            overflowHealed: receiverHealed
+                            overflowToUid: receiver ? receiver.uid : null,
+                            overflowHealed: receiverHealed,
+                            overflowDefGain
                         }
                     });
                 }
