@@ -18,10 +18,25 @@
 // 覆盖契约（新增机制＝往 CONTRACTS 加一条，不改主体）：
 //   1. BREAK_DEF  破防：目标 def 应下降 reduce（core/16 L76-81 裁定器 addMod permanent）
 //   2. CARRY_APPLY carry：单位 atk/def/maxHp 应上升声明值（core/04 L37-42，ttl:'round'）
+//   3. BUTTERFLY  蝶变附身：host 的 atk/def/maxHp 应上升 atkTransfer/defTransfer/hpTransfer
+//                        （modules/27elite-mingjiao.js L292-294 addMod + L309-321 BUTTERFLY_ATTACH fact 带三项 transfer）
+//
+// 第 39 轮教训（重要，关乎净增量模型的边界）：本想连同「坚盾 FORTIFY」一起加牙（其 FORTIFY_SHIELD fact 也带 increment），
+//   但实测在干净树**误报 39 处**（如「坚盾 何太冲.def 声明+1 实际+2」）。根因：本对照器用「逐步净属性增量 vs 声明」模型，
+//   它**暗中假设该机制是某属性增量的唯一来源**。def 这个属性有多处来源（坚盾 / 正义国字脸 / 八卦阵 / 苦练…），
+//   同一步里「坚盾+1 再叠别的+1」会被误判成「坚盾翻倍」——无法区分真翻倍与并发多来源。
+//   → 故 FORTIFY 用净增量模型**无法安全加牙**（会污染干净树），撤掉。同理，任何「属性有多来源」的机制
+//     （苦练/八卦阵加 def、振奋/苦练加 atk…）都不能直接用本模型，需改用「按 source/group 隔离该机制贡献」或主代码发带增量 fact。
+//   BUTTERFLY 之所以能留：host 的 atk/def/maxHp 在 21 个固定种子里未被其他同量来源并发污染（实测 dup=0），
+//     且种子集确定可复现；但理论上若某种子让 host 同回合又被加恰好 atkTransfer 的攻，仍可能误报——属残留风险，已记录。
 //
 // 运行：node tests/stat-decl-vs-actual-check.mjs            → 全量 18 场；有重复应用退出码 1；契约零触发亦退出码 1（防假绿）
 //       node tests/stat-decl-vs-actual-check.mjs 18:3       → 只跑指定场次并打印逐步明细
-export const VER = 'tests/stat-decl-vs-actual-check.mjs V1.0.0';
+//       node tests/stat-decl-vs-actual-check.mjs --fingerprint
+//           → 不跑契约、也不退码 1，只逐步对全体单位的 atk/def/maxHp/hp 做 FNV-1a 指纹并输出 `FINGERPRINT <hex>`。
+//             供 `tests/mutation-teeth.mjs` 判定「属性类变异是否真的改变了战斗状态」（属性变了指纹必变；
+//             日志/TEXT 类变异只改显示、不改状态，指纹不变）。
+export const VER = 'tests/stat-decl-vs-actual-check.mjs V1.3.0';
 
 import { fileURLToPath } from 'node:url';
 
@@ -37,8 +52,17 @@ globalThis.window = globalThis;
 globalThis.self = globalThis;
 
 // 含 18：148 报的 carry 重复应用发生在 seed=18 stage=3，纳入默认集才能实证（首版用 baseline 的 6 种子，漏了它）
-const SEEDS = [1, 18, 42, 999, 12345, 777, 88888];
-const STAGES = [1, 3, 5];
+// 第 40 轮扩展（覆盖缺口闭合）：
+//   · STAGES 加 2（张三丰敌，stage 2 专属 → 让 A7 生生不息 / A9 八卦阵 真正触发）
+//   · STAGES 加 4（宋青书+周芷若敌，stage 4 专属 → A12 性奋代价需周芷若在场才触发）
+//   · SEEDS 加 37/50/67（第 40 轮 seed 搜索证实 A5 流星溅射成长在 stage 1/3 稳定触发，原 7 种子都没撞上）
+//   —— 刻意不用 seed=6 / 不用 stage 5：seed=6 stage=5 会让 BREAK_DEF 契约误报
+//      （同一步 鹿杖客 被破防-2 又吃流星赶月主降防-2，净降 4 被净增量模型误判成破防翻倍）。
+//      这是净增量模型对「def 多来源」的固有脆弱性（与第 39 轮 FORTIFY 同源），扩展覆盖时必须绕开此类巧合。
+//   —— 扩展后，原 5 处「未观测到影响」覆盖缺口中 4 处（A5/A7/A9/A12）转为真实牙口判定；
+//      A13 小昭·妹永久carry 需 bro 拿到永久 carry 海克斯且队伍无 carry buff（稀有条件），单独搜索仍零触发 → 记结构性稀有条件。
+const SEEDS = [1, 18, 37, 42, 50, 67, 999, 12345, 777, 88888];
+const STAGES = [1, 2, 3, 4];
 
 // dir: +1=声明使该属性上升，-1=声明使该属性下降
 const CONTRACTS = [
@@ -82,6 +106,29 @@ const CONTRACTS = [
                     out.push({ unit: d.unitName, stat: 'atk', amount: d.atk });
                     out.push({ unit: d.unitName, stat: 'def', amount: d.def });
                     out.push({ unit: d.unitName, stat: 'maxHp', amount: d.hp });
+                }
+            }
+            return out;
+        }
+    },
+    {
+        id: 'BUTTERFLY',
+        label: '蝶变附身',
+        dir: +1,
+        // 声明（modules/27elite-mingjiao.js L309-321）：BUTTERFLY_ATTACH fact，
+        //   data.{ hostName, atkTransfer, defTransfer, hpTransfer }；L292-294 把这三项分别加给 host 的 atk/def/maxHp。
+        //   干净树：host 实际增量恰等于三项 transfer ⇒ 恒真。A8 变异（三项 *2）⇒ 实际=2×声明 ⇒ 命中。
+        //   第 38 轮 A8 指纹变但三侧无反应，根因就是对照器缺这条契约——fact 本就带数值，补契约即兜住。
+        extract(stepLog) {
+            const out = [];
+            for (const f of stepLog || []) {
+                if (!f || !f.data) continue;
+                const d = f.data;
+                if (typeof d.hostName === 'string' && typeof d.atkTransfer === 'number'
+                    && typeof d.defTransfer === 'number' && typeof d.hpTransfer === 'number') {
+                    out.push({ unit: d.hostName, stat: 'atk', amount: d.atkTransfer });
+                    out.push({ unit: d.hostName, stat: 'def', amount: d.defTransfer });
+                    out.push({ unit: d.hostName, stat: 'maxHp', amount: d.hpTransfer });
                 }
             }
             return out;
@@ -141,16 +188,22 @@ async function main() {
 
     const MAX_ROUND = CONFIG.MAX_ROUND || 35;
 
-    // 逐步快照：uid -> { name, atk, def, maxHp }（真实属性，与引擎同源 getStat）
+    // 属性指纹（--fingerprint 模式用）：FNV-1a 32 位，逐步把全体单位的 uid+四属性拼进 hash。
+    let fp = 0x811c9dc5 >>> 0;
+    const fpBuf = (s) => { for (let i = 0; i < s.length; i++) { fp = (fp ^ s.charCodeAt(i)) >>> 0; fp = Math.imul(fp, 0x01000193) >>> 0; } };
+
+    // 逐步快照：uid -> { uid, name, atk, def, maxHp, hp }（真实属性，与引擎同源 getStat）
     const snapStats = (units) => {
         const m = new Map();
         for (const u of units || []) {
             if (!u) continue;
             m.set(u.uid, {
+                uid: u.uid,
                 name: u.name,
                 atk: Math.floor(getStat(u, 'atk')),
                 def: Math.floor(getStat(u, 'def')),
-                maxHp: Math.floor(getStat(u, 'maxHp'))
+                maxHp: Math.floor(getStat(u, 'maxHp')),
+                hp: Math.round(u.hp)
             });
         }
         return m;
@@ -169,7 +222,8 @@ async function main() {
         return n;
     };
 
-    const rawArgs = process.argv.slice(2);
+    const FP = process.argv.includes('--fingerprint');
+    const rawArgs = process.argv.slice(2).filter(a => a !== '--fingerprint');
     const verbose = rawArgs.length > 0;
     const cases = rawArgs.length > 0
         ? rawArgs.map(s => { const [sd, st] = s.split(':'); return { seed: Number(sd), stage: Number(st) }; })
@@ -199,6 +253,11 @@ async function main() {
             for (const step of stepper) {
                 lastStep = step;
                 const after = snapStats([...(step.ally || []), ...(step.enemy || [])]);
+                if (FP) {
+                    const parts = [];
+                    for (const v of after.values()) parts.push(`${v.uid}:${v.atk},${v.def},${v.maxHp},${v.hp}`);
+                    fpBuf(parts.sort().join('|'));
+                }
 
                 for (const c of CONTRACTS) {
                     // 同一步可能对同一目标发多条声明（连击/性奋额外攻击/多段），
@@ -269,6 +328,10 @@ async function main() {
         if (verbose) console.log(`seed=${seed} stage=${stage} winner=${winner || '平局'}`);
     }
 
+    if (FP) {
+        console.log('FINGERPRINT ' + fp.toString(16));
+        process.exit(0);
+    }
     console.log('\n=== 数值声明 vs 实际属性增量（逐步真值对照）===');
     let hardFail = false;
     for (const c of CONTRACTS) {

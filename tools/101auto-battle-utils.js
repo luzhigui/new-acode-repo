@@ -1,5 +1,6 @@
+// V6.3.0 | 2026-09-27 分片 300→25 场：原粒度下最后只剩 1-2 片在跑，长尾拖慢整体；细片才能喂满 worker 池
 // V6.2.0 | ~3900 bytes | 2026-09-24 战斗改走 116 Worker 并行（kind:'hex'，核数-1 池），口径与 108 仪表盘统一；删除本地坏死循环（原 runBattleCore 全仓库无定义，一跑即 ReferenceError）
-export const VER = 'tools/101auto-battle-utils.js V6.2.0';
+export const VER = 'tools/101auto-battle-utils.js V6.3.0';
 
 import { SeededRNG } from '../infra/51-core-utils.js';
 import { initBattleTeams } from '../modules/29battle-init.js';
@@ -20,9 +21,9 @@ export function generateSnapshot(currentStage = 1, rng = new SeededRNG(Date.now(
     };
 }
 
-// 每片场次：与 108 仪表盘一致，单片别太长，进度条才动得起来
-const CHUNK = 300;
-// 片间距：worker 内 seed = 片seed + i*7919（i < CHUNK），CHUNK×7919 ≈ 238 万，取 300 万保证各片 seed 区间不重叠
+// 每片场次：细粒度分片（25 场/片）。片越细，worker 空手越早领到下一片，长尾越短；进度条也更平滑
+const CHUNK = 25;
+// 片间距：worker 内 seed = 片seed + i*7919（i < CHUNK），CHUNK×7919 ≈ 20 万，取 300 万保证各片 seed 区间不重叠
 const CHUNK_STRIDE = 3000000;
 
 // 自动批量战斗：分片投给 116 Worker 池并行跑（kind:'hex'）。

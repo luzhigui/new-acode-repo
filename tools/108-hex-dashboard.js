@@ -1,3 +1,5 @@
+// V6.1.0 | 2026-09-27 自动跑改走 117 runParallel + 细粒度分片（每片 25 场，7 关×per 场 → 几十上百片排队），
+//        池大小改 getPoolSize()（吃满核心，localStorage 'battle_pool_size' 可覆盖）；seed 逐场不变
 // V6.0.5 | 2026-09-22 关卡范围扩到 7 关（配合主代码新增第 7 关灭绝师太）：allStages 数组 + 进度/ETA 改为按数组长度算，不再写死 6
 // V6.0.4 | 2026-09-20 ①弹窗内自带「自动跑」（自走 116 Worker kind:'hex'，不经 101；默认每关×1000 可选 2000，跑完自动出表）
 //        （更正：本条原写「复用 101 runAutoBattle」，实际一直直连 116 Worker，未 import 101）
@@ -8,6 +10,7 @@
 // V6.0.1 | ~14900 bytes | 2026-09-20 基准改为"所有含海克斯场次的平均胜率"（原"不含该海克斯场次胜率"会让每个海克斯差值一律偏正）；列表头同步改为「海克斯平均」；修正虚标的字节数
 // V6.0.0 | 2026-08-24 姐姐强化参数改读 JSON（小昭.hexEnhance），清理 ELITE_SKILLS 引用
 import { CONFIG, getSkillParams } from '../core/01config-5v5-test.js';
+import { runParallel, getPoolSize } from './117-shared-worker-runner.js';
 (function(){
 const KEY = 'ming_hex_battle_log';
 let logs = [];
@@ -195,15 +198,14 @@ function openHexDashboard() {
     render(mask.querySelector('#hexDashSummary'), mask.querySelector('#hexDashStats'));
   });
 
-  // 2026-09-20 弹窗内自带批量战斗：走 116 worker 池并行（与 109 职业平衡同款架构），
+  // 2026-09-27 弹窗内自带批量战斗：走 117 runParallel（kind:'hex'，细粒度分片）+ 116 Worker 池并行，
   // 主线程不再被战斗计算占死（此前串行版在移动端会弹「网页暂无响应」）。
-  // 池大小 = 核心数-1（留一核给 UI，109 同款策略）：6 关排队上工，工人空了接下一关。
+  // 池大小 = getPoolSize()（默认吃满核心；localStorage 'battle_pool_size' 可覆盖）。
   mask.querySelector('.hex-hex-run').addEventListener('click', async () => {
     const runBtn = mask.querySelector('.hex-hex-run');
     const sel = mask.querySelector('.hex-hex-runsel');
     const status = mask.querySelector('#hexDashRunStatus');
     const per = parseInt(sel.value, 10) || 500;
-    const total = 7 * per;
     runBtn.disabled = true;
     sel.disabled = true;
     status.textContent = '加载战斗引擎…';
@@ -213,54 +215,39 @@ function openHexDashboard() {
       const { loadGameData } = await import('../core/01config-5v5-test.js');
       if (!CONFIG.BUFFS) { status.textContent = '加载游戏数据…'; await loadGameData(); }
       const hexLogAll = [];
-      let doneCount = 0;
+      let doneRuns = 0;
       const t0run = performance.now();
       const masterSeed = Date.now();
-      const runStage = (stage) => new Promise((resolveStage) => {
-        const w = new Worker(new URL('./116-role-balance-worker.js', import.meta.url), { type: 'module' });
-        const jobId = 'hex' + stage;
-        let started = false;
-        w.onmessage = (ev) => {
-          const msg = ev.data || {};
-          if (msg.kind === 'worker-ready') {
-            if (!msg.ok) { status.textContent = '❌ worker 启动失败'; w.terminate(); resolveStage(); return; }
-            w.postMessage({ jobId, kind: 'hex', stage, seed: masterSeed + stage * 131, runs: per });
-            started = true;
-            return;
-          }
-          if (msg.jobId !== jobId) return;
-          w.terminate();
-          doneCount++;
-          if (msg.ok && msg.result && msg.result.hexLog) hexLogAll.push(...msg.result.hexLog);
-          resolveStage();
-        };
-        w.onerror = (err) => {
-          console.error('[108-hex] worker error', err && err.message);
-          if (started) doneCount++;
-          status.textContent = `❌ 第 ${stage} 关 worker 失败：${err && err.message || '未知错误'}`;
-          w.terminate();
-          resolveStage();
-        };
-      });
-      const poolSize = Math.max(1, (navigator.hardwareConcurrency || 4) - 1);
       const allStages = [1, 2, 3, 4, 5, 6, 7];
-      const pending = [...allStages];
+      const total = allStages.length * per;
+      // 细粒度分片：每片 25 场。原来「一整关一个 job」只有 7 个 job——喂不满 worker 池，
+      // 且各关时长不一，关间负载不均会拖长尾。分片后 worker 空一片接一片，负载自然拉平。
+      // seed 逐场不变：片内 seed = 关基准 + (startIndex + i) * 7919，关基准 = masterSeed + stage*131。
+      const CHUNK = 25;
+      const jobs = [];
+      for (const stage of allStages) {
+        const base = masterSeed + stage * 131;
+        for (let s = 0; s < per; s += CHUNK) {
+          jobs.push({ stage, seed: base, startIndex: s, runs: Math.min(CHUNK, per - s), label: `第${stage}关#${s / CHUNK + 1}` });
+        }
+      }
+      const poolSize = getPoolSize();
       const tick = () => {
         const el = performance.now() - t0run;
-        const eta = doneCount > 0 && doneCount < allStages.length ? (el / doneCount) * (allStages.length - doneCount) : 0;
-        status.textContent = `⏳ ${doneCount}/${allStages.length} 关完成（${doneCount * per}/${total} 场｜${poolSize} 线程并行）｜已用 ${fmtSec(el)}${doneCount < allStages.length && doneCount > 0 ? '｜预计还要 ' + fmtSec(eta) : ''}`;
+        const eta = doneRuns > 0 && doneRuns < total ? (el / doneRuns) * (total - doneRuns) : 0;
+        status.textContent = `⏳ ${doneRuns}/${total} 场完成（${jobs.length} 片｜${poolSize} 线程并行）｜已用 ${fmtSec(el)}${doneRuns < total && doneRuns > 0 ? '｜预计还要 ' + fmtSec(eta) : ''}`;
       };
       const timer = setInterval(tick, 500);
-      const runners = [];
-      for (let i = 0; i < poolSize && pending.length > 0; i++) {
-        const stage = pending.shift();
-        runners.push(runStage(stage).then(() => {
-          // 这个工人空了，接下一关（串行复用位置，总并发不超过池大小）
-          const next = pending.shift();
-          if (next) return runStage(next);
-        }));
-      }
-      await Promise.all(runners);
+      await runParallel({
+        jobs,
+        kind: 'hex',
+        poolSize,
+        nextJobMsg: (job, id) => ({ jobId: id, kind: 'hex', stage: job.stage, seed: job.seed, startIndex: job.startIndex, runs: job.runs }),
+        onJobDone: (finished, jobTotal, job, result) => {
+          doneRuns += job.runs;
+          if (result && result.hexLog) hexLogAll.push(...result.hexLog);
+        }
+      });
       clearInterval(timer);
       // 结果追加进 localStorage（与 101 同键同格式，加载数据/历史记录无缝衔接）
       try {
@@ -268,7 +255,7 @@ function openHexDashboard() {
         localStorage.setItem(KEY, JSON.stringify(prev.concat(hexLogAll)));
       } catch (e) {}
       const dt = ((performance.now() - t0) / 1000).toFixed(1);
-      status.textContent = `✅ 完成：6关×${per}场 共 ${hexLogAll.length} 条记录，总耗时 ${dt}s（${poolSize} 线程并行）`;
+      status.textContent = `✅ 完成：7关×${per}场 共 ${hexLogAll.length} 条记录，总耗时 ${dt}s（${poolSize} 线程并行）`;
       try { logs = JSON.parse(localStorage.getItem(KEY) || '[]'); } catch(e) { logs = []; }
       render(mask.querySelector('#hexDashSummary'), mask.querySelector('#hexDashStats'));
     } catch (e) {
