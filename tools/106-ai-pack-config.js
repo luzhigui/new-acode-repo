@@ -119,6 +119,7 @@ export const ALL_PROJECT_FILES = [
     '../tools/112-elite-eval.js', '../tools/113-stats-check.js',
     '../tools/114-baseline-compare.js', '../tools/115-lineup-search.js',
     '../tools/118-import-export-check.mjs',
+    '../tools/120-param-lab.html', '../tools/120-param-lab-core.js', '../tools/120-param-lab-worker.js',
     // 移除了：52-version-calibrator / 53-dead-code-scanner / 54-filelist-checker（这些工作直接问 AI 更高效）
     // 移除了：100build-5v5.cjs（构建脚本已废弃为 .TXT，不再随包复制）
     '../tools/101auto-battle-utils.js',

@@ -1,5 +1,7 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿<!DOCTYPE html>
-<!-- V6.0.2 | ~26300 bytes | 2026-09-24 关卡下拉框补第 7 关（ab 自动批量战斗 / ls 阵容搜索器）-->
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿<!DOCTYPE html>
+<!-- V6.0.4 | ~25300 bytes | 2026-09-28 顶部入口补齐为 6 个：新增 120 参数实验台、110 全随机站位、105 商店（后两者原先无任何界面入口）；
+     .tool-links 改 flex-wrap + flex:1 1 150px，按钮由 3 个增到 6 个时自动换行不挤压（原先 flex:1 单排会被压扁） -->
+<!-- V6.0.3 | ~24400 bytes | 2026-09-28 移除三个自检 tab（统计一致性体检 / 平衡基线对比 / 阵容搜索器）：按钮+内容区+script 标签一并删除，113/114/115 的 js 保留在 tools/ 但不再上界面 -->
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
@@ -139,8 +141,8 @@
         .tool-cmd button:hover { background: #66bb6a; }
         .tool-steps { color: #888; font-size: 11px; margin-top: 10px; padding-left: 16px; line-height: 1.6; }
         .tool-steps li { margin-bottom: 4px; }
-        .tool-links { display: flex; gap: 8px; margin-bottom: 12px; }
-        .tool-link-btn { flex: 1; padding: 10px 8px; border: none; background: #2a2a4e; color: #ffd700; cursor: pointer; font-size: 12px; font-weight: bold; border-radius: 6px; font-family: monospace; transition: 0.2s; }
+        .tool-links { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+        .tool-link-btn { flex: 1 1 150px; padding: 10px 8px; border: none; background: #2a2a4e; color: #ffd700; cursor: pointer; font-size: 12px; font-weight: bold; border-radius: 6px; font-family: monospace; transition: 0.2s; }
         .tool-link-btn:hover { background: #3a3a6e; }
 
         /* ========== 精英战力评测样式 ========== */
@@ -176,14 +178,14 @@
         <button class="tab-btn active" data-tab="tab-file-copier">📋 文件复制器</button>
         <button class="tab-btn" data-tab="tab-auto-battle">⚔️ 自动批量战斗</button>
         <button class="tab-btn" data-tab="tab-elite-eval">⚔️ 精英战力评测</button>
-        <button class="tab-btn" data-tab="tab-stats-check">🔍 统计一致性体检</button>
-        <button class="tab-btn" data-tab="tab-baseline-compare">⚖️ 平衡基线对比</button>
-        <button class="tab-btn" data-tab="tab-lineup-search">🧩 阵容搜索器</button>
     </div>
     <div class="tool-links">
         <button class="tool-link-btn" id="btnOpenLogViewer">🕹️ 日志复盘</button>
         <button class="tool-link-btn" id="btnOpenHexDashboard">📊 海克斯仪表盘</button>
         <button class="tool-link-btn" id="btnOpenRoleBalance">⚖️ 职业平衡分析</button>
+        <button class="tool-link-btn" onclick="window.open('120-param-lab.html','_blank')">🧪 参数实验台</button>
+        <button class="tool-link-btn" onclick="window.open('110-role-balance-random.html','_blank')">⚖️ 全随机站位</button>
+        <button class="tool-link-btn" onclick="window.open('105-shop.html','_blank')">🏪 商店</button>
     </div>
 
     <div class="tab-content active" id="tab-file-copier">
@@ -276,100 +278,6 @@
         <div id="eliteResult"><div class="elite-empty">尚未运行</div></div>
     </div>
 
-    <div class="tab-content" id="tab-stats-check">
-        <p style="color:#888; font-size:12px; margin:0 0 12px 0; line-height:1.6;">
-            自动跑 N 场模拟战斗，通过事件流与实际血量变化交叉核对各单位的 <b style="color:#ffd700;">输出 / 承伤 / 治疗</b> 统计是否与主代码记账一致。<br>
-            用于检测血量重分配（附身 / 飞回 / carry / 苦练等）是否污染 dmgDealt / dmgTaken 统计。
-        </p>
-        <div class="elite-config">
-            <label>检测场次：</label>
-            <input type="number" id="scRunsInput" value="40" min="5" max="200" step="5">
-            <div class="elite-stage-group">
-                <label>关卡：</label>
-                <label><input type="checkbox" class="sc-stage-check" value="1" checked>1</label>
-                <label><input type="checkbox" class="sc-stage-check" value="2" checked>2</label>
-                <label><input type="checkbox" class="sc-stage-check" value="3" checked>3</label>
-                <label><input type="checkbox" class="sc-stage-check" value="4" checked>4</label>
-                <label><input type="checkbox" class="sc-stage-check" value="5" checked>5</label>
-                <label><input type="checkbox" class="sc-stage-check" value="6" checked>6</label>
-                <label><input type="checkbox" class="sc-stage-check" value="7" checked>7</label>
-            </div>
-            <button id="scStartBtn">▶ 开始体检</button>
-        </div>
-        <div class="elite-progress" id="scProgress"></div>
-        <div id="scResult"><div class="elite-empty">尚未运行</div></div>
-    </div>
-
-    <div class="tab-content" id="tab-baseline-compare">
-        <p style="color:#888; font-size:12px; margin:0 0 12px 0; line-height:1.6;">
-            同一条件下对比两组精英配置（如 M 值 / 角色 / 站位差异）的胜率、场均输出、场均承伤、存活率差异。<br>
-            左侧为基准配置 A，右侧为对比配置 B，两组共享种子以保证同阵容同随机、差异仅来自配置。
-        </p>
-        <div class="elite-config">
-            <label>A·基准角色：</label>
-            <select id="bcRoleA" style="padding:8px;border-radius:6px;border:1px solid #555;background:#111;color:#eee;font-size:13px;">
-                <option value="张无忌">张无忌</option>
-                <option value="韦一笑">韦一笑</option>
-                <option value="小昭·姊">小昭·姊</option>
-                <option value="小昭·妹">小昭·妹</option>
-            </select>
-            <label>M：</label>
-            <input type="number" id="bcMA" value="115" min="90" max="130" style="width:80px;">
-            <label>B·对比角色：</label>
-            <select id="bcRoleB" style="padding:8px;border-radius:6px;border:1px solid #555;background:#111;color:#eee;font-size:13px;">
-                <option value="张无忌">张无忌</option>
-                <option value="韦一笑" selected>韦一笑</option>
-                <option value="小昭·姊">小昭·姊</option>
-                <option value="小昭·妹">小昭·妹</option>
-            </select>
-            <label>M：</label>
-            <input type="number" id="bcMB" value="107" min="90" max="130" style="width:80px;">
-        </div>
-        <div class="elite-config">
-            <label>每关场次：</label>
-            <input type="number" id="bcRunsInput" value="40" min="5" max="100" step="5">
-            <div class="elite-stage-group">
-                <label>关卡：</label>
-                <label><input type="checkbox" class="bc-stage-check" value="1" checked>1</label>
-                <label><input type="checkbox" class="bc-stage-check" value="2" checked>2</label>
-                <label><input type="checkbox" class="bc-stage-check" value="3" checked>3</label>
-                <label><input type="checkbox" class="bc-stage-check" value="4" checked>4</label>
-                <label><input type="checkbox" class="bc-stage-check" value="5" checked>5</label>
-                <label><input type="checkbox" class="bc-stage-check" value="6" checked>6</label>
-                <label><input type="checkbox" class="bc-stage-check" value="7" checked>7</label>
-            </div>
-            <button id="bcStartBtn">▶ 开始对比</button>
-        </div>
-        <div class="elite-progress" id="bcProgress"></div>
-        <div id="bcResult"><div class="elite-empty">尚未运行</div></div>
-    </div>
-
-    <div class="tab-content" id="tab-lineup-search">
-        <p style="color:#888; font-size:12px; margin:0 0 12px 0; line-height:1.6;">
-            按条件采样 <b style="color:#ffd700;">initBattleTeams</b> 生成阵容，统计精英出场组合、明教普通兵出现频率与站位分布。<br>
-            用于验证阵容生成逻辑（精英出场率 / 固定站位 / 普通兵均衡抽取）。
-        </p>
-        <div class="elite-config">
-            <label>采样场次：</label>
-            <input type="number" id="lsRunsInput" value="200" min="20" max="2000" step="20">
-            <label>关卡：</label>
-            <select id="lsStageSelect" style="padding:8px;border-radius:6px;border:1px solid #555;background:#111;color:#eee;font-size:13px;">
-                <option value="1">第1关</option>
-                <option value="2">第2关</option>
-                <option value="3">第3关</option>
-                <option value="4">第4关</option>
-                <option value="5">第5关</option>
-                <option value="6">第6关</option>
-                <option value="7">第7关</option>
-            </select>
-            <label style="display:flex;align-items:center;gap:4px;"><input type="checkbox" id="lsForceZhang"> 强制张无忌</label>
-            <label style="display:flex;align-items:center;gap:4px;"><input type="checkbox" id="lsForceWei"> 强制韦一笑</label>
-            <button id="lsStartBtn">▶ 开始搜索</button>
-        </div>
-        <div class="elite-progress" id="lsProgress"></div>
-        <div id="lsResult"><div class="elite-empty">尚未运行</div></div>
-    </div>
-
     <script>
         function copyCmd(id) {
             const text = document.getElementById(id).innerText;
@@ -407,11 +315,8 @@
     <script type="module" src="./103-toolkit.js"></script>
     <script type="module" src="./104-toolkit-more.js"></script>
     <script type="module" src="./112-elite-eval.js"></script>
-    <script type="module" src="./113-stats-check.js"></script>
-    <script type="module" src="./114-baseline-compare.js"></script>
-    <script type="module" src="./115-lineup-search.js"></script>
     <script type="module">
-        // 数据底座：112/113/114/115/101 的 initBattleTeams 依赖 CONFIG.MING_M 等 getter，
+        // 数据底座：112/101 的 initBattleTeams 依赖 CONFIG.MING_M 等 getter，
         // 数据源是 content/200game-data.json，不加载则普通兵候选池为空 → pick undefined 崩溃。
         // loadGameData 内部幂等（已加载直接返回），页面加载时调一次即可。
         import { loadGameData } from '../core/01config-5v5-test.js';

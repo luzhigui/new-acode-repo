@@ -1,0 +1,471 @@
+<!-- tools/120-param-lab.html - 平衡参数对照实验台（按钮版，独立页面，用户自己开 URL） -->
+<!-- V1.0.0 | 预估 23500 bytes | 2026-09-28 新建：把命令行 tools/120-param-lab.mjs 改造成浏览器按钮版。
+     页面只做派发/聚合/渲染，批量战斗全在专属 Worker（120-param-lab-worker.js）里跑，走 117 的
+     workerUrl 覆盖参数并行分片；补丁臂与基线臂同序同 seed 配对对照。 -->
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>平衡参数对照实验台</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#1a1a2e;color:#eee;font-family:monospace;padding:16px;max-width:1180px;margin:0 auto}
+h1{color:#ffd700;font-size:20px;margin-bottom:8px}
+h2{color:#ffd700;font-size:15px;margin-bottom:10px}
+.tip{color:#888;font-size:12px;margin-bottom:12px;line-height:1.7}
+.tip b{color:#ffd700}
+.config{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:12px}
+.config label{color:#ffd700;font-weight:bold;font-size:13px}
+.config input,.config select{padding:7px;border-radius:6px;border:1px solid #555;background:#111;color:#eee;font-size:13px}
+.config input[type=number]{width:90px;text-align:center}
+.config select{max-width:520px}
+button{padding:9px 18px;border:none;border-radius:8px;font-weight:bold;cursor:pointer;font-family:monospace;font-size:13px;background:#ffd700;color:#1a1a2e}
+button.ghost{background:#333;color:#eee}
+button:disabled{opacity:0.4;cursor:not-allowed}
+.progress{color:#4fc3f7;font-size:12px;min-height:18px;margin-bottom:8px}
+.msg{font-size:12px;min-height:16px;margin-top:6px}
+.msg.err{color:#f44336}
+.msg.ok{color:#4fc3f7}
+.section{margin-bottom:20px;background:#16213e;border:1px solid #333;border-radius:12px;padding:16px}
+table{width:100%;border-collapse:collapse;margin-top:10px;font-size:12px}
+th{background:#2a2a4e;color:#ffd700;padding:7px;text-align:center;white-space:nowrap}
+td{padding:5px 7px;border-bottom:1px solid #333;color:#ccc;text-align:center}
+td.left{text-align:left}
+.strong{color:#f44336;font-weight:bold}
+.weak{color:#4fc3f7}
+.up{color:#66bb6a}
+.down{color:#f44336}
+.empty{color:#888;text-align:center;margin-top:12px}
+textarea{width:100%;min-height:110px;margin-top:10px;padding:10px;border-radius:8px;border:1px solid #555;background:#111;color:#eee;font-family:monospace;font-size:12px;line-height:1.5}
+.hint{color:#888;font-size:12px;margin-top:6px;line-height:1.6}
+.hint code{color:#ffd700}
+.pill{display:inline-block;background:#2a2a4e;color:#ffd700;border-radius:6px;padding:1px 6px;font-size:11px}
+</style>
+</head>
+<body>
+<h1>平衡参数对照实验台</h1>
+<p class="tip">
+固定关卡 + 固定明教阵容与属性（每阵容一个 statSeed，各局不变）+ 固定海克斯 <b>seed=7</b>，
+六大派仍随 seed 随机生成。<br>
+对照口径：同一 (阵容, 局序) 在基线与补丁两臂用<b>同一个 seed</b> 各跑一遍 —— 配对对照，
+比绝对胜率灵敏一个数量级。<br>
+判读：<b>净翻转</b>（A→B 减 B→A）比绝对胜率灵敏；净翻转与胜率差同时≈0 = 该参数在本关无显著影响。<br>
+采样 seed 起点 20000、对照 seed 起点 1；批量战斗在 Web Worker 里并行（不占页面）。
+</p>
+
+<div class="section">
+<h2>① 采样典型阵容</h2>
+<div class="config">
+<label>关卡</label><select id="stageSel"></select>
+<label>每阵容局数</label><input type="number" id="runsInput" value="100" min="1" max="2000">
+<label>采样次数</label><input type="number" id="sampleInput" value="1000" min="1" max="20000">
+<button id="sampleBtn">① 采样典型阵容</button>
+</div>
+<div class="progress" id="sampleProgress"></div>
+<div class="msg" id="sampleMsg"></div>
+<div id="lineupBox"><div class="empty">尚未采样</div></div>
+</div>
+
+<div class="section">
+<h2>② 参数补丁</h2>
+<div class="config">
+<label>旋钮</label><select id="knobSel"></select>
+<label>新值</label><input type="number" id="knobVal" step="any" placeholder="如 0.3" style="width:110px">
+<button id="addPatchBtn" class="ghost">加入补丁</button>
+</div>
+<div class="msg" id="patchMsg"></div>
+<div id="patchTable"><div class="empty">尚无补丁</div></div>
+<textarea id="patchText" spellcheck="false">{ "set": [] }</textarea>
+<div class="hint">
+路径式补丁（可直接改这段 JSON，改完即生效）。示例：<code>{"set":[{"path":"characters.张无忌.mechanics.0.onHitEffects.0.pct","value":0.3}]}</code><br>
+注意：真正的数值旋钮大多在 <code>mechanics</code> 里；<code>skills.*.params.*</code> 多数只是文案插值（改了没效果），此处一并列出由你自己判断。
+</div>
+</div>
+
+<div class="section">
+<h2>③ 跑对照</h2>
+<div class="config">
+<button id="runBtn" disabled>② 跑对照</button>
+<button id="exportBtn" class="ghost" disabled>③ 导出 md</button>
+<button id="copyBtn" class="ghost" disabled>复制到剪贴板</button>
+</div>
+<div class="progress" id="runProgress"></div>
+<div class="msg" id="runMsg"></div>
+<div id="resultBox"><div class="empty">尚未运行</div></div>
+</div>
+
+<script type="module">
+import { ensureGameData, listNumericKnobs, pickTypicals } from './120-param-lab-core.js';
+import { runParallel, getPoolSize } from './117-shared-worker-runner.js';
+
+const WORKER_URL = new URL('./120-param-lab-worker.js', import.meta.url);
+const SAMPLE_BASE = 20000;   // 采样 seed 起点（与 CLI --sample 默认一致）
+const COMPARE_BASE = 1;      // 对照 seed 起点（与 CLI 默认一致）
+const PICK = 15;             // 取前 15 个精英组合
+const CHUNK = 25;            // 分片场次：一个 job = 某阵容的一段
+
+const $ = id => document.getElementById(id);
+const stageSel = $('stageSel'), runsInput = $('runsInput'), sampleInput = $('sampleInput');
+const sampleBtn = $('sampleBtn'), sampleProgress = $('sampleProgress'), sampleMsg = $('sampleMsg');
+const lineupBox = $('lineupBox');
+const knobSel = $('knobSel'), knobVal = $('knobVal'), addPatchBtn = $('addPatchBtn');
+const patchMsg = $('patchMsg'), patchTable = $('patchTable'), patchText = $('patchText');
+const runBtn = $('runBtn'), exportBtn = $('exportBtn'), copyBtn = $('copyBtn');
+const runProgress = $('runProgress'), runMsg = $('runMsg'), resultBox = $('resultBox');
+
+let lineups = [];            // pickTypicals 结果
+let selected = [];           // 勾选状态（与 lineups 平行）
+let sampleRunsUsed = 1000;
+let patchOps = [];           // [{ path, value, orig }]
+let knobByPath = new Map();  // path -> 当前值（原值展示用）
+let baseResults = null, patchResults = null;
+let lastMd = '';
+
+const fmtPct = x => (x * 100).toFixed(1) + '%';
+const fmtRate = (w, n) => (w / n * 100).toFixed(1) + '%';
+const fmtDelta = d => (d >= 0 ? '+' : '') + (d * 100).toFixed(1) + '%';
+const fmtNet = v => (v >= 0 ? '+' : '') + v;
+const win = w => w === '明教';
+const isErr = w => w && String(w).startsWith('ERROR');
+
+// ---------------------------------------------------------------------------
+// 初始化：关卡下拉 + 旋钮下拉（旋钮直接读 game-data 缓存本体）
+// ---------------------------------------------------------------------------
+for (let s = 1; s <= 7; s++) {
+    const o = document.createElement('option');
+    o.value = String(s); o.textContent = `第 ${s} 关`;
+    if (s === 3) o.selected = true;
+    stageSel.appendChild(o);
+}
+
+async function initKnobs() {
+    try {
+        const root = await ensureGameData();
+        const knobs = listNumericKnobs(root);
+        for (const k of knobs) {
+            knobByPath.set(k.path, k.value);
+            const o = document.createElement('option');
+            o.value = k.path;
+            o.textContent = `${k.label} = ${k.value}`;
+            o.dataset.orig = String(k.value);
+            knobSel.appendChild(o);
+        }
+        if (!knobs.length) {
+            const o = document.createElement('option');
+            o.textContent = '（未发现数值旋钮）'; o.value = '';
+            knobSel.appendChild(o);
+        }
+    } catch (e) {
+        const o = document.createElement('option');
+        o.textContent = `旋钮加载失败：${e.message}`; o.value = '';
+        knobSel.appendChild(o);
+    }
+}
+initKnobs();
+
+// ---------------------------------------------------------------------------
+// ① 采样典型阵容
+// ---------------------------------------------------------------------------
+sampleBtn.addEventListener('click', async () => {
+    const stage = parseInt(stageSel.value, 10) || 3;
+    const runs = Math.max(1, parseInt(sampleInput.value, 10) || 1000);
+    sampleBtn.disabled = true; runBtn.disabled = true;
+    sampleMsg.className = 'msg'; sampleMsg.textContent = '';
+    sampleProgress.textContent = `采样中：第 ${stage} 关 / ${runs} 个阵容…`;
+    lineupBox.innerHTML = '<div class="empty">采样中…</div>';
+    try {
+        const [done] = await runParallel({
+            jobs: [{ label: `sample@stage${stage}`, stage, runs, base: SAMPLE_BASE }],
+            workerUrl: WORKER_URL,
+            nextJobMsg: (job, id) => ({ jobId: id, kind: 'lab-sample', stage: job.stage, runs: job.runs, base: job.base })
+        });
+        sampleRunsUsed = runs;
+        lineups = pickTypicals({ list: done.result.list }, PICK);
+        selected = lineups.map(() => true);
+        renderLineups();
+        sampleProgress.textContent = `✅ 采样完成：${runs} 个阵容 → ${lineups.length} 个精英组合`;
+        runBtn.disabled = false;
+    } catch (e) {
+        sampleProgress.textContent = '';
+        sampleMsg.className = 'msg err';
+        sampleMsg.textContent = `采样失败：${e.message}`;
+        lineupBox.innerHTML = '<div class="empty">采样失败</div>';
+    } finally {
+        sampleBtn.disabled = false;
+    }
+});
+
+function renderLineups() {
+    let html = '<table><tr><th>选</th><th>ID</th><th>精英组合</th><th>出现频率</th><th>典型度</th></tr>';
+    lineups.forEach((l, i) => {
+        html += `<tr>
+            <td><input type="checkbox" data-i="${i}" ${selected[i] ? 'checked' : ''}></td>
+            <td>${l.id}</td>
+            <td class="left">${l.label}</td>
+            <td>${(l.rosterCount / sampleRunsUsed * 100).toFixed(1)}%（${l.rosterCount}/${sampleRunsUsed}）</td>
+            <td title="组内 ${l.variety} 种具体配置，与平均样本共享的名字+职业数">${l.avgOverlap.toFixed(2)}/5</td>
+        </tr>`;
+    });
+    html += '</table>';
+    lineupBox.innerHTML = html;
+    lineupBox.querySelectorAll('input[type=checkbox]').forEach(cb => {
+        cb.addEventListener('change', () => { selected[parseInt(cb.dataset.i, 10)] = cb.checked; });
+    });
+}
+
+// ---------------------------------------------------------------------------
+// ② 参数补丁：下拉 + 加入补丁 + JSON textarea 双向
+// ---------------------------------------------------------------------------
+function renderPatchTable() {
+    if (!patchOps.length) { patchTable.innerHTML = '<div class="empty">尚无补丁</div>'; return; }
+    let html = '<table><tr><th>路径</th><th>原值</th><th>新值</th><th>删除</th></tr>';
+    patchOps.forEach((o, i) => {
+        const orig = (o.orig != null) ? o.orig : (knobByPath.has(o.path) ? knobByPath.get(o.path) : '?');
+        html += `<tr><td class="left">${o.path}</td><td>${orig}</td><td class="up">${o.value}</td>
+            <td><button class="ghost" data-del="${i}" style="padding:2px 10px">删除</button></td></tr>`;
+    });
+    html += '</table>';
+    patchTable.innerHTML = html;
+    patchTable.querySelectorAll('button[data-del]').forEach(b => {
+        b.addEventListener('click', () => {
+            patchOps.splice(parseInt(b.dataset.del, 10), 1);
+            renderPatchTable(); syncPatchText();
+        });
+    });
+}
+function syncPatchText() {
+    patchText.value = JSON.stringify({ set: patchOps.map(o => ({ path: o.path, value: o.value })) }, null, 2);
+}
+addPatchBtn.addEventListener('click', () => {
+    const path = knobSel.value;
+    if (!path) { patchMsg.className = 'msg err'; patchMsg.textContent = '先选一个旋钮'; return; }
+    const raw = knobVal.value.trim();
+    const v = Number(raw);
+    if (raw === '' || !Number.isFinite(v)) { patchMsg.className = 'msg err'; patchMsg.textContent = '新值必须是数字'; return; }
+    const opt = knobSel.selectedOptions[0];
+    const orig = Number(opt.dataset.orig);
+    const ex = patchOps.find(o => o.path === path);
+    if (ex) { ex.value = v; }
+    else { patchOps.push({ path, value: v, orig: Number.isFinite(orig) ? orig : undefined }); }
+    renderPatchTable(); syncPatchText();
+    patchMsg.className = 'msg ok'; patchMsg.textContent = `已加入：${path} = ${v}`;
+});
+patchText.addEventListener('input', () => {
+    try {
+        const o = JSON.parse(patchText.value || '{}');
+        const ops = o.set || o.ops || [];
+        patchOps = ops.map(x => ({ path: x.path, value: x.value }));
+        renderPatchTable();
+        patchMsg.className = 'msg ok'; patchMsg.textContent = `已从 JSON 读取 ${patchOps.length} 条补丁`;
+    } catch (e) {
+        patchMsg.className = 'msg err'; patchMsg.textContent = `JSON 解析失败：${e.message}`;
+    }
+});
+
+// ---------------------------------------------------------------------------
+// ③ 跑对照：基线臂 → （有补丁则）补丁臂，两臂同序同 seed
+// ---------------------------------------------------------------------------
+runBtn.addEventListener('click', async () => {
+    const idxs = lineups.map((_, i) => i).filter(i => selected[i]);
+    if (!idxs.length) { runMsg.className = 'msg err'; runMsg.textContent = '没有勾选任何阵容'; return; }
+    const stage = parseInt(stageSel.value, 10) || 3;
+    const runs = Math.max(1, parseInt(runsInput.value, 10) || 100);
+    const patch = patchOps.slice();
+    const poolSize = getPoolSize();
+
+    setRunning(true);
+    runMsg.className = 'msg'; runMsg.textContent = '';
+    resultBox.innerHTML = '<div class="empty">运行中…</div>';
+    baseResults = {}; patchResults = null;
+    for (const idx of idxs) baseResults[idx] = new Array(runs).fill(null);
+
+    const buildJobs = arm => {
+        const jobs = [];
+        for (const idx of idxs) {
+            for (let s = 0; s < runs; s += CHUNK) {
+                jobs.push({ idx, startIndex: s, runs: Math.min(CHUNK, runs - s), arm, label: `${lineups[idx].id}@${s}` });
+            }
+        }
+        return jobs;
+    };
+    const nextMsg = (stage, patch) => (job, id) => ({
+        jobId: id, kind: 'lab-run', arm: job.arm, stage,
+        spec: lineups[job.idx].spec, base: COMPARE_BASE,
+        startIndex: job.startIndex, runs: job.runs,
+        patchOps: job.arm === 'patch' ? patch : undefined
+    });
+
+    try {
+        // 基线臂：只跑勾选阵容
+        let done = 0;
+        const totalBase = idxs.length * runs;
+        await runParallel({
+            jobs: buildJobs('base'), workerUrl: WORKER_URL, poolSize,
+            nextJobMsg: nextMsg(stage, null),
+            onJobDone: (finished, jobTotal, job, result) => {
+                const arr = baseResults[job.idx], w = result.winners || [];
+                for (let i = 0; i < w.length; i++) arr[job.startIndex + i] = w[i];
+                done += job.runs;
+                runProgress.textContent = `基线 已完成 ${Math.min(done, totalBase)}/${totalBase} 局（${idxs.length} 阵容 × ${runs} 局｜${poolSize} 线程）`;
+            }
+        });
+
+        // 补丁臂：新起一轮池（干净实例，各自打一次补丁），顺序上基线已全部派发完，不会串味
+        if (patch.length) {
+            patchResults = {};
+            for (const idx of idxs) patchResults[idx] = new Array(runs).fill(null);
+            let doneP = 0;
+            const totalPatch = idxs.length * runs;
+            await runParallel({
+                jobs: buildJobs('patch'), workerUrl: WORKER_URL, poolSize,
+                nextJobMsg: nextMsg(stage, patch),
+                onJobDone: (finished, jobTotal, job, result) => {
+                    const arr = patchResults[job.idx], w = result.winners || [];
+                    for (let i = 0; i < w.length; i++) arr[job.startIndex + i] = w[i];
+                    doneP += job.runs;
+                    runProgress.textContent = `补丁 已完成 ${Math.min(doneP, totalPatch)}/${totalPatch} 局（${idxs.length} 阵容 × ${runs} 局｜${poolSize} 线程）`;
+                }
+            });
+        }
+
+        renderResults(stage, runs, idxs, !!patch.length);
+        runProgress.textContent = '✅ 完成';
+    } catch (e) {
+        runProgress.textContent = '';
+        runMsg.className = 'msg err';
+        runMsg.textContent = `运行失败：${e.message}`;
+        resultBox.innerHTML = `<div class="empty">运行失败：${e.message}</div>`;
+    } finally {
+        setRunning(false);
+    }
+});
+
+function setRunning(on) {
+    sampleBtn.disabled = on;
+    runBtn.disabled = on || !lineups.length;
+    exportBtn.disabled = on || !lastMd;
+    copyBtn.disabled = on || !lastMd;
+    knobVal.disabled = on; addPatchBtn.disabled = on;
+}
+
+function renderResults(stage, runs, idxs, hasPatch) {
+    const rows = idxs.map(idx => {
+        const b = baseResults[idx] || [];
+        const p = hasPatch ? (patchResults[idx] || []) : null;
+        const bw = b.filter(win).length;
+        const bErr = b.filter(isErr).length;
+        const freq = lineups[idx].rosterCount / sampleRunsUsed;
+        let up = 0, down = 0, pw = null, pErr = 0;
+        if (p) {
+            pw = p.filter(win).length;
+            pErr = p.filter(isErr).length;
+            for (let k = 0; k < runs; k++) {
+                if (!win(b[k]) && win(p[k])) up++;
+                else if (win(b[k]) && !win(p[k])) down++;
+            }
+        }
+        return { idx, l: lineups[idx], freq, bw, bErr, pw, pErr, up, down };
+    });
+
+    let html = '<table><tr><th>阵容</th><th>出现频率</th><th>基线胜率</th>' +
+        (hasPatch ? '<th>补丁胜率</th><th>Δ</th><th>翻转 A→B</th><th>翻转 B→A</th><th>净翻转</th>' : '') +
+        '<th>异常局</th></tr>';
+    for (const r of rows) {
+        html += `<tr><td class="left">${r.l.id} ${r.l.label}</td>
+            <td>${(r.freq * 100).toFixed(1)}%</td>
+            <td>${fmtRate(r.bw, runs)}</td>`;
+        if (hasPatch) {
+            const net = r.up - r.down;
+            const dCls = (r.pw - r.bw) > 0 ? 'up' : ((r.pw - r.bw) < 0 ? 'down' : '');
+            html += `<td>${fmtRate(r.pw, runs)}</td>
+                <td class="${dCls}">${fmtDelta((r.pw - r.bw) / runs)}</td>
+                <td>${r.up}</td><td>${r.down}</td>
+                <td class="${net > 0 ? 'up' : (net < 0 ? 'down' : '')}">${fmtNet(net)}</td>`;
+        }
+        const err = r.bErr + (r.pErr || 0);
+        html += `<td class="${err ? 'strong' : ''}">${err}</td></tr>`;
+    }
+    html += '</table>';
+
+    // 汇总：等权 + 按出现频率加权（勾选阵容内归一）
+    const n = rows.length;
+    const meanBase = rows.reduce((s, r) => s + r.bw / runs, 0) / n;
+    const wSum = rows.reduce((s, r) => s + r.freq, 0) || 1;
+    const wBase = rows.reduce((s, r) => s + r.freq * (r.bw / runs), 0) / wSum;
+    let sum = `<div class="hint" style="margin-top:12px">`;
+    sum += `等权（${n} 个阵容一视同仁）：基线 ${fmtPct(meanBase)}`;
+    if (hasPatch) {
+        const meanPatch = rows.reduce((s, r) => s + r.pw / runs, 0) / n;
+        const wPatch = rows.reduce((s, r) => s + r.freq * (r.pw / runs), 0) / wSum;
+        const upAll = rows.reduce((s, r) => s + r.up, 0);
+        const downAll = rows.reduce((s, r) => s + r.down, 0);
+        sum += ` → 补丁 ${fmtPct(meanPatch)}（<span class="${meanPatch >= meanBase ? 'up' : 'down'}">${fmtDelta(meanPatch - meanBase)}</span>）<br>`;
+        sum += `按出现频率加权（权重 = 采样频率，勾选内归一）：基线 ${fmtPct(wBase)} → 补丁 ${fmtPct(wPatch)}（<span class="${wPatch >= wBase ? 'up' : 'down'}">${fmtDelta(wPatch - wBase)}</span>）<br>`;
+        sum += `总翻转：A→B ${upAll} 局 / B→A ${downAll} 局 / 净 <b>${fmtNet(upAll - downAll)}</b>（正 = 补丁把败局变胜局）`;
+    } else {
+        sum += `<br><b>未填补丁 = 只跑基线</b>（补一补丁再跑，才会出现补丁列与翻转列）`;
+    }
+    sum += `<br>局数：勾选 ${n} 阵容 × ${runs} 局${hasPatch ? ' × 2 臂' : ''}</div>`;
+
+    resultBox.innerHTML = html + sum;
+    lastMd = buildMd(stage, runs, rows, hasPatch, meanBase, wBase, n);
+    exportBtn.disabled = false;
+    copyBtn.disabled = false;
+}
+
+function buildMd(stage, runs, rows, hasPatch, meanBase, wBase, n) {
+    const wSum = rows.reduce((s, r) => s + r.freq, 0) || 1;
+    let md = `# 参数对照实验 · 第 ${stage} 关（浏览器版）\n\n`;
+    md += `- 每阵容局数：${runs}；对照 seed 起点：${COMPARE_BASE}；采样 seed 起点：${SAMPLE_BASE}；海克斯固定 seed=7\n`;
+    md += `- 补丁：${hasPatch ? patchOps.map(o => `\`${o.path}=${o.value}\``).join('、') : '无（只跑基线）'}\n`;
+    md += `- 明教属性固定（每阵容一个 statSeed）；六大派随 seed 生成，基线与补丁同 seed 同源\n\n`;
+    md += `## 逐阵容\n\n| 阵容 | 出现频率 | 基线胜率 |`;
+    if (hasPatch) md += ` 补丁胜率 | Δ | 翻转 A→B | 翻转 B→A | 净翻转 |`;
+    md += `\n|---|---|---|`;
+    if (hasPatch) md += `---|---|---|---|---|---|`;
+    md += `\n`;
+    for (const r of rows) {
+        md += `| ${r.l.id} ${r.l.label} | ${(r.freq * 100).toFixed(1)}% | ${fmtRate(r.bw, runs)} |`;
+        if (hasPatch) {
+            md += ` ${fmtRate(r.pw, runs)} | ${fmtDelta((r.pw - r.bw) / runs)} | ${r.up} | ${r.down} | ${fmtNet(r.up - r.down)} |`;
+        }
+        md += `\n`;
+    }
+    md += `\n## 汇总\n\n`;
+    md += `- 等权（${n} 个阵容一视同仁）：基线 ${fmtPct(meanBase)}`;
+    if (hasPatch) {
+        const meanPatch = rows.reduce((s, r) => s + r.pw / runs, 0) / n;
+        const wPatch = rows.reduce((s, r) => s + r.freq * (r.pw / runs), 0) / wSum;
+        const upAll = rows.reduce((s, r) => s + r.up, 0);
+        const downAll = rows.reduce((s, r) => s + r.down, 0);
+        md += ` → 补丁 ${fmtPct(meanPatch)}（${fmtDelta(meanPatch - meanBase)}）\n`;
+        md += `- 按出现频率加权：基线 ${fmtPct(wBase)} → 补丁 ${fmtPct(wPatch)}（${fmtDelta(wPatch - wBase)}）\n`;
+        md += `- 翻转局数：A→B ${upAll} 局 / B→A ${downAll} 局 / 净 **${fmtNet(upAll - downAll)}**（翻转为正 = 补丁把败局变胜局）\n`;
+    } else {
+        md += `\n- 未填补丁 = 只跑基线\n`;
+    }
+    md += `\n> 判读：配对 seed 下「净翻转」比绝对胜率灵敏一个数量级；净翻转与胜率差同时接近 0 = 该参数在本关无显著影响。\n`;
+    return md;
+}
+
+exportBtn.addEventListener('click', () => {
+    const stage = parseInt(stageSel.value, 10) || 3;
+    const blob = new Blob([lastMd], { type: 'text/markdown;charset=utf-8' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `lab-stage${stage}.md`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+});
+copyBtn.addEventListener('click', async () => {
+    try {
+        await navigator.clipboard.writeText(lastMd);
+        runMsg.className = 'msg ok'; runMsg.textContent = '已复制到剪贴板';
+    } catch (e) {
+        runMsg.className = 'msg err'; runMsg.textContent = `复制失败：${e.message}`;
+    }
+});
+</script>
+</body>
+</html>
