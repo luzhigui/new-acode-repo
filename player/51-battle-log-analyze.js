@@ -1,13 +1,14 @@
-// 战斗日志分析（共享模块） | V1.2.0 | ~35800 bytes
+// 战斗日志分析（共享模块） | V1.3.0 | ~47100 bytes
 // 从 tools/107-battle-log-viewer.js 抽出的纯解析 + 字符串渲染，供两处复用：
 //   1) 工具箱「🕹️ 日志复盘」（手动粘贴日志文本）
 //   2) 游戏内战报弹窗「📊 走势分析」（一键喂内存 battleLog，零复制粘贴）
 // 本模块不碰 core、不读引擎状态：输入日志文本 / battleLog 条目，输出 HTML 字符串。
 // 渲染样式统一用 hex-log- 前缀，injectLogAnalyzeStyle() 幂等注入一次。
-// V1.2.0：走势图纵轴改与柱同口径的「单阵营×回合 P90 高位值」做满刻度（旧用回合总伤中位数×3，
-//         柱却只画单阵营一半、满刻度虚高约 4 倍，柱群全挤下半屏、高低差被压平）；
-//         展示名去重复阵营前缀（修箭头行拼出的「明教 明教洪午」）。
-export const VER = 'player/51-battle-log-analyze.js V1.2.0';
+// V1.3.0：战报「精彩化」三件套——①战报封面：按结局基调（翻盘/零封/碾压/速胜/险胜/鏖战）配武侠金句，
+//         并给单位发 MVP 称号（杀神/输出魁首/铁壁/鬼影/一击必杀/血战之躯）；②走势图柱顶标 💀击杀回合、
+//         ⚡转折回合，最高伤回合数值描金；③「本场名场面」高光卡（同回合连诛、残血反杀、最强一击、连续闪避、零封、初回见血）。
+//         全部为日志侧纯解析，零 core 改动；buildNarration 顺带把转折点 peak 回填进聚合对象供两处复用。
+export const VER = 'player/51-battle-log-analyze.js V1.3.0';
 
 // ───────────────────────── 样式（幂等注入） ─────────────────────────
 const STYLE_ID = 'hexLogStyle';
@@ -80,6 +81,29 @@ const LOG_ANALYZE_CSS = `
 .hex-log-legend i{width:12px;height:12px;border-radius:3px;display:inline-block}
 .hex-log-legend .la{background:#ffd700}
 .hex-log-legend .le{background:#4fc3f7}
+/* 战报封面：结局基调 + 武侠金句 + MVP 称号 */
+.hex-log-cover{text-align:center;background:radial-gradient(ellipse at top,#2a2040 0%,#0f0f1a 72%);border:1px solid #b8860b;border-radius:12px;padding:18px 14px 14px;margin:4px 0 10px}
+.hex-log-cover-badge{display:inline-block;font-size:11px;color:#ffd700;border:1px solid #b8860b;border-radius:20px;padding:2px 12px;margin-bottom:8px;letter-spacing:2px}
+.hex-log-cover-title{font-size:26px;font-weight:bold;color:#ffd700;text-shadow:0 0 14px rgba(255,215,0,.45);letter-spacing:4px}
+.hex-log-cover-quote{color:#e8c87a;font-size:13px;margin-top:8px;letter-spacing:1px}
+.hex-log-cover-sub{color:#999;font-size:11px;margin-top:6px}
+.hex-log-medals{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-top:12px}
+.hex-log-medal{display:flex;flex-direction:column;align-items:center;gap:2px;min-width:72px;max-width:104px;background:rgba(0,0,0,.32);border:1px solid #444;border-radius:10px;padding:8px 6px}
+.hex-log-medal .m-emoji{font-size:18px}
+.hex-log-medal .m-name{font-size:11px;color:#ffd700;font-weight:bold}
+.hex-log-medal .m-who{font-size:12px;color:#eee;max-width:96px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hex-log-medal .m-val{font-size:10px;color:#999}
+/* 本场名场面高光卡 */
+.hex-log-highlight{display:flex;flex-direction:column;gap:8px;margin-top:8px}
+.hex-log-hl-card{display:flex;align-items:center;gap:12px;background:linear-gradient(90deg,#241a3a,#0f0f1a);border:1px solid #6a4a9a;border-left:4px solid #b388ff;border-radius:10px;padding:10px 14px}
+.hex-log-hl-card .hl-icon{font-size:26px;flex-shrink:0}
+.hex-log-hl-card .hl-title{font-size:14px;font-weight:bold;color:#e8c8ff}
+.hex-log-hl-card .hl-desc{font-size:12px;color:#ccc;margin-top:2px;line-height:1.6}
+/* 走势图事件标记：💀击杀回合 / ⚡转折回合 / 最高伤回合 */
+.hex-log-bar-mark{height:14px;display:flex;gap:1px;align-items:flex-end;justify-content:center;font-size:10px;line-height:1}
+.hex-log-bar-col-a.is-peak .ba,.hex-log-bar-col-a.is-peak .be{box-shadow:0 0 0 1.5px #fff,0 0 8px 1px #ffd700}
+.hex-log-bar-val.is-top{color:#ffd700;font-weight:bold}
+.hex-log-bar-mark .mk-peak{filter:drop-shadow(0 0 3px #ffd700)}
 `;
 
 export function injectLogAnalyzeStyle() {
@@ -190,7 +214,7 @@ const eff = e => (e && e.effDmg !== undefined && e.effDmg !== null) ? e.effDmg :
 const over = e => Math.max(0, (e.dmg || 0) - eff(e));
 
 // ───────────────────────── 战局讲解（规则式叙事引擎） ─────────────────────────
-function buildNarration(events) {
+function buildNarration(events, agg) {
   const A = TEAM_MING, E = TEAM_SIX;
   const ctx = events._ctx || { stacks: [], breaks: [], fortify: [], holy: [], poison: [], rebound: [] };
   const T = { [A]: { dmg: {}, victims: {} }, [E]: { dmg: {}, victims: {} } };
@@ -240,6 +264,7 @@ function buildNarration(events) {
 
   // 3) 转折点：找出单回合某方爆发，并解释爆发成因
   const peak = detectTurn(events, T, ctx);
+  if (agg) agg.peak = peak; // 回传给封面基调判定与走势图 ⚡ 标记复用，不重复计算
   if (peak) {
     const cause = peak.cause
       ? `，原因是 ${peak.cause}`
@@ -378,9 +403,17 @@ function renderRanks({ dmgBy, killsBy, takenBy, totalDmg }) {
   </div>`;
 }
 
-// 回合伤害柱状图（每回合 明教/六大派 双色柱）
-function renderChart(campByRound) {
+// 回合伤害柱状图（每回合 明教/六大派 双色柱）；agg 可选，带事件标记：💀击杀回合 / ⚡转折回合 / 最高伤回合
+function renderChart(campByRound, agg) {
   const rounds = Object.keys(campByRound).sort((a, b) => a - b);
+  const rInfo = (agg && agg.roundInfo) || {};
+  const peakRound = agg && agg.peak ? agg.peak.round : null;
+  // 全场回合总伤最高的一回合（在柱底数值上描金）
+  let topRound = null, topVal = -1;
+  rounds.forEach(r => {
+    const s = (campByRound[r][TEAM_MING] || 0) + (campByRound[r][TEAM_SIX] || 0);
+    if (s > topVal) { topVal = s; topRound = +r; }
+  });
   // 纵轴满刻度必须与柱「同口径」：每根柱是单阵营单回合伤害，旧版却用「回合总伤中位数×3」
   // （总伤≈两根柱之和、再 ×3），满刻度被顶到实际峰值的约 4 倍，所有柱挤在下半屏、高低差被压平。
   // 改取所有「阵营×回合」伤害的 P90 高位值 ×1.08：常态最高的柱逼近满高、低伤回合自然显矮，
@@ -403,17 +436,23 @@ function renderChart(campByRound) {
     const hE = pct(dE);
     const overA = dA / base * 100 > 100 ? ' ⬆' : '';
     const overE = dE / base * 100 > 100 ? ' ⬆' : '';
-    return `<div class="hex-log-bar-col-a">
+    const kn = rInfo[r] ? rInfo[r].kills : 0;
+    const isPeak = peakRound !== null && +r === peakRound;
+    const isTop = +r === topRound;
+    const mark = (kn > 0 ? `<span class="mk-kill">💀${kn > 1 ? kn : ''}</span>` : '') + (isPeak ? '<span class="mk-peak">⚡</span>' : '');
+    const cls = `hex-log-bar-col-a${isPeak ? ' is-peak' : ''}${isTop ? ' is-top' : ''}`;
+    return `<div class="${cls}">
+      ${mark ? `<div class="hex-log-bar-mark">${mark}</div>` : ''}
       <div class="hex-log-double">
         <div class="ba" style="height:${hA}%" title="明教 ${dA}${overA}"></div>
         <div class="be" style="height:${hE}%" title="六大派 ${dE}${overE}"></div>
       </div>
-      <div class="hex-log-bar-val">${dA + dE}</div>
+      <div class="hex-log-bar-val${isTop ? ' is-top' : ''}">${dA + dE}</div>
       <div class="hex-log-bar-label">R${r}</div>
     </div>`;
   }).join('');
   return `<div class="hex-log-chart">${cols || '<div class="hex-log-bar-col-a"><div class="hex-log-bar-label">无数据</div></div>'}</div>
-    <div class="hex-log-legend"><span><i class="la"></i>明教</span><span><i class="le"></i>六大派</span><span>满刻度≈高位值 ${Math.round(base)}，⬆=爆发回合封顶</span></div>`;
+    <div class="hex-log-legend"><span><i class="la"></i>明教</span><span><i class="le"></i>六大派</span><span>满刻度≈高位值 ${Math.round(base)}，⬆爆发封顶</span><span>💀击杀回合 · ⚡转折点</span></div>`;
 }
 
 // 阵营对决卡片：输出 / 承伤 / 击杀，附占比条
@@ -463,6 +502,103 @@ function card(value, label) {
   return `<div class="hex-log-card"><div class="v">${value}</div><div class="l">${label}</div></div>`;
 }
 
+// 统计 map 的榜首 [name, value]
+const topEntry = map => Object.entries(map || {}).sort((a, b) => b[1] - a[1])[0] || null;
+
+// 战报封面：结局基调（翻盘/零封/碾压/速胜/险胜/鏖战）+ 武侠金句 + MVP 称号
+function buildCover(agg) {
+  const { winner, loser, rounds, kills, totalDmg, killedCamp } = agg;
+  const winDead = killedCamp[winner] || 0;
+  const loseDead = killedCamp[loser] || 0;
+  // 基调：胜方在中后段才打出转折爆发 → 翻盘；其余按阵亡差与回合数分级
+  const comeback = agg.peak && agg.peak.team === winner && agg.peak.round >= Math.max(3, Math.round(rounds * 0.5));
+  let tone;
+  if (comeback) tone = { icon: '🌪️', t: '绝地翻盘', q: '后发制人，置之死地而后生。' };
+  else if (winDead === 0 && loseDead >= 3) tone = { icon: '🛡️', t: '零封碾压', q: '兵不血刃，横扫千军如卷席。' };
+  else if (loseDead >= 4 && winDead <= 1) tone = { icon: '🔥', t: '碾压之胜', q: '势如破竹，一战而定乾坤。' };
+  else if (rounds <= 6 && loseDead - winDead >= 2) tone = { icon: '⚡', t: '速战速决', q: '迅雷不及掩耳，须臾胜负已分。' };
+  else if (rounds >= 9 && winDead >= loseDead - 1) tone = { icon: '🗡️', t: '险中求胜', q: '棋逢对手，一招险棋定江湖。' };
+  else if (rounds >= 14) tone = { icon: '⏳', t: '苦战后的惨胜', q: '鏖战良久，一将功成万骨枯。' };
+  else tone = { icon: '⚔️', t: '克敌制胜', q: '江湖路远，胜负已分。' };
+
+  // MVP 称号（按说服力排序，最多展示 5 枚）
+  const medals = [];
+  const kTop = topEntry(agg.killsBy);
+  if (kTop && kTop[1] >= 2) medals.push(['🔥', '杀神', kTop[0], `${kTop[1]} 杀`]);
+  const dTop = topEntry(agg.dmgBy);
+  if (dTop && dTop[1] > 0) medals.push(['⚔️', '输出魁首', dTop[0], `${dTop[1]} 伤`]);
+  const tTop = topEntry(agg.takenBy);
+  if (tTop && tTop[1] >= 120) medals.push(['🛡️', '铁壁', tTop[0], `承伤 ${tTop[1]}`]);
+  const gTop = topEntry(agg.dodgeBy);
+  if (gTop && gTop[1] >= 2) medals.push(['🦅', '鬼影', gTop[0], `${gTop[1]} 闪`]);
+  if (agg.topHit && eff(agg.topHit) >= 120) {
+    const e = agg.topHit;
+    medals.push(['💥', e.type === 'kill' ? '一击必杀' : '惊世一击', dispName(e.attacker), `${eff(e)} 伤害`]);
+  }
+  // 血战之躯：曾被打到个位数血、最终却活下来
+  let low = null;
+  for (const [n, hp] of Object.entries(agg.minHp || {})) {
+    if (!agg.deadSet.has(n) && hp <= 12 && (!low || hp < low.hp)) low = { n, hp };
+  }
+  if (low) medals.push(['🩸', '血战之躯', low.n, `仅剩 ${low.hp} 血`]);
+
+  const medalHtml = medals.slice(0, 5).map(m =>
+    `<div class="hex-log-medal"><span class="m-emoji">${m[0]}</span><span class="m-name">${m[1]}</span><span class="m-who" title="${m[2]}">${m[2]}</span><span class="m-val">${m[3]}</span></div>`
+  ).join('');
+  const winIcon = winner === TEAM_MING ? '🟡' : '🔵';
+
+  return `<div class="hex-log-cover">
+    <div class="hex-log-cover-badge">战 报 · ${winIcon} ${winner} 胜</div>
+    <div class="hex-log-cover-title">${tone.icon} ${tone.t}</div>
+    <div class="hex-log-cover-quote">“${tone.q}”</div>
+    <div class="hex-log-cover-sub">${rounds} 回合 · 总伤害 ${totalDmg} · ${kills} 人阵亡 · ${winner}折损 ${winDead} / ${loser}折损 ${loseDead}</div>
+    <div class="hex-log-medals">${medalHtml}</div>
+  </div>`;
+}
+
+// 本场名场面：同回合连诛、残血反杀、最强一击、连续闪避、零封、初回见血（取最精彩的前三张）
+function buildHighlightCards(agg) {
+  const cards = [];
+  // 1) 同回合连诛多人
+  let multi = null;
+  Object.entries(agg.roundInfo || {}).forEach(([r, d]) => {
+    if (d.kills >= 2 && (!multi || d.kills > multi.kills)) multi = { r: +r, kills: d.kills, dead: d.dead };
+  });
+  if (multi) cards.push({ i: '💀', t: `第${multi.r}回合 · 连诛${multi.kills}人`, d: `${multi.dead.join('、')} 同回合殒命，战局就此急转直下。` });
+  // 2) 残血反杀：杀手自己一度被打到个位数血却活了下来
+  let clutch = null;
+  for (const e of agg.killEvents) {
+    const an = dispName(e.attacker);
+    const hp = agg.minHp[an];
+    if (!agg.deadSet.has(an) && hp !== undefined && hp <= 15 && (!clutch || hp < clutch.hp)) clutch = { e, hp, an };
+  }
+  if (clutch) cards.push({ i: '🩸', t: '残血反杀', d: `${clutch.an} 一度仅剩 ${clutch.hp} 血，仍手刃 ${dispName(clutch.e.target)}，险中夺命。` });
+  // 3) 最强一击
+  const th = agg.topHit;
+  if (th && eff(th) >= 120) {
+    const ov = over(th);
+    cards.push({
+      i: '💥', t: th.type === 'kill' ? '一击必杀' : '惊世一击',
+      d: `R${th.round} ${dispName(th.attacker)} → ${dispName(th.target)}，单发 ${eff(th)} 伤害${ov > 0 ? `（纸面 ${th.dmg}，溢出 ${ov}）` : ''}。`
+    });
+  }
+  // 4) 连续闪避
+  const gTop = topEntry(agg.dodgeBy);
+  if (gTop && gTop[1] >= 3) cards.push({ i: '🦅', t: '鬼影如梭', d: `${gTop[0]} 全场闪避 ${gTop[1]} 次，万军之中来去自如。` });
+  // 5) 零封
+  if ((agg.killedCamp[agg.winner] || 0) === 0 && (agg.killedCamp[agg.loser] || 0) >= 2)
+    cards.push({ i: '🛡️', t: '毫发无损', d: `${agg.winner} 全场无人阵亡，零封对手。` });
+  // 6) 初回见血
+  if (agg.roundInfo[1] && agg.roundInfo[1].kills >= 1)
+    cards.push({ i: '⚡', t: '初回见血', d: '第一回合便有人倒下，开场即杀机毕露。' });
+
+  const show = cards.slice(0, 3);
+  if (!show.length) return '';
+  return `<div class="hex-log-highlight">${show.map(c =>
+    `<div class="hex-log-hl-card"><span class="hl-icon">${c.i}</span><div><div class="hl-title">${c.t}</div><div class="hl-desc">${c.d}</div></div></div>`
+  ).join('')}</div>`;
+}
+
 // ───────────────────────── 高层：文本 → 两段 HTML ─────────────────────────
 // 返回 { ok, summaryHtml, bodyHtml, rounds, attacks, totalDmg }；不碰 DOM。
 export function analyzeBattleLogText(text) {
@@ -509,9 +645,6 @@ export function analyzeBattleLogText(text) {
   }
   const campHtml = renderCampCards(camp);
 
-  // 区块2：回合伤害柱状图（双阵营）
-  const chartHtml = renderChart(campByRound);
-
   // 区块3：回合摘要表
   const roundInfo = {};
   for (const e of events) {
@@ -524,10 +657,46 @@ export function analyzeBattleLogText(text) {
   }
   const roundHtml = renderRounds(roundInfo);
 
+  // 区块4：封面 / 名场面 / 走势图共享聚合（胜负、阵亡、丝血、闪避、最强一击、转折点）
+  const killEvents = events.filter(e => e.type === 'kill');
+  const killedCamp = { [TEAM_MING]: 0, [TEAM_SIX]: 0 };
+  const deadSet = new Set();
+  const minHp = {}; // 单位作为被击目标时跌到过的最低血量（用于丝血判定）
+  for (const e of events) {
+    if (e.type === 'kill') { const tt = teamOf(e.target); if (tt) killedCamp[tt]++; deadSet.add(dispName(e.target)); }
+    if ((e.type === 'attack' || e.type === 'kill') && e.hpAfter !== null && e.hpAfter !== undefined) {
+      const n = dispName(e.target);
+      if (minHp[n] === undefined || e.hpAfter < minHp[n]) minHp[n] = e.hpAfter;
+    }
+  }
+  const dodgeBy = {};
+  for (const e of events) {
+    if (e.type !== 'dodge') continue;
+    const n = dispName(e.target);
+    if (n && n !== '?') dodgeBy[n] = (dodgeBy[n] || 0) + 1;
+  }
+  let winner = (String(text).match(/(明教|六大派)\s*胜/) || [])[1] || null;
+  if (!winner) winner = killedCamp[TEAM_SIX] > killedCamp[TEAM_MING] ? TEAM_MING : TEAM_SIX; // 兜底：阵亡多者败
+  const loser = winner === TEAM_MING ? TEAM_SIX : TEAM_MING;
+  const topHit = attacksOnly.filter(e => e.dmg !== null).sort((a, b) => eff(b) - eff(a))[0] || null;
+  const agg = {
+    winner, loser, rounds, kills, dodges, totalDmg, killedCamp, deadSet, minHp, dodgeBy,
+    dmgBy, killsBy, takenBy, camp, campByRound, roundInfo, topHit, killEvents, peak: null
+  };
+
+  // 战局讲解（同时把转折点 peak 回填进 agg，供封面基调与走势图 ⚡ 复用）
+  let narrationHtml = '';
+  try { narrationHtml = buildNarration(events, agg); } catch { narrationHtml = ''; }
+  const coverHtml = buildCover(agg);
+  const highlightHtml = buildHighlightCards(agg);
+  const chartHtml = renderChart(campByRound, agg);
+
   let bodyHtml;
   try {
     bodyHtml =
-      `<div class="hex-log-h2">📝 战局讲解</div>${buildNarration(events)}` +
+      coverHtml +
+      `<div class="hex-log-h2">📝 战局讲解</div>${narrationHtml}` +
+      (highlightHtml ? `<div class="hex-log-h2">🎬 本场名场面</div>${highlightHtml}` : '') +
       `<div class="hex-log-h2">⚔️ 阵营对决</div>${campHtml}` +
       `<div class="hex-log-h2">🏆 单位排行榜</div>${rankHtml}` +
       `<div class="hex-log-h2">📈 回合伤害走势</div>${chartHtml}` +
@@ -535,7 +704,7 @@ export function analyzeBattleLogText(text) {
       `<div class="hex-log-h2">🔍 事件明细</div>` +
       renderDetail(events);
   } catch (err) {
-    bodyHtml = `<p style="color:#f44336;margin-top:16px">分析出错：${(err && err.message) || err}</p>` +
+    bodyHtml = coverHtml + `<p style="color:#f44336;margin-top:16px">分析出错：${(err && err.message) || err}</p>` +
       `<div class="hex-log-h2">🏆 单位排行榜</div>${rankHtml}` +
       `<div class="hex-log-h2">📈 回合伤害走势</div>${chartHtml}` +
       `<div class="hex-log-h2">📋 回合摘要</div>${roundHtml}` +
