@@ -1,5 +1,5 @@
-// V6.0.2 | ~12100 bytes | 2026-09-24 SPLASH 逐目标补发 SIGNAL_TYPES.SPLASH_DAMAGED（窄通道，供莽撞类"挨打增益"被动认溅射）
-export const VER = 'core/16effect-handlers.js V6.0.2';
+// V6.0.3 | ~12500 bytes | 2026-09-28 SPLASH 处理器补发 METEOR_SPLASH_GROWTH fact（枚举/契约/渲染/翻译链早已接好却零 emit，数值随溅射存活命中人数×atkPerSplash）；配套 core/12 把本步 log 接进效果处理器 ctx
+export const VER = 'core/16effect-handlers.js V6.0.3';
 
 import { eventBus, EFFECT_TYPES } from '../infra/50-event-bus.js';
 import { applyStatChange, refreshMaxHp, query, emitEvent, addMod, getStat } from './13battle-shared.js';
@@ -172,6 +172,7 @@ registerEffectHandler(EFFECT_TYPES.SPLASH, (ctx) => {
                 const growth = hitCount * perSplash;
                 addMod(ctx.unit, 'atk', { source: '流星溅射成长', value: growth, ttl: 'permanent', group: 'meteorSplashGrowth', op: 'add' });
                 if (decl.factData) decl.factData.growth = growth;
+                ctx.log.push({ factType: FACT_TYPES.METEOR_SPLASH_GROWTH, data: { unitName: ctx.unit.name, growth } });
             }
         }
         executed.push(decl);

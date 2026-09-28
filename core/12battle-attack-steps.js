@@ -1,5 +1,5 @@
-// V6.3.4 | ~24700 bytes | 2026-09-25 闪避反击的 attackerHpAfter 去掉 Math.floor：0.8 血被 floor 成 0，被 core/10 与 render/34/38 当成致死（假死+展示 0 血）；改存真实血量，<=0 才是真致死。承接 V6.3.3 波动减伤
-export const VER = 'core/12battle-attack-steps.js V6.3.4';
+// V6.3.5 | ~28900 bytes | 2026-09-28 resolveAfterDamageEffects 增 log 形参并透传进效果处理器 ctx（原硬编码 log:null，SPLASH 处理器拿不到本步日志、无法补发 fact）。承接 V6.3.4 闪避反击 attackerHpAfter 存真实血量
+export const VER = 'core/12battle-attack-steps.js V6.3.5';
 
 import { CONFIG, getSkillParams, getGameData } from './01config-5v5-test.js';
 import { eventBus, EFFECT_TYPES } from '../infra/50-event-bus.js';
@@ -446,7 +446,7 @@ export function resolveDamageImmune(declarations) {
 }
 
 // 攻击后效果结算
-export function resolveAfterDamageEffects(declarations, unit, target, group, allySide, unitBuffs) {
+export function resolveAfterDamageEffects(declarations, unit, target, group, allySide, unitBuffs, log) {
     if (!declarations || declarations.length === 0) return [];
 
     const executed = [];
@@ -478,7 +478,7 @@ export function resolveAfterDamageEffects(declarations, unit, target, group, all
             group,
             allySide,
             unitBuffs,
-            log: null
+            log
         });
         if (result && result.executed) executed.push(...result.executed);
     }
