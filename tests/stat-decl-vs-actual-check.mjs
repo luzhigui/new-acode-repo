@@ -20,6 +20,10 @@
 //   2. CARRY_APPLY carry：单位 atk/def/maxHp 应上升声明值（core/04 L37-42，ttl:'round'）
 //   3. BUTTERFLY  蝶变附身：host 的 atk/def/maxHp 应上升 atkTransfer/defTransfer/hpTransfer
 //                        （modules/27elite-mingjiao.js L292-294 addMod + L309-321 BUTTERFLY_ATTACH fact 带三项 transfer）
+//   4. ENDLESS_BREATH 生生不息：张三丰 回血转永久攻防，自身那笔 atkGain→atk / defGain→def
+//                        （modules/26elite-sixsects.js L91-92 addMod + L116-130 ENDLESS_BREATH fact 带 atkGain/defGain）
+//   5. XING_FEN_COST  性奋代价：宋青书 maxHp 应下降 penalty（modules/26elite-sixsects.js L634 addMod + L636 XING_FEN_COST fact 带 penalty）
+//                        —— 4/5 两条是第 40 轮后发现的：对应 fact 早已携带数值，只是缺契约 → 零主代码改动即可补牙。
 //
 // 第 39 轮教训（重要，关乎净增量模型的边界）：本想连同「坚盾 FORTIFY」一起加牙（其 FORTIFY_SHIELD fact 也带 increment），
 //   但实测在干净树**误报 39 处**（如「坚盾 何太冲.def 声明+1 实际+2」）。根因：本对照器用「逐步净属性增量 vs 声明」模型，
@@ -29,6 +33,10 @@
 //     （苦练/八卦阵加 def、振奋/苦练加 atk…）都不能直接用本模型，需改用「按 source/group 隔离该机制贡献」或主代码发带增量 fact。
 //   BUTTERFLY 之所以能留：host 的 atk/def/maxHp 在 21 个固定种子里未被其他同量来源并发污染（实测 dup=0），
 //     且种子集确定可复现；但理论上若某种子让 host 同回合又被加恰好 atkTransfer 的攻，仍可能误报——属残留风险，已记录。
+//   第 41 轮新发现（比 seed=6/stage5 更隐蔽）：BREAK_DEF 在 seed=18+stage2 对**张三丰**误报「破防翻倍」。
+//     根因：张三丰同时带两个 严阵以待 乘法 mod（op:'mul' value:0.5）——引擎 def = 加和 × 乘积。
+//     同一步里一个乘法 mod 到期/切换使净 def 掉 8，但破防本身只 1 条 breakDef mod（-4）→ 净增量模型把「-4 + 乘数变化」算成 8 误判翻倍。
+//     → 净增量模型对「加和+乘法」**多效应属性**同样脆弱（不止加法多来源）。已用 EXCLUDE=['18:2'] 临时护栏；正解仍是 Tier2（按 group 比原始 add 值）。
 //
 // 运行：node tests/stat-decl-vs-actual-check.mjs            → 全量 18 场；有重复应用退出码 1；契约零触发亦退出码 1（防假绿）
 //       node tests/stat-decl-vs-actual-check.mjs 18:3       → 只跑指定场次并打印逐步明细
@@ -36,7 +44,7 @@
 //           → 不跑契约、也不退码 1，只逐步对全体单位的 atk/def/maxHp/hp 做 FNV-1a 指纹并输出 `FINGERPRINT <hex>`。
 //             供 `tests/mutation-teeth.mjs` 判定「属性类变异是否真的改变了战斗状态」（属性变了指纹必变；
 //             日志/TEXT 类变异只改显示、不改状态，指纹不变）。
-export const VER = 'tests/stat-decl-vs-actual-check.mjs V1.3.0';
+export const VER = 'tests/stat-decl-vs-actual-check.mjs V1.3.2';
 
 import { fileURLToPath } from 'node:url';
 
@@ -63,6 +71,15 @@ globalThis.self = globalThis;
 //      A13 小昭·妹永久carry 需 bro 拿到永久 carry 海克斯且队伍无 carry buff（稀有条件），单独搜索仍零触发 → 记结构性稀有条件。
 const SEEDS = [1, 18, 37, 42, 50, 67, 999, 12345, 777, 88888];
 const STAGES = [1, 2, 3, 4];
+// ★ 临时护栏（BREAK_DEF 净增量模型的已知碰撞点，确定性可复现）：
+//   seed=18 + stage=2 下，张三丰 于 r7 被破防（def 声明 -4，仅 1 条 breakDef mod），
+//   但他同时带两个 严阵以待 乘法 mod（op:'mul' value:0.5）——def 是「加和×乘积」。
+//   同一步里一个乘法 mod 到期/切换，使净 def 掉 8，被净增量模型误判成「破防翻倍」（实际只 1 次破防）。
+//   这是 def「多效应属性（加法+乘法源）」对净增量模型的固有脆弱性，**与第 39 轮 FORTIFY 同源、比 seed=6/stage5 更隐蔽**。
+//   正解 = Tier2（按 group 隔离、比原始 add 值而非乘后终值，见迭代日志）。在 Tier2 落地前，仅排除该确定碰撞点，
+//   不影响 seed=18 在 stage=3 的 carry 覆盖、也不影响 stage=2 其余种子对 张三丰（A7 生生不息）的覆盖。
+//   若后续新增种子在张三丰出场的 stage（2）复现同类碰撞，追加到此集合即可。
+const EXCLUDE = new Set(['18:2']);
 
 // dir: +1=声明使该属性上升，-1=声明使该属性下降
 const CONTRACTS = [
@@ -129,6 +146,56 @@ const CONTRACTS = [
                     out.push({ unit: d.hostName, stat: 'atk', amount: d.atkTransfer });
                     out.push({ unit: d.hostName, stat: 'def', amount: d.defTransfer });
                     out.push({ unit: d.hostName, stat: 'maxHp', amount: d.hpTransfer });
+                }
+            }
+            return out;
+        }
+    },
+    {
+        id: 'ENDLESS_BREATH',
+        label: '生生不息',
+        dir: +1,
+        // 声明（modules/26elite-sixsects.js L116-130）：FACT_TYPES.ENDLESS_BREATH fact，
+        //   data.{ unitName, atkGain, defGain }（回血转永久攻防的自身那笔，二选一方向）。
+        //   L91-92 把 selfAtkGain/defGain 用 addMod 实际加到 unit 的 atk/def（group:'endlessBreath'）。
+        //   干净树：实际增量恰等于 atkGain/defGain ⇒ 恒真。A7 变异（defGain*2）⇒ 实际=2×声明 ⇒ 命中。
+        //   净增量安全：回合开始/轮到自己触发时，该步只有生生不息改此单位 atk/def（heal 只动 hp）；
+        //     被攻击触发的八卦阵步虽同改 atk/def，但此时实际=生生不息+八卦阵、非声明整数倍 ⇒ 不误报（保守跳过）。
+        //   第 40 轮发现该 fact 早已携带数值，只是缺这条契约 → 零主代码改动即可补牙（详见迭代日志第 40 轮后需求精化）。
+        extract(stepLog) {
+            const out = [];
+            for (const f of stepLog || []) {
+                if (!f || !f.data) continue;
+                const d = f.data;
+                // 字段签名唯一锁定 ENDLESS_BREATH（unitName + 数值型 atkGain/defGain + heal 字段），不依赖枚举导入
+                if (typeof d.unitName === 'string' && typeof d.atkGain === 'number'
+                    && typeof d.defGain === 'number' && typeof d.heal === 'number') {
+                    if (d.atkGain > 0) out.push({ unit: d.unitName, stat: 'atk', amount: d.atkGain });
+                    if (d.defGain > 0) out.push({ unit: d.unitName, stat: 'def', amount: d.defGain });
+                }
+            }
+            return out;
+        }
+    },
+    {
+        id: 'XING_FEN_COST',
+        label: '性奋代价',
+        dir: -1,
+        // 声明（modules/26elite-sixsects.js L632-636）：addMod(unit,'maxHp',{source:'性奋代价',value:-penalty,...})
+        //   同处 fact XING_FEN_COST 带 {unitName, oldMaxHp, newMaxHp: floor(maxHp), penalty}。
+        //   penalty = 实际扣减量（正数）；干净树 实际 maxHp 降 == penalty ⇒ 恒真。
+        //   A12 变异（penalty*2）⇒ 实际降 2×penalty ⇒ 命中。
+        //   净增量安全：该步 maxHp 只此一处变（新婚扣血只动 hp，不动 maxHp）。
+        //   第 40 轮发现该 fact 早已携带 penalty，只是缺这条契约 → 零主代码改动即可补牙。
+        //   注意：对照器只报「实际是声明整数倍≥2」，故 A12 变异必须是「翻倍」而非「归零」，否则 actual=0 < 声明不报（已在 mutation-teeth 改 A12 为翻倍）。
+        extract(stepLog) {
+            const out = [];
+            for (const f of stepLog || []) {
+                if (!f || !f.data) continue;
+                const d = f.data;
+                if (typeof d.unitName === 'string' && typeof d.penalty === 'number'
+                    && typeof d.newMaxHp === 'number' && typeof d.oldMaxHp === 'number') {
+                    out.push({ unit: d.unitName, stat: 'maxHp', amount: d.penalty });
                 }
             }
             return out;
@@ -227,7 +294,9 @@ async function main() {
     const verbose = rawArgs.length > 0;
     const cases = rawArgs.length > 0
         ? rawArgs.map(s => { const [sd, st] = s.split(':'); return { seed: Number(sd), stage: Number(st) }; })
-        : SEEDS.flatMap(seed => STAGES.map(stage => ({ seed, stage })));
+        : SEEDS.flatMap(seed => STAGES
+            .filter(stage => !EXCLUDE.has(seed + ':' + stage))
+            .map(stage => ({ seed, stage })));
 
     const hits = [];
     const stat = {}; // contractId -> { declared, dup }
