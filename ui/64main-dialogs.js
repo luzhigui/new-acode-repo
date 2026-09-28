@@ -1,5 +1,5 @@
-// V6.2.0 | ~23900 bytes | 2026-09-28 战报弹窗新增「📊 走势分析」：内存 battleLog 一键喂 player/51，复用工具箱 107 的叙事/伤害排行/回合曲线，免复制粘贴
-export const VER = 'ui/64main-dialogs.js V6.2.0';
+// V6.3.0 | ~24100 bytes | 2026-09-28 战报弹窗改 flex 限高布局：整盒 max-height:90vh、标题/按钮固定、数据表与走势分析区独立滚动，修手机端内容超长被底部按钮遮挡、看不全；宽表横向可滑不撑破屏幕
+export const VER = 'ui/64main-dialogs.js V6.3.0';
 
 import { showModal, showAlert } from './60main-utils.js';
 import { AudioManager } from '../modules/22audio-manager.js';
@@ -42,7 +42,7 @@ export function showBattleReport(battleResultForInfo) {
 
     let box = document.createElement('div');
     box.className = 'modal-box';
-    box.style.cssText = 'background:#1a1a2e;border:2px solid #ffd700;border-radius:12px;padding:20px;max-width:580px;color:#eee;position:relative;';
+    box.style.cssText = 'background:#1a1a2e;border:2px solid #ffd700;border-radius:12px;padding:20px;max-width:min(580px,94vw);max-height:90vh;box-sizing:border-box;color:#eee;position:relative;display:flex;flex-direction:column;overflow:hidden;';
 
     // 最小化按钮挂在 box 内右上角（而非 overlay 上），避免出现在屏幕右上角
     let minimizeBtn = document.createElement('span');
@@ -67,13 +67,13 @@ export function showBattleReport(battleResultForInfo) {
     box.appendChild(minimizeBtn);
     
     let title = document.createElement('div');
-    title.style.cssText = 'color:#ffd700;font-size:18px;font-weight:bold;text-align:center;margin-bottom:12px;';
+    title.style.cssText = 'color:#ffd700;font-size:18px;font-weight:bold;text-align:center;margin-bottom:12px;flex-shrink:0;';
     title.textContent = '战斗结束 · ' + winner + '获胜';
     box.appendChild(title);
     
     let switchBtn = document.createElement('button');
     switchBtn.textContent = '按输出排序';
-    switchBtn.style.cssText = 'background:#3a3a6e;color:#eee;border:1px solid #555;padding:6px 14px;border-radius:4px;cursor:pointer;margin-bottom:8px;';
+    switchBtn.style.cssText = 'background:#3a3a6e;color:#eee;border:1px solid #555;padding:6px 14px;border-radius:4px;cursor:pointer;margin-bottom:8px;flex-shrink:0;';
     let sortBy = 'dmgDealt';
     switchBtn.onclick = () => {
         sortBy = sortBy === 'dmgDealt' ? 'dmgTaken' : 'dmgDealt';
@@ -83,15 +83,14 @@ export function showBattleReport(battleResultForInfo) {
     box.appendChild(switchBtn);
     
     let tableDiv = document.createElement('div');
-    tableDiv.style.maxHeight = '60vh';
-    tableDiv.style.overflowY = 'auto';
+    tableDiv.style.cssText = 'flex:1 1 auto;min-height:0;min-width:0;overflow:auto;';
     box.appendChild(tableDiv);
 
     // 走势分析容器（默认隐藏，点「📊 走势分析」后渲染内存 battleLog，与工具箱 107 共用 player/51）
     // 挂 hex-log-box 类以复用其表格/卡片样式，内联覆盖外观融入战报弹窗
     let analysisDiv = document.createElement('div');
     analysisDiv.className = 'hex-log-box';
-    analysisDiv.style.cssText = 'display:none;background:transparent;border:none;padding:0;width:100%;max-height:60vh;overflow-y:auto;font-size:12px;';
+    analysisDiv.style.cssText = 'display:none;background:transparent;border:none;padding:0;width:100%;max-height:none;min-width:0;flex:1 1 auto;min-height:0;overflow:auto;font-size:12px;';
     box.appendChild(analysisDiv);
 
     function renderTable() {
@@ -122,7 +121,7 @@ export function showBattleReport(battleResultForInfo) {
     renderTable();
     
     let btnDiv = document.createElement('div');
-    btnDiv.style.cssText = 'display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;';
+    btnDiv.style.cssText = 'display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;flex-shrink:0;';
 
     // 2026-09-25 整场回放文件：取本局录制（GAMEOVER 时 finishBattleRecording 已定稿）
     attachSaveBattleReportButton(btnDiv, () => getBattleRecording());
