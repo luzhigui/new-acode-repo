@@ -153,16 +153,20 @@ async function main() {
             'REPO="$(git rev-parse --show-toplevel)"', `MUTROOT="${toPosix(MUT_ROOT)}"`,
             'rm -rf "$MUTROOT"', 'mkdir -p "$MUTROOT/_base"',
             'git -C "$REPO" archive HEAD | tar -x -C "$MUTROOT/_base"'];
+        // ★ 叠加当前工作树（未提交改动）—— **必须在注入变异之前**做完，否则叠加会覆盖掉刚 sed 注入的变异。
+        //   两处都必须叠加（基树 _base 叠加一次即可，变异树由 _base 拷贝而来，自动继承）：
+        //   ① tests/：否则树木用 git archive HEAD 的旧测试脚本，--fingerprint 会被旧码当普通参数→NaN→死循环（第 38 轮）。
+        //   ② 主代码（core/modules/infra/player/render/content）：第 42 轮起因——
+        //      A5 的 METEOR_SPLASH_GROWTH fact 发射是**未提交的主代码改动**；若只拿 HEAD 树，临时树里是旧 core/16，
+        //      新 fact 根本不发 ⇒ 契约永远零触发（假绿）。变异牙齿测的必须是「当前这份代码」而非上次提交。
+        //   排除 .mut 避免把当前 .mut 递归拷进树木。
+        lines.push(`tar --exclude=.mut -C "$REPO/tests" -cf - . | tar -x -C "$MUTROOT/_base/tests"`);
+        lines.push('for dir in core modules infra player render content; do');
+        lines.push('    if [ -d "$REPO/$dir" ]; then tar -C "$REPO/$dir" -cf - . | tar -x -C "$MUTROOT/_base/$dir"; fi');
+        lines.push('done');
         for (const m of MUTATIONS) {
             lines.push(`cp -r "$MUTROOT/_base" "$MUTROOT/m-${m.id}"`);
             lines.push(`sed -i "s#${breEscape(m.from)}#${m.to}#g" "$MUTROOT/m-${m.id}/${m.file}"`);
-        }
-        // ★ 叠加当前工作树 tests/（含未提交改动，如 stat-decl 的 --fingerprint），
-        //   否则树木用 git archive HEAD 的旧测试脚本，--fingerprint 会被旧码当普通参数→NaN→死循环。
-        //   排除 .mut 避免把当前 .mut 递归拷进树木。
-        for (const m of [{ id: '_base' }, ...MUTATIONS]) {
-            const d = m.id === '_base' ? '_base' : 'm-' + m.id;
-            lines.push(`tar --exclude=.mut -C "$REPO/tests" -cf - . | tar -x -C "$MUTROOT/${d}/tests"`);
         }
         console.log(lines.join('\n'));
         return;

@@ -1,5 +1,5 @@
-// V6.3.3 | ~17900 bytes | 2026-09-25 闪避反击致死不再直接 alive=false：改挂 _pendingDeath 交 resolveDeaths 结算（修「带血尸体」hp 不清零 + DEATH 信号不发），判据从展示值 attackerHpAfter 改真实 unit.hp。承接 V6.3.2 额外攻击三口合一
-export const VER = 'core/10battle-attack.js V6.3.3';
+// V6.3.4 | ~18300 bytes | 2026-09-28 两处 resolveAfterDamageEffects 调用补传本步 log（透传到效果处理器 ctx，供 SPLASH 处理器补发 METEOR_SPLASH_GROWTH）。承接 V6.3.3 闪避反击致死改挂 _pendingDeath
+export const VER = 'core/10battle-attack.js V6.3.4';
 
 import { CONFIG } from './01config-5v5-test.js';
 import { hasBuff, makeFXSnapshot, isBlocked } from './03battle-utils.js';
@@ -228,7 +228,7 @@ export function processUnitAttack(unit, allySide, enemySide, log, A, B, state, d
     if (dmgResult.horseReboundDeclarations && dmgResult.horseReboundDeclarations.length > 0) {
         afterDamageDeclarations.push(...dmgResult.horseReboundDeclarations);
     }
-    const executedDecls = resolveAfterDamageEffects(afterDamageDeclarations, unit, target, group, allySide, unitActiveBuffs);
+    const executedDecls = resolveAfterDamageEffects(afterDamageDeclarations, unit, target, group, allySide, unitActiveBuffs, log);
     for (const decl of executedDecls) {
         if (decl._events && decl._events.length > 0) {
             if (!group._events) group._events = [];
@@ -274,7 +274,7 @@ export function processUnitAttack(unit, allySide, enemySide, log, A, B, state, d
         // 先处理攻盾等回合级状态授予（不参与八类结算）
         resolveRoundStatGrants(afterAttackData.declarations);
         // 再处理既有八类结算
-        const clawExecuted = resolveAfterDamageEffects(afterAttackData.declarations, unit, target, group, allySide, unitActiveBuffs);
+        const clawExecuted = resolveAfterDamageEffects(afterAttackData.declarations, unit, target, group, allySide, unitActiveBuffs, log);
         // 先处理爪击链日志，确保宋青书回血日志最后出现
         for (const decl of clawExecuted) {
             if (decl._events && decl._events.length > 0) {
