@@ -1,12 +1,13 @@
-// 战斗日志分析（共享模块） | V1.1.0 | ~33900 bytes
+// 战斗日志分析（共享模块） | V1.2.0 | ~35800 bytes
 // 从 tools/107-battle-log-viewer.js 抽出的纯解析 + 字符串渲染，供两处复用：
 //   1) 工具箱「🕹️ 日志复盘」（手动粘贴日志文本）
 //   2) 游戏内战报弹窗「📊 走势分析」（一键喂内存 battleLog，零复制粘贴）
 // 本模块不碰 core、不读引擎状态：输入日志文本 / battleLog 条目，输出 HTML 字符串。
 // 渲染样式统一用 hex-log- 前缀，injectLogAnalyzeStyle() 幂等注入一次。
-// V1.1.0：flatten 拍平时剥 HTML 标签（数据树 text 是渲染期 HTML，不剥则正则全失配）；
-//         闪避兼容现网文案「闪避并反击」、未命中/闪避复用箭头 pending（修攻击次数虚高与空「命中」行）。
-export const VER = 'player/51-battle-log-analyze.js V1.1.0';
+// V1.2.0：走势图纵轴改与柱同口径的「单阵营×回合 P90 高位值」做满刻度（旧用回合总伤中位数×3，
+//         柱却只画单阵营一半、满刻度虚高约 4 倍，柱群全挤下半屏、高低差被压平）；
+//         展示名去重复阵营前缀（修箭头行拼出的「明教 明教洪午」）。
+export const VER = 'player/51-battle-log-analyze.js V1.2.0';
 
 // ───────────────────────── 样式（幂等注入） ─────────────────────────
 const STYLE_ID = 'hexLogStyle';
@@ -177,6 +178,12 @@ export function parseLog(text) {
 const TEAM_MING = '明教', TEAM_SIX = '六大派';
 const teamOf = u => (u || '').startsWith(TEAM_MING) ? TEAM_MING : (u || '').startsWith(TEAM_SIX) ? TEAM_SIX : null;
 const shortName = u => (u || '').replace(/^(明教|六大派)\s*/, '');
+// 展示全名：箭头行把「阵营 + 单位名」拼在一起，而明教部分单位本名已带「明教」（如「明教洪午」），
+// 拼出来成了「明教 明教洪午」。若阵营前缀与本名开头重复则只保留一个；跨阵营同名不会被互相合并。
+const dispName = u => String(u == null ? '' : u)
+  .replace(/^(明教)\s+\1/, '$1')
+  .replace(/^(六大派)\s+\1/, '$1')
+  .trim();
 const isFriendly = u => (u || '').startsWith(TEAM_MING);
 // 有效伤害：溢出伤害（dmg > 目标剩余血）只按实际扣血量计；纸面值保留在 e.dmg
 const eff = e => (e && e.effDmg !== undefined && e.effDmg !== null) ? e.effDmg : (e.dmg || 0);
@@ -374,13 +381,20 @@ function renderRanks({ dmgBy, killsBy, takenBy, totalDmg }) {
 // 回合伤害柱状图（每回合 明教/六大派 双色柱）
 function renderChart(campByRound) {
   const rounds = Object.keys(campByRound).sort((a, b) => a - b);
-  // 基准不用全局最高回合（后期单回合爆发会把基准顶得过高，普通回合全贴地），
-  // 改用「中位数 ×3」——中位数对爆发回合鲁棒，均值会被极端值拉高，故以中位数为准（无中位数时用均值兜底）。
-  const totals = rounds.map(r => (campByRound[r][TEAM_MING] || 0) + (campByRound[r][TEAM_SIX] || 0));
-  const sorted = totals.slice().sort((a, b) => a - b);
-  const median = sorted[Math.floor(sorted.length / 2)] || 0;
-  const mean = totals.reduce((s, v) => s + v, 0) / (totals.length || 1);
-  const base = Math.max(1, (median > 0 ? median : mean) * 3);
+  // 纵轴满刻度必须与柱「同口径」：每根柱是单阵营单回合伤害，旧版却用「回合总伤中位数×3」
+  // （总伤≈两根柱之和、再 ×3），满刻度被顶到实际峰值的约 4 倍，所有柱挤在下半屏、高低差被压平。
+  // 改取所有「阵营×回合」伤害的 P90 高位值 ×1.08：常态最高的柱逼近满高、低伤回合自然显矮，
+  // 高低差拉开；极少数爆发回合（>P90）封顶并以 ⬆ 标出（正好呼应「转折点」），普通回合不被一起顶到贴地。
+  const perCampVals = [];
+  rounds.forEach(r => {
+    perCampVals.push(campByRound[r][TEAM_MING] || 0);
+    perCampVals.push(campByRound[r][TEAM_SIX] || 0);
+  });
+  const sortedVals = perCampVals.filter(v => v > 0).sort((a, b) => a - b);
+  const p90 = sortedVals.length
+    ? sortedVals[Math.min(sortedVals.length - 1, Math.floor(sortedVals.length * 0.9))]
+    : 1;
+  const base = Math.max(1, p90 * 1.08);
   const pct = v => Math.min(100, (v / base * 100).toFixed(1));
   const cols = rounds.map(r => {
     const dA = campByRound[r][TEAM_MING] || 0;
@@ -399,7 +413,7 @@ function renderChart(campByRound) {
     </div>`;
   }).join('');
   return `<div class="hex-log-chart">${cols || '<div class="hex-log-bar-col-a"><div class="hex-log-bar-label">无数据</div></div>'}</div>
-    <div class="hex-log-legend"><span><i class="la"></i>明教</span><span><i class="le"></i>六大派</span><span>基准(中位数×3)=${Math.round(base)}，⬆=封顶超基准</span></div>`;
+    <div class="hex-log-legend"><span><i class="la"></i>明教</span><span><i class="le"></i>六大派</span><span>满刻度≈高位值 ${Math.round(base)}，⬆=爆发回合封顶</span></div>`;
 }
 
 // 阵营对决卡片：输出 / 承伤 / 击杀，附占比条
@@ -439,7 +453,7 @@ function renderDetail(events) {
       : e.type === 'dodge' ? '<span class="hex-log-dodge">🦅闪避</span>'
       : e.type === 'miss' ? '<span class="hex-log-miss">未命中</span>'
       : e.type === 'attack' ? '命中' : e.type;
-    html += `<tr><td>${e.round}</td><td>${e.attacker}</td><td>${e.target}</td><td>${e.dmg ?? '-'}</td><td>${hpText}</td><td>${typeText}</td></tr>`;
+    html += `<tr><td>${e.round}</td><td>${dispName(e.attacker)}</td><td>${dispName(e.target)}</td><td>${e.dmg ?? '-'}</td><td>${hpText}</td><td>${typeText}</td></tr>`;
   }
   html += '</table>';
   return html;
@@ -475,9 +489,9 @@ export function analyzeBattleLogText(text) {
   // 区块1：单位排行榜
   const dmgBy = {}, killsBy = {}, takenBy = {};
   for (const e of attacksOnly) {
-    dmgBy[e.attacker] = (dmgBy[e.attacker] || 0) + eff(e);
-    takenBy[e.target] = (takenBy[e.target] || 0) + eff(e);
-    if (e.type === 'kill') killsBy[e.attacker] = (killsBy[e.attacker] || 0) + 1;
+    dmgBy[dispName(e.attacker)] = (dmgBy[dispName(e.attacker)] || 0) + eff(e);
+    takenBy[dispName(e.target)] = (takenBy[dispName(e.target)] || 0) + eff(e);
+    if (e.type === 'kill') killsBy[dispName(e.attacker)] = (killsBy[dispName(e.attacker)] || 0) + 1;
   }
   const rankHtml = renderRanks({ dmgBy, killsBy, takenBy, totalDmg });
 
@@ -505,7 +519,7 @@ export function analyzeBattleLogText(text) {
     if (e.type === 'attack' || e.type === 'kill') {
       roundInfo[e.round].attacks++;
       roundInfo[e.round].dmg += eff(e);
-      if (e.type === 'kill') { roundInfo[e.round].kills++; roundInfo[e.round].dead.push(e.target); }
+      if (e.type === 'kill') { roundInfo[e.round].kills++; roundInfo[e.round].dead.push(dispName(e.target)); }
     }
   }
   const roundHtml = renderRounds(roundInfo);
