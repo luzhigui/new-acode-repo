@@ -1,5 +1,5 @@
-// V6.1.0 | ~21500 bytes | 2026-09-25 战报弹窗新增「🎬 保存战报」按钮（整场回放文件，走 50battle-export 三层下载保险）
-export const VER = 'ui/64main-dialogs.js V6.1.0';
+// V6.2.0 | ~23900 bytes | 2026-09-28 战报弹窗新增「📊 走势分析」：内存 battleLog 一键喂 player/51，复用工具箱 107 的叙事/伤害排行/回合曲线，免复制粘贴
+export const VER = 'ui/64main-dialogs.js V6.2.0';
 
 import { showModal, showAlert } from './60main-utils.js';
 import { AudioManager } from '../modules/22audio-manager.js';
@@ -8,6 +8,7 @@ import { CAMP_TYPES } from '../infra/56-battle-enums.js';
 import { CONFIG } from '../core/01config-5v5-test.js';
 import { stepVoteOpen, stepCountdown } from './71tutorial.js';
 import { getBattleRecording, attachSaveBattleReportButton } from '../player/50battle-export.js';
+import { flattenBattleLogToText, renderLogAnalysisInto } from '../player/51-battle-log-analyze.js';
 
 // 战报弹窗
 // 弹窗-战报：战斗结束统计数据展示+导出
@@ -85,7 +86,14 @@ export function showBattleReport(battleResultForInfo) {
     tableDiv.style.maxHeight = '60vh';
     tableDiv.style.overflowY = 'auto';
     box.appendChild(tableDiv);
-    
+
+    // 走势分析容器（默认隐藏，点「📊 走势分析」后渲染内存 battleLog，与工具箱 107 共用 player/51）
+    // 挂 hex-log-box 类以复用其表格/卡片样式，内联覆盖外观融入战报弹窗
+    let analysisDiv = document.createElement('div');
+    analysisDiv.className = 'hex-log-box';
+    analysisDiv.style.cssText = 'display:none;background:transparent;border:none;padding:0;width:100%;max-height:60vh;overflow-y:auto;font-size:12px;';
+    box.appendChild(analysisDiv);
+
     function renderTable() {
         tableDiv.innerHTML = '';
         let sorted = [...allUnits].sort((a,b) => (b[sortBy]||0) - (a[sortBy]||0));
@@ -118,6 +126,33 @@ export function showBattleReport(battleResultForInfo) {
 
     // 2026-09-25 整场回放文件：取本局录制（GAMEOVER 时 finishBattleRecording 已定稿）
     attachSaveBattleReportButton(btnDiv, () => getBattleRecording());
+
+    // 2026-09-28 一键走势分析：把内存 battleLog 拍平喂给 player/51（与工具箱 107 同一套解析/叙事/图表）
+    let analyzeBtn = document.createElement('button');
+    analyzeBtn.textContent = '📊 走势分析';
+    analyzeBtn.style.cssText = 'background:#6a3de0;color:#fff;border:none;padding:8px 16px;border-radius:4px;cursor:pointer;font-weight:bold;';
+    let analysisShown = false;
+    let analysisRendered = false;
+    analyzeBtn.onclick = () => {
+        analysisShown = !analysisShown;
+        if (analysisShown) {
+            if (!analysisRendered) {
+                const logText = flattenBattleLogToText(GlobalStore.get('battleLog'));
+                renderLogAnalysisInto(analysisDiv, logText);
+                analysisRendered = true;
+            }
+            tableDiv.style.display = 'none';
+            switchBtn.style.display = 'none';
+            analysisDiv.style.display = 'block';
+            analyzeBtn.textContent = '↩️ 返回数据表';
+        } else {
+            tableDiv.style.display = 'block';
+            switchBtn.style.display = 'block';
+            analysisDiv.style.display = 'none';
+            analyzeBtn.textContent = '📊 走势分析';
+        }
+    };
+    btnDiv.appendChild(analyzeBtn);
 
     let copyBtn = document.createElement('button');
     copyBtn.textContent = '📋 复制战报';
