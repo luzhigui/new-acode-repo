@@ -1,4 +1,6 @@
-﻿<!-- tools/110-role-balance-random.html - 光明顶5v5 职业平衡分析（全随机站位） -->
+<!-- tools/110-role-balance-random.html - 光明顶5v5 职业平衡分析（全随机站位） -->
+<!-- V6.1.0 | ~22000 bytes | 2026-09-27 随机组队+战斗整段搬进 116 Worker（kind:'random'）并行，本页只派发/聚合/渲染：
+     原先唯一的主线程串行工具（数百场把页面占死、移动端弹无响应）；seed 逐场不变，池大小走 getPoolSize() -->
 <!-- V6.0.0 | ~22000 bytes | 2026-08-16 5v5/6v6 全随机职业+站位，固定六大派先手，无海克斯 -->
 <!DOCTYPE html>
 <html lang="zh-CN">
@@ -54,61 +56,11 @@ td{padding:6px 8px;border-bottom:1px solid #333;color:#ccc;text-align:center}
 </div>
 
 <script type="module">
-import { Unit } from '../core/02unit.js';
-import { SeededRNG } from '../infra/51-core-utils.js';
-import { runBattle } from '../core/06battle-runner.js';
-import { CAMP_TYPES, ROLE_TYPES } from '../infra/56-battle-enums.js';
-import '../infra/54-global-store.js';
-import '../modules/25elite-imperial.js';
-import '../modules/26elite-sixsects.js';
-import '../modules/27elite-mingjiao.js';
+import { ROLE_TYPES } from '../infra/56-battle-enums.js';
+import { runParallel, getPoolSize } from './117-shared-worker-runner.js';
 
 const ROLES = [ROLE_TYPES.DEFENDER, ROLE_TYPES.WARRIOR, ROLE_TYPES.FLYER, ROLE_TYPES.RANGED];
 const ROLE_ICONS = { [ROLE_TYPES.DEFENDER]: '🛡️', [ROLE_TYPES.WARRIOR]: '⚔️', [ROLE_TYPES.FLYER]: '🦅', [ROLE_TYPES.RANGED]: '🏹' };
-
-function createUnit(role, camp, rng) {
-    const label = camp === CAMP_TYPES.ALLY ? '明教' : '六大派';
-    const u = new Unit(`${label}·${role}`, 100, role, camp);
-    u.init(rng);
-    u.applyBonus();
-    return u;
-}
-
-function buildRandomTeam(size, camp, rng) {
-    const team = [];
-    const positions = [1, 2, 3, 4, 5, 6, 7, 8, 9];
-    for (let i = positions.length - 1; i > 0; i--) {
-        const j = rng.nextInt(0, i);
-        [positions[i], positions[j]] = [positions[j], positions[i]];
-    }
-    for (let i = 0; i < size; i++) {
-        const role = ROLES[rng.nextInt(0, 3)];
-        const u = createUnit(role, camp, rng);
-        u.pos = positions[i];
-        u._originalPos = positions[i];
-        team.push(u);
-    }
-    return team;
-}
-
-async function runNakedBattle(allyUnits, enemyUnits, seed) {
-    const res = runBattle({
-        ally: allyUnits,
-        enemy: enemyUnits,
-        seed,
-        maxRounds: 35,
-        firstSide: CAMP_TYPES.ENEMY
-    });
-    return res.winner || '平局';
-}
-
-function countRoles(team) {
-    const counts = {};
-    for (const u of team) {
-        counts[u.role] = (counts[u.role] || 0) + 1;
-    }
-    return counts;
-}
 
 function initStats() {
     const stats = { allyCounts: {}, enemyCounts: {} };
@@ -119,34 +71,45 @@ function initStats() {
     return stats;
 }
 
-function record(stats, role, side, count, winner) {
-    const bucket = side === CAMP_TYPES.ALLY ? stats.allyCounts[role] : stats.enemyCounts[role];
-    if (!bucket[count]) bucket[count] = { total: 0, wins: 0 };
-    bucket[count].total++;
-    if (winner === '明教') bucket[count].wins++;
-}
-
-async function runAnalysis(size, rounds, progressEl, onProgress) {
-    const stats = initStats();
-    const masterSeed = Date.now();
-    for (let i = 0; i < rounds; i++) {
-        const seed = masterSeed + i * 7919;
-        const allyTeam = buildRandomTeam(size, CAMP_TYPES.ALLY, new SeededRNG(seed));
-        const enemyTeam = buildRandomTeam(size, CAMP_TYPES.ENEMY, new SeededRNG(seed + 1));
-        const winner = await runNakedBattle(allyTeam, enemyTeam, seed);
-        const allyCounts = countRoles(allyTeam);
-        const enemyCounts = countRoles(enemyTeam);
-        for (const role of ROLES) {
-            const ac = allyCounts[role] || 0;
-            const ec = enemyCounts[role] || 0;
-            record(stats, role, CAMP_TYPES.ALLY, ac, winner);
-            record(stats, role, CAMP_TYPES.ENEMY, ec, winner);
-        }
-        if (i % 10 === 0) {
-            progressEl.textContent = `${size}v${size} 进度：${i}/${rounds}`;
-            await new Promise(res => setTimeout(res, 0));
+// 每片场次：随机组队 + 整局战斗全在 worker 内，主线程只合并各片的 { 职业数量 → 场次/胜场 }
+function mergeStats(dst, src) {
+    for (const side of ['allyCounts', 'enemyCounts']) {
+        for (const role of Object.keys(src[side] || {})) {
+            const srcRole = src[side][role];
+            const dstRole = dst[side][role] || (dst[side][role] = {});
+            for (const cnt of Object.keys(srcRole)) {
+                const d = dstRole[cnt] || (dstRole[cnt] = { total: 0, wins: 0 });
+                d.total += srcRole[cnt].total;
+                d.wins += srcRole[cnt].wins;
+            }
         }
     }
+}
+
+const CHUNK = 10; // 分片场次：片越细 worker 空手越早领到下一片，长尾越短
+
+async function runAnalysis(size, rounds, progressEl) {
+    const stats = initStats();
+    const masterSeed = Date.now();
+    const jobs = [];
+    for (let s = 0; s < rounds; s += CHUNK) {
+        jobs.push({ size, seed: masterSeed, startIndex: s, runs: Math.min(CHUNK, rounds - s) });
+    }
+    const poolSize = getPoolSize();
+    let doneRuns = 0;
+    // seed 口径与原主线程版逐场一致：片内 seed = masterSeed + (startIndex + i)*7919，敌队 seed+1。
+    // 分片只决定「哪台机器跑哪几场」，不改变任何一场的 seed，统计结果与原串行版同值。
+    await runParallel({
+        jobs,
+        kind: 'random',
+        poolSize,
+        nextJobMsg: (job, id) => ({ jobId: id, kind: 'random', size: job.size, seed: job.seed, startIndex: job.startIndex, runs: job.runs }),
+        onJobDone: (finished, jobTotal, job, result) => {
+            if (result) mergeStats(stats, result);
+            doneRuns += job.runs;
+            progressEl.textContent = `${size}v${size} 进度：${Math.min(doneRuns, rounds)}/${rounds}（${jobs.length} 片｜${poolSize} 线程并行）`;
+        }
+    });
     progressEl.textContent = `✅ ${size}v${size} 完成：${rounds} 场`;
     return stats;
 }

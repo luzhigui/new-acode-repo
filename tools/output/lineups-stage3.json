@@ -1,0 +1,835 @@
+{
+  "ver": "tools/120-param-lab.mjs V1.0.0",
+  "stage": 3,
+  "runs": 1000,
+  "base": 20000,
+  "hexSeed": 7,
+  "groups": 21,
+  "lineups": [
+    {
+      "id": "L01",
+      "label": "无精英",
+      "rosterCount": 200,
+      "concreteCount": 1,
+      "avgOverlap": 0.935,
+      "variety": 200,
+      "spec": [
+        {
+          "n": "殷天正",
+          "m": 104,
+          "role": "飞行",
+          "pos": 1,
+          "xz": "",
+          "fixed": false,
+          "label": "殷天正"
+        },
+        {
+          "n": "明教弟子1",
+          "m": 95,
+          "role": "飞行",
+          "pos": 7,
+          "xz": "",
+          "fixed": true,
+          "label": "明教弟子1"
+        },
+        {
+          "n": "明教洪午",
+          "m": 97,
+          "role": "飞行",
+          "pos": 9,
+          "xz": "",
+          "fixed": true,
+          "label": "明教洪午"
+        },
+        {
+          "n": "明教弟子2",
+          "m": 95,
+          "role": "战士",
+          "pos": 5,
+          "xz": "",
+          "fixed": false,
+          "label": "明教弟子2"
+        },
+        {
+          "n": "明教弟子3",
+          "m": 95,
+          "role": "战士",
+          "pos": 4,
+          "xz": "",
+          "fixed": true,
+          "label": "明教弟子3"
+        }
+      ]
+    },
+    {
+      "id": "L02",
+      "label": "张无忌",
+      "rosterCount": 194,
+      "concreteCount": 1,
+      "avgOverlap": 1.7835051546391754,
+      "variety": 194,
+      "spec": [
+        {
+          "n": "张无忌",
+          "m": 115,
+          "role": "远程",
+          "pos": 5,
+          "xz": "",
+          "fixed": true,
+          "label": "张无忌"
+        },
+        {
+          "n": "明教洪午",
+          "m": 97,
+          "role": "战士",
+          "pos": 2,
+          "xz": "",
+          "fixed": true,
+          "label": "明教洪午"
+        },
+        {
+          "n": "明教弟子2",
+          "m": 95,
+          "role": "防战",
+          "pos": 9,
+          "xz": "",
+          "fixed": false,
+          "label": "明教弟子2"
+        },
+        {
+          "n": "明教弟子1",
+          "m": 95,
+          "role": "战士",
+          "pos": 3,
+          "xz": "",
+          "fixed": true,
+          "label": "明教弟子1"
+        },
+        {
+          "n": "明教弟子3",
+          "m": 95,
+          "role": "防战",
+          "pos": 1,
+          "xz": "",
+          "fixed": false,
+          "label": "明教弟子3"
+        }
+      ]
+    },
+    {
+      "id": "L03",
+      "label": "韦一笑",
+      "rosterCount": 143,
+      "concreteCount": 1,
+      "avgOverlap": 1.7902097902097902,
+      "variety": 143,
+      "spec": [
+        {
+          "n": "韦一笑",
+          "m": 107,
+          "role": "飞行",
+          "pos": 6,
+          "xz": "",
+          "fixed": true,
+          "label": "韦一笑"
+        },
+        {
+          "n": "明教岳山",
+          "m": 97,
+          "role": "远程",
+          "pos": 4,
+          "xz": "",
+          "fixed": false,
+          "label": "明教岳山"
+        },
+        {
+          "n": "明教弟子1",
+          "m": 95,
+          "role": "防战",
+          "pos": 5,
+          "xz": "",
+          "fixed": false,
+          "label": "明教弟子1"
+        },
+        {
+          "n": "明教弟子2",
+          "m": 95,
+          "role": "飞行",
+          "pos": 8,
+          "xz": "",
+          "fixed": true,
+          "label": "明教弟子2"
+        },
+        {
+          "n": "明教弟子3",
+          "m": 95,
+          "role": "远程",
+          "pos": 1,
+          "xz": "",
+          "fixed": true,
+          "label": "明教弟子3"
+        }
+      ]
+    },
+    {
+      "id": "L04",
+      "label": "金毛狮王谢逊",
+      "rosterCount": 97,
+      "concreteCount": 1,
+      "avgOverlap": 1.865979381443299,
+      "variety": 97,
+      "spec": [
+        {
+          "n": "金毛狮王谢逊",
+          "m": 107,
+          "role": "战士",
+          "pos": 7,
+          "xz": "",
+          "fixed": true,
+          "label": "金毛狮王谢逊"
+        },
+        {
+          "n": "明教弟子1",
+          "m": 95,
+          "role": "飞行",
+          "pos": 3,
+          "xz": "",
+          "fixed": false,
+          "label": "明教弟子1"
+        },
+        {
+          "n": "明教弟子2",
+          "m": 95,
+          "role": "远程",
+          "pos": 9,
+          "xz": "",
+          "fixed": false,
+          "label": "明教弟子2"
+        },
+        {
+          "n": "明教弟子3",
+          "m": 95,
+          "role": "飞行",
+          "pos": 1,
+          "xz": "",
+          "fixed": true,
+          "label": "明教弟子3"
+        },
+        {
+          "n": "明教岳山",
+          "m": 97,
+          "role": "飞行",
+          "pos": 2,
+          "xz": "",
+          "fixed": true,
+          "label": "明教岳山"
+        }
+      ]
+    },
+    {
+      "id": "L05",
+      "label": "小昭·妹",
+      "rosterCount": 90,
+      "concreteCount": 1,
+      "avgOverlap": 1.0777777777777777,
+      "variety": 90,
+      "spec": [
+        {
+          "n": "小昭",
+          "m": 107,
+          "role": "战士",
+          "pos": 4,
+          "xz": "B",
+          "fixed": true,
+          "label": "小昭·妹"
+        },
+        {
+          "n": "明教岳山",
+          "m": 97,
+          "role": "远程",
+          "pos": 5,
+          "xz": "",
+          "fixed": false,
+          "label": "明教岳山"
+        },
+        {
+          "n": "明教弟子3",
+          "m": 95,
+          "role": "防战",
+          "pos": 7,
+          "xz": "",
+          "fixed": false,
+          "label": "明教弟子3"
+        },
+        {
+          "n": "明教洪午",
+          "m": 97,
+          "role": "远程",
+          "pos": 8,
+          "xz": "",
+          "fixed": true,
+          "label": "明教洪午"
+        },
+        {
+          "n": "明教弟子2",
+          "m": 95,
+          "role": "战士",
+          "pos": 1,
+          "xz": "",
+          "fixed": true,
+          "label": "明教弟子2"
+        }
+      ]
+    },
+    {
+      "id": "L06",
+      "label": "小昭·姊",
+      "rosterCount": 75,
+      "concreteCount": 1,
+      "avgOverlap": 1.12,
+      "variety": 75,
+      "spec": [
+        {
+          "n": "小昭",
+          "m": 107,
+          "role": "飞行",
+          "pos": 4,
+          "xz": "S",
+          "fixed": true,
+          "label": "小昭·姊"
+        },
+        {
+          "n": "明教岳山",
+          "m": 97,
+          "role": "远程",
+          "pos": 2,
+          "xz": "",
+          "fixed": true,
+          "label": "明教岳山"
+        },
+        {
+          "n": "明教弟子2",
+          "m": 95,
+          "role": "飞行",
+          "pos": 9,
+          "xz": "",
+          "fixed": true,
+          "label": "明教弟子2"
+        },
+        {
+          "n": "明教洪午",
+          "m": 97,
+          "role": "战士",
+          "pos": 7,
+          "xz": "",
+          "fixed": false,
+          "label": "明教洪午"
+        },
+        {
+          "n": "明教弟子1",
+          "m": 95,
+          "role": "远程",
+          "pos": 6,
+          "xz": "",
+          "fixed": false,
+          "label": "明教弟子1"
+        }
+      ]
+    },
+    {
+      "id": "L07",
+      "label": "张无忌+韦一笑",
+      "rosterCount": 40,
+      "concreteCount": 1,
+      "avgOverlap": 2.775,
+      "variety": 40,
+      "spec": [
+        {
+          "n": "张无忌",
+          "m": 115,
+          "role": "远程",
+          "pos": 5,
+          "xz": "",
+          "fixed": true,
+          "label": "张无忌"
+        },
+        {
+          "n": "韦一笑",
+          "m": 107,
+          "role": "飞行",
+          "pos": 6,
+          "xz": "",
+          "fixed": true,
+          "label": "韦一笑"
+        },
+        {
+          "n": "明教弟子1",
+          "m": 95,
+          "role": "防战",
+          "pos": 2,
+          "xz": "",
+          "fixed": false,
+          "label": "明教弟子1"
+        },
+        {
+          "n": "明教弟子2",
+          "m": 95,
+          "role": "远程",
+          "pos": 3,
+          "xz": "",
+          "fixed": false,
+          "label": "明教弟子2"
+        },
+        {
+          "n": "明教洪午",
+          "m": 97,
+          "role": "战士",
+          "pos": 9,
+          "xz": "",
+          "fixed": true,
+          "label": "明教洪午"
+        }
+      ]
+    },
+    {
+      "id": "L08",
+      "label": "小昭·姊+张无忌",
+      "rosterCount": 21,
+      "concreteCount": 1,
+      "avgOverlap": 2.142857142857143,
+      "variety": 21,
+      "spec": [
+        {
+          "n": "小昭",
+          "m": 107,
+          "role": "飞行",
+          "pos": 4,
+          "xz": "S",
+          "fixed": true,
+          "label": "小昭·姊"
+        },
+        {
+          "n": "张无忌",
+          "m": 115,
+          "role": "远程",
+          "pos": 5,
+          "xz": "",
+          "fixed": true,
+          "label": "张无忌"
+        },
+        {
+          "n": "明教弟子3",
+          "m": 95,
+          "role": "战士",
+          "pos": 2,
+          "xz": "",
+          "fixed": false,
+          "label": "明教弟子3"
+        },
+        {
+          "n": "明教弟子1",
+          "m": 95,
+          "role": "防战",
+          "pos": 7,
+          "xz": "",
+          "fixed": true,
+          "label": "明教弟子1"
+        },
+        {
+          "n": "明教洪午",
+          "m": 97,
+          "role": "飞行",
+          "pos": 1,
+          "xz": "",
+          "fixed": false,
+          "label": "明教洪午"
+        }
+      ]
+    },
+    {
+      "id": "L09",
+      "label": "金毛狮王谢逊+韦一笑",
+      "rosterCount": 21,
+      "concreteCount": 1,
+      "avgOverlap": 2.9047619047619047,
+      "variety": 21,
+      "spec": [
+        {
+          "n": "韦一笑",
+          "m": 107,
+          "role": "飞行",
+          "pos": 6,
+          "xz": "",
+          "fixed": true,
+          "label": "韦一笑"
+        },
+        {
+          "n": "金毛狮王谢逊",
+          "m": 107,
+          "role": "战士",
+          "pos": 7,
+          "xz": "",
+          "fixed": true,
+          "label": "金毛狮王谢逊"
+        },
+        {
+          "n": "明教弟子3",
+          "m": 95,
+          "role": "防战",
+          "pos": 5,
+          "xz": "",
+          "fixed": true,
+          "label": "明教弟子3"
+        },
+        {
+          "n": "明教弟子2",
+          "m": 95,
+          "role": "防战",
+          "pos": 1,
+          "xz": "",
+          "fixed": false,
+          "label": "明教弟子2"
+        },
+        {
+          "n": "明教弟子1",
+          "m": 95,
+          "role": "防战",
+          "pos": 8,
+          "xz": "",
+          "fixed": false,
+          "label": "明教弟子1"
+        }
+      ]
+    },
+    {
+      "id": "L10",
+      "label": "张无忌+金毛狮王谢逊",
+      "rosterCount": 17,
+      "concreteCount": 1,
+      "avgOverlap": 2.823529411764706,
+      "variety": 17,
+      "spec": [
+        {
+          "n": "金毛狮王谢逊",
+          "m": 107,
+          "role": "战士",
+          "pos": 7,
+          "xz": "",
+          "fixed": true,
+          "label": "金毛狮王谢逊"
+        },
+        {
+          "n": "张无忌",
+          "m": 115,
+          "role": "远程",
+          "pos": 5,
+          "xz": "",
+          "fixed": true,
+          "label": "张无忌"
+        },
+        {
+          "n": "明教弟子2",
+          "m": 95,
+          "role": "远程",
+          "pos": 2,
+          "xz": "",
+          "fixed": true,
+          "label": "明教弟子2"
+        },
+        {
+          "n": "明教弟子3",
+          "m": 95,
+          "role": "飞行",
+          "pos": 4,
+          "xz": "",
+          "fixed": false,
+          "label": "明教弟子3"
+        },
+        {
+          "n": "明教洪午",
+          "m": 97,
+          "role": "战士",
+          "pos": 1,
+          "xz": "",
+          "fixed": false,
+          "label": "明教洪午"
+        }
+      ]
+    },
+    {
+      "id": "L11",
+      "label": "小昭·妹+张无忌",
+      "rosterCount": 17,
+      "concreteCount": 1,
+      "avgOverlap": 2.176470588235294,
+      "variety": 17,
+      "spec": [
+        {
+          "n": "小昭",
+          "m": 107,
+          "role": "战士",
+          "pos": 4,
+          "xz": "B",
+          "fixed": true,
+          "label": "小昭·妹"
+        },
+        {
+          "n": "张无忌",
+          "m": 115,
+          "role": "远程",
+          "pos": 5,
+          "xz": "",
+          "fixed": true,
+          "label": "张无忌"
+        },
+        {
+          "n": "明教弟子2",
+          "m": 95,
+          "role": "远程",
+          "pos": 2,
+          "xz": "",
+          "fixed": false,
+          "label": "明教弟子2"
+        },
+        {
+          "n": "明教洪午",
+          "m": 97,
+          "role": "防战",
+          "pos": 6,
+          "xz": "",
+          "fixed": false,
+          "label": "明教洪午"
+        },
+        {
+          "n": "明教弟子3",
+          "m": 95,
+          "role": "飞行",
+          "pos": 9,
+          "xz": "",
+          "fixed": true,
+          "label": "明教弟子3"
+        }
+      ]
+    },
+    {
+      "id": "L12",
+      "label": "小昭·妹+张无忌+韦一笑",
+      "rosterCount": 16,
+      "concreteCount": 1,
+      "avgOverlap": 2.8125,
+      "variety": 16,
+      "spec": [
+        {
+          "n": "小昭",
+          "m": 107,
+          "role": "战士",
+          "pos": 4,
+          "xz": "B",
+          "fixed": true,
+          "label": "小昭·妹"
+        },
+        {
+          "n": "张无忌",
+          "m": 115,
+          "role": "远程",
+          "pos": 5,
+          "xz": "",
+          "fixed": true,
+          "label": "张无忌"
+        },
+        {
+          "n": "韦一笑",
+          "m": 107,
+          "role": "飞行",
+          "pos": 6,
+          "xz": "",
+          "fixed": true,
+          "label": "韦一笑"
+        },
+        {
+          "n": "明教弟子1",
+          "m": 95,
+          "role": "远程",
+          "pos": 2,
+          "xz": "",
+          "fixed": false,
+          "label": "明教弟子1"
+        },
+        {
+          "n": "明教洪午",
+          "m": 97,
+          "role": "防战",
+          "pos": 7,
+          "xz": "",
+          "fixed": false,
+          "label": "明教洪午"
+        }
+      ]
+    },
+    {
+      "id": "L13",
+      "label": "小昭·姊+张无忌+韦一笑",
+      "rosterCount": 13,
+      "concreteCount": 1,
+      "avgOverlap": 2.923076923076923,
+      "variety": 13,
+      "spec": [
+        {
+          "n": "张无忌",
+          "m": 115,
+          "role": "远程",
+          "pos": 5,
+          "xz": "",
+          "fixed": true,
+          "label": "张无忌"
+        },
+        {
+          "n": "韦一笑",
+          "m": 107,
+          "role": "飞行",
+          "pos": 6,
+          "xz": "",
+          "fixed": true,
+          "label": "韦一笑"
+        },
+        {
+          "n": "小昭",
+          "m": 107,
+          "role": "远程",
+          "pos": 4,
+          "xz": "S",
+          "fixed": true,
+          "label": "小昭·姊"
+        },
+        {
+          "n": "明教弟子1",
+          "m": 95,
+          "role": "防战",
+          "pos": 2,
+          "xz": "",
+          "fixed": false,
+          "label": "明教弟子1"
+        },
+        {
+          "n": "明教弟子3",
+          "m": 95,
+          "role": "飞行",
+          "pos": 7,
+          "xz": "",
+          "fixed": false,
+          "label": "明教弟子3"
+        }
+      ]
+    },
+    {
+      "id": "L14",
+      "label": "小昭·妹+金毛狮王谢逊",
+      "rosterCount": 11,
+      "concreteCount": 1,
+      "avgOverlap": 2.1818181818181817,
+      "variety": 11,
+      "spec": [
+        {
+          "n": "小昭",
+          "m": 107,
+          "role": "飞行",
+          "pos": 4,
+          "xz": "B",
+          "fixed": true,
+          "label": "小昭·妹"
+        },
+        {
+          "n": "金毛狮王谢逊",
+          "m": 107,
+          "role": "战士",
+          "pos": 7,
+          "xz": "",
+          "fixed": true,
+          "label": "金毛狮王谢逊"
+        },
+        {
+          "n": "明教弟子2",
+          "m": 95,
+          "role": "飞行",
+          "pos": 9,
+          "xz": "",
+          "fixed": false,
+          "label": "明教弟子2"
+        },
+        {
+          "n": "明教弟子3",
+          "m": 95,
+          "role": "远程",
+          "pos": 1,
+          "xz": "",
+          "fixed": true,
+          "label": "明教弟子3"
+        },
+        {
+          "n": "明教弟子1",
+          "m": 95,
+          "role": "飞行",
+          "pos": 5,
+          "xz": "",
+          "fixed": false,
+          "label": "明教弟子1"
+        }
+      ]
+    },
+    {
+      "id": "L15",
+      "label": "小昭·妹+韦一笑",
+      "rosterCount": 11,
+      "concreteCount": 1,
+      "avgOverlap": 2.3636363636363638,
+      "variety": 11,
+      "spec": [
+        {
+          "n": "小昭",
+          "m": 107,
+          "role": "远程",
+          "pos": 4,
+          "xz": "B",
+          "fixed": true,
+          "label": "小昭·妹"
+        },
+        {
+          "n": "韦一笑",
+          "m": 107,
+          "role": "飞行",
+          "pos": 6,
+          "xz": "",
+          "fixed": true,
+          "label": "韦一笑"
+        },
+        {
+          "n": "明教弟子2",
+          "m": 95,
+          "role": "战士",
+          "pos": 7,
+          "xz": "",
+          "fixed": true,
+          "label": "明教弟子2"
+        },
+        {
+          "n": "明教洪午",
+          "m": 97,
+          "role": "飞行",
+          "pos": 5,
+          "xz": "",
+          "fixed": false,
+          "label": "明教洪午"
+        },
+        {
+          "n": "明教弟子3",
+          "m": 95,
+          "role": "飞行",
+          "pos": 2,
+          "xz": "",
+          "fixed": false,
+          "label": "明教弟子3"
+        }
+      ]
+    }
+  ]
+}
