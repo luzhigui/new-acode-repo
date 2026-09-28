@@ -1,7 +1,8 @@
 ﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿<!DOCTYPE html>
-<!-- V6.0.4 | ~25300 bytes | 2026-09-28 顶部入口补齐为 6 个：新增 120 参数实验台、110 全随机站位、105 商店（后两者原先无任何界面入口）；
-     .tool-links 改 flex-wrap + flex:1 1 150px，按钮由 3 个增到 6 个时自动换行不挤压（原先 flex:1 单排会被压扁） -->
-<!-- V6.0.3 | ~24400 bytes | 2026-09-28 移除三个自检 tab（统计一致性体检 / 平衡基线对比 / 阵容搜索器）：按钮+内容区+script 标签一并删除，113/114/115 的 js 保留在 tools/ 但不再上界面 -->
+<!-- V6.0.5 | ~27900 bytes | 2026-09-28 独立工具页（120 参数实验台 / 110 全随机站位 / 105 商店）改页内 iframe 弹窗：
+     原先 onclick="window.open(...,'_blank')" 在内嵌 webview 里开不出新窗口（前三个工具是页内 mask 弹窗所以不受影响），
+     现统一走 openInPage()：全屏 mask + 同源 iframe + 关闭按钮，点遮罩也能关；每次点按钮重设 src 保证重载。
+     （V6.0.4 顶部入口补齐为 6 个、.tool-links 改 flex-wrap；V6.0.3 移除三个自检 tab —— 旧注释已按规范折叠） -->
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
@@ -144,6 +145,14 @@
         .tool-links { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
         .tool-link-btn { flex: 1 1 150px; padding: 10px 8px; border: none; background: #2a2a4e; color: #ffd700; cursor: pointer; font-size: 12px; font-weight: bold; border-radius: 6px; font-family: monospace; transition: 0.2s; }
         .tool-link-btn:hover { background: #3a3a6e; }
+        /* 页内 iframe 弹窗（2026-09-28）：独立工具页原用 window.open 开新窗口，内嵌 webview 会拦掉；
+           前三个工具（107/108/109）本来就是页内 mask 弹窗所以不受影响。此处统一改成同源 iframe 嵌在工具箱里 */
+        .tf-mask { position: fixed; inset: 0; background: rgba(0,0,0,.7); z-index: 9999; display: none; align-items: center; justify-content: center; }
+        .tf-box { background: #1a1a2e; border: 1px solid #444; border-radius: 12px; width: min(1280px, 96vw); height: 92vh; display: flex; flex-direction: column; padding: 10px; }
+        .tf-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+        .tf-title { color: #ffd700; font-weight: bold; font-family: monospace; font-size: 15px; }
+        .tf-close { background: #444; color: #ccc; border: none; border-radius: 8px; padding: 6px 14px; font-weight: bold; cursor: pointer; font-family: monospace; }
+        .tf-frame { flex: 1; width: 100%; border: 1px solid #333; border-radius: 8px; background: #1a1a2e; }
 
         /* ========== 精英战力评测样式 ========== */
         .elite-config { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 14px; background: #2a2a4e; padding: 10px; border-radius: 8px; }
@@ -183,9 +192,9 @@
         <button class="tool-link-btn" id="btnOpenLogViewer">🕹️ 日志复盘</button>
         <button class="tool-link-btn" id="btnOpenHexDashboard">📊 海克斯仪表盘</button>
         <button class="tool-link-btn" id="btnOpenRoleBalance">⚖️ 职业平衡分析</button>
-        <button class="tool-link-btn" onclick="window.open('120-param-lab.html','_blank')">🧪 参数实验台</button>
-        <button class="tool-link-btn" onclick="window.open('110-role-balance-random.html','_blank')">⚖️ 全随机站位</button>
-        <button class="tool-link-btn" onclick="window.open('105-shop.html','_blank')">🏪 商店</button>
+        <button class="tool-link-btn" id="btnOpenParamLab">🧪 参数实验台</button>
+        <button class="tool-link-btn" id="btnOpenRoleRandom">⚖️ 全随机站位</button>
+        <button class="tool-link-btn" id="btnOpenShop">🏪 商店</button>
     </div>
 
     <div class="tab-content active" id="tab-file-copier">
@@ -307,6 +316,27 @@
         document.getElementById('btnOpenRoleBalance').addEventListener('click', () => {
             window.openRoleBalance();
         });
+        // 独立工具页：开新窗口会被内嵌 webview 拦掉，统一改页内 iframe 弹窗
+        function openInPage(url, title) {
+            let mask = document.getElementById('toolFrameMask');
+            if (!mask) {
+                mask = document.createElement('div');
+                mask.id = 'toolFrameMask';
+                mask.className = 'tf-mask';
+                mask.innerHTML = '<div class="tf-box"><div class="tf-head"><span class="tf-title"></span>'
+                    + '<button class="tf-close">关闭</button></div><iframe class="tf-frame"></iframe></div>';
+                document.body.appendChild(mask);
+                mask.querySelector('.tf-close').addEventListener('click', () => { mask.style.display = 'none'; });
+                mask.addEventListener('click', e => { if (e.target === mask) mask.style.display = 'none'; });
+            }
+            mask.querySelector('.tf-title').textContent = title;
+            // 每次重设 src：强制重载工具页，避免沿用上一次的旧结果
+            mask.querySelector('.tf-frame').src = url;
+            mask.style.display = 'flex';
+        }
+        document.getElementById('btnOpenParamLab').addEventListener('click', () => openInPage('120-param-lab.html', '🧪 参数实验台'));
+        document.getElementById('btnOpenRoleRandom').addEventListener('click', () => openInPage('110-role-balance-random.html', '⚖️ 全随机站位'));
+        document.getElementById('btnOpenShop').addEventListener('click', () => openInPage('105-shop.html', '🏪 商店'));
     </script>
 
     <script type="module" src="./107-battle-log-viewer.js"></script>
