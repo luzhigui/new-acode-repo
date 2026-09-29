@@ -1,6 +1,8 @@
 <!-- tools/120-param-lab.html - 参数对照实验台（面向人的版本，独立页面） -->
-<!-- V3.0.1 | 2026-09-29 参数表上方加标签图例：「真旋钮」（mechanics，引擎真读）/「需确认」（skills.params，文案与真值混用），
-     用户问过「机制·真旋钮是干啥的」，光靠归属提示那行不够显眼。
+<!-- V3.0.2 | 2026-09-29 「需确认」暧昧标签下线：skills 表字段改按 glossary 的 ENGINE_READ 表逐个给确定结论
+     （引擎真读 / 整包动态读 / 仅校验存在 / 仅文案），表由源码静态扫描 getSkillParams( 调用点得来——
+     本页只加载 content JSON、看不到引擎 JS，所以读没读必须由源码扫描固化，不能靠猜。
+     V3.0.1 | 参数表上方加标签图例（治「机制·真旋钮是干啥的」）。
      V3.0.0 | 预估 44100 bytes | 2026-09-29 参数实验台批 4（框架化改造）：
      ① 关卡可多选（含全选），结果按关分列，不再混关算平均；
      ② 选参数改成三级「归属 → 技能 → 字段表」：归属按关卡过滤角色（明教侧常驻、六大派只列该关出场的），
@@ -73,6 +75,7 @@ button:disabled{opacity:.4;cursor:not-allowed}
 .tag{display:inline-block;border-radius:5px;padding:1px 6px;font-size:10px;margin-left:6px;vertical-align:middle}
 .tag-real{background:#1d3d2a;color:#66bb6a}
 .tag-maybe{background:#3d351d;color:#ffb74d}
+.tag-gray{background:#3a3f52;color:#9aa4bf}
 .knob-legend{margin:8px 0 0;font-size:12px;line-height:1.7;color:#9aa4bf;border-left:3px solid #3a4670;padding:6px 10px;background:#1b2440;border-radius:0 6px 6px 0}
 .knob-legend b{color:#ffd700;font-weight:normal}
 .knob-legend code{color:#8fd6ff}
@@ -173,7 +176,7 @@ table.dump td.left{text-align:left}
 <script type="module">
 import { ensureGameData, listNumericKnobs, pickTypicals } from './120-param-lab-core.js';
 import { runParallel, getPoolSize } from './117-shared-worker-runner.js';
-import { describeKnob, fmtValue, charSkillLines, UNIT, CONFIG_KEY_GLOSSARY, DATA_KEY_GLOSSARY } from './120-param-lab-glossary.js';
+import { describeKnob, fmtValue, charSkillLines, UNIT, CONFIG_KEY_GLOSSARY, DATA_KEY_GLOSSARY, skillFieldVerdict } from './120-param-lab-glossary.js';
 
 const WORKER_URL = new URL('./120-param-lab-worker.js', import.meta.url);
 const SAMPLE_BASE = 20000;   // 采样 seed 起点（与 CLI --sample 默认一致）
@@ -352,15 +355,30 @@ function buildKnobTable() {
         knobTableBox.innerHTML = `<div class="empty">${q ? '本组里没搜到匹配字段' : '本组没有数值参数'}</div>`;
         fillCount.textContent = ''; return;
     }
-    const mightBeText = ow.layer === 'character' && skill !== '机制';
-    const legend = ow.layer !== 'character' ? '' : mightBeText
-        ? '<div class="knob-legend"><span class="tag tag-maybe">需确认</span> 这一组是 <code>skills.params</code>：<b>既用于技能描述文字，也可能被引擎当真实数值读取</b>。点某个参数，下方黄色框会说明它属于哪种情况。</div>'
-        : '<div class="knob-legend"><span class="tag tag-real">真旋钮</span> 这一组是 <code>mechanics</code>：<b>引擎战斗逻辑真读的旋钮</b>，改了必定改变战斗结果（本页对照实验跑的就是这类）。</div>';
+    // 字段是否被引擎真读：靠 glossary 的 ENGINE_READ 表判定（表由源码静态扫描得来），
+    // 不再用「这一组是不是 mechanics」这种按组一刀切的推断。
+    const VERDICT_TAG = {
+        engine:  '<span class="tag tag-real">引擎真读</span>',
+        dynamic: '<span class="tag tag-real">整包动态读</span>',
+        none:    '<span class="tag tag-maybe">仅校验存在</span>',
+        text:    '<span class="tag tag-gray">仅文案</span>'
+    };
+    function fieldPathOf(k) {
+        const parts = String(k.path).split('.');
+        const i = parts.indexOf('params');
+        return i >= 0 ? parts.slice(i + 1).join('.') : '';
+    }
+    const isSkillLayer = ow.layer === 'character' && skill !== '机制';
+    const legend = ow.layer !== 'character' ? '' : isSkillLayer
+        ? '<div class="knob-legend">skills 表是<b>双用途</b>的：同一个 params 对象既给技能描述做占位符（desc 里的 <code>{xxx}</code>），也可能被引擎 <code>getSkillParams()</code> 取出来算数。下表直接给结论：'
+        + VERDICT_TAG.engine + ' 改了会改变战斗结果；'
+        + VERDICT_TAG.dynamic + ' 引擎按动态键整包取用，子字段都可能被读；'
+        + VERDICT_TAG.text + ' 只影响描述文字，改了不出效果。</div>'
+        : '<div class="knob-legend">这一组是 <code>mechanics</code>：<b>引擎战斗逻辑真读的旋钮</b>，改了必定改变战斗结果（本页对照实验跑的就是这类）。</div>';
     let h = legend + '<table class="knob-table"><tr><th>参数</th><th>当前值</th><th>改成</th></tr>';
     for (const k of list) {
         const info = knobInfo(k);
-        const tag = mightBeText ? '<span class="tag tag-maybe">需确认</span>'
-            : (ow.layer === 'character' ? '<span class="tag tag-real">真旋钮</span>' : '');
+        const tag = isSkillLayer ? (VERDICT_TAG[skillFieldVerdict(skill, fieldPathOf(k))] || '') : '';
         h += `<tr><td class="kname">${info.fieldName}${tag}<div class="hint">${k.label}</div></td>`
             + `<td class="kcur">${fmtValue(k.value, info.unit)}</td>`
             + `<td><input type="number" step="any" data-path="${k.path}" data-orig="${k.value}" data-unit="${info.unit}"></td></tr>`;
