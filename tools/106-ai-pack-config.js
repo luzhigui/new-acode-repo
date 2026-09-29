@@ -5,7 +5,8 @@
 //          `tests/registration-check.mjs`（登记核对器）—— 三者长期漏登，一直没随包发出；
 //          ②删掉 `121health-monitor.js` / `122health-utils.js` 的**重复登记行**（上方 tests 段已各登记过一次）。
 //          依据：tests/registration-check.mjs 的机器核对结果（漏登 2 项、重复 2 项）。
-// V6.0.15 | ~11150 bytes | 2026-09-26 登记 fx/92fx-pang-antics.js（胖远桥两技能特效）；V6.0.14 补登记 core/07-target-strategies.js（选敌策略抽取新文件，core/12 已 import，漏登会导致包内引用断裂）
+// V6.0.18 | ~11250 bytes | 2026-09-29 补登记 tests/health-rules/153-155（夜间体检第 43 轮新增：流星成长数值 / 生生不息回血加成 / 流星成长渲染形态）
+// V6.0.17 | ~11150 bytes | 2026-09-26 登记 fx/92fx-pang-antics.js（胖远桥两技能特效）；V6.0.14 补登记 core/07-target-strategies.js（选敌策略抽取新文件，core/12 已 import，漏登会导致包内引用断裂）
 // V6.0.12 | ~11030 bytes | 2026-09-23 补登记 infra/61-view-sheet.js（妆造字段剥离新文件，103 复制器与分包脚本均派生自本表）
 // V6.0.11 | ~10980 bytes | 2026-09-22 移除已删除的 demo-stage3.html 登记
 // V6.0.10 | ~11000 bytes | 2026-09-22 登记 demo-stage3.html（第三关阵容轮换 + 胖远桥 demo 页，dev-index 隐藏入口）
@@ -17,7 +18,7 @@
 // V6.0.4 | 2026-09-13 登记 tools/106b-server.js（本地静态服务器，供 file:// 下启用目录直写）
 // V6.0.3 | 2026-09-11 补清单漏登9个正式文件：ui/71-74（引导+三套开场CG）、player/48-49、fx/90、tests/123static-scan、tests/124rule-recipes
 // V6.0.2 | 2026-09-09 拆出 player/ 为独立「播放器」组（引擎 46→38）
-export const VER = 'tools/106-ai-pack-config.js V6.0.17';
+export const VER = 'tools/106-ai-pack-config.js V6.0.18';
 
 // AI 复制包踢除清单（103-toolkit.js 的 FILES 过滤会无条件跳过这里的文件）
 // 2026-09-04 用户决定不再精简：特效/音效/错误面板/入口页全部随包发送。
@@ -105,6 +106,10 @@ export const ALL_PROJECT_FILES = [
     '../tests/health-rules/151-bloodthirst-leech.js',
     // 2026-09-22 补登记 152：夜间体检第 9 趟新增（121health-monitor.js 已 import rule99）
     '../tests/health-rules/152-xingfen-extra-attack.js',
+    // 2026-09-29 补登记 153/154/155：夜间体检第 43 轮新增（153 流星成长数值 / 154 生生不息回血加成 / 155 流星成长渲染形态）
+    '../tests/health-rules/153-meteor-growth-render.js',
+    '../tests/health-rules/154-endless-breath-gain.js',
+    '../tests/health-rules/155-meteor-growth-dup.js',
     // （上一行的 121/122 为重复登记，已于 V6.0.16 删除 —— 上方 tests 段已各登记过一次）
     '../tests/140-baseline.js', '../tests/baselines/baseline-v1.json',
     // 2026-09-27 补登记三个 node 直跑入口（V6.0.16：长期漏登，体检的主力命令都靠它们）

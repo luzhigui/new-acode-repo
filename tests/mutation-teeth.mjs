@@ -27,7 +27,7 @@
 //   1) node tests/mutation-teeth.mjs --emit-prep  > /tmp/prep.sh  &&  bash /tmp/prep.sh
 //   2) node tests/mutation-teeth.mjs --emit-run   > /tmp/run.sh   &&  bash /tmp/run.sh
 //   3) node tests/mutation-teeth.mjs --report
-export const VER = 'tests/mutation-teeth.mjs V2.0.0';
+export const VER = 'tests/mutation-teeth.mjs V2.1.0';
 
 import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
@@ -110,6 +110,22 @@ const MUTATIONS = [
       file: 'core/03battle-utils.js',
       from: "data: { unitName: unit.name, label, increment, current: fortifyThisRound + increment, cap }",
       to:   "data: { unitName: unit.name, label, increment: increment + 5, current: fortifyThisRound + increment, cap }" },
+    // --- 第 43 轮新增：专测「fact 已发、数值写错」—— 检验规则侧（而非对照器）对这些 fact 有没有牙 ---
+    //   背景：主代码 V6.0.3 补发了 METEOR_SPLASH_GROWTH（此前枚举/渲染/翻译链接好却零 emit）。
+    //   补发之后，真正的风险变成「fact 发了但没人校验它的数值」—— 只有 TEXT 变异能证伪这件事：
+    //   把 fact 里声明的数值改错（实际属性不动），规则若报红⇒有牙；不报⇒这条 fact 是纯装饰。
+    { id: 'T3', kind: 'TEXT', desc: '流星溅射成长 fact 的 growth 多写 5（实际未变）',
+      file: 'core/16effect-handlers.js',
+      from: "data: { unitName: ctx.unit.name, growth } }",
+      to:   "data: { unitName: ctx.unit.name, growth: growth + 5 } }" },
+    { id: 'T4', kind: 'TEXT', desc: '生生不息 fact 的 atkGain 多写 5（实际未变）',
+      file: 'modules/26elite-sixsects.js',
+      from: "atkGain: selfAtkGain,",
+      to:   "atkGain: selfAtkGain + 5," },
+    { id: 'T5', kind: 'TEXT', desc: '性奋代价 fact 的 penalty 多写 5（实际未变）',
+      file: 'modules/26elite-sixsects.js',
+      from: "oldMaxHp, newMaxHp: Math.floor(unit.maxHp), penalty }",
+      to:   "oldMaxHp, newMaxHp: Math.floor(unit.maxHp), penalty: penalty + 5 }" },
 ];
 
 function toPosix(p) {
@@ -129,19 +145,39 @@ function breEscape(s) {
 // 故牙齿测试的执行一律交给 Bash 工具：--emit-run 产出 Bash 循环脚本，每条变异由独立 node 进程跑三件套并落盘；
 // --report 再解析落盘结果套用判据。工具本身不 spawn、不 import 业务脚本。
 
-function judge(mut, FP0, R, B, S, stf) {
+// ★ 第 43 轮判据升级：**以 _base 为对照做「增量」判定，而不是看绝对红数**。
+//   起因：干净树可能本就有红（153 实测主代码「⚡ undefined / 重复渲染」是真 bug，120 场 fail=7）。
+//   此时「这条变异有没有报红」毫无意义 —— 基线本来就红，红与不红都一样。
+//   必须比对**报红明细文本**：同一条规则若因本次变异报出了基线里没有的新文案/新场次，才算真有牙。
+function judge(mut, FP0, R, B, S, stf, baseRed, baseDetails) {
     const baselineChanged = B.changed || (B.match !== null && B.match < 18);
     const fpChanged = FP0 !== null && stf.fp !== null && stf.fp !== FP0;
-    const effective = mut.kind === 'TEXT' || R.red.length > 0 || baselineChanged || fpChanged || S.total > 0;
-    if (R.crash) return { verdict: '回放器异常', effective, baselineChanged, fpChanged };
-    if (!effective) return { verdict: '未观测到影响', effective, baselineChanged, fpChanged };
+    const bRed = new Set(baseRed || []);
+    const bDet = new Set(baseDetails || []);
+    // ★★ 「基线已红的规则失去作证资格」（第 43 轮实测被迫加的第二道闸门）：
+    //   153 在干净树就有红（主代码真 bug），于是**任何**改变战斗轨迹的变异都会让它冒出一条新明细
+    //   —— A2/A4/A7 因此被误判成「规则有牙」，而它们实际只改了坚盾/近战切换/生生息的属性。
+    //   一条在基线就不绿的规则，它的红无法区分「抓到了本次变异」与「战斗轨迹变了顺带红一下」。
+    //   → 只有**基线不红**的规则在变异树上新红，才算真有牙；基线已红规则的明细变化单独记为 masked（仅提示）。
+    const cleanPairs = (R.pairs || []).filter(p => !bRed.has(p.rule));
+    const newRed = [...new Set(cleanPairs.map(p => p.rule))];
+    const newDetail = cleanPairs.map(p => p.detail).filter(d => !bDet.has(d));
+    const masked = (R.pairs || []).filter(p => bRed.has(p.rule) && !bDet.has(p.detail));
+    const effective = mut.kind === 'TEXT' || newDetail.length > 0 || newRed.length > 0
+        || baselineChanged || fpChanged || S.total > 0;
+    if (R.crash) return { verdict: '回放器异常', effective, baselineChanged, fpChanged, newDetail, newRed, masked };
+    if (!effective) return { verdict: '未观测到影响', effective, baselineChanged, fpChanged, newDetail, newRed, masked };
+    // 规则侧：只认「基线不红的规则」报出的新红
+    const bit = newDetail.length > 0 ? `(+${newDetail.length}条新明细)` : '';
+    if (newRed.length > 0) {
+        return { verdict: '规则有牙' + bit, effective, baselineChanged, fpChanged, newDetail, newRed, masked };
+    }
     if (mut.kind === 'TEXT')
-        return { verdict: R.red.length > 0 ? '规则有牙' : '❌装饰品(真盲区)', effective, baselineChanged, fpChanged };
-    if (R.red.length > 0) return { verdict: '规则有牙', effective, baselineChanged, fpChanged };
-    if (S.total > 0) return { verdict: '规则无牙·对照器兜住', effective, baselineChanged, fpChanged };
-    if (baselineChanged) return { verdict: '规则无牙·仅基线兜底', effective, baselineChanged, fpChanged };
+        return { verdict: '❌装饰品(真盲区)', effective, baselineChanged, fpChanged, newDetail, newRed };
+    if (S.total > 0) return { verdict: '规则无牙·对照器兜住', effective, baselineChanged, fpChanged, newDetail, newRed };
+    if (baselineChanged) return { verdict: '规则无牙·仅基线兜底', effective, baselineChanged, fpChanged, newDetail, newRed };
     // 属性变了(fpChanged) 但规则+对照器+基线都没反应
-    return { verdict: '⚠属性已变但规则+对照器+基线均未反应(待确认盲区)', effective, baselineChanged, fpChanged };
+    return { verdict: '⚠属性已变但规则+对照器+基线均未反应(待确认盲区)', effective, baselineChanged, fpChanged, newDetail, newRed };
 }
 
 async function main() {
@@ -151,7 +187,11 @@ async function main() {
         const lines = ['#!/usr/bin/env bash', 'set -e',
             '# 变异牙齿测试 —— 准备脚本（由仓库外 Bash 运行；node 内 spawn bash 在本环境持续 EBUSY）',
             'REPO="$(git rev-parse --show-toplevel)"', `MUTROOT="${toPosix(MUT_ROOT)}"`,
-            'rm -rf "$MUTROOT"', 'mkdir -p "$MUTROOT/_base"',
+            // 第 43 轮：去掉 `rm -rf "$MUTROOT"` —— 沙箱对「单次会话内删除文件数 >50」有硬拦截，
+            //   21 棵树 ≈4600 文件会被判 SAFE_DELETE_BULK_CONFIRM_REQUIRED 直接中止（实测触发）。
+            //   改为**零删除的覆盖式重建**：tar -x / cp -r 都是覆盖同名文件，残留的旧文件不影响判定
+            //   （--emit-run 只按当前 MUTATIONS 列表跑，多余目录不会被读）。
+            'mkdir -p "$MUTROOT/_base"',
             'git -C "$REPO" archive HEAD | tar -x -C "$MUTROOT/_base"'];
         // ★ 叠加当前工作树（未提交改动）—— **必须在注入变异之前**做完，否则叠加会覆盖掉刚 sed 注入的变异。
         //   两处都必须叠加（基树 _base 叠加一次即可，变异树由 _base 拷贝而来，自动继承）：
@@ -165,7 +205,10 @@ async function main() {
         lines.push('    if [ -d "$REPO/$dir" ]; then tar -C "$REPO/$dir" -cf - . | tar -x -C "$MUTROOT/_base/$dir"; fi');
         lines.push('done');
         for (const m of MUTATIONS) {
-            lines.push(`cp -r "$MUTROOT/_base" "$MUTROOT/m-${m.id}"`);
+            // `cp -r src/. dst/` 复制**内容**到已存在的目录（直接覆盖），等价于重建且不需要先删 ——
+            // 这一句同时保证了「重复 prep 时变异不会叠加两次」：先把干净的 _base 内容盖回去，再 sed 注入。
+            lines.push(`mkdir -p "$MUTROOT/m-${m.id}"`);
+            lines.push(`cp -r "$MUTROOT/_base/." "$MUTROOT/m-${m.id}/"`);
             lines.push(`sed -i "s#${breEscape(m.from)}#${m.to}#g" "$MUTROOT/m-${m.id}/${m.file}"`);
         }
         console.log(lines.join('\n'));
@@ -186,7 +229,11 @@ async function main() {
             '  [ -d "$d" ] || { echo "跳过缺失树 $d"; continue; }',
             '  echo "##### MUT $id #####" >> "$OUT"',
             '  echo "REPLAY:" >> "$OUT"',
-            '  ( cd "$d" && node tests/rules-replay.mjs 2>/dev/null | grep -E "RESULT:|❌" ) >> "$OUT" || true',
+            // 第 43 轮：grep 追加 `^\s+\[seed=` —— 把规则报红的**逐场明细行**一起落盘。
+            //   原因：干净树可能本就有红（如 153 实测的「⚡ undefined」真 bug），此时只看「哪条规则红」
+            //   完全没有分辨力（基线红会把变异红掩盖掉）。改为比对**明细文本**才能分辨
+            //   「同一条规则是否因本次变异报出了新的红」。
+            '  ( cd "$d" && node tests/rules-replay.mjs 2>/dev/null | grep -E "RESULT:|❌|^\\s+\\[seed=" ) >> "$OUT" || true',
             '  echo "BASELINE:" >> "$OUT"',
             '  ( cd "$d" && node tests/140-baseline.js --check 2>/dev/null | grep -E "BASELINE-MATCH|回归|场与基线不一致|DIFF" ) >> "$OUT" || true',
             '  echo "STAT:" >> "$OUT"',
@@ -220,10 +267,21 @@ async function main() {
         const FP0 = parsed._base ? parsed._base.fp : null;
         // 干净树自检
         const b = parsed._base;
+        let BASE_RED = [], BASE_DETAILS = [];
         if (b) {
-            console.log(`[对照·未变异 _base] 规则报红 ${b.red.length} 条 · 基线 ${b.match === 18 ? 'MATCH 18' : (b.changed ? '已变' : '?')} · 对照器命中 ${b.statTotal} · 指纹 ${b.fp}`);
+            BASE_RED = b.red || []; BASE_DETAILS = b.details || [];
+            console.log(`[对照·未变异 _base] 规则报红 ${b.red.length} 条（明细 ${BASE_DETAILS.length} 条）· 基线 ${b.match === 18 ? 'MATCH 18' : (b.changed ? '已变' : '?')} · 对照器命中 ${b.statTotal} · 指纹 ${b.fp}`);
             if (b.red.length || b.statTotal > 0 || b.changed || !b.fp) {
-                console.log('  ❌ 干净树本身就不绿 / 指纹缺失 —— 本轮结论不可信，先修干净树再跑变异\n');
+                // 第 43 轮：不再一票否决。干净树有红时改走「增量判定」—— 用 _base 的红/明细做底噪扣除，
+                // 结论仍可用（且能顺带证明这条红是**既有 bug**而非变异引入），只是必须显式标注。
+                console.log('  ⚠ 干净树本身就有红/不绿 —— 已切换为「增量判定」：只认 _base 里没有的新规则/新明细');
+                console.log('    （这些红是既有问题的实证，须同步提主代码需求；不要把它算成某条变异的功劳）');
+                if (BASE_RED.length) {
+                    console.log(`    ✗ 基线已红的规则（本轮**失去作证资格**，它们的明细变化一律不计入「有牙」）：`);
+                    for (const r of BASE_RED) console.log(`        - ${r}`);
+                    console.log('      → 修好这些既有问题后，这些规则才能重新为「规则有牙」作证；在那之前本档判定整体降级。');
+                }
+                console.log('');
             }
         } else {
             console.log('⚠ 缺少 _base 基准块，无法判定指纹是否变化（fpChanged 全部按「未知」处理）\n');
@@ -232,11 +290,11 @@ async function main() {
         for (const m of MUTATIONS) {
             const p = parsed['m-' + m.id];
             if (!p) { console.log(`⏭ 缺 ${m.id} 结果`); continue; }
-            const R = { red: p.red, crash: p.crash };
+            const R = { red: p.red, details: p.details || [], pairs: p.pairs || [], crash: p.crash };
             const B = { match: p.match, changed: p.changed };
             const S = { total: p.statTotal };
             const stf = { fp: p.fp };
-            const j = judge(m, FP0, R, B, S, stf);
+            const j = judge(m, FP0, R, B, S, stf, BASE_RED, BASE_DETAILS);
             rows.push({ mut: m, red: p.red, ...j });
         }
         summarize(rows);
@@ -245,9 +303,12 @@ async function main() {
 
     // 默认：打印三步工作流
     console.log('变异牙齿测试 · 三步工作流（本环境 node 不能 spawn，故跑树交给 Bash 工具）：');
-    console.log('  1) node tests/mutation-teeth.mjs --emit-prep  > /tmp/prep.sh  &&  bash /tmp/prep.sh');
-    console.log('  2) node tests/mutation-teeth.mjs --emit-run   > /tmp/run.sh   &&  bash /tmp/run.sh');
+    // 第 43 轮：脚本落点改到 tests/.mut/（已 gitignore）—— 放仓库根会变成未跟踪文件污染 git status。
+    //   另：prep 是**零删除的覆盖式重建**（无 rm -rf），可反复重跑，不必手工清树。
+    console.log('  1) node tests/mutation-teeth.mjs --emit-prep  > tests/.mut/prep.sh  &&  bash tests/.mut/prep.sh');
+    console.log('  2) node tests/mutation-teeth.mjs --emit-run   > tests/.mut/run.sh   &&  bash tests/.mut/run.sh');
     console.log('  3) node tests/mutation-teeth.mjs --report');
+    console.log('（全程约 2~3 分钟；21 棵树 × 三件套）');
     console.log('（--emit-prep 生成基树+变异；--emit-run 产出 Bash 循环脚本跑三件套落盘；--report 解析出牙口矩阵）');
 }
 
@@ -262,9 +323,21 @@ function parseBlock(body) {
     }
     const replay = secs.REPLAY.join('\n'), baseline = secs.BASELINE.join('\n'), stat = secs.STAT.join('\n'), fp = secs.FP.join('\n');
     const red = [];
+    // 报红明细（第 43 轮新增）：形如 `      [seed=6 stage=1] 复发：…`
+    //   与 red（规则名）配套 —— 规则名相同但报红场次/文案不同，说明是**本次变异新引入**的红。
+    //   pairs 保留「明细 ↔ 所属规则」的归属关系：判定有牙时必须知道这条明细是哪条规则报的，
+    //   否则一条在基线就已报红的规则（如 153 实测的主代码真 bug）会用自己的明细给任意变异"作伪证"。
+    const details = [];
+    const pairs = [];
+    let curRule = null;
     for (const line of replay.split('\n')) {
         const m = line.match(/^❌\s+(.+?)\s+pass=\d+\s+fail=\d+\s+skip=\d+/);
-        if (m) red.push(m[1].trim());
+        if (m) { curRule = m[1].trim(); red.push(curRule); continue; }
+        const dm = line.match(/^\s+\[seed=\d+\s+stage=\d+\]\s+(.+)$/);
+        if (dm) {
+            details.push(dm[1].trim());
+            if (curRule) pairs.push({ rule: curRule, detail: dm[1].trim() });
+        }
     }
     const crash = /不变量违规/.test(replay) && !/RESULT:/.test(replay) ? (replay.split('\n').filter(Boolean).slice(-2).join(' | ') || 'no RESULT') : null;
     const matchM = baseline.match(/BASELINE-MATCH\s+(\d+)/);
@@ -276,7 +349,7 @@ function parseBlock(body) {
         if (m) statTotal += Number(m[1]);
     }
     const fpM = fp.match(/FINGERPRINT\s+([0-9a-f]+)/);
-    return { red, crash, match, changed, statTotal, fp: fpM ? fpM[1] : null };
+    return { red, details, pairs, crash, match, changed, statTotal, fp: fpM ? fpM[1] : null };
 }
 
 function summarize(rows) {
@@ -284,7 +357,9 @@ function summarize(rows) {
     console.log('ID   类型   判定                     报红规则');
     for (const r of rows) {
         const red = (r.red || []).length ? r.red.map(s => s.replace('(回归)', '')).join('、') : '—';
-        console.log(`${r.mut.id.padEnd(5)} ${r.mut.kind.padEnd(6)} ${(r.verdict || '').padEnd(30)} ${red}`);
+        // [掩盖×N]：该变异让「基线已红的规则」冒出了 N 条新明细 —— 属噪声，**不可**当成有牙的证据
+        const mk = (r.masked || []).length ? ` [掩盖×${(r.masked || []).length}]` : '';
+        console.log(`${r.mut.id.padEnd(5)} ${r.mut.kind.padEnd(6)} ${(r.verdict || '').padEnd(30)} ${red}${mk}`);
     }
     const has = (r, k) => r.verdict && r.verdict.indexOf(k) >= 0;
     const blind = rows.filter(r => has(r, '装饰品'));

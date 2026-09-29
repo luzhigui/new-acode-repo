@@ -1,10 +1,13 @@
 // tools/120-param-lab-core.js — 参数对照实验台的纯逻辑层（浏览器 worker 与 node CLI 共用）
-// V1.0.0 | 预估 17700 bytes | 2026-09-28 新建：从 tools/120-param-lab.mjs 抽出可复用逻辑
+// V1.1.0 | 预估 20800 bytes | 2026-09-29 参数实验台批 4：listNumericKnobs 从「只扫 characters」扩到参数四层——
+//          ① 角色技能表 ② 纯规则常量 CONFIG（跳 getter 与位次表）③ buffs/roles/encounters/roster/hexes 数据表；
+//          每个旋钮带 layer/owner/skill 三级信息，供页面做「归属 → 技能 → 字段」选择。
+//          V1.0.0 | 2026-09-28 新建：从 tools/120-param-lab.mjs 抽出可复用逻辑
 //          （seed 散列 / 固定海克斯 / 阵容采样与重建 / 逐局对战 / 逐阵容区间跑 / 路径式补丁 /
 //          数值旋钮扫描）。不 import 任何 node 内置模块，浏览器 worker 与 node 直跑通用。
 //          CLI 侧的 node 垫片（fetch / localStorage）由调用方在 import 本文件之前装好；
 //          本文件自带 window/localStorage 垫片，保证模块体在无 DOM 环境也能跑。
-export const VER = 'tools/120-param-lab-core.js V1.0.0';
+export const VER = 'tools/120-param-lab-core.js V1.1.0';
 
 // --- 环境垫片：引擎零 DOM，但 import 链与本模块体在无浏览器全局时需 window/localStorage ---
 if (typeof window === 'undefined') globalThis.window = globalThis;
@@ -303,47 +306,92 @@ export function applyPatch(root, patch) {
     return applyPatchOps(root, (patch && (patch.set || patch.ops)) || []);
 }
 
+// worker 池是常驻的，同一个实例会在「基线臂」与「补丁臂」之间来回切；
+// 补丁是就地改 gameData 缓存本体的，所以基线臂前必须能还原 —— 否则第二次点「跑」时
+// 基线臂会带着上一轮的补丁跑，两臂对照直接失真（这是必须回滚的唯一理由）。
+let _pristine = null;
+export function restoreGameData() {
+    if (!_pristine) _pristine = structuredClone(_game);
+    for (const k of Object.keys(_game)) if (!(k in _pristine)) delete _game[k];
+    Object.assign(_game, structuredClone(_pristine));
+    return _game;
+}
+
 // ---------------------------------------------------------------------------
-// 六、数值旋钮扫描（给页面下拉用；真旋钮多在 mechanics，skills.*.params.* 多为文案插值，
-//     两者都列出，由用户自行判断，不替他过滤）
+// 六、数值旋钮扫描（给页面用；覆盖参数四层，见 文件汇总20260730/10 待办事项和想法优化/
+//     待办-参数体系收敛清单.md）：① 角色技能表 characters.*  ② 纯规则常量 CONFIG
+//     ③ 其余数据表 buffs / roles / encounters / roster / hexes
+//     真旋钮多在 mechanics，skills.*.params.* 需逐个判断（部分只是文案插值、部分被引擎真读），
+//     全部列出不替用户过滤；层信息（layer/owner/skill）供页面做「角色 → 技能 → 字段」三级选择。
 // ---------------------------------------------------------------------------
+// CONFIG 里这些键是「顺序/位次表」，不是可调数量，列出来只会淹没有效旋钮；显式跳过。
+const CONFIG_SKIP_KEYS = ['ELITE_POS_PRIORITY', 'ENEMY_ELITE_POS_PRIORITY', 'ENEMY_ELITE_POS_FALLBACK'];
+
 // 路径渲染：数字段按数组下标写成 [i]，其余段用点连接。label 只为好读。
-function knobLabel(name, relParts) {
+function knobLabel(owner, relParts) {
     let s = '';
     for (const p of relParts) {
         if (/^\d+$/.test(p)) s += `[${p}]`;
         else s += (s ? '.' : '') + p;
     }
-    return `${name} · ${s}`;
+    return `${owner} · ${s}`;
 }
-function walkNumbers(node, fullParts, relParts, name, out) {
+function walkNumbers(node, fullParts, relParts, hit) {
     if (typeof node === 'number') {
-        if (Number.isFinite(node)) out.push({ path: fullParts.join('.'), value: node, label: knobLabel(name, relParts) });
+        if (Number.isFinite(node)) hit(fullParts.join('.'), node, relParts);
         return;
     }
     if (Array.isArray(node)) {
         for (let i = 0; i < node.length; i++) {
-            walkNumbers(node[i], fullParts.concat(String(i)), relParts.concat(String(i)), name, out);
+            walkNumbers(node[i], fullParts.concat(String(i)), relParts.concat(String(i)), hit);
         }
         return;
     }
     if (node && typeof node === 'object') {
-        for (const k of Object.keys(node)) walkNumbers(node[k], fullParts.concat(k), relParts.concat(k), name, out);
+        for (const k of Object.keys(node)) walkNumbers(node[k], fullParts.concat(k), relParts.concat(k), hit);
     }
 }
-export function listNumericKnobs(root) {
+/**
+ * 扫描全部数值旋钮。每个旋钮：{ path, value, label, layer, owner, skill }
+ *   layer = 'character'（角色技能表）| 'config'（纯规则常量）| 'data'（其余数据表）
+ *   owner = 三级第一级（角色名 / 全局常量 / 数据表名）；skill = 第二级（技能 key / 分组 key）
+ */
+export function listNumericKnobs(root, config = CONFIG) {
     const out = [];
+    const push = (path, value, relParts, layer, owner, skill) =>
+        out.push({ path, value, label: knobLabel(owner, relParts), layer, owner, skill });
+
+    // ① 角色技能表：角色 → 技能（mechanics 归到虚拟技能「机制」）→ 字段
     const chars = (root && root.characters) || {};
     for (const name of Object.keys(chars)) {
         const ch = chars[name];
         if (!ch) continue;
-        if (ch.mechanics) walkNumbers(ch.mechanics, ['characters', name, 'mechanics'], ['mechanics'], name, out);
+        if (ch.mechanics) {
+            walkNumbers(ch.mechanics, ['characters', name, 'mechanics'], ['mechanics'],
+                (p, v, r) => push(p, v, r, 'character', name, '机制'));
+        }
         if (ch.skills && typeof ch.skills === 'object') {
             for (const sk of Object.keys(ch.skills)) {
                 const sv = ch.skills[sk];
-                if (sv && sv.params) walkNumbers(sv.params, ['characters', name, 'skills', sk, 'params'], [`${sk}.params`], name, out);
+                if (sv && sv.params) {
+                    walkNumbers(sv.params, ['characters', name, 'skills', sk, 'params'], [`${sk}.params`],
+                        (p, v, r) => push(p, v, r, 'character', name, sk));
+                }
             }
         }
+    }
+
+    // ② 纯规则常量 CONFIG：全局常量 → 键 → 字段。
+    //    只走数据属性（desc.value）：getter 是 gameData 的代理，会在 ③ 里再出现一次，走了就是重复。
+    for (const [key, desc] of Object.entries(Object.getOwnPropertyDescriptors(config || {}))) {
+        if (desc.get || CONFIG_SKIP_KEYS.includes(key)) continue;
+        walkNumbers(desc.value, [key], [key], (p, v, r) => push(p, v, r, 'config', '全局常量', key));
+    }
+
+    // ③ 其余数据表：表名 → 二级键 → 字段
+    for (const key of Object.keys(root || {})) {
+        if (key === 'characters' || key === 'version' || key === 'updated') continue;
+        walkNumbers(root[key], [key], [key], (p, v, r) => push(p, v, r, 'data', key, r[1] ?? ''));
     }
     return out;
 }

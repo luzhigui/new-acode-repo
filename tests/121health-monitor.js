@@ -40,6 +40,9 @@ import { rule96 } from './health-rules/149-holy-flame-cols-rows.js';
 import { rule97 } from './health-rules/150-hot-blood-leech.js';
 import { rule98 } from './health-rules/151-bloodthirst-leech.js';
 import { rule99 } from './health-rules/152-xingfen-extra-attack.js';
+import { rule100 } from './health-rules/153-meteor-growth-render.js';
+import { rule101 } from './health-rules/154-endless-breath-gain.js';
+import { rule102 } from './health-rules/155-meteor-growth-dup.js';
 import {
     getCellElement, checkUnitHpValidity,
     checkHpBarSync, checkHpBarColor, checkFxOrphans,

@@ -1,6 +1,6 @@
 {
-  "version": "5.6.12",
-  "updated": "2026-09-26",
+  "version": "5.6.13",
+  "updated": "2026-09-29",
 
   "roles": {
     "战士": { "icon": "⚔️", "label": "战士", "bonus": { "atk": 3, "def": 3, "maxHp": 30 } },
@@ -164,8 +164,8 @@
         },
         "thirdStrike": {
           "name": "每第三次攻击",
-          "desc": "每第3次命中伤害×{dmgMultiplier}，并吸血{leechRatio}倍本次伤害（反击/跟随这类被动出手照样计数）",
-          "params": { "dmgMultiplier": 1.5, "leechRatio": 1.5 }
+          "desc": "每第{interval}次命中伤害×{dmgMultiplier}，并吸血{leechRatio}倍本次伤害（反击/跟随这类被动出手照样计数）",
+          "params": { "interval": 3, "dmgMultiplier": 1.5, "leechRatio": 1.5 }
         },
         "summonZhou": {
           "name": "召唤周芷若",
@@ -369,8 +369,8 @@
         },
         "nearSwitch": {
           "name": "近战切换",
-          "desc": "前排无友军时切换近战形态，攻防血大幅提升，近战3次后融会贯通",
-          "params": {}
+          "desc": "前排无友军时切换近战形态，攻/防/血提升为战士职业加成的 {atkMul}/{defMul}/{maxHpMul} 倍，近战3次后融会贯通",
+          "params": { "atkMul": 3, "defMul": 3, "maxHpMul": 3 }
         }
       },
       "taunts": {

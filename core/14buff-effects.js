@@ -1,5 +1,5 @@
-// V6.1.0 | ~7700 bytes | 2026-09-19 联网PVP：圣火令去掉"只对明教"守卫，按传入 buff 阵营生效
-export const VER = 'core/14buff-effects.js V6.1.0';
+// V6.1.1 | ~7700 bytes | 2026-09-29 参数体系收敛批 3：carry 的 deathMultiplier/atkBonus/defBonus 去掉字面兜底，直读内容表 buffs.carry
+export const VER = 'core/14buff-effects.js V6.1.1';
 
 import { CONFIG, getSkillParams } from './01config-5v5-test.js';
 import { getUnitRow, getUnitCol } from './03battle-utils.js';
@@ -53,9 +53,9 @@ export function calcCarryBonus_Normal(unit, allyTeam) {
     let carryAtkAbs = 0, carryDefAbs = 0, carryHpAbs = 0;
     let allAllies = allyTeam.filter(u => u.uid !== unit.uid && !u.isHorse);
     allAllies.forEach(a => {
-        let mult = a.alive ? 1 : (CONFIG.BUFFS.carry.deathMultiplier || 3);
-        carryAtkAbs += Math.floor(getStat(a, 'atk') * (CONFIG.BUFFS.carry.atkBonus || 0.08) * mult);
-        carryDefAbs += Math.floor(getStat(a, 'def') * (CONFIG.BUFFS.carry.defBonus || 0.08) * mult);
+        let mult = a.alive ? 1 : CONFIG.BUFFS.carry.deathMultiplier;
+        carryAtkAbs += Math.floor(getStat(a, 'atk') * CONFIG.BUFFS.carry.atkBonus * mult);
+        carryDefAbs += Math.floor(getStat(a, 'def') * CONFIG.BUFFS.carry.defBonus * mult);
         if (CONFIG.BUFFS.carry.hpBonus) carryHpAbs += Math.floor(a.state._baseMaxHp ? a.state._baseMaxHp * CONFIG.BUFFS.carry.hpBonus * mult : 0);
     });
     return { atkAbs: carryAtkAbs, defAbs: carryDefAbs, hpAbs: carryHpAbs };
@@ -66,9 +66,9 @@ export function calcCarryBonus_Sister(unit, allyTeam) {
     let carryAtkAbs = 0, carryDefAbs = 0, carryHpAbs = 0;
     let allAllies = allyTeam.filter(u => u.uid !== unit.uid && !u.isHorse);
     allAllies.forEach(a => {
-        let mult = a.alive ? 1 : (CONFIG.BUFFS.carry.deathMultiplier || 3);
-        carryAtkAbs += Math.floor(getStat(a, 'atk') * (CONFIG.BUFFS.carry.atkBonus || 0.08) * mult);
-        carryDefAbs += Math.floor(getStat(a, 'def') * (CONFIG.BUFFS.carry.defBonus || 0.08) * mult);
+        let mult = a.alive ? 1 : CONFIG.BUFFS.carry.deathMultiplier;
+        carryAtkAbs += Math.floor(getStat(a, 'atk') * CONFIG.BUFFS.carry.atkBonus * mult);
+        carryDefAbs += Math.floor(getStat(a, 'def') * CONFIG.BUFFS.carry.defBonus * mult);
         if (CONFIG.BUFFS.carry.hpBonus) carryHpAbs += Math.floor(a.state._baseMaxHp ? a.state._baseMaxHp * CONFIG.BUFFS.carry.hpBonus * mult : 0);
     });
     return { atkAbs: carryAtkAbs, defAbs: carryDefAbs, hpAbs: carryHpAbs };

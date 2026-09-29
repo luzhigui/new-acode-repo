@@ -1,5 +1,5 @@
-// V6.14.7 | ~26000 bytes | 2026-09-28 生生不息攻防改「二选一」：每次触发随机只转攻或只转防（比例不变，走战斗 RNG 双端同源；自己与转给队友那笔同方向）——治防滚雪球（14回合防36→150+）过高 | 2026-09-27 生生不息回血转攻防定案：实际回血每 10 点→攻+1、每 6 点→防+1，溢出每 5 点→攻+1、每 3 点→防+1（每档至少+1），加成记在血量落点单位身上（张三丰那笔给自己、转给队友那笔给队友）；承接 V6.14.5 回血转防分两档
-export const VER = 'modules/26elite-sixsects.js V6.14.7';
+// V6.14.9 | ~25800 bytes | 2026-09-29 参数体系收敛批 3：九阴白骨爪参数兜底全删（procChance/chainProcChance/lostHpRatio/maxHpRatio/executeThreshold 直读内容表，缺失即抛错）；灭绝师太三击间隔改数据驱动（thirdStrike.params.interval）
+export const VER = 'modules/26elite-sixsects.js V6.14.9';
 import { registerElite } from '../core/08-elite-registry.js';
 import { CONFIG, getSkillParams } from '../core/01config-5v5-test.js';
 import { SIGNAL_TYPES, FACT_TYPES, BUFF_TYPES, CAMP_TYPES, ROLE_TYPES } from '../infra/56-battle-enums.js';
@@ -264,7 +264,9 @@ export function createPangYuanQiaoComponent() {
                 if (cands.length === 0) return;
                 const rng = getBattleRng();
                 const hpRatio = pang.maxHp > 0 ? pang.hp / pang.maxHp : 1;
-                const threshold = Math.min(0.95, 0.10 + (getStat(pang, 'atk') - 30) / 200);
+                // 阈值公式系数走 CONFIG.PANG_CLUMSY_FORMULA（参数体系收敛批 2）
+                const f = CONFIG.PANG_CLUMSY_FORMULA;
+                const threshold = Math.min(f.cap, f.base + (getStat(pang, 'atk') - f.atkRef) / f.atkDiv);
                 const clumsyProb = Math.min(1, Math.max(0, (1 - hpRatio) / (1 - threshold)));
                 if (rng.next() < clumsyProb) {
                     // 年轻气盛（打歪）：随机挑一名敌人，×dmgMultiplier 并附带击退/眩晕
@@ -415,7 +417,7 @@ export function createMieJueShiTaiComponent() {
             // 三击判定不落标记：两处都按同一个 _attackCount 现算——额外攻击走 lockedTargetUid，
             //   不发 BEFORE_SELECT_TARGET，落标记的方式在反击那一击上必然失同步。
             //   「本次结算前计数 +1 能被 3 整除」= 这一击就是第 3 的倍数。
-            const isThirdHit = () => (((miejue.state._attackCount || 0) + 1) % 3) === 0;
+            const isThirdHit = () => (((miejue.state._attackCount || 0) + 1) % third.interval) === 0;
 
             eventBus.on(SIGNAL_TYPES.BEFORE_DAMAGE_CALC, L.BEFORE_DAMAGE_CALC.MIEJUE_THIRD_MULT, (data) => {
                 if (data.unit !== miejue || !miejue.alive || !isThirdHit()) return;
@@ -535,10 +537,10 @@ registerMechanicHandler('chainClaw', {
             if (!target || !target.alive) return;
             const rng = getBattleRng();
             const zhangAlive = enemySide && enemySide.some(u => u.isZhang && u.alive);
-            const baseHit = zhangAlive ? (decl.jealous?.baseDmg ?? decl.baseDmg ?? 2) : (decl.baseDmg ?? 1.5);
+            const baseHit = zhangAlive ? decl.jealous?.baseDmg : decl.baseDmg;
             const s = zhangAlive ? { ...decl, ...(decl.jealous || {}) } : decl;
             if (!unit.state._nineYinFirstDone) Object.assign(unit.state, { _nineYinFirstDone: true });
-            else if (rng.next() > (s.procChance || 0.80)) return;
+            else if (rng.next() > s.procChance) return;
 
             const hits = [];
             let executeInfo = null;
@@ -549,14 +551,14 @@ registerMechanicHandler('chainClaw', {
             let depth = 0;
 
             while (simulatedTargetHp > 0 && !target.state._pendingDeath && depth < 100) {
-                if (depth > 0 && rng.next() > (s.chainProcChance || 0.80)) break;
+                if (depth > 0 && rng.next() > s.chainProcChance) break;
                 const lostHp = target.maxHp - simulatedTargetHp;
-                const ratioDmg = Math.floor((lostHp * (s.lostHpRatio || 0.015) + target.maxHp * (s.maxHpRatio || 0.01)) * 10) / 10;
+                const ratioDmg = Math.floor((lostHp * s.lostHpRatio + target.maxHp * s.maxHpRatio) * 10) / 10;
                 const bonusDmg = Math.floor((baseHit + Math.max(0, ratioDmg)) * 10) / 10;
                 simulatedTargetHp -= bonusDmg;
                 const isDeadByHit = simulatedTargetHp <= 0;
                 const hpPctAfter = simulatedTargetHp / target.maxHp;
-                const execThreshold = s.executeThreshold || 0.15;
+                const execThreshold = s.executeThreshold;
                 const isExecute = !isDeadByHit && hpPctAfter <= execThreshold && simulatedTargetHp > 0;
                 hits.push({ dmg: bonusDmg, factType: FACT_TYPES.CLAW_HIT, data: { unitName: unit.name, targetName: target.name, dmg: bonusDmg, isExecute, jealous: zhangAlive, depth, hpAfter: simulatedTargetHp, targetUid: target.uid }, isClawHit: true, clawAttackerUid: unit.uid, clawTargetUid: target.uid, isExecute });
                 if (song && song.alive) {

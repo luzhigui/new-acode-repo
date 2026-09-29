@@ -1,6 +1,5 @@
-// V6.5.1 | ~22700 bytes | 2026-09-24 谢逊只占「固定 3 位」中的一个名额（并入 toLock，删掉他单独的 fixed=true）——修掉他在场时明教出现 4 个固定位、且随机补位可能补到无关普通弟子的问题
-// V6.5.0 | ~22600 bytes | 2026-09-22 ① 谢逊转正进明教随机精英轮盘（eliteConfigs 第 4 人）② 精英池扩容后 eliteCount=3 分支改为按权重抽满 3 个（原 push(...pool) 会出 4 人超编）③ 抽取前过滤已在队精英，避免 forceXieXun 抽出第二个谢逊
-export const VER = 'modules/29battle-init.js V6.5.1';
+// V6.5.3 | ~23300 bytes | 2026-09-29 参数体系收敛批 1+3：精英人数骰阈值、小昭姊/妹概率改读 CONFIG；power 兜底值删死值改严格读数（缺项抛错）；敌人身份站位优先表并入 CONFIG.ENEMY_ELITE_POS_PRIORITY；玄冥补兵 M 进 CONFIG
+export const VER = 'modules/29battle-init.js V6.5.3';
 
 import { CONFIG } from '../core/01config-5v5-test.js';
 import { Unit, applyHeroFlags, HERO_FLAGS } from '../core/02unit.js';
@@ -9,15 +8,34 @@ import { CAMP_TYPES, ROLE_TYPES } from '../infra/56-battle-enums.js';
 
 const C = CONFIG;
 
+// 内容表功率读数（单一数据源，缺项即抛错，不静默兜底）
+function elitePowerOf(name) {
+    const p = C.ELITE_POWER?.[name];
+    if (p == null) throw new Error(`缺 roster.elitePower: ${name}`);
+    return p;
+}
+function normalPowerOf(m) {
+    const p = C.NORMAL_POWER?.[m];
+    if (p == null) throw new Error(`缺 roster.normalPower: ${m}`);
+    return p;
+}
+
+// 六大派精英身份 → 站位优先表（身份优先于 CONFIG.ELITE_POS_PRIORITY 的职业表）
+const ENEMY_ELITE_POS_FLAGS = [
+    ['isChengKun', 'chengKun'],
+    ['isMieJueShiTai', 'mieJueShiTai'],
+    ['isPangYuanQiao', 'pangYuanQiao'],
+    ['isLuZhangKe', 'luZhangKe'],
+    ['isHeBiWeng', 'heBiWeng']
+];
+
 // 战斗-初始化：生成明教+六大派阵容（纯逻辑，无 DOM）
 export function initBattleTeams(currentStage, _rng) {
     const ENEMY_M = CONFIG.ENEMY_M;
     const _rand = (min, max) => _rng.nextInt(min, max);
     let allyTeam = [], enemyTeam = [];
     const mingSquadTemplate = C.MING_SQUADS && C.MING_SQUADS[currentStage] ? C.MING_SQUADS[currentStage] : null;
-    const elitePower = C.ELITE_POWER || {};
     const eliteRate = C.ELITE_RATE || {};
-    const normalPower = C.NORMAL_POWER || {};
     const targetPower = C.MING_TARGET_POWER && C.MING_TARGET_POWER[currentStage] ? C.MING_TARGET_POWER[currentStage] : null;
 
     // 玩家在图鉴选定的角色 → 提高对应精英出场率（zw/wy 直连；xz/xm → 小昭并偏向姊/妹）
@@ -30,20 +48,22 @@ export function initBattleTeams(currentStage, _rng) {
     }
 
     // 精英出场率：80%一个、15%两个、5%三个，按 ELITE_RATE 权重选人
+    // 阈值走 CONFIG.ELITE_COUNT_THRESHOLDS（[3人, 2人, 1人] 的上界）
+    const [t3, t2, t1] = C.ELITE_COUNT_THRESHOLDS;
     const eliteConfigs = [
-        { name: '张无忌', m: 115, role: ROLE_TYPES.RANGED, isZhang: true, power: elitePower['张无忌'] || 140 },
-        { name: '韦一笑', m: 107, role: ROLE_TYPES.FLYER, isWei: true, power: elitePower['韦一笑'] || 120 },
-        { name: '小昭', m: 107, role: ROLE_TYPES.RANGED, isXiaoZhaoBrother: true, power: elitePower['小昭'] || 135 },
+        { name: '张无忌', m: 115, role: ROLE_TYPES.RANGED, isZhang: true, power: elitePowerOf('张无忌') },
+        { name: '韦一笑', m: 107, role: ROLE_TYPES.FLYER, isWei: true, power: elitePowerOf('韦一笑') },
+        { name: '小昭', m: 107, role: ROLE_TYPES.RANGED, isXiaoZhaoBrother: true, power: elitePowerOf('小昭') },
         // 2026-09-22 金毛狮王谢逊转正：与另外三位同性质，走随机精英轮盘（不再是 demo 开关专享）
-        { name: '金毛狮王谢逊', m: 107, role: ROLE_TYPES.WARRIOR, isXieXun: true, power: elitePower['金毛狮王谢逊'] || 140 }
+        { name: '金毛狮王谢逊', m: 107, role: ROLE_TYPES.WARRIOR, isXieXun: true, power: elitePowerOf('金毛狮王谢逊') }
     ];
     const eliteRoll = _rng.next();
     let eliteCount;
-    if (eliteRoll < 0.05) {
+    if (eliteRoll < t3) {
         eliteCount = 3;
-    } else if (eliteRoll < 0.20) {
+    } else if (eliteRoll < t2) {
         eliteCount = 2;
-    } else if (eliteRoll < 0.80) {
+    } else if (eliteRoll < t1) {
         eliteCount = 1;
     } else {
         eliteCount = 0;
@@ -89,7 +109,7 @@ export function initBattleTeams(currentStage, _rng) {
         unit.init(_rng); unit.applyBonus();
         unit.pos = null;
         allyTeam.push(unit);
-        usedPower += 140;
+        usedPower += elitePowerOf('金毛狮王谢逊');
     }
 
     if (eliteCount > 0 && !forceZhang && !forceWei) {
@@ -137,9 +157,7 @@ export function initBattleTeams(currentStage, _rng) {
             if (c.isZhang) unit.isZhang = true;
             if (c.isWei) unit.isWei = true;
             if (c.isXiaoZhaoBrother) {
-                let sisterProb = 0.5;
-                if (pickKey === 'xz') sisterProb = 0.85;
-                else if (pickKey === 'xm') sisterProb = 0.15;
+                const sisterProb = C.XIAO_ZHAO_SISTER_PROB[pickKey] ?? C.XIAO_ZHAO_SISTER_PROB.default;
                 if (_rng.next() < sisterProb) { unit.isXiaoZhaoSister = true; }
                 else { unit.isXiaoZhaoBrother = true; }
                 unit.name = unit.isXiaoZhaoSister ? '小昭·姊' : '小昭·妹';
@@ -160,15 +178,15 @@ export function initBattleTeams(currentStage, _rng) {
     for (const [name, m] of Object.entries(C.MING_M)) {
         // 2026-09-14 去名字字面量：用身份标记判断是否精英（与 eliteConfigs 同源）
         if (HERO_FLAGS[name]) continue;
-        if (m >= 95 && m <= 104) candidatePool.push({ name, m, role: null, power: normalPower[m] || 90 });
+        if (m >= 95 && m <= 104) candidatePool.push({ name, m, role: null, power: normalPowerOf(m) });
     }
     candidatePool.sort((a, b) => a.power - b.power);
 
     const remainingCandidates = [...candidatePool];
-    let remainingPower = (targetPower || 500) - usedPower;
+    let remainingPower = (targetPower ?? C.MING_TARGET_POWER_FALLBACK) - usedPower;
     let remainingSlots = 5 - allyTeam.length;
     for (let slot = 0; slot < remainingSlots; slot++) {
-        const avgPower = remainingSlots > 0 ? remainingPower / remainingSlots : 90;
+        const avgPower = remainingSlots > 0 ? remainingPower / remainingSlots : C.POWER_FALLBACK;
         const candidates = [];
         const above = remainingCandidates.filter(c => c.power >= avgPower).sort((a, b) => a.power - b.power).slice(0, 3);
         const below = remainingCandidates.filter(c => c.power < avgPower).sort((a, b) => b.power - a.power).slice(0, 2);
@@ -199,7 +217,7 @@ export function initBattleTeams(currentStage, _rng) {
             const swappable = allyTeam.find(u => !u.isZhang && !u.isWei);
             if (swappable) {
                 allyTeam.splice(allyTeam.indexOf(swappable), 1);
-                remainingPower += (normalPower[swappable.m] || 90);
+                remainingPower += normalPowerOf(swappable.m);
             }
             let xzUnit = new Unit('小昭', 107, C.ROLES[_rand(0, 3)], CAMP_TYPES.ALLY);
             xzUnit.isXiaoZhaoSister = (forceXzMode === 'sister');
@@ -210,7 +228,7 @@ export function initBattleTeams(currentStage, _rng) {
             xzUnit.state._baseMaxHp = xzUnit.maxHp; xzUnit.state._baseAtk = xzUnit.atk; xzUnit.state._baseDef = xzUnit.def;
             xzUnit.pos = swappable ? swappable.pos : null;
             allyTeam.push(xzUnit);
-            remainingPower -= (elitePower['小昭'] || 140);
+            remainingPower -= elitePowerOf('小昭');
         }
     }
 
@@ -311,7 +329,7 @@ export function initBattleTeams(currentStage, _rng) {
             }
         }
         if (currentStage === 5 && xuanmingPairCount === 2) {
-            let extraM = 104;
+            let extraM = C.XUANMING_EXTRA_M;
             let pool = Object.entries(ENEMY_M).filter(([n, v]) => v === extraM);
             let usedNames = enemyUnits.map(u => u.name);
             let name = null;
@@ -385,14 +403,9 @@ export function initBattleTeams(currentStage, _rng) {
         const otherElites = eliteUnits.filter(u => u !== zhou && u !== song && u.pos == null);
         for (let u of otherElites) {
             let priority;
-            if (u.isChengKun) priority = [1, 2, 3, 4, 5, 6, 7, 8, 9];
-            // 2026-09-22 灭绝师太（第七关）：优先 2 号位（与 elitePool 的 pos 元数据一致）
-            else if (u.isMieJueShiTai) priority = [2, 1, 3, 4, 5, 6, 7, 8, 9];
-            // 2026-09-22 胖远桥（第三关轮换阵容）：嘲讽坦克，固定 2 号位前排正中（与 elitePool 的 pos 元数据一致）
-            else if (u.isPangYuanQiao) priority = [2, 1, 3, 4, 5, 6, 7, 8, 9];
-            else if (u.isLuZhangKe) priority = [7, 8, 9, 4, 5, 6, 1, 2, 3];
-            else if (u.isHeBiWeng) priority = [3, 4, 5, 6, 7, 8, 9, 1, 2];
-            else priority = [1, 2, 3, 4, 5, 6, 7, 8, 9];
+            // 身份优先表见 CONFIG.ENEMY_ELITE_POS_PRIORITY（未命中回落默认 1→9）
+            const hit = ENEMY_ELITE_POS_FLAGS.find(([flag]) => u[flag]);
+            priority = hit ? C.ENEMY_ELITE_POS_PRIORITY[hit[1]] : C.ENEMY_ELITE_POS_FALLBACK;
             for (const p of priority) { if (!enemyPosSet.has(p)) { u.pos = p; u.state._originalPos = p; enemyPosSet.add(p); break; } }
             if (u.pos == null) { let p = priority[0]; let displaced = normalUnits.find(u2 => u2.pos === p); if (displaced) { displaced.pos = null; displaced.state._originalPos = -1; } u.pos = p; u.state._originalPos = p; enemyPosSet.add(p); }
         }
