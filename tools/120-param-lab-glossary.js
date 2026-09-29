@@ -1,5 +1,8 @@
 // tools/120-param-lab-glossary.js - 参数中文说明表（只读展示用，不参与战斗）
-// V2.0.1 | 预估 16800 bytes | 2026-09-29 韦一笑吸血技能改名：寒冰掌 → 蝠影汲血（技能键 coldPalm → bloodSiphon，同步 TYPE_GLOSSARY 与 PCT100 白名单键）
+// V2.0.2 | 预估 19600 bytes | 2026-09-29 新增 ENGINE_READ 引擎真读字段表 + skillFieldVerdict()：
+//   静态扫描全仓 getSkillParams( 调用点，逐个追踪返回对象的字段使用并固化下来，实验台据此把
+//   「需确认」暧昧标签换成确定结论（引擎真读 / 整包动态读 / 仅校验存在 / 仅文案）。
+// V2.0.1 | 2026-09-29 韦一笑吸血技能改名：寒冰掌 → 蝠影汲血（技能键 coldPalm → bloodSiphon，同步 TYPE_GLOSSARY 与 PCT100 白名单键）
 // V2.0.0 | 2026-09-29 参数实验台批 4：① 补全 skills 表字段中文（原只登记约 20 个，
 //   现覆盖 characters.*.skills.*.params 全部字段 + mechanics 全部字段）；② 明确「两套单位口径」——
 //   mechanics 是「1 = 100%」（0.12 即 12%），skills.params 里部分字段直接写百分数（10 即 10%），
@@ -55,6 +58,74 @@ const PCT100 = new Set([
     'spiderFly.xiaoZhaoDoubleStrikeChance', 'rebelStrike.dmgBonus',
     'WARRIOR_BREAK_DEF_TIERS.chance'
 ]);
+
+// ---------------------------------------------------------------------------
+// 引擎真读字段表（2026-09-29 建）：skills.<键>.params.<字段> 里哪些字段被引擎真读。
+//
+// 为什么要这张表：skills.params 是双用途的——同一个对象既供 desc 占位符插值（{xxx}），
+//   也可能被引擎 getSkillParams() 取出来算数；而 tools/120 是浏览器页面，只加载
+//   content/200game-data.json，看不到引擎 JS 源码，所以它自己永远无法判断某字段读没读。
+//   唯一可靠出处是「代码里怎么用」——本表由静态扫描全仓 getSkillParams( 的调用点、
+//   逐个追踪返回对象的字段使用得出，就是把源码里的事实固化下来给工具用。
+//
+// 值 = 被读的字段路径（点号表示子字段；登记父对象即其子字段一并算被读，
+//   因为引擎是整包取子对象后按动态键索引，如 extraDmgMap / grow / cub）。
+// 读取点（改本表时同步复核）：
+//   core/11:89-91、core/13:187-189、core/14:24 / 121-123
+//   modules/20:20 / 39-41 / 67-69 / 132-134 / 176 / 223-225
+//   modules/26:151-158 / 167 / 239-251 / 280 / 287-308 / 353 / 400-451 / 492
+//   modules/27:136-147 / 215 / 443 / 571 / 673-709 / 721
+//   render/34:135、render/39:93
+// 不在此表 = 仅供 desc 插值（改了不改变战斗结果）。
+const ENGINE_READ = {
+    rebelStrike:     ['currentHpRatio'],
+    xinHun:          ['healLevels'],
+    rageOnHit:       ['atkPerHit'],
+    righteousFace:   ['defGain'],
+    youngBlood:      ['dmgMultiplier'],
+    counterAttack:   ['prob', 'dmgRatio'],
+    thirdStrike:     ['interval', 'dmgMultiplier', 'leechRatio'],
+    summonZhou:      ['m'],
+    summonLion:      ['prob', 'cub', 'grow'],
+    lionInspire:     ['atkPerHit'],
+    xuanmingPalm:    ['duration'],
+    endlessBreath:   ['healPct', 'healAtkDiv', 'healDefDiv', 'overflowAtkDiv', 'overflowDefDiv', 'minBonus'],
+    baguaArray:      ['atkFloor', 'procChance', 'atkCost', 'defGain'],
+    tenRoundFortify: ['round'],
+    qianKun:         ['reducePct', 'reboundPct', 'selfDmgPct'],
+    qianKunUpgraded: ['reducePct', 'reboundPct', 'selfDmgPct'],
+    qianKunDerived:  ['defToReduce'],
+    nearSwitch:      ['atkMul', 'defMul', 'maxHpMul'],
+    bloodSiphon:     ['leechMin', 'leechMax'],
+    spiderFly:       ['maxTriggers', 'xiaoZhaoDoubleStrikeChance'],
+    spiderStrike:    ['extraDmgMap'],
+    mastery:         ['atkPer', 'defPer', 'hpPer'],
+};
+
+// 整包动态读取：引擎按动态键取子对象，无法逐字段列举（hexEnhance 经 getXiaoZhaoHexEnhance(hexKey) 取用）。
+// 已确认被读的子字段：holyFlame.atkCols / holyFlame.defRows / cloudBody.dodgeBonus /
+//   mindControl.enemySwapProb / mindControl.allySwapProb / hotBlood.leechPct。
+const ENGINE_READ_DYNAMIC = new Set(['hexEnhance']);
+
+// 只有启动期存在性校验、没有任何字段被读。
+const ENGINE_READ_NONE = new Set(['lionFollow']);
+
+/**
+ * 某个 skills.params 字段到底会不会被引擎读。
+ * @returns {'engine'|'dynamic'|'none'|'text'} engine=被读；dynamic=整包动态读；
+ *   none=只做存在性校验；text=只供 desc 插值
+ */
+export function skillFieldVerdict(skillKey, fieldPath) {
+    if (ENGINE_READ_NONE.has(skillKey)) return 'none';
+    if (ENGINE_READ_DYNAMIC.has(skillKey)) return 'dynamic';
+    const fields = ENGINE_READ[skillKey];
+    if (fields) {
+        for (const f of fields) {
+            if (fieldPath === f || fieldPath.startsWith(f + '.')) return 'engine';
+        }
+    }
+    return 'text';
+}
 
 // 参数字段名 → 中文含义 + 单位。按「最后一段路径」匹配（数组下标忽略）
 export const FIELD_GLOSSARY = {
