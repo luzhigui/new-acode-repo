@@ -1,5 +1,5 @@
 <!-- tools/120-param-lab.html - 参数对照实验台（面向人的版本，独立页面） -->
-<!-- V3.2.0 | 预估 46600 bytes | 2026-09-29 收尾批（不改实验逻辑）：
+<!-- V3.2.1 | 预估 46600 bytes | 2026-09-29 路径改名（core→122 / worker→123 / glossary→124）；V3.2.0 收尾批（不改实验逻辑）：
      ① 百分数显示/输入统一成人话：原值一律显示 12%（不再出现 0.12 或 0.12（= 12%）），
         「改成」输入框按同一人话单位填写，落盘时再按该字段的存储口径换算（1=100% 的除以 100）；
      ② 「改成」输入框带单位提示（placeholder，如「填 12 表示 12%」）；
@@ -7,7 +7,7 @@
      ④ 数组数值标档位（第 1/4 档）；孤儿子段的标签改说「读取这段的代码已废弃，改它不影响战斗」。
      V3.1.0 | 2026-09-29 呈现层「说人话」改造：「机制 / mechanics / skills」等实现术语全部下线，
      角色下拉按技能分组、只显示中文技能名且默认第一个技能；字段表 4 列；同一数值两处登记只显示一份。
-     底层口径不变：批量战斗仍在 120-param-lab-worker.js，走 117 workerUrl 覆盖并行；配对 seed 同序同种子。 -->
+     底层口径不变：批量战斗仍在 123-param-lab-worker.js，走 117 workerUrl 覆盖并行；配对 seed 同序同种子。 -->
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
@@ -168,13 +168,13 @@ table.dump td.left{text-align:left}
 <div class="row" id="exportRow"></div>
 
 <script type="module">
-import { ensureGameData, listNumericKnobs, pickTypicals } from './120-param-lab-core.js';
+import { ensureGameData, listNumericKnobs, pickTypicals } from './122-param-lab-core.js';
 import { runParallel, getPoolSize } from './117-shared-worker-runner.js';
 import { describeKnob, fmtValue, charSkillLines, UNIT, CONFIG_KEY_GLOSSARY, DATA_KEY_GLOSSARY, skillFieldVerdict,
     charSkillGroups, charGroupKeyOf, isMirroredSkillField, isMechanicsRowHidden, dualRegisterNote, knobWhatIf,
-    isOrphanField, humanToStored, inputHint } from './120-param-lab-glossary.js';
+    isOrphanField, humanToStored, inputHint } from './124-param-lab-glossary.js';
 
-const WORKER_URL = new URL('./120-param-lab-worker.js', import.meta.url);
+const WORKER_URL = new URL('./123-param-lab-worker.js', import.meta.url);
 const SAMPLE_BASE = 20000;   // 采样 seed 起点（与 CLI --sample 默认一致）
 const COMPARE_BASE = 1;      // 对照 seed 起点（与 CLI 默认一致）
 const SAMPLE_RUNS = 1000;    // 采样次数固定：用来定出「15 套典型阵容」

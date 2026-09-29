@@ -3,7 +3,7 @@
 //   checkDescTruth()，核对「技能说明里的数字 == mechanics 引擎真值」（core/01 DESC_TRUTH 映射）。
 //   两侧任一漂移都退出码 1。该侧需先垫 file:// fetch 并 loadGameData() 才能读到 content。
 // 2026-09-29 立；V1.1.0 增「孤儿登记」一侧：skills.params「引擎真读字段」漂移守卫 —— 静态扫全仓
-//   getSkillParams( 调用点，提取每个技能键被读的字段，与 tools/120-param-lab-glossary.js 的
+//   getSkillParams( 调用点，提取每个技能键被读的字段，与 tools/124-param-lab-glossary.js 的
 //   ENGINE_READ / ENGINE_READ_DYNAMIC / ENGINE_READ_NONE / ENGINE_READ_ORPHAN 双向比对。表一旦过时
 //   （引擎新增/删除某种读取）本检查立刻报红并打印差异。
 //   孤儿登记（ENGINE_READ_ORPHAN）= 源码里确实存在读取点、但所在函数全仓无调用点（孤儿/死代码），
@@ -40,7 +40,7 @@ export const VER = 'tests/param-read-guard.mjs V1.2.0';
 
 import { readdir, readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
-import { ENGINE_READ, ENGINE_READ_DYNAMIC, ENGINE_READ_NONE, ENGINE_READ_ORPHAN } from '../tools/120-param-lab-glossary.js';
+import { ENGINE_READ, ENGINE_READ_DYNAMIC, ENGINE_READ_NONE, ENGINE_READ_ORPHAN } from '../tools/124-param-lab-glossary.js';
 
 const ROOTS = ['../core/', '../modules/', '../render/'];
 
@@ -336,7 +336,7 @@ async function main() {
             const extra = p.field ? ` 字段「${p.field}」` : (p.fields ? ` 字段 ${p.fields.join('、')}` : '');
             console.log(`  ✗ [${label[p.kind]}] ${p.key}${extra}`);
         }
-        console.log(`\n✗ 共 ${problems.length} 项漂移 —— ENGINE_READ 表已过时，请同步 tools/120-param-lab-glossary.js`);
+        console.log(`\n✗ 共 ${problems.length} 项漂移 —— ENGINE_READ 表已过时，请同步 tools/124-param-lab-glossary.js`);
     }
     if (descProblems.length) {
         console.log('\n技能说明数字 vs 引擎真值 漂移：');

@@ -153,6 +153,13 @@ export function createZhangSanfengComponent() {
                 if (rng.nextInt(1, 100) > ba.procChance * 100) return;
                 addMod(zhang, 'atk', { source: '八卦阵', value: -ba.atkCost, ttl: 'permanent', group: 'baguaArray', op: 'add' });
                 addMod(zhang, 'def', { source: '八卦阵', value: ba.defGain, ttl: 'permanent', group: 'baguaArray', op: 'add' });
+                // 数值声明 fact：发实际 addMod 的带符号值，供体检对照器按 group='baguaArray' 隔离比对
+                if (data.log) {
+                    data.log.push({
+                        factType: FACT_TYPES.BAGUA_ARRAY,
+                        data: { unitName: zhang.name, atkDelta: -ba.atkCost, defDelta: ba.defGain }
+                    });
+                }
                 triggerEndlessBreath(zhang, data.log);
                 if (data.group && data.group.data && data.group.data.entries) {
                     data.group.data.entries.push({ type: 'info', text: `<span class="gold">☯ 八卦阵：张三丰攻击-${ba.atkCost}、防御+${ba.defGain}，触发生生不息</span>` });
@@ -237,6 +244,13 @@ export function createPangYuanQiaoComponent() {
                 if (data.target !== pang || !pang.alive) return;
                 if (!data.dmg || data.dmg <= 0) return;
                 addMod(pang, 'atk', { source: '莽撞', value: rage.atkPerHit, ttl: 'permanent', group: 'rageOnHit', op: 'add' });
+                // 数值声明 fact：发实际 addMod 的带符号值，供体检对照器按 group='rageOnHit' 隔离比对
+                if (data.log) {
+                    data.log.push({
+                        factType: FACT_TYPES.RAGE_ON_HIT,
+                        data: { unitName: pang.name, atkDelta: rage.atkPerHit }
+                    });
+                }
                 pushInfo(data, `<span class="gold">💢 莽撞：胖远桥挨了打，攻击+${rage.atkPerHit}（当前 ${Math.floor(getStat(pang, 'atk'))}）</span>`);
             });
 
@@ -246,6 +260,13 @@ export function createPangYuanQiaoComponent() {
                 if (data.unit !== pang || !pang.alive) return;
                 if (!data.dmg || data.dmg <= 0) return;
                 addMod(pang, 'atk', { source: '莽撞', value: rage.atkPerHit, ttl: 'permanent', group: 'rageOnHit', op: 'add' });
+                // 数值声明 fact：与主路径同口径，供对照器按 group='rageOnHit' 比对
+                if (data.log) {
+                    data.log.push({
+                        factType: FACT_TYPES.RAGE_ON_HIT,
+                        data: { unitName: pang.name, atkDelta: rage.atkPerHit }
+                    });
+                }
                 // 台词挂在溅射那条 fact 上（render/35 会追加到行尾）
                 if (data.factData) {
                     data.factData.rageText = `<span class="gold">💢 莽撞：胖远桥吃了溅射，攻击+${rage.atkPerHit}（当前 ${Math.floor(getStat(pang, 'atk'))}）</span>`;
@@ -596,15 +617,24 @@ registerMechanicHandler('kuLian', {
             if (!kuLianSong) return;
             Object.assign(kuLianSong.state, { _kuLianActive: true });
             const targets = B.filter(u => u.alive && !u.isHorse);
+            const kuLianTargets = [];
             for (const u of targets) {
                 const mult = u.uid === kuLianSong.uid ? 2 : 1;
-                addMod(u, 'atk', { source: '苦练', value: s.atkBonus * mult, ttl: 'permanent', group: 'kuLian', op: 'add' });
-                addMod(u, 'def', { source: '苦练', value: s.defBonus * mult, ttl: 'permanent', group: 'kuLian', op: 'add' });
-                addMod(u, 'maxHp', { source: '苦练', value: s.hpBonus * mult, ttl: 'permanent', group: 'kuLian', op: 'add' });
+                // 实际增量提到变量：既给 addMod 也给下方 targets 名单，保证「声明 == 实际」逐人一致
+                const atkDelta = s.atkBonus * mult;
+                const defDelta = s.defBonus * mult;
+                const maxHpDelta = s.hpBonus * mult;
+                addMod(u, 'atk', { source: '苦练', value: atkDelta, ttl: 'permanent', group: 'kuLian', op: 'add' });
+                addMod(u, 'def', { source: '苦练', value: defDelta, ttl: 'permanent', group: 'kuLian', op: 'add' });
+                addMod(u, 'maxHp', { source: '苦练', value: maxHpDelta, ttl: 'permanent', group: 'kuLian', op: 'add' });
                 refreshMaxHp(u, null, '苦练');
+                kuLianTargets.push({ unitName: u.name, atkDelta, defDelta, maxHpDelta });
             }
             data.log.push({ factType: FACT_TYPES.KU_LIAN_PRIORITY, data: { unitName: kuLianSong.name } });
-            data.log.push({ factType: FACT_TYPES.KU_LIAN, data: { unitName: kuLianSong.name, atkBonus: s.atkBonus, defBonus: s.defBonus, hpBonus: s.hpBonus } });
+            // 数值声明 fact：原字段（unitName/atkBonus/defBonus/hpBonus）保留给渲染不动画面；
+            // 新增 targets 名单——每人实际已乘 mult 的增量，供体检对照器按 group='kuLian' 逐人比对。
+            // 坑点：原来只发未乘 mult 的原始值，本人那一份（×2）会被对照器判成翻倍，故必须走 targets。
+            data.log.push({ factType: FACT_TYPES.KU_LIAN, data: { unitName: kuLianSong.name, atkBonus: s.atkBonus, defBonus: s.defBonus, hpBonus: s.hpBonus, targets: kuLianTargets } });
         });
         eventBus.on(SIGNAL_TYPES.BEFORE_ACTION_SELECT, L.BEFORE_ACTION.KULIAN_PRIORITY, (data) => {
             if (!data.unit.isSongQingshu || !data.unit.alive) return;

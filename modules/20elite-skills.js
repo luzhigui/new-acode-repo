@@ -1,5 +1,5 @@
-﻿// V6.0.2 | ~11200 bytes | 2026-09-29 参数体系收敛批 3：精通层数上界改读 CONFIG.ROLES.length、全精通额外层数改读 CONFIG.MASTERY_FULL_BONUS_LAYERS；蛛袭 extraDmgMap 索引上界改按数组长度
-export const VER = 'modules/20elite-skills.js V6.0.2';
+// V6.0.3 | ~11500 bytes | 2026-09-29 参数单位口径统一为「1 = 100%」：乾坤大挪移减伤/反弹/自伤直接按比例参与计算（去掉 /100）；承接 V6.0.2 参数体系收敛批 3（精通层数上界改读 CONFIG.ROLES.length、全精通额外层数改读 CONFIG.MASTERY_FULL_BONUS_LAYERS）
+export const VER = 'modules/20elite-skills.js V6.0.3';
 
 import { CONFIG, getSkillParams } from '../core/01config-5v5-test.js';
 import { getRoleBonus, getHpDmgRatio } from '../core/02unit.js';
@@ -39,9 +39,9 @@ export function applyDamageModifiers(unit, target, dmg, allySide, enemySide, log
         const reducePct = s.reducePct;
         const reboundPct = s.reboundPct;
         const selfDmgPct = s.selfDmgPct;
-        const reducedDmg = Math.round(dmg * (1 - reducePct / 100));
-        const rebound = Math.floor(dmg * (reboundPct / 100));
-        const selfDmg = Math.max(1, Math.floor(dmg * (selfDmgPct / 100)));
+        const reducedDmg = Math.round(dmg * (1 - reducePct));
+        const rebound = Math.floor(dmg * reboundPct);
+        const selfDmg = Math.max(1, Math.floor(dmg * selfDmgPct));
 
         zhang.reboundDone += rebound;
         applyStatChange(unit, 'hp', -rebound, zhang, '乾坤反弹');
@@ -67,9 +67,9 @@ export function applyDamageModifiers(unit, target, dmg, allySide, enemySide, log
         const reducePct = s.reducePct;
         const reboundPct = s.reboundPct;
         const selfDmgPct = s.selfDmgPct;
-        const reducedDmg = Math.round(dmg * (1 - reducePct / 100));
-        const rebound = Math.floor(dmg * (reboundPct / 100));
-        const selfDmg = Math.max(1, Math.floor(dmg * (selfDmgPct / 100)));
+        const reducedDmg = Math.round(dmg * (1 - reducePct));
+        const rebound = Math.floor(dmg * reboundPct);
+        const selfDmg = Math.max(1, Math.floor(dmg * selfDmgPct));
 
         zhang.reboundDone += rebound;
         applyStatChange(unit, 'hp', -rebound, zhang, '乾坤反弹');

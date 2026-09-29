@@ -121,7 +121,7 @@ export const ALL_PROJECT_FILES = [
     '../tests/rules-replay.mjs', '../tests/smoke-headless.mjs', '../tests/registration-check.mjs',
     // 2026-09-27 再补登两个 node 直跑入口（经用户授权）：覆盖度体检 + 逐步真值对照器
     '../tests/coverage-report.mjs', '../tests/stat-decl-vs-actual-check.mjs',
-    // 2026-09-29 补登记：skills.params 引擎真读字段漂移守卫（import tools/120-param-lab-glossary.js 的 ENGINE_READ 表）
+    // 2026-09-29 补登记：skills.params 引擎真读字段漂移守卫（import tools/124-param-lab-glossary.js 的 ENGINE_READ 表）
     '../tests/param-read-guard.mjs',
     // tools（开发工具箱）
     '../tools/102-toolkit.html', '../tools/103-toolkit.js', '../tools/104-toolkit-more.js',
@@ -131,7 +131,7 @@ export const ALL_PROJECT_FILES = [
     '../tools/112-elite-eval.js', '../tools/113-stats-check.js',
     '../tools/114-baseline-compare.js', '../tools/115-lineup-search.js',
     '../tools/118-import-export-check.mjs',
-    '../tools/120-param-lab.html', '../tools/120-param-lab-core.js', '../tools/120-param-lab-worker.js',
+    '../tools/120-param-lab.html', '../tools/122-param-lab-core.js', '../tools/123-param-lab-worker.js',
     // 移除了：52-version-calibrator / 53-dead-code-scanner / 54-filelist-checker（这些工作直接问 AI 更高效）
     // 移除了：100build-5v5.cjs（构建脚本已废弃为 .TXT，不再随包复制）
     '../tools/101auto-battle-utils.js',

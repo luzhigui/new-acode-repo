@@ -1,10 +1,10 @@
 {
-  "version": "5.6.15",
+  "version": "5.6.16",
   "updated": "2026-09-29",
 
   "roles": {
     "战士": { "icon": "⚔️", "label": "战士", "bonus": { "atk": 3, "def": 3, "maxHp": 30 } },
-    "防战": { "icon": "🛡️", "label": "防战", "bonus": { "atk": -8, "def": 2, "maxHp": 45 }, "fortify": { "attackChance": 90, "defendChance": 80 } },
+    "防战": { "icon": "🛡️", "label": "防战", "bonus": { "atk": -8, "def": 2, "maxHp": 45 }, "fortify": { "attackChance": 0.9, "defendChance": 0.8 } },
     "远程": { "icon": "🏹", "label": "远程", "bonus": { "atk": 6, "def": -2, "maxHp": -25 } },
     "飞行": { "icon": "🦅", "label": "飞行", "bonus": { "atk": 2, "def": -2, "maxHp": -25 } }
   },
@@ -338,7 +338,7 @@
         "qianKun": {
           "name": "乾坤大挪移",
           "desc": "保护4/6号位队友，减伤{reducePct}%并反弹{reboundPct}%伤害（自身受{selfDmgPct}%原始伤害），小昭在场时升级为全队版",
-          "params": { "reducePct": 10, "reboundPct": 10, "selfDmgPct": 10 }
+          "params": { "reducePct": 0.1, "reboundPct": 0.1, "selfDmgPct": 0.1 }
         },
         "nearSwitch": {
           "name": "近战切换",
@@ -370,7 +370,7 @@
         "bloodSiphon": {
           "name": "蝠影汲血",
           "desc": "优先攻击全场血量最低的敌人。造成伤害后吸血，吸血率 = {leechMin}%（满血）→ {leechMax}%（濒死），随已损失生命比例线性提升。吸血值 = 本次伤害×吸血率（最低1），等量提升生命上限和当前血量，无上限。",
-          "params": { "leechMin": 5, "leechMax": 50 }
+          "params": { "leechMin": 0.05, "leechMax": 0.5 }
         },
         "bloodDodge": {
           "name": "残血幻影",
@@ -399,12 +399,12 @@
         "qianKunDerived": {
           "name": "乾坤衍生",
           "desc": "张无忌不在时，队友受伤触发减伤、治疗和攻击加成",
-          "params": { "defToReduce": 150, "defToHeal": 8, "defToAtk": 16 }
+          "params": { "defToReduce": 1.5, "defToHeal": 0.08, "defToAtk": 0.16 }
         },
         "qianKunUpgraded": {
           "name": "乾坤大挪移（升级）",
           "desc": "张无忌在场时，全队减伤{reducePct}%并反弹{reboundPct}%（无忌自伤{selfDmgPct}%）",
-          "params": { "reducePct": 30, "reboundPct": 20, "selfDmgPct": 10 }
+          "params": { "reducePct": 0.3, "reboundPct": 0.2, "selfDmgPct": 0.1 }
         },
         "spiderTransform": {
           "name": "蛛变",
@@ -413,7 +413,7 @@
         "spiderFly": {
           "name": "飞天",
           "desc": "首次受击/血量<70%/血量<40%触发，化为小蜘蛛免疫伤害，回合结束落下攻击",
-          "params": { "maxTriggers": 3, "xiaoZhaoDoubleStrikeChance": 80 }
+          "params": { "maxTriggers": 3, "xiaoZhaoDoubleStrikeChance": 0.8 }
         },
         "spiderStrike": {
           "name": "蛛袭",

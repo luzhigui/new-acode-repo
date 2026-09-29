@@ -1,19 +1,19 @@
-// tools/120-param-lab.mjs — 平衡参数对照实验台（固定关卡 × 固定阵容 × 固定海克斯 × 配对 seed）· 命令行薄壳
-// V1.1.0 | 预估 13100 bytes | 2026-09-28 瘦身：核心逻辑（seed 散列 / 海克斯 / 采样 / 对战 / 补丁 /
-//          旋钮扫描）全部搬到 tools/120-param-lab-core.js（浏览器 worker 与本 CLI 共用同一份），
+// tools/121-param-lab.mjs — 平衡参数对照实验台（固定关卡 × 固定阵容 × 固定海克斯 × 配对 seed）· 命令行薄壳
+// V1.1.1 | 预估 13100 bytes | 2026-09-29 路径改名（原 120-param-lab.mjs）；V1.1.0 瘦身：核心逻辑（seed 散列 / 海克斯 / 采样 / 对战 / 补丁 /
+//          旋钮扫描）全部搬到 tools/122-param-lab-core.js（浏览器 worker 与本 CLI 共用同一份），
 //          本文件只保留命令行解析、node 垫片、--sample 写清单、默认对照模式与 markdown 报告写盘、
 //          --json。行为与 V1.0.0 一致（同样的报告字段与措辞）。
 // V1.0.0 | 2026-09-28 新建：① --sample 采样明教阵容分布、取最常出现的典型阵容产成清单 JSON；
 //          ② 默认模式用清单跑「基线 vs 补丁」配对对照（同一 (阵容,局序) 用同一 seed 各跑一遍，
 //          比较翻转局数）。只读 content/200game-data.json：补丁用路径式内存改写，且**先跑完基线
 //          再打补丁**，全程不写回磁盘。
-export const VER = 'tools/120-param-lab.mjs V1.1.0';
+export const VER = 'tools/121-param-lab.mjs V1.1.1';
 //
 // 用法：
-//   node tools/120-param-lab.mjs --sample --stage 3 --runs 1000
-//   node tools/120-param-lab.mjs --stage 3 --runs 100
-//   node tools/120-param-lab.mjs --stage 3 --runs 100 --patch 补丁.json --json
-//   node tools/120-param-lab.mjs --stage 3 --runs 100 --lineups tools/output/lineups-stage3.json
+//   node tools/121-param-lab.mjs --sample --stage 3 --runs 1000
+//   node tools/121-param-lab.mjs --stage 3 --runs 100
+//   node tools/121-param-lab.mjs --stage 3 --runs 100 --patch 补丁.json --json
+//   node tools/121-param-lab.mjs --stage 3 --runs 100 --lineups tools/output/lineups-stage3.json
 //
 // 补丁格式（路径式；路径写错会直接报错，避免「补丁没生效」被误读成「参数没影响」）：
 //   { "set": [ { "path": "characters.张无忌.mechanics.0.onHitEffects.0.pct", "value": 0.3 } ] }
@@ -75,7 +75,7 @@ function parseArgs(argv) {
         else if (a === '--out') o.out = argv[++i];
         else if (a === '--help' || a === '-h') {
             console.log([
-                '用法: node tools/120-param-lab.mjs [--sample] [--stage 3] [--runs 100] [--base N] [--pick 15]',
+                '用法: node tools/121-param-lab.mjs [--sample] [--stage 3] [--runs 100] [--base N] [--pick 15]',
                 '                                      [--lineups 清单.json] [--patch 补丁.json] [--out 报告.md] [--json]'
             ].join('\n'));
             process.exit(0);
@@ -87,9 +87,9 @@ function parseArgs(argv) {
 }
 const ARGS = parseArgs(process.argv.slice(2));
 
-// --- 核心逻辑（唯一来源：tools/120-param-lab-core.js）---
+// --- 核心逻辑（唯一来源：tools/122-param-lab-core.js）---
 const { HEX_SEED, ensureGameData, sampleStage, pickTypicals, concreteKey, runLineup, applyPatch, isWin } =
-    await import('./120-param-lab-core.js');
+    await import('./122-param-lab-core.js');
 const GAME = await ensureGameData();            // 缓存本体，补丁改的就是它
 
 // ---------------------------------------------------------------------------
@@ -136,7 +136,7 @@ try {
     lineups = lf.lineups;
     sampleRuns = lf.runs || sampleRuns;
 } catch (e) {
-    console.error(`[120] 读不到阵容清单 ${lineupFile}\n      先跑：node tools/120-param-lab.mjs --sample --stage ${ARGS.stage}`);
+    console.error(`[121] 读不到阵容清单 ${lineupFile}\n      先跑：node tools/121-param-lab.mjs --sample --stage ${ARGS.stage}`);
     process.exit(1);
 }
 

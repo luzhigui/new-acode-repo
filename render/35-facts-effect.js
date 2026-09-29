@@ -1,5 +1,5 @@
 // render/35-facts-effect.js — 效果域 fact 渲染器
-// V1.0.10 | ~35800 bytes | 2026-09-29 流星溅射成长收口为单一出口：删掉溅射行尾的内联 ⚡ 成长段（读的 fact.unitName 从未赋值 → 长期显示「⚡ undefined」；且与 METEOR_SPLASH_GROWTH fact 重复渲染两遍）；承接 V1.0.9 概率连击成功 banner 透传 doubleStrikeName
+// V1.0.11 | ~36400 bytes | 2026-09-29 参数单位口径统一为「1 = 100%」：乾坤大挪移 fact.reducePct 改按比例存储，渲染处 ×100 显示；承接 V1.0.10 流星溅射成长收口为单一出口
 //
 // 加新 fact 渲染：在本文件写函数 + 尾部 registerFactRenderer 一行（键=factType）。
 // 跨域取别的渲染器一律走 getFactRenderer(FACT_TYPES.X)(data)，禁止 import 其它域文件（免环）。
@@ -7,7 +7,7 @@ import { CONFIG } from '../core/01config-5v5-test.js';
 import { makeFXSnapshot, fmtHp } from '../infra/51-core-utils.js';
 import { BUFF_TYPES, BUFF_SUBTYPES, CAMP_TYPES, ROLE_TYPES, FACT_TYPES } from '../infra/56-battle-enums.js';
 import { registerFactRenderer, findUnitSnapshotByUid } from './33-fact-registry.js';
-export const VER = 'render/35-facts-effect.js V1.0.10';
+export const VER = 'render/35-facts-effect.js V1.0.11';
 
 // 拒马 / 张无忌
 export function renderHorseDestroyFact(fact) {
@@ -249,7 +249,7 @@ export function renderMindControlBannerFact(fact) {
 export function renderQianKunUpgradedFact(fact) {
     return {
         type:'info',
-        text:`<span class="gold">🦋 乾坤大挪移（升级版）：减伤${fact.reducePct}%，反弹${fact.rebound}给${fact.attackerName}（${fact.zhangName}自伤${fact.selfDmg}）</span>`,
+        text:`<span class="gold">🦋 乾坤大挪移（升级版）：减伤${Math.round(fact.reducePct * 100)}%，反弹${fact.rebound}给${fact.attackerName}（${fact.zhangName}自伤${fact.selfDmg}）</span>`,
         reboundDmg: fact.rebound,
         reboundTargetUid: fact.attackerUid,
         selfDmg: fact.selfDmg,
@@ -259,7 +259,7 @@ export function renderQianKunUpgradedFact(fact) {
 export function renderQianKunBasicFact(fact) {
     return {
         type:'info',
-        text:`<span class="gold">✨ 乾坤大挪移：减伤${fact.reducePct}%，反弹${fact.rebound}给${fact.attackerName}（${fact.zhangName}自伤${fact.selfDmg}）</span>`,
+        text:`<span class="gold">✨ 乾坤大挪移：减伤${Math.round(fact.reducePct * 100)}%，反弹${fact.rebound}给${fact.attackerName}（${fact.zhangName}自伤${fact.selfDmg}）</span>`,
         reboundDmg: fact.rebound,
         reboundTargetUid: fact.attackerUid,
         selfDmg: fact.selfDmg,
