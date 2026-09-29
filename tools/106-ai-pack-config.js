@@ -1,3 +1,4 @@
+// V6.0.19 | ~11750 bytes | 2026-09-29 补登记 tests/param-read-guard.mjs（skills.params 引擎真读字段漂移守卫）
 // V6.0.17 | ~11650 bytes | 2026-09-27 再补登两个体检 runner（coverage-report.mjs / stat-decl-vs-actual-check.mjs，
 //          经用户授权）；并修正 `VER` 常量长期停在 V6.0.14、与头注版本号不一致的历史遗留（本次对齐为 V6.0.17）。
 // V6.0.16 | ~11350 bytes | 2026-09-27 体检侧补登与去重（经用户一次性授权修改本文件）：
@@ -18,7 +19,7 @@
 // V6.0.4 | 2026-09-13 登记 tools/106b-server.js（本地静态服务器，供 file:// 下启用目录直写）
 // V6.0.3 | 2026-09-11 补清单漏登9个正式文件：ui/71-74（引导+三套开场CG）、player/48-49、fx/90、tests/123static-scan、tests/124rule-recipes
 // V6.0.2 | 2026-09-09 拆出 player/ 为独立「播放器」组（引擎 46→38）
-export const VER = 'tools/106-ai-pack-config.js V6.0.18';
+export const VER = 'tools/106-ai-pack-config.js V6.0.19';
 
 // AI 复制包踢除清单（103-toolkit.js 的 FILES 过滤会无条件跳过这里的文件）
 // 2026-09-04 用户决定不再精简：特效/音效/错误面板/入口页全部随包发送。
@@ -116,6 +117,8 @@ export const ALL_PROJECT_FILES = [
     '../tests/rules-replay.mjs', '../tests/smoke-headless.mjs', '../tests/registration-check.mjs',
     // 2026-09-27 再补登两个 node 直跑入口（经用户授权）：覆盖度体检 + 逐步真值对照器
     '../tests/coverage-report.mjs', '../tests/stat-decl-vs-actual-check.mjs',
+    // 2026-09-29 补登记：skills.params 引擎真读字段漂移守卫（import tools/120-param-lab-glossary.js 的 ENGINE_READ 表）
+    '../tests/param-read-guard.mjs',
     // tools（开发工具箱）
     '../tools/102-toolkit.html', '../tools/103-toolkit.js', '../tools/104-toolkit-more.js',
     '../tools/105-shop.html', '../tools/106-ai-pack-config.js', '../tools/106b-server.js',

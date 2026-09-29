@@ -1,5 +1,7 @@
-<!-- tests/120test-runner.html - 光明顶5v5 测试与体检中心 V6.0.3 -->
-<!-- V6.0.3 | ~15700 bytes | 2026-09-29 顶部加标题栏 + 页面时间戳（左标题右秒级时钟，与底部控制条同色系）：
+<!-- tests/120test-runner.html - 光明顶5v5 测试与体检中心 V6.0.4 -->
+<!-- V6.0.4 | ~15800 bytes | 2026-09-29 顶部时间戳改成「版本号 + 更新日期」（读本页文件头部登记的那一行，
+          与文件头规范同一处真值源）：原来显示当前钟点每秒跳动，说明不了这页是不是最新版。
+     V6.0.3 | ~15700 bytes | 2026-09-29 顶部加标题栏 + 页面时间戳（左标题右秒级时钟，与底部控制条同色系）：
           贴体检报告/对日志时能一眼确认「这轮是什么时候跑的」。
      V6.0.2 | 2026-09-25 清理文件头 30 个冗余 BOM（第 19 轮已在 test 分支清过，main 未同步）；
           一键体检默认参数 start 3→2（从第 2 关起）、speed 100→300（4 倍速；档位口径见 ui/68ui-controls.js:166：
@@ -43,7 +45,7 @@
 <body>
     <div id="topBar">
         <span class="tb-title">🏥 光明顶 5v5 体检中心</span>
-        <span class="tb-clock" id="pageClock">----/--/-- --:--:--</span>
+        <span class="tb-clock" id="pageClock" title="本页内容版本 = 文件头部登记的版本号与最后改动日期">读取中…</span>
     </div>
     <div id="gameArea" class="active">
         <iframe id="gameFrame" sandbox="allow-scripts allow-same-origin allow-popups allow-forms"></iframe>
@@ -201,18 +203,19 @@
         document.getElementById('healthRecipeOverlay').style.display = 'none';
         document.getElementById('healthModeOverlay').style.display = 'flex';
     });
-    // 页面时间戳：日期 + 秒级时钟（等宽数字，每秒刷新一次）
+    // 页面版本戳：读本页文件头部登记的「版本号 + 改动日期」——与文件头规范同一处真值源，不另存一份。
+    // 为什么不用 new Date()：当前钟点每秒都在变，说明不了这页是不是最新版；
+    // 要确认的是「我拿到的是哪一版」，对不上预期改动即为缓存（Ctrl+Shift+R）。
     (function () {
         const el = document.getElementById('pageClock');
         if (!el) return;
-        const pad = n => (n < 10 ? '0' : '') + n;
-        const tick = () => {
-            const d = new Date();
-            el.textContent = d.getFullYear() + '/' + pad(d.getMonth() + 1) + '/' + pad(d.getDate())
-                + ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds());
-        };
-        tick();
-        setInterval(tick, 1000);
+        fetch(location.pathname, { cache: 'no-store' })
+            .then(r => r.text())
+            .then(src => {
+                const m = src.match(/V(\d+\.\d+\.\d+)\s*\|\s*~?[\d.]+\s*bytes?\s*\|\s*(\d{4}-\d{2}-\d{2})/);
+                el.textContent = m ? ('V' + m[1] + ' · 更新 ' + m[2]) : '版本未登记';
+            })
+            .catch(() => { el.textContent = '版本读取失败'; });
     })();
 </script>
 </body>
