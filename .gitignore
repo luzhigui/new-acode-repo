@@ -34,3 +34,13 @@ package-lock.json
 
 # 变异牙齿测试的临时树（仓库内，跑完即删，不入库）
 /tests/.mut/
+
+# 3D 画廊恢复素材（glb 模型 + img/models/draco，约 61MB）
+# 2026-09-29 已物理移出仓库目录，落到 `003 github newsest 20260628\_gallery_restore\` 同级处，不入库
+/_gallery_restore/
+
+# 语音解说 demo 的部署副本（含 .venv / relay 日志，被运行中的中继占用暂无法移动，先忽略）
+/demos/
+
+# 体检会话给主代码的需求单（在途文档，不入库；体检侧要正式入库时删掉本行）
+/tests/体检给主代码的需求.md
