@@ -1,7 +1,7 @@
 ﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿<!DOCTYPE html>
-<!-- V6.0.7 | ~28700 bytes | 2026-09-29 页头时间戳改成「版本号 + 更新日期」：读本页文件头部登记的那一行，
-     与文件头规范同一处真值源（不另存一份）。原来显示当前钟点、每秒跳动，说明不了你打开的是不是最新版；
-     现在页头显示的版本 = 你实际拿到的内容版本，和预期的最新改动对不上就是缓存/旧部署（Ctrl+Shift+R）。
+<!-- V6.0.8 | ~28800 bytes | 2026-09-29 页头戳改「最近一次推送时间」（精确到时分秒）：按用户要求对齐 dev-index.html 口径——
+     读 GitHub 仓库最新提交时间（真值，一推代码就变），加载失败只显示 —，不留过期数字。
+     （V6.0.7 曾试过「读本页文件头的版本号+日期」，但文件头只登记到日、粒度不够，已撤。）
      V6.0.6 | ~28400 bytes | 2026-09-29 顶部加页面时间戳（日期 + 秒级时钟，胶囊样式与页头同行居中、窄屏自动折行）：
      看战报/实验纪录时能一眼对上「现在什么时候」，不用翻系统时间。
      V6.0.5 | 2026-09-28 独立工具页（120 参数实验台 / 110 全随机站位 / 105 商店）改页内 iframe 弹窗：
@@ -191,7 +191,7 @@
 <body>
     <div class="page-head">
         <h1>光明顶5v5 · 开发工具箱</h1>
-        <span class="page-clock" id="pageClock" title="本页内容版本 = 文件头部登记的版本号与最后改动日期">读取中…</span>
+        <span class="page-clock" id="pageClock" title="页面更新时间 = GitHub 仓库最新提交时间（与 dev-index 同口径）">读取中…</span>
     </div>
 
     <div class="tab-nav">
@@ -364,19 +364,19 @@
         loadGameData();
     </script>
     <script>
-        // 页面版本戳：读本页文件头部登记的「版本号 + 改动日期」——与文件头规范同一处真值源，不另存一份。
-        // 为什么不用 new Date()：当前钟点每秒都在变，说明不了你打开的是不是最新版；
-        // 要看的是「我拿到的是哪一版」，所以显示内容版本，对不上预期改动即为缓存（Ctrl+Shift+R）。
+        // 页面更新时间戳：与 dev-index.html 同口径——读 GitHub 仓库最新提交时间（真值，一推代码就变），
+        // 精确到时分秒；加载失败只显示 —，不留过期数字。
         (function () {
             var el = document.getElementById('pageClock');
             if (!el) return;
-            fetch(location.pathname, { cache: 'no-store' })
-                .then(function (r) { return r.text(); })
-                .then(function (src) {
-                    var m = src.match(/V(\d+\.\d+\.\d+)\s*\|\s*~?[\d.]+\s*bytes?\s*\|\s*(\d{4}-\d{2}-\d{2})/);
-                    el.textContent = m ? ('V' + m[1] + ' · 更新 ' + m[2]) : '版本未登记';
+            fetch('https://api.github.com/repos/luzhigui/new-acode-repo/commits?per_page=1')
+                .then(function (r) { return r.ok ? r.json() : null; })
+                .then(function (arr) {
+                    var t = arr && arr[0] && arr[0].commit && arr[0].commit.committer && arr[0].commit.committer.date;
+                    if (!t) { el.textContent = '—'; return; }
+                    el.textContent = '更新 ' + new Date(t).toLocaleString('zh-CN', { hour12: false });
                 })
-                .catch(function () { el.textContent = '版本读取失败'; });
+                .catch(function () { el.textContent = '—'; });
         })();
     </script>
 </body>
