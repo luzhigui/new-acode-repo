@@ -1,6 +1,7 @@
-<!-- tests/120test-runner.html - 光明顶5v5 测试与体检中心 V6.0.4 -->
-<!-- V6.0.4 | ~15800 bytes | 2026-09-29 顶部时间戳改成「版本号 + 更新日期」（读本页文件头部登记的那一行，
-          与文件头规范同一处真值源）：原来显示当前钟点每秒跳动，说明不了这页是不是最新版。
+<!-- tests/120test-runner.html - 光明顶5v5 测试与体检中心 V6.0.5 -->
+<!-- V6.0.5 | ~15900 bytes | 2026-09-29 顶部戳改「最近一次推送时间」（精确到时分秒）：对齐 dev-index.html 口径——
+          读 GitHub 仓库最新提交时间（真值，一推代码就变），加载失败只显示 —。
+     （V6.0.4 曾试过「读本页文件头的版本号+日期」，但文件头只登记到日、粒度不够，已撤。）
      V6.0.3 | ~15700 bytes | 2026-09-29 顶部加标题栏 + 页面时间戳（左标题右秒级时钟，与底部控制条同色系）：
           贴体检报告/对日志时能一眼确认「这轮是什么时候跑的」。
      V6.0.2 | 2026-09-25 清理文件头 30 个冗余 BOM（第 19 轮已在 test 分支清过，main 未同步）；
@@ -45,7 +46,7 @@
 <body>
     <div id="topBar">
         <span class="tb-title">🏥 光明顶 5v5 体检中心</span>
-        <span class="tb-clock" id="pageClock" title="本页内容版本 = 文件头部登记的版本号与最后改动日期">读取中…</span>
+        <span class="tb-clock" id="pageClock" title="页面更新时间 = GitHub 仓库最新提交时间（与 dev-index 同口径）">读取中…</span>
     </div>
     <div id="gameArea" class="active">
         <iframe id="gameFrame" sandbox="allow-scripts allow-same-origin allow-popups allow-forms"></iframe>
@@ -203,19 +204,19 @@
         document.getElementById('healthRecipeOverlay').style.display = 'none';
         document.getElementById('healthModeOverlay').style.display = 'flex';
     });
-    // 页面版本戳：读本页文件头部登记的「版本号 + 改动日期」——与文件头规范同一处真值源，不另存一份。
-    // 为什么不用 new Date()：当前钟点每秒都在变，说明不了这页是不是最新版；
-    // 要确认的是「我拿到的是哪一版」，对不上预期改动即为缓存（Ctrl+Shift+R）。
+    // 页面更新时间戳：与 dev-index.html 同口径——读 GitHub 仓库最新提交时间（真值，一推代码就变），
+    // 精确到时分秒；加载失败只显示 —，不留过期数字。
     (function () {
         const el = document.getElementById('pageClock');
         if (!el) return;
-        fetch(location.pathname, { cache: 'no-store' })
-            .then(r => r.text())
-            .then(src => {
-                const m = src.match(/V(\d+\.\d+\.\d+)\s*\|\s*~?[\d.]+\s*bytes?\s*\|\s*(\d{4}-\d{2}-\d{2})/);
-                el.textContent = m ? ('V' + m[1] + ' · 更新 ' + m[2]) : '版本未登记';
+        fetch('https://api.github.com/repos/luzhigui/new-acode-repo/commits?per_page=1')
+            .then(r => r.ok ? r.json() : null)
+            .then(arr => {
+                const t = arr && arr[0] && arr[0].commit && arr[0].commit.committer && arr[0].commit.committer.date;
+                if (!t) { el.textContent = '—'; return; }
+                el.textContent = '更新 ' + new Date(t).toLocaleString('zh-CN', { hour12: false });
             })
-            .catch(() => { el.textContent = '版本读取失败'; });
+            .catch(() => { el.textContent = '—'; });
     })();
 </script>
 </body>
