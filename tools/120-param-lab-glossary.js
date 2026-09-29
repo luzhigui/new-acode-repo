@@ -1,4 +1,6 @@
 // tools/120-param-lab-glossary.js - 参数中文说明表（只读展示用，不参与战斗）
+// V2.0.3 | 预估 19700 bytes | 2026-09-29 导出 ENGINE_READ / ENGINE_READ_DYNAMIC / ENGINE_READ_NONE（原为模块内 const），
+//   供 tests/param-read-guard.mjs 直接 import 做「表 vs 源码」漂移比对 —— 表只此一份，不复制第二份。无运行行为变化。
 // V2.0.2 | 预估 19600 bytes | 2026-09-29 新增 ENGINE_READ 引擎真读字段表 + skillFieldVerdict()：
 //   静态扫描全仓 getSkillParams( 调用点，逐个追踪返回对象的字段使用并固化下来，实验台据此把
 //   「需确认」暧昧标签换成确定结论（引擎真读 / 整包动态读 / 仅校验存在 / 仅文案）。
@@ -77,7 +79,7 @@ const PCT100 = new Set([
 //   modules/27:136-147 / 215 / 443 / 571 / 673-709 / 721
 //   render/34:135、render/39:93
 // 不在此表 = 仅供 desc 插值（改了不改变战斗结果）。
-const ENGINE_READ = {
+export const ENGINE_READ = {
     rebelStrike:     ['currentHpRatio'],
     xinHun:          ['healLevels'],
     rageOnHit:       ['atkPerHit'],
@@ -94,7 +96,7 @@ const ENGINE_READ = {
     tenRoundFortify: ['round'],
     qianKun:         ['reducePct', 'reboundPct', 'selfDmgPct'],
     qianKunUpgraded: ['reducePct', 'reboundPct', 'selfDmgPct'],
-    qianKunDerived:  ['defToReduce'],
+    qianKunDerived:  ['defToReduce', 'defToHeal', 'defToAtk'],
     nearSwitch:      ['atkMul', 'defMul', 'maxHpMul'],
     bloodSiphon:     ['leechMin', 'leechMax'],
     spiderFly:       ['maxTriggers', 'xiaoZhaoDoubleStrikeChance'],
@@ -105,10 +107,10 @@ const ENGINE_READ = {
 // 整包动态读取：引擎按动态键取子对象，无法逐字段列举（hexEnhance 经 getXiaoZhaoHexEnhance(hexKey) 取用）。
 // 已确认被读的子字段：holyFlame.atkCols / holyFlame.defRows / cloudBody.dodgeBonus /
 //   mindControl.enemySwapProb / mindControl.allySwapProb / hotBlood.leechPct。
-const ENGINE_READ_DYNAMIC = new Set(['hexEnhance']);
+export const ENGINE_READ_DYNAMIC = new Set(['hexEnhance']);
 
 // 只有启动期存在性校验、没有任何字段被读。
-const ENGINE_READ_NONE = new Set(['lionFollow']);
+export const ENGINE_READ_NONE = new Set(['lionFollow']);
 
 /**
  * 某个 skills.params 字段到底会不会被引擎读。

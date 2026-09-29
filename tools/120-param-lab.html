@@ -1,5 +1,7 @@
 <!-- tools/120-param-lab.html - 参数对照实验台（面向人的版本，独立页面） -->
-<!-- V3.0.2 | 2026-09-29 「需确认」暧昧标签下线：skills 表字段改按 glossary 的 ENGINE_READ 表逐个给确定结论
+<!-- V3.0.3 | 2026-09-29 界面里「真旋钮 / 需确认」这套自造术语整体下线，一律改说「参数」：
+     「机制」组标签简化为 mechanics，是否被引擎读取由字段表逐条标签给出结论，不再靠组级别的二分措辞。
+     V3.0.2 | 2026-09-29 「需确认」暧昧标签下线：skills 表字段改按 glossary 的 ENGINE_READ 表逐个给确定结论
      （引擎真读 / 整包动态读 / 仅校验存在 / 仅文案），表由源码静态扫描 getSkillParams( 调用点得来——
      本页只加载 content JSON、看不到引擎 JS，所以读没读必须由源码扫描固化，不能靠猜。
      V3.0.1 | 参数表上方加标签图例（治「机制·真旋钮是干啥的」）。
@@ -316,7 +318,7 @@ function buildSkillSelect() {
     const groups = [...new Set(allKnobs.filter(k => k.layer === ow.layer && k.owner === ow.owner).map(k => k.skill))];
     const label = g => {
         if (ow.layer === 'character') {
-            if (g === '机制') return '机制（mechanics · 真旋钮）';
+            if (g === '机制') return '机制（mechanics）';
             const sk = gameRoot.characters?.[ow.owner]?.skills?.[g];
             return sk?.name ? `${sk.name}（${g}）` : g;
         }
@@ -331,7 +333,7 @@ function buildSkillSelect() {
     // 角色默认落到「机制」（若有），否则第一个技能
     if (ow.layer === 'character' && groups.includes('机制')) skillSel.value = '机制';
     ownerHint.textContent = ow.layer === 'character'
-        ? '这一层是 content/200game-data.json 的角色技能表；「机制」组是 mechanics（引擎真旋钮），其余技能组是 skills.params（可能只是文案，也可能被引擎真读，字段表里有标记）。'
+        ? '这一层是 content/200game-data.json 的角色技能表；「机制」组是 mechanics，其余技能组是 skills.params —— 每个字段读没读，见下表逐条标签。'
         : ow.layer === 'config'
             ? '这一层是 core/01config-5v5-test.js 的 CONFIG（纯规则常量，全局生效）。'
             : '这一层是 content/200game-data.json 的数据表（海克斯 / 职业加成 / 关卡阵容 / 名册预算等）。';
@@ -374,7 +376,7 @@ function buildKnobTable() {
         + VERDICT_TAG.engine + ' 改了会改变战斗结果；'
         + VERDICT_TAG.dynamic + ' 引擎按动态键整包取用，子字段都可能被读；'
         + VERDICT_TAG.text + ' 只影响描述文字，改了不出效果。</div>'
-        : '<div class="knob-legend">这一组是 <code>mechanics</code>：<b>引擎战斗逻辑真读的旋钮</b>，改了必定改变战斗结果（本页对照实验跑的就是这类）。</div>';
+        : '<div class="knob-legend">这一组是 <code>mechanics</code>：<b>引擎战斗逻辑直接读取的参数</b>，改了必定改变战斗结果（本页对照实验跑的就是这类）。</div>';
     let h = legend + '<table class="knob-table"><tr><th>参数</th><th>当前值</th><th>改成</th></tr>';
     for (const k of list) {
         const info = knobInfo(k);
