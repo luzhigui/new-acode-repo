@@ -1,22 +1,27 @@
 // tools/120-param-lab-glossary.js - 参数中文说明表（只读展示用，不参与战斗）
-// V2.0.3 | 预估 19700 bytes | 2026-09-29 导出 ENGINE_READ / ENGINE_READ_DYNAMIC / ENGINE_READ_NONE（原为模块内 const），
-//   供 tests/param-read-guard.mjs 直接 import 做「表 vs 源码」漂移比对 —— 表只此一份，不复制第二份。无运行行为变化。
-// V2.0.2 | 预估 19600 bytes | 2026-09-29 新增 ENGINE_READ 引擎真读字段表 + skillFieldVerdict()：
-//   静态扫描全仓 getSkillParams( 调用点，逐个追踪返回对象的字段使用并固化下来，实验台据此把
-//   「需确认」暧昧标签换成确定结论（引擎真读 / 整包动态读 / 仅校验存在 / 仅文案）。
-// V2.0.1 | 2026-09-29 韦一笑吸血技能改名：寒冰掌 → 蝠影汲血（技能键 coldPalm → bloodSiphon，同步 TYPE_GLOSSARY 与 PCT100 白名单键）
-// V2.0.0 | 2026-09-29 参数实验台批 4：① 补全 skills 表字段中文（原只登记约 20 个，
-//   现覆盖 characters.*.skills.*.params 全部字段 + mechanics 全部字段）；② 明确「两套单位口径」——
-//   mechanics 是「1 = 100%」（0.12 即 12%），skills.params 里部分字段直接写百分数（10 即 10%），
-//   由 PCT100 白名单逐「技能.字段」登记，不再按字段名一刀切；③ 新增 CONFIG / 数据表两层的中文说明
-//   （CONFIG_KEY_GLOSSARY / DATA_KEY_GLOSSARY），配合 120-param-lab-core.js 的四层旋钮扫描。
-//   V1.0.0 | 2026-09-28 新建：把英文参数路径翻译成中文技能名 + 参数名 + 单位，并附技能原文（getSkillDesc）。
+// V2.2.0 | 预估 39200 bytes | 2026-09-29 参数实验台收尾批（仍只改呈现，不动战斗）：
+//   ① 新增 ENGINE_READ_ORPHAN：源码里确实存在读取点、但所在函数全仓无调用点（孤儿/死代码）的登记；
+//      与 tests/param-read-guard.mjs 双向对齐（登记在案不算漂移，读取点消失则报「孤儿登记失效」），
+//      界面标签改说「读取这段的代码已废弃，改它不影响战斗」；
+//   ② 百分数显示口径统一成人话：比例字段一律显示 12%（不再出现 0.12 或 0.12（= 12%）），
+//      新增 humanToStored()/inputHint()，把「改成」输入框里填的人话值按该字段的存储口径落盘
+//      （1 = 100% 的字段除以 100；10 = 10% 的字段原样写入）；
+//   ③ 战斗参数侧的隐藏改为按「效果类型」配置（MECHANICS_HIDDEN_BY_TYPE）—— 类型取「最靠内层带
+//      type 的对象」，所以 onHitEffects / beforeDamageEffects / dodgeRules 内层的 type 同样生效；
+//      韦一笑蝠影汲血因此只留技能面板那两行（leechMin / leechMax）；
+//   ④ 数组类数值标出档位（如「回血档位（第 1/4 档）」），不再像几个互不相干的独立参数；
+//   ⑤ 补 export const VER（本文件原先缺该导出）。
+// V2.1.0 | 预估 37800 bytes | 2026-09-29 「说人话」改造：新增 MIRRORED_SKILL_FIELDS（同一数值两处登记只显示一份）、
+//   charSkillGroups()/charGroupKeyOf()（按技能归组，取消「机制」伪组）、knobWhatIf()/dualRegisterNote()；
+//   界面文字全部去英文键名与文件路径，并移除 ENGINE_READ 的 xuanmingPalm.duration。
 // 判定口径：沿路径逐段下钻，取「最靠内层那个带 type 的对象」的 type —— 因为具体效果类型都写在
 //   onHitEffects / beforeDamageEffects / attributeMods 的元素上（如 poison / ignoreDef / bonusLostHp），
 //   mechanics[i] 顶层的 type 只是机制大类（如 dotTick / linkAttack）。内层没有才退回顶层。
 // 维护：新增 mechanics type、新字段或新 CONFIG 键时在这里补一条，没登记的类型/字段会退化成显示原文，不报错。
 
 import { getSkillDesc } from '../core/01config-5v5-test.js';
+
+export const VER = 'tools/120-param-lab-glossary.js V2.2.0';
 
 // mechanics 里出现的 type → 中文技能名（+ 可选：对应 skills.<key>，用来取原文说明）
 export const TYPE_GLOSSARY = {
@@ -79,6 +84,8 @@ const PCT100 = new Set([
 //   modules/27:136-147 / 215 / 443 / 571 / 673-709 / 721
 //   render/34:135、render/39:93
 // 不在此表 = 仅供 desc 插值（改了不改变战斗结果）。
+// 注：鹿杖客 xuanmingPalm 的 duration 不登记在本表（实际不生效），但源码里确实有读取点 ——
+//   挪到下面的 ENGINE_READ_ORPHAN（孤儿登记），供守卫双向对齐，不假装它不存在。
 export const ENGINE_READ = {
     rebelStrike:     ['currentHpRatio'],
     xinHun:          ['healLevels'],
@@ -90,7 +97,6 @@ export const ENGINE_READ = {
     summonZhou:      ['m'],
     summonLion:      ['prob', 'cub', 'grow'],
     lionInspire:     ['atkPerHit'],
-    xuanmingPalm:    ['duration'],
     endlessBreath:   ['healPct', 'healAtkDiv', 'healDefDiv', 'overflowAtkDiv', 'overflowDefDiv', 'minBonus'],
     baguaArray:      ['atkFloor', 'procChance', 'atkCost', 'defGain'],
     tenRoundFortify: ['round'],
@@ -112,6 +118,25 @@ export const ENGINE_READ_DYNAMIC = new Set(['hexEnhance']);
 // 只有启动期存在性校验、没有任何字段被读。
 export const ENGINE_READ_NONE = new Set(['lionFollow']);
 
+// 孤儿登记（2026-09-29 建）：源码里**确实存在**读取点，但那个读取点所在的函数全仓没有任何调用点
+//   （孤儿函数 / 死代码），所以实际不生效、改了战斗结果不会变。
+//   与 ENGINE_READ 分开登记的理由：守卫 tests/param-read-guard.mjs 扫得到这段源码，若假装它不存在
+//   会报「表遗漏」；登记在 ENGINE_READ 里又等于谎报「引擎真读」。故单列一张表：
+//     · 登记在案 → 守卫不算漂移；
+//     · 源码里这个读取点消失（例如以后有人删掉那个孤儿函数）→ 守卫报「孤儿登记已失效」，请从本表删掉。
+// 鹿杖客 xuanmingPalm.duration：唯一读取点 modules/20:18 tickXuanmingPoison（读 s.duration 算 dot 索引），
+//   该函数全仓无调用点 —— 中毒 tick 实际走 modules/30 读 mechanics 写进 state 的数据。
+export const ENGINE_READ_ORPHAN = {
+    xuanmingPalm: ['duration'],
+};
+
+/** 某技能键的这个字段是否属于「孤儿读取点」（源码有、但所在函数没人调用 → 实际不生效） */
+export function isOrphanField(skillKey, field) {
+    const fields = ENGINE_READ_ORPHAN[skillKey];
+    if (!fields || field === undefined || field === null) return false;
+    return fields.some(f => field === f || String(field).startsWith(f + '.'));
+}
+
 /**
  * 某个 skills.params 字段到底会不会被引擎读。
  * @returns {'engine'|'dynamic'|'none'|'text'} engine=被读；dynamic=整包动态读；
@@ -127,6 +152,147 @@ export function skillFieldVerdict(skillKey, fieldPath) {
         }
     }
     return 'text';
+}
+
+// ---------------------------------------------------------------------------
+// 镜像对照表（2026-09-29 建）：同一数值的两种登记。
+//   skills.<键>.params 里这些字段与战斗参数（mechanics）里的等价数值是同一个数，渲染层**只显示
+//   战斗参数那一份**，技能面板那份跳过（否则同一数值会在表里出现两行）。
+//   键 = 技能键，值 = 技能面板里要跳过显示的字段。
+// 例外：宋青书 xinHun.healLevels 反过来只显示技能面板那份（见 MECHANICS_HIDDEN）；韦一笑
+//   bloodSiphon 的 leechMin/leechMax 两侧分工不同、都要显示（见 DUAL_REGISTER_NOTES）。
+export const MIRRORED_SKILL_FIELDS = {
+    nineYinClaw:     ['baseDmg', 'lostHpRatio', 'maxHpRatio', 'executeThreshold', 'procChance', 'chainProcChance'],
+    kuLian:          ['atkBonus', 'defBonus', 'hpBonus'],
+    rebelStrike:     ['currentHpRatio'],
+    phantomThunder:  ['lostHpRatio'],
+    phantomDisguise: ['baseChance', 'per10pctLost'],
+    xuanmingPalm:    ['duration', 'dotPercents'],
+    hornStrike:      ['defIgnore', 'poisonedBonus'],
+    bloodDodge:      ['maxRatio'],
+    nineYang:        ['healPct'],
+    xinHun:          ['hpDeduct'],
+};
+
+// 反过来：战斗参数侧要跳过、只显示技能面板那份的字段（两侧都读、语义重复时用）。
+// 按「效果类型」配置（不是按技能键，也不是按写死的位置）：类型由 enclosingType() 取「最靠内层带
+//   type 的对象」，所以长在 onHitEffects / beforeDamageEffects / dodgeRules 里的声明同样能命中。
+//   leech：韦一笑吸血写在 mechanics[0].onHitEffects[0]，与技能面板的 leechMin/leechMax 是同一个数；
+//   xinHun：宋青书回血档位写在 mechanics 的 healLevels，与技能面板的 healLevels 同源。
+const MECHANICS_HIDDEN_BY_TYPE = {
+    xinHun: ['healLevels'],
+    leech:  ['minRatio', 'maxRatio']
+};
+
+// 两侧都读、必须一起改的字段：字段表该行下面补一句人话提示。
+//   数组字段只挂在第 1 档（如 healLevels.0）；标量字段挂它自己那一行。
+const DUAL_REGISTER_NOTES = {
+    'xinHun.healLevels':    '战斗里两处都会读这个数：改完两处必须一致，否则回血档位会不再推进。',
+    'bloodSiphon.leechMax': '命中吸血与闪避反击吸血各用一份，口径相同，要改就两处一起改。'
+};
+
+/** 技能面板里的这个字段是否已有战斗参数那份显示（是则跳过，不重复显示） */
+export function isMirroredSkillField(skillKey, fieldPath) {
+    const fields = MIRRORED_SKILL_FIELDS[skillKey];
+    if (!fields || !fieldPath) return false;
+    return fields.some(f => fieldPath === f || fieldPath.startsWith(f + '.'));
+}
+
+/** 战斗参数侧这个字段是否要跳过、改由技能面板那份显示（按效果类型判定，内层声明同样生效） */
+export function isMechanicsRowHidden(root, owner, path) {
+    const parts = String(path).split('.');
+    if (parts.indexOf('mechanics') < 0) return false;
+    const fields = MECHANICS_HIDDEN_BY_TYPE[enclosingType(root, parts)];
+    if (!fields) return false;
+    return fields.includes(lastField(parts, root).field);
+}
+
+/** 该行的人话补充提示（没有则空串）；数组字段只在第 1 项上提示一次 */
+export function dualRegisterNote(skillKey, fieldPath) {
+    if (!fieldPath) return '';
+    for (const key of Object.keys(DUAL_REGISTER_NOTES)) {
+        const i = key.indexOf('.');
+        if (key.slice(0, i) !== skillKey) continue;
+        const f = key.slice(i + 1);
+        if (fieldPath === f || fieldPath === `${f}.0`) return DUAL_REGISTER_NOTES[key];
+    }
+    return '';
+}
+
+// 角色里没有归入任何技能的战斗数值，统一落到这个组。
+export const OTHER_PASSIVE_GROUP = '__other__';
+const OTHER_PASSIVE_LABEL = '其他被动';
+
+/** 技能面板参数路径在表里的相对字段名（去掉 characters.<角色>.skills.<技能>.params. 前缀） */
+export function paramsFieldPath(path) {
+    const parts = String(path).split('.');
+    const i = parts.indexOf('params');
+    return i >= 0 ? parts.slice(i + 1).join('.') : '';
+}
+
+/**
+ * 角色层某条数值属于哪个技能组，返回技能键或 OTHER_PASSIVE_GROUP。
+ * 技能面板的字段 → 键即技能键；战斗参数的字段 → 按效果类型归到对应技能（没有则「其他被动」）。
+ */
+export function charGroupKeyOf(root, owner, path) {
+    const parts = String(path).split('.');
+    const si = parts.indexOf('skills');
+    if (si >= 0) return parts[si + 1] || OTHER_PASSIVE_GROUP;
+    const tg = TYPE_GLOSSARY[enclosingType(root, parts)];
+    const key = tg && tg.skill;
+    return (key && root.characters?.[owner]?.skills?.[key]) ? key : OTHER_PASSIVE_GROUP;
+}
+
+// 数值叶子路径遍历（只用于判断某组有没有可改数字）
+function eachNumberPath(node, parts, hit) {
+    if (typeof node === 'number') { if (Number.isFinite(node)) hit(parts.join('.')); return; }
+    if (Array.isArray(node)) { node.forEach((n, i) => eachNumberPath(n, parts.concat(String(i)), hit)); return; }
+    if (node && typeof node === 'object') { for (const k of Object.keys(node)) eachNumberPath(node[k], parts.concat(k), hit); }
+}
+
+/**
+ * 把某角色身上所有能改的数字按技能归组，供下拉用。
+ * @returns [{ key, label, note? }] key = 技能键（或 OTHER_PASSIVE_GROUP），label = 中文技能名。
+ *   技能面板的每个技能键各一组；战斗参数里没归到任何技能的数字，统一进「其他被动」。
+ */
+export function charSkillGroups(root, owner) {
+    const ch = root.characters?.[owner];
+    if (!ch) return [];
+    const out = [];
+    for (const key of Object.keys(ch.skills || {})) {
+        out.push({ key, label: ch.skills[key]?.name || key });
+    }
+    let hasOther = false;
+    for (let i = 0; i < (ch.mechanics || []).length && !hasOther; i++) {
+        eachNumberPath(ch.mechanics[i], ['characters', owner, 'mechanics', String(i)],
+            p => { if (charGroupKeyOf(root, owner, p) === OTHER_PASSIVE_GROUP) hasOther = true; });
+    }
+    if (hasOther) out.push({ key: OTHER_PASSIVE_GROUP, label: OTHER_PASSIVE_LABEL, note: '没有归入具体技能的战斗数值' });
+    return out;
+}
+
+/**
+ * 字段表「改了会怎样」一列的一句话 —— 复用 describeKnob() 的中文技能名 / 字段名 / 单位。
+ * 不出现英文键名与文件路径。
+ */
+export function knobWhatIf(path, root, meta) {
+    const info = describeKnob(path, root, meta);
+    const name = info.fieldName;
+    if (info.kind === 'mechanics') {
+        // 孤儿子段：源码里那处读取点所在函数没有任何地方调用，实际不生效
+        if (info.char && isOrphanField(charGroupKeyOf(root, info.char, path), info.fieldRaw)) {
+            return '读这个数的代码已经废弃（没有任何地方调用它），改它不影响战斗。';
+        }
+        return `战斗会直接读「${name}」这个数，改了战斗结果就跟着变。`;
+    }
+    if (info.kind === 'skill') {
+        const verdict = skillFieldVerdict(meta && meta.skill, paramsFieldPath(path));
+        if (verdict === 'text') return '只改技能面板上的说明文字，战斗结果不变。';
+        if (verdict === 'none') return '战斗只拿它检查有没有填，改了不影响战斗。';
+        return `战斗会直接读「${name}」，改了战斗结果就跟着变。`;
+    }
+    if (info.kind === 'config') return `这是全局规则常量「${name}」，改完所有对局都跟着变。`;
+    return `这是数据表里的数字「${name}」，改完全局生效。`;
 }
 
 // 参数字段名 → 中文含义 + 单位。按「最后一段路径」匹配（数组下标忽略）
@@ -188,10 +354,10 @@ export const FIELD_GLOSSARY = {
     // —— 回血/吸血类 ——
     healRatio:          { name: '回血比例', unit: UNIT.pct },
     healPct:            { name: '回血比例', unit: UNIT.pct },
-    healLevels:         { name: '各档回血比例（按快乐层数）', unit: UNIT.pct },
+    healLevels:         { name: '回血档位（按快乐层数）', unit: UNIT.pct },
     leechRatio:         { name: '吸血倍率（按打出的伤害 × 该值回血）', unit: UNIT.mul },
-    leechMin:           { name: '吸血比例下限（满血时，%）', unit: UNIT.pct100 },
-    leechMax:           { name: '吸血比例上限（濒死时，%）', unit: UNIT.pct100 },
+    leechMin:           { name: '吸血比例下限（满血时）', unit: UNIT.pct100 },
+    leechMax:           { name: '吸血比例上限（濒死时）', unit: UNIT.pct100 },
     xiaoZhaoDoubleStrikeChance: { name: '小昭·妹双连击概率（%）', unit: UNIT.pct100 },
     healAtkDiv:         { name: '每这么多点治疗量 → 攻击 +1', unit: UNIT.point },
     healDefDiv:         { name: '每这么多点治疗量 → 防御 +1', unit: UNIT.point },
@@ -200,8 +366,8 @@ export const FIELD_GLOSSARY = {
     hpDeduct:           { name: '每次扣除周芷若的生命值', unit: UNIT.point },
 
     // —— 闪避/流血档位类 ——
-    minRatio:           { name: '最低比例（满血时，%）', unit: UNIT.pct100 },
-    maxRatio:           { name: '最高比例（濒死时，%）', unit: UNIT.pct100 },
+    minRatio:           { name: '最低比例（满血时）', unit: UNIT.pct },
+    maxRatio:           { name: '最高比例（濒死时）', unit: UNIT.pct },
     max:                { name: '上限', unit: UNIT.pct },
     dotPercents:        { name: '每回合持续掉血比例（按第几回合）', unit: UNIT.pct },
 
@@ -308,23 +474,45 @@ export const DATA_KEY_GLOSSARY = {
     roster: '名册与强度预算', hexes: '海克斯池', taunts: '台词库'
 };
 
-/** 数值 → 人话。pct 按「1 = 100%」换算，pct100 直接补 % 号 */
+/** 比例数值 → 人话百分数（0.12 → 「12」、0.015 → 「1.5」），最多保留 1 位小数 */
+function pctText(v) {
+    return String(Math.round(v * 1000) / 10);
+}
+
+/** 数值 → 人话。显示口径统一：比例一律是 12% 这种，不再露出 0.12 这类存储形态 */
 export function fmtValue(v, unit) {
-    if (unit === UNIT.pct) return `${v}（= ${(v * 100).toFixed(v * 100 % 1 === 0 ? 0 : 1)}%）`;
+    if (unit === UNIT.pct) return `${pctText(v)}%`;
     if (unit === UNIT.pct100) return `${v}%`;
     if (unit === UNIT.mul) return `${v} 倍`;
     if (unit === UNIT.round) return `${v} 回合`;
-    if (unit === UNIT.point) return `${v} 点`;
     return String(v);
+}
+
+/**
+ * 「改成」输入框里填的人话值 → 落盘存储值。
+ * 比例字段的存储口径有两套：白名单（10 = 10%）原样写入；其余（1 = 100%）除以 100。
+ * 必须按字段的存储口径换算，否则「改了没反应」（该原样写的被除了）或「直接爆炸」（该除的没除）。
+ */
+export function humanToStored(v, unit) {
+    if (unit === UNIT.pct) return v / 100;
+    return v;
+}
+
+/** 「改成」输入框的填写提示：按该字段的单位说清楚填什么 */
+export function inputHint(unit) {
+    if (unit === UNIT.pct || unit === UNIT.pct100) return '填 12 表示 12%';
+    if (unit === UNIT.mul) return '填 1.5 表示 1.5 倍';
+    if (unit === UNIT.round) return '填回合数，如 3';
+    if (unit === UNIT.point) return '填点数，如 3';
+    return '';
 }
 
 /** 单位换算的一句话说明（说明区用） */
 function unitLine(unit) {
-    if (unit === UNIT.pct) return '单位：按「1 = 100%」记 —— 0.12 就是 12%，0.3 就是 30%。';
-    if (unit === UNIT.pct100) return '单位：百分数直读 —— 10 就是 10%（注意：这个字段和 mechanics 的口径不同）。';
-    if (unit === UNIT.mul) return '单位：倍率 —— 1.5 就是 1.5 倍。';
+    if (unit === UNIT.pct || unit === UNIT.pct100) return '单位：百分数 —— 填 12 就表示 12%。';
+    if (unit === UNIT.mul) return '单位：倍率 —— 填 1.5 就表示 1.5 倍。';
     if (unit === UNIT.round) return '单位：回合数。';
-    if (unit === UNIT.point) return '单位：点数（直接加在属性上的值）。';
+    if (unit === UNIT.point) return '单位：点数（直接加在属性上的数值）。';
     return '';
 }
 
@@ -344,14 +532,18 @@ function enclosingType(root, parts) {
     return type;
 }
 
-/** 取路径最后一段的有效字段名（跳过数组下标），返回 { field, slot } */
-function lastField(parts) {
+/**
+ * 取路径最后一段的有效字段名（跳过数组下标），返回 { field, slot }。
+ * 数组项带档位序号（如「回血档位（第 1/4 档）」），免得几个数看起来互不相干。
+ */
+function lastField(parts, root) {
     const last = parts[parts.length - 1];
-    const isIdx = /^\d+$/.test(last);
-    return {
-        field: isIdx ? (parts[parts.length - 2] || last) : last,
-        slot: isIdx ? `（第 ${Number(last) + 1} 项）` : ''
-    };
+    if (!/^\d+$/.test(last)) return { field: last, slot: '' };
+    const field = parts[parts.length - 2] || last;
+    let node = root;
+    for (let i = 0; i < parts.length - 1 && node != null; i++) node = node[parts[i]];
+    const total = Array.isArray(node) ? node.length : 0;
+    return { field, slot: total ? `（第 ${Number(last) + 1}/${total} 档）` : `（第 ${Number(last) + 1} 项）` };
 }
 
 /** 单位解析：pct100 白名单优先，其次字段表默认单位 */
@@ -386,52 +578,51 @@ function build(path, root, meta) {
     return buildGeneric(path, parts, root, layer, meta);
 }
 
-// ---- 角色技能表：mechanics（真旋钮）/ skills.params（可能只是文案，也可能被引擎真读）----
+// ---- 角色技能表：战斗参数（引擎真读）/ 技能面板参数（可能只是文案，也可能被引擎真读）----
 function buildCharacter(path, parts, root, meta) {
     const char = parts[1] || '';
-    const { field, slot } = lastField(parts);
+    const { field, slot } = lastField(parts, root);
     const fg = FIELD_GLOSSARY[field];
-    const skill = (meta && meta.skill) || parts[parts.indexOf('skills') + 1] || '机制';
+    const skill = (meta && meta.skill) || parts[parts.indexOf('skills') + 1] || '战斗参数';
     const unit = unitOf(field, skill, 'character', char);
     const fieldName = (fg ? fg.name : field) + slot;
-    const lines = [];
 
     const skillIdx = parts.indexOf('skills');
     if (skillIdx >= 0) {
         const key = parts[skillIdx + 1];
         const sName = root.characters?.[char]?.skills?.[key]?.name || key;
         const desc = getSkillDesc(char, key);
-        lines.push('⚠️ 这是 skills 表里的字段：它同时用于技能说明文字，也可能被引擎当真实数值读取');
-        lines.push('（张无忌·乾坤大挪移、谢逊·召狮、灭绝师太·第三次攻击、张三丰·生生不息等都直接读这里）。'
-            + '同一技能在 mechanics 里已有同名字段时，改这里通常不生效；没有时往往真生效 —— 以跑出来的结果为准。');
+        const lines = ['这是技能面板上的数字，技能说明文字里也会用到它；如果战斗也读它，改了就真生效。',
+            '同一数值在战斗参数里已有登记时，改这里通常不生效 —— 以跑出来的结果为准。'];
         const ul = unitLine(unit);
         if (ul) lines.push(ul);
         if (desc) lines.push(`技能原文：${desc}`);
-        return { kind: 'skill', char, fieldRaw: field, fieldName, unit,
-            title: `[skills 表]${sName} · ${(fg ? fg.name : field)}${slot}`, lines };
+        return { kind: 'skill', char, fieldRaw: field, fieldName, unit, qualifier: '',
+            title: `${sName} · ${(fg ? fg.name : field)}${slot}`, lines };
     }
 
     const type = enclosingType(root, parts);
-    const tg = TYPE_GLOSSARY[type] || { name: type || '（未登记的类型）' };
-    lines.push(`中文含义：${fieldName}`);
+    const tg = TYPE_GLOSSARY[type] || { name: type || '（未登记的效果）' };
+    const jealous = parts.includes('jealous');
+    const lines = [`中文含义：${fieldName}`];
     const ul = unitLine(unit);
     if (ul) lines.push(ul);
-    if (!fg) lines.push('（这个字段还没登记中文说明，把英文路径贴给我就能补上。）');
-    if (parts.includes('jealous')) lines.push('这是「张无忌在场时」的强化档数值（对应 descJealous）。');
+    if (!fg) lines.push('（这个数字还没登记中文说明，把英文原名贴给我就能补上。）');
+    if (jealous) lines.push('这是「张无忌在场时」的强化档数值。');
     if (tg.skill) {
         const desc = getSkillDesc(char, tg.skill);
         lines.push(desc ? `所属技能：${tg.name} —— ${desc}` : `所属技能：${tg.name}`);
     } else {
-        lines.push(`所属机制：${tg.name}`);
+        lines.push(`所属被动：${tg.name}`);
     }
-    if (type) lines.push(`（原始路径类型：${type}）`);
-    return { kind: 'mechanics', char, type, fieldRaw: field, fieldName, unit,
+    const qualifier = [tg.name, jealous ? '张无忌在场时强化档' : ''].filter(Boolean).join(' · ');
+    return { kind: 'mechanics', char, type, fieldRaw: field, fieldName, unit, qualifier,
         title: `${tg.name} · ${(fg ? fg.name : field)}${slot}`, lines };
 }
 
 // ---- CONFIG（纯规则常量）/ 数据表（buffs、roles...）：中文标题 + 单位 + 归属说明 ----
 function buildGeneric(path, parts, root, layer, meta) {
-    const { field, slot } = lastField(parts);
+    const { field, slot } = lastField(parts, root);
     const fg = FIELD_GLOSSARY[field];
     const owner = (meta && meta.owner) || parts[0];
     const isConfig = layer === 'config';
@@ -439,31 +630,32 @@ function buildGeneric(path, parts, root, layer, meta) {
     const ctx = isConfig ? parts[0] : owner;
     const unit = unitOf(field, ctx, layer, owner);
     const ownerName = isConfig ? (CONFIG_KEY_GLOSSARY[parts[0]] || parts[0]) : (DATA_KEY_GLOSSARY[owner] || owner);
-    const relDir = parts.slice(1, -1).join('.');
-    const rel = parts.slice(1).join('.');
+    const relParts = parts.slice(1);
+    // 数据表里带中文名的层级用中文名（如 buffs.carry → 你就是carry），避免英文键名露在界面上
+    const cn = seg => (root[owner]?.[seg]?.name) || seg;
+    const relCn = relParts.map(cn).join(' → ');
+    const relDirCn = relParts.slice(0, -1).map(cn).join(' → ');
     // 常量本身就是标量（如 ATK_VAR）时，键名已是中文名，不再拼一遍字段名
     const wholeKey = isConfig && parts.length === 1;
     const fieldName = wholeKey ? ownerName : ((fg ? fg.name : field) + slot);
     const title = isConfig
-        ? `[全局常量]${ownerName}${relDir ? ` → ${relDir}` : ''}${wholeKey ? '' : ` · ${fieldName}`}`
-        : `[数据表]${ownerName}${relDir ? ` → ${relDir}` : ''} · ${(fg ? fg.name : field) + slot}`;
+        ? `全局规则常量 · ${ownerName}${relDirCn ? ` → ${relDirCn}` : ''}${wholeKey ? '' : ` · ${fieldName}`}`
+        : `${ownerName}${relDirCn ? ` → ${relDirCn}` : ''} · ${(fg ? fg.name : field) + slot}`;
     const lines = [];
 
     if (isConfig) {
-        lines.push('来源：core/01config-5v5-test.js 的 CONFIG —— 纯规则常量（不随关卡/阵容变），改动全局生效。');
-        lines.push(`所属常量：${ownerName}${relDir ? ` → ${relDir}` : ''}`);
+        lines.push('这是全局规则常量，不随关卡、阵容变化，改了所有对局都生效。');
+        lines.push(`所属规则：${ownerName}${relDirCn ? ` → ${relDirCn}` : ''}`);
     } else {
-        lines.push(`来源：content/200game-data.json 的 ${ownerName}（${owner}）—— 数据表，改动全局生效。`);
-        lines.push(`所在位置：${owner} → ${rel || '（顶层）'}`);
-        lines.push('提示：数据表里的数值语义随表而定（如海克斯加成多为「1 = 100%」的比例，职业加成则是直接相加的点数），'
-            + '未登记中文含义时以原始字段名为准。');
+        lines.push(`这是「${ownerName}」数据表里的数字，改了全局生效。`);
+        lines.push(`所在位置：${ownerName} → ${relCn || '（顶层）'}`);
+        lines.push('数据表里数值的含义随表而定：海克斯加成多为「1 = 100%」的比例，职业加成则是直接相加的点数。');
     }
     lines.push(`中文含义：${fieldName}`);
     const ul = unitLine(unit);
     if (ul) lines.push(ul);
-    if (!fg) lines.push('（这个字段还没登记中文说明；把上面这行路径贴给我就能补上。）');
-    lines.push('引擎是否真读：CONFIG 与数据表都是引擎直接读取的取值来源，改这里一定进计算（不确定就改完跑一局看结算）。');
-    return { kind: isConfig ? 'config' : 'data', char: ownerName, fieldRaw: field, fieldName, unit, title, lines };
+    if (!fg) lines.push('（这个数字还没登记中文说明，把英文原名贴给我就能补上。）');
+    return { kind: isConfig ? 'config' : 'data', char: ownerName, fieldRaw: field, fieldName, unit, qualifier: '', title, lines };
 }
 
 /** 角色全部技能的中文原文说明，选中旋钮时一并展示，避免用户只能靠猜 */
