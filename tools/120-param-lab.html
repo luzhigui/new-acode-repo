@@ -1,5 +1,7 @@
 <!-- tools/120-param-lab.html - 参数对照实验台（面向人的版本，独立页面） -->
-<!-- V3.0.0 | 预估 44100 bytes | 2026-09-29 参数实验台批 4（框架化改造）：
+<!-- V3.0.1 | 2026-09-29 参数表上方加标签图例：「真旋钮」（mechanics，引擎真读）/「需确认」（skills.params，文案与真值混用），
+     用户问过「机制·真旋钮是干啥的」，光靠归属提示那行不够显眼。
+     V3.0.0 | 预估 44100 bytes | 2026-09-29 参数实验台批 4（框架化改造）：
      ① 关卡可多选（含全选），结果按关分列，不再混关算平均；
      ② 选参数改成三级「归属 → 技能 → 字段表」：归属按关卡过滤角色（明教侧常驻、六大派只列该关出场的），
         技能列出该角色/该常量表/该数据表下的分组，字段表一次列出全部参数并可一批加入多个改动；
@@ -71,6 +73,9 @@ button:disabled{opacity:.4;cursor:not-allowed}
 .tag{display:inline-block;border-radius:5px;padding:1px 6px;font-size:10px;margin-left:6px;vertical-align:middle}
 .tag-real{background:#1d3d2a;color:#66bb6a}
 .tag-maybe{background:#3d351d;color:#ffb74d}
+.knob-legend{margin:8px 0 0;font-size:12px;line-height:1.7;color:#9aa4bf;border-left:3px solid #3a4670;padding:6px 10px;background:#1b2440;border-radius:0 6px 6px 0}
+.knob-legend b{color:#ffd700;font-weight:normal}
+.knob-legend code{color:#8fd6ff}
 /* 结论卡 */
 .verdict{display:flex;align-items:center;gap:14px;border-radius:10px;padding:14px 16px;margin-bottom:14px;border:1px solid}
 .verdict .v-icon{font-size:30px;line-height:1}
@@ -348,7 +353,10 @@ function buildKnobTable() {
         fillCount.textContent = ''; return;
     }
     const mightBeText = ow.layer === 'character' && skill !== '机制';
-    let h = '<table class="knob-table"><tr><th>参数</th><th>当前值</th><th>改成</th></tr>';
+    const legend = ow.layer !== 'character' ? '' : mightBeText
+        ? '<div class="knob-legend"><span class="tag tag-maybe">需确认</span> 这一组是 <code>skills.params</code>：<b>既用于技能描述文字，也可能被引擎当真实数值读取</b>。点某个参数，下方黄色框会说明它属于哪种情况。</div>'
+        : '<div class="knob-legend"><span class="tag tag-real">真旋钮</span> 这一组是 <code>mechanics</code>：<b>引擎战斗逻辑真读的旋钮</b>，改了必定改变战斗结果（本页对照实验跑的就是这类）。</div>';
+    let h = legend + '<table class="knob-table"><tr><th>参数</th><th>当前值</th><th>改成</th></tr>';
     for (const k of list) {
         const info = knobInfo(k);
         const tag = mightBeText ? '<span class="tag tag-maybe">需确认</span>'
