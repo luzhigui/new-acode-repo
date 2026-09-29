@@ -1,5 +1,7 @@
 ﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿<!DOCTYPE html>
-<!-- V6.0.5 | ~27900 bytes | 2026-09-28 独立工具页（120 参数实验台 / 110 全随机站位 / 105 商店）改页内 iframe 弹窗：
+<!-- V6.0.6 | ~28400 bytes | 2026-09-29 顶部加页面时间戳（日期 + 秒级时钟，胶囊样式与页头同行居中、窄屏自动折行）：
+     看战报/实验纪录时能一眼对上「现在什么时候」，不用翻系统时间。
+     V6.0.5 | 2026-09-28 独立工具页（120 参数实验台 / 110 全随机站位 / 105 商店）改页内 iframe 弹窗：
      原先 onclick="window.open(...,'_blank')" 在内嵌 webview 里开不出新窗口（前三个工具是页内 mask 弹窗所以不受影响），
      现统一走 openInPage()：全屏 mask + 同源 iframe + 关闭按钮，点遮罩也能关；每次点按钮重设 src 保证重载。
      （V6.0.4 顶部入口补齐为 6 个、.tool-links 改 flex-wrap；V6.0.3 移除三个自检 tab —— 旧注释已按规范折叠） -->
@@ -11,7 +13,10 @@
     <style>
         /* ========== 全局基础样式 ========== */
         body { background: #1a1a2e; color: #eee; font-family: monospace; padding: 12px; font-size: 13px; margin: 0; }
-        h1 { color: #ffd700; text-align: center; margin: 0 0 8px 0; font-size: 20px; }
+        /* ========== 页头（标题 + 页面时间戳） ========== */
+        .page-head { display: flex; align-items: center; justify-content: center; gap: 10px; flex-wrap: wrap; margin: 0 0 10px 0; }
+        h1 { color: #ffd700; margin: 0; font-size: 20px; }
+        .page-clock { color: #7f8aa8; font-size: 11px; line-height: 1; padding: 4px 11px; background: #2a2a4e; border: 1px solid #333; border-radius: 999px; font-variant-numeric: tabular-nums; letter-spacing: 0.5px; white-space: nowrap; }
 
         /* ========== 标签页导航 ========== */
         .tab-nav { display: grid; grid-template-columns: repeat(3, 1fr); gap: 3px; margin-bottom: 12px; background: #111; border-radius: 8px; padding: 3px; }
@@ -181,7 +186,10 @@
     </style>
 </head>
 <body>
-    <h1>光明顶5v5 · 开发工具箱</h1>
+    <div class="page-head">
+        <h1>光明顶5v5 · 开发工具箱</h1>
+        <span class="page-clock" id="pageClock">----/--/-- --:--:--</span>
+    </div>
 
     <div class="tab-nav">
         <button class="tab-btn active" data-tab="tab-file-copier">📋 文件复制器</button>
@@ -351,6 +359,21 @@
         // loadGameData 内部幂等（已加载直接返回），页面加载时调一次即可。
         import { loadGameData } from '../core/01config-5v5-test.js';
         loadGameData();
+    </script>
+    <script>
+        // 页面时间戳：日期 + 秒级时钟（等宽数字，每秒刷新一次）
+        (function () {
+            var el = document.getElementById('pageClock');
+            if (!el) return;
+            var pad = function (n) { return (n < 10 ? '0' : '') + n; };
+            var tick = function () {
+                var d = new Date();
+                el.textContent = d.getFullYear() + '/' + pad(d.getMonth() + 1) + '/' + pad(d.getDate())
+                    + ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds());
+            };
+            tick();
+            setInterval(tick, 1000);
+        })();
     </script>
 </body>
 </html>
