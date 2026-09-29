@@ -159,9 +159,12 @@ registerEffectHandler(EFFECT_TYPES.SPLASH, (ctx) => {
             applyStatChange(st, 'hp', -(decl.value || 0), ctx.unit, '溅射');
             // 2026-09-24 溅射伤害逐目标广播：走窄通道，不重发 AFTER_DAMAGE_APPLIED
             //   （那条挂着 LEECH/流星/嗜血/九阳等十余条监听，重发等于把一次溅射当成一次完整攻击）
+            // 2026-09-29 补 log：监听者（莽撞类挨打增益）需要把「实际加了什么」发成数值声明 fact，
+            //   而它只能从本信号取 log，缺 log 就等于盲区。传引用不复制，零成本。
             eventBus.emit(SIGNAL_TYPES.SPLASH_DAMAGED, {
                 unit: st, target: st, attacker: ctx.unit,
-                dmg: decl.value || 0, factData: decl.factData || null
+                dmg: decl.value || 0, factData: decl.factData || null,
+                log: ctx.log
             });
         }
         if (ctx.unit && ctx.unit.role === ROLE_TYPES.RANGED && decl.buffType === BUFF_SUBTYPES.METEOR_SPLASH) {

@@ -1,5 +1,5 @@
-// V6.1.5 | ~15800 bytes | 2026-09-29 参数体系收敛批 3：低血阈值/斩杀阈值/张无忌近战上限改读 CONFIG；去掉 BASE_DODGE_*、WARRIOR_BREAK_CHANCE_PER_DEF、doubleStrike.prob 的死兜底
-export const VER = 'core/03battle-utils.js V6.1.5';
+// V6.1.6 | ~16000 bytes | 2026-09-29 参数单位口径统一为「1 = 100%」：破防分档 chance 与防战坚盾概率改按比例读取（比较前 ×100 回到百分点域）；承接 V6.1.5 参数体系收敛批 3（低血阈值/斩杀阈值/张无忌近战上限改读 CONFIG）
+export const VER = 'core/03battle-utils.js V6.1.6';
 
 import { CONFIG, getGameData } from './01config-5v5-test.js';
 import { emitEvent, applyStatChange, query, getBattleRng, getPresentationRng, addMod, getStat } from './13battle-shared.js';
@@ -158,7 +158,8 @@ function submitWarriorBreakDefenseDeclaration(data) {
     const tier = (C.WARRIOR_BREAK_DEF_TIERS || []).find(t => t.defMax === null || targetDef <= t.defMax)
         || { reduce: C.WARRIOR_BREAK_DEF, chance: null };
     let defReduced = tier.reduce;
-    let breakChance = tier.chance === null ? targetDef * C.WARRIOR_BREAK_CHANCE_PER_DEF : tier.chance;
+    // tier.chance 口径 1 = 100%（→百分点 ×100）；兜底档的「每点防御概率」是百分点梯度，原样参与
+    let breakChance = tier.chance === null ? targetDef * C.WARRIOR_BREAK_CHANCE_PER_DEF : tier.chance * 100;
     if (getBattleRng().nextInt(1, 100) > breakChance) return;
     defReduced = Math.min(defReduced, getStat(target, 'def'));
     declarations.push({ type: EFFECT_TYPES.BREAK_DEF, value: defReduced, source: unit, target: target, factData: { attackerName: unit.name, targetName: target.name, reduce: defReduced } });
@@ -227,13 +228,14 @@ export function registerWarriorExecute(eventBus) {
 }
 
 export function registerFortifyShield(eventBus) {
-    function tryFortify(unit, chance, group, log, label) {
+    // chanceRatio = 触发概率（口径 1 = 100%，来自 roles.防战.fortify）；比较前 ×100 回到百分点域
+    function tryFortify(unit, chanceRatio, group, log, label) {
         if (!unit.alive || unit.role !== ROLE_TYPES.DEFENDER) return;
         const fortifyThisRound = unit.state._fortifyThisRound || 0;
         const increment = unit.state._fortifyIncrement || C.FORTIFY_INCREMENT;
         const cap = unit.state._fortifyCap || C.FORTIFY_CAP;
         if (fortifyThisRound + increment > cap) return;
-        if (getBattleRng().nextInt(1, 100) > chance) return;
+        if (getBattleRng().nextInt(1, 100) > chanceRatio * 100) return;
         Object.assign(unit.state, { _fortifyStacks: unit.state._fortifyStacks + increment, _fortifyThisRound: fortifyThisRound + increment });
         addMod(unit, 'def', { source: '坚盾', value: increment, ttl: 'permanent', group: 'fortify', op: 'add' });
         const entry = { factType: FACT_TYPES.FORTIFY_SHIELD, data: { unitName: unit.name, label, increment, current: fortifyThisRound + increment, cap } };

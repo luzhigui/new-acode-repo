@@ -1,5 +1,5 @@
-// V6.4.0 | ~42100 bytes | 2026-09-29 韦一笑吸血技能改名：寒冰掌 → 蝠影汲血（技能键 coldPalm → bloodSiphon）；承接 V6.3.9 参数体系收敛批 3（张无忌近战上限/融会贯通系数、小昭·妹飞天血量档位/次数/惑心概率改读 CONFIG；幼狮成长与召唤参数直读内容表）
-export const VER = 'modules/27elite-mingjiao.js V6.4.0';
+// V6.4.1 | ~48500 bytes | 2026-09-29 参数单位口径统一为「1 = 100%」：蝠影汲血吸血率/乾坤衍生折算/小昭·妹双连击概率改按比例读取（吸血与折算先 ×100 还原原算式）；承接 V6.4.0 韦一笑吸血技能改名（寒冰掌 → 蝠影汲血，技能键 coldPalm → bloodSiphon）
+export const VER = 'modules/27elite-mingjiao.js V6.4.1';
 
 import { registerElite } from '../core/08-elite-registry.js';
 import { CONFIG, getSkillParams } from '../core/01config-5v5-test.js';
@@ -136,7 +136,10 @@ export function createWeiYixiaoComponent() {
                 const s = getSkillParams('韦一笑', 'bloodSiphon');
                 if (!s) throw new Error('缺技能参数: 韦一笑.bloodSiphon');
                 const lostPct = (target.maxHp - target.hp) / target.maxHp;
-                const leechRate = (s.leechMin + (s.leechMax - s.leechMin) * lostPct) / 100;
+                // 吸血率：入库口径 1 = 100%，先 ×100 还原成百分点再线性插值（与旧 5%→50% 逐位一致）
+                const leechMinPct = s.leechMin * 100;
+                const leechMaxPct = s.leechMax * 100;
+                const leechRate = (leechMinPct + (leechMaxPct - leechMinPct) * lostPct) / 100;
                 const heal = Math.max(1, Math.floor(reboundDmg * leechRate));
                 const wasFullHp = (target.hp >= target.maxHp);
                 const oldMaxHp = target.maxHp;
@@ -212,7 +215,7 @@ export function createXiaoZhaoSisterComponent() {
                 const dmg = data.unit ? atkStat * (atkStat / (atkStat + defStat)) : 0;
                 const s = getSkillParams('小昭', 'qianKunDerived');
                 if (!s) throw new Error('缺技能参数: 小昭.qianKunDerived');
-                const reduce = Math.max(1, Math.floor(dmg * defStat / s.defToReduce));
+                const reduce = Math.max(1, Math.floor(dmg * defStat / (s.defToReduce * 100)));
                 if (!data.declarations) data.declarations = [];
                 data.declarations.push({
                     type: EFFECT_TYPES.DMG_REDUCTION,
@@ -224,9 +227,9 @@ export function createXiaoZhaoSisterComponent() {
                 if (aliveAllies.length > 0) {
                     const rng = getBattleRng();
                     const healTarget = aliveAllies[rng.nextInt(0, aliveAllies.length - 1)];
-                    const heal = Math.max(1, Math.floor(getStat(healTarget, 'def') / s.defToHeal));
+                    const heal = Math.max(1, Math.floor(getStat(healTarget, 'def') / (s.defToHeal * 100)));
                     const atkTarget = aliveAllies[rng.nextInt(0, aliveAllies.length - 1)];
-                    const atkGain = Math.max(1, Math.floor(getStat(atkTarget, 'def') / s.defToAtk));
+                    const atkGain = Math.max(1, Math.floor(getStat(atkTarget, 'def') / (s.defToAtk * 100)));
                     applyStatChange(healTarget, 'hp', heal, xiaoZhao, '乾坤衍生治疗');
                     applyStatChange(atkTarget, 'atk', atkGain, xiaoZhao, '乾坤衍生加攻');
                     if (atkTarget.state._baseAtk !== undefined) atkTarget.state._baseAtk += atkGain;
@@ -568,8 +571,9 @@ export function createXiaoZhaoBrotherComponent() {
                 if (hasBuff(A._activeBuffs, BUFF_TYPES.DOUBLE_STRIKE)) return;
                 const s = getSkillParams('小昭', 'spiderFly');
                 if (!s) throw new Error('缺技能参数: 小昭.spiderFly');
-                const chance = s.xiaoZhaoDoubleStrikeChance;
-                if (getBattleRng().nextInt(1, 100) <= chance) {
+                // 概率口径 1 = 100%，比较前 ×100 回到百分点域（骰子仍是 nextInt(1, 100)）
+                const chancePct = s.xiaoZhaoDoubleStrikeChance * 100;
+                if (getBattleRng().nextInt(1, 100) <= chancePct) {
                     Object.assign(unit.state, { _xiaoZhaoDoubleStriked: true });
                     log.push({ factType: FACT_TYPES.SPIDER_DOUBLE_STRIKE, data: {} });
                     if (!data.extraRequests) data.extraRequests = [];
@@ -721,9 +725,18 @@ export function createXieXunComponent() {
                 const gain = inspire.atkPerHit;
                 const targets = myTeam.filter(u => u.alive);
                 if (targets.length === 0) return;
+                const inspireTargets = [];
                 for (const t of targets) {
                     addMod(t, 'atk', { source: '振奋', value: gain, ttl: 'permanent', group: 'lionInspire', op: 'add' });
+                    inspireTargets.push({ unitName: t.name, atkDelta: gain });
                     emitEvent(t, UNIT_EVENT_TYPES.HP_CHANGE, { hp: t.hp, maxHp: t.maxHp, alive: t.alive, atk: getStat(t, 'atk'), def: getStat(t, 'def') });
+                }
+                // 数值声明 fact：一次触发给多人各 +gain，用 targets 名单承载（供体检对照器按 group='lionInspire' 比对）
+                if (data.log) {
+                    data.log.push({
+                        factType: FACT_TYPES.LION_INSPIRE,
+                        data: { targets: inspireTargets }
+                    });
                 }
                 // 2026-09-24 狮吼演出改由表现层发：引擎在「生成步」时就 emit 会让吼抢在画面前面
                 //   （随动出手的演出被 isLinkAttack 延后 1400ms、苦练延后 1200ms），看起来像「母狮出手反而吼」。

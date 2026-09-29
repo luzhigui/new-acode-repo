@@ -50,7 +50,11 @@ export const FACT_TYPES = Object.freeze({
     // 召唤（谢逊狮子 / 灭绝召唤周芷若）
     SUMMON_UNIT: 'summonUnit',
     // 谢逊幼狮成长（一回合后按位置成形为雄狮 / 母狮）
-    LION_GROW: 'lionGrow'
+    LION_GROW: 'lionGrow',
+    // 数值声明 fact（供体检对照器比对「声明 vs 账本 group 实际增量」；不进画面，只进 step.log）
+    BAGUA_ARRAY: 'baguaArray',
+    RAGE_ON_HIT: 'rageOnHit',
+    LION_INSPIRE: 'lionInspire'
 });
 
 /** Buff 类型：buff.key 唯一来源（与 CONFIG.BUFFS / XIAO_ZHAO_PERMANENT_BUFFS 11 项对应） */

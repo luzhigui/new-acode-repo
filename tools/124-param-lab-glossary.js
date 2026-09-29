@@ -1,5 +1,10 @@
-// tools/120-param-lab-glossary.js - 参数中文说明表（只读展示用，不参与战斗）
-// V2.3.0 | 预估 38600 bytes | 2026-09-29 参数单一真值源收口（配合 content/200 + core/01 DESC_TRUTH）：
+// tools/124-param-lab-glossary.js - 参数中文说明表（只读展示用，不参与战斗）
+// V2.4.0 | 预估 42600 bytes | 2026-09-29 参数单位口径统一为「1 = 100%」：原先按「10 = 10%」直读的
+//   那批字段（skills.params 的 qianKun/qianKunUpgraded/qianKunDerived/bloodSiphon/spiderFly、
+//   CONFIG.WARRIOR_BREAK_DEF_TIERS.chance、roles.防战.fortify）已全部 ÷100 改写、读取点同步改，
+//   本表的 PCT100 白名单与 UNIT.pct100 随之退役 —— 显示只剩一种口径（0.12 → 12%），
+//   「改成」输入框填人话值、落盘一律 ÷100，不再有「填 15 存 15」的第二套。
+// V2.3.1 | 预估 38600 bytes | 2026-09-29 路径改名（原 120-param-lab-glossary.js）；V2.3.0 参数单一真值源收口（配合 content/200 + core/01 DESC_TRUTH）：
 //   ① MIRRORED_SKILL_FIELDS **退役为空表** —— 原先它登记的是「skills.params 与 mechanics 各存一份、
 //      只显示一份」的镜像字段；这些死副本已从 content/200game-data.json 删除，同一数值不再有两处登记，
 //      表因此清空（保留空表+说明；若将来又出现两处登记，本表会重新长出条目，156 规则也会报警）；
@@ -29,7 +34,7 @@
 
 import { getSkillDesc } from '../core/01config-5v5-test.js';
 
-export const VER = 'tools/120-param-lab-glossary.js V2.2.0';
+export const VER = 'tools/124-param-lab-glossary.js V2.4.0';
 
 // mechanics 里出现的 type → 中文技能名（+ 可选：对应 skills.<key>，用来取原文说明）
 export const TYPE_GLOSSARY = {
@@ -54,25 +59,18 @@ export const TYPE_GLOSSARY = {
 };
 
 // 数值的单位口径：
-//   pct    = 「1 就是 100%」的比例（mechanics 一律用这个）；
-//   pct100 = 「10 就是 10%」的百分数直读（skills.params 的部分字段，见 PCT100 白名单）；
+//   pct    = 「1 就是 100%」的比例（全项目唯一口径：0.12 = 12%）；
 //   mul = 倍率；round = 回合；point = 点数；raw = 原值
-const UNIT = { pct: 'pct', pct100: 'pct100', mul: 'mul', round: 'round', point: 'point', raw: 'raw' };
+const UNIT = { pct: 'pct', mul: 'mul', round: 'round', point: 'point', raw: 'raw' };
 export { UNIT };
 
-// 百分数直读字段白名单，键 = 「上下文.字段」：
-//   角色技能表用技能 key（如 nineYang.reducePct）；全局常量用 CONFIG 键（如 WARRIOR_BREAK_DEF_TIERS.chance）。
-// 不在表里的 pct 类字段一律按 mechanics 口径（1 = 100%）显示 —— 这是绝大多数情况。
-const PCT100 = new Set([
-    'nineYang.healPct', 'nineYang.healRatio',
-    'bloodSiphon.leechMin', 'bloodSiphon.leechMax',
-    'bloodDodge.minRatio', 'bloodDodge.maxRatio',
-    'qianKun.reducePct', 'qianKun.reboundPct', 'qianKun.selfDmgPct',
-    'qianKunUpgraded.reducePct', 'qianKunUpgraded.reboundPct', 'qianKunUpgraded.selfDmgPct',
-    'qianKunDerived.defToAtk', 'qianKunDerived.defToHeal', 'qianKunDerived.defToReduce',
-    'spiderFly.xiaoZhaoDoubleStrikeChance', 'rebelStrike.dmgBonus',
-    'WARRIOR_BREAK_DEF_TIERS.chance'
-]);
+// 退役（2026-09-29）：此处原有一张 PCT100 白名单，登记按「10 = 10%」直读的百分数字段：
+//   nineYang.healPct/healRatio、bloodSiphon.leechMin/leechMax、bloodDodge.minRatio/maxRatio、
+//   qianKun.*、qianKunUpgraded.*、qianKunDerived.*、spiderFly.xiaoZhaoDoubleStrikeChance、
+//   rebelStrike.dmgBonus、WARRIOR_BREAK_DEF_TIERS.chance，以及 FIELD_GLOSSARY 里 roles.fortify 的两项。
+//   这批数据已按 ÷100 改写（content/200 + core/01 CONFIG），引擎读取点同步改成直接使用或 ×100 还原，
+//   白名单因此删除 —— 现在任何百分数字段都按 pct（1 = 100%）显示、按 ÷100 落盘。
+//   若将来又冒出「10 = 10%」的字段，就在此处重建白名单，并让 unitOf 重新查它。
 
 // ---------------------------------------------------------------------------
 // 引擎真读字段表（2026-09-29 建）：skills.<键>.params.<字段> 里哪些字段被引擎真读。
@@ -301,7 +299,7 @@ export const FIELD_GLOSSARY = {
     reboundDmg:         { name: '反弹伤害基数', unit: UNIT.point },
     dmgMultiplier:      { name: '伤害倍率（打出伤害 × 该值）', unit: UNIT.mul },
     dmgRatio:           { name: '反击伤害比例（按受到的伤害）', unit: UNIT.pct },
-    dmgBonus:           { name: '额外伤害加成（%）', unit: UNIT.pct100 },
+    dmgBonus:           { name: '额外伤害加成（%）', unit: UNIT.pct },
     lostHpRatio:        { name: '按目标已损失生命的加成比例', unit: UNIT.pct },
     maxHpRatio:         { name: '按目标最大生命的加成比例', unit: UNIT.pct },
     currentHpRatio:     { name: '按目标当前生命的伤害比例', unit: UNIT.pct },
@@ -334,12 +332,12 @@ export const FIELD_GLOSSARY = {
     atkMul:             { name: '近战切换时「职业加成攻击」的倍数', unit: UNIT.mul },
     defMul:             { name: '近战切换时「职业加成防御」的倍数', unit: UNIT.mul },
     maxHpMul:           { name: '近战切换时「职业加成生命」的倍数', unit: UNIT.mul },
-    defToAtk:           { name: '乾坤衍生：每点防御折算的攻击（%）', unit: UNIT.pct100 },
-    defToHeal:          { name: '乾坤衍生：每点防御折算的回血（%）', unit: UNIT.pct100 },
-    defToReduce:        { name: '乾坤衍生：每点防御折算的减伤（%）', unit: UNIT.pct100 },
-    reducePct:          { name: '减伤比例（%）', unit: UNIT.pct100 },
-    reboundPct:         { name: '反弹伤害比例（%）', unit: UNIT.pct100 },
-    selfDmgPct:         { name: '每次施放自损比例（%）', unit: UNIT.pct100 },
+    defToAtk:           { name: '乾坤衍生：每点防御折算的攻击（%）', unit: UNIT.pct },
+    defToHeal:          { name: '乾坤衍生：每点防御折算的回血（%）', unit: UNIT.pct },
+    defToReduce:        { name: '乾坤衍生：每点防御折算的减伤（%）', unit: UNIT.pct },
+    reducePct:          { name: '减伤比例（%）', unit: UNIT.pct },
+    reboundPct:         { name: '反弹伤害比例（%）', unit: UNIT.pct },
+    selfDmgPct:         { name: '每次施放自损比例（%）', unit: UNIT.pct },
     reflectRatio:       { name: '反弹伤害比例', unit: UNIT.pct },
     atkCost:            { name: '每次攻击自减的攻击力', unit: UNIT.point },
     atkFloor:           { name: '攻击力下限（自减到此值为止）', unit: UNIT.point },
@@ -354,9 +352,9 @@ export const FIELD_GLOSSARY = {
     healPct:            { name: '回血比例', unit: UNIT.pct },
     healLevels:         { name: '回血档位（按快乐层数）', unit: UNIT.pct },
     leechRatio:         { name: '吸血倍率（按打出的伤害 × 该值回血）', unit: UNIT.mul },
-    leechMin:           { name: '吸血比例下限（满血时）', unit: UNIT.pct100 },
-    leechMax:           { name: '吸血比例上限（濒死时）', unit: UNIT.pct100 },
-    xiaoZhaoDoubleStrikeChance: { name: '小昭·妹双连击概率（%）', unit: UNIT.pct100 },
+    leechMin:           { name: '吸血比例下限（满血时）', unit: UNIT.pct },
+    leechMax:           { name: '吸血比例上限（濒死时）', unit: UNIT.pct },
+    xiaoZhaoDoubleStrikeChance: { name: '小昭·妹双连击概率（%）', unit: UNIT.pct },
     healAtkDiv:         { name: '每这么多点治疗量 → 攻击 +1', unit: UNIT.point },
     healDefDiv:         { name: '每这么多点治疗量 → 防御 +1', unit: UNIT.point },
     overflowAtkDiv:     { name: '每这么多点溢出治疗 → 攻击 +1', unit: UNIT.point },
@@ -422,8 +420,8 @@ export const FIELD_GLOSSARY = {
 
     // —— 数据表（buffs/roles/roster 等）专有 ——
     deathMultiplier:    { name: '队友阵亡时的加成倍率', unit: UNIT.mul },
-    attackChance:       { name: '防战选择攻击的概率（%）', unit: UNIT.pct100 },
-    defendChance:       { name: '防战选择防御的概率（%）', unit: UNIT.pct100 },
+    attackChance:       { name: '防战选择攻击的概率（%）', unit: UNIT.pct },
+    defendChance:       { name: '防战选择防御的概率（%）', unit: UNIT.pct },
     eliteRate:          { name: '该精英被抽中的权重', unit: UNIT.pct },
     power:              { name: '强度预算（power）', unit: UNIT.point },
     targetPower:        { name: '该关目标强度预算', unit: UNIT.point },
@@ -480,7 +478,6 @@ function pctText(v) {
 /** 数值 → 人话。显示口径统一：比例一律是 12% 这种，不再露出 0.12 这类存储形态 */
 export function fmtValue(v, unit) {
     if (unit === UNIT.pct) return `${pctText(v)}%`;
-    if (unit === UNIT.pct100) return `${v}%`;
     if (unit === UNIT.mul) return `${v} 倍`;
     if (unit === UNIT.round) return `${v} 回合`;
     return String(v);
@@ -488,8 +485,7 @@ export function fmtValue(v, unit) {
 
 /**
  * 「改成」输入框里填的人话值 → 落盘存储值。
- * 比例字段的存储口径有两套：白名单（10 = 10%）原样写入；其余（1 = 100%）除以 100。
- * 必须按字段的存储口径换算，否则「改了没反应」（该原样写的被除了）或「直接爆炸」（该除的没除）。
+ * 比例字段的存储口径只有一种（1 = 100%），填 15 就落 0.15。
  */
 export function humanToStored(v, unit) {
     if (unit === UNIT.pct) return v / 100;
@@ -498,7 +494,7 @@ export function humanToStored(v, unit) {
 
 /** 「改成」输入框的填写提示：按该字段的单位说清楚填什么 */
 export function inputHint(unit) {
-    if (unit === UNIT.pct || unit === UNIT.pct100) return '填 12 表示 12%';
+    if (unit === UNIT.pct) return '填 12 表示 12%';
     if (unit === UNIT.mul) return '填 1.5 表示 1.5 倍';
     if (unit === UNIT.round) return '填回合数，如 3';
     if (unit === UNIT.point) return '填点数，如 3';
@@ -507,7 +503,7 @@ export function inputHint(unit) {
 
 /** 单位换算的一句话说明（说明区用） */
 function unitLine(unit) {
-    if (unit === UNIT.pct || unit === UNIT.pct100) return '单位：百分数 —— 填 12 就表示 12%。';
+    if (unit === UNIT.pct) return '单位：百分数 —— 填 12 就表示 12%。';
     if (unit === UNIT.mul) return '单位：倍率 —— 填 1.5 就表示 1.5 倍。';
     if (unit === UNIT.round) return '单位：回合数。';
     if (unit === UNIT.point) return '单位：点数（直接加在属性上的数值）。';
@@ -544,9 +540,8 @@ function lastField(parts, root) {
     return { field, slot: total ? `（第 ${Number(last) + 1}/${total} 档）` : `（第 ${Number(last) + 1} 项）` };
 }
 
-/** 单位解析：pct100 白名单优先，其次字段表默认单位 */
-function unitOf(field, ctx, layer, owner) {
-    if (PCT100.has(`${ctx}.${field}`)) return UNIT.pct100;
+/** 单位解析：全项目只有一套口径，直接按字段表默认单位（未登记 = raw 原值） */
+function unitOf(field, layer, owner) {
     if (layer === 'data' && owner === 'buffs' && (field === 'atkBonus' || field === 'defBonus' || field === 'hpBonus')) return UNIT.pct;
     const fg = FIELD_GLOSSARY[field];
     return fg ? fg.unit : UNIT.raw;
@@ -582,7 +577,7 @@ function buildCharacter(path, parts, root, meta) {
     const { field, slot } = lastField(parts, root);
     const fg = FIELD_GLOSSARY[field];
     const skill = (meta && meta.skill) || parts[parts.indexOf('skills') + 1] || '战斗参数';
-    const unit = unitOf(field, skill, 'character', char);
+    const unit = unitOf(field, 'character', char);
     const fieldName = (fg ? fg.name : field) + slot;
 
     const skillIdx = parts.indexOf('skills');
@@ -624,9 +619,7 @@ function buildGeneric(path, parts, root, layer, meta) {
     const fg = FIELD_GLOSSARY[field];
     const owner = (meta && meta.owner) || parts[0];
     const isConfig = layer === 'config';
-    // 单位白名单的上下文：CONFIG 用常量键（如 WARRIOR_BREAK_DEF_TIERS.chance），数据表用表名（如 buffs.atkBonus）
-    const ctx = isConfig ? parts[0] : owner;
-    const unit = unitOf(field, ctx, layer, owner);
+    const unit = unitOf(field, layer, owner);
     const ownerName = isConfig ? (CONFIG_KEY_GLOSSARY[parts[0]] || parts[0]) : (DATA_KEY_GLOSSARY[owner] || owner);
     const relParts = parts.slice(1);
     // 数据表里带中文名的层级用中文名（如 buffs.carry → 你就是carry），避免英文键名露在界面上

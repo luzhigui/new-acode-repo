@@ -141,6 +141,11 @@ export const FACT_SPECS = Object.freeze({
     // 召唤 / 幼狮成长（谢逊狮子、灭绝召唤周芷若）
     [FACT_TYPES.SUMMON_UNIT]: { requiredFields: ['summonName', 'pos'], renderFn: 'renderSummonUnitFact', translateFn: null },
     [FACT_TYPES.LION_GROW]: { requiredFields: ['name', 'pos'], renderFn: 'renderLionGrowFact', translateFn: null },
+
+    // 数值声明 fact（体检对照器专用；renderFn:null = 无渲染，不进画面）
+    [FACT_TYPES.BAGUA_ARRAY]:  { requiredFields: ['unitName', 'atkDelta', 'defDelta'], renderFn: null, translateFn: null },
+    [FACT_TYPES.RAGE_ON_HIT]:  { requiredFields: ['unitName', 'atkDelta'], renderFn: null, translateFn: null },
+    [FACT_TYPES.LION_INSPIRE]: { requiredFields: ['unitName', 'targets'], renderFn: null, translateFn: null },
 });
 
 /**

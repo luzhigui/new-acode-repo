@@ -6,7 +6,7 @@
 // V1.3.1 | 2026-09-29 SCAN_FILES 补登 ./health-rules/156-desc-truth-drift.js（技能说明数字 == 引擎真值
 //         单源守卫，import core/01；入册后本扫描可发现该 import 路径断裂）
 // V1.3.0 | 2026-09-29 SCAN_FILES 补登 ./param-read-guard.mjs（skills.params 引擎真读字段漂移守卫，
-//         跨目录 import tools/120-param-lab-glossary.js；入册后本扫描可发现该 import 路径断裂）
+//         跨目录 import tools/124-param-lab-glossary.js；入册后本扫描可发现该 import 路径断裂）
 // V1.2.0 | 2026-09-26 补回 Node CLI 自举 —— 此前 node 下零输出＝**假绿**：本实例历史停在 V1.0.1
 //         （只有 export，没有任何执行入口），`node tests/123static-scan.js` 不扫描、不打印、退出码恒 0，
 //         等于这段时间"静态快检通过"是句空话。现补 IS_NODE 分支：垫 file:// fetch + window.location，
@@ -64,7 +64,7 @@ export const SCAN_FILES = [
     // 两个活跃 runner 此前漏登（第 23 轮补）：它们同样 import 主代码符号，改名/删除会断裂，
     //   不进清单就扫不到。tools/106 打包清单仍未登记这两个（属工具侧，只报不动）。
     './rules-replay.mjs', './smoke-headless.mjs', './registration-check.mjs', './coverage-report.mjs',
-    // 2026-09-29 新增：skills.params 引擎真读字段漂移守卫。它跨目录 import tools/120-param-lab-glossary.js，
+    // 2026-09-29 新增：skills.params 引擎真读字段漂移守卫。它跨目录 import tools/124-param-lab-glossary.js，
     //   入册以便本扫描能发现该 import 路径断裂（改名/删除即断裂）。
     './param-read-guard.mjs',
     './health-rules/123-claw-heal-spam.js', './health-rules/124-aftermiss.js',
