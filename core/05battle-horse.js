@@ -1,5 +1,5 @@
-// V6.3.0 | ~7700 bytes | 2026-09-26 spawnUnit 的 stats 改口径为基础值，随后照常叠职业加成（skipRoleBonus 可豁免）
-export const VER = 'core/05battle-horse.js V6.3.0';
+// V6.3.1 | ~7700 bytes | 2026-09-29 参数体系收敛批 3：拒马预算 M 改读 CONFIG.HORSE_M；销毁概率去掉字面兜底 0.5 直读内容表 destroyProb
+export const VER = 'core/05battle-horse.js V6.3.1';
 
 import { CONFIG } from './01config-5v5-test.js';
 import { hasBuff } from './03battle-utils.js';
@@ -23,7 +23,7 @@ export function spawnHorse(allyTeam, log, enemyTeam, force = false) {
         [available[i], available[j]] = [available[j], available[i]];
     }
     let horsePos = available[0];
-    let horse = new Unit('拒马', 15, ROLE_TYPES.DEFENDER, allyTeam[0].camp);
+    let horse = new Unit('拒马', C.HORSE_M, ROLE_TYPES.DEFENDER, allyTeam[0].camp);
     const xiaoHEnhance = query('xiaoHexEnhance', allyTeam, allyTeam._activeBuffs || [], BUFF_TYPES.HORSE_FORMATION);
     horse.atk = 0;
     // 拒马血量系数分档：按 50% 血量占位取档，唯一来源 02unit.getHpDmgRatio（原先此处硬编码 0.06）
@@ -84,7 +84,7 @@ export function destroyHorse(allyTeam, log) {
 
     // 连续销毁概率递减，失败重置。基数唯一来源 gameData.buffs.horseFormation.destroyProb
     // （2026-09-14 参数三源收敛：原先硬编码 50，改数据里 destroyProb 不生效）
-    const baseProb = Math.round((C.BUFFS?.horseFormation?.destroyProb ?? 0.5) * 100);
+    const baseProb = Math.round(C.BUFFS?.horseFormation?.destroyProb * 100);
     let currentProb = baseProb;
     const rng = getBattleRng();
     for (const horse of horses) {

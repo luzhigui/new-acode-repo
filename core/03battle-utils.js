@@ -1,5 +1,5 @@
-// V6.1.4 | ~15800 bytes | 2026-09-27 概率连击成功 fact 补 unitName（与失败分支对称）：banner 此前不带单位，体检 146 只能靠「banner 之后第一条攻击者的名字」反推触发者，母狮随动链/他人回合插在中间即误报；承接 V6.1.3 战士破防改为「只提交声明」
-export const VER = 'core/03battle-utils.js V6.1.4';
+// V6.1.5 | ~15800 bytes | 2026-09-29 参数体系收敛批 3：低血阈值/斩杀阈值/张无忌近战上限改读 CONFIG；去掉 BASE_DODGE_*、WARRIOR_BREAK_CHANCE_PER_DEF、doubleStrike.prob 的死兜底
+export const VER = 'core/03battle-utils.js V6.1.5';
 
 import { CONFIG, getGameData } from './01config-5v5-test.js';
 import { emitEvent, applyStatChange, query, getBattleRng, getPresentationRng, addMod, getStat } from './13battle-shared.js';
@@ -69,10 +69,10 @@ export function canBeTargeted(unit) {
 }
 
 export function getFlyDodgeRate(unit, attacker) {
-    const FLY_BASE_DODGE = C.BASE_DODGE_FLY || 0.15;
+    const FLY_BASE_DODGE = C.BASE_DODGE_FLY;
     if (unit.state._canAlwaysDodge) return FLY_BASE_DODGE;
     if (unit.role === ROLE_TYPES.FLYER) return FLY_BASE_DODGE;
-    return C.BASE_DODGE_GROUND || 0.03;
+    return C.BASE_DODGE_GROUND;
 }
 
 // 2026-09-16 攻击未命中率：唯一算法源（12battle-attack-steps 与详情弹窗同源调用，改算法只改这里）
@@ -89,7 +89,7 @@ export function getMissBreakdown(unit, allySide, enemySide) {
         total = C.FLY_MISS_CHANCE;
         sources.push({ label: '飞行基础', value: C.FLY_MISS_CHANCE });
         const allUnits = [...(allySide || []), ...(enemySide || [])];
-        const lowHpCount = allUnits.filter(u => u.alive && u.hp / u.maxHp < 0.4).length;
+        const lowHpCount = allUnits.filter(u => u.alive && u.hp / u.maxHp < C.LOW_HP_THRESHOLD).length;
         if (lowHpCount > 0) {
             const v = lowHpCount * C.FLY_MISS_LOWHP_BONUS;
             total += v;
@@ -128,7 +128,7 @@ export function getKillTaunt(unit) {
     return pool[rng.nextInt(0, pool.length - 1)];
 }
 export function getZhangNearTaunt(nearAtkCount) {
-    if (nearAtkCount < 1 || nearAtkCount > 3) return null;
+    if (nearAtkCount < 1 || nearAtkCount > C.ZHANG_NEAR_ATK_LIMIT) return null;
     const pool = getGameData().taunts.zhangNear;
     return pool[nearAtkCount - 1] || null;
 }
@@ -144,7 +144,7 @@ export function hasAnyEnemyEmptyCol(enemySide) {
     return cols.some(poses => !enemySide.some(u => u.alive && poses.includes(u.pos)));
 }
 
-export function hasEnemyLowHp(enemySide, threshold = 0.4) {
+export function hasEnemyLowHp(enemySide, threshold = C.LOW_HP_THRESHOLD) {
     return enemySide.some(u => u.alive && u.hp / u.maxHp < threshold);
 }
 
@@ -158,7 +158,7 @@ function submitWarriorBreakDefenseDeclaration(data) {
     const tier = (C.WARRIOR_BREAK_DEF_TIERS || []).find(t => t.defMax === null || targetDef <= t.defMax)
         || { reduce: C.WARRIOR_BREAK_DEF, chance: null };
     let defReduced = tier.reduce;
-    let breakChance = tier.chance === null ? targetDef * (C.WARRIOR_BREAK_CHANCE_PER_DEF ?? 2.5) : tier.chance;
+    let breakChance = tier.chance === null ? targetDef * C.WARRIOR_BREAK_CHANCE_PER_DEF : tier.chance;
     if (getBattleRng().nextInt(1, 100) > breakChance) return;
     defReduced = Math.min(defReduced, getStat(target, 'def'));
     declarations.push({ type: EFFECT_TYPES.BREAK_DEF, value: defReduced, source: unit, target: target, factData: { attackerName: unit.name, targetName: target.name, reduce: defReduced } });
@@ -202,7 +202,7 @@ function submitWarriorExecuteDeclaration(data) {
     if (!target || !target.alive || target.hp <= 0) return;
     const unitBuffs = (allySide && allySide._activeBuffs) || [];
     const hasBloodthirst = hasBuff(unitBuffs, BUFF_TYPES.BLOODTHIRST);
-    const threshold = hasBloodthirst ? 0.20 : 0.15;
+    const threshold = hasBloodthirst ? C.EXEC_THRESHOLD_BLOODTHIRST : C.EXEC_THRESHOLD;
     if (target.hp <= target.maxHp * threshold) {
         if (!declarations) return;
         declarations.push({
@@ -276,7 +276,7 @@ export function registerDoubleStrike(eventBus, doubleStrikeUnitUid, allyTeam, ac
         const { unit, target, log } = data;
         if (unit.uid !== doubleStrikeUnitUid || !unit.alive || unit.state._doubleStriked) return;
         const xiaoDoubleEnhance = query('xiaoHexEnhance', allyTeam, activeBuffs, BUFF_TYPES.DOUBLE_STRIKE);
-        const missChainChance = xiaoDoubleEnhance ? 1.0 : (C.BUFFS.doubleStrike.prob || 0.8);
+        const missChainChance = xiaoDoubleEnhance ? 1.0 : C.BUFFS.doubleStrike.prob;
         if (getBattleRng().next() < missChainChance) {
             // 2026-09-27 补 unitName：原成功分支不带单位，而渲染出的 banner 也没有单位字段，
             //   体检 146 只能靠「banner 之后第一条 attack-group 的攻击者」反推触发者 ——

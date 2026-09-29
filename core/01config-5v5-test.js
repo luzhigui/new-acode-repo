@@ -1,5 +1,5 @@
-// V6.2.1 | ~7200 bytes | 2026-09-26 防战留存系数顶级档 6.66 → 2.66（FANG_K 末档，原值等于「防御×6.66」自伤式高防）
-export const VER = 'core/01config-5v5-test.js V6.2.1';
+// V6.2.5 | ~10400 bytes | 2026-09-29 参数体系收敛批 3：战斗通用规则常量收进 CONFIG——低血/斩杀阈值、拒马 M、热血奋战间隔、防御波动阈值、小昭飞天档位/次数/惑心概率、张无忌近战上限与融会贯通系数、全精通额外层数
+export const VER = 'core/01config-5v5-test.js V6.2.5';
 
 import { ROLE_TYPES } from '../infra/56-battle-enums.js';
 
@@ -86,7 +86,34 @@ const CONFIG = {
     FLY_MISS_EMPTYCOL_REDUCE: 12,
     FANG_LEVELS: [0.150, 0.200, 0.240, 0.270, 0.290, 0.310, 0.330, 0.350, 0.370, 0.390, 0.410, 0.430, 0.460, 0.490, 0.530, 0.570, 0.620, 0.670, 0.730, 0.800],
     FANG_K: [0.04, 0.05, 0.06, 0.07, 0.08, 0.09, 0.11, 0.12, 0.14, 0.16, 0.19, 0.22, 0.26, 0.30, 0.35, 0.46, 0.66, 0.88, 1.16, 2.66],
+    // 防战血量伤害系数（z 值）分档表：按初始血量占比锁档，占比越高档位越高（core/02 getHpDmgRatio）
+    // 血量生成区间为 [0.4m, 0.6m]，占比达不到 0.57 以上极少，故最高档门槛为 0.57
+    HP_DMG_RATIO_TIERS: [
+        { min: 0.57, ratio: 0.06 },
+        { min: 0.54, ratio: 0.05 },
+        { min: 0.51, ratio: 0.04 },
+        { min: 0.48, ratio: 0.03 },
+        { min: 0.45, ratio: 0.025 },
+        { min: 0.43, ratio: 0.02 }
+    ],
+    HP_DMG_RATIO_FLOOR: 0.015,
+    // 属性生成（core/02 Unit.init / initXiaoZhao）
+    HP_ROLL_RANGE: [0.4, 0.6],       // 血量掷点区间（× m）
+    HP_TO_MAXHP_MUL: 2.5,            // 掷出血量 → 生命上限 倍率
+    XIAO_ZHAO_HP_ROLL: 0.5,          // 小昭血量分配比例（floor(m × 该值)），兼作她的 _hpDmgRatio 占比
+    DEFENDER_DEF_ROLL: [0.5, 1],     // 防战防御掷点区间（× rem，上界再夹到 rem-1）
+    DEFENDER_ATK_DEF_MAXGAP: 20,     // 防战约束：防 - 攻 ≤ 该值
+    DPS_DEF_ROLL: [0.3, 0.5],        // 非防战防御掷点区间（× rem）
+    DPS_ATK_DEF_GAP: [3, 13],        // 非防战约束：攻 - 防 ∈ 该区间
+    // 胖远桥「正义国字脸 / 年轻气盛」二选一阈值（modules/26）：
+    //   T = min(cap, base + (atk - atkRef) / atkDiv)；p_打歪 = clamp((1 - 血量比) / (1 - T), 0, 1)
+    PANG_CLUMSY_FORMULA: { base: 0.10, atkRef: 30, atkDiv: 200, cap: 0.95 },
     MAX_ROUND: 35,
+    HEX_INTERVAL: 3,
+    // 精英出场人数骰（29battle-init 用）：<0.05 出 3 人 / <0.20 出 2 人 / <0.80 出 1 人 / 其余 0 人
+    ELITE_COUNT_THRESHOLDS: [0.05, 0.20, 0.80],
+    // 小昭形态骰（29battle-init 用）：默认 50% 为「小昭·姊」；图鉴选 xz 偏向姊、选 xm 偏向妹
+    XIAO_ZHAO_SISTER_PROB: { default: 0.5, xz: 0.85, xm: 0.15 },
     BASE_DODGE_FLY: 0.15,
     BASE_DODGE_GROUND: 0.03,
     DODGE_REBOUND_RATIO: 0.5,
@@ -165,6 +192,33 @@ const CONFIG = {
         [ROLE_TYPES.FLYER]: [1, 2, 3, 4, 5, 6, 7, 8, 9],
         [ROLE_TYPES.RANGED]: [7, 8, 9, 4, 5, 6, 1, 2, 3]
     },
+    // 六大派精英按身份覆盖的站位优先表（身份优先于上面的职业表；modules/29 用）
+    ENEMY_ELITE_POS_PRIORITY: {
+        chengKun: [1, 2, 3, 4, 5, 6, 7, 8, 9],
+        mieJueShiTai: [2, 1, 3, 4, 5, 6, 7, 8, 9],
+        pangYuanQiao: [2, 1, 3, 4, 5, 6, 7, 8, 9],
+        luZhangKe: [7, 8, 9, 4, 5, 6, 1, 2, 3],
+        heBiWeng: [3, 4, 5, 6, 7, 8, 9, 1, 2]
+    },
+    ENEMY_ELITE_POS_FALLBACK: [1, 2, 3, 4, 5, 6, 7, 8, 9],
+    // 阵容 power 兜底（modules/29 用）
+    MING_TARGET_POWER_FALLBACK: 500,  // 关卡目标 power 兜底（第 1 关未在 encounters.mingTargetPower 列出）
+    POWER_FALLBACK: 90,               // 单卡 power 兜底（= roster.normalPower 最低档）
+    XUANMING_EXTRA_M: 104,            // 第 5 关玄冥二老齐出时额外补的普通兵 M 值
+
+    // ── 参数体系收敛批 3：战斗通用规则常量 ──
+    LOW_HP_THRESHOLD: 0.4,                 // 低血判据阈值（03 攻击未命中残血光环 / hasEnemyLowHp 默认）
+    EXEC_THRESHOLD: 0.15,                  // 战士斩杀阈值（03）
+    EXEC_THRESHOLD_BLOODTHIRST: 0.20,      // 嗜血状态下战士斩杀阈值（03）
+    HORSE_M: 15,                           // 拒马单位预算 M（05 spawnHorse）
+    HOT_BLOOD_CRIT_INTERVAL: 3,            // 热血奋战双倍吸血间隔（04）
+    DEF_WAVE_THRESHOLD: 7,                 // 攻击波动「防御波动」台词阈值（12，defVar + hpBonus 达标）
+    SPIDER_FLY_HP_THRESHOLDS: [0.7, 0.4],  // 小昭·妹飞天触发的血量占比档（27，按序取：70% → 40%）
+    SPIDER_MIND_CONTROL_CHANCE: 0.15,      // 永久惑心误伤概率（27）
+    XIAO_ZHAO_CARRY_MODS: { atk: 3, def: 4, maxHp: 20 },  // 小昭·妹永久 carry 加成（27）
+    ZHANG_NEAR_ATK_LIMIT: 3,               // 张无忌近战次数上限（融会贯通，27 / 03）
+    ZHANG_RONGHUI_RATIO: 0.5,              // 融会贯通额外伤害系数（27）
+    MASTERY_FULL_BONUS_LAYERS: 2,          // 小昭全精通后额外加的层数（20）
 
     get ELITE_POOL() {
         return getGameData().encounters.elitePool;

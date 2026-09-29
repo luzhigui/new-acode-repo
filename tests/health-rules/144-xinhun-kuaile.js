@@ -12,7 +12,7 @@
 //   - 性奋代价有 `unit.maxHp > 1` 保底（core/15），宋青书上限被扣到 ≤2 时合法地不再扣 → 此时跳过配对校验
 //   - 只按文本解析，不依赖 fact 层字段（渲染层会抹掉 factType/data，见 141 的口径说明）
 //   - 本场无新婚条目直接 skip（宋青书/周芷若为随机精英，常不同场）
-export const VER = 'tests/health-rules/144-xinhun-kuaile.js V6.1.11';
+export const VER = 'tests/health-rules/144-xinhun-kuaile.js V6.1.20';
 import { entryTexts } from '../122health-utils.js';
 
 // 当前版本数值（对照 记录-更改履历.md / content/200game-data.json 宋青书.xinHun）
@@ -59,7 +59,15 @@ export const rule91 = {
                 }
                 if (s.indexOf('💗 性奋代价') !== -1) {
                     var xm = s.match(/（-(\d+)）/);
-                    if (xm) xingfen.push({ penalty: parseInt(xm[1], 10) });
+                    // 第 43 轮补：连同「血量上限 A → B」一起解析 —— 用于 fact 内部自洽判据（见下方信号0）。
+                    //   起因：T4/T5 类变异证明「只校验步长/配对」抓不到**整体平移**的错值
+                    //   （penalty 每笔 +5 后步长仍为 1，旧判据全绿）。声明与实际一对账就露馅。
+                    var mm = s.match(/血量上限\s*(\d+(?:\.\d+)?)\s*→\s*(\d+(?:\.\d+)?)/);
+                    if (xm) xingfen.push({
+                        penalty: parseInt(xm[1], 10),
+                        oldMaxHp: mm ? parseFloat(mm[1]) : null,
+                        newMaxHp: mm ? parseFloat(mm[2]) : null
+                    });
                     break;
                 }
                 if (s.indexOf('💚 快乐回血') !== -1) {
@@ -111,6 +119,26 @@ export const rule91 = {
                     return { fail: true, msg: '复发：快乐回血' + kl.heal + '点，但血量' + kl.hpBefore + '→'
                         + kl.hpAfter + ' 既非 +' + kl.heal + ' 也非回满截断（治疗量与实际血量脱节）' };
                 }
+            }
+        }
+
+        // 复发信号0（第 43 轮新增，T5 补牙）：**fact 内部自洽** —— 声明扣了多少 vs 血上限实际变了多少。
+        //   渲染（render/35 L328）：`💗 性奋代价：宋青书 血量上限 100 → 98（-2）`
+        //   penalty 只是一次「声明」，oldMaxHp/newMaxHp 才是**实际**落点；两者必须对得上。
+        //   为什么必须有它：只校验「步长==1 / 与新婚 1:1 配对」会被**整体平移**的错值绕过 ——
+        //   penalty 每笔都 +5 后序列变成 7,8,9…，步长仍是 1、配对仍成立，旧判据全绿（T5 实测即此）。
+        //   容差 1：newMaxHp 经 Math.floor 取整（modules/26 L636），oldMaxHp 是 addMod 前值可能带小数。
+        for (var z = 0; z < xingfen.length; z++) {
+            var xf = xingfen[z];
+            if (xf.oldMaxHp == null || xf.newMaxHp == null || !xf.penalty) continue;
+            // 触底截断豁免（第 43 轮实测补）：modules/26 L632 有 `unit.maxHp > 1` 保底，
+            //   宋青书上限只剩个位数时，声明扣 16 也只能扣到 1 —— 这是**设计内的合法截断**，不是脱节。
+            //   不加这条会误报（A1 变异实测 seed=18 stage=4：「声明扣 16，8 → 1」即此类）。
+            if (xf.newMaxHp <= 1) continue;
+            var delta = xf.oldMaxHp - xf.newMaxHp;   // 实际上限减少量（正数）
+            if (Math.abs(delta - xf.penalty) > 1) {
+                return { fail: true, msg: '复发：性奋代价声明扣 ' + xf.penalty + '，但血量上限 ' + xf.oldMaxHp
+                    + ' → ' + xf.newMaxHp + '（实际只变了 ' + delta + '，声明与实际脱节）' };
             }
         }
 

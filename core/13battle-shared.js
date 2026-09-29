@@ -1,7 +1,8 @@
-// V6.1.0 | ~13100 bytes | 2026-09-23 新增 resolvePushOrStun（击退/眩晕统一判定，乘风突袭与胖远桥共用）
-export const VER = 'core/13battle-shared.js V6.1.0';
+// V6.2.0 | ~15300 bytes | 2026-09-29 张无忌近战切换的 ×3 系数进内容表（skills.nearSwitch.params → atkMul/defMul/maxHpMul），
+//          消除硬编码魔法数字；缺参即抛错。参数体系收敛批 1。
+export const VER = 'core/13battle-shared.js V6.2.0';
 
-import { CONFIG } from './01config-5v5-test.js';
+import { CONFIG, getSkillParams } from './01config-5v5-test.js';
 import { getRoleBonus } from './02unit.js';
 import { pushBattleEvent } from '../infra/51-core-utils.js';
 import { FACT_TYPES, UNIT_EVENT_TYPES, ROLE_TYPES, STATE_CHANGE_TYPES } from '../infra/56-battle-enums.js';
@@ -179,10 +180,16 @@ function checkZhangSwitch(A, log) {
     let hasFrontAlly = A.some(c => c.alive && !c.isHorse && c.pos === 1 + col && c.uid !== zhang.uid);
     if (!hasFrontAlly) {
         zhang.rangedForm = false;
+        // 加成倍率走内容表（相对战士职业加成），缺失即抛错
+        const mul = getSkillParams('张无忌', 'nearSwitch');
+        if (!mul) throw new Error('缺技能参数: 张无忌.nearSwitch');
         const warriorBonus = getRoleBonus(ROLE_TYPES.WARRIOR);
-        addMod(zhang, 'atk', { source: '近战切换', value: warriorBonus.atk * 3, ttl: 'permanent', group: 'zhangSwitch', op: 'add' });
-        addMod(zhang, 'def', { source: '近战切换', value: warriorBonus.def * 3, ttl: 'permanent', group: 'zhangSwitch', op: 'add' });
-        addMod(zhang, 'maxHp', { source: '近战切换', value: warriorBonus.maxHp * 3, ttl: 'permanent', group: 'zhangSwitch', op: 'add' });
+        const atkGain = warriorBonus.atk * mul.atkMul;
+        const defGain = warriorBonus.def * mul.defMul;
+        const maxHpGain = warriorBonus.maxHp * mul.maxHpMul;
+        addMod(zhang, 'atk', { source: '近战切换', value: atkGain, ttl: 'permanent', group: 'zhangSwitch', op: 'add' });
+        addMod(zhang, 'def', { source: '近战切换', value: defGain, ttl: 'permanent', group: 'zhangSwitch', op: 'add' });
+        addMod(zhang, 'maxHp', { source: '近战切换', value: maxHpGain, ttl: 'permanent', group: 'zhangSwitch', op: 'add' });
         refreshMaxHp(zhang, null, '乾坤大挪移变身');
         zhang.role = ROLE_TYPES.WARRIOR;
         zhang.state._resting = false; Object.assign(zhang.state, { _zhangSwitched: true });
@@ -202,9 +209,9 @@ function checkZhangSwitch(A, log) {
             factType: FACT_TYPES.ZHANG_SWITCH,
             data: {
                 zhang: { uid: zhang.uid, name: zhang.name, pos: zhang.pos },
-                atkGain: warriorBonus.atk * 3,
-                defGain: warriorBonus.def * 3,
-                maxHpGain: warriorBonus.maxHp * 3
+                atkGain,
+                defGain,
+                maxHpGain
             }
         });
     }

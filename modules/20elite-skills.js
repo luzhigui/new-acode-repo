@@ -1,5 +1,5 @@
-﻿// V6.0.1 | ~11200 bytes | 2026-09-11 maxHp 词条化批3a：蛛变/精通 改 refreshMaxHp；蛛变防战 z 值查分档表；蛛变/精通/永久carry/乾坤减伤走 addMod/getStat
-export const VER = 'modules/20elite-skills.js V6.0.1';
+﻿// V6.0.2 | ~11200 bytes | 2026-09-29 参数体系收敛批 3：精通层数上界改读 CONFIG.ROLES.length、全精通额外层数改读 CONFIG.MASTERY_FULL_BONUS_LAYERS；蛛袭 extraDmgMap 索引上界改按数组长度
+export const VER = 'modules/20elite-skills.js V6.0.2';
 
 import { CONFIG, getSkillParams } from '../core/01config-5v5-test.js';
 import { getRoleBonus, getHpDmgRatio } from '../core/02unit.js';
@@ -97,7 +97,7 @@ export function applyDamageModifiers(unit, target, dmg, allySide, enemySide, log
 // 小昭·妹 — 蛛变/飞天/蛛落
 
 // 精通层数：每职业 1 层，全 4 门后 +2 层（封顶 6）
-function masteryLayers(count) { return count >= 4 ? count + 2 : count; }
+function masteryLayers(count) { return count >= CONFIG.ROLES.length ? count + CONFIG.MASTERY_FULL_BONUS_LAYERS : count; }
 
 export function spiderTransform(unit, log) {
     if (!unit.isXiaoZhaoBrother || !unit.alive) return;
@@ -174,7 +174,7 @@ export function spiderReturn(unit, allyTeam, enemySide, log) {
         const params = getSkillParams('小昭', 'spiderStrike');
         if (!params) throw new Error('缺技能参数: 小昭.spiderStrike');
         const extraDmgMap = params.extraDmgMap;
-        const extraDmg = extraDmgMap[Math.min(masteryCount, 4)] || 0;
+        const extraDmg = extraDmgMap[Math.min(masteryCount, Object.keys(extraDmgMap).length - 1)] || 0;
         const totalDmg = penetrationDmg + extraDmg;
         applyStatChange(target, 'hp', -totalDmg, unit, '蛛袭');
         log.push({

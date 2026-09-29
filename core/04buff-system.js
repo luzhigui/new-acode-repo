@@ -1,5 +1,5 @@
-// V6.2.2 | ~15500 bytes | 2026-09-25 乘风突袭波及补失败日志：80% 未中 →「波及触发失败」，未中无同行目标 →「波及无同行目标」（此前静默无提示）；承接 V6.2.1 击退取队修正（取队按 unit.camp，不再拿攻击方视角的 allySide）
-export const VER = 'core/04buff-system.js V6.2.2';
+// V6.2.3 | ~15500 bytes | 2026-09-29 参数体系收敛批 3：热血奋战双倍吸血间隔 3 改读 CONFIG.HOT_BLOOD_CRIT_INTERVAL（两处）
+export const VER = 'core/04buff-system.js V6.2.3';
 import {
     applyFortifyDef_Normal, applyFortifyDef_Sister, applyFortifyDef_Brother,
     applyCloudBodyDodge_Normal, applyCloudBodyDodge_Sister, applyCloudBodyDodge_Brother,
@@ -108,7 +108,7 @@ export function submitHotBloodDeclaration(data) {
     if (!active && !brotherActive) return;
     const leechPct = hasSister ? (query('xiaoHexEnhance', allySide, unitBuffs, BUFF_TYPES.HOT_BLOOD)?.leechPct || C.BUFFS.hotBlood.leechRatio) : C.BUFFS.hotBlood.leechRatio;
     Object.assign(unit.state, { _hotBloodCount: (unit.state._hotBloodCount || 0) + 1 });
-    const critInterval = hasSister ? (query('xiaoHexEnhance', allySide, unitBuffs, BUFF_TYPES.HOT_BLOOD)?.critInterval || 3) : 3;
+    const critInterval = hasSister ? (query('xiaoHexEnhance', allySide, unitBuffs, BUFF_TYPES.HOT_BLOOD)?.critInterval || C.HOT_BLOOD_CRIT_INTERVAL) : C.HOT_BLOOD_CRIT_INTERVAL;
     const isDouble = unit.state._hotBloodCount % critInterval === 0;
     const ratio = isDouble ? leechPct * 2 : leechPct;
     const leech = Math.min(Math.floor((unit.maxHp - unit.hp) * ratio), unit.maxHp - unit.hp);

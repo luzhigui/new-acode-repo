@@ -87,7 +87,13 @@ export const SCAN_FILES = [
     // 2026-09-22 第 8 趟新增：嗜血狂刀吸血（吸血量取整/比例上限/重复登记 + 百分比与配置一致性）
     './health-rules/151-bloodthirst-leech.js',
     // 2026-09-22 第 9 趟新增：宋青书性奋授予/消耗配额（配额守恒/同回合重复/越界人名）
-    './health-rules/152-xingfen-extra-attack.js'
+    './health-rules/152-xingfen-extra-attack.js',
+    // 2026-09-29 第 43 轮新增：流星溅射成长渲染形态（单位名缺失/同一笔重复渲染/成长量漂移）
+    './health-rules/153-meteor-growth-render.js',
+    // 2026-09-29 第 43 轮新增：生生不息回血转永久攻防的**数值**（按 content 公式反推，T4 装饰品的补牙）
+    './health-rules/154-endless-breath-gain.js',
+    // 2026-09-29 第 43 轮新增：流星成长渲染形态（⚡ undefined 单位名 / 同一笔渲染两遍）—— 干净树即红，盯既有 bug
+    './health-rules/155-meteor-growth-dup.js'
 ];
 
 // 提取文件的 static import 信息（仅静态 import 语句，跳过动态 import()）

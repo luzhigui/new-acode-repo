@@ -24,10 +24,15 @@
 //                        （modules/26elite-sixsects.js L91-92 addMod + L116-130 ENDLESS_BREATH fact 带 atkGain/defGain）
 //   5. XING_FEN_COST  性奋代价：宋青书 maxHp 应下降 penalty（modules/26elite-sixsects.js L634 addMod + L636 XING_FEN_COST fact 带 penalty）
 //                        —— 4/5 两条是第 40 轮后发现的：对应 fact 早已携带数值，只是缺契约 → 零主代码改动即可补牙。
-//   6. METEOR_SPLASH_GROWTH 流星溅射成长：远程攻击者 atk 应上升 growth（命中人数×atkPerSplash）
-//                        （core/16effect-handlers.js L173 addMod + L175 fact；该 fact 渲染链早接好却零 emit，
-//                         主代码 V6.0.3 才补上 emit，故本条**依赖主代码已提交/已落工作树**）
-//                        —— 用 factType 精确定位（RANGED_GROWTH 字段名重叠），并对「同一步远程成长也生效」做跳过守卫。
+//   ✗ 已知**不可**用本模型加牙：METEOR_SPLASH_GROWTH（流星溅射成长，A5）
+//      主代码 V6.0.3（core/16effect-handlers.js L175）已补发该 fact（实测干净树 37 条声明，fact 侧没问题），
+//      但**净增量模型仍无法给它牙齿**，第 42 轮实测两条路都走不通：
+//        ① 不加守卫 → 误报 16 处（`声明+2 实际+4`）：远程成长(+2) 与本机制**同一步必然同时作用于同一单位 atk**
+//           （都挂 AFTER_DAMAGE_APPLIED）。净增量 = 2 + growth；growth=2 时 4 = 2×2 ⇒ 被误判成翻倍。
+//           注意 RANGED_GROWTH 的 fact 嵌套在攻击 fact 的 group.data.entries（core/03 L184），不在顶层。
+//        ② 加守卫（同一步有远程成长则跳过）→ 37/37 **全部**被跳过 ⇒ declared=0 ⇒ 触发防假绿（契约空转）。
+//      → 两条路都不可用 ⇒ A5 与 A9/A2 同类，**必须 Tier2（按 group 隔离该机制自身贡献）才能真正加牙**。
+//        已撤掉该契约（保留此负面结论，避免后人复踩）。
 //
 // 第 39 轮教训（重要，关乎净增量模型的边界）：本想连同「坚盾 FORTIFY」一起加牙（其 FORTIFY_SHIELD fact 也带 increment），
 //   但实测在干净树**误报 39 处**（如「坚盾 何太冲.def 声明+1 实际+2」）。根因：本对照器用「逐步净属性增量 vs 声明」模型，
@@ -176,48 +181,6 @@ const CONTRACTS = [
                     && typeof d.defGain === 'number' && typeof d.heal === 'number') {
                     if (d.atkGain > 0) out.push({ unit: d.unitName, stat: 'atk', amount: d.atkGain });
                     if (d.defGain > 0) out.push({ unit: d.unitName, stat: 'def', amount: d.defGain });
-                }
-            }
-            return out;
-        }
-    },
-    {
-        id: 'METEOR_SPLASH_GROWTH',
-        label: '流星溅射成长',
-        dir: +1,
-        // 声明（core/16effect-handlers.js L173-175，主代码 V6.0.3 起才 emit）：
-        //   addMod(ctx.unit,'atk',{source:'流星溅射成长',value:growth,...}) 之后
-        //   ctx.log.push({ factType: FACT_TYPES.METEOR_SPLASH_GROWTH, data: { unitName: ctx.unit.name, growth } })
-        //   —— 该 fact 的 render/35:563、translate/38:229、contract/58:112 早已接好却**零 emit**，
-        //      第 42 轮由主代码补上（配套 core/12 把本步 log 透传进效果处理器 ctx）。
-        //   growth = 溅射存活命中人数 × atkPerSplash（规范值）。A5 变异把 addMod 的 value 改成 growth*2，
-        //   但 fact 仍报 growth ⇒ 实际=2×声明 ⇒ 命中。
-        //   ★ 必须用 factType 精确定位：RANGED_GROWTH（远程成长，core/03 L184）的 data 也是
-        //     { unitName, growth, newAtk } —— 字段名与本 fact 重叠，只靠字段签名会把两者混淆。
-        //   ★ 污染守卫：远程成长(+2) 与本机制**同一步都加同一单位 atk**（都挂在 AFTER_DAMAGE_APPLIED）。
-        //     若不同源隔离，净增量 = 2 + growth；当 growth=2（仅 1 人溅射存活）时 4 = 2×2 ⇒ 误报翻倍。
-        //     → 同一步该单位若有 RANGED_GROWTH 声明，本机制无法归因，跳过（宁可漏报不可误报，与全器同宗旨）。
-        extract(stepLog) {
-            const out = [];
-            // 递归收集：远程成长的 fact **嵌套在攻击 fact 的 group.data.entries 里**（core/03 L184），
-            //   不在顶层 step.log —— 只扫顶层会漏掉污染来源（第 42 轮实测：漏扫 ⇒ 16 处误报）。
-            const ranged = new Set();
-            const collectRanged = (f) => {
-                if (!f) return;
-                if (f.factType === 'rangedGrowth' && f.data && typeof f.data.unitName === 'string') {
-                    ranged.add(f.data.unitName);
-                }
-                if (f.data && Array.isArray(f.data.entries)) for (const e of f.data.entries) collectRanged(e);
-                if (Array.isArray(f.entries)) for (const e of f.entries) collectRanged(e);
-            };
-            for (const f of stepLog || []) collectRanged(f);
-            // 本 fact 由 ctx.log.push 进顶层 step.log（core/16 L175），顶层即可取到
-            for (const f of stepLog || []) {
-                if (!f || f.factType !== 'meteorSplashGrowth' || !f.data) continue;
-                const d = f.data;
-                if (typeof d.unitName === 'string' && typeof d.growth === 'number') {
-                    if (ranged.has(d.unitName)) continue; // 同一步另有远程成长叠加，净增量无法归因 → 跳过
-                    out.push({ unit: d.unitName, stat: 'atk', amount: d.growth });
                 }
             }
             return out;
