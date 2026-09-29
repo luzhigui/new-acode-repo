@@ -1,5 +1,5 @@
 {
-  "version": "5.6.14",
+  "version": "5.6.15",
   "updated": "2026-09-29",
 
   "roles": {
@@ -36,17 +36,6 @@
           "name": "九阴白骨爪",
           "desc": "基础{baseDmg}+已损失{lostHpRatio}%+最大{maxHpRatio}%追击，≤{executeThreshold}%斩杀",
           "descJealous": "基础{baseDmg}+已损失{lostHpRatio}%+最大{maxHpRatio}%追击，≤{executeThreshold}%斩杀（无忌在场强化）",
-          "params": {
-            "firstProcChance": 1.0,
-            "procChance": 0.80,
-            "chainProcChance": 0.80,
-            "maxChain": "∞",
-            "unavoidable": true,
-            "baseDmg": 1.5,
-            "lostHpRatio": 0.015,
-            "maxHpRatio": 0.01,
-            "executeThreshold": 0.15
-          },
           "paramsJealous": {
             "baseDmg": 2,
             "lostHpRatio": 0.015,
@@ -93,27 +82,16 @@
         "rebelStrike": {
           "name": "叛逆突袭",
           "desc": "优先攻击血量最高目标，附加目标当前生命{currentHpRatio}%真实伤害",
-          "params": {
-            "dmgBonus": 0,
-            "currentHpRatio": 0.10
-          }
+          "params": { "dmgBonus": 0 }
         },
         "kuLian": {
           "name": "苦练",
-          "desc": "场上无周芷若时每回合最先行动；行动前给全体队友+{atkBonus}攻+{defBonus}防+{hpBonus}生命上限，自身双倍",
-          "params": {
-            "atkBonus": 1,
-            "defBonus": 2,
-            "hpBonus": 5
-          }
+          "desc": "场上无周芷若时每回合最先行动；行动前给全体队友+{atkBonus}攻+{defBonus}防+{hpBonus}生命上限，自身双倍"
         },
         "xinHun": {
           "name": "新婚",
           "desc": "攻击扣除周芷若{hpDeduct}血，叠快乐层（{healLevels}）",
-          "params": {
-            "hpDeduct": 1,
-            "healLevels": [0.16, 0.10, 0.06, 0.03]
-          }
+          "params": { "healLevels": [0.16, 0.10, 0.06, 0.03] }
         },
         "xingFen": {
           "name": "性奋",
@@ -239,13 +217,11 @@
       "skills": {
         "phantomThunder": {
           "name": "混元霹雳劲",
-          "desc": "附加已损失生命{lostHpRatio}%的真实伤害",
-          "params": { "lostHpRatio": 0.20 }
+          "desc": "附加已损失生命{lostHpRatio}%的真实伤害"
         },
         "phantomDisguise": {
           "name": "幻影伪装",
-          "desc": "攻击后模仿对方单位；被模仿者攻击时{baseChance}%概率混乱，每损失10%生命+{per10pctLost}%",
-          "params": { "baseChance": 0.30, "per10pctLost": 0.06 }
+          "desc": "攻击后模仿对方单位；被模仿者攻击时{baseChance}%概率混乱，每损失10%生命+{per10pctLost}%"
         }
       },
       "taunts": {
@@ -280,8 +256,7 @@
       "skills": {
         "xuanmingPalm": {
           "name": "玄冥神掌",
-          "desc": "中毒每回合损失生命（{dotPercents}），持续{duration}回合",
-          "params": { "dotPercents": [0.04, 0.02, 0.01], "duration": 3 }
+          "desc": "中毒每回合损失生命（{dotPercents}），持续{duration}回合"
         }
       },
       "taunts": {
@@ -309,8 +284,7 @@
       "skills": {
         "hornStrike": {
           "name": "鹿角杖法",
-          "desc": "忽略{defIgnore}%防御，中毒目标伤害+{poisonedBonus}%",
-          "params": { "defIgnore": 0.30, "poisonedBonus": 0.30 }
+          "desc": "忽略{defIgnore}%防御，中毒目标伤害+{poisonedBonus}%"
         }
       },
       "taunts": {
@@ -359,8 +333,7 @@
       "skills": {
         "nineYang": {
           "name": "九阳神功",
-          "desc": "每次攻击后回复最大生命{healPct}%",
-          "params": { "healPct": 12 }
+          "desc": "每次攻击后回复最大生命{healPct}%"
         },
         "qianKun": {
           "name": "乾坤大挪移",
@@ -396,13 +369,12 @@
       "skills": {
         "bloodSiphon": {
           "name": "蝠影汲血",
-          "desc": "优先攻击全场血量最低的敌人。造成伤害后吸血，吸血率 = {leechMin}% + 已损失生命比例×45%（满血5%，濒死50%）。吸血值 = 本次伤害×吸血率（最低1），等量提升生命上限和当前血量，无上限。",
+          "desc": "优先攻击全场血量最低的敌人。造成伤害后吸血，吸血率 = {leechMin}%（满血）→ {leechMax}%（濒死），随已损失生命比例线性提升。吸血值 = 本次伤害×吸血率（最低1），等量提升生命上限和当前血量，无上限。",
           "params": { "leechMin": 5, "leechMax": 50 }
         },
         "bloodDodge": {
           "name": "残血幻影",
-          "desc": "额外闪避率 = 已损失生命比例×{maxRatio}%（满血0%，濒死70%）。与基础飞行闪避（15%）及其他闪避源独立判定，互不覆盖。",
-          "params": { "maxRatio": 70 }
+          "desc": "额外闪避率 = 已损失生命比例×{maxRatio}%（满血 0%，濒死达上限）。与基础飞行闪避（15%）及其他闪避源独立判定，互不覆盖。"
         }
       },
       "taunts": {

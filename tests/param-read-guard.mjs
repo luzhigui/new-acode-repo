@@ -1,4 +1,7 @@
-// tests/param-read-guard.mjs V1.1.0 | 预估 ~10400 bytes
+// tests/param-read-guard.mjs V1.2.0 | 预估 ~12400 bytes
+// V1.2.0 | 2026-09-29 参数单一真值源收口：新增第二侧校验 —— 复用 tests/health-rules/156 的
+//   checkDescTruth()，核对「技能说明里的数字 == mechanics 引擎真值」（core/01 DESC_TRUTH 映射）。
+//   两侧任一漂移都退出码 1。该侧需先垫 file:// fetch 并 loadGameData() 才能读到 content。
 // 2026-09-29 立；V1.1.0 增「孤儿登记」一侧：skills.params「引擎真读字段」漂移守卫 —— 静态扫全仓
 //   getSkillParams( 调用点，提取每个技能键被读的字段，与 tools/120-param-lab-glossary.js 的
 //   ENGINE_READ / ENGINE_READ_DYNAMIC / ENGINE_READ_NONE / ENGINE_READ_ORPHAN 双向比对。表一旦过时
@@ -33,7 +36,7 @@
 //   子字段规则：表登记父路径时其任意子字段算已登记（表值 = 顶层字段名即可满足引擎现状）。
 //
 // 运行：node tests/param-read-guard.mjs        → 一致退出码 0；发现漂移退出码 1
-export const VER = 'tests/param-read-guard.mjs V1.1.0';
+export const VER = 'tests/param-read-guard.mjs V1.2.0';
 
 import { readdir, readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
@@ -226,6 +229,20 @@ async function collectFiles(dirUrl) {
     return out;
 }
 
+// ---- 第二侧：技能说明数字 == 引擎真值（复用 156 规则的同一实现，不另写判据）----
+async function checkDescTruthDrift() {
+    // Node 的 fetch 不支持 file://：垫一个读本地文件的 shim，再 loadGameData（health-rules/156 依赖它）
+    const fs = await import('node:fs');
+    globalThis.fetch = async (url) => {
+        const p = fileURLToPath(new URL(url));
+        return { ok: true, json: async () => JSON.parse(fs.readFileSync(p, 'utf8')) };
+    };
+    const { loadGameData } = await import('../core/01config-5v5-test.js');
+    await loadGameData();
+    const { checkDescTruth } = await import('./health-rules/156-desc-truth-drift.js');
+    return checkDescTruth();
+}
+
 async function main() {
     const acc = new Map();
     let fileCount = 0;
@@ -293,27 +310,39 @@ async function main() {
     console.log(`扫描 core/ modules/ render/：${fileCount} 文件；命中 getSkillParams 的文件 ${scanned.length} 个；技能键 ${acc.size} 个`);
     console.log(`登记表：ENGINE_READ ${Object.keys(ENGINE_READ).length} 键 · DYNAMIC ${ENGINE_READ_DYNAMIC.size} 键 · NONE ${ENGINE_READ_NONE.size} 键 · 孤儿登记 ${orphanKeys.size} 项`);
 
-    if (problems.length === 0) {
+    const descProblems = await checkDescTruthDrift();
+
+    if (problems.length === 0 && descProblems.length === 0) {
         console.log('\n✅ 表与源码双向一致（引擎读取无漂移）');
+        console.log('✅ 技能说明数字与引擎真值一致（DESC_TRUTH 全部命中）');
         process.exit(0);
     }
 
-    const label = {
-        'stale-key': '表陈旧（源码已不读该技能键）',
-        'stale-field': '表陈旧（源码已不读该字段）',
-        'missing-field': '表遗漏（源码读了，表未登记）',
-        'missing-key': '表遗漏（整键未登记）',
-        'should-be-engine': '分类错误（表列为仅校验，源码实读字段）',
-        'dynamic-unregistered': '表遗漏（源码整包动态读，未列入 DYNAMIC）',
-        'none-unregistered': '表遗漏（源码仅存在性校验，未列入 NONE）',
-        'orphan-stale': '孤儿登记已失效（源码已无该读取点，请从 ENGINE_READ_ORPHAN 删掉）'
-    };
-    console.log('\n发现漂移：');
-    for (const p of problems) {
-        const extra = p.field ? ` 字段「${p.field}」` : (p.fields ? ` 字段 ${p.fields.join('、')}` : '');
-        console.log(`  ✗ [${label[p.kind]}] ${p.key}${extra}`);
+    if (problems.length === 0) {
+        console.log('\n✅ 表与源码双向一致（引擎读取无漂移）');
+    } else {
+        const label = {
+            'stale-key': '表陈旧（源码已不读该技能键）',
+            'stale-field': '表陈旧（源码已不读该字段）',
+            'missing-field': '表遗漏（源码读了，表未登记）',
+            'missing-key': '表遗漏（整键未登记）',
+            'should-be-engine': '分类错误（表列为仅校验，源码实读字段）',
+            'dynamic-unregistered': '表遗漏（源码整包动态读，未列入 DYNAMIC）',
+            'none-unregistered': '表遗漏（源码仅存在性校验，未列入 NONE）',
+            'orphan-stale': '孤儿登记已失效（源码已无该读取点，请从 ENGINE_READ_ORPHAN 删掉）'
+        };
+        console.log('\n发现漂移：');
+        for (const p of problems) {
+            const extra = p.field ? ` 字段「${p.field}」` : (p.fields ? ` 字段 ${p.fields.join('、')}` : '');
+            console.log(`  ✗ [${label[p.kind]}] ${p.key}${extra}`);
+        }
+        console.log(`\n✗ 共 ${problems.length} 项漂移 —— ENGINE_READ 表已过时，请同步 tools/120-param-lab-glossary.js`);
     }
-    console.log(`\n✗ 共 ${problems.length} 项漂移 —— ENGINE_READ 表已过时，请同步 tools/120-param-lab-glossary.js`);
+    if (descProblems.length) {
+        console.log('\n技能说明数字 vs 引擎真值 漂移：');
+        for (const d of descProblems) console.log(`  ✗ ${d}`);
+        console.log(`\n✗ 共 ${descProblems.length} 项 —— 请同步 content/200game-data.json 与 core/01 DESC_TRUTH`);
+    }
     process.exit(1);
 }
 
