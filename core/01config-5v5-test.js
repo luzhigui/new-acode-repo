@@ -1,5 +1,9 @@
+// V6.3.0 | ~13600 bytes | 2026-09-29 参数单一真值源收口：getSkillDesc 改「真值优先」——新增 DESC_TRUTH 映射表
+//   + resolveDescValue()，技能说明里的 {占位符} 一律取 mechanics 真值（引擎实际读的那份），不再从
+//   skills.<键>.params 的副本取值；未登记占位符仍回落 params 的既有插值（含「按字段名猜单位」保底，
+//   供 descJealous 等未收口文案继续工作）。
 // V6.2.5 | ~10400 bytes | 2026-09-29 参数体系收敛批 3：战斗通用规则常量收进 CONFIG——低血/斩杀阈值、拒马 M、热血奋战间隔、防御波动阈值、小昭飞天档位/次数/惑心概率、张无忌近战上限与融会贯通系数、全精通额外层数
-export const VER = 'core/01config-5v5-test.js V6.2.5';
+export const VER = 'core/01config-5v5-test.js V6.3.0';
 
 import { ROLE_TYPES } from '../infra/56-battle-enums.js';
 
@@ -39,14 +43,120 @@ function getSkillName(characterName, skillKey) {
     return skill?.name || skillKey;
 }
 
+// ─────────────────────────────────────────────────────────────────────────
+// 文案占位符 → 引擎真值出处（2026-09-29 单一真值源收口）
+//
+// 背景：skills.<键>.params 与 characters.<角色>.mechanics 曾各存一份同一个数（技能说明的
+//   {占位符} 从前者取、引擎战斗从后者读），改一处另一处不跟 → 面板数字与实战漂移。
+//   收口后：mechanics（引擎实际读的那份）是**唯一真值**，技能说明里的这些占位符一律到这里查表，
+//   params 里的死副本已从 content/200game-data.json 删除。
+//
+// 结构：skillKey → { character, fields: { 占位符名: { type, field, scale } } }
+//   · type  = mechanics 里承载该数值的对象类型。可能是顶层条目（如 chainClaw / kuLian / xinHun /
+//             phantomDisguise 的 type 就写在这一层），也可能是 onHitEffects / beforeDamageEffects /
+//             dodgeRules 等**数组内层元素**的 type（如 healMaxHpPct / poison / ignoreDef）。
+//   · field = 该对象上承载数值的字段名。
+//   · scale = 换算口径：100 = 「1 就是 100%」的比例 → 百分数（0.12→12、0.015→1.5、0.01→1）；
+//             1   = 原样输出（倍率/回合数/点数一类）。
+//   数组（如 dotPercents）一律按「每项 ×scale 后拼 %，用 → 连接」（4%→2%→1%）。
+//
+// 维护：新增「一句话里要显示 mechanics 真值」的技能时，在此补一行；登记后由
+//   tests/health-rules/156-desc-truth-drift.js 守护（技能说明数字必须等于引擎真值）。
+export const DESC_TRUTH = {
+    nineYinClaw: { character: '周芷若', fields: {
+        baseDmg:          { type: 'chainClaw', field: 'baseDmg',          scale: 1 },
+        lostHpRatio:      { type: 'chainClaw', field: 'lostHpRatio',      scale: 100 },
+        maxHpRatio:       { type: 'chainClaw', field: 'maxHpRatio',       scale: 100 },
+        executeThreshold: { type: 'chainClaw', field: 'executeThreshold', scale: 100 }
+    } },
+    rebelStrike: { character: '宋青书', fields: {
+        currentHpRatio:   { type: 'bonusTargetCurrentHp', field: 'ratio', scale: 100 }
+    } },
+    kuLian: { character: '宋青书', fields: {
+        atkBonus: { type: 'kuLian', field: 'atkBonus', scale: 1 },
+        defBonus: { type: 'kuLian', field: 'defBonus', scale: 1 },
+        hpBonus:  { type: 'kuLian', field: 'hpBonus',  scale: 1 }
+    } },
+    xinHun: { character: '宋青书', fields: {
+        hpDeduct: { type: 'xinHun', field: 'hpDeduct', scale: 1 }
+    } },
+    phantomThunder: { character: '成昆', fields: {
+        lostHpRatio: { type: 'bonusLostHp', field: 'ratio', scale: 100 }
+    } },
+    phantomDisguise: { character: '成昆', fields: {
+        baseChance:   { type: 'phantomDisguise', field: 'baseChance',   scale: 100 },
+        per10pctLost: { type: 'phantomDisguise', field: 'per10pctLost', scale: 100 }
+    } },
+    hornStrike: { character: '鹤笔翁', fields: {
+        defIgnore:     { type: 'ignoreDef', field: 'ratio', scale: 100 },
+        poisonedBonus: { type: 'damageMultiplierIfPoisoned', field: 'bonus', scale: 100 }
+    } },
+    xuanmingPalm: { character: '鹿杖客', fields: {
+        duration:    { type: 'poison', field: 'duration',    scale: 1 },
+        dotPercents: { type: 'poison', field: 'dotPercents', scale: 100 }
+    } },
+    nineYang: { character: '张无忌', fields: {
+        healPct: { type: 'healMaxHpPct', field: 'pct', scale: 100 }
+    } },
+    bloodDodge: { character: '韦一笑', fields: {
+        maxRatio: { type: 'lostHpPercent', field: 'max', scale: 100 }
+    } }
+};
+
+/**
+ * 在 mechanics 里按对象 type 找字段真值。
+ * 先在顶层条目上找（type 与字段同层，如 chainClaw.baseDmg），再下钻各数组元素
+ * （onHitEffects / beforeDamageEffects / dodgeRules 等，如 healMaxHpPct.pct）。
+ * 找不到返回 undefined。**刻意不递归**进任意嵌套对象，避免误取 chainClaw.jealous 里的强化档同名字段。
+ */
+function getMechanicField(characterName, type, field) {
+    const mechs = gameData?.characters?.[characterName]?.mechanics || [];
+    for (const m of mechs) {
+        if (!m) continue;
+        if (m.type === type && m[field] !== undefined) return m[field];
+        for (const k of Object.keys(m)) {
+            const arr = m[k];
+            if (!Array.isArray(arr)) continue;
+            for (const el of arr) {
+                if (el && el.type === type && el[field] !== undefined) return el[field];
+            }
+        }
+    }
+    return undefined;
+}
+
+/** 真值 → 技能说明里的显示文本（scale 见 DESC_TRUTH 注释） */
+function formatDescValue(raw, scale) {
+    const one = v => (typeof v === 'number' && scale === 100) ? Math.round(v * 1000) / 10 : v;
+    if (Array.isArray(raw)) return raw.map(v => one(v) + '%').join('→');
+    return String(one(raw));
+}
+
+/**
+ * 解一个已收口占位符的真值文本；未登记（或真值缺失）返回 undefined，交调用方回落 params。
+ */
+function resolveDescValue(characterName, skillKey, key) {
+    const entry = DESC_TRUTH[skillKey];
+    if (!entry) return undefined;
+    const spec = entry.fields[key];
+    if (!spec) return undefined;
+    const raw = getMechanicField(characterName, spec.type, spec.field);
+    if (raw === undefined) return undefined;
+    return formatDescValue(raw, spec.scale);
+}
+
 function getSkillDesc(characterName, skillKey, jealous) {
     const ch = gameData?.characters?.[characterName];
     const skill = ch?.skills?.[skillKey];
     if (!skill) return '';
     const template = jealous ? (skill.descJealous || skill.desc) : skill.desc;
     const params = jealous ? (skill.paramsJealous || skill.params) : (skill.params || {});
-    // 替换 {key} 占位符
+    // 替换 {key} 占位符：非强化档一律「真值优先」——命中 DESC_TRUTH 走 mechanics，未命中回落 params
     return template.replace(/\{(\w+)\}/g, (_, key) => {
+        if (!jealous) {
+            const truth = resolveDescValue(characterName, skillKey, key);
+            if (truth !== undefined) return truth;
+        }
         let val = params[key];
         if (val === undefined || val === null) return `{${key}}`;
         if (Array.isArray(val)) return val.map(v => (typeof v === 'number' && v < 1 ? Math.round(v * 1000) / 10 : v) + '%').join('→');
@@ -59,7 +169,7 @@ function getSkillDesc(characterName, skillKey, jealous) {
 }
 
 // 导出加载函数供外部使用
-export { loadGameData, getGameData, getSkillParams, getSkillParamsJealous, getSkillName, getSkillDesc };
+export { loadGameData, getGameData, getSkillParams, getSkillParamsJealous, getSkillName, getSkillDesc, getMechanicField, resolveDescValue };
 
 // 配置
 // 数据型配置全部直读 gameData（单一数据源，缺失即抛错）；此处仅保留纯规则常量。

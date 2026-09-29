@@ -1,5 +1,6 @@
 // 回归规则：苦练提示 — 设计为宋青书每回合行动前给全队叠加 +攻+防+血上限（自身倍率放大）
-// 当前版本数值（对照 记录-更改履历.md）：
+// 当前版本数值（content/200game-data.json 宋青书 mechanics[1] type=kuLian：atkBonus=1、defBonus=2、
+//   hpBonus=5；2026-09-29 单一真值源收口后为唯一出处，技能说明亦从 core/01 DESC_TRUTH 取真值）：
 //   V6.1.7 苦练数值：atkBonus=1、defBonus 1→2、hpBonus 3→5 —— 全队（队友）基础值 = +1攻/+2防/+5血上限
 //   V6.1.8 宋青书自身倍率 3→2 —— 宋青书自身 = ×2（即 +2攻/+4防/+10血），文案同步"自身三倍"→"自身双倍"
 //   渲染口径（render/30 第466行）："🏋️ 苦练强化：{名} 激励全体队友+{atkBonus}攻+{defBonus}防+{hpBonus}血上限（自身双倍）"
@@ -13,7 +14,7 @@
 // 优化（V6.1.x 复核）：原仅用"全场>24 次"粗粒度上限兜底，无法识别"单回合内多次触发"这一
 //   真实刷屏/死循环信号（如每回合每爪击各发一次）。新增逐回合计数——同一回合 ≥2 次即判，
 //   比"全场总数"精确，且仍保留 24 次总上限作为回合标记缺失时的兜底，避免漏检。
-export const VER = 'tests/health-rules/137-kulian-prompt.js V6.1.11';
+export const VER = 'tests/health-rules/137-kulian-prompt.js V6.1.12';
 
 export const rule84 = {
     group: '战报渲染回归',

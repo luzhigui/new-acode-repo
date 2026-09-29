@@ -1,4 +1,12 @@
 // tools/120-param-lab-glossary.js - 参数中文说明表（只读展示用，不参与战斗）
+// V2.3.0 | 预估 38600 bytes | 2026-09-29 参数单一真值源收口（配合 content/200 + core/01 DESC_TRUTH）：
+//   ① MIRRORED_SKILL_FIELDS **退役为空表** —— 原先它登记的是「skills.params 与 mechanics 各存一份、
+//      只显示一份」的镜像字段；这些死副本已从 content/200game-data.json 删除，同一数值不再有两处登记，
+//      表因此清空（保留空表+说明；若将来又出现两处登记，本表会重新长出条目，156 规则也会报警）；
+//   ② ENGINE_READ 去掉 rebelStrike —— render/34 的「目标当前生命 X%」改读 mechanics 真值
+//      （getMechanicField('宋青书','bonusTargetCurrentHp','ratio')），skills 侧已无读取点；
+//   ③ MECHANICS_HIDDEN_BY_TYPE 保留：xinHun.healLevels、leech.minRatio/maxRatio 是**两侧都活、都真读**
+//      的字段（非死副本），隐藏其中一份只为避免实验台同一数值显示两行。
 // V2.2.0 | 预估 39200 bytes | 2026-09-29 参数实验台收尾批（仍只改呈现，不动战斗）：
 //   ① 新增 ENGINE_READ_ORPHAN：源码里确实存在读取点、但所在函数全仓无调用点（孤儿/死代码）的登记；
 //      与 tests/param-read-guard.mjs 双向对齐（登记在案不算漂移，读取点消失则报「孤儿登记失效」），
@@ -82,12 +90,11 @@ const PCT100 = new Set([
 //   modules/20:20 / 39-41 / 67-69 / 132-134 / 176 / 223-225
 //   modules/26:151-158 / 167 / 239-251 / 280 / 287-308 / 353 / 400-451 / 492
 //   modules/27:136-147 / 215 / 443 / 571 / 673-709 / 721
-//   render/34:135、render/39:93
+//   render/39:93（render/34 原先的 rebelStrike 读取点已于 2026-09-29 收口改读 mechanics 真值，故移除）
 // 不在此表 = 仅供 desc 插值（改了不改变战斗结果）。
 // 注：鹿杖客 xuanmingPalm 的 duration 不登记在本表（实际不生效），但源码里确实有读取点 ——
 //   挪到下面的 ENGINE_READ_ORPHAN（孤儿登记），供守卫双向对齐，不假装它不存在。
 export const ENGINE_READ = {
-    rebelStrike:     ['currentHpRatio'],
     xinHun:          ['healLevels'],
     rageOnHit:       ['atkPerHit'],
     righteousFace:   ['defGain'],
@@ -155,30 +162,21 @@ export function skillFieldVerdict(skillKey, fieldPath) {
 }
 
 // ---------------------------------------------------------------------------
-// 镜像对照表（2026-09-29 建）：同一数值的两种登记。
-//   skills.<键>.params 里这些字段与战斗参数（mechanics）里的等价数值是同一个数，渲染层**只显示
-//   战斗参数那一份**，技能面板那份跳过（否则同一数值会在表里出现两行）。
-//   键 = 技能键，值 = 技能面板里要跳过显示的字段。
-// 例外：宋青书 xinHun.healLevels 反过来只显示技能面板那份（见 MECHANICS_HIDDEN）；韦一笑
-//   bloodSiphon 的 leechMin/leechMax 两侧分工不同、都要显示（见 DUAL_REGISTER_NOTES）。
-export const MIRRORED_SKILL_FIELDS = {
-    nineYinClaw:     ['baseDmg', 'lostHpRatio', 'maxHpRatio', 'executeThreshold', 'procChance', 'chainProcChance'],
-    kuLian:          ['atkBonus', 'defBonus', 'hpBonus'],
-    rebelStrike:     ['currentHpRatio'],
-    phantomThunder:  ['lostHpRatio'],
-    phantomDisguise: ['baseChance', 'per10pctLost'],
-    xuanmingPalm:    ['duration', 'dotPercents'],
-    hornStrike:      ['defIgnore', 'poisonedBonus'],
-    bloodDodge:      ['maxRatio'],
-    nineYang:        ['healPct'],
-    xinHun:          ['hpDeduct'],
-};
+// 镜像对照表（2026-09-29 建，同日收口后退役为空表）。
+//   历史用途：skills.<键>.params 里这些字段与战斗参数（mechanics）里的等价数值是同一个数，
+//   渲染层只显示战斗参数那一份、技能面板那份跳过，免得同一数值在表里出现两行。
+//   为什么清空：这批「两处登记」的死副本已从 content/200game-data.json 整个删除 —— 同一数值现在
+//   只有一处真值（mechanics），不再需要跳过任何一份。本表留空；将来若又出现两处登记，就在此重新
+//   登记，tests/health-rules/156-desc-truth-drift.js 与 tests/param-read-guard.mjs 会同步报警。
+export const MIRRORED_SKILL_FIELDS = {};
 
 // 反过来：战斗参数侧要跳过、只显示技能面板那份的字段（两侧都读、语义重复时用）。
 // 按「效果类型」配置（不是按技能键，也不是按写死的位置）：类型由 enclosingType() 取「最靠内层带
 //   type 的对象」，所以长在 onHitEffects / beforeDamageEffects / dodgeRules 里的声明同样能命中。
 //   leech：韦一笑吸血写在 mechanics[0].onHitEffects[0]，与技能面板的 leechMin/leechMax 是同一个数；
 //   xinHun：宋青书回血档位写在 mechanics 的 healLevels，与技能面板的 healLevels 同源。
+// 2026-09-29 收口说明：这两条**不是死副本** —— 两侧都真实存在且都被引擎读取（故不能像
+//   MIRRORED_SKILL_FIELDS 那样清空），隐藏其中一份纯粹为了实验台不把同一个数显示两行。
 const MECHANICS_HIDDEN_BY_TYPE = {
     xinHun: ['healLevels'],
     leech:  ['minRatio', 'maxRatio']

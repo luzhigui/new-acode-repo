@@ -1,8 +1,9 @@
 // 回归规则：张无忌·九阳神功回复量 = floor(最大生命 × 12%)（V6.1.12 由 10% → 12%；更早 V6.1.8 由 8% → 10%）
 //   机制本体（core/15 submitOnHitEffects · healMaxHpPct）：
 //       heal = min(floor(unit.maxHp × pct), unit.maxHp - unit.hp)，heal > 0 才推 NINE_YANG_HEAL 事实
-//   pct 实际来自 content/200game-data.json 张无忌 mechanics[0].onHitEffects[0].pct（=0.12），
-//   另有 skills.nineYang.params.healPct（=12）只用于文案插值，两处须同步。
+//   pct 实际来自 content/200game-data.json 张无忌 mechanics[0].onHitEffects[0].pct（=0.12）——
+//   2026-09-29 参数单一真值源收口后，这是**唯一**出处（skills.nineYang.params.healPct 已删，
+//   技能说明的 {healPct} 也改由 core/01 DESC_TRUTH 从这里取真值）。
 // 复发信号1（历史值回退）：未满回复量恰好等于 floor(血上限×10%)（V6.1.8~V6.1.11 的旧值）
 //          或 floor(血上限×8%)（更早旧值），且不等于 floor(血上限×12%)
 //          → pct 被回退（续航变弱，第二关容易崩）
@@ -27,7 +28,7 @@
 //   长期处于失效状态（既抓不到回退，也发现不了按比例算错）。
 //   现改为双层扫描:顶层 text + attack-group entries 子条目 + 数组元素，entries 序号保持原战报下标。
 //   判据本身（12%/10%/8% 三档回退识别 + 回血写回一致性）一字未动，做到只改数据源这一处。
-export const VER = 'tests/health-rules/143-jiuyang-heal-pct.js V6.1.15';
+export const VER = 'tests/health-rules/143-jiuyang-heal-pct.js V6.1.16';
 import { entryTextsDeep } from '../122health-utils.js';
 
 // V6.1.12 后的现行比例（content/200 张无忌 mechanics healMaxHpPct.pct）
@@ -112,8 +113,8 @@ export const rule90 = {
                 if (h.heal === oldExpect && expect !== oldExpect) {
                     return { fail: true, msg: '复发：九阳神功回复' + h.heal + '=floor(血上限' + maxHp + '×8%)，疑似回退到更早版本（应为 ' + expect + '）' };
                 }
-                // 断言3：既不是现行 12%，也不是任何历史值（含文案侧 params.healPct 与 mechanics.pct 不同步、或被改成别的比例）
-                return { fail: true, msg: '复发：九阳神功回复' + h.heal + '≠floor(血上限' + maxHp + '×12%=' + expect + ')（healMaxHpPct.pct 被改动？）' };
+                // 断言3：既不是现行 12%，也不是任何历史值（含 mechanics.pct 被改动、或回血机制没跟上）
+                return { fail: true, msg: '复发：九阳神功回复' + h.heal + '≠floor(血上限' + maxHp + '×12%=' + expect + ')（张无忌 mechanics healMaxHpPct.pct 被改动？）' };
             }
         }
         return { fail: false };
