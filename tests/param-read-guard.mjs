@@ -1,7 +1,11 @@
-// tests/param-read-guard.mjs V1.0.0 | 预估 ~9500 bytes
-// 2026-09-29 立：skills.params「引擎真读字段」漂移守卫 —— 静态扫全仓 getSkillParams( 调用点，
-//   提取每个技能键被读的字段，与 tools/120-param-lab-glossary.js 的 ENGINE_READ / ENGINE_READ_DYNAMIC /
-//   ENGINE_READ_NONE 双向比对。表一旦过时（引擎新增/删除某种读取）本检查立刻报红并打印差异。
+// tests/param-read-guard.mjs V1.1.0 | 预估 ~10400 bytes
+// 2026-09-29 立；V1.1.0 增「孤儿登记」一侧：skills.params「引擎真读字段」漂移守卫 —— 静态扫全仓
+//   getSkillParams( 调用点，提取每个技能键被读的字段，与 tools/120-param-lab-glossary.js 的
+//   ENGINE_READ / ENGINE_READ_DYNAMIC / ENGINE_READ_NONE / ENGINE_READ_ORPHAN 双向比对。表一旦过时
+//   （引擎新增/删除某种读取）本检查立刻报红并打印差异。
+//   孤儿登记（ENGINE_READ_ORPHAN）= 源码里确实存在读取点、但所在函数全仓无调用点（孤儿/死代码），
+//   实际不生效。登记在案不算漂移；**反向也管住** —— 源码里那个读取点消失了（例如孤儿函数被删）
+//   就报「孤儿登记已失效，请从 ENGINE_READ_ORPHAN 里删掉」，避免登记表自己腐烂。
 //
 // 为什么要有它：glossary 那张 ENGINE_READ 表是**手写的源码快照**，引擎侧以后改读取不会自动同步；
 //   最危险的漂移是「某字段真被读了，表里却仍标成仅文案」——会误导人跳过有效旋钮。本守卫把「表 == 源码」
@@ -29,11 +33,11 @@
 //   子字段规则：表登记父路径时其任意子字段算已登记（表值 = 顶层字段名即可满足引擎现状）。
 //
 // 运行：node tests/param-read-guard.mjs        → 一致退出码 0；发现漂移退出码 1
-export const VER = 'tests/param-read-guard.mjs V1.0.0';
+export const VER = 'tests/param-read-guard.mjs V1.1.0';
 
 import { readdir, readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
-import { ENGINE_READ, ENGINE_READ_DYNAMIC, ENGINE_READ_NONE } from '../tools/120-param-lab-glossary.js';
+import { ENGINE_READ, ENGINE_READ_DYNAMIC, ENGINE_READ_NONE, ENGINE_READ_ORPHAN } from '../tools/120-param-lab-glossary.js';
 
 const ROOTS = ['../core/', '../modules/', '../render/'];
 
@@ -237,11 +241,16 @@ async function main() {
         }
     }
 
-    const tableKeys = new Set([...Object.keys(ENGINE_READ), ...ENGINE_READ_DYNAMIC, ...ENGINE_READ_NONE]);
+    const orphanKeys = new Set(Object.keys(ENGINE_READ_ORPHAN));
+    const tableKeys = new Set([...Object.keys(ENGINE_READ), ...ENGINE_READ_DYNAMIC, ...ENGINE_READ_NONE, ...orphanKeys]);
     const problems = [];
 
-    // ① 表陈旧：登记了、源码没扫到
-    for (const k of tableKeys) if (!acc.has(k)) problems.push({ kind: 'stale-key', key: k });
+    // ① 表陈旧：登记了、源码没扫到（孤儿登记另有专门的「失效」判据）
+    for (const k of tableKeys) {
+        if (acc.has(k)) continue;
+        if (orphanKeys.has(k)) problems.push({ kind: 'orphan-stale', key: k, fields: ENGINE_READ_ORPHAN[k] });
+        else problems.push({ kind: 'stale-key', key: k });
+    }
 
     // ② 已登记的键：字段双向比对
     for (const k of tableKeys) {
@@ -250,6 +259,17 @@ async function main() {
         if (ENGINE_READ_DYNAMIC.has(k)) continue;              // 动态整包：不逐字段
         if (ENGINE_READ_NONE.has(k)) {
             if (s.fields.size > 0) problems.push({ kind: 'should-be-engine', key: k, fields: [...s.fields] });
+            continue;
+        }
+        // 孤儿登记：读取点还在 → 认账，不算漂移；登记的那几个字段在源码里找不到 → 报「登记失效」
+        if (orphanKeys.has(k)) {
+            const of = ENGINE_READ_ORPHAN[k];
+            for (const t of of) {
+                if (![...s.fields].some(f => f === t || f.startsWith(t + '.'))) problems.push({ kind: 'orphan-stale', key: k, field: t });
+            }
+            for (const f of s.fields) {
+                if (!of.some(t => f === t || f.startsWith(t + '.'))) problems.push({ kind: 'missing-field', key: k, field: f });
+            }
             continue;
         }
         const tf = ENGINE_READ[k] || [];
@@ -271,7 +291,7 @@ async function main() {
 
     console.log('=== skills.params 引擎真读字段 · 漂移守卫 ===');
     console.log(`扫描 core/ modules/ render/：${fileCount} 文件；命中 getSkillParams 的文件 ${scanned.length} 个；技能键 ${acc.size} 个`);
-    console.log(`登记表：ENGINE_READ ${Object.keys(ENGINE_READ).length} 键 · DYNAMIC ${ENGINE_READ_DYNAMIC.size} 键 · NONE ${ENGINE_READ_NONE.size} 键`);
+    console.log(`登记表：ENGINE_READ ${Object.keys(ENGINE_READ).length} 键 · DYNAMIC ${ENGINE_READ_DYNAMIC.size} 键 · NONE ${ENGINE_READ_NONE.size} 键 · 孤儿登记 ${orphanKeys.size} 项`);
 
     if (problems.length === 0) {
         console.log('\n✅ 表与源码双向一致（引擎读取无漂移）');
@@ -285,7 +305,8 @@ async function main() {
         'missing-key': '表遗漏（整键未登记）',
         'should-be-engine': '分类错误（表列为仅校验，源码实读字段）',
         'dynamic-unregistered': '表遗漏（源码整包动态读，未列入 DYNAMIC）',
-        'none-unregistered': '表遗漏（源码仅存在性校验，未列入 NONE）'
+        'none-unregistered': '表遗漏（源码仅存在性校验，未列入 NONE）',
+        'orphan-stale': '孤儿登记已失效（源码已无该读取点，请从 ENGINE_READ_ORPHAN 删掉）'
     };
     console.log('\n发现漂移：');
     for (const p of problems) {

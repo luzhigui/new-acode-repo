@@ -1,21 +1,12 @@
 <!-- tools/120-param-lab.html - 参数对照实验台（面向人的版本，独立页面） -->
-<!-- V3.0.3 | 2026-09-29 界面里「真旋钮 / 需确认」这套自造术语整体下线，一律改说「参数」：
-     「机制」组标签简化为 mechanics，是否被引擎读取由字段表逐条标签给出结论，不再靠组级别的二分措辞。
-     V3.0.2 | 2026-09-29 「需确认」暧昧标签下线：skills 表字段改按 glossary 的 ENGINE_READ 表逐个给确定结论
-     （引擎真读 / 整包动态读 / 仅校验存在 / 仅文案），表由源码静态扫描 getSkillParams( 调用点得来——
-     本页只加载 content JSON、看不到引擎 JS，所以读没读必须由源码扫描固化，不能靠猜。
-     V3.0.1 | 参数表上方加标签图例（治「机制·真旋钮是干啥的」）。
-     V3.0.0 | 预估 44100 bytes | 2026-09-29 参数实验台批 4（框架化改造）：
-     ① 关卡可多选（含全选），结果按关分列，不再混关算平均；
-     ② 选参数改成三级「归属 → 技能 → 字段表」：归属按关卡过滤角色（明教侧常驻、六大派只列该关出场的），
-        技能列出该角色/该常量表/该数据表下的分组，字段表一次列出全部参数并可一批加入多个改动；
-     ③ 参数来源从「只扫 characters」扩到四层（角色技能表 / CONFIG 常量 / buffs·roles·encounters·roster·hexes 数据表），
-        配合 120-param-lab-core.js V1.1.0 的 layer/owner/skill 信息；
-     ④ 单位口径分两套并明确标注：mechanics 是 1 = 100%，skills.params 部分字段是百分数直读（10 = 10%）。
-     V2.1.1 | 2026-09-28 加【待办】备注（默认旋钮筛选有漏、glossary 字段未补全、想标「引擎是否真读」）
-     —— 三条待办本版已全部落地，备注随之下线。
-     V2.1.0 | 参数说人话（接入 glossary，下拉显示技能名 + 字段中文名 + 单位换算）。
-     V2.0.0 | 改「选关 → 改一个数 → 跑 → 看结论」三步流程。
+<!-- V3.2.0 | 预估 46600 bytes | 2026-09-29 收尾批（不改实验逻辑）：
+     ① 百分数显示/输入统一成人话：原值一律显示 12%（不再出现 0.12 或 0.12（= 12%）），
+        「改成」输入框按同一人话单位填写，落盘时再按该字段的存储口径换算（1=100% 的除以 100）；
+     ② 「改成」输入框带单位提示（placeholder，如「填 12 表示 12%」）；
+     ③ 韦一笑蝠影汲血由 4 行收成 2 行（战斗参数侧那份按效果类型隐藏）；
+     ④ 数组数值标档位（第 1/4 档）；孤儿子段的标签改说「读取这段的代码已废弃，改它不影响战斗」。
+     V3.1.0 | 2026-09-29 呈现层「说人话」改造：「机制 / mechanics / skills」等实现术语全部下线，
+     角色下拉按技能分组、只显示中文技能名且默认第一个技能；字段表 4 列；同一数值两处登记只显示一份。
      底层口径不变：批量战斗仍在 120-param-lab-worker.js，走 117 workerUrl 覆盖并行；配对 seed 同序同种子。 -->
 <!DOCTYPE html>
 <html lang="zh-CN">
@@ -71,9 +62,10 @@ button:disabled{opacity:.4;cursor:not-allowed}
 .knob-table{width:100%;border-collapse:collapse;margin-top:8px;font-size:12px}
 .knob-table th{background:#2a2a4e;color:#ffd700;padding:6px;text-align:left;font-weight:normal;white-space:nowrap}
 .knob-table td{padding:5px 6px;border-bottom:1px solid #2f3b5c;color:#c2cade;vertical-align:middle}
-.knob-table td.kname{width:46%}
-.knob-table td.kcur{width:26%;color:#9aa4bf}
-.knob-table input{width:100px}
+.knob-table td.kname{width:30%}
+.knob-table td.kcur{width:14%;color:#9aa4bf}
+.knob-table td.kwhat{width:36%;color:#7f8aa8;line-height:1.5}
+.knob-table input{width:132px}
 .tag{display:inline-block;border-radius:5px;padding:1px 6px;font-size:10px;margin-left:6px;vertical-align:middle}
 .tag-real{background:#1d3d2a;color:#66bb6a}
 .tag-maybe{background:#3d351d;color:#ffb74d}
@@ -145,11 +137,11 @@ table.dump td.left{text-align:left}
 </div>
 
 <div class="card">
-    <div class="step"><span class="step-no">2</span>挑参数（归属 → 技能 → 字段），填新值</div>
+    <div class="step"><span class="step-no">2</span>挑参数（先选归属，再选技能），填新值</div>
     <div class="row">
         <label class="mini">归属 <select id="ownerSel"></select></label>
         <label class="mini">技能 <select id="skillSel"></select></label>
-        <input type="text" id="fieldSearch" placeholder="在本组内筛字段名">
+        <input type="text" id="fieldSearch" placeholder="在本组内筛数字名">
     </div>
     <div class="hint" id="ownerHint"></div>
     <div id="knobTableBox"></div>
@@ -178,7 +170,9 @@ table.dump td.left{text-align:left}
 <script type="module">
 import { ensureGameData, listNumericKnobs, pickTypicals } from './120-param-lab-core.js';
 import { runParallel, getPoolSize } from './117-shared-worker-runner.js';
-import { describeKnob, fmtValue, charSkillLines, UNIT, CONFIG_KEY_GLOSSARY, DATA_KEY_GLOSSARY, skillFieldVerdict } from './120-param-lab-glossary.js';
+import { describeKnob, fmtValue, charSkillLines, UNIT, CONFIG_KEY_GLOSSARY, DATA_KEY_GLOSSARY, skillFieldVerdict,
+    charSkillGroups, charGroupKeyOf, isMirroredSkillField, isMechanicsRowHidden, dualRegisterNote, knobWhatIf,
+    isOrphanField, humanToStored, inputHint } from './120-param-lab-glossary.js';
 
 const WORKER_URL = new URL('./120-param-lab-worker.js', import.meta.url);
 const SAMPLE_BASE = 20000;   // 采样 seed 起点（与 CLI --sample 默认一致）
@@ -277,9 +271,9 @@ function ownerOptions() {
     const opt = [];
     for (const n of chars) if (ming.has(n)) opt.push({ layer: 'character', owner: n, label: n });
     for (const n of chars) if (!ming.has(n) && enemies.has(n)) opt.push({ layer: 'character', owner: n, label: n });
-    if (allKnobs.some(k => k.layer === 'config')) opt.push({ layer: 'config', owner: '全局常量', label: '全局常量（CONFIG）' });
+    if (allKnobs.some(k => k.layer === 'config')) opt.push({ layer: 'config', owner: '全局常量', label: '全局规则常量' });
     for (const key of [...new Set(allKnobs.filter(k => k.layer === 'data').map(k => k.owner))]) {
-        opt.push({ layer: 'data', owner: key, label: `${DATA_KEY_GLOSSARY[key] || key}（${key}）` });
+        opt.push({ layer: 'data', owner: key, label: DATA_KEY_GLOSSARY[key] || key });
     }
     return opt;
 }
@@ -315,28 +309,29 @@ function buildSkillSelect() {
     const ow = curOwner();
     skillSel.innerHTML = '';
     if (!ow) { knobTableBox.innerHTML = ''; ownerHint.textContent = ''; return; }
-    const groups = [...new Set(allKnobs.filter(k => k.layer === ow.layer && k.owner === ow.owner).map(k => k.skill))];
-    const label = g => {
-        if (ow.layer === 'character') {
-            if (g === '机制') return '机制（mechanics）';
-            const sk = gameRoot.characters?.[ow.owner]?.skills?.[g];
-            return sk?.name ? `${sk.name}（${g}）` : g;
-        }
-        if (ow.layer === 'config') return CONFIG_KEY_GLOSSARY[g] ? `${CONFIG_KEY_GLOSSARY[g]}（${g}）` : g;
-        return g || '（顶层）';
-    };
+    // 角色层：按技能归组（中文技能名），战斗参数里的数字归到它所属的技能，归不进去的进「其他被动」。
+    // 常量/数据表层：沿用扫描出的分组键。
+    let groups;
+    if (ow.layer === 'character') {
+        groups = charSkillGroups(gameRoot, ow.owner);
+    } else if (ow.layer === 'config') {
+        groups = [...new Set(allKnobs.filter(k => k.layer === 'config' && k.owner === ow.owner).map(k => k.skill))]
+            .map(g => ({ key: g, label: CONFIG_KEY_GLOSSARY[g] || g }));
+    } else {
+        groups = [...new Set(allKnobs.filter(k => k.layer === 'data' && k.owner === ow.owner).map(k => k.skill))]
+            .map(g => ({ key: g, label: g || '（顶层）' }));
+    }
     for (const g of groups) {
         const e = document.createElement('option');
-        e.value = g; e.textContent = label(g);
+        e.value = g.key; e.textContent = g.label;
         skillSel.appendChild(e);
     }
-    // 角色默认落到「机制」（若有），否则第一个技能
-    if (ow.layer === 'character' && groups.includes('机制')) skillSel.value = '机制';
+    if (groups.length) skillSel.value = groups[0].key;   // 默认选中第一个技能
     ownerHint.textContent = ow.layer === 'character'
-        ? '这一层是 content/200game-data.json 的角色技能表；「机制」组是 mechanics，其余技能组是 skills.params —— 每个字段读没读，见下表逐条标签。'
+        ? `下面是「${ow.owner}」身上所有可以改的数字。左边选技能，改完点下面的按钮加入改动清单。`
         : ow.layer === 'config'
-            ? '这一层是 core/01config-5v5-test.js 的 CONFIG（纯规则常量，全局生效）。'
-            : '这一层是 content/200game-data.json 的数据表（海克斯 / 职业加成 / 关卡阵容 / 名册预算等）。';
+            ? '下面是全局规则常量（不随关卡和阵容变化），改了对所有对局都生效。'
+            : '下面是数据表里的数字（海克斯、职业加成、关卡阵容、名册预算等），改了全局生效。';
     buildKnobTable();
 }
 skillSel.addEventListener('change', buildKnobTable);
@@ -344,46 +339,63 @@ ownerSel.addEventListener('change', () => { buildSkillSelect(); });
 fieldSearch.addEventListener('input', buildKnobTable);
 
 function knobInfo(k) {
-    return gameRoot ? describeKnob(k.path, gameRoot, k) : { kind: 'mechanics', fieldName: k.label, unit: UNIT.raw, lines: [] };
+    return gameRoot ? describeKnob(k.path, gameRoot, k)
+        : { kind: 'mechanics', fieldName: k.label, unit: UNIT.raw, qualifier: '', lines: [] };
+}
+function paramsFieldOf(k) {
+    const parts = String(k.path).split('.');
+    const i = parts.indexOf('params');
+    return i >= 0 ? parts.slice(i + 1).join('.') : '';
+}
+function knobSearchText(k) {
+    const i = knobInfo(k);
+    return `${i.fieldName} ${i.qualifier || ''} ${k.path}`;
 }
 function buildKnobTable() {
     const ow = curOwner();
     const skill = skillSel.value;
     if (!ow || !skill) { knobTableBox.innerHTML = '<div class="empty">先选归属和技能</div>'; return; }
     const q = fieldSearch.value.trim().toLowerCase();
-    const list = allKnobs.filter(k => k.layer === ow.layer && k.owner === ow.owner && k.skill === skill)
-        .filter(k => !q || (knobInfo(k).fieldName + ' ' + k.label + ' ' + k.path).toLowerCase().includes(q));
+    const list = allKnobs
+        .filter(k => k.layer === ow.layer && k.owner === ow.owner)
+        .filter(k => ow.layer === 'character'
+            ? (charGroupKeyOf(gameRoot, ow.owner, k.path) === skill
+                && !isMechanicsRowHidden(gameRoot, ow.owner, k.path)
+                && !isMirroredSkillField(k.skill, paramsFieldOf(k)))
+            : k.skill === skill)
+        .filter(k => !q || knobSearchText(k).toLowerCase().includes(q));
     if (!list.length) {
-        knobTableBox.innerHTML = `<div class="empty">${q ? '本组里没搜到匹配字段' : '本组没有数值参数'}</div>`;
+        knobTableBox.innerHTML = `<div class="empty">${q ? '本组里没搜到匹配的数字' : '本组没有可改的数字'}</div>`;
         fillCount.textContent = ''; return;
     }
-    // 字段是否被引擎真读：靠 glossary 的 ENGINE_READ 表判定（表由源码静态扫描得来），
-    // 不再用「这一组是不是 mechanics」这种按组一刀切的推断。
+    // 是否影响战斗：战斗参数侧一律「影响战斗」（孤儿子段除外）；技能面板的数字由 glossary 的读取表逐条给结论。
     const VERDICT_TAG = {
-        engine:  '<span class="tag tag-real">引擎真读</span>',
-        dynamic: '<span class="tag tag-real">整包动态读</span>',
-        none:    '<span class="tag tag-maybe">仅校验存在</span>',
-        text:    '<span class="tag tag-gray">仅文案</span>'
+        engine:  '<span class="tag tag-real">影响战斗</span>',
+        dynamic: '<span class="tag tag-real">引擎按情况取整包读取</span>',
+        none:    '<span class="tag tag-maybe">只是校验有没有写</span>',
+        text:    '<span class="tag tag-gray">只改技能说明文字，不影响战斗</span>',
+        orphan:  '<span class="tag tag-gray">读取这段的代码已废弃，改它不影响战斗</span>'
     };
-    function fieldPathOf(k) {
-        const parts = String(k.path).split('.');
-        const i = parts.indexOf('params');
-        return i >= 0 ? parts.slice(i + 1).join('.') : '';
-    }
-    const isSkillLayer = ow.layer === 'character' && skill !== '机制';
-    const legend = ow.layer !== 'character' ? '' : isSkillLayer
-        ? '<div class="knob-legend">skills 表是<b>双用途</b>的：同一个 params 对象既给技能描述做占位符（desc 里的 <code>{xxx}</code>），也可能被引擎 <code>getSkillParams()</code> 取出来算数。下表直接给结论：'
-        + VERDICT_TAG.engine + ' 改了会改变战斗结果；'
-        + VERDICT_TAG.dynamic + ' 引擎按动态键整包取用，子字段都可能被读；'
-        + VERDICT_TAG.text + ' 只影响描述文字，改了不出效果。</div>'
-        : '<div class="knob-legend">这一组是 <code>mechanics</code>：<b>引擎战斗逻辑直接读取的参数</b>，改了必定改变战斗结果（本页对照实验跑的就是这类）。</div>';
-    let h = legend + '<table class="knob-table"><tr><th>参数</th><th>当前值</th><th>改成</th></tr>';
+    const isChar = ow.layer === 'character';
+    const legend = isChar
+        ? '<div class="knob-legend">下表是这个技能下的全部数字。改了标「影响战斗」的行，战斗结果就会变；标灰的行对战斗没有影响（看最右列说明）。</div>'
+        : '';
+    let h = legend + '<table class="knob-table"><tr><th>参数</th><th>原值</th><th>改成</th><th>改了会怎样</th></tr>';
     for (const k of list) {
         const info = knobInfo(k);
-        const tag = isSkillLayer ? (VERDICT_TAG[skillFieldVerdict(skill, fieldPathOf(k))] || '') : '';
-        h += `<tr><td class="kname">${info.fieldName}${tag}<div class="hint">${k.label}</div></td>`
+        const fp = paramsFieldOf(k);
+        const orphan = isChar && info.kind === 'mechanics'
+            && isOrphanField(charGroupKeyOf(gameRoot, ow.owner, k.path), info.fieldRaw);
+        const verdict = orphan ? 'orphan' : (fp ? skillFieldVerdict(k.skill, fp) : 'engine');
+        const tag = isChar ? (VERDICT_TAG[verdict] || '') : '';
+        const note = isChar && fp ? dualRegisterNote(k.skill, fp) : '';
+        const hint = [info.qualifier || '', note ? `<span style="color:#ffb74d">⚠️ ${note}</span>` : '']
+            .filter(Boolean).join('<br>');
+        const ph = inputHint(info.unit);
+        h += `<tr><td class="kname">${info.fieldName}${tag}${hint ? `<div class="hint">${hint}</div>` : ''}</td>`
             + `<td class="kcur">${fmtValue(k.value, info.unit)}</td>`
-            + `<td><input type="number" step="any" data-path="${k.path}" data-orig="${k.value}" data-unit="${info.unit}"></td></tr>`;
+            + `<td><input type="number" step="any" data-path="${k.path}" data-orig="${k.value}" data-unit="${info.unit}"${ph ? ` placeholder="${ph}"` : ''}></td>`
+            + `<td class="kwhat">${knobWhatIf(k.path, gameRoot, k)}</td></tr>`;
     }
     h += '</table>';
     knobTableBox.innerHTML = h;
@@ -470,10 +482,9 @@ function refreshScale() {
 // ---------------------------------------------------------------------------
 // ② 补丁：人只填「改成几」，路径与当前值由页面记
 // ---------------------------------------------------------------------------
-function pctNote(o) {
-    if (o.unit !== UNIT.pct || typeof o.value !== 'number') return '';
-    const p = o.value * 100;
-    return `（= ${p.toFixed(p % 1 === 0 ? 0 : 1)}%）`;
+// 改动清单也用人话单位显示（与字段表同一口径）
+function showVal(v, unit) {
+    return (typeof v === 'number' && Number.isFinite(v)) ? fmtValue(v, unit) : String(v);
 }
 function renderPatch() {
     if (!patchOps.length) {
@@ -484,7 +495,7 @@ function renderPatch() {
     patchBox.innerHTML = patchOps.map((o, i) => `
         <div class="patch-row">
             <span class="pname">${o.group} · ${o.label}</span>
-            <span>${o.orig != null ? o.orig : '?'} → <span class="pval">${o.value}</span> ${pctNote(o)}</span>
+            <span>${showVal(o.orig, o.unit)} → <span class="pval">${showVal(o.value, o.unit)}</span></span>
             <button class="pdel" data-del="${i}">删掉</button>
         </div>`).join('');
     patchBox.querySelectorAll('button[data-del]').forEach(b => {
@@ -505,7 +516,7 @@ addFilledBtn.addEventListener('click', () => {
         const k = allKnobs.find(x => x.path === inp.dataset.path);
         if (!k) continue;
         const info = knobInfo(k);
-        ok.push({ path: k.path, value: v, orig: Number(inp.dataset.orig), label: info.fieldName, group: k.owner, unit: info.unit });
+        ok.push({ path: k.path, value: humanToStored(v, info.unit), orig: Number(inp.dataset.orig), label: info.fieldName, group: k.owner, unit: info.unit });
         inp.value = '';
     }
     if (!ok.length) {
@@ -727,7 +738,7 @@ function renderAll(stages, runs, hasPatch, baseResults, patchResults) {
     const all = stages.map(st => evalStage(st, runs, hasPatch, baseResults, patchResults));
     const el = [];
     const patchText = hasPatch
-        ? patchOps.map(o => `${o.group} · ${o.label} = ${o.value}${pctNote(o)}（原 ${o.orig}）`).join('、')
+        ? patchOps.map(o => `${o.group} · ${o.label} = ${showVal(o.value, o.unit)}（原 ${showVal(o.orig, o.unit)}）`).join('、')
         : '无（只跑现状）';
 
     if (all.length > 1) {
