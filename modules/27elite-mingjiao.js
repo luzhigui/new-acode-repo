@@ -1,5 +1,5 @@
-// V6.3.9 | ~42100 bytes | 2026-09-29 参数体系收敛批 3：张无忌近战上限/融会贯通系数、小昭·妹飞天血量档位（0.7/0.4 六处统一读同一数组）/飞天次数/惑心概率 全部改读 CONFIG；幼狮成长与召唤参数兜底删除（直读内容表）
-export const VER = 'modules/27elite-mingjiao.js V6.3.9';
+// V6.4.0 | ~42100 bytes | 2026-09-29 韦一笑吸血技能改名：寒冰掌 → 蝠影汲血（技能键 coldPalm → bloodSiphon）；承接 V6.3.9 参数体系收敛批 3（张无忌近战上限/融会贯通系数、小昭·妹飞天血量档位/次数/惑心概率改读 CONFIG；幼狮成长与召唤参数直读内容表）
+export const VER = 'modules/27elite-mingjiao.js V6.4.0';
 
 import { registerElite } from '../core/08-elite-registry.js';
 import { CONFIG, getSkillParams } from '../core/01config-5v5-test.js';
@@ -133,8 +133,8 @@ export function createWeiYixiaoComponent() {
             function submitWeiLeechDeclaration(data) {
                 const { unit, target, reboundDmg, declarations } = data;
                 if (!target.isWei || !target.alive) return;
-                const s = getSkillParams('韦一笑', 'coldPalm');
-                if (!s) throw new Error('缺技能参数: 韦一笑.coldPalm');
+                const s = getSkillParams('韦一笑', 'bloodSiphon');
+                if (!s) throw new Error('缺技能参数: 韦一笑.bloodSiphon');
                 const lostPct = (target.maxHp - target.hp) / target.maxHp;
                 const leechRate = (s.leechMin + (s.leechMax - s.leechMin) * lostPct) / 100;
                 const heal = Math.max(1, Math.floor(reboundDmg * leechRate));

@@ -1,5 +1,6 @@
 // tools/120-param-lab-glossary.js - 参数中文说明表（只读展示用，不参与战斗）
-// V2.0.0 | 预估 27100 bytes | 2026-09-29 参数实验台批 4：① 补全 skills 表字段中文（原只登记约 20 个，
+// V2.0.1 | 预估 16800 bytes | 2026-09-29 韦一笑吸血技能改名：寒冰掌 → 蝠影汲血（技能键 coldPalm → bloodSiphon，同步 TYPE_GLOSSARY 与 PCT100 白名单键）
+// V2.0.0 | 2026-09-29 参数实验台批 4：① 补全 skills 表字段中文（原只登记约 20 个，
 //   现覆盖 characters.*.skills.*.params 全部字段 + mechanics 全部字段）；② 明确「两套单位口径」——
 //   mechanics 是「1 = 100%」（0.12 即 12%），skills.params 里部分字段直接写百分数（10 即 10%），
 //   由 PCT100 白名单逐「技能.字段」登记，不再按字段名一刀切；③ 新增 CONFIG / 数据表两层的中文说明
@@ -29,7 +30,7 @@ export const TYPE_GLOSSARY = {
     ignoreDef:                  { skill: 'hornStrike',   name: '鹿角杖法 · 无视防御' },
     damageMultiplierIfPoisoned: { skill: 'hornStrike',   name: '鹿角杖法 · 对中毒目标增伤' },
     healMaxHpPct:               { skill: 'nineYang',     name: '九阳神功 · 命中回血' },
-    leech:                      { skill: 'coldPalm',     name: '寒冰掌 · 吸血' },
+    leech:                      { skill: 'bloodSiphon', name: '蝠影汲血 · 吸血' },
     lostHpPercent:              { skill: 'bloodDodge',   name: '残血幻影 · 额外闪避' },
     damageReflect:              { name: '反伤' },
 };
@@ -46,7 +47,7 @@ export { UNIT };
 // 不在表里的 pct 类字段一律按 mechanics 口径（1 = 100%）显示 —— 这是绝大多数情况。
 const PCT100 = new Set([
     'nineYang.healPct', 'nineYang.healRatio',
-    'coldPalm.leechMin', 'coldPalm.leechMax',
+    'bloodSiphon.leechMin', 'bloodSiphon.leechMax',
     'bloodDodge.minRatio', 'bloodDodge.maxRatio',
     'qianKun.reducePct', 'qianKun.reboundPct', 'qianKun.selfDmgPct',
     'qianKunUpgraded.reducePct', 'qianKunUpgraded.reboundPct', 'qianKunUpgraded.selfDmgPct',
