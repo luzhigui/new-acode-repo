@@ -1,7 +1,7 @@
 // V6.14.9 | ~25800 bytes | 2026-09-29 参数体系收敛批 3：九阴白骨爪参数兜底全删（procChance/chainProcChance/lostHpRatio/maxHpRatio/executeThreshold 直读内容表，缺失即抛错）；灭绝师太三击间隔改数据驱动（thirdStrike.params.interval）
 export const VER = 'modules/26elite-sixsects.js V6.14.9';
 import { registerElite } from '../core/08-elite-registry.js';
-import { CONFIG, getSkillParams } from '../core/01config-5v5-test.js';
+import { CONFIG, getSkillParams, getGameData } from '../core/01config-5v5-test.js';
 import { SIGNAL_TYPES, FACT_TYPES, BUFF_TYPES, CAMP_TYPES, ROLE_TYPES } from '../infra/56-battle-enums.js';
 import { applyStatChange, addMod, getStat, getBattleRng, resolvePushOrStun, refreshMaxHp } from '../core/13battle-shared.js';
 import { eventBus, EFFECT_TYPES, EXECUTION_LAYER as L } from '../infra/50-event-bus.js';
@@ -500,8 +500,12 @@ function checkKuLian(allyTeam) {
     return song;
 }
 
-// 快乐回血：每层按 healPct 回一次，层数推进到下一档
+// 快乐回血：每层按 healPct 回一次，层数推进到下一档。
+// levels 真值唯一来源：宋青书 mechanics 里 type='xinHun' 的 healLevels（批 1 已删 skills.params 死副本）。
 function tickKuaiLeHeal(allUnits, log, declarations) {
+    const xinHunMech = (getGameData()?.characters?.['宋青书']?.mechanics || []).find(m => m && m.type === 'xinHun');
+    const levels = xinHunMech?.healLevels;
+    if (!levels) throw new Error('缺技能参数: 宋青书.mechanics.xinHun.healLevels');
     allUnits.forEach(unit => {
         if (!unit.state._kuaiLeStack || unit.state._kuaiLeStack.length === 0) return;
         if (!unit.alive) return;
@@ -510,8 +514,6 @@ function tickKuaiLeHeal(allUnits, log, declarations) {
         unit.state._kuaiLeStack.forEach(layer => {
             const healAmount = Math.floor(unit.maxHp * layer.healPct);
             totalHeal += healAmount;
-            const levels = getSkillParams('宋青书', 'xinHun').healLevels;
-            if (!levels) throw new Error('缺技能参数: 宋青书.xinHun.healLevels');
             const currentIdx = levels.indexOf(layer.healPct);
             if (currentIdx >= 0 && currentIdx < levels.length - 1) newStack.push({ healPct: levels[currentIdx + 1] });
         });
@@ -660,7 +662,8 @@ registerMechanicHandler('xinHun', {
             log.push({ factType: FACT_TYPES.XIN_HUN, data: { attackerName: unit.name, targetName: zhou.name, hpDeduct, healPct: healLevels[0], stackCount: zhou.state._kuaiLeStack.length, zhouUid: zhou.uid, zhouHpAfter: zhou.hp, isDead: !!zhou._pendingDeath } });
             if (zhou.state._pendingDeath) log.push({ factType: FACT_TYPES.XIN_HUN_DEATH, data: { unitName: zhou.name, uidD: zhou.uid } });
             Object.assign(unit.state, { _xingFenPenaltyCount: (unit.state._xingFenPenaltyCount || 0) + 1 });
-            const penalty = unit.state._xingFenPenaltyCount + 1;
+            // 本次减上限 = 当前累计攻击次数（第 1 次 -1、第 2 次 -2、第 3 次 -3…）
+            const penalty = unit.state._xingFenPenaltyCount;
             if (penalty > 0 && unit.maxHp > 1) {
                 const oldMaxHp = unit.maxHp;
                 addMod(unit, 'maxHp', { source: '性奋代价', value: -penalty, ttl: 'permanent', group: 'xingFenCost', op: 'add' });

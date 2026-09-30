@@ -4,7 +4,7 @@ export const VER = 'core/11battle-round.js V6.3.2';
 import { CONFIG, getGameData, getSkillParams } from './01config-5v5-test.js';
 import { resetStateFields } from './17-state-keys.js';
 import { isMelee, isBlocked, makeFXSnapshot, hasBuff, getUnitCol, getUnitRow, hasAnyEnemyEmptyCol, countEnemyEmptyCols, getBloodAuraBonus, getAuraBonuses, registerWarriorBreakDefense, registerRangedGrowth, registerFortifyShield, registerWarriorExecute, registerEmptyColBonus, registerDoubleStrike } from './03battle-utils.js';
-import { computeBuffStats, logBuffSummary, applyHolyFlameBonus, applyFortifyBonus, applyCarryBonus, installBuffMechanics } from './04buff-system.js';
+import { computeBuffStats, logBuffSummary, applyHolyFlameBonus, applyFortifyBonus, applyCarryBonus, installBuffMechanics, onUnitDeathFlyerRegen } from './04buff-system.js';
 import { spawnHorse, destroyHorse } from './05battle-horse.js';
 import { Unit } from './02unit.js';
 import { clearEliteDodgeRules, getDodgeRules } from './12battle-attack-steps.js';
@@ -121,6 +121,8 @@ function prepareRoundStart(A, B, log, state, round, rng) {
     registerDoubleStrike(eventBus, doubleStrikeUnitUid, A, A._activeBuffs);
     registerDoubleStrike(eventBus, doubleStrikeUnitUidEnemy, B, B._activeBuffs);
     registerEmptyColBonus(eventBus);
+    // 飞行再生：每死一个非拒马角色，全场飞行立即回 baseRegen 生命（数值读 roles.飞行.baseRegen）
+    eventBus.on(SIGNAL_TYPES.ON_UNIT_DEATH, 30, (data) => { onUnitDeathFlyerRegen(data, A, B); });
 
     const factories = getEliteFactories();
     let sisterComp = null;

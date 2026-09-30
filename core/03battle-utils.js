@@ -1,5 +1,5 @@
-// V6.1.6 | ~16000 bytes | 2026-09-29 参数单位口径统一为「1 = 100%」：破防分档 chance 与防战坚盾概率改按比例读取（比较前 ×100 回到百分点域）；承接 V6.1.5 参数体系收敛批 3（低血阈值/斩杀阈值/张无忌近战上限改读 CONFIG）
-export const VER = 'core/03battle-utils.js V6.1.6';
+// V6.1.7 | ~16200 bytes | 2026-09-30 参数单位口径统一（收尾）：getMissBreakdown 改为按比例域读 CONFIG（5 个读点 ×100 还原），对外契约仍是百分点；破防兜底档同步写成 targetDef × (WARRIOR_BREAK_CHANCE_PER_DEF × 100)
+export const VER = 'core/03battle-utils.js V6.1.7';
 
 import { CONFIG, getGameData } from './01config-5v5-test.js';
 import { emitEvent, applyStatChange, query, getBattleRng, getPresentationRng, addMod, getStat } from './13battle-shared.js';
@@ -77,33 +77,39 @@ export function getFlyDodgeRate(unit, attacker) {
 
 // 2026-09-16 攻击未命中率：唯一算法源（12battle-attack-steps 与详情弹窗同源调用，改算法只改这里）
 // 返回 { total, sources }，total 为百分点，sources 为 { label, value } 明细
+// 2026-09-30 V6.5.0 口径统一：CONFIG 里未命中率改按「1 = 100%」存（0.06 = 6%），本函数在此 ×100 还原，
+//   对外契约（total / sources.value 均为百分点）不变，日志、详情弹窗、体检 145 无需跟改。
 export function getMissBreakdown(unit, allySide, enemySide) {
     if (!unit) return { total: 0, sources: [] };
     if (unit.state && unit.state._neverMiss) return { total: 0, sources: [{ label: '必中', value: 0 }] };
     const sources = [];
     let total = 0;
+    const PCT = 100;   // 比例 → 百分点（写成单独一次乘法，与统一前的字面量逐位一致）
     if (unit.role === ROLE_TYPES.RANGED) {
-        total = C.RANGED_MISS_CHANCE;
-        sources.push({ label: '远程基础', value: C.RANGED_MISS_CHANCE });
+        const base = C.RANGED_MISS_CHANCE * PCT;
+        total = base;
+        sources.push({ label: '远程基础', value: base });
     } else if (unit.role === ROLE_TYPES.FLYER) {
-        total = C.FLY_MISS_CHANCE;
-        sources.push({ label: '飞行基础', value: C.FLY_MISS_CHANCE });
+        const base = C.FLY_MISS_CHANCE * PCT;
+        total = base;
+        sources.push({ label: '飞行基础', value: base });
         const allUnits = [...(allySide || []), ...(enemySide || [])];
         const lowHpCount = allUnits.filter(u => u.alive && u.hp / u.maxHp < C.LOW_HP_THRESHOLD).length;
         if (lowHpCount > 0) {
-            const v = lowHpCount * C.FLY_MISS_LOWHP_BONUS;
+            const v = lowHpCount * (C.FLY_MISS_LOWHP_BONUS * PCT);
             total += v;
             sources.push({ label: '残血光环×' + lowHpCount, value: v });
         }
         const emptyCols = countEnemyEmptyCols(enemySide || []);
         if (emptyCols > 0) {
-            const v = -emptyCols * C.FLY_MISS_EMPTYCOL_REDUCE;
+            const v = -emptyCols * (C.FLY_MISS_EMPTYCOL_REDUCE * PCT);
             total += v;
             sources.push({ label: '空列×' + emptyCols, value: v });
         }
     } else {
-        total = C.GROUND_MISS_CHANCE;
-        sources.push({ label: '地面基础', value: C.GROUND_MISS_CHANCE });
+        const base = C.GROUND_MISS_CHANCE * PCT;
+        total = base;
+        sources.push({ label: '地面基础', value: base });
     }
     return { total: Math.max(0, Math.round(total * 10) / 10), sources };
 }
@@ -158,8 +164,10 @@ function submitWarriorBreakDefenseDeclaration(data) {
     const tier = (C.WARRIOR_BREAK_DEF_TIERS || []).find(t => t.defMax === null || targetDef <= t.defMax)
         || { reduce: C.WARRIOR_BREAK_DEF, chance: null };
     let defReduced = tier.reduce;
-    // tier.chance 口径 1 = 100%（→百分点 ×100）；兜底档的「每点防御概率」是百分点梯度，原样参与
-    let breakChance = tier.chance === null ? targetDef * C.WARRIOR_BREAK_CHANCE_PER_DEF : tier.chance * 100;
+    // 两档 chance 口径统一「1 = 100%」，比较前都 ×100 回百分点域：
+    //   分档档 → tier.chance * 100（如 0.5 → 50）
+    //   兜底档 → 防御 × (WARRIOR_BREAK_CHANCE_PER_DEF * 100)（如 30 × 2.5 = 75）
+    let breakChance = tier.chance === null ? targetDef * (C.WARRIOR_BREAK_CHANCE_PER_DEF * 100) : tier.chance * 100;
     if (getBattleRng().nextInt(1, 100) > breakChance) return;
     defReduced = Math.min(defReduced, getStat(target, 'def'));
     declarations.push({ type: EFFECT_TYPES.BREAK_DEF, value: defReduced, source: unit, target: target, factData: { attackerName: unit.name, targetName: target.name, reduce: defReduced } });

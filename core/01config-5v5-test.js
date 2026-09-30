@@ -1,9 +1,5 @@
-// V6.4.0 | ~18100 bytes | 2026-09-29 参数单位口径统一为「1 = 100%」：getSkillDesc 回落分支补百分数占位符格式化（PCT_PARAM_KEYS）、CONFIG.WARRIOR_BREAK_DEF_TIERS.chance 改比例；承接 V6.3.0 参数单一真值源收口（getSkillDesc「真值优先」+ DESC_TRUTH 映射表）
-//   + resolveDescValue()，技能说明里的 {占位符} 一律取 mechanics 真值（引擎实际读的那份），不再从
-//   skills.<键>.params 的副本取值；未登记占位符仍回落 params 的既有插值（含「按字段名猜单位」保底，
-//   供 descJealous 等未收口文案继续工作）。
-// V6.2.5 | ~10400 bytes | 2026-09-29 参数体系收敛批 3：战斗通用规则常量收进 CONFIG——低血/斩杀阈值、拒马 M、热血奋战间隔、防御波动阈值、小昭飞天档位/次数/惑心概率、张无忌近战上限与融会贯通系数、全精通额外层数
-export const VER = 'core/01config-5v5-test.js V6.4.0';
+// V6.5.0 | ~18600 bytes | 2026-09-30 参数单位口径统一（收尾）：miss 系 5 个未命中率常量与 WARRIOR_BREAK_CHANCE_PER_DEF 改按「1 = 100%」存（读点 core/03 ×100 还原，对外契约仍是百分点）；getSkillDesc 回落分支删「字段名含 ratio 就换算」的猜测，改显式白名单 PCT_PARAM_KEYS（修反击 dmgRatio 0.6 被显示成「伤害×60」、周芷若强化档 lostHpRatio 0.015 被显示成 0.015%）。承接 V6.4.0 参数单一真值源收口（DESC_TRUTH 映射表 + resolveDescValue，技能说明 {占位符} 一律取 mechanics 真值）。
+export const VER = 'core/01config-5v5-test.js V6.5.0';
 
 import { ROLE_TYPES } from '../infra/56-battle-enums.js';
 
@@ -78,7 +74,8 @@ export const DESC_TRUTH = {
         hpBonus:  { type: 'kuLian', field: 'hpBonus',  scale: 1 }
     } },
     xinHun: { character: '宋青书', fields: {
-        hpDeduct: { type: 'xinHun', field: 'hpDeduct', scale: 1 }
+        hpDeduct:   { type: 'xinHun', field: 'hpDeduct',   scale: 1 },
+        healLevels: { type: 'xinHun', field: 'healLevels', scale: 100 }
     } },
     phantomThunder: { character: '成昆', fields: {
         lostHpRatio: { type: 'bonusLostHp', field: 'ratio', scale: 100 }
@@ -97,6 +94,10 @@ export const DESC_TRUTH = {
     } },
     nineYang: { character: '张无忌', fields: {
         healPct: { type: 'healMaxHpPct', field: 'pct', scale: 100 }
+    } },
+    bloodSiphon: { character: '韦一笑', fields: {
+        leechMin: { type: 'leech', field: 'minRatio', scale: 100 },
+        leechMax: { type: 'leech', field: 'maxRatio', scale: 100 }
     } },
     bloodDodge: { character: '韦一笑', fields: {
         maxRatio: { type: 'lostHpPercent', field: 'max', scale: 100 }
@@ -146,8 +147,16 @@ function resolveDescValue(characterName, skillKey, key) {
 }
 
 // 技能说明里的百分数占位符：这些字段的模板自己带 %，params 一律按「1 = 100%」存储，
-//   回落分支按 ×100 输出人话（0.1 → 10）。与 DESC_TRUTH 的 scale:100 同一口径。
-const PCT_PARAM_KEYS = new Set(['reducePct', 'reboundPct', 'selfDmgPct', 'leechMin', 'leechMax']);
+//   下落分支按 ×100 输出人话（0.1 → 10）。与 DESC_TRUTH 的 scale:100 同一口径。
+//   2026-09-30 V6.5.0：登记口径从「字段名里含 ratio 就换算」的猜测，改为**显式白名单**——
+//   猜测分支把倍率字段 dmgRatio（0.6）误当成百分数，面板显示成「伤害×60」。现只认本表：
+//     · 带 % 的百分数占位符 → 登记在此（未登记的新字段请补进来，否则会显示 0.xx%）
+//     · 倍率/点数/回合数一类 → 不登记，原样输出（如 dmgRatio 0.6 → 「伤害×0.6」）
+//     · 需要显示 mechanics 真值的 → 走上面的 DESC_TRUTH，与本表无关
+const PCT_PARAM_KEYS = new Set(['reducePct', 'reboundPct', 'selfDmgPct', 'leechMin', 'leechMax',
+    'procChance', 'healPct', 'prob',
+    'atkRatioRight', 'defRatioLeft', 'hpRatio',           // 小昭·蝶变附身三项
+    'lostHpRatio', 'maxHpRatio', 'executeThreshold']);    // 周芷若九阴白骨爪（强化档走 paramsJealous 回落，模板自带 %）
 
 function getSkillDesc(characterName, skillKey, jealous) {
     const ch = gameData?.characters?.[characterName];
@@ -155,20 +164,21 @@ function getSkillDesc(characterName, skillKey, jealous) {
     if (!skill) return '';
     const template = jealous ? (skill.descJealous || skill.desc) : skill.desc;
     const params = jealous ? (skill.paramsJealous || skill.params) : (skill.params || {});
-    // 替换 {key} 占位符：非强化档一律「真值优先」——命中 DESC_TRUTH 走 mechanics，未命中回落 params
-    return template.replace(/\{(\w+)\}/g, (_, key) => {
+    // 替换 {key} 占位符：key 支持点路径（如 grow.prob），逐段下钻 params。
+    //   非强化档一律「真值优先」——命中 DESC_TRUTH 走 mechanics，未命中回落 params
+    return template.replace(/\{([\w.]+)\}/g, (_, key) => {
         if (!jealous) {
             const truth = resolveDescValue(characterName, skillKey, key);
             if (truth !== undefined) return truth;
         }
-        let val = params[key];
+        // 点路径逐段下钻；单段直接取
+        let val = params;
+        for (const seg of key.split('.')) { val = val == null ? undefined : val[seg]; }
         if (val === undefined || val === null) return `{${key}}`;
+        // 单位口径按末段字段名判断（父级点路径不影响）：数组 → 逐项换算拼 %；白名单 → ×100；其余原样
+        const lastKey = key.includes('.') ? key.slice(key.lastIndexOf('.') + 1) : key;
         if (Array.isArray(val)) return val.map(v => (typeof v === 'number' && v < 1 ? Math.round(v * 1000) / 10 : v) + '%').join('→');
-        if (PCT_PARAM_KEYS.has(key)) return typeof val === 'number' ? String(Math.round(val * 1000) / 10) : val;
-        if (key.toLowerCase().includes('ratio') || key === 'currentHpRatio' || key === 'executeThreshold') {
-            if (typeof val === 'number' && val < 1) return String(Math.round(val * 1000) / 10);
-            return val;
-        }
+        if (PCT_PARAM_KEYS.has(lastKey)) return typeof val === 'number' ? String(Math.round(val * 1000) / 10) : val;
         return val;
     });
 }
@@ -194,11 +204,14 @@ const CONFIG = {
     },
     ROLES: [ROLE_TYPES.WARRIOR, ROLE_TYPES.DEFENDER, ROLE_TYPES.RANGED, ROLE_TYPES.FLYER],
     ATK_VAR: 6, DEF_VAR: 4, HP_BONUS_MIN: 0, HP_BONUS_MAX: 5,
-    RANGED_MISS_CHANCE: 3,
-    FLY_MISS_CHANCE: 6,
-    GROUND_MISS_CHANCE: 1,
-    FLY_MISS_LOWHP_BONUS: 6,
-    FLY_MISS_EMPTYCOL_REDUCE: 12,
+    // 未命中率统一「1 = 100%」（2026-09-30 口径统一 V6.5.0）：读点 core/03 getMissBreakdown 内 ×100 转百分点域。
+    //   该函数对外契约仍是百分点（日志、详情弹窗、体检 145 均按 % 比对），只在"存储 → 计算"这一步换算。
+    //   注：×100 写在同一括号内（如 C.X * 100），与旧值逐位一致（0.06*100 === 6，无 ulp 漂移）。
+    RANGED_MISS_CHANCE: 0.03,
+    FLY_MISS_CHANCE: 0.06,
+    GROUND_MISS_CHANCE: 0.01,
+    FLY_MISS_LOWHP_BONUS: 0.06,
+    FLY_MISS_EMPTYCOL_REDUCE: 0.12,
     FANG_LEVELS: [0.150, 0.200, 0.240, 0.270, 0.290, 0.310, 0.330, 0.350, 0.370, 0.390, 0.410, 0.430, 0.460, 0.490, 0.530, 0.570, 0.620, 0.670, 0.730, 0.800],
     FANG_K: [0.04, 0.05, 0.06, 0.07, 0.08, 0.09, 0.11, 0.12, 0.14, 0.16, 0.19, 0.22, 0.26, 0.30, 0.35, 0.46, 0.66, 0.88, 1.16, 2.66],
     // 防战血量伤害系数（z 值）分档表：按初始血量占比锁档，占比越高档位越高（core/02 getHpDmgRatio）
@@ -236,11 +249,12 @@ const CONFIG = {
     // 战士破防分档表（2026-09-14 参数三源收敛：原为 03battle-utils 内联魔法数字）
     // 按目标防御值落档：defMax 为档位上限（null = 兜底档），reduce 破防量，chance 触发率（口径 1 = 100%）
     WARRIOR_BREAK_DEF_TIERS: [
-        { defMax: 40,   reduce: 2, chance: null },   // 低防：概率 = 防御 × 2.5（百分点梯度）
+        { defMax: 40,   reduce: 2, chance: null },   // 低防：概率 = 防御 × WARRIOR_BREAK_CHANCE_PER_DEF（比例，读点 ×100 回百分点域）
         { defMax: 50,   reduce: 3, chance: 1 },
         { defMax: null, reduce: 4, chance: 1 }
     ],
-    WARRIOR_BREAK_CHANCE_PER_DEF: 2.5,
+    // 每点防御的破防概率（口径 1 = 100%：0.025 = 2.5%）。读点 core/03 写成 × (该值 * 100)，与旧值 2.5 逐位一致
+    WARRIOR_BREAK_CHANCE_PER_DEF: 0.025,
     RANGED_GROWTH_ATK: 2,
     FORTIFY_INCREMENT: 1,
     FORTIFY_CAP: 4,
@@ -328,7 +342,7 @@ const CONFIG = {
     HORSE_M: 15,                           // 拒马单位预算 M（05 spawnHorse）
     HOT_BLOOD_CRIT_INTERVAL: 3,            // 热血奋战双倍吸血间隔（04）
     DEF_WAVE_THRESHOLD: 7,                 // 攻击波动「防御波动」台词阈值（12，defVar + hpBonus 达标）
-    SPIDER_FLY_HP_THRESHOLDS: [0.7, 0.4],  // 小昭·妹飞天触发的血量占比档（27，按序取：70% → 40%）
+
     SPIDER_MIND_CONTROL_CHANCE: 0.15,      // 永久惑心误伤概率（27）
     XIAO_ZHAO_CARRY_MODS: { atk: 3, def: 4, maxHp: 20 },  // 小昭·妹永久 carry 加成（27）
     ZHANG_NEAR_ATK_LIMIT: 3,               // 张无忌近战次数上限（融会贯通，27 / 03）
