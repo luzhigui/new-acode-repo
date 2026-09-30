@@ -1,4 +1,16 @@
 // tools/124-param-lab-glossary.js - 参数中文说明表（只读展示用，不参与战斗）
+// V2.5.1 | 预估 44700 bytes | 2026-09-30 按 tests/param-read-guard.mjs 实测补登记 ENGINE_READ（表 = 源码真读了什么的快照）：
+//   ① spiderFly 补 'hpThresholds' —— modules/27 的 3 处 getSkillParams('小昭','spiderFly') 拿
+//      hpThresholds[0]/[1] 当飞天血量阈值（口径已改 1 = 100%，content 里是 0.7 / 0.4）；
+//   ② 新增整键 butterflyAttach: ['atkRatioRight', 'defRatioLeft', 'hpRatio'] —— modules/27:289 读这三个比例
+//      做「小昭·姊」蝶变附身的攻/防/血转移。补完后与源码双向一致（守卫退出码 0）。
+// V2.5.0 | 预估 44100 bytes | 2026-09-30 参数单位口径跟改（比例域收尾）：
+//   ① CONFIG 的 miss 系 5 个常量与 WARRIOR_BREAK_CHANCE_PER_DEF 存储值已改比例域（0.03/0.06/0.01/0.06/0.12/0.025），
+//      中文名补上换算说明（如「远程基础未命中率（比例，0.03 = 3%）」），免得实验台上看到 0.03 以为变小了；
+//   ② 新增字段说明 hpThresholds（小昭·妹飞天，[0.7,0.4]）：「血量阈值（比例：0.7 = 70%）」；
+//   ③ 新增导出 isUnreadSkillGroup(skillKey)：整组参数引擎不读（ENGINE_READ_NONE）的判定，供实验台在技能下拉里
+//      把「随动」这类技能标成「引擎不读」。行级灰显仍复用 skillFieldVerdict 的 'none' 与 isOrphanField 的 'orphan'；
+//      本版未动三张表（表与源码的同步补登记见 V2.5.1）。
 // V2.4.0 | 预估 42600 bytes | 2026-09-29 参数单位口径统一为「1 = 100%」：原先按「10 = 10%」直读的
 //   那批字段（skills.params 的 qianKun/qianKunUpgraded/qianKunDerived/bloodSiphon/spiderFly、
 //   CONFIG.WARRIOR_BREAK_DEF_TIERS.chance、roles.防战.fortify）已全部 ÷100 改写、读取点同步改，
@@ -109,8 +121,8 @@ export const ENGINE_READ = {
     qianKunUpgraded: ['reducePct', 'reboundPct', 'selfDmgPct'],
     qianKunDerived:  ['defToReduce', 'defToHeal', 'defToAtk'],
     nearSwitch:      ['atkMul', 'defMul', 'maxHpMul'],
-    bloodSiphon:     ['leechMin', 'leechMax'],
-    spiderFly:       ['maxTriggers', 'xiaoZhaoDoubleStrikeChance'],
+    spiderFly:       ['maxTriggers', 'xiaoZhaoDoubleStrikeChance', 'hpThresholds'],
+    butterflyAttach: ['atkRatioRight', 'defRatioLeft', 'hpRatio'],
     spiderStrike:    ['extraDmgMap'],
     mastery:         ['atkPer', 'defPer', 'hpPer'],
 };
@@ -159,6 +171,15 @@ export function skillFieldVerdict(skillKey, fieldPath) {
     return 'text';
 }
 
+/**
+ * 整个技能组的参数引擎都不读（ENGINE_READ_NONE，如谢逊 lionFollow「随动」）。
+ * 供实验台在技能下拉里给这类技能标「引擎不读」——它们整组都不生效，不必逐个字段看。
+ * @returns {boolean}
+ */
+export function isUnreadSkillGroup(skillKey) {
+    return ENGINE_READ_NONE.has(skillKey);
+}
+
 // ---------------------------------------------------------------------------
 // 镜像对照表（2026-09-29 建，同日收口后退役为空表）。
 //   历史用途：skills.<键>.params 里这些字段与战斗参数（mechanics）里的等价数值是同一个数，
@@ -171,20 +192,18 @@ export const MIRRORED_SKILL_FIELDS = {};
 // 反过来：战斗参数侧要跳过、只显示技能面板那份的字段（两侧都读、语义重复时用）。
 // 按「效果类型」配置（不是按技能键，也不是按写死的位置）：类型由 enclosingType() 取「最靠内层带
 //   type 的对象」，所以长在 onHitEffects / beforeDamageEffects / dodgeRules 里的声明同样能命中。
-//   leech：韦一笑吸血写在 mechanics[0].onHitEffects[0]，与技能面板的 leechMin/leechMax 是同一个数；
 //   xinHun：宋青书回血档位写在 mechanics 的 healLevels，与技能面板的 healLevels 同源。
-// 2026-09-29 收口说明：这两条**不是死副本** —— 两侧都真实存在且都被引擎读取（故不能像
+// 2026-09-29 收口说明：这条**不是死副本** —— 两侧都真实存在且都被引擎读取（故不能像
 //   MIRRORED_SKILL_FIELDS 那样清空），隐藏其中一份纯粹为了实验台不把同一个数显示两行。
+// 2026-09-30 韦一笑吸血收口后，leech 的 skills 侧副本已删、只剩 mechanics 一处，故不再隐藏。
 const MECHANICS_HIDDEN_BY_TYPE = {
-    xinHun: ['healLevels'],
-    leech:  ['minRatio', 'maxRatio']
+    xinHun: ['healLevels']
 };
 
 // 两侧都读、必须一起改的字段：字段表该行下面补一句人话提示。
 //   数组字段只挂在第 1 档（如 healLevels.0）；标量字段挂它自己那一行。
 const DUAL_REGISTER_NOTES = {
-    'xinHun.healLevels':    '战斗里两处都会读这个数：改完两处必须一致，否则回血档位会不再推进。',
-    'bloodSiphon.leechMax': '命中吸血与闪避反击吸血各用一份，口径相同，要改就两处一起改。'
+    'xinHun.healLevels':    '战斗里两处都会读这个数：改完两处必须一致，否则回血档位会不再推进。'
 };
 
 /** 技能面板里的这个字段是否已有战斗参数那份显示（是则跳过，不重复显示） */
@@ -366,6 +385,7 @@ export const FIELD_GLOSSARY = {
     maxRatio:           { name: '最高比例（濒死时）', unit: UNIT.pct },
     max:                { name: '上限', unit: UNIT.pct },
     dotPercents:        { name: '每回合持续掉血比例（按第几回合）', unit: UNIT.pct },
+    hpThresholds:       { name: '血量阈值（比例：0.7 = 70%）', unit: UNIT.pct },
 
     // —— 次数/时序类 ——
     duration:           { name: '持续回合数', unit: UNIT.round },
@@ -435,9 +455,9 @@ export const FIELD_GLOSSARY = {
 export const CONFIG_KEY_GLOSSARY = {
     ATK_VAR: '攻击波动幅度', DEF_VAR: '防御波动幅度',
     HP_BONUS_MIN: '血量附加值下限', HP_BONUS_MAX: '血量附加值上限',
-    RANGED_MISS_CHANCE: '远程基础未命中率（%）', FLY_MISS_CHANCE: '飞行基础未命中率（%）',
-    GROUND_MISS_CHANCE: '地面基础未命中率（%）', FLY_MISS_LOWHP_BONUS: '飞行残血未命中加成（%）',
-    FLY_MISS_EMPTYCOL_REDUCE: '飞行空列未命中削减（%）',
+    RANGED_MISS_CHANCE: '远程基础未命中率（比例，0.03 = 3%）', FLY_MISS_CHANCE: '飞行基础未命中率（比例，0.06 = 6%）',
+    GROUND_MISS_CHANCE: '地面基础未命中率（比例，0.01 = 1%）', FLY_MISS_LOWHP_BONUS: '飞行残血未命中加成（比例，0.06 = 6%/个）',
+    FLY_MISS_EMPTYCOL_REDUCE: '飞行空列未命中削减（比例，0.12 = 12%/列）',
     FANG_LEVELS: '芳华分档概率表', FANG_K: '芳华分档系数表',
     HP_DMG_RATIO_TIERS: '防战血量伤害系数分档表', HP_DMG_RATIO_FLOOR: '防战血量伤害系数地板值',
     HP_ROLL_RANGE: '血量掷点区间', HP_TO_MAXHP_MUL: '掷出血量 → 生命上限倍率',
@@ -449,7 +469,7 @@ export const CONFIG_KEY_GLOSSARY = {
     ELITE_COUNT_THRESHOLDS: '精英出场人数骰阈值', XIAO_ZHAO_SISTER_PROB: '小昭形态骰',
     BASE_DODGE_FLY: '飞行基础闪避率', BASE_DODGE_GROUND: '地面基础闪避率',
     DODGE_REBOUND_RATIO: '闪避反弹伤害比例', WARRIOR_BREAK_DEF: '战士破防基准值',
-    WARRIOR_BREAK_DEF_TIERS: '战士破防分档表', WARRIOR_BREAK_CHANCE_PER_DEF: '低防目标破防概率（每点防御 %）',
+    WARRIOR_BREAK_DEF_TIERS: '战士破防分档表', WARRIOR_BREAK_CHANCE_PER_DEF: '低防目标破防概率（每点防御，比例：0.025 = 2.5%）',
     RANGED_GROWTH_ATK: '远程成长攻击', FORTIFY_INCREMENT: '坚壁每次增量', FORTIFY_CAP: '坚壁层数上限',
     TOKEN_DROP_RATES: '令牌掉落率表', CHEST_DROP_RATE: '宝箱掉落率',
     BUFF_DURATION: '海克斯持续回合', BUFF_CHOICES: '海克斯候选数量',

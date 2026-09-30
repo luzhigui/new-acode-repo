@@ -1,8 +1,8 @@
-// V6.4.1 | ~48500 bytes | 2026-09-29 参数单位口径统一为「1 = 100%」：蝠影汲血吸血率/乾坤衍生折算/小昭·妹双连击概率改按比例读取（吸血与折算先 ×100 还原原算式）；承接 V6.4.0 韦一笑吸血技能改名（寒冰掌 → 蝠影汲血，技能键 coldPalm → bloodSiphon）
-export const VER = 'modules/27elite-mingjiao.js V6.4.1';
+// V6.4.2 | ~48500 bytes | 2026-09-30 参数单位口径统一（收尾）：小昭·妹飞天血量阈值改按比例读取（3 处 hpThresholds[i] 去掉 /100，content 同步改 [0.7, 0.4]）；承接 V6.4.1 蝠影汲血吸血率/乾坤衍生折算/小昭·妹双连击概率改按比例读取
+export const VER = 'modules/27elite-mingjiao.js V6.4.2';
 
 import { registerElite } from '../core/08-elite-registry.js';
-import { CONFIG, getSkillParams } from '../core/01config-5v5-test.js';
+import { CONFIG, getSkillParams, getMechanicField } from '../core/01config-5v5-test.js';
 import { hasBuff, getZhangNearTaunt } from '../core/03battle-utils.js';
 import { spawnHorse, spawnUnit } from '../core/05battle-horse.js';
 import { applyHeroFlags, getRoleBonus } from '../core/02unit.js';
@@ -133,13 +133,14 @@ export function createWeiYixiaoComponent() {
             function submitWeiLeechDeclaration(data) {
                 const { unit, target, reboundDmg, declarations } = data;
                 if (!target.isWei || !target.alive) return;
-                const s = getSkillParams('韦一笑', 'bloodSiphon');
-                if (!s) throw new Error('缺技能参数: 韦一笑.bloodSiphon');
+                // 吸血率真值唯一来源：韦一笑 mechanics 的 leech 原语（与命中吸血同源），不再另存 skills.params 副本
+                const leechMin = getMechanicField('韦一笑', 'leech', 'minRatio');
+                const leechMax = getMechanicField('韦一笑', 'leech', 'maxRatio');
+                if (typeof leechMin !== 'number' || typeof leechMax !== 'number') {
+                    throw new Error('缺机制参数: 韦一笑.mechanics.leech.minRatio/maxRatio');
+                }
                 const lostPct = (target.maxHp - target.hp) / target.maxHp;
-                // 吸血率：入库口径 1 = 100%，先 ×100 还原成百分点再线性插值（与旧 5%→50% 逐位一致）
-                const leechMinPct = s.leechMin * 100;
-                const leechMaxPct = s.leechMax * 100;
-                const leechRate = (leechMinPct + (leechMaxPct - leechMinPct) * lostPct) / 100;
+                const leechRate = leechMin + (leechMax - leechMin) * lostPct;
                 const heal = Math.max(1, Math.floor(reboundDmg * leechRate));
                 const wasFullHp = (target.hp >= target.maxHp);
                 const oldMaxHp = target.maxHp;
@@ -285,9 +286,12 @@ export function createXiaoZhaoSisterComponent() {
                 log.push({ factType: FACT_TYPES.BUTTERFLY_NO_HOST, data: { unitName: sister.name, sisterUid: sister.uid } });
                 return null;
             }
-            const atkRatio = flyDirection === 'left' ? 0 : 1/2;
-            const defRatio = flyDirection === 'left' ? 1/2 : 0;
-            const hpRatio = 1/2;
+            // 转移比例走内容表（1 = 100%）：向右飞只转攻、向左飞只转防、血量永远转
+            const bp = getSkillParams('小昭', 'butterflyAttach');
+            if (!bp) throw new Error('缺技能参数: 小昭.butterflyAttach');
+            const atkRatio = flyDirection === 'left' ? 0 : bp.atkRatioRight;
+            const defRatio = flyDirection === 'left' ? bp.defRatioLeft : 0;
+            const hpRatio = bp.hpRatio;
             const atkTransfer = Math.floor(sister.state._baseAtk * atkRatio);
             const defTransfer = Math.floor(sister.state._baseDef * defRatio);
             const hpTransfer = Math.floor(sister.hp * hpRatio);
@@ -428,10 +432,16 @@ export function createXiaoZhaoBrotherComponent() {
                         const currentLog = (data && data.log) ? data.log : log;
                         let reason = data ? data.reason : '';
                         const incomingDmg = data ? data.incomingDmg : 0;
-                        if (!brother.state._spiderTriggered70 && brother.hp > brother.maxHp * CONFIG.SPIDER_FLY_HP_THRESHOLDS[0]) {
+                        // 飞天阈值/次数上限唯一来源：内容表 小昭.spiderFly.params（core/17 state 默认值只是镜像）
+                        const flyParams = getSkillParams('小昭', 'spiderFly');
+                        if (!flyParams) throw new Error('缺技能参数: 小昭.spiderFly');
+                        // 阈值口径 1 = 100%（content 里写 0.7 / 0.4），直接与 hp/maxHp 比值比较，不再 /100
+                        const threshold70 = flyParams.hpThresholds[0];
+                        const threshold40 = flyParams.hpThresholds[1];
+                        if (!brother.state._spiderTriggered70 && brother.hp > brother.maxHp * threshold70) {
                             Object.assign(brother.state, { _spiderTriggered70: true });
                             reason = reason || '血量即将低于70%';
-                        } else if (!brother.state._spiderTriggered40 && brother.hp > brother.maxHp * CONFIG.SPIDER_FLY_HP_THRESHOLDS[1]) {
+                        } else if (!brother.state._spiderTriggered40 && brother.hp > brother.maxHp * threshold40) {
                             Object.assign(brother.state, { _spiderTriggered40: true });
                             reason = reason || '血量即将低于40%';
                         } else if (!brother.state._spiderTriggeredDeath) {
@@ -440,9 +450,6 @@ export function createXiaoZhaoBrotherComponent() {
                         }
                         Object.assign(brother.state, { _spiderTriggeredThisRound: true });
                         const esRemaining = brother.state._spiderRemaining;
-                        // 次数上限的唯一来源：内容表 小昭.spiderFly.params.maxTriggers（core/17 的 state 默认值只是镜像）
-                        const flyParams = getSkillParams('小昭', 'spiderFly');
-                        if (!flyParams) throw new Error('缺技能参数: 小昭.spiderFly');
                         Object.assign(brother.state, { _spiderRemaining: Math.max(0, (esRemaining ?? flyParams.maxTriggers) - 1) });
                         Object.assign(brother.state, { _spiderFlying: true, _flyMode: 'spider' });
                         brother.state._acted = true;
@@ -486,13 +493,17 @@ export function createXiaoZhaoBrotherComponent() {
             function submitSpiderFlyDeclaration(data) {
                 if (data.target.uid !== brother.uid || !data.A) return;
                 if (fsm.is('flying') || fsm.is('dead')) return;
+                const fp = getSkillParams('小昭', 'spiderFly');
+                if (!fp) throw new Error('缺技能参数: 小昭.spiderFly');
+                const th70 = fp.hpThresholds[0];
+                const th40 = fp.hpThresholds[1];
                 const maxHp = brother.maxHp;
                 const hpAfter = Math.max(0, brother.hp - (data.dmg || 0));
                 let shouldFly = false;
                 let reason = '';
-                if (!brother.state._spiderTriggered70 && brother.hp > maxHp * CONFIG.SPIDER_FLY_HP_THRESHOLDS[0] && hpAfter <= maxHp * CONFIG.SPIDER_FLY_HP_THRESHOLDS[0]) {
+                if (!brother.state._spiderTriggered70 && brother.hp > maxHp * th70 && hpAfter <= maxHp * th70) {
                     shouldFly = true; reason = '血量即将低于70%';
-                } else if (!brother.state._spiderTriggered40 && brother.hp > maxHp * CONFIG.SPIDER_FLY_HP_THRESHOLDS[1] && hpAfter <= maxHp * CONFIG.SPIDER_FLY_HP_THRESHOLDS[1]) {
+                } else if (!brother.state._spiderTriggered40 && brother.hp > maxHp * th40 && hpAfter <= maxHp * th40) {
                     shouldFly = true; reason = '血量即将低于40%';
                 } else if (!brother.state._spiderTriggeredDeath && hpAfter <= 0) {
                     shouldFly = true; reason = '即将阵亡';
@@ -608,12 +619,16 @@ export function createXiaoZhaoBrotherComponent() {
             if (!unit.isXiaoZhaoBrother || !unit.alive) return false;
             const fsm = unit._fsm;
             if (!fsm || !fsm.is('normal')) return false;
+            const fp = getSkillParams('小昭', 'spiderFly');
+            if (!fp) throw new Error('缺技能参数: 小昭.spiderFly');
+            const th70 = fp.hpThresholds[0];
+            const th40 = fp.hpThresholds[1];
             const maxHp = unit.maxHp;
             const hpAfter = Math.max(0, unit.hp - (incomingDmg || 0));
             let reason = '';
-            if (!unit.state._spiderTriggered70 && unit.hp > maxHp * CONFIG.SPIDER_FLY_HP_THRESHOLDS[0] && hpAfter <= maxHp * CONFIG.SPIDER_FLY_HP_THRESHOLDS[0]) {
+            if (!unit.state._spiderTriggered70 && unit.hp > maxHp * th70 && hpAfter <= maxHp * th70) {
                 reason = '血量即将低于70%';
-            } else if (!unit.state._spiderTriggered40 && unit.hp > maxHp * CONFIG.SPIDER_FLY_HP_THRESHOLDS[1] && hpAfter <= maxHp * CONFIG.SPIDER_FLY_HP_THRESHOLDS[1]) {
+            } else if (!unit.state._spiderTriggered40 && unit.hp > maxHp * th40 && hpAfter <= maxHp * th40) {
                 reason = '血量即将低于40%';
             } else if (!unit.state._spiderTriggeredDeath && hpAfter <= 0) {
                 reason = '即将阵亡';

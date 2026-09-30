@@ -228,6 +228,21 @@ export function registerMindControl(eventBus) {
     });
 }
 
+// 飞行职业基础再生：每有一个非拒马角色阵亡，全场所有存活飞行立即回复 baseRegen 生命。
+// 数值唯一来源：content 的 roles.飞行.baseRegen。
+// 挂 ON_UNIT_DEATH 信号（core/12 resolveDeaths 的死亡广播），由 core/11 每回合注册监听。
+export function onUnitDeathFlyerRegen(data, A, B) {
+    const dead = (data && data.deadUnits ? data.deadUnits : []).filter(u => u && !u.isHorse);
+    if (dead.length === 0) return;
+    const regen = getGameData().roles?.[ROLE_TYPES.FLYER]?.baseRegen;
+    if (typeof regen !== 'number' || regen <= 0) return;
+    const gain = regen * dead.length;
+    for (const u of [...A, ...B]) {
+        if (!u || !u.alive || u.isHorse || u.role !== ROLE_TYPES.FLYER) continue;
+        applyStatChange(u, 'hp', gain, null, '飞行再生');
+    }
+}
+
 // Buff 声明化装配器
 export function installBuffMechanics(eventBus) {
     const gd = getGameData();

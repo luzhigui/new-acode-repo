@@ -1,12 +1,12 @@
 {
-  "version": "5.6.16",
-  "updated": "2026-09-29",
+  "version": "5.6.17",
+  "updated": "2026-09-30",
 
   "roles": {
     "战士": { "icon": "⚔️", "label": "战士", "bonus": { "atk": 3, "def": 3, "maxHp": 30 } },
     "防战": { "icon": "🛡️", "label": "防战", "bonus": { "atk": -8, "def": 2, "maxHp": 45 }, "fortify": { "attackChance": 0.9, "defendChance": 0.8 } },
     "远程": { "icon": "🏹", "label": "远程", "bonus": { "atk": 6, "def": -2, "maxHp": -25 } },
-    "飞行": { "icon": "🦅", "label": "飞行", "bonus": { "atk": 2, "def": -2, "maxHp": -25 } }
+    "飞行": { "icon": "🦅", "label": "飞行", "bonus": { "atk": 2, "def": -2, "maxHp": -25 }, "baseRegen": 10 }
   },
 
   "characters": {
@@ -16,7 +16,7 @@
         {
           "camp": "enemy",
           "type": "chainClaw",
-          "baseDmg": 1.5,
+          "baseDmg": 2,
           "lostHpRatio": 0.015,
           "maxHpRatio": 0.01,
           "executeThreshold": 0.15,
@@ -71,7 +71,7 @@
           "camp": "enemy",
           "type": "xinHun",
           "hpDeduct": 1,
-          "healLevels": [0.16, 0.10, 0.06, 0.03]
+          "healLevels": [0.20, 0.17, 0.14, 0.11, 0.08, 0.05]
         },
         {
           "camp": "enemy",
@@ -81,8 +81,7 @@
       "skills": {
         "rebelStrike": {
           "name": "叛逆突袭",
-          "desc": "优先攻击血量最高目标，附加目标当前生命{currentHpRatio}%真实伤害",
-          "params": { "dmgBonus": 0 }
+          "desc": "优先攻击血量最高目标，附加目标当前生命{currentHpRatio}%真实伤害"
         },
         "kuLian": {
           "name": "苦练",
@@ -90,15 +89,11 @@
         },
         "xinHun": {
           "name": "新婚",
-          "desc": "攻击扣除周芷若{hpDeduct}血，叠快乐层（{healLevels}）",
-          "params": { "healLevels": [0.16, 0.10, 0.06, 0.03] }
+          "desc": "攻击扣除周芷若{hpDeduct}血，叠快乐层（{healLevels}）"
         },
         "xingFen": {
           "name": "性奋",
-          "desc": "每次攻击后可再次攻击，每次攻击后自身减少递增生命上限（第1次0，第2次1，第3次2...），上限最低为1",
-          "params": {
-            "maxTriggersPerRound": 1
-          }
+          "desc": "每次攻击后可再次攻击；每次攻击后自身生命上限按次数递减（第1次-1、第2次-2、第3次-3…），上限最低为1"
         }
       },
       "taunts": {
@@ -118,7 +113,7 @@
         "righteousFace": {
           "name": "正义国字脸",
           "desc": "每次攻击前与「年轻气盛」二选一（血量越高越容易发动）：全体敌人本回合后续只能攻击自己，且自身防御永久+{defGain}（可无限叠加）",
-          "params": { "defGain": 40 }
+          "params": { "defGain": 50 }
         },
         "youngBlood": {
           "name": "年轻气盛",
@@ -137,7 +132,7 @@
       "skills": {
         "counterAttack": {
           "name": "反击",
-          "desc": "被攻击后{prob}概率反击攻击者，伤害×{dmgRatio}，不可闪避，无每回合上限",
+          "desc": "被攻击后{prob}%概率反击攻击者，伤害×{dmgRatio}，不可闪避，无每回合上限",
           "params": { "prob": 0.8, "dmgRatio": 0.6 }
         },
         "thirdStrike": {
@@ -165,7 +160,7 @@
       "skills": {
         "summonLion": {
           "name": "召唤狮子",
-          "desc": "每回合开始50%概率在随机空位召唤一只幼狮（攻0故无法攻击，行动时休息回血；被加攻后可正常出手，按防战公式结算；不遮挡后排队友）；幼狮存活一回合后80%概率按所在位置成长：1-6号位成雄狮，7-9号位成母狮，未成长则保持幼狮下回合再判定",
+          "desc": "每回合开始{prob}%概率在随机空位召唤一只幼狮（攻0故无法攻击，行动时休息回血；被加攻后可正常出手，按防战公式结算；不遮挡后排队友）；幼狮存活一回合后{grow.prob}%概率按所在位置成长：1-{grow.frontMax}号位成雄狮，其余位置成母狮，未成长则保持幼狮下回合再判定",
           "params": {
             "prob": 0.5,
             "cub": { "name": "幼狮", "role": "防战", "m": 20, "atk": 0, "def": 4, "maxHp": 40, "skipRoleBonus": true },
@@ -359,7 +354,7 @@
           "camp": "ally",
           "targetRule": "lowestHp",
           "onHitEffects": [
-            { "type": "leech", "minRatio": 0.05, "maxRatio": 0.50 }
+            { "type": "leech", "minRatio": 0.05, "maxRatio": 0.40 }
           ],
           "dodgeRules": [
             { "type": "lostHpPercent", "max": 0.70 }
@@ -369,8 +364,7 @@
       "skills": {
         "bloodSiphon": {
           "name": "蝠影汲血",
-          "desc": "优先攻击全场血量最低的敌人。造成伤害后吸血，吸血率 = {leechMin}%（满血）→ {leechMax}%（濒死），随已损失生命比例线性提升。吸血值 = 本次伤害×吸血率（最低1），等量提升生命上限和当前血量，无上限。",
-          "params": { "leechMin": 0.05, "leechMax": 0.5 }
+          "desc": "优先攻击全场血量最低的敌人。造成伤害后吸血，吸血率 = {leechMin}%（满血）→ {leechMax}%（濒死），随已损失生命比例线性提升。吸血值 = 本次伤害×吸血率（最低1），等量提升生命上限和当前血量，无上限。"
         },
         "bloodDodge": {
           "name": "残血幻影",
@@ -388,8 +382,8 @@
       "skills": {
         "butterflyAttach": {
           "name": "蝶变附身",
-          "desc": "明教首次攻击前附身到4号位后最近队友，转移{atkTransfer}攻击/{defTransfer}防御/{hpTransfer}血量",
-          "params": { "atkTransfer": "1/3", "defTransfer": "1/3", "hpTransfer": "1/2" }
+          "desc": "明教首次攻击前附身到4号位后最近队友：向右飞转移攻击的{atkRatioRight}%、向左飞转移防御的{defRatioLeft}%、血量转移{hpRatio}%",
+          "params": { "atkRatioRight": 0.5, "defRatioLeft": 0.5, "hpRatio": 0.5 }
         },
         "butterflyReturn": {
           "name": "蝶变飞回",
@@ -412,8 +406,8 @@
         },
         "spiderFly": {
           "name": "飞天",
-          "desc": "首次受击/血量<70%/血量<40%触发，化为小蜘蛛免疫伤害，回合结束落下攻击",
-          "params": { "maxTriggers": 3, "xiaoZhaoDoubleStrikeChance": 0.8 }
+          "desc": "首次受击/血量跌破{hpThresholds}触发，化为小蜘蛛免疫伤害，回合结束落下攻击",
+          "params": { "maxTriggers": 3, "xiaoZhaoDoubleStrikeChance": 0.8, "hpThresholds": [0.7, 0.4] }
         },
         "spiderStrike": {
           "name": "蛛袭",
@@ -443,7 +437,7 @@
         },
         "mastery": {
           "name": "精通",
-          "desc": "每精通一个职业+{atkPer}攻+{defPer}防+{hpPer}血上限，精通全部4门后再加2层",
+          "desc": "每精通一个职业+{atkPer}攻+{defPer}防+{hpPer}血上限，精通全部四门后再加两层",
           "params": { "atkPer": 2, "defPer": 2, "hpPer": 5 }
         }
       },

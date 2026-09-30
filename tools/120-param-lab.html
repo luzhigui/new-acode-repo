@@ -1,5 +1,10 @@
 <!-- tools/120-param-lab.html - 参数对照实验台（面向人的版本，独立页面） -->
-<!-- V3.2.1 | 预估 46600 bytes | 2026-09-29 路径改名（core→122 / worker→123 / glossary→124）；V3.2.0 收尾批（不改实验逻辑）：
+<!-- V3.2.2 | 预估 48200 bytes | 2026-09-30 「引擎不读」的字段在实验台上可区分（只改呈现，判定仍走 124）：
+     ① 字段表里判定为 'none'（ENGINE_READ_NONE，如随动）或 'orphan'（ENGINE_READ_ORPHAN，如玄冥神掌 duration）
+        的行整行加 .knob-off 灰显，参数格与输入框加 title「引擎不读这个字段，改了不生效」，标签改为「引擎不读 · …」；
+     ② 技能下拉里整组都不读的技能在选项文字后标「（引擎不读）」并加 title；两类字段都不从列表里删除；
+     ③ 判定链路：124 的 skillFieldVerdict → 'none'、isOrphanField → 'orphan'、isUnreadSkillGroup → 下拉标记，页面零新增判断。
+     V3.2.1 | 预估 46600 bytes | 2026-09-29 路径改名（core→122 / worker→123 / glossary→124）；V3.2.0 收尾批（不改实验逻辑）：
      ① 百分数显示/输入统一成人话：原值一律显示 12%（不再出现 0.12 或 0.12（= 12%）），
         「改成」输入框按同一人话单位填写，落盘时再按该字段的存储口径换算（1=100% 的除以 100）；
      ② 「改成」输入框带单位提示（placeholder，如「填 12 表示 12%」）；
@@ -68,8 +73,10 @@ button:disabled{opacity:.4;cursor:not-allowed}
 .knob-table input{width:132px}
 .tag{display:inline-block;border-radius:5px;padding:1px 6px;font-size:10px;margin-left:6px;vertical-align:middle}
 .tag-real{background:#1d3d2a;color:#66bb6a}
-.tag-maybe{background:#3d351d;color:#ffb74d}
 .tag-gray{background:#3a3f52;color:#9aa4bf}
+/* 引擎不读的参数：存在但改了不生效，整行灰显（悬停看 title 说明），不删掉 */
+.knob-table tr.knob-off td{opacity:.5}
+.knob-table tr.knob-off input{background:#141a2a;border-color:#3a4152;color:#8b93a8}
 .knob-legend{margin:8px 0 0;font-size:12px;line-height:1.7;color:#9aa4bf;border-left:3px solid #3a4670;padding:6px 10px;background:#1b2440;border-radius:0 6px 6px 0}
 .knob-legend b{color:#ffd700;font-weight:normal}
 .knob-legend code{color:#8fd6ff}
@@ -172,7 +179,7 @@ import { ensureGameData, listNumericKnobs, pickTypicals } from './122-param-lab-
 import { runParallel, getPoolSize } from './117-shared-worker-runner.js';
 import { describeKnob, fmtValue, charSkillLines, UNIT, CONFIG_KEY_GLOSSARY, DATA_KEY_GLOSSARY, skillFieldVerdict,
     charSkillGroups, charGroupKeyOf, isMirroredSkillField, isMechanicsRowHidden, dualRegisterNote, knobWhatIf,
-    isOrphanField, humanToStored, inputHint } from './124-param-lab-glossary.js';
+    isOrphanField, humanToStored, inputHint, isUnreadSkillGroup } from './124-param-lab-glossary.js';
 
 const WORKER_URL = new URL('./123-param-lab-worker.js', import.meta.url);
 const SAMPLE_BASE = 20000;   // 采样 seed 起点（与 CLI --sample 默认一致）
@@ -323,7 +330,11 @@ function buildSkillSelect() {
     }
     for (const g of groups) {
         const e = document.createElement('option');
-        e.value = g.key; e.textContent = g.label;
+        e.value = g.key;
+        // 整组参数引擎都不读的技能（如谢逊「随动」）：标出来但不下架，用户需要知道它存在
+        const unread = ow.layer === 'character' && isUnreadSkillGroup(g.key);
+        e.textContent = unread ? `${g.label}（引擎不读）` : g.label;
+        if (unread) e.title = '这个技能的参数引擎不读，改了不生效（字段表里整行灰显）';
         skillSel.appendChild(e);
     }
     if (groups.length) skillSel.value = groups[0].key;   // 默认选中第一个技能
@@ -372,13 +383,14 @@ function buildKnobTable() {
     const VERDICT_TAG = {
         engine:  '<span class="tag tag-real">影响战斗</span>',
         dynamic: '<span class="tag tag-real">引擎按情况取整包读取</span>',
-        none:    '<span class="tag tag-maybe">只是校验有没有写</span>',
+        none:    '<span class="tag tag-gray">引擎不读 · 只校验有没有写</span>',
         text:    '<span class="tag tag-gray">只改技能说明文字，不影响战斗</span>',
-        orphan:  '<span class="tag tag-gray">读取这段的代码已废弃，改它不影响战斗</span>'
+        orphan:  '<span class="tag tag-gray">引擎不读 · 读取代码已废弃</span>'
     };
+    const OFF_TIP = '引擎不读这个字段，改了不生效';
     const isChar = ow.layer === 'character';
     const legend = isChar
-        ? '<div class="knob-legend">下表是这个技能下的全部数字。改了标「影响战斗」的行，战斗结果就会变；标灰的行对战斗没有影响（看最右列说明）。</div>'
+        ? '<div class="knob-legend">下表是这个技能下的全部数字。改了标「影响战斗」的行，战斗结果就会变；标「引擎不读」的整行灰显（悬停有说明），它们改了不生效，留着只是让你知道存在。</div>'
         : '';
     let h = legend + '<table class="knob-table"><tr><th>参数</th><th>原值</th><th>改成</th><th>改了会怎样</th></tr>';
     for (const k of list) {
@@ -392,9 +404,12 @@ function buildKnobTable() {
         const hint = [info.qualifier || '', note ? `<span style="color:#ffb74d">⚠️ ${note}</span>` : '']
             .filter(Boolean).join('<br>');
         const ph = inputHint(info.unit);
-        h += `<tr><td class="kname">${info.fieldName}${tag}${hint ? `<div class="hint">${hint}</div>` : ''}</td>`
+        // 引擎不读（none：ENGINE_READ_NONE / orphan：ENGINE_READ_ORPHAN）→ 整行灰显 + 悬停说明，但不从表里删掉
+        const off = isChar && (verdict === 'none' || verdict === 'orphan');
+        const offTip = off ? ` title="${OFF_TIP}"` : '';
+        h += `<tr${off ? ' class="knob-off"' : ''}><td class="kname"${offTip}>${info.fieldName}${tag}${hint ? `<div class="hint">${hint}</div>` : ''}</td>`
             + `<td class="kcur">${fmtValue(k.value, info.unit)}</td>`
-            + `<td><input type="number" step="any" data-path="${k.path}" data-orig="${k.value}" data-unit="${info.unit}"${ph ? ` placeholder="${ph}"` : ''}></td>`
+            + `<td><input type="number" step="any" data-path="${k.path}" data-orig="${k.value}" data-unit="${info.unit}"${offTip}${ph ? ` placeholder="${ph}"` : ''}></td>`
             + `<td class="kwhat">${knobWhatIf(k.path, gameRoot, k)}</td></tr>`;
     }
     h += '</table>';

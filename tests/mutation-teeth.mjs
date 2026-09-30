@@ -53,18 +53,24 @@ const MUTATIONS = [
       file: 'core/04buff-system.js',
       from: "{ source: 'carry', value: bonus.atkAbs, ttl: 'round', op: 'add', group: 'carry' }",
       to:   "{ source: 'carry', value: bonus.atkAbs * 2, ttl: 'round', op: 'add', group: 'carry' }" },
-    { id: 'A4', kind: 'ATTR', desc: '张无忌近战切换加成 ×3 变 ×6',
+    // 第 44 轮改锚点：原为 `{ source: '近战切换', value: warriorBonus.atk * 3,`，
+    //   主代码 V6.2.0（core/13）把 ×3 系数收敛进内容表 skills.nearSwitch.params → atkMul/defMul/maxHpMul，
+    //   此处变成先算好的 `atkGain`。锚点失效期间 A4 是**静默失效**（树=干净树），由 --verify 查出。
+    { id: 'A4', kind: 'ATTR', desc: '张无忌近战切换加攻翻倍',
       file: 'core/13battle-shared.js',
-      from: "{ source: '近战切换', value: warriorBonus.atk * 3,",
-      to:   "{ source: '近战切换', value: warriorBonus.atk * 6," },
+      from: "{ source: '近战切换', value: atkGain,",
+      to:   "{ source: '近战切换', value: atkGain * 2," },
     { id: 'A5', kind: 'ATTR', desc: '流星赶月溅射成长翻倍',
       file: 'core/16effect-handlers.js',
       from: "{ source: '流星溅射成长', value: growth,",
       to:   "{ source: '流星溅射成长', value: growth * 2," },
+    // 第 47 轮改锚点：主代码批 3 把苦练三档增量抽成局部变量（atkDelta/defDelta/maxHpDelta）后再交给 addMod，
+    //   原锚点 `value: s.atkBonus * mult` 已被改写 → --verify 报 0 处（不修就是假绿制造机）。
+    //   只改 addMod 那一份、fact 的 targets 仍用原变量 ⇒ 实际=2×声明，由整数倍判据兜。
     { id: 'A6', kind: 'ATTR', desc: '苦练攻击加成翻倍',
       file: 'modules/26elite-sixsects.js',
-      from: "{ source: '苦练', value: s.atkBonus * mult,",
-      to:   "{ source: '苦练', value: s.atkBonus * mult * 2," },
+      from: "{ source: '苦练', value: atkDelta,",
+      to:   "{ source: '苦练', value: atkDelta * 2," },
     { id: 'A7', kind: 'ATTR', desc: '生生不息转防翻倍',
       file: 'modules/26elite-sixsects.js',
       from: "{ source: '生生不息', value: defGain,",
@@ -90,10 +96,12 @@ const MUTATIONS = [
       file: 'modules/26elite-sixsects.js',
       from: "{ source: '性奋代价', value: -penalty,",
       to:   "{ source: '性奋代价', value: -penalty * 2," },
-    { id: 'A13', kind: 'ATTR', desc: '小昭·妹永久carry 攻+3 变 +30',
+    // 第 44 轮改锚点：原为写死的 `value: 3`，主代码把三项收敛成 `carryMods.atk/def/maxHp` 后写法变了。
+    //   （A13 仍属结构性稀有条件 —— 需 bro 拿到永久 carry 海克斯且队伍无 carry buff，历史上 560 场零触发）
+    { id: 'A13', kind: 'ATTR', desc: '小昭·妹永久carry 加攻 ×10',
       file: 'modules/27elite-mingjiao.js',
-      from: "{ source: '小昭·妹永久carry', value: 3,",
-      to:   "{ source: '小昭·妹永久carry', value: 30," },
+      from: "{ source: '小昭·妹永久carry', value: carryMods.atk,",
+      to:   "{ source: '小昭·妹永久carry', value: carryMods.atk * 10," },
     { id: 'A14', kind: 'ATTR', desc: '雄狮振奋加攻翻倍',
       file: 'modules/27elite-mingjiao.js',
       from: "{ source: '振奋', value: gain,",
@@ -102,6 +110,18 @@ const MUTATIONS = [
       file: 'modules/27elite-mingjiao.js',
       from: "{ source: '幼狮成长', value: tgtDef - summon.cub.def,",
       to:   "{ source: '幼狮成长', value: (tgtDef - summon.cub.def) * 2," },
+    // 第 48 轮新增：--scan-groups 查出 rangedGrowth 是「词条数第 6 多的未覆盖 group」（540 条），
+    //   此前体检完全没有变异在测它 —— 属于「既没契约也没变异」的双重盲区。补此变异证明新契约有牙。
+    { id: 'A16', kind: 'ATTR', desc: '远程成长加攻翻倍',
+      file: 'core/03battle-utils.js',
+      from: "{ source: '远程成长', value: growth,",
+      to:   "{ source: '远程成长', value: growth * 2," },
+    // 第 48 轮新增：精通（spiderMastery）此前同样是「无契约 + 无变异」的双重盲区，
+    //   本轮靠它战报里自带的 masteryGain 补上了契约，这条变异用来证明契约真能咬住。
+    { id: 'A17', kind: 'ATTR', desc: '小昭·弟精通攻击加成翻倍',
+      file: 'modules/20elite-skills.js',
+      from: "{ source: '精通', value: gAtk,",
+      to:   "{ source: '精通', value: gAtk * 2," },
     { id: 'T1', kind: 'TEXT', desc: '破防日志写 -（reduce+5）（实际仍只扣 reduce）',
       file: 'core/16effect-handlers.js',
       from: "targetName: target.name, reduce }",
@@ -126,6 +146,21 @@ const MUTATIONS = [
       file: 'modules/26elite-sixsects.js',
       from: "oldMaxHp, newMaxHp: Math.floor(unit.maxHp), penalty }",
       to:   "oldMaxHp, newMaxHp: Math.floor(unit.maxHp), penalty: penalty + 5 }" },
+    // 第 44 轮新增：把流星加攻的**来源**写死（不再依赖小昭·姊的海克斯增强）→ 无增强来源的场次也会加攻。
+    //   专为验证 136（第 44 轮重锚后只剩「来源合法性」一条信号）**是否真有牙** ——
+    //   重锚后的规则若没有变异能触发它，就只是又一次「看起来有覆盖、实际恒绿」。
+    //   kind 取 ATTR：它确实会让单位攻击真正上涨（addMod 生效），指纹会变。
+    { id: 'T6', kind: 'ATTR', desc: '流星加攻来源写死（无小昭·姊增强也加攻）',
+      file: 'core/16effect-handlers.js',
+      from: "const perSplash = enhance ? (enhance.atkPerSplash || 0) : 0;",
+      to:   "const perSplash = 2;" },
+    // 第 47 轮新增：验证「虚报校验」从 fortify 扩到新 group 后是否真有牙（而不是死代码）。
+    //   苦练 fact 的 targets.atkDelta 多写 5，而 addMod 用的仍是原 atkDelta（实际未变）
+    //   ⇒ 声明 > 实际，只有 SAME_STEP_GROUPS 的「sum > actual」分支能抓（整数倍判据抓不到这个方向）。
+    { id: 'T7', kind: 'TEXT', desc: '苦练 fact targets 的 atkDelta 多写 5（实际未变）',
+      file: 'modules/26elite-sixsects.js',
+      from: "kuLianTargets.push({ unitName: u.name, atkDelta, defDelta, maxHpDelta });",
+      to:   "kuLianTargets.push({ unitName: u.name, atkDelta: atkDelta + 5, defDelta, maxHpDelta });" },
 ];
 
 function toPosix(p) {
@@ -245,6 +280,35 @@ async function main() {
             'echo ALL DONE >> "$OUT"',
         ];
         console.log(lines.join('\n'));
+        return;
+    }
+
+    // --- 变异锚点自检（第 44 轮新增）---
+    //   背景：主代码收口流星渲染（V1.0.10/V6.0.4）时删掉了 T3 变异依赖的那行代码，
+    //   于是 T3 **静默失效** —— 树注入了个寂寞，跑出来还是干净树，判成「规则有牙」的假象。
+    //   这是「靠 commit 保证锚点」必然踩的坑：主代码一动，测试就不再测它声称在测的东西，
+    //   而且**没有任何报错**。故做成常驻命令，每次改主代码后跑一次。
+    //   判据：from 串必须在目标文件里出现；非 multi 的必须**恰好 1 次**（否则替换歧义或没替换到）。
+    if (argv.includes('--verify')) {
+        const repo = REPO;
+        let bad = 0;
+        console.log('=== 变异锚点自检（from 串是否仍存在于当前代码）===');
+        for (const m of MUTATIONS) {
+            const fp = path.join(repo, m.file);
+            if (!fs.existsSync(fp)) { console.log(`❌ ${m.id} 目标文件不存在：${m.file}`); bad++; continue; }
+            const src = fs.readFileSync(fp, 'utf8');
+            let n = 0, idx = 0;
+            while ((idx = src.indexOf(m.from, idx)) !== -1) { n++; idx += m.from.length; }
+            let ok = n >= 1;
+            let why = '';
+            if (n === 0) { ok = false; why = '该行已被删除/改写 → 变异静默失效，树木=干净树'; }
+            else if (!m.multi && n > 1) { ok = false; why = `出现 ${n} 次，非 multi 变异要求唯一`; }
+            else if (m.multi && n > 1) why = `multi：${n} 处都改`;
+            console.log(`${ok ? '✅' : '❌'} ${m.id.padEnd(4)} ${m.file.padEnd(32)} ${n} 处${why ? ' —— ' + why : ''}`);
+            if (!ok) bad++;
+        }
+        console.log(bad === 0 ? `\n✅ ${MUTATIONS.length} 条变异锚点全部有效`
+                             : `\n❌ ${bad} 条变异锚点失效 —— 不修就是「假绿制造机」，请更新 MUTATIONS 里的 from/to`);
         return;
     }
 
