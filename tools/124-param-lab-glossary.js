@@ -1,4 +1,11 @@
 // tools/124-param-lab-glossary.js - 参数中文说明表（只读展示用，不参与战斗）
+// V2.6.1 | 预估 43700 bytes | 2026-09-30 按 tests/param-read-guard.mjs 实测再清一条：ENGINE_READ 删 xinHun ——
+//   healLevels 已改从 mechanics 读、skills.xinHun 无读取点（守卫报「表陈旧」）。删完守卫退出码 0。
+// V2.6.0 | 预估 42900 bytes | 2026-09-30 韦一笑吸血收口后清尾：ENGINE_READ 删 bloodSiphon（skills 侧副本已删、
+//   只剩 mechanics 一处真值），同步删掉两张「同一数值只显示一份 / 提示两处一起改」的表
+//   （MECHANICS_HIDDEN_BY_TYPE 与 DUAL_REGISTER_NOTES）及 isMechanicsRowHidden() / dualRegisterNote()
+//   两个导出 —— 它们服务的 skills 侧副本已全删（leech 本次、xinHun.healLevels 更早），留着反而会把
+//   唯一那份真值也藏起来。另：export const VER 长期滞后在 V2.4.0（V2.5.0/V2.5.1 漏更），本次一并对齐。
 // V2.5.1 | 预估 44700 bytes | 2026-09-30 按 tests/param-read-guard.mjs 实测补登记 ENGINE_READ（表 = 源码真读了什么的快照）：
 //   ① spiderFly 补 'hpThresholds' —— modules/27 的 3 处 getSkillParams('小昭','spiderFly') 拿
 //      hpThresholds[0]/[1] 当飞天血量阈值（口径已改 1 = 100%，content 里是 0.7 / 0.4）；
@@ -46,7 +53,7 @@
 
 import { getSkillDesc } from '../core/01config-5v5-test.js';
 
-export const VER = 'tools/124-param-lab-glossary.js V2.4.0';
+export const VER = 'tools/124-param-lab-glossary.js V2.6.1';
 
 // mechanics 里出现的 type → 中文技能名（+ 可选：对应 skills.<key>，用来取原文说明）
 export const TYPE_GLOSSARY = {
@@ -105,7 +112,6 @@ export { UNIT };
 // 注：鹿杖客 xuanmingPalm 的 duration 不登记在本表（实际不生效），但源码里确实有读取点 ——
 //   挪到下面的 ENGINE_READ_ORPHAN（孤儿登记），供守卫双向对齐，不假装它不存在。
 export const ENGINE_READ = {
-    xinHun:          ['healLevels'],
     rageOnHit:       ['atkPerHit'],
     righteousFace:   ['defGain'],
     youngBlood:      ['dmgMultiplier'],
@@ -189,22 +195,10 @@ export function isUnreadSkillGroup(skillKey) {
 //   登记，tests/health-rules/156-desc-truth-drift.js 与 tests/param-read-guard.mjs 会同步报警。
 export const MIRRORED_SKILL_FIELDS = {};
 
-// 反过来：战斗参数侧要跳过、只显示技能面板那份的字段（两侧都读、语义重复时用）。
-// 按「效果类型」配置（不是按技能键，也不是按写死的位置）：类型由 enclosingType() 取「最靠内层带
-//   type 的对象」，所以长在 onHitEffects / beforeDamageEffects / dodgeRules 里的声明同样能命中。
-//   xinHun：宋青书回血档位写在 mechanics 的 healLevels，与技能面板的 healLevels 同源。
-// 2026-09-29 收口说明：这条**不是死副本** —— 两侧都真实存在且都被引擎读取（故不能像
-//   MIRRORED_SKILL_FIELDS 那样清空），隐藏其中一份纯粹为了实验台不把同一个数显示两行。
-// 2026-09-30 韦一笑吸血收口后，leech 的 skills 侧副本已删、只剩 mechanics 一处，故不再隐藏。
-const MECHANICS_HIDDEN_BY_TYPE = {
-    xinHun: ['healLevels']
-};
-
-// 两侧都读、必须一起改的字段：字段表该行下面补一句人话提示。
-//   数组字段只挂在第 1 档（如 healLevels.0）；标量字段挂它自己那一行。
-const DUAL_REGISTER_NOTES = {
-    'xinHun.healLevels':    '战斗里两处都会读这个数：改完两处必须一致，否则回血档位会不再推进。'
-};
+// 退役（2026-09-30）：此处原有两张表 —— MECHANICS_HIDDEN_BY_TYPE（隐藏战斗参数侧那份、只显示技能面板）
+//   与 DUAL_REGISTER_NOTES（提示同一数值两处一起改）。它们服务的 skills 侧副本已全部删除
+//   （leech 2026-09-30、xinHun.healLevels 更早），留着会把唯一那份真值也藏起来、还给出「两处一起改」的
+//   错误提示。将来若又出现两处登记，参照 MIRRORED_SKILL_FIELDS 的做法重建，156 规则会报警。
 
 /** 技能面板里的这个字段是否已有战斗参数那份显示（是则跳过，不重复显示） */
 export function isMirroredSkillField(skillKey, fieldPath) {
@@ -213,26 +207,7 @@ export function isMirroredSkillField(skillKey, fieldPath) {
     return fields.some(f => fieldPath === f || fieldPath.startsWith(f + '.'));
 }
 
-/** 战斗参数侧这个字段是否要跳过、改由技能面板那份显示（按效果类型判定，内层声明同样生效） */
-export function isMechanicsRowHidden(root, owner, path) {
-    const parts = String(path).split('.');
-    if (parts.indexOf('mechanics') < 0) return false;
-    const fields = MECHANICS_HIDDEN_BY_TYPE[enclosingType(root, parts)];
-    if (!fields) return false;
-    return fields.includes(lastField(parts, root).field);
-}
 
-/** 该行的人话补充提示（没有则空串）；数组字段只在第 1 项上提示一次 */
-export function dualRegisterNote(skillKey, fieldPath) {
-    if (!fieldPath) return '';
-    for (const key of Object.keys(DUAL_REGISTER_NOTES)) {
-        const i = key.indexOf('.');
-        if (key.slice(0, i) !== skillKey) continue;
-        const f = key.slice(i + 1);
-        if (fieldPath === f || fieldPath === `${f}.0`) return DUAL_REGISTER_NOTES[key];
-    }
-    return '';
-}
 
 // 角色里没有归入任何技能的战斗数值，统一落到这个组。
 export const OTHER_PASSIVE_GROUP = '__other__';

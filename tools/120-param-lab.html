@@ -1,5 +1,8 @@
 <!-- tools/120-param-lab.html - 参数对照实验台（面向人的版本，独立页面） -->
-<!-- V3.2.2 | 预估 48200 bytes | 2026-09-30 「引擎不读」的字段在实验台上可区分（只改呈现，判定仍走 124）：
+<!-- V3.2.3 | 预估 48300 bytes | 2026-09-30 随 124 V2.6.0 退役两张表，页面去掉 isMechanicsRowHidden / dualRegisterNote
+     的 import 与调用（「同一数值只显示一份」的隐藏、以及「两处一起改」的人话提示），字段 hint 简化为
+     info.qualifier；.knob-off 灰显段与其余呈现逻辑不变。
+     V3.2.2 | 预估 48200 bytes | 2026-09-30 「引擎不读」的字段在实验台上可区分（只改呈现，判定仍走 124）：
      ① 字段表里判定为 'none'（ENGINE_READ_NONE，如随动）或 'orphan'（ENGINE_READ_ORPHAN，如玄冥神掌 duration）
         的行整行加 .knob-off 灰显，参数格与输入框加 title「引擎不读这个字段，改了不生效」，标签改为「引擎不读 · …」；
      ② 技能下拉里整组都不读的技能在选项文字后标「（引擎不读）」并加 title；两类字段都不从列表里删除；
@@ -178,7 +181,7 @@ table.dump td.left{text-align:left}
 import { ensureGameData, listNumericKnobs, pickTypicals } from './122-param-lab-core.js';
 import { runParallel, getPoolSize } from './117-shared-worker-runner.js';
 import { describeKnob, fmtValue, charSkillLines, UNIT, CONFIG_KEY_GLOSSARY, DATA_KEY_GLOSSARY, skillFieldVerdict,
-    charSkillGroups, charGroupKeyOf, isMirroredSkillField, isMechanicsRowHidden, dualRegisterNote, knobWhatIf,
+    charSkillGroups, charGroupKeyOf, isMirroredSkillField, knobWhatIf,
     isOrphanField, humanToStored, inputHint, isUnreadSkillGroup } from './124-param-lab-glossary.js';
 
 const WORKER_URL = new URL('./123-param-lab-worker.js', import.meta.url);
@@ -371,7 +374,6 @@ function buildKnobTable() {
         .filter(k => k.layer === ow.layer && k.owner === ow.owner)
         .filter(k => ow.layer === 'character'
             ? (charGroupKeyOf(gameRoot, ow.owner, k.path) === skill
-                && !isMechanicsRowHidden(gameRoot, ow.owner, k.path)
                 && !isMirroredSkillField(k.skill, paramsFieldOf(k)))
             : k.skill === skill)
         .filter(k => !q || knobSearchText(k).toLowerCase().includes(q));
@@ -400,9 +402,7 @@ function buildKnobTable() {
             && isOrphanField(charGroupKeyOf(gameRoot, ow.owner, k.path), info.fieldRaw);
         const verdict = orphan ? 'orphan' : (fp ? skillFieldVerdict(k.skill, fp) : 'engine');
         const tag = isChar ? (VERDICT_TAG[verdict] || '') : '';
-        const note = isChar && fp ? dualRegisterNote(k.skill, fp) : '';
-        const hint = [info.qualifier || '', note ? `<span style="color:#ffb74d">⚠️ ${note}</span>` : '']
-            .filter(Boolean).join('<br>');
+        const hint = info.qualifier || '';
         const ph = inputHint(info.unit);
         // 引擎不读（none：ENGINE_READ_NONE / orphan：ENGINE_READ_ORPHAN）→ 整行灰显 + 悬停说明，但不从表里删掉
         const off = isChar && (verdict === 'none' || verdict === 'orphan');
