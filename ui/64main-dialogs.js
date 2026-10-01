@@ -263,6 +263,10 @@ export function showMusicPanel() {
     const box = document.createElement('div');
     box.className = 'modal-box';
     box.style.cssText = 'max-width:380px;background:#1a1a2e;color:#eee;padding:20px;position:relative;';
+    // 2026-10-01 手机竖屏溢出修复：塞入解说区后面板超一屏，底部按钮被浏览器地址栏挡住——限高+内部滚动
+    box.style.maxHeight = '82vh';
+    box.style.overflowY = 'auto';
+    box.style.webkitOverflowScrolling = 'touch';
 
     const title = document.createElement('div');
     title.textContent = '🎵 音乐设置';

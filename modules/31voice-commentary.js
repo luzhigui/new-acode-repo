@@ -13,13 +13,19 @@ const LS_KEY = 'ming_voice_commentary';
 // ── 设置（localStorage 持久化，面板在 ui/73）────────────────────────
 const cfg = {
     on: false,          // 总开关
-    mode: 'full',       // 播报模式：full=全文逐行念日志（默认）；key=只报关键节点
+    mode: 'condense',   // 播报模式：condense=摘要（默认，「谁打谁N点伤害」+衍生效果触发名）；full=全文逐行；key=只报关键节点
     voiceURI: '',       // 指定音色（空=系统默认）
     rate: 1.05,         // 语速 0.6~1.6
     pitch: 1.0,         // 音调 0.6~1.4
     chatty: false       // 话痨模式（仅 key 模式生效）：额外播报每回合开始
 };
-try { Object.assign(cfg, JSON.parse(localStorage.getItem(LS_KEY) || '{}')); } catch (e) { /* 忽略坏档 */ }
+try {
+    const saved = JSON.parse(localStorage.getItem(LS_KEY) || '{}');
+    // 2026-10-01 二版迁移：V1.1 的 full（全文太慢跟不上节奏）统一落到新默认摘要；用户手动再选全文会写回 _v2
+    if (saved && saved.mode === 'full' && !saved._v2) saved.mode = 'condense';
+    saved._v2 = 1;
+    Object.assign(cfg, saved);
+} catch (e) { /* 忽略坏档 */ }
 export function getVoiceCfg() { return cfg; }
 export function setVoiceCfg(patch) {
     Object.assign(cfg, patch || {});
@@ -195,16 +201,69 @@ function speakEntryFull(entry) {
 
 export function speakLogLine(entry, fact) {
     if (mutedNow()) { if (queue.length) queue.length = 0; return; }
-    if (cfg.mode !== 'full') {         // key 模式走老路：只报关键节点
+    if (cfg.mode === 'key') {          // key 模式走老路：只报关键节点
         if (fact === _lastFactRef) return;
         _lastFactRef = fact;
         const s = factToSpeech(fact);
         if (s) enqueue(s.text, s.p);
         return;
     }
-    if (fact === _lastFactRef) return; // 同 fact 多条日志播完，全文只念一次
+    if (fact === _lastFactRef) return; // 同 fact 多条日志播完，只念一次
     _lastFactRef = fact;
-    speakEntryFull(entry);
+    if (cfg.mode === 'full') speakEntryFull(entry);
+    else speakEntryCondensed(entry);
+}
+
+// ── 摘要模式（2026-10-01 二版，用户定调）：「谁打谁N点伤害」主句 + 衍生效果触发名 ──
+// 不念预览行（攻防血数字）、不念计算行、不念波动作；击杀补一句；衍生效果念触发词
+const DERIVED_PATTERNS = [
+    [/流星赶月|溅射/, '触发流星赶月溅射'],
+    [/热血奋战|热血/, '触发热血奋战'],
+    [/破防/, '触发破防'],
+    [/闪避并反击|闪避反击/, '闪避反击'],
+    [/吸血/, '吸血'],
+    [/眩晕/, '目标被眩晕'],
+    [/连击|再次攻击/, '触发连击'],
+    [/寒毒|玄冥掌/, '触发玄冥寒毒'],
+    [/白骨爪/, '白骨爪'],
+    [/圣火令/, '圣火令掉落'],
+    [/宝箱/, '宝箱掉落'],
+    [/嘲讽/, '触发嘲讽'],
+];
+
+function stripTags(html) {
+    return String(html || '').replace(/<br\s*\/?>/gi, '，').replace(/<[^>]+>/g, '');
+}
+
+function speakEntryCondensed(entry) {
+    if (!entry) return;
+    if (entry.type === 'attack-group') {
+        if (entry.isMiss) { enqueue(`${entry.attackerName} 未命中`, 0); return; }
+        if (entry.isDodge) { enqueue(`${entry.targetName} 闪避并反击`, 1); return; }
+        let main = `${entry.attackerName} 打 ${entry.targetName}，${Math.round(entry._dmg || 0)}点伤害`;
+        if (entry.isDead) main += '，将其击杀！';
+        enqueue(main, entry.isDead ? 1 : 0);
+        // 衍生效果：扫子行（跳过预览行/主伤害行/计算行），关键词命中念触发名
+        for (const sub of (entry.entries || [])) {
+            if (!sub || !sub.text || sub.isDamageCalc) continue;
+            if (sub.type === 'combat-text' || sub.type === 'damage-text') continue;
+            const t = stripTags(sub.text);
+            for (const [re, speech] of DERIVED_PATTERNS) {
+                if (re.test(t)) { enqueue(speech, 0); break; }
+            }
+        }
+        return;
+    }
+    if (entry.type === 'detail' || entry.type === 'signal') return;   // 计算行/系统行：摘要模式不念
+    if (entry.type === 'round-start') {
+        const m = /第(\d+)回合/.exec(stripTags(entry.text) || '');
+        if (m) enqueue(`第${m[1]}回合`, 0);
+        return;
+    }
+    if (entry.type === 'round-end') return;                            // 回合结束行省略
+    // 其余短行（获得Buff/掉落/carry横幅等）：清洗后直接念
+    const t = cleanText(entry.text);
+    if (t) enqueue(t, /阵亡|击杀/.test(t) ? 1 : 0);
 }
 
 // 胜负收口播报（finishBattle 一处调用，单机/联机/回放共用）
