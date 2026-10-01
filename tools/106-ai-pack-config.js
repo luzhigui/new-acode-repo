@@ -58,7 +58,7 @@ export const ALL_PROJECT_FILES = [
     '../ui/63main-state.js', '../ui/64main-dialogs.js', '../ui/65main-battle.js',
     '../ui/66audio-control.js', '../ui/67fx-trigger.js', '../ui/68ui-controls.js',
     '../ui/69reset-runtime.js', '../ui/70buff-dialog.js',
-    '../ui/71tutorial.js', '../ui/72opening-cg.js',
+    '../ui/71tutorial.js', '../ui/72opening-cg.js', '../ui/73voice-panel.js',
     // fx（特效）
     '../fx/80fx-common-5v5-test.js', '../fx/81fx-arrows-5v5-test.js', '../fx/82fx-crash-5v5-test.js',
     '../fx/83fx-position-swap.js', '../fx/84fx-push-back.js', '../fx/85fx-dodge-bullet.js',
@@ -68,7 +68,7 @@ export const ALL_PROJECT_FILES = [
     '../modules/20elite-skills.js', '../modules/21error-capture.js', '../modules/22audio-manager.js',
     '../infra/54-global-store.js', '../infra/55-fx-signals.js', '../modules/29battle-init.js', '../modules/24battle-store.js',
     '../modules/25elite-imperial.js', '../modules/26elite-sixsects.js', '../modules/27elite-mingjiao.js',
-    '../modules/28buff-tools.js', '../modules/30custom-effects.js',
+    '../modules/28buff-tools.js', '../modules/30custom-effects.js', '../modules/31voice-commentary.js',
     // render（渲染层）
     '../render/30-fact-renderer.js', '../render/31-stage-actions.js', '../render/32-grid-render.js',
     '../render/33-fact-registry.js', '../render/34-facts-attack.js', '../render/35-facts-effect.js',
