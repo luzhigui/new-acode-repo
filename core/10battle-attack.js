@@ -1,5 +1,5 @@
-// V6.3.4 | ~18300 bytes | 2026-09-28 两处 resolveAfterDamageEffects 调用补传本步 log（透传到效果处理器 ctx，供 SPLASH 处理器补发 METEOR_SPLASH_GROWTH）。承接 V6.3.3 闪避反击致死改挂 _pendingDeath
-export const VER = 'core/10battle-attack.js V6.3.4';
+// V6.3.5 | ~19100 bytes | 2026-10-01 修「母狮随动 死→活→死」：resolveDeaths 后立刻把事件缓冲收进本攻击组，避免死亡事件被上层攻击帧的 flush 捞走挂到更早播出的组上。承接 V6.3.4 两处 resolveAfterDamageEffects 补传本步 log
+export const VER = 'core/10battle-attack.js V6.3.5';
 
 import { CONFIG } from './01config-5v5-test.js';
 import { hasBuff, makeFXSnapshot, isBlocked } from './03battle-utils.js';
@@ -315,6 +315,13 @@ export function processUnitAttack(unit, allySide, enemySide, log, A, B, state, d
     runExtraAttackRequests(extraRequests, { log, A, B, state, allySide, enemySide, target, checkBlock: true, forceUnact: true });
 
     resolveDeaths(allySide, enemySide, log);
+    // 2026-10-01 修「母狮随动 死→活→死」：resolveDeaths 发的事件此前留在全局缓冲里没人收，
+    //   会被**上层攻击帧**（随动父帧）L268 的 flush 捞走 → 死亡被挂到更早播出的那个攻击组上；
+    //   而随动子刀自己的 alive=true 事件又挂在更晚的组上。播放层逐组 APPLY_EVENTS（player/46 L146），
+    //   于是目标先被前一组标死、再被后一组标活、步末才真正落地 → 死→活→死 三段剧透。
+    //   修法：本帧死亡结算后立刻把缓冲收进本组，保证「谁打死的，死亡事件跟谁走」。
+    //   日志文本顺序与死亡结算时机均不变（resolveDeaths 调用点没动）。
+    group._events = (group._events || []).concat(flushBattleEvents());
 
     return true;
 }
