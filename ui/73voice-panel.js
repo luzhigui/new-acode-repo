@@ -1,24 +1,9 @@
-// ui/73voice-panel.js — 语音解说设置面板（实时朗读版）
-// V1.0.0 | 2026-10-01 首版：🎙️按钮 + 弹窗（总开关/音色/语速/音调/话痨/试听），引擎在 modules/31。
-// 样式沿袭音乐面板（modal-overlay/modal-box 全局类），移动端竖屏单列布局。
+// ui/73voice-panel.js — 语音解说设置区（实时朗读版，嵌入音乐面板）
+// V1.1.0 | 2026-10-01 V1.0 独立按钮版收编：🎙️按钮撤掉，设置区嵌进音乐面板（ui/64 调 buildVoiceControls）；
+// 新增播报模式（全文=逐行念整条日志 / 关键=只报大事）。引擎在 modules/31。
 import { getVoiceCfg, setVoiceCfg, listVoices, speakTest, stopCommentary, ttsAvailable } from '../modules/31voice-commentary.js';
 
-export const VER = 'ui/73voice-panel.js V1.0.0';
-
-export function initVoicePanel() {
-    const btn = document.getElementById('btnVoice');
-    if (!btn) return;
-    btn.addEventListener('click', () => showVoicePanel());
-    updateVoiceBtn();
-}
-
-export function updateVoiceBtn() {
-    const btn = document.getElementById('btnVoice');
-    if (!btn) return;
-    const cfg = getVoiceCfg();
-    btn.classList.toggle('active', !!cfg.on);
-    btn.textContent = cfg.on ? '🎙️ 解说' : '🎙︎ 解说';
-}
+export const VER = 'ui/73voice-panel.js V1.1.0';
 
 function rowLabel(text) {
     const d = document.createElement('div');
@@ -27,129 +12,20 @@ function rowLabel(text) {
     return d;
 }
 
-export function showVoicePanel() {
-    const existing = document.getElementById('voicePanelOverlay');
-    if (existing) existing.remove();
-
-    const cfg = getVoiceCfg();
-
-    const overlay = document.createElement('div');
-    overlay.id = 'voicePanelOverlay';
-    overlay.className = 'modal-overlay';
-    overlay.style.background = 'rgba(0,0,0,0.7)';
-
-    const box = document.createElement('div');
-    box.className = 'modal-box';
-    box.style.cssText = 'max-width:380px;background:#1a1a2e;color:#eee;padding:20px;position:relative;';
-
-    const title = document.createElement('div');
-    title.textContent = '🎙️ 语音解说（实时朗读）';
-    title.style.cssText = 'color:#ffd700;font-size:16px;font-weight:bold;margin-bottom:6px;';
-    box.appendChild(title);
-
-    const hint = document.createElement('div');
-    hint.textContent = '用手机自带朗读引擎实时解说关键节点：击杀、胜负、掉落。不联网、不花钱。';
-    hint.style.cssText = 'font-size:11px;color:#8b949e;line-height:1.6;margin-bottom:10px;';
-    box.appendChild(hint);
-
-    if (!ttsAvailable()) {
-        const warn = document.createElement('div');
-        warn.textContent = '⚠️ 当前浏览器不支持语音合成，换 Chrome 试试。';
-        warn.style.cssText = 'color:#f85149;font-size:12px;margin-bottom:10px;';
-        box.appendChild(warn);
-    }
-
-    // 总开关
-    const onRow = document.createElement('div');
-    onRow.style.cssText = 'display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;';
-    const onLabel = document.createElement('span');
-    onLabel.textContent = '解说开关';
-    onLabel.style.cssText = 'font-size:13px;';
-    const onBtn = document.createElement('button');
-    onBtn.textContent = cfg.on ? '✅ 开' : '⛔ 关';
-    onBtn.style.cssText = 'padding:6px 16px;border:none;border-radius:8px;background:#238636;color:#fff;font-size:13px;cursor:pointer;';
-    onBtn.onclick = () => {
-        const next = !getVoiceCfg().on;
-        setVoiceCfg({ on: next });
-        if (!next) stopCommentary();
-        else speakTest();                    // 开启即试听一句（手势解锁 TTS）
-        onBtn.textContent = next ? '✅ 开' : '⛔ 关';
-        updateVoiceBtn();
-    };
-    onRow.append(onLabel, onBtn);
-    box.appendChild(onRow);
-
-    // 音色选择
-    box.appendChild(rowLabel('音色（中文排前，看手机装了哪些）'));
-    const voiceSel = document.createElement('select');
-    voiceSel.style.cssText = 'width:100%;padding:8px;border-radius:8px;border:1px solid #30363d;background:#161b22;color:#eee;font-size:13px;';
-    const voices = listVoices();
-    const optDefault = document.createElement('option');
-    optDefault.value = '';
-    optDefault.textContent = '（系统默认）';
-    voiceSel.appendChild(optDefault);
-    for (const v of voices) {
-        const o = document.createElement('option');
-        o.value = v.voiceURI;
-        o.textContent = `${v.name}（${v.lang}）`;
-        voiceSel.appendChild(o);
-    }
-    voiceSel.value = cfg.voiceURI;
-    if (voiceSel.selectedIndex === -1) voiceSel.value = '';
-    voiceSel.onchange = () => { setVoiceCfg({ voiceURI: voiceSel.value }); speakTest(); };
-    box.appendChild(voiceSel);
-
-    // 语速
-    box.appendChild(rowLabel('语速'));
-    const rateRow = mkSlider(cfg.rate, 0.6, 1.6, 0.05, v => setVoiceCfg({ rate: v }), v => `${v.toFixed(2)}x`);
-    box.appendChild(rateRow.wrap);
-
-    // 音调
-    box.appendChild(rowLabel('音调'));
-    const pitchRow = mkSlider(cfg.pitch, 0.6, 1.4, 0.05, v => setVoiceCfg({ pitch: v }), v => `${v.toFixed(2)}`);
-    box.appendChild(pitchRow.wrap);
-
-    // 话痨模式
-    box.appendChild(rowLabel('播报密度'));
-    const modeRow = document.createElement('div');
-    modeRow.style.cssText = 'display:flex;gap:8px;';
-    const modeBtns = [];
-    for (const [val, label] of [['key', '只报大事'], ['chatty', '话痨（加回合）']]) {
+function mkSeg(options, curVal, onPick) {
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex;background:#161b22;border:1px solid #30363d;border-radius:10px;overflow:hidden;';
+    const btns = [];
+    for (const { val, label } of options) {
         const b = document.createElement('button');
         b.textContent = label;
-        b.style.cssText = 'flex:1;padding:8px 0;border-radius:8px;border:1px solid #30363d;background:#161b22;color:#8b949e;font-size:12px;cursor:pointer;';
-        b.onclick = () => {
-            setVoiceCfg({ chatty: val === 'chatty' });
-            modeBtns.forEach(x => { x.b.style.background = '#161b22'; x.b.style.color = '#8b949e'; });
-            b.style.background = '#21262d';
-            b.style.color = '#e6edf3';
-        };
-        modeBtns.push({ val, b });
-        modeRow.appendChild(b);
+        b.style.cssText = 'flex:1;padding:9px 0;border:none;background:none;color:#8b949e;font-size:13px;cursor:pointer;font-family:inherit;';
+        if (val === curVal) { b.style.background = '#21262d'; b.style.color = '#e6edf3'; b.style.fontWeight = '600'; }
+        b.onclick = () => { onPick(val); [...row.children].forEach(x => { x.style.background = 'none'; x.style.color = '#8b949e'; x.style.fontWeight = '400'; }); b.style.background = '#21262d'; b.style.color = '#e6edf3'; b.style.fontWeight = '600'; };
+        row.appendChild(b);
+        btns.push({ val, b });
     }
-    const cur = getVoiceCfg().chatty ? 'chatty' : 'key';
-    modeBtns.forEach(x => {
-        if (x.val === cur) { x.b.style.background = '#21262d'; x.b.style.color = '#e6edf3'; }
-    });
-    box.appendChild(modeRow);
-
-    // 试听
-    const testBtn = document.createElement('button');
-    testBtn.textContent = '▶ 试听一句';
-    testBtn.style.cssText = 'width:100%;margin-top:16px;padding:12px 0;border:none;border-radius:10px;background:#1f6feb;color:#fff;font-size:14px;font-weight:600;cursor:pointer;';
-    testBtn.onclick = () => speakTest();
-    box.appendChild(testBtn);
-
-    // 关闭
-    const closeBtn = document.createElement('button');
-    closeBtn.textContent = '✕';
-    closeBtn.style.cssText = 'position:absolute;top:10px;right:12px;background:none;border:none;color:#8b949e;font-size:16px;cursor:pointer;';
-    closeBtn.onclick = () => overlay.remove();
-    box.appendChild(closeBtn);
-
-    overlay.onclick = (e) => { if (e.target === overlay) overlay.remove(); };
-    overlay.appendChild(box);
-    document.body.appendChild(overlay);
+    return row;
 }
 
 function mkSlider(value, min, max, step, onChange, fmt) {
@@ -168,5 +44,73 @@ function mkSlider(value, min, max, step, onChange, fmt) {
         onChange(v);
     };
     wrap.append(s, val);
-    return { wrap, slider: s };
+    return wrap;
+}
+
+// 供音乐面板（ui/64 showMusicPanel）尾部嵌入的解说设置区
+export function buildVoiceControls(box) {
+    const cfg = getVoiceCfg();
+
+    // 分隔标题
+    const head = rowLabel('────────── 🎙️ 语音解说 ──────────');
+    head.style.cssText += 'margin-top:18px;padding-top:14px;border-top:1px solid #30363d;color:#ffd700;font-size:13px;font-weight:bold;';
+    box.appendChild(head);
+
+    const hint = document.createElement('div');
+    hint.textContent = ttsAvailable()
+        ? '手机自带朗读引擎实时解说，不联网不花钱。全文模式=整条日志从头念到尾（配1x/2x慢速刚好）。'
+        : '此浏览器不支持朗读引擎，解说不可用。';
+    hint.style.cssText = 'font-size:11px;color:#8b949e;line-height:1.6;margin-bottom:8px;';
+    box.appendChild(hint);
+    if (!ttsAvailable()) return;
+
+    // 总开关
+    box.appendChild(rowLabel('总开关'));
+    box.appendChild(mkSeg([{ val: true, label: '开启' }, { val: false, label: '关闭' }], cfg.on, (v) => {
+        setVoiceCfg({ on: v });
+        if (!v) stopCommentary();
+    }));
+
+    // 播报模式
+    box.appendChild(rowLabel('播报模式'));
+    box.appendChild(mkSeg([{ val: 'full', label: '📝 全文播报' }, { val: 'key', label: '⚡ 只报大事' }], cfg.mode, (v) => setVoiceCfg({ mode: v })));
+
+    // 音色
+    box.appendChild(rowLabel('音色（列的是本机朗读引擎的嗓子）'));
+    const voiceSel = document.createElement('select');
+    voiceSel.style.cssText = 'width:100%;padding:8px;background:#161b22;border:1px solid #30363d;border-radius:8px;color:#e6edf3;font-size:13px;';
+    const fillVoices = () => {
+        const vs = listVoices();
+        voiceSel.innerHTML = '';
+        const def = document.createElement('option');
+        def.value = ''; def.textContent = '（系统默认）';
+        voiceSel.appendChild(def);
+        for (const v of vs) {
+            const o = document.createElement('option');
+            o.value = v.voiceURI; o.textContent = `${v.name}（${v.lang}）`;
+            voiceSel.appendChild(o);
+        }
+        voiceSel.value = getVoiceCfg().voiceURI || '';
+    };
+    fillVoices();
+    setTimeout(fillVoices, 600); // 安卓 Chrome 音色列表异步到位，再补一次
+    voiceSel.onchange = () => setVoiceCfg({ voiceURI: voiceSel.value });
+    box.appendChild(voiceSel);
+
+    // 语速 / 音调
+    box.appendChild(rowLabel('语速'));
+    box.appendChild(mkSlider(getVoiceCfg().rate, 0.6, 1.6, 0.05, v => setVoiceCfg({ rate: v }), v => v.toFixed(2) + 'x'));
+    box.appendChild(rowLabel('音调'));
+    box.appendChild(mkSlider(getVoiceCfg().pitch, 0.6, 1.4, 0.05, v => setVoiceCfg({ pitch: v }), v => v.toFixed(2)));
+
+    // 话痨（仅关键模式有意义）
+    box.appendChild(rowLabel('关键模式下也报每回合（话痨）'));
+    box.appendChild(mkSeg([{ val: true, label: '报回合' }, { val: false, label: '不报' }], cfg.chatty, (v) => setVoiceCfg({ chatty: v })));
+
+    // 试听
+    const testBtn = document.createElement('button');
+    testBtn.textContent = '▶ 试听一句';
+    testBtn.style.cssText = 'width:100%;margin-top:14px;padding:12px 0;border:none;border-radius:10px;background:#1f6feb;color:#fff;font-size:14px;font-weight:600;cursor:pointer;';
+    testBtn.onclick = () => speakTest();
+    box.appendChild(testBtn);
 }

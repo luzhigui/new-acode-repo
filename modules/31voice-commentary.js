@@ -13,10 +13,11 @@ const LS_KEY = 'ming_voice_commentary';
 // ── 设置（localStorage 持久化，面板在 ui/73）────────────────────────
 const cfg = {
     on: false,          // 总开关
+    mode: 'full',       // 播报模式：full=全文逐行念日志（默认）；key=只报关键节点
     voiceURI: '',       // 指定音色（空=系统默认）
     rate: 1.05,         // 语速 0.6~1.6
     pitch: 1.0,         // 音调 0.6~1.4
-    chatty: false       // 话痨模式：额外播报每回合开始
+    chatty: false       // 话痨模式（仅 key 模式生效）：额外播报每回合开始
 };
 try { Object.assign(cfg, JSON.parse(localStorage.getItem(LS_KEY) || '{}')); } catch (e) { /* 忽略坏档 */ }
 export function getVoiceCfg() { return cfg; }
@@ -97,7 +98,7 @@ function factToSpeech(fact) {
 }
 
 // ── 播报队列（浏览器 TTS 自带队列，这里管优先级打断与丢弃）───────────
-const MAX_QUEUE = 4;
+const MAX_QUEUE = 24;
 const queue = [];
 let speaking = false;
 let ducked = false;
@@ -137,14 +138,10 @@ function pump() {
 }
 
 function enqueue(text, p) {
-    // 队满：从低优先级开始丢，胜负/击杀永不丢
-    if (queue.length >= MAX_QUEUE) {
-        const dropIdx = queue.findIndex(x => x.p < p);
-        if (dropIdx === -1) return;             // 全是同级以上：这条不要了
-        queue.splice(dropIdx, 1);
-    }
+    // 队满：丢最旧的（全文模式保顺序追进度；新来的永远入队）
+    if (queue.length >= MAX_QUEUE) queue.shift();
     queue.push({ text, p });
-    // 高优先级打断正在念的低优先级（回合播报给击杀让路）
+    // 高优先级打断正在念的低优先级（普通行给击杀/胜负让路）
     if (p >= 2 && speaking) speechSynthesis.cancel();
     pump();
 }
@@ -159,12 +156,55 @@ function mutedNow() {
 
 // ── 对外播报口（player/42 逐条日志收尾时调用；防剧透铁律：动画播完才开口）──
 let _lastFactRef = null;   // 一个 fact 可能拆多条日志播（引用相同），去重防复读
-export function speakFact(fact) {
-    if (mutedNow()) return;
-    if (fact === _lastFactRef) return;
+let _lastText = '';        // 连续相同文本去重（全文模式）
+
+// 战报行 HTML → 干净的朗读文本：剥标签/emoji/装饰符，箭头改口播友好的词
+function cleanText(html) {
+    if (!html) return '';
+    let t = String(html)
+        .replace(/<br\s*\/?>/gi, '，')
+        .replace(/<[^>]+>/g, '')
+        .replace(/[\u{1F000}-\u{1FAFF}\u{2190}-\u{21FF}\u{2300}-\u{27BF}\u{2B00}-\u{2BFF}\u{FE0F}\u{200D}\u{20E3}\u{FE0E}]/gu, '')
+        .replace(/————+/g, '，')
+        .replace(/[·◆●◀▶▲▼★☆♦]/g, ' ')
+        .replace(/[（(]/g, '，').replace(/[）)]/g, '，')
+        .replace(/[\s，]+/g, ' ')
+        .replace(/^[，\s]+|[，\s]+$/g, '');
+    return t.trim();
+}
+
+// 全文模式：一行日志（或攻击组的子行们）逐条入队念
+function speakEntryFull(entry) {
+    if (!entry) return;
+    const lines = [];
+    if (Array.isArray(entry.entries) && entry.entries.length) {
+        for (const sub of entry.entries) {
+            if (sub && sub.type !== 'detail' && sub.type !== 'signal') lines.push(sub.text);
+        }
+    } else if (entry.type !== 'detail' && entry.type !== 'signal') {
+        lines.push(entry.text);
+    }
+    for (const raw of lines) {
+        const t = cleanText(raw);
+        if (!t || t === _lastText) continue;
+        _lastText = t;
+        const p = /阵亡|击杀|斩杀/.test(t) ? 1 : 0;
+        enqueue(t, p);
+    }
+}
+
+export function speakLogLine(entry, fact) {
+    if (mutedNow()) { if (queue.length) queue.length = 0; return; }
+    if (cfg.mode !== 'full') {         // key 模式走老路：只报关键节点
+        if (fact === _lastFactRef) return;
+        _lastFactRef = fact;
+        const s = factToSpeech(fact);
+        if (s) enqueue(s.text, s.p);
+        return;
+    }
+    if (fact === _lastFactRef) return; // 同 fact 多条日志播完，全文只念一次
     _lastFactRef = fact;
-    const s = factToSpeech(fact);
-    if (s) enqueue(s.text, s.p);
+    speakEntryFull(entry);
 }
 
 // 胜负收口播报（finishBattle 一处调用，单机/联机/回放共用）
