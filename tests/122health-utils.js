@@ -97,12 +97,22 @@ export function checkHpBarColor(unit, win, doc) {
 
 /**
  * 检查特效残留元素数量
+ * 排除胜利庆祝粒子（ui/62 celebrate()：party-particle 60 + star-particle 15 = 75 个）：
+ *   它们自带 2.8~3.3s 自清，属设计内瞬时特效。结算检查在 GAMEOVER+3000ms 跑，正赶上它们存活期
+ *   → 误报"75个特效未清理"。这些不是"残留孤儿"（一定会自清），只盯真正的残留（其他临时FX卡住不清理）。
  */
 export function checkFxOrphans(doc) {
     const issues = [];
     const orphans = doc.querySelectorAll('[data-fx="temporary"]');
-    if (orphans.length > 5) {
-        issues.push('战斗结束后' + orphans.length + '个特效未清理');
+    if (!orphans.length) return issues;
+    let count = 0;
+    for (let i = 0; i < orphans.length; i++) {
+        const el = orphans[i];
+        if (el.classList.contains('party-particle') || el.classList.contains('star-particle')) continue;
+        count++;
+    }
+    if (count > 5) {
+        issues.push('战斗结束后' + count + '个特效未清理');
     }
     return issues;
 }
@@ -205,12 +215,18 @@ export function checkMeleeFxState(ctx, doc) {
  * 检查有Buff生效的单位，格子上是否正确显示了对应的图标
  * 渲染时序容错：图标缺失需持续超过 ICON_BUFFER_MS 才上报，避免 Buff 刚生效、
  * 格子尚未重绘时误报。
+ *
+ * 数据真值源（V6.2.0 同步修正）：受益判定必须用「实时 battleStore」单位，不能用 ctx.UI.allyTeam。
+ *   ctx.UI.allyTeam 是 ui/65 开战时 clone 的副本，战斗全程冻结——张无忌近战切换（RANGED→WARRIOR）、
+ *   惑人心智换位（前排快照≠实时）、单位阵亡等都会让"快照角色/位置/存活"与实时不一致，
+ *   体检据此误判缺图标（与 121 文件头 V6.2.0 同根因，此处补上 live 化）。
+ *   liveAlly 由 121.runUIChecks 经 teamsFromStore(ctx) 传入（取不到再退回 UI 快照）。
  */
 const ICON_BUFFER_MS = 1000;
 const _missingBuffIconSince = {};
-export function checkBuffIcons(ctx, doc) {
+export function checkBuffIcons(ctx, doc, liveAlly) {
     const issues = [];
-    const allyTeam = (ctx.UI && ctx.UI.allyTeam) || [];
+    const allyTeam = (liveAlly && liveAlly.length) ? liveAlly : ((ctx.UI && ctx.UI.allyTeam) || []);
     const activeBuffs = ctx.activeBuffs || [];
     const doubleStrikeUid = ctx.currentDoubleStrikeUid;
 
@@ -263,10 +279,10 @@ export function checkBuffIcons(ctx, doc) {
 
     for (const unit of allyTeam) {
         if (!unit.alive) continue;
-        // 按 uid 定位格子（渲染器在 div.dataset.uid 上写死 uid），不用 pos 反查：
-        //   ctx.UI 是开战快照，战斗中死亡移除/换位（惑人心智本身就是换位buff）会让
-        //   pos→children[idx] 映射偏移，查到别人的格子 → 假"缺图标"（2026-09-03 关5/6 误报根因）
-        const cell = doc.querySelector('#allyGrid .cell[data-uid="' + unit.uid + '"]') || getCellElement(unit, doc);
+        // 只按 uid 定位该单位自己的格子（渲染器在 div.dataset.uid 上写死 uid），绝不回退到按 pos 查——
+        // 同格尸体/换位会让 pos→children[idx] 偏移到别人的格子（含尸体格），读到错误格子 → 假"缺图标"。
+        // uid 格不在（如位置被尸体占据，主代码正常显示尸体而非该单位）→ 该单位图标本就不该出现，跳过避免误报。
+        const cell = doc.querySelector('#allyGrid .cell[data-uid="' + unit.uid + '"]');
         if (!cell) continue;
         const nameEl = cell.querySelector('.cell-name');
         if (!nameEl) continue;
