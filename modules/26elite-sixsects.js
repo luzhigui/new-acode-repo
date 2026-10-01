@@ -1,5 +1,5 @@
-// V6.14.9 | ~25800 bytes | 2026-09-29 参数体系收敛批 3：九阴白骨爪参数兜底全删（procChance/chainProcChance/lostHpRatio/maxHpRatio/executeThreshold 直读内容表，缺失即抛错）；灭绝师太三击间隔改数据驱动（thirdStrike.params.interval）
-export const VER = 'modules/26elite-sixsects.js V6.14.9';
+// V6.15.0 | ~47100 bytes | 2026-10-02 胖远桥·正义国字脸加防补飘字：加防量随本击 fact 带给 render/38，翻成 STAT_CHANGE(def) → 飘「🛡+N」
+export const VER = 'modules/26elite-sixsects.js V6.15.0';
 import { registerElite } from '../core/08-elite-registry.js';
 import { CONFIG, getSkillParams, getGameData } from '../core/01config-5v5-test.js';
 import { SIGNAL_TYPES, FACT_TYPES, BUFF_TYPES, CAMP_TYPES, ROLE_TYPES } from '../infra/56-battle-enums.js';
@@ -325,7 +325,12 @@ export function createPangYuanQiaoComponent() {
                 if (data.unit !== pang || !pang.alive || !pang.state._tauntFired) return;
                 pang.state._tauntFired = false;
                 // 国字脸的演出标记：与台词同帧写进 fact，render/39 出手帧据此发 PANG_TAUNT
-                if (data.group && data.group.data) data.group.data.pangTaunt = true;
+                if (data.group && data.group.data) {
+                    data.group.data.pangTaunt = true;
+                    // 2026-10-02 加防量随 fact 走一格（此前只有上面那行文字、无飘字），
+                    //   render/38 据此产 STAT_CHANGE(def) → fx/80 飘「🛡+N」
+                    data.group.data.pangDefGain = face.defGain;
+                }
                 pushInfo(data, `<span class="gold">😤 正义国字脸：胖远桥横眉一喝，敌人本回合只能打他（自身防御+${face.defGain}，当前 ${Math.floor(getStat(pang, 'def'))}）</span>`);
             });
 

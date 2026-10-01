@@ -1,5 +1,5 @@
-// V6.2.0 | 2026-09-24 加 showMiejueCountFloat（灭绝师太出手计数：头顶飘字放大消散）；统一时间层：setTimeout/setInterval 全换 clock，对象池回收用 seq token
-export const VER = 'fx/80fx-common-5v5-test.js V6.2.0';
+// V6.2.1 | ~22500 bytes | 2026-10-02 飘字图标补齐：掉血加 💥 前缀；showDefBuffFloat 文案改按符号拼（加防/破防共用，支持负数）
+export const VER = 'fx/80fx-common-5v5-test.js V6.2.1';
 
 import { CAMP_TYPES } from '../infra/56-battle-enums.js';
 import { snapshotUnitCell } from './90fx-ref-manager.js';
@@ -75,7 +75,7 @@ export function showDamageFloat(unit, dmg) {
     const rect = snapshotUnitCell(unit);
     if (!rect) return;
     acquireFromPool('dmgFloat', (dmgEl) => {
-        dmgEl.textContent = '-'+dmg;
+        dmgEl.textContent = '💥-'+dmg;   // 2026-10-02 掉血补图标，与 ⚔攻/🛡防/❤回血 凑齐四类
         dmgEl.style.right=(window.innerWidth-rect.right+4)+'px';
         dmgEl.style.top=(rect.top-4)+'px';
     }, 1400);
@@ -126,7 +126,7 @@ function createAtkBuffFloatEl() { let d = document.createElement('div'); d.class
 initPool('atkBuffFloat', createAtkBuffFloatEl);
 
 // 2026-10-01 弹幕图标版（用户定调试做，嫌乱随时撤）：加攻⚔/加防🛡 前缀图标 + 颜色分轨
-//   行业色规：攻=暖（橙金）、防=冷（钢蓝#4a9bc9 厚重盾感）、血=绿（heal-float 原色）
+//   行业色规：攻=暖（橙金）、防=冷（钢蓝#4a9bc9 厚重盾感）、血=绿（heal-float 原色）、掉血=💥红（dmg-float 原色）
 function createDefBuffFloatEl() { let d = document.createElement('div'); d.className = 'heal-float'; d.style.color = '#4a9bc9'; return d; }
 initPool('defBuffFloat', createDefBuffFloatEl);
 
@@ -134,7 +134,8 @@ export function showDefBuffFloat(unit, def) {
     const rect = snapshotUnitCell(unit);
     if (!rect) return;
     acquireFromPool('defBuffFloat', (el) => {
-        el.textContent = '🛡+' + def;
+        // 加防走正数「🛡+50」；破防走负数「🛡-4」——文案按符号拼，别写死 '+'
+        el.textContent = '🛡' + (def > 0 ? '+' : '') + def;
         el.style.left = (rect.left + rect.width - 8) + 'px';
         el.style.right = 'auto';
         el.style.top = (rect.top - 4) + 'px';
