@@ -1,12 +1,12 @@
 // render/38-actions-translate.js — fact → stageAction 翻译器（翻译域）
-// V1.1.4 | ~28000 bytes | 2026-09-27 entries 扫描补 RONG_HUI_BONUS → REBOUND 飘字（张无忌融会贯通额外伤害此前藏在 attack.data.entries 里、零飘字）；承接 V1.1.3 ENDLESS_BREATH 翻译器（生生不息回血弹幕随文本行播出）
+// V1.1.5 | ~31600 bytes | 2026-10-02 entries 扫描补 BREAK_DEF → STAT_CHANGE(def) 飘「🛡-N」（战士破防此前零飘字）；胖远桥·正义国字脸加防借同一通道飘「🛡+N」
 //
 // 加新 fact 的舞台动作：在本文件 FACT_TRANSLATORS 加一条（键=factType），
 // 并在 infra/58 的 translateFn 登记函数名；漏加会在本文件末尾校验循环里报错。
 import { makeFXSnapshot } from '../infra/51-core-utils.js';
 import { STAGE_ACTION_TYPES, FACT_TYPES, CAMP_TYPES, BUFF_EFFECT_TYPES, FLY_MODE_TYPES } from '../infra/56-battle-enums.js';
 import { FACT_SPECS } from '../infra/58-fact-contract.js';
-export const VER = 'render/38-actions-translate.js V1.1.4';
+export const VER = 'render/38-actions-translate.js V1.1.5';
 
 // 把 fact 列表翻译成舞台动作；导演只读 stageActions；timing=beforeText/afterText
 export function translateFactsToStageActions(log) {
@@ -597,6 +597,22 @@ function makeAttackAction(data, index) {
                 factIndex: index,
                 timing: 'afterText'
             });
+        } else if (e.factType === FACT_TYPES.BREAK_DEF) {
+            // 2026-10-02 战士破防：此前只有 detail 文字（「🗡️ 防御 -N」），一条飘字都没有。
+            //   fact 本身只带 attackerName/targetName/reduce（无 uid），但全仓唯一产者是 core/03 的战士破防，
+            //   作用对象恒为**本击目标**，直接借 target.uid；本击打死目标则不飘（别在尸体格子上跳数字，
+            //   与 RONG_HUI_BONUS 同口径）。负数走 STAT_CHANGE(def) → fx/80 的「🛡-N」。
+            const bd = e.data || {};
+            if (target?.uid && bd.reduce > 0 && !dead) {
+                afterTextEffects.push({
+                    kind: STAGE_ACTION_TYPES.STAT_CHANGE,
+                    statKind: 'def',
+                    targetUid: target.uid,
+                    gain: -Math.round(bd.reduce),
+                    factIndex: index,
+                    timing: 'afterText'
+                });
+            }
         } else if (e.factType === FACT_TYPES.RONG_HUI_BONUS) {
             // 2026-09-27 张无忌融会贯通：这笔额外伤害由 BONUS_DMG 声明在主攻击结算之后单独扣血，
             // 不在主攻击的 dmg 里（主弹幕只有主伤害），此前只有一行文字、一点飘字都没有。
@@ -613,6 +629,19 @@ function makeAttackAction(data, index) {
                 });
             }
         }
+    }
+
+    // 2026-10-02 胖远桥·正义国字脸：嘲讽那一下就永久加防（modules/26 在 AFTER_ATTACK 把加防量写进本击 fact），
+    //   此前只有一行日志文字、无飘字。加防对象是胖远桥自己（= 本击攻击者），走 STAT_CHANGE(def) 通道。
+    if (data.pangDefGain > 0 && attacker?.uid) {
+        afterTextEffects.push({
+            kind: STAGE_ACTION_TYPES.STAT_CHANGE,
+            statKind: 'def',
+            targetUid: attacker.uid,
+            gain: Math.round(data.pangDefGain),
+            factIndex: index,
+            timing: 'afterText'
+        });
     }
 
     // 血量线弹幕（文本后）
