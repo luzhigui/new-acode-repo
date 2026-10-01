@@ -9,6 +9,7 @@ import { CONFIG } from '../core/01config-5v5-test.js';
 import { stepVoteOpen, stepCountdown } from './71tutorial.js';
 import { getBattleRecording, attachSaveBattleReportButton } from '../player/50battle-export.js';
 import { flattenBattleLogToText, renderLogAnalysisInto } from '../player/51-battle-log-analyze.js';
+import { buildVoiceControls } from './73voice-panel.js';
 
 // 战报弹窗
 // 弹窗-战报：战斗结束统计数据展示+导出
@@ -398,6 +399,9 @@ export function showMusicPanel() {
         sourceRow.appendChild(label);
     });
     box.appendChild(sourceRow);
+
+    // 2026-10-01 语音解说设置区嵌入音乐面板（原独立 🎙️ 按钮撤掉，声音相关收进一个面板）
+    buildVoiceControls(box);
 
     const bottomClose = document.createElement('button');
     bottomClose.textContent = '关闭';

@@ -1,5 +1,5 @@
 ﻿﻿<!-- index.html - 光明顶5v5 V6.0.0（原 mode-5v5-test.html，改名为主入口） -->
-<!-- V7.5.0 | 2026-10-01 语音解说（实时朗读版）上线：战报关键节点（击杀/斩杀/carry/掉落/胜负）现场编词、手机TTS实时朗读，🎙️按钮开设置（音色/语速/音调/话痨/试听），说话时自动压BGM，快进暂停闭嘴；单机/联机/回放通用 | V6.0.9 | ~36000 bytes | 2026-09-28 张三丰生生不息改「攻防二选一」：每次触发随机只转攻或只转防（比例不变），治防滚雪球过高——14回合防36→150+失控 | V6.0.8 | ~36000 bytes | 2026-09-26 战报全灰修复：录制快照的 state 共享引用被引擎原地改，整份战报序列化时全是终态（回放从头到尾全灰）——改按 schema 深拷断引用，顺带真增量瘦身生效文件变小 | 本行更新仅走时间戳 -->
+<!-- V7.5.1 | 2026-10-01 解说改全文模式（逐行念完整条日志，剥emoji念人话，队列4→24）；解说设置并入音乐面板、虚影飞走并入选关弹窗、商店撤掉（按钮排瘦身治标题换行）；弹窗层级9999→100020治战斗中被特效盖住 | V7.5.0 | 2026-10-01 语音解说（实时朗读版）上线：战报关键节点现场编词、手机TTS实时朗读，说话时自动压BGM，快进暂停闭嘴；单机/联机/回放通用 | V6.0.9 | ~36000 bytes | 2026-09-28 张三丰生生不息改「攻防二选一」：每次触发随机只转攻或只转防（比例不变），治防滚雪球过高 | 本行更新仅走时间戳 -->
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
@@ -159,7 +159,7 @@
         .star-particle { position: absolute; font-size: 14px; z-index: 997; animation: starBurst 3s ease-out forwards; }
         @keyframes starBurst { 0%{transform:translate(0,0) scale(0.5);opacity:1} 100%{transform:translate(var(--dx),var(--dy)) scale(1.5);opacity:0} }
         .shake { animation: shake 0.5s ease-in-out; } @keyframes shake { 0%,100%{ transform: translateX(0); } 25%{ transform: translateX(-5px); } 75%{ transform: translateX(5px); } }
-        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); display: flex; justify-content: center; align-items: center; padding-top: 5vh; z-index: 9999; }
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); display: flex; justify-content: center; align-items: center; padding-top: 5vh; z-index: 100020; }
         .modal-box { background: #fdf5e6; border: 4px double #8b7355; border-radius: 12px; padding: 20px; max-width: 320px; text-align: center; box-shadow: 0 0 20px rgba(0,0,0,0.6); position: relative; }
         .modal-text { font-size: 14px; color: #5c4033; margin-bottom: 16px; }
         .modal-minimize { position: absolute; top: 6px; right: 30px; cursor: pointer; font-size: 20px; color: #8b7355; font-weight: bold; }
@@ -296,13 +296,10 @@
 
         <div class="log-header-right" id="debugPanel">
         <button id="btnStageSelect">🎯 选关</button>
-        <button id="btnCrashMode">👻虚影</button>
-        <!-- <button id="btnRandom">🎲 随机</button> -->
-        <button id="btnShop" onclick="window.open('tools/105-shop.html','_blank')">🏪 商店</button>
+        <!-- 2026-10-01 按钮排瘦身：虚影/飞走并入选关弹窗、商店撤掉、解说并入音乐面板（治日志标题换行） -->
         <button id="copyLog">📝 复制</button>
         <!-- <button id="btnExportLog">📥 导出</button> -->
         <button id="btnBGM" class="active">🎵 音乐</button>
-        <button id="btnVoice">🎙︎ 解说</button>
     </div></div>
     <div id="log"></div>
     <div class="log-bottom-bar">

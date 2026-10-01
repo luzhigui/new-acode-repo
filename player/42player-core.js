@@ -24,7 +24,7 @@ import { buildBattleReportData, computeVoteResult, grantClearRewards } from './4
 import { handleBuffSelection, handlePvpBuffSelection, handleFlyDirection } from './49battle-flow.js';
 import * as net from '../infra/60-net-pvp.js';
 import { startBattleRecording, feedBattleStep, finishBattleRecording } from './50battle-export.js';
-import { speakFact, speakVictory } from '../modules/31voice-commentary.js';
+import { speakLogLine, speakVictory } from '../modules/31voice-commentary.js';
 
 function getCtx() { return getPlayerContext(); }
 
@@ -277,7 +277,7 @@ async function playSingleLogEntry(c, entry, step, isFirstAttackRef, factIndex) {
 
     c._lastLogType = lastEntryType;
     // 2026-10-01 语音解说：本条日志演出收尾后再开口（防剧透铁律），raw fact 从 step.log 原位取
-    try { speakFact(step.log && step.log[factIndex]); } catch (e) { /* 解说失败不影响战斗 */ }
+    try { speakLogLine(entry, step.log && step.log[factIndex]); } catch (e) { /* 解说失败不影响战斗 */ }
     return { isBattleOver: false };
 }
 
