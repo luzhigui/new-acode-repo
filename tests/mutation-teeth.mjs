@@ -122,6 +122,20 @@ const MUTATIONS = [
       file: 'modules/20elite-skills.js',
       from: "{ source: '精通', value: gAtk,",
       to:   "{ source: '精通', value: gAtk * 2," },
+    // ============ 第 49 轮新增：专门验证「判据从整数倍升级为严格相等」带来的增量能力 ============
+    //   A18/A19 的杀伤在这类好莱坞式 bug：不是翻倍，**只错一点点 / 直接失效**。
+    //   旧判据（整数倍 + 仅 SAME_STEP 虚报）对这两种**都必定漏报**：
+    //     A18：实际=声明+1，非整数倍 ⇒ 整数倍判据不报；实际>声明 ⇒ 虚报分支不开 ⇒ 漏。
+    //     A19：实际=0 ⇒ `actual > sum` 为假 ⇒ 整数倍不报；但 butterfly 不在 SAME_STEP_GROUPS ⇒ 虚报分支不开 ⇒ 漏。
+    //   这两条若升级后仍是 0 命中，就说明严格判据没真正生效。
+    { id: 'A18', kind: 'ATTR', desc: '苦练攻击加成手抖多加 1 点（非整数倍，旧判据必漏）',
+      file: 'modules/26elite-sixsects.js',
+      from: "{ source: '苦练', value: atkDelta,",
+      to:   "{ source: '苦练', value: atkDelta + 1," },
+    { id: 'A19', kind: 'ATTR', desc: '蝶变附身攻击加成完全失效（改 0，旧判据必漏）',
+      file: 'modules/27elite-mingjiao.js',
+      from: "{ source: '蝶变附身', value: atkTransfer,",
+      to:   "{ source: '蝶变附身', value: 0," },
     { id: 'T1', kind: 'TEXT', desc: '破防日志写 -（reduce+5）（实际仍只扣 reduce）',
       file: 'core/16effect-handlers.js',
       from: "targetName: target.name, reduce }",

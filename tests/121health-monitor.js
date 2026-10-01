@@ -535,7 +535,7 @@ function runUIChecks(ctx, doc) {
 
     for (const msg of checkDeathFxRetention(allUnits, doc)) recordIssue(ctx, null, '死亡特效', msg, 'UI');
     for (const msg of checkMeleeFxState(ctx, doc)) recordIssue(ctx, null, '攻击特效', msg, 'UI');
-    for (const msg of checkBuffIcons(ctx, doc)) recordIssue(ctx, null, 'Buff图标', msg, 'UI');
+    for (const msg of checkBuffIcons(ctx, doc, teams.ally)) recordIssue(ctx, null, 'Buff图标', msg, 'UI');
 }
 
 // 规则体检：战报日志回归规则（GAMEOVER 时日志已完整，立即执行）
@@ -621,7 +621,7 @@ function runSettleChecks(ctx, doc) {
 
     for (const msg of checkDeathFxRetention(allUnits, doc)) recordIssue(ctx, null, '死亡特效', msg, 'UI');
     for (const msg of checkMeleeFxState(ctx, doc)) recordIssue(ctx, null, '攻击特效', msg, 'UI');
-    for (const msg of checkBuffIcons(ctx, doc)) recordIssue(ctx, null, 'Buff图标', msg, 'UI');
+    for (const msg of checkBuffIcons(ctx, doc, teams.ally)) recordIssue(ctx, null, 'Buff图标', msg, 'UI');
 }
 
 function checkSwapStability(ctx, doc, allyTeam, enemyTeam) {

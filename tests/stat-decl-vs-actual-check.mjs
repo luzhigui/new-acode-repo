@@ -103,6 +103,14 @@ const STAGES = [1, 2, 3, 4];
 const SAME_STEP_GROUPS = new Set(['fortify', 'baguaArray', 'rageOnHit', 'lionInspire', 'kuLian',
     'rangedGrowth', 'zhangSwitch', 'spiderMastery']);
 
+// 第 49 轮：**仅**这两条契约存在跨步错位，必须走保守判据。
+//   实测依据（40 局干净树偏差扫描，见下方 checked/mismatch 列）：
+//     BREAK_DEF    严格比对 548 条 → 偏差 7   （fact 嵌套在攻击 entries、mod 在不同子步生效）
+//     CARRY_APPLY  严格比对 267 条 → 偏差 198 （ttl:'round'，fact 回合开始发、mod 下个攻击步才加）
+//   其余 13 条**全部 0 偏差** ⇒ 当年「一刀切保守」是被这 2 条拖累的，误伤了本可严格的 11 条。
+//   → 改为「默认严格、名单例外」：新契约自动享受严格判据；若哪天干净树出现假阳性，把它加进来即可。
+const LOOSE_IDS = new Set(['BREAK_DEF', 'CARRY_APPLY']);
+
 const CONTRACTS = [
     {
         id: 'BREAK_DEF',
@@ -661,7 +669,10 @@ async function main() {
 
     const hits = [];
     const stat = {}; // contractId -> { declared, dup }
-    for (const c of CONTRACTS) stat[c.id] = { declared: 0, dup: 0, ambiguous: 0 };
+    // 第 49 轮新增 checked / mismatch：偏差诊断。
+    //   checked  = 该契约走了「账本隔离值」（gd 可用）的比对数；净增量兜底的不计入（它本身就不准）。
+    //   mismatch = 其中「声明 ≠ 实际」的次数。干净树上恒为 0 的契约 ⇒ 可安全升级为严格判据。
+    for (const c of CONTRACTS) stat[c.id] = { declared: 0, dup: 0, ambiguous: 0, checked: 0, mismatch: 0, mismatchEg: '' };
 
     for (const { seed, stage } of cases) {
         const rng = new SeededRNG(seed);
@@ -731,29 +742,52 @@ async function main() {
                         if (verbose) {
                             console.log(`  [${c.id}] r${battleState.round} ${unit}.${statName} 声明=${sum}(${count}条) 实际=${actual}`);
                         }
+                        // 第 49 轮：偏差诊断（只观测、不判定）。账本可用 ⇒ 比对可信，统计 sum!==actual 的次数。
+                        //   用途：判断哪些契约在干净树上**恒成立 sum===actual** —— 只有恒等的才能开严格判据，
+                        //   否则跨步错位（carry/破防）会立刻炸出假阳性。
+                        if (gd && c.group) {
+                            stat[c.id].checked++;
+                            if (actual !== sum) {
+                                stat[c.id].mismatch++;
+                                if (!stat[c.id].mismatchEg) {
+                                    stat[c.id].mismatchEg = `r${battleState.round} ${unit}.${statName} 声明=${sum} 实际=${actual}`;
+                                }
+                            }
+                        }
                         // 判据（账本模式 + 净增量兜底共用）：实际 > 声明，且恰为声明的整数倍（≥2 倍）⇒ 重复应用。
                         //   账本已隔离同属性其他来源（坚盾/八卦阵/苦练/破防）与乘法词条（严阵以待 op:'mul'），
                         //   故「实际=2×声明」可可靠判定为超应用（如 A2 坚盾翻倍、A5 流星成长翻倍）。
                         //   注：曾试过「声明≠实际即报」精确判定，但 carry(ttl:round)/BREAK_DEF(fact 嵌套在攻击 entries、mod 在不同子步生效) 会跨步错位 → 大量假阳性，已弃用；
                         //       仅保留整数倍判据（保守、零误报）兜「实际>声明」方向（超应用）。
-                        if (sum > 0 && actual > sum && actual % sum === 0) {
-                            const k = actual / sum;
-                            stat[c.id].dup++;
-                            const msg = `[seed=${seed} stage=${stage} r${battleState.round}] ${c.label} ${unit}.${statName} 声明+${sum}(${count}条) 实际${c.dir > 0 ? '+' : '-'}${actual}（${k}倍）`;
-                            if (hits.length < 12) hits.push(msg);
+                        // ============ 判据（第 49 轮升级：默认严格、名单例外）============
+                        //   旧判据只抓「实际恰为声明的整数倍 ≥2」：某技能手抖多加 1 点（该加 2 实际加 3）
+                        //   ⇒ 不是整数倍 ⇒ 一声不吭。而「多加/少加一点点」恰恰是最容易发生的真实 bug 形态。
+                        //   第 49 轮用干净树偏差扫描证明只有上述 2 条真有跨步错位，其余 13 条恒等
+                        //   ⇒ 对它们可以直接判「声明 ≠ 实际」，覆盖 多加 / 少加 / 完全没加 三种失效形态。
+                        const strict = c.group && gd && !LOOSE_IDS.has(c.id);
+                        if (strict) {
+                            if (sum > 0 && actual !== sum) {
+                                const kind = actual === 0 ? '完全没加' : (actual > sum ? `多加 ${actual - sum}` : `少加 ${sum - actual}`);
+                                stat[c.id].dup++;
+                                const msg = `[seed=${seed} stage=${stage} r${battleState.round}] ${c.label} ${unit}.${statName} 声明+${sum}(${count}条) 实际${c.dir > 0 ? '+' : '-'}${actual}（${kind}）`;
+                                if (hits.length < 12) hits.push(msg);
+                            }
+                        } else {
+                            // 保守判据（仅跨步错位的两条用）：整数倍超应用 + SAME_STEP 虚报，零误报优先。
+                            if (sum > 0 && actual > sum && actual % sum === 0) {
+                                const k = actual / sum;
+                                stat[c.id].dup++;
+                                const msg = `[seed=${seed} stage=${stage} r${battleState.round}] ${c.label} ${unit}.${statName} 声明+${sum}(${count}条) 实际${c.dir > 0 ? '+' : '-'}${actual}（${k}倍）`;
+                                if (hits.length < 12) hits.push(msg);
+                            }
+                            if (SAME_STEP_GROUPS.has(c.group) && gd && sum > 0 && sum > actual) {
+                                stat[c.id].dup++;
+                                const msg = `[seed=${seed} stage=${stage} r${battleState.round}] ${c.label} ${unit}.${statName} 声明+${sum}(${count}条) > 实际+${actual}（虚报/少加 ${sum - actual}）`;
+                                if (hits.length < 12) hits.push(msg);
+                            }
                         }
-                        // 第 46 轮起（接第 45 轮账本模式）：自校验「声明 > 实际」（虚报/少加）。
-                        //   仅对 SAME_STEP_GROUPS 开——这些 group 的 fact 与 addMod 在同一 handler 用同一值发射、
-                        //   无跨步错位（与 carry(ttl:round)/BREAK_DEF 不同）→ 干净树必 sum===actual。
-                        //   第 47 轮从 fortify 扩到主代码批 1-3 新补 fact 的 4 个 group（八卦阵/莽撞/雄狮振奋/苦练）。
-                        //   仅当账本可得（gd 非空，确保走隔离值而非净增量兜底）且 sum>actual 时判虚报：
-                        //   T2（坚盾 fact increment 多写 5）即 sum=real+5 > actual=real ⇒ 命中；
-                        //   实际翻倍类（A2 坚盾、八卦阵/莽撞/雄狮/苦练 翻倍）由上方整数倍判据兜，不重复报。
-                        if (SAME_STEP_GROUPS.has(c.group) && gd && sum > 0 && sum > actual) {
-                            stat[c.id].dup++;
-                            const msg = `[seed=${seed} stage=${stage} r${battleState.round}] ${c.label} ${unit}.${statName} 声明+${sum}(${count}条) > 实际+${actual}（虚报/少加 ${sum - actual}）`;
-                            if (hits.length < 12) hits.push(msg);
-                        }
+                        // 第 46-48 轮的独立「虚报/少加」分支已并入上方判据：
+                        //   严格分支用 `actual !== sum` 天然覆盖该方向，保守分支保留原 SAME_STEP 虚报判断，故此处不再重复。
                         // 「至多一条」契约却出现多条 ⇒ 重复应用。附实际增量证据：
                         //   若实际增量 == count × 单条量，证明属性确实被叠加了 count 份（不是只多打了一条日志）。
                         if (c.expectSingle && count >= 2) {
@@ -824,7 +858,10 @@ async function main() {
     let hardFail = false;
     for (const c of CONTRACTS) {
         const s = stat[c.id];
-        console.log(`${c.id.padEnd(12)} 声明 ${String(s.declared).padStart(4)} 条 · 重复应用命中 ${s.dup} · 同名歧义跳过 ${s.ambiguous}`);
+        console.log(`${c.id.padEnd(12)} 声明 ${String(s.declared).padStart(4)} 条 · 命中 ${s.dup} · 歧义跳过 ${s.ambiguous} · 严格比对 ${String(s.checked).padStart(4)} 条 / 偏差 ${s.mismatch}`);
+        if (s.mismatch > 0) {
+            console.log(`  ⚠ 首次偏差样例：${s.mismatchEg}`);
+        }
         // 防假绿：某个契约一次都没跑到 = 该契约空转，必须报出来而不是默认"通过"
         if (s.declared === 0) {
             console.log(`  ✗ 零触发：${c.id} 在 18 场未产生任何声明，本契约空转（覆盖度缺口）`);

@@ -1,6 +1,6 @@
 // 回归规则：宋青书·新婚快乐链路 — 覆盖此前完全没有体检项盯的一整套机制：
 //   ① 新婚：宋青书每次攻击命中，扣周芷若 1 点血（宋青书 mechanics type=xinHun 的 hpDeduct=1），并给周芷若叠 1 层快乐
-//   ② 快乐层：新层百分比恒为 healLevels[0] = 16%（序列 [0.16, 0.10, 0.06, 0.03]，每回合结算后逐层衰减、末层消失）
+//   ② 快乐层：新层百分比恒为 healLevels[0]（序列见 content/200game-data.json 宋青书 mechanics.type=xinHun.healLevels，逐层衰减、末层消失）
 //   ③ 性奋代价：每次新婚同步扣宋青书血量上限，penalty 逐次 +1（core/15 submitXinHun，与 V5.x「性奋惩罚」同源）
 //   ④ 快乐回血：每回合结算按层数给周芷若回血（core/15 tickKuaiLeHeal），层数不应超过累计叠加次数
 // 三条复发信号（各对应一处历史上真出过问题的口径）：
@@ -12,13 +12,15 @@
 //   - 性奋代价有 `unit.maxHp > 1` 保底（core/15），宋青书上限被扣到 ≤2 时合法地不再扣 → 此时跳过配对校验
 //   - 只按文本解析，不依赖 fact 层字段（渲染层会抹掉 factType/data，见 141 的口径说明）
 //   - 本场无新婚条目直接 skip（宋青书/周芷若为随机精英，常不同场）
-export const VER = 'tests/health-rules/144-xinhun-kuaile.js V6.1.21';
+export const VER = 'tests/health-rules/144-xinhun-kuaile.js V6.1.22';
 import { entryTexts } from '../122health-utils.js';
+import { getGameData } from '../../core/01config-5v5-test.js';
 
 // 当前版本数值（对照 content/200game-data.json：宋青书 mechanics type=xinHun 的 hpDeduct；
 //   回血档位 healLevels 两侧同名同源，见 tools/120 MECHANICS_HIDDEN_BY_TYPE）
+// 注意：healLevels[0] 不再硬编码——2026-10-01 曾硬编码 16%，但 content/200game-data.json 已改为 20%，
+//   规则没跟上 → 每场新婚必误报。改为运行时从游戏数据动态读取真值（单一来源），配置再改也不会漂移。
 const XINHUN_DEDUCT = 1;   // hpDeduct（mechanics 真值，单一来源）
-const XINHUN_PCT = 16;     // healLevels[0] = 0.16
 
 // 一条战报里可能被本规则命中的文本：顶层 text + attack-group 的 entries 子条目
 
@@ -40,6 +42,12 @@ export const rule91 = {
     group: '精英技能回归',
     name: '宋青书新婚快乐链路(回归)',
     test: function(ctx, log, beforeA, beforeE, afterA, afterE) {
+        // healLevels[0] 运行时从游戏数据动态读取（单一来源），配置改了也不会再漂移误报
+        var gd = getGameData();
+        var xinHunMech = gd && gd.characters && gd.characters['宋青书'] && Array.isArray(gd.characters['宋青书'].mechanics)
+            ? gd.characters['宋青书'].mechanics.find(function(m){ return m && m.type === 'xinHun'; }) : null;
+        var heal0 = xinHunMech && Array.isArray(xinHunMech.healLevels) ? xinHunMech.healLevels[0] : null;
+        var XINHUN_PCT = (heal0 != null) ? Math.round(heal0 * 100) : 20; // 兜底 20，与 content/200game-data.json 当前值一致
         var xinhun = [];     // 新婚条目：{ deduct, pct, stack }
         var xingfen = [];    // 性奋代价：{ penalty }
         var kuaiLe = [];     // 快乐回血：{ layers, heal, hpBefore, hpAfter }
