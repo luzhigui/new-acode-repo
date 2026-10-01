@@ -91,11 +91,12 @@ export function destroyHorse(allyTeam, log) {
         const roll = rng.nextInt(1, 100);
         const success = roll <= currentProb;
         if (success) {
-            applyStatChange(horse, 'hp', -horse.hp, null, '拒马消散', false);
-            horse.alive = false;
-            horse.state._isDead = true;
-            emitEvent(horse, UNIT_EVENT_TYPES.HP_CHANGE, { hp: horse.hp, maxHp: horse.maxHp, alive: false, atk: horse.atk, def: horse.def, _isDead: true });
+            // 2026-10-01 消散与死亡分家（用户定调）：消散≠死亡——不再设 _isDead（那是死亡管线标记，
+            //   会渲染红叉尸体+死亡画笔），直接从队伍移除，表现层用新「沙化消散」特效送走。
+            //   被打死路径（ATTACK dead）不受影响，仍走死亡特效。
             log.push({ factType: FACT_TYPES.HORSE_DESTROY, data: { pos: horse.pos, success: true, prob: currentProb, roll, horseUid: horse.uid } });
+            const idx = allyTeam.indexOf(horse);
+            if (idx >= 0) allyTeam.splice(idx, 1);
             currentProb = Math.floor(currentProb / 2);
         } else {
             log.push({ factType: FACT_TYPES.HORSE_DESTROY, data: { pos: horse.pos, success: false, prob: currentProb, roll, horseUid: horse.uid } });

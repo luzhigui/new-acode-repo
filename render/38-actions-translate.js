@@ -671,5 +671,22 @@ function translateEndlessBreath(data, index) {
             anchorIndex: 0, factIndex: index, timing: 'afterText'
         });
     }
+    // 2026-10-01 攻防二选一的加成飘字（用户定调：该加攻加攻、该加防加防，随回血同时升）：
+    //   atkGain→ATK_BUFF_FLOAT（橙⚔ 左上，原通道）、defGain→DEF_BUFF_FLOAT（钢蓝🛡 右上，新通道）。
+    //   翻译器只派动作，emit 由 39 的 STAT_CHANGE 演出帧发——与回血弹幕同帧，不抢日志文字。
+    const selfAtk = Math.round(data.atkGain || 0), selfDef = Math.round(data.defGain || 0);
+    if (selfAtk > 0 && data.unitUid) {
+        actions.push({ kind: STAGE_ACTION_TYPES.STAT_CHANGE, statKind: 'atk', targetUid: data.unitUid, gain: selfAtk, factIndex: index, timing: 'afterText' });
+    }
+    if (selfDef > 0 && data.unitUid) {
+        actions.push({ kind: STAGE_ACTION_TYPES.STAT_CHANGE, statKind: 'def', targetUid: data.unitUid, gain: selfDef, factIndex: index, timing: 'afterText' });
+    }
+    const recvAtk = Math.round(data.overflowAtkGain || 0), recvDef = Math.round(data.overflowDefGain || 0);
+    if (recvAtk > 0 && data.overflowToUid) {
+        actions.push({ kind: STAGE_ACTION_TYPES.STAT_CHANGE, statKind: 'atk', targetUid: data.overflowToUid, gain: recvAtk, factIndex: index, timing: 'afterText' });
+    }
+    if (recvDef > 0 && data.overflowToUid) {
+        actions.push({ kind: STAGE_ACTION_TYPES.STAT_CHANGE, statKind: 'def', targetUid: data.overflowToUid, gain: recvDef, factIndex: index, timing: 'afterText' });
+    }
     return actions.length > 0 ? actions : null;
 }
