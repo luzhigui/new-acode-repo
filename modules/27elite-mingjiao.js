@@ -747,10 +747,11 @@ export function createXieXunComponent() {
                     emitEvent(t, UNIT_EVENT_TYPES.HP_CHANGE, { hp: t.hp, maxHp: t.maxHp, alive: t.alive, atk: getStat(t, 'atk'), def: getStat(t, 'def') });
                 }
                 // 数值声明 fact：一次触发给多人各 +gain，用 targets 名单承载（供体检对照器按 group='lionInspire' 比对）
+                // 2026-10-01 契约补齐：requiredFields 要 unitName（触发者=雄狮）但发射处一直没带——校验器红字但不阻断，此前漏了
                 if (data.log) {
                     data.log.push({
                         factType: FACT_TYPES.LION_INSPIRE,
-                        data: { targets: inspireTargets }
+                        data: { unitName: lion.name, targets: inspireTargets }
                     });
                 }
                 // 2026-09-24 狮吼演出改由表现层发：引擎在「生成步」时就 emit 会让吼抢在画面前面
