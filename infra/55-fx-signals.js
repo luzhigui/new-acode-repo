@@ -23,6 +23,8 @@ export const FX_SIGNALS = {
     SPLASH_ARROWS: 'fx:splashArrows',    // 流星箭雨
     DODGE_BULLET_TIME: 'fx:dodgeBulletTime', // 闪避子弹时间
     BRUSH_EFFECT: 'fx:brushEffect',      // 死亡画笔渐隐
+    HORSE_DISSOLVE: 'fx:horseDissolve',  // 拒马沙化消散（2026-10-01 消散≠死亡，不走死亡画笔）
+    DEF_BUFF_FLOAT: 'fx:defBuffFloat',   // 防御加成飘字（钢蓝🛡，与攻击飘字镜像位）
     // 位移动画
     POSITION_SWAP: 'fx:positionSwap',    // 换位
     PUSH_SWAP: 'fx:pushSwap',            // 推挤换位

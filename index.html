@@ -1,5 +1,5 @@
 ﻿﻿<!-- index.html - 光明顶5v5 V6.0.0（原 mode-5v5-test.html，改名为主入口） -->
-<!-- V7.5.2 | 2026-10-01 解说改摘要模式（「谁打谁N点伤害」+衍生效果触发名，不念预览/计算/波动行）；音乐面板限高82vh内部滚动治手机竖屏溢出；模式三档：摘要/全文/只报大事，旧full档自动迁摘要 | V7.5.1 | 2026-10-01 解说改全文模式（逐行念完整条日志，剥emoji念人话，队列4→24）；解说设置并入音乐面板、虚影飞走并入选关弹窗、商店撤掉（按钮排瘦身治标题换行）；弹窗层级9999→100020治战斗中被特效盖住 | 本行更新仅走时间戳 -->
+<!-- V7.5.3 | 2026-10-01 拒马消散改沙化特效（消散≠死亡，引擎直接移除不走死亡管线；被打死仍走死亡特效）；弹幕图标版：加攻⚔橙/加防🛡钢蓝（新通道右上镜像位）/加血❤，张三丰生生不息攻防二选一增益随回血同帧飘 | V7.5.2 | 2026-10-01 解说改摘要模式（「谁打谁N点伤害」+衍生效果触发名，不念预览/计算/波动行）；音乐面板限高82vh内部滚动治手机竖屏溢出；模式三档：摘要/全文/只报大事，旧full档自动迁摘要 | 本行更新仅走时间戳 -->
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
@@ -146,6 +146,9 @@
         .crash-clone { position: fixed; z-index: 99999; pointer-events: none; }
         .cell-placeholder { visibility: hidden; }
         .brush-overlay { background: rgba(255, 0, 0, 0.25); z-index: 1; pointer-events: none; }
+        /* 2026-10-01 拒马沙化消散：底座沙圈 + 沙雾粒子上飘 */
+        @keyframes horseDissolveBed { 0%{opacity:0;transform:translate(-50%,-50%) scale(0.4);} 25%{opacity:1;} 100%{opacity:0;transform:translate(-50%,-50%) scale(1.35);} }
+        @keyframes horseDissolveDust { 0%{opacity:0;transform:translate(0,0) scale(0.5);} 20%{opacity:0.95;} 100%{opacity:0;transform:translate(var(--dx),-46px) scale(1.3);} }
         .detail-hidden { display: none; }
         .dodge-bubble { position: fixed; background: rgba(128,128,128,0.8); color: #fff; padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: bold; white-space: nowrap; z-index: 10000; pointer-events: none; animation: bubbleUp 1.5s ease-out forwards; }
         @keyframes bubbleUp { 0%{ opacity:1; transform:translate(-50%,0); } 100%{ opacity:0; transform:translate(-50%,-30px); } }

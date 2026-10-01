@@ -113,7 +113,7 @@ export function showHealFloat(unit, heal) {
     _healFloatStack.set(unit.uid, rec);
     const stackOffset = (rec.count - 1) * HEAL_STACK_STEP;
     acquireFromPool('healFloat', (healEl) => {
-        healEl.textContent = '+' + heal;
+        healEl.textContent = '❤+' + heal;
         healEl.style.left = (rect.left + 12) + 'px';
         healEl.style.right = 'auto';
         healEl.style.top = (rect.top - 4 - stackOffset) + 'px';
@@ -124,11 +124,66 @@ export function showHealFloat(unit, heal) {
 // 攻击力增加飘字
 function createAtkBuffFloatEl() { let d = document.createElement('div'); d.className = 'heal-float'; d.style.color = '#ff8c00'; return d; }
 initPool('atkBuffFloat', createAtkBuffFloatEl);
+
+// 2026-10-01 弹幕图标版（用户定调试做，嫌乱随时撤）：加攻⚔/加防🛡 前缀图标 + 颜色分轨
+//   行业色规：攻=暖（橙金）、防=冷（钢蓝#4a9bc9 厚重盾感）、血=绿（heal-float 原色）
+function createDefBuffFloatEl() { let d = document.createElement('div'); d.className = 'heal-float'; d.style.color = '#4a9bc9'; return d; }
+initPool('defBuffFloat', createDefBuffFloatEl);
+
+export function showDefBuffFloat(unit, def) {
+    const rect = snapshotUnitCell(unit);
+    if (!rect) return;
+    acquireFromPool('defBuffFloat', (el) => {
+        el.textContent = '🛡+' + def;
+        el.style.left = (rect.left + rect.width - 8) + 'px';
+        el.style.right = 'auto';
+        el.style.top = (rect.top - 4) + 'px';
+        el.style.transform = 'translate(0, -100%)';
+    }, 1400);
+}
+
+// 2026-10-01 拒马沙化消散（用户定调：消散≠死亡，不走死亡画笔）：
+//   拒马原地碎成一撮烟沙——底座沙圈淡出 + 顶上冒一缕上飘的沙雾粒子，纯 CSS 动画一次性元素。
+export function showHorseDissolve(unit) {
+    const rect = snapshotUnitCell(unit);
+    if (!rect) return;
+    const cx = rect.left + rect.width / 2;
+    const cy = rect.top + rect.height / 2;
+    const bed = document.createElement('div');
+    bed.setAttribute('data-fx', 'temporary');
+    bed.style.cssText = `
+        position:fixed; left:${cx}px; top:${cy}px; width:${Math.max(rect.width * 0.7, 40)}px; height:12px;
+        transform:translate(-50%,-50%);
+        background:radial-gradient(ellipse at center, rgba(194,178,128,0.85) 0%, rgba(194,178,128,0) 70%);
+        border-radius:50%; z-index:10001; pointer-events:none;
+        animation:horseDissolveBed 1.2s ease-out forwards;`;
+    document.body.appendChild(bed);
+    for (let i = 0; i < 8; i++) {
+        const p = document.createElement('div');
+        p.setAttribute('data-fx', 'temporary');
+        const dx = (Math.random() - 0.5) * rect.width * 0.8;
+        const dur = 900 + Math.random() * 600;
+        const size = 3 + Math.random() * 4;
+        p.style.cssText = `
+            position:fixed; left:${cx + (Math.random() - 0.5) * rect.width * 0.5}px; top:${cy + (Math.random() - 0.5) * rect.height * 0.4}px;
+            width:${size}px; height:${size}px; border-radius:50%;
+            background:rgba(194,178,128,0.9); z-index:10001; pointer-events:none;
+            animation:horseDissolveDust ${dur}ms ease-out forwards;
+            --dx:${dx}px;`;
+        document.body.appendChild(p);
+    }
+    setTimeout(() => { bed.remove(); }, 1300);
+    setTimeout(() => {
+        document.querySelectorAll('[data-fx="temporary"]').forEach(el => {
+            if (el.style.animation && el.style.animation.includes('horseDissolveDust')) el.remove();
+        });
+    }, 1700);
+}
 export function showAtkBuffFloat(unit, atk) {
     const rect = snapshotUnitCell(unit);
     if (!rect) return;
     acquireFromPool('atkBuffFloat', (el) => {
-        el.textContent = '+' + atk;
+        el.textContent = '⚔+' + atk;
         el.style.left = (rect.left + 48) + 'px';
         el.style.right = 'auto';
         el.style.top = (rect.top - 4) + 'px';

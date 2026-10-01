@@ -227,13 +227,22 @@ export const STAGE_ACTION_DEFS = {
     },
     [STAGE_ACTION_TYPES.DESTROY]: {
         grid: 'sync', log: 'sync', timing: 'afterText',
-        // 2026-09-24 删掉原 store 段的 REMOVE_UNIT：拒马消散发生在回合末生成步里，步末 syncStoreFromStep
-        //   会把带 _isDead 的拒马重新灌回 store（uid 未进 _removedUids），于是「格子先空 → 红 ✕ 尸体后到」，
-        //   看着像先消失再补死亡特效。改为不给特殊通道：跟普通单位同一条死亡管线，
-        //   当帧上死亡态、尸体交 player/42 的 3 秒清尸计时移除。
+        // 2026-10-01 消散与死亡分家（用户定调）：引擎侧消散的马已从队伍直接移除（core/05 不再设 _isDead），
+        //   此处补双轨：store 立即摘格子（REMOVE_UNIT + _removedUids 防 syncStoreFromStep 灌回），
+        //   fx 发「沙化消散」（黄沙粒子+沙圈，非死亡画笔）；被打死路径仍走 ATTACK dead 的死亡管线。
+        store: (c, action, pendingDeaths) => {
+            if (action.success && action.actorUid) {
+                if (c._removedUids) c._removedUids.add(action.actorUid);
+                if (c.store) c.store.dispatch({ type: STORE_ACTION_TYPES.REMOVE_UNIT, uid: action.actorUid });
+            }
+        },
         fx: async (c, action) => {
             if (action.success && action.actorUid) {
-                await eventBus.emit(FX_SIGNALS.BANNER, { text: '🐴 拒马已销毁' });
+                const unit = findUnitByUidLocal(c, action.actorUid);
+                if (unit && !GlobalStore.get('fastForwardActive')) {
+                    eventBus.emit(FX_SIGNALS.HORSE_DISSOLVE, { unit });
+                }
+                await eventBus.emit(FX_SIGNALS.BANNER, { text: '🐴 拒马化沙消散' });
             }
         }
     },
@@ -339,7 +348,17 @@ export const STAGE_ACTION_DEFS = {
         }
     },
     [STAGE_ACTION_TYPES.IMMUNE]: { grid: 'none', log: 'sync', timing: 'beforeText' },
-    [STAGE_ACTION_TYPES.STAT_CHANGE]: { grid: 'sync', log: 'sync', timing: 'afterText' },
+    [STAGE_ACTION_TYPES.STAT_CHANGE]: {
+        grid: 'sync', log: 'sync', timing: 'afterText',
+        // 2026-10-01 生生不息攻防二选一加成飘字：atk=橙⚔左上（原ATK_BUFF_FLOAT通道）、def=钢蓝🛡右上（新通道）
+        fx: (c, action) => {
+            if (GlobalStore.get('fastForwardActive')) return;
+            const unit = findUnitByUidLocal(c, action.targetUid);
+            if (!unit || !action.gain) return;
+            if (action.statKind === 'atk') eventBus.emit(FX_SIGNALS.ATK_BUFF_FLOAT, { unit, gain: action.gain });
+            else if (action.statKind === 'def') eventBus.emit(FX_SIGNALS.DEF_BUFF_FLOAT, { unit, gain: action.gain });
+        }
+    },
     [STAGE_ACTION_TYPES.BANNER]: {
         grid: 'none', log: 'sync',
         timing: (action) => (action && action.timing) || 'beforeText',

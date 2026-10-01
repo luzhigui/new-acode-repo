@@ -6,10 +6,11 @@ import { GlobalStore } from '../infra/54-global-store.js';
 import { FX_SIGNALS } from '../infra/55-fx-signals.js';
 import { _triggerFX, shakeTarget } from './88fx-trigger.js';
 import {
-    showDanmaku, showDamageFloat, showDodgeBubble, showHealFloat, showAtkBuffFloat,
+    showDanmaku, showDamageFloat, showDodgeBubble, showHealFloat, showAtkBuffFloat, showDefBuffFloat,
     applyBrushEffect, showBuffBanner, showCriticalBanner, showHeartEffect, showPinkFlash,
     showKuLianEffect, showWindClaw, showSplashArrows, showBoneClaw, showMeditateEffect,
-    animatePositionSwap, animatePushBack, animatePushSwap, showDodgeBulletTime, showMiejueCountFloat
+    animatePositionSwap, animatePushBack, animatePushSwap, showDodgeBulletTime, showMiejueCountFloat,
+    showHorseDissolve
 } from './87fx-manager.js';
 import {
     showButterflyFlyOut, showButterflyFlyBack,
@@ -45,6 +46,8 @@ eventBus.on(FX_SIGNALS.MEDITATE, P, (d) => { if (inFastForward()) return; showMe
 eventBus.on(FX_SIGNALS.SPIDER_STRIKE, P, (d) => { if (inFastForward()) return; return showSpiderStrike(d.spiderUnit, d.strikeTarget); });
 
 eventBus.on(FX_SIGNALS.ATK_BUFF_FLOAT, P, (d) => showAtkBuffFloat(d.unit, d.gain));
+eventBus.on(FX_SIGNALS.DEF_BUFF_FLOAT, P, (d) => showDefBuffFloat(d.unit, d.gain));   // 2026-10-01 钢蓝🛡，镜像位
+eventBus.on(FX_SIGNALS.HORSE_DISSOLVE, P, (d) => showHorseDissolve(d.unit));          // 2026-10-01 拒马沙化消散
 eventBus.on(FX_SIGNALS.DODGE_BUBBLE, P, (d) => showDodgeBubble(d.unit, d.text));
 eventBus.on(FX_SIGNALS.DODGE_BULLET_TIME, P, (d) => showDodgeBulletTime(d.unitA, d.unitD, 0));
 eventBus.on(FX_SIGNALS.BRUSH_EFFECT, P, (d) => applyBrushEffect(d.el));
