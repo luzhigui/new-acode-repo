@@ -73,7 +73,7 @@ export function buildVoiceControls(box) {
 
     // 播报模式
     box.appendChild(rowLabel('播报模式'));
-    box.appendChild(mkSeg([{ val: 'full', label: '📝 全文播报' }, { val: 'key', label: '⚡ 只报大事' }], cfg.mode, (v) => setVoiceCfg({ mode: v })));
+    box.appendChild(mkSeg([{ val: 'condense', label: '🎯 摘要' }, { val: 'full', label: '📝 全文' }, { val: 'key', label: '⚡ 只报大事' }], cfg.mode, (v) => setVoiceCfg({ mode: v })));
 
     // 音色
     box.appendChild(rowLabel('音色（列的是本机朗读引擎的嗓子）'));
