@@ -1,5 +1,5 @@
 // V6.4.2 | ~48500 bytes | 2026-09-30 参数单位口径统一（收尾）：小昭·妹飞天血量阈值改按比例读取（3 处 hpThresholds[i] 去掉 /100，content 同步改 [0.7, 0.4]）；承接 V6.4.1 蝠影汲血吸血率/乾坤衍生折算/小昭·妹双连击概率改按比例读取
-export const VER = 'modules/27elite-mingjiao.js V6.4.2';
+export const VER = 'modules/27elite-mingjiao.js V6.4.3';
 
 import { registerElite } from '../core/08-elite-registry.js';
 import { CONFIG, getSkillParams, getMechanicField } from '../core/01config-5v5-test.js';
@@ -277,7 +277,7 @@ export function createXiaoZhaoSisterComponent() {
         },
         _executeAttach(sister, A, log) {
             if (sister.state._butterflyHost) return null;
-            const flyDirection = A._flyDirection || 'right';
+            const flyDirection = A._flyDirection || 'left';
             const order = flyDirection === 'left' ? [3,2,1,9,8,7,6,5] : [5,6,7,8,9,1,2,3];
             let host = null;
             for (const p of order) { const u = A.find(a => a.pos === p && a.alive && !a.isHorse && a.uid !== sister.uid); if (u) { host = u; break; } }
