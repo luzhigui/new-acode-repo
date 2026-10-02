@@ -1,5 +1,5 @@
-// V1.3.1 | ~3700 bytes | 2026-09-24 新增 SIGNAL_TYPES.SPLASH_DAMAGED（溅射逐目标广播，供莽撞类"挨打增益"被动）
-export const VER = 'infra/56-battle-enums.js V1.3.1';
+// V1.3.2 | ~3900 bytes | 2026-10-02 新增 FACT_TYPES.STAT_CHANGE_APPLY：通用属性裁定（流星赶月/溅射降防）落地的数值声明 fact，供体检对照 statChange group
+export const VER = 'infra/56-battle-enums.js V1.3.2';
 
 /** 事实类型：所有 factType 字符串的唯一来源 */
 export const FACT_TYPES = Object.freeze({
@@ -34,6 +34,8 @@ export const FACT_TYPES = Object.freeze({
     WIND_ASSAULT_FAIL: 'windAssaultFail',
     // 击退退无可退 → 眩晕（乘风突袭 / 胖远桥·年轻气盛共用）
     PUSH_STUN: 'pushStun',
+    // 通用属性裁定（EFFECT_TYPES.STAT_CHANGE）落地的数值声明 fact：供体检对照 statChange group，不进画面
+    STAT_CHANGE_APPLY: 'statChangeApply',
     METEOR_SHOWER_MAIN: 'meteorShowerMain', METEOR_SHOWER_SPLASH: 'meteorShowerSplash',
     ROUND_START: 'roundStart', ROUND_END: 'roundEnd',
     DOUBLE_STRIKE_SUMMARY: 'doubleStrikeSummary', ZHANG_TAUNT: 'zhangTaunt',

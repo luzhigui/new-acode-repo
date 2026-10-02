@@ -1,5 +1,5 @@
-// V1.5.3 | ~14500 bytes | 2026-09-27 DOUBLE_STRIKE 契约补 requiredFields.unitName（core/03 成功/失败两分支都已带，供体检 146 直接读触发者）；承接 V1.5.2 RONG_HUI_BONUS 补 targetUid
-export const VER = 'infra/58-fact-contract.js V1.5.4';
+// V1.5.5 | ~14800 bytes | 2026-10-02 登记 STAT_CHANGE_APPLY 数值声明契约（requiredFields: unitName/unitUid/field/delta；renderFn/translateFn 均 null，不进画面），供体检对照 statChange group
+export const VER = 'infra/58-fact-contract.js V1.5.5';
 
 import { FACT_TYPES } from './56-battle-enums.js';
 
@@ -149,6 +149,8 @@ export const FACT_SPECS = Object.freeze({
     [FACT_TYPES.BAGUA_ARRAY]:  { requiredFields: ['unitName', 'atkDelta', 'defDelta'], renderFn: null, translateFn: null },
     [FACT_TYPES.RAGE_ON_HIT]:  { requiredFields: ['unitName', 'atkDelta'], renderFn: null, translateFn: null },
     [FACT_TYPES.LION_INSPIRE]: { requiredFields: ['unitName', 'targets'], renderFn: null, translateFn: null },
+    // STAT_CHANGE 通用裁定落地（流星赶月/流星溅射降防）：delta 与 addMod 入参同值，field 为 atk/def
+    [FACT_TYPES.STAT_CHANGE_APPLY]: { requiredFields: ['unitName', 'unitUid', 'field', 'delta'], renderFn: null, translateFn: null },
 });
 
 /**

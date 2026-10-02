@@ -1,5 +1,5 @@
-// V6.0.5 | ~12800 bytes | 2026-10-02 体检对照补字段：LEECH 裁定后把实际上限增量回写 factData.maxHpDelta（core/10 按引用落 WEI_LEECH fact），leechMaxHp 词条增量可被逐步对照
-export const VER = 'core/16effect-handlers.js V6.0.5';
+// V6.0.6 | ~13300 bytes | 2026-10-02 STAT_CHANGE 裁定器补发数值声明 fact（STAT_CHANGE_APPLY）：atk/def 落地时同 handler 同值发 unitName/unitUid/field/delta/reason，供体检对照 statChange group（此前该 group 零 fact、360 词条裸奔）；承接 V6.0.5 LEECH 回写 maxHpDelta
+export const VER = 'core/16effect-handlers.js V6.0.6';
 
 import { eventBus, EFFECT_TYPES } from '../infra/50-event-bus.js';
 import { applyStatChange, refreshMaxHp, query, emitEvent, addMod, getStat } from './13battle-shared.js';
@@ -203,10 +203,20 @@ registerEffectHandler(EFFECT_TYPES.STAT_CHANGE, (ctx) => {
     const executed = [];
     for (const decl of ctx.decls) {
         if (!decl.target || !decl.target.alive) continue;
+        // 2026-10-02 数值声明 fact：只在 addMod 落地的 atk/def 分支发（group=statChange），
+        //   与 addMod 同 handler、同值（decl.delta），供体检对照器核对；hp 等走 applyStatChange 的不发
+        const emitDeclFact = (field) => {
+            if (ctx.log) ctx.log.push({
+                factType: FACT_TYPES.STAT_CHANGE_APPLY,
+                data: { unitName: decl.target.name, unitUid: decl.target.uid, field, delta: decl.delta, reason: decl.reason || '属性变更' }
+            });
+        };
         if (decl.field === 'atk') {
             addMod(decl.target, 'atk', { source: decl.reason || '属性变更', value: decl.delta, ttl: 'permanent', group: 'statChange', op: 'add' });
+            emitDeclFact('atk');
         } else if (decl.field === 'def') {
             addMod(decl.target, 'def', { source: decl.reason || '属性变更', value: decl.delta, ttl: 'permanent', group: 'statChange', op: 'add' });
+            emitDeclFact('def');
         } else {
             applyStatChange(decl.target, decl.field, decl.delta, null, decl.reason || '属性变更');
         }
