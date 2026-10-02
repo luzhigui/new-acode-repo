@@ -1,5 +1,5 @@
-// V1.5.5 | ~14800 bytes | 2026-10-02 登记 STAT_CHANGE_APPLY 数值声明契约（requiredFields: unitName/unitUid/field/delta；renderFn/translateFn 均 null，不进画面），供体检对照 statChange group
-export const VER = 'infra/58-fact-contract.js V1.5.5';
+// V1.5.6 | ~15400 bytes | 2026-10-02 登记 AURA_APPLY / HOLY_FLAME_APPLY / WEI_DODGE_LEECH 三个数值声明契约（renderFn/translateFn 均 null）
+export const VER = 'infra/58-fact-contract.js V1.5.6';
 
 import { FACT_TYPES } from './56-battle-enums.js';
 
@@ -151,6 +151,12 @@ export const FACT_SPECS = Object.freeze({
     [FACT_TYPES.LION_INSPIRE]: { requiredFields: ['unitName', 'targets'], renderFn: null, translateFn: null },
     // STAT_CHANGE 通用裁定落地（流星赶月/流星溅射降防）：delta 与 addMod 入参同值，field 为 atk/def
     [FACT_TYPES.STAT_CHANGE_APPLY]: { requiredFields: ['unitName', 'unitUid', 'field', 'delta'], renderFn: null, translateFn: null },
+    // 光环（ttl:round 加法词条）：emptyCol/bloodAura 与 addMod 入参同值，为 0 也发（零值词条也要有账）
+    [FACT_TYPES.AURA_APPLY]: { requiredFields: ['unitName', 'unitUid', 'emptyCol', 'bloodAura'], renderFn: null, translateFn: null },
+    // 圣火令（乘法共享乘区，无独立增量）：ratio 与 addMod value 同值（0.3=+30%），field 为 atk/def，体检按乘率口径核对
+    [FACT_TYPES.HOLY_FLAME_APPLY]: { requiredFields: ['unitName', 'unitUid', 'field', 'ratio'], renderFn: null, translateFn: null },
+    // 韦一笑闪避反击吸血：heal 回血量、newMaxHp 新上限绝对值、maxHpDelta 上限增量；演出走 dodgeFact.weiHeal，此 fact 纯账本
+    [FACT_TYPES.WEI_DODGE_LEECH]: { requiredFields: ['unitUid', 'heal', 'maxHpDelta'], renderFn: null, translateFn: null },
 });
 
 /**

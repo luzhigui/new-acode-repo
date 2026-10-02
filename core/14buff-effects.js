@@ -1,5 +1,5 @@
-// V6.1.1 | ~7700 bytes | 2026-09-29 参数体系收敛批 3：carry 的 deathMultiplier/atkBonus/defBonus 去掉字面兜底，直读内容表 buffs.carry
-export const VER = 'core/14buff-effects.js V6.1.1';
+// V6.1.2 | ~8600 bytes | 2026-10-02 圣火令补发 HOLY_FLAME_APPLY 数值声明 fact（列攻/行防每次 addMod 1 条，乘法共享乘区只发 ratio）；Normal/Sister/Brother 增 log 参数
+export const VER = 'core/14buff-effects.js V6.1.2';
 
 import { CONFIG, getSkillParams } from './01config-5v5-test.js';
 import { getUnitRow, getUnitCol } from './03battle-utils.js';
@@ -25,26 +25,36 @@ export function applyCloudBodyDodge_Sister() { return getSkillParams('小昭', '
 export function applyCloudBodyDodge_Brother() { return CONFIG.BUFFS.cloudBody.dodgeBonus; }
 
 // 圣火令：命中列 +30% 攻击，命中行 +30% 防御（mul 词条）
-export function applyHolyFlame_Normal(unit, allyTeam, activeBuffs) {
+// 数值声明 fact：乘法词条共享 getStat 的 (1+mulSum) 乘区、无独立增量，故只发乘率 ratio，供体检按乘率口径核对
+function pushHolyFlameFact(log, unit, field, ratio) {
+    if (!log) return;
+    log.push({ factType: FACT_TYPES.HOLY_FLAME_APPLY, data: { unitName: unit.name, unitUid: unit.uid, camp: unit.camp, field, op: 'mul', ratio } });
+}
+
+export function applyHolyFlame_Normal(unit, allyTeam, activeBuffs, log) {
     const holyFlameBuff = activeBuffs.find(b => b.key === BUFF_TYPES.HOLY_FLAME);
     if (!holyFlameBuff) return;
     const cols = holyFlameBuff.cols || (holyFlameBuff.col != null ? [holyFlameBuff.col] : []);
     const rows = holyFlameBuff.rows || (holyFlameBuff.row != null ? [holyFlameBuff.row] : []);
     if (cols.includes(getUnitCol(unit.pos))) {
         addMod(unit, 'atk', { source: '圣火令', value: CONFIG.BUFFS.holyFlame.atkBonus, ttl: 'round', op: 'mul', group: 'holyFlame' });
+        pushHolyFlameFact(log, unit, 'atk', CONFIG.BUFFS.holyFlame.atkBonus);
     }
     if (rows.includes(getUnitRow(unit.pos))) {
         addMod(unit, 'def', { source: '圣火令', value: CONFIG.BUFFS.holyFlame.defBonus, ttl: 'round', op: 'mul', group: 'holyFlame' });
+        pushHolyFlameFact(log, unit, 'def', CONFIG.BUFFS.holyFlame.defBonus);
     }
 }
 
-export function applyHolyFlame_Sister(unit, allyTeam, activeBuffs) {
-    applyHolyFlame_Normal(unit, allyTeam, activeBuffs);
+export function applyHolyFlame_Sister(unit, allyTeam, activeBuffs, log) {
+    applyHolyFlame_Normal(unit, allyTeam, activeBuffs, log);
 }
 
-export function applyHolyFlame_Brother(unit, allyTeam, activeBuffs) {
+export function applyHolyFlame_Brother(unit, allyTeam, activeBuffs, log) {
     addMod(unit, 'atk', { source: '圣火令', value: CONFIG.BUFFS.holyFlame.atkBonus, ttl: 'round', op: 'mul', group: 'holyFlame' });
+    pushHolyFlameFact(log, unit, 'atk', CONFIG.BUFFS.holyFlame.atkBonus);
     addMod(unit, 'def', { source: '圣火令', value: CONFIG.BUFFS.holyFlame.defBonus, ttl: 'round', op: 'mul', group: 'holyFlame' });
+    pushHolyFlameFact(log, unit, 'def', CONFIG.BUFFS.holyFlame.defBonus);
 }
 
 // carry：5 号位按队友属性百分比加成，死亡队友加成翻倍

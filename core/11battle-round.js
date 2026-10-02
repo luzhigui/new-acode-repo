@@ -1,5 +1,5 @@
-// V6.3.2 | ~26600 bytes | 2026-09-25 删除通用飞行选敌钩子，飞行改回 core/07 策略表「残血优先(<40%)→前排→随机」（定案 B）：2a5f68d 把该钩子的写入通道修活后，它压过 07 的飞行策略（声明层先于策略表），飞行变成「敌方前排有空位就切入打后排」，与既有玩法口径不符；连带删除 core/03 的 selectFlyTarget/canReach 与 infra/50 的 FLY_TARGET 优先级
-export const VER = 'core/11battle-round.js V6.3.4';
+// V6.3.5 | ~27200 bytes | 2026-10-02 光环补发 AURA_APPLY 数值声明 fact（双方循环每存活单位每回合 1 条，emptyCol/bloodAura 为 0 也发）；applyHolyFlameBonus 两处调用透传 log
+export const VER = 'core/11battle-round.js V6.3.5';
 
 import { CONFIG, getGameData, getSkillParams } from './01config-5v5-test.js';
 import { resetStateFields } from './17-state-keys.js';
@@ -179,11 +179,13 @@ function prepareRoundStart(A, B, log, state, round, rng) {
         }
         let stats = computeBuffStats(u, A._activeBuffs || [], allyTeamWithDead);
 
-        applyHolyFlameBonus(u, A._activeBuffs || [], hasSisterForHolyFlame);
+        applyHolyFlameBonus(u, A._activeBuffs || [], hasSisterForHolyFlame, log);
         applyFortifyBonus(u, A._activeBuffs || []);
         applyCarryBonus(u, A, state, log);
 
         const auraBonuses = getAuraBonuses(u, A, B);
+        // 数值声明 fact：每存活单位每回合 1 条（两值为 0 也发，供体检对照 aura group 续期）
+        log.push({ factType: FACT_TYPES.AURA_APPLY, data: { unitName: u.name, unitUid: u.uid, camp: u.camp, emptyCol: auraBonuses.emptyCol, bloodAura: auraBonuses.bloodAura } });
         if (auraBonuses.emptyCol > 0) addMod(u, 'atk', { source: '空列光环', value: auraBonuses.emptyCol, ttl: 'round', group: 'aura', op: 'add' });
         if (auraBonuses.bloodAura > 0) addMod(u, 'atk', { source: '残血光环', value: auraBonuses.bloodAura, ttl: 'round', group: 'aura', op: 'add' });
 
@@ -198,13 +200,15 @@ function prepareRoundStart(A, B, log, state, round, rng) {
         if (!u.alive) return;
         emitEvent(u, UNIT_EVENT_TYPES.HP_CHANGE, { hp: u.hp, maxHp: u.maxHp, alive: u.alive, atk: getStat(u, 'atk'), def: getStat(u, 'def'), _stunned: false });
         let bStats = computeBuffStats(u, B._activeBuffs || [], B);
-        applyHolyFlameBonus(u, B._activeBuffs || [], false);
+        applyHolyFlameBonus(u, B._activeBuffs || [], false, log);
         applyFortifyBonus(u, B._activeBuffs || []);
         applyCarryBonus(u, B, state, log);
         Object.assign(u.state, { _doubleStriked: false });
         u.state._xingFenExtraAttacking = false;
         u.state._bloodthirstStriked = false;
         const auraBonuses = getAuraBonuses(u, B, A);
+        // 数值声明 fact：每存活单位每回合 1 条（两值为 0 也发，供体检对照 aura group 续期）
+        log.push({ factType: FACT_TYPES.AURA_APPLY, data: { unitName: u.name, unitUid: u.uid, camp: u.camp, emptyCol: auraBonuses.emptyCol, bloodAura: auraBonuses.bloodAura } });
         if (auraBonuses.emptyCol > 0) addMod(u, 'atk', { source: '空列光环', value: auraBonuses.emptyCol, ttl: 'round', group: 'aura', op: 'add' });
         if (auraBonuses.bloodAura > 0) addMod(u, 'atk', { source: '残血光环', value: auraBonuses.bloodAura, ttl: 'round', group: 'aura', op: 'add' });
         emitEvent(u, UNIT_EVENT_TYPES.HP_CHANGE, { hp: u.hp, maxHp: u.maxHp, alive: u.alive, atk: getStat(u, 'atk'), def: getStat(u, 'def') });

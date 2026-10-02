@@ -1,5 +1,5 @@
-// V1.3.2 | ~3900 bytes | 2026-10-02 新增 FACT_TYPES.STAT_CHANGE_APPLY：通用属性裁定（流星赶月/溅射降防）落地的数值声明 fact，供体检对照 statChange group
-export const VER = 'infra/56-battle-enums.js V1.3.2';
+// V1.3.3 | ~4400 bytes | 2026-10-02 新增 AURA_APPLY（空列/残血光环）、HOLY_FLAME_APPLY（圣火令乘法）、WEI_DODGE_LEECH（韦一笑闪避反击吸血）三个数值声明 fact
+export const VER = 'infra/56-battle-enums.js V1.3.3';
 
 /** 事实类型：所有 factType 字符串的唯一来源 */
 export const FACT_TYPES = Object.freeze({
@@ -36,6 +36,12 @@ export const FACT_TYPES = Object.freeze({
     PUSH_STUN: 'pushStun',
     // 通用属性裁定（EFFECT_TYPES.STAT_CHANGE）落地的数值声明 fact：供体检对照 statChange group，不进画面
     STAT_CHANGE_APPLY: 'statChangeApply',
+    // 空列/残血光环（core/11 每回合 addMod group=aura）：每存活单位每回合 1 条，两值为 0 也发，供体检对照
+    AURA_APPLY: 'auraApply',
+    // 圣火令（core/14 命中列加攻/命中行加防，op:mul 乘法词条）：每次 addMod 1 条，发乘率不发增量（共享乘区）
+    HOLY_FLAME_APPLY: 'holyFlameApply',
+    // 韦一笑·闪避反击吸血（WEI_HEAL）独立数值声明：此前体检只能借 dodgeFact.weiHeal 嵌套读取；纯账本不进画面（演出仍走 dodgeFact）
+    WEI_DODGE_LEECH: 'weiDodgeLeech',
     METEOR_SHOWER_MAIN: 'meteorShowerMain', METEOR_SHOWER_SPLASH: 'meteorShowerSplash',
     ROUND_START: 'roundStart', ROUND_END: 'roundEnd',
     DOUBLE_STRIKE_SUMMARY: 'doubleStrikeSummary', ZHANG_TAUNT: 'zhangTaunt',

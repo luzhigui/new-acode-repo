@@ -1,5 +1,5 @@
-// V6.2.3 | ~15500 bytes | 2026-09-29 参数体系收敛批 3：热血奋战双倍吸血间隔 3 改读 CONFIG.HOT_BLOOD_CRIT_INTERVAL（两处）
-export const VER = 'core/04buff-system.js V6.2.4';
+// V6.2.5 | ~15700 bytes | 2026-10-02 applyHolyFlameBonus 增加 log 透传参数（供 core/14 发 HOLY_FLAME_APPLY 数值声明 fact）
+export const VER = 'core/04buff-system.js V6.2.5';
 import {
     applyFortifyDef_Normal, applyFortifyDef_Sister, applyFortifyDef_Brother,
     applyCloudBodyDodge_Normal, applyCloudBodyDodge_Sister, applyCloudBodyDodge_Brother,
@@ -14,11 +14,11 @@ import { eventBus, EXECUTION_LAYER as L, EFFECT_TYPES, registerSettlementHook } 
 import { FACT_TYPES, BUFF_TYPES, BUFF_SUBTYPES, UNIT_EVENT_TYPES, CAMP_TYPES, ROLE_TYPES, SIGNAL_TYPES } from '../infra/56-battle-enums.js';
 const C = CONFIG;
 
-export function applyHolyFlameBonus(unit, activeBuffs, hasSister) {
+export function applyHolyFlameBonus(unit, activeBuffs, hasSister, log) {
     const holyFlameBuff = activeBuffs.find(b => b.key === BUFF_TYPES.HOLY_FLAME);
     if (!holyFlameBuff) return;
-    if (hasSister) applyHolyFlame_Sister(unit, null, activeBuffs);
-    else applyHolyFlame_Normal(unit, null, activeBuffs);
+    if (hasSister) applyHolyFlame_Sister(unit, null, activeBuffs, log);
+    else applyHolyFlame_Normal(unit, null, activeBuffs, log);
 }
 
 export function applyFortifyBonus(unit, activeBuffs) {
