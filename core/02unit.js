@@ -1,5 +1,5 @@
-// V6.3.1 | ~9200 bytes | 2026-09-26 toJSON 剔除 _fsm（妆造剥离收尾：渲染层已改读 state._fsmPhase，_fsm 序列化再无读者）
-export const VER = 'core/02unit.js V6.3.1';
+// V6.3.2 | ~9500 bytes | 2026-09-29 参数体系收敛批 2：防战 z 值分档表与属性生成公式（血量掷点/生命上限倍率/攻防差约束/小昭分配）改读 CONFIG
+export const VER = 'core/02unit.js V6.3.2';
 
 import { CONFIG, getGameData } from './01config-5v5-test.js';
 
@@ -81,15 +81,12 @@ export function getRoleBonus(role) {
 }
 
 // 防战血量伤害系数（z 值）分档表：按初始血量占比锁档，占比越高档位越高
-// 血量生成区间为 [0.4m, 0.6m]，占比达不到 0.57 以上极少，故最高档门槛为 0.57
+// 档位表本体在 CONFIG.HP_DMG_RATIO_TIERS / HP_DMG_RATIO_FLOOR（参数体系收敛批 2）
 export function getHpDmgRatio(hpPct) {
-    if (hpPct >= 0.57) return 0.06;
-    if (hpPct >= 0.54) return 0.05;
-    if (hpPct >= 0.51) return 0.04;
-    if (hpPct >= 0.48) return 0.03;
-    if (hpPct >= 0.45) return 0.025;
-    if (hpPct >= 0.43) return 0.02;
-    return 0.015;
+    for (const tier of CONFIG.HP_DMG_RATIO_TIERS) {
+        if (hpPct >= tier.min) return tier.ratio;
+    }
+    return CONFIG.HP_DMG_RATIO_FLOOR;
 }
 
 export class Unit {
@@ -148,24 +145,28 @@ export class Unit {
     }
     init(rng){
         if (!rng) throw new Error('Unit.init() requires a SeededRNG instance');
-        let hp=rng.nextInt(Math.ceil(this.m*0.4),Math.floor(this.m*0.6)),rem=this.m-hp,a,d;
+        const [hpMinPct, hpMaxPct] = CONFIG.HP_ROLL_RANGE;
+        let hp=rng.nextInt(Math.ceil(this.m*hpMinPct),Math.floor(this.m*hpMaxPct)),rem=this.m-hp,a,d;
         // 攻防差约束：防战要求 d-a≤20、非防战要求 a-d∈[3,13]，把两类角色的攻防差锁定在合理区间，避免出现极端攻防失衡
         if(this.role===ROLE_TYPES.DEFENDER){
-            const dMin=Math.ceil(rem*0.5);
-            const dMax=rem-1;
+            const [dPctMin, dPctMax] = CONFIG.DEFENDER_DEF_ROLL;
+            const dMin=Math.ceil(rem*dPctMin);
+            const dMax=Math.min(Math.floor(rem*dPctMax), rem-1);
             const dMinTenth=dMin*10, dMaxTenth=dMax*10;
             d=rng.nextInt(dMinTenth,dMaxTenth)/10;a=rem-d;
-            while(d-a>20){d=rng.nextInt(dMinTenth,dMaxTenth)/10;a=rem-d;}
+            while(d-a>CONFIG.DEFENDER_ATK_DEF_MAXGAP){d=rng.nextInt(dMinTenth,dMaxTenth)/10;a=rem-d;}
             // 按初始血量占比分档：占比越高（越接近满血）档位越高、血量系数越大，对应单次伤害越多
             const hpPct = hp / this.m;
             this.state._hpDmgRatio = getHpDmgRatio(hpPct);
         } else {
-            const dMin=Math.ceil(rem*0.3), dMax=Math.floor(rem*0.5);
+            const [dPctMin, dPctMax] = CONFIG.DPS_DEF_ROLL;
+            const [gapMin, gapMax] = CONFIG.DPS_ATK_DEF_GAP;
+            const dMin=Math.ceil(rem*dPctMin), dMax=Math.floor(rem*dPctMax);
             const dMinTenth=dMin*10, dMaxTenth=dMax*10;
             d=rng.nextInt(dMinTenth,dMaxTenth)/10;a=rem-d;
-            while(a-d<3||a-d>13){d=rng.nextInt(dMinTenth,dMaxTenth)/10;a=rem-d;}
+            while(a-d<gapMin||a-d>gapMax){d=rng.nextInt(dMinTenth,dMaxTenth)/10;a=rem-d;}
         }
-        this.atk=a;this.def=d;this.maxHp=hp*2.5;this.hp=this.maxHp;
+        this.atk=a;this.def=d;this.maxHp=hp*CONFIG.HP_TO_MAXHP_MUL;this.hp=this.maxHp;
     }
     // skipRoleBonus：小昭姊/妹专用。她们的血/攻/防已由 initXiaoZhao 从 m 分配完
     //（50% 血 + 剩余攻防对半），再吃职业加成会多一层。职业本身仍保留——
@@ -182,15 +183,16 @@ export class Unit {
         this.state._initMaxHp = this.maxHp;
     }
     initXiaoZhao(){
-        let hpBase = Math.floor(this.m / 2);
+        const hpPct = CONFIG.XIAO_ZHAO_HP_ROLL;
+        let hpBase = Math.floor(this.m * hpPct);
         let rem = this.m - hpBase;
         let atk = Math.floor(rem / 2);
         let def = rem - atk;
         this.atk = atk;
         this.def = def;
-        this.maxHp = hpBase * 2.5;
+        this.maxHp = hpBase * CONFIG.HP_TO_MAXHP_MUL;
         this.hp = this.maxHp;
         // 血量占比固定 50%，按分档表锁 z 值（蛛变防战时消费）
-        this.state._hpDmgRatio = getHpDmgRatio(0.5);
+        this.state._hpDmgRatio = getHpDmgRatio(hpPct);
     }
 }

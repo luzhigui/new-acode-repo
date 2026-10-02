@@ -1,8 +1,9 @@
 // 回归规则：张无忌·九阳神功回复量 = floor(最大生命 × 12%)（V6.1.12 由 10% → 12%；更早 V6.1.8 由 8% → 10%）
 //   机制本体（core/15 submitOnHitEffects · healMaxHpPct）：
 //       heal = min(floor(unit.maxHp × pct), unit.maxHp - unit.hp)，heal > 0 才推 NINE_YANG_HEAL 事实
-//   pct 实际来自 content/200game-data.json 张无忌 mechanics[0].onHitEffects[0].pct（=0.12），
-//   另有 skills.nineYang.params.healPct（=12）只用于文案插值，两处须同步。
+//   pct 实际来自 content/200game-data.json 张无忌 mechanics[0].onHitEffects[0].pct（=0.12）——
+//   2026-09-29 参数单一真值源收口后，这是**唯一**出处（skills.nineYang.params.healPct 已删，
+//   技能说明的 {healPct} 也改由 core/01 DESC_TRUTH 从这里取真值）。
 // 复发信号1（历史值回退）：未满回复量恰好等于 floor(血上限×10%)（V6.1.8~V6.1.11 的旧值）
 //          或 floor(血上限×8%)（更早旧值），且不等于 floor(血上限×12%)
 //          → pct 被回退（续航变弱，第二关容易崩）
@@ -27,7 +28,8 @@
 //   长期处于失效状态（既抓不到回退，也发现不了按比例算错）。
 //   现改为双层扫描:顶层 text + attack-group entries 子条目 + 数组元素，entries 序号保持原战报下标。
 //   判据本身（12%/10%/8% 三档回退识别 + 回血写回一致性）一字未动，做到只改数据源这一处。
-export const VER = 'tests/health-rules/143-jiuyang-heal-pct.js V6.1.15';
+export const VER = 'tests/health-rules/143-jiuyang-heal-pct.js V6.1.16';
+import { entryTextsDeep } from '../122health-utils.js';
 
 // V6.1.12 后的现行比例（content/200 张无忌 mechanics healMaxHpPct.pct）
 var NINE_YANG_PCT = 0.12;
@@ -35,30 +37,6 @@ var NINE_YANG_PCT = 0.12;
 var NINE_YANG_PREV_PCT = 0.10;
 // V6.1.8 之前的更早比例
 var NINE_YANG_OLD_PCT = 0.08;
-
-// 收集一条战报里所有可能命中本规则锚点文本的字符串（顺序保持战报下标升序）：
-// 顶层 text + attack-group 的 entries 子条目 + 渲染函数直接放回的数组元素。
-// 保持"外层优先、子条目紧随"的顺序，使"变身 vs 九阳回血"的前后位置比较依旧有效。
-function nineYangTexts(e) {
-    var out = [];
-    if (!e) return out;
-    if (Array.isArray(e)) {
-        // renderZhangSwitchFact 这类"多件套"渲染:递归摊平，子条目也照收
-        for (var a = 0; a < e.length; a++) {
-            var got = nineYangTexts(e[a]);
-            for (var g = 0; g < got.length; g++) out.push(got[g]);
-        }
-        return out;
-    }
-    if (typeof e.text === 'string' && e.text) out.push(e.text);
-    if (Array.isArray(e.entries)) {
-        for (var i = 0; i < e.entries.length; i++) {
-            var sub = e.entries[i];
-            if (sub && typeof sub.text === 'string' && sub.text) out.push(sub.text);
-        }
-    }
-    return out;
-}
 
 export const rule90 = {
     group: '数值回归',
@@ -72,7 +50,7 @@ export const rule90 = {
         var switchIdx = -1, switchCount = 0;
         var hasOtherMaxHpGain = false;
         for (var i = 0; i < n; i++) {
-            var texts = nineYangTexts(log[i]);
+            var texts = entryTextsDeep(log[i]);
             for (var tk = 0; tk < texts.length; tk++) {
                 var t = String(texts[tk]);
 
@@ -135,8 +113,8 @@ export const rule90 = {
                 if (h.heal === oldExpect && expect !== oldExpect) {
                     return { fail: true, msg: '复发：九阳神功回复' + h.heal + '=floor(血上限' + maxHp + '×8%)，疑似回退到更早版本（应为 ' + expect + '）' };
                 }
-                // 断言3：既不是现行 12%，也不是任何历史值（含文案侧 params.healPct 与 mechanics.pct 不同步、或被改成别的比例）
-                return { fail: true, msg: '复发：九阳神功回复' + h.heal + '≠floor(血上限' + maxHp + '×12%=' + expect + ')（healMaxHpPct.pct 被改动？）' };
+                // 断言3：既不是现行 12%，也不是任何历史值（含 mechanics.pct 被改动、或回血机制没跟上）
+                return { fail: true, msg: '复发：九阳神功回复' + h.heal + '≠floor(血上限' + maxHp + '×12%=' + expect + ')（张无忌 mechanics healMaxHpPct.pct 被改动？）' };
             }
         }
         return { fail: false };

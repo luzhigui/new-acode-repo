@@ -40,6 +40,9 @@ import { rule96 } from './health-rules/149-holy-flame-cols-rows.js';
 import { rule97 } from './health-rules/150-hot-blood-leech.js';
 import { rule98 } from './health-rules/151-bloodthirst-leech.js';
 import { rule99 } from './health-rules/152-xingfen-extra-attack.js';
+import { rule100 } from './health-rules/153-meteor-growth-render.js';
+import { rule101 } from './health-rules/154-endless-breath-gain.js';
+import { rule102 } from './health-rules/155-meteor-growth-dup.js';
 import {
     getCellElement, checkUnitHpValidity,
     checkHpBarSync, checkHpBarColor, checkFxOrphans,
@@ -532,7 +535,7 @@ function runUIChecks(ctx, doc) {
 
     for (const msg of checkDeathFxRetention(allUnits, doc)) recordIssue(ctx, null, '死亡特效', msg, 'UI');
     for (const msg of checkMeleeFxState(ctx, doc)) recordIssue(ctx, null, '攻击特效', msg, 'UI');
-    for (const msg of checkBuffIcons(ctx, doc)) recordIssue(ctx, null, 'Buff图标', msg, 'UI');
+    for (const msg of checkBuffIcons(ctx, doc, teams.ally)) recordIssue(ctx, null, 'Buff图标', msg, 'UI');
 }
 
 // 规则体检：战报日志回归规则（GAMEOVER 时日志已完整，立即执行）
@@ -618,7 +621,7 @@ function runSettleChecks(ctx, doc) {
 
     for (const msg of checkDeathFxRetention(allUnits, doc)) recordIssue(ctx, null, '死亡特效', msg, 'UI');
     for (const msg of checkMeleeFxState(ctx, doc)) recordIssue(ctx, null, '攻击特效', msg, 'UI');
-    for (const msg of checkBuffIcons(ctx, doc)) recordIssue(ctx, null, 'Buff图标', msg, 'UI');
+    for (const msg of checkBuffIcons(ctx, doc, teams.ally)) recordIssue(ctx, null, 'Buff图标', msg, 'UI');
 }
 
 function checkSwapStability(ctx, doc, allyTeam, enemyTeam) {

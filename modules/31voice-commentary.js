@@ -1,0 +1,311 @@
+// modules/31voice-commentary.js — 语音解说引擎（实时朗读版）
+// V1.0.0 | 2026-10-01 首版：播放层每条战报播完后调 speakFact（防剧透：动画收尾再开口），
+// 关键节点现场编词、手机系统 TTS 实时朗读；音色/语速/音调/话痨度可调，设置面板在 ui/73。
+// 单机/联机主机/联机从机/战报回放四条路全走 playSingleLogEntry，一处挂钩全生效。
+import { GlobalStore } from '../infra/54-global-store.js';
+import { FACT_TYPES } from '../infra/56-battle-enums.js';
+import { AudioManager } from './22audio-manager.js';
+
+export const VER = 'modules/31voice-commentary.js V1.0.0';
+
+const LS_KEY = 'ming_voice_commentary';
+
+// ── 设置（localStorage 持久化，面板在 ui/73）────────────────────────
+const cfg = {
+    on: false,          // 总开关
+    mode: 'condense',   // 播报模式：condense=摘要（默认，「谁打谁N点伤害」+衍生效果触发名）；full=全文逐行；key=只报关键节点
+    voiceURI: '',       // 指定音色（空=系统默认）
+    rate: 1.05,         // 语速 0.6~1.6
+    pitch: 1.0,         // 音调 0.6~1.4
+    chatty: false       // 话痨模式（仅 key 模式生效）：额外播报每回合开始
+};
+try {
+    const saved = JSON.parse(localStorage.getItem(LS_KEY) || '{}');
+    // 2026-10-01 二版迁移：V1.1 的 full（全文太慢跟不上节奏）统一落到新默认摘要；用户手动再选全文会写回 _v2
+    if (saved && saved.mode === 'full' && !saved._v2) saved.mode = 'condense';
+    saved._v2 = 1;
+    Object.assign(cfg, saved);
+} catch (e) { /* 忽略坏档 */ }
+export function getVoiceCfg() { return cfg; }
+export function setVoiceCfg(patch) {
+    Object.assign(cfg, patch || {});
+    try { localStorage.setItem(LS_KEY, JSON.stringify(cfg)); } catch (e) { /* 存不了就算了 */ }
+}
+
+// ── 音色清单（中文优先排前；安卓 Chrome 异步加载要挂 onvoiceschanged）──
+let voicesCache = [];
+let warnedNoTTS = false;
+function refreshVoices() {
+    if (!('speechSynthesis' in window)) return;
+    voicesCache = speechSynthesis.getVoices().slice();
+    // zh 开头的排最前，普通话 zh-CN/zh-* 优先于粤语等
+    voicesCache.sort((a, b) => zhScore(b) - zhScore(a));
+}
+function zhScore(v) {
+    const l = (v.lang || '').toLowerCase();
+    if (l === 'zh-cn' || l === 'zh_cn') return 4;
+    if (l.startsWith('zh')) return 3;
+    if (/chinese|中文|普通话|mandarin/i.test(v.name || '')) return 2;
+    return 0;
+}
+if ('speechSynthesis' in window) {
+    refreshVoices();
+    if (typeof speechSynthesis.onvoiceschanged !== 'undefined') {
+        speechSynthesis.addEventListener('voiceschanged', refreshVoices);
+    }
+}
+export function listVoices() {
+    if (!voicesCache.length) refreshVoices();
+    return voicesCache;
+}
+
+// ── 名字念法清洗：中点念不出来（小昭·妹 → 小昭妹）────────────────────
+function speakName(n) {
+    return String(n || '').replace(/·/g, '');
+}
+
+// ── fact → 解说词（只挑关键节点；返回 null = 不播）──────────────────
+// 优先级：2=胜负/击杀（可打断低优先级） 1=carry/掉落 0=回合开始（仅话痨模式）
+function factToSpeech(fact) {
+    if (!fact || !fact.factType) return null;
+    const d = fact.data || {};
+    switch (fact.factType) {
+        case FACT_TYPES.ATTACK: {
+            const r = d.dmgResult || {};
+            if (r.dead || r.executeKill) {
+                const a = speakName(d.attacker && d.attacker.name);
+                const t = speakName(d.target && d.target.name);
+                if (a && t) return { text: `${a}，击杀了${t}`, p: 2 };
+            }
+            return null;
+        }
+        case FACT_TYPES.WARRIOR_EXECUTE: {
+            const a = speakName(d.unitName), t = speakName(d.targetName);
+            if (a && t) return { text: `战士斩杀！${a}，直接处决了${t}`, p: 2 };
+            return null;
+        }
+        case FACT_TYPES.CARRY_APPLY: {
+            const n = speakName(d.unitName);
+            if (n) return { text: `${n}获得carry加成，攻防大涨`, p: 1 };
+            return null;
+        }
+        case FACT_TYPES.DROP: {
+            if (d.kind === 'token') return { text: `圣火令掉落，${speakName(d.killerName)}拾取`, p: 1 };
+            if (d.kind === 'chest') return { text: `宝箱掉落，${speakName(d.killerName)}拾取`, p: 1 };
+            return null;
+        }
+        case FACT_TYPES.ROUND_START: {
+            if (!cfg.chatty || !d.round) return null;
+            return { text: `第${d.round}回合`, p: 0 };
+        }
+        default:
+            return null;
+    }
+}
+
+// ── 播报队列（浏览器 TTS 自带队列，这里管优先级打断与丢弃）───────────
+const MAX_QUEUE = 24;
+const queue = [];
+let speaking = false;
+let ducked = false;
+
+function bgmAudible() {
+    return AudioManager.enabled && AudioManager.currentSource !== 'mute';
+}
+function duckBGM(on) {
+    if (on === ducked) return;
+    ducked = on;
+    if (!bgmAudible()) return;
+    let base = 0.5;
+    try { base = parseFloat(localStorage.getItem('ming_bgm_volume') || '0.5'); } catch (e) { /* 用默认 */ }
+    AudioManager.fadeTo(on ? base * 0.3 : base, on ? 250 : 600);
+}
+
+function pump() {
+    if (speaking || !queue.length) {
+        if (!speaking && ducked) duckBGM(false);   // 队列清空，音乐回位
+        return;
+    }
+    const item = queue.shift();
+    speaking = true;
+    duckBGM(true);
+    const u = new SpeechSynthesisUtterance(item.text);
+    u.lang = 'zh-CN';
+    u.rate = cfg.rate;
+    u.pitch = cfg.pitch;
+    if (cfg.voiceURI) {
+        const v = voicesCache.find(x => x.voiceURI === cfg.voiceURI);
+        if (v) { u.voice = v; u.lang = v.lang; }
+    }
+    const done = () => { speaking = false; duckBGM(false); setTimeout(pump, 120); };
+    u.onend = done;
+    u.onerror = done;
+    speechSynthesis.speak(u);
+}
+
+function enqueue(text, p) {
+    // 队满：丢最旧的（全文模式保顺序追进度；新来的永远入队）
+    if (queue.length >= MAX_QUEUE) queue.shift();
+    queue.push({ text, p });
+    // 高优先级打断正在念的低优先级（普通行给击杀/胜负让路）
+    if (p >= 2 && speaking) speechSynthesis.cancel();
+    pump();
+}
+
+// 快进/暂停不说话——表现层惯例，与 fx 同口径
+function mutedNow() {
+    if (!cfg.on) return true;
+    if (GlobalStore.get('fastForwardActive')) return true;
+    if (GlobalStore.get('isPaused')) return true;
+    return false;
+}
+
+// ── 对外播报口（player/42 逐条日志收尾时调用；防剧透铁律：动画播完才开口）──
+let _lastFactRef = null;   // 一个 fact 可能拆多条日志播（引用相同），去重防复读
+let _lastText = '';        // 连续相同文本去重（全文模式）
+
+// 战报行 HTML → 干净的朗读文本：剥标签/emoji/装饰符，箭头改口播友好的词
+function cleanText(html) {
+    if (!html) return '';
+    let t = String(html)
+        .replace(/<br\s*\/?>/gi, '，')
+        .replace(/<[^>]+>/g, '')
+        .replace(/[\u{1F000}-\u{1FAFF}\u{2190}-\u{21FF}\u{2300}-\u{27BF}\u{2B00}-\u{2BFF}\u{FE0F}\u{200D}\u{20E3}\u{FE0E}]/gu, '')
+        .replace(/————+/g, '，')
+        .replace(/[·◆●◀▶▲▼★☆♦]/g, ' ')
+        .replace(/[（(]/g, '，').replace(/[）)]/g, '，')
+        .replace(/[\s，]+/g, ' ')
+        .replace(/^[，\s]+|[，\s]+$/g, '');
+    return t.trim();
+}
+
+// 全文模式：一行日志（或攻击组的子行们）逐条入队念
+function speakEntryFull(entry) {
+    if (!entry) return;
+    const lines = [];
+    if (Array.isArray(entry.entries) && entry.entries.length) {
+        for (const sub of entry.entries) {
+            if (sub && sub.type !== 'detail' && sub.type !== 'signal') lines.push(sub.text);
+        }
+    } else if (entry.type !== 'detail' && entry.type !== 'signal') {
+        lines.push(entry.text);
+    }
+    for (const raw of lines) {
+        const t = cleanText(raw);
+        if (!t || t === _lastText) continue;
+        _lastText = t;
+        const p = /阵亡|击杀|斩杀/.test(t) ? 1 : 0;
+        enqueue(t, p);
+    }
+}
+
+export function speakLogLine(entry, fact) {
+    if (mutedNow()) { if (queue.length) queue.length = 0; return; }
+    if (cfg.mode === 'key') {          // key 模式走老路：只报关键节点
+        if (fact === _lastFactRef) return;
+        _lastFactRef = fact;
+        const s = factToSpeech(fact);
+        if (s) enqueue(s.text, s.p);
+        return;
+    }
+    if (fact === _lastFactRef) return; // 同 fact 多条日志播完，只念一次
+    _lastFactRef = fact;
+    if (cfg.mode === 'full') speakEntryFull(entry);
+    else speakEntryCondensed(entry);
+}
+
+// ── 摘要模式（2026-10-01 二版，用户定调）：「谁打谁N点伤害」主句 + 衍生效果触发名 ──
+// 不念预览行（攻防血数字）、不念计算行、不念波动作；击杀补一句；衍生效果念触发词
+const DERIVED_PATTERNS = [
+    [/流星赶月|溅射/, '触发流星赶月溅射'],
+    [/热血奋战|热血/, '触发热血奋战'],
+    [/破防/, '触发破防'],
+    [/闪避并反击|闪避反击/, '闪避反击'],
+    [/吸血/, '吸血'],
+    [/眩晕/, '目标被眩晕'],
+    [/连击|再次攻击/, '触发连击'],
+    [/寒毒|玄冥掌/, '触发玄冥寒毒'],
+    [/白骨爪/, '白骨爪'],
+    [/圣火令/, '圣火令掉落'],
+    [/宝箱/, '宝箱掉落'],
+    [/嘲讽/, '触发嘲讽'],
+];
+
+function stripTags(html) {
+    return String(html || '').replace(/<br\s*\/?>/gi, '，').replace(/<[^>]+>/g, '');
+}
+
+function speakEntryCondensed(entry) {
+    if (!entry) return;
+    if (entry.type === 'attack-group') {
+        if (entry.isMiss) { enqueue(`${entry.attackerName} 未命中`, 0); return; }
+        if (entry.isDodge) { enqueue(`${entry.targetName} 闪避并反击`, 1); return; }
+        let main = `${entry.attackerName} 打 ${entry.targetName}，${Math.round(entry._dmg || 0)}点伤害`;
+        if (entry.isDead) main += '，将其击杀！';
+        enqueue(main, entry.isDead ? 1 : 0);
+        // 衍生效果：扫子行（跳过预览行/主伤害行/计算行），关键词命中念触发名
+        for (const sub of (entry.entries || [])) {
+            if (!sub || !sub.text || sub.isDamageCalc) continue;
+            if (sub.type === 'combat-text' || sub.type === 'damage-text') continue;
+            const t = stripTags(sub.text);
+            for (const [re, speech] of DERIVED_PATTERNS) {
+                if (re.test(t)) { enqueue(speech, 0); break; }
+            }
+        }
+        return;
+    }
+    if (entry.type === 'detail' || entry.type === 'signal') return;   // 计算行/系统行：摘要模式不念
+    if (entry.type === 'round-start') {
+        const m = /第(\d+)回合/.exec(stripTags(entry.text) || '');
+        if (m) enqueue(`第${m[1]}回合`, 0);
+        return;
+    }
+    if (entry.type === 'round-end') return;                            // 回合结束行省略
+    // 其余短行（获得Buff/掉落/carry横幅等）：清洗后直接念
+    const t = cleanText(entry.text);
+    if (t) enqueue(t, /阵亡|击杀/.test(t) ? 1 : 0);
+}
+
+// 胜负收口播报（finishBattle 一处调用，单机/联机/回放共用）
+export function speakVictory(winner) {
+    if (!cfg.on) return;
+    queue.length = 0;
+    speechSynthesis.cancel();
+    let text;
+    if (winner === '明教' || winner === '六大派') text = `${winner}获得最终胜利！`;
+    else text = '双方战平，不分胜负。';
+    enqueue(text, 2);
+}
+
+export function stopCommentary() {
+    queue.length = 0;
+    if ('speechSynthesis' in window) speechSynthesis.cancel();
+    speaking = false;
+    duckBGM(false);
+}
+
+// 面板试听用（用户手势触发，顺便解锁 iOS 类浏览器的 TTS 权限）
+export function speakTest(text) {
+    if (!('speechSynthesis' in window)) return false;
+    speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(text || '第五回合，宗维侠击杀明教岳山，明教只剩三人。');
+    u.lang = 'zh-CN';
+    u.rate = cfg.rate;
+    u.pitch = cfg.pitch;
+    if (cfg.voiceURI) {
+        const v = voicesCache.find(x => x.voiceURI === cfg.voiceURI);
+        if (v) { u.voice = v; u.lang = v.lang; }
+    }
+    speechSynthesis.speak(u);
+    return true;
+}
+
+// 环境自检（无可用的 speechSynthesis 时只警告一次）
+export function ttsAvailable() {
+    const ok = 'speechSynthesis' in window;
+    if (!ok && !warnedNoTTS) {
+        warnedNoTTS = true;
+        console.warn('[voice-commentary] 此浏览器不支持 speechSynthesis，解说不可用');
+    }
+    return ok;
+}

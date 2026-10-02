@@ -1,7 +1,9 @@
+// V6.1.0 | 2026-09-27 池大小改 getPoolSize()（吃满核心，原核数-1 空置一核；localStorage 'battle_pool_size' 可覆盖）
 // V6.0.0 | ~15500 bytes | 2026-08-24 Worker 并行化：批量战斗移至 116-role-balance-worker.js，主文件只负责派发/聚合/渲染
-export const VER = 'tools/109-role-balance.js V6.0.0';
+export const VER = 'tools/109-role-balance.js V6.1.0';
 
 import { ROLE_TYPES } from '../infra/56-battle-enums.js';
+import { getPoolSize } from './117-shared-worker-runner.js';
 
 const ROLES = [ROLE_TYPES.DEFENDER, ROLE_TYPES.WARRIOR, ROLE_TYPES.FLYER, ROLE_TYPES.RANGED];
 const ROLE_ICONS = { [ROLE_TYPES.DEFENDER]: '🛡️', [ROLE_TYPES.WARRIOR]: '⚔️', [ROLE_TYPES.FLYER]: '🦅', [ROLE_TYPES.RANGED]: '🏹' };
@@ -133,7 +135,7 @@ window.openRoleBalance = function() {
         const positions = JSON.parse(JSON.stringify({ ...extraPosConfig })); // 快照，worker 间共享只读
 
         // Worker 池并行：每核 1 worker，16 组 job 按可用 worker 并发派发
-        const poolSize = Math.max(1, (navigator.hardwareConcurrency || 4) - 1); // 留 1 核给主线程 UI
+        const poolSize = getPoolSize(); // 默认吃满核心（localStorage 'battle_pool_size' 可覆盖）；计算在 worker，主线程 UI 不受影响
         const jobs = [];
         for (let ai = 0; ai < ROLES.length; ai++) {
             for (let ei = 0; ei < ROLES.length; ei++) {

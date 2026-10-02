@@ -1,5 +1,5 @@
-// V6.3.0 | ~7700 bytes | 2026-09-26 spawnUnit 的 stats 改口径为基础值，随后照常叠职业加成（skipRoleBonus 可豁免）
-export const VER = 'core/05battle-horse.js V6.3.0';
+// V6.3.1 | ~7700 bytes | 2026-09-29 参数体系收敛批 3：拒马预算 M 改读 CONFIG.HORSE_M；销毁概率去掉字面兜底 0.5 直读内容表 destroyProb
+export const VER = 'core/05battle-horse.js V6.3.1';
 
 import { CONFIG } from './01config-5v5-test.js';
 import { hasBuff } from './03battle-utils.js';
@@ -23,7 +23,7 @@ export function spawnHorse(allyTeam, log, enemyTeam, force = false) {
         [available[i], available[j]] = [available[j], available[i]];
     }
     let horsePos = available[0];
-    let horse = new Unit('拒马', 15, ROLE_TYPES.DEFENDER, allyTeam[0].camp);
+    let horse = new Unit('拒马', C.HORSE_M, ROLE_TYPES.DEFENDER, allyTeam[0].camp);
     const xiaoHEnhance = query('xiaoHexEnhance', allyTeam, allyTeam._activeBuffs || [], BUFF_TYPES.HORSE_FORMATION);
     horse.atk = 0;
     // 拒马血量系数分档：按 50% 血量占位取档，唯一来源 02unit.getHpDmgRatio（原先此处硬编码 0.06）
@@ -84,18 +84,19 @@ export function destroyHorse(allyTeam, log) {
 
     // 连续销毁概率递减，失败重置。基数唯一来源 gameData.buffs.horseFormation.destroyProb
     // （2026-09-14 参数三源收敛：原先硬编码 50，改数据里 destroyProb 不生效）
-    const baseProb = Math.round((C.BUFFS?.horseFormation?.destroyProb ?? 0.5) * 100);
+    const baseProb = Math.round(C.BUFFS?.horseFormation?.destroyProb * 100);
     let currentProb = baseProb;
     const rng = getBattleRng();
     for (const horse of horses) {
         const roll = rng.nextInt(1, 100);
         const success = roll <= currentProb;
         if (success) {
-            applyStatChange(horse, 'hp', -horse.hp, null, '拒马消散', false);
-            horse.alive = false;
-            horse.state._isDead = true;
-            emitEvent(horse, UNIT_EVENT_TYPES.HP_CHANGE, { hp: horse.hp, maxHp: horse.maxHp, alive: false, atk: horse.atk, def: horse.def, _isDead: true });
+            // 2026-10-01 消散与死亡分家（用户定调）：消散≠死亡——不再设 _isDead（那是死亡管线标记，
+            //   会渲染红叉尸体+死亡画笔），直接从队伍移除，表现层用新「沙化消散」特效送走。
+            //   被打死路径（ATTACK dead）不受影响，仍走死亡特效。
             log.push({ factType: FACT_TYPES.HORSE_DESTROY, data: { pos: horse.pos, success: true, prob: currentProb, roll, horseUid: horse.uid } });
+            const idx = allyTeam.indexOf(horse);
+            if (idx >= 0) allyTeam.splice(idx, 1);
             currentProb = Math.floor(currentProb / 2);
         } else {
             log.push({ factType: FACT_TYPES.HORSE_DESTROY, data: { pos: horse.pos, success: false, prob: currentProb, roll, horseUid: horse.uid } });

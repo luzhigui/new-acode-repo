@@ -1,12 +1,12 @@
 // render/38-actions-translate.js — fact → stageAction 翻译器（翻译域）
-// V1.1.2 | ~26900 bytes | 2026-09-26 ATTACK 携带胖远桥两技能演出标记（pangTaunt / pangClumsy，演出帧消费）
+// V1.1.5 | ~31600 bytes | 2026-10-02 entries 扫描补 BREAK_DEF → STAT_CHANGE(def) 飘「🛡-N」（战士破防此前零飘字）；胖远桥·正义国字脸加防借同一通道飘「🛡+N」
 //
 // 加新 fact 的舞台动作：在本文件 FACT_TRANSLATORS 加一条（键=factType），
 // 并在 infra/58 的 translateFn 登记函数名；漏加会在本文件末尾校验循环里报错。
 import { makeFXSnapshot } from '../infra/51-core-utils.js';
 import { STAGE_ACTION_TYPES, FACT_TYPES, CAMP_TYPES, BUFF_EFFECT_TYPES, FLY_MODE_TYPES } from '../infra/56-battle-enums.js';
 import { FACT_SPECS } from '../infra/58-fact-contract.js';
-export const VER = 'render/38-actions-translate.js V1.1.2';
+export const VER = 'render/38-actions-translate.js V1.1.5';
 
 // 把 fact 列表翻译成舞台动作；导演只读 stageActions；timing=beforeText/afterText
 export function translateFactsToStageActions(log) {
@@ -158,6 +158,8 @@ const FACT_TRANSLATORS = {
     [FACT_TYPES.WEI_LEECH]: (data, index) => makeHealAction(data, index),
     [FACT_TYPES.PHANTOM_DISGUISE_HEAL]: (data, index) => makeHealAction(data, index),
     [FACT_TYPES.CLAW_HEAL]: (data, index) => makeHealAction(data, index),
+    // 2026-09-27 生生不息：一个 fact 可能两口回血（自身 + 溢出接盘者），故单独翻译
+    [FACT_TYPES.ENDLESS_BREATH]: (data, index) => translateEndlessBreath(data, index),
     [FACT_TYPES.HOT_BLOOD_HEAL]: (data, index) => makeHealAction(data, index),
     [FACT_TYPES.BLOOD_THIRST_LEECH]: (data, index) => makeHealAction(data, index),
     [FACT_TYPES.MIND_CONTROL_BANNER]: (data, index) => ({
@@ -595,7 +597,51 @@ function makeAttackAction(data, index) {
                 factIndex: index,
                 timing: 'afterText'
             });
+        } else if (e.factType === FACT_TYPES.BREAK_DEF) {
+            // 2026-10-02 战士破防：此前只有 detail 文字（「🗡️ 防御 -N」），一条飘字都没有。
+            //   fact 本身只带 attackerName/targetName/reduce（无 uid），但全仓唯一产者是 core/03 的战士破防，
+            //   作用对象恒为**本击目标**，直接借 target.uid；本击打死目标则不飘（别在尸体格子上跳数字，
+            //   与 RONG_HUI_BONUS 同口径）。负数走 STAT_CHANGE(def) → fx/80 的「🛡-N」。
+            const bd = e.data || {};
+            if (target?.uid && bd.reduce > 0 && !dead) {
+                afterTextEffects.push({
+                    kind: STAGE_ACTION_TYPES.STAT_CHANGE,
+                    statKind: 'def',
+                    targetUid: target.uid,
+                    gain: -Math.round(bd.reduce),
+                    factIndex: index,
+                    timing: 'afterText'
+                });
+            }
+        } else if (e.factType === FACT_TYPES.RONG_HUI_BONUS) {
+            // 2026-09-27 张无忌融会贯通：这笔额外伤害由 BONUS_DMG 声明在主攻击结算之后单独扣血，
+            // 不在主攻击的 dmg 里（主弹幕只有主伤害），此前只有一行文字、一点飘字都没有。
+            // targetAlive=false（已被主攻击打死，裁定器不会再扣这笔）时不飘，免得在尸体格子上跳数字。
+            const rh = e.data || {};
+            if (rh.targetUid && rh.extra > 0 && rh.targetAlive !== false) {
+                afterTextEffects.push({
+                    kind: STAGE_ACTION_TYPES.REBOUND,
+                    actorUid: attacker?.uid ?? null,
+                    targetUid: rh.targetUid,
+                    dmg: Math.round(rh.extra),
+                    factIndex: index,
+                    timing: 'afterText'
+                });
+            }
         }
+    }
+
+    // 2026-10-02 胖远桥·正义国字脸：嘲讽那一下就永久加防（modules/26 在 AFTER_ATTACK 把加防量写进本击 fact），
+    //   此前只有一行日志文字、无飘字。加防对象是胖远桥自己（= 本击攻击者），走 STAT_CHANGE(def) 通道。
+    if (data.pangDefGain > 0 && attacker?.uid) {
+        afterTextEffects.push({
+            kind: STAGE_ACTION_TYPES.STAT_CHANGE,
+            statKind: 'def',
+            targetUid: attacker.uid,
+            gain: Math.round(data.pangDefGain),
+            factIndex: index,
+            timing: 'afterText'
+        });
     }
 
     // 血量线弹幕（文本后）
@@ -632,4 +678,44 @@ function makeHealAction(data, index) {
         anchorIndex: 0,
         factIndex: index
     };
+}
+
+// 张三丰·生生不息：自身与溢出接盘者各一条回血动作，timing 显式 afterText —— 弹幕跟在日志文字之后，
+// 与 PASS 休息回血同款（不写 afterText 会被 HEAL 的 timing 函数当 anchor 处理）。
+function translateEndlessBreath(data, index) {
+    const actions = [];
+    const selfHeal = Math.round(data.heal || 0);
+    if (selfHeal > 0 && data.unitUid) {
+        actions.push({
+            kind: STAGE_ACTION_TYPES.HEAL,
+            actorUid: data.unitUid, targetUid: data.unitUid, amount: selfHeal,
+            anchorIndex: 0, factIndex: index, timing: 'afterText'
+        });
+    }
+    const overflowHeal = Math.round(data.overflowHealed || 0);
+    if (overflowHeal > 0 && data.overflowToUid) {
+        actions.push({
+            kind: STAGE_ACTION_TYPES.HEAL,
+            actorUid: data.overflowToUid, targetUid: data.overflowToUid, amount: overflowHeal,
+            anchorIndex: 0, factIndex: index, timing: 'afterText'
+        });
+    }
+    // 2026-10-01 攻防二选一的加成飘字（用户定调：该加攻加攻、该加防加防，随回血同时升）：
+    //   atkGain→ATK_BUFF_FLOAT（橙⚔ 左上，原通道）、defGain→DEF_BUFF_FLOAT（钢蓝🛡 右上，新通道）。
+    //   翻译器只派动作，emit 由 39 的 STAT_CHANGE 演出帧发——与回血弹幕同帧，不抢日志文字。
+    const selfAtk = Math.round(data.atkGain || 0), selfDef = Math.round(data.defGain || 0);
+    if (selfAtk > 0 && data.unitUid) {
+        actions.push({ kind: STAGE_ACTION_TYPES.STAT_CHANGE, statKind: 'atk', targetUid: data.unitUid, gain: selfAtk, factIndex: index, timing: 'afterText' });
+    }
+    if (selfDef > 0 && data.unitUid) {
+        actions.push({ kind: STAGE_ACTION_TYPES.STAT_CHANGE, statKind: 'def', targetUid: data.unitUid, gain: selfDef, factIndex: index, timing: 'afterText' });
+    }
+    const recvAtk = Math.round(data.overflowAtkGain || 0), recvDef = Math.round(data.overflowDefGain || 0);
+    if (recvAtk > 0 && data.overflowToUid) {
+        actions.push({ kind: STAGE_ACTION_TYPES.STAT_CHANGE, statKind: 'atk', targetUid: data.overflowToUid, gain: recvAtk, factIndex: index, timing: 'afterText' });
+    }
+    if (recvDef > 0 && data.overflowToUid) {
+        actions.push({ kind: STAGE_ACTION_TYPES.STAT_CHANGE, statKind: 'def', targetUid: data.overflowToUid, gain: recvDef, factIndex: index, timing: 'afterText' });
+    }
+    return actions.length > 0 ? actions : null;
 }

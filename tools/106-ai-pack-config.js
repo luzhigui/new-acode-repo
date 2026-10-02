@@ -1,5 +1,16 @@
+// V6.0.20 | ~11800 bytes | 2026-09-29 补登记 tests/health-rules/156-desc-truth-drift.js（参数单一真值源收口：
+//           技能说明数字 == 引擎真值的单源守卫，随包发给 AI 以便网页端也能看到该守卫）
+// V6.0.19 | ~11750 bytes | 2026-09-29 补登记 tests/param-read-guard.mjs（skills.params 引擎真读字段漂移守卫）
+// V6.0.17 | ~11650 bytes | 2026-09-27 再补登两个体检 runner（coverage-report.mjs / stat-decl-vs-actual-check.mjs，
+//          经用户授权）；并修正 `VER` 常量长期停在 V6.0.14、与头注版本号不一致的历史遗留（本次对齐为 V6.0.17）。
+// V6.0.16 | ~11350 bytes | 2026-09-27 体检侧补登与去重（经用户一次性授权修改本文件）：
+//          ①补登记三个 node 直跑入口 `tests/rules-replay.mjs`（规则回放主力）、`tests/smoke-headless.mjs`（引擎冒烟）、
+//          `tests/registration-check.mjs`（登记核对器）—— 三者长期漏登，一直没随包发出；
+//          ②删掉 `121health-monitor.js` / `122health-utils.js` 的**重复登记行**（上方 tests 段已各登记过一次）。
+//          依据：tests/registration-check.mjs 的机器核对结果（漏登 2 项、重复 2 项）。
+// V6.0.18 | ~11250 bytes | 2026-09-29 补登记 tests/health-rules/153-155（夜间体检第 43 轮新增：流星成长数值 / 生生不息回血加成 / 流星成长渲染形态）
 // V6.0.16 | ~13100 bytes | 2026-09-26 加本表用途口径备注（用户定案）：复制包清单不追求全量，体检脚本/本机工具/构建脚本不纳入属正常、不许补登；判断标准=网页端 DeepSeek 拿到包后运行或阅读是否需要它
-// V6.0.15 | ~11150 bytes | 2026-09-26 登记 fx/92fx-pang-antics.js（胖远桥两技能特效）；V6.0.14 补登记 core/07-target-strategies.js（选敌策略抽取新文件，core/12 已 import，漏登会导致包内引用断裂）
+// V6.0.17 | ~11150 bytes | 2026-09-26 登记 fx/92fx-pang-antics.js（胖远桥两技能特效）；V6.0.14 补登记 core/07-target-strategies.js（选敌策略抽取新文件，core/12 已 import，漏登会导致包内引用断裂）
 // V6.0.12 | ~11030 bytes | 2026-09-23 补登记 infra/61-view-sheet.js（妆造字段剥离新文件，103 复制器与分包脚本均派生自本表）
 // V6.0.11 | ~10980 bytes | 2026-09-22 移除已删除的 demo-stage3.html 登记
 // V6.0.10 | ~11000 bytes | 2026-09-22 登记 demo-stage3.html（第三关阵容轮换 + 胖远桥 demo 页，dev-index 隐藏入口）
@@ -11,7 +22,7 @@
 // V6.0.4 | 2026-09-13 登记 tools/106b-server.js（本地静态服务器，供 file:// 下启用目录直写）
 // V6.0.3 | 2026-09-11 补清单漏登9个正式文件：ui/71-74（引导+三套开场CG）、player/48-49、fx/90、tests/123static-scan、tests/124rule-recipes
 // V6.0.2 | 2026-09-09 拆出 player/ 为独立「播放器」组（引擎 46→38）
-export const VER = 'tools/106-ai-pack-config.js V6.0.16';
+export const VER = 'tools/106-ai-pack-config.js V6.0.20';
 
 // AI 复制包踢除清单（103-toolkit.js 的 FILES 过滤会无条件跳过这里的文件）
 // 2026-09-04 用户决定不再精简：特效/音效/错误面板/入口页全部随包发送。
@@ -55,7 +66,7 @@ export const ALL_PROJECT_FILES = [
     '../ui/63main-state.js', '../ui/64main-dialogs.js', '../ui/65main-battle.js',
     '../ui/66audio-control.js', '../ui/67fx-trigger.js', '../ui/68ui-controls.js',
     '../ui/69reset-runtime.js', '../ui/70buff-dialog.js',
-    '../ui/71tutorial.js', '../ui/72opening-cg.js',
+    '../ui/71tutorial.js', '../ui/72opening-cg.js', '../ui/73voice-panel.js',
     // fx（特效）
     '../fx/80fx-common-5v5-test.js', '../fx/81fx-arrows-5v5-test.js', '../fx/82fx-crash-5v5-test.js',
     '../fx/83fx-position-swap.js', '../fx/84fx-push-back.js', '../fx/85fx-dodge-bullet.js',
@@ -65,7 +76,7 @@ export const ALL_PROJECT_FILES = [
     '../modules/20elite-skills.js', '../modules/21error-capture.js', '../modules/22audio-manager.js',
     '../infra/54-global-store.js', '../infra/55-fx-signals.js', '../modules/29battle-init.js', '../modules/24battle-store.js',
     '../modules/25elite-imperial.js', '../modules/26elite-sixsects.js', '../modules/27elite-mingjiao.js',
-    '../modules/28buff-tools.js', '../modules/30custom-effects.js',
+    '../modules/28buff-tools.js', '../modules/30custom-effects.js', '../modules/31voice-commentary.js',
     // render（渲染层）
     '../render/30-fact-renderer.js', '../render/31-stage-actions.js', '../render/32-grid-render.js',
     '../render/33-fact-registry.js', '../render/34-facts-attack.js', '../render/35-facts-effect.js',
@@ -106,8 +117,20 @@ export const ALL_PROJECT_FILES = [
     '../tests/health-rules/151-bloodthirst-leech.js',
     // 2026-09-22 补登记 152：夜间体检第 9 趟新增（121health-monitor.js 已 import rule99）
     '../tests/health-rules/152-xingfen-extra-attack.js',
-    '../tests/121health-monitor.js', '../tests/122health-utils.js',
+    // 2026-09-29 补登记 153/154/155：夜间体检第 43 轮新增（153 流星成长数值 / 154 生生不息回血加成 / 155 流星成长渲染形态）
+    '../tests/health-rules/153-meteor-growth-render.js',
+    '../tests/health-rules/154-endless-breath-gain.js',
+    '../tests/health-rules/155-meteor-growth-dup.js',
+    // 2026-09-29 参数单一真值源收口：156 技能说明数字 == 引擎真值（DESC_TRUTH 单源守卫）
+    '../tests/health-rules/156-desc-truth-drift.js',
+    // （上一行的 121/122 为重复登记，已于 V6.0.16 删除 —— 上方 tests 段已各登记过一次）
     '../tests/140-baseline.js', '../tests/baselines/baseline-v1.json',
+    // 2026-09-27 补登记三个 node 直跑入口（V6.0.16：长期漏登，体检的主力命令都靠它们）
+    '../tests/rules-replay.mjs', '../tests/smoke-headless.mjs', '../tests/registration-check.mjs',
+    // 2026-09-27 再补登两个 node 直跑入口（经用户授权）：覆盖度体检 + 逐步真值对照器
+    '../tests/coverage-report.mjs', '../tests/stat-decl-vs-actual-check.mjs',
+    // 2026-09-29 补登记：skills.params 引擎真读字段漂移守卫（import tools/124-param-lab-glossary.js 的 ENGINE_READ 表）
+    '../tests/param-read-guard.mjs',
     // tools（开发工具箱）
     '../tools/102-toolkit.html', '../tools/103-toolkit.js', '../tools/104-toolkit-more.js',
     '../tools/105-shop.html', '../tools/106-ai-pack-config.js', '../tools/106b-server.js',
@@ -116,6 +139,7 @@ export const ALL_PROJECT_FILES = [
     '../tools/112-elite-eval.js', '../tools/113-stats-check.js',
     '../tools/114-baseline-compare.js', '../tools/115-lineup-search.js',
     '../tools/118-import-export-check.mjs',
+    '../tools/120-param-lab.html', '../tools/122-param-lab-core.js', '../tools/123-param-lab-worker.js',
     // 移除了：52-version-calibrator / 53-dead-code-scanner / 54-filelist-checker（这些工作直接问 AI 更高效）
     // 移除了：100build-5v5.cjs（构建脚本已废弃为 .TXT，不再随包复制）
     '../tools/101auto-battle-utils.js',

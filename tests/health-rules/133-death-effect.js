@@ -24,25 +24,11 @@
 //       → 判据改为校验 render/30 renderDodgeFact 的不变量：isDead 必须等价于 attackerHpAfter <= 0。
 //       实测 69 次闪避反击致死全部符合，改后 0 误报。
 export const VER = 'tests/health-rules/133-death-effect.js V6.1.15';
+import { collectNodes } from '../122health-utils.js';
 
 // 战报节点收集：数组元素（render/30 少数渲染函数返回数组）→ 顶层条目 → attack-group 的 entries 子条目。
 // 只摊一层子条目：孙层没有 isDead/isDodge 语义，再深会重复计数。
-function collectNodes(log) {
-    var out = [];
-    function walk(node, depth) {
-        if (!node) return;
-        if (Array.isArray(node)) {
-            for (var i = 0; i < node.length; i++) walk(node[i], depth);
-            return;
-        }
-        out.push(node);
-        if (depth === 0 && Array.isArray(node.entries)) {
-            for (var k = 0; k < node.entries.length; k++) walk(node.entries[k], depth + 1);
-        }
-    }
-    for (var j = 0; j < log.length; j++) walk(log[j], 0);
-    return out;
-}
+
 
 export const rule80 = {
     group: '特效回归',

@@ -1,5 +1,12 @@
-// V6.2.2 | 2026-09-26 接入行动权不变量（122 checkActionRights）：每回合行动序列走完后核对，_acted=true 的活人必须有正常位记录；逐步断言的「存活 hp<=0」对小昭附身态（state._butterflyHost 有值）精确豁免
-// V6.2.0 | 2026-09-25 新增「不变量套件」：hp∈[0,maxHp] / hp 整数 / maxHp>0 / pos 唯一 / facts 映射完整，
+// V6.4.1 | 2026-10-02 合并移植本机线第 24 轮：接入行动权不变量（122 checkActionRights）——每回合行动序列走完后核对，_acted=true 的活人必须有正常位记录；逐步/回合末「存活 hp<=0」对小昭附身态（state._butterflyHost 有值）精确豁免（与 _pendingDeath 豁免并行）
+// V6.4.0 | 2026-09-26 新增 fact 契约警告收集器：劫持 console.error 收 [fact契约] 缺字段警告，
+//          去重后计入不变量违规与退出码（此前这些警告只是控制台噪声，五件套全绿也看不到）。
+// V6.3.0 | 2026-09-26 生死/血量一致性改为按 `_pendingDeath` 对齐设计内中间态（依据见 assertInvariants 注释）：
+//          引擎致死统一挂 _pendingDeath 交 resolveDeaths 结算，「hp<=0 且 alive 仍 true」是**设计内中间态**
+//          而非缺陷，旧判据把该窗口当回归 → 5 条误报；现判据与引擎同源（alive && !state._pendingDeath），
+//          并新增「回合末仍存活但血空」兜底断言，覆盖"该结算的没结算"一类（不是放宽，覆盖面反而更准）。
+//          另修正头/码矛盾：此前这里写了"hp 整数"，但该断言早已因 11901 条假阳性被删除（自述见下）。
+// V6.2.0 | 2026-09-25 新增「不变量套件」：hp∈[0,maxHp] / maxHp>0 / pos 唯一 / facts 映射完整，
 //          逐步断言（非终局快照），与机制规则分开报告并计入退出码。理由：中期越界后被修回的漂移
 //          终局快照抓不到，且不变量本就与具体机制无关、成本极低覆盖面最大。
 // V6.1.11 | 规则回放自检（开发用 runner，不参与游戏运行）
@@ -28,8 +35,26 @@ globalThis.localStorage = { getItem: () => null, setItem: () => {}, removeItem: 
 globalThis.window = globalThis;
 globalThis.self = globalThis;
 
+// --- fact 契约警告收集（V6.4.0）---
+// infra/58-fact-contract.js 的 validateFactContract 在缺字段时打 console.error，
+// 但回放器此前不收集 → 契约违规只是控制台噪声，五件套全绿也看不到。
+// 劫持 console.error 只收 [fact契约] 前缀，按 type|field 去重，计入不变量违规与退出码。
+const factContractWarns = new Map(); // key: "type|field" -> count
+const _origConsoleError = console.error.bind(console);
+console.error = function (...args) {
+    _origConsoleError(...args);
+    try {
+        const first = args[0];
+        if (typeof first === 'string' && first.startsWith('[fact契约] ')) {
+            const m = first.match(/^\[fact契约\]\s+(\S+)\s+缺字段:\s+(\S+)/);
+            const key = m ? (m[1] + '|' + m[2]) : first.slice(0, 80);
+            factContractWarns.set(key, (factContractWarns.get(key) || 0) + 1);
+        }
+    } catch (e) {}
+};
+
 // 补 VER（第 21 轮）：此前本文件无 export const VER，tools/118 的版本头对账会漏掉它
-export const VER = 'tests/rules-replay.mjs V6.2.2';
+export const VER = 'tests/rules-replay.mjs V6.4.1';
 
 const HERE = new URL('.', import.meta.url);
 const [{ CONFIG, loadGameData }, { SeededRNG }, { createRoundStepper }, { initBattleTeams },
@@ -144,11 +169,20 @@ function assertInvariants(units, round, seed, stage) {
         //   `hpAfter = Math.floor(target.hp) - dmg`。首版加了这条 → 120 场误报 11901 条，纯假阳性。
         // 生死与血量一致（第 23 轮加）：存活者 hp 应 >0、已阵亡者 hp 应 <=0。
         //   "活死人"（alive 但血空）与"带血尸体"（已死却还有血）都是明确的回归信号。
+        // 生死与血量一致（第 23 轮加，第 24 轮按 _pendingDeath 对齐设计内中间态）。
+        //   取证：此前 5 条违规经探针核证 **全部** `state._pendingDeath === true`（探针 _tmp-pending.mjs）。
+        //   成因（业务侧 V7.4.5 / core/10 V6.3.3）：致死不再当场 `alive=false`，统一挂 `_pendingDeath`
+        //   交 core/12 L413 `resolveDeaths` 结算（修「带血尸体」hp 不清零 + DEATH 信号不发两个洞）。
+        //   于是「hp<=0 且 alive 仍 true」是**设计内中间态**——逐步断言恰落在这个窗口里，不是缺陷。
+        //   这是口径对齐、不是放宽：引擎自己判"还能不能被选/被打"就是 `u.alive && !u.state._pendingDeath`
+        //   （core/03 L63/L290、core/10 L59/L88、modules/27 L573/L737），体检沿用同一契约，不另立一套。
+        //   故真正的红线收窄为：**血已空、却既没标记待死也没结算** → 死亡结算链路断了。
+        const isPendingDeath = !!(u.state && u.state._pendingDeath);
         // 小昭·姊附身中 hp=0、alive=true 是设计合法态（血按比例转给宿主，modules/27:303）：
-        //   按 state._butterflyHost 精确豁免；其余"活死人"仍报（含 NoHost 路径，见迭代日志第 24 轮）。
+        //   按 state._butterflyHost 精确豁免（第 24 轮·本机线移植）；其余"活死人"仍报。
         const isButterflyAttached = !!(u.state && u.state._butterflyHost);
-        if (u.alive === true && !(u.hp > 0) && !isButterflyAttached) {
-            invIssues.add(tag + (u.name || u.uid) + ' 存活但 hp<=0：' + u.hp);
+        if (u.alive === true && !(u.hp > 0) && !isPendingDeath && !isButterflyAttached) {
+            invIssues.add(tag + (u.name || u.uid) + ' 空血却未标记待死（死亡结算断链）：hp=' + u.hp);
         }
         if (u.alive === false && u.hp > 0) {
             invIssues.add(tag + (u.name || u.uid) + ' 已阵亡但 hp>0：' + u.hp);
@@ -219,10 +253,38 @@ function runCase(seed, stage) {
             assertInvariants([...(step.ally || []), ...(step.enemy || [])], battleState.round, seed, stage);
             if (step.winner) winner = step.winner;
         }
-        // 行动权不变量（回合级）：本回合行动序列走完后核对，抓「吞回合」（122 唯一实现）
+        // 行动权不变量（回合级，第 24 轮·本机线移植）：本回合行动序列走完后核对，抓「吞回合」（122 唯一实现）
         for (const msg of checkActionRights(roundFacts,
             [...((lastStep || {}).ally || []), ...((lastStep || {}).enemy || [])])) {
             invIssues.add(`[seed=${seed} stage=${stage} round=${battleState.round}] ` + msg);
+        }
+        // 回合末兜底断言（第 24 轮）：本回合**正常打完**（无胜者、即将进入下一回合）时，不应再有
+        //   「存活但血空」单位——连仍挂 _pendingDeath 的也不该留下：core/12 有"回合循环内 + 回合结束兜底"
+        //   双路径，待死单位到回合末必被结算。这条补回"标记了却没人结算"那一类，避免上面按 _pendingDeath
+        //   放行后该情形就此失去覆盖。
+        //   有胜者时跳过：胜负已分即战斗终止，最后一击的待死单位本就不再结算，属正常收尾而非缺陷。
+        if (!winner && lastStep) {
+            for (const u of [...(lastStep.ally || []), ...(lastStep.enemy || [])]) {
+                if (!u) continue;
+                const tag2 = `[seed=${seed} stage=${stage} round=${battleState.round}] `;
+                const pend = !!(u.state && u.state._pendingDeath);
+                // 小昭附身态（state._butterflyHost）hp=0、alive=true 属设计合法（血按比例转给宿主），
+                //   与 _pendingDeath 豁免并行（第 24 轮·本机线移植），否则回合末 ② 必误报。
+                const isButterflyAttached = !!(u.state && u.state._butterflyHost);
+                // ① **仍存活**却带着待死标记到回合末 —— resolveDeaths 这一轮没把它结算掉。
+                //    最危险的一种：标记留着，下一轮 resolveDeaths 会把**已经救回来的人再杀一次**。
+                //    取证（第 25 轮）：**必须限定 alive===true**——首版不限，120 场误报一大片
+                //    「拒马/少林弟子 alive=false hp=0 仍挂 _pendingDeath」，即**已死单位**上的标记残留。
+                //    已死单位不在 `resolveDeaths` 的 `(pending && alive)` 过滤里，残留无后果，属无害脏数据。
+                if (pend && u.alive === true) {
+                    invIssues.add(tag2 + (u.name || u.uid) + ' 回合末仍存活却挂着 _pendingDeath（结算未跑完）：hp=' + u.hp);
+                }
+                // ② 没有任何待死标记，却血已空且仍存活 —— 致死路径压根没挂标记、也没结算（断链）。
+                //    与 ① 互斥：有标记的一律算 ①，避免同一件事报两遍。
+                else if (u.alive === true && !(u.hp > 0) && !isButterflyAttached) {
+                    invIssues.add(tag2 + (u.name || u.uid) + ' 回合末仍存活但血空（死亡结算断链）：hp=' + u.hp);
+                }
+            }
         }
         if (winner || !lastStep) break;
         battleState = {
@@ -290,6 +352,13 @@ for (const seed of SEEDS) {
 
 // --- 不变量报告（与机制规则分开报，不混进规则 pass/fail 计数）---
 console.log('=== 不变量（逐步断言）===');
+if (factContractWarns.size) {
+    const total = [...factContractWarns.values()].reduce((a, b) => a + b, 0);
+    console.log(`  ❌ fact 契约违规：${factContractWarns.size} 类（去重），共 ${total} 次`);
+    for (const [k, cnt] of [...factContractWarns.entries()].slice(0, 8)) {
+        console.log(`      - ${k}  ×${cnt}`);
+    }
+}
 if (invUnmappedCount) {
     console.log(`  ❌ facts 映射缺口：${invUnmappedCount} 条声明渲染无产出，涉及类型：${[...invUnmappedTypes].join(', ')}`);
 }
@@ -297,8 +366,8 @@ if (invIssues.size) {
     const arr = [...invIssues];
     for (const m of arr.slice(0, 12)) console.log('  ❌ ' + m);
     if (arr.length > 12) console.log(`  … 另有 ${arr.length - 12} 条同类`);
-} else {
-    console.log('  ✅ hp∈[0,maxHp] / hp 整数 / maxHp>0 / pos 唯一 / facts 映射完整 —— 全部通过');
+} else if (!factContractWarns.size && !invUnmappedCount) {
+    console.log('  ✅ hp∈[0,maxHp] / maxHp>0 / pos 唯一 / facts 映射完整 / fact 契约无缺字段 —— 全部通过');
 }
 
 console.log(`=== 规则回放自检：${cases} 场 / ${rules.length} 条规则 ===`);
@@ -315,7 +384,8 @@ if (KEYWORDS.length) {
     console.log('=== 关键字命中 ===');
     for (const kw of KEYWORDS) console.log(`  ${kw}: ${kwHit[kw] || 0}`);
 }
-const invFail = invIssues.size + (invUnmappedCount ? 1 : 0);
+const invFail = invIssues.size + (invUnmappedCount ? 1 : 0) + factContractWarns.size;
 console.log(`RESULT: ${fails === 0 ? '无失败规则' : fails + ' 条规则报失败'}；恒 skip(空转)规则 ${dead} 条` +
-    `；不变量违规 ${invIssues.size} 类${invUnmappedCount ? ' / facts 映射缺口 ' + invUnmappedCount + ' 条' : ''}`);
+    `；不变量违规 ${invIssues.size} 类${invUnmappedCount ? ' / facts 映射缺口 ' + invUnmappedCount + ' 条' : ''}` +
+    `${factContractWarns.size ? ' / fact 契约违规 ' + factContractWarns.size + ' 类' : ''}`);
 process.exit((fails === 0 && invFail === 0) ? 0 : 1);

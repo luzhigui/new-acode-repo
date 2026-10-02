@@ -1,0 +1,822 @@
+<!-- tools/120-param-lab.html - 参数对照实验台（面向人的版本，独立页面） -->
+<!-- V3.2.3 | 预估 48300 bytes | 2026-09-30 随 124 V2.6.0 退役两张表，页面去掉 isMechanicsRowHidden / dualRegisterNote
+     的 import 与调用（「同一数值只显示一份」的隐藏、以及「两处一起改」的人话提示），字段 hint 简化为
+     info.qualifier；.knob-off 灰显段与其余呈现逻辑不变。
+     V3.2.2 | 预估 48200 bytes | 2026-09-30 「引擎不读」的字段在实验台上可区分（只改呈现，判定仍走 124）：
+     ① 字段表里判定为 'none'（ENGINE_READ_NONE，如随动）或 'orphan'（ENGINE_READ_ORPHAN，如玄冥神掌 duration）
+        的行整行加 .knob-off 灰显，参数格与输入框加 title「引擎不读这个字段，改了不生效」，标签改为「引擎不读 · …」；
+     ② 技能下拉里整组都不读的技能在选项文字后标「（引擎不读）」并加 title；两类字段都不从列表里删除；
+     ③ 判定链路：124 的 skillFieldVerdict → 'none'、isOrphanField → 'orphan'、isUnreadSkillGroup → 下拉标记，页面零新增判断。
+     V3.2.1 | 预估 46600 bytes | 2026-09-29 路径改名（core→122 / worker→123 / glossary→124）；V3.2.0 收尾批（不改实验逻辑）：
+     ① 百分数显示/输入统一成人话：原值一律显示 12%（不再出现 0.12 或 0.12（= 12%）），
+        「改成」输入框按同一人话单位填写，落盘时再按该字段的存储口径换算（1=100% 的除以 100）；
+     ② 「改成」输入框带单位提示（placeholder，如「填 12 表示 12%」）；
+     ③ 韦一笑蝠影汲血由 4 行收成 2 行（战斗参数侧那份按效果类型隐藏）；
+     ④ 数组数值标档位（第 1/4 档）；孤儿子段的标签改说「读取这段的代码已废弃，改它不影响战斗」。
+     V3.1.0 | 2026-09-29 呈现层「说人话」改造：「机制 / mechanics / skills」等实现术语全部下线，
+     角色下拉按技能分组、只显示中文技能名且默认第一个技能；字段表 4 列；同一数值两处登记只显示一份。
+     底层口径不变：批量战斗仍在 123-param-lab-worker.js，走 117 workerUrl 覆盖并行；配对 seed 同序同种子。 -->
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>参数对照实验台</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#1a1a2e;color:#eee;font-family:monospace;padding:18px;max-width:960px;margin:0 auto}
+h1{color:#ffd700;font-size:20px;margin-bottom:6px}
+.card{background:#16213e;border:1px solid #2f3b5c;border-radius:12px;padding:14px 16px;margin-bottom:14px}
+.step{color:#ffd700;font-size:14px;font-weight:bold;margin-bottom:10px;display:flex;align-items:center;gap:8px}
+.step-no{display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:50%;background:#ffd700;color:#1a1a2e;font-size:12px}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:8px}
+label.mini{color:#9aa4bf;font-size:12px;display:flex;align-items:center;gap:6px}
+select,input{padding:7px 9px;border-radius:6px;border:1px solid #455;background:#0f1626;color:#eee;font-size:13px;font-family:monospace}
+select{max-width:460px}
+input[type=number]{width:110px}
+input[type=text]{width:230px}
+button{padding:8px 16px;border:none;border-radius:8px;font-weight:bold;cursor:pointer;font-family:monospace;font-size:13px;background:#ffd700;color:#1a1a2e}
+button.ghost{background:#2f3b5c;color:#cbd3e6;font-weight:normal}
+button.big{font-size:15px;padding:12px 30px}
+button:disabled{opacity:.4;cursor:not-allowed}
+.hint{color:#7f8aa8;font-size:12px;line-height:1.7}
+.hint b{color:#ffd700;font-weight:normal}
+.progress{color:#4fc3f7;font-size:12px;min-height:17px;margin-top:6px}
+.msg{font-size:12px;min-height:16px;margin-top:6px}
+.msg.err{color:#f44336}.msg.ok{color:#4fc3f7}
+.cur{color:#66bb6a;font-size:12px}
+.empty{color:#7f8aa8;font-size:13px;text-align:center;padding:14px 0}
+/* 关卡多选 */
+.stages{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.stages label{background:#0f1626;border:1px solid #455;border-radius:8px;padding:6px 10px;font-size:12px;color:#cbd3e6;cursor:pointer;display:flex;gap:5px;align-items:center}
+.stages label.on{border-color:#ffd700;color:#ffd700}
+/* 补丁行 */
+.patch-row{display:flex;align-items:center;gap:10px;background:#0f1626;border:1px solid #2f3b5c;border-radius:8px;padding:8px 10px;margin-top:6px;font-size:12px}
+.patch-row .pname{flex:1;color:#cbd3e6}
+.patch-row .pval{color:#66bb6a;font-weight:bold}
+.patch-row .pdel{background:#452;color:#fbb;border:none;padding:3px 9px;border-radius:5px;font-size:11px;cursor:pointer}
+/* 参数中文说明区 */
+.knob-help{background:#101a30;border:1px solid #2f3b5c;border-left:3px solid #4fc3f7;border-radius:8px;padding:10px 12px;margin:8px 0 10px;font-size:12px;line-height:1.75}
+.knob-help:empty{display:none}
+.knob-help .kh-head{color:#4fc3f7;font-size:13px;font-weight:bold;margin-bottom:4px}
+.knob-help .kh-head.kh-warn{color:#ffb74d}
+.knob-help .kh-body{color:#c2cade}
+.knob-help .kh-body div{color:#9aa4bf}
+.knob-help .kh-body div:first-child{color:#eee}
+.knob-help details{margin-top:8px;border-top:1px solid #2f3b5c;padding-top:6px}
+.knob-help .kh-skill{margin-top:4px;color:#9aa4bf}
+.knob-help .kh-skill b{color:#cbd3e6}
+/* 字段表 */
+.knob-table{width:100%;border-collapse:collapse;margin-top:8px;font-size:12px}
+.knob-table th{background:#2a2a4e;color:#ffd700;padding:6px;text-align:left;font-weight:normal;white-space:nowrap}
+.knob-table td{padding:5px 6px;border-bottom:1px solid #2f3b5c;color:#c2cade;vertical-align:middle}
+.knob-table td.kname{width:30%}
+.knob-table td.kcur{width:14%;color:#9aa4bf}
+.knob-table td.kwhat{width:36%;color:#7f8aa8;line-height:1.5}
+.knob-table input{width:132px}
+.tag{display:inline-block;border-radius:5px;padding:1px 6px;font-size:10px;margin-left:6px;vertical-align:middle}
+.tag-real{background:#1d3d2a;color:#66bb6a}
+.tag-gray{background:#3a3f52;color:#9aa4bf}
+/* 引擎不读的参数：存在但改了不生效，整行灰显（悬停看 title 说明），不删掉 */
+.knob-table tr.knob-off td{opacity:.5}
+.knob-table tr.knob-off input{background:#141a2a;border-color:#3a4152;color:#8b93a8}
+.knob-legend{margin:8px 0 0;font-size:12px;line-height:1.7;color:#9aa4bf;border-left:3px solid #3a4670;padding:6px 10px;background:#1b2440;border-radius:0 6px 6px 0}
+.knob-legend b{color:#ffd700;font-weight:normal}
+.knob-legend code{color:#8fd6ff}
+/* 结论卡 */
+.verdict{display:flex;align-items:center;gap:14px;border-radius:10px;padding:14px 16px;margin-bottom:14px;border:1px solid}
+.verdict .v-icon{font-size:30px;line-height:1}
+.verdict .v-title{font-size:17px;font-weight:bold;margin-bottom:3px}
+.verdict .v-sub{font-size:12px;color:#c2cade;line-height:1.6}
+.v-up{background:#10331f;border-color:#2e7d4f}
+.v-up .v-title{color:#66bb6a}
+.v-down{background:#3a1420;border-color:#a1374f}
+.v-down .v-title{color:#ff6b81}
+.v-mild{background:#332c10;border-color:#8d7a2e}
+.v-mild .v-title{color:#ffd700}
+.v-none{background:#20263a;border-color:#455}
+.v-none .v-title{color:#9aa4bf}
+.stage-head{color:#ffd700;font-size:14px;font-weight:bold;margin:0 0 10px;padding-top:2px}
+/* 柱状图（绝对刻度：满宽 = 100% 胜率，不做视觉放大） */
+.chart{margin:6px 0 14px}
+.bar-row{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.bar-name{width:56px;color:#9aa4bf;font-size:12px;text-align:right;flex:none}
+.bar-wrap{flex:1;background:#0f1626;border-radius:5px;height:22px;position:relative;overflow:hidden}
+.bar{height:100%;border-radius:5px;display:flex;align-items:center;justify-content:flex-end;padding-right:8px;font-size:12px;font-weight:bold;color:#08121f;min-width:2px;transition:width .35s}
+.bar-base{background:#5a6b93}
+.bar-patch{background:#ffd700}
+.bar-patch.lower{background:#ff6b81}
+.bar-val{color:#cbd3e6;width:64px;font-size:12px;flex:none}
+/* 受影响阵容：只列变了的 */
+.aff-title{color:#ffd700;font-size:13px;margin:6px 0 10px}
+.aff-item{margin-bottom:10px}
+.aff-head{display:flex;justify-content:space-between;align-items:baseline;font-size:12px;margin-bottom:4px}
+.aff-name{color:#cbd3e6}
+.aff-tag{font-weight:bold;flex:none;margin-left:10px}
+.aff-tag.up{color:#66bb6a}.aff-tag.down{color:#ff6b81}
+.aff-track{height:14px;background:#0f1626;border-radius:4px;position:relative;overflow:hidden}
+.aff-b{position:absolute;left:0;top:0;height:100%;background:#5a6b93}
+.aff-gain{position:absolute;top:0;height:100%;background:#66bb6a;opacity:.9}
+.aff-loss{position:absolute;top:0;height:100%;background:#ff6b81;opacity:.9}
+details{margin-top:12px;border-top:1px solid #2f3b5c;padding-top:10px}
+summary{color:#7f8aa8;font-size:12px;cursor:pointer;user-select:none}
+table.dump{width:100%;border-collapse:collapse;margin-top:10px;font-size:12px}
+table.dump th{background:#2a2a4e;color:#ffd700;padding:6px;text-align:center;white-space:nowrap;font-weight:normal}
+table.dump td{padding:5px 6px;border-bottom:1px solid #2f3b5c;color:#c2cade;text-align:center}
+table.dump td.left{text-align:left}
+.pill{display:inline-block;background:#2f3b5c;color:#ffd700;border-radius:6px;padding:1px 7px;font-size:11px}
+</style>
+</head>
+<body>
+<h1>参数对照实验台</h1>
+<p class="hint" style="margin-bottom:14px">
+改一个数值，看明教胜率变多少。<b>同一批对局跑两遍</b>——现状一遍、改后一遍，对手阵容、随机种子、海克斯全都一样，只差你改的那一个数字。所以「胜率变化」和「哪几局翻了盘」就是这一个数字的净效果，不是噪声。
+</p>
+
+<div class="card">
+    <div class="step"><span class="step-no">1</span>选关卡（可多选）</div>
+    <div class="row"><div class="stages" id="stageBox"></div></div>
+    <div class="row">
+        <button id="allStagesBtn" class="ghost">全选</button>
+        <button id="noStagesBtn" class="ghost">全不选</button>
+        <label class="mini">每套阵容跑 <input type="number" id="runsInput" value="100" min="10" max="2000"> 局</label>
+        <span class="pill" id="lineupPill">阵容准备中…</span>
+    </div>
+    <div class="hint">每关各准备 15 套「最常出现的阵容」（按精英组合归类），属性固定；六大派照常随机。结果按关分开列，不跨关混算。局数越大越准，100 局约十来秒。</div>
+    <div class="msg" id="prepMsg"></div>
+</div>
+
+<div class="card">
+    <div class="step"><span class="step-no">2</span>挑参数（先选归属，再选技能），填新值</div>
+    <div class="row">
+        <label class="mini">归属 <select id="ownerSel"></select></label>
+        <label class="mini">技能 <select id="skillSel"></select></label>
+        <input type="text" id="fieldSearch" placeholder="在本组内筛数字名">
+    </div>
+    <div class="hint" id="ownerHint"></div>
+    <div id="knobTableBox"></div>
+    <div class="knob-help" id="knobHelp"></div>
+    <div class="row" style="margin-top:8px">
+        <button id="addFilledBtn">把填了的新值加进去</button>
+        <button id="clearPatchBtn" class="ghost">清空全部改动</button>
+        <span class="cur" id="fillCount"></span>
+    </div>
+    <div id="patchBox"><div class="empty">还没改任何数值 —— 也可以直接点第 3 步只跑现状</div></div>
+</div>
+
+<div class="card">
+    <div class="step"><span class="step-no">3</span>跑</div>
+    <div class="row">
+        <button id="runBtn" class="big" disabled>▶ 开始对照</button>
+        <span class="hint" id="runScale"></span>
+    </div>
+    <div class="progress" id="runProgress"></div>
+    <div class="msg" id="runMsg"></div>
+</div>
+
+<div id="resultBox"></div>
+<div class="row" id="exportRow"></div>
+
+<script type="module">
+import { ensureGameData, listNumericKnobs, pickTypicals } from './122-param-lab-core.js';
+import { runParallel, getPoolSize } from './117-shared-worker-runner.js';
+import { describeKnob, fmtValue, charSkillLines, UNIT, CONFIG_KEY_GLOSSARY, DATA_KEY_GLOSSARY, skillFieldVerdict,
+    charSkillGroups, charGroupKeyOf, isMirroredSkillField, knobWhatIf,
+    isOrphanField, humanToStored, inputHint, isUnreadSkillGroup } from './124-param-lab-glossary.js';
+
+const WORKER_URL = new URL('./123-param-lab-worker.js', import.meta.url);
+const SAMPLE_BASE = 20000;   // 采样 seed 起点（与 CLI --sample 默认一致）
+const COMPARE_BASE = 1;      // 对照 seed 起点（与 CLI 默认一致）
+const SAMPLE_RUNS = 1000;    // 采样次数固定：用来定出「15 套典型阵容」
+const PICK = 15;
+const CHUNK = 25;
+const STAGES = [1, 2, 3, 4, 5, 6, 7];
+
+const $ = id => document.getElementById(id);
+const stageBox = $('stageBox'), runsInput = $('runsInput'), lineupPill = $('lineupPill'), prepMsg = $('prepMsg');
+const ownerSel = $('ownerSel'), skillSel = $('skillSel'), fieldSearch = $('fieldSearch');
+const ownerHint = $('ownerHint'), knobTableBox = $('knobTableBox'), knobHelp = $('knobHelp');
+const addFilledBtn = $('addFilledBtn'), clearPatchBtn = $('clearPatchBtn'), fillCount = $('fillCount');
+const patchBox = $('patchBox');
+const runBtn = $('runBtn'), runScale = $('runScale'), runProgress = $('runProgress'), runMsg = $('runMsg');
+const resultBox = $('resultBox'), exportRow = $('exportRow');
+
+const lineupsByStage = new Map();   // stage -> 15 套典型阵容
+let allKnobs = [];                  // listNumericKnobs 全量（四层）
+let gameRoot = null;                // 参数表根对象（中文说明要读它）
+let patchOps = [];                  // [{ path, value, orig, label, group, unit }]
+let lastMd = '';
+let running = false;
+
+const win = w => w === '明教';
+const isErr = w => w && String(w).startsWith('ERROR');
+const fmtPct = x => (x * 100).toFixed(1) + '%';
+const fmtDelta = d => (d >= 0 ? '+' : '') + (d * 100).toFixed(1) + ' 个百分点';
+const baseName = n => { const i = String(n).indexOf('·'); return i >= 0 ? String(n).slice(0, i) : String(n); };
+// 阵容标签：'张无忌+小昭·姊+韦一笑' → '3 精英：张无忌 + 小昭·姊 + 韦一笑'（光看加号不知道是几个）
+const niceLabel = l => {
+    const k = String((l && l.label) || '');
+    if (!k || k === '无精英') return '无精英';
+    const parts = k.split('+');
+    return `${parts.length} 精英：${parts.join(' + ')}`;
+};
+
+// ---------------------------------------------------------------------------
+// 初始化：关卡多选（默认第 3 关）
+// ---------------------------------------------------------------------------
+for (const s of STAGES) {
+    const lab = document.createElement('label');
+    lab.innerHTML = `<input type="checkbox" value="${s}"${s === 3 ? ' checked' : ''}>第 ${s} 关`;
+    stageBox.appendChild(lab);
+}
+stageBox.addEventListener('change', e => {
+    const cb = e.target.closest('input[type=checkbox]');
+    if (!cb) return;
+    cb.closest('label').classList.toggle('on', cb.checked);
+    onStagesChanged();
+});
+for (const lab of stageBox.querySelectorAll('label')) lab.classList.toggle('on', lab.querySelector('input').checked);
+const syncStageLabels = () => {
+    for (const lab of stageBox.querySelectorAll('label')) lab.classList.toggle('on', lab.querySelector('input').checked);
+};
+$('allStagesBtn').addEventListener('click', () => {
+    stageBox.querySelectorAll('input').forEach(cb => { cb.checked = true; });
+    syncStageLabels(); onStagesChanged();
+});
+$('noStagesBtn').addEventListener('click', () => {
+    stageBox.querySelectorAll('input').forEach(cb => { cb.checked = false; });
+    syncStageLabels(); onStagesChanged();
+});
+const selectedStages = () => [...stageBox.querySelectorAll('input:checked')].map(i => Number(i.value)).sort((a, b) => a - b);
+function onStagesChanged() {
+    if (!gameRoot) return;
+    buildOwnerSelect();
+    prepareLineups();
+    refreshScale();
+}
+
+// ---------------------------------------------------------------------------
+// ② 参数：三级「归属 → 技能 → 字段表」
+//   归属按关卡过滤角色：明教侧（roster.mingM 里有名册位的）常驻；六大派只列所选关卡里会出场的
+//   （enemySquads / elitePool / squadVariants 三处取并集）。CONFIG 与数据表不随关卡过滤。
+// ---------------------------------------------------------------------------
+function stageEnemyNames(stage) {
+    const s = new Set();
+    const take = o => {
+        if (Array.isArray(o)) o.forEach(take);
+        else if (o && typeof o === 'object' && o.name) s.add(o.name);
+    };
+    take(gameRoot.encounters?.enemySquads?.[stage]);
+    take(gameRoot.encounters?.elitePool?.[stage]);
+    for (const v of (gameRoot.encounters?.squadVariants?.[stage] || [])) take(v && v.squad);
+    return s;
+}
+// 归属项统一形态：{ layer, owner, label }
+function ownerOptions() {
+    const ming = new Set(Object.keys(gameRoot.roster?.mingM || {}));
+    const stages = selectedStages();
+    const enemies = new Set();
+    for (const st of stages) for (const n of stageEnemyNames(st)) enemies.add(n);
+    const chars = Object.keys(gameRoot.characters || {});
+    const opt = [];
+    for (const n of chars) if (ming.has(n)) opt.push({ layer: 'character', owner: n, label: n });
+    for (const n of chars) if (!ming.has(n) && enemies.has(n)) opt.push({ layer: 'character', owner: n, label: n });
+    if (allKnobs.some(k => k.layer === 'config')) opt.push({ layer: 'config', owner: '全局常量', label: '全局规则常量' });
+    for (const key of [...new Set(allKnobs.filter(k => k.layer === 'data').map(k => k.owner))]) {
+        opt.push({ layer: 'data', owner: key, label: DATA_KEY_GLOSSARY[key] || key });
+    }
+    return opt;
+}
+function buildOwnerSelect() {
+    const opt = ownerOptions();
+    const keep = ownerSel.value;
+    ownerSel.innerHTML = '';
+    const mk = (parent, o) => {
+        const e = document.createElement('option');
+        e.value = `${o.layer}|${o.owner}`;
+        e.textContent = o.label;
+        e.dataset.layer = o.layer; e.dataset.owner = o.owner;
+        parent.appendChild(e);
+    };
+    const gMing = document.createElement('optgroup'); gMing.label = '明教侧角色';
+    const gEnemy = document.createElement('optgroup'); gEnemy.label = '六大派角色（按所选关卡出场过滤）';
+    const gOther = document.createElement('optgroup'); gOther.label = '常量与数据表';
+    const ming = new Set(Object.keys(gameRoot.roster?.mingM || {}));
+    for (const o of opt) {
+        if (o.layer === 'character') mk(ming.has(o.owner) ? gMing : gEnemy, o);
+        else mk(gOther, o);
+    }
+    for (const g of [gMing, gEnemy, gOther]) if (g.children.length) ownerSel.appendChild(g);
+    if ([...ownerSel.options].some(o => o.value === keep)) ownerSel.value = keep;
+    else if (ownerSel.options.length) ownerSel.selectedIndex = 0;
+    buildSkillSelect();
+}
+function curOwner() {
+    const o = ownerSel.selectedOptions[0];
+    return o ? { layer: o.dataset.layer, owner: o.dataset.owner } : null;
+}
+function buildSkillSelect() {
+    const ow = curOwner();
+    skillSel.innerHTML = '';
+    if (!ow) { knobTableBox.innerHTML = ''; ownerHint.textContent = ''; return; }
+    // 角色层：按技能归组（中文技能名），战斗参数里的数字归到它所属的技能，归不进去的进「其他被动」。
+    // 常量/数据表层：沿用扫描出的分组键。
+    let groups;
+    if (ow.layer === 'character') {
+        groups = charSkillGroups(gameRoot, ow.owner);
+    } else if (ow.layer === 'config') {
+        groups = [...new Set(allKnobs.filter(k => k.layer === 'config' && k.owner === ow.owner).map(k => k.skill))]
+            .map(g => ({ key: g, label: CONFIG_KEY_GLOSSARY[g] || g }));
+    } else {
+        groups = [...new Set(allKnobs.filter(k => k.layer === 'data' && k.owner === ow.owner).map(k => k.skill))]
+            .map(g => ({ key: g, label: g || '（顶层）' }));
+    }
+    for (const g of groups) {
+        const e = document.createElement('option');
+        e.value = g.key;
+        // 整组参数引擎都不读的技能（如谢逊「随动」）：标出来但不下架，用户需要知道它存在
+        const unread = ow.layer === 'character' && isUnreadSkillGroup(g.key);
+        e.textContent = unread ? `${g.label}（引擎不读）` : g.label;
+        if (unread) e.title = '这个技能的参数引擎不读，改了不生效（字段表里整行灰显）';
+        skillSel.appendChild(e);
+    }
+    if (groups.length) skillSel.value = groups[0].key;   // 默认选中第一个技能
+    ownerHint.textContent = ow.layer === 'character'
+        ? `下面是「${ow.owner}」身上所有可以改的数字。左边选技能，改完点下面的按钮加入改动清单。`
+        : ow.layer === 'config'
+            ? '下面是全局规则常量（不随关卡和阵容变化），改了对所有对局都生效。'
+            : '下面是数据表里的数字（海克斯、职业加成、关卡阵容、名册预算等），改了全局生效。';
+    buildKnobTable();
+}
+skillSel.addEventListener('change', buildKnobTable);
+ownerSel.addEventListener('change', () => { buildSkillSelect(); });
+fieldSearch.addEventListener('input', buildKnobTable);
+
+function knobInfo(k) {
+    return gameRoot ? describeKnob(k.path, gameRoot, k)
+        : { kind: 'mechanics', fieldName: k.label, unit: UNIT.raw, qualifier: '', lines: [] };
+}
+function paramsFieldOf(k) {
+    const parts = String(k.path).split('.');
+    const i = parts.indexOf('params');
+    return i >= 0 ? parts.slice(i + 1).join('.') : '';
+}
+function knobSearchText(k) {
+    const i = knobInfo(k);
+    return `${i.fieldName} ${i.qualifier || ''} ${k.path}`;
+}
+function buildKnobTable() {
+    const ow = curOwner();
+    const skill = skillSel.value;
+    if (!ow || !skill) { knobTableBox.innerHTML = '<div class="empty">先选归属和技能</div>'; return; }
+    const q = fieldSearch.value.trim().toLowerCase();
+    const list = allKnobs
+        .filter(k => k.layer === ow.layer && k.owner === ow.owner)
+        .filter(k => ow.layer === 'character'
+            ? (charGroupKeyOf(gameRoot, ow.owner, k.path) === skill
+                && !isMirroredSkillField(k.skill, paramsFieldOf(k)))
+            : k.skill === skill)
+        .filter(k => !q || knobSearchText(k).toLowerCase().includes(q));
+    if (!list.length) {
+        knobTableBox.innerHTML = `<div class="empty">${q ? '本组里没搜到匹配的数字' : '本组没有可改的数字'}</div>`;
+        fillCount.textContent = ''; return;
+    }
+    // 是否影响战斗：战斗参数侧一律「影响战斗」（孤儿子段除外）；技能面板的数字由 glossary 的读取表逐条给结论。
+    const VERDICT_TAG = {
+        engine:  '<span class="tag tag-real">影响战斗</span>',
+        dynamic: '<span class="tag tag-real">引擎按情况取整包读取</span>',
+        none:    '<span class="tag tag-gray">引擎不读 · 只校验有没有写</span>',
+        text:    '<span class="tag tag-gray">只改技能说明文字，不影响战斗</span>',
+        orphan:  '<span class="tag tag-gray">引擎不读 · 读取代码已废弃</span>'
+    };
+    const OFF_TIP = '引擎不读这个字段，改了不生效';
+    const isChar = ow.layer === 'character';
+    const legend = isChar
+        ? '<div class="knob-legend">下表是这个技能下的全部数字。改了标「影响战斗」的行，战斗结果就会变；标「引擎不读」的整行灰显（悬停有说明），它们改了不生效，留着只是让你知道存在。</div>'
+        : '';
+    let h = legend + '<table class="knob-table"><tr><th>参数</th><th>原值</th><th>改成</th><th>改了会怎样</th></tr>';
+    for (const k of list) {
+        const info = knobInfo(k);
+        const fp = paramsFieldOf(k);
+        const orphan = isChar && info.kind === 'mechanics'
+            && isOrphanField(charGroupKeyOf(gameRoot, ow.owner, k.path), info.fieldRaw);
+        const verdict = orphan ? 'orphan' : (fp ? skillFieldVerdict(k.skill, fp) : 'engine');
+        const tag = isChar ? (VERDICT_TAG[verdict] || '') : '';
+        const hint = info.qualifier || '';
+        const ph = inputHint(info.unit);
+        // 引擎不读（none：ENGINE_READ_NONE / orphan：ENGINE_READ_ORPHAN）→ 整行灰显 + 悬停说明，但不从表里删掉
+        const off = isChar && (verdict === 'none' || verdict === 'orphan');
+        const offTip = off ? ` title="${OFF_TIP}"` : '';
+        h += `<tr${off ? ' class="knob-off"' : ''}><td class="kname"${offTip}>${info.fieldName}${tag}${hint ? `<div class="hint">${hint}</div>` : ''}</td>`
+            + `<td class="kcur">${fmtValue(k.value, info.unit)}</td>`
+            + `<td><input type="number" step="any" data-path="${k.path}" data-orig="${k.value}" data-unit="${info.unit}"${offTip}${ph ? ` placeholder="${ph}"` : ''}></td>`
+            + `<td class="kwhat">${knobWhatIf(k.path, gameRoot, k)}</td></tr>`;
+    }
+    h += '</table>';
+    knobTableBox.innerHTML = h;
+    knobTableBox.querySelectorAll('input').forEach(inp => {
+        inp.addEventListener('input', updateFillCount);
+        inp.addEventListener('focus', () => showHelp(inp.dataset.path));
+    });
+    updateFillCount();
+    const first = list[0];
+    if (first) showHelp(first.path);
+}
+function updateFillCount() {
+    const n = [...knobTableBox.querySelectorAll('input')].filter(i => i.value.trim() !== '' && Number.isFinite(Number(i.value))).length;
+    fillCount.textContent = n ? `本组已填 ${n} 项，点左边按钮一次加入` : '';
+}
+function showHelp(path) {
+    const k = allKnobs.find(x => x.path === path);
+    if (!k) { knobHelp.innerHTML = ''; return; }
+    const info = knobInfo(k);
+    const chName = k.owner;
+    const skills = (k.layer === 'character' && gameRoot) ? charSkillLines(gameRoot, chName) : [];
+    knobHelp.innerHTML =
+        `<div class="kh-head${info.kind === 'skill' ? ' kh-warn' : ''}">${k.layer === 'character' ? chName + ' · ' : ''}${info.title}</div>`
+        + `<div class="kh-body">${info.lines.map(l => `<div>${l}</div>`).join('')}</div>`
+        + (skills.length
+            ? `<details><summary>${chName} 的全部技能说明</summary>${skills.map(s =>
+                `<div class="kh-skill"><b>${s.name}</b>：${s.desc || '（无说明）'}</div>`).join('')}</details>`
+            : '');
+}
+
+async function initKnobs() {
+    try {
+        gameRoot = await ensureGameData();
+        allKnobs = listNumericKnobs(gameRoot);
+        buildOwnerSelect();
+    } catch (e) {
+        prepMsg.className = 'msg err';
+        prepMsg.textContent = `参数表加载失败：${e.message}`;
+    }
+}
+
+// ---------------------------------------------------------------------------
+// ① 准备阵容：页面打开（及换关）就自动采样，用户不用点。多关并行准备，各关各 15 套。
+// ---------------------------------------------------------------------------
+async function prepareLineups() {
+    const stages = selectedStages();
+    lineupPill.textContent = '阵容准备中…';
+    runBtn.disabled = true;
+    if (!stages.length) {
+        lineupPill.textContent = '未选关卡';
+        prepMsg.className = 'msg err'; prepMsg.textContent = '至少选一个关卡';
+        refreshScale(); return;
+    }
+    try {
+        const done = await runParallel({
+            jobs: stages.map(st => ({ stage: st })),
+            workerUrl: WORKER_URL,
+            nextJobMsg: (job, id) => ({ jobId: id, kind: 'lab-sample', stage: job.stage, runs: SAMPLE_RUNS, base: SAMPLE_BASE })
+        });
+        lineupsByStage.clear();
+        for (const d of done) lineupsByStage.set(d.job.stage, pickTypicals({ list: d.result.list }, PICK));
+        const n = [...lineupsByStage.values()].reduce((s, l) => s + l.length, 0);
+        lineupPill.textContent = `${stages.length} 关共 ${n} 套典型阵容`;
+        prepMsg.className = 'hint'; prepMsg.textContent = '';
+    } catch (e) {
+        lineupPill.textContent = '阵容准备失败';
+        prepMsg.className = 'msg err';
+        prepMsg.textContent = `阵容准备失败：${e.message}`;
+    }
+    refreshScale();
+}
+runsInput.addEventListener('input', refreshScale);
+function refreshScale() {
+    const runs = Math.max(10, parseInt(runsInput.value, 10) || 100);
+    const stages = selectedStages();
+    const n = stages.reduce((s, st) => s + (lineupsByStage.get(st) || []).length, 0);
+    const arm = n * runs;
+    runBtn.disabled = running || !n;
+    runScale.textContent = patchOps.length
+        ? `跑 ${arm} 局 × 2 遍（现状 + 改后）= ${arm * 2} 局`
+        : `${arm} 局（只跑现状；想对比先在第 2 步加一个改动）`;
+}
+
+// ---------------------------------------------------------------------------
+// ② 补丁：人只填「改成几」，路径与当前值由页面记
+// ---------------------------------------------------------------------------
+// 改动清单也用人话单位显示（与字段表同一口径）
+function showVal(v, unit) {
+    return (typeof v === 'number' && Number.isFinite(v)) ? fmtValue(v, unit) : String(v);
+}
+function renderPatch() {
+    if (!patchOps.length) {
+        patchBox.innerHTML = '<div class="empty">还没改任何数值 —— 也可以直接点第 3 步只跑现状</div>';
+        refreshScale();
+        return;
+    }
+    patchBox.innerHTML = patchOps.map((o, i) => `
+        <div class="patch-row">
+            <span class="pname">${o.group} · ${o.label}</span>
+            <span>${showVal(o.orig, o.unit)} → <span class="pval">${showVal(o.value, o.unit)}</span></span>
+            <button class="pdel" data-del="${i}">删掉</button>
+        </div>`).join('');
+    patchBox.querySelectorAll('button[data-del]').forEach(b => {
+        b.addEventListener('click', () => { patchOps.splice(parseInt(b.dataset.del, 10), 1); renderPatch(); });
+    });
+    refreshScale();
+}
+addFilledBtn.addEventListener('click', () => {
+    const ow = curOwner();
+    if (!ow) return;
+    const inputs = [...knobTableBox.querySelectorAll('input')];
+    const ok = [], bad = [];
+    for (const inp of inputs) {
+        const raw = inp.value.trim();
+        if (raw === '') continue;
+        const v = Number(raw);
+        if (!Number.isFinite(v)) { bad.push(inp.dataset.path); continue; }
+        const k = allKnobs.find(x => x.path === inp.dataset.path);
+        if (!k) continue;
+        const info = knobInfo(k);
+        ok.push({ path: k.path, value: humanToStored(v, info.unit), orig: Number(inp.dataset.orig), label: info.fieldName, group: k.owner, unit: info.unit });
+        inp.value = '';
+    }
+    if (!ok.length) {
+        runMsg.className = 'msg err';
+        runMsg.textContent = bad.length ? `有 ${bad.length} 项不是数字，没加进去` : '先在上面的字段表里填至少一个新值';
+        updateFillCount(); return;
+    }
+    for (const o of ok) {
+        const ex = patchOps.find(x => x.path === o.path);
+        if (ex) { ex.value = o.value; ex.orig = o.orig; ex.label = o.label; ex.group = o.group; ex.unit = o.unit; }
+        else patchOps.push(o);
+    }
+    runMsg.className = 'msg ok';
+    runMsg.textContent = `已记下 ${ok.length} 项改动${bad.length ? `（另有 ${bad.length} 项不是数字，跳过）` : ''}`;
+    updateFillCount();
+    renderPatch();
+});
+clearPatchBtn.addEventListener('click', () => { patchOps = []; renderPatch(); });
+
+// ---------------------------------------------------------------------------
+// ③ 跑对照：现状臂 →（有改动则）改后臂，两臂同序同种子。
+//    两臂必须「所有关卡一起先跑现状、再一起跑改后」——worker 池常驻，补丁是就地改数据表的，
+//    若按关交替跑，前一关的补丁臂会把后一关的现状臂污染掉。
+// ---------------------------------------------------------------------------
+runBtn.addEventListener('click', async () => {
+    const stages = selectedStages();
+    if (!stages.length) return;
+    const runs = Math.max(10, parseInt(runsInput.value, 10) || 100);
+    const patch = patchOps.map(o => ({ path: o.path, value: o.value }));
+    const poolSize = getPoolSize();
+    const hasPatch = patch.length > 0;
+
+    running = true; refreshScale();
+    runProgress.textContent = '';
+    runMsg.className = 'msg'; runMsg.textContent = '';
+    resultBox.innerHTML = '<div class="empty">跑着呢…</div>';
+    exportRow.innerHTML = '';
+
+    const baseResults = {}, patchResults = {};
+    for (const st of stages) {
+        const n = (lineupsByStage.get(st) || []).length;
+        baseResults[st] = []; patchResults[st] = [];
+        for (let i = 0; i < n; i++) { baseResults[st][i] = new Array(runs).fill(null); patchResults[st][i] = new Array(runs).fill(null); }
+    }
+    const total = stages.reduce((s, st) => s + (lineupsByStage.get(st) || []).length, 0) * runs;
+
+    const buildJobs = arm => {
+        const jobs = [];
+        for (const st of stages) {
+            const L = lineupsByStage.get(st) || [];
+            for (let i = 0; i < L.length; i++) {
+                for (let s = 0; s < runs; s += CHUNK) {
+                    jobs.push({ stage: st, idx: i, startIndex: s, runs: Math.min(CHUNK, runs - s), arm });
+                }
+            }
+        }
+        return jobs;
+    };
+    const nextMsg = arm => (job, id) => ({
+        jobId: id, kind: 'lab-run', arm, stage: job.stage,
+        spec: (lineupsByStage.get(job.stage) || [])[job.idx].spec, base: COMPARE_BASE,
+        startIndex: job.startIndex, runs: job.runs,
+        patchOps: arm === 'patch' ? patch : undefined
+    });
+    const makeCollect = (store, label) => {
+        let done = 0;
+        return (finished, jobTotal, job, result) => {
+            const arr = store[job.stage][job.idx], w = result.winners || [];
+            for (let i = 0; i < w.length; i++) arr[job.startIndex + i] = w[i];
+            done += job.runs;
+            runProgress.textContent = `${label} ${Math.min(done, total)}/${total} 局（${poolSize} 线程并行）`;
+        };
+    };
+
+    try {
+        await runParallel({
+            jobs: buildJobs('base'), workerUrl: WORKER_URL, poolSize,
+            nextJobMsg: nextMsg('base'), onJobDone: makeCollect(baseResults, '现状')
+        });
+        if (hasPatch) {
+            await runParallel({
+                jobs: buildJobs('patch'), workerUrl: WORKER_URL, poolSize,
+                nextJobMsg: nextMsg('patch'), onJobDone: makeCollect(patchResults, '改后')
+            });
+        }
+        renderAll(stages, runs, hasPatch, baseResults, patchResults);
+        runProgress.textContent = '✅ 跑完了';
+    } catch (e) {
+        runProgress.textContent = '';
+        runMsg.className = 'msg err';
+        runMsg.textContent = `跑挂了：${e.message}`;
+        resultBox.innerHTML = `<div class="empty">跑挂了：${e.message}</div>`;
+    } finally {
+        running = false; refreshScale();
+    }
+});
+
+// ---------------------------------------------------------------------------
+// 结果渲染：总览（多关）+ 每关一张卡（结论 + 柱状 + 只列变了的阵容）；原始表收进 details
+// ---------------------------------------------------------------------------
+function evalStage(stage, runs, hasPatch, baseResults, patchResults) {
+    const L = lineupsByStage.get(stage) || [];
+    const rows = [];
+    for (let i = 0; i < L.length; i++) {
+        const b = baseResults[stage][i] || [];
+        const p = hasPatch ? (patchResults[stage][i] || []) : [];
+        const bw = b.filter(win).length;
+        const err = b.filter(isErr).length + p.filter(isErr).length;
+        let up = 0, down = 0, pw = 0;
+        if (hasPatch) {
+            pw = p.filter(win).length;
+            for (let k = 0; k < runs; k++) {
+                if (!win(b[k]) && win(p[k])) up++;
+                else if (win(b[k]) && !win(p[k])) down++;
+            }
+        }
+        rows.push({ i, l: L[i], bw, pw, up, down, net: up - down, err,
+            base: bw / runs, patched: pw / runs, freq: (L[i].rosterCount || 0) / SAMPLE_RUNS });
+    }
+    const n = rows.length || 1;
+    const meanBase = rows.reduce((s, r) => s + r.base, 0) / n;
+    const meanPatch = hasPatch ? rows.reduce((s, r) => s + r.patched, 0) / n : meanBase;
+    const upAll = rows.reduce((s, r) => s + r.up, 0);
+    const downAll = rows.reduce((s, r) => s + r.down, 0);
+    return { stage, rows, n: rows.length, meanBase, meanPatch, delta: meanPatch - meanBase, upAll, downAll, netAll: upAll - downAll,
+        changed: rows.filter(r => r.net !== 0), errAll: rows.reduce((s, r) => s + r.err, 0) };
+}
+function barRow(name, v, cls) {
+    return `<div class="bar-row"><span class="bar-name">${name}</span>
+        <span class="bar-wrap"><span class="bar ${cls}" style="width:${(v * 100).toFixed(1)}%"></span></span>
+        <span class="bar-val">${fmtPct(v)}</span></div>`;
+}
+function detailTable(res, runs, hasPatch) {
+    let h = '<details><summary>原始数据</summary>';
+    h += '<table class="dump"><tr><th>阵容</th><th>出现频率</th><th>现状胜率</th>'
+        + (hasPatch ? '<th>改后胜率</th><th>净翻盘</th>' : '') + '<th>异常局</th></tr>';
+    for (const r of res.rows) {
+        h += `<tr><td class="left">${r.l.id} ${niceLabel(r.l)}</td><td>${(r.freq * 100).toFixed(1)}%</td><td>${fmtPct(r.base)}</td>`;
+        if (hasPatch) h += `<td>${fmtPct(r.patched)}</td><td style="color:${r.net > 0 ? '#66bb6a' : (r.net < 0 ? '#ff6b81' : '#c2cade')}">${r.net >= 0 ? '+' : ''}${r.net}</td>`;
+        h += `<td>${r.err || 0}</td></tr>`;
+    }
+    h += '</table>';
+    h += `<div class="hint" style="margin:10px 0">等权汇总（${res.n} 套一视同仁）：现状 ${fmtPct(res.meanBase)}`
+        + (hasPatch ? ` → 改后 ${fmtPct(res.meanPatch)}（${fmtDelta(res.delta)}）；总翻盘 输变赢 ${res.upAll} 局 / 赢变输 ${res.downAll} 局，净 ${res.netAll >= 0 ? '+' : ''}${res.netAll}` : '')
+        + `<br>第 ${res.stage} 关｜每套 ${runs} 局｜海克斯固定｜同种子配对</div>`;
+    h += '</details>';
+    return h;
+}
+function stageCard(res, runs, hasPatch) {
+    const el = [];
+    if (!hasPatch) {
+        el.push(`<div class="verdict v-none"><div class="v-icon">📋</div>
+            <div><div class="v-title">只跑了现状（没做改动）</div>
+            <div class="v-sub">这是第 ${res.stage} 关、${res.n} 套典型阵容的现状基线。想看点改动的影响，回第 2 步填一个新值再跑一次。</div></div></div>`);
+        el.push(`<div class="chart">${barRow('明教胜率', res.meanBase, 'bar-base')}</div>`);
+        el.push('<div class="hint">各套阵容差异极大是正常的：阵容强度主要由「带几个精英」决定。</div>');
+        el.push(detailTable(res, runs, false));
+        return el.join('');
+    }
+    const ad = Math.abs(res.delta);
+    let cls, icon, title;
+    if (ad >= 0.10) { cls = res.delta > 0 ? 'v-up' : 'v-down'; icon = res.delta > 0 ? '🚀' : '💥'; title = res.delta > 0 ? '影响很大：明教明显变强' : '影响很大：明教明显变弱'; }
+    else if (ad >= 0.03) { cls = 'v-mild'; icon = '⚠️'; title = res.delta > 0 ? '有影响：偏强一些' : '有影响：偏弱一些'; }
+    else if (ad >= 0.01) { cls = 'v-mild'; icon = '🟡'; title = res.delta > 0 ? '影响轻微，略偏强' : '影响轻微，略偏弱'; }
+    else if (res.netAll !== 0) { cls = 'v-none'; icon = '⚪'; title = '胜率几乎没动，但个别对局翻了盘'; }
+    else { cls = 'v-none'; icon = '⚪'; title = '基本没影响：胜率和对局结果都没变'; }
+
+    el.push(`<div class="verdict ${cls}"><div class="v-icon">${icon}</div>
+        <div><div class="v-title">${title}</div>
+        <div class="v-sub">明教胜率 <b>${fmtPct(res.meanBase)}</b> → <b>${fmtPct(res.meanPatch)}</b>（${fmtDelta(res.delta)}）<br>
+        ${res.n} 套阵容 × ${runs} 局 = ${res.n * runs} 局里，有 <b>${res.changed.length}</b> 套阵容的结果变了，
+        共改写 ${res.upAll + res.downAll} 局（${res.upAll} 局由输变赢、${res.downAll} 局由赢变输）</div></div></div>`);
+    el.push(`<div class="chart">${barRow('现状', res.meanBase, 'bar-base')}${barRow('改后', res.meanPatch, 'bar-patch' + (res.delta < 0 ? ' lower' : ''))}</div>`);
+    el.push('<div class="hint">绝对刻度：柱子满宽 = 100% 胜率，没有做视觉放大。</div>');
+
+    const notes = [];
+    if (!res.changed.length) {
+        notes.push(`两种跑法逐局比对，${res.n * runs} 局结果一模一样 —— 这些数值在本关对胜负没有任何影响。`);
+    } else {
+        const pct = (res.changed.length / res.n * 100).toFixed(0);
+        notes.push(`${res.n} 套阵容里只有 ${res.changed.length} 套（${pct}%）的结果有变化，其余 ${res.n - res.changed.length} 套逐局完全相同。`);
+        const chName = patchOps.length ? baseName(patchOps[0].group) : '';
+        const touched = chName ? res.rows.filter(r => r.l.spec.some(e => baseName(e.label) === chName)) : [];
+        if (chName && touched.length && res.changed.every(r => r.l.spec.some(e => baseName(e.label) === chName))) {
+            notes.push(`变了的全都含「${chName}」，不含它的 ${res.n - touched.length} 套纹丝不动 —— 说明这个数值确实只作用在「${chName}」身上，改对了位置。`);
+        } else if (chName && touched.length) {
+            notes.push(`注意：变了的阵容里有不含「${chName}」的 —— 可能是间接影响（比如队友/敌人被打乱节奏），也可能是局数不够的随机波动，建议把局数加大到 300 再跑一次确认。`);
+        }
+        if (Math.abs(res.netAll) <= Math.max(2, res.n * runs * 0.002)) {
+            notes.push(`翻盘局数太少（净 ${res.netAll >= 0 ? '+' : ''}${res.netAll} 局），和随机波动差不多，别据此下结论。`);
+        } else if (res.netAll > 0) {
+            notes.push(`净翻盘 +${res.netAll} 局（输变赢比赢变输多）——改后整体是往强的方向走。`);
+        } else {
+            notes.push(`净翻盘 ${res.netAll} 局（赢变输比输变赢多）——改后整体是往弱的方向走。`);
+        }
+    }
+    if (res.errAll) notes.push(`⚠️ 有 ${res.errAll} 局跑出异常，别急着信这个结论，先看看控制台报错。`);
+    el.push(`<div class="hint" style="margin:2px 0 14px">${notes.join('<br>')}</div>`);
+
+    if (res.changed.length) {
+        el.push('<div class="aff-title">变了的是这几套</div>');
+        const maxRate = Math.max(...res.rows.map(r => Math.max(r.base, r.patched)), 0.01);
+        const w = x => x / maxRate * 100;
+        for (const r of res.changed.slice().sort((a, b) => Math.abs(b.net) - Math.abs(a.net))) {
+            const lo = Math.min(w(r.base), w(r.patched));
+            const hi = Math.max(w(r.base), w(r.patched));
+            const seg = `<span class="${r.net > 0 ? 'aff-gain' : 'aff-loss'}" style="left:${lo.toFixed(2)}%;width:${Math.max(0.6, hi - lo).toFixed(2)}%"></span>`;
+            el.push(`<div class="aff-item"><div class="aff-head">
+                <span class="aff-name">${niceLabel(r.l)}</span>
+                <span class="aff-tag ${r.net > 0 ? 'up' : 'down'}">${(r.base * 100).toFixed(0)}% → ${(r.patched * 100).toFixed(0)}%　${r.net > 0 ? '+' : ''}${r.net} 局</span>
+            </div><div class="aff-track"><span class="aff-b" style="width:${w(r.base).toFixed(2)}%"></span>${seg}</div></div>`);
+        }
+        el.push('<div class="hint" style="margin-top:6px">灰条 = 现状胜率，绿/红那一截 = 改动带来的变化（横轴按最强的那套阵容归一，方便看小阵容）。</div>');
+    }
+    el.push(detailTable(res, runs, true));
+    return el.join('');
+}
+function renderAll(stages, runs, hasPatch, baseResults, patchResults) {
+    const all = stages.map(st => evalStage(st, runs, hasPatch, baseResults, patchResults));
+    const el = [];
+    const patchText = hasPatch
+        ? patchOps.map(o => `${o.group} · ${o.label} = ${showVal(o.value, o.unit)}（原 ${showVal(o.orig, o.unit)}）`).join('、')
+        : '无（只跑现状）';
+
+    if (all.length > 1) {
+        const gB = all.reduce((s, r) => s + r.meanBase, 0) / all.length;
+        const gP = hasPatch ? all.reduce((s, r) => s + r.meanPatch, 0) / all.length : gB;
+        el.push(`<div class="card"><div class="stage-head">总览（${all.length} 关）</div>
+            <div class="hint" style="margin-bottom:8px">改动：${patchText}</div>
+            <table class="dump"><tr><th>关卡</th><th>现状胜率</th>${hasPatch ? '<th>改后胜率</th><th>变化</th><th>净翻盘</th>' : ''}</tr>
+            ${all.map(r => `<tr><td>第 ${r.stage} 关</td><td>${fmtPct(r.meanBase)}</td>${hasPatch ? `<td>${fmtPct(r.meanPatch)}</td><td>${fmtDelta(r.delta)}</td><td>${r.netAll >= 0 ? '+' : ''}${r.netAll}</td>` : ''}</tr>`).join('')}
+            ${hasPatch ? `<tr><td><b>各关简单平均</b></td><td>${fmtPct(gB)}</td><td>${fmtPct(gP)}</td><td>${fmtDelta(gP - gB)}</td><td>—</td></tr>` : ''}
+            </table>
+            <div class="hint" style="margin-top:8px">只作总览用：各关难度差很多，看结论请以单关卡片为准（关卡之间不混算对局）。</div></div>`);
+    } else if (all.length === 1) {
+        el.push(`<div class="card"><div class="hint">改动：${patchText}</div></div>`);
+    }
+    for (const r of all) {
+        el.push(`<div class="card"><div class="stage-head">第 ${r.stage} 关</div>${stageCard(r, runs, hasPatch)}</div>`);
+    }
+    resultBox.innerHTML = el.join('');
+
+    lastMd = buildMd(all, runs, hasPatch, patchText);
+    exportRow.innerHTML = '<button id="exportBtn" class="ghost">下载 md 报告</button><button id="copyBtn" class="ghost">复制到剪贴板</button>';
+    $('exportBtn').addEventListener('click', () => {
+        const blob = new Blob([lastMd], { type: 'text/markdown;charset=utf-8' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = `lab-stage${stages.join('-')}.md`;
+        a.click();
+        URL.revokeObjectURL(a.href);
+    });
+    $('copyBtn').addEventListener('click', async () => {
+        try { await navigator.clipboard.writeText(lastMd); runMsg.className = 'msg ok'; runMsg.textContent = '报告已复制（可以直接粘给我）'; }
+        catch (err) { runMsg.className = 'msg err'; runMsg.textContent = `复制失败：${err.message}`; }
+    });
+}
+function buildMd(all, runs, hasPatch, patchText) {
+    let md = `# 参数对照实验 · 第 ${all.map(r => r.stage).join(' / ')} 关\n\n`;
+    md += `- 每套阵容 ${runs} 局；每关 15 套典型阵容；海克斯固定；同种子配对对照\n`;
+    md += `- 改动：${patchText}\n\n`;
+    if (all.length > 1) {
+        md += `## 总览\n\n| 关卡 | 现状胜率 |` + (hasPatch ? ` 改后胜率 | 变化 | 净翻盘 |` : '') + `\n|---|---|` + (hasPatch ? `---|---|---|` : '') + `\n`;
+        for (const r of all) md += `| 第 ${r.stage} 关 | ${fmtPct(r.meanBase)} |` + (hasPatch ? ` ${fmtPct(r.meanPatch)} | ${fmtDelta(r.delta)} | ${r.netAll >= 0 ? '+' : ''}${r.netAll} |` : '') + `\n`;
+        md += `\n`;
+    }
+    for (const r of all) {
+        md += `## 第 ${r.stage} 关\n\n明教胜率 ${fmtPct(r.meanBase)}${hasPatch ? ` → ${fmtPct(r.meanPatch)}（${fmtDelta(r.delta)}）` : ''}\n\n`;
+        if (hasPatch) md += `总翻盘：输变赢 ${r.upAll} 局 / 赢变输 ${r.downAll} 局，净 ${r.netAll >= 0 ? '+' : ''}${r.netAll}\n\n`;
+        md += `| 阵容 | 出现频率 | 现状胜率 |` + (hasPatch ? ` 改后胜率 | 净翻盘 |` : '') + `\n|---|---|---|` + (hasPatch ? `---|---|` : '') + `\n`;
+        for (const row of r.rows) {
+            md += `| ${row.l.id} ${niceLabel(row.l)} | ${(row.freq * 100).toFixed(1)}% | ${fmtPct(row.base)} |`;
+            if (hasPatch) md += ` ${fmtPct(row.patched)} | ${row.net >= 0 ? '+' : ''}${row.net} |`;
+            md += `\n`;
+        }
+        md += `\n`;
+    }
+    return md;
+}
+
+// ---------------------------------------------------------------------------
+// 启动
+// ---------------------------------------------------------------------------
+initKnobs().then(() => { prepareLineups(); });
+renderPatch();
+</script>
+</body>
+</html>

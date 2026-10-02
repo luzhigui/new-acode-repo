@@ -1,8 +1,8 @@
-// V6.3.5 | ~41700 bytes | 2026-09-26 三狮属性改「基础值 + 职业加成」口径（成长 delta 按最终值算），补 cub.m 同步
-export const VER = 'modules/27elite-mingjiao.js V6.3.5';
+// V6.4.2 | ~48500 bytes | 2026-09-30 参数单位口径统一（收尾）：小昭·妹飞天血量阈值改按比例读取（3 处 hpThresholds[i] 去掉 /100，content 同步改 [0.7, 0.4]）；承接 V6.4.1 蝠影汲血吸血率/乾坤衍生折算/小昭·妹双连击概率改按比例读取
+export const VER = 'modules/27elite-mingjiao.js V6.4.2';
 
 import { registerElite } from '../core/08-elite-registry.js';
-import { CONFIG, getSkillParams } from '../core/01config-5v5-test.js';
+import { CONFIG, getSkillParams, getMechanicField } from '../core/01config-5v5-test.js';
 import { hasBuff, getZhangNearTaunt } from '../core/03battle-utils.js';
 import { spawnHorse, spawnUnit } from '../core/05battle-horse.js';
 import { applyHeroFlags, getRoleBonus } from '../core/02unit.js';
@@ -95,9 +95,9 @@ export function createZhangWujiComponent() {
                 if (unit.nearAtkCount === 0 && !unit.state._zhangTauntDone) { const firstTaunt = getZhangNearTaunt(1); if (firstTaunt) { group.data.entries.push({ factType: FACT_TYPES.ZHANG_TAUNT, data: { unitName: unit.name, taunt: firstTaunt } }); Object.assign(unit.state, { _zhangTauntDone: true }); } }
                 unit.nearAtkCount++;
                 if (unit.nearAtkCount === 2) { const secondTaunt = getZhangNearTaunt(2); if (secondTaunt) group.data.entries.push({ factType: FACT_TYPES.ZHANG_TAUNT, data: { unitName: unit.name, taunt: secondTaunt } }); }
-                if (unit.nearAtkCount >= 3) {
+                if (unit.nearAtkCount >= CONFIG.ZHANG_NEAR_ATK_LIMIT) {
                     if (!fsm.is('ronghui')) fsm.transition('ronghui');
-                    const extra = Math.floor(Math.abs(getStat(target, 'atk') - getStat(target, 'def')) * 0.5);
+                    const extra = Math.floor(Math.abs(getStat(target, 'atk') - getStat(target, 'def')) * CONFIG.ZHANG_RONGHUI_RATIO);
                     if (data && data.declarations) {
                         data.declarations.push({
                             type: EFFECT_TYPES.BONUS_DMG,
@@ -108,7 +108,10 @@ export function createZhangWujiComponent() {
                     } else {
                         applyStatChange(target, 'hp', -extra, unit, '融会贯通');
                     }
-                    group.data.entries.push({ factType: FACT_TYPES.RONG_HUI_BONUS, data: { unitName: unit.name, extra, targetAtk: Math.floor(getStat(target, 'atk')), targetDef: Math.floor(getStat(target, 'def')) } });
+                    // 2026-09-27 补 targetUid / targetAlive：render/38 扫 entries 时据此在目标头上补一条额外伤害飘字
+                    // （这笔 BONUS_DMG 在主攻击结算之后单独扣血，不进主攻击 dmg，此前完全没有飘字）；
+                    // targetAlive 与 core/16 裁定器的应用条件（decl.target.alive）一致——已死目标不扣这笔，也就不飘字
+                    group.data.entries.push({ factType: FACT_TYPES.RONG_HUI_BONUS, data: { unitName: unit.name, extra, targetUid: target.uid, targetAlive: target.alive, targetAtk: Math.floor(getStat(target, 'atk')), targetDef: Math.floor(getStat(target, 'def')) } });
                 }
             }
         }
@@ -130,10 +133,14 @@ export function createWeiYixiaoComponent() {
             function submitWeiLeechDeclaration(data) {
                 const { unit, target, reboundDmg, declarations } = data;
                 if (!target.isWei || !target.alive) return;
-                const s = getSkillParams('韦一笑', 'coldPalm');
-                if (!s) throw new Error('缺技能参数: 韦一笑.coldPalm');
+                // 吸血率真值唯一来源：韦一笑 mechanics 的 leech 原语（与命中吸血同源），不再另存 skills.params 副本
+                const leechMin = getMechanicField('韦一笑', 'leech', 'minRatio');
+                const leechMax = getMechanicField('韦一笑', 'leech', 'maxRatio');
+                if (typeof leechMin !== 'number' || typeof leechMax !== 'number') {
+                    throw new Error('缺机制参数: 韦一笑.mechanics.leech.minRatio/maxRatio');
+                }
                 const lostPct = (target.maxHp - target.hp) / target.maxHp;
-                const leechRate = (s.leechMin + (s.leechMax - s.leechMin) * lostPct) / 100;
+                const leechRate = leechMin + (leechMax - leechMin) * lostPct;
                 const heal = Math.max(1, Math.floor(reboundDmg * leechRate));
                 const wasFullHp = (target.hp >= target.maxHp);
                 const oldMaxHp = target.maxHp;
@@ -209,7 +216,7 @@ export function createXiaoZhaoSisterComponent() {
                 const dmg = data.unit ? atkStat * (atkStat / (atkStat + defStat)) : 0;
                 const s = getSkillParams('小昭', 'qianKunDerived');
                 if (!s) throw new Error('缺技能参数: 小昭.qianKunDerived');
-                const reduce = Math.max(1, Math.floor(dmg * defStat / s.defToReduce));
+                const reduce = Math.max(1, Math.floor(dmg * defStat / (s.defToReduce * 100)));
                 if (!data.declarations) data.declarations = [];
                 data.declarations.push({
                     type: EFFECT_TYPES.DMG_REDUCTION,
@@ -221,9 +228,9 @@ export function createXiaoZhaoSisterComponent() {
                 if (aliveAllies.length > 0) {
                     const rng = getBattleRng();
                     const healTarget = aliveAllies[rng.nextInt(0, aliveAllies.length - 1)];
-                    const heal = Math.max(1, Math.floor(getStat(healTarget, 'def') / s.defToHeal));
+                    const heal = Math.max(1, Math.floor(getStat(healTarget, 'def') / (s.defToHeal * 100)));
                     const atkTarget = aliveAllies[rng.nextInt(0, aliveAllies.length - 1)];
-                    const atkGain = Math.max(1, Math.floor(getStat(atkTarget, 'def') / s.defToAtk));
+                    const atkGain = Math.max(1, Math.floor(getStat(atkTarget, 'def') / (s.defToAtk * 100)));
                     applyStatChange(healTarget, 'hp', heal, xiaoZhao, '乾坤衍生治疗');
                     applyStatChange(atkTarget, 'atk', atkGain, xiaoZhao, '乾坤衍生加攻');
                     if (atkTarget.state._baseAtk !== undefined) atkTarget.state._baseAtk += atkGain;
@@ -276,12 +283,15 @@ export function createXiaoZhaoSisterComponent() {
             for (const p of order) { const u = A.find(a => a.pos === p && a.alive && !a.isHorse && a.uid !== sister.uid); if (u) { host = u; break; } }
             if (!host) {
                 applyStatChange(sister, 'hp', -sister.hp, null, '蝶变无宿主', false);
-                log.push({ factType: FACT_TYPES.BUTTERFLY_NO_HOST, data: { unitName: sister.name } });
+                log.push({ factType: FACT_TYPES.BUTTERFLY_NO_HOST, data: { unitName: sister.name, sisterUid: sister.uid } });
                 return null;
             }
-            const atkRatio = flyDirection === 'left' ? 0 : 1/2;
-            const defRatio = flyDirection === 'left' ? 1/2 : 0;
-            const hpRatio = 1/2;
+            // 转移比例走内容表（1 = 100%）：向右飞只转攻、向左飞只转防、血量永远转
+            const bp = getSkillParams('小昭', 'butterflyAttach');
+            if (!bp) throw new Error('缺技能参数: 小昭.butterflyAttach');
+            const atkRatio = flyDirection === 'left' ? 0 : bp.atkRatioRight;
+            const defRatio = flyDirection === 'left' ? bp.defRatioLeft : 0;
+            const hpRatio = bp.hpRatio;
             const atkTransfer = Math.floor(sister.state._baseAtk * atkRatio);
             const defTransfer = Math.floor(sister.state._baseDef * defRatio);
             const hpTransfer = Math.floor(sister.hp * hpRatio);
@@ -422,10 +432,16 @@ export function createXiaoZhaoBrotherComponent() {
                         const currentLog = (data && data.log) ? data.log : log;
                         let reason = data ? data.reason : '';
                         const incomingDmg = data ? data.incomingDmg : 0;
-                        if (!brother.state._spiderTriggered70 && brother.hp > brother.maxHp * 0.7) {
+                        // 飞天阈值/次数上限唯一来源：内容表 小昭.spiderFly.params（core/17 state 默认值只是镜像）
+                        const flyParams = getSkillParams('小昭', 'spiderFly');
+                        if (!flyParams) throw new Error('缺技能参数: 小昭.spiderFly');
+                        // 阈值口径 1 = 100%（content 里写 0.7 / 0.4），直接与 hp/maxHp 比值比较，不再 /100
+                        const threshold70 = flyParams.hpThresholds[0];
+                        const threshold40 = flyParams.hpThresholds[1];
+                        if (!brother.state._spiderTriggered70 && brother.hp > brother.maxHp * threshold70) {
                             Object.assign(brother.state, { _spiderTriggered70: true });
                             reason = reason || '血量即将低于70%';
-                        } else if (!brother.state._spiderTriggered40 && brother.hp > brother.maxHp * 0.4) {
+                        } else if (!brother.state._spiderTriggered40 && brother.hp > brother.maxHp * threshold40) {
                             Object.assign(brother.state, { _spiderTriggered40: true });
                             reason = reason || '血量即将低于40%';
                         } else if (!brother.state._spiderTriggeredDeath) {
@@ -434,7 +450,7 @@ export function createXiaoZhaoBrotherComponent() {
                         }
                         Object.assign(brother.state, { _spiderTriggeredThisRound: true });
                         const esRemaining = brother.state._spiderRemaining;
-                        Object.assign(brother.state, { _spiderRemaining: Math.max(0, (esRemaining ?? 3) - 1) });
+                        Object.assign(brother.state, { _spiderRemaining: Math.max(0, (esRemaining ?? flyParams.maxTriggers) - 1) });
                         Object.assign(brother.state, { _spiderFlying: true, _flyMode: 'spider' });
                         brother.state._acted = true;
                         emitEvent(brother, UNIT_EVENT_TYPES.HP_CHANGE, { hp:brother.hp, maxHp:brother.maxHp, alive:brother.alive, atk:brother.atk, def:brother.def, _flyMode:'spider', _spiderFlying:true });
@@ -477,13 +493,17 @@ export function createXiaoZhaoBrotherComponent() {
             function submitSpiderFlyDeclaration(data) {
                 if (data.target.uid !== brother.uid || !data.A) return;
                 if (fsm.is('flying') || fsm.is('dead')) return;
+                const fp = getSkillParams('小昭', 'spiderFly');
+                if (!fp) throw new Error('缺技能参数: 小昭.spiderFly');
+                const th70 = fp.hpThresholds[0];
+                const th40 = fp.hpThresholds[1];
                 const maxHp = brother.maxHp;
                 const hpAfter = Math.max(0, brother.hp - (data.dmg || 0));
                 let shouldFly = false;
                 let reason = '';
-                if (!brother.state._spiderTriggered70 && brother.hp > maxHp * 0.7 && hpAfter <= maxHp * 0.7) {
+                if (!brother.state._spiderTriggered70 && brother.hp > maxHp * th70 && hpAfter <= maxHp * th70) {
                     shouldFly = true; reason = '血量即将低于70%';
-                } else if (!brother.state._spiderTriggered40 && brother.hp > maxHp * 0.4 && hpAfter <= maxHp * 0.4) {
+                } else if (!brother.state._spiderTriggered40 && brother.hp > maxHp * th40 && hpAfter <= maxHp * th40) {
                     shouldFly = true; reason = '血量即将低于40%';
                 } else if (!brother.state._spiderTriggeredDeath && hpAfter <= 0) {
                     shouldFly = true; reason = '即将阵亡';
@@ -510,7 +530,7 @@ export function createXiaoZhaoBrotherComponent() {
                 if (data.unit.camp !== CAMP_TYPES.ENEMY) return;
                 if (!brother || !brother.alive || !brother.state._permanentBuffs || !brother.state._permanentBuffs.some(b => b.key === BUFF_TYPES.MIND_CONTROL)) return;
                 if (hasBuff(data.enemySide._activeBuffs, BUFF_TYPES.MIND_CONTROL)) return;
-                if (getBattleRng().next() < 0.15) {
+                if (getBattleRng().next() < CONFIG.SPIDER_MIND_CONTROL_CHANCE) {
                     const fakeTarget = data.allySide.find(u => u.alive && !u.isHorse && u.uid !== data.unit.uid);
                     if (fakeTarget) {
                         data.declaration.targetResult = fakeTarget;
@@ -547,9 +567,10 @@ export function createXiaoZhaoBrotherComponent() {
                 }
                 const hasTeamCarry = hasBuff(A._activeBuffs, BUFF_TYPES.CARRY);
                 if (!hasTeamCarry && bro.state._permanentBuffs?.some(b => b.key === BUFF_TYPES.CARRY) && bro.state._baseMaxHp !== undefined) {
-                    addMod(bro, 'atk', { source: '小昭·妹永久carry', value: 3, ttl: 'permanent', group: 'xiaoZhaoCarry', op: 'add' });
-                    addMod(bro, 'def', { source: '小昭·妹永久carry', value: 4, ttl: 'permanent', group: 'xiaoZhaoCarry', op: 'add' });
-                    addMod(bro, 'maxHp', { source: '小昭·妹永久carry', value: 20, ttl: 'permanent', group: 'xiaoZhaoCarry', op: 'add' });
+                    const carryMods = CONFIG.XIAO_ZHAO_CARRY_MODS;
+                    addMod(bro, 'atk', { source: '小昭·妹永久carry', value: carryMods.atk, ttl: 'permanent', group: 'xiaoZhaoCarry', op: 'add' });
+                    addMod(bro, 'def', { source: '小昭·妹永久carry', value: carryMods.def, ttl: 'permanent', group: 'xiaoZhaoCarry', op: 'add' });
+                    addMod(bro, 'maxHp', { source: '小昭·妹永久carry', value: carryMods.maxHp, ttl: 'permanent', group: 'xiaoZhaoCarry', op: 'add' });
                     refreshMaxHp(bro, null, '小昭·妹永久carry');
                 }
             }
@@ -561,8 +582,9 @@ export function createXiaoZhaoBrotherComponent() {
                 if (hasBuff(A._activeBuffs, BUFF_TYPES.DOUBLE_STRIKE)) return;
                 const s = getSkillParams('小昭', 'spiderFly');
                 if (!s) throw new Error('缺技能参数: 小昭.spiderFly');
-                const chance = s.xiaoZhaoDoubleStrikeChance;
-                if (getBattleRng().nextInt(1, 100) <= chance) {
+                // 概率口径 1 = 100%，比较前 ×100 回到百分点域（骰子仍是 nextInt(1, 100)）
+                const chancePct = s.xiaoZhaoDoubleStrikeChance * 100;
+                if (getBattleRng().nextInt(1, 100) <= chancePct) {
                     Object.assign(unit.state, { _xiaoZhaoDoubleStriked: true });
                     log.push({ factType: FACT_TYPES.SPIDER_DOUBLE_STRIKE, data: {} });
                     if (!data.extraRequests) data.extraRequests = [];
@@ -597,12 +619,16 @@ export function createXiaoZhaoBrotherComponent() {
             if (!unit.isXiaoZhaoBrother || !unit.alive) return false;
             const fsm = unit._fsm;
             if (!fsm || !fsm.is('normal')) return false;
+            const fp = getSkillParams('小昭', 'spiderFly');
+            if (!fp) throw new Error('缺技能参数: 小昭.spiderFly');
+            const th70 = fp.hpThresholds[0];
+            const th40 = fp.hpThresholds[1];
             const maxHp = unit.maxHp;
             const hpAfter = Math.max(0, unit.hp - (incomingDmg || 0));
             let reason = '';
-            if (!unit.state._spiderTriggered70 && unit.hp > maxHp * 0.7 && hpAfter <= maxHp * 0.7) {
+            if (!unit.state._spiderTriggered70 && unit.hp > maxHp * th70 && hpAfter <= maxHp * th70) {
                 reason = '血量即将低于70%';
-            } else if (!unit.state._spiderTriggered40 && unit.hp > maxHp * 0.4 && hpAfter <= maxHp * 0.4) {
+            } else if (!unit.state._spiderTriggered40 && unit.hp > maxHp * th40 && hpAfter <= maxHp * th40) {
                 reason = '血量即将低于40%';
             } else if (!unit.state._spiderTriggeredDeath && hpAfter <= 0) {
                 reason = '即将阵亡';
@@ -663,8 +689,8 @@ export function createXieXunComponent() {
                 const cubs = myTeam.filter(u => u.isLionCub && u.alive && u.pos);
                 const growRng = getBattleRng();
                 for (const cub of cubs) {
-                    if (growRng.next() >= (summon.grow.prob ?? 1)) continue;
-                    const spec = cub.pos <= (summon.grow.frontMax || 6) ? summon.grow.front : summon.grow.back;
+                    if (growRng.next() >= summon.grow.prob) continue;
+                    const spec = cub.pos <= summon.grow.frontMax ? summon.grow.front : summon.grow.back;
                     // spec 里写的是【基础值】，目标形态的最终值 = 基础值 + 该职业加成
                     //   （2026-09-26 口径统一：m 是基础预算，职业加成由引擎加、不写进配置）。
                     //   基线用 cub 配置值：幼狮自身豁免加成，且幼狮期间吃到的振奋要留在成长值之上。
@@ -693,7 +719,7 @@ export function createXieXunComponent() {
             eventBus.on(SIGNAL_TYPES.ON_ROUND_START, L.ROUND_START.XIE_SUMMON, (data) => {
                 if (!xiexun.alive) return;
                 const rng = getBattleRng();
-                if (rng.next() >= (summon.prob ?? 0.5)) return;
+                if (rng.next() >= summon.prob) return;
                 const occupied = new Set(myTeam.filter(u => u.alive).map(u => u.pos));
                 const free = [1, 2, 3, 4, 5, 6, 7, 8, 9].filter(p => !occupied.has(p));
                 if (free.length === 0) return;
@@ -714,9 +740,19 @@ export function createXieXunComponent() {
                 const gain = inspire.atkPerHit;
                 const targets = myTeam.filter(u => u.alive);
                 if (targets.length === 0) return;
+                const inspireTargets = [];
                 for (const t of targets) {
                     addMod(t, 'atk', { source: '振奋', value: gain, ttl: 'permanent', group: 'lionInspire', op: 'add' });
+                    inspireTargets.push({ unitName: t.name, atkDelta: gain });
                     emitEvent(t, UNIT_EVENT_TYPES.HP_CHANGE, { hp: t.hp, maxHp: t.maxHp, alive: t.alive, atk: getStat(t, 'atk'), def: getStat(t, 'def') });
+                }
+                // 数值声明 fact：一次触发给多人各 +gain，用 targets 名单承载（供体检对照器按 group='lionInspire' 比对）
+                // 2026-10-01 契约补齐：requiredFields 要 unitName（触发者=雄狮）但发射处一直没带——校验器红字但不阻断，此前漏了
+                if (data.log) {
+                    data.log.push({
+                        factType: FACT_TYPES.LION_INSPIRE,
+                        data: { unitName: lion.name, targets: inspireTargets }
+                    });
                 }
                 // 2026-09-24 狮吼演出改由表现层发：引擎在「生成步」时就 emit 会让吼抢在画面前面
                 //   （随动出手的演出被 isLinkAttack 延后 1400ms、苦练延后 1200ms），看起来像「母狮出手反而吼」。

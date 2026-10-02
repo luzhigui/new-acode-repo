@@ -1,5 +1,5 @@
 // render/35-facts-effect.js — 效果域 fact 渲染器
-// V1.0.6 | ~34600 bytes | 2026-09-25 拒马「未消散」条目补 horseUid（此前只有「消散」条目带，体检规则 94 只能按号位去重 → 跨阵营同号位假阳性）；承接 V1.0.5 溅射行尾 rageText
+// V1.0.11 | ~36400 bytes | 2026-09-29 参数单位口径统一为「1 = 100%」：乾坤大挪移 fact.reducePct 改按比例存储，渲染处 ×100 显示；承接 V1.0.10 流星溅射成长收口为单一出口
 //
 // 加新 fact 渲染：在本文件写函数 + 尾部 registerFactRenderer 一行（键=factType）。
 // 跨域取别的渲染器一律走 getFactRenderer(FACT_TYPES.X)(data)，禁止 import 其它域文件（免环）。
@@ -7,7 +7,7 @@ import { CONFIG } from '../core/01config-5v5-test.js';
 import { makeFXSnapshot, fmtHp } from '../infra/51-core-utils.js';
 import { BUFF_TYPES, BUFF_SUBTYPES, CAMP_TYPES, ROLE_TYPES, FACT_TYPES } from '../infra/56-battle-enums.js';
 import { registerFactRenderer, findUnitSnapshotByUid } from './33-fact-registry.js';
-export const VER = 'render/35-facts-effect.js V1.0.6';
+export const VER = 'render/35-facts-effect.js V1.0.11';
 
 // 拒马 / 张无忌
 export function renderHorseDestroyFact(fact) {
@@ -140,7 +140,8 @@ export function renderMeteorShowerSplashFact(fact) {
     const details = fact.targets.map(t => t.name).join('、');
     const word = fact.targets.length > 1 ? '各-' : '-';
     let text = `<span class="orange">${fact.label}溅射：${details}，${word}${fact.splashDmg}，防御-${fact.defReduce}</span>`;
-    if (fact.growth) text += ` <span class="gold">⚡ ${fact.unitName} 攻击+${fact.growth}</span>`;
+    // 2026-09-29 不再在此追加 ⚡ 成长段：成长改由 METEOR_SPLASH_GROWTH fact 独立渲染（原来这里读的
+    //   fact.unitName 从未被赋值 → 玩家看到的一直是「⚡ undefined 攻击+N」，且与新 fact 重复渲染两遍）
     // 2026-09-24 胖远桥莽撞：吃了溅射也 +攻，文本由 modules/26 随 fact 下发
     if (fact.rageText) text += ' ' + fact.rageText;
     return { type:'buff-splash', text };
@@ -213,7 +214,10 @@ export function renderKuLianFact(fact) {
 // 概率连击
 export function renderDoubleStrikeFact(fact) {
     if (fact.success) {
-        return {type:'info', text:`<span class="gold">⚡ 概率连击触发！</span>`, isDoubleStrikeBanner:true};
+        // 2026-09-27 透传 doubleStrikeName：banner 文案不带单位，判据（tests/health-rules/146）
+        //   此前只能反推「banner 后第一条 attack-group 的攻击者」→ 母狮随动链插入即误报。
+        //   字段名不用 unitName，避免与「文案里可读到的单位名」混淆；文案保持原样不动（不改 UI）。
+        return {type:'info', text:`<span class="gold">⚡ 概率连击触发！</span>`, isDoubleStrikeBanner:true, doubleStrikeName: fact.unitName || null};
     }
     return {type:'info', text:`<span class="gray">⚡ 概率连击触发失败，${fact.unitName} 未能再次攻击</span>`};
 }
@@ -245,7 +249,7 @@ export function renderMindControlBannerFact(fact) {
 export function renderQianKunUpgradedFact(fact) {
     return {
         type:'info',
-        text:`<span class="gold">🦋 乾坤大挪移（升级版）：减伤${fact.reducePct}%，反弹${fact.rebound}给${fact.attackerName}（${fact.zhangName}自伤${fact.selfDmg}）</span>`,
+        text:`<span class="gold">🦋 乾坤大挪移（升级版）：减伤${Math.round(fact.reducePct * 100)}%，反弹${fact.rebound}给${fact.attackerName}（${fact.zhangName}自伤${fact.selfDmg}）</span>`,
         reboundDmg: fact.rebound,
         reboundTargetUid: fact.attackerUid,
         selfDmg: fact.selfDmg,
@@ -255,7 +259,7 @@ export function renderQianKunUpgradedFact(fact) {
 export function renderQianKunBasicFact(fact) {
     return {
         type:'info',
-        text:`<span class="gold">✨ 乾坤大挪移：减伤${fact.reducePct}%，反弹${fact.rebound}给${fact.attackerName}（${fact.zhangName}自伤${fact.selfDmg}）</span>`,
+        text:`<span class="gold">✨ 乾坤大挪移：减伤${Math.round(fact.reducePct * 100)}%，反弹${fact.rebound}给${fact.attackerName}（${fact.zhangName}自伤${fact.selfDmg}）</span>`,
         reboundDmg: fact.rebound,
         reboundTargetUid: fact.attackerUid,
         selfDmg: fact.selfDmg,
@@ -400,20 +404,30 @@ export function renderFortifyReboundFact(fact) {
     return { type:'info', text:`<span class="gold">🛡️ 严阵以待反弹${fact.reboundDmg}给${fact.unitName}</span>` };
 }
 
-// 张三丰：生生不息（2026-09-20 纯回血 + 溢出转嫁；加防不在此，归八卦阵）
-// 溢出文案分三种：无人可接（无其他存活队友）/ 接盘者回了血 / 接盘者已满血（本次溢出作废）
+// 张三丰：生生不息（回血 + 溢出转嫁 + 回血转永久攻防）
+// 溢出文案分两种：无人可接（无其他存活队友）/ 有人接（再区分接盘者是否真回了血）
 export function renderEndlessBreathFact(fact) {
-    const self = fact.heal > 0 ? `回复${fact.heal}点生命` : '生命已满';
+    // 2026-09-27 补攻防明细：回血同时按「实际回血/溢出」两档转永久攻防，此前日志完全看不到这层收益
+    // 2026-09-28 二选一改版配套：每次触发攻/防只有一边>0，零的那边不再显示（「攻+2.6 防+0」→「攻+2.6」）
+    const num = (v) => Math.round((v || 0) * 10) / 10;
+    const bonus = (atk, def) => {
+        const parts = [];
+        if (atk > 0) parts.push(`攻+${num(atk)}`);
+        if (def > 0) parts.push(`防+${num(def)}`);
+        return parts.length > 0 ? parts.join(' ') : '';
+    };
+    const wrap = (t) => t ? `（${t}）` : '';
+    const self = `${fact.heal > 0 ? `回复${fact.heal}点生命` : '生命已满'}${wrap(bonus(fact.atkGain, fact.defGain))}`;
     let tail = '';
     if (fact.overflow > 0) {
         // 2026-09-21 溢出目标改为随机（满血也可被选中）后，三种情况要分开写：
         // ① 无人可接（除张三丰外无存活友方）② 接盘者确实回了血 ③ 接盘者已满血，本次溢出作废
         if (!fact.overflowToName) {
             tail = `，溢出${fact.overflow}点（无其他存活队友）`;
-        } else if (fact.overflowHealed > 0) {
-            tail = `，溢出${fact.overflow}点转给${fact.overflowToName}（其回复${fact.overflowHealed}点）`;
         } else {
-            tail = `，溢出${fact.overflow}点转给${fact.overflowToName}（其已满血，未生效）`;
+            const recv = fact.overflowHealed > 0 ? `回复${fact.overflowHealed}点` : '已满血未回血';
+            const b = bonus(fact.overflowAtkGain, fact.overflowDefGain);
+            tail = `，溢出${fact.overflow}点转给${fact.overflowToName}（${recv}${b ? '，' + b : ''}）`;
         }
     }
     return { type:'info', text:`<span class="green">☯ 生生不息：${fact.unitName} ${self}${tail}</span>` };

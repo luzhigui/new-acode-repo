@@ -1,4 +1,6 @@
 // render/34-facts-attack.js — fact 渲染域：攻击流程
+// V1.2.0 | ~14900 bytes | 2026-09-29 参数单一真值源收口：叛逆真伤提示的「目标当前生命X%」改读 mechanics 真值
+//   （getMechanicField('宋青书','bonusTargetCurrentHp','ratio')），不再取 skills.rebelStrike.params 的已删副本。
 // V1.1.1 | ~14800 bytes | 2026-09-25 波动行「血+N」改「减伤N」（core/12 波动改为抵扣扣血，不再回血）
 //
 // 归属判据：这条 fact 描述「一次攻击的经过与结果」，不含 buff / 精英技能衍生。
@@ -6,10 +8,10 @@
 
 import { makeFXSnapshot, fmtHp } from '../infra/51-core-utils.js';
 import { getStat } from '../core/13battle-shared.js';
-import { getSkillParams } from '../core/01config-5v5-test.js';
+import { getMechanicField } from '../core/01config-5v5-test.js';
 import { FACT_TYPES, CAMP_TYPES, DROP_TYPES } from '../infra/56-battle-enums.js';
 import { registerFactRenderer, getFactRenderer, renderLog, projectFactEntry } from './33-fact-registry.js';
-export const VER = 'render/34-facts-attack.js V1.1.0';
+export const VER = 'render/34-facts-attack.js V1.2.0';
 
 // 攻击流程
 export function renderMissFact(fact) {
@@ -130,9 +132,10 @@ export function renderAttackFact(fact) {
     if (dmgCalc.thunderBonus > 0) group.entries.push({type:'detail', text:`<span class="red small">💥 混元霹雳劲+${dmgCalc.thunderBonus}真实伤害</span>`});
     if (dmgCalc.hornDefIgnore > 0 && dmgCalc.hornDmgMultiplier > 1) group.entries.push({type:'info', text:`<span class="gold">🦌 目标已中毒（玄冥神掌），鹤笔翁 鹿角杖法伤害+50%！</span>`});
     if (dmgCalc.trueDmg > 0) {
-        const rebelParams = getSkillParams('宋青书', 'rebelStrike');
-        if (!rebelParams) throw new Error('缺技能参数: 宋青书.rebelStrike');
-        group.entries.push({type:'detail', text:`<span class="red small">⚔️ 叛逆真伤+${dmgCalc.trueDmg}（目标当前生命${Math.round(rebelParams.currentHpRatio * 100)}%）</span>`});
+        // 2026-09-29 单一真值源收口：比例取 mechanics 真值（引擎实际读的那份），不读 skills.params 副本
+        const rebelRatio = getMechanicField('宋青书', 'bonusTargetCurrentHp', 'ratio');
+        if (rebelRatio === undefined) throw new Error('缺机制真值: 宋青书.bonusTargetCurrentHp.ratio');
+        group.entries.push({type:'detail', text:`<span class="red small">⚔️ 叛逆真伤+${dmgCalc.trueDmg}（目标当前生命${Math.round(rebelRatio * 100)}%）</span>`});
     }
     // 公式明细由引擎输出（core/12 calcFinalDamage 的 formula 字段），此处只排版。
     // 不再自己调 calcDamage / 查 FANG_K / 反推 baseRaw —— 那会和引擎的实时值打架。

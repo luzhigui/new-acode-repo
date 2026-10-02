@@ -1,3 +1,10 @@
+// V1.5.0 | ~13200 bytes | 2026-09-27 补团队 Buff 注入（经用户授权）：此前 activeBuffs 恒为 []，导致
+//          carry / 流星赶月 / 乘风突袭 / 流云身法等**由团队 Buff 门控的机制在 18 场基线里一场都跑不到**
+//          （覆盖缺口 —— 第 34 轮由 stat-decl-vs-actual-check.mjs 的 CARRY_APPLY 契约零触发而暴露）。
+//          现复刻回放器的确定性选 Buff（rules-replay.mjs L113-143：seed/round 轮转、**不消耗战斗 RNG**，
+//          故战斗随机序列不变、结果可复现）。BASELINE_NOBUFFS=1 可关回旧的无 Buff 行为以对照。
+//          ⚠ 口径说明：注入沿用回放器「明教/六大派各选一个」；而生产单机口径是**只给明教**
+//          （player/49 handleBuffSelection 默认 camp=ALLY）。该差异是历史遗留问题，不在本次改动范围内。
 // V1.4.0 | ~10800 bytes | 2026-09-25 修分类判据自身的缺陷：「预期变更」的依据提交原取**全部**提交
 //          （连 test(体检)/docs/chore 都算），基线后 266 条使判据恒真 → 分类形同虚设。现只取触达
 //          战斗代码（content/core/modules/render/fx/player/infra）的提交，并单列数值平衡类（content/）。
@@ -12,7 +19,7 @@
 //       node tests/140-baseline.js 1:1 42:3      → 只跑指定场次打印结果，不写基线（先验证用）
 // 注意：引擎文件顶层访问浏览器全局（window/self），必须在任何引擎 import 之前 mock，
 //       故全部引擎 import 改为动态（在 main 内、mock 之后执行）。
-export const VER = 'tests/140-baseline.js V1.4.0';
+export const VER = 'tests/140-baseline.js V1.5.0';
 
 import { fileURLToPath } from 'node:url';
 
@@ -61,12 +68,50 @@ const STAGES = [1, 3, 5];
 
 async function main() {
     // mock 已就绪，动态加载引擎（顶层 import 会先于 mock 求值，故不能用静态 import）
-    const [{ CONFIG, loadGameData }, { SeededRNG }, { createRoundStepper }, { initBattleTeams }] = await Promise.all([
+    const [{ CONFIG, loadGameData }, { SeededRNG }, { createRoundStepper }, { initBattleTeams },
+           { CAMP_TYPES, BUFF_TYPES }] = await Promise.all([
         import('../core/01config-5v5-test.js'),
         import('../infra/51-core-utils.js'),
         import('../core/11battle-round.js'),
-        import('../modules/29battle-init.js')
+        import('../modules/29battle-init.js'),
+        import('../infra/56-battle-enums.js')
     ]);
+
+    // 团队 Buff 注入（V1.5.0 新增）—— 复刻自 tests/rules-replay.mjs L113-143 的 tickAndPickBuffs。
+    //   该函数是回放器本地函数、不可导入（rules-replay.mjs 属他人并行维护，不改它）。
+    //   口径一致：seed/round 确定性轮转，**不消耗战斗 RNG**，故不改变战斗随机序列、结果可复现。
+    //   BASELINE_NOBUFFS=1 可整体关掉，用于「注入前后」对照同一批战报。
+    const NO_BUFFS = process.env.BASELINE_NOBUFFS === '1';
+    const tickAndPickBuffs = (activeBuffs, ally, enemy, round, seed, pickNew) => {
+        var next = (activeBuffs || []).map(function (b) { return { ...b, remaining: b.remaining - 1 }; })
+            .filter(function (b) { return b.remaining > 0; });
+        if (NO_BUFFS || !pickNew) return next;
+        var turn = Math.floor(round / 3);
+        var sides = [{ camp: CAMP_TYPES.ALLY, team: ally, off: 0 }, { camp: CAMP_TYPES.ENEMY, team: enemy, off: 1 }];
+        for (var i = 0; i < sides.length; i++) {
+            var s = sides[i];
+            var mine = next.filter(function (b) { return (b.target || CAMP_TYPES.ALLY) === s.camp; });
+            var existing = mine.map(function (b) { return b.key; });
+            var alive = (s.team || []).filter(function (u) { return u && u.alive; });
+            var avail = Object.keys(CONFIG.BUFFS).sort().filter(function (k) {
+                if (existing.indexOf(k) !== -1) return false;
+                var req = CONFIG.BUFF_ROLE_REQUIREMENTS ? CONFIG.BUFF_ROLE_REQUIREMENTS[k] : null;
+                if (req && !alive.some(function (u) { return u.role === req; })) return false;
+                return true;
+            });
+            if (!avail.length) continue;
+            var pick = avail[(seed + turn + s.off) % avail.length];
+            var def = CONFIG.BUFFS[pick] || {};
+            var nb = { key: pick, target: s.camp, remaining: def.duration || CONFIG.BUFF_DURATION || 4, name: def.name || pick };
+            if (pick === BUFF_TYPES.HOLY_FLAME) {
+                var c1 = ((seed + round + s.off) % 3) + 1, c2 = ((seed + round * 3 + s.off) % 3) + 1;
+                nb.cols = c1 === c2 ? [c1, (c1 % 3) + 1] : [c1, c2].sort(function (a, b) { return a - b; });
+                nb.rows = [((seed * 2 + round + s.off) % 3) + 1, ((seed * 3 + round + s.off) % 3) + 1].sort(function (a, b) { return a - b; });
+            }
+            next.push(nb);
+        }
+        return next;
+    };
     // 精英模块副作用注册（createRoundStepper 的 getEliteFactories 依赖）
     await import('../modules/25elite-imperial.js');
     await import('../modules/26elite-sixsects.js');
@@ -82,7 +127,7 @@ async function main() {
             ally: allyTeam.map(u => u.clone()),
             enemy: enemyTeam.map(u => u.clone()),
             round: 1,
-            activeBuffs: [],
+            activeBuffs: tickAndPickBuffs([], allyTeam, enemyTeam, 1, seed, true),
             allAllies: allyTeam.map(u => u.clone()),
             _rng: rng
         };
@@ -109,9 +154,8 @@ async function main() {
                 ally: lastStep.ally.map(u => u.clone()),
                 enemy: lastStep.enemy.map(u => u.clone()),
                 round: battleState.round + 1,
-                activeBuffs: (lastStep.ally._activeBuffs || [])
-                    .map(b => ({ ...b, remaining: b.remaining - 1 }))
-                    .filter(b => b.remaining > 0),
+                activeBuffs: tickAndPickBuffs(battleState.activeBuffs, lastStep.ally, lastStep.enemy,
+                    battleState.round, seed, battleState.round % 3 === 0),
                 allAllies: battleState.allAllies,
                 _rng: rng
             };

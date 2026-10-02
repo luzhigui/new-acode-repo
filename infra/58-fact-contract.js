@@ -1,5 +1,5 @@
-// V1.5.0 | ~10000 bytes | 2026-09-23 PHANTOM_REVEAL 契约加 deceiverUid（成昆被识破闪一下）
-export const VER = 'infra/58-fact-contract.js V1.5.0';
+// V1.5.3 | ~14500 bytes | 2026-09-27 DOUBLE_STRIKE 契约补 requiredFields.unitName（core/03 成功/失败两分支都已带，供体检 146 直接读触发者）；承接 V1.5.2 RONG_HUI_BONUS 补 targetUid
+export const VER = 'infra/58-fact-contract.js V1.5.3';
 
 import { FACT_TYPES } from './56-battle-enums.js';
 
@@ -41,7 +41,7 @@ export const FACT_SPECS = Object.freeze({
     [FACT_TYPES.PASS]: { requiredFields: ['unit'], renderFn: 'renderPassFact', translateFn: 'translatePass' },
     [FACT_TYPES.KU_LIAN_PRIORITY]: { requiredFields: ['unitName'], renderFn: 'renderKuLianPriorityFact', translateFn: null },
     [FACT_TYPES.KU_LIAN]: { requiredFields: ['unitName'], renderFn: 'renderKuLianFact', translateFn: 'translateStatChange' },
-    [FACT_TYPES.DOUBLE_STRIKE]: { requiredFields: ['success'], renderFn: 'renderDoubleStrikeFact', translateFn: 'translateDoubleStrike' },
+    [FACT_TYPES.DOUBLE_STRIKE]: { requiredFields: ['success', 'unitName'], renderFn: 'renderDoubleStrikeFact', translateFn: 'translateDoubleStrike' },
     [FACT_TYPES.RANGED_GROWTH]: { requiredFields: ['unitName'], renderFn: 'renderRangedGrowthFact', translateFn: 'translateStatChange' },
     [FACT_TYPES.FORTIFY_SHIELD]: { requiredFields: ['unitName'], renderFn: 'renderFortifyShieldFact', translateFn: 'translateStatChange' },
     [FACT_TYPES.DOUBLE_STRIKE_SUMMARY]: { requiredFields: ['unitName'], renderFn: 'renderDoubleStrikeSummaryFact', translateFn: null },
@@ -86,7 +86,7 @@ export const FACT_SPECS = Object.freeze({
 
     // 张无忌九阳 / 融会贯通
     [FACT_TYPES.NINE_YANG_HEAL]: { requiredFields: ['unitUid', 'heal'], renderFn: 'renderNineYangHealFact', translateFn: 'makeHealAction' },
-    [FACT_TYPES.RONG_HUI_BONUS]: { requiredFields: ['extra', 'targetAtk'], renderFn: 'renderRongHuiBonusFact', translateFn: null },
+    [FACT_TYPES.RONG_HUI_BONUS]: { requiredFields: ['extra', 'targetAtk', 'targetUid'], renderFn: 'renderRongHuiBonusFact', translateFn: null },
 
     // 韦一笑吸血
     [FACT_TYPES.WEI_LEECH]: { requiredFields: ['unitUid', 'heal'], renderFn: 'renderWeiLeechFact', translateFn: 'makeHealAction' },
@@ -133,14 +133,19 @@ export const FACT_SPECS = Object.freeze({
     [FACT_TYPES.STUN_SKIP]: { requiredFields: ['unitName'], renderFn: 'renderStunSkipFact', translateFn: 'translateStunSkip' },
     [FACT_TYPES.FLY_SKIP]: { requiredFields: ['unitName'], renderFn: 'renderFlySkipFact', translateFn: 'translateFlyMode' },
 
-    // 张三丰：生生不息（只做日志渲染，飘字由组件层直发）
-    [FACT_TYPES.ENDLESS_BREATH]: { requiredFields: ['unitName', 'heal'], renderFn: 'renderEndlessBreathFact', translateFn: null },
+    // 张三丰：生生不息（日志渲染 + 回血弹幕随文本行播出，2026-09-27 起不再由组件层直发）
+    [FACT_TYPES.ENDLESS_BREATH]: { requiredFields: ['unitName', 'heal'], renderFn: 'renderEndlessBreathFact', translateFn: 'translateEndlessBreath' },
     // 张三丰：不争
     [FACT_TYPES.NO_CONTEND]: { requiredFields: ['unitName'], renderFn: 'renderNoContendFact', translateFn: null },
 
     // 召唤 / 幼狮成长（谢逊狮子、灭绝召唤周芷若）
     [FACT_TYPES.SUMMON_UNIT]: { requiredFields: ['summonName', 'pos'], renderFn: 'renderSummonUnitFact', translateFn: null },
     [FACT_TYPES.LION_GROW]: { requiredFields: ['name', 'pos'], renderFn: 'renderLionGrowFact', translateFn: null },
+
+    // 数值声明 fact（体检对照器专用；renderFn:null = 无渲染，不进画面）
+    [FACT_TYPES.BAGUA_ARRAY]:  { requiredFields: ['unitName', 'atkDelta', 'defDelta'], renderFn: null, translateFn: null },
+    [FACT_TYPES.RAGE_ON_HIT]:  { requiredFields: ['unitName', 'atkDelta'], renderFn: null, translateFn: null },
+    [FACT_TYPES.LION_INSPIRE]: { requiredFields: ['unitName', 'targets'], renderFn: null, translateFn: null },
 });
 
 /**

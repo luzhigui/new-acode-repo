@@ -1,4 +1,4 @@
-// V6.1.16 | ~29000 bytes | 2026-09-26 新增 checkActionRights（行动权不变量·回合级）：_acted=true 的活人本回合必须有正常位行动记录，抓「吞回合」（灭绝反击 bug 通用形态）；121/回放共用此唯一实现
+// V6.1.16 | ~29000 bytes | 2026-09-26 新增 checkActionRights（行动权不变量·回合级）：_acted=true 的活人本回合必须有正常位行动记录，抓「吞回合」（灭绝反击 bug 通用形态）；121/回放共用此唯一实现（合并移植：本条与远端并线第 24-49 轮共存）
 // V6.1.15 | ~26700 bytes | 2026-09-25 不变量单一真值源：checkUnitHpValidity 定为血量类不变量的**唯一**实现，
 //          rules-replay.mjs 的逐步断言改为直接调用它。此前两处各写一份且口径不一致 ——
 //          122 多一条「maxHp > _baseMaxHp×2.5 膨胀」判据（含 isWei 豁免），回放侧没有，
@@ -98,12 +98,22 @@ export function checkHpBarColor(unit, win, doc) {
 
 /**
  * 检查特效残留元素数量
+ * 排除胜利庆祝粒子（ui/62 celebrate()：party-particle 60 + star-particle 15 = 75 个）：
+ *   它们自带 2.8~3.3s 自清，属设计内瞬时特效。结算检查在 GAMEOVER+3000ms 跑，正赶上它们存活期
+ *   → 误报"75个特效未清理"。这些不是"残留孤儿"（一定会自清），只盯真正的残留（其他临时FX卡住不清理）。
  */
 export function checkFxOrphans(doc) {
     const issues = [];
     const orphans = doc.querySelectorAll('[data-fx="temporary"]');
-    if (orphans.length > 5) {
-        issues.push('战斗结束后' + orphans.length + '个特效未清理');
+    if (!orphans.length) return issues;
+    let count = 0;
+    for (let i = 0; i < orphans.length; i++) {
+        const el = orphans[i];
+        if (el.classList.contains('party-particle') || el.classList.contains('star-particle')) continue;
+        count++;
+    }
+    if (count > 5) {
+        issues.push('战斗结束后' + count + '个特效未清理');
     }
     return issues;
 }
@@ -206,12 +216,18 @@ export function checkMeleeFxState(ctx, doc) {
  * 检查有Buff生效的单位，格子上是否正确显示了对应的图标
  * 渲染时序容错：图标缺失需持续超过 ICON_BUFFER_MS 才上报，避免 Buff 刚生效、
  * 格子尚未重绘时误报。
+ *
+ * 数据真值源（V6.2.0 同步修正）：受益判定必须用「实时 battleStore」单位，不能用 ctx.UI.allyTeam。
+ *   ctx.UI.allyTeam 是 ui/65 开战时 clone 的副本，战斗全程冻结——张无忌近战切换（RANGED→WARRIOR）、
+ *   惑人心智换位（前排快照≠实时）、单位阵亡等都会让"快照角色/位置/存活"与实时不一致，
+ *   体检据此误判缺图标（与 121 文件头 V6.2.0 同根因，此处补上 live 化）。
+ *   liveAlly 由 121.runUIChecks 经 teamsFromStore(ctx) 传入（取不到再退回 UI 快照）。
  */
 const ICON_BUFFER_MS = 1000;
 const _missingBuffIconSince = {};
-export function checkBuffIcons(ctx, doc) {
+export function checkBuffIcons(ctx, doc, liveAlly) {
     const issues = [];
-    const allyTeam = (ctx.UI && ctx.UI.allyTeam) || [];
+    const allyTeam = (liveAlly && liveAlly.length) ? liveAlly : ((ctx.UI && ctx.UI.allyTeam) || []);
     const activeBuffs = ctx.activeBuffs || [];
     const doubleStrikeUid = ctx.currentDoubleStrikeUid;
 
@@ -264,10 +280,10 @@ export function checkBuffIcons(ctx, doc) {
 
     for (const unit of allyTeam) {
         if (!unit.alive) continue;
-        // 按 uid 定位格子（渲染器在 div.dataset.uid 上写死 uid），不用 pos 反查：
-        //   ctx.UI 是开战快照，战斗中死亡移除/换位（惑人心智本身就是换位buff）会让
-        //   pos→children[idx] 映射偏移，查到别人的格子 → 假"缺图标"（2026-09-03 关5/6 误报根因）
-        const cell = doc.querySelector('#allyGrid .cell[data-uid="' + unit.uid + '"]') || getCellElement(unit, doc);
+        // 只按 uid 定位该单位自己的格子（渲染器在 div.dataset.uid 上写死 uid），绝不回退到按 pos 查——
+        // 同格尸体/换位会让 pos→children[idx] 偏移到别人的格子（含尸体格），读到错误格子 → 假"缺图标"。
+        // uid 格不在（如位置被尸体占据，主代码正常显示尸体而非该单位）→ 该单位图标本就不该出现，跳过避免误报。
+        const cell = doc.querySelector('#allyGrid .cell[data-uid="' + unit.uid + '"]');
         if (!cell) continue;
         const nameEl = cell.querySelector('.cell-name');
         if (!nameEl) continue;
@@ -534,8 +550,104 @@ export function locateLogEntry(log, entry) {
     return '(第' + round + '回合, 第' + (idx + 1) + '条日志' + (who ? ', ' + who : '') + ')';
 }
 
+// --- 战报条目摊平（第 25 轮收口）---
+// 根因：同一段"顶层 → attack-group 的 entries 下钻"逻辑曾在 7 个规则里各复制一份
+//   （123/129/132/133/150/151/152），复制时就地改参数，遂分化成三种形态。
+//   取证（归一化后逐字比对）：129/133/150/151/152 **五份完全相同**（扁平 push 节点）；
+//   132 为 `{e, gi}`；123 为 `{e, gi, i}`，且 123 的判据**真的用 `.i` 做同组内排序**（L85-86），
+//   不是冗余字段 —— 故带组号版本必须保留 `i`。
+// 收敛：在此提供唯一实现，各规则 import；`i` 对 132 是多余字段，无害。
+export function collectNodes(log) {
+    var out = [];
+    function walk(node, depth) {
+        if (!node) return;
+        if (Array.isArray(node)) { for (var i = 0; i < node.length; i++) walk(node[i], depth); return; }
+        out.push(node);
+        if (depth === 0 && Array.isArray(node.entries)) {
+            for (var k = 0; k < node.entries.length; k++) walk(node.entries[k], depth + 1);
+        }
+    }
+    for (var j = 0; j < (log || []).length; j++) walk(log[j], 0);
+    return out;
+}
+
+// --- 以下三个小工具同批收口（第 27 轮）：曾在 9 个规则里各有副本，归一化比对确认**各自只有一种实现** ---
+//   plain        ×5（146/148/149/150/151）
+//   entryTexts   ×2（136/144）
+//   maxHpOf      ×2（150/151）
+// 与 collectNodes 同款病：复制即埋雷，改一处漏八处。名字本来就一致，import 时无需 as。
+
+/** 去掉 HTML 标签取纯文本（战报条目带 <span> 等富文本，判据一律比纯文本） */
+export function plain(s) {
+    return String(s || '').replace(/<[^>]+>/g, '');
+}
+
+/** 取一条日志自身文本 + 其 entries 子条目的文本（判据常要"顶层或子条目任一命中"） */
+export function entryTexts(e) {
+    var out = [];
+    if (!e) return out;
+    if (typeof e.text === 'string' && e.text) out.push(e.text);
+    if (Array.isArray(e.entries)) {
+        for (var i = 0; i < e.entries.length; i++) {
+            var sub = e.entries[i];
+            if (sub && typeof sub.text === 'string' && sub.text) out.push(sub.text);
+        }
+    }
+    return out;
+}
+
+/** entryTexts 的数组递归版本：渲染函数可能返回 [行1,行2] 多件套（如 renderZhangSwitchFact），
+ *  浏览器端 log 未摊平时需要递归下钻。134/143 原各有一份逐字相同的副本（switchTexts/nineYangTexts）。 */
+export function entryTextsDeep(e) {
+    var out = [];
+    if (!e) return out;
+    if (Array.isArray(e)) {
+        for (var a = 0; a < e.length; a++) {
+            var got = entryTextsDeep(e[a]);
+            for (var g = 0; g < got.length; g++) out.push(got[g]);
+        }
+        return out;
+    }
+    if (typeof e.text === 'string' && e.text) out.push(e.text);
+    if (Array.isArray(e.entries)) {
+        for (var i = 0; i < e.entries.length; i++) {
+            var sub = e.entries[i];
+            if (sub && typeof sub.text === 'string' && sub.text) out.push(sub.text);
+        }
+    }
+    return out;
+}
+
+/** 按名字在终局两队里查 maxHp（吸血/回血类判据要用"回血量不得超过血上限"） */
+export function maxHpOf(name, afterA, afterE) {
+    var lists = [afterA, afterE];
+    for (var i = 0; i < lists.length; i++) {
+        var arr = lists[i] || [];
+        for (var k = 0; k < arr.length; k++) {
+            var u = arr[k];
+            if (u && u.name === name && typeof u.maxHp === 'number') return u.maxHp;
+        }
+    }
+    return null;
+}
+
+// 带组号版本：`gi` = 该条目所属顶层日志下标（用于"同一攻击组内"的判据），`i` = 摊平后的序号。
+export function collectNodesGrouped(log) {
+    var out = [];
+    function walk(node, depth, gi) {
+        if (!node) return;
+        if (Array.isArray(node)) { for (var i = 0; i < node.length; i++) walk(node[i], depth, gi); return; }
+        out.push({ e: node, gi: gi, i: out.length });
+        if (depth === 0 && Array.isArray(node.entries)) {
+            for (var k = 0; k < node.entries.length; k++) walk(node.entries[k], depth + 1, gi);
+        }
+    }
+    for (var j = 0; j < (log || []).length; j++) walk(log[j], 0, j);
+    return out;
+}
+
 /**
- * 行动权不变量（回合级，第 24 轮新增）：
+ * 行动权不变量（回合级，第 24 轮新增·本机线移植）：
  * 每个 alive 且 state._acted=true 的单位，本回合必须留下过一条「正常位行动」记录。
  * 抓的 bug 形态：额外攻击（反击/跟随/联动）若没被 LINK_REASONS 识别、又没配 actedMode，
  *   攻击流程会提前把本人 _acted 置 true（core/10:203/266），主循环 candidates 过滤（core/11:365），

@@ -26,6 +26,7 @@
 // 误报规避：本场没有「圣火令：」摘要直接 skip；配置读不到时只跳过判据 4（其余结构判据照跑）；
 //   文本形态变了（未来改文案）匹配不上就当 skip，绝不硬报。
 export const VER = 'tests/health-rules/149-holy-flame-cols-rows.js V6.1.15';
+import { plain } from '../122health-utils.js';
 
 import { CONFIG } from '../../core/01config-5v5-test.js';
 
@@ -41,9 +42,7 @@ function holyCfg() {
     };
 }
 
-function plain(s) {
-    return String(s || '').replace(/<[^>]+>/g, '');
-}
+
 
 // 「第1、3列」→ [1,3]；「无」/「第列」→ []；解析失败返回 null（交给调用方跳过）
 function parseNums(seg) {

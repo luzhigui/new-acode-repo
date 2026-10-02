@@ -1,5 +1,5 @@
-// V6.3.0 | ~15000 bytes | 2026-09-24 ③批2：宋青书/周芷若机制（chainClaw/kuLian/xinHun/xingFen）全部搬至 modules/26，core 不再认识具体角色
-export const VER = 'core/15-skill-mechanisms.js V6.3.0';
+// V6.3.1 | ~15000 bytes | 2026-09-29 参数体系收敛批 3：成昆幻影伪装 healRatio/baseChance/per10pctLost 去掉字面兜底，直读 mechanics 声明
+export const VER = 'core/15-skill-mechanisms.js V6.3.1';
 
 import { EXECUTION_LAYER as L, EFFECT_TYPES, registerSettlementHook } from '../infra/50-event-bus.js';
 import { CONFIG } from './01config-5v5-test.js';
@@ -205,7 +205,7 @@ function submitPhantomDisguiseOnHit(data, decls) {
     const lostHp = unit.maxHp - unit.hp;
     if (lostHp > 0) {
         const aliveCount = data.enemySide.filter(u => u.alive).length;
-        const heal = Math.floor(lostHp * (decl.healRatio || 0.06) * aliveCount);
+        const heal = Math.floor(lostHp * decl.healRatio * aliveCount);
         if (!data.declarations) data.declarations = [];
         data.declarations.push({ type: EFFECT_TYPES.HEAL, value: heal, source: unit, factType: FACT_TYPES.PHANTOM_DISGUISE_HEAL, factData: { unitName: unit.name, heal, unitUid: unit.uid } });
     }
@@ -255,7 +255,7 @@ function submitPhantomDisguiseTarget(data, decls) {
         return;
     }
     const lostHpPct = (chengkun.maxHp - chengkun.hp) / chengkun.maxHp;
-    const confuseChance = (phantomDecl.baseChance || 0.30) + (phantomDecl.per10pctLost || 0.06) * (lostHpPct * 10);
+    const confuseChance = phantomDecl.baseChance + phantomDecl.per10pctLost * (lostHpPct * 10);
     if (getBattleRng().next() >= confuseChance) return;
     const phantomTarget = allySide.find(u => u.alive && !u.isHorse && !u.state._untargetable && u.uid === chengkun.state._phantomTarget && u.uid !== unit.uid);
     if (phantomTarget) {

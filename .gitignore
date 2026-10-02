@@ -10,20 +10,12 @@
 # DSH 技能说明书（2026-09-26 起入库）
 # /.dsh/
 
-# 展示与CG（2026-09-26 起入库）
-# gen_3d：立绘 PNG / 网页版模型(_web.glb) / 预览图 / 查看器 html 入库，手机端可直接查看；
-# 以下体积过大或含密钥者排除：
-/展示与CG/gen_3d/_backup_20260926/
-/展示与CG/gen_3d/**/*.glb
-!/展示与CG/gen_3d/**/*_web.glb
-/展示与CG/gen_3d/**/*_obj.zip
-/展示与CG/gen_3d/gallery-standalone.html
-/展示与CG/gen_3d/_tok.txt
-# _jobs 内的 json/log 含提交时的访问令牌，禁止入库（会触发 GitHub secret scanning）
-/展示与CG/gen_3d/_jobs/
-# _publish 是发布用的生成物（26MB），由 _build_publish.py 重建
-/展示与CG/gen_3d/_publish/
-# 例外：精英展示-04 被 ui/61 精英图鉴选人弹层 iframe 加载，必须入库
+# 展示与CG（2026-09-27 起：整目录不入库，只留主代码引用的那一个文件）
+# 原 255 个已跟踪文件（85MB：gen_3d 199 / 立绘-张无忌-统一 37 / 素材 5 / 开场CG·特效演示·精英展示 html）
+# 全部转为本地素材，不入库、不随 git 同步（换机需要走飞书/U盘/网盘）。
+/展示与CG/*
+# 例外：精英展示-04 被 ui/61main-5v5-test.js:74 的精英图鉴选人弹层以 iframe 加载，必须入库（自包含 base64，无外部依赖）
+!/展示与CG/精英展示-04-圣火单卡旋转-GLM5.3.html
 
 # APK 打包产物（由 GitHub Actions 生成，不入库）
 web/
@@ -33,3 +25,22 @@ package-lock.json
 
 # WorkBuddy IDE 工具的临时工作目录（诊断脚本/粘贴缓冲/会话记忆，工具自动再生，不入库）
 /.workbuddy/
+
+# 本轮生成图的临时落地目录（重命名后即废弃）
+/展示与CG/gen_3d/_new/
+
+# gen_3d 下的 _ 前缀临时脚本（生成/重命名/提交用，用完即弃，不入库）
+/展示与CG/gen_3d/_*.py
+
+# 变异牙齿测试的临时树（仓库内，跑完即删，不入库）
+/tests/.mut/
+
+# 3D 画廊恢复素材（glb 模型 + img/models/draco，约 61MB）
+# 2026-09-29 已物理移出仓库目录，落到 `003 github newsest 20260628\_gallery_restore\` 同级处，不入库
+/_gallery_restore/
+
+# 语音解说 demo 的部署副本（含 .venv / relay 日志，被运行中的中继占用暂无法移动，先忽略）
+/demos/
+
+# 体检会话给主代码的需求单（在途文档，不入库；体检侧要正式入库时删掉本行）
+/tests/体检给主代码的需求.md

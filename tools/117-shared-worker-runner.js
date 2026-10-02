@@ -1,6 +1,19 @@
+// V1.2.0 | 2026-09-27 池大小改为 getPoolSize() 统一口径：默认吃满 hardwareConcurrency（原核数-1 会空置一核）；
+//        localStorage 'battle_pool_size' 可覆盖。109/101/108/112/113/114 自动受益
 // V1.1.0 | 复用 116 通用战斗 Worker；worker 池按核数-1，ready 后派发，逐 job 回报
 // 用法：runParallel({ jobs, kind, nextJobMsg, onJobDone, onAllDone, poolSize, workerUrl })
 export const SHARED_WORKER_URL = new URL('./116-role-balance-worker.js', import.meta.url);
+
+// 统一池大小口径：默认用满全部逻辑核（用户要求「尽量快」；战场计算全在 worker，主线程 UI 不受影响）。
+// 想给系统留核时，控制台执行 localStorage.setItem('battle_pool_size', 6) 即可，下次点击生效。
+export function getPoolSize(override) {
+    if (override) return Math.max(1, Math.floor(override) || 1);
+    try {
+        const v = parseInt(localStorage.getItem('battle_pool_size'), 10);
+        if (v > 0) return v;
+    } catch (e) {}
+    return Math.max(1, navigator.hardwareConcurrency || 4);
+}
 
 export async function runParallel({ jobs, kind, nextJobMsg, onJobDone, onAllDone, poolSize, workerUrl = SHARED_WORKER_URL }) {
     return new Promise((resolve, reject) => {
@@ -68,7 +81,7 @@ export async function runParallel({ jobs, kind, nextJobMsg, onJobDone, onAllDone
             workers.push(w);
         };
 
-        const size = Math.max(1, (poolSize || (navigator.hardwareConcurrency || 4) - 1));
+        const size = getPoolSize(poolSize);
         for (let i = 0; i < size; i++) spawn(i);
     });
 }

@@ -27,7 +27,7 @@ import {
 } from './65main-battle.js';
 import { initBGM, playBGM, setBGMVolume, fadeBGMTo, toggleBGM, updateBGMBtn, lowerBGM } from './66audio-control.js';
 import { toggleDodgeEffect } from './67fx-trigger.js';
-import { updateSpeedButtons, activateScrollSlowdown, restoreSpeedFromScroll, updateButtons, updateAutoModeButton, enableAllButtons, updateDebugUI, updateBuffSlots, bindCoverStart, bindCoverPvp, bindNetPvp, bindPauseButton, bindNextButton, bindDetailButton, bindDebugButton, bindBGButton, bindCrashModeButton, bindDodgeButton, bindAutoButton, bindSettleButton, bindStageSelectButton, bindVoteFloat, bindGridClick, bindCopyLogButton, initSpeedButtons } from './68ui-controls.js';
+import { updateSpeedButtons, activateScrollSlowdown, restoreSpeedFromScroll, updateButtons, updateAutoModeButton, enableAllButtons, updateDebugUI, updateBuffSlots, bindCoverStart, bindCoverPvp, bindNetPvp, bindPauseButton, bindNextButton, bindDetailButton, bindDebugButton, bindBGButton, bindDodgeButton, bindAutoButton, bindSettleButton, bindStageSelectButton, bindVoteFloat, bindGridClick, bindCopyLogButton, initSpeedButtons } from './68ui-controls.js';
 import * as net from '../infra/60-net-pvp.js';
 import { stepAdjustStart, stepAdjustMove, stepBattleStart, initTutorial, resetTutorialDone } from './71tutorial.js';
 import { isOpeningCgDone, showOpeningCg, resetOpeningCgDone } from './72opening-cg.js';
@@ -511,7 +511,6 @@ document.addEventListener('DOMContentLoaded', async function() {
     bindDetailButton(getState, setState, showModal);
     bindDebugButton(setState, updateSpeedButtons, updateDebugUI, updateUI);
     bindBGButton(showMusicPanel);
-    bindCrashModeButton();
     bindDodgeButton(toggleDodgeEffect);
     bindAutoButton(getState, setState);
     bindSettleButton(() => getState.currentStage(), { val: isBattleStarting }, getState, setState, updateBuffSlots, updateUI, updateButtons, enableAllButtons, updateSpeedButtons, updateScoreBadge, doInitBattle, abortAll, clearAllEffects, clearLogExceptFirst, setRenderStore, renderGrid);
@@ -855,7 +854,7 @@ document.addEventListener('DOMContentLoaded', async function() {
         updateAutoModeButton();
         document.getElementById('btnDodgeToggle').classList.toggle('active', getState.dodgeEffectEnabled());
         document.getElementById('btnDodgeToggle').textContent = getState.dodgeEffectEnabled() ? '华丽' : '简单';
-        document.getElementById('btnCrashMode').textContent = GlobalStore.get('crashMode') === 'fly' ? '🕊️飞走' : '👻虚影';
+        // 2026-10-01 虚影/飞走按钮已并入选关弹窗，此处不再刷新其文案
     } catch(e) {
         console.error('[光明顶5v5测试版] 初始化错误：', e.stack || e.message || e);
     }

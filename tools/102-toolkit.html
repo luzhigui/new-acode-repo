@@ -1,5 +1,13 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿<!DOCTYPE html>
-<!-- V6.0.2 | ~26300 bytes | 2026-09-24 关卡下拉框补第 7 关（ab 自动批量战斗 / ls 阵容搜索器）-->
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿<!DOCTYPE html>
+<!-- V6.0.8 | ~28800 bytes | 2026-09-29 页头戳改「最近一次推送时间」（精确到时分秒）：按用户要求对齐 dev-index.html 口径——
+     读 GitHub 仓库最新提交时间（真值，一推代码就变），加载失败只显示 —，不留过期数字。
+     （V6.0.7 曾试过「读本页文件头的版本号+日期」，但文件头只登记到日、粒度不够，已撤。）
+     V6.0.6 | ~28400 bytes | 2026-09-29 顶部加页面时间戳（日期 + 秒级时钟，胶囊样式与页头同行居中、窄屏自动折行）：
+     看战报/实验纪录时能一眼对上「现在什么时候」，不用翻系统时间。
+     V6.0.5 | 2026-09-28 独立工具页（120 参数实验台 / 110 全随机站位 / 105 商店）改页内 iframe 弹窗：
+     原先 onclick="window.open(...,'_blank')" 在内嵌 webview 里开不出新窗口（前三个工具是页内 mask 弹窗所以不受影响），
+     现统一走 openInPage()：全屏 mask + 同源 iframe + 关闭按钮，点遮罩也能关；每次点按钮重设 src 保证重载。
+     （V6.0.4 顶部入口补齐为 6 个、.tool-links 改 flex-wrap；V6.0.3 移除三个自检 tab —— 旧注释已按规范折叠） -->
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
@@ -8,7 +16,10 @@
     <style>
         /* ========== 全局基础样式 ========== */
         body { background: #1a1a2e; color: #eee; font-family: monospace; padding: 12px; font-size: 13px; margin: 0; }
-        h1 { color: #ffd700; text-align: center; margin: 0 0 8px 0; font-size: 20px; }
+        /* ========== 页头（标题 + 页面时间戳） ========== */
+        .page-head { display: flex; align-items: center; justify-content: center; gap: 10px; flex-wrap: wrap; margin: 0 0 10px 0; }
+        h1 { color: #ffd700; margin: 0; font-size: 20px; }
+        .page-clock { color: #7f8aa8; font-size: 11px; line-height: 1; padding: 4px 11px; background: #2a2a4e; border: 1px solid #333; border-radius: 999px; font-variant-numeric: tabular-nums; letter-spacing: 0.5px; white-space: nowrap; }
 
         /* ========== 标签页导航 ========== */
         .tab-nav { display: grid; grid-template-columns: repeat(3, 1fr); gap: 3px; margin-bottom: 12px; background: #111; border-radius: 8px; padding: 3px; }
@@ -139,9 +150,17 @@
         .tool-cmd button:hover { background: #66bb6a; }
         .tool-steps { color: #888; font-size: 11px; margin-top: 10px; padding-left: 16px; line-height: 1.6; }
         .tool-steps li { margin-bottom: 4px; }
-        .tool-links { display: flex; gap: 8px; margin-bottom: 12px; }
-        .tool-link-btn { flex: 1; padding: 10px 8px; border: none; background: #2a2a4e; color: #ffd700; cursor: pointer; font-size: 12px; font-weight: bold; border-radius: 6px; font-family: monospace; transition: 0.2s; }
+        .tool-links { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+        .tool-link-btn { flex: 1 1 150px; padding: 10px 8px; border: none; background: #2a2a4e; color: #ffd700; cursor: pointer; font-size: 12px; font-weight: bold; border-radius: 6px; font-family: monospace; transition: 0.2s; }
         .tool-link-btn:hover { background: #3a3a6e; }
+        /* 页内 iframe 弹窗（2026-09-28）：独立工具页原用 window.open 开新窗口，内嵌 webview 会拦掉；
+           前三个工具（107/108/109）本来就是页内 mask 弹窗所以不受影响。此处统一改成同源 iframe 嵌在工具箱里 */
+        .tf-mask { position: fixed; inset: 0; background: rgba(0,0,0,.7); z-index: 9999; display: none; align-items: center; justify-content: center; }
+        .tf-box { background: #1a1a2e; border: 1px solid #444; border-radius: 12px; width: min(1280px, 96vw); height: 92vh; display: flex; flex-direction: column; padding: 10px; }
+        .tf-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+        .tf-title { color: #ffd700; font-weight: bold; font-family: monospace; font-size: 15px; }
+        .tf-close { background: #444; color: #ccc; border: none; border-radius: 8px; padding: 6px 14px; font-weight: bold; cursor: pointer; font-family: monospace; }
+        .tf-frame { flex: 1; width: 100%; border: 1px solid #333; border-radius: 8px; background: #1a1a2e; }
 
         /* ========== 精英战力评测样式 ========== */
         .elite-config { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 14px; background: #2a2a4e; padding: 10px; border-radius: 8px; }
@@ -170,20 +189,23 @@
     </style>
 </head>
 <body>
-    <h1>光明顶5v5 · 开发工具箱</h1>
+    <div class="page-head">
+        <h1>光明顶5v5 · 开发工具箱</h1>
+        <span class="page-clock" id="pageClock" title="页面更新时间 = GitHub 仓库最新提交时间（与 dev-index 同口径）">读取中…</span>
+    </div>
 
     <div class="tab-nav">
         <button class="tab-btn active" data-tab="tab-file-copier">📋 文件复制器</button>
         <button class="tab-btn" data-tab="tab-auto-battle">⚔️ 自动批量战斗</button>
         <button class="tab-btn" data-tab="tab-elite-eval">⚔️ 精英战力评测</button>
-        <button class="tab-btn" data-tab="tab-stats-check">🔍 统计一致性体检</button>
-        <button class="tab-btn" data-tab="tab-baseline-compare">⚖️ 平衡基线对比</button>
-        <button class="tab-btn" data-tab="tab-lineup-search">🧩 阵容搜索器</button>
     </div>
     <div class="tool-links">
         <button class="tool-link-btn" id="btnOpenLogViewer">🕹️ 日志复盘</button>
         <button class="tool-link-btn" id="btnOpenHexDashboard">📊 海克斯仪表盘</button>
         <button class="tool-link-btn" id="btnOpenRoleBalance">⚖️ 职业平衡分析</button>
+        <button class="tool-link-btn" id="btnOpenParamLab">🧪 参数实验台</button>
+        <button class="tool-link-btn" id="btnOpenRoleRandom">⚖️ 全随机站位</button>
+        <button class="tool-link-btn" id="btnOpenShop">🏪 商店</button>
     </div>
 
     <div class="tab-content active" id="tab-file-copier">
@@ -276,100 +298,6 @@
         <div id="eliteResult"><div class="elite-empty">尚未运行</div></div>
     </div>
 
-    <div class="tab-content" id="tab-stats-check">
-        <p style="color:#888; font-size:12px; margin:0 0 12px 0; line-height:1.6;">
-            自动跑 N 场模拟战斗，通过事件流与实际血量变化交叉核对各单位的 <b style="color:#ffd700;">输出 / 承伤 / 治疗</b> 统计是否与主代码记账一致。<br>
-            用于检测血量重分配（附身 / 飞回 / carry / 苦练等）是否污染 dmgDealt / dmgTaken 统计。
-        </p>
-        <div class="elite-config">
-            <label>检测场次：</label>
-            <input type="number" id="scRunsInput" value="40" min="5" max="200" step="5">
-            <div class="elite-stage-group">
-                <label>关卡：</label>
-                <label><input type="checkbox" class="sc-stage-check" value="1" checked>1</label>
-                <label><input type="checkbox" class="sc-stage-check" value="2" checked>2</label>
-                <label><input type="checkbox" class="sc-stage-check" value="3" checked>3</label>
-                <label><input type="checkbox" class="sc-stage-check" value="4" checked>4</label>
-                <label><input type="checkbox" class="sc-stage-check" value="5" checked>5</label>
-                <label><input type="checkbox" class="sc-stage-check" value="6" checked>6</label>
-                <label><input type="checkbox" class="sc-stage-check" value="7" checked>7</label>
-            </div>
-            <button id="scStartBtn">▶ 开始体检</button>
-        </div>
-        <div class="elite-progress" id="scProgress"></div>
-        <div id="scResult"><div class="elite-empty">尚未运行</div></div>
-    </div>
-
-    <div class="tab-content" id="tab-baseline-compare">
-        <p style="color:#888; font-size:12px; margin:0 0 12px 0; line-height:1.6;">
-            同一条件下对比两组精英配置（如 M 值 / 角色 / 站位差异）的胜率、场均输出、场均承伤、存活率差异。<br>
-            左侧为基准配置 A，右侧为对比配置 B，两组共享种子以保证同阵容同随机、差异仅来自配置。
-        </p>
-        <div class="elite-config">
-            <label>A·基准角色：</label>
-            <select id="bcRoleA" style="padding:8px;border-radius:6px;border:1px solid #555;background:#111;color:#eee;font-size:13px;">
-                <option value="张无忌">张无忌</option>
-                <option value="韦一笑">韦一笑</option>
-                <option value="小昭·姊">小昭·姊</option>
-                <option value="小昭·妹">小昭·妹</option>
-            </select>
-            <label>M：</label>
-            <input type="number" id="bcMA" value="115" min="90" max="130" style="width:80px;">
-            <label>B·对比角色：</label>
-            <select id="bcRoleB" style="padding:8px;border-radius:6px;border:1px solid #555;background:#111;color:#eee;font-size:13px;">
-                <option value="张无忌">张无忌</option>
-                <option value="韦一笑" selected>韦一笑</option>
-                <option value="小昭·姊">小昭·姊</option>
-                <option value="小昭·妹">小昭·妹</option>
-            </select>
-            <label>M：</label>
-            <input type="number" id="bcMB" value="107" min="90" max="130" style="width:80px;">
-        </div>
-        <div class="elite-config">
-            <label>每关场次：</label>
-            <input type="number" id="bcRunsInput" value="40" min="5" max="100" step="5">
-            <div class="elite-stage-group">
-                <label>关卡：</label>
-                <label><input type="checkbox" class="bc-stage-check" value="1" checked>1</label>
-                <label><input type="checkbox" class="bc-stage-check" value="2" checked>2</label>
-                <label><input type="checkbox" class="bc-stage-check" value="3" checked>3</label>
-                <label><input type="checkbox" class="bc-stage-check" value="4" checked>4</label>
-                <label><input type="checkbox" class="bc-stage-check" value="5" checked>5</label>
-                <label><input type="checkbox" class="bc-stage-check" value="6" checked>6</label>
-                <label><input type="checkbox" class="bc-stage-check" value="7" checked>7</label>
-            </div>
-            <button id="bcStartBtn">▶ 开始对比</button>
-        </div>
-        <div class="elite-progress" id="bcProgress"></div>
-        <div id="bcResult"><div class="elite-empty">尚未运行</div></div>
-    </div>
-
-    <div class="tab-content" id="tab-lineup-search">
-        <p style="color:#888; font-size:12px; margin:0 0 12px 0; line-height:1.6;">
-            按条件采样 <b style="color:#ffd700;">initBattleTeams</b> 生成阵容，统计精英出场组合、明教普通兵出现频率与站位分布。<br>
-            用于验证阵容生成逻辑（精英出场率 / 固定站位 / 普通兵均衡抽取）。
-        </p>
-        <div class="elite-config">
-            <label>采样场次：</label>
-            <input type="number" id="lsRunsInput" value="200" min="20" max="2000" step="20">
-            <label>关卡：</label>
-            <select id="lsStageSelect" style="padding:8px;border-radius:6px;border:1px solid #555;background:#111;color:#eee;font-size:13px;">
-                <option value="1">第1关</option>
-                <option value="2">第2关</option>
-                <option value="3">第3关</option>
-                <option value="4">第4关</option>
-                <option value="5">第5关</option>
-                <option value="6">第6关</option>
-                <option value="7">第7关</option>
-            </select>
-            <label style="display:flex;align-items:center;gap:4px;"><input type="checkbox" id="lsForceZhang"> 强制张无忌</label>
-            <label style="display:flex;align-items:center;gap:4px;"><input type="checkbox" id="lsForceWei"> 强制韦一笑</label>
-            <button id="lsStartBtn">▶ 开始搜索</button>
-        </div>
-        <div class="elite-progress" id="lsProgress"></div>
-        <div id="lsResult"><div class="elite-empty">尚未运行</div></div>
-    </div>
-
     <script>
         function copyCmd(id) {
             const text = document.getElementById(id).innerText;
@@ -399,23 +327,57 @@
         document.getElementById('btnOpenRoleBalance').addEventListener('click', () => {
             window.openRoleBalance();
         });
+        // 独立工具页：开新窗口会被内嵌 webview 拦掉，统一改页内 iframe 弹窗
+        function openInPage(url, title) {
+            let mask = document.getElementById('toolFrameMask');
+            if (!mask) {
+                mask = document.createElement('div');
+                mask.id = 'toolFrameMask';
+                mask.className = 'tf-mask';
+                mask.innerHTML = '<div class="tf-box"><div class="tf-head"><span class="tf-title"></span>'
+                    + '<button class="tf-close">关闭</button></div><iframe class="tf-frame"></iframe></div>';
+                document.body.appendChild(mask);
+                mask.querySelector('.tf-close').addEventListener('click', () => { mask.style.display = 'none'; });
+                mask.addEventListener('click', e => { if (e.target === mask) mask.style.display = 'none'; });
+            }
+            mask.querySelector('.tf-title').textContent = title;
+            // 每次重设 src：强制重载工具页，避免沿用上一次的旧结果
+            mask.querySelector('.tf-frame').src = url;
+            mask.style.display = 'flex';
+        }
+        document.getElementById('btnOpenParamLab').addEventListener('click', () => openInPage('120-param-lab.html', '🧪 参数实验台'));
+        document.getElementById('btnOpenRoleRandom').addEventListener('click', () => openInPage('110-role-balance-random.html', '⚖️ 全随机站位'));
+        document.getElementById('btnOpenShop').addEventListener('click', () => openInPage('105-shop.html', '🏪 商店'));
     </script>
 
-    <script src="./107-battle-log-viewer.js"></script>
+    <script type="module" src="./107-battle-log-viewer.js"></script>
     <script type="module" src="./108-hex-dashboard.js"></script>
     <script type="module" src="./109-role-balance.js"></script>
     <script type="module" src="./103-toolkit.js"></script>
     <script type="module" src="./104-toolkit-more.js"></script>
     <script type="module" src="./112-elite-eval.js"></script>
-    <script type="module" src="./113-stats-check.js"></script>
-    <script type="module" src="./114-baseline-compare.js"></script>
-    <script type="module" src="./115-lineup-search.js"></script>
     <script type="module">
-        // 数据底座：112/113/114/115/101 的 initBattleTeams 依赖 CONFIG.MING_M 等 getter，
+        // 数据底座：112/101 的 initBattleTeams 依赖 CONFIG.MING_M 等 getter，
         // 数据源是 content/200game-data.json，不加载则普通兵候选池为空 → pick undefined 崩溃。
         // loadGameData 内部幂等（已加载直接返回），页面加载时调一次即可。
         import { loadGameData } from '../core/01config-5v5-test.js';
         loadGameData();
+    </script>
+    <script>
+        // 页面更新时间戳：与 dev-index.html 同口径——读 GitHub 仓库最新提交时间（真值，一推代码就变），
+        // 精确到时分秒；加载失败只显示 —，不留过期数字。
+        (function () {
+            var el = document.getElementById('pageClock');
+            if (!el) return;
+            fetch('https://api.github.com/repos/luzhigui/new-acode-repo/commits?per_page=1')
+                .then(function (r) { return r.ok ? r.json() : null; })
+                .then(function (arr) {
+                    var t = arr && arr[0] && arr[0].commit && arr[0].commit.committer && arr[0].commit.committer.date;
+                    if (!t) { el.textContent = '—'; return; }
+                    el.textContent = '更新 ' + new Date(t).toLocaleString('zh-CN', { hour12: false });
+                })
+                .catch(function () { el.textContent = '—'; });
+        })();
     </script>
 </body>
 </html>
