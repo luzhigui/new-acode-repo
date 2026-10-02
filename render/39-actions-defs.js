@@ -1,5 +1,5 @@
 // render/39-actions-defs.js — 舞台动作演出定义（演出域）
-// V1.2.3 | ~24900 bytes | 2026-10-02 新增 DAMAGE_FLOAT 舞台动作（纯掉血飘字）；流星赶月溅射在箭雨后给每个存活目标飘「💥-N」（伤害 core/16 已实扣，此前只有箭雨+战报无飘字）
+// V1.2.4 | ~25200 bytes | 2026-10-02 溅射掉血飘字收口：新增 DAMAGE_FLOAT 舞台动作；流星赶月箭雨后按命中节奏飘「💥-N」、乘风突袭风爪同帧飘（伤害均由 core/16 SPLASH/BONUS_DMG 已实扣，此前只有演出+战报无飘字）
 // 2026-09-22 从 render/31 拆出：STAGE_ACTION_DEFS 全表 + 单位查找
 //
 // 加新 stageAction：在本文件 STAGE_ACTION_DEFS 加一条（键=STAGE_ACTION_TYPES.xxx），
@@ -11,7 +11,7 @@ import { GlobalStore } from '../infra/54-global-store.js';
 import { getSkillParams } from '../core/01config-5v5-test.js';
 import { AudioManager } from '../modules/22audio-manager.js';
 import { STAGE_ACTION_TYPES, STORE_ACTION_TYPES, UNIT_EVENT_TYPES, ROLE_TYPES, BUFF_EFFECT_TYPES, BUFF_SUBTYPES, FLY_MODE_TYPES } from '../infra/56-battle-enums.js';
-export const VER = 'render/39-actions-defs.js V1.2.3';
+export const VER = 'render/39-actions-defs.js V1.2.4';
 
 // 先查 store 权威单位，再回退 UI 快照
 function findUnitByUidLocal(c, uid) {
@@ -427,7 +427,11 @@ export const STAGE_ACTION_DEFS = {
                     // 乘风突袭：风爪 + 专属横幅，不放箭、不延时；否则走流星箭雨
                     if (action.buffType === BUFF_SUBTYPES.WIND_ASSAULT) {
                         await eventBus.emit(FX_SIGNALS.BANNER, { text: '🦅 乘风突袭！' });
-                        splashTargets.forEach(u => eventBus.emit(FX_SIGNALS.WIND_CLAW, { unit: u }));
+                        splashTargets.forEach(u => {
+                            eventBus.emit(FX_SIGNALS.WIND_CLAW, { unit: u });
+                            // 2026-10-02 乘风溅射掉血飘字：伤害 core/16 SPLASH 已实扣，与流星同口径；乘风不延时，同帧飘
+                            if (u.alive && !GlobalStore.get('fastForwardActive')) eventBus.emit(FX_SIGNALS.DAMAGE_FLOAT, { unit: u, dmg: action.splashDmg });
+                        });
                     } else {
                         await eventBus.emit(FX_SIGNALS.BANNER, { text: '☄️ 流星赶月！' });
                         await eventBus.emit(FX_SIGNALS.SPLASH_ARROWS, { attacker, primary, targets: splashTargets });
