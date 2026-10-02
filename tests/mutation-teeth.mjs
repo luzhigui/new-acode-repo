@@ -1,3 +1,7 @@
+// V2.7.0 | 2026-10-02 第 57 轮：修 judge 判定顺序缺陷 —— `kind==='TEXT'` 的「装饰品」判定排在 `S.total>0` 之前，
+//   使 TEXT 类变异无条件判装饰品、完全无视对照器实际命中。实测反例：T7 对照器命中 223 处、T2 命中 1308 处，
+//   两者都被误报成「装饰品(真盲区)」。改为与 ATTR 同序（规则 → 对照器 → 装饰品），并新增「fact 文本有牙」分类段落。
+//   修后真盲区 2 处 → 0 处（两个 TEXT 盲区都是假盲区，契约本来就有牙）。
 // V2.6.0 | 2026-10-02 第 55 轮：git archive 基树排除 .dsh/.trae（AI CLI 的 skill 目录被 git 跟踪，会随基树复制进每棵变异树，32 棵 × 4 文件纯白占空间）。
 // 方法论首立于第 37/38 轮：变异牙齿测试（mutation teeth）—— 回答「规则到底有没有牙」。
 // 干什么：在**仓库内临时树** tests/.mut 里，对业务代码注入一处**已知的人工缺陷（变异）**，
@@ -28,7 +32,7 @@
 //   1) node tests/mutation-teeth.mjs --emit-prep  > /tmp/prep.sh  &&  bash /tmp/prep.sh
 //   2) node tests/mutation-teeth.mjs --emit-run   > /tmp/run.sh   &&  bash /tmp/run.sh
 //   3) node tests/mutation-teeth.mjs --report
-export const VER = 'tests/mutation-teeth.mjs V2.6.0';
+export const VER = 'tests/mutation-teeth.mjs V2.7.0';
 
 import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
@@ -263,8 +267,21 @@ function judge(mut, FP0, R, B, S, stf, baseRed, baseDetails) {
     if (newRed.length > 0) {
         return { verdict: '规则有牙' + bit, effective, baselineChanged, fpChanged, newDetail, newRed, masked };
     }
-    if (mut.kind === 'TEXT')
-        return { verdict: '❌装饰品(真盲区)', effective, baselineChanged, fpChanged, newDetail, newRed };
+    if (mut.kind === 'TEXT') {
+        // 第 57 轮修判定顺序缺陷：原逻辑 `if (kind==='TEXT') return 装饰品` 排在 `S.total>0` **之前**，
+        //   使 TEXT 类变异**无条件**判「装饰品」，完全无视 stat-decl 的实际命中。
+        //   实测反例：T7（苦练 fact 的 targets[].atkDelta 多写 5）在变异树上对照器明确报红 223 处
+        //   （`✗ 检出重复应用 223 处` + 逐条「少加 5」），却被判成「装饰品(真盲区)」。
+        //   TEXT 类本就是「专测 fact 文本有没有牙」（第 43 轮立意），对照器抓到却当没抓到，
+        //   是最坏的假盲区 —— 会让人误以为该机制完全没人管。正确顺序同 ATTR：规则 → 对照器 → 装饰品。
+        if (S.total > 0) {
+            const via = `(+对照器命中 ${S.total})`;
+            if (baselineChanged) return { verdict: '规则无牙·对照器兜底' + via, effective, baselineChanged, fpChanged, newDetail, newRed, masked };
+            return { verdict: '对照器有牙' + via, effective, baselineChanged, fpChanged, newDetail, newRed, masked };
+        }
+        if (baselineChanged) return { verdict: '❌装饰品(仅基线能察觉)', effective, baselineChanged, fpChanged, newDetail, newRed, masked };
+        return { verdict: '❌装饰品(真盲区)', effective, baselineChanged, fpChanged, newDetail, newRed, masked };
+    }
     if (S.total > 0) return { verdict: '规则无牙·对照器兜住', effective, baselineChanged, fpChanged, newDetail, newRed };
     if (baselineChanged) return { verdict: '规则无牙·仅基线兜底', effective, baselineChanged, fpChanged, newDetail, newRed };
     // 属性变了(fpChanged) 但规则+对照器+基线都没反应
@@ -493,6 +510,13 @@ function summarize(rows) {
     const baselineOnly = rows.filter(r => has(r, '仅基线兜底'));
     const confirmed = rows.filter(r => has(r, '待确认盲区'));
     const noEffect = rows.filter(r => has(r, '未观测到影响'));
+    // 第 57 轮：TEXT 类有牙单列一段（fact 文本被对照器抓到，与 ATTR 的"规则无牙·对照器兜住"是两回事：
+    //   ATTR 是规则本该管但让给了对照器；TEXT 是专测 fact 文本，对照器抓到就是真有牙）。
+    const textHasTeeth = rows.filter(r => has(r, '对照器有牙'));
+    if (textHasTeeth.length) {
+        console.log(`\n🔵 fact 文本有牙（对照器命中）${textHasTeeth.length} 处 —— TEXT 类变异被stat-decl 对照器抓住了：`);
+        for (const r of textHasTeeth) console.log(`   · ${r.mut.id} ${r.mut.desc}`);
+    }
     if (blind.length) {
         console.log(`\n❌ 真盲区（装饰品）${blind.length} 处 —— TEXT 类变异已生效，但规则侧+对照器侧+基线侧都没反应：`);
         for (const r of blind) console.log(`   · ${r.mut.id} ${r.mut.desc}`);

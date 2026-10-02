@@ -77,7 +77,17 @@ node tests/mutation-teeth.mjs --report
 - 变异前必须 `git diff --stat core/ modules/` 确认为空；**验完立刻 `git checkout --` 回滚**，不留残留。
 
 ### harness 的统计正则坑
-`parseBlock` 用正则数stat-decl 汇总行的命中数。曾与实际文案「✗ 检出重复应用 N 处」不匹配，导致**所有严格命中契约被错判「仅基线兜底」**。改了 stat-decl 汇总文案要同步这里，否则牙口结论失真。
+`parseBlock` 用正则数 stat-decl 汇总行的命中数。曾与实际文案「✗ 检出重复应用 N 处」不匹配，导致**所有严格命中契约被错判「仅基线兜底」**。改了 stat-decl 汇总文案要同步这里，否则牙口结论失真。
+
+### judge 判定顺序坑（第 57 轮修复，反直觉）
+判「装饰品」的分支**不能排在「对照器有牙」之前**。曾写成：
+```js
+if (mut.kind === 'TEXT') return '装饰品';   // ← TEXT 类无条件装饰品
+if (S.total > 0)         return '对照器兜住';  // ← 永远轮不到
+```
+后果：TEXT 类变异**完全无视对照器命中**，无条件扣"装饰品"帽子。实测 T7 命中 223 处、T2 命中 1308 处，全被误报成真盲区。正确顺序同 ATTR：**规则 → 对照器 → 装饰品**。
+
+**教训**：TEXT 类变异立意就是"专测 fact 文本有没有牙"，判它"没牙"必须先看过对照器命中数。看到"真盲区"结论，先在变异树上手动跑一次 stat-decl 看它到底报没报红——**harness 的判定本身也可能有 bug**。
 
 ## 六、覆盖率
 
@@ -127,5 +137,6 @@ grep -n "modules/3" tests/stat-decl-vs-actual-check.mjs tests/rules-replay.mjs t
 | 同名多单位归错 | 用名字归因 | 改 `uid` 归因 |
 | 契约恒绿、变异抓不到 | 变异锚点静默失效（树=干净树） | `--verify` 看命中处数 |
 | 牙齿全判「仅基线兜底」 | harness 正则与 stat-decl 文案不匹配 | 对齐 `parseBlock` 正则 |
+| TEXT 类被判「装饰品」但对照器其实命中 | `judge` 里装饰品分支排在对照器分支之前 | 调整判定顺序：规则 → 对照器 → 装饰品 |
 | 多行锚点 0 处 | harness 只逐行匹配 | 缩进区分 或 `multi:true` |
 | 开局抛「未知顶层机制 type X」 | 机制靠 import 副作用注册，入口漏 import | 见第八节，补 `import modules/XX` |
