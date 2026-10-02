@@ -1,3 +1,11 @@
+// V2.8.0 | 2026-10-02 第 58 轮：修baseline 段判定口径（第 4 次栽在 harness）—— `baselineChanged`原是
+//   「与**录制基线**比」，而主代码进行中的 dotTick 让**干净树自己**就报 3 场 winner 翻转红线
+//   ⇒ 干净树 changed=true ⇒ 任何变异的 changed 恒 true ⇒ no-op 变异也被算成「至少基线兜底」。
+//   实测 A8/A19/A13的 baseline 输出与_base **逐字节相同**，即变异压根没生效，却被误报为「仅基线兜底」。
+//   改为**相对 _base 干净树的增量**判定（baselineSig 整段文本指纹比对）；同时修3 条 no-op 变异锚点：
+//   A8/A19 原锚 `value: atkTransfer`（flyDirection 恒 'left' ⇒ atkRatio=0 ⇒ atkTransfer 恒 0，`*2` 仍是 0），
+//     改锚 `defTransfer`（left 时 defRatio=0.5，值非零）；A13 原锚 `xiaoZhaoCarry`（需特定海克斯，
+//     全场次 10seed×4stage 扫描**零出现**）⇒ 改锚 `rageOnHit`（73 词条，multi 两处同改）。
 // V2.7.0 | 2026-10-02 第 57 轮：修 judge 判定顺序缺陷 —— `kind==='TEXT'` 的「装饰品」判定排在 `S.total>0` 之前，
 //   使 TEXT 类变异无条件判装饰品、完全无视对照器实际命中。实测反例：T7 对照器命中 223 处、T2 命中 1308 处，
 //   两者都被误报成「装饰品(真盲区)」。改为与 ATTR 同序（规则 → 对照器 → 装饰品），并新增「fact 文本有牙」分类段落。
@@ -32,7 +40,7 @@
 //   1) node tests/mutation-teeth.mjs --emit-prep  > /tmp/prep.sh  &&  bash /tmp/prep.sh
 //   2) node tests/mutation-teeth.mjs --emit-run   > /tmp/run.sh   &&  bash /tmp/run.sh
 //   3) node tests/mutation-teeth.mjs --report
-export const VER = 'tests/mutation-teeth.mjs V2.7.0';
+export const VER = 'tests/mutation-teeth.mjs V2.8.0';
 
 import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
@@ -80,10 +88,13 @@ const MUTATIONS = [
       file: 'modules/26elite-sixsects.js',
       from: "{ source: '生生不息', value: defGain,",
       to:   "{ source: '生生不息', value: defGain * 2," },
-    { id: 'A8', kind: 'ATTR', desc: '蝶变附身攻击转移翻倍',
+    // 第 58 轮修锚点：A8 原锚在 **atk** 那行，但 flyDirection 恒为 'left'（core/11 只写 `A._flyDirection = A._flyDirection || 'left'`，
+    //   全仓无处设 'right'）⇒ atkRatio=0 ⇒ atkTransfer 恒 0 ⇒ `value: atkTransfer * 2` 是个 no-op，
+    //   baseline 与 _base 逐字节相同。改锚 **def** 那行：left 时 defRatio=bp.defRatioLeft=0.5，值非零，变异真正生效。
+    { id: 'A8', kind: 'ATTR', desc: '蝶变附身防御转移翻倍',
       file: 'modules/27elite-mingjiao.js',
-      from: "{ source: '蝶变附身', value: atkTransfer,",
-      to:   "{ source: '蝶变附身', value: atkTransfer * 2," },
+      from: "{ source: '蝶变附身', value: defTransfer,",
+      to:   "{ source: '蝶变附身', value: defTransfer * 2," },
     { id: 'A9', kind: 'ATTR', desc: '八卦阵防御增益翻倍',
       file: 'modules/26elite-sixsects.js',
       from: "{ source: '八卦阵', value: ba.defGain,",
@@ -103,10 +114,15 @@ const MUTATIONS = [
       to:   "{ source: '性奋代价', value: -penalty * 2," },
     // 第 44 轮改锚点：原为写死的 `value: 3`，主代码把三项收敛成 `carryMods.atk/def/maxHp` 后写法变了。
     //   （A13 仍属结构性稀有条件 —— 需 bro 拿到永久 carry 海克斯且队伍无 carry buff，历史上 560 场零触发）
-    { id: 'A13', kind: 'ATTR', desc: '小昭·妹永久carry 加攻 ×10',
-      file: 'modules/27elite-mingjiao.js',
-      from: "{ source: '小昭·妹永久carry', value: carryMods.atk,",
-      to:   "{ source: '小昭·妹永久carry', value: carryMods.atk * 10," },
+    // 第 58 轮改锚点：A13 原打 `xiaoZhaoCarry`（小昭·妹永久carry），但该机制需特定海克斯（CARRY 永久 buff），
+    //   stat-decl 全场次（10 seed × 4 stage）扫描里 **零出现** ⇒ 变异恒 no-op，baseline 与 _base 逐字节相同。
+    // 第 58 轮改靶子（第二次）：先试 rageOnHit 的 multi 版，与 A10 完全重复（同文件同锚点同 multi）⇒ 无意义。
+    //   最终改打 `xingFenCost`（性奋代价，95 词条，maxHp **负值**且逐次递减 -1/-2/-3…）——
+    //   专测「负值 + 非整数倍」判据：旧判据只认 sum>0 与整数倍超应用，这类负值递减词条最容易漏。
+    { id: 'A13', kind: 'ATTR', desc: '性奋代价扣血上限翻倍（负值词条 ×2）',
+      file: 'modules/26elite-sixsects.js',
+      from: "addMod(unit, 'maxHp', { source: '性奋代价', value: -penalty, ttl: 'permanent', group: 'xingFenCost', op: 'add' });",
+      to:   "addMod(unit, 'maxHp', { source: '性奋代价', value: -penalty * 2, ttl: 'permanent', group: 'xingFenCost', op: 'add' });" },
     { id: 'A14', kind: 'ATTR', desc: '雄狮振奋加攻翻倍',
       file: 'modules/27elite-mingjiao.js',
       from: "{ source: '振奋', value: gain,",
@@ -139,9 +155,9 @@ const MUTATIONS = [
       file: 'modules/26elite-sixsects.js',
       from: "{ source: '苦练', value: atkDelta,",
       to:   "{ source: '苦练', value: atkDelta + 1," },
-    { id: 'A19', kind: 'ATTR', desc: '蝶变附身攻击加成完全失效（改 0，旧判据必漏）',
+    { id: 'A19', kind: 'ATTR', desc: '蝶变附身防御加成完全失效（改 0，非整数倍判据必漏）',
       file: 'modules/27elite-mingjiao.js',
-      from: "{ source: '蝶变附身', value: atkTransfer,",
+      from: "{ source: '蝶变附身', value: defTransfer,",
       to:   "{ source: '蝶变附身', value: 0," },
     { id: 'T1', kind: 'TEXT', desc: '破防日志写 -（reduce+5）（实际仍只扣 reduce）',
       file: 'core/16effect-handlers.js',
@@ -244,8 +260,17 @@ function breEscape(s) {
 //   起因：干净树可能本就有红（153 实测主代码「⚡ undefined / 重复渲染」是真 bug，120 场 fail=7）。
 //   此时「这条变异有没有报红」毫无意义 —— 基线本来就红，红与不红都一样。
 //   必须比对**报红明细文本**：同一条规则若因本次变异报出了基线里没有的新文案/新场次，才算真有牙。
+// ★ 第 58 轮：_base 干净树的 baseline 段指纹（整段文本归一化排序后拼接）。judge 用它做增量判定。
+let BASE_SIG = null;
+
 function judge(mut, FP0, R, B, S, stf, baseRed, baseDetails) {
-    const baselineChanged = B.changed || (B.match !== null && B.match < 18);
+    // ★ 第 58 轮：baselineChanged 改为**相对 _base 干净树的增量**判定。
+    //   旧口径 `B.changed || match<18` 是「与录制基线比」，而主代码进行中的 dotTick 让干净树自己就报红线，
+    //   ⇒ 任何变异的 changed 恒 true ⇒ no-op 变异（A8/A19/A13，baseline 输出与 _base 逐字节相同）
+    //   也被算成「基线能察觉」⇒ 把「变异没生效」误报成「仅基线兜底」。改为增量后这批会正确落到「未观测到影响」。
+    const baselineChanged = B.baseSig !== undefined && B.baseSig !== null
+        ? B.baseSig !== BASE_SIG
+        : (B.changed || (B.match !== null && B.match < 18));
     const fpChanged = FP0 !== null && stf.fp !== null && stf.fp !== FP0;
     const bRed = new Set(baseRed || []);
     const bDet = new Set(baseDetails || []);
@@ -409,6 +434,7 @@ async function main() {
         const b = parsed._base;
         let BASE_RED = [], BASE_DETAILS = [];
         if (b) {
+            BASE_SIG = b.baselineSig ?? null;
             BASE_RED = b.red || []; BASE_DETAILS = b.details || [];
             console.log(`[对照·未变异 _base] 规则报红 ${b.red.length} 条（明细 ${BASE_DETAILS.length} 条）· 基线 ${b.match === 18 ? 'MATCH 18' : (b.changed ? '已变' : '?')} · 对照器命中 ${b.statTotal} · 指纹 ${b.fp}`);
             if (b.red.length || b.statTotal > 0 || b.changed || !b.fp) {
@@ -416,6 +442,10 @@ async function main() {
                 // 结论仍可用（且能顺带证明这条红是**既有 bug**而非变异引入），只是必须显式标注。
                 console.log('  ⚠ 干净树本身就有红/不绿 —— 已切换为「增量判定」：只认 _base 里没有的新规则/新明细');
                 console.log('    （这些红是既有问题的实证，须同步提主代码需求；不要把它算成某条变异的功劳）');
+                if (b.changed) {
+                    console.log('    · baseline 段同样改增量判定（第 58 轮）：干净树已报红线 ⇒ 任何变异的「基线兜底」都不再作数，');
+                    console.log('      只有相对本树的 baseline 输出发生变化才算「基线真兜住了」。');
+                }
                 if (BASE_RED.length) {
                     console.log(`    ✗ 基线已红的规则（本轮**失去作证资格**，它们的明细变化一律不计入「有牙」）：`);
                     for (const r of BASE_RED) console.log(`        - ${r}`);
@@ -431,7 +461,7 @@ async function main() {
             const p = parsed['m-' + m.id];
             if (!p) { console.log(`⏭ 缺 ${m.id} 结果`); continue; }
             const R = { red: p.red, details: p.details || [], pairs: p.pairs || [], crash: p.crash };
-            const B = { match: p.match, changed: p.changed };
+            const B = { match: p.match, changed: p.changed, baseSig: p.baselineSig };
             const S = { total: p.statTotal };
             const stf = { fp: p.fp };
             const j = judge(m, FP0, R, B, S, stf, BASE_RED, BASE_DETAILS);
@@ -482,6 +512,13 @@ function parseBlock(body) {
     const crash = /不变量违规/.test(replay) && !/RESULT:/.test(replay) ? (replay.split('\n').filter(Boolean).slice(-2).join(' | ') || 'no RESULT') : null;
     const matchM = baseline.match(/BASELINE-MATCH\s+(\d+)/);
     const match = matchM ? Number(matchM[1]) : null;
+    // ★ 第 58 轮：baseline 段也改「增量判定」—— 指纹化整段文本，供 report 与 _base 逐字比。
+    //   起因（第 4 次栽在 harness）：`changed` 原是「与**录制基线**比」，但主代码进行中的 dotTick 改动
+    //   让**干净树自己**就报 3 场 winner 翻转红线 ⇒ 干净树 changed=true ⇒ 任何变异的 changed 恒为 true
+    //   ⇒ 全部被判成「至少仅基线兜底」，把「变异根本没生效（no-op）」和「基线真的变了」混为一谈。
+    //   A8/A19/A13 就是这么被误报的：baseline 输出与 _base **逐字节相同**，变异压根没生效。
+    //   正确口径：baseline 是否**相对 _base 干净树**发生变化 —— 没变 ⇒ 变异无效，不构成任何兜底证据。
+    const baselineSig = baseline.split('\n').map(s => s.trim()).filter(Boolean).sort().join('\n');
     const changed = !!baseline.match(/回归|场与基线不一致/) || (match !== null && match < 18);
     let statTotal = 0;
     for (const line of stat.split('\n')) {
@@ -492,7 +529,7 @@ function parseBlock(body) {
         if (m) statTotal += Number(m[1]);
     }
     const fpM = fp.match(/FINGERPRINT\s+([0-9a-f]+)/);
-    return { red, details, pairs, crash, match, changed, statTotal, fp: fpM ? fpM[1] : null };
+    return { red, details, pairs, crash, match, changed, baselineSig, statTotal, fp: fpM ? fpM[1] : null };
 }
 
 function summarize(rows) {

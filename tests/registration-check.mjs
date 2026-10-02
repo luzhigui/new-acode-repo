@@ -7,14 +7,17 @@
 //   下一次重新踩同样的坑（147~152 就曾整批漏登打包清单）。常驻化之后，漏登是**机器报的**不是人想起来的。
 // 退出码二分（与基线同思路，别让"我无权修的事"把红线永远染红）：
 //   ① tests/ 侧缺失（121/123/124）—— 体检侧自己能修，**硬失败 exit 1**；
-//   ② tools/106 侧缺失/重复 —— 官方协议明写"不修改 tools/ 下任何文件"，我无权改，
-//      单列为「工具侧待办」提示，**不计入硬失败**（否则红线恒红、失去意义）。
+//   ② tools/106 侧 —— **106 是「复制包清单」：打包给网页端 DeepSeek 看的文件子集，
+//      按用户定调（2026-10-02）本就有意不全，新体检规则/runner 不要求往里登记，
+//      重复登记也无害**。故 106 差异只输出一行中性说明，不算待办、不计硬失败、不要去补登。
 // 运行：node tests/registration-check.mjs
+// V1.1.1 | 2026-10-02 按用户定调更正 106 口径：从「工具侧待办提示」改为「复制包有意不全，差异不核对」，
+//   避免每出一条新规则（如 157）就刷一条"未登记"误导成漏登。
 // V1.1.0 | 2026-10-02 第 50 轮：补第五项检查 —— **121 内 import 了却没进 allRules 数组**。
 //   旧版只核「import 语句在不在」，而 import 只负责装载、真正执行靠 `allRules` 数组；
 //   153/154/155 三条就是只补了 import、数组长期停在 rule99，浏览器侧体检**从未跑过它们**
 //   （node 侧 rules-replay 是自动扫目录，所以一直没暴露）。只查 import = 检查器自己在放假绿。
-export const VER = 'tests/registration-check.mjs V1.1.0';
+export const VER = 'tests/registration-check.mjs V1.1.1';
 
 import { readdir, readFile } from 'node:fs/promises';
 
@@ -95,16 +98,11 @@ async function main() {
         console.log(`✅ 121 / 123 / 124 三处登记齐全（含 121 内 import↔allRules 数组一致：${inArray.length} 条规则进执行数组）`);
     }
 
-    const todo = [];
-    if (miss106.length) todo.push(['tools/106 打包清单未登记规则', miss106]);
-    if (missRunner.length) todo.push(['tools/106 打包清单未登记 runner/基线', missRunner]);
-    if (dup106.length) todo.push(['tools/106 打包清单重复登记', [...new Set(dup106)]]);
-    if (todo.length) {
-        console.log('\n[工具侧待办 · 本检查不改] 仅提示，不计硬失败（官方协议：不修改 tools/ 下文件）：');
-        for (const [why, list] of todo) {
-            console.log('  ! ' + why + '（' + list.length + '）');
-            for (const x of list) console.log('      - ' + x);
-        }
+    // 106 是给网页端 DeepSeek 的复制包清单，有意不全（见头部 V1.1.1 说明）：
+    // 新规则/runner 未纳入、或个别条目重复，均为预期内，不核对、不报待办、不要补登。
+    const diff106 = miss106.length + missRunner.length + new Set(dup106).size;
+    if (diff106 > 0) {
+        console.log(`ℹ tools/106 复制包清单与 tests/ 现有 ${diff106} 处差异（新规则/runner 未纳入或重复）——复制包有意不全，属预期内，不核对`);
     }
     if (hard.length) process.exit(1);
 }

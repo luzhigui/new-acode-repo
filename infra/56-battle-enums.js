@@ -1,5 +1,5 @@
-// V1.4.1 | ~15100 bytes | 2026-10-02 ①新增 MECHANIC_TYPES（mechanics 顶层 type 唯一来源：core/18 注册表 + core/15 本地安装器）与 MECHANIC_EFFECT_TYPES（onHit/beforeDamage/attributeMods/dodgeRules 四类内层元素 type 唯一来源），配合 core/15 安装期交叉校验，堵死漏注册静默失效；②STAGE_ACTION_TYPES 增 DAMAGE_FLOAT（纯掉血飘字：流星赶月加深等已实扣但无独立攻击动作的伤害）
-export const VER = 'infra/56-battle-enums.js V1.4.1';
+// V1.4.2 | ~13800 bytes | 2026-10-02 ①新增 MECHANIC_TYPES（mechanics 顶层 type 唯一来源：core/18 注册表 + core/15 本地安装器）与 MECHANIC_EFFECT_TYPES（onHit/beforeDamage/attributeMods/dodgeRules 四类内层元素 type 唯一来源），配合 core/15 安装期交叉校验，堵死漏注册静默失效；②STAGE_ACTION_TYPES 增 DAMAGE_FLOAT（纯掉血飘字：流星赶月加深等已实扣但无独立攻击动作的伤害）；③新增 MECHANIC_TARGET_RULES（targetRule 字段唯一来源：lowestHp/highestHpPct），配合 core/15 安装期收口未知目标规则
+export const VER = 'infra/56-battle-enums.js V1.4.2';
 
 /** 事实类型：所有 factType 字符串的唯一来源 */
 export const FACT_TYPES = Object.freeze({
@@ -150,6 +150,15 @@ export const MECHANIC_EFFECT_TYPES = Object.freeze({
     DODGE_RULES: Object.freeze({
         LOST_HP_PERCENT: 'lostHpPercent' // 残血额外闪避（韦一笑）
     })
+});
+
+/**
+ * 机制目标规则：mechanics 条目 targetRule 字段的唯一来源（core/15 installTargetRule）。
+ * 未知值安装期抛错，不再 if/else 静默跳过。
+ */
+export const MECHANIC_TARGET_RULES = Object.freeze({
+    LOWEST_HP: 'lowestHp',           // 打当前血量最低（宋青书）
+    HIGHEST_HP_PCT: 'highestHpPct'   // 打血量百分比最高（韦一笑）
 });
 
 /** 单位事件类型：emitEvent 发出、APPLY_EVENTS 消费的事件标识唯一来源 */

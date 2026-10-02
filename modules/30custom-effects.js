@@ -1,5 +1,5 @@
-// V1.0.2 | ~4300 bytes | 2026-10-02 dotTick/damageReflect 注册改用 MECHANIC_TYPES 枚举（配合 core/15 mechanics type 安装期校验）
-export const VER = 'modules/30custom-effects.js V1.0.2';
+// V1.0.3 | ~4500 bytes | 2026-10-02 dotTick/damageReflect 补 fields 字段契约（stateKey/factKey/reflectRatio，core/15 安装期按此校验）
+export const VER = 'modules/30custom-effects.js V1.0.3';
 
 import { registerSettlementHook, EFFECT_TYPES, EXECUTION_LAYER as L } from '../infra/50-event-bus.js';
 import { registerMechanicHandler } from '../core/18mechanic-registry.js';
@@ -14,6 +14,8 @@ export { registerMechanicHandler, hasMechanicHandler, installMechanicByType } fr
 // stateKey 指向的状态结构：{ remaining: number, dotPercents: [..] }
 //   —— percentages 由施加端（onHitEffects: poison）写入 state，tick 端只负责按 remaining 取档。
 registerMechanicHandler(MECHANIC_TYPES.DOT_TICK, {
+    // reason/sourceName 可选（sourceName 缺省时 tick fact 不带 source）
+    fields: { stateKey: 'string', factKey: 'string' },
     install({ eventBus, decl }) {
         const factType = FACT_TYPES[decl.factKey];
         if (!factType) throw new Error(`[dotTick] 未知 factKey: ${decl.factKey}`);
@@ -52,6 +54,7 @@ registerMechanicHandler(MECHANIC_TYPES.DOT_TICK, {
 // 数据源：gameData.characters["反伤弟子"].mechanics
 // 反伤弟子受击后反弹 30% 给攻击者
 registerMechanicHandler(MECHANIC_TYPES.DAMAGE_REFLECT, {
+    fields: { reflectRatio: 'number' },
     install({ eventBus, decl }) {
         // 反弹率唯一来源：内容表 characters.反伤弟子.mechanics.damageReflect.reflectRatio（1 = 100%）
         const ratio = decl && decl.reflectRatio;

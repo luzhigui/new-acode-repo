@@ -1,5 +1,5 @@
-// V1.1.0 | ~1600 bytes | 2026-10-02 install 不再 try/catch 吞错：handler.install 只在战斗安装期调用，内部报错必须抛出让开局失败，禁止静默
-export const VER = 'core/18mechanic-registry.js V1.1.0';
+// V1.2.0 | ~1900 bytes | 2026-10-02 新增 getMechanicHandler：core/15 安装期字段 schema 校验需读注册表 handler 声明的 fields（字段契约与机制实现放在一起）
+export const VER = 'core/18mechanic-registry.js V1.2.0';
 
 // 机制注册表：type → 处理器（须提供 install）
 // 第三方/数据驱动机制在 modules/30 等上层注册，core 只在 15 查表调用 install
@@ -17,6 +17,11 @@ export function registerMechanicHandler(type, handler) {
 
 export function hasMechanicHandler(type) {
     return mechanicHandlers.has(type);
+}
+
+// 取 handler 描述符（含可选 fields 字段契约），供 core/15 安装期校验；未注册返回 undefined
+export function getMechanicHandler(type) {
+    return mechanicHandlers.get(type);
 }
 
 // 按 type 安装机制，未注册返回 false。decl = 触发本次安装的声明对象（可选），

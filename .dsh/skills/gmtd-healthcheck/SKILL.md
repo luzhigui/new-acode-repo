@@ -89,6 +89,18 @@ if (S.total > 0)         return '对照器兜住';  // ← 永远轮不到
 
 **教训**：TEXT 类变异立意就是"专测 fact 文本有没有牙"，判它"没牙"必须先看过对照器命中数。看到"真盲区"结论，先在变异树上手动跑一次 stat-decl 看它到底报没报红——**harness 的判定本身也可能有 bug**。
 
+### baseline 判定必须相对 _base（第 58 轮修复，坑最深）
+`baselineChanged` **不能**写成「与录制基线比」（`B.changed || match<18`）。主代码进行中的改动（当时是 dotTick）会让**干净树自己**就报红线，于是干净树 `changed=true` ⇒ **任何**变异的 `changed` 恒为 true ⇒ 连"变异压根没生效（no-op）"都被算成"至少基线兜底"。
+
+实测反例：A8/A19/A13 的 baseline 输出与 `_base` **逐字节相同**，变异是纯 no-op，报告却写「规则无牙·仅基线兜底」。正确口径：把 BASELINE 段整段文本归一化排序拼成 `baselineSig`，与 `_base` 的 `BASE_SIG` 比——**没变 ⇒ 变异无效，不构成任何兜底证据**。
+
+### no-op 变异的自查（变异没生效 ≠ 规则没牙）
+判"未观测到影响"前，先确认变异打在**真的有值的量**上。两种踩法：
+- **恒零的量**：A8/A19 打 `value: atkTransfer`，而 `atkRatio = flyDirection==='left' ? 0 : ...`、`_flyDirection` 恒 `'left'` ⇒ `atkTransfer` 恒 0，`*2` 还是 0。改打 `defTransfer`（left 时 defRatio=0.5）。
+- **不触发的机制**：A13 打 `xiaoZhaoCarry`，需特定海克斯，`--scan-groups` 全场次**零出现**。改打有覆盖的 `rageOnHit`（73词条）。
+
+自查命令：`node tests/stat-decl-vs-actual-check.mjs --scan-groups | grep <group>` 看词条数，**为 0 就别拿它当变异靶子**。
+
 ## 六、覆盖率
 
 `node tests/stat-decl-vs-actual-check.mjs --scan-groups` → 权威数字 `已绑定 N 个 / 未覆盖 M 个`。
@@ -140,3 +152,5 @@ grep -n "modules/3" tests/stat-decl-vs-actual-check.mjs tests/rules-replay.mjs t
 | TEXT 类被判「装饰品」但对照器其实命中 | `judge` 里装饰品分支排在对照器分支之前 | 调整判定顺序：规则 → 对照器 → 装饰品 |
 | 多行锚点 0 处 | harness 只逐行匹配 | 缩进区分 或 `multi:true` |
 | 开局抛「未知顶层机制 type X」 | 机制靠 import 副作用注册，入口漏 import | 见第八节，补 `import modules/XX` |
+| no-op 变异被报「仅基线兜底」 | `baselineChanged` 跟录制基线比，而干净树自己就报红 | 改相对 `_base` 的 `baselineSig` 增量判定 |
+| 变异判「未观测到影响」 | 变异打在恒为 0 的量上，或该机制全场次零触发 | `--scan-groups` 看词条数，为 0 就换靶子 |
