@@ -563,7 +563,7 @@ export function bindStageSelectButton(currentStageGetter, getState, setState, up
         if (getState.gs() !== 'IDLE') return;
         const currentStage = typeof currentStageGetter === 'function' ? currentStageGetter() : currentStageGetter;
         const buttons = [];
-        // 2026-09-22 扩到 7：第七关是灭绝师太 demo 关（正常循环仍到第 6 关为止）
+        // 2026-09-22 扩到 7：第七关是灭绝师太关；2026-10-02 循环已全量放出第1-7关
         for (let i = 1; i <= 7; i++) { buttons.push({ text: i === currentStage ? `第${i}关 ◀` : `第${i}关`, value: i, cls: 'buff' }); }
         // 2026-10-01 虚影/飞走并入选关弹窗（原头部按钮撤掉，低频功能收进角落）：值固定 crash-mode，选中即切换并关弹窗
         const crashMode = GlobalStore.get('crashMode') === 'fly' ? 'fly' : 'ghost';

@@ -1,3 +1,4 @@
+// V6.2.1 | 2026-10-02 自动体检覆盖第7关：autoStageTarget 默认 6→7、起始关上限 min(6→7)（此前"全关检测"实际只跑到第6关）
 // V6.2.0 | ~46200 bytes | 2026-09-25 真值源统一：新增 teamsFromStore()，引擎/UI/规则/结算四组检查
 //          一律改取 battleStore 当前真值（原四组全吃 ctx.UI.allyTeam 开战副本＝系统性假绿）。
 //          采样循环中调用即中期真值 —— "中期溢出后被修回"这类漂移终局快照抓不到，改后能抓到。
@@ -6,7 +7,7 @@
 //          clone 副本 alive 恒真)，每局必误报，且主代码补 setState.gs('IDLE') 也消不掉。改点 btnSettle 后
 //          120ms 查 gs 是否仍停 GAMEOVER 且已生成新局(全员满血)，只有"真点了随机重开但没复位"才上报。
 // 职责：接入 rule70-93 回归体检；GAMEOVER 立即跑规则(日志已完整)；新局识别修复多局连打漏检；战报黑幕/特效池实时检查
-export const VER = 'tests/121health-monitor.js V6.2.0';
+export const VER = 'tests/121health-monitor.js V6.2.1';
 
 import { runStaticScan } from './123static-scan.js';
 import { filterRulesByTags, parseRecipeTags, collectForceFlags } from './124rule-recipes.js';
@@ -73,7 +74,7 @@ let pendingIssueCounts = {};
 // 与手动自检模式（120test-runner.html 交互）并行：auto=1 时无人值守自动跑完整关卡，
 // 结束（跑完目标关或超时）后在 window.__healthResult 暴露完整报告，供自动化工具快速读取
 // start=起始关：第3关起才有精英（宋青书等），默认从第3关开始，跳过无精英的前两关
-let autoMode = false, autoBudgetMs = 240000, autoStageTarget = 6, autoSpeedVal = 300;
+let autoMode = false, autoBudgetMs = 240000, autoStageTarget = 7, autoSpeedVal = 300;
 let autoStartStage = 3;
 let autoStartedAt = 0, autoTargetReached = false, autoDone = false, maxStageSeen = 0, autoTargetDoneAt = 0;
 try {
@@ -81,11 +82,11 @@ try {
     autoMode = _p.get('auto') === '1' || _p.get('auto') === 'true';
     if (autoMode) {
         autoBudgetMs = (parseInt(_p.get('budget'), 10) || 240) * 1000;
-        autoStageTarget = parseInt(_p.get('stages'), 10) || 6;
+        autoStageTarget = parseInt(_p.get('stages'), 10) || 7;
         autoSpeedVal = parseInt(_p.get('speed'), 10) || 300; // 游戏 speed 值：100=8x, 300=4x, 500=默认
     }
     // 起始关：手动体检与一键自动体检统一生效；默认第3关（首个有精英的关卡），可用 start=1/2 覆盖
-    autoStartStage = Math.min(6, Math.max(1, parseInt(_p.get('start'), 10) || 3));
+    autoStartStage = Math.min(7, Math.max(1, parseInt(_p.get('start'), 10) || 3));
 } catch (e) {}
 
 // 工具函数 (模块顶层，可在任何地方使用)

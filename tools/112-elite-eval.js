@@ -1,4 +1,4 @@
-// 由 tools/111-elite-power-eval.html 改造 | 跑张无忌/韦一笑/小昭姊/小昭妹 6关×N场
+// 由 tools/111-elite-power-eval.html 改造 | 跑张无忌/韦一笑/小昭姊/小昭妹 1-7关×N场（关卡由 102 复选框勾选，已含第7关）
 // V2.2.0 | 改普通局归因：不再 force 上场（force 会抑制随机抽取，导致四人样本环境不同、不可比），
 //          每关跑 N 局普通对局，按"谁在场"把结果记给谁；带海克斯对齐正式游戏节奏
 import { runParallel } from './117-shared-worker-runner.js';
