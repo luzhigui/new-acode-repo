@@ -1,4 +1,6 @@
 <!-- tools/110-role-balance-random.html - 光明顶5v5 职业平衡分析（全随机站位） -->
+<!-- V6.2.0 | ~33000 bytes | 2026-10-02 新增「成对置换对照」：同一随机构成仅置换 ally 单槽职业打基线+对照两局，
+     配对差直接算 95% CI——解决独立采样 200 场噪声 ±18~22% 不可信的问题（worker kind:'paired'，116 V1.4.0） -->
 <!-- V6.1.0 | ~22000 bytes | 2026-09-27 随机组队+战斗整段搬进 116 Worker（kind:'random'）并行，本页只派发/聚合/渲染：
      原先唯一的主线程串行工具（数百场把页面占死、移动端弹无响应）；seed 逐场不变，池大小走 getPoolSize() -->
 <!-- V6.0.0 | ~22000 bytes | 2026-08-16 5v5/6v6 全随机职业+站位，固定六大派先手，无海克斯 -->
@@ -42,8 +44,15 @@ td{padding:6px 8px;border-bottom:1px solid #333;color:#ccc;text-align:center}
 <input type="number" id="roundsInput" value="200" min="50" max="1000" step="50">
 <button class="run5" id="run5Btn">▶ 跑 5v5</button>
 <button class="run6" id="run6Btn">▶ 跑 6v6</button>
+<button class="run5" id="runPaired5Btn" style="background:#4fc3f7">▶ 成对对照 5v5</button>
+<button class="run6" id="runPaired6Btn" style="background:#81c784">▶ 成对对照 6v6</button>
 </div>
 <div class="progress" id="progress"></div>
+
+<div class="section" id="sectionPaired">
+<h2>成对置换对照（因果净效应）</h2>
+<div id="resultPaired"><div class="empty">尚未运行</div></div>
+</div>
 
 <div class="section" id="section5">
 <h2>5v5 结果</h2>
@@ -224,6 +233,93 @@ run6Btn.addEventListener('click', async () => {
         run6Btn.disabled = false;
     }
 });
+
+// ==================== 成对置换对照（V6.2.0） ====================
+// 每对 = 基线局 + 对照局（同一随机构成仅置换 ally 单槽职业），配对差按 role 累积。
+// merge：n/Σ/Σ² 均可加，直接累加；置信区间 Δ ± 1.96·SE，SE=√((Σ²−n·Δ²)/(n−1))/√n。
+function mergePaired(dst, src) {
+    for (const role of Object.keys(src || {})) {
+        const d = dst[role] || (dst[role] = { n: 0, sum: 0, sumSq: 0, baseWins: 0, pairWins: 0 });
+        const s = src[role];
+        d.n += s.n; d.sum += s.sum; d.sumSq += s.sumSq; d.baseWins += s.baseWins; d.pairWins += s.pairWins;
+    }
+}
+
+function fmtPct(v) { return (v > 0 ? '+' : '') + (v * 100).toFixed(1) + '%'; }
+
+function renderPaired(container, buckets, size) {
+    let html = `<h3 style="color:#ffd700;margin:12px 0 8px;">把明教随机队的一个槽位强制换成该职业（vs 同构成基线）的配对净效应</h3>`;
+    html += '<table><tr><th>职业</th><th>对数 n</th><th>净效应 Δ</th><th>95% CI</th><th>结论</th></tr>';
+    const rows = ROLES.map(role => {
+        const b = buckets[role] || { n: 0, sum: 0, sumSq: 0 };
+        let delta = null, ciLo = null, ciHi = null, sig = false;
+        if (b.n >= 2) {
+            delta = b.sum / b.n;
+            const varr = Math.max(0, (b.sumSq - b.n * delta * delta) / (b.n - 1));
+            const se = Math.sqrt(varr) / Math.sqrt(b.n);
+            ciLo = delta - 1.96 * se;
+            ciHi = delta + 1.96 * se;
+            sig = ciLo > 0 || ciHi < 0;   // CI 不含 0 = 统计显著
+        }
+        return { role, n: b.n, delta, ciLo, ciHi, sig, b };
+    }).sort((a, b2) => (b2.delta ?? -Infinity) - (a.delta ?? -Infinity));
+    for (const r of rows) {
+        const deltaStr = r.delta !== null ? fmtPct(r.delta) : '-';
+        const ciStr = r.delta !== null ? `[${fmtPct(r.ciLo)}, ${fmtPct(r.ciHi)}]` : '-';
+        const verdict = r.delta === null ? '样本不足'
+            : r.sig ? (r.delta > 0 ? '<span class="strong">显著更强</span>' : '<span class="weak">显著更弱</span>')
+            : '差异不显著';
+        html += `<tr class="${r.sig ? (r.delta > 0 ? 'strong' : 'weak') : ''}"><td>${ROLE_ICONS[r.role]}${r.role}</td><td>${r.n}</td><td>${deltaStr}</td><td>${ciStr}</td><td>${verdict}</td></tr>`;
+    }
+    html += '</table>';
+    html += `<p class="tip" style="margin-top:10px">口径：每对两局共用同一随机构成（站位/其余职业逐位一致），仅把明教一个槽位换成目标职业再打一遍；Δ=对照胜率−基线胜率，CI 不含 0 才算真差异。样本量建议 ≥500 对（1000 场）。</p>`;
+    container.innerHTML = html;
+}
+
+async function runPairedAnalysis(size, pairs, progressEl) {
+    const buckets = {};
+    const masterSeed = Date.now();
+    const jobs = [];
+    for (let s = 0; s < pairs; s += CHUNK) {
+        jobs.push({ size, seed: masterSeed, startIndex: s, runs: Math.min(CHUNK, pairs - s) });
+    }
+    const poolSize = getPoolSize();
+    let donePairs = 0;
+    await runParallel({
+        jobs,
+        kind: 'paired',
+        poolSize,
+        nextJobMsg: (job, id) => ({ jobId: id, kind: 'paired', size: job.size, seed: job.seed, startIndex: job.startIndex, runs: job.runs }),
+        onJobDone: (finished, jobTotal, job, result) => {
+            if (result) mergePaired(buckets, result);
+            donePairs += job.runs;
+            progressEl.textContent = `${size}v${size} 成对对照进度：${Math.min(donePairs, pairs)}/${pairs} 对（每对 2 场｜${jobs.length} 片｜${poolSize} 线程并行）`;
+        }
+    });
+    progressEl.textContent = `✅ ${size}v${size} 成对对照完成：${pairs} 对（${pairs * 2} 场）`;
+    return buckets;
+}
+
+const runPaired5Btn = document.getElementById('runPaired5Btn');
+const runPaired6Btn = document.getElementById('runPaired6Btn');
+const resultPaired = document.getElementById('resultPaired');
+
+async function runPairedWrapper(size) {
+    const pairs = parseInt(roundsInput.value) || 200;
+    const allBtns = [run5Btn, run6Btn, runPaired5Btn, runPaired6Btn];
+    allBtns.forEach(b => b.disabled = true);
+    resultPaired.innerHTML = '<div class="empty">运行中...</div>';
+    try {
+        const buckets = await runPairedAnalysis(size, pairs, progressEl);
+        renderPaired(resultPaired, buckets, size);
+    } catch (e) {
+        resultPaired.innerHTML = `<div class="empty">出错：${e.message}</div>`;
+    } finally {
+        allBtns.forEach(b => b.disabled = false);
+    }
+}
+runPaired5Btn.addEventListener('click', () => runPairedWrapper(5));
+runPaired6Btn.addEventListener('click', () => runPairedWrapper(6));
 </script>
 </body>
 </html>

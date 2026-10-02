@@ -1,3 +1,9 @@
+// V1.4.0 | 2026-10-02 新增 kind:'paired'（110 成对置换对照）：buildRandomTeam 加 force 参数（骰子照掷保持 rng 消耗流逐位一致），
+//        runPairedJob 每对跑基线局+对照局（仅 ally 单槽职业强制替换），按 role 累积配对差供主线程算 95% CI
+// V1.3.3 | 2026-10-02 机制装配收口：25/26/27/30 散装 import 收敛为 modules/00reg-mechanics.js 单入口
+// V1.3.2 | 2026-10-02 每个 job 起止读 infra/50 的 DOM 无关 hook 错误计数：worker 无 DOM，
+//        modules/21 错误面板链路在跑批里整段断掉；job 回报新增 hookErrors/hookErrorSamples，
+//        监听器运行时抛错不再只进 console.error 被静默吞掉。
 // V1.3.1 | 2026-10-02 补 import modules/30custom-effects：dotTick/damageReflect 靠模块顶层副作用注册进 core/18，
 //        worker 链此前只装 25/26/27，core/15 安装期校验新增后第5关（鹿杖客 dotTick）开局即抛错
 // 由 109 职业平衡 Worker 扩展为多 kind 分发：'balance' | 'elite' | 'stats' | 'baseline' | 'hex' | 'random'
@@ -29,12 +35,7 @@ import { createBuffObject } from '../modules/28buff-tools.js';
 import { addPermanentBuff } from '../modules/20elite-skills.js';
 import { initBattleTeams } from '../modules/29battle-init.js';
 import '../infra/54-global-store.js';
-import '../modules/25elite-imperial.js';
-import '../modules/26elite-sixsects.js';
-import '../modules/27elite-mingjiao.js';
-// 2026-10-02 必装：30 在模块顶层 registerMechanicHandler(dotTick/damageReflect)，副作用注册，
-//   不 import 则 core/18 注册表为空，core/15 安装期校验对鹿杖客 dotTick 直接抛错（第5关 worker 全灭）
-import '../modules/30custom-effects.js';
+import '../modules/00reg-mechanics.js';   // 机制装配统一入口（25/26/27/30），V1.3.1 的 dotTick 漏装教训收口于此
 import { CAMP_TYPES, ROLE_TYPES, BUFF_TYPES, UNIT_EVENT_TYPES } from '../infra/56-battle-enums.js';
 import { eventBus } from '../infra/50-event-bus.js';
 import { GlobalStore } from '../infra/54-global-store.js';
@@ -249,7 +250,7 @@ function runHexStageJob(stage, baseSeed, runs, preferredBuffs = [], startIndex =
 // 分片只影响「哪台机器跑哪几场」，不改变任何一场的 seed，与整段串行跑出的统计同值。
 const RANDOM_ROLES = [ROLE_TYPES.DEFENDER, ROLE_TYPES.WARRIOR, ROLE_TYPES.FLYER, ROLE_TYPES.RANGED];
 
-function buildRandomTeam(size, camp, rng) {
+function buildRandomTeam(size, camp, rng, force) {
     const team = [];
     const positions = [1, 2, 3, 4, 5, 6, 7, 8, 9];
     for (let i = positions.length - 1; i > 0; i--) {
@@ -257,7 +258,10 @@ function buildRandomTeam(size, camp, rng) {
         [positions[i], positions[j]] = [positions[j], positions[i]];
     }
     for (let i = 0; i < size; i++) {
-        const role = RANDOM_ROLES[rng.nextInt(0, 3)];
+        // force（成对置换对照用）：第 force.slot 个单位强制为 force.role。
+        // 骰子照掷不省——rng 消耗流与基线完全一致，保证对照队与基线队除该槽职业外逐位同构。
+        const rolled = RANDOM_ROLES[rng.nextInt(0, 3)];
+        const role = (force && i === force.slot) ? force.role : rolled;
         const u = createUnit(role, camp, rng);
         u.pos = positions[i];
         u._originalPos = positions[i];
@@ -296,6 +300,34 @@ function runRandomJob(size, baseSeed, startIndex, runs) {
         }
     }
     return stats;
+}
+
+// 110 成对置换对照（V1.4.0）：每对 = 基线局 + 对照局，同一随机构成仅把 ally 第 slot 槽职业强制为 role，
+//   role/slot 按 i 轮转。配对差 diff = 对照胜(0/1) − 基线胜(0/1)，按 role 累积 n/Σ/Σ²，
+//   主线程据 Δ=Σ/n、SE=√((Σ²−n·Δ²)/(n−1))/√n 出 95% CI——单职业因果净效应，噪声远小于独立采样。
+//   对照局敌队按同 seed+1 重建（不复用对象），站位/其余职业随机流与基线逐位一致。
+function runPairedJob(size, baseSeed, startIndex, runs) {
+    const buckets = {};
+    for (const role of RANDOM_ROLES) buckets[role] = { n: 0, sum: 0, sumSq: 0, baseWins: 0, pairWins: 0 };
+    for (let i = 0; i < runs; i++) {
+        const seed = baseSeed + (startIndex + i) * 7919;
+        const role = RANDOM_ROLES[i % RANDOM_ROLES.length];
+        const slot = i % size;
+        clearBattleGlobals();
+        const allyBase = buildRandomTeam(size, CAMP_TYPES.ALLY, new SeededRNG(seed));
+        const enemyBase = buildRandomTeam(size, CAMP_TYPES.ENEMY, new SeededRNG(seed + 1));
+        const resBase = runBattle({ ally: allyBase, enemy: enemyBase, seed, maxRounds: 35, firstSide: CAMP_TYPES.ENEMY });
+        const baseWin = (resBase.winner || '平局') === '明教' ? 1 : 0;
+        clearBattleGlobals();
+        const allyPair = buildRandomTeam(size, CAMP_TYPES.ALLY, new SeededRNG(seed), { slot, role });
+        const enemyPair = buildRandomTeam(size, CAMP_TYPES.ENEMY, new SeededRNG(seed + 1));
+        const resPair = runBattle({ ally: allyPair, enemy: enemyPair, seed, maxRounds: 35, firstSide: CAMP_TYPES.ENEMY });
+        const pairWin = (resPair.winner || '平局') === '明教' ? 1 : 0;
+        const b = buckets[role];
+        const diff = pairWin - baseWin;
+        b.n++; b.sum += diff; b.sumSq += diff * diff; b.baseWins += baseWin; b.pairWins += pairWin;
+    }
+    return buckets;
 }
 
 // 113 统计体检
@@ -430,6 +462,7 @@ try {
 
 self.onmessage = (e) => {
     const { jobId, kind } = e.data;
+    eventBus.resetErrorTracker(); // 每 job 独立统计 hook 运行时错误（无 DOM 环境唯一可见通道）
     try {
         let result;
         if (kind === 'balance') {
@@ -458,13 +491,21 @@ self.onmessage = (e) => {
         } else if (kind === 'random') {
             const { size, seed, startIndex, runs } = e.data;
             result = runRandomJob(size, seed, startIndex || 0, runs);
+        } else if (kind === 'paired') {
+            const { size, seed, startIndex, runs } = e.data;
+            result = runPairedJob(size, seed, startIndex || 0, runs);
         } else if (kind === 'baseline') {
             const { stage, seed, runs, cfgA, cfgB } = e.data;
             result = runBaselineStageJob(stage, seed, runs, cfgA, cfgB);
         } else {
             throw new Error(`未知 worker kind: ${kind}`);
         }
-        self.postMessage({ jobId, ok: true, result });
+        const hookErrors = eventBus.getErrorCount();
+        self.postMessage({
+            jobId, ok: true, result,
+            hookErrors,
+            hookErrorSamples: hookErrors ? eventBus.getRecentErrors().slice(-5) : []
+        });
     } catch (err) {
         self.postMessage({ jobId, ok: false, error: String(err && err.stack || err) });
     }
