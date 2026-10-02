@@ -1,5 +1,5 @@
 // V6.3.2 | ~26600 bytes | 2026-09-25 删除通用飞行选敌钩子，飞行改回 core/07 策略表「残血优先(<40%)→前排→随机」（定案 B）：2a5f68d 把该钩子的写入通道修活后，它压过 07 的飞行策略（声明层先于策略表），飞行变成「敌方前排有空位就切入打后排」，与既有玩法口径不符；连带删除 core/03 的 selectFlyTarget/canReach 与 infra/50 的 FLY_TARGET 优先级
-export const VER = 'core/11battle-round.js V6.3.3';
+export const VER = 'core/11battle-round.js V6.3.4';
 
 import { CONFIG, getGameData, getSkillParams } from './01config-5v5-test.js';
 import { resetStateFields } from './17-state-keys.js';
@@ -231,7 +231,7 @@ function prepareRoundStart(A, B, log, state, round, rng) {
     logBuffSummary(A, log, doubleStrikeUnitUid);
 
     if (round === 1 && A.some(u => u.isXiaoZhaoSister && u.alive)) {
-        A._flyDirection = A._flyDirection || 'right';
+        A._flyDirection = A._flyDirection || 'left';
     }
 
     const roundStartEvents = flushBattleEvents();

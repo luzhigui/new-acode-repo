@@ -1,5 +1,5 @@
 // V6.0.1 | 2026-09-22 战报血量显示改走 fmtHp
-export const VER = 'ui/65main-battle.js V6.0.1';
+export const VER = 'ui/65main-battle.js V6.0.2';
 
 import { CONFIG } from '../core/01config-5v5-test.js';
 import { SeededRNG, fmtHp } from '../infra/51-core-utils.js';
@@ -44,9 +44,9 @@ export function doInitBattle(currentStage, UI, snapshot, activeBuffs, selectedBu
  */
 // 战斗-弹窗：姐姐附身方向选择（左防御/右攻击）
 export function showFlyDirectionPopup(callback) {
-    // 快进/跳过直接默认
+    // 快进/跳过直接默认：2026-10-02 定案改为向左飞（防+血），原为向右
     if (GlobalStore.get('fastForwardActive') || GlobalStore.get('skipBuffPopup')) {
-        callback('right');
+        callback('left');
         return;
     }
     const overlay = document.createElement('div');
