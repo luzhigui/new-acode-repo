@@ -1,4 +1,4 @@
-// V2.6.0 | 2026-10-02 第 53 轮（回应主代码回复）：① 修 ttl:'round' 续期口径（groupDelta 不把 round 词条到期相减），CARRY_APPLY 移出 LOOSE_IDS 走严格判据，原 198 偏差归零（实为跨步时序非数值 bug）；② 补 STAT_CHANGE（def 降防读 STAT_CHANGE_APPLY.delta，allowNeg 放开负值闸门）/ RIGHTEOUS_FACE（读攻击 fact 的 pangDefGain，跨步同 BREAK_DEF 走保守）两条契约，覆盖率 18/22 → 20/22（剩 aura/holyFlame 待口径稳定后补）。
+// V2.7.0 | 2026-10-02 第 54 轮（覆盖率收官）：主代码 47b4d05 已为 aura/holyFlame/weiDodgeLeech 补发数值声明 fact，本轮补最后两条契约 —— AURA（读 AURA_APPLY 的 emptyCol/bloodAura，0 值不声明避假报；round 续期口径第 53 轮已修，走严格判据）/ HOLY_FLAME（圣火令是**乘法** op:'mul'，fact 声明的是乘率 ratio 而非加法增量，故 groupDelta 新增 mulSum 累加 + 契约 mul:true 让主循环改取 mulSum 比对，避免乘区 sum 恒 0 全判少加）。覆盖率 20/22 → **22/22，零盲区**。
 // 方法论首立于 2026-09-27 第 34 轮 | 「数值声明 vs 实际属性增量」逐步对照器（通用）
 //
 // 立它的原因（第 33 轮的教训，务必先读）：
@@ -71,7 +71,7 @@
 //           → 不跑契约、也不退码 1，只逐步对全体单位的 atk/def/maxHp/hp 做 FNV-1a 指纹并输出 `FINGERPRINT <hex>`。
 //             供 `tests/mutation-teeth.mjs` 判定「属性类变异是否真的改变了战斗状态」（属性变了指纹必变；
 //             日志/TEXT 类变异只改显示、不改状态，指纹不变）。
-export const VER = 'tests/stat-decl-vs-actual-check.mjs V2.6.0';
+export const VER = 'tests/stat-decl-vs-actual-check.mjs V2.7.0';
 
 import { fileURLToPath } from 'node:url';
 
@@ -660,6 +660,59 @@ const CONTRACTS = [
             }
             return out;
         }
+    },
+    {
+        // 第 54 轮：光环 aura（空列光环 / 残血光环）。
+        //   fact AURA_APPLY（core/11 L188/L211）与 addMod **同循环、同值**（emptyCol / bloodAura）、
+        //   group:'aura'、op:'add'、ttl:'round' ⇒ 同一步；且第 53 轮已修 round 续期口径
+        //   （到期不参与净贡献相减），故可上严格判据。
+        //   ⚠️ fact 每存活单位每回合都发（两值为 0 也发），但 addMod 有 `> 0` 守卫 ⇒ 0 值不声明，避免"声明 0 却不加"假报。
+        //   同一单位同一步可能同时吃两条（空列 + 残血）⇒ 两条独立声明，主循环按 stat 汇总求和后与账本比对。
+        id: 'AURA',
+        label: '空列/残血光环',
+        group: 'aura',
+        dir: +1,
+        extract(stepLog) {
+            const out = [];
+            for (const f of stepLog || []) {
+                if (!f || !f.data || f.factType !== FACT_TYPES.AURA_APPLY) continue;
+                const d = f.data;
+                if (typeof d.unitName !== 'string') continue;
+                for (const key of ['emptyCol', 'bloodAura']) {
+                    const v = d[key];
+                    if (typeof v === 'number' && v > 0) {
+                        out.push({ unit: d.unitName, uid: d.unitUid || null, stat: 'atk', amount: v });
+                    }
+                }
+            }
+            return out;
+        }
+    },
+    {
+        // 第 54 轮：圣火令 holyFlame（乘法词条）—— 22/22 收官的最后一条。
+        //   fact HOLY_FLAME_APPLY（core/14 L31）声明的是**乘率 ratio**（不是加法增量），
+        //   addMod 同函数同值（CONFIG.BUFFS.holyFlame.atkBonus / defBonus）、op:'mul'、ttl:'round'。
+        //   mul:true ⇒ 主循环改取 groupDelta 的 mulSum（乘法累加值）与 ratio 比对，不用加法 sum
+        //   （乘区共享 (1+mulSum)、无"增量"语义，sum 恒 0 会全判少加）。
+        //   ⚠️ ratio 恒为正（乘率），dir:+1；atk/def 两条独立声明（列攻 / 行防）。
+        id: 'HOLY_FLAME',
+        label: '圣火令',
+        group: 'holyFlame',
+        dir: +1,
+        mul: true,
+        extract(stepLog) {
+            const out = [];
+            for (const f of stepLog || []) {
+                if (!f || !f.data || f.factType !== FACT_TYPES.HOLY_FLAME_APPLY) continue;
+                const d = f.data;
+                if (typeof d.unitName !== 'string') continue;
+                const field = d.field === 'def' ? 'def' : (d.field === 'atk' ? 'atk' : null);
+                if (field && typeof d.ratio === 'number' && d.ratio > 0) {
+                    out.push({ unit: d.unitName, uid: d.unitUid || null, stat: field, amount: d.ratio });
+                }
+            }
+            return out;
+        }
     }
 ];
 
@@ -790,21 +843,24 @@ async function main() {
         for (const [ref, mod] of pm) if (!am.has(ref)) removed.push(mod);
         return { added, removed };
     };
-    // 取某个 group 在这一步对某属性的**净贡献**（新增 - 到期移除；只算加法类，乘法不参与累加）
+    // 取某个 group 在这一步对某属性的**净贡献**（新增 - 到期移除；只算加法类，乘法单独走 mulSum）
+    // 第 54 轮：加 mulSum —— 乘法词条（圣火令 holyFlame op:'mul'）共享 getStat 的 (1+mulSum) 乘区，
+    //   没有"加法增量"可言，旧口径只标 mulTouched 不返回值 ⇒ 无法比对。现把本步该 group 的 mul value
+    //   累加进 mulSum，乘法契约（c.mul）声明的 ratio 即与 mulSum 对齐。
     const groupDelta = (diff, group) => {
         if (!diff) return null;
-        let sum = 0, touched = false, mulTouched = false, roundTouched = false;
+        let sum = 0, mulSum = 0, touched = false, mulTouched = false, roundTouched = false;
         for (const m of diff.added) {
             if (m.group !== group) continue;
             touched = true;
-            if (m.op === 'mul') mulTouched = true;
+            if (m.op === 'mul') { mulTouched = true; mulSum += (Number(m.value) || 0); }
             else if (m.ttl === 'round') { roundTouched = true; sum += (Number(m.value) || 0); }
             else sum += (Number(m.value) || 0);
         }
         for (const m of diff.removed) {
             if (m.group !== group) continue;
             touched = true;
-            if (m.op === 'mul') mulTouched = true;
+            if (m.op === 'mul') { mulTouched = true; }
             // 主代码 ② 口径（2026-10-02）：ttl:'round' 词条每回合"到期 + 同值续加"跨在相邻步，
             //   旧口径把续期算成净 -V，与 fact 声明的稳态 +V 错位 → 198 处假阳性（实为跨步时序，非数值 bug）。
             //   续期不参与净贡献相减：round 词条的稳态贡献只取"当前生效(added)"条目，移除(到期)忽略。
@@ -812,7 +868,7 @@ async function main() {
             else if (m.ttl === 'round') { roundTouched = true; }
             else sum -= (Number(m.value) || 0);
         }
-        return touched ? { sum, mulTouched, roundTouched } : null;
+        return touched ? { sum, mulSum, mulTouched, roundTouched } : null;
     };
 
     const FP = process.argv.includes('--fingerprint');
@@ -925,7 +981,10 @@ async function main() {
                         if (c.group) {
                             const diff = diffLedger(prevLed, afterLed, p.uid, statName);
                             gd = diff && groupDelta(diff, c.group);
-                            actual = gd ? gd.sum * c.dir : (a[statName] - p[statName]) * c.dir;
+                            // 乘法契约（圣火令）：声明的是乘率 ratio，实际取本步该 group 的 mul 累加值，
+                            //   不能用加法 sum（乘区无"增量"语义，sum恒为 0 会全判少加）。
+                            if (c.mul) actual = gd ? gd.mulSum * c.dir : 0;
+                            else actual = gd ? gd.sum * c.dir : (a[statName] - p[statName]) * c.dir;
                         } else {
                             actual = (a[statName] - p[statName]) * c.dir;
                         }

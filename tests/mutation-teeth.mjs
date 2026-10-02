@@ -1,4 +1,4 @@
-// V2.4.0 | 2026-10-02 第 53 轮：新增 A22（属性裁定 def 翻倍）/ A23（正义国字脸叠防 defGain 翻倍）；验证第 53 轮新补契约 STAT_CHANGE / RIGHTEOUS_FACE 是否真有牙。
+// V2.5.0 | 2026-10-02 第 54 轮：新增 A24（空列光环 atk 增量翻倍，验证第 54 轮新补契约 AURA）/ A25（圣火令攻方乘率翻倍，验证新补契约 HOLY_FLAME 的 mul 乘率判据）。
 // 方法论首立于第 37/38 轮：变异牙齿测试（mutation teeth）—— 回答「规则到底有没有牙」。
 // 干什么：在**仓库内临时树** tests/.mut 里，对业务代码注入一处**已知的人工缺陷（变异）**，
 //   跑「规则回放 + 基线 + 逐步真值对照」，看体检套件**能不能报红**。
@@ -28,7 +28,7 @@
 //   1) node tests/mutation-teeth.mjs --emit-prep  > /tmp/prep.sh  &&  bash /tmp/prep.sh
 //   2) node tests/mutation-teeth.mjs --emit-run   > /tmp/run.sh   &&  bash /tmp/run.sh
 //   3) node tests/mutation-teeth.mjs --report
-export const VER = 'tests/mutation-teeth.mjs V2.4.0';
+export const VER = 'tests/mutation-teeth.mjs V2.5.0';
 
 import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
@@ -201,6 +201,22 @@ const MUTATIONS = [
       file: 'modules/26elite-sixsects.js',
       from: "addMod(pang, 'def', { source: '正义国字脸', value: face.defGain, ttl: 'permanent', group: 'righteousFace', op: 'add' });",
       to:   "addMod(pang, 'def', { source: '正义国字脸', value: face.defGain * 2, ttl: 'permanent', group: 'righteousFace', op: 'add' });" },
+    // ===== 第 54 轮：覆盖率收官 22/22，给AURA / HOLY_FLAME 两条新契约加牙 =====
+    //   A24 把空列光环 addMod 实际侧 value 翻倍（fact 的 emptyCol 不动）⇒ 实际=2×声明；
+    //     AURA 走严格判据（fact 与 addMod 同循环同一步 + round 续期口径已修）⇒ actual≠sum 命中。
+    //     ⚠️ core/11 双方阵营（A/B 队）循环里该行出现 2 次，用 multi:true 两处同改（等价于"光环 universally 翻倍"）。
+    //   A25 把圣火令攻方**实际侧 addMod** 的 value 翻倍、**fact 的 ratio 保持不动**（ratio 若同翻则无偏差），
+    //     制造 mulSum=2×ratio ≠ sum ⇒ HOLY_FLAME 严格判据命中。
+    //     锚点用 8 空格缩进锁定 applyHolyFlame_Normal 分支（L40）；_Brother 分支同语句是 4 缩进（L54），故唯一。
+    { id: 'A24', kind: 'ATTR', desc: '空列光环 atk 增量翻倍（AURA 严格判据）',
+      file: 'core/11battle-round.js',
+      from: "value: auraBonuses.emptyCol, ttl: 'round', group: 'aura', op: 'add' });",
+      to:   "value: auraBonuses.emptyCol * 2, ttl: 'round', group: 'aura', op: 'add' });",
+      multi: true },
+    { id: 'A25', kind: 'ATTR', desc: '圣火令攻方乘率翻倍（HOLY_FLAME mul 判据）',
+      file: 'core/14buff-effects.js',
+      from: "        addMod(unit, 'atk', { source: '圣火令', value: CONFIG.BUFFS.holyFlame.atkBonus, ttl: 'round', op: 'mul', group: 'holyFlame' });",
+      to:   "        addMod(unit, 'atk', { source: '圣火令', value: CONFIG.BUFFS.holyFlame.atkBonus * 2, ttl: 'round', op: 'mul', group: 'holyFlame' });" },
 ];
 
 function toPosix(p) {
