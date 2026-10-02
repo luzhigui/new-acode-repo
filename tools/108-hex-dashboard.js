@@ -1,3 +1,4 @@
+// V6.1.1 | 2026-10-02 下拉选项文案 6关×500/1000/2000场 → 7关×（实际 allStages 已是 7 关，仅标签滞留旧口径）
 // V6.1.0 | 2026-09-27 自动跑改走 117 runParallel + 细粒度分片（每片 25 场，7 关×per 场 → 几十上百片排队），
 //        池大小改 getPoolSize()（吃满核心，localStorage 'battle_pool_size' 可覆盖）；seed 逐场不变
 // V6.0.5 | 2026-09-22 关卡范围扩到 7 关（配合主代码新增第 7 关灭绝师太）：allStages 数组 + 进度/ETA 改为按数组长度算，不再写死 6
@@ -172,9 +173,9 @@ function openHexDashboard() {
         <button class="hex-hex-clear">清空数据</button>
         <button class="hex-hex-load hex-hex-run" style="margin-left:8px">⚡ 自动跑</button>
         <select class="hex-hex-runsel" style="background:#333;color:#eee;border:1px solid #555;border-radius:4px;padding:4px 6px;margin-left:6px">
-          <option value="500">6关×500场</option>
-          <option value="1000">6关×1000场</option>
-          <option value="2000">6关×2000场</option>
+          <option value="500">7关×500场</option>
+          <option value="1000">7关×1000场</option>
+          <option value="2000">7关×2000场</option>
         </select>
         <span id="hexDashRunStatus" style="margin-left:10px;color:#8bc34a;font-size:12px"></span>
         <div id="hexDashSummary"></div>

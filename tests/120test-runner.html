@@ -83,7 +83,7 @@
             const url = new URL(window.location.href);
             url.searchParams.set('auto', '1');
             if (!url.searchParams.get('start')) url.searchParams.set('start', '2');
-            if (!url.searchParams.get('stages')) url.searchParams.set('stages', '6');
+            if (!url.searchParams.get('stages')) url.searchParams.set('stages', '7');
             if (!url.searchParams.get('budget')) url.searchParams.set('budget', '240');
             if (!url.searchParams.get('speed')) url.searchParams.set('speed', '300');
             window.location.href = url.href;
@@ -195,7 +195,7 @@
         url.searchParams.set('auto', '1');
         url.searchParams.set('rules', [...recipeChecked].join(','));
         if (!url.searchParams.get('start')) url.searchParams.set('start', '2');
-        if (!url.searchParams.get('stages')) url.searchParams.set('stages', '6');
+        if (!url.searchParams.get('stages')) url.searchParams.set('stages', '7');
         if (!url.searchParams.get('budget')) url.searchParams.set('budget', '240');
         if (!url.searchParams.get('speed')) url.searchParams.set('speed', '300');
         window.location.href = url.href;
