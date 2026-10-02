@@ -212,7 +212,15 @@ function submitWarriorExecuteDeclaration(data) {
     const unitBuffs = (allySide && allySide._activeBuffs) || [];
     const hasBloodthirst = hasBuff(unitBuffs, BUFF_TYPES.BLOODTHIRST);
     const threshold = hasBloodthirst ? C.EXEC_THRESHOLD_BLOODTHIRST : C.EXEC_THRESHOLD;
-    if (target.hp <= target.maxHp * threshold) {
+    // 2026-10-02 斩杀判定后置：把张无忌融会贯通的额外伤害先算进有效血量再判阈值
+    //   （融汇 BONUS_DMG 由同信号 JIUYANG=40 监听先于本监听 20 声明，此处读得到；
+    //    结算时 BONUS_DMG 在数组前面先扣血、EXECUTE 再清零，顺序天然=「先融汇后斩杀」）
+    //   修复：原先判定在融汇之前，"普攻打完可斩、融汇打完更可斩"的目标漏斩，融汇白打
+    const ronghuiDecl = Array.isArray(declarations)
+        ? declarations.find(d => d && d.type === EFFECT_TYPES.BONUS_DMG && d.target === target)
+        : null;
+    const effHp = target.hp - (ronghuiDecl ? ronghuiDecl.value : 0);
+    if (effHp <= target.maxHp * threshold) {
         if (!declarations) return;
         declarations.push({
             type: EFFECT_TYPES.EXECUTE,
