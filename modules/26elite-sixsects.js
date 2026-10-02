@@ -1,5 +1,5 @@
-// V6.15.0 | ~47100 bytes | 2026-10-02 胖远桥·正义国字脸加防补飘字：加防量随本击 fact 带给 render/38，翻成 STAT_CHANGE(def) → 飘「🛡+N」
-export const VER = 'modules/26elite-sixsects.js V6.15.1';
+// V6.15.2 | ~47100 bytes | 2026-10-02 胖远桥·年轻气盛打歪倍率 1.5→2.0（配置 content 5.6.20，函数说明注释同步）
+export const VER = 'modules/26elite-sixsects.js V6.15.2';
 import { registerElite } from '../core/08-elite-registry.js';
 import { CONFIG, getSkillParams, getGameData } from '../core/01config-5v5-test.js';
 import { SIGNAL_TYPES, FACT_TYPES, BUFF_TYPES, CAMP_TYPES, ROLE_TYPES } from '../infra/56-battle-enums.js';
@@ -218,7 +218,7 @@ export function createZhangSanfengComponent() {
 // 胖远桥（六大派·武当·战士）：莽撞 / 正义国字脸 / 年轻气盛
 // 2026-09-22 新增；2026-09-23 改版：嘲讽与打歪合并为「每次攻击前二选一」——
 //   血越高越容易发动正义国字脸（全体敌人本回合后续只能打他，且自身防御永久+40、无上限叠加），
-//   攻越高越容易发动年轻气盛（随机目标 ×1.5 + 击退，退无可退则眩晕）。
+//   攻越高越容易发动年轻气盛（随机目标 ×2.0 + 击退，退无可退则眩晕）。
 // 第三关与宋青书每局随机二选一（content 的 encounters.squadVariants["3"]）。
 // 三个技能全在本组件闭环：击退/眩晕复用 core/13 的公共 fact，其余日志走 group.data.entries。
 export function createPangYuanQiaoComponent() {
