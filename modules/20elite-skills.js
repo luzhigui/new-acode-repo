@@ -1,5 +1,5 @@
-// V6.0.4 | ~11800 bytes | 2026-10-02 体检对照补字段：SPIDER_TRANSFORM fact 补 atkDelta/defDelta/maxHpDelta（本次蛛变实际登记的职业加成，与 addMod 入参同源）+ unitUid；masteryGain 仍为精通独立增量
-export const VER = 'modules/20elite-skills.js V6.0.4';
+// V6.0.5 | ~11900 bytes | 2026-10-02 张无忌基础版乾坤大挪移保护位 4/6 → 2/4/6/8（与升级版同覆盖，两档仅差数值：基础减伤10/反弹10/自伤10，升级30/20/10）
+export const VER = 'modules/20elite-skills.js V6.0.5';
 
 import { CONFIG, getSkillParams } from '../core/01config-5v5-test.js';
 import { getRoleBonus, getHpDmgRatio } from '../core/02unit.js';
@@ -61,7 +61,9 @@ export function applyDamageModifiers(unit, target, dmg, allySide, enemySide, log
         });
 
         modifiedDmg = reducedDmg;
-    } else if (!xiaoZhao && (target.pos === 4 || target.pos === 6)) {
+    } else if (!xiaoZhao && [2, 4, 6, 8].includes(target.pos)) {
+        // 2026-10-02 基础版保护位与升级版对齐（2/4/6/8），两档只差数值。
+        // 2 号位活着才吃保护；2 号一死张无忌即切近战、rangedForm=false，乾坤自动关闭——前排在时借力分担，前排倒了亲自顶上
         const s = getSkillParams('张无忌', 'qianKun');
         if (!s) throw new Error('缺技能参数: 张无忌.qianKun');
         const reducePct = s.reducePct;
