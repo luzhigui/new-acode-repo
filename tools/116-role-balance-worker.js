@@ -1,4 +1,6 @@
-// 由 109 职业平衡 Worker 扩展为多 kind 分发：'balance' | 'elite' | 'stats' | 'baseline' | 'hex'
+// V1.3.0 | 2026-09-27 ①hex job 支持 startIndex：主线程可细粒度分片（每片 25 场）而不改变任何一场的 seed
+//        ②新增 kind:'random'（110 全随机站位平衡：随机组队 + 整局战斗全进 worker，原先唯一的主线程串行工具）
+// 由 109 职业平衡 Worker 扩展为多 kind 分发：'balance' | 'elite' | 'stats' | 'baseline' | 'hex' | 'random'
 // hex 任务现为 101/108 共用：支持 preferredBuffs 偏好 + 小昭·妹永久继承，并回报胜负计数
 // 每个 job 在 worker 内完成 N 场战斗并回报聚合；独立模块实例，天然隔离 _eliteStates/_eventBuffer
 // Worker 环境兼容 shim：
@@ -180,13 +182,14 @@ function runEliteStageJob(stage, seed, runs) {
 // 口径对齐正式游戏：支持海克斯偏好 preferredBuffs；所选 Buff 由小昭·妹永久继承（addPermanentBuff）。
 // 搬进 worker 是因为主线程一口气跑几百场会把页面占死（移动端弹「网页暂无响应」）。
 // seed 公式与 101 主线程版一致（Date.now() + i*7919），差异只在于是否并行，统计口径不受影响。
-function runHexStageJob(stage, baseSeed, runs, preferredBuffs = []) {
+function runHexStageJob(stage, baseSeed, runs, preferredBuffs = [], startIndex = 0) {
     const hexLog = []; // [{ stage, buffs: [key], winner }]
     const wins = { ally: 0, enemy: 0, draw: 0 };
     const C = CONFIG;
     for (let i = 0; i < runs; i++) {
         clearBattleGlobals();
-        const seed = baseSeed + i * 7919;
+        // startIndex = 该片在整关序列里的起点，保证「细粒度分片」与「整关一片」产生完全相同的 seed 序列
+        const seed = baseSeed + (startIndex + i) * 7919;
         const initRng = new SeededRNG(seed);
         const teams = initBattleTeams(stage, initRng);
         const buffsPicked = [];
@@ -236,6 +239,60 @@ function runHexStageJob(stage, baseSeed, runs, preferredBuffs = []) {
         else wins.draw++;
     }
     return { hexLog, ally: wins.ally, enemy: wins.enemy, draw: wins.draw };
+}
+
+// 110 职业平衡（全随机站位）：随机组队 + 整局战斗全在 worker 内（原先唯一的主线程串行工具）。
+// 口径逐场不变：seed = baseSeed + (startIndex + i)*7919，敌队用 seed+1 组队；无海克斯、固定六大派先手、maxRounds 35。
+// 分片只影响「哪台机器跑哪几场」，不改变任何一场的 seed，与整段串行跑出的统计同值。
+const RANDOM_ROLES = [ROLE_TYPES.DEFENDER, ROLE_TYPES.WARRIOR, ROLE_TYPES.FLYER, ROLE_TYPES.RANGED];
+
+function buildRandomTeam(size, camp, rng) {
+    const team = [];
+    const positions = [1, 2, 3, 4, 5, 6, 7, 8, 9];
+    for (let i = positions.length - 1; i > 0; i--) {
+        const j = rng.nextInt(0, i);
+        [positions[i], positions[j]] = [positions[j], positions[i]];
+    }
+    for (let i = 0; i < size; i++) {
+        const role = RANDOM_ROLES[rng.nextInt(0, 3)];
+        const u = createUnit(role, camp, rng);
+        u.pos = positions[i];
+        u._originalPos = positions[i];
+        team.push(u);
+    }
+    return team;
+}
+
+function runRandomJob(size, baseSeed, startIndex, runs) {
+    const stats = { allyCounts: {}, enemyCounts: {} };
+    for (const role of RANDOM_ROLES) { stats.allyCounts[role] = {}; stats.enemyCounts[role] = {}; }
+    const countRoles = (team) => { const c = {}; for (const u of team) c[u.role] = (c[u.role] || 0) + 1; return c; };
+    const record = (bucket, count, isAllyWin) => {
+        const b = bucket[count] || (bucket[count] = { total: 0, wins: 0 });
+        b.total++;
+        if (isAllyWin) b.wins++;
+    };
+    for (let i = 0; i < runs; i++) {
+        clearBattleGlobals(); // 每场清理防 OOM（对胜负无影响）
+        const seed = baseSeed + (startIndex + i) * 7919;
+        const allyTeam = buildRandomTeam(size, CAMP_TYPES.ALLY, new SeededRNG(seed));
+        const enemyTeam = buildRandomTeam(size, CAMP_TYPES.ENEMY, new SeededRNG(seed + 1));
+        const res = runBattle({
+            ally: allyTeam,
+            enemy: enemyTeam,
+            seed,
+            maxRounds: 35,
+            firstSide: CAMP_TYPES.ENEMY
+        });
+        const isAllyWin = (res.winner || '平局') === '明教';
+        const ac = countRoles(allyTeam);
+        const ec = countRoles(enemyTeam);
+        for (const role of RANDOM_ROLES) {
+            record(stats.allyCounts[role], ac[role] || 0, isAllyWin);
+            record(stats.enemyCounts[role], ec[role] || 0, isAllyWin);
+        }
+    }
+    return stats;
 }
 
 // 113 统计体检
@@ -393,8 +450,11 @@ self.onmessage = (e) => {
             const { stage, seed, runs } = e.data;
             result = runStatsStageJob(stage, seed, runs);
         } else if (kind === 'hex') {
-            const { stage, seed, runs, preferredBuffs } = e.data;
-            result = runHexStageJob(stage, seed, runs, preferredBuffs);
+            const { stage, seed, runs, preferredBuffs, startIndex } = e.data;
+            result = runHexStageJob(stage, seed, runs, preferredBuffs, startIndex || 0);
+        } else if (kind === 'random') {
+            const { size, seed, startIndex, runs } = e.data;
+            result = runRandomJob(size, seed, startIndex || 0, runs);
         } else if (kind === 'baseline') {
             const { stage, seed, runs, cfgA, cfgB } = e.data;
             result = runBaselineStageJob(stage, seed, runs, cfgA, cfgB);

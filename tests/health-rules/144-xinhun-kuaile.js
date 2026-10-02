@@ -1,6 +1,6 @@
 // 回归规则：宋青书·新婚快乐链路 — 覆盖此前完全没有体检项盯的一整套机制：
-//   ① 新婚：宋青书每次攻击命中，扣周芷若 1 点血（content 宋青书.xinHun.hpDeduct = 1），并给周芷若叠 1 层快乐
-//   ② 快乐层：新层百分比恒为 healLevels[0] = 16%（序列 [0.16, 0.10, 0.06, 0.03]，每回合结算后逐层衰减、末层消失）
+//   ① 新婚：宋青书每次攻击命中，扣周芷若 1 点血（宋青书 mechanics type=xinHun 的 hpDeduct=1），并给周芷若叠 1 层快乐
+//   ② 快乐层：新层百分比恒为 healLevels[0]（序列见 content/200game-data.json 宋青书 mechanics.type=xinHun.healLevels，逐层衰减、末层消失）
 //   ③ 性奋代价：每次新婚同步扣宋青书血量上限，penalty 逐次 +1（core/15 submitXinHun，与 V5.x「性奋惩罚」同源）
 //   ④ 快乐回血：每回合结算按层数给周芷若回血（core/15 tickKuaiLeHeal），层数不应超过累计叠加次数
 // 三条复发信号（各对应一处历史上真出过问题的口径）：
@@ -12,25 +12,18 @@
 //   - 性奋代价有 `unit.maxHp > 1` 保底（core/15），宋青书上限被扣到 ≤2 时合法地不再扣 → 此时跳过配对校验
 //   - 只按文本解析，不依赖 fact 层字段（渲染层会抹掉 factType/data，见 141 的口径说明）
 //   - 本场无新婚条目直接 skip（宋青书/周芷若为随机精英，常不同场）
-export const VER = 'tests/health-rules/144-xinhun-kuaile.js V6.1.11';
+export const VER = 'tests/health-rules/144-xinhun-kuaile.js V6.1.22';
+import { entryTexts } from '../122health-utils.js';
+import { getGameData } from '../../core/01config-5v5-test.js';
 
-// 当前版本数值（对照 记录-更改履历.md / content/200game-data.json 宋青书.xinHun）
-const XINHUN_DEDUCT = 1;   // hpDeduct
-const XINHUN_PCT = 16;     // healLevels[0] = 0.16
+// 当前版本数值（对照 content/200game-data.json：宋青书 mechanics type=xinHun 的 hpDeduct；
+//   回血档位 healLevels 两侧同名同源，见 tools/120 MECHANICS_HIDDEN_BY_TYPE）
+// 注意：healLevels[0] 不再硬编码——2026-10-01 曾硬编码 16%，但 content/200game-data.json 已改为 20%，
+//   规则没跟上 → 每场新婚必误报。改为运行时从游戏数据动态读取真值（单一来源），配置再改也不会漂移。
+const XINHUN_DEDUCT = 1;   // hpDeduct（mechanics 真值，单一来源）
 
 // 一条战报里可能被本规则命中的文本：顶层 text + attack-group 的 entries 子条目
-function entryTexts(e) {
-    var out = [];
-    if (!e) return out;
-    if (typeof e.text === 'string' && e.text) out.push(e.text);
-    if (Array.isArray(e.entries)) {
-        for (var i = 0; i < e.entries.length; i++) {
-            var sub = e.entries[i];
-            if (sub && typeof sub.text === 'string' && sub.text) out.push(sub.text);
-        }
-    }
-    return out;
-}
+
 
 // 快照里是否存在「血量上限恰等于 hpAfter」的单位 —— 用于识别快乐回血的"回满截断"合法形态。
 // 注意是弱判据（同名/同上限会误认），故只在"精确判据不成立"时兜底放行，不做反向断言。
@@ -49,6 +42,12 @@ export const rule91 = {
     group: '精英技能回归',
     name: '宋青书新婚快乐链路(回归)',
     test: function(ctx, log, beforeA, beforeE, afterA, afterE) {
+        // healLevels[0] 运行时从游戏数据动态读取（单一来源），配置改了也不会再漂移误报
+        var gd = getGameData();
+        var xinHunMech = gd && gd.characters && gd.characters['宋青书'] && Array.isArray(gd.characters['宋青书'].mechanics)
+            ? gd.characters['宋青书'].mechanics.find(function(m){ return m && m.type === 'xinHun'; }) : null;
+        var heal0 = xinHunMech && Array.isArray(xinHunMech.healLevels) ? xinHunMech.healLevels[0] : null;
+        var XINHUN_PCT = (heal0 != null) ? Math.round(heal0 * 100) : 20; // 兜底 20，与 content/200game-data.json 当前值一致
         var xinhun = [];     // 新婚条目：{ deduct, pct, stack }
         var xingfen = [];    // 性奋代价：{ penalty }
         var kuaiLe = [];     // 快乐回血：{ layers, heal, hpBefore, hpAfter }
@@ -69,7 +68,15 @@ export const rule91 = {
                 }
                 if (s.indexOf('💗 性奋代价') !== -1) {
                     var xm = s.match(/（-(\d+)）/);
-                    if (xm) xingfen.push({ penalty: parseInt(xm[1], 10) });
+                    // 第 43 轮补：连同「血量上限 A → B」一起解析 —— 用于 fact 内部自洽判据（见下方信号0）。
+                    //   起因：T4/T5 类变异证明「只校验步长/配对」抓不到**整体平移**的错值
+                    //   （penalty 每笔 +5 后步长仍为 1，旧判据全绿）。声明与实际一对账就露馅。
+                    var mm = s.match(/血量上限\s*(\d+(?:\.\d+)?)\s*→\s*(\d+(?:\.\d+)?)/);
+                    if (xm) xingfen.push({
+                        penalty: parseInt(xm[1], 10),
+                        oldMaxHp: mm ? parseFloat(mm[1]) : null,
+                        newMaxHp: mm ? parseFloat(mm[2]) : null
+                    });
                     break;
                 }
                 if (s.indexOf('💚 快乐回血') !== -1) {
@@ -92,7 +99,7 @@ export const rule91 = {
         for (var k = 0; k < xinhun.length; k++) {
             var x = xinhun[k];
             if (x.deduct !== null && x.deduct !== XINHUN_DEDUCT) {
-                return { fail: true, msg: '复发：新婚扣血' + x.deduct + '点，与当前版本 hpDeduct=' + XINHUN_DEDUCT + ' 不符（content 宋青书.xinHun 参数漂移）' };
+                return { fail: true, msg: '复发：新婚扣血' + x.deduct + '点，与当前版本 hpDeduct=' + XINHUN_DEDUCT + ' 不符（宋青书 mechanics type=xinHun 的真值漂移）' };
             }
             if (x.pct !== null && x.pct !== XINHUN_PCT) {
                 return { fail: true, msg: '复发：新婚叠加快乐' + x.pct + '%，与当前版本 healLevels[0]=' + XINHUN_PCT + '% 不符（新层错用衰减值或序列首元素被改）' };
@@ -121,6 +128,26 @@ export const rule91 = {
                     return { fail: true, msg: '复发：快乐回血' + kl.heal + '点，但血量' + kl.hpBefore + '→'
                         + kl.hpAfter + ' 既非 +' + kl.heal + ' 也非回满截断（治疗量与实际血量脱节）' };
                 }
+            }
+        }
+
+        // 复发信号0（第 43 轮新增，T5 补牙）：**fact 内部自洽** —— 声明扣了多少 vs 血上限实际变了多少。
+        //   渲染（render/35 L328）：`💗 性奋代价：宋青书 血量上限 100 → 98（-2）`
+        //   penalty 只是一次「声明」，oldMaxHp/newMaxHp 才是**实际**落点；两者必须对得上。
+        //   为什么必须有它：只校验「步长==1 / 与新婚 1:1 配对」会被**整体平移**的错值绕过 ——
+        //   penalty 每笔都 +5 后序列变成 7,8,9…，步长仍是 1、配对仍成立，旧判据全绿（T5 实测即此）。
+        //   容差 1：newMaxHp 经 Math.floor 取整（modules/26 L636），oldMaxHp 是 addMod 前值可能带小数。
+        for (var z = 0; z < xingfen.length; z++) {
+            var xf = xingfen[z];
+            if (xf.oldMaxHp == null || xf.newMaxHp == null || !xf.penalty) continue;
+            // 触底截断豁免（第 43 轮实测补）：modules/26 L632 有 `unit.maxHp > 1` 保底，
+            //   宋青书上限只剩个位数时，声明扣 16 也只能扣到 1 —— 这是**设计内的合法截断**，不是脱节。
+            //   不加这条会误报（A1 变异实测 seed=18 stage=4：「声明扣 16，8 → 1」即此类）。
+            if (xf.newMaxHp <= 1) continue;
+            var delta = xf.oldMaxHp - xf.newMaxHp;   // 实际上限减少量（正数）
+            if (Math.abs(delta - xf.penalty) > 1) {
+                return { fail: true, msg: '复发：性奋代价声明扣 ' + xf.penalty + '，但血量上限 ' + xf.oldMaxHp
+                    + ' → ' + xf.newMaxHp + '（实际只变了 ' + delta + '，声明与实际脱节）' };
             }
         }
 

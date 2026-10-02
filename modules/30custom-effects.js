@@ -52,7 +52,10 @@ registerMechanicHandler('dotTick', {
 // 数据源：gameData.characters["反伤弟子"].mechanics
 // 反伤弟子受击后反弹 30% 给攻击者
 registerMechanicHandler('damageReflect', {
-    install({ eventBus }) {
+    install({ eventBus, decl }) {
+        // 反弹率唯一来源：内容表 characters.反伤弟子.mechanics.damageReflect.reflectRatio（1 = 100%）
+        const ratio = decl && decl.reflectRatio;
+        if (typeof ratio !== 'number') throw new Error('缺机制参数: damageReflect.reflectRatio');
         registerSettlementHook({
             when: 'afterDamageApplied',
             priority: L.AFTER_DAMAGE_APPLIED.REBOUND,
@@ -61,7 +64,7 @@ registerMechanicHandler('damageReflect', {
                 // 仅反伤弟子存活并实际承伤时触发
                 if (!target || target.name !== '反伤弟子' || !target.alive) return;
                 if (!dmg || dmg <= 0) return;
-                const value = Math.floor(dmg * 0.30);
+                const value = Math.floor(dmg * ratio);
                 if (value <= 0) return;
                 if (!data.declarations) data.declarations = [];
                 data.declarations.push({

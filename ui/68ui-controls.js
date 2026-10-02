@@ -469,14 +469,6 @@ export function bindBGButton(showMusicPanel) {
     document.getElementById('btnBGM').addEventListener('click', () => { showMusicPanel(); });
 }
 
-export function bindCrashModeButton() {
-    document.getElementById('btnCrashMode').addEventListener('click', function () {
-        const newMode = GlobalStore.get('crashMode') === 'fly' ? 'ghost' : 'fly';
-        GlobalStore.set('crashMode', newMode);
-        this.textContent = newMode === 'fly' ? '🕊️飞走' : '👻虚影';
-    });
-}
-
 export function bindDodgeButton(toggleDodgeEffect) {
     document.getElementById('btnDodgeToggle').addEventListener('click', () => { toggleDodgeEffect(); });
 }
@@ -573,7 +565,18 @@ export function bindStageSelectButton(currentStageGetter, getState, setState, up
         const buttons = [];
         // 2026-09-22 扩到 7：第七关是灭绝师太 demo 关（正常循环仍到第 6 关为止）
         for (let i = 1; i <= 7; i++) { buttons.push({ text: i === currentStage ? `第${i}关 ◀` : `第${i}关`, value: i, cls: 'buff' }); }
-        showModal('选择关卡', buttons, (stage) => {
+        // 2026-10-01 虚影/飞走并入选关弹窗（原头部按钮撤掉，低频功能收进角落）：值固定 crash-mode，选中即切换并关弹窗
+        const crashMode = GlobalStore.get('crashMode') === 'fly' ? 'fly' : 'ghost';
+        buttons.push({ text: crashMode === 'fly' ? '🕊️ 飞走模式 ✓' : '👻 虚影模式', value: 'crash-mode', cls: 'buff' });
+        showModal('选择关卡', buttons, (choice) => {
+            if (choice === 'crash-mode') {
+                // 只切模式不换关：切完就地再开一次弹窗，省得用户重按
+                const newMode = crashMode === 'fly' ? 'ghost' : 'fly';
+                GlobalStore.set('crashMode', newMode);
+                document.getElementById('btnStageSelect').click();
+                return;
+            }
+            const stage = choice;
             if (stage === currentStage) return;
             onAnyButtonClick();
             const result = abortAll(null, getState.UI(), getState.waitingForNextRound(), false, getState.adjustMode(), getState.selectedAdjustPos(), getState.activeBuffs(), -1, null, () => updateBuffSlots(getState.activeBuffs()));

@@ -9,37 +9,14 @@
 //      而换位 fact 可能晚于切换 fact 落日志（seed=8:6 首个 buff-swap 在切换 fact 之后才入 log，原 posChanged
 //      只扫 sw.idx 之前 → 漏判），开局列不再可信，故整体放弃（不判 ≠ 通过）。
 export const VER = 'tests/health-rules/134-zhang-switch.js V6.2.0';
-
-// 摊平一条战报条目里所有可能携带「切换近战形态」的文本源（顺序保持战报下标升序）：
-//   render/30 renderZhangSwitchFact 返回的是 [切换行, 台词行] 数组，数组自身既无 .text 也无
-//   .isZhangSwitch，旧版只扫顶层 → 120 场恒 skip 空转（同锚点的 143 改双层扫描后 pass120 可佐证）。
-//   另兼容 attack-group 的 entries 子条目（与 130/143/144 同源）。
-function switchTexts(e) {
-    var out = [];
-    if (!e) return out;
-    if (Array.isArray(e)) {
-        for (var a = 0; a < e.length; a++) {
-            var got = switchTexts(e[a]);
-            for (var g = 0; g < got.length; g++) out.push(got[g]);
-        }
-        return out;
-    }
-    if (typeof e.text === 'string' && e.text) out.push(e.text);
-    if (Array.isArray(e.entries)) {
-        for (var i = 0; i < e.entries.length; i++) {
-            var sub = e.entries[i];
-            if (sub && typeof sub.text === 'string' && sub.text) out.push(sub.text);
-        }
-    }
-    return out;
-}
+import { entryTextsDeep } from '../122health-utils.js';
 
 // 判定一条战报条目是否为「切换近战形态」：数组/entries 里任一文本命中即可；
 // 命中即算一次（同一 log 下标只可能来自同一条 fact 的两件套，调用方按下标去重）。
 function isSwitchEntry(e) {
     if (!e) return false;
     if (e.isZhangSwitch === true) return true;
-    var texts = switchTexts(e);
+    var texts = entryTextsDeep(e);
     for (var i = 0; i < texts.length; i++) {
         if (texts[i].indexOf('张无忌切换近战形态') !== -1) return true;
     }

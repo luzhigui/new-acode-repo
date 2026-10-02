@@ -1,5 +1,5 @@
-// V6.3.3 | ~17900 bytes | 2026-09-25 闪避反击致死不再直接 alive=false：改挂 _pendingDeath 交 resolveDeaths 结算（修「带血尸体」hp 不清零 + DEATH 信号不发），判据从展示值 attackerHpAfter 改真实 unit.hp。承接 V6.3.2 额外攻击三口合一
-export const VER = 'core/10battle-attack.js V6.3.3';
+// V6.3.5 | ~19100 bytes | 2026-10-01 修「母狮随动 死→活→死」：resolveDeaths 后立刻把事件缓冲收进本攻击组，避免死亡事件被上层攻击帧的 flush 捞走挂到更早播出的组上。承接 V6.3.4 两处 resolveAfterDamageEffects 补传本步 log
+export const VER = 'core/10battle-attack.js V6.3.5';
 
 import { CONFIG } from './01config-5v5-test.js';
 import { hasBuff, makeFXSnapshot, isBlocked } from './03battle-utils.js';
@@ -228,7 +228,7 @@ export function processUnitAttack(unit, allySide, enemySide, log, A, B, state, d
     if (dmgResult.horseReboundDeclarations && dmgResult.horseReboundDeclarations.length > 0) {
         afterDamageDeclarations.push(...dmgResult.horseReboundDeclarations);
     }
-    const executedDecls = resolveAfterDamageEffects(afterDamageDeclarations, unit, target, group, allySide, unitActiveBuffs);
+    const executedDecls = resolveAfterDamageEffects(afterDamageDeclarations, unit, target, group, allySide, unitActiveBuffs, log);
     for (const decl of executedDecls) {
         if (decl._events && decl._events.length > 0) {
             if (!group._events) group._events = [];
@@ -274,7 +274,7 @@ export function processUnitAttack(unit, allySide, enemySide, log, A, B, state, d
         // 先处理攻盾等回合级状态授予（不参与八类结算）
         resolveRoundStatGrants(afterAttackData.declarations);
         // 再处理既有八类结算
-        const clawExecuted = resolveAfterDamageEffects(afterAttackData.declarations, unit, target, group, allySide, unitActiveBuffs);
+        const clawExecuted = resolveAfterDamageEffects(afterAttackData.declarations, unit, target, group, allySide, unitActiveBuffs, log);
         // 先处理爪击链日志，确保宋青书回血日志最后出现
         for (const decl of clawExecuted) {
             if (decl._events && decl._events.length > 0) {
@@ -315,6 +315,13 @@ export function processUnitAttack(unit, allySide, enemySide, log, A, B, state, d
     runExtraAttackRequests(extraRequests, { log, A, B, state, allySide, enemySide, target, checkBlock: true, forceUnact: true });
 
     resolveDeaths(allySide, enemySide, log);
+    // 2026-10-01 修「母狮随动 死→活→死」：resolveDeaths 发的事件此前留在全局缓冲里没人收，
+    //   会被**上层攻击帧**（随动父帧）L268 的 flush 捞走 → 死亡被挂到更早播出的那个攻击组上；
+    //   而随动子刀自己的 alive=true 事件又挂在更晚的组上。播放层逐组 APPLY_EVENTS（player/46 L146），
+    //   于是目标先被前一组标死、再被后一组标活、步末才真正落地 → 死→活→死 三段剧透。
+    //   修法：本帧死亡结算后立刻把缓冲收进本组，保证「谁打死的，死亡事件跟谁走」。
+    //   日志文本顺序与死亡结算时机均不变（resolveDeaths 调用点没动）。
+    group._events = (group._events || []).concat(flushBattleEvents());
 
     return true;
 }

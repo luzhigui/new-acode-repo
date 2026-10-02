@@ -1,6 +1,5 @@
 // core/06battle-runner.js — 无头整局跑（headless full-battle runner）
-// V1.1.0 | 2026-09-22 新增 onStep 回调（demo-stage3 页需要读每步日志文案；页面级 eventBus 监听器被 core/11 的 clearAll 清掉，读不到）
-// V1.0.0 | 2026-09-21 抽出「跑完一整局」外循环，收口 tools/101、tools/116(×3)、tools/110 四处重复
+// V1.2.0 | 2026-09-29 默认回合上限/补海克斯间隔改读 CONFIG（MAX_ROUND / HEX_INTERVAL），消除与注释不一致的内联数字
 //
 // ⚠️⚠️ 三条死守（防止 UI 提前剧透 / 演出错序）——改本文件前先把这三条读完 ⚠️⚠️
 //
@@ -19,9 +18,10 @@
 //      要渲染的 fact 走 createRoundStepper 的 ui / translateFacts 参数，本文件不生成、
 //      也不应该被拿去生成。
 
-export const VER = 'core/06battle-runner.js V1.1.0';
+export const VER = 'core/06battle-runner.js V1.2.0';
 
 import { createRoundStepper } from './11battle-round.js';
+import { CONFIG } from './01config-5v5-test.js';
 import { SeededRNG } from '../infra/51-core-utils.js';
 
 /**
@@ -49,10 +49,10 @@ import { SeededRNG } from '../infra/51-core-utils.js';
 export function runBattle(o) {
     const {
         ally, enemy, seed,
-        maxRounds = 35,
+        maxRounds = CONFIG.MAX_ROUND,
         initialBuffs = [],
         hexPicker = null,
-        hexInterval = 3,
+        hexInterval = CONFIG.HEX_INTERVAL,
         firstSide = null,
         collectFacts = false,
         onStep = null,

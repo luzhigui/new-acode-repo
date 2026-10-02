@@ -1,5 +1,5 @@
-// V6.1.2 | ~17000 bytes | 2026-09-25 删 selectFlyTarget/canReach（飞行切入选敌，唯一调用方 core/11 的飞行钩子已按定案 B 移除，飞行改回 core/07 策略表）
-export const VER = 'core/03battle-utils.js V6.1.2';
+// V6.1.7 | ~16200 bytes | 2026-09-30 参数单位口径统一（收尾）：getMissBreakdown 改为按比例域读 CONFIG（5 个读点 ×100 还原），对外契约仍是百分点；破防兜底档同步写成 targetDef × (WARRIOR_BREAK_CHANCE_PER_DEF × 100)
+export const VER = 'core/03battle-utils.js V6.1.7';
 
 import { CONFIG, getGameData } from './01config-5v5-test.js';
 import { emitEvent, applyStatChange, query, getBattleRng, getPresentationRng, addMod, getStat } from './13battle-shared.js';
@@ -69,41 +69,47 @@ export function canBeTargeted(unit) {
 }
 
 export function getFlyDodgeRate(unit, attacker) {
-    const FLY_BASE_DODGE = C.BASE_DODGE_FLY || 0.15;
+    const FLY_BASE_DODGE = C.BASE_DODGE_FLY;
     if (unit.state._canAlwaysDodge) return FLY_BASE_DODGE;
     if (unit.role === ROLE_TYPES.FLYER) return FLY_BASE_DODGE;
-    return C.BASE_DODGE_GROUND || 0.03;
+    return C.BASE_DODGE_GROUND;
 }
 
 // 2026-09-16 攻击未命中率：唯一算法源（12battle-attack-steps 与详情弹窗同源调用，改算法只改这里）
 // 返回 { total, sources }，total 为百分点，sources 为 { label, value } 明细
+// 2026-09-30 V6.5.0 口径统一：CONFIG 里未命中率改按「1 = 100%」存（0.06 = 6%），本函数在此 ×100 还原，
+//   对外契约（total / sources.value 均为百分点）不变，日志、详情弹窗、体检 145 无需跟改。
 export function getMissBreakdown(unit, allySide, enemySide) {
     if (!unit) return { total: 0, sources: [] };
     if (unit.state && unit.state._neverMiss) return { total: 0, sources: [{ label: '必中', value: 0 }] };
     const sources = [];
     let total = 0;
+    const PCT = 100;   // 比例 → 百分点（写成单独一次乘法，与统一前的字面量逐位一致）
     if (unit.role === ROLE_TYPES.RANGED) {
-        total = C.RANGED_MISS_CHANCE;
-        sources.push({ label: '远程基础', value: C.RANGED_MISS_CHANCE });
+        const base = C.RANGED_MISS_CHANCE * PCT;
+        total = base;
+        sources.push({ label: '远程基础', value: base });
     } else if (unit.role === ROLE_TYPES.FLYER) {
-        total = C.FLY_MISS_CHANCE;
-        sources.push({ label: '飞行基础', value: C.FLY_MISS_CHANCE });
+        const base = C.FLY_MISS_CHANCE * PCT;
+        total = base;
+        sources.push({ label: '飞行基础', value: base });
         const allUnits = [...(allySide || []), ...(enemySide || [])];
-        const lowHpCount = allUnits.filter(u => u.alive && u.hp / u.maxHp < 0.4).length;
+        const lowHpCount = allUnits.filter(u => u.alive && u.hp / u.maxHp < C.LOW_HP_THRESHOLD).length;
         if (lowHpCount > 0) {
-            const v = lowHpCount * C.FLY_MISS_LOWHP_BONUS;
+            const v = lowHpCount * (C.FLY_MISS_LOWHP_BONUS * PCT);
             total += v;
             sources.push({ label: '残血光环×' + lowHpCount, value: v });
         }
         const emptyCols = countEnemyEmptyCols(enemySide || []);
         if (emptyCols > 0) {
-            const v = -emptyCols * C.FLY_MISS_EMPTYCOL_REDUCE;
+            const v = -emptyCols * (C.FLY_MISS_EMPTYCOL_REDUCE * PCT);
             total += v;
             sources.push({ label: '空列×' + emptyCols, value: v });
         }
     } else {
-        total = C.GROUND_MISS_CHANCE;
-        sources.push({ label: '地面基础', value: C.GROUND_MISS_CHANCE });
+        const base = C.GROUND_MISS_CHANCE * PCT;
+        total = base;
+        sources.push({ label: '地面基础', value: base });
     }
     return { total: Math.max(0, Math.round(total * 10) / 10), sources };
 }
@@ -128,7 +134,7 @@ export function getKillTaunt(unit) {
     return pool[rng.nextInt(0, pool.length - 1)];
 }
 export function getZhangNearTaunt(nearAtkCount) {
-    if (nearAtkCount < 1 || nearAtkCount > 3) return null;
+    if (nearAtkCount < 1 || nearAtkCount > C.ZHANG_NEAR_ATK_LIMIT) return null;
     const pool = getGameData().taunts.zhangNear;
     return pool[nearAtkCount - 1] || null;
 }
@@ -144,11 +150,11 @@ export function hasAnyEnemyEmptyCol(enemySide) {
     return cols.some(poses => !enemySide.some(u => u.alive && poses.includes(u.pos)));
 }
 
-export function hasEnemyLowHp(enemySide, threshold = 0.4) {
+export function hasEnemyLowHp(enemySide, threshold = C.LOW_HP_THRESHOLD) {
     return enemySide.some(u => u.alive && u.hp / u.maxHp < threshold);
 }
 
-// 战士破防：判定后直接 addMod 永久负词条
+// 战士破防：只提交声明，由 core/16 的裁定器统一 addMod（见 V6.1.3：本处原有一次直改，与裁定重复导致双扣）
 function submitWarriorBreakDefenseDeclaration(data) {
     const { unit, target, declarations } = data;
     if (!declarations) return;
@@ -158,10 +164,12 @@ function submitWarriorBreakDefenseDeclaration(data) {
     const tier = (C.WARRIOR_BREAK_DEF_TIERS || []).find(t => t.defMax === null || targetDef <= t.defMax)
         || { reduce: C.WARRIOR_BREAK_DEF, chance: null };
     let defReduced = tier.reduce;
-    let breakChance = tier.chance === null ? targetDef * (C.WARRIOR_BREAK_CHANCE_PER_DEF ?? 2.5) : tier.chance;
+    // 两档 chance 口径统一「1 = 100%」，比较前都 ×100 回百分点域：
+    //   分档档 → tier.chance * 100（如 0.5 → 50）
+    //   兜底档 → 防御 × (WARRIOR_BREAK_CHANCE_PER_DEF * 100)（如 30 × 2.5 = 75）
+    let breakChance = tier.chance === null ? targetDef * (C.WARRIOR_BREAK_CHANCE_PER_DEF * 100) : tier.chance * 100;
     if (getBattleRng().nextInt(1, 100) > breakChance) return;
     defReduced = Math.min(defReduced, getStat(target, 'def'));
-    addMod(target, 'def', { source: '破防', value: -defReduced, ttl: 'permanent', group: 'breakDef', op: 'add' });
     declarations.push({ type: EFFECT_TYPES.BREAK_DEF, value: defReduced, source: unit, target: target, factData: { attackerName: unit.name, targetName: target.name, reduce: defReduced } });
 }
 
@@ -203,7 +211,7 @@ function submitWarriorExecuteDeclaration(data) {
     if (!target || !target.alive || target.hp <= 0) return;
     const unitBuffs = (allySide && allySide._activeBuffs) || [];
     const hasBloodthirst = hasBuff(unitBuffs, BUFF_TYPES.BLOODTHIRST);
-    const threshold = hasBloodthirst ? 0.20 : 0.15;
+    const threshold = hasBloodthirst ? C.EXEC_THRESHOLD_BLOODTHIRST : C.EXEC_THRESHOLD;
     if (target.hp <= target.maxHp * threshold) {
         if (!declarations) return;
         declarations.push({
@@ -228,13 +236,14 @@ export function registerWarriorExecute(eventBus) {
 }
 
 export function registerFortifyShield(eventBus) {
-    function tryFortify(unit, chance, group, log, label) {
+    // chanceRatio = 触发概率（口径 1 = 100%，来自 roles.防战.fortify）；比较前 ×100 回到百分点域
+    function tryFortify(unit, chanceRatio, group, log, label) {
         if (!unit.alive || unit.role !== ROLE_TYPES.DEFENDER) return;
         const fortifyThisRound = unit.state._fortifyThisRound || 0;
         const increment = unit.state._fortifyIncrement || C.FORTIFY_INCREMENT;
         const cap = unit.state._fortifyCap || C.FORTIFY_CAP;
         if (fortifyThisRound + increment > cap) return;
-        if (getBattleRng().nextInt(1, 100) > chance) return;
+        if (getBattleRng().nextInt(1, 100) > chanceRatio * 100) return;
         Object.assign(unit.state, { _fortifyStacks: unit.state._fortifyStacks + increment, _fortifyThisRound: fortifyThisRound + increment });
         addMod(unit, 'def', { source: '坚盾', value: increment, ttl: 'permanent', group: 'fortify', op: 'add' });
         const entry = { factType: FACT_TYPES.FORTIFY_SHIELD, data: { unitName: unit.name, label, increment, current: fortifyThisRound + increment, cap } };
@@ -277,9 +286,13 @@ export function registerDoubleStrike(eventBus, doubleStrikeUnitUid, allyTeam, ac
         const { unit, target, log } = data;
         if (unit.uid !== doubleStrikeUnitUid || !unit.alive || unit.state._doubleStriked) return;
         const xiaoDoubleEnhance = query('xiaoHexEnhance', allyTeam, activeBuffs, BUFF_TYPES.DOUBLE_STRIKE);
-        const missChainChance = xiaoDoubleEnhance ? 1.0 : (C.BUFFS.doubleStrike.prob || 0.8);
+        const missChainChance = xiaoDoubleEnhance ? 1.0 : C.BUFFS.doubleStrike.prob;
         if (getBattleRng().next() < missChainChance) {
-            log.push({ factType: FACT_TYPES.DOUBLE_STRIKE, data: { success: true } });
+            // 2026-09-27 补 unitName：原成功分支不带单位，而渲染出的 banner 也没有单位字段，
+            //   体检 146 只能靠「banner 之后第一条 attack-group 的攻击者」反推触发者 ——
+            //   母狮随动链、其他单位自己的回合插在 banner 之后时必然误报（seed=10 stage=2 实测）。
+            //   失败分支本就带 unitName，这里补齐对称，判据即可直接读单位、不再推断。
+            log.push({ factType: FACT_TYPES.DOUBLE_STRIKE, data: { success: true, unitName: unit.name } });
             Object.assign(unit.state, { _doubleStriked: true });
             if (!data.extraRequests) data.extraRequests = [];
             data.extraRequests.push({

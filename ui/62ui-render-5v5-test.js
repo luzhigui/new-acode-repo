@@ -1,5 +1,5 @@
-// V6.0.2 | ~16900 bytes | 2026-09-22 详情弹窗血量显示统一走 fmtHp（0<hp<1 显示 1，不再散写 Math.floor）
-export const VER = 'ui/62ui-render-5v5-test.js V6.0.2';
+// V6.0.3 | ~16900 bytes | 2026-09-29 韦一笑吸血技能改名：寒冰掌 → 蝠影汲血（技能键 coldPalm → bloodSiphon，与玄冥神掌主题解耦）
+export const VER = 'ui/62ui-render-5v5-test.js V6.0.3';
 
 import { getSkillDesc } from '../core/01config-5v5-test.js';
 import { getStat } from '../core/13battle-shared.js';
@@ -178,7 +178,7 @@ function updateDetailPopupContent() {
                     getSkillDesc('张无忌', 'nearSwitch')
                 ];
                 else if (u.isWei) skills = [
-                    getSkillDesc('韦一笑', 'coldPalm'),
+                    getSkillDesc('韦一笑', 'bloodSiphon'),
                     getSkillDesc('韦一笑', 'bloodDodge')
                 ];
                 else if (u.isSongQingshu) {

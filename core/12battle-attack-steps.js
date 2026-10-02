@@ -1,5 +1,5 @@
-// V6.3.4 | ~24700 bytes | 2026-09-25 闪避反击的 attackerHpAfter 去掉 Math.floor：0.8 血被 floor 成 0，被 core/10 与 render/34/38 当成致死（假死+展示 0 血）；改存真实血量，<=0 才是真致死。承接 V6.3.3 波动减伤
-export const VER = 'core/12battle-attack-steps.js V6.3.4';
+// V6.3.6 | ~28900 bytes | 2026-09-29 参数体系收敛批 3：防御波动台词阈值 7 改读 CONFIG.DEF_WAVE_THRESHOLD
+export const VER = 'core/12battle-attack-steps.js V6.3.6';
 
 import { CONFIG, getSkillParams, getGameData } from './01config-5v5-test.js';
 import { eventBus, EFFECT_TYPES } from '../infra/50-event-bus.js';
@@ -253,7 +253,7 @@ export function calcFinalDamage(unit, target, attackerBuffStats, defenderBuffSta
     //   非满血场景净扣血与旧口径数值完全相同（旧：+b 后 −dmg），故按 dmg 计数的链路（吸血/反伤/破防/统计）不变。
     let waveTaunt = null, waveUnit = null;
     if (atkVar === C.ATK_VAR) { waveTaunt = getRandomTaunt(unit); waveUnit = unit; unit.critCount++; emitEvent(unit, UNIT_EVENT_TYPES.HP_CHANGE, { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: getStat(unit, 'atk'), def: getStat(unit, 'def'), critCount: unit.critCount }); }
-    else if (defVar + hpBonus >= 7) {
+    else if (defVar + hpBonus >= C.DEF_WAVE_THRESHOLD) {
         const defTaunts = getGameData().taunts.def;
         waveTaunt = defTaunts[rng.nextInt(0, defTaunts.length - 1)];
         waveUnit = target;
@@ -446,7 +446,7 @@ export function resolveDamageImmune(declarations) {
 }
 
 // 攻击后效果结算
-export function resolveAfterDamageEffects(declarations, unit, target, group, allySide, unitBuffs) {
+export function resolveAfterDamageEffects(declarations, unit, target, group, allySide, unitBuffs, log) {
     if (!declarations || declarations.length === 0) return [];
 
     const executed = [];
@@ -478,7 +478,7 @@ export function resolveAfterDamageEffects(declarations, unit, target, group, all
             group,
             allySide,
             unitBuffs,
-            log: null
+            log
         });
         if (result && result.executed) executed.push(...result.executed);
     }

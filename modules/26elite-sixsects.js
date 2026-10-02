@@ -1,7 +1,7 @@
-// V6.14.3 | ~24800 bytes | 2026-09-26 胖远桥两技能的演出标记写进本击 fact（group.data.pangTaunt / pangClumsy）：生成步只记标记，演出帧由 render/39 发信号，避免特效抢在画面前
-export const VER = 'modules/26elite-sixsects.js V6.14.3';
+// V6.15.0 | ~47100 bytes | 2026-10-02 胖远桥·正义国字脸加防补飘字：加防量随本击 fact 带给 render/38，翻成 STAT_CHANGE(def) → 飘「🛡+N」
+export const VER = 'modules/26elite-sixsects.js V6.15.0';
 import { registerElite } from '../core/08-elite-registry.js';
-import { CONFIG, getSkillParams } from '../core/01config-5v5-test.js';
+import { CONFIG, getSkillParams, getGameData } from '../core/01config-5v5-test.js';
 import { SIGNAL_TYPES, FACT_TYPES, BUFF_TYPES, CAMP_TYPES, ROLE_TYPES } from '../infra/56-battle-enums.js';
 import { applyStatChange, addMod, getStat, getBattleRng, resolvePushOrStun, refreshMaxHp } from '../core/13battle-shared.js';
 import { eventBus, EFFECT_TYPES, EXECUTION_LAYER as L } from '../infra/50-event-bus.js';
@@ -46,7 +46,7 @@ export function createZhangSanfengComponent() {
             const tf = getSkillParams('张三丰', 'tenRoundFortify');
             if (!tf) throw new Error('缺技能参数: 张三丰.tenRoundFortify');
 
-            // 生生不息：只回 healPct 上限（三处触发共用：回合开始 / 轮到自己 / 八卦阵）。加防不在这里——加防属于八卦阵（掉攻的同时加防）
+            // 生生不息：只回 healPct 上限（三处触发共用：回合开始 / 轮到自己 / 八卦阵）；回血同时转永久攻防，见下
             // 2026-09-21 溢出转嫁：自身回不满的那部分（满血时即全部）转给随机一名存活友方，
             // 拒马也算友方；满血队友也可被选中（选中即作废，不改选）；随机走战斗 RNG（getBattleRng），保证 PVP 双端同源
             function triggerEndlessBreath(unit, log) {
@@ -74,24 +74,42 @@ export function createZhangSanfengComponent() {
                     }
                 }
 
-                // 2026-09-24 回血等量转永久防御：实际回血者（张三丰本人 / 溢出接盘队友）各按实际回复量加防。
-                // 系数走 content 的 endlessBreath.defPerHeal（缺省 1 = 等量），便于单独调平衡。
-                // 注意：八卦阵被攻击时也触发生生不息 → 挨打越多防越高，是个正反馈，数值需跑评测盯。
-                if (healed > 0) {
-                    addMod(unit, 'def', { source: '生生不息', value: healed * s.defPerHeal, ttl: 'permanent', group: 'endlessBreath', op: 'add' });
-                }
-                if (receiver && receiverHealed > 0) {
-                    addMod(receiver, 'def', { source: '生生不息', value: receiverHealed * s.defPerHeal, ttl: 'permanent', group: 'endlessBreath', op: 'add' });
+                // 2026-09-27 定案：回血同时转永久攻防，按「实际回血 / 溢出」两档、按血量落点记账——
+                // 张三丰自己那笔（实疗 healed + 自身溢出 overflow）加给自己；转给队友那笔
+                // （队友实疗 receiverHealed + 队友二次溢出 overflow-receiverHealed）加给队友。
+                // 系数走 content endlessBreath.params（每 N 点血 → 攻/防 +1），每档有 minBonus 地板。
+                // 例（二选一后）：张三丰满血 100/100、heal=20 → 溢出20，本次掷到「攻」则 攻+2、不涨防；掷到「防」则 防+4；
+                //     转给队友那笔同方向：实疗10 → 攻+1 或 防+1，二次溢出10 → 再 攻+1 或 防+2。
+                // 注意：八卦阵被攻击时也触发生生不息 → 挨打越多攻防越高，是个正反馈，数值需跑评测盯。
+                const gainOf = (amount, div) => amount > 0 ? Math.max(s.minBonus, amount / div) : 0;
+                // 2026-09-28 二选一改版（V6.14.7）：比例不变，每次触发随机「攻」「防」只给一边——
+                // 随机走战斗 RNG（PVP 双端同源，同 getBattleRng 溢出转嫁口径）；一次触发一个方向，
+                // 张三丰自己那笔与转给队友那笔同方向（同一条 fact 内可读）
+                const side = getBattleRng().nextInt(0, 1) === 0 ? 'atk' : 'def';
+                const selfAtkGain = side === 'atk' ? gainOf(healed, s.healAtkDiv) + gainOf(overflow, s.overflowAtkDiv) : 0;
+                const defGain = side === 'def' ? gainOf(healed, s.healDefDiv) + gainOf(overflow, s.overflowDefDiv) : 0;
+                if (selfAtkGain > 0) addMod(unit, 'atk', { source: '生生不息', value: selfAtkGain, ttl: 'permanent', group: 'endlessBreath', op: 'add' });
+                if (defGain > 0) addMod(unit, 'def', { source: '生生不息', value: defGain, ttl: 'permanent', group: 'endlessBreath', op: 'add' });
+                let receiverAtkGain = 0;
+                let receiverDefGain = 0;
+                if (receiver) {
+                    // 队友二次溢出＝转给它但没变成生命的那部分（含它本就满血时全额作废），仍照溢出档给加成
+                    const receiverOverflow = Math.max(0, overflow - receiverHealed);
+                    // 二选一：队友那笔跟随本次触发的同一方向（side 在上面已掷）
+                    receiverAtkGain = side === 'atk' ? gainOf(receiverHealed, s.healAtkDiv) + gainOf(receiverOverflow, s.overflowAtkDiv) : 0;
+                    receiverDefGain = side === 'def' ? gainOf(receiverHealed, s.healDefDiv) + gainOf(receiverOverflow, s.overflowDefDiv) : 0;
+                    if (receiverAtkGain > 0) addMod(receiver, 'atk', { source: '生生不息', value: receiverAtkGain, ttl: 'permanent', group: 'endlessBreath', op: 'add' });
+                    if (receiverDefGain > 0) addMod(receiver, 'def', { source: '生生不息', value: receiverDefGain, ttl: 'permanent', group: 'endlessBreath', op: 'add' });
                 }
 
-                // 2026-09-17 飘字：三处触发共用（回合开始 / 轮到自己 / 八卦阵）；2026-09-20 溢出接盘者单独飘一条
+                // 2026-09-27 回血弹幕不在这里发了：改由下面的 fact → render/38 翻译 → 39 HEAL 动作，
+                // 跟其它所有治疗一样「随文本行播出」。原先此处直接 emit(HEAL_FLOAT) 是引擎解算瞬间发信号，
+                // 弹幕会抢在日志文字前面（全项目唯一一处这么干的治疗）。
                 if (!GlobalStore.get('fastForwardActive')) {
                     // 太极印：三处触发共用（回合开始 / 轮到自己 / 八卦阵）。
                     // 1 号位会出现「回合开始 + 立刻轮到自己」两次紧邻——不去抖会连出两个，
                     // 由 fx/80 showMeditateEffect 内部按 uid 去抖（1.2s），此处只管发。
                     eventBus.emit(FX_SIGNALS.MEDITATE, { unit });
-                    if (healed > 0) eventBus.emit(FX_SIGNALS.HEAL_FLOAT, { unit, amount: healed });
-                    if (receiverHealed > 0) eventBus.emit(FX_SIGNALS.HEAL_FLOAT, { unit: receiver, amount: receiverHealed });
                 }
                 // 2026-09-17 日志：走 fact（两处触发都进主 log，随 step 渲染）
                 if (log) {
@@ -101,8 +119,13 @@ export function createZhangSanfengComponent() {
                             unitName: unit.name, unitUid: unit.uid,
                             heal: healed,
                             overflow,
+                            atkGain: selfAtkGain,
+                            defGain,
                             overflowToName: receiver ? receiver.name : null,
-                            overflowHealed: receiverHealed
+                            overflowToUid: receiver ? receiver.uid : null,
+                            overflowHealed: receiverHealed,
+                            overflowAtkGain: receiverAtkGain,
+                            overflowDefGain: receiverDefGain
                         }
                     });
                 }
@@ -130,6 +153,13 @@ export function createZhangSanfengComponent() {
                 if (rng.nextInt(1, 100) > ba.procChance * 100) return;
                 addMod(zhang, 'atk', { source: '八卦阵', value: -ba.atkCost, ttl: 'permanent', group: 'baguaArray', op: 'add' });
                 addMod(zhang, 'def', { source: '八卦阵', value: ba.defGain, ttl: 'permanent', group: 'baguaArray', op: 'add' });
+                // 数值声明 fact：发实际 addMod 的带符号值，供体检对照器按 group='baguaArray' 隔离比对
+                if (data.log) {
+                    data.log.push({
+                        factType: FACT_TYPES.BAGUA_ARRAY,
+                        data: { unitName: zhang.name, atkDelta: -ba.atkCost, defDelta: ba.defGain }
+                    });
+                }
                 triggerEndlessBreath(zhang, data.log);
                 if (data.group && data.group.data && data.group.data.entries) {
                     data.group.data.entries.push({ type: 'info', text: `<span class="gold">☯ 八卦阵：张三丰攻击-${ba.atkCost}、防御+${ba.defGain}，触发生生不息</span>` });
@@ -214,6 +244,13 @@ export function createPangYuanQiaoComponent() {
                 if (data.target !== pang || !pang.alive) return;
                 if (!data.dmg || data.dmg <= 0) return;
                 addMod(pang, 'atk', { source: '莽撞', value: rage.atkPerHit, ttl: 'permanent', group: 'rageOnHit', op: 'add' });
+                // 数值声明 fact：发实际 addMod 的带符号值，供体检对照器按 group='rageOnHit' 隔离比对
+                if (data.log) {
+                    data.log.push({
+                        factType: FACT_TYPES.RAGE_ON_HIT,
+                        data: { unitName: pang.name, atkDelta: rage.atkPerHit }
+                    });
+                }
                 pushInfo(data, `<span class="gold">💢 莽撞：胖远桥挨了打，攻击+${rage.atkPerHit}（当前 ${Math.floor(getStat(pang, 'atk'))}）</span>`);
             });
 
@@ -223,6 +260,13 @@ export function createPangYuanQiaoComponent() {
                 if (data.unit !== pang || !pang.alive) return;
                 if (!data.dmg || data.dmg <= 0) return;
                 addMod(pang, 'atk', { source: '莽撞', value: rage.atkPerHit, ttl: 'permanent', group: 'rageOnHit', op: 'add' });
+                // 数值声明 fact：与主路径同口径，供对照器按 group='rageOnHit' 比对
+                if (data.log) {
+                    data.log.push({
+                        factType: FACT_TYPES.RAGE_ON_HIT,
+                        data: { unitName: pang.name, atkDelta: rage.atkPerHit }
+                    });
+                }
                 // 台词挂在溅射那条 fact 上（render/35 会追加到行尾）
                 if (data.factData) {
                     data.factData.rageText = `<span class="gold">💢 莽撞：胖远桥吃了溅射，攻击+${rage.atkPerHit}（当前 ${Math.floor(getStat(pang, 'atk'))}）</span>`;
@@ -241,7 +285,9 @@ export function createPangYuanQiaoComponent() {
                 if (cands.length === 0) return;
                 const rng = getBattleRng();
                 const hpRatio = pang.maxHp > 0 ? pang.hp / pang.maxHp : 1;
-                const threshold = Math.min(0.95, 0.10 + (getStat(pang, 'atk') - 30) / 200);
+                // 阈值公式系数走 CONFIG.PANG_CLUMSY_FORMULA（参数体系收敛批 2）
+                const f = CONFIG.PANG_CLUMSY_FORMULA;
+                const threshold = Math.min(f.cap, f.base + (getStat(pang, 'atk') - f.atkRef) / f.atkDiv);
                 const clumsyProb = Math.min(1, Math.max(0, (1 - hpRatio) / (1 - threshold)));
                 if (rng.next() < clumsyProb) {
                     // 年轻气盛（打歪）：随机挑一名敌人，×dmgMultiplier 并附带击退/眩晕
@@ -279,7 +325,12 @@ export function createPangYuanQiaoComponent() {
                 if (data.unit !== pang || !pang.alive || !pang.state._tauntFired) return;
                 pang.state._tauntFired = false;
                 // 国字脸的演出标记：与台词同帧写进 fact，render/39 出手帧据此发 PANG_TAUNT
-                if (data.group && data.group.data) data.group.data.pangTaunt = true;
+                if (data.group && data.group.data) {
+                    data.group.data.pangTaunt = true;
+                    // 2026-10-02 加防量随 fact 走一格（此前只有上面那行文字、无飘字），
+                    //   render/38 据此产 STAT_CHANGE(def) → fx/80 飘「🛡+N」
+                    data.group.data.pangDefGain = face.defGain;
+                }
                 pushInfo(data, `<span class="gold">😤 正义国字脸：胖远桥横眉一喝，敌人本回合只能打他（自身防御+${face.defGain}，当前 ${Math.floor(getStat(pang, 'def'))}）</span>`);
             });
 
@@ -392,7 +443,7 @@ export function createMieJueShiTaiComponent() {
             // 三击判定不落标记：两处都按同一个 _attackCount 现算——额外攻击走 lockedTargetUid，
             //   不发 BEFORE_SELECT_TARGET，落标记的方式在反击那一击上必然失同步。
             //   「本次结算前计数 +1 能被 3 整除」= 这一击就是第 3 的倍数。
-            const isThirdHit = () => (((miejue.state._attackCount || 0) + 1) % 3) === 0;
+            const isThirdHit = () => (((miejue.state._attackCount || 0) + 1) % third.interval) === 0;
 
             eventBus.on(SIGNAL_TYPES.BEFORE_DAMAGE_CALC, L.BEFORE_DAMAGE_CALC.MIEJUE_THIRD_MULT, (data) => {
                 if (data.unit !== miejue || !miejue.alive || !isThirdHit()) return;
@@ -454,8 +505,12 @@ function checkKuLian(allyTeam) {
     return song;
 }
 
-// 快乐回血：每层按 healPct 回一次，层数推进到下一档
+// 快乐回血：每层按 healPct 回一次，层数推进到下一档。
+// levels 真值唯一来源：宋青书 mechanics 里 type='xinHun' 的 healLevels（批 1 已删 skills.params 死副本）。
 function tickKuaiLeHeal(allUnits, log, declarations) {
+    const xinHunMech = (getGameData()?.characters?.['宋青书']?.mechanics || []).find(m => m && m.type === 'xinHun');
+    const levels = xinHunMech?.healLevels;
+    if (!levels) throw new Error('缺技能参数: 宋青书.mechanics.xinHun.healLevels');
     allUnits.forEach(unit => {
         if (!unit.state._kuaiLeStack || unit.state._kuaiLeStack.length === 0) return;
         if (!unit.alive) return;
@@ -464,8 +519,6 @@ function tickKuaiLeHeal(allUnits, log, declarations) {
         unit.state._kuaiLeStack.forEach(layer => {
             const healAmount = Math.floor(unit.maxHp * layer.healPct);
             totalHeal += healAmount;
-            const levels = getSkillParams('宋青书', 'xinHun').healLevels;
-            if (!levels) throw new Error('缺技能参数: 宋青书.xinHun.healLevels');
             const currentIdx = levels.indexOf(layer.healPct);
             if (currentIdx >= 0 && currentIdx < levels.length - 1) newStack.push({ healPct: levels[currentIdx + 1] });
         });
@@ -512,10 +565,10 @@ registerMechanicHandler('chainClaw', {
             if (!target || !target.alive) return;
             const rng = getBattleRng();
             const zhangAlive = enemySide && enemySide.some(u => u.isZhang && u.alive);
-            const baseHit = zhangAlive ? (decl.jealous?.baseDmg ?? decl.baseDmg ?? 2) : (decl.baseDmg ?? 1.5);
+            const baseHit = zhangAlive ? decl.jealous?.baseDmg : decl.baseDmg;
             const s = zhangAlive ? { ...decl, ...(decl.jealous || {}) } : decl;
             if (!unit.state._nineYinFirstDone) Object.assign(unit.state, { _nineYinFirstDone: true });
-            else if (rng.next() > (s.procChance || 0.80)) return;
+            else if (rng.next() > s.procChance) return;
 
             const hits = [];
             let executeInfo = null;
@@ -526,14 +579,14 @@ registerMechanicHandler('chainClaw', {
             let depth = 0;
 
             while (simulatedTargetHp > 0 && !target.state._pendingDeath && depth < 100) {
-                if (depth > 0 && rng.next() > (s.chainProcChance || 0.80)) break;
+                if (depth > 0 && rng.next() > s.chainProcChance) break;
                 const lostHp = target.maxHp - simulatedTargetHp;
-                const ratioDmg = Math.floor((lostHp * (s.lostHpRatio || 0.015) + target.maxHp * (s.maxHpRatio || 0.01)) * 10) / 10;
+                const ratioDmg = Math.floor((lostHp * s.lostHpRatio + target.maxHp * s.maxHpRatio) * 10) / 10;
                 const bonusDmg = Math.floor((baseHit + Math.max(0, ratioDmg)) * 10) / 10;
                 simulatedTargetHp -= bonusDmg;
                 const isDeadByHit = simulatedTargetHp <= 0;
                 const hpPctAfter = simulatedTargetHp / target.maxHp;
-                const execThreshold = s.executeThreshold || 0.15;
+                const execThreshold = s.executeThreshold;
                 const isExecute = !isDeadByHit && hpPctAfter <= execThreshold && simulatedTargetHp > 0;
                 hits.push({ dmg: bonusDmg, factType: FACT_TYPES.CLAW_HIT, data: { unitName: unit.name, targetName: target.name, dmg: bonusDmg, isExecute, jealous: zhangAlive, depth, hpAfter: simulatedTargetHp, targetUid: target.uid }, isClawHit: true, clawAttackerUid: unit.uid, clawTargetUid: target.uid, isExecute });
                 if (song && song.alive) {
@@ -571,15 +624,24 @@ registerMechanicHandler('kuLian', {
             if (!kuLianSong) return;
             Object.assign(kuLianSong.state, { _kuLianActive: true });
             const targets = B.filter(u => u.alive && !u.isHorse);
+            const kuLianTargets = [];
             for (const u of targets) {
                 const mult = u.uid === kuLianSong.uid ? 2 : 1;
-                addMod(u, 'atk', { source: '苦练', value: s.atkBonus * mult, ttl: 'permanent', group: 'kuLian', op: 'add' });
-                addMod(u, 'def', { source: '苦练', value: s.defBonus * mult, ttl: 'permanent', group: 'kuLian', op: 'add' });
-                addMod(u, 'maxHp', { source: '苦练', value: s.hpBonus * mult, ttl: 'permanent', group: 'kuLian', op: 'add' });
+                // 实际增量提到变量：既给 addMod 也给下方 targets 名单，保证「声明 == 实际」逐人一致
+                const atkDelta = s.atkBonus * mult;
+                const defDelta = s.defBonus * mult;
+                const maxHpDelta = s.hpBonus * mult;
+                addMod(u, 'atk', { source: '苦练', value: atkDelta, ttl: 'permanent', group: 'kuLian', op: 'add' });
+                addMod(u, 'def', { source: '苦练', value: defDelta, ttl: 'permanent', group: 'kuLian', op: 'add' });
+                addMod(u, 'maxHp', { source: '苦练', value: maxHpDelta, ttl: 'permanent', group: 'kuLian', op: 'add' });
                 refreshMaxHp(u, null, '苦练');
+                kuLianTargets.push({ unitName: u.name, atkDelta, defDelta, maxHpDelta });
             }
             data.log.push({ factType: FACT_TYPES.KU_LIAN_PRIORITY, data: { unitName: kuLianSong.name } });
-            data.log.push({ factType: FACT_TYPES.KU_LIAN, data: { unitName: kuLianSong.name, atkBonus: s.atkBonus, defBonus: s.defBonus, hpBonus: s.hpBonus } });
+            // 数值声明 fact：原字段（unitName/atkBonus/defBonus/hpBonus）保留给渲染不动画面；
+            // 新增 targets 名单——每人实际已乘 mult 的增量，供体检对照器按 group='kuLian' 逐人比对。
+            // 坑点：原来只发未乘 mult 的原始值，本人那一份（×2）会被对照器判成翻倍，故必须走 targets。
+            data.log.push({ factType: FACT_TYPES.KU_LIAN, data: { unitName: kuLianSong.name, atkBonus: s.atkBonus, defBonus: s.defBonus, hpBonus: s.hpBonus, targets: kuLianTargets } });
         });
         eventBus.on(SIGNAL_TYPES.BEFORE_ACTION_SELECT, L.BEFORE_ACTION.KULIAN_PRIORITY, (data) => {
             if (!data.unit.isSongQingshu || !data.unit.alive) return;
@@ -605,7 +667,8 @@ registerMechanicHandler('xinHun', {
             log.push({ factType: FACT_TYPES.XIN_HUN, data: { attackerName: unit.name, targetName: zhou.name, hpDeduct, healPct: healLevels[0], stackCount: zhou.state._kuaiLeStack.length, zhouUid: zhou.uid, zhouHpAfter: zhou.hp, isDead: !!zhou._pendingDeath } });
             if (zhou.state._pendingDeath) log.push({ factType: FACT_TYPES.XIN_HUN_DEATH, data: { unitName: zhou.name, uidD: zhou.uid } });
             Object.assign(unit.state, { _xingFenPenaltyCount: (unit.state._xingFenPenaltyCount || 0) + 1 });
-            const penalty = unit.state._xingFenPenaltyCount + 1;
+            // 本次减上限 = 当前累计攻击次数（第 1 次 -1、第 2 次 -2、第 3 次 -3…）
+            const penalty = unit.state._xingFenPenaltyCount;
             if (penalty > 0 && unit.maxHp > 1) {
                 const oldMaxHp = unit.maxHp;
                 addMod(unit, 'maxHp', { source: '性奋代价', value: -penalty, ttl: 'permanent', group: 'xingFenCost', op: 'add' });

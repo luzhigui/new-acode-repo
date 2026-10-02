@@ -16,7 +16,10 @@
 //   3) 门控里的 isXiaoZhaoSister/isXiaoZhaoBrother 排除项若被漏掉，小昭姐妹会白拿一份属性。
 // 五条复发信号（刻意不做"精确重算"：战报不带当期队友属性快照，硬凑反推只会造误报。
 //   这里只选"用文本自身 + 终局快照量级就能定性"的判据）：
-//   1) 同一回合同一单位被应用 carry ≥2 次 —— 属性被重复叠加（翻倍）
+//   1) 同一回合同一单位出现 ≥2 条 carry 应用声明 —— 声明重复。**两个前提（第 34/36 轮两次修正）**：
+//      (a) **不可断言"属性翻倍"**：数值后果由 tests/stat-decl-vs-actual-check.mjs 判定，本规则只管"声明"层；
+//      (b) **该显示名必须在场唯一**：多个单位可能同名（召唤物「雄狮」实测同时 3 只），
+//          战报无 uid → 同名时无法归因，一律跳过本判据（第 36 轮修掉的唯一假阳性即源于此）。
 //   2) 加成值非法：出现负数或非整数（公式是 floor 累加，结果必为非负整数）
 //   3) 静默归零：队友属性明显够（按"除自己外最弱队友 × 配置比例"floor ≥ 1）却加成为 0
 //      —— _baseMaxHp 读不到 / bonus 未接上
@@ -25,7 +28,8 @@
 //      —— 比例或倍率被写大。注意属性必须走 getStat（引擎同源），读 u.atk 基值会把上界算小造成误报。
 // 误报规避：本场没有带数值的 carry 条目直接 skip；拿不到单位池只跳过 3/5 两条量级判据（不猜）；
 //   配置比例读不到时退回版本约定值 0.08/0.08/0.1/2，并在读不到时只跑 1/2/4 三条结构判据。
-export const VER = 'tests/health-rules/148-carry-bonus.js V6.1.16';
+export const VER = 'tests/health-rules/148-carry-bonus.js V6.1.18';
+import { plain } from '../122health-utils.js';
 
 import { CONFIG } from '../../core/01config-5v5-test.js';
 import { getStat } from '../../core/13battle-shared.js';
@@ -45,9 +49,7 @@ function carryCfg() {
     };
 }
 
-function plain(s) {
-    return String(s || '').replace(/<[^>]+>/g, '');
-}
+
 
 // 单位属性取值：**必须走引擎同一真值源 getStat（base + 词条现算）**。
 // 根因（2026-09-25 回放复现 seed=18 stage=6 第13回合）：旧版直接读 u.state.atk / u.atk，而词条系统下
@@ -85,6 +87,7 @@ export const rule95 = {
         var curRound = 0;
         var seenThisRound = {};  // 复发信号1：同一回合已应用过 carry 的单位
         var checked = 0;
+        var ambiguousNames = 0; // 第 36 轮：同名（召唤物如「雄狮」×3）导致无法归因、跳过重复判据的条数
 
         for (var i = 0; i < n; i++) {
             var e = log[i];
@@ -120,9 +123,24 @@ export const rule95 = {
                 if (who.indexOf('小昭') !== -1) {
                     return { fail: true, msg: '复发：第' + curRound + '回合 ' + who + ' 拿到了 carry 加成（小昭·姊/弟被门控排除，不该受益）' };
                 }
-                // 复发信号1：同一回合同一单位被应用两次 → 属性翻倍
-                if (seenThisRound[who]) {
-                    return { fail: true, msg: '复发：第' + curRound + '回合 ' + who + ' 被应用 carry 两次（加成重复叠加，属性翻倍）' };
+                // 复发信号1：同一回合同一单位出现 ≥2 条应用声明（每单位每回合应至多 1 条）
+                //   ⚠ 第 36 轮修正（关键）：**多个单位可能同名** —— 召唤物「雄狮」在 seed=18 stage=3 场上
+                //   同时有 **3 只**（modules/27 每回合可 spawnUnit 再召唤，幼狮成长后都叫雄狮，实测 r12 即 ×3）。
+                //   战报只带显示名、**不带 uid**，故同名时无法把两条声明归因到同一只：
+                //   3 只雄狮里 2 只各拿一次 carry 是**完全正常**的，却被本判据判成"同一单位被应用两次" ——
+                //   第 34/35 轮那条**唯一开放红就是这么来的（假阳性）**。
+                //   → 同名一律**跳过**本判据（宁漏勿误）；只有该名在场唯一时才判重复。
+                //   另：第 34 轮"实测实际属性增量为 0、故属性翻倍不成立"的结论，同样源于同名 artifact
+                //   （逐步真值对照器按名字匹配，取到了不同的雄狮个体），**已作废**，勿再引用。
+                var nameCount = 0;
+                var namePool = poolOf(who, afterA, afterE);
+                for (var np = 0; np < namePool.length; np++) {
+                    if (namePool[np] && namePool[np].name === who) nameCount++;
+                }
+                if (nameCount > 1) {
+                    ambiguousNames++; // 同名，无法归因到个体，跳过
+                } else if (seenThisRound[who]) {
+                    return { fail: true, msg: '复发：第' + curRound + '回合 ' + who + ' 同回合出现 2 条 carry 应用声明（该名在场唯一，判为同一单位被重复应用；重复执行本身是缺陷）' };
                 }
                 seenThisRound[who] = true;
 

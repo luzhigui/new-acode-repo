@@ -1,5 +1,5 @@
-// V6.1.0 | ~21500 bytes | 2026-09-25 战报弹窗新增「🎬 保存战报」按钮（整场回放文件，走 50battle-export 三层下载保险）
-export const VER = 'ui/64main-dialogs.js V6.1.0';
+// V6.3.0 | ~24100 bytes | 2026-09-28 战报弹窗改 flex 限高布局：整盒 max-height:90vh、标题/按钮固定、数据表与走势分析区独立滚动，修手机端内容超长被底部按钮遮挡、看不全；宽表横向可滑不撑破屏幕
+export const VER = 'ui/64main-dialogs.js V6.3.0';
 
 import { showModal, showAlert } from './60main-utils.js';
 import { AudioManager } from '../modules/22audio-manager.js';
@@ -8,6 +8,8 @@ import { CAMP_TYPES } from '../infra/56-battle-enums.js';
 import { CONFIG } from '../core/01config-5v5-test.js';
 import { stepVoteOpen, stepCountdown } from './71tutorial.js';
 import { getBattleRecording, attachSaveBattleReportButton } from '../player/50battle-export.js';
+import { flattenBattleLogToText, renderLogAnalysisInto } from '../player/51-battle-log-analyze.js';
+import { buildVoiceControls } from './73voice-panel.js';
 
 // 战报弹窗
 // 弹窗-战报：战斗结束统计数据展示+导出
@@ -41,7 +43,7 @@ export function showBattleReport(battleResultForInfo) {
 
     let box = document.createElement('div');
     box.className = 'modal-box';
-    box.style.cssText = 'background:#1a1a2e;border:2px solid #ffd700;border-radius:12px;padding:20px;max-width:580px;color:#eee;position:relative;';
+    box.style.cssText = 'background:#1a1a2e;border:2px solid #ffd700;border-radius:12px;padding:20px;max-width:min(580px,94vw);max-height:90vh;box-sizing:border-box;color:#eee;position:relative;display:flex;flex-direction:column;overflow:hidden;';
 
     // 最小化按钮挂在 box 内右上角（而非 overlay 上），避免出现在屏幕右上角
     let minimizeBtn = document.createElement('span');
@@ -66,13 +68,13 @@ export function showBattleReport(battleResultForInfo) {
     box.appendChild(minimizeBtn);
     
     let title = document.createElement('div');
-    title.style.cssText = 'color:#ffd700;font-size:18px;font-weight:bold;text-align:center;margin-bottom:12px;';
+    title.style.cssText = 'color:#ffd700;font-size:18px;font-weight:bold;text-align:center;margin-bottom:12px;flex-shrink:0;';
     title.textContent = '战斗结束 · ' + winner + '获胜';
     box.appendChild(title);
     
     let switchBtn = document.createElement('button');
     switchBtn.textContent = '按输出排序';
-    switchBtn.style.cssText = 'background:#3a3a6e;color:#eee;border:1px solid #555;padding:6px 14px;border-radius:4px;cursor:pointer;margin-bottom:8px;';
+    switchBtn.style.cssText = 'background:#3a3a6e;color:#eee;border:1px solid #555;padding:6px 14px;border-radius:4px;cursor:pointer;margin-bottom:8px;flex-shrink:0;';
     let sortBy = 'dmgDealt';
     switchBtn.onclick = () => {
         sortBy = sortBy === 'dmgDealt' ? 'dmgTaken' : 'dmgDealt';
@@ -82,10 +84,16 @@ export function showBattleReport(battleResultForInfo) {
     box.appendChild(switchBtn);
     
     let tableDiv = document.createElement('div');
-    tableDiv.style.maxHeight = '60vh';
-    tableDiv.style.overflowY = 'auto';
+    tableDiv.style.cssText = 'flex:1 1 auto;min-height:0;min-width:0;overflow:auto;';
     box.appendChild(tableDiv);
-    
+
+    // 走势分析容器（默认隐藏，点「📊 走势分析」后渲染内存 battleLog，与工具箱 107 共用 player/51）
+    // 挂 hex-log-box 类以复用其表格/卡片样式，内联覆盖外观融入战报弹窗
+    let analysisDiv = document.createElement('div');
+    analysisDiv.className = 'hex-log-box';
+    analysisDiv.style.cssText = 'display:none;background:transparent;border:none;padding:0;width:100%;max-height:none;min-width:0;flex:1 1 auto;min-height:0;overflow:auto;font-size:12px;';
+    box.appendChild(analysisDiv);
+
     function renderTable() {
         tableDiv.innerHTML = '';
         let sorted = [...allUnits].sort((a,b) => (b[sortBy]||0) - (a[sortBy]||0));
@@ -114,10 +122,37 @@ export function showBattleReport(battleResultForInfo) {
     renderTable();
     
     let btnDiv = document.createElement('div');
-    btnDiv.style.cssText = 'display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;';
+    btnDiv.style.cssText = 'display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;flex-shrink:0;';
 
     // 2026-09-25 整场回放文件：取本局录制（GAMEOVER 时 finishBattleRecording 已定稿）
     attachSaveBattleReportButton(btnDiv, () => getBattleRecording());
+
+    // 2026-09-28 一键走势分析：把内存 battleLog 拍平喂给 player/51（与工具箱 107 同一套解析/叙事/图表）
+    let analyzeBtn = document.createElement('button');
+    analyzeBtn.textContent = '📊 走势分析';
+    analyzeBtn.style.cssText = 'background:#6a3de0;color:#fff;border:none;padding:8px 16px;border-radius:4px;cursor:pointer;font-weight:bold;';
+    let analysisShown = false;
+    let analysisRendered = false;
+    analyzeBtn.onclick = () => {
+        analysisShown = !analysisShown;
+        if (analysisShown) {
+            if (!analysisRendered) {
+                const logText = flattenBattleLogToText(GlobalStore.get('battleLog'));
+                renderLogAnalysisInto(analysisDiv, logText);
+                analysisRendered = true;
+            }
+            tableDiv.style.display = 'none';
+            switchBtn.style.display = 'none';
+            analysisDiv.style.display = 'block';
+            analyzeBtn.textContent = '↩️ 返回数据表';
+        } else {
+            tableDiv.style.display = 'block';
+            switchBtn.style.display = 'block';
+            analysisDiv.style.display = 'none';
+            analyzeBtn.textContent = '📊 走势分析';
+        }
+    };
+    btnDiv.appendChild(analyzeBtn);
 
     let copyBtn = document.createElement('button');
     copyBtn.textContent = '📋 复制战报';
@@ -228,6 +263,10 @@ export function showMusicPanel() {
     const box = document.createElement('div');
     box.className = 'modal-box';
     box.style.cssText = 'max-width:380px;background:#1a1a2e;color:#eee;padding:20px;position:relative;';
+    // 2026-10-01 手机竖屏溢出修复：塞入解说区后面板超一屏，底部按钮被浏览器地址栏挡住——限高+内部滚动
+    box.style.maxHeight = '82vh';
+    box.style.overflowY = 'auto';
+    box.style.webkitOverflowScrolling = 'touch';
 
     const title = document.createElement('div');
     title.textContent = '🎵 音乐设置';
@@ -364,6 +403,9 @@ export function showMusicPanel() {
         sourceRow.appendChild(label);
     });
     box.appendChild(sourceRow);
+
+    // 2026-10-01 语音解说设置区嵌入音乐面板（原独立 🎙️ 按钮撤掉，声音相关收进一个面板）
+    buildVoiceControls(box);
 
     const bottomClose = document.createElement('button');
     bottomClose.textContent = '关闭';

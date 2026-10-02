@@ -24,6 +24,7 @@ import { buildBattleReportData, computeVoteResult, grantClearRewards } from './4
 import { handleBuffSelection, handlePvpBuffSelection, handleFlyDirection } from './49battle-flow.js';
 import * as net from '../infra/60-net-pvp.js';
 import { startBattleRecording, feedBattleStep, finishBattleRecording } from './50battle-export.js';
+import { speakLogLine, speakVictory } from '../modules/31voice-commentary.js';
 
 function getCtx() { return getPlayerContext(); }
 
@@ -275,6 +276,8 @@ async function playSingleLogEntry(c, entry, step, isFirstAttackRef, factIndex) {
     }
 
     c._lastLogType = lastEntryType;
+    // 2026-10-01 语音解说：本条日志演出收尾后再开口（防剧透铁律），raw fact 从 step.log 原位取
+    try { speakLogLine(entry, step.log && step.log[factIndex]); } catch (e) { /* 解说失败不影响战斗 */ }
     return { isBattleOver: false };
 }
 
@@ -476,6 +479,8 @@ async function finishBattle(c, finalStep, finalWinner, roundHistory) {
     if (!finalWinner) finalWinner = '平局';
     // 2026-09-25 战报导出：收尾定稿（写死胜负/回合数），战报弹窗的「保存战报」从这里取
     finishBattleRecording(finalWinner);
+    // 2026-10-01 语音解说：胜负一句话收口（清队列插队播）
+    try { speakVictory(finalWinner); } catch (e) { /* 解说失败不影响结算 */ }
     c.gs = 'GAMEOVER'; c.isPaused = false; c.waitingForNextRound = false; c.isBattleStarting = false;
     GlobalStore.set('fastForwardActive', false);
     GlobalStore.set('gs', 'GAMEOVER');

@@ -1,5 +1,5 @@
-// V6.0.2 | ~12100 bytes | 2026-09-24 SPLASH 逐目标补发 SIGNAL_TYPES.SPLASH_DAMAGED（窄通道，供莽撞类"挨打增益"被动认溅射）
-export const VER = 'core/16effect-handlers.js V6.0.2';
+// V6.0.4 | ~12400 bytes | 2026-09-29 收口流星溅射成长的渲染出口：删掉写回 decl.factData.growth 的老出口（render/35 内联 ⚡ 段已同步删除），成长只由 METEOR_SPLASH_GROWTH fact 渲染一次——老出口的 fact.unitName 从未赋值，长期渲染成「⚡ undefined 攻击+N」
+export const VER = 'core/16effect-handlers.js V6.0.4';
 
 import { eventBus, EFFECT_TYPES } from '../infra/50-event-bus.js';
 import { applyStatChange, refreshMaxHp, query, emitEvent, addMod, getStat } from './13battle-shared.js';
@@ -159,9 +159,12 @@ registerEffectHandler(EFFECT_TYPES.SPLASH, (ctx) => {
             applyStatChange(st, 'hp', -(decl.value || 0), ctx.unit, '溅射');
             // 2026-09-24 溅射伤害逐目标广播：走窄通道，不重发 AFTER_DAMAGE_APPLIED
             //   （那条挂着 LEECH/流星/嗜血/九阳等十余条监听，重发等于把一次溅射当成一次完整攻击）
+            // 2026-09-29 补 log：监听者（莽撞类挨打增益）需要把「实际加了什么」发成数值声明 fact，
+            //   而它只能从本信号取 log，缺 log 就等于盲区。传引用不复制，零成本。
             eventBus.emit(SIGNAL_TYPES.SPLASH_DAMAGED, {
                 unit: st, target: st, attacker: ctx.unit,
-                dmg: decl.value || 0, factData: decl.factData || null
+                dmg: decl.value || 0, factData: decl.factData || null,
+                log: ctx.log
             });
         }
         if (ctx.unit && ctx.unit.role === ROLE_TYPES.RANGED && decl.buffType === BUFF_SUBTYPES.METEOR_SPLASH) {
@@ -171,7 +174,7 @@ registerEffectHandler(EFFECT_TYPES.SPLASH, (ctx) => {
             if (hitCount > 0 && perSplash > 0) {
                 const growth = hitCount * perSplash;
                 addMod(ctx.unit, 'atk', { source: '流星溅射成长', value: growth, ttl: 'permanent', group: 'meteorSplashGrowth', op: 'add' });
-                if (decl.factData) decl.factData.growth = growth;
+                ctx.log.push({ factType: FACT_TYPES.METEOR_SPLASH_GROWTH, data: { unitName: ctx.unit.name, growth } });
             }
         }
         executed.push(decl);
