@@ -7,7 +7,7 @@ import { CONFIG } from '../core/01config-5v5-test.js';
 import { makeFXSnapshot, fmtHp } from '../infra/51-core-utils.js';
 import { BUFF_TYPES, BUFF_SUBTYPES, CAMP_TYPES, ROLE_TYPES, FACT_TYPES } from '../infra/56-battle-enums.js';
 import { registerFactRenderer, findUnitSnapshotByUid } from './33-fact-registry.js';
-export const VER = 'render/35-facts-effect.js V1.0.11';
+export const VER = 'render/35-facts-effect.js V1.0.12';
 
 // 拒马 / 张无忌
 export function renderHorseDestroyFact(fact) {
@@ -337,6 +337,11 @@ export function renderRongHuiBonusFact(fact) {
     return { type:'info', text:`<span class="red">🔥 融会贯通额外+${fact.extra}（目标攻击${fact.targetAtk} 防御${fact.targetDef}，差值绝对值×50%）</span>` };
 }
 
+// 飞行再生（V6.3.3 | 2026-10-02 补回血弹幕：角色阵亡→全场飞行回 baseRegen，此前只有数值没有日志行和飘字）
+export function renderFlyerRegenFact(fact) {
+    return { type:'info', text:`<span class="green">🕊️ 飞行再生：${fact.unitName} 回复 ${fact.heal} 点生命（${fact.deadCount} 名角色阵亡）</span>`, fxAnchors: [`回复+${fact.heal}`], isHealEntry:true, healAmount:fact.heal, healUnitUid:fact.unitUid };
+}
+
 // 韦一笑吸血
 export function renderWeiLeechFact(fact) {
     return { type:'info', text:`<span class="green">🦇 青翼蝠王·吸血+${fact.heal}，上限→${fact.newMaxHp}</span>`, fxAnchors: [`吸血+${fact.heal}`], isHealEntry:true, healAmount:fact.heal, healUnitUid:fact.unitUid };
@@ -546,6 +551,7 @@ registerFactRenderer(FACT_TYPES.XING_FEN_EXTRA_ATTACK, renderXingFenExtraAttackF
 registerFactRenderer(FACT_TYPES.XING_FEN_GRANT, renderXingFenGrantFact);
 registerFactRenderer(FACT_TYPES.XIN_HUN_DEATH, renderXinHunDeathFact);
 registerFactRenderer(FACT_TYPES.NINE_YANG_HEAL, renderNineYangHealFact);
+registerFactRenderer(FACT_TYPES.FLYER_REGEN, renderFlyerRegenFact);
 registerFactRenderer(FACT_TYPES.RONG_HUI_BONUS, renderRongHuiBonusFact);
 registerFactRenderer(FACT_TYPES.WEI_LEECH, renderWeiLeechFact);
 registerFactRenderer(FACT_TYPES.QIAN_KUN_DERIVED, renderQianKunDerivedFact);

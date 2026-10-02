@@ -1,5 +1,5 @@
 // V6.2.3 | ~15500 bytes | 2026-09-29 参数体系收敛批 3：热血奋战双倍吸血间隔 3 改读 CONFIG.HOT_BLOOD_CRIT_INTERVAL（两处）
-export const VER = 'core/04buff-system.js V6.2.3';
+export const VER = 'core/04buff-system.js V6.2.4';
 import {
     applyFortifyDef_Normal, applyFortifyDef_Sister, applyFortifyDef_Brother,
     applyCloudBodyDodge_Normal, applyCloudBodyDodge_Sister, applyCloudBodyDodge_Brother,
@@ -231,7 +231,8 @@ export function registerMindControl(eventBus) {
 // 飞行职业基础再生：每有一个非拒马角色阵亡，全场所有存活飞行立即回复 baseRegen 生命。
 // 数值唯一来源：content 的 roles.飞行.baseRegen。
 // 挂 ON_UNIT_DEATH 信号（core/12 resolveDeaths 的死亡广播），由 core/11 每回合注册监听。
-export function onUnitDeathFlyerRegen(data, A, B) {
+// V6.2.4 | 2026-10-02 补回血弹幕：按 fact 管线推 FLYER_REGEN（render/35 渲染，isHealEntry 飘 "+N"）
+export function onUnitDeathFlyerRegen(data, A, B, log) {
     const dead = (data && data.deadUnits ? data.deadUnits : []).filter(u => u && !u.isHorse);
     if (dead.length === 0) return;
     const regen = getGameData().roles?.[ROLE_TYPES.FLYER]?.baseRegen;
@@ -239,7 +240,11 @@ export function onUnitDeathFlyerRegen(data, A, B) {
     const gain = regen * dead.length;
     for (const u of [...A, ...B]) {
         if (!u || !u.alive || u.isHorse || u.role !== ROLE_TYPES.FLYER) continue;
+        const before = u.hp;
         applyStatChange(u, 'hp', gain, null, '飞行再生');
+        if (log && u.hp > before) {
+            log.push({ factType: FACT_TYPES.FLYER_REGEN, data: { unitName: u.name, unitUid: u.uid, heal: u.hp - before, deadCount: dead.length } });
+        }
     }
 }
 
