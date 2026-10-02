@@ -1,5 +1,5 @@
 {
-  "version": "5.6.20",
+  "version": "5.6.21",
   "updated": "2026-10-02",
 
   "roles": {
@@ -138,7 +138,7 @@
         "thirdStrike": {
           "name": "每第三次攻击",
           "desc": "每第{interval}次命中伤害×{dmgMultiplier}，并吸血{leechRatio}倍本次伤害（反击/跟随这类被动出手照样计数）",
-          "params": { "interval": 3, "dmgMultiplier": 1.5, "leechRatio": 1.5 }
+          "params": { "interval": 3, "dmgMultiplier": 1.2, "leechRatio": 1.5 }
         },
         "summonZhou": {
           "name": "召唤周芷若",

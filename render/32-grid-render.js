@@ -1,5 +1,5 @@
-// V6.4.2 | ~25810 bytes | 2026-09-26 附身/飞天相位改读 state._fsmPhase（妆造剥离：渲染层不再持有 unit._fsm 实例）
-export const VER = 'render/32-grid-render.js V6.4.2';
+// V6.4.3 | ~25800 bytes | 2026-10-02 闪避来源「地面基础」特判改读 CONFIG.BASE_DODGE_GROUND（原写死 0.03，基础闪避调 5% 后会失配落入「规则闪避」）
+export const VER = 'render/32-grid-render.js V6.4.3';
 
 import { getUnitCol, getUnitRow, getAuraBonuses, getDodgeRules, fmtHp } from '../infra/51-core-utils.js';
 import { CONFIG, getSkillDesc } from '../core/01config-5v5-test.js';
@@ -82,7 +82,7 @@ function getDodgeBreakdown(unit, activeBuffs, allyTeam) {
                 seenFlightBase = true;
             } else if (unit.role === ROLE_TYPES.FLYER && rate === 0.15 && seenFlightBase) {
                 label = '青翼蝠王';
-            } else if (unit.role !== ROLE_TYPES.FLYER && rate === 0.03) {
+            } else if (unit.role !== ROLE_TYPES.FLYER && rate === CONFIG.BASE_DODGE_GROUND) {
                 label = '地面基础';
             } else if (unit.isWei && rate !== 0.15) {
                 label = '残血幻影';

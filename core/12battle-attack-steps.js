@@ -1,5 +1,5 @@
-// V6.3.7 | ~29100 bytes | 2026-10-02 体检对照补字段：闪避反击韦一笑吸血 WEI_HEAL.data 补 maxHpDelta（随后按引用挂到 dodgeFact.weiHeal），weiLeech 词条增量可被逐步对照
-export const VER = 'core/12battle-attack-steps.js V6.3.7';
+// V6.3.8 | ~29100 bytes | 2026-10-02 地面基础闪避兜底 0.03→0.05（与 01config BASE_DODGE_GROUND 同步）；承接 V6.3.7 韦一笑闪避吸血补 maxHpDelta
+export const VER = 'core/12battle-attack-steps.js V6.3.8';
 
 import { CONFIG, getSkillParams, getGameData } from './01config-5v5-test.js';
 import { eventBus, EFFECT_TYPES } from '../infra/50-event-bus.js';
@@ -20,7 +20,7 @@ registerDodgeRule((unit, attacker) => {
 });
 
 registerDodgeRule((unit, attacker) => {
-    if (unit.role !== ROLE_TYPES.FLYER) return CONFIG.BASE_DODGE_GROUND || 0.03;
+    if (unit.role !== ROLE_TYPES.FLYER) return CONFIG.BASE_DODGE_GROUND || 0.05;
     return 0;
 });
 
