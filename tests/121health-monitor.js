@@ -1,3 +1,4 @@
+// V6.3.1 | ~47000 bytes | 2026-10-02 登记 157 mechanics 安装对账（rule104：import + allRules 两处同补）
 // V6.3.0 | ~46400 bytes | 2026-10-02 第 50 轮：补 156 的 import + **allRules 数组长期停在 rule99 的静默缺口** ——
 //          153/154/155 三条只补了 import、从未进执行数组，浏览器侧体检**根本没跑它们**（node 侧
 //          rules-replay 自动扫目录，故一直没暴露）；本轮一并补 rule100~rule103。加新规则从此必须
@@ -11,7 +12,7 @@
 //          clone 副本 alive 恒真)，每局必误报，且主代码补 setState.gs('IDLE') 也消不掉。改点 btnSettle 后
 //          120ms 查 gs 是否仍停 GAMEOVER 且已生成新局(全员满血)，只有"真点了随机重开但没复位"才上报。
 // 职责：接入 rule70-93 回归体检；GAMEOVER 立即跑规则(日志已完整)；新局识别修复多局连打漏检；战报黑幕/特效池实时检查
-export const VER = 'tests/121health-monitor.js V6.3.0';
+export const VER = 'tests/121health-monitor.js V6.3.1';
 
 import { runStaticScan } from './123static-scan.js';
 import { filterRulesByTags, parseRecipeTags, collectForceFlags } from './124rule-recipes.js';
@@ -49,6 +50,7 @@ import { rule100 } from './health-rules/153-meteor-growth-render.js';
 import { rule101 } from './health-rules/154-endless-breath-gain.js';
 import { rule102 } from './health-rules/155-meteor-growth-dup.js';
 import { rule103 } from './health-rules/156-desc-truth-drift.js';
+import { rule104 } from './health-rules/157-mechanic-install-reconcile.js';
 import {
     getCellElement, checkUnitHpValidity,
     checkHpBarSync, checkHpBarColor, checkFxOrphans,
@@ -564,7 +566,7 @@ function runRuleChecks(ctx, doc) {
     //   V1.1.0 起会硬卡这一条，别再只补一处）。
     const allRules = [rule70, rule71, rule72, rule73, rule74, rule75, rule76, rule77, rule78, rule79, rule80,
         rule81, rule82, rule83, rule84, rule85, rule86, rule87, rule88, rule89, rule90, rule91, rule92, rule93, rule94, rule95, rule96, rule97, rule98, rule99,
-        rule100, rule101, rule102, rule103];
+        rule100, rule101, rule102, rule103, rule104];
     // 规则配方裁剪：只跑目标规则（其余不参与计数/不占skip名单）；null=全部
     const rules = filterRulesByTags(allRules, RECIPE_TAGS);
 

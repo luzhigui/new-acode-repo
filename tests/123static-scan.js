@@ -3,6 +3,8 @@
 //   2. import 引用断裂：static import 的相对路径指向不存在的文件
 // 对应需求：实时体检靠阵容触发机制，当轮没触发就 skip；静态快检秒出结构问题，两者互补
 // 2026-09-24 补登 core/07-target-strategies.js（选敌策略抽取新文件，原先漏登导致本扫描不覆盖）
+// V1.3.2 | 2026-10-02 SCAN_FILES 补登 ./health-rules/157-mechanic-install-reconcile.js（mechanics 安装对账，
+//         import core/01、core/15、modules/26、modules/30；入册后本扫描可发现这些 import 路径断裂）
 // V1.3.1 | 2026-09-29 SCAN_FILES 补登 ./health-rules/156-desc-truth-drift.js（技能说明数字 == 引擎真值
 //         单源守卫，import core/01；入册后本扫描可发现该 import 路径断裂）
 // V1.3.0 | 2026-09-29 SCAN_FILES 补登 ./param-read-guard.mjs（skills.params 引擎真读字段漂移守卫，
@@ -11,7 +13,7 @@
 //         （只有 export，没有任何执行入口），`node tests/123static-scan.js` 不扫描、不打印、退出码恒 0，
 //         等于这段时间"静态快检通过"是句空话。现补 IS_NODE 分支：垫 file:// fetch + window.location，
 //         跑完全量后打印，且**有 issue 必须退出码 1**（不设退出码与不跑同样是假绿）。见文件末自举段。
-export const VER = 'tests/123static-scan.js V1.3.1';
+export const VER = 'tests/123static-scan.js V1.3.2';
 
 // 枚举常量名列表（来自 infra/56-battle-enums.js 导出的 13 个枚举对象）
 export const ENUM_NAMES = [
@@ -101,7 +103,8 @@ export const SCAN_FILES = [
     './health-rules/154-endless-breath-gain.js',
     // 2026-09-29 第 43 轮新增：流星成长渲染形态（⚡ undefined 单位名 / 同一笔渲染两遍）—— 干净树即红，盯既有 bug
     './health-rules/155-meteor-growth-dup.js',
-    './health-rules/156-desc-truth-drift.js'
+    './health-rules/156-desc-truth-drift.js',
+    './health-rules/157-mechanic-install-reconcile.js'
 ];
 
 // 提取文件的 static import 信息（仅静态 import 语句，跳过动态 import()）

@@ -1,5 +1,6 @@
-// V6.15.3 | ~47700 bytes | 2026-10-02 宋青书四机制注册与 xinHun 数据查找改用 MECHANIC_TYPES 枚举（配合 core/15 mechanics type 安装期校验）
-export const VER = 'modules/26elite-sixsects.js V6.15.3';
+// V6.15.5 | ~48300 bytes | 2026-10-02 胖远桥·莽撞补飘字：被攻击加攻量写进本击 fact（group.data.pangAtkGain），render/38 据此产 STAT_CHANGE(atk) 飘「⚔+N」
+// V6.15.4 | 2026-10-02 四个注册表 handler 补 fields 字段契约（core/15 安装期按此校验 JSON，缺字段/类型错开局即抛）
+export const VER = 'modules/26elite-sixsects.js V6.15.5';
 import { registerElite } from '../core/08-elite-registry.js';
 import { CONFIG, getSkillParams, getGameData } from '../core/01config-5v5-test.js';
 import { SIGNAL_TYPES, FACT_TYPES, BUFF_TYPES, CAMP_TYPES, ROLE_TYPES, MECHANIC_TYPES } from '../infra/56-battle-enums.js';
@@ -248,6 +249,10 @@ export function createPangYuanQiaoComponent() {
                 if (data.target !== pang || !pang.alive) return;
                 if (!data.dmg || data.dmg <= 0) return;
                 addMod(pang, 'atk', { source: '莽撞', value: rage.atkPerHit, ttl: 'permanent', group: 'rageOnHit', op: 'add' });
+                // 2026-10-02 飘字：加攻量随本击 fact 走一格（此前只有金色战报行、头顶零飘字）。
+                //   group.data === 本击 ATTACK fact 的 data（core/12 buildAttackGroup 同一对象），render/38 据此产
+                //   STAT_CHANGE(atk) → render/39 发 ATK_BUFF_FLOAT → fx/80 在胖远桥头顶飘「⚔+N」。
+                if (data.group && data.group.data) data.group.data.pangAtkGain = rage.atkPerHit;
                 // 数值声明 fact：发实际 addMod 的带符号值，供体检对照器按 group='rageOnHit' 隔离比对
                 if (data.log) {
                     data.log.push({
@@ -274,6 +279,10 @@ export function createPangYuanQiaoComponent() {
                 // 台词挂在溅射那条 fact 上（render/35 会追加到行尾）
                 if (data.factData) {
                     data.factData.rageText = `<span class="gold">💢 莽撞：胖远桥吃了溅射，攻击+${rage.atkPerHit}（当前 ${Math.floor(getStat(pang, 'atk'))}）</span>`;
+                    // 2026-10-02 飘字同主路径：溅射 fact 也在本击 ATTACK fact 的 entries 里，
+                    //   render/38 扫到该 factType 时按此 uid/加攻量飘「⚔+N」
+                    data.factData.pangAtkUid = pang.uid;
+                    data.factData.pangAtkGain = rage.atkPerHit;
                 }
             });
 
@@ -562,6 +571,11 @@ function consumeXingFen(attacker) {
 
 // 机制① 九阴白骨爪连锁
 registerMechanicHandler(MECHANIC_TYPES.CHAIN_CLAW, {
+    // jealous 为可选嫉妒态覆盖对象（张三丰在场时用），不进必需字段
+    fields: {
+        baseDmg: 'number', procChance: 'number', chainProcChance: 'number',
+        lostHpRatio: 'number', maxHpRatio: 'number', executeThreshold: 'number'
+    },
     install({ eventBus, decl }) {
         eventBus.on(SIGNAL_TYPES.AFTER_ATTACK, L.AFTER_ATTACK.CLAW, (data) => {
             const { unit, target, dmg, log, allySide, enemySide } = data;
@@ -620,6 +634,7 @@ registerMechanicHandler(MECHANIC_TYPES.CHAIN_CLAW, {
 
 // 机制② 苦练：全队永久属性加成，宋青书双倍；周芷若缺席时享有优先出手
 registerMechanicHandler(MECHANIC_TYPES.KU_LIAN, {
+    fields: { atkBonus: 'number', defBonus: 'number', hpBonus: 'number' },
     install({ eventBus, decl }) {
         const s = { atkBonus: decl.atkBonus, defBonus: decl.defBonus, hpBonus: decl.hpBonus };
         eventBus.on(SIGNAL_TYPES.ON_ROUND_START, L.ROUND_START.KULIAN_BUFF, (data) => {
@@ -657,6 +672,7 @@ registerMechanicHandler(MECHANIC_TYPES.KU_LIAN, {
 
 // 机制③ 新婚：宋青书攻击后扣周芷若血、叠快乐层、自身永久减上限（性奋代价）
 registerMechanicHandler(MECHANIC_TYPES.XIN_HUN, {
+    fields: { hpDeduct: 'number', healLevels: 'numberArray' },
     install({ eventBus, decl }) {
         eventBus.on(SIGNAL_TYPES.AFTER_DAMAGE_APPLIED, L.AFTER_DAMAGE_APPLIED.XINGFEN, (data) => {
             const { unit, allySide, log } = data;

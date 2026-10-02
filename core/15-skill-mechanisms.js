@@ -1,13 +1,13 @@
-// V6.4.0 | ~22300 bytes | 2026-10-02 mechanics type 静默失效治理：安装期交叉校验（顶层 type 必须在 core/18 注册表或本地安装器名单、四类内层元素 type 必须在分发名单，查不到开局即抛错）；全部分发比较改用 infra/56 的 MECHANIC_TYPES / MECHANIC_EFFECT_TYPES 枚举
-export const VER = 'core/15-skill-mechanisms.js V6.4.0';
+// V6.5.0 | ~26800 bytes | 2026-10-02 安装期校验从 type 名扩到字段：注册表 handler 可声明 fields 契约、本地机制与四类内层效果带字段 schema，缺字段/类型错开局即抛；targetRule 收口到 MECHANIC_TARGET_RULES，未知值不再静默；导出 validateMechanicDeclarations / buildMechanicDeclarations 供体检 157 对账
+export const VER = 'core/15-skill-mechanisms.js V6.5.0';
 
 import { EXECUTION_LAYER as L, EFFECT_TYPES, registerSettlementHook } from '../infra/50-event-bus.js';
 import { CONFIG } from './01config-5v5-test.js';
 import { registerDodgeRule } from './12battle-attack-steps.js';
 import { emitEvent, applyStatChange, getBattleRng } from './13battle-shared.js';
 import { fmtHp } from '../infra/51-core-utils.js';
-import { FACT_TYPES, UNIT_EVENT_TYPES, CAMP_TYPES, SIGNAL_TYPES, MECHANIC_TYPES, MECHANIC_EFFECT_TYPES } from '../infra/56-battle-enums.js';
-import { installMechanicByType, hasMechanicHandler } from './18mechanic-registry.js';
+import { FACT_TYPES, UNIT_EVENT_TYPES, CAMP_TYPES, SIGNAL_TYPES, MECHANIC_TYPES, MECHANIC_EFFECT_TYPES, MECHANIC_TARGET_RULES } from '../infra/56-battle-enums.js';
+import { installMechanicByType, hasMechanicHandler, getMechanicHandler } from './18mechanic-registry.js';
 import { canBeTargeted } from './03battle-utils.js';
 import { watchUnit, unwatchUnit } from './19unit-watch.js';
 
@@ -18,6 +18,15 @@ const LOCAL_MECHANIC_TYPES = new Set([
     MECHANIC_TYPES.PHANTOM_DISGUISE
 ]);
 
+// 本地机制的必需字段契约（注册表机制的 fields 契约写在各自 handler 描述符里，见 modules/26、30）。
+// kind：number 有限数 / string 非空串 / nonEmptyArray 非空数组 / numberArray 非空且元素全有限数 /
+//       stringArray 非空且元素全非空字符串。
+const LOCAL_MECHANIC_FIELDS = Object.freeze({
+    [MECHANIC_TYPES.LINK_ATTACK]: { partnerNames: 'stringArray' },
+    [MECHANIC_TYPES.FOLLOW_ATTACK]: { chance: 'number' },
+    [MECHANIC_TYPES.PHANTOM_DISGUISE]: { healRatio: 'number', baseChance: 'number', per10pctLost: 'number' }
+});
+
 // 四类内层容器允许的元素 type 名单（值来自 infra/56 枚举，JSON 侧字符串由安装期校验兜）。
 const LOCAL_EFFECT_TYPES = Object.freeze({
     onHitEffects: new Set(Object.values(MECHANIC_EFFECT_TYPES.ON_HIT)),
@@ -26,27 +35,98 @@ const LOCAL_EFFECT_TYPES = Object.freeze({
     dodgeRules: new Set(Object.values(MECHANIC_EFFECT_TYPES.DODGE_RULES))
 });
 
-// 安装期交叉校验：数据声明的每个 type 都必须有人接。
-// 顶层 type：core/18 注册表（modules/26、30）或上面的本地安装器名单；
-// 内层元素：必须落在所属容器的分发名单内。任一查不到立即抛错——
-// 漏注册/改名漏跟必须在开局暴露，禁止机制静默失效。
-function validateMechanicDeclarations(declarations) {
+// 四类内层效果的必需字段契约：字段名必须与下方分发链实际读取的一致，改读取先改这里。
+const INNER_FIELD_SCHEMA = Object.freeze({
+    onHitEffects: Object.freeze({
+        [MECHANIC_EFFECT_TYPES.ON_HIT.LEECH]: { minRatio: 'number', maxRatio: 'number' },
+        [MECHANIC_EFFECT_TYPES.ON_HIT.HEAL_MAX_HP_PCT]: { pct: 'number' },
+        [MECHANIC_EFFECT_TYPES.ON_HIT.POISON]: { duration: 'number', dotPercents: 'numberArray' },
+        [MECHANIC_EFFECT_TYPES.ON_HIT.BONUS_LOST_HP]: { ratio: 'number' }
+    }),
+    beforeDamageEffects: Object.freeze({
+        [MECHANIC_EFFECT_TYPES.BEFORE_DAMAGE.IGNORE_DEF]: { ratio: 'number' },
+        [MECHANIC_EFFECT_TYPES.BEFORE_DAMAGE.DAMAGE_MULTIPLIER_IF_POISONED]: { bonus: 'number' },
+        [MECHANIC_EFFECT_TYPES.BEFORE_DAMAGE.BONUS_LOST_HP]: { ratio: 'number' },
+        [MECHANIC_EFFECT_TYPES.BEFORE_DAMAGE.BONUS_TARGET_CURRENT_HP]: { ratio: 'number' }
+    }),
+    attributeMods: Object.freeze({
+        [MECHANIC_EFFECT_TYPES.ATTRIBUTE_MODS.FORTIFY_INCREMENT_MUL]: { mult: 'number' }
+    }),
+    dodgeRules: Object.freeze({
+        [MECHANIC_EFFECT_TYPES.DODGE_RULES.LOST_HP_PERCENT]: { max: 'number' }
+    })
+});
+
+const TARGET_RULE_TYPES = new Set(Object.values(MECHANIC_TARGET_RULES));
+
+function checkKind(value, kind) {
+    if (kind === 'number') return typeof value === 'number' && Number.isFinite(value);
+    if (kind === 'string') return typeof value === 'string' && value.length > 0;
+    if (kind === 'nonEmptyArray') return Array.isArray(value) && value.length > 0;
+    if (kind === 'numberArray') return Array.isArray(value) && value.length > 0
+        && value.every(x => typeof x === 'number' && Number.isFinite(x));
+    if (kind === 'stringArray') return Array.isArray(value) && value.length > 0
+        && value.every(x => typeof x === 'string' && x.length > 0);
+    return false;
+}
+
+// 按 schema 校验单个声明对象的字段，缺字段/类型错立即抛错（where 标明角色与机制，定位到具体数据行）。
+function checkFields(obj, schema, where) {
+    for (const [key, kind] of Object.entries(schema)) {
+        if (!checkKind(obj ? obj[key] : undefined, kind)) {
+            let got;
+            try { got = JSON.stringify(obj ? obj[key] : undefined); } catch { got = String(obj ? obj[key] : undefined); }
+            throw new Error(`[core/15] 机制字段 "${key}" 缺失或类型错（${where}，应为 ${kind}）：${got}`);
+        }
+    }
+}
+
+// 安装期交叉校验：数据声明的每个 type 都必须有人接、每个被读取的字段都必须齐全。
+// 顶层 type：core/18 注册表（modules/26、30，字段契约取 handler.fields）或本地安装器（LOCAL_MECHANIC_FIELDS）；
+// targetRule：必须在 MECHANIC_TARGET_RULES 内；
+// 内层元素：必须落在所属容器的分发名单内且字段过 schema。任一不过立即抛错——
+// 漏注册/改名漏跟/字段缺失必须在开局暴露，禁止机制静默失效或算出 NaN。
+export function validateMechanicDeclarations(declarations) {
     for (const decl of declarations) {
         if (!decl) continue;
-        if (decl.type && !LOCAL_MECHANIC_TYPES.has(decl.type) && !hasMechanicHandler(decl.type)) {
-            throw new Error(`[core/15] 未知顶层机制 type "${decl.type}"（角色 ${decl.name}）：未在 core/18 注册，也不在本地安装器名单内`);
+        if (decl.type) {
+            const isLocal = LOCAL_MECHANIC_TYPES.has(decl.type);
+            const handler = isLocal ? null : getMechanicHandler(decl.type);
+            if (!isLocal && !handler) {
+                throw new Error(`[core/15] 未知顶层机制 type "${decl.type}"（角色 ${decl.name}）：未在 core/18 注册，也不在本地安装器名单内`);
+            }
+            const schema = isLocal ? LOCAL_MECHANIC_FIELDS[decl.type] : (handler.fields || null);
+            if (schema) checkFields(decl, schema, `角色 ${decl.name} 的顶层 ${decl.type}`);
+        }
+        if (decl.targetRule !== undefined && !TARGET_RULE_TYPES.has(decl.targetRule)) {
+            throw new Error(`[core/15] 未知 targetRule "${decl.targetRule}"（角色 ${decl.name}）：合法值 ${[...TARGET_RULE_TYPES].join('/')}`);
         }
         for (const [container, allow] of Object.entries(LOCAL_EFFECT_TYPES)) {
             const arr = decl[container];
             if (!Array.isArray(arr)) continue;
+            const fieldSchema = INNER_FIELD_SCHEMA[container];
             for (const el of arr) {
                 const t = el && el.type;
                 if (typeof t !== 'string' || !allow.has(t)) {
                     throw new Error(`[core/15] 未知内层效果 type "${t}"（角色 ${decl.name} 的 ${container}）：不在 core/15 分发名单内`);
                 }
+                checkFields(el, fieldSchema[t] || {}, `角色 ${decl.name} 的 ${container}.${t}`);
             }
         }
     }
+}
+
+// 从 gameData 拍平 mechanics 声明（{name, ...mech}），安装与体检对账共用，避免两处各写一份遍历。
+export function buildMechanicDeclarations(gameData) {
+    const declarations = [];
+    if (!gameData || !gameData.characters) return declarations;
+    for (const [name, character] of Object.entries(gameData.characters)) {
+        if (!Array.isArray(character.mechanics)) continue;
+        for (const mech of character.mechanics) {
+            if (mech && typeof mech === 'object') declarations.push({ name, ...mech });
+        }
+    }
+    return declarations;
 }
 
 // 成昆模仿观察 token：chengkunUid → watcher token
@@ -99,16 +179,7 @@ export function installDeclaredSkills(eventBus, A, B, log, declarations) {
 }
 
 export function installFromGameData(eventBus, A, B, log, gameData) {
-    if (!gameData || !gameData.characters) return;
-    const declarations = [];
-    for (const [name, character] of Object.entries(gameData.characters)) {
-        if (!character.mechanics || !Array.isArray(character.mechanics)) continue;
-        for (const mech of character.mechanics) {
-            if (!mech || typeof mech !== 'object') continue;
-            declarations.push({ name, ...mech });
-        }
-    }
-    installDeclaredSkills(eventBus, A, B, log, declarations);
+    installDeclaredSkills(eventBus, A, B, log, buildMechanicDeclarations(gameData));
 }
 
 function submitLowestHpTarget(data, decl) {
@@ -126,13 +197,14 @@ function submitHighestHpPctTarget(data, decl) {
 function installTargetRule(eventBus, A, B, decl) {
     if (!decl.targetRule) return;
     const rule = decl.targetRule;
-    if (rule === 'lowestHp') {
+    // 未知值已在安装期 validateMechanicDeclarations 抛错，这里只接合法两条。
+    if (rule === MECHANIC_TARGET_RULES.LOWEST_HP) {
         registerSettlementHook({
             when: SIGNAL_TYPES.BEFORE_SELECT_TARGET,
             priority: L.BEFORE_SELECT_TARGET.REBEL,
             handler: (data) => { submitLowestHpTarget(data, decl); }
         });
-    } else if (rule === 'highestHpPct') {
+    } else if (rule === MECHANIC_TARGET_RULES.HIGHEST_HP_PCT) {
         registerSettlementHook({
             when: SIGNAL_TYPES.BEFORE_SELECT_TARGET,
             priority: L.BEFORE_SELECT_TARGET.REBEL,

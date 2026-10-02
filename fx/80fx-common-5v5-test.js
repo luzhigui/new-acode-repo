@@ -1,6 +1,11 @@
-// V6.2.3 | ~23100 bytes | 2026-10-02 修复🛡飘字从未显示：POOL_SIZES 漏登记 defBuffFloat → 建池 0 元素 → acquireFromPool「池耗尽」静默 return（胖远桥加防/战士破防/流星减防全灭）
+// V6.2.8 | ~23600 bytes | 2026-10-02 🛡️图标/配色定案：改用防战职业 logo 本体 '🛡️'（带 U+FE0F，恢复彩色字形）+ 既有防御色 #1e6bb8；此前自造字形/颜色（钢蓝/金/红）根因就是漏了变体选择符，'🛡' 退化单色才需手动染色
+// V6.2.7 | 2026-10-02 🛡位置定案：格子垂直居中+水平偏右一点（量宽高算 left/top；此前顶部居中/右缘锚定均非用户要的落点）
+// V6.2.6 | 2026-10-02 🛡配色定案：加防金#ffd700/减防亮红#ff5252（弃蓝紫）；修复居中右偏半身——池元素 setup 时仍 display:none，offsetWidth 恒 0，量宽前先清 display
+// V6.2.5 | 2026-10-02 🛡定案：落格子顶部居中（量宽算left，绕开healUp动画接管transform）；加防钢蓝/减防紫（MOBA debuff惯例）同图标不同色
+// V6.2.4 | 2026-10-02 🛡飘字微调：钢蓝 #4a9bc9→#6ec6ff+深阴影（深底发虚）；定位改 right 锚定（healUp 动画接管 transform，原 translate(-100%) 失效致文字右溢格子）
+// V6.2.3 | 2026-10-02 修复🛡飘字从未显示：POOL_SIZES 漏登记 defBuffFloat → 建池 0 元素 → acquireFromPool「池耗尽」静默 return（胖远桥加防/战士破防/流星减防全灭）
 // V6.2.2 | 2026-10-02 showDamageFloat 加同单位短时错位（同 heal 飘字方案）：主伤害与流星赶月加深/溅射在近窗内连飘时不再完全重叠
-export const VER = 'fx/80fx-common-5v5-test.js V6.2.3';
+export const VER = 'fx/80fx-common-5v5-test.js V6.2.8';
 
 import { CAMP_TYPES } from '../infra/56-battle-enums.js';
 import { snapshotUnitCell } from './90fx-ref-manager.js';
@@ -138,21 +143,23 @@ export function showHealFloat(unit, heal) {
 function createAtkBuffFloatEl() { let d = document.createElement('div'); d.className = 'heal-float'; d.style.color = '#ff8c00'; return d; }
 initPool('atkBuffFloat', createAtkBuffFloatEl);
 
-// 2026-10-01 弹幕图标版（用户定调试做，嫌乱随时撤）：加攻⚔/加防🛡 前缀图标 + 颜色分轨
-//   行业色规：攻=暖（橙金）、防=冷（钢蓝#4a9bc9 厚重盾感）、血=绿（heal-float 原色）、掉血=💥红（dmg-float 原色）
-function createDefBuffFloatEl() { let d = document.createElement('div'); d.className = 'heal-float'; d.style.color = '#4a9bc9'; return d; }
+// 2026-10-01 弹幕图标版（用户定调）：加攻⚔ / 加防🛡️ 前缀图标
+//   图标一律取游戏职业 logo 本体（战士⚔️ / 防战🛡️），不另造字形；数值颜色沿用既有色规：
+//   攻=橙 .orange #d2691e、防=蓝 .blue #1e6bb8、血=绿 .green #2e7d32、掉血=红 .red #c0392b
+function createDefBuffFloatEl() { let d = document.createElement('div'); d.className = 'heal-float'; d.style.textShadow = '0 1px 3px rgba(0,0,0,0.85)'; return d; }
 initPool('defBuffFloat', createDefBuffFloatEl);
 
 export function showDefBuffFloat(unit, def) {
     const rect = snapshotUnitCell(unit);
     if (!rect) return;
     acquireFromPool('defBuffFloat', (el) => {
-        // 加防走正数「🛡+50」；破防走负数「🛡-4」——文案按符号拼，别写死 '+'
-        el.textContent = '🛡' + (def > 0 ? '+' : '') + def;
-        el.style.left = (rect.left + rect.width - 8) + 'px';
+        el.textContent = '🛡️' + (def > 0 ? '+' : '') + def;   // 🛡️ 带 U+FE0F = 防战职业 logo 本体（彩色）
+        el.style.color = '#1e6bb8';                            // 复用游戏既有防御色，不自造
+        el.style.display = '';      // 先点亮再量宽（池元素 setup 时仍 display:none，offsetWidth 恒 0）
+        const w = el.offsetWidth, h = el.offsetHeight;
+        el.style.left = Math.round(rect.left + rect.width * 0.62 - w / 2) + 'px';
         el.style.right = 'auto';
-        el.style.top = (rect.top - 4) + 'px';
-        el.style.transform = 'translate(0, -100%)';
+        el.style.top = Math.round(rect.top + rect.height * 0.5 - h / 2) + 'px';
     }, 1400);
 }
 

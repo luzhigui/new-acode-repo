@@ -1,3 +1,6 @@
+// V1.2.1 | ~9000 bytes | 2026-10-02 RULE_META 补登 157「mechanics 安装对账」（复用 core/15 真实安装期
+//          校验对 content 全量 mechanics 对账 type/字段/targetRule）。tag 归 generic:通用 —— 不读战报、
+//          只读 content，恒有结论，不依赖本局出阵角色。
 // V1.2.0 | ~7900 bytes | 2026-10-02 第 50 轮：RULE_META 补登 156「技能说明数字==引擎真值」（此前只
 //          在 123 的 SCAN_FILES 登记过，121/124 两处都漏）。tag 归 generic:通用 —— 它不读战报、
 //          只比 content/core 真值，恒有结论，不依赖本局出阵角色。
@@ -5,7 +8,7 @@
 //          VER 对账会漏掉本文件）；删除死常量 TAG_PREFIX 与 getRuleGroups 里未使用的 prefix 变量。
 // V1.0.0 | 每场体检按"目标规则"裁剪执行集：只跑能触发的规则，其余不参与统计(消除海量skip噪音)
 // tag 语义: hero=我方英雄(部分可强制) / enemy=敌方精英(随机出阵) / mechanic=通用机制(双方都可能) / generic=通用
-export const VER = 'tests/124rule-recipes.js V1.2.0';
+export const VER = 'tests/124rule-recipes.js V1.2.1';
 
 export const RULE_META = {
     '张无忌九阳神功回复量(回归)': { tag: 'hero:张无忌', force: 'forceZhang' },
@@ -46,7 +49,10 @@ export const RULE_META = {
     '回合分隔符重复(回归)': { tag: 'generic:通用' },
     // 第 50 轮补登：156 此前只在 123 的 SCAN_FILES 里登记过，121/124 两处都漏了。
     //   它与战报无关（读 content/core 真值渲染技能说明），恒有结论、不依赖出阵角色，故归「通用」。
-    '技能说明数字==引擎真值(单源守卫)': { tag: 'generic:通用', note: '不依赖本局战报；改 content 数值或 core/01 的 DESC_TRUTH 时立刻现形' }
+    '技能说明数字==引擎真值(单源守卫)': { tag: 'generic:通用', note: '不依赖本局战报；改 content 数值或 core/01 的 DESC_TRUTH 时立刻现形' },
+    // 2026-10-02 补登：157 mechanics 安装对账（type↔注册表↔字段 schema），直接复用 core/15 安装期校验。
+    //   不读战报、只读 content，漏注册/字段缺失/未知 targetRule 立刻现形，归「通用」。
+    'mechanics安装对账(类型↔注册表↔字段)': { tag: 'generic:通用', note: '不依赖本局战报；改 mechanics type/字段或漏注册 handler 时立刻现形' }
 };
 
 // tag 分组（体检中心面板按此渲染；key 顺序即展示顺序）

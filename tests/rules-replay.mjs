@@ -58,7 +58,7 @@ console.error = function (...args) {
 };
 
 // 补 VER（第 21 轮）：此前本文件无 export const VER，tools/118 的版本头对账会漏掉它
-export const VER = 'tests/rules-replay.mjs V6.5.0';
+export const VER = 'tests/rules-replay.mjs V6.6.0';
 
 const HERE = new URL('.', import.meta.url);
 const [{ CONFIG, loadGameData }, { SeededRNG }, { createRoundStepper }, { initBattleTeams },
@@ -81,6 +81,10 @@ await import('../modules/27elite-mingjiao.js');
 // 第 56 轮：装配口径对齐 —— dotTick/damageReflect 靠 modules/30 模块顶层副作用注册进 core/18，
 //   漏 import ⇒ core/15 安装期校验对鹿杖客 dotTick 抛错，回放开局即崩（同 tools/116 的坑）。
 await import('../modules/30custom-effects.js');
+// DOM 无关的 hook 运行时错误通道（V6.5.0）：页面端靠 modules/21 劫持 console.error 弹弱面板，
+//   node/worker 无 DOM，这里开局清零，跑完读计数——任何监听器抛错都计入退出码，不再被静默吞掉。
+const { eventBus } = await import('../infra/50-event-bus.js');
+eventBus.resetErrorTracker();
 await loadGameData();
 // 不变量用：查询某 factType 是否**注册了**渲染器（render/33:72）。
 // 注意别用"本次渲染有没有产出"当映射缺口判据 —— buffSummary/mindControlBanner 都有注册渲染器
@@ -397,12 +401,19 @@ if (registryProblems.size) {
     console.log(`  ❌ fact 注册一致性 ${registryProblems.size} 类（33 ↔ 58）：`);
     for (const m of registryProblems) console.log('      ' + m);
 }
+// hook 运行时错误（infra/50 V6.5.0 的 DOM 无关计数）：页面端错误面板在 node 不存在，
+// 跑批里监听器抛错过去只进 console.error，这里把它变成退出码红线。
+const hookErrorCount = eventBus.getErrorCount();
+if (hookErrorCount) {
+    console.log(`  ❌ eventBus 监听器运行时错误：${hookErrorCount} 次（无 DOM 环境计数，明细最多列 8 条）`);
+    for (const e of eventBus.getRecentErrors().slice(0, 8)) console.log(`      - [${e.signal}] ${(e.message || '').slice(0, 160)}`);
+}
 if (invIssues.size) {
     const arr = [...invIssues];
     for (const m of arr.slice(0, 12)) console.log('  ❌ ' + m);
     if (arr.length > 12) console.log(`  … 另有 ${arr.length - 12} 条同类`);
-} else if (!factContractWarns.size && !invUnmappedCount && !registryProblems.size) {
-    console.log('  ✅ hp∈[0,maxHp] / maxHp>0 / pos 唯一 / facts 映射完整 / 注册一致 / fact 契约无缺字段 —— 全部通过');
+} else if (!factContractWarns.size && !invUnmappedCount && !registryProblems.size && !hookErrorCount) {
+    console.log('  ✅ hp∈[0,maxHp] / maxHp>0 / pos 唯一 / facts 映射完整 / 注册一致 / fact 契约无缺字段 / hook 无运行时错误 —— 全部通过');
 }
 
 console.log(`=== 规则回放自检：${cases} 场 / ${rules.length} 条规则 ===`);
@@ -419,9 +430,10 @@ if (KEYWORDS.length) {
     console.log('=== 关键字命中 ===');
     for (const kw of KEYWORDS) console.log(`  ${kw}: ${kwHit[kw] || 0}`);
 }
-const invFail = invIssues.size + (invUnmappedCount ? 1 : 0) + factContractWarns.size + registryProblems.size;
+const invFail = invIssues.size + (invUnmappedCount ? 1 : 0) + factContractWarns.size + registryProblems.size + (hookErrorCount ? 1 : 0);
 console.log(`RESULT: ${fails === 0 ? '无失败规则' : fails + ' 条规则报失败'}；恒 skip(空转)规则 ${dead} 条` +
     `；不变量违规 ${invIssues.size} 类${invUnmappedCount ? ' / facts 映射缺口 ' + invUnmappedCount + ' 条' : ''}` +
     `${factContractWarns.size ? ' / fact 契约违规 ' + factContractWarns.size + ' 类' : ''}` +
-    `${registryProblems.size ? ' / 注册一致性 ' + registryProblems.size + ' 类' : ''}`);
+    `${registryProblems.size ? ' / 注册一致性 ' + registryProblems.size + ' 类' : ''}` +
+    `${hookErrorCount ? ' / hook 运行时错误 ' + hookErrorCount + ' 次' : ''}`);
 process.exit((fails === 0 && invFail === 0) ? 0 : 1);

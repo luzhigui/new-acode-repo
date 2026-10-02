@@ -1,6 +1,6 @@
-// V6.4.4 | ~5400 bytes | 2026-10-02 WARRIOR_EXECUTE 20→45：监听器按 priority 升序执行（L28），斩杀必须在融会贯通 JIUYANG=40 声明 BONUS_DMG 之后跑，否则斩杀读到的 declarations 里还没有融会伤害，「普攻→融会→斩杀」后置失效（张松溪 25 血融会打到 10 血未斩）
+// V6.5.0 | ~7000 bytes | 2026-10-02 监听器运行时错误加 DOM 无关追踪（_errorCount/_lastError/_recentErrors + 读取/重置 API）：页面端有 modules/21 劫持 console.error 的弱面板，worker 跑批无 DOM 完全看不到 hook 炸过，体检与批量工具改读这个计数
 import { GlobalStore } from './54-global-store.js';
-export const VER = 'infra/50-event-bus.js V6.4.4';
+export const VER = 'infra/50-event-bus.js V6.5.0';
 
 // debug 模式在日志追加信号记录，非战斗路径
 function appendDebugSignalLog(signal, data) {
@@ -16,6 +16,11 @@ function appendDebugSignalLog(signal, data) {
 class EventBus {
     constructor() {
         this._listeners = {};
+        // 运行时监听器错误追踪（DOM 无关）：页面端有 modules/21 劫持 console.error 的错误面板，
+        // 但 worker 跑批无 DOM、那条链路整段断掉。这里另维护可读计数，体检/批量工具每局读取、重置。
+        this._errorCount = 0;
+        this._lastError = null;
+        this._recentErrors = [];
     }
 
     on(signal, priority, callback) {
@@ -39,10 +44,30 @@ class EventBus {
                 // 异步监听器（返回 Promise）会被收集并等待
                 if (result && typeof result.then === 'function') promises.push(result);
             } catch (e) {
+                this._recordError(signal, e);
                 console.error(`[EventBus] 信号 "${signal}" 的监听器执行出错:`, e);
             }
         }
         return Promise.all(promises);
+    }
+
+    /** 记录一次监听器运行时错误（计数 + 最近 20 条明细，供无 DOM 环境读取） */
+    _recordError(signal, e) {
+        this._errorCount++;
+        const entry = { signal, message: (e && e.message) ? e.message : String(e), time: Date.now() };
+        this._lastError = entry;
+        this._recentErrors.push(entry);
+        if (this._recentErrors.length > 20) this._recentErrors.shift();
+    }
+
+    /** 本进程累计的监听器错误数（跑批每局开局可 resetErrorTracker 后读增量） */
+    getErrorCount() { return this._errorCount; }
+    getLastError() { return this._lastError; }
+    getRecentErrors() { return this._recentErrors.slice(); }
+    resetErrorTracker() {
+        this._errorCount = 0;
+        this._lastError = null;
+        this._recentErrors = [];
     }
 
     clear(signal) {

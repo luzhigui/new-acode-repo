@@ -1,4 +1,5 @@
 // render/38-actions-translate.js — fact → stageAction 翻译器（翻译域）
+// V1.1.8 | ~33100 bytes | 2026-10-02 胖远桥·莽撞补飘字：ATTACK fact 的 pangAtkGain（被攻击加攻）→ STAT_CHANGE(atk) 飘「⚔+N」（此前只有金色战报行）
 // V1.1.7 | ~32900 bytes | 2026-10-02 流星赶月减防补飘字：主目标 METEOR_SHOWER_MAIN 增 STAT_CHANGE(def,-mainDefReduce)、溅射 BUFF_EFFECT 带 splashDefReduce（render/39 每个存活溅射目标飘🛡-N）；加深掉血飘字为 V1.1.6
 //   承接 V1.1.5：entries 扫描补 BREAK_DEF → STAT_CHANGE(def) 飘「🛡-N」（战士破防此前零飘字）；胖远桥·正义国字脸加防借同一通道飘「🛡+N」
 //
@@ -7,7 +8,7 @@
 import { makeFXSnapshot } from '../infra/51-core-utils.js';
 import { STAGE_ACTION_TYPES, FACT_TYPES, CAMP_TYPES, BUFF_EFFECT_TYPES, FLY_MODE_TYPES } from '../infra/56-battle-enums.js';
 import { FACT_SPECS } from '../infra/58-fact-contract.js';
-export const VER = 'render/38-actions-translate.js V1.1.7';
+export const VER = 'render/38-actions-translate.js V1.1.8';
 
 // 把 fact 列表翻译成舞台动作；导演只读 stageActions；timing=beforeText/afterText
 export function translateFactsToStageActions(log) {
@@ -644,6 +645,20 @@ function makeAttackAction(data, index) {
                     timing: 'afterText'
                 });
             }
+        } else if (e.factType === FACT_TYPES.WIND_ASSAULT_SPLASH || e.factType === FACT_TYPES.METEOR_SHOWER_SPLASH) {
+            // 2026-10-02 胖远桥·莽撞的溅射分支：他被流星/乘风溅射到时同样 +攻（modules/26 在 SPLASH_DAMAGED 把
+            //   加攻量与本人 uid 写进本溅射 fact 的 data），与主路径同口径飘「⚔+N」——加攻对象是胖远桥本人（被溅射者）。
+            const sp = e.data || {};
+            if (sp.pangAtkUid && sp.pangAtkGain > 0) {
+                afterTextEffects.push({
+                    kind: STAGE_ACTION_TYPES.STAT_CHANGE,
+                    statKind: 'atk',
+                    targetUid: sp.pangAtkUid,
+                    gain: Math.round(sp.pangAtkGain),
+                    factIndex: index,
+                    timing: 'afterText'
+                });
+            }
         } else if (e.factType === FACT_TYPES.RONG_HUI_BONUS) {
             // 2026-09-27 张无忌融会贯通：这笔额外伤害由 BONUS_DMG 声明在主攻击结算之后单独扣血，
             // 不在主攻击的 dmg 里（主弹幕只有主伤害），此前只有一行文字、一点飘字都没有。
@@ -670,6 +685,19 @@ function makeAttackAction(data, index) {
             statKind: 'def',
             targetUid: attacker.uid,
             gain: Math.round(data.pangDefGain),
+            factIndex: index,
+            timing: 'afterText'
+        });
+    }
+
+    // 2026-10-02 胖远桥·莽撞（被动：被攻击后攻击永久+N）：modules/26 在 AFTER_DAMAGE_APPLIED 把加攻量写进本击 fact，
+    //   此前只有金色战报行、头顶零飘字。加攻对象是胖远桥自己（= 本击**目标**，他被打了才涨攻），走 STAT_CHANGE(atk) → fx/80 飘「⚔+N」。
+    if (data.pangAtkGain > 0 && target?.uid && !dead) {
+        afterTextEffects.push({
+            kind: STAGE_ACTION_TYPES.STAT_CHANGE,
+            statKind: 'atk',
+            targetUid: target.uid,
+            gain: Math.round(data.pangAtkGain),
             factIndex: index,
             timing: 'afterText'
         });
