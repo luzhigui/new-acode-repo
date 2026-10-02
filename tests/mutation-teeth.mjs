@@ -1,4 +1,4 @@
-// V2.2.0 | 2026-10-02 审核线：修 A15 锚点（modules/27 V6.4.4 成长差值先落变量，旧内联串 0 匹配静默失效；新锚点只改 addMod 实际侧 L707，fact 同源声明不动）；补 bump 版本号（A16-A19/T6/T7 加入后 VER 漏更新）。
+// V2.3.0 | 2026-10-02 第 52 轮：新增 A20（吸血上限提升 LEECH 处理器 maxHp 翻倍）/ A21（蛛变加攻翻倍）；验证第 52 轮新补契约 SPIDER_TRANSFORM / LEECH_MAXHP 是否真有牙。
 // 方法论首立于第 37/38 轮：变异牙齿测试（mutation teeth）—— 回答「规则到底有没有牙」。
 // 干什么：在**仓库内临时树** tests/.mut 里，对业务代码注入一处**已知的人工缺陷（变异）**，
 //   跑「规则回放 + 基线 + 逐步真值对照」，看体检套件**能不能报红**。
@@ -28,7 +28,7 @@
 //   1) node tests/mutation-teeth.mjs --emit-prep  > /tmp/prep.sh  &&  bash /tmp/prep.sh
 //   2) node tests/mutation-teeth.mjs --emit-run   > /tmp/run.sh   &&  bash /tmp/run.sh
 //   3) node tests/mutation-teeth.mjs --report
-export const VER = 'tests/mutation-teeth.mjs V2.2.0';
+export const VER = 'tests/mutation-teeth.mjs V2.3.0';
 
 import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
@@ -178,6 +178,16 @@ const MUTATIONS = [
       file: 'modules/26elite-sixsects.js',
       from: "kuLianTargets.push({ unitName: u.name, atkDelta, defDelta, maxHpDelta });",
       to:   "kuLianTargets.push({ unitName: u.name, atkDelta: atkDelta + 5, defDelta, maxHpDelta });" },
+    // 第 52 轮新增：验证新补契约 SPIDER_TRANSFORM / LEECH_MAXHP 是否真有牙（而非死代码）。
+    //   把 addMod 实际侧 value 翻倍，fact 增量（atkDelta / maxHpDelta）不动 ⇒ 实际=2×声明，严格判据必抓。
+    { id: 'A20', kind: 'ATTR', desc: '吸血上限提升 maxHp 增量翻倍（LEECH 处理器）',
+      file: 'core/16effect-handlers.js',
+      from: "addMod(decl.source, 'maxHp', { source: '吸血上限提升', value: delta, ttl: 'permanent', group: 'leechMaxHp', op: 'add' });",
+      to:   "addMod(decl.source, 'maxHp', { source: '吸血上限提升', value: delta * 2, ttl: 'permanent', group: 'leechMaxHp', op: 'add' });" },
+    { id: 'A21', kind: 'ATTR', desc: '蛛变加攻增量翻倍',
+      file: 'modules/20elite-skills.js',
+      from: "addMod(unit, 'atk', { source: '蛛变·' + newRole, value: newStats.atk, ttl: 'permanent', group: 'spiderTransform', op: 'add' });",
+      to:   "addMod(unit, 'atk', { source: '蛛变·' + newRole, value: newStats.atk * 2, ttl: 'permanent', group: 'spiderTransform', op: 'add' });" },
 ];
 
 function toPosix(p) {
