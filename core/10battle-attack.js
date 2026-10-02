@@ -1,5 +1,5 @@
 // V6.3.5 | ~19100 bytes | 2026-10-01 修「母狮随动 死→活→死」：resolveDeaths 后立刻把事件缓冲收进本攻击组，避免死亡事件被上层攻击帧的 flush 捞走挂到更早播出的组上。承接 V6.3.4 两处 resolveAfterDamageEffects 补传本步 log
-export const VER = 'core/10battle-attack.js V6.3.5';
+export const VER = 'core/10battle-attack.js V6.3.6';
 
 import { CONFIG } from './01config-5v5-test.js';
 import { hasBuff, makeFXSnapshot, isBlocked } from './03battle-utils.js';
@@ -220,7 +220,8 @@ export function processUnitAttack(unit, allySide, enemySide, log, A, B, state, d
     const afterDamageExtraRequests = [];
     const afterDamageDeclarations = [];
     // 同步 eventBus.emit，所有监听器同步执行，无需 await
-    eventBus.emit(SIGNAL_TYPES.AFTER_DAMAGE_APPLIED, { unit, target, dmg: dmgCalc.dmg, group, allySide, enemySide, log, A, B, declarations: afterDamageDeclarations, extraRequests: afterDamageExtraRequests });
+    // 2026-10-02 payload 补 atkAct/defAct：张三丰严阵以待反弹(26 组件)需与通用防战 core/12 同口径，按"被防御抵消部分"计算
+    eventBus.emit(SIGNAL_TYPES.AFTER_DAMAGE_APPLIED, { unit, target, dmg: dmgCalc.dmg, atkAct: dmgResult.atkAct, defAct: dmgResult.defAct, group, allySide, enemySide, log, A, B, declarations: afterDamageDeclarations, extraRequests: afterDamageExtraRequests });
 
     if (dmgResult.fortifyDeclarations && dmgResult.fortifyDeclarations.length > 0) {
         afterDamageDeclarations.push(...dmgResult.fortifyDeclarations);

@@ -1,5 +1,5 @@
 // V6.15.0 | ~47100 bytes | 2026-10-02 胖远桥·正义国字脸加防补飘字：加防量随本击 fact 带给 render/38，翻成 STAT_CHANGE(def) → 飘「🛡+N」
-export const VER = 'modules/26elite-sixsects.js V6.15.0';
+export const VER = 'modules/26elite-sixsects.js V6.15.1';
 import { registerElite } from '../core/08-elite-registry.js';
 import { CONFIG, getSkillParams, getGameData } from '../core/01config-5v5-test.js';
 import { SIGNAL_TYPES, FACT_TYPES, BUFF_TYPES, CAMP_TYPES, ROLE_TYPES } from '../infra/56-battle-enums.js';
@@ -188,15 +188,19 @@ export function createZhangSanfengComponent() {
             });
 
             // 严阵以待反弹：仅张三丰自身（不走 camp buff 检查，故不受 core/12 那条影响）
-            // 原版公式在 core/12 = floor((atkAct - 格挡量)/2)，此处按"实际伤害的一半"近似
+            // 2026-10-02 口径统一：原实现"实际伤害的一半"导致他越硬弹得越少，与配置"反弹50%伤害差值"
+            //   及通用防战(core/12)相反。改为逐字对齐 core/12：被防御抵消部分(atkAct-基础公式伤害)的一半
             eventBus.on(SIGNAL_TYPES.AFTER_DAMAGE_APPLIED, 46, (data) => {
                 if (!zhang.state._tenRoundFired || !zhang.alive) return;
                 if (data.target !== zhang) return;
                 if (!data.dmg || data.dmg <= 0) return;
                 const attacker = data.unit;
                 if (!attacker || !attacker.alive || attacker === zhang) return;
-                const rebound = Math.max(1, Math.floor(data.dmg / 2));
-                if (!data.declarations) data.declarations = [];
+                if (typeof data.atkAct !== 'number' || typeof data.defAct !== 'number') return;
+                const baseDmg = Math.floor(data.atkAct * (data.atkAct / (data.atkAct + data.defAct)));
+                const rebound = Math.floor((data.atkAct - baseDmg) / 2);
+                if (rebound <= 0) return;
+                data.declarations = data.declarations || [];
                 data.declarations.push({
                     type: EFFECT_TYPES.REBOUND,
                     value: rebound,
