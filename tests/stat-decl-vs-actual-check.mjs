@@ -1,4 +1,4 @@
-// V2.4.0 | 2026-10-02 审核线：补第 16 条契约 LION_GROW（commit 12a5808 补发增量字段后零障碍）；主循环支持 fact 带 uid 时按 uid 精确归因（绕开幼狮成形当步改名/多只同名）；A15 变异升格为对照器兜住。
+// V2.5.0 | 2026-10-02 第 52 轮：补第 17-19 条契约 SPIDER_TRANSFORM / LEECH_MAXHP / WEI_HEAL（commit 12a5808 补发增量字段后零障碍，全走 factType 守卫防撞车）；覆盖率 15/22 → 18/22（剩 aura/statChange/holyFlame/righteousFace 待主代码补 fact）。
 // 方法论首立于 2026-09-27 第 34 轮 | 「数值声明 vs 实际属性增量」逐步对照器（通用）
 //
 // 立它的原因（第 33 轮的教训，务必先读）：
@@ -62,7 +62,8 @@
 //   2026-10-02 审核线更新：commit 12a5808 已给 WEI_LEECH/SPIDER_TRANSFORM/LION_GROW 补发增量字段，
 //     其中 LION_GROW（带 unitUid + atkDelta/defDelta/maxHpDelta）已补契约（第 16 条），
 //     主循环同步支持 uid 精确归因（成形当步改名 + 多只同名场景），A15 变异由「仅基线兜底」升格为「对照器兜住」。
-//     WEI_LEECH / SPIDER_TRANSFORM 两条契约待下一轮按同模式接入。
+//   第 52 轮：同模式再补 SPIDER_TRANSFORM（第 17 条）/ LEECH_MAXHP（第 18 条，顶层 WEI_LEECH fact）/ WEI_HEAL（第 19 条，
+//     DODGE fact 嵌套的 weiHeal；主代码 12a5808 对 weiLeech 组只补 maxHpDelta 字段、未补 factType，仍无法独立顶层观测，已记入需求四）。
 //
 // 运行：node tests/stat-decl-vs-actual-check.mjs            → 全量 18 场；有重复应用退出码 1；契约零触发亦退出码 1（防假绿）
 //       node tests/stat-decl-vs-actual-check.mjs 18:3       → 只跑指定场次并打印逐步明细
@@ -70,7 +71,7 @@
 //           → 不跑契约、也不退码 1，只逐步对全体单位的 atk/def/maxHp/hp 做 FNV-1a 指纹并输出 `FINGERPRINT <hex>`。
 //             供 `tests/mutation-teeth.mjs` 判定「属性类变异是否真的改变了战斗状态」（属性变了指纹必变；
 //             日志/TEXT 类变异只改显示、不改状态，指纹不变）。
-export const VER = 'tests/stat-decl-vs-actual-check.mjs V2.4.0';
+export const VER = 'tests/stat-decl-vs-actual-check.mjs V2.5.0';
 
 import { fileURLToPath } from 'node:url';
 
@@ -518,6 +519,96 @@ const CONTRACTS = [
                     out.push({ unit: d.unitName, uid: d.unitUid, stat: 'atk', amount: d.atkDelta });
                     out.push({ unit: d.unitName, uid: d.unitUid, stat: 'def', amount: d.defDelta });
                     out.push({ unit: d.unitName, uid: d.unitUid, stat: 'maxHp', amount: d.maxHpDelta });
+                }
+            }
+            return out;
+        }
+    },
+    {
+        // 第 52 轮补（零主代码，commit 12a5808 已补发增量字段）：小昭蛛变 —— 与 LION_GROW 同模式。
+        //   声明（modules/20elite-skills.js L119-121，V6.0.4）：addMod 三条（group:'spiderTransform'，
+        //     value=newStats.atk/def/maxHp）后发 SPIDER_TRANSFORM fact，data 带 unitUid + atkDelta/defDelta/maxHpDelta
+        //     （= newStats.*，与 addMod 入参同源）。fact 与 addMod 同函数同变量同 step ⇒ 干净树恒等，走默认严格判据。
+        //   ⚠️ factType 守卫必备：12a5808 给 SPIDER_TRANSFORM 补 unitUid+三 delta 后，形状与 LION_GROW 撞车
+        //     （顶层带 unitName+两 delta 连 BAGUA_DEF 也被误吃）→ 干净树 59 处假红，详见 LION_GROW 注释。
+        //   delta 可为负（远程→战士会掉 def/maxHp），extract 不筛 >0（与 LION_GROW 同）；负增量走账本比对，
+        //     严格判定需 sum>0，故负侧由账本兜底（不报，留待必要时再开方向无关判据）。
+        id: 'SPIDER_TRANSFORM',
+        label: '蛛变',
+        group: 'spiderTransform',
+        dir: +1,
+        extract(stepLog) {
+            const out = [];
+            for (const f of stepLog || []) {
+                if (!f || !f.data || f.factType !== FACT_TYPES.SPIDER_TRANSFORM) continue;
+                const d = f.data;
+                if (d.unitUid && typeof d.unitName === 'string'
+                    && typeof d.atkDelta === 'number' && typeof d.defDelta === 'number'
+                    && typeof d.maxHpDelta === 'number') {
+                    out.push({ unit: d.unitName, uid: d.unitUid, stat: 'atk', amount: d.atkDelta });
+                    out.push({ unit: d.unitName, uid: d.unitUid, stat: 'def', amount: d.defDelta });
+                    out.push({ unit: d.unitName, uid: d.unitUid, stat: 'maxHp', amount: d.maxHpDelta });
+                }
+            }
+            return out;
+        }
+    },
+    {
+        // 第 52 轮补（零主代码，commit 12a5808 已补发增量字段）：吸血上限提升 —— 与 LEECH 处理器同模式。
+        //   声明（core/15:158 声明 factType=WEI_LEECH / core/16:128 LEECH 处理器补 maxHpDelta）：
+        //     WEI_LEECH fact 的 data 带 unitName + maxHpDelta（增量 = addMod 入参 delta；此前只有 newMaxHp 绝对值）。
+        //   注意与「韦一笑闪避吸血」区分：闪避路径（core/12 weiLeech 组）的 WEI_HEAL 声明**无 factType**，
+        //     不进 step.log 顶层 fact，只在 DODGE fact 的 data.weiHeal 里可见（见 WEI_HEAL 契约）；本契约只吃顶层 WEI_LEECH fact。
+        id: 'LEECH_MAXHP',
+        label: '吸血上限提升',
+        group: 'leechMaxHp',
+        dir: +1,
+        // 声明（core/15:158 声明 factType=WEI_LEECH / core/16:128 LEECH 处理器补 maxHpDelta）：
+        //   WEI_LEECH fact 的 data 带 unitName + maxHpDelta（增量 = addMod 入参 delta；此前只有 newMaxHp 绝对值）。
+        //   ⚠️ 该 fact 在 core/10:253 被推入「攻击 fact 的 data.entries」嵌套层（非 step.log 顶层），
+        //     故 extract 必须递归扫 f.data.entries（与 BREAK_DEF 同款），否则 0 触发。
+        //   注意与「韦一笑闪避吸血」区分：闪避路径（core/12 weiLeech 组）的 WEI_HEAL 声明**无 factType**，
+        //     不进 step.log 顶层 fact，只在 DODGE fact 的 data.weiHeal 里可见（见 WEI_HEAL 契约）。
+        extract(stepLog) {
+            const out = [];
+            const scan = (e) => {
+                if (!e || !e.data || e.factType !== FACT_TYPES.WEI_LEECH) return;
+                const d = e.data;
+                if (typeof d.unitName === 'string' && typeof d.maxHpDelta === 'number' && d.maxHpDelta > 0) {
+                    out.push({ unit: d.unitName, uid: d.unitUid || null, stat: 'maxHp', amount: d.maxHpDelta });
+                }
+            };
+            for (const f of stepLog || []) {
+                if (!f) continue;
+                scan(f);
+                if (f.data && Array.isArray(f.data.entries)) for (const e of f.data.entries) scan(e);
+                if (Array.isArray(f.entries)) for (const e of f.entries) scan(e);
+            }
+            return out;
+        }
+    },
+    {
+        // 第 52 轮补（零主代码，但主代码 12a5808 补发不完整）：韦一笑闪避吸血。
+        //   声明（core/12:580 闪避路径 addMod，group:'weiLeech'；core/12:574 算 delta 回写 decl.data.maxHpDelta）：
+        //     该 WEI_HEAL 声明**无 factType**（core/10:239 只对带 factType 的声明生成顶层 fact），
+        //     ⇒ 不进 step.log 顶层，只在闪避 fact（factType=DODGE）的 data.weiHeal 里可见 —— 仅当闪避方为韦一笑(isWei)时非 null。
+        //   增量只能从 dodgeFact.weiHeal.maxHpDelta 取，单位取 dodger（闪避方）。
+        //   ⚠️ 主代码 12a5808 对此组只补 maxHpDelta 字段、未补 factType ⇒ 仍无法作为独立顶层 fact 观测；
+        //     当前靠 DODGE fact 嵌套兜底，已记入需求四「weiLeech 补发不完整」，待主代码补 factType 后可改为独立 fact 契约。
+        //   factType=DODGE 守卫：与 WEI_LEECH（LEECH 处理器）顶层 fact 区分（二者同义但 factType 不同）。
+        id: 'WEI_HEAL',
+        label: '韦一笑吸血',
+        group: 'weiLeech',
+        dir: +1,
+        extract(stepLog) {
+            const out = [];
+            for (const f of stepLog || []) {
+                if (!f || !f.data || f.factType !== FACT_TYPES.DODGE) continue;
+                const d = f.data;
+                const wh = d.weiHeal;
+                if (wh && typeof wh.maxHpDelta === 'number' && wh.maxHpDelta > 0
+                    && d.dodger && typeof d.dodger.name === 'string') {
+                    out.push({ unit: d.dodger.name, uid: d.dodger.uid || null, stat: 'maxHp', amount: wh.maxHpDelta });
                 }
             }
             return out;
