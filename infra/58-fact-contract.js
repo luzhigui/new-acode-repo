@@ -1,5 +1,5 @@
 // V1.5.3 | ~14500 bytes | 2026-09-27 DOUBLE_STRIKE 契约补 requiredFields.unitName（core/03 成功/失败两分支都已带，供体检 146 直接读触发者）；承接 V1.5.2 RONG_HUI_BONUS 补 targetUid
-export const VER = 'infra/58-fact-contract.js V1.5.3';
+export const VER = 'infra/58-fact-contract.js V1.5.4';
 
 import { FACT_TYPES } from './56-battle-enums.js';
 
@@ -90,6 +90,9 @@ export const FACT_SPECS = Object.freeze({
 
     // 韦一笑吸血
     [FACT_TYPES.WEI_LEECH]: { requiredFields: ['unitUid', 'heal'], renderFn: 'renderWeiLeechFact', translateFn: 'makeHealAction' },
+
+    // 飞行再生（角色阵亡→全场存活飞行回 baseRegen）
+    [FACT_TYPES.FLYER_REGEN]: { requiredFields: ['unitUid', 'heal'], renderFn: 'renderFlyerRegenFact', translateFn: 'makeHealAction' },
 
     // 小昭·姊 乾坤衍生 / 蝶变
     [FACT_TYPES.QIAN_KUN_DERIVED]: { requiredFields: ['healTargetUid', 'atkTargetUid'], renderFn: 'renderQianKunDerivedFact', translateFn: 'translateAtkBuff' },
