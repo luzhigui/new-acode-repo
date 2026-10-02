@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0f1116">
+<title>周芷若 · 高分精选（备份画廊）</title>
+<style>
+  :root{--bg:#0f1116;--card:#191c23;--fg:#e8eaf0;--sub:#9aa3b2;--accent:#d4af6a}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);
+       font-family:system-ui,-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;
+       -webkit-font-smoothing:antialiased}
+  header{padding:16px 14px 6px}
+  h1{margin:0;font-size:19px;letter-spacing:.5px}
+  header p{margin:6px 0 0;font-size:12px;color:var(--sub);line-height:1.6}
+  .sec{padding:16px 14px 2px;font-size:13px;color:var(--accent);font-weight:600;letter-spacing:1px}
+  .sec .cnt{color:var(--sub);font-weight:400;font-size:11px}
+  details.mod{border-top:1px solid rgba(255,255,255,.05)}
+  details.mod>summary{padding:15px 14px 9px;font-size:13px;color:var(--accent);font-weight:600;
+       letter-spacing:1px;cursor:pointer;list-style:none;display:flex;
+       justify-content:space-between;align-items:center;user-select:none}
+  details.mod>summary::-webkit-details-marker{display:none}
+  details.mod>summary::after{content:'▾';color:var(--sub);font-size:11px;font-weight:400}
+  details.mod:not([open])>summary::after{content:'▸'}
+  details.mod[open]>summary{color:#f0cd8e}
+  .tip{padding:0 14px 4px;font-size:11px;color:var(--sub)}
+  .grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;padding:8px 12px}
+  @media(min-width:760px){.grid{grid-template-columns:repeat(3,1fr)}}
+  .grid.one{grid-template-columns:1fr}
+  @media(min-width:760px){.grid.one{grid-template-columns:repeat(2,1fr)}}
+  .card{background:var(--card);border-radius:10px;overflow:hidden;box-shadow:0 2px 10px rgba(0,0,0,.35)}
+  .card h2{margin:0;padding:8px 10px;font-size:13px;background:rgba(255,255,255,.04);
+       border-bottom:1px solid rgba(255,255,255,.06);display:flex;justify-content:space-between;
+       align-items:center;gap:6px}
+  .card h2 small{font-weight:400;color:var(--sub);font-size:10px}
+  model-viewer{width:100%;height:56vh;background:#141720;--poster-color:#141720}
+  @media(min-width:760px){model-viewer{height:62vh}}
+  video.mv{width:100%;height:56vh;background:#141720;object-fit:contain;display:block}
+  .it{background:var(--card);border-radius:10px;overflow:hidden;box-shadow:0 2px 10px rgba(0,0,0,.35);
+      position:relative}
+  .it img{width:100%;display:block;cursor:zoom-in}
+  .cap{padding:7px 10px;font-size:12px;color:var(--sub);line-height:1.4}
+  .sc{display:inline-block;padding:1px 6px;border-radius:5px;font-size:10px;font-weight:700;
+      background:rgba(212,175,106,.16);color:var(--accent);margin-right:5px;letter-spacing:0}
+  .sc.hi{background:rgba(212,175,106,.28);color:#f4d79c}
+  .tag{display:inline-block;padding:1px 6px;border-radius:5px;font-size:10px;font-weight:700;
+       margin-left:5px;letter-spacing:0}
+  .tag.ok{background:rgba(110,200,140,.18);color:#8fd6a8}
+  .tag.warn{background:rgba(230,150,90,.18);color:#e8a86a}
+  .tag.bad{background:rgba(220,110,110,.18);color:#e08a8a}
+  #lb{position:fixed;inset:0;background:rgba(0,0,0,.92);display:none;z-index:99;
+      align-items:center;justify-content:center}
+  #lb.on{display:flex}
+  #lb img{max-width:96vw;max-height:92vh;object-fit:contain}
+  #lb .x,#lb .ar{position:absolute;top:12px;width:44px;height:44px;border:0;border-radius:10px;
+      background:rgba(255,255,255,.12);color:#fff;font-size:20px;cursor:pointer}
+  #lb .x{right:12px}
+  #lb .ar{left:12px}
+  #lb .ar.r{left:auto;right:66px}
+</style>
+</head>
+<body>
+<header>
+  <h1>周芷若 · 高分精选（备份画廊）</h1>
+  <p>自包含备份：模型与图片已打包进本目录，断网、拷到任何机器都能直接打开。<br>
+     3D 优先，做不动的降级为微动（原图本体，脸和手保真）。</p>
+</header>
+
+<details class="mod" open><summary>3D · 已完成 <span class="cnt">6</span></summary>
+<div class="tip">拖拽旋转、双指缩放；角标为评审分</div>
+<div class="grid one">
+  <div class="card"><h2>周芷若 · 新版（长剑·赤足）<small class="sc hi">新版</small></h2>
+    <model-viewer src="zzr_new.glb" poster="zzr_new.png" camera-controls auto-rotate shadow-intensity="1" exposure="1" loading="eager" alt="周芷若新版"></model-viewer></div>
+  <div class="card"><h2>周芷茹白衣<small class="sc hi">89分</small></h2>
+    <model-viewer src="zzr.glb" poster="zzr.png" camera-controls auto-rotate shadow-intensity="1" exposure="1" loading="lazy" alt="周芷茹白衣"></model-viewer></div>
+  <div class="card"><h2>周芷若<small class="sc hi">87分</small></h2>
+    <model-viewer src="zzrws.glb" poster="zzrws.png" camera-controls auto-rotate shadow-intensity="1" exposure="1" loading="lazy" alt="周芷若"></model-viewer></div>
+  <div class="card"><h2>周芷若-比基尼长剑<small class="sc hi">87分</small></h2>
+    <model-viewer src="zzrjc.glb" poster="zzrjc.png" camera-controls auto-rotate shadow-intensity="1" exposure="1" loading="lazy" alt="周芷若-比基尼长剑"></model-viewer></div>
+  <div class="card"><h2>周芷若黑化<small class="sc hi">86分</small></h2>
+    <model-viewer src="zzr_dark.glb" poster="zzr_dark.png" camera-controls auto-rotate shadow-intensity="1" exposure="1" loading="lazy" alt="周芷若黑化"></model-viewer></div>
+  <div class="card"><h2>周芷若-双剑<small class="sc hi">85分</small></h2>
+    <model-viewer src="zzr_hf.glb" poster="zzr_hf.png" camera-controls auto-rotate shadow-intensity="1" exposure="1" loading="lazy" alt="周芷若-双剑"></model-viewer></div>
+</div>
+</details>
+
+<details class="mod" open><summary>待 3D 化 · 免费额度队列 <span class="cnt">2</span></summary>
+<div class="tip">按成功率排：先跑混元（每日 20 次），跑崩的转微动</div>
+<div class="grid">
+  <div class="it"><img src="828867dffdcbfcce.jpg" alt="月光天台丝绸吊带">
+    <div class="cap">周芷若-月光天台丝绸吊带 <span class="sc hi">86分</span><br>
+      真人风 · 侧靠栏杆 · 吊带短裙<br><span class="tag warn">中风险</span>姿态有倚靠，栏杆道具需一并重建</div></div>
+  <div class="it"><img src="9ab6cec3818557a2.jpg" alt="落地窗蕾丝睡袍">
+    <div class="cap">周芷若-落地窗蕾丝睡袍 <span class="sc hi">87分</span><br>
+      真人风 · 蕾丝 + 倚靠坐姿<br><span class="tag bad">高风险</span>半透明蕾丝网格必糊，建议直接走微动</div></div>
+</div>
+</details>
+
+<details class="mod" open><summary>微动 · 降级区 <span class="cnt">1</span></summary>
+<div class="tip">3D 做不动的放这里：原图本体做微动，面部与手部像素级保真</div>
+<div class="grid one">
+  <div class="card"><h2>小昭姊-粉仙蝶翼<small class="sc hi">微动样例</small></h2>
+    <video class="mv" src="xz-dieyi-motion.mp4" poster="2593ad142cf577d5.jpg" autoplay loop muted playsinline></video></div>
+</div>
+</details>
+
+<details class="mod"><summary>2D 高分源图 · 已建模 <span class="cnt">6</span></summary>
+<div class="tip">已完成建模的源图备份，点图放大</div>
+<div class="grid">
+  <div class="it"><img src="037dc9abf4d4160f.jpg" alt="汉服cosplay武姿"><div class="cap">汉服cosplay武姿</div></div>
+  <div class="it"><img src="750760f5b7ef6275.jpg" alt="露肩高开衩 v3"><div class="cap">露肩高开衩 - 性感向 v3</div></div>
+  <div class="it"><img src="223de452e1983ce9.jpg" alt="露肩高开衩加料 v4"><div class="cap">露肩高开衩加料 - 性感向 v4</div></div>
+  <div class="it"><img src="78bd9a448873850e.jpg" alt="青花旗袍高开衩"><div class="cap">青花旗袍高开衩 - 古典美 v1</div></div>
+  <div class="it"><img src="6f4e18aea8b2a28f.jpg" alt="黑化黑金 v3"><div class="cap">黑化黑金 - 性感向 v3</div></div>
+  <div class="it"><img src="ff3ec1ad2873b73c.jpg" alt="黑金高定深V开衩"><div class="cap">黑金高定深V开衩 - 时尚大片 v1</div></div>
+</div>
+</details>
+
+<div id="lb"><button class="ar" id="pv">‹</button><button class="ar r" id="nx">›</button><button class="x" id="cl">✕</button><img id="lbi" alt=""></div>
+
+<script type="module" src="./model-viewer.min.js"></script>
+<script>
+(function(){
+  var imgs=[].slice.call(document.querySelectorAll('.it img'));
+  var lb=document.getElementById('lb'),lbi=document.getElementById('lbi'),cur=0;
+  function show(i){cur=(i+imgs.length)%imgs.length;lbi.src=imgs[cur].src;lb.classList.add('on');}
+  imgs.forEach(function(im,i){im.addEventListener('click',function(){show(i);});});
+  document.getElementById('cl').onclick=function(){lb.classList.remove('on');};
+  document.getElementById('pv').onclick=function(){show(cur-1);};
+  document.getElementById('nx').onclick=function(){show(cur+1);};
+  lb.addEventListener('click',function(e){if(e.target===lb)lb.classList.remove('on');});
+  document.addEventListener('keydown',function(e){
+    if(!lb.classList.contains('on'))return;
+    if(e.key==='Escape')lb.classList.remove('on');
+    if(e.key==='ArrowLeft')show(cur-1);
+    if(e.key==='ArrowRight')show(cur+1);
+  });
+})();
+</script>
+</body>
+</html>
