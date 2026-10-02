@@ -1,5 +1,5 @@
-// V6.0.3 | ~11500 bytes | 2026-09-29 参数单位口径统一为「1 = 100%」：乾坤大挪移减伤/反弹/自伤直接按比例参与计算（去掉 /100）；承接 V6.0.2 参数体系收敛批 3（精通层数上界改读 CONFIG.ROLES.length、全精通额外层数改读 CONFIG.MASTERY_FULL_BONUS_LAYERS）
-export const VER = 'modules/20elite-skills.js V6.0.3';
+// V6.0.4 | ~11800 bytes | 2026-10-02 体检对照补字段：SPIDER_TRANSFORM fact 补 atkDelta/defDelta/maxHpDelta（本次蛛变实际登记的职业加成，与 addMod 入参同源）+ unitUid；masteryGain 仍为精通独立增量
+export const VER = 'modules/20elite-skills.js V6.0.4';
 
 import { CONFIG, getSkillParams } from '../core/01config-5v5-test.js';
 import { getRoleBonus, getHpDmgRatio } from '../core/02unit.js';
@@ -141,7 +141,9 @@ export function spiderTransform(unit, log) {
 
     emitEvent(unit, UNIT_EVENT_TYPES.HP_CHANGE, { hp: unit.hp, maxHp: unit.maxHp, alive: unit.alive, atk: getStat(unit, 'atk'), def: getStat(unit, 'def'), role: newRole });
     emitStateChange(unit, STATE_CHANGE_TYPES.ROLE_CHANGED, { newRole }, log);
-    log.push({ factType: FACT_TYPES.SPIDER_TRANSFORM, data: { unitName: unit.name, newRole, mastered: unit.state._masteredRoles.length, masteryGain } });
+    // 2026-10-02 体检对照增量字段：atkDelta/defDelta/maxHpDelta = 本次蛛变实际登记的职业加成（与上方 addMod 入参同源）；
+    //   masteryGain 是精通层数的独立增量，勿混用
+    log.push({ factType: FACT_TYPES.SPIDER_TRANSFORM, data: { unitName: unit.name, unitUid: unit.uid, newRole, mastered: unit.state._masteredRoles.length, masteryGain, atkDelta: newStats.atk, defDelta: newStats.def, maxHpDelta: newStats.maxHp } });
 }
 
 export function spiderReturn(unit, allyTeam, enemySide, log) {

@@ -1,5 +1,5 @@
-// V6.0.4 | ~12400 bytes | 2026-09-29 收口流星溅射成长的渲染出口：删掉写回 decl.factData.growth 的老出口（render/35 内联 ⚡ 段已同步删除），成长只由 METEOR_SPLASH_GROWTH fact 渲染一次——老出口的 fact.unitName 从未赋值，长期渲染成「⚡ undefined 攻击+N」
-export const VER = 'core/16effect-handlers.js V6.0.4';
+// V6.0.5 | ~12800 bytes | 2026-10-02 体检对照补字段：LEECH 裁定后把实际上限增量回写 factData.maxHpDelta（core/10 按引用落 WEI_LEECH fact），leechMaxHp 词条增量可被逐步对照
+export const VER = 'core/16effect-handlers.js V6.0.5';
 
 import { eventBus, EFFECT_TYPES } from '../infra/50-event-bus.js';
 import { applyStatChange, refreshMaxHp, query, emitEvent, addMod, getStat } from './13battle-shared.js';
@@ -128,6 +128,9 @@ registerEffectHandler(EFFECT_TYPES.LEECH, (ctx) => {
                 addMod(decl.source, 'maxHp', { source: '吸血上限提升', value: delta, ttl: 'permanent', group: 'leechMaxHp', op: 'add' });
                 refreshMaxHp(decl.source, null, '吸血上限提升');
             }
+            // 2026-10-02 体检对照增量字段：把实际登记的词条增量回写 factData
+            //   （core/10 随后按引用落 WEI_LEECH fact；fact 原有 newMaxHp 是目标绝对值，体检无法反推增量）
+            if (decl.factData) decl.factData.maxHpDelta = delta > 0 ? delta : 0;
         }
         const capped = Math.min(decl.value || 0, decl.source.maxHp - decl.source.hp);
         applyStatChange(decl.source, 'hp', capped, null, '吸血');
