@@ -93,7 +93,30 @@ node tests/mutation-teeth.mjs --report
 4. 提交信息用中文，正文分条写清「改了什么 / 为什么 / 验证结论」。
 5. 迭代日志 `tests/体检迭代日志.md` 追加每轮：改了什么、覆盖率变化、牙口结论、遗留盲区。
 
-## 八、常见故障速查
+## 八、装配口径：机制靠 import 副作用注册（最容易漏）
+
+**症状**：对照器/基线/回放开局即崩，报 `[core/15] 未知顶层机制 type "dotTick"（角色 XX）：未在 core/18 注册，也不在本地安装器名单内`。
+
+**根因**：机制（dotTick / damageReflect 等）注册在 `modules/30custom-effects.js` 的**模块顶层副作用**——不是 `export` 函数，是 **`import 即注册`**。漏 import ⇒ `core/18` 注册表为空 ⇒ `core/15` 安装期校验抛错。
+
+**修法**：三个入口 `tests/stat-decl-vs-actual-check.mjs`、`tests/rules-replay.mjs`、`tests/140-baseline.js` 各补一行：
+```js
+await import('../modules/30custom-effects.js');
+```
+（第 56 轮已补。`tools/101`、`115`、`116` 早补过——`116` 注释明写「不 import 则第 5 关 worker 全灭」。）
+
+**检查习惯**：主代码新增 `modules/XX-*.js` 且该模块含顶层 `registerMechanicHandler(...)` 时，**grep 体检入口有没有跟着 import**。别只等报错——直接查：
+```bash
+grep -n "modules/3" tests/stat-decl-vs-actual-check.mjs tests/rules-replay.mjs tests/140-baseline.js
+```
+
+## 九、红线基线不擅自重录
+
+`140-baseline --check` 报红的两种性质，**必须分清**：
+- **「预期变更」**（winner 未变、rounds/facts 变）：基线后有业务提交可解释，等主代码人工核对后重录。
+- **「回归」**（winner 翻转）= 红线，**严禁自行重录基线**——那是主代码的决定。体检侧只负责如实报告，附上 seed / stage / 旧→新。
+
+## 十、常见故障速查
 
 | 现象 | 根因 | 处理 |
 |---|---|---|
@@ -105,3 +128,4 @@ node tests/mutation-teeth.mjs --report
 | 契约恒绿、变异抓不到 | 变异锚点静默失效（树=干净树） | `--verify` 看命中处数 |
 | 牙齿全判「仅基线兜底」 | harness 正则与 stat-decl 文案不匹配 | 对齐 `parseBlock` 正则 |
 | 多行锚点 0 处 | harness 只逐行匹配 | 缩进区分 或 `multi:true` |
+| 开局抛「未知顶层机制 type X」 | 机制靠 import 副作用注册，入口漏 import | 见第八节，补 `import modules/XX` |
