@@ -1,4 +1,4 @@
-// V2.5.0 | 2026-10-02 第 52 轮：补第 17-19 条契约 SPIDER_TRANSFORM / LEECH_MAXHP / WEI_HEAL（commit 12a5808 补发增量字段后零障碍，全走 factType 守卫防撞车）；覆盖率 15/22 → 18/22（剩 aura/statChange/holyFlame/righteousFace 待主代码补 fact）。
+// V2.6.0 | 2026-10-02 第 53 轮（回应主代码回复）：① 修 ttl:'round' 续期口径（groupDelta 不把 round 词条到期相减），CARRY_APPLY 移出 LOOSE_IDS 走严格判据，原 198 偏差归零（实为跨步时序非数值 bug）；② 补 STAT_CHANGE（def 降防读 STAT_CHANGE_APPLY.delta，allowNeg 放开负值闸门）/ RIGHTEOUS_FACE（读攻击 fact 的 pangDefGain，跨步同 BREAK_DEF 走保守）两条契约，覆盖率 18/22 → 20/22（剩 aura/holyFlame 待口径稳定后补）。
 // 方法论首立于 2026-09-27 第 34 轮 | 「数值声明 vs 实际属性增量」逐步对照器（通用）
 //
 // 立它的原因（第 33 轮的教训，务必先读）：
@@ -71,7 +71,7 @@
 //           → 不跑契约、也不退码 1，只逐步对全体单位的 atk/def/maxHp/hp 做 FNV-1a 指纹并输出 `FINGERPRINT <hex>`。
 //             供 `tests/mutation-teeth.mjs` 判定「属性类变异是否真的改变了战斗状态」（属性变了指纹必变；
 //             日志/TEXT 类变异只改显示、不改状态，指纹不变）。
-export const VER = 'tests/stat-decl-vs-actual-check.mjs V2.5.0';
+export const VER = 'tests/stat-decl-vs-actual-check.mjs V2.6.0';
 
 import { fileURLToPath } from 'node:url';
 
@@ -110,10 +110,12 @@ const SAME_STEP_GROUPS = new Set(['fortify', 'baguaArray', 'rageOnHit', 'lionIns
 // 第 49 轮：**仅**这两条契约存在跨步错位，必须走保守判据。
 //   实测依据（40 局干净树偏差扫描，见下方 checked/mismatch 列）：
 //     BREAK_DEF    严格比对 548 条 → 偏差 7   （fact 嵌套在攻击 entries、mod 在不同子步生效）
-//     CARRY_APPLY  严格比对 267 条 → 偏差 198 （ttl:'round'，fact 回合开始发、mod 下个攻击步才加）
+//     CARRY_APPLY  严格比对 267 条 → 偏差 0   （第 53 轮修 ttl:'round' 续期口径后归零；原 198 偏差是跨步时序假阳性，非数值 bug）
 //   其余 13 条**全部 0 偏差** ⇒ 当年「一刀切保守」是被这 2 条拖累的，误伤了本可严格的 11 条。
 //   → 改为「默认严格、名单例外」：新契约自动享受严格判据；若哪天干净树出现假阳性，把它加进来即可。
-const LOOSE_IDS = new Set(['BREAK_DEF', 'CARRY_APPLY']);
+// 保守判据名单：fact 与 mod 跨步错位（fact 嵌攻击 entries / 不同子步生效），同一步 ledger 比对必然错位
+//   ⇒ 只抓整数倍超应用（翻倍），零误报。含 BREAK_DEF（破防）与 RIGHTEOUS_FACE（正义国字脸，def 加在嘲讽设置步、fact 在攻击步）。
+const LOOSE_IDS = new Set(['BREAK_DEF', 'RIGHTEOUS_FACE']);
 
 // 2026-10-02 审核线：factType 守卫。早期契约刻意「不导入枚举、靠字段形状签名」，
 //   但 commit 12a5808 给 SPIDER_TRANSFORM 补了 unitUid+atkDelta/defDelta/maxHpDelta 后，
@@ -613,6 +615,51 @@ const CONTRACTS = [
             }
             return out;
         }
+    },
+    {
+        // 第 53 轮（回应主代码③）：通用属性裁定 STAT_CHANGE（EFFECT_TYPES.STAT_CHANGE 声明通道）。
+        //   fact（core/16 L207-216）与 addMod **同 handler、同值（decl.delta）**、group:'statChange'、ttl:'permanent' ⇒ 同一步，干净树恒等。
+        //   ⚠️ delta 可正可负（atk 升 / def 降），按**带符号**声明；dir:+1 不翻转符号，
+        //     故 def 降防时 sum 为负、strict 闸门 sum>0 跳过自动上报，但其偏差仍计入 checked/mismatch 诊断（可查）。
+        id: 'STAT_CHANGE',
+        label: '属性裁定',
+        group: 'statChange',
+        dir: +1,
+        allowNeg: true,  // def 降防时声明为负，须放开严格闸门负值（见比对主循环 declaredNonZero）
+        extract(stepLog) {
+            const out = [];
+            for (const f of stepLog || []) {
+                if (!f || !f.data || f.factType !== FACT_TYPES.STAT_CHANGE_APPLY) continue;
+                const d = f.data;
+                if (typeof d.field === 'string' && typeof d.delta === 'number') {
+                    out.push({ unit: d.unitName, uid: d.unitUid || null, stat: d.field, amount: d.delta });
+                }
+            }
+            return out;
+        }
+    },
+    {
+        // 第 53 轮（回应主代码③）：正义国字脸·叠防（modules/26 L305 addMod def，ttl:'permanent'，group:'righteousFace'）。
+        //   加防量随本击 ATTACK fact 的 data.pangDefGain 带给 render/38（modules/26 L322-336 AFTER_ATTACK 写入）。
+        //   ⚠️ 跨步结构同 BREAK_DEF：def 加在「嘲讽设置步」，pangDefGain 事实发在「胖远桥攻击步」，二者不同子步
+        //      ⇒ 同一步 ledger 比对必然错位（actual=0 ↔ 声明>0）。故与 BREAK_DEF 同走保守判据（LOOSE_IDS），
+        //     只抓整数倍超应用（翻倍），零误报；非跨步的精确比对等主代码把事实与 mod 对齐到同子步再升级。
+        id: 'RIGHTEOUS_FACE',
+        label: '正义国字脸·叠防',
+        group: 'righteousFace',
+        dir: +1,
+        extract(stepLog) {
+            const out = [];
+            for (const f of stepLog || []) {
+                if (!f || !f.data || f.factType !== FACT_TYPES.ATTACK) continue;
+                const d = f.data;
+                if (typeof d.pangDefGain === 'number' && d.pangDefGain > 0 && d.attacker
+                    && typeof d.attacker.name === 'string') {
+                    out.push({ unit: d.attacker.name, uid: d.attacker.uid || null, stat: 'def', amount: d.pangDefGain });
+                }
+            }
+            return out;
+        }
     }
 ];
 
@@ -758,7 +805,11 @@ async function main() {
             if (m.group !== group) continue;
             touched = true;
             if (m.op === 'mul') mulTouched = true;
-            else if (m.ttl === 'round') { roundTouched = true; sum -= (Number(m.value) || 0); }
+            // 主代码 ② 口径（2026-10-02）：ttl:'round' 词条每回合"到期 + 同值续加"跨在相邻步，
+            //   旧口径把续期算成净 -V，与 fact 声明的稳态 +V 错位 → 198 处假阳性（实为跨步时序，非数值 bug）。
+            //   续期不参与净贡献相减：round 词条的稳态贡献只取"当前生效(added)"条目，移除(到期)忽略。
+            //   （仅 carry 走 op:'add'+ttl:round；fortify/holyFlame 是 op:'mul' 已由上方 mulTouched 处理，不受影响。）
+            else if (m.ttl === 'round') { roundTouched = true; }
             else sum -= (Number(m.value) || 0);
         }
         return touched ? { sum, mulTouched, roundTouched } : null;
@@ -904,8 +955,11 @@ async function main() {
                         //   第 49 轮用干净树偏差扫描证明只有上述 2 条真有跨步错位，其余 13 条恒等
                         //   ⇒ 对它们可以直接判「声明 ≠ 实际」，覆盖 多加 / 少加 / 完全没加 三种失效形态。
                         const strict = c.group && gd && !LOOSE_IDS.has(c.id);
+                        // 严格闸门放开负值：默认只认 sum>0（属性上升类）；allowNeg 契约（如 STAT_CHANGE 的降防）声明为负，
+                        //   须用 sum!==0 才能抓「降防被漏加/多加」（否则负值声明被闸门直接跳过 → 假绿）。
+                        const declaredNonZero = sum !== 0 && (sum > 0 || c.allowNeg);
                         if (strict) {
-                            if (sum > 0 && actual !== sum) {
+                            if (declaredNonZero && actual !== sum) {
                                 const kind = actual === 0 ? '完全没加' : (actual > sum ? `多加 ${actual - sum}` : `少加 ${sum - actual}`);
                                 stat[c.id].dup++;
                                 const msg = `[seed=${seed} stage=${stage} r${battleState.round}] ${c.label} ${unit}.${statName} 声明+${sum}(${count}条) 实际${c.dir > 0 ? '+' : '-'}${actual}（${kind}）`;
