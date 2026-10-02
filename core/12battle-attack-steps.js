@@ -1,5 +1,5 @@
-// V6.3.8 | ~29100 bytes | 2026-10-02 地面基础闪避兜底 0.03→0.05（与 01config BASE_DODGE_GROUND 同步）；承接 V6.3.7 韦一笑闪避吸血补 maxHpDelta
-export const VER = 'core/12battle-attack-steps.js V6.3.8';
+// V6.3.9 | ~29600 bytes | 2026-10-02 韦一笑闪避反击吸血补发独立 WEI_DODGE_LEECH 数值声明 fact（heal/newMaxHp/maxHpDelta，纯账本不进画面；演出仍走 dodgeFact.weiHeal）
+export const VER = 'core/12battle-attack-steps.js V6.3.9';
 
 import { CONFIG, getSkillParams, getGameData } from './01config-5v5-test.js';
 import { eventBus, EFFECT_TYPES } from '../infra/50-event-bus.js';
@@ -576,6 +576,8 @@ export function resolveDodgeEffects(declarations, unit, target, log) {
             const delta = Math.max(0, newMaxHp - Math.floor(getStat(target, 'maxHp')));
             // 2026-10-02 体检对照增量字段：decl.data 随后按引用挂到 dodgeFact.weiHeal（见上方闪避 fact 组装）
             decl.data.maxHpDelta = delta;
+            // 独立数值声明 fact（演出仍走 dodgeFact.weiHeal：34 日志行 + 39 飘字，此 fact 不进画面）
+            log.push({ factType: FACT_TYPES.WEI_DODGE_LEECH, data: { unitName: target.name, unitUid: target.uid, heal, newMaxHp, maxHpDelta: delta } });
             if (delta > 0) {
                 addMod(target, 'maxHp', { source: '韦一笑吸血', value: delta, ttl: 'permanent', group: 'weiLeech', op: 'add' });
                 refreshMaxHp(target, null, '韦一笑吸血上限提升');
