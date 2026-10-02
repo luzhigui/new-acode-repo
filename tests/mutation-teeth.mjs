@@ -1,4 +1,4 @@
-// V2.3.0 | 2026-10-02 第 52 轮：新增 A20（吸血上限提升 LEECH 处理器 maxHp 翻倍）/ A21（蛛变加攻翻倍）；验证第 52 轮新补契约 SPIDER_TRANSFORM / LEECH_MAXHP 是否真有牙。
+// V2.4.0 | 2026-10-02 第 53 轮：新增 A22（属性裁定 def 翻倍）/ A23（正义国字脸叠防 defGain 翻倍）；验证第 53 轮新补契约 STAT_CHANGE / RIGHTEOUS_FACE 是否真有牙。
 // 方法论首立于第 37/38 轮：变异牙齿测试（mutation teeth）—— 回答「规则到底有没有牙」。
 // 干什么：在**仓库内临时树** tests/.mut 里，对业务代码注入一处**已知的人工缺陷（变异）**，
 //   跑「规则回放 + 基线 + 逐步真值对照」，看体检套件**能不能报红**。
@@ -28,7 +28,7 @@
 //   1) node tests/mutation-teeth.mjs --emit-prep  > /tmp/prep.sh  &&  bash /tmp/prep.sh
 //   2) node tests/mutation-teeth.mjs --emit-run   > /tmp/run.sh   &&  bash /tmp/run.sh
 //   3) node tests/mutation-teeth.mjs --report
-export const VER = 'tests/mutation-teeth.mjs V2.3.0';
+export const VER = 'tests/mutation-teeth.mjs V2.4.0';
 
 import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
@@ -188,6 +188,19 @@ const MUTATIONS = [
       file: 'modules/20elite-skills.js',
       from: "addMod(unit, 'atk', { source: '蛛变·' + newRole, value: newStats.atk, ttl: 'permanent', group: 'spiderTransform', op: 'add' });",
       to:   "addMod(unit, 'atk', { source: '蛛变·' + newRole, value: newStats.atk * 2, ttl: 'permanent', group: 'spiderTransform', op: 'add' });" },
+    // 第 53 轮新增：验证新补契约 STAT_CHANGE / RIGHTEOUS_FACE 是否真有牙（而非死代码）。
+    //   A22 把 STAT_CHANGE 的 def 分支 addMod 实际侧 value 翻倍（fact 的 delta 不动）⇒ 实际=2×声明；
+    //     STAT_CHANGE 是 allowNeg 契约（降防声明为负），严格闸门放开负值，翻倍后 actual=-2×delta ≠ sum=-delta ⇒ 命中。
+    //   A23 把正义国字脸叠防 addMod 实际侧 defGain 翻倍（fact 的 pangDefGain 不动）⇒ 实际=2×声明；
+    //     RIGHTEOUS_FACE 走保守判据（跨步同 BREAK_DEF），翻倍 ⇒ 整数倍超应用 ⇒ 命中。
+    { id: 'A22', kind: 'ATTR', desc: '属性裁定 def 增量翻倍（STAT_CHANGE def 分支 addMod）',
+      file: 'core/16effect-handlers.js',
+      from: "addMod(decl.target, 'def', { source: decl.reason || '属性变更', value: decl.delta, ttl: 'permanent', group: 'statChange', op: 'add' });",
+      to:   "addMod(decl.target, 'def', { source: decl.reason || '属性变更', value: decl.delta * 2, ttl: 'permanent', group: 'statChange', op: 'add' });" },
+    { id: 'A23', kind: 'ATTR', desc: '正义国字脸叠防 defGain 翻倍',
+      file: 'modules/26elite-sixsects.js',
+      from: "addMod(pang, 'def', { source: '正义国字脸', value: face.defGain, ttl: 'permanent', group: 'righteousFace', op: 'add' });",
+      to:   "addMod(pang, 'def', { source: '正义国字脸', value: face.defGain * 2, ttl: 'permanent', group: 'righteousFace', op: 'add' });" },
 ];
 
 function toPosix(p) {
@@ -436,7 +449,10 @@ function parseBlock(body) {
     const changed = !!baseline.match(/回归|场与基线不一致/) || (match !== null && match < 18);
     let statTotal = 0;
     for (const line of stat.split('\n')) {
-        const m = line.match(/重复应用命中\s+(\d+)/);
+        // stat-decl 汇总行：命中时 `✗ 检出重复应用 N 处`（N>0）；干净树为 `✅ 全部数值声明…（无重复应用）`（无此行）。
+        // ⚠️ 旧正则 `重复应用命中\s+(\d+)` 与 stat-decl 实际文案「检出重复应用 N 处」不匹配，导致严格命中的契约
+        //   （如 A20/A21/A22）在 harness 里被错算成 0、误判为「仅基线兜底」—— 此 bug 会让「有牙」结论失真，故改之。
+        const m = line.match(/检出重复应用\s+(\d+)\s+处/);
         if (m) statTotal += Number(m[1]);
     }
     const fpM = fp.match(/FINGERPRINT\s+([0-9a-f]+)/);
