@@ -1,4 +1,4 @@
-// V2.5.0 | 2026-10-02 第 54 轮：新增 A24（空列光环 atk 增量翻倍，验证第 54 轮新补契约 AURA）/ A25（圣火令攻方乘率翻倍，验证新补契约 HOLY_FLAME 的 mul 乘率判据）。
+// V2.6.0 | 2026-10-02 第 55 轮：git archive 基树排除 .dsh/.trae（AI CLI 的 skill 目录被 git 跟踪，会随基树复制进每棵变异树，32 棵 × 4 文件纯白占空间）。
 // 方法论首立于第 37/38 轮：变异牙齿测试（mutation teeth）—— 回答「规则到底有没有牙」。
 // 干什么：在**仓库内临时树** tests/.mut 里，对业务代码注入一处**已知的人工缺陷（变异）**，
 //   跑「规则回放 + 基线 + 逐步真值对照」，看体检套件**能不能报红**。
@@ -28,7 +28,7 @@
 //   1) node tests/mutation-teeth.mjs --emit-prep  > /tmp/prep.sh  &&  bash /tmp/prep.sh
 //   2) node tests/mutation-teeth.mjs --emit-run   > /tmp/run.sh   &&  bash /tmp/run.sh
 //   3) node tests/mutation-teeth.mjs --report
-export const VER = 'tests/mutation-teeth.mjs V2.5.0';
+export const VER = 'tests/mutation-teeth.mjs V2.6.0';
 
 import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
@@ -283,7 +283,10 @@ async function main() {
             //   改为**零删除的覆盖式重建**：tar -x / cp -r 都是覆盖同名文件，残留的旧文件不影响判定
             //   （--emit-run 只按当前 MUTATIONS 列表跑，多余目录不会被读）。
             'mkdir -p "$MUTROOT/_base"',
-            'git -C "$REPO" archive HEAD | tar -x -C "$MUTROOT/_base"'];
+            // 第 55 轮：排除 .dsh/.trae —— AI CLI 的 skill 目录（含 SKILL.md）被 git 跟踪，
+            //   会随基树复制到每棵变异树（32 棵 × 4 文件），纯白占空间且与变异判定无关。
+            //   ⚠️ 排除必须加在 **tar 侧**：本机 git 2.55 的 `archive` 不支持 `--exclude`（实测报 unknown option）。
+            'git -C "$REPO" archive HEAD | tar --exclude=.dsh --exclude=.trae -x -C "$MUTROOT/_base"'];
         // ★ 叠加当前工作树（未提交改动）—— **必须在注入变异之前**做完，否则叠加会覆盖掉刚 sed 注入的变异。
         //   两处都必须叠加（基树 _base 叠加一次即可，变异树由 _base 拷贝而来，自动继承）：
         //   ① tests/：否则树木用 git archive HEAD 的旧测试脚本，--fingerprint 会被旧码当普通参数→NaN→死循环（第 38 轮）。
