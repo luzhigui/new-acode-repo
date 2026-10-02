@@ -1,5 +1,5 @@
-// V7.8.0 | ~38700 bytes | 2026-09-26 复制面板收编战报区（保存本局战报+播放战报文件），撤右下角浮动🎬（挡视野）
-export const VER = 'ui/68ui-controls.js V7.8.1';
+// V7.8.2 | ~38700 bytes | 2026-10-02 选关弹窗的 doInitBattle 传 freshSeed，切关后是全新随机局
+export const VER = 'ui/68ui-controls.js V7.8.2';
 
 // 2026-09-14 打断 63↔68 循环依赖：getState/setState 直接取自 infra/54（63 只做转发）
 import { getState, setState, GlobalStore, getPlayerContext } from '../infra/54-global-store.js';
@@ -593,7 +593,7 @@ export function bindStageSelectButton(currentStageGetter, getState, setState, up
             clearLogExceptFirst();
             clearAllEffects();
             setState.currentStage(stage);
-            doInitBattle(stage, getState.UI(), getState.snapshot(), getState.activeBuffs(), -1, null);
+            doInitBattle(stage, getState.UI(), getState.snapshot(), getState.activeBuffs(), -1, null, true);
             setState.UI(getState.UI());
             setState.snapshot(getState.snapshot());
             updateUI();

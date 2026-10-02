@@ -1,5 +1,5 @@
-// ~34400 bytes | V6.8.0 | 2026-09-19 从机开战改用摆位阵容垫底（不再先渲染空网格）；房主 start 捎带关卡号供从机补正关卡与标签
-export const VER = 'player/42player-core.js V6.8.1';
+// ~34700 bytes | V6.8.2 | 2026-10-02 回合间重建 battleState 带上同一颗 _rng，修第 2 回合起被 Date.now() 兜底重播、同种子跨回合不可复现
+export const VER = 'player/42player-core.js V6.8.2';
 
 import { eventBus } from '../infra/50-event-bus.js';
 import { FX_SIGNALS } from '../infra/55-fx-signals.js';
@@ -455,7 +455,9 @@ export async function playBattle() {
             }))
         });
 
-        battleState = { ally: lastStep.ally, enemy: lastStep.enemy, round: battleState.round + 1, activeBuffs: nextActiveBuffs, allAllies: battleState.allAllies };
+        // 2026-10-02 跨回合必须带上同一颗 _rng：漏带会让 11 兜底用 Date.now() 重新播种，
+        // 从第 2 回合起同种子不可复现（与 06 批量路径「同一 rng 同序列」口径对齐）
+        battleState = { ally: lastStep.ally, enemy: lastStep.enemy, round: battleState.round + 1, activeBuffs: nextActiveBuffs, allAllies: battleState.allAllies, _rng: battleState._rng };
 
         if (c.autoMode || GlobalStore.get('fastForwardActive')) {
             await clock.wait(300);
