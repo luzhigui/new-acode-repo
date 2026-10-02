@@ -1,5 +1,5 @@
-// V6.4.2 | ~48500 bytes | 2026-09-30 参数单位口径统一（收尾）：小昭·妹飞天血量阈值改按比例读取（3 处 hpThresholds[i] 去掉 /100，content 同步改 [0.7, 0.4]）；承接 V6.4.1 蝠影汲血吸血率/乾坤衍生折算/小昭·妹双连击概率改按比例读取
-export const VER = 'modules/27elite-mingjiao.js V6.4.3';
+// V6.4.4 | ~48900 bytes | 2026-10-02 体检对照补字段：LION_GROW fact 补 unitName/unitUid/atkDelta/defDelta/maxHpDelta（成长差值先落变量，addMod 与 fact 同源），lionGrow 词条增量可被逐步对照
+export const VER = 'modules/27elite-mingjiao.js V6.4.4';
 
 import { registerElite } from '../core/08-elite-registry.js';
 import { CONFIG, getSkillParams, getMechanicField } from '../core/01config-5v5-test.js';
@@ -699,9 +699,13 @@ export function createXieXunComponent() {
                     const tgtDef = spec.def + bonus.def;
                     const tgtMaxHp = spec.maxHp + bonus.maxHp;
                     // 属性只算不存：成长差值登记为永久词条；maxHp 另走 refreshMaxHp 同步（上限升则当前血等量加）
-                    addMod(cub, 'atk', { source: '幼狮成长', value: tgtAtk - summon.cub.atk, ttl: 'permanent', group: 'lionGrow', op: 'add' });
-                    addMod(cub, 'def', { source: '幼狮成长', value: tgtDef - summon.cub.def, ttl: 'permanent', group: 'lionGrow', op: 'add' });
-                    addMod(cub, 'maxHp', { source: '幼狮成长', value: tgtMaxHp - summon.cub.maxHp, ttl: 'permanent', group: 'lionGrow', op: 'add' });
+                    // 2026-10-02 差值先落变量：fact 增量字段与 addMod 入参必须同源（体检对照同一表达式）
+                    const atkDelta = tgtAtk - summon.cub.atk;
+                    const defDelta = tgtDef - summon.cub.def;
+                    const maxHpDelta = tgtMaxHp - summon.cub.maxHp;
+                    addMod(cub, 'atk', { source: '幼狮成长', value: atkDelta, ttl: 'permanent', group: 'lionGrow', op: 'add' });
+                    addMod(cub, 'def', { source: '幼狮成长', value: defDelta, ttl: 'permanent', group: 'lionGrow', op: 'add' });
+                    addMod(cub, 'maxHp', { source: '幼狮成长', value: maxHpDelta, ttl: 'permanent', group: 'lionGrow', op: 'add' });
                     refreshMaxHp(cub, null, '幼狮成长');
                     cub.name = spec.name;
                     cub.role = spec.role;
@@ -710,7 +714,7 @@ export function createXieXunComponent() {
                     cub.isLionCub = false;     // 形态标记互斥，旧形态显式清掉
                     emitEvent(cub, UNIT_EVENT_TYPES.HP_CHANGE, { hp: cub.hp, maxHp: cub.maxHp, alive: cub.alive, role: cub.role, atk: getStat(cub, 'atk'), def: getStat(cub, 'def') });
                     if (data && data.log) {
-                        data.log.push({ factType: FACT_TYPES.LION_GROW, data: { name: spec.name, pos: cub.pos, atk: tgtAtk, def: tgtDef, maxHp: tgtMaxHp } });
+                        data.log.push({ factType: FACT_TYPES.LION_GROW, data: { name: spec.name, unitName: spec.name, unitUid: cub.uid, pos: cub.pos, atk: tgtAtk, def: tgtDef, maxHp: tgtMaxHp, atkDelta, defDelta, maxHpDelta } });
                     }
                 }
             });

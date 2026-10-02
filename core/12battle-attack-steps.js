@@ -1,5 +1,5 @@
-// V6.3.6 | ~28900 bytes | 2026-09-29 参数体系收敛批 3：防御波动台词阈值 7 改读 CONFIG.DEF_WAVE_THRESHOLD
-export const VER = 'core/12battle-attack-steps.js V6.3.6';
+// V6.3.7 | ~29100 bytes | 2026-10-02 体检对照补字段：闪避反击韦一笑吸血 WEI_HEAL.data 补 maxHpDelta（随后按引用挂到 dodgeFact.weiHeal），weiLeech 词条增量可被逐步对照
+export const VER = 'core/12battle-attack-steps.js V6.3.7';
 
 import { CONFIG, getSkillParams, getGameData } from './01config-5v5-test.js';
 import { eventBus, EFFECT_TYPES } from '../infra/50-event-bus.js';
@@ -574,6 +574,8 @@ export function resolveDodgeEffects(declarations, unit, target, log) {
             const { heal, newMaxHp } = decl.data;
             // 词条化：27 传的 newMaxHp 已是"当前 maxHp+heal"的绝对值（不封顶），这里只算增量
             const delta = Math.max(0, newMaxHp - Math.floor(getStat(target, 'maxHp')));
+            // 2026-10-02 体检对照增量字段：decl.data 随后按引用挂到 dodgeFact.weiHeal（见上方闪避 fact 组装）
+            decl.data.maxHpDelta = delta;
             if (delta > 0) {
                 addMod(target, 'maxHp', { source: '韦一笑吸血', value: delta, ttl: 'permanent', group: 'weiLeech', op: 'add' });
                 refreshMaxHp(target, null, '韦一笑吸血上限提升');
