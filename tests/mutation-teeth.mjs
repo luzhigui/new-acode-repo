@@ -1,4 +1,5 @@
-// V2.0.0 | 2026-09-27 第 37 轮：变异牙齿测试（mutation teeth）—— 回答「这 30 条规则到底有没有牙」。
+// V2.2.0 | 2026-10-02 审核线：修 A15 锚点（modules/27 V6.4.4 成长差值先落变量，旧内联串 0 匹配静默失效；新锚点只改 addMod 实际侧 L707，fact 同源声明不动）；补 bump 版本号（A16-A19/T6/T7 加入后 VER 漏更新）。
+// 方法论首立于第 37/38 轮：变异牙齿测试（mutation teeth）—— 回答「规则到底有没有牙」。
 // 干什么：在**仓库内临时树** tests/.mut 里，对业务代码注入一处**已知的人工缺陷（变异）**，
 //   跑「规则回放 + 基线 + 逐步真值对照」，看体检套件**能不能报红**。
 // 为什么要有它：
@@ -27,7 +28,7 @@
 //   1) node tests/mutation-teeth.mjs --emit-prep  > /tmp/prep.sh  &&  bash /tmp/prep.sh
 //   2) node tests/mutation-teeth.mjs --emit-run   > /tmp/run.sh   &&  bash /tmp/run.sh
 //   3) node tests/mutation-teeth.mjs --report
-export const VER = 'tests/mutation-teeth.mjs V2.1.0';
+export const VER = 'tests/mutation-teeth.mjs V2.2.0';
 
 import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
@@ -106,10 +107,12 @@ const MUTATIONS = [
       file: 'modules/27elite-mingjiao.js',
       from: "{ source: '振奋', value: gain,",
       to:   "{ source: '振奋', value: gain * 2," },
+    // 2026-10-02 审核线修锚点：modules/27 V6.4.4 成长差值先落变量（L704 defDelta），旧内联串 0 匹配、变异静默失效。
+    //   新锚点只改 addMod 实际侧（L707）；不能改 L704 的 defDelta——L717 fact 同源引用它，改了声明/实际一起翻、对照器看不出。
     { id: 'A15', kind: 'ATTR', desc: '幼狮成长防御增量翻倍',
       file: 'modules/27elite-mingjiao.js',
-      from: "{ source: '幼狮成长', value: tgtDef - summon.cub.def,",
-      to:   "{ source: '幼狮成长', value: (tgtDef - summon.cub.def) * 2," },
+      from: "{ source: '幼狮成长', value: defDelta, ttl: 'permanent', group: 'lionGrow', op: 'add' }",
+      to:   "{ source: '幼狮成长', value: defDelta * 2, ttl: 'permanent', group: 'lionGrow', op: 'add' }" },
     // 第 48 轮新增：--scan-groups 查出 rangedGrowth 是「词条数第 6 多的未覆盖 group」（540 条），
     //   此前体检完全没有变异在测它 —— 属于「既没契约也没变异」的双重盲区。补此变异证明新契约有牙。
     { id: 'A16', kind: 'ATTR', desc: '远程成长加攻翻倍',
