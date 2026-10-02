@@ -1,5 +1,5 @@
-// V6.5.0 | ~18600 bytes | 2026-09-30 参数单位口径统一（收尾）：miss 系 5 个未命中率常量与 WARRIOR_BREAK_CHANCE_PER_DEF 改按「1 = 100%」存（读点 core/03 ×100 还原，对外契约仍是百分点）；getSkillDesc 回落分支删「字段名含 ratio 就换算」的猜测，改显式白名单 PCT_PARAM_KEYS（修反击 dmgRatio 0.6 被显示成「伤害×60」、周芷若强化档 lostHpRatio 0.015 被显示成 0.015%）。承接 V6.4.0 参数单一真值源收口（DESC_TRUTH 映射表 + resolveDescValue，技能说明 {占位符} 一律取 mechanics 真值）。
-export const VER = 'core/01config-5v5-test.js V6.5.0';
+// V6.5.1 | ~18600 bytes | 2026-10-02 地面单位基础闪避 BASE_DODGE_GROUND 3%→5%（飞行 15% 不动）
+export const VER = 'core/01config-5v5-test.js V6.5.1';
 
 import { ROLE_TYPES } from '../infra/56-battle-enums.js';
 
@@ -243,7 +243,7 @@ const CONFIG = {
     // 小昭形态骰（29battle-init 用）：默认 50% 为「小昭·姊」；图鉴选 xz 偏向姊、选 xm 偏向妹
     XIAO_ZHAO_SISTER_PROB: { default: 0.5, xz: 0.85, xm: 0.15 },
     BASE_DODGE_FLY: 0.15,
-    BASE_DODGE_GROUND: 0.03,
+    BASE_DODGE_GROUND: 0.05,
     DODGE_REBOUND_RATIO: 0.5,
     WARRIOR_BREAK_DEF: 2,
     // 战士破防分档表（2026-09-14 参数三源收敛：原为 03battle-utils 内联魔法数字）
