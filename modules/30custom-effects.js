@@ -1,19 +1,19 @@
-// V1.0.1 | ~1400 bytes | 2026-09-06 注册表下沉 core/18，本文件仅注册 damageReflect
-export const VER = 'modules/30custom-effects.js V1.0.1';
+// V1.0.2 | ~4300 bytes | 2026-10-02 dotTick/damageReflect 注册改用 MECHANIC_TYPES 枚举（配合 core/15 mechanics type 安装期校验）
+export const VER = 'modules/30custom-effects.js V1.0.2';
 
 import { registerSettlementHook, EFFECT_TYPES, EXECUTION_LAYER as L } from '../infra/50-event-bus.js';
 import { registerMechanicHandler } from '../core/18mechanic-registry.js';
-import { SIGNAL_TYPES, FACT_TYPES } from '../infra/56-battle-enums.js';
+import { SIGNAL_TYPES, FACT_TYPES, MECHANIC_TYPES } from '../infra/56-battle-enums.js';
 
 // 机制注册表已下沉 core/18，本文件只负责注册具体机制
 export { registerMechanicHandler, hasMechanicHandler, installMechanicByType } from '../core/18mechanic-registry.js';
 
 // dotTick：通用 DOT tick 原语（每回合按剩余数取档扣血）。
-// 声明形态：
+// 声明形态（type 值见 MECHANIC_TYPES.DOT_TICK）：
 //   { type: "dotTick", stateKey: "_xuanmingPoison", factKey: "XUAN_MING_DOT", reason: "玄冥中毒", sourceName: "鹿杖客" }
 // stateKey 指向的状态结构：{ remaining: number, dotPercents: [..] }
 //   —— percentages 由施加端（onHitEffects: poison）写入 state，tick 端只负责按 remaining 取档。
-registerMechanicHandler('dotTick', {
+registerMechanicHandler(MECHANIC_TYPES.DOT_TICK, {
     install({ eventBus, decl }) {
         const factType = FACT_TYPES[decl.factKey];
         if (!factType) throw new Error(`[dotTick] 未知 factKey: ${decl.factKey}`);
@@ -51,7 +51,7 @@ registerMechanicHandler('dotTick', {
 // damageReflect：反伤护盾，纯数据接入
 // 数据源：gameData.characters["反伤弟子"].mechanics
 // 反伤弟子受击后反弹 30% 给攻击者
-registerMechanicHandler('damageReflect', {
+registerMechanicHandler(MECHANIC_TYPES.DAMAGE_REFLECT, {
     install({ eventBus, decl }) {
         // 反弹率唯一来源：内容表 characters.反伤弟子.mechanics.damageReflect.reflectRatio（1 = 100%）
         const ratio = decl && decl.reflectRatio;

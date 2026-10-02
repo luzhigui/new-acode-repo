@@ -1,15 +1,53 @@
-// V6.3.1 | ~15000 bytes | 2026-09-29 参数体系收敛批 3：成昆幻影伪装 healRatio/baseChance/per10pctLost 去掉字面兜底，直读 mechanics 声明
-export const VER = 'core/15-skill-mechanisms.js V6.3.1';
+// V6.4.0 | ~22300 bytes | 2026-10-02 mechanics type 静默失效治理：安装期交叉校验（顶层 type 必须在 core/18 注册表或本地安装器名单、四类内层元素 type 必须在分发名单，查不到开局即抛错）；全部分发比较改用 infra/56 的 MECHANIC_TYPES / MECHANIC_EFFECT_TYPES 枚举
+export const VER = 'core/15-skill-mechanisms.js V6.4.0';
 
 import { EXECUTION_LAYER as L, EFFECT_TYPES, registerSettlementHook } from '../infra/50-event-bus.js';
 import { CONFIG } from './01config-5v5-test.js';
 import { registerDodgeRule } from './12battle-attack-steps.js';
 import { emitEvent, applyStatChange, getBattleRng } from './13battle-shared.js';
 import { fmtHp } from '../infra/51-core-utils.js';
-import { FACT_TYPES, UNIT_EVENT_TYPES, CAMP_TYPES, SIGNAL_TYPES } from '../infra/56-battle-enums.js';
-import { installMechanicByType } from './18mechanic-registry.js';
+import { FACT_TYPES, UNIT_EVENT_TYPES, CAMP_TYPES, SIGNAL_TYPES, MECHANIC_TYPES, MECHANIC_EFFECT_TYPES } from '../infra/56-battle-enums.js';
+import { installMechanicByType, hasMechanicHandler } from './18mechanic-registry.js';
 import { canBeTargeted } from './03battle-utils.js';
 import { watchUnit, unwatchUnit } from './19unit-watch.js';
+
+// 本地安装器承接的顶层机制 type（不经 core/18 注册表）；其余顶层 type 必须已注册。
+const LOCAL_MECHANIC_TYPES = new Set([
+    MECHANIC_TYPES.LINK_ATTACK,
+    MECHANIC_TYPES.FOLLOW_ATTACK,
+    MECHANIC_TYPES.PHANTOM_DISGUISE
+]);
+
+// 四类内层容器允许的元素 type 名单（值来自 infra/56 枚举，JSON 侧字符串由安装期校验兜）。
+const LOCAL_EFFECT_TYPES = Object.freeze({
+    onHitEffects: new Set(Object.values(MECHANIC_EFFECT_TYPES.ON_HIT)),
+    beforeDamageEffects: new Set(Object.values(MECHANIC_EFFECT_TYPES.BEFORE_DAMAGE)),
+    attributeMods: new Set(Object.values(MECHANIC_EFFECT_TYPES.ATTRIBUTE_MODS)),
+    dodgeRules: new Set(Object.values(MECHANIC_EFFECT_TYPES.DODGE_RULES))
+});
+
+// 安装期交叉校验：数据声明的每个 type 都必须有人接。
+// 顶层 type：core/18 注册表（modules/26、30）或上面的本地安装器名单；
+// 内层元素：必须落在所属容器的分发名单内。任一查不到立即抛错——
+// 漏注册/改名漏跟必须在开局暴露，禁止机制静默失效。
+function validateMechanicDeclarations(declarations) {
+    for (const decl of declarations) {
+        if (!decl) continue;
+        if (decl.type && !LOCAL_MECHANIC_TYPES.has(decl.type) && !hasMechanicHandler(decl.type)) {
+            throw new Error(`[core/15] 未知顶层机制 type "${decl.type}"（角色 ${decl.name}）：未在 core/18 注册，也不在本地安装器名单内`);
+        }
+        for (const [container, allow] of Object.entries(LOCAL_EFFECT_TYPES)) {
+            const arr = decl[container];
+            if (!Array.isArray(arr)) continue;
+            for (const el of arr) {
+                const t = el && el.type;
+                if (typeof t !== 'string' || !allow.has(t)) {
+                    throw new Error(`[core/15] 未知内层效果 type "${t}"（角色 ${decl.name} 的 ${container}）：不在 core/15 分发名单内`);
+                }
+            }
+        }
+    }
+}
 
 // 成昆模仿观察 token：chengkunUid → watcher token
 const _phantomWatchTokens = new Map();
@@ -34,6 +72,8 @@ function registerPhantomWatcher(chengkun, target, allySide) {
 }
 
 export function installDeclaredSkills(eventBus, A, B, log, declarations) {
+    // 安装期先校验全部 type 都有人接，再登记任何 hook（fail-fast，不留半装状态）
+    validateMechanicDeclarations(declarations);
     for (const decl of declarations) {
         if (!decl || !decl.name) continue;
         installTargetRule(eventBus, A, B, decl);
@@ -45,10 +85,16 @@ export function installDeclaredSkills(eventBus, A, B, log, declarations) {
     installPhantomDisguise(eventBus, A, B, declarations);
     installLinkAttack(eventBus, declarations);
     installFollowAttack(eventBus, declarations);
-    // 带 type 的声明（chainClaw / kuLian / xinHun / xingFen / phantomDisguise / damageReflect …）
+    // 带 type 的声明（chainClaw / kuLian / xinHun / xingFen / dotTick / damageReflect …）
     // 走机制注册表：具体实现由 modules 侧 registerMechanicHandler 提供，core 只负责转发。
+    // 本地安装器承接的 type（linkAttack / followAttack / phantomDisguise）不进注册表。
     for (const decl of declarations) {
-        if (decl && decl.type) installMechanicByType(eventBus, decl.type, A, B, log, decl);
+        if (!decl || !decl.type) continue;
+        if (LOCAL_MECHANIC_TYPES.has(decl.type)) continue;
+        if (!hasMechanicHandler(decl.type)) {
+            throw new Error(`[core/15] 未知机制 type "${decl.type}"（角色 ${decl.name}）：未注册，也不在本地名单内`);
+        }
+        installMechanicByType(eventBus, decl.type, A, B, log, decl);
     }
 }
 
@@ -99,17 +145,17 @@ function submitBeforeDamageEffects(data, decls) {
     for (const decl of decls) {
         if (data.unit.name !== decl.name) continue;
         for (const eff of decl.beforeDamageEffects) {
-            if (eff.type === 'ignoreDef') {
+            if (eff.type === MECHANIC_EFFECT_TYPES.BEFORE_DAMAGE.IGNORE_DEF) {
                 data.declarations.push({ type: EFFECT_TYPES.IGNORE_DEF, value: eff.ratio, source: data.unit });
-            } else if (eff.type === 'damageMultiplierIfPoisoned') {
+            } else if (eff.type === MECHANIC_EFFECT_TYPES.BEFORE_DAMAGE.DAMAGE_MULTIPLIER_IF_POISONED) {
                 if (data.target.state._xuanmingPoison && data.target.state._xuanmingPoison.remaining > 0) {
                     data.declarations.push({ type: EFFECT_TYPES.DMG_MULTIPLIER, value: 1 + eff.bonus, source: data.unit, label: '鹿角杖法' });
                 }
-            } else if (eff.type === 'bonusLostHp') {
+            } else if (eff.type === MECHANIC_EFFECT_TYPES.BEFORE_DAMAGE.BONUS_LOST_HP) {
                 const lostHp = data.unit.maxHp - data.unit.hp;
                 const bonus = Math.floor(lostHp * eff.ratio);
                 if (bonus > 0) data.declarations.push({ type: EFFECT_TYPES.BONUS_DMG, value: bonus, source: data.unit, label: eff.label || '额外伤害' });
-            } else if (eff.type === 'bonusTargetCurrentHp') {
+            } else if (eff.type === MECHANIC_EFFECT_TYPES.BEFORE_DAMAGE.BONUS_TARGET_CURRENT_HP) {
                 const trueDmg = Math.floor(data.target.hp * eff.ratio);
                 if (trueDmg > 0) data.declarations.push({ type: EFFECT_TYPES.BONUS_DMG, value: trueDmg, source: data.unit, label: eff.label || '额外伤害' });
             }
@@ -134,7 +180,7 @@ function installAttributeModifiers(A, B, decl) {
         : A.find(u => u.name === decl.name && u.alive);
     if (!target) return;
     for (const mod of decl.attributeMods) {
-        if (mod.type === 'fortifyIncrementMul') {
+        if (mod.type === MECHANIC_EFFECT_TYPES.ATTRIBUTE_MODS.FORTIFY_INCREMENT_MUL) {
             Object.assign(target.state, { _fortifyIncrement: CONFIG.FORTIFY_INCREMENT * mod.mult, _fortifyCap: CONFIG.FORTIFY_CAP * mod.mult });
         }
     }
@@ -149,20 +195,20 @@ function submitOnHitEffects(data, onHitDecls) {
     for (const decl of onHitDecls) {
         if (unit.name !== decl.name) continue;
         for (const eff of decl.onHitEffects) {
-            if (eff.type === 'leech') {
+            if (eff.type === MECHANIC_EFFECT_TYPES.ON_HIT.LEECH) {
                 const lostPct = (unit.maxHp - unit.hp) / unit.maxHp;
                 const ratio = eff.minRatio + (eff.maxRatio - eff.minRatio) * lostPct;
                 const heal = Math.max(1, Math.floor(dmg * ratio));
                 const newMaxHp = unit.maxHp + heal;
                 if (!data.declarations) data.declarations = [];
                 data.declarations.push({ type: EFFECT_TYPES.LEECH, value: heal, source: unit, maxHp: newMaxHp, factType: FACT_TYPES.WEI_LEECH, factData: { unitName: unit.name, heal, newMaxHp: Math.floor(newMaxHp), unitUid: unit.uid } });
-            } else if (eff.type === 'healMaxHpPct') {
+            } else if (eff.type === MECHANIC_EFFECT_TYPES.ON_HIT.HEAL_MAX_HP_PCT) {
                 const heal = Math.min(Math.floor(unit.maxHp * eff.pct), unit.maxHp - unit.hp);
                 if (heal > 0) {
                     if (!data.declarations) data.declarations = [];
                     data.declarations.push({ type: EFFECT_TYPES.HEAL, value: heal, source: unit, factType: FACT_TYPES.NINE_YANG_HEAL, factData: { unitName: unit.name, heal, hpBefore: fmtHp(unit.hp), hpAfter: fmtHp(unit.hp + heal), unitUid: unit.uid } });
                 }
-            } else if (eff.type === 'poison') {
+            } else if (eff.type === MECHANIC_EFFECT_TYPES.ON_HIT.POISON) {
                 Object.assign(target.state, { _xuanmingPoison: { remaining: eff.duration, dotPercents: [...eff.dotPercents] } });
                 const poisonFact = { factType: FACT_TYPES.XUAN_MING_POISONED, data: { attackerName: unit.name, targetName: target.name, dotPercents: eff.dotPercents } };
                 if (data.log) {
@@ -175,7 +221,7 @@ function submitOnHitEffects(data, onHitDecls) {
                         data.log.push(poisonFact);
                     }
                 }
-            } else if (eff.type === 'bonusLostHp') {
+            } else if (eff.type === MECHANIC_EFFECT_TYPES.ON_HIT.BONUS_LOST_HP) {
                 const lostHp = unit.maxHp - unit.hp;
                 const bonus = Math.floor(lostHp * eff.ratio);
                 if (bonus > 0) {
@@ -265,7 +311,7 @@ function submitPhantomDisguiseTarget(data, decls) {
 }
 
 function installPhantomDisguise(eventBus, A, B, declarations) {
-    const decls = declarations.filter(d => d && d.type === 'phantomDisguise');
+    const decls = declarations.filter(d => d && d.type === MECHANIC_TYPES.PHANTOM_DISGUISE);
     if (decls.length === 0) return;
     // 每回合重新登记已有模仿的观察（clearAllWatchers 已在上游清空，且 A/B 每回合是新克隆）
     const chengkun = B.find(u => u.isChengKun && u.alive && u.state._phantomTarget);
@@ -323,7 +369,7 @@ function submitLinkAttack(data, decls) {
 }
 
 function installLinkAttack(eventBus, declarations) {
-    const decls = declarations.filter(d => d && d.type === 'linkAttack');
+    const decls = declarations.filter(d => d && d.type === MECHANIC_TYPES.LINK_ATTACK);
     if (decls.length === 0) return;
     registerSettlementHook({
         when: SIGNAL_TYPES.AFTER_ATTACK,
@@ -360,7 +406,7 @@ function submitFollowAttack(data, decls) {
 }
 
 function installFollowAttack(eventBus, declarations) {
-    const decls = declarations.filter(d => d && d.type === 'followAttack');
+    const decls = declarations.filter(d => d && d.type === MECHANIC_TYPES.FOLLOW_ATTACK);
     if (decls.length === 0) return;
     registerSettlementHook({
         when: SIGNAL_TYPES.AFTER_ATTACK,
@@ -372,7 +418,7 @@ function installFollowAttack(eventBus, declarations) {
 function installDodgeRules(decl) {
     if (!decl.dodgeRules || decl.dodgeRules.length === 0) return;
     for (const rule of decl.dodgeRules) {
-        if (rule.type === 'lostHpPercent') {
+        if (rule.type === MECHANIC_EFFECT_TYPES.DODGE_RULES.LOST_HP_PERCENT) {
             registerDodgeRule((unit) => {
                 if (unit.name !== decl.name || !unit.alive) return 0;
                 const lostPct = (unit.maxHp - unit.hp) / unit.maxHp;

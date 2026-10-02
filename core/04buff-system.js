@@ -1,5 +1,5 @@
-// V6.2.5 | ~15700 bytes | 2026-10-02 applyHolyFlameBonus 增加 log 透传参数（供 core/14 发 HOLY_FLAME_APPLY 数值声明 fact）
-export const VER = 'core/04buff-system.js V6.2.5';
+// V6.2.6 | ~15900 bytes | 2026-10-02 流星赶月加深 factData 补 targetUid（render/38 据此产 DAMAGE_FLOAT 掉血飘字，机制零改动）
+export const VER = 'core/04buff-system.js V6.2.6';
 import {
     applyFortifyDef_Normal, applyFortifyDef_Sister, applyFortifyDef_Brother,
     applyCloudBodyDodge_Normal, applyCloudBodyDodge_Sister, applyCloudBodyDodge_Brother,
@@ -189,7 +189,7 @@ export function submitMeteorShowerDeclaration(data) {
     const bonusDmg = Math.floor(dmg * C.BUFFS.meteorShower.bonusRatio);
     if (!data.declarations) data.declarations = [];
     data.declarations.push({ type: EFFECT_TYPES.STAT_CHANGE, field: 'def', delta: -(C.BUFFS.meteorShower.mainDefReduce || 2), target, reason: '流星赶月', logText: null });
-    data.declarations.push({ type: EFFECT_TYPES.BONUS_DMG, value: bonusDmg, target, buffType: BUFF_SUBTYPES.METEOR_BONUS, factType: FACT_TYPES.METEOR_SHOWER_MAIN, factData: { label, targetName: target.name, bonusDmg, defReduce: C.BUFFS.meteorShower.mainDefReduce || 2 } });
+    data.declarations.push({ type: EFFECT_TYPES.BONUS_DMG, value: bonusDmg, target, buffType: BUFF_SUBTYPES.METEOR_BONUS, factType: FACT_TYPES.METEOR_SHOWER_MAIN, factData: { label, targetName: target.name, targetUid: target.uid, bonusDmg, defReduce: C.BUFFS.meteorShower.mainDefReduce || 2 } });
     const splashDmg = Math.floor(dmg * C.BUFFS.meteorShower.splashRatio);
     const adjPositions = getAdjacentPositions(target.pos);
     const splashSide = target.camp === unit.camp ? allySide : enemySide;

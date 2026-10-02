@@ -1,5 +1,5 @@
-// V6.0.3 | ~16900 bytes | 2026-09-29 韦一笑吸血技能改名：寒冰掌 → 蝠影汲血（技能键 coldPalm → bloodSiphon，与玄冥神掌主题解耦）
-export const VER = 'ui/62ui-render-5v5-test.js V6.0.3';
+// V6.0.4 | ~17400 bytes | 2026-10-02 详情面板 buff 按单位阵营过滤：此前敌方面板也拿明教 activeBuffs 去算，虚显示「流云身法」等明教 buff（引擎 core/11 本就按 b.target 分边，战斗数值无误，纯面板错）
+export const VER = 'ui/62ui-render-5v5-test.js V6.0.4';
 
 import { getSkillDesc } from '../core/01config-5v5-test.js';
 import { getStat } from '../core/13battle-shared.js';
@@ -123,7 +123,13 @@ function updateDetailPopupContent() {
     if (!latestUnit) { closeDetailPopup(); return; }
     detailPopupUnit = latestUnit;
     const u = latestUnit;
-    let holyFlameBuffs = activeBuffs.filter(b => {
+    // 2026-10-02 面板阵营口径：每个单位只认自己阵营的团队 buff（b.target 定归属，无 target 的老数据归明教），
+    //   与 render/32 格子图标、core/11 引擎分边同源。sameCampTeam 供闪避姐姐强化/迷惑等「查同阵营队伍」的逻辑使用。
+    const sameCampTeam = u.camp === CAMP_TYPES.ENEMY ? enemyTeam : allyTeam;
+    const unitCampBuffs = activeBuffs.filter(b => u.camp === CAMP_TYPES.ALLY
+        ? (b.target === CAMP_TYPES.ALLY || !b.target)
+        : b.target === u.camp);
+    let holyFlameBuffs = unitCampBuffs.filter(b => {
         if (b.key !== BUFF_TYPES.HOLY_FLAME) return false;
         const cols = b.cols || (b.col != null ? [b.col] : []);
         const rows = b.rows || (b.row != null ? [b.row] : []);
@@ -131,7 +137,7 @@ function updateDetailPopupContent() {
         const unitRow = Math.ceil(u.pos / 3);
         return cols.includes(unitCol) || rows.includes(unitRow);
     });
-    let unitBuffs = activeBuffs.filter(b => b.key !== BUFF_TYPES.HOLY_FLAME && isUnitBenefitedByBuff(u, b.key, allyTeam, doubleStrikeUid, activeBuffs));
+    let unitBuffs = unitCampBuffs.filter(b => b.key !== BUFF_TYPES.HOLY_FLAME && isUnitBenefitedByBuff(u, b.key, sameCampTeam, doubleStrikeUid, unitCampBuffs));
     if (holyFlameBuffs.length > 0) {
         unitBuffs.push({ key: BUFF_TYPES.HOLY_FLAME, name: '圣火令', icon: '🔥', remaining: holyFlameBuffs[0].remaining });
     }
@@ -159,7 +165,7 @@ function updateDetailPopupContent() {
             <span style="color:#888;">角色</span><span>${u.role} M${u.m}</span>
             <span style="color:#888;">站位</span><span>${!u.alive ? '已阵亡' : (u.pos || '?') + '号位'}</span>
             <span style="color:#888;">血量</span><span style="color:${hpColor};font-weight:bold;">${fmtHp(u.hp)} / ${Math.floor(u.maxHp)} (${hpPct}%)</span>
-            <span style="color:#888;">闪避</span><span>${(() => { const db = getDodgeBreakdown(u, activeBuffs, allyTeam); return db.combined + '%' + (db.sources.length > 0 ? ' (' + db.sources.map(s => s.label + '+' + s.value + '%').join(' ') + ')' : ''); })()}</span>
+            <span style="color:#888;">闪避</span><span>${(() => { const db = getDodgeBreakdown(u, unitCampBuffs, sameCampTeam); return db.combined + '%' + (db.sources.length > 0 ? ' (' + db.sources.map(s => s.label + '+' + s.value + '%').join(' ') + ')' : ''); })()}</span>
             <span style="color:#888;">未命中</span><span>${(() => { const mb = getMissBreakdown(u, allyTeam, enemyTeam); return mb.total + '%' + (mb.sources.length > 0 ? ' (' + mb.sources.map(s => s.label + (s.value >= 0 ? '+' : '') + s.value + '%').join(' ') + ')' : ''); })()}</span>
             <span style="color:#888;">攻击</span><span>${renderStatDetail(u, 'atk')}</span>
             <span style="color:#888;">防御</span><span>${renderStatDetail(u, 'def')}</span>

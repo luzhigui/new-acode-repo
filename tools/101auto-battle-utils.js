@@ -1,6 +1,5 @@
-// V6.3.0 | 2026-09-27 分片 300→25 场：原粒度下最后只剩 1-2 片在跑，长尾拖慢整体；细片才能喂满 worker 池
-// V6.2.0 | ~3900 bytes | 2026-09-24 战斗改走 116 Worker 并行（kind:'hex'，核数-1 池），口径与 108 仪表盘统一；删除本地坏死循环（原 runBattleCore 全仓库无定义，一跑即 ReferenceError）
-export const VER = 'tools/101auto-battle-utils.js V6.3.0';
+// V6.3.1 | ~4100 bytes | 2026-10-02 补 import modules/30custom-effects（dotTick/damageReflect 顶层副作用注册），战斗实际在 116 worker 跑，装配口径与其保持一致
+export const VER = 'tools/101auto-battle-utils.js V6.3.1';
 
 import { SeededRNG } from '../infra/51-core-utils.js';
 import { initBattleTeams } from '../modules/29battle-init.js';
@@ -9,6 +8,7 @@ import '../infra/54-global-store.js';
 import '../modules/25elite-imperial.js';
 import '../modules/26elite-sixsects.js';
 import '../modules/27elite-mingjiao.js';
+import '../modules/30custom-effects.js';   // 2026-10-02 机制注册副作用（dotTick/damageReflect），与 116 worker 装配口径一致
 
 // 纯数据快照生成器
 export function generateSnapshot(currentStage = 1, rng = new SeededRNG(Date.now())) {

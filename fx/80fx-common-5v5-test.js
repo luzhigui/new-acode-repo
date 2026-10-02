@@ -1,5 +1,5 @@
-// V6.2.1 | ~22500 bytes | 2026-10-02 飘字图标补齐：掉血加 💥 前缀；showDefBuffFloat 文案改按符号拼（加防/破防共用，支持负数）
-export const VER = 'fx/80fx-common-5v5-test.js V6.2.1';
+// V6.2.2 | ~23000 bytes | 2026-10-02 showDamageFloat 加同单位短时错位（同 heal 飘字方案）：主伤害与流星赶月加深/溅射在近窗内连飘时不再完全重叠
+export const VER = 'fx/80fx-common-5v5-test.js V6.2.2';
 
 import { CAMP_TYPES } from '../infra/56-battle-enums.js';
 import { snapshotUnitCell } from './90fx-ref-manager.js';
@@ -71,13 +71,25 @@ export function showDanmaku(unit, text) {
 
 function createDmgFloatEl() { let d = document.createElement('div'); d.className = 'dmg-float'; return d; }
 initPool('dmgFloat', createDmgFloatEl);
+// 2026-10-02 同单位掉血飘字短时错位（与 healFloat 同方案）：主攻击数字与流星加深等 afterText 数字近窗连飘时分层上移
+const _dmgFloatStack = new Map();
+const DMG_STACK_WINDOW = 900;   // ms：同单位在此窗口内的第 N 条上移
+const DMG_STACK_MAX = 3;        // 最多错 3 层，第 4 条回到原位
+const DMG_STACK_STEP = 20;      // 每层上移像素
 export function showDamageFloat(unit, dmg) {
     const rect = snapshotUnitCell(unit);
     if (!rect) return;
+    const now = Date.now();
+    let rec = _dmgFloatStack.get(unit.uid);
+    if (!rec || now - rec.lastAt > DMG_STACK_WINDOW) rec = { count: 0, lastAt: now };
+    rec.count = (rec.count % DMG_STACK_MAX) + 1;
+    rec.lastAt = now;
+    _dmgFloatStack.set(unit.uid, rec);
+    const stackOffset = (rec.count - 1) * DMG_STACK_STEP;
     acquireFromPool('dmgFloat', (dmgEl) => {
         dmgEl.textContent = '💥-'+dmg;   // 2026-10-02 掉血补图标，与 ⚔攻/🛡防/❤回血 凑齐四类
         dmgEl.style.right=(window.innerWidth-rect.right+4)+'px';
-        dmgEl.style.top=(rect.top-4)+'px';
+        dmgEl.style.top=(rect.top-4-stackOffset)+'px';
     }, 1400);
 }
 

@@ -1,8 +1,8 @@
-// V6.15.2 | ~47100 bytes | 2026-10-02 胖远桥·年轻气盛打歪倍率 1.5→2.0（配置 content 5.6.20，函数说明注释同步）
-export const VER = 'modules/26elite-sixsects.js V6.15.2';
+// V6.15.3 | ~47700 bytes | 2026-10-02 宋青书四机制注册与 xinHun 数据查找改用 MECHANIC_TYPES 枚举（配合 core/15 mechanics type 安装期校验）
+export const VER = 'modules/26elite-sixsects.js V6.15.3';
 import { registerElite } from '../core/08-elite-registry.js';
 import { CONFIG, getSkillParams, getGameData } from '../core/01config-5v5-test.js';
-import { SIGNAL_TYPES, FACT_TYPES, BUFF_TYPES, CAMP_TYPES, ROLE_TYPES } from '../infra/56-battle-enums.js';
+import { SIGNAL_TYPES, FACT_TYPES, BUFF_TYPES, CAMP_TYPES, ROLE_TYPES, MECHANIC_TYPES } from '../infra/56-battle-enums.js';
 import { applyStatChange, addMod, getStat, getBattleRng, resolvePushOrStun, refreshMaxHp } from '../core/13battle-shared.js';
 import { eventBus, EFFECT_TYPES, EXECUTION_LAYER as L } from '../infra/50-event-bus.js';
 import { canBeTargeted } from '../core/03battle-utils.js';
@@ -510,9 +510,9 @@ function checkKuLian(allyTeam) {
 }
 
 // 快乐回血：每层按 healPct 回一次，层数推进到下一档。
-// levels 真值唯一来源：宋青书 mechanics 里 type='xinHun' 的 healLevels（批 1 已删 skills.params 死副本）。
+// levels 真值唯一来源：宋青书 mechanics 里 type=MECHANIC_TYPES.XIN_HUN 的 healLevels（批 1 已删 skills.params 死副本）。
 function tickKuaiLeHeal(allUnits, log, declarations) {
-    const xinHunMech = (getGameData()?.characters?.['宋青书']?.mechanics || []).find(m => m && m.type === 'xinHun');
+    const xinHunMech = (getGameData()?.characters?.['宋青书']?.mechanics || []).find(m => m && m.type === MECHANIC_TYPES.XIN_HUN);
     const levels = xinHunMech?.healLevels;
     if (!levels) throw new Error('缺技能参数: 宋青书.mechanics.xinHun.healLevels');
     allUnits.forEach(unit => {
@@ -561,7 +561,7 @@ function consumeXingFen(attacker) {
 }
 
 // 机制① 九阴白骨爪连锁
-registerMechanicHandler('chainClaw', {
+registerMechanicHandler(MECHANIC_TYPES.CHAIN_CLAW, {
     install({ eventBus, decl }) {
         eventBus.on(SIGNAL_TYPES.AFTER_ATTACK, L.AFTER_ATTACK.CLAW, (data) => {
             const { unit, target, dmg, log, allySide, enemySide } = data;
@@ -619,7 +619,7 @@ registerMechanicHandler('chainClaw', {
 });
 
 // 机制② 苦练：全队永久属性加成，宋青书双倍；周芷若缺席时享有优先出手
-registerMechanicHandler('kuLian', {
+registerMechanicHandler(MECHANIC_TYPES.KU_LIAN, {
     install({ eventBus, decl }) {
         const s = { atkBonus: decl.atkBonus, defBonus: decl.defBonus, hpBonus: decl.hpBonus };
         eventBus.on(SIGNAL_TYPES.ON_ROUND_START, L.ROUND_START.KULIAN_BUFF, (data) => {
@@ -656,7 +656,7 @@ registerMechanicHandler('kuLian', {
 });
 
 // 机制③ 新婚：宋青书攻击后扣周芷若血、叠快乐层、自身永久减上限（性奋代价）
-registerMechanicHandler('xinHun', {
+registerMechanicHandler(MECHANIC_TYPES.XIN_HUN, {
     install({ eventBus, decl }) {
         eventBus.on(SIGNAL_TYPES.AFTER_DAMAGE_APPLIED, L.AFTER_DAMAGE_APPLIED.XINGFEN, (data) => {
             const { unit, allySide, log } = data;
@@ -684,7 +684,7 @@ registerMechanicHandler('xinHun', {
 });
 
 // 机制④ 性奋：回合开始授予；命中后额外攻击；未命中重试
-registerMechanicHandler('xingFen', {
+registerMechanicHandler(MECHANIC_TYPES.XING_FEN, {
     install({ eventBus, decl }) {
         eventBus.on(SIGNAL_TYPES.ON_ROUND_START, L.ROUND_START.XINGFEN_GRANT, (data) => {
             applyXingFenGrant(data.B, data.log);

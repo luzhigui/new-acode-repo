@@ -1,5 +1,6 @@
 // render/38-actions-translate.js — fact → stageAction 翻译器（翻译域）
-// V1.1.5 | ~31600 bytes | 2026-10-02 entries 扫描补 BREAK_DEF → STAT_CHANGE(def) 飘「🛡-N」（战士破防此前零飘字）；胖远桥·正义国字脸加防借同一通道飘「🛡+N」
+// V1.1.6 | ~32300 bytes | 2026-10-02 entries 扫描补 METEOR_SHOWER_MAIN → DAMAGE_FLOAT 飘「💥-N」（流星赶月 40% 加深已由 BONUS_DMG 裁定器实扣，此前只有金色战报行、头顶无数字）
+//   承接 V1.1.5：entries 扫描补 BREAK_DEF → STAT_CHANGE(def) 飘「🛡-N」（战士破防此前零飘字）；胖远桥·正义国字脸加防借同一通道飘「🛡+N」
 //
 // 加新 fact 的舞台动作：在本文件 FACT_TRANSLATORS 加一条（键=factType），
 // 并在 infra/58 的 translateFn 登记函数名；漏加会在本文件末尾校验循环里报错。
@@ -610,6 +611,20 @@ function makeAttackAction(data, index) {
                     statKind: 'def',
                     targetUid: target.uid,
                     gain: -Math.round(bd.reduce),
+                    factIndex: index,
+                    timing: 'afterText'
+                });
+            }
+        } else if (e.factType === FACT_TYPES.METEOR_SHOWER_MAIN) {
+            // 2026-10-02 流星赶月 40% 加深：BONUS_DMG 在主伤害之后由 core/16 裁定器单独实扣（不在主攻击 dmg 里），
+            //   此前只有金色战报行、头顶零飘字。目标恒为本击主目标；本击打死目标时裁定器对死目标不扣血（同 RONG_HUI 口径），故 !dead 才飘。
+            const mm = e.data || {};
+            const mmUid = mm.targetUid ?? target?.uid ?? null;
+            if (mmUid && mm.bonusDmg > 0 && !dead) {
+                afterTextEffects.push({
+                    kind: STAGE_ACTION_TYPES.DAMAGE_FLOAT,
+                    targetUid: mmUid,
+                    dmg: Math.round(mm.bonusDmg),
                     factIndex: index,
                     timing: 'afterText'
                 });

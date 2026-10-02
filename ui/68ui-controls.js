@@ -1,5 +1,5 @@
-// V7.8.2 | ~38700 bytes | 2026-10-02 选关弹窗的 doInitBattle 传 freshSeed，切关后是全新随机局
-export const VER = 'ui/68ui-controls.js V7.8.2';
+// V7.8.4 | ~39400 bytes | 2026-10-02 ①随机重开（btnSettle GAMEOVER）补 gs→IDLE/落摆位态/freshSeed：此前新局生成了但 gs 停在 GAMEOVER，主按钮仍渲染成「下一关」，点了直接跳关；②原班再战换新种子：阵容保持原班，但复用旧 _rngSeed 会全程重演（跨回合保 _rng 修复后从头像到尾），现在同阵容+新随机序列
+export const VER = 'ui/68ui-controls.js V7.8.4';
 
 // 2026-09-14 打断 63↔68 循环依赖：getState/setState 直接取自 infra/54（63 只做转发）
 import { getState, setState, GlobalStore, getPlayerContext } from '../infra/54-global-store.js';
@@ -426,6 +426,9 @@ export function bindNextButton(setState, updateButtons, enableAllButtons, update
                 currentUI.enemyTeam = ctx._originalSnapshot.enemy.map(u => u.clone());
                 setState.UI(currentUI);
             }
+            // 2026-10-02 原班的只是阵容，战斗随机序列必须全新：snap 复用上局对象、带着旧 _rngSeed，
+            //   不换的话 player/42 开战按旧种子重建 RNG，配合跨回合保 _rng 会从头到尾重演上一局。
+            snap._rngSeed = Date.now();
             setState.snapshot(snap);
             setState.gs('IDLE');
             updateButtons();
@@ -489,9 +492,15 @@ export function bindSettleButton(currentStageGetter, isBattleStarting, getState,
             let currentUI = { allyTeam: [], enemyTeam: [], currentResult: null, round: 0 };
             let snap = { ally: [], enemy: [] };
             const stage = typeof currentStageGetter === 'function' ? currentStageGetter() : currentStageGetter;
-            doInitBattle(stage, currentUI, snap, [], -1, null);
+            // 随机重开=全新一局：freshSeed 丢弃上局种子走时间随机；新空 snap 本就无种子，传参仅为表意一致
+            doInitBattle(stage, currentUI, snap, [], -1, null, true);
             setState.UI(currentUI);
             setState.snapshot(snap);
+            // 2026-10-02 状态复位（此前漏调，gs 停 GAMEOVER 致主按钮仍是「下一关」）：与原班再战分支同构，落地进摆位态
+            setState.adjustMode(true);
+            setState.selectedAdjustPos(null);
+            setState.isPaused(false);
+            setState.gs('IDLE');
             updateUI();
             renderGrid('allyGrid', CAMP_TYPES.ALLY);
             renderGrid('enemyGrid', CAMP_TYPES.ENEMY);
