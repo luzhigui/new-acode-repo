@@ -147,7 +147,7 @@
         }
       },
       "mechanics": [
-        { "camp": "enemy", "type": "followAttack", "chance": 0.30 }
+        { "camp": "enemy", "type": "followAttack", "chance": 0.20 }
       ],
       "taunts": {
         "attack": ["峨眉剑法！", "邪魔外道，人人得而诛之！", "受死吧！"],

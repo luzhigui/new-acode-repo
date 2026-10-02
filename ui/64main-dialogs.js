@@ -101,20 +101,20 @@ export function showBattleReport(battleResultForInfo) {
         table.style.cssText = 'width:100%;font-size:12px;color:#ddd;border-collapse:collapse;';
         table.innerHTML = `
             <tr style="background:#2a2a4e;color:#ffd700;">
-                <th style="min-width:120px;">名称（阵营·职业）</th><th>输出</th><th>承伤</th><th>治疗</th><th>闪避</th><th>暴击</th><th>存活回合</th><th>状态</th>
+                <th style="min-width:120px;padding:3px 10px;">名称（阵营·职业）</th><th style="padding:3px 10px;">输出</th><th style="padding:3px 10px;">承伤</th><th style="padding:3px 10px;">治疗</th><th style="padding:3px 10px;">闪避</th><th style="padding:3px 10px;">暴击</th><th style="padding:3px 10px;">存活回合</th><th style="padding:3px 10px;">状态</th>
             </tr>`;
         sorted.forEach(u => {
             let row = document.createElement('tr');
             row.style.borderBottom = '1px solid #333';
             row.innerHTML = `
-                <td style="font-size:11px;">${u.camp===CAMP_TYPES.ALLY?'🔵':''}${u.name}${u.isZhang?'·无忌':''}${u.isWei?'·蝠王':''} <span style="color:#888;">${u.role}</span></td>
-                <td>${Math.round(u.dmgDealt||0)}</td>
-                <td>${Math.round(u.dmgTaken||0)}</td>
-                <td>${Math.round(u.healDone||0)}</td>
-                <td>${Math.round(u.dodgeCount||0)}</td>
-                <td>${Math.round(u.critCount||0)}</td>
-                <td>${Math.round(u.survivedRounds||0)}</td>
-                <td>${u.alive?'✅存活':'💀阵亡'}</td>`;
+                <td style="font-size:11px;padding:3px 10px;">${u.camp===CAMP_TYPES.ALLY?'🔵':''}${u.name}${u.isZhang?'·无忌':''}${u.isWei?'·蝠王':''} <span style="color:#888;">${u.role}</span></td>
+                <td style="padding:3px 10px;white-space:nowrap;">${Math.round(u.dmgDealt||0)}</td>
+                <td style="padding:3px 10px;white-space:nowrap;">${Math.round(u.dmgTaken||0)}</td>
+                <td style="padding:3px 10px;white-space:nowrap;">${Math.round(u.healDone||0)}</td>
+                <td style="padding:3px 10px;white-space:nowrap;">${Math.round(u.dodgeCount||0)}</td>
+                <td style="padding:3px 10px;white-space:nowrap;">${Math.round(u.critCount||0)}</td>
+                <td style="padding:3px 10px;white-space:nowrap;">${Math.round(u.survivedRounds||0)}</td>
+                <td style="padding:3px 10px;white-space:nowrap;">${u.alive?'✅存活':'💀阵亡'}</td>`;
             table.appendChild(row);
         });
         tableDiv.appendChild(table);
