@@ -1,7 +1,7 @@
-// V6.5.1 | ~18600 bytes | 2026-10-02 地面单位基础闪避 BASE_DODGE_GROUND 3%→5%（飞行 15% 不动）
-export const VER = 'core/01config-5v5-test.js V6.5.1';
+// V6.6.0 | ~19900 bytes | 2026-10-02 DESC_TRUTH 的 type 全部改用 MECHANIC_TYPES / MECHANIC_EFFECT_TYPES 枚举（与 core/15 安装期校验、modules 注册同源）
+export const VER = 'core/01config-5v5-test.js V6.6.0';
 
-import { ROLE_TYPES } from '../infra/56-battle-enums.js';
+import { ROLE_TYPES, MECHANIC_TYPES, MECHANIC_EFFECT_TYPES } from '../infra/56-battle-enums.js';
 
 // 游戏数据加载
 // 游戏数据唯一来源：content/200game-data.json。加载失败直接抛错，不静默回退。
@@ -60,47 +60,47 @@ function getSkillName(characterName, skillKey) {
 //   tests/health-rules/156-desc-truth-drift.js 守护（技能说明数字必须等于引擎真值）。
 export const DESC_TRUTH = {
     nineYinClaw: { character: '周芷若', fields: {
-        baseDmg:          { type: 'chainClaw', field: 'baseDmg',          scale: 1 },
-        lostHpRatio:      { type: 'chainClaw', field: 'lostHpRatio',      scale: 100 },
-        maxHpRatio:       { type: 'chainClaw', field: 'maxHpRatio',       scale: 100 },
-        executeThreshold: { type: 'chainClaw', field: 'executeThreshold', scale: 100 }
+        baseDmg:          { type: MECHANIC_TYPES.CHAIN_CLAW, field: 'baseDmg',          scale: 1 },
+        lostHpRatio:      { type: MECHANIC_TYPES.CHAIN_CLAW, field: 'lostHpRatio',      scale: 100 },
+        maxHpRatio:       { type: MECHANIC_TYPES.CHAIN_CLAW, field: 'maxHpRatio',       scale: 100 },
+        executeThreshold: { type: MECHANIC_TYPES.CHAIN_CLAW, field: 'executeThreshold', scale: 100 }
     } },
     rebelStrike: { character: '宋青书', fields: {
-        currentHpRatio:   { type: 'bonusTargetCurrentHp', field: 'ratio', scale: 100 }
+        currentHpRatio:   { type: MECHANIC_EFFECT_TYPES.BEFORE_DAMAGE.BONUS_TARGET_CURRENT_HP, field: 'ratio', scale: 100 }
     } },
     kuLian: { character: '宋青书', fields: {
-        atkBonus: { type: 'kuLian', field: 'atkBonus', scale: 1 },
-        defBonus: { type: 'kuLian', field: 'defBonus', scale: 1 },
-        hpBonus:  { type: 'kuLian', field: 'hpBonus',  scale: 1 }
+        atkBonus: { type: MECHANIC_TYPES.KU_LIAN, field: 'atkBonus', scale: 1 },
+        defBonus: { type: MECHANIC_TYPES.KU_LIAN, field: 'defBonus', scale: 1 },
+        hpBonus:  { type: MECHANIC_TYPES.KU_LIAN, field: 'hpBonus',  scale: 1 }
     } },
     xinHun: { character: '宋青书', fields: {
-        hpDeduct:   { type: 'xinHun', field: 'hpDeduct',   scale: 1 },
-        healLevels: { type: 'xinHun', field: 'healLevels', scale: 100 }
+        hpDeduct:   { type: MECHANIC_TYPES.XIN_HUN, field: 'hpDeduct',   scale: 1 },
+        healLevels: { type: MECHANIC_TYPES.XIN_HUN, field: 'healLevels', scale: 100 }
     } },
     phantomThunder: { character: '成昆', fields: {
-        lostHpRatio: { type: 'bonusLostHp', field: 'ratio', scale: 100 }
+        lostHpRatio: { type: MECHANIC_EFFECT_TYPES.BEFORE_DAMAGE.BONUS_LOST_HP, field: 'ratio', scale: 100 }
     } },
     phantomDisguise: { character: '成昆', fields: {
-        baseChance:   { type: 'phantomDisguise', field: 'baseChance',   scale: 100 },
-        per10pctLost: { type: 'phantomDisguise', field: 'per10pctLost', scale: 100 }
+        baseChance:   { type: MECHANIC_TYPES.PHANTOM_DISGUISE, field: 'baseChance',   scale: 100 },
+        per10pctLost: { type: MECHANIC_TYPES.PHANTOM_DISGUISE, field: 'per10pctLost', scale: 100 }
     } },
     hornStrike: { character: '鹤笔翁', fields: {
-        defIgnore:     { type: 'ignoreDef', field: 'ratio', scale: 100 },
-        poisonedBonus: { type: 'damageMultiplierIfPoisoned', field: 'bonus', scale: 100 }
+        defIgnore:     { type: MECHANIC_EFFECT_TYPES.BEFORE_DAMAGE.IGNORE_DEF, field: 'ratio', scale: 100 },
+        poisonedBonus: { type: MECHANIC_EFFECT_TYPES.BEFORE_DAMAGE.DAMAGE_MULTIPLIER_IF_POISONED, field: 'bonus', scale: 100 }
     } },
     xuanmingPalm: { character: '鹿杖客', fields: {
-        duration:    { type: 'poison', field: 'duration',    scale: 1 },
-        dotPercents: { type: 'poison', field: 'dotPercents', scale: 100 }
+        duration:    { type: MECHANIC_EFFECT_TYPES.ON_HIT.POISON, field: 'duration',    scale: 1 },
+        dotPercents: { type: MECHANIC_EFFECT_TYPES.ON_HIT.POISON, field: 'dotPercents', scale: 100 }
     } },
     nineYang: { character: '张无忌', fields: {
-        healPct: { type: 'healMaxHpPct', field: 'pct', scale: 100 }
+        healPct: { type: MECHANIC_EFFECT_TYPES.ON_HIT.HEAL_MAX_HP_PCT, field: 'pct', scale: 100 }
     } },
     bloodSiphon: { character: '韦一笑', fields: {
-        leechMin: { type: 'leech', field: 'minRatio', scale: 100 },
-        leechMax: { type: 'leech', field: 'maxRatio', scale: 100 }
+        leechMin: { type: MECHANIC_EFFECT_TYPES.ON_HIT.LEECH, field: 'minRatio', scale: 100 },
+        leechMax: { type: MECHANIC_EFFECT_TYPES.ON_HIT.LEECH, field: 'maxRatio', scale: 100 }
     } },
     bloodDodge: { character: '韦一笑', fields: {
-        maxRatio: { type: 'lostHpPercent', field: 'max', scale: 100 }
+        maxRatio: { type: MECHANIC_EFFECT_TYPES.DODGE_RULES.LOST_HP_PERCENT, field: 'max', scale: 100 }
     } }
 };
 

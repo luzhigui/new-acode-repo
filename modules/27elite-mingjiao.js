@@ -1,5 +1,5 @@
-// V6.4.5 | ~49100 bytes | 2026-10-02 张无忌切近战口径修正：旧判「同列 1/2/3 最前排无人」在他被击退/换位到后排(7-9)时会越过活着的中排队友硬切；改为「他成为所在列最前排」（同列无任何 pos 更小的存活非马队友），FSM 初判与 watcher 两处同构
-export const VER = 'modules/27elite-mingjiao.js V6.4.5';
+// V6.4.6 | ~50700 bytes | 2026-10-02 吸血参数查找 'leech' 改用 MECHANIC_EFFECT_TYPES.ON_HIT.LEECH 枚举（mechanics type 同源治理）
+export const VER = 'modules/27elite-mingjiao.js V6.4.6';
 
 import { registerElite } from '../core/08-elite-registry.js';
 import { CONFIG, getSkillParams, getMechanicField } from '../core/01config-5v5-test.js';
@@ -10,7 +10,7 @@ import { spiderTransform, spiderReturn } from '../modules/20elite-skills.js';
 import { checkZhangSwitch, emitEvent, applyStatChange, refreshMaxHp, getBattleRng, addMod, removeModsByGroup, getStat } from '../core/13battle-shared.js';
 import { eventBus, EXECUTION_LAYER as L, EFFECT_TYPES } from '../infra/50-event-bus.js';
 import { StateMachine } from '../infra/51-core-utils.js';
-import { FACT_TYPES, BUFF_TYPES, UNIT_EVENT_TYPES, CAMP_TYPES, ROLE_TYPES, SIGNAL_TYPES, STATE_CHANGE_TYPES } from '../infra/56-battle-enums.js';
+import { FACT_TYPES, BUFF_TYPES, UNIT_EVENT_TYPES, CAMP_TYPES, ROLE_TYPES, SIGNAL_TYPES, STATE_CHANGE_TYPES, MECHANIC_EFFECT_TYPES } from '../infra/56-battle-enums.js';
 import { emitStateChange } from '../infra/59-state-change.js';
 import { watchUnit } from '../core/19unit-watch.js';
 
@@ -136,8 +136,8 @@ export function createWeiYixiaoComponent() {
                 const { unit, target, reboundDmg, declarations } = data;
                 if (!target.isWei || !target.alive) return;
                 // 吸血率真值唯一来源：韦一笑 mechanics 的 leech 原语（与命中吸血同源），不再另存 skills.params 副本
-                const leechMin = getMechanicField('韦一笑', 'leech', 'minRatio');
-                const leechMax = getMechanicField('韦一笑', 'leech', 'maxRatio');
+                const leechMin = getMechanicField('韦一笑', MECHANIC_EFFECT_TYPES.ON_HIT.LEECH, 'minRatio');
+                const leechMax = getMechanicField('韦一笑', MECHANIC_EFFECT_TYPES.ON_HIT.LEECH, 'maxRatio');
                 if (typeof leechMin !== 'number' || typeof leechMax !== 'number') {
                     throw new Error('缺机制参数: 韦一笑.mechanics.leech.minRatio/maxRatio');
                 }

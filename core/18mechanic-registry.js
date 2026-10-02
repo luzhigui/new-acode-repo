@@ -1,5 +1,5 @@
-// V1.0.0 | ~600 bytes | 2026-09-06 机制注册表自 modules/30 下沉 core，core/15 查表不再依赖 modules
-export const VER = 'core/18mechanic-registry.js V1.0.0';
+// V1.1.0 | ~1600 bytes | 2026-10-02 install 不再 try/catch 吞错：handler.install 只在战斗安装期调用，内部报错必须抛出让开局失败，禁止静默
+export const VER = 'core/18mechanic-registry.js V1.1.0';
 
 // 机制注册表：type → 处理器（须提供 install）
 // 第三方/数据驱动机制在 modules/30 等上层注册，core 只在 15 查表调用 install
@@ -21,13 +21,11 @@ export function hasMechanicHandler(type) {
 
 // 按 type 安装机制，未注册返回 false。decl = 触发本次安装的声明对象（可选），
 // 供 handler 读取自己的参数，避免回 gameData 反查。
+// install 内部报错直接向上抛（本函数只在战斗安装期被调用，core/15 安装期校验已先于此处跑过）：
+// 机制装坏了必须开局就炸，不允许 console.error 吞掉后机制静默缺失。
 export function installMechanicByType(eventBus, type, A, B, log, decl) {
     const handler = mechanicHandlers.get(type);
     if (!handler) return false;
-    try {
-        handler.install({ eventBus, A, B, log, decl });
-    } catch (e) {
-        console.error(`[18mechanic-registry] 机制 "${type}" install 执行出错:`, e);
-    }
+    handler.install({ eventBus, A, B, log, decl });
     return true;
 }

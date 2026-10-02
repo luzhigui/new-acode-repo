@@ -1,5 +1,5 @@
-// V1.3.0 | 2026-09-27 ①hex job 支持 startIndex：主线程可细粒度分片（每片 25 场）而不改变任何一场的 seed
-//        ②新增 kind:'random'（110 全随机站位平衡：随机组队 + 整局战斗全进 worker，原先唯一的主线程串行工具）
+// V1.3.1 | 2026-10-02 补 import modules/30custom-effects：dotTick/damageReflect 靠模块顶层副作用注册进 core/18，
+//        worker 链此前只装 25/26/27，core/15 安装期校验新增后第5关（鹿杖客 dotTick）开局即抛错
 // 由 109 职业平衡 Worker 扩展为多 kind 分发：'balance' | 'elite' | 'stats' | 'baseline' | 'hex' | 'random'
 // hex 任务现为 101/108 共用：支持 preferredBuffs 偏好 + 小昭·妹永久继承，并回报胜负计数
 // 每个 job 在 worker 内完成 N 场战斗并回报聚合；独立模块实例，天然隔离 _eliteStates/_eventBuffer
@@ -32,6 +32,9 @@ import '../infra/54-global-store.js';
 import '../modules/25elite-imperial.js';
 import '../modules/26elite-sixsects.js';
 import '../modules/27elite-mingjiao.js';
+// 2026-10-02 必装：30 在模块顶层 registerMechanicHandler(dotTick/damageReflect)，副作用注册，
+//   不 import 则 core/18 注册表为空，core/15 安装期校验对鹿杖客 dotTick 直接抛错（第5关 worker 全灭）
+import '../modules/30custom-effects.js';
 import { CAMP_TYPES, ROLE_TYPES, BUFF_TYPES, UNIT_EVENT_TYPES } from '../infra/56-battle-enums.js';
 import { eventBus } from '../infra/50-event-bus.js';
 import { GlobalStore } from '../infra/54-global-store.js';

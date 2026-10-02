@@ -1,6 +1,6 @@
-// V6.4.3 | ~5300 bytes | 2026-09-25 删 BEFORE_SELECT_TARGET.FLY_TARGET：飞行选敌钩子已随 core/11 V6.3.2 移除，飞行改回 core/07 策略表；承接 V6.4.2 胖远桥嘲讽改叠防
+// V6.4.4 | ~5400 bytes | 2026-10-02 WARRIOR_EXECUTE 20→45：监听器按 priority 升序执行（L28），斩杀必须在融会贯通 JIUYANG=40 声明 BONUS_DMG 之后跑，否则斩杀读到的 declarations 里还没有融会伤害，「普攻→融会→斩杀」后置失效（张松溪 25 血融会打到 10 血未斩）
 import { GlobalStore } from './54-global-store.js';
-export const VER = 'infra/50-event-bus.js V6.4.3';
+export const VER = 'infra/50-event-bus.js V6.4.4';
 
 // debug 模式在日志追加信号记录，非战斗路径
 function appendDebugSignalLog(signal, data) {
@@ -79,7 +79,8 @@ export const EXECUTION_LAYER = {
     ON_DODGE:          {},
     AFTER_DAMAGE_APPLIED: {
         BLOODTHIRST: 20,
-        WARRIOR_EXECUTE: 20,
+        // 2026-10-02 斩杀挪到 45：升序执行，必须晚于 JIUYANG=40 的融会 BONUS_DMG 声明（以及 PANG_CLUMSY_LOG=42），斩杀才能把融会伤害计入有效血量
+        WARRIOR_EXECUTE: 45,
         MIEJUE_COUNTER: 15,
         PANG_RAGE: 22,
         LION_INSPIRE: 23,

@@ -1,5 +1,5 @@
-// V6.1.7 | ~16200 bytes | 2026-09-30 参数单位口径统一（收尾）：getMissBreakdown 改为按比例域读 CONFIG（5 个读点 ×100 还原），对外契约仍是百分点；破防兜底档同步写成 targetDef × (WARRIOR_BREAK_CHANCE_PER_DEF × 100)
-export const VER = 'core/03battle-utils.js V6.1.7';
+// V6.1.8 | ~16400 bytes | 2026-10-02 修正「普攻→融会→斩杀」时序：eventBus 监听按 priority 升序执行，上版误记为降序致 WARRIOR_EXECUTE=20 早于 JIUYANG=40，融会声明进数组时斩杀已判完（effHp 恒漏融会伤害）；infra/50 已将斩杀挪至 45，本注释同步纠正
+export const VER = 'core/03battle-utils.js V6.1.8';
 
 import { CONFIG, getGameData } from './01config-5v5-test.js';
 import { emitEvent, applyStatChange, query, getBattleRng, getPresentationRng, addMod, getStat } from './13battle-shared.js';
@@ -212,10 +212,10 @@ function submitWarriorExecuteDeclaration(data) {
     const unitBuffs = (allySide && allySide._activeBuffs) || [];
     const hasBloodthirst = hasBuff(unitBuffs, BUFF_TYPES.BLOODTHIRST);
     const threshold = hasBloodthirst ? C.EXEC_THRESHOLD_BLOODTHIRST : C.EXEC_THRESHOLD;
-    // 2026-10-02 斩杀判定后置：把张无忌融会贯通的额外伤害先算进有效血量再判阈值
-    //   （融汇 BONUS_DMG 由同信号 JIUYANG=40 监听先于本监听 20 声明，此处读得到；
-    //    结算时 BONUS_DMG 在数组前面先扣血、EXECUTE 再清零，顺序天然=「先融汇后斩杀」）
-    //   修复：原先判定在融汇之前，"普攻打完可斩、融汇打完更可斩"的目标漏斩，融汇白打
+    // 2026-10-02 斩杀判定后置（修正版）：把张无忌融会贯通的额外伤害先算进有效血量再判阈值。
+    //   监听器按 priority 升序执行：本监听 45（infra/50），融会 JIUYANG=40 先跑、BONUS_DMG 已在数组里；
+    //   结算（core/16 resolveAfterDamageEffects）按声明入数组顺序执行：BONUS_DMG 先扣血、EXECUTE 再清零，
+    //   落地顺序天然 =「普攻 → 融会 → 斩杀」。上版把升序误当降序（20 vs 40），判定实际在融会之前，已修。
     const ronghuiDecl = Array.isArray(declarations)
         ? declarations.find(d => d && d.type === EFFECT_TYPES.BONUS_DMG && d.target === target)
         : null;

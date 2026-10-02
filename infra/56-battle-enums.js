@@ -1,5 +1,5 @@
-// V1.3.3 | ~4400 bytes | 2026-10-02 新增 AURA_APPLY（空列/残血光环）、HOLY_FLAME_APPLY（圣火令乘法）、WEI_DODGE_LEECH（韦一笑闪避反击吸血）三个数值声明 fact
-export const VER = 'infra/56-battle-enums.js V1.3.3';
+// V1.4.1 | ~15100 bytes | 2026-10-02 ①新增 MECHANIC_TYPES（mechanics 顶层 type 唯一来源：core/18 注册表 + core/15 本地安装器）与 MECHANIC_EFFECT_TYPES（onHit/beforeDamage/attributeMods/dodgeRules 四类内层元素 type 唯一来源），配合 core/15 安装期交叉校验，堵死漏注册静默失效；②STAGE_ACTION_TYPES 增 DAMAGE_FLOAT（纯掉血飘字：流星赶月加深等已实扣但无独立攻击动作的伤害）
+export const VER = 'infra/56-battle-enums.js V1.4.1';
 
 /** 事实类型：所有 factType 字符串的唯一来源 */
 export const FACT_TYPES = Object.freeze({
@@ -87,6 +87,7 @@ export const STAGE_ACTION_TYPES = Object.freeze({
     SUMMON: 'summon', DESTROY: 'destroy',
     TRANSFORM: 'transform', FLY_MODE: 'flyMode', STUN: 'stun',
     SPLASH: 'splash', BUFF_EFFECT: 'buffEffect',
+    DAMAGE_FLOAT: 'damageFloat',
     HP_PCT_DANMAKU: 'hpPctDanmaku', BANNER: 'banner'
 });
 
@@ -104,6 +105,51 @@ export const FLY_MODE_TYPES = Object.freeze({
     BUTTERFLY_RETURN: 'butterflyReturn',
     SPIDER_FLY: 'spiderFly',
     SPIDER_RETURN: 'spiderReturn'
+});
+
+/**
+ * 机制类型：content 里 characters.*.mechanics 顶层条目 type 的唯一来源。
+ * 分两组承接：REGISTRY 组必须经 core/18 registerMechanicHandler 注册（modules/26、30），
+ * LOCAL 组由 core/15 本地安装器承接；core/15 安装期对不上任一组即抛错（漏注册=开局炸，不静默）。
+ */
+export const MECHANIC_TYPES = Object.freeze({
+    // core/18 注册表承接（modules 侧注册）
+    CHAIN_CLAW: 'chainClaw',           // 周芷若·九阴白骨爪连锁（modules/26）
+    KU_LIAN: 'kuLian',                 // 宋青书·苦练（modules/26）
+    XIN_HUN: 'xinHun',                 // 宋青书·新婚（modules/26）
+    XING_FEN: 'xingFen',               // 宋青书·性奋（modules/26）
+    DOT_TICK: 'dotTick',               // 通用 DOT 逐回合扣血（modules/30）
+    DAMAGE_REFLECT: 'damageReflect',   // 反伤弟子·反伤护盾（modules/30）
+    // core/15 本地安装器承接（不经注册表）
+    LINK_ATTACK: 'linkAttack',         // 玄冥二老联动
+    FOLLOW_ATTACK: 'followAttack',     // 灭绝师太·跟随攻击
+    PHANTOM_DISGUISE: 'phantomDisguise' // 成昆·幻影伪装
+});
+
+/**
+ * 机制内层效果类型：mechanics 数组容器内元素 type 的唯一来源，按容器分组。
+ * 容器名与 content JSON 字段一一对应；core/15 安装期逐元素校验，未知 type 抛错。
+ * 注意 BONUS_LOST_HP 在 ON_HIT / BEFORE_DAMAGE 两容器都合法（同一值两组登记）。
+ */
+export const MECHANIC_EFFECT_TYPES = Object.freeze({
+    ON_HIT: Object.freeze({
+        LEECH: 'leech',                       // 命中吸血（韦一笑）
+        HEAL_MAX_HP_PCT: 'healMaxHpPct',      // 命中按最大生命回血（张无忌·九阳）
+        POISON: 'poison',                     // 命中施毒（鹿杖客·玄冥神掌）
+        BONUS_LOST_HP: 'bonusLostHp'          // 命中按已损生命加伤
+    }),
+    BEFORE_DAMAGE: Object.freeze({
+        IGNORE_DEF: 'ignoreDef',                          // 无视防御比例（鹤笔翁）
+        DAMAGE_MULTIPLIER_IF_POISONED: 'damageMultiplierIfPoisoned', // 对中毒目标增伤（鹤笔翁）
+        BONUS_LOST_HP: 'bonusLostHp',                     // 伤害前按已损生命加伤（成昆）
+        BONUS_TARGET_CURRENT_HP: 'bonusTargetCurrentHp'   // 按目标当前生命加伤（宋青书·叛逆突袭）
+    }),
+    ATTRIBUTE_MODS: Object.freeze({
+        FORTIFY_INCREMENT_MUL: 'fortifyIncrementMul' // 坚盾增幅倍率（成昆联动）
+    }),
+    DODGE_RULES: Object.freeze({
+        LOST_HP_PERCENT: 'lostHpPercent' // 残血额外闪避（韦一笑）
+    })
 });
 
 /** 单位事件类型：emitEvent 发出、APPLY_EVENTS 消费的事件标识唯一来源 */

@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0f1116">
+<title>光明顶 · 精英形象展</title>
+<style>
+  :root{--bg:#0f1116;--card:#191c23;--fg:#e8eaf0;--sub:#9aa3b2;--accent:#d4af6a}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);
+       font-family:system-ui,-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;
+       -webkit-font-smoothing:antialiased}
+  header{padding:16px 14px 6px}
+  h1{margin:0;font-size:19px;letter-spacing:.5px}
+  header p{margin:6px 0 0;font-size:12px;color:var(--sub);line-height:1.6}
+  .sec{padding:16px 14px 2px;font-size:13px;color:var(--accent);font-weight:600;letter-spacing:1px}
+  .sec .cnt{color:var(--sub);font-weight:400;font-size:11px}
+  details.mod{border-top:1px solid rgba(255,255,255,.05)}
+  details.mod>summary{padding:15px 14px 9px;font-size:13px;color:var(--accent);font-weight:600;
+       letter-spacing:1px;cursor:pointer;list-style:none;display:flex;
+       justify-content:space-between;align-items:center;user-select:none}
+  details.mod>summary::-webkit-details-marker{display:none}
+  details.mod>summary::after{content:'▾';color:var(--sub);font-size:11px;font-weight:400}
+  details.mod:not([open])>summary::after{content:'▸'}
+  details.mod[open]>summary{color:#f0cd8e}
+  .tip{padding:0 14px 4px;font-size:11px;color:var(--sub)}
+  .empty{padding:10px 14px;font-size:11px;color:var(--sub);grid-column:1/-1}
+  .grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;padding:8px 12px}
+  @media(min-width:760px){.grid{grid-template-columns:repeat(3,1fr)}}
+  /* 3D 单独占一列：两列时模型被挤太小，旋转/缩放都没有操作空间 */
+  .grid.one{grid-template-columns:1fr}
+  @media(min-width:760px){.grid.one{grid-template-columns:repeat(2,1fr)}}
+  .sc{display:inline-block;padding:1px 6px;border-radius:5px;font-size:10px;font-weight:700;
+      background:rgba(212,175,106,.16);color:var(--accent);margin-right:5px;letter-spacing:0}
+  .sc.hi{background:rgba(212,175,106,.28);color:#f4d79c}
+  .sc.lo{background:rgba(255,255,255,.07);color:var(--sub)}
+  .card{background:var(--card);border-radius:10px;overflow:hidden;box-shadow:0 2px 10px rgba(0,0,0,.35)}
+  .card h2{margin:0;padding:8px 10px;font-size:13px;background:rgba(255,255,255,.04);
+       border-bottom:1px solid rgba(255,255,255,.06);display:flex;justify-content:space-between;
+       align-items:center;gap:6px}
+  .card h2 small{font-weight:400;color:var(--sub);font-size:10px}
+  model-viewer{width:100%;height:56vh;background:#141720;--poster-color:#141720}
+  video.mv{width:100%;height:56vh;background:#141720;object-fit:contain;display:block}
+  @media(min-width:760px){model-viewer{height:62vh}}
+  .it{background:var(--card);border-radius:10px;overflow:hidden;box-shadow:0 2px 10px rgba(0,0,0,.35);
+      transition:transform .18s ease,box-shadow .18s ease;position:relative}
+  /* ⑦ 下载按钮：2D 图浮动在右上角；3D 卡内联进标题栏 */
+  .dl{position:absolute;top:7px;right:7px;z-index:4;width:32px;height:32px;border:0;
+      border-radius:8px;background:rgba(15,17,22,.72);color:#e8eaf0;font-size:16px;line-height:1;
+      cursor:pointer;display:flex;align-items:center;justify-content:center;
+      box-shadow:0 2px 8px rgba(0,0,0,.4);opacity:.85;transition:opacity .15s,background .15s}
+  .dl:hover{opacity:1;background:var(--accent);color:#1a1409}
+  .dl:active{transform:scale(.92)}
+  .card h2 .dl{position:static;margin-left:6px;flex:0 0 auto}
+  .it:hover{transform:translateY(-2px);box-shadow:0 6px 18px rgba(0,0,0,.5)}
+  .it a{display:block;line-height:0;cursor:zoom-in}
+  .it img{width:100%;height:auto;display:block;background:#141720}
+  .ph{padding:8px 9px;font-size:11px;color:var(--sub);line-height:1.3;word-break:break-all}
+  footer{padding:16px 14px 24px;font-size:11px;color:var(--sub);text-align:center;line-height:1.6}
+  #dot{display:inline-block;width:10px;height:10px;border-radius:50%;background:#23262e;cursor:default}
+  #gate{position:fixed;inset:0;background:var(--bg);z-index:99;display:flex;flex-direction:column;
+       align-items:center;justify-content:center;gap:14px;padding:24px}
+  #gate h3{margin:0;font-size:15px;color:var(--accent);letter-spacing:2px}
+  #gate input{padding:11px 14px;border-radius:8px;border:1px solid #2c303a;background:#141720;
+       color:var(--fg);font-size:16px;width:min(280px,80vw);text-align:center}
+  #gate button{padding:10px 26px;border-radius:8px;border:0;background:var(--accent);
+       color:#1a1409;font-size:14px;font-weight:600;cursor:pointer}
+  #gate .err{color:#e06c6c;font-size:12px;min-height:16px}
+  #gate .hint{color:#5d6472;font-size:11px;max-width:300px;text-align:center;line-height:1.6}
+  /* 灯箱：2D 图原来只能新标签打开，手机上跳出去再返回很别扭 */
+  #lb{position:fixed;inset:0;z-index:120;background:rgba(8,9,12,.94);display:flex;
+      flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:16px}
+  #lb[hidden]{display:none}
+  #lb img{max-width:100%;max-height:78vh;object-fit:contain;border-radius:8px;
+      box-shadow:0 8px 40px rgba(0,0,0,.6)}
+  #lb .lbc{max-width:92vw;font-size:11px;color:var(--sub);line-height:1.5;text-align:center;
+      word-break:break-all;max-height:12vh;overflow:auto}
+  #lb .lbbtn{position:absolute;top:0;bottom:0;width:52px;display:flex;align-items:center;
+      justify-content:center;font-size:30px;color:#b9c0cd;cursor:pointer;user-select:none}
+  #lb .lbbtn:hover{color:#fff;background:rgba(255,255,255,.05)}
+  #lb .lbn{left:0}
+  #lb .lbp{right:0}
+  #lb .lbx{position:absolute;top:10px;right:14px;font-size:26px;color:#b9c0cd;cursor:pointer;
+      width:40px;height:40px;display:flex;align-items:center;justify-content:center;
+      user-select:none;z-index:2}
+  #lb .lbx:hover{color:#fff}
+  #lb .lbidx{position:absolute;top:18px;left:16px;font-size:11px;color:var(--sub)}
+  /* ① 标题行右上角时间戳 */
+  .hrow{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
+  .stamp{text-align:right;font-size:11px;color:var(--sub);line-height:1.5;flex:0 0 auto;
+        padding-top:2px;white-space:nowrap;cursor:default;user-select:none}
+  .stamp b{color:var(--accent);font-weight:600;font-size:12px;letter-spacing:.3px}
+  /* ② 展开箭头：11px 小三角 → 34px 圆底按钮（手机上太难点） */
+  details.mod>summary{gap:10px;padding-right:10px}
+  details.mod>summary::after{content:'▾';color:var(--accent);font-size:17px;line-height:1;
+        width:34px;height:34px;flex:0 0 auto;display:flex;align-items:center;justify-content:center;
+        border-radius:9px;background:rgba(255,255,255,.07);transition:background .15s}
+  details.mod>summary:active::after{background:rgba(255,255,255,.16)}
+  details.mod:not([open])>summary::after{content:'▸'}
+  details.mod[open]>summary::after{background:rgba(212,175,106,.16)}
+  /* ③ 3D 卡片：滑动页面 / 旋转模型 二选一（手机上默认是滑动页面，否则转不了模型） */
+  .mvwrap{position:relative}
+  .shield{position:absolute;inset:0;z-index:2;display:flex;align-items:flex-end;justify-content:center;
+        padding-bottom:10px;font-size:11px;color:rgba(232,234,240,.5);cursor:ns-resize;
+        background:linear-gradient(180deg,rgba(15,17,22,0) 55%,rgba(15,17,22,.55) 100%)}
+  .shield span{background:rgba(15,17,22,.55);padding:3px 8px;border-radius:6px}
+  .card.rot .shield{display:none}
+  .mode{flex:0 0 auto;background:rgba(255,255,255,.08);border:0;color:var(--sub);font-size:11px;
+        padding:4px 8px;border-radius:6px;cursor:pointer;font-family:inherit;line-height:1.3}
+  .card.rot .mode{background:var(--accent);color:#1a1409;font-weight:600}
+  /* ④ 重命名：点名字内联改（静态站改不了服务器文件名，只能存本地） */
+  .nm{cursor:text;border-radius:4px;padding:1px 3px;margin:-1px -3px;transition:background .15s}
+  .nm:hover{background:rgba(212,175,106,.14)}
+  .nm.custom{color:var(--accent)}
+  .nm.custom::after{content:'✎';font-size:9px;opacity:.7;margin-left:3px}
+  .rn{width:100%;font:inherit;font-size:inherit;color:var(--fg);background:#0f1116;
+      border:1px solid var(--accent);border-radius:4px;padding:1px 4px;outline:none}
+  /* ⑤ 右侧悬浮快速导航 */
+  #nav{position:fixed;right:10px;bottom:14px;z-index:60;display:flex;flex-direction:column;gap:6px}
+  #nav button{width:46px;min-height:34px;border:0;border-radius:9px;background:rgba(25,28,35,.92);
+        color:var(--sub);font-size:11px;cursor:pointer;padding:5px 2px;line-height:1.25;
+        font-family:inherit;box-shadow:0 2px 10px rgba(0,0,0,.4);border:1px solid rgba(255,255,255,.07)}
+  #nav button:active{background:var(--accent);color:#1a1409}
+  #nav button.up{font-size:15px;color:var(--accent)}
+  /* ⑥ 私密入口：连击标题栏 5 次；外观不留任何提示 */
+  .hrow{cursor:default;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
+  footer{cursor:default;user-select:none;-webkit-touch-callout:none}
+  #dot{width:22px;height:22px;margin-top:2px;vertical-align:middle}
+</style>
+</head>
+<body>
+<header>
+  <div class="hrow">
+    <h1>光明顶 · 精英形象展</h1>
+    <div class="stamp" id="stamp" title="上次更新时间">上次更新<br><b>2026-10-02 18:05</b></div>
+  </div>
+  <p>共 44 张 2D 立绘、32 个 3D 模型。3D 卡片可单指旋转、双指缩放；2D 图点击可放大，左右键翻页；解码器已打包进本站，不依赖外部网络。</p>
+</header>
+<details class="mod" open data-k="mv"><summary>微动 · 正面保真 <span class="cnt">1</span></summary>
+<div class="tip">原图本体做微动：面部与手部像素级保真，仅呼吸、纱裙下摆、蝶翼轻动</div>
+<div class="grid one">
+  <div class="card"><h2>小昭姊-粉仙蝶翼<small class="sc hi">微动</small></h2><video class="mv" src="vid/xz-dieyi-motion.mp4" poster="https://guangmingding-3d.app.workbuddy.host/img/2593ad142cf577d5.jpg" autoplay loop muted playsinline></video></div>
+</div>
+</details>
+<details class="mod" open data-k="m3d"><summary>3D 角色 <span class="cnt">32</span></summary>
+<div class="tip">已完成建模的角色，可拖拽查看；角标为你的打分</div>
+<div class="grid one">
+  <div class="card"><h2>周芷若健身<small class="sc " title="中规中矩吧，没有腿，脸侧面好看，其他角度一般">81分</small></h2><model-viewer src="https://guangmingding-3d.app.workbuddy.host/models/zzr_box.glb" poster="https://guangmingding-3d.app.workbuddy.host/models/zzr_box.png" camera-controls auto-rotate shadow-intensity="1" exposure="1" loading="lazy" alt="周芷若健身"></model-viewer></div>
+  <div class="card"><h2>周芷若-双剑<small class="sc hi" title="还行吧，不够好看，手上拿的俩个剑也不太行">85分</small></h2><model-viewer src="https://guangmingding-3d.app.workbuddy.host/models/zzr_hf.glb" poster="https://guangmingding-3d.app.workbuddy.host/models/zzr_hf.png" camera-controls auto-rotate shadow-intensity="1" exposure="1" loading="lazy" alt="周芷若-双剑"></model-viewer></div>
+  <div class="card"><h2>周芷若-旗袍<small class="sc " title="中规中距，就是尺度没有">82分</small></h2><model-viewer src="https://guangmingding-3d.app.workbuddy.host/models/zzr_qh.glb" poster="https://guangmingding-3d.app.workbuddy.host/models/zzr_qh.png" camera-controls auto-rotate shadow-intensity="1" exposure="1" loading="lazy" alt="周芷若-旗袍"></model-viewer></div>
+  <div class="card"><h2>周芷若模特<small class="sc " title="不太行，不好看，嘴部和耳朵不行，脸也不好看，失去了选这张的目的">78分</small></h2><model-viewer src="https://guangmingding-3d.app.workbuddy.host/models/zzr_bj.glb" poster="https://guangmingding-3d.app.workbuddy.host/models/zzr_bj.png" camera-controls auto-rotate shadow-intensity="1" exposure="1" loading="lazy" alt="周芷若模特"></model-viewer></div>
+  <div class="card"><h2>周芷若-比基尼长剑<small class="sc hi" title="你别说挺好，是不是需要这样的2D图才能渲染好啊">87分</small></h2><model-viewer src="https://guangmingding-3d.app.workbuddy.host/models/zzrjc.glb" poster="https://guangmingding-3d.app.workbuddy.host/models/zzrjc.png" camera-controls auto-rotate shadow-intensity="1" exposure="1" loading="lazy" alt="周芷若-比基尼长剑"></model-viewer></div>
+  <div class="card"><h2>周芷若-海边白纱持剑</h2><model-viewer src="https://guangmingding-3d.app.workbuddy.host/models/zzr_hb.glb" poster="https://guangmingding-3d.app.workbuddy.host/models/zzr_hb.png" camera-controls auto-rotate shadow-intensity="1" exposure="1" loading="lazy" alt="周芷若-海边白纱持剑"></model-viewer></div>
+  <div class="card"><h2>周芷若<small class="sc hi" title="还行，但是眼睛没做，面部细节也一般">87分</small></h2><model-viewer src="https://guangmingding-3d.app.workbuddy.host/models/zzrws.glb" poster="https://guangmingding-3d.app.workbuddy.host/models/zzrws.png" camera-controls auto-rotate shadow-intensity="1" exposure="1" loading="lazy" alt="周芷若"></model-viewer></div>
+  <div class="card"><h2>周芷若-紫竹林紫纱</h2><model-viewer src="https://guangmingding-3d.app.workbuddy.host/models/zzr_zzl.glb" poster="https://guangmingding-3d.app.workbuddy.host/models/zzr_zzl.png" camera-controls auto-rotate shadow-intensity="1" exposure="1" loading="lazy" alt="周芷若-紫竹林紫纱"></model-viewer></div>
+  <div class="card"><h2>周芷若-荷塘粉纱</h2><model-viewer src="https://guangmingding-3d.app.workbuddy.host/models/zzr_ht.glb" poster="https://guangmingding-3d.app.workbuddy.host/models/zzr_ht.png" camera-controls auto-rotate shadow-intensity="1" exposure="1" loading="lazy" alt="周芷若-荷塘粉纱"></model-viewer></div>
+  <div class="card"><h2>周芷若长剑<small class="sc " title="修仙风范，还可以">84分</small></h2><model-viewer src="https://guangmingding-3d.app.workbuddy.host/models/zzr_ls.glb" poster="https://guangmingding-3d.app.workbuddy.host/models/zzr_ls.png" camera-controls auto-rotate shadow-intensity="1" exposure="1" loading="lazy" alt="周芷若长剑"></model-viewer></div>
+  <div class="card"><h2>周芷若长裙<small class="sc " title="不太行，脸不好看，胸部细节也没有，不太行">79分</small></h2><model-viewer src="https://guangmingding-3d.app.workbuddy.host/models/zzr_dv.glb" poster="https://guangmingding-3d.app.workbuddy.host/models/zzr_dv.png" camera-controls auto-rotate shadow-intensity="1" exposure="1" loading="lazy" alt="周芷若长裙"></model-viewer></div>
+  <div class="card"><h2>周芷若-面部被毁<small class="sc " title="动作有了，脸部太惨了，没有场景只有人，动作有点可笑，其他还好">81分</small></h2><model-viewer src="https://guangmingding-3d.app.workbuddy.host/models/zzr_neo.glb" poster="https://guangmingding-3d.app.workbuddy.host/models/zzr_neo.png" camera-controls auto-rotate shadow-intensity="1" exposure="1" loading="lazy" alt="周芷若-面部被毁"></model-viewer></div>
+  <div class="card"><h2>周芷若黑化<small class="sc hi" title="挺好，也有尺度，不过眼神做的不到位，然后就是左手有点吓人">86分</small></h2><model-viewer src="https://guangmingding-3d.app.workbuddy.host/models/zzr_dark.glb" poster="https://guangmingding-3d.app.workbuddy.host/models/zzr_dark.png" camera-controls auto-rotate shadow-intensity="1" exposure="1" loading="lazy" alt="周芷若黑化"></model-viewer></div>
+  <div class="card"><h2>周芷茹白衣<small class="sc hi" title="挺好，要尺度也有尺度，脸部手部都有足够的细节">89分</small></h2><model-viewer src="https://guangmingding-3d.app.workbuddy.host/models/zzr.glb" poster="https://guangmingding-3d.app.workbuddy.host/models/zzr.png" camera-controls auto-rotate shadow-intensity="1" exposure="1" loading="lazy" alt="周芷茹白衣"></model-viewer></div>
+  <div class="card"><h2>宋青书<small class="sc hi" title="男的，要求不高，不过剑和剑鞘同时在右手上是什么鬼">85分</small></h2><model-viewer src="https://guangmingding-3d.app.workbuddy.host/models/sqs.glb" poster="https://guangmingding-3d.app.workbuddy.host/models/sqs.png" camera-controls auto-rotate shadow-intensity="1" exposure="1" loading="lazy" alt="宋青书"></model-viewer></div>
+  <div class="card"><h2>小昭妹妹<small class="sc hi" title="女性能这个分数不简单，挺好的了，除了没啥尺度">86分</small></h2><model-viewer src="https://guangmingding-3d.app.workbuddy.host/models/xm.glb" poster="https://guangmingding-3d.app.workbuddy.host/models/xm.png" camera-controls auto-rotate shadow-intensity="1" exposure="1" loading="lazy" alt="小昭妹妹"></model-viewer></div>
+  <div class="card"><h2>小昭姐姐<small class="sc hi" title="真的挺不错的，除了没尺度，其他一切都好">89分</small></h2><model-viewer src="https://guangmingding-3d.app.workbuddy.host/models/xz.glb" poster="https://guangmingding-3d.app.workbuddy.host/models/xz.png" camera-controls auto-rotate shadow-intensity="1" exposure="1" loading="lazy" alt="小昭姐姐"></model-viewer></div>
+  <div class="card"><h2>幼狮<small class="sc hi" title="小狮子侧面站姿-新asset-v1">88分</small></h2><model-viewer src="https://guangmingding-3d.app.workbuddy.host/models/幼狮.glb" poster="https://guangmingding-3d.app.workbuddy.host/models/幼狮.png" camera-controls auto-rotate shadow-intensity="1" exposure="1" loading="lazy" alt="幼狮"></model-viewer></div>
+  <div class="card"><h2>张三丰<small class="sc hi" title="真不错，品质和姐姐有得一比，除了有点发丝飞了，其他几乎没缺点">88分</small></h2><model-viewer src="https://guangmingding-3d.app.workbuddy.host/models/zf.glb" poster="https://guangmingding-3d.app.workbuddy.host/models/zf.png" camera-controls auto-rotate shadow-intensity="1" exposure="1" loading="lazy" alt="张三丰"></model-viewer></div>
+  <div class="card"><h2>张无忌2<small class="sc " title="这头是啥啊，头发又是啥，比例也不协调，真实服了">76分</small></h2><model-viewer src="https://guangmingding-3d.app.workbuddy.host/models/zw_set.glb" poster="https://guangmingding-3d.app.workbuddy.host/models/zw_set.png" camera-controls auto-rotate shadow-intensity="1" exposure="1" loading="lazy" alt="张无忌2"></model-viewer></div>
+  <div class="card"><h2>张无忌<small class="sc " title="右手bug，脸细节不行，整体风格也不像张无忌">84分</small></h2><model-viewer src="https://guangmingding-3d.app.workbuddy.host/models/zw.glb" poster="https://guangmingding-3d.app.workbuddy.host/models/zw.png" camera-controls auto-rotate shadow-intensity="1" exposure="1" loading="lazy" alt="张无忌"></model-viewer></div>
+  <div class="card"><h2>成昆<small class="sc " title="还行没啥大的缺点，就是没有倚天屠龙记原版的感觉">81分</small></h2><model-viewer src="https://guangmingding-3d.app.workbuddy.host/models/ck.glb" poster="https://guangmingding-3d.app.workbuddy.host/models/ck.png" camera-controls auto-rotate shadow-intensity="1" exposure="1" loading="lazy" alt="成昆"></model-viewer></div>
+  <div class="card"><h2>拒马-枣红战马<small class="sc hi" title="战马侧面站姿-新asset-v1">88分</small></h2><model-viewer src="https://guangmingding-3d.app.workbuddy.host/models/拒马-枣红战马.glb" poster="https://guangmingding-3d.app.workbuddy.host/models/拒马-枣红战马.png" camera-controls auto-rotate shadow-intensity="1" exposure="1" loading="lazy" alt="拒马-枣红战马"></model-viewer></div>
+  <div class="card"><h2>拒马-黑战马<small class="sc hi" title="战马侧面站姿-新asset-v1">88分</small></h2><model-viewer src="https://guangmingding-3d.app.workbuddy.host/models/拒马-黑战马.glb" poster="https://guangmingding-3d.app.workbuddy.host/models/拒马-黑战马.png" camera-controls auto-rotate shadow-intensity="1" exposure="1" loading="lazy" alt="拒马-黑战马"></model-viewer></div>
+  <div class="card"><h2>母狮<small class="sc hi" title="成年母狮侧面站姿-新asset-v1">87分</small></h2><model-viewer src="https://guangmingding-3d.app.workbuddy.host/models/母狮-成年.glb" poster="https://guangmingding-3d.app.workbuddy.host/models/母狮-成年.png" camera-controls auto-rotate shadow-intensity="1" exposure="1" loading="lazy" alt="母狮"></model-viewer></div>
+  <div class="card"><h2>灭绝师太<small class="sc low" title="整无语了，反正不太行，但是也先不重做别浪费机会">74分</small></h2><model-viewer src="https://guangmingding-3d.app.workbuddy.host/models/mjs.glb" poster="https://guangmingding-3d.app.workbuddy.host/models/mjs.png" camera-controls auto-rotate shadow-intensity="1" exposure="1" loading="lazy" alt="灭绝师太"></model-viewer></div>
+  <div class="card"><h2>胖远桥<small class="sc " title="男的要求不高，不过胖远桥是宋远桥年轻时候，你这看着不算年轻">84分</small></h2><model-viewer src="https://guangmingding-3d.app.workbuddy.host/models/syq.glb" poster="https://guangmingding-3d.app.workbuddy.host/models/syq.png" camera-controls auto-rotate shadow-intensity="1" exposure="1" loading="lazy" alt="胖远桥"></model-viewer></div>
+  <div class="card"><h2>谢逊<small class="sc " title="这脸是个啥啊，都看不出五官，兽化返祖了吗">83分</small></h2><model-viewer src="https://guangmingding-3d.app.workbuddy.host/models/xx.glb" poster="https://guangmingding-3d.app.workbuddy.host/models/xx.png" camera-controls auto-rotate shadow-intensity="1" exposure="1" loading="lazy" alt="谢逊"></model-viewer></div>
+  <div class="card"><h2>雄狮<small class="sc hi" title="成年雄狮侧面站姿-新asset-v1">88分</small></h2><model-viewer src="https://guangmingding-3d.app.workbuddy.host/models/雄狮-成年.glb" poster="https://guangmingding-3d.app.workbuddy.host/models/雄狮-成年.png" camera-controls auto-rotate shadow-intensity="1" exposure="1" loading="lazy" alt="雄狮"></model-viewer></div>
+  <div class="card"><h2>韦一笑<small class="sc hi" title="还行除了眼睛没细节其他的都还可以">86分</small></h2><model-viewer src="https://guangmingding-3d.app.workbuddy.host/models/wy.glb" poster="https://guangmingding-3d.app.workbuddy.host/models/wy.png" camera-controls auto-rotate shadow-intensity="1" exposure="1" loading="lazy" alt="韦一笑"></model-viewer></div>
+  <div class="card"><h2>鹤笔翁<small class="sc " title="还行吧，就是面部太黑了，脸上是胡子吗？还是画的迷彩不像个正常人">84分</small></h2><model-viewer src="https://guangmingding-3d.app.workbuddy.host/models/hbw.glb" poster="https://guangmingding-3d.app.workbuddy.host/models/hbw.png" camera-controls auto-rotate shadow-intensity="1" exposure="1" loading="lazy" alt="鹤笔翁"></model-viewer></div>
+  <div class="card"><h2>鹿杖客<small class="sc " title="还行，对反派要求不高">81分</small></h2><model-viewer src="https://guangmingding-3d.app.workbuddy.host/models/lzk.glb" poster="https://guangmingding-3d.app.workbuddy.host/models/lzk.png" camera-controls auto-rotate shadow-intensity="1" exposure="1" loading="lazy" alt="鹿杖客"></model-viewer></div>
+</div></details>
+<details class="mod" open data-k="pub0"><summary>模块一 · 已完成建模的 2D 源图 <span class="cnt">29</span></summary><div class="tip">这些角色都已有 3D 模型，上图是对应的 2D 底图</div>
+<div class="grid">
+  <div class="it"><a href="https://guangmingding-3d.app.workbuddy.host/img/a4b18eeccc499dd2.jpg" data-n="wy-3D源输入图" target="_blank" rel="noopener"><img src="https://guangmingding-3d.app.workbuddy.host/img/a4b18eeccc499dd2.jpg" loading="lazy" alt="wy-3D源输入图"></a><div class="ph">wy-3D源输入图</div></div>
+  <div class="it"><a href="https://guangmingding-3d.app.workbuddy.host/img/52e7a5ade1853d47.jpg" data-n="xm-3D源输入图" target="_blank" rel="noopener"><img src="https://guangmingding-3d.app.workbuddy.host/img/52e7a5ade1853d47.jpg" loading="lazy" alt="xm-3D源输入图"></a><div class="ph">xm-3D源输入图</div></div>
+  <div class="it"><a href="https://guangmingding-3d.app.workbuddy.host/img/1c5f2a90d9ca4f68.jpg" data-n="xm_full-3D源输入图" target="_blank" rel="noopener"><img src="https://guangmingding-3d.app.workbuddy.host/img/1c5f2a90d9ca4f68.jpg" loading="lazy" alt="xm_full-3D源输入图"></a><div class="ph">xm_full-3D源输入图</div></div>
+  <div class="it"><a href="https://guangmingding-3d.app.workbuddy.host/img/be2816b66d8ae9f6.jpg" data-n="xz-3D源输入图" target="_blank" rel="noopener"><img src="https://guangmingding-3d.app.workbuddy.host/img/be2816b66d8ae9f6.jpg" loading="lazy" alt="xz-3D源输入图"></a><div class="ph">xz-3D源输入图</div></div>
+  <div class="it"><a href="https://guangmingding-3d.app.workbuddy.host/img/e9b34892dc7ecb4c.jpg" data-n="zw-3D源输入图" target="_blank" rel="noopener"><img src="https://guangmingding-3d.app.workbuddy.host/img/e9b34892dc7ecb4c.jpg" loading="lazy" alt="zw-3D源输入图"></a><div class="ph">zw-3D源输入图</div></div>
+  <div class="it"><a href="https://guangmingding-3d.app.workbuddy.host/img/037dc9abf4d4160f.jpg" data-n="周芷若-汉服cosplay武姿-v1" target="_blank" rel="noopener"><img src="https://guangmingding-3d.app.workbuddy.host/img/037dc9abf4d4160f.jpg" loading="lazy" alt="周芷若-汉服cosplay武姿-v1"></a><div class="ph">周芷若-汉服cosplay武姿-v1</div></div>
+  <div class="it"><a href="https://guangmingding-3d.app.workbuddy.host/img/750760f5b7ef6275.jpg" data-n="周芷若-露肩高开衩-性感向-v3" target="_blank" rel="noopener"><img src="https://guangmingding-3d.app.workbuddy.host/img/750760f5b7ef6275.jpg" loading="lazy" alt="周芷若-露肩高开衩-性感向-v3"></a><div class="ph">周芷若-露肩高开衩-性感向-v3</div></div>
+  <div class="it"><a href="https://guangmingding-3d.app.workbuddy.host/img/223de452e1983ce9.jpg" data-n="周芷若-露肩高开衩加料-性感向-v4" target="_blank" rel="noopener"><img src="https://guangmingding-3d.app.workbuddy.host/img/223de452e1983ce9.jpg" loading="lazy" alt="周芷若-露肩高开衩加料-性感向-v4"></a><div class="ph">周芷若-露肩高开衩加料-性感向-v4</div></div>
+  <div class="it"><a href="https://guangmingding-3d.app.workbuddy.host/img/78bd9a448873850e.jpg" data-n="周芷若-青花旗袍高开衩-古典美-v1" target="_blank" rel="noopener"><img src="https://guangmingding-3d.app.workbuddy.host/img/78bd9a448873850e.jpg" loading="lazy" alt="周芷若-青花旗袍高开衩-古典美-v1"></a><div class="ph">周芷若-青花旗袍高开衩-古典美-v1</div></div>
+  <div class="it"><a href="https://guangmingding-3d.app.workbuddy.host/img/6f4e18aea8b2a28f.jpg" data-n="周芷若-黑化黑金-性感向-v3" target="_blank" rel="noopener"><img src="https://guangmingding-3d.app.workbuddy.host/img/6f4e18aea8b2a28f.jpg" loading="lazy" alt="周芷若-黑化黑金-性感向-v3"></a><div class="ph">周芷若-黑化黑金-性感向-v3</div></div>
+  <div class="it"><a href="https://guangmingding-3d.app.workbuddy.host/img/ff3ec1ad2873b73c.jpg" data-n="周芷若-黑金高定深V开衩-时尚大片-v1" target="_blank" rel="noopener"><img src="https://guangmingding-3d.app.workbuddy.host/img/ff3ec1ad2873b73c.jpg" loading="lazy" alt="周芷若-黑金高定深V开衩-时尚大片-v1"></a><div class="ph">周芷若-黑金高定深V开衩-时尚大片-v1</div></div>
+  <div class="it"><a href="https://guangmingding-3d.app.workbuddy.host/img/15c32217efb672f1.jpg" data-n="宋远桥-胖远桥-年轻壮实-立绘-v3" target="_blank" rel="noopener"><img src="https://guangmingding-3d.app.workbuddy.host/img/15c32217efb672f1.jpg" loading="lazy" alt="宋远桥-胖远桥-年轻壮实-立绘-v3"></a><div class="ph">宋远桥-胖远桥-年轻壮实-立绘-v3</div></div>
+  <div class="it"><a href="https://guangmingding-3d.app.workbuddy.host/img/7f79aaabdaee718e.jpg" data-n="宋青书-武当苦练玉面-立绘-v1" target="_blank" rel="noopener"><img src="https://guangmingding-3d.app.workbuddy.host/img/7f79aaabdaee718e.jpg" loading="lazy" alt="宋青书-武当苦练玉面-立绘-v1"></a><div class="ph">宋青书-武当苦练玉面-立绘-v1</div></div>
+  <div class="it"><a href="https://guangmingding-3d.app.workbuddy.host/img/68cfd81d4df1e2d2.jpg" data-n="宋青书-玉面修罗堕落版-立绘-v3" target="_blank" rel="noopener"><img src="https://guangmingding-3d.app.workbuddy.host/img/68cfd81d4df1e2d2.jpg" loading="lazy" alt="宋青书-玉面修罗堕落版-立绘-v3"></a><div class="ph">宋青书-玉面修罗堕落版-立绘-v3</div></div>
+  <div class="it"><a href="https://guangmingding-3d.app.workbuddy.host/img/3c3c6d1c59edba2d.jpg" data-n="小昭妹-战甲卧室-v1" target="_blank" rel="noopener"><img src="https://guangmingding-3d.app.workbuddy.host/img/3c3c6d1c59edba2d.jpg" loading="lazy" alt="小昭妹-战甲卧室-v1"></a><div class="ph">小昭妹-战甲卧室-v1</div></div>
+  <div class="it"><a href="https://guangmingding-3d.app.workbuddy.host/img/740517c7126b1c85.jpg" data-n="小昭妹-红黑蛛甲-新场景-v1" target="_blank" rel="noopener"><img src="https://guangmingding-3d.app.workbuddy.host/img/740517c7126b1c85.jpg" loading="lazy" alt="小昭妹-红黑蛛甲-新场景-v1"></a><div class="ph">小昭妹-红黑蛛甲-新场景-v1</div></div>
+  <div class="it"><a href="https://guangmingding-3d.app.workbuddy.host/img/042a0852a59c27c1.jpg" data-n="小昭妹-蛛肢战姿-新场景-v1" target="_blank" rel="noopener"><img src="https://guangmingding-3d.app.workbuddy.host/img/042a0852a59c27c1.jpg" loading="lazy" alt="小昭妹-蛛肢战姿-新场景-v1"></a><div class="ph">小昭妹-蛛肢战姿-新场景-v1</div></div>
+  <div class="it"><a href="https://guangmingding-3d.app.workbuddy.host/img/18c37c77ea17e92a.jpg" data-n="幼狮-88分-小狮子侧面站姿-新asset-v1" target="_blank" rel="noopener"><img src="https://guangmingding-3d.app.workbuddy.host/img/18c37c77ea17e92a.jpg" loading="lazy" alt="幼狮-88分-小狮子侧面站姿-新asset-v1"></a><div class="ph">幼狮-88分-小狮子侧面站姿-新asset-v1</div></div>
+  <div class="it"><a href="https://guangmingding-3d.app.workbuddy.host/img/a9f42b18812e1591.jpg" data-n="张三丰-武当宗师-立绘-v1" target="_blank" rel="noopener"><img src="https://guangmingding-3d.app.workbuddy.host/img/a9f42b18812e1591.jpg" loading="lazy" alt="张三丰-武当宗师-立绘-v1"></a><div class="ph">张三丰-武当宗师-立绘-v1</div></div>
+  <div class="it"><a href="https://guangmingding-3d.app.workbuddy.host/img/59e905a6fb74d044.jpg" data-n="张无忌-设定图正面-裁字-v1" target="_blank" rel="noopener"><img src="https://guangmingding-3d.app.workbuddy.host/img/59e905a6fb74d044.jpg" loading="lazy" alt="张无忌-设定图正面-裁字-v1"></a><div class="ph">张无忌-设定图正面-裁字-v1</div></div>
+  <div class="it"><a href="https://guangmingding-3d.app.workbuddy.host/img/46b0a750376c9633.jpg" data-n="成昆-圆真-立绘-v1" target="_blank" rel="noopener"><img src="https://guangmingding-3d.app.workbuddy.host/img/46b0a750376c9633.jpg" loading="lazy" alt="成昆-圆真-立绘-v1"></a><div class="ph">成昆-圆真-立绘-v1</div></div>
+  <div class="it"><a href="https://guangmingding-3d.app.workbuddy.host/img/8f0c6440b4a196f8.jpg" data-n="拒马-枣红战马-88分-战马侧面站姿-新asset-v1" target="_blank" rel="noopener"><img src="https://guangmingding-3d.app.workbuddy.host/img/8f0c6440b4a196f8.jpg" loading="lazy" alt="拒马-枣红战马-88分-战马侧面站姿-新asset-v1"></a><div class="ph">拒马-枣红战马-88分-战马侧面站姿-新asset-v1</div></div>
+  <div class="it"><a href="https://guangmingding-3d.app.workbuddy.host/img/5956226c00bcceaa.jpg" data-n="拒马-黑战马-88分-战马侧面站姿-新asset-v1" target="_blank" rel="noopener"><img src="https://guangmingding-3d.app.workbuddy.host/img/5956226c00bcceaa.jpg" loading="lazy" alt="拒马-黑战马-88分-战马侧面站姿-新asset-v1"></a><div class="ph">拒马-黑战马-88分-战马侧面站姿-新asset-v1</div></div>
+  <div class="it"><a href="https://guangmingding-3d.app.workbuddy.host/img/220a4bee4e97b269.jpg" data-n="母狮-87分-成年母狮侧面站姿-新asset-v1" target="_blank" rel="noopener"><img src="https://guangmingding-3d.app.workbuddy.host/img/220a4bee4e97b269.jpg" loading="lazy" alt="母狮-87分-成年母狮侧面站姿-新asset-v1"></a><div class="ph">母狮-87分-成年母狮侧面站姿-新asset-v1</div></div>
+  <div class="it"><a href="https://guangmingding-3d.app.workbuddy.host/img/dddb6495777f4028.jpg" data-n="灭绝师太-剃度尼姑中年-立绘-v4" target="_blank" rel="noopener"><img src="https://guangmingding-3d.app.workbuddy.host/img/dddb6495777f4028.jpg" loading="lazy" alt="灭绝师太-剃度尼姑中年-立绘-v4"></a><div class="ph">灭绝师太-剃度尼姑中年-立绘-v4</div></div>
+  <div class="it"><a href="https://guangmingding-3d.app.workbuddy.host/img/29ccfb79c0590d81.jpg" data-n="谢逊-国风写实立绘-v2" target="_blank" rel="noopener"><img src="https://guangmingding-3d.app.workbuddy.host/img/29ccfb79c0590d81.jpg" loading="lazy" alt="谢逊-国风写实立绘-v2"></a><div class="ph">谢逊-国风写实立绘-v2</div></div>
+  <div class="it"><a href="https://guangmingding-3d.app.workbuddy.host/img/6e3e53c3e313c0c2.jpg" data-n="雄狮-88分-成年雄狮侧面站姿-新asset-v1" target="_blank" rel="noopener"><img src="https://guangmingding-3d.app.workbuddy.host/img/6e3e53c3e313c0c2.jpg" loading="lazy" alt="雄狮-88分-成年雄狮侧面站姿-新asset-v1"></a><div class="ph">雄狮-88分-成年雄狮侧面站姿-新asset-v1</div></div>
+  <div class="it"><a href="https://guangmingding-3d.app.workbuddy.host/img/f9676db7b492e64e.jpg" data-n="鹤笔翁-玄冥二老-立绘-v1" target="_blank" rel="noopener"><img src="https://guangmingding-3d.app.workbuddy.host/img/f9676db7b492e64e.jpg" loading="lazy" alt="鹤笔翁-玄冥二老-立绘-v1"></a><div class="ph">鹤笔翁-玄冥二老-立绘-v1</div></div>
+  <div class="it"><a href="https://guangmingding-3d.app.workbuddy.host/img/261efe9b31111bf3.jpg" data-n="鹿杖客-玄冥二老-立绘-v1" target="_blank" rel="noopener"><img src="https://guangmingding-3d.app.workbuddy.host/img/261efe9b31111bf3.jpg" loading="lazy" alt="鹿杖客-玄冥二老-立绘-v1"></a><div class="ph">鹿杖客-玄冥二老-立绘-v1</div></div>
+</div></details>
+<details class="mod" data-k="pub1"><summary>模块二 · 待建模 2D <span class="cnt">7</span></summary><div class="tip">排队准备转成 3D 的立绘</div>
+<div class="grid">
+  <div class="it"><a href="https://guangmingding-3d.app.workbuddy.host/img/2593ad142cf577d5.jpg" data-n="85分-真人，对视，清纯-小昭姊-粉仙蝶翼-新场景-v1" target="_blank" rel="noopener"><img src="https://guangmingding-3d.app.workbuddy.host/img/2593ad142cf577d5.jpg" loading="lazy" alt="85分-真人，对视，清纯-小昭姊-粉仙蝶翼-新场景-v1"></a><div class="ph"><b class="sc">85分</b>真人，对视，清纯-小昭姊-粉仙蝶翼-新场景-v1</div></div>
+  <div class="it"><a href="https://guangmingding-3d.app.workbuddy.host/img/828867dffdcbfcce.jpg" data-n="86分-真人，居家，露台，真实-周芷若-月光天台丝绸吊带-性感向-v1" target="_blank" rel="noopener"><img src="https://guangmingding-3d.app.workbuddy.host/img/828867dffdcbfcce.jpg" loading="lazy" alt="86分-真人，居家，露台，真实-周芷若-月光天台丝绸吊带-性感向-v1"></a><div class="ph"><b class="sc">86分</b>真人，居家，露台，真实-周芷若-月光天台丝绸吊带-性感向-v1</div></div>
+  <div class="it"><a href="https://guangmingding-3d.app.workbuddy.host/img/9ab6cec3818557a2.jpg" data-n="87分-真人，对视，居家，蕾丝-周芷若-落地窗蕾丝睡袍-大尺度-v1" target="_blank" rel="noopener"><img src="https://guangmingding-3d.app.workbuddy.host/img/9ab6cec3818557a2.jpg" loading="lazy" alt="87分-真人，对视，居家，蕾丝-周芷若-落地窗蕾丝睡袍-大尺度-v1"></a><div class="ph"><b class="sc">87分</b>真人，对视，居家，蕾丝-周芷若-落地窗蕾丝睡袍-大尺度-v1</div></div>
+  <div class="it"><a href="https://guangmingding-3d.app.workbuddy.host/img/a29298cd14aa4847.jpg" data-n="优先-张无忌另一版" target="_blank" rel="noopener"><img src="https://guangmingding-3d.app.workbuddy.host/img/a29298cd14aa4847.jpg" loading="lazy" alt="优先-张无忌另一版"></a><div class="ph">优先-张无忌另一版</div></div>
+  <div class="it"><a href="https://guangmingding-3d.app.workbuddy.host/img/1b137e877078aca9.jpg" data-n="周芷若-黑化黑金加料-性感向-v4" target="_blank" rel="noopener"><img src="https://guangmingding-3d.app.workbuddy.host/img/1b137e877078aca9.jpg" loading="lazy" alt="周芷若-黑化黑金加料-性感向-v4"></a><div class="ph">周芷若-黑化黑金加料-性感向-v4</div></div>
+  <div class="it"><a href="https://guangmingding-3d.app.workbuddy.host/img/bb49d06928944788.jpg" data-n="周芷若-黑金深V露背-大尺度性感-v1" target="_blank" rel="noopener"><img src="https://guangmingding-3d.app.workbuddy.host/img/bb49d06928944788.jpg" loading="lazy" alt="周芷若-黑金深V露背-大尺度性感-v1"></a><div class="ph">周芷若-黑金深V露背-大尺度性感-v1</div></div>
+  <div class="it"><a href="https://guangmingding-3d.app.workbuddy.host/img/8e8c2fb63006098c.jpg" data-n="拒马-88分-中式木路障-新asset-v1" target="_blank" rel="noopener"><img src="https://guangmingding-3d.app.workbuddy.host/img/8e8c2fb63006098c.jpg" loading="lazy" alt="拒马-88分-中式木路障-新asset-v1"></a><div class="ph">拒马-88分-中式木路障-新asset-v1</div></div>
+</div></details>
+<details class="mod" data-k="pub2"><summary>模块三 · 其他 2D <span class="cnt">8</span></summary><div class="tip">暂不建模的备用立绘</div>
+<div class="grid">
+  <div class="it"><a href="https://guangmingding-3d.app.workbuddy.host/img/be6cc4cbd8e4cd32.jpg" data-n="zw_back" target="_blank" rel="noopener"><img src="https://guangmingding-3d.app.workbuddy.host/img/be6cc4cbd8e4cd32.jpg" loading="lazy" alt="zw_back"></a><div class="ph">zw_back</div></div>
+  <div class="it"><a href="https://guangmingding-3d.app.workbuddy.host/img/4ddc79ab4f79cb34.jpg" data-n="zw_front" target="_blank" rel="noopener"><img src="https://guangmingding-3d.app.workbuddy.host/img/4ddc79ab4f79cb34.jpg" loading="lazy" alt="zw_front"></a><div class="ph">zw_front</div></div>
+  <div class="it"><a href="https://guangmingding-3d.app.workbuddy.host/img/ac2a214a5116f93d.jpg" data-n="zw_front_1" target="_blank" rel="noopener"><img src="https://guangmingding-3d.app.workbuddy.host/img/ac2a214a5116f93d.jpg" loading="lazy" alt="zw_front_1"></a><div class="ph">zw_front_1</div></div>
+  <div class="it"><a href="https://guangmingding-3d.app.workbuddy.host/img/58eebebdc4b527fd.jpg" data-n="zw_rear" target="_blank" rel="noopener"><img src="https://guangmingding-3d.app.workbuddy.host/img/58eebebdc4b527fd.jpg" loading="lazy" alt="zw_rear"></a><div class="ph">zw_rear</div></div>
+  <div class="it"><a href="https://guangmingding-3d.app.workbuddy.host/img/91a6bcd100ee7b23.jpg" data-n="zw_side" target="_blank" rel="noopener"><img src="https://guangmingding-3d.app.workbuddy.host/img/91a6bcd100ee7b23.jpg" loading="lazy" alt="zw_side"></a><div class="ph">zw_side</div></div>
+  <div class="it"><a href="https://guangmingding-3d.app.workbuddy.host/img/a6fadbedd3e72664.jpg" data-n="zw_side3" target="_blank" rel="noopener"><img src="https://guangmingding-3d.app.workbuddy.host/img/a6fadbedd3e72664.jpg" loading="lazy" alt="zw_side3"></a><div class="ph">zw_side3</div></div>
+  <div class="it"><a href="https://guangmingding-3d.app.workbuddy.host/img/68cdf45a25e4e82b.jpg" data-n="zw_sideR" target="_blank" rel="noopener"><img src="https://guangmingding-3d.app.workbuddy.host/img/68cdf45a25e4e82b.jpg" loading="lazy" alt="zw_sideR"></a><div class="ph">zw_sideR</div></div>
+  <div class="it"><a href="https://guangmingding-3d.app.workbuddy.host/img/36c7b1b280699de5.jpg" data-n="zw_side_1" target="_blank" rel="noopener"><img src="https://guangmingding-3d.app.workbuddy.host/img/36c7b1b280699de5.jpg" loading="lazy" alt="zw_side_1"></a><div class="ph">zw_side_1</div></div>
+</div></details>
+<footer>光明顶 5v5 · 更新于 2026-10-01<br><span id="dot" title=""></span></footer>
+<nav id="nav">
+  <button class="up" data-go="top" title="回到顶部">↑</button>
+  <button data-go="m3d" title="3D 角色">3D</button>
+  <button data-go="pub0" title="模块一 · 已完成建模的 2D 源图">图一</button>
+  <button data-go="pub1" title="模块二 · 待建模 2D">图二</button>
+  <button data-go="pub2" title="模块三 · 其他 2D">图三</button>
+  <button id="rnReset" title="清除全部自定义名称">↺名</button>
+</nav>
+<div id="lb" hidden>
+  <span class="lbidx" id="lbidx"></span>
+  <span class="lbx">×</span>
+  <span class="lbbtn lbn">‹</span>
+  <span class="lbbtn lbp">›</span>
+  <img id="lbi" alt="">
+  <div class="lbc" id="lbc"></div>
+</div>
+<script>
+function bindLB(){
+  var links=[].slice.call(document.querySelectorAll('.it a[data-n]'));
+  var lb=document.getElementById('lb');
+  if(!links.length||!lb) return;
+  var img=document.getElementById('lbi'),cap=document.getElementById('lbc'),
+      idx=document.getElementById('lbidx'),i=0;
+  function show(n){
+    i=(n+links.length)%links.length;
+    img.src=links[i].getAttribute('href');
+    cap.textContent=links[i].getAttribute('data-n')||'';
+    idx.textContent=(i+1)+' / '+links.length;
+    lb.hidden=false; document.body.style.overflow='hidden';
+  }
+  function hide(){lb.hidden=true;img.removeAttribute('src');document.body.style.overflow='';}
+  links.forEach(function(a,k){
+    if(a.getAttribute('data-lb')) return;
+    a.setAttribute('data-lb','1');
+    a.addEventListener('click',function(e){e.preventDefault();show(k);});
+  });
+  if(lb.getAttribute('data-bind')) return;
+  lb.setAttribute('data-bind','1');
+  lb.querySelector('.lbx').onclick=hide;
+  lb.querySelector('.lbn').onclick=function(){show(i-1);};
+  lb.querySelector('.lbp').onclick=function(){show(i+1);};
+  lb.onclick=function(e){if(e.target===lb)hide();};
+  document.addEventListener('keydown',function(e){
+    if(lb.hidden) return;
+    if(e.key==='Escape') hide();
+    else if(e.key==='ArrowLeft') show(i-1);
+    else if(e.key==='ArrowRight') show(i+1);
+  });
+}
+bindLB();
+</script>
+
+<script type="module" src="https://guangmingding-3d.app.workbuddy.host/model-viewer.min.js"></script>
+<script>
+// 记住每个模块的展开/收起状态，下次打开保持原样
+function initMods(){
+  document.querySelectorAll('details.mod').forEach(function(d,i){
+    var k='gm_mod_'+(d.dataset.k||i), s=localStorage.getItem(k);
+    if(s!==null) d.open=(s==='1');
+    d.addEventListener('toggle',function(){localStorage.setItem(k,d.open?'1':'0');});
+  });
+}
+initMods();
+</script>
+<script>
+/* ---------- ④ 重命名：点名字就能改（静态站改不了服务器文件名，只能存本机） ---------- */
+var RKEY='gm_rename_v1';
+function rAll(){try{return JSON.parse(localStorage.getItem(RKEY))||{}}catch(e){return {}}}
+function rGet(k){return rAll()[k]||''}
+function rSet(k,v){var m=rAll(); if(v) m[k]=v; else delete m[k]; localStorage.setItem(RKEY,JSON.stringify(m))}
+
+function bindEditable(el,key,defaultText){
+  if(!el||el.dataset.rn) return;
+  el.dataset.rn='1';
+  el.classList.add('nm');
+  var saved=rGet(key);
+  if(saved){el.textContent=saved; el.classList.add('custom');}
+  el.title='点一下可改名（回车保存，Esc 取消，清空恢复默认）';
+  el.addEventListener('click',function(e){
+    e.preventDefault(); e.stopPropagation();
+    if(el.querySelector('input')) return;
+    var cur=el.textContent.trim(), def=defaultText;
+    var inp=document.createElement('input');
+    inp.className='rn'; inp.value=cur;
+    el.textContent=''; el.appendChild(inp);
+    inp.focus(); inp.select();
+    var closed=false;
+    function finish(save){
+      if(closed) return; closed=true;
+      var v=inp.value.trim();
+      if(save) rSet(key, v===def? '' : v);
+      var now=(save? v : cur);
+      if(!now) now = def;
+      el.textContent = rGet(key) || now;
+      el.classList.toggle('custom', !!rGet(key));
+      // 同步灯箱标题，放大时显示的也是新名字
+      var box=el.parentElement, a=box&&box.querySelector('a[data-n]');
+      if(a) a.setAttribute('data-n', el.textContent);
+    }
+    inp.addEventListener('keydown',function(ev){
+      if(ev.key==='Enter'){ev.preventDefault();finish(true);}
+      else if(ev.key==='Escape'){ev.preventDefault();finish(false);}
+    });
+    inp.addEventListener('blur',function(){finish(true);});
+  });
+}
+function bindNames(){
+  // 3D 卡：包住 h2 里的第一个文本节点（别动评分徽章）
+  document.querySelectorAll('.card h2').forEach(function(h2){
+    var mv=h2.parentElement.querySelector('model-viewer'); if(!mv) return;
+    var key=mv.getAttribute('src')||'', t=h2.firstChild;
+    if(t && t.nodeType===3){
+      var sp=document.createElement('span'); sp.textContent=t.textContent.trim();
+      h2.replaceChild(sp,t); bindEditable(sp,key,sp.textContent);
+    }
+  });
+  // 2D 卡：底部名字
+  document.querySelectorAll('.it').forEach(function(it){
+    var im=it.querySelector('img'), ph=it.querySelector('.ph');
+    if(im && ph) bindEditable(ph, im.getAttribute('src')||'', ph.textContent.trim());
+  });
+}
+bindNames();
+var __rr=document.getElementById('rnReset');
+if(__rr) __rr.addEventListener('click',function(){
+  if(confirm('清除全部自定义名称，恢复文件原名？')){ localStorage.removeItem(RKEY); location.reload(); }
+});
+
+/* ---------- ③ 3D 卡：滑动页面 / 旋转模型 二选一 ---------- */
+document.querySelectorAll('.card').forEach(function(c){
+  var mv=c.querySelector('model-viewer'); if(!mv) return;
+  var wrap=document.createElement('div'); wrap.className='mvwrap';
+  c.insertBefore(wrap,mv); wrap.appendChild(mv);
+  var sh=document.createElement('div'); sh.className='shield';
+  sh.innerHTML='<span>上下滑动页面 · 点右侧「⟲旋转」转模型</span>';
+  wrap.appendChild(sh);
+  var btn=document.createElement('button'); btn.type='button'; btn.className='mode';
+  c.querySelector('h2').appendChild(btn);
+  var key='gm_rot_'+(mv.getAttribute('src')||'');
+  function apply(on){
+    c.classList.toggle('rot',on);
+    btn.textContent = on? '✓旋转中' : '⟲旋转';
+    btn.title = on? '当前可旋转模型（点一下恢复为滑动页面）' : '当前为滑动页面模式（点一下可旋转模型）';
+  }
+  apply(localStorage.getItem(key)==='1');
+  btn.addEventListener('click',function(e){
+    e.preventDefault(); e.stopPropagation();
+    var on=!c.classList.contains('rot');
+    localStorage.setItem(key, on?'1':'0'); apply(on);
+  });
+});
+
+/* ---------- ⑤ 右侧导航：跳模块并自动展开 ---------- */
+document.querySelectorAll('#nav button[data-go]').forEach(function(b){
+  b.addEventListener('click',function(){
+    var t=b.dataset.go;
+    if(t==='top'){window.scrollTo({top:0,behavior:'smooth'});return;}
+    var d=document.querySelector('details.mod[data-k="'+t+'"]');
+    if(!d) return;
+    if(!d.open){d.open=true; d.dispatchEvent(new Event('toggle'));}
+    d.scrollIntoView({behavior:'smooth',block:'start'});
+  });
+});
+
+/* ---------- ⑥ 私密入口：连击标题栏 5 次 / 页脚圆点 5 次 / Shift+V（页面不留明链接） ---------- */
+function openVault(){
+  var u=prompt('进入保密区','vault/');
+  if(u) location.href = u.indexOf('/')<0 ? ('vault/?k='+encodeURIComponent(u)) : u;
+}
+var __tap=0,__vt=null;
+function vaultTap(){
+  clearTimeout(__vt);
+  __tap++;
+  __vt=setTimeout(function(){__tap=0;},1500);
+  if(__tap>=5){ __tap=0; openVault(); }
+}
+var __hr=document.querySelector('.hrow');
+if(__hr) __hr.addEventListener('click',vaultTap);
+var __dot=document.getElementById('dot');
+if(__dot) __dot.addEventListener('click',vaultTap);
+document.addEventListener('keydown',function(e){
+  if(e.shiftKey && (e.key==='V'||e.key==='v')){ e.preventDefault(); openVault(); }
+});
+
+/* ---------- ⑦ 下载按钮：2D 原图 + 3D 模型（blob 方式，保留原名） ---------- */
+function addDl(){
+  function fetchBlob(url,name){
+    var x=new XMLHttpRequest(); x.open('GET',url,true); x.responseType='blob';
+    x.onload=function(){
+      if(x.status!==200&&x.status!==0) return;
+      var u=URL.createObjectURL(x.response);
+      var a=document.createElement('a'); a.href=u; a.download=name;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(function(){URL.revokeObjectURL(u);},1500);
+    };
+    x.send();
+  }
+  function safe(n){return (n||'file').replace(/[\/:*?"<>|]/g,'_');}
+  // 2D 卡：浮动下载键
+  document.querySelectorAll('.it').forEach(function(it){
+    if(it.querySelector(':scope > .dl')) return;
+    var a=it.querySelector('a[data-n]'); if(!a) return;
+    var b=document.createElement('button'); b.type='button'; b.className='dl';
+    b.title='下载原图'; b.textContent='⤓';
+    b.addEventListener('click',function(e){e.preventDefault();e.stopPropagation();
+      fetchBlob(a.getAttribute('href'), safe(a.getAttribute('data-n'))+'.jpg');});
+    it.appendChild(b);
+  });
+  // 3D 卡：标题栏内联下载键
+  document.querySelectorAll('.card').forEach(function(c){
+    var mv=c.querySelector('model-viewer'); if(!mv) return;
+    var h2=c.querySelector('h2'); if(!h2||h2.querySelector('.dl')) return;
+    var url=mv.getAttribute('src'); if(!url) return;
+    var b=document.createElement('button'); b.type='button'; b.className='dl';
+    b.title='下载 3D 模型'; b.textContent='⤓';
+    b.addEventListener('click',function(e){e.preventDefault();e.stopPropagation();
+      fetchBlob(url, safe(mv.getAttribute('alt'))+'.glb');});
+    h2.appendChild(b);
+  });
+}
+addDl();
+</script>
+
+</body>
+</html>

@@ -1,4 +1,4 @@
-// V1.0.0 | 按条件批量采样 initBattleTeams，统计精英出场组合/固定站位/普通兵出现频率与站位分布
+// V1.0.1 | 2026-10-02 补 import modules/30custom-effects（机制注册副作用），与其余战斗工具入口装配口径一致
 import { initBattleTeams } from '../modules/29battle-init.js';
 import { eventBus } from '../infra/50-event-bus.js';
 import { SeededRNG } from '../infra/51-core-utils.js';
@@ -6,6 +6,7 @@ import { GlobalStore } from '../infra/54-global-store.js';
 import '../modules/25elite-imperial.js';
 import '../modules/26elite-sixsects.js';
 import '../modules/27elite-mingjiao.js';
+import '../modules/30custom-effects.js';   // 2026-10-02 dotTick/damageReflect 顶层注册副作用
 
 const startBtn = document.getElementById('lsStartBtn');
 const runsInput = document.getElementById('lsRunsInput');
