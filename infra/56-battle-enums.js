@@ -29,7 +29,7 @@ export const FACT_TYPES = Object.freeze({
     HORSE_REBOUND: 'horseRebound', FORTIFY_REBOUND: 'fortifyRebound',
     METEOR_SPLASH_GROWTH: 'meteorSplashGrowth',
     WARRIOR_EXECUTE: 'warriorExecute',
-    BLOOD_THIRST_LEECH: 'bloodthirstLeech', HOT_BLOOD_HEAL: 'hotBloodHeal',
+    BLOOD_THIRST_LEECH: 'bloodthirstLeech', HOT_BLOOD_HEAL: 'hotBloodHeal', FLYER_REGEN: 'flyerRegen',
     WIND_ASSAULT_SPLASH: 'windAssaultSplash', WIND_ASSAULT_PUSH: 'windAssaultPush',
     WIND_ASSAULT_FAIL: 'windAssaultFail',
     // 击退退无可退 → 眩晕（乘风突袭 / 胖远桥·年轻气盛共用）
