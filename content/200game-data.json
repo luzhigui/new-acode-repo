@@ -1,6 +1,6 @@
 {
-  "version": "5.6.18",
-  "updated": "2026-09-30",
+  "version": "5.6.19",
+  "updated": "2026-10-02",
 
   "roles": {
     "战士": { "icon": "⚔️", "label": "战士", "bonus": { "atk": 3, "def": 3, "maxHp": 30 } },
@@ -354,7 +354,7 @@
           "camp": "ally",
           "targetRule": "lowestHp",
           "onHitEffects": [
-            { "type": "leech", "minRatio": 0.05, "maxRatio": 0.35 }
+            { "type": "leech", "minRatio": 0.05, "maxRatio": 0.30 }
           ],
           "dodgeRules": [
             { "type": "lostHpPercent", "max": 0.70 }
