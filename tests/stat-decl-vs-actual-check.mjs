@@ -1,4 +1,5 @@
-// V1.0.0 | 2026-09-27 第 34 轮 | 「数值声明 vs 实际属性增量」逐步对照器（通用）
+// V2.4.0 | 2026-10-02 审核线：补第 16 条契约 LION_GROW（commit 12a5808 补发增量字段后零障碍）；主循环支持 fact 带 uid 时按 uid 精确归因（绕开幼狮成形当步改名/多只同名）；A15 变异升格为对照器兜住。
+// 方法论首立于 2026-09-27 第 34 轮 | 「数值声明 vs 实际属性增量」逐步对照器（通用）
 //
 // 立它的原因（第 33 轮的教训，务必先读）：
 //   用户实报的「破防双扣」（core/03 直改 + core/16 裁定各一次，日志写 -4 实际 -8）体检全程查不出。
@@ -57,9 +58,11 @@
 //     它们各自的 group 早已在 _mods 账本里，只需给每个补一条「绑定 group」的契约即可在体检侧加牙，零主代码改动。
 //     第 45 轮已补 METEOR_GROWTH/FORTIFY；第 47 轮（主代码批 1-3 补发 fact 后）再补 八卦阵/莽撞/雄狮振奋/苦练 四条，
 //     均已在变异树实测有牙（A6 210 / A9 43 / A10 63 / A14 385 处命中）。
-//     剩余 韦一笑(WEI_LEECH) / 幼狮成长(LION_GROW) 的 fact 发的是**绝对值/目标值**而非增量
-//     （前者 heal+newMaxHp、后者 atk/def/maxHp 是目标值，而 addMod 用的是 tgtAtk-cub.atk 这类增量），
-//     当前 extract(stepLog) 接口拿不到单位前后状态 ⇒ 无法直接比对，暂不硬塞（二者现由基线兜底）。
+//     韦一笑(WEI_LEECH) 旧 fact 发的是 heal+newMaxHp 绝对值，增量比对曾无法做（由基线兜底）。
+//   2026-10-02 审核线更新：commit 12a5808 已给 WEI_LEECH/SPIDER_TRANSFORM/LION_GROW 补发增量字段，
+//     其中 LION_GROW（带 unitUid + atkDelta/defDelta/maxHpDelta）已补契约（第 16 条），
+//     主循环同步支持 uid 精确归因（成形当步改名 + 多只同名场景），A15 变异由「仅基线兜底」升格为「对照器兜住」。
+//     WEI_LEECH / SPIDER_TRANSFORM 两条契约待下一轮按同模式接入。
 //
 // 运行：node tests/stat-decl-vs-actual-check.mjs            → 全量 18 场；有重复应用退出码 1；契约零触发亦退出码 1（防假绿）
 //       node tests/stat-decl-vs-actual-check.mjs 18:3       → 只跑指定场次并打印逐步明细
@@ -67,7 +70,7 @@
 //           → 不跑契约、也不退码 1，只逐步对全体单位的 atk/def/maxHp/hp 做 FNV-1a 指纹并输出 `FINGERPRINT <hex>`。
 //             供 `tests/mutation-teeth.mjs` 判定「属性类变异是否真的改变了战斗状态」（属性变了指纹必变；
 //             日志/TEXT 类变异只改显示、不改状态，指纹不变）。
-export const VER = 'tests/stat-decl-vs-actual-check.mjs V2.3.0';
+export const VER = 'tests/stat-decl-vs-actual-check.mjs V2.4.0';
 
 import { fileURLToPath } from 'node:url';
 
@@ -110,6 +113,13 @@ const SAME_STEP_GROUPS = new Set(['fortify', 'baguaArray', 'rageOnHit', 'lionIns
 //   其余 13 条**全部 0 偏差** ⇒ 当年「一刀切保守」是被这 2 条拖累的，误伤了本可严格的 11 条。
 //   → 改为「默认严格、名单例外」：新契约自动享受严格判据；若哪天干净树出现假阳性，把它加进来即可。
 const LOOSE_IDS = new Set(['BREAK_DEF', 'CARRY_APPLY']);
+
+// 2026-10-02 审核线：factType 守卫。早期契约刻意「不导入枚举、靠字段形状签名」，
+//   但 commit 12a5808 给 SPIDER_TRANSFORM 补了 unitUid+atkDelta/defDelta/maxHpDelta 后，
+//   形状与 LION_GROW 撞车（且顶层带 unitName+两 delta，连 BAGUA_DEF 也被误吃）→ 干净树 59 处假红。
+//   教训：字段形状签名会随主代码补字段静默碰撞，凡能拿到 factType 的契约一律显式校验。
+//   枚举在 main() 内动态 import（环境 mock 必须先于引擎 import），故顶层先声明、main 里赋值；extract 调用时必已就绪。
+let FACT_TYPES = null;
 
 const CONTRACTS = [
     {
@@ -305,9 +315,9 @@ const CONTRACTS = [
         extract(stepLog) {
             const out = [];
             for (const f of stepLog || []) {
-                if (!f || !f.data) continue;
+                if (!f || !f.data || f.factType !== FACT_TYPES.BAGUA_ARRAY) continue;
                 const d = f.data;
-                // 签名锁定：unitName + 负 atkDelta + 正 defDelta（与莽撞「无 defDelta」、苦练 targets 互斥）
+                // factType 已锁定 BAGUA_ARRAY（2026-10-02：SPIDER_TRANSFORM 补字段后形状撞车，单靠字段签名不再可靠）
                 if (typeof d.unitName === 'string' && typeof d.atkDelta === 'number'
                     && typeof d.defDelta === 'number' && d.atkDelta < 0) {
                     out.push({ unit: d.unitName, stat: 'atk', amount: Math.abs(d.atkDelta) });
@@ -324,7 +334,7 @@ const CONTRACTS = [
         extract(stepLog) {
             const out = [];
             for (const f of stepLog || []) {
-                if (!f || !f.data) continue;
+                if (!f || !f.data || f.factType !== FACT_TYPES.BAGUA_ARRAY) continue;
                 const d = f.data;
                 if (typeof d.unitName === 'string' && typeof d.atkDelta === 'number'
                     && typeof d.defDelta === 'number' && d.defDelta > 0) {
@@ -483,12 +493,41 @@ const CONTRACTS = [
             }
             return out;
         }
+    },
+    {
+        id: 'LION_GROW',
+        label: '幼狮成长',
+        group: 'lionGrow',
+        dir: +1,
+        // 声明（modules/27elite-mingjiao.js L703-717，V6.4.4 / commit 12a5808）：ON_ROUND_START 幼狮成形，
+        //   addMod 三条（group:'lionGrow'，value=atkDelta/defDelta/maxHpDelta）后发 LION_GROW fact，
+        //   data 带 unitUid 与三个 delta（2026-10-02 主代码补齐；此前 fact 只有目标值，无法比对，头部 L60 旧结论已作废）。
+        //   fact 与 addMod 在同一循环、同一变量、同一 step ⇒ 干净树恒等，走默认严格判据（不进 LOOSE/SAME_STEP 名单）。
+        //   必须用 uid 归因：成形当步 cub 由「幼狮」改名为「雄狮/母狮」（L710 在 fact 之前），
+        //   且场上可并存多只同名雄狮（第 34/36 轮教训）——按名字配对必然配错个体或被歧义守卫跳过。
+        //   A15 变异只把 addMod def 行 value 改 2 倍、fact 的 defDelta 不动 ⇒ 实际=2×声明，严格判据命中。
+        extract(stepLog) {
+            const out = [];
+            for (const f of stepLog || []) {
+                if (!f || !f.data || f.factType !== FACT_TYPES.LION_GROW) continue;
+                const d = f.data;
+                // factType 已锁定 LION_GROW（SPIDER_TRANSFORM 补字段后同为 unitUid+三 delta 形状，必须靠 factType 区分）
+                if (d.unitUid && typeof d.unitName === 'string'
+                    && typeof d.atkDelta === 'number' && typeof d.defDelta === 'number'
+                    && typeof d.maxHpDelta === 'number') {
+                    out.push({ unit: d.unitName, uid: d.unitUid, stat: 'atk', amount: d.atkDelta });
+                    out.push({ unit: d.unitName, uid: d.unitUid, stat: 'def', amount: d.defDelta });
+                    out.push({ unit: d.unitName, uid: d.unitUid, stat: 'maxHp', amount: d.maxHpDelta });
+                }
+            }
+            return out;
+        }
     }
 ];
 
 async function main() {
     const [{ CONFIG, loadGameData }, { SeededRNG }, { createRoundStepper },
-           { initBattleTeams }, { getStat }, { CAMP_TYPES, BUFF_TYPES }] = await Promise.all([
+           { initBattleTeams }, { getStat }, { CAMP_TYPES, BUFF_TYPES, FACT_TYPES: FT }] = await Promise.all([
         import('../core/01config-5v5-test.js'),
         import('../infra/51-core-utils.js'),
         import('../core/11battle-round.js'),
@@ -535,6 +574,7 @@ async function main() {
     await import('../modules/26elite-sixsects.js');
     await import('../modules/27elite-mingjiao.js');
     await loadGameData();
+    FACT_TYPES = FT; // 供顶层契约 extract 的 factType 守卫使用
 
     const MAX_ROUND = CONFIG.MAX_ROUND || 35;
 
@@ -707,25 +747,33 @@ async function main() {
                 for (const c of CONTRACTS) {
                     // 同一步可能对同一目标发多条声明（连击/性奋额外攻击/多段），
                     // 必须按「单位 + 属性」汇总声明量再与总增量比对，否则会把多次合法应用误判成重复应用。
-                    const agg = new Map(); // "unit|stat" -> { sum, count }
+                    const agg = new Map(); // "unit|stat"（有 uid 时用 uid）-> { sum, count }
                     for (const d of c.extract(step.log)) {
                         stat[c.id].declared++;
-                        const key = d.unit + '|' + d.stat;
-                        const cur = agg.get(key) || { unit: d.unit, statName: d.stat, sum: 0, count: 0, amounts: [] };
+                        const key = (d.uid ? '#uid:' + d.uid + '#' : d.unit) + '|' + d.stat;
+                        const cur = agg.get(key) || { unit: d.unit, uid: d.uid || null, statName: d.stat, sum: 0, count: 0, amounts: [] };
                         cur.sum += d.amount;
                         cur.count += 1;
                         cur.amounts.push(d.amount);
                         agg.set(key, cur);
                     }
-                    for (const { unit, statName, sum, count, amounts } of agg.values()) {
-                        // 同名歧义守卫：该名字在场个体数 ≠1 时无从归因，跳过并**计数**（不静默）
-                        if (countName(prev, unit) !== 1 || countName(after, unit) !== 1) {
-                            stat[c.id].ambiguous++;
-                            continue;
+                    for (const { unit, uid, statName, sum, count, amounts } of agg.values()) {
+                        let p, a;
+                        if (uid) {
+                            // uid 精确归因（幼狮成长当步改名、场上可有多只同名雄狮，见 LION_GROW 契约注释）
+                            p = prev.get(uid);
+                            a = after.get(uid);
+                            if (!p || !a) continue;
+                        } else {
+                            // 同名歧义守卫：该名字在场个体数 ≠1 时无从归因，跳过并**计数**（不静默）
+                            if (countName(prev, unit) !== 1 || countName(after, unit) !== 1) {
+                                stat[c.id].ambiguous++;
+                                continue;
+                            }
+                            p = byName(prev, unit);
+                            a = byName(after, unit);
+                            if (!p || !a) continue;
                         }
-                        const p = byName(prev, unit);
-                        const a = byName(after, unit);
-                        if (!p || !a) continue;
                         // 实际增量（按契约方向折算为"声明应有的正向幅度"）
                         // 第 45 轮：带 group 的契约优先用引擎账本按 group 隔离取该机制**自身**贡献，
                         //   不再受同属性其他来源（坚盾/八卦阵/苦练/破防）或乘法词条（严阵以待 op:'mul'）干扰。
