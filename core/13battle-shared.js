@@ -1,6 +1,5 @@
-// V6.2.0 | ~15300 bytes | 2026-09-29 张无忌近战切换的 ×3 系数进内容表（skills.nearSwitch.params → atkMul/defMul/maxHpMul），
-//          消除硬编码魔法数字；缺参即抛错。参数体系收敛批 1。
-export const VER = 'core/13battle-shared.js V6.2.0';
+// V6.2.1 | ~15400 bytes | 2026-10-02 checkZhangSwitch 前排判定与 27 组件 watcher 同口径：改为「同列无 pos 更小的存活非马队友」（他成为该列最前排才切），修后排边界硬切
+export const VER = 'core/13battle-shared.js V6.2.1';
 
 import { CONFIG, getSkillParams } from './01config-5v5-test.js';
 import { getRoleBonus } from './02unit.js';
@@ -176,8 +175,9 @@ function resolvePushOrStun(target, team, log, label) {
 function checkZhangSwitch(A, log) {
     let zhang = A.find(c => c.isZhang && c.alive && !c.state._zhangSwitched);
     if (!zhang) return;
-    let col = (zhang.pos - 1) % 3;
-    let hasFrontAlly = A.some(c => c.alive && !c.isHorse && c.pos === 1 + col && c.uid !== zhang.uid);
+    // 口径同 27 组件 watcher：他成为所在列最靠前的存活单位才切（同列无 pos 更小的存活非马队友）
+    const hasFrontAlly = A.some(c => c.alive && !c.isHorse && c.uid !== zhang.uid
+        && (c.pos - 1) % 3 === (zhang.pos - 1) % 3 && c.pos < zhang.pos);
     if (!hasFrontAlly) {
         zhang.rangedForm = false;
         // 加成倍率走内容表（相对战士职业加成），缺失即抛错

@@ -1,5 +1,5 @@
 {
-  "version": "5.6.21",
+  "version": "5.6.22",
   "updated": "2026-10-02",
 
   "roles": {
@@ -337,7 +337,7 @@
         },
         "nearSwitch": {
           "name": "近战切换",
-          "desc": "前排无友军时切换近战形态，攻/防/血提升为战士职业加成的 {atkMul}/{defMul}/{maxHpMul} 倍，近战3次后融会贯通",
+          "desc": "成为所在列最前排（同列前方无存活友军）时切换近战形态，攻/防/血提升为战士职业加成的 {atkMul}/{defMul}/{maxHpMul} 倍，近战3次后融会贯通",
           "params": { "atkMul": 3, "defMul": 3, "maxHpMul": 3 }
         }
       },

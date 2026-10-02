@@ -1,5 +1,5 @@
-// V6.4.4 | ~48900 bytes | 2026-10-02 体检对照补字段：LION_GROW fact 补 unitName/unitUid/atkDelta/defDelta/maxHpDelta（成长差值先落变量，addMod 与 fact 同源），lionGrow 词条增量可被逐步对照
-export const VER = 'modules/27elite-mingjiao.js V6.4.4';
+// V6.4.5 | ~49100 bytes | 2026-10-02 张无忌切近战口径修正：旧判「同列 1/2/3 最前排无人」在他被击退/换位到后排(7-9)时会越过活着的中排队友硬切；改为「他成为所在列最前排」（同列无任何 pos 更小的存活非马队友），FSM 初判与 watcher 两处同构
+export const VER = 'modules/27elite-mingjiao.js V6.4.5';
 
 import { registerElite } from '../core/08-elite-registry.js';
 import { CONFIG, getSkillParams, getMechanicField } from '../core/01config-5v5-test.js';
@@ -24,8 +24,10 @@ export function createZhangWujiComponent() {
         name: '张无忌',
         _buildFsm(zhang, A, log) {
             let fsm;
-            const col = (zhang.pos - 1) % 3;
-            const hasFrontAlly = A.some(c => c.alive && !c.isHorse && c.pos === 1 + col && c.uid !== zhang.uid);
+            // 切近战口径：他成为「所在列最靠前的存活单位」才切——同列存在任何 pos 更小的存活非马队友就仍是远程。
+            //   中排(4-6)时等价于旧的「1/2/3 同列最前排」判定；被击退/换位到后排(7-9)时，4/5/6 的中排队友也算前方有人。
+            const hasFrontAlly = A.some(c => c.alive && !c.isHorse && c.uid !== zhang.uid
+                && (c.pos - 1) % 3 === (zhang.pos - 1) % 3 && c.pos < zhang.pos);
             const states = {
                 ranged: {
                     onEnter() { zhang.rangedForm = true; zhang.role = ROLE_TYPES.RANGED; Object.assign(zhang.state, { _zhangSwitched: false }); },
@@ -76,10 +78,10 @@ export function createZhangWujiComponent() {
             // 前排切换判定：交给裁判。任何单位状态变化都会触发重判，条件翻转的瞬间切换。
             // 不再订阅死亡/换位/回合开始三个独立信号——那些漏发就 bug，且回合开始兜底违背实时切换语义。
             watchUnit(zhang, () => {
-                // 条件：存活 + 尚未切换 + 处于远程形态 + 前排无人
+                // 条件：存活 + 尚未切换 + 处于远程形态 + 他已是同列最前排（同列无 pos 更小的存活队友）
                 if (!zhang.alive || zhang.state._zhangSwitched || !fsm.is('ranged')) return false;
-                const col = (zhang.pos - 1) % 3;
-                const hasFrontAlly = A.some(c => c.alive && !c.isHorse && c.pos === 1 + col && c.uid !== zhang.uid);
+                const hasFrontAlly = A.some(c => c.alive && !c.isHorse && c.uid !== zhang.uid
+                    && (c.pos - 1) % 3 === (zhang.pos - 1) % 3 && c.pos < zhang.pos);
                 return !hasFrontAlly;
             }, (shouldSwitch, trigger) => {
                 if (shouldSwitch && fsm.is('ranged')) {
