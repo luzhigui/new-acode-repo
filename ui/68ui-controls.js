@@ -1,5 +1,5 @@
 // V7.8.0 | ~38700 bytes | 2026-09-26 复制面板收编战报区（保存本局战报+播放战报文件），撤右下角浮动🎬（挡视野）
-export const VER = 'ui/68ui-controls.js V7.8.0';
+export const VER = 'ui/68ui-controls.js V7.8.1';
 
 // 2026-09-14 打断 63↔68 循环依赖：getState/setState 直接取自 infra/54（63 只做转发）
 import { getState, setState, GlobalStore, getPlayerContext } from '../infra/54-global-store.js';
@@ -153,6 +153,12 @@ function restoreSpeedFromScroll() {
         manualSpeedLock = true;
         manualSpeedValue = preManualSpeedValue;
         setState.speed(preManualSpeedValue);
+    } else if (manualSpeedLock && manualSpeedValue) {
+        // V7.8.1 | 2026-10-02 跨关倍速保持：69reset-runtime 每场战斗重置都会调本函数，
+        //   用户手动选过倍速但本次未滚动过日志时 preManualSpeed* 是初始空值，
+        //   原 else 分支把倍速打回默认并清锁 → "上一关4倍速、下一关变回默认"。
+        //   这里优先尊重当前手动锁定值；完全没手动选过倍速才落回默认 1000
+        setState.speed(manualSpeedValue);
     } else {
         manualSpeedLock = false;
         manualSpeedValue = null;
