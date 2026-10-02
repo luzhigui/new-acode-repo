@@ -7,9 +7,7 @@ import { eventBus } from '../infra/50-event-bus.js';
 import { flushBattleEvents } from '../infra/51-core-utils.js';
 import { loadGameData, getGameData } from '../core/01config-5v5-test.js';
 import { SeededRNG } from '../infra/51-core-utils.js';
-import '../modules/25elite-imperial.js';
-import '../modules/26elite-sixsects.js';
-import '../modules/27elite-mingjiao.js';
+import '../modules/00reg-mechanics.js';   // 机制装配统一入口（25/26/27/30；此前漏装 30）
 
 // node 探针补丁：node 的 fetch 不认相对 URL，把 content/200game-data.json 映射成 file:// 读取
 if (typeof localStorage === 'undefined') { globalThis.localStorage = { getItem: () => null, setItem: () => {} }; }

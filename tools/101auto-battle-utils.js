@@ -1,14 +1,12 @@
-// V6.3.1 | ~4100 bytes | 2026-10-02 补 import modules/30custom-effects（dotTick/damageReflect 顶层副作用注册），战斗实际在 116 worker 跑，装配口径与其保持一致
-export const VER = 'tools/101auto-battle-utils.js V6.3.1';
+// V6.3.2 | ~4000 bytes | 2026-10-02 机制装配收口：25/26/27/30 散装 import 收敛为 modules/00reg-mechanics.js 单入口
+// V6.3.1 | 2026-10-02 补 import modules/30custom-effects（dotTick/damageReflect 顶层副作用注册），战斗实际在 116 worker 跑，装配口径与其保持一致
+export const VER = 'tools/101auto-battle-utils.js V6.3.2';
 
 import { SeededRNG } from '../infra/51-core-utils.js';
 import { initBattleTeams } from '../modules/29battle-init.js';
 import { runParallel } from './117-shared-worker-runner.js';
 import '../infra/54-global-store.js';
-import '../modules/25elite-imperial.js';
-import '../modules/26elite-sixsects.js';
-import '../modules/27elite-mingjiao.js';
-import '../modules/30custom-effects.js';   // 2026-10-02 机制注册副作用（dotTick/damageReflect），与 116 worker 装配口径一致
+import '../modules/00reg-mechanics.js';   // 机制装配统一入口（25/26/27/30 顶层副作用注册）
 
 // 纯数据快照生成器
 export function generateSnapshot(currentStage = 1, rng = new SeededRNG(Date.now())) {

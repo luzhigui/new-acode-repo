@@ -66,7 +66,7 @@ export function grantClearRewards(winner, currentStage) {
     if (winner !== '明教' || !currentStage) return;
     const rng = getBattleRng();
     const stage = currentStage;
-    // 2026-10-02 补第7关掉率（按递增趋势暂定 7%，待用户定案；此前索引越界为 NaN，第7关圣火令永不掉落）
+    // 2026-10-02 定案：第7关掉率 7%（延续 1.5→7 递增趋势；此前索引越界为 NaN，第7关圣火令永不掉落）
     const killRate = [0, 1.5, 2, 2.5, 4, 5.5, 6, 7][stage] / 100;
     const clearRate = stage === 5 ? killRate * 6 : killRate * 5;
     if (rng.next() < clearRate) {

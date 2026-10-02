@@ -1,12 +1,10 @@
+// V1.0.2 | 2026-10-02 机制装配收口：25/26/27/30 散装 import 收敛为 modules/00reg-mechanics.js 单入口
 // V1.0.1 | 2026-10-02 补 import modules/30custom-effects（机制注册副作用），与其余战斗工具入口装配口径一致
 import { initBattleTeams } from '../modules/29battle-init.js';
 import { eventBus } from '../infra/50-event-bus.js';
 import { SeededRNG } from '../infra/51-core-utils.js';
 import { GlobalStore } from '../infra/54-global-store.js';
-import '../modules/25elite-imperial.js';
-import '../modules/26elite-sixsects.js';
-import '../modules/27elite-mingjiao.js';
-import '../modules/30custom-effects.js';   // 2026-10-02 dotTick/damageReflect 顶层注册副作用
+import '../modules/00reg-mechanics.js';   // 机制装配统一入口（25/26/27/30 顶层副作用注册）
 
 const startBtn = document.getElementById('lsStartBtn');
 const runsInput = document.getElementById('lsRunsInput');

@@ -6,9 +6,7 @@ import { GlobalStore } from '../infra/54-global-store.js';
 import { eventBus } from '../infra/50-event-bus.js';
 import { flushBattleEvents, SeededRNG } from '../infra/51-core-utils.js';
 import { loadGameData } from '../core/01config-5v5-test.js';
-import '../modules/25elite-imperial.js';
-import '../modules/26elite-sixsects.js';
-import '../modules/27elite-mingjiao.js';
+import '../modules/00reg-mechanics.js';   // 机制装配统一入口（25/26/27/30；此前漏装 30）
 
 if (typeof localStorage === 'undefined') { globalThis.localStorage = { getItem: () => null, setItem: () => {} }; }
 const _origFetch = globalThis.fetch;

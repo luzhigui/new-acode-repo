@@ -1,10 +1,11 @@
-// V6.12.1 | ~45200 bytes | 2026-10-02 下一关/重新开始（单机+PVP房主）、选关切换、回封面四个新局入口传 freshSeed，不再复用上一局种子重演首回合
-export const VER = 'ui/61main-5v5-test.js V6.12.1';
+// V6.12.2 | ~45100 bytes | 2026-10-02 机制装配收口：25/26/27/30 散装 import 收敛为 modules/00reg-mechanics.js 单入口（行为零变化，仅装配路径）
+// V6.12.1 | 2026-10-02 下一关/重新开始（单机+PVP房主）、选关切换、回封面四个新局入口传 freshSeed，不再复用上一局种子重演首回合
+export const VER = 'ui/61main-5v5-test.js V6.12.2';
 
 import '../infra/54-global-store.js';
 import { GlobalStore } from '../infra/54-global-store.js';
 import '../modules/21error-capture.js';
-import '../modules/30custom-effects.js';
+import '../modules/00reg-mechanics.js';   // 机制装配统一入口（25/26/27/30 顶层副作用注册）
 import { CONFIG, STATE, loadGameData, VER as CFG_VER } from '../core/01config-5v5-test.js';
 import { Unit, VER as VER_UNIT } from '../core/02unit.js';
 import { VER as VER_UTILS } from '../core/03battle-utils.js';
@@ -43,10 +44,7 @@ import { handlePvpBuffSelection } from '../player/49battle-flow.js';
 import { VER as VER_TEXT } from '../player/40player-text.js';
 import { VER as VER_BUFF_UI } from '../player/41player-buff-ui.js';
 import { addPermanentBuff, VER as VER_ELITE } from '../modules/20elite-skills.js';
-// 精英组件注册（副作用：registerElite 注册到 08-elite-registry）
-import '../modules/25elite-imperial.js';
-import '../modules/26elite-sixsects.js';
-import '../modules/27elite-mingjiao.js';
+// 精英组件注册已并入 ../modules/00reg-mechanics.js（registerElite 副作用统一装配）
 import { VER as VER_MAIN_UTILS } from './60main-utils.js';
 import { createStore, battleReducer } from '../modules/24battle-store.js';
 import { setGridStore } from '../render/32-grid-render.js';
