@@ -764,6 +764,11 @@ async function main() {
     await import('../modules/25elite-imperial.js');
     await import('../modules/26elite-sixsects.js');
     await import('../modules/27elite-mingjiao.js');
+    // 第 56 轮：装配口径对齐 —— dotTick/damageReflect 靠modules/30 **模块顶层副作用**注册进 core/18
+    //   （不是export函数，是 import 即注册）。漏 import ⇒ core/18 无该处理器 ⇒ core/15 安装期校验
+    //   对鹿杖客 dotTick 直接抛错「未知顶层机制 type "dotTick"」⇒ 对照器开局即崩。
+    //   tools/101、115、116 均已补（116 注释明写"不 import 则第 5 关 worker 全灭"），体检三个入口此前漏了。
+    await import('../modules/30custom-effects.js');
     await loadGameData();
     FACT_TYPES = FT; // 供顶层契约 extract 的 factType 守卫使用
 
