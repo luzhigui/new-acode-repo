@@ -1,5 +1,5 @@
-// V6.12.0 | ~44700 bytes | 2026-09-22 关卡循环扩到 7 关（第 7 关灭绝师太）：三处 6 → 7
-export const VER = 'ui/61main-5v5-test.js V6.12.0';
+// V6.12.1 | ~45200 bytes | 2026-10-02 下一关/重新开始（单机+PVP房主）、选关切换、回封面四个新局入口传 freshSeed，不再复用上一局种子重演首回合
+export const VER = 'ui/61main-5v5-test.js V6.12.1';
 
 import '../infra/54-global-store.js';
 import { GlobalStore } from '../infra/54-global-store.js';
@@ -659,7 +659,7 @@ document.addEventListener('DOMContentLoaded', async function() {
                 const pvpSnap = getState.snapshot();
                 setState.snapshot({ ally: [], enemy: [] });
                 setState.activeBuffs([]);
-                doInitBattle(getState.currentStage(), pvpUI, pvpSnap, getState.activeBuffs(), -1, null);
+                doInitBattle(getState.currentStage(), pvpUI, pvpSnap, getState.activeBuffs(), -1, null, true);
                 setState.UI(pvpUI);
                 setState.snapshot(pvpSnap);
                 updateUI();
@@ -695,7 +695,7 @@ document.addEventListener('DOMContentLoaded', async function() {
             let currentSnapshot = getState.snapshot();
             setState.snapshot({ ally: [], enemy: [] });
             setState.activeBuffs([]);
-            doInitBattle(getState.currentStage(), currentUI, currentSnapshot, getState.activeBuffs(), -1, currentDoubleStrikeUid);
+            doInitBattle(getState.currentStage(), currentUI, currentSnapshot, getState.activeBuffs(), -1, currentDoubleStrikeUid, true);
             setState.UI(currentUI);
             setState.snapshot(currentSnapshot);
             updateUI();
@@ -756,7 +756,7 @@ document.addEventListener('DOMContentLoaded', async function() {
         abortController = result.abortController; setState.waitingForNextRound(result.waitingForNextRound); isBattleStarting = result.isBattleStarting; setState.adjustMode(result.adjustMode); setState.selectedAdjustPos(result.selectedAdjustPos); setState.activeBuffs(result.activeBuffs); currentDoubleStrikeUid = result.currentDoubleStrikeUid;
         clearLogExceptFirst(); clearAllEffects(); hasLoggedTeam=false;
         setStage(stage);
-        doInitBattle(getState.currentStage(), getState.UI(), getState.snapshot(), getState.activeBuffs(), -1, currentDoubleStrikeUid);
+        doInitBattle(getState.currentStage(), getState.UI(), getState.snapshot(), getState.activeBuffs(), -1, currentDoubleStrikeUid, true);
         setState.UI(getState.UI());
         setState.snapshot(getState.snapshot());
         updateUI(); setState.gs(S.IDLE); updateButtons(); enableAllButtons(); updateScoreBadge();
@@ -812,7 +812,7 @@ document.addEventListener('DOMContentLoaded', async function() {
         currentDoubleStrikeUid = null;
         isBattleStarting = false; hasLoggedTeam = false;
         setStage(1); GlobalStore.set('_hasPlayedFair', false);
-        doInitBattle(getState.currentStage(), getState.UI(), getState.snapshot(), getState.activeBuffs(), -1, null);
+        doInitBattle(getState.currentStage(), getState.UI(), getState.snapshot(), getState.activeBuffs(), -1, null, true);
         setState.UI(getState.UI());
         setState.snapshot(getState.snapshot());
         updateUI(); renderGrid('allyGrid', CAMP_TYPES.ALLY); renderGrid('enemyGrid', CAMP_TYPES.ENEMY);

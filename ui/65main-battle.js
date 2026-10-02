@@ -1,5 +1,5 @@
-// V6.0.1 | 2026-09-22 战报血量显示改走 fmtHp
-export const VER = 'ui/65main-battle.js V6.0.2';
+// V6.0.3 | 2026-10-02 新局种子策略：doInitBattle 加 freshSeed，全新一局（下一关/重开/选关/回封面）丢弃旧种子走时间随机；无该参仍严格按 snapshot 种子
+export const VER = 'ui/65main-battle.js V6.0.3';
 
 import { CONFIG } from '../core/01config-5v5-test.js';
 import { SeededRNG, fmtHp } from '../infra/51-core-utils.js';
@@ -17,8 +17,11 @@ const C = CONFIG;
 
 // 阵容生成
 // 阵容逻辑已抽至 modules/29battle-init.js，本函数仅组织外围流程
-export function doInitBattle(currentStage, UI, snapshot, activeBuffs, selectedBuffIndex, currentDoubleStrikeUid) {
+export function doInitBattle(currentStage, UI, snapshot, activeBuffs, selectedBuffIndex, currentDoubleStrikeUid, freshSeed = false) {
     if (!UI || !snapshot) return;
+    // freshSeed=true 表示「全新一局」（下一关/重新开始/选关/回封面）：丢弃上一局残留种子，走时间随机。
+    // 不传或 false 时维持原语义——snapshot 带着种子就严格按种子（布阵→开战同源、联机房主、种子复现）。
+    if (freshSeed) delete snapshot._rngSeed;
     const _rng = snapshot._rngSeed ? new SeededRNG(snapshot._rngSeed) : new SeededRNG(Date.now());
     const { allyTeam, enemyTeam } = initBattleTeams(currentStage, _rng);
     
