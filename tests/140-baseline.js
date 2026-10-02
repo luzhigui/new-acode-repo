@@ -116,6 +116,9 @@ async function main() {
     await import('../modules/25elite-imperial.js');
     await import('../modules/26elite-sixsects.js');
     await import('../modules/27elite-mingjiao.js');
+    // 第 56 轮：装配口径对齐 —— dotTick/damageReflect 靠 modules/30 模块顶层副作用注册进 core/18，
+    //   漏 import ⇒ core/15 安装期校验对鹿杖客 dotTick 抛错，基线开局即崩（同 tools/116 的坑）。
+    await import('../modules/30custom-effects.js');
     await loadGameData(); // CONFIG getter/精英机制都依赖 gameData
 
     const MAX_ROUND = CONFIG.MAX_ROUND || 35;

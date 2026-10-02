@@ -78,6 +78,9 @@ const [{ CONFIG, loadGameData }, { SeededRNG }, { createRoundStepper }, { initBa
 await import('../modules/25elite-imperial.js');
 await import('../modules/26elite-sixsects.js');
 await import('../modules/27elite-mingjiao.js');
+// 第 56 轮：装配口径对齐 —— dotTick/damageReflect 靠 modules/30 模块顶层副作用注册进 core/18，
+//   漏 import ⇒ core/15 安装期校验对鹿杖客 dotTick 抛错，回放开局即崩（同 tools/116 的坑）。
+await import('../modules/30custom-effects.js');
 await loadGameData();
 // 不变量用：查询某 factType 是否**注册了**渲染器（render/33:72）。
 // 注意别用"本次渲染有没有产出"当映射缺口判据 —— buffSummary/mindControlBanner 都有注册渲染器
