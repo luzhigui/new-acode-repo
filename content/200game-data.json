@@ -1,5 +1,5 @@
 {
-  "version": "5.6.19",
+  "version": "5.6.20",
   "updated": "2026-10-02",
 
   "roles": {
@@ -118,7 +118,7 @@
         "youngBlood": {
           "name": "年轻气盛",
           "desc": "每次攻击前与「正义国字脸」二选一（攻击越高越容易发动）：随机攻击一名敌人造成×{dmgMultiplier}伤害，并将其击退（退无可退则眩晕）",
-          "params": { "dmgMultiplier": 1.5 }
+          "params": { "dmgMultiplier": 2.0 }
         }
       },
       "taunts": {
