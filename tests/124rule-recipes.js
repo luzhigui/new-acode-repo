@@ -1,8 +1,11 @@
+// V1.2.0 | ~7900 bytes | 2026-10-02 第 50 轮：RULE_META 补登 156「技能说明数字==引擎真值」（此前只
+//          在 123 的 SCAN_FILES 登记过，121/124 两处都漏）。tag 归 generic:通用 —— 它不读战报、
+//          只比 content/core 真值，恒有结论，不依赖本局出阵角色。
 // V1.1.0 | ~6600 bytes | 2026-09-25 补 export const VER（此前全库唯一无 VER 的体检 js，tools/118 的
 //          VER 对账会漏掉本文件）；删除死常量 TAG_PREFIX 与 getRuleGroups 里未使用的 prefix 变量。
 // V1.0.0 | 每场体检按"目标规则"裁剪执行集：只跑能触发的规则，其余不参与统计(消除海量skip噪音)
 // tag 语义: hero=我方英雄(部分可强制) / enemy=敌方精英(随机出阵) / mechanic=通用机制(双方都可能) / generic=通用
-export const VER = 'tests/124rule-recipes.js V1.1.0';
+export const VER = 'tests/124rule-recipes.js V1.2.0';
 
 export const RULE_META = {
     '张无忌九阳神功回复量(回归)': { tag: 'hero:张无忌', force: 'forceZhang' },
@@ -40,7 +43,10 @@ export const RULE_META = {
     '张三丰核心机制回归(严阵以待/如沐春风/生生不息)': { tag: 'enemy:张三丰', note: '张三丰为六大派随机精英，无法强制，需连打多局碰出' },
     '张三丰生生不息回合开始触发缺失(回归)': { tag: 'enemy:张三丰', note: '同上，张三丰需随机出阵才会触发' },
     '死亡特效缺失(回归)': { tag: 'generic:通用' },
-    '回合分隔符重复(回归)': { tag: 'generic:通用' }
+    '回合分隔符重复(回归)': { tag: 'generic:通用' },
+    // 第 50 轮补登：156 此前只在 123 的 SCAN_FILES 里登记过，121/124 两处都漏了。
+    //   它与战报无关（读 content/core 真值渲染技能说明），恒有结论、不依赖出阵角色，故归「通用」。
+    '技能说明数字==引擎真值(单源守卫)': { tag: 'generic:通用', note: '不依赖本局战报；改 content 数值或 core/01 的 DESC_TRUTH 时立刻现形' }
 };
 
 // tag 分组（体检中心面板按此渲染；key 顺序即展示顺序）
