@@ -1,5 +1,5 @@
 // render/38-actions-translate.js — fact → stageAction 翻译器（翻译域）
-// V1.1.6 | ~32300 bytes | 2026-10-02 entries 扫描补 METEOR_SHOWER_MAIN → DAMAGE_FLOAT 飘「💥-N」（流星赶月 40% 加深已由 BONUS_DMG 裁定器实扣，此前只有金色战报行、头顶无数字）
+// V1.1.7 | ~32900 bytes | 2026-10-02 流星赶月减防补飘字：主目标 METEOR_SHOWER_MAIN 增 STAT_CHANGE(def,-mainDefReduce)、溅射 BUFF_EFFECT 带 splashDefReduce（render/39 每个存活溅射目标飘🛡-N）；加深掉血飘字为 V1.1.6
 //   承接 V1.1.5：entries 扫描补 BREAK_DEF → STAT_CHANGE(def) 飘「🛡-N」（战士破防此前零飘字）；胖远桥·正义国字脸加防借同一通道飘「🛡+N」
 //
 // 加新 fact 的舞台动作：在本文件 FACT_TRANSLATORS 加一条（键=factType），
@@ -7,7 +7,7 @@
 import { makeFXSnapshot } from '../infra/51-core-utils.js';
 import { STAGE_ACTION_TYPES, FACT_TYPES, CAMP_TYPES, BUFF_EFFECT_TYPES, FLY_MODE_TYPES } from '../infra/56-battle-enums.js';
 import { FACT_SPECS } from '../infra/58-fact-contract.js';
-export const VER = 'render/38-actions-translate.js V1.1.6';
+export const VER = 'render/38-actions-translate.js V1.1.7';
 
 // 把 fact 列表翻译成舞台动作；导演只读 stageActions；timing=beforeText/afterText
 export function translateFactsToStageActions(log) {
@@ -497,6 +497,9 @@ function makeAttackAction(data, index) {
                 primaryUid: e.primaryUid ?? target?.uid ?? null,
                 splashUids: e.splashUids ?? (e.data?.targets?.map(t => t.uid) ?? []),
                 splashDmg: e.splashDmg ?? null,
+                // 2026-10-02 溅射减防（流星 splashDefReduce，core/04 对每个溅射目标 STAT_CHANGE 已实改）；
+                //   buff-splash/乘风等无此字段为 null，render/39 有值才飘「🛡-N」
+                splashDefReduce: e.data?.defReduce ?? null,
                 buffType: e.buffType ?? null,
                 factIndex: index,
                 timing: 'afterText'
@@ -625,6 +628,18 @@ function makeAttackAction(data, index) {
                     kind: STAGE_ACTION_TYPES.DAMAGE_FLOAT,
                     targetUid: mmUid,
                     dmg: Math.round(mm.bonusDmg),
+                    factIndex: index,
+                    timing: 'afterText'
+                });
+            }
+            // 2026-10-02 主目标减防（mainDefReduce，core/04 STAT_CHANGE 已实改）：走 STAT_CHANGE(def) 飘「🛡-N」，
+            //   与加深同组 afterText；目标已死则减防无意义不飘。减防飘字在头顶镜像位，与掉血数字不重叠。
+            if (mmUid && mm.defReduce > 0 && !dead) {
+                afterTextEffects.push({
+                    kind: STAGE_ACTION_TYPES.STAT_CHANGE,
+                    statKind: 'def',
+                    targetUid: mmUid,
+                    gain: -Math.round(mm.defReduce),
                     factIndex: index,
                     timing: 'afterText'
                 });

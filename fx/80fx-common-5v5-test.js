@@ -1,11 +1,12 @@
-// V6.2.2 | ~23000 bytes | 2026-10-02 showDamageFloat 加同单位短时错位（同 heal 飘字方案）：主伤害与流星赶月加深/溅射在近窗内连飘时不再完全重叠
-export const VER = 'fx/80fx-common-5v5-test.js V6.2.2';
+// V6.2.3 | ~23100 bytes | 2026-10-02 修复🛡飘字从未显示：POOL_SIZES 漏登记 defBuffFloat → 建池 0 元素 → acquireFromPool「池耗尽」静默 return（胖远桥加防/战士破防/流星减防全灭）
+// V6.2.2 | 2026-10-02 showDamageFloat 加同单位短时错位（同 heal 飘字方案）：主伤害与流星赶月加深/溅射在近窗内连飘时不再完全重叠
+export const VER = 'fx/80fx-common-5v5-test.js V6.2.3';
 
 import { CAMP_TYPES } from '../infra/56-battle-enums.js';
 import { snapshotUnitCell } from './90fx-ref-manager.js';
 import { clock } from '../infra/52-clock.js';
 
-const POOL = {}; const POOL_SIZES = { danmaku: 8, dmgFloat: 6, dodge: 4, healFloat: 4, atkBuffFloat: 4, buffBanner: 2 };
+const POOL = {}; const POOL_SIZES = { danmaku: 8, dmgFloat: 6, dodge: 4, healFloat: 4, atkBuffFloat: 4, defBuffFloat: 4, buffBanner: 2 };
 function initPool(type, createFn) { if (!POOL[type]) { POOL[type] = { available: [], active: [] }; for (let i = 0; i < POOL_SIZES[type]; i++) { let el = createFn(); el.style.display = 'none'; document.body.appendChild(el); POOL[type].available.push(el); } } }
 
 function acquireFromPool(type, setupFn, duration) {

@@ -1,5 +1,5 @@
 // render/39-actions-defs.js — 舞台动作演出定义（演出域）
-// V1.2.4 | ~25200 bytes | 2026-10-02 溅射掉血飘字收口：新增 DAMAGE_FLOAT 舞台动作；流星赶月箭雨后按命中节奏飘「💥-N」、乘风突袭风爪同帧飘（伤害均由 core/16 SPLASH/BONUS_DMG 已实扣，此前只有演出+战报无飘字）
+// V1.2.5 | ~25700 bytes | 2026-10-02 流星溅射补「🛡-N」减防飘字（splashDefReduce，箭雨命中同帧、与💥镜像错开）；乘风分支同代码路径有值才飘
 // 2026-09-22 从 render/31 拆出：STAGE_ACTION_DEFS 全表 + 单位查找
 //
 // 加新 stageAction：在本文件 STAGE_ACTION_DEFS 加一条（键=STAGE_ACTION_TYPES.xxx），
@@ -11,7 +11,7 @@ import { GlobalStore } from '../infra/54-global-store.js';
 import { getSkillParams } from '../core/01config-5v5-test.js';
 import { AudioManager } from '../modules/22audio-manager.js';
 import { STAGE_ACTION_TYPES, STORE_ACTION_TYPES, UNIT_EVENT_TYPES, ROLE_TYPES, BUFF_EFFECT_TYPES, BUFF_SUBTYPES, FLY_MODE_TYPES } from '../infra/56-battle-enums.js';
-export const VER = 'render/39-actions-defs.js V1.2.4';
+export const VER = 'render/39-actions-defs.js V1.2.5';
 
 // 先查 store 权威单位，再回退 UI 快照
 function findUnitByUidLocal(c, uid) {
@@ -431,6 +431,8 @@ export const STAGE_ACTION_DEFS = {
                             eventBus.emit(FX_SIGNALS.WIND_CLAW, { unit: u });
                             // 2026-10-02 乘风溅射掉血飘字：伤害 core/16 SPLASH 已实扣，与流星同口径；乘风不延时，同帧飘
                             if (u.alive && !GlobalStore.get('fastForwardActive')) eventBus.emit(FX_SIGNALS.DAMAGE_FLOAT, { unit: u, dmg: action.splashDmg });
+                            // 溅射减防（乘风配置无 defReduce 时为 null，不飘）
+                            if (u.alive && action.splashDefReduce > 0 && !GlobalStore.get('fastForwardActive')) eventBus.emit(FX_SIGNALS.DEF_BUFF_FLOAT, { unit, gain: -action.splashDefReduce });
                         });
                     } else {
                         await eventBus.emit(FX_SIGNALS.BANNER, { text: '☄️ 流星赶月！' });
@@ -440,7 +442,10 @@ export const STAGE_ACTION_DEFS = {
                             // 2026-10-02 溅射掉血飘字：伤害 core/16 SPLASH 已实扣，此前只有箭雨演出、头顶无数字。
                             //   随箭矢节奏错层飘；播放时已死的目标（同击内被主伤害连带击杀的极端情况）不飘。
                             if (st.alive) clock.wait(600 + i * 80).then(() => {
-                                if (!GlobalStore.get('fastForwardActive')) eventBus.emit(FX_SIGNALS.DAMAGE_FLOAT, { unit: st, dmg: action.splashDmg });
+                                if (GlobalStore.get('fastForwardActive')) return;
+                                eventBus.emit(FX_SIGNALS.DAMAGE_FLOAT, { unit: st, dmg: action.splashDmg });
+                                // 溅射减防🛡与掉血💥同帧：右上镜像位 vs 右侧，天然错开不重叠
+                                if (action.splashDefReduce > 0) eventBus.emit(FX_SIGNALS.DEF_BUFF_FLOAT, { unit: st, gain: -action.splashDefReduce });
                             });
                         });
                         await clock.wait(600);
