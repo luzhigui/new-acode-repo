@@ -354,10 +354,10 @@
           "camp": "ally",
           "targetRule": "lowestHp",
           "onHitEffects": [
-            { "type": "leech", "minRatio": 0.05, "maxRatio": 0.30 }
+            { "type": "leech", "minRatio": 0.05, "maxRatio": 0.25 }
           ],
           "dodgeRules": [
-            { "type": "lostHpPercent", "max": 0.70 }
+            { "type": "lostHpPercent", "max": 0.60 }
           ]
         }
       ],
