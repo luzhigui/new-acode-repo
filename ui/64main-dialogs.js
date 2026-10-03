@@ -1,5 +1,7 @@
+// ui/64main-dialogs.js — 主界面弹窗（战斗结算 / 存档 / 教程等）
+// V6.4.0 | ~21200 bytes | 2026-10-03 结算面板排序按钮改为横排三枚（输出/承伤/治疗），点击即排序并高亮当前项；承伤/输出口径见 core/13 统一记账
 // V6.3.0 | ~24100 bytes | 2026-09-28 战报弹窗改 flex 限高布局：整盒 max-height:90vh、标题/按钮固定、数据表与走势分析区独立滚动，修手机端内容超长被底部按钮遮挡、看不全；宽表横向可滑不撑破屏幕
-export const VER = 'ui/64main-dialogs.js V6.3.0';
+export const VER = 'ui/64main-dialogs.js V6.4.0';
 
 import { showModal, showAlert } from './60main-utils.js';
 import { AudioManager } from '../modules/22audio-manager.js';
@@ -72,16 +74,20 @@ export function showBattleReport(battleResultForInfo) {
     title.textContent = '战斗结束 · ' + winner + '获胜';
     box.appendChild(title);
     
-    let switchBtn = document.createElement('button');
-    switchBtn.textContent = '按输出排序';
-    switchBtn.style.cssText = 'background:#3a3a6e;color:#eee;border:1px solid #555;padding:6px 14px;border-radius:4px;cursor:pointer;margin-bottom:8px;flex-shrink:0;';
+    // 排序按钮横排三枚：输出 / 承伤 / 治疗，点击即按该列排序（2026-10-03 替代原两态切换按钮）
     let sortBy = 'dmgDealt';
-    switchBtn.onclick = () => {
-        sortBy = sortBy === 'dmgDealt' ? 'dmgTaken' : 'dmgDealt';
-        switchBtn.textContent = sortBy === 'dmgDealt' ? '按输出排序' : '按承伤排序';
-        renderTable();
-    };
-    box.appendChild(switchBtn);
+    const sortBtns = {};
+    const sortBtnDiv = document.createElement('div');
+    sortBtnDiv.style.cssText = 'display:flex;gap:8px;margin-bottom:8px;flex-shrink:0;';
+    [['dmgDealt', '按输出排序'], ['dmgTaken', '按承伤排序'], ['healDone', '按治疗排序']].forEach(([key, label]) => {
+        const btn = document.createElement('button');
+        btn.textContent = label;
+        btn.style.cssText = 'background:#3a3a6e;color:#eee;border:1px solid #555;padding:6px 14px;border-radius:4px;cursor:pointer;';
+        btn.onclick = () => { sortBy = key; renderTable(); };
+        sortBtns[key] = btn;
+        sortBtnDiv.appendChild(btn);
+    });
+    box.appendChild(sortBtnDiv);
     
     let tableDiv = document.createElement('div');
     tableDiv.style.cssText = 'flex:1 1 auto;min-height:0;min-width:0;overflow:auto;';
@@ -97,6 +103,10 @@ export function showBattleReport(battleResultForInfo) {
     function renderTable() {
         tableDiv.innerHTML = '';
         let sorted = [...allUnits].sort((a,b) => (b[sortBy]||0) - (a[sortBy]||0));
+        // 当前排序按钮高亮，其余恢复默认色
+        Object.entries(sortBtns).forEach(([key, btn]) => {
+            btn.style.background = key === sortBy ? '#6a5acd' : '#3a3a6e';
+        });
         let table = document.createElement('table');
         table.style.cssText = 'width:100%;font-size:12px;color:#ddd;border-collapse:collapse;';
         table.innerHTML = `

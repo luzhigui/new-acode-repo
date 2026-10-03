@@ -1,5 +1,5 @@
-// V6.5.3 | ~23300 bytes | 2026-09-29 参数体系收敛批 1+3：精英人数骰阈值、小昭姊/妹概率改读 CONFIG；power 兜底值删死值改严格读数（缺项抛错）；敌人身份站位优先表并入 CONFIG.ENEMY_ELITE_POS_PRIORITY；玄冥补兵 M 进 CONFIG
-export const VER = 'modules/29battle-init.js V6.5.3';
+// V6.5.4 | ~23400 bytes | 2026-10-03 强制小昭换人候选补排谢逊（!u.isXieXun，对齐下方站位段口径）：此前谢逊在场且无小昭时被当普通兵换掉，normalPowerOf(107) 查表抛「缺 roster.normalPower: 107」
+export const VER = 'modules/29battle-init.js V6.5.4';
 
 import { CONFIG } from '../core/01config-5v5-test.js';
 import { Unit, applyHeroFlags, HERO_FLAGS } from '../core/02unit.js';
@@ -214,7 +214,7 @@ export function initBattleTeams(currentStage, _rng) {
             existingXz.name = existingXz.isXiaoZhaoSister ? '小昭·姊' : '小昭·妹';
             applyHeroFlags(existingXz);
         } else {
-            const swappable = allyTeam.find(u => !u.isZhang && !u.isWei);
+            const swappable = allyTeam.find(u => !u.isZhang && !u.isWei && !u.isXieXun);
             if (swappable) {
                 allyTeam.splice(allyTeam.indexOf(swappable), 1);
                 remainingPower += normalPowerOf(swappable.m);
