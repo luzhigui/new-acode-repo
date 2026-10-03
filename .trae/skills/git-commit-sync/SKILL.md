@@ -54,6 +54,24 @@ $git = 'E:\03 陆志贵学习文件夹\00 皮一下很开心\Git\cmd\git.exe'
     `& $git fetch https://gh-proxy.com/https://github.com/luzhigui/new-acode-repo.git main`
     然后 `& $git merge FETCH_HEAD`。
 
+### 3.1 直连被墙：IP 钉扎推送（2026-10-03 实战验证；用户明确说"重试/使劲 push"时才上）
+
+症状：`Invoke-WebRequest https://api.github.com` 能通（200），git 却报 `Connection was reset` / `Could not connect to server`。
+根因：DNS 把 github.com 解析到被墙节点（如 20.205.243.166，新加坡）；GitHub 美国节点 140.82.112.3 / .113.3 / .114.3 / .116.3 的 443 是通的。
+
+```powershell
+# 第一步：钉 IP 直推（git 2.8+ 原生支持，无需改 hosts / 无需管理员）
+& $git -c 'http.curloptResolve=github.com:443:140.82.112.3' -c http.lowSpeedLimit=1000 -c http.lowSpeedTime=20 push origin main 2>&1 | Select-Object -Last 3
+
+# 若报错变成 LFS locks/verify dial tcp 20.205.243.166 失败——git-lfs 是独立进程，不继承 curloptResolve；
+# 本次提交不含 LFS 对象时跳过它，推完删掉环境变量：
+$env:GIT_LFS_SKIP_PUSH='1'   # 推完 Remove-Item Env:GIT_LFS_SKIP_PUSH
+```
+
+- 钉的 IP 不通时先探测再换：`Test-NetConnection 140.82.113.3 -Port 443`，谁通用谁（140.82.121.3 也可能被墙）。
+- 镜像（gh-proxy.com）依然**不能 push**，此场景救不了。
+- 成功判定不变：输出里有 `<旧hash>..<新hash>  main -> main`。
+
 ### 4. 核对同步状态
 
 ```powershell
