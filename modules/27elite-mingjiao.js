@@ -1,5 +1,6 @@
+// V6.4.7 | ~50800 bytes | 2026-10-03 蝶变飞回（宿主存活路径）补清 _untargetable——此前漏清致姐姐飞回后整场不可被选，敌方越列打她身后队友（体检139零承伤真根因）
 // V6.4.6 | ~50700 bytes | 2026-10-02 吸血参数查找 'leech' 改用 MECHANIC_EFFECT_TYPES.ON_HIT.LEECH 枚举（mechanics type 同源治理）
-export const VER = 'modules/27elite-mingjiao.js V6.4.6';
+export const VER = 'modules/27elite-mingjiao.js V6.4.7';
 
 import { registerElite } from '../core/08-elite-registry.js';
 import { CONFIG, getSkillParams, getMechanicField } from '../core/01config-5v5-test.js';
@@ -372,7 +373,9 @@ export function createXiaoZhaoSisterComponent() {
                     atk: host.atk, def: host.def
                 });
             }
-            Object.assign(sister.state, { _flyMode: null, _butterflyHost: null });
+            // 2026-10-03 补清 _untargetable（对齐下方"宿主已死"路径）：此前宿主存活飞回漏清，
+            //   姐姐整场不可被选 → 敌方越过的假前排同列队友，也是体检139"姐姐零承伤"的真根因
+            Object.assign(sister.state, { _flyMode: null, _untargetable: false, _butterflyHost: null });
             Object.assign(sister.state, { _butterflyHpTransfer: 0 });
             if (!A.find(a => a.uid === sister.uid)) {
                 A.push(sister);

@@ -1,5 +1,5 @@
-// V6.2.6 | ~15900 bytes | 2026-10-02 流星赶月加深 factData 补 targetUid（render/38 据此产 DAMAGE_FLOAT 掉血飘字，机制零改动）
-export const VER = 'core/04buff-system.js V6.2.6';
+// V6.2.7 | ~16000 bytes | 2026-10-03 乘风突袭声明补顶层 attackerUid/primaryUid/splashUids/splashDmg：core/10 只复制声明顶层字段进 entry，此前弹幕 splashDmg 恒 null 显示「-null」（对齐流星赶月声明模式，机制零改动）
+export const VER = 'core/04buff-system.js V6.2.7';
 import {
     applyFortifyDef_Normal, applyFortifyDef_Sister, applyFortifyDef_Brother,
     applyCloudBodyDodge_Normal, applyCloudBodyDodge_Sister, applyCloudBodyDodge_Brother,
@@ -146,7 +146,7 @@ export function submitWindAssaultDeclaration(data) {
         if (rowTargets.length > 0) {
             const splashDmg = Math.floor(dmg);
             if (!data.declarations) data.declarations = [];
-            data.declarations.push({ type: EFFECT_TYPES.SPLASH, value: splashDmg, targets: rowTargets, buffType: BUFF_SUBTYPES.WIND_ASSAULT, factType: FACT_TYPES.WIND_ASSAULT_SPLASH, factData: { label, targets: rowTargets.map(t => ({ uid: t.uid, name: t.name })), splashDmg } });
+            data.declarations.push({ type: EFFECT_TYPES.SPLASH, value: splashDmg, targets: rowTargets, buffType: BUFF_SUBTYPES.WIND_ASSAULT, attackerUid: unit.uid, primaryUid: target.uid, splashUids: rowTargets.map(t => t.uid), splashDmg, factType: FACT_TYPES.WIND_ASSAULT_SPLASH, factData: { label, targets: rowTargets.map(t => ({ uid: t.uid, name: t.name })), splashDmg } });
         } else {
             log.push({ factType: FACT_TYPES.WIND_ASSAULT_FAIL, data: { label, reason: '波及无同行目标' } });
         }

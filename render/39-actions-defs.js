@@ -1,5 +1,5 @@
 // render/39-actions-defs.js — 舞台动作演出定义（演出域）
-// V1.2.5 | ~25700 bytes | 2026-10-02 流星溅射补「🛡-N」减防飘字（splashDefReduce，箭雨命中同帧、与💥镜像错开）；乘风分支同代码路径有值才飘
+// V1.2.6 | ~25700 bytes | 2026-10-03 乘风溅射减防飘字笔误修正：{ unit, → { unit: u,（forEach 形参是 u，原 shorthand 引用未定义变量，当前不可达但一配 defReduce 即 ReferenceError）
 // 2026-09-22 从 render/31 拆出：STAGE_ACTION_DEFS 全表 + 单位查找
 //
 // 加新 stageAction：在本文件 STAGE_ACTION_DEFS 加一条（键=STAGE_ACTION_TYPES.xxx），
@@ -11,7 +11,7 @@ import { GlobalStore } from '../infra/54-global-store.js';
 import { getSkillParams } from '../core/01config-5v5-test.js';
 import { AudioManager } from '../modules/22audio-manager.js';
 import { STAGE_ACTION_TYPES, STORE_ACTION_TYPES, UNIT_EVENT_TYPES, ROLE_TYPES, BUFF_EFFECT_TYPES, BUFF_SUBTYPES, FLY_MODE_TYPES } from '../infra/56-battle-enums.js';
-export const VER = 'render/39-actions-defs.js V1.2.5';
+export const VER = 'render/39-actions-defs.js V1.2.6';
 
 // 先查 store 权威单位，再回退 UI 快照
 function findUnitByUidLocal(c, uid) {
@@ -432,7 +432,7 @@ export const STAGE_ACTION_DEFS = {
                             // 2026-10-02 乘风溅射掉血飘字：伤害 core/16 SPLASH 已实扣，与流星同口径；乘风不延时，同帧飘
                             if (u.alive && !GlobalStore.get('fastForwardActive')) eventBus.emit(FX_SIGNALS.DAMAGE_FLOAT, { unit: u, dmg: action.splashDmg });
                             // 溅射减防（乘风配置无 defReduce 时为 null，不飘）
-                            if (u.alive && action.splashDefReduce > 0 && !GlobalStore.get('fastForwardActive')) eventBus.emit(FX_SIGNALS.DEF_BUFF_FLOAT, { unit, gain: -action.splashDefReduce });
+                            if (u.alive && action.splashDefReduce > 0 && !GlobalStore.get('fastForwardActive')) eventBus.emit(FX_SIGNALS.DEF_BUFF_FLOAT, { unit: u, gain: -action.splashDefReduce });
                         });
                     } else {
                         await eventBus.emit(FX_SIGNALS.BANNER, { text: '☄️ 流星赶月！' });
