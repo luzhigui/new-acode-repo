@@ -1,5 +1,5 @@
-// V6.0.5 | ~11900 bytes | 2026-10-02 张无忌基础版乾坤大挪移保护位 4/6 → 2/4/6/8（与升级版同覆盖，两档仅差数值：基础减伤10/反弹10/自伤10，升级30/20/10）
-export const VER = 'modules/20elite-skills.js V6.0.5';
+// V6.0.6 | ~12400 bytes | 2026-10-03 乾坤大挪移保护域改为**跟随张无忌实时位置的四邻格**（前后左右；站 5 号时恰为旧版 2/4/6/8），升级/基础两档同口径
+export const VER = 'modules/20elite-skills.js V6.0.6';
 
 import { CONFIG, getSkillParams } from '../core/01config-5v5-test.js';
 import { getRoleBonus, getHpDmgRatio } from '../core/02unit.js';
@@ -26,6 +26,17 @@ export function tickXuanmingPoison(unit, source) {
 
 // 乾坤大挪移升级版减伤
 
+// 乾坤保护域：张无忌当前所站的四邻格（前后左右）。3x3 棋盘 1-9：上=p-3、下=p+3、左=p-1（非左列）、右=p+1（非右列）。
+// 站中心 5 号时恰为旧版固定 2/4/6/8；站边角时邻格只有 2-3 个，保护范围随之收窄。
+function qianKunZone(pos) {
+    const zone = [];
+    if (pos > 3) zone.push(pos - 3);
+    if (pos <= 6) zone.push(pos + 3);
+    if (pos % 3 !== 1) zone.push(pos - 1);
+    if (pos % 3 !== 0) zone.push(pos + 1);
+    return zone;
+}
+
 export function applyDamageModifiers(unit, target, dmg, allySide, enemySide, log) {
     let modifiedDmg = dmg;
     const entries = [];
@@ -33,7 +44,7 @@ export function applyDamageModifiers(unit, target, dmg, allySide, enemySide, log
     const zhang = allySide.find(c => c.isZhang && c.alive && c.rangedForm && !c.state._stunned);
     if (target.camp !== CAMP_TYPES.ALLY || !zhang) return { modifiedDmg, entries };
 
-    if (xiaoZhao && [2, 4, 6, 8].includes(target.pos)) {
+    if (xiaoZhao && qianKunZone(zhang.pos).includes(target.pos)) {
         const s = getSkillParams('小昭', 'qianKunUpgraded');
         if (!s) throw new Error('缺技能参数: 小昭.qianKunUpgraded');
         const reducePct = s.reducePct;
@@ -61,9 +72,9 @@ export function applyDamageModifiers(unit, target, dmg, allySide, enemySide, log
         });
 
         modifiedDmg = reducedDmg;
-    } else if (!xiaoZhao && [2, 4, 6, 8].includes(target.pos)) {
-        // 2026-10-02 基础版保护位与升级版对齐（2/4/6/8），两档只差数值。
-        // 2 号位活着才吃保护；2 号一死张无忌即切近战、rangedForm=false，乾坤自动关闭——前排在时借力分担，前排倒了亲自顶上
+    } else if (!xiaoZhao && qianKunZone(zhang.pos).includes(target.pos)) {
+        // 2026-10-03 基础版保护域与升级版同口径（张无忌四邻格），两档只差数值。
+        // 张无忌保持远程（所在列有更靠前的活队友）才有乾坤；切近战 rangedForm=false 自动关闭——前排在时借力分担，前排倒了亲自顶上
         const s = getSkillParams('张无忌', 'qianKun');
         if (!s) throw new Error('缺技能参数: 张无忌.qianKun');
         const reducePct = s.reducePct;
