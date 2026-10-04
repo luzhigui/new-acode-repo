@@ -1,7 +1,7 @@
-// V6.0.4 | ~17400 bytes | 2026-10-02 详情面板 buff 按单位阵营过滤：此前敌方面板也拿明教 activeBuffs 去算，虚显示「流云身法」等明教 buff（引擎 core/11 本就按 b.target 分边，战斗数值无误，纯面板错）
-export const VER = 'ui/62ui-render-5v5-test.js V6.0.4';
+// V6.1.0 | ~16100 bytes | 2026-10-04 详情弹窗：标题身份标记 + 25 分支技能 if/else 链，两处都改查 ui/69-role-cards.js 名片表（显示内容逐条等价，加新角色只加一行）
+export const VER = 'ui/62ui-render-5v5-test.js V6.1.0';
 
-import { getSkillDesc } from '../core/01config-5v5-test.js';
+// 2026-10-04 getSkillDesc 已下沉到 ui/69-role-cards.js（技能说明统一查表），本文件不再直接用
 import { getStat } from '../core/13battle-shared.js';
 import { fmtHp } from '../infra/51-core-utils.js';
 import { getMissBreakdown } from '../core/03battle-utils.js';
@@ -177,85 +177,8 @@ function updateDetailPopupContent() {
             <span style="color:#888;">Buff</span><span>${buffText}</span>
             ${masteryText}
             ${(() => {
-                let skills = [];
-                if (u.isZhang) skills = [
-                    getSkillDesc('张无忌', 'nineYang'),
-                    getSkillDesc('张无忌', 'qianKun'),
-                    getSkillDesc('张无忌', 'nearSwitch')
-                ];
-                else if (u.isWei) skills = [
-                    getSkillDesc('韦一笑', 'bloodSiphon'),
-                    getSkillDesc('韦一笑', 'bloodDodge')
-                ];
-                else if (u.isSongQingshu) {
-                    skills = [
-                        `💥 ${getSkillDesc('宋青书', 'rebelStrike', false)}`,
-                        `💪 ${getSkillDesc('宋青书', 'kuLian', false)}`,
-                        `💒 ${getSkillDesc('宋青书', 'xinHun', false)}`,
-                        `💗 ${getSkillDesc('宋青书', 'xingFen', false)}`
-                    ];
-                }
-                else if (u.isZhouZhiruo) {
-                    const descNormal = getSkillDesc('周芷若', 'nineYinClaw', false);
-                    const descJealous = getSkillDesc('周芷若', 'nineYinClaw', true);
-                    skills = [`🐾 ${descNormal}（无忌在场：${descJealous}），可连锁`];
-                }
-                else if (u.isChengKun) skills = [
-                    `💥 ${getSkillDesc('成昆', 'phantomThunder')}`,
-                    `🌀 ${getSkillDesc('成昆', 'phantomDisguise')}`
-                ];
-                else if (u.isLuZhangKe) skills = [
-                    `❄️ ${getSkillDesc('鹿杖客', 'xuanmingPalm')}`,
-                    '🔗 联动鹤笔翁：攻击后鹤笔翁立刻攻击同一目标'
-                ];
-                else if (u.isHeBiWeng) skills = [
-                    `🦌 ${getSkillDesc('鹤笔翁', 'hornStrike')}`,
-                    '🔗 联动鹿杖客：攻击后鹿杖客立刻攻击同一目标'
-                ];
-                else if (u.isXiaoZhaoSister) skills = [
-                    `🦋 ${getSkillDesc('小昭', 'butterflyAttach')}`,
-                    `🦋 ${getSkillDesc('小昭', 'qianKunDerived')}`,
-                    `🛡️ ${getSkillDesc('小昭', 'qianKunUpgraded')}`,
-                    `♾️ ${getSkillDesc('小昭', 'permanentHex')}`
-                ];
-                else if (u.isXiaoZhaoBrother) skills = [
-                    `🕷️ ${getSkillDesc('小昭', 'spiderTransform')}`,
-                    `🕷️ ${getSkillDesc('小昭', 'spiderFly')}`,
-                    `🛡️ ${getSkillDesc('小昭', 'qianKunUpgraded')}`,
-                    `♾️ ${getSkillDesc('小昭', 'permanentHex')}`,
-                    `🏆 ${getSkillDesc('小昭', 'mastery')}`
-                ];
-                else if (u.isZhangSanfeng) skills = [
-                    `☯ ${getSkillDesc('张三丰', 'endlessBreath')}`,
-                    `🔮 ${getSkillDesc('张三丰', 'baguaArray')}`,
-                    `🚫 ${getSkillDesc('张三丰', 'noContend')}`,
-                    `🛡️ ${getSkillDesc('张三丰', 'tenRoundFortify')}`
-                ];
-                // 2026-09-24 补新角色技能说明：谢逊一家 / 胖远桥 / 灭绝
-                else if (u.isXieXun) skills = [
-                    `🦁 ${getSkillDesc('金毛狮王谢逊', 'summonLion')}`,
-                    `⚔️ ${getSkillDesc('金毛狮王谢逊', 'lionInspire')}`,
-                    `🏹 ${getSkillDesc('金毛狮王谢逊', 'lionFollow')}`
-                ];
-                else if (u.isLionCub) skills = [
-                    `🐱 ${getSkillDesc('金毛狮王谢逊', 'summonLion')}`
-                ];
-                else if (u.isLionMale) skills = [
-                    `⚔️ ${getSkillDesc('金毛狮王谢逊', 'lionInspire')}`
-                ];
-                else if (u.isLioness) skills = [
-                    `🏹 ${getSkillDesc('金毛狮王谢逊', 'lionFollow')}`
-                ];
-                else if (u.isPangYuanQiao) skills = [
-                    `💢 ${getSkillDesc('胖远桥', 'rageOnHit')}`,
-                    `🐷 ${getSkillDesc('胖远桥', 'righteousFace')}`,
-                    `🔥 ${getSkillDesc('胖远桥', 'youngBlood')}`
-                ];
-                else if (u.isMieJueShiTai) skills = [
-                    `⚔️ ${getSkillDesc('灭绝师太', 'counterAttack')}`,
-                    `🗡️ ${getSkillDesc('灭绝师太', 'thirdStrike')}`,
-                    `👭 ${getSkillDesc('灭绝师太', 'summonZhou')}`
-                ];
+                // 2026-10-04 改查 ui/69-role-cards.js 名片表（原为本地 25 分支 if/else 链）
+                let skills = getRoleSkills(u);
                 if (skills.length > 0) {
                     return `<span style="color:#888;">技能</span><span style="color:#b8860b;">${skills.join('<br>')}</span>`;
                 }

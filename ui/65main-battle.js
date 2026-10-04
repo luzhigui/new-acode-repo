@@ -1,5 +1,5 @@
-// V6.0.3 | 2026-10-02 新局种子策略：doInitBattle 加 freshSeed，全新一局（下一关/重开/选关/回封面）丢弃旧种子走时间随机；无该参仍严格按 snapshot 种子
-export const VER = 'ui/65main-battle.js V6.0.3';
+// V6.1.0 | 2026-10-04 阵容日志的身份标签（[拒马]/[无忌]/[韦一笑]）改查 ui/69-role-cards.js 名片表，标签位置保持原样不改
+export const VER = 'ui/65main-battle.js V6.1.0';
 
 import { CONFIG } from '../core/01config-5v5-test.js';
 import { SeededRNG, fmtHp } from '../infra/51-core-utils.js';
@@ -11,6 +11,8 @@ import { getBattleRng, getStat } from '../core/13battle-shared.js';
 import { initBattleTeams } from '../modules/29battle-init.js';
 import { generateBuffChoices, createBuffObject, tickBuffDurations, getActiveBuffList } from '../modules/28buff-tools.js';
 import { resetBattleRuntime } from './69reset-runtime.js';
+// 2026-10-04 角色名片表：日志标签改查表（位置保持原样：拒马在站位前，无忌/韦一笑在末尾）
+import { getRoleLogTag } from './69-role-cards.js';
 import { stepBuff } from './71tutorial.js';
 
 const C = CONFIG;
@@ -185,13 +187,12 @@ export function logTeamInfo(label, UI, gs, battleResultForInfo, activeBuffs, has
             let displayPos = u.pos === -1 ? (u.state._originalPos || '?') : u.pos;
             let infoParts = [
                 `${u.name}(${u.role} M${u.m})`,
-                u.isHorse ? '[拒马]' : '',
+                u.isHorse ? getRoleLogTag(u) : '',
                 `站位${displayPos}`,
                 `攻${Math.floor(getStat(u, 'atk'))} 防${Math.floor(getStat(u, 'def'))}`,
                 `血${fmtHp(u.hp)}/${fmtHp(u.maxHp)}`,
                 aliveText,
-                u.isZhang ? '[无忌]' : '',
-                u.isWei ? '[韦一笑]' : ''
+                (u.isZhang || u.isWei) ? getRoleLogTag(u) : ''
             ].filter(Boolean);
             appendDiv('  ' + infoParts.join(' '));
             let statParts = [];

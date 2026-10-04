@@ -1,5 +1,5 @@
-// V7.8.4 | ~39400 bytes | 2026-10-02 ①随机重开（btnSettle GAMEOVER）补 gs→IDLE/落摆位态/freshSeed：此前新局生成了但 gs 停在 GAMEOVER，主按钮仍渲染成「下一关」，点了直接跳关；②原班再战换新种子：阵容保持原班，但复用旧 _rngSeed 会全程重演（跨回合保 _rng 修复后从头像到尾），现在同阵容+新随机序列
-export const VER = 'ui/68ui-controls.js V7.8.4';
+// V7.8.5 | ~39400 bytes | 2026-10-04 速度按钮：两套界面（普通 2 档 / 调试 4 档）保持各自独立不变，只把重复的 2x、0.5x 收进一张档位表 SPEED_SPECS，绑定与「按速度取按钮」都由它派生（纯内部，画面零变化）
+export const VER = 'ui/68ui-controls.js V7.8.5';
 
 // 2026-09-14 打断 63↔68 循环依赖：getState/setState 直接取自 infra/54（63 只做转发）
 import { getState, setState, GlobalStore, getPlayerContext } from '../infra/54-global-store.js';
