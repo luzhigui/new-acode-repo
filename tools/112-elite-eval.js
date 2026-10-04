@@ -1,10 +1,11 @@
 // 由 tools/111-elite-power-eval.html 改造 | 跑张无忌/韦一笑/小昭姊/小昭妹 1-7关×N场（关卡由 102 复选框勾选，已含第7关）
-// V2.3.0 | 预估 8900 bytes | 2026-10-04 新增「战力分」行（只在总评行下方）：
-//          战力分 = 胜率 × 70% + 存活率 × 30%，横向比同列五人；**输出/承伤不计入**——
-//          姐姐是附身支援位，输出与承伤天生低，计进去等于拿两把错的尺子量她。其余行为不变
+// V2.3.1 | 预估 9200 bytes | 2026-10-04 「战力分」改名「实战评分」：主代码的「战力」(power) 是
+//          开战前的组队预算表（roster.elitePower / normalPower，仅 modules/29 用来凑明教阵容），
+//          与这里的战后实测分不是一回事，改名避撞词。算法不变 = 胜率 × 70% + 存活率 × 30%，
+//          横向比同列五人；输出/承伤不计入（姐姐是附身支援位，计进去等于拿两把错的尺子量她）
 import { runParallel } from './117-shared-worker-runner.js';
 
-export const VER = 'tools/112-elite-eval.js V2.3.0';
+export const VER = 'tools/112-elite-eval.js V2.3.1';
 
 const configs = [
     { name: '张无忌' },
@@ -118,31 +119,31 @@ function renderResults(byStage, stages) {
     }
     html += '</tr>';
 
-    // 战力分行（只在总评行下方）：战力分 = 胜率 70% + 存活 30%
+    // 实战评分行（只在总评行下方）：胜率 70% + 存活 30%（此分与主代码的「战力」power 无关，勿混）
     // 输出/承伤不计入：姐姐是附身支援位，输出与承伤天生低，计进去等于拿两把错的尺子量她
     const scored = configs.map(cfg => {
         const t = totalsOf(cfg, byStage, stages);
-        const power = t.runs ? (t.wins / t.runs * 0.7 + t.sumSurv / t.runs * 0.3) * 100 : NaN;
-        return { cfg, power };
+        const score = t.runs ? (t.wins / t.runs * 0.7 + t.sumSurv / t.runs * 0.3) * 100 : NaN;
+        return { cfg, score };
     });
-    const ranked = scored.filter(s => !isNaN(s.power)).sort((a, b) => b.power - a.power);
+    const ranked = scored.filter(s => !isNaN(s.score)).sort((a, b) => b.score - a.score);
     ranked.forEach((s, i) => { s.rank = i + 1; });
-    const avgPower = ranked.length ? ranked.reduce((a, s) => a + s.power, 0) / ranked.length : NaN;
-    html += `<tr><td class="elite-stage">战力分<div class="cell-sub">均值 ${isNaN(avgPower) ? '-' : avgPower.toFixed(1)}</div></td>`;
+    const avgScore = ranked.length ? ranked.reduce((a, s) => a + s.score, 0) / ranked.length : NaN;
+    html += `<tr><td class="elite-stage">实战评分<div class="cell-sub">均值 ${isNaN(avgScore) ? '-' : avgScore.toFixed(1)}</div></td>`;
     for (const s of scored) {
-        if (isNaN(s.power)) { html += '<td class="elite-cell">N/A</td>'; continue; }
+        if (isNaN(s.score)) { html += '<td class="elite-cell">N/A</td>'; continue; }
         const color = s.rank === 1 ? '#ffd700' : (s.rank === ranked.length ? '#ff5252' : '#4caf50');
         html += `<td class="elite-cell">
-        <div class="cell-rate" style="color:${color}">${s.power.toFixed(1)} 分</div>
+        <div class="cell-rate" style="color:${color}">${s.score.toFixed(1)} 分</div>
         <div class="cell-sub">第 ${s.rank} / ${ranked.length} 名</div>
         <div class="cell-sub">胜率 70% ＋ 存活 30%</div></td>`;
     }
     html += '</tr></table>';
-    html += '<div style="font-size:11px;color:#999;margin-top:6px;">战力分 = 胜率×70% + 存活率×30%，横向比同列五人、可跨关看；输出/承伤不计入评分。样本为自然样本（各精英不同），只作参考。</div>';
+    html += '<div style="font-size:11px;color:#999;margin-top:6px;">实战评分 = 胜率×70% + 存活率×30%，横向比同列五人、可跨关看；输出/承伤不计入评分。与主代码的「战力」（组队预算 power）无关。样本为自然样本（各精英不同），只作参考。</div>';
     resultEl.innerHTML = html;
 }
 
-// 跨关跨变体累加某人数据（总评行与战力分行共用）
+// 跨关跨变体累加某人数据（总评行与实战评分行共用）
 function totalsOf(cfg, byStage, stages) {
     let tw = 0, tr = 0, td = 0, tt = 0, ts = 0;
     for (const st of stages) {
