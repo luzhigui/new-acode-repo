@@ -39,7 +39,7 @@ import { VER as VER_CORE } from '../core/11battle-round.js';
 import { SeededRNG } from '../infra/51-core-utils.js';
 import { setBattleRng, getBattleRng } from '../core/13battle-shared.js';
 import { VER as VER_PLAYER_CORE, playBattleGuest, playBattleReplay } from '../player/42player-core.js';
-import { rehydrateReport } from '../player/50battle-export.js';
+import { rehydrateReport, migrateReport, CURRENT_REPORT_VERSION } from '../player/50battle-export.js';
 import { handlePvpBuffSelection } from '../player/49battle-flow.js';
 import { VER as VER_TEXT } from '../player/40player-text.js';
 import { VER as VER_BUFF_UI } from '../player/41player-buff-ui.js';
@@ -230,7 +230,14 @@ export async function startReplayFromFile() {
             alert('❌ 不是有效的战报文件（需含 format:"ming-battle-replay" 和 steps）');
             return;
         }
-        enterReplay(rehydrateReport(report));   // v1.1 增量文件在此还原成全量（v1.0 全量文件原样通过）
+        // 版本看章（2026-10-04）：老文件（含没盖 version 章的 v1.0）顺搬家链升上来照放；
+        // 比游戏新的文件拒收——硬读会放到一半炸，不如一句人话。
+        const fileVer = report.version || 1;
+        if (fileVer > CURRENT_REPORT_VERSION) {
+            alert(`❌ 这份战报是更新版本的游戏录的（文件 v${fileVer}，当前游戏支持到 v${CURRENT_REPORT_VERSION}），先升级游戏再放`);
+            return;
+        }
+        enterReplay(rehydrateReport(migrateReport(report)));   // 先搬家（格式年代）再还原（增量→全量）；v1.1 增量文件在此还原成全量（v1.0 全量文件原样通过）
     };
     input.click();
 }
