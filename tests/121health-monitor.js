@@ -1,3 +1,5 @@
+// V6.3.2 | 2026-10-04 报告元数据：updateReport 顶部 + 复制文本均带「体检时间(本地) / 起始关 / 已跑关卡 / 异常总数」，区分不同批次报告（避免拿旧报告当新结果）。
+//          新增模块变量 runStartedAt(启动时间戳) / stagesRun(实际进入关号集合)，启动体检与每场 RUNNING/自动推进时记录；起始关仍走既有 start=N（已支持从第2关开始）。
 // V6.3.1 | ~47000 bytes | 2026-10-02 登记 157 mechanics 安装对账（rule104：import + allRules 两处同补）
 // V6.3.0 | ~46400 bytes | 2026-10-02 第 50 轮：补 156 的 import + **allRules 数组长期停在 rule99 的静默缺口** ——
 //          153/154/155 三条只补了 import、从未进执行数组，浏览器侧体检**根本没跑它们**（node 侧
@@ -12,7 +14,7 @@
 //          clone 副本 alive 恒真)，每局必误报，且主代码补 setState.gs('IDLE') 也消不掉。改点 btnSettle 后
 //          120ms 查 gs 是否仍停 GAMEOVER 且已生成新局(全员满血)，只有"真点了随机重开但没复位"才上报。
 // 职责：接入 rule70-93 回归体检；GAMEOVER 立即跑规则(日志已完整)；新局识别修复多局连打漏检；战报黑幕/特效池实时检查
-export const VER = 'tests/121health-monitor.js V6.3.1';
+export const VER = 'tests/121health-monitor.js V6.3.2';
 
 import { runStaticScan } from './123static-scan.js';
 import { filterRulesByTags, parseRecipeTags, collectForceFlags } from './124rule-recipes.js';
@@ -95,6 +97,9 @@ try {
     // 起始关：手动体检与一键自动体检统一生效；默认第3关（首个有精英的关卡），可用 start=1/2 覆盖
     autoStartStage = Math.min(7, Math.max(1, parseInt(_p.get('start'), 10) || 3));
 } catch (e) {}
+// 报告元数据：本次体检启动时间戳 + 实际进入过的关卡号集合，供报告展示"何时跑的/跑了哪些关"（区分不同批次报告）
+let runStartedAt = 0;
+let stagesRun = new Set();
 
 // 工具函数 (模块顶层，可在任何地方使用)
 function getWin() { try { return gameFrame.contentWindow; } catch (e) { return null; } }
@@ -279,6 +284,7 @@ export function initMonitor() {
         detectedIssues = []; issueKeys.clear(); pendingIssueCounts = {}; lastSampledStage = 0;
         rulePassCount = 0; ruleSkipCount = 0; ruleSkipNames.clear();
         battleEnded = false; battleStartTime = 0;
+        runStartedAt = Date.now(); stagesRun = new Set();  // 重置报告元数据（每次启动体检重新计时/记关）
         updateReport(); statusLine.textContent = '正在加载游戏...';
         const waitReady = setInterval(() => {
             const doc = getDoc();
@@ -403,6 +409,8 @@ function periodicScan() {
     for (const msg of checkFxDomAccumulation(ctx, doc)) recordIssue(ctx, null, '特效池', msg, 'UI');
 
     if (ctx.gs === 'RUNNING' || ctx.gs === 'PAUSED') {
+        // 记录本次体检实际进入过的关卡（报告元数据：跑了哪些关）
+        if (ctx.currentStage) stagesRun.add(ctx.currentStage);
         // 新局识别：GAMEOVER 后再次进入 RUNNING 视为新一场战斗（重开/下一关均覆盖）。
         // 修复多局连打漏检：旧逻辑 battleEnded 置位后永不复位，第2场起规则体检全部跳过
         if (battleStartTime === 0 || battleEnded) {
@@ -431,6 +439,7 @@ function periodicScan() {
         // 每场战斗结束会把 fastForwardActive 复位为 false，这里持续保持快进，确保后续关卡也快速打完
         try { if (win && win.GlobalStore && !win.GlobalStore.get('fastForwardActive')) win.GlobalStore.set('fastForwardActive', true); } catch (e) {}
         const stage = ctx.currentStage || detectStage(doc) || 0;
+        if (stage > 0) stagesRun.add(stage);
         if (stage > maxStageSeen) maxStageSeen = stage;
         if (stage >= autoStageTarget) autoTargetReached = true;
         const overBudget = autoStartedAt > 0 && (Date.now() - autoStartedAt > autoBudgetMs);
@@ -743,6 +752,15 @@ function updateReport() {
     const backBtn = document.getElementById('btnBackToGame');
     if (backBtn) backBtn.remove();
     reportArea.innerHTML = '';
+    // 报告元数据：何时跑的 / 从第几关开始 / 跑了哪些关 / 异常总数（便于区分不同批次报告，避免拿旧报告当新结果）
+    try {
+        const runTime = runStartedAt ? new Date(runStartedAt).toLocaleString('zh-CN') : '—';
+        const stages = [...stagesRun].sort((a, b) => a - b).join('、') || '—';
+        const metaDiv = document.createElement('div');
+        metaDiv.style.cssText = 'color:#9c8cff;font-size:11px;padding:6px 8px;border:1px solid #9c8cff;border-radius:6px;margin-bottom:8px;background:rgba(156,140,255,0.08);';
+        metaDiv.textContent = '🕒 体检时间：' + runTime + ' ｜ 起始关：第' + autoStartStage + '关 ｜ 已跑关卡：第' + stages + '关 ｜ 异常 ' + detectedIssues.length + ' 项';
+        reportArea.appendChild(metaDiv);
+    } catch (e) {}
     const order = { '手动': 0, '规则': 1, '引擎': 2, 'UI': 3 };
     const sorted = [...detectedIssues].sort((a, b) => {
         const oa = order[a.source] ?? 99;
@@ -797,6 +815,9 @@ function updateReport() {
     copyBtn.textContent = '📋 复制报告';
     copyBtn.onclick = () => {
         let text = '';
+        const runTime = runStartedAt ? new Date(runStartedAt).toLocaleString('zh-CN') : '—';
+        const stages = [...stagesRun].sort((a, b) => a - b).join('、') || '—';
+        text += '【体检报告】时间：' + runTime + ' ｜ 起始关：第' + autoStartStage + '关 ｜ 已跑关卡：第' + stages + '关 ｜ 异常 ' + sorted.length + ' 项\n\n';
         for (const iss of sorted) {
             text += `关卡${iss.stage} - ${iss.source} - ${iss.type}\n  ❌ ${iss.detail.replace(/<br>/g, '\n  ')}\n\n`;
         }
