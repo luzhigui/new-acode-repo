@@ -1,6 +1,6 @@
 // tests/smoke-headless.mjs — 无头冒烟：真跑引擎，不靠"语法通过"糊弄
-// V1.1.0 | 2026-09-25 补 export const VER（此前无 VER，tools/118 的版本头对账会漏掉本文件）
-export const VER = 'tests/smoke-headless.mjs V1.1.0';
+// V1.2.0 | 2026-10-04 补 modules/30custom-effects.js 副作用 import（注册 dotTick/damageReflect，否则无头战斗遇玄冥中毒/反弹抛"未知机制 type"）
+export const VER = 'tests/smoke-headless.mjs V1.2.0';
 // 用法: node tests/smoke-headless.mjs [局数]
 // 退出码: 0 = 全部通过; 1 = 有失败
 //
@@ -55,6 +55,7 @@ const toLoad = {
     emp: 'modules/25elite-imperial.js',
     six: 'modules/26elite-sixsects.js',
     ming: 'modules/27elite-mingjiao.js',
+    custom: 'modules/30custom-effects.js',     // 副作用 import：注册 dotTick/damageReflect 等通用机制 handler（真实战斗的玄冥中毒/反弹依赖，漏导会致无头战斗抛"未知机制 type"）
     renderer: 'player/47renderer.js',
     stageActions: 'render/31-stage-actions.js',
     factRenderer: 'render/30-fact-renderer.js'
