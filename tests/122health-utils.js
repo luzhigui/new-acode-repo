@@ -1,3 +1,5 @@
+// V6.1.17 | 2026-10-04 修两条 UI 类误报：① 特效池 heal-float 阈值 8→12（healFloat4+atkBuffFloat4+defBuffFloat4 三池共用 .heal-float 类，稳态恒 12，旧阈值每局必误报"超池泄漏"）；
+//          ② 死亡血条残留/缺死亡特效改用 getCellByUid 按 uid 精确定位（render/32 L418 写死 data-uid），不再按 pos 反查——拒马等死后 pos 复用/尸体移除会误把同格存活单位血条算到死者头上（与 checkBuffIcons 同根因）。新增 getCellByUid 辅助。
 // V6.1.16 | ~29000 bytes | 2026-09-26 新增 checkActionRights（行动权不变量·回合级）：_acted=true 的活人本回合必须有正常位行动记录，抓「吞回合」（灭绝反击 bug 通用形态）；121/回放共用此唯一实现（合并移植：本条与远端并线第 24-49 轮共存）
 // V6.1.15 | ~26700 bytes | 2026-09-25 不变量单一真值源：checkUnitHpValidity 定为血量类不变量的**唯一**实现，
 //          rules-replay.mjs 的逐步断言改为直接调用它。此前两处各写一份且口径不一致 ——
@@ -15,7 +17,7 @@
 // V6.0.0 | 2026-08-26 buff key 收敛为 infra/56-battle-enums 的 BUFF_TYPES（删除本地第二事实源）
 import { BUFF_TYPES, CAMP_TYPES, ROLE_TYPES, FACT_TYPES } from '../infra/56-battle-enums.js';
 import { getUnitCol, getUnitRow } from '../infra/51-core-utils.js';
-export const VER = 'tests/122health-utils.js V6.1.16';
+export const VER = 'tests/122health-utils.js V6.1.17';
 
 /**
  * 获取单位对应的格子 DOM 元素
@@ -28,6 +30,18 @@ export function getCellElement(unit, doc) {
     const order = unit.camp === CAMP_TYPES.ENEMY ? [7,8,9,4,5,6,1,2,3] : [1,2,3,4,5,6,7,8,9];
     const idx = order.indexOf(unit.pos);
     return idx >= 0 ? grid.children[idx] : null;
+}
+
+/**
+ * 按 uid 精确定位格子（渲染器在 div.dataset.uid 上写死 uid，render/32 L418）。
+ * 与 checkBuffIcons 同根因：死亡单位（如 拒马）死后 pos 可能被复用 / 尸体被 REMOVE_UNIT 移除，
+ *   按 pos 反查会误把同格存活单位的血条/特效算到死者头上 → 假"血条残留/缺死亡特效"。
+ *   按 uid 查，查不到说明该单位已不在场上（尸体移除/被复用）→ 跳过，避免误报。
+ */
+export function getCellByUid(uid, doc) {
+    if (uid == null || !doc) return null;
+    return doc.querySelector('#allyGrid .cell[data-uid="' + uid + '"]')
+        || doc.querySelector('#enemyGrid .cell[data-uid="' + uid + '"]') || null;
 }
 
 /**
@@ -130,7 +144,10 @@ export function checkDeathFxRetention(allUnits, doc) {
     const now = Date.now();
 
     for (const u of allUnits) {
-        const cell = getCellElement(u, doc);
+        // 按 uid 精确定位该死者自己的格子（render/32 L418 写死 data-uid），不用 pos 反查：
+        //   拒马等死后尸体被移除 / pos 被复用，按 pos 会查到同格存活单位的格子 → 假"血条残留"。
+        //   uid 查不到说明该单位已不在场上 → 跳过（其血条自然已随尸体消失）。
+        const cell = getCellByUid(u.uid, doc);
         const hasDeadFlash = cell && cell.getAttribute('data-flash') === 'dead';
         const hasDeadMark = cell && cell.querySelector('.dead-mark');
 
@@ -500,10 +517,13 @@ export function checkBattleReportOverlay(ctx, doc) {
 
 /**
  * [新增] 特效DOM/弹幕池检查 — 对象池容量泄漏与池失效
- * 池容量（fx/80fx-common-5v5-test.js POOL_SIZES）：danmaku 8 / dmgFloat 6 / dodge 4 / healFloat+atkBuffFloat 8（共用 heal-float 类）
+ * 池容量（fx/80fx-common-5v5-test.js POOL_SIZES）：danmaku 8 / dmgFloat 6 / dodge 4 /
+ *   healFloat 4 + atkBuffFloat 4 + defBuffFloat 4 = 12（三池共用 .heal-float 类，V6.2.3 新增 defBuffFloat 池）
  * 复发信号：元素数超池容量（泄漏累积→多局后弹幕卡顿）/
  *          RUNNING 中弹幕DOM为0（ui/69reset-runtime.js 重置时移除弹幕DOM，但对象池仍持有游离引用→弹幕永久失效）
  * 对应已报 Bug：多打几局，弹幕特别卡
+ * 注意：.heal-float 阈值须用 12（三池之和），不是 8 —— 池元素常驻 DOM（隐藏+激活），稳态恒为 12，
+ *   只有出现第 13 个游离元素才真泄漏。旧阈值 8 会把稳态池误报成"泄漏"（每局必误报）。
  */
 export function checkFxDomAccumulation(ctx, doc) {
     const issues = [];
@@ -515,7 +535,7 @@ export function checkFxDomAccumulation(ctx, doc) {
     if (danmaku > 8) issues.push('弹幕元素' + danmaku + '个超池容量8（对象池泄漏，多局后卡顿）');
     if (dmgFloat > 6) issues.push('伤害飘字' + dmgFloat + '个超池容量6（对象池泄漏）');
     if (dodgeBubble > 4) issues.push('闪避气泡' + dodgeBubble + '个超池容量4（对象池泄漏）');
-    if (healFloat > 8) issues.push('治疗/加攻飘字' + healFloat + '个超池容量8（对象池泄漏）');
+    if (healFloat > 12) issues.push('治疗/加攻飘字' + healFloat + '个超池容量12（对象池泄漏）');
     const total = danmaku + dmgFloat + dodgeBubble + healFloat;
     if (total > 30) issues.push('特效DOM总量' + total + '个异常累积（弹幕卡顿来源）');
     if (ctx && ctx.gs === 'RUNNING' && danmaku === 0) {

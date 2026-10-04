@@ -1,7 +1,10 @@
 // 由 tools/111-elite-power-eval.html 改造 | 跑张无忌/韦一笑/小昭姊/小昭妹 1-7关×N场（关卡由 102 复选框勾选，已含第7关）
-// V2.2.0 | 改普通局归因：不再 force 上场（force 会抑制随机抽取，导致四人样本环境不同、不可比），
-//          每关跑 N 局普通对局，按"谁在场"把结果记给谁；带海克斯对齐正式游戏节奏
+// V2.3.0 | 预估 8900 bytes | 2026-10-04 新增「战力分」行（只在总评行下方）：
+//          战力分 = 胜率 × 70% + 存活率 × 30%，横向比同列五人；**输出/承伤不计入**——
+//          姐姐是附身支援位，输出与承伤天生低，计进去等于拿两把错的尺子量她。其余行为不变
 import { runParallel } from './117-shared-worker-runner.js';
+
+export const VER = 'tools/112-elite-eval.js V2.3.0';
 
 const configs = [
     { name: '张无忌' },
@@ -111,18 +114,45 @@ function renderResults(byStage, stages) {
     // 总评行：跨关跨变体累加
     html += '<tr><td class="elite-stage">总评</td>';
     for (const cfg of configs) {
-        let tw = 0, tr = 0, td = 0, tt = 0, ts = 0;
-        for (const st of stages) {
-            for (const v of VARIANTS) {
-                const d = byStage[st] && byStage[st][v] && byStage[st][v][cfg.name];
-                if (!d) continue;
-                tw += d.wins; tr += d.runs; td += d.sumDmg; tt += d.sumTaken; ts += d.sumSurv;
-            }
-        }
-        html += cellHtml({ runs: tr, wins: tw, sumDmg: td, sumTaken: tt, sumSurv: ts });
+        html += cellHtml(totalsOf(cfg, byStage, stages));
+    }
+    html += '</tr>';
+
+    // 战力分行（只在总评行下方）：战力分 = 胜率 70% + 存活 30%
+    // 输出/承伤不计入：姐姐是附身支援位，输出与承伤天生低，计进去等于拿两把错的尺子量她
+    const scored = configs.map(cfg => {
+        const t = totalsOf(cfg, byStage, stages);
+        const power = t.runs ? (t.wins / t.runs * 0.7 + t.sumSurv / t.runs * 0.3) * 100 : NaN;
+        return { cfg, power };
+    });
+    const ranked = scored.filter(s => !isNaN(s.power)).sort((a, b) => b.power - a.power);
+    ranked.forEach((s, i) => { s.rank = i + 1; });
+    const avgPower = ranked.length ? ranked.reduce((a, s) => a + s.power, 0) / ranked.length : NaN;
+    html += `<tr><td class="elite-stage">战力分<div class="cell-sub">均值 ${isNaN(avgPower) ? '-' : avgPower.toFixed(1)}</div></td>`;
+    for (const s of scored) {
+        if (isNaN(s.power)) { html += '<td class="elite-cell">N/A</td>'; continue; }
+        const color = s.rank === 1 ? '#ffd700' : (s.rank === ranked.length ? '#ff5252' : '#4caf50');
+        html += `<td class="elite-cell">
+        <div class="cell-rate" style="color:${color}">${s.power.toFixed(1)} 分</div>
+        <div class="cell-sub">第 ${s.rank} / ${ranked.length} 名</div>
+        <div class="cell-sub">胜率 70% ＋ 存活 30%</div></td>`;
     }
     html += '</tr></table>';
+    html += '<div style="font-size:11px;color:#999;margin-top:6px;">战力分 = 胜率×70% + 存活率×30%，横向比同列五人、可跨关看；输出/承伤不计入评分。样本为自然样本（各精英不同），只作参考。</div>';
     resultEl.innerHTML = html;
+}
+
+// 跨关跨变体累加某人数据（总评行与战力分行共用）
+function totalsOf(cfg, byStage, stages) {
+    let tw = 0, tr = 0, td = 0, tt = 0, ts = 0;
+    for (const st of stages) {
+        for (const v of VARIANTS) {
+            const d = byStage[st] && byStage[st][v] && byStage[st][v][cfg.name];
+            if (!d) continue;
+            tw += d.wins; tr += d.runs; td += d.sumDmg; tt += d.sumTaken; ts += d.sumSurv;
+        }
+    }
+    return { runs: tr, wins: tw, sumDmg: td, sumTaken: tt, sumSurv: ts };
 }
 
 // 单元格：胜率/输出/承伤/存活 + 样本量（自然样本，各精英不同，样本太少会提示）
