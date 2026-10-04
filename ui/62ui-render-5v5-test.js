@@ -3,6 +3,7 @@ export const VER = 'ui/62ui-render-5v5-test.js V6.1.0';
 
 // 2026-10-04 getSkillDesc 已下沉到 ui/69-role-cards.js（技能说明统一查表），本文件不再直接用
 import { getStat } from '../core/13battle-shared.js';
+import { getRoleSkills } from './69-role-cards.js';   // 2026-10-04 漏 import 补上（详情弹窗技能栏查名片表）
 import { fmtHp } from '../infra/51-core-utils.js';
 import { getMissBreakdown } from '../core/03battle-utils.js';
 import { GlobalStore, getPlayerContext } from '../infra/54-global-store.js';
