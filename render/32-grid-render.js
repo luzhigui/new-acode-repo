@@ -1,5 +1,5 @@
-// V6.4.3 | ~25800 bytes | 2026-10-02 闪避来源「地面基础」特判改读 CONFIG.BASE_DODGE_GROUND（原写死 0.03，基础闪避调 5% 后会失配落入「规则闪避」）
-export const VER = 'render/32-grid-render.js V6.4.3';
+// V6.5.0 | ~29900 bytes | 2026-10-04 ①格子节点复用：9 个 div 建一次、之后只重填内容，不再每帧 innerHTML='' 全删全建（click 改一次性绑定 + 槽位现取单位）；复用会激活 .cell 的 transition: background 0.6s，故每帧重填前置 transition:none 并全程保持 → 底色仍是「瞬切」，观感与改动前完全一致 ②格子图标 7 分支 if/else 链改查 ui/69-role-cards.js 名片表
+export const VER = 'render/32-grid-render.js V6.5.0';
 
 import { getUnitCol, getUnitRow, getAuraBonuses, getDodgeRules, fmtHp } from '../infra/51-core-utils.js';
 import { CONFIG, getSkillDesc } from '../core/01config-5v5-test.js';
@@ -9,6 +9,7 @@ import { getStat } from '../core/13battle-shared.js';
 import { computeBuffStats } from '../core/04buff-system.js';
 import { clock } from '../infra/52-clock.js';
 import { getView, setView } from '../infra/61-view-sheet.js';
+import { getRoleIcon } from '../ui/69-role-cards.js';
 
 let _store = null;
 let _subscribed = false;
@@ -18,6 +19,50 @@ const _hpDisplayPct = new Map();
 let _hpAnimRunning = false;
 const _shakeUntil = new Map();
 const _horseSpawnedUids = new Set();
+// 2026-10-04 格子节点复用：原先每次 store 变更都 grid.innerHTML='' 再新建 18 个 div，
+//   改成「9 个 div 建一次、之后只重填内容」，DOM 节点不再反复创建销毁。
+//   ⚠️ 复用会让 .cell 的 transition: background 0.6s 真正生效（底色开始淡入淡出），
+//   这与原观感不同 —— 故每帧重填前统一置 transition:none 并全程保持，
+//   使格子底色仍是「瞬切」，画面与改动前完全一致。
+const _cellNodes = new Map();   // gridId -> [div × 9]（按 displayOrder 槽位固定）
+const _slotUnits = new Map();   // gridId -> [unit|null × 9]（供一次性 click 取当前单位）
+
+function ensureGridCells(grid, id) {
+    let nodes = _cellNodes.get(id);
+    if (!nodes || nodes.length !== 9 || nodes[0].parentNode !== grid) {
+        grid.innerHTML = '';
+        nodes = [];
+        for (let i = 0; i < 9; i++) {
+            const d = document.createElement('div');
+            d.style.transition = 'none';
+            // click 只绑一次（复用节点不能每帧 addEventListener，否则监听器累积）。
+            // 单位从槽位现取，避免闭包捕获上一帧的旧 unit 对象。
+            d.addEventListener('click', () => {
+                const c = getCtx();
+                if (c && c.adjustMode) return;
+                const u = (_slotUnits.get(id) || [])[i];
+                if (!u) return;
+                const openDetail = GlobalStore.getUIHandler('openDetailPopup');
+                if (typeof openDetail === 'function') openDetail(u);
+            });
+            grid.appendChild(d);
+            nodes.push(d);
+        }
+        _cellNodes.set(id, nodes);
+        _slotUnits.set(id, new Array(9).fill(null));
+    }
+    return nodes;
+}
+
+// 彻底清掉上一帧残留：class / data-flash / 内联样式 / 子节点（死亡✕、zzz 等一并清走）
+function resetCell(div) {
+    div.className = 'cell';
+    div.removeAttribute('data-flash');
+    div.style.cssText = 'transition:none;';
+    div.innerHTML = '';
+    div.dataset.uid = '';
+    div.dataset.pos = '';
+}
 
 export function markGridShake(uid, durationMs) {
     if (uid == null) return;
@@ -44,7 +89,9 @@ function runGridShake(el, durationMs) {
         if (!bgCleared && p * durationMs > d) { el.style.background = origBg; bgCleared = true; }
         if (p >= 1) {
             el.style.transform = origTransform;
-            el.style.transition = '';
+            // 2026-10-04 格子复用后不能恢复成 ''（那会取回 CSS 的 background 0.6s，底色开始渐变）；
+            //   改回 none，保持「瞬切」观感与改动前一致
+            el.style.transition = 'none';
             if (!bgCleared) { el.style.background = origBg; bgCleared = true; }
         }
     });
@@ -65,7 +112,7 @@ function getStore() {
     if (!_store) _store = GlobalStore.get('battleStore');
     return _store;
 }
-export function setGridStore(store) { _store = store; _subscribed = false; _horseSpawnedUids.clear(); }
+export function setGridStore(store) { _store = store; _subscribed = false; _horseSpawnedUids.clear(); _cellNodes.clear(); _slotUnits.clear(); }
 
 function getDodgeBreakdown(unit, activeBuffs, allyTeam) {
     const sources = [];
@@ -175,7 +222,8 @@ function tickHpAnim() {
 export function renderGrid(id, camp) {
     let grid = document.getElementById(id);
     if (!grid) return;
-    grid.innerHTML = '';
+    const cells = ensureGridCells(grid, id);
+    const slotUnits = _slotUnits.get(id);
 
     const store = getStore();
     const ctx = getCtx();
@@ -228,7 +276,8 @@ export function renderGrid(id, camp) {
             // _renderFlyMode 是飞撞/子弹时间的纯渲染态（攻击者本身不飞行），优先于 state._flyMode
             const effectiveFlyMode = getView(unit.uid, '_renderFlyMode') || (unit.state && unit.state._flyMode);
             if (effectiveFlyMode || (unit.state && (unit.state._fsmPhase === 'attached' || unit.state._fsmPhase === 'flying'))) {
-                let div = document.createElement('div');
+                const div = cells[i];
+                resetCell(div);
                 div.className = 'cell occupied';
                 div.dataset.pos = pos;
                 div.dataset.uid = unit.uid;
@@ -237,7 +286,8 @@ export function renderGrid(id, camp) {
                     div.style.border = '2px solid transparent';
                     div.style.boxShadow = 'none';
                 } else if (effectiveFlyMode === 'ghost') {
-                    let roleIcon = unit.isXiaoZhaoSister ? '🦋' : ((unit.isPangYuanQiao && pangTaunting) ? '🐷' : (unit.role===ROLE_TYPES.WARRIOR?'⚔️':(unit.role===ROLE_TYPES.DEFENDER?'🛡️':(unit.role===ROLE_TYPES.RANGED?'🏹':'🦅'))));
+                    // 虚影分支不判眩晕/死亡（与原逻辑一致），只带嘲讽态
+                    let roleIcon = getRoleIcon(unit, { isStunned: false, isDead: false, pangTaunting });
                     div.innerHTML = `<span class="cell-icon">${roleIcon}</span><div class="cell-info"><span class="cell-name">${unit.name}</span><span class="cell-stats">攻${Math.floor(getStat(unit,'atk'))} 防${Math.floor(getStat(unit,'def'))} 血${fmtHp(unit.hp)}</span></div>`;
                     div.style.opacity = '0.5';
                     div.style.background = 'rgba(30,100,255,0.28)';
@@ -268,7 +318,7 @@ export function renderGrid(id, camp) {
                         div.style.border = '2px solid rgba(128, 0, 128, 0.4)';
                     }
                 }
-                grid.appendChild(div);
+                slotUnits[i] = null;
                 continue;
             }
             if (unit.state && unit.state._isDead) {
@@ -276,13 +326,14 @@ export function renderGrid(id, camp) {
             }
         }
         if (!unit) {
-            let div = document.createElement('div');
-            div.className = 'cell';
+            const div = cells[i];
+            resetCell(div);
             div.innerHTML = '<span style="color:#999;">空</span>';
             div.dataset.pos = pos;
             if (renderAdjust) div.classList.add('adjustable');
             if (renderAdjust && selectedPos === pos) div.classList.add('adjust-selected');
-            grid.appendChild(div); continue;
+            slotUnits[i] = null;
+            continue;
         }
         const _storeForFlash = getStore();
         const storeUnit = (_storeForFlash && _storeForFlash.getState) ? _storeForFlash.getState().units.find(u => u.uid === unit.uid) : null;
@@ -293,19 +344,9 @@ export function renderGrid(id, camp) {
         let isResting = (unit.state && unit.state._resting) || false;
         let isStunned = (unit.state && unit.state._stunned) || false;
 
-        let roleIcon;
-        if (isStunned && !isDead) roleIcon = '😵';
-        else if (unit.isZhang && !unit.rangedForm) roleIcon = '⚔️';
-        else if (unit.isHorse) roleIcon = '🐴';
-        // 小昭·姊恒显示身份图标（蝴蝶形态唯一，不随职业变化）
-        else if (unit.isXiaoZhaoSister) roleIcon = '🦋';
-        // 谢逊幼狮：无攻击能力，用 🐱 与其它单位区分（雄狮/母狮成长后自动回到职业图标）
-        else if (unit.isLionCub) roleIcon = '🐱';
-        // 胖远桥·正义国字脸生效期间顶 🐷（嘲讽脸），一眼看出本回合敌人都被锁在他身上
-        else if (unit.isPangYuanQiao && pangTaunting) roleIcon = '🐷';
-        // 2026-09-23 小昭·妹不再固定 🕷️：蛛变后要跟着职业图标走（远程🏹/战士⚔️/防战🛡️/飞行🦅）。
-        //   蛛形只存在于飞天遁走窗口，那段由上方 _flyMode==='spider' 分支渲染，这里不拦。
-        else roleIcon = unit.role===ROLE_TYPES.WARRIOR?'⚔️':(unit.role===ROLE_TYPES.DEFENDER?'🛡️':(unit.role===ROLE_TYPES.RANGED?'🏹':'🦅'));
+        // 2026-10-04 改查 ui/69-role-cards.js 名片表（原为本地 7 分支 if/else 链）
+        //   顺序/回落与原先完全一致：😵 > 无忌(非远程)⚔️ > 拒马🐴 > 小昭·姊🦋 > 幼狮🐱 > 胖远桥嘲讽🐷 > 职业图标
+        let roleIcon = getRoleIcon(unit, { isStunned, isDead, pangTaunting });
 
         let displayName = unit.name;
         // 2026-09-24 格子显示别名：全名太长挤爆格子的角色只影响格子显示，日志/弹窗仍用全名
@@ -367,7 +408,8 @@ export function renderGrid(id, camp) {
         }
         let cheerClass = (hasFlash && flashVal === FLASH_TYPES.CHEER && !isDead) ? 'cell-cheer' : '';
         let restingClass = (isBlocked && unit.alive && isResting && !(unit.isZhang && unit.rangedForm) && !isDead) ? 'resting' : '';
-        let div = document.createElement('div');
+        const div = cells[i];
+        resetCell(div);
         div.className = `cell occupied ${readyClass} ${actedClass} ${cheerClass} ${restingClass}`;
         if (shakeRemain > 0) runGridShake(div, shakeRemain);
         if (isDead) { div.setAttribute('data-flash', FLASH_TYPES.DEAD); div.style.transition = 'none'; }
@@ -455,13 +497,8 @@ export function renderGrid(id, camp) {
         // 2026-09-24 灭绝师太的出手计数不再走格子徽章（顶个红底数字太丑），
         //   改由 fx 层在她头顶飘出「壹/貳/參」气泡消散（信号 fx:mejueCount，见 fx/89）
         div.style.cursor = 'pointer';
-        div.addEventListener('click', (e) => {
-            if (isAdjustMode) return;
-            // 2026-09-14 去 window 桥：openDetailPopup 已注册为 UIHandler（ui/62），不再挂 window
-            const openDetail = GlobalStore.getUIHandler('openDetailPopup');
-            if (typeof openDetail === 'function') openDetail(unit);
-        });
-        grid.appendChild(div);
+        // click 已在 ensureGridCells 一次性绑定，这里只登记当前单位供回调取用
+        slotUnits[i] = unit;
     }
 }
 
