@@ -5,7 +5,10 @@
 //   v1.1.1: 分享5秒竞赛防挂死；取消显示「已取消」；blob+dataURL双下载
 //   文件格式：{ format:'ming-battle-replay', version:1, meta.delta:true, steps:[增量step...] }；
 //   v1.0 全量文件兼容（无 delta 标记 = 按 v1.0 全量读）。
-export const VER = 'player/50battle-export.js V1.1.5';
+//   版本号规矩（2026-10-04 立）：version 只跟「战报文件格式」走，别跟游戏版本号（V6.x）混用。
+//   step 结构一变（字段增删改名）就 +1，并在 REPORT_MIGRATIONS 里挂一个搬家函数（吃旧吐新）；
+//   导入侧见 ui/61：文件版本比游戏新 → 拒收提示升级；比游戏旧 → 顺搬家链升上来再播，老战报永远能放。
+export const VER = 'player/50battle-export.js V1.2.0';
 console.log('[战报] 模块已加载:', VER);   // 版本指纹：调试时第一眼认出版本（缓存问题一眼定案）
 
 import { copyAllStateFields } from '../core/17-state-keys.js';
@@ -152,6 +155,32 @@ function mergeUnits(prev, partial) {
         if (!out.some(u => u.uid === p.uid)) out.push({ ...p, state: { ...(p.state || {}) } });
     }
     return out;
+}
+
+// ---- 版本号 + 搬家链（2026-10-04）----
+// CURRENT_REPORT_VERSION：当前游戏写出的战报格式版本。今天格式没变所以是 1。
+// 以后 step 格式一变：这里 +1，同时在下面挂一个搬家函数（v1→v2 的钥匙挂 1 号钩位，依此类推）。
+export const CURRENT_REPORT_VERSION = 1;
+
+const REPORT_MIGRATIONS = {
+    // 示例（v2 上线时照抄这个形状）：
+    // 1: (report) => ({ ...report, version: 2, steps: report.steps.map(...) })
+};
+
+/**
+ * 老文件搬家：顺着搬家链把旧版本战报逐级升到当前版本。
+ * 没挂钥匙的版本（如今天的 1→1）原样返回，等价于直通。
+ * 与 rehydrateReport 的分工：搬家管「格式年代」，rehydrate 管「增量→全量」，先搬家后还原。
+ */
+export function migrateReport(report) {
+    let v = report.version || 1;   // v1.0 老文件没盖 version 章，一律按 1 号算
+    while (v < CURRENT_REPORT_VERSION) {
+        const stepUp = REPORT_MIGRATIONS[v];
+        if (!stepUp) break;        // 搬家链断档（不该发生）：按现状放，不让老文件因为基建缺失被拒
+        report = stepUp(report);
+        v = report.version || (v + 1);
+    }
+    return report;
 }
 
 // ---- 下载（顺序：fs直写→系统分享→dataURL下载→剪贴板→手动复制弹窗，每层失败 console.error 留痕）----
