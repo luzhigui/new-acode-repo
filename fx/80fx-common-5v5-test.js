@@ -1,4 +1,5 @@
-// V6.3.2 | ~23900 bytes | 2026-10-03 攻/防飘字**初始高度对齐掉血/回血**（rect.top - 4，顶边距格顶 4px），再由 healUp 动画上飘；水平仍 ⚔ 0.38 / 🛡️ 0.62（此前「格子上方·底距4px」废弃）
+// V6.3.3 | ~24000 bytes | 2026-10-05 修❤回血飘字与⚔加攻飘字严重重叠：原「left+12 + transform:translate(-100%,-100%)」的 transform 被 healUp 动画第一帧覆盖（V6.2.9 同款坑），实际向右伸压进 ⚔(0.38 居中) 领空+垂直同基线 → 改量宽量高直接定位：❤ 右缘贴 left+12、底边贴 rect.top-4 线上方（⚔ 在线下方），一左一右一上一下双重错开
+// V6.3.2 | 2026-10-03 攻/防飘字**初始高度对齐掉血/回血**（rect.top - 4，顶边距格顶 4px），再由 healUp 动画上飘；水平仍 ⚔ 0.38 / 🛡️ 0.62（此前「格子上方·底距4px」废弃）
 // V6.3.1 | 2026-10-03 攻/防飘字落点**统一**：⚔/🛡️ 一律「格子上方·底距格顶 4px」（rect.top - h - 4，与掉血/回血同基线），水平仍 ⚔ 偏左 0.38、🛡️ 偏右 0.62
 // V6.3.0 | 2026-10-03 🛡️防御飘字落点纠正：从「格子内垂直居中」改为「格子**上方**」（rect.top - h - 6），水平仍居中偏右（0.62）；⚔ 攻击维持格子垂直居中·水平偏左
 // V6.2.9 | 2026-10-02 攻/防飘字改**成对镜像位**：⚔=格子垂直居中·水平偏左（0.38），🛡️=垂直居中·水平偏右（0.62）；⚔ 此前在格子上方（rect.top-4 + translate(-100%,-100%)，translate 被 healUp 覆盖失效）
@@ -9,7 +10,7 @@
 // V6.2.4 | 2026-10-02 🛡飘字微调：钢蓝 #4a9bc9→#6ec6ff+深阴影（深底发虚）；定位改 right 锚定（healUp 动画接管 transform，原 translate(-100%) 失效致文字右溢格子）
 // V6.2.3 | 2026-10-02 修复🛡飘字从未显示：POOL_SIZES 漏登记 defBuffFloat → 建池 0 元素 → acquireFromPool「池耗尽」静默 return（胖远桥加防/战士破防/流星减防全灭）
 // V6.2.2 | 2026-10-02 showDamageFloat 加同单位短时错位（同 heal 飘字方案）：主伤害与流星赶月加深/溅射在近窗内连飘时不再完全重叠
-export const VER = 'fx/80fx-common-5v5-test.js V6.3.2';
+export const VER = 'fx/80fx-common-5v5-test.js V6.3.3';
 
 import { CAMP_TYPES } from '../infra/56-battle-enums.js';
 import { snapshotUnitCell } from './90fx-ref-manager.js';
@@ -136,10 +137,18 @@ export function showHealFloat(unit, heal) {
     const stackOffset = (rec.count - 1) * HEAL_STACK_STEP;
     acquireFromPool('healFloat', (healEl) => {
         healEl.textContent = '❤+' + heal;
-        healEl.style.left = (rect.left + 12) + 'px';
+        healEl.style.display = '';      // 先点亮再量宽（池元素 setup 时仍 display:none，offsetWidth 恒 0）
+        // 2026-10-05 修❤飘字与⚔飘字严重重叠：原写法 left+12 + transform:translate(-100%,-100%) 想「左上角外伸」，
+        //   但 .heal-float 的 healUp 动画第一帧 transform:translate(0,0)scale(1.2) 会覆盖内联 transform
+        //   （V6.2.9 注释记录过同款坑），实际渲染=锚点在 left+12 后向右伸，正好压进 ⚔(0.38 居中) 的领空，
+        //   垂直又与 ⚔ 同基线（顶边都是 rect.top-4）+共用 healUp 同步上飘 → 水平垂直双撞车。
+        //   改成⚔/🛡️同款「量宽量高后直接 left/top 定位」：文字右缘贴 left+12、底边贴 rect.top-4 线上方，
+        //   与 ⚔（线下方）一上一下、与格中（0.38 居中）一左一右，双重错开，不再依赖会被动画吃掉的 transform。
+        const w = healEl.offsetWidth, h = healEl.offsetHeight;
+        healEl.style.left = Math.round(rect.left + 12 - w) + 'px';
         healEl.style.right = 'auto';
-        healEl.style.top = (rect.top - 4 - stackOffset) + 'px';
-        healEl.style.transform = 'translate(-100%, -100%)';
+        healEl.style.top = Math.round(rect.top - 4 - h - stackOffset) + 'px';
+        healEl.style.transform = '';    // 清残留（回池元素可能带着旧内联 transform）
     }, 1400);
 }
 
