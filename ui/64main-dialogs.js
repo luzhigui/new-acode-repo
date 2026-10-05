@@ -1,7 +1,8 @@
 // ui/64main-dialogs.js — 主界面弹窗（战斗结算 / 存档 / 教程等）
+// V6.4.1 | 2026-10-06 修走势分析点击即炸：10-03 排序按钮改横排时删了 switchBtn 定义、走势分析里两处引用没跟着改（ReferenceError），改指 sortBtnDiv
 // V6.4.0 | ~21200 bytes | 2026-10-03 结算面板排序按钮改为横排三枚（输出/承伤/治疗），点击即排序并高亮当前项；承伤/输出口径见 core/13 统一记账
 // V6.3.0 | ~24100 bytes | 2026-09-28 战报弹窗改 flex 限高布局：整盒 max-height:90vh、标题/按钮固定、数据表与走势分析区独立滚动，修手机端内容超长被底部按钮遮挡、看不全；宽表横向可滑不撑破屏幕
-export const VER = 'ui/64main-dialogs.js V6.4.0';
+export const VER = 'ui/64main-dialogs.js V6.4.1';
 
 import { showModal, showAlert } from './60main-utils.js';
 import { AudioManager } from '../modules/22audio-manager.js';
@@ -152,12 +153,12 @@ export function showBattleReport(battleResultForInfo) {
                 analysisRendered = true;
             }
             tableDiv.style.display = 'none';
-            switchBtn.style.display = 'none';
+            sortBtnDiv.style.display = 'none';
             analysisDiv.style.display = 'block';
             analyzeBtn.textContent = '↩️ 返回数据表';
         } else {
             tableDiv.style.display = 'block';
-            switchBtn.style.display = 'block';
+            sortBtnDiv.style.display = 'flex';
             analysisDiv.style.display = 'none';
             analyzeBtn.textContent = '📊 走势分析';
         }
