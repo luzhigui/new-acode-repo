@@ -499,6 +499,7 @@ function makeAttackAction(data, index) {
 
     // 从 attack fact 的 entries 提取 afterText 特效，靠 e.type/e.factType 区分：溅射 / 白骨爪 / 乾坤飘字 / 死亡画笔
     const afterTextEffects = [];
+    const beforeEffects = [];   // 2026-10-05 破防等「攻击前」效果：引擎序在伤害计算前，飘字赶在箭矢/💥 之前
     const entries = data.entries || [];
     for (const e of entries) {
         if (!e) continue;
@@ -627,19 +628,19 @@ function makeAttackAction(data, index) {
                 timing: 'afterText'
             });
         } else if (e.factType === FACT_TYPES.BREAK_DEF) {
-            // 2026-10-02 战士破防：此前只有 detail 文字（「🗡️ 防御 -N」），一条飘字都没有。
-            //   fact 本身只带 attackerName/targetName/reduce（无 uid），但全仓唯一产者是 core/03 的战士破防，
-            //   作用对象恒为**本击目标**，直接借 target.uid；本击打死目标则不飘（别在尸体格子上跳数字，
-            //   与 RONG_HUI_BONUS 同口径）。负数走 STAT_CHANGE(def) → fx/80 的「🛡-N」。
+            // 2026-10-05 破防改攻击前飘（老板拍板正序：🛡-2 先 → 箭矢+💥 → 坚盾🛡+1）：
+            //   引擎里破防在伤害计算**之前**（伤害公式用减过的防），飘字跟随引擎序才不怪；
+            //   此前挂 afterText = 破防跑到伤害后面，与坚盾挤同拍。fact 无 uid 但作用对象恒为本击目标，
+            //   借 target.uid；本击打死目标不飘（别在尸体格子上跳数字，与 RONG_HUI_BONUS 同口径）。
             const bd = e.data || {};
             if (target?.uid && bd.reduce > 0 && !dead) {
-                afterTextEffects.push({
+                beforeEffects.push({
                     kind: STAGE_ACTION_TYPES.STAT_CHANGE,
                     statKind: 'def',
                     targetUid: target.uid,
                     gain: -Math.round(bd.reduce),
                     factIndex: index,
-                    timing: 'afterText'
+                    timing: 'beforeText'
                 });
             }
         } else if (e.factType === FACT_TYPES.METEOR_SHOWER_MAIN) {
@@ -748,7 +749,7 @@ function makeAttackAction(data, index) {
         }
     }
 
-    return [baseAction, ...afterTextEffects, ...hpPctEffects];
+    return [...beforeEffects, baseAction, ...afterTextEffects, ...hpPctEffects];
 }
 
 function makeHealAction(data, index) {
