@@ -1,4 +1,5 @@
-// V6.3.4 | 2026-10-05 ❤飘字二次定稿：与 ⚔/🛡️/💥 同高（top=rect.top-4），水平放格子左外侧（右缘贴 rect.left-2 向左伸）——手机格 ~117px 宽四条同线塞不进格内；首修版「基准线上方」被否（高度不一致），史前版内联 translate 被 healUp 覆盖压进 ⚔ 领空
+// V6.3.5 | 2026-10-05 三次定稿（动态布局）：❤ 钉死格内最左（左缘贴 rect.left+2）、💥 钉死最右（right 锚定不变），⚔/🛡️ 弃固定 0.38/0.62——落位时查同单位活跃飘字（_activeFloats 登记表含像素宽），在「❤右界↔💥左界」剩余空间动态安放，只保相对关系「⚔恒在🛡️左」+不遮❤/💥；实战组合：张三丰=❤+⚔、流星=💥+🛡️、振奋=⚔单、胖远桥=🛡️单
+// V6.3.4 | 2026-10-05 ❤飘字二次定稿（已被 V6.3.5 取代）：同高线+格子左外侧——左外侧被否（回血跑格子外不行）
 // V6.3.3 | ~24000 bytes | 2026-10-05 修❤回血飘字与⚔加攻飘字严重重叠：改量宽直接定位（首修版方案，已被 V6.3.4 取代落点但量宽+清 transform 的方法保留）
 // V6.3.2 | 2026-10-03 攻/防飘字**初始高度对齐掉血/回血**（rect.top - 4，顶边距格顶 4px），再由 healUp 动画上飘；水平仍 ⚔ 0.38 / 🛡️ 0.62（此前「格子上方·底距4px」废弃）
 // V6.3.1 | 2026-10-03 攻/防飘字落点**统一**：⚔/🛡️ 一律「格子上方·底距格顶 4px」（rect.top - h - 4，与掉血/回血同基线），水平仍 ⚔ 偏左 0.38、🛡️ 偏右 0.62
@@ -11,7 +12,7 @@
 // V6.2.4 | 2026-10-02 🛡飘字微调：钢蓝 #4a9bc9→#6ec6ff+深阴影（深底发虚）；定位改 right 锚定（healUp 动画接管 transform，原 translate(-100%) 失效致文字右溢格子）
 // V6.2.3 | 2026-10-02 修复🛡飘字从未显示：POOL_SIZES 漏登记 defBuffFloat → 建池 0 元素 → acquireFromPool「池耗尽」静默 return（胖远桥加防/战士破防/流星减防全灭）
 // V6.2.2 | 2026-10-02 showDamageFloat 加同单位短时错位（同 heal 飘字方案）：主伤害与流星赶月加深/溅射在近窗内连飘时不再完全重叠
-export const VER = 'fx/80fx-common-5v5-test.js V6.3.4';
+export const VER = 'fx/80fx-common-5v5-test.js V6.3.5';
 
 import { CAMP_TYPES } from '../infra/56-battle-enums.js';
 import { snapshotUnitCell } from './90fx-ref-manager.js';
@@ -100,6 +101,8 @@ export function showDamageFloat(unit, dmg) {
     const stackOffset = (rec.count - 1) * DMG_STACK_STEP;
     acquireFromPool('dmgFloat', (dmgEl) => {
         dmgEl.textContent = '💥-'+dmg;   // 2026-10-02 掉血补图标，与 ⚔攻/🛡防/❤回血 凑齐四类
+        dmgEl.style.display = '';        // 点亮量宽（登记进 _activeFloats 供 ⚔/🛡️ 避让；💥 自身仍 right 锚定不变）
+        markFloatActive(unit.uid, 'dmg', dmgEl.offsetWidth);
         dmgEl.style.right=(window.innerWidth-rect.right+4)+'px';
         dmgEl.style.top=(rect.top-4-stackOffset)+'px';
     }, 1400);
@@ -120,6 +123,39 @@ export function showDodgeBubble(unit, text) {
 function createHealFloatEl() { let d = document.createElement('div'); d.className = 'heal-float'; return d; }
 initPool('healFloat', createHealFloatEl);
 
+// ===== 2026-10-05 三次定稿（老板拍板·动态布局）：飘字同单位活跃登记表 =====
+// 规则：❤ 钉死格内最左（左缘贴 rect.left+2），💥 钉死最右（right 锚定不动）；
+//   ⚔/🛡️ 不占固定坐标——落位时查同单位当前活跃的其他飘字，在「❤右界 ↔ 💥左界」剩余空间动态安放，
+//   只保证相对关系「⚔ 恒在 🛡️ 左」。四条实战从不同帧，有限组合：张三丰=❤+⚔、流星=💥+🛡️、振奋=⚔单、胖远桥=🛡️单。
+// 落位时把自己的像素宽度一并登记，后落者精确避让（不回挪先落者：⚔先🛡️后→🛡️避⚔，反之亦然，两序都成立）。
+const _activeFloats = new Map();   // uid -> { heal:到期ts, healW:px, dmg:ts, dmgW, atk:ts, atkW, def:ts, defW }
+const FLOAT_GAP = 4;              // 避让间隙 px
+function markFloatActive(uid, kind, w) {
+    const now = Date.now();
+    let rec = _activeFloats.get(uid);
+    if (!rec) { rec = {}; _activeFloats.set(uid, rec); }
+    rec[kind] = now + 1400;       // 与池回收时长一致
+    rec[kind + 'W'] = w || 0;
+    if (_activeFloats.size > 40) {   // 防泄漏：顺带清过期记录
+        for (const [k, r] of _activeFloats) {
+            if (!(r.heal > now || r.dmg > now || r.atk > now || r.def > now)) _activeFloats.delete(k);
+        }
+    }
+}
+// ⚔/🛡️ 动态左缘：kind='atk'（贴左族）/ 'def'（贴右族）。对方在场→贴死可用区端点；独享→区间内 0.3 偏移
+function dynamicBuffLeft(uid, rect, kind, w) {
+    const now = Date.now();
+    const rec = _activeFloats.get(uid) || {};
+    const healR = rec.heal > now ? rect.left + 2 + (rec.healW || 30) + FLOAT_GAP : rect.left + 2;   // 可用左界（❤右侧）
+    const dmgL = rec.dmg > now ? rect.right + 4 - (rec.dmgW || 30) - FLOAT_GAP : rect.right - 2;   // 可用右界（💥左侧）
+    if (kind === 'atk') {
+        return rec.def > now ? healR : healR + Math.max(0, (dmgL - healR - w) * 0.3);
+    } else {
+        const base = dmgL - w;
+        return rec.atk > now ? base : base - Math.max(0, (dmgL - healR - w) * 0.3);
+    }
+}
+
 // 2026-09-16 同单位回血飘字短时错位：九阳+热血同时回血时两条飘字原先完全重叠
 const _healFloatStack = new Map();
 const HEAL_STACK_WINDOW = 900;   // ms：同单位在此窗口内的第 N 条上移
@@ -139,13 +175,10 @@ export function showHealFloat(unit, heal) {
     acquireFromPool('healFloat', (healEl) => {
         healEl.textContent = '❤+' + heal;
         healEl.style.display = '';      // 先点亮再量宽（池元素 setup 时仍 display:none，offsetWidth 恒 0）
-        // 2026-10-05 二次定稿（老板看 demo 拍板）：❤ 与 ⚔/🛡️/💥 同一条高度线（top=rect.top-4），水平放格子左外侧
-        //   （右缘贴 rect.left-2，文字向左伸）。手机格子仅 ~117px 宽、四条 12px 飘字各 ~30px，同一行塞不进格内，
-        //   左外侧是唯一不撞 ⚔(0.38) 的同线位；与左邻格 💥 的偶发同窗由动画分岔化解（dmgUp 末帧右漂+4 / healUp 左漂-10）。
-        //   史前版本靠内联 translate(-100%,-100%) 做「左上外伸」，但 healUp 第一帧就覆盖 transform（V6.2.9 同款坑）
-        //   实际向右伸压进 ⚔ 领空；今晨首修版把 ❤ 抬到基准线上方也被否（高度与三条不一致）。
-        const w = healEl.offsetWidth;
-        healEl.style.left = Math.round(rect.left - 2 - w) + 'px';
+        // 2026-10-05 三次定稿：❤ 钉死格内最左（左缘贴 rect.left+2，不再外伸——二次版被否）。
+        //   宽度登记进 _activeFloats 供 ⚔/🛡️ 落位时避让；史前版内联 translate 被 healUp 首帧覆盖的坑见 V6.2.9 注。
+        markFloatActive(unit.uid, 'heal', healEl.offsetWidth);
+        healEl.style.left = Math.round(rect.left + 2) + 'px';
         healEl.style.right = 'auto';
         healEl.style.top = Math.round(rect.top - 4 - stackOffset) + 'px';
         healEl.style.transform = '';    // 清残留（动画接管 transform）
@@ -170,7 +203,10 @@ export function showDefBuffFloat(unit, def) {
         el.style.color = '#1e6bb8';                            // 复用游戏既有防御色，不自造
         el.style.display = '';      // 先点亮再量宽（池元素 setup 时仍 display:none，offsetWidth 恒 0）
         const w = el.offsetWidth;
-        el.style.left = Math.round(rect.left + rect.width * 0.62 - w / 2) + 'px';   // 水平居中偏右（0.62 宽处）
+        // 2026-10-05 三次定稿：🛡️ 不再固定 0.62——查同单位活跃飘字动态安放（⚔在场贴可用区右端保「⚔恒在🛡️左」；
+        //   ❤/💥 在场则收窄可用区避让；独享时区间内 0.3 偏移，观感近原 0.62）
+        markFloatActive(unit.uid, 'def', w);
+        el.style.left = Math.round(dynamicBuffLeft(unit.uid, rect, 'def', w)) + 'px';
         el.style.right = 'auto';
         el.style.top = Math.round(rect.top - 4) + 'px';   // 初始高度与掉血/回血一致（顶边距格顶 4px），随后由 healUp 动画上飘
     }, 1400);
@@ -225,7 +261,10 @@ export function showAtkBuffFloat(unit, atk) {
         el.style.display = '';      // 先点亮再量宽（池元素 setup 时 display:none，offsetWidth 恒 0）
         el.style.transform = '';    // 清掉旧 translate，见上注
         const w = el.offsetWidth;
-        el.style.left = Math.round(rect.left + rect.width * 0.38 - w / 2) + 'px';   // 水平居中偏左（0.38 宽处）
+        // 2026-10-05 三次定稿：⚔ 不再固定 0.38——查同单位活跃飘字动态安放（🛡️在场贴可用区左端保「⚔恒在🛡️左」；
+        //   ❤/💥 在场则收窄可用区避让；独享时区间内 0.3 偏移，观感近原 0.38）
+        markFloatActive(unit.uid, 'atk', w);
+        el.style.left = Math.round(dynamicBuffLeft(unit.uid, rect, 'atk', w)) + 'px';
         el.style.right = 'auto';
         el.style.top = Math.round(rect.top - 4) + 'px';   // 初始高度与掉血/回血一致（顶边距格顶 4px），随后由 healUp 动画上飘
         el.style.zIndex = '10004';
