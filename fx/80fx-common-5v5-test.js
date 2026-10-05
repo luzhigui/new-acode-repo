@@ -1,3 +1,4 @@
+// V6.3.6 | 2026-10-05 ⚔🛡️同帧微调：配对落位从「贴端点」改「区间 0.28/0.72」往中间收（贴端点太散看不出是一对，老板 demo 定稿）；V6.3.5 的动态布局骨架不变
 // V6.3.5 | 2026-10-05 三次定稿（动态布局）：❤ 钉死格内最左（左缘贴 rect.left+2）、💥 钉死最右（right 锚定不变），⚔/🛡️ 弃固定 0.38/0.62——落位时查同单位活跃飘字（_activeFloats 登记表含像素宽），在「❤右界↔💥左界」剩余空间动态安放，只保相对关系「⚔恒在🛡️左」+不遮❤/💥；实战组合：张三丰=❤+⚔、流星=💥+🛡️、振奋=⚔单、胖远桥=🛡️单
 // V6.3.4 | 2026-10-05 ❤飘字二次定稿（已被 V6.3.5 取代）：同高线+格子左外侧——左外侧被否（回血跑格子外不行）
 // V6.3.3 | ~24000 bytes | 2026-10-05 修❤回血飘字与⚔加攻飘字严重重叠：改量宽直接定位（首修版方案，已被 V6.3.4 取代落点但量宽+清 transform 的方法保留）
@@ -12,7 +13,7 @@
 // V6.2.4 | 2026-10-02 🛡飘字微调：钢蓝 #4a9bc9→#6ec6ff+深阴影（深底发虚）；定位改 right 锚定（healUp 动画接管 transform，原 translate(-100%) 失效致文字右溢格子）
 // V6.2.3 | 2026-10-02 修复🛡飘字从未显示：POOL_SIZES 漏登记 defBuffFloat → 建池 0 元素 → acquireFromPool「池耗尽」静默 return（胖远桥加防/战士破防/流星减防全灭）
 // V6.2.2 | 2026-10-02 showDamageFloat 加同单位短时错位（同 heal 飘字方案）：主伤害与流星赶月加深/溅射在近窗内连飘时不再完全重叠
-export const VER = 'fx/80fx-common-5v5-test.js V6.3.5';
+export const VER = 'fx/80fx-common-5v5-test.js V6.3.6';
 
 import { CAMP_TYPES } from '../infra/56-battle-enums.js';
 import { snapshotUnitCell } from './90fx-ref-manager.js';
@@ -142,17 +143,20 @@ function markFloatActive(uid, kind, w) {
         }
     }
 }
-// ⚔/🛡️ 动态左缘：kind='atk'（贴左族）/ 'def'（贴右族）。对方在场→贴死可用区端点；独享→区间内 0.3 偏移
+// ⚔/🛡️ 动态左缘：kind='atk'（左族）/ 'def'（右族）。
+//   对方在场 → ⚔ 取剩余区间 0.28、🛡️ 取 0.72（往中间收，贴端点太散看不出来是一对——老板看 demo 定稿）
+//   独享     → 区间 0.3 偏移（观感近史前版 0.38/0.62 单独出现的位置）
 function dynamicBuffLeft(uid, rect, kind, w) {
     const now = Date.now();
     const rec = _activeFloats.get(uid) || {};
     const healR = rec.heal > now ? rect.left + 2 + (rec.healW || 30) + FLOAT_GAP : rect.left + 2;   // 可用左界（❤右侧）
     const dmgL = rec.dmg > now ? rect.right + 4 - (rec.dmgW || 30) - FLOAT_GAP : rect.right - 2;   // 可用右界（💥左侧）
+    const span = Math.max(0, dmgL - healR - w);
     if (kind === 'atk') {
-        return rec.def > now ? healR : healR + Math.max(0, (dmgL - healR - w) * 0.3);
+        return rec.def > now ? healR + span * 0.28 : healR + span * 0.3;
     } else {
         const base = dmgL - w;
-        return rec.atk > now ? base : base - Math.max(0, (dmgL - healR - w) * 0.3);
+        return rec.atk > now ? base - span * 0.28 : base - span * 0.3;
     }
 }
 
