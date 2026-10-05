@@ -254,7 +254,7 @@ export function registerFortifyShield(eventBus) {
         if (getBattleRng().nextInt(1, 100) > chanceRatio * 100) return;
         Object.assign(unit.state, { _fortifyStacks: unit.state._fortifyStacks + increment, _fortifyThisRound: fortifyThisRound + increment });
         addMod(unit, 'def', { source: '坚盾', value: increment, ttl: 'permanent', group: 'fortify', op: 'add' });
-        const entry = { factType: FACT_TYPES.FORTIFY_SHIELD, data: { unitName: unit.name, label, increment, current: fortifyThisRound + increment, cap } };
+        const entry = { factType: FACT_TYPES.FORTIFY_SHIELD, data: { unitName: unit.name, unitUid: unit.uid, label, increment, current: fortifyThisRound + increment, cap } };
         if (group && group.data && group.data.entries) {
             group.data.entries.push(entry);
         } else if (log) {

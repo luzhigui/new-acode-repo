@@ -213,10 +213,22 @@ const FACT_TRANSLATORS = {
     }),
     [FACT_TYPES.FORTIFY_SHIELD]: (data, index) => ({
         kind: STAGE_ACTION_TYPES.STAT_CHANGE,
+        statKind: 'def',
+        targetUid: data.unitUid ?? data.unit?.uid ?? null,
+        gain: data.increment ?? 0,
         actorUid: data.unitUid ?? data.unit?.uid ?? null,
         factIndex: index,
         timing: 'afterText'
     }),
+    // 2026-10-05 八卦阵飘字（老板拍板「第二拍」）：减攻+加防两条，紧跟其后的 ENDLESS_BREATH（❤+二选一）
+    //   也是 afterText 连续落 → 视觉上凑成第二拍（掉血/坚盾是第一拍，靠攻击动画天然隔开）。
+    //   此前 modules/26 只手动 push 文本行，fact 无翻译器 → 无飘字。
+    [FACT_TYPES.BAGUA_ARRAY]: (data, index) => {
+        const acts = [];
+        if (data.atkDelta) acts.push({ kind: STAGE_ACTION_TYPES.STAT_CHANGE, statKind: 'atk', targetUid: data.unitUid ?? null, gain: Math.round(data.atkDelta), actorUid: data.unitUid ?? null, factIndex: index, timing: 'afterText' });
+        if (data.defDelta) acts.push({ kind: STAGE_ACTION_TYPES.STAT_CHANGE, statKind: 'def', targetUid: data.unitUid ?? null, gain: Math.round(data.defDelta), actorUid: data.unitUid ?? null, factIndex: index, timing: 'afterText' });
+        return acts;
+    },
     [FACT_TYPES.CARRY_APPLY]: (data, index) => ({
         kind: STAGE_ACTION_TYPES.STAT_CHANGE,
         actorUid: data.unitUid ?? data.unit?.uid ?? null,
@@ -511,6 +523,17 @@ function makeAttackAction(data, index) {
                 effectType: BUFF_EFFECT_TYPES.ATK_BUFF,
                 targetUid: e.atkTargetUid,
                 gain: e.atkGain,
+                factIndex: index,
+                timing: 'afterText'
+            });
+        } else if (e.factType === FACT_TYPES.FORTIFY_SHIELD) {
+            // 2026-10-05 坚盾/攻盾飘字（老板 demo 定稿）：与 💥 同拍（本行 afterText，箭矢落点后紧跟）。
+            //   fact 走组内 entries（tryFortify 优先推 group），此前白名单没它 → 只有日志行没有 🛡️ 飘字。
+            afterTextEffects.push({
+                kind: STAGE_ACTION_TYPES.STAT_CHANGE,
+                statKind: 'def',
+                targetUid: e.data?.unitUid ?? null,
+                gain: e.data?.increment ?? 0,
                 factIndex: index,
                 timing: 'afterText'
             });
