@@ -122,7 +122,9 @@ function prepareRoundStart(A, B, log, state, round, rng) {
     registerDoubleStrike(eventBus, doubleStrikeUnitUidEnemy, B, B._activeBuffs);
     registerEmptyColBonus(eventBus);
     // 飞行再生：每死一个非拒马角色，全场飞行立即回 baseRegen 生命（数值读 roles.飞行.baseRegen）
-    eventBus.on(SIGNAL_TYPES.ON_UNIT_DEATH, 30, (data) => { onUnitDeathFlyerRegen(data, A, B, log); });
+    // 2026-10-05 修静默 bug：不能闭包本函数参数 log——它在回合开始步 yield 后就被主循环换成新数组，
+    //   此后 fact 全推进无人读的死数组（数值加血正常、日志/弹幕全无）。改用广播随包的 data.log（当步真 log）。
+    eventBus.on(SIGNAL_TYPES.ON_UNIT_DEATH, 30, (data) => { onUnitDeathFlyerRegen(data, A, B, data.log); });
 
     const factories = getEliteFactories();
     let sisterComp = null;

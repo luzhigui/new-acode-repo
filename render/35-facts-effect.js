@@ -341,8 +341,9 @@ export function renderRongHuiBonusFact(fact) {
 }
 
 // 飞行再生（V6.3.3 | 2026-10-02 补回血弹幕：角色阵亡→全场飞行回 baseRegen，此前只有数值没有日志行和飘字）
+// 2026-10-05 老板命名定稿「食腐之飞行」：秃鹫吃尸体的画面感，文案与飘字同步换装
 export function renderFlyerRegenFact(fact) {
-    return { type:'info', text:`<span class="green">🕊️ 飞行再生：${fact.unitName} 回复 ${fact.heal} 点生命（${fact.deadCount} 名角色阵亡）</span>`, fxAnchors: [`回复+${fact.heal}`], isHealEntry:true, healAmount:fact.heal, healUnitUid:fact.unitUid };
+    return { type:'info', text:`<span class="green">🦅 食腐之飞行：${fact.unitName} 拾取战场遗骸回复 ${fact.heal} 点生命（${fact.deadCount} 名角色阵亡）</span>`, fxAnchors: [`食腐+${fact.heal}`], isHealEntry:true, healAmount:fact.heal, healUnitUid:fact.unitUid };
 }
 
 // 韦一笑吸血
