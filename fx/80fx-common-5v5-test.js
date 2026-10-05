@@ -1,3 +1,4 @@
+// V6.3.7 | 2026-10-05 坚盾/攻盾/八卦飘字上线（老板拍板两拍节奏）：⚔🛡️ 补同类 20px 短时错层（张三丰选防=🛡️×2、八卦减攻+二选一=⚔×2 不再叠死）；⚔ 负数显示修正（八卦-攻不再出 '⚔+-1'）
 // V6.3.6 | 2026-10-05 ⚔🛡️同帧微调：配对落位从「贴端点」改「区间 0.28/0.72」往中间收（贴端点太散看不出是一对，老板 demo 定稿）；V6.3.5 的动态布局骨架不变
 // V6.3.5 | 2026-10-05 三次定稿（动态布局）：❤ 钉死格内最左（左缘贴 rect.left+2）、💥 钉死最右（right 锚定不变），⚔/🛡️ 弃固定 0.38/0.62——落位时查同单位活跃飘字（_activeFloats 登记表含像素宽），在「❤右界↔💥左界」剩余空间动态安放，只保相对关系「⚔恒在🛡️左」+不遮❤/💥；实战组合：张三丰=❤+⚔、流星=💥+🛡️、振奋=⚔单、胖远桥=🛡️单
 // V6.3.4 | 2026-10-05 ❤飘字二次定稿（已被 V6.3.5 取代）：同高线+格子左外侧——左外侧被否（回血跑格子外不行）
@@ -13,7 +14,7 @@
 // V6.2.4 | 2026-10-02 🛡飘字微调：钢蓝 #4a9bc9→#6ec6ff+深阴影（深底发虚）；定位改 right 锚定（healUp 动画接管 transform，原 translate(-100%) 失效致文字右溢格子）
 // V6.2.3 | 2026-10-02 修复🛡飘字从未显示：POOL_SIZES 漏登记 defBuffFloat → 建池 0 元素 → acquireFromPool「池耗尽」静默 return（胖远桥加防/战士破防/流星减防全灭）
 // V6.2.2 | 2026-10-02 showDamageFloat 加同单位短时错位（同 heal 飘字方案）：主伤害与流星赶月加深/溅射在近窗内连飘时不再完全重叠
-export const VER = 'fx/80fx-common-5v5-test.js V6.3.6';
+export const VER = 'fx/80fx-common-5v5-test.js V6.3.7';
 
 import { CAMP_TYPES } from '../infra/56-battle-enums.js';
 import { snapshotUnitCell } from './90fx-ref-manager.js';
@@ -193,6 +194,20 @@ export function showHealFloat(unit, heal) {
 function createAtkBuffFloatEl() { let d = document.createElement('div'); d.className = 'heal-float'; d.style.color = '#ff8c00'; return d; }
 initPool('atkBuffFloat', createAtkBuffFloatEl);
 
+// 2026-10-05 ⚔/🛡️ 同类短时错层（复用 ❤/💥 方案）：张三丰选防=🛡️×2、八卦减攻+二选一加攻=⚔×2 同窗不再叠死
+const _atkDefFloatStack = new Map();
+const ATKDEF_STACK_WINDOW = 900, ATKDEF_STACK_MAX = 3, ATKDEF_STACK_STEP = 20;
+function atkDefStackOffset(uid, kind) {
+    const now = Date.now();
+    const key = uid + ':' + kind;
+    let rec = _atkDefFloatStack.get(key);
+    if (!rec || now - rec.lastAt > ATKDEF_STACK_WINDOW) rec = { count: 0, lastAt: now };
+    rec.count = (rec.count % ATKDEF_STACK_MAX) + 1;
+    rec.lastAt = now;
+    _atkDefFloatStack.set(key, rec);
+    return (rec.count - 1) * ATKDEF_STACK_STEP;
+}
+
 // 2026-10-01 弹幕图标版（用户定调）：加攻⚔ / 加防🛡️ 前缀图标
 //   图标一律取游戏职业 logo 本体（战士⚔️ / 防战🛡️），不另造字形；数值颜色沿用既有色规：
 //   攻=橙 .orange #d2691e、防=蓝 .blue #1e6bb8、血=绿 .green #2e7d32、掉血=红 .red #c0392b
@@ -207,12 +222,12 @@ export function showDefBuffFloat(unit, def) {
         el.style.color = '#1e6bb8';                            // 复用游戏既有防御色，不自造
         el.style.display = '';      // 先点亮再量宽（池元素 setup 时仍 display:none，offsetWidth 恒 0）
         const w = el.offsetWidth;
-        // 2026-10-05 三次定稿：🛡️ 不再固定 0.62——查同单位活跃飘字动态安放（⚔在场贴可用区右端保「⚔恒在🛡️左」；
+        // 2026-10-05 三次定稿：🛡️ 不再固定 0.62——查同单位活跃飘字动态安放（⚔在场配对 0.72 位；
         //   ❤/💥 在场则收窄可用区避让；独享时区间内 0.3 偏移，观感近原 0.62）
         markFloatActive(unit.uid, 'def', w);
         el.style.left = Math.round(dynamicBuffLeft(unit.uid, rect, 'def', w)) + 'px';
         el.style.right = 'auto';
-        el.style.top = Math.round(rect.top - 4) + 'px';   // 初始高度与掉血/回血一致（顶边距格顶 4px），随后由 healUp 动画上飘
+        el.style.top = Math.round(rect.top - 4 - atkDefStackOffset(unit.uid, 'def')) + 'px';   // 同类 20px 错层（🛡️×2 同窗：坚盾+二选一）
     }, 1400);
 }
 
@@ -261,16 +276,16 @@ export function showAtkBuffFloat(unit, atk) {
     const rect = snapshotUnitCell(unit);
     if (!rect) return;
     acquireFromPool('atkBuffFloat', (el) => {
-        el.textContent = '⚔+' + atk;
+        el.textContent = '⚔' + (atk > 0 ? '+' : '') + atk;   // 负数（八卦减攻）不带 '+'，避免 '⚔+-1'
         el.style.display = '';      // 先点亮再量宽（池元素 setup 时 display:none，offsetWidth 恒 0）
         el.style.transform = '';    // 清掉旧 translate，见上注
         const w = el.offsetWidth;
-        // 2026-10-05 三次定稿：⚔ 不再固定 0.38——查同单位活跃飘字动态安放（🛡️在场贴可用区左端保「⚔恒在🛡️左」；
+        // 2026-10-05 三次定稿：⚔ 不再固定 0.38——查同单位活跃飘字动态安放（🛡️在场配对 0.28；
         //   ❤/💥 在场则收窄可用区避让；独享时区间内 0.3 偏移，观感近原 0.38）
         markFloatActive(unit.uid, 'atk', w);
         el.style.left = Math.round(dynamicBuffLeft(unit.uid, rect, 'atk', w)) + 'px';
         el.style.right = 'auto';
-        el.style.top = Math.round(rect.top - 4) + 'px';   // 初始高度与掉血/回血一致（顶边距格顶 4px），随后由 healUp 动画上飘
+        el.style.top = Math.round(rect.top - 4 - atkDefStackOffset(unit.uid, 'atk')) + 'px';   // 同类 20px 错层（⚔×2 同窗）
         el.style.zIndex = '10004';
     }, 1400);
 }

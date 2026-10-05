@@ -158,7 +158,7 @@ export function createZhangSanfengComponent() {
                 if (data.log) {
                     data.log.push({
                         factType: FACT_TYPES.BAGUA_ARRAY,
-                        data: { unitName: zhang.name, atkDelta: -ba.atkCost, defDelta: ba.defGain }
+                        data: { unitName: zhang.name, unitUid: zhang.uid, atkDelta: -ba.atkCost, defDelta: ba.defGain }
                     });
                 }
                 triggerEndlessBreath(zhang, data.log);
