@@ -349,7 +349,10 @@ export const STAGE_ACTION_DEFS = {
     },
     [STAGE_ACTION_TYPES.IMMUNE]: { grid: 'none', log: 'sync', timing: 'beforeText' },
     [STAGE_ACTION_TYPES.STAT_CHANGE]: {
-        grid: 'sync', log: 'sync', timing: 'afterText',
+        grid: 'sync', log: 'sync',
+        // 2026-10-05 改函数式：action 可自带 timing 覆盖（破防=beforeText，赶在箭矢/💥 前）；
+        //   不带的维持 afterText 原行为（CARRY_APPLY 等旧调用零改动）
+        timing: (action) => (action && action.timing) || 'afterText',
         // 2026-10-01 生生不息攻防二选一加成飘字：atk=橙⚔左上（原ATK_BUFF_FLOAT通道）、def=钢蓝🛡右上（新通道）
         fx: (c, action) => {
             if (GlobalStore.get('fastForwardActive')) return;
