@@ -1,3 +1,6 @@
+// V6.7.0 | ~32200 bytes | 2026-10-06 镜像主代码 carry 候选过滤：tickAndPickBuffs 直接 import
+//          modules/28buff-tools.js 的 hasCarryTarget，候选里加「carry 位全空则剔除 carry」判据
+//          （5 号位；小昭·姊在场放宽 4/5/6）。与 player/49、ui/61、ui/70 及 140/stat-decl 同口径。
 // V6.5.0 | 2026-10-02 第50轮·审核线：facts 映射缺口判据改为以 58 契约为准——spec.renderFn===null
 //          是契约明示「数值声明 fact 不进画面」（58:145，八卦阵/莽撞/雄狮振奋），旧判据只问
 //          getFactRenderer 把这 3 类合法 fact 误报 634 条；现仅「58 未登记」「声明渲染但未注册」算缺口。
@@ -58,7 +61,7 @@ console.error = function (...args) {
 };
 
 // 补 VER（第 21 轮）：此前本文件无 export const VER，tools/118 的版本头对账会漏掉它
-export const VER = 'tests/rules-replay.mjs V6.6.0';
+export const VER = 'tests/rules-replay.mjs V6.7.0';
 
 const HERE = new URL('.', import.meta.url);
 const [{ CONFIG, loadGameData }, { SeededRNG }, { createRoundStepper }, { initBattleTeams },
@@ -74,6 +77,9 @@ const [{ CONFIG, loadGameData }, { SeededRNG }, { createRoundStepper }, { initBa
         import('../infra/54-global-store.js'),
         import('../infra/56-battle-enums.js')
     ]);
+// carry 候选判据与主代码同口径：直接复用 modules/28buff-tools.js 的 hasCarryTarget
+//   （「carry 位」5 号；小昭·姊在场放宽 4/5/6；无 carry 位则 carry 不进候选）。
+const { hasCarryTarget } = await import('../modules/28buff-tools.js');
 // 精英组件需先注册（initBattleTeams 依赖其组件安装）
 await import('../modules/25elite-imperial.js');
 await import('../modules/26elite-sixsects.js');
@@ -150,6 +156,7 @@ function tickAndPickBuffs(activeBuffs, ally, enemy, round, seed, pickNew) {
         var alive = (s.team || []).filter(function (u) { return u && u.alive; });
         var avail = Object.keys(CONFIG.BUFFS).sort().filter(function (k) {
             if (existing.indexOf(k) !== -1) return false;
+            if (k === BUFF_TYPES.CARRY && !hasCarryTarget(s.team)) return false;
             var req = CONFIG.BUFF_ROLE_REQUIREMENTS ? CONFIG.BUFF_ROLE_REQUIREMENTS[k] : null;
             if (req && !alive.some(function (u) { return u.role === req; })) return false;
             return true;

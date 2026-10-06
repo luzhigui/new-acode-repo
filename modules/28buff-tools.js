@@ -1,6 +1,7 @@
+// V6.2.0 | ~2300 bytes | 2026-10-06 carry 候选过滤：无 carry 位（5 号；小昭·姊在场放宽 4/5/6）则不进候选
 // V6.1.0 | ~1800 bytes | 2026-09-19 联网PVP：buff 分阵营（createBuffObject 加 target 参数、新增 buffsOfCamp）
 // V6.0.0 | ~1200 bytes | 2026-08-15 从 23global-store 拆出
-export const VER = 'modules/28buff-tools.js V6.1.0';
+export const VER = 'modules/28buff-tools.js V6.2.0';
 
 import { CONFIG } from '../core/01config-5v5-test.js';
 import { getBattleRng } from '../core/13battle-shared.js';
@@ -30,6 +31,14 @@ export function buffsOfCamp(activeBuffs, camp) {
         : b.target === camp);
 }
 
+// carry 只在「carry 位」有活人时才有效：5 号位；小昭·姊在场放宽到 4/5/6（与 core/04 的 carryPositions 同口径）。
+// 无 carry 位则无可加成对象 → 不进候选（手动弹窗与自动选同此判据）。
+export function hasCarryTarget(team) {
+    const sister = team.some(u => u.alive && u.isXiaoZhaoSister);
+    const positions = sister ? [4, 5, 6] : [5];
+    return team.some(u => u.alive && positions.includes(u.pos));
+}
+
 // activeBuffs 传「本阵营已有 buff」：各阵营独立去重，明教与六大派可各选一次同名 buff
 export function generateBuffChoices(activeBuffs, team = [], rng = null) {
     const activeBuffKeys = activeBuffs.map(b => b.key);
@@ -37,6 +46,7 @@ export function generateBuffChoices(activeBuffs, team = [], rng = null) {
     const available = allKeys.filter(k => {
         if (activeBuffKeys.includes(k)) return false;
         if (k === BUFF_TYPES.FORTIFY && !activeBuffs.some(b => b.remaining > 0)) return false;
+        if (k === BUFF_TYPES.CARRY && !hasCarryTarget(team)) return false;
         const requiredRole = CONFIG.BUFF_ROLE_REQUIREMENTS[k];
         if (requiredRole && !team.some(u => u.alive && u.role === requiredRole)) return false;
         return true;

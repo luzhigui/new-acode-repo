@@ -1,3 +1,5 @@
+// V1.5.0 | ~27100 bytes | 2026-10-06 carry 候选过滤（pickHexBuff / hexPicker）：import modules/28buff-tools.hasCarryTarget，
+//        无 carry 位（5 号；小昭·姊在场放宽 4/5/6）则不进候选，与 101 主线程版逐字同口径
 // V1.4.0 | 2026-10-02 新增 kind:'paired'（110 成对置换对照）：buildRandomTeam 加 force 参数（骰子照掷保持 rng 消耗流逐位一致），
 //        runPairedJob 每对跑基线局+对照局（仅 ally 单槽职业强制替换），按 role 累积配对差供主线程算 95% CI
 // V1.3.3 | 2026-10-02 机制装配收口：25/26/27/30 散装 import 收敛为 modules/00reg-mechanics.js 单入口
@@ -31,7 +33,7 @@ import { Unit } from '../core/02unit.js';
 import { SeededRNG, flushBattleEvents, onBattleEvents } from '../infra/51-core-utils.js';
 import { runBattle } from '../core/06battle-runner.js';
 import { setBattleRng } from '../core/13battle-shared.js';
-import { createBuffObject } from '../modules/28buff-tools.js';
+import { createBuffObject, hasCarryTarget } from '../modules/28buff-tools.js';
 import { addPermanentBuff } from '../modules/20elite-skills.js';
 import { initBattleTeams } from '../modules/29battle-init.js';
 import '../infra/54-global-store.js';
@@ -98,6 +100,7 @@ function pickHexBuff(activeBuffs, allyTeam, rng, withFortifyRule) {
     const available = allKeys.filter(k => {
         if (existing.includes(k)) return false;
         if (withFortifyRule && k === BUFF_TYPES.FORTIFY && !activeBuffs.some(b => b.remaining > 0)) return false;
+        if (k === BUFF_TYPES.CARRY && !hasCarryTarget(allyTeam)) return false;   // 无 carry 位则无效，不进候选（与 modules/28 同口径）
         const requiredRole = CONFIG.BUFF_ROLE_REQUIREMENTS[k];
         if (requiredRole && !allyTeam.some(u => u.alive && u.role === requiredRole)) return false;
         return true;
@@ -204,6 +207,7 @@ function runHexStageJob(stage, baseSeed, runs, preferredBuffs = [], startIndex =
             const allyAlive = allySide.filter(u => u.alive);
             const available = Object.keys(C.BUFFS).filter(k => {
                 if (existing.includes(k)) return false;
+                if (k === BUFF_TYPES.CARRY && !hasCarryTarget(allyAlive)) return false;   // 无 carry 位则无效，不进候选（与 modules/28 同口径）
                 const req = C.BUFF_ROLE_REQUIREMENTS?.[k];
                 if (req && !allyAlive.some(u => u.role === req)) return false;
                 return true;

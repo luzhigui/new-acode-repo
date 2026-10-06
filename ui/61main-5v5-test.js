@@ -1,6 +1,7 @@
+// V6.13.0 | ~45250 bytes | 2026-10-06 全自动选 buff 补 carry 位判据（无 carry 位不自动选，与 modules/28 同口径）
 // V6.12.2 | ~45100 bytes | 2026-10-02 机制装配收口：25/26/27/30 散装 import 收敛为 modules/00reg-mechanics.js 单入口（行为零变化，仅装配路径）
 // V6.12.1 | 2026-10-02 下一关/重新开始（单机+PVP房主）、选关切换、回封面四个新局入口传 freshSeed，不再复用上一局种子重演首回合
-export const VER = 'ui/61main-5v5-test.js V6.12.2';
+export const VER = 'ui/61main-5v5-test.js V6.13.0';
 
 import '../infra/54-global-store.js';
 import { GlobalStore } from '../infra/54-global-store.js';
@@ -16,6 +17,7 @@ import { showMeleeCrash, showMeleeDodge, showMeleeMiss, VER as FC_VER } from '..
 import { playBattle, playLineText, clearAllEffects, handleBuffSummon, handleBuffDestroy, VER as BP_VER } from '../player/44battle-player-5v5-test.js';
 import { showModal, showAlert, updateCoverVersion, copyLogToClipboard, initBugAndXiaoZhaoModes } from './60main-utils.js';
 import { BUFF_TYPES, CAMP_TYPES } from '../infra/56-battle-enums.js';
+import { hasCarryTarget } from '../modules/28buff-tools.js';
 
 // 拆分模块
 import { getPlayerContext, getState, setState } from '../ui/63main-state.js';
@@ -562,6 +564,7 @@ document.addEventListener('DOMContentLoaded', async function() {
                 const available = allKeys.filter(k => {
                     if (existing.includes(k)) return false;
                     if (k === BUFF_TYPES.FORTIFY && !getState.activeBuffs().some(b => b.remaining > 0)) return false;
+                    if (k === BUFF_TYPES.CARRY && !hasCarryTarget(allyTeam)) return false;
                     const requiredRole = C.BUFF_ROLE_REQUIREMENTS?.[k];
                     if (requiredRole && !allyTeam.some(u => u.alive && u.role === requiredRole)) return false;
                     return true;
