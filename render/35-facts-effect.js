@@ -1,4 +1,5 @@
 // render/35-facts-effect.js — 效果域 fact 渲染器
+// V1.0.14 | 2026-10-06 修飞行再生弹幕永不飘：锚点文本「回复+N」与正文「回复 N 点」不一致（锚点按子串匹配，对不上=回调永不触发），对齐成「回复 N 点」——同文件其余锚点全对，仅此一处笔误
 // V1.0.13 | ~36500 bytes | 2026-10-03 renderPassFact 默认分支（眩晕/附身 pass）去 needsSeparator：空 attack-group 带 SEP = 纯分隔符，回合末紧挨蝶变飞回即双分隔符（提示已由 PUSH_STUN/FLY_SKIP 文本承担）
 //
 // 加新 fact 渲染：在本文件写函数 + 尾部 registerFactRenderer 一行（键=factType）。
@@ -7,7 +8,7 @@ import { CONFIG } from '../core/01config-5v5-test.js';
 import { makeFXSnapshot, fmtHp } from '../infra/51-core-utils.js';
 import { BUFF_TYPES, BUFF_SUBTYPES, CAMP_TYPES, ROLE_TYPES, FACT_TYPES } from '../infra/56-battle-enums.js';
 import { registerFactRenderer, findUnitSnapshotByUid } from './33-fact-registry.js';
-export const VER = 'render/35-facts-effect.js V1.0.13';
+export const VER = 'render/35-facts-effect.js V1.0.14';
 
 // 拒马 / 张无忌
 export function renderHorseDestroyFact(fact) {
@@ -343,7 +344,7 @@ export function renderRongHuiBonusFact(fact) {
 // 飞行再生（V6.3.3 | 2026-10-02 补回血弹幕：角色阵亡→全场飞行回 baseRegen，此前只有数值没有日志行和飘字）
 // 2026-10-05 文案回滚：老板否掉「食腐」命名（不好听），弹幕走正常回血款（❤+N），日志用低调版
 export function renderFlyerRegenFact(fact) {
-    return { type:'info', text:`<span class="green">🕊️ 飞行再生：${fact.unitName} 回复 ${fact.heal} 点生命（${fact.deadCount} 名角色阵亡）</span>`, fxAnchors: [`回复+${fact.heal}`], isHealEntry:true, healAmount:fact.heal, healUnitUid:fact.unitUid };
+    return { type:'info', text:`<span class="green">🕊️ 飞行再生：${fact.unitName} 回复 ${fact.heal} 点生命（${fact.deadCount} 名角色阵亡）</span>`, fxAnchors: [`回复 ${fact.heal} 点`], isHealEntry:true, healAmount:fact.heal, healUnitUid:fact.unitUid };
 }
 
 // 韦一笑吸血
