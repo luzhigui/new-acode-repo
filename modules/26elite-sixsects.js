@@ -1,3 +1,4 @@
+// V6.15.6 | 2026-10-06 张三丰生生不息溢出接盘池统一走 canBeTargeted：天上蝶/蛛、垂死、不可选单位不接盘（与打人门禁同口径）
 // V6.15.5 | ~48300 bytes | 2026-10-02 胖远桥·莽撞补飘字：被攻击加攻量写进本击 fact（group.data.pangAtkGain），render/38 据此产 STAT_CHANGE(atk) 飘「⚔+N」
 // V6.15.4 | 2026-10-02 四个注册表 handler 补 fields 字段契约（core/15 安装期按此校验 JSON，缺字段/类型错开局即抛）
 export const VER = 'modules/26elite-sixsects.js V6.15.5';
@@ -62,7 +63,8 @@ export function createZhangSanfengComponent() {
                 let receiver = null;
                 let receiverHealed = 0;
                 if (overflow > 0) {
-                    const cands = B.filter(u => u.alive && u.uid !== unit.uid);
+                    // 2026-10-06 溢出接盘池统一走 canBeTargeted：天上蝶/蛛、垂死、不可选单位不接盘（与打人门禁同口径）
+                    const cands = B.filter(u => u.alive && u.uid !== unit.uid && canBeTargeted(u));
                     if (cands.length > 0) {
                         const pick = cands[getBattleRng().nextInt(0, cands.length - 1)];
                         const rHpBefore = pick.hp;
