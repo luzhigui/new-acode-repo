@@ -1,12 +1,13 @@
+// V6.4.0 | ~6900 bytes | 2026-10-06 全自动选 buff 补 carry 位判据（无 carry 位不自动选，与 modules/28 同口径）
 // V6.3.0 | ~6700 bytes | 2026-09-19 联网PVP阶段3：handlePvpBuffSelection 房主统一发选项、双方各选后合并
 // V6.2.0 | ~3400 bytes | 2026-09-19 联网PVP：handleBuffSelection 加 camp 参数，按阵营取队伍与已有 buff
-export const VER = 'player/49battle-flow.js V6.3.1';
+export const VER = 'player/49battle-flow.js V6.4.0';
 
 import { CONFIG } from '../core/01config-5v5-test.js';
 import { GlobalStore, getPlayerContext } from '../infra/54-global-store.js';
 import { getBattleRng } from '../core/13battle-shared.js';
 import { CAMP_TYPES, BUFF_TYPES } from '../infra/56-battle-enums.js';
-import { createBuffObject, buffsOfCamp, generateBuffChoices } from '../modules/28buff-tools.js';
+import { createBuffObject, buffsOfCamp, generateBuffChoices, hasCarryTarget } from '../modules/28buff-tools.js';
 import { appendLogHTML } from './47renderer.js';
 import * as net from '../infra/60-net-pvp.js';
 // 2026-09-14 去反向依赖：player 层不再 import ui 层，弹窗经 GlobalStore UIHandler 通道调用
@@ -28,6 +29,7 @@ export async function handleBuffSelection(c, nextActiveBuffs, camp = CAMP_TYPES.
         const team = c.store.getState().units.filter(u => u.camp === camp && u.alive);
         const available = allKeys.filter(k => {
             if (existing.includes(k)) return false;
+            if (k === BUFF_TYPES.CARRY && !hasCarryTarget(team)) return false;
             const requiredRole = CONFIG.BUFF_ROLE_REQUIREMENTS?.[k];
             if (requiredRole && !team.some(u => u.alive && u.role === requiredRole)) return false;
             return true;

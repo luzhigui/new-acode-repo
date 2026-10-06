@@ -1,4 +1,6 @@
 // tools/122-param-lab-core.js — 参数对照实验台的纯逻辑层（浏览器 worker 与 node CLI 共用）
+// V1.2.0 | 预估 21300 bytes | 2026-10-06 tickAndPickBuffs 补 carry 候选过滤：import modules/28buff-tools.hasCarryTarget，
+//          无 carry 位（5 号；小昭·姊在场放宽 4/5/6）则不进候选，与主代码逐字同口径。
 // V1.1.1 | 预估 20800 bytes | 2026-09-29 路径改名（原 120-param-lab-core.js）；V1.1.0 参数实验台批 4：listNumericKnobs 从「只扫 characters」扩到参数四层——
 //          ① 角色技能表 ② 纯规则常量 CONFIG（跳 getter 与位次表）③ buffs/roles/encounters/roster/hexes 数据表；
 //          每个旋钮带 layer/owner/skill 三级信息，供页面做「归属 → 技能 → 字段」选择。
@@ -7,7 +9,7 @@
 //          数值旋钮扫描）。不 import 任何 node 内置模块，浏览器 worker 与 node 直跑通用。
 //          CLI 侧的 node 垫片（fetch / localStorage）由调用方在 import 本文件之前装好；
 //          本文件自带 window/localStorage 垫片，保证模块体在无 DOM 环境也能跑。
-export const VER = 'tools/122-param-lab-core.js V1.1.1';
+export const VER = 'tools/122-param-lab-core.js V1.2.0';
 
 // --- 环境垫片：引擎零 DOM，但 import 链与本模块体在无浏览器全局时需 window/localStorage ---
 if (typeof window === 'undefined') globalThis.window = globalThis;
@@ -23,7 +25,8 @@ if (typeof localStorage === 'undefined') {
 
 // --- 引擎加载（顺序同 tests/rules-replay.mjs）---
 const [{ CONFIG, loadGameData }, { Unit, baseHeroName }, { initBattleTeams }, { SeededRNG },
-    { createRoundStepper }, { GlobalStore }, { CAMP_TYPES, BUFF_TYPES }, { eventBus }] =
+    { createRoundStepper }, { GlobalStore }, { CAMP_TYPES, BUFF_TYPES }, { eventBus },
+    { hasCarryTarget }] =
     await Promise.all([
         import('../core/01config-5v5-test.js'),
         import('../core/02unit.js'),
@@ -32,7 +35,8 @@ const [{ CONFIG, loadGameData }, { Unit, baseHeroName }, { initBattleTeams }, { 
         import('../core/11battle-round.js'),
         import('../infra/54-global-store.js'),
         import('../infra/56-battle-enums.js'),
-        import('../infra/50-event-bus.js')
+        import('../infra/50-event-bus.js'),
+        import('../modules/28buff-tools.js')   // hasCarryTarget：与主代码逐字同口径（carry 候选过滤）
     ]);
 await import('../modules/20elite-skills.js');   // 副作用：注册 damageModifiers / xiaoHexEnhance 等 query
 await import('../modules/25elite-imperial.js');
@@ -88,6 +92,7 @@ export function tickAndPickBuffs(activeBuffs, ally, enemy, round, seed, pickNew)
         const alive = (s.team || []).filter(u => u && u.alive);
         const avail = Object.keys(CONFIG.BUFFS).sort().filter(k => {
             if (existing.indexOf(k) !== -1) return false;
+            if (k === BUFF_TYPES.CARRY && !hasCarryTarget(alive)) return false;   // 无 carry 位则无效，不进候选（与 modules/28 同口径）
             const req = CONFIG.BUFF_ROLE_REQUIREMENTS ? CONFIG.BUFF_ROLE_REQUIREMENTS[k] : null;
             if (req && !alive.some(u => u.role === req)) return false;
             return true;

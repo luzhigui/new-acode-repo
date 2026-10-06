@@ -1,3 +1,6 @@
+// V2.8.0 | ~75600 bytes | 2026-10-06 镜像主代码 carry 候选过滤：tickAndPickBuffs 直接 import
+//          modules/28buff-tools.js 的 hasCarryTarget，候选里加「carry 位全空则剔除 carry」判据
+//          （5 号位；小昭·姊在场放宽 4/5/6）。与 player/49、ui/61、ui/70 及 140/rules-replay 同口径。
 // V2.7.0 | 2026-10-02 第 54 轮（覆盖率收官）：主代码 47b4d05 已为 aura/holyFlame/weiDodgeLeech 补发数值声明 fact，本轮补最后两条契约 —— AURA（读 AURA_APPLY 的 emptyCol/bloodAura，0 值不声明避假报；round 续期口径第 53 轮已修，走严格判据）/ HOLY_FLAME（圣火令是**乘法** op:'mul'，fact 声明的是乘率 ratio 而非加法增量，故 groupDelta 新增 mulSum 累加 + 契约 mul:true 让主循环改取 mulSum 比对，避免乘区 sum 恒 0 全判少加）。覆盖率 20/22 → **22/22，零盲区**。
 // 方法论首立于 2026-09-27 第 34 轮 | 「数值声明 vs 实际属性增量」逐步对照器（通用）
 //
@@ -71,7 +74,7 @@
 //           → 不跑契约、也不退码 1，只逐步对全体单位的 atk/def/maxHp/hp 做 FNV-1a 指纹并输出 `FINGERPRINT <hex>`。
 //             供 `tests/mutation-teeth.mjs` 判定「属性类变异是否真的改变了战斗状态」（属性变了指纹必变；
 //             日志/TEXT 类变异只改显示、不改状态，指纹不变）。
-export const VER = 'tests/stat-decl-vs-actual-check.mjs V2.7.0';
+export const VER = 'tests/stat-decl-vs-actual-check.mjs V2.8.0';
 
 import { fileURLToPath } from 'node:url';
 
@@ -727,6 +730,10 @@ async function main() {
         import('../infra/56-battle-enums.js')
     ]);
 
+    // carry 候选判据与主代码同口径：直接复用 modules/28buff-tools.js 的 hasCarryTarget
+    //   （「carry 位」5 号；小昭·姊在场放宽 4/5/6；无 carry 位则 carry 不进候选）。
+    const { hasCarryTarget } = await import('../modules/28buff-tools.js');
+
     // 团队 Buff 注入 —— 必须有它，否则 buff 门控机制（carry/流星赶月/乘风突袭…）一场都跑不到。
     // 复刻自 tests/rules-replay.mjs L113-143 的 tickAndPickBuffs（该函数是回放器本地函数、不可导入；
     // rules-replay.mjs 属他人并行维护，不改它）。口径一致：seed/round 确定性轮转，**不消耗战斗 RNG**，
@@ -744,6 +751,7 @@ async function main() {
             var alive = (s.team || []).filter(function (u) { return u && u.alive; });
             var avail = Object.keys(CONFIG.BUFFS).sort().filter(function (k) {
                 if (existing.indexOf(k) !== -1) return false;
+                if (k === BUFF_TYPES.CARRY && !hasCarryTarget(s.team)) return false;
                 var req = CONFIG.BUFF_ROLE_REQUIREMENTS ? CONFIG.BUFF_ROLE_REQUIREMENTS[k] : null;
                 if (req && !alive.some(function (u) { return u.role === req; })) return false;
                 return true;

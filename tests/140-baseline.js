@@ -1,3 +1,6 @@
+// V1.6.0 | ~16400 bytes | 2026-10-06 镜像主代码 carry 候选过滤：tickAndPickBuffs 直接 import
+//          modules/28buff-tools.js 的 hasCarryTarget，候选里加「carry 位全空则剔除 carry」判据
+//          （5 号位；小昭·姊在场放宽 4/5/6）。与 player/49、ui/61、ui/70 及 rules-replay/stat-decl 同口径。
 // V1.5.0 | ~13200 bytes | 2026-09-27 补团队 Buff 注入（经用户授权）：此前 activeBuffs 恒为 []，导致
 //          carry / 流星赶月 / 乘风突袭 / 流云身法等**由团队 Buff 门控的机制在 18 场基线里一场都跑不到**
 //          （覆盖缺口 —— 第 34 轮由 stat-decl-vs-actual-check.mjs 的 CARRY_APPLY 契约零触发而暴露）。
@@ -19,7 +22,7 @@
 //       node tests/140-baseline.js 1:1 42:3      → 只跑指定场次打印结果，不写基线（先验证用）
 // 注意：引擎文件顶层访问浏览器全局（window/self），必须在任何引擎 import 之前 mock，
 //       故全部引擎 import 改为动态（在 main 内、mock 之后执行）。
-export const VER = 'tests/140-baseline.js V1.5.0';
+export const VER = 'tests/140-baseline.js V1.6.0';
 
 import { fileURLToPath } from 'node:url';
 
@@ -77,6 +80,9 @@ async function main() {
         import('../infra/56-battle-enums.js')
     ]);
 
+    // carry 候选判据与主代码同口径：直接 import modules/28buff-tools.js 的 hasCarryTarget 复用，
+    //   不另写一份（避免与主代码漂移）。「carry 位」= 5 号；小昭·姊在场放宽 4/5/6；全空则 carry 不进候选。
+    const { hasCarryTarget } = await import('../modules/28buff-tools.js');
     // 团队 Buff 注入（V1.5.0 新增）—— 复刻自 tests/rules-replay.mjs L113-143 的 tickAndPickBuffs。
     //   该函数是回放器本地函数、不可导入（rules-replay.mjs 属他人并行维护，不改它）。
     //   口径一致：seed/round 确定性轮转，**不消耗战斗 RNG**，故不改变战斗随机序列、结果可复现。
@@ -95,6 +101,7 @@ async function main() {
             var alive = (s.team || []).filter(function (u) { return u && u.alive; });
             var avail = Object.keys(CONFIG.BUFFS).sort().filter(function (k) {
                 if (existing.indexOf(k) !== -1) return false;
+                if (k === BUFF_TYPES.CARRY && !hasCarryTarget(s.team)) return false;
                 var req = CONFIG.BUFF_ROLE_REQUIREMENTS ? CONFIG.BUFF_ROLE_REQUIREMENTS[k] : null;
                 if (req && !alive.some(function (u) { return u.role === req; })) return false;
                 return true;
