@@ -1,9 +1,10 @@
+// V6.0.7 | 2026-10-06 妹蛛落地打击目标池统一走 canBeTargeted：不打天上的蝶/蛛、不打不可选单位（与主攻击门禁同口径）
 // V6.0.6 | ~12400 bytes | 2026-10-03 乾坤大挪移保护域改为**跟随张无忌实时位置的四邻格**（前后左右；站 5 号时恰为旧版 2/4/6/8），升级/基础两档同口径
-export const VER = 'modules/20elite-skills.js V6.0.6';
+export const VER = 'modules/20elite-skills.js V6.0.7';
 
 import { CONFIG, getSkillParams } from '../core/01config-5v5-test.js';
 import { getRoleBonus, getHpDmgRatio } from '../core/02unit.js';
-import { hasBuff } from '../core/03battle-utils.js';
+import { hasBuff, canBeTargeted } from '../core/03battle-utils.js';
 import { emitEvent, applyStatChange, refreshMaxHp, registerQuery, getBattleRng, addMod, removeModsByGroup, getStat } from '../core/13battle-shared.js';
 import { FACT_TYPES, UNIT_EVENT_TYPES, CAMP_TYPES, ROLE_TYPES, STATE_CHANGE_TYPES } from '../infra/56-battle-enums.js';
 import { emitStateChange } from '../infra/59-state-change.js';
@@ -178,7 +179,8 @@ export function spiderReturn(unit, allyTeam, enemySide, log) {
 
     log.push({ factType: FACT_TYPES.SPIDER_RETURN, data: { unitName: unit.name, spiderUid: unit.uid, pos: unit.pos } });
 
-    const aliveEnemies = enemySide.filter(u => u.alive);
+    // 2026-10-06 落地打击目标池统一走 canBeTargeted：不打天上的蝶/蛛、不打不可选单位（与主攻击门禁同口径）
+    const aliveEnemies = enemySide.filter(u => u.alive && canBeTargeted(u));
     if (aliveEnemies.length > 0) {
         const target = aliveEnemies[rng.nextInt(0, aliveEnemies.length - 1)];
         if (!target.alive) { log.push({ factType: FACT_TYPES.SPIDER_DEAD_TARGET, data: {} }); return; }
