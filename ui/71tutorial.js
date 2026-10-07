@@ -1,6 +1,7 @@
 // ui/71tutorial.js - 新手引导（日志区固定提示面板 + 浮动箭头，不遮挡操作）
+// V6.1.0 | 2026-10-07 投票/倒计时/海克斯三步引导接入 61main（原为死代码）；新增战中首次海克斯一次性提示 stepBattleBuff；规则总览修正海克斯战中再弹
 // V6.0.0 | 2026-09-09 改为日志区固定面板持续提示
-export const VER = 'ui/71tutorial.js V6.0.0';
+export const VER = 'ui/71tutorial.js V6.1.0';
 
 const DONE_KEY = 'ming_tutorial_done_5v5_test';
 
@@ -104,14 +105,28 @@ export function stepCountdown() {
     });
 }
 
-// (5) 海克斯窗口：三选一说明
+// (5) 海克斯窗口：三选一说明（战前首次）
 export function stepBuff() {
     if (isTutorialDone()) return;
     setGuide({
         title: '✨ 选择海克斯',
-        lines: ['三选一增强明教队（只对明教生效），最多叠加两个。'],
+        lines: ['三选一增强明教队（只对明教生效），最多叠加两个。', '战斗中每隔3回合还会再弹一次，同样三选一。'],
         targets: []
     });
+}
+
+// (5b) 战中首次海克斯弹窗：一次性提示（独立于主引导流程，看过一次不再打扰；只挂面板几秒，不加边框不指箭头）
+// 挂点：ui/70buff-dialog.js showBuffPopup（player/49 经 GlobalStore UIHandler 通道调用，不跨层）
+const BATTLE_BUFF_KEY = 'ming_tutorial_battlebuff_done_5v5_test';
+export function stepBattleBuff() {
+    let done = true;
+    try { done = localStorage.getItem(BATTLE_BUFF_KEY) === '1'; } catch {}
+    if (done) return;
+    try { localStorage.setItem(BATTLE_BUFF_KEY, '1'); } catch {}
+    const p = ensurePanel();
+    if (!p) return;
+    p.innerHTML = '<b class="tut-title">✨ 战中海克斯</b><br><span>战斗每隔3回合会再弹一次三选一，和战前一样，最多叠加两个。</span>';
+    setTimeout(() => { if (p.parentNode) p.remove(); }, 6000);
 }
 
 // 隐藏引导：移除面板、箭头与队伍边框
@@ -128,7 +143,7 @@ export function stepBattleStart() {
     hideGuide();
 }
 
-// ❓ 按钮：战斗中显示规则总览（不指向站位按钮），战斗外重走完整开场流程
+// ❓ 按钮：战斗中显示规则总览（不指向站位按钮），战斗外重播分步引导（不重看 CG/图鉴）
 export function initTutorial(onReplay) {
     const btn = document.getElementById('btnTutorial');
     if (!btn) return;
@@ -143,7 +158,7 @@ export function initTutorial(onReplay) {
                 lines: [
                     '调整站位：战斗开始前，选两个明教绿色格子（或绿格+空格）交换位置。',
                     '投票：开战前猜哪队赢，猜对有积分，张无忌在场积分双倍。',
-                    '海克斯：战前选择增强明教队的增益，三选一，最多叠加两个。',
+                    '海克斯：战前选一次，战斗中每隔3回合还会再弹；三选一，最多叠加两个。',
                     '战斗：回合制，可调速(0.5x~8x)、暂停、快进到底。'
                 ],
                 targets: []
