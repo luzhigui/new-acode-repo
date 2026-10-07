@@ -1,3 +1,5 @@
+// V6.4.2 | ~55200 bytes | 2026-10-07 并入本地未提交的 UI 类收口（配合 122 V6.1.18）：checkMeleeFxState 传实时队伍（teams.ally/enemy）、
+//          换位稳定性改用 getCellByUid 按 uid 定位（弃 getCellElement 的 pos 反查）。与远端 V6.4.1 合并时仅注释冲突，注释取远端口径。
 // V6.4.1 | ~48900 bytes | 2026-10-07 起始关默认 3→2、手动体检默认 4 倍速（300，老板拍板）；模式按钮同步改走 __DSH_TEST_API__.syncAutoModeButton
 //          （原 w.updateAutoModeButton 从未挂 window = 无效应，按钮一直显示旧文案）；设速后补调 updateSpeedButtons 让「4x」按钮高亮
 // V6.4.0 | ~48500 bytes | 2026-10-07 登记 158 飘字锚点对齐（rule105：import + allRules 两处同补）+ fact 契约红字收集进报告
@@ -19,7 +21,7 @@
 //          clone 副本 alive 恒真)，每局必误报，且主代码补 setState.gs('IDLE') 也消不掉。改点 btnSettle 后
 //          120ms 查 gs 是否仍停 GAMEOVER 且已生成新局(全员满血)，只有"真点了随机重开但没复位"才上报。
 // 职责：接入 rule70-93 回归体检；GAMEOVER 立即跑规则(日志已完整)；新局识别修复多局连打漏检；战报黑幕/特效池实时检查
-export const VER = 'tests/121health-monitor.js V6.4.1';
+export const VER = 'tests/121health-monitor.js V6.4.2';
 
 import { runStaticScan } from './123static-scan.js';
 import { filterRulesByTags, parseRecipeTags, collectForceFlags } from './124rule-recipes.js';
@@ -59,8 +61,9 @@ import { rule102 } from './health-rules/155-meteor-growth-dup.js';
 import { rule103 } from './health-rules/156-desc-truth-drift.js';
 import { rule104 } from './health-rules/157-mechanic-install-reconcile.js';
 import { rule105 } from './health-rules/158-fact-anchor-align.js';
+import { rule106 } from './health-rules/159-wei-bloodsiphon.js';
 import {
-    getCellElement, checkUnitHpValidity,
+    getCellByUid, checkUnitHpValidity,
     checkHpBarSync, checkHpBarColor, checkFxOrphans,
     checkDeathFxRetention, checkVictoryDanmaku,
     checkMeleeFxState, checkBuffIcons, locateLogEntry,
@@ -607,7 +610,7 @@ function runUIChecks(ctx, doc) {
     }
 
     for (const msg of checkDeathFxRetention(allUnits, doc)) recordIssue(ctx, null, '死亡特效', msg, 'UI');
-    for (const msg of checkMeleeFxState(ctx, doc)) recordIssue(ctx, null, '攻击特效', msg, 'UI');
+    for (const msg of checkMeleeFxState(ctx, doc, teams.ally, teams.enemy)) recordIssue(ctx, null, '攻击特效', msg, 'UI');
     for (const msg of checkBuffIcons(ctx, doc, teams.ally)) recordIssue(ctx, null, 'Buff图标', msg, 'UI');
 }
 
@@ -631,7 +634,7 @@ function runRuleChecks(ctx, doc) {
     //   V1.1.0 起会硬卡这一条，别再只补一处）。
     const allRules = [rule70, rule71, rule72, rule73, rule74, rule75, rule76, rule77, rule78, rule79, rule80,
         rule81, rule82, rule83, rule84, rule85, rule86, rule87, rule88, rule89, rule90, rule91, rule92, rule93, rule94, rule95, rule96, rule97, rule98, rule99,
-        rule100, rule101, rule102, rule103, rule104, rule105];
+        rule100, rule101, rule102, rule103, rule104, rule105, rule106];
     // 规则配方裁剪：只跑目标规则（其余不参与计数/不占skip名单）；null=全部
     const rules = filterRulesByTags(allRules, RECIPE_TAGS);
 
@@ -698,7 +701,7 @@ function runSettleChecks(ctx, doc) {
     checkSwapStability(ctx, doc, allyTeam, enemyTeam);
 
     for (const msg of checkDeathFxRetention(allUnits, doc)) recordIssue(ctx, null, '死亡特效', msg, 'UI');
-    for (const msg of checkMeleeFxState(ctx, doc)) recordIssue(ctx, null, '攻击特效', msg, 'UI');
+    for (const msg of checkMeleeFxState(ctx, doc, teams.ally, teams.enemy)) recordIssue(ctx, null, '攻击特效', msg, 'UI');
     for (const msg of checkBuffIcons(ctx, doc, teams.ally)) recordIssue(ctx, null, 'Buff图标', msg, 'UI');
 }
 
@@ -715,7 +718,7 @@ function checkSwapStability(ctx, doc, allyTeam, enemyTeam) {
         const unitB = allUnits.find(u => u.name === swapEvent._swapNameB);
         if (!unitA || !unitB) continue;
         [unitA, unitB].forEach(u => {
-            if (u.alive && !getCellElement(u, doc)) {
+            if (u.alive && !getCellByUid(u.uid, doc)) {
                 const loc = swapEvent._locate || '';
                 recordIssue(ctx, u.uid, '换位UI丢失', u.name + '换位后格子丢失 ' + loc, 'UI');
             }

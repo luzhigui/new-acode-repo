@@ -52,7 +52,11 @@ export const RULE_META = {
     '技能说明数字==引擎真值(单源守卫)': { tag: 'generic:通用', note: '不依赖本局战报；改 content 数值或 core/01 的 DESC_TRUTH 时立刻现形' },
     // 2026-10-02 补登：157 mechanics 安装对账（type↔注册表↔字段 schema），直接复用 core/15 安装期校验。
     //   不读战报、只读 content，漏注册/字段缺失/未知 targetRule 立刻现形，归「通用」。
-    'mechanics安装对账(类型↔注册表↔字段)': { tag: 'generic:通用', note: '不依赖本局战报；改 mechanics type/字段或漏注册 handler 时立刻现形' }
+    'mechanics安装对账(类型↔注册表↔字段)': { tag: 'generic:通用', note: '不依赖本局战报；改 mechanics type/字段或漏注册 handler 时立刻现形' },
+    // 2026-10-07 新增：韦一笑蝠影汲血专属吸血链路（150/151 只覆盖团队 Buff 的热血奋战/嗜血狂刀，管不到它）
+    // 2026-10-07 补登：158 飘字锚点对齐（上一轮只补 121 import+allRules，漏 123/124，registration-check 红）
+    '飘字锚点对齐(契约)': { tag: 'generic:通用', note: 'fact 契约红字 + 飘字锚点对齐，不依赖本局出阵角色；上一轮漏登，本轮回填' },
+    '韦一笑蝠影汲血吸血(回归)': { tag: 'hero:韦一笑', force: 'forceWei', note: '韦一笑永久闪避，每次出手走闪避反击路径必触发吸血；基线 18/35 场大多有样本' }
 };
 
 // tag 分组（体检中心面板按此渲染；key 顺序即展示顺序）
