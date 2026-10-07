@@ -56,7 +56,7 @@ import { rule99 } from './health-rules/152-xingfen-extra-attack.js';
 import { rule100 } from './health-rules/153-meteor-growth-render.js';
 import { rule101 } from './health-rules/154-endless-breath-gain.js';
 import { rule102 } from './health-rules/155-meteor-growth-dup.js';
-import { rule103 } from './health-rules/156-desc-truth-drift.js';
+import { rule156 as rule103 } from './health-rules/156-desc-truth-drift.js'; // 156 实际导出名是 rule156（按文件号），别名对齐
 import { rule104 } from './health-rules/157-mechanic-install-reconcile.js';
 import { rule105 } from './health-rules/158-fact-anchor-align.js';
 import {
