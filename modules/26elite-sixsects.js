@@ -1,4 +1,4 @@
-// V6.15.6 | 2026-10-06 张三丰生生不息溢出接盘池统一走 canBeTargeted：天上蝶/蛛、垂死、不可选单位不接盘（与打人门禁同口径）
+// V6.16.0 | 2026-10-07 苦练/生生不息溢出受益池收编 getBenefitTargets 裁判（core/03）——苦练补上垂死+天上蝶蛛+附身排除（原只排死人和拒马），溢出行为不变口径归一
 // V6.15.5 | ~48300 bytes | 2026-10-02 胖远桥·莽撞补飘字：被攻击加攻量写进本击 fact（group.data.pangAtkGain），render/38 据此产 STAT_CHANGE(atk) 飘「⚔+N」
 // V6.15.4 | 2026-10-02 四个注册表 handler 补 fields 字段契约（core/15 安装期按此校验 JSON，缺字段/类型错开局即抛）
 export const VER = 'modules/26elite-sixsects.js V6.15.5';
@@ -7,7 +7,7 @@ import { CONFIG, getSkillParams, getGameData } from '../core/01config-5v5-test.j
 import { SIGNAL_TYPES, FACT_TYPES, BUFF_TYPES, CAMP_TYPES, ROLE_TYPES, MECHANIC_TYPES } from '../infra/56-battle-enums.js';
 import { applyStatChange, addMod, getStat, getBattleRng, resolvePushOrStun, refreshMaxHp } from '../core/13battle-shared.js';
 import { eventBus, EFFECT_TYPES, EXECUTION_LAYER as L } from '../infra/50-event-bus.js';
-import { canBeTargeted } from '../core/03battle-utils.js';
+import { canBeTargeted, getBenefitTargets } from '../core/03battle-utils.js';
 import { spawnUnit } from '../core/05battle-horse.js';
 import { GlobalStore } from '../infra/54-global-store.js';
 import { FX_SIGNALS } from '../infra/55-fx-signals.js';
@@ -64,7 +64,8 @@ export function createZhangSanfengComponent() {
                 let receiverHealed = 0;
                 if (overflow > 0) {
                     // 2026-10-06 溢出接盘池统一走 canBeTargeted：天上蝶/蛛、垂死、不可选单位不接盘（与打人门禁同口径）
-                    const cands = B.filter(u => u.alive && u.uid !== unit.uid && canBeTargeted(u));
+                    // 2026-10-07 收编进 03 的 getBenefitTargets 裁判（includeHorse:拒马也算友方，老板拍板过；行为不变口径归一）
+                    const cands = getBenefitTargets(B, { includeHorse: true, excludeUids: [unit.uid] });
                     if (cands.length > 0) {
                         const pick = cands[getBattleRng().nextInt(0, cands.length - 1)];
                         const rHpBefore = pick.hp;
@@ -644,7 +645,9 @@ registerMechanicHandler(MECHANIC_TYPES.KU_LIAN, {
             const kuLianSong = checkKuLian(B);
             if (!kuLianSong) return;
             Object.assign(kuLianSong.state, { _kuLianActive: true });
-            const targets = B.filter(u => u.alive && !u.isHorse);
+            // 2026-10-07 苦练受益池收编 getBenefitTargets 裁判：原写法只排死人和拒马，
+            // 垂死、天上蝶蛛、附身中的都能白吃加成——与乾坤衍生/振奋/生生不息溢出同口径
+            const targets = getBenefitTargets(B);
             const kuLianTargets = [];
             for (const u of targets) {
                 const mult = u.uid === kuLianSong.uid ? 2 : 1;
