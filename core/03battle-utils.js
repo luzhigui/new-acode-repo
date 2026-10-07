@@ -1,5 +1,5 @@
-// V6.1.8 | ~16400 bytes | 2026-10-02 修正「普攻→融会→斩杀」时序：eventBus 监听按 priority 升序执行，上版误记为降序致 WARRIOR_EXECUTE=20 早于 JIUYANG=40，融会声明进数组时斩杀已判完（effHp 恒漏融会伤害）；infra/50 已将斩杀挪至 45，本注释同步纠正
-export const VER = 'core/03battle-utils.js V6.1.8';
+// V6.2.0 | ~17400 bytes | 2026-10-07 新增受益池裁判 getBenefitTargets：所有「发好处」技能（治疗/加攻防/鼓舞/接盘）挑人统一走这里，口径与打人门禁 canBeTargeted 同源（乾坤衍生/苦练/振奋/生生不息溢出四处收编，苦练补上垂死+天上蝶蛛排除）
+export const VER = 'core/03battle-utils.js V6.2.0';
 
 import { CONFIG, getGameData } from './01config-5v5-test.js';
 import { emitEvent, applyStatChange, query, getBattleRng, getPresentationRng, addMod, getStat } from './13battle-shared.js';
@@ -66,6 +66,24 @@ export function canBeTargeted(unit) {
     if (unit.state && unit.state._spiderFlying) return false;
     if (unit._fsm && (unit._fsm.is('attached') || unit._fsm.is('flying'))) return false;
     return true;
+}
+
+// ── 受益池裁判（2026-10-07 老板拍板，与打人门禁 canBeTargeted 成对）────────────────
+// 所有「发好处」技能（治疗/加攻防/鼓舞/接盘）挑候选统一走这里，不再各写各的 filter。
+// 口径与打人门禁完全同源：死的/垂死的/标记不可选的/天上蝶蛛/附身中 → 一律不进池。
+// 跟打人的差异只有拒马一条：拒马默认不进池（不发加成），像生生不息溢出这种
+// 「拒马也算友方」的传 includeHorse:true。以后新增「不在地面」类形态只改
+// canBeTargeted 一处，打人和发好处自动同步跟上——不用指望写新技能的人记得。
+// opts.includeHorse：拒马是否进池（默认 false）
+// opts.excludeUids：额外排除的 uid 列表（如「不选自己」传 [unit.uid]）
+export function getBenefitTargets(team, opts = {}) {
+    const includeHorse = opts.includeHorse === true;
+    const excludeUids = opts.excludeUids || [];
+    return (team || []).filter(u =>
+        canBeTargeted(u)
+        && (includeHorse || !u.isHorse)
+        && !excludeUids.includes(u.uid)
+    );
 }
 
 export function getFlyDodgeRate(unit, attacker) {

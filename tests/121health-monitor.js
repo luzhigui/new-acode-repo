@@ -1,3 +1,6 @@
+// V6.4.0 | ~48500 bytes | 2026-10-07 登记 158 飘字锚点对齐（rule105：import + allRules 两处同补）+ fact 契约红字收集进报告
+//          （劫持 iframe console.error——游戏跑在子窗口，顶层劫持够不着；infra/58 缺字段不再只是控制台噪声，
+//          与 node 侧 rules-replay V6.4.0 同口径，进 factContractWarns 与异常数）。
 // V6.3.2 | 2026-10-04 报告元数据：updateReport 顶部 + 复制文本均带「体检时间(本地) / 起始关 / 已跑关卡 / 异常总数」，区分不同批次报告（避免拿旧报告当新结果）。
 //          新增模块变量 runStartedAt(启动时间戳) / stagesRun(实际进入关号集合)，启动体检与每场 RUNNING/自动推进时记录；起始关仍走既有 start=N（已支持从第2关开始）。
 // V6.3.1 | ~47000 bytes | 2026-10-02 登记 157 mechanics 安装对账（rule104：import + allRules 两处同补）
@@ -14,7 +17,7 @@
 //          clone 副本 alive 恒真)，每局必误报，且主代码补 setState.gs('IDLE') 也消不掉。改点 btnSettle 后
 //          120ms 查 gs 是否仍停 GAMEOVER 且已生成新局(全员满血)，只有"真点了随机重开但没复位"才上报。
 // 职责：接入 rule70-93 回归体检；GAMEOVER 立即跑规则(日志已完整)；新局识别修复多局连打漏检；战报黑幕/特效池实时检查
-export const VER = 'tests/121health-monitor.js V6.3.2';
+export const VER = 'tests/121health-monitor.js V6.4.0';
 
 import { runStaticScan } from './123static-scan.js';
 import { filterRulesByTags, parseRecipeTags, collectForceFlags } from './124rule-recipes.js';
@@ -53,6 +56,7 @@ import { rule101 } from './health-rules/154-endless-breath-gain.js';
 import { rule102 } from './health-rules/155-meteor-growth-dup.js';
 import { rule103 } from './health-rules/156-desc-truth-drift.js';
 import { rule104 } from './health-rules/157-mechanic-install-reconcile.js';
+import { rule105 } from './health-rules/158-fact-anchor-align.js';
 import {
     getCellElement, checkUnitHpValidity,
     checkHpBarSync, checkHpBarColor, checkFxOrphans,
@@ -72,6 +76,23 @@ let recipeNote = RECIPE_TAGS && RECIPE_TAGS.size > 0 ? ('配方规则 ' + RECIPE
 let rulePassCount = 0, ruleSkipCount = 0;
 // 未覆盖规则（skip）名单：体检不静默——哪些规则因当轮阵容/事件没出现而没跑到，报告里明说
 let ruleSkipNames = new Set();
+
+// fact 契约红字收集（2026-10-07）：infra/58 validateFactContract 缺字段时打 console.error，
+// 浏览器侧此前只是控制台噪声（node 侧 rules-replay V6.4.0 已收进退出码）——这里同样劫持收集，
+// 进最终报告与异常数，缺字段当场红，不再靠人眼盯控制台。
+const factContractWarns = new Map(); // key: "type|field" -> count
+const _origConsoleError = console.error.bind(console);
+console.error = function (...args) {
+    _origConsoleError(...args);
+    try {
+        const first = args[0];
+        if (typeof first === 'string' && first.startsWith('[fact契约] ')) {
+            const m = first.match(/^\[fact契约\]\s+(\S+)\s+缺字段:\s+(\S+)/);
+            const key = m ? (m[1] + '|' + m[2]) : first.slice(0, 80);
+            factContractWarns.set(key, (factContractWarns.get(key) || 0) + 1);
+        }
+    } catch (e) {}
+};
 let gameFrame, gameArea, reportArea, statusLine;
 
 // UI 类异常去抖：full-auto 快进下状态机切换极快，渲染常有滞后一拍。
@@ -283,11 +304,32 @@ export function initMonitor() {
         isPaused = false; monitorActive = true; gameLoaded = false;
         detectedIssues = []; issueKeys.clear(); pendingIssueCounts = {}; lastSampledStage = 0;
         rulePassCount = 0; ruleSkipCount = 0; ruleSkipNames.clear();
+        factContractWarns.clear();  // fact 契约红字计数随体检重启归零
         battleEnded = false; battleStartTime = 0;
         runStartedAt = Date.now(); stagesRun = new Set();  // 重置报告元数据（每次启动体检重新计时/记关）
         updateReport(); statusLine.textContent = '正在加载游戏...';
         const waitReady = setInterval(() => {
             const doc = getDoc();
+            // fact 契约劫持装进 iframe（游戏跑在子窗口，validateFactContract 的 console.error
+            // 走的是 iframe 的 console，本文件顶层那次劫持够不着它）；__factContractHooked 幂等防重复装
+            try {
+                const iw = getWin();
+                if (iw && !iw.__factContractHooked && iw.console && typeof iw.console.error === 'function') {
+                    iw.__factContractHooked = true;
+                    const orig = iw.console.error.bind(iw.console);
+                    iw.console.error = function (...args) {
+                        orig(...args);
+                        try {
+                            const first = args[0];
+                            if (typeof first === 'string' && first.startsWith('[fact契约] ')) {
+                                const m = first.match(/^\[fact契约\]\s+(\S+)\s+缺字段:\s+(\S+)/);
+                                const key = m ? (m[1] + '|' + m[2]) : first.slice(0, 80);
+                                factContractWarns.set(key, (factContractWarns.get(key) || 0) + 1);
+                            }
+                        } catch (e) {}
+                    };
+                }
+            } catch (e2) {}
             if (doc && doc.getElementById('coverStartBtn')) doc.getElementById('coverStartBtn').click();
             const ctx = getCtx();
             if (ctx && ctx.UI && ctx.UI.allyTeam && ctx.UI.allyTeam.length >= 1) {
@@ -575,7 +617,7 @@ function runRuleChecks(ctx, doc) {
     //   V1.1.0 起会硬卡这一条，别再只补一处）。
     const allRules = [rule70, rule71, rule72, rule73, rule74, rule75, rule76, rule77, rule78, rule79, rule80,
         rule81, rule82, rule83, rule84, rule85, rule86, rule87, rule88, rule89, rule90, rule91, rule92, rule93, rule94, rule95, rule96, rule97, rule98, rule99,
-        rule100, rule101, rule102, rule103, rule104];
+        rule100, rule101, rule102, rule103, rule104, rule105];
     // 规则配方裁剪：只跑目标规则（其余不参与计数/不占skip名单）；null=全部
     const rules = filterRulesByTags(allRules, RECIPE_TAGS);
 
@@ -846,6 +888,14 @@ function finalizeAutoReport(ctx, doc, reason) {
     autoDone = true;
     const elapsed = (Date.now() - autoStartedAt) / 1000;
     try {
+        // fact 契约红字收进报告（2026-10-07）：与 detectedIssues 同级暴露 + 计入异常数，
+        // 体检报告不再只看规则/状态，缺字段（infra/58 契约）也当场见红
+        const contractList = [...factContractWarns.entries()].map(([k, n]) => ({ key: k, count: n }));
+        if (contractList.length > 0) {
+            for (const c of contractList) {
+                detectedIssues.push({ stage: '-', type: 'fact契约', detail: `缺字段 ${c.key} ×${c.count}（infra/58 FACT_SPECS）`, source: '系统', timestamp: new Date().toLocaleTimeString() });
+            }
+        }
         const finalIssues = detectedIssues.map(i => ({ stage: i.stage, type: i.type, detail: i.detail, source: i.source }));
         const report = {
             status: 'completed',
@@ -857,7 +907,8 @@ function finalizeAutoReport(ctx, doc, reason) {
             issueCount: finalIssues.length,
             rulePass: rulePassCount,
             ruleSkip: ruleSkipCount,
-            ruleSkippedNames: [...ruleSkipNames]
+            ruleSkippedNames: [...ruleSkipNames],
+            factContractWarns: contractList
         };
         window.__healthResult = report;
         statusLine.textContent = `自动模式 ✅ | ${Math.round(elapsed)}s | 异常${finalIssues.length}项 | 规则✅${rulePassCount} ⏭️${ruleSkipCount}`;

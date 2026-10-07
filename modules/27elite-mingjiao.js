@@ -1,4 +1,4 @@
-// V6.4.9 | 2026-10-06 乾坤衍生候选池二次排除妹蛛飞天(_flyMode='spider')；狮群振奋受益池统一走 canBeTargeted+排拒马——蝶/蛛天上不白吃加成
+// V6.5.0 | 2026-10-07 乾坤衍生/狮群振奋受益池收编 getBenefitTargets 裁判（core/03）——乾坤衍生补上垂死/_spiderFlying/FSM附身/不可选排除，振奋行为不变口径归一
 // V6.4.8 | 2026-10-06 乾坤衍生治疗/加攻候选池排除附身中的姐姐（_flyMode='butterfly' 蝶形态不是地面作战单位，老板拍板：附身后不吃自己乾坤加成，未附身仍可被选）
 // V6.4.7 | ~50800 bytes | 2026-10-03 蝶变飞回（宿主存活路径）补清 _untargetable——此前漏清致姐姐飞回后整场不可被选，敌方越列打她身后队友（体检139零承伤真根因）
 // V6.4.6 | ~50700 bytes | 2026-10-02 吸血参数查找 'leech' 改用 MECHANIC_EFFECT_TYPES.ON_HIT.LEECH 枚举（mechanics type 同源治理）
@@ -6,7 +6,7 @@ export const VER = 'modules/27elite-mingjiao.js V6.4.9';
 
 import { registerElite } from '../core/08-elite-registry.js';
 import { CONFIG, getSkillParams, getMechanicField } from '../core/01config-5v5-test.js';
-import { hasBuff, getZhangNearTaunt, canBeTargeted } from '../core/03battle-utils.js';
+import { hasBuff, getZhangNearTaunt, getBenefitTargets } from '../core/03battle-utils.js';
 import { spawnHorse, spawnUnit } from '../core/05battle-horse.js';
 import { applyHeroFlags, getRoleBonus } from '../core/02unit.js';
 import { spiderTransform, spiderReturn } from '../modules/20elite-skills.js';
@@ -231,8 +231,9 @@ export function createXiaoZhaoSisterComponent() {
                 });
                 // 2026-10-06 姐姐附身中不再吃乾坤衍生：附身=趴在宿主头顶的蝶形态（_flyMode='butterfly'），
                 //   不是地面作战单位，治疗/加攻候选池排除她；未附身（地面正常站位）时仍可被选中（老板拍板）
-                // 2026-10-06 二次：妹蛛飞天（_flyMode='spider'）同口径排除——蝶/蛛不会同场，但口径必须统一
-                const aliveAllies = A.filter(u => u.alive && !u.isHorse && u.state._flyMode !== 'butterfly' && u.state._flyMode !== 'spider');
+                // 2026-10-07 受益池收编 getBenefitTargets（03 裁判）：此前只排蝶/蛛，垂死、妹蛛 _spiderFlying、
+                //   FSM 附身、标记不可选都没排——与打人门禁同口径后这些一律不进池
+                const aliveAllies = getBenefitTargets(A);
                 if (aliveAllies.length > 0) {
                     const rng = getBattleRng();
                     const healTarget = aliveAllies[rng.nextInt(0, aliveAllies.length - 1)];
@@ -753,7 +754,8 @@ export function createXieXunComponent() {
                 if (!data.dmg || data.dmg <= 0) return;
                 const gain = inspire.atkPerHit;
                 // 2026-10-06 振奋受益池统一走 canBeTargeted + 排拒马：天上蝶/蛛不白吃加攻，拒马不加攻
-                const targets = myTeam.filter(u => u.alive && !u.isHorse && canBeTargeted(u));
+                // 2026-10-07 收编进 03 的 getBenefitTargets 裁判（行为不变，口径一处管）
+                const targets = getBenefitTargets(myTeam);
                 if (targets.length === 0) return;
                 const inspireTargets = [];
                 for (const t of targets) {
