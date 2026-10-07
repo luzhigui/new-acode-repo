@@ -338,6 +338,10 @@ export async function playBattle() {
     GlobalStore.effect('isPaused', (v) => { if (v) clock.pause(); else clock.resume(); });
 
     GlobalStore.effect('fastForwardActive', (isActive) => {
+        // 2026-10-07 守卫（与从机/回放两处同款）：值没变不折腾。finishBattle 收尾无条件 set(false)，
+        // 没开过快进的局也会触发还原分支 → _originalSpeed 空 → 落默认 600(2x)，
+        // 手动 8x/4x 打完一局战斗结束直接变 2x。clock.fastForward 初始即 false（52/14），守卫安全。
+        if (isActive === clock.fastForward) return;
         clock.setFastForward(isActive);
         if (isActive) {
             if (!c._originalSpeed) c._originalSpeed = c.speed;
@@ -346,6 +350,9 @@ export async function playBattle() {
             const restored = c._originalSpeed || 600;
             c.speed = restored;
             GlobalStore.set('speed', restored);
+            // 还原后清档：不清的话下次快进捕获到的还是上一局的旧速度
+            //（上一局 8x→结算还原，这局改成 4x→再结算，会还原成 8x 而不是 4x）
+            c._originalSpeed = null;
             const fn = GlobalStore.getUIHandler('updateSpeedButtons'); if (fn) fn();
         }
     });
@@ -576,6 +583,7 @@ export async function playBattleGuest() {
             const restored = c._originalSpeed || 600;
             c.speed = restored;
             GlobalStore.set('speed', restored);
+            c._originalSpeed = null; // 2026-10-07 还原后清档，防跨局捕获旧速度（与单机主循环同款）
             const fn = GlobalStore.getUIHandler('updateSpeedButtons'); if (fn) fn();
         }
     });
@@ -684,6 +692,7 @@ export async function playBattleReplay(report) {
             const restored = c._originalSpeed || 600;
             c.speed = restored;
             GlobalStore.set('speed', restored);
+            c._originalSpeed = null; // 2026-10-07 还原后清档，防跨局捕获旧速度（与单机主循环同款）
             clock.setTimescale(600 / (restored || 600));
         }
     });
