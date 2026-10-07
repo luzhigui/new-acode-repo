@@ -1,7 +1,7 @@
-// V6.3.9 | 2026-10-08 同类飘字水平放不下时垂直一上一下（老板拍板「不应该一上一下吗」）：
+// V6.3.9 | 2026-10-08 同类飘字水平放不下时垂直一上一下（老板拍板，次条**往上**错——03:20 纠偏：往下错会压单位脸部）：
 //   病根=窄格(~110px)物理放不下两条🛡️/⚔并排（需2×条宽+GAP≈114px），避让的 min 上限把第二条压回
 //   与第一条只差15px=视觉叠死（流星🛡-2打防战叠坚盾🛡+1，10-02/10-05 两功能上线后同格相遇头一回）。
-//   dynamicBuffLeft 返回 {left, wrap}：wrap=true 时调用方 top 下错 20px；宽屏放得下仍水平并排（一行=一个高度不变）。
+//   dynamicBuffLeft 返回 {left, wrap}：wrap=true 时调用方 top 上错 20px（healUp 飘升方向一致）；宽屏放得下仍水平并排（一行=一个高度不变）。
 // V6.3.8 | 2026-10-05 ⚔🛡️同类相遇从垂直 20px 错层改为水平并排（右挪宽+4px，上限💥左界）——老板实测否掉垂直版「一行加攻也分得老高」：八卦⚔-1+生生不息⚔+N 是两条战报行同秒连落，上错层读着像单行飘高；同高并排符合「一行=一个高度」。调用序改为先算 left 再 markFloatActive（防自撞）。❤💥 的真重复错层保留
 // V6.3.7 | 2026-10-05 坚盾/攻盾/八卦飘字上线（老板拍板两拍节奏）：⚔🛡️ 补同类 20px 短时错层（张三丰选防=🛡️×2、八卦减攻+二选一=⚔×2 不再叠死）；⚔ 负数显示修正（八卦-攻不再出 '⚔+-1'）
 // V6.3.6 | 2026-10-05 ⚔🛡️同帧微调：配对落位从「贴端点」改「区间 0.28/0.72」往中间收（贴端点太散看不出是一对，老板 demo 定稿）；V6.3.5 的动态布局骨架不变
@@ -224,12 +224,12 @@ export function showDefBuffFloat(unit, def) {
         el.style.display = '';      // 先点亮再量宽（池元素 setup 时仍 display:none，offsetWidth 恒 0）
         const w = el.offsetWidth;
         // 2026-10-05 V6.3.8：先算 left 再登记（查的是之前在飘的同类）；V6.3.9 返回值带 wrap：
-        //   水平放不下（窄格两条🛡️，如流星减防+坚盾同格）→ 垂直一上一下（老板 10-08 拍板），首条标准位、次条下错 20px
+        //   水平放不下（窄格两条🛡️，如流星减防+坚盾同格）→ 垂直一上一下（老板 10-08 拍板），首条标准位、次条**上错 20px**
         const { left, wrap } = dynamicBuffLeft(unit.uid, rect, 'def', w);
         el.style.left = Math.round(left) + 'px';
         markFloatActive(unit.uid, 'def', w);
         el.style.right = 'auto';
-        el.style.top = Math.round(rect.top - 4 + (wrap ? 20 : 0)) + 'px';   // 放得下=一行一个高度；放不下=一上一下
+        el.style.top = Math.round(rect.top - 4 - (wrap ? 20 : 0)) + 'px';   // 放得下=一行一个高度；放不下=一上一下
     }, 1400);
 }
 
@@ -283,12 +283,12 @@ export function showAtkBuffFloat(unit, atk) {
         el.style.transform = '';    // 清掉旧 translate，见上注
         const w = el.offsetWidth;
         // 2026-10-05 V6.3.8：先算 left 再登记；V6.3.9 同款 wrap——⚔×2 同格水平放不下（胖远桥被溅射+攻+八卦-攻同格等）
-        //   垂直一上一下，与 🛡️ 同规矩
+        //   垂直上错，与 🛡️ 同规矩（次条往上）
         const { left, wrap } = dynamicBuffLeft(unit.uid, rect, 'atk', w);
         el.style.left = Math.round(left) + 'px';
         markFloatActive(unit.uid, 'atk', w);
         el.style.right = 'auto';
-        el.style.top = Math.round(rect.top - 4 + (wrap ? 20 : 0)) + 'px';   // 初始高度与掉血/回血一致；放不下=一上一下
+        el.style.top = Math.round(rect.top - 4 - (wrap ? 20 : 0)) + 'px';   // 初始高度与掉血/回血一致；放不下=一上一下
         el.style.zIndex = '10004';
     }, 1400);
 }
