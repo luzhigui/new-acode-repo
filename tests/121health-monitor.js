@@ -1,3 +1,5 @@
+// V6.4.1 | ~48900 bytes | 2026-10-07 起始关默认 3→2、手动体检默认 4 倍速（300，老板拍板）；模式按钮同步改走 __DSH_TEST_API__.syncAutoModeButton
+//          （原 w.updateAutoModeButton 从未挂 window = 无效应，按钮一直显示旧文案）；设速后补调 updateSpeedButtons 让「4x」按钮高亮
 // V6.4.0 | ~48500 bytes | 2026-10-07 登记 158 飘字锚点对齐（rule105：import + allRules 两处同补）+ fact 契约红字收集进报告
 //          （劫持 iframe console.error——游戏跑在子窗口，顶层劫持够不着；infra/58 缺字段不再只是控制台噪声，
 //          与 node 侧 rules-replay V6.4.0 同口径，进 factContractWarns 与异常数）。
@@ -17,7 +19,7 @@
 //          clone 副本 alive 恒真)，每局必误报，且主代码补 setState.gs('IDLE') 也消不掉。改点 btnSettle 后
 //          120ms 查 gs 是否仍停 GAMEOVER 且已生成新局(全员满血)，只有"真点了随机重开但没复位"才上报。
 // 职责：接入 rule70-93 回归体检；GAMEOVER 立即跑规则(日志已完整)；新局识别修复多局连打漏检；战报黑幕/特效池实时检查
-export const VER = 'tests/121health-monitor.js V6.4.0';
+export const VER = 'tests/121health-monitor.js V6.4.1';
 
 import { runStaticScan } from './123static-scan.js';
 import { filterRulesByTags, parseRecipeTags, collectForceFlags } from './124rule-recipes.js';
@@ -103,9 +105,9 @@ let pendingIssueCounts = {};
 // 自动/无头后台模式参数 (?auto=1&budget=秒&stages=目标关&speed=速度值&start=起始关)
 // 与手动自检模式（120test-runner.html 交互）并行：auto=1 时无人值守自动跑完整关卡，
 // 结束（跑完目标关或超时）后在 window.__healthResult 暴露完整报告，供自动化工具快速读取
-// start=起始关：第3关起才有精英（宋青书等），默认从第3关开始，跳过无精英的前两关
+// start=起始关：默认从第2关开始（第1关无精英无机制，跑了白跑；第2关起有内容），可用 start=1..7 覆盖
 let autoMode = false, autoBudgetMs = 240000, autoStageTarget = 7, autoSpeedVal = 300;
-let autoStartStage = 3;
+let autoStartStage = 2;
 let autoStartedAt = 0, autoTargetReached = false, autoDone = false, maxStageSeen = 0, autoTargetDoneAt = 0;
 try {
     const _p = new URLSearchParams(window.location.search);
@@ -115,8 +117,8 @@ try {
         autoStageTarget = parseInt(_p.get('stages'), 10) || 7;
         autoSpeedVal = parseInt(_p.get('speed'), 10) || 300; // 游戏 speed 值：100=8x, 300=4x, 500=默认
     }
-    // 起始关：手动体检与一键自动体检统一生效；默认第3关（首个有精英的关卡），可用 start=1/2 覆盖
-    autoStartStage = Math.min(7, Math.max(1, parseInt(_p.get('start'), 10) || 3));
+    // 起始关：手动体检与一键自动体检统一生效；默认第2关（2026-10-07 老板拍板 3→2），可用 start=1..7 覆盖
+    autoStartStage = Math.min(7, Math.max(1, parseInt(_p.get('start'), 10) || 2));
 } catch (e) {}
 // 报告元数据：本次体检启动时间戳 + 实际进入过的关卡号集合，供报告展示"何时跑的/跑了哪些关"（区分不同批次报告）
 let runStartedAt = 0;
@@ -347,9 +349,21 @@ export function initMonitor() {
                 } catch (e) {}
                 // 开启全自动模式：自动选Buff、自动开战、自动推进关卡，实现无人值守实时体检
                 try { if (w && w.GlobalStore) w.GlobalStore.set('autoLevel', 'full-auto'); } catch (e) {}
-                // 同步模式按钮显示：体检直接改 GlobalStore 的 autoLevel，调用游戏自带的 updateAutoModeButton
-                // 让按钮如实显示"全自动"（这是真 UI 缺陷的修复，不是掩盖问题）
-                try { if (w && w.updateAutoModeButton) w.updateAutoModeButton(); } catch (e) {}
+                // 同步右下角模式按钮显示"全自动"：改完 autoLevel 必须刷按钮。
+                // 原写法 w.updateAutoModeButton 是无效应——该函数从未挂 window，try/catch 静默吞，
+                // 按钮一直显示旧文案。现走 __DSH_TEST_API__.syncAutoModeButton（ui/61 V6.13.1 补挂）
+                try { if (testApi && typeof testApi.syncAutoModeButton === 'function') testApi.syncAutoModeButton(); } catch (e) {}
+                // 手动体检默认 4 倍速（2026-10-07 老板拍板）：此前只有 auto=1 无人值守模式设速，
+                // 手动点进来跑的是游戏默认 2 倍速（600），看着慢。300 = 4x。
+                // 注意：直接 GlobalStore.set('speed') 只走 effect 改时钟，不刷按钮高亮
+                // （setState.speed 才刷），这里补调 UI 处理器让「4x」按钮亮起来
+                try {
+                    if (w && w.GlobalStore) {
+                        w.GlobalStore.set('speed', 300);
+                        const refreshBtn = w.GlobalStore.getUIHandler && w.GlobalStore.getUIHandler('updateSpeedButtons');
+                        if (refreshBtn) refreshBtn();
+                    }
+                } catch (e) {}
                 // 自动后台模式：快进(1ms/步) + 计时，结束后输出报告，保证快速出结果
                 if (autoMode && w) {
                     try {

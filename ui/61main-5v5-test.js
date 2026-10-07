@@ -1,7 +1,8 @@
+// V6.13.1 | ~45400 bytes | 2026-10-07 __DSH_TEST_API__ 补挂 syncAutoModeButton：体检改 autoLevel 后右下角按钮如实显示"全自动"（121 原调 w.updateAutoModeButton 从未挂 window，一直是无效应）
 // V6.13.0 | ~45250 bytes | 2026-10-06 全自动选 buff 补 carry 位判据（无 carry 位不自动选，与 modules/28 同口径）
 // V6.12.2 | ~45100 bytes | 2026-10-02 机制装配收口：25/26/27/30 散装 import 收敛为 modules/00reg-mechanics.js 单入口（行为零变化，仅装配路径）
 // V6.12.1 | 2026-10-02 下一关/重新开始（单机+PVP房主）、选关切换、回封面四个新局入口传 freshSeed，不再复用上一局种子重演首回合
-export const VER = 'ui/61main-5v5-test.js V6.13.0';
+export const VER = 'ui/61main-5v5-test.js V6.13.1';
 
 import '../infra/54-global-store.js';
 import { GlobalStore } from '../infra/54-global-store.js';
@@ -842,7 +843,10 @@ document.addEventListener('DOMContentLoaded', async function() {
     // window 桥接统一收口：仅保留体检/测试跑器真正调用的一项（原 selectStage / forceStopGame /
     // doManualReset / getGameState 四个挂载点全库无引用，已删）。生产代码一律走 import 或 UIHandler。
     window.__DSH_TEST_API__ = {
-        selectStage: (stage) => { if (stage === getState.currentStage()) return; forceStopGame(); switchToStageInternal(stage); }
+        selectStage: (stage) => { if (stage === getState.currentStage()) return; forceStopGame(); switchToStageInternal(stage); },
+        // 2026-10-07 补挂：体检改 autoLevel 后同步右下角模式按钮。121 原调 w.updateAutoModeButton
+        // 是无效应（该函数从未挂 window，try/catch 静默吞），按钮一直显示旧模式文案
+        syncAutoModeButton: () => updateAutoModeButton()
     };
 
 
