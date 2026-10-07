@@ -104,7 +104,11 @@ export const SCAN_FILES = [
     // 2026-09-29 第 43 轮新增：流星成长渲染形态（⚡ undefined 单位名 / 同一笔渲染两遍）—— 干净树即红，盯既有 bug
     './health-rules/155-meteor-growth-dup.js',
     './health-rules/156-desc-truth-drift.js',
-    './health-rules/157-mechanic-install-reconcile.js'
+    './health-rules/157-mechanic-install-reconcile.js',
+    // 2026-10-07 补登：158 飘字锚点对齐（上一轮只补 121 import+allRules，漏 123/124，registration-check 红）
+    './health-rules/158-fact-anchor-align.js',
+    // 2026-10-07 新增：韦一笑蝠影汲血吸血（rule106：heal 正整数 / 上限恒等 / 比例上限）
+    './health-rules/159-wei-bloodsiphon.js'
 ];
 
 // 提取文件的 static import 信息（仅静态 import 语句，跳过动态 import()）
