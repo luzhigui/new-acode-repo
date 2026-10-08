@@ -190,6 +190,7 @@ let invUnmappedCount = 0;
 function assertInvariants(units, round, seed, stage) {
     if (!Array.isArray(units)) return;
     const seenPos = new Map();
+    const seenPosObj = new Map();
     for (const u of units) {
         if (!u) continue;
         const tag = `[seed=${seed} stage=${stage} round=${round}] `;
@@ -234,8 +235,12 @@ function assertInvariants(units, round, seed, stage) {
         // pos 唯一：同阵营内两个活人不能占同一格
         if (u.pos != null && u.alive !== false) {
             const key = (u.camp || '?') + '#pos' + u.pos;
-            if (seenPos.has(key)) invIssues.add(tag + (u.name || u.uid) + ' pos 冲突: 格 ' + u.pos + ' 与 ' + seenPos.get(key) + ' 重叠');
-            else seenPos.set(key, u.name || u.uid);
+            if (seenPos.has(key)) {
+                const prev = seenPosObj.get(key);
+                invIssues.add(tag + (u.name || u.uid) + ' pos 冲突: 格 ' + u.pos + ' 与 ' + seenPos.get(key) + ' 重叠');
+                console.error('[PROBE pos] cur=', JSON.stringify({name:u.name,pos:u.pos,alive:u.alive,camp:u.camp,isSis:!!u.isXiaoZhaoSister,fly:u.state&&u.state._flyMode,host:u.state&&u.state._butterflyHost,stun:u.state&&u.state._stunned}), ' prev=', JSON.stringify({name:prev&&prev.name,pos:prev&&prev.pos,alive:prev&&prev.alive,isSis:prev&&!!prev.isXiaoZhaoSister,fly:prev&&prev.state&&prev.state._flyMode,host:prev&&prev.state&&prev.state._butterflyHost}));
+            }
+            else { seenPos.set(key, u.name || u.uid); seenPosObj.set(key, u); }
         }
     }
 }

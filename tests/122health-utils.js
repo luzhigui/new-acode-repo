@@ -1,3 +1,4 @@
+// V6.1.18 | 2026-10-07 收口 UI 类检查最后两处同根因（开战快照 + pos 反查）：① checkMeleeFxState 改吃实时 battleStore 队伍（原自带 ctx.UI 开战副本，与 checkBuffIcons 改前同病）；② checkHpBarSync / checkHpBarColor / checkBuffIcons 的单元定位全部由 getCellElement(pos反查) 改为 getCellByUid(uid精确)——换位/近战切换后 pos 偏移不再误报。至此 UI 类检查统一"实时队伍 + 按 data-uid 定位"，pos 反查与开战快照零残留。
 // V6.1.17 | 2026-10-04 修两条 UI 类误报：① 特效池 heal-float 阈值 8→12（healFloat4+atkBuffFloat4+defBuffFloat4 三池共用 .heal-float 类，稳态恒 12，旧阈值每局必误报"超池泄漏"）；
 //          ② 死亡血条残留/缺死亡特效改用 getCellByUid 按 uid 精确定位（render/32 L418 写死 data-uid），不再按 pos 反查——拒马等死后 pos 复用/尸体移除会误把同格存活单位血条算到死者头上（与 checkBuffIcons 同根因）。新增 getCellByUid 辅助。
 // V6.1.16 | ~29000 bytes | 2026-09-26 新增 checkActionRights（行动权不变量·回合级）：_acted=true 的活人本回合必须有正常位行动记录，抓「吞回合」（灭绝反击 bug 通用形态）；121/回放共用此唯一实现（合并移植：本条与远端并线第 24-49 轮共存）
@@ -17,7 +18,7 @@
 // V6.0.0 | 2026-08-26 buff key 收敛为 infra/56-battle-enums 的 BUFF_TYPES（删除本地第二事实源）
 import { BUFF_TYPES, CAMP_TYPES, ROLE_TYPES, FACT_TYPES } from '../infra/56-battle-enums.js';
 import { getUnitCol, getUnitRow } from '../infra/51-core-utils.js';
-export const VER = 'tests/122health-utils.js V6.1.17';
+export const VER = 'tests/122health-utils.js V6.1.18';
 
 /**
  * 获取单位对应的格子 DOM 元素
@@ -77,7 +78,7 @@ export function checkUnitHpValidity(unit) {
 export function checkHpBarSync(unit, doc) {
     const issues = [];
     if (!unit.alive || !unit.maxHp) return issues;
-    const cell = getCellElement(unit, doc);
+    const cell = getCellByUid(unit.uid, doc);
     if (!cell) return issues;
     const bar = cell.querySelector('.hp-bar-inner');
     if (!bar) return issues;
@@ -95,7 +96,7 @@ export function checkHpBarSync(unit, doc) {
 export function checkHpBarColor(unit, win, doc) {
     const issues = [];
     if (!unit.alive || !unit.maxHp) return issues;
-    const cell = getCellElement(unit, doc);
+    const cell = getCellByUid(unit.uid, doc);
     if (!cell) return issues;
     const bar = cell.querySelector('.hp-bar-inner');
     if (!bar) return issues;
@@ -186,17 +187,21 @@ export function checkDeathFxRetention(allUnits, doc) {
  * [新增] 近战攻击特效检测：飞走/虚影模式下原格子状态
  * 检查近战单位发起攻击后，原位置的视觉残留是否符合预期
  */
-export function checkMeleeFxState(ctx, doc) {
+export function checkMeleeFxState(ctx, doc, liveAlly, liveEnemy) {
     const issues = [];
-    const allyTeam = (ctx.UI && ctx.UI.allyTeam) || [];
-    const enemyTeam = (ctx.UI && ctx.UI.enemyTeam) || [];
+    // 数据真值源（V6.2.0 同根因修正，与 checkBuffIcons 一致）：近战/防御特效检查也必须用实时 battleStore
+    //   单位，不能用 ctx.UI.allyTeam/enemyTeam 开战副本——张无忌近战切换(RANGED→WARRIOR)、惑人心智换位
+    //   会让快照与实时漂移，误报"飞走未清空/虚影透明度异常"。取不到实时再退回 UI 快照（不静默伪造）。
+    const allyTeam = (liveAlly && liveAlly.length) ? liveAlly : ((ctx.UI && ctx.UI.allyTeam) || []);
+    const enemyTeam = (liveEnemy && liveEnemy.length) ? liveEnemy : ((ctx.UI && ctx.UI.enemyTeam) || []);
     const allUnits = allyTeam.concat(enemyTeam);
 
     for (const u of allUnits) {
         if (!u.alive || u.isHorse) continue;
         if (u.role !== ROLE_TYPES.WARRIOR && u.role !== ROLE_TYPES.DEFENDER && u.role !== ROLE_TYPES.FLYER) continue;
 
-        const cell = getCellElement(u, doc);
+        // 按 uid 精确定位（render/32 L418 写死 data-uid），不用 pos 反查——换位/近战切换后 pos 可能偏移
+        const cell = getCellByUid(u.uid, doc);
         if (!cell) continue;
 
         const isFlyMode = u.state._flyMode === 'fly';
@@ -266,7 +271,7 @@ export function checkBuffIcons(ctx, doc, liveAlly) {
         switch (buffKey) {
             case BUFF_TYPES.CARRY: {
                 // 从格子 DOM 读取实际站位，避免换位后 pos 不一致
-                const cell = getCellElement(unit, doc);
+                const cell = getCellByUid(unit.uid, doc);
                 const actualPos = cell ? parseInt(cell.dataset.pos) : unit.pos;
                 return actualPos === 5 && unit.alive;
             }
