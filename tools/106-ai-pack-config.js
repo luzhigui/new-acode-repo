@@ -1,3 +1,8 @@
+// V6.0.21 | ~17800 bytes | 2026-10-08 补登记 9 个新文件（全仓比对清单与磁盘，补「被已登记文件 import 却漏登」的断裂链）：
+//           ui/69-role-cards.js（62/65/32 查名片表）、modules/00reg-mechanics.js（61 机制装配单入口）、
+//           player/50battle-export.js（42/61/64/68 战报导出）、player/51-battle-log-analyze.js（64 战报分析）、
+//           tools/124-param-lab-glossary.js（120 页面与 param-read-guard 共用参数表）、
+//           tests/health-rules/157-159（121health-monitor 已 import）、tests/mutation-teeth.mjs（变异测试主力）
 // V6.0.20 | ~11800 bytes | 2026-09-29 补登记 tests/health-rules/156-desc-truth-drift.js（参数单一真值源收口：
 //           技能说明数字 == 引擎真值的单源守卫，随包发给 AI 以便网页端也能看到该守卫）
 // V6.0.19 | ~11750 bytes | 2026-09-29 补登记 tests/param-read-guard.mjs（skills.params 引擎真读字段漂移守卫）
@@ -22,7 +27,7 @@
 // V6.0.4 | 2026-09-13 登记 tools/106b-server.js（本地静态服务器，供 file:// 下启用目录直写）
 // V6.0.3 | 2026-09-11 补清单漏登9个正式文件：ui/71-74（引导+三套开场CG）、player/48-49、fx/90、tests/123static-scan、tests/124rule-recipes
 // V6.0.2 | 2026-09-09 拆出 player/ 为独立「播放器」组（引擎 46→38）
-export const VER = 'tools/106-ai-pack-config.js V6.0.20';
+export const VER = 'tools/106-ai-pack-config.js V6.0.21';
 
 // AI 复制包踢除清单（103-toolkit.js 的 FILES 过滤会无条件跳过这里的文件）
 // 2026-09-04 用户决定不再精简：特效/音效/错误面板/入口页全部随包发送。
@@ -61,10 +66,14 @@ export const ALL_PROJECT_FILES = [
     '../player/40player-text.js', '../player/41player-buff-ui.js', '../player/43animation-scheduler.js', '../player/42player-core.js',
     '../player/44battle-player-5v5-test.js', '../player/45event-handlers.js', '../player/46attack-group.js', '../player/47renderer.js',
     '../player/48battle-report.js', '../player/49battle-flow.js',
+    // 2026-10-08 补登记 50/51：玩家层战报导出（42/61/64/68 已 import）与战报日志分析（64 已 import）
+    '../player/50battle-export.js', '../player/51-battle-log-analyze.js',
     // ui（UI 主控）
     '../ui/60main-utils.js', '../ui/61main-5v5-test.js', '../ui/62ui-render-5v5-test.js',
     '../ui/63main-state.js', '../ui/64main-dialogs.js', '../ui/65main-battle.js',
     '../ui/66audio-control.js', '../ui/67fx-trigger.js', '../ui/68ui-controls.js',
+    // 2026-10-04 补登记 69-role-cards：角色名片表（ui/62、ui/65、render/32 已 import）
+    '../ui/69-role-cards.js',
     '../ui/74reset-runtime.js', '../ui/70buff-dialog.js',
     '../ui/71tutorial.js', '../ui/72opening-cg.js', '../ui/73voice-panel.js',
     // fx（特效）
@@ -73,6 +82,8 @@ export const ALL_PROJECT_FILES = [
     '../fx/86fx-butterfly-spider.js', '../fx/87fx-manager.js', '../fx/88fx-trigger.js', '../fx/89fx-subscriber.js',
     '../fx/90fx-ref-manager.js', '../fx/91fx-lion-roar.js', '../fx/92fx-pang-antics.js',
     // modules（通用系统 + 精英角色组件）
+    // 2026-10-02 补登记 00reg-mechanics：机制装配统一入口（ui/61 唯一 import 点，25/26/27/30 经它装载）
+    '../modules/00reg-mechanics.js',
     '../modules/20elite-skills.js', '../modules/21error-capture.js', '../modules/22audio-manager.js',
     '../infra/54-global-store.js', '../infra/55-fx-signals.js', '../modules/29battle-init.js', '../modules/24battle-store.js',
     '../modules/25elite-imperial.js', '../modules/26elite-sixsects.js', '../modules/27elite-mingjiao.js',
@@ -123,12 +134,18 @@ export const ALL_PROJECT_FILES = [
     '../tests/health-rules/155-meteor-growth-dup.js',
     // 2026-09-29 参数单一真值源收口：156 技能说明数字 == 引擎真值（DESC_TRUTH 单源守卫）
     '../tests/health-rules/156-desc-truth-drift.js',
+    // 2026-10-08 补登记 157-159：121health-monitor.js 已 import rule104-106，仅打包清单漏登
+    '../tests/health-rules/157-mechanic-install-reconcile.js',
+    '../tests/health-rules/158-fact-anchor-align.js',
+    '../tests/health-rules/159-wei-bloodsiphon.js',
     // （上一行的 121/122 为重复登记，已于 V6.0.16 删除 —— 上方 tests 段已各登记过一次）
     '../tests/140-baseline.js', '../tests/baselines/baseline-v1.json',
     // 2026-09-27 补登记三个 node 直跑入口（V6.0.16：长期漏登，体检的主力命令都靠它们）
     '../tests/rules-replay.mjs', '../tests/smoke-headless.mjs', '../tests/registration-check.mjs',
     // 2026-09-27 再补登两个 node 直跑入口（经用户授权）：覆盖度体检 + 逐步真值对照器
     '../tests/coverage-report.mjs', '../tests/stat-decl-vs-actual-check.mjs',
+    // 2026-10-08 补登记：变异测试主力（stat-decl-vs-actual-check 与 153/157 规则注释均引用它）
+    '../tests/mutation-teeth.mjs',
     // 2026-09-29 补登记：skills.params 引擎真读字段漂移守卫（import tools/124-param-lab-glossary.js 的 ENGINE_READ 表）
     '../tests/param-read-guard.mjs',
     // tools（开发工具箱）
@@ -139,7 +156,7 @@ export const ALL_PROJECT_FILES = [
     '../tools/112-elite-eval.js', '../tools/113-stats-check.js',
     '../tools/114-baseline-compare.js', '../tools/115-lineup-search.js',
     '../tools/118-import-export-check.mjs',
-    '../tools/120-param-lab.html', '../tools/122-param-lab-core.js', '../tools/123-param-lab-worker.js',
+    '../tools/120-param-lab.html', '../tools/122-param-lab-core.js', '../tools/123-param-lab-worker.js', '../tools/124-param-lab-glossary.js',
     // 移除了：52-version-calibrator / 53-dead-code-scanner / 54-filelist-checker（这些工作直接问 AI 更高效）
     // 移除了：100build-5v5.cjs（构建脚本已废弃为 .TXT，不再随包复制）
     '../tools/101auto-battle-utils.js',
