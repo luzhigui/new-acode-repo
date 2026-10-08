@@ -1,3 +1,6 @@
+// V2.9.0 | ~77400 bytes | 2026-10-08 零触发守卫分两级，修固定样本对稀有形态的假红（BAGUA_DEF 默认 40 场零声明却 exit1，
+//          但它与加攻共用 group baguaArray、120 场有 59 条声明，契约没坏，只是加防形态在小样本不触发）：默认模式也记录账本
+//          group，契约零声明时——绑定 group 账本未出现=真空转仍硬红（保住 CARRY_APPLY 那类牙），group 已出现仅形态未触发=警告不红。
 // V2.8.0 | ~75600 bytes | 2026-10-06 镜像主代码 carry 候选过滤：tickAndPickBuffs 直接 import
 //          modules/28buff-tools.js 的 hasCarryTarget，候选里加「carry 位全空则剔除 carry」判据
 //          （5 号位；小昭·姊在场放宽 4/5/6）。与 player/49、ui/61、ui/70 及 140/rules-replay 同口径。
@@ -74,7 +77,7 @@
 //           → 不跑契约、也不退码 1，只逐步对全体单位的 atk/def/maxHp/hp 做 FNV-1a 指纹并输出 `FINGERPRINT <hex>`。
 //             供 `tests/mutation-teeth.mjs` 判定「属性类变异是否真的改变了战斗状态」（属性变了指纹必变；
 //             日志/TEXT 类变异只改显示、不改状态，指纹不变）。
-export const VER = 'tests/stat-decl-vs-actual-check.mjs V2.8.0';
+export const VER = 'tests/stat-decl-vs-actual-check.mjs V2.9.0';
 
 import { fileURLToPath } from 'node:url';
 
@@ -938,7 +941,7 @@ async function main() {
         };
         let prev = snapStats([...battleState.ally, ...battleState.enemy]);
         let prevLed = snapLedger([...battleState.ally, ...battleState.enemy]);
-        if (SCAN) recordGroups(prevLed);
+        recordGroups(prevLed); // V2.9.0：默认模式也记录账本 group，供零触发两级判定（绑定 group 到底出没出现）
         let winner = null;
 
         while (battleState.round <= MAX_ROUND) {
@@ -948,7 +951,7 @@ async function main() {
                 lastStep = step;
                 const after = snapStats([...(step.ally || []), ...(step.enemy || [])]);
                 const afterLed = snapLedger([...(step.ally || []), ...(step.enemy || [])]);
-                if (SCAN) recordGroups(afterLed);
+                recordGroups(afterLed); // V2.9.0：默认模式也记录（同上）
                 if (FP) {
                     const parts = [];
                     for (const v of after.values()) parts.push(`${v.uid}:${v.atk},${v.def},${v.maxHp},${v.hp}`);
@@ -1127,10 +1130,20 @@ async function main() {
         if (s.mismatch > 0) {
             console.log(`  ⚠ 首次偏差样例：${s.mismatchEg}`);
         }
-        // 防假绿：某个契约一次都没跑到 = 该契约空转，必须报出来而不是默认"通过"
+        // 防假绿：契约一次都没跑到要报，但 V2.9.0 起按账本事实分两级，避免固定样本误红稀有形态：
+        //   ① 绑定 group 在本批账本里压根没出现 → 机制没装配 / group 写错 / 字段路径错，契约真空转，硬红
+        //      （保住第 40 轮 CARRY_APPLY 因 harness 漏选 buff 全场零触发被当场抓出的牙）；
+        //   ② group 已出现、只是该契约 extract 的特定形态没触发（如 BAGUA_DEF 共用 baguaArray，加防形态
+        //      默认 40 场不出现、120 场有 59 条声明）→ 样本覆盖不足，警告不红，加大 SEEDS/STAGES 或 --scan-groups 复核。
+        //   无 group 的契约无法用账本反证，维持硬红。
         if (s.declared === 0) {
-            console.log(`  ✗ 零触发：${c.id} 在 18 场未产生任何声明，本契约空转（覆盖度缺口）`);
-            hardFail = true;
+            const gRec = c.group && groupSeen.get(c.group);
+            if (c.group && gRec) {
+                console.log(`  ⚠ 零触发(样本未覆盖该形态)：${c.id} 在 ${cases.length} 场无声明，但 group「${c.group}」账本已出现 ${gRec.n} 词条——非空转；加大 SEEDS/STAGES 或 --scan-groups 复核`);
+            } else {
+                console.log(`  ✗ 零触发：${c.id} 在 ${cases.length} 场未产生任何声明，且 group「${c.group || '(无)'}」账本中完全没出现——契约空转（装配/字段路径错误，覆盖度缺口）`);
+                hardFail = true;
+            }
         }
     }
     if (hits.length > 0) {
