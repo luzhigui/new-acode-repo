@@ -1,3 +1,5 @@
+// V2.4.2 | 预估 16700 bytes | 2026-10-08 单英雄表按敌方变体拆行：第3关拆「·胖远桥」「·宋青书」两行（与上方自然表同款口径，
+//          依赖 116 V1.6.1）；其余关落「标准」桶单行，总评跨关跨变体累加
 // V2.4.1 | 预估 15500 bytes | 2026-10-08 单英雄表补「总评」行：跨关累加五精英的胜率/场次/存活
 //          （口径与上方自然表的总评一致）；此前只有逐关行，跑完看不到汇总，与上表不对称
 // V2.4.0 | 2026-10-08 新增「⚔ 单英雄胜率」按钮：五精英逐一 force 单精英跑选中关卡（worker kind:soloElite，
@@ -10,7 +12,7 @@
 //          横向比同列五人；输出/承伤不计入（姐姐是附身支援位，计进去等于拿两把错的尺子量她）
 import { runParallel } from './117-shared-worker-runner.js';
 
-export const VER = 'tools/112-elite-eval.js V2.4.1';
+export const VER = 'tools/112-elite-eval.js V2.4.2';
 
 const configs = [
     { name: '张无忌' },
@@ -110,8 +112,14 @@ soloBtn.addEventListener('click', async () => {
     soloProgressEl.textContent = '开始单英雄评测...';
     soloResultEl.innerHTML = '<div class="elite-empty">运行中...</div>';
 
-    const byStage = {}; // stage -> 精英名 -> {runs,wins,sumSurv,sumDmg,sumTaken}
-    for (const st of stages) { byStage[st] = {}; for (const cfg of configs) byStage[st][cfg.name] = { runs: 0, wins: 0, sumSurv: 0, sumDmg: 0, sumTaken: 0 }; }
+    const byStage = {}; // stage -> variant -> 精英名 -> {runs,wins,sumSurv,sumDmg,sumTaken}
+    for (const st of stages) {
+        byStage[st] = {};
+        for (const v of VARIANTS) {
+            byStage[st][v] = {};
+            for (const cfg of configs) byStage[st][v][cfg.name] = { runs: 0, wins: 0, sumSurv: 0, sumDmg: 0, sumTaken: 0 };
+        }
+    }
     const startT = performance.now();
     const masterSeed = Date.now();
 
@@ -136,8 +144,13 @@ soloBtn.addEventListener('click', async () => {
             kind: 'soloElite',
             nextJobMsg: (job, id) => ({ jobId: id, kind: 'soloElite', stage: job.stage, seed: job.seed, runs: job.runs, elite: job.elite }),
             onJobDone: (finished, total, job, part) => {
-                const a = byStage[job.stage] && byStage[job.stage][job.elite];
-                if (a && part) { a.runs += part.runs; a.wins += part.wins; a.sumSurv += part.sumSurv; a.sumDmg += part.sumDmg; a.sumTaken += part.sumTaken; }
+                // part = { 变体名: {runs,wins,...} }（单精英局只落一个桶，桶名 = 本局敌方是谁）
+                for (const [variant, d] of Object.entries(part && part.variants || {})) {
+                    const slot = byStage[job.stage] && byStage[job.stage][variant];
+                    const a = slot && slot[job.elite];
+                    if (!a) continue;
+                    a.runs += d.runs; a.wins += d.wins; a.sumSurv += d.sumSurv; a.sumDmg += d.sumDmg; a.sumTaken += d.sumTaken;
+                }
                 soloProgressEl.textContent = `${job.label} 完成 (${finished}/${total}，已用 ${((performance.now() - startT) / 1000).toFixed(1)}s)`;
             },
             onAllDone: () => {
@@ -161,9 +174,16 @@ function renderSoloResults(byStage, stages) {
     for (const cfg of configs) html += `<th class="elite-th">${cfg.name}</th>`;
     html += '</tr>';
     for (const st of stages) {
-        html += `<tr><td class="elite-stage">第${st}关</td>`;
-        for (const cfg of configs) html += soloCellHtml(byStage[st] && byStage[st][cfg.name]);
-        html += '</tr>';
+        // 按变体拆行（V2.4.2）：第3关拆「·胖远桥」「·宋青书」两行，其余关单行；无数据的变体不出行
+        for (const v of VARIANTS) {
+            const slot = byStage[st] && byStage[st][v];
+            const hasData = slot && configs.some(cfg => slot[cfg.name] && slot[cfg.name].runs > 0);
+            if (!hasData) continue;
+            const label = v === '标准' ? `第${st}关` : `第${st}关·${v}`;
+            html += `<tr><td class="elite-stage">${label}</td>`;
+            for (const cfg of configs) html += soloCellHtml(slot[cfg.name]);
+            html += '</tr>';
+        }
     }
     // 总评行（2026-10-08 补）：跨关累加五精英，口径与上方自然表的总评一致
     html += '<tr><td class="elite-stage">总评</td>';
@@ -188,13 +208,15 @@ function soloCellHtml(d) {
         <div class="cell-sub">存活 ${surv}%</div></td>`;
 }
 
-// 跨关累加某精英（单英雄表总评行用）
+// 跨关跨变体累加某精英（单英雄表总评行用）
 function soloTotalsOf(cfg, byStage, stages) {
     let runs = 0, wins = 0, sumSurv = 0;
     for (const st of stages) {
-        const d = byStage[st] && byStage[st][cfg.name];
-        if (!d) continue;
-        runs += d.runs; wins += d.wins; sumSurv += d.sumSurv;
+        for (const v of VARIANTS) {
+            const d = byStage[st] && byStage[st][v] && byStage[st][v][cfg.name];
+            if (!d) continue;
+            runs += d.runs; wins += d.wins; sumSurv += d.sumSurv;
+        }
     }
     return { runs, wins, sumSurv };
 }

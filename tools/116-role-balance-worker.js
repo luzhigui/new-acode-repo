@@ -1,3 +1,5 @@
+// V1.6.1 | ~30300 bytes | 2026-10-08 soloElite 回报按敌方变体分桶（胖远桥/宋青书/标准，判定同 runEliteStageJob）：
+//        回传 { elite, variants:{...} }——112 单英雄表第3关拆「·胖远桥」「·宋青书」两行
 // V1.6.0 | 2026-10-08 新增 kind:'soloElite'（runSoloEliteJob）：force 单精英跑批（依赖 modules/29 V7.5.16 四路 force 轮盘互锁），胜率/存活/输出/承伤，口径与普通评测同款——112「⚔ 单英雄胜率」按钮的消费端
 // V1.5.0 | ~27100 bytes | 2026-10-06 carry 候选过滤（pickHexBuff / hexPicker）：import modules/28buff-tools.hasCarryTarget，
 //        无 carry 位（5 号；小昭·姊在场放宽 4/5/6）则不进候选，与 101 主线程版逐字同口径
@@ -144,7 +146,10 @@ function runBalanceJob(buildAlly, buildEnemy, seed, hexEnabled) {
 function runSoloEliteJob(stage, seed, runs, elite) {
     const keyMap = { '张无忌': 'forceZhang', '韦一笑': 'forceWei', '金毛狮王谢逊': 'forceXieXun' };
     const isXz = elite === '小昭·姊' || elite === '小昭·妹';
-    let wins = 0, valid = 0, sumSurv = 0, sumDmg = 0, sumTaken = 0;
+    // 变体桶（V1.6.1）：与 runEliteStageJob 同款判定——按"本局敌方是谁"整局分桶，
+    // 第3关轮换阵容拆成胖远桥/宋青书两行；其余关落进「标准」桶
+    const newAgg = () => ({ runs: 0, wins: 0, sumSurv: 0, sumDmg: 0, sumTaken: 0 });
+    const variants = { '胖远桥': newAgg(), '宋青书': newAgg(), '标准': newAgg() };
     for (let i = 0; i < runs; i++) {
         clearBattleGlobals();   // 注意：clear 会清 force，每场都要在 clear 之后重设
         if (isXz) GlobalStore.set('forceXiaoZhao', elite === '小昭·姊' ? 'sister' : 'brother');
@@ -156,12 +161,20 @@ function runSoloEliteJob(stage, seed, runs, elite) {
         GlobalStore.set('battleHasZhang', ally.some(u => u.isZhang));
         const res = runWholeBattle(ally, teams.enemyTeam, seed + i * 7919, true);
         if (!res.winner) continue;
-        valid++;
-        if (res.winner === '明教') wins++;
+        const enemyHasPang = (res.enemy || []).some(u => u.isPangYuanQiao);
+        const enemyHasSong = (res.enemy || []).some(u => u.isSongQingshu);
+        const a = enemyHasPang ? variants['胖远桥'] : (enemyHasSong ? variants['宋青书'] : variants['标准']);
+        a.runs++;
+        if (res.winner === '明教') a.wins++;
         const me = (res.ally || []).find(u => u.isZhang || u.isWei || u.isXiaoZhaoSister || u.isXiaoZhaoBrother || u.isXieXun);
-        if (me) { if (me.alive) sumSurv++; sumDmg += me.dmgDealt || 0; sumTaken += me.dmgTaken || 0; }
+        if (me) { if (me.alive) a.sumSurv++; a.sumDmg += me.dmgDealt || 0; a.sumTaken += me.dmgTaken || 0; }
     }
-    return { elite, runs: valid, wins, sumSurv, sumDmg, sumTaken };
+    // 只回传有数据的桶，空桶不占消息体积
+    const out = {};
+    for (const [v, a] of Object.entries(variants)) {
+        if (a.runs > 0) out[v] = a;
+    }
+    return { elite, variants: out };
 }
 
 function runEliteStageJob(stage, seed, runs) {
