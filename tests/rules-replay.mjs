@@ -245,6 +245,20 @@ function assertInvariants(units, round, seed, stage) {
     }
 }
 
+// Step 0（2026-10-08）：把每场原始 fact 流（含嵌套 data.entries / entries）递归展平后也喂给规则，
+//   作为 rule.test 的第 7 参 facts。此前规则只看渲染文案（renderLog 产物），renderFn:null 的
+//   数值声明 fact 完全不可见 → 那 22 条「对照器兜底」的根因。喂入后规则可读 atkDelta/ratio/delta
+//   等数值字段做重算对账，真正长牙。现有 37 条规则忽略多余参数，向后兼容。
+function collectFacts(arr, out) {
+    for (const f of arr || []) {
+        if (!f || !f.factType) continue;
+        out.push(f);
+        collectFacts(f.data && f.data.entries, out);
+        collectFacts(f.entries, out);
+    }
+    return out;
+}
+
 function runCase(seed, stage) {
     const rng = new SeededRNG(seed);
     const store = createStore({ ...createInitialState(), units: [] }, battleReducer);
@@ -260,6 +274,7 @@ function runCase(seed, stage) {
         allAllies: allyTeam.map(u => u.clone()), _rng: rng
     };
     const log = [];
+    const facts = [];   // Step 0：本场原始 fact 全流（含嵌套），喂给规则做数值对账
     let winner = null, lastStep = null;
     while (battleState.round <= MAX_ROUND) {
         try {
@@ -296,6 +311,7 @@ function runCase(seed, stage) {
                     else if (e) log.push(e);
                 } catch (e) { /* 单条渲染失败不阻断 */ }
             }
+            collectFacts(step.log, facts);   // Step 0：收集本步原始 fact（含嵌套）供规则对账
             // 不变量：每步断言一次（比"每回合末"更细 —— 中期越界后被修回也能抓到）
             assertInvariants([...(step.ally || []), ...(step.enemy || [])], battleState.round, seed, stage);
             if (step.winner) winner = step.winner;
@@ -356,9 +372,10 @@ function runCase(seed, stage) {
         //   （回放侧假绿），覆盖率缺口不可见。补上后这部分判据才真正参与。
         snapshot: { ally: beforeA, enemy: beforeE },
         UI: { allyTeam: afterA, enemyTeam: afterE },
-        _enhancedBattleLog: log
+        _enhancedBattleLog: log,
+        facts: facts   // Step 0：原始 fact 全流（规则可经 ctx.facts 取用，独立于渲染文案）
     };
-    return { seed, stage, ctx, log, beforeA, beforeE, afterA, afterE };
+    return { seed, stage, ctx, log, facts, beforeA, beforeE, afterA, afterE };
 }
 
 const agg = {}, kwHit = {};
@@ -385,7 +402,7 @@ for (const seed of SEEDS) {
         for (const r of rules) {
             let res;
             try {
-                res = r.test(c.ctx, c.log, c.beforeA, c.beforeE, c.afterA, c.afterE);
+                res = r.test(c.ctx, c.log, c.beforeA, c.beforeE, c.afterA, c.afterE, c.facts);
             } catch (e) {
                 res = { fail: true, msg: '规则抛异常: ' + (e.message || e) };
             }

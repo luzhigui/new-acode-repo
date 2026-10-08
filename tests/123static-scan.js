@@ -91,6 +91,9 @@ export const SCAN_FILES = [
     './health-rules/148-carry-bonus.js',
     // 2026-09-21 第 6 趟新增：圣火令行列选取（cols/rows 重掷 + 百分比与配置一致性）
     './health-rules/149-holy-flame-cols-rows.js',
+    './health-rules/160-spider-transform-mastery.js',
+    './health-rules/161-lion-grow.js',
+    './health-rules/162-stat-change.js',
     // 2026-09-22 第 7 趟新增：热血奋战攻击回血（回血量取整/上限/重复登记 + 百分比与配置一致性）
     './health-rules/150-hot-blood-leech.js',
     // 2026-09-22 第 8 趟新增：嗜血狂刀吸血（吸血量取整/比例上限/重复登记 + 百分比与配置一致性）
