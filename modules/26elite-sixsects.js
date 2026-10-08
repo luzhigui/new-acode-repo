@@ -1,8 +1,9 @@
-// V6.17.0 | 2026-10-08 张三丰生生不息改「付费触发」：轮到自己/八卦阵两处均消耗 atkCost(5) 点攻击力（攻不足不触发，共用同一池燃料；回血随机加攻使燃料可再生，付费与成长拉锯），回合开始仍免费；八卦阵删「-1攻+1防」对冲改纯扣攻，fact defDelta 发 0 保契约字段
+// V6.17.1 | 2026-10-08 atkCost 5→3（用户看实战战报定调：5 攻触发条件偏高）；付费/攻不足的日志可见性——付费 fact 带 cost（render/35 句首「消耗N点攻击力」+ render/38 ⚔-N 飘字），攻不足推灰字 fail fact（此前静默）
+// V6.17.0 | 2026-10-08 张三丰生生不息改「付费触发」：轮到自己/八卦阵两处均消耗 atkCost 点攻击力（攻不足不触发，共用同一池燃料；回血随机加攻使燃料可再生，付费与成长拉锯），回合开始仍免费；八卦阵删「-1攻+1防」对冲改纯扣攻，fact defDelta 发 0 保契约字段
 // V6.16.0 | 2026-10-07 苦练/生生不息溢出受益池收编 getBenefitTargets 裁判（core/03）——苦练补上垂死+天上蝶蛛+附身排除（原只排死人和拒马），溢出行为不变口径归一
 // V6.15.5 | ~48300 bytes | 2026-10-02 胖远桥·莽撞补飘字：被攻击加攻量写进本击 fact（group.data.pangAtkGain），render/38 据此产 STAT_CHANGE(atk) 飘「⚔+N」
 // V6.15.4 | 2026-10-02 四个注册表 handler 补 fields 字段契约（core/15 安装期按此校验 JSON，缺字段/类型错开局即抛）
-export const VER = 'modules/26elite-sixsects.js V6.17.0';
+export const VER = 'modules/26elite-sixsects.js V6.17.1';
 import { registerElite } from '../core/08-elite-registry.js';
 import { CONFIG, getSkillParams, getGameData } from '../core/01config-5v5-test.js';
 import { SIGNAL_TYPES, FACT_TYPES, BUFF_TYPES, CAMP_TYPES, ROLE_TYPES, MECHANIC_TYPES } from '../infra/56-battle-enums.js';
@@ -52,7 +53,7 @@ export function createZhangSanfengComponent() {
             // 生生不息：只回 healPct 上限（三处触发共用：回合开始[免费] / 轮到自己[付费atkCost攻] / 八卦阵[付费atkCost攻]）；回血同时转永久攻防，见下
             // 2026-09-21 溢出转嫁：自身回不满的那部分（满血时即全部）转给随机一名存活友方，
             // 拒马也算友方；满血队友也可被选中（选中即作废，不改选）；随机走战斗 RNG（getBattleRng），保证 PVP 双端同源
-            function triggerEndlessBreath(unit, log) {
+            function triggerEndlessBreath(unit, log, cost) {
                 if (!unit || !unit.alive) return;
                 const heal = Math.floor(unit.maxHp * s.healPct);
                 const hpBefore = unit.hp;
@@ -117,6 +118,7 @@ export function createZhangSanfengComponent() {
                     eventBus.emit(FX_SIGNALS.MEDITATE, { unit });
                 }
                 // 2026-09-17 日志：走 fact（两处触发都进主 log，随 step 渲染）
+                // 2026-10-08 cost：付费触发（轮到自己/八卦阵）把消耗值带上，渲染层显示「消耗N点攻击力」；回合开始免费不带
                 if (log) {
                     log.push({
                         factType: FACT_TYPES.ENDLESS_BREATH,
@@ -124,6 +126,7 @@ export function createZhangSanfengComponent() {
                             unitName: unit.name, unitUid: unit.uid,
                             heal: healed,
                             overflow,
+                            cost,
                             atkGain: selfAtkGain,
                             defGain,
                             overflowToName: receiver ? receiver.name : null,
@@ -143,23 +146,30 @@ export function createZhangSanfengComponent() {
             });
 
             // 技能1：轮到自己行动完成时触发（「如沐春风」2026-09-20 取消）
-            // 2026-10-08 付费触发：消耗 atkCost(5) 点攻击力才回血；攻不足 5 只休息不回血（回合开始那次仍免费）。
-            // 注意生生不息回血本身会随机加攻（healAtkDiv）——攻是可再生燃料，付费与成长互相拉锯
+            // 2026-10-08 付费触发：消耗 atkCost(3) 点攻击力才回血；攻不足只休息不回血（回合开始那次仍免费）。
+            // 攻不足时推灰字 fail fact（此前完全静默，玩家看不出"本该触发但燃料没了"）
             eventBus.on(SIGNAL_TYPES.ON_UNIT_ACTED, 50, (data) => {
                 const actor = data.unit;
                 if (!actor || !actor.alive || !actor.isZhangSanfeng) return;
-                if (getStat(actor, 'atk') < s.atkCost) return;
+                if (getStat(actor, 'atk') < s.atkCost) {
+                    if (data.log) data.log.push({ factType: FACT_TYPES.ENDLESS_BREATH, data: { unitName: actor.name, heal: 0, failReason: 'atk', atkCost: s.atkCost } });
+                    return;
+                }
                 addMod(actor, 'atk', { source: '生生不息', value: -s.atkCost, ttl: 'permanent', group: 'endlessBreathCost', op: 'add' });
-                triggerEndlessBreath(actor, data.log);
+                triggerEndlessBreath(actor, data.log, s.atkCost);
             });
 
-            // 技能3：八卦阵——被攻击时 procChance(50%) 概率触发：消耗 atkCost(5) 点攻击力，并触发生生不息
-            // 2026-10-08 改版：付费触发（与「轮到自己」共用同一池攻击力当燃料，攻不足 5 不触发）；
+            // 技能3：八卦阵——被攻击时 procChance(50%) 概率触发：消耗 atkCost(3) 点攻击力，并触发生生不息
+            // 2026-10-08 改版：付费触发（与「轮到自己」共用同一池攻击力当燃料）；攻不足时推灰字 fail fact（此前静默）；
             // 原「-1攻+1防」对冲删除，不再加防——fact 的 defDelta 发 0 保住契约三字段（渲染/体检按 >0 分支自然静音）
             eventBus.on(SIGNAL_TYPES.AFTER_DAMAGE_APPLIED, 45, (data) => {
                 if (data.target !== zhang || !zhang.alive) return;
                 if (!data.dmg || data.dmg <= 0) return;
-                if (getStat(zhang, 'atk') < ba.atkCost) return;
+                if (getStat(zhang, 'atk') < ba.atkCost) {
+                    // 攻不足：50% 掷骰都不做，直接提示未触发（区别于概率未命中——那个属正常运气，不提示）
+                    if (data.log) data.log.push({ factType: FACT_TYPES.ENDLESS_BREATH, data: { unitName: zhang.name, heal: 0, failReason: 'atk', atkCost: ba.atkCost, via: '八卦阵' } });
+                    return;
+                }
                 const rng = getBattleRng();
                 if (rng.nextInt(1, 100) > ba.procChance * 100) return;
                 addMod(zhang, 'atk', { source: '八卦阵', value: -ba.atkCost, ttl: 'permanent', group: 'baguaArray', op: 'add' });
