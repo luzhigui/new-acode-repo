@@ -1,5 +1,5 @@
 {
-  "version": "5.6.23",
+  "version": "5.6.24",
   "updated": "2026-10-08",
 
   "roles": {
@@ -295,12 +295,12 @@
         "endlessBreath": {
           "name": "生生不息",
           "desc": "不攻击；每回合开始回复最大生命{healPct}%；轮到自己行动时与八卦阵触发均需消耗{atkCost}点攻击力（攻不足则不触发）。回血同时永久加成，攻或防随机二选一：实际回血每{healAtkDiv}点→攻+1、每{healDefDiv}点→防+1；溢出每{overflowAtkDiv}点→攻+1、每{overflowDefDiv}点→防+1（每档至少+{minBonus}；加成记在血量落点单位身上）",
-          "params": { "healPct": 0.16, "healAtkDiv": 20, "healDefDiv": 10, "overflowAtkDiv": 10, "overflowDefDiv": 5, "minBonus": 1, "atkCost": 5 }
+          "params": { "healPct": 0.16, "healAtkDiv": 20, "healDefDiv": 10, "overflowAtkDiv": 10, "overflowDefDiv": 5, "minBonus": 1, "atkCost": 3 }
         },
         "baguaArray": {
           "name": "八卦阵",
           "desc": "被攻击时{procChance}%概率消耗自身{atkCost}点攻击力，立即触发一次生生不息（攻击不足{atkCost}时不触发）",
-          "params": { "procChance": 0.5, "atkCost": 5 }
+          "params": { "procChance": 0.5, "atkCost": 3 }
         },
         "noContend": {
           "name": "不争",

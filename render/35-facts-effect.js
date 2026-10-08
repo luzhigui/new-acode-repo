@@ -417,6 +417,11 @@ export function renderFortifyReboundFact(fact) {
 // 张三丰：生生不息（回血 + 溢出转嫁 + 回血转永久攻防）
 // 溢出文案分两种：无人可接（无其他存活队友）/ 有人接（再区分接盘者是否真回了血）
 export function renderEndlessBreathFact(fact) {
+    // 2026-10-08 付费触发配套：攻不足未触发 → 灰字明示（此前静默，玩家看不出燃料耗尽）
+    if (fact.failReason === 'atk') {
+        const via = fact.via ? `${fact.via}想触发` : '';
+        return { type:'info', text:`<span class="gray">☯ ${via}生生不息：${fact.unitName} 攻击力不足${fact.atkCost}点，未能触发</span>` };
+    }
     // 2026-09-27 补攻防明细：回血同时按「实际回血/溢出」两档转永久攻防，此前日志完全看不到这层收益
     // 2026-09-28 二选一改版配套：每次触发攻/防只有一边>0，零的那边不再显示（「攻+2.6 防+0」→「攻+2.6」）
     const num = (v) => Math.round((v || 0) * 10) / 10;
@@ -427,7 +432,9 @@ export function renderEndlessBreathFact(fact) {
         return parts.length > 0 ? parts.join(' ') : '';
     };
     const wrap = (t) => t ? `（${t}）` : '';
-    const self = `${fact.heal > 0 ? `回复${fact.heal}点生命` : '生命已满'}${wrap(bonus(fact.atkGain, fact.defGain))}`;
+    // 2026-10-08 付费触发：付费路径句首带「消耗N点攻击力」（回合开始免费无此前缀）
+    const costTag = fact.cost ? `消耗${fact.cost}点攻击力，` : '';
+    const self = `${costTag}${fact.heal > 0 ? `回复${fact.heal}点生命` : '生命已满'}${wrap(bonus(fact.atkGain, fact.defGain))}`;
     let tail = '';
     if (fact.overflow > 0) {
         // 2026-09-21 溢出目标改为随机（满血也可被选中）后，三种情况要分开写：

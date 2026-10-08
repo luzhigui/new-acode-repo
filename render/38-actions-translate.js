@@ -776,6 +776,11 @@ function makeHealAction(data, index) {
 function translateEndlessBreath(data, index) {
     const actions = [];
     const selfHeal = Math.round(data.heal || 0);
+    // 2026-10-08 付费触发扣攻飘字（⚔-N，与八卦阵 BAGUA_ARRAY 的 atkDelta 飘字同款；fail fact cost 为空自动跳过）
+    const cost = Math.round(data.cost || 0);
+    if (cost > 0 && data.unitUid) {
+        actions.push({ kind: STAGE_ACTION_TYPES.STAT_CHANGE, statKind: 'atk', targetUid: data.unitUid, gain: -cost, factIndex: index, timing: 'afterText' });
+    }
     if (selfHeal > 0 && data.unitUid) {
         actions.push({
             kind: STAGE_ACTION_TYPES.HEAL,
