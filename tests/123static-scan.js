@@ -94,6 +94,8 @@ export const SCAN_FILES = [
     './health-rules/160-spider-transform-mastery.js',
     './health-rules/161-lion-grow.js',
     './health-rules/162-stat-change.js',
+    './health-rules/163-righteous-face.js',
+    './health-rules/164-leech-maxhp.js',
     // 2026-09-22 第 7 趟新增：热血奋战攻击回血（回血量取整/上限/重复登记 + 百分比与配置一致性）
     './health-rules/150-hot-blood-leech.js',
     // 2026-09-22 第 8 趟新增：嗜血狂刀吸血（吸血量取整/比例上限/重复登记 + 百分比与配置一致性）
