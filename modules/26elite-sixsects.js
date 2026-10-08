@@ -1,10 +1,11 @@
+// V6.18.0 | 2026-10-08 搭档连线注册面接龙：宋青书×周芷若配对知识从 core/11 迁入本文件
 // V6.17.1 | 2026-10-08 atkCost 5→3（用户看实战战报定调：5 攻触发条件偏高）；付费/攻不足的日志可见性——付费 fact 带 cost（render/35 句首「消耗N点攻击力」+ render/38 ⚔-N 飘字），攻不足推灰字 fail fact（此前静默）
 // V6.17.0 | 2026-10-08 张三丰生生不息改「付费触发」：轮到自己/八卦阵两处均消耗 atkCost 点攻击力（攻不足不触发，共用同一池燃料；回血随机加攻使燃料可再生，付费与成长拉锯），回合开始仍免费；八卦阵删「-1攻+1防」对冲改纯扣攻，fact defDelta 发 0 保契约字段
 // V6.16.0 | 2026-10-07 苦练/生生不息溢出受益池收编 getBenefitTargets 裁判（core/03）——苦练补上垂死+天上蝶蛛+附身排除（原只排死人和拒马），溢出行为不变口径归一
 // V6.15.5 | ~48300 bytes | 2026-10-02 胖远桥·莽撞补飘字：被攻击加攻量写进本击 fact（group.data.pangAtkGain），render/38 据此产 STAT_CHANGE(atk) 飘「⚔+N」
 // V6.15.4 | 2026-10-02 四个注册表 handler 补 fields 字段契约（core/15 安装期按此校验 JSON，缺字段/类型错开局即抛）
-export const VER = 'modules/26elite-sixsects.js V6.17.1';
-import { registerElite } from '../core/08-elite-registry.js';
+export const VER = 'modules/26elite-sixsects.js V6.18.0';
+import { registerElite, registerLinkPartners } from '../core/08-elite-registry.js';
 import { CONFIG, getSkillParams, getGameData } from '../core/01config-5v5-test.js';
 import { SIGNAL_TYPES, FACT_TYPES, BUFF_TYPES, CAMP_TYPES, ROLE_TYPES, MECHANIC_TYPES } from '../infra/56-battle-enums.js';
 import { applyStatChange, addMod, getStat, getBattleRng, resolvePushOrStun, refreshMaxHp } from '../core/13battle-shared.js';
@@ -751,6 +752,8 @@ registerMechanicHandler(MECHANIC_TYPES.XING_FEN, {
 
 registerElite('宋青书', createSongQingshuComponent);
 registerElite('周芷若', createZhouZhiruoComponent);
+// 2026-10-08 搭档连线注册（core/11 特判收口）：白骨爪连锁配对知识住在英雄家
+registerLinkPartners('宋青书', '周芷若');
 registerElite('张三丰', createZhangSanfengComponent);
 registerElite('胖远桥', createPangYuanQiaoComponent);
 registerElite('灭绝师太', createMieJueShiTaiComponent);

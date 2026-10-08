@@ -1,7 +1,8 @@
+// V7.5.13 | 2026-10-08 英雄特判收口（老板批）：小昭姊妹工厂分支/圣火令增强/蝶附身触发/搭档连线/不争判定全部下沉注册面（core/08 五件套），引擎不再认识任何具体英雄；姊妹组件调度改 roundComps+状态迁移路由表；删玄冥联动死码与死变量 xiaoZhao。140 基线 18 场全一致
 // V6.3.5 | ~27200 bytes | 2026-10-02 光环补发 AURA_APPLY 数值声明 fact（双方循环每存活单位每回合 1 条，emptyCol/bloodAura 为 0 也发）；applyHolyFlameBonus 两处调用透传 log
 export const VER = 'core/11battle-round.js V6.3.5';
 
-import { CONFIG, getGameData, getSkillParams } from './01config-5v5-test.js';
+import { CONFIG, getGameData } from './01config-5v5-test.js';
 import { resetStateFields } from './17-state-keys.js';
 import { isMelee, isBlocked, makeFXSnapshot, hasBuff, getUnitCol, getUnitRow, hasAnyEnemyEmptyCol, countEnemyEmptyCols, getBloodAuraBonus, getAuraBonuses, registerWarriorBreakDefense, registerRangedGrowth, registerFortifyShield, registerWarriorExecute, registerEmptyColBonus, registerDoubleStrike } from './03battle-utils.js';
 import { computeBuffStats, logBuffSummary, applyHolyFlameBonus, applyFortifyBonus, applyCarryBonus, installBuffMechanics, onUnitDeathFlyerRegen } from './04buff-system.js';
@@ -12,7 +13,7 @@ import { installDeclaredSkills, installFromGameData } from './15-skill-mechanism
 import { resolveRoundStatGrants } from './16effect-handlers.js';
 import { clearAllWatchers } from './19unit-watch.js';
 
-import { getEliteFactories } from './08-elite-registry.js';
+import { getEliteFactories, getRoundComponentNames, getBuffRoundTransformers, getLinkPartnerPairs, getStateTransitionSpec, isHolyFlameEnhanced } from './08-elite-registry.js';
 import { processUnitAttack } from './10battle-attack.js';
 import { eventBus, EXECUTION_LAYER as L, registerSettlementHook } from '../infra/50-event-bus.js';
 import { getNextAvailableUnit, finalizeDeaths, emitFullUnitState, checkZhangSwitch, emitEvent, applyStatChange, setBattleRng, setPresentationRng, addMod, removeModsByTTL, getStat, refreshMaxHp } from './13battle-shared.js';
@@ -35,8 +36,6 @@ function prepareRoundStart(A, B, log, state, round, rng) {
             refreshMaxHp(u, null, '回合清理');
         }
     }
-
-    const xiaoZhao = A.find(u => (u.isXiaoZhaoSister || u.isXiaoZhaoBrother) && u.alive);
 
     setBattleState('currentBattleState', null);
     flushBattleEvents();
@@ -83,24 +82,11 @@ function prepareRoundStart(A, B, log, state, round, rng) {
         }
     });
 
-    const hasSisterForHolyFlame = A.some(u => u.isXiaoZhaoSister && u.alive);
-    const hexEnhanceParams = getSkillParams('小昭', 'hexEnhance');
-    if (!hexEnhanceParams) throw new Error('缺技能参数: 小昭.hexEnhance');
-    const holyFlameEnhance = hasSisterForHolyFlame ? hexEnhanceParams.holyFlame : null;
-    const holyColCount = holyFlameEnhance ? holyFlameEnhance.atkCols : 1;
-    const holyRowCount = holyFlameEnhance ? holyFlameEnhance.defRows : 2;
-    state.activeBuffs = state.activeBuffs.map(b => {
-        if (b.key === BUFF_TYPES.HOLY_FLAME && (b.target === CAMP_TYPES.ALLY || !b.target)) {
-            const cols = [];
-            while (cols.length < holyColCount) { const c = rng.nextInt(1, 3); if (!cols.includes(c)) cols.push(c); }
-            cols.sort((a, b) => a - b);
-            const rows = [];
-            while (rows.length < holyRowCount) { const r = rng.nextInt(1, 3); if (!rows.includes(r)) rows.push(r); }
-            rows.sort((a, b) => a - b);
-            return { ...b, cols, rows };
-        }
-        return b;
-    });
+    // 2026-10-08 V7.5.13 圣火令增强迁 modules/27：回合开始 buff 变换器注册面，
+    //   同位置同条件画 rng（序不变，基线二分保障）；无增强者在变换器内部走默认行列重画
+    for (const [buffKey, transformBuff] of getBuffRoundTransformers()) {
+        state.activeBuffs = state.activeBuffs.map(b => (b.key === buffKey ? transformBuff(b, rng, A, B) : b));
+    }
     A._activeBuffs = state.activeBuffs.filter(b => b.target === CAMP_TYPES.ALLY || !b.target);
     B._activeBuffs = state.activeBuffs.filter(b => b.target === CAMP_TYPES.ENEMY);
     // 圣火令统一在下面的回合开始循环里施加，此处不再重复登记词条
@@ -126,40 +112,44 @@ function prepareRoundStart(A, B, log, state, round, rng) {
     //   此后 fact 全推进无人读的死数组（数值加血正常、日志/弹幕全无）。改用广播随包的 data.log（当步真 log）。
     eventBus.on(SIGNAL_TYPES.ON_UNIT_DEATH, 30, (data) => { onUnitDeathFlyerRegen(data, A, B, data.log); });
 
+    // 2026-10-08 V7.5.13 工厂循环泛化（原双组件特判分支）：回合组件标记在 modules 侧注册（core/08 注册面），
+    //   引擎按「工厂名+camp」识别——每轮首个存活同名单位实例化一次、每个同名单位都 register、
+    //   实例保留供主循环相位调度（不收 declarations，与原特判分支一致）。
+    //   原联动工厂查询为死代码（全库无此注册、恒 undefined），已删——真联动在 core/10 跟随攻击链。
     const factories = getEliteFactories();
-    let sisterComp = null;
-    let brotherComp = null;
+    const roundCompSpecs = getRoundComponentNames();
+    const roundComps = [];
+    const roundCompByName = new Map();
     const allUnits = [...A, ...B];
     for (const u of allUnits) {
         if (!u.alive) continue;
-        if (u.isXiaoZhaoSister && u.camp === CAMP_TYPES.ALLY) {
-            const Factory = factories.get('小昭·姊');
-            if (Factory && !sisterComp) sisterComp = Factory();
-            if (sisterComp) sisterComp.register(eventBus, A, B, log);
-        } else if (u.isXiaoZhaoBrother && u.camp === CAMP_TYPES.ALLY) {
-            const Factory = factories.get('小昭·妹');
-            if (Factory && !brotherComp) brotherComp = Factory();
-            if (brotherComp) brotherComp.register(eventBus, A, B, log);
-        } else {
+        const rcCamp = roundCompSpecs.get(u.name);
+        if (rcCamp !== undefined && u.camp === rcCamp) {
             const Factory = factories.get(u.name);
             if (Factory) {
-                const comp = Factory();
-                if (comp.declarations) declaredSkills.push(...comp.declarations);
+                let comp = roundCompByName.get(u.name);
+                if (!comp) { comp = Factory(); roundCompByName.set(u.name, comp); roundComps.push(comp); }
                 comp.register(eventBus, A, B, log);
             }
+            continue;
+        }
+        const Factory = factories.get(u.name);
+        if (Factory) {
+            const comp = Factory();
+            if (comp.declarations) declaredSkills.push(...comp.declarations);
+            comp.register(eventBus, A, B, log);
         }
     }
     installDeclaredSkills(eventBus, A, B, log, declaredSkills);
     installFromGameData(eventBus, A, B, log, getGameData());
-    const xuanmingFactory = factories.get('玄冥联动');
-    if (xuanmingFactory) xuanmingFactory(eventBus);
 
-    const song = B.find(u => u.isSongQingshu && u.alive);
-    const zhou = B.find(u => u.isZhouZhiruo && u.alive);
-    if (song && zhou) { Object.assign(song.state, { _linkedPartnerUid: zhou.uid }); Object.assign(zhou.state, { _linkedPartnerUid: song.uid }); }
-    const lu = B.find(u => u.isLuZhangKe && u.alive);
-    const he = B.find(u => u.isHeBiWeng && u.alive);
-    if (lu && he) { Object.assign(lu.state, { _linkedPartnerUid: he.uid }); Object.assign(he.state, { _linkedPartnerUid: lu.uid }); }
+    // 2026-10-08 V7.5.13 搭档连线泛化：配对知识在英雄模块侧注册（原两对搭档内联连线）；
+    //   原版仅扫敌方 B，保持
+    for (const [partnerA, partnerB] of getLinkPartnerPairs()) {
+        const ua = B.find(u => u.name === partnerA && u.alive);
+        const ub = B.find(u => u.name === partnerB && u.alive);
+        if (ua && ub) { Object.assign(ua.state, { _linkedPartnerUid: ub.uid }); Object.assign(ub.state, { _linkedPartnerUid: ua.uid }); }
+    }
 
     A.forEach(u => { if (u.alive) resetStateFields(u.state); });
     B.forEach(u => { if (u.alive) resetStateFields(u.state); });
@@ -181,7 +171,7 @@ function prepareRoundStart(A, B, log, state, round, rng) {
         }
         let stats = computeBuffStats(u, A._activeBuffs || [], allyTeamWithDead);
 
-        applyHolyFlameBonus(u, A._activeBuffs || [], hasSisterForHolyFlame, log);
+        applyHolyFlameBonus(u, A._activeBuffs || [], isHolyFlameEnhanced(A), log);   // 2026-10-08 增强判定迁注册面（modules/27）
         applyFortifyBonus(u, A._activeBuffs || []);
         applyCarryBonus(u, A, state, log);
 
@@ -236,12 +226,10 @@ function prepareRoundStart(A, B, log, state, round, rng) {
 
     logBuffSummary(A, log, doubleStrikeUnitUid);
 
-    if (round === 1 && A.some(u => u.isXiaoZhaoSister && u.alive)) {
-        A._flyDirection = A._flyDirection || 'left';
-    }
+    // 2026-10-08 默认飞行方向迁回合组件 register（幂等 ||=，无人中途清空 → 每轮设与首轮设等价）
 
     const roundStartEvents = flushBattleEvents();
-    return { doubleStrikeUnitUid, roundStartEvents, sisterComp, brotherComp };
+    return { doubleStrikeUnitUid, roundStartEvents, roundComps };
 }
 
 export function* createRoundStepper(state, { ui = true, translateFacts = null } = {}) {
@@ -281,7 +269,7 @@ export function* createRoundStepper(state, { ui = true, translateFacts = null } 
         stageActions: ui && translateFacts ? translateFacts(logs) : []
     });
 
-    const { doubleStrikeUnitUid, roundStartEvents, sisterComp, brotherComp } = prepareRoundStart(A, B, log, state, round, rng);
+    const { doubleStrikeUnitUid, roundStartEvents, roundComps } = prepareRoundStart(A, B, log, state, round, rng);
 
     yield makeStep(log, roundStartEvents);
     log = [];
@@ -297,19 +285,14 @@ export function* createRoundStepper(state, { ui = true, translateFacts = null } 
             B._pendingStateTransitions = [];
         }
         eventBus.emit(SIGNAL_TYPES.BEFORE_STATE_TRANSITION, { A, B, log, declarations: stateTransitions });
+        // 2026-10-08 V7.5.13 状态迁移通用分发（原 sisterComp/brotherComp if-else 链）：
+        //   路由表在 modules/27 注册，deferred 的攒下回合、即时的当场执行
         const delayedDecls = [];
         for (const decl of stateTransitions) {
-            if (decl.type === 'butterflyAttach') {
-                sisterComp.executeAttach(A, log);
-            } else if (decl.type === 'butterflyReturn') {
-                delayedDecls.push(decl);
-                continue;
-            } else if (decl.type === 'spiderFly') {
-                brotherComp.executeFly(decl.unit, decl.incomingDmg, A, log);
-            } else if (decl.type === 'spiderDescend') {
-                delayedDecls.push(decl);
-                continue;
-            }
+            const spec = getStateTransitionSpec(decl.type);
+            if (!spec) continue;
+            if (spec.deferred) { delayedDecls.push(decl); continue; }
+            spec.dispatch(roundComps, decl, A, B, log);
         }
         if (delayedDecls.length > 0) {
             if (!A._pendingStateTransitions) A._pendingStateTransitions = [];
@@ -325,12 +308,13 @@ export function* createRoundStepper(state, { ui = true, translateFacts = null } 
 
         for (const u of sortedByPos) {
             if (u.state._stunned) { passUnits.push({ unit: u, reason: '眩晕' }); continue; }
-            // 2026-09-23 拒马 / 谢逊幼狮：「不会攻击」不是身份硬编码，而是攻=0 的自然结果。
+            // 2026-09-23 拒马 / 幼狮：「不会攻击」不是身份硬编码，而是攻=0 的自然结果。
             //   一旦被振奋之类的加攻词条抬到 >0，就放行进正常攻击流程（职业是防战 → core/12 走防战公式）。
             if (u.isHorse && getStat(u, 'atk') <= 0) { passUnits.push({ unit: u, reason: '拒马休息' }); continue; }
             if (u.isLionCub && getStat(u, 'atk') <= 0) { passUnits.push({ unit: u, reason: '幼狮休息' }); continue; }
-            // 2026-09-17 张三丰不攻击：轮到他走"生生不息"休息，走 pass 通道而不是攻击流程
-            if (u.isZhangSanfeng) { passUnits.push({ unit: u, reason: '生生不息' }); continue; }
+            // 2026-09-17 「不争」者不攻击：轮到他走"生生不息"休息，走 pass 通道而不是攻击流程
+            //   2026-10-08 改数据旗：endlessBreath 由 content 技能声明驱动（applyHeroFlags 自动设）
+            if (u.endlessBreath) { passUnits.push({ unit: u, reason: '生生不息' }); continue; }
             if (u.state._flyMode === 'butterfly' || u.state._flyMode === 'spider' || u.state._spiderFlying || (u._fsm && u._fsm.is('flying'))) { passUnits.push({ unit: u, reason: '飞天/附身' }); continue; }
             const fullAllySide = u.camp === CAMP_TYPES.ALLY ? A : B;
             const fullEnemySide = u.camp === CAMP_TYPES.ALLY ? B : A;
@@ -360,14 +344,17 @@ export function* createRoundStepper(state, { ui = true, translateFacts = null } 
 
     while (A.some(u => u.alive && !u.state._acted) || B.some(u => u.alive && !u.state._acted)) {
         const currentTeam = currentSide === CAMP_TYPES.ALLY ? A : B;
+        // 2026-10-08 V7.5.13 首个友方回合相位（原蝶附身触发内联版）：回合组件实现 onFirstAllyTurn
+        //   钩子（组件自找目标触发附身），返回 true = 插播一段演出，主循环 yield 一步
         if (currentSide === CAMP_TYPES.ALLY && !A._butterflyTriggered) {
             A._butterflyTriggered = true;
-            const sisterForAttach = A.find(u => u.isXiaoZhaoSister && u.alive && !u.state._stunned && !u.state._butterflyHost);
-            if (sisterForAttach) {
-                sisterComp.executeAttach(A, log);
-                const attachEvents = flushBattleEvents();
-                yield makeStep(log, attachEvents);
-                log = [];
+            for (const comp of roundComps) {
+                if (typeof comp.onFirstAllyTurn !== 'function') continue;
+                if (comp.onFirstAllyTurn(A, B, log)) {
+                    const attachEvents = flushBattleEvents();
+                    yield makeStep(log, attachEvents);
+                    log = [];
+                }
             }
         }
         const candidates = currentTeam.filter(u => u.alive && !u.state._acted).sort((a, b) => a.pos - b.pos);
@@ -440,10 +427,11 @@ export function* createRoundStepper(state, { ui = true, translateFacts = null } 
         let done = false;
         if (!allyAlive) { winner = '六大派'; done = true; }
         else if (!enemyAlive) { winner = '明教'; done = true; }
-        // 2026-09-17 张三丰不争：六大派仅剩他一人 → 明教直接获胜（防拖成平局）
+        // 2026-09-17 不争（防拖平局）：敌方仅剩「不争」单位 → 明教直接获胜
+        //   2026-10-08 V7.5.13 改数据旗：noContend 由 content 技能声明驱动（applyHeroFlags 自动设），引擎不认英雄
         else {
             const bAlive = B.filter(u => u.alive);
-            if (bAlive.length === 1 && bAlive[0].isZhangSanfeng) {
+            if (bAlive.length === 1 && bAlive[0].noContend) {
                 winner = '明教'; done = true;
                 log.push({ factType: FACT_TYPES.NO_CONTEND, data: { unitName: bAlive[0].name } });
             }
@@ -459,8 +447,8 @@ export function* createRoundStepper(state, { ui = true, translateFacts = null } 
                 const key = decl.type + ':' + (decl.unit?.uid || decl.sister?.uid || '');
                 if (seenKeys.has(key)) continue;
                 seenKeys.add(key);
-                if (decl.type === 'butterflyReturn') sisterComp.executeReturn(decl.sister, A, log);
-                else if (decl.type === 'spiderDescend') brotherComp.executeDescend(decl.unit, A, B, log);
+                const wSpec = getStateTransitionSpec(decl.type);
+                if (wSpec && wSpec.deferred) wSpec.dispatch(roundComps, decl, A, B, log);
             }
         }
 
@@ -477,8 +465,8 @@ export function* createRoundStepper(state, { ui = true, translateFacts = null } 
         const key = decl.type + ':' + (decl.unit?.uid || decl.sister?.uid || '');
         if (seenKeys2.has(key)) continue;
         seenKeys2.add(key);
-        if (decl.type === 'butterflyReturn') sisterComp.executeReturn(decl.sister, A, log);
-        else if (decl.type === 'spiderDescend') brotherComp.executeDescend(decl.unit, A, B, log);
+        const eSpec = getStateTransitionSpec(decl.type);
+        if (eSpec && eSpec.deferred) eSpec.dispatch(roundComps, decl, A, B, log);
     }
 
     const { winner, done, endEvents } = finalizeRoundEnd(A, B, log, round);
