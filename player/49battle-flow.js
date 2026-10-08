@@ -40,11 +40,14 @@ export async function handleBuffSelection(c, nextActiveBuffs, camp = CAMP_TYPES.
             const duration = CONFIG.BUFFS[pick].duration || CONFIG.BUFF_DURATION || 4;
             newBuff = createBuffObject(pick, duration, camp);
             // 小昭·妹永久海克斯仅明教适用
+            //   2026-10-08 补查重（手选路径 20 addPermanentBuff 有守卫，全自动路径此前裸塞可重复堆同名海克斯）
             if (camp === CAMP_TYPES.ALLY && c.store) {
                 const xiaoZhao = c.store.getState().units.find(u => u.isXiaoZhaoBrother && u.alive);
                 if (xiaoZhao) {
                     if (!xiaoZhao.state._permanentBuffs) Object.assign(xiaoZhao.state, { _permanentBuffs: [] });
-                    xiaoZhao.state._permanentBuffs.push({ ...newBuff, remaining: Infinity });
+                    if (!xiaoZhao.state._permanentBuffs.some(b => b.key === newBuff.key)) {
+                        xiaoZhao.state._permanentBuffs.push({ ...newBuff, remaining: Infinity });
+                    }
                 }
             }
         }

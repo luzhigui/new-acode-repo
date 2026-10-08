@@ -152,7 +152,16 @@ GlobalStore.setUIHandler('swapAllyPositions', swapAllyPositions);
 
 // ---- 联网对战阶段3：阵容 / 站位 / 海克斯双向 ----
 // 从机收到的单位是普通对象（infra/60 reviveUnit 的产物，没有 Unit 方法），浅拷贝 + 单拷 state 即可
-function clonePlainUnit(u) { return { ...u, state: { ...(u.state || {}) } }; }
+// 2026-10-08 V7.5.20 跨局泄漏修复（老板 22:04 报「妹哪来的巨马」）：回放/联机灌入的单位浅拷时
+//   **洗掉妹的永久海克斯清单**（_permanentBuffs）——这清单是「本局内不过期」语义，跨局残留=上局记忆
+//   泄漏进新局（回放把旧单位灌回现场且不清场，妹带着上局永久巨马阵，新局 R1 就出马）。
+//   本局选的海克斯照常走 handleBuffSelection/addPermanentBuff 写入，不受影响；只杀跨局残留。
+//   引擎消费点（modules/27 妹组件马生成、core/12 流云身法）读不到旧条目即恢复默认行为。
+function clonePlainUnit(u) {
+    const state = { ...(u.state || {}) };
+    if (u.isXiaoZhaoBrother && Array.isArray(state._permanentBuffs)) delete state._permanentBuffs;
+    return { ...u, state };
+}
 
 // 从机不跑 doInitBattle，labelEnemy 的关卡文案没有别的地方会写（房主侧由 ui/65 写），统一走这里
 function setGuestStageLabel(stage) {
