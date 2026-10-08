@@ -1,3 +1,15 @@
+// V2.9.0 | 2026-10-08 第 59 轮：给 harness 加**新鲜度守卫**（第 5 次栽在 harness，且是最隐蔽的一次）。
+//   现象：`--report` 拿 **9-29 16:25** 的 teeth-results.txt，配 10-02 两改过的判据（V2.7.0 判定顺序 /
+//   V2.8.0 baseline 增量口径）渲染 ⇒ 屏幕上写着「T2 ❌装饰品(真盲区)」，而该结论**根本不是当前代码跑出来的**。
+//   危害：连续多轮把 T2/T7 记成"真盲区留待后续"，实际是**陈旧数据的幽灵**——比判据写错更糟，
+//   因为它连"错在哪"都不显示，只显示一个看似新鲜的结论。
+//   修法：① `--emit-run` 把 VER / 变异表指纹 MUTFP / HEAD / 时间戳写进结果文件头部（#META 行）；
+//        ② `--report` 逐项比对（判据文件 mtime > 结果文件 mtime ⇒ 判据已更新 ⇒ 陈旧；MUTFP/VER 不符 ⇒ 陈旧；
+//           有变异表条目缺结果块 ⇒ 覆盖不全；变异树目录 mtime > 结果 mtime ⇒ 树已重建未重跑）。
+//        命中任一项 **硬失败退 1** 并逐条点名，`--allow-stale` 才能放行（且仍打印横幅）。
+//   同轮第二处：TEXT 变异（"日志写错、实际没变"）命中数只按 `检出重复应用 N 处` 计量，
+//   而该方向在对照器里落的是**「偏差（声明>实际，少加/多报）」**而非"重复应用" ⇒ 恒 0 ⇒ 误判装饰品。
+//   新增 `偏差` 汇总的**增量**计量（相对 _base 干净树），让 T2/T7 这类方向也能被判据看见。
 // V2.8.0 | 2026-10-02 第 58 轮：修baseline 段判定口径（第 4 次栽在 harness）—— `baselineChanged`原是
 //   「与**录制基线**比」，而主代码进行中的 dotTick 让**干净树自己**就报 3 场 winner 翻转红线
 //   ⇒ 干净树 changed=true ⇒ 任何变异的 changed 恒 true ⇒ no-op 变异也被算成「至少基线兜底」。
@@ -40,9 +52,10 @@
 //   1) node tests/mutation-teeth.mjs --emit-prep  > /tmp/prep.sh  &&  bash /tmp/prep.sh
 //   2) node tests/mutation-teeth.mjs --emit-run   > /tmp/run.sh   &&  bash /tmp/run.sh
 //   3) node tests/mutation-teeth.mjs --report
-export const VER = 'tests/mutation-teeth.mjs V2.8.0';
+export const VER = 'tests/mutation-teeth.mjs V2.9.0';
 
 import { spawnSync } from 'node:child_process';
+import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -165,8 +178,10 @@ const MUTATIONS = [
       to:   "targetName: target.name, reduce: reduce + 5 }" },
     { id: 'T2', kind: 'TEXT', desc: '坚盾日志 increment 多写 5（实际未变）',
       file: 'core/03battle-utils.js',
-      from: "data: { unitName: unit.name, label, increment, current: fortifyThisRound + increment, cap }",
-      to:   "data: { unitName: unit.name, label, increment: increment + 5, current: fortifyThisRound + increment, cap }" },
+      // V2.9.0：锚点已失效（主代码给 fact 补了 unitUid，原 from 串 0 处 ⇒ sed 注入了个寂寞、树=干净树），
+      //   而 judge 对 TEXT 无条件判 effective ⇒ 「没注入」被当成「规则没牙」⇒ T2 长期挂着假真盲区。锚点同步到现行串。
+      from: "data: { unitName: unit.name, unitUid: unit.uid, label, increment, current: fortifyThisRound + increment, cap }",
+      to:   "data: { unitName: unit.name, unitUid: unit.uid, label, increment: increment + 5, current: fortifyThisRound + increment, cap }" },
     // --- 第 43 轮新增：专测「fact 已发、数值写错」—— 检验规则侧（而非对照器）对这些 fact 有没有牙 ---
     //   背景：主代码 V6.0.3 补发了 METEOR_SPLASH_GROWTH（此前枚举/渲染/翻译链接好却零 emit）。
     //   补发之后，真正的风险变成「fact 发了但没人校验它的数值」—— 只有 TEXT 变异能证伪这件事：
@@ -243,6 +258,80 @@ function toPosix(p) {
     return p.replace(/^([A-Za-z]):/, (m, d) => '/' + d.toLowerCase()).replace(/\\/g, '/');
 }
 
+// 新鲜度守卫（V2.9.0）：返回陈旧原因数组；空数组 = 结果配得上当前代码。
+// 四项检查，任一项命中即判陈旧：
+//   ① 判据文件（本文件）mtime 晚于结果文件 ⇒ 判定代码已更新，结果没重跑
+//   ② 结果头部的 VER / 变异表指纹 MUTFP 与当前不符
+//   ③ 当前 MUTATIONS 里有条目在结果里没有结果块（覆盖不全）
+//   ④ 任一变异树目录 mtime 晚于结果文件 ⇒ 树已重建（叠加了新工作树/新注入）却没重跑
+function checkFreshness(txt, resultsPath) {
+    const why = [];
+    const meta = {};
+    for (const line of txt.split('\n')) {
+        const m = line.match(/^#META\s+(\w+)=(.*)$/);
+        if (m) meta[m[1]] = m[2].trim();
+    }
+    const resMtime = fs.statSync(resultsPath).mtimeMs;
+    // ① 判据文件比结果新
+    try {
+        const selfMtime = fs.statSync(fileURLToPath(import.meta.url)).mtimeMs;
+        if (selfMtime > resMtime) {
+            why.push(`判据文件 mutation-teeth.mjs 比结果文件新（${fmt(selfMtime)} > ${fmt(resMtime)}）—— 判定逻辑改过，结果没重跑`);
+        }
+    } catch (e) { /* 拿不到 mtime 不拦 */ }
+    // ② VER / MUTFP
+    if (!meta.VER) why.push('结果文件缺少 #META VER 头（V2.9.0 之前的旧结果，无法证明配得上当前判据）');
+    else if (meta.VER !== VER) why.push(`判据版本不符：结果由 ${meta.VER} 生成，当前 ${VER}`);
+    const fpNow = mutFingerprint();
+    if (!meta.MUTFP) why.push('结果文件缺少 #META MUTFP 头（无法证明变异表未变）');
+    else if (meta.MUTFP !== fpNow) why.push(`变异表指纹不符：结果侧 ${meta.MUTFP}，当前 ${fpNow} —— 变异改过，结果没重跑`);
+    // ③ 覆盖不全
+    const missing = MUTATIONS.filter(m => !txt.includes(`##### MUT m-${m.id} #####`)).map(m => m.id);
+    if (!txt.includes('##### MUT _base #####')) missing.unshift('_base');
+    if (missing.length) why.push(`结果覆盖不全（${missing.length} 条缺结果块）：${missing.join('、')}`);
+    // ④ 树比结果新
+    const newerTrees = [];
+    for (const id of ['_base', ...MUTATIONS.map(m => 'm-' + m.id)]) {
+        const d = path.join(MUT_ROOT, id);
+        try {
+            if (fs.existsSync(d) && fs.statSync(d).mtimeMs > resMtime) newerTrees.push(id);
+        } catch (e) { /* ignore */ }
+    }
+    if (newerTrees.length) why.push(`变异树已重建但未重跑（${newerTrees.length} 棵 mtime 晚于结果）：${newerTrees.slice(0, 8).join('、')}${newerTrees.length > 8 ? '…' : ''}`);
+    return why;
+}
+
+// 实证「变异串是否真落进那棵树」（V2.9.0）。--verify 只查**当前仓库**有没有 from，
+//   查的是"现在能不能注入"；这里查的是"当时那棵树里到底有没有 to" —— 只有后者能证明跑的是变异树而非干净树。
+//   （prep 之后主代码又被改过、或 from 在 prep 时已被改写，都只有这一步能抓到。）
+function checkInjected(mut) {
+    const fp = path.join(MUT_ROOT, 'm-' + mut.id, mut.file);
+    if (!fs.existsSync(fp)) return { ok: false, why: `树内没有 ${mut.file}（prep 未跑或树缺失）` };
+    let src = '';
+    try { src = fs.readFileSync(fp, 'utf8'); } catch (e) { return { ok: false, why: `读不到 ${fp}` }; }
+    let n = 0, idx = 0;
+    while ((idx = src.indexOf(mut.to, idx)) !== -1) { n++; idx += mut.to.length; }
+    if (n === 0) {
+        return { ok: false, why: `变异串在树内 0 处 —— 锚点失效，sed 没替换成功，这棵树=干净树（结论全部作废）` };
+    }
+    return { ok: true, n };
+}
+
+function fmt(ms) {
+    // 用本地时间（ISO 会显示成 UTC，与用户看到的「文件修改时间」差 8 小时，容易误判谁更新）
+    try {
+        const d = new Date(ms), p2 = n => String(n).padStart(2, '0');
+        return `${d.getFullYear()}-${p2(d.getMonth() + 1)}-${p2(d.getDate())} ${p2(d.getHours())}:${p2(d.getMinutes())}`;
+    } catch (e) { return String(ms); }
+}
+
+// 变异表指纹（V2.9.0）：结果文件必须记录**生成它时的变异表**，否则变异改了、结果没重跑，
+// 报告照样渲染 ⇒ 又一次"旧结果配新判据"。只取会影响注入结果的字段（顺序+内容）。
+function mutFingerprint() {
+    const sig = MUTATIONS.map(m => [m.id, m.kind, m.file, m.from, m.to, !!m.multi].join('\u0001')).join('\u0002');
+    return crypto.createHash('sha1').update(sig).digest('hex').slice(0, 12);
+}
+
 // BRE 转义：sed 基本正则里这些字符需反斜杠转义才能按字面匹配。
 // 注意 `(` `)` `{` `}` 在 BRE 里本就是字面量，不要转义；只转 `. * ^ $ [ ] \`。
 // 早期用 \Q...\E（Perl/PCRE 语法）在 GNU sed 下完全不生效，导致变异静默未注入（树木=干净树）。
@@ -262,6 +351,8 @@ function breEscape(s) {
 //   必须比对**报红明细文本**：同一条规则若因本次变异报出了基线里没有的新文案/新场次，才算真有牙。
 // ★ 第 58 轮：_base 干净树的 baseline 段指纹（整段文本归一化排序后拼接）。judge 用它做增量判定。
 let BASE_SIG = null;
+// V2.9.0：干净树自己的「偏差」条数基准（实测 BREAK_DEF 跨子步 2 条）。偏差只看增量，不看绝对值。
+let BASE_MISMATCH = 0;
 
 function judge(mut, FP0, R, B, S, stf, baseRed, baseDetails) {
     // ★ 第 58 轮：baselineChanged 改为**相对 _base 干净树的增量**判定。
@@ -283,8 +374,12 @@ function judge(mut, FP0, R, B, S, stf, baseRed, baseDetails) {
     const newRed = [...new Set(cleanPairs.map(p => p.rule))];
     const newDetail = cleanPairs.map(p => p.detail).filter(d => !bDet.has(d));
     const masked = (R.pairs || []).filter(p => bRed.has(p.rule) && !bDet.has(p.detail));
+    // V2.9.0：对照器「偏差」方向命中（TEXT 变异的"声明写大 ⇒ 少加/多报"落在这里，statTotal 恒 0）。
+    //   同样取**相对干净树的增量**，避免把干净树固有的 2 条 BREAK_DEF 偏差当成有牙。
+    const mismatchDelta = (typeof S.statMismatch === 'number' ? S.statMismatch : 0) - BASE_MISMATCH;
+    const statHit = S.total > 0 || mismatchDelta > 0;
     const effective = mut.kind === 'TEXT' || newDetail.length > 0 || newRed.length > 0
-        || baselineChanged || fpChanged || S.total > 0;
+        || baselineChanged || fpChanged || statHit;
     if (R.crash) return { verdict: '回放器异常', effective, baselineChanged, fpChanged, newDetail, newRed, masked };
     if (!effective) return { verdict: '未观测到影响', effective, baselineChanged, fpChanged, newDetail, newRed, masked };
     // 规则侧：只认「基线不红的规则」报出的新红
@@ -299,8 +394,9 @@ function judge(mut, FP0, R, B, S, stf, baseRed, baseDetails) {
         //   （`✗ 检出重复应用 223 处` + 逐条「少加 5」），却被判成「装饰品(真盲区)」。
         //   TEXT 类本就是「专测 fact 文本有没有牙」（第 43 轮立意），对照器抓到却当没抓到，
         //   是最坏的假盲区 —— 会让人误以为该机制完全没人管。正确顺序同 ATTR：规则 → 对照器 → 装饰品。
-        if (S.total > 0) {
-            const via = `(+对照器命中 ${S.total})`;
+        if (statHit) {
+            const via = S.total > 0 ? `(+对照器命中 ${S.total})`
+                                    : `(+对照器偏差 ${mismatchDelta})`;
             if (baselineChanged) return { verdict: '规则无牙·对照器兜底' + via, effective, baselineChanged, fpChanged, newDetail, newRed, masked };
             return { verdict: '对照器有牙' + via, effective, baselineChanged, fpChanged, newDetail, newRed, masked };
         }
@@ -357,9 +453,16 @@ async function main() {
         const ids = ['_base', ...MUTATIONS.map(m => m.id)];
         const lines = [
             '#!/usr/bin/env bash', 'set -e',
+            'REPO="$(git rev-parse --show-toplevel)"',
             `MUTROOT="${toPosix(MUT_ROOT)}"`,
             'OUT="$MUTROOT/teeth-results.txt"',
             ': > "$OUT"',
+            // V2.9.0 新鲜度守卫的结果侧：把「生成这份结果时的判据版本 / 变异表指纹 / HEAD / 时间」写进头部。
+            //   --report 端据此判断结果是否还配得上当前代码 —— 旧结果配新判据 = 假结论，必须拦。
+            `echo "#META VER=${VER}" >> "$OUT"`,
+            `echo "#META MUTFP=${mutFingerprint()}" >> "$OUT"`,
+            'echo "#META HEAD=$(git -C "$REPO" rev-parse --short HEAD 2>/dev/null || echo unknown)" >> "$OUT"',
+            'echo "#META AT=$(date -Iseconds)" >> "$OUT"',
             'for id in ' + ids.map(i => i === '_base' ? '_base' : 'm-' + i).join(' ') + '; do',
             '  d="$MUTROOT/$id"',
             '  [ -d "$d" ] || { echo "跳过缺失树 $d"; continue; }',
@@ -373,7 +476,9 @@ async function main() {
             '  echo "BASELINE:" >> "$OUT"',
             '  ( cd "$d" && node tests/140-baseline.js --check 2>/dev/null | grep -E "BASELINE-MATCH|回归|场与基线不一致|DIFF" ) >> "$OUT" || true',
             '  echo "STAT:" >> "$OUT"',
-            '  ( cd "$d" && node tests/stat-decl-vs-actual-check.mjs 2>/dev/null | grep -E "重复应用命中|命中明细|✅|✗" ) >> "$OUT" || true',
+            // V2.9.0：STAT 段补抓「偏差」汇总行 —— TEXT 变异（声明写大 ⇒ 少加/多报）在对照器里
+            //   落的是**偏差**计数，不打「检出重复应用」；旧 grep 没抓它 ⇒ 命中恒 0 ⇒ 误判装饰品。
+            '  ( cd "$d" && node tests/stat-decl-vs-actual-check.mjs 2>/dev/null | grep -E "重复应用命中|命中明细|✅|✗|偏差" ) >> "$OUT" || true',
             '  echo "FP:" >> "$OUT"',
             '  ( cd "$d" && node tests/stat-decl-vs-actual-check.mjs --fingerprint 2>/dev/null | grep -E "FINGERPRINT" ) >> "$OUT" || true',
             '  echo "" >> "$OUT"',
@@ -422,6 +527,20 @@ async function main() {
             process.exit(1);
         }
         const txt = fs.readFileSync(resultsPath, 'utf8');
+        // ===== V2.9.0 新鲜度守卫 =====
+        // 旧结果 + 新判据 = 假结论（本轮实例：9-29 的结果配 10-02 的判据，屏幕上仍写着
+        // 「T2 ❌装饰品(真盲区)」，而那根本不是当前代码跑出来的）。宁可硬失败，也不让陈旧结论冒充真值。
+        const stale = checkFreshness(txt, resultsPath);
+        if (stale.length) {
+            console.log('❌❌ 结果文件已陈旧 —— 下述结论**不代表当前代码**，请勿据此下判断：');
+            for (const s of stale) console.log('   · ' + s);
+            if (!argv.includes('--allow-stale')) {
+                console.log('\n处置：重跑 `node tests/mutation-teeth.mjs --emit-prep` / `--emit-run` 生成新结果；'
+                    + '确需先看旧结论请加 `--allow-stale`（仍会打横幅）。');
+                process.exit(1);
+            }
+            console.log('   （--allow-stale 已放行：以下为陈旧结果，仅供参考）\n');
+        }
         const blocks = txt.split(/^##### MUT (\S+) #####$/m).slice(1); // [id, body, id, body, ...]
         const parsed = {};
         for (let i = 0; i < blocks.length; i += 2) {
@@ -435,8 +554,9 @@ async function main() {
         let BASE_RED = [], BASE_DETAILS = [];
         if (b) {
             BASE_SIG = b.baselineSig ?? null;
+            BASE_MISMATCH = (typeof b.statMismatch === 'number' ? b.statMismatch : 0);
             BASE_RED = b.red || []; BASE_DETAILS = b.details || [];
-            console.log(`[对照·未变异 _base] 规则报红 ${b.red.length} 条（明细 ${BASE_DETAILS.length} 条）· 基线 ${b.match === 18 ? 'MATCH 18' : (b.changed ? '已变' : '?')} · 对照器命中 ${b.statTotal} · 指纹 ${b.fp}`);
+            console.log(`[对照·未变异 _base] 规则报红 ${b.red.length} 条（明细 ${BASE_DETAILS.length} 条）· 基线 ${b.match === 18 ? 'MATCH 18' : (b.changed ? '已变' : '?')} · 对照器命中 ${b.statTotal} · 偏差 ${BASE_MISMATCH} · 指纹 ${b.fp}`);
             if (b.red.length || b.statTotal > 0 || b.changed || !b.fp) {
                 // 第 43 轮：不再一票否决。干净树有红时改走「增量判定」—— 用 _base 的红/明细做底噪扣除，
                 // 结论仍可用（且能顺带证明这条红是**既有 bug**而非变异引入），只是必须显式标注。
@@ -462,9 +582,19 @@ async function main() {
             if (!p) { console.log(`⏭ 缺 ${m.id} 结果`); continue; }
             const R = { red: p.red, details: p.details || [], pairs: p.pairs || [], crash: p.crash };
             const B = { match: p.match, changed: p.changed, baseSig: p.baselineSig };
-            const S = { total: p.statTotal };
+            const S = { total: p.statTotal, statMismatch: p.statMismatch };
             const stf = { fp: p.fp };
             const j = judge(m, FP0, R, B, S, stf, BASE_RED, BASE_DETAILS);
+            // V2.9.0：实证「变异到底注进树里没有」。锚点失效时（主代码改写了 from 串）sed 替换 0 处，
+            //   树 = 干净树，跑出来的一切都是「没变化」——而 judge 对 TEXT 无条件判 effective，
+            //   于是「没注入」被渲染成「规则没牙 / 装饰品(真盲区)」，是最坏的假结论（T2 挂了好几轮就是这么来的）。
+            const inj = checkInjected(m);
+            if (!inj.ok) {
+                rows.push({ mut: m, red: p.red, verdict: '⚠锚点失效·结论作废', effective: false,
+                    baselineChanged: j.baselineChanged, fpChanged: j.fpChanged, newDetail: [], newRed: [], masked: [],
+                    why: inj.why });
+                continue;
+            }
             rows.push({ mut: m, red: p.red, ...j });
         }
         summarize(rows);
@@ -521,15 +651,24 @@ function parseBlock(body) {
     const baselineSig = baseline.split('\n').map(s => s.trim()).filter(Boolean).sort().join('\n');
     const changed = !!baseline.match(/回归|场与基线不一致/) || (match !== null && match < 18);
     let statTotal = 0;
+    // V2.9.0：对照器「偏差」方向（声明 > 实际 ⇒ 少加 / 多报）的**总条数**。
+    //   行形如 `BREAK_DEF    声明  610 条 · 命中 0 · 歧义跳过 8 · 严格比对  539 条 / 偏差 2`。
+    //   与 statTotal（重复应用）互补：超应用抓 statTotal，少加/多报抓 statMismatch。
+    //   ⚠️ 只看**相对 _base 的增量**（干净树本身就有 2 条 BREAK_DEF 跨子步偏差），绝对值无分辨力。
+    let statMismatch = 0;
     for (const line of stat.split('\n')) {
         // stat-decl 汇总行：命中时 `✗ 检出重复应用 N 处`（N>0）；干净树为 `✅ 全部数值声明…（无重复应用）`（无此行）。
         // ⚠️ 旧正则 `重复应用命中\s+(\d+)` 与 stat-decl 实际文案「检出重复应用 N 处」不匹配，导致严格命中的契约
         //   （如 A20/A21/A22）在 harness 里被错算成 0、误判为「仅基线兜底」—— 此 bug 会让「有牙」结论失真，故改之。
         const m = line.match(/检出重复应用\s+(\d+)\s+处/);
         if (m) statTotal += Number(m[1]);
+        // ⚠️ 别在「声明」后加 ：JS 的  只在 \w([A-Za-z0-9_]) 边界成立，中文两侧恒无边界
+        //   ⇒ `声明` 永远匹配不上 ⇒ 偏差恒 0（首版就栽这：_base 明明 BREAK_DEF 偏差 2 却显示 0）。
+        const mm = line.match(/^([A-Z][A-Z_0-9]*)\s+声明.*?偏差\s+(\d+)/);
+        if (mm) statMismatch += Number(mm[2]);
     }
     const fpM = fp.match(/FINGERPRINT\s+([0-9a-f]+)/);
-    return { red, details, pairs, crash, match, changed, baselineSig, statTotal, fp: fpM ? fpM[1] : null };
+    return { red, details, pairs, crash, match, changed, baselineSig, statTotal, statMismatch, fp: fpM ? fpM[1] : null };
 }
 
 function summarize(rows) {
@@ -547,6 +686,12 @@ function summarize(rows) {
     const baselineOnly = rows.filter(r => has(r, '仅基线兜底'));
     const confirmed = rows.filter(r => has(r, '待确认盲区'));
     const noEffect = rows.filter(r => has(r, '未观测到影响'));
+    // V2.9.0：锚点失效的树 = 干净树，它的一切结论都作废，**且不许混进真盲区**（否则又会造出 T2 那种假盲区）。
+    const deadAnchor = rows.filter(r => has(r, '锚点失效'));
+    if (deadAnchor.length) {
+        console.log(`\n⚠⚠ 锚点失效·结论作废 ${deadAnchor.length} 处 —— 树=干净树，跑的不是变异（**必须修锚点后重跑**，不可据此判"没牙"）：`);
+        for (const r of deadAnchor) console.log(`   · ${r.mut.id} ${r.mut.desc} —— ${r.why || ''}`);
+    }
     // 第 57 轮：TEXT 类有牙单列一段（fact 文本被对照器抓到，与 ATTR 的"规则无牙·对照器兜住"是两回事：
     //   ATTR 是规则本该管但让给了对照器；TEXT 是专测 fact 文本，对照器抓到就是真有牙）。
     const textHasTeeth = rows.filter(r => has(r, '对照器有牙'));
