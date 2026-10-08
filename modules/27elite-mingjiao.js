@@ -1,10 +1,11 @@
+// V6.6.0 | 2026-10-08 回合钩子注册（core/11 特判收口）：小昭·姊/妹登记回合组件、圣火令增强判定+行列重画变换器、四条状态迁移分发闭包迁入本文件；姊组件新增 onFirstAllyTurn 相位钩子与默认飞行方向（均从 core/11 逐字迁移）
 // V6.5.0 | 2026-10-07 乾坤衍生/狮群振奋受益池收编 getBenefitTargets 裁判（core/03）——乾坤衍生补上垂死/_spiderFlying/FSM附身/不可选排除，振奋行为不变口径归一
 // V6.4.8 | 2026-10-06 乾坤衍生治疗/加攻候选池排除附身中的姐姐（_flyMode='butterfly' 蝶形态不是地面作战单位，老板拍板：附身后不吃自己乾坤加成，未附身仍可被选）
 // V6.4.7 | ~50800 bytes | 2026-10-03 蝶变飞回（宿主存活路径）补清 _untargetable——此前漏清致姐姐飞回后整场不可被选，敌方越列打她身后队友（体检139零承伤真根因）
 // V6.4.6 | ~50700 bytes | 2026-10-02 吸血参数查找 'leech' 改用 MECHANIC_EFFECT_TYPES.ON_HIT.LEECH 枚举（mechanics type 同源治理）
 export const VER = 'modules/27elite-mingjiao.js V6.4.9';
 
-import { registerElite } from '../core/08-elite-registry.js';
+import { registerElite, registerRoundComponent, registerBuffRoundTransformer, registerStateTransition, registerHolyFlameEnhancer } from '../core/08-elite-registry.js';
 import { CONFIG, getSkillParams, getMechanicField } from '../core/01config-5v5-test.js';
 import { hasBuff, getZhangNearTaunt, getBenefitTargets } from '../core/03battle-utils.js';
 import { spawnHorse, spawnUnit } from '../core/05battle-horse.js';
@@ -203,6 +204,9 @@ export function createXiaoZhaoSisterComponent() {
             return fsm;
         },
         register(eventBus, A, B, log) {
+            // 2026-10-08 从 core/11 迁入：姊在场 → 友方默认飞行方向 left（幂等 ||=；
+            //   原版只在 round===1 设、无人中途清空 _flyDirection，每轮重设等价）
+            A._flyDirection = A._flyDirection || 'left';
             const sister = A.find(u => u.isXiaoZhaoSister && u.alive && !u.state._stunned);
             if (!sister) return;
             const fsm = this._buildFsm(sister, A, log);
@@ -417,6 +421,15 @@ export function createXiaoZhaoSisterComponent() {
             if (!sister.alive || !sister.state._butterflyHost) return;
             const fsm = sister._fsm;
             if (fsm && fsm.is('attached')) fsm.transition('returning', { log });
+        },
+        // 2026-10-08 从 core/11 迁入的相位钩子（原蝶附身触发内联版）：
+        //   首个友方回合开始时找可附身的姊（未眩晕、未附身）触发附身；
+        //   返回 true = 插播了演出（主循环 yield 一步）——与原版「预检通过即 yield」口径一致
+        onFirstAllyTurn(A, B, log) {
+            const sisterForAttach = A.find(u => u.isXiaoZhaoSister && u.alive && !u.state._stunned && !u.state._butterflyHost);
+            if (!sisterForAttach) return false;
+            this.executeAttach(A, log);
+            return true;
         },
     };
 }
@@ -815,3 +828,39 @@ registerElite('韦一笑', createWeiYixiaoComponent);
 registerElite('小昭·姊', createXiaoZhaoSisterComponent);
 registerElite('小昭·妹', createXiaoZhaoBrotherComponent);
 registerElite('金毛狮王谢逊', createXieXunComponent);
+
+// —— 2026-10-08 V7.5.13 回合钩子注册（core/11 特判收口）：小昭的知识搬回小昭家 ——
+// 回合组件：姊/妹工厂产的是带相位方法的组件（onFirstAllyTurn/executeAttach/executeFly…），
+// 主循环工厂循环按此标记保留实例调度（原 core/11 小昭特判分支的泛化）
+registerRoundComponent('小昭·姊', CAMP_TYPES.ALLY);
+registerRoundComponent('小昭·妹', CAMP_TYPES.ALLY);
+
+// 圣火令增强判定（数值加成消费，applyHolyFlameBonus 第三参）：姊在场即增强——
+//   原 core/11 hasSisterForHolyFlame 变量的泛化，与下行行列重画同一语义
+registerHolyFlameEnhancer(A => A.some(u => u.isXiaoZhaoSister && u.alive));
+
+// 圣火令增强：姊在场时每回合重画覆盖行列（原 core/11 hexEnhance 内联版逐字迁移；
+// 同位置同条件画 rng，序不变——140 基线二分保障）
+registerBuffRoundTransformer(BUFF_TYPES.HOLY_FLAME, (buff, rng, A, B) => {
+    if (!(buff.target === CAMP_TYPES.ALLY || !buff.target)) return buff;
+    const hasSisterForHolyFlame = A.some(u => u.isXiaoZhaoSister && u.alive);
+    const hexEnhanceParams = getSkillParams('小昭', 'hexEnhance');
+    if (!hexEnhanceParams) throw new Error('缺技能参数: 小昭.hexEnhance');
+    const holyFlameEnhance = hasSisterForHolyFlame ? hexEnhanceParams.holyFlame : null;
+    const holyColCount = holyFlameEnhance ? holyFlameEnhance.atkCols : 1;
+    const holyRowCount = holyFlameEnhance ? holyFlameEnhance.defRows : 2;
+    const cols = [];
+    while (cols.length < holyColCount) { const c = rng.nextInt(1, 3); if (!cols.includes(c)) cols.push(c); }
+    cols.sort((a, b) => a - b);
+    const rows = [];
+    while (rows.length < holyRowCount) { const r = rng.nextInt(1, 3); if (!rows.includes(r)) rows.push(r); }
+    rows.sort((a, b) => a - b);
+    return { ...buff, cols, rows };
+});
+
+// 状态迁移声明的通用分发（原 core/11 的 sisterComp/brotherComp if-else 链；
+// dispatch 闭包适配各方法签名，deferred=攒到下回合/回合末）
+registerStateTransition('butterflyAttach', { deferred: false, dispatch(comps, decl, A, B, log) { for (const c of comps) if (typeof c.executeAttach === 'function') { c.executeAttach(A, log); return; } } });
+registerStateTransition('butterflyReturn', { deferred: true, dispatch(comps, decl, A, B, log) { for (const c of comps) if (typeof c.executeReturn === 'function') { c.executeReturn(decl.sister, A, log); return; } } });
+registerStateTransition('spiderFly', { deferred: false, dispatch(comps, decl, A, B, log) { for (const c of comps) if (typeof c.executeFly === 'function') { c.executeFly(decl.unit, decl.incomingDmg, A, log); return; } } });
+registerStateTransition('spiderDescend', { deferred: true, dispatch(comps, decl, A, B, log) { for (const c of comps) if (typeof c.executeDescend === 'function') { c.executeDescend(decl.unit, A, B, log); return; } } });

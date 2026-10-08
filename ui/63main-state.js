@@ -58,8 +58,10 @@ GlobalStore.setUIHandler('tickBuffDurations', () => {
 GlobalStore.setUIHandler('fadeBGMTo', (targetVol, durationMs) => { AudioManager.fadeTo(targetVol, durationMs); });
 GlobalStore.setUIHandler('showBattleReport', showBattleReport);
 GlobalStore.setUIHandler('showBuffPopup', showBuffPopup);
-// 2026-09-14 去 window 桥：计分徽章统一走通道（原 window.updateScoreBadge 已删）
-GlobalStore.setUIHandler('updateScoreBadge', () => { const ctx = getPlayerContext(); if (ctx && ctx.updateScoreBadge) ctx.updateScoreBadge(); });
+// updateScoreBadge 的桥 2026-10-08 删除：V7.5.12 卫生包把真身迁到 player/47（顶层注册 UIHandler），
+//   infra/54 的 playerCtx.updateScoreBadge 同时改为「取 UIHandler 再调用」的通道——
+//   这座旧桥（转回 playerCtx.updateScoreBadge）与通道互相调用 = 初始化即爆栈（线上 RangeError）。
+//   删后：47 加载前静默 no-op（与 updateUI 兄弟行为一致），加载后直通真身。
 GlobalStore.setUIHandler('updateButtons', updateButtons);
 GlobalStore.setUIHandler('enableAllButtons', enableAllButtons);
 GlobalStore.setUIHandler('updateSpeedButtons', updateSpeedButtons);

@@ -65,7 +65,7 @@ export const ALL_PROJECT_FILES = [
     '../ui/60main-utils.js', '../ui/61main-5v5-test.js', '../ui/62ui-render-5v5-test.js',
     '../ui/63main-state.js', '../ui/64main-dialogs.js', '../ui/65main-battle.js',
     '../ui/66audio-control.js', '../ui/67fx-trigger.js', '../ui/68ui-controls.js',
-    '../ui/69reset-runtime.js', '../ui/70buff-dialog.js',
+    '../ui/74reset-runtime.js', '../ui/70buff-dialog.js',
     '../ui/71tutorial.js', '../ui/72opening-cg.js', '../ui/73voice-panel.js',
     // fx（特效）
     '../fx/80fx-common-5v5-test.js', '../fx/81fx-arrows-5v5-test.js', '../fx/82fx-crash-5v5-test.js',

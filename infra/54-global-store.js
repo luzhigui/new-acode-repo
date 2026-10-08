@@ -177,30 +177,10 @@ function waitWhilePaused() {
         check();
     });
 }
-function autoScrollLog() {
-    if (GlobalStore.get('userScrolled')) return;
-    const logDiv = document.getElementById('log');
-    if (logDiv) logDiv.scrollTop = logDiv.scrollHeight;
-}
-function onLogUserScroll() {
-    const logDiv = document.getElementById('log');
-    if (!logDiv) return;
-    const distToBottom = logDiv.scrollHeight - logDiv.scrollTop - logDiv.clientHeight;
-    GlobalStore.set('userScrolled', distToBottom > 10);
-}
-function updateScoreBadge() {
-    if (typeof document === 'undefined') return;
-    const badge = document.getElementById('scoreBadge');
-    if (!badge) return;
-    const score = _state.voteScore;
-    // holyToken 被登记为战斗态 key（51 的 _battleStateKeys），GlobalStore.set 会把它
-    // 路由进 _battleState，_state.holyToken 恒 undefined → 徽章永远显示 🔥0。
-    // 必须走 GlobalStore.get 才能拿到正确的路由结果。
-    const token = GlobalStore.get('holyToken');
-    const displayScore = (score === null || score === undefined) ? 0 : score;
-    const displayToken = (token === null || token === undefined) ? 0 : token;
-    badge.innerHTML = `🏆 ${displayScore}分 🔥${displayToken}`;
-}
+// 2026-10-08 V7.5.12 去 DOM（外部AI复核稿 ②，老板批）：autoScrollLog / onLogUserScroll / updateScoreBadge
+//   三个 DOM 函数体迁出 infra → player/47renderer.js（日志/徽章渲染本就归它，badge 直改在那也有先例）。
+//   playerContext 两项改走 UIHandler 间接通道（与上方 updateUI 等兄弟同款，消费方签名零改动）；
+//   onLogUserScroll 全库零调用，直接火化不迁移。infra 从此不摸 document。
 // 2026-09-14 去 window 桥：delete window.updateScoreBadge / window._getPlayerContext。
 // 页面内消费方一律 import 或走 UIHandler；这两个挂载点全库已无引用。
 
@@ -264,9 +244,9 @@ export function getPlayerContext() {
         enableAllButtons: () => { const fn = GlobalStore.getUIHandler('enableAllButtons'); if (fn) fn(); },
         updateSpeedButtons: () => { const fn = GlobalStore.getUIHandler('updateSpeedButtons'); if (fn) fn(); },
         waitWhilePaused,
-        autoScrollLog,
-        onLogUserScroll,
-        updateScoreBadge,
+        // 2026-10-08 V7.5.12：DOM 实现迁 player/47，此处只留 UIHandler 间接通道（消费方 c.autoScrollLog() / c.updateScoreBadge() 调用方式不变）
+        autoScrollLog: () => { const fn = GlobalStore.getUIHandler('autoScrollLog'); if (fn) fn(); },
+        updateScoreBadge: () => { const fn = GlobalStore.getUIHandler('updateScoreBadge'); if (fn) fn(); },
         tickBuffDurations: () => { const fn = GlobalStore.getUIHandler('tickBuffDurations'); if (fn) fn(); },
         fadeBGMTo: (targetVol, durationMs) => { const fn = GlobalStore.getUIHandler('fadeBGMTo'); if (fn) fn(targetVol, durationMs); },
         _scheduler: null,

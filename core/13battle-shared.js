@@ -1,3 +1,4 @@
+// V7.5.15 | 2026-10-08 击退撞「天上/附身单位」改判退无可退→眩晕（老板定调飞天原格不被换位；探针实锤旧版会把天上蝶蛛拽去换位——1号被击退时4号飞天妹pos被换到1）。判据与 getFronts/惑心换位同口径
 // V6.2.1 | ~15400 bytes | 2026-10-02 checkZhangSwitch 前排判定与 27 组件 watcher 同口径：改为「同列无 pos 更小的存活非马队友」（他成为该列最前排才切），修后排边界硬切
 export const VER = 'core/13battle-shared.js V6.2.1';
 
@@ -149,11 +150,16 @@ function moveUnitPosition(unit, newPos, log) {
 // 击退 / 眩晕统一判定（乘风突袭、胖远桥·年轻气盛共用）：
 //   目标后方一格（pos+3）可用 → 击退：有人则换位、无人则移动；
 //   越界（7/8/9 号位往后推）→ 退无可退，改为眩晕一回合（_stunned 回合级，回合开始自动清）。
+//   2026-10-08 V7.5.15 身后格被「天上/附身单位」占着 → 同样退无可退 → 眩晕（老板定调：飞天/附身
+//   期间原格保留、不被换位——旧版 find 只查 pos+alive，会把天上的蝶蛛拽去换位。判据与核心循环
+//   getFronts / 惑心换位同口径：_spiderFlying / _flyMode 蝶蛛 / _butterflyHost / FSM attached·flying）。
 // team 必须是目标自己那一队（换位/落点判断都在本队内找）。
 function resolvePushOrStun(target, team, log, label) {
     if (!target || !target.alive) return;
     const behindPos = target.pos + 3;
-    if (behindPos <= 9) {
+    const isAirborne = (u) => !!(u.state && (u.state._spiderFlying || u.state._butterflyHost || u.state._flyMode === 'spider' || u.state._flyMode === 'butterfly')) || !!(u._fsm && (u._fsm.is('attached') || u._fsm.is('flying')));
+    const behindBlockedByAir = behindPos <= 9 && team.some(u => u.alive && u.pos === behindPos && isAirborne(u));
+    if (behindPos <= 9 && !behindBlockedByAir) {
         const behindUnit = team.find(u => u.pos === behindPos && u.alive);
         const oldPos = target.pos;
         if (behindUnit) {

@@ -1,6 +1,7 @@
+// V6.1.0 | 2026-10-08 蛛落改回原格优先（老板定稿）：自己是几号位先落哪，被占按原格+1 环形顺延；一切存活队友（拒马/狮子/天上蝶蛛/附身者）都算占格——旧版后排优先且把拒马当空气，会落进拒马格子（seed15 stage5 体检 pos 冲突案）
 // V6.0.7 | 2026-10-06 妹蛛落地打击目标池统一走 canBeTargeted：不打天上的蝶/蛛、不打不可选单位（与主攻击门禁同口径）
 // V6.0.6 | ~12400 bytes | 2026-10-03 乾坤大挪移保护域改为**跟随张无忌实时位置的四邻格**（前后左右；站 5 号时恰为旧版 2/4/6/8），升级/基础两档同口径
-export const VER = 'modules/20elite-skills.js V6.0.7';
+export const VER = 'modules/20elite-skills.js V6.1.0';
 
 import { CONFIG, getSkillParams } from '../core/01config-5v5-test.js';
 import { getRoleBonus, getHpDmgRatio } from '../core/02unit.js';
@@ -167,8 +168,14 @@ export function spiderReturn(unit, allyTeam, enemySide, log) {
     Object.assign(unit.state, { _spiderFlying: false, _flyMode: null });
     unit.state._acted = false;
 
-    const order = [4, 5, 6, 7, 8, 9, 1, 2, 3];
-    const occupied = new Set(allyTeam.filter(a => a.alive && !a.isHorse && a.uid !== unit.uid).map(a => a.pos));
+    // 2026-10-08 落格规矩（老板定稿）：回原格优先——自己是几号位先落哪，原格被占再按「原格+1 环形顺延」
+    //   （7 → 8,9,1,2,3,4,5,6）。一切存活队友都算占格：拒马/狮子/召唤物/天上的蝶/蛛/附身者（旧版
+    //   后排优先 [4,5,6...] 且把拒马当空气，会一头落进拒马格子——seed15 stage5 R9 重叠案，体检不变量
+    //   「pos 冲突」即此）。飞天期间 pos 不动（自己原格天然保留），anchor 即原格。
+    const anchor = unit.pos || 4;
+    const order = [];
+    for (let i = 0; i < 9; i++) order.push(((anchor - 1 + i) % 9) + 1);
+    const occupied = new Set(allyTeam.filter(a => a.alive && a.uid !== unit.uid).map(a => a.pos));
     for (const p of order) {
         if (!occupied.has(p)) { unit.pos = p; break; }
     }

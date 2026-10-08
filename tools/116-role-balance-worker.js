@@ -137,6 +137,32 @@ function runBalanceJob(buildAlly, buildEnemy, seed, hexEnabled) {
 // 导致被 force 的精英按"单精英"评、未 force 的按"多精英"评，四列不同尺子不可比。
 // 现改为：每关跑 runs 局普通对局（出率/站位/海克斯全走引擎原逻辑），
 // 一局结束看谁在场，就把这局的结果记给谁（同场共现是真实环境，不是污染）。
+// 2026-10-08 单英雄胜率（112「⚔ 单英雄胜率」按钮）：force 单精英 + 轮盘互锁（29 V7.5.16 起
+// 张/韦/谢逊/小昭四路 force 全部抑制随机轮盘）= 每局明教侧只有这一个精英。
+// 口径与普通评测一致：海克斯开、种子公式同款；胜 = 明教获胜。小昭姊/妹走 forceXiaoZhao 形态值。
+function runSoloEliteJob(stage, seed, runs, elite) {
+    const keyMap = { '张无忌': 'forceZhang', '韦一笑': 'forceWei', '金毛狮王谢逊': 'forceXieXun' };
+    const isXz = elite === '小昭·姊' || elite === '小昭·妹';
+    let wins = 0, valid = 0, sumSurv = 0, sumDmg = 0, sumTaken = 0;
+    for (let i = 0; i < runs; i++) {
+        clearBattleGlobals();   // 注意：clear 会清 force，每场都要在 clear 之后重设
+        if (isXz) GlobalStore.set('forceXiaoZhao', elite === '小昭·姊' ? 'sister' : 'brother');
+        else GlobalStore.set(keyMap[elite], true);
+        const initRng = new SeededRNG(seed + i * 7919);
+        const teams = initBattleTeams(stage, initRng);
+        const ally = teams.allyTeam.map(u => u.clone());
+        if (!ally.length) continue;
+        GlobalStore.set('battleHasZhang', ally.some(u => u.isZhang));
+        const res = runWholeBattle(ally, teams.enemyTeam, seed + i * 7919, true);
+        if (!res.winner) continue;
+        valid++;
+        if (res.winner === '明教') wins++;
+        const me = (res.ally || []).find(u => u.isZhang || u.isWei || u.isXiaoZhaoSister || u.isXiaoZhaoBrother || u.isXieXun);
+        if (me) { if (me.alive) sumSurv++; sumDmg += me.dmgDealt || 0; sumTaken += me.dmgTaken || 0; }
+    }
+    return { elite, runs: valid, wins, sumSurv, sumDmg, sumTaken };
+}
+
 function runEliteStageJob(stage, seed, runs) {
     // 2026-09-24 定稿：胖远桥/宋青书是"行"不是"列"——第3关阵容在两人间轮换，
     // 按"本局敌方是谁"把整局分进对应变体桶（胖远桥/宋青书/标准），112 端每个桶渲染一行。
@@ -486,6 +512,9 @@ self.onmessage = (e) => {
         } else if (kind === 'elite') {
             const { stage, seed, runs } = e.data;
             result = runEliteStageJob(stage, seed, runs);
+        } else if (kind === 'soloElite') {
+            const { stage, seed, runs, elite } = e.data;
+            result = runSoloEliteJob(stage, seed, runs, elite);
         } else if (kind === 'stats') {
             const { stage, seed, runs } = e.data;
             result = runStatsStageJob(stage, seed, runs);

@@ -1,6 +1,6 @@
 {
-  "version": "5.6.22",
-  "updated": "2026-10-02",
+  "version": "5.6.24",
+  "updated": "2026-10-08",
 
   "roles": {
     "战士": { "icon": "⚔️", "label": "战士", "bonus": { "atk": 3, "def": 3, "maxHp": 30 } },
@@ -294,13 +294,13 @@
       "skills": {
         "endlessBreath": {
           "name": "生生不息",
-          "desc": "不攻击；每回合开始回复最大生命{healPct}%，轮到自己行动时再触发一次。回血同时永久加成，攻或防随机二选一：实际回血每{healAtkDiv}点→攻+1、每{healDefDiv}点→防+1；溢出每{overflowAtkDiv}点→攻+1、每{overflowDefDiv}点→防+1（每档至少+{minBonus}；加成记在血量落点单位身上）",
-          "params": { "healPct": 0.16, "healAtkDiv": 20, "healDefDiv": 10, "overflowAtkDiv": 10, "overflowDefDiv": 5, "minBonus": 1 }
+          "desc": "不攻击；每回合开始回复最大生命{healPct}%；轮到自己行动时与八卦阵触发均需消耗{atkCost}点攻击力（攻不足则不触发）。回血同时永久加成，攻或防随机二选一：实际回血每{healAtkDiv}点→攻+1、每{healDefDiv}点→防+1；溢出每{overflowAtkDiv}点→攻+1、每{overflowDefDiv}点→防+1（每档至少+{minBonus}；加成记在血量落点单位身上）",
+          "params": { "healPct": 0.16, "healAtkDiv": 20, "healDefDiv": 10, "overflowAtkDiv": 10, "overflowDefDiv": 5, "minBonus": 1, "atkCost": 3 }
         },
         "baguaArray": {
           "name": "八卦阵",
-          "desc": "被攻击时{procChance}%概率自身攻击-{atkCost}（自身攻击>{atkFloor}才触发）、防御+{defGain}，并立即触发一次生生不息",
-          "params": { "procChance": 0.5, "atkFloor": 2, "atkCost": 1, "defGain": 1 }
+          "desc": "被攻击时{procChance}%概率消耗自身{atkCost}点攻击力，立即触发一次生生不息（攻击不足{atkCost}时不触发）",
+          "params": { "procChance": 0.5, "atkCost": 3 }
         },
         "noContend": {
           "name": "不争",
@@ -339,6 +339,11 @@
           "name": "近战切换",
           "desc": "成为所在列最前排（同列前方无存活友军）时切换近战形态，攻/防/血提升为战士职业加成的 {atkMul}/{defMul}/{maxHpMul} 倍，近战3次后融会贯通",
           "params": { "atkMul": 3, "defMul": 3, "maxHpMul": 3 }
+        },
+        "holyTokenLuck": {
+          "name": "圣火令",
+          "desc": "击杀敌人时，圣火令掉落概率为正常的{multiplier}倍",
+          "params": { "multiplier": 4 }
         }
       },
       "taunts": {
