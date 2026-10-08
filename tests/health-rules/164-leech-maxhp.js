@@ -10,7 +10,8 @@
 // 复活信号：
 //   1) maxHpDelta 非有限数 / <0 → 增量算坏（取整/漏值，会污染永久词条）
 //   2) newMaxHp 非有限数 / 非整数 / ≤0 → 目标上限算坏
-//   3) 同单位相邻两次吸血：newMaxHp 下降 → 上限被错误回写；newMaxHp 上升却 maxHpDelta==0 → 增量漏写
+//   3) 同单位相邻两次吸血：本击 newMaxHp 上升却 maxHpDelta<=0 → 增量漏写
+//      （不查"newMaxHp 倒退"：游戏有降上限 debuff，两次吸血间上限会被合法削低，对照器偏差恒 0 已证非 bug）
 // 误报规避：本场无 WEI_LEECH fact 直接 skip；同单位相邻比对只在确有前序事实时进行；韦一笑为唯一 emit 方。
 export const VER = 'tests/health-rules/164-leech-maxhp.js V1.0.0';
 import { FACT_TYPES } from '../../infra/56-battle-enums.js';
@@ -35,19 +36,18 @@ export const rule111 = {
             if (typeof d.newMaxHp !== 'number' || !isFinite(d.newMaxHp) || !Number.isInteger(d.newMaxHp) || d.newMaxHp <= 0) {
                 return { fail: true, msg: '复发：吸血上限 newMaxHp=' + d.newMaxHp + '（应为正整数目标上限）' };
             }
-            // 判据3：同单位相邻单调 + 增量漏写（韦一笑为唯一 emit 方，上限只增不减）
+            // 判据3：同单位相邻漏写（韦一笑为唯一 emit 方）。
+            //   ⚠️ 不查"newMaxHp 倒退"：游戏存在降低最大生命机制（削减/降上限 debuff），两次吸血之间
+            //     单位上限会被合法削低，newMaxHp 下降是真实现象（对照器 stat-decl LEECH_MAXHP 偏差恒 0 已证数值无误）。
+            //     唯一不可能为假的矛盾 = 本击上限上升（newMaxHp>前序）却 maxHpDelta<=0（增量漏写）：
+            //     因 delta = 本击 newMaxHp_raw − 本击前 cur，而 cur ≤ 前序 newMaxHp（上限只降不升除非本击），
+            //     故 newMaxHp>前序 ⇒ delta>0 ⇒ maxHpDelta>0，二者矛盾即漏写。
             const uid = d.unitUid || d.unitName || null;
             if (uid) {
                 const prev = seqByUid[uid];
-                if (prev) {
-                    if (d.newMaxHp < prev.newMaxHp) {
-                        return { fail: true, msg: '复发：吸血上限 newMaxHp 倒退（' + prev.newMaxHp + '→' + d.newMaxHp
-                            + '，unit=' + uid + '），上限被错误回写' };
-                    }
-                    if (d.newMaxHp > prev.newMaxHp && d.maxHpDelta <= 0) {
-                        return { fail: true, msg: '复发：吸血上限 newMaxHp 上升(' + prev.newMaxHp + '→' + d.newMaxHp
-                            + ') 但 maxHpDelta=' + d.maxHpDelta + '（增量漏写）' };
-                    }
+                if (prev && d.newMaxHp > prev.newMaxHp && d.maxHpDelta <= 0) {
+                    return { fail: true, msg: '复发：吸血上限 newMaxHp 上升(' + prev.newMaxHp + '→' + d.newMaxHp
+                        + ') 但 maxHpDelta=' + d.maxHpDelta + '（增量漏写）' };
                 }
                 seqByUid[uid] = { newMaxHp: d.newMaxHp, maxHpDelta: d.maxHpDelta };
             }
