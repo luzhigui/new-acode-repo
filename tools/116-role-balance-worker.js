@@ -1,3 +1,4 @@
+// V1.6.0 | 2026-10-08 新增 kind:'soloElite'（runSoloEliteJob）：force 单精英跑批（依赖 modules/29 V7.5.16 四路 force 轮盘互锁），胜率/存活/输出/承伤，口径与普通评测同款——112「⚔ 单英雄胜率」按钮的消费端
 // V1.5.0 | ~27100 bytes | 2026-10-06 carry 候选过滤（pickHexBuff / hexPicker）：import modules/28buff-tools.hasCarryTarget，
 //        无 carry 位（5 号；小昭·姊在场放宽 4/5/6）则不进候选，与 101 主线程版逐字同口径
 // V1.4.0 | 2026-10-02 新增 kind:'paired'（110 成对置换对照）：buildRandomTeam 加 force 参数（骰子照掷保持 rng 消耗流逐位一致），
