@@ -1,3 +1,0 @@
-# 超过 GitHub 100MiB 普通文件硬限制的 3D 工作目录大文件，走 Git LFS（2026-10-02）
-zzr-3d-view/_v_scene.js filter=lfs diff=lfs merge=lfs -text
-zzr-3d-view/周芷若-新版3D-原件.html filter=lfs diff=lfs merge=lfs -text
