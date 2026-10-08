@@ -1,4 +1,4 @@
-// V1.0.0 | ~5200 bytes | 2026-09-26 第 25 轮：把每轮靠「临时探针现写现删」做的四方登记核对，做成常驻检查。
+// V1.0.0 | ~8600 bytes | 2026-09-26 第 25 轮：把每轮靠「临时探针现写现删」做的四方登记核对，做成常驻检查。
 // 干什么：一条命令核对规则文件的四处登记是否齐全 ——
 //   tests/health-rules/*.js  ↔  121health-monitor.js（import 装载）
 //   ↔ 124rule-recipes.js（RULE_META 登记）↔ 123static-scan.js（SCAN_FILES）
@@ -17,7 +17,10 @@
 //   旧版只核「import 语句在不在」，而 import 只负责装载、真正执行靠 `allRules` 数组；
 //   153/154/155 三条就是只补了 import、数组长期停在 rule99，浏览器侧体检**从未跑过它们**
 //   （node 侧 rules-replay 是自动扫目录，所以一直没暴露）。只查 import = 检查器自己在放假绿。
-export const VER = 'tests/registration-check.mjs V1.1.1';
+// V1.2.0 | 2026-10-08 修 import↔allRules 解析的别名盲区：121 用 `import { rule156 as rule103 }`（156 导出名按文件号），
+//   旧正则要求 `(rule\d+)\s*}` 紧邻花括号，别名项隔着 ` as ` 整条漏匹配，rule103 被误判「数组引用未 import」硬失败（假红）。
+//   改为拆分花括号逐项解析，取**本地绑定名**（as 后的别名优先，与 allRules 引用一致）。
+export const VER = 'tests/registration-check.mjs V1.2.0';
 
 import { readdir, readFile } from 'node:fs/promises';
 
@@ -71,7 +74,16 @@ async function main() {
     // ============ 第 50 轮新增：121 内部「import ↔ allRules 数组」一致性 ============
     // 只 import 不进数组 = 浏览器侧该规则从不执行；只进数组不 import = 直接 ReferenceError。
     // 两者都不会被旧版检查发现，故各自单列为一类硬失败。
-    const imported = [...t121.matchAll(/import\s*\{\s*(rule\d+)\s*\}\s*from\s*'\.\/health-rules\//g)].map(m => m[1]);
+    // 解析 121 规则 import 的**本地绑定名**（allRules 引用的就是本地名）。
+    // 必须支持别名 `import { rule156 as rule103 }`：旧正则要求 `(rule\d+)\s*}` 紧邻花括号，
+    // 别名项隔着 ` as ` 整条漏匹配 ⇒ rule103 被误判「数组引用未 import」假红（V1.2.0，2026-10-08）。
+    const imported = [];
+    for (const im of t121.matchAll(/import\s*\{([^}]*)\}\s*from\s*'\.\/health-rules\//g)) {
+        for (const part of im[1].split(',')) {
+            const mm = part.match(/(rule\d+)(?:\s+as\s+(rule\d+))?/);
+            if (mm) imported.push(mm[2] || mm[1]); // 有别名取本地绑定名，否则取原名
+        }
+    }
     const arrBlock = t121.match(/const\s+allRules\s*=\s*\[([\s\S]*?)\]/);
     const inArray = arrBlock ? [...arrBlock[1].matchAll(/rule\d+/g)].map(m => m[0]) : [];
     const dangling = imported.filter(r => !inArray.includes(r));   // import 了但不执行
