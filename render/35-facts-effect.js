@@ -80,9 +80,7 @@ export function renderBuffSummaryFact(buff, allyTeamUids, doubleStrikeUid) {
                 }
             }
             break;
-        case BUFF_TYPES.DOUBLE_STRIKE:
-            break;
-        case BUFF_TYPES.MIND_CONTROL:
+        case BUFF_TYPES.MIND_CONTROL:   // 2026-10-08 清死码：DOUBLE_STRIKE 空分支删（连击无 buff 概要行，外部AI清单#6）
             return {type:'buff-summary', text:`<span class="gold">🌀 惑人心智：最前排80%扰乱敌方换位，40%扰乱己方换位</span>`, buffType: BUFF_SUBTYPES.BUFF_STAT};
         case BUFF_TYPES.CARRY:
             let carryUnit = allyTeam.find(u => u.pos === 5 && u.alive);

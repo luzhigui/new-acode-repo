@@ -16,7 +16,7 @@ import { stripTags, renderGrid, updateUI, setRenderStore, spawnVictoryEffects, c
 import { showDanmaku, showDamageFloat, showDodgeBubble, showHealFloat, VER as FX_VER } from '../fx/80fx-common-5v5-test.js';
 import { showRangedArrow, VER as FA_VER } from '../fx/81fx-arrows-5v5-test.js';
 import { showMeleeCrash, showMeleeDodge, showMeleeMiss, VER as FC_VER } from '../fx/82fx-crash-5v5-test.js';
-import { playBattle, playLineText, clearAllEffects, handleBuffSummon, handleBuffDestroy, VER as BP_VER } from '../player/44battle-player-5v5-test.js';
+import { playBattle, playLineText, clearAllEffects, VER as BP_VER } from '../player/44battle-player-5v5-test.js';   // 2026-10-08 清死import：handleBuff 两名在本文函数体零使用（真身在 41，42 内部调用）
 import { showModal, showAlert, updateCoverVersion, copyLogToClipboard, initBugAndXiaoZhaoModes } from './60main-utils.js';
 import { BUFF_TYPES, CAMP_TYPES } from '../infra/56-battle-enums.js';
 import { hasCarryTarget } from '../modules/28buff-tools.js';
@@ -782,7 +782,7 @@ document.addEventListener('DOMContentLoaded', async function() {
         abortController = result.abortController; setState.waitingForNextRound(result.waitingForNextRound); isBattleStarting = result.isBattleStarting; setState.adjustMode(result.adjustMode); setState.selectedAdjustPos(result.selectedAdjustPos); setState.activeBuffs(result.activeBuffs); currentDoubleStrikeUid = result.currentDoubleStrikeUid;
         setState.gs(S.IDLE);setState.isPaused(false);setState.waitingForNextRound(false);isBattleStarting=false;
         try { updateUI(); } catch(e){}
-        updateButtons();enableAllButtons();updateSpeedButtons();updateSpeedButtons();
+        updateButtons();enableAllButtons();updateSpeedButtons();   // 2026-10-08 清死重：连调两次删其一
     }
 
     function doManualReset(){

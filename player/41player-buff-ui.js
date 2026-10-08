@@ -10,15 +10,7 @@ import { CAMP_TYPES } from '../infra/56-battle-enums.js';
 import { clock } from '../infra/52-clock.js';
 import { getCellByPos } from '../fx/90fx-ref-manager.js';
 
-
-let ctx = null;
-function getCtx() {
-    if (!ctx) ctx = GlobalStore.get('playerContext');
-    return ctx;
-}
-
-export function setBuffUIContext(c) { ctx = c; }
-
+// 2026-10-08 清死码：getCtx（文内无人调）与 setBuffUIContext（44 转口 import 后无人调用）删除（外部AI清单#7）
 export async function handleHolyTokenDrop(c, entry) {
     // 2026-09-23 修复卡死：原代码先 c.isPaused=true 再 clock.wait——isPaused 经 GlobalStore 触发 clock.pause()，
     // 时钟冻结后 wait 的 dueAt 永远到不了，圣火令一掉落整局死锁。播放循环本就 await 本函数（顺序播放），

@@ -348,6 +348,4 @@ export function registerDoubleStrike(eventBus, doubleStrikeUnitUid, allyTeam, ac
     });
 }
 
-export function registerEmptyColBonus(eventBus) {
-    // 空列和残血光环已改为纯函数 getAuraBonuses 实时计算，不再需要事件监听
-}
+// 2026-10-08 清死码：registerEmptyColBonus 空壳（光环已改纯函数实时计算，外部AI清单#5）连同 core/11 调用点一并删除
