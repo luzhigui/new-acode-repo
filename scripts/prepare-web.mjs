@@ -10,7 +10,10 @@ const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const webDir = join(root, 'web');
 
 // 需要打进 APK 的目录（测试/文档/构建产物不入包）
-const copyDirs = ['assets', 'content', 'core', 'fx', 'infra', 'modules', 'player', 'render', 'ui', 'tools'];
+// 2026-10-08 摘除 tools/（504K，含 TXT、output/ 等离线工具与产物；运行时零依赖已核——
+// 全库仅 dev-index.html 的调试链接指向 tools/，而 APK 不加载 dev-index 入口）。
+// tools 页面继续走 GitHub Pages 网页版访问，不受本脚本影响。
+const copyDirs = ['assets', 'content', 'core', 'fx', 'infra', 'modules', 'player', 'render', 'ui'];
 
 rmSync(webDir, { recursive: true, force: true });
 mkdirSync(webDir, { recursive: true });

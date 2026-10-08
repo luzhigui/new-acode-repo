@@ -1,5 +1,6 @@
+// V7.5.12 | 2026-10-08 改号 69→74（同号双文件：69-role-cards 占 69），逻辑零改动
 // V6.0.0 | 2026-08-19 import 路径合并至 infra/51
-export const VER = 'ui/69reset-runtime.js V6.0.0';
+export const VER = 'ui/74reset-runtime.js V7.5.12';
 
 import { GlobalStore } from '../infra/54-global-store.js';
 import { setRenderStore } from './62ui-render-5v5-test.js';
