@@ -1,5 +1,5 @@
 // V6.5.0 | ~29900 bytes | 2026-10-04 ①格子节点复用：9 个 div 建一次、之后只重填内容，不再每帧 innerHTML='' 全删全建（click 改一次性绑定 + 槽位现取单位）；复用会激活 .cell 的 transition: background 0.6s，故每帧重填前置 transition:none 并全程保持 → 底色仍是「瞬切」，观感与改动前完全一致 ②格子图标 7 分支 if/else 链改查 ui/69-role-cards.js 名片表
-export const VER = 'render/32-grid-render.js V6.5.0';
+export const VER = 'render/32-grid-render.js V6.5.1';
 
 import { getUnitCol, getUnitRow, getAuraBonuses, getDodgeRules, fmtHp } from '../infra/51-core-utils.js';
 import { CONFIG, getSkillDesc } from '../core/01config-5v5-test.js';
@@ -76,7 +76,7 @@ function runGridShake(el, durationMs) {
     const origTransform = el.style.transform || '';
     const origBg = el.style.background || '';
     el.style.transition = 'background 0.1s ease';
-    el.style.background = '#ffd700';
+    el.style.background = 'var(--c-gold-bright)';
     let bgCleared = false;
     // 2026-09-16 改走 clock：与全场特效同步缩放/暂停（原 rAF+Date.now 是统一时间层漏改）
     clock.animate(durationMs, (p) => {
@@ -372,22 +372,22 @@ export function renderGrid(id, camp) {
         const initAtk = latestUnit.state._initAtk !== undefined ? Math.round(latestUnit.state._initAtk) : displayAtk;
         const totalChange = displayAtk - initAtk;
         let atkDisplayHtml = `${displayAtk}`;
-        if (totalChange > 0) atkDisplayHtml = `<span style="color:#daa520;font-weight:bold;">${displayAtk}</span>`;
-        else if (totalChange < 0) atkDisplayHtml = `<span style="color:#c0392b;font-weight:bold;">${displayAtk}</span>`;
+        if (totalChange > 0) atkDisplayHtml = `<span style="color:var(--c-gain);font-weight:bold;">${displayAtk}</span>`;
+        else if (totalChange < 0) atkDisplayHtml = `<span style="color:var(--c-danger);font-weight:bold;">${displayAtk}</span>`;
 
         const displayDef = Math.round(getStat(latestUnit, 'def'));
         const initDef = latestUnit.state._initDef !== undefined ? Math.round(latestUnit.state._initDef) : displayDef;
         const totalDefChange = displayDef - initDef;
         let defDisplayHtml = `${displayDef}`;
-        if (totalDefChange > 0) defDisplayHtml = `<span style="color:#daa520;font-weight:bold;">${displayDef}</span>`;
-        else if (totalDefChange < 0) defDisplayHtml = `<span style="color:#c0392b;font-weight:bold;">${displayDef}</span>`;
+        if (totalDefChange > 0) defDisplayHtml = `<span style="color:var(--c-gain);font-weight:bold;">${displayDef}</span>`;
+        else if (totalDefChange < 0) defDisplayHtml = `<span style="color:var(--c-danger);font-weight:bold;">${displayDef}</span>`;
 
         let hpPct = unit.alive ? Math.floor((unit.hp / unit.maxHp) * 100) : 0;
         let hpColorClass = hpPct>70?'hp-text-green':(hpPct>40?'hp-text-orange':'hp-text-red');
         let barColor = hpPct>70?'#4caf50':(hpPct>40?'#ff9800':'#f44336');
         let hpDisplayHtml = `${fmtHp(unit.hp)}`;
         if ((latestUnit.state._initMaxHp !== undefined && latestUnit.state._initMaxHp > 0 && latestUnit.maxHp > latestUnit.state._initMaxHp)) {
-            hpDisplayHtml = `<span style="color:#daa520;font-weight:bold;">${fmtHp(unit.hp)}</span>`;
+            hpDisplayHtml = `<span style="color:var(--c-gain);font-weight:bold;">${fmtHp(unit.hp)}</span>`;
         }
 
         _hpTargetPct.set(unit.uid, hpPct);
@@ -445,8 +445,8 @@ export function renderGrid(id, camp) {
                 buffIcons = Object.entries(iconMap).map(([icon, count]) => icon + (count > 1 ? 'x' + count : '')).join(' ');
             }
         }
-        let atkStyle = totalChange > 0 ? 'color:#daa520;font-weight:bold;' : '';
-        let defStyle = (totalDefChange > 0 || (latestUnit.state._fortifyStacks || 0) > 0) ? 'color:#daa520;font-weight:bold;' : '';
+        let atkStyle = totalChange > 0 ? 'color:var(--c-gain);font-weight:bold;' : '';
+        let defStyle = (totalDefChange > 0 || (latestUnit.state._fortifyStacks || 0) > 0) ? 'color:var(--c-gain);font-weight:bold;' : '';
         let hpStyle = '';
         // 小昭姊/妹的身份已由左侧 roleIcon（🦋/🕷️）承担，名字后不再重复挂
         // 张三丰：进入严阵以待阶段后挂图标——他的严阵以待是组件自身 addMod（不走团队 buff），
