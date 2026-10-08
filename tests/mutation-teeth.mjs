@@ -52,7 +52,7 @@
 //   1) node tests/mutation-teeth.mjs --emit-prep  > /tmp/prep.sh  &&  bash /tmp/prep.sh
 //   2) node tests/mutation-teeth.mjs --emit-run   > /tmp/run.sh   &&  bash /tmp/run.sh
 //   3) node tests/mutation-teeth.mjs --report
-export const VER = 'tests/mutation-teeth.mjs V2.9.0';
+export const VER = 'tests/mutation-teeth.mjs V2.9.1';
 
 import { spawnSync } from 'node:child_process';
 import crypto from 'node:crypto';
@@ -108,10 +108,13 @@ const MUTATIONS = [
       file: 'modules/27elite-mingjiao.js',
       from: "{ source: '蝶变附身', value: defTransfer,",
       to:   "{ source: '蝶变附身', value: defTransfer * 2," },
-    { id: 'A9', kind: 'ATTR', desc: '八卦阵防御增益翻倍',
+    // V2.9.1 | 2026-10-08 第 60 轮：A9 锚点因 八卦阵机制重写（defGain 防御增益 → 付费触发扣 atkCost 攻击力）失效，
+    //   旧 from 串 0 处 ⇒ 树=干净树 ⇒ 此前「待确认盲区」是假阴性。重新对准到现行机制：扣攻翻倍，
+    //   声明 fact(BAGUA_ARRAY.atkDelta=-ba.atkCost) 不变 ⇒ BAGUA_ATK 契约出现偏差，真有牙。
+    { id: 'A9', kind: 'ATTR', desc: '八卦阵攻击消耗翻倍（付费触发扣攻翻倍 → BAGUA_ATK 契约偏差）',
       file: 'modules/26elite-sixsects.js',
-      from: "{ source: '八卦阵', value: ba.defGain,",
-      to:   "{ source: '八卦阵', value: ba.defGain * 2," },
+      from: "{ source: '八卦阵', value: -ba.atkCost, ttl: 'permanent', group: 'baguaArray', op: 'add' }",
+      to:   "{ source: '八卦阵', value: -ba.atkCost * 2, ttl: 'permanent', group: 'baguaArray', op: 'add' }" },
     { id: 'A10', kind: 'ATTR', desc: '莽撞每次挨打加攻翻倍（主目标+溅射两处都改）',
       file: 'modules/26elite-sixsects.js',
       from: "{ source: '莽撞', value: rage.atkPerHit, ttl: 'permanent', group: 'rageOnHit', op: 'add' });",
