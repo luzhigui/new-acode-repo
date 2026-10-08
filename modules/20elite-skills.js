@@ -167,8 +167,14 @@ export function spiderReturn(unit, allyTeam, enemySide, log) {
     Object.assign(unit.state, { _spiderFlying: false, _flyMode: null });
     unit.state._acted = false;
 
-    const order = [4, 5, 6, 7, 8, 9, 1, 2, 3];
-    const occupied = new Set(allyTeam.filter(a => a.alive && !a.isHorse && a.uid !== unit.uid).map(a => a.pos));
+    // 2026-10-08 落格规矩（老板定稿）：回原格优先——自己是几号位先落哪，原格被占再按「原格+1 环形顺延」
+    //   （7 → 8,9,1,2,3,4,5,6）。一切存活队友都算占格：拒马/狮子/召唤物/天上的蝶/蛛/附身者（旧版
+    //   后排优先 [4,5,6...] 且把拒马当空气，会一头落进拒马格子——seed15 stage5 R9 重叠案，体检不变量
+    //   「pos 冲突」即此）。飞天期间 pos 不动（自己原格天然保留），anchor 即原格。
+    const anchor = unit.pos || 4;
+    const order = [];
+    for (let i = 0; i < 9; i++) order.push(((anchor - 1 + i) % 9) + 1);
+    const occupied = new Set(allyTeam.filter(a => a.alive && a.uid !== unit.uid).map(a => a.pos));
     for (const p of order) {
         if (!occupied.has(p)) { unit.pos = p; break; }
     }
