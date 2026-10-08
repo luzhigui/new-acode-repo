@@ -235,7 +235,7 @@ export function spawnVictoryEffects(winnerCamp, aliveUnitsOverride) {
     let colors=['var(--c-gold-bright)','#ff6b6b','#51cf66','#45a7ff','#ff9f43','#ff00ff'];
     for(let i=0;i<60;i++){let particle=document.createElement('div');particle.className='party-particle';particle.setAttribute('data-fx','temporary');let angle=Math.random()*Math.PI*2,dist=40+Math.random()*80;particle.style.setProperty('--dx',Math.cos(angle)*dist+'px');particle.style.setProperty('--dy',Math.sin(angle)*dist+'px');particle.style.left=cx+'px';particle.style.top=cy+'px';particle.style.background=colors[Math.floor(Math.random()*colors.length)];document.body.appendChild(particle);setTimeout(()=>{if(particle.parentNode)particle.parentNode.removeChild(particle);},2800);}
     for(let i=0;i<15;i++){let star=document.createElement('div');star.className='star-particle';star.setAttribute('data-fx','temporary');let angle=Math.random()*Math.PI*2,dist=30+Math.random()*50;star.style.setProperty('--dx',Math.cos(angle)*dist+'px');star.style.setProperty('--dy',Math.sin(angle)*dist+'px');star.style.left=cx+'px';star.style.top=cy+'px';star.textContent=['⭐','🌟','✨'][Math.floor(Math.random()*3)];document.body.appendChild(star);setTimeout(()=>{if(star.parentNode)star.parentNode.removeChild(star);},3300);}
-    let logDiv=document.getElementById('log'),winColor=winnerCamp==='明教'?'blue':'orange';
+    let logDiv=document.getElementById('log');
     const WIN_TAUNTS = [
         '赢了！', '哈哈，胜了！', '活下来了！', '敌人全灭了！', '太好了！',
         '好好好！', '哈哈哈！', '还有谁？', '干得漂亮！', '不过如此！',
@@ -255,7 +255,7 @@ export function spawnVictoryEffects(winnerCamp, aliveUnitsOverride) {
             });
         }, index * 600);
     });
-    logDiv.innerHTML+=`<span class="gold">🎉🏆 <span class="${winColor}">${winnerCamp}</span>获得最终胜利！ 🏆🎉</span><br>`;logDiv.scrollTop=logDiv.scrollHeight;
+    logDiv.innerHTML+=`<span class="gold">🎉🏆 <span class="${winColorClass}">${winnerCamp}</span>获得最终胜利！ 🏆🎉</span><br>`;logDiv.scrollTop=logDiv.scrollHeight;   // 2026-10-08 清死重：winColor/winColorClass 同值双定义，删早定义用晚定义
 }
 
 // 日志清除

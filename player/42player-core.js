@@ -86,7 +86,7 @@ function syncStoreFromStep(c, step) {
     c.store.dispatch({ type: STORE_ACTION_TYPES.SET_UNITS, units });
 }
 
-function readRound(c) {
+export function readRound(c) {   // 2026-10-08 转正 export：45 的 currentRound 与之逐字等价（外部AI清单#15），收口单源
     // 2026-09-14 状态三轨收敛：回合数唯一来源 battleStore；store 未就绪时回退 c.UI.round（开局前）
     if (c && c.store) {
         const r = c.store.getState().round;
@@ -281,48 +281,9 @@ async function playSingleLogEntry(c, entry, step, isFirstAttackRef, factIndex) {
     return { isBattleOver: false };
 }
 
-export async function playLogEntries(c, log, roundResult, isFirstAttackRef) {
-    let abortSig = c.abortController ? c.abortController.signal : null;
-    let lastEntryType = c._lastLogType || null;
-    try {
-        for (let i = 0; i < log.length; i++) {
-            if (abortSig && abortSig.aborted) return { isBattleOver: false };
-            let entry = log[i];
-            if (entry && entry.factType) {
-                const rendered = renderLog(entry.factType, entry.data);
-                if (Array.isArray(rendered)) { log.splice(i, 1, ...rendered); i -= 1; continue; }
-                if (rendered && typeof rendered === 'object') {
-                    const extra = {};
-                    for (const k in entry) { if (k !== 'factType' && k !== 'data') extra[k] = entry[k]; }
-                    entry = Object.assign({}, rendered, extra);
-                } else { entry = rendered; }
-                if (!entry) continue;
-            }
-            { const _battleLog = GlobalStore.get('battleLog'); if (Array.isArray(_battleLog)) _battleLog.push(entry); }
-            if (shouldStartNewGroup(entry, lastEntryType)) renderSeparator();
-            switch (entry.type) {
-                case 'info': if (entry.dropKind === DROP_TYPES.TOKEN) await handleHolyTokenDrop(c, entry); else await handleInfo(c, entry); lastEntryType = entry.type; break;
-                case 'buff-summon': await handleBuffSummon(c, entry, i > 0 ? log[i - 1] : null); lastEntryType = entry.type; break;
-                case 'buff-destroy': await handleBuffDestroy(c, entry, i > 0 ? log[i - 1] : null); lastEntryType = entry.type; break;
-                case 'buff-leech': case 'buff-splash': appendLogHTML(entry.text + '<br>'); lastEntryType = entry.type; break;
-                case 'buff-bonus': case 'buff-swap': case 'buff-push': await handleBuffText(c, entry); lastEntryType = entry.type; break;
-                case 'buff-summary': appendLogHTML(entry.text + '<br>'); if (entry.buffType === 'elite_xingfen') { const song = c.store ? c.store.getState().units.find(u => u.name === '宋青书') : null; if (song) c.store.dispatch({ type: STORE_ACTION_TYPES.SET_VISUAL, uid: song.uid, _hasXingFen: true }); } lastEntryType = entry.type; break;
-                case 'buff-rebound-fortify': await handleBuffText(c, entry, 200); lastEntryType = entry.type; break;
-                case 'round-start': if (roundResult && roundResult.events && roundResult.events.length > 0) { c.store.dispatch({ type: STORE_ACTION_TYPES.APPLY_EVENTS, events: roundResult.events }); roundResult.events = []; } await handleRoundStart(c, entry, isFirstAttackRef); if (roundResult && roundResult.doubleStrikeUid) c.currentDoubleStrikeUid = roundResult.doubleStrikeUid; lastEntryType = entry.type; break;
-                case 'attack-group': { const result = await handleAttackGroup(c, entry, roundResult, abortSig, isFirstAttackRef); lastEntryType = entry.type; if (result && result.isBattleOver) return result; break; }
-                case 'round-end': await handleRoundEnd(c, entry, log, i); lastEntryType = entry.type; break;
-                case 'signal': if (getState.logLevel() === 'debug') appendLogHTML(entry.text + '<br>'); lastEntryType = entry.type; break;
-            }
-            if (abortSig && abortSig.aborted) return { isBattleOver: false };
-        }
-    } catch (e) {
-        GlobalStore.set('bulletTimeActive', false);
-        console.error('playLogEntries 错误:', e);
-        return { isBattleOver: false };
-    }
-    c._lastLogType = lastEntryType;
-    return { isBattleOver: false };
-}
+// 2026-10-08 清死码：playLogEntries 整函数删除（外部AI清单#8/#17）——全库零调用（44 曾 import 未转出，已同步删）。
+//   日志播放的活路由 playBattle 内部与 45/46 分支承担，本函数为历史遗留双轨。
+
 
 export async function playBattle() {
     const c = getCtx();
