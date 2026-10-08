@@ -8,6 +8,8 @@ import { CONFIG } from '../core/01config-5v5-test.js';
 import { makeFXSnapshot, fmtHp } from '../infra/51-core-utils.js';
 import { BUFF_TYPES, BUFF_SUBTYPES, CAMP_TYPES, ROLE_TYPES, FACT_TYPES } from '../infra/56-battle-enums.js';
 import { registerFactRenderer, findUnitSnapshotByUid } from './33-fact-registry.js';
+// 2026-10-08 第一刀：通用语义默认渲染器工厂（回血/dot 族模板化，详见 36 文件头）
+import { makeHealRenderer, makeDotRenderer } from './36-generic-renderers.js';
 export const VER = 'render/35-facts-effect.js V1.0.14';
 
 // 拒马 / 张无忌
@@ -304,14 +306,10 @@ export function renderSpiderStrikeFact(fact) {
 export function renderXuanmingDotFact(fact) {
     return { type:'info', text:`<span class="purple">❄️ 玄冥神掌寒毒发作，${fact.unitName} 受到 ${fact.dot} 点伤害</span>`, fxAnchors: [`受到 ${fact.dot} 点`], uidD: fact.uidD, isDead: fact.isDead, dmg: fact.dot };
 }
-export function renderXuanmingPoisonedFact(fact) {
-    return { type:'info', text:`<span class="purple">❄️ ${fact.attackerName} 的玄冥神掌使 ${fact.targetName} 中毒！每回合损失生命（${fact.dotPercents.join('%→')}%→消失）</span>` };
-}
+export const renderXuanmingPoisonedFact = makeDotRenderer({ icon: '❄️', skillName: '玄冥神掌' });
 
 // 成昆幻影伪装
-export function renderPhantomDisguiseHealFact(fact) {
-    return { type:'info', text:`<span class="green">🎭 幻影伪装：${fact.unitName} 回复 ${fact.heal} 点生命</span>`, fxAnchors: [`回复 ${fact.heal} 点`] };
-}
+export const renderPhantomDisguiseHealFact = makeHealRenderer({ icon: '🎭', label: '幻影伪装', mode: 'colonPlain', isHealEntry: false });
 
 // 宋青书新婚 / 性奋
 export function renderXingFenRetryFact(fact) {
@@ -332,23 +330,17 @@ export function renderXingFenCostFact(fact) {
 }
 
 // 张无忌九阳 / 融会贯通
-export function renderNineYangHealFact(fact) {
-    return { type:'info', text:`<span class="green">☀️ 九阳神功回复+${fact.heal}，${fact.hpBefore}→${fact.hpAfter}</span>`, fxAnchors: [`回复+${fact.heal}`], isHealEntry:true, healAmount:fact.heal, healUnitUid:fact.unitUid };
-}
+export const renderNineYangHealFact = makeHealRenderer({ icon: '☀️', label: '九阳神功回复', mode: 'plusTrail', anchorVerb: '回复' });   // 2026-10-08 模板化：原手写体迁工厂（golden 逐字节比对过），函数名保留供 58 契约引用
 export function renderRongHuiBonusFact(fact) {
     return { type:'info', text:`<span class="red">🔥 融会贯通额外+${fact.extra}（目标攻击${fact.targetAtk} 防御${fact.targetDef}，差值绝对值×50%）</span>` };
 }
 
 // 飞行再生（V6.3.3 | 2026-10-02 补回血弹幕：角色阵亡→全场飞行回 baseRegen，此前只有数值没有日志行和飘字）
 // 2026-10-05 文案回滚：老板否掉「食腐」命名（不好听），弹幕走正常回血款（❤+N），日志用低调版
-export function renderFlyerRegenFact(fact) {
-    return { type:'info', text:`<span class="green">🕊️ 飞行再生：${fact.unitName} 回复 ${fact.heal} 点生命（${fact.deadCount} 名角色阵亡）</span>`, fxAnchors: [`回复 ${fact.heal} 点`], isHealEntry:true, healAmount:fact.heal, healUnitUid:fact.unitUid };
-}
+export const renderFlyerRegenFact = makeHealRenderer({ icon: '🕊️', label: '飞行再生', mode: 'colonPlain', isHealEntry: true, suffix: f => `（${f.deadCount} 名角色阵亡）` });
 
 // 韦一笑吸血
-export function renderWeiLeechFact(fact) {
-    return { type:'info', text:`<span class="green">🦇 青翼蝠王·吸血+${fact.heal}，上限→${fact.newMaxHp}</span>`, fxAnchors: [`吸血+${fact.heal}`], isHealEntry:true, healAmount:fact.heal, healUnitUid:fact.unitUid };
-}
+export const renderWeiLeechFact = makeHealRenderer({ icon: '🦇', label: '青翼蝠王·吸血', mode: 'plusMaxHp', anchorVerb: '吸血' });
 
 // 小昭·姊 乾坤衍生 / 蝶变
 export function renderQianKunDerivedFact(fact) {
