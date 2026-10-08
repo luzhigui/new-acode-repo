@@ -1,3 +1,4 @@
+// V7.5.13 | 2026-10-08 applyHeroFlags 增两条数据旗：noContend（不争）/endlessBreath（生生不息休息通道）由 content 技能声明驱动，clone 天然保留
 // V6.3.2 | ~9500 bytes | 2026-09-29 参数体系收敛批 2：防战 z 值分档表与属性生成公式（血量掷点/生命上限倍率/攻防差约束/小昭分配）改读 CONFIG
 export const VER = 'core/02unit.js V6.3.2';
 
@@ -61,6 +62,12 @@ export function applyHeroFlags(unit) {
     if (name === '母狮') unit.isLioness = true;
     if (name === '雄狮') unit.isLionMale = true;
     if (name === '幼狮') unit.isLionCub = true;
+    // 2026-10-08 不争数据旗：content 声明了 noContend 技能的英雄自动获得；
+    //   回合末「敌方仅剩一人且不争 → 对方胜」的判定不再认识具体英雄（core/11 特判收口）
+    if (getGameData().characters?.[name]?.skills?.noContend) unit.noContend = true;
+    // 2026-10-08 生生不息数据旗：content 声明了 endlessBreath 技能的英雄不攻击、
+    //   每回合走「生生不息」休息通道（付费触发在组件侧，此处只管行动选择）
+    if (getGameData().characters?.[name]?.skills?.endlessBreath) unit.endlessBreath = true;
     return unit;
 }
 

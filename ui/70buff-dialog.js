@@ -1,7 +1,8 @@
+// V6.4.0 | 2026-10-07 挂战中首次海克斯一次性提示（stepBattleBuff，来自 71tutorial；只挂面板不跨层）
 // V6.3.0 | ~8100 bytes | 2026-10-06 候选过滤补 carry 位判据（无 carry 位不给选，与 modules/28 同口径）
 // V6.2.0 | ~7900 bytes | 2026-09-19 联网PVP阶段3：showBuffPopup 支持 presetChoices（从机用房主下发的选项）
 // V6.1.0 | ~4600 bytes | 2026-09-19 联网PVP：showBuffPopup 加 camp 参数，六大派可选自己的海克斯
-export const VER = 'ui/70buff-dialog.js V6.3.0';
+export const VER = 'ui/70buff-dialog.js V6.4.0';
 
 import { CONFIG } from '../core/01config-5v5-test.js';
 import { GlobalStore } from '../infra/54-global-store.js';
@@ -9,12 +10,14 @@ import { addPermanentBuff } from '../modules/20elite-skills.js';
 import { createBuffObject, buffsOfCamp, hasCarryTarget } from '../modules/28buff-tools.js';
 import { getBattleRng } from '../core/13battle-shared.js';
 import { CAMP_TYPES, BUFF_TYPES } from '../infra/56-battle-enums.js';
+import { stepBattleBuff } from './71tutorial.js';
 
 const CAMP_LABEL = { [CAMP_TYPES.ALLY]: '明教', [CAMP_TYPES.ENEMY]: '六大派' };
 
 // presetChoices：联网 PVP 阶段3 从机专用——选项由房主用引擎 RNG 统一下发，本机不再自算
 export function showBuffPopup(c, camp = CAMP_TYPES.ALLY, presetChoices = null) {
     return new Promise((resolve) => {
+        stepBattleBuff(); // 战中首次海克斯一次性提示（自带完成检查，71tutorial）
         if (GlobalStore.get('skipBuffPopup')) {
             GlobalStore.set('skipBuffPopup', false);
             resolve(null);

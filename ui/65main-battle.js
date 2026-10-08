@@ -10,7 +10,7 @@ import { showModal } from './60main-utils.js';
 import { getBattleRng, getStat } from '../core/13battle-shared.js';
 import { initBattleTeams } from '../modules/29battle-init.js';
 import { generateBuffChoices, createBuffObject, tickBuffDurations, getActiveBuffList } from '../modules/28buff-tools.js';
-import { resetBattleRuntime } from './69reset-runtime.js';
+import { resetBattleRuntime } from './74reset-runtime.js';
 // 2026-10-04 角色名片表：日志标签改查表（位置保持原样：拒马在站位前，无忌/韦一笑在末尾）
 import { getRoleLogTag } from './69-role-cards.js';
 import { stepBuff } from './71tutorial.js';

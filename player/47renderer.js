@@ -58,6 +58,25 @@ export function autoScrollLog() {
     if (log) log.scrollTop = log.scrollHeight;
 }
 
+// 2026-10-08 V7.5.12 从 infra/54 迁入（外部AI复核稿 ②「infra 去 UI」，老板批）：徽章 DOM 渲染归日志渲染层。
+//   _state.voteScore 直读改为 GlobalStore.get('voteScore')（同一份 _state，口径不变）；
+//   holyToken 保持 GlobalStore.get（战斗态 key 路由，54 原注释的坑照旧成立）。
+export function updateScoreBadge() {
+    if (typeof document === 'undefined') return;   // node 无头守卫（54 原版自带，迁移保留）
+    const badge = document.getElementById('scoreBadge');
+    if (!badge) return;
+    const score = GlobalStore.get('voteScore');
+    const token = GlobalStore.get('holyToken');
+    const displayScore = (score === null || score === undefined) ? 0 : score;
+    const displayToken = (token === null || token === undefined) ? 0 : token;
+    badge.innerHTML = `🏆 ${displayScore}分 🔥${displayToken}`;
+}
+
+// 顶层注册（与 ui/61 的 setUIHandler 同款打法）：playerContext 两项走 UIHandler 通道落到这里。
+//   player/47 首次被 import 即生效（player/42/45/46 战斗初始化必引；battle 前误调=静默 no-op，与 updateUI 兄弟行为一致）。
+GlobalStore.setUIHandler('autoScrollLog', autoScrollLog);
+GlobalStore.setUIHandler('updateScoreBadge', updateScoreBadge);
+
 export function updateRoundDisplay(text) {
     const el = document.getElementById('roundDisplay');
     if (el) el.innerText = text;

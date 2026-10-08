@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-06T00:44:28.676Z",
+  "generatedAt": "2026-10-08T04:41:28.964Z",
   "version": "tests/140-baseline.js V1.6.0",
   "cases": [
     {
@@ -3503,7 +3503,7 @@
       "stage": 1,
       "winner": "明教",
       "rounds": 5,
-      "factCount": 178,
+      "factCount": 175,
       "facts": [
         "roundStart",
         "spiderTransform",
@@ -3674,14 +3674,11 @@
         "flyerRegen",
         "flyerRegen",
         "attack",
-        "lionInspire",
-        "attack",
         "flyerRegen",
         "flyerRegen",
+        "pass",
         "attack",
         "attack",
-        "attack",
-        "lionInspire",
         "flyerRegen"
       ]
     },

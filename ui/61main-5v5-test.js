@@ -2,7 +2,8 @@
 // V6.13.0 | ~45250 bytes | 2026-10-06 全自动选 buff 补 carry 位判据（无 carry 位不自动选，与 modules/28 同口径）
 // V6.12.2 | ~45100 bytes | 2026-10-02 机制装配收口：25/26/27/30 散装 import 收敛为 modules/00reg-mechanics.js 单入口（行为零变化，仅装配路径）
 // V6.12.1 | 2026-10-02 下一关/重新开始（单机+PVP房主）、选关切换、回封面四个新局入口传 freshSeed，不再复用上一局种子重演首回合
-export const VER = 'ui/61main-5v5-test.js V6.13.1';
+// V6.13.2 | 2026-10-07 新手引导补完：stepVoteOpen/stepCountdown/stepBuff 三步接入（71 原为死代码）；❓重播只重看分步引导，不再强制重看 CG/图鉴
+export const VER = 'ui/61main-5v5-test.js V6.13.2';
 
 import '../infra/54-global-store.js';
 import { GlobalStore } from '../infra/54-global-store.js';
@@ -22,7 +23,7 @@ import { hasCarryTarget } from '../modules/28buff-tools.js';
 
 // 拆分模块
 import { getPlayerContext, getState, setState } from '../ui/63main-state.js';
-import { resetBattleRuntime } from './69reset-runtime.js';
+import { resetBattleRuntime } from './74reset-runtime.js';
 import { showMusicPanel, showVoteDialog, showCountdown } from './64main-dialogs.js';
 import {
     doInitBattle, generateBuffChoices, createBuffObject, showBuffSelection,
@@ -33,8 +34,8 @@ import { initBGM, playBGM, setBGMVolume, fadeBGMTo, toggleBGM, updateBGMBtn, low
 import { toggleDodgeEffect } from './67fx-trigger.js';
 import { updateSpeedButtons, activateScrollSlowdown, restoreSpeedFromScroll, updateButtons, updateAutoModeButton, enableAllButtons, updateDebugUI, updateBuffSlots, bindCoverStart, bindCoverPvp, bindNetPvp, bindPauseButton, bindNextButton, bindDetailButton, bindDebugButton, bindBGButton, bindDodgeButton, bindAutoButton, bindSettleButton, bindStageSelectButton, bindVoteFloat, bindGridClick, bindCopyLogButton, initSpeedButtons } from './68ui-controls.js';
 import * as net from '../infra/60-net-pvp.js';
-import { stepAdjustStart, stepAdjustMove, stepBattleStart, initTutorial, resetTutorialDone } from './71tutorial.js';
-import { isOpeningCgDone, showOpeningCg, resetOpeningCgDone } from './72opening-cg.js';
+import { stepAdjustStart, stepAdjustMove, stepVoteOpen, stepCountdown, stepBuff, stepBattleStart, initTutorial, resetTutorialDone } from './71tutorial.js';
+import { isOpeningCgDone, showOpeningCg } from './72opening-cg.js';
 
 import { VER as VER_BUFF } from '../core/04buff-system.js';
 import { VER as VER_HORSE } from '../core/05battle-horse.js';
@@ -526,10 +527,10 @@ document.addEventListener('DOMContentLoaded', async function() {
     bindVoteFloat();
     bindGridClick(getState, setState, updateUI);
     bindCopyLogButton(showModal, copyLogToClipboard);
+    // ❓ 战斗外重播：只重看分步引导（重看 CG/图鉴属于低频需求，不再强制捆绑）
     initTutorial(() => {
-        resetOpeningCgDone();
         resetTutorialDone();
-        showOpeningCg(() => showEliteGallery(() => stepAdjustStart()));
+        stepAdjustStart();
     });
 
     document.getElementById('btnMain').addEventListener('click', async function(){
@@ -547,6 +548,7 @@ document.addEventListener('DOMContentLoaded', async function() {
         // 全自动/手动共用战斗启动流程
         const startBattle = async (choice) => {
             clearLogExceptFirst(); hasLoggedTeam=false; fadeBGMTo(0.1,2000); logTeamInfo('初始阵容', getState.UI(), getState.gs(), battleResultForInfo, getState.activeBuffs(), hasLoggedTeam); hasLoggedTeam = true;
+            stepCountdown();
             await showCountdown(TRASH_TALK_ALLY, TRASH_TALK_ENEMY, _randLocal, showDanmaku, autoScrollLog);
             let logDiv=document.getElementById('log'); logDiv.innerHTML+='<div class="separator">⚔️ 5v5对决开始 ⚔️</div>';
             autoScrollLog();
@@ -592,6 +594,7 @@ document.addEventListener('DOMContentLoaded', async function() {
                     autoScrollLog();
                 }
             } else {
+                stepBuff();
                 await new Promise(resolve => { showBuffSelection(resolve, getState.activeBuffs(), -1, () => updateBuffSlots(getState.activeBuffs()), () => {}, autoScrollLog, getState.UI().allyTeam); });
             }
             await new Promise(r=>setTimeout(r,600));
@@ -746,6 +749,7 @@ document.addEventListener('DOMContentLoaded', async function() {
                 } else if (getState.autoLevel() === 'full-auto') {
                     startBattle('明教');
                 } else {
+                    stepVoteOpen();
                     showVoteDialog(startBattle, GlobalStore.get('battleHasZhang'));
                 }
             }

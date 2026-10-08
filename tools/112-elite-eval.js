@@ -1,3 +1,6 @@
+// V2.4.0 | 2026-10-08 新增「⚔ 单英雄胜率」按钮：五精英逐一 force 单精英跑选中关卡（worker kind:soloElite，
+//          依赖 29 V7.5.16 四路 force 轮盘互锁）；结果渲染进独立容器，与普通评测表互不覆盖。
+//          首跑参考数字（第2关 N=300 node 探针）：谢逊 42.7% > 张无忌 39.7% > 姊 26.0% > 妹 16.0% > 韦一笑 7.0%
 // 由 tools/111-elite-power-eval.html 改造 | 跑张无忌/韦一笑/小昭姊/小昭妹 1-7关×N场（关卡由 102 复选框勾选，已含第7关）
 // V2.3.1 | 预估 9200 bytes | 2026-10-04 「战力分」改名「实战评分」：主代码的「战力」(power) 是
 //          开战前的组队预算表（roster.elitePower / normalPower，仅 modules/29 用来凑明教阵容），
@@ -23,6 +26,9 @@ const startBtn = document.getElementById('eliteStartBtn');
 const runsInput = document.getElementById('eliteRunsInput');
 const progressEl = document.getElementById('eliteProgress');
 const resultEl = document.getElementById('eliteResult');
+const soloBtn = document.getElementById('eliteSoloBtn');       // 2026-10-08 单英雄胜率
+const soloProgressEl = document.getElementById('eliteSoloProgress');
+const soloResultEl = document.getElementById('eliteSoloResult');
 
 const CHUNK = 300; // 每片局数：把每关拆成多片派发，负载均衡
 
@@ -89,6 +95,90 @@ startBtn.addEventListener('click', async () => {
         startBtn.disabled = false;
     }
 });
+
+// ============ 2026-10-08 单英雄胜率：五精英逐一单挑选中关卡 ============
+// 口径：force 单精英（29 V7.5.16 起四路 force 全抑制随机轮盘=真·单英雄局）、海克斯开、
+//       胜=明教。与普通评测的区别：普通表是「自然出场归因」（同场多精英），这张表是「控制变量单挑」。
+soloBtn.addEventListener('click', async () => {
+    const stages = Array.from(document.querySelectorAll('.elite-stage-check:checked')).map(cb => parseInt(cb.value));
+    const RUNS = parseInt(runsInput.value) || 1800;
+    if (stages.length === 0) { alert('请至少选择一个关卡'); return; }
+
+    soloBtn.disabled = true;
+    soloProgressEl.textContent = '开始单英雄评测...';
+    soloResultEl.innerHTML = '<div class="elite-empty">运行中...</div>';
+
+    const byStage = {}; // stage -> 精英名 -> {runs,wins,sumSurv,sumDmg,sumTaken}
+    for (const st of stages) { byStage[st] = {}; for (const cfg of configs) byStage[st][cfg.name] = { runs: 0, wins: 0, sumSurv: 0, sumDmg: 0, sumTaken: 0 }; }
+    const startT = performance.now();
+    const masterSeed = Date.now();
+
+    // 每精英每关拆片派发（种子再错开 7717*精英序号，互不重叠）
+    const jobs = [];
+    let eliteIdx = 0;
+    for (const cfg of configs) {
+        for (const stage of stages) {
+            const chunks = Math.ceil(RUNS / CHUNK);
+            for (let c = 0; c < chunks; c++) {
+                const runs = Math.min(CHUNK, RUNS - c * CHUNK);
+                if (runs <= 0) continue;
+                jobs.push({ stage, elite: cfg.name, seed: masterSeed + stage * 131 + eliteIdx * 7717 + c * 100003, runs, label: `${cfg.name}·第${stage}关#${c + 1}` });
+            }
+        }
+        eliteIdx++;
+    }
+
+    try {
+        await runParallel({
+            jobs,
+            kind: 'soloElite',
+            nextJobMsg: (job, id) => ({ jobId: id, kind: 'soloElite', stage: job.stage, seed: job.seed, runs: job.runs, elite: job.elite }),
+            onJobDone: (finished, total, job, part) => {
+                const a = byStage[job.stage] && byStage[job.stage][job.elite];
+                if (a && part) { a.runs += part.runs; a.wins += part.wins; a.sumSurv += part.sumSurv; a.sumDmg += part.sumDmg; a.sumTaken += part.sumTaken; }
+                soloProgressEl.textContent = `${job.label} 完成 (${finished}/${total}，已用 ${((performance.now() - startT) / 1000).toFixed(1)}s)`;
+            },
+            onAllDone: () => {
+                renderSoloResults(byStage, stages);
+                soloProgressEl.textContent = `✅ 单英雄评测完成，总耗时 ${((performance.now() - startT) / 1000).toFixed(1)}s`;
+            }
+        });
+    } catch (e) {
+        console.error('[elite-solo] 单英雄评测异常:', e);
+        soloResultEl.innerHTML = `<div class="elite-empty">出错：${e.message}<br>完整堆栈已输出到 F12 控制台</div>`;
+        soloProgressEl.textContent = '❌ 单英雄评测异常';
+    } finally {
+        soloBtn.disabled = false;
+    }
+});
+
+function renderSoloResults(byStage, stages) {
+    let html = '<table class="elite-table elite-table-fit"><colgroup><col style="width:64px">';
+    for (const cfg of configs) html += '<col>';
+    html += '</colgroup><tr><th>关卡</th>';
+    for (const cfg of configs) html += `<th class="elite-th">${cfg.name}</th>`;
+    html += '</tr>';
+    for (const st of stages) {
+        html += `<tr><td class="elite-stage">第${st}关</td>`;
+        for (const cfg of configs) {
+            const d = byStage[st] && byStage[st][cfg.name];
+            if (!d || !d.runs) { html += '<td class="elite-cell">N/A</td>'; continue; }
+            const rate = (d.wins / d.runs * 100).toFixed(1);
+            const r = parseFloat(rate);
+            const color = r >= 50 ? '#4caf50' : r >= 25 ? '#ffd700' : '#ff5252';
+            const surv = (d.sumSurv / d.runs * 100).toFixed(1);
+            const thin = d.runs < 200 ? ' <span style="color:#ff9800;">(样本少)</span>' : '';
+            html += `<td class="elite-cell">
+        <div class="cell-rate" style="color:${color}">胜率 ${rate}%</div>
+        <div class="cell-sub">${d.runs} 场${thin}</div>
+        <div class="cell-sub">存活 ${surv}%</div></td>`;
+        }
+        html += '</tr>';
+    }
+    html += '</table>';
+    html += '<div style="font-size:11px;color:#999;margin-top:6px;">单英雄胜率 = force 该精英单挑（抑制随机轮盘、海克斯开、胜=明教）。控制变量口径，与上方「自然出场归因」表互补：这里看单核带队能力，上面看真实出场表现。</div>';
+    soloResultEl.innerHTML = html;
+}
 
 function renderResults(byStage, stages) {
     let html = '<table class="elite-table elite-table-fit"><colgroup><col style="width:64px">';

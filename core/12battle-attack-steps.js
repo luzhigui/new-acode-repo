@@ -347,7 +347,10 @@ export function applyAttackResult(unit, target, dmgCalc, attackerBuffStats, defe
 
     if (dead && target.camp === CAMP_TYPES.ENEMY && unit.camp === CAMP_TYPES.ALLY && !target.state._tokenDropped) {
         const stage = getBattleState('currentStage') || 1;
-        const dropRate = (C.TOKEN_DROP_RATES[stage] || 0) / 100;
+        // 圣火令·气运：击杀者带 holyTokenLuck 时掉率按倍率放大（数据驱动，当前只有张无忌配了 4 倍；
+        // 按名字查表而非认 isZhang——core 不硬编码精英身份，与 _canAlwaysDodge 同一约定）
+        const luck = getSkillParams(unit.name, 'holyTokenLuck');
+        const dropRate = Math.min(1, (C.TOKEN_DROP_RATES[stage] || 0) / 100 * (luck && luck.multiplier ? luck.multiplier : 1));
         if (rng.next() < dropRate) {
             target.state._tokenDropped = true;
             const currentToken = getBattleState('holyToken') || 0;
