@@ -170,6 +170,8 @@
         .elite-stage-group label { color: #aaa; font-weight: normal; font-size: 12px; display: flex; align-items: center; gap: 3px; }
         #eliteStartBtn { background: #ffd700; color: #1a1a2e; border: none; padding: 10px 20px; border-radius: 8px; font-weight: bold; cursor: pointer; }
         #eliteStartBtn:disabled { opacity: 0.4; cursor: not-allowed; }
+        #eliteSoloBtn { background: #4fc3f7; color: #1a1a2e; border: none; padding: 10px 20px; border-radius: 8px; font-weight: bold; cursor: pointer; }
+        #eliteSoloBtn:disabled { opacity: 0.4; cursor: not-allowed; }
         .elite-progress { color: #4fc3f7; font-size: 12px; min-height: 20px; margin-bottom: 10px; }
         .elite-empty { color: #888; text-align: center; margin-top: 12px; }
         table.elite-table { width: 100%; border-collapse: collapse; font-size: 12px; background: #16213e; border: 1px solid #333; border-radius: 10px; overflow: hidden; }
@@ -293,9 +295,12 @@
                 <label><input type="checkbox" class="elite-stage-check" value="7" checked>7</label>
             </div>
             <button id="eliteStartBtn">▶ 开始评测</button>
+            <button id="eliteSoloBtn" title="五精英逐一单挑选中关卡（force 单精英抑制轮盘），看单核带队能力">⚔ 单英雄胜率</button>
         </div>
         <div class="elite-progress" id="eliteProgress"></div>
         <div id="eliteResult"><div class="elite-empty">尚未运行</div></div>
+        <div class="elite-progress" id="eliteSoloProgress" style="margin-top:14px;"></div>
+        <div id="eliteSoloResult"><div class="elite-empty">单英雄胜率：尚未运行（勾选关卡后点上方蓝按钮）</div></div>
     </div>
 
     <script>
