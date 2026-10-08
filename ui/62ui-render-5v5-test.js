@@ -1,5 +1,5 @@
 // V6.1.0 | ~16100 bytes | 2026-10-04 详情弹窗：标题身份标记 + 25 分支技能 if/else 链，两处都改查 ui/69-role-cards.js 名片表（显示内容逐条等价，加新角色只加一行）
-export const VER = 'ui/62ui-render-5v5-test.js V6.1.0';
+export const VER = 'ui/62ui-render-5v5-test.js V6.1.1';
 
 // 2026-10-04 getSkillDesc 已下沉到 ui/69-role-cards.js（技能说明统一查表），本文件不再直接用
 import { getStat } from '../core/13battle-shared.js';
@@ -57,16 +57,18 @@ function openDetailPopup(unit) {
     detailPopupUnit = unit;
     detailPopup = document.createElement('div');
     detailPopup.className = 'detail-popup';
-    detailPopup.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:#fdf5e6;border:3px solid #b8860b;border-radius:12px;padding:16px;z-index:10050;min-width:240px;max-width:300px;max-height:85vh;overflow-y:auto;box-shadow:0 8px 30px rgba(0,0,0,0.5);font-size:13px;line-height:1.6;';
+    detailPopup.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:var(--c-panel);border:3px solid var(--c-gold);border-radius:12px;padding:16px;z-index:10050;min-width:240px;max-width:300px;max-height:85vh;overflow-y:auto;box-shadow:0 8px 30px rgba(0,0,0,0.5);font-size:13px;line-height:1.6;';
     let closeBtn = document.createElement('span');
     closeBtn.textContent = '✕';
-    closeBtn.style.cssText = 'position:absolute;top:6px;right:10px;cursor:pointer;font-size:18px;color:#8b7355;font-weight:bold;';
+    closeBtn.style.cssText = 'position:absolute;top:6px;right:10px;cursor:pointer;font-size:18px;color:var(--c-brown-border);font-weight:bold;';
     closeBtn.addEventListener('click', (e) => { e.stopPropagation(); closeDetailPopup(); });
     detailPopup.appendChild(closeBtn);
     updateDetailPopupContent();
     document.body.appendChild(detailPopup);
     setTimeout(() => { document.addEventListener('click', closeDetailPopupOnClick); }, 100);
     detailPopupInterval = setInterval(() => {
+        // 战斗暂停时数值冻结，弹窗无需刷新，停表省 CPU
+        if (GlobalStore.get('isPaused')) return;
         if (detailPopup && detailPopupUnit) updateDetailPopupContent();
     }, 1000);
 }
@@ -91,13 +93,13 @@ function renderStatDetail(u, stat) {
     const delta = (b) => b.add + base * b.mul;
     const parts = [String(Math.floor(base))];
     const perm = delta(g.permanent);
-    if (Math.abs(perm) >= 0.01) parts.push(`<span style="color:${perm > 0 ? '#2e7d32' : '#c0392b'};">${perm > 0 ? '+' : ''}${Math.floor(perm)}永</span>`);
+    if (Math.abs(perm) >= 0.01) parts.push(`<span style="color:${perm > 0 ? 'var(--c-green)' : 'var(--c-danger)'};">${perm > 0 ? '+' : ''}${Math.floor(perm)}永</span>`);
     const att = delta(g.attached);
-    if (Math.abs(att) >= 0.01) parts.push(`<span style="color:#daa520;">${att > 0 ? '+' : ''}${Math.floor(att)}附身</span>`);
+    if (Math.abs(att) >= 0.01) parts.push(`<span style="color:var(--c-gain);">${att > 0 ? '+' : ''}${Math.floor(att)}附身</span>`);
     const rnd = delta(g.round);
     if (Math.abs(rnd) >= 0.01) parts.push(`<span style="color:#ff8c00;">${rnd > 0 ? '+' : ''}${Math.floor(rnd)}临</span>`);
     if (parts.length === 1) return String(Math.floor(base));
-    return parts.join(' ') + ' = <span style="color:#daa520;font-weight:bold;">' + final + '</span>';
+    return parts.join(' ') + ' = <span style="color:var(--c-gain);font-weight:bold;">' + final + '</span>';
 }
 
 function updateDetailPopupContent() {
@@ -153,7 +155,7 @@ function updateDetailPopupContent() {
         buffText = unitBuffs.map(b => `${b.name}(${b.remaining}回)`).join('、');
     }
     let hpPct = u.alive ? Math.floor((u.hp / u.maxHp) * 100) : 0;
-    let hpColor = hpPct > 70 ? '#2e7d32' : (hpPct > 40 ? '#d2691e' : '#c0392b');
+    let hpColor = hpPct > 70 ? 'var(--c-green)' : (hpPct > 40 ? 'var(--c-sect-orange)' : 'var(--c-danger)');
 
     let closeBtn = detailPopup.querySelector('span');
     detailPopup.innerHTML = '';
@@ -161,7 +163,7 @@ function updateDetailPopupContent() {
 
     let content = document.createElement('div');
     content.innerHTML = `
-        <div style="font-weight:bold;font-size:15px;margin-bottom:8px;color:#5c4033;">${u.name} ${u.isHorse ? '🐴' : ''}${u.isZhang ? '[无忌]' : ''}${u.isWei ? '[韦一笑]' : ''}</div>
+        <div style="font-weight:bold;font-size:15px;margin-bottom:8px;color:var(--c-brown);">${u.name} ${u.isHorse ? '🐴' : ''}${u.isZhang ? '[无忌]' : ''}${u.isWei ? '[韦一笑]' : ''}</div>
         <div style="display:grid;grid-template-columns:auto 1fr;gap:4px 12px;">
             <span style="color:#888;">角色</span><span>${u.role} M${u.m}</span>
             <span style="color:#888;">站位</span><span>${!u.alive ? '已阵亡' : (u.pos || '?') + '号位'}</span>
@@ -181,7 +183,7 @@ function updateDetailPopupContent() {
                 // 2026-10-04 改查 ui/69-role-cards.js 名片表（原为本地 25 分支 if/else 链）
                 let skills = getRoleSkills(u);
                 if (skills.length > 0) {
-                    return `<span style="color:#888;">技能</span><span style="color:#b8860b;">${skills.join('<br>')}</span>`;
+                    return `<span style="color:#888;">技能</span><span style="color:var(--c-gold);">${skills.join('<br>')}</span>`;
                 }
                 return '';
             })()}
@@ -230,7 +232,7 @@ export function spawnVictoryEffects(winnerCamp, aliveUnitsOverride) {
     let banner = document.createElement('div'); banner.className='victory-banner'; banner.textContent='🏆 胜利 🏆'; banner.style.top=Math.max(5,rect.top-12)+'px'; banner.style.left=(rect.left+rect.width/2)+'px'; document.body.appendChild(banner);
     setTimeout(()=>{if(banner.parentNode)banner.parentNode.removeChild(banner);},8000);
     let cx=rect.left+rect.width/2,cy=rect.top+rect.height/2;
-    let colors=['#ffd700','#ff6b6b','#51cf66','#45a7ff','#ff9f43','#ff00ff'];
+    let colors=['var(--c-gold-bright)','#ff6b6b','#51cf66','#45a7ff','#ff9f43','#ff00ff'];
     for(let i=0;i<60;i++){let particle=document.createElement('div');particle.className='party-particle';particle.setAttribute('data-fx','temporary');let angle=Math.random()*Math.PI*2,dist=40+Math.random()*80;particle.style.setProperty('--dx',Math.cos(angle)*dist+'px');particle.style.setProperty('--dy',Math.sin(angle)*dist+'px');particle.style.left=cx+'px';particle.style.top=cy+'px';particle.style.background=colors[Math.floor(Math.random()*colors.length)];document.body.appendChild(particle);setTimeout(()=>{if(particle.parentNode)particle.parentNode.removeChild(particle);},2800);}
     for(let i=0;i<15;i++){let star=document.createElement('div');star.className='star-particle';star.setAttribute('data-fx','temporary');let angle=Math.random()*Math.PI*2,dist=30+Math.random()*50;star.style.setProperty('--dx',Math.cos(angle)*dist+'px');star.style.setProperty('--dy',Math.sin(angle)*dist+'px');star.style.left=cx+'px';star.style.top=cy+'px';star.textContent=['⭐','🌟','✨'][Math.floor(Math.random()*3)];document.body.appendChild(star);setTimeout(()=>{if(star.parentNode)star.parentNode.removeChild(star);},3300);}
     let logDiv=document.getElementById('log'),winColor=winnerCamp==='明教'?'blue':'orange';

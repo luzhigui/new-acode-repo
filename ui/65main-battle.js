@@ -1,5 +1,5 @@
 // V6.1.0 | 2026-10-04 阵容日志的身份标签（[拒马]/[无忌]/[韦一笑]）改查 ui/69-role-cards.js 名片表，标签位置保持原样不改
-export const VER = 'ui/65main-battle.js V6.1.0';
+export const VER = 'ui/65main-battle.js V6.1.1';
 
 import { CONFIG } from '../core/01config-5v5-test.js';
 import { SeededRNG, fmtHp } from '../infra/51-core-utils.js';
@@ -21,6 +21,9 @@ const C = CONFIG;
 // 阵容逻辑已抽至 modules/29battle-init.js，本函数仅组织外围流程
 export function doInitBattle(currentStage, UI, snapshot, activeBuffs, selectedBuffIndex, currentDoubleStrikeUid, freshSeed = false) {
     if (!UI || !snapshot) return;
+    // 每局重新开始：清空界面战斗日志显示区（#log 容器），避免上局日志残留堆积
+    const _logEl = document.getElementById('log');
+    if (_logEl) _logEl.innerHTML = '';
     // freshSeed=true 表示「全新一局」（下一关/重新开始/选关/回封面）：丢弃上一局残留种子，走时间随机。
     // 不传或 false 时维持原语义——snapshot 带着种子就严格按种子（布阵→开战同源、联机房主、种子复现）。
     if (freshSeed) delete snapshot._rngSeed;
@@ -60,11 +63,11 @@ export function showFlyDirectionPopup(callback) {
 
     const box = document.createElement('div');
     box.className = 'modal-box';
-    box.style.cssText = 'max-width:340px;background:#1a1a2e;color:#eee;padding:20px;position:relative;';
+    box.style.cssText = 'max-width:340px;background:var(--c-dark);color:#eee;padding:20px;position:relative;';
 
     const title = document.createElement('div');
     title.textContent = '🦋 姐姐附身方向';
-    title.style.cssText = 'color:#ffd700;font-size:16px;font-weight:bold;margin-bottom:12px;text-align:center;';
+    title.style.cssText = 'color:var(--c-gold-bright);font-size:16px;font-weight:bold;margin-bottom:12px;text-align:center;';
     box.appendChild(title);
 
     const desc = document.createElement('div');
@@ -81,7 +84,7 @@ export function showFlyDirectionPopup(callback) {
 
     const btnRight = document.createElement('button');
     btnRight.textContent = '🦋 向右飞\n（攻+血）';
-    btnRight.style.cssText = 'flex:1;padding:12px;border-radius:8px;border:2px solid #ffd700;background:#2a2a4e;color:#ffd700;font-size:13px;cursor:pointer;white-space:pre-line;';
+    btnRight.style.cssText = 'flex:1;padding:12px;border-radius:8px;border:2px solid var(--c-gold-bright);background:#2a2a4e;color:var(--c-gold-bright);font-size:13px;cursor:pointer;white-space:pre-line;';
 
     btnDiv.appendChild(btnLeft);
     btnDiv.appendChild(btnRight);

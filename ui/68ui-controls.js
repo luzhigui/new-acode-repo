@@ -1,5 +1,5 @@
 // V7.8.5 | ~39400 bytes | 2026-10-04 速度按钮：两套界面（普通 2 档 / 调试 4 档）保持各自独立不变，只把重复的 2x、0.5x 收进一张档位表 SPEED_SPECS，绑定与「按速度取按钮」都由它派生（纯内部，画面零变化）
-export const VER = 'ui/68ui-controls.js V7.8.5';
+export const VER = 'ui/68ui-controls.js V7.8.6';
 
 // 2026-09-14 打断 63↔68 循环依赖：getState/setState 直接取自 infra/54（63 只做转发）
 import { getState, setState, GlobalStore, getPlayerContext } from '../infra/54-global-store.js';
@@ -314,7 +314,7 @@ export function bindNetPvp(net, onNetMsg, onConnected) {
     const line = document.getElementById('netStatusLine');
     if (!createBtn || !joinBtn || !line) return;
 
-    const say = (txt, color) => { line.textContent = txt; line.style.color = color || '#b8a88a'; };
+    const say = (txt, color) => { line.textContent = txt; line.style.color = color || 'var(--c-tan)'; };
     const badge = document.getElementById('netRoomBadge');
     // 标题栏房间号角标：对局中封面是盖住的，房间号只能靠这里报给对手 / 掉线后照着重连
     // 联网对局时角标顶掉最左的「光明顶对战 5v5」标题（.header.net-mode），房间号就是左上角唯一标识
@@ -330,7 +330,7 @@ export function bindNetPvp(net, onNetMsg, onConnected) {
     const refresh = () => { const fn = GlobalStore.getUIHandler('updateButtons'); if (fn) fn(); };
     const onState = (status, meta) => {
         if (status === 'creating') say('正在建房…');
-        else if (status === 'waiting') { say('房间已建好，把房间号发给对手：' + meta.roomId, '#ffd700'); if (input) input.value = meta.roomId; setBadge(meta.roomId); }
+        else if (status === 'waiting') { say('房间已建好，把房间号发给对手：' + meta.roomId, 'var(--c-gold-bright)'); if (input) input.value = meta.roomId; setBadge(meta.roomId); }
         else if (status === 'joining') say('正在连接房主…');
         else if (status === 'connected') {
             // netRole 是全局对局身份：网格可点权限、buff 槽阵营都读它
@@ -704,12 +704,12 @@ export function bindCopyLogButton(showModal, copyLogToClipboard) {
 
         const box = document.createElement('div');
         box.className = 'modal-box';
-        box.style.cssText = 'max-width:340px;background:#1a1a2e;color:#eee;padding:20px;position:relative;border:2px solid #ffd700;border-radius:12px;';
+        box.style.cssText = 'max-width:340px;background:var(--c-dark);color:#eee;padding:20px;position:relative;border:2px solid var(--c-gold-bright);border-radius:12px;';
 
         // 标题
         const title = document.createElement('div');
         title.textContent = '📋 日志工具';
-        title.style.cssText = 'color:#ffd700;font-size:16px;font-weight:bold;margin-bottom:16px;text-align:center;';
+        title.style.cssText = 'color:var(--c-gold-bright);font-size:16px;font-weight:bold;margin-bottom:16px;text-align:center;';
         box.appendChild(title);
 
         // ── 日志复制区 ──
