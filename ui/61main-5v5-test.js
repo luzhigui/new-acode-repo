@@ -23,7 +23,7 @@ import { hasCarryTarget } from '../modules/28buff-tools.js';
 
 // 拆分模块
 import { getPlayerContext, getState, setState } from '../ui/63main-state.js';
-import { resetBattleRuntime } from './69reset-runtime.js';
+import { resetBattleRuntime } from './74reset-runtime.js';
 import { showMusicPanel, showVoteDialog, showCountdown } from './64main-dialogs.js';
 import {
     doInitBattle, generateBuffChoices, createBuffObject, showBuffSelection,

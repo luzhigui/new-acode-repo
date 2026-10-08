@@ -5,7 +5,7 @@ export const VER = 'ui/68ui-controls.js V7.8.5';
 import { getState, setState, GlobalStore, getPlayerContext } from '../infra/54-global-store.js';
 import { updateUI, renderGrid, setRenderStore } from './62ui-render-5v5-test.js';
 import { clearAllEffects } from '../player/42player-core.js';
-import { resetBattleRuntime } from './69reset-runtime.js';
+import { resetBattleRuntime } from './74reset-runtime.js';
 import { CAMP_TYPES } from '../infra/56-battle-enums.js';
 import { buffsOfCamp } from '../modules/28buff-tools.js';
 import { AudioManager } from '../modules/22audio-manager.js';
@@ -154,7 +154,7 @@ function restoreSpeedFromScroll() {
         manualSpeedValue = preManualSpeedValue;
         setState.speed(preManualSpeedValue);
     } else if (manualSpeedLock && manualSpeedValue) {
-        // V7.8.1 | 2026-10-02 跨关倍速保持：69reset-runtime 每场战斗重置都会调本函数，
+        // V7.8.1 | 2026-10-02 跨关倍速保持：74reset-runtime（原 69，10-08 改号）每场战斗重置都会调本函数，
         //   用户手动选过倍速但本次未滚动过日志时 preManualSpeed* 是初始空值，
         //   原 else 分支把倍速打回默认并清锁 → "上一关4倍速、下一关变回默认"。
         //   这里优先尊重当前手动锁定值；完全没手动选过倍速才落回默认 1000

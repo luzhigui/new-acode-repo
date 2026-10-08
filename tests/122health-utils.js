@@ -520,7 +520,7 @@ export function checkBattleReportOverlay(ctx, doc) {
  * 池容量（fx/80fx-common-5v5-test.js POOL_SIZES）：danmaku 8 / dmgFloat 6 / dodge 4 /
  *   healFloat 4 + atkBuffFloat 4 + defBuffFloat 4 = 12（三池共用 .heal-float 类，V6.2.3 新增 defBuffFloat 池）
  * 复发信号：元素数超池容量（泄漏累积→多局后弹幕卡顿）/
- *          RUNNING 中弹幕DOM为0（ui/69reset-runtime.js 重置时移除弹幕DOM，但对象池仍持有游离引用→弹幕永久失效）
+ *          RUNNING 中弹幕DOM为0（ui/74reset-runtime.js（原69）重置时移除弹幕DOM，但对象池仍持有游离引用→弹幕永久失效）
  * 对应已报 Bug：多打几局，弹幕特别卡
  * 注意：.heal-float 阈值须用 12（三池之和），不是 8 —— 池元素常驻 DOM（隐藏+激活），稳态恒为 12，
  *   只有出现第 13 个游离元素才真泄漏。旧阈值 8 会把稳态池误报成"泄漏"（每局必误报）。
