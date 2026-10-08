@@ -1,5 +1,5 @@
 {
-  "version": "5.6.24",
+  "version": "5.6.25",
   "updated": "2026-10-08",
 
   "roles": {
@@ -174,7 +174,7 @@
         },
         "lionInspire": {
           "name": "振奋",
-          "desc": "雄狮每次命中后，己方全体角色永久+{atkPerHit}攻击力",
+          "desc": "雄狮每次命中后，己方全体角色永久+{atkPerHit}攻击力（幼狮除外——保持零攻白板到成长）",
           "params": { "atkPerHit": 1 }
         },
         "lionFollow": {

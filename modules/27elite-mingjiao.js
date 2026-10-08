@@ -1,10 +1,10 @@
-// V6.7.0 | 2026-10-08 checkZhangSwitch 从 core/13 迁入本文件（张无忌知识回家；老板拍板）——core 层从此零英雄名
+// V6.7.1 | 2026-10-08 振奋豁免幼狮（用户拍板）：攻被抬>0 会让零攻白板幼狮真的出手、且成长前白赚全队攻破坏成长链代价感；V6.7.0 checkZhangSwitch 从 core/13 迁入本文件（张无忌知识回家；老板拍板）——core 层从此零英雄名
 // V6.6.0 | 2026-10-08 回合钩子注册（core/11 特判收口）：小昭·姊/妹登记回合组件、圣火令增强判定+行列重画变换器、四条状态迁移分发闭包迁入本文件；姊组件新增 onFirstAllyTurn 相位钩子与默认飞行方向（均从 core/11 逐字迁移）
 // V6.5.0 | 2026-10-07 乾坤衍生/狮群振奋受益池收编 getBenefitTargets 裁判（core/03）——乾坤衍生补上垂死/_spiderFlying/FSM附身/不可选排除，振奋行为不变口径归一
 // V6.4.8 | 2026-10-06 乾坤衍生治疗/加攻候选池排除附身中的姐姐（_flyMode='butterfly' 蝶形态不是地面作战单位，老板拍板：附身后不吃自己乾坤加成，未附身仍可被选）
 // V6.4.7 | ~50800 bytes | 2026-10-03 蝶变飞回（宿主存活路径）补清 _untargetable——此前漏清致姐姐飞回后整场不可被选，敌方越列打她身后队友（体检139零承伤真根因）
 // V6.4.6 | ~50700 bytes | 2026-10-02 吸血参数查找 'leech' 改用 MECHANIC_EFFECT_TYPES.ON_HIT.LEECH 枚举（mechanics type 同源治理）
-export const VER = 'modules/27elite-mingjiao.js V6.4.9';
+export const VER = 'modules/27elite-mingjiao.js V6.7.1';
 
 import { registerElite, registerRoundComponent, registerBuffRoundTransformer, registerStateTransition, registerHolyFlameEnhancer } from '../core/08-elite-registry.js';
 import { CONFIG, getSkillParams, getMechanicField } from '../core/01config-5v5-test.js';
@@ -808,7 +808,7 @@ export function createXieXunComponent() {
                 }
             });
 
-            // ③ 雄狮·振奋：雄狮命中后，己方全体存活角色（含雄狮自己、谢逊、幼狮）永久 +atkPerHit 攻。
+            // ③ 雄狮·振奋：雄狮命中后，己方全体存活角色（含雄狮自己、谢逊）永久 +atkPerHit 攻。
             //    走 addMod 登记永久词条，getStat 现算，不直改 unit.atk。
             eventBus.on(SIGNAL_TYPES.AFTER_DAMAGE_APPLIED, L.AFTER_DAMAGE_APPLIED.LION_INSPIRE, (data) => {
                 const lion = data.unit;
@@ -817,7 +817,9 @@ export function createXieXunComponent() {
                 const gain = inspire.atkPerHit;
                 // 2026-10-06 振奋受益池统一走 canBeTargeted + 排拒马：天上蝶/蛛不白吃加攻，拒马不加攻
                 // 2026-10-07 收编进 03 的 getBenefitTargets 裁判（行为不变，口径一处管）
-                const targets = getBenefitTargets(myTeam);
+                // 2026-10-08 幼狮也豁免（用户拍板）：攻被振奋抬>0 会真的出手（幼狮设计是零攻白板），
+                //   且幼狮吃振奋会让"成长前白赚全队攻"变成最优解——成长链的代价感就没了
+                const targets = getBenefitTargets(myTeam).filter(u => !u.isLionCub);
                 if (targets.length === 0) return;
                 const inspireTargets = [];
                 for (const t of targets) {
