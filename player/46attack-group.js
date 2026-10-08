@@ -78,11 +78,7 @@ export async function handleAttackGroup(c, entry, roundResult, abortSig, isFirst
         }
 
         // 成昆幻影识破：播到这条 log 时触发成昆闪一下（PHANTOM_REVEAL fact 带过来的 uid）
-        if (entry2.phantomFlashUid && c.store) {
-            c.store.dispatch({ type: STORE_ACTION_TYPES.SET_VISUAL, uid: entry2.phantomFlashUid, _phantomFlash: true });
-        }
-
-        // 成昆幻影识破：播到这条 log 时触发成昆闪一下（PHANTOM_REVEAL fact 带过来的 uid）
+        //   2026-10-08 清死重：本块曾连注释一字不差写两遍（外部AI清单#1），删其一
         if (entry2.phantomFlashUid && c.store) {
             c.store.dispatch({ type: STORE_ACTION_TYPES.SET_VISUAL, uid: entry2.phantomFlashUid, _phantomFlash: true });
         }

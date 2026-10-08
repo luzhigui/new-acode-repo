@@ -1,7 +1,7 @@
 // V6.2.7 | ~16000 bytes | 2026-10-03 乘风突袭声明补顶层 attackerUid/primaryUid/splashUids/splashDmg：core/10 只复制声明顶层字段进 entry，此前弹幕 splashDmg 恒 null 显示「-null」（对齐流星赶月声明模式，机制零改动）
 export const VER = 'core/04buff-system.js V6.2.7';
 import {
-    applyFortifyDef_Normal, applyFortifyDef_Sister, applyFortifyDef_Brother,
+    applyFortifyDef,
     applyCloudBodyDodge_Normal, applyCloudBodyDodge_Sister, applyCloudBodyDodge_Brother,
     applyHolyFlame_Normal, applyHolyFlame_Sister, applyHolyFlame_Brother,
     calcCarryBonus_Normal, calcCarryBonus_Sister,
@@ -25,7 +25,7 @@ export function applyFortifyBonus(unit, activeBuffs) {
     // 2026-09-19 支持分阵营：六大派持有严阵以待时同样生效
     if (unit.role !== ROLE_TYPES.DEFENDER) return;
     if (activeBuffs.some(b => b.key === BUFF_TYPES.FORTIFY)) {
-        applyFortifyDef_Normal(unit);
+        applyFortifyDef(unit);
     }
 }
 
