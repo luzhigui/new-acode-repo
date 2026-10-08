@@ -258,7 +258,7 @@ const CONFIG = {
     RANGED_GROWTH_ATK: 2,
     FORTIFY_INCREMENT: 1,
     FORTIFY_CAP: 4,
-    TOKEN_DROP_RATES: [0, 0, 1.5, 2, 2.5, 4, 5.5, 6], // 索引=关卡号：第1关教学不掉，第7关6%（2026-09-25 修数组差一位：原[0,1.5,2,2.5,4,5.5,6]取[stage]导致第7关=undefined→0%）
+    TOKEN_DROP_RATES: [0, 1.5, 2, 2.5, 4, 5.5, 6, 7], // 索引=关卡号，1.5→7 递增。2026-10-08 统一口径：对齐 player/48 通关奖励的 10-02 定案表（此前两张表各修一半方向相反：core 头补0[0,0,1.5,...,6] vs 48 尾补7；统一后 s1 局内击杀也掉令1.5%，s7=7%）
     CHEST_DROP_RATE: 0.2,
     BUFF_DURATION: 4,
     BUFF_CHOICES: 3,
