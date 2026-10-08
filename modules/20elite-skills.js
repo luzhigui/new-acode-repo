@@ -1,6 +1,7 @@
+// V6.1.0 | 2026-10-08 蛛落改回原格优先（老板定稿）：自己是几号位先落哪，被占按原格+1 环形顺延；一切存活队友（拒马/狮子/天上蝶蛛/附身者）都算占格——旧版后排优先且把拒马当空气，会落进拒马格子（seed15 stage5 体检 pos 冲突案）
 // V6.0.7 | 2026-10-06 妹蛛落地打击目标池统一走 canBeTargeted：不打天上的蝶/蛛、不打不可选单位（与主攻击门禁同口径）
 // V6.0.6 | ~12400 bytes | 2026-10-03 乾坤大挪移保护域改为**跟随张无忌实时位置的四邻格**（前后左右；站 5 号时恰为旧版 2/4/6/8），升级/基础两档同口径
-export const VER = 'modules/20elite-skills.js V6.0.7';
+export const VER = 'modules/20elite-skills.js V6.1.0';
 
 import { CONFIG, getSkillParams } from '../core/01config-5v5-test.js';
 import { getRoleBonus, getHpDmgRatio } from '../core/02unit.js';
