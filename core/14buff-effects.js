@@ -9,13 +9,9 @@ import { FACT_TYPES, CAMP_TYPES, SIGNAL_TYPES, BUFF_TYPES } from '../infra/56-ba
 const C = CONFIG;
 
 // 严阵以待：防御 +50%（mul 词条）
-export function applyFortifyDef_Normal(unit) {
-    addMod(unit, 'def', { source: '严阵以待', value: CONFIG.BUFFS.fortify.defBonus, ttl: 'round', op: 'mul', group: 'fortify' });
-}
-export function applyFortifyDef_Sister(unit) {
-    addMod(unit, 'def', { source: '严阵以待', value: CONFIG.BUFFS.fortify.defBonus, ttl: 'round', op: 'mul', group: 'fortify' });
-}
-export function applyFortifyDef_Brother(unit) {
+// 2026-10-08 清死重：原 _Normal/_Sister/_Brother 三函数体逐字相同（外部AI清单#2），
+//   且 04 只调 _Normal——收口成一个，_Sister/_Brother 全库无调用
+export function applyFortifyDef(unit) {
     addMod(unit, 'def', { source: '严阵以待', value: CONFIG.BUFFS.fortify.defBonus, ttl: 'round', op: 'mul', group: 'fortify' });
 }
 

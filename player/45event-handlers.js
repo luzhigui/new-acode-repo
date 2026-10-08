@@ -5,17 +5,11 @@ import { isBlocked } from '../core/03battle-utils.js';
 import { AudioManager } from '../modules/22audio-manager.js';
 import { GlobalStore, getState } from '../infra/54-global-store.js';
 import { appendLogHTML, appendLogElement, autoScrollLog, updateRoundDisplay, renderSeparator, playLogLine, appendHiddenDetail } from './47renderer.js';
+import { readRound } from './42player-core.js';
 import { clock } from '../infra/52-clock.js';
 import { STORE_ACTION_TYPES } from '../infra/56-battle-enums.js';
 
-// 2026-09-14 状态三轨收敛：回合数唯一来源 battleStore（原 c.UI.round）
-function currentRound(c) {
-    if (c && c.store) {
-        const r = c.store.getState().round;
-        if (r) return r;
-    }
-    return (c && c.UI && c.UI.round) || 1;
-}
+// 2026-10-08 收口（外部AI清单#15）：currentRound 与 42.readRound 逐字等价，删本地版改引单源
 
 export async function handleBuffText(c, entry, delayMs = 0) {
     // 特效已由 stageAction 触发，此处只播文本
@@ -28,7 +22,7 @@ export async function handleBuffText(c, entry, delayMs = 0) {
 export async function handleInfo(c, entry) {
     if (entry.fastEntry) {
         appendLogHTML(entry.text + '<br>');
-        updateRoundDisplay(`📜 日志（第${currentRound(c)}回合）`);
+        updateRoundDisplay(`📜 日志（第${readRound(c)}回合）`);
         return;
     }
 
@@ -43,7 +37,7 @@ export async function handleInfo(c, entry) {
     else {
         await playLogLine(entry.text, null, anchorSpecs);
     }
-    updateRoundDisplay(`📜 日志（第${currentRound(c)}回合）`);
+    updateRoundDisplay(`📜 日志（第${readRound(c)}回合）`);
 }
 
 export async function handleRoundStart(c, entry, isFirstAttackRef) {
@@ -52,13 +46,13 @@ export async function handleRoundStart(c, entry, isFirstAttackRef) {
     if (c.store) c.store.dispatch({ type: STORE_ACTION_TYPES.SET_ROUND, round: _r });
     if (isFirstAttackRef) isFirstAttackRef.value = true;
     appendLogHTML(entry.text + '<br>');
-    updateRoundDisplay(`📜 日志（第${currentRound(c)}回合）`);
+    updateRoundDisplay(`📜 日志（第${readRound(c)}回合）`);
     await clock.wait(200);
 }
 
 export async function handleRoundEnd(c, entry, log, i) {
     appendLogHTML(entry.text + '<br>');
-    updateRoundDisplay(`📜 日志（第${currentRound(c)}回合）`);
+    updateRoundDisplay(`📜 日志（第${readRound(c)}回合）`);
     if (c.updateBuffSlots) { c.updateBuffSlots(); }
     if (window._refreshGlowCells) window._refreshGlowCells();
     await clock.wait(200);
