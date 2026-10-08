@@ -1,3 +1,5 @@
+// V2.4.1 | 预估 15500 bytes | 2026-10-08 单英雄表补「总评」行：跨关累加五精英的胜率/场次/存活
+//          （口径与上方自然表的总评一致）；此前只有逐关行，跑完看不到汇总，与上表不对称
 // V2.4.0 | 2026-10-08 新增「⚔ 单英雄胜率」按钮：五精英逐一 force 单精英跑选中关卡（worker kind:soloElite，
 //          依赖 29 V7.5.16 四路 force 轮盘互锁）；结果渲染进独立容器，与普通评测表互不覆盖。
 //          首跑参考数字（第2关 N=300 node 探针）：谢逊 42.7% > 张无忌 39.7% > 姊 26.0% > 妹 16.0% > 韦一笑 7.0%
@@ -8,7 +10,7 @@
 //          横向比同列五人；输出/承伤不计入（姐姐是附身支援位，计进去等于拿两把错的尺子量她）
 import { runParallel } from './117-shared-worker-runner.js';
 
-export const VER = 'tools/112-elite-eval.js V2.3.1';
+export const VER = 'tools/112-elite-eval.js V2.4.1';
 
 const configs = [
     { name: '张无忌' },
@@ -160,24 +162,41 @@ function renderSoloResults(byStage, stages) {
     html += '</tr>';
     for (const st of stages) {
         html += `<tr><td class="elite-stage">第${st}关</td>`;
-        for (const cfg of configs) {
-            const d = byStage[st] && byStage[st][cfg.name];
-            if (!d || !d.runs) { html += '<td class="elite-cell">N/A</td>'; continue; }
-            const rate = (d.wins / d.runs * 100).toFixed(1);
-            const r = parseFloat(rate);
-            const color = r >= 50 ? '#4caf50' : r >= 25 ? '#ffd700' : '#ff5252';
-            const surv = (d.sumSurv / d.runs * 100).toFixed(1);
-            const thin = d.runs < 200 ? ' <span style="color:#ff9800;">(样本少)</span>' : '';
-            html += `<td class="elite-cell">
-        <div class="cell-rate" style="color:${color}">胜率 ${rate}%</div>
-        <div class="cell-sub">${d.runs} 场${thin}</div>
-        <div class="cell-sub">存活 ${surv}%</div></td>`;
-        }
+        for (const cfg of configs) html += soloCellHtml(byStage[st] && byStage[st][cfg.name]);
         html += '</tr>';
     }
+    // 总评行（2026-10-08 补）：跨关累加五精英，口径与上方自然表的总评一致
+    html += '<tr><td class="elite-stage">总评</td>';
+    for (const cfg of configs) html += soloCellHtml(soloTotalsOf(cfg, byStage, stages));
+    html += '</tr>';
     html += '</table>';
     html += '<div style="font-size:11px;color:#999;margin-top:6px;">单英雄胜率 = force 该精英单挑（抑制随机轮盘、海克斯开、胜=明教）。控制变量口径，与上方「自然出场归因」表互补：这里看单核带队能力，上面看真实出场表现。</div>';
     soloResultEl.innerHTML = html;
+}
+
+// 单英雄表单元格：胜率/场次/存活（逐关行与总评行共用）
+function soloCellHtml(d) {
+    if (!d || !d.runs) return '<td class="elite-cell">N/A</td>';
+    const rate = (d.wins / d.runs * 100).toFixed(1);
+    const r = parseFloat(rate);
+    const color = r >= 50 ? '#4caf50' : r >= 25 ? '#ffd700' : '#ff5252';
+    const surv = (d.sumSurv / d.runs * 100).toFixed(1);
+    const thin = d.runs < 200 ? ' <span style="color:#ff9800;">(样本少)</span>' : '';
+    return `<td class="elite-cell">
+        <div class="cell-rate" style="color:${color}">胜率 ${rate}%</div>
+        <div class="cell-sub">${d.runs} 场${thin}</div>
+        <div class="cell-sub">存活 ${surv}%</div></td>`;
+}
+
+// 跨关累加某精英（单英雄表总评行用）
+function soloTotalsOf(cfg, byStage, stages) {
+    let runs = 0, wins = 0, sumSurv = 0;
+    for (const st of stages) {
+        const d = byStage[st] && byStage[st][cfg.name];
+        if (!d) continue;
+        runs += d.runs; wins += d.wins; sumSurv += d.sumSurv;
+    }
+    return { runs, wins, sumSurv };
 }
 
 function renderResults(byStage, stages) {
