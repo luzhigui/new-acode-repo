@@ -1,3 +1,4 @@
+// V6.7.0 | 2026-10-08 checkZhangSwitch 从 core/13 迁入本文件（张无忌知识回家；老板拍板）——core 层从此零英雄名
 // V6.6.0 | 2026-10-08 回合钩子注册（core/11 特判收口）：小昭·姊/妹登记回合组件、圣火令增强判定+行列重画变换器、四条状态迁移分发闭包迁入本文件；姊组件新增 onFirstAllyTurn 相位钩子与默认飞行方向（均从 core/11 逐字迁移）
 // V6.5.0 | 2026-10-07 乾坤衍生/狮群振奋受益池收编 getBenefitTargets 裁判（core/03）——乾坤衍生补上垂死/_spiderFlying/FSM附身/不可选排除，振奋行为不变口径归一
 // V6.4.8 | 2026-10-06 乾坤衍生治疗/加攻候选池排除附身中的姐姐（_flyMode='butterfly' 蝶形态不是地面作战单位，老板拍板：附身后不吃自己乾坤加成，未附身仍可被选）
@@ -11,7 +12,7 @@ import { hasBuff, getZhangNearTaunt, getBenefitTargets } from '../core/03battle-
 import { spawnHorse, spawnUnit } from '../core/05battle-horse.js';
 import { applyHeroFlags, getRoleBonus } from '../core/02unit.js';
 import { spiderTransform, spiderReturn } from '../modules/20elite-skills.js';
-import { checkZhangSwitch, emitEvent, applyStatChange, refreshMaxHp, getBattleRng, addMod, removeModsByGroup, getStat } from '../core/13battle-shared.js';
+import { emitEvent, applyStatChange, refreshMaxHp, getBattleRng, addMod, removeModsByGroup, getStat } from '../core/13battle-shared.js';
 import { eventBus, EXECUTION_LAYER as L, EFFECT_TYPES } from '../infra/50-event-bus.js';
 import { StateMachine } from '../infra/51-core-utils.js';
 import { FACT_TYPES, BUFF_TYPES, UNIT_EVENT_TYPES, CAMP_TYPES, ROLE_TYPES, SIGNAL_TYPES, STATE_CHANGE_TYPES, MECHANIC_EFFECT_TYPES } from '../infra/56-battle-enums.js';
@@ -23,6 +24,54 @@ import { watchUnit } from '../core/19unit-watch.js';
 //   动作仍须写 JS，收益不抵成本。保持组件内硬编码，此决定不再反复讨论。
 
 // 张无忌
+// 2026-10-08 V7.5.19 从 core/13 逐字迁入（老板拍板「搬掉」——core 是公共地基不住英雄名）：
+//   张无忌近身切换（乾坤大挪移变近战）。全库唯一调用点=下方张无忌组件 switching.onEnter。
+//   唯一改名：emitCoreEvent → emitEvent（core/13 的模块内私有名，此处用其导出别名，同一实现）。
+function checkZhangSwitch(A, log) {
+    let zhang = A.find(c => c.isZhang && c.alive && !c.state._zhangSwitched);
+    if (!zhang) return;
+    // 口径同 27 组件 watcher：他成为所在列最靠前的存活单位才切（同列无 pos 更小的存活非马队友）
+    const hasFrontAlly = A.some(c => c.alive && !c.isHorse && c.uid !== zhang.uid
+        && (c.pos - 1) % 3 === (zhang.pos - 1) % 3 && c.pos < zhang.pos);
+    if (!hasFrontAlly) {
+        zhang.rangedForm = false;
+        // 加成倍率走内容表（相对战士职业加成），缺失即抛错
+        const mul = getSkillParams('张无忌', 'nearSwitch');
+        if (!mul) throw new Error('缺技能参数: 张无忌.nearSwitch');
+        const warriorBonus = getRoleBonus(ROLE_TYPES.WARRIOR);
+        const atkGain = warriorBonus.atk * mul.atkMul;
+        const defGain = warriorBonus.def * mul.defMul;
+        const maxHpGain = warriorBonus.maxHp * mul.maxHpMul;
+        addMod(zhang, 'atk', { source: '近战切换', value: atkGain, ttl: 'permanent', group: 'zhangSwitch', op: 'add' });
+        addMod(zhang, 'def', { source: '近战切换', value: defGain, ttl: 'permanent', group: 'zhangSwitch', op: 'add' });
+        addMod(zhang, 'maxHp', { source: '近战切换', value: maxHpGain, ttl: 'permanent', group: 'zhangSwitch', op: 'add' });
+        refreshMaxHp(zhang, null, '乾坤大挪移变身');
+        zhang.role = ROLE_TYPES.WARRIOR;
+        zhang.state._resting = false; Object.assign(zhang.state, { _zhangSwitched: true });
+        emitEvent(zhang, UNIT_EVENT_TYPES.ZHANG_SWITCH, {
+            atk: getStat(zhang, 'atk'),
+            def: getStat(zhang, 'def'),
+            maxHp: getStat(zhang, 'maxHp'),
+            hp: zhang.hp,
+            role: zhang.role,
+            rangedForm: false,
+            _baseAtk: zhang.state._baseAtk,
+            _baseDef: zhang.state._baseDef,
+            _baseMaxHp: zhang.state._baseMaxHp
+        });
+        emitStateChange(zhang, STATE_CHANGE_TYPES.TRANSFORMED, { newRole: ROLE_TYPES.WARRIOR }, log);
+        log.push({
+            factType: FACT_TYPES.ZHANG_SWITCH,
+            data: {
+                zhang: { uid: zhang.uid, name: zhang.name, pos: zhang.pos },
+                atkGain,
+                defGain,
+                maxHpGain
+            }
+        });
+    }
+}
+
 export function createZhangWujiComponent() {
     return {
         name: '张无忌',

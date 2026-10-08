@@ -1,9 +1,9 @@
+// V7.5.19 | 2026-10-08 checkZhangSwitch 迁出（张无忌知识回英雄家，老板拍板「搬掉」）：函数体逐字移 modules/27 张无忌组件旁，本文件 export/死 import（getSkillParams、getRoleBonus）同步清——core 从此无英雄名
 // V7.5.15 | 2026-10-08 击退撞「天上/附身单位」改判退无可退→眩晕（老板定调飞天原格不被换位；探针实锤旧版会把天上蝶蛛拽去换位——1号被击退时4号飞天妹pos被换到1）。判据与 getFronts/惑心换位同口径
 // V6.2.1 | ~15400 bytes | 2026-10-02 checkZhangSwitch 前排判定与 27 组件 watcher 同口径：改为「同列无 pos 更小的存活非马队友」（他成为该列最前排才切），修后排边界硬切
 export const VER = 'core/13battle-shared.js V6.2.1';
 
-import { CONFIG, getSkillParams } from './01config-5v5-test.js';
-import { getRoleBonus } from './02unit.js';
+import { CONFIG } from './01config-5v5-test.js';   // 2026-10-08 getSkillParams 随 checkZhangSwitch 迁 modules/27，此处成死 import 已清
 import { pushBattleEvent } from '../infra/51-core-utils.js';
 import { FACT_TYPES, UNIT_EVENT_TYPES, ROLE_TYPES, STATE_CHANGE_TYPES } from '../infra/56-battle-enums.js';
 import { emitStateChange } from '../infra/59-state-change.js';
@@ -178,51 +178,6 @@ function resolvePushOrStun(target, team, log, label) {
     log.push({ factType: FACT_TYPES.PUSH_STUN, data: { label, target: { uid: target.uid, name: target.name }, pos: target.pos } });
 }
 
-function checkZhangSwitch(A, log) {
-    let zhang = A.find(c => c.isZhang && c.alive && !c.state._zhangSwitched);
-    if (!zhang) return;
-    // 口径同 27 组件 watcher：他成为所在列最靠前的存活单位才切（同列无 pos 更小的存活非马队友）
-    const hasFrontAlly = A.some(c => c.alive && !c.isHorse && c.uid !== zhang.uid
-        && (c.pos - 1) % 3 === (zhang.pos - 1) % 3 && c.pos < zhang.pos);
-    if (!hasFrontAlly) {
-        zhang.rangedForm = false;
-        // 加成倍率走内容表（相对战士职业加成），缺失即抛错
-        const mul = getSkillParams('张无忌', 'nearSwitch');
-        if (!mul) throw new Error('缺技能参数: 张无忌.nearSwitch');
-        const warriorBonus = getRoleBonus(ROLE_TYPES.WARRIOR);
-        const atkGain = warriorBonus.atk * mul.atkMul;
-        const defGain = warriorBonus.def * mul.defMul;
-        const maxHpGain = warriorBonus.maxHp * mul.maxHpMul;
-        addMod(zhang, 'atk', { source: '近战切换', value: atkGain, ttl: 'permanent', group: 'zhangSwitch', op: 'add' });
-        addMod(zhang, 'def', { source: '近战切换', value: defGain, ttl: 'permanent', group: 'zhangSwitch', op: 'add' });
-        addMod(zhang, 'maxHp', { source: '近战切换', value: maxHpGain, ttl: 'permanent', group: 'zhangSwitch', op: 'add' });
-        refreshMaxHp(zhang, null, '乾坤大挪移变身');
-        zhang.role = ROLE_TYPES.WARRIOR;
-        zhang.state._resting = false; Object.assign(zhang.state, { _zhangSwitched: true });
-        emitCoreEvent(zhang, UNIT_EVENT_TYPES.ZHANG_SWITCH, {
-            atk: getStat(zhang, 'atk'),
-            def: getStat(zhang, 'def'),
-            maxHp: getStat(zhang, 'maxHp'),
-            hp: zhang.hp,
-            role: zhang.role,
-            rangedForm: false,
-            _baseAtk: zhang.state._baseAtk,
-            _baseDef: zhang.state._baseDef,
-            _baseMaxHp: zhang.state._baseMaxHp
-        });
-        emitStateChange(zhang, STATE_CHANGE_TYPES.TRANSFORMED, { newRole: ROLE_TYPES.WARRIOR }, log);
-        log.push({
-            factType: FACT_TYPES.ZHANG_SWITCH,
-            data: {
-                zhang: { uid: zhang.uid, name: zhang.name, pos: zhang.pos },
-                atkGain,
-                defGain,
-                maxHpGain
-            }
-        });
-    }
-}
-
 function emitCoreEvent(unit, eventType, payload) {
     pushBattleEvent({ unitUid: unit.uid, eventType, payload });
 }
@@ -342,7 +297,6 @@ export {
     swapUnitPositions,
     moveUnitPosition,
     resolvePushOrStun,
-    checkZhangSwitch,
     applyStatChange,
     refreshMaxHp,
     recordCombatStat
