@@ -1,7 +1,8 @@
+// V6.17.0 | 2026-10-08 张三丰生生不息改「付费触发」：轮到自己/八卦阵两处均消耗 atkCost(5) 点攻击力（攻不足不触发，共用同一池燃料；回血随机加攻使燃料可再生，付费与成长拉锯），回合开始仍免费；八卦阵删「-1攻+1防」对冲改纯扣攻，fact defDelta 发 0 保契约字段
 // V6.16.0 | 2026-10-07 苦练/生生不息溢出受益池收编 getBenefitTargets 裁判（core/03）——苦练补上垂死+天上蝶蛛+附身排除（原只排死人和拒马），溢出行为不变口径归一
 // V6.15.5 | ~48300 bytes | 2026-10-02 胖远桥·莽撞补飘字：被攻击加攻量写进本击 fact（group.data.pangAtkGain），render/38 据此产 STAT_CHANGE(atk) 飘「⚔+N」
 // V6.15.4 | 2026-10-02 四个注册表 handler 补 fields 字段契约（core/15 安装期按此校验 JSON，缺字段/类型错开局即抛）
-export const VER = 'modules/26elite-sixsects.js V6.15.5';
+export const VER = 'modules/26elite-sixsects.js V6.17.0';
 import { registerElite } from '../core/08-elite-registry.js';
 import { CONFIG, getSkillParams, getGameData } from '../core/01config-5v5-test.js';
 import { SIGNAL_TYPES, FACT_TYPES, BUFF_TYPES, CAMP_TYPES, ROLE_TYPES, MECHANIC_TYPES } from '../infra/56-battle-enums.js';
@@ -48,7 +49,7 @@ export function createZhangSanfengComponent() {
             const tf = getSkillParams('张三丰', 'tenRoundFortify');
             if (!tf) throw new Error('缺技能参数: 张三丰.tenRoundFortify');
 
-            // 生生不息：只回 healPct 上限（三处触发共用：回合开始 / 轮到自己 / 八卦阵）；回血同时转永久攻防，见下
+            // 生生不息：只回 healPct 上限（三处触发共用：回合开始[免费] / 轮到自己[付费atkCost攻] / 八卦阵[付费atkCost攻]）；回血同时转永久攻防，见下
             // 2026-09-21 溢出转嫁：自身回不满的那部分（满血时即全部）转给随机一名存活友方，
             // 拒马也算友方；满血队友也可被选中（选中即作废，不改选）；随机走战斗 RNG（getBattleRng），保证 PVP 双端同源
             function triggerEndlessBreath(unit, log) {
@@ -142,31 +143,36 @@ export function createZhangSanfengComponent() {
             });
 
             // 技能1：轮到自己行动完成时触发（「如沐春风」2026-09-20 取消）
+            // 2026-10-08 付费触发：消耗 atkCost(5) 点攻击力才回血；攻不足 5 只休息不回血（回合开始那次仍免费）。
+            // 注意生生不息回血本身会随机加攻（healAtkDiv）——攻是可再生燃料，付费与成长互相拉锯
             eventBus.on(SIGNAL_TYPES.ON_UNIT_ACTED, 50, (data) => {
                 const actor = data.unit;
                 if (!actor || !actor.alive || !actor.isZhangSanfeng) return;
+                if (getStat(actor, 'atk') < s.atkCost) return;
+                addMod(actor, 'atk', { source: '生生不息', value: -s.atkCost, ttl: 'permanent', group: 'endlessBreathCost', op: 'add' });
                 triggerEndlessBreath(actor, data.log);
             });
 
-            // 技能3：八卦阵——被攻击时 50% 概率削自身攻 1（攻 > atkFloor 才触发），掉攻的同时加防，并触发生生不息
+            // 技能3：八卦阵——被攻击时 procChance(50%) 概率触发：消耗 atkCost(5) 点攻击力，并触发生生不息
+            // 2026-10-08 改版：付费触发（与「轮到自己」共用同一池攻击力当燃料，攻不足 5 不触发）；
+            // 原「-1攻+1防」对冲删除，不再加防——fact 的 defDelta 发 0 保住契约三字段（渲染/体检按 >0 分支自然静音）
             eventBus.on(SIGNAL_TYPES.AFTER_DAMAGE_APPLIED, 45, (data) => {
                 if (data.target !== zhang || !zhang.alive) return;
                 if (!data.dmg || data.dmg <= 0) return;
-                if (getStat(zhang, 'atk') <= ba.atkFloor) return;
+                if (getStat(zhang, 'atk') < ba.atkCost) return;
                 const rng = getBattleRng();
                 if (rng.nextInt(1, 100) > ba.procChance * 100) return;
                 addMod(zhang, 'atk', { source: '八卦阵', value: -ba.atkCost, ttl: 'permanent', group: 'baguaArray', op: 'add' });
-                addMod(zhang, 'def', { source: '八卦阵', value: ba.defGain, ttl: 'permanent', group: 'baguaArray', op: 'add' });
                 // 数值声明 fact：发实际 addMod 的带符号值，供体检对照器按 group='baguaArray' 隔离比对
                 if (data.log) {
                     data.log.push({
                         factType: FACT_TYPES.BAGUA_ARRAY,
-                        data: { unitName: zhang.name, unitUid: zhang.uid, atkDelta: -ba.atkCost, defDelta: ba.defGain }
+                        data: { unitName: zhang.name, unitUid: zhang.uid, atkDelta: -ba.atkCost, defDelta: 0 }
                     });
                 }
                 triggerEndlessBreath(zhang, data.log);
                 if (data.group && data.group.data && data.group.data.entries) {
-                    data.group.data.entries.push({ type: 'info', text: `<span class="gold">☯ 八卦阵：张三丰攻击-${ba.atkCost}、防御+${ba.defGain}，触发生生不息</span>` });
+                    data.group.data.entries.push({ type: 'info', text: `<span class="gold">☯ 八卦阵：张三丰攻击-${ba.atkCost}，触发生生不息</span>` });
                 }
             });
 
