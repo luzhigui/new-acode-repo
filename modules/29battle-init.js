@@ -1,3 +1,4 @@
+// V7.5.16 | 2026-10-08 随机精英轮盘互锁补全：forceXieXun / forceXiaoZhao 也抑制轮盘（与张/韦对称）——四路 force 全=真·单精英局；正常局无 force 行为不变（基线 18 场全一致）
 // V6.5.4 | ~23400 bytes | 2026-10-03 强制小昭换人候选补排谢逊（!u.isXieXun，对齐下方站位段口径）：此前谢逊在场且无小昭时被当普通兵换掉，normalPowerOf(107) 查表抛「缺 roster.normalPower: 107」
 export const VER = 'modules/29battle-init.js V6.5.4';
 
@@ -103,6 +104,9 @@ export function initBattleTeams(currentStage, _rng) {
     // 2026-09-22 强制金毛狮王谢逊（demo 用）：明教侧固定加入，站 7 号位。
     // 与 forceZhang / forceWei 同口径（GlobalStore 优先、localStorage 兜底），但独立成块——
     // 谢逊是固定位角色，不参与上面的随机精英轮盘（eliteCount / weightedPick）。
+    // 2026-10-08 V7.5.16 轮盘互锁（老板拍板「谢逊加一下」）：forceXieXun 同样抑制随机轮盘——
+    //   旧版勾谢逊后轮盘照转，队里常是「谢逊+另一个精英」，四精英单挑评测口径不对齐（112/探针实测
+    //   单精英命中 0/300）。现与张/韦同款互锁，勾了谢逊=单精英局。
     const forceXieXun = GlobalStore.get('forceXieXun') || localStorage.getItem('_forceXieXun') === '1';
     if (forceXieXun && !allyTeam.some(u => u.isXieXun)) {
         const unit = new Unit('金毛狮王谢逊', 107, ROLE_TYPES.WARRIOR, CAMP_TYPES.ALLY);
@@ -112,7 +116,11 @@ export function initBattleTeams(currentStage, _rng) {
         usedPower += elitePowerOf('金毛狮王谢逊');
     }
 
-    if (eliteCount > 0 && !forceZhang && !forceWei) {
+    // 2026-10-08 V7.5.16 小昭同款互锁（dev 试玩按钮与张/韦同一排，口径对齐）：指定姊/妹时轮盘不转，
+    //   队里=单小昭局。旧版轮盘照抽，「小昭+另一精英」双精英场占 3/4（探针实测单精英命中仅 74/300）。
+    const _forceXzEarly = (GlobalStore.get('forceXiaoZhao') === 'sister' || GlobalStore.get('forceXiaoZhao') === 'brother'
+        || localStorage.getItem('_forceXiaoZhao') === 'sister' || localStorage.getItem('_forceXiaoZhao') === 'brother');
+    if (eliteCount > 0 && !forceZhang && !forceWei && !forceXieXun && !_forceXzEarly) {
         const picked = [];
         // 2026-09-22 已在队的精英不再进池：forceXieXun 等强制路径可能已经加过，
         // 不去重会抽出第二个同名精英（小昭会被改名成「小昭·姊/妹」，所以标记判断不能只看 name）
