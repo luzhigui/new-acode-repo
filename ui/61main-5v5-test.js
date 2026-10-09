@@ -556,6 +556,10 @@ document.addEventListener('DOMContentLoaded', async function() {
 
         // 全自动/手动共用战斗启动流程
         const startBattle = async (choice) => {
+            // 2026-10-09 修原班再战走势分析串局：battleLog 只在 doInitBattle（下一关/重开）和中止时清，
+            //   原班再战两口都不走，第二局的条目会接在第一局后面——走势分析按回合号并账，伤害/击杀双份。
+            //   开战是所有对局的公共漏斗，在这里跟 DOM 日志（clearLogExceptFirst）一起清内存日志。
+            GlobalStore.set('battleLog', []);
             clearLogExceptFirst(); hasLoggedTeam=false; fadeBGMTo(0.1,2000); logTeamInfo('初始阵容', getState.UI(), getState.gs(), battleResultForInfo, getState.activeBuffs(), hasLoggedTeam); hasLoggedTeam = true;
             stepCountdown();
             await showCountdown(TRASH_TALK_ALLY, TRASH_TALK_ENEMY, _randLocal, showDanmaku, autoScrollLog);
