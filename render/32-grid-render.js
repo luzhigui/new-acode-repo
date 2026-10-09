@@ -1,5 +1,6 @@
 // V6.5.0 | ~29900 bytes | 2026-10-04 ①格子节点复用：9 个 div 建一次、之后只重填内容，不再每帧 innerHTML='' 全删全建（click 改一次性绑定 + 槽位现取单位）；复用会激活 .cell 的 transition: background 0.6s，故每帧重填前置 transition:none 并全程保持 → 底色仍是「瞬切」，观感与改动前完全一致 ②格子图标 7 分支 if/else 链改查 ui/69-role-cards.js 名片表
-export const VER = 'render/32-grid-render.js V6.5.1';
+// V6.5.2 | ~30600 bytes | 2026-10-09 格子防优先取 store 单位上的 _displayDef（player/42 由本步日志冻结的引擎真值写入），无则回落 getStat 现算——与攻击日志行同口径，修「格子防37 / 日志防56」
+export const VER = 'render/32-grid-render.js V6.5.2';
 
 import { getUnitCol, getUnitRow, getAuraBonuses, getDodgeRules, fmtHp } from '../infra/51-core-utils.js';
 import { CONFIG, getSkillDesc } from '../core/01config-5v5-test.js';
@@ -288,7 +289,7 @@ export function renderGrid(id, camp) {
                 } else if (effectiveFlyMode === 'ghost') {
                     // 虚影分支不判眩晕/死亡（与原逻辑一致），只带嘲讽态
                     let roleIcon = getRoleIcon(unit, { isStunned: false, isDead: false, pangTaunting });
-                    div.innerHTML = `<span class="cell-icon">${roleIcon}</span><div class="cell-info"><span class="cell-name">${unit.name}</span><span class="cell-stats">攻${Math.floor(getStat(unit,'atk'))} 防${Math.floor(getStat(unit,'def'))} 血${fmtHp(unit.hp)}</span></div>`;
+                    div.innerHTML = `<span class="cell-icon">${roleIcon}</span><div class="cell-info"><span class="cell-name">${unit.name}</span><span class="cell-stats">攻${Math.floor(getStat(unit,'atk'))} 防${unit._displayDef !== undefined ? unit._displayDef : Math.floor(getStat(unit,'def'))} 血${fmtHp(unit.hp)}</span></div>`;
                     div.style.opacity = '0.5';
                     div.style.background = 'rgba(30,100,255,0.28)';
                     div.style.border = '2px solid rgba(100,150,255,0.6)';
@@ -375,7 +376,10 @@ export function renderGrid(id, camp) {
         if (totalChange > 0) atkDisplayHtml = `<span style="color:var(--c-gain);font-weight:bold;">${displayAtk}</span>`;
         else if (totalChange < 0) atkDisplayHtml = `<span style="color:var(--c-danger);font-weight:bold;">${displayAtk}</span>`;
 
-        const displayDef = Math.round(getStat(latestUnit, 'def'));
+        // 2026-10-09 与日志行同口径：本步日志已冻结引擎真值则直接采用（见 player/42 syncStoreFromStep），
+        //   否则现算。原先一律从 step 词条快照（_mods）现算，而该快照跨步共享、含已清除的破防，
+        //   会算出与日志不符的防（回放里的「格子37 / 日志56」）。
+        const displayDef = latestUnit._displayDef !== undefined ? latestUnit._displayDef : Math.round(getStat(latestUnit, 'def'));
         const initDef = latestUnit.state._initDef !== undefined ? Math.round(latestUnit.state._initDef) : displayDef;
         const totalDefChange = displayDef - initDef;
         let defDisplayHtml = `${displayDef}`;

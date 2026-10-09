@@ -1,5 +1,5 @@
-// ~34700 bytes | V6.8.2 | 2026-10-02 回合间重建 battleState 带上同一颗 _rng，修第 2 回合起被 Date.now() 兜底重播、同种子跨回合不可复现
-export const VER = 'player/42player-core.js V6.8.2';
+// ~37700 bytes | V6.8.3 | 2026-10-09 格子/日志同口径：syncStoreFromStep 把本步日志里引擎冻结的真值（snap.attackerDef / snap.targetDefDisplay）写进 store 单位的 _displayDef，格子不再从跨步共享的 _mods 词条快照现算（修「格子防37 / 日志防56」）
+export const VER = 'player/42player-core.js V6.8.3';
 
 import { eventBus } from '../infra/50-event-bus.js';
 import { FX_SIGNALS } from '../infra/55-fx-signals.js';
@@ -75,12 +75,25 @@ function applyStageActionToStoreAfter(c, action, pendingDeaths) {
 
 function syncStoreFromStep(c, step) {
     if (!c.store || !step) return;
+    // 2026-10-09 格子/日志同口径：格子上的攻防不再从 step 词条快照（_mods）现算——该快照跨步共享，
+    //   可能含已被清除的破防等词条、漏掉刚生效的增益，算出的数不等于引擎真值（回放「格子防37 / 日志防56」即此因）。
+    //   改为采用本步日志里引擎冻结的真值（攻击组 snap.attackerDef / snap.targetDefDisplay）；
+    //   本步没有其日志的单位仍回落到 getStat 现算（兜底在 render/32）。
+    const frozenDef = new Map();
+    for (const e of (step.log || [])) {
+        const d = e && e.data;
+        if (!d || !d.snap) continue;
+        if (d.attacker && d.attacker.uid != null && d.snap.attackerDef !== undefined) frozenDef.set(d.attacker.uid, d.snap.attackerDef);
+        if (d.target && d.target.uid != null && d.snap.targetDefDisplay !== undefined) frozenDef.set(d.target.uid, d.snap.targetDefDisplay);
+    }
     const units = [...step.ally, ...step.enemy]
         .filter(u => !(c._removedUids && c._removedUids.has(u.uid)))
         .map(u => {
             const unit = { ...u };
             if (u._mods) unit._mods = { atk: [...u._mods.atk], def: [...u._mods.def], maxHp: [...u._mods.maxHp] };
             else unit._mods = { atk: [], def: [], maxHp: [] };
+            const fd = frozenDef.get(u.uid);
+            if (fd !== undefined) unit._displayDef = fd;
             return unit;
         });
     c.store.dispatch({ type: STORE_ACTION_TYPES.SET_UNITS, units });

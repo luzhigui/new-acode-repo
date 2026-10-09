@@ -1,5 +1,5 @@
-// V7.8.5 | ~39400 bytes | 2026-10-04 速度按钮：两套界面（普通 2 档 / 调试 4 档）保持各自独立不变，只把重复的 2x、0.5x 收进一张档位表 SPEED_SPECS，绑定与「按速度取按钮」都由它派生（纯内部，画面零变化）
-export const VER = 'ui/68ui-controls.js V7.8.6';
+// V7.8.7 | ~41700 bytes | 2026-10-09 日志模式按钮补同步高亮：选「简要」后原先只改文字不改 class，按钮仍亮着（要开新一局才被 ui/61 重新同步）；判据对齐 ui/61:878 与体检 122health-utils:459「不是简要就亮」
+export const VER = 'ui/68ui-controls.js V7.8.7';
 
 // 2026-09-14 打断 63↔68 循环依赖：getState/setState 直接取自 infra/54（63 只做转发）
 import { getState, setState, GlobalStore, getPlayerContext } from '../infra/54-global-store.js';
@@ -455,6 +455,9 @@ export function bindDetailButton(getState, setState, showModal) {
         ], (choice) => {
             setState.logLevel(choice);
             this.textContent = choice === 'detailed' ? '详细' : (choice === 'brief' ? '简要' : '调试');
+            // 2026-10-09 补同步高亮：原先只改文字不改 class，战斗中切「简要」按钮还是亮的（要开新一局才被 ui/61
+            //   重新同步）。判据与 ui/61:878、体检 122health-utils:459 一致——「不是简要就亮」（详细/调试都亮）。
+            this.classList.toggle('active', choice !== 'brief');
             // _renderAllLogs 全库从未定义，删除无效调用
         });
     });
