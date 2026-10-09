@@ -1,3 +1,4 @@
+// V6.19.1 | ~57700 bytes | 2026-10-09 召唤周芷若落位避让活人：flushZhouSummon 以阵亡者原格为 anchor 做「原格+1 环形顺延」找空位（复用 core/05 findFreePos，只算 alive 占位），spawnUnit 与 SUMMON_UNIT fact 同用 landPos——旧版直接落原格，拒马刚刷进刚空出的格时会两活人同格（fuzz seed159 关7 r2）
 // V6.19.0 | ~56100 bytes | 2026-10-09 灭绝新增「追击」技能：每次打中（普攻/反击/跟随/追击本身）后 0.1 概率对同一目标再追击一次（×1.2、可被闪避），追击计入出手数、且可链式自触发（故意不入 core/10 LINK_REASONS，靠 0.1^n 收敛）；普攻系数回 1.0；thirdStrike 文案补 dmgMultiplier
 // V6.18.0 | 2026-10-08 搭档连线注册面接龙：宋青书×周芷若配对知识从 core/11 迁入本文件
 // V6.17.1 | 2026-10-08 atkCost 5→3（用户看实战战报定调：5 攻触发条件偏高）；付费/攻不足的日志可见性——付费 fact 带 cost（render/35 句首「消耗N点攻击力」+ render/38 ⚔-N 飘字），攻不足推灰字 fail fact（此前静默）
@@ -5,14 +6,14 @@
 // V6.16.0 | 2026-10-07 苦练/生生不息溢出受益池收编 getBenefitTargets 裁判（core/03）——苦练补上垂死+天上蝶蛛+附身排除（原只排死人和拒马），溢出行为不变口径归一
 // V6.15.5 | ~48300 bytes | 2026-10-02 胖远桥·莽撞补飘字：被攻击加攻量写进本击 fact（group.data.pangAtkGain），render/38 据此产 STAT_CHANGE(atk) 飘「⚔+N」
 // V6.15.4 | 2026-10-02 四个注册表 handler 补 fields 字段契约（core/15 安装期按此校验 JSON，缺字段/类型错开局即抛）
-export const VER = 'modules/26elite-sixsects.js V6.19.0';
+export const VER = 'modules/26elite-sixsects.js V6.19.1';
 import { registerElite, registerLinkPartners } from '../core/08-elite-registry.js';
 import { CONFIG, getSkillParams, getGameData } from '../core/01config-5v5-test.js';
 import { SIGNAL_TYPES, FACT_TYPES, BUFF_TYPES, CAMP_TYPES, ROLE_TYPES, MECHANIC_TYPES } from '../infra/56-battle-enums.js';
 import { applyStatChange, addMod, getStat, getBattleRng, resolvePushOrStun, refreshMaxHp } from '../core/13battle-shared.js';
 import { eventBus, EFFECT_TYPES, EXECUTION_LAYER as L } from '../infra/50-event-bus.js';
 import { canBeTargeted, getBenefitTargets } from '../core/03battle-utils.js';
-import { spawnUnit } from '../core/05battle-horse.js';
+import { spawnUnit, findFreePos } from '../core/05battle-horse.js';
 import { GlobalStore } from '../infra/54-global-store.js';
 import { FX_SIGNALS } from '../infra/55-fx-signals.js';
 import { registerMechanicHandler } from '../core/18mechanic-registry.js';
@@ -403,17 +404,25 @@ const CN_NUM_TRA = ['壹', '貳', '參'];
 //   她本人在回合最后一手阵亡时下一回合组件不再注册（core/11 只为存活单位注册），
 //   所以另有一条模块级 ON_ROUND_START 兜底，靠扫描她的 state 把队列清掉。
 function flushZhouSummon(miejue, team, log) {
-    const pos = miejue.state._pendingZhouPos;
-    if (pos == null || pos < 0) return;
+    const anchor = miejue.state._pendingZhouPos;
+    if (anchor == null || anchor < 0) return;
     miejue.state._pendingZhouPos = -1;
     if (miejue.state._summonedZhou) return;
     if (team.some(u => u.isZhouZhiruo && u.alive)) return;
     const summon = getSkillParams('灭绝师太', 'summonZhou');
     if (!summon) return;
-    const zhou = spawnUnit(team, '周芷若', summon.m, ROLE_TYPES.WARRIOR, pos);
+    // 2026-10-09 落位避让活人（与 modules/20 蛛落同一口径）：以阵亡者原格为 anchor 做「原格+1 环形顺延」
+    //   （7→8,9,1,2,3,4,5,6），交给 core/05 findFreePos 取第一个空位——它只算 alive 占位，所以尸体不算占格，
+    //   保留「周芷若与尸体同格、render 尸体优先」的既有设计；但拒马/狮子/其他召唤物这些活着的单位必须避让。
+    //   旧版直接落原格，而回合开始 spawnHorse 可能恰好刷进刚空出的格（fuzz seed159 关7 r2「周芷若 与 拒马 同占格 7」）。
+    const order = [];
+    for (let i = 0; i < 9; i++) order.push(((anchor - 1 + i) % 9) + 1);
+    const landPos = findFreePos(team, order);
+    if (landPos == null) return; // 9 格全被活人占：放弃本次落位（同 spawnHorse 口径），绝不允许两个活人同格
+    const zhou = spawnUnit(team, '周芷若', summon.m, ROLE_TYPES.WARRIOR, landPos);
     miejue.state._summonedZhou = true;
     if (log) {
-        log.push({ factType: FACT_TYPES.SUMMON_UNIT, data: { summonName: zhou.name, summonUid: zhou.uid, pos, byName: '灭绝师太' } });
+        log.push({ factType: FACT_TYPES.SUMMON_UNIT, data: { summonName: zhou.name, summonUid: zhou.uid, pos: landPos, byName: '灭绝师太' } });
     }
 }
 
