@@ -132,18 +132,23 @@
       "skills": {
         "normalAttack": {
           "name": "峨眉掌法",
-          "desc": "自身普攻伤害×{dmgMultiplier}（反击/跟随这类被动出手不吃此加成）",
-          "params": { "dmgMultiplier": 1.2 }
+          "desc": "自身普攻伤害×{dmgMultiplier}（反击/跟随/追击这类被动出手不吃此加成）",
+          "params": { "dmgMultiplier": 1.0 }
+        },
+        "chaseAttack": {
+          "name": "追击",
+          "desc": "每次打中（普攻/反击/跟随/追击均可）后{prob}%概率对同一目标再追击一次，伤害×{dmgMultiplier}，可被闪避；追击本身也算一次出手，也能再触发追击（可链式）",
+          "params": { "prob": 0.1, "dmgMultiplier": 1.2 }
         },
         "counterAttack": {
           "name": "反击",
           "desc": "被攻击后{prob}%概率反击攻击者，伤害×{dmgRatio}，可被闪避，无每回合上限",
-          "params": { "prob": 0.8, "dmgRatio": 0.8 }
+          "params": { "prob": 0.7, "dmgRatio": 0.8 }
         },
         "thirdStrike": {
           "name": "每第三次攻击",
-          "desc": "每第{interval}次命中回复本次伤害{leechRatio}倍的生命——本次是普攻/反击/跟随哪种出手，伤害就按哪种的系数算（看运气）（被动出手照样计数）",
-          "params": { "interval": 3, "dmgMultiplier": 1.0, "leechRatio": 1.0 }
+          "desc": "每第{interval}次命中伤害×{dmgMultiplier}、并回复本次伤害{leechRatio}倍的生命——该次是普攻/反击/跟随/追击哪种出手，再叠乘哪种的系数（看运气）（被动出手照样计数）",
+          "params": { "interval": 3, "dmgMultiplier": 1.1, "leechRatio": 1.0 }
         },
         "summonZhou": {
           "name": "召唤周芷若",
@@ -152,7 +157,7 @@
         }
       },
       "mechanics": [
-        { "camp": "enemy", "type": "followAttack", "chance": 0.30, "dmgRatio": 0.6 }
+        { "camp": "enemy", "type": "followAttack", "chance": 0.20, "dmgRatio": 0.6 }
       ],
       "taunts": {
         "attack": ["峨眉剑法！", "邪魔外道，人人得而诛之！", "受死吧！"],
