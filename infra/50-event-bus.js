@@ -1,6 +1,7 @@
+// V6.5.1 | ~7080 bytes | 2026-10-09 EXECUTION_LAYER.AFTER_DAMAGE_APPLIED 新增 MIEJUE_CHASE:17（灭绝追击组件监听用的插槽，排在同源的 MIEJUE_COUNTER:15 之后）
 // V6.5.0 | ~7000 bytes | 2026-10-02 监听器运行时错误加 DOM 无关追踪（_errorCount/_lastError/_recentErrors + 读取/重置 API）：页面端有 modules/21 劫持 console.error 的弱面板，worker 跑批无 DOM 完全看不到 hook 炸过，体检与批量工具改读这个计数
 import { GlobalStore } from './54-global-store.js';
-export const VER = 'infra/50-event-bus.js V6.5.0';
+export const VER = 'infra/50-event-bus.js V6.5.1';
 
 // debug 模式在日志追加信号记录，非战斗路径
 function appendDebugSignalLog(signal, data) {
@@ -107,6 +108,7 @@ export const EXECUTION_LAYER = {
         // 2026-10-02 斩杀挪到 45：升序执行，必须晚于 JIUYANG=40 的融会 BONUS_DMG 声明（以及 PANG_CLUMSY_LOG=42），斩杀才能把融会伤害计入有效血量
         WARRIOR_EXECUTE: 45,
         MIEJUE_COUNTER: 15,
+        MIEJUE_CHASE: 17,
         PANG_RAGE: 22,
         LION_INSPIRE: 23,
         LION_FOLLOW: 24,

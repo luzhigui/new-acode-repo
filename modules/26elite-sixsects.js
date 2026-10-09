@@ -1,10 +1,11 @@
+// V6.19.0 | ~56100 bytes | 2026-10-09 灭绝新增「追击」技能：每次打中（普攻/反击/跟随/追击本身）后 0.1 概率对同一目标再追击一次（×1.2、可被闪避），追击计入出手数、且可链式自触发（故意不入 core/10 LINK_REASONS，靠 0.1^n 收敛）；普攻系数回 1.0；thirdStrike 文案补 dmgMultiplier
 // V6.18.0 | 2026-10-08 搭档连线注册面接龙：宋青书×周芷若配对知识从 core/11 迁入本文件
 // V6.17.1 | 2026-10-08 atkCost 5→3（用户看实战战报定调：5 攻触发条件偏高）；付费/攻不足的日志可见性——付费 fact 带 cost（render/35 句首「消耗N点攻击力」+ render/38 ⚔-N 飘字），攻不足推灰字 fail fact（此前静默）
 // V6.17.0 | 2026-10-08 张三丰生生不息改「付费触发」：轮到自己/八卦阵两处均消耗 atkCost 点攻击力（攻不足不触发，共用同一池燃料；回血随机加攻使燃料可再生，付费与成长拉锯），回合开始仍免费；八卦阵删「-1攻+1防」对冲改纯扣攻，fact defDelta 发 0 保契约字段
 // V6.16.0 | 2026-10-07 苦练/生生不息溢出受益池收编 getBenefitTargets 裁判（core/03）——苦练补上垂死+天上蝶蛛+附身排除（原只排死人和拒马），溢出行为不变口径归一
 // V6.15.5 | ~48300 bytes | 2026-10-02 胖远桥·莽撞补飘字：被攻击加攻量写进本击 fact（group.data.pangAtkGain），render/38 据此产 STAT_CHANGE(atk) 飘「⚔+N」
 // V6.15.4 | 2026-10-02 四个注册表 handler 补 fields 字段契约（core/15 安装期按此校验 JSON，缺字段/类型错开局即抛）
-export const VER = 'modules/26elite-sixsects.js V6.18.0';
+export const VER = 'modules/26elite-sixsects.js V6.19.0';
 import { registerElite, registerLinkPartners } from '../core/08-elite-registry.js';
 import { CONFIG, getSkillParams, getGameData } from '../core/01config-5v5-test.js';
 import { SIGNAL_TYPES, FACT_TYPES, BUFF_TYPES, CAMP_TYPES, ROLE_TYPES, MECHANIC_TYPES } from '../infra/56-battle-enums.js';
@@ -437,9 +438,12 @@ export function createMieJueShiTaiComponent() {
             if (!counter) throw new Error('缺技能参数: 灭绝师太.counterAttack');
             const third = getSkillParams('灭绝师太', 'thirdStrike');
             if (!third) throw new Error('缺技能参数: 灭绝师太.thirdStrike');
-            // 2026-10-09 新增普攻系数：峨眉掌法 ×1.2（被动出手不吃）
+            // 2026-10-09 普攻系数：峨眉掌法 ×dmgMultiplier（当前 1.0=无加成，旋钮留档；被动出手不吃）
             const normal = getSkillParams('灭绝师太', 'normalAttack');
             if (!normal) throw new Error('缺技能参数: 灭绝师太.normalAttack');
+            // 2026-10-09 追击：每次打中后 prob 概率对同一目标再追击一次（伤害×dmgMultiplier，可被闪避）
+            const chase = getSkillParams('灭绝师太', 'chaseAttack');
+            if (!chase) throw new Error('缺技能参数: 灭绝师太.chaseAttack');
             // 召唤参数在落位时（flushZhouSummon）现取；这里只做一次启动期存在性校验
             if (!getSkillParams('灭绝师太', 'summonZhou')) throw new Error('缺技能参数: 灭绝师太.summonZhou');
 
@@ -472,6 +476,31 @@ export function createMieJueShiTaiComponent() {
                     priority: 12
                 });
                 pushInfo(data, `<span class="gold">🗡 灭绝师太反击 ${attacker.name}！（伤害×${counter.dmgRatio}）</span>`);
+            });
+
+            // 技能1b 追击（2026-10-09）：她每次打中（普攻/反击/跟随/追击本身）后 prob 概率对同一目标再打一手，
+            //   伤害×dmgMultiplier，走 extraRequests 过完整伤害管线（同反击）。
+            //   与反击的关键区别：追击**故意不进** core/10 的 LINK_REASONS——要允许追击自身再触发追击（链式），
+            //   所以不靠 _isLinkAttack 防乒乓；链式深度由 prob=0.1 自然收敛（连续 N 次的概率 0.1^N，无爆炸风险）。
+            //   这一手同样走 processUnitAttack → 计入 _attackCount，故「第 3 下恰好是追击」时照吃三击 ×dmgMultiplier。
+            eventBus.on(SIGNAL_TYPES.AFTER_DAMAGE_APPLIED, L.AFTER_DAMAGE_APPLIED.MIEJUE_CHASE, (data) => {
+                if (data.unit !== miejue || !miejue.alive) return;
+                if (miejue.state._pendingDeath) return;          // 本击已把她打进待死，不再追击
+                if (!data.dmg || data.dmg <= 0) return;          // 只在真正打中后判定
+                const t = data.target;
+                if (!t || !t.alive || t.state._pendingDeath) return;   // 目标已倒，不追击（不换目标）
+                if (getBattleRng().next() >= (chase.prob ?? 0)) return;
+                if (!data.extraRequests) data.extraRequests = [];
+                data.extraRequests.push({
+                    unit: miejue,
+                    targetUid: t.uid,
+                    reason: 'chaseAttack',
+                    dmgRatio: chase.dmgMultiplier,
+                    actedMode: 'restore',
+                    actedSnapshot: miejue.state._acted,
+                    priority: 12
+                });
+                pushInfo(data, `<span class="gold">⚡ 灭绝师太追击 ${t.name}！（伤害×${chase.dmgMultiplier}）</span>`);
             });
 
             // 2026-10-09 峨眉掌法：普攻伤害 ×1.2。被动出手（反击×0.8/跟随×0.6）不吃——
