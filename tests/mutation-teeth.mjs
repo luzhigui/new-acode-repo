@@ -289,6 +289,15 @@ const MUTATIONS = [
       file: 'render/35-facts-effect.js',
       from: "（已叠${fact.current}/${fact.cap}）",
       to:   "（已叠${fact.cap + 1}/${fact.cap}）" },
+    // ===== 第 65 轮新增：验证 rule143（张无忌九阳神功回复量=12%）真有牙 =====
+    //   九阳 pct 的唯一真值源是 content/200game-data.json 张无忌 mechanics[0].onHitEffects[0].pct（=0.12），
+    //   rule143 硬编码期望 floor(maxHp×0.12)。把 pct 回退到历史值 0.10（恰好命中 rule143 的 prevExpect 分支）
+    //   ⇒ 引擎实回 floor(maxHp×0.10)、规则仍按 0.12 比对 ⇒ 报「12% 被回退」⇒ 有牙。
+    //   锚点 { "type": "healMaxHpPct", "pct": 0.12 } 全仓唯一（Grep 确认仅 1 处）。
+    { id: 'T10', kind: 'TEXT', desc: '九阳 healMaxHpPct.pct 0.12→0.10（回退历史值 → rule143 应咬）',
+      file: 'content/200game-data.json',
+      from: "{ \"type\": \"healMaxHpPct\", \"pct\": 0.12 }",
+      to:   "{ \"type\": \"healMaxHpPct\", \"pct\": 0.10 }" },
 ];
 
 function toPosix(p) {
@@ -373,7 +382,9 @@ function mutFingerprint() {
 // 注意 `(` `)` `{` `}` 在 BRE 里本就是字面量，不要转义；只转 `. * ^ $ [ ] \`。
 // 早期用 \Q...\E（Perl/PCRE 语法）在 GNU sed 下完全不生效，导致变异静默未注入（树木=干净树）。
 function breEscape(s) {
-    return s.replace(/[.*^$[\]\\]/g, m => '\\' + m);
+    // 同时转义 " —— sed 命令整体包在 bash 双引号里，from/to 若含字面 "（如 JSON 锚点
+    // `{ "type": "healMaxHpPct"... }`）会被 bash 当引号配对吃掉，致 sed 模式失配、注入 0 处。
+    return s.replace(/[.*^$[\]\\"]/g, m => '\\' + m);
 }
 
 // 解析：见下方 parseBlock（逐行切分 REPLAY/BASELINE/STAT/FP 四段）。
