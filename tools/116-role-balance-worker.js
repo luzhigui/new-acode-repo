@@ -1,3 +1,5 @@
+// V1.7.1 | ~33300 bytes | 2026-10-09 clearBattleGlobals 补清 forceXieXun / forcePang（原先漏清，对照 122 的完整五项）：
+//        跑完谢逊单英雄后 forceXieXun 常驻 worker，之后任何 job 都变「本 job 精英 + 谢逊」双精英（复刻取证 修复前 40/40 → 修复后 0/40）
 // V1.7.0 | ~32900 bytes | 2026-10-09 新增 kind:'noElite'（runNoEliteJob）：明教侧一个精英都不出的胜率（拒绝采样凑无精英局，
 //        自然局约 20% 无精英）——112「🛡 无精英基线」按钮的消费端，不动主代码 modules/29
 // V1.6.1 | ~30300 bytes | 2026-10-08 soloElite 回报按敌方变体分桶（胖远桥/宋青书/标准，判定同 runEliteStageJob）：
@@ -54,6 +56,11 @@ function clearBattleGlobals() {
     GlobalStore.set('forceZhang', null);
     GlobalStore.set('forceWei', null);
     GlobalStore.set('forceXiaoZhao', null);
+    // 2026-10-09 V1.7.1 补漏：forceXieXun / forcePang 原先没清——跑完谢逊单英雄后 forceXieXun 常驻 worker，
+    // 之后任何 job 都会变成「本 job 精英 + 谢逊」双精英（elite/noElite 两个 job 根本不设 force，同样被污染）。
+    // 对照 122-param-lab-core.js 的完整清单（五项）补齐。
+    GlobalStore.set('forceXieXun', null);
+    GlobalStore.set('forcePang', null);
     GlobalStore.set('currentBattleState', null);
     flushBattleEvents();
     // 状态已并入 unit.state，随对局对象 GC，无需清理（18-elite-state 已废弃）
