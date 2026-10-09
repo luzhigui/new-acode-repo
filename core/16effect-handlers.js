@@ -1,5 +1,5 @@
-// V6.0.6 | ~13300 bytes | 2026-10-02 STAT_CHANGE 裁定器补发数值声明 fact（STAT_CHANGE_APPLY）：atk/def 落地时同 handler 同值发 unitName/unitUid/field/delta/reason，供体检对照 statChange group（此前该 group 零 fact、360 词条裸奔）；承接 V6.0.5 LEECH 回写 maxHpDelta
-export const VER = 'core/16effect-handlers.js V6.0.6';
+// V6.0.8 | ~13800 bytes | 2026-10-09 CLAW_CHAIN 改「先广播后扣血」：乾坤衍生的减伤按爪落地（伤害−减伤，下限0），斩杀那一刀也广播（照杀不减，只触发治疗+加攻）；爪击 fact 回填实际伤害/血量；承接 V6.0.7 每爪广播 CLAW_HIT_APPLIED
+export const VER = 'core/16effect-handlers.js V6.0.8';
 
 import { eventBus, EFFECT_TYPES } from '../infra/50-event-bus.js';
 import { applyStatChange, refreshMaxHp, query, emitEvent, addMod, getStat } from './13battle-shared.js';
@@ -245,11 +245,26 @@ registerEffectHandler(EFFECT_TYPES.CLAW_CHAIN, (ctx) => {
         decl._events = decl._events || [];
         for (const hit of decl.hits) {
             if (!chainTarget.alive || chainTarget._pendingDeath) break;
-            applyStatChange(chainTarget, 'hp', -hit.dmg, chainSource, '九阴白骨爪');
+            // 2026-10-09 先广播后扣血：小昭·姊乾坤衍生在 payload 上写回 reduce，本爪按「伤害−减伤」落地（下限 0）。
+            //   监听方没触发（姐姐不在/张无忌在场/被爪者非友方）时 reduce 缺省，等价旧行为。
+            //   衍生条目随 payload 回传，挂到本爪上，由 core/10 随爪击条目逐条落进攻击组 entries（战报/飘字与爪同序）。
+            const clawPayload = { unit: chainSource, target: chainTarget, dmg: hit.dmg, derivedEntries: [] };
+            eventBus.emit(SIGNAL_TYPES.CLAW_HIT_APPLIED, clawPayload);
+            if (clawPayload.derivedEntries.length > 0) hit._derivedEntries = clawPayload.derivedEntries;
+            const applied = Math.max(0, hit.dmg - (clawPayload.reduce || 0));
+            applyStatChange(chainTarget, 'hp', -applied, chainSource, '九阴白骨爪');
+            // fact 回填实际落地值：伤害（减伤后）+ 本爪后血量，播放层文本/血条都读这里
+            hit.data.dmg = applied;
+            hit.data.hpAfter = chainTarget.hp;
             hit._events = flushBattleEvents();
             if (hit._events && hit._events.length) decl._events.push(...hit._events);
         }
         if (decl.execute && chainTarget.alive && !chainTarget._pendingDeath && chainTarget.hp > 0) {
+            // 斩杀那一刀也广播：照杀不减（noReduce），只触发乾坤衍生的治疗+加攻；条目挂 execute 随斩杀行落组
+            const execPayload = { unit: chainSource, target: chainTarget, dmg: Math.round(chainTarget.hp), noReduce: true, derivedEntries: [] };
+            eventBus.emit(SIGNAL_TYPES.CLAW_HIT_APPLIED, execPayload);
+            if (execPayload.derivedEntries.length > 0) decl.execute._derivedEntries = execPayload.derivedEntries;
+            // 斩杀伤害取广播后的血量（衍生治疗可能落在被爪者身上），保证 fact 数字 = 实际扣掉的量
             if (decl.execute.data) decl.execute.data.dmg = Math.round(chainTarget.hp);
             applyStatChange(chainTarget, 'hp', -chainTarget.hp, chainSource, '白骨爪斩杀');
             decl.execute._events = flushBattleEvents();

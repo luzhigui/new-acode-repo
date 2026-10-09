@@ -1,5 +1,5 @@
-// V1.4.2 | ~13800 bytes | 2026-10-02 ①新增 MECHANIC_TYPES（mechanics 顶层 type 唯一来源：core/18 注册表 + core/15 本地安装器）与 MECHANIC_EFFECT_TYPES（onHit/beforeDamage/attributeMods/dodgeRules 四类内层元素 type 唯一来源），配合 core/15 安装期交叉校验，堵死漏注册静默失效；②STAGE_ACTION_TYPES 增 DAMAGE_FLOAT（纯掉血飘字：流星赶月加深等已实扣但无独立攻击动作的伤害）；③新增 MECHANIC_TARGET_RULES（targetRule 字段唯一来源：lowestHp/highestHpPct），配合 core/15 安装期收口未知目标规则
-export const VER = 'infra/56-battle-enums.js V1.4.2';
+// V1.4.3 | ~13860 bytes | 2026-10-09 SIGNAL_TYPES 增 CLAW_HIT_APPLIED（白骨爪连锁每爪结算后广播：供小昭·姊乾坤衍生按爪结算，堵住「一次攻击只触发一次」的断链）
+export const VER = 'infra/56-battle-enums.js V1.4.3';
 
 /** 事实类型：所有 factType 字符串的唯一来源 */
 export const FACT_TYPES = Object.freeze({
@@ -222,7 +222,10 @@ export const SIGNAL_TYPES = Object.freeze({
     // 溅射伤害逐目标广播：SPLASH 效果每打完一个目标发一次（乘风波及 / 流星溅射）。
     //   专供"挨打增益"类被动（胖远桥莽撞）——它们只认 AFTER_DAMAGE_APPLIED，而那条只发主目标；
     //   若在溅射时重发 AFTER_DAMAGE_APPLIED，LEECH / 流星 / 嗜血等十余条监听会把溅射当一次完整攻击。
-    SPLASH_DAMAGED: 'splashDamaged'
+    SPLASH_DAMAGED: 'splashDamaged',
+    // 白骨爪连锁逐爪广播：CLAW_CHAIN 每结算一爪发一次（爪击不走伤害计算管线，无 dmgCalc）。
+    //   专供小昭·姊乾坤衍生——BEFORE_DAMAGE_CALC 每次攻击只 emit 一次，爪击拿不到「每爪」语义。
+    CLAW_HIT_APPLIED: 'clawHitApplied'
 });
 
 /** 单位状态变化类型：ON_UNIT_STATE_CHANGE 信号的 changeType 唯一来源 */

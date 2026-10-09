@@ -1,4 +1,6 @@
 // render/35-facts-effect.js — 效果域 fact 渲染器
+// V1.0.16 | ~36550 bytes | 2026-10-09 renderQianKunDerivedFact 注释对齐：白骨爪连锁逐爪的衍生现在也带 reduce（写回 payload 由 core/16 落地减伤），仅斩杀那一刀照杀不减时缺省
+// V1.0.15 | 2026-10-09 renderQianKunDerivedFact 兼容「无减伤」条目（白骨爪连锁逐爪的乾坤衍生只治疗+加攻，fact.reduce 缺省时不吐「减伤N」）
 // V1.0.14 | 2026-10-06 修飞行再生弹幕永不飘：锚点文本「回复+N」与正文「回复 N 点」不一致（锚点按子串匹配，对不上=回调永不触发），对齐成「回复 N 点」——同文件其余锚点全对，仅此一处笔误
 // V1.0.13 | ~36500 bytes | 2026-10-03 renderPassFact 默认分支（眩晕/附身 pass）去 needsSeparator：空 attack-group 带 SEP = 纯分隔符，回合末紧挨蝶变飞回即双分隔符（提示已由 PUSH_STUN/FLY_SKIP 文本承担）
 //
@@ -10,7 +12,7 @@ import { BUFF_TYPES, BUFF_SUBTYPES, CAMP_TYPES, ROLE_TYPES, FACT_TYPES } from '.
 import { registerFactRenderer, findUnitSnapshotByUid } from './33-fact-registry.js';
 // 2026-10-08 第一刀：通用语义默认渲染器工厂（回血/dot 族模板化，详见 36 文件头）
 import { makeHealRenderer, makeDotRenderer } from './36-generic-renderers.js';
-export const VER = 'render/35-facts-effect.js V1.0.14';
+export const VER = 'render/35-facts-effect.js V1.0.16';
 
 // 拒马 / 张无忌
 export function renderHorseDestroyFact(fact) {
@@ -344,9 +346,11 @@ export const renderWeiLeechFact = makeHealRenderer({ icon: '🦇', label: '青�
 
 // 小昭·姊 乾坤衍生 / 蝶变
 export function renderQianKunDerivedFact(fact) {
+    // 减伤半可选：常规乾坤衍生与白骨爪逐爪都带 reduce；斩杀那一刀照杀不减（noReduce），reduce 缺省时不吐「减伤N」
+    const reducePart = fact.reduce != null ? `${fact.targetName}减伤${fact.reduce}，` : '';
     return {
         type:'info',
-        text:`<span class="gold">🦋 乾坤衍生：${fact.targetName}减伤${fact.reduce}，${fact.healTargetName}治疗+${fact.heal}，${fact.atkTargetName}攻击+${fact.atkGain}</span>`,
+        text:`<span class="gold">🦋 乾坤衍生：${reducePart}${fact.healTargetName}治疗+${fact.heal}，${fact.atkTargetName}攻击+${fact.atkGain}</span>`,
         fxAnchors: [`治疗+${fact.heal}`, `攻击+${fact.atkGain}`],
         isHealEntry: true,
         healAmount: fact.heal,
