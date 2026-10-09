@@ -67,7 +67,7 @@ async function commitsSince(isoDate) {
 }
 
 const SEEDS = [1, 42, 999, 12345, 777, 88888];
-const STAGES = [1, 3, 5];
+const STAGES = [1, 3, 5, 7];
 
 async function main() {
     // mock 已就绪，动态加载引擎（顶层 import 会先于 mock 求值，故不能用静态 import）

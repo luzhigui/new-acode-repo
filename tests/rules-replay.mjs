@@ -130,7 +130,7 @@ for (const f of files) {
 const MAX_ROUND = CONFIG.MAX_ROUND || 35;
 const SEEDS = process.env.SEEDS ? process.env.SEEDS.split(',').map(Number)
     : [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20];
-const STAGES = process.env.STAGES ? process.env.STAGES.split(',').map(Number) : [1, 2, 3, 4, 5, 6];
+const STAGES = process.env.STAGES ? process.env.STAGES.split(',').map(Number) : [1, 2, 3, 4, 5, 6, 7];
 const KEYWORDS = process.env.KEYWORDS ? process.env.KEYWORDS.split('|') : [];
 // NOBUFFS=1 可关掉 Buff 注入，用于「注入前后」对比同一批战报
 const NOBUFFS = process.env.NOBUFFS === '1';

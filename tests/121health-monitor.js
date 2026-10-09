@@ -67,6 +67,7 @@ import { rule108 } from './health-rules/161-lion-grow.js';
 import { rule109 } from './health-rules/162-stat-change.js';
 import { rule110 } from './health-rules/163-righteous-face.js';
 import { rule111 } from './health-rules/164-leech-maxhp.js';
+import { rule112 } from './health-rules/165-miejue-redesign.js';
 import {
     getCellByUid, checkUnitHpValidity,
     checkHpBarSync, checkHpBarColor, checkFxOrphans,
@@ -640,7 +641,7 @@ function runRuleChecks(ctx, doc) {
     const allRules = [rule70, rule71, rule72, rule73, rule74, rule75, rule76, rule77, rule78, rule79, rule80,
         rule81, rule82, rule83, rule84, rule85, rule86, rule87, rule88, rule89, rule90, rule91, rule92, rule93, rule94, rule95, rule96, rule97, rule98, rule99,
         rule100, rule101, rule102, rule103, rule104, rule105, rule106, rule107, rule108, rule109,
-        rule110, rule111];
+        rule110, rule111, rule112];
     // 规则配方裁剪：只跑目标规则（其余不参与计数/不占skip名单）；null=全部
     const rules = filterRulesByTags(allRules, RECIPE_TAGS);
 
