@@ -61,7 +61,8 @@ export const RULE_META = {
     '幼狮成长数值(回归)': { tag: 'mechanic:幼狮成长', note: '明教幼狮成长永久词条；小昭·姊海克斯增强时才触发，需连打多局碰出' },
     '属性变更数值(回归)': { tag: 'generic:通用', note: '不依赖本局出阵角色；STAT_CHANGE_APPLY 此前在规则视野外（renderFn:null），Step 0 后可见' },
     '正义国字脸叠防数值(回归)': { tag: 'hero:胖远桥', note: '胖远桥招牌；落点 pangDefGain == 配置 defGain，规则侧此前看不到（嵌套在 ATTACK fact），Step 0 后可见' },
-    '吸血上限提升数值(回归)': { tag: 'hero:韦一笑', note: '韦一笑蝠影汲血永久抬上限；maxHpDelta/newMaxHp 良好 + 同单位相邻单调，与对照器互补' }
+    '吸血上限提升数值(回归)': { tag: 'hero:韦一笑', note: '韦一笑蝠影汲血永久抬上限；maxHpDelta/newMaxHp 良好 + 同单位相邻单调，与对照器互补' },
+    '灭绝重设计行为数值(回归)': { tag: 'hero:灭绝师太', note: '2026-10-09 重设计：反击×dmgRatio / 三击吸血×leechRatio / 死亡召唤周芷若(SUM MON_UNIT)；行为与渲染文案对配置真值' }
 };
 
 // tag 分组（体检中心面板按此渲染；key 顺序即展示顺序）
