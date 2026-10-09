@@ -89,15 +89,17 @@ export async function handleAttackGroup(c, entry, roundResult, abortSig, isFirst
             const clawTarget = findUnitByUid(c, entry2.clawTargetUid);
             if (clawAttacker && clawTarget) {
                 showBoneClaw(clawAttacker, clawTarget, null, { isExecute: entry2.isExecute });
-                // 爪击伤害飘字（快进跳过）
+                // 爪击伤害飘字（快进跳过）——一位小数兜底，浮点尾巴不上面板
                 if (!GlobalStore.get('fastForwardActive') && entry2.dmg > 0) {
-                    showDamageFloat(clawTarget, entry2.dmg);
+                    showDamageFloat(clawTarget, Math.round(entry2.dmg * 10) / 10);
                 }
             }
         }
 
-        // combat-text/damage-text 基准 1200ms；爪击行 500ms（≈单爪动画时长，两者同步不互等）；其他 600ms
+        // combat-text/damage-text 基准 1200ms；爪击行 500ms（≈单爪动画时长，两者同步不互等）；
+        // 乾坤衍生随爪条目 350ms（无动画可等，比爪更快翻过——节奏"一条接一条"）；其他 600ms
         const forcedSpeed = entry2.isClawHit ? 500
+            : entry2.clawFast ? 350
             : (entry2.type === 'combat-text' || entry2.type === 'damage-text') ? 1200 : 600;
         await playLogLine(entry2.text, forcedSpeed);
         if (!c.userScrolled) autoScrollLog();
@@ -111,12 +113,13 @@ export async function handleAttackGroup(c, entry, roundResult, abortSig, isFirst
             });
         }
 
-        // 爪击之间极短间隔，形成连续快打节奏
-        if (entry2.isClawHit) {
+        // 爪击/随爪衍生条目之间极短间隔，形成连续快打节奏
+        if (entry2.isClawHit || entry2.clawFast) {
             await clock.wait(60);
         }
 
-        if (entry2.type === 'detail' || entry2.type === 'info' || entry2.type === 'buff-bonus' || entry2.type === 'buff-splash') {
+        // clawFast（随爪乾坤衍生）不吃这 120ms 行距——随爪节奏由上面的 60ms 间隔独占，防止双重等待
+        if ((entry2.type === 'detail' || entry2.type === 'info' || entry2.type === 'buff-bonus' || entry2.type === 'buff-splash') && !entry2.clawFast) {
             await clock.wait(120);
         }
     }
