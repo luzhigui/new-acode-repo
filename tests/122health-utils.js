@@ -1,3 +1,6 @@
+// V6.1.19 | ~41800 bytes | 2026-10-09 新增 checkSpeedButtonStates（倍速按钮高亮一致性）：当前倍速必须落在「可见且高亮」的按钮上——
+//          非调试模式下 8x/4x 组 display:none，speed=300 时 ui/68 把 active 加在隐藏按钮上，界面「当前倍速」全灭且无报错
+//          （121 默认 4 倍速实测）；可见性按内联 display:none 祖先链判，不依赖 offsetParent（体检切报告视图时 iframe 整体隐藏会全量假红）。
 // V6.1.18 | 2026-10-07 收口 UI 类检查最后两处同根因（开战快照 + pos 反查）：① checkMeleeFxState 改吃实时 battleStore 队伍（原自带 ctx.UI 开战副本，与 checkBuffIcons 改前同病）；② checkHpBarSync / checkHpBarColor / checkBuffIcons 的单元定位全部由 getCellElement(pos反查) 改为 getCellByUid(uid精确)——换位/近战切换后 pos 偏移不再误报。至此 UI 类检查统一"实时队伍 + 按 data-uid 定位"，pos 反查与开战快照零残留。
 // V6.1.17 | 2026-10-04 修两条 UI 类误报：① 特效池 heal-float 阈值 8→12（healFloat4+atkBuffFloat4+defBuffFloat4 三池共用 .heal-float 类，稳态恒 12，旧阈值每局必误报"超池泄漏"）；
 //          ② 死亡血条残留/缺死亡特效改用 getCellByUid 按 uid 精确定位（render/32 L418 写死 data-uid），不再按 pos 反查——拒马等死后 pos 复用/尸体移除会误把同格存活单位血条算到死者头上（与 checkBuffIcons 同根因）。新增 getCellByUid 辅助。
@@ -18,7 +21,7 @@
 // V6.0.0 | 2026-08-26 buff key 收敛为 infra/56-battle-enums 的 BUFF_TYPES（删除本地第二事实源）
 import { BUFF_TYPES, CAMP_TYPES, ROLE_TYPES, FACT_TYPES } from '../infra/56-battle-enums.js';
 import { getUnitCol, getUnitRow } from '../infra/51-core-utils.js';
-export const VER = 'tests/122health-utils.js V6.1.18';
+export const VER = 'tests/122health-utils.js V6.1.19';
 
 /**
  * 获取单位对应的格子 DOM 元素
@@ -482,6 +485,52 @@ export function checkModeButtonStates(ctx, doc) {
         const wantText = mode === 'fly' ? '🕊️飞走' : '👻虚影';
         const t = (crashBtn.textContent || '').trim();
         if (t !== wantText) issues.push('虚影按钮文本异常：当前"' + t + '"，预期"' + wantText + '"');
+    }
+    return issues;
+}
+
+/**
+ * [新增] 倍速按钮高亮一致性检查 — 当前倍速必须落在"可见且高亮"的按钮上
+ * 复发信号（2026-10-09 用户实测）：非调试模式下把 speed 设成 300（4x）——8x/4x 按钮组
+ *   display:none（ui/68 updateSpeedButtons 只在调试模式显示 speedGroupHigh/Low），
+ *   可见的 2x/0.5x 全灭 → 界面看不到"当前倍速"，且无任何报错（ui/68 只对隐藏按钮 addClass，
+ *   不做可见性断言）。121 默认 4 倍速遇非调试模式即此症。
+ * 契约（ui/68 档位口径）：600=2x、100=8x、300=4x、1600=0.5x（按 debugMode 取变体按钮）；
+ *   speed=1000=未锁定的默认倍速，六个按钮应全不高亮；其余值（加载期 500 / 快进期 1）不判，避免误报。
+ * 可见性按"内联 display:none 祖先链"判断，不用 offsetParent——体检页面切到报告视图时
+ *   iframe 整体隐藏，任何布局型判可见都会全量假红。
+ */
+export function checkSpeedButtonStates(doc) {
+    const issues = [];
+    if (!doc) return issues;
+    const win = doc.defaultView || null;
+    const gs = win && win.GlobalStore;
+    if (!gs) return issues;
+    const speed = gs.get('speed');
+    const debugMode = !!gs.get('debugMode');
+    const ids = ['btnSpeed2', 'btnSpeed2x', 'btnSpeed8x', 'btnSpeed4x', 'btnSpeed05', 'btnSpeed05x'];
+    const btns = [];
+    for (const id of ids) { const b = doc.getElementById(id); if (b) btns.push({ id: id, b: b }); }
+    const activeNow = btns.filter(x => x.b.classList.contains('active')).map(x => x.id);
+    const inlineHidden = (el) => {
+        for (let n = el; n && n.style; n = n.parentElement) { if (n.style.display === 'none') return true; }
+        return false;
+    };
+    if (speed === 1000) {
+        if (activeNow.length) issues.push('默认倍速(1000)下不应有倍速按钮高亮，实际高亮：' + activeNow.join('/'));
+        return issues;
+    }
+    const wantId = speed === 600 ? (debugMode ? 'btnSpeed2x' : 'btnSpeed2')
+        : speed === 100 ? 'btnSpeed8x'
+        : speed === 300 ? 'btnSpeed4x'
+        : speed === 1600 ? (debugMode ? 'btnSpeed05x' : 'btnSpeed05') : null;
+    if (!wantId) return issues;   // 未映射档位（加载期 500 / 快进 1），不判
+    const want = btns.find(x => x.id === wantId);
+    if (!want) return issues;
+    if (inlineHidden(want.b)) {
+        issues.push('当前倍速' + speed + '对应按钮(' + wantId + ')被隐藏（' + (debugMode ? '调试' : '非调试') + '模式下该按钮组 display:none）→ 界面无可见高亮反映当前倍速');
+    } else if (!want.b.classList.contains('active')) {
+        issues.push('当前倍速' + speed + '对应按钮(' + wantId + ')未高亮，实际高亮：' + (activeNow.length ? activeNow.join('/') : '无'));
     }
     return issues;
 }
