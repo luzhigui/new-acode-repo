@@ -272,7 +272,11 @@ export function showBoneClaw(unitA, unitD, onHit, opts) {
             claw.style.left = cx + 'px';
             claw.style.top = cy + 'px';
             if (p >= 1) {
-                // 命中：白骨爪属近战技能，不加受击颤动
+                // 2026-10-09 受击反馈复活：7/6 出生时接的是 applyImpactShrink，9/3 远程颤动重构时被顺手删成「近战不加颤动」。
+                //   颤动走渲染层 markGridShake（与远程箭同款，格子重建也带 .shake 类），外加黄光快闪一眼可见。
+                markGridShake(unitD.uid, 250);
+                const hitRect = snapshotUnitCellRobust(unitD);
+                if (hitRect) flashBoneClawHit(hitRect);
                 if (typeof onHit === 'function') onHit();
                 if (opts.isExecute) {
                     claw.style.transition = 'transform 0.4s ease-out, opacity 0.4s';
@@ -293,6 +297,19 @@ export function showBoneClaw(unitA, unitD, onHit, opts) {
             }
         });
     }
+}
+
+// 白骨爪命中黄光：快速闪一下就走（rect 基绘制，不持格子 DOM 引用，与斩杀红闪同款套路）
+function flashBoneClawHit(rect) {
+    let flash = document.createElement('div');
+    flash.setAttribute('data-fx', 'temporary');
+    flash.style.cssText = `position:fixed;left:${rect.left}px;top:${rect.top}px;width:${rect.width}px;height:${rect.height}px;background:radial-gradient(circle, rgba(255,238,140,0.95), rgba(235,185,40,0.5));z-index:9990;pointer-events:none;opacity:0.9;border-radius:4px;`;
+    document.body.appendChild(flash);
+    clock.wait(180).then(() => {
+        flash.style.transition = 'opacity 0.15s';
+        flash.style.opacity = '0';
+        clock.wait(150).then(() => { if (flash.parentNode) flash.remove(); });
+    });
 }
 
 // 斩杀特效：基于 rect 生成红色闪光和碎片（不持有 DOM 引用）

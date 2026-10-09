@@ -190,7 +190,9 @@ function makeFileName(report) {
     const pad = (n) => String(n).padStart(2, '0');
     const stage = report.meta.stage ? `-第${report.meta.stage}关` : '';
     const w = report.meta.winner ? `-${report.meta.winner}` : '';
-    return `战报${stage}${w}-${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}.json`;
+    // 2026-10-09 日期打头：旧格式关卡/胜负在前、日期压尾——文件名排序按关卡走，翻新旧要肉眼扫尾部。
+    //   日期提到最前 → 按名字排序=按时间排序，长名被截断也先保住日期。
+    return `战报-${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}${stage}${w}.json`;
 }
 
 /**
