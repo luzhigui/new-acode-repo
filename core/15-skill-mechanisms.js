@@ -453,6 +453,8 @@ function installLinkAttack(eventBus, declarations) {
 // 跟随攻击（灭绝师太）：任意队友命中后，chance 概率由跟随者打同一目标，无每回合上限。
 // 与玄冥联动的方向相反——联动是「攻击者声明带谁跟随」，队友固定；这里是「跟随者声明跟所有人」，
 // 队友是任意单位、没法逐个登记，所以声明挂在跟随者名下。
+// 2026-10-09 dmgRatio（可选）：跟随那手的伤害系数（如 0.6）——「越白嫖的出手越弱」。
+//   不配 = 全额，跟随机制对其他角色仍可用。系数由 core/10 进额外攻击前写 state、伤害计算统一乘。
 // 防乒乓：跟随攻击自身会走 AFTER_ATTACK，core/10 对 reason:'followAttack' 置 _isLinkAttack，
 // 这里开头同样判 _isLinkAttack，保证一次额外攻击不会再触发一次跟随。
 function submitFollowAttack(data, decls) {
@@ -463,13 +465,15 @@ function submitFollowAttack(data, decls) {
         if (!follower || follower.uid === unit.uid) continue;
         if (getBattleRng().next() >= (decl.chance || 0)) continue;
         if (data.group && data.group.data && data.group.data.entries) {
-            data.group.data.entries.push({ type: 'info', text: `<span class="gold">🐺 ${follower.name} 跟随 ${unit.name} 出手！</span>` });
+            const ratioText = decl.dmgRatio != null ? `（伤害×${decl.dmgRatio}）` : '';
+            data.group.data.entries.push({ type: 'info', text: `<span class="gold">🐺 ${follower.name} 跟随 ${unit.name} 出手！${ratioText}</span>` });
         }
         if (!data.extraRequests) data.extraRequests = [];
         data.extraRequests.push({
             unit: follower,
             targetUid: target.uid,
             reason: 'followAttack',
+            dmgRatio: decl.dmgRatio ?? null,
             actedMode: 'restore',
             actedSnapshot: follower.state._acted,
             priority: 45

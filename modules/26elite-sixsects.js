@@ -437,6 +437,9 @@ export function createMieJueShiTaiComponent() {
             if (!counter) throw new Error('缺技能参数: 灭绝师太.counterAttack');
             const third = getSkillParams('灭绝师太', 'thirdStrike');
             if (!third) throw new Error('缺技能参数: 灭绝师太.thirdStrike');
+            // 2026-10-09 新增普攻系数：峨眉掌法 ×1.2（被动出手不吃）
+            const normal = getSkillParams('灭绝师太', 'normalAttack');
+            if (!normal) throw new Error('缺技能参数: 灭绝师太.normalAttack');
             // 召唤参数在落位时（flushZhouSummon）现取；这里只做一次启动期存在性校验
             if (!getSkillParams('灭绝师太', 'summonZhou')) throw new Error('缺技能参数: 灭绝师太.summonZhou');
 
@@ -446,9 +449,10 @@ export function createMieJueShiTaiComponent() {
                 }
             }
 
-            // 技能1 反击：被攻击后 prob 概率反击攻击者，伤害 ×dmgRatio，不可闪避，无每回合上限。
+            // 技能1 反击：被攻击后 prob 概率反击攻击者，伤害 ×dmgRatio，可被闪避（2026-10-09 撤掉不可闪避——
+            //   与设计对齐：她没有免闪避设计；系数走 extraRequests 的 dmgRatio，由 core/10 写 state、伤害计算统一乘）。
             // 走 extraRequests 而不是直接 applyStatChange——反击要过完整伤害管线（防御/格挡/修饰器/记账），
-            // 直接扣血等于绕开引擎。跨阵营换边与不可闪避由 core/10 的额外攻击循环处理。
+            // 直接扣血等于绕开引擎。跨阵营换边由 core/10 的额外攻击循环处理。
             eventBus.on(SIGNAL_TYPES.AFTER_DAMAGE_APPLIED, L.AFTER_DAMAGE_APPLIED.MIEJUE_COUNTER, (data) => {
                 if (data.target !== miejue || !miejue.alive) return;
                 // 2026-09-24 这一击已经把她打进「待死」就不该再反击（此时 alive 还是 true，死亡结算在 resolveDeaths）
@@ -462,15 +466,26 @@ export function createMieJueShiTaiComponent() {
                     unit: miejue,
                     targetUid: attacker.uid,
                     reason: 'counterAttack',
-                    ignoreDodge: true,
+                    dmgRatio: counter.dmgRatio,
                     actedMode: 'restore',
                     actedSnapshot: miejue.state._acted,
                     priority: 12
                 });
-                pushInfo(data, `<span class="gold">🗡 灭绝师太反击 ${attacker.name}！（伤害×${counter.dmgRatio}，不可闪避）</span>`);
+                pushInfo(data, `<span class="gold">🗡 灭绝师太反击 ${attacker.name}！（伤害×${counter.dmgRatio}）</span>`);
+            });
+
+            // 2026-10-09 峨眉掌法：普攻伤害 ×1.2。被动出手（反击×0.8/跟随×0.6）不吃——
+            //   那两手在 core/10 里带着 _extraDmgRatio，此处跳过即"各自独立倍数、不再叠乘"。
+            //   优先级排在三击（15）之前：普攻 1.2 与三击系数按顺序叠乘，战报明细两条都可见。
+            eventBus.on(SIGNAL_TYPES.BEFORE_DAMAGE_CALC, L.BEFORE_DAMAGE_CALC.MIEJUE_NORMAL_MULT, (data) => {
+                if (data.unit !== miejue || !miejue.alive) return;
+                if (miejue.state._extraDmgRatio > 0) return;
+                data.declarations.push({ type: EFFECT_TYPES.DMG_MULTIPLIER, value: normal.dmgMultiplier, source: miejue, label: '峨眉掌法' });
             });
 
             // 技能3 每第三次攻击：第 3 的倍数那一次命中，伤害 ×dmgMultiplier 并吸血 leechRatio 倍本次伤害。
+            //   2026-10-09 重设计：伤害系数收敛为 1.0（加强留旋钮，改表即生效）、吸血 100% 回本次实伤——
+            //   第三下的爆点全在「看运气」：本次赶上普攻/反击/跟随哪种出手，伤害就按哪种的系数算、回血跟着水涨船高。
             // 计数口径 =「她打中过几次」：反击 / 跟随攻击这类被动出手也算她的一次出手（原设计），
             //   只有真正打中的才计（未命中/被闪避到不了 AFTER_DAMAGE_APPLIED）。
             // 三击判定不落标记：两处都按同一个 _attackCount 现算——额外攻击走 lockedTargetUid，
@@ -507,7 +522,7 @@ export function createMieJueShiTaiComponent() {
                 data.declarations.push({ type: EFFECT_TYPES.LEECH, value: leechVal, source: miejue });
                 // 吸血飘字交给 render/39 的出手演出帧发（同计数飘字，避免抢在画面前）
                 if (data.group && data.group.data) data.group.data.miejueLeech = capped;
-                pushInfo(data, `<span class="gold">🩸 灭绝三击：第 ${count} 次出手，伤害/吸血×${third.dmgMultiplier}，吸血=${capped}，生命 ${hpBefore} → ${hpBefore + capped}</span>`);
+                pushInfo(data, `<span class="gold">🩸 灭绝三击：第 ${count} 次出手，回复本次伤害${third.leechRatio * 100}%=${capped}，生命 ${hpBefore} → ${hpBefore + capped}</span>`);
             });
 
             // 技能4 召唤周芷若：任一队友或她本人阵亡 → 记下阵亡者原位置，全场仅 1 次。
