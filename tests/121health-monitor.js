@@ -1,3 +1,6 @@
+// V6.4.3 | ~57500 bytes | 2026-10-09 进体检默认改「调试模式 + 4 倍速」，且改走游戏按钮路径（debugToggle.click + btnSpeed4x.click）：
+//          原直接写 GlobalStore 时，非调试模式下 4x/8x 按钮组 display:none → 高亮加在隐藏按钮上，界面「当前倍速」全灭且无报错；
+//          按钮路径顺带把 ui/68 的 manualSpeedValue 锁到 300（跨场保持）；配合 122 V6.1.19 新增 checkSpeedButtonStates 实时检查。
 // V6.4.2 | ~55200 bytes | 2026-10-07 并入本地未提交的 UI 类收口（配合 122 V6.1.18）：checkMeleeFxState 传实时队伍（teams.ally/enemy）、
 //          换位稳定性改用 getCellByUid 按 uid 定位（弃 getCellElement 的 pos 反查）。与远端 V6.4.1 合并时仅注释冲突，注释取远端口径。
 // V6.4.1 | ~48900 bytes | 2026-10-07 起始关默认 3→2、手动体检默认 4 倍速（300，老板拍板）；模式按钮同步改走 __DSH_TEST_API__.syncAutoModeButton
@@ -21,7 +24,7 @@
 //          clone 副本 alive 恒真)，每局必误报，且主代码补 setState.gs('IDLE') 也消不掉。改点 btnSettle 后
 //          120ms 查 gs 是否仍停 GAMEOVER 且已生成新局(全员满血)，只有"真点了随机重开但没复位"才上报。
 // 职责：接入 rule70-93 回归体检；GAMEOVER 立即跑规则(日志已完整)；新局识别修复多局连打漏检；战报黑幕/特效池实时检查
-export const VER = 'tests/121health-monitor.js V6.4.2';
+export const VER = 'tests/121health-monitor.js V6.4.3';
 
 import { runStaticScan } from './123static-scan.js';
 import { filterRulesByTags, parseRecipeTags, collectForceFlags } from './124rule-recipes.js';
@@ -73,7 +76,7 @@ import {
     checkHpBarSync, checkHpBarColor, checkFxOrphans,
     checkDeathFxRetention, checkVictoryDanmaku,
     checkMeleeFxState, checkBuffIcons, locateLogEntry,
-    checkBottomButtonStates, checkModeButtonStates,
+    checkBottomButtonStates, checkModeButtonStates, checkSpeedButtonStates,
     checkBattleReportOverlay, checkFxDomAccumulation
 } from './122health-utils.js';
 
@@ -362,15 +365,20 @@ export function initMonitor() {
                 // 原写法 w.updateAutoModeButton 是无效应——该函数从未挂 window，try/catch 静默吞，
                 // 按钮一直显示旧文案。现走 __DSH_TEST_API__.syncAutoModeButton（ui/61 V6.13.1 补挂）
                 try { if (testApi && typeof testApi.syncAutoModeButton === 'function') testApi.syncAutoModeButton(); } catch (e) {}
-                // 手动体检默认 4 倍速（2026-10-07 老板拍板）：此前只有 auto=1 无人值守模式设速，
-                // 手动点进来跑的是游戏默认 2 倍速（600），看着慢。300 = 4x。
-                // 注意：直接 GlobalStore.set('speed') 只走 effect 改时钟，不刷按钮高亮
-                // （setState.speed 才刷），这里补调 UI 处理器让「4x」按钮亮起来
+                // 体检跟跑默认「调试模式 + 4 倍速」（2026-10-09 老板拍板）：改走游戏自身按钮路径，不再直接写 GlobalStore。
+                // 原写法两个洞：① 非调试模式下 8x/4x 按钮组 display:none，speed=300 没有可高亮的可见按钮，
+                // 界面「当前倍速」全灭且无报错（可见的 2x/0.5x 一个不亮）；② 直接 set('speed') 只改时钟，
+                // 不更新 ui/68 的 manualSpeedValue（仍停 600），每场重置 restoreSpeedFromScroll 会把倍速打回 2x。
+                // 点 debugToggle（进调试模式：速度组显隐/按钮高亮/调试面板全同步）+ 点 btnSpeed4x
+                // （走 setSpeed(300,true)：上锁 + 跨场保持 + 高亮一次到位）。已是目标态则跳过，不顶掉手动选择。
                 try {
                     if (w && w.GlobalStore) {
-                        w.GlobalStore.set('speed', 300);
-                        const refreshBtn = w.GlobalStore.getUIHandler && w.GlobalStore.getUIHandler('updateSpeedButtons');
-                        if (refreshBtn) refreshBtn();
+                        if (!w.GlobalStore.get('debugMode')) {
+                            const dbgBtn = doc.getElementById('debugToggle');
+                            if (dbgBtn) dbgBtn.click();
+                        }
+                        const sp4 = doc.getElementById('btnSpeed4x');
+                        if (sp4 && !sp4.classList.contains('active')) sp4.click();
                     }
                 } catch (e) {}
                 // 自动后台模式：快进(1ms/步) + 计时，结束后输出报告，保证快速出结果
@@ -379,6 +387,9 @@ export function initMonitor() {
                         if (w.GlobalStore) {
                             w.GlobalStore.set('speed', autoSpeedVal);
                             w.GlobalStore.set('fastForwardActive', true);
+                            // 设速后同刷按钮高亮：否则高亮停在默认的 4x 而实际跑 autoSpeedVal，倍速一致性检查会报失配
+                            const refreshBtn2 = w.GlobalStore.getUIHandler && w.GlobalStore.getUIHandler('updateSpeedButtons');
+                            if (refreshBtn2) refreshBtn2();
                         }
                     } catch (e) {}
                     autoStartedAt = Date.now(); autoDone = false; autoTargetReached = false; maxStageSeen = 0; autoTargetDoneAt = 0;
@@ -463,6 +474,8 @@ function periodicScan() {
     // - checkBottomButtonStates(底部控制按钮)：期望模型按手动流程校验(IDLE可点/RUNNING禁用...)；
     //   full-auto 自动接管并飞快切换状态，按钮瞬时态必然滞后 → 该期望模型不适用，故仍跳过，避免时序误报。
     for (const msg of checkModeButtonStates(ctx, doc)) recordIssue(ctx, null, '模式按钮', msg, 'UI');
+    // 倍速按钮一致性：当前倍速必须落在「可见且高亮」的按钮上（非调试模式下 4x 按钮被 display:none 隐藏的静默失配即此检查目标）
+    for (const msg of checkSpeedButtonStates(doc)) recordIssue(ctx, null, '倍速按钮', msg, 'UI');
     if (ctx.autoLevel !== 'full-auto') {
         for (const msg of checkBottomButtonStates(ctx, doc)) recordIssue(ctx, null, '按钮状态', msg, 'UI');
     }
