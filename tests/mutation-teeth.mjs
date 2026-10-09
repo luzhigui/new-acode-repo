@@ -276,6 +276,19 @@ const MUTATIONS = [
       file: 'modules/26elite-sixsects.js',
       from: "回复本次伤害${third.leechRatio * 100}%=",
       to:   "回复本次伤害${third.leechRatio * 200}%=" },
+    // ===== 第 65 轮新增：验证坚盾双规则（125 计数时序 / 130 叠加超上限）真有牙，而非恒绿 =====
+    //   两条都扫渲染后战报里的「🛡️ X 坚盾：防御+N（已叠C/Y）」detail 文案（render/35 L236）。
+    //   污染渲染数字、引擎实际侧不动 ⇒ 规则一旦读不到异常就证明是死代码。
+    //   T8：把显示 current 写死成 0 ⇒ 每场坚盾都现「已叠0/Y」⇒ rule125（已叠0/ 复发信号）应咬。
+    //   T9：把显示 current 写成 cap+1 ⇒ 永远 cur>cap ⇒ rule130（X>Y 溢出信号）应咬。
+    { id: 'T8', kind: 'TEXT', desc: '坚盾渲染 current 写死 0（⇒已叠0/Y → rule125 计数时序应咬）',
+      file: 'render/35-facts-effect.js',
+      from: "（已叠${fact.current}/${fact.cap}）",
+      to:   "（已叠0/${fact.cap}）" },
+    { id: 'T9', kind: 'TEXT', desc: '坚盾渲染 current 写成 cap+1（⇒已叠Y+1/Y → rule130 叠加超上限应咬）',
+      file: 'render/35-facts-effect.js',
+      from: "（已叠${fact.current}/${fact.cap}）",
+      to:   "（已叠${fact.cap + 1}/${fact.cap}）" },
 ];
 
 function toPosix(p) {
