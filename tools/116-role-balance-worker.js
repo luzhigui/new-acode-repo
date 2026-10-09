@@ -1,3 +1,5 @@
+// V1.7.0 | ~32900 bytes | 2026-10-09 新增 kind:'noElite'（runNoEliteJob）：明教侧一个精英都不出的胜率（拒绝采样凑无精英局，
+//        自然局约 20% 无精英）——112「🛡 无精英基线」按钮的消费端，不动主代码 modules/29
 // V1.6.1 | ~30300 bytes | 2026-10-08 soloElite 回报按敌方变体分桶（胖远桥/宋青书/标准，判定同 runEliteStageJob）：
 //        回传 { elite, variants:{...} }——112 单英雄表第3关拆「·胖远桥」「·宋青书」两行
 // V1.6.0 | 2026-10-08 新增 kind:'soloElite'（runSoloEliteJob）：force 单精英跑批（依赖 modules/29 V7.5.16 四路 force 轮盘互锁），胜率/存活/输出/承伤，口径与普通评测同款——112「⚔ 单英雄胜率」按钮的消费端
@@ -175,6 +177,41 @@ function runSoloEliteJob(stage, seed, runs, elite) {
         if (a.runs > 0) out[v] = a;
     }
     return { elite, variants: out };
+}
+
+// 112「🛡 无精英基线」：明教侧一个精英都不出的胜率（精英价值的对照组）。
+// 自然局约 20% 无精英（ELITE_COUNT_THRESHOLDS [0.05,0.20,0.80] 的末档），
+// 故用「拒绝采样」：换种子重掷初始阵容，直到明教侧无精英；平均约 5 次即中（initBattleTeams 只占单场 4% 耗时，代价可忽略）。
+// 不动主代码 modules/29（无需新增开关）。按敌方变体分桶，口径与上两表一致。
+function runNoEliteJob(stage, seed, runs) {
+    const isElite = u => u.isZhang || u.isWei || u.isXiaoZhaoSister || u.isXiaoZhaoBrother || u.isXieXun;
+    const newAgg = () => ({ runs: 0, wins: 0, sumSurv: 0 });
+    const variants = { '胖远桥': newAgg(), '宋青书': newAgg(), '标准': newAgg() };
+    for (let i = 0; i < runs; i++) {
+        clearBattleGlobals();   // 先清场（含上一场可能残留的 force 标志），保证本场是纯自然局
+        let teams = null, ally = null, s = 0;
+        for (let k = 0; k < 200; k++) {          // 重掷上限 200 防死循环（1/0.2 期望 5 次）
+            s = seed + i * 7919 + k * 104729;    // 重掷步长与主种子错开
+            const t = initBattleTeams(stage, new SeededRNG(s));
+            const a = t.allyTeam.map(u => u.clone());
+            if (!a.some(isElite)) { teams = t; ally = a; break; }
+        }
+        if (!ally || !ally.length) continue;
+        GlobalStore.set('battleHasZhang', false);
+        const res = runWholeBattle(ally, teams.enemyTeam, s, true);
+        if (!res.winner) continue;
+        const enemyHasPang = (res.enemy || []).some(u => u.isPangYuanQiao);
+        const enemyHasSong = (res.enemy || []).some(u => u.isSongQingshu);
+        const a = enemyHasPang ? variants['胖远桥'] : (enemyHasSong ? variants['宋青书'] : variants['标准']);
+        a.runs++;
+        if (res.winner === '明教') a.wins++;
+        a.sumSurv += (res.ally || []).filter(u => u.alive).length;   // 无精英局没有"主英雄"，改记全队存活人数
+    }
+    const out = {};
+    for (const [v, a] of Object.entries(variants)) {
+        if (a.runs > 0) out[v] = a;
+    }
+    return { variants: out };
 }
 
 function runEliteStageJob(stage, seed, runs) {
@@ -529,6 +566,9 @@ self.onmessage = (e) => {
         } else if (kind === 'soloElite') {
             const { stage, seed, runs, elite } = e.data;
             result = runSoloEliteJob(stage, seed, runs, elite);
+        } else if (kind === 'noElite') {
+            const { stage, seed, runs } = e.data;
+            result = runNoEliteJob(stage, seed, runs);
         } else if (kind === 'stats') {
             const { stage, seed, runs } = e.data;
             result = runStatsStageJob(stage, seed, runs);
