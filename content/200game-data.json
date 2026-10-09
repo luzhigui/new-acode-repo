@@ -130,15 +130,20 @@
     "灭绝师太": {
       "tags": ["六大派", "峨眉", "战士", "精英"],
       "skills": {
+        "normalAttack": {
+          "name": "峨眉掌法",
+          "desc": "自身普攻伤害×{dmgMultiplier}（反击/跟随这类被动出手不吃此加成）",
+          "params": { "dmgMultiplier": 1.2 }
+        },
         "counterAttack": {
           "name": "反击",
-          "desc": "被攻击后{prob}%概率反击攻击者，伤害×{dmgRatio}，不可闪避，无每回合上限",
-          "params": { "prob": 0.8, "dmgRatio": 0.6 }
+          "desc": "被攻击后{prob}%概率反击攻击者，伤害×{dmgRatio}，可被闪避，无每回合上限",
+          "params": { "prob": 0.8, "dmgRatio": 0.8 }
         },
         "thirdStrike": {
           "name": "每第三次攻击",
-          "desc": "每第{interval}次命中伤害×{dmgMultiplier}，并吸血{leechRatio}倍本次伤害（反击/跟随这类被动出手照样计数）",
-          "params": { "interval": 3, "dmgMultiplier": 1.2, "leechRatio": 1.5 }
+          "desc": "每第{interval}次命中回复本次伤害{leechRatio}倍的生命——本次是普攻/反击/跟随哪种出手，伤害就按哪种的系数算（看运气）（被动出手照样计数）",
+          "params": { "interval": 3, "dmgMultiplier": 1.0, "leechRatio": 1.0 }
         },
         "summonZhou": {
           "name": "召唤周芷若",
@@ -147,7 +152,7 @@
         }
       },
       "mechanics": [
-        { "camp": "enemy", "type": "followAttack", "chance": 0.20 }
+        { "camp": "enemy", "type": "followAttack", "chance": 0.30, "dmgRatio": 0.6 }
       ],
       "taunts": {
         "attack": ["峨眉剑法！", "邪魔外道，人人得而诛之！", "受死吧！"],

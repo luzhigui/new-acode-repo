@@ -91,6 +91,9 @@ export const BATTLE_STATE_SCHEMA = Object.freeze({
     _pendingZhouPos:         { type: STATE_FIELD_TYPES.NUMBER,  default: -1 },
     // 不可闪避：仅一次攻击内有效，由 core/10 额外攻击循环置/清
     _ignoreDodge:            { type: STATE_FIELD_TYPES.BOOLEAN, default: false },
+    // 被动出手伤害系数（反击×0.8/跟随×0.6）：仅一次攻击内有效，由 core/10 额外攻击循环置/清，
+    //   伤害计算（core/12 calcFinalDamage）读它当 dmgMultiplier 初值；-1 = 无（哨兵，同 _pendingZhouPos 风格）
+    _extraDmgRatio:          { type: STATE_FIELD_TYPES.NUMBER,  default: -1 },
 
     // 原顶层永久字段，迁入 state
     _baseAtk:                { type: STATE_FIELD_TYPES.NUMBER,  default: 0 },

@@ -217,15 +217,19 @@ export function calcFinalDamage(unit, target, attackerBuffStats, defenderBuffSta
     const damageData = { unit, target, allySide, enemySide, log, declarations: damageDeclarations };
     eventBus.emit(SIGNAL_TYPES.BEFORE_DAMAGE_CALC, damageData);
 
+    // 2026-10-09 被动出手系数（core/10 额外攻击写入，-1=无）：反击/跟随那手按系数打折。
+    //   记进 dmgMultiplierEntries：战报公式明细里能看到这一乘，日志不吹牛。
+    const extraDmgRatio = unit.state._extraDmgRatio;
+
     // refs 直接构造，modifier 链就地读写；不再手动解构-装回
     const refs = {
         defBase: Math.floor(getStat(target, 'def')),
         defReduced: 0,
         ignoreDefRatio: 0,
         bonusDmgTotal: 0,
-        dmgMultiplier: 1,
+        dmgMultiplier: (extraDmgRatio != null && extraDmgRatio > 0) ? extraDmgRatio : 1,
         bonusDmgEntries: [],
-        dmgMultiplierEntries: []
+        dmgMultiplierEntries: (extraDmgRatio != null && extraDmgRatio > 0) ? [{ label: '被动出手系数', value: extraDmgRatio }] : []
     };
     for (const decl of damageDeclarations) {
         const handler = getCalcModifier(decl.type);

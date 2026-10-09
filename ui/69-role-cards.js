@@ -134,6 +134,7 @@ export const ROLE_CARDS = [
     {
         id: 'mieJueShiTai', name: '灭绝师太', match: u => !!u.isMieJueShiTai,
         skills: () => [
+            `✋ ${getSkillDesc('灭绝师太', 'normalAttack')}`,
             `⚔️ ${getSkillDesc('灭绝师太', 'counterAttack')}`,
             `🗡️ ${getSkillDesc('灭绝师太', 'thirdStrike')}`,
             `👭 ${getSkillDesc('灭绝师太', 'summonZhou')}`

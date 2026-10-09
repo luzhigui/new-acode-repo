@@ -62,7 +62,10 @@ function runExtraAttackRequests(requests, opts) {
         const reqAllySide = req.unit.camp === CAMP_TYPES.ALLY ? A : B;
         const reqEnemySide = req.unit.camp === CAMP_TYPES.ALLY ? B : A;
         if (req.ignoreDodge) req.unit.state._ignoreDodge = true;
+        // 2026-10-09 被动出手伤害系数（反击×0.8/跟随×0.6）：进额外攻击前写 state，伤害计算统一乘，结束即清（-1=无）
+        if (req.dmgRatio != null) req.unit.state._extraDmgRatio = req.dmgRatio;
         processUnitAttack(req.unit, reqAllySide, reqEnemySide, log, A, B, state, doubleStrikeUnitUid, extraTargetUid);
+        if (req.dmgRatio != null) req.unit.state._extraDmgRatio = -1;
         if (req.ignoreDodge) req.unit.state._ignoreDodge = false;
         if (isLinkReq) req.unit.state._isLinkAttack = false;
         if (req.actedMode === 'restore') req.unit.state._acted = req.actedSnapshot;
