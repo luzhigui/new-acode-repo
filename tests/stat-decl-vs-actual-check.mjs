@@ -1,3 +1,7 @@
+// V3.0.0 | ~79800 bytes | 2026-10-09 账本对照补第 23 条契约 ENDLESS_BREATH_COST（生生不息「付费触发」扣攻：modules/26 L160
+//          addMod group 'endlessBreathCost' value -atkCost ↔ ENDLESS_BREATH fact data.cost；factType 守卫 + cost>0 排除免费/fail 形态）。
+//          scan-groups 由 22/23 → 23/23 零盲区（endlessBreathCost 曾是唯一账本出现却未绑契约的 group）。
+//          干净树 133 条声明严格比对偏差 0；牙齿测试（L160 实际扣攻翻倍、fact 不动）检出 69/69 重复应用 exit1，证明有牙。
 // V2.9.0 | ~77400 bytes | 2026-10-08 零触发守卫分两级，修固定样本对稀有形态的假红（BAGUA_DEF 默认 40 场零声明却 exit1，
 //          但它与加攻共用 group baguaArray、120 场有 59 条声明，契约没坏，只是加防形态在小样本不触发）：默认模式也记录账本
 //          group，契约零声明时——绑定 group 账本未出现=真空转仍硬红（保住 CARRY_APPLY 那类牙），group 已出现仅形态未触发=警告不红。
@@ -77,7 +81,7 @@
 //           → 不跑契约、也不退码 1，只逐步对全体单位的 atk/def/maxHp/hp 做 FNV-1a 指纹并输出 `FINGERPRINT <hex>`。
 //             供 `tests/mutation-teeth.mjs` 判定「属性类变异是否真的改变了战斗状态」（属性变了指纹必变；
 //             日志/TEXT 类变异只改显示、不改状态，指纹不变）。
-export const VER = 'tests/stat-decl-vs-actual-check.mjs V2.9.0';
+export const VER = 'tests/stat-decl-vs-actual-check.mjs V3.0.0';
 
 import { fileURLToPath } from 'node:url';
 
@@ -224,6 +228,32 @@ const CONTRACTS = [
                     && typeof d.defGain === 'number' && typeof d.heal === 'number') {
                     if (d.atkGain > 0) out.push({ unit: d.unitName, stat: 'atk', amount: d.atkGain });
                     if (d.defGain > 0) out.push({ unit: d.unitName, stat: 'def', amount: d.defGain });
+                }
+            }
+            return out;
+        }
+    },
+    {
+        id: 'ENDLESS_BREATH_COST',
+        label: '生生不息·付费消耗',
+        group: 'endlessBreathCost',
+        dir: -1,
+        // 声明（modules/26elite-sixsects.js L160-161）：张三丰轮到自己行动且 atk≥atkCost 时「付费触发」——
+        //   addMod(actor,'atk',{value:-s.atkCost, ttl:'permanent', group:'endlessBreathCost'})，
+        //   随后 triggerEndlessBreath(actor, log, s.atkCost) 发 ENDLESS_BREATH fact，data.cost=atkCost(3)。
+        //   干净树：该步 endlessBreathCost 组仅此一笔、atk 净减恰 == cost ⇒ 恒真；把 -atkCost 翻倍变异 ⇒ 实际=2×cost 命中。
+        // factType 守卫 + 只认 data.cost>0：回合开始「免费」那次 data 无 cost（undefined 排除）；
+        //   攻不足 fail fact 带的是 atkCost 字段（L157，不是 cost），天然排除。
+        // 与增益契约 ENDLESS_BREATH 同 factType、读不同字段（那条读 atkGain/defGain→group endlessBreath；本条读 cost→endlessBreathCost）。
+        // 八卦阵被打扣攻走 group baguaArray + BAGUA_ARRAY fact（见 BAGUA_ATK），不在此列。
+        // permanent 词条无 round 续期问题；同一步生生不息的「加攻」走 endlessBreath 组，账本按 group 隔离互不污染。
+        extract(stepLog) {
+            const out = [];
+            for (const f of stepLog || []) {
+                if (!f || !f.data || f.factType !== FACT_TYPES.ENDLESS_BREATH) continue;
+                const d = f.data;
+                if (typeof d.unitName === 'string' && typeof d.cost === 'number' && d.cost > 0) {
+                    out.push({ unit: d.unitName, uid: d.unitUid || null, stat: 'atk', amount: d.cost });
                 }
             }
             return out;
